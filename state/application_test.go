@@ -72,6 +72,30 @@ func (s *ServiceSuite) TestSetCharm(c *gc.C) {
 	c.Assert(force, jc.IsTrue)
 }
 
+func (s *ServiceSuite) TestSetCharmCharmSettings(c *gc.C) {
+	ch, _, err := s.mysql.Charm()
+	c.Assert(err, jc.ErrorIsNil)
+	cfg := state.SetCharmConfig{
+		Charm:          ch,
+		ConfigSettings: charm.Settings{"key": 123.45},
+	}
+	err = s.mysql.SetCharm(cfg)
+	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+	c.Assert(err, gc.ErrorMatches, "updating config at upgrade-charm time not supported")
+}
+
+func (s *ServiceSuite) TestSetCharmStorageConstraints(c *gc.C) {
+	ch, _, err := s.mysql.Charm()
+	c.Assert(err, jc.ErrorIsNil)
+	cfg := state.SetCharmConfig{
+		Charm:              ch,
+		StorageConstraints: map[string]state.StorageConstraints{"foo": {}},
+	}
+	err = s.mysql.SetCharm(cfg)
+	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+	c.Assert(err, gc.ErrorMatches, "updating storage constraints at upgrade-charm time not supported")
+}
+
 func (s *ServiceSuite) TestSetCharmLegacy(c *gc.C) {
 	chDifferentSeries := state.AddTestingCharmForSeries(c, s.State, "precise", "mysql")
 
@@ -570,7 +594,7 @@ func (s *ServiceSuite) TestSetCharmWithRemovedService(c *gc.C) {
 	}
 
 	err = s.mysql.SetCharm(cfg)
-	c.Assert(err, gc.Equals, state.ErrDead)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *ServiceSuite) TestSetCharmWhenRemoved(c *gc.C) {
@@ -587,7 +611,7 @@ func (s *ServiceSuite) TestSetCharmWhenRemoved(c *gc.C) {
 		ForceUnits: true,
 	}
 	err := s.mysql.SetCharm(cfg)
-	c.Assert(err, gc.Equals, state.ErrDead)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *ServiceSuite) TestSetCharmWhenDyingIsOK(c *gc.C) {

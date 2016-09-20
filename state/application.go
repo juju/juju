@@ -602,7 +602,12 @@ func (s *Application) checkStorageUpgrade(newMeta *charm.Meta) (_ []txn.Op, err 
 
 // changeCharmOps returns the operations necessary to set a service's
 // charm URL to a new value.
-func (s *Application) changeCharmOps(ch *Charm, channel string, forceUnits bool, resourceIDs map[string]string) ([]txn.Op, error) {
+func (s *Application) changeCharmOps(
+	ch *Charm,
+	channel string,
+	forceUnits bool,
+	resourceIDs map[string]string,
+) ([]txn.Op, error) {
 	// Build the new application config from what can be used of the old one.
 	var newSettings charm.Settings
 	oldSettings, err := readSettings(s.st, settingsC, s.settingsKey())
@@ -649,7 +654,6 @@ func (s *Application) changeCharmOps(ch *Charm, channel string, forceUnits bool,
 
 	// Build the transaction.
 	var ops []txn.Op
-	differentCharm := bson.D{{"charmurl", bson.D{{"$ne", ch.URL()}}}}
 	if oldSettings != nil {
 		// Old settings shouldn't change (when they exist).
 		ops = append(ops, oldSettings.assertUnchangedOp())
@@ -660,9 +664,8 @@ func (s *Application) changeCharmOps(ch *Charm, channel string, forceUnits bool,
 		settingsOp,
 		// Update the charm URL and force flag (if relevant).
 		{
-			C:      applicationsC,
-			Id:     s.doc.DocID,
-			Assert: append(notDeadDoc, differentCharm...),
+			C:  applicationsC,
+			Id: s.doc.DocID,
 			Update: bson.D{{"$set", bson.D{
 				{"charmurl", ch.URL()},
 				{"cs-channel", channel},
@@ -726,8 +729,8 @@ func (s *Application) changeCharmOps(ch *Charm, channel string, forceUnits bool,
 		return nil, errors.Trace(err)
 	}
 
-	// Check storage to ensure no storage is removed, and no required
-	// storage is added for which there are no constraints.
+	// Check storage to ensure no referenced storage is removed, or changed
+	// in an incompatible way.
 	storageOps, err := s.checkStorageUpgrade(ch.Meta())
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -758,30 +761,60 @@ func (s *Application) resolveResourceOps(resourceIDs map[string]string) ([]txn.O
 	return resources.NewResolvePendingResourcesOps(s.doc.Name, resourceIDs)
 }
 
-// SetCharmConfig sets the charm for the application.
+// SetCharmConfig contains the parameters for Application.SetCharm.
 type SetCharmConfig struct {
-	// Charm is the new charm to use for the application.
+	// Charm is the new charm to use for the application. New units
+	// will be started with this charm, and existing units will be
+	// upgraded to use it.
 	Charm *Charm
+
 	// Channel is the charm store channel from which charm was pulled.
 	Channel csparams.Channel
+
+	// ConfigSettings is the charm config settings to apply when upgrading
+	// the charm.
+	//
+	// TODO(axw) support this in Application.SetCharm. At the moment, if
+	// this is set, a "not supported" error will be returned.
+	ConfigSettings charm.Settings
+
 	// ForceUnits forces the upgrade on units in an error state.
-	ForceUnits bool `json:"forceunits"`
-	// ForceSeries forces the use of the charm even if it doesn't match the
-	// series of the unit.
-	ForceSeries bool `json:"forceseries"`
+	ForceUnits bool
+
+	// ForceSeries forces the use of the charm even if it is not one of
+	// the charm's supported series.
+	ForceSeries bool
+
 	// ResourceIDs is a map of resource names to resource IDs to activate during
 	// the upgrade.
-	ResourceIDs map[string]string `json:"resourceids"`
+	ResourceIDs map[string]string
+
+	// StorageConstraints contains the constraints to add or update when
+	// upgrading the charm.
+	//
+	// Any existing storage instances for the named stores will be
+	// unaffected; the storage constraints will only be used for
+	// provisioning new storage instances.
+	//
+	// TODO(axw) support this in Application.SetCharm. At the moment, if
+	// this is set, a "not supported" error will be returned.
+	StorageConstraints map[string]StorageConstraints
 }
 
-// SetCharm changes the charm for the application. New units will be started with
-// this charm, and existing units will be upgraded to use it.
-// If forceUnits is true, units will be upgraded even if they are in an error state.
-// If forceSeries is true, the charm will be used even if it's the service's series
-// is not supported by the charm.
+// SetCharm changes the charm for the application.
 func (s *Application) SetCharm(cfg SetCharmConfig) error {
 	if cfg.Charm.Meta().Subordinate != s.doc.Subordinate {
 		return errors.Errorf("cannot change a service's subordinacy")
+	}
+	if len(cfg.ConfigSettings) > 0 {
+		// TODO(axw) support updating the application's charm config
+		// at the same time as upgrading the charm.
+		return errors.NotSupportedf("updating config at upgrade-charm time")
+	}
+	if len(cfg.StorageConstraints) > 0 {
+		// TODO(axw) support updating the application's storage
+		// constraints at the same time as updating the charm.
+		return errors.NotSupportedf("updating storage constraints at upgrade-charm time")
 	}
 	// For old style charms written for only one series, we still retain
 	// this check. Newer charms written for multi-series have a URL
@@ -832,79 +865,61 @@ func (s *Application) SetCharm(cfg SetCharmConfig) error {
 		}
 	}
 
-	services, closer := s.st.getCollection(applicationsC)
-	defer closer()
-
-	// this value holds the *previous* charm modified version, before this
-	// transaction commits.
-	var charmModifiedVersion int
+	var newCharmModifiedVersion int
 	channel := string(cfg.Channel)
+	scopy := &Application{s.st, s.doc}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
+		s := scopy
 		if attempt > 0 {
-			// NOTE: We're explicitly allowing SetCharm to succeed
-			// when the application is Dying, because service/charm
-			// upgrades should still be allowed to apply to dying
-			// services and units, so that bugs in departed/broken
-			// hooks can be addressed at runtime.
-			if notDead, err := isNotDeadWithSession(services, s.doc.DocID); err != nil {
+			if err := s.Refresh(); err != nil {
 				return nil, errors.Trace(err)
-			} else if !notDead {
-				return nil, ErrDead
 			}
 		}
 
-		// We can't update the in-memory application doc inside the transaction, so
-		// we manually udpate it at the end of the SetCharm method. However, we
-		// have no way of knowing what the charmModifiedVersion will be, since
-		// it's just incrementing the value in the DB (and that might be out of
-		// step with the value we have in memory).  What we have to do is read
-		// the DB, store the charmModifiedVersion we get, run the transaction,
-		// assert in the transaction that the charmModifiedVersion hasn't
-		// changed since we retrieved it, and then we know what its value must
-		// be after this transaction ends.  It's hacky, but there's no real
-		// other way to do it, thanks to the way mgo's transactions work.
-		var doc applicationDoc
-		err := services.FindId(s.doc.DocID).One(&doc)
-		var charmModifiedVersion int
-		switch {
-		case err == mgo.ErrNotFound:
-			// 0 is correct, since no previous charm existed.
-		case err != nil:
-			return nil, errors.Annotate(err, "can't open previous copy of charm")
-		default:
-			charmModifiedVersion = doc.CharmModifiedVersion
+		// NOTE: We're explicitly allowing SetCharm to succeed
+		// when the application is Dying, because service/charm
+		// upgrades should still be allowed to apply to dying
+		// services and units, so that bugs in departed/broken
+		// hooks can be addressed at runtime.
+		if s.Life() == Dead {
+			return nil, ErrDead
 		}
+
+		// Record the current value of charmModifiedVersion, so we can
+		// set the value on the method receiver's in-memory document
+		// structure.
+		newCharmModifiedVersion = s.doc.CharmModifiedVersion
+
 		ops := []txn.Op{{
-			C:      applicationsC,
-			Id:     s.doc.DocID,
-			Assert: bson.D{{"charmmodifiedversion", charmModifiedVersion}},
+			C:  applicationsC,
+			Id: s.doc.DocID,
+			Assert: append(notDeadDoc, bson.DocElem{
+				"charmmodifiedversion", s.doc.CharmModifiedVersion,
+			}),
 		}}
 
-		// Make sure the application doesn't have this charm already.
-		sel := bson.D{{"_id", s.doc.DocID}, {"charmurl", cfg.Charm.URL()}}
-		count, err := services.Find(sel).Count()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if count > 0 {
+		if s.doc.CharmURL.String() == cfg.Charm.URL().String() {
 			// Charm URL already set; just update the force flag and channel.
-			sameCharm := bson.D{{"charmurl", cfg.Charm.URL()}}
-			ops = append(ops, []txn.Op{{
-				C:      applicationsC,
-				Id:     s.doc.DocID,
-				Assert: append(notDeadDoc, sameCharm...),
+			ops = append(ops, txn.Op{
+				C:  applicationsC,
+				Id: s.doc.DocID,
 				Update: bson.D{{"$set", bson.D{
 					{"cs-channel", channel},
 					{"forcecharm", cfg.ForceUnits},
 				}}},
-			}}...)
+			})
 		} else {
-			// Change the charm URL.
-			chng, err := s.changeCharmOps(cfg.Charm, channel, cfg.ForceUnits, cfg.ResourceIDs)
+			chng, err := s.changeCharmOps(
+				cfg.Charm,
+				channel,
+				cfg.ForceUnits,
+				cfg.ResourceIDs,
+			)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
 			ops = append(ops, chng...)
+			newCharmModifiedVersion++
 		}
 
 		return ops, nil
@@ -914,7 +929,7 @@ func (s *Application) SetCharm(cfg SetCharmConfig) error {
 		s.doc.CharmURL = cfg.Charm.URL()
 		s.doc.Channel = channel
 		s.doc.ForceCharm = cfg.ForceUnits
-		s.doc.CharmModifiedVersion = charmModifiedVersion + 1
+		s.doc.CharmModifiedVersion = newCharmModifiedVersion
 	}
 	return err
 }
