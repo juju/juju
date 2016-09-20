@@ -204,7 +204,9 @@ class TestAssess(TestCase):
         with self.prepare_deploy_mock() as (fake_client, deploy_mock):
             fake_provider = fake_client.env.config.get('type')
             with self.patch_instance_spec(fake_provider, False) as spec_mock:
-                with self.assertRaises(ValueError):
+                with self.assertRaisesRegexp(
+                        JujuAssertionError,
+                        "('Test failed', 'instance-type-baz')"):
                     assess_instance_type_constraints(fake_client)
 
     def test_instance_type_constraints_missing(self):

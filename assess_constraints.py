@@ -195,6 +195,16 @@ def juju_show_machine_hardware(client, machine):
     return data
 
 
+def prepare_constraint_test(client, constraints, charm_name,
+                            charm_series='xenial', machine='0'):
+    """Deploy a charm with constraints and data to see if it meets them."""
+    with temp_dir() as charm_dir:
+        deploy_charm_constraint(client, constraints, charm_name,
+                                charm_series, charm_dir)
+        client.wait_for_started()
+        return juju_show_machine_hardware(client, machine)
+
+
 def assess_virt_type(client, virt_type):
     """Assess the virt-type option for constraints"""
     if virt_type not in VIRT_TYPES:
@@ -229,14 +239,9 @@ def assess_instance_type(client, provider, instance_type):
         raise JujuAssertionError(instance_type)
     constraints = Constraints(instance_type=instance_type)
     charm_name = 'instance-type-' + instance_type.replace('.', '-')
-    charm_series = 'xenial'
-    with temp_dir() as charm_dir:
-        deploy_charm_constraint(client, constraints, charm_name,
-                                charm_series, charm_dir)
-        client.wait_for_started()
-        data = juju_show_machine_hardware(client, '0')
-        if not constraints.meets_instance_type(data):
-            raise ValueError('Test failed', charm_name)
+    data = prepare_constraint_test(client, constraints, charm_name)
+    if not constraints.meets_instance_type(data):
+        raise JujuAssertionError('Test failed', charm_name)
 
 
 def assess_instance_type_constraints(client, provider=None):
@@ -247,6 +252,36 @@ def assess_instance_type_constraints(client, provider=None):
         return
     for instance_type in INSTANCE_TYPES[provider]:
         assess_instance_type(client, provider, instance_type)
+
+
+def assess_root_disk_constraints(client, values):
+    """Assess deployment with root-disk constraints."""
+    for root_disk in values:
+        constraints = Constraints(root_disk=root_disk)
+        charm_name = 'root-disk-' + root_disk
+        data = prepare_constraint_test(client, constraints, charm_name)
+        if not constraints.meets_root_disk(data['root-disk']):
+            raise JujuAssertionError('Test failed', charm_name)
+
+
+def assess_cores_constraints(client, values):
+    """Assess deployment with cores constraints."""
+    for cores in values:
+        constraints = Constraints(cores=cores)
+        charm_name = 'cores-' + cores
+        data = prepare_constraint_test(client, constraints, charm_name)
+        if not constraints.meets_cores(data['cores']):
+            raise JujuAssertionError('Test failed', charm_name)
+
+
+def assess_cpu_power_constraints(client, values):
+    """Assess deployment with cpu_power constraints."""
+    for cpu_power in values:
+        constraints = Constraints(cpu_power=cpu_power)
+        charm_name = 'cpu_power-' + cpu_power
+        data = prepare_constraint_test(client, constraints, charm_name)
+        if not constraints.meets_root_disk(data['cpu_power']):
+            raise JujuAssertionError('Test failed', charm_name)
 
 
 def assess_constraints(client, test_kvm=False):
