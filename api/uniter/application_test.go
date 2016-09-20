@@ -126,20 +126,20 @@ func (s *serviceSuite) TestSetServiceStatus(c *gc.C) {
 	message := "a test message"
 	stat, err := s.wordpressService.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(stat.Status, gc.Not(gc.Equals), status.StatusActive)
+	c.Assert(stat.Status, gc.Not(gc.Equals), status.Active)
 	c.Assert(stat.Message, gc.Not(gc.Equals), message)
 
-	err = s.apiService.SetStatus(s.wordpressUnit.Name(), status.StatusActive, message, map[string]interface{}{})
+	err = s.apiService.SetStatus(s.wordpressUnit.Name(), status.Active, message, map[string]interface{}{})
 	c.Check(err, gc.ErrorMatches, `"wordpress/0" is not leader of "wordpress"`)
 
 	s.claimLeadership(c, s.wordpressUnit, s.wordpressService)
 
-	err = s.apiService.SetStatus(s.wordpressUnit.Name(), status.StatusActive, message, map[string]interface{}{})
+	err = s.apiService.SetStatus(s.wordpressUnit.Name(), status.Active, message, map[string]interface{}{})
 	c.Check(err, jc.ErrorIsNil)
 
 	stat, err = s.wordpressService.Status()
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(stat.Status, gc.Equals, status.StatusActive)
+	c.Check(stat.Status, gc.Equals, status.Active)
 	c.Check(stat.Message, gc.Equals, message)
 }
 
@@ -147,12 +147,12 @@ func (s *serviceSuite) TestServiceStatus(c *gc.C) {
 	message := "a test message"
 	stat, err := s.wordpressService.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(stat.Status, gc.Not(gc.Equals), status.StatusActive)
+	c.Assert(stat.Status, gc.Not(gc.Equals), status.Active)
 	c.Assert(stat.Message, gc.Not(gc.Equals), message)
 
 	now := time.Now()
 	sInfo := status.StatusInfo{
-		Status:  status.StatusActive,
+		Status:  status.Active,
 		Message: message,
 		Data:    map[string]interface{}{},
 		Since:   &now,
@@ -162,7 +162,7 @@ func (s *serviceSuite) TestServiceStatus(c *gc.C) {
 
 	stat, err = s.wordpressService.Status()
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(stat.Status, gc.Equals, status.StatusActive)
+	c.Check(stat.Status, gc.Equals, status.Active)
 	c.Check(stat.Message, gc.Equals, message)
 
 	result, err := s.apiService.Status(s.wordpressUnit.Name())
@@ -171,7 +171,7 @@ func (s *serviceSuite) TestServiceStatus(c *gc.C) {
 	s.claimLeadership(c, s.wordpressUnit, s.wordpressService)
 	result, err = s.apiService.Status(s.wordpressUnit.Name())
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(result.Application.Status, gc.Equals, status.StatusActive.String())
+	c.Check(result.Application.Status, gc.Equals, status.Active.String())
 }
 
 func (s *serviceSuite) claimLeadership(c *gc.C, unit *state.Unit, service *state.Application) {

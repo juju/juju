@@ -44,8 +44,10 @@ func (s *addCredentialSuite) SetUpSuite(c *gc.C) {
 			return nil, errors.NotFoundf("cloud %v", cloud)
 		}
 		return &jujucloud.Cloud{
-			Type:      "mock-addcredential-provider",
-			AuthTypes: s.authTypes,
+			Type:             "mock-addcredential-provider",
+			AuthTypes:        s.authTypes,
+			Endpoint:         "cloud-endpoint",
+			IdentityEndpoint: "cloud-identity-endpoint",
 		}, nil
 	}
 }
@@ -205,6 +207,36 @@ func (s *addCredentialSuite) TestAddCredentialRetryOnMissingMandatoryAttribute(c
 func (s *addCredentialSuite) TestAddCredentialMultipleAuthType(c *gc.C) {
 	s.authTypes = []jujucloud.AuthType{jujucloud.UserPassAuthType, jujucloud.AccessKeyAuthType}
 	s.assertAddUserpassCredential(c, "fred\nuserpass\nuser\npassword\n", nil)
+}
+
+func (s *addCredentialSuite) TestAddCredentialInteractive(c *gc.C) {
+	s.authTypes = []jujucloud.AuthType{"interactive"}
+	s.schema = map[jujucloud.AuthType]jujucloud.CredentialSchema{
+		"interactive": {{"username", jujucloud.CredentialAttr{}}},
+	}
+
+	stdin := strings.NewReader("bobscreds\nbob\n")
+	ctx, err := s.run(c, stdin, "somecloud")
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(testing.Stderr(ctx), gc.Equals, `
+Enter credential name: Using auth-type "interactive".
+Enter username: generating userpass credential
+`[1:])
+
+	// FinalizeCredential should have generated a userpass credential
+	// based on the input from the interactive credential.
+	c.Assert(s.store.Credentials, jc.DeepEquals, map[string]jujucloud.CloudCredential{
+		"somecloud": {
+			AuthCredentials: map[string]jujucloud.Credential{
+				"bobscreds": jujucloud.NewCredential(jujucloud.UserPassAuthType, map[string]string{
+					"username":             "bob",
+					"password":             "cloud-endpoint",
+					"application-password": "cloud-identity-endpoint",
+				}),
+			},
+		},
+	})
 }
 
 func (s *addCredentialSuite) TestAddCredentialReplace(c *gc.C) {

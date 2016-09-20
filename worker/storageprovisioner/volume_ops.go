@@ -38,7 +38,7 @@ func createVolumes(ctx *context, ops map[names.VolumeTag]*createVolumeOp) error 
 			}
 			statuses = append(statuses, params.EntityStatusArgs{
 				Tag:    volumeParams[i].Tag.String(),
-				Status: status.StatusError.String(),
+				Status: status.Error.String(),
 				Info:   err.Error(),
 			})
 			logger.Debugf(
@@ -57,7 +57,7 @@ func createVolumes(ctx *context, ops map[names.VolumeTag]*createVolumeOp) error 
 		for i, result := range results {
 			statuses = append(statuses, params.EntityStatusArgs{
 				Tag:    volumeParams[i].Tag.String(),
-				Status: status.StatusAttaching.String(),
+				Status: status.Attaching.String(),
 			})
 			entityStatus := &statuses[len(statuses)-1]
 			if result.Error != nil {
@@ -68,7 +68,7 @@ func createVolumes(ctx *context, ops map[names.VolumeTag]*createVolumeOp) error 
 				// that we will retry. When we distinguish between
 				// transient and permanent errors, we will set the
 				// status to "error" for permanent errors.
-				entityStatus.Status = status.StatusPending.String()
+				entityStatus.Status = status.Pending.String()
 				entityStatus.Info = result.Error.Error()
 				logger.Debugf(
 					"failed to create %s: %v",
@@ -79,7 +79,7 @@ func createVolumes(ctx *context, ops map[names.VolumeTag]*createVolumeOp) error 
 			}
 			volumes = append(volumes, *result.Volume)
 			if result.VolumeAttachment != nil {
-				entityStatus.Status = status.StatusAttached.String()
+				entityStatus.Status = status.Attached.String()
 				volumeAttachments = append(volumeAttachments, *result.VolumeAttachment)
 			}
 		}
@@ -147,7 +147,7 @@ func attachVolumes(ctx *context, ops map[params.MachineStorageId]*attachVolumeOp
 			p := volumeAttachmentParams[i]
 			statuses = append(statuses, params.EntityStatusArgs{
 				Tag:    p.Volume.String(),
-				Status: status.StatusAttached.String(),
+				Status: status.Attached.String(),
 			})
 			entityStatus := &statuses[len(statuses)-1]
 			if result.Error != nil {
@@ -162,7 +162,7 @@ func attachVolumes(ctx *context, ops map[params.MachineStorageId]*attachVolumeOp
 				// indicate that we will retry. When we distinguish
 				// between transient and permanent errors, we will
 				// set the status to "error" for permanent errors.
-				entityStatus.Status = status.StatusAttaching.String()
+				entityStatus.Status = status.Attaching.String()
 				entityStatus.Info = result.Error.Error()
 				logger.Debugf(
 					"failed to attach %s to %s: %v",
@@ -212,7 +212,7 @@ func destroyVolumes(ctx *context, ops map[names.VolumeTag]*destroyVolumeOp) erro
 			}
 			statuses = append(statuses, params.EntityStatusArgs{
 				Tag:    volumeParams[i].Tag.String(),
-				Status: status.StatusError.String(),
+				Status: status.Error.String(),
 				Info:   err.Error(),
 			})
 			logger.Debugf(
@@ -246,7 +246,7 @@ func destroyVolumes(ctx *context, ops map[names.VolumeTag]*destroyVolumeOp) erro
 			reschedule = append(reschedule, ops[tag])
 			statuses = append(statuses, params.EntityStatusArgs{
 				Tag:    tag.String(),
-				Status: status.StatusDestroying.String(),
+				Status: status.Destroying.String(),
 				Info:   err.Error(),
 			})
 		}
@@ -289,7 +289,7 @@ func detachVolumes(ctx *context, ops map[params.MachineStorageId]*detachVolumeOp
 				// attachment, we'll have to check if
 				// there are any other attachments
 				// before saying the status "detached".
-				Status: status.StatusDetached.String(),
+				Status: status.Detached.String(),
 			})
 			id := params.MachineStorageId{
 				MachineTag:    p.Machine.String(),
@@ -298,7 +298,7 @@ func detachVolumes(ctx *context, ops map[params.MachineStorageId]*detachVolumeOp
 			entityStatus := &statuses[len(statuses)-1]
 			if err != nil {
 				reschedule = append(reschedule, ops[id])
-				entityStatus.Status = status.StatusDetaching.String()
+				entityStatus.Status = status.Detaching.String()
 				entityStatus.Info = err.Error()
 				logger.Debugf(
 					"failed to detach %s from %s: %v",

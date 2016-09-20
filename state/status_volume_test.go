@@ -53,7 +53,7 @@ func (s *VolumeStatusSuite) TestInitialStatus(c *gc.C) {
 func (s *VolumeStatusSuite) checkInitialStatus(c *gc.C) {
 	statusInfo, err := s.volume.Status()
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(statusInfo.Status, gc.Equals, status.StatusPending)
+	c.Check(statusInfo.Status, gc.Equals, status.Pending)
 	c.Check(statusInfo.Message, gc.Equals, "")
 	c.Check(statusInfo.Data, gc.HasLen, 0)
 	c.Check(statusInfo.Since, gc.NotNil)
@@ -62,7 +62,7 @@ func (s *VolumeStatusSuite) checkInitialStatus(c *gc.C) {
 func (s *VolumeStatusSuite) TestSetErrorStatusWithoutInfo(c *gc.C) {
 	now := time.Now()
 	sInfo := status.StatusInfo{
-		Status:  status.StatusError,
+		Status:  status.Error,
 		Message: "",
 		Since:   &now,
 	}
@@ -88,7 +88,7 @@ func (s *VolumeStatusSuite) TestSetUnknownStatus(c *gc.C) {
 func (s *VolumeStatusSuite) TestSetOverwritesData(c *gc.C) {
 	now := time.Now()
 	sInfo := status.StatusInfo{
-		Status:  status.StatusAttaching,
+		Status:  status.Attaching,
 		Message: "blah",
 		Data: map[string]interface{}{
 			"pew.pew": "zap",
@@ -98,13 +98,13 @@ func (s *VolumeStatusSuite) TestSetOverwritesData(c *gc.C) {
 	err := s.volume.SetStatus(sInfo)
 	c.Check(err, jc.ErrorIsNil)
 
-	s.checkGetSetStatus(c, status.StatusAttaching)
+	s.checkGetSetStatus(c, status.Attaching)
 }
 
 func (s *VolumeStatusSuite) TestGetSetStatusAlive(c *gc.C) {
 	validStatuses := []status.Status{
-		status.StatusAttaching, status.StatusAttached, status.StatusDetaching,
-		status.StatusDetached, status.StatusDestroying,
+		status.Attaching, status.Attached, status.Detaching,
+		status.Detached, status.Destroying,
 	}
 	for _, status := range validStatuses {
 		s.checkGetSetStatus(c, status)
@@ -145,7 +145,7 @@ func (s *VolumeStatusSuite) TestGetSetStatusDying(c *gc.C) {
 	err := s.State.DestroyVolume(s.volume.VolumeTag())
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.checkGetSetStatus(c, status.StatusAttaching)
+	s.checkGetSetStatus(c, status.Attaching)
 }
 
 func (s *VolumeStatusSuite) TestGetSetStatusDead(c *gc.C) {
@@ -163,7 +163,7 @@ func (s *VolumeStatusSuite) TestGetSetStatusDead(c *gc.C) {
 	// NOTE: it would be more technically correct to reject status updates
 	// while Dead, but it's easier and clearer, not to mention more efficient,
 	// to just depend on status doc existence.
-	s.checkGetSetStatus(c, status.StatusAttaching)
+	s.checkGetSetStatus(c, status.Attaching)
 }
 
 func (s *VolumeStatusSuite) TestGetSetStatusGone(c *gc.C) {
@@ -171,7 +171,7 @@ func (s *VolumeStatusSuite) TestGetSetStatusGone(c *gc.C) {
 
 	now := time.Now()
 	sInfo := status.StatusInfo{
-		Status:  status.StatusAttaching,
+		Status:  status.Attaching,
 		Message: "not really",
 		Since:   &now,
 	}
@@ -186,7 +186,7 @@ func (s *VolumeStatusSuite) TestGetSetStatusGone(c *gc.C) {
 func (s *VolumeStatusSuite) TestSetStatusPendingUnprovisioned(c *gc.C) {
 	now := time.Now()
 	sInfo := status.StatusInfo{
-		Status:  status.StatusPending,
+		Status:  status.Pending,
 		Message: "still",
 		Since:   &now,
 	}
@@ -201,7 +201,7 @@ func (s *VolumeStatusSuite) TestSetStatusPendingProvisioned(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	now := time.Now()
 	sInfo := status.StatusInfo{
-		Status:  status.StatusPending,
+		Status:  status.Pending,
 		Message: "",
 		Since:   &now,
 	}

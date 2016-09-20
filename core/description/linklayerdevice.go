@@ -10,19 +10,19 @@ import (
 
 type linklayerdevices struct {
 	Version           int                `yaml:"version"`
-	LinkLayerDevices_ []*linklayerdevice `yaml:"linklayerdevices"`
+	LinkLayerDevices_ []*linklayerdevice `yaml:"link-layer-devices"`
 }
 
 type linklayerdevice struct {
 	Name_        string `yaml:"name"`
 	MTU_         uint   `yaml:"mtu"`
 	ProviderID_  string `yaml:"provider-id,omitempty"`
-	MachineID_   string `yaml:"machineid"`
+	MachineID_   string `yaml:"machine-id"`
 	Type_        string `yaml:"type"`
-	MACAddress_  string `yaml:"macaddress"`
-	IsAutoStart_ bool   `yaml:"isautostart"`
-	IsUp_        bool   `yaml:"isup"`
-	ParentName_  string `yaml:"parentname"`
+	MACAddress_  string `yaml:"mac-address"`
+	IsAutoStart_ bool   `yaml:"is-autostart"`
+	IsUp_        bool   `yaml:"is-up"`
+	ParentName_  string `yaml:"parent-name"`
 }
 
 // ProviderID implements LinkLayerDevice.
@@ -99,10 +99,10 @@ func newLinkLayerDevice(args LinkLayerDeviceArgs) *linklayerdevice {
 }
 
 func importLinkLayerDevices(source map[string]interface{}) ([]*linklayerdevice, error) {
-	checker := versionedChecker("linklayerdevices")
+	checker := versionedChecker("link-layer-devices")
 	coerced, err := checker.Coerce(source, nil)
 	if err != nil {
-		return nil, errors.Annotatef(err, "linklayerdevices version schema check failed")
+		return nil, errors.Annotatef(err, "link-layer-devices version schema check failed")
 	}
 	valid := coerced.(map[string]interface{})
 
@@ -111,7 +111,7 @@ func importLinkLayerDevices(source map[string]interface{}) ([]*linklayerdevice, 
 	if !ok {
 		return nil, errors.NotValidf("version %d", version)
 	}
-	sourceList := valid["linklayerdevices"].([]interface{})
+	sourceList := valid["link-layer-devices"].([]interface{})
 	return importLinkLayerDeviceList(sourceList, importFunc)
 }
 
@@ -120,11 +120,11 @@ func importLinkLayerDeviceList(sourceList []interface{}, importFunc linklayerdev
 	for i, value := range sourceList {
 		source, ok := value.(map[string]interface{})
 		if !ok {
-			return nil, errors.Errorf("unexpected value for linklayerdevice %d, %T", i, value)
+			return nil, errors.Errorf("unexpected value for link-layer-device %d, %T", i, value)
 		}
 		linklayerdevice, err := importFunc(source)
 		if err != nil {
-			return nil, errors.Annotatef(err, "linklayerdevice %d", i)
+			return nil, errors.Annotatef(err, "link-layer-device %d", i)
 		}
 		result = append(result, linklayerdevice)
 	}
@@ -139,15 +139,15 @@ var linklayerdeviceDeserializationFuncs = map[int]linklayerdeviceDeserialization
 
 func importLinkLayerDeviceV1(source map[string]interface{}) (*linklayerdevice, error) {
 	fields := schema.Fields{
-		"provider-id": schema.String(),
-		"machineid":   schema.String(),
-		"name":        schema.String(),
-		"mtu":         schema.Int(),
-		"type":        schema.String(),
-		"macaddress":  schema.String(),
-		"isautostart": schema.Bool(),
-		"isup":        schema.Bool(),
-		"parentname":  schema.String(),
+		"provider-id":  schema.String(),
+		"machine-id":   schema.String(),
+		"name":         schema.String(),
+		"mtu":          schema.Int(),
+		"type":         schema.String(),
+		"mac-address":  schema.String(),
+		"is-autostart": schema.Bool(),
+		"is-up":        schema.Bool(),
+		"parent-name":  schema.String(),
 	}
 	// Some values don't have to be there.
 	defaults := schema.Defaults{
@@ -162,13 +162,13 @@ func importLinkLayerDeviceV1(source map[string]interface{}) (*linklayerdevice, e
 	valid := coerced.(map[string]interface{})
 	return &linklayerdevice{
 		ProviderID_:  valid["provider-id"].(string),
-		MachineID_:   valid["machineid"].(string),
+		MachineID_:   valid["machine-id"].(string),
 		Name_:        valid["name"].(string),
 		MTU_:         uint(valid["mtu"].(int64)),
 		Type_:        valid["type"].(string),
-		MACAddress_:  valid["macaddress"].(string),
-		IsAutoStart_: valid["isautostart"].(bool),
-		IsUp_:        valid["isup"].(bool),
-		ParentName_:  valid["parentname"].(string),
+		MACAddress_:  valid["mac-address"].(string),
+		IsAutoStart_: valid["is-autostart"].(bool),
+		IsUp_:        valid["is-up"].(bool),
+		ParentName_:  valid["parent-name"].(string),
 	}, nil
 }

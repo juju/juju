@@ -53,6 +53,9 @@ func (r resources) registerForServer() error {
 // for the component in a "juju" command context.
 func (r resources) registerForClient() error {
 	r.registerPublicCommands()
+
+	// needed for help-tool
+	r.registerHookContextCommands()
 	return nil
 }
 
@@ -173,7 +176,7 @@ func (r resources) registerHookContext() {
 	r.registerHookContextFacade()
 }
 
-func (c resources) registerHookContextCommands() {
+func (r resources) registerHookContextCommands() {
 	if markRegistered(resource.ComponentName, "hook-context-commands") == false {
 		return
 	}
@@ -185,11 +188,7 @@ func (c resources) registerHookContextCommands() {
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			typedCtx, ok := compCtx.(*context.Context)
-			if !ok {
-				return nil, errors.Trace(err)
-			}
-			cmd, err := contextcmd.NewGetCmd(typedCtx)
+			cmd, err := contextcmd.NewGetCmd(compCtx)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}

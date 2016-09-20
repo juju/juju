@@ -371,6 +371,9 @@ func (s *CacheAPIEndpointsSuite) assertControllerDetailsUpdated(c *gc.C, name st
 	c.Assert(found.UnresolvedAPIEndpoints, check, 0)
 	c.Assert(found.APIEndpoints, check, 0)
 	c.Assert(found.AgentVersion, gc.Equals, "1.2.3")
+	c.Assert(found.ModelCount, gc.IsNil)
+	c.Assert(found.MachineCount, gc.IsNil)
+	c.Assert(found.ControllerMachineCount, gc.Equals, 0)
 }
 
 func (s *CacheAPIEndpointsSuite) assertControllerUpdated(c *gc.C, name string) {
@@ -383,12 +386,41 @@ func (s *CacheAPIEndpointsSuite) assertControllerNotUpdated(c *gc.C, name string
 
 func (s *CacheAPIEndpointsSuite) TestPrepareEndpointsForCaching(c *gc.C) {
 	s.assertCreateController(c, "controller-name1")
-	err := juju.UpdateControllerDetailsFromLogin(s.ControllerStore, "controller-name1", "1.2.3", s.hostPorts, s.apiHostPort)
+	params := juju.UpdateControllerParams{
+		AgentVersion:     "1.2.3",
+		AddrConnectedTo:  []network.HostPort{s.apiHostPort},
+		CurrentHostPorts: s.hostPorts,
+	}
+	err := juju.UpdateControllerDetailsFromLogin(s.ControllerStore, "controller-name1", params)
 	c.Assert(err, jc.ErrorIsNil)
 	controllerDetails, err := s.ControllerStore.ControllerByName("controller-name1")
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertEndpoints(c, controllerDetails)
 	s.assertControllerUpdated(c, "controller-name1")
+}
+
+func intptr(i int) *int {
+	return &i
+}
+
+func (s *CacheAPIEndpointsSuite) TestUpdateModelMachineCount(c *gc.C) {
+	s.assertCreateController(c, "controller-name1")
+	params := juju.UpdateControllerParams{
+		AgentVersion:           "1.2.3",
+		ControllerMachineCount: intptr(1),
+		ModelCount:             intptr(2),
+		MachineCount:           intptr(3),
+	}
+	err := juju.UpdateControllerDetailsFromLogin(s.ControllerStore, "controller-name1", params)
+	c.Assert(err, jc.ErrorIsNil)
+	controllerDetails, err := s.ControllerStore.ControllerByName("controller-name1")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(controllerDetails.UnresolvedAPIEndpoints, gc.HasLen, 0)
+	c.Assert(controllerDetails.APIEndpoints, gc.HasLen, 0)
+	c.Assert(controllerDetails.AgentVersion, gc.Equals, "1.2.3")
+	c.Assert(controllerDetails.ControllerMachineCount, gc.Equals, 1)
+	c.Assert(*controllerDetails.ModelCount, gc.Equals, 2)
+	c.Assert(*controllerDetails.MachineCount, gc.Equals, 3)
 }
 
 func (s *CacheAPIEndpointsSuite) TestResolveSkippedWhenHostnamesUnchanged(c *gc.C) {

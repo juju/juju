@@ -39,7 +39,8 @@ Examples:
 
     juju update-clouds
 
-See also: clouds
+See also:
+    clouds
 `
 
 // NewUpdateCloudsCommand returns a command to update cloud information.

@@ -24,9 +24,6 @@ var (
 	newMetricAdderClient = func(apiCaller base.APICaller) metricsadder.MetricsAdderClient {
 		return metricsadder.NewClient(apiCaller)
 	}
-)
-
-const (
 	period = time.Minute * 5
 )
 

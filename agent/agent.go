@@ -522,6 +522,10 @@ func (c0 *configInternal) Clone() Config {
 	for key, val := range c0.values {
 		c1.values[key] = val
 	}
+	if c0.servingInfo != nil {
+		info := *c0.servingInfo
+		c1.servingInfo = &info
+	}
 	return &c1
 }
 

@@ -182,7 +182,7 @@ func (s mockListAPI) ListVolumes(machines []string) ([]params.VolumeDetailsListR
 				VolumeId: "provider-supplied-volume-0-0",
 				Size:     512,
 			},
-			Status: createTestStatus(status.StatusAttached, ""),
+			Status: createTestStatus(status.Attached, ""),
 			MachineAttachments: map[string]params.VolumeAttachmentInfo{
 				"machine-0": params.VolumeAttachmentInfo{
 					DeviceName: "loop0",
@@ -192,7 +192,7 @@ func (s mockListAPI) ListVolumes(machines []string) ([]params.VolumeDetailsListR
 				StorageTag: "storage-db-dir-1001",
 				OwnerTag:   "unit-abc-0",
 				Kind:       params.StorageKindBlock,
-				Status:     createTestStatus(status.StatusAttached, ""),
+				Status:     createTestStatus(status.Attached, ""),
 				Attachments: map[string]params.StorageAttachmentDetails{
 					"unit-abc-0": params.StorageAttachmentDetails{
 						StorageTag: "storage-db-dir-1001",
@@ -213,7 +213,7 @@ func (s mockListAPI) ListVolumes(machines []string) ([]params.VolumeDetailsListR
 				Persistent: true,
 				Size:       2048,
 			},
-			Status: createTestStatus(status.StatusAttaching, "failed to attach, will retry"),
+			Status: createTestStatus(status.Attaching, "failed to attach, will retry"),
 			MachineAttachments: map[string]params.VolumeAttachmentInfo{
 				"machine-0": params.VolumeAttachmentInfo{},
 			},
@@ -225,7 +225,7 @@ func (s mockListAPI) ListVolumes(machines []string) ([]params.VolumeDetailsListR
 			Info: params.VolumeInfo{
 				Size: 42,
 			},
-			Status: createTestStatus(status.StatusPending, ""),
+			Status: createTestStatus(status.Pending, ""),
 			MachineAttachments: map[string]params.VolumeAttachmentInfo{
 				"machine-1": params.VolumeAttachmentInfo{},
 			},
@@ -238,7 +238,7 @@ func (s mockListAPI) ListVolumes(machines []string) ([]params.VolumeDetailsListR
 				VolumeId: "provider-supplied-volume-2",
 				Size:     3,
 			},
-			Status: createTestStatus(status.StatusAttached, ""),
+			Status: createTestStatus(status.Attached, ""),
 			MachineAttachments: map[string]params.VolumeAttachmentInfo{
 				"machine-1": params.VolumeAttachmentInfo{
 					DeviceName: "xvdf1",
@@ -254,7 +254,7 @@ func (s mockListAPI) ListVolumes(machines []string) ([]params.VolumeDetailsListR
 				Persistent: true,
 				Size:       1024,
 			},
-			Status: createTestStatus(status.StatusAttached, ""),
+			Status: createTestStatus(status.Attached, ""),
 			MachineAttachments: map[string]params.VolumeAttachmentInfo{
 				"machine-0": params.VolumeAttachmentInfo{
 					DeviceName: "xvdf2",
@@ -269,7 +269,7 @@ func (s mockListAPI) ListVolumes(machines []string) ([]params.VolumeDetailsListR
 				StorageTag: "storage-shared-fs-0",
 				OwnerTag:   "application-transcode",
 				Kind:       params.StorageKindBlock,
-				Status:     createTestStatus(status.StatusAttached, ""),
+				Status:     createTestStatus(status.Attached, ""),
 				Attachments: map[string]params.StorageAttachmentDetails{
 					"unit-transcode-0": params.StorageAttachmentDetails{
 						StorageTag: "storage-shared-fs-0",

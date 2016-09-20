@@ -76,38 +76,42 @@ func (s *environSuite) TestInstances(c *gc.C) {
 }
 
 func (s *environSuite) TestDestroyController(c *gc.C) {
-	var resultStderr string
+	var resultStdout string
 	var resultErr error
-	runSSHCommandTesting := func(host string, command []string, stdin string) (string, error) {
+	runSSHCommandTesting := func(host string, command []string, stdin string) (string, string, error) {
 		c.Assert(host, gc.Equals, "ubuntu@hostname")
 		c.Assert(command, gc.DeepEquals, []string{"sudo", "/bin/bash"})
 		c.Assert(stdin, gc.Equals, `
 set -x
 touch '/var/lib/juju/uninstall-agent'
 # If jujud is running, we then wait for a while for it to stop.
+stopped=0
 if pkill -6 jujud; then
-   for i in `+"`seq 1 30`"+`; do
-	 if pgrep jujud > /dev/null ; then
-	   sleep 1
-	 else
-	   echo "jujud stopped"
-	   break
-	 fi
-   done
+    for i in `+"`seq 1 30`"+`; do
+        if pgrep jujud > /dev/null ; then
+            sleep 1
+        else
+            echo "jujud stopped"
+            stopped=1
+            break
+        fi
+    done
 fi
-# If jujud didn't stop nicely, we kill it hard here.
-pkill -9 jujud
-stop juju-db
+if [ $stopped -ne 1 ]; then
+    # If jujud didn't stop nicely, we kill it hard here.
+    pkill -9 jujud
+    service juju-db stop
+fi
 rm -f /etc/init/juju*
 rm -f /etc/systemd/system/juju*
 rm -fr '/var/lib/juju' '/var/log/juju'
 exit 0
 `)
-		return resultStderr, resultErr
+		return resultStdout, "", resultErr
 	}
 	s.PatchValue(&runSSHCommand, runSSHCommandTesting)
 	type test struct {
-		stderr string
+		stdout string
 		err    error
 		match  string
 	}
@@ -118,7 +122,7 @@ exit 0
 	}
 	for i, t := range tests {
 		c.Logf("test %d: %v", i, t)
-		resultStderr, resultErr = t.stderr, t.err
+		resultStdout, resultErr = t.stdout, t.err
 		err := s.env.DestroyController("controller-uuid")
 		if t.match == "" {
 			c.Assert(err, jc.ErrorIsNil)
@@ -145,7 +149,7 @@ func (s *environSuite) TestConstraintsValidator(c *gc.C) {
 
 	validator, err := s.env.ConstraintsValidator()
 	c.Assert(err, jc.ErrorIsNil)
-	cons := constraints.MustParse("arch=amd64 instance-type=foo tags=bar cpu-power=10 cpu-cores=2 mem=1G virt-type=kvm")
+	cons := constraints.MustParse("arch=amd64 instance-type=foo tags=bar cpu-power=10 cores=2 mem=1G virt-type=kvm")
 	unsupported, err := validator.Validate(cons)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unsupported, jc.SameContents, []string{"cpu-power", "instance-type", "tags", "virt-type"})
@@ -173,8 +177,8 @@ var _ = gc.Suite(&controllerInstancesSuite{})
 func (s *controllerInstancesSuite) TestControllerInstances(c *gc.C) {
 	var outputResult string
 	var errResult error
-	runSSHCommandTesting := func(host string, command []string, stdin string) (string, error) {
-		return outputResult, errResult
+	runSSHCommandTesting := func(host string, command []string, stdin string) (string, string, error) {
+		return outputResult, "", errResult
 	}
 	s.PatchValue(&runSSHCommand, runSSHCommandTesting)
 

@@ -15,6 +15,7 @@ import (
 	"gopkg.in/ini.v1"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/environs"
 )
 
 const (
@@ -147,4 +148,9 @@ func (c OpenstackCredentials) detectCredential() (*cloud.Credential, string, str
 	}
 	credential.Label = fmt.Sprintf("openstack region %q project %q user %q", region, creds.TenantName, user)
 	return &credential, user, creds.Region, nil
+}
+
+// FinalizeCredential is part of the environs.ProviderCredentials interface.
+func (OpenstackCredentials) FinalizeCredential(_ environs.FinalizeCredentialContext, args environs.FinalizeCredentialParams) (*cloud.Credential, error) {
+	return &args.Credential, nil
 }

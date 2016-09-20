@@ -251,7 +251,7 @@ func (s *DeployLocalSuite) TestDeploySettingsError(c *gc.C) {
 func (s *DeployLocalSuite) TestDeployConstraints(c *gc.C) {
 	err := s.State.SetModelConstraints(constraints.MustParse("mem=2G"))
 	c.Assert(err, jc.ErrorIsNil)
-	serviceCons := constraints.MustParse("cpu-cores=2")
+	serviceCons := constraints.MustParse("cores=2")
 	service, err := juju.DeployApplication(s.State,
 		juju.DeployApplicationParams{
 			ApplicationName: "bob",
@@ -265,7 +265,7 @@ func (s *DeployLocalSuite) TestDeployConstraints(c *gc.C) {
 func (s *DeployLocalSuite) TestDeployNumUnits(c *gc.C) {
 	f := &fakeDeployer{State: s.State}
 
-	serviceCons := constraints.MustParse("cpu-cores=2")
+	serviceCons := constraints.MustParse("cores=2")
 	_, err := juju.DeployApplication(f,
 		juju.DeployApplicationParams{
 			ApplicationName: "bob",
@@ -284,7 +284,7 @@ func (s *DeployLocalSuite) TestDeployNumUnits(c *gc.C) {
 func (s *DeployLocalSuite) TestDeployForceMachineId(c *gc.C) {
 	f := &fakeDeployer{State: s.State}
 
-	serviceCons := constraints.MustParse("cpu-cores=2")
+	serviceCons := constraints.MustParse("cores=2")
 	_, err := juju.DeployApplication(f,
 		juju.DeployApplicationParams{
 			ApplicationName: "bob",
@@ -306,7 +306,7 @@ func (s *DeployLocalSuite) TestDeployForceMachineId(c *gc.C) {
 func (s *DeployLocalSuite) TestDeployForceMachineIdWithContainer(c *gc.C) {
 	f := &fakeDeployer{State: s.State}
 
-	serviceCons := constraints.MustParse("cpu-cores=2")
+	serviceCons := constraints.MustParse("cores=2")
 	_, err := juju.DeployApplication(f,
 		juju.DeployApplicationParams{
 			ApplicationName: "bob",
@@ -327,7 +327,7 @@ func (s *DeployLocalSuite) TestDeployForceMachineIdWithContainer(c *gc.C) {
 func (s *DeployLocalSuite) TestDeploy(c *gc.C) {
 	f := &fakeDeployer{State: s.State}
 
-	serviceCons := constraints.MustParse("cpu-cores=2")
+	serviceCons := constraints.MustParse("cores=2")
 	placement := []*instance.Placement{
 		{Scope: s.State.ModelUUID(), Directive: "valid"},
 		{Scope: "#", Directive: "0"},
@@ -353,7 +353,7 @@ func (s *DeployLocalSuite) TestDeploy(c *gc.C) {
 
 func (s *DeployLocalSuite) TestDeployWithFewerPlacement(c *gc.C) {
 	f := &fakeDeployer{State: s.State}
-	serviceCons := constraints.MustParse("cpu-cores=2")
+	serviceCons := constraints.MustParse("cores=2")
 	placement := []*instance.Placement{{Scope: s.State.ModelUUID(), Directive: "valid"}}
 	_, err := juju.DeployApplication(f,
 		juju.DeployApplicationParams{

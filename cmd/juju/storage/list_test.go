@@ -154,7 +154,7 @@ func (s mockListAPI) ListStorageDetails() ([]params.StorageDetails, error) {
 		OwnerTag:   "unit-transcode-0",
 		Kind:       params.StorageKindBlock,
 		Status: params.EntityStatus{
-			Status: status.StatusPending,
+			Status: status.Pending,
 			Since:  &epoch,
 		},
 		Attachments: map[string]params.StorageAttachmentDetails{
@@ -167,7 +167,7 @@ func (s mockListAPI) ListStorageDetails() ([]params.StorageDetails, error) {
 		OwnerTag:   "unit-postgresql-0",
 		Kind:       params.StorageKindBlock,
 		Status: params.EntityStatus{
-			Status: status.StatusAttached,
+			Status: status.Attached,
 			Since:  &epoch,
 		},
 		Persistent: true,
@@ -181,7 +181,7 @@ func (s mockListAPI) ListStorageDetails() ([]params.StorageDetails, error) {
 		OwnerTag:   "application-transcode",
 		Kind:       params.StorageKindFilesystem,
 		Status: params.EntityStatus{
-			Status: status.StatusAttached,
+			Status: status.Attached,
 			Since:  &epoch,
 		},
 		Persistent: true,

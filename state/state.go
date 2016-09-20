@@ -33,11 +33,11 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/audit"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	stateaudit "github.com/juju/juju/state/internal/audit"
 	statelease "github.com/juju/juju/state/lease"
@@ -147,7 +147,7 @@ func (st *State) ControllerTag() names.ControllerTag {
 	return st.controllerTag
 }
 
-func ControllerAccess(st *State, tag names.Tag) (description.UserAccess, error) {
+func ControllerAccess(st *State, tag names.Tag) (permission.UserAccess, error) {
 	return st.UserAccess(tag.(names.UserTag), st.controllerTag)
 }
 
@@ -683,22 +683,34 @@ func (st *State) SetModelConstraints(cons constraints.Value) error {
 	return writeConstraints(st, modelGlobalKey, cons)
 }
 
-// AllMachines returns all machines in the model
-// ordered by id.
-func (st *State) AllMachines() (machines []*Machine, err error) {
-	machinesCollection, closer := st.getCollection(machinesC)
-	defer closer()
-
+func (st *State) allMachines(machinesCollection mongo.Collection) ([]*Machine, error) {
 	mdocs := machineDocSlice{}
-	err = machinesCollection.Find(nil).All(&mdocs)
+	err := machinesCollection.Find(nil).All(&mdocs)
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot get all machines")
 	}
 	sort.Sort(mdocs)
-	for _, doc := range mdocs {
-		machines = append(machines, newMachine(st, &doc))
+	machines := make([]*Machine, len(mdocs))
+	for i, doc := range mdocs {
+		machines[i] = newMachine(st, &doc)
 	}
-	return
+	return machines, nil
+}
+
+// AllMachines returns all machines in the model
+// ordered by id.
+func (st *State) AllMachines() ([]*Machine, error) {
+	machinesCollection, closer := st.getCollection(machinesC)
+	defer closer()
+	return st.allMachines(machinesCollection)
+}
+
+// AllMachinesFor returns all machines for the model represented
+// by the given modeluuid
+func (st *State) AllMachinesFor(modelUUID string) ([]*Machine, error) {
+	machinesCollection, closer := st.getCollectionFor(modelUUID, machinesC)
+	defer closer()
+	return st.allMachines(machinesCollection)
 }
 
 type machineDocSlice []machineDoc
@@ -1073,12 +1085,9 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 	}
 
 	statusDoc := statusDoc{
-		ModelUUID: st.ModelUUID(),
-		// TODO(fwereade): this violates the spec. Should be "waiting".
-		// Implemented like this to be consistent with incorrect add-unit
-		// behaviour.
-		Status:     status.StatusUnknown,
-		StatusInfo: MessageWaitForAgentInit,
+		ModelUUID:  st.ModelUUID(),
+		Status:     status.Waiting,
+		StatusInfo: status.MessageWaitForMachine,
 		// TODO(fwereade): 2016-03-17 lp:1558657
 		Updated: time.Now().UnixNano(),
 		// This exists to preserve questionable unit-aggregation behaviour
@@ -1148,6 +1157,12 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 		if err := checkModelActive(st); err != nil {
 			return nil, errors.Trace(err)
 		}
+		// TODO(fwereade): 2016-09-09 lp:1621754
+		// This is not always correct -- there are a million
+		// operations collected in this func, not *all* of them
+		// imply that this is the problem. (e.g. the charm being
+		// destroyed just as we add application will fail, but
+		// not because "application already exists")
 		return nil, errors.Errorf("application already exists")
 	} else if err != nil {
 		return nil, errors.Trace(err)

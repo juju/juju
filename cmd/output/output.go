@@ -32,27 +32,6 @@ func TabWriter(writer io.Writer) *ansiterm.TabWriter {
 	return ansiterm.NewTabWriter(writer, minwidth, tabwidth, padding, padchar, flags)
 }
 
-// TabWriterPrint returns a function that is used to help print many
-// elements to a tab writer.
-func TabWriterPrint(tw *ansiterm.TabWriter) func(...interface{}) {
-	w := Wrapper{tw}
-	return w.Print
-}
-
-// TabWriterPrintln returns a function that is used to help print many
-// elements to a tab writer, and finishes with a new line.
-func TabWriterPrintln(tw *ansiterm.TabWriter) func(...interface{}) {
-	w := Wrapper{tw}
-	return w.Println
-}
-
-// TabWriterPrintColor returns a function that will print out a single value
-// followed by a tab in the color context specified.
-func TabWriterPrintColor(tw *ansiterm.TabWriter) func(*ansiterm.Context, interface{}) {
-	w := Wrapper{tw}
-	return w.PrintColor
-}
-
 // Wrapper provides some helper functions for writing values out tab separated.
 type Wrapper struct {
 	*ansiterm.TabWriter
@@ -63,6 +42,11 @@ func (w *Wrapper) Print(values ...interface{}) {
 	for _, v := range values {
 		fmt.Fprintf(w, "%v\t", v)
 	}
+}
+
+// Printf writes the formatted text followed by a tab.
+func (w *Wrapper) Printf(format string, values ...interface{}) {
+	fmt.Fprintf(w, format+"\t", values...)
 }
 
 // Println writes many tab separated values finished with a new line.
@@ -108,21 +92,21 @@ var GoodHighlight = ansiterm.Foreground(ansiterm.Green)
 
 var statusColors = map[status.Status]*ansiterm.Context{
 	// good
-	status.StatusActive:  GoodHighlight,
-	status.StatusIdle:    GoodHighlight,
-	status.StatusStarted: GoodHighlight,
+	status.Active:  GoodHighlight,
+	status.Idle:    GoodHighlight,
+	status.Started: GoodHighlight,
 	// busy
-	status.StatusAllocating:  WarningHighlight,
-	status.StatusExecuting:   WarningHighlight,
-	status.StatusLost:        WarningHighlight,
-	status.StatusMaintenance: WarningHighlight,
-	status.StatusPending:     WarningHighlight,
-	status.StatusRebooting:   WarningHighlight,
-	status.StatusStopped:     WarningHighlight,
-	status.StatusUnknown:     WarningHighlight,
+	status.Allocating:  WarningHighlight,
+	status.Executing:   WarningHighlight,
+	status.Lost:        WarningHighlight,
+	status.Maintenance: WarningHighlight,
+	status.Pending:     WarningHighlight,
+	status.Rebooting:   WarningHighlight,
+	status.Stopped:     WarningHighlight,
+	status.Unknown:     WarningHighlight,
 	// bad
-	status.StatusBlocked: ErrorHighlight,
-	status.StatusDown:    ErrorHighlight,
-	status.StatusError:   ErrorHighlight,
-	status.StatusFailed:  ErrorHighlight,
+	status.Blocked: ErrorHighlight,
+	status.Down:    ErrorHighlight,
+	status.Error:   ErrorHighlight,
+	status.Failed:  ErrorHighlight,
 }

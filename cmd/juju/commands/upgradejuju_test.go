@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	cmdcommon "github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/sync"
@@ -44,7 +43,7 @@ type UpgradeJujuSuite struct {
 	authoriser apiservertesting.FakeAuthorizer
 
 	toolsDir string
-	cmdcommon.CmdBlockHelper
+	coretesting.CmdBlockHelper
 }
 
 func (s *UpgradeJujuSuite) SetUpTest(c *gc.C) {
@@ -54,7 +53,7 @@ func (s *UpgradeJujuSuite) SetUpTest(c *gc.C) {
 		Tag: s.AdminUserTag(c),
 	}
 
-	s.CmdBlockHelper = cmdcommon.NewCmdBlockHelper(s.APIState)
+	s.CmdBlockHelper = coretesting.NewCmdBlockHelper(s.APIState)
 	c.Assert(s.CmdBlockHelper, gc.NotNil)
 	s.AddCleanup(func(*gc.C) { s.CmdBlockHelper.Close() })
 }
@@ -435,7 +434,7 @@ func (s *UpgradeJujuSuite) Reset(c *gc.C) {
 	err = s.State.SetAPIHostPorts(hostPorts)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.CmdBlockHelper = cmdcommon.NewCmdBlockHelper(s.APIState)
+	s.CmdBlockHelper = coretesting.NewCmdBlockHelper(s.APIState)
 	c.Assert(s.CmdBlockHelper, gc.NotNil)
 	s.AddCleanup(func(*gc.C) { s.CmdBlockHelper.Close() })
 }
@@ -821,7 +820,7 @@ func (s *UpgradeJujuSuite) TestBlockUpgradeInProgress(c *gc.C) {
 	// Block operation
 	s.BlockAllChanges(c, "TestBlockUpgradeInProgress")
 	err = modelcmd.Wrap(cmd).Run(coretesting.Context(c))
-	s.AssertBlocked(c, err, ".*To unblock changes.*")
+	s.AssertBlocked(c, err, ".*To enable changes.*")
 }
 
 func (s *UpgradeJujuSuite) TestResetPreviousUpgrade(c *gc.C) {

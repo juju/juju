@@ -8,11 +8,13 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charmrepo.v2-unstable"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
+	"github.com/juju/juju/api/annotations"
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/api/charms"
-	"github.com/juju/juju/cmd/juju/common"
+	"github.com/juju/juju/api/modelconfig"
 	"github.com/juju/juju/cmd/modelcmd"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc"
@@ -24,7 +26,7 @@ import (
 
 type RemoveServiceSuite struct {
 	jujutesting.RepoSuite
-	common.CmdBlockHelper
+	testing.CmdBlockHelper
 	stub            *jutesting.Stub
 	budgetAPIClient budgetAPIClient
 }
@@ -33,7 +35,7 @@ var _ = gc.Suite(&RemoveServiceSuite{})
 
 func (s *RemoveServiceSuite) SetUpTest(c *gc.C) {
 	s.RepoSuite.SetUpTest(c)
-	s.CmdBlockHelper = common.NewCmdBlockHelper(s.APIState)
+	s.CmdBlockHelper = testing.NewCmdBlockHelper(s.APIState)
 	c.Assert(s.CmdBlockHelper, gc.NotNil)
 	s.AddCleanup(func(*gc.C) { s.CmdBlockHelper.Close() })
 	s.stub = &jutesting.Stub{}
@@ -134,11 +136,20 @@ func (s *RemoveCharmStoreCharmsSuite) SetUpTest(c *gc.C) {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
+		bakeryClient, err := deployCmd.BakeryClient()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		cstoreClient := newCharmStoreClient(bakeryClient).WithChannel(deployCmd.Channel)
 		return &deployAPIAdapter{
 			Connection:        apiRoot,
 			apiClient:         &apiClient{Client: apiRoot.Client()},
 			charmsClient:      &charmsClient{Client: charms.NewClient(apiRoot)},
-			applicationClient: &applicationClient{application.NewClient(apiRoot)},
+			applicationClient: &applicationClient{Client: application.NewClient(apiRoot)},
+			modelConfigClient: &modelConfigClient{Client: modelconfig.NewClient(apiRoot)},
+			charmstoreClient:  &charmstoreClient{Client: cstoreClient},
+			annotationsClient: &annotationsClient{Client: annotations.NewClient(apiRoot)},
+			charmRepoClient:   &charmRepoClient{CharmStore: charmrepo.NewCharmStoreFromClient(cstoreClient)},
 		}, nil
 	}
 

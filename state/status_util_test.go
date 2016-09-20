@@ -43,40 +43,40 @@ func primeStatusHistory(c *gc.C, entity statusSetter, statusVal status.Status, c
 }
 
 func checkInitialWorkloadStatus(c *gc.C, statusInfo status.StatusInfo) {
-	c.Check(statusInfo.Status, gc.Equals, status.StatusUnknown)
-	c.Check(statusInfo.Message, gc.Equals, "Waiting for agent initialization to finish")
+	c.Check(statusInfo.Status, gc.Equals, status.Waiting)
+	c.Check(statusInfo.Message, gc.Equals, "waiting for machine")
 	c.Check(statusInfo.Data, gc.HasLen, 0)
 	c.Check(statusInfo.Since, gc.NotNil)
 }
 
 func primeUnitStatusHistory(c *gc.C, unit *state.Unit, count int, delta time.Duration) {
-	primeStatusHistory(c, unit, status.StatusActive, count, func(i int) map[string]interface{} {
+	primeStatusHistory(c, unit, status.Active, count, func(i int) map[string]interface{} {
 		return map[string]interface{}{"$foo": i, "$delta": delta}
 	}, delta)
 }
 
 func checkPrimedUnitStatus(c *gc.C, statusInfo status.StatusInfo, expect int, expectDelta time.Duration) {
-	c.Check(statusInfo.Status, gc.Equals, status.StatusActive)
+	c.Check(statusInfo.Status, gc.Equals, status.Active)
 	c.Check(statusInfo.Message, gc.Equals, "")
 	c.Check(statusInfo.Data, jc.DeepEquals, map[string]interface{}{"$foo": expect, "$delta": int64(expectDelta)})
 	c.Check(statusInfo.Since, gc.NotNil)
 }
 
 func checkInitialUnitAgentStatus(c *gc.C, statusInfo status.StatusInfo) {
-	c.Check(statusInfo.Status, gc.Equals, status.StatusAllocating)
+	c.Check(statusInfo.Status, gc.Equals, status.Allocating)
 	c.Check(statusInfo.Message, gc.Equals, "")
 	c.Check(statusInfo.Data, gc.HasLen, 0)
 	c.Assert(statusInfo.Since, gc.NotNil)
 }
 
 func primeUnitAgentStatusHistory(c *gc.C, agent *state.UnitAgent, count int, delta time.Duration) {
-	primeStatusHistory(c, agent, status.StatusExecuting, count, func(i int) map[string]interface{} {
+	primeStatusHistory(c, agent, status.Executing, count, func(i int) map[string]interface{} {
 		return map[string]interface{}{"$bar": i, "$delta": delta}
 	}, delta)
 }
 
 func checkPrimedUnitAgentStatus(c *gc.C, statusInfo status.StatusInfo, expect int, expectDelta time.Duration) {
-	c.Check(statusInfo.Status, gc.Equals, status.StatusExecuting)
+	c.Check(statusInfo.Status, gc.Equals, status.Executing)
 	c.Check(statusInfo.Message, gc.Equals, "")
 	c.Check(statusInfo.Data, jc.DeepEquals, map[string]interface{}{"$bar": expect, "$delta": int64(expectDelta)})
 	c.Check(statusInfo.Since, gc.NotNil)

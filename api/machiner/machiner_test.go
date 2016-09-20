@@ -71,16 +71,16 @@ func (s *machinerSuite) TestSetStatus(c *gc.C) {
 
 	statusInfo, err := s.machine.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Status, gc.Equals, status.StatusPending)
+	c.Assert(statusInfo.Status, gc.Equals, status.Pending)
 	c.Assert(statusInfo.Message, gc.Equals, "")
 	c.Assert(statusInfo.Data, gc.HasLen, 0)
 
-	err = machine.SetStatus(status.StatusStarted, "blah", nil)
+	err = machine.SetStatus(status.Started, "blah", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	statusInfo, err = s.machine.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Status, gc.Equals, status.StatusStarted)
+	c.Assert(statusInfo.Status, gc.Equals, status.Started)
 	c.Assert(statusInfo.Message, gc.Equals, "blah")
 	c.Assert(statusInfo.Data, gc.HasLen, 0)
 	c.Assert(statusInfo.Since, gc.NotNil)
@@ -193,7 +193,7 @@ func (s *machinerSuite) TestWatch(c *gc.C) {
 
 	// Change something other than the lifecycle and make sure it's
 	// not detected.
-	err = machine.SetStatus(status.StatusStarted, "not really", nil)
+	err = machine.SetStatus(status.Started, "not really", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 

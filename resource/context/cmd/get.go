@@ -8,15 +8,16 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 // GetCmdName is the name of the resource-get command.
 const GetCmdName = "resource-get"
 
 // NewGetCmd creates a new GetCmd for the given hook context.
-func NewGetCmd(c HookContext) (*GetCmd, error) {
+func NewGetCmd(c jujuc.ContextComponent) (*GetCmd, error) {
 	return &GetCmd{
-		hookContext: c,
+		compContext: c,
 	}, nil
 }
 
@@ -24,7 +25,7 @@ func NewGetCmd(c HookContext) (*GetCmd, error) {
 type GetCmd struct {
 	cmd.CommandBase
 
-	hookContext  HookContext
+	compContext  jujuc.ContextComponent
 	resourceName string
 }
 
@@ -88,7 +89,11 @@ func (c *GetCmd) Init(args []string) error {
 
 // Run implements cmd.Command.
 func (c GetCmd) Run(ctx *cmd.Context) error {
-	filePath, err := c.hookContext.Download(c.resourceName)
+	hookContext, ok := c.compContext.(downloader)
+	if !ok {
+		return errors.Errorf("invalid component context")
+	}
+	filePath, err := hookContext.Download(c.resourceName)
 	if err != nil {
 		return errors.Annotate(err, "could not download resource")
 	}
@@ -97,4 +102,8 @@ func (c GetCmd) Run(ctx *cmd.Context) error {
 		return errors.Annotate(err, "could not write resource path to stdout")
 	}
 	return nil
+}
+
+type downloader interface {
+	Download(name string) (string, error)
 }

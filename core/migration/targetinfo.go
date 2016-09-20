@@ -14,13 +14,13 @@ import (
 // TargetInfo holds the details required to connect to a
 // migration's target controller.
 //
-// TODO(mjs) - Note the similarity to api.Info. It would be nice
-// to be able to use api.Info here but state can't import api and
-// moving api.Info to live under the core package is too big a project
-// to be done right now.
+// TODO(mjs) - Note the similarity to api.Info. It would be nice to be
+// able to use api.Info here but state can't import api and moving
+// api.Info to live under the core package is too big a project to be
+// done right now.
 type TargetInfo struct {
 	// ControllerTag holds tag for the target controller.
-	ControllerTag names.ModelTag
+	ControllerTag names.ControllerTag
 
 	// Addrs holds the addresses and ports of the target controller's
 	// API servers.
@@ -37,9 +37,9 @@ type TargetInfo struct {
 	// Password holds the password to use with AuthTag.
 	Password string
 
-	// Macroon holds the macaroon to use with AuthTag. At least one of
-	// Password or Macaroon must be set.
-	Macaroon *macaroon.Macaroon
+	// Macaroons holds macaroons to use with AuthTag. At least one of
+	// Password or Macaroons must be set.
+	Macaroons []macaroon.Slice
 }
 
 // Validate returns an error if the TargetInfo contains bad data. Nil
@@ -67,8 +67,8 @@ func (info *TargetInfo) Validate() error {
 		return errors.NotValidf("empty AuthTag")
 	}
 
-	if info.Password == "" && info.Macaroon == nil {
-		return errors.NotValidf("missing Password & Macaroon")
+	if info.Password == "" && len(info.Macaroons) == 0 {
+		return errors.NotValidf("missing Password & Macaroons")
 	}
 
 	return nil

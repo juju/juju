@@ -58,8 +58,8 @@ func init() {
 
 var jujuDoc = `
 juju provides easy, intelligent application orchestration on top of cloud
-infrastructure providers such as Amazon EC2, HP Cloud, MaaS, OpenStack, Windows
-Azure, or your local machine.
+infrastructure providers such as Amazon EC2, MaaS, OpenStack, Windows, Azure,
+or your local machine.
 
 https://jujucharms.com/
 `
@@ -301,15 +301,10 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(machine.NewShowMachineCommand())
 
 	// Manage model
-	r.Register(model.NewGetCommand())
-	r.Register(model.NewModelDefaultsCommand())
-	r.Register(model.NewSetModelDefaultsCommand())
-	r.Register(model.NewUnsetModelDefaultsCommand())
-	r.Register(model.NewSetCommand())
-	r.Register(model.NewUnsetCommand())
+	r.Register(model.NewConfigCommand())
+	r.Register(model.NewDefaultsCommand())
 	r.Register(model.NewRetryProvisioningCommand())
 	r.Register(model.NewDestroyCommand())
-	r.Register(model.NewUsersCommand())
 	r.Register(model.NewGrantCommand())
 	r.Register(model.NewRevokeCommand())
 	r.Register(model.NewShowCommand())
@@ -333,8 +328,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 
 	// Manage and control services
 	r.Register(application.NewAddUnitCommand())
-	r.Register(application.NewGetCommand())
-	r.Register(application.NewSetCommand())
+	r.Register(application.NewConfigCommand())
 	r.Register(application.NewDeployCommand())
 	r.Register(application.NewExposeCommand())
 	r.Register(application.NewUnexposeCommand())
@@ -342,8 +336,9 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(application.NewServiceSetConstraintsCommand())
 
 	// Operation protection commands
-	r.Register(block.NewSuperBlockCommand())
-	r.Register(block.NewUnblockCommand())
+	r.Register(block.NewDisableCommand())
+	r.Register(block.NewListCommand())
+	r.Register(block.NewEnableCommand())
 
 	// Manage storage
 	r.Register(storage.NewAddCommand())
@@ -375,10 +370,9 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(controller.NewListModelsCommand())
 	r.Register(controller.NewKillCommand())
 	r.Register(controller.NewListControllersCommand())
-	r.Register(controller.NewListBlocksCommand())
 	r.Register(controller.NewRegisterCommand())
 	r.Register(controller.NewUnregisterCommand(jujuclient.NewFileClientStore()))
-	r.Register(controller.NewRemoveBlocksCommand())
+	r.Register(controller.NewEnableDestroyControllerCommand())
 	r.Register(controller.NewShowControllerCommand())
 	r.Register(controller.NewGetConfigCommand())
 

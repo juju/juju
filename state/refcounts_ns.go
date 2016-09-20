@@ -33,6 +33,10 @@ type refcountDoc struct {
 	RefCount int `bson:"refcount"`
 }
 
+var (
+	errRefcountChanged = errors.New("refcount changed")
+)
+
 // nsRefcounts exposes methods for safely manipulating reference count
 // documents. (You can also manipulate them unsafely via the Just*
 // methods that don't keep track of DB state.)
@@ -81,7 +85,7 @@ func (ns nsRefcounts_) StrictIncRefOp(coll mongo.Collection, key string) (txn.Op
 	if exists, err := ns.exists(coll, key); err != nil {
 		return txn.Op{}, errors.Trace(err)
 	} else if !exists {
-		return txn.Op{}, errors.New("refcount does not exist")
+		return txn.Op{}, errors.New("does not exist")
 	}
 	return ns.JustIncRefOp(coll.Name(), key), nil
 }
@@ -123,7 +127,7 @@ func (ns nsRefcounts_) RemoveOp(coll mongo.Collection, key string, value int) (t
 		return txn.Op{}, errors.Trace(err)
 	}
 	if refcount != value {
-		return txn.Op{}, errors.New("refcount changed")
+		return txn.Op{}, errRefcountChanged
 	}
 	return ns.JustRemoveOp(coll.Name(), key, value), nil
 }

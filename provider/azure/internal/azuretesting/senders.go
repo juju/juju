@@ -12,7 +12,10 @@ import (
 
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/mocks"
+	"github.com/juju/loggo"
 )
+
+var logger = loggo.GetLogger("juju.provider.azure.internal.azuretesting")
 
 // MockSender is a wrapper around autorest/mocks.Sender, extending it with
 // request path checking to ease testing.
@@ -58,6 +61,7 @@ func NewSenderWithValue(v interface{}) *MockSender {
 type Senders []autorest.Sender
 
 func (s *Senders) Do(req *http.Request) (*http.Response, error) {
+	logger.Debugf("Senders.Do(%s)", req.URL)
 	if len(*s) == 0 {
 		response := mocks.NewResponseWithStatus("", http.StatusInternalServerError)
 		return response, fmt.Errorf("no sender for %q", req.URL)

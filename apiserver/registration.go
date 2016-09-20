@@ -9,11 +9,11 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	"gopkg.in/macaroon.v1"
-
 	"github.com/juju/errors"
 	"golang.org/x/crypto/nacl/secretbox"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/macaroon-bakery.v1/httpbakery"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
@@ -28,8 +28,7 @@ const (
 // used to complete a secure user registration process, and provide controller
 // login credentials.
 type registerUserHandler struct {
-	ctxt                     httpContext
-	createLocalLoginMacaroon func(names.UserTag) (*macaroon.Macaroon, error)
+	ctxt httpContext
 }
 
 // ServeHTTP implements the http.Handler interface.
@@ -43,11 +42,26 @@ func (h *registerUserHandler) ServeHTTP(w http.ResponseWriter, req *http.Request
 		sendError(w, err)
 		return
 	}
-	response, err := h.processPost(req, st)
+	userTag, response, err := h.processPost(req, st)
 	if err != nil {
 		sendError(w, err)
 		return
 	}
+
+	// Set a short-lived macaroon as a cookie on the response,
+	// which the client can use to obtain a discharge macaroon.
+	m, err := h.ctxt.srv.authCtxt.CreateLocalLoginMacaroon(userTag)
+	if err != nil {
+		sendError(w, err)
+		return
+	}
+	cookie, err := httpbakery.NewCookie(macaroon.Slice{m})
+	if err != nil {
+		sendError(w, err)
+		return
+	}
+	http.SetCookie(w, cookie)
+
 	sendStatusAndJSON(w, http.StatusOK, response)
 }
 
@@ -69,34 +83,40 @@ func (h *registerUserHandler) ServeHTTP(w http.ResponseWriter, req *http.Request
 // NOTE(axw) it is important that the client and server choose their
 // own nonces, because reusing a nonce means that the key-stream can
 // be revealed.
-func (h *registerUserHandler) processPost(req *http.Request, st *state.State) (*params.SecretKeyLoginResponse, error) {
+func (h *registerUserHandler) processPost(req *http.Request, st *state.State) (
+	names.UserTag, *params.SecretKeyLoginResponse, error,
+) {
+
+	failure := func(err error) (names.UserTag, *params.SecretKeyLoginResponse, error) {
+		return names.UserTag{}, nil, err
+	}
 
 	data, err := ioutil.ReadAll(req.Body)
 	if err != nil {
-		return nil, err
+		return failure(err)
 	}
 	var loginRequest params.SecretKeyLoginRequest
 	if err := json.Unmarshal(data, &loginRequest); err != nil {
-		return nil, err
+		return failure(err)
 	}
 
 	// Basic validation: ensure that the request contains a valid user tag,
 	// nonce, and ciphertext of the expected length.
 	userTag, err := names.ParseUserTag(loginRequest.User)
 	if err != nil {
-		return nil, err
+		return failure(err)
 	}
 	if len(loginRequest.Nonce) != secretboxNonceLength {
-		return nil, errors.NotValidf("nonce")
+		return failure(errors.NotValidf("nonce"))
 	}
 
 	// Decrypt the ciphertext with the user's secret key (if it has one).
 	user, err := st.User(userTag)
 	if err != nil {
-		return nil, err
+		return failure(err)
 	}
 	if len(user.SecretKey()) != secretboxKeyLength {
-		return nil, errors.NotFoundf("secret key for user %q", user.Name())
+		return failure(errors.NotFoundf("secret key for user %q", user.Name()))
 	}
 	var key [secretboxKeyLength]byte
 	var nonce [secretboxNonceLength]byte
@@ -106,37 +126,37 @@ func (h *registerUserHandler) processPost(req *http.Request, st *state.State) (*
 	if !ok {
 		// Cannot decrypt the ciphertext, which implies that the secret
 		// key specified by the client is invalid.
-		return nil, errors.NotValidf("secret key")
+		return failure(errors.NotValidf("secret key"))
 	}
 
 	// Unmarshal the request payload, which contains the new password to
 	// set for the user.
 	var requestPayload params.SecretKeyLoginRequestPayload
 	if err := json.Unmarshal(payloadBytes, &requestPayload); err != nil {
-		return nil, errors.Annotate(err, "cannot unmarshal payload")
+		return failure(errors.Annotate(err, "cannot unmarshal payload"))
 	}
 	if err := user.SetPassword(requestPayload.Password); err != nil {
-		return nil, errors.Annotate(err, "setting new password")
+		return failure(errors.Annotate(err, "setting new password"))
 	}
 
 	// Respond with the CA-cert and password, encrypted again with the
 	// secret key.
 	responsePayload, err := h.getSecretKeyLoginResponsePayload(st, userTag)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return failure(errors.Trace(err))
 	}
 	payloadBytes, err = json.Marshal(responsePayload)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return failure(errors.Trace(err))
 	}
 	if _, err := rand.Read(nonce[:]); err != nil {
-		return nil, errors.Trace(err)
+		return failure(errors.Trace(err))
 	}
 	response := &params.SecretKeyLoginResponse{
 		Nonce:             nonce[:],
 		PayloadCiphertext: secretbox.Seal(nil, payloadBytes, &nonce, &key),
 	}
-	return response, nil
+	return userTag, response, nil
 }
 
 // getSecretKeyLoginResponsePayload returns the information required by the
@@ -147,14 +167,9 @@ func (h *registerUserHandler) getSecretKeyLoginResponsePayload(
 	if !st.IsController() {
 		return nil, errors.New("state is not for a controller")
 	}
-	mac, err := h.createLocalLoginMacaroon(userTag)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	payload := params.SecretKeyLoginResponsePayload{
 		CACert:         st.CACert(),
 		ControllerUUID: st.ControllerUUID(),
-		Macaroon:       mac,
 	}
 	return &payload, nil
 }

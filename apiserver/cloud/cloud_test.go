@@ -36,9 +36,9 @@ func (s *cloudSuite) SetUpTest(c *gc.C) {
 			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType, cloud.UserPassAuthType},
 			Regions:   []cloud.Region{{Name: "nether", Endpoint: "endpoint"}},
 		},
-		creds: map[names.CloudCredentialTag]cloud.Credential{
-			names.NewCloudCredentialTag("meep/bruce@local/one"): cloud.NewEmptyCredential(),
-			names.NewCloudCredentialTag("meep/bruce@local/two"): cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
+		creds: map[string]cloud.Credential{
+			names.NewCloudCredentialTag("meep/bruce@local/one").Canonical(): cloud.NewEmptyCredential(),
+			names.NewCloudCredentialTag("meep/bruce@local/two").Canonical(): cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
 				"username": "admin",
 				"password": "adm1n",
 			}),
@@ -265,7 +265,7 @@ func (s *cloudSuite) TestCredentialAdminAccess(c *gc.C) {
 type mockBackend struct {
 	gitjujutesting.Stub
 	cloud cloud.Cloud
-	creds map[names.CloudCredentialTag]cloud.Credential
+	creds map[string]cloud.Credential
 }
 
 func (st *mockBackend) IsControllerAdmin(user names.UserTag) (bool, error) {
@@ -301,7 +301,7 @@ func (st *mockBackend) Clouds() (map[names.CloudTag]cloud.Cloud, error) {
 	}, st.NextErr()
 }
 
-func (st *mockBackend) CloudCredentials(user names.UserTag, cloudName string) (map[names.CloudCredentialTag]cloud.Credential, error) {
+func (st *mockBackend) CloudCredentials(user names.UserTag, cloudName string) (map[string]cloud.Credential, error) {
 	st.MethodCall(st, "CloudCredentials", user, cloudName)
 	return st.creds, st.NextErr()
 }

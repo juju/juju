@@ -163,7 +163,7 @@ func (f *summaryFormatter) aggregateMachineStates(machines map[string]machineSta
 		f.resolveAndTrackIp(m.DNSName)
 
 		if agentState := m.JujuStatus.Current; agentState == "" {
-			agentState = status.StatusPending
+			agentState = status.Pending
 		} else {
 			stateToMachine[agentState]++
 		}

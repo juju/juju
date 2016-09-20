@@ -12,6 +12,7 @@ import (
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/modelmanager"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/environs/config"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -62,7 +63,7 @@ func (s *modelmanagerSuite) testCreateModel(c *gc.C, cloud, region string) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(newModel.Name, gc.Equals, "new-model")
-	c.Assert(newModel.OwnerTag, gc.Equals, user.Tag().String())
+	c.Assert(newModel.Owner, gc.Equals, user.String())
 	c.Assert(newModel.CloudRegion, gc.Equals, "dummy-region")
 	c.Assert(utils.IsValidUUIDString(newModel.UUID), jc.IsTrue)
 }
@@ -112,6 +113,106 @@ func (s *modelmanagerSuite) TestDestroyModel(c *gc.C) {
 		})
 
 	err := modelManager.DestroyModel(testing.ModelTag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(called, jc.IsTrue)
+}
+
+func (s *modelmanagerSuite) TestModelDefaults(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string,
+			version int,
+			id, request string,
+			a, result interface{},
+		) error {
+			c.Check(objType, gc.Equals, "ModelManager")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "ModelDefaults")
+			c.Check(a, gc.IsNil)
+			c.Assert(result, gc.FitsTypeOf, &params.ModelDefaultsResult{})
+			results := result.(*params.ModelDefaultsResult)
+			results.Config = map[string]params.ModelDefaults{
+				"foo": {"bar", "model", []params.RegionDefaults{{
+					"dummy-region",
+					"dummy-value"}}},
+			}
+			return nil
+		},
+	)
+	client := modelmanager.NewClient(apiCaller)
+	result, err := client.ModelDefaults()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(result, jc.DeepEquals, config.ModelDefaultAttributes{
+		"foo": {"bar", "model", []config.RegionDefaultValue{{
+			"dummy-region",
+			"dummy-value"}}},
+	})
+}
+
+func (s *modelmanagerSuite) TestSetModelDefaults(c *gc.C) {
+	called := false
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string,
+			version int,
+			id, request string,
+			a, result interface{},
+		) error {
+			c.Check(objType, gc.Equals, "ModelManager")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "SetModelDefaults")
+			c.Check(a, jc.DeepEquals, params.SetModelDefaults{
+				Config: []params.ModelDefaultValues{{
+					CloudTag:    "cloud-mycloud",
+					CloudRegion: "region",
+					Config: map[string]interface{}{
+						"some-name":  "value",
+						"other-name": true,
+					},
+				}}})
+			c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+			*(result.(*params.ErrorResults)) = params.ErrorResults{
+				Results: []params.ErrorResult{{Error: nil}},
+			}
+			called = true
+			return nil
+		},
+	)
+	client := modelmanager.NewClient(apiCaller)
+	err := client.SetModelDefaults("mycloud", "region", map[string]interface{}{
+		"some-name":  "value",
+		"other-name": true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(called, jc.IsTrue)
+}
+
+func (s *modelmanagerSuite) TestUnsetModelDefaults(c *gc.C) {
+	called := false
+	apiCaller := basetesting.APICallerFunc(
+		func(objType string,
+			version int,
+			id, request string,
+			a, result interface{},
+		) error {
+			c.Check(objType, gc.Equals, "ModelManager")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "UnsetModelDefaults")
+			c.Check(a, jc.DeepEquals, params.UnsetModelDefaults{
+				Keys: []params.ModelUnsetKeys{{
+					CloudTag:    "cloud-mycloud",
+					CloudRegion: "region",
+					Keys:        []string{"foo", "bar"},
+				}}})
+			c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+			*(result.(*params.ErrorResults)) = params.ErrorResults{
+				Results: []params.ErrorResult{{Error: nil}},
+			}
+			called = true
+			return nil
+		},
+	)
+	client := modelmanager.NewClient(apiCaller)
+	err := client.UnsetModelDefaults("mycloud", "region", "foo", "bar")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
 }

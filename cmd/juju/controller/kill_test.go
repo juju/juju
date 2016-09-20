@@ -191,7 +191,7 @@ func (s *KillSuite) TestControllerStatus(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		s.api.envStatus[env.UUID] = base.ModelStatus{
 			UUID:               env.UUID,
-			Life:               params.Dying,
+			Life:               string(params.Dying),
 			HostedMachineCount: 2,
 			ServiceCount:       1,
 			Owner:              owner.Canonical(),
@@ -228,7 +228,7 @@ func (s *KillSuite) TestControllerStatus(c *gc.C) {
 	} {
 		c.Assert(envsStatus[i].Owner, gc.Equals, expected.Owner)
 		c.Assert(envsStatus[i].Name, gc.Equals, expected.Name)
-		c.Assert(envsStatus[i].Life, gc.Equals, expected.Life)
+		c.Assert(envsStatus[i].Life, gc.Equals, string(expected.Life))
 		c.Assert(envsStatus[i].HostedMachineCount, gc.Equals, expected.HostedMachineCount)
 		c.Assert(envsStatus[i].ServiceCount, gc.Equals, expected.ServiceCount)
 	}
@@ -238,7 +238,7 @@ func (s *KillSuite) TestControllerStatus(c *gc.C) {
 func (s *KillSuite) TestFmtControllerStatus(c *gc.C) {
 	data := controller.CtrData{
 		"uuid",
-		params.Alive,
+		string(params.Alive),
 		3,
 		20,
 		8,
@@ -252,7 +252,7 @@ func (s *KillSuite) TestFmtEnvironStatus(c *gc.C) {
 		"uuid",
 		"owner@local",
 		"envname",
-		params.Dying,
+		string(params.Dying),
 		8,
 		1,
 	}

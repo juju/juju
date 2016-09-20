@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/Azure/azure-sdk-for-go/arm/compute"
 	"github.com/Azure/azure-sdk-for-go/arm/network"
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/to"
@@ -21,7 +20,8 @@ import (
 )
 
 type azureInstance struct {
-	compute.VirtualMachine
+	vmName            string
+	provisioningState string
 	env               *azureEnviron
 	networkInterfaces []network.Interface
 	publicIPAddresses []network.PublicIPAddress
@@ -32,25 +32,39 @@ func (inst *azureInstance) Id() instance.Id {
 	// Note: we use Name and not Id, since all VM operations are in
 	// terms of the VM name (qualified by resource group). The ID is
 	// an internal detail.
-	return instance.Id(to.String(inst.VirtualMachine.Name))
+	return instance.Id(inst.vmName)
 }
 
 // Status is specified in the Instance interface.
 func (inst *azureInstance) Status() instance.InstanceStatus {
-	// NOTE(axw) ideally we would use the power state, but that is only
-	// available when using the "instance view". Instance view is only
-	// delivered when explicitly requested, and you can only request it
-	// when querying a single VM. This means the results of AllInstances
-	// or Instances would have the instance view missing.
-	//
-	// TODO(axw) if the provisioning state is "Failed", then
-	// we should query the operation status and report the error
-	// here.
-	return instance.InstanceStatus{
-		Status:  status.StatusEmpty,
-		Message: to.String(inst.Properties.ProvisioningState),
+	instanceStatus := status.Empty
+	message := inst.provisioningState
+	switch inst.provisioningState {
+	case "Succeeded":
+		// TODO(axw) once a VM has been started, we should
+		// start using its power state to show if it's
+		// really running or not. This is just a nice to
+		// have, since we should not expect a VM to ever
+		// be stopped.
+		instanceStatus = status.Running
+		message = ""
+	case "Canceled", "Failed":
+		// TODO(axw) if the provisioning state is "Failed", then we
+		// should use the error message from the deployment description
+		// as the Message. The error details are not currently exposed
+		// in the Azure SDK. See:
+		//     https://github.com/Azure/azure-sdk-for-go/issues/399
+		instanceStatus = status.ProvisioningError
+	case "Running":
+		message = ""
+		fallthrough
+	default:
+		instanceStatus = status.Provisioning
 	}
-
+	return instance.InstanceStatus{
+		Status:  instanceStatus,
+		Message: message,
+	}
 }
 
 // setInstanceAddresses queries Azure for the NICs and public IPs associated
@@ -58,69 +72,83 @@ func (inst *azureInstance) Status() instance.InstanceStatus {
 // VirtualMachines are up-to-date, and that there are no concurrent accesses
 // to the instances.
 func setInstanceAddresses(
-	pipClient network.PublicIPAddressesClient,
+	callAPI callAPIFunc,
 	resourceGroup string,
+	nicClient network.InterfacesClient,
+	pipClient network.PublicIPAddressesClient,
 	instances []*azureInstance,
-	nicsResult network.InterfaceListResult,
 ) (err error) {
-
-	instanceNics := make(map[instance.Id][]network.Interface)
-	instancePips := make(map[instance.Id][]network.PublicIPAddress)
-	for _, inst := range instances {
-		instanceNics[inst.Id()] = nil
-		instancePips[inst.Id()] = nil
+	instanceNics, err := instanceNetworkInterfaces(
+		callAPI, resourceGroup, nicClient,
+	)
+	if err != nil {
+		return errors.Annotate(err, "listing network interfaces")
 	}
-
-	// When setAddresses returns without error, update each
-	// instance's network interfaces and public IP addresses.
-	setInstanceFields := func(inst *azureInstance) {
-		inst.networkInterfaces = instanceNics[inst.Id()]
-		inst.publicIPAddresses = instancePips[inst.Id()]
-	}
-	defer func() {
-		if err != nil {
-			return
-		}
-		for _, inst := range instances {
-			setInstanceFields(inst)
-		}
-	}()
-
-	// We do not rely on references because of how StopInstances works.
-	// In order to not leak resources we must not delete the virtual
-	// machine until after all of its dependencies are deleted.
-	//
-	// NICs and PIPs cannot be deleted until they have no references.
-	// Thus, we cannot delete a PIP until there is no reference to it
-	// in any NICs, and likewise we cannot delete a NIC until there
-	// is no reference to it in any virtual machine.
-
-	if nicsResult.Value != nil {
-		for _, nic := range *nicsResult.Value {
-			instanceId := instance.Id(toTags(nic.Tags)[jujuMachineNameTag])
-			if _, ok := instanceNics[instanceId]; !ok {
-				continue
-			}
-			instanceNics[instanceId] = append(instanceNics[instanceId], nic)
-		}
-	}
-
-	pipsResult, err := pipClient.List(resourceGroup)
+	instancePips, err := instancePublicIPAddresses(
+		callAPI, resourceGroup, pipClient,
+	)
 	if err != nil {
 		return errors.Annotate(err, "listing public IP addresses")
 	}
-	if pipsResult.Value != nil {
-		for _, pip := range *pipsResult.Value {
-			instanceId := instance.Id(toTags(pip.Tags)[jujuMachineNameTag])
-			if _, ok := instanceNics[instanceId]; !ok {
-				continue
-			}
-			instancePips[instanceId] = append(instancePips[instanceId], pip)
-		}
+	for _, inst := range instances {
+		inst.networkInterfaces = instanceNics[inst.Id()]
+		inst.publicIPAddresses = instancePips[inst.Id()]
 	}
-
-	// Fields will be assigned to instances by the deferred call.
 	return nil
+}
+
+// instanceNetworkInterfaces lists all network interfaces in the resource
+// group, and returns a mapping from instance ID to the network interfaces
+// associated with that instance.
+func instanceNetworkInterfaces(
+	callAPI callAPIFunc,
+	resourceGroup string,
+	nicClient network.InterfacesClient,
+) (map[instance.Id][]network.Interface, error) {
+	var nicsResult network.InterfaceListResult
+	if err := callAPI(func() (autorest.Response, error) {
+		var err error
+		nicsResult, err = nicClient.List(resourceGroup)
+		return nicsResult.Response, err
+	}); err != nil {
+		return nil, errors.Annotate(err, "listing network interfaces")
+	}
+	if nicsResult.Value == nil || len(*nicsResult.Value) == 0 {
+		return nil, nil
+	}
+	instanceNics := make(map[instance.Id][]network.Interface)
+	for _, nic := range *nicsResult.Value {
+		instanceId := instance.Id(toTags(nic.Tags)[jujuMachineNameTag])
+		instanceNics[instanceId] = append(instanceNics[instanceId], nic)
+	}
+	return instanceNics, nil
+}
+
+// interfacePublicIPAddresses lists all public IP addresses in the resource
+// group, and returns a mapping from instance ID to the public IP addresses
+// associated with that instance.
+func instancePublicIPAddresses(
+	callAPI callAPIFunc,
+	resourceGroup string,
+	pipClient network.PublicIPAddressesClient,
+) (map[instance.Id][]network.PublicIPAddress, error) {
+	var pipsResult network.PublicIPAddressListResult
+	if err := callAPI(func() (autorest.Response, error) {
+		var err error
+		pipsResult, err = pipClient.List(resourceGroup)
+		return pipsResult.Response, err
+	}); err != nil {
+		return nil, errors.Annotate(err, "listing public IP addresses")
+	}
+	if pipsResult.Value == nil || len(*pipsResult.Value) == 0 {
+		return nil, nil
+	}
+	instancePips := make(map[instance.Id][]network.PublicIPAddress)
+	for _, pip := range *pipsResult.Value {
+		instanceId := instance.Id(toTags(pip.Tags)[jujuMachineNameTag])
+		instancePips[instanceId] = append(instancePips[instanceId], pip)
+	}
+	return instancePips, nil
 }
 
 // Addresses is specified in the Instance interface.

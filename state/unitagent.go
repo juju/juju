@@ -43,9 +43,9 @@ func (u *UnitAgent) Status() (status.StatusInfo, error) {
 	// be in error state, but the state model more correctly records the agent
 	// itself as being in error. So we'll do that model translation here.
 	// TODO(fwereade): this should absolutely not be happpening in the model.
-	if info.Status == status.StatusError {
+	if info.Status == status.Error {
 		return status.StatusInfo{
-			Status:  status.StatusIdle,
+			Status:  status.Idle,
 			Message: "",
 			Data:    map[string]interface{}{},
 			Since:   info.Since,
@@ -58,12 +58,12 @@ func (u *UnitAgent) Status() (status.StatusInfo, error) {
 // allow to pass additional helpful status data.
 func (u *UnitAgent) SetStatus(unitAgentStatus status.StatusInfo) (err error) {
 	switch unitAgentStatus.Status {
-	case status.StatusIdle, status.StatusExecuting, status.StatusRebooting, status.StatusFailed:
-	case status.StatusError:
+	case status.Idle, status.Executing, status.Rebooting, status.Failed:
+	case status.Error:
 		if unitAgentStatus.Message == "" {
 			return errors.Errorf("cannot set status %q without info", unitAgentStatus.Status)
 		}
-	case status.StatusAllocating, status.StatusLost:
+	case status.Allocating, status.Lost:
 		return errors.Errorf("cannot set status %q", unitAgentStatus.Status)
 	default:
 		return errors.Errorf("cannot set invalid status %q", unitAgentStatus.Status)

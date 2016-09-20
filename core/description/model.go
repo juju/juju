@@ -123,15 +123,15 @@ type model struct {
 	Applications_     applications     `yaml:"applications"`
 	Relations_        relations        `yaml:"relations"`
 	Spaces_           spaces           `yaml:"spaces"`
-	LinkLayerDevices_ linklayerdevices `yaml:"linklayerdevices"`
-	IPAddresses_      ipaddresses      `yaml:"ipaddresses"`
+	LinkLayerDevices_ linklayerdevices `yaml:"link-layer-devices"`
+	IPAddresses_      ipaddresses      `yaml:"ip-addresses"`
 	Subnets_          subnets          `yaml:"subnets"`
 
-	CloudImageMetadata_ cloudimagemetadataset `yaml:"cloudimagemetadata"`
+	CloudImageMetadata_ cloudimagemetadataset `yaml:"cloud-image-metadata"`
 
 	Actions_ actions `yaml:"actions"`
 
-	SSHHostKeys_ sshHostKeys `yaml:"sshhostkeys"`
+	SSHHostKeys_ sshHostKeys `yaml:"ssh-host-keys"`
 
 	Sequences_ map[string]int `yaml:"sequences"`
 
@@ -893,28 +893,28 @@ var modelDeserializationFuncs = map[int]modelDeserializationFunc{
 
 func importModelV1(source map[string]interface{}) (*model, error) {
 	fields := schema.Fields{
-		"owner":              schema.String(),
-		"cloud":              schema.String(),
-		"cloud-region":       schema.String(),
-		"config":             schema.StringMap(schema.Any()),
-		"latest-tools":       schema.String(),
-		"blocks":             schema.StringMap(schema.String()),
-		"users":              schema.StringMap(schema.Any()),
-		"machines":           schema.StringMap(schema.Any()),
-		"applications":       schema.StringMap(schema.Any()),
-		"relations":          schema.StringMap(schema.Any()),
-		"sshhostkeys":        schema.StringMap(schema.Any()),
-		"cloudimagemetadata": schema.StringMap(schema.Any()),
-		"actions":            schema.StringMap(schema.Any()),
-		"ipaddresses":        schema.StringMap(schema.Any()),
-		"spaces":             schema.StringMap(schema.Any()),
-		"subnets":            schema.StringMap(schema.Any()),
-		"linklayerdevices":   schema.StringMap(schema.Any()),
-		"volumes":            schema.StringMap(schema.Any()),
-		"filesystems":        schema.StringMap(schema.Any()),
-		"storages":           schema.StringMap(schema.Any()),
-		"storage-pools":      schema.StringMap(schema.Any()),
-		"sequences":          schema.StringMap(schema.Int()),
+		"owner":                schema.String(),
+		"cloud":                schema.String(),
+		"cloud-region":         schema.String(),
+		"config":               schema.StringMap(schema.Any()),
+		"latest-tools":         schema.String(),
+		"blocks":               schema.StringMap(schema.String()),
+		"users":                schema.StringMap(schema.Any()),
+		"machines":             schema.StringMap(schema.Any()),
+		"applications":         schema.StringMap(schema.Any()),
+		"relations":            schema.StringMap(schema.Any()),
+		"ssh-host-keys":        schema.StringMap(schema.Any()),
+		"cloud-image-metadata": schema.StringMap(schema.Any()),
+		"actions":              schema.StringMap(schema.Any()),
+		"ip-addresses":         schema.StringMap(schema.Any()),
+		"spaces":               schema.StringMap(schema.Any()),
+		"subnets":              schema.StringMap(schema.Any()),
+		"link-layer-devices":   schema.StringMap(schema.Any()),
+		"volumes":              schema.StringMap(schema.Any()),
+		"filesystems":          schema.StringMap(schema.Any()),
+		"storages":             schema.StringMap(schema.Any()),
+		"storage-pools":        schema.StringMap(schema.Any()),
+		"sequences":            schema.StringMap(schema.Int()),
 	}
 	// Some values don't have to be there.
 	defaults := schema.Defaults{
@@ -1007,10 +1007,10 @@ func importModelV1(source map[string]interface{}) (*model, error) {
 	}
 	result.setSpaces(spaces)
 
-	deviceMap := valid["linklayerdevices"].(map[string]interface{})
+	deviceMap := valid["link-layer-devices"].(map[string]interface{})
 	devices, err := importLinkLayerDevices(deviceMap)
 	if err != nil {
-		return nil, errors.Annotate(err, "linklayerdevices")
+		return nil, errors.Annotate(err, "link-layer-devices")
 	}
 	result.setLinkLayerDevices(devices)
 
@@ -1021,24 +1021,24 @@ func importModelV1(source map[string]interface{}) (*model, error) {
 	}
 	result.setSubnets(subnets)
 
-	addressMap := valid["ipaddresses"].(map[string]interface{})
+	addressMap := valid["ip-addresses"].(map[string]interface{})
 	addresses, err := importIPAddresses(addressMap)
 	if err != nil {
-		return nil, errors.Annotate(err, "ipaddresses")
+		return nil, errors.Annotate(err, "ip-addresses")
 	}
 	result.setIPAddresses(addresses)
 
-	sshHostKeyMap := valid["sshhostkeys"].(map[string]interface{})
+	sshHostKeyMap := valid["ssh-host-keys"].(map[string]interface{})
 	hostKeys, err := importSSHHostKeys(sshHostKeyMap)
 	if err != nil {
-		return nil, errors.Annotate(err, "sshhostkeys")
+		return nil, errors.Annotate(err, "ssh-host-keys")
 	}
 	result.setSSHHostKeys(hostKeys)
 
-	cloudimagemetadataMap := valid["cloudimagemetadata"].(map[string]interface{})
+	cloudimagemetadataMap := valid["cloud-image-metadata"].(map[string]interface{})
 	cloudimagemetadata, err := importCloudImageMetadata(cloudimagemetadataMap)
 	if err != nil {
-		return nil, errors.Annotate(err, "cloudimagemetadata")
+		return nil, errors.Annotate(err, "cloud-image-metadata")
 	}
 	result.setCloudImageMetadatas(cloudimagemetadata)
 

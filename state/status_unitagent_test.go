@@ -53,7 +53,7 @@ func (s *StatusUnitAgentSuite) TestSetUnknownStatus(c *gc.C) {
 func (s *StatusUnitAgentSuite) TestSetErrorStatusWithoutInfo(c *gc.C) {
 	now := time.Now()
 	sInfo := status.StatusInfo{
-		Status:  status.StatusError,
+		Status:  status.Error,
 		Message: "",
 		Since:   &now,
 	}
@@ -66,7 +66,7 @@ func (s *StatusUnitAgentSuite) TestSetErrorStatusWithoutInfo(c *gc.C) {
 func (s *StatusUnitAgentSuite) TestSetOverwritesData(c *gc.C) {
 	now := time.Now()
 	sInfo := status.StatusInfo{
-		Status:  status.StatusIdle,
+		Status:  status.Idle,
 		Message: "something",
 		Data: map[string]interface{}{
 			"pew.pew": "zap",
@@ -86,7 +86,7 @@ func (s *StatusUnitAgentSuite) TestGetSetStatusAlive(c *gc.C) {
 func (s *StatusUnitAgentSuite) checkGetSetStatus(c *gc.C) {
 	now := time.Now()
 	sInfo := status.StatusInfo{
-		Status:  status.StatusIdle,
+		Status:  status.Idle,
 		Message: "something",
 		Data: map[string]interface{}{
 			"$foo":    "bar",
@@ -106,7 +106,7 @@ func (s *StatusUnitAgentSuite) checkGetSetStatus(c *gc.C) {
 
 	statusInfo, err := agent.Status()
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(statusInfo.Status, gc.Equals, status.StatusIdle)
+	c.Check(statusInfo.Status, gc.Equals, status.Idle)
 	c.Check(statusInfo.Message, gc.Equals, "something")
 	c.Check(statusInfo.Data, jc.DeepEquals, map[string]interface{}{
 		"$foo":    "bar",
@@ -145,7 +145,7 @@ func (s *StatusUnitAgentSuite) TestGetSetStatusGone(c *gc.C) {
 
 	now := time.Now()
 	sInfo := status.StatusInfo{
-		Status:  status.StatusIdle,
+		Status:  status.Idle,
 		Message: "not really",
 		Since:   &now,
 	}
@@ -160,7 +160,7 @@ func (s *StatusUnitAgentSuite) TestGetSetStatusGone(c *gc.C) {
 func (s *StatusUnitAgentSuite) TestGetSetErrorStatus(c *gc.C) {
 	now := time.Now()
 	sInfo := status.StatusInfo{
-		Status:  status.StatusError,
+		Status:  status.Error,
 		Message: "test-hook failed",
 		Data: map[string]interface{}{
 			"foo": "bar",
@@ -173,7 +173,7 @@ func (s *StatusUnitAgentSuite) TestGetSetErrorStatus(c *gc.C) {
 	// Agent error is reported as unit error.
 	statusInfo, err := s.unit.Status()
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(statusInfo.Status, gc.Equals, status.StatusError)
+	c.Check(statusInfo.Status, gc.Equals, status.Error)
 	c.Check(statusInfo.Message, gc.Equals, "test-hook failed")
 	c.Check(statusInfo.Data, gc.DeepEquals, map[string]interface{}{
 		"foo": "bar",
@@ -182,7 +182,7 @@ func (s *StatusUnitAgentSuite) TestGetSetErrorStatus(c *gc.C) {
 	// For agents, error is reported as idle.
 	statusInfo, err = s.agent.Status()
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(statusInfo.Status, gc.Equals, status.StatusIdle)
+	c.Check(statusInfo.Status, gc.Equals, status.Idle)
 	c.Check(statusInfo.Message, gc.Equals, "")
 	c.Check(statusInfo.Data, gc.HasLen, 0)
 }
@@ -194,7 +194,7 @@ func timeBeforeOrEqual(timeBefore, timeOther time.Time) bool {
 func (s *StatusUnitAgentSuite) TestSetAgentStatusSince(c *gc.C) {
 	now := time.Now()
 	sInfo := status.StatusInfo{
-		Status:  status.StatusIdle,
+		Status:  status.Idle,
 		Message: "",
 		Since:   &now,
 	}
@@ -209,7 +209,7 @@ func (s *StatusUnitAgentSuite) TestSetAgentStatusSince(c *gc.C) {
 	// Setting the same status a second time also updates the timestamp.
 	now = now.Add(1 * time.Second)
 	sInfo = status.StatusInfo{
-		Status:  status.StatusIdle,
+		Status:  status.Idle,
 		Message: "",
 		Since:   &now,
 	}

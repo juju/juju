@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/status"
 )
 
 // Unit represents a juju unit as seen by the deployer worker.
@@ -65,6 +66,21 @@ func (u *Unit) SetPassword(password string) error {
 		},
 	}
 	err := u.st.facade.FacadeCall("SetPasswords", args, &result)
+	if err != nil {
+		return err
+	}
+	return result.OneError()
+}
+
+// SetStatus sets the status of the unit.
+func (u *Unit) SetStatus(unitStatus status.Status, info string, data map[string]interface{}) error {
+	var result params.ErrorResults
+	args := params.SetStatus{
+		Entities: []params.EntityStatusArgs{
+			{Tag: u.tag.String(), Status: unitStatus.String(), Info: info, Data: data},
+		},
+	}
+	err := u.st.facade.FacadeCall("SetStatus", args, &result)
 	if err != nil {
 		return err
 	}

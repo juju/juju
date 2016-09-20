@@ -343,7 +343,7 @@ func (s *InstancePollerSuite) TestInstanceIdFailure(c *gc.C) {
 func (s *InstancePollerSuite) TestStatusSuccess(c *gc.C) {
 	now := time.Now()
 	s1 := status.StatusInfo{
-		Status:  status.StatusError,
+		Status:  status.Error,
 		Message: "not really",
 		Data: map[string]interface{}{
 			"price": 4.2,
@@ -361,7 +361,7 @@ func (s *InstancePollerSuite) TestStatusSuccess(c *gc.C) {
 	c.Assert(result, jc.DeepEquals, params.StatusResults{
 		Results: []params.StatusResult{
 			{
-				Status: status.StatusError.String(),
+				Status: status.Error.String(),
 				Info:   s1.Message,
 				Data:   s1.Data,
 				Since:  s1.Since,

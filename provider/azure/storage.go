@@ -5,6 +5,7 @@ package azure
 
 import (
 	"fmt"
+	"net/http"
 	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/arm/compute"
@@ -14,11 +15,10 @@ import (
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/juju/errors"
 	"github.com/juju/schema"
-	"github.com/juju/utils"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/provider/azure/internal/armtemplates"
 	internalazurestorage "github.com/juju/juju/provider/azure/internal/azurestorage"
 	"github.com/juju/juju/storage"
 )
@@ -582,33 +582,30 @@ type maybeVirtualMachine struct {
 // virtualMachines returns a mapping of instance IDs to VirtualMachines and
 // errors, for each of the specified instance IDs.
 func (v *azureVolumeSource) virtualMachines(instanceIds []instance.Id) (map[instance.Id]*maybeVirtualMachine, error) {
-	// Fetch all instances at once. Failure to find an instance should
-	// not cause the entire method to fail.
+	vmsClient := compute.VirtualMachinesClient{v.env.compute}
+	var result compute.VirtualMachineListResult
+	if err := v.env.callAPI(func() (autorest.Response, error) {
+		var err error
+		result, err = vmsClient.List(v.env.resourceGroup)
+		return result.Response, err
+	}); err != nil {
+		return nil, errors.Annotate(err, "listing virtual machines")
+	}
+
+	all := make(map[instance.Id]*compute.VirtualMachine)
+	if result.Value != nil {
+		for _, vm := range *result.Value {
+			vmCopy := vm
+			all[instance.Id(to.String(vm.Name))] = &vmCopy
+		}
+	}
 	results := make(map[instance.Id]*maybeVirtualMachine)
-	instances, err := v.env.instances(
-		v.env.resourceGroup,
-		instanceIds,
-		false, /* don't refresh addresses */
-	)
-	switch err {
-	case nil, environs.ErrPartialInstances:
-		for i, inst := range instances {
-			vm := &maybeVirtualMachine{}
-			if inst != nil {
-				vm.vm = &inst.(*azureInstance).VirtualMachine
-			} else {
-				vm.err = errors.NotFoundf("instance %v", instanceIds[i])
-			}
-			results[instanceIds[i]] = vm
+	for _, id := range instanceIds {
+		result := &maybeVirtualMachine{vm: all[id]}
+		if result.vm == nil {
+			result.err = errors.NotFoundf("instance %v", id)
 		}
-	case environs.ErrNoInstances:
-		for _, instanceId := range instanceIds {
-			results[instanceId] = &maybeVirtualMachine{
-				err: errors.NotFoundf("instance %v", instanceId),
-			}
-		}
-	default:
-		return nil, errors.Annotate(err, "getting instances")
+		results[id] = result
 	}
 	return results, nil
 }
@@ -739,6 +736,7 @@ func getStorageClient(
 	)
 }
 
+// getStorageAccountKey returns the key for the storage account.
 func getStorageAccountKey(
 	callAPI callAPIFunc,
 	client armstorage.AccountsClient,
@@ -751,6 +749,9 @@ func getStorageAccountKey(
 		listKeysResult, err = client.ListKeys(resourceGroup, accountName)
 		return listKeysResult.Response, err
 	}); err != nil {
+		if listKeysResult.Response.Response != nil && listKeysResult.StatusCode == http.StatusNotFound {
+			return nil, errors.NewNotFound(err, "storage account keys not found")
+		}
 		return nil, errors.Annotate(err, "listing storage account keys")
 	}
 	if listKeysResult.Keys == nil {
@@ -778,9 +779,21 @@ func getStorageAccountKey(
 	return fullKey, nil
 }
 
-// RandomStorageAccountName returns a random storage account name.
-func RandomStorageAccountName() string {
-	const maxStorageAccountNameLen = 24
-	validRunes := append(utils.LowerAlpha, utils.Digits...)
-	return utils.RandomString(maxStorageAccountNameLen, validRunes)
+// storageAccountTemplateResource returns a template resource definition
+// for creating a storage account.
+func storageAccountTemplateResource(
+	location string,
+	envTags map[string]string,
+	accountName, accountType string,
+) armtemplates.Resource {
+	return armtemplates.Resource{
+		APIVersion: armstorage.APIVersion,
+		Type:       "Microsoft.Storage/storageAccounts",
+		Name:       accountName,
+		Location:   location,
+		Tags:       envTags,
+		StorageSku: &armstorage.Sku{
+			Name: armstorage.SkuName(accountType),
+		},
+	}
 }

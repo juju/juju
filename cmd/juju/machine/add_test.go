@@ -67,13 +67,6 @@ func (s *AddMachineSuite) TestInit(c *gc.C) {
 			count:     1,
 			placement: "lxd:4",
 		}, {
-			args:        []string{"--constraints", "mem=8G"},
-			count:       1,
-			constraints: "mem=8192M",
-		}, {
-			args:        []string{"--constraints", "container=lxd"},
-			errorString: `container constraint "lxd" not allowed when adding a machine`,
-		}, {
 			args:      []string{"ssh:user@10.10.0.3"},
 			count:     1,
 			placement: "ssh:user@10.10.0.3",

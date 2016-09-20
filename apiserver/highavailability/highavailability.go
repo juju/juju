@@ -15,7 +15,8 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/core/description"
+	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 )
 
@@ -57,7 +58,7 @@ func (api *HighAvailabilityAPI) EnableHA(args params.ControllersSpecs) (params.C
 	results := params.ControllersChangeResults{Results: make([]params.ControllersChangeResult, len(args.Specs))}
 	for i, controllersServersSpec := range args.Specs {
 		if api.authorizer.AuthClient() {
-			admin, err := api.authorizer.HasPermission(description.SuperuserAccess, api.state.ControllerTag())
+			admin, err := api.authorizer.HasPermission(permission.SuperuserAccess, api.state.ControllerTag())
 			if err != nil && !errors.IsNotFound(err) {
 				return results, errors.Trace(err)
 			}
@@ -182,7 +183,12 @@ func EnableHASingle(st *state.State, spec params.ControllersSpec) (params.Contro
 // StopHAReplicationForUpgrade will prompt the HA cluster to enter upgrade
 // mongo mode.
 func (api *HighAvailabilityAPI) StopHAReplicationForUpgrade(args params.UpgradeMongoParams) (params.MongoUpgradeResults, error) {
-	ha, err := api.state.SetUpgradeMongoMode(args.Target)
+	ha, err := api.state.SetUpgradeMongoMode(mongo.Version{
+		Major:         args.Target.Major,
+		Minor:         args.Target.Minor,
+		Patch:         args.Target.Patch,
+		StorageEngine: mongo.StorageEngine(args.Target.StorageEngine),
+	})
 	if err != nil {
 		return params.MongoUpgradeResults{}, errors.Annotate(err, "cannot stop HA for ugprade")
 	}

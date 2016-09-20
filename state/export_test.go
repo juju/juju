@@ -21,10 +21,10 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/version"
 )
@@ -456,7 +456,7 @@ func IsManagerMachineError(err error) bool {
 
 var ActionNotificationIdToActionId = actionNotificationIdToActionId
 
-func UpdateModelUserLastConnection(st *State, e description.UserAccess, when time.Time) error {
+func UpdateModelUserLastConnection(st *State, e permission.UserAccess, when time.Time) error {
 	return st.updateLastModelConnection(e.UserTag, when)
 }
 

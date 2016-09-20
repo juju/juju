@@ -8,7 +8,6 @@ import (
 	"net/http"
 
 	"github.com/Azure/azure-sdk-for-go/arm/compute"
-	"github.com/Azure/azure-sdk-for-go/arm/network"
 	armstorage "github.com/Azure/azure-sdk-for-go/arm/storage"
 	azurestorage "github.com/Azure/azure-sdk-for-go/storage"
 	"github.com/Azure/go-autorest/autorest/to"
@@ -19,6 +18,7 @@ import (
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/azure"
+	"github.com/juju/juju/provider/azure/internal/azureauth"
 	"github.com/juju/juju/provider/azure/internal/azuretesting"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
@@ -40,9 +40,11 @@ func (s *storageSuite) SetUpTest(c *gc.C) {
 	s.storageClient = azuretesting.MockStorageClient{}
 	s.requests = nil
 	envProvider := newProvider(c, azure.ProviderConfig{
-		Sender:           &s.sender,
-		NewStorageClient: s.storageClient.NewClient,
-		RequestInspector: requestRecorder(&s.requests),
+		Sender:                            &s.sender,
+		NewStorageClient:                  s.storageClient.NewClient,
+		RequestInspector:                  azuretesting.RequestRecorder(&s.requests),
+		RandomWindowsAdminPassword:        func() string { return "sorandom" },
+		InteractiveCreateServicePrincipal: azureauth.InteractiveCreateServicePrincipal,
 	})
 	s.sender = nil
 
@@ -61,29 +63,31 @@ func (s *storageSuite) volumeSource(c *gc.C, attrs ...testing.Attrs) storage.Vol
 
 	// Force an explicit refresh of the access token, so it isn't done
 	// implicitly during the tests.
-	s.sender = azuretesting.Senders{tokenRefreshSender()}
+	s.sender = azuretesting.Senders{
+		tokenRefreshSender(),
+	}
 	err = azure.ForceVolumeSourceTokenRefresh(volumeSource)
 	c.Assert(err, jc.ErrorIsNil)
 	return volumeSource
 }
 
-func (s *storageSuite) accountsSender() *azuretesting.MockSender {
+func (s *storageSuite) accountSender() *azuretesting.MockSender {
 	envTags := map[string]*string{
 		"juju-model-uuid": to.StringPtr(testing.ModelTag.Id()),
 	}
-	accounts := []armstorage.Account{{
-		Name: to.StringPtr(fakeStorageAccount),
+	account := armstorage.Account{
+		Name: to.StringPtr(storageAccountName),
 		Type: to.StringPtr("Standard_LRS"),
 		Tags: &envTags,
 		Properties: &armstorage.AccountProperties{
 			PrimaryEndpoints: &armstorage.Endpoints{
-				Blob: to.StringPtr(fmt.Sprintf("https://%s.blob.storage.azurestack.local/", fakeStorageAccount)),
+				Blob: to.StringPtr(fmt.Sprintf("https://%s.blob.storage.azurestack.local/", storageAccountName)),
 			},
 		},
-	}}
-	accountsSender := azuretesting.NewSenderWithValue(armstorage.AccountListResult{Value: &accounts})
-	accountsSender.PathPattern = ".*/storageAccounts"
-	return accountsSender
+	}
+	accountSender := azuretesting.NewSenderWithValue(account)
+	accountSender.PathPattern = ".*/storageAccounts/" + storageAccountName + ".*"
+	return accountSender
 }
 
 func (s *storageSuite) accountKeysSender() *azuretesting.MockSender {
@@ -182,17 +186,7 @@ func (s *storageSuite) TestCreateVolumes(c *gc.C) {
 		},
 	}}
 
-	// There should be a couple of API calls to list instances,
-	// and one update per modified instance.
-	nics := []network.Interface{
-		makeNetworkInterface("nic-0", "machine-0"),
-		makeNetworkInterface("nic-1", "machine-1"),
-		makeNetworkInterface("nic-2", "machine-2"),
-	}
-	nicsSender := azuretesting.NewSenderWithValue(network.InterfaceListResult{
-		Value: &nics,
-	})
-	nicsSender.PathPattern = `.*/Microsoft\.Network/networkInterfaces`
+	// There should be a one API calls to list VMs, and one update per modified instance.
 	virtualMachinesSender := azuretesting.NewSenderWithValue(compute.VirtualMachineListResult{
 		Value: &virtualMachines,
 	})
@@ -203,9 +197,8 @@ func (s *storageSuite) TestCreateVolumes(c *gc.C) {
 	updateVirtualMachine1Sender.PathPattern = `.*/Microsoft\.Compute/virtualMachines/machine-1`
 	volumeSource := s.volumeSource(c)
 	s.sender = azuretesting.Senders{
-		nicsSender,
 		virtualMachinesSender,
-		s.accountsSender(),
+		s.accountSender(),
 		updateVirtualMachine0Sender,
 		updateVirtualMachine1Sender,
 	}
@@ -221,12 +214,11 @@ func (s *storageSuite) TestCreateVolumes(c *gc.C) {
 	c.Check(results[4].Error, gc.ErrorMatches, "choosing LUN: all LUNs are in use")
 
 	// Validate HTTP request bodies.
-	c.Assert(s.requests, gc.HasLen, 5)
-	c.Assert(s.requests[0].Method, gc.Equals, "GET") // list NICs
-	c.Assert(s.requests[1].Method, gc.Equals, "GET") // list virtual machines
-	c.Assert(s.requests[2].Method, gc.Equals, "GET") // list storage accounts
-	c.Assert(s.requests[3].Method, gc.Equals, "PUT") // update machine-0
-	c.Assert(s.requests[4].Method, gc.Equals, "PUT") // update machine-1
+	c.Assert(s.requests, gc.HasLen, 4)
+	c.Assert(s.requests[0].Method, gc.Equals, "GET") // list virtual machines
+	c.Assert(s.requests[1].Method, gc.Equals, "GET") // list storage accounts
+	c.Assert(s.requests[2].Method, gc.Equals, "PUT") // update machine-0
+	c.Assert(s.requests[3].Method, gc.Equals, "PUT") // update machine-1
 
 	machine0DataDisks := []compute.DataDisk{{
 		Lun:        to.Int32Ptr(0),
@@ -234,7 +226,7 @@ func (s *storageSuite) TestCreateVolumes(c *gc.C) {
 		Name:       to.StringPtr("volume-0"),
 		Vhd: &compute.VirtualHardDisk{URI: to.StringPtr(fmt.Sprintf(
 			"https://%s.blob.storage.azurestack.local/datavhds/volume-0.vhd",
-			fakeStorageAccount,
+			storageAccountName,
 		))},
 		Caching:      compute.ReadWrite,
 		CreateOption: compute.Empty,
@@ -244,13 +236,13 @@ func (s *storageSuite) TestCreateVolumes(c *gc.C) {
 		Name:       to.StringPtr("volume-2"),
 		Vhd: &compute.VirtualHardDisk{URI: to.StringPtr(fmt.Sprintf(
 			"https://%s.blob.storage.azurestack.local/datavhds/volume-2.vhd",
-			fakeStorageAccount,
+			storageAccountName,
 		))},
 		Caching:      compute.ReadWrite,
 		CreateOption: compute.Empty,
 	}}
 	virtualMachines[0].Properties.StorageProfile.DataDisks = &machine0DataDisks
-	assertRequestBody(c, s.requests[3], &virtualMachines[0])
+	assertRequestBody(c, s.requests[2], &virtualMachines[0])
 
 	machine1DataDisks = append(machine1DataDisks, compute.DataDisk{
 		Lun:        to.Int32Ptr(1),
@@ -258,12 +250,12 @@ func (s *storageSuite) TestCreateVolumes(c *gc.C) {
 		Name:       to.StringPtr("volume-1"),
 		Vhd: &compute.VirtualHardDisk{URI: to.StringPtr(fmt.Sprintf(
 			"https://%s.blob.storage.azurestack.local/datavhds/volume-1.vhd",
-			fakeStorageAccount,
+			storageAccountName,
 		))},
 		Caching:      compute.ReadWrite,
 		CreateOption: compute.Empty,
 	})
-	assertRequestBody(c, s.requests[4], &virtualMachines[1])
+	assertRequestBody(c, s.requests[3], &virtualMachines[1])
 }
 
 func (s *storageSuite) TestListVolumes(c *gc.C) {
@@ -292,14 +284,14 @@ func (s *storageSuite) TestListVolumes(c *gc.C) {
 
 	volumeSource := s.volumeSource(c)
 	s.sender = azuretesting.Senders{
-		s.accountsSender(),
+		s.accountSender(),
 		s.accountKeysSender(),
 	}
 	volumeIds, err := volumeSource.ListVolumes()
 	c.Assert(err, jc.ErrorIsNil)
 	s.storageClient.CheckCallNames(c, "NewClient", "ListBlobs")
 	s.storageClient.CheckCall(
-		c, 0, "NewClient", fakeStorageAccount, fakeStorageAccountKey,
+		c, 0, "NewClient", storageAccountName, fakeStorageAccountKey,
 		"storage.azurestack.local", azurestorage.DefaultAPIVersion, true,
 	)
 	s.storageClient.CheckCall(c, 1, "ListBlobs", "datavhds", azurestorage.ListBlobsParameters{})
@@ -309,7 +301,7 @@ func (s *storageSuite) TestListVolumes(c *gc.C) {
 func (s *storageSuite) TestListVolumesErrors(c *gc.C) {
 	volumeSource := s.volumeSource(c)
 	s.sender = azuretesting.Senders{
-		s.accountsSender(),
+		s.accountSender(),
 		s.accountKeysSender(),
 	}
 
@@ -344,14 +336,14 @@ func (s *storageSuite) TestDescribeVolumes(c *gc.C) {
 
 	volumeSource := s.volumeSource(c)
 	s.sender = azuretesting.Senders{
-		s.accountsSender(),
+		s.accountSender(),
 		s.accountKeysSender(),
 	}
 	results, err := volumeSource.DescribeVolumes([]string{"volume-0", "volume-1", "volume-0", "volume-42"})
 	c.Assert(err, jc.ErrorIsNil)
 	s.storageClient.CheckCallNames(c, "NewClient", "ListBlobs")
 	s.storageClient.CheckCall(
-		c, 0, "NewClient", fakeStorageAccount, fakeStorageAccountKey,
+		c, 0, "NewClient", storageAccountName, fakeStorageAccountKey,
 		"storage.azurestack.local", azurestorage.DefaultAPIVersion, true,
 	)
 	c.Assert(results, gc.HasLen, 4)
@@ -380,7 +372,7 @@ func (s *storageSuite) TestDescribeVolumes(c *gc.C) {
 func (s *storageSuite) TestDestroyVolumes(c *gc.C) {
 	volumeSource := s.volumeSource(c)
 	s.sender = azuretesting.Senders{
-		s.accountsSender(),
+		s.accountSender(),
 		s.accountKeysSender(),
 	}
 	results, err := volumeSource.DestroyVolumes([]string{"volume-0", "volume-42"})
@@ -401,7 +393,7 @@ func (s *storageSuite) TestAttachVolumes(c *gc.C) {
 		Vhd: &compute.VirtualHardDisk{
 			URI: to.StringPtr(fmt.Sprintf(
 				"https://%s.blob.storage.azurestack.local/datavhds/volume-1.vhd",
-				fakeStorageAccount,
+				storageAccountName,
 			)),
 		},
 	}}
@@ -413,7 +405,7 @@ func (s *storageSuite) TestAttachVolumes(c *gc.C) {
 		machine2DataDisks[i].Vhd = &compute.VirtualHardDisk{
 			URI: to.StringPtr(fmt.Sprintf(
 				"https://%s.blob.storage.azurestack.local/datavhds/volume-%d.vhd",
-				fakeStorageAccount, i,
+				storageAccountName, i,
 			)),
 		}
 	}
@@ -458,17 +450,7 @@ func (s *storageSuite) TestAttachVolumes(c *gc.C) {
 		},
 	}}
 
-	// There should be a couple of API calls to list instances,
-	// and one update per modified instance.
-	nics := []network.Interface{
-		makeNetworkInterface("nic-0", "machine-0"),
-		makeNetworkInterface("nic-1", "machine-1"),
-		makeNetworkInterface("nic-2", "machine-2"),
-	}
-	nicsSender := azuretesting.NewSenderWithValue(network.InterfaceListResult{
-		Value: &nics,
-	})
-	nicsSender.PathPattern = `.*/Microsoft\.Network/networkInterfaces`
+	// There should be a one API calls to list VMs, and one update per modified instance.
 	virtualMachinesSender := azuretesting.NewSenderWithValue(compute.VirtualMachineListResult{
 		Value: &virtualMachines,
 	})
@@ -477,9 +459,8 @@ func (s *storageSuite) TestAttachVolumes(c *gc.C) {
 	updateVirtualMachine0Sender.PathPattern = `.*/Microsoft\.Compute/virtualMachines/machine-0`
 	volumeSource := s.volumeSource(c)
 	s.sender = azuretesting.Senders{
-		nicsSender,
 		virtualMachinesSender,
-		s.accountsSender(),
+		s.accountSender(),
 		updateVirtualMachine0Sender,
 	}
 
@@ -494,18 +475,17 @@ func (s *storageSuite) TestAttachVolumes(c *gc.C) {
 	c.Check(results[4].Error, gc.ErrorMatches, "choosing LUN: all LUNs are in use")
 
 	// Validate HTTP request bodies.
-	c.Assert(s.requests, gc.HasLen, 4)
-	c.Assert(s.requests[0].Method, gc.Equals, "GET") // list NICs
-	c.Assert(s.requests[1].Method, gc.Equals, "GET") // list virtual machines
-	c.Assert(s.requests[2].Method, gc.Equals, "GET") // list storage accounts
-	c.Assert(s.requests[3].Method, gc.Equals, "PUT") // update machine-0
+	c.Assert(s.requests, gc.HasLen, 3)
+	c.Assert(s.requests[0].Method, gc.Equals, "GET") // list virtual machines
+	c.Assert(s.requests[1].Method, gc.Equals, "GET") // list storage accounts
+	c.Assert(s.requests[2].Method, gc.Equals, "PUT") // update machine-0
 
 	machine0DataDisks := []compute.DataDisk{{
 		Lun:  to.Int32Ptr(0),
 		Name: to.StringPtr("volume-0"),
 		Vhd: &compute.VirtualHardDisk{URI: to.StringPtr(fmt.Sprintf(
 			"https://%s.blob.storage.azurestack.local/datavhds/volume-0.vhd",
-			fakeStorageAccount,
+			storageAccountName,
 		))},
 		Caching:      compute.ReadWrite,
 		CreateOption: compute.Attach,
@@ -514,13 +494,13 @@ func (s *storageSuite) TestAttachVolumes(c *gc.C) {
 		Name: to.StringPtr("volume-2"),
 		Vhd: &compute.VirtualHardDisk{URI: to.StringPtr(fmt.Sprintf(
 			"https://%s.blob.storage.azurestack.local/datavhds/volume-2.vhd",
-			fakeStorageAccount,
+			storageAccountName,
 		))},
 		Caching:      compute.ReadWrite,
 		CreateOption: compute.Attach,
 	}}
 	virtualMachines[0].Properties.StorageProfile.DataDisks = &machine0DataDisks
-	assertRequestBody(c, s.requests[3], &virtualMachines[0])
+	assertRequestBody(c, s.requests[2], &virtualMachines[0])
 }
 
 func (s *storageSuite) TestDetachVolumes(c *gc.C) {
@@ -531,7 +511,7 @@ func (s *storageSuite) TestDetachVolumes(c *gc.C) {
 		Vhd: &compute.VirtualHardDisk{
 			URI: to.StringPtr(fmt.Sprintf(
 				"https://%s.blob.storage.azurestack.local/datavhds/volume-0.vhd",
-				fakeStorageAccount,
+				storageAccountName,
 			)),
 		},
 	}, {
@@ -540,7 +520,7 @@ func (s *storageSuite) TestDetachVolumes(c *gc.C) {
 		Vhd: &compute.VirtualHardDisk{
 			URI: to.StringPtr(fmt.Sprintf(
 				"https://%s.blob.storage.azurestack.local/datavhds/volume-1.vhd",
-				fakeStorageAccount,
+				storageAccountName,
 			)),
 		},
 	}, {
@@ -549,7 +529,7 @@ func (s *storageSuite) TestDetachVolumes(c *gc.C) {
 		Vhd: &compute.VirtualHardDisk{
 			URI: to.StringPtr(fmt.Sprintf(
 				"https://%s.blob.storage.azurestack.local/datavhds/volume-2.vhd",
-				fakeStorageAccount,
+				storageAccountName,
 			)),
 		},
 	}}
@@ -584,16 +564,7 @@ func (s *storageSuite) TestDetachVolumes(c *gc.C) {
 		},
 	}}
 
-	// There should be a couple of API calls to list instances,
-	// and one update per modified instance.
-	nics := []network.Interface{
-		makeNetworkInterface("nic-0", "machine-0"),
-		makeNetworkInterface("nic-1", "machine-1"),
-	}
-	nicsSender := azuretesting.NewSenderWithValue(network.InterfaceListResult{
-		Value: &nics,
-	})
-	nicsSender.PathPattern = `.*/Microsoft\.Network/networkInterfaces`
+	// There should be a one API calls to list VMs, and one update per modified instance.
 	virtualMachinesSender := azuretesting.NewSenderWithValue(compute.VirtualMachineListResult{
 		Value: &virtualMachines,
 	})
@@ -602,9 +573,8 @@ func (s *storageSuite) TestDetachVolumes(c *gc.C) {
 	updateVirtualMachine0Sender.PathPattern = `.*/Microsoft\.Compute/virtualMachines/machine-0`
 	volumeSource := s.volumeSource(c)
 	s.sender = azuretesting.Senders{
-		nicsSender,
 		virtualMachinesSender,
-		s.accountsSender(),
+		s.accountSender(),
 		updateVirtualMachine0Sender,
 	}
 
@@ -618,16 +588,15 @@ func (s *storageSuite) TestDetachVolumes(c *gc.C) {
 	c.Check(results[3], gc.ErrorMatches, "instance machine-42 not found")
 
 	// Validate HTTP request bodies.
-	c.Assert(s.requests, gc.HasLen, 4)
-	c.Assert(s.requests[0].Method, gc.Equals, "GET") // list NICs
-	c.Assert(s.requests[1].Method, gc.Equals, "GET") // list virtual machines
-	c.Assert(s.requests[2].Method, gc.Equals, "GET") // list storage accounts
-	c.Assert(s.requests[3].Method, gc.Equals, "PUT") // update machine-0
+	c.Assert(s.requests, gc.HasLen, 3)
+	c.Assert(s.requests[0].Method, gc.Equals, "GET") // list virtual machines
+	c.Assert(s.requests[1].Method, gc.Equals, "GET") // list storage accounts
+	c.Assert(s.requests[2].Method, gc.Equals, "PUT") // update machine-0
 
 	machine0DataDisks = []compute.DataDisk{
 		machine0DataDisks[0],
 		machine0DataDisks[2],
 	}
 	virtualMachines[0].Properties.StorageProfile.DataDisks = &machine0DataDisks
-	assertRequestBody(c, s.requests[3], &virtualMachines[0])
+	assertRequestBody(c, s.requests[2], &virtualMachines[0])
 }

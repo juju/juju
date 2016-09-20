@@ -55,9 +55,7 @@ func (s *LogoutCommandSuite) TestInit(c *gc.C) {
 }
 
 func (s *LogoutCommandSuite) TestLogout(c *gc.C) {
-	details := s.store.Accounts["testing"]
-	details.Macaroon = "a-macaroon"
-	s.store.Accounts["testing"] = details
+	s.setPassword(c, "testing", "")
 	ctx, err := s.run(c)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(coretesting.Stdout(ctx), gc.Equals, "")
@@ -72,9 +70,9 @@ Logged out. You are no longer logged into any controllers.
 func (s *LogoutCommandSuite) TestLogoutCount(c *gc.C) {
 	// Create multiple controllers. We'll log out of each one
 	// to observe the messages printed out by "logout".
+	s.setPassword(c, "testing", "")
 	controllers := []string{"testing", "testing2", "testing3"}
 	details := s.store.Accounts["testing"]
-	details.Macaroon = "a-macaroon"
 	for _, controller := range controllers {
 		s.store.Controllers[controller] = s.store.Controllers["testing"]
 		err := s.store.UpdateAccount(controller, details)
@@ -95,9 +93,8 @@ func (s *LogoutCommandSuite) TestLogoutCount(c *gc.C) {
 	}
 }
 
-func (s *LogoutCommandSuite) TestLogoutWithoutMacaroon(c *gc.C) {
+func (s *LogoutCommandSuite) TestLogoutWithPassword(c *gc.C) {
 	s.assertStorePassword(c, "current-user@local", "old-password", "")
-	s.assertStoreMacaroon(c, "current-user@local", nil)
 	_, err := s.run(c)
 	c.Assert(err, gc.NotNil)
 	c.Assert(err.Error(), gc.Equals, `preventing account loss
@@ -114,9 +111,8 @@ this command again with the "--force" flag.
 `)
 }
 
-func (s *LogoutCommandSuite) TestLogoutWithoutMacaroonForced(c *gc.C) {
+func (s *LogoutCommandSuite) TestLogoutWithPasswordForced(c *gc.C) {
 	s.assertStorePassword(c, "current-user@local", "old-password", "")
-	s.assertStoreMacaroon(c, "current-user@local", nil)
 	_, err := s.run(c, "--force")
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.store.AccountDetails("testing")

@@ -27,7 +27,7 @@ func (env *environ) PrecheckInstance(series string, cons constraints.Value, plac
 }
 
 var unsupportedConstraints = []string{
-	constraints.CpuCores,
+	constraints.Cores,
 	constraints.CpuPower,
 	//TODO(ericsnow) Add constraints.Mem as unsupported?
 	constraints.InstanceType,

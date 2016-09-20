@@ -26,6 +26,7 @@ type PrecheckBackend interface {
 	Model() (PrecheckModel, error)
 	AllModels() ([]PrecheckModel, error)
 	IsUpgrading() (bool, error)
+	IsMigrationActive(string) (bool, error)
 	AllMachines() ([]PrecheckMachine, error)
 	AllApplications() ([]PrecheckApplication, error)
 	ControllerBackend() (PrecheckBackend, error)
@@ -48,6 +49,7 @@ type PrecheckMachine interface {
 	AgentTools() (*tools.Tools, error)
 	Life() state.Life
 	Status() (status.StatusInfo, error)
+	AgentPresence() (bool, error)
 	InstanceStatus() (status.StatusInfo, error)
 	ShouldRebootOrShutdown() (state.RebootAction, error)
 }
@@ -129,6 +131,19 @@ func TargetPrecheck(backend PrecheckBackend, modelInfo coremigration.ModelInfo) 
 		return errors.Trace(err)
 	}
 
+	// This check is necessary because there is a window between the
+	// REAP phase and then end of the DONE phase where a model's
+	// documents have been deleted but the migration isn't quite done
+	// yet. Migrating a model back into the controller during this
+	// window can upset the migrationmaster worker.
+	//
+	// See also https://lpad.tv/1611391
+	if migrating, err := backend.IsMigrationActive(modelInfo.UUID); err != nil {
+		return errors.Annotate(err, "checking for active migration")
+	} else if migrating {
+		return errors.New("model is being migrated out of target controller")
+	}
+
 	controllerVersion, err := backend.AgentVersion()
 	if err != nil {
 		return errors.Annotate(err, "retrieving model version")
@@ -200,14 +215,15 @@ func checkMachines(backend PrecheckBackend) error {
 
 		if statusInfo, err := machine.InstanceStatus(); err != nil {
 			return errors.Annotatef(err, "retrieving machine %s instance status", machine.Id())
-		} else if statusInfo.Status != status.StatusRunning {
+		} else if statusInfo.Status != status.Running {
 			return newStatusError("machine %s not running", machine.Id(), statusInfo.Status)
 		}
 
-		if statusInfo, err := machine.Status(); err != nil {
+		if statusInfo, err := common.MachineStatus(machine); err != nil {
 			return errors.Annotatef(err, "retrieving machine %s status", machine.Id())
-		} else if statusInfo.Status != status.StatusStarted {
-			return newStatusError("machine %s not started", machine.Id(), statusInfo.Status)
+		} else if statusInfo.Status != status.Started {
+			return newStatusError("machine %s agent not functioning at this time",
+				machine.Id(), statusInfo.Status)
 		}
 
 		if rebootAction, err := machine.ShouldRebootOrShutdown(); err != nil {
@@ -282,7 +298,7 @@ func checkUnitAgentStatus(unit PrecheckUnit) error {
 		return errors.Annotatef(statusData.Err, "retrieving unit %s status", unit.Name())
 	}
 	agentStatus := statusData.Status.Status
-	if agentStatus != status.StatusIdle {
+	if agentStatus != status.Idle {
 		return newStatusError("unit %s not idle", unit.Name(), agentStatus)
 	}
 	return nil
@@ -307,7 +323,7 @@ type agentToolsGetter interface {
 
 func newStatusError(format, id string, s status.Status) error {
 	msg := fmt.Sprintf(format, id)
-	if s != status.StatusEmpty {
+	if s != status.Empty {
 		msg += fmt.Sprintf(" (%s)", s)
 	}
 	return errors.New(msg)

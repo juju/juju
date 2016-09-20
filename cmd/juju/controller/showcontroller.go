@@ -9,12 +9,16 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/core/description"
+	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/permission"
+	"github.com/juju/juju/status"
 )
 
 var usageShowControllerSummary = `
@@ -36,7 +40,7 @@ type showControllerCommand struct {
 
 	out   cmd.Output
 	store jujuclient.ClientStore
-	api   controllerAccessAPI
+	api   func(controllerName string) ControllerAccessAPI
 
 	controllerNames []string
 	showPasswords   bool
@@ -77,15 +81,17 @@ func (c *showControllerCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 // ControllerAccessAPI defines a subset of the api/controller/Client API.
-type controllerAccessAPI interface {
-	GetControllerAccess(user string) (description.Access, error)
+type ControllerAccessAPI interface {
+	GetControllerAccess(user string) (permission.Access, error)
 	ModelConfig() (map[string]interface{}, error)
+	ModelStatus(models ...names.ModelTag) ([]base.ModelStatus, error)
+	AllModels() ([]base.UserModel, error)
 	Close() error
 }
 
-func (c *showControllerCommand) getAPI(controllerName string) (controllerAccessAPI, error) {
+func (c *showControllerCommand) getAPI(controllerName string) (ControllerAccessAPI, error) {
 	if c.api != nil {
-		return c.api, nil
+		return c.api(controllerName), nil
 	}
 	api, err := c.NewAPIRoot(c.store, controllerName, "")
 	if err != nil {
@@ -113,25 +119,43 @@ func (c *showControllerCommand) Run(ctx *cmd.Context) error {
 			return err
 		}
 		var access string
+		client, err := c.getAPI(controllerName)
+		if err != nil {
+			return err
+		}
+		defer client.Close()
 		accountDetails, err := c.store.AccountDetails(controllerName)
 		if err != nil {
 			fmt.Fprintln(ctx.Stderr, err)
 			access = "(error)"
 		} else {
-			client, err := c.getAPI(controllerName)
-			if err != nil {
-				return err
-			}
-			defer client.Close()
 			access = c.userAccess(client, ctx, accountDetails.User)
 			one.AgentVersion = c.agentVersion(client, ctx)
 		}
-		controllers[controllerName] = c.convertControllerForShow(controllerName, one, access)
+
+		var details ShowControllerDetails
+		var modelStatus []base.ModelStatus
+		allModels, err := client.AllModels()
+		if err != nil {
+			details.Errors = append(details.Errors, err.Error())
+			continue
+		}
+		modelTags := make([]names.ModelTag, len(allModels))
+		for i, m := range allModels {
+			modelTags[i] = names.NewModelTag(m.UUID)
+		}
+		modelStatus, err = client.ModelStatus(modelTags...)
+		if err != nil {
+			details.Errors = append(details.Errors, err.Error())
+			continue
+		}
+		c.convertControllerForShow(&details, controllerName, one, access, allModels, modelStatus)
+		controllers[controllerName] = details
 	}
 	return c.out.Write(ctx, controllers)
 }
 
-func (c *showControllerCommand) userAccess(client controllerAccessAPI, ctx *cmd.Context, user string) string {
+func (c *showControllerCommand) userAccess(client ControllerAccessAPI, ctx *cmd.Context, user string) string {
 	var access string
 	userAccess, err := client.GetControllerAccess(user)
 	if err == nil {
@@ -148,7 +172,7 @@ func (c *showControllerCommand) userAccess(client controllerAccessAPI, ctx *cmd.
 	return access
 }
 
-func (c *showControllerCommand) agentVersion(client controllerAccessAPI, ctx *cmd.Context) string {
+func (c *showControllerCommand) agentVersion(client ControllerAccessAPI, ctx *cmd.Context) string {
 	var ver string
 	mc, err := client.ModelConfig()
 	if err != nil {
@@ -167,6 +191,9 @@ func (c *showControllerCommand) agentVersion(client controllerAccessAPI, ctx *cm
 type ShowControllerDetails struct {
 	// Details contains the same details that client store caches for this controller.
 	Details ControllerDetails `yaml:"details,omitempty" json:"details,omitempty"`
+
+	// Machines is a collection of all machines forming the controller cluster.
+	Machines map[string]MachineDetails `yaml:"controller-machines,omitempty" json:"controller-machines,omitempty"`
 
 	// Models is a collection of all models for this controller.
 	Models map[string]ModelDetails `yaml:"models,omitempty" json:"models,omitempty"`
@@ -206,9 +233,27 @@ type ControllerDetails struct {
 }
 
 // ModelDetails holds details of a model to show.
+type MachineDetails struct {
+	// ID holds the id of the machine.
+	ID string `yaml:"id,omitempty" json:"id,omitempty"`
+
+	// InstanceID holds the cloud instance id of the machine.
+	InstanceID string `yaml:"instance-id,omitempty" json:"instance-id,omitempty"`
+
+	// HAStatus holds information informing of the HA status of the machine.
+	HAStatus string `yaml:"ha-status,omitempty" json:"ha-status,omitempty"`
+}
+
+// ModelDetails holds details of a model to show.
 type ModelDetails struct {
 	// ModelUUID holds the details of a model.
 	ModelUUID string `yaml:"uuid" json:"uuid"`
+
+	// MachineCount holds the number of machines in the model.
+	MachineCount *int `yaml:"machine-count,omitempty" json:"machine-count,omitempty"`
+
+	// CoreCount holds the number of cores across the machines in the model.
+	CoreCount *int `yaml:"core-count,omitempty" json:"core-count,omitempty"`
 }
 
 // AccountDetails holds details of an account to show.
@@ -223,20 +268,46 @@ type AccountDetails struct {
 	Password string `yaml:"password,omitempty" json:"password,omitempty"`
 }
 
-func (c *showControllerCommand) convertControllerForShow(controllerName string, details *jujuclient.ControllerDetails, access string) ShowControllerDetails {
-	controller := ShowControllerDetails{
-		Details: ControllerDetails{
-			ControllerUUID: details.ControllerUUID,
-			APIEndpoints:   details.APIEndpoints,
-			CACert:         details.CACert,
-			Cloud:          details.Cloud,
-			CloudRegion:    details.CloudRegion,
-			AgentVersion:   details.AgentVersion,
-		},
+func (c *showControllerCommand) convertControllerForShow(
+	controller *ShowControllerDetails,
+	controllerName string,
+	details *jujuclient.ControllerDetails,
+	access string,
+	allModels []base.UserModel,
+	modelStatus []base.ModelStatus,
+) {
+
+	controller.Details = ControllerDetails{
+		ControllerUUID: details.ControllerUUID,
+		APIEndpoints:   details.APIEndpoints,
+		CACert:         details.CACert,
+		Cloud:          details.Cloud,
+		CloudRegion:    details.CloudRegion,
+		AgentVersion:   details.AgentVersion,
 	}
-	c.convertModelsForShow(controllerName, &controller)
-	c.convertAccountsForShow(controllerName, &controller, access)
-	return controller
+	c.convertModelsForShow(controllerName, controller, allModels, modelStatus)
+	c.convertAccountsForShow(controllerName, controller, access)
+	var controllerModelUUID string
+	for _, m := range allModels {
+		if m.Name == bootstrap.ControllerModelName {
+			controllerModelUUID = m.UUID
+			break
+		}
+	}
+	if controllerModelUUID != "" {
+		var controllerModel base.ModelStatus
+		found := false
+		for _, m := range modelStatus {
+			if m.UUID == controllerModelUUID {
+				controllerModel = m
+				found = true
+				break
+			}
+		}
+		if found {
+			c.convertMachinesForShow(controllerName, controller, controllerModel)
+		}
+	}
 }
 
 func (c *showControllerCommand) convertAccountsForShow(controllerName string, controller *ShowControllerDetails, access string) {
@@ -257,23 +328,71 @@ func (c *showControllerCommand) convertAccountsForShow(controllerName string, co
 	controller.Account = details
 }
 
-func (c *showControllerCommand) convertModelsForShow(controllerName string, controller *ShowControllerDetails) {
-	models, err := c.store.AllModels(controllerName)
-	if errors.IsNotFound(err) {
-		return
-	} else if err != nil {
-		controller.Errors = append(controller.Errors, err.Error())
-		return
-	}
-	if len(models) > 0 {
-		controller.Models = make(map[string]ModelDetails)
-		for modelName, model := range models {
-			controller.Models[modelName] = ModelDetails{model.ModelUUID}
+func (c *showControllerCommand) convertModelsForShow(
+	controllerName string,
+	controller *ShowControllerDetails,
+	models []base.UserModel,
+	modelStatus []base.ModelStatus,
+) {
+	controller.Models = make(map[string]ModelDetails)
+	for i, model := range models {
+		modelDetails := ModelDetails{ModelUUID: model.UUID}
+		if modelStatus[i].TotalMachineCount > 0 {
+			modelDetails.MachineCount = new(int)
+			*modelDetails.MachineCount = modelStatus[i].TotalMachineCount
 		}
+		if modelStatus[i].CoreCount > 0 {
+			modelDetails.CoreCount = new(int)
+			*modelDetails.CoreCount = modelStatus[i].CoreCount
+		}
+		controller.Models[model.Name] = modelDetails
 	}
+	var err error
 	controller.CurrentModel, err = c.store.CurrentModel(controllerName)
 	if err != nil && !errors.IsNotFound(err) {
 		controller.Errors = append(controller.Errors, err.Error())
-		return
 	}
+}
+
+func (c *showControllerCommand) convertMachinesForShow(
+	controllerName string,
+	controller *ShowControllerDetails,
+	controllerModel base.ModelStatus,
+) {
+	controller.Machines = make(map[string]MachineDetails)
+	numControllers := 0
+	for _, m := range controllerModel.Machines {
+		if !m.WantsVote {
+			continue
+		}
+		numControllers++
+	}
+	for _, m := range controllerModel.Machines {
+		if !m.WantsVote {
+			// Skip non controller machines.
+			continue
+		}
+		instId := m.InstanceId
+		if instId == "" {
+			instId = "(unprovisioned)"
+		}
+		details := MachineDetails{InstanceID: instId}
+		if numControllers > 1 {
+			details.HAStatus = haStatus(m.HasVote, m.WantsVote, m.Status)
+		}
+		controller.Machines[m.Id] = details
+	}
+}
+
+func haStatus(hasVote bool, wantsVote bool, statusStr string) string {
+	if statusStr == string(status.Down) {
+		return "down, lost connection"
+	}
+	if !wantsVote {
+		return ""
+	}
+	if hasVote {
+		return "ha-enabled"
+	}
+	return "ha-pending"
 }

@@ -9,6 +9,7 @@ import (
 	"github.com/juju/gnuflag"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/cmd/juju/common"
 )
 
 var usageAddCloudSummary = `
@@ -89,12 +90,23 @@ func (c *addCloudCommand) Run(ctxt *cmd.Context) error {
 	if !ok {
 		return errors.Errorf("cloud %q not found in file %q", c.Cloud, c.CloudFile)
 	}
+	publicClouds, _, err := cloud.PublicCloudMetadata()
+	if err != nil {
+		return err
+	}
+	if _, ok = publicClouds[c.Cloud]; ok && !c.Replace {
+		return errors.Errorf("%q is the name of a public cloud; use --replace to use your cloud definition instead", c.Cloud)
+	}
+	builtinClouds := common.BuiltInClouds()
+	if _, ok = builtinClouds[c.Cloud]; ok && !c.Replace {
+		return errors.Errorf("%q is the name of a built-in cloud; use --replace to use your cloud definition instead", c.Cloud)
+	}
 	personalClouds, err := cloud.PersonalCloudMetadata()
 	if err != nil {
 		return err
 	}
 	if _, ok = personalClouds[c.Cloud]; ok && !c.Replace {
-		return errors.Errorf("cloud called %q already exists; use --replace to replace this existing cloud", c.Cloud)
+		return errors.Errorf("%q already exists; use --replace to replace this existing cloud", c.Cloud)
 	}
 	if personalClouds == nil {
 		personalClouds = make(map[string]cloud.Cloud)

@@ -96,7 +96,7 @@ func (manager *containerManager) CreateContainer(
 
 	defer func() {
 		if err != nil {
-			callback(status.StatusProvisioningError, fmt.Sprintf("Creating container: %v", err), nil)
+			callback(status.ProvisioningError, fmt.Sprintf("Creating container: %v", err), nil)
 		}
 	}()
 
@@ -111,7 +111,7 @@ func (manager *containerManager) CreateContainer(
 	err = manager.client.EnsureImageExists(series,
 		lxdclient.DefaultImageSources,
 		func(progress string) {
-			callback(status.StatusProvisioning, progress, nil)
+			callback(status.Provisioning, progress, nil)
 		})
 	if err != nil {
 		err = errors.Annotatef(err, "failed to ensure LXD image")
@@ -161,13 +161,13 @@ func (manager *containerManager) CreateContainer(
 	}
 
 	logger.Infof("starting instance %q (image %q)...", spec.Name, spec.Image)
-	callback(status.StatusProvisioning, "Starting container", nil)
+	callback(status.Provisioning, "Starting container", nil)
 	_, err = manager.client.AddInstance(spec)
 	if err != nil {
 		return
 	}
 
-	callback(status.StatusRunning, "Container started", nil)
+	callback(status.Running, "Container started", nil)
 	inst = &lxdInstance{name, manager.client}
 	return
 }

@@ -6,20 +6,26 @@ package commands
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"gopkg.in/macaroon-bakery.v1/httpbakery"
+	"gopkg.in/macaroon.v1"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/jujuclient"
 )
 
 func newMigrateCommand() cmd.Command {
-	return modelcmd.WrapController(&migrateCommand{})
+	var cmd migrateCommand
+	cmd.newAPIRoot = cmd.JujuCommandBase.NewAPIRoot
+	return modelcmd.WrapController(&cmd)
 }
 
 // migrateCommand initiates a model migration.
 type migrateCommand struct {
 	modelcmd.ControllerCommandBase
-	api migrateAPI
-
+	newAPIRoot       func(jujuclient.ClientStore, string, string) (api.Connection, error)
+	api              migrateAPI
 	model            string
 	targetController string
 }
@@ -103,6 +109,15 @@ func (c *migrateCommand) getMigrationSpec() (*controller.MigrationSpec, error) {
 		return nil, err
 	}
 
+	var macs []macaroon.Slice
+	if accountInfo.Password == "" {
+		var err error
+		macs, err = c.getTargetControllerMacaroons()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+
 	return &controller.MigrationSpec{
 		ModelUUID:            modelUUID,
 		TargetControllerUUID: controllerInfo.ControllerUUID,
@@ -110,7 +125,7 @@ func (c *migrateCommand) getMigrationSpec() (*controller.MigrationSpec, error) {
 		TargetCACert:         controllerInfo.CACert,
 		TargetUser:           accountInfo.User,
 		TargetPassword:       accountInfo.Password,
-		TargetMacaroon:       accountInfo.Macaroon,
+		TargetMacaroons:      macs,
 	}, nil
 }
 
@@ -137,4 +152,23 @@ func (c *migrateCommand) getAPI() (migrateAPI, error) {
 		return c.api, nil
 	}
 	return c.NewControllerAPIClient()
+}
+
+func (c *migrateCommand) getTargetControllerMacaroons() ([]macaroon.Slice, error) {
+	apiContext, err := c.APIContext()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// Connect to the target controller, ensuring up-to-date macaroons,
+	// and return the macaroons in the cookie jar for the controller.
+	//
+	// TODO(axw,mjs) add a controller API that returns a macaroon that
+	// may be used for the sole purpose of migration.
+	api, err := c.newAPIRoot(c.ClientStore(), c.targetController, "")
+	if err != nil {
+		return nil, errors.Annotate(err, "connecting to target controller")
+	}
+	defer api.Close()
+	return httpbakery.MacaroonsForURL(apiContext.Jar, api.CookieURL()), nil
 }

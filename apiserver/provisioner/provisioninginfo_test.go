@@ -25,7 +25,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithStorage(c *gc.C) {
 	_, err := pm.Create("static-pool", "static", map[string]interface{}{"foo": "bar"})
 	c.Assert(err, jc.ErrorIsNil)
 
-	cons := constraints.MustParse("cpu-cores=123 mem=8G")
+	cons := constraints.MustParse("cores=123 mem=8G")
 	template := state.MachineTemplate{
 		Series:      "quantal",
 		Jobs:        []state.MachineJob{state.JobHostUnits},
@@ -116,7 +116,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithStorage(c *gc.C) {
 func (s *withoutControllerSuite) TestProvisioningInfoWithSingleNegativeAndPositiveSpaceInConstraints(c *gc.C) {
 	s.addSpacesAndSubnets(c)
 
-	cons := constraints.MustParse("cpu-cores=123 mem=8G spaces=^space1,space2")
+	cons := constraints.MustParse("cores=123 mem=8G spaces=^space1,space2")
 	template := state.MachineTemplate{
 		Series:      "quantal",
 		Jobs:        []state.MachineJob{state.JobHostUnits},
@@ -234,8 +234,8 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithUnsuitableSpacesConstra
 	_, err := s.State.AddSpace("empty", "", nil, true)
 	c.Assert(err, jc.ErrorIsNil)
 
-	consEmptySpace := constraints.MustParse("cpu-cores=123 mem=8G spaces=empty")
-	consMissingSpace := constraints.MustParse("cpu-cores=123 mem=8G spaces=missing")
+	consEmptySpace := constraints.MustParse("cores=123 mem=8G spaces=empty")
+	consMissingSpace := constraints.MustParse("cores=123 mem=8G spaces=missing")
 	templates := []state.MachineTemplate{{
 		Series:      "quantal",
 		Jobs:        []state.MachineJob{state.JobHostUnits},

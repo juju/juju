@@ -19,10 +19,10 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/status"
 	jujuversion "github.com/juju/juju/version"
@@ -44,7 +44,7 @@ type modelManagerBaseSuite struct {
 
 type modelManagerSuite struct {
 	gitjujutesting.IsolationSuite
-	st         mockState
+	st         *mockState
 	authoriser apiservertesting.FakeAuthorizer
 	api        *modelmanager.ModelManagerAPI
 }
@@ -68,7 +68,7 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 		},
 	}
 
-	s.st = mockState{
+	s.st = &mockState{
 		modelUUID: coretesting.ModelTag.Id(),
 		cloud:     dummyCloud,
 		clouds: map[names.CloudTag]cloud.Cloud{
@@ -79,15 +79,15 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 			life:  state.Alive,
 			cfg:   cfg,
 			status: status.StatusInfo{
-				Status: status.StatusAvailable,
+				Status: status.Available,
 				Since:  &time.Time{},
 			},
 			users: []*mockModelUser{{
 				userName: "admin",
-				access:   description.AdminAccess,
+				access:   permission.AdminAccess,
 			}, {
 				userName: "otheruser",
-				access:   description.WriteAccess,
+				access:   permission.WriteAccess,
 			}},
 		},
 		model: &mockModel{
@@ -96,32 +96,46 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 			tag:   coretesting.ModelTag,
 			cfg:   cfg,
 			status: status.StatusInfo{
-				Status: status.StatusAvailable,
+				Status: status.Available,
 				Since:  &time.Time{},
 			},
 			users: []*mockModelUser{{
 				userName: "admin",
-				access:   description.AdminAccess,
+				access:   permission.AdminAccess,
 			}, {
 				userName: "otheruser",
-				access:   description.WriteAccess,
+				access:   permission.WriteAccess,
 			}},
 		},
 		cred: cloud.NewEmptyCredential(),
+		cfgDefaults: config.ModelDefaultAttributes{
+			"attr": config.AttributeDefaultValues{
+				Default:    "",
+				Controller: "val",
+				Regions: []config.RegionDefaultValue{{
+					Name:  "dummy",
+					Value: "val++"}}},
+			"attr2": config.AttributeDefaultValues{
+				Controller: "val3",
+				Default:    "val2",
+				Regions: []config.RegionDefaultValue{{
+					Name:  "left",
+					Value: "spam"}}},
+		},
 	}
 	s.authoriser = apiservertesting.FakeAuthorizer{
 		Tag: names.NewUserTag("admin@local"),
 	}
-	api, err := modelmanager.NewModelManagerAPI(&s.st, nil, s.authoriser)
+	api, err := modelmanager.NewModelManagerAPI(s.st, nil, s.authoriser)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
 }
 
 func (s *modelManagerSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.authoriser.Tag = user
-	modelmanager, err := modelmanager.NewModelManagerAPI(&s.st, nil, s.authoriser)
+	mm, err := modelmanager.NewModelManagerAPI(s.st, nil, s.authoriser)
 	c.Assert(err, jc.ErrorIsNil)
-	s.api = modelmanager
+	s.api = mm
 }
 
 func (s *modelManagerSuite) getModelArgs(c *gc.C) state.ModelArgs {
@@ -164,6 +178,7 @@ func (s *modelManagerSuite) TestCreateModelArgs(c *gc.C) {
 		"ControllerConfig",
 		"LastModelConnection",
 		"LastModelConnection",
+		"AllMachines",
 		"Close",
 		"Close",
 	)
@@ -297,6 +312,159 @@ func (s *modelManagerSuite) TestCreateModelUnknownCredential(c *gc.C) {
 	}
 	_, err := s.api.CreateModel(args)
 	c.Assert(err, gc.ErrorMatches, `getting credential: credential not found`)
+}
+
+func (s *modelManagerSuite) TestModelDefaults(c *gc.C) {
+	result, err := s.api.ModelDefaults()
+	c.Assert(err, jc.ErrorIsNil)
+	expectedValues := map[string]params.ModelDefaults{
+		"attr": {
+			Controller: "val",
+			Default:    "",
+			Regions: []params.RegionDefaults{{
+				RegionName: "dummy",
+				Value:      "val++"}}},
+		"attr2": {
+			Controller: "val3",
+			Default:    "val2",
+			Regions: []params.RegionDefaults{{
+				RegionName: "left",
+				Value:      "spam"}}},
+	}
+	c.Assert(result.Config, jc.DeepEquals, expectedValues)
+}
+
+func (s *modelManagerSuite) TestSetModelDefaults(c *gc.C) {
+	params := params.SetModelDefaults{
+		Config: []params.ModelDefaultValues{{
+			Config: map[string]interface{}{
+				"attr3": "val3",
+				"attr4": "val4"},
+		}}}
+	result, err := s.api.SetModelDefaults(params)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.OneError(), jc.ErrorIsNil)
+	c.Assert(s.st.cfgDefaults, jc.DeepEquals, config.ModelDefaultAttributes{
+		"attr": {
+			Controller: "val",
+			Default:    "",
+			Regions: []config.RegionDefaultValue{{
+				Name:  "dummy",
+				Value: "val++"}}},
+		"attr2": {
+			Controller: "val3",
+			Default:    "val2",
+			Regions: []config.RegionDefaultValue{{
+				Name:  "left",
+				Value: "spam"}}},
+		"attr3": {Controller: "val3"},
+		"attr4": {Controller: "val4"},
+	})
+}
+
+func (s *modelManagerSuite) blockAllChanges(c *gc.C, msg string) {
+	s.st.blockMsg = msg
+	s.st.block = state.ChangeBlock
+}
+
+func (s *modelManagerSuite) assertBlocked(c *gc.C, err error, msg string) {
+	c.Assert(params.IsCodeOperationBlocked(err), jc.IsTrue, gc.Commentf("error: %#v", err))
+	c.Assert(errors.Cause(err), jc.DeepEquals, &params.Error{
+		Message: msg,
+		Code:    "operation is blocked",
+	})
+}
+
+func (s *modelManagerSuite) TestBlockChangesSetModelDefaults(c *gc.C) {
+	s.blockAllChanges(c, "TestBlockChangesSetModelDefaults")
+	_, err := s.api.SetModelDefaults(params.SetModelDefaults{})
+	s.assertBlocked(c, err, "TestBlockChangesSetModelDefaults")
+}
+
+func (s *modelManagerSuite) TestUnsetModelDefaults(c *gc.C) {
+	args := params.UnsetModelDefaults{
+		Keys: []params.ModelUnsetKeys{{
+			Keys: []string{"attr"},
+		}}}
+	result, err := s.api.UnsetModelDefaults(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.OneError(), jc.ErrorIsNil)
+	c.Assert(s.st.cfgDefaults, jc.DeepEquals, config.ModelDefaultAttributes{
+		"attr2": {
+			Controller: "val3",
+			Default:    "val2",
+			Regions: []config.RegionDefaultValue{{
+				Name:  "left",
+				Value: "spam"}}},
+	})
+}
+
+func (s *modelManagerSuite) TestBlockUnsetModelDefaults(c *gc.C) {
+	s.blockAllChanges(c, "TestBlockUnsetModelDefaults")
+	args := params.UnsetModelDefaults{
+		Keys: []params.ModelUnsetKeys{{
+			Keys: []string{"abc"},
+		}}}
+	_, err := s.api.UnsetModelDefaults(args)
+	s.assertBlocked(c, err, "TestBlockUnsetModelDefaults")
+}
+
+func (s *modelManagerSuite) TestUnsetModelDefaultsMissing(c *gc.C) {
+	// It's okay to unset a non-existent attribute.
+	args := params.UnsetModelDefaults{
+		Keys: []params.ModelUnsetKeys{{
+			Keys: []string{"not there"},
+		}}}
+	result, err := s.api.UnsetModelDefaults(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.OneError(), jc.ErrorIsNil)
+}
+
+func (s *modelManagerSuite) TestModelDefaultsAsNormalUser(c *gc.C) {
+	s.setAPIUser(c, names.NewUserTag("charlie@local"))
+	got, err := s.api.ModelDefaults()
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(got, gc.DeepEquals, params.ModelDefaultsResult{})
+}
+
+func (s *modelManagerSuite) TestSetModelDefaultsAsNormalUser(c *gc.C) {
+	s.setAPIUser(c, names.NewUserTag("charlie@local"))
+	got, err := s.api.SetModelDefaults(params.SetModelDefaults{
+		Config: []params.ModelDefaultValues{{
+			Config: map[string]interface{}{
+				"ftp-proxy": "http://charlie",
+			}}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(got, jc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			params.ErrorResult{
+				Error: &params.Error{
+					Message: "permission denied",
+					Code:    "unauthorized access"}}}})
+
+	// Make sure it didn't change.
+	s.setAPIUser(c, names.NewUserTag("admin@local"))
+	cfg, err := s.api.ModelDefaults()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cfg.Config["ftp-proxy"].Controller, gc.IsNil)
+}
+
+func (s *modelManagerSuite) TestUnsetModelDefaultsAsNormalUser(c *gc.C) {
+	s.setAPIUser(c, names.NewUserTag("charlie@local"))
+	got, err := s.api.UnsetModelDefaults(params.UnsetModelDefaults{
+		Keys: []params.ModelUnsetKeys{{
+			Keys: []string{"attr2"}}}})
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(got, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			params.ErrorResult{
+				Error: nil}}})
+
+	// Make sure it didn't change.
+	s.setAPIUser(c, names.NewUserTag("admin@local"))
+	cfg, err := s.api.ModelDefaults()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cfg.Config["attr2"].Controller.(string), gc.Equals, "val3")
 }
 
 func (s *modelManagerSuite) TestDumpModel(c *gc.C) {
@@ -635,10 +803,10 @@ func (s *modelManagerStateSuite) TestListModelsForSelfLocalUser(c *gc.C) {
 	c.Assert(result.UserModels, gc.HasLen, 0)
 }
 
-func (s *modelManagerStateSuite) checkModelMatches(c *gc.C, env params.Model, expected *state.Model) {
-	c.Check(env.Name, gc.Equals, expected.Name())
-	c.Check(env.UUID, gc.Equals, expected.UUID())
-	c.Check(env.OwnerTag, gc.Equals, expected.Owner().String())
+func (s *modelManagerStateSuite) checkModelMatches(c *gc.C, model params.Model, expected *state.Model) {
+	c.Check(model.Name, gc.Equals, expected.Name())
+	c.Check(model.UUID, gc.Equals, expected.UUID())
+	c.Check(model.OwnerTag, gc.Equals, expected.Owner().String())
 }
 
 func (s *modelManagerStateSuite) TestListModelsAdminSelf(c *gc.C) {
@@ -836,14 +1004,14 @@ func (s *modelManagerStateSuite) TestGrantMissingModelFails(c *gc.C) {
 
 func (s *modelManagerStateSuite) TestRevokeAdminLeavesReadAccess(c *gc.C) {
 	s.setAPIUser(c, s.AdminUserTag(c))
-	user := s.Factory.MakeModelUser(c, &factory.ModelUserParams{Access: description.WriteAccess})
+	user := s.Factory.MakeModelUser(c, &factory.ModelUserParams{Access: permission.WriteAccess})
 
 	err := s.revoke(c, user.UserTag, params.ModelWriteAccess, user.Object.(names.ModelTag))
 	c.Assert(err, gc.IsNil)
 
 	modelUser, err := s.State.UserAccess(user.UserTag, user.Object)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(modelUser.Access, gc.Equals, description.ReadAccess)
+	c.Assert(modelUser.Access, gc.Equals, permission.ReadAccess)
 }
 
 func (s *modelManagerStateSuite) TestRevokeReadRemovesModelUser(c *gc.C) {
@@ -883,7 +1051,7 @@ func (s *modelManagerStateSuite) TestGrantOnlyGreaterAccess(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `user already has "read" access or greater`)
 }
 
-func (s *modelManagerStateSuite) assertNewUser(c *gc.C, modelUser description.UserAccess, userTag, creatorTag names.UserTag) {
+func (s *modelManagerStateSuite) assertNewUser(c *gc.C, modelUser permission.UserAccess, userTag, creatorTag names.UserTag) {
 	c.Assert(modelUser.UserTag, gc.Equals, userTag)
 	c.Assert(modelUser.CreatedBy, gc.Equals, creatorTag)
 	_, err := s.State.LastModelConnection(modelUser.UserTag)
@@ -910,7 +1078,7 @@ func (s *modelManagerStateSuite) TestGrantModelAddLocalUser(c *gc.C) {
 	modelUser, err := st.UserAccess(user.UserTag(), st.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertNewUser(c, modelUser, user.UserTag(), apiUser)
-	c.Assert(modelUser.Access, gc.Equals, description.ReadAccess)
+	c.Assert(modelUser.Access, gc.Equals, permission.ReadAccess)
 	s.setAPIUser(c, user.UserTag())
 	s.assertModelAccess(c, st)
 }
@@ -929,7 +1097,7 @@ func (s *modelManagerStateSuite) TestGrantModelAddRemoteUser(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.assertNewUser(c, modelUser, userTag, apiUser)
-	c.Assert(modelUser.Access, gc.Equals, description.ReadAccess)
+	c.Assert(modelUser.Access, gc.Equals, permission.ReadAccess)
 	s.setAPIUser(c, userTag)
 	s.assertModelAccess(c, st)
 }
@@ -946,7 +1114,7 @@ func (s *modelManagerStateSuite) TestGrantModelAddAdminUser(c *gc.C) {
 	modelUser, err := st.UserAccess(user.UserTag(), st.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertNewUser(c, modelUser, user.UserTag(), apiUser)
-	c.Assert(modelUser.Access, gc.Equals, description.WriteAccess)
+	c.Assert(modelUser.Access, gc.Equals, permission.WriteAccess)
 	s.setAPIUser(c, user.UserTag())
 	s.assertModelAccess(c, st)
 }
@@ -956,14 +1124,14 @@ func (s *modelManagerStateSuite) TestGrantModelIncreaseAccess(c *gc.C) {
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 	stFactory := factory.NewFactory(st)
-	user := stFactory.MakeModelUser(c, &factory.ModelUserParams{Access: description.ReadAccess})
+	user := stFactory.MakeModelUser(c, &factory.ModelUserParams{Access: permission.ReadAccess})
 
 	err := s.grant(c, user.UserTag, params.ModelWriteAccess, st.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 
 	modelUser, err := st.UserAccess(user.UserTag, st.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(modelUser.Access, gc.Equals, description.WriteAccess)
+	c.Assert(modelUser.Access, gc.Equals, permission.WriteAccess)
 }
 
 func (s *modelManagerStateSuite) TestGrantToModelNoAccess(c *gc.C) {
@@ -989,7 +1157,7 @@ func (s *modelManagerStateSuite) TestGrantToModelReadAccess(c *gc.C) {
 
 	stFactory := factory.NewFactory(st)
 	stFactory.MakeModelUser(c, &factory.ModelUserParams{
-		User: apiUser.Canonical(), Access: description.ReadAccess})
+		User: apiUser.Canonical(), Access: permission.ReadAccess})
 
 	other := names.NewUserTag("other@remote")
 	err := s.grant(c, other, params.ModelReadAccess, st.ModelTag())
@@ -1005,7 +1173,7 @@ func (s *modelManagerStateSuite) TestGrantToModelWriteAccess(c *gc.C) {
 	s.setAPIUser(c, apiUser)
 	stFactory := factory.NewFactory(st)
 	stFactory.MakeModelUser(c, &factory.ModelUserParams{
-		User: apiUser.Canonical(), Access: description.AdminAccess})
+		User: apiUser.Canonical(), Access: permission.AdminAccess})
 
 	other := names.NewUserTag("other@remote")
 	err := s.grant(c, other, params.ModelReadAccess, st.ModelTag())
@@ -1014,7 +1182,7 @@ func (s *modelManagerStateSuite) TestGrantToModelWriteAccess(c *gc.C) {
 	modelUser, err := st.UserAccess(other, st.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertNewUser(c, modelUser, other, apiUser)
-	c.Assert(modelUser.Access, gc.Equals, description.ReadAccess)
+	c.Assert(modelUser.Access, gc.Equals, permission.ReadAccess)
 }
 
 func (s *modelManagerStateSuite) TestGrantModelInvalidUserTag(c *gc.C) {
@@ -1091,7 +1259,7 @@ func (s *modelManagerStateSuite) TestModifyModelAccessEmptyArgs(c *gc.C) {
 
 	result, err := s.modelmanager.ModifyModelAccess(args)
 	c.Assert(err, jc.ErrorIsNil)
-	expectedErr := `could not modify model access: invalid model access permission ""`
+	expectedErr := `could not modify model access: "" model access not valid`
 	c.Assert(result.OneError(), gc.ErrorMatches, expectedErr)
 }
 

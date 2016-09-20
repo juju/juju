@@ -92,7 +92,7 @@ func (h *History) SquashLogs(cycleSize int) History {
 	var repeat int
 	var i int
 	repeatStatus := DetailedStatus{
-		Status: StatusIdle,
+		Status: Idle,
 		Info:   "",
 		Since:  &now,
 	}

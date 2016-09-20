@@ -68,8 +68,8 @@ Examples:
    juju add-machine zone=us-east-1a      (start a machine in zone us-east-1a on AWS)
    juju add-machine maas2.name           (acquire machine maas2.name on MAAS)
 
-See Also:
-    juju remove-machine
+See also:
+    remove-machine
 `
 
 func init() {
@@ -100,6 +100,8 @@ type addCommand struct {
 	Series string
 	// If specified, these constraints are merged with those already in the model.
 	Constraints constraints.Value
+	// If specified, these constraints are merged with those already in the model.
+	ConstraintsStr string
 	// Placement is passed verbatim to the API, to be parsed and evaluated server-side.
 	Placement *instance.Placement
 	// NumMachines is the number of machines to add.
@@ -121,7 +123,7 @@ func (c *addCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 	f.StringVar(&c.Series, "series", "", "The charm series")
 	f.IntVar(&c.NumMachines, "n", 1, "The number of machines to add")
-	f.Var(constraints.ConstraintsValue{Target: &c.Constraints}, "constraints", "Additional machine constraints")
+	f.StringVar(&c.ConstraintsStr, "constraints", "", "Additional machine constraints")
 	f.Var(disksFlag{&c.Disks}, "disks", "Constraints for disks to attach to the machine")
 }
 
@@ -203,6 +205,11 @@ func (c *addCommand) getMachineManagerAPI() (MachineManagerAPI, error) {
 }
 
 func (c *addCommand) Run(ctx *cmd.Context) error {
+	var err error
+	c.Constraints, err = common.ParseConstraints(ctx, c.ConstraintsStr)
+	if err != nil {
+		return err
+	}
 	client, err := c.getClientAPI()
 	if err != nil {
 		return errors.Trace(err)

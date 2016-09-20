@@ -26,13 +26,13 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/manual"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
@@ -129,14 +129,14 @@ func (s *serverSuite) TestModelUsersInfo(c *gc.C) {
 
 	localUser1 := s.makeLocalModelUser(c, "ralphdoe", "Ralph Doe")
 	localUser2 := s.makeLocalModelUser(c, "samsmith", "Sam Smith")
-	remoteUser1 := s.Factory.MakeModelUser(c, &factory.ModelUserParams{User: "bobjohns@ubuntuone", DisplayName: "Bob Johns", Access: description.WriteAccess})
-	remoteUser2 := s.Factory.MakeModelUser(c, &factory.ModelUserParams{User: "nicshaw@idprovider", DisplayName: "Nic Shaw", Access: description.WriteAccess})
+	remoteUser1 := s.Factory.MakeModelUser(c, &factory.ModelUserParams{User: "bobjohns@ubuntuone", DisplayName: "Bob Johns", Access: permission.WriteAccess})
+	remoteUser2 := s.Factory.MakeModelUser(c, &factory.ModelUserParams{User: "nicshaw@idprovider", DisplayName: "Nic Shaw", Access: permission.WriteAccess})
 
 	results, err := s.client.ModelUserInfo()
 	c.Assert(err, jc.ErrorIsNil)
 	var expected params.ModelUserInfoResults
 	for _, r := range []struct {
-		user description.UserAccess
+		user permission.UserAccess
 		info *params.ModelUserInfo
 	}{
 		{
@@ -185,7 +185,7 @@ func (s *serverSuite) TestModelUsersInfo(c *gc.C) {
 	c.Assert(results, jc.DeepEquals, expected)
 }
 
-func lastConnPointer(c *gc.C, modelUser description.UserAccess, st *state.State) *time.Time {
+func lastConnPointer(c *gc.C, modelUser permission.UserAccess, st *state.State) *time.Time {
 	lastConn, err := st.LastModelConnection(modelUser.UserTag)
 	if err != nil {
 		if state.IsNeverConnectedError(err) {
@@ -204,7 +204,7 @@ func (a ByUserName) Len() int           { return len(a) }
 func (a ByUserName) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a ByUserName) Less(i, j int) bool { return a[i].Result.UserName < a[j].Result.UserName }
 
-func (s *serverSuite) makeLocalModelUser(c *gc.C, username, displayname string) description.UserAccess {
+func (s *serverSuite) makeLocalModelUser(c *gc.C, username, displayname string) permission.UserAccess {
 	// factory.MakeUser will create an ModelUser for a local user by defalut
 	user := s.Factory.MakeUser(c, &factory.UserParams{Name: username, DisplayName: displayname})
 	modelUser, err := s.State.UserAccess(user.UserTag(), s.State.ModelTag())
@@ -460,7 +460,7 @@ func (s *clientSuite) testClientUnitResolved(c *gc.C, retry bool, expectedResolv
 	c.Assert(err, jc.ErrorIsNil)
 	now := time.Now()
 	sInfo := status.StatusInfo{
-		Status:  status.StatusError,
+		Status:  status.Error,
 		Message: "gaaah",
 		Since:   &now,
 	}
@@ -492,7 +492,7 @@ func (s *clientSuite) setupResolved(c *gc.C) *state.Unit {
 	c.Assert(err, jc.ErrorIsNil)
 	now := time.Now()
 	sInfo := status.StatusInfo{
-		Status:  status.StatusError,
+		Status:  status.Error,
 		Message: "gaaah",
 		Since:   &now,
 	}
@@ -594,10 +594,10 @@ func (s *clientSuite) TestClientWatchAll(c *gc.C) {
 			Id:         m.Id(),
 			InstanceId: "i-0",
 			AgentStatus: multiwatcher.StatusInfo{
-				Current: status.StatusPending,
+				Current: status.Pending,
 			},
 			InstanceStatus: multiwatcher.StatusInfo{
-				Current: status.StatusPending,
+				Current: status.Pending,
 			},
 			Life:                    multiwatcher.Life("alive"),
 			Series:                  "quantal",
@@ -617,7 +617,7 @@ func (s *clientSuite) TestClientWatchAll(c *gc.C) {
 
 func (s *clientSuite) TestClientSetModelConstraints(c *gc.C) {
 	// Set constraints for the model.
-	cons, err := constraints.Parse("mem=4096", "cpu-cores=2")
+	cons, err := constraints.Parse("mem=4096", "cores=2")
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.APIState.Client().SetModelConstraints(cons)
 	c.Assert(err, jc.ErrorIsNil)
@@ -630,7 +630,7 @@ func (s *clientSuite) TestClientSetModelConstraints(c *gc.C) {
 
 func (s *clientSuite) assertSetModelConstraints(c *gc.C) {
 	// Set constraints for the model.
-	cons, err := constraints.Parse("mem=4096", "cpu-cores=2")
+	cons, err := constraints.Parse("mem=4096", "cores=2")
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.APIState.Client().SetModelConstraints(cons)
 	c.Assert(err, jc.ErrorIsNil)
@@ -642,7 +642,7 @@ func (s *clientSuite) assertSetModelConstraints(c *gc.C) {
 
 func (s *clientSuite) assertSetModelConstraintsBlocked(c *gc.C, msg string) {
 	// Set constraints for the model.
-	cons, err := constraints.Parse("mem=4096", "cpu-cores=2")
+	cons, err := constraints.Parse("mem=4096", "cores=2")
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.APIState.Client().SetModelConstraints(cons)
 	s.AssertBlocked(c, err, msg)
@@ -665,7 +665,7 @@ func (s *clientSuite) TestBlockChangesClientSetModelConstraints(c *gc.C) {
 
 func (s *clientSuite) TestClientGetModelConstraints(c *gc.C) {
 	// Set constraints for the model.
-	cons, err := constraints.Parse("mem=4096", "cpu-cores=2")
+	cons, err := constraints.Parse("mem=4096", "cores=2")
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.SetModelConstraints(cons)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1219,7 +1219,7 @@ func (s *clientSuite) TestRetryProvisioning(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	now := time.Now()
 	sInfo := status.StatusInfo{
-		Status:  status.StatusError,
+		Status:  status.Error,
 		Message: "error",
 		Since:   &now,
 	}
@@ -1230,7 +1230,7 @@ func (s *clientSuite) TestRetryProvisioning(c *gc.C) {
 
 	statusInfo, err := machine.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Status, gc.Equals, status.StatusError)
+	c.Assert(statusInfo.Status, gc.Equals, status.Error)
 	c.Assert(statusInfo.Message, gc.Equals, "error")
 	c.Assert(statusInfo.Data["transient"], jc.IsTrue)
 }
@@ -1240,7 +1240,7 @@ func (s *clientSuite) setupRetryProvisioning(c *gc.C) *state.Machine {
 	c.Assert(err, jc.ErrorIsNil)
 	now := time.Now()
 	sInfo := status.StatusInfo{
-		Status:  status.StatusError,
+		Status:  status.Error,
 		Message: "error",
 		Since:   &now,
 	}
@@ -1254,7 +1254,7 @@ func (s *clientSuite) assertRetryProvisioning(c *gc.C, machine *state.Machine) {
 	c.Assert(err, jc.ErrorIsNil)
 	statusInfo, err := machine.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Status, gc.Equals, status.StatusError)
+	c.Assert(statusInfo.Status, gc.Equals, status.Error)
 	c.Assert(statusInfo.Message, gc.Equals, "error")
 	c.Assert(statusInfo.Data["transient"], jc.IsTrue)
 }

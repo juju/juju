@@ -69,7 +69,7 @@ var findInstanceSpecTests = []struct {
 	}, {
 		series: "xenial",
 		arches: []string{"amd64"},
-		cons:   "cpu-cores=4",
+		cons:   "cores=4",
 		itype:  "m3.xlarge",
 		image:  "ami-00000133",
 	}, {

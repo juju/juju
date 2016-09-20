@@ -200,7 +200,11 @@ func (r *Relation) removeOps(ignoreService string, departingUnit *Unit) ([]txn.O
 			hasLastRef := bson.D{{"life", Dying}, {"unitcount", 0}, {"relationcount", 1}}
 			removable := append(bson.D{{"_id", ep.ApplicationName}}, hasLastRef...)
 			if err := applications.Find(removable).One(&svc.doc); err == nil {
-				ops = append(ops, svc.removeOps(hasLastRef)...)
+				appRemoveOps, err := svc.removeOps(hasLastRef)
+				if err != nil {
+					return nil, errors.Trace(err)
+				}
+				ops = append(ops, appRemoveOps...)
 				continue
 			} else if err != mgo.ErrNotFound {
 				return nil, err
@@ -220,7 +224,7 @@ func (r *Relation) removeOps(ignoreService string, departingUnit *Unit) ([]txn.O
 			Update: bson.D{{"$inc", bson.D{{"relationcount", -1}}}},
 		})
 	}
-	cleanupOp := r.st.newCleanupOp(cleanupRelationSettings, fmt.Sprintf("r#%d#", r.Id()))
+	cleanupOp := newCleanupOp(cleanupRelationSettings, fmt.Sprintf("r#%d#", r.Id()))
 	return append(ops, cleanupOp), nil
 }
 

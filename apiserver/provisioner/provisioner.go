@@ -305,7 +305,7 @@ func (p *ProvisionerAPI) MachinesWithTransientErrors() (params.StatusResults, er
 		result.Status = statusInfo.Status.String()
 		result.Info = statusInfo.Message
 		result.Data = statusInfo.Data
-		if statusInfo.Status != status.StatusError {
+		if statusInfo.Status != status.Error {
 			continue
 		}
 		// Transient errors are marked as such in the status data.

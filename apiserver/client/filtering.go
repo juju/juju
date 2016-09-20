@@ -328,7 +328,7 @@ func matchWorkloadStatus(patterns []string, workloadStatus status.Status, agentS
 		oneValidStatus = true
 		// To preserve current expected behaviour, we only report on workload status
 		// if the agent itself is not in error.
-		if agentStatus != status.StatusError && workloadStatus.WorkloadMatches(ps) {
+		if agentStatus != status.Error && workloadStatus.WorkloadMatches(ps) {
 			return true, true, nil
 		}
 	}

@@ -213,7 +213,7 @@ func (s *baseDestroySuite) SetUpTest(c *gc.C) {
 		})
 		s.api.envStatus[model.modelUUID] = base.ModelStatus{
 			UUID:               uuid,
-			Life:               params.Dead,
+			Life:               string(params.Dead),
 			HostedMachineCount: 0,
 			ServiceCount:       0,
 			Owner:              owner.Canonical(),
@@ -317,7 +317,7 @@ func (s *DestroySuite) TestFailedDestroyController(c *gc.C) {
 
 func (s *DestroySuite) TestDestroyControllerAliveModels(c *gc.C) {
 	for uuid, status := range s.api.envStatus {
-		status.Life = params.Alive
+		status.Life = string(params.Alive)
 		s.api.envStatus[uuid] = status
 	}
 	s.api.SetErrors(&params.Error{Code: params.CodeHasHostedModels})
@@ -427,8 +427,8 @@ func (s *DestroySuite) TestBlockedDestroy(c *gc.C) {
 	s.api.SetErrors(&params.Error{Code: params.CodeOperationBlocked})
 	s.runDestroyCommand(c, "test1", "-y")
 	testLog := c.GetTestLog()
-	c.Check(testLog, jc.Contains, "To remove all blocks in the controller, please run:")
-	c.Check(testLog, jc.Contains, "juju controller remove-blocks")
+	c.Check(testLog, jc.Contains, "To enable controller destruction, please run:")
+	c.Check(testLog, jc.Contains, "juju enable-destroy-controller")
 }
 
 func (s *DestroySuite) TestDestroyListBlocksError(c *gc.C) {
@@ -438,9 +438,9 @@ func (s *DestroySuite) TestDestroyListBlocksError(c *gc.C) {
 	)
 	s.runDestroyCommand(c, "test1", "-y")
 	testLog := c.GetTestLog()
-	c.Check(testLog, jc.Contains, "To remove all blocks in the controller, please run:")
-	c.Check(testLog, jc.Contains, "juju controller remove-blocks")
-	c.Check(testLog, jc.Contains, "Unable to list blocked models: unexpected api error")
+	c.Check(testLog, jc.Contains, "To enable controller destruction, please run:")
+	c.Check(testLog, jc.Contains, "juju enable-destroy-controller")
+	c.Check(testLog, jc.Contains, "Unable to list models: unexpected api error")
 }
 
 func (s *DestroySuite) TestDestroyReturnsBlocks(c *gc.C) {
@@ -449,7 +449,7 @@ func (s *DestroySuite) TestDestroyReturnsBlocks(c *gc.C) {
 		params.ModelBlockInfo{
 			Name:     "test1",
 			UUID:     test1UUID,
-			OwnerTag: "cheryl@local",
+			OwnerTag: "user-cheryl@local",
 			Blocks: []string{
 				"BlockDestroy",
 			},
@@ -457,7 +457,7 @@ func (s *DestroySuite) TestDestroyReturnsBlocks(c *gc.C) {
 		params.ModelBlockInfo{
 			Name:     "test2",
 			UUID:     test2UUID,
-			OwnerTag: "bob@local",
+			OwnerTag: "user-bob@local",
 			Blocks: []string{
 				"BlockDestroy",
 				"BlockChange",
@@ -466,7 +466,8 @@ func (s *DestroySuite) TestDestroyReturnsBlocks(c *gc.C) {
 	}
 	ctx, _ := s.runDestroyCommand(c, "test1", "-y", "--destroy-all-models")
 	c.Assert(testing.Stderr(ctx), gc.Equals, "Destroying controller\n"+
-		"NAME   MODEL UUID                            OWNER         BLOCKS\n"+
+		"NAME   MODEL UUID                            OWNER         DISABLED COMMANDS\n"+
 		"test1  1871299e-1370-4f3e-83ab-1849ed7b1076  cheryl@local  destroy-model\n"+
-		"test2  c59d0e3b-2bd7-4867-b1b9-f1ef8a0bb004  bob@local     destroy-model,all-changes\n")
+		"test2  c59d0e3b-2bd7-4867-b1b9-f1ef8a0bb004  bob@local     all, destroy-model\n")
+	c.Assert(testing.Stdout(ctx), gc.Equals, "")
 }

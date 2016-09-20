@@ -17,13 +17,13 @@ var _ = gc.Suite(&LinkLayerDeviceSerializationSuite{})
 
 func (s *LinkLayerDeviceSerializationSuite) SetUpTest(c *gc.C) {
 	s.SliceSerializationSuite.SetUpTest(c)
-	s.importName = "linklayerdevices"
-	s.sliceName = "linklayerdevices"
+	s.importName = "link-layer-devices"
+	s.sliceName = "link-layer-devices"
 	s.importFunc = func(m map[string]interface{}) (interface{}, error) {
 		return importLinkLayerDevices(m)
 	}
 	s.testFields = func(m map[string]interface{}) {
-		m["linklayerdevices"] = []interface{}{}
+		m["link-layer-devices"] = []interface{}{}
 	}
 }
 

@@ -16,10 +16,10 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
@@ -176,10 +176,14 @@ func (p InitializeParams) Validate() error {
 	if _, err := validateCloudCredentials(p.Cloud, p.CloudName, p.CloudCredentials); err != nil {
 		return errors.Annotate(err, "validating cloud credentials")
 	}
+	creds := make(map[string]cloud.Credential, len(p.CloudCredentials))
+	for tag, cred := range p.CloudCredentials {
+		creds[tag.Canonical()] = cred
+	}
 	if _, err := validateCloudCredential(
 		p.Cloud,
 		p.CloudName,
-		p.CloudCredentials,
+		creds,
 		p.ControllerModelArgs.CloudCredential,
 	); err != nil {
 		return errors.Annotate(err, "validating controller model cloud credential")
@@ -320,11 +324,11 @@ func (st *State) modelSetupOps(controllerUUID string, args ModelArgs, inherited 
 		// TODO(axw) 2016-04-13 lp:1569632
 		// We need to decide how we will
 		// represent migration in model status.
-		Status: status.StatusAvailable,
+		Status: status.Available,
 	}
 
 	modelUserOps := createModelUserOps(
-		modelUUID, args.Owner, args.Owner, args.Owner.Name(), nowToTheSecond(), description.AdminAccess,
+		modelUUID, args.Owner, args.Owner, args.Owner.Name(), nowToTheSecond(), permission.AdminAccess,
 	)
 	ops := []txn.Op{
 		createStatusOp(st, modelGlobalKey, modelStatusDoc),

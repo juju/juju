@@ -59,7 +59,7 @@ the first unit set them at the model level or pass them as an argument
 when deploying.
 
 Examples:
-    juju set-constraints mysql mem=8G cpu-cores=4
+    juju set-constraints mysql mem=8G cores=4
     juju set-constraints -m mymodel apache2 mem=8G arch=amd64
 
 See also: 

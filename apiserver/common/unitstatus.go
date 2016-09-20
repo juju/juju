@@ -50,11 +50,11 @@ func UnitStatus(unit UnitStatusGetter) (agent StatusAndErr, workload StatusAndEr
 		// If the unit is in error, it would be bad to throw away
 		// the error information as when the agent reconnects, that
 		// error information would then be lost.
-		if workload.Status.Status != status.StatusError {
-			workload.Status.Status = status.StatusUnknown
-			workload.Status.Message = fmt.Sprintf("agent lost, see 'juju status-history %s'", unit.Name())
+		if workload.Status.Status != status.Error {
+			workload.Status.Status = status.Unknown
+			workload.Status.Message = fmt.Sprintf("agent lost, see 'juju show-status-log %s'", unit.Name())
 		}
-		agent.Status.Status = status.StatusLost
+		agent.Status.Status = status.Lost
 		agent.Status.Message = "agent is not communicating with the server"
 	}
 	return
@@ -62,9 +62,9 @@ func UnitStatus(unit UnitStatusGetter) (agent StatusAndErr, workload StatusAndEr
 
 func canBeLost(agent, workload status.StatusInfo) bool {
 	switch agent.Status {
-	case status.StatusAllocating:
+	case status.Allocating:
 		return false
-	case status.StatusExecuting:
+	case status.Executing:
 		return agent.Message != operation.RunningHookMessage(string(hooks.Install))
 	}
 
@@ -76,5 +76,16 @@ func canBeLost(agent, workload status.StatusInfo) bool {
 }
 
 func isWorkloadInstalled(workload status.StatusInfo) bool {
-	return workload.Status != status.StatusMaintenance || workload.Message != status.MessageInstalling
+	switch workload.Status {
+	case status.Maintenance:
+		return workload.Message != status.MessageInstallingCharm
+	case status.Waiting:
+		switch workload.Message {
+		case status.MessageWaitForMachine:
+		case status.MessageInstallingAgent:
+		case status.MessageInitializingAgent:
+			return false
+		}
+	}
+	return true
 }

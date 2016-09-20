@@ -123,18 +123,20 @@ func newBootstrapCommand() cmd.Command {
 type bootstrapCommand struct {
 	modelcmd.ModelCommandBase
 
-	Constraints           constraints.Value
-	BootstrapConstraints  constraints.Value
-	BootstrapSeries       string
-	BootstrapImage        string
-	BuildAgent            bool
-	MetadataSource        string
-	Placement             string
-	KeepBrokenEnvironment bool
-	AutoUpgrade           bool
-	AgentVersionParam     string
-	AgentVersion          *version.Number
-	config                common.ConfigFlag
+	Constraints             constraints.Value
+	ConstraintsStr          string
+	BootstrapConstraints    constraints.Value
+	BootstrapConstraintsStr string
+	BootstrapSeries         string
+	BootstrapImage          string
+	BuildAgent              bool
+	MetadataSource          string
+	Placement               string
+	KeepBrokenEnvironment   bool
+	AutoUpgrade             bool
+	AgentVersionParam       string
+	AgentVersion            *version.Number
+	config                  common.ConfigFlag
 
 	showClouds          bool
 	showRegionsForCloud string
@@ -158,8 +160,8 @@ func (c *bootstrapCommand) Info() *cmd.Info {
 
 func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	f.Var(constraints.ConstraintsValue{Target: &c.Constraints}, "constraints", "Set model constraints")
-	f.Var(constraints.ConstraintsValue{Target: &c.BootstrapConstraints}, "bootstrap-constraints", "Specify bootstrap machine constraints")
+	f.StringVar(&c.ConstraintsStr, "constraints", "", "Set model constraints")
+	f.StringVar(&c.BootstrapConstraintsStr, "bootstrap-constraints", "", "Specify bootstrap machine constraints")
 	f.StringVar(&c.BootstrapSeries, "bootstrap-series", "", "Specify the series of the bootstrap machine")
 	if featureflag.Enabled(feature.ImageMetadata) {
 		f.StringVar(&c.BootstrapImage, "bootstrap-image", "", "Specify the image of the bootstrap machine")
@@ -194,18 +196,6 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 	}
 	if c.BootstrapSeries != "" && !charm.IsValidSeries(c.BootstrapSeries) {
 		return errors.NotValidf("series %q", c.BootstrapSeries)
-	}
-	if c.BootstrapImage != "" {
-		if c.BootstrapSeries == "" {
-			return errors.Errorf("--bootstrap-image must be used with --bootstrap-series")
-		}
-		cons, err := constraints.Merge(c.Constraints, c.BootstrapConstraints)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if !cons.HasArch() {
-			return errors.Errorf("--bootstrap-image must be used with --bootstrap-constraints, specifying architecture")
-		}
 	}
 
 	// Parse the placement directive. Bootstrap currently only
@@ -290,10 +280,51 @@ more than one credential is available
 specify a credential using the --credential argument`[1:],
 )
 
+func (c *bootstrapCommand) parseConstraints(ctx *cmd.Context) (err error) {
+	allAliases := map[string]string{}
+	defer common.WarnConstraintAliases(ctx, allAliases)
+	if c.ConstraintsStr != "" {
+		cons, aliases, err := constraints.ParseWithAliases(c.ConstraintsStr)
+		for k, v := range aliases {
+			allAliases[k] = v
+		}
+		if err != nil {
+			return err
+		}
+		c.Constraints = cons
+	}
+	if c.BootstrapConstraintsStr != "" {
+		cons, aliases, err := constraints.ParseWithAliases(c.BootstrapConstraintsStr)
+		for k, v := range aliases {
+			allAliases[k] = v
+		}
+		if err != nil {
+			return err
+		}
+		c.BootstrapConstraints = cons
+	}
+	return nil
+}
+
 // Run connects to the environment specified on the command line and bootstraps
 // a juju in that environment if none already exists. If there is as yet no environments.yaml file,
 // the user is informed how to create one.
 func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
+	if err := c.parseConstraints(ctx); err != nil {
+		return err
+	}
+	if c.BootstrapImage != "" {
+		if c.BootstrapSeries == "" {
+			return errors.Errorf("--bootstrap-image must be used with --bootstrap-series")
+		}
+		cons, err := constraints.Merge(c.Constraints, c.BootstrapConstraints)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if !cons.HasArch() {
+			return errors.Errorf("--bootstrap-image must be used with --bootstrap-constraints, specifying architecture")
+		}
+	}
 	if c.interactive {
 		if err := c.runInteractive(ctx); err != nil {
 			return errors.Trace(err)
@@ -390,7 +421,12 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	store := c.ClientStore()
 	var detectedCredentialName string
 	credential, credentialName, regionName, err := modelcmd.GetCredentials(
-		store, c.Region, c.CredentialName, c.Cloud, cloud.Type,
+		ctx, store, modelcmd.GetCredentialsParams{
+			Cloud:          *cloud,
+			CloudName:      c.Cloud,
+			CloudRegion:    c.Region,
+			CredentialName: c.CredentialName,
+		},
 	)
 	if errors.Cause(err) == modelcmd.ErrMultipleCredentials {
 		return ambiguousCredentialError

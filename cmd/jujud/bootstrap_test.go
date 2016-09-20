@@ -399,7 +399,7 @@ func (s *BootstrapSuite) TestInitializeEnvironmentInvalidOplogSize(c *gc.C) {
 	_, cmd, err := s.initBootstrapCommand(c, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = cmd.Run(nil)
-	c.Assert(err, gc.ErrorMatches, `invalid oplog size: "NaN"`)
+	c.Assert(err, gc.ErrorMatches, `failed to start mongo: invalid oplog size: "NaN"`)
 }
 
 func (s *BootstrapSuite) TestInitializeEnvironmentToolsNotFound(c *gc.C) {

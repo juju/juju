@@ -4,7 +4,6 @@
 package instancepoller
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/juju/errors"
@@ -182,7 +181,7 @@ func machineLoop(context machineContext, m machine, lifeChanged <-chan struct{},
 			return err
 		}
 
-		machineStatus := status.StatusPending
+		machineStatus := status.Pending
 		if err == nil {
 			if statusInfo, err := m.Status(); err != nil {
 				logger.Warningf("cannot get current machine status for machine %v: %v", m.Id(), err)
@@ -194,8 +193,8 @@ func machineLoop(context machineContext, m machine, lifeChanged <-chan struct{},
 
 		// the extra condition below (checking allocating/pending) is here to improve user experience
 		// without it the instance status will say "pending" for +10 minutes after the agent comes up to "started"
-		if instInfo.status.Status != status.StatusAllocating && instInfo.status.Status != status.StatusPending {
-			if len(instInfo.addresses) > 0 && machineStatus == status.StatusStarted {
+		if instInfo.status.Status != status.Allocating && instInfo.status.Status != status.Pending {
+			if len(instInfo.addresses) > 0 && machineStatus == status.Started {
 				// We've got at least one address and a status and instance is started, so poll infrequently.
 				pollInterval = LongPoll
 			} else if pollInterval < LongPoll {
@@ -240,26 +239,25 @@ func pollInstanceInfo(context machineContext, m machine) (instInfo instanceInfo,
 	instId, err := m.InstanceId()
 	// We can't ask the machine for its addresses if it isn't provisioned yet.
 	if params.IsCodeNotProvisioned(err) {
-		return instInfo, err
+		return instanceInfo{}, err
 	}
 	if err != nil {
-		return instInfo, fmt.Errorf("cannot get machine's instance id: %v", err)
+		return instanceInfo{}, errors.Annotate(err, "cannot get machine's instance id")
 	}
 	instInfo, err = context.instanceInfo(instId)
 	if err != nil {
 		// TODO (anastasiamac 2016-02-01) This does not look like it needs to be removed now.
 		if params.IsCodeNotImplemented(err) {
-			return instInfo, err
+			return instanceInfo{}, err
 		}
 		logger.Warningf("cannot get instance info for instance %q: %v", instId, err)
 		return instInfo, nil
 	}
-	instStat, err := m.InstanceStatus()
-	if err != nil {
+	if instStat, err := m.InstanceStatus(); err != nil {
 		// This should never occur since the machine is provisioned.
 		// But just in case, we reset polled status so we try again next time.
 		logger.Warningf("cannot get current instance status for machine %v: %v", m.Id(), err)
-		instInfo.status = instance.InstanceStatus{status.StatusUnknown, ""}
+		instInfo.status = instance.InstanceStatus{status.Unknown, ""}
 	} else {
 		// TODO(perrito666) add status validation.
 		currentInstStatus := instance.InstanceStatus{
@@ -270,20 +268,24 @@ func pollInstanceInfo(context machineContext, m machine) (instInfo instanceInfo,
 			logger.Infof("machine %q instance status changed from %q to %q", m.Id(), currentInstStatus, instInfo.status)
 			if err = m.SetInstanceStatus(instInfo.status.Status, instInfo.status.Message, nil); err != nil {
 				logger.Errorf("cannot set instance status on %q: %v", m, err)
+				return instanceInfo{}, err
 			}
 		}
 	}
-	providerAddresses, err := m.ProviderAddresses()
-	if err != nil {
-		return instInfo, err
-	}
-	if !addressesEqual(providerAddresses, instInfo.addresses) {
-		logger.Infof("machine %q has new addresses: %v", m.Id(), instInfo.addresses)
-		if err = m.SetProviderAddresses(instInfo.addresses...); err != nil {
-			logger.Errorf("cannot set addresses on %q: %v", m, err)
+	if m.Life() != params.Dead {
+		providerAddresses, err := m.ProviderAddresses()
+		if err != nil {
+			return instanceInfo{}, err
+		}
+		if !addressesEqual(providerAddresses, instInfo.addresses) {
+			logger.Infof("machine %q has new addresses: %v", m.Id(), instInfo.addresses)
+			if err := m.SetProviderAddresses(instInfo.addresses...); err != nil {
+				logger.Errorf("cannot set addresses on %q: %v", m, err)
+				return instanceInfo{}, err
+			}
 		}
 	}
-	return instInfo, err
+	return instInfo, nil
 }
 
 // addressesEqual compares the addresses of the machine and the instance information.

@@ -10,6 +10,8 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/state"
+	statetesting "github.com/juju/juju/state/testing"
 )
 
 type CloudCredentialsSuite struct {
@@ -61,6 +63,7 @@ func (s *CloudCredentialsSuite) TestUpdateCloudCredentialsExisting(c *gc.C) {
 		"user":     "bob's nephew",
 		"password": "simple",
 	})
+	cred.Revoked = true
 	err = s.State.UpdateCloudCredential(tag, cred)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -120,12 +123,14 @@ func (s *CloudCredentialsSuite) TestCloudCredentials(c *gc.C) {
 	cred1.Label = "bobcred1"
 	cred2.Label = "bobcred2"
 
-	creds, err := s.State.CloudCredentials(names.NewUserTag("bob"), "stratus")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(creds, jc.DeepEquals, map[names.CloudCredentialTag]cloud.Credential{
-		tag1: cred1,
-		tag3: cred2,
-	})
+	for _, userName := range []string{"bob", "bob@local"} {
+		creds, err := s.State.CloudCredentials(names.NewUserTag(userName), "stratus")
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(creds, jc.DeepEquals, map[string]cloud.Credential{
+			tag1.Canonical(): cred1,
+			tag3.Canonical(): cred2,
+		})
+	}
 }
 
 func (s *CloudCredentialsSuite) TestRemoveCredentials(c *gc.C) {
@@ -153,4 +158,53 @@ func (s *CloudCredentialsSuite) TestRemoveCredentials(c *gc.C) {
 	// Check it.
 	_, err = s.State.CloudCredential(tag)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *CloudCredentialsSuite) createCredentialWatcher(c *gc.C, st *state.State, cred names.CloudCredentialTag) (
+	state.NotifyWatcher, statetesting.NotifyWatcherC,
+) {
+	w := st.WatchCredential(cred)
+	s.AddCleanup(func(c *gc.C) { statetesting.AssertStop(c, w) })
+	return w, statetesting.NewNotifyWatcherC(c, st, w)
+}
+
+func (s *CloudCredentialsSuite) TestWatchCredential(c *gc.C) {
+	cred := names.NewCloudCredentialTag("dummy/fred/default")
+	w, wc := s.createCredentialWatcher(c, s.State, cred)
+	wc.AssertOneChange() // Initial event.
+
+	// Create
+	dummyCred := cloud.NewCredential(cloud.EmptyAuthType, nil)
+	err := s.State.UpdateCloudCredential(cred, dummyCred)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertOneChange()
+
+	// Revoke
+	dummyCred.Revoked = true
+	err = s.State.UpdateCloudCredential(cred, dummyCred)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertOneChange()
+
+	// Remove.
+	err = s.State.RemoveCloudCredential(cred)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertOneChange()
+
+	statetesting.AssertStop(c, w)
+	wc.AssertClosed()
+}
+
+func (s *CloudCredentialsSuite) TestWatchCredentialIgnoresOther(c *gc.C) {
+	cred := names.NewCloudCredentialTag("dummy/fred/default")
+	w, wc := s.createCredentialWatcher(c, s.State, cred)
+	wc.AssertOneChange() // Initial event.
+
+	anotherCred := names.NewCloudCredentialTag("dummy/mary/default")
+	dummyCred := cloud.NewCredential(cloud.EmptyAuthType, nil)
+	err := s.State.UpdateCloudCredential(anotherCred, dummyCred)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+
+	statetesting.AssertStop(c, w)
+	wc.AssertClosed()
 }

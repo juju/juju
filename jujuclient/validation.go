@@ -13,9 +13,6 @@ func ValidateControllerDetails(details ControllerDetails) error {
 	if details.ControllerUUID == "" {
 		return errors.NotValidf("missing uuid, controller details")
 	}
-	if details.CACert == "" {
-		return errors.NotValidf("missing ca-cert, controller details")
-	}
 	return nil
 }
 
@@ -34,10 +31,6 @@ func ValidateAccountDetails(details AccountDetails) error {
 	}
 	// It is valid for a password to be blank, because the client
 	// may use macaroons instead.
-	//
-	// TODO(axw) expand validation rules to check that at least
-	// one of Password or Macaroon is non-empty, for local users.
-	// External users may have neither.
 	return nil
 }
 

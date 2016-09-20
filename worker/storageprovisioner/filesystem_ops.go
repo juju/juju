@@ -44,7 +44,7 @@ func createFilesystems(ctx *context, ops map[names.FilesystemTag]*createFilesyst
 			}
 			statuses = append(statuses, params.EntityStatusArgs{
 				Tag:    filesystemParams[i].Tag.String(),
-				Status: status.StatusError.String(),
+				Status: status.Error.String(),
 				Info:   err.Error(),
 			})
 			logger.Debugf(
@@ -63,7 +63,7 @@ func createFilesystems(ctx *context, ops map[names.FilesystemTag]*createFilesyst
 		for i, result := range results {
 			statuses = append(statuses, params.EntityStatusArgs{
 				Tag:    filesystemParams[i].Tag.String(),
-				Status: status.StatusAttaching.String(),
+				Status: status.Attaching.String(),
 			})
 			entityStatus := &statuses[len(statuses)-1]
 			if result.Error != nil {
@@ -74,7 +74,7 @@ func createFilesystems(ctx *context, ops map[names.FilesystemTag]*createFilesyst
 				// that we will retry. When we distinguish between
 				// transient and permanent errors, we will set the
 				// status to "error" for permanent errors.
-				entityStatus.Status = status.StatusPending.String()
+				entityStatus.Status = status.Pending.String()
 				entityStatus.Info = result.Error.Error()
 				logger.Debugf(
 					"failed to create %s: %v",
@@ -148,7 +148,7 @@ func attachFilesystems(ctx *context, ops map[params.MachineStorageId]*attachFile
 			p := filesystemAttachmentParams[i]
 			statuses = append(statuses, params.EntityStatusArgs{
 				Tag:    p.Filesystem.String(),
-				Status: status.StatusAttached.String(),
+				Status: status.Attached.String(),
 			})
 			entityStatus := &statuses[len(statuses)-1]
 			if result.Error != nil {
@@ -163,7 +163,7 @@ func attachFilesystems(ctx *context, ops map[params.MachineStorageId]*attachFile
 				// indicate that we will retry. When we distinguish
 				// between transient and permanent errors, we will
 				// set the status to "error" for permanent errors.
-				entityStatus.Status = status.StatusAttaching.String()
+				entityStatus.Status = status.Attaching.String()
 				entityStatus.Info = result.Error.Error()
 				logger.Debugf(
 					"failed to attach %s to %s: %v",
@@ -216,7 +216,7 @@ func destroyFilesystems(ctx *context, ops map[names.FilesystemTag]*destroyFilesy
 			}
 			statuses = append(statuses, params.EntityStatusArgs{
 				Tag:    filesystemParams[i].Tag.String(),
-				Status: status.StatusError.String(),
+				Status: status.Error.String(),
 				Info:   err.Error(),
 			})
 			logger.Debugf(
@@ -250,7 +250,7 @@ func destroyFilesystems(ctx *context, ops map[names.FilesystemTag]*destroyFilesy
 			reschedule = append(reschedule, ops[tag])
 			statuses = append(statuses, params.EntityStatusArgs{
 				Tag:    tag.String(),
-				Status: status.StatusDestroying.String(),
+				Status: status.Destroying.String(),
 				Info:   err.Error(),
 			})
 		}
@@ -297,7 +297,7 @@ func detachFilesystems(ctx *context, ops map[params.MachineStorageId]*detachFile
 				// attachment, we'll have to check if
 				// there are any other attachments
 				// before saying the status "detached".
-				Status: status.StatusDetached.String(),
+				Status: status.Detached.String(),
 			})
 			id := params.MachineStorageId{
 				MachineTag:    p.Machine.String(),
@@ -306,7 +306,7 @@ func detachFilesystems(ctx *context, ops map[params.MachineStorageId]*detachFile
 			entityStatus := &statuses[len(statuses)-1]
 			if err != nil {
 				reschedule = append(reschedule, ops[id])
-				entityStatus.Status = status.StatusDetaching.String()
+				entityStatus.Status = status.Detaching.String()
 				entityStatus.Info = err.Error()
 				logger.Debugf(
 					"failed to detach %s from %s: %v",

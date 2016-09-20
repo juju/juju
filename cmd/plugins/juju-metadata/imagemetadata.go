@@ -31,7 +31,7 @@ func (c *imageMetadataCommandBase) prepare(context *cmd.Context) (environs.Envir
 	// NOTE(axw) this is a work-around for the TODO below. This
 	// means that the command will only work if you've bootstrapped
 	// the specified environment.
-	bootstrapConfig, params, err := modelcmd.NewGetBootstrapConfigParamsFunc(c.ClientStore())(c.ControllerName())
+	bootstrapConfig, params, err := modelcmd.NewGetBootstrapConfigParamsFunc(context, c.ClientStore())(c.ControllerName())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

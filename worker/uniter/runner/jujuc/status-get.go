@@ -79,7 +79,7 @@ func (c *StatusGetCommand) ApplicationStatus(ctx *cmd.Context) error {
 	serviceStatus, err := c.ctx.ApplicationStatus()
 	if err != nil {
 		if errors.IsNotImplemented(err) {
-			return c.out.Write(ctx, status.StatusUnknown)
+			return c.out.Write(ctx, status.Unknown)
 		}
 		return errors.Annotatef(err, "finding service status")
 	}
@@ -111,7 +111,7 @@ func (c *StatusGetCommand) unitOrServiceStatus(ctx *cmd.Context) error {
 	unitStatus, err := c.ctx.UnitStatus()
 	if err != nil {
 		if errors.IsNotImplemented(err) {
-			return c.out.Write(ctx, status.StatusUnknown)
+			return c.out.Write(ctx, status.Unknown)
 		}
 		return errors.Annotatef(err, "finding workload status")
 	}

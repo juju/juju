@@ -43,11 +43,11 @@ var marshalTestCases = []struct {
 			Id:         "Benji",
 			InstanceId: "Shazam",
 			AgentStatus: multiwatcher.StatusInfo{
-				Current: status.StatusError,
+				Current: status.Error,
 				Message: "foo",
 			},
 			InstanceStatus: multiwatcher.StatusInfo{
-				Current: status.StatusPending,
+				Current: status.Pending,
 			},
 			Life:                    multiwatcher.Life("alive"),
 			Series:                  "trusty",
@@ -75,7 +75,7 @@ var marshalTestCases = []struct {
 				"foo":   false,
 			},
 			Status: multiwatcher.StatusInfo{
-				Current: status.StatusActive,
+				Current: status.Active,
 				Message: "all good",
 			},
 		},
@@ -103,11 +103,11 @@ var marshalTestCases = []struct {
 			PrivateAddress: "10.0.0.1",
 			MachineId:      "1",
 			WorkloadStatus: multiwatcher.StatusInfo{
-				Current: status.StatusActive,
+				Current: status.Active,
 				Message: "all good",
 			},
 			AgentStatus: multiwatcher.StatusInfo{
-				Current: status.StatusIdle,
+				Current: status.Idle,
 			},
 		},
 	},

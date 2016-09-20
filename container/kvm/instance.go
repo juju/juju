@@ -27,12 +27,12 @@ func (kvm *kvmInstance) Id() instance.Id {
 func (kvm *kvmInstance) Status() instance.InstanceStatus {
 	if kvm.container.IsRunning() {
 		return instance.InstanceStatus{
-			Status:  status.StatusRunning,
+			Status:  status.Running,
 			Message: "running",
 		}
 	}
 	return instance.InstanceStatus{
-		Status:  status.StatusStopped,
+		Status:  status.Stopped,
 		Message: "stopped",
 	}
 }

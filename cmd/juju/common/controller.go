@@ -13,9 +13,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 
-	apiblock "github.com/juju/juju/api/block"
+	"github.com/juju/juju/api/block"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
@@ -59,7 +58,16 @@ func SetBootstrapEndpointAddress(
 		return errors.Annotate(err, "failed to get bootstrap instance addresses")
 	}
 	apiHostPorts := network.AddressesWithPort(netAddrs, apiPort)
-	return juju.UpdateControllerDetailsFromLogin(store, controllerName, agentVersion.String(), nil, apiHostPorts...)
+	// At bootstrap we have 2 models, the controller model and the default.
+	two := 2
+	params := juju.UpdateControllerParams{
+		AgentVersion:           agentVersion.String(),
+		AddrConnectedTo:        apiHostPorts,
+		MachineCount:           &length,
+		ControllerMachineCount: &length,
+		ModelCount:             &two,
+	}
+	return juju.UpdateControllerDetailsFromLogin(store, controllerName, params)
 }
 
 var (
@@ -68,13 +76,18 @@ var (
 	blockAPI                = getBlockAPI
 )
 
+type listBlocksAPI interface {
+	List() ([]params.Block, error)
+	Close() error
+}
+
 // getBlockAPI returns a block api for listing blocks.
-func getBlockAPI(c *modelcmd.ModelCommandBase) (block.BlockListAPI, error) {
+func getBlockAPI(c *modelcmd.ModelCommandBase) (listBlocksAPI, error) {
 	root, err := c.NewAPIRoot()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return apiblock.NewClient(root), nil
+	return block.NewClient(root), nil
 }
 
 // tryAPI attempts to open the API and makes a trivial call

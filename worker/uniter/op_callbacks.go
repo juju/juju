@@ -120,5 +120,5 @@ func (opc *operationCallbacks) SetCurrentCharm(charmURL *corecharm.URL) error {
 
 // SetExecutingStatus is part of the operation.Callbacks interface.
 func (opc *operationCallbacks) SetExecutingStatus(message string) error {
-	return setAgentStatus(opc.u, status.StatusExecuting, message, nil)
+	return setAgentStatus(opc.u, status.Executing, message, nil)
 }

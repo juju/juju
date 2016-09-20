@@ -29,9 +29,9 @@ By default, the controller is the current controller.
 Examples:
     juju logout
 
-See Also:
-    juju change-user-password
-    juju login
+See also:
+    change-user-password
+    login
 
 `
 
@@ -116,7 +116,7 @@ func (c *logoutCommand) logout(store jujuclient.ClientStore, controllerName stri
 	// they know their password. If they have just bootstrapped,
 	// they will have a randomly generated password which they will
 	// be unaware of.
-	if accountDetails.Macaroon == "" && accountDetails.Password != "" && !c.Force {
+	if accountDetails.Password != "" && !c.Force {
 		return errors.New(`preventing account loss
 
 It appears that you have not changed the password for

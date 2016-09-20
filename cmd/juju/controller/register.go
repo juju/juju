@@ -30,8 +30,8 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/permission"
 )
 
 var errNoModels = errors.New(`
@@ -128,7 +128,10 @@ func (c *registerCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	// Make the registration call.
+	// Make the registration call. If this is successful, the client's
+	// cookie jar will be populated with a macaroon that may be used
+	// to log in below without the user having to type in the password
+	// again.
 	req := params.SecretKeyLoginRequest{
 		Nonce: registrationParams.nonce[:],
 		User:  registrationParams.userTag.String(),
@@ -168,14 +171,9 @@ func (c *registerCommand) Run(ctx *cmd.Context) error {
 	if err := store.AddController(registrationParams.controllerName, controllerDetails); err != nil {
 		return errors.Trace(err)
 	}
-	macaroonJSON, err := responsePayload.Macaroon.MarshalJSON()
-	if err != nil {
-		return errors.Annotate(err, "marshalling temporary credential to JSON")
-	}
 	accountDetails := jujuclient.AccountDetails{
 		User:            registrationParams.userTag.Canonical(),
-		Macaroon:        string(macaroonJSON),
-		LastKnownAccess: string(description.LoginAccess),
+		LastKnownAccess: string(permission.LoginAccess),
 	}
 	if err := store.UpdateAccount(registrationParams.controllerName, accountDetails); err != nil {
 		return errors.Trace(err)
@@ -320,6 +318,11 @@ func (c *registerCommand) getParameters(ctx *cmd.Context, store jujuclient.Clien
 }
 
 func (c *registerCommand) secretKeyLogin(addrs []string, request params.SecretKeyLoginRequest) (*params.SecretKeyLoginResponse, error) {
+	apiContext, err := c.APIContext()
+	if err != nil {
+		return nil, errors.Annotate(err, "getting API context")
+	}
+
 	buf, err := json.Marshal(&request)
 	if err != nil {
 		return nil, errors.Annotate(err, "marshalling request")
@@ -351,6 +354,8 @@ func (c *registerCommand) secretKeyLogin(addrs []string, request params.SecretKe
 	}
 
 	// Using the address we connected to above, perform the request.
+	// A success response will include a macaroon cookie that we can
+	// use to log in with.
 	urlString := fmt.Sprintf("https://%s/register", apiAddr)
 	httpReq, err := http.NewRequest("POST", urlString, r)
 	if err != nil {
@@ -358,6 +363,7 @@ func (c *registerCommand) secretKeyLogin(addrs []string, request params.SecretKe
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpClient := utils.GetNonValidatingHTTPClient()
+	httpClient.Jar = apiContext.Jar
 	httpResp, err := httpClient.Do(httpReq)
 	if err != nil {
 		return nil, errors.Trace(err)

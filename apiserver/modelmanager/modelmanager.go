@@ -25,11 +25,10 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller/modelmanager"
-	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/juju/permission"
 	"github.com/juju/juju/migration"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/tools"
@@ -54,6 +53,7 @@ type ModelManager interface {
 // the concrete implementation of the api end point.
 type ModelManagerAPI struct {
 	state       common.ModelManagerBackend
+	check       *common.BlockChecker
 	authorizer  facade.Authorizer
 	toolsFinder *common.ToolsFinder
 	apiUser     names.UserTag
@@ -82,13 +82,14 @@ func NewModelManagerAPI(
 	apiUser, _ := authorizer.GetAuthTag().(names.UserTag)
 	// Pretty much all of the user manager methods have special casing for admin
 	// users, so look once when we start and remember if the user is an admin.
-	isAdmin, err := authorizer.HasPermission(description.SuperuserAccess, st.ControllerTag())
+	isAdmin, err := authorizer.HasPermission(permission.SuperuserAccess, st.ControllerTag())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	urlGetter := common.NewToolsURLGetter(st.ModelUUID(), st)
 	return &ModelManagerAPI{
 		state:       st,
+		check:       common.NewBlockChecker(st),
 		authorizer:  authorizer,
 		toolsFinder: common.NewToolsFinder(configGetter, st, urlGetter),
 		apiUser:     apiUser,
@@ -111,6 +112,14 @@ func (m *ModelManagerAPI) authCheck(user names.UserTag) error {
 		return nil
 	}
 	return common.ErrPerm
+}
+
+func (s *ModelManagerAPI) hasWriteAccess(modelTag names.ModelTag) (bool, error) {
+	canWrite, err := s.authorizer.HasPermission(permission.WriteAccess, modelTag)
+	if errors.IsNotFound(err) {
+		return false, nil
+	}
+	return canWrite, err
 }
 
 // ConfigSource describes a type that is able to provide config.
@@ -171,7 +180,7 @@ func (mm *ModelManagerAPI) newModelConfig(
 // model config specified in the args.
 func (mm *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.ModelInfo, error) {
 	result := params.ModelInfo{}
-	canAddModel, err := mm.authorizer.HasPermission(description.AddModelAccess, mm.state.ControllerTag())
+	canAddModel, err := mm.authorizer.HasPermission(permission.AddModelAccess, mm.state.ControllerTag())
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -321,7 +330,7 @@ func (mm *ModelManagerAPI) dumpModel(args params.Entity) (map[string]interface{}
 		return nil, errors.Trace(err)
 	}
 
-	isModelAdmin, err := mm.authorizer.HasPermission(description.AdminAccess, modelTag)
+	isModelAdmin, err := mm.authorizer.HasPermission(permission.AdminAccess, modelTag)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -367,7 +376,7 @@ func (mm *ModelManagerAPI) dumpModelDB(args params.Entity) (map[string]interface
 		return nil, errors.Trace(err)
 	}
 
-	isModelAdmin, err := mm.authorizer.HasPermission(description.AdminAccess, modelTag)
+	isModelAdmin, err := mm.authorizer.HasPermission(permission.AdminAccess, modelTag)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -471,25 +480,6 @@ func (mm *ModelManagerAPI) ListModels(user params.Entity) (params.UserModelList,
 	return result, nil
 }
 
-// DestroyModel will try to destroy the current model.
-// If there is a block on destruction, this method will return an error.
-//
-// TODO(axw) drop this method after 2.0-beta16 is out.
-func (m *ModelManagerAPI) DestroyModel() error {
-	// Any user is able to delete their own model (until real fine
-	// grain permissions are available), and admins (the creator of the state
-	// server model) are able to delete models for other people.
-	model, err := m.state.Model()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	err = m.authCheck(model.Owner())
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return errors.Trace(common.DestroyModel(m.state, model.ModelTag()))
-}
-
 // DestroyModels will try to destroy the specified models.
 // If there is a block on destruction, this method will return an error.
 func (m *ModelManagerAPI) DestroyModels(args params.Entities) (params.ErrorResults, error) {
@@ -590,7 +580,7 @@ func (m *ModelManagerAPI) getModelInfo(tag names.ModelTag) (params.ModelInfo, er
 		Status:         common.EntityStatusFromState(status),
 		ProviderType:   cfg.Type(),
 		DefaultSeries:  config.PreferredSeries(cfg),
-		Cloud:          model.Cloud(),
+		CloudTag:       names.NewCloudTag(model.Cloud()).String(),
 		CloudRegion:    model.CloudRegion(),
 	}
 
@@ -620,6 +610,17 @@ func (m *ModelManagerAPI) getModelInfo(tag names.ModelTag) (params.ModelInfo, er
 		return params.ModelInfo{}, common.ErrPerm
 	}
 
+	canSeeMachines := authorizedOwner
+	if !canSeeMachines {
+		if canSeeMachines, err = m.hasWriteAccess(tag); err != nil {
+			return params.ModelInfo{}, errors.Trace(err)
+		}
+	}
+	if canSeeMachines {
+		if info.Machines, err = common.ModelMachineInfo(st); err != nil {
+			return params.ModelInfo{}, err
+		}
+	}
 	return info, nil
 }
 
@@ -629,7 +630,7 @@ func (m *ModelManagerAPI) ModifyModelAccess(args params.ModifyModelAccessRequest
 		Results: make([]params.ErrorResult, len(args.Changes)),
 	}
 
-	canModifyController, err := m.authorizer.HasPermission(description.SuperuserAccess, m.state.ControllerTag())
+	canModifyController, err := m.authorizer.HasPermission(permission.SuperuserAccess, m.state.ControllerTag())
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -638,8 +639,8 @@ func (m *ModelManagerAPI) ModifyModelAccess(args params.ModifyModelAccessRequest
 	}
 
 	for i, arg := range args.Changes {
-		modelAccess, err := FromModelAccessParam(arg.Access)
-		if err != nil {
+		modelAccess := permission.Access(arg.Access)
+		if err := permission.ValidateModelAccess(modelAccess); err != nil {
 			err = errors.Annotate(err, "could not modify model access")
 			result.Results[i].Error = common.ServerError(err)
 			continue
@@ -650,7 +651,7 @@ func (m *ModelManagerAPI) ModifyModelAccess(args params.ModifyModelAccessRequest
 			result.Results[i].Error = common.ServerError(errors.Annotate(err, "could not modify model access"))
 			continue
 		}
-		canModifyModel, err := m.authorizer.HasPermission(description.AdminAccess, modelTag)
+		canModifyModel, err := m.authorizer.HasPermission(permission.AdminAccess, modelTag)
 		if err != nil {
 			return result, errors.Trace(err)
 		}
@@ -668,25 +669,9 @@ func (m *ModelManagerAPI) ModifyModelAccess(args params.ModifyModelAccessRequest
 		}
 
 		result.Results[i].Error = common.ServerError(
-			ChangeModelAccess(m.state, modelTag, m.apiUser, targetUserTag, arg.Action, modelAccess, m.isAdmin))
+			changeModelAccess(m.state, modelTag, m.apiUser, targetUserTag, arg.Action, modelAccess, m.isAdmin))
 	}
 	return result, nil
-}
-
-// resolveDescriptionAccess returns the state representation of the logical model
-// access type.
-func resolveDescriptionAccess(access permission.ModelAccess) (description.Access, error) {
-	var fail description.Access
-	switch access {
-	case permission.ModelAdminAccess:
-		return description.AdminAccess, nil
-	case permission.ModelReadAccess:
-		return description.ReadAccess, nil
-	case permission.ModelWriteAccess:
-		return description.WriteAccess, nil
-	}
-	logger.Errorf("invalid access permission: %+v", access)
-	return fail, errors.Errorf("invalid access permission")
 }
 
 func userAuthorizedToChangeAccess(st common.ModelManagerBackend, userIsAdmin bool, userTag names.UserTag) error {
@@ -709,15 +694,15 @@ func userAuthorizedToChangeAccess(st common.ModelManagerBackend, userIsAdmin boo
 		}
 		return errors.Annotate(err, "could not retrieve user")
 	}
-	if currentUser.Access != description.AdminAccess {
+	if currentUser.Access != permission.AdminAccess {
 		return common.ErrPerm
 	}
 	return nil
 }
 
-// ChangeModelAccess performs the requested access grant or revoke action for the
+// changeModelAccess performs the requested access grant or revoke action for the
 // specified user on the specified model.
-func ChangeModelAccess(accessor common.ModelManagerBackend, modelTag names.ModelTag, apiUser, targetUserTag names.UserTag, action params.ModelAction, access permission.ModelAccess, userIsAdmin bool) error {
+func changeModelAccess(accessor common.ModelManagerBackend, modelTag names.ModelTag, apiUser, targetUserTag names.UserTag, action params.ModelAction, access permission.Access, userIsAdmin bool) error {
 	st, err := accessor.ForModel(modelTag)
 	if err != nil {
 		return errors.Annotate(err, "could not lookup model")
@@ -728,18 +713,9 @@ func ChangeModelAccess(accessor common.ModelManagerBackend, modelTag names.Model
 		return errors.Trace(err)
 	}
 
-	descriptionAccess, err := resolveDescriptionAccess(access)
-	if err != nil {
-		return errors.Annotate(err, "could not resolve model access")
-	}
-
-	if descriptionAccess == description.UndefinedAccess {
-		return errors.NotValidf("changing model access to %q", description.UndefinedAccess)
-	}
-
 	switch action {
 	case params.GrantModelAccess:
-		_, err = st.AddModelUser(modelTag.Id(), state.UserAccessSpec{User: targetUserTag, CreatedBy: apiUser, Access: descriptionAccess})
+		_, err = st.AddModelUser(modelTag.Id(), state.UserAccessSpec{User: targetUserTag, CreatedBy: apiUser, Access: access})
 		if errors.IsAlreadyExists(err) {
 			modelUser, err := st.UserAccess(targetUserTag, modelTag)
 			if errors.IsNotFound(err) {
@@ -751,10 +727,10 @@ func ChangeModelAccess(accessor common.ModelManagerBackend, modelTag names.Model
 			}
 
 			// Only set access if greater access is being granted.
-			if modelUser.Access.EqualOrGreaterModelAccessThan(descriptionAccess) {
-				return errors.Errorf("user already has %q access or greater", descriptionAccess)
+			if modelUser.Access.EqualOrGreaterModelAccessThan(access) {
+				return errors.Errorf("user already has %q access or greater", access)
 			}
-			if _, err = st.SetUserAccess(modelUser.UserTag, modelUser.Object, descriptionAccess); err != nil {
+			if _, err = st.SetUserAccess(modelUser.UserTag, modelUser.Object, access); err != nil {
 				return errors.Annotate(err, "could not set model access for user")
 			}
 			return nil
@@ -762,30 +738,30 @@ func ChangeModelAccess(accessor common.ModelManagerBackend, modelTag names.Model
 		return errors.Annotate(err, "could not grant model access")
 
 	case params.RevokeModelAccess:
-		switch descriptionAccess {
-		case description.ReadAccess:
+		switch access {
+		case permission.ReadAccess:
 			// Revoking read access removes all access.
 			err := st.RemoveUserAccess(targetUserTag, modelTag)
 			return errors.Annotate(err, "could not revoke model access")
-		case description.WriteAccess:
+		case permission.WriteAccess:
 			// Revoking write access sets read-only.
 			modelUser, err := st.UserAccess(targetUserTag, modelTag)
 			if err != nil {
 				return errors.Annotate(err, "could not look up model access for user")
 			}
-			_, err = st.SetUserAccess(modelUser.UserTag, modelUser.Object, description.ReadAccess)
+			_, err = st.SetUserAccess(modelUser.UserTag, modelUser.Object, permission.ReadAccess)
 			return errors.Annotate(err, "could not set model access to read-only")
-		case description.AdminAccess:
+		case permission.AdminAccess:
 			// Revoking admin access sets read-write.
 			modelUser, err := st.UserAccess(targetUserTag, modelTag)
 			if err != nil {
 				return errors.Annotate(err, "could not look up model access for user")
 			}
-			_, err = st.SetUserAccess(modelUser.UserTag, modelUser.Object, description.WriteAccess)
+			_, err = st.SetUserAccess(modelUser.UserTag, modelUser.Object, permission.WriteAccess)
 			return errors.Annotate(err, "could not set model access to read-write")
 
 		default:
-			return errors.Errorf("don't know how to revoke %q access", descriptionAccess)
+			return errors.Errorf("don't know how to revoke %q access", access)
 		}
 
 	default:
@@ -793,16 +769,79 @@ func ChangeModelAccess(accessor common.ModelManagerBackend, modelTag names.Model
 	}
 }
 
-// FromModelAccessParam returns the logical model access type from the API wireformat type.
-func FromModelAccessParam(paramAccess params.UserAccessPermission) (permission.ModelAccess, error) {
-	var fail permission.ModelAccess
-	switch paramAccess {
-	case params.ModelReadAccess:
-		return permission.ModelReadAccess, nil
-	case params.ModelWriteAccess:
-		return permission.ModelWriteAccess, nil
-	case params.ModelAdminAccess:
-		return permission.ModelAdminAccess, nil
+// ModelDefaults returns the default config values used when creating a new model.
+func (c *ModelManagerAPI) ModelDefaults() (params.ModelDefaultsResult, error) {
+	result := params.ModelDefaultsResult{}
+	if !c.isAdmin {
+		return result, common.ErrPerm
 	}
-	return fail, errors.Errorf("invalid model access permission %q", paramAccess)
+
+	values, err := c.state.ModelConfigDefaultValues()
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	result.Config = make(map[string]params.ModelDefaults)
+	for attr, val := range values {
+		settings := params.ModelDefaults{
+			Controller: val.Controller,
+			Default:    val.Default,
+		}
+		for _, v := range val.Regions {
+			settings.Regions = append(
+				settings.Regions, params.RegionDefaults{
+					RegionName: v.Name,
+					Value:      v.Value})
+		}
+		result.Config[attr] = settings
+	}
+	return result, nil
+}
+
+// SetModelDefaults writes new values for the specified default model settings.
+func (c *ModelManagerAPI) SetModelDefaults(args params.SetModelDefaults) (params.ErrorResults, error) {
+	results := params.ErrorResults{Results: make([]params.ErrorResult, len(args.Config))}
+	if err := c.check.ChangeAllowed(); err != nil {
+		return results, errors.Trace(err)
+	}
+	for i, arg := range args.Config {
+		// TODO(wallyworld) - use arg.Cloud and arg.CloudRegion as appropriate
+		results.Results[i].Error = common.ServerError(
+			c.setModelDefaults(arg),
+		)
+	}
+	return results, nil
+}
+
+func (c *ModelManagerAPI) setModelDefaults(args params.ModelDefaultValues) error {
+	if !c.isAdmin {
+		return common.ErrPerm
+	}
+
+	if err := c.check.ChangeAllowed(); err != nil {
+		return errors.Trace(err)
+	}
+	// Make sure we don't allow changing agent-version.
+	if _, found := args.Config["agent-version"]; found {
+		return errors.New("agent-version cannot have a default value")
+	}
+	return c.state.UpdateModelConfigDefaultValues(args.Config, nil)
+}
+
+// UnsetModelDefaults removes the specified default model settings.
+func (c *ModelManagerAPI) UnsetModelDefaults(args params.UnsetModelDefaults) (params.ErrorResults, error) {
+	results := params.ErrorResults{Results: make([]params.ErrorResult, len(args.Keys))}
+	if !c.isAdmin {
+		return results, common.ErrPerm
+	}
+
+	if err := c.check.ChangeAllowed(); err != nil {
+		return results, errors.Trace(err)
+	}
+	for i, arg := range args.Keys {
+		// TODO(wallyworld) - use arg.Cloud and arg.CloudRegion as appropriate
+		results.Results[i].Error = common.ServerError(
+			c.state.UpdateModelConfigDefaultValues(nil, arg.Keys),
+		)
+	}
+	return results, nil
 }

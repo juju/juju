@@ -61,8 +61,36 @@ type listCredentialsCommand struct {
 	cloudByNameFunc    func(string) (*jujucloud.Cloud, error)
 }
 
+// CloudCredential contains attributes used to define credentials for a cloud.
+type CloudCredential struct {
+	// DefaultCredential is the named credential to use by default.
+	DefaultCredential string `json:"default-credential,omitempty" yaml:"default-credential,omitempty"`
+
+	// DefaultRegion is the cloud region to use by default.
+	DefaultRegion string `json:"default-region,omitempty" yaml:"default-region,omitempty"`
+
+	// Credentials is the collection of all credentials registered by the user for a cloud, keyed on a cloud name.
+	Credentials map[string]Credential `json:"cloud-credentials,omitempty" yaml:",omitempty,inline"`
+}
+
+// Credential instances represent cloud credentials.
+type Credential struct {
+	// AuthType determines authentication type for the credential.
+	AuthType string `json:"auth-type" yaml:"auth-type"`
+
+	// Attributes define details for individual credential.
+	// This collection is provider-specific: each provider is interested in different credential details.
+	Attributes map[string]string `json:"details,omitempty" yaml:",omitempty,inline"`
+
+	// Revoked is true if the credential has been revoked.
+	Revoked bool `json:"revoked,omitempty" yaml:"revoked,omitempty"`
+
+	// Label is optionally set to describe the credentials to a user.
+	Label string `json:"label,omitempty" yaml:"label,omitempty"`
+}
+
 type credentialsMap struct {
-	Credentials map[string]jujucloud.CloudCredential `yaml:"credentials" json:"credentials"`
+	Credentials map[string]CloudCredential `yaml:"credentials" json:"credentials"`
 }
 
 // NewListCredentialsCommand returns a command to list cloud credentials.
@@ -109,17 +137,6 @@ func (c *listCredentialsCommand) personalClouds() (map[string]jujucloud.Cloud, e
 	return c.personalCloudsFunc()
 }
 
-// displayCloudName returns the provided cloud name prefixed
-// with "local:" if it is a local cloud.
-func displayCloudName(cloudName string, personalCloudNames []string) string {
-	for _, name := range personalCloudNames {
-		if cloudName == name {
-			return localPrefix + cloudName
-		}
-	}
-	return cloudName
-}
-
 func (c *listCredentialsCommand) Run(ctxt *cmd.Context) error {
 	var credentials map[string]jujucloud.CloudCredential
 	credentials, err := c.store.AllCredentials()
@@ -144,14 +161,29 @@ func (c *listCredentialsCommand) Run(ctxt *cmd.Context) error {
 		personalCloudNames = append(personalCloudNames, name)
 	}
 
-	displayCredentials := make(map[string]jujucloud.CloudCredential)
+	displayCredentials := make(map[string]CloudCredential)
 	for cloudName, cred := range credentials {
 		if !c.showSecrets {
 			if err := c.removeSecrets(cloudName, &cred); err != nil {
 				return errors.Annotatef(err, "removing secrets from credentials for cloud %v", cloudName)
 			}
 		}
-		displayCredentials[displayCloudName(cloudName, personalCloudNames)] = cred
+		displayCredential := CloudCredential{
+			DefaultCredential: cred.DefaultCredential,
+			DefaultRegion:     cred.DefaultRegion,
+		}
+		if len(cred.AuthCredentials) != 0 {
+			displayCredential.Credentials = make(map[string]Credential, len(cred.AuthCredentials))
+			for credName, credDetails := range cred.AuthCredentials {
+				displayCredential.Credentials[credName] = Credential{
+					string(credDetails.AuthType()),
+					credDetails.Attributes(),
+					credDetails.Revoked,
+					credDetails.Label,
+				}
+			}
+		}
+		displayCredentials[cloudName] = displayCredential
 	}
 	return c.out.Write(ctxt, credentialsMap{displayCredentials})
 }
@@ -183,6 +215,11 @@ func formatCredentialsTabular(writer io.Writer, value interface{}) error {
 		return errors.Errorf("expected value of type %T, got %T", credentials, value)
 	}
 
+	if len(credentials.Credentials) == 0 {
+		fmt.Fprintln(writer, "No credentials to display.")
+		return nil
+	}
+
 	// For tabular we'll sort alphabetically by cloud, and then by credential name.
 	var cloudNames []string
 	for name := range credentials.Credentials {
@@ -200,7 +237,7 @@ func formatCredentialsTabular(writer io.Writer, value interface{}) error {
 		var haveDefault bool
 		var credentialNames []string
 		credentials := credentials.Credentials[cloudName]
-		for credentialName := range credentials.AuthCredentials {
+		for credentialName := range credentials.Credentials {
 			if credentialName == credentials.DefaultCredential {
 				credentialNames = append([]string{credentialName + "*"}, credentialNames...)
 				haveDefault = true

@@ -108,7 +108,7 @@ func (s *environPolSuite) TestConstraintsValidatorUnsupported(c *gc.C) {
 		"tags=foo",
 		"mem=3",
 		"instance-type=some-type",
-		"cpu-cores=2",
+		"cores=2",
 		"cpu-power=250",
 		"virt-type=kvm",
 	}, " "))
@@ -118,7 +118,7 @@ func (s *environPolSuite) TestConstraintsValidatorUnsupported(c *gc.C) {
 	expected := []string{
 		"tags",
 		"instance-type",
-		"cpu-cores",
+		"cores",
 		"cpu-power",
 		"virt-type",
 	}
@@ -167,12 +167,12 @@ func (s *environPolSuite) TestConstraintsValidatorConflicts(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	cons := constraints.MustParse("instance-type=n1-standard-1")
-	consFallback := constraints.MustParse("cpu-cores=2 cpu-power=1000 mem=10000 tags=bar")
+	consFallback := constraints.MustParse("cores=2 cpu-power=1000 mem=10000 tags=bar")
 	merged, err := validator.Merge(consFallback, cons)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// tags is not supported, but we're not validating here...
-	expected := constraints.MustParse("instance-type=n1-standard-1 tags=bar cpu-cores=2 cpu-power=1000 mem=10000")
+	expected := constraints.MustParse("instance-type=n1-standard-1 tags=bar cores=2 cpu-power=1000 mem=10000")
 	c.Check(merged, jc.DeepEquals, expected)
 }
 

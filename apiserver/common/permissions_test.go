@@ -10,7 +10,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/core/description"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/testing"
 )
 
@@ -23,11 +23,11 @@ var _ = gc.Suite(&PermissionSuite{})
 type fakeUserAccess struct {
 	subjects []names.UserTag
 	objects  []names.Tag
-	user     description.UserAccess
+	user     permission.UserAccess
 	err      error
 }
 
-func (f *fakeUserAccess) call(subject names.UserTag, object names.Tag) (description.UserAccess, error) {
+func (f *fakeUserAccess) call(subject names.UserTag, object names.Tag) (permission.UserAccess, error) {
 	f.subjects = append(f.subjects, subject)
 	f.objects = append(f.objects, object)
 	return f.user, f.err
@@ -36,7 +36,7 @@ func (f *fakeUserAccess) call(subject names.UserTag, object names.Tag) (descript
 func (r *PermissionSuite) TestNoUserTagLacksPermission(c *gc.C) {
 	nonUser := names.NewModelTag("beef1beef1-0000-0000-000011112222")
 	target := names.NewModelTag("beef1beef2-0000-0000-000011112222")
-	hasPermission, err := common.HasPermission((&fakeUserAccess{}).call, nonUser, description.ReadAccess, target)
+	hasPermission, err := common.HasPermission((&fakeUserAccess{}).call, nonUser, permission.ReadAccess, target)
 	c.Assert(hasPermission, jc.IsFalse)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -44,64 +44,64 @@ func (r *PermissionSuite) TestNoUserTagLacksPermission(c *gc.C) {
 func (r *PermissionSuite) TestHasPermission(c *gc.C) {
 	testCases := []struct {
 		title            string
-		userGetterAccess description.Access
+		userGetterAccess permission.Access
 		user             names.UserTag
 		target           names.Tag
-		access           description.Access
+		access           permission.Access
 		expected         bool
 	}{
 		{
 			title:            "user has lesser permissions than required",
-			userGetterAccess: description.ReadAccess,
+			userGetterAccess: permission.ReadAccess,
 			user:             names.NewUserTag("validuser"),
 			target:           names.NewModelTag("beef1beef2-0000-0000-000011112222"),
-			access:           description.WriteAccess,
+			access:           permission.WriteAccess,
 			expected:         false,
 		},
 		{
 			title:            "user has equal permission than required",
-			userGetterAccess: description.WriteAccess,
+			userGetterAccess: permission.WriteAccess,
 			user:             names.NewUserTag("validuser"),
 			target:           names.NewModelTag("beef1beef2-0000-0000-000011112222"),
-			access:           description.WriteAccess,
+			access:           permission.WriteAccess,
 			expected:         true,
 		},
 		{
 			title:            "user has greater permission than required",
-			userGetterAccess: description.AdminAccess,
+			userGetterAccess: permission.AdminAccess,
 			user:             names.NewUserTag("validuser"),
 			target:           names.NewModelTag("beef1beef2-0000-0000-000011112222"),
-			access:           description.WriteAccess,
+			access:           permission.WriteAccess,
 			expected:         true,
 		},
 		{
 			title:            "user requests model permission on controller",
-			userGetterAccess: description.AdminAccess,
+			userGetterAccess: permission.AdminAccess,
 			user:             names.NewUserTag("validuser"),
 			target:           names.NewModelTag("beef1beef2-0000-0000-000011112222"),
-			access:           description.AddModelAccess,
+			access:           permission.AddModelAccess,
 			expected:         false,
 		},
 		{
 			title:            "user requests controller permission on model",
-			userGetterAccess: description.AdminAccess,
+			userGetterAccess: permission.AdminAccess,
 			user:             names.NewUserTag("validuser"),
 			target:           names.NewControllerTag("beef1beef2-0000-0000-000011112222"),
-			access:           description.AdminAccess, // notice user has this permission for model.
+			access:           permission.AdminAccess, // notice user has this permission for model.
 			expected:         false,
 		},
 		{
 			title:            "controller permissions also work",
-			userGetterAccess: description.AddModelAccess,
+			userGetterAccess: permission.AddModelAccess,
 			user:             names.NewUserTag("validuser"),
 			target:           names.NewControllerTag("beef1beef2-0000-0000-000011112222"),
-			access:           description.AddModelAccess,
+			access:           permission.AddModelAccess,
 			expected:         true,
 		},
 	}
 	for i, t := range testCases {
 		userGetter := &fakeUserAccess{
-			user: description.UserAccess{
+			user: permission.UserAccess{
 				Access: t.userGetterAccess,
 			}}
 		c.Logf("HasPermission test n %d: %s", i, t.title)
@@ -116,10 +116,10 @@ func (r *PermissionSuite) TestUserGetterErrorReturns(c *gc.C) {
 	user := names.NewUserTag("validuser")
 	target := names.NewModelTag("beef1beef2-0000-0000-000011112222")
 	userGetter := &fakeUserAccess{
-		user: description.UserAccess{},
+		user: permission.UserAccess{},
 		err:  errors.NotFoundf("a user"),
 	}
-	hasPermission, err := common.HasPermission(userGetter.call, user, description.ReadAccess, target)
+	hasPermission, err := common.HasPermission(userGetter.call, user, permission.ReadAccess, target)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hasPermission, jc.IsFalse)
 	c.Assert(userGetter.subjects, gc.HasLen, 1)
@@ -129,11 +129,11 @@ func (r *PermissionSuite) TestUserGetterErrorReturns(c *gc.C) {
 }
 
 type fakeEveryoneUserAccess struct {
-	user     description.UserAccess
-	everyone description.UserAccess
+	user     permission.UserAccess
+	everyone permission.UserAccess
 }
 
-func (f *fakeEveryoneUserAccess) call(subject names.UserTag, object names.Tag) (description.UserAccess, error) {
+func (f *fakeEveryoneUserAccess) call(subject names.UserTag, object names.Tag) (permission.UserAccess, error) {
 	if subject.Canonical() == common.EveryoneTagName {
 		return f.everyone, nil
 	}
@@ -143,48 +143,48 @@ func (f *fakeEveryoneUserAccess) call(subject names.UserTag, object names.Tag) (
 func (r *PermissionSuite) TestEveryoneAtExternal(c *gc.C) {
 	testCases := []struct {
 		title            string
-		userGetterAccess description.Access
-		everyoneAccess   description.Access
+		userGetterAccess permission.Access
+		everyoneAccess   permission.Access
 		user             names.UserTag
 		target           names.Tag
-		access           description.Access
+		access           permission.Access
 		expected         bool
 	}{
 		{
 			title:            "user has lesser permissions than everyone",
-			userGetterAccess: description.LoginAccess,
-			everyoneAccess:   description.AddModelAccess,
+			userGetterAccess: permission.LoginAccess,
+			everyoneAccess:   permission.AddModelAccess,
 			user:             names.NewUserTag("validuser@external"),
 			target:           names.NewControllerTag("beef1beef2-0000-0000-000011112222"),
-			access:           description.AddModelAccess,
+			access:           permission.AddModelAccess,
 			expected:         true,
 		},
 		{
 			title:            "user has greater permissions than everyone",
-			userGetterAccess: description.AddModelAccess,
-			everyoneAccess:   description.LoginAccess,
+			userGetterAccess: permission.AddModelAccess,
+			everyoneAccess:   permission.LoginAccess,
 			user:             names.NewUserTag("validuser@external"),
 			target:           names.NewControllerTag("beef1beef2-0000-0000-000011112222"),
-			access:           description.AddModelAccess,
+			access:           permission.AddModelAccess,
 			expected:         true,
 		},
 		{
 			title:            "everibody not considered if user is local",
-			userGetterAccess: description.LoginAccess,
-			everyoneAccess:   description.AddModelAccess,
+			userGetterAccess: permission.LoginAccess,
+			everyoneAccess:   permission.AddModelAccess,
 			user:             names.NewUserTag("validuser"),
 			target:           names.NewControllerTag("beef1beef2-0000-0000-000011112222"),
-			access:           description.AddModelAccess,
+			access:           permission.AddModelAccess,
 			expected:         false,
 		},
 	}
 
 	for i, t := range testCases {
 		userGetter := &fakeEveryoneUserAccess{
-			user: description.UserAccess{
+			user: permission.UserAccess{
 				Access: t.userGetterAccess,
 			},
-			everyone: description.UserAccess{
+			everyone: permission.UserAccess{
 				Access: t.everyoneAccess,
 			},
 		}

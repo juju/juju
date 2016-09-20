@@ -113,5 +113,5 @@ func (sp *statePersistence) IncCharmModifiedVersionOps(applicationID string) []t
 // NewCleanupOp creates a mgo transaction operation that queues up
 // some cleanup action in state.
 func (sp *statePersistence) NewCleanupOp(kind, prefix string) txn.Op {
-	return sp.st.newCleanupOp(cleanupKind(kind), prefix)
+	return newCleanupOp(cleanupKind(kind), prefix)
 }

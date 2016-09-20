@@ -286,7 +286,9 @@ func ConfigureMachine(ctx environs.BootstrapContext, client ssh.Client, host str
 	})
 }
 
-type Addresser interface {
+// InstanceRefresher is the subet of the Instance interface required
+// for waiting for SSH access to become availble.
+type InstanceRefresher interface {
 	// Refresh refreshes the addresses for the instance.
 	Refresh() error
 
@@ -294,6 +296,10 @@ type Addresser interface {
 	// To ensure that the results are up to date, call
 	// Refresh first.
 	Addresses() ([]network.Address, error)
+
+	// Status returns the provider-specific status for the
+	// instance.
+	Status() instance.InstanceStatus
 }
 
 type RefreshableInstance struct {
@@ -441,7 +447,14 @@ var connectSSH = func(client ssh.Client, host, checkHostScript string) error {
 // the presence of a file on the machine that contains the
 // machine's nonce. The "checkHostScript" is a bash script
 // that performs this file check.
-func WaitSSH(stdErr io.Writer, interrupted <-chan os.Signal, client ssh.Client, checkHostScript string, inst Addresser, opts environs.BootstrapDialOpts) (addr string, err error) {
+func WaitSSH(
+	stdErr io.Writer,
+	interrupted <-chan os.Signal,
+	client ssh.Client,
+	checkHostScript string,
+	inst InstanceRefresher,
+	opts environs.BootstrapDialOpts,
+) (addr string, err error) {
 	globalTimeout := time.After(opts.Timeout)
 	pollAddresses := time.NewTimer(0)
 
@@ -466,6 +479,13 @@ func WaitSSH(stdErr io.Writer, interrupted <-chan os.Signal, client ssh.Client, 
 			pollAddresses.Reset(opts.AddressesDelay)
 			if err := inst.Refresh(); err != nil {
 				return "", fmt.Errorf("refreshing addresses: %v", err)
+			}
+			instanceStatus := inst.Status()
+			if instanceStatus.Status == status.ProvisioningError {
+				if instanceStatus.Message != "" {
+					return "", errors.Errorf("instance provisioning failed (%v)", instanceStatus.Message)
+				}
+				return "", errors.Errorf("instance provisioning failed")
 			}
 			addresses, err := inst.Addresses()
 			if err != nil {

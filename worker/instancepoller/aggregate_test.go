@@ -49,7 +49,7 @@ func (t *testInstance) Addresses() ([]network.Address, error) {
 }
 
 func (t *testInstance) Status() instance.InstanceStatus {
-	return instance.InstanceStatus{Status: status.StatusUnknown, Message: t.status}
+	return instance.InstanceStatus{Status: status.Unknown, Message: t.status}
 }
 
 type testInstanceGetter struct {

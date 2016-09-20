@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -112,7 +113,7 @@ type setStatuser interface {
 func setDefaultStatus(c *gc.C, entity setStatuser) {
 	now := time.Now()
 	s := status.StatusInfo{
-		Status:  status.StatusStarted,
+		Status:  status.Started,
 		Message: "",
 		Since:   &now,
 	}
@@ -160,7 +161,7 @@ func (s *baseSuite) openAs(c *gc.C, tag names.Tag) api.Connection {
 var scenarioStatus = &params.FullStatus{
 	Model: params.ModelStatusInfo{
 		Name:        "controller",
-		Cloud:       "dummy",
+		CloudTag:    "cloud-dummy",
 		CloudRegion: "dummy-region",
 		Version:     "1.2.3",
 	},
@@ -173,7 +174,7 @@ var scenarioStatus = &params.FullStatus{
 				Data:   make(map[string]interface{}),
 			},
 			InstanceStatus: params.DetailedStatus{
-				Status: status.StatusPending.String(),
+				Status: status.Pending.String(),
 				Data:   make(map[string]interface{}),
 			},
 			Series:     "quantal",
@@ -190,7 +191,7 @@ var scenarioStatus = &params.FullStatus{
 				Data:   make(map[string]interface{}),
 			},
 			InstanceStatus: params.DetailedStatus{
-				Status: status.StatusPending.String(),
+				Status: status.Pending.String(),
 				Data:   make(map[string]interface{}),
 			},
 			Series:     "quantal",
@@ -207,7 +208,7 @@ var scenarioStatus = &params.FullStatus{
 				Data:   make(map[string]interface{}),
 			},
 			InstanceStatus: params.DetailedStatus{
-				Status: status.StatusPending.String(),
+				Status: status.Pending.String(),
 				Data:   make(map[string]interface{}),
 			},
 			Series:     "quantal",
@@ -225,7 +226,11 @@ var scenarioStatus = &params.FullStatus{
 				"logging-directory": {"wordpress"},
 			},
 			SubordinateTo: []string{"wordpress"},
-			// TODO(fwereade): why does the subordinate have no service status?
+			Status: params.DetailedStatus{
+				Status: "waiting",
+				Info:   "waiting for machine",
+				Data:   map[string]interface{}{},
+			},
 		},
 		"mysql": {
 			Charm:         "local:quantal/mysql-1",
@@ -234,8 +239,8 @@ var scenarioStatus = &params.FullStatus{
 			SubordinateTo: []string{},
 			Units:         map[string]params.UnitStatus{},
 			Status: params.DetailedStatus{
-				Status: "unknown",
-				Info:   "Waiting for agent initialization to finish",
+				Status: "waiting",
+				Info:   "waiting for machine",
 				Data:   map[string]interface{}{},
 			},
 		},
@@ -266,8 +271,8 @@ var scenarioStatus = &params.FullStatus{
 					Subordinates: map[string]params.UnitStatus{
 						"logging/0": {
 							WorkloadStatus: params.DetailedStatus{
-								Status: "unknown",
-								Info:   "Waiting for agent initialization to finish",
+								Status: "waiting",
+								Info:   "waiting for machine",
 								Data:   make(map[string]interface{}),
 							},
 							AgentStatus: params.DetailedStatus{
@@ -279,8 +284,8 @@ var scenarioStatus = &params.FullStatus{
 				},
 				"wordpress/1": {
 					WorkloadStatus: params.DetailedStatus{
-						Status: "unknown",
-						Info:   "Waiting for agent initialization to finish",
+						Status: "waiting",
+						Info:   "waiting for machine",
 						Data:   make(map[string]interface{}),
 					},
 					AgentStatus: params.DetailedStatus{
@@ -293,8 +298,8 @@ var scenarioStatus = &params.FullStatus{
 					Subordinates: map[string]params.UnitStatus{
 						"logging/1": {
 							WorkloadStatus: params.DetailedStatus{
-								Status: "unknown",
-								Info:   "Waiting for agent initialization to finish",
+								Status: "waiting",
+								Info:   "waiting for machine",
 								Data:   make(map[string]interface{}),
 							},
 							AgentStatus: params.DetailedStatus{
@@ -448,7 +453,7 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 			}
 			now := time.Now()
 			sInfo := status.StatusInfo{
-				Status:  status.StatusError,
+				Status:  status.Error,
 				Message: "blam",
 				Data:    sd,
 				Since:   &now,
@@ -472,11 +477,21 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 		s.setAgentPresence(c, wu)
 		add(lu)
 	}
+	allMachines, err := s.State.AllMachines()
+	c.Assert(err, jc.ErrorIsNil)
+	for _, m := range allMachines {
+		s.setAgentPresence(c, m)
+	}
 	return
 }
 
-func (s *baseSuite) setAgentPresence(c *gc.C, u *state.Unit) {
-	pinger, err := u.SetAgentPresence()
+type presenceEntity interface {
+	SetAgentPresence() (*presence.Pinger, error)
+	WaitAgentPresence(timeout time.Duration) (err error)
+}
+
+func (s *baseSuite) setAgentPresence(c *gc.C, e presenceEntity) {
+	pinger, err := e.SetAgentPresence()
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(c *gc.C) {
 		c.Assert(worker.Stop(pinger), jc.ErrorIsNil)
@@ -484,6 +499,6 @@ func (s *baseSuite) setAgentPresence(c *gc.C, u *state.Unit) {
 
 	s.State.StartSync()
 	s.BackingState.StartSync()
-	err = u.WaitAgentPresence(coretesting.LongWait)
+	err = e.WaitAgentPresence(coretesting.LongWait)
 	c.Assert(err, jc.ErrorIsNil)
 }

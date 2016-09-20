@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/storage"
+	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
@@ -181,8 +182,34 @@ func (env *maasEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.B
 
 // ControllerInstances is specified in the Environ interface.
 func (env *maasEnviron) ControllerInstances(controllerUUID string) ([]instance.Id, error) {
-	// TODO(wallyworld) - tag instances with controller UUID so we can use that
+	if !env.usingMAAS2() {
+		return env.controllerInstances1(controllerUUID)
+	}
+	return env.controllerInstances2(controllerUUID)
+}
+
+func (env *maasEnviron) controllerInstances1(controllerUUID string) ([]instance.Id, error) {
 	return common.ProviderStateInstances(env.Storage())
+}
+
+func (env *maasEnviron) controllerInstances2(controllerUUID string) ([]instance.Id, error) {
+	instances, err := env.instances2(gomaasapi.MachinesArgs{
+		OwnerData: map[string]string{
+			tags.JujuIsController: "true",
+			tags.JujuController:   controllerUUID,
+		},
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(instances) == 0 {
+		return nil, environs.ErrNotBootstrapped
+	}
+	ids := make([]instance.Id, len(instances))
+	for i := range instances {
+		ids[i] = instances[i].Id()
+	}
+	return ids, nil
 }
 
 // ecfg returns the environment's maasModelConfig, and protects it with a
@@ -244,12 +271,12 @@ func (env *maasEnviron) SetConfig(cfg *config.Config) error {
 			return errors.Trace(err)
 		}
 		env.maasClientUnlocked = gomaasapi.NewMAAS(*authClient)
-		caps, err := GetCapabilities(env.maasClientUnlocked)
+		caps, err := GetCapabilities(env.maasClientUnlocked, maasServer)
 		if err != nil {
 			return errors.Trace(err)
 		}
 		if !caps.Contains(capNetworkDeploymentUbuntu) {
-			return errors.NotSupportedf("MAAS 1.9 or more recent is required")
+			return errors.NewNotSupported(nil, "MAAS 1.9 or more recent is required")
 		}
 	case err != nil:
 		return errors.Trace(err)
@@ -570,7 +597,7 @@ const (
 
 // getCapabilities asks the MAAS server for its capabilities, if
 // supported by the server.
-func getCapabilities(client *gomaasapi.MAASObject) (set.Strings, error) {
+func getCapabilities(client *gomaasapi.MAASObject, serverURL string) (set.Strings, error) {
 	caps := make(set.Strings)
 	var result gomaasapi.JSONObject
 	var err error
@@ -580,7 +607,12 @@ func getCapabilities(client *gomaasapi.MAASObject) (set.Strings, error) {
 		result, err = version.CallGet("", nil)
 		if err != nil {
 			if err, ok := errors.Cause(err).(gomaasapi.ServerError); ok && err.StatusCode == 404 {
-				return caps, errors.NotSupportedf("MAAS version 1.9 or more recent is required")
+				message := "could not connect to MAAS controller - check the endpoint is correct"
+				trimmedUrl := strings.TrimRight(serverURL, "/")
+				if !strings.HasSuffix(trimmedUrl, "/MAAS") {
+					message += " (it normally ends with /MAAS)"
+				}
+				return caps, errors.NewNotSupported(nil, message)
 			}
 		} else {
 			break
@@ -980,8 +1012,10 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
+		environ.tagInstance1(inst1, args.InstanceConfig)
 	} else {
-		startedInst, err := environ.startNode2(*inst.(*maas2Instance), series, userdata)
+		inst2 := inst.(*maas2Instance)
+		startedInst, err := environ.startNode2(*inst2, series, userdata)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -989,14 +1023,9 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
+		environ.tagInstance2(inst2, args.InstanceConfig)
 	}
 	logger.Debugf("started instance %q", inst.Id())
-
-	if multiwatcher.AnyJobNeedsState(args.InstanceConfig.Jobs...) {
-		if err := common.AddStateInstance(environ.Storage(), inst.Id()); err != nil {
-			logger.Errorf("could not record instance in provider-state: %v", err)
-		}
-	}
 
 	requestedVolumes := make([]names.VolumeTag, len(args.Volumes))
 	for i, v := range args.Volumes {
@@ -1021,6 +1050,23 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 		Volumes:           resultVolumes,
 		VolumeAttachments: resultAttachments,
 	}, nil
+}
+
+func (environ *maasEnviron) tagInstance1(inst *maas1Instance, instanceConfig *instancecfg.InstanceConfig) {
+	if !multiwatcher.AnyJobNeedsState(instanceConfig.Jobs...) {
+		return
+	}
+	err := common.AddStateInstance(environ.Storage(), inst.Id())
+	if err != nil {
+		logger.Errorf("could not record instance in provider-state: %v", err)
+	}
+}
+
+func (environ *maasEnviron) tagInstance2(inst *maas2Instance, instanceConfig *instancecfg.InstanceConfig) {
+	err := inst.machine.SetOwnerData(instanceConfig.Tags)
+	if err != nil {
+		logger.Errorf("could not set owner data for instance: %v", err)
+	}
 }
 
 func (environ *maasEnviron) waitForNodeDeployment(id instance.Id, timeout time.Duration) error {
@@ -1065,10 +1111,10 @@ func (environ *maasEnviron) waitForNodeDeployment2(id instance.Id, timeout time.
 			return errors.Trace(err)
 		}
 		stat := machine.Status()
-		if stat.Status == status.StatusRunning {
+		if stat.Status == status.Running {
 			return nil
 		}
-		if stat.Status == status.StatusProvisioningError {
+		if stat.Status == status.ProvisioningError {
 			return errors.Errorf("instance %q failed to deploy", id)
 
 		}

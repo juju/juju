@@ -117,7 +117,7 @@ type User interface {
 	CreatedBy() names.UserTag
 	DateCreated() time.Time
 	LastConnection() time.Time
-	Access() Access
+	Access() string
 }
 
 // Address represents an IP Address of some form.

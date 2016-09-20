@@ -124,12 +124,17 @@ func (s *SourcePrecheckSuite) TestDyingMachine(c *gc.C) {
 func (s *SourcePrecheckSuite) TestNonStartedMachine(c *gc.C) {
 	backend := newBackendWithDownMachine()
 	err := migration.SourcePrecheck(backend)
-	c.Assert(err.Error(), gc.Equals, "machine 0 not started (down)")
+	c.Assert(err.Error(), gc.Equals, "machine 0 agent not functioning at this time (down)")
 }
 
 func (s *SourcePrecheckSuite) TestProvisioningMachine(c *gc.C) {
 	err := migration.SourcePrecheck(newBackendWithProvisioningMachine())
 	c.Assert(err.Error(), gc.Equals, "machine 0 not running (allocating)")
+}
+
+func (s *SourcePrecheckSuite) TestDownMachineAgent(c *gc.C) {
+	err := migration.SourcePrecheck(newBackendWithDownMachineAgent())
+	c.Assert(err.Error(), gc.Equals, "machine 1 agent not functioning at this time (down)")
 }
 
 func (s *SourcePrecheckSuite) TestDyingApplication(c *gc.C) {
@@ -200,7 +205,7 @@ func (s *SourcePrecheckSuite) TestUnitNotIdle(c *gc.C) {
 			&fakeApp{
 				name: "foo",
 				units: []migration.PrecheckUnit{
-					&fakeUnit{name: "foo/0", agentStatus: status.StatusFailed},
+					&fakeUnit{name: "foo/0", agentStatus: status.Failed},
 				},
 			},
 		},
@@ -266,7 +271,7 @@ func (s *SourcePrecheckSuite) TestNonStartedControllerMachine(c *gc.C) {
 		controllerBackend: newBackendWithDownMachine(),
 	}
 	err := migration.SourcePrecheck(backend)
-	c.Assert(err.Error(), gc.Equals, "controller: machine 0 not started (down)")
+	c.Assert(err.Error(), gc.Equals, "controller: machine 0 agent not functioning at this time (down)")
 }
 
 func (s *SourcePrecheckSuite) TestProvisioningControllerMachine(c *gc.C) {
@@ -341,6 +346,18 @@ func (s *TargetPrecheckSuite) TestIsUpgrading(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "upgrade in progress")
 }
 
+func (s *TargetPrecheckSuite) TestIsMigrationActiveError(c *gc.C) {
+	backend := &fakeBackend{migrationActiveErr: errors.New("boom")}
+	err := migration.TargetPrecheck(backend, s.modelInfo)
+	c.Assert(err, gc.ErrorMatches, "checking for active migration: boom")
+}
+
+func (s *TargetPrecheckSuite) TestIsMigrationActive(c *gc.C) {
+	backend := &fakeBackend{migrationActive: true}
+	err := migration.TargetPrecheck(backend, s.modelInfo)
+	c.Assert(err, gc.ErrorMatches, "model is being migrated out of target controller")
+}
+
 func (s *TargetPrecheckSuite) TestMachineVersionsDontMatch(c *gc.C) {
 	s.checkMachineVersionsDontMatch(c, s.runPrecheck)
 }
@@ -354,13 +371,19 @@ func (s *TargetPrecheckSuite) TestDyingMachine(c *gc.C) {
 func (s *TargetPrecheckSuite) TestNonStartedMachine(c *gc.C) {
 	backend := newBackendWithDownMachine()
 	err := migration.TargetPrecheck(backend, s.modelInfo)
-	c.Assert(err.Error(), gc.Equals, "machine 0 not started (down)")
+	c.Assert(err.Error(), gc.Equals, "machine 0 agent not functioning at this time (down)")
 }
 
 func (s *TargetPrecheckSuite) TestProvisioningMachine(c *gc.C) {
 	backend := newBackendWithProvisioningMachine()
 	err := migration.TargetPrecheck(backend, s.modelInfo)
 	c.Assert(err.Error(), gc.Equals, "machine 0 not running (allocating)")
+}
+
+func (s *TargetPrecheckSuite) TestDownMachineAgent(c *gc.C) {
+	backend := newBackendWithDownMachineAgent()
+	err := migration.TargetPrecheck(backend, s.modelInfo)
+	c.Assert(err.Error(), gc.Equals, "machine 1 agent not functioning at this time (down)")
 }
 
 func (s *TargetPrecheckSuite) TestModelNameAlreadyInUse(c *gc.C) {
@@ -480,7 +503,7 @@ func newBackendWithDyingMachine() *fakeBackend {
 func newBackendWithDownMachine() *fakeBackend {
 	return &fakeBackend{
 		machines: []migration.PrecheckMachine{
-			&fakeMachine{id: "0", status: status.StatusDown},
+			&fakeMachine{id: "0", status: status.Down},
 			&fakeMachine{id: "1"},
 		},
 	}
@@ -489,8 +512,17 @@ func newBackendWithDownMachine() *fakeBackend {
 func newBackendWithProvisioningMachine() *fakeBackend {
 	return &fakeBackend{
 		machines: []migration.PrecheckMachine{
-			&fakeMachine{id: "0", instanceStatus: status.StatusProvisioning},
+			&fakeMachine{id: "0", instanceStatus: status.Provisioning},
 			&fakeMachine{id: "1"},
+		},
+	}
+}
+
+func newBackendWithDownMachineAgent() *fakeBackend {
+	return &fakeBackend{
+		machines: []migration.PrecheckMachine{
+			&fakeMachine{id: "0"},
+			&fakeMachine{id: "1", lost: true},
 		},
 	}
 }
@@ -512,6 +544,9 @@ type fakeBackend struct {
 
 	isUpgrading    bool
 	isUpgradingErr error
+
+	migrationActive    bool
+	migrationActiveErr error
 
 	machines       []migration.PrecheckMachine
 	allMachinesErr error
@@ -540,6 +575,10 @@ func (b *fakeBackend) AgentVersion() (version.Number, error) {
 
 func (b *fakeBackend) IsUpgrading() (bool, error) {
 	return b.isUpgrading, b.isUpgradingErr
+}
+
+func (b *fakeBackend) IsMigrationActive(string) (bool, error) {
+	return b.migrationActive, b.migrationActiveErr
 }
 
 func (b *fakeBackend) AllMachines() ([]migration.PrecheckMachine, error) {
@@ -592,6 +631,7 @@ type fakeMachine struct {
 	life           state.Life
 	status         status.Status
 	instanceStatus status.Status
+	lost           bool
 	rebootAction   state.RebootAction
 }
 
@@ -607,7 +647,7 @@ func (m *fakeMachine) Status() (status.StatusInfo, error) {
 	s := m.status
 	if s == "" {
 		// Avoid the need to specify this everywhere.
-		s = status.StatusStarted
+		s = status.Started
 	}
 	return status.StatusInfo{Status: s}, nil
 }
@@ -616,9 +656,13 @@ func (m *fakeMachine) InstanceStatus() (status.StatusInfo, error) {
 	s := m.instanceStatus
 	if s == "" {
 		// Avoid the need to specify this everywhere.
-		s = status.StatusRunning
+		s = status.Running
 	}
 	return status.StatusInfo{Status: s}, nil
+}
+
+func (m *fakeMachine) AgentPresence() (bool, error) {
+	return !m.lost, nil
 }
 
 func (m *fakeMachine) AgentTools() (*tools.Tools, error) {
@@ -713,13 +757,13 @@ func (u *fakeUnit) AgentStatus() (status.StatusInfo, error) {
 	s := u.agentStatus
 	if s == "" {
 		// Avoid the need to specify this everywhere.
-		s = status.StatusIdle
+		s = status.Idle
 	}
 	return status.StatusInfo{Status: s}, nil
 }
 
 func (u *fakeUnit) Status() (status.StatusInfo, error) {
-	return status.StatusInfo{Status: status.StatusIdle}, nil
+	return status.StatusInfo{Status: status.Idle}, nil
 }
 
 func (u *fakeUnit) AgentPresence() (bool, error) {

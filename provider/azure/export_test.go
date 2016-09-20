@@ -13,5 +13,5 @@ func ForceVolumeSourceTokenRefresh(vs storage.VolumeSource) error {
 }
 
 func ForceTokenRefresh(env environs.Environ) error {
-	return env.(*azureEnviron).token.Refresh()
+	return env.(*azureEnviron).authorizer.refresh()
 }

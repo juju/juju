@@ -63,7 +63,7 @@ func (s *GetCmdSuite) TestInit(c *gc.C) {
 
 func (s *GetCmdSuite) TestRunOkay(c *gc.C) {
 	getCmd := GetCmd{
-		hookContext:  s.hctx,
+		compContext:  s.hctx,
 		resourceName: "spam",
 	}
 	const expected = "/var/lib/juju/agents/unit-foo-1/resources/spam/a-file.tgz"
@@ -81,7 +81,7 @@ func (s *GetCmdSuite) TestRunOkay(c *gc.C) {
 
 func (s *GetCmdSuite) TestRunDownloadFailure(c *gc.C) {
 	getCmd := GetCmd{
-		hookContext:  s.hctx,
+		compContext:  s.hctx,
 		resourceName: "spam",
 	}
 	failure := errors.New("<failure>")

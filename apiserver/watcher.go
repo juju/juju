@@ -13,9 +13,9 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 )
 
@@ -72,7 +72,7 @@ func NewAllWatcher(context facade.Context) (facade.Facade, error) {
 	// HasPermission should not be replaced by auth.AuthClient() even if, at first sight, they seem
 	// equivalent because this allows us to remove login permission for a user
 	// (a permission that is given by default).
-	isAuthorized, err := auth.HasPermission(description.LoginAccess, context.State().ControllerTag())
+	isAuthorized, err := auth.HasPermission(permission.LoginAccess, context.State().ControllerTag())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

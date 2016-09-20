@@ -78,11 +78,11 @@ Examples:
     juju show-status mysql
     juju show-status nova-*
 
-See Also:
-    juju show-model
-    juju show-status-log
-    juju machines
-    juju storage
+See also:
+    machines
+    show-model
+    show-status-log
+    storage
 `
 
 func (c *statusCommand) Info() *cmd.Info {
@@ -153,7 +153,10 @@ func (c *statusCommand) Run(ctx *cmd.Context) error {
 	}
 
 	formatter := newStatusFormatter(status, c.ControllerName(), c.isoTime)
-	formatted := formatter.format()
+	formatted, err := formatter.format()
+	if err != nil {
+		return err
+	}
 	return c.out.Write(ctx, formatted)
 }
 

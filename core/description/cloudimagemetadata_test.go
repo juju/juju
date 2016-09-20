@@ -41,7 +41,7 @@ func (s *CloudImageMetadataSerializationSuite) TestNewCloudImageMetadata(c *gc.C
 		Source:          "test",
 		Priority:        0,
 		ImageId:         "foo",
-		DateCreated:     nil,
+		DateCreated:     0,
 	}
 	metadata := newCloudImageMetadata(args)
 	c.Check(metadata.Stream(), gc.Equals, args.Stream)
