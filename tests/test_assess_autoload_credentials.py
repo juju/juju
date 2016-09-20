@@ -49,9 +49,9 @@ class TestParseArgs(TestCase):
         self.assertEqual(
             args,
             Namespace(agent_stream=None, agent_url=None, bootstrap_host=None,
-                      debug=False, env='env', juju_bin='/bin/juju',
-                      keep_env=False, logs=log, machine=[],
-                      region=None, series=None,
+                      debug=False, deadline=None, env='env',
+                      juju_bin='/bin/juju', keep_env=False, logs=log,
+                      machine=[], region=None, series=None,
                       temp_env_name='functional-autoload-credentials',
                       upload_tools=False, verbose=logging.INFO,
                       ))
