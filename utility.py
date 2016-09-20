@@ -393,7 +393,8 @@ def add_basic_testing_arguments(parser, using_jes=False, deadline=True):
                         help='Keep the Juju environment after the test'
                         ' completes.')
     if deadline:
-        parser.add_argument('--timeout', dest='deadline', type=_to_deadline)
+        parser.add_argument('--timeout', dest='deadline', type=_to_deadline,
+                            help="The script timeout, in seconds.")
     return parser
 
 
