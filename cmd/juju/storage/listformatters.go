@@ -10,17 +10,11 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/juju/errors"
 	"github.com/juju/juju/cmd/output"
 )
 
 // formatListTabular writes a tabular summary of storage instances.
-func formatStorageListTabular(writer io.Writer, value interface{}) error {
-	storageInfo, ok := value.(map[string]StorageInfo)
-	if !ok {
-		return errors.Errorf("expected value of type %T, got %T", storageInfo, value)
-	}
-
+func formatStorageListTabular(writer io.Writer, storageInfo map[string]StorageInfo) error {
 	tw := output.TabWriter(writer)
 	p := func(values ...interface{}) {
 		for _, v := range values {
