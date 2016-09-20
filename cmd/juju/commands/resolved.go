@@ -21,7 +21,7 @@ func newResolvedCommand() cmd.Command {
 type resolvedCommand struct {
 	modelcmd.ModelCommandBase
 	UnitName string
-	NoRetry    bool
+	NoRetry  bool
 }
 
 func (c *resolvedCommand) Info() *cmd.Info {
