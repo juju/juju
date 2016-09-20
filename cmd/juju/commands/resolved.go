@@ -34,7 +34,7 @@ func (c *resolvedCommand) Info() *cmd.Info {
 
 func (c *resolvedCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	f.BoolVar(&c.NoRetry, "no-retry", false, "do not re-execute failed hooks on the unit")
+	f.BoolVar(&c.NoRetry, "no-retry", false, "Do not re-execute failed hooks on the unit")
 }
 
 func (c *resolvedCommand) Init(args []string) error {
