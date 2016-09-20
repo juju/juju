@@ -491,13 +491,37 @@ func (st *mockState) ModelConfigDefaultValues() (config.ModelDefaultAttributes, 
 	return st.cfgDefaults, nil
 }
 
-func (st *mockState) UpdateModelConfigDefaultValues(update map[string]interface{}, remove []string) error {
-	st.MethodCall(st, "UpdateModelConfigDefaultValues", update, remove)
+func (st *mockState) UpdateModelConfigDefaultValues(update map[string]interface{}, remove []string, cloudTag, regionName string) error {
+	st.MethodCall(st, "UpdateModelConfigDefaultValues", update, remove, cloudTag, regionName)
 	for k, v := range update {
-		st.cfgDefaults[k] = config.AttributeDefaultValues{Controller: v}
+		if regionName != "" {
+			adv := st.cfgDefaults[k]
+			adv.Regions = append(adv.Regions, config.RegionDefaultValue{
+				Name:  regionName,
+				Value: v})
+
+		} else {
+			st.cfgDefaults[k] = config.AttributeDefaultValues{Controller: v}
+		}
 	}
 	for _, n := range remove {
-		delete(st.cfgDefaults, n)
+		if regionName != "" {
+			for i, r := range st.cfgDefaults[n].Regions {
+				if r.Name == regionName {
+					adv := st.cfgDefaults[n]
+					adv.Regions = append(adv.Regions[:i], adv.Regions[i+1:]...)
+					st.cfgDefaults[n] = adv
+				}
+			}
+		} else {
+			if len(st.cfgDefaults[n].Regions) == 0 {
+				delete(st.cfgDefaults, n)
+			} else {
+
+				st.cfgDefaults[n] = config.AttributeDefaultValues{
+					Regions: st.cfgDefaults[n].Regions}
+			}
+		}
 	}
 	return nil
 }
