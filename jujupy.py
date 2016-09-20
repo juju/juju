@@ -233,17 +233,17 @@ def temp_yaml_file(yaml_dict):
 
 
 class SimpleEnvironment:
-    """Represents a model's data in the JUJU_HOME directory for juju 1."""
+    """Represents a model in a JUJU_HOME directory for juju 1."""
 
     def __init__(self, environment, config=None, juju_home=None,
                  controller=None):
-        """Create a new set of environment data.
+        """Constructor.
 
         :param environment: Name of the environment.
         :param config: Dictionary with configuration options, default is None.
         :param juju_home: Path to JUJU_HOME directory, default is None.
-        :param controller: Controller instance, this model's controller.
-        If not given or None a new instance is created."""
+        :param controller: Controller instance-- this model's controller.
+            If not given or None a new instance is created."""
         self.user_name = None
         if controller is None:
             controller = Controller(environment)
@@ -330,16 +330,21 @@ class SimpleEnvironment:
 
 
 class JujuData(SimpleEnvironment):
-    """Represents a model's data in the JUJU_DATA directory for juju 2."""
+    """Represents a model in a JUJU_DATA directory for juju 2."""
 
     def __init__(self, environment, config=None, juju_home=None,
                  controller=None):
-        """Create a new model.
+        """Constructor.
 
         This extends SimpleEnvironment's constructor.
 
-        :param juju_home: If not given or None, a default is passed to
-        the SimpleEnvironment constructor."""
+        :param environment: Name of the environment.
+        :param config: Dictionary with configuration options; default is None.
+        :param juju_home: Path to JUJU_DATA directory. If None (the default),
+            the home directory is autodetected.
+        :param controller: Controller instance-- this model's controller.
+            If not given or None, a new instance is created.
+        """
         if juju_home is None:
             juju_home = get_juju_home()
         super(JujuData, self).__init__(environment, config, juju_home,
@@ -882,7 +887,11 @@ def client_from_config(config, juju_path, debug=False, soft_deadline=None):
 class EnvJujuClient:
     """Wraps calls to a juju instance, associated with a single model.
 
-    Note: A model is often called an enviroment (Juju 1 legacy)."""
+    Note: A model is often called an enviroment (Juju 1 legacy).
+
+    This class represents the latest Juju version.  Subclasses are used to
+    support older versions (see get_client_class).
+    """
 
     # The environments.yaml options that are replaced by bootstrap options.
     #
@@ -929,7 +938,7 @@ class EnvJujuClient:
     def get_version(cls, juju_path=None):
         """Get the version data from a juju binary.
 
-        :param juju_path: Path to binary. If not give or None 'juju' is used.
+        :param juju_path: Path to binary. If not given or None, 'juju' is used.
         """
         if juju_path is None:
             juju_path = 'juju'
@@ -1050,20 +1059,21 @@ class EnvJujuClient:
                  soft_deadline=None, _backend=None):
         """Create a new juju client.
 
-        Positional Arguments
-        :param env: Class repersenting the environment
+        Required Arguments
+        :param env: Object representing a model in a data directory.
         :param version: Version of juju the client wraps.
         :param full_path: Full path to juju binary.
 
-        Keyword Arguments
-        :param juju_home: Explicate path to the JUJU_HOME directory. If None
-        one is taken from env or the system.
-        :param debug: Flag to activate debugging output, False by default.
+        Optional Arguments
+        :param juju_home: default value for env.juju_home.  Will be
+            autodetected if None (the default).
+        :param debug: Flag to activate debugging output; False by default.
         :param soft_deadline: A datetime representing the deadline by which
             normal operations should complete.  If None, no deadline is
             enforced.
-        :param _backend: If given and not None it is used instead of a new
-        instance of the default_backend."""
+        :param _backend: The backend to use for interacting with the client.
+            If None (the default), self.default_backend will be used.
+        """
         self.env = self._get_env(env)
         if _backend is None:
             _backend = self.default_backend(full_path, version, set(), debug,
@@ -1161,9 +1171,9 @@ class EnvJujuClient:
         return tuple(args)
 
     def add_model(self, env):
-        """Add a model along side this one and return its client.
+        """Add a model to this model's controller and return its client.
 
-        :param env: Class repersenting the new model/environment."""
+        :param env: Class representing the new model/environment."""
         model_client = self.clone(env)
         with model_client._bootstrap_config() as config_file:
             self._add_model(env.environment, config_file)
