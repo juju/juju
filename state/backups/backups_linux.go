@@ -6,12 +6,17 @@
 package backups
 
 import (
+	"fmt"
 	"net"
+	"os"
+	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/shell"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/juju/paths"
@@ -44,14 +49,20 @@ func ensureMongoService(agentConfig agent.Config) error {
 		return errors.Errorf("agent config has no state serving info")
 	}
 
-	err := mongo.EnsureServiceInstalled(agentConfig.DataDir(),
+	if err := mongo.EnsureServiceInstalled(agentConfig.DataDir(),
 		si.StatePort,
 		oplogSize,
 		numaCtlPolicy,
 		agentConfig.MongoVersion(),
 		true,
-	)
-	return errors.Annotate(err, "cannot ensure that mongo service start/stop scripts are in place")
+	); err != nil {
+		return errors.Annotate(err, "cannot ensure that mongo service start/stop scripts are in place")
+	}
+	// Installing a service will not automatically restart it.
+	if err := mongo.StartService(); err != nil {
+		return errors.Annotate(err, "failed to start mongo")
+	}
+	return nil
 }
 
 // Restore handles either returning or creating a controller to a backed up status:
@@ -94,14 +105,23 @@ func (b *backups) Restore(backupId string, dbInfo *DBInfo, args RestoreArgs) (na
 		return nil, errors.Annotate(err, "cannot determine DataDir for the restored machine")
 	}
 
+	logDataDir(oldDatadir)
+
 	var oldAgentConfig agent.ConfigSetterWriter
 	oldAgentConfigFile := agent.ConfigPath(oldDatadir, args.NewInstTag)
 	if oldAgentConfig, err = agent.ReadConfig(oldAgentConfigFile); err != nil {
 		return nil, errors.Annotate(err, "cannot load old agent config from disk")
 	}
 
+	logAgentConfig("old config", oldAgentConfigFile, oldAgentConfig)
+
+	logger.Infof("stopping juju-db")
+	if err = mongo.StopService(); err != nil {
+		return nil, errors.Annotate(err, "failed to stop mongo")
+	}
+
 	// delete all the files to be replaced
-	if err := PrepareMachineForRestore(); err != nil {
+	if err := PrepareMachineForRestore(oldAgentConfig.MongoVersion()); err != nil {
 		return nil, errors.Annotate(err, "cannot delete existing files")
 	}
 	logger.Infof("deleted old files to place new")
@@ -132,6 +152,8 @@ func (b *backups) Restore(backupId string, dbInfo *DBInfo, args RestoreArgs) (na
 		return nil, errors.Annotate(err, "cannot write new agent configuration")
 	}
 	logger.Infof("wrote new agent config for restore")
+	logAgentConfig("new config", agentConfigFile, agentConfig)
+	logDataDir(datadir)
 
 	if backupMachine.Id() != "0" {
 		logger.Infof("extra work needed backup belongs to %q machine", backupMachine.String())
@@ -229,9 +251,14 @@ func (b *backups) Restore(backupId string, dbInfo *DBInfo, args RestoreArgs) (na
 		return nil, errors.Trace(err)
 	}
 
+	logger.Infof("updating local machine addresses")
 	err = updateMachineAddresses(machine, args.PrivateAddress, args.PublicAddress)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot update api server machine addresses")
+	}
+	// Update the APIHostPorts as well.
+	if err := st.SetAPIHostPorts([][]network.HostPort{APIHostPorts}); err != nil {
+		return nil, errors.Annotate(err, "cannot update api server host ports")
 	}
 
 	// update all agents known to the new controller.
@@ -242,14 +269,17 @@ func (b *backups) Restore(backupId string, dbInfo *DBInfo, args RestoreArgs) (na
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	machines := []*state.Machine{}
+	machines := []machineModel{}
 	for _, model := range models {
 		machinesForModel, err := st.AllMachinesFor(model.UUID())
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		machines = append(machines, machinesForModel...)
+		for _, machine := range machinesForModel {
+			machines = append(machines, machineModel{machine: machine, model: model})
+		}
 	}
+	logger.Infof("updating other machine addresses")
 	if err := updateAllMachines(args.PrivateAddress, args.PublicAddress, machines); err != nil {
 		return nil, errors.Annotate(err, "cannot update agents")
 	}
@@ -267,4 +297,73 @@ func (b *backups) Restore(backupId string, dbInfo *DBInfo, args RestoreArgs) (na
 	}
 
 	return backupMachine, nil
+}
+
+type machineModel struct {
+	machine *state.Machine
+	model   *state.Model
+}
+
+func logAgentConfig(prefix, filename string, config agent.Config) {
+	out := map[string]interface{}{
+		"data-dir":      config.DataDir(),
+		"log-dir":       config.LogDir(),
+		"identity-path": config.SystemIdentityPath(),
+		"jobs":          config.Jobs(),
+		"tag":           config.Tag(),
+		"agent-dir":     config.Dir(),
+		"nonce":         config.Nonce(),
+		// don't care about ca-cert
+		"old-password":        config.OldPassword(),
+		"upgraded-to-version": config.UpgradedToVersion(),
+		"model":               config.Model().Id(),
+		"controller":          config.Controller().Id(),
+		"mongo-version":       config.MongoVersion().String(),
+	}
+	if addresses, err := config.APIAddresses(); err != nil {
+		out["api-addresses"] = fmt.Sprintf("err: %v", err)
+	} else {
+		out["api-addresses"] = addresses
+	}
+	if info, ok := config.StateServingInfo(); ok {
+		out["state-serving-info"] = info
+	}
+	if info, ok := config.APIInfo(); ok {
+		out["api-info"] = info
+	}
+	if info, ok := config.MongoInfo(); ok {
+		out["mongo-info"] = info
+	}
+
+	bytes, err := yaml.Marshal(out)
+	if err != nil {
+		logger.Errorf("error marshalling config: %v", err)
+		return
+	}
+	logger.Infof("%s from %s\n----- start -----\n%s\n----- end ------", prefix, filename, string(bytes))
+}
+
+func logDataDir(datadir string) {
+	var out []string
+	filepath.Walk(datadir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			out = append(out, fmt.Sprintf("%s, err: %s", path, err))
+			return nil
+		}
+		format := "%s (%s)"
+		args := []interface{}{path}
+		if (info.Mode() & os.ModeDir) > 0 {
+			args = append(args, "dir")
+		} else if (info.Mode() & os.ModeSymlink) > 0 {
+			args = append(args, "symlink")
+		} else {
+			format += " size %d,"
+			args = append(args, "file", info.Size)
+		}
+		format += " mod time %s"
+		args = append(args, info.ModTime().Format("2006-01-02 15:04:05"))
+		out = append(out, fmt.Sprintf(format, args...))
+		return nil
+	})
+	logger.Infof("datadir %s\n%s", datadir, strings.Join(out, "\n"))
 }
