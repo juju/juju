@@ -6,6 +6,9 @@ import argparse
 import logging
 import os
 import sys
+import re
+
+import yaml
 
 from deploy_stack import (
     BootstrapManager,
@@ -42,8 +45,20 @@ INSTANCE_TYPES = {
 def get_instance_spec(instance_type):
     """Get the specifications of a given instance type."""
     return {
-        't2.micro': {'root_disk': '1G', 'cpu_power': '10', 'cores': '1'},
+        't2.micro': {'root-disk': '1G', 'cpu-power': '10', 'cores': '1'},
         }[instance_type]
+
+
+def mem_to_int(size):
+    """Convert an argument size into a number of megabytes."""
+    if not re.match(re.compile('^[0123456789]+[MGTP]?$'), size):
+        raise JujuAssertionError('Not a size format:', size)
+    if size[-1] in 'MGTP':
+        val = int(size[0:-1])
+        unit = size[-1]
+        return val * (1024 ** 'MGTP'.find(unit))
+    else:
+        return int(size)
 
 
 class Constraints:
@@ -86,6 +101,60 @@ class Constraints:
                 self.arch == other.arch
                 )
 
+    @staticmethod
+    def _meets_string(constraint, actual):
+        if constraint is None:
+            return True
+        return constraint == actual
+
+    @staticmethod
+    def _meets_min_int(constraint, actual):
+        if constraint is None:
+            return True
+        return int(constraint) <= int(actual)
+
+    @staticmethod
+    def _meets_min_mem(constraint, actual):
+        if constraint is None:
+            return True
+        return mem_to_int(constraint) <= mem_to_int(actual)
+
+    def meets_root_disk(self, actual_root_disk):
+        """Check to see if a given value meets the root_disk constraint."""
+        return self._meets_min_mem(self.root_disk, actual_root_disk)
+
+    def meets_cores(self, actual_cores):
+        """Check to see if a given value meets the cores constraint."""
+        return self._meets_min_int(self.cores, actual_cores)
+
+    def meets_cpu_power(self, actual_cpu_power):
+        """Check to see if a given value meets the cpu_power constraint."""
+        return self._meets_min_int(self.cpu_power, actual_cpu_power)
+
+    def meets_arch(self, actual_arch):
+        """Check to see if a given value meets the arch constraint."""
+        return self._meets_string(self.arch, actual_arch)
+
+    def meets_instance_type(self, actual_data):
+        """Check to see if a given value meets the instance_type constraint.
+
+        Currently there is no direct way to check for it, so we 'fingerprint'
+        each instance_type in a dictionary."""
+        instance_data = get_instance_spec(self.instance_type)
+        for (key, value) in instance_data.iteritems():
+            # Temperary fix until cpu-cores -> cores switch is finished.
+            if key is 'cores' and 'cpu-cores' in actual_data:
+                key = 'cpu-cores'
+            if key not in actual_data:
+                raise JujuAssertionError('Missing data:', key)
+            elif key in ['mem', 'root-disk']:
+                if mem_to_int(value) != mem_to_int(actual_data[key]):
+                    return False
+            elif value != actual_data[key]:
+                return False
+        else:
+            return True
+
 
 def deploy_constraint(client, constraints, charm, series, charm_repo):
     """Test deploying charm with constraints."""
@@ -109,6 +178,21 @@ def deploy_charm_constraint(client, constraints, charm_name, charm_series,
                              platform=platform)
     deploy_constraint(client, constraints, charm,
                       charm_series, charm_dir)
+
+
+def juju_show_machine_hardware(client, machine):
+    """Uses juju show-machine and returns information about the hardwere."""
+    raw = client.get_juju_output('show-machine', machine, '--format', 'yaml')
+    raw_yaml = yaml.load(raw)
+    try:
+        hardware = raw_yaml['machines'][machine]['hardware']
+    except KeyError as error:
+        raise KeyError(error.args, raw_yaml)
+    data = {}
+    for kvp in hardware.split(' '):
+        (key, value) = kvp.split('=')
+        data[key] = value
+    return data
 
 
 def assess_virt_type(client, virt_type):
@@ -144,16 +228,20 @@ def assess_instance_type(client, provider, instance_type):
     if instance_type not in INSTANCE_TYPES[provider]:
         raise JujuAssertionError(instance_type)
     constraints = Constraints(instance_type=instance_type)
-    charm_name = 'instance-type-' + instance_type
+    charm_name = 'instance-type-' + instance_type.replace('.', '-')
     charm_series = 'xenial'
     with temp_dir() as charm_dir:
         deploy_charm_constraint(client, constraints, charm_name,
                                 charm_series, charm_dir)
+        client.wait_for_started()
+        data = juju_show_machine_hardware(client, '0')
+        constraints.meets_instance_type(data)
 
 
-def assess_instance_type_constraints(client):
+def assess_instance_type_constraints(client, provider=None):
     """Assess deployment with instance-type constraints."""
-    provider = client.env.config.get('type')
+    if provider is None:
+        provider = client.env.config.get('type')
     if provider not in INSTANCE_TYPES:
         return
     for instance_type in INSTANCE_TYPES[provider]:
@@ -162,8 +250,11 @@ def assess_instance_type_constraints(client):
 
 def assess_constraints(client, test_kvm=False):
     """Assess deployment with constraints."""
-    assess_virt_type_constraints(client, test_kvm)
-    assess_instance_type_constraints(client)
+    provider = client.env.config.get('type')
+    if 'lxd' == provider:
+        assess_virt_type_constraints(client, test_kvm)
+    elif 'ec2' == provider:
+        assess_instance_type_constraints(client, provider)
 
 
 def parse_args(argv):
