@@ -420,7 +420,6 @@ func getFourSpaces() []gomaasapi.Space {
 			id:      8,
 		},
 	}
-
 }
 
 func (suite *maas2EnvironSuite) TestAcquireNodePassesPositiveAndNegativeSpaces(c *gc.C) {
@@ -1270,13 +1269,6 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesPrimaryInterfaceMi
 	suite.assertAllocateContainerAddressesFails(c, controller, nil, "cannot find primary interface for container")
 }
 
-func (suite *maas2EnvironSuite) TestAllocateContainerAddressesPrimaryInterfaceSubnetMissing(c *gc.C) {
-	controller := &fakeController{}
-	prepared := []network.InterfaceInfo{{InterfaceName: "eth0"}}
-	errorMatches := "primary NIC subnet  not found"
-	suite.assertAllocateContainerAddressesFails(c, controller, prepared, errorMatches)
-}
-
 func makeFakeSubnet(id int) fakeSubnet {
 	return fakeSubnet{
 		id:      id,
@@ -1361,12 +1353,48 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesCreateDevicerror(c
 	c.Assert(maasArgs, jc.DeepEquals, expected)
 }
 
-func (suite *maas2EnvironSuite) TestAllocateContainerAddressesSecondNICSubnetMissing(c *gc.C) {
+func (suite *maas2EnvironSuite) TestAllocateContainerAddressesSubnetMissing(c *gc.C) {
 	subnet := makeFakeSubnet(3)
 	var env *maasEnviron
 	device := &fakeDevice{
-		interfaceSet: []gomaasapi.Interface{&fakeInterface{}},
-		systemID:     "foo",
+		Stub: &testing.Stub{},
+		interfaceSet: []gomaasapi.Interface{
+			&fakeInterface{
+				id:         93,
+				name:       "eth0",
+				type_:      "physical",
+				enabled:    true,
+				macAddress: "53:54:00:70:9b:ff",
+				vlan:       &fakeVLAN{vid: 0},
+				links: []gomaasapi.Link{
+					&fakeLink{
+						id:   480,
+						mode: "link_up",
+					},
+				},
+				parents:  []string{},
+				children: []string{},
+				Stub:     &testing.Stub{},
+			},
+		},
+		interface_: &fakeInterface{
+			id:         94,
+			name:       "eth1",
+			type_:      "physical",
+			enabled:    true,
+			macAddress: "53:54:00:70:9b:f1",
+			vlan:       &fakeVLAN{vid: 0},
+			links: []gomaasapi.Link{
+				&fakeLink{
+					id:   481,
+					mode: "link_up",
+				},
+			},
+			parents:  []string{},
+			children: []string{},
+			Stub:     &testing.Stub{},
+		},
+		systemID: "foo",
 	}
 	machine := &fakeMachine{
 		Stub:         &testing.Stub{},
@@ -1374,6 +1402,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesSecondNICSubnetMis
 		createDevice: device,
 	}
 	controller := &fakeController{
+		Stub:     &testing.Stub{},
 		machines: []gomaasapi.Machine{machine},
 		spaces: []gomaasapi.Space{
 			fakeSpace{
@@ -1382,16 +1411,40 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesSecondNICSubnetMis
 				subnets: []gomaasapi.Subnet{subnet},
 			},
 		},
+		devices: []gomaasapi.Device{device},
 	}
 	suite.injectController(controller)
 	env = suite.makeEnviron(c, nil)
 	prepared := []network.InterfaceInfo{
-		{InterfaceName: "eth0", CIDR: "10.20.19.0/24", MACAddress: "DEADBEEF"},
-		{InterfaceName: "eth1", CIDR: "10.20.20.0/24", MACAddress: "DEADBEEE"},
+		{InterfaceName: "eth0", CIDR: "", MACAddress: "DEADBEEF"},
+		{InterfaceName: "eth1", CIDR: "", MACAddress: "DEADBEEE"},
 	}
 	ignored := names.NewMachineTag("1/lxd/0")
-	_, err := env.AllocateContainerAddresses(instance.Id("1"), ignored, prepared)
-	c.Assert(err, gc.ErrorMatches, "NIC eth1 subnet 10.20.20.0/24 not found")
+	allocated, err := env.AllocateContainerAddresses(instance.Id("1"), ignored, prepared)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(allocated, jc.DeepEquals, []network.InterfaceInfo{{
+		MACAddress:     "53:54:00:70:9b:ff",
+		ProviderId:     "93",
+		ProviderVLANId: "0",
+		VLANTag:        0,
+		InterfaceName:  "eth0",
+		InterfaceType:  "ethernet",
+		Disabled:       false,
+		NoAutoStart:    false,
+		ConfigType:     "manual",
+		MTU:            1500,
+	}, {
+		MACAddress:     "53:54:00:70:9b:f1",
+		ProviderId:     "94",
+		ProviderVLANId: "0",
+		VLANTag:        0,
+		InterfaceName:  "eth1",
+		InterfaceType:  "ethernet",
+		Disabled:       false,
+		NoAutoStart:    false,
+		ConfigType:     "manual",
+		MTU:            1500,
+	}})
 }
 
 func (suite *maas2EnvironSuite) TestAllocateContainerAddressesCreateInterfaceError(c *gc.C) {
@@ -1459,6 +1512,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesLinkSubnetError(c 
 		createDevice: device,
 	}
 	controller := &fakeController{
+		Stub:     &testing.Stub{},
 		machines: []gomaasapi.Machine{machine},
 		spaces: []gomaasapi.Space{
 			fakeSpace{
@@ -1467,6 +1521,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesLinkSubnetError(c 
 				subnets: []gomaasapi.Subnet{subnet, subnet2},
 			},
 		},
+		devices: []gomaasapi.Device{device},
 	}
 	suite.injectController(controller)
 	env = suite.makeEnviron(c, nil)
@@ -1475,8 +1530,34 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesLinkSubnetError(c 
 		{InterfaceName: "eth1", CIDR: "10.20.20.0/24", MACAddress: "DEADBEEE"},
 	}
 	ignored := names.NewMachineTag("1/lxd/0")
-	_, err := env.AllocateContainerAddresses(instance.Id("1"), ignored, prepared)
-	c.Assert(err, gc.ErrorMatches, "cannot link device interface to subnet: boom")
+	allocated, err := env.AllocateContainerAddresses(instance.Id("1"), ignored, prepared)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(allocated, jc.DeepEquals, []network.InterfaceInfo{{
+		CIDR:             "",
+		ProviderId:       "0",
+		ProviderSubnetId: "",
+		ProviderVLANId:   "0",
+		VLANTag:          0,
+		InterfaceName:    "",
+		InterfaceType:    "ethernet",
+		ConfigType:       "",
+		MTU:              1500,
+		Disabled:         true,
+		NoAutoStart:      true,
+	}, {
+		CIDR:             "",
+		ProviderId:       "0",
+		ProviderSubnetId: "",
+		ProviderVLANId:   "0",
+		VLANTag:          0,
+		InterfaceName:    "",
+		InterfaceType:    "ethernet",
+		ConfigType:       "",
+		MTU:              1500,
+		Disabled:         true,
+		NoAutoStart:      true,
+	}})
+
 	args := getArgs(c, interface_.Calls())
 	maasArgs, ok := args.(gomaasapi.LinkSubnetArgs)
 	c.Assert(ok, jc.IsTrue)
