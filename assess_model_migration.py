@@ -49,7 +49,7 @@ def parse_args(argv):
     parser = argparse.ArgumentParser(
         description="Test model migration feature"
     )
-    add_basic_testing_arguments(parser)
+    add_basic_testing_arguments(parser, deadline=True)
     return parser.parse_args(argv)
 
 

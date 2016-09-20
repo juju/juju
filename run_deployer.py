@@ -33,7 +33,7 @@ def parse_args(argv=None):
                         help='Perform an upgrade test.')
     parser.add_argument('bundle_path',
                         help='URL or path to a bundle')
-    add_basic_testing_arguments(parser)
+    add_basic_testing_arguments(parser, deadline=True)
     parser.add_argument('--allow-native-deploy', action='store_true',
                         help='Let juju 2 use native bundle deploying.')
     parser.add_argument('--bundle-verification-script',

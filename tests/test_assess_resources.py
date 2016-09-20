@@ -62,8 +62,7 @@ class TestMain(TestCase):
                                    autospec=True) as mock_assess:
                             main(argv)
         mock_cl.assert_called_once_with(logging.DEBUG)
-        mock_c.assert_called_once_with('an-env', "/bin/juju", debug=False,
-                                       soft_deadline=None)
+        mock_c.assert_called_once_with('an-env', "/bin/juju", debug=False)
         self.assertEqual(mock_bc.call_count, 1)
         mock_assess.assert_called_once_with(client, make_args())
 
@@ -221,8 +220,7 @@ def make_args():
         bootstrap_host=None, debug=False, env='an-env', juju_bin='/bin/juju',
         keep_env=False, large_test_enabled=False, logs='/tmp/logs', machine=[],
         region=None, resource_timeout=1800, series=None,
-        temp_env_name='an-env-mod', upload_tools=False, verbose=10,
-        deadline=None,)
+        temp_env_name='an-env-mod', upload_tools=False, verbose=10)
 
 
 def make_resource_list(service_app_id='applicationId'):

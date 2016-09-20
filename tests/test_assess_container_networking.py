@@ -368,8 +368,7 @@ class TestMain(FakeHomeTestCase):
                        return_value=client) as mock_c:
                 yield
         mock_cl.assert_called_once_with(log_level)
-        mock_c.assert_called_once_with('an-env', argv[1], debug=debug,
-                                       soft_deadline=None)
+        mock_c.assert_called_once_with('an-env', argv[1], debug=debug)
 
     @contextmanager
     def patch_bootstrap_manager(self, runs=True):

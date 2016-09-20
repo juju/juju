@@ -22,7 +22,7 @@ logger = logging.getLogger("scale_out")
 def parse_args(argv=None):
     """Parse command line args into an args object."""
     parser = ArgumentParser()
-    add_basic_testing_arguments(parser)
+    add_basic_testing_arguments(parser, deadline=True)
     parser.add_argument('charms', nargs="+", help='Charms to deploy.')
     return parser.parse_args(argv)
 
