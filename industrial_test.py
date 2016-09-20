@@ -33,6 +33,7 @@ from jujupy import (
     uniquify_local,
     )
 from substrate import (
+    convert_to_azure_ids,
     make_substrate_manager as real_make_substrate_manager,
     terminate_instances,
     )
@@ -783,6 +784,9 @@ class BackupRestoreAttempt(SteppedStageAttempt):
         try:
             status = controller_client.get_status()
             instance_id = status.get_instance_id('0')
+            if client.env.config['type'] == 'azure':
+                instance_id = convert_to_azure_ids(
+                    controller_client, [instance_id])[0]
             host = get_machine_dns_name(controller_client, '0')
             terminate_instances(controller_client.env, [instance_id])
             yield results
