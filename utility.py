@@ -343,6 +343,7 @@ def add_basic_testing_arguments(parser, using_jes=False, deadline=False):
 
     :param parser: an ArgumentParser.
     :param using_jes: whether args should be tailored for JES testing.
+    :param deadline: If true, support the --deadline option.
     """
 
     # Optional postional arguments
