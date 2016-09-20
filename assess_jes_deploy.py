@@ -106,7 +106,7 @@ def check_services(client):
 
 def main():
     parser = ArgumentParser()
-    add_basic_testing_arguments(parser, using_jes=True)
+    add_basic_testing_arguments(parser, using_jes=True, deadline=True)
     args = parser.parse_args()
     with jes_setup(args) as (client, charm_series, base_env):
         test_jes_deploy(client, charm_series, args.logs, base_env)
