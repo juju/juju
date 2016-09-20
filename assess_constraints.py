@@ -181,7 +181,7 @@ def deploy_charm_constraint(client, constraints, charm_name, charm_series,
 
 
 def juju_show_machine_hardware(client, machine):
-    """Uses juju show-machine and returns information about the hardwere."""
+    """Uses juju show-machine and returns information about the hardware."""
     raw = client.get_juju_output('show-machine', machine, '--format', 'yaml')
     raw_yaml = yaml.load(raw)
     try:
