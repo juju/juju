@@ -42,7 +42,7 @@ func (s *instanceSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.provider = newProvider(c, azure.ProviderConfig{
 		Sender:                     &s.sender,
-		RequestInspector:           requestRecorder(&s.requests),
+		RequestInspector:           azuretesting.RequestRecorder(&s.requests),
 		RandomWindowsAdminPassword: func() string { return "sorandom" },
 	})
 	s.env = openEnviron(c, s.provider, &s.sender)

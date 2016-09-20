@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/Azure/go-autorest/autorest"
-	"github.com/Azure/go-autorest/autorest/azure"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/juju/errors"
 	"github.com/juju/retry"
@@ -108,15 +107,4 @@ func deleteResource(callAPI callAPIFunc, deleter resourceDeleter, resourceGroup,
 
 type resourceDeleter interface {
 	Delete(resourceGroup, name string, cancel <-chan struct{}) (autorest.Response, error)
-}
-
-func azureServiceError(err error) (*azure.ServiceError, bool) {
-	err = errors.Cause(err)
-	if d, ok := err.(autorest.DetailedError); ok {
-		err = d.Original
-	}
-	if err, ok := err.(*azure.RequestError); ok {
-		return err.ServiceError, true
-	}
-	return nil, false
 }

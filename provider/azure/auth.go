@@ -14,7 +14,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/provider/azure/internal/ad"
+	"github.com/juju/juju/provider/azure/internal/azureauth"
 )
 
 // cloudSpecAuth is an implementation of autorest.Authorizer.
@@ -78,7 +78,7 @@ func AuthToken(cloud environs.CloudSpec, sender autorest.Sender) (*azure.Service
 	if sender != nil {
 		subscriptionsClient.Sender = sender
 	}
-	authURI, err := ad.DiscoverAuthorizationURI(subscriptionsClient, subscriptionId)
+	authURI, err := azureauth.DiscoverAuthorizationURI(subscriptionsClient, subscriptionId)
 	if err != nil {
 		return nil, errors.Annotate(err, "detecting auth URI")
 	}
@@ -86,7 +86,7 @@ func AuthToken(cloud environs.CloudSpec, sender autorest.Sender) (*azure.Service
 
 	// The authorization URI scheme and host identifies the AD endpoint.
 	// The authorization URI path identifies the AD tenant.
-	tenantId, err := ad.AuthorizationURITenantID(authURI)
+	tenantId, err := azureauth.AuthorizationURITenantID(authURI)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting tenant ID")
 	}

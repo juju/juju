@@ -37,6 +37,8 @@ import (
 	jujunetwork "github.com/juju/juju/network"
 	"github.com/juju/juju/provider/azure/internal/armtemplates"
 	internalazurestorage "github.com/juju/juju/provider/azure/internal/azurestorage"
+	"github.com/juju/juju/provider/azure/internal/errorutils"
+	"github.com/juju/juju/provider/azure/internal/tracing"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/tools"
@@ -175,8 +177,8 @@ func (env *azureEnviron) initEnviron() error {
 		if env.provider.config.Sender != nil {
 			client.Sender = env.provider.config.Sender
 		}
-		client.ResponseInspector = tracingRespondDecorator(logger)
-		client.RequestInspector = tracingPrepareDecorator(logger)
+		client.ResponseInspector = tracing.RespondDecorator(logger)
+		client.RequestInspector = tracing.PrepareDecorator(logger)
 		if env.provider.config.RequestInspector != nil {
 			tracer := client.RequestInspector
 			inspector := env.provider.config.RequestInspector
@@ -941,7 +943,7 @@ func (env *azureEnviron) cancelDeployment(name string) error {
 			case http.StatusNotFound:
 				return errors.NewNotFound(err, fmt.Sprintf("deployment %q not found", name))
 			case http.StatusConflict:
-				if err, ok := azureServiceError(err); ok {
+				if err, ok := errorutils.ServiceError(err); ok {
 					if err.Code == serviceErrorCodeDeploymentCannotBeCancelled {
 						// Deployments can only canceled while they're running.
 						return nil

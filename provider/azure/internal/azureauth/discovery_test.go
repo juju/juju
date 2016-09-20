@@ -1,7 +1,7 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package ad_test
+package azureauth_test
 
 import (
 	"net/http"
@@ -13,7 +13,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/provider/azure/internal/ad"
+	"github.com/juju/juju/provider/azure/internal/azureauth"
 )
 
 type DiscoverySuite struct {
@@ -32,7 +32,7 @@ func (*DiscoverySuite) TestDiscoverAuthorizationURI(c *gc.C) {
 
 	client := subscriptions.NewClient()
 	client.Sender = sender
-	authURI, err := ad.DiscoverAuthorizationURI(client, "subscription_id")
+	authURI, err := azureauth.DiscoverAuthorizationURI(client, "subscription_id")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(authURI, jc.DeepEquals, &url.URL{
 		Scheme: "https",
@@ -48,7 +48,7 @@ func (*DiscoverySuite) TestDiscoverAuthorizationURIMissingHeader(c *gc.C) {
 
 	client := subscriptions.NewClient()
 	client.Sender = sender
-	_, err := ad.DiscoverAuthorizationURI(client, "subscription_id")
+	_, err := azureauth.DiscoverAuthorizationURI(client, "subscription_id")
 	c.Assert(err, gc.ErrorMatches, `WWW-Authenticate header not found`)
 }
 
@@ -60,7 +60,7 @@ func (*DiscoverySuite) TestDiscoverAuthorizationURIHeaderMismatch(c *gc.C) {
 
 	client := subscriptions.NewClient()
 	client.Sender = sender
-	_, err := ad.DiscoverAuthorizationURI(client, "subscription_id")
+	_, err := azureauth.DiscoverAuthorizationURI(client, "subscription_id")
 	c.Assert(err, gc.ErrorMatches, `authorization_uri not found in WWW-Authenticate header \("foo bar baz"\)`)
 }
 
@@ -71,7 +71,7 @@ func (*DiscoverySuite) TestDiscoverAuthorizationURIUnexpectedSuccess(c *gc.C) {
 
 	client := subscriptions.NewClient()
 	client.Sender = sender
-	_, err := ad.DiscoverAuthorizationURI(client, "subscription_id")
+	_, err := azureauth.DiscoverAuthorizationURI(client, "subscription_id")
 	c.Assert(err, gc.ErrorMatches, "expected unauthorized error response")
 }
 
@@ -82,12 +82,12 @@ func (*DiscoverySuite) TestDiscoverAuthorizationURIUnexpectedStatusCode(c *gc.C)
 
 	client := subscriptions.NewClient()
 	client.Sender = sender
-	_, err := ad.DiscoverAuthorizationURI(client, "subscription_id")
+	_, err := azureauth.DiscoverAuthorizationURI(client, "subscription_id")
 	c.Assert(err, gc.ErrorMatches, "expected unauthorized error response, got 404: .*")
 }
 
 func (*DiscoverySuite) TestAuthorizationURITenantID(c *gc.C) {
-	tenantId, err := ad.AuthorizationURITenantID(&url.URL{Path: "/3671f5a9-c0d0-472b-a80c-48135cf5a9f1"})
+	tenantId, err := azureauth.AuthorizationURITenantID(&url.URL{Path: "/3671f5a9-c0d0-472b-a80c-48135cf5a9f1"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(tenantId, gc.Equals, "3671f5a9-c0d0-472b-a80c-48135cf5a9f1")
 }
@@ -95,6 +95,6 @@ func (*DiscoverySuite) TestAuthorizationURITenantID(c *gc.C) {
 func (*DiscoverySuite) TestAuthorizationURITenantIDError(c *gc.C) {
 	url, err := url.Parse("https://testing.invalid/foo")
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = ad.AuthorizationURITenantID(url)
+	_, err = azureauth.AuthorizationURITenantID(url)
 	c.Assert(err, gc.ErrorMatches, `authorization_uri "https://testing.invalid/foo" not valid`)
 }

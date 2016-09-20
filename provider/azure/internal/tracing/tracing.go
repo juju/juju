@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package azure
+package tracing
 
 import (
 	"net/http"
@@ -11,9 +11,9 @@ import (
 	"github.com/juju/loggo"
 )
 
-// tracingPrepareDecorator returns an autorest.PrepareDecorator that
+// PrepareDecorator returns an autorest.PrepareDecorator that
 // logs requests at trace level.
-func tracingPrepareDecorator(logger loggo.Logger) autorest.PrepareDecorator {
+func PrepareDecorator(logger loggo.Logger) autorest.PrepareDecorator {
 	return func(p autorest.Preparer) autorest.Preparer {
 		return autorest.PreparerFunc(func(r *http.Request) (*http.Request, error) {
 			if logger.IsTraceEnabled() {
@@ -30,9 +30,9 @@ func tracingPrepareDecorator(logger loggo.Logger) autorest.PrepareDecorator {
 	}
 }
 
-// tracingRespondDecorator returns an autorest.RespondDecorator that
+// RespondDecorator returns an autorest.RespondDecorator that
 // logs responses at trace level.
-func tracingRespondDecorator(logger loggo.Logger) autorest.RespondDecorator {
+func RespondDecorator(logger loggo.Logger) autorest.RespondDecorator {
 	return func(r autorest.Responder) autorest.Responder {
 		return autorest.ResponderFunc(func(resp *http.Response) error {
 			if logger.IsTraceEnabled() {

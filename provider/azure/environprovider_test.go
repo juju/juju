@@ -4,13 +4,9 @@
 package azure_test
 
 import (
-	"bytes"
-	"io/ioutil"
 	"net/http"
-	"sync"
 	"time"
 
-	"github.com/Azure/go-autorest/autorest"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -36,7 +32,7 @@ func (s *environProviderSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.provider = newProvider(c, azure.ProviderConfig{
 		Sender:                     &s.sender,
-		RequestInspector:           requestRecorder(&s.requests),
+		RequestInspector:           azuretesting.RequestRecorder(&s.requests),
 		RandomWindowsAdminPassword: func() string { return "sorandom" },
 	})
 	s.spec = environs.CloudSpec{
@@ -114,32 +110,4 @@ func newProvider(c *gc.C, config azure.ProviderConfig) environs.EnvironProvider 
 	environProvider, err := azure.NewProvider(config)
 	c.Assert(err, jc.ErrorIsNil)
 	return environProvider
-}
-
-func requestRecorder(requests *[]*http.Request) autorest.PrepareDecorator {
-	if requests == nil {
-		return nil
-	}
-	var mu sync.Mutex
-	return func(p autorest.Preparer) autorest.Preparer {
-		return autorest.PreparerFunc(func(req *http.Request) (*http.Request, error) {
-			// Save the request body, since it will be consumed.
-			reqCopy := *req
-			if req.Body != nil {
-				var buf bytes.Buffer
-				if _, err := buf.ReadFrom(req.Body); err != nil {
-					return nil, err
-				}
-				if err := req.Body.Close(); err != nil {
-					return nil, err
-				}
-				reqCopy.Body = ioutil.NopCloser(&buf)
-				req.Body = ioutil.NopCloser(bytes.NewReader(buf.Bytes()))
-			}
-			mu.Lock()
-			*requests = append(*requests, &reqCopy)
-			mu.Unlock()
-			return req, nil
-		})
-	}
 }
