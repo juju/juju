@@ -178,7 +178,7 @@ func (api *API) parseMetadataListFromParams(p params.CloudImageMetadataList, cfg
 	results := make([]cloudimagemetadata.Metadata, len(p.Metadata))
 	for i, metadata := range p.Metadata {
 		results[i] = cloudimagemetadata.Metadata{
-			cloudimagemetadata.MetadataAttributes{
+			MetadataAttributes: cloudimagemetadata.MetadataAttributes{
 				Stream:          metadata.Stream,
 				Region:          metadata.Region,
 				Version:         metadata.Version,
@@ -189,10 +189,8 @@ func (api *API) parseMetadataListFromParams(p params.CloudImageMetadataList, cfg
 				RootStorageSize: metadata.RootStorageSize,
 				Source:          metadata.Source,
 			},
-			metadata.Priority,
-			metadata.ImageId,
-			// DateCreated will be filled in on save.
-			0,
+			Priority: metadata.Priority,
+			ImageId:  metadata.ImageId,
 		}
 		// TODO (anastasiamac 2016-08-24) This is a band-aid solution.
 		// Once correct value is read from simplestreams, this needs to go.
