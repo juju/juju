@@ -6,10 +6,14 @@ package azure
 import (
 	"fmt"
 
+	"github.com/Azure/go-autorest/autorest"
 	"github.com/juju/errors"
+	"github.com/juju/utils"
+	"github.com/juju/utils/clock"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/provider/azure/internal/azureauth"
 )
 
 const (
@@ -31,7 +35,11 @@ const (
 // environPoviderCredentials is an implementation of
 // environs.ProviderCredentials for the Azure Resource
 // Manager cloud provider.
-type environProviderCredentials struct{}
+type environProviderCredentials struct {
+	sender                            autorest.Sender
+	requestInspector                  autorest.PrepareDecorator
+	interactiveCreateServicePrincipal azureauth.InteractiveCreateServicePrincipalFunc
+}
 
 // CredentialSchemas is part of the environs.ProviderCredentials interface.
 func (environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
@@ -89,7 +97,7 @@ func (environProviderCredentials) DetectCredentials() (*cloud.CloudCredential, e
 }
 
 // FinalizeCredential is part of the environs.ProviderCredentials interface.
-func (environProviderCredentials) FinalizeCredential(
+func (c environProviderCredentials) FinalizeCredential(
 	ctx environs.FinalizeCredentialContext,
 	args environs.FinalizeCredentialParams,
 ) (*cloud.Credential, error) {
@@ -109,6 +117,30 @@ changing auth-type to %q, and dropping the tenant-id field.
 		out := cloud.NewCredential(clientCredentialsAuthType, attrs)
 		out.Label = args.Credential.Label
 		return &out, nil
+
+	case deviceCodeAuthType:
+		subscriptionId := args.Credential.Attributes()[credAttrSubscriptionId]
+		applicationId, password, err := c.interactiveCreateServicePrincipal(
+			ctx.GetStderr(),
+			c.sender,
+			c.requestInspector,
+			args.CloudEndpoint,
+			args.CloudIdentityEndpoint,
+			subscriptionId,
+			clock.WallClock,
+			utils.NewUUID,
+		)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		out := cloud.NewCredential(clientCredentialsAuthType, map[string]string{
+			credAttrSubscriptionId: subscriptionId,
+			credAttrAppId:          applicationId,
+			credAttrAppPassword:    password,
+		})
+		out.Label = args.Credential.Label
+		return &out, nil
+
 	case clientCredentialsAuthType:
 		return &args.Credential, nil
 	default:

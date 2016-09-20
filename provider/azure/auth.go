@@ -5,7 +5,6 @@ package azure
 
 import (
 	"net/http"
-	"strings"
 	"sync"
 
 	"github.com/Azure/azure-sdk-for-go/arm/resources/subscriptions"
@@ -67,45 +66,25 @@ func (c *cloudSpecAuth) getToken() (*azure.ServicePrincipalToken, error) {
 // AuthToken returns a service principal token, suitable for authorizing
 // Resource Manager API requests, based on the supplied CloudSpec.
 func AuthToken(cloud environs.CloudSpec, sender autorest.Sender) (*azure.ServicePrincipalToken, error) {
+	if authType := cloud.Credential.AuthType(); authType != clientCredentialsAuthType {
+		// We currently only support a single auth-type for
+		// non-interactive authentication. Interactive auth
+		// is used only to generate a service-principal.
+		return nil, errors.NotSupportedf("auth-type %q", authType)
+	}
+
 	credAttrs := cloud.Credential.Attributes()
 	subscriptionId := credAttrs[credAttrSubscriptionId]
 	appId := credAttrs[credAttrAppId]
 	appPassword := credAttrs[credAttrAppPassword]
-
-	subscriptionsClient := subscriptions.Client{
-		subscriptions.NewWithBaseURI(cloud.Endpoint),
-	}
-	if sender != nil {
-		subscriptionsClient.Sender = sender
-	}
-	authURI, err := azureauth.DiscoverAuthorizationURI(subscriptionsClient, subscriptionId)
+	client := subscriptions.Client{subscriptions.NewWithBaseURI(cloud.Endpoint)}
+	client.Sender = sender
+	oauthConfig, _, err := azureauth.OAuthConfig(client, cloud.Endpoint, subscriptionId)
 	if err != nil {
-		return nil, errors.Annotate(err, "detecting auth URI")
-	}
-	logger.Debugf("discovered auth URI: %s", authURI)
-
-	// The authorization URI scheme and host identifies the AD endpoint.
-	// The authorization URI path identifies the AD tenant.
-	tenantId, err := azureauth.AuthorizationURITenantID(authURI)
-	if err != nil {
-		return nil, errors.Annotate(err, "getting tenant ID")
-	}
-	authURI.Path = ""
-	adEndpoint := authURI.String()
-
-	cloudEnv := azure.Environment{ActiveDirectoryEndpoint: adEndpoint}
-	oauthConfig, err := cloudEnv.OAuthConfigForTenant(tenantId)
-	if err != nil {
-		return nil, errors.Annotate(err, "getting OAuth configuration")
+		return nil, errors.Trace(err)
 	}
 
-	// We want to create a service principal token for the resource
-	// manager endpoint. Azure demands that the URL end with a '/'.
-	resource := cloud.Endpoint
-	if !strings.HasSuffix(resource, "/") {
-		resource += "/"
-	}
-
+	resource := azureauth.TokenResource(cloud.Endpoint)
 	token, err := azure.NewServicePrincipalToken(
 		*oauthConfig,
 		appId,

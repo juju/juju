@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/provider/azure/internal/azureauth"
 	"github.com/juju/juju/provider/azure/internal/azurestorage"
 )
 
@@ -38,6 +39,11 @@ type ProviderConfig struct {
 	// RandomWindowsAdminPassword is a function used to generate
 	// a random password for the Windows admin user.
 	RandomWindowsAdminPassword func() string
+
+	// InteractiveCreateServicePrincipal is a function used to
+	// interactively create/update service principals with
+	// password credentials.
+	InteractiveCreateServicePrincipal azureauth.InteractiveCreateServicePrincipalFunc
 }
 
 // Validate validates the Azure provider configuration.
@@ -50,6 +56,9 @@ func (cfg ProviderConfig) Validate() error {
 	}
 	if cfg.RandomWindowsAdminPassword == nil {
 		return errors.NotValidf("nil RandomWindowsAdminPassword")
+	}
+	if cfg.InteractiveCreateServicePrincipal == nil {
+		return errors.NotValidf("nil InteractiveCreateServicePrincipal")
 	}
 	return nil
 }
@@ -65,7 +74,14 @@ func NewEnvironProvider(config ProviderConfig) (*azureEnvironProvider, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Annotate(err, "validating environ provider configuration")
 	}
-	return &azureEnvironProvider{config: config}, nil
+	return &azureEnvironProvider{
+		environProviderCredentials: environProviderCredentials{
+			sender:                            config.Sender,
+			requestInspector:                  config.RequestInspector,
+			interactiveCreateServicePrincipal: config.InteractiveCreateServicePrincipal,
+		},
+		config: config,
+	}, nil
 }
 
 // Open is part of the EnvironProvider interface.

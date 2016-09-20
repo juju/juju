@@ -57,7 +57,7 @@ clouds:
         endpoint: https://www.googleapis.com
   azure:
     type: azure
-    auth-types: [ service-principal-secret, userpass ]
+    auth-types: [ interactive, service-principal-secret, userpass ]
     regions:
       centralus:
         endpoint: https://management.azure.com
@@ -133,7 +133,7 @@ clouds:
         identity-endpoint: https://graph.windows.net
   azure-china:
     type: azure
-    auth-types: [ service-principal-secret, userpass ]
+    auth-types: [ interactive, service-principal-secret, userpass ]
     regions:
       chinaeast:
         endpoint: https://management.chinacloudapi.cn

@@ -7,10 +7,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/arm/resources/subscriptions"
 	"github.com/Azure/go-autorest/autorest/azure"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 )
-
-var logger = loggo.GetLogger("juju.provider.azure.internal.azureauth")
 
 // OAuthConfig returns an azure.OAuthConfig based on the given resource
 // manager endpoint and subscription ID. This will make a request to the
