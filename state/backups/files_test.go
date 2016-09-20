@@ -16,6 +16,7 @@ import (
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/backups"
 	"github.com/juju/juju/testing"
 )
@@ -142,7 +143,7 @@ func (s *filesSuite) TestDirectoriesCleaned(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer fhr.Close()
 
-	s.PatchValue(backups.ReplaceableFolders, func() (map[string]os.FileMode, error) {
+	s.PatchValue(backups.ReplaceableFolders, func(_ string, _ mongo.Version) (map[string]os.FileMode, error) {
 		replaceables := map[string]os.FileMode{}
 		for _, replaceable := range []string{
 			recreatableFolder,
@@ -157,7 +158,7 @@ func (s *filesSuite) TestDirectoriesCleaned(c *gc.C) {
 		return replaceables, nil
 	})
 
-	err = backups.PrepareMachineForRestore()
+	err = backups.PrepareMachineForRestore(mongo.Version{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = os.Stat(deletableFolder)
@@ -173,6 +174,40 @@ func (s *filesSuite) TestDirectoriesCleaned(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(recreatableFolder1Info.Mode(), gc.Equals, recreatedFolder1Info.Mode())
 	c.Assert(recreatableFolder1Info.Sys().(*syscall.Stat_t).Ino, gc.Not(gc.Equals), recreatedFolder1Info.Sys().(*syscall.Stat_t).Ino)
+}
+
+func (s *filesSuite) setupReplaceableFolders(c *gc.C) string {
+	dataDir := c.MkDir()
+	c.Assert(os.Mkdir(filepath.Join(dataDir, "init"), 0640), jc.ErrorIsNil)
+	c.Assert(os.Mkdir(filepath.Join(dataDir, "tools"), 0660), jc.ErrorIsNil)
+	c.Assert(os.Mkdir(filepath.Join(dataDir, "agents"), 0600), jc.ErrorIsNil)
+	c.Assert(os.Mkdir(filepath.Join(dataDir, "db"), 0600), jc.ErrorIsNil)
+	return dataDir
+}
+
+func (s *filesSuite) TestReplaceableFoldersMongo2(c *gc.C) {
+	dataDir := s.setupReplaceableFolders(c)
+
+	result, err := (*backups.ReplaceableFolders)(dataDir, mongo.Version{Major: 2, Minor: 4})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, map[string]os.FileMode{
+		filepath.Join(dataDir, "init"):   0640 | os.ModeDir,
+		filepath.Join(dataDir, "tools"):  0660 | os.ModeDir,
+		filepath.Join(dataDir, "agents"): 0600 | os.ModeDir,
+		filepath.Join(dataDir, "db"):     0600 | os.ModeDir,
+	})
+}
+
+func (s *filesSuite) TestReplaceableFoldersMongo3(c *gc.C) {
+	dataDir := s.setupReplaceableFolders(c)
+
+	result, err := (*backups.ReplaceableFolders)(dataDir, mongo.Version{Major: 3, Minor: 2})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, map[string]os.FileMode{
+		filepath.Join(dataDir, "init"):   0640 | os.ModeDir,
+		filepath.Join(dataDir, "tools"):  0660 | os.ModeDir,
+		filepath.Join(dataDir, "agents"): 0600 | os.ModeDir,
+	})
 }
 
 func (s *filesSuite) TestGetFilesToBackUpMachine10(c *gc.C) {

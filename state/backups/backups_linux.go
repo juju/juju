@@ -245,7 +245,18 @@ func (b *backups) Restore(backupId string, dbInfo *DBInfo, args RestoreArgs) (na
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot update api server machine addresses")
 	}
-	// Update the APIHostPorts as well.
+	// Update the APIHostPorts as well. Under normal circumstances the API
+	// Host Ports are only set during bootstrap and by the peergrouper worker.
+	// Unfortunately right now, the peer grouper is busy restarting and isn't
+	// guaranteed to set the host ports before the remote machines we are
+	// about to tell about us. If it doesn't, the remote machine gets its
+	// agent.conf file updated with this new machine's IP address, it then
+	// starts, and the "api-address-updater" worker asks for the api host
+	// ports, and gets told the old IP address of the machine that was backed
+	// up. It then writes this incorrect file to its agent.conf file, which
+	// causes it to attempt to reconnect to the api server. Unfortunately it
+	// now has the wrong address and can never get the  correct one.
+	// So, we set it explicitly here.
 	if err := st.SetAPIHostPorts([][]network.HostPort{APIHostPorts}); err != nil {
 		return nil, errors.Annotate(err, "cannot update api server host ports")
 	}

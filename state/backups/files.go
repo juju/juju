@@ -100,11 +100,11 @@ var replaceableFolders = replaceableFoldersFunc
 // be replaced so they can be deleted prior to a restore.
 // Mongo 2.4 requires that the database directory be removed, while
 // Mongo 3.2 requires that it not be removed
-func replaceableFoldersFunc(mongoVersion mongo.Version) (map[string]os.FileMode, error) {
+func replaceableFoldersFunc(dataDir string, mongoVersion mongo.Version) (map[string]os.FileMode, error) {
 	replaceables := map[string]os.FileMode{}
 
 	// NOTE: never put dataDir in here directly as that will unconditionally
-	// remove tehe database.
+	// remove the database.
 	dirs := []string{
 		filepath.Join(dataDir, "init"),
 		filepath.Join(dataDir, "tools"),
@@ -136,7 +136,7 @@ func replaceableFoldersFunc(mongoVersion mongo.Version) (map[string]os.FileMode,
 // possible mixup from new/old files that lead to an inconsistent
 // restored state machine.
 func PrepareMachineForRestore(mongoVersion mongo.Version) error {
-	replaceFolders, err := replaceableFolders(mongoVersion)
+	replaceFolders, err := replaceableFolders(dataDir, mongoVersion)
 	if err != nil {
 		return errors.Annotate(err, "cannot retrieve the list of folders to be cleaned before restore")
 	}
