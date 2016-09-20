@@ -100,6 +100,16 @@ func (s *Application) settingsKey() string {
 	return applicationSettingsKey(s.doc.Name, s.doc.CharmURL)
 }
 
+func applicationStorageConstraintsKey(appName string, curl *charm.URL) string {
+	return fmt.Sprintf("asc#%s#%s", appName, curl)
+}
+
+// storageConstraintsKey returns the charm-version-specific storage
+// constraints collection key for the application.
+func (s *Application) storageConstraintsKey() string {
+	return applicationStorageConstraintsKey(s.doc.Name, s.doc.CharmURL)
+}
+
 // Series returns the specified series for this charm.
 func (s *Application) Series() string {
 	return s.doc.Series
@@ -279,7 +289,6 @@ func (s *Application) removeOps(asserts bson.D) ([]txn.Op, error) {
 	globalKey := s.globalKey()
 	ops = append(ops,
 		removeEndpointBindingsOp(globalKey),
-		removeStorageConstraintsOp(globalKey),
 		removeConstraintsOp(s.st, globalKey),
 		annotationRemoveOp(s.st, globalKey),
 		removeLeadershipSettingsOp(name),
@@ -623,28 +632,49 @@ func (s *Application) changeCharmOps(
 
 	// Create or replace application settings.
 	var settingsOp txn.Op
-	newKey := applicationSettingsKey(s.doc.Name, ch.URL())
-	if _, err := readSettings(s.st, settingsC, newKey); errors.IsNotFound(err) {
+	newSettingsKey := applicationSettingsKey(s.doc.Name, ch.URL())
+	if _, err := readSettings(s.st, settingsC, newSettingsKey); errors.IsNotFound(err) {
 		// No settings for this key yet, create it.
-		settingsOp = createSettingsOp(settingsC, newKey, newSettings)
+		settingsOp = createSettingsOp(settingsC, newSettingsKey, newSettings)
 	} else if err != nil {
 		return nil, errors.Trace(err)
 	} else {
 		// Settings exist, just replace them with the new ones.
-		settingsOp, _, err = replaceSettingsOp(s.st, settingsC, newKey, newSettings)
+		settingsOp, _, err = replaceSettingsOp(s.st, settingsC, newSettingsKey, newSettings)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 	}
 
-	// Add or create a reference to the new charm and settings docs.
+	// Create or replace storage constraints.
+	var storageConstraintsOp txn.Op
+	oldStorageConstraints, err := s.StorageConstraints()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	newStorageConstraints := oldStorageConstraints
+	newStorageConstraintsKey := applicationStorageConstraintsKey(s.doc.Name, ch.URL())
+	if _, err := readStorageConstraints(s.st, newStorageConstraintsKey); errors.IsNotFound(err) {
+		storageConstraintsOp = createStorageConstraintsOp(
+			newStorageConstraintsKey, newStorageConstraints,
+		)
+	} else if err != nil {
+		return nil, errors.Trace(err)
+	} else {
+		storageConstraintsOp = replaceStorageConstraintsOp(
+			newStorageConstraintsKey, newStorageConstraints,
+		)
+	}
+
+	// Add or create a reference to the new charm, settings,
+	// and storage constraints docs.
 	incOps, err := appCharmIncRefOps(s.st, s.doc.Name, ch.URL(), true)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	var decOps []txn.Op
-	// Drop the references to the old settings and charm docs (if
-	// the refs actually exist yet).
+	// Drop the references to the old settings, storage constraints,
+	// and charm docs (if the refs actually exist yet).
 	if oldSettings != nil {
 		decOps, err = appCharmDecRefOps(s.st, s.doc.Name, s.doc.CharmURL) // current charm
 		if err != nil {
@@ -662,6 +692,8 @@ func (s *Application) changeCharmOps(
 	ops = append(ops, []txn.Op{
 		// Create or replace new settings.
 		settingsOp,
+		// Create storage constraints.
+		storageConstraintsOp,
 		// Update the charm URL and force flag (if relevant).
 		{
 			C:  applicationsC,
@@ -887,7 +919,8 @@ func (s *Application) SetCharm(cfg SetCharmConfig) error {
 
 		// Record the current value of charmModifiedVersion, so we can
 		// set the value on the method receiver's in-memory document
-		// structure.
+		// structure. We increment the version only when we change the
+		// charm URL.
 		newCharmModifiedVersion = s.doc.CharmModifiedVersion
 
 		ops := []txn.Op{{
@@ -1530,8 +1563,15 @@ func (s *Application) SetMetricCredentials(b []byte) error {
 	return nil
 }
 
+// StorageConstraints returns the storage constraints for the application.
 func (s *Application) StorageConstraints() (map[string]StorageConstraints, error) {
-	return readStorageConstraints(s.st, s.globalKey())
+	cons, err := readStorageConstraints(s.st, s.storageConstraintsKey())
+	if errors.IsNotFound(err) {
+		return nil, nil
+	} else if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return cons, nil
 }
 
 // Status returns the status of the service.
@@ -1672,11 +1712,12 @@ func addApplicationOps(st *State, args addApplicationOpsArgs) ([]txn.Op, error) 
 
 	globalKey := svc.globalKey()
 	settingsKey := svc.settingsKey()
+	storageConstraintsKey := svc.storageConstraintsKey()
 	leadershipKey := leadershipSettingsKey(svc.Name())
 
 	ops := []txn.Op{
 		createConstraintsOp(st, globalKey, args.constraints),
-		createStorageConstraintsOp(globalKey, args.storage),
+		createStorageConstraintsOp(storageConstraintsKey, args.storage),
 		createSettingsOp(settingsC, settingsKey, args.settings),
 		createSettingsOp(settingsC, leadershipKey, args.leadershipSettings),
 		createStatusOp(st, globalKey, args.statusDoc),

@@ -12,8 +12,8 @@ import (
 var errCharmInUse = errors.New("charm in use")
 
 // appCharmIncRefOps returns the operations necessary to record a reference
-// to a charm and its per-application settings document. It will fail if
-// the charm is not Alive.
+// to a charm and its per-application settings and storage constraints
+// documents. It will fail if the charm is not Alive.
 func appCharmIncRefOps(st modelBackend, appName string, curl *charm.URL, canCreate bool) ([]txn.Op, error) {
 
 	charms, closer := st.getCollection(charmsC)
@@ -45,21 +45,27 @@ func appCharmIncRefOps(st modelBackend, appName string, curl *charm.URL, canCrea
 	if err != nil {
 		return nil, errors.Annotate(err, "settings reference")
 	}
+	storageConstraintsKey := applicationStorageConstraintsKey(appName, curl)
+	storageConstraintsOp, err := getIncRefOp(refcounts, storageConstraintsKey)
+	if err != nil {
+		return nil, errors.Annotate(err, "storage constraints reference")
+	}
 	charmKey := charmGlobalKey(curl)
 	charmOp, err := getIncRefOp(refcounts, charmKey)
 	if err != nil {
 		return nil, errors.Annotate(err, "charm reference")
 	}
 
-	return append(checkOps, settingsOp, charmOp), nil
+	return append(checkOps, settingsOp, storageConstraintsOp, charmOp), nil
 }
 
 // appCharmDecRefOps returns the operations necessary to delete a
-// reference to a charm and its per-application settings document. If no
-// references to a given (app, charm) pair remain, the operations
-// returned will also remove the settings document for that pair, and
-// schedule a cleanup to see if the charm itself is now unreferenced and
-// can be tidied away itself.
+// reference to a charm and its per-application settings and storage
+// constraints document. If no references to a given (app, charm) pair
+// remain, the operations returned will also remove the settings and
+// storage constraints documents for that pair, and schedule a cleanup
+// to see if the charm itself is now unreferenced and can be tidied
+// away itself.
 func appCharmDecRefOps(st modelBackend, appName string, curl *charm.URL) ([]txn.Op, error) {
 
 	refcounts, closer := st.getCollection(refcountsC)
@@ -77,7 +83,13 @@ func appCharmDecRefOps(st modelBackend, appName string, curl *charm.URL) ([]txn.
 		return nil, errors.Annotatef(err, "settings reference %s", settingsKey)
 	}
 
-	ops := []txn.Op{settingsOp, charmOp}
+	storageConstraintsKey := applicationStorageConstraintsKey(appName, curl)
+	storageConstraintsOp, _, err := nsRefcounts.DyingDecRefOp(refcounts, storageConstraintsKey)
+	if err != nil {
+		return nil, errors.Annotatef(err, "storage constraints reference %s", storageConstraintsKey)
+	}
+
+	ops := []txn.Op{settingsOp, storageConstraintsOp, charmOp}
 	if isFinal {
 		// XXX(fwereade): this construction, in common with ~all
 		// our refcount logic, is safe in parallel but not in
@@ -90,16 +102,18 @@ func appCharmDecRefOps(st modelBackend, appName string, curl *charm.URL) ([]txn.
 }
 
 // finalAppCharmRemoveOps returns operations to delete the settings
-// document and queue a charm cleanup.
+// and storage constraints documents and queue a charm cleanup.
 func finalAppCharmRemoveOps(appName string, curl *charm.URL) []txn.Op {
 	settingsKey := applicationSettingsKey(appName, curl)
-	removeOp := txn.Op{
+	removeSettingsOp := txn.Op{
 		C:      settingsC,
 		Id:     settingsKey,
 		Remove: true,
 	}
+	storageConstraintsKey := applicationStorageConstraintsKey(appName, curl)
+	removeStorageConstraintsOp := removeStorageConstraintsOp(storageConstraintsKey)
 	cleanupOp := newCleanupOp(cleanupCharm, curl.String())
-	return []txn.Op{removeOp, cleanupOp}
+	return []txn.Op{removeSettingsOp, removeStorageConstraintsOp, cleanupOp}
 }
 
 // charmDestroyOps implements the logic of charm.Destroy.
