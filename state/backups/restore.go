@@ -166,6 +166,11 @@ func newStateConnection(controllerTag names.ControllerTag, modelTag names.ModelT
 	return st, errors.Annotate(err, "cannot open state")
 }
 
+type machineModel struct {
+	machine *state.Machine
+	model   *state.Model
+}
+
 // updateAllMachines finds all machines and resets the stored state address
 // in each of them. The address does not include the port.
 // It is too late to go back and errors in a couple of agents have

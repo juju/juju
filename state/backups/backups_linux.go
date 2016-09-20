@@ -298,8 +298,3 @@ func (b *backups) Restore(backupId string, dbInfo *DBInfo, args RestoreArgs) (na
 
 	return backupMachine, nil
 }
-
-type machineModel struct {
-	machine *state.Machine
-	model   *state.Model
-}
