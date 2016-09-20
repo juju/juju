@@ -211,6 +211,47 @@ func (s *UserDataSuite) TestNewCloudInitConfigWithNetworksFallbackConfig(c *gc.C
 	assertUserData(c, cloudConf, expected)
 }
 
+// TestCloudInitUserDataNoNetworkConfig tests that no network-interfaces, or
+// related data, appear in user-data when no networkConfig is passed to
+// CloudInitUserData.
+func (s *UserDataSuite) TestCloudInitUserDataNoNetworkConfig(c *gc.C) {
+	instanceConfig, err := containertesting.MockMachineConfig("1/lxd/0")
+	c.Assert(err, jc.ErrorIsNil)
+	data, err := containerinit.CloudInitUserData(instanceConfig, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(data, gc.NotNil)
+
+	// Extract the "#cloud-config" header and any lines from the "bootcmd"
+	// section up to (but not including) the "output" sections, to match
+	// against expected. We do not expect to find any, as we have not
+	// passed in a networkConfig.
+	// In this test we care about the networkConfig not all the /other/
+	// output that may be added by CloudInitUserData() in the future, which
+	// we cannot know about, so we do not check beyond "bootcmd".
+	var linesToMatch []string
+	seenBootcmd := false
+	for _, line := range strings.Split(string(data), "\n") {
+		if strings.HasPrefix(line, "#cloud-config") {
+			linesToMatch = append(linesToMatch, line)
+			continue
+		}
+
+		if strings.HasPrefix(line, "bootcmd:") {
+			seenBootcmd = true
+		}
+
+		if strings.HasPrefix(line, "output:") && seenBootcmd {
+			break
+		}
+
+		if seenBootcmd {
+			linesToMatch = append(linesToMatch, line)
+		}
+	}
+
+	c.Assert(strings.Join(linesToMatch, "\n"), gc.Equals, "#cloud-config")
+}
+
 func (s *UserDataSuite) TestCloudInitUserDataFallbackConfig(c *gc.C) {
 	instanceConfig, err := containertesting.MockMachineConfig("1/lxd/0")
 	c.Assert(err, jc.ErrorIsNil)
