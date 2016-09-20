@@ -618,7 +618,8 @@ class Juju2Backend:
             full_path = self.full_path
         if debug is None:
             debug = self.debug
-        result = self.__class__(full_path, version, feature_flags, debug)
+        result = self.__class__(full_path, version, feature_flags, debug,
+                                self.soft_deadline)
         return result
 
     @property
@@ -857,12 +858,16 @@ def get_client_class(version):
     return client_class
 
 
-def client_from_config(config, juju_path, debug=False):
+def client_from_config(config, juju_path, debug=False, soft_deadline=None):
     """Create a client from an environment's configuration.
 
     :param config: Name of the environment to use the config from.
     :param juju_path: Path to juju binary the client should wrap.
-    :param debug=False: The debug flag for the client, False by default."""
+    :param debug=False: The debug flag for the client, False by default.
+    :param soft_deadline: A datetime representing the deadline by which
+        normal operations should complete.  If None, no deadline is
+        enforced.
+    """
     version = EnvJujuClient.get_version(juju_path)
     client_class = get_client_class(version)
     env = client_class.config_class.from_config(config)
@@ -870,7 +875,8 @@ def client_from_config(config, juju_path, debug=False):
         full_path = EnvJujuClient.get_full_path()
     else:
         full_path = os.path.abspath(juju_path)
-    return client_class(env, version, full_path, debug=debug)
+    return client_class(env, version, full_path, debug=debug,
+                        soft_deadline=soft_deadline)
 
 
 class EnvJujuClient:
@@ -1041,7 +1047,7 @@ class EnvJujuClient:
         return env
 
     def __init__(self, env, version, full_path, juju_home=None, debug=False,
-                 _backend=None):
+                 soft_deadline=None, _backend=None):
         """Create a new juju client.
 
         Positional Arguments
@@ -1053,11 +1059,15 @@ class EnvJujuClient:
         :param juju_home: Explicate path to the JUJU_HOME directory. If None
         one is taken from env or the system.
         :param debug: Flag to activate debugging output, False by default.
+        :param soft_deadline: A datetime representing the deadline by which
+            normal operations should complete.  If None, no deadline is
+            enforced.
         :param _backend: If given and not None it is used instead of a new
         instance of the default_backend."""
         self.env = self._get_env(env)
         if _backend is None:
-            _backend = self.default_backend(full_path, version, set(), debug)
+            _backend = self.default_backend(full_path, version, set(), debug,
+                                            soft_deadline)
         self._backend = _backend
         if version != _backend.version:
             raise ValueError('Version mismatch: {} {}'.format(

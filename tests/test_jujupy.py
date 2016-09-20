@@ -163,6 +163,15 @@ class TestJuju2Backend(TestCase):
         self.assertEqual('/bin/path', backend.full_path)
         self.assertEqual('2.0', backend.version)
 
+    def test_clone_retains_soft_deadline(self):
+        soft_deadline = object()
+        backend = Juju2Backend('/bin/path', '2.0', feature_flags=set(),
+                               debug=False, soft_deadline=soft_deadline)
+        cloned = backend.clone(full_path=None, version=None, debug=None,
+                               feature_flags=None)
+        self.assertIsNot(cloned, backend)
+        self.assertIs(soft_deadline, cloned.soft_deadline)
+
     def test__check_timeouts(self):
         backend = Juju2Backend('/bin/path', '2.0', set(), debug=False,
                                soft_deadline=datetime(2015, 1, 2, 3, 4, 5))
@@ -636,6 +645,15 @@ class TestClientFromConfig(ClientTest):
                               side_effect=lambda x: JujuData(x, {})):
                 client_from_config('foo', 'foo/bar/qux')
         self.assertEqual('/foo/bar', env.juju_home)
+
+    def test_client_from_config_deadline(self):
+        deadline = datetime(2012, 11, 10, 9, 8, 7)
+        with patch('subprocess.check_output', return_value='2.0-alpha3-a-b'):
+            with patch.object(JujuData, 'from_config',
+                              side_effect=lambda x: JujuData(x, {})):
+                client = client_from_config(
+                    'foo', 'foo/bar/qux', soft_deadline=deadline)
+        self.assertEqual(client._backend.soft_deadline, deadline)
 
 
 @contextmanager

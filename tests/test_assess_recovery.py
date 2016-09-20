@@ -134,7 +134,8 @@ class TestMain(FakeHomeTestCase):
                 main(['an-env', '/juju', 'log_dir', 'tmp-env', '--backup',
                       '--charm-series', 'a-series'])
         mock_cl.assert_called_once_with(logging.INFO)
-        mock_c.assert_called_once_with('an-env', '/juju', debug=False)
+        mock_c.assert_called_once_with('an-env', '/juju', debug=False,
+                                       soft_deadline=None)
         self.assertEqual(mock_bc.call_count, 1)
         self.assertEqual(mock_assess.call_count, 1)
         bs_manager, strategy, series = mock_assess.call_args[0]
@@ -158,7 +159,8 @@ class TestMain(FakeHomeTestCase):
                               '--verbose', '--charm-series', 'a-series'])
                     self.assertIs(ctx.exception, error)
         mock_cl.assert_called_once_with(logging.DEBUG)
-        mock_c.assert_called_once_with('an-env', '/juju', debug=False)
+        mock_c.assert_called_once_with('an-env', '/juju', debug=False,
+                                       soft_deadline=None)
         mock_pe.assert_called_once_with(error)
         self.assertEqual(mock_bc.call_count, 1)
         self.assertEqual(mock_assess.call_count, 1)
