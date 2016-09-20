@@ -291,6 +291,9 @@ def assess_constraints(client, test_kvm=False):
         assess_virt_type_constraints(client, test_kvm)
     elif 'ec2' == provider:
         assess_instance_type_constraints(client, provider)
+        assess_root_disk_constraints(client, ['16G'])
+        assess_cores_constraints(client, ['2'])
+        assess_cpu_power_constraints(client, ['30'])
 
 
 def parse_args(argv):
