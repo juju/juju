@@ -233,7 +233,7 @@ def temp_yaml_file(yaml_dict):
 
 
 class SimpleEnvironment:
-    """Reperents a model's data in the JUJU_DATA directory for juju 1."""
+    """Represents a model's data in the JUJU_HOME directory for juju 1."""
 
     def __init__(self, environment, config=None, juju_home=None,
                  controller=None):
@@ -330,7 +330,7 @@ class SimpleEnvironment:
 
 
 class JujuData(SimpleEnvironment):
-    """Reperents a model's data in the JUJU_DATA directory for juju 2."""
+    """Represents a model's data in the JUJU_DATA directory for juju 2."""
 
     def __init__(self, environment, config=None, juju_home=None,
                  controller=None):
@@ -339,7 +339,7 @@ class JujuData(SimpleEnvironment):
         This extends SimpleEnvironment's constructor.
 
         :param juju_home: If not given or None, a default is passed to
-        the SimpleEnvironment constructior."""
+        the SimpleEnvironment constructor."""
         if juju_home is None:
             juju_home = get_juju_home()
         super(JujuData, self).__init__(environment, config, juju_home,
@@ -862,7 +862,7 @@ def client_from_config(config, juju_path, debug=False):
 
     :param config: Name of the environment to use the config from.
     :param juju_path: Path to juju binary the client should wrap.
-    :param debug=False: The dubug flag for the client, False by default."""
+    :param debug=False: The debug flag for the client, False by default."""
     version = EnvJujuClient.get_version(juju_path)
     client_class = get_client_class(version)
     env = client_class.config_class.from_config(config)
@@ -874,7 +874,7 @@ def client_from_config(config, juju_path, debug=False):
 
 
 class EnvJujuClient:
-    """Wraps calls to a juju instance, assosated with a single model.
+    """Wraps calls to a juju instance, associated with a single model.
 
     Note: A model is often called an enviroment (Juju 1 legacy)."""
 
@@ -2982,7 +2982,7 @@ def _dns_name_for_machine(status, machine):
 
 
 class Controller:
-    """Repersents the controller for a model or models."""
+    """Represents the controller for a model or models."""
 
     def __init__(self, name):
         self.name = name
