@@ -804,7 +804,6 @@ func (c *ModelManagerAPI) SetModelDefaults(args params.SetModelDefaults) (params
 		return results, errors.Trace(err)
 	}
 	for i, arg := range args.Config {
-		// TODO(wallyworld) - use arg.Cloud and arg.CloudRegion as appropriate
 		results.Results[i].Error = common.ServerError(
 			c.setModelDefaults(arg),
 		)
@@ -824,7 +823,16 @@ func (c *ModelManagerAPI) setModelDefaults(args params.ModelDefaultValues) error
 	if _, found := args.Config["agent-version"]; found {
 		return errors.New("agent-version cannot have a default value")
 	}
-	return c.state.UpdateModelConfigDefaultValues(args.Config, nil)
+
+	var rspec *environs.RegionSpec
+	if args.CloudRegion != "" {
+		spec, err := c.makeRegionSpec(args.CloudTag, args.CloudRegion)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		rspec = spec
+	}
+	return c.state.UpdateModelConfigDefaultValues(args.Config, nil, rspec)
 }
 
 // UnsetModelDefaults removes the specified default model settings.
@@ -837,11 +845,35 @@ func (c *ModelManagerAPI) UnsetModelDefaults(args params.UnsetModelDefaults) (pa
 	if err := c.check.ChangeAllowed(); err != nil {
 		return results, errors.Trace(err)
 	}
+
 	for i, arg := range args.Keys {
-		// TODO(wallyworld) - use arg.Cloud and arg.CloudRegion as appropriate
+		var rspec *environs.RegionSpec
+		if arg.CloudRegion != "" {
+			spec, err := c.makeRegionSpec(arg.CloudTag, arg.CloudRegion)
+			if err != nil {
+				results.Results[i].Error = common.ServerError(
+					errors.Trace(err))
+				continue
+			}
+			rspec = spec
+		}
 		results.Results[i].Error = common.ServerError(
-			c.state.UpdateModelConfigDefaultValues(nil, arg.Keys),
+			c.state.UpdateModelConfigDefaultValues(nil, arg.Keys, rspec),
 		)
 	}
 	return results, nil
+}
+
+// makeRegionSpec is a helper method for methods that call
+// state.UpdateModelConfigDefaultValues.
+func (c *ModelManagerAPI) makeRegionSpec(cloudTag, r string) (*environs.RegionSpec, error) {
+	cTag, err := names.ParseCloudTag(cloudTag)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	rspec, err := environs.NewRegionSpec(cTag.Id(), r)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return rspec, nil
 }
