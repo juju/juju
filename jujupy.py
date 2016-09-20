@@ -862,7 +862,11 @@ def client_from_config(config, juju_path, debug=False, soft_deadline=None):
 
     :param config: Name of the environment to use the config from.
     :param juju_path: Path to juju binary the client should wrap.
-    :param debug=False: The debug flag for the client, False by default."""
+    :param debug=False: The debug flag for the client, False by default.
+    :param soft_deadline: A datetime representing the deadline by which
+        normal operations should complete.  If None, no deadline is
+        enforced.
+    """
     version = EnvJujuClient.get_version(juju_path)
     client_class = get_client_class(version)
     env = client_class.config_class.from_config(config)
@@ -1054,6 +1058,9 @@ class EnvJujuClient:
         :param juju_home: Explicate path to the JUJU_HOME directory. If None
         one is taken from env or the system.
         :param debug: Flag to activate debugging output, False by default.
+        :param soft_deadline: A datetime representing the deadline by which
+            normal operations should complete.  If None, no deadline is
+            enforced.
         :param _backend: If given and not None it is used instead of a new
         instance of the default_backend."""
         self.env = self._get_env(env)
