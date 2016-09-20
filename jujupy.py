@@ -860,6 +860,8 @@ class EnvJujuClient:
     used_feature_flags = frozenset(['address-allocation', 'migration'])
 
     destroy_model_command = 'destroy-model'
+    disable_command = 'disable-command'
+    enable_command = 'enable-command'
 
     supported_container_types = frozenset([KVM_MACHINE, LXC_MACHINE,
                                            LXD_MACHINE])
@@ -1074,7 +1076,7 @@ class EnvJujuClient:
         return '{}/{}'.format(cloud, region)
 
     def get_bootstrap_args(self, upload_tools, config_filename,
-                           bootstrap_series=None):
+                           bootstrap_series=None, credential=None):
         """Return the bootstrap arguments for the substrate."""
         if self.env.joyent:
             # Only accept kvm packages by requiring >1 cpu core, see lp:1446264
@@ -1093,6 +1095,10 @@ class EnvJujuClient:
 
         if bootstrap_series is not None:
             args.extend(['--bootstrap-series', bootstrap_series])
+
+        if credential is not None:
+            args.extend(['--credential', credential])
+
         return tuple(args)
 
     def add_model(self, env):
@@ -1153,12 +1159,13 @@ class EnvJujuClient:
     def update_user_name(self):
         self.env.user_name = 'admin@local'
 
-    def bootstrap(self, upload_tools=False, bootstrap_series=None):
+    def bootstrap(self, upload_tools=False, bootstrap_series=None,
+                  credential=None):
         """Bootstrap a controller."""
         self._check_bootstrap()
         with self._bootstrap_config() as config_filename:
             args = self.get_bootstrap_args(
-                upload_tools, config_filename, bootstrap_series)
+                upload_tools, config_filename, bootstrap_series, credential)
             self.update_user_name()
             self.juju('bootstrap', args, include_e=False)
 
@@ -1232,10 +1239,10 @@ class EnvJujuClient:
 
     def set_config(self, service, options):
         option_strings = self._dict_as_option_strings(options)
-        self.juju('set-config', (service,) + option_strings)
+        self.juju('config', (service,) + option_strings)
 
     def get_config(self, service):
-        return yaml_loads(self.get_juju_output('get-config', service))
+        return yaml_loads(self.get_juju_output('config', service))
 
     def get_service_config(self, service, timeout=60):
         for ignored in until_timeout(timeout):
@@ -1251,22 +1258,22 @@ class EnvJujuClient:
         return self.juju('set-model-constraints', constraint_strings)
 
     def get_model_config(self):
-        """Return the value of the environment's configured option."""
+        """Return the value of the environment's configured options."""
         return yaml.safe_load(
-            self.get_juju_output('get-model-config', '--format', 'yaml'))
+            self.get_juju_output('model-config', '--format', 'yaml'))
 
     def get_env_option(self, option):
         """Return the value of the environment's configured option."""
-        return self.get_juju_output('get-model-config', option)
+        return self.get_juju_output('model-config', option)
 
     def set_env_option(self, option, value):
         """Set the value of the option in the environment."""
         option_value = "%s=%s" % (option, value)
-        return self.juju('set-model-config', (option_value,))
+        return self.juju('model-config', (option_value,))
 
     def unset_env_option(self, option):
         """Unset the value of the option in the environment."""
-        return self.juju('unset-model-config', (option,))
+        return self.juju('model-config', ('--reset', option,))
 
     def get_agent_metadata_url(self):
         return self.get_env_option(self.agent_metadata_url)
@@ -1523,10 +1530,14 @@ class EnvJujuClient:
         self.controller_juju('list-models', ())
 
     def get_models(self):
-        """return a models dict with a 'models': [] key-value pair."""
+        """return a models dict with a 'models': [] key-value pair.
+
+        The server has 120 seconds to respond because this method is called
+        often when tearing down a controller-less deployment.
+        """
         output = self.get_juju_output(
             'list-models', '-c', self.env.controller.name, '--format', 'yaml',
-            include_e=False)
+            include_e=False, timeout=120)
         models = yaml_loads(output)
         return models
 
@@ -1578,6 +1589,12 @@ class EnvJujuClient:
             'show-controller', '--format', 'yaml', include_e=False)
         output = yaml.safe_load(output_yaml)
         return output[name]['details']['uuid']
+
+    def get_controller_model_uuid(self):
+        output_yaml = self.get_juju_output(
+            'show-model', 'controller', '--format', 'yaml', include_e=False)
+        output = yaml.safe_load(output_yaml)
+        return output['controller']['model-uuid']
 
     def get_controller_client(self):
         """Return a client for the controller model.  May return self.
@@ -1801,8 +1818,9 @@ class EnvJujuClient:
         return backup_file_path
 
     def restore_backup(self, backup_file):
-        return self.get_juju_output('restore-backup', '-b', '--constraints',
-                                    'mem=2G', '--file', backup_file)
+        self.juju(
+            'restore-backup',
+            ('-b', '--constraints', 'mem=2G', '--file', backup_file))
 
     def restore_backup_async(self, backup_file):
         return self.juju_async('restore-backup', ('-b', '--constraints',
@@ -2050,6 +2068,9 @@ class EnvJujuClient:
 
 class EnvJujuClient2B9(EnvJujuClient):
 
+    disable_command = 'block'
+    enable_command = 'unblock'
+
     def update_user_name(self):
         return
 
@@ -2100,6 +2121,31 @@ class EnvJujuClient2B9(EnvJujuClient):
         args = (username, models, '--acl', permissions)
 
         self.controller_juju('revoke', args)
+
+    def set_config(self, service, options):
+        option_strings = self._dict_as_option_strings(options)
+        self.juju('set-config', (service,) + option_strings)
+
+    def get_config(self, service):
+        return yaml_loads(self.get_juju_output('get-config', service))
+
+    def get_model_config(self):
+        """Return the value of the environment's configured option."""
+        return yaml.safe_load(
+            self.get_juju_output('get-model-config', '--format', 'yaml'))
+
+    def get_env_option(self, option):
+        """Return the value of the environment's configured option."""
+        return self.get_juju_output('get-model-config', option)
+
+    def set_env_option(self, option, value):
+        """Set the value of the option in the environment."""
+        option_value = "%s=%s" % (option, value)
+        return self.juju('set-model-config', (option_value,))
+
+    def unset_env_option(self, option):
+        """Unset the value of the option in the environment."""
+        return self.juju('unset-model-config', (option,))
 
 
 class EnvJujuClient2B8(EnvJujuClient2B9):
@@ -2154,7 +2200,7 @@ class EnvJujuClient2B3(EnvJujuClient2B7):
 class EnvJujuClient2B2(EnvJujuClient2B3):
 
     def get_bootstrap_args(self, upload_tools, config_filename,
-                           bootstrap_series=None):
+                           bootstrap_series=None, credential=None):
         """Return the bootstrap arguments for the substrate."""
         if self.env.joyent:
             # Only accept kvm packages by requiring >1 cpu core, see lp:1446264
@@ -2172,6 +2218,10 @@ class EnvJujuClient2B2(EnvJujuClient2B3):
 
         if bootstrap_series is not None:
             args.extend(['--bootstrap-series', bootstrap_series])
+
+        if credential is not None:
+            args.extend(['--credential', credential])
+
         return tuple(args)
 
     def get_controller_client(self):
@@ -2224,8 +2274,12 @@ class EnvJujuClient2A2(EnvJujuClient2B2):
             log.info('Waiting for bootstrap of {}.'.format(
                 self.env.environment))
 
-    def get_bootstrap_args(self, upload_tools, bootstrap_series=None):
+    def get_bootstrap_args(self, upload_tools, bootstrap_series=None,
+                           credential=None):
         """Return the bootstrap arguments for the substrate."""
+        if credential is not None:
+            raise ValueError(
+                '--credential is not supported by this juju version.')
         constraints = self._get_substrate_constraints()
         args = ('--constraints', constraints,
                 '--agent-version', self.get_matching_agent_version())
@@ -2426,8 +2480,12 @@ class EnvJujuClient1X(EnvJujuClient2A1):
         else:
             return unqualified_model_name(self.model_name)
 
-    def get_bootstrap_args(self, upload_tools, bootstrap_series=None):
+    def get_bootstrap_args(self, upload_tools, bootstrap_series=None,
+                           credential=None):
         """Return the bootstrap arguments for the substrate."""
+        if credential is not None:
+            raise ValueError(
+                '--credential is not supported by this juju version.')
         constraints = self._get_substrate_constraints()
         args = ('--constraints', constraints)
         if upload_tools:
@@ -2573,21 +2631,21 @@ class EnvJujuClient1X(EnvJujuClient2A1):
         args = []
         if full:
             args.append('--full')
-        return self.get_juju_output('authorized-keys', 'list', *args)
+        return self.get_juju_output('authorized-keys list', *args)
 
     def add_ssh_key(self, *keys):
         """Add one or more ssh keys to the current model."""
-        return self.get_juju_output('authorized-keys', 'add', *keys,
+        return self.get_juju_output('authorized-keys add', *keys,
                                     merge_stderr=True)
 
     def remove_ssh_key(self, *keys):
         """Remove one or more ssh keys from the current model."""
-        return self.get_juju_output('authorized-keys', 'delete', *keys,
+        return self.get_juju_output('authorized-keys delete', *keys,
                                     merge_stderr=True)
 
     def import_ssh_key(self, *keys):
         """Import ssh keys from one or more identities to the current model."""
-        return self.get_juju_output('authorized-keys', 'import', *keys,
+        return self.get_juju_output('authorized-keys import', *keys,
                                     merge_stderr=True)
 
 

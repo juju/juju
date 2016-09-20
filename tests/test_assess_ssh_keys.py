@@ -59,22 +59,31 @@ class TestMain(TestCase):
 
 class TestParseSSHKeysOutput(TestCase):
 
-    valid_output = (
-        "Keys used in model: admin@local/assesssshkeys-env\n"
+    header_model = "Keys used in model: admin@local/assesssshkeys-env\n"
+    header_admin = "Keys for user admin:\n"
+    key_output = (
         "47:2d:88:82:a6:84:9a:ca:44:3e:54:79:ed:bc:e4:64 (abentley@speedy)\n"
         "b4:e9:ce:a4:a4:d0:71:5b:d1:da:ae:a6:53:97:80:c2 (juju-system-key)\n"
         "7b:36:c7:2c:14:74:69:50:65:37:49:c3:af:f6:db:94 (juju-client-key)\n"
     )
 
     def test_ssh_keys(self):
-        keys = parse_ssh_keys_output(self.valid_output, "assesssshkeys-env")
-        self.assertEqual(map(str, keys), self.valid_output.splitlines()[1:])
+        output_with_model = self.header_model + self.key_output
+        model = "admin@local/assesssshkeys-env"
+        keys = parse_ssh_keys_output(output_with_model, model)
+        self.assertEqual(map(str, keys), output_with_model.splitlines()[1:])
+
+    def test_modelless(self):
+        output_user_only = self.header_admin + self.key_output
+        keys = parse_ssh_keys_output(output_user_only, "assesssshkeys-env")
+        self.assertEqual(map(str, keys), output_user_only.splitlines()[1:])
 
 
 class TestAssess(TestCase):
 
     def test_ssh_keys(self):
         fake_client = Mock(wraps=fake_juju_client())
+        fake_client.env.environment = "name"
         fake_client.bootstrap()
         assess_ssh_keys(fake_client)
         # TODO: validate some things

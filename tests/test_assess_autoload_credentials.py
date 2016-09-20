@@ -2,14 +2,16 @@
 
 from argparse import Namespace
 import ConfigParser
-from contextlib import contextmanager
 import logging
 from mock import patch
 import os
 import StringIO
 from textwrap import dedent
 
+import yaml
+
 import assess_autoload_credentials as aac
+from deploy_stack import BootstrapManager
 from tests import (
     TestCase,
     parse_error,
@@ -21,7 +23,8 @@ from utility import temp_dir
 class TestParseArgs(TestCase):
 
     def test_common_args(self):
-        args = aac.parse_args(['/bin/juju'])
+        args = aac.parse_args(['env', '/bin/juju'])
+        self.assertEqual('env', args.env)
         self.assertEqual('/bin/juju', args.juju_bin)
 
     def test_help(self):
@@ -38,11 +41,20 @@ class TestParseArgs(TestCase):
         self.assertEqual(logging.DEBUG, args.verbose)
 
     def test_verbose_default_values(self):
+        env = 'env'
         juju_bin = '/bin/juju'
-        args = aac.parse_args([juju_bin])
+        temp_env_name = 'functional-autoload-credentials'
+        with temp_dir() as log:
+            args = aac.parse_args([env, juju_bin, log, temp_env_name])
         self.assertEqual(
             args,
-            Namespace(juju_bin=juju_bin, verbose=logging.INFO))
+            Namespace(agent_stream=None, agent_url=None, bootstrap_host=None,
+                      debug=False, env='env', juju_bin='/bin/juju',
+                      keep_env=False, logs=log, machine=[],
+                      region=None, series=None,
+                      temp_env_name='functional-autoload-credentials',
+                      upload_tools=False, verbose=logging.INFO,
+                      ))
 
 
 class TestCredentialIdCounter(TestCase):
@@ -151,7 +163,7 @@ class TestAWSHelpers(TestCase):
             cloud_details.expected_details, {
                 'credentials': {
                     'aws': {
-                        'default': {
+                        username: {
                             'auth-type': 'access-key',
                             'access-key': access_key,
                             'secret-key': secret_key,
@@ -172,12 +184,13 @@ class TestAWSHelpers(TestCase):
 
     def test_write_aws_config_file_writes_credentials_file(self):
         """Ensure the file created contains the correct details."""
+        user = 'different-user'
         access_key = 'access_key'
         secret_key = 'secret_key'
 
         with temp_dir() as tmp_dir:
             credentials_file = aac.write_aws_config_file(
-                tmp_dir, access_key, secret_key)
+                user, tmp_dir, access_key, secret_key)
             credentials = ConfigParser.ConfigParser()
             with open(credentials_file, 'r') as f:
                 credentials.readfp(f)
@@ -186,40 +199,45 @@ class TestAWSHelpers(TestCase):
             ('aws_access_key_id', access_key),
             ('aws_secret_access_key', secret_key)]
 
-        self.assertEqual(credentials.sections(), ['default'])
+        self.assertEqual(credentials.sections(), [user])
         self.assertEqual(
-            credentials.items('default'), expected_items)
+            credentials.items(user), expected_items)
 
 
 class TestOpenStackHelpers(TestCase):
 
     def test_credential_dict_generator_returns_different_details(self):
         """Each call must return uniquie details each time."""
-        first_details = aac.openstack_credential_dict_generator()
-        second_details = aac.openstack_credential_dict_generator()
+        first_details = aac.openstack_credential_dict_generator('region1')
+        second_details = aac.openstack_credential_dict_generator('region1')
 
         self.assertNotEqual(first_details, second_details)
 
     def test_expected_details_dict_returns_correct_values(self):
-        user = 'username'
+        os_username = 'username'
         os_password = 'password'
         os_tenant_name = 'tenant name'
+        os_auth_url = 'url',
+        os_region_name = 'region'
         expected_details = aac.get_openstack_expected_details_dict(
-            user, {
+            os_username, {
                 'os_password': os_password,
                 'os_tenant_name': os_tenant_name,
+                'os_auth_url': os_auth_url,
+                'os_region_name': os_region_name,
+                'os_user_name': os_username,
                 })
-
         self.assertEqual(
             expected_details, {
                 'credentials': {
-                    'testing_openstack': {
-                        user: {
+                    'testing-openstack': {
+                        'default-region': 'region',
+                        os_username: {
                             'auth-type': 'userpass',
                             'domain-name': '',
                             'password': os_password,
                             'tenant-name': os_tenant_name,
-                            'username': user
+                            'username': os_username
                             }
                         }
                     }
@@ -229,10 +247,14 @@ class TestOpenStackHelpers(TestCase):
         user = 'username'
         os_password = 'password'
         os_tenant_name = 'tenant name'
+        os_auth_url = 'url',
+        os_region_name = 'region'
         env_var_changes = aac.get_openstack_envvar_changes(
             user, {
                 'os_password': os_password,
                 'os_tenant_name': os_tenant_name,
+                'os_auth_url': os_auth_url,
+                'os_region_name': os_region_name,
                 })
 
         self.assertEqual(
@@ -241,13 +263,17 @@ class TestOpenStackHelpers(TestCase):
                 'OS_USERNAME': user,
                 'OS_PASSWORD': os_password,
                 'OS_TENANT_NAME': os_tenant_name,
+                'OS_AUTH_URL': os_auth_url,
+                'OS_REGION_NAME': os_region_name,
                 })
 
     def test_write_openstack_config_file_writes_credentials_file(self):
         """Ensure the file created contains the correct details."""
         credential_details = dict(
             os_tenant_name='tenant_name',
-            os_password='password')
+            os_password='password',
+            os_auth_url='url',
+            os_region_name='region')
         user = 'username'
 
         with temp_dir() as tmp_dir:
@@ -260,10 +286,14 @@ class TestOpenStackHelpers(TestCase):
         export OS_USERNAME={user}
         export OS_PASSWORD={password}
         export OS_TENANT_NAME={tenant_name}
+        export OS_AUTH_URL={auth_url}
+        export OS_REGION_NAME={region}
         """.format(
             user=user,
             password=credential_details['os_password'],
             tenant_name=credential_details['os_tenant_name'],
+            auth_url=credential_details['os_auth_url'],
+            region=credential_details['os_region_name'],
             ))
 
         self.assertEqual(credential_contents, expected)
@@ -350,27 +380,74 @@ class TestAssertCredentialsContainsExpectedResults(TestCase):
             cred_expected)
 
 
-@contextmanager
 def bogus_credentials():
+    """return an client with unusable crednetials.
+
+    It uses an openstack config to match the fake_juju.AutoloadCredentials.
+    """
     client = fake_juju_client()
+    client.env.config['type'] = 'openstack'
+    client.env.config['auth-url'] = 'url'
+    client.env.config['region'] = 'region'
     client.env.credentials = {
         'credentials': {'bogus': {}}}
-    with patch('assess_autoload_credentials.client_from_config',
-               return_value=client):
-        yield
+    return client
 
 
 class TestEnsureAutoloadCredentialsStoresDetails(TestCase):
 
     def test_existing_credentials_openstack(self):
-        with bogus_credentials():
+
             aac.ensure_autoload_credentials_stores_details(
-                'foo', aac.openstack_envvar_test_details)
+                bogus_credentials(), aac.openstack_envvar_test_details)
 
 
 class TestEnsureAutoloadCredentialsOverwriteExisting(TestCase):
 
     def test_overwrite_existing(self):
-        with bogus_credentials():
             aac.ensure_autoload_credentials_overwrite_existing(
-                'foo', aac.openstack_envvar_test_details)
+                bogus_credentials(), aac.openstack_envvar_test_details)
+
+
+class TestAutoloadAndBootstrap(TestCase):
+
+    def test_autoload_and_bootstrap(self):
+
+        def cloud_details_fn(user, tmp_dir, client, credential_details):
+            return aac.CloudDetails(credential_details, None, None)
+
+        client = fake_juju_client()
+        upload_tools = False
+        real_credential_details = {'cloud-username': 'user',
+                                   'cloud-password': 'password'
+                                   }
+        credential_file_details = {'credentials': {'cloud': {
+                                   'credentials': real_credential_details
+                                   }}}
+
+        def write_credentials(*args, **kwargs):
+            file_name = os.path.join(client.env.juju_home, 'credentials.yaml')
+            with open(file_name, 'w') as write_file:
+                yaml.safe_dump(credential_file_details, write_file)
+
+        def credential_check(*args, **kwargs):
+            self.assertEqual(client.env.credentials, credential_file_details)
+
+        with temp_dir() as log_dir:
+            bs_manager = BootstrapManager(
+                'env', client, client, None, [], None, None, None, None,
+                log_dir, False, True, True)
+            with patch('assess_autoload_credentials.run_autoload_credentials',
+                       autospec=True,
+                       side_effect=write_credentials) as run_autoload_mock:
+                with patch.object(
+                        bs_manager.client, 'bootstrap',
+                        autospec=True,
+                        side_effect=credential_check) as bootstrap_mock:
+                    aac.autoload_and_bootstrap(bs_manager, upload_tools,
+                                               real_credential_details,
+                                               cloud_details_fn)
+        run_autoload_mock.assert_called_once_with(
+            client, real_credential_details, None)
+        bootstrap_mock.assert_called_once_with(False, bootstrap_series=None,
+                                               credential='testing-user')
