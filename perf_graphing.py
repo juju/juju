@@ -2,7 +2,10 @@
 
 from fixtures import EnvironmentVariable
 import os
-import rrdtool
+try:
+    import rrdtool
+except ImportError:
+    rrdtool = object()
 
 
 class GraphDefaults:

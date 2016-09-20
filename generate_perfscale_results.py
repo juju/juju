@@ -12,7 +12,12 @@ import sys
 import subprocess
 import time
 
-import rrdtool
+try:
+    import rrdtool
+except ImportError:
+    # rddtool requires the cairo/pango libs that are difficult to install
+    # on non-linux.
+    rrdtool = object()
 from jinja2 import Template
 
 from deploy_stack import (
