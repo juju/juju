@@ -41,7 +41,7 @@ type MainSuite struct {
 var _ = gc.Suite(&MainSuite{})
 
 func deployHelpText() string {
-	return cmdtesting.HelpText(application.NewDeployCommand(), "juju deploy")
+	return cmdtesting.HelpText(application.NewDefaultDeployCommand(), "juju deploy")
 }
 func configHelpText() string {
 	return cmdtesting.HelpText(application.NewConfigCommand(), "juju config")
