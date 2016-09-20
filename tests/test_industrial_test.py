@@ -77,6 +77,7 @@ from tests.test_jujupy import (
     )
 from tests.test_substrate import (
     get_aws_env,
+    get_azure_config,
     get_os_config,
     make_os_security_group_instance,
     make_os_security_groups,
@@ -1866,6 +1867,39 @@ class TestBackupRestoreAttempt(JujuPyTestCase):
             self.assertEqual(iterator.next(),
                              {'test_id': 'back-up-restore', 'result': True})
         gs_mock.assert_called_once_with()
+
+    def test_iter_steps_azure(self):
+        test_id = {'test_id': 'back-up-restore'}
+        br_attempt = BackupRestoreAttempt()
+        azure_env = SimpleEnvironment('steve', get_azure_config())
+        client = FakeEnvJujuClient()
+        client.env.environment = azure_env.environment
+        client.env.config = azure_env.config
+        controller_client = client.get_controller_client()
+        # First yield.
+        iterator = iter_steps_validate_info(self, br_attempt, client)
+        self.assertEqual(iterator.next(), test_id)
+        # Second yield.
+        initial_status = {
+            'machines': {'0': {
+                'instance-id': 'not-id',
+                'dns-name': '128.100.100.128',
+                }}
+        }
+        # The azure-provider does does not provide sane ids, so the instance-id
+        # is used to search for the actual azure instance.
+        with patch_status(controller_client, initial_status):
+            with patch.object(client, 'get_controller_client', autospec=True,
+                              return_value=controller_client):
+                with patch.object(controller_client, 'backup', autospec=True,
+                                  return_value='juju-backup.tgz') as b_mock:
+                    with patch('industrial_test.convert_to_azure_ids',
+                               autospec=True, return_value=['id']) as ca_mock:
+                        with patch('industrial_test.terminate_instances',
+                                   autospec=True):
+                            self.assertEqual(iterator.next(), test_id)
+        b_mock.assert_called_once_with()
+        ca_mock.assert_called_once_with(controller_client, ['not-id'])
 
 
 class TestPrepareUpgradeJujuAttempt(JujuPyTestCase):
