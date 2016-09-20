@@ -357,7 +357,7 @@ class TestAddBasicTestingArguments(TestCase):
 
     def test_no_args(self):
         cmd_line = []
-        parser = add_basic_testing_arguments(ArgumentParser())
+        parser = add_basic_testing_arguments(ArgumentParser(), deadline=True)
         with patch('utility.os.getenv', return_value=''):
             args = parser.parse_args(cmd_line)
         self.assertEqual(args.env, 'lxd')
@@ -383,7 +383,7 @@ class TestAddBasicTestingArguments(TestCase):
 
     def test_positional_args(self):
         cmd_line = ['local', '/foo/juju', '/tmp/logs', 'testtest']
-        parser = add_basic_testing_arguments(ArgumentParser())
+        parser = add_basic_testing_arguments(ArgumentParser(), deadline=True)
         args = parser.parse_args(cmd_line)
         expected = Namespace(
             agent_url=None, debug=False, env='local', temp_env_name='testtest',
@@ -395,13 +395,13 @@ class TestAddBasicTestingArguments(TestCase):
 
     def test_positional_args_add_juju_bin_name(self):
         cmd_line = ['local', '/juju', '/tmp/logs', 'testtest']
-        parser = add_basic_testing_arguments(ArgumentParser())
+        parser = add_basic_testing_arguments(ArgumentParser(), deadline=True)
         args = parser.parse_args(cmd_line)
         self.assertEqual(args.juju_bin, '/juju')
 
     def test_positional_args_accepts_juju_exe(self):
         cmd_line = ['local', 'c:\\juju.exe', '/tmp/logs', 'testtest']
-        parser = add_basic_testing_arguments(ArgumentParser())
+        parser = add_basic_testing_arguments(ArgumentParser(), deadline=True)
         args = parser.parse_args(cmd_line)
         self.assertEqual(args.juju_bin, 'c:\\juju.exe')
 
@@ -534,7 +534,7 @@ class TestAddBasicTestingArguments(TestCase):
     def test_deadline(self):
         now = datetime(2012, 11, 10, 9, 8, 7)
         cmd_line = ['--timeout', '300']
-        parser = add_basic_testing_arguments(ArgumentParser())
+        parser = add_basic_testing_arguments(ArgumentParser(), deadline=True)
         with patch('utility.datetime') as dt_class:
             # Can't patch the utcnow method of datetime.datetime (because it's
             # C code?) but we can patch out the whole datetime class.
