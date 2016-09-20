@@ -255,7 +255,7 @@ func (s *listCredentialsSuite) TestListCredentialsNone(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stderr(ctx), gc.Equals, "")
 	out := strings.Replace(testing.Stdout(ctx), "\n", "", -1)
-	c.Assert(out, gc.Equals, "CLOUD  CREDENTIALS")
+	c.Assert(out, gc.Equals, "No credentials to display.")
 
 	ctx, err = testing.RunCommand(c, listCmd, "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)

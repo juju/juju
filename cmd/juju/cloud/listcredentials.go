@@ -61,6 +61,7 @@ type listCredentialsCommand struct {
 	cloudByNameFunc    func(string) (*jujucloud.Cloud, error)
 }
 
+// CloudCredential contains attributes used to define credentials for a cloud.
 type CloudCredential struct {
 	// DefaultCredential is the named credential to use by default.
 	DefaultCredential string `json:"default-credential,omitempty" yaml:"default-credential,omitempty"`
@@ -212,6 +213,11 @@ func formatCredentialsTabular(writer io.Writer, value interface{}) error {
 	credentials, ok := value.(credentialsMap)
 	if !ok {
 		return errors.Errorf("expected value of type %T, got %T", credentials, value)
+	}
+
+	if len(credentials.Credentials) == 0 {
+		fmt.Fprintln(writer, "No credentials to display.")
+		return nil
 	}
 
 	// For tabular we'll sort alphabetically by cloud, and then by credential name.
