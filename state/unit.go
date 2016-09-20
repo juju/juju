@@ -2278,9 +2278,21 @@ func (u *Unit) ClearResolved() error {
 
 // StorageConstraints returns the unit's storage constraints.
 func (u *Unit) StorageConstraints() (map[string]StorageConstraints, error) {
-	// TODO(axw) eventually we should be able to override service
-	// storage constraints at the unit level.
-	return readStorageConstraints(u.st, applicationGlobalKey(u.doc.Application))
+	if u.doc.CharmURL == nil {
+		app, err := u.st.Application(u.doc.Application)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return app.StorageConstraints()
+	}
+	key := applicationStorageConstraintsKey(u.doc.Application, u.doc.CharmURL)
+	cons, err := readStorageConstraints(u.st, key)
+	if errors.IsNotFound(err) {
+		return nil, nil
+	} else if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return cons, nil
 }
 
 type addUnitOpsArgs struct {
