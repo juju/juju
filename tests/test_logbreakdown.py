@@ -1,14 +1,10 @@
 """Tests for assess_perf_test_simple module."""
 
 from datetime import datetime, timedelta
-import logging
-from mock import Mock, patch
-import StringIO
 
 import logbreakdown as lb
 from generate_perfscale_results import TimingData
 from tests import (
-    parse_error,
     TestCase,
 )
 
