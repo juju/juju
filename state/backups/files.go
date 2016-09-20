@@ -9,8 +9,6 @@ import (
 	"sort"
 
 	"github.com/juju/errors"
-
-	"github.com/juju/juju/mongo"
 )
 
 // TODO(ericsnow) lp-1392876
@@ -98,23 +96,14 @@ var replaceableFolders = replaceableFoldersFunc
 
 // replaceableFoldersFunc will return a map with the folders that need to
 // be replaced so they can be deleted prior to a restore.
-// Mongo 2.4 requires that the database directory be removed, while
-// Mongo 3.2 requires that it not be removed
-func replaceableFoldersFunc(dataDir string, mongoVersion mongo.Version) (map[string]os.FileMode, error) {
+func replaceableFoldersFunc() (map[string]os.FileMode, error) {
 	replaceables := map[string]os.FileMode{}
 
-	// NOTE: never put dataDir in here directly as that will unconditionally
-	// remove the database.
-	dirs := []string{
+	for _, replaceable := range []string{
+		filepath.Join(dataDir, "db"),
 		filepath.Join(dataDir, "init"),
-		filepath.Join(dataDir, "tools"),
-		filepath.Join(dataDir, "agents"),
-	}
-	if mongoVersion.Major == 2 {
-		dirs = append(dirs, filepath.Join(dataDir, "db"))
-	}
-
-	for _, replaceable := range dirs {
+		dataDir,
+	} {
 		dirStat, err := os.Stat(replaceable)
 		if os.IsNotExist(err) {
 			continue
@@ -135,8 +124,8 @@ func replaceableFoldersFunc(dataDir string, mongoVersion mongo.Version) (map[str
 // directories that are to contain new files; this is to avoid
 // possible mixup from new/old files that lead to an inconsistent
 // restored state machine.
-func PrepareMachineForRestore(mongoVersion mongo.Version) error {
-	replaceFolders, err := replaceableFolders(dataDir, mongoVersion)
+func PrepareMachineForRestore() error {
+	replaceFolders, err := replaceableFolders()
 	if err != nil {
 		return errors.Annotate(err, "cannot retrieve the list of folders to be cleaned before restore")
 	}
@@ -155,7 +144,6 @@ func PrepareMachineForRestore(mongoVersion mongo.Version) error {
 		if !fmode.IsDir() {
 			continue
 		}
-		logger.Debugf("removing dir: %s", toBeRecreated)
 		if err := os.RemoveAll(toBeRecreated); err != nil {
 			return errors.Trace(err)
 		}

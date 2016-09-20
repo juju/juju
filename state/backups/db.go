@@ -335,8 +335,6 @@ func NewDBRestorer(args RestorerArgs) (DBRestorer, error) {
 	}
 
 	installedMongo := mongoInstalledVersion()
-	logger.Debugf("args: is %#v", args)
-	logger.Infof("installed mongo is %s", installedMongo)
 	// NewerThan will check Major and Minor so migration between micro versions
 	// will work, before changing this bewar, Mongo has been known to break
 	// compatibility between minors.
@@ -497,7 +495,6 @@ func (md *mongoRestorer32) ensureTagUser() error {
 }
 
 func (md *mongoRestorer32) Restore(dumpDir string, dialInfo *mgo.DialInfo) error {
-	logger.Debugf("start restore, dumpDir %s", dumpDir)
 	if err := md.ensureOplogPermissions(dialInfo); err != nil {
 		return errors.Annotate(err, "setting special user permission in db")
 	}
