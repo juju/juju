@@ -163,6 +163,15 @@ class TestJuju2Backend(TestCase):
         self.assertEqual('/bin/path', backend.full_path)
         self.assertEqual('2.0', backend.version)
 
+    def test_clone_retains_soft_deadline(self):
+        soft_deadline = object()
+        backend = Juju2Backend('/bin/path', '2.0', feature_flags=set(),
+                               debug=False, soft_deadline=soft_deadline)
+        cloned = backend.clone(full_path=None, version=None, debug=None,
+                               feature_flags=None)
+        self.assertIsNot(cloned, backend)
+        self.assertIs(soft_deadline, cloned.soft_deadline)
+
     def test__check_timeouts(self):
         backend = Juju2Backend('/bin/path', '2.0', set(), debug=False,
                                soft_deadline=datetime(2015, 1, 2, 3, 4, 5))

@@ -592,7 +592,8 @@ class Juju2Backend:
             full_path = self.full_path
         if debug is None:
             debug = self.debug
-        result = self.__class__(full_path, version, feature_flags, debug)
+        result = self.__class__(full_path, version, feature_flags, debug,
+                                self.soft_deadline)
         return result
 
     @property
