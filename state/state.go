@@ -1090,8 +1090,7 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 		ModelUUID:  st.ModelUUID(),
 		Status:     status.Waiting,
 		StatusInfo: status.MessageWaitForMachine,
-		// TODO(fwereade): 2016-03-17 lp:1558657
-		Updated: time.Now().UnixNano(),
+		Updated:    st.clock.Now().UnixNano(),
 		// This exists to preserve questionable unit-aggregation behaviour
 		// while we work out how to switch to an implementation that makes
 		// sense. It is also set in AddMissingServiceStatuses.

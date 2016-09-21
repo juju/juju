@@ -1658,8 +1658,7 @@ func (m *Machine) markInvalidContainers() error {
 			}
 			if statusInfo.Status == status.Pending {
 				containerType := ContainerTypeFromId(containerId)
-				// TODO(perrito666) 2016-05-02 lp:1558657
-				now := time.Now()
+				now := m.st.clock.Now()
 				s := status.StatusInfo{
 					Status:  status.Error,
 					Message: "unsupported container",

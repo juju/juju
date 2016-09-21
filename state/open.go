@@ -6,7 +6,6 @@ package state
 import (
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
@@ -328,12 +327,8 @@ func (st *State) modelSetupOps(controllerUUID string, args ModelArgs, inherited 
 	modelUUID := args.Config.UUID()
 	modelStatusDoc := statusDoc{
 		ModelUUID: modelUUID,
-		// TODO(fwereade): 2016-03-17 lp:1558657
-		Updated: time.Now().UnixNano(),
-		// TODO(axw) 2016-04-13 lp:1569632
-		// We need to decide how we will
-		// represent migration in model status.
-		Status: status.Available,
+		Updated:   st.clock.Now().UnixNano(),
+		Status:    status.Available,
 	}
 
 	modelUserOps := createModelUserOps(

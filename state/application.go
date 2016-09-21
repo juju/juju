@@ -9,7 +9,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
@@ -1085,8 +1084,7 @@ func (s *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 		Principal:              args.principalName,
 		StorageAttachmentCount: numStorageAttachments,
 	}
-	// TODO(fwereade): 2016-03-17 lp:1558657
-	now := time.Now()
+	now := s.st.clock.Now()
 	agentStatusDoc := statusDoc{
 		Status:  status.Allocating,
 		Updated: now.UnixNano(),

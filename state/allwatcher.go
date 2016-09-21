@@ -6,7 +6,6 @@ package state
 import (
 	"reflect"
 	"strings"
-	"time"
 
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
@@ -423,8 +422,7 @@ func (svc *backingApplication) updated(st *State, store *multiwatcherStore, id s
 			// Not sure how status can even return NotFound as it is created
 			// with the application initially. For now, we'll log the error as per
 			// the above and return Unknown.
-			// TODO(fwereade): 2016-03-17 lp:1558657
-			now := time.Now()
+			now := st.clock.Now()
 			info.Status = multiwatcher.StatusInfo{
 				Current: status.Unknown,
 				Since:   &now,
