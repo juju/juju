@@ -112,6 +112,7 @@ class TestCharm(TestCase):
                 self.assertEqual(f.read(), upgrade_charm)
 
     def test_ensure_valid_name(self):
+        Charm('good-name', 'A charm with a valid name')
         charm = Charm('BAD_NAME', 'A charm with a bad name',
                       ensure_valid_name=False)
         self.assertIsNone(Charm.NAME_REGEX.match(charm.metadata['name']))
