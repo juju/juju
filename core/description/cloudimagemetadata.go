@@ -148,7 +148,7 @@ func importCloudImageMetadataList(sourceList []interface{}, importFunc cloudimag
 	for i, value := range sourceList {
 		source, ok := value.(map[string]interface{})
 		if !ok {
-			return nil, errors.Errorf("unexpected value for cloudimagemetadata %d, %T", i, value)
+			return nil, errors.Errorf("unexpected type for cloudimagemetadata %d, %#v", i, value)
 		}
 		cloudimagemetadata, err := importFunc(source)
 		if err != nil {
