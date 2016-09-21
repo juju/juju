@@ -258,7 +258,7 @@ def assess_root_disk_constraints(client, values):
     """Assess deployment with root-disk constraints."""
     for root_disk in values:
         constraints = Constraints(root_disk=root_disk)
-        charm_name = 'root-disk-' + root_disk
+        charm_name = 'root-disk-' + root_disk.lower()
         data = prepare_constraint_test(client, constraints, charm_name)
         if not constraints.meets_root_disk(data['root-disk']):
             raise JujuAssertionError('Test failed', charm_name)
@@ -268,7 +268,7 @@ def assess_cores_constraints(client, values):
     """Assess deployment with cores constraints."""
     for cores in values:
         constraints = Constraints(cores=cores)
-        charm_name = 'cores-' + cores
+        charm_name = 'cores-' + cores + 'c'
         data = prepare_constraint_test(client, constraints, charm_name)
         if not constraints.meets_cores(data['cores']):
             raise JujuAssertionError('Test failed', charm_name)
@@ -278,9 +278,9 @@ def assess_cpu_power_constraints(client, values):
     """Assess deployment with cpu_power constraints."""
     for cpu_power in values:
         constraints = Constraints(cpu_power=cpu_power)
-        charm_name = 'cpu_power-' + cpu_power
+        charm_name = 'cpu-power-' + cpu_power + 'cp'
         data = prepare_constraint_test(client, constraints, charm_name)
-        if not constraints.meets_root_disk(data['cpu_power']):
+        if not constraints.meets_root_disk(data['cpu-power']):
             raise JujuAssertionError('Test failed', charm_name)
 
 
