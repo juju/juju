@@ -248,6 +248,13 @@ def assess_virt_type_constraints(client, test_kvm=False):
         VIRT_TYPES.remove("kvm")
 
 
+def get_failure_exception(client, constraints):
+    """Create a JujuAssertionError with a detailed error message."""
+    message = 'Test Failed: on {} with constraints "{}"'.format(
+        client.env.config.get('type'), str(constraints))
+    return JujuAssertionError(message)
+
+
 def assess_instance_type(client, provider, instance_type):
     """Assess the instance-type option for constraints"""
     if instance_type not in INSTANCE_TYPES[provider]:
@@ -256,7 +263,7 @@ def assess_instance_type(client, provider, instance_type):
     charm_name = 'instance-type-' + instance_type.replace('.', '-')
     data = prepare_constraint_test(client, constraints, charm_name)
     if not constraints.meets_instance_type(data):
-        raise JujuAssertionError('Test failed', charm_name)
+        raise get_failure_exception(client, constraints)
 
 
 def assess_instance_type_constraints(client, provider=None):
@@ -276,7 +283,7 @@ def assess_root_disk_constraints(client, values):
         charm_name = 'root-disk-' + root_disk.lower()
         data = prepare_constraint_test(client, constraints, charm_name)
         if not constraints.meets_root_disk(data['root-disk']):
-            raise JujuAssertionError('Test failed', charm_name)
+            raise get_failure_exception(client, constraints)
 
 
 def assess_cores_constraints(client, values):
@@ -286,7 +293,7 @@ def assess_cores_constraints(client, values):
         charm_name = 'cores-' + cores + 'c'
         data = prepare_constraint_test(client, constraints, charm_name)
         if not constraints.meets_cores(data['cores']):
-            raise JujuAssertionError('Test failed', charm_name)
+            raise get_failure_exception(client, constraints)
 
 
 def assess_cpu_power_constraints(client, values):
@@ -295,8 +302,8 @@ def assess_cpu_power_constraints(client, values):
         constraints = Constraints(cpu_power=cpu_power)
         charm_name = 'cpu-power-' + cpu_power + 'cp'
         data = prepare_constraint_test(client, constraints, charm_name)
-        if not constraints.meets_root_disk(data['cpu-power']):
-            raise JujuAssertionError('Test failed', charm_name)
+        if not constraints.meets_cpu_power(data['cpu-power']):
+            raise get_failure_exception(client, constraints)
 
 
 def assess_constraints(client, test_kvm=False):

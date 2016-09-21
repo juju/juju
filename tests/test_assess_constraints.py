@@ -8,8 +8,11 @@ import StringIO
 
 from assess_constraints import (
     application_machines,
-    assess_virt_type_constraints,
+    assess_cores_constraints,
+    assess_cpu_power_constraints,
     assess_instance_type_constraints,
+    assess_root_disk_constraints,
+    assess_virt_type_constraints,
     Constraints,
     deploy_constraint,
     deploy_charm_constraint,
@@ -87,6 +90,26 @@ class TestConstraints(TestCase):
         self.assertTrue(meets_min_mem('1G', '1024'))
         self.assertTrue(meets_min_mem('1G', '1G'))
         self.assertTrue(meets_min_mem('1G', '2G'))
+
+    def test_meets_root_disk(self):
+        constraints = Constraints(root_disk='8G')
+        self.assertTrue(constraints.meets_root_disk('8G'))
+        self.assertFalse(constraints.meets_root_disk('4G'))
+
+    def test_meets_cores(self):
+        constraints = Constraints(cores='2')
+        self.assertTrue(constraints.meets_cores('3'))
+        self.assertFalse(constraints.meets_cores('1'))
+
+    def test_meets_cpu_power(self):
+        constraints = Constraints(cpu_power='20')
+        self.assertTrue(constraints.meets_cpu_power('30'))
+        self.assertFalse(constraints.meets_cpu_power('10'))
+
+    def test_meets_arch(self):
+        constraints = Constraints(arch='amd64')
+        self.assertTrue(constraints.meets_arch('amd64'))
+        self.assertFalse(constraints.meets_arch('i386'))
 
     def test_meets_instance_type(self):
         constraints = Constraints(instance_type='t2.micro')
@@ -210,7 +233,8 @@ class TestAssess(TestCase):
             with self.patch_instance_spec(fake_provider, False):
                 with self.assertRaisesRegexp(
                         JujuAssertionError,
-                        "('Test failed', 'instance-type-baz')"):
+                        'Test Failed: on {} with constraints "{}"'.format(
+                            fake_provider, 'instance-type=baz')):
                     assess_instance_type_constraints(fake_client)
 
     def test_instance_type_constraints_missing(self):
@@ -218,6 +242,33 @@ class TestAssess(TestCase):
         with self.prepare_deploy_mock() as (fake_client, deploy_mock):
             assess_instance_type_constraints(fake_client)
         self.assertFalse(deploy_mock.called)
+
+    def test_root_disk_constraints(self):
+        fake_client = Mock(wraps=fake_juju_client())
+        with patch('assess_constraints.prepare_constraint_test',
+                   autospec=True, return_value={'root-disk': '8G'}
+                   ) as prepare_mock:
+            with self.assertRaises(JujuAssertionError):
+                assess_root_disk_constraints(fake_client, ['8G', '16G'])
+        self.assertEqual(2, prepare_mock.call_count)
+
+    def test_cores_constraints(self):
+        fake_client = Mock(wraps=fake_juju_client())
+        with patch('assess_constraints.prepare_constraint_test',
+                   autospec=True, return_value={'cores': '2'}
+                   ) as prepare_mock:
+            with self.assertRaises(JujuAssertionError):
+                assess_cores_constraints(fake_client, ['2', '4'])
+        self.assertEqual(2, prepare_mock.call_count)
+
+    def test_cpu_power_constraints(self):
+        fake_client = Mock(wraps=fake_juju_client())
+        with patch('assess_constraints.prepare_constraint_test',
+                   autospec=True, return_value={'cpu-power': '20'}
+                   ) as prepare_mock:
+            with self.assertRaises(JujuAssertionError):
+                assess_cpu_power_constraints(fake_client, ['10', '30'])
+        self.assertEqual(2, prepare_mock.call_count)
 
 
 class TestDeploy(TestCase):
