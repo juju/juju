@@ -64,8 +64,11 @@ func (i *cloudimagemetadata) RootStorageType() string {
 }
 
 // RootStorageSize implements CloudImageMetadata.
-func (i *cloudimagemetadata) RootStorageSize() *uint64 {
-	return i.RootStorageSize_
+func (i *cloudimagemetadata) RootStorageSize() (uint64, bool) {
+	if i.RootStorageSize_ == nil {
+		return 0, false
+	}
+	return *i.RootStorageSize_, true
 }
 
 // DateCreated implements CloudImageMetadata.

@@ -408,7 +408,7 @@ type CloudImageMetadata interface {
 	Arch() string
 	VirtType() string
 	RootStorageType() string
-	RootStorageSize() *uint64
+	RootStorageSize() (uint64, bool)
 	DateCreated() int64
 	Source() string
 	Priority() int
