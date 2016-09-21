@@ -12,6 +12,7 @@ from assess_recovery import (
     delete_controller_members,
     main,
     parse_args,
+    restore_missing_state_server,
 )
 from jujupy import (
     Machine,
@@ -254,3 +255,35 @@ class TestDeleteControllerMembers(FakeHomeTestCase):
             self.log_stream.getvalue(),
             'INFO Instrumenting node failure for member 3:'
             ' juju-azure-id at 10.0.0.3\n')
+
+
+class TestRestoreMissingStateServer(FakeHomeTestCase):
+
+    def test_restore_missing_state_server_with_check_controller(self):
+        client = Mock(spec=['env', 'set_config', 'wait_for_started',
+                            'wait_for_workloads'])
+        controller_client = Mock(spec=['restore_backup', 'wait_for_started'])
+        with patch('assess_recovery.check_token',
+                   autospec=True, return_value='Token: Two'):
+            with patch('assess_recovery.show_controller', autospec=True):
+                restore_missing_state_server(
+                    client, controller_client, 'backup_file',
+                    check_controller=True)
+        controller_client.restore_backup.assert_called_once_with('backup_file')
+        controller_client.wait_for_started.assert_called_once_with(600)
+        client.set_config.assert_called_once_with(
+            'dummy-source', {'token': 'Two'})
+        client.wait_for_started.assert_called_once_with()
+        client.wait_for_workloads.assert_called_once_with()
+
+    def test_restore_missing_state_server_without_check_controller(self):
+        client = Mock(spec=['env', 'set_config', 'wait_for_started',
+                            'wait_for_workloads'])
+        controller_client = Mock(spec=['restore_backup', 'wait_for_started'])
+        with patch('assess_recovery.check_token',
+                   autospec=True, return_value='Token: Two'):
+            with patch('assess_recovery.show_controller', autospec=True):
+                restore_missing_state_server(
+                    client, controller_client, 'backup_file',
+                    check_controller=False)
+        self.assertEqual(0, controller_client.wait_for_started.call_count)
