@@ -3185,6 +3185,15 @@ class TestEnvJujuClient(ClientTest):
         mock.assert_called_once_with(
             'import-ssh-key', 'gh:au', 'lp:bu', merge_stderr=True)
 
+    def test_list_disabled_commands(self):
+        client = EnvJujuClient(JujuData('foo'), None, None)
+        with patch.object(client, 'get_juju_output', autospec=True,
+                          return_value='yaml') as mock:
+            output = client.list_disabled_commands()
+        self.assertEqual('dict', output)
+        mock.assert_called_once_with('list_disabled_commands',
+                                     '--format', 'yaml')
+
 
 class TestEnvJujuClient2B8(ClientTest):
 
@@ -3374,6 +3383,16 @@ class TestEnvJujuClient2B9(ClientTest):
         mock.assert_called_with(
             ('juju', '--show-log', 'unset-model-config', '-m', 'foo:foo',
              'tools-metadata-url'))
+
+    def test_list_disabled_commands(self):
+        client = EnvJujuClient(JujuData('foo'), None, None)
+        with patch.object(client, 'get_juju_output', autospec=True,
+                          return_value='yaml') as mock:
+            output = client.list_disabled_commands()
+        self.assertEqual('dict', output)
+        mock.assert_called_once_with('block list',
+                                     '--format', 'yaml')
+
 
 
 class TestEnvJujuClient2B7(ClientTest):

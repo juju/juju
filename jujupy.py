@@ -2137,6 +2137,12 @@ class EnvJujuClient:
         """Import ssh keys from one or more identities to the current model."""
         return self.get_juju_output('import-ssh-key', *keys, merge_stderr=True)
 
+    def list_disabled_commands(self, ...):
+        """List all the commands disabled on the model."""
+        raw = self.get_juju_output('list-disabled-commands',
+                                   '--format', 'yaml')
+        return yaml.safe_load(raw)
+
 
 class EnvJujuClient2B9(EnvJujuClient):
 
@@ -2218,6 +2224,10 @@ class EnvJujuClient2B9(EnvJujuClient):
     def unset_env_option(self, option):
         """Unset the value of the option in the environment."""
         return self.juju('unset-model-config', (option,))
+
+    def list_disabled_commands(self):
+        raw = self.get_juju_output('block list', '--format', 'yaml')
+        return yaml.safe_load(raw)
 
 
 class EnvJujuClient2B8(EnvJujuClient2B9):
