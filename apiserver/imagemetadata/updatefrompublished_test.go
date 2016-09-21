@@ -242,7 +242,7 @@ func (s *regionMetadataSuite) setExpectations(c *gc.C) {
 	// This will only save image metadata specific to provider cloud spec.
 	s.expected = []cloudimagemetadata.Metadata{
 		cloudimagemetadata.Metadata{
-			cloudimagemetadata.MetadataAttributes{
+			MetadataAttributes: cloudimagemetadata.MetadataAttributes{
 				RootStorageType: "ebs",
 				VirtType:        "pv",
 				Arch:            "amd64",
@@ -250,11 +250,11 @@ func (s *regionMetadataSuite) setExpectations(c *gc.C) {
 				Region:          "dummy_region",
 				Source:          "default cloud images",
 				Stream:          "released"},
-			10,
-			"ami-36745463",
+			Priority: 10,
+			ImageId:  "ami-36745463",
 		},
 		cloudimagemetadata.Metadata{
-			cloudimagemetadata.MetadataAttributes{
+			MetadataAttributes: cloudimagemetadata.MetadataAttributes{
 				RootStorageType: "ebs",
 				VirtType:        "pv",
 				Arch:            "amd64",
@@ -262,8 +262,8 @@ func (s *regionMetadataSuite) setExpectations(c *gc.C) {
 				Region:          "dummy_region",
 				Source:          "default cloud images",
 				Stream:          "released"},
-			10,
-			"ami-26745463",
+			Priority: 10,
+			ImageId:  "ami-26745463",
 		},
 	}
 

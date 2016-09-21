@@ -635,6 +635,49 @@ func (s *ModelSerializationSuite) TestSSHHostKey(c *gc.C) {
 	c.Assert(model.SSHHostKeys(), jc.DeepEquals, keys)
 }
 
+func (s *ModelSerializationSuite) TestCloudImageMetadata(c *gc.C) {
+	storageSize := uint64(3)
+	initial := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
+	image := initial.AddCloudImageMetadata(CloudImageMetadataArgs{
+		Stream:          "stream",
+		Region:          "region-test",
+		Version:         "14.04",
+		Series:          "trusty",
+		Arch:            "arch",
+		VirtType:        "virtType-test",
+		RootStorageType: "rootStorageType-test",
+		RootStorageSize: &storageSize,
+		Source:          "test",
+		Priority:        2,
+		ImageId:         "1",
+		DateCreated:     2,
+	})
+	c.Assert(image.Stream(), gc.Equals, "stream")
+	c.Assert(image.Region(), gc.Equals, "region-test")
+	c.Assert(image.Version(), gc.Equals, "14.04")
+	c.Assert(image.Arch(), gc.Equals, "arch")
+	c.Assert(image.VirtType(), gc.Equals, "virtType-test")
+	c.Assert(image.RootStorageType(), gc.Equals, "rootStorageType-test")
+	value, ok := image.RootStorageSize()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(value, gc.Equals, uint64(3))
+	c.Assert(image.Source(), gc.Equals, "test")
+	c.Assert(image.Priority(), gc.Equals, 2)
+	c.Assert(image.ImageId(), gc.Equals, "1")
+	c.Assert(image.DateCreated(), gc.Equals, int64(2))
+
+	metadata := initial.CloudImageMetadata()
+	c.Assert(metadata, gc.HasLen, 1)
+	c.Assert(metadata[0], jc.DeepEquals, image)
+
+	bytes, err := yaml.Marshal(initial)
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := Deserialize(bytes)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(model.CloudImageMetadata(), jc.DeepEquals, metadata)
+}
+
 func (s *ModelSerializationSuite) TestAction(c *gc.C) {
 	initial := NewModel(ModelArgs{Owner: names.NewUserTag("owner")})
 	enqueued := time.Now().UTC()

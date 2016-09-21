@@ -4,11 +4,11 @@
 package state
 
 import (
-	"reflect"
-
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
+
+	"github.com/juju/juju/testing"
 )
 
 type MigrationSuite struct{}
@@ -19,6 +19,7 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 	completedCollections := set.NewStrings(
 		annotationsC,
 		blocksC,
+		cloudimagemetadataC,
 		constraintsC,
 		modelsC,
 		modelUsersC,
@@ -54,6 +55,9 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 
 		// storage
 		blockDevicesC,
+
+		// cloudimagemetadata
+		cloudimagemetadataC,
 
 		// actions
 		actionsC,
@@ -154,9 +158,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 	todoCollections := set.NewStrings(
 		// model configuration
 		globalSettingsC,
-
-		// model
-		cloudimagemetadataC,
 
 		// machine
 		rebootC,
@@ -792,28 +793,11 @@ func (s *MigrationSuite) TestPayloadDocFields(c *gc.C) {
 }
 
 func (s *MigrationSuite) AssertExportedFields(c *gc.C, doc interface{}, fields set.Strings) {
-	expected := getExportedFields(doc)
+	expected := testing.GetExportedFields(doc)
 	unknown := expected.Difference(fields)
 	removed := fields.Difference(expected)
 	// If this test fails, it means that extra fields have been added to the
 	// doc without thinking about the migration implications.
 	c.Check(unknown, gc.HasLen, 0)
 	c.Assert(removed, gc.HasLen, 0)
-}
-
-func getExportedFields(arg interface{}) set.Strings {
-	t := reflect.TypeOf(arg)
-	result := set.NewStrings()
-
-	count := t.NumField()
-	for i := 0; i < count; i++ {
-		f := t.Field(i)
-		// empty PkgPath means exported field.
-		// see https://golang.org/pkg/reflect/#StructField
-		if f.PkgPath == "" {
-			result.Add(f.Name)
-		}
-	}
-
-	return result
 }

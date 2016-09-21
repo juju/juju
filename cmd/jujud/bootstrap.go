@@ -465,7 +465,7 @@ func storeImageMetadataInState(st *state.State, env environs.Environ, source str
 	metadataState := make([]cloudimagemetadata.Metadata, len(existingMetadata))
 	for i, one := range existingMetadata {
 		m := cloudimagemetadata.Metadata{
-			cloudimagemetadata.MetadataAttributes{
+			MetadataAttributes: cloudimagemetadata.MetadataAttributes{
 				Stream:          one.Stream,
 				Region:          one.RegionName,
 				Arch:            one.Arch,
@@ -474,8 +474,8 @@ func storeImageMetadataInState(st *state.State, env environs.Environ, source str
 				Source:          source,
 				Version:         one.Version,
 			},
-			priority,
-			one.Id,
+			Priority: priority,
+			ImageId:  one.Id,
 		}
 		s, err := seriesFromVersion(one.Version)
 		if err != nil {

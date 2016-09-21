@@ -117,7 +117,7 @@ func (s *CommonProvisionerSuite) SetUpTest(c *gc.C) {
 	imagetesting.PatchOfficialDataSources(&s.CleanupSuite, "")
 	// We want an image to start test instances
 	err := s.State.CloudImageMetadataStorage.SaveMetadata([]cloudimagemetadata.Metadata{{
-		cloudimagemetadata.MetadataAttributes{
+		MetadataAttributes: cloudimagemetadata.MetadataAttributes{
 			Region:          "region",
 			Series:          "trusty",
 			Arch:            "amd64",
@@ -126,8 +126,8 @@ func (s *CommonProvisionerSuite) SetUpTest(c *gc.C) {
 			Source:          "test",
 			Stream:          "released",
 		},
-		10,
-		"-999",
+		Priority: 10,
+		ImageId:  "-999",
 	}})
 	c.Assert(err, jc.ErrorIsNil)
 

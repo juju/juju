@@ -51,6 +51,10 @@ type Metadata struct {
 
 	// ImageId contains image identifier.
 	ImageId string
+
+	// DateCreated contains the time and date the image was created. This
+	// is populated when the Metadata is saved.
+	DateCreated int64
 }
 
 // Storage provides methods for storing and retrieving cloud image metadata.
@@ -71,6 +75,10 @@ type Storage interface {
 	// SupportedArchitectures returns collection of unique architectures
 	// that stored metadata contains.
 	SupportedArchitectures(criteria MetadataFilter) ([]string, error)
+
+	// AllCloudImageMetadata returns all the cloud image metadata in the
+	// model.
+	AllCloudImageMetadata() ([]Metadata, error)
 }
 
 // DataStore exposes data store operations for use by the cloud image metadata package.

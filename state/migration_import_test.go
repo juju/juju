@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/payload"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
@@ -703,6 +704,46 @@ func (s *MigrationImportSuite) TestSSHHostKey(c *gc.C) {
 	keys, err := newSt.GetSSHHostKeys(machine2.MachineTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(keys, jc.DeepEquals, state.SSHHostKeys{"bam", "mam"})
+}
+
+func (s *MigrationImportSuite) TestCloudImageMetadata(c *gc.C) {
+	storageSize := uint64(3)
+	attrs := cloudimagemetadata.MetadataAttributes{
+		Stream:          "stream",
+		Region:          "region-test",
+		Version:         "14.04",
+		Series:          "trusty",
+		Arch:            "arch",
+		VirtType:        "virtType-test",
+		RootStorageType: "rootStorageType-test",
+		RootStorageSize: &storageSize,
+		Source:          "test",
+	}
+	metadata := []cloudimagemetadata.Metadata{{attrs, 2, "1", 2}}
+
+	err := s.State.CloudImageMetadataStorage.SaveMetadata(metadata)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, newSt := s.importModel(c)
+	defer func() {
+		c.Assert(newSt.Close(), jc.ErrorIsNil)
+	}()
+
+	images, err := s.State.CloudImageMetadataStorage.AllCloudImageMetadata()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(images, gc.HasLen, 1)
+	image := images[0]
+	c.Check(image.Stream, gc.Equals, "stream")
+	c.Check(image.Region, gc.Equals, "region-test")
+	c.Check(image.Version, gc.Equals, "14.04")
+	c.Check(image.Arch, gc.Equals, "arch")
+	c.Check(image.VirtType, gc.Equals, "virtType-test")
+	c.Check(image.RootStorageType, gc.Equals, "rootStorageType-test")
+	c.Check(*image.RootStorageSize, gc.Equals, uint64(3))
+	c.Check(image.Source, gc.Equals, "test")
+	c.Check(image.Priority, gc.Equals, 2)
+	c.Check(image.ImageId, gc.Equals, "1")
+	c.Check(image.DateCreated, gc.Equals, int64(2))
 }
 
 func (s *MigrationImportSuite) TestAction(c *gc.C) {

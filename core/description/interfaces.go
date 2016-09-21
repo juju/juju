@@ -85,6 +85,9 @@ type Model interface {
 	SSHHostKeys() []SSHHostKey
 	AddSSHHostKey(SSHHostKeyArgs) SSHHostKey
 
+	CloudImageMetadata() []CloudImageMetadata
+	AddCloudImageMetadata(CloudImageMetadataArgs) CloudImageMetadata
+
 	Actions() []Action
 	AddAction(ActionArgs) Action
 
@@ -394,6 +397,22 @@ type IPAddress interface {
 type SSHHostKey interface {
 	MachineID() string
 	Keys() []string
+}
+
+// CloudImageMetadata represents an IP cloudimagemetadata.
+type CloudImageMetadata interface {
+	Stream() string
+	Region() string
+	Version() string
+	Series() string
+	Arch() string
+	VirtType() string
+	RootStorageType() string
+	RootStorageSize() (uint64, bool)
+	DateCreated() int64
+	Source() string
+	Priority() int
+	ImageId() string
 }
 
 // Action represents an IP action.
