@@ -9,14 +9,15 @@ from jujucharm import (
     CharmCommand,
     local_charm_path,
     sane_charm_store_api_url,
-)
+    )
 from tests import (
     temp_os_env,
     TestCase,
-)
+    )
 from utility import (
+    JujuAssertionError,
     temp_dir,
-)
+    )
 
 
 class TestCharm(TestCase):
@@ -109,6 +110,15 @@ class TestCharm(TestCase):
             self.assertTrue(os.access(upgradedfile, os.X_OK))
             with open(upgradedfile) as f:
                 self.assertEqual(f.read(), upgrade_charm)
+
+    def test_ensure_valid_name(self):
+        charm = Charm('BAD_NAME', 'A charm with a bad name',
+                      ensure_valid_name=False)
+        self.assertIsNone(Charm.NAME_REGEX.match(charm.metadata['name']))
+        self.assertRaisesRegexp(
+            JujuAssertionError,
+            'Invalid Juju Charm Name, "BAD_NAME" does not match ".*"\.',
+            Charm, 'BAD_NAME', 'A charm with a checked bad name')
 
 
 class TestLocalCharm(TestCase):
