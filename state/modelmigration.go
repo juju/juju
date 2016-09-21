@@ -292,7 +292,7 @@ func (mig *modelMigration) TargetInfo() (*migration.TargetInfo, error) {
 
 // SetPhase implements ModelMigration.
 func (mig *modelMigration) SetPhase(nextPhase migration.Phase) error {
-	now := GetClock().Now().UnixNano()
+	now := mig.st.clock.Now().UnixNano()
 
 	phase, err := mig.Phase()
 	if err != nil {
@@ -389,7 +389,7 @@ func (mig *modelMigration) SubmitMinionReport(tag names.Tag, phase migration.Pha
 		MigrationId: mig.Id(),
 		Phase:       phase.String(),
 		EntityKey:   globalKey,
-		Time:        GetClock().Now().UnixNano(),
+		Time:        mig.st.clock.Now().UnixNano(),
 		Success:     success,
 	}
 	ops := []txn.Op{{
@@ -588,7 +588,7 @@ func (st *State) CreateMigration(spec MigrationSpec) (ModelMigration, error) {
 		return nil, errors.Trace(err)
 	}
 
-	now := GetClock().Now().UnixNano()
+	now := st.clock.Now().UnixNano()
 	modelUUID := st.ModelUUID()
 	var doc modelMigDoc
 	var statusDoc modelMigStatusDoc

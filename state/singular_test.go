@@ -8,31 +8,24 @@ import (
 
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/lease"
-	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 )
 
 type SingularSuite struct {
-	clock *jujutesting.Clock
 	ConnSuite
+	clock *jujutesting.Clock
 }
 
 var _ = gc.Suite(&SingularSuite{})
 
-func (s *SingularSuite) SetUpSuite(c *gc.C) {
-	s.ConnSuite.SetUpSuite(c)
-	s.PatchValue(&state.GetClock, func() clock.Clock {
-		return s.clock
-	})
-}
-
 func (s *SingularSuite) SetUpTest(c *gc.C) {
-	s.clock = jujutesting.NewClock(time.Now())
 	s.ConnSuite.SetUpTest(c)
+	s.clock = jujutesting.NewClock(time.Now())
+	err := s.State.SetClockForTesting(s.clock)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *SingularSuite) TestClaimBadLease(c *gc.C) {

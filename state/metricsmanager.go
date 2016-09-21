@@ -152,8 +152,7 @@ func (m *MetricsManager) IncrementConsecutiveErrors() error {
 }
 
 func (m *MetricsManager) gracePeriodExceeded() bool {
-	// TODO(fwereade): 2016-03-17 lp:1558657
-	now := time.Now()
+	now := m.st.clock.Now()
 	t := m.LastSuccessfulSend().Add(m.GracePeriod())
 	return t.Before(now) || t.Equal(now)
 }

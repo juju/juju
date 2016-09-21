@@ -932,7 +932,7 @@ func (s *UnitSuite) TestResolve(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.Resolve(true)
 	c.Assert(err, gc.ErrorMatches, `cannot set resolved mode for unit "wordpress/0": already resolved`)
-	c.Assert(s.unit.Resolved(), gc.Equals, state.ResolvedNoHooks)
+	c.Assert(s.unit.Resolved(), gc.Equals, state.ResolvedRetryHooks)
 
 	err = s.unit.ClearResolved()
 	c.Assert(err, jc.ErrorIsNil)
@@ -940,7 +940,7 @@ func (s *UnitSuite) TestResolve(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.Resolve(false)
 	c.Assert(err, gc.ErrorMatches, `cannot set resolved mode for unit "wordpress/0": already resolved`)
-	c.Assert(s.unit.Resolved(), gc.Equals, state.ResolvedRetryHooks)
+	c.Assert(s.unit.Resolved(), gc.Equals, state.ResolvedNoHooks)
 }
 
 func (s *UnitSuite) TestGetSetClearResolved(c *gc.C) {

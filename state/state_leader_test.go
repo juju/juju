@@ -9,12 +9,10 @@ import (
 	"github.com/juju/errors"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/core/leadership"
-	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -27,16 +25,11 @@ type LeadershipSuite struct {
 
 var _ = gc.Suite(&LeadershipSuite{})
 
-func (s *LeadershipSuite) SetUpSuite(c *gc.C) {
-	s.ConnSuite.SetUpSuite(c)
-	s.PatchValue(&state.GetClock, func() clock.Clock {
-		return s.clock
-	})
-}
-
 func (s *LeadershipSuite) SetUpTest(c *gc.C) {
-	s.clock = jujutesting.NewClock(time.Now())
 	s.ConnSuite.SetUpTest(c)
+	s.clock = jujutesting.NewClock(time.Now())
+	err := s.State.SetClockForTesting(s.clock)
+	c.Assert(err, jc.ErrorIsNil)
 	s.checker = s.State.LeadershipChecker()
 	s.claimer = s.State.LeadershipClaimer()
 }

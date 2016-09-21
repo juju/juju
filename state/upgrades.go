@@ -4,8 +4,6 @@
 package state
 
 import (
-	"time"
-
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v2"
@@ -87,10 +85,9 @@ func AddFilesystemStatus(st *State) error {
 			if err != nil {
 				return errors.Annotate(err, "deciding filesystem status")
 			}
-			// TODO(perrito666) 2016-05-02 lp:1558657
 			ops = append(ops, createStatusOp(st, filesystem.globalKey(), statusDoc{
 				Status:  status,
-				Updated: time.Now().UnixNano(),
+				Updated: st.clock.Now().UnixNano(),
 			}))
 		}
 		if len(ops) > 0 {

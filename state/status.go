@@ -263,9 +263,8 @@ func PruneStatusHistory(st *State, maxHistoryTime time.Duration, maxHistoryMB in
 	defer closer()
 
 	// Status Record Age
-	// TODO(perrito666): 2016-04-26 lp:1558657
 	if maxHistoryTime > 0 {
-		t := time.Now().Add(-maxHistoryTime)
+		t := st.clock.Now().Add(-maxHistoryTime)
 		_, err := history.RemoveAll(bson.D{
 			{"updated", bson.M{"$lt": t.UnixNano()}},
 		})

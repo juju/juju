@@ -756,6 +756,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 			// user is constructed with an empty password here.
 			// It is set just below.
 			st, err := state.Initialize(state.InitializeParams{
+				Clock:            clock.WallClock,
 				ControllerConfig: icfg.Controller.Config,
 				ControllerModelArgs: state.ModelArgs{
 					Owner:                   adminUser,

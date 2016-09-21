@@ -2108,20 +2108,29 @@ func (env *maasEnviron) allocateContainerAddresses1(hostInstanceID instance.Id, 
 	primaryNICName := interfaces[0].Name
 	primaryNICID := strconv.Itoa(interfaces[0].ID)
 	primaryNICSubnetCIDR := primaryNICInfo.CIDR
-	primaryNICVLANID := subnetCIDRToVLANID[primaryNICSubnetCIDR]
-	updatedPrimaryNIC, err := env.updateDeviceInterface(deviceID, primaryNICID, primaryNICName, primaryMACAddress, primaryNICVLANID)
-	if err != nil {
-		return nil, errors.Annotatef(err, "cannot update device interface %q", interfaces[0].Name)
+	primaryNICVLANID, hasSubnet := subnetCIDRToVLANID[primaryNICSubnetCIDR]
+	if hasSubnet {
+		updatedPrimaryNIC, err := env.updateDeviceInterface(deviceID, primaryNICID, primaryNICName, primaryMACAddress, primaryNICVLANID)
+		if err != nil {
+			return nil, errors.Annotatef(err, "cannot update device interface %q", interfaces[0].Name)
+		}
+		logger.Debugf("device %q primary interface %q updated: %+v", containerDevice.SystemID, primaryNICName, updatedPrimaryNIC)
 	}
-	logger.Debugf("device %q primary interface %q updated: %+v", containerDevice.SystemID, primaryNICName, updatedPrimaryNIC)
 
 	deviceNICIDs := make([]string, len(preparedInfo))
 	nameToParentName := make(map[string]string)
 	for i, nic := range preparedInfo {
 		maasNICID := ""
 		nameToParentName[nic.InterfaceName] = nic.ParentInterfaceName
+		nicVLANID, knownSubnet := subnetCIDRToVLANID[nic.CIDR]
 		if nic.InterfaceName != primaryNICName {
-			nicVLANID := subnetCIDRToVLANID[nic.CIDR]
+			if !knownSubnet {
+				logger.Warningf("NIC %v has no subnet - setting to manual and using untagged VLAN", nic.InterfaceName)
+				nicVLANID = primaryNICVLANID
+			} else {
+				logger.Infof("linking NIC %v to subnet %v - using static IP", nic.InterfaceName, nic.CIDR)
+			}
+
 			createdNIC, err := env.createDeviceInterface(deviceID, nic.InterfaceName, nic.MACAddress, nicVLANID)
 			if err != nil {
 				return nil, errors.Annotate(err, "creating device interface")
@@ -2134,17 +2143,24 @@ func (env *maasEnviron) allocateContainerAddresses1(hostInstanceID instance.Id, 
 		deviceNICIDs[i] = maasNICID
 		subnetID := string(nic.ProviderSubnetId)
 
+		if !knownSubnet {
+			continue
+		}
+
 		linkedInterface, err := env.linkDeviceInterfaceToSubnet(deviceID, maasNICID, subnetID, modeStatic)
 		if err != nil {
-			return nil, errors.Annotate(err, "cannot link device interface to subnet")
+			logger.Warningf("linking NIC %v to subnet %v failed: %v", nic.InterfaceName, nic.CIDR, err)
+		} else {
+			logger.Debugf("linked device interface to subnet: %+v", linkedInterface)
 		}
-		logger.Debugf("linked device interface to subnet: %+v", linkedInterface)
 	}
+
 	finalInterfaces, err := env.deviceInterfaceInfo(deviceID, nameToParentName)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get device interfaces")
 	}
 	logger.Debugf("allocated device interfaces: %+v", finalInterfaces)
+
 	return finalInterfaces, nil
 }
 
@@ -2174,9 +2190,9 @@ func (env *maasEnviron) allocateContainerAddresses2(hostInstanceID instance.Id, 
 	logger.Debugf("primary device NIC prepared info: %+v", primaryNICInfo)
 
 	primaryNICSubnetCIDR := primaryNICInfo.CIDR
-	subnet, ok := subnetCIDRToSubnet[primaryNICSubnetCIDR]
-	if !ok {
-		return nil, errors.Errorf("primary NIC subnet %v not found", primaryNICSubnetCIDR)
+	subnet, hasSubnet := subnetCIDRToSubnet[primaryNICSubnetCIDR]
+	if !hasSubnet {
+		logger.Debugf("primary device NIC %q has no linked subnet - leaving unconfigured", primaryNICInfo.InterfaceName)
 	}
 	primaryMACAddress := primaryNICInfo.MACAddress
 	args := gomaasapi.MachinesArgs{
@@ -2198,7 +2214,7 @@ func (env *maasEnviron) allocateContainerAddresses2(hostInstanceID instance.Id, 
 	createDeviceArgs := gomaasapi.CreateMachineDeviceArgs{
 		Hostname:      deviceName,
 		MACAddress:    primaryMACAddress,
-		Subnet:        subnet,
+		Subnet:        subnet, // can be nil
 		InterfaceName: primaryNICName,
 	}
 	device, err := machine.CreateDevice(createDeviceArgs)
@@ -2209,44 +2225,58 @@ func (env *maasEnviron) allocateContainerAddresses2(hostInstanceID instance.Id, 
 	if len(interface_set) != 1 {
 		// Shouldn't be possible as machine.CreateDevice always returns us
 		// one interface.
-		return nil, errors.Errorf("unexpected number of interfaces inresponse from creating device: %v", interface_set)
+		return nil, errors.Errorf("unexpected number of interfaces in response from creating device: %v", interface_set)
 	}
+	primaryNICVLAN := interface_set[0].VLAN()
 
 	nameToParentName := make(map[string]string)
 	for _, nic := range preparedInfo {
 		nameToParentName[nic.InterfaceName] = nic.ParentInterfaceName
 		if nic.InterfaceName != primaryNICName {
-			subnet, ok := subnetCIDRToSubnet[nic.CIDR]
-			if !ok {
-				return nil, errors.Errorf("NIC %v subnet %v not found", nic.InterfaceName, nic.CIDR)
+			createArgs := gomaasapi.CreateInterfaceArgs{
+				Name:       nic.InterfaceName,
+				MTU:        nic.MTU,
+				MACAddress: nic.MACAddress,
 			}
-			createdNIC, err := device.CreateInterface(
-				gomaasapi.CreateInterfaceArgs{
-					Name:       nic.InterfaceName,
-					MACAddress: nic.MACAddress,
-					VLAN:       subnet.VLAN(),
-				})
+
+			subnet, knownSubnet := subnetCIDRToSubnet[nic.CIDR]
+			if !knownSubnet {
+				logger.Warningf("NIC %v has no subnet - setting to manual and using untagged VLAN", nic.InterfaceName)
+				createArgs.VLAN = primaryNICVLAN
+			} else {
+				createArgs.VLAN = subnet.VLAN()
+				logger.Infof("linking NIC %v to subnet %v - using static IP", nic.InterfaceName, subnet.CIDR())
+			}
+
+			createdNIC, err := device.CreateInterface(createArgs)
 			if err != nil {
 				return nil, errors.Annotate(err, "creating device interface")
 			}
 			logger.Debugf("created device interface: %+v", createdNIC)
 
+			if !knownSubnet {
+				continue
+			}
+
 			linkArgs := gomaasapi.LinkSubnetArgs{
 				Mode:   gomaasapi.LinkModeStatic,
 				Subnet: subnet,
 			}
-			err = createdNIC.LinkSubnet(linkArgs)
-			if err != nil {
-				return nil, errors.Annotate(err, "cannot link device interface to subnet")
+
+			if err := createdNIC.LinkSubnet(linkArgs); err != nil {
+				logger.Warningf("linking NIC %v to subnet %v failed: %v", nic.InterfaceName, subnet.CIDR(), err)
+			} else {
+				logger.Debugf("linked device interface to subnet: %+v", createdNIC)
 			}
-			logger.Debugf("linked device interface to subnet: %+v", createdNIC)
 		}
 	}
+
 	finalInterfaces, err := env.deviceInterfaceInfo2(device.SystemID(), nameToParentName)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get device interfaces")
 	}
 	logger.Debugf("allocated device interfaces: %+v", finalInterfaces)
+
 	return finalInterfaces, nil
 }
 

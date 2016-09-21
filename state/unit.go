@@ -211,8 +211,7 @@ func (u *Unit) SetWorkloadVersion(version string) error {
 	// Store in status rather than an attribute of the unit doc - we
 	// want to avoid everything being an attr of the main docs to
 	// stop a swarm of watchers being notified for irrelevant changes.
-	// TODO(babbageclunk) lp:1558657 - should use clock stored on unit
-	now := time.Now()
+	now := u.st.clock.Now()
 	return setStatus(u.st, setStatusParams{
 		badge:     "workload",
 		globalKey: u.globalWorkloadVersionKey(),
@@ -2207,7 +2206,7 @@ func (u *Unit) RunningActions() ([]Action, error) {
 // reestablish normal workflow. The retryHooks parameter informs
 // whether to attempt to reexecute previous failed hooks or to continue
 // as if they had succeeded before.
-func (u *Unit) Resolve(retryHooks bool) error {
+func (u *Unit) Resolve(noretryHooks bool) error {
 	// We currently check agent status to see if a unit is
 	// in error state. As the new Juju Health work is completed,
 	// this will change to checking the unit status.
@@ -2218,9 +2217,9 @@ func (u *Unit) Resolve(retryHooks bool) error {
 	if statusInfo.Status != status.Error {
 		return errors.Errorf("unit %q is not in an error state", u)
 	}
-	mode := ResolvedNoHooks
-	if retryHooks {
-		mode = ResolvedRetryHooks
+	mode := ResolvedRetryHooks
+	if noretryHooks {
+		mode = ResolvedNoHooks
 	}
 	return u.SetResolved(mode)
 }

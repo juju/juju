@@ -203,8 +203,6 @@ func ServerError(err error) *params.Error {
 	var info *params.ErrorInfo
 	switch {
 	case ok:
-	case isIOTimeout(err):
-		code = params.CodeRetry
 	case errors.IsUnauthorized(err):
 		code = params.CodeUnauthorized
 	case errors.IsNotFound(err):
@@ -252,17 +250,6 @@ func ServerError(err error) *params.Error {
 		Code:    code,
 		Info:    info,
 	}
-}
-
-// Unfortunately there is no specific type of error for i/o timeout,
-// and the error that bubbles up from mgo is annotated and a string type,
-// so all we can do is look at the error suffix and see if it matches.
-func isIOTimeout(err error) bool {
-	// Perhaps sometime in the future, we'll have additional ways to tell if
-	// the error is an i/o timeout type error, but for now this is all we
-	// have.
-	msg := err.Error()
-	return strings.HasSuffix(msg, "i/o timeout")
 }
 
 func DestroyErr(desc string, ids, errs []string) error {

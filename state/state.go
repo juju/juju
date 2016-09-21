@@ -19,6 +19,7 @@ import (
 	"github.com/juju/loggo"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
+	"github.com/juju/utils/clock"
 	"github.com/juju/utils/os"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
@@ -75,6 +76,7 @@ type providerIdDoc struct {
 // State represents the state of an model
 // managed by juju.
 type State struct {
+	clock              clock.Clock
 	modelTag           names.ModelTag
 	controllerModelTag names.ModelTag
 	controllerTag      names.ControllerTag
@@ -301,7 +303,7 @@ func (st *State) removeInCollectionOps(name string, sel interface{}) ([]txn.Op, 
 func (st *State) ForModel(modelTag names.ModelTag) (*State, error) {
 	session := st.session.Copy()
 	newSt, err := newState(
-		modelTag, st.controllerModelTag, session, st.mongoInfo, st.newPolicy,
+		modelTag, st.controllerModelTag, session, st.mongoInfo, st.newPolicy, st.clock,
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -350,15 +352,14 @@ func (st *State) start(controllerTag names.ControllerTag) (err error) {
 	// now we've set up leaseClientId, we can use workersFactory
 
 	logger.Infof("starting standard state workers")
-	clock := GetClock()
 	factory := workersFactory{
 		st:    st,
-		clock: clock,
+		clock: st.clock,
 	}
 	workers, err := workers.NewRestartWorkers(workers.RestartConfig{
 		Factory: factory,
 		Logger:  loggo.GetLogger(logger.Name() + ".workers"),
-		Clock:   clock,
+		Clock:   st.clock,
 		Delay:   time.Second,
 	})
 	if err != nil {
@@ -382,7 +383,7 @@ func (st *State) getLeadershipLeaseClient() (lease.Client, error) {
 		Namespace:  applicationLeadershipNamespace,
 		Collection: leasesC,
 		Mongo:      &environMongo{st},
-		Clock:      GetClock(),
+		Clock:      st.clock,
 	})
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot create leadership lease client")
@@ -396,7 +397,7 @@ func (st *State) getSingularLeaseClient() (lease.Client, error) {
 		Namespace:  singularControllerNamespace,
 		Collection: leasesC,
 		Mongo:      &environMongo{st},
-		Clock:      GetClock(),
+		Clock:      st.clock,
 	})
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot create singular lease client")
@@ -1088,8 +1089,7 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 		ModelUUID:  st.ModelUUID(),
 		Status:     status.Waiting,
 		StatusInfo: status.MessageWaitForMachine,
-		// TODO(fwereade): 2016-03-17 lp:1558657
-		Updated: time.Now().UnixNano(),
+		Updated:    st.clock.Now().UnixNano(),
 		// This exists to preserve questionable unit-aggregation behaviour
 		// while we work out how to switch to an implementation that makes
 		// sense. It is also set in AddMissingServiceStatuses.
@@ -2038,4 +2038,22 @@ func tagForGlobalKey(key string) (string, bool) {
 		return "", false
 	}
 	return p + key[2:], true
+}
+
+// SetClockForTesting is an exported function to allow other packages
+// to set the internal clock for the State instance. It is named such
+// that it should be obvious if it is ever called from a non-test packgae.
+func (st *State) SetClockForTesting(clock clock.Clock) error {
+	st.clock = clock
+	// Need to restart the lease workers so they get the new clock.
+	st.workers.Kill()
+	err := st.workers.Wait()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	err = st.start(st.controllerTag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }

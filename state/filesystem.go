@@ -754,9 +754,8 @@ func (st *State) addFilesystemOps(params FilesystemParams, machineId string) ([]
 	}
 
 	status := statusDoc{
-		Status: status.Pending,
-		// TODO(fwereade): 2016-03-17 lp:1558657
-		Updated: time.Now().UnixNano(),
+		Status:  status.Pending,
+		Updated: st.clock.Now().UnixNano(),
 	}
 	doc := filesystemDoc{
 		FilesystemId: filesystemId,
