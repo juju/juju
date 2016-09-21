@@ -589,7 +589,7 @@ type cloudInstance struct {
 	Architecture_     string   `yaml:"architecture,omitempty"`
 	Memory_           uint64   `yaml:"memory,omitempty"`
 	RootDisk_         uint64   `yaml:"root-disk,omitempty"`
-	CpuCores_         uint64   `yaml:"cpu-cores,omitempty"`
+	CpuCores_         uint64   `yaml:"cores,omitempty"`
 	CpuPower_         uint64   `yaml:"cpu-power,omitempty"`
 	Tags_             []string `yaml:"tags,omitempty"`
 	AvailabilityZone_ string   `yaml:"availability-zone,omitempty"`
@@ -669,7 +669,7 @@ func importCloudInstanceV1(source map[string]interface{}) (*cloudInstance, error
 		"architecture":      schema.String(),
 		"memory":            schema.ForceUint(),
 		"root-disk":         schema.ForceUint(),
-		"cpu-cores":         schema.ForceUint(),
+		"cores":             schema.ForceUint(),
 		"cpu-power":         schema.ForceUint(),
 		"tags":              schema.List(schema.String()),
 		"availability-zone": schema.String(),
@@ -679,7 +679,7 @@ func importCloudInstanceV1(source map[string]interface{}) (*cloudInstance, error
 		"architecture":      "",
 		"memory":            uint64(0),
 		"root-disk":         uint64(0),
-		"cpu-cores":         uint64(0),
+		"cores":             uint64(0),
 		"cpu-power":         uint64(0),
 		"tags":              schema.Omit,
 		"availability-zone": "",
@@ -701,7 +701,7 @@ func importCloudInstanceV1(source map[string]interface{}) (*cloudInstance, error
 		Architecture_:     valid["architecture"].(string),
 		Memory_:           valid["memory"].(uint64),
 		RootDisk_:         valid["root-disk"].(uint64),
-		CpuCores_:         valid["cpu-cores"].(uint64),
+		CpuCores_:         valid["cores"].(uint64),
 		CpuPower_:         valid["cpu-power"].(uint64),
 		Tags_:             convertToStringSlice(valid["tags"]),
 		AvailabilityZone_: valid["availability-zone"].(string),

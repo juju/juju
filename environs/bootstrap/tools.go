@@ -39,7 +39,7 @@ func validateUploadAllowed(env environs.Environ, toolsArch, toolsSeries *string,
 		if err != nil {
 			return errors.Trace(err)
 		}
-		if toolsSeriesOS != hostOS {
+		if !toolsSeriesOS.EquivalentTo(hostOS) {
 			return errors.Errorf("cannot use agent built for %q using a machine running %q", *toolsSeries, hostOS)
 		}
 	}
@@ -85,7 +85,7 @@ func locallyBuildableTools(toolsSeries *string) (buildable coretools.List, _ ver
 	// Increment the build number so we know it's a custom build.
 	buildNumber.Build++
 	for _, ser := range series.SupportedSeries() {
-		if os, err := series.GetOSFromSeries(ser); err != nil || os != jujuos.HostOS() {
+		if os, err := series.GetOSFromSeries(ser); err != nil || !os.EquivalentTo(jujuos.HostOS()) {
 			continue
 		}
 		if toolsSeries != nil && ser != *toolsSeries {

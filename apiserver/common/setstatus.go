@@ -209,7 +209,7 @@ func (s *StatusSetter) updateEntityStatusData(tag names.Tag, data map[string]int
 	if !ok {
 		return NotSupportedError(tag, "updating status")
 	}
-	if len(newData) > 0 && existingStatusInfo.Status != status.StatusError {
+	if len(newData) > 0 && existingStatusInfo.Status != status.Error {
 		return fmt.Errorf("%s is not in an error state", names.ReadableString(tag))
 	}
 	// TODO(perrito666) 2016-05-02 lp:1558657

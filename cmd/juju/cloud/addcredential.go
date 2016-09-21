@@ -215,8 +215,39 @@ func (c *addCredentialCommand) interactiveAddCredential(ctxt *cmd.Context, schem
 	if err != nil {
 		return errors.Trace(err)
 	}
-	newCredential := jujucloud.NewCredential(authType, attrs)
-	existingCredentials.AuthCredentials[credentialName] = newCredential
+
+	cloudEndpoint := c.cloud.Endpoint
+	cloudIdentityEndpoint := c.cloud.IdentityEndpoint
+	if len(c.cloud.Regions) > 0 {
+		// NOTE(axw) we use the first region in the cloud,
+		// because this is all we need for Azure right now.
+		// Each region has the same endpoints, so it does
+		// not matter which one we use. If we expand
+		// credential generation to other providers, and
+		// they do have region-specific endpoints, then we
+		// should prompt the user for the region to use.
+		// That would be better left to the provider, though.
+		region := c.cloud.Regions[0]
+		cloudEndpoint = region.Endpoint
+		cloudIdentityEndpoint = region.IdentityEndpoint
+	}
+
+	credentialsProvider, err := environs.Provider(c.cloud.Type)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	newCredential, err := credentialsProvider.FinalizeCredential(
+		ctxt, environs.FinalizeCredentialParams{
+			Credential:            jujucloud.NewCredential(authType, attrs),
+			CloudEndpoint:         cloudEndpoint,
+			CloudIdentityEndpoint: cloudIdentityEndpoint,
+		},
+	)
+	if err != nil {
+		return errors.Annotate(err, "finalizing credential")
+	}
+
+	existingCredentials.AuthCredentials[credentialName] = *newCredential
 	err = c.store.UpdateCredential(c.CloudName, *existingCredentials)
 	if err != nil {
 		return errors.Trace(err)

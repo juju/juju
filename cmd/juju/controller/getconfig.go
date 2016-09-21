@@ -39,7 +39,8 @@ Examples:
     juju get-controller-config api-port
     juju get-controller-config -c mycontroller
 
-See also: controllers
+See also:
+    controllers
 `
 
 func (c *getConfigCommand) Info() *cmd.Info {

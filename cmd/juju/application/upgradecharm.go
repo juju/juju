@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/resourceadapters"
 )
@@ -221,8 +222,26 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	resolver := newCharmURLResolver(conf, csClient)
-	chID, csMac, err := c.addCharm(oldURL, newRef, apiRoot.Client(), resolver)
+
+	// TODO(katco): This is a hack and a half. Get rid of this
+	// nonsense. Only remains here because tests strewn about the
+	// codebase are likely using this to not hit the real charmstore.
+	charmRepo := config.SpecializeCharmRepo(
+		charmrepo.NewCharmStoreFromClient(csClient),
+		conf,
+	).(*charmrepo.CharmStore)
+
+	// TODO(katco): This anonymous adapter should go away in favor of
+	// a comprehensive API passed into the upgrade-charm command.
+	charmstoreAdapter := &struct {
+		*charmstoreClient
+		*apiClient
+	}{
+		charmstoreClient: &charmstoreClient{Client: csClient},
+		apiClient:        &apiClient{Client: apiRoot.Client()},
+	}
+
+	chID, csMac, err := c.addCharm(charmRepo, conf, oldURL, newRef, charmstoreAdapter)
 	if err != nil {
 		if err1, ok := errors.Cause(err).(*termsRequiredError); ok {
 			terms := strings.Join(err1.Terms, " ")
@@ -352,10 +371,11 @@ func shouldUpgradeResource(res charmresource.Meta, uploads map[string]string, cu
 // addCharm interprets the new charmRef and adds the specified charm if the new charm is different
 // to what's already deployed as specified by oldURL.
 func (c *upgradeCharmCommand) addCharm(
+	charmRepo *charmrepo.CharmStore,
+	config *config.Config,
 	oldURL *charm.URL,
 	charmRef string,
 	charmAdder CharmAdder,
-	resolver *charmURLResolver,
 ) (charmstore.CharmID, *macaroon.Macaroon, error) {
 	var id charmstore.CharmID
 	// Charm may have been supplied via a path reference.
@@ -384,7 +404,7 @@ func (c *upgradeCharmCommand) addCharm(
 	}
 
 	// Charm has been supplied as a URL so we resolve and deploy using the store.
-	newURL, channel, supportedSeries, store, err := resolver.resolve(refURL)
+	newURL, channel, supportedSeries, err := resolveCharm(charmRepo.ResolveWithChannel, config, refURL)
 	if err != nil {
 		return id, nil, errors.Trace(err)
 	}
@@ -411,7 +431,7 @@ func (c *upgradeCharmCommand) addCharm(
 		return id, nil, errors.Errorf("already running latest charm %q", newURL)
 	}
 
-	curl, csMac, err := addCharmFromURL(charmAdder, newURL, channel, store.Client())
+	curl, csMac, err := addCharmFromURL(charmAdder, newURL, channel)
 	if err != nil {
 		return id, nil, errors.Trace(err)
 	}

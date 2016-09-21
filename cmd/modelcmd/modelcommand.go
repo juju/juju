@@ -345,11 +345,6 @@ func BootstrapContextNoVerify(cmdContext *cmd.Context) environs.BootstrapContext
 	}
 }
 
-type ModelGetter interface {
-	ModelGet() (map[string]interface{}, error)
-	Close() error
-}
-
 // SplitModelName splits a model name into its controller
 // and model parts. If the model is unqualified, then the
 // returned controller string will be empty, and the returned

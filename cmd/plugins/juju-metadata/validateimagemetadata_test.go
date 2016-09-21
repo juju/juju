@@ -130,7 +130,6 @@ func cacheTestEnvConfig(c *gc.C, store *jujuclienttesting.MemStore) {
 		"subscription-id":      "foo",
 		"application-id":       "bar",
 		"application-password": "baz",
-		"tenant-id":            "qux",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	store.Controllers["azure-controller"] = jujuclient.ControllerDetails{
@@ -158,7 +157,6 @@ func cacheTestEnvConfig(c *gc.C, store *jujuclienttesting.MemStore) {
 				map[string]string{
 					"application-id":       "application-id",
 					"subscription-id":      "subscription-id",
-					"tenant-id":            "tenant-id",
 					"application-password": "application-password",
 				},
 			),

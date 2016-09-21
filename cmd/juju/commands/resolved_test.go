@@ -61,21 +61,21 @@ var resolvedTests = []struct {
 		unit: "dummy/0",
 		mode: state.ResolvedNone,
 	}, {
-		args: []string{"dummy/1", "--retry"},
+		args: []string{"dummy/1", "--no-retry"},
 		err:  `unit "dummy/1" is not in an error state`,
 		unit: "dummy/1",
 		mode: state.ResolvedNone,
 	}, {
-		args: []string{"dummy/2"},
+		args: []string{"dummy/2", "--no-retry"},
 		unit: "dummy/2",
 		mode: state.ResolvedNoHooks,
 	}, {
-		args: []string{"dummy/2", "--retry"},
+		args: []string{"dummy/2", "--no-retry"},
 		err:  `cannot set resolved mode for unit "dummy/2": already resolved`,
 		unit: "dummy/2",
 		mode: state.ResolvedNoHooks,
 	}, {
-		args: []string{"dummy/3", "--retry"},
+		args: []string{"dummy/3"},
 		unit: "dummy/3",
 		mode: state.ResolvedRetryHooks,
 	}, {
@@ -100,7 +100,7 @@ func (s *ResolvedSuite) TestResolved(c *gc.C) {
 		u, err := s.State.Unit(name)
 		c.Assert(err, jc.ErrorIsNil)
 		sInfo := status.StatusInfo{
-			Status:  status.StatusError,
+			Status:  status.Error,
 			Message: "lol borken",
 			Since:   &now,
 		}
@@ -135,7 +135,7 @@ func (s *ResolvedSuite) TestBlockResolved(c *gc.C) {
 		u, err := s.State.Unit(name)
 		c.Assert(err, jc.ErrorIsNil)
 		sInfo := status.StatusInfo{
-			Status:  status.StatusError,
+			Status:  status.Error,
 			Message: "lol borken",
 			Since:   &now,
 		}

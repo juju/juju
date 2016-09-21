@@ -15,17 +15,25 @@ import (
 
 // ModelInfo contains information about a model.
 type ModelInfo struct {
-	Name           string                   `json:"name" yaml:"name"`
-	UUID           string                   `json:"model-uuid" yaml:"model-uuid"`
-	ControllerUUID string                   `json:"controller-uuid" yaml:"controller-uuid"`
-	ControllerName string                   `json:"controller-name" yaml:"controller-name"`
-	Owner          string                   `json:"owner" yaml:"owner"`
-	Cloud          string                   `json:"cloud" yaml:"cloud"`
-	CloudRegion    string                   `json:"region,omitempty" yaml:"region,omitempty"`
-	ProviderType   string                   `json:"type" yaml:"type"`
-	Life           string                   `json:"life" yaml:"life"`
-	Status         ModelStatus              `json:"status" yaml:"status"`
-	Users          map[string]ModelUserInfo `json:"users" yaml:"users"`
+	Name           string                      `json:"name" yaml:"name"`
+	UUID           string                      `json:"model-uuid" yaml:"model-uuid"`
+	ControllerUUID string                      `json:"controller-uuid" yaml:"controller-uuid"`
+	ControllerName string                      `json:"controller-name" yaml:"controller-name"`
+	Owner          string                      `json:"owner" yaml:"owner"`
+	Cloud          string                      `json:"cloud" yaml:"cloud"`
+	CloudRegion    string                      `json:"region,omitempty" yaml:"region,omitempty"`
+	ProviderType   string                      `json:"type" yaml:"type"`
+	Life           string                      `json:"life" yaml:"life"`
+	Status         ModelStatus                 `json:"status" yaml:"status"`
+	Users          map[string]ModelUserInfo    `json:"users" yaml:"users"`
+	Machines       map[string]ModelMachineInfo `json:"machines,omitempty" yaml:"machines,omitempty"`
+}
+
+// ModelMachineInfo contains information about a machine in a model.
+// We currently only care about showing core count, but might
+// in the future care about memory, disks, containers etc.
+type ModelMachineInfo struct {
+	Cores uint64 `json:"cores" yaml:"cores"`
 }
 
 // ModelStatus contains the current status of a model.
@@ -56,6 +64,10 @@ func ModelInfoFromParams(info params.ModelInfo, now time.Time) (ModelInfo, error
 	if info.Status.Since != nil {
 		status.Since = UserFriendlyDuration(*info.Status.Since, now)
 	}
+	cloudTag, err := names.ParseCloudTag(info.CloudTag)
+	if err != nil {
+		return ModelInfo{}, errors.Trace(err)
+	}
 	return ModelInfo{
 		Name:           info.Name,
 		UUID:           info.UUID,
@@ -63,14 +75,29 @@ func ModelInfoFromParams(info params.ModelInfo, now time.Time) (ModelInfo, error
 		Owner:          tag.Id(),
 		Life:           string(info.Life),
 		Status:         status,
-		Cloud:          info.Cloud,
+		Cloud:          cloudTag.Id(),
 		CloudRegion:    info.CloudRegion,
 		ProviderType:   info.ProviderType,
 		Users:          ModelUserInfoFromParams(info.Users, now),
+		Machines:       ModelMachineInfoFromParams(info.Machines),
 	}, nil
 }
 
-// ModelUserInfoFromParams translates []params.ModelInfo to a map of
+// ModelMachineInfoFromParams translates []params.ModelMachineInfo to a map of
+// machine ids to ModelMachineInfo.
+func ModelMachineInfoFromParams(machines []params.ModelMachineInfo) map[string]ModelMachineInfo {
+	output := make(map[string]ModelMachineInfo, len(machines))
+	for _, info := range machines {
+		mInfo := ModelMachineInfo{}
+		if info.Hardware != nil && info.Hardware.Cores != nil {
+			mInfo.Cores = *info.Hardware.Cores
+		}
+		output[info.Id] = mInfo
+	}
+	return output
+}
+
+// ModelUserInfoFromParams translates []params.ModelUserInfo to a map of
 // user names to ModelUserInfo.
 func ModelUserInfoFromParams(users []params.ModelUserInfo, now time.Time) map[string]ModelUserInfo {
 	output := make(map[string]ModelUserInfo)

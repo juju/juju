@@ -182,7 +182,7 @@ func (s *environPolSuite) TestConstraintsValidatorConflicts(c *gc.C) {
 	cons := constraints.MustParse("instance-type=n1-standard-1")
 	// We do not check arch or container since there is only one valid
 	// value for each and will always match.
-	consFallback := constraints.MustParse("cpu-cores=2 cpu-power=1000 mem=10000 tags=bar")
+	consFallback := constraints.MustParse("cores=2 cpu-power=1000 mem=10000 tags=bar")
 	merged, err := validator.Merge(consFallback, cons)
 	c.Assert(err, jc.ErrorIsNil)
 

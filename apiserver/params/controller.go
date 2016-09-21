@@ -35,11 +35,12 @@ type RemoveBlocksArgs struct {
 
 // ModelStatus holds information about the status of a juju model.
 type ModelStatus struct {
-	ModelTag           string `json:"model-tag"`
-	Life               Life   `json:"life"`
-	HostedMachineCount int    `json:"hosted-machine-count"`
-	ApplicationCount   int    `json:"application-count"`
-	OwnerTag           string `json:"owner-tag"`
+	ModelTag           string             `json:"model-tag"`
+	Life               Life               `json:"life"`
+	HostedMachineCount int                `json:"hosted-machine-count"`
+	ApplicationCount   int                `json:"application-count"`
+	OwnerTag           string             `json:"owner-tag"`
+	Machines           []ModelMachineInfo `json:"machines,omitempty"`
 }
 
 // ModelStatusResults holds status information about a group of models.

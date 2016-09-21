@@ -18,6 +18,7 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
+	jujuos "github.com/juju/utils/os"
 	"github.com/juju/utils/series"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
@@ -136,8 +137,8 @@ func (s *bootstrapSuite) TestBootstrapEmptyConstraints(c *gc.C) {
 func (s *bootstrapSuite) TestBootstrapSpecifiedConstraints(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys, nil)
 	s.setDummyStorage(c, env)
-	bootstrapCons := constraints.MustParse("cpu-cores=3 mem=7G")
-	modelCons := constraints.MustParse("cpu-cores=2 mem=4G")
+	bootstrapCons := constraints.MustParse("cores=3 mem=7G")
+	modelCons := constraints.MustParse("cores=2 mem=4G")
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
 		ControllerConfig:     coretesting.FakeControllerConfig(),
 		AdminSecret:          "admin-secret",
@@ -231,6 +232,129 @@ func (s *bootstrapSuite) TestBootstrapImage(c *gc.C) {
 	c.Assert(env.instanceConfig.Bootstrap.BootstrapMachineConstraints, jc.DeepEquals, bootstrapCons)
 }
 
+func (s *bootstrapSuite) TestBootstrapAddsArchFromImageToExistingProviderSupportedArches(c *gc.C) {
+	data := s.setupImageMetadata(c)
+	env := s.setupProviderWithSomeSupportedArches(c)
+	// Even though test provider does not explicitly support architecture used by this test,
+	// the fact that we have an image for it, adds this architecture to those supported by provider.
+	// Bootstrap should succeed with no failures as constraints validator used internally
+	// would have both provider supported architectures and architectures retrieved from images metadata.
+	bootstrapCons := constraints.MustParse(fmt.Sprintf("arch=%v", data.architecture))
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
+		ControllerConfig:     coretesting.FakeControllerConfig(),
+		AdminSecret:          "admin-secret",
+		CAPrivateKey:         coretesting.CAKey,
+		BootstrapImage:       "img-id",
+		BootstrapSeries:      "precise",
+		BootstrapConstraints: bootstrapCons,
+		MetadataDir:          data.metadataDir,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertBootstrapImageMetadata(c, env.bootstrapEnviron, data, bootstrapCons)
+}
+
+type testImageMetadata struct {
+	architecture string
+	metadataDir  string
+	metadata     []*imagemetadata.ImageMetadata
+}
+
+// setupImageMetadata returns architecture for which metadata was setup
+func (s *bootstrapSuite) setupImageMetadata(c *gc.C) testImageMetadata {
+	testArch := arch.S390X
+	s.PatchValue(&series.HostSeries, func() string { return "precise" })
+	s.PatchValue(&arch.HostArch, func() string { return testArch })
+
+	metadataDir, metadata := createImageMetadataForArch(c, testArch)
+	stor, err := filestorage.NewFileStorageWriter(metadataDir)
+	c.Assert(err, jc.ErrorIsNil)
+	envtesting.UploadFakeTools(c, stor, "released", "released")
+
+	return testImageMetadata{testArch, metadataDir, metadata}
+}
+
+func (s *bootstrapSuite) assertBootstrapImageMetadata(c *gc.C, env *bootstrapEnviron, testData testImageMetadata, bootstrapCons constraints.Value) {
+	c.Assert(env.bootstrapCount, gc.Equals, 1)
+	c.Assert(env.args.ImageMetadata, gc.HasLen, 1)
+	c.Assert(env.args.ImageMetadata[0], jc.DeepEquals, &imagemetadata.ImageMetadata{
+		Id:         "img-id",
+		Arch:       testData.architecture,
+		Version:    "12.04",
+		RegionName: "nether",
+		Endpoint:   "hearnoretheir",
+		Stream:     "released",
+	})
+	c.Assert(env.instanceConfig.Bootstrap.CustomImageMetadata, gc.HasLen, 2)
+	c.Assert(env.instanceConfig.Bootstrap.CustomImageMetadata[0], jc.DeepEquals, testData.metadata[0])
+	c.Assert(env.instanceConfig.Bootstrap.CustomImageMetadata[1], jc.DeepEquals, env.args.ImageMetadata[0])
+	c.Assert(env.instanceConfig.Bootstrap.BootstrapMachineConstraints, jc.DeepEquals, bootstrapCons)
+
+}
+func (s *bootstrapSuite) setupProviderWithSomeSupportedArches(c *gc.C) bootstrapEnvironWithRegion {
+	env := bootstrapEnvironWithRegion{
+		newEnviron("foo", useDefaultKeys, nil),
+		simplestreams.CloudSpec{
+			Region:   "nether",
+			Endpoint: "hearnoretheir",
+		},
+	}
+	s.setDummyStorage(c, env.bootstrapEnviron)
+
+	// test provider constraints only has amd64 and arm64 as supported architectures
+	consBefore, err := env.ConstraintsValidator()
+	c.Assert(err, jc.ErrorIsNil)
+	desiredArch := constraints.MustParse("arch=i386")
+	unsupported, err := consBefore.Validate(desiredArch)
+	c.Assert(err.Error(), jc.Contains, `invalid constraint value: arch=i386`)
+	c.Assert(unsupported, gc.HasLen, 0)
+
+	return env
+}
+
+func (s *bootstrapSuite) TestBootstrapAddsArchFromImageToProviderWithNoSupportedArches(c *gc.C) {
+	data := s.setupImageMetadata(c)
+	env := s.setupProviderWithNoSupportedArches(c)
+	// Even though test provider does not explicitly support architecture used by this test,
+	// the fact that we have an image for it, adds this architecture to those supported by provider.
+	// Bootstrap should succeed with no failures as constraints validator used internally
+	// would have both provider supported architectures and architectures retrieved from images metadata.
+	bootstrapCons := constraints.MustParse(fmt.Sprintf("arch=%v", data.architecture))
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
+		ControllerConfig:     coretesting.FakeControllerConfig(),
+		AdminSecret:          "admin-secret",
+		CAPrivateKey:         coretesting.CAKey,
+		BootstrapImage:       "img-id",
+		BootstrapSeries:      "precise",
+		BootstrapConstraints: bootstrapCons,
+		MetadataDir:          data.metadataDir,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertBootstrapImageMetadata(c, env.bootstrapEnviron, data, bootstrapCons)
+}
+
+func (s *bootstrapSuite) setupProviderWithNoSupportedArches(c *gc.C) bootstrapEnvironNoExplicitArchitectures {
+	env := bootstrapEnvironNoExplicitArchitectures{
+		&bootstrapEnvironWithRegion{
+			newEnviron("foo", useDefaultKeys, nil),
+			simplestreams.CloudSpec{
+				Region:   "nether",
+				Endpoint: "hearnoretheir",
+			},
+		},
+	}
+	s.setDummyStorage(c, env.bootstrapEnviron)
+
+	consBefore, err := env.ConstraintsValidator()
+	c.Assert(err, jc.ErrorIsNil)
+	// test provider constraints only has amd64 and arm64 as supported architectures
+	desiredArch := constraints.MustParse("arch=i386")
+	unsupported, err := consBefore.Validate(desiredArch)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unsupported, gc.HasLen, 0)
+
+	return env
+}
+
 // TestBootstrapImageMetadataFromAllSources tests that we are looking for
 // image metadata in all data sources available to environment.
 // Abandoning look up too soon led to misleading bootstrap failures:
@@ -274,6 +398,93 @@ func (s *bootstrapSuite) TestBootstrapImageMetadataFromAllSources(c *gc.C) {
 		// make sure we looked in each and all...
 		c.Assert(c.GetTestLog(), jc.Contains, fmt.Sprintf("image metadata in %s", source.Description()))
 	}
+}
+
+func (s *bootstrapSuite) TestBootstrapLocalTools(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("issue 1403084: Currently does not work because of jujud problems")
+	}
+
+	// Client host is CentOS, wanting to bootstrap a CentOS
+	// controller. This is fine.
+
+	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.CentOS })
+	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
+	s.PatchValue(bootstrap.FindTools, func(environs.Environ, int, int, string, tools.Filter) (tools.List, error) {
+		return nil, errors.NotFoundf("tools")
+	})
+	env := newEnviron("foo", useDefaultKeys, nil)
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
+		AdminSecret:      "admin-secret",
+		CAPrivateKey:     coretesting.CAKey,
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		BuildAgentTarball: func(bool, *version.Number, string) (*sync.BuiltAgent, error) {
+			return &sync.BuiltAgent{Dir: c.MkDir()}, nil
+		},
+		BootstrapSeries: "centos7",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(env.bootstrapCount, gc.Equals, 1)
+	c.Check(env.args.BootstrapSeries, gc.Equals, "centos7")
+	c.Check(env.args.AvailableTools.AllSeries(), jc.SameContents, []string{"centos7"})
+}
+
+func (s *bootstrapSuite) TestBootstrapLocalToolsMismatchingOS(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("issue 1403084: Currently does not work because of jujud problems")
+	}
+
+	// Client host is a Windows system, wanting to bootstrap a trusty
+	// controller with local tools. This can't work.
+
+	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.Windows })
+	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
+	s.PatchValue(bootstrap.FindTools, func(environs.Environ, int, int, string, tools.Filter) (tools.List, error) {
+		return nil, errors.NotFoundf("tools")
+	})
+	env := newEnviron("foo", useDefaultKeys, nil)
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
+		AdminSecret:      "admin-secret",
+		CAPrivateKey:     coretesting.CAKey,
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		BuildAgentTarball: func(bool, *version.Number, string) (*sync.BuiltAgent, error) {
+			return &sync.BuiltAgent{Dir: c.MkDir()}, nil
+		},
+		BootstrapSeries: "trusty",
+	})
+	c.Assert(err, gc.ErrorMatches, `cannot use agent built for "trusty" using a machine running "Windows"`)
+}
+
+func (s *bootstrapSuite) TestBootstrapLocalToolsDifferentLinuxes(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("issue 1403084: Currently does not work because of jujud problems")
+	}
+
+	// Client host is some unspecified Linux system, wanting to
+	// bootstrap a trusty controller with local tools. This should be
+	// OK.
+
+	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.GenericLinux })
+	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
+	s.PatchValue(bootstrap.FindTools, func(environs.Environ, int, int, string, tools.Filter) (tools.List, error) {
+		return nil, errors.NotFoundf("tools")
+	})
+	env := newEnviron("foo", useDefaultKeys, nil)
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
+		AdminSecret:      "admin-secret",
+		CAPrivateKey:     coretesting.CAKey,
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		BuildAgentTarball: func(bool, *version.Number, string) (*sync.BuiltAgent, error) {
+			return &sync.BuiltAgent{Dir: c.MkDir()}, nil
+		},
+		BootstrapSeries: "trusty",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(env.bootstrapCount, gc.Equals, 1)
+	c.Check(env.args.BootstrapSeries, gc.Equals, "trusty")
+	c.Check(env.args.AvailableTools.AllSeries(), jc.SameContents, []string{"trusty"})
 }
 
 func (s *bootstrapSuite) TestBootstrapBuildAgent(c *gc.C) {
@@ -644,10 +855,16 @@ func makeGUIArchive(c *gc.C, dir string) string {
 
 // createImageMetadata creates some image metadata in a local directory.
 func createImageMetadata(c *gc.C) (dir string, _ []*imagemetadata.ImageMetadata) {
+	return createImageMetadataForArch(c, "amd64")
+}
+
+// createImageMetadataForArch creates some image metadata in a local directory for
+// specified arch.
+func createImageMetadataForArch(c *gc.C, arch string) (dir string, _ []*imagemetadata.ImageMetadata) {
 	// Generate some image metadata.
 	im := []*imagemetadata.ImageMetadata{{
 		Id:         "1234",
-		Arch:       "amd64",
+		Arch:       arch,
 		Version:    "13.04",
 		RegionName: "region",
 		Endpoint:   "endpoint",
@@ -1045,4 +1262,14 @@ type bootstrapEnvironWithRegion struct {
 
 func (e bootstrapEnvironWithRegion) Region() (simplestreams.CloudSpec, error) {
 	return e.region, nil
+}
+
+type bootstrapEnvironNoExplicitArchitectures struct {
+	*bootstrapEnvironWithRegion
+}
+
+func (e bootstrapEnvironNoExplicitArchitectures) ConstraintsValidator() (constraints.Validator, error) {
+	e.constraintsValidatorCount++
+	v := constraints.NewValidator()
+	return v, nil
 }

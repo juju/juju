@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/utils/series"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/common"
@@ -41,15 +42,19 @@ func newStatusFormatter(status *params.FullStatus, controllerName string, isoTim
 	return &sf
 }
 
-func (sf *statusFormatter) format() formattedStatus {
+func (sf *statusFormatter) format() (formattedStatus, error) {
 	if sf.status == nil {
-		return formattedStatus{}
+		return formattedStatus{}, nil
+	}
+	cloudTag, err := names.ParseCloudTag(sf.status.Model.CloudTag)
+	if err != nil {
+		return formattedStatus{}, err
 	}
 	out := formattedStatus{
 		Model: modelStatus{
 			Name:             sf.status.Model.Name,
 			Controller:       sf.controllerName,
-			Cloud:            sf.status.Model.Cloud,
+			Cloud:            cloudTag.Id(),
 			CloudRegion:      sf.status.Model.CloudRegion,
 			Version:          sf.status.Model.Version,
 			AvailableVersion: sf.status.Model.AvailableVersion,
@@ -64,7 +69,7 @@ func (sf *statusFormatter) format() formattedStatus {
 	for sn, s := range sf.status.Applications {
 		out.Applications[sn] = sf.formatApplication(sn, s)
 	}
-	return out
+	return out, nil
 }
 
 // MachineFormat takes stored model information (params.FullStatus) and formats machine status info.
@@ -267,7 +272,7 @@ func (sf *statusFormatter) getAgentStatusInfo(unit params.UnitStatus) statusInfo
 
 func (sf *statusFormatter) updateUnitStatusInfo(unit *params.UnitStatus, applicationName string) {
 	// TODO(perrito66) add status validation.
-	if status.Status(unit.WorkloadStatus.Status) == status.StatusError {
+	if status.Status(unit.WorkloadStatus.Status) == status.Error {
 		if relation, ok := sf.relations[getRelationIdFromData(unit)]; ok {
 			// Append the details of the other endpoint on to the status info string.
 			if ep, ok := findOtherEndpoint(relation.Endpoints, applicationName); ok {

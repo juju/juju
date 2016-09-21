@@ -335,6 +335,8 @@ func NewDBRestorer(args RestorerArgs) (DBRestorer, error) {
 	}
 
 	installedMongo := mongoInstalledVersion()
+	logger.Debugf("args: is %#v", args)
+	logger.Infof("installed mongo is %s", installedMongo)
 	// NewerThan will check Major and Minor so migration between micro versions
 	// will work, before changing this bewar, Mongo has been known to break
 	// compatibility between minors.
@@ -375,7 +377,7 @@ func (md *mongoRestorer32) options(dumpDir string) []string {
 	// https://jira.mongodb.org/browse/TOOLS-939 -- not guaranteed
 	// to *help* with lp:1605653, but observed not to hurt.
 	//
-	// The value of 100 was chosen because it's more pessimistic
+	// The value of 10 was chosen because it's more pessimistic
 	// than the "1000" that many report success using in the bug.
 	options := []string{
 		"--ssl",
@@ -385,7 +387,7 @@ func (md *mongoRestorer32) options(dumpDir string) []string {
 		"--password", md.Password,
 		"--drop",
 		"--oplogReplay",
-		"--batchSize", "100",
+		"--batchSize", "10",
 		dumpDir,
 	}
 	return options
@@ -495,6 +497,7 @@ func (md *mongoRestorer32) ensureTagUser() error {
 }
 
 func (md *mongoRestorer32) Restore(dumpDir string, dialInfo *mgo.DialInfo) error {
+	logger.Debugf("start restore, dumpDir %s", dumpDir)
 	if err := md.ensureOplogPermissions(dialInfo); err != nil {
 		return errors.Annotate(err, "setting special user permission in db")
 	}

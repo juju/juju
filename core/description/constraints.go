@@ -55,7 +55,7 @@ type constraints struct {
 
 	Architecture_ string `yaml:"architecture,omitempty"`
 	Container_    string `yaml:"container,omitempty"`
-	CpuCores_     uint64 `yaml:"cpu-cores,omitempty"`
+	CpuCores_     uint64 `yaml:"cores,omitempty"`
 	CpuPower_     uint64 `yaml:"cpu-power,omitempty"`
 	InstanceType_ string `yaml:"instance-type,omitempty"`
 	Memory_       uint64 `yaml:"memory,omitempty"`
@@ -152,6 +152,7 @@ func importConstraintsV1(source map[string]interface{}) (*constraints, error) {
 		"architecture":  schema.String(),
 		"container":     schema.String(),
 		"cpu-cores":     schema.ForceUint(),
+		"cores":         schema.ForceUint(),
 		"cpu-power":     schema.ForceUint(),
 		"instance-type": schema.String(),
 		"memory":        schema.ForceUint(),
@@ -166,7 +167,8 @@ func importConstraintsV1(source map[string]interface{}) (*constraints, error) {
 	defaults := schema.Defaults{
 		"architecture":  "",
 		"container":     "",
-		"cpu-cores":     uint64(0),
+		"cpu-cores":     schema.Omit,
+		"cores":         schema.Omit,
 		"cpu-power":     uint64(0),
 		"instance-type": "",
 		"memory":        uint64(0),
@@ -183,7 +185,22 @@ func importConstraintsV1(source map[string]interface{}) (*constraints, error) {
 	if err != nil {
 		return nil, errors.Annotatef(err, "constraints v1 schema check failed")
 	}
+
 	valid := coerced.(map[string]interface{})
+	_, hasCPU := valid["cpu-cores"]
+	_, hasCores := valid["cores"]
+	if hasCPU && hasCores {
+		return nil, errors.Errorf("can not specify both cores and cores constraints")
+	}
+
+	var cores uint64
+	if hasCPU {
+		cores = valid["cpu-cores"].(uint64)
+	}
+	if hasCores {
+		cores = valid["cores"].(uint64)
+	}
+
 	// From here we know that the map returned from the schema coercion
 	// contains fields of the right type.
 
@@ -191,7 +208,7 @@ func importConstraintsV1(source map[string]interface{}) (*constraints, error) {
 		Version:       1,
 		Architecture_: valid["architecture"].(string),
 		Container_:    valid["container"].(string),
-		CpuCores_:     valid["cpu-cores"].(uint64),
+		CpuCores_:     cores,
 		CpuPower_:     valid["cpu-power"].(uint64),
 		InstanceType_: valid["instance-type"].(string),
 		Memory_:       valid["memory"].(uint64),

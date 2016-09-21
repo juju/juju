@@ -97,15 +97,15 @@ func (s *provisionerSuite) TestGetSetStatus(c *gc.C) {
 
 	machineStatus, info, err := apiMachine.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machineStatus, gc.Equals, status.StatusPending)
+	c.Assert(machineStatus, gc.Equals, status.Pending)
 	c.Assert(info, gc.Equals, "")
 
-	err = apiMachine.SetStatus(status.StatusStarted, "blah", nil)
+	err = apiMachine.SetStatus(status.Started, "blah", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	machineStatus, info, err = apiMachine.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machineStatus, gc.Equals, status.StatusStarted)
+	c.Assert(machineStatus, gc.Equals, status.Started)
 	c.Assert(info, gc.Equals, "blah")
 	statusInfo, err := s.machine.Status()
 	c.Assert(err, jc.ErrorIsNil)
@@ -118,13 +118,13 @@ func (s *provisionerSuite) TestGetSetInstanceStatus(c *gc.C) {
 
 	instanceStatus, info, err := apiMachine.InstanceStatus()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(instanceStatus, gc.Equals, status.StatusPending)
+	c.Assert(instanceStatus, gc.Equals, status.Pending)
 	c.Assert(info, gc.Equals, "")
-	err = apiMachine.SetInstanceStatus(status.StatusStarted, "blah", nil)
+	err = apiMachine.SetInstanceStatus(status.Started, "blah", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	instanceStatus, info, err = apiMachine.InstanceStatus()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(instanceStatus, gc.Equals, status.StatusStarted)
+	c.Assert(instanceStatus, gc.Equals, status.Started)
 	c.Assert(info, gc.Equals, "blah")
 	statusInfo, err := s.machine.InstanceStatus()
 	c.Assert(err, jc.ErrorIsNil)
@@ -135,12 +135,12 @@ func (s *provisionerSuite) TestGetSetStatusWithData(c *gc.C) {
 	apiMachine, err := s.provisioner.Machine(s.machine.Tag().(names.MachineTag))
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = apiMachine.SetStatus(status.StatusError, "blah", map[string]interface{}{"foo": "bar"})
+	err = apiMachine.SetStatus(status.Error, "blah", map[string]interface{}{"foo": "bar"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	machineStatus, info, err := apiMachine.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machineStatus, gc.Equals, status.StatusError)
+	c.Assert(machineStatus, gc.Equals, status.Error)
 	c.Assert(info, gc.Equals, "blah")
 	statusInfo, err := s.machine.Status()
 	c.Assert(err, jc.ErrorIsNil)
@@ -152,7 +152,7 @@ func (s *provisionerSuite) TestMachinesWithTransientErrors(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	now := time.Now()
 	sInfo := status.StatusInfo{
-		Status:  status.StatusError,
+		Status:  status.Error,
 		Message: "blah",
 		Data:    map[string]interface{}{"transient": true},
 		Since:   &now,
@@ -280,7 +280,7 @@ func (s *provisionerSuite) TestSetInstanceInfo(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "machine 1 not provisioned")
 	c.Assert(instanceId, gc.Equals, instance.Id(""))
 
-	hwChars := instance.MustParseHardware("cpu-cores=123", "mem=4G")
+	hwChars := instance.MustParseHardware("cores=123", "mem=4G")
 
 	volumes := []params.Volume{{
 		VolumeTag: "volume-1-0",
@@ -415,7 +415,7 @@ func (s *provisionerSuite) TestProvisioningInfo(c *gc.C) {
 		SpaceName:        "{{if (lt . 2)}}space1{{else}}space2{{end}}",
 	})
 
-	cons := constraints.MustParse("cpu-cores=12 mem=8G spaces=^space1,space2")
+	cons := constraints.MustParse("cores=12 mem=8G spaces=^space1,space2")
 	template := state.MachineTemplate{
 		Series:      "quantal",
 		Jobs:        []state.MachineJob{state.JobHostUnits},
@@ -474,7 +474,7 @@ func (s *provisionerSuite) TestWatchContainers(c *gc.C) {
 
 	// Change something other than the containers and make sure it's
 	// not detected.
-	err = apiMachine.SetStatus(status.StatusStarted, "not really", nil)
+	err = apiMachine.SetStatus(status.Started, "not really", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 

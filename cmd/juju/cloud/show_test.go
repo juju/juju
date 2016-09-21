@@ -55,7 +55,7 @@ clouds:
 `[1:]
 	err := ioutil.WriteFile(osenv.JujuXDGDataHomePath("clouds.yaml"), []byte(data), 0600)
 
-	ctx, err := testing.RunCommand(c, cloud.NewShowCloudCommand(), "local:homestack")
+	ctx, err := testing.RunCommand(c, cloud.NewShowCloudCommand(), "homestack")
 	c.Assert(err, jc.ErrorIsNil)
 	out := testing.Stdout(ctx)
 	c.Assert(out, gc.Equals, `
@@ -87,7 +87,7 @@ clouds:
 `[1:]
 	err := ioutil.WriteFile(osenv.JujuXDGDataHomePath("clouds.yaml"), []byte(data), 0600)
 
-	ctx, err := testing.RunCommand(c, cloud.NewShowCloudCommand(), "local:homestack")
+	ctx, err := testing.RunCommand(c, cloud.NewShowCloudCommand(), "homestack")
 	c.Assert(err, jc.ErrorIsNil)
 	out := testing.Stdout(ctx)
 	c.Assert(out, gc.Equals, `

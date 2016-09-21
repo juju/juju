@@ -17,13 +17,13 @@ var _ = gc.Suite(&IPAddressSerializationSuite{})
 
 func (s *IPAddressSerializationSuite) SetUpTest(c *gc.C) {
 	s.SliceSerializationSuite.SetUpTest(c)
-	s.importName = "ipaddresses"
-	s.sliceName = "ipaddresses"
+	s.importName = "ip-addresses"
+	s.sliceName = "ip-addresses"
 	s.importFunc = func(m map[string]interface{}) (interface{}, error) {
 		return importIPAddresses(m)
 	}
 	s.testFields = func(m map[string]interface{}) {
-		m["ipaddresses"] = []interface{}{}
+		m["ip-addresses"] = []interface{}{}
 	}
 }
 

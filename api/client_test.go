@@ -53,8 +53,8 @@ func (s *clientSuite) TestCloseMultipleOk(c *gc.C) {
 	c.Assert(client.Close(), gc.IsNil)
 }
 
-func (s *clientSuite) TestUploadToolsOtherEnvironment(c *gc.C) {
-	otherSt, otherAPISt := s.otherEnviron(c)
+func (s *clientSuite) TestUploadToolsOtherModel(c *gc.C) {
+	otherSt, otherAPISt := s.otherModel(c)
 	defer otherSt.Close()
 	defer otherAPISt.Close()
 	client := otherAPISt.Client()
@@ -117,13 +117,13 @@ func (s *clientSuite) TestAddLocalCharm(c *gc.C) {
 	c.Assert(savedURL.String(), gc.Equals, curl.WithRevision(43).String())
 }
 
-func (s *clientSuite) TestAddLocalCharmOtherEnvironment(c *gc.C) {
+func (s *clientSuite) TestAddLocalCharmOtherModel(c *gc.C) {
 	charmArchive := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 	curl := charm.MustParseURL(
 		fmt.Sprintf("local:quantal/%s-%d", charmArchive.Meta().Name, charmArchive.Revision()),
 	)
 
-	otherSt, otherAPISt := s.otherEnviron(c)
+	otherSt, otherAPISt := s.otherModel(c)
 	defer otherSt.Close()
 	defer otherAPISt.Close()
 	client := otherAPISt.Client()
@@ -138,7 +138,7 @@ func (s *clientSuite) TestAddLocalCharmOtherEnvironment(c *gc.C) {
 	c.Assert(charm.String(), gc.Equals, curl.String())
 }
 
-func (s *clientSuite) otherEnviron(c *gc.C) (*state.State, api.Connection) {
+func (s *clientSuite) otherModel(c *gc.C) (*state.State, api.Connection) {
 	otherSt := s.Factory.MakeModel(c, nil)
 	info := s.APIInfo(c)
 	info.ModelTag = otherSt.ModelTag()
@@ -311,17 +311,17 @@ func envEndpoint(c *gc.C, apiState api.Connection, destination string) string {
 	return path.Join("/model", modelTag.Id(), destination)
 }
 
-func (s *clientSuite) TestClientEnvironmentUUID(c *gc.C) {
-	environ, err := s.State.Model()
+func (s *clientSuite) TestClientModelUUID(c *gc.C) {
+	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
 	client := s.APIState.Client()
 	uuid, ok := client.ModelUUID()
 	c.Assert(ok, jc.IsTrue)
-	c.Assert(uuid, gc.Equals, environ.Tag().Id())
+	c.Assert(uuid, gc.Equals, model.Tag().Id())
 }
 
-func (s *clientSuite) TestClientEnvironmentUsers(c *gc.C) {
+func (s *clientSuite) TestClientModelUsers(c *gc.C) {
 	client := s.APIState.Client()
 	cleanup := api.PatchClientFacadeCall(client,
 		func(request string, paramsIn interface{}, response interface{}) error {
@@ -442,26 +442,26 @@ func (s *clientSuite) TestWatchDebugLogParamsEncoded(c *gc.C) {
 func (s *clientSuite) TestConnectStreamAtUUIDPath(c *gc.C) {
 	catcher := urlCatcher{}
 	s.PatchValue(api.WebsocketDialConfig, catcher.recordLocation)
-	environ, err := s.State.Model()
+	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	info := s.APIInfo(c)
-	info.ModelTag = environ.ModelTag()
+	info.ModelTag = model.ModelTag()
 	apistate, err := api.Open(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	defer apistate.Close()
 	_, err = apistate.ConnectStream("/path", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	connectURL := catcher.location
-	c.Assert(connectURL.Path, gc.Matches, fmt.Sprintf("/model/%s/path", environ.UUID()))
+	c.Assert(connectURL.Path, gc.Matches, fmt.Sprintf("/model/%s/path", model.UUID()))
 }
 
 func (s *clientSuite) TestOpenUsesModelUUIDPaths(c *gc.C) {
 	info := s.APIInfo(c)
 
 	// Passing in the correct model UUID should work
-	environ, err := s.State.Model()
+	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	info.ModelTag = environ.ModelTag()
+	info.ModelTag = model.ModelTag()
 	apistate, err := api.Open(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	apistate.Close()

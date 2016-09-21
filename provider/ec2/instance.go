@@ -32,16 +32,16 @@ func (inst *ec2Instance) Id() instance.Id {
 
 func (inst *ec2Instance) Status() instance.InstanceStatus {
 	// pending | running | shutting-down | terminated | stopping | stopped
-	jujuStatus := status.StatusPending
+	jujuStatus := status.Pending
 	switch inst.State.Name {
 	case "pending":
-		jujuStatus = status.StatusPending
+		jujuStatus = status.Pending
 	case "running":
-		jujuStatus = status.StatusRunning
+		jujuStatus = status.Running
 	case "shutting-down", "terminated", "stopping", "stopped":
-		jujuStatus = status.StatusEmpty
+		jujuStatus = status.Empty
 	default:
-		jujuStatus = status.StatusEmpty
+		jujuStatus = status.Empty
 	}
 	return instance.InstanceStatus{
 		Status:  jujuStatus,

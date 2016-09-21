@@ -50,92 +50,92 @@ clouds:
         endpoint: https://www.googleapis.com
   azure:
     type: azure
-    auth-types: [ userpass ]
+    auth-types: [ interactive, service-principal-secret, userpass ]
     regions:
       centralus:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
-        identity-endpoint: https://login.microsoftonline.com
+        identity-endpoint: https://graph.windows.net
       eastus:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
-        identity-endpoint: https://login.microsoftonline.com
+        identity-endpoint: https://graph.windows.net
       eastus2:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
-        identity-endpoint: https://login.microsoftonline.com
+        identity-endpoint: https://graph.windows.net
       northcentralus:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
-        identity-endpoint: https://login.microsoftonline.com
+        identity-endpoint: https://graph.windows.net
       southcentralus:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
-        identity-endpoint: https://login.microsoftonline.com
+        identity-endpoint: https://graph.windows.net
       westus:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
-        identity-endpoint: https://login.microsoftonline.com
+        identity-endpoint: https://graph.windows.net
       northeurope:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
-        identity-endpoint: https://login.microsoftonline.com
+        identity-endpoint: https://graph.windows.net
       westeurope:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
-        identity-endpoint: https://login.microsoftonline.com
+        identity-endpoint: https://graph.windows.net
       eastasia:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
-        identity-endpoint: https://login.microsoftonline.com
+        identity-endpoint: https://graph.windows.net
       southeastasia:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
-        identity-endpoint: https://login.microsoftonline.com
+        identity-endpoint: https://graph.windows.net
       japaneast:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
-        identity-endpoint: https://login.microsoftonline.com
+        identity-endpoint: https://graph.windows.net
       japanwest:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
-        identity-endpoint: https://login.microsoftonline.com
+        identity-endpoint: https://graph.windows.net
       brazilsouth:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
-        identity-endpoint: https://login.microsoftonline.com
+        identity-endpoint: https://graph.windows.net
       australiaeast:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
-        identity-endpoint: https://login.microsoftonline.com
+        identity-endpoint: https://graph.windows.net
       australiasoutheast:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
-        identity-endpoint: https://login.microsoftonline.com
+        identity-endpoint: https://graph.windows.net
       centralindia:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
-        identity-endpoint: https://login.microsoftonline.com
+        identity-endpoint: https://graph.windows.net
       southindia:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
-        identity-endpoint: https://login.microsoftonline.com
+        identity-endpoint: https://graph.windows.net
       westindia:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
-        identity-endpoint: https://login.microsoftonline.com
+        identity-endpoint: https://graph.windows.net
   azure-china:
     type: azure
-    auth-types: [ userpass ]
+    auth-types: [ interactive, service-principal-secret, userpass ]
     regions:
       chinaeast:
         endpoint: https://management.chinacloudapi.cn
         storage-endpoint: https://core.chinacloudapi.cn
-        identity-endpoint: https://login.chinacloudapi.cn
+        identity-endpoint: https://graph.chinacloudapi.cn
       chinanorth:
         endpoint: https://management.chinacloudapi.cn
         storage-endpoint: https://core.chinacloudapi.cn
-        identity-endpoint: https://login.chinacloudapi.cn
+        identity-endpoint: https://graph.chinacloudapi.cn
   rackspace:
     type: rackspace
     auth-types: [ access-key, userpass ]

@@ -223,7 +223,7 @@ func (w *upgradesteps) run() error {
 	} else {
 		// Upgrade succeeded - signal that the upgrade is complete.
 		logger.Infof("upgrade to %v completed successfully.", w.toVersion)
-		w.machine.SetStatus(status.StatusStarted, "", nil)
+		w.machine.SetStatus(status.Started, "", nil)
 		w.upgradeComplete.Unlock()
 	}
 	return nil
@@ -343,7 +343,7 @@ func (w *upgradesteps) waitForOtherControllers(info *state.UpgradeInfo) error {
 // designed to be called via a machine agent's ChangeConfig method.
 func (w *upgradesteps) runUpgradeSteps(agentConfig agent.ConfigSetter) error {
 	var upgradeErr error
-	w.machine.SetStatus(status.StatusStarted, fmt.Sprintf("upgrading to %v", w.toVersion), nil)
+	w.machine.SetStatus(status.Started, fmt.Sprintf("upgrading to %v", w.toVersion), nil)
 
 	context := upgrades.NewContext(agentConfig, w.apiConn, w.st)
 	logger.Infof("starting upgrade from %v to %v for %q", w.fromVersion, w.toVersion, w.tag)
@@ -377,7 +377,7 @@ func (w *upgradesteps) reportUpgradeFailure(err error, willRetry bool) {
 	}
 	logger.Errorf("upgrade from %v to %v for %q failed (%s): %v",
 		w.fromVersion, w.toVersion, w.tag, retryText, err)
-	w.machine.SetStatus(status.StatusError,
+	w.machine.SetStatus(status.Error,
 		fmt.Sprintf("upgrade to %v failed (%s): %v", w.toVersion, retryText, err), nil)
 }
 

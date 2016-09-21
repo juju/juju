@@ -18,6 +18,7 @@ import (
 
 	"github.com/juju/juju/api"
 	apimachiner "github.com/juju/juju/api/machiner"
+	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
@@ -54,7 +55,7 @@ func (s *MachinerSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(machiner.InterfaceAddrs, func() ([]net.Addr, error) {
 		return s.addresses, nil
 	})
-	s.PatchValue(machiner.GetObservedNetworkConfig, func() ([]params.NetworkConfig, error) {
+	s.PatchValue(machiner.GetObservedNetworkConfig, func(_ networkingcommon.NetworkConfigSource) ([]params.NetworkConfig, error) {
 		return nil, nil
 	})
 }
@@ -130,7 +131,7 @@ func (s *MachinerSuite) TestMachinerSetStatusStopped(c *gc.C) {
 	)
 	s.accessor.machine.CheckCall(
 		c, 5, "SetStatus",
-		status.StatusStopped,
+		status.Stopped,
 		"",
 		map[string]interface{}(nil),
 	)
@@ -231,7 +232,7 @@ func (s *MachinerSuite) TestMachinerStorageAttached(c *gc.C) {
 	}, {
 		FuncName: "SetStatus",
 		Args: []interface{}{
-			status.StatusStarted,
+			status.Started,
 			"",
 			map[string]interface{}(nil),
 		},
@@ -244,7 +245,7 @@ func (s *MachinerSuite) TestMachinerStorageAttached(c *gc.C) {
 	}, {
 		FuncName: "SetStatus",
 		Args: []interface{}{
-			status.StatusStopped,
+			status.Stopped,
 			"",
 			map[string]interface{}(nil),
 		},
@@ -266,6 +267,8 @@ type MachinerStateSuite struct {
 	machinerState *apimachiner.State
 	machine       *state.Machine
 	apiMachine    *apimachiner.Machine
+
+	getObservedNetworkConfigError error
 }
 
 var _ = gc.Suite(&MachinerStateSuite{})
@@ -291,8 +294,9 @@ func (s *MachinerStateSuite) SetUpTest(c *gc.C) {
 		return nil, nil
 	})
 	s.PatchValue(&network.LXCNetDefaultConfig, "")
-	s.PatchValue(machiner.GetObservedNetworkConfig, func() ([]params.NetworkConfig, error) {
-		return nil, nil
+	s.getObservedNetworkConfigError = nil
+	s.PatchValue(machiner.GetObservedNetworkConfig, func(_ networkingcommon.NetworkConfigSource) ([]params.NetworkConfig, error) {
+		return nil, s.getObservedNetworkConfigError
 	})
 }
 
@@ -367,20 +371,20 @@ func (s *MachinerStateSuite) TestRunStop(c *gc.C) {
 func (s *MachinerStateSuite) TestStartSetsStatus(c *gc.C) {
 	statusInfo, err := s.machine.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Status, gc.Equals, status.StatusPending)
+	c.Assert(statusInfo.Status, gc.Equals, status.Pending)
 	c.Assert(statusInfo.Message, gc.Equals, "")
 
 	mr := s.makeMachiner(c, false, nil)
 	defer worker.Stop(mr)
 
-	s.waitMachineStatus(c, s.machine, status.StatusStarted)
+	s.waitMachineStatus(c, s.machine, status.Started)
 }
 
 func (s *MachinerStateSuite) TestSetsStatusWhenDying(c *gc.C) {
 	mr := s.makeMachiner(c, false, nil)
 	defer worker.Stop(mr)
 	c.Assert(s.machine.Destroy(), jc.ErrorIsNil)
-	s.waitMachineStatus(c, s.machine, status.StatusStopped)
+	s.waitMachineStatus(c, s.machine, status.Stopped)
 }
 
 func (s *MachinerStateSuite) TestSetDead(c *gc.C) {
@@ -427,7 +431,19 @@ func (s *MachinerStateSuite) TestSetDeadWithDyingUnit(c *gc.C) {
 	s.State.StartSync()
 	c.Assert(mr.Wait(), gc.Equals, worker.ErrTerminateAgent)
 	c.Assert(bool(machineDead), jc.IsTrue)
+}
 
+func (s *MachinerStateSuite) TestAliveErrorGetObservedNetworkConfig(c *gc.C) {
+	s.getObservedNetworkConfigError = errors.New("no config!")
+	var machineDead machineDeathTracker
+	mr := s.makeMachiner(c, false, machineDead.machineDead)
+	defer worker.Stop(mr)
+	s.State.StartSync()
+
+	c.Assert(mr.Wait(), gc.ErrorMatches, "cannot discover observed network config: no config!")
+	c.Assert(s.machine.Refresh(), jc.ErrorIsNil)
+	c.Assert(s.machine.Life(), gc.Equals, state.Alive)
+	c.Assert(bool(machineDead), jc.IsFalse)
 }
 
 func (s *MachinerStateSuite) setupSetMachineAddresses(c *gc.C, ignore bool) {

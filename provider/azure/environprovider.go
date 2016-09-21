@@ -9,9 +9,9 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils/clock"
 
-	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/provider/azure/internal/azureauth"
 	"github.com/juju/juju/provider/azure/internal/azurestorage"
 )
 
@@ -33,12 +33,17 @@ type ProviderConfig struct {
 	// clients.
 	NewStorageClient azurestorage.NewClientFunc
 
-	// StorageAccountNameGenerator is a function returning storage
-	// account names.
-	StorageAccountNameGenerator func() string
-
 	// RetryClock is used when retrying API calls due to rate-limiting.
 	RetryClock clock.Clock
+
+	// RandomWindowsAdminPassword is a function used to generate
+	// a random password for the Windows admin user.
+	RandomWindowsAdminPassword func() string
+
+	// InteractiveCreateServicePrincipal is a function used to
+	// interactively create/update service principals with
+	// password credentials.
+	InteractiveCreateServicePrincipal azureauth.InteractiveCreateServicePrincipalFunc
 }
 
 // Validate validates the Azure provider configuration.
@@ -46,11 +51,14 @@ func (cfg ProviderConfig) Validate() error {
 	if cfg.NewStorageClient == nil {
 		return errors.NotValidf("nil NewStorageClient")
 	}
-	if cfg.StorageAccountNameGenerator == nil {
-		return errors.NotValidf("nil StorageAccountNameGenerator")
-	}
 	if cfg.RetryClock == nil {
 		return errors.NotValidf("nil RetryClock")
+	}
+	if cfg.RandomWindowsAdminPassword == nil {
+		return errors.NotValidf("nil RandomWindowsAdminPassword")
+	}
+	if cfg.InteractiveCreateServicePrincipal == nil {
+		return errors.NotValidf("nil InteractiveCreateServicePrincipal")
 	}
 	return nil
 }
@@ -66,7 +74,14 @@ func NewEnvironProvider(config ProviderConfig) (*azureEnvironProvider, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Annotate(err, "validating environ provider configuration")
 	}
-	return &azureEnvironProvider{config: config}, nil
+	return &azureEnvironProvider{
+		environProviderCredentials: environProviderCredentials{
+			sender:                            config.Sender,
+			requestInspector:                  config.RequestInspector,
+			interactiveCreateServicePrincipal: config.InteractiveCreateServicePrincipal,
+		},
+		config: config,
+	}, nil
 }
 
 // Open is part of the EnvironProvider interface.
@@ -97,7 +112,7 @@ func validateCloudSpec(spec environs.CloudSpec) error {
 	if spec.Credential == nil {
 		return errors.NotValidf("missing credential")
 	}
-	if authType := spec.Credential.AuthType(); authType != cloud.UserPassAuthType {
+	if authType := spec.Credential.AuthType(); authType != clientCredentialsAuthType {
 		return errors.NotSupportedf("%q auth-type", authType)
 	}
 	return nil
@@ -109,5 +124,5 @@ func validateCloudSpec(spec environs.CloudSpec) error {
 // level.
 var verifyCredentials = func(e *azureEnviron) error {
 	// TODO(axw) user-friendly error message
-	return e.token.EnsureFresh()
+	return e.authorizer.refresh()
 }

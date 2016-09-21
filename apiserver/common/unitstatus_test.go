@@ -25,11 +25,11 @@ var _ = gc.Suite(&UnitStatusSuite{})
 func (s *UnitStatusSuite) SetUpTest(c *gc.C) {
 	s.unit = &fakeStatusUnit{
 		agentStatus: status.StatusInfo{
-			Status:  status.StatusStarted,
+			Status:  status.Started,
 			Message: "agent ok",
 		},
 		status: status.StatusInfo{
-			Status:  status.StatusIdle,
+			Status:  status.Idle,
 			Message: "unit ok",
 		},
 		presence: true,
@@ -61,13 +61,13 @@ func (s *UnitStatusSuite) TestLost(c *gc.C) {
 	s.unit.presence = false
 	agent, workload := common.UnitStatus(s.unit)
 	c.Check(agent.Status, jc.DeepEquals, status.StatusInfo{
-		Status:  status.StatusLost,
+		Status:  status.Lost,
 		Message: "agent is not communicating with the server",
 	})
 	c.Check(agent.Err, jc.ErrorIsNil)
 	c.Check(workload.Status, jc.DeepEquals, status.StatusInfo{
-		Status:  status.StatusUnknown,
-		Message: "agent lost, see 'juju status-history foo/2'",
+		Status:  status.Unknown,
+		Message: "agent lost, see 'juju show-status-log foo/2'",
 	})
 	c.Check(workload.Err, jc.ErrorIsNil)
 }
@@ -88,20 +88,20 @@ func (s *UnitStatusSuite) TestPresenceError(c *gc.C) {
 
 func (s *UnitStatusSuite) TestNotLostIfAllocating(c *gc.C) {
 	s.unit.presence = false
-	s.unit.agentStatus.Status = status.StatusAllocating
+	s.unit.agentStatus.Status = status.Allocating
 	s.checkUntouched(c)
 }
 
 func (s *UnitStatusSuite) TestCantBeLostDuringInstall(c *gc.C) {
 	s.unit.presence = false
-	s.unit.agentStatus.Status = status.StatusExecuting
+	s.unit.agentStatus.Status = status.Executing
 	s.unit.agentStatus.Message = "running install hook"
 	s.checkUntouched(c)
 }
 
 func (s *UnitStatusSuite) TestCantBeLostDuringWorkloadInstall(c *gc.C) {
 	s.unit.presence = false
-	s.unit.status.Status = status.StatusMaintenance
+	s.unit.status.Status = status.Maintenance
 	s.unit.status.Message = "installing charm software"
 	s.checkUntouched(c)
 }

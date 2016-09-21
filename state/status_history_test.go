@@ -148,20 +148,20 @@ func (s *StatusHistorySuite) TestStatusHistoryFiltersByDateAndDelta(c *gc.C) {
 	twoDaysAgo := now.Add(-twoDaysBack)
 	threeDaysAgo := now.Add(-threeDaysBack)
 	sInfo := status.StatusInfo{
-		Status:  status.StatusActive,
+		Status:  status.Active,
 		Message: "current status",
 		Since:   &now,
 	}
 	err := unit.SetStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	sInfo = status.StatusInfo{
-		Status:  status.StatusActive,
+		Status:  status.Active,
 		Message: "2 days ago",
 		Since:   &twoDaysAgo,
 	}
 	unit.SetStatus(sInfo)
 	sInfo = status.StatusInfo{
-		Status:  status.StatusActive,
+		Status:  status.Active,
 		Message: "3 days ago",
 		Since:   &threeDaysAgo,
 	}
@@ -170,7 +170,7 @@ func (s *StatusHistorySuite) TestStatusHistoryFiltersByDateAndDelta(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(history, gc.HasLen, 4)
 	c.Assert(history[0].Message, gc.Equals, "current status")
-	c.Assert(history[1].Message, gc.Equals, "Waiting for agent initialization to finish")
+	c.Assert(history[1].Message, gc.Equals, "waiting for machine")
 	c.Assert(history[2].Message, gc.Equals, "2 days ago")
 	c.Assert(history[3].Message, gc.Equals, "3 days ago")
 	now = now.Add(10 * time.Second) // lets add some padding to prevent races here.
@@ -181,7 +181,7 @@ func (s *StatusHistorySuite) TestStatusHistoryFiltersByDateAndDelta(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(history, gc.HasLen, 2)
 	c.Assert(history[0].Message, gc.Equals, "current status")
-	c.Assert(history[1].Message, gc.Equals, "Waiting for agent initialization to finish")
+	c.Assert(history[1].Message, gc.Equals, "waiting for machine")
 
 	// logs up to one day back, using date.
 	yesterday := now.Add(-(time.Hour * 24))
@@ -189,14 +189,14 @@ func (s *StatusHistorySuite) TestStatusHistoryFiltersByDateAndDelta(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(history, gc.HasLen, 2)
 	c.Assert(history[0].Message, gc.Equals, "current status")
-	c.Assert(history[1].Message, gc.Equals, "Waiting for agent initialization to finish")
+	c.Assert(history[1].Message, gc.Equals, "waiting for machine")
 
 	// Logs up to two days ago, using delta.
 	history, err = unit.StatusHistory(status.StatusHistoryFilter{Delta: &twoDaysBack})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(history, gc.HasLen, 2)
 	c.Assert(history[0].Message, gc.Equals, "current status")
-	c.Assert(history[1].Message, gc.Equals, "Waiting for agent initialization to finish")
+	c.Assert(history[1].Message, gc.Equals, "waiting for machine")
 
 	// Logs up to two days ago, using date.
 
@@ -204,14 +204,14 @@ func (s *StatusHistorySuite) TestStatusHistoryFiltersByDateAndDelta(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(history, gc.HasLen, 2)
 	c.Assert(history[0].Message, gc.Equals, "current status")
-	c.Assert(history[1].Message, gc.Equals, "Waiting for agent initialization to finish")
+	c.Assert(history[1].Message, gc.Equals, "waiting for machine")
 
 	// Logs up to three days ago, using delta.
 	history, err = unit.StatusHistory(status.StatusHistoryFilter{Delta: &threeDaysBack})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(history, gc.HasLen, 3)
 	c.Assert(history[0].Message, gc.Equals, "current status")
-	c.Assert(history[1].Message, gc.Equals, "Waiting for agent initialization to finish")
+	c.Assert(history[1].Message, gc.Equals, "waiting for machine")
 	c.Assert(history[2].Message, gc.Equals, "2 days ago")
 
 	// Logs up to three days ago, using date.
@@ -219,6 +219,6 @@ func (s *StatusHistorySuite) TestStatusHistoryFiltersByDateAndDelta(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(history, gc.HasLen, 3)
 	c.Assert(history[0].Message, gc.Equals, "current status")
-	c.Assert(history[1].Message, gc.Equals, "Waiting for agent initialization to finish")
+	c.Assert(history[1].Message, gc.Equals, "waiting for machine")
 	c.Assert(history[2].Message, gc.Equals, "2 days ago")
 }

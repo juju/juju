@@ -4,9 +4,9 @@
 package constraints
 
 import (
+	"encoding/json"
 	"fmt"
 	"math"
-	"reflect"
 	"strconv"
 	"strings"
 
@@ -20,9 +20,11 @@ import (
 // The following constants list the supported constraint attribute names, as defined
 // by the fields in the Value struct.
 const (
-	Arch         = "arch"
-	Container    = "container"
-	CpuCores     = "cpu-cores"
+	Arch      = "arch"
+	Container = "container"
+	// cpuCores is an alias for Cores.
+	cpuCores     = "cpu-cores"
+	Cores        = "cores"
 	CpuPower     = "cpu-power"
 	Mem          = "mem"
 	RootDisk     = "root-disk"
@@ -47,7 +49,7 @@ type Value struct {
 
 	// CpuCores, if not nil, indicates that a machine must have at least that
 	// number of effective cores available.
-	CpuCores *uint64 `json:"cpu-cores,omitempty" yaml:"cpu-cores,omitempty"`
+	CpuCores *uint64 `json:"cores,omitempty" yaml:"cores,omitempty"`
 
 	// CpuPower, if not nil, indicates that a machine must have at least that
 	// amount of CPU power available, where 100 CpuPower is considered to be
@@ -85,29 +87,17 @@ type Value struct {
 	VirtType *string `json:"virt-type,omitempty" yaml:"virt-type,omitempty"`
 }
 
-// fieldNames records a mapping from the constraint tag to struct field name.
-// eg "root-disk" maps to RootDisk.
-var fieldNames map[string]string
+var rawAliases = map[string]string{
+	cpuCores: Cores,
+}
 
-func init() {
-	// Create the fieldNames map by inspecting the json tags for each of
-	// the Value struct fields.
-	fieldNames = make(map[string]string)
-	typ := reflect.TypeOf(Value{})
-	for i := 0; i < typ.NumField(); i++ {
-		field := typ.Field(i)
-		if tag := field.Tag.Get("json"); tag != "" {
-			if i := strings.Index(tag, ","); i >= 0 {
-				tag = tag[0:i]
-			}
-			if tag == "-" {
-				continue
-			}
-			if tag != "" {
-				fieldNames[tag] = field.Name
-			}
-		}
+// resolveAlias returns the canonical representation of the given key, if it'a
+// an alias listed in aliases, otherwise it returns the original key.
+func resolveAlias(key string) string {
+	if canonical, ok := rawAliases[key]; ok {
+		return canonical
 	}
+	return key
 }
 
 // IsEmpty returns if the given constraints value has no constraints set
@@ -182,7 +172,7 @@ func (v Value) String() string {
 		strs = append(strs, "container="+string(*v.Container))
 	}
 	if v.CpuCores != nil {
-		strs = append(strs, "cpu-cores="+uintStr(*v.CpuCores))
+		strs = append(strs, "cores="+uintStr(*v.CpuCores))
 	}
 	if v.CpuPower != nil {
 		strs = append(strs, "cpu-power="+uintStr(*v.CpuPower))
@@ -226,7 +216,7 @@ func (v Value) GoString() string {
 		values = append(values, fmt.Sprintf("Arch: %q", *v.Arch))
 	}
 	if v.CpuCores != nil {
-		values = append(values, fmt.Sprintf("CpuCores: %v", *v.CpuCores))
+		values = append(values, fmt.Sprintf("Cores: %v", *v.CpuCores))
 	}
 	if v.CpuPower != nil {
 		values = append(values, fmt.Sprintf("CpuPower: %v", *v.CpuPower))
@@ -270,19 +260,36 @@ func uintStr(i uint64) string {
 // each of which must contain only spaces and name=value pairs. If any
 // name is specified more than once, an error is returned.
 func Parse(args ...string) (Value, error) {
-	cons := Value{}
+	v, _, err := ParseWithAliases(args...)
+	return v, err
+}
+
+// ParseWithAliases constructs a constraints.Value from the supplied arguments, each
+// of which must contain only spaces and name=value pairs. If any name is
+// specified more than once, an error is returned.  The aliases map returned
+// contains a map of aliases used, and their canonical values.
+func ParseWithAliases(args ...string) (cons Value, aliases map[string]string, err error) {
+	aliases = make(map[string]string)
 	for _, arg := range args {
 		raws := strings.Split(strings.TrimSpace(arg), " ")
 		for _, raw := range raws {
 			if raw == "" {
 				continue
 			}
-			if err := cons.setRaw(raw); err != nil {
-				return Value{}, err
+			name, val, err := splitRaw(raw)
+			if err != nil {
+				return Value{}, nil, errors.Trace(err)
+			}
+			if canonical, ok := rawAliases[name]; ok {
+				aliases[name] = canonical
+				name = canonical
+			}
+			if err := cons.setRaw(name, val); err != nil {
+				return Value{}, aliases, errors.Trace(err)
 			}
 		}
 	}
-	return cons, nil
+	return cons, aliases, nil
 }
 
 // Merge returns the effective constraints after merging any given
@@ -323,30 +330,29 @@ func (v ConstraintsValue) String() string {
 	return v.Target.String()
 }
 
-func (v *Value) fieldFromTag(tagName string) (reflect.Value, bool) {
-	fieldName := fieldNames[tagName]
-	val := reflect.ValueOf(v).Elem().FieldByName(fieldName)
-	return val, val.IsValid()
+// attributesWithValues returns the non-zero attribute tags and their values from the constraint.
+func (v *Value) attributesWithValues() map[string]interface{} {
+	// These can never fail, so we ignore the error for the sake of keeping our
+	// API clean.  I'm sorry (but not that sorry).
+	b, _ := json.Marshal(v)
+	result := map[string]interface{}{}
+	_ = json.Unmarshal(b, &result)
+	return result
 }
 
-// attributesWithValues returns the non-zero attribute tags and their values from the constraint.
-func (v *Value) attributesWithValues() (result map[string]interface{}) {
-	result = make(map[string]interface{})
-	for fieldTag, fieldName := range fieldNames {
-		val := reflect.ValueOf(v).Elem().FieldByName(fieldName)
-		if !val.IsNil() {
-			result[fieldTag] = val.Elem().Interface()
-		}
-	}
+func fromAttributes(attr map[string]interface{}) Value {
+	b, _ := json.Marshal(attr)
+	var result Value
+	_ = json.Unmarshal(b, &result)
 	return result
 }
 
 // hasAny returns any attrTags for which the constraint has a non-nil value.
 func (v *Value) hasAny(attrTags ...string) []string {
-	attrValues := v.attributesWithValues()
-	var result []string = []string{}
+	attributes := v.attributesWithValues()
+	var result []string
 	for _, tag := range attrTags {
-		_, ok := attrValues[tag]
+		_, ok := attributes[resolveAlias(tag)]
 		if ok {
 			result = append(result, tag)
 		}
@@ -356,32 +362,31 @@ func (v *Value) hasAny(attrTags ...string) []string {
 
 // without returns a copy of the constraint without values for
 // the specified attributes.
-func (v *Value) without(attrTags ...string) (Value, error) {
-	result := *v
+func (v *Value) without(attrTags ...string) Value {
+	attributes := v.attributesWithValues()
 	for _, tag := range attrTags {
-		val, ok := result.fieldFromTag(tag)
-		if !ok {
-			return Value{}, errors.Errorf("unknown constraint %q", tag)
-		}
-		val.Set(reflect.Zero(val.Type()))
+		delete(attributes, resolveAlias(tag))
 	}
-	return result, nil
+	return fromAttributes(attributes)
+}
+
+func splitRaw(s string) (name, val string, err error) {
+	eq := strings.Index(s, "=")
+	if eq <= 0 {
+		return "", "", errors.Errorf("malformed constraint %q", s)
+	}
+	return s[:eq], s[eq+1:], nil
 }
 
 // setRaw interprets a name=value string and sets the supplied value.
-func (v *Value) setRaw(raw string) error {
-	eq := strings.Index(raw, "=")
-	if eq <= 0 {
-		return errors.Errorf("malformed constraint %q", raw)
-	}
-	name, str := raw[:eq], raw[eq+1:]
+func (v *Value) setRaw(name, str string) error {
 	var err error
-	switch name {
+	switch resolveAlias(name) {
 	case Arch:
 		err = v.setArch(str)
 	case Container:
 		err = v.setContainer(str)
-	case CpuCores:
+	case Cores:
 		err = v.setCpuCores(str)
 	case CpuPower:
 		err = v.setCpuPower(str)
@@ -417,9 +422,20 @@ func (v *Value) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	canonicals := map[string]string{}
 	for k, val := range values {
 		vstr := fmt.Sprintf("%v", val)
-		switch k {
+		key, ok := k.(string)
+		if !ok {
+			return errors.Errorf("unexpected non-string key: %#v", k)
+		}
+		canonical := resolveAlias(key)
+		if v, ok := canonicals[canonical]; ok {
+			// duplicate entry
+			return errors.Errorf("constraint %q duplicates constraint %q", key, v)
+		}
+		canonicals[canonical] = key
+		switch canonical {
 		case Arch:
 			v.Arch = &vstr
 		case Container:
@@ -427,7 +443,7 @@ func (v *Value) UnmarshalYAML(unmarshal func(interface{}) error) error {
 			v.Container = &ctype
 		case InstanceType:
 			v.InstanceType = &vstr
-		case CpuCores:
+		case Cores:
 			v.CpuCores, err = parseUint64(vstr)
 		case CpuPower:
 			v.CpuPower, err = parseUint64(vstr)

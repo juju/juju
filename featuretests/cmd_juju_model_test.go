@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/feature"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -62,7 +63,7 @@ func (s *cmdModelSuite) TestRevokeModelCmdStack(c *gc.C) {
 	// Firstly share a model with a user
 	username := "bar@ubuntuone"
 	s.Factory.MakeModelUser(c, &factory.ModelUserParams{
-		User: username, Access: description.ReadAccess})
+		User: username, Access: permission.ReadAccess})
 
 	// Because we are calling into juju through the main command,
 	// and the main command adds a warning logging writer, we need
@@ -78,7 +79,7 @@ func (s *cmdModelSuite) TestRevokeModelCmdStack(c *gc.C) {
 	user := names.NewUserTag(username)
 	modelUser, err := s.State.UserAccess(user, s.State.ModelTag())
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
-	c.Assert(modelUser, gc.DeepEquals, description.UserAccess{})
+	c.Assert(modelUser, gc.DeepEquals, permission.UserAccess{})
 }
 
 func (s *cmdModelSuite) TestModelUsersCmd(c *gc.C) {
@@ -95,12 +96,12 @@ func (s *cmdModelSuite) TestModelUsersCmd(c *gc.C) {
 	// to clear the logging writers here.
 	loggo.RemoveWriter("warning")
 
-	context = s.run(c, "list-shares")
+	context = s.run(c, "list-users", "controller")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
-		"NAME                 ACCESS  LAST CONNECTION\n"+
-		"admin@local (admin)  admin   just now\n"+
-		"bar@ubuntuone        read    never connected\n"+
+		"NAME           DISPLAY NAME  ACCESS  LAST CONNECTION\n"+
+		"admin@local*   admin         admin   just now\n"+
+		"bar@ubuntuone                read    never connected\n"+
 		"\n")
 
 }
@@ -109,12 +110,12 @@ func (s *cmdModelSuite) TestGet(c *gc.C) {
 	err := s.State.UpdateModelConfig(map[string]interface{}{"special": "known"}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	context := s.run(c, "get-model-config", "special")
+	context := s.run(c, "model-config", "special")
 	c.Assert(testing.Stdout(context), gc.Equals, "known\n")
 }
 
 func (s *cmdModelSuite) TestSet(c *gc.C) {
-	s.run(c, "set-model-config", "special=known")
+	s.run(c, "model-config", "special=known")
 	s.assertEnvValue(c, "special", "known")
 }
 
@@ -122,7 +123,7 @@ func (s *cmdModelSuite) TestUnset(c *gc.C) {
 	err := s.State.UpdateModelConfig(map[string]interface{}{"special": "known"}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.run(c, "unset-model-config", "special")
+	s.run(c, "model-config", "--reset", "special")
 	s.assertEnvValueMissing(c, "special")
 }
 

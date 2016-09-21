@@ -4,11 +4,10 @@
 package user
 
 import (
-	"time"
-
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/usermanager"
@@ -47,6 +46,7 @@ type UserInfoAPI interface {
 type infoCommandBase struct {
 	modelcmd.ControllerCommandBase
 	api       UserInfoAPI
+	clock     clock.Clock
 	exactTime bool
 	out       cmd.Output
 }
@@ -56,7 +56,11 @@ func (c *infoCommandBase) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func NewShowUserCommand() cmd.Command {
-	return modelcmd.WrapController(&infoCommand{})
+	return modelcmd.WrapController(&infoCommand{
+		infoCommandBase: infoCommandBase{
+			clock: clock.WallClock,
+		},
+	})
 }
 
 // infoCommand retrieves information about a single user.
@@ -135,8 +139,7 @@ func (c *infoCommand) Run(ctx *cmd.Context) (err error) {
 
 func (c *infoCommandBase) apiUsersToUserInfoSlice(users []params.UserInfo) []UserInfo {
 	var output []UserInfo
-	// TODO(perrito666) 2016-05-02 lp:1558657
-	var now = time.Now()
+	var now = c.clock.Now()
 	for _, info := range users {
 		outInfo := UserInfo{
 			Username:    info.Username,

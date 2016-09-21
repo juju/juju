@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
+	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
@@ -238,12 +239,28 @@ func (neverRefreshes) Refresh() error {
 	return nil
 }
 
+func (neverRefreshes) Status() instance.InstanceStatus {
+	return instance.InstanceStatus{}
+}
+
 type neverAddresses struct {
 	neverRefreshes
 }
 
 func (neverAddresses) Addresses() ([]network.Address, error) {
 	return nil, nil
+}
+
+type failsProvisioning struct {
+	neverAddresses
+	message string
+}
+
+func (f failsProvisioning) Status() instance.InstanceStatus {
+	return instance.InstanceStatus{
+		Status:  status.ProvisioningError,
+		Message: f.message,
+	}
 }
 
 var testSSHTimeout = environs.BootstrapDialOpts{
@@ -266,6 +283,14 @@ func (s *BootstrapSuite) TestWaitSSHKilledWaitingForAddresses(c *gc.C) {
 	_, err := common.WaitSSH(ctx.Stderr, interrupted, ssh.DefaultClient, "/bin/true", neverAddresses{}, testSSHTimeout)
 	c.Check(err, gc.ErrorMatches, "interrupted")
 	c.Check(coretesting.Stderr(ctx), gc.Matches, "Waiting for address\n")
+}
+
+func (s *BootstrapSuite) TestWaitSSHNoticesProvisioningFailures(c *gc.C) {
+	ctx := coretesting.Context(c)
+	_, err := common.WaitSSH(ctx.Stderr, nil, ssh.DefaultClient, "/bin/true", failsProvisioning{}, testSSHTimeout)
+	c.Check(err, gc.ErrorMatches, `instance provisioning failed`)
+	_, err = common.WaitSSH(ctx.Stderr, nil, ssh.DefaultClient, "/bin/true", failsProvisioning{message: "blargh"}, testSSHTimeout)
+	c.Check(err, gc.ErrorMatches, `instance provisioning failed \(blargh\)`)
 }
 
 type brokenAddresses struct {
@@ -342,6 +367,10 @@ func (ac *addressesChange) Refresh() error {
 		ac.addrs = ac.addrs[1:]
 	}
 	return nil
+}
+
+func (ac *addressesChange) Status() instance.InstanceStatus {
+	return instance.InstanceStatus{}
 }
 
 func (ac *addressesChange) Addresses() ([]network.Address, error) {

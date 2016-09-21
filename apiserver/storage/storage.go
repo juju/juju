@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/core/description"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
@@ -50,7 +50,7 @@ func NewAPI(
 	}, nil
 }
 func (api *API) checkCanRead() error {
-	canRead, err := api.authorizer.HasPermission(description.ReadAccess, api.storage.ModelTag())
+	canRead, err := api.authorizer.HasPermission(permission.ReadAccess, api.storage.ModelTag())
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -61,7 +61,7 @@ func (api *API) checkCanRead() error {
 }
 
 func (api *API) checkCanWrite() error {
-	canWrite, err := api.authorizer.HasPermission(description.WriteAccess, api.storage.ModelTag())
+	canWrite, err := api.authorizer.HasPermission(permission.WriteAccess, api.storage.ModelTag())
 	if err != nil {
 		return errors.Trace(err)
 	}

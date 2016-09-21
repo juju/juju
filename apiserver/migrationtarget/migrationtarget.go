@@ -10,9 +10,9 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/core/description"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/migration"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 )
 
@@ -49,7 +49,7 @@ func checkAuth(authorizer facade.Authorizer, st *state.State) error {
 		return errors.Trace(common.ErrPerm)
 	}
 
-	if isAdmin, err := authorizer.HasPermission(description.SuperuserAccess, st.ControllerTag()); err != nil {
+	if isAdmin, err := authorizer.HasPermission(permission.SuperuserAccess, st.ControllerTag()); err != nil {
 		return errors.Trace(err)
 	} else if !isAdmin {
 		// The entire facade is only accessible to controller administrators.

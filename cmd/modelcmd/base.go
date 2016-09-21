@@ -4,16 +4,21 @@
 package modelcmd
 
 import (
+	"bufio"
 	"fmt"
+	"io"
 	"net/http"
+	"os"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"golang.org/x/crypto/ssh/terminal"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/authentication"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/modelmanager"
 	"github.com/juju/juju/apiserver/params"
@@ -158,13 +163,29 @@ func (c *JujuCommandBase) NewAPIConnectionParams(
 	controllerName, modelName string,
 	accountDetails *jujuclient.AccountDetails,
 ) (juju.NewAPIConnectionParams, error) {
-	if err := c.initAPIContext(); err != nil {
+	bakeryClient, err := c.BakeryClient()
+	if err != nil {
 		return juju.NewAPIConnectionParams{}, errors.Trace(err)
 	}
+	var getPassword func(username string) (string, error)
+	if c.cmdContext != nil {
+		getPassword = func(username string) (string, error) {
+			fmt.Fprintf(c.cmdContext.Stderr, "please enter password for %s on %s: ", username, controllerName)
+			defer fmt.Fprintln(c.cmdContext.Stderr)
+			return readPassword(c.cmdContext.Stdin)
+		}
+	} else {
+		getPassword = func(username string) (string, error) {
+			return "", errors.New("no context to prompt for password")
+		}
+	}
+
 	return newAPIConnectionParams(
 		store, controllerName, modelName,
-		accountDetails, c.apiContext.BakeryClient,
+		accountDetails,
+		bakeryClient,
 		c.apiOpen,
+		getPassword,
 	)
 }
 
@@ -174,10 +195,11 @@ func (c *JujuCommandBase) NewAPIConnectionParams(
 // have the correct TLS setup - use api.Connection.HTTPClient
 // for that.
 func (c *JujuCommandBase) HTTPClient() (*http.Client, error) {
-	if err := c.initAPIContext(); err != nil {
+	bakeryClient, err := c.BakeryClient()
+	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return c.apiContext.BakeryClient.Client, nil
+	return bakeryClient.Client, nil
 }
 
 // BakeryClient returns a macaroon bakery client that
@@ -186,7 +208,7 @@ func (c *JujuCommandBase) BakeryClient() (*httpbakery.Client, error) {
 	if err := c.initAPIContext(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	return c.apiContext.BakeryClient, nil
+	return c.apiContext.NewBakeryClient(), nil
 }
 
 // APIOpen establishes a connection to the API server using the
@@ -303,6 +325,7 @@ func newAPIConnectionParams(
 	accountDetails *jujuclient.AccountDetails,
 	bakery *httpbakery.Client,
 	apiOpen api.OpenFunc,
+	getPassword func(string) (string, error),
 ) (juju.NewAPIConnectionParams, error) {
 	if controllerName == "" {
 		return juju.NewAPIConnectionParams{}, errors.Trace(errNoNameSpecified)
@@ -318,30 +341,11 @@ func newAPIConnectionParams(
 	dialOpts := api.DefaultDialOpts()
 	dialOpts.BakeryClient = bakery
 
-	openAPI := func(info *api.Info, opts api.DialOpts) (api.Connection, error) {
-		conn, err := apiOpen(info, opts)
-		if err != nil {
-			userTag, ok := info.Tag.(names.UserTag)
-			if ok && userTag.IsLocal() && params.IsCodeLoginExpired(err) {
-				// This is a bit gross, but we don't seem to have
-				// a way of having an error with a cause that does
-				// not influence the error message. We want to keep
-				// the type/code so we don't lose the fact that the
-				// error was caused by an API login expiry.
-				return nil, &params.Error{
-					Code: params.CodeLoginExpired,
-					Message: fmt.Sprintf(`login expired
-
-Your login for the %q controller has expired.
-To log back in, run the following command:
-
-    juju login %v
-`, controllerName, userTag.Name()),
-				}
-			}
-			return nil, err
-		}
-		return conn, nil
+	if accountDetails != nil {
+		bakery.WebPageVisitor = httpbakery.NewMultiVisitor(
+			authentication.NewVisitor(accountDetails.User, getPassword),
+			bakery.WebPageVisitor,
+		)
 	}
 
 	return juju.NewAPIConnectionParams{
@@ -350,18 +354,19 @@ To log back in, run the following command:
 		AccountDetails: accountDetails,
 		ModelUUID:      modelUUID,
 		DialOpts:       dialOpts,
-		OpenAPI:        openAPI,
+		OpenAPI:        apiOpen,
 	}, nil
 }
 
 // NewGetBootstrapConfigParamsFunc returns a function that, given a controller name,
 // returns the params needed to bootstrap a fresh copy of that controller in the given client store.
-func NewGetBootstrapConfigParamsFunc(store jujuclient.ClientStore) func(string) (*jujuclient.BootstrapConfig, *environs.PrepareConfigParams, error) {
-	return bootstrapConfigGetter{store}.getBootstrapConfigParams
+func NewGetBootstrapConfigParamsFunc(ctx *cmd.Context, store jujuclient.ClientStore) func(string) (*jujuclient.BootstrapConfig, *environs.PrepareConfigParams, error) {
+	return bootstrapConfigGetter{ctx, store}.getBootstrapConfigParams
 }
 
 type bootstrapConfigGetter struct {
-	jujuclient.ClientStore
+	ctx   *cmd.Context
+	store jujuclient.ClientStore
 }
 
 func (g bootstrapConfigGetter) getBootstrapConfig(controllerName string) (*config.Config, error) {
@@ -377,22 +382,36 @@ func (g bootstrapConfigGetter) getBootstrapConfig(controllerName string) (*confi
 }
 
 func (g bootstrapConfigGetter) getBootstrapConfigParams(controllerName string) (*jujuclient.BootstrapConfig, *environs.PrepareConfigParams, error) {
-	if _, err := g.ClientStore.ControllerByName(controllerName); err != nil {
+	if _, err := g.store.ControllerByName(controllerName); err != nil {
 		return nil, nil, errors.Annotate(err, "resolving controller name")
 	}
-	bootstrapConfig, err := g.BootstrapConfigForController(controllerName)
+	bootstrapConfig, err := g.store.BootstrapConfigForController(controllerName)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "getting bootstrap config")
 	}
 
 	var credential *cloud.Credential
 	if bootstrapConfig.Credential != "" {
+		bootstrapCloud := cloud.Cloud{
+			Type:             bootstrapConfig.CloudType,
+			Endpoint:         bootstrapConfig.CloudEndpoint,
+			IdentityEndpoint: bootstrapConfig.CloudIdentityEndpoint,
+		}
+		if bootstrapConfig.CloudRegion != "" {
+			bootstrapCloud.Regions = []cloud.Region{{
+				Name:             bootstrapConfig.CloudRegion,
+				Endpoint:         bootstrapConfig.CloudEndpoint,
+				IdentityEndpoint: bootstrapConfig.CloudIdentityEndpoint,
+			}}
+		}
 		credential, _, _, err = GetCredentials(
-			g.ClientStore,
-			bootstrapConfig.CloudRegion,
-			bootstrapConfig.Credential,
-			bootstrapConfig.Cloud,
-			bootstrapConfig.CloudType,
+			g.ctx, g.store,
+			GetCredentialsParams{
+				Cloud:          bootstrapCloud,
+				CloudName:      bootstrapConfig.Cloud,
+				CloudRegion:    bootstrapConfig.CloudRegion,
+				CredentialName: bootstrapConfig.Credential,
+			},
 		)
 		if err != nil {
 			return nil, nil, errors.Trace(err)
@@ -414,7 +433,7 @@ func (g bootstrapConfigGetter) getBootstrapConfigParams(controllerName string) (
 	}
 
 	// Add attributes from the controller details.
-	controllerDetails, err := g.ControllerByName(controllerName)
+	controllerDetails, err := g.store.ControllerByName(controllerName)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
@@ -442,4 +461,32 @@ func (g bootstrapConfigGetter) getBootstrapConfigParams(controllerName string) (
 		},
 		cfg,
 	}, nil
+}
+
+// TODO(axw) this is now in three places: change-password,
+// register, and here. Refactor and move to a common location.
+func readPassword(stdin io.Reader) (string, error) {
+	if f, ok := stdin.(*os.File); ok && terminal.IsTerminal(int(f.Fd())) {
+		password, err := terminal.ReadPassword(int(f.Fd()))
+		return string(password), err
+	}
+	return readLine(stdin)
+}
+
+func readLine(stdin io.Reader) (string, error) {
+	// Read one byte at a time to avoid reading beyond the delimiter.
+	line, err := bufio.NewReader(byteAtATimeReader{stdin}).ReadString('\n')
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return line[:len(line)-1], nil
+}
+
+type byteAtATimeReader struct {
+	io.Reader
+}
+
+// Read is part of the io.Reader interface.
+func (r byteAtATimeReader) Read(out []byte) (int, error) {
+	return r.Reader.Read(out[:1])
 }

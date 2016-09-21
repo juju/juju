@@ -98,19 +98,6 @@ func (s *stateSuite) TestTags(c *gc.C) {
 	c.Check(controllerTag, gc.Equals, coretesting.ControllerTag)
 }
 
-func (s *stateSuite) TestLoginMacaroon(c *gc.C) {
-	apistate, tag, _ := s.OpenAPIWithoutLogin(c)
-	defer apistate.Close()
-	// Use a different API connection, because we can't get at UserManager without logging in.
-	loggedInAPI := s.OpenControllerAPI(c)
-	defer loggedInAPI.Close()
-	mac, err := usermanager.NewClient(loggedInAPI).CreateLocalLoginMacaroon(tag.(names.UserTag))
-	c.Assert(err, jc.ErrorIsNil)
-	err = apistate.Login(tag, "", "", []macaroon.Slice{{mac}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(apistate.AuthTag(), gc.Equals, tag)
-}
-
 func (s *stateSuite) TestLoginSetsModelAccess(c *gc.C) {
 	// The default user has admin access.
 	c.Assert(s.APIState.ModelAccess(), gc.Equals, "admin")
@@ -153,19 +140,7 @@ func (s *stateSuite) TestLoginMacaroonInvalidId(c *gc.C) {
 	mac, err := macaroon.New([]byte("root-key"), "id", "juju")
 	c.Assert(err, jc.ErrorIsNil)
 	err = apistate.Login(tag, "", "", []macaroon.Slice{{mac}})
-	c.Assert(err, gc.ErrorMatches, "invalid entity name or password \\(unauthorized access\\)")
-}
-
-func (s *stateSuite) TestLoginMacaroonInvalidUser(c *gc.C) {
-	apistate, tag, _ := s.OpenAPIWithoutLogin(c)
-	defer apistate.Close()
-	// Use a different API connection, because we can't get at UserManager without logging in.
-	loggedInAPI := s.OpenControllerAPI(c)
-	defer loggedInAPI.Close()
-	mac, err := usermanager.NewClient(loggedInAPI).CreateLocalLoginMacaroon(tag.(names.UserTag))
-	c.Assert(err, jc.ErrorIsNil)
-	err = apistate.Login(names.NewUserTag("bob@local"), "", "", []macaroon.Slice{{mac}})
-	c.Assert(err, gc.ErrorMatches, "invalid entity name or password \\(unauthorized access\\)")
+	c.Assert(err, gc.ErrorMatches, "interaction required but not possible")
 }
 
 func (s *stateSuite) TestLoginTracksFacadeVersions(c *gc.C) {

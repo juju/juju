@@ -321,21 +321,21 @@ func (s *withoutControllerSuite) TestRemove(c *gc.C) {
 func (s *withoutControllerSuite) TestSetStatus(c *gc.C) {
 	now := time.Now()
 	sInfo := status.StatusInfo{
-		Status:  status.StatusStarted,
+		Status:  status.Started,
 		Message: "blah",
 		Since:   &now,
 	}
 	err := s.machines[0].SetStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	sInfo = status.StatusInfo{
-		Status:  status.StatusStopped,
+		Status:  status.Stopped,
 		Message: "foo",
 		Since:   &now,
 	}
 	err = s.machines[1].SetStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	sInfo = status.StatusInfo{
-		Status:  status.StatusError,
+		Status:  status.Error,
 		Message: "not really",
 		Since:   &now,
 	}
@@ -344,13 +344,13 @@ func (s *withoutControllerSuite) TestSetStatus(c *gc.C) {
 
 	args := params.SetStatus{
 		Entities: []params.EntityStatusArgs{
-			{Tag: s.machines[0].Tag().String(), Status: status.StatusError.String(), Info: "not really",
+			{Tag: s.machines[0].Tag().String(), Status: status.Error.String(), Info: "not really",
 				Data: map[string]interface{}{"foo": "bar"}},
-			{Tag: s.machines[1].Tag().String(), Status: status.StatusStopped.String(), Info: "foobar"},
-			{Tag: s.machines[2].Tag().String(), Status: status.StatusStarted.String(), Info: "again"},
-			{Tag: "machine-42", Status: status.StatusStarted.String(), Info: "blah"},
-			{Tag: "unit-foo-0", Status: status.StatusStopped.String(), Info: "foobar"},
-			{Tag: "application-bar", Status: status.StatusStopped.String(), Info: "foobar"},
+			{Tag: s.machines[1].Tag().String(), Status: status.Stopped.String(), Info: "foobar"},
+			{Tag: s.machines[2].Tag().String(), Status: status.Started.String(), Info: "again"},
+			{Tag: "machine-42", Status: status.Started.String(), Info: "blah"},
+			{Tag: "unit-foo-0", Status: status.Stopped.String(), Info: "foobar"},
+			{Tag: "application-bar", Status: status.Stopped.String(), Info: "foobar"},
 		}}
 	result, err := s.provisioner.SetStatus(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -366,22 +366,22 @@ func (s *withoutControllerSuite) TestSetStatus(c *gc.C) {
 	})
 
 	// Verify the changes.
-	s.assertStatus(c, 0, status.StatusError, "not really", map[string]interface{}{"foo": "bar"})
-	s.assertStatus(c, 1, status.StatusStopped, "foobar", map[string]interface{}{})
-	s.assertStatus(c, 2, status.StatusStarted, "again", map[string]interface{}{})
+	s.assertStatus(c, 0, status.Error, "not really", map[string]interface{}{"foo": "bar"})
+	s.assertStatus(c, 1, status.Stopped, "foobar", map[string]interface{}{})
+	s.assertStatus(c, 2, status.Started, "again", map[string]interface{}{})
 }
 
 func (s *withoutControllerSuite) TestMachinesWithTransientErrors(c *gc.C) {
 	now := time.Now()
 	sInfo := status.StatusInfo{
-		Status:  status.StatusStarted,
+		Status:  status.Started,
 		Message: "blah",
 		Since:   &now,
 	}
 	err := s.machines[0].SetStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	sInfo = status.StatusInfo{
-		Status:  status.StatusError,
+		Status:  status.Error,
 		Message: "transient error",
 		Data:    map[string]interface{}{"transient": true, "foo": "bar"},
 		Since:   &now,
@@ -389,7 +389,7 @@ func (s *withoutControllerSuite) TestMachinesWithTransientErrors(c *gc.C) {
 	err = s.machines[1].SetStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	sInfo = status.StatusInfo{
-		Status:  status.StatusError,
+		Status:  status.Error,
 		Message: "error",
 		Data:    map[string]interface{}{"transient": false},
 		Since:   &now,
@@ -397,7 +397,7 @@ func (s *withoutControllerSuite) TestMachinesWithTransientErrors(c *gc.C) {
 	err = s.machines[2].SetStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	sInfo = status.StatusInfo{
-		Status:  status.StatusError,
+		Status:  status.Error,
 		Message: "error",
 		Since:   &now,
 	}
@@ -405,7 +405,7 @@ func (s *withoutControllerSuite) TestMachinesWithTransientErrors(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	// Machine 4 is provisioned but error not reset yet.
 	sInfo = status.StatusInfo{
-		Status:  status.StatusError,
+		Status:  status.Error,
 		Message: "transient error",
 		Data:    map[string]interface{}{"transient": true, "foo": "bar"},
 		Since:   &now,
@@ -435,14 +435,14 @@ func (s *withoutControllerSuite) TestMachinesWithTransientErrorsPermission(c *gc
 		anAuthorizer)
 	now := time.Now()
 	sInfo := status.StatusInfo{
-		Status:  status.StatusStarted,
+		Status:  status.Started,
 		Message: "blah",
 		Since:   &now,
 	}
 	err = s.machines[0].SetStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	sInfo = status.StatusInfo{
-		Status:  status.StatusError,
+		Status:  status.Error,
 		Message: "transient error",
 		Data:    map[string]interface{}{"transient": true, "foo": "bar"},
 		Since:   &now,
@@ -450,7 +450,7 @@ func (s *withoutControllerSuite) TestMachinesWithTransientErrorsPermission(c *gc
 	err = s.machines[1].SetStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	sInfo = status.StatusInfo{
-		Status:  status.StatusError,
+		Status:  status.Error,
 		Message: "error",
 		Data:    map[string]interface{}{"transient": false},
 		Since:   &now,
@@ -458,7 +458,7 @@ func (s *withoutControllerSuite) TestMachinesWithTransientErrorsPermission(c *gc
 	err = s.machines[2].SetStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	sInfo = status.StatusInfo{
-		Status:  status.StatusError,
+		Status:  status.Error,
 		Message: "error",
 		Since:   &now,
 	}
@@ -614,21 +614,21 @@ func (s *withoutControllerSuite) TestModelConfigNonManager(c *gc.C) {
 func (s *withoutControllerSuite) TestStatus(c *gc.C) {
 	now := time.Now()
 	sInfo := status.StatusInfo{
-		Status:  status.StatusStarted,
+		Status:  status.Started,
 		Message: "blah",
 		Since:   &now,
 	}
 	err := s.machines[0].SetStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	sInfo = status.StatusInfo{
-		Status:  status.StatusStopped,
+		Status:  status.Stopped,
 		Message: "foo",
 		Since:   &now,
 	}
 	err = s.machines[1].SetStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	sInfo = status.StatusInfo{
-		Status:  status.StatusError,
+		Status:  status.Error,
 		Message: "not really",
 		Data:    map[string]interface{}{"foo": "bar"},
 		Since:   &now,
@@ -657,9 +657,9 @@ func (s *withoutControllerSuite) TestStatus(c *gc.C) {
 	}
 	c.Assert(result, gc.DeepEquals, params.StatusResults{
 		Results: []params.StatusResult{
-			{Status: status.StatusStarted.String(), Info: "blah", Data: map[string]interface{}{}},
-			{Status: status.StatusStopped.String(), Info: "foo", Data: map[string]interface{}{}},
-			{Status: status.StatusError.String(), Info: "not really", Data: map[string]interface{}{"foo": "bar"}},
+			{Status: status.Started.String(), Info: "blah", Data: map[string]interface{}{}},
+			{Status: status.Stopped.String(), Info: "foo", Data: map[string]interface{}{}},
+			{Status: status.Error.String(), Info: "not really", Data: map[string]interface{}{"foo": "bar"}},
 			{Error: apiservertesting.NotFoundError("machine 42")},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -822,7 +822,7 @@ func (s *withoutControllerSuite) TestDistributionGroupMachineAgentAuth(c *gc.C) 
 
 func (s *withoutControllerSuite) TestConstraints(c *gc.C) {
 	// Add a machine with some constraints.
-	cons := constraints.MustParse("cpu-cores=123", "mem=8G")
+	cons := constraints.MustParse("cores=123", "mem=8G")
 	template := state.MachineTemplate{
 		Series:      "quantal",
 		Jobs:        []state.MachineJob{state.JobHostUnits},

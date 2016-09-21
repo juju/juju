@@ -4,6 +4,7 @@
 package api
 
 import (
+	"net/url"
 	"time"
 
 	"github.com/juju/errors"
@@ -118,7 +119,7 @@ type DialOpts struct {
 	Timeout time.Duration
 
 	// RetryDelay is the amount of time to wait between
-	// unsucssful connection attempts.
+	// unsuccessful connection attempts.
 	RetryDelay time.Duration
 
 	// BakeryClient is the httpbakery Client, which
@@ -196,6 +197,10 @@ type Connection interface {
 
 	// ControllerAccess returns the access level of authorized user to the controller.
 	ControllerAccess() string
+
+	// CookieURL returns the URL that HTTP cookies for the API will be
+	// associated with.
+	CookieURL() *url.URL
 
 	// These methods expose a bunch of worker-specific facades, and basically
 	// just should not exist; but removing them is too noisy for a single CL.

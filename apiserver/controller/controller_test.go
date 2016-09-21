@@ -4,6 +4,7 @@
 package controller_test
 
 import (
+	"encoding/json"
 	"regexp"
 	"time"
 
@@ -21,8 +22,9 @@ import (
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/core/description"
+	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/testing"
@@ -84,7 +86,7 @@ func (s *controllerSuite) TestAllModels(c *gc.C) {
 			User:        admin.UserTag(),
 			CreatedBy:   remoteUserTag,
 			DisplayName: "Foo Bar",
-			Access:      description.ReadAccess})
+			Access:      permission.ReadAccess})
 
 	s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "no-access", Owner: remoteUserTag}).Close()
@@ -261,15 +263,21 @@ func (s *controllerSuite) TestModelStatus(c *gc.C) {
 	})
 	defer otherSt.Close()
 
-	s.Factory.MakeMachine(c, &factory.MachineParams{Jobs: []state.MachineJob{state.JobManageModel}})
-	s.Factory.MakeMachine(c, &factory.MachineParams{Jobs: []state.MachineJob{state.JobHostUnits}})
+	eight := uint64(8)
+	s.Factory.MakeMachine(c, &factory.MachineParams{
+		Jobs:            []state.MachineJob{state.JobManageModel},
+		Characteristics: &instance.HardwareCharacteristics{CpuCores: &eight},
+		InstanceId:      "id-4",
+	})
+	s.Factory.MakeMachine(c, &factory.MachineParams{
+		Jobs: []state.MachineJob{state.JobHostUnits}, InstanceId: "id-5"})
 	s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Charm: s.Factory.MakeCharm(c, nil),
 	})
 
 	otherFactory := factory.NewFactory(otherSt)
-	otherFactory.MakeMachine(c, nil)
-	otherFactory.MakeMachine(c, nil)
+	otherFactory.MakeMachine(c, &factory.MachineParams{InstanceId: "id-8"})
+	otherFactory.MakeMachine(c, &factory.MachineParams{InstanceId: "id-9"})
 	otherFactory.MakeApplication(c, &factory.ApplicationParams{
 		Charm: otherFactory.MakeCharm(c, nil),
 	})
@@ -282,18 +290,33 @@ func (s *controllerSuite) TestModelStatus(c *gc.C) {
 	}
 	results, err := s.controller.ModelStatus(req)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.DeepEquals, []params.ModelStatus{{
+
+	arch := "amd64"
+	mem := uint64(64 * 1024 * 1024 * 1024)
+	stdHw := &params.MachineHardware{
+		Arch: &arch,
+		Mem:  &mem,
+	}
+	c.Assert(results.Results, jc.DeepEquals, []params.ModelStatus{{
 		ModelTag:           controllerEnvTag,
 		HostedMachineCount: 1,
 		ApplicationCount:   1,
 		OwnerTag:           "user-admin@local",
 		Life:               params.Alive,
+		Machines: []params.ModelMachineInfo{
+			{Id: "0", Hardware: &params.MachineHardware{Cores: &eight}, InstanceId: "id-4", Status: "pending", WantsVote: true},
+			{Id: "1", Hardware: stdHw, InstanceId: "id-5", Status: "pending"},
+		},
 	}, {
 		ModelTag:           hostedEnvTag,
 		HostedMachineCount: 2,
 		ApplicationCount:   1,
 		OwnerTag:           otherEnvOwner.UserTag.String(),
 		Life:               params.Alive,
+		Machines: []params.ModelMachineInfo{
+			{Id: "0", Hardware: stdHw, InstanceId: "id-8", Status: "pending"},
+			{Id: "1", Hardware: stdHw, InstanceId: "id-9", Status: "pending"},
+		},
 	}})
 }
 
@@ -307,7 +330,7 @@ func (s *controllerSuite) TestInitiateMigration(c *gc.C) {
 
 	mac, err := macaroon.New([]byte("secret"), "id", "location")
 	c.Assert(err, jc.ErrorIsNil)
-	macJSON, err := mac.MarshalJSON()
+	macsJSON, err := json.Marshal([]macaroon.Slice{{mac}})
 	c.Assert(err, jc.ErrorIsNil)
 
 	controller.SetPrecheckResult(s, nil)
@@ -318,7 +341,7 @@ func (s *controllerSuite) TestInitiateMigration(c *gc.C) {
 			{
 				ModelTag: st1.ModelTag().String(),
 				TargetInfo: params.MigrationTargetInfo{
-					ControllerTag: randomModelTag(),
+					ControllerTag: randomControllerTag(),
 					Addrs:         []string{"1.1.1.1:1111", "2.2.2.2:2222"},
 					CACert:        "cert1",
 					AuthTag:       names.NewUserTag("admin1").String(),
@@ -327,11 +350,12 @@ func (s *controllerSuite) TestInitiateMigration(c *gc.C) {
 			}, {
 				ModelTag: st2.ModelTag().String(),
 				TargetInfo: params.MigrationTargetInfo{
-					ControllerTag: randomModelTag(),
+					ControllerTag: randomControllerTag(),
 					Addrs:         []string{"3.3.3.3:3333"},
 					CACert:        "cert2",
 					AuthTag:       names.NewUserTag("admin2").String(),
-					Macaroon:      string(macJSON),
+					Macaroons:     string(macsJSON),
+					Password:      "secret2",
 				},
 				ExternalControl: true,
 			},
@@ -343,10 +367,11 @@ func (s *controllerSuite) TestInitiateMigration(c *gc.C) {
 
 	states := []*state.State{st1, st2}
 	for i, spec := range args.Specs {
+		c.Log(i)
 		st := states[i]
 		result := out.Results[i]
 
-		c.Check(result.Error, gc.IsNil)
+		c.Assert(result.Error, gc.IsNil)
 		c.Check(result.ModelTag, gc.Equals, spec.ModelTag)
 		expectedId := st.ModelUUID() + ":0"
 		c.Check(result.MigrationId, gc.Equals, expectedId)
@@ -367,12 +392,11 @@ func (s *controllerSuite) TestInitiateMigration(c *gc.C) {
 		c.Check(targetInfo.AuthTag.String(), gc.Equals, spec.TargetInfo.AuthTag)
 		c.Check(targetInfo.Password, gc.Equals, spec.TargetInfo.Password)
 
-		var macJSONdb []byte
-		if targetInfo.Macaroon != nil {
-			macJSONdb, err = targetInfo.Macaroon.MarshalJSON()
+		if spec.TargetInfo.Macaroons != "" {
+			macJSONdb, err := json.Marshal(targetInfo.Macaroons)
 			c.Assert(err, jc.ErrorIsNil)
+			c.Check(string(macJSONdb), gc.Equals, spec.TargetInfo.Macaroons)
 		}
-		c.Check(string(macJSONdb), gc.Equals, spec.TargetInfo.Macaroon)
 	}
 }
 
@@ -407,7 +431,7 @@ func (s *controllerSuite) TestInitiateMigrationPartialFailure(c *gc.C) {
 			{
 				ModelTag: st.ModelTag().String(),
 				TargetInfo: params.MigrationTargetInfo{
-					ControllerTag: randomModelTag(),
+					ControllerTag: randomControllerTag(),
 					Addrs:         []string{"1.1.1.1:1111", "2.2.2.2:2222"},
 					CACert:        "cert",
 					AuthTag:       names.NewUserTag("admin").String(),
@@ -429,7 +453,7 @@ func (s *controllerSuite) TestInitiateMigrationPartialFailure(c *gc.C) {
 	c.Check(out.Results[1].Error, gc.ErrorMatches, "unable to read model: .+")
 }
 
-func (s *controllerSuite) TestInitiateMigrationInvalidMacaroon(c *gc.C) {
+func (s *controllerSuite) TestInitiateMigrationInvalidMacaroons(c *gc.C) {
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 
@@ -438,11 +462,11 @@ func (s *controllerSuite) TestInitiateMigrationInvalidMacaroon(c *gc.C) {
 			{
 				ModelTag: st.ModelTag().String(),
 				TargetInfo: params.MigrationTargetInfo{
-					ControllerTag: randomModelTag(),
+					ControllerTag: randomControllerTag(),
 					Addrs:         []string{"1.1.1.1:1111", "2.2.2.2:2222"},
 					CACert:        "cert",
 					AuthTag:       names.NewUserTag("admin").String(),
-					Macaroon:      "BLAH",
+					Macaroons:     "BLAH",
 				},
 			},
 		},
@@ -452,7 +476,7 @@ func (s *controllerSuite) TestInitiateMigrationInvalidMacaroon(c *gc.C) {
 	c.Assert(out.Results, gc.HasLen, 1)
 	result := out.Results[0]
 	c.Check(result.ModelTag, gc.Equals, args.Specs[0].ModelTag)
-	c.Check(result.Error, gc.ErrorMatches, "invalid macaroon: .+")
+	c.Check(result.Error, gc.ErrorMatches, "invalid macaroons: .+")
 }
 
 func (s *controllerSuite) TestInitiateMigrationPrecheckFail(c *gc.C) {
@@ -465,7 +489,7 @@ func (s *controllerSuite) TestInitiateMigrationPrecheckFail(c *gc.C) {
 		Specs: []params.MigrationSpec{{
 			ModelTag: st.ModelTag().String(),
 			TargetInfo: params.MigrationTargetInfo{
-				ControllerTag: randomModelTag(),
+				ControllerTag: randomControllerTag(),
 				Addrs:         []string{"1.1.1.1:1111"},
 				CACert:        "cert1",
 				AuthTag:       names.NewUserTag("admin1").String(),
@@ -480,7 +504,39 @@ func (s *controllerSuite) TestInitiateMigrationPrecheckFail(c *gc.C) {
 	active, err := st.IsMigrationActive()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(active, jc.IsFalse)
+}
 
+func (s *controllerSuite) TestInitiateMigrationSkipPrechecks(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
+	defer st.Close()
+	controller.SetPrecheckResult(s, errors.New("should not happen"))
+
+	args := params.InitiateMigrationArgs{
+		Specs: []params.MigrationSpec{
+			{
+				ModelTag: st.ModelTag().String(),
+				TargetInfo: params.MigrationTargetInfo{
+					ControllerTag: randomControllerTag(),
+					Addrs:         []string{"1.1.1.1:1111", "2.2.2.2:2222"},
+					CACert:        "cert",
+					AuthTag:       names.NewUserTag("admin").String(),
+					Password:      "secret",
+				},
+				ExternalControl:      true,
+				SkipInitialPrechecks: true,
+			},
+		},
+	}
+	out, err := s.controller.InitiateMigration(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(out.Results, gc.HasLen, 1)
+	c.Check(out.Results[0].ModelTag, gc.Equals, st.ModelTag().String())
+	c.Check(out.Results[0].Error, gc.IsNil)
+}
+
+func randomControllerTag() string {
+	uuid := utils.MustNewUUID().String()
+	return names.NewControllerTag(uuid).String()
 }
 
 func randomModelTag() string {
@@ -510,7 +566,7 @@ func (s *controllerSuite) controllerRevoke(c *gc.C, user names.UserTag, access s
 
 func (s *controllerSuite) TestGrantMissingUserFails(c *gc.C) {
 	user := names.NewLocalUserTag("foobar")
-	err := s.controllerGrant(c, user, string(description.AddModelAccess))
+	err := s.controllerGrant(c, user, string(permission.AddModelAccess))
 	expectedErr := `could not grant controller access: user "foobar" does not exist locally: user "foobar" not found`
 	c.Assert(err, gc.ErrorMatches, expectedErr)
 }
@@ -518,42 +574,42 @@ func (s *controllerSuite) TestGrantMissingUserFails(c *gc.C) {
 func (s *controllerSuite) TestRevokeSuperuserLeavesAddModelAccess(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{NoModelUser: true})
 
-	err := s.controllerGrant(c, user.UserTag(), string(description.SuperuserAccess))
+	err := s.controllerGrant(c, user.UserTag(), string(permission.SuperuserAccess))
 	c.Assert(err, gc.IsNil)
 	ctag := names.NewControllerTag(s.State.ControllerUUID())
 	controllerUser, err := s.State.UserAccess(user.UserTag(), ctag)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(controllerUser.Access, gc.Equals, description.SuperuserAccess)
+	c.Assert(controllerUser.Access, gc.Equals, permission.SuperuserAccess)
 
-	err = s.controllerRevoke(c, user.UserTag(), string(description.SuperuserAccess))
+	err = s.controllerRevoke(c, user.UserTag(), string(permission.SuperuserAccess))
 	c.Assert(err, gc.IsNil)
 
 	controllerUser, err = s.State.UserAccess(user.UserTag(), controllerUser.Object)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(controllerUser.Access, gc.Equals, description.AddModelAccess)
+	c.Assert(controllerUser.Access, gc.Equals, permission.AddModelAccess)
 }
 
 func (s *controllerSuite) TestRevokeAddModelLeavesLoginAccess(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{NoModelUser: true})
 
-	err := s.controllerGrant(c, user.UserTag(), string(description.AddModelAccess))
+	err := s.controllerGrant(c, user.UserTag(), string(permission.AddModelAccess))
 	c.Assert(err, gc.IsNil)
 	ctag := names.NewControllerTag(s.State.ControllerUUID())
 	controllerUser, err := s.State.UserAccess(user.UserTag(), ctag)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(controllerUser.Access, gc.Equals, description.AddModelAccess)
+	c.Assert(controllerUser.Access, gc.Equals, permission.AddModelAccess)
 
-	err = s.controllerRevoke(c, user.UserTag(), string(description.AddModelAccess))
+	err = s.controllerRevoke(c, user.UserTag(), string(permission.AddModelAccess))
 	c.Assert(err, gc.IsNil)
 
 	controllerUser, err = s.State.UserAccess(user.UserTag(), controllerUser.Object)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(controllerUser.Access, gc.Equals, description.LoginAccess)
+	c.Assert(controllerUser.Access, gc.Equals, permission.LoginAccess)
 }
 
 func (s *controllerSuite) TestRevokeLoginRemovesControllerUser(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{NoModelUser: true})
-	err := s.controllerRevoke(c, user.UserTag(), string(description.LoginAccess))
+	err := s.controllerRevoke(c, user.UserTag(), string(permission.LoginAccess))
 	c.Assert(err, gc.IsNil)
 
 	ctag := names.NewControllerTag(s.State.ControllerUUID())
@@ -564,7 +620,7 @@ func (s *controllerSuite) TestRevokeLoginRemovesControllerUser(c *gc.C) {
 
 func (s *controllerSuite) TestRevokeControllerMissingUser(c *gc.C) {
 	user := names.NewLocalUserTag("foobar")
-	err := s.controllerRevoke(c, user, string(description.AddModelAccess))
+	err := s.controllerRevoke(c, user, string(permission.AddModelAccess))
 	expectedErr := `could not look up controller access for user: user "foobar" not found`
 	c.Assert(err, gc.ErrorMatches, expectedErr)
 }
@@ -572,14 +628,14 @@ func (s *controllerSuite) TestRevokeControllerMissingUser(c *gc.C) {
 func (s *controllerSuite) TestGrantOnlyGreaterAccess(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{NoModelUser: true})
 
-	err := s.controllerGrant(c, user.UserTag(), string(description.AddModelAccess))
+	err := s.controllerGrant(c, user.UserTag(), string(permission.AddModelAccess))
 	c.Assert(err, gc.IsNil)
 	ctag := names.NewControllerTag(s.State.ControllerUUID())
 	controllerUser, err := s.State.UserAccess(user.UserTag(), ctag)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(controllerUser.Access, gc.Equals, description.AddModelAccess)
+	c.Assert(controllerUser.Access, gc.Equals, permission.AddModelAccess)
 
-	err = s.controllerGrant(c, user.UserTag(), string(description.AddModelAccess))
+	err = s.controllerGrant(c, user.UserTag(), string(permission.AddModelAccess))
 	expectedErr := `could not grant controller access: user already has "addmodel" access or greater`
 	c.Assert(err, gc.ErrorMatches, expectedErr)
 }
@@ -587,14 +643,14 @@ func (s *controllerSuite) TestGrantOnlyGreaterAccess(c *gc.C) {
 func (s *controllerSuite) TestGrantControllerAddRemoteUser(c *gc.C) {
 	userTag := names.NewUserTag("foobar@ubuntuone")
 
-	err := s.controllerGrant(c, userTag, string(description.AddModelAccess))
+	err := s.controllerGrant(c, userTag, string(permission.AddModelAccess))
 	c.Assert(err, jc.ErrorIsNil)
 
 	ctag := names.NewControllerTag(s.State.ControllerUUID())
 	controllerUser, err := s.State.UserAccess(userTag, ctag)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(controllerUser.Access, gc.Equals, description.AddModelAccess)
+	c.Assert(controllerUser.Access, gc.Equals, permission.AddModelAccess)
 }
 
 func (s *controllerSuite) TestGrantControllerInvalidUserTag(c *gc.C) {
@@ -654,7 +710,7 @@ func (s *controllerSuite) TestGrantControllerInvalidUserTag(c *gc.C) {
 			Changes: []params.ModifyControllerAccess{{
 				UserTag: testParam.tag,
 				Action:  params.GrantControllerAccess,
-				Access:  string(description.SuperuserAccess),
+				Access:  string(permission.SuperuserAccess),
 			}}}
 
 		result, err := s.controller.ModifyControllerAccess(args)
@@ -678,7 +734,7 @@ func (s *controllerSuite) TestModifyControllerAccessInvalidAction(c *gc.C) {
 		Changes: []params.ModifyControllerAccess{{
 			UserTag: "user-user@local",
 			Action:  dance,
-			Access:  string(description.LoginAccess),
+			Access:  string(permission.LoginAccess),
 		}}}
 
 	result, err := s.controller.ModifyControllerAccess(args)
@@ -691,9 +747,9 @@ func (s *controllerSuite) TestGetControllerAccess(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{NoModelUser: true})
 	user2 := s.Factory.MakeUser(c, &factory.UserParams{NoModelUser: true})
 
-	err := s.controllerGrant(c, user.UserTag(), string(description.SuperuserAccess))
+	err := s.controllerGrant(c, user.UserTag(), string(permission.SuperuserAccess))
 	c.Assert(err, gc.IsNil)
-	err = s.controllerGrant(c, user2.UserTag(), string(description.AddModelAccess))
+	err = s.controllerGrant(c, user2.UserTag(), string(permission.AddModelAccess))
 	c.Assert(err, gc.IsNil)
 	req := params.Entities{
 		Entities: []params.Entity{{Tag: user.Tag().String()}, {Tag: user2.Tag().String()}},

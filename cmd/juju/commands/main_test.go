@@ -43,8 +43,8 @@ var _ = gc.Suite(&MainSuite{})
 func deployHelpText() string {
 	return cmdtesting.HelpText(application.NewDeployCommand(), "juju deploy")
 }
-func setconfigHelpText() string {
-	return cmdtesting.HelpText(application.NewSetCommand(), "juju set-config")
+func configHelpText() string {
+	return cmdtesting.HelpText(application.NewConfigCommand(), "juju config")
 }
 
 func syncToolsHelpText() string {
@@ -84,15 +84,15 @@ func (s *MainSuite) TestRunMain(c *gc.C) {
 		code:    0,
 		out:     deployHelpText(),
 	}, {
-		summary: "juju --help set-config shows the same help as 'help set-config'",
-		args:    []string{"--help", "set-config"},
+		summary: "juju --help config shows the same help as 'help config'",
+		args:    []string{"--help", "config"},
 		code:    0,
-		out:     setconfigHelpText(),
+		out:     configHelpText(),
 	}, {
-		summary: "juju set-config --help shows the same help as 'help set-config'",
-		args:    []string{"set-config", "--help"},
+		summary: "juju config --help shows the same help as 'help config'",
+		args:    []string{"config", "--help"},
 		code:    0,
-		out:     setconfigHelpText(),
+		out:     configHelpText(),
 	}, {
 		summary: "unknown command",
 		args:    []string{"discombobulate"},
@@ -408,6 +408,7 @@ var commandNames = []string{
 	"change-user-password",
 	"charm",
 	"clouds",
+	"config",
 	"collect-metrics",
 	"controllers",
 	"create-backup",
@@ -426,12 +427,11 @@ var commandNames = []string{
 	"download-backup",
 	"enable-ha",
 	"enable-command",
+	"enable-destroy-controller",
 	"enable-user",
 	"expose",
-	"get-config",
 	"get-constraints",
 	"get-controller-config",
-	"get-model-config",
 	"get-model-constraints",
 	"grant",
 	"gui",
@@ -451,7 +451,6 @@ var commandNames = []string{
 	"list-machines",
 	"list-models",
 	"list-plans",
-	"list-shares",
 	"list-ssh-keys",
 	"list-spaces",
 	"list-storage",
@@ -468,7 +467,6 @@ var commandNames = []string{
 	"plans",
 	"register",
 	"relate", //alias for add-relation
-	"remove-all-blocks",
 	"remove-application",
 	"remove-backup",
 	"remove-cached-images",
@@ -486,16 +484,12 @@ var commandNames = []string{
 	"run-action",
 	"scp",
 	"set-budget",
-	"set-config",
 	"set-constraints",
 	"set-default-credential",
 	"set-default-region",
 	"set-meter-status",
-	"set-model-config",
 	"set-model-constraints",
-	"set-model-default",
 	"set-plan",
-	"shares",
 	"show-action-output",
 	"show-action-status",
 	"show-backup",
@@ -521,8 +515,6 @@ var commandNames = []string{
 	"update-allocation",
 	"upload-backup",
 	"unregister",
-	"unset-model-config",
-	"unset-model-default",
 	"update-clouds",
 	"upgrade-charm",
 	"upgrade-gui",

@@ -146,10 +146,10 @@ func (s *environBrokerSuite) TestGetMetadataWindows(c *gc.C) {
 }
 
 func (s *environBrokerSuite) TestGetMetadataOSNotSupported(c *gc.C) {
-	metadata, err := gce.GetMetadata(s.StartInstArgs, jujuos.Arch)
+	metadata, err := gce.GetMetadata(s.StartInstArgs, jujuos.GenericLinux)
 
 	c.Assert(metadata, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "cannot pack metadata for os Arch on the gce provider")
+	c.Assert(err, gc.ErrorMatches, "cannot pack metadata for os GenericLinux on the gce provider")
 }
 
 var getDisksTests = []struct {

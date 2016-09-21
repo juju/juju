@@ -16,7 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/presence"
-	"github.com/juju/juju/core/description"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/rpcreflect"
 	"github.com/juju/juju/state"
@@ -92,7 +92,7 @@ func (a *admin) login(req params.LoginRequest, loginVersion int) (params.LoginRe
 	controllerOnlyLogin := a.root.modelUUID == ""
 	controllerMachineLogin := false
 
-	entity, lastConnection, err := doCheckCreds(a.root.state, req, isUser, a.srv.authCtxt)
+	entity, lastConnection, err := a.checkCreds(req, isUser)
 	if err != nil {
 		if err, ok := errors.Cause(err).(*common.DischargeRequiredError); ok {
 			loginResult := params.LoginResult{
@@ -143,14 +143,14 @@ func (a *admin) login(req params.LoginRequest, loginVersion int) (params.LoginRe
 	a.loggedIn = true
 
 	if !controllerMachineLogin {
-		if err := startPingerIfAgent(a.root, entity); err != nil {
+		if err := startPingerIfAgent(a.srv.clock, a.root, entity); err != nil {
 			return fail, errors.Trace(err)
 		}
 	}
 
 	var maybeUserInfo *params.AuthUserInfo
-	var modelUser description.UserAccess
-	var everyoneGroupUser description.UserAccess
+	var modelUser permission.UserAccess
+	var everyoneGroupUser permission.UserAccess
 	// Send back user info if user
 	if isUser {
 		maybeUserInfo = &params.AuthUserInfo{
@@ -182,9 +182,9 @@ func (a *admin) login(req params.LoginRequest, loginVersion int) (params.LoginRe
 			return fail, errors.Annotatef(err, "obtaining ControllerUser for logged in user %s", entity.Tag())
 		}
 
-		if description.IsEmptyUserAccess(modelUser) &&
-			description.IsEmptyUserAccess(controllerUser) &&
-			description.IsEmptyUserAccess(everyoneGroupUser) {
+		if permission.IsEmptyUserAccess(modelUser) &&
+			permission.IsEmptyUserAccess(controllerUser) &&
+			permission.IsEmptyUserAccess(everyoneGroupUser) {
 			return fail, errors.NotFoundf("model or controller access for logged in user %q", userTag.Canonical())
 		}
 		maybeUserInfo.ControllerAccess = string(controllerUser.Access)
@@ -241,8 +241,16 @@ func filterFacades(allowFacade func(name string) bool) []params.FacadeVersions {
 	return out
 }
 
+func (a *admin) checkCreds(req params.LoginRequest, lookForModelUser bool) (state.Entity, *time.Time, error) {
+	return doCheckCreds(a.root.state, req, lookForModelUser, a.authenticator())
+}
+
 func (a *admin) checkControllerMachineCreds(req params.LoginRequest) (state.Entity, error) {
-	return checkControllerMachineCreds(a.srv.state, req, a.srv.authCtxt)
+	return checkControllerMachineCreds(a.srv.state, req, a.authenticator())
+}
+
+func (a *admin) authenticator() authentication.EntityAuthenticator {
+	return a.srv.authCtxt.authenticator(a.root.serverHost)
 }
 
 func (a *admin) maintenanceInProgress() bool {
@@ -385,8 +393,8 @@ var _ loginEntity = &modelUserEntity{}
 type modelUserEntity struct {
 	st *state.State
 
-	controllerUser description.UserAccess
-	modelUser      description.UserAccess
+	controllerUser permission.UserAccess
+	modelUser      permission.UserAccess
 	user           *state.User
 }
 
@@ -420,7 +428,7 @@ func (u *modelUserEntity) Tag() names.Tag {
 	if u.user != nil {
 		return u.user.UserTag()
 	}
-	if !description.IsEmptyUserAccess(u.modelUser) {
+	if !permission.IsEmptyUserAccess(u.modelUser) {
 		return u.modelUser.UserTag
 	}
 	return u.controllerUser.UserTag
@@ -433,12 +441,12 @@ func (u *modelUserEntity) LastLogin() (time.Time, error) {
 	// the local user last login time.
 	var err error
 	var t time.Time
-	if !description.IsEmptyUserAccess(u.modelUser) {
+	if !permission.IsEmptyUserAccess(u.modelUser) {
 		t, err = u.st.LastModelConnection(u.modelUser.UserTag)
 	} else {
 		err = state.NeverConnectedError("controller user")
 	}
-	if state.IsNeverConnectedError(err) || description.IsEmptyUserAccess(u.modelUser) {
+	if state.IsNeverConnectedError(err) || permission.IsEmptyUserAccess(u.modelUser) {
 		if u.user != nil {
 			// There's a global user, so use that login time instead.
 			return u.user.LastLogin()
@@ -454,7 +462,7 @@ func (u *modelUserEntity) LastLogin() (time.Time, error) {
 func (u *modelUserEntity) UpdateLastLogin() error {
 	var err error
 
-	if !description.IsEmptyUserAccess(u.modelUser) {
+	if !permission.IsEmptyUserAccess(u.modelUser) {
 		if u.modelUser.Object.Kind() != names.ModelTagKind {
 			return errors.NotValidf("%s as model user", u.modelUser.Object.Kind())
 		}
@@ -493,7 +501,7 @@ func (shim presenceShim) Start() (presence.Pinger, error) {
 	return pinger, nil
 }
 
-func startPingerIfAgent(root *apiHandler, entity state.Entity) error {
+func startPingerIfAgent(clock clock.Clock, root *apiHandler, entity state.Entity) error {
 	// worker runs presence.Pingers -- absence of which will cause
 	// embarrassing "agent is lost" messages to show up in status --
 	// until it's stopped. It's stored in resources purely for the
@@ -507,7 +515,7 @@ func startPingerIfAgent(root *apiHandler, entity state.Entity) error {
 	worker, err := presence.New(presence.Config{
 		Identity:   entity.Tag(),
 		Start:      presenceShim{agent}.Start,
-		Clock:      clock.WallClock,
+		Clock:      clock,
 		RetryDelay: 3 * time.Second,
 	})
 	if err != nil {
@@ -531,7 +539,7 @@ func startPingerIfAgent(root *apiHandler, entity state.Entity) error {
 			logger.Errorf("error closing the RPC connection: %v", err)
 		}
 	}
-	pingTimeout := newPingTimeout(action, clock.WallClock, maxClientPingInterval)
+	pingTimeout := newPingTimeout(action, clock, maxClientPingInterval)
 	return root.getResources().RegisterNamed("pingTimeout", pingTimeout)
 }
 

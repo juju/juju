@@ -588,6 +588,16 @@ func (s *MetricSuite) TestUnitMetricBatchesMatchesAllCharms(c *gc.C) {
 	c.Assert(metricBatches, gc.HasLen, 1)
 }
 
+func (s *MetricSuite) TestNoSuchUnitMetricBatches(c *gc.C) {
+	_, err := s.State.MetricBatchesForUnit("chimerical-unit/0")
+	c.Assert(err, gc.ErrorMatches, `unit "chimerical-unit/0" not found`)
+}
+
+func (s *MetricSuite) TestNoSuchApplicationMetricBatches(c *gc.C) {
+	_, err := s.State.MetricBatchesForApplication("unicorn-app")
+	c.Assert(err, gc.ErrorMatches, `application "unicorn-app" not found`)
+}
+
 type MetricLocalCharmSuite struct {
 	ConnSuite
 	unit         *state.Unit

@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -34,12 +35,22 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.manifold = leadership.Manifold(leadership.ManifoldConfig{
 		AgentName:           "agent-name",
 		APICallerName:       "api-caller-name",
+		Clock:               clock.WallClock,
 		LeadershipGuarantee: 123456 * time.Millisecond,
 	})
 }
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
 	c.Check(s.manifold.Inputs, jc.DeepEquals, []string{"agent-name", "api-caller-name"})
+}
+
+func (s *ManifoldSuite) TestStartClockMissing(c *gc.C) {
+	manifold := leadership.Manifold(leadership.ManifoldConfig{})
+	context := dt.StubContext(nil, nil)
+	worker, err := manifold.Start(context)
+	c.Check(worker, gc.IsNil)
+	c.Check(err.Error(), gc.Equals, "missing Clock not valid")
+	c.Check(err, jc.Satisfies, errors.IsNotValid)
 }
 
 func (s *ManifoldSuite) TestStartAgentMissing(c *gc.C) {
@@ -71,8 +82,8 @@ func (s *ManifoldSuite) TestStartError(c *gc.C) {
 		"agent-name":      dummyAgent,
 		"api-caller-name": dummyApiCaller,
 	})
-	s.PatchValue(&leadership.NewManifoldWorker, func(a agent.Agent, apiCaller base.APICaller, guarantee time.Duration) (worker.Worker, error) {
-		s.AddCall("newManifoldWorker", a, apiCaller, guarantee)
+	s.PatchValue(&leadership.NewManifoldWorker, func(a agent.Agent, apiCaller base.APICaller, clock clock.Clock, guarantee time.Duration) (worker.Worker, error) {
+		s.AddCall("newManifoldWorker", a, apiCaller, clock, guarantee)
 		return nil, errors.New("blammo")
 	})
 
@@ -81,7 +92,7 @@ func (s *ManifoldSuite) TestStartError(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, "blammo")
 	s.CheckCalls(c, []testing.StubCall{{
 		FuncName: "newManifoldWorker",
-		Args:     []interface{}{dummyAgent, dummyApiCaller, 123456 * time.Millisecond},
+		Args:     []interface{}{dummyAgent, dummyApiCaller, clock.WallClock, 123456 * time.Millisecond},
 	}})
 }
 
@@ -93,8 +104,8 @@ func (s *ManifoldSuite) TestStartSuccess(c *gc.C) {
 		"api-caller-name": dummyApiCaller,
 	})
 	dummyWorker := &dummyWorker{}
-	s.PatchValue(&leadership.NewManifoldWorker, func(a agent.Agent, apiCaller base.APICaller, guarantee time.Duration) (worker.Worker, error) {
-		s.AddCall("newManifoldWorker", a, apiCaller, guarantee)
+	s.PatchValue(&leadership.NewManifoldWorker, func(a agent.Agent, apiCaller base.APICaller, clock clock.Clock, guarantee time.Duration) (worker.Worker, error) {
+		s.AddCall("newManifoldWorker", a, apiCaller, clock, guarantee)
 		return dummyWorker, nil
 	})
 
@@ -103,7 +114,7 @@ func (s *ManifoldSuite) TestStartSuccess(c *gc.C) {
 	c.Check(worker, gc.Equals, dummyWorker)
 	s.CheckCalls(c, []testing.StubCall{{
 		FuncName: "newManifoldWorker",
-		Args:     []interface{}{dummyAgent, dummyApiCaller, 123456 * time.Millisecond},
+		Args:     []interface{}{dummyAgent, dummyApiCaller, clock.WallClock, 123456 * time.Millisecond},
 	}})
 }
 

@@ -95,7 +95,7 @@ type ModelInfo struct {
 	ControllerUUID     string `json:"controller-uuid"`
 	ProviderType       string `json:"provider-type"`
 	DefaultSeries      string `json:"default-series"`
-	Cloud              string `json:"cloud"`
+	CloudTag           string `json:"cloud-tag"`
 	CloudRegion        string `json:"cloud-region,omitempty"`
 	CloudCredentialTag string `json:"cloud-credential-tag,omitempty"`
 
@@ -112,6 +112,11 @@ type ModelInfo struct {
 	// to the model. Owners and administrators can see all users
 	// that have access; other users can only see their own details.
 	Users []ModelUserInfo `json:"users"`
+
+	// Machines contains information about the machines in the model.
+	// This information is available to owners and users with write
+	// access or greater.
+	Machines []ModelMachineInfo `json:"machines"`
 }
 
 // ModelInfoResult holds the result of a ModelInfo call.
@@ -141,6 +146,27 @@ type ModelInfoListResult struct {
 // multiple lists of ModelInfo structures.
 type ModelInfoListResults struct {
 	Results []ModelInfoListResult `json:"results"`
+}
+
+// ModelMachineInfo holds information about a machine in a model.
+type ModelMachineInfo struct {
+	Id         string           `json:"id"`
+	Hardware   *MachineHardware `json:"hardware,omitempty"`
+	InstanceId string           `json:"instance-id,omitempty"`
+	Status     string           `json:"status,omitempty"`
+	HasVote    bool             `json:"has-vote,omitempty"`
+	WantsVote  bool             `json:"wants-vote,omitempty"`
+}
+
+// MachineHardware holds information about a machine's hardware characteristics.
+type MachineHardware struct {
+	Arch             *string   `json:"arch,omitempty"`
+	Mem              *uint64   `json:"mem,omitempty"`
+	RootDisk         *uint64   `json:"root-disk,omitempty"`
+	Cores            *uint64   `json:"cores,omitempty"`
+	CpuPower         *uint64   `json:"cpu-power,omitempty"`
+	Tags             *[]string `json:"tags,omitempty"`
+	AvailabilityZone *string   `json:"availability-zone,omitempty"`
 }
 
 // ModelUserInfo holds information on a user who has access to a

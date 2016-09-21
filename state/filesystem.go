@@ -614,7 +614,7 @@ func destroyFilesystemOps(st *State, f *filesystem) []txn.Op {
 		}}
 	}
 	hasAttachments := bson.D{{"attachmentcount", bson.D{{"$gt", 0}}}}
-	cleanupOp := st.newCleanupOp(cleanupAttachmentsForDyingFilesystem, f.doc.FilesystemId)
+	cleanupOp := newCleanupOp(cleanupAttachmentsForDyingFilesystem, f.doc.FilesystemId)
 	return []txn.Op{{
 		C:      filesystemsC,
 		Id:     f.doc.FilesystemId,
@@ -754,7 +754,7 @@ func (st *State) addFilesystemOps(params FilesystemParams, machineId string) ([]
 	}
 
 	status := statusDoc{
-		Status: status.StatusPending,
+		Status: status.Pending,
 		// TODO(fwereade): 2016-03-17 lp:1558657
 		Updated: time.Now().UnixNano(),
 	}
@@ -1147,12 +1147,12 @@ func (st *State) FilesystemStatus(tag names.FilesystemTag) (status.StatusInfo, e
 // SetFilesystemStatus sets the status of the specified filesystem.
 func (st *State) SetFilesystemStatus(tag names.FilesystemTag, fsStatus status.Status, info string, data map[string]interface{}, updated *time.Time) error {
 	switch fsStatus {
-	case status.StatusAttaching, status.StatusAttached, status.StatusDetaching, status.StatusDetached, status.StatusDestroying:
-	case status.StatusError:
+	case status.Attaching, status.Attached, status.Detaching, status.Detached, status.Destroying:
+	case status.Error:
 		if info == "" {
 			return errors.Errorf("cannot set status %q without info", fsStatus)
 		}
-	case status.StatusPending:
+	case status.Pending:
 		// If a filesystem is not yet provisioned, we allow its status
 		// to be set back to pending (when a retry is to occur).
 		v, err := st.Filesystem(tag)

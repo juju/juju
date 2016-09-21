@@ -91,7 +91,7 @@ func ProcessBlockedError(err error, block Block) error {
 		return nil
 	}
 	if params.IsCodeOperationBlocked(err) {
-		logger.Errorf("\n%v%v", err, blockedMessages[block])
+		logger.Errorf("%v\n%v", err, blockedMessages[block])
 		return cmd.ErrSilent
 	}
 	return err

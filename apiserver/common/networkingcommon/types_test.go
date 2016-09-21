@@ -4,10 +4,14 @@
 package networkingcommon_test
 
 import (
+	"errors"
 	"fmt"
-	"math/rand"
+	"io/ioutil"
 	"net"
+	"os"
+	"path/filepath"
 
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -20,23 +24,20 @@ import (
 
 type TypesSuite struct {
 	coretesting.BaseSuite
+
+	stubConfigSource *stubNetworkConfigSource
 }
 
 var _ = gc.Suite(&TypesSuite{})
 
-func (s *TypesSuite) TestCopyNetworkConfig(c *gc.C) {
-	inputAndExpectedOutput := []params.NetworkConfig{{
-		InterfaceName: "foo",
-		DNSServers:    []string{"bar", "baz"},
-		Address:       "0.1.2.3",
-	}, {
-		DeviceIndex:         124,
-		ParentInterfaceName: "parent",
-		ProviderId:          "nic-id",
-	}}
-
-	output := networkingcommon.CopyNetworkConfigs(inputAndExpectedOutput)
-	c.Assert(output, jc.DeepEquals, inputAndExpectedOutput)
+func (s *TypesSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
+	s.stubConfigSource = &stubNetworkConfigSource{
+		Stub:                &testing.Stub{},
+		fakeSysClassNetPath: c.MkDir(),
+		interfaces:          exampleObservedInterfaces,
+		interfaceAddrs:      exampleObservedInterfaceAddrs,
+	}
 }
 
 func mustParseMAC(value string) net.HardwareAddr {
@@ -59,12 +60,6 @@ var exampleObservedInterfaces = []net.Interface{{
 	HardwareAddr: mustParseMAC("aa:bb:cc:dd:ee:f0"),
 	Flags:        net.FlagUp | net.FlagBroadcast | net.FlagMulticast,
 }, {
-	Index:        3,
-	MTU:          1500,
-	Name:         "eth1",
-	HardwareAddr: mustParseMAC("aa:bb:cc:dd:ee:f1"),
-	Flags:        net.FlagUp | net.FlagBroadcast | net.FlagMulticast,
-}, {
 	Index:        10,
 	MTU:          1500,
 	Name:         "br-eth0",
@@ -74,6 +69,12 @@ var exampleObservedInterfaces = []net.Interface{{
 	Index:        11,
 	MTU:          1500,
 	Name:         "br-eth1",
+	HardwareAddr: mustParseMAC("aa:bb:cc:dd:ee:f1"),
+	Flags:        net.FlagUp | net.FlagBroadcast | net.FlagMulticast,
+}, {
+	Index:        3,
+	MTU:          1500,
+	Name:         "eth1",
 	HardwareAddr: mustParseMAC("aa:bb:cc:dd:ee:f1"),
 	Flags:        net.FlagUp | net.FlagBroadcast | net.FlagMulticast,
 }, {
@@ -158,14 +159,14 @@ func (f fakeAddr) String() string  { return string(f) }
 var _ net.Addr = (*fakeAddr)(nil)
 
 var exampleObservedInterfaceAddrs = map[string][]net.Addr{
-	"eth0":        nil,
-	"eth1":        nil,
-	"eth0.50":     nil,
-	"eth0.100":    nil,
-	"eth0.25":     nil,
-	"eth1.11":     nil,
-	"eth1.12":     nil,
-	"eth1.13":     nil,
+	"eth0":        {fakeAddr("fe80::5054:ff:fedd:eef0/64")},
+	"eth1":        {fakeAddr("fe80::5054:ff:fedd:eef1/64")},
+	"eth0.50":     {fakeAddr("fe80::5054:ff:fedd:eef0:50/64")},
+	"eth0.100":    {fakeAddr("fe80::5054:ff:fedd:eef0:100/64")},
+	"eth0.25":     {fakeAddr("fe80::5054:ff:fedd:eef0:25/64")},
+	"eth1.11":     {fakeAddr("fe80::5054:ff:fedd:eef1:11/64")},
+	"eth1.12":     {fakeAddr("fe80::5054:ff:fedd:eef1:12/64")},
+	"eth1.13":     {fakeAddr("fe80::5054:ff:fedd:eef1:13/64")},
 	"lo":          {fakeAddr("127.0.0.1/8"), fakeAddr("::1/128")},
 	"br-eth0":     {fakeAddr("10.20.19.100/24"), fakeAddr("10.20.19.123/24"), fakeAddr("fe80::5054:ff:fedd:eef0/64")},
 	"br-eth1":     {fakeAddr("10.20.19.105/24"), fakeAddr("fe80::5054:ff:fedd:eef1/64")},
@@ -177,7 +178,7 @@ var exampleObservedInterfaceAddrs = map[string][]net.Addr{
 	"br-eth1.13":  {fakeAddr("10.13.19.101/24"), fakeAddr("fe80::5054:ff:fedd:eef1/64")},
 }
 
-var expectedSortedObservedNetworkConfigs = []params.NetworkConfig{{
+var expectedObservedNetworkConfigs = []params.NetworkConfig{{
 	DeviceIndex:   1,
 	InterfaceName: "lo",
 	InterfaceType: string(network.LoopbackInterface),
@@ -189,23 +190,25 @@ var expectedSortedObservedNetworkConfigs = []params.NetworkConfig{{
 }, {
 	DeviceIndex:   10,
 	InterfaceName: "br-eth0",
-	InterfaceType: string(network.EthernetInterface),
+	InterfaceType: string(network.BridgeInterface),
 	MACAddress:    "aa:bb:cc:dd:ee:f0",
 	CIDR:          "10.20.19.0/24",
 	Address:       "10.20.19.100",
 	MTU:           1500,
+	ConfigType:    string(network.ConfigStatic),
 }, {
 	DeviceIndex:   10,
 	InterfaceName: "br-eth0",
-	InterfaceType: string(network.EthernetInterface),
+	InterfaceType: string(network.BridgeInterface),
 	MACAddress:    "aa:bb:cc:dd:ee:f0",
 	CIDR:          "10.20.19.0/24",
 	Address:       "10.20.19.123",
 	MTU:           1500,
+	ConfigType:    string(network.ConfigStatic),
 }, {
 	DeviceIndex:   12,
 	InterfaceName: "br-eth0.100",
-	InterfaceType: string(network.VLAN_8021QInterface),
+	InterfaceType: string(network.BridgeInterface),
 	MACAddress:    "aa:bb:cc:dd:ee:f0",
 	CIDR:          "10.100.19.0/24",
 	Address:       "10.100.19.100",
@@ -213,102 +216,124 @@ var expectedSortedObservedNetworkConfigs = []params.NetworkConfig{{
 }, {
 	DeviceIndex:   14,
 	InterfaceName: "br-eth0.250",
-	InterfaceType: string(network.VLAN_8021QInterface),
+	InterfaceType: string(network.BridgeInterface),
 	MACAddress:    "aa:bb:cc:dd:ee:f0",
 	CIDR:          "10.250.19.0/24",
 	Address:       "10.250.19.100",
 	MTU:           1500,
+	ConfigType:    string(network.ConfigStatic),
 }, {
 	DeviceIndex:   16,
 	InterfaceName: "br-eth0.50",
-	InterfaceType: string(network.VLAN_8021QInterface),
+	InterfaceType: string(network.BridgeInterface),
 	MACAddress:    "aa:bb:cc:dd:ee:f0",
 	CIDR:          "10.50.19.0/24",
 	Address:       "10.50.19.100",
 	MTU:           1500,
+	ConfigType:    string(network.ConfigStatic),
 }, {
-	DeviceIndex:   2,
-	InterfaceName: "eth0",
-	InterfaceType: string(network.EthernetInterface),
-	MACAddress:    "aa:bb:cc:dd:ee:f0",
-	MTU:           1500,
+	DeviceIndex:         2,
+	InterfaceName:       "eth0",
+	ParentInterfaceName: "br-eth0",
+	InterfaceType:       string(network.EthernetInterface),
+	MACAddress:          "aa:bb:cc:dd:ee:f0",
+	MTU:                 1500,
+	ConfigType:          string(network.ConfigManual),
 }, {
-	DeviceIndex:   13,
-	InterfaceName: "eth0.100",
-	InterfaceType: string(network.VLAN_8021QInterface),
-	MACAddress:    "aa:bb:cc:dd:ee:f0",
-	MTU:           1500,
+	DeviceIndex:         13,
+	InterfaceName:       "eth0.100",
+	ParentInterfaceName: "br-eth0.100",
+	InterfaceType:       string(network.VLAN_8021QInterface),
+	MACAddress:          "aa:bb:cc:dd:ee:f0",
+	MTU:                 1500,
+	ConfigType:          string(network.ConfigManual),
 }, {
-	DeviceIndex:   15,
-	InterfaceName: "eth0.250",
-	InterfaceType: string(network.VLAN_8021QInterface),
-	MACAddress:    "aa:bb:cc:dd:ee:f0",
-	MTU:           1500,
+	DeviceIndex:         15,
+	InterfaceName:       "eth0.250",
+	ParentInterfaceName: "br-eth0.250",
+	InterfaceType:       string(network.VLAN_8021QInterface),
+	MACAddress:          "aa:bb:cc:dd:ee:f0",
+	MTU:                 1500,
+	ConfigType:          string(network.ConfigManual),
 }, {
-	DeviceIndex:   17,
-	InterfaceName: "eth0.50",
-	InterfaceType: string(network.VLAN_8021QInterface),
-	MACAddress:    "aa:bb:cc:dd:ee:f0",
-	MTU:           1500,
+	DeviceIndex:         17,
+	InterfaceName:       "eth0.50",
+	ParentInterfaceName: "br-eth0.50",
+	InterfaceType:       string(network.VLAN_8021QInterface),
+	MACAddress:          "aa:bb:cc:dd:ee:f0",
+	MTU:                 1500,
+	ConfigType:          string(network.ConfigManual),
 }, {
 	DeviceIndex:   11,
 	InterfaceName: "br-eth1",
-	InterfaceType: string(network.EthernetInterface),
+	InterfaceType: string(network.BridgeInterface),
 	MACAddress:    "aa:bb:cc:dd:ee:f1",
 	CIDR:          "10.20.19.0/24",
 	Address:       "10.20.19.105",
 	MTU:           1500,
+	ConfigType:    string(network.ConfigStatic),
 }, {
 	DeviceIndex:   18,
 	InterfaceName: "br-eth1.11",
-	InterfaceType: string(network.VLAN_8021QInterface),
+	InterfaceType: string(network.BridgeInterface),
 	MACAddress:    "aa:bb:cc:dd:ee:f1",
 	CIDR:          "10.11.19.0/24",
 	Address:       "10.11.19.101",
 	MTU:           1500,
+	ConfigType:    string(network.ConfigStatic),
 }, {
 	DeviceIndex:   20,
 	InterfaceName: "br-eth1.12",
-	InterfaceType: string(network.VLAN_8021QInterface),
+	InterfaceType: string(network.BridgeInterface),
 	MACAddress:    "aa:bb:cc:dd:ee:f1",
 	CIDR:          "10.12.19.0/24",
 	Address:       "10.12.19.101",
 	MTU:           1500,
+	ConfigType:    string(network.ConfigStatic),
 }, {
 	DeviceIndex:   22,
 	InterfaceName: "br-eth1.13",
-	InterfaceType: string(network.VLAN_8021QInterface),
+	InterfaceType: string(network.BridgeInterface),
 	MACAddress:    "aa:bb:cc:dd:ee:f1",
 	CIDR:          "10.13.19.0/24",
 	Address:       "10.13.19.101",
 	MTU:           1500,
+	ConfigType:    string(network.ConfigStatic),
 }, {
-	DeviceIndex:   3,
-	InterfaceName: "eth1",
-	InterfaceType: string(network.EthernetInterface),
-	MACAddress:    "aa:bb:cc:dd:ee:f1",
-	MTU:           1500,
+	DeviceIndex:         3,
+	InterfaceName:       "eth1",
+	ParentInterfaceName: "br-eth1",
+	InterfaceType:       string(network.EthernetInterface),
+	MACAddress:          "aa:bb:cc:dd:ee:f1",
+	MTU:                 1500,
+	ConfigType:          string(network.ConfigManual),
 }, {
-	DeviceIndex:   19,
-	InterfaceName: "eth1.11",
-	InterfaceType: string(network.VLAN_8021QInterface),
-	MACAddress:    "aa:bb:cc:dd:ee:f1",
-	MTU:           1500,
+	DeviceIndex:         19,
+	InterfaceName:       "eth1.11",
+	ParentInterfaceName: "br-eth1.11",
+	InterfaceType:       string(network.VLAN_8021QInterface),
+	MACAddress:          "aa:bb:cc:dd:ee:f1",
+	MTU:                 1500,
+	ConfigType:          string(network.ConfigManual),
 }, {
-	DeviceIndex:   21,
-	InterfaceName: "eth1.12",
-	InterfaceType: string(network.VLAN_8021QInterface),
-	MACAddress:    "aa:bb:cc:dd:ee:f1",
-	MTU:           1500,
+	DeviceIndex:         21,
+	InterfaceName:       "eth1.12",
+	ParentInterfaceName: "br-eth1.12",
+	InterfaceType:       string(network.VLAN_8021QInterface),
+	MACAddress:          "aa:bb:cc:dd:ee:f1",
+	MTU:                 1500,
+	ConfigType:          string(network.ConfigManual),
 }, {
-	DeviceIndex:   23,
-	InterfaceName: "eth1.13",
-	InterfaceType: string(network.VLAN_8021QInterface),
-	MACAddress:    "aa:bb:cc:dd:ee:f1",
-	MTU:           1500,
+	DeviceIndex:         23,
+	InterfaceName:       "eth1.13",
+	ParentInterfaceName: "br-eth1.13",
+	InterfaceType:       string(network.VLAN_8021QInterface),
+	MACAddress:          "aa:bb:cc:dd:ee:f1",
+	MTU:                 1500,
+	ConfigType:          string(network.ConfigManual),
 }}
 
-var expectedSortedProviderNetworkConfigs = []params.NetworkConfig{{
+var expectedProviderNetworkConfigs = []params.NetworkConfig{{
 	InterfaceName:       "eth0",
 	InterfaceType:       string(network.EthernetInterface),
 	MACAddress:          "aa:bb:cc:dd:ee:f0",
@@ -436,7 +461,7 @@ var expectedSortedProviderNetworkConfigs = []params.NetworkConfig{{
 	ProviderAddressId:   "1302",
 }}
 
-var expectedSortedMergedNetworkConfigs = []params.NetworkConfig{{
+var expectedFinalNetworkConfigs = []params.NetworkConfig{{
 	DeviceIndex:         1,
 	InterfaceName:       "lo",
 	InterfaceType:       string(network.LoopbackInterface),
@@ -482,7 +507,7 @@ var expectedSortedMergedNetworkConfigs = []params.NetworkConfig{{
 	Address:             "10.100.19.100",
 	MTU:                 1500,
 	ConfigType:          string(network.ConfigStatic),
-	ParentInterfaceName: "br-eth0",
+	ParentInterfaceName: "",
 	ProviderSubnetId:    "6",
 	ProviderVLANId:      "5005",
 	VLANTag:             100,
@@ -496,7 +521,7 @@ var expectedSortedMergedNetworkConfigs = []params.NetworkConfig{{
 	Address:             "10.250.19.100",
 	MTU:                 1500,
 	ConfigType:          string(network.ConfigStatic),
-	ParentInterfaceName: "br-eth0",
+	ParentInterfaceName: "",
 	ProviderSubnetId:    "8",
 	ProviderVLANId:      "5008",
 	VLANTag:             250,
@@ -510,7 +535,7 @@ var expectedSortedMergedNetworkConfigs = []params.NetworkConfig{{
 	Address:             "10.50.19.100",
 	MTU:                 1500,
 	ConfigType:          string(network.ConfigStatic),
-	ParentInterfaceName: "br-eth0",
+	ParentInterfaceName: "",
 	ProviderSubnetId:    "5",
 	ProviderVLANId:      "5004",
 	VLANTag:             50,
@@ -586,7 +611,7 @@ var expectedSortedMergedNetworkConfigs = []params.NetworkConfig{{
 	Address:             "10.11.19.101",
 	MTU:                 1500,
 	ConfigType:          string(network.ConfigStatic),
-	ParentInterfaceName: "br-eth1",
+	ParentInterfaceName: "",
 	ProviderSubnetId:    "9",
 	ProviderVLANId:      "5013",
 	VLANTag:             11,
@@ -600,7 +625,7 @@ var expectedSortedMergedNetworkConfigs = []params.NetworkConfig{{
 	Address:             "10.12.19.101",
 	MTU:                 1500,
 	ConfigType:          string(network.ConfigStatic),
-	ParentInterfaceName: "br-eth1",
+	ParentInterfaceName: "",
 	ProviderSubnetId:    "10",
 	ProviderVLANId:      "5014",
 	VLANTag:             12,
@@ -613,7 +638,7 @@ var expectedSortedMergedNetworkConfigs = []params.NetworkConfig{{
 	CIDR:                "10.13.19.0/24",
 	Address:             "10.13.19.101",
 	MTU:                 1500,
-	ParentInterfaceName: "br-eth1",
+	ParentInterfaceName: "",
 	ConfigType:          string(network.ConfigStatic),
 	ProviderSubnetId:    "11",
 	ProviderVLANId:      "5015",
@@ -669,24 +694,7 @@ var expectedSortedMergedNetworkConfigs = []params.NetworkConfig{{
 	VLANTag:             13,
 }}
 
-var expectedSortedNetworkConfigsByInterfaceName = []params.NetworkConfig{
-	{InterfaceName: "br-eth0"},
-	{InterfaceName: "br-eth0.12"},
-	{InterfaceName: "br-eth0.34"},
-	{InterfaceName: "br-eth1"},
-	{InterfaceName: "br-eth1.100"},
-	{InterfaceName: "br-eth1.250"},
-	{InterfaceName: "br-eth1.50"},
-	{InterfaceName: "eth0"},
-	{InterfaceName: "eth0.12"},
-	{InterfaceName: "eth0.34"},
-	{InterfaceName: "eth1"},
-	{InterfaceName: "eth1.100"},
-	{InterfaceName: "eth1.250"},
-	{InterfaceName: "eth1.50"},
-}
-
-var expectedLinkLayerDeviceArgsWithMergedNetworkConfig = []state.LinkLayerDeviceArgs{{
+var expectedLinkLayerDeviceArgsWithFinalNetworkConfig = []state.LinkLayerDeviceArgs{{
 	Name:        "lo",
 	MTU:         65536,
 	Type:        state.LoopbackDevice,
@@ -706,7 +714,7 @@ var expectedLinkLayerDeviceArgsWithMergedNetworkConfig = []state.LinkLayerDevice
 	MACAddress:  "aa:bb:cc:dd:ee:f0",
 	IsAutoStart: true,
 	IsUp:        true,
-	ParentName:  "br-eth0",
+	ParentName:  "",
 }, {
 	Name:        "br-eth0.250",
 	MTU:         1500,
@@ -714,7 +722,7 @@ var expectedLinkLayerDeviceArgsWithMergedNetworkConfig = []state.LinkLayerDevice
 	MACAddress:  "aa:bb:cc:dd:ee:f0",
 	IsAutoStart: true,
 	IsUp:        true,
-	ParentName:  "br-eth0",
+	ParentName:  "",
 }, {
 	Name:        "br-eth0.50",
 	MTU:         1500,
@@ -722,7 +730,7 @@ var expectedLinkLayerDeviceArgsWithMergedNetworkConfig = []state.LinkLayerDevice
 	MACAddress:  "aa:bb:cc:dd:ee:f0",
 	IsAutoStart: true,
 	IsUp:        true,
-	ParentName:  "br-eth0",
+	ParentName:  "",
 }, {
 	Name:        "eth0",
 	MTU:         1500,
@@ -773,7 +781,7 @@ var expectedLinkLayerDeviceArgsWithMergedNetworkConfig = []state.LinkLayerDevice
 	MACAddress:  "aa:bb:cc:dd:ee:f1",
 	IsAutoStart: true,
 	IsUp:        true,
-	ParentName:  "br-eth1",
+	ParentName:  "",
 }, {
 	Name:        "br-eth1.12",
 	MTU:         1500,
@@ -781,7 +789,7 @@ var expectedLinkLayerDeviceArgsWithMergedNetworkConfig = []state.LinkLayerDevice
 	MACAddress:  "aa:bb:cc:dd:ee:f1",
 	IsAutoStart: true,
 	IsUp:        true,
-	ParentName:  "br-eth1",
+	ParentName:  "",
 }, {
 	Name:        "br-eth1.13",
 	MTU:         1500,
@@ -789,7 +797,7 @@ var expectedLinkLayerDeviceArgsWithMergedNetworkConfig = []state.LinkLayerDevice
 	MACAddress:  "aa:bb:cc:dd:ee:f1",
 	IsAutoStart: true,
 	IsUp:        true,
-	ParentName:  "br-eth1",
+	ParentName:  "",
 }, {
 	Name:        "eth1",
 	MTU:         1500,
@@ -828,7 +836,7 @@ var expectedLinkLayerDeviceArgsWithMergedNetworkConfig = []state.LinkLayerDevice
 	ParentName:  "br-eth1.13",
 }}
 
-var expectedLinkLayerDeviceAdressesWithMergedNetworkConfig = []state.LinkLayerDeviceAddress{{
+var expectedLinkLayerDeviceAdressesWithFinalNetworkConfig = []state.LinkLayerDeviceAddress{{
 	DeviceName:   "lo",
 	ConfigMethod: state.LoopbackAddress,
 	CIDRAddress:  "127.0.0.1/8",
@@ -879,97 +887,376 @@ var expectedLinkLayerDeviceAdressesWithMergedNetworkConfig = []state.LinkLayerDe
 	ProviderID:   "1302",
 }}
 
-func (s *TypesSuite) TestSortNetworkConfigsByParentsWithObservedConfigs(c *gc.C) {
-	s.checkSortNetworkConfigsByParentsWithAllInputPremutationsMatches(c, expectedSortedObservedNetworkConfigs)
+func (s *TypesSuite) TestNetworkConfigsToStateArgs(c *gc.C) {
+	devicesArgs, devicesAddrs := networkingcommon.NetworkConfigsToStateArgs(expectedFinalNetworkConfigs)
+
+	c.Check(devicesArgs, jc.DeepEquals, expectedLinkLayerDeviceArgsWithFinalNetworkConfig)
+	c.Check(devicesAddrs, jc.DeepEquals, expectedLinkLayerDeviceAdressesWithFinalNetworkConfig)
 }
 
-func (s *TypesSuite) checkSortNetworkConfigsByParentsWithAllInputPremutationsMatches(c *gc.C, expectedOutput []params.NetworkConfig) {
-	expectedLength := len(expectedOutput)
-	jsonExpected := s.networkConfigsAsJSON(c, expectedOutput)
-	for i := 0; i < expectedLength; i++ {
-		shuffledInput := shuffleNetworkConfigs(expectedOutput)
-		result := networkingcommon.SortNetworkConfigsByParents(shuffledInput)
-		c.Assert(result, gc.HasLen, expectedLength)
-		jsonResult := s.networkConfigsAsJSON(c, result)
-		c.Check(jsonResult, gc.Equals, jsonExpected)
-	}
+func (s *TypesSuite) TestMergeProviderAndObservedNetworkConfigsBothNil(c *gc.C) {
+	result := networkingcommon.MergeProviderAndObservedNetworkConfigs(nil, nil)
+	c.Check(result, gc.IsNil)
 }
 
-func (s *TypesSuite) networkConfigsAsJSON(c *gc.C, input []params.NetworkConfig) string {
-	asJSON, err := networkingcommon.NetworkConfigsToIndentedJSON(input)
-	c.Assert(err, jc.ErrorIsNil)
-	return asJSON
+func (s *TypesSuite) TestMergeProviderAndObservedNetworkConfigsNilObservedConfigs(c *gc.C) {
+	input := expectedProviderNetworkConfigs
+	result := networkingcommon.MergeProviderAndObservedNetworkConfigs(input, nil)
+	c.Check(result, gc.IsNil)
 }
 
-func shuffleNetworkConfigs(input []params.NetworkConfig) []params.NetworkConfig {
-	inputLength := len(input)
-	output := make([]params.NetworkConfig, inputLength)
-	shuffled := rand.Perm(inputLength)
-	for i, j := range shuffled {
-		output[i] = input[j]
-	}
-	return output
-}
-
-func (s *TypesSuite) TestSortNetworkConfigsByParentsWithProviderConfigs(c *gc.C) {
-	s.checkSortNetworkConfigsByParentsWithAllInputPremutationsMatches(c, expectedSortedProviderNetworkConfigs)
-}
-
-func (s *TypesSuite) TestSortNetworkConfigsByParentsWithMergedConfigs(c *gc.C) {
-	s.checkSortNetworkConfigsByParentsWithAllInputPremutationsMatches(c, expectedSortedMergedNetworkConfigs)
-}
-
-func (s *TypesSuite) TestSortNetworkConfigsByInterfaceName(c *gc.C) {
-	expectedLength := len(expectedSortedNetworkConfigsByInterfaceName)
-	jsonExpected := s.networkConfigsAsJSON(c, expectedSortedNetworkConfigsByInterfaceName)
-	for i := 0; i < expectedLength; i++ {
-		shuffledInput := shuffleNetworkConfigs(expectedSortedNetworkConfigsByInterfaceName)
-		result := networkingcommon.SortNetworkConfigsByInterfaceName(shuffledInput)
-		c.Assert(result, gc.HasLen, expectedLength)
-		jsonResult := s.networkConfigsAsJSON(c, result)
-		c.Check(jsonResult, gc.Equals, jsonExpected)
-	}
+func (s *TypesSuite) TestMergeProviderAndObservedNetworkConfigsNilProviderConfigs(c *gc.C) {
+	input := expectedObservedNetworkConfigs
+	result := networkingcommon.MergeProviderAndObservedNetworkConfigs(nil, input)
+	c.Check(result, jc.DeepEquals, input)
 }
 
 func (s *TypesSuite) TestMergeProviderAndObservedNetworkConfigs(c *gc.C) {
-	observedConfigsLength := len(expectedSortedObservedNetworkConfigs)
-	providerConfigsLength := len(expectedSortedProviderNetworkConfigs)
-	jsonExpected := s.networkConfigsAsJSON(c, expectedSortedMergedNetworkConfigs)
-	for i := 0; i < observedConfigsLength; i++ {
-		shuffledObservedConfigs := shuffleNetworkConfigs(expectedSortedObservedNetworkConfigs)
-		for j := 0; j < providerConfigsLength; j++ {
-			shuffledProviderConfigs := shuffleNetworkConfigs(expectedSortedProviderNetworkConfigs)
+	observedConfig := expectedObservedNetworkConfigs
+	providerConfig := expectedProviderNetworkConfigs
+	result := networkingcommon.MergeProviderAndObservedNetworkConfigs(providerConfig, observedConfig)
+	c.Check(result, jc.DeepEquals, expectedFinalNetworkConfigs)
+}
 
-			mergedConfigs, err := networkingcommon.MergeProviderAndObservedNetworkConfigs(shuffledProviderConfigs, shuffledObservedConfigs)
-			c.Assert(err, jc.ErrorIsNil)
-			jsonResult := s.networkConfigsAsJSON(c, mergedConfigs)
-			c.Check(jsonResult, gc.Equals, jsonExpected)
-		}
+func (s *TypesSuite) TestGetObservedNetworkConfigInterfacesError(c *gc.C) {
+	s.stubConfigSource.SetErrors(errors.New("no interfaces"))
+
+	observedConfig, err := networkingcommon.GetObservedNetworkConfig(s.stubConfigSource)
+	c.Check(err, gc.ErrorMatches, "cannot get network interfaces: no interfaces")
+	c.Check(observedConfig, gc.IsNil)
+
+	s.stubConfigSource.CheckCallNames(c, "Interfaces")
+}
+
+func (s *TypesSuite) TestGetObservedNetworkConfigInterfaceAddressesError(c *gc.C) {
+	s.stubConfigSource.SetErrors(
+		nil, // Interfaces() succeeds.
+		errors.New("no addresses"), // InterfaceAddressses fails.
+	)
+
+	observedConfig, err := networkingcommon.GetObservedNetworkConfig(s.stubConfigSource)
+	c.Check(err, gc.ErrorMatches, `cannot get interface "lo" addresses: no addresses`)
+	c.Check(observedConfig, gc.IsNil)
+
+	s.stubConfigSource.CheckCallNames(c, "Interfaces", "SysClassNetPath", "InterfaceAddresses")
+	s.stubConfigSource.CheckCall(c, 2, "InterfaceAddresses", "lo")
+}
+
+func (s *TypesSuite) TestGetObservedNetworkConfigNoInterfaceAddresses(c *gc.C) {
+	s.stubConfigSource.interfaces = exampleObservedInterfaces[3:4] // only br-eth1
+	s.stubConfigSource.interfaceAddrs = make(map[string][]net.Addr)
+	s.stubConfigSource.makeSysClassNetInterfacePath(c, "br-eth1", "bridge")
+
+	observedConfig, err := networkingcommon.GetObservedNetworkConfig(s.stubConfigSource)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(observedConfig, jc.DeepEquals, []params.NetworkConfig{{
+		DeviceIndex:   11,
+		MACAddress:    "aa:bb:cc:dd:ee:f1",
+		MTU:           1500,
+		InterfaceName: "br-eth1",
+		InterfaceType: "bridge",
+		ConfigType:    "manual",
+	}})
+
+	s.stubConfigSource.CheckCallNames(c, "Interfaces", "SysClassNetPath", "InterfaceAddresses")
+	s.stubConfigSource.CheckCall(c, 2, "InterfaceAddresses", "br-eth1")
+}
+
+func (s *TypesSuite) TestGetObservedNetworkConfigLoopbackInfrerred(c *gc.C) {
+	s.stubConfigSource.interfaces = exampleObservedInterfaces[0:1] // only lo
+	s.stubConfigSource.makeSysClassNetInterfacePath(c, "lo", "")
+
+	observedConfig, err := networkingcommon.GetObservedNetworkConfig(s.stubConfigSource)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(observedConfig, jc.DeepEquals, []params.NetworkConfig{{
+		DeviceIndex:   1,
+		CIDR:          "127.0.0.0/8",
+		Address:       "127.0.0.1",
+		MTU:           65536,
+		InterfaceName: "lo",
+		InterfaceType: "loopback", // inferred from the flags.
+		ConfigType:    "loopback", // since it is a loopback
+	}, {
+		DeviceIndex:   1,
+		MTU:           65536,
+		InterfaceName: "lo",
+		InterfaceType: "loopback",
+		ConfigType:    "loopback",
+	}})
+
+	s.stubConfigSource.CheckCallNames(c, "Interfaces", "SysClassNetPath", "InterfaceAddresses")
+	s.stubConfigSource.CheckCall(c, 2, "InterfaceAddresses", "lo")
+}
+
+func (s *TypesSuite) TestGetObservedNetworkConfigVLANInfrerred(c *gc.C) {
+	s.stubConfigSource.interfaces = exampleObservedInterfaces[6:7] // only eth0.100
+	s.stubConfigSource.interfaceAddrs = map[string][]net.Addr{
+		"eth0.100": []net.Addr{
+			fakeAddr("fe80::5054:ff:fedd:eef0:100/64"),
+			fakeAddr("10.100.19.123/24"),
+		},
+	}
+	s.stubConfigSource.makeSysClassNetInterfacePath(c, "eth0.100", "vlan")
+
+	observedConfig, err := networkingcommon.GetObservedNetworkConfig(s.stubConfigSource)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(observedConfig, jc.DeepEquals, []params.NetworkConfig{{
+		DeviceIndex:   13,
+		MACAddress:    "aa:bb:cc:dd:ee:f0",
+		MTU:           1500,
+		InterfaceName: "eth0.100",
+		InterfaceType: "802.1q",
+		ConfigType:    "manual", // the IPv6 address treated as empty.
+	}, {
+		DeviceIndex:   13,
+		CIDR:          "10.100.19.0/24",
+		Address:       "10.100.19.123",
+		MACAddress:    "aa:bb:cc:dd:ee:f0",
+		MTU:           1500,
+		InterfaceName: "eth0.100",
+		InterfaceType: "802.1q",
+		ConfigType:    "static",
+	}})
+
+	s.stubConfigSource.CheckCallNames(c, "Interfaces", "SysClassNetPath", "InterfaceAddresses")
+	s.stubConfigSource.CheckCall(c, 2, "InterfaceAddresses", "eth0.100")
+}
+
+func (s *TypesSuite) TestGetObservedNetworkConfigEthernetInfrerred(c *gc.C) {
+	s.stubConfigSource.interfaces = exampleObservedInterfaces[1:2] // only eth0
+	s.stubConfigSource.makeSysClassNetInterfacePath(c, "eth0", "")
+
+	observedConfig, err := networkingcommon.GetObservedNetworkConfig(s.stubConfigSource)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(observedConfig, jc.DeepEquals, []params.NetworkConfig{{
+		DeviceIndex:   2,
+		MACAddress:    "aa:bb:cc:dd:ee:f0",
+		MTU:           1500,
+		InterfaceName: "eth0",
+		InterfaceType: "ethernet",
+		ConfigType:    "manual", // the IPv6 address treated as empty.
+	}})
+
+	s.stubConfigSource.CheckCallNames(c, "Interfaces", "SysClassNetPath", "InterfaceAddresses")
+	s.stubConfigSource.CheckCall(c, 2, "InterfaceAddresses", "eth0")
+}
+
+func (s *TypesSuite) TestGetObservedNetworkConfigBridgePortsHaveParentSet(c *gc.C) {
+	s.stubConfigSource.interfaces = exampleObservedInterfaces[1:5] // eth0, br-eth0, br-eth1, eth1
+	br0Path := s.stubConfigSource.makeSysClassNetInterfacePath(c, "br-eth0", "bridge")
+	// "extra" added below to verify bridge ports which are discovered, but not
+	// found as interfaces from the source will be ignored.
+	s.stubConfigSource.makeSysClassNetBridgePorts(c, br0Path, "eth0", "extra")
+	br1Path := s.stubConfigSource.makeSysClassNetInterfacePath(c, "br-eth1", "bridge")
+	s.stubConfigSource.makeSysClassNetBridgePorts(c, br1Path, "eth1")
+
+	observedConfig, err := networkingcommon.GetObservedNetworkConfig(s.stubConfigSource)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(observedConfig, jc.DeepEquals, []params.NetworkConfig{{
+		DeviceIndex:         2,
+		MACAddress:          "aa:bb:cc:dd:ee:f0",
+		MTU:                 1500,
+		InterfaceName:       "eth0",
+		InterfaceType:       "ethernet",
+		ParentInterfaceName: "br-eth0",
+		ConfigType:          "manual",
+	}, {
+		DeviceIndex:   10,
+		CIDR:          "10.20.19.0/24",
+		Address:       "10.20.19.100",
+		MACAddress:    "aa:bb:cc:dd:ee:f0",
+		MTU:           1500,
+		InterfaceName: "br-eth0",
+		InterfaceType: "bridge",
+		ConfigType:    "static",
+	}, {
+		DeviceIndex:   10,
+		CIDR:          "10.20.19.0/24",
+		Address:       "10.20.19.123",
+		MACAddress:    "aa:bb:cc:dd:ee:f0",
+		MTU:           1500,
+		InterfaceName: "br-eth0",
+		InterfaceType: "bridge",
+		ConfigType:    "static",
+	}, {
+		DeviceIndex:   10,
+		MACAddress:    "aa:bb:cc:dd:ee:f0",
+		MTU:           1500,
+		InterfaceName: "br-eth0",
+		InterfaceType: "bridge",
+		ConfigType:    "manual",
+	}, {
+		DeviceIndex:   11,
+		CIDR:          "10.20.19.0/24",
+		Address:       "10.20.19.105",
+		MACAddress:    "aa:bb:cc:dd:ee:f1",
+		MTU:           1500,
+		InterfaceName: "br-eth1",
+		InterfaceType: "bridge",
+		ConfigType:    "static",
+	}, {
+		DeviceIndex:   11,
+		MACAddress:    "aa:bb:cc:dd:ee:f1",
+		MTU:           1500,
+		InterfaceName: "br-eth1",
+		InterfaceType: "bridge",
+		ConfigType:    "manual",
+	}, {
+		DeviceIndex:         3,
+		MACAddress:          "aa:bb:cc:dd:ee:f1",
+		MTU:                 1500,
+		InterfaceName:       "eth1",
+		InterfaceType:       "ethernet",
+		ParentInterfaceName: "br-eth1",
+		ConfigType:          "manual",
+	}})
+
+	s.stubConfigSource.CheckCallNames(c,
+		"Interfaces", "SysClassNetPath",
+		"InterfaceAddresses", // eth0
+		"InterfaceAddresses", // br-eth0
+		"InterfaceAddresses", // br-eth1
+		"InterfaceAddresses", // eth1
+	)
+	s.stubConfigSource.CheckCall(c, 2, "InterfaceAddresses", "eth0")
+	s.stubConfigSource.CheckCall(c, 3, "InterfaceAddresses", "br-eth0")
+	s.stubConfigSource.CheckCall(c, 4, "InterfaceAddresses", "br-eth1")
+	s.stubConfigSource.CheckCall(c, 5, "InterfaceAddresses", "eth1")
+}
+
+func (s *TypesSuite) TestGetObservedNetworkConfigAddressNotInCIDRFormat(c *gc.C) {
+	s.stubConfigSource.interfaces = exampleObservedInterfaces[1:2] // only eth0
+	s.stubConfigSource.makeSysClassNetInterfacePath(c, "eth0", "")
+	// Simluate running on Windows, where net.InterfaceAddrs() returns
+	// non-CIDR-formatted addresses.
+	s.stubConfigSource.interfaceAddrs = map[string][]net.Addr{
+		"eth0": []net.Addr{fakeAddr("10.20.19.42")},
+	}
+
+	observedConfig, err := networkingcommon.GetObservedNetworkConfig(s.stubConfigSource)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(observedConfig, jc.DeepEquals, []params.NetworkConfig{{
+		DeviceIndex:   2,
+		Address:       "10.20.19.42", // just Address, no CIDR as netmask cannot be inferred.
+		MACAddress:    "aa:bb:cc:dd:ee:f0",
+		MTU:           1500,
+		InterfaceName: "eth0",
+		InterfaceType: "ethernet",
+		ConfigType:    "static",
+	}})
+
+	s.stubConfigSource.CheckCallNames(c, "Interfaces", "SysClassNetPath", "InterfaceAddresses")
+	s.stubConfigSource.CheckCall(c, 2, "InterfaceAddresses", "eth0")
+}
+
+func (s *TypesSuite) TestGetObservedNetworkConfigEmptyAddressValue(c *gc.C) {
+	s.stubConfigSource.interfaces = exampleObservedInterfaces[1:2] // only eth0
+	s.stubConfigSource.makeSysClassNetInterfacePath(c, "eth0", "")
+	s.stubConfigSource.interfaceAddrs = map[string][]net.Addr{
+		"eth0": []net.Addr{fakeAddr("")},
+	}
+
+	observedConfig, err := networkingcommon.GetObservedNetworkConfig(s.stubConfigSource)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(observedConfig, jc.DeepEquals, []params.NetworkConfig{{
+		DeviceIndex:   2,
+		MACAddress:    "aa:bb:cc:dd:ee:f0",
+		MTU:           1500,
+		InterfaceName: "eth0",
+		InterfaceType: "ethernet",
+		ConfigType:    "manual",
+	}})
+
+	s.stubConfigSource.CheckCallNames(c, "Interfaces", "SysClassNetPath", "InterfaceAddresses")
+	s.stubConfigSource.CheckCall(c, 2, "InterfaceAddresses", "eth0")
+}
+
+func (s *TypesSuite) TestGetObservedNetworkConfigInvalidAddressValue(c *gc.C) {
+	s.stubConfigSource.interfaces = exampleObservedInterfaces[1:2] // only eth0
+	s.stubConfigSource.makeSysClassNetInterfacePath(c, "eth0", "")
+	s.stubConfigSource.interfaceAddrs = map[string][]net.Addr{
+		"eth0": []net.Addr{fakeAddr("invalid")},
+	}
+
+	observedConfig, err := networkingcommon.GetObservedNetworkConfig(s.stubConfigSource)
+	c.Check(err, gc.ErrorMatches, `cannot parse IP address "invalid" on interface "eth0"`)
+	c.Check(observedConfig, gc.IsNil)
+
+	s.stubConfigSource.CheckCallNames(c, "Interfaces", "SysClassNetPath", "InterfaceAddresses")
+	s.stubConfigSource.CheckCall(c, 2, "InterfaceAddresses", "eth0")
+}
+
+type stubNetworkConfigSource struct {
+	*testing.Stub
+
+	fakeSysClassNetPath string
+	interfaces          []net.Interface
+	interfaceAddrs      map[string][]net.Addr
+}
+
+// makeSysClassNetInterfacePath creates a subdir for the given interfaceName,
+// and a uevent file there with the given devtype set. Returns the created path.
+func (s *stubNetworkConfigSource) makeSysClassNetInterfacePath(c *gc.C, interfaceName, devType string) string {
+	interfacePath := filepath.Join(s.fakeSysClassNetPath, interfaceName)
+	err := os.Mkdir(interfacePath, 0755)
+	c.Assert(err, jc.ErrorIsNil)
+
+	var contents string
+	if devType == "" {
+		contents = fmt.Sprintf(`
+IFINDEX=42
+INTERFACE=%s
+`, interfaceName)
+	} else {
+		contents = fmt.Sprintf(`
+IFINDEX=42
+INTERFACE=%s
+DEVTYPE=%s
+`, interfaceName, devType)
+	}
+	ueventPath := filepath.Join(interfacePath, "uevent")
+	err = ioutil.WriteFile(ueventPath, []byte(contents), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+
+	return interfacePath
+}
+
+// makeSysClassNetBridgePorts creates a "brif" subdir in the given
+// interfacePath, and one file for each entry in the given ports, named the same
+// as the port value. Needed to simulate the FS structure network.GetBridgePorts()
+// can handle.
+func (s *stubNetworkConfigSource) makeSysClassNetBridgePorts(c *gc.C, interfacePath string, ports ...string) {
+	brifPath := filepath.Join(interfacePath, "brif")
+	err := os.Mkdir(brifPath, 0755)
+	c.Assert(err, jc.ErrorIsNil)
+
+	for _, portName := range ports {
+		portPath := filepath.Join(brifPath, portName)
+		err = ioutil.WriteFile(portPath, []byte("#empty"), 0644)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 }
 
-func (s *TypesSuite) TestGetObservedNetworkConfig(c *gc.C) {
-	s.PatchValue(networkingcommon.NetInterfaces, func() ([]net.Interface, error) {
-		return exampleObservedInterfaces, nil
-	})
-	s.PatchValue(networkingcommon.InterfaceAddrs, func(i *net.Interface) ([]net.Addr, error) {
-		c.Assert(i, gc.NotNil)
-		if addrs, found := exampleObservedInterfaceAddrs[i.Name]; found {
-			return addrs, nil
-		}
-		return nil, nil
-	})
-
-	observedConfig, err := networkingcommon.GetObservedNetworkConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	jsonResult := s.networkConfigsAsJSON(c, observedConfig)
-	jsonExpected := s.networkConfigsAsJSON(c, expectedSortedObservedNetworkConfigs)
-	c.Check(jsonResult, gc.Equals, jsonExpected)
+// SysClassNetPath implements NetworkConfigSource.
+func (s *stubNetworkConfigSource) SysClassNetPath() string {
+	s.AddCall("SysClassNetPath")
+	return s.fakeSysClassNetPath
 }
 
-func (s *TypesSuite) TestNetworkConfigsToStateArgs(c *gc.C) {
-	devicesArgs, devicesAddrs := networkingcommon.NetworkConfigsToStateArgs(expectedSortedMergedNetworkConfigs)
+// Interfaces implements NetworkConfigSource.
+func (s *stubNetworkConfigSource) Interfaces() ([]net.Interface, error) {
+	s.AddCall("Interfaces")
+	if err := s.NextErr(); err != nil {
+		return nil, err
+	}
+	return s.interfaces, nil
+}
 
-	c.Check(devicesArgs, jc.DeepEquals, expectedLinkLayerDeviceArgsWithMergedNetworkConfig)
-	c.Check(devicesAddrs, jc.DeepEquals, expectedLinkLayerDeviceAdressesWithMergedNetworkConfig)
+// InterfaceAddresses implements NetworkConfigSource.
+func (s *stubNetworkConfigSource) InterfaceAddresses(name string) ([]net.Addr, error) {
+	s.AddCall("InterfaceAddresses", name)
+	if err := s.NextErr(); err != nil {
+		return nil, err
+	}
+	return s.interfaceAddrs[name], nil
 }

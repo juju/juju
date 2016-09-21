@@ -13,6 +13,8 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	"gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
+
+	"github.com/juju/juju/version"
 )
 
 type LatestCharmInfoSuite struct {
@@ -67,12 +69,19 @@ func (s *LatestCharmInfoSuite) TestSuccess(c *gc.C) {
 	client, err := newCachingClient(s.cache, nil, s.lowLevel.makeWrapper)
 	c.Assert(err, jc.ErrorIsNil)
 
-	results, err := LatestCharmInfo(client, charms, "foobar")
+	metadata := map[string]string{
+		"environment_uuid": "foouuid",
+		"cloud":            "foocloud",
+		"cloud_region":     "fooregion",
+		"provider":         "fooprovider",
+	}
+	results, err := LatestCharmInfo(client, charms, metadata)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.lowLevel.stableStub.CheckCall(c, 0, "Latest", params.StableChannel, []*charm.URL{spam}, map[string][]string{"Juju-Metadata": []string{"environment_uuid=foobar"}})
-	s.lowLevel.stableStub.CheckCall(c, 1, "Latest", params.StableChannel, []*charm.URL{eggs}, map[string][]string{"Juju-Metadata": []string{"environment_uuid=foobar"}})
-	s.lowLevel.stableStub.CheckCall(c, 2, "Latest", params.StableChannel, []*charm.URL{ham}, map[string][]string{"Juju-Metadata": []string{"environment_uuid=foobar"}})
+	header := []string{"environment_uuid=foouuid", "cloud=foocloud", "cloud_region=fooregion", "provider=fooprovider", "controller_version=" + version.Current.String()}
+	s.lowLevel.stableStub.CheckCall(c, 0, "Latest", params.StableChannel, []*charm.URL{spam}, map[string][]string{"Juju-Metadata": header})
+	s.lowLevel.stableStub.CheckCall(c, 1, "Latest", params.StableChannel, []*charm.URL{eggs}, map[string][]string{"Juju-Metadata": header})
+	s.lowLevel.stableStub.CheckCall(c, 2, "Latest", params.StableChannel, []*charm.URL{ham}, map[string][]string{"Juju-Metadata": header})
 	s.lowLevel.stableStub.CheckCall(c, 3, "ListResources", params.StableChannel, spam)
 	s.lowLevel.stableStub.CheckCall(c, 4, "ListResources", params.StableChannel, eggs)
 	s.lowLevel.stableStub.CheckCall(c, 5, "ListResources", params.StableChannel, ham)

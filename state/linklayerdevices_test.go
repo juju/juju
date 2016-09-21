@@ -12,6 +12,7 @@ import (
 	jujutxn "github.com/juju/txn"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/container"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -779,6 +780,10 @@ func (s *linkLayerDevicesStateSuite) addContainerMachine(c *gc.C) {
 }
 
 func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesAllowsParentBridgeDeviceForContainerDevice(c *gc.C) {
+	// Add default bridges per container type to ensure they will not be skipped
+	// when deciding which host bridges to use for the container NICs.
+	s.addParentBridgeDeviceWithContainerDevicesAsChildren(c, container.DefaultLxdBridge, "vethX", 1)
+	s.addParentBridgeDeviceWithContainerDevicesAsChildren(c, container.DefaultKvmBridge, "vethY", 1)
 	parentDevice, _ := s.addParentBridgeDeviceWithContainerDevicesAsChildren(c, "br-eth1.250", "eth", 1)
 	childDevice, err := s.containerMachine.LinkLayerDevice("eth0")
 	c.Assert(err, jc.ErrorIsNil)

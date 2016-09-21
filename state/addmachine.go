@@ -463,13 +463,13 @@ func (st *State) machineDocForTemplate(template MachineTemplate, id string) *mac
 // taken from the template.
 func (st *State) insertNewMachineOps(mdoc *machineDoc, template MachineTemplate) (prereqOps []txn.Op, machineOp txn.Op, err error) {
 	machineStatusDoc := statusDoc{
-		Status:    status.StatusPending,
+		Status:    status.Pending,
 		ModelUUID: st.ModelUUID(),
 		// TODO(fwereade): 2016-03-17 lp:1558657
 		Updated: time.Now().UnixNano(),
 	}
 	instanceStatusDoc := statusDoc{
-		Status:    status.StatusPending,
+		Status:    status.Pending,
 		ModelUUID: st.ModelUUID(),
 		Updated:   time.Now().UnixNano(),
 	}

@@ -16,9 +16,9 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/modelmanager"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/core/description"
 	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -66,7 +66,7 @@ func (s *apiEnvironmentSuite) TestRevokeModel(c *gc.C) {
 
 	modelUser, err := s.State.UserAccess(user.UserTag, s.State.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(modelUser, gc.Not(gc.DeepEquals), description.UserAccess{})
+	c.Assert(modelUser, gc.Not(gc.DeepEquals), permission.UserAccess{})
 
 	// Then test unsharing the environment.
 	err = mm.RevokeModel(user.UserName, "read", model.UUID())
@@ -74,7 +74,7 @@ func (s *apiEnvironmentSuite) TestRevokeModel(c *gc.C) {
 
 	modelUser, err = s.State.UserAccess(user.UserTag, s.State.ModelTag())
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
-	c.Assert(modelUser, gc.DeepEquals, description.UserAccess{})
+	c.Assert(modelUser, gc.DeepEquals, permission.UserAccess{})
 }
 
 func (s *apiEnvironmentSuite) TestEnvironmentUserInfo(c *gc.C) {
@@ -101,7 +101,7 @@ func (s *apiEnvironmentSuite) TestEnvironmentUserInfo(c *gc.C) {
 	})
 }
 
-func lastConnPointer(c *gc.C, st *state.State, modelUser description.UserAccess) *time.Time {
+func lastConnPointer(c *gc.C, st *state.State, modelUser permission.UserAccess) *time.Time {
 	lastConn, err := st.LastModelConnection(modelUser.UserTag)
 	if err != nil {
 		if state.IsNeverConnectedError(err) {

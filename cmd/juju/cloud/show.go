@@ -28,8 +28,9 @@ Examples:
     juju show-cloud google
     juju show-cloud azure-china --output ~/azure_cloud_details.txt
 
-See also: clouds
-          update-clouds
+See also:
+    clouds
+    update-clouds
 `
 
 // NewShowCloudCommand returns a command to list cloud information.

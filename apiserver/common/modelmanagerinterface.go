@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
 )
@@ -39,18 +40,21 @@ type ModelManagerBackend interface {
 	ForModel(tag names.ModelTag) (ModelManagerBackend, error)
 	GetModel(names.ModelTag) (Model, error)
 	Model() (Model, error)
+	ModelConfigDefaultValues() (config.ModelDefaultAttributes, error)
+	UpdateModelConfigDefaultValues(update map[string]interface{}, remove []string) error
 	Unit(name string) (*state.Unit, error)
 	ModelTag() names.ModelTag
 	ModelConfig() (*config.Config, error)
 	AllModels() ([]Model, error)
-	AddModelUser(string, state.UserAccessSpec) (description.UserAccess, error)
-	AddControllerUser(state.UserAccessSpec) (description.UserAccess, error)
+	AddModelUser(string, state.UserAccessSpec) (permission.UserAccess, error)
+	AddControllerUser(state.UserAccessSpec) (permission.UserAccess, error)
 	RemoveUserAccess(names.UserTag, names.Tag) error
-	UserAccess(names.UserTag, names.Tag) (description.UserAccess, error)
+	UserAccess(names.UserTag, names.Tag) (permission.UserAccess, error)
+	AllMachines() (machines []Machine, err error)
 	ControllerUUID() string
 	ControllerTag() names.ControllerTag
 	Export() (description.Model, error)
-	SetUserAccess(subject names.UserTag, target names.Tag, access description.Access) (description.UserAccess, error)
+	SetUserAccess(subject names.UserTag, target names.Tag, access permission.Access) (permission.UserAccess, error)
 	LastModelConnection(user names.UserTag) (time.Time, error)
 	DumpAll() (map[string]interface{}, error)
 	Close() error
@@ -68,7 +72,7 @@ type Model interface {
 	Cloud() string
 	CloudCredential() (names.CloudCredentialTag, bool)
 	CloudRegion() string
-	Users() ([]description.UserAccess, error)
+	Users() ([]permission.UserAccess, error)
 	Destroy() error
 	DestroyIncludingHosted() error
 }
@@ -148,14 +152,30 @@ type modelShim struct {
 }
 
 // Users implements ModelManagerBackend.
-func (m modelShim) Users() ([]description.UserAccess, error) {
+func (m modelShim) Users() ([]permission.UserAccess, error) {
 	stateUsers, err := m.Model.Users()
 	if err != nil {
 		return nil, err
 	}
-	users := make([]description.UserAccess, len(stateUsers))
+	users := make([]permission.UserAccess, len(stateUsers))
 	for i, user := range stateUsers {
 		users[i] = user
 	}
 	return users, nil
+}
+
+type machineShim struct {
+	*state.Machine
+}
+
+func (st modelManagerStateShim) AllMachines() ([]Machine, error) {
+	allStateMachines, err := st.State.AllMachines()
+	if err != nil {
+		return nil, err
+	}
+	all := make([]Machine, len(allStateMachines))
+	for i, m := range allStateMachines {
+		all[i] = machineShim{m}
+	}
+	return all, nil
 }

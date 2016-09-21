@@ -7,9 +7,11 @@ const commandSets = `
 Commands that can be disabled are grouped based on logical operations as follows:
 
 "destroy-model" prevents:
+    destroy-controller
     destroy-model
 
 "remove-object" prevents:
+    destroy-controller
     destroy-model
     remove-machine
     remove-relation
@@ -25,6 +27,7 @@ Commands that can be disabled are grouped based on logical operations as follows
     change-user-password
     deploy
     disable-user
+    destroy-controller
     destroy-model
     enable-ha
     enable-user

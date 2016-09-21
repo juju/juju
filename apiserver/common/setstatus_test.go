@@ -38,7 +38,7 @@ func (s *statusSetterSuite) TestUnauthorized(c *gc.C) {
 	s.badTag = tag
 	result, err := s.setter.SetStatus(params.SetStatus{[]params.EntityStatusArgs{{
 		Tag:    tag.String(),
-		Status: status.StatusExecuting.String(),
+		Status: status.Executing.String(),
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
@@ -48,7 +48,7 @@ func (s *statusSetterSuite) TestUnauthorized(c *gc.C) {
 func (s *statusSetterSuite) TestNotATag(c *gc.C) {
 	result, err := s.setter.SetStatus(params.SetStatus{[]params.EntityStatusArgs{{
 		Tag:    "not a tag",
-		Status: status.StatusExecuting.String(),
+		Status: status.Executing.String(),
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
@@ -58,7 +58,7 @@ func (s *statusSetterSuite) TestNotATag(c *gc.C) {
 func (s *statusSetterSuite) TestNotFound(c *gc.C) {
 	result, err := s.setter.SetStatus(params.SetStatus{[]params.EntityStatusArgs{{
 		Tag:    names.NewMachineTag("42").String(),
-		Status: status.StatusDown.String(),
+		Status: status.Down.String(),
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
@@ -69,7 +69,7 @@ func (s *statusSetterSuite) TestSetMachineStatus(c *gc.C) {
 	machine := s.Factory.MakeMachine(c, nil)
 	result, err := s.setter.SetStatus(params.SetStatus{[]params.EntityStatusArgs{{
 		Tag:    machine.Tag().String(),
-		Status: status.StatusStarted.String(),
+		Status: status.Started.String(),
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
@@ -79,7 +79,7 @@ func (s *statusSetterSuite) TestSetMachineStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	machineStatus, err := machine.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machineStatus.Status, gc.Equals, status.StatusStarted)
+	c.Assert(machineStatus.Status, gc.Equals, status.Started)
 }
 
 func (s *statusSetterSuite) TestSetUnitStatus(c *gc.C) {
@@ -87,11 +87,11 @@ func (s *statusSetterSuite) TestSetUnitStatus(c *gc.C) {
 	// on the unit returns the workload status not the agent status as it
 	// does on a machine.
 	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Status: &status.StatusInfo{
-		Status: status.StatusMaintenance,
+		Status: status.Maintenance,
 	}})
 	result, err := s.setter.SetStatus(params.SetStatus{[]params.EntityStatusArgs{{
 		Tag:    unit.Tag().String(),
-		Status: status.StatusActive.String(),
+		Status: status.Active.String(),
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
@@ -101,7 +101,7 @@ func (s *statusSetterSuite) TestSetUnitStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	unitStatus, err := unit.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unitStatus.Status, gc.Equals, status.StatusActive)
+	c.Assert(unitStatus.Status, gc.Equals, status.Active)
 }
 
 func (s *statusSetterSuite) TestSetServiceStatus(c *gc.C) {
@@ -109,11 +109,11 @@ func (s *statusSetterSuite) TestSetServiceStatus(c *gc.C) {
 	// ServiceStatusSetter that checks for leadership, so permission denied
 	// here.
 	service := s.Factory.MakeApplication(c, &factory.ApplicationParams{Status: &status.StatusInfo{
-		Status: status.StatusMaintenance,
+		Status: status.Maintenance,
 	}})
 	result, err := s.setter.SetStatus(params.SetStatus{[]params.EntityStatusArgs{{
 		Tag:    service.Tag().String(),
-		Status: status.StatusActive.String(),
+		Status: status.Active.String(),
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
@@ -123,17 +123,17 @@ func (s *statusSetterSuite) TestSetServiceStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	serviceStatus, err := service.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(serviceStatus.Status, gc.Equals, status.StatusMaintenance)
+	c.Assert(serviceStatus.Status, gc.Equals, status.Maintenance)
 }
 
 func (s *statusSetterSuite) TestBulk(c *gc.C) {
 	s.badTag = names.NewMachineTag("42")
 	result, err := s.setter.SetStatus(params.SetStatus{[]params.EntityStatusArgs{{
 		Tag:    s.badTag.String(),
-		Status: status.StatusActive.String(),
+		Status: status.Active.String(),
 	}, {
 		Tag:    "bad-tag",
-		Status: status.StatusActive.String(),
+		Status: status.Active.String(),
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 2)
@@ -162,7 +162,7 @@ func (s *serviceStatusSetterSuite) TestUnauthorized(c *gc.C) {
 	s.badTag = tag
 	result, err := s.setter.SetStatus(params.SetStatus{[]params.EntityStatusArgs{{
 		Tag:    tag.String(),
-		Status: status.StatusActive.String(),
+		Status: status.Active.String(),
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
@@ -172,7 +172,7 @@ func (s *serviceStatusSetterSuite) TestUnauthorized(c *gc.C) {
 func (s *serviceStatusSetterSuite) TestNotATag(c *gc.C) {
 	result, err := s.setter.SetStatus(params.SetStatus{[]params.EntityStatusArgs{{
 		Tag:    "not a tag",
-		Status: status.StatusActive.String(),
+		Status: status.Active.String(),
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
@@ -182,7 +182,7 @@ func (s *serviceStatusSetterSuite) TestNotATag(c *gc.C) {
 func (s *serviceStatusSetterSuite) TestNotFound(c *gc.C) {
 	result, err := s.setter.SetStatus(params.SetStatus{[]params.EntityStatusArgs{{
 		Tag:    names.NewUnitTag("foo/0").String(),
-		Status: status.StatusActive.String(),
+		Status: status.Active.String(),
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
@@ -193,7 +193,7 @@ func (s *serviceStatusSetterSuite) TestSetMachineStatus(c *gc.C) {
 	machine := s.Factory.MakeMachine(c, nil)
 	result, err := s.setter.SetStatus(params.SetStatus{[]params.EntityStatusArgs{{
 		Tag:    machine.Tag().String(),
-		Status: status.StatusActive.String(),
+		Status: status.Active.String(),
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
@@ -206,11 +206,11 @@ func (s *serviceStatusSetterSuite) TestSetServiceStatus(c *gc.C) {
 	// simple status setter to check to see if the unit (authTag) is a leader
 	// and able to set the service status. However, that is for another day.
 	service := s.Factory.MakeApplication(c, &factory.ApplicationParams{Status: &status.StatusInfo{
-		Status: status.StatusMaintenance,
+		Status: status.Maintenance,
 	}})
 	result, err := s.setter.SetStatus(params.SetStatus{[]params.EntityStatusArgs{{
 		Tag:    service.Tag().String(),
-		Status: status.StatusActive.String(),
+		Status: status.Active.String(),
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
@@ -222,11 +222,11 @@ func (s *serviceStatusSetterSuite) TestSetServiceStatus(c *gc.C) {
 func (s *serviceStatusSetterSuite) TestSetUnitStatusNotLeader(c *gc.C) {
 	// If the unit isn't the leader, it can't set it.
 	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Status: &status.StatusInfo{
-		Status: status.StatusMaintenance,
+		Status: status.Maintenance,
 	}})
 	result, err := s.setter.SetStatus(params.SetStatus{[]params.EntityStatusArgs{{
 		Tag:    unit.Tag().String(),
-		Status: status.StatusActive.String(),
+		Status: status.Active.String(),
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
@@ -236,12 +236,12 @@ func (s *serviceStatusSetterSuite) TestSetUnitStatusNotLeader(c *gc.C) {
 
 func (s *serviceStatusSetterSuite) TestSetUnitStatusIsLeader(c *gc.C) {
 	service := s.Factory.MakeApplication(c, &factory.ApplicationParams{Status: &status.StatusInfo{
-		Status: status.StatusMaintenance,
+		Status: status.Maintenance,
 	}})
 	unit := s.Factory.MakeUnit(c, &factory.UnitParams{
 		Application: service,
 		Status: &status.StatusInfo{
-			Status: status.StatusMaintenance,
+			Status: status.Maintenance,
 		}})
 	s.State.LeadershipClaimer().ClaimLeadership(
 		service.Name(),
@@ -249,7 +249,7 @@ func (s *serviceStatusSetterSuite) TestSetUnitStatusIsLeader(c *gc.C) {
 		time.Minute)
 	result, err := s.setter.SetStatus(params.SetStatus{[]params.EntityStatusArgs{{
 		Tag:    unit.Tag().String(),
-		Status: status.StatusActive.String(),
+		Status: status.Active.String(),
 	}}})
 
 	c.Assert(err, jc.ErrorIsNil)
@@ -260,7 +260,7 @@ func (s *serviceStatusSetterSuite) TestSetUnitStatusIsLeader(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	unitStatus, err := service.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unitStatus.Status, gc.Equals, status.StatusActive)
+	c.Assert(unitStatus.Status, gc.Equals, status.Active)
 }
 
 func (s *serviceStatusSetterSuite) TestBulk(c *gc.C) {
@@ -268,13 +268,13 @@ func (s *serviceStatusSetterSuite) TestBulk(c *gc.C) {
 	machine := s.Factory.MakeMachine(c, nil)
 	result, err := s.setter.SetStatus(params.SetStatus{[]params.EntityStatusArgs{{
 		Tag:    s.badTag.String(),
-		Status: status.StatusActive.String(),
+		Status: status.Active.String(),
 	}, {
 		Tag:    machine.Tag().String(),
-		Status: status.StatusActive.String(),
+		Status: status.Active.String(),
 	}, {
 		Tag:    "bad-tag",
-		Status: status.StatusActive.String(),
+		Status: status.Active.String(),
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 3)

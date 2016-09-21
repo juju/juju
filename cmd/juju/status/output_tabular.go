@@ -80,7 +80,7 @@ func (r *relationFormatter) get(k string) *statusRelation {
 // units. Any subordinate items are indented by two spaces beneath
 // their superior.
 func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
-	const maxVersionWidth = 7
+	const maxVersionWidth = 15
 	const ellipsis = "..."
 	const truncatedWidth = maxVersionWidth - len(ellipsis)
 
@@ -121,6 +121,8 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 	metering := false
 	relations := newRelationFormatter()
 	outputHeaders("APP", "VERSION", "STATUS", "SCALE", "CHARM", "STORE", "REV", "OS", "NOTES")
+	tw.SetColumnAlignRight(3)
+	tw.SetColumnAlignRight(6)
 	for _, appName := range utils.SortStringsNaturally(stringKeysFromMap(fs.Applications)) {
 		app := fs.Applications[appName]
 		version := app.Version
@@ -135,8 +137,13 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 		}
 		w.Print(appName, version)
 		w.PrintStatus(app.StatusInfo.Current)
-		p(fs.applicationScale(appName),
-			app.CharmName,
+		scale, warn := fs.applicationScale(appName)
+		if warn {
+			w.PrintColor(output.WarningHighlight, scale)
+		} else {
+			w.Print(scale)
+		}
+		p(app.CharmName,
 			app.CharmOrigin,
 			app.CharmRev,
 			app.OS,
@@ -162,15 +169,6 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 			}
 		}
 
-	}
-	if relations.len() > 0 {
-		outputHeaders("RELATION", "PROVIDES", "CONSUMES", "TYPE")
-		for _, k := range relations.sorted() {
-			r := relations.get(k)
-			if r != nil {
-				p(r.relation, r.application1, r.application2, r.relationType())
-			}
-		}
 	}
 
 	pUnit := func(name string, u unitStatus, level int) {
@@ -210,6 +208,17 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 
 	p()
 	printMachines(tw, fs.Machines)
+
+	if relations.len() > 0 {
+		outputHeaders("RELATION", "PROVIDES", "CONSUMES", "TYPE")
+		for _, k := range relations.sorted() {
+			r := relations.get(k)
+			if r != nil {
+				p(r.relation, r.application1, r.application2, r.relationType())
+			}
+		}
+	}
+
 	tw.Flush()
 	return nil
 }
@@ -272,7 +281,7 @@ func FormatMachineTabular(writer io.Writer, forceColor bool, value interface{}) 
 // the agent is currently executing.
 // The hook name or action is extracted from the agent message.
 func agentDoing(agentStatus statusInfoContents) string {
-	if agentStatus.Current != status.StatusExecuting {
+	if agentStatus.Current != status.Executing {
 		return ""
 	}
 	// First see if we can determine a hook name.

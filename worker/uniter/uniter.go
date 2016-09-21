@@ -256,7 +256,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			// error state.
 			return nil
 		}
-		return setAgentStatus(u, status.StatusIdle, "", nil)
+		return setAgentStatus(u, status.Idle, "", nil)
 	}
 
 	clearResolved := func() error {
@@ -335,7 +335,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 				// handling is outside of the resolver's control.
 				if operation.IsDeployConflictError(cause) {
 					localState.Conflicted = true
-					err = setAgentStatus(u, status.StatusError, "upgrade failed", nil)
+					err = setAgentStatus(u, status.Error, "upgrade failed", nil)
 				} else {
 					reportAgentError(u, "resolver loop error", err)
 				}
@@ -396,6 +396,21 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		// operations in progress before detecting it; but that race is fundamental
 		// and inescapable, whereas this one is not.
 		return worker.ErrTerminateAgent
+	}
+	// If initialising for the first time after deploying, update the status.
+	currentStatus, err := u.unit.UnitStatus()
+	if err != nil {
+		return err
+	}
+	// TODO(fwereade/wallyworld): we should have an explicit place in the model
+	// to tell us when we've hit this point, instead of piggybacking on top of
+	// status and/or status history.
+	// If the previous status was waiting for machine, we transition to the next step.
+	if currentStatus.Status == string(status.Waiting) &&
+		(currentStatus.Info == status.MessageWaitForMachine || currentStatus.Info == status.MessageInstallingAgent) {
+		if err := u.unit.SetUnitStatus(status.Waiting, status.MessageInitializingAgent, nil); err != nil {
+			return errors.Trace(err)
+		}
 	}
 	if err := jujuc.EnsureSymlinks(u.paths.ToolsDir); err != nil {
 		return err
@@ -547,5 +562,5 @@ func (u *Uniter) reportHookError(hookInfo hook.Info) error {
 	}
 	statusData["hook"] = hookName
 	statusMessage := fmt.Sprintf("hook failed: %q", hookName)
-	return setAgentStatus(u, status.StatusError, statusMessage, statusData)
+	return setAgentStatus(u, status.Error, statusMessage, statusData)
 }

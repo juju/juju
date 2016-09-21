@@ -10,7 +10,9 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/juju/permission"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/permission"
 )
 
 var logger = loggo.GetLogger("juju.api.modelmanager")
@@ -40,8 +42,8 @@ func (c *Client) CreateModel(
 	name, owner, cloud, cloudRegion string,
 	cloudCredential names.CloudCredentialTag,
 	config map[string]interface{},
-) (params.ModelInfo, error) {
-	var result params.ModelInfo
+) (base.ModelInfo, error) {
+	var result base.ModelInfo
 	if !names.IsValidUser(owner) {
 		return result, errors.Errorf("invalid owner name %q", owner)
 	}
@@ -64,9 +66,82 @@ func (c *Client) CreateModel(
 		CloudRegion:        cloudRegion,
 		CloudCredentialTag: cloudCredentialTag,
 	}
-	err := c.facade.FacadeCall("CreateModel", createArgs, &result)
+	var modelInfo params.ModelInfo
+	err := c.facade.FacadeCall("CreateModel", createArgs, &modelInfo)
 	if err != nil {
 		return result, errors.Trace(err)
+	}
+	return convertParamsModelInfo(modelInfo)
+}
+
+func convertParamsModelInfo(modelInfo params.ModelInfo) (base.ModelInfo, error) {
+	cloud, err := names.ParseCloudTag(modelInfo.CloudTag)
+	if err != nil {
+		return base.ModelInfo{}, err
+	}
+	var credential string
+	if modelInfo.CloudCredentialTag != "" {
+		credTag, err := names.ParseCloudCredentialTag(modelInfo.CloudCredentialTag)
+		if err != nil {
+			return base.ModelInfo{}, err
+		}
+		credential = credTag.Id()
+	}
+	ownerTag, err := names.ParseUserTag(modelInfo.OwnerTag)
+	if err != nil {
+		return base.ModelInfo{}, err
+	}
+	result := base.ModelInfo{
+		Name:            modelInfo.Name,
+		UUID:            modelInfo.UUID,
+		ControllerUUID:  modelInfo.ControllerUUID,
+		ProviderType:    modelInfo.ProviderType,
+		DefaultSeries:   modelInfo.DefaultSeries,
+		Cloud:           cloud.Id(),
+		CloudRegion:     modelInfo.CloudRegion,
+		CloudCredential: credential,
+		Owner:           ownerTag.Id(),
+		Life:            string(modelInfo.Life),
+	}
+	result.Status = base.Status{
+		Status: modelInfo.Status.Status,
+		Info:   modelInfo.Status.Info,
+		Data:   make(map[string]interface{}),
+		Since:  modelInfo.Status.Since,
+	}
+	for k, v := range modelInfo.Status.Data {
+		result.Status.Data[k] = v
+	}
+	result.Users = make([]base.UserInfo, len(modelInfo.Users))
+	for i, u := range modelInfo.Users {
+		result.Users[i] = base.UserInfo{
+			UserName:       u.UserName,
+			DisplayName:    u.DisplayName,
+			Access:         string(u.Access),
+			LastConnection: u.LastConnection,
+		}
+	}
+	result.Machines = make([]base.Machine, len(modelInfo.Machines))
+	for i, m := range modelInfo.Machines {
+		machine := base.Machine{
+			Id:         m.Id,
+			InstanceId: m.InstanceId,
+			HasVote:    m.HasVote,
+			WantsVote:  m.WantsVote,
+			Status:     m.Status,
+		}
+		if m.Hardware != nil {
+			machine.Hardware = &instance.HardwareCharacteristics{
+				Arch:             m.Hardware.Arch,
+				Mem:              m.Hardware.Mem,
+				RootDisk:         m.Hardware.RootDisk,
+				CpuCores:         m.Hardware.Cores,
+				CpuPower:         m.Hardware.CpuPower,
+				Tags:             m.Hardware.Tags,
+				AvailabilityZone: m.Hardware.AvailabilityZone,
+			}
+		}
+		result.Machines[i] = machine
 	}
 	return result, nil
 }
@@ -181,29 +256,6 @@ func (c *Client) DestroyModel(tag names.ModelTag) error {
 	return nil
 }
 
-// ParseModelAccess parses an access permission argument into
-// a type suitable for making an API facade call.
-func ParseModelAccess(access string) (params.UserAccessPermission, error) {
-	var fail params.UserAccessPermission
-
-	modelAccess, err := permission.ParseModelAccess(access)
-	if err != nil {
-		return fail, errors.Trace(err)
-	}
-	var accessPermission params.UserAccessPermission
-	switch modelAccess {
-	case permission.ModelReadAccess:
-		accessPermission = params.ModelReadAccess
-	case permission.ModelWriteAccess:
-		accessPermission = params.ModelWriteAccess
-	case permission.ModelAdminAccess:
-		accessPermission = params.ModelAdminAccess
-	default:
-		return fail, errors.Errorf("unsupported model access permission %v", modelAccess)
-	}
-	return accessPermission, nil
-}
-
 // GrantModel grants a user access to the specified models.
 func (c *Client) GrantModel(user, access string, modelUUIDs ...string) error {
 	return c.modifyModelUser(params.GrantModelAccess, user, access, modelUUIDs)
@@ -222,8 +274,8 @@ func (c *Client) modifyModelUser(action params.ModelAction, user, access string,
 	}
 	userTag := names.NewUserTag(user)
 
-	accessPermission, err := ParseModelAccess(access)
-	if err != nil {
+	modelAccess := permission.Access(access)
+	if err := permission.ValidateModelAccess(modelAccess); err != nil {
 		return errors.Trace(err)
 	}
 	for _, model := range modelUUIDs {
@@ -234,13 +286,13 @@ func (c *Client) modifyModelUser(action params.ModelAction, user, access string,
 		args.Changes = append(args.Changes, params.ModifyModelAccess{
 			UserTag:  userTag.String(),
 			Action:   action,
-			Access:   accessPermission,
+			Access:   params.UserAccessPermission(modelAccess),
 			ModelTag: modelTag.String(),
 		})
 	}
 
 	var result params.ErrorResults
-	err = c.facade.FacadeCall("ModifyModelAccess", args, &result)
+	err := c.facade.FacadeCall("ModifyModelAccess", args, &result)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -255,4 +307,70 @@ func (c *Client) modifyModelUser(action params.ModelAction, user, access string,
 		}
 	}
 	return result.Combine()
+}
+
+// ModelDefaults returns the default values for various sources used when
+// creating a new model.
+func (c *Client) ModelDefaults() (config.ModelDefaultAttributes, error) {
+	result := params.ModelDefaultsResult{}
+	err := c.facade.FacadeCall("ModelDefaults", nil, &result)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	values := make(config.ModelDefaultAttributes)
+	for name, val := range result.Config {
+		setting := config.AttributeDefaultValues{
+			Default:    val.Default,
+			Controller: val.Controller,
+		}
+		for _, region := range val.Regions {
+			setting.Regions = append(setting.Regions, config.RegionDefaultValue{
+				Name:  region.RegionName,
+				Value: region.Value})
+		}
+		values[name] = setting
+	}
+	return values, nil
+}
+
+// SetModelDefaults updates the specified default model config values.
+func (c *Client) SetModelDefaults(cloud, region string, config map[string]interface{}) error {
+	var cloudTag string
+	if cloud != "" {
+		cloudTag = names.NewCloudTag(cloud).String()
+	}
+	args := params.SetModelDefaults{
+		Config: []params.ModelDefaultValues{{
+			Config:      config,
+			CloudTag:    cloudTag,
+			CloudRegion: region,
+		}},
+	}
+	var result params.ErrorResults
+	err := c.facade.FacadeCall("SetModelDefaults", args, &result)
+	if err != nil {
+		return err
+	}
+	return result.OneError()
+}
+
+// UnsetModelDefaults removes the specified default model config values.
+func (c *Client) UnsetModelDefaults(cloud, region string, keys ...string) error {
+	var cloudTag string
+	if cloud != "" {
+		cloudTag = names.NewCloudTag(cloud).String()
+	}
+	args := params.UnsetModelDefaults{
+		Keys: []params.ModelUnsetKeys{{
+			Keys:        keys,
+			CloudTag:    cloudTag,
+			CloudRegion: region,
+		}},
+	}
+	var result params.ErrorResults
+	err := c.facade.FacadeCall("UnsetModelDefaults", args, &result)
+	if err != nil {
+		return err
+	}
+	return result.OneError()
 }

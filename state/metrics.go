@@ -197,6 +197,10 @@ func (st *State) queryMetricBatches(query bson.M) ([]MetricBatch, error) {
 
 // MetricBatchesForUnit returns metric batches for the given unit.
 func (st *State) MetricBatchesForUnit(unit string) ([]MetricBatch, error) {
+	_, err := st.Unit(unit)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return st.queryMetricBatches(bson.M{"unit": unit})
 }
 

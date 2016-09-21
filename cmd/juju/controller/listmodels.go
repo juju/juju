@@ -267,24 +267,42 @@ func (c *modelsCommand) formatTabular(writer io.Writer, value interface{}) error
 	}
 
 	tw := output.TabWriter(writer)
-	fmt.Fprintf(tw, "CONTROLLER: %v\n", c.ControllerName())
-	fmt.Fprint(tw, "\n")
-	fmt.Fprint(tw, "MODEL")
+	w := output.Wrapper{tw}
+	w.Println("CONTROLLER: " + c.ControllerName())
+	w.Println()
+	w.Print("MODEL")
 	if c.listUUID {
-		fmt.Fprint(tw, "\tUUID")
+		w.Print("UUID")
 	}
-	fmt.Fprint(tw, "\tOWNER\tSTATUS\tACCESS\tLAST CONNECTION\n")
+	// Only owners, or users with write access or above get to see machines and cores.
+	haveMachineInfo := false
+	for _, m := range modelSet.Models {
+		if haveMachineInfo = len(m.Machines) > 0; haveMachineInfo {
+			break
+		}
+	}
+	if haveMachineInfo {
+		w.Println("OWNER", "STATUS", "MACHINES", "CORES", "ACCESS", "LAST CONNECTION")
+		offset := 0
+		if c.listUUID {
+			offset++
+		}
+		tw.SetColumnAlignRight(3 + offset)
+		tw.SetColumnAlignRight(4 + offset)
+	} else {
+		w.Println("OWNER", "STATUS", "ACCESS", "LAST CONNECTION")
+	}
 	for _, model := range modelSet.Models {
 		owner := names.NewUserTag(model.Owner)
 		name := common.OwnerQualifiedModelName(model.Name, owner, userForListing)
 		if jujuclient.JoinOwnerModelName(owner, model.Name) == modelSet.CurrentModelQualified {
 			name += "*"
-			output.CurrentHighlight.Fprintf(tw, "%s", name)
+			w.PrintColor(output.CurrentHighlight, name)
 		} else {
-			fmt.Fprintf(tw, "%s", name)
+			w.Print(name)
 		}
 		if c.listUUID {
-			fmt.Fprintf(tw, "\t%s", model.UUID)
+			w.Print(model.UUID)
 		}
 		lastConnection := model.Users[userForLastConn.Canonical()].LastConnection
 		if lastConnection == "" {
@@ -295,7 +313,20 @@ func (c *modelsCommand) formatTabular(writer io.Writer, value interface{}) error
 			userForAccess = names.NewUserTag(c.user)
 		}
 		access := model.Users[userForAccess.Canonical()].Access
-		fmt.Fprintf(tw, "\t%s\t%s\t%s\t%s\n", model.Owner, model.Status.Current, access, lastConnection)
+		w.Print(model.Owner, model.Status.Current)
+		if haveMachineInfo {
+			machineInfo := fmt.Sprintf("%d", len(model.Machines))
+			cores := uint64(0)
+			for _, m := range model.Machines {
+				cores += m.Cores
+			}
+			coresInfo := "-"
+			if cores > 0 {
+				coresInfo = fmt.Sprintf("%d", cores)
+			}
+			w.Print(machineInfo, coresInfo)
+		}
+		w.Println(access, lastConnection)
 	}
 	tw.Flush()
 	return nil

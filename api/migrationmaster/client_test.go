@@ -4,6 +4,7 @@
 package migrationmaster_test
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/juju/errors"
@@ -64,11 +65,13 @@ func (s *ClientSuite) TestWatchCallError(c *gc.C) {
 func (s *ClientSuite) TestMigrationStatus(c *gc.C) {
 	mac, err := macaroon.New([]byte("secret"), "id", "location")
 	c.Assert(err, jc.ErrorIsNil)
-	macJSON, err := mac.MarshalJSON()
+	macs := []macaroon.Slice{{mac}}
+	macsJSON, err := json.Marshal(macs)
 	c.Assert(err, jc.ErrorIsNil)
 
 	modelUUID := utils.MustNewUUID().String()
 	controllerUUID := utils.MustNewUUID().String()
+	controllerTag := names.NewControllerTag(controllerUUID)
 	timestamp := time.Date(2016, 6, 22, 16, 42, 44, 0, time.UTC)
 	apiCaller := apitesting.APICallerFunc(func(_ string, _ int, _, _ string, _, result interface{}) error {
 		out := result.(*params.MasterMigrationStatus)
@@ -76,13 +79,14 @@ func (s *ClientSuite) TestMigrationStatus(c *gc.C) {
 			Spec: params.MigrationSpec{
 				ModelTag: names.NewModelTag(modelUUID).String(),
 				TargetInfo: params.MigrationTargetInfo{
-					ControllerTag: names.NewModelTag(controllerUUID).String(),
+					ControllerTag: controllerTag.String(),
 					Addrs:         []string{"2.2.2.2:2"},
 					CACert:        "cert",
 					AuthTag:       names.NewUserTag("admin").String(),
 					Password:      "secret",
-					Macaroon:      string(macJSON),
+					Macaroons:     string(macsJSON),
 				},
+				ExternalControl: true,
 			},
 			MigrationId:      "id",
 			Phase:            "IMPORT",
@@ -99,13 +103,14 @@ func (s *ClientSuite) TestMigrationStatus(c *gc.C) {
 		ModelUUID:        modelUUID,
 		Phase:            migration.IMPORT,
 		PhaseChangedTime: timestamp,
+		ExternalControl:  true,
 		TargetInfo: migration.TargetInfo{
-			ControllerTag: names.NewModelTag(controllerUUID),
+			ControllerTag: controllerTag,
 			Addrs:         []string{"2.2.2.2:2"},
 			CACert:        "cert",
 			AuthTag:       names.NewUserTag("admin"),
 			Password:      "secret",
-			Macaroon:      mac,
+			Macaroons:     macs,
 		},
 	})
 }

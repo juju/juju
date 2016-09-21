@@ -685,7 +685,7 @@ func (s *UnitSuite) TestDestroySetStatusRetry(c *gc.C) {
 	defer state.SetRetryHooks(c, s.State, func() {
 		now := time.Now()
 		sInfo := status.StatusInfo{
-			Status:  status.StatusIdle,
+			Status:  status.Idle,
 			Message: "",
 			Since:   &now,
 		}
@@ -796,13 +796,13 @@ func (s *UnitSuite) TestCannotShortCircuitDestroyWithAgentStatus(c *gc.C) {
 		status status.Status
 		info   string
 	}{{
-		status.StatusExecuting, "blah",
+		status.Executing, "blah",
 	}, {
-		status.StatusIdle, "blah",
+		status.Idle, "blah",
 	}, {
-		status.StatusFailed, "blah",
+		status.Failed, "blah",
 	}, {
-		status.StatusRebooting, "blah",
+		status.Rebooting, "blah",
 	}} {
 		c.Logf("test %d: %s", i, test.status)
 		unit, err := s.service.AddUnit()
@@ -922,7 +922,7 @@ func (s *UnitSuite) TestResolve(c *gc.C) {
 
 	now := time.Now()
 	sInfo := status.StatusInfo{
-		Status:  status.StatusError,
+		Status:  status.Error,
 		Message: "gaaah",
 		Since:   &now,
 	}
@@ -932,7 +932,7 @@ func (s *UnitSuite) TestResolve(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.Resolve(true)
 	c.Assert(err, gc.ErrorMatches, `cannot set resolved mode for unit "wordpress/0": already resolved`)
-	c.Assert(s.unit.Resolved(), gc.Equals, state.ResolvedNoHooks)
+	c.Assert(s.unit.Resolved(), gc.Equals, state.ResolvedRetryHooks)
 
 	err = s.unit.ClearResolved()
 	c.Assert(err, jc.ErrorIsNil)
@@ -940,7 +940,7 @@ func (s *UnitSuite) TestResolve(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.Resolve(false)
 	c.Assert(err, gc.ErrorMatches, `cannot set resolved mode for unit "wordpress/0": already resolved`)
-	c.Assert(s.unit.Resolved(), gc.Equals, state.ResolvedRetryHooks)
+	c.Assert(s.unit.Resolved(), gc.Equals, state.ResolvedNoHooks)
 }
 
 func (s *UnitSuite) TestGetSetClearResolved(c *gc.C) {

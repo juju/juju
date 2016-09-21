@@ -48,15 +48,16 @@ func NewRestoreCommand() cmd.Command {
 // it is invoked with "juju restore-backup".
 type restoreCommand struct {
 	CommandBase
-	constraints constraints.Value
-	filename    string
-	backupId    string
-	bootstrap   bool
-	buildAgent  bool
+	constraints    constraints.Value
+	constraintsStr string
+	filename       string
+	backupId       string
+	bootstrap      bool
+	buildAgent     bool
 
 	newAPIClientFunc         func() (RestoreAPI, error)
 	newEnvironFunc           func(environs.OpenParams) (environs.Environ, error)
-	getRebootstrapParamsFunc func(string, *params.BackupsMetadataResult) (*restoreBootstrapParams, error)
+	getRebootstrapParamsFunc func(*cmd.Context, string, *params.BackupsMetadataResult) (*restoreBootstrapParams, error)
 	getArchiveFunc           func(string) (ArchiveReader, *params.BackupsMetadataResult, error)
 	waitForAgentFunc         func(ctx *cmd.Context, c *modelcmd.ModelCommandBase, controllerName, hostedModelName string) error
 }
@@ -105,9 +106,7 @@ func (c *restoreCommand) Info() *cmd.Info {
 // SetFlags handles known option flags.
 func (c *restoreCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.CommandBase.SetFlags(f)
-	f.Var(constraints.ConstraintsValue{Target: &c.constraints},
-		"constraints", "set model constraints")
-
+	f.StringVar(&c.constraintsStr, "constraints", "", "set model constraints")
 	f.BoolVar(&c.bootstrap, "b", false, "Bootstrap a new state machine")
 	f.StringVar(&c.filename, "file", "", "Provide a file to be used as the backup.")
 	f.StringVar(&c.backupId, "id", "", "Provide the name of the backup to be restored")
@@ -147,7 +146,7 @@ type restoreBootstrapParams struct {
 // getRebootstrapParams returns the params for rebootstrapping the
 // specified controller.
 func (c *restoreCommand) getRebootstrapParams(
-	controllerName string, meta *params.BackupsMetadataResult,
+	ctx *cmd.Context, controllerName string, meta *params.BackupsMetadataResult,
 ) (*restoreBootstrapParams, error) {
 	// TODO(axw) delete this and -b. We will update bootstrap with a flag
 	// to specify a restore file. When we do that, we'll need to extract
@@ -160,7 +159,7 @@ func (c *restoreCommand) getRebootstrapParams(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	config, params, err := modelcmd.NewGetBootstrapConfigParamsFunc(store)(controllerName)
+	config, params, err := modelcmd.NewGetBootstrapConfigParamsFunc(ctx, store)(controllerName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -219,7 +218,7 @@ func (c *restoreCommand) getRebootstrapParams(
 // rebootstrap will bootstrap a new server in safe-mode (not killing any other agent)
 // if there is no current server available to restore to.
 func (c *restoreCommand) rebootstrap(ctx *cmd.Context, meta *params.BackupsMetadataResult) error {
-	params, err := c.getRebootstrapParamsFunc(c.ControllerName(), meta)
+	params, err := c.getRebootstrapParamsFunc(ctx, c.ControllerName(), meta)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -367,6 +366,12 @@ func (c *restoreCommand) newClient() (*backups.Client, error) {
 
 // Run is the entry point for this command.
 func (c *restoreCommand) Run(ctx *cmd.Context) error {
+	var err error
+	c.constraints, err = common.ParseConstraints(ctx, c.constraintsStr)
+	if err != nil {
+		return err
+	}
+
 	if c.Log != nil {
 		if err := c.Log.Start(ctx); err != nil {
 			return err

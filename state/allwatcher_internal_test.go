@@ -100,11 +100,11 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 		Id:         "0",
 		InstanceId: "i-machine-0",
 		AgentStatus: multiwatcher.StatusInfo{
-			Current: status.StatusPending,
+			Current: status.Pending,
 			Data:    map[string]interface{}{},
 		},
 		InstanceStatus: multiwatcher.StatusInfo{
-			Current: status.StatusPending,
+			Current: status.Pending,
 			Data:    map[string]interface{}{},
 		},
 		Life:                    multiwatcher.Life("alive"),
@@ -135,8 +135,8 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 		Config:      charm.Settings{"blog-title": "boring"},
 		Subordinate: false,
 		Status: multiwatcher.StatusInfo{
-			Current: "unknown",
-			Message: "Waiting for agent initialization to finish",
+			Current: "waiting",
+			Message: "waiting for machine",
 			Data:    map[string]interface{}{},
 		},
 	})
@@ -158,8 +158,8 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 		Config:      charm.Settings{},
 		Subordinate: true,
 		Status: multiwatcher.StatusInfo{
-			Current: "unknown",
-			Message: "Waiting for agent initialization to finish",
+			Current: "waiting",
+			Message: "waiting for machine",
 			Data:    map[string]interface{}{},
 		},
 	})
@@ -195,8 +195,8 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 			Ports:       []multiwatcher.Port{},
 			Subordinate: false,
 			WorkloadStatus: multiwatcher.StatusInfo{
-				Current: "unknown",
-				Message: "Waiting for agent initialization to finish",
+				Current: "waiting",
+				Message: "waiting for machine",
 				Data:    map[string]interface{}{},
 			},
 			AgentStatus: multiwatcher.StatusInfo{
@@ -218,7 +218,7 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 		c.Assert(err, jc.ErrorIsNil)
 		now := time.Now()
 		sInfo := status.StatusInfo{
-			Status:  status.StatusError,
+			Status:  status.Error,
 			Message: m.Tag().String(),
 			Since:   &now,
 		}
@@ -231,12 +231,12 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 			Id:         fmt.Sprint(i + 1),
 			InstanceId: "i-" + m.Tag().String(),
 			AgentStatus: multiwatcher.StatusInfo{
-				Current: status.StatusError,
+				Current: status.Error,
 				Message: m.Tag().String(),
 				Data:    map[string]interface{}{},
 			},
 			InstanceStatus: multiwatcher.StatusInfo{
-				Current: status.StatusPending,
+				Current: status.Pending,
 				Data:    map[string]interface{}{},
 			},
 			Life:                    multiwatcher.Life("alive"),
@@ -276,8 +276,8 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 			Ports:       []multiwatcher.Port{},
 			Subordinate: true,
 			WorkloadStatus: multiwatcher.StatusInfo{
-				Current: "unknown",
-				Message: "Waiting for agent initialization to finish",
+				Current: "waiting",
+				Message: "waiting for machine",
 				Data:    map[string]interface{}{},
 			},
 			AgentStatus: multiwatcher.StatusInfo{
@@ -610,8 +610,8 @@ func (s *allWatcherStateSuite) TestClosingPorts(c *gc.C) {
 			Ports:          []multiwatcher.Port{{"tcp", 12345}},
 			PortRanges:     []multiwatcher.PortRange{{12345, 12345, "tcp"}},
 			WorkloadStatus: multiwatcher.StatusInfo{
-				Current: "unknown",
-				Message: "Waiting for agent initialization to finish",
+				Current: "waiting",
+				Message: "waiting for machine",
 				Data:    map[string]interface{}{},
 			},
 			AgentStatus: multiwatcher.StatusInfo{
@@ -646,8 +646,8 @@ func (s *allWatcherStateSuite) TestClosingPorts(c *gc.C) {
 			Ports:          []multiwatcher.Port{},
 			PortRanges:     []multiwatcher.PortRange{},
 			WorkloadStatus: multiwatcher.StatusInfo{
-				Current: "unknown",
-				Message: "Waiting for agent initialization to finish",
+				Current: "waiting",
+				Message: "waiting for machine",
 				Data:    map[string]interface{}{},
 			},
 			AgentStatus: multiwatcher.StatusInfo{
@@ -731,12 +731,12 @@ func (s *allWatcherStateSuite) TestStateWatcher(c *gc.C) {
 			ModelUUID: s.state.ModelUUID(),
 			Id:        "0",
 			AgentStatus: multiwatcher.StatusInfo{
-				Current: status.StatusPending,
+				Current: status.Pending,
 				Data:    map[string]interface{}{},
 				Since:   &now,
 			},
 			InstanceStatus: multiwatcher.StatusInfo{
-				Current: status.StatusPending,
+				Current: status.Pending,
 				Data:    map[string]interface{}{},
 				Since:   &now,
 			},
@@ -752,12 +752,12 @@ func (s *allWatcherStateSuite) TestStateWatcher(c *gc.C) {
 			ModelUUID: s.state.ModelUUID(),
 			Id:        "1",
 			AgentStatus: multiwatcher.StatusInfo{
-				Current: status.StatusPending,
+				Current: status.Pending,
 				Data:    map[string]interface{}{},
 				Since:   &now,
 			},
 			InstanceStatus: multiwatcher.StatusInfo{
-				Current: status.StatusPending,
+				Current: status.Pending,
 				Data:    map[string]interface{}{},
 				Since:   &now,
 			},
@@ -781,12 +781,12 @@ func (s *allWatcherStateSuite) TestStateWatcher(c *gc.C) {
 			ModelUUID: s.state.ModelUUID(),
 			Id:        "1",
 			AgentStatus: multiwatcher.StatusInfo{
-				Current: status.StatusPending,
+				Current: status.Pending,
 				Data:    map[string]interface{}{},
 				Since:   &now,
 			},
 			InstanceStatus: multiwatcher.StatusInfo{
-				Current: status.StatusPending,
+				Current: status.Pending,
 				Data:    map[string]interface{}{},
 				Since:   &now,
 			},
@@ -809,12 +809,12 @@ func (s *allWatcherStateSuite) TestStateWatcher(c *gc.C) {
 			ModelUUID: s.state.ModelUUID(),
 			Id:        "1",
 			AgentStatus: multiwatcher.StatusInfo{
-				Current: status.StatusPending,
+				Current: status.Pending,
 				Data:    map[string]interface{}{},
 				Since:   &now,
 			},
 			InstanceStatus: multiwatcher.StatusInfo{
-				Current: status.StatusPending,
+				Current: status.Pending,
 				Data:    map[string]interface{}{},
 				Since:   &now,
 			},
@@ -861,12 +861,12 @@ func (s *allWatcherStateSuite) TestStateWatcher(c *gc.C) {
 			Id:         "0",
 			InstanceId: "i-0",
 			AgentStatus: multiwatcher.StatusInfo{
-				Current: status.StatusPending,
+				Current: status.Pending,
 				Data:    map[string]interface{}{},
 				Since:   &now,
 			},
 			InstanceStatus: multiwatcher.StatusInfo{
-				Current: status.StatusPending,
+				Current: status.Pending,
 				Data:    map[string]interface{}{},
 				Since:   &now,
 			},
@@ -889,12 +889,12 @@ func (s *allWatcherStateSuite) TestStateWatcher(c *gc.C) {
 			ModelUUID: s.state.ModelUUID(),
 			Id:        "2",
 			AgentStatus: multiwatcher.StatusInfo{
-				Current: status.StatusPending,
+				Current: status.Pending,
 				Data:    map[string]interface{}{},
 				Since:   &now,
 			},
 			InstanceStatus: multiwatcher.StatusInfo{
-				Current: status.StatusPending,
+				Current: status.Pending,
 				Data:    map[string]interface{}{},
 				Since:   &now,
 			},
@@ -913,8 +913,8 @@ func (s *allWatcherStateSuite) TestStateWatcher(c *gc.C) {
 			Life:      "alive",
 			Config:    make(map[string]interface{}),
 			Status: multiwatcher.StatusInfo{
-				Current: "unknown",
-				Message: "Waiting for agent initialization to finish",
+				Current: "waiting",
+				Message: "waiting for machine",
 				Data:    map[string]interface{}{},
 			},
 		},
@@ -926,8 +926,8 @@ func (s *allWatcherStateSuite) TestStateWatcher(c *gc.C) {
 			Series:      "quantal",
 			MachineId:   "2",
 			WorkloadStatus: multiwatcher.StatusInfo{
-				Current: "unknown",
-				Message: "Waiting for agent initialization to finish",
+				Current: "waiting",
+				Message: "waiting for machine",
 				Data:    map[string]interface{}{},
 			},
 			AgentStatus: multiwatcher.StatusInfo{
@@ -1022,7 +1022,7 @@ func (s *allWatcherStateSuite) TestStateWatcherTwoModels(c *gc.C) {
 
 				now := time.Now()
 				sInfo := status.StatusInfo{
-					Status:  status.StatusError,
+					Status:  status.Error,
 					Message: "pete tong",
 					Since:   &now,
 				}
@@ -1279,7 +1279,7 @@ func (s *allModelWatcherStateSuite) TestChangeModels(c *gc.C) {
 				initialContents: []multiwatcher.EntityInfo{&multiwatcher.ApplicationInfo{
 					ModelUUID:   st.ModelUUID(),
 					Name:        "wordpress",
-					Constraints: constraints.MustParse("mem=99M cpu-cores=2 cpu-power=4"),
+					Constraints: constraints.MustParse("mem=99M cores=2 cpu-power=4"),
 				}},
 				change: watcher.Change{
 					C:  "constraints",
@@ -1410,11 +1410,11 @@ func (s *allModelWatcherStateSuite) TestStateWatcher(c *gc.C) {
 			ModelUUID: st0.ModelUUID(),
 			Id:        "0",
 			AgentStatus: multiwatcher.StatusInfo{
-				Current: status.StatusPending,
+				Current: status.Pending,
 				Data:    map[string]interface{}{},
 			},
 			InstanceStatus: multiwatcher.StatusInfo{
-				Current: status.StatusPending,
+				Current: status.Pending,
 				Data:    map[string]interface{}{},
 			},
 			Life:      multiwatcher.Life("alive"),
@@ -1429,11 +1429,11 @@ func (s *allModelWatcherStateSuite) TestStateWatcher(c *gc.C) {
 			ModelUUID: st1.ModelUUID(),
 			Id:        "0",
 			AgentStatus: multiwatcher.StatusInfo{
-				Current: status.StatusPending,
+				Current: status.Pending,
 				Data:    map[string]interface{}{},
 			},
 			InstanceStatus: multiwatcher.StatusInfo{
-				Current: status.StatusPending,
+				Current: status.Pending,
 				Data:    map[string]interface{}{},
 			},
 			Life:      multiwatcher.Life("alive"),
@@ -1456,11 +1456,11 @@ func (s *allModelWatcherStateSuite) TestStateWatcher(c *gc.C) {
 			ModelUUID: st1.ModelUUID(),
 			Id:        "0",
 			AgentStatus: multiwatcher.StatusInfo{
-				Current: status.StatusPending,
+				Current: status.Pending,
 				Data:    map[string]interface{}{},
 			},
 			InstanceStatus: multiwatcher.StatusInfo{
-				Current: status.StatusPending,
+				Current: status.Pending,
 				Data:    map[string]interface{}{},
 			},
 			Life:      multiwatcher.Life("dying"),
@@ -1482,11 +1482,11 @@ func (s *allModelWatcherStateSuite) TestStateWatcher(c *gc.C) {
 			ModelUUID: st1.ModelUUID(),
 			Id:        "0",
 			AgentStatus: multiwatcher.StatusInfo{
-				Current: status.StatusPending,
+				Current: status.Pending,
 				Data:    map[string]interface{}{},
 			},
 			InstanceStatus: multiwatcher.StatusInfo{
-				Current: status.StatusPending,
+				Current: status.Pending,
 				Data:    map[string]interface{}{},
 			},
 			Life:      multiwatcher.Life("dead"),
@@ -1534,11 +1534,11 @@ func (s *allModelWatcherStateSuite) TestStateWatcher(c *gc.C) {
 			Id:         "0",
 			InstanceId: "i-0",
 			AgentStatus: multiwatcher.StatusInfo{
-				Current: status.StatusPending,
+				Current: status.Pending,
 				Data:    map[string]interface{}{},
 			},
 			InstanceStatus: multiwatcher.StatusInfo{
-				Current: status.StatusPending,
+				Current: status.Pending,
 				Data:    map[string]interface{}{},
 			},
 			Life:                    multiwatcher.Life("alive"),
@@ -1560,11 +1560,11 @@ func (s *allModelWatcherStateSuite) TestStateWatcher(c *gc.C) {
 			ModelUUID: st1.ModelUUID(),
 			Id:        "1",
 			AgentStatus: multiwatcher.StatusInfo{
-				Current: status.StatusPending,
+				Current: status.Pending,
 				Data:    map[string]interface{}{},
 			},
 			InstanceStatus: multiwatcher.StatusInfo{
-				Current: status.StatusPending,
+				Current: status.Pending,
 				Data:    map[string]interface{}{},
 			},
 			Life:      multiwatcher.Life("alive"),
@@ -1582,8 +1582,8 @@ func (s *allModelWatcherStateSuite) TestStateWatcher(c *gc.C) {
 			Life:      "alive",
 			Config:    make(map[string]interface{}),
 			Status: multiwatcher.StatusInfo{
-				Current: "unknown",
-				Message: "Waiting for agent initialization to finish",
+				Current: "waiting",
+				Message: "waiting for machine",
 				Data:    map[string]interface{}{},
 			},
 		},
@@ -1595,8 +1595,8 @@ func (s *allModelWatcherStateSuite) TestStateWatcher(c *gc.C) {
 			Series:      "quantal",
 			MachineId:   "1",
 			WorkloadStatus: multiwatcher.StatusInfo{
-				Current: "unknown",
-				Message: "Waiting for agent initialization to finish",
+				Current: "waiting",
+				Message: "waiting for machine",
 				Data:    map[string]interface{}{},
 			},
 			AgentStatus: multiwatcher.StatusInfo{
@@ -1618,11 +1618,11 @@ func (s *allModelWatcherStateSuite) TestStateWatcher(c *gc.C) {
 			ModelUUID: st2.ModelUUID(),
 			Id:        "0",
 			AgentStatus: multiwatcher.StatusInfo{
-				Current: status.StatusPending,
+				Current: status.Pending,
 				Data:    map[string]interface{}{},
 			},
 			InstanceStatus: multiwatcher.StatusInfo{
-				Current: status.StatusPending,
+				Current: status.Pending,
 				Data:    map[string]interface{}{},
 			},
 			Life:      multiwatcher.Life("alive"),
@@ -1770,7 +1770,7 @@ func testChangeMachines(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
 			c.Assert(err, jc.ErrorIsNil)
 			now := time.Now()
 			sInfo := status.StatusInfo{
-				Status:  status.StatusError,
+				Status:  status.Error,
 				Message: "failure",
 				Since:   &now,
 			}
@@ -1788,12 +1788,12 @@ func testChangeMachines(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
 						ModelUUID: st.ModelUUID(),
 						Id:        "0",
 						AgentStatus: multiwatcher.StatusInfo{
-							Current: status.StatusError,
+							Current: status.Error,
 							Message: "failure",
 							Data:    map[string]interface{}{},
 						},
 						InstanceStatus: multiwatcher.StatusInfo{
-							Current: status.StatusPending,
+							Current: status.Pending,
 							Data:    map[string]interface{}{},
 						},
 						Life:      multiwatcher.Life("alive"),
@@ -1819,13 +1819,13 @@ func testChangeMachines(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
 						ModelUUID: st.ModelUUID(),
 						Id:        "0",
 						AgentStatus: multiwatcher.StatusInfo{
-							Current: status.StatusError,
+							Current: status.Error,
 							Message: "another failure",
 							Data:    map[string]interface{}{},
 							Since:   &now,
 						},
 						InstanceStatus: multiwatcher.StatusInfo{
-							Current: status.StatusPending,
+							Current: status.Pending,
 							Data:    map[string]interface{}{},
 							Since:   &now,
 						},
@@ -1841,12 +1841,12 @@ func testChangeMachines(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
 						Id:         "0",
 						InstanceId: "i-0",
 						AgentStatus: multiwatcher.StatusInfo{
-							Current: status.StatusError,
+							Current: status.Error,
 							Message: "another failure",
 							Data:    map[string]interface{}{},
 						},
 						InstanceStatus: multiwatcher.StatusInfo{
-							Current: status.StatusPending,
+							Current: status.Pending,
 							Data:    map[string]interface{}{},
 						},
 						Life:                     multiwatcher.Life("alive"),
@@ -1865,7 +1865,7 @@ func testChangeMachines(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
 					ModelUUID: st.ModelUUID(),
 					Id:        "0",
 					AgentStatus: multiwatcher.StatusInfo{
-						Current: status.StatusError,
+						Current: status.Error,
 						Message: "failure",
 						Data:    map[string]interface{}{},
 						Since:   &now,
@@ -1880,7 +1880,7 @@ func testChangeMachines(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
 						ModelUUID: st.ModelUUID(),
 						Id:        "0",
 						AgentStatus: multiwatcher.StatusInfo{
-							Current: status.StatusError,
+							Current: status.Error,
 							Message: "failure",
 							Data:    map[string]interface{}{},
 						},
@@ -1891,7 +1891,7 @@ func testChangeMachines(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
 			c.Assert(err, jc.ErrorIsNil)
 			now := time.Now()
 			sInfo := status.StatusInfo{
-				Status:  status.StatusStarted,
+				Status:  status.Started,
 				Message: "",
 				Since:   &now,
 			}
@@ -1904,7 +1904,7 @@ func testChangeMachines(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
 					ModelUUID: st.ModelUUID(),
 					Id:        "0",
 					AgentStatus: multiwatcher.StatusInfo{
-						Current: status.StatusError,
+						Current: status.Error,
 						Message: "failure",
 						Data:    map[string]interface{}{},
 						Since:   &now,
@@ -1919,7 +1919,7 @@ func testChangeMachines(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
 						ModelUUID: st.ModelUUID(),
 						Id:        "0",
 						AgentStatus: multiwatcher.StatusInfo{
-							Current: status.StatusStarted,
+							Current: status.Started,
 							Data:    make(map[string]interface{}),
 						},
 					}}}
@@ -2026,8 +2026,8 @@ func testChangeServices(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C,
 						MinUnits:  42,
 						Config:    charm.Settings{},
 						Status: multiwatcher.StatusInfo{
-							Current: "unknown",
-							Message: "Waiting for agent initialization to finish",
+							Current: "waiting",
+							Message: "waiting for machine",
 							Data:    map[string]interface{}{},
 						},
 					}}}
@@ -2275,7 +2275,7 @@ func testChangeServicesConstraints(c *gc.C, owner names.UserTag, runChangeTests 
 				initialContents: []multiwatcher.EntityInfo{&multiwatcher.ApplicationInfo{
 					ModelUUID:   st.ModelUUID(),
 					Name:        "wordpress",
-					Constraints: constraints.MustParse("mem=99M cpu-cores=2 cpu-power=4"),
+					Constraints: constraints.MustParse("mem=99M cores=2 cpu-power=4"),
 				}},
 				change: watcher.Change{
 					C:  "constraints",
@@ -2333,7 +2333,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 			c.Assert(err, jc.ErrorIsNil)
 			now := time.Now()
 			sInfo := status.StatusInfo{
-				Status:  status.StatusError,
+				Status:  status.Error,
 				Message: "failure",
 				Since:   &now,
 			}
@@ -2505,8 +2505,8 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 						Series:      "quantal",
 						MachineId:   "0",
 						WorkloadStatus: multiwatcher.StatusInfo{
-							Current: "unknown",
-							Message: "Waiting for agent initialization to finish",
+							Current: "waiting",
+							Message: "waiting for machine",
 							Data:    map[string]interface{}{},
 						},
 						AgentStatus: multiwatcher.StatusInfo{
@@ -2538,7 +2538,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 			c.Assert(err, jc.ErrorIsNil)
 			now := time.Now()
 			sInfo := status.StatusInfo{
-				Status:  status.StatusError,
+				Status:  status.Error,
 				Message: "failure",
 				Since:   &now,
 			}
@@ -2629,7 +2629,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 			c.Assert(err, jc.ErrorIsNil)
 			now := time.Now()
 			sInfo := status.StatusInfo{
-				Status:  status.StatusIdle,
+				Status:  status.Idle,
 				Message: "",
 				Since:   &now,
 			}
@@ -2682,14 +2682,14 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 			c.Assert(err, jc.ErrorIsNil)
 			now := time.Now()
 			sInfo := status.StatusInfo{
-				Status:  status.StatusIdle,
+				Status:  status.Idle,
 				Message: "",
 				Since:   &now,
 			}
 			err = u.SetAgentStatus(sInfo)
 			c.Assert(err, jc.ErrorIsNil)
 			sInfo = status.StatusInfo{
-				Status:  status.StatusMaintenance,
+				Status:  status.Maintenance,
 				Message: "doing work",
 				Since:   &now,
 			}
@@ -2742,7 +2742,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 			c.Assert(err, jc.ErrorIsNil)
 			now := time.Now()
 			sInfo := status.StatusInfo{
-				Status:  status.StatusError,
+				Status:  status.Error,
 				Message: "hook error",
 				Data: map[string]interface{}{
 					"1st-key": "one",
@@ -2802,7 +2802,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 			c.Assert(err, jc.ErrorIsNil)
 			now := time.Now()
 			sInfo := status.StatusInfo{
-				Status:  status.StatusActive,
+				Status:  status.Active,
 				Message: "",
 				Since:   &now,
 			}
@@ -2937,8 +2937,8 @@ func testChangeUnitsNonNilPorts(c *gc.C, owner names.UserTag, runChangeTests fun
 						Ports:       []multiwatcher.Port{},
 						PortRanges:  []multiwatcher.PortRange{},
 						WorkloadStatus: multiwatcher.StatusInfo{
-							Current: "unknown",
-							Message: "Waiting for agent initialization to finish",
+							Current: "waiting",
+							Message: "waiting for machine",
 							Data:    map[string]interface{}{},
 						},
 						AgentStatus: multiwatcher.StatusInfo{
@@ -2969,8 +2969,8 @@ func testChangeUnitsNonNilPorts(c *gc.C, owner names.UserTag, runChangeTests fun
 						Ports:          []multiwatcher.Port{{"tcp", 12345}},
 						PortRanges:     []multiwatcher.PortRange{{12345, 12345, "tcp"}},
 						WorkloadStatus: multiwatcher.StatusInfo{
-							Current: "unknown",
-							Message: "Waiting for agent initialization to finish",
+							Current: "waiting",
+							Message: "waiting for machine",
 							Data:    map[string]interface{}{},
 						},
 						AgentStatus: multiwatcher.StatusInfo{
@@ -3001,8 +3001,8 @@ func testChangeUnitsNonNilPorts(c *gc.C, owner names.UserTag, runChangeTests fun
 						Ports:          []multiwatcher.Port{},
 						PortRanges:     []multiwatcher.PortRange{},
 						WorkloadStatus: multiwatcher.StatusInfo{
-							Current: "unknown",
-							Message: "Waiting for agent initialization to finish",
+							Current: "waiting",
+							Message: "waiting for machine",
 							Data:    map[string]interface{}{},
 						},
 						AgentStatus: multiwatcher.StatusInfo{
@@ -3030,8 +3030,8 @@ func testChangeUnitsNonNilPorts(c *gc.C, owner names.UserTag, runChangeTests fun
 						Ports:       []multiwatcher.Port{},
 						PortRanges:  []multiwatcher.PortRange{},
 						WorkloadStatus: multiwatcher.StatusInfo{
-							Current: "unknown",
-							Message: "Waiting for agent initialization to finish",
+							Current: "waiting",
+							Message: "waiting for machine",
 							Data:    map[string]interface{}{},
 						},
 						AgentStatus: multiwatcher.StatusInfo{

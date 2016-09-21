@@ -4,12 +4,13 @@
 package common
 
 import (
+	"strings"
+
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/core/description"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
-	"strings"
 )
 
 // EveryoneTagName represents a special group that encompasses
@@ -18,8 +19,8 @@ const EveryoneTagName = "everyone@external"
 
 // UserAccess returns the access the user has on the model state
 // and the host controller.
-func UserAccess(st *state.State, utag names.UserTag) (modelUser, controllerUser description.UserAccess, err error) {
-	var none description.UserAccess
+func UserAccess(st *state.State, utag names.UserTag) (modelUser, controllerUser permission.UserAccess, err error) {
+	var none permission.UserAccess
 	modelUser, err = st.UserAccess(utag, st.ModelTag())
 	if err != nil && !errors.IsNotFound(err) {
 		return none, none, errors.Trace(err)
@@ -42,8 +43,8 @@ func UserAccess(st *state.State, utag names.UserTag) (modelUser, controllerUser 
 		}
 	}
 
-	if description.IsEmptyUserAccess(modelUser) &&
-		description.IsEmptyUserAccess(controllerUser) {
+	if permission.IsEmptyUserAccess(modelUser) &&
+		permission.IsEmptyUserAccess(controllerUser) {
 		return none, none, errors.NotFoundf("model or controller user")
 	}
 	return modelUser, controllerUser, nil
@@ -52,13 +53,13 @@ func UserAccess(st *state.State, utag names.UserTag) (modelUser, controllerUser 
 // HasPermission returns true if the specified user has the specified
 // permission on target.
 func HasPermission(userGetter userAccessFunc, utag names.Tag,
-	permission description.Access, target names.Tag) (bool, error) {
+	requestedPermission permission.Access, target names.Tag) (bool, error) {
 
 	validForKind := false
-	switch permission {
-	case description.LoginAccess, description.AddModelAccess, description.SuperuserAccess:
+	switch requestedPermission {
+	case permission.LoginAccess, permission.AddModelAccess, permission.SuperuserAccess:
 		validForKind = target.Kind() == names.ControllerTagKind
-	case description.ReadAccess, description.WriteAccess, description.AdminAccess:
+	case permission.ReadAccess, permission.WriteAccess, permission.AdminAccess:
 		validForKind = target.Kind() == names.ModelTagKind
 	}
 
@@ -92,7 +93,7 @@ func HasPermission(userGetter userAccessFunc, utag names.Tag,
 		if err != nil {
 			return false, errors.Trace(err)
 		}
-		if description.IsEmptyUserAccess(user) {
+		if permission.IsEmptyUserAccess(user) {
 			return false, nil
 		}
 	}
@@ -100,15 +101,15 @@ func HasPermission(userGetter userAccessFunc, utag names.Tag,
 	if errors.IsNotFound(err) {
 		return false, nil
 	}
-	modelPermission := user.Access.EqualOrGreaterModelAccessThan(permission) && target.Kind() == names.ModelTagKind
-	controllerPermission := user.Access.EqualOrGreaterControllerAccessThan(permission) && target.Kind() == names.ControllerTagKind
+	modelPermission := user.Access.EqualOrGreaterModelAccessThan(requestedPermission) && target.Kind() == names.ModelTagKind
+	controllerPermission := user.Access.EqualOrGreaterControllerAccessThan(requestedPermission) && target.Kind() == names.ControllerTagKind
 	if !controllerPermission && !modelPermission {
 		return false, nil
 	}
 	return true, nil
 }
 
-// maybeUseGroupPermission returns a description.UserAccess updated
+// maybeUseGroupPermission returns a permission.UserAccess updated
 // with the group permissions that apply to it if higher than
 // current.
 // If the passed UserAccess is empty (controller user lacks permissions)
@@ -116,10 +117,10 @@ func HasPermission(userGetter userAccessFunc, utag names.Tag,
 // permissions.
 func maybeUseGroupPermission(
 	userGetter userAccessFunc,
-	externalUser description.UserAccess,
+	externalUser permission.UserAccess,
 	controllerTag names.ControllerTag,
 	userTag names.UserTag,
-) (description.UserAccess, error) {
+) (permission.UserAccess, error) {
 
 	everyoneTag := names.NewUserTag(EveryoneTagName)
 	everyone, err := userGetter(everyoneTag, controllerTag)
@@ -127,10 +128,10 @@ func maybeUseGroupPermission(
 		return externalUser, nil
 	}
 	if err != nil {
-		return description.UserAccess{}, errors.Trace(err)
+		return permission.UserAccess{}, errors.Trace(err)
 	}
-	if description.IsEmptyUserAccess(externalUser) &&
-		!description.IsEmptyUserAccess(everyone) {
+	if permission.IsEmptyUserAccess(externalUser) &&
+		!permission.IsEmptyUserAccess(everyone) {
 		externalUser = newControllerUserFromGroup(everyone, userTag)
 	}
 
@@ -140,13 +141,13 @@ func maybeUseGroupPermission(
 	return externalUser, nil
 }
 
-type userAccessFunc func(names.UserTag, names.Tag) (description.UserAccess, error)
+type userAccessFunc func(names.UserTag, names.Tag) (permission.UserAccess, error)
 
-// newControllerUserFromGroup returns a description.UserAccess that serves
+// newControllerUserFromGroup returns a permission.UserAccess that serves
 // as a stand-in for a user that has group access but no explicit user
 // access.
-func newControllerUserFromGroup(everyoneAccess description.UserAccess,
-	userTag names.UserTag) description.UserAccess {
+func newControllerUserFromGroup(everyoneAccess permission.UserAccess,
+	userTag names.UserTag) permission.UserAccess {
 	everyoneAccess.UserTag = userTag
 	everyoneAccess.UserID = strings.ToLower(userTag.Canonical())
 	everyoneAccess.UserName = userTag.Canonical()

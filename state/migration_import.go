@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/payload"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
@@ -227,7 +228,7 @@ func (i *importer) modelUsers() error {
 			user.CreatedBy(),
 			user.DisplayName(),
 			user.DateCreated(),
-			user.Access())...,
+			permission.Access(user.Access()))...,
 		)
 	}
 	if err := i.st.runTransaction(ops); err != nil {
@@ -290,7 +291,7 @@ func (i *importer) machine(m description.Machine) error {
 	// (a card exists for the work). Fake it for now.
 	instanceStatusDoc := statusDoc{
 		ModelUUID: i.st.ModelUUID(),
-		Status:    status.StatusStarted,
+		Status:    status.Started,
 	}
 	cons := i.constraints(m.Constraints())
 	prereqOps, machineOp := i.st.baseNewMachineOps(
@@ -708,9 +709,9 @@ func (i *importer) unit(s description.Application, u description.Unit) error {
 	workloadStatusDoc := i.makeStatusDoc(workloadStatus)
 
 	workloadVersion := u.WorkloadVersion()
-	versionStatus := status.StatusActive
+	versionStatus := status.Active
 	if workloadVersion == "" {
-		versionStatus = status.StatusUnknown
+		versionStatus = status.Unknown
 	}
 	workloadVersionDoc := statusDoc{
 		Status:     versionStatus,

@@ -59,14 +59,14 @@ func (s *machinerSuite) TestMachinerFailsWithNonMachineAgentUser(c *gc.C) {
 func (s *machinerSuite) TestSetStatus(c *gc.C) {
 	now := time.Now()
 	sInfo := status.StatusInfo{
-		Status:  status.StatusStarted,
+		Status:  status.Started,
 		Message: "blah",
 		Since:   &now,
 	}
 	err := s.machine0.SetStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	sInfo = status.StatusInfo{
-		Status:  status.StatusStopped,
+		Status:  status.Stopped,
 		Message: "foo",
 		Since:   &now,
 	}
@@ -75,9 +75,9 @@ func (s *machinerSuite) TestSetStatus(c *gc.C) {
 
 	args := params.SetStatus{
 		Entities: []params.EntityStatusArgs{
-			{Tag: "machine-1", Status: status.StatusError.String(), Info: "not really"},
-			{Tag: "machine-0", Status: status.StatusStopped.String(), Info: "foobar"},
-			{Tag: "machine-42", Status: status.StatusStarted.String(), Info: "blah"},
+			{Tag: "machine-1", Status: status.Error.String(), Info: "not really"},
+			{Tag: "machine-0", Status: status.Stopped.String(), Info: "foobar"},
+			{Tag: "machine-42", Status: status.Started.String(), Info: "blah"},
 		}}
 	result, err := s.machiner.SetStatus(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -92,12 +92,12 @@ func (s *machinerSuite) TestSetStatus(c *gc.C) {
 	// Verify machine 0 - no change.
 	statusInfo, err := s.machine0.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Status, gc.Equals, status.StatusStarted)
+	c.Assert(statusInfo.Status, gc.Equals, status.Started)
 	c.Assert(statusInfo.Message, gc.Equals, "blah")
 	// ...machine 1 is fine though.
 	statusInfo, err = s.machine1.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Status, gc.Equals, status.StatusError)
+	c.Assert(statusInfo.Status, gc.Equals, status.Error)
 	c.Assert(statusInfo.Message, gc.Equals, "not really")
 }
 

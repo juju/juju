@@ -4,12 +4,14 @@
 package azure
 
 import (
+	"fmt"
 	"math/rand"
 	"net/http"
 	"time"
 
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/to"
+	"github.com/juju/errors"
 	"github.com/juju/retry"
 	"github.com/juju/utils"
 	"github.com/juju/utils/clock"
@@ -83,4 +85,26 @@ func (c backoffAPIRequestCaller) call(f func() (autorest.Response, error)) error
 		BackoffFunc: retry.DoubleDelay,
 		Clock:       c.clock,
 	})
+}
+
+// deleteResource deletes a resource with the given name from the resource
+// group, using the provided "Deleter". If the resource does not exist, an
+// error satisfying errors.IsNotFound will be returned.
+func deleteResource(callAPI callAPIFunc, deleter resourceDeleter, resourceGroup, name string) error {
+	var result autorest.Response
+	if err := callAPI(func() (autorest.Response, error) {
+		var err error
+		result, err = deleter.Delete(resourceGroup, name, nil)
+		return result, err
+	}); err != nil {
+		if result.Response != nil && result.StatusCode == http.StatusNotFound {
+			return errors.NewNotFound(err, fmt.Sprintf("resource %q not found", name))
+		}
+		return errors.Annotate(err, "canceling deployment")
+	}
+	return nil
+}
+
+type resourceDeleter interface {
+	Delete(resourceGroup, name string, cancel <-chan struct{}) (autorest.Response, error)
 }

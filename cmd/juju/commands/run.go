@@ -39,7 +39,8 @@ type runCommand struct {
 }
 
 const runDoc = `
-Run the commands on the specified targets.
+Run the commands on the specified targets. Only admin users of a model
+are able to use this command.
 
 Targets are specified using either machine ids, application names or unit
 names.  At least one target specifier is needed.

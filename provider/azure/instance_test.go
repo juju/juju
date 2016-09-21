@@ -9,6 +9,7 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/arm/compute"
 	"github.com/Azure/azure-sdk-for-go/arm/network"
+	"github.com/Azure/azure-sdk-for-go/arm/resources/resources"
 	"github.com/Azure/go-autorest/autorest/mocks"
 	"github.com/Azure/go-autorest/autorest/to"
 	jc "github.com/juju/testing/checkers"
@@ -18,7 +19,9 @@ import (
 	"github.com/juju/juju/instance"
 	jujunetwork "github.com/juju/juju/network"
 	"github.com/juju/juju/provider/azure"
+	"github.com/juju/juju/provider/azure/internal/azureauth"
 	"github.com/juju/juju/provider/azure/internal/azuretesting"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/testing"
 )
 
@@ -29,7 +32,7 @@ type instanceSuite struct {
 	requests          []*http.Request
 	sender            azuretesting.Senders
 	env               environs.Environ
-	virtualMachines   []compute.VirtualMachine
+	deployments       []resources.DeploymentExtended
 	networkInterfaces []network.Interface
 	publicIPAddresses []network.PublicIPAddress
 }
@@ -39,8 +42,10 @@ var _ = gc.Suite(&instanceSuite{})
 func (s *instanceSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.provider = newProvider(c, azure.ProviderConfig{
-		Sender:           &s.sender,
-		RequestInspector: requestRecorder(&s.requests),
+		Sender:                            &s.sender,
+		RequestInspector:                  azuretesting.RequestRecorder(&s.requests),
+		RandomWindowsAdminPassword:        func() string { return "sorandom" },
+		InteractiveCreateServicePrincipal: azureauth.InteractiveCreateServicePrincipal,
 	})
 	s.env = openEnviron(c, s.provider, &s.sender)
 	s.sender = nil
@@ -49,9 +54,27 @@ func (s *instanceSuite) SetUpTest(c *gc.C) {
 		makeNetworkInterface("nic-0", "machine-0"),
 	}
 	s.publicIPAddresses = nil
-	s.virtualMachines = []compute.VirtualMachine{
-		makeVirtualMachine("machine-0"),
-		makeVirtualMachine("machine-1"),
+	s.deployments = []resources.DeploymentExtended{
+		makeDeployment("machine-0"),
+		makeDeployment("machine-1"),
+	}
+}
+
+func makeDeployment(name string) resources.DeploymentExtended {
+	dependsOn := []resources.BasicDependency{{
+		ResourceType: to.StringPtr("Microsoft.Compute/availabilitySets"),
+		ResourceName: to.StringPtr("mysql"),
+	}}
+	dependencies := []resources.Dependency{{
+		ResourceType: to.StringPtr("Microsoft.Compute/virtualMachines"),
+		DependsOn:    &dependsOn,
+	}}
+	return resources.DeploymentExtended{
+		Name: to.StringPtr(name),
+		Properties: &resources.DeploymentPropertiesExtended{
+			ProvisioningState: to.StringPtr("Succeeded"),
+			Dependencies:      &dependencies,
+		},
 	}
 }
 
@@ -59,7 +82,7 @@ func makeVirtualMachine(name string) compute.VirtualMachine {
 	return compute.VirtualMachine{
 		Name: to.StringPtr(name),
 		Properties: &compute.VirtualMachineProperties{
-			ProvisioningState: to.StringPtr("Successful"),
+			ProvisioningState: to.StringPtr("Succeeded"),
 		},
 	}
 }
@@ -127,29 +150,28 @@ func (s *instanceSuite) getInstance(c *gc.C) instance.Instance {
 }
 
 func (s *instanceSuite) getInstances(c *gc.C, ids ...instance.Id) []instance.Instance {
-
-	nicsSender := azuretesting.NewSenderWithValue(&network.InterfaceListResult{
-		Value: &s.networkInterfaces,
-	})
-	nicsSender.PathPattern = ".*/networkInterfaces"
-
-	vmsSender := azuretesting.NewSenderWithValue(&compute.VirtualMachineListResult{
-		Value: &s.virtualMachines,
-	})
-	vmsSender.PathPattern = ".*/virtualMachines"
-
-	pipsSender := azuretesting.NewSenderWithValue(&network.PublicIPAddressListResult{
-		Value: &s.publicIPAddresses,
-	})
-	pipsSender.PathPattern = ".*/publicIPAddresses"
-
-	s.sender = azuretesting.Senders{nicsSender, vmsSender, pipsSender}
-
+	s.sender = s.getInstancesSender()
 	instances, err := s.env.Instances(ids)
 	c.Assert(err, jc.ErrorIsNil)
 	s.sender = azuretesting.Senders{}
 	s.requests = nil
 	return instances
+}
+
+func (s *instanceSuite) getInstancesSender() azuretesting.Senders {
+	deploymentsSender := azuretesting.NewSenderWithValue(&resources.DeploymentListResult{
+		Value: &s.deployments,
+	})
+	deploymentsSender.PathPattern = ".*/deployments"
+	nicsSender := azuretesting.NewSenderWithValue(&network.InterfaceListResult{
+		Value: &s.networkInterfaces,
+	})
+	nicsSender.PathPattern = ".*/networkInterfaces"
+	pipsSender := azuretesting.NewSenderWithValue(&network.PublicIPAddressListResult{
+		Value: &s.publicIPAddresses,
+	})
+	pipsSender.PathPattern = ".*/publicIPAddresses"
+	return azuretesting.Senders{deploymentsSender, nicsSender, pipsSender}
 }
 
 func networkSecurityGroupSender(rules []network.SecurityRule) *azuretesting.MockSender {
@@ -164,22 +186,32 @@ func networkSecurityGroupSender(rules []network.SecurityRule) *azuretesting.Mock
 
 func (s *instanceSuite) TestInstanceStatus(c *gc.C) {
 	inst := s.getInstance(c)
-	c.Assert(inst.Status().Message, gc.Equals, "Successful")
+	assertInstanceStatus(c, inst.Status(), status.Running, "")
+}
+
+func (s *instanceSuite) TestInstanceStatusDeploymentFailed(c *gc.C) {
+	s.deployments[0].Properties.ProvisioningState = to.StringPtr("Failed")
+	inst := s.getInstance(c)
+	assertInstanceStatus(c, inst.Status(), status.ProvisioningError, "Failed")
+}
+
+func (s *instanceSuite) TestInstanceStatusDeploymentCanceled(c *gc.C) {
+	s.deployments[0].Properties.ProvisioningState = to.StringPtr("Canceled")
+	inst := s.getInstance(c)
+	assertInstanceStatus(c, inst.Status(), status.ProvisioningError, "Canceled")
 }
 
 func (s *instanceSuite) TestInstanceStatusNilProvisioningState(c *gc.C) {
-	s.virtualMachines[0].Properties.ProvisioningState = nil
+	s.deployments[0].Properties.ProvisioningState = nil
 	inst := s.getInstance(c)
-	c.Assert(inst.Status().Message, gc.Equals, "")
+	assertInstanceStatus(c, inst.Status(), status.Allocating, "")
 }
 
-func (s *instanceSuite) TestInstanceStatusNoVM(c *gc.C) {
-	// Instances will still return an instance if there's a NIC, which is
-	// the last thing we delete. If there's no VM, we return the string
-	// "Partially Deleted" from Instance.Status().
-	s.virtualMachines = nil
-	inst := s.getInstance(c)
-	c.Assert(inst.Status().Message, gc.Equals, "Partially Deleted")
+func assertInstanceStatus(c *gc.C, actual instance.InstanceStatus, status status.Status, message string) {
+	c.Assert(actual, jc.DeepEquals, instance.InstanceStatus{
+		Status:  status,
+		Message: message,
+	})
 }
 
 func (s *instanceSuite) TestInstanceAddressesEmpty(c *gc.C) {
@@ -507,6 +539,24 @@ func (s *instanceSuite) TestInstanceOpenPortsAlreadyOpen(c *gc.C) {
 func (s *instanceSuite) TestInstanceOpenPortsNoInternalAddress(c *gc.C) {
 	err := s.getInstance(c).OpenPorts("0", nil)
 	c.Assert(err, gc.ErrorMatches, "internal network address not found")
+}
+
+func (s *instanceSuite) TestAllInstances(c *gc.C) {
+	s.sender = s.getInstancesSender()
+	instances, err := s.env.AllInstances()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(instances, gc.HasLen, 2)
+	c.Assert(instances[0].Id(), gc.Equals, instance.Id("machine-0"))
+	c.Assert(instances[1].Id(), gc.Equals, instance.Id("machine-1"))
+}
+
+func (s *instanceSuite) TestControllerInstances(c *gc.C) {
+	*(*(*s.deployments[0].Properties.Dependencies)[0].DependsOn)[0].ResourceName = "juju-controller"
+	s.sender = s.getInstancesSender()
+	ids, err := s.env.ControllerInstances("foo")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ids, gc.HasLen, 1)
+	c.Assert(ids[0], gc.Equals, instance.Id("machine-0"))
 }
 
 var internalSecurityGroupPath = path.Join(

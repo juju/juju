@@ -57,13 +57,25 @@ type Instance interface {
 // HardwareCharacteristics represents the characteristics of the instance (if known).
 // Attributes that are nil are unknown or not supported.
 type HardwareCharacteristics struct {
-	Arch     *string   `json:"arch,omitempty" yaml:"arch,omitempty"`
-	Mem      *uint64   `json:"mem,omitempty" yaml:"mem,omitempty"`
-	RootDisk *uint64   `json:"root-disk,omitempty" yaml:"rootdisk,omitempty"`
-	CpuCores *uint64   `json:"cpu-cores,omitempty" yaml:"cpucores,omitempty"`
-	CpuPower *uint64   `json:"cpu-power,omitempty" yaml:"cpupower,omitempty"`
-	Tags     *[]string `json:"tags,omitempty" yaml:"tags,omitempty"`
+	// Arch is the architecture of the processor.
+	Arch *string `json:"arch,omitempty" yaml:"arch,omitempty"`
 
+	// Mem is the size of RAM in megabytes.
+	Mem *uint64 `json:"mem,omitempty" yaml:"mem,omitempty"`
+
+	// RootDisk is the size of the disk in megabytes.
+	RootDisk *uint64 `json:"root-disk,omitempty" yaml:"rootdisk,omitempty"`
+
+	// CpuCores is the number of logical cores the processor has.
+	CpuCores *uint64 `json:"cpu-cores,omitempty" yaml:"cpucores,omitempty"`
+
+	// CpuPower is a relative representation of the speed of the processor.
+	CpuPower *uint64 `json:"cpu-power,omitempty" yaml:"cpupower,omitempty"`
+
+	// Tags is a list of strings that identify the machine.
+	Tags *[]string `json:"tags,omitempty" yaml:"tags,omitempty"`
+
+	// AvailabilityZone defines the zone in which the machine resides.
 	AvailabilityZone *string `json:"availability-zone,omitempty" yaml:"availabilityzone,omitempty"`
 }
 
@@ -73,7 +85,7 @@ func (hc HardwareCharacteristics) String() string {
 		strs = append(strs, fmt.Sprintf("arch=%s", *hc.Arch))
 	}
 	if hc.CpuCores != nil {
-		strs = append(strs, fmt.Sprintf("cpu-cores=%d", *hc.CpuCores))
+		strs = append(strs, fmt.Sprintf("cores=%d", *hc.CpuCores))
 	}
 	if hc.CpuPower != nil {
 		strs = append(strs, fmt.Sprintf("cpu-power=%d", *hc.CpuPower))
@@ -91,16 +103,6 @@ func (hc HardwareCharacteristics) String() string {
 		strs = append(strs, fmt.Sprintf("availability-zone=%s", *hc.AvailabilityZone))
 	}
 	return strings.Join(strs, " ")
-}
-
-// Implement gnuflag.Value
-func (hc *HardwareCharacteristics) Set(s string) error {
-	parsed, err := ParseHardware(s)
-	if err != nil {
-		return err
-	}
-	*hc = parsed
-	return nil
 }
 
 // MustParseHardware constructs a HardwareCharacteristics from the supplied arguments,
@@ -143,7 +145,7 @@ func (hc *HardwareCharacteristics) setRaw(raw string) error {
 	switch name {
 	case "arch":
 		err = hc.setArch(str)
-	case "cpu-cores":
+	case "cores":
 		err = hc.setCpuCores(str)
 	case "cpu-power":
 		err = hc.setCpuPower(str)

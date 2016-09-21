@@ -18,13 +18,12 @@ type ControllerValidationSuite struct {
 func (s *ControllerValidationSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.controller = jujuclient.ControllerDetails{
-		[]string{"test.server.hostname"},
-		"test.uuid",
-		[]string{"test.api.endpoint"},
-		"test.ca.cert",
-		"aws",
-		"southeastasia",
-		"",
+		UnresolvedAPIEndpoints: []string{"test.server.hostname"},
+		ControllerUUID:         "test.uuid",
+		APIEndpoints:           []string{"test.api.endpoint"},
+		CACert:                 "test.ca.cert",
+		Cloud:                  "aws",
+		CloudRegion:            "southeastasia",
 	}
 }
 
@@ -37,11 +36,6 @@ func (s *ControllerValidationSuite) TestValidateControllerName(c *gc.C) {
 func (s *ControllerValidationSuite) TestValidateControllerDetailsNoControllerUUID(c *gc.C) {
 	s.controller.ControllerUUID = ""
 	s.assertValidateControllerDetailsFails(c, "missing uuid, controller details not valid")
-}
-
-func (s *ControllerValidationSuite) TestValidateControllerDetailsNoCACert(c *gc.C) {
-	s.controller.CACert = ""
-	s.assertValidateControllerDetailsFails(c, "missing ca-cert, controller details not valid")
 }
 
 func (s *ControllerValidationSuite) assertValidateControllerDetailsFails(c *gc.C, failureMessage string) {

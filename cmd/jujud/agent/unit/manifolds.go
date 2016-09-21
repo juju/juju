@@ -195,6 +195,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		leadershipTrackerName: ifNotMigrating(leadership.Manifold(leadership.ManifoldConfig{
 			AgentName:           agentName,
 			APICallerName:       apiCallerName,
+			Clock:               clock.WallClock,
 			LeadershipGuarantee: config.LeadershipGuarantee,
 		})),
 

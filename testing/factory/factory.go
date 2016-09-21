@@ -19,9 +19,9 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
@@ -54,7 +54,7 @@ type UserParams struct {
 	Creator     names.Tag
 	NoModelUser bool
 	Disabled    bool
-	Access      description.Access
+	Access      permission.Access
 }
 
 // ModelUserParams defines the parameters for creating an environment user.
@@ -62,7 +62,7 @@ type ModelUserParams struct {
 	User        string
 	DisplayName string
 	CreatedBy   names.Tag
-	Access      description.Access
+	Access      permission.Access
 }
 
 // CharmParams defines the parameters for creating a charm.
@@ -181,8 +181,8 @@ func (factory *Factory) MakeUser(c *gc.C, params *UserParams) *state.User {
 		c.Assert(err, jc.ErrorIsNil)
 		params.Creator = env.Owner()
 	}
-	if params.Access == description.UndefinedAccess {
-		params.Access = description.AdminAccess
+	if params.Access == permission.UndefinedAccess {
+		params.Access = permission.AdminAccess
 	}
 	creatorUserTag := params.Creator.(names.UserTag)
 	user, err := factory.st.AddUser(
@@ -208,7 +208,7 @@ func (factory *Factory) MakeUser(c *gc.C, params *UserParams) *state.User {
 // attributes of ModelUserParams that are the default empty values, some
 // meaningful valid values are used instead. If params is not specified,
 // defaults are used.
-func (factory *Factory) MakeModelUser(c *gc.C, params *ModelUserParams) description.UserAccess {
+func (factory *Factory) MakeModelUser(c *gc.C, params *ModelUserParams) permission.UserAccess {
 	if params == nil {
 		params = &ModelUserParams{}
 	}
@@ -219,8 +219,8 @@ func (factory *Factory) MakeModelUser(c *gc.C, params *ModelUserParams) descript
 	if params.DisplayName == "" {
 		params.DisplayName = uniqueString("display name")
 	}
-	if params.Access == description.UndefinedAccess {
-		params.Access = description.AdminAccess
+	if params.Access == permission.UndefinedAccess {
+		params.Access = permission.AdminAccess
 	}
 	if params.CreatedBy == nil {
 		env, err := factory.st.Model()

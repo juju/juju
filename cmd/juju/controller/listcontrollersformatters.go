@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"sort"
-	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/version"
@@ -33,15 +32,19 @@ func (c *listControllersCommand) formatControllersListTabular(writer io.Writer, 
 // sorted by controller name alphabetically.
 func formatControllersTabular(writer io.Writer, set ControllerSet, promptRefresh bool) error {
 	tw := output.TabWriter(writer)
-	print := func(values ...string) {
-		fmt.Fprint(tw, strings.Join(values, "\t"))
-	}
+	w := output.Wrapper{tw}
 
-	print("CONTROLLER", "MODEL", "USER", "ACCESS", "CLOUD/REGION", "VERSION")
-	fmt.Fprintln(tw, "")
+	if promptRefresh && len(set.Controllers) > 0 {
+		fmt.Fprintln(writer, "Use --refresh to see the latest information.")
+		fmt.Fprintln(writer)
+	}
+	w.Println("CONTROLLER", "MODEL", "USER", "ACCESS", "CLOUD/REGION", "MODELS", "MACHINES", "HA", "VERSION")
+	tw.SetColumnAlignRight(5)
+	tw.SetColumnAlignRight(6)
+	tw.SetColumnAlignRight(7)
 
 	names := []string{}
-	for name, _ := range set.Controllers {
+	for name := range set.Controllers {
 		names = append(names, name)
 	}
 	sort.Strings(names)
@@ -63,9 +66,9 @@ func formatControllersTabular(writer io.Writer, set ControllerSet, promptRefresh
 		}
 		if name == set.CurrentController {
 			name += "*"
-			output.CurrentHighlight.Fprintf(tw, "%s\t", name)
+			w.PrintColor(output.CurrentHighlight, name)
 		} else {
-			fmt.Fprintf(tw, "%s\t", name)
+			w.Print(name)
 		}
 		cloudRegion := c.Cloud
 		if c.CloudRegion != "" {
@@ -79,23 +82,44 @@ func formatControllersTabular(writer io.Writer, set ControllerSet, promptRefresh
 			agentVersionNum, err := version.Parse(agentVersion)
 			staleVersion = err == nil && jujuversion.Current.Compare(agentVersionNum) > 0
 		}
-		if promptRefresh {
-			if access != noValueDisplay {
-				access += "+"
-			}
-			agentVersion += "+"
+		machineCount := noValueDisplay
+		if c.MachineCount != nil && *c.MachineCount > 0 {
+			machineCount = fmt.Sprintf("%d", *c.MachineCount)
 		}
-		print(modelName, userName, access, cloudRegion)
-		if staleVersion {
-			output.WarningHighlight.Fprintf(tw, "\t%s", agentVersion)
+		modelCount := noValueDisplay
+		if c.ModelCount != nil && *c.ModelCount > 0 {
+			modelCount = fmt.Sprintf("%d", *c.ModelCount)
+		}
+		w.Print(modelName, userName, access, cloudRegion, modelCount, machineCount)
+		controllerMachineInfo, warn := controllerMachineStatus(c.ControllerMachines)
+		if warn {
+			w.PrintColor(output.WarningHighlight, controllerMachineInfo)
 		} else {
-			fmt.Fprintf(tw, "\t%s", agentVersion)
+			w.Print(controllerMachineInfo)
 		}
-		fmt.Fprintln(tw, "")
+		if staleVersion {
+			w.PrintColor(output.WarningHighlight, agentVersion)
+		} else {
+			w.Print(agentVersion)
+		}
+		w.Println()
 	}
 	tw.Flush()
-	if promptRefresh && len(names) > 0 {
-		fmt.Fprintln(writer, "\n+ these are the last known values, run with --refresh to see the latest information.")
-	}
 	return nil
+}
+
+func controllerMachineStatus(machines *ControllerMachines) (string, bool) {
+	if machines == nil || machines.Total == 0 {
+		return "-", false
+	}
+	if machines.Total == 1 {
+		return "none", false
+	}
+	controllerMachineStatus := ""
+	warn := machines.Active < machines.Total
+	controllerMachineStatus = fmt.Sprintf("%d", machines.Total)
+	if machines.Active < machines.Total {
+		controllerMachineStatus = fmt.Sprintf("%d/%d", machines.Active, machines.Total)
+	}
+	return controllerMachineStatus, warn
 }

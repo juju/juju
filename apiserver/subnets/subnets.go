@@ -11,7 +11,7 @@ import (
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/core/description"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 )
 
@@ -51,7 +51,7 @@ func NewAPI(st *state.State, res facade.Resources, auth facade.Authorizer) (Subn
 }
 
 func (api *subnetsAPI) checkCanRead() error {
-	canRead, err := api.authorizer.HasPermission(description.ReadAccess, api.backing.ModelTag())
+	canRead, err := api.authorizer.HasPermission(permission.ReadAccess, api.backing.ModelTag())
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -62,7 +62,7 @@ func (api *subnetsAPI) checkCanRead() error {
 }
 
 func (api *subnetsAPI) checkCanWrite() error {
-	canWrite, err := api.authorizer.HasPermission(description.WriteAccess, api.backing.ModelTag())
+	canWrite, err := api.authorizer.HasPermission(permission.WriteAccess, api.backing.ModelTag())
 	if err != nil {
 		return errors.Trace(err)
 	}

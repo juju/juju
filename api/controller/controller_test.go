@@ -4,11 +4,13 @@
 package controller_test
 
 import (
+	"encoding/json"
 	"errors"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/macaroon.v1"
 
 	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/controller"
@@ -25,12 +27,27 @@ type Suite struct {
 var _ = gc.Suite(&Suite{})
 
 func (s *Suite) TestInitiateMigration(c *gc.C) {
+	s.checkInitiateMigration(c, makeSpec())
+}
+
+func (s *Suite) TestInitiateMigrationExternalControl(c *gc.C) {
+	spec := makeSpec()
+	spec.ExternalControl = true
+	s.checkInitiateMigration(c, spec)
+}
+
+func (s *Suite) TestInitiateMigrationSkipPrechecks(c *gc.C) {
+	spec := makeSpec()
+	spec.SkipInitialPrechecks = true
+	s.checkInitiateMigration(c, spec)
+}
+
+func (s *Suite) checkInitiateMigration(c *gc.C, spec controller.MigrationSpec) {
 	client, stub := makeClient(params.InitiateMigrationResults{
 		Results: []params.InitiateMigrationResult{{
 			MigrationId: "id",
 		}},
 	})
-	spec := makeSpec()
 	id, err := client.InitiateMigration(spec)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(id, gc.Equals, "id")
@@ -39,34 +56,28 @@ func (s *Suite) TestInitiateMigration(c *gc.C) {
 	})
 }
 
-func (s *Suite) TestInitiateMigrationExternalControl(c *gc.C) {
-	client, stub := makeClient(params.InitiateMigrationResults{
-		Results: []params.InitiateMigrationResult{{
-			MigrationId: "id",
-		}},
-	})
-	spec := makeSpec()
-	spec.ExternalControl = true
-	_, err := client.InitiateMigration(spec)
-	c.Assert(err, jc.ErrorIsNil)
-	stub.CheckCalls(c, []jujutesting.StubCall{
-		{"Controller.InitiateMigration", []interface{}{specToArgs(spec)}},
-	})
-}
-
 func specToArgs(spec controller.MigrationSpec) params.InitiateMigrationArgs {
+	var macsJSON []byte
+	if len(spec.TargetMacaroons) > 0 {
+		var err error
+		macsJSON, err = json.Marshal(spec.TargetMacaroons)
+		if err != nil {
+			panic(err)
+		}
+	}
 	return params.InitiateMigrationArgs{
 		Specs: []params.MigrationSpec{{
 			ModelTag: names.NewModelTag(spec.ModelUUID).String(),
 			TargetInfo: params.MigrationTargetInfo{
-				ControllerTag: names.NewModelTag(spec.TargetControllerUUID).String(),
+				ControllerTag: names.NewControllerTag(spec.TargetControllerUUID).String(),
 				Addrs:         spec.TargetAddrs,
 				CACert:        spec.TargetCACert,
 				AuthTag:       names.NewUserTag(spec.TargetUser).String(),
 				Password:      spec.TargetPassword,
-				Macaroon:      spec.TargetMacaroon,
+				Macaroons:     string(macsJSON),
 			},
-			ExternalControl: spec.ExternalControl,
+			ExternalControl:      spec.ExternalControl,
+			SkipInitialPrechecks: spec.SkipInitialPrechecks,
 		}},
 	}
 }
@@ -131,6 +142,10 @@ func makeClient(results params.InitiateMigrationResults) (
 }
 
 func makeSpec() controller.MigrationSpec {
+	mac, err := macaroon.New([]byte("secret"), "id", "location")
+	if err != nil {
+		panic(err)
+	}
 	return controller.MigrationSpec{
 		ModelUUID:            randomUUID(),
 		TargetControllerUUID: randomUUID(),
@@ -138,7 +153,7 @@ func makeSpec() controller.MigrationSpec {
 		TargetCACert:         "cert",
 		TargetUser:           "someone",
 		TargetPassword:       "secret",
-		TargetMacaroon:       "mac",
+		TargetMacaroons:      []macaroon.Slice{{mac}},
 	}
 }
 

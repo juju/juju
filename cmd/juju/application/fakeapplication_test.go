@@ -13,20 +13,20 @@ import (
 
 // fakeServiceAPI is the fake application API for testing the application
 // update command.
-type fakeServiceAPI struct {
-	serviceName string
-	charmName   string
-	values      map[string]interface{}
-	config      string
-	err         error
+type fakeApplicationAPI struct {
+	name      string
+	charmName string
+	values    map[string]interface{}
+	config    string
+	err       error
 }
 
-func (f *fakeServiceAPI) Update(args params.ApplicationUpdate) error {
+func (f *fakeApplicationAPI) Update(args params.ApplicationUpdate) error {
 	if f.err != nil {
 		return f.err
 	}
 
-	if args.ApplicationName != f.serviceName {
+	if args.ApplicationName != f.name {
 		return errors.NotFoundf("application %q", args.ApplicationName)
 	}
 
@@ -34,12 +34,12 @@ func (f *fakeServiceAPI) Update(args params.ApplicationUpdate) error {
 	return nil
 }
 
-func (f *fakeServiceAPI) Close() error {
+func (f *fakeApplicationAPI) Close() error {
 	return nil
 }
 
-func (f *fakeServiceAPI) Get(application string) (*params.ApplicationGetResults, error) {
-	if application != f.serviceName {
+func (f *fakeApplicationAPI) Get(application string) (*params.ApplicationGetResults, error) {
+	if application != f.name {
 		return nil, errors.NotFoundf("application %q", application)
 	}
 
@@ -53,18 +53,18 @@ func (f *fakeServiceAPI) Get(application string) (*params.ApplicationGetResults,
 	}
 
 	return &params.ApplicationGetResults{
-		Application: f.serviceName,
+		Application: f.name,
 		Charm:       f.charmName,
 		Config:      configInfo,
 	}, nil
 }
 
-func (f *fakeServiceAPI) Set(application string, options map[string]string) error {
+func (f *fakeApplicationAPI) Set(application string, options map[string]string) error {
 	if f.err != nil {
 		return f.err
 	}
 
-	if application != f.serviceName {
+	if application != f.name {
 		return errors.NotFoundf("application %q", application)
 	}
 
@@ -78,12 +78,12 @@ func (f *fakeServiceAPI) Set(application string, options map[string]string) erro
 	return nil
 }
 
-func (f *fakeServiceAPI) Unset(application string, options []string) error {
+func (f *fakeApplicationAPI) Unset(application string, options []string) error {
 	if f.err != nil {
 		return f.err
 	}
 
-	if application != f.serviceName {
+	if application != f.name {
 		return errors.NotFoundf("application %q", application)
 	}
 

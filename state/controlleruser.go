@@ -9,17 +9,18 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/description"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/txn"
+
+	"github.com/juju/juju/permission"
 )
 
-const defaultControllerPermission = description.LoginAccess
+const defaultControllerPermission = permission.LoginAccess
 
 // setAccess changes the user's access permissions on the controller.
-func (st *State) setControllerAccess(access description.Access, userGlobalKey string) error {
-	if err := description.ValidateControllerAccess(access); err != nil {
+func (st *State) setControllerAccess(access permission.Access, userGlobalKey string) error {
+	if err := permission.ValidateControllerAccess(access); err != nil {
 		return errors.Trace(err)
 	}
 	op := updatePermissionOp(controllerKey(st.ControllerUUID()), userGlobalKey, access)
@@ -48,7 +49,7 @@ func (st *State) controllerUser(user names.UserTag) (userAccessDoc, error) {
 	return controllerUser, nil
 }
 
-func createControllerUserOps(controllerUUID string, user, createdBy names.UserTag, displayName string, dateCreated time.Time, access description.Access) []txn.Op {
+func createControllerUserOps(controllerUUID string, user, createdBy names.UserTag, displayName string, dateCreated time.Time, access permission.Access) []txn.Op {
 	creatorname := createdBy.Canonical()
 	doc := &userAccessDoc{
 		ID:          userAccessID(user),

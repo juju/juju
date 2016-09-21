@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"fmt"
 	"path/filepath"
+	"strings"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -17,23 +18,52 @@ import (
 	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/storage"
 	"github.com/juju/juju/testcharms"
+	"github.com/juju/juju/testing/factory"
 )
 
 type CharmSuite struct {
 	ConnSuite
-	curl *charm.URL
+	charm *state.Charm
+	curl  *charm.URL
 }
 
 var _ = gc.Suite(&CharmSuite{})
 
 func (s *CharmSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
-	added := s.AddTestingCharm(c, "dummy")
-	s.curl = added.URL()
+	s.charm = s.AddTestingCharm(c, "dummy")
+	s.curl = s.charm.URL()
 }
 
-func (s *CharmSuite) TestCharm(c *gc.C) {
+func (s *CharmSuite) destroy(c *gc.C) {
+	err := s.charm.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *CharmSuite) remove(c *gc.C) {
+	s.destroy(c)
+	err := s.charm.Remove()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *CharmSuite) checkRemoved(c *gc.C) {
+	_, err := s.State.Charm(s.curl)
+	c.Check(err, gc.ErrorMatches, `charm ".*" not found`)
+	c.Check(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *CharmSuite) TestAliveCharm(c *gc.C) {
+	s.testCharm(c)
+}
+
+func (s *CharmSuite) TestDyingCharm(c *gc.C) {
+	s.destroy(c)
+	s.testCharm(c)
+}
+
+func (s *CharmSuite) testCharm(c *gc.C) {
 	dummy, err := s.State.Charm(s.curl)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(dummy.URL().String(), gc.Equals, s.curl.String())
@@ -74,6 +104,23 @@ func (s *CharmSuite) TestCharm(c *gc.C) {
 		})
 }
 
+func (s *CharmSuite) TestRemovedCharmNotFound(c *gc.C) {
+	s.remove(c)
+	s.checkRemoved(c)
+}
+
+func (s *CharmSuite) TestRemovedCharmNotListed(c *gc.C) {
+	s.remove(c)
+	charms, err := s.State.AllCharms()
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(charms, gc.HasLen, 0)
+}
+
+func (s *CharmSuite) TestRemoveWithoutDestroy(c *gc.C) {
+	err := s.charm.Remove()
+	c.Assert(err, gc.ErrorMatches, "still alive")
+}
+
 func (s *CharmSuite) TestCharmNotFound(c *gc.C) {
 	curl := charm.MustParseURL("local:anotherseries/dummy-1")
 	_, err := s.State.Charm(curl)
@@ -95,6 +142,134 @@ func (s *CharmSuite) dummyCharm(c *gc.C, curlOverride string) state.CharmInfo {
 		)
 	}
 	return info
+}
+
+func (s *CharmSuite) TestDestroyStoreCharm(c *gc.C) {
+	info := s.dummyCharm(c, "cs:precise/dummy-2")
+	sch, err := s.State.AddCharm(info)
+	c.Assert(err, jc.ErrorIsNil)
+	err = sch.Destroy()
+	c.Assert(err, gc.ErrorMatches, "cannot destroy non-local charms")
+}
+
+func (s *CharmSuite) TestRemoveDeletesStorage(c *gc.C) {
+	// We normally don't actually set up charm storage in state
+	// tests, but we need it here.
+	path := s.charm.StoragePath()
+	stor := storage.NewStorage(s.State.ModelUUID(), s.State.MongoSession())
+	err := stor.Put(path, strings.NewReader("abc"), 3)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.destroy(c)
+	closer, _, err := stor.Get(path)
+	c.Assert(err, jc.ErrorIsNil)
+	closer.Close()
+
+	s.remove(c)
+	_, _, err = stor.Get(path)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *CharmSuite) TestReferenceDyingCharm(c *gc.C) {
+
+	s.destroy(c)
+
+	args := state.AddApplicationArgs{
+		Name:  "blah",
+		Charm: s.charm,
+	}
+	_, err := s.State.AddApplication(args)
+	c.Check(err, gc.ErrorMatches, `cannot add application "blah": charm: not found or not alive`)
+}
+
+func (s *CharmSuite) TestReferenceDyingCharmRace(c *gc.C) {
+
+	defer state.SetBeforeHooks(c, s.State, func() {
+		s.destroy(c)
+	}).Check()
+
+	args := state.AddApplicationArgs{
+		Name:  "blah",
+		Charm: s.charm,
+	}
+	_, err := s.State.AddApplication(args)
+	// bad message: see lp:1621754. should match
+	// TestReferenceDyingCharm above.
+	c.Check(err, gc.ErrorMatches, `cannot add application "blah": application already exists`)
+}
+
+func (s *CharmSuite) TestDestroyReferencedCharm(c *gc.C) {
+	s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Charm: s.charm,
+	})
+
+	err := s.charm.Destroy()
+	c.Check(err, gc.ErrorMatches, "charm in use")
+}
+
+func (s *CharmSuite) TestDestroyReferencedCharmRace(c *gc.C) {
+
+	defer state.SetBeforeHooks(c, s.State, func() {
+		s.Factory.MakeApplication(c, &factory.ApplicationParams{
+			Charm: s.charm,
+		})
+	}).Check()
+
+	err := s.charm.Destroy()
+	c.Check(err, gc.ErrorMatches, "charm in use")
+}
+
+func (s *CharmSuite) TestDestroyUnreferencedCharm(c *gc.C) {
+	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Charm: s.charm,
+	})
+	err := app.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.charm.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *CharmSuite) TestDestroyUnitReferencedCharm(c *gc.C) {
+	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Charm: s.charm,
+	})
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{
+		Application: app,
+		SetCharmURL: true,
+	})
+
+	// set app charm to something different
+	info := s.dummyCharm(c, "cs:quantal/dummy-2")
+	newCh, err := s.State.AddCharm(info)
+	c.Assert(err, jc.ErrorIsNil)
+	err = app.SetCharm(state.SetCharmConfig{Charm: newCh})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// unit should still reference original charm until updated
+	err = s.charm.Destroy()
+	c.Assert(err, gc.ErrorMatches, "charm in use")
+	err = unit.SetCharmURL(info.ID)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.charm.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *CharmSuite) TestDestroyFinalUnitReference(c *gc.C) {
+	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Charm: s.charm,
+	})
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{
+		Application: app,
+		SetCharmURL: true,
+	})
+
+	err := app.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	removeUnit(c, unit)
+
+	assertCleanupCount(c, s.State, 1)
+	s.checkRemoved(c)
 }
 
 func (s *CharmSuite) TestAddCharm(c *gc.C) {
@@ -208,6 +383,15 @@ func (s *CharmSuite) TestPrepareLocalCharmUpload(c *gc.C) {
 	curl, err = s.State.PrepareLocalCharmUpload(curl.WithRevision(1234))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(curl.Revision, gc.Equals, 1234)
+}
+
+func (s *CharmSuite) TestPrepareLocalCharmUploadRemoved(c *gc.C) {
+	// Remove the fixture charm and try to re-add it; it gets a new
+	// revision.
+	s.remove(c)
+	curl, err := s.State.PrepareLocalCharmUpload(s.curl)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(curl.Revision, gc.Equals, s.curl.Revision+1)
 }
 
 func (s *CharmSuite) TestPrepareStoreCharmUpload(c *gc.C) {

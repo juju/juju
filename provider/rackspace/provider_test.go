@@ -94,3 +94,8 @@ func (p *fakeProvider) DetectCredentials() (*cloud.CloudCredential, error) {
 	p.MethodCall(p, "DetectCredentials")
 	return nil, errors.NotFoundf("credentials")
 }
+
+func (p *fakeProvider) FinalizeCredential(ctx environs.FinalizeCredentialContext, args environs.FinalizeCredentialParams) (*cloud.Credential, error) {
+	p.MethodCall(p, "FinalizeCredential", ctx, args)
+	return &args.Credential, nil
+}

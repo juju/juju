@@ -17,7 +17,7 @@ github.com/gosuri/uitable	git	36ee7e946282a3fb1cfecd476ddc9b35d8847e42	2016-04-0
 github.com/joyent/gocommon	git	ade826b8b54e81a779ccb29d358a45ba24b7809c	2016-03-20T19:31:33Z
 github.com/joyent/gosdc	git	2f11feadd2d9891e92296a1077c3e2e56939547d	2014-05-24T00:08:15Z
 github.com/joyent/gosign	git	0da0d5f1342065321c97812b1f4ac0c2b0bab56c	2014-05-24T00:07:34Z
-github.com/juju/ansiterm	git	c4ce98b1cd3195b2d6a3069a2445bee608de04a2	2016-08-23T04:14:03Z
+github.com/juju/ansiterm	git	b99631de12cf04a906c1d4e4ec54fb86eae5863d	2016-09-07T23:45:32Z
 github.com/juju/blobstore	git	06056004b3d7b54bbb7984d830c537bad00fec21	2015-07-29T11:18:58Z
 github.com/juju/bundlechanges	git	6791af0ab78efe88ff99c2a0095208b3b7a32055	2016-07-20T09:32:50Z
 github.com/juju/cmd	git	1c6973d59b804e4d3c293fbf240f067e73436bc9	2016-08-23T10:31:14Z
@@ -27,7 +27,7 @@ github.com/juju/go4	git	40d72ab9641a2a8c36a9c46a51e28367115c8e59	2016-02-22T16:3
 github.com/juju/gojsonpointer	git	afe8b77aa08f272b49e01b82de78510c11f61500	2015-02-04T19:46:29Z
 github.com/juju/gojsonreference	git	f0d24ac5ee330baa21721cdff56d45e4ee42628e	2015-02-04T19:46:33Z
 github.com/juju/gojsonschema	git	e1ad140384f254c82f89450d9a7c8dd38a632838	2015-03-12T17:00:16Z
-github.com/juju/gomaasapi	git	0d72ac79f9a32e98262ac529fa5184e18213f447	2016-08-23T23:45:13Z
+github.com/juju/gomaasapi	git	8c484173e0870fc49c9214c56c6ae8dc9c26463d	2016-09-19T18:34:33Z
 github.com/juju/govmomi	git	4354a88d4b34abe467215f77c2fc1cb9f78b66f7	2015-04-24T01:54:48Z
 github.com/juju/httpprof	git	14bf14c307672fd2456bdbf35d19cf0ccd3cf565	2014-12-17T16:00:36Z
 github.com/juju/httprequest	git	796aaafaf712f666df58d31a482c51233038bf9f	2016-05-03T15:03:27Z
@@ -42,10 +42,10 @@ github.com/juju/rfc	git	ebdbbdb950cd039a531d15cdc2ac2cbd94f068ee	2016-07-11T02:4
 github.com/juju/romulus	git	bf7827fa2f360ab762c134766ff1d4fff959ea03	2016-08-17T23:29:48Z
 github.com/juju/schema	git	075de04f9b7d7580d60a1e12a0b3f50bb18e6998	2016-04-20T04:42:03Z
 github.com/juju/terms-client	git	9b925afd677234e4146dde3cb1a11e187cbed64e	2016-08-09T13:19:00Z
-github.com/juju/testing	git	d325c22badd4ba3a5fde01d479b188c7a06df755	2016-08-02T03:47:59Z
-github.com/juju/txn	git	99ec629d0066a4d73c54d8e021a7fc1dc07df614	2015-06-09T16:58:27Z
+github.com/juju/testing	git	cad2dd5fff869bac963652191cf2cc41a72a41a2	2016-09-16T06:01:18Z
+github.com/juju/txn	git	18d812a45ffc407a4d5f849036b7d8d12febaf08	2016-09-13T21:23:40Z
 github.com/juju/usso	git	68a59c96c178fbbad65926e7f93db50a2cd14f33	2016-04-01T10:44:24Z
-github.com/juju/utils	git	dbc08fbee4c1bcf60d65f5a523149310ece56a08	2016-09-05T01:56:06Z
+github.com/juju/utils	git	50f2d54645aeb2828a0081a72704457cece7e4cb	2016-09-16T02:08:06Z
 github.com/juju/version	git	4ae6172c00626779a5a462c3e3d22fc0e889431a	2016-06-03T19:49:58Z
 github.com/juju/webbrowser	git	54b8c57083b4afb7dc75da7f13e2967b2606a507	2016-03-09T14:36:29Z
 github.com/juju/xml	git	eb759a627588d35166bc505fceb51b88500e291e	2015-04-13T13:11:21Z
@@ -78,7 +78,7 @@ gopkg.in/juju/charmrepo.v2-unstable	git	73c1113f7ddee0306f4b3c19773d35a3f153c04a
 gopkg.in/juju/charmstore.v5-unstable	git	714c25cd43dbb8eb51f57a55d76d521fc2126455	2016-08-09T13:45:06Z
 gopkg.in/juju/environschema.v1	git	7359fc7857abe2b11b5b3e23811a9c64cb6b01e0	2015-11-04T11:58:10Z
 gopkg.in/juju/jujusvg.v2	git	d82160011935ef79fc7aca84aba2c6f74700fe75	2016-06-09T10:52:15Z
-gopkg.in/juju/names.v2	git	fa4c1959bef64b8f18569dc83a85b25d15204503	2016-08-16T07:05:44Z
+gopkg.in/juju/names.v2	git	6f338bfd0b607bba6f80e8d512486ae49d3da2d4	2016-09-15T03:41:08Z
 gopkg.in/macaroon-bakery.v1	git	469b44e6f1f9479e115c8ae879ef80695be624d5	2016-06-22T12:14:21Z
 gopkg.in/macaroon.v1	git	ab3940c6c16510a850e1c2dd628b919f0f3f1464	2015-01-21T11:42:31Z
 gopkg.in/mgo.v2	git	f2b6f6c918c452ad107eec89615f074e3bd80e33	2016-08-18T01:52:18Z

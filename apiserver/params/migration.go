@@ -21,6 +21,11 @@ type MigrationSpec struct {
 	ModelTag        string              `json:"model-tag"`
 	TargetInfo      MigrationTargetInfo `json:"target-info"`
 	ExternalControl bool                `json:"external-control"`
+
+	// SkipInitialPrechecks allows the migration prechecks run during
+	// handling of the InitiateMigration API call to be bypassed. It
+	// is only honoured if ExternalControl is true.
+	SkipInitialPrechecks bool `json:"skip-initial-prechecks"`
 }
 
 // MigrationTargetInfo holds the details required to connect to and
@@ -31,7 +36,7 @@ type MigrationTargetInfo struct {
 	CACert        string   `json:"ca-cert"`
 	AuthTag       string   `json:"auth-tag"`
 	Password      string   `json:"password,omitempty"`
-	Macaroon      string   `json:"macaroon,omitempty"`
+	Macaroons     string   `json:"macaroons,omitempty"`
 }
 
 // InitiateMigrationResults is used to return the result of one or
@@ -106,9 +111,10 @@ type MigrationModelInfo struct {
 
 // MigrationStatus reports the current status of a model migration.
 type MigrationStatus struct {
-	MigrationId string `json:"migration-id"`
-	Attempt     int    `json:"attempt"`
-	Phase       string `json:"phase"`
+	MigrationId     string `json:"migration-id"`
+	Attempt         int    `json:"attempt"`
+	Phase           string `json:"phase"`
+	ExternalControl bool   `json:"external-control"`
 
 	// TODO(mjs): I'm not convinced these Source fields will get used.
 	SourceAPIAddrs []string `json:"source-api-addrs"`
