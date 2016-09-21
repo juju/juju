@@ -73,7 +73,7 @@ fi
 cd $HERE
 
 # Build juju in directory
-source "$SCRIPT_DIR/build-juju-source"
+source "$SCRIPT_DIR/build-juju-source.bash"
 
 # Tar it up.
 echo "Creating build tarball"
