@@ -19,7 +19,6 @@ import (
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	ft "github.com/juju/testing/filetesting"
-	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	corecharm "gopkg.in/juju/charm.v6-unstable"
 
@@ -69,16 +68,6 @@ func (s *UniterSuite) SetUpSuite(c *gc.C) {
 	s.oldLcAll = os.Getenv("LC_ALL")
 	os.Setenv("LC_ALL", "en_US")
 	s.unitDir = filepath.Join(s.dataDir, "agents", "unit-u-0")
-
-	zone, err := time.LoadLocation("")
-	c.Assert(err, jc.ErrorIsNil)
-	now := time.Date(2030, 11, 11, 11, 11, 11, 11, zone)
-	leaseClock = jujutesting.NewClock(now)
-	oldGetClock := state.GetClock
-	state.GetClock = func() clock.Clock {
-		return leaseClock
-	}
-	s.AddCleanup(func(*gc.C) { state.GetClock = oldGetClock })
 	all.RegisterForServer()
 }
 
@@ -93,12 +82,11 @@ func (s *UniterSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	now := time.Date(2030, 11, 11, 11, 11, 11, 11, zone)
 	leaseClock = jujutesting.NewClock(now)
-	state.GetClock = func() clock.Clock {
-		return leaseClock
-	}
 	s.updateStatusHookTicker = newManualTicker()
 	s.GitSuite.SetUpTest(c)
 	s.JujuConnSuite.SetUpTest(c)
+	err = s.State.SetClockForTesting(leaseClock)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *UniterSuite) TearDownTest(c *gc.C) {

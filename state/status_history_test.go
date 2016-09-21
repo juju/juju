@@ -24,7 +24,8 @@ var _ = gc.Suite(&StatusHistorySuite{})
 
 func (s *StatusHistorySuite) TestPruneStatusHistoryBySize(c *gc.C) {
 	clock := testing.NewClock(time.Now())
-	s.State.SetClockForTesting(clock)
+	err := s.State.SetClockForTesting(clock)
+	c.Assert(err, jc.ErrorIsNil)
 	service := s.Factory.MakeApplication(c, nil)
 	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: service})
 	state.PrimeUnitStatusHistory(c, clock, unit, status.Active, 20000, 1000, nil)

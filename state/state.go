@@ -352,15 +352,14 @@ func (st *State) start(controllerTag names.ControllerTag) (err error) {
 	// now we've set up leaseClientId, we can use workersFactory
 
 	logger.Infof("starting standard state workers")
-	clock := GetClock()
 	factory := workersFactory{
 		st:    st,
-		clock: clock,
+		clock: st.clock,
 	}
 	workers, err := workers.NewRestartWorkers(workers.RestartConfig{
 		Factory: factory,
 		Logger:  loggo.GetLogger(logger.Name() + ".workers"),
-		Clock:   clock,
+		Clock:   st.clock,
 		Delay:   time.Second,
 	})
 	if err != nil {
@@ -384,7 +383,7 @@ func (st *State) getLeadershipLeaseClient() (lease.Client, error) {
 		Namespace:  applicationLeadershipNamespace,
 		Collection: leasesC,
 		Mongo:      &environMongo{st},
-		Clock:      GetClock(),
+		Clock:      st.clock,
 	})
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot create leadership lease client")
@@ -398,7 +397,7 @@ func (st *State) getSingularLeaseClient() (lease.Client, error) {
 		Namespace:  singularControllerNamespace,
 		Collection: leasesC,
 		Mongo:      &environMongo{st},
-		Clock:      GetClock(),
+		Clock:      st.clock,
 	})
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot create singular lease client")
@@ -2044,6 +2043,17 @@ func tagForGlobalKey(key string) (string, bool) {
 // SetClockForTesting is an exported function to allow other packages
 // to set the internal clock for the State instance. It is named such
 // that it should be obvious if it is ever called from a non-test packgae.
-func (st *State) SetClockForTesting(clock clock.Clock) {
+func (st *State) SetClockForTesting(clock clock.Clock) error {
 	st.clock = clock
+	// Need to restart the lease workers so they get the new clock.
+	st.workers.Kill()
+	err := st.workers.Wait()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	err = st.start(st.controllerTag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }

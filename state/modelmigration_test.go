@@ -11,7 +11,6 @@ import (
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
-	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon.v1"
@@ -34,9 +33,8 @@ var _ = gc.Suite(new(MigrationSuite))
 func (s *MigrationSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
 	s.clock = jujutesting.NewClock(time.Now().Truncate(time.Second))
-	s.PatchValue(&state.GetClock, func() clock.Clock {
-		return s.clock
-	})
+	err := s.State.SetClockForTesting(s.clock)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Create a hosted model to migrate.
 	s.State2 = s.Factory.MakeModel(c, nil)
