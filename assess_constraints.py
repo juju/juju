@@ -195,14 +195,29 @@ def juju_show_machine_hardware(client, machine):
     return data
 
 
+def application_machines(client, application):
+    """Get all the machines used to host the given application."""
+    raw = client.get_juju_output('status', '--format', 'yaml')
+    raw_yaml = yaml.load(raw)
+    try:
+        app_data = raw_yaml['applications'][application]
+        machines = []
+        for (unit, unit_data) in app_data['units'].items():
+            machines.append(unit_data['machine'])
+        return machines
+    except KeyError as error:
+        raise KeyError(error.args, raw_yaml)
+
+
 def prepare_constraint_test(client, constraints, charm_name,
-                            charm_series='xenial', machine='0'):
+                            charm_series='xenial'):
     """Deploy a charm with constraints and data to see if it meets them."""
     with temp_dir() as charm_dir:
         deploy_charm_constraint(client, constraints, charm_name,
                                 charm_series, charm_dir)
         client.wait_for_started()
-        return juju_show_machine_hardware(client, machine)
+        machines = application_machines(client, charm_name)
+        return juju_show_machine_hardware(client, machines[0])
 
 
 def assess_virt_type(client, virt_type):
