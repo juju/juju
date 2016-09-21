@@ -1340,6 +1340,16 @@ func (i *importer) addStorageInstance(storage description.Storage) error {
 		Assert: txn.DocMissing,
 		Insert: doc,
 	})
+
+	refcounts, closer := i.st.getCollection(refcountsC)
+	defer closer()
+	storageRefcountKey := entityStorageRefcountKey(owner, storage.Name())
+	incRefOp, err := nsRefcounts.CreateOrIncRefOp(refcounts, storageRefcountKey, 1)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	ops = append(ops, incRefOp)
+
 	if err := i.st.runTransaction(ops); err != nil {
 		return errors.Trace(err)
 	}

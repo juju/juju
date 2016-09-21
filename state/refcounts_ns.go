@@ -68,26 +68,26 @@ func (ns nsRefcounts_) StrictCreateOp(coll mongo.Collection, key string, value i
 }
 
 // CreateOrIncrefOp returns a txn.Op that creates a refcount document as
-// configured with a value of 1; or increments any such refcount doc
+// configured with a specified value; or increments any such refcount doc
 // that already exists.
-func (ns nsRefcounts_) CreateOrIncRefOp(coll mongo.Collection, key string) (txn.Op, error) {
+func (ns nsRefcounts_) CreateOrIncRefOp(coll mongo.Collection, key string, n int) (txn.Op, error) {
 	if exists, err := ns.exists(coll, key); err != nil {
 		return txn.Op{}, errors.Trace(err)
 	} else if !exists {
-		return ns.JustCreateOp(coll.Name(), key, 1), nil
+		return ns.JustCreateOp(coll.Name(), key, n), nil
 	}
-	return ns.JustIncRefOp(coll.Name(), key), nil
+	return ns.JustIncRefOp(coll.Name(), key, n), nil
 }
 
 // StrictIncRefOp returns a txn.Op that increments the value of a
 // refcount doc, or returns an error if it does not exist.
-func (ns nsRefcounts_) StrictIncRefOp(coll mongo.Collection, key string) (txn.Op, error) {
+func (ns nsRefcounts_) StrictIncRefOp(coll mongo.Collection, key string, n int) (txn.Op, error) {
 	if exists, err := ns.exists(coll, key); err != nil {
 		return txn.Op{}, errors.Trace(err)
 	} else if !exists {
 		return txn.Op{}, errors.New("does not exist")
 	}
-	return ns.JustIncRefOp(coll.Name(), key), nil
+	return ns.JustIncRefOp(coll.Name(), key, n), nil
 }
 
 // AliveDecRefOp returns a txn.Op that decrements the value of a
@@ -132,6 +132,29 @@ func (ns nsRefcounts_) RemoveOp(coll mongo.Collection, key string, value int) (t
 	return ns.JustRemoveOp(coll.Name(), key, value), nil
 }
 
+// CurrentOp returns the current reference count value, and a txn.Op that
+// asserts that the refcount has that value, or an error. If the refcount
+// doc does not exist, then the op will assert that the document does not
+// exist instead, and no error is returned.
+func (ns nsRefcounts_) CurrentOp(coll mongo.Collection, key string) (txn.Op, int, error) {
+	refcount, err := ns.read(coll, key)
+	if errors.IsNotFound(err) {
+		return txn.Op{
+			C:      coll.Name(),
+			Id:     key,
+			Assert: txn.DocMissing,
+		}, 0, nil
+	}
+	if err != nil {
+		return txn.Op{}, -1, errors.Trace(err)
+	}
+	return txn.Op{
+		C:      coll.Name(),
+		Id:     key,
+		Assert: bson.D{{"refcount", refcount}},
+	}, refcount, nil
+}
+
 // JustCreateOp returns a txn.Op that creates a refcount document as
 // configured, *without* checking database state for sanity first.
 // You should avoid using this method in most cases.
@@ -145,14 +168,14 @@ func (nsRefcounts_) JustCreateOp(collName, key string, value int) txn.Op {
 }
 
 // JustIncRefOp returns a txn.Op that increments a refcount document by
-// 1, as configured, *without* checking database state for sanity first.
-// You should avoid using this method in most cases.
-func (nsRefcounts_) JustIncRefOp(collName, key string) txn.Op {
+// the specified amount, as configured, *without* checking database state
+// for sanity first. You should avoid using this method in most cases.
+func (nsRefcounts_) JustIncRefOp(collName, key string, n int) txn.Op {
 	return txn.Op{
 		C:      collName,
 		Id:     key,
 		Assert: txn.DocExists,
-		Update: bson.D{{"$inc", bson.D{{"refcount", 1}}}},
+		Update: bson.D{{"$inc", bson.D{{"refcount", n}}}},
 	}
 }
 
@@ -198,7 +221,7 @@ func (nsRefcounts_) exists(coll mongo.Collection, key string) (bool, error) {
 func (nsRefcounts_) read(coll mongo.Collection, key string) (int, error) {
 	var doc refcountDoc
 	if err := coll.FindId(key).One(&doc); err == mgo.ErrNotFound {
-		return 0, errors.NotFoundf("refcount")
+		return 0, errors.NotFoundf("refcount %q", key)
 	} else if err != nil {
 		return 0, errors.Trace(err)
 	}
