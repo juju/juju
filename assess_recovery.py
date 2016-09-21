@@ -156,6 +156,7 @@ def assess_recovery(bs_manager, strategy, charm_series):
     log.info("Setting up test.")
     client = bs_manager.client
     deploy_stack(client, charm_series)
+    client.set_config('dummy-source', {'token': ''})
     log.info("Setup complete.")
     log.info("Test started.")
     controller_client = client.get_controller_client()
