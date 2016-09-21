@@ -9,6 +9,7 @@ from mock import (
 
 from assess_recovery import (
     assess_recovery,
+    check_token,
     delete_controller_members,
     main,
     parse_args,
@@ -22,6 +23,7 @@ from tests import (
     TestCase,
 )
 from tests.test_jujupy import fake_juju_client
+from utility import JujuAssertionError
 
 
 class TestParseArgs(TestCase):
@@ -287,3 +289,36 @@ class TestRestoreMissingStateServer(FakeHomeTestCase):
                     client, controller_client, 'backup_file',
                     check_controller=False)
         self.assertEqual(0, controller_client.wait_for_started.call_count)
+
+
+class TestCheckToken(TestCase):
+
+    def test_check_token_found(self):
+        client = Mock()
+        with patch('assess_recovery.get_token_from_status', autospec=True,
+                   side_effect=['Token: foo']):
+            found = check_token(client, 'foo')
+        self.assertEqual('Token: foo', found)
+
+    def test_check_token_none_before_found(self):
+        client = Mock()
+        with patch('assess_recovery.get_token_from_status', autospec=True,
+                   side_effect=[None, 'foo']):
+            found = check_token(client, 'foo')
+        self.assertEqual('foo', found)
+
+    def test_check_token_other_before_found(self):
+        client = Mock()
+        with patch('assess_recovery.get_token_from_status', autospec=True,
+                   side_effect=['Starting', 'foo']):
+            found = check_token(client, 'foo')
+        self.assertEqual('foo', found)
+
+    def test_check_token_not_found(self):
+        client = Mock()
+        with patch('assess_recovery.get_token_from_status', autospec=True,
+                   return_value='other'):
+            with patch('assess_recovery.until_timeout', autospec=True,
+                       side_effect=['1', '0']):
+                with self.assertRaises(JujuAssertionError):
+                    check_token(client, 'foo')

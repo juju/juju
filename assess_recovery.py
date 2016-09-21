@@ -28,6 +28,7 @@ from utility import (
     configure_logging,
     JujuAssertionError,
     LoggedException,
+    until_timeout,
 )
 
 
@@ -41,10 +42,12 @@ log = logging.getLogger("assess_recovery")
 
 
 def check_token(client, token):
-    found = get_token_from_status(client)
-    if token not in found:
-        raise JujuAssertionError('Token is not {}: {}'.format(
-            token, found))
+    for ignored in until_timeout(300):
+        found = get_token_from_status(client)
+        if found and token in found:
+            return found
+    raise JujuAssertionError('Token is not {}: {}'.format(
+                             token, found))
 
 
 def deploy_stack(client, charm_series):
