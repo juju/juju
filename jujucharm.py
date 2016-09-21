@@ -30,9 +30,8 @@ class Charm:
 
     NAME_REGEX = re.compile('^[a-z][a-z0-9]*(-[a-z0-9]*[a-z][a-z0-9]*)*$')
 
-    def __init__(self, name, summary,
-                 maintainer=None, series=None, description=None, storage=None,
-                 ensure_valid_name=True):
+    def __init__(self, name, summary, maintainer=None, series=None,
+                 description=None, storage=None, ensure_valid_name=True):
         if ensure_valid_name and Charm.NAME_REGEX.match(name) is None:
             raise JujuAssertionError(
                 'Invalid Juju Charm Name, "{}" does not match "{}".'.format(
