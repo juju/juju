@@ -6,6 +6,7 @@ package testing
 import (
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
@@ -32,6 +33,7 @@ func Initialize(c *gc.C, owner names.UserTag, cfg *config.Config, controllerInhe
 
 	controllerCfg := testing.FakeControllerConfig()
 	st, err := state.Initialize(state.InitializeParams{
+		Clock:            clock.WallClock,
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
 			CloudName:   "dummy",

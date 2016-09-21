@@ -19,6 +19,7 @@ import (
 	"github.com/juju/loggo"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
+	"github.com/juju/utils/clock"
 	"github.com/juju/utils/os"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
@@ -75,6 +76,7 @@ type providerIdDoc struct {
 // State represents the state of an model
 // managed by juju.
 type State struct {
+	clock              clock.Clock
 	modelTag           names.ModelTag
 	controllerModelTag names.ModelTag
 	controllerTag      names.ControllerTag
@@ -301,7 +303,7 @@ func (st *State) removeInCollectionOps(name string, sel interface{}) ([]txn.Op, 
 func (st *State) ForModel(modelTag names.ModelTag) (*State, error) {
 	session := st.session.Copy()
 	newSt, err := newState(
-		modelTag, st.controllerModelTag, session, st.mongoInfo, st.newPolicy,
+		modelTag, st.controllerModelTag, session, st.mongoInfo, st.newPolicy, st.clock,
 	)
 	if err != nil {
 		return nil, errors.Trace(err)

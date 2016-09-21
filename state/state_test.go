@@ -17,6 +17,7 @@ import (
 	"github.com/juju/txn"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
+	"github.com/juju/utils/clock"
 	"github.com/juju/utils/series"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
@@ -4148,6 +4149,7 @@ func (s *SetAdminMongoPasswordSuite) TestSetAdminMongoPassword(c *gc.C) {
 	cfg := testing.ModelConfig(c)
 	controllerCfg := testing.FakeControllerConfig()
 	st, err := state.Initialize(state.InitializeParams{
+		Clock:            clock.WallClock,
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
 			CloudName:               "dummy",

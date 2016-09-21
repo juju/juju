@@ -6,6 +6,7 @@ package state_test
 import (
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
@@ -93,6 +94,7 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 	controllerCfg := testing.FakeControllerConfig()
 
 	st, err := state.Initialize(state.InitializeParams{
+		Clock:            clock.WallClock,
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
 			Owner:                   owner,
@@ -185,6 +187,7 @@ func (s *InitializeSuite) TestInitializeWithInvalidCredentialType(c *gc.C) {
 	controllerCfg := testing.FakeControllerConfig()
 	credentialTag := names.NewCloudCredentialTag("dummy/" + owner.Canonical() + "/borken")
 	_, err := state.Initialize(state.InitializeParams{
+		Clock:            clock.WallClock,
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
 			CloudName:               "dummy",
@@ -221,6 +224,7 @@ func (s *InitializeSuite) TestInitializeWithControllerInheritedConfig(c *gc.C) {
 	controllerCfg := testing.FakeControllerConfig()
 
 	st, err := state.Initialize(state.InitializeParams{
+		Clock:            clock.WallClock,
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
 			CloudName:               "dummy",
@@ -272,6 +276,7 @@ func (s *InitializeSuite) TestDoubleInitializeConfig(c *gc.C) {
 	controllerCfg := testing.FakeControllerConfig()
 
 	args := state.InitializeParams{
+		Clock:            clock.WallClock,
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
 			CloudName:               "dummy",
@@ -329,6 +334,7 @@ func (s *InitializeSuite) testBadModelConfig(c *gc.C, update map[string]interfac
 	controllerCfg := testing.FakeControllerConfig()
 
 	args := state.InitializeParams{
+		Clock:            clock.WallClock,
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
 			CloudName:               "dummy",
@@ -379,6 +385,7 @@ func (s *InitializeSuite) TestCloudConfigWithForbiddenValues(c *gc.C) {
 	modelCfg := testing.ModelConfig(c)
 	controllerCfg := testing.FakeControllerConfig()
 	args := state.InitializeParams{
+		Clock:            clock.WallClock,
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
 			CloudName:               "dummy",
@@ -420,6 +427,7 @@ func (s *InitializeSuite) TestInitializeWithCloudRegionConfig(c *gc.C) {
 	controllerCfg := testing.FakeControllerConfig()
 
 	st, err := state.Initialize(state.InitializeParams{
+		Clock:            clock.WallClock,
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
 			CloudName:               "dummy",
@@ -477,6 +485,7 @@ func (s *InitializeSuite) TestInitializeWithCloudRegionMisses(c *gc.C) {
 	controllerCfg := testing.FakeControllerConfig()
 
 	st, err := state.Initialize(state.InitializeParams{
+		Clock:            clock.WallClock,
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
 			CloudName:               "dummy",
@@ -530,6 +539,7 @@ func (s *InitializeSuite) TestInitializeWithCloudRegionHits(c *gc.C) {
 	controllerCfg := testing.FakeControllerConfig()
 
 	st, err := state.Initialize(state.InitializeParams{
+		Clock:            clock.WallClock,
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
 			CloudName:               "dummy",

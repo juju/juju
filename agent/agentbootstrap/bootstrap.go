@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
+	"github.com/juju/utils/clock"
 	"github.com/juju/utils/series"
 	"gopkg.in/juju/names.v2"
 
@@ -106,6 +107,7 @@ func InitializeState(
 
 	logger.Debugf("initializing address %v", info.Addrs)
 	st, err := state.Initialize(state.InitializeParams{
+		Clock: clock.WallClock,
 		ControllerModelArgs: state.ModelArgs{
 			Owner:                   adminUser,
 			Config:                  args.ControllerModelConfig,
