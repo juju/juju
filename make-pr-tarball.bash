@@ -21,7 +21,7 @@ usage() {
 }
 
 # check build dependencies
-. "$SCRIPT_DIR/check-source-depends.bash"
+source "$SCRIPT_DIR/check-source-depends.bash"
 
 GIT_PR=$1
 JUJU_CORE_REPO=${2:-$DEFAULT_GIT_JUJU_CORE}
@@ -42,7 +42,7 @@ MERGE_COMMIT=$(git rev-parse refs/remotes/origin-pull/pull/$GIT_PR/merge^{commit
 git checkout -f $MERGE_COMMIT
 
 # Build juju in directory
-. "$SCRIPT_DIR/build-juju-source"
+source "$SCRIPT_DIR/build-juju-source"
 
 # Tar it up.
 echo "Creating build tarball"

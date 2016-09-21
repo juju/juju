@@ -24,7 +24,7 @@ usage() {
 }
 
 # check build dependencies
-. "$SCRIPT_DIR/check-source-depends.bash"
+source "$SCRIPT_DIR/check-source-depends.bash"
 
 
 test $# -ge 1 ||  usage
@@ -73,7 +73,7 @@ fi
 cd $HERE
 
 # Build juju in directory
-. "$SCRIPT_DIR/build-juju-source"
+source "$SCRIPT_DIR/build-juju-source"
 
 # Tar it up.
 echo "Creating build tarball"
