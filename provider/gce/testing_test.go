@@ -166,15 +166,11 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 	userData, err := providerinit.ComposeUserData(instanceConfig, nil, GCERenderer{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	authKeys, err := google.FormatAuthorizedKeys(instanceConfig.AuthorizedKeys, "ubuntu")
-	c.Assert(err, jc.ErrorIsNil)
-
 	s.UbuntuMetadata = map[string]string{
 		tags.JujuIsController: "true",
 		tags.JujuController:   s.ControllerUUID,
 		metadataKeyCloudInit:  string(userData),
 		metadataKeyEncoding:   "base64",
-		metadataKeySSHKeys:    authKeys,
 	}
 	instanceConfig.Tags = map[string]string{
 		tags.JujuIsController: "true",
