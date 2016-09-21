@@ -1252,7 +1252,11 @@ func (s *assignCleanSuite) TestAssignUnitPolicyWithContainers(c *gc.C) {
 func (s *assignCleanSuite) TestAssignUnitPolicyConcurrently(c *gc.C) {
 	_, err := s.State.AddMachine("quantal", state.JobManageModel) // bootstrap machine
 	c.Assert(err, jc.ErrorIsNil)
-	us := make([]*state.Unit, 50)
+	unitCount := 50
+	if raceDetector {
+		unitCount = 10
+	}
+	us := make([]*state.Unit, unitCount)
 	for i := range us {
 		us[i], err = s.wordpress.AddUnit()
 		c.Assert(err, jc.ErrorIsNil)
