@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn"
 	txntesting "github.com/juju/txn/testing"
@@ -23,8 +24,10 @@ import (
 
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/mongo/utils"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/permission"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/version"
 )
@@ -507,5 +510,50 @@ func ResetMigrationMode(c *gc.C, st *State) {
 		},
 	}}
 	err := st.runTransaction(ops)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+// PrimeUnitStatusHistory will add count history elements, advancing the test clock by
+// one second for each entry.
+func PrimeUnitStatusHistory(
+	c *gc.C, clock *testing.Clock,
+	unit *Unit, statusVal status.Status,
+	count, batchSize int,
+	nextData func(int) map[string]interface{},
+) {
+	globalKey := unit.globalKey()
+
+	history, closer := unit.st.getCollection(statusesHistoryC)
+	defer closer()
+	historyW := history.Writeable()
+
+	var data map[string]interface{}
+	for i := 0; i < count; {
+		var docs []interface{}
+		for j := 0; j < batchSize && i < count; j++ {
+			clock.Advance(time.Second)
+			if nextData != nil {
+				data = utils.EscapeKeys(nextData(i))
+			}
+			docs = append(docs, &historicalStatusDoc{
+				Status:     statusVal,
+				StatusData: data,
+				Updated:    clock.Now().UnixNano(),
+				GlobalKey:  globalKey,
+			})
+			// Seems like you can't increment two values in one loop
+			i++
+		}
+		err := historyW.Insert(docs...)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	// Set the status for the unit itself.
+	doc := statusDoc{
+		Status:     statusVal,
+		StatusData: data,
+		Updated:    clock.Now().UnixNano(),
+	}
+	buildTxn := updateStatusSource(unit.st, globalKey, doc)
+	err := unit.st.run(buildTxn)
 	c.Assert(err, jc.ErrorIsNil)
 }

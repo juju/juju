@@ -6,6 +6,7 @@ package state_test
 import (
 	"time"
 
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -22,9 +23,11 @@ type StatusHistorySuite struct {
 var _ = gc.Suite(&StatusHistorySuite{})
 
 func (s *StatusHistorySuite) TestPruneStatusHistoryBySize(c *gc.C) {
+	clock := testing.NewClock(time.Now())
+	s.State.SetClockForTesting(clock)
 	service := s.Factory.MakeApplication(c, nil)
 	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: service})
-	primeUnitStatusHistory(c, unit, 20000, 0)
+	state.PrimeUnitStatusHistory(c, clock, unit, status.Active, 20000, 1000, nil)
 
 	history, err := unit.StatusHistory(status.StatusHistoryFilter{Size: 25000})
 	c.Assert(err, jc.ErrorIsNil)

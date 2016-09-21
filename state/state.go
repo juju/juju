@@ -2040,3 +2040,10 @@ func tagForGlobalKey(key string) (string, bool) {
 	}
 	return p + key[2:], true
 }
+
+// SetClockForTesting is an exported function to allow other packages
+// to set the internal clock for the State instance. It is named such
+// that it should be obvious if it is ever called from a non-test packgae.
+func (st *State) SetClockForTesting(clock clock.Clock) {
+	st.clock = clock
+}
