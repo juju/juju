@@ -100,7 +100,8 @@ class TestMain(TestCase):
                                        return_value=client) as mock_c:
                                 main(argv)
         mock_cl.assert_called_once_with(logging.DEBUG)
-        mock_c.assert_called_once_with("an-env", "/bin/juju", debug=False)
+        mock_c.assert_called_once_with("an-env", "/bin/juju", debug=False,
+                                       soft_deadline=None)
         self.assertEqual(mock_bc.call_count, 1)
         mock_assess.assert_called_once_with(client)
 

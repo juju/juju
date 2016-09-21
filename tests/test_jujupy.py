@@ -163,6 +163,15 @@ class TestJuju2Backend(TestCase):
         self.assertEqual('/bin/path', backend.full_path)
         self.assertEqual('2.0', backend.version)
 
+    def test_clone_retains_soft_deadline(self):
+        soft_deadline = object()
+        backend = Juju2Backend('/bin/path', '2.0', feature_flags=set(),
+                               debug=False, soft_deadline=soft_deadline)
+        cloned = backend.clone(full_path=None, version=None, debug=None,
+                               feature_flags=None)
+        self.assertIsNot(cloned, backend)
+        self.assertIs(soft_deadline, cloned.soft_deadline)
+
     def test__check_timeouts(self):
         backend = Juju2Backend('/bin/path', '2.0', set(), debug=False,
                                soft_deadline=datetime(2015, 1, 2, 3, 4, 5))
@@ -636,6 +645,15 @@ class TestClientFromConfig(ClientTest):
                               side_effect=lambda x: JujuData(x, {})):
                 client_from_config('foo', 'foo/bar/qux')
         self.assertEqual('/foo/bar', env.juju_home)
+
+    def test_client_from_config_deadline(self):
+        deadline = datetime(2012, 11, 10, 9, 8, 7)
+        with patch('subprocess.check_output', return_value='2.0-alpha3-a-b'):
+            with patch.object(JujuData, 'from_config',
+                              side_effect=lambda x: JujuData(x, {})):
+                client = client_from_config(
+                    'foo', 'foo/bar/qux', soft_deadline=deadline)
+        self.assertEqual(client._backend.soft_deadline, deadline)
 
 
 @contextmanager
@@ -1871,7 +1889,8 @@ class TestEnvJujuClient(ClientTest):
                           return_value=data) as gjo_mock:
             models = client.get_models()
         gjo_mock.assert_called_once_with(
-            'list-models', '-c', 'baz', '--format', 'yaml', include_e=False)
+            'list-models', '-c', 'baz', '--format', 'yaml',
+            include_e=False, timeout=120)
         expected_models = {
             'models': [
                 {'name': 'foo', 'model-uuid': 'aaaa', 'owner': 'admin@local'},
@@ -1982,9 +2001,8 @@ class TestEnvJujuClient(ClientTest):
             admin@local:
               display-name: admin
               access: admin
-              last-connection: just now""".format(
-                  model=controller_model_uuid,
-                  controller=controller_uuid))
+              last-connection: just now""".format(model=controller_model_uuid,
+                                                  controller=controller_uuid))
         client = EnvJujuClient(JujuData('foo'), None, None)
         with patch.object(client, 'get_juju_output') as m_get_juju_output:
             m_get_juju_output.return_value = yaml_string
@@ -2617,12 +2635,11 @@ class TestEnvJujuClient(ClientTest):
     def test_restore_backup(self):
         env = JujuData('qux')
         client = EnvJujuClient(env, None, '/foobar/baz')
-        with patch.object(client, 'get_juju_output') as gjo_mock:
-            result = client.restore_backup('quxx')
-        gjo_mock.assert_called_once_with('restore-backup', '-b',
-                                         '--constraints', 'mem=2G',
-                                         '--file', 'quxx')
-        self.assertIs(gjo_mock.return_value, result)
+        with patch.object(client, 'juju') as gjo_mock:
+            client.restore_backup('quxx')
+        gjo_mock.assert_called_once_with(
+            'restore-backup',
+            ('-b', '--constraints', 'mem=2G', '--file', 'quxx'))
 
     def test_restore_backup_async(self):
         env = JujuData('qux')
@@ -2893,7 +2910,7 @@ class TestEnvJujuClient(ClientTest):
         client = EnvJujuClient(JujuData('bar', {}), None, '/foo')
         with patch.object(client, 'juju') as juju_mock:
             client.set_config('foo', {'bar': 'baz'})
-        juju_mock.assert_called_once_with('set-config', ('foo', 'bar=baz'))
+        juju_mock.assert_called_once_with('config', ('foo', 'bar=baz'))
 
     def test_get_config(self):
         def output(*args, **kwargs):
@@ -2915,7 +2932,7 @@ class TestEnvJujuClient(ClientTest):
                           side_effect=output) as gjo_mock:
             results = client.get_config('foo')
         self.assertEqual(expected, results)
-        gjo_mock.assert_called_once_with('get-config', 'foo')
+        gjo_mock.assert_called_once_with('config', 'foo')
 
     def test_get_service_config(self):
         def output(*args, **kwargs):
@@ -3281,6 +3298,33 @@ class TestEnvJujuClient2B9(ClientTest):
             get_output.assert_called_with(
                 'add-user', *expected_args, include_e=False)
 
+    def test_set_config(self):
+        client = EnvJujuClient2B9(JujuData('bar', {}), None, '/foo')
+        with patch.object(client, 'juju') as juju_mock:
+            client.set_config('foo', {'bar': 'baz'})
+        juju_mock.assert_called_once_with('set-config', ('foo', 'bar=baz'))
+
+    def test_get_config(self):
+        def output(*args, **kwargs):
+            return yaml.safe_dump({
+                'charm': 'foo',
+                'service': 'foo',
+                'settings': {
+                    'dir': {
+                        'default': 'true',
+                        'description': 'bla bla',
+                        'type': 'string',
+                        'value': '/tmp/charm-dir',
+                    }
+                }
+            })
+        expected = yaml.safe_load(output())
+        client = EnvJujuClient2B9(JujuData('bar', {}), None, '/foo')
+        with patch.object(client, 'get_juju_output',
+                          side_effect=output) as gjo_mock:
+            results = client.get_config('foo')
+        self.assertEqual(expected, results)
+        gjo_mock.assert_called_once_with('get-config', 'foo')
 
     def test_get_model_config(self):
         env = JujuData('foo', None)

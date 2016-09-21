@@ -23,12 +23,13 @@ import pexpect
 
 from deploy_stack import (
     BootstrapManager,
-)
+    )
 from utility import (
+    JujuAssertionError,
     add_basic_testing_arguments,
     configure_logging,
     temp_dir,
-)
+    )
 
 __metaclass__ = type
 
@@ -61,11 +62,6 @@ SHARE_LIST_CTRL_ADMIN = copy.deepcopy(SHARE_LIST_CTRL)
 SHARE_LIST_CTRL_ADMIN["adminuser@local"] = {"access": "admin"}
 
 
-# This needs refactored out to utility
-class JujuAssertionError(AssertionError):
-    """Exception for juju assertion failures."""
-
-
 def assert_equal(found, expected):
     found = sorted(found)
     expected = sorted(expected)
@@ -86,8 +82,10 @@ def list_users(client):
 
 def list_shares(client):
     """Test listing users' shares"""
-    share_list = json.loads(client.get_juju_output('list-shares', '--format',
-                                                   'json', include_e=False))
+    model_data = json.loads(
+        client.get_juju_output(
+            'show-model', '--format', 'json', include_e=False))
+    share_list = model_data[client.model_name]['users']
     for key, value in share_list.iteritems():
         value.pop("last-connection", None)
     return share_list

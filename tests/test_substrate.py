@@ -850,6 +850,44 @@ class TestMAASAccount(TestCase):
             ('maas', 'mas', 'machines', 'list-allocated'))
         self.assertEqual({}, ips)
 
+    def test_fabrics(self):
+        config = get_maas_env().config
+        account = MAASAccount(
+            config['name'], config['maas-server'], config['maas-oauth'])
+        with patch('subprocess.check_output', autospec=True,
+                   return_value='[]') as co_mock:
+            fabrics = account.fabrics()
+        co_mock.assert_called_once_with(('maas', 'mas', 'fabrics', 'read'))
+        self.assertEqual([], fabrics)
+
+    def test_create_fabric(self):
+        config = get_maas_env().config
+        account = MAASAccount(
+            config['name'], config['maas-server'], config['maas-oauth'])
+        with patch('subprocess.check_output', autospec=True,
+                   return_value='{"id": 1}') as co_mock:
+            fabric = account.create_fabric('a-fabric')
+            co_mock.assert_called_once_with((
+                'maas', 'mas', 'fabrics', 'create', 'name=a-fabric'))
+            self.assertEqual({'id': 1}, fabric)
+            co_mock.reset_mock()
+            fabric = account.create_fabric('a-fabric', class_type='something')
+            co_mock.assert_called_once_with((
+                'maas', 'mas', 'fabrics', 'create', 'name=a-fabric',
+                'class_type=something'))
+            self.assertEqual({'id': 1}, fabric)
+
+    def test_delete_fabric(self):
+        config = get_maas_env().config
+        account = MAASAccount(
+            config['name'], config['maas-server'], config['maas-oauth'])
+        with patch('subprocess.check_output', autospec=True,
+                   return_value='') as co_mock:
+            result = account.delete_fabric(1)
+        co_mock.assert_called_once_with(
+            ('maas', 'mas', 'fabric', 'delete', '1'))
+        self.assertEqual(None, result)
+
 
 class TestMAAS1Account(TestCase):
 

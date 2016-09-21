@@ -180,7 +180,7 @@ def deploy_rsyslog(client):
     app_name = 'rsyslog'
     client.deploy('rsyslog', (app_name))
     client.wait_for_started()
-    client.juju('set-config', (app_name, 'protocol="tcp"'))
+    client.set_config(app_name, {'protocol': 'tcp'})
     client.juju('expose', app_name)
 
     return setup_tls_rsyslog(client, app_name)

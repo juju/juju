@@ -97,7 +97,10 @@ def assess_autoload_credentials(args):
 def client_credentials_to_details(client):
     """Convert the credentials in the client to details."""
     provider = client.env.config['type']
-    cloud = client.env.credentials['credentials'][client.env.get_cloud()]
+    log.info("provider: {}".format(provider))
+    cloud_name = client.env.get_cloud()
+    log.info("cloud_name: {}".format(cloud_name))
+    cloud = client.env.credentials['credentials'][cloud_name]
     credentials = cloud['credentials']
     if 'ec2' == provider:
         return {'secret_key': credentials['secret-key'],
@@ -109,8 +112,11 @@ def client_credentials_to_details(client):
                 'private_key': credentials['private-key'],
                 }
     if 'openstack' == provider:
+        os_cloud = client.env.clouds['clouds'][cloud_name]
         return {'os_tenant_name': credentials['tenant-name'],
                 'os_password': credentials['password'],
+                'os_region_name': client.env.config['region'],
+                'os_auth_url': os_cloud['endpoint'],
                 }
 
 
@@ -196,13 +202,16 @@ def ensure_autoload_credentials_overwrite_existing(client_base,
 def autoload_and_bootstrap(bs_manager, upload_tools, real_credentials,
                            cloud_details_fn):
     """Ensure we can bootstrap after autoloading credentials."""
-
-    user = 'testing-user'
     with begin_autoload_test(bs_manager.client) as (client_na,
                                                     tmp_scratch_dir):
-        cloud_details = cloud_details_fn(user, tmp_scratch_dir,
-                                         bs_manager.client, real_credentials)
-
+        # Do not overwrite real JUJU_DATA/JUJU_HOME/cloud-city dir.
+        bs_manager.client.env.juju_home = client_na.env.juju_home
+        bs_manager.tear_down_client.env.juju_home = client_na.env.juju_home
+        # Openstack needs the real username.
+        user = client_na.env.config.get('username', 'testing-user')
+        cloud_details = cloud_details_fn(
+            user, tmp_scratch_dir, bs_manager.client, real_credentials)
+        # Reset the client's credentials before autoload.
         bs_manager.client.env.credentials = {}
 
         with bs_manager.top_context() as machines:
@@ -228,6 +237,7 @@ def assert_credentials_contains_expected_results(credentials, expected):
             'Expected: {expected}\nGot: {got}\n'.format(
                 expected=expected,
                 got=credentials))
+    log.info('PASS: credentials == expected')
 
 
 def run_autoload_credentials(client, envvars, answers):
@@ -357,13 +367,14 @@ def aws_credential_dict_generator():
 def openstack_envvar_test_details(
         user, tmp_dir, client, credential_details=None):
     if credential_details is None:
-        credential_details = openstack_credential_dict_generator()
+        region = client.env.config['region']
+        log.info(
+            'Generating credential_details for openstack {}'.format(region))
+        credential_details = openstack_credential_dict_generator(region)
 
     expected_details, answers = setup_basic_openstack_test_details(
         client, user, credential_details)
-
     env_var_changes = get_openstack_envvar_changes(user, credential_details)
-
     return CloudDetails(env_var_changes, expected_details, answers)
 
 
@@ -372,18 +383,22 @@ def get_openstack_envvar_changes(user, credential_details):
         USER=user,
         OS_USERNAME=user,
         OS_PASSWORD=credential_details['os_password'],
-        OS_TENANT_NAME=credential_details['os_tenant_name'])
+        OS_TENANT_NAME=credential_details['os_tenant_name'],
+        OS_AUTH_URL=credential_details['os_auth_url'],
+        OS_REGION_NAME=credential_details['os_region_name'],
+        )
 
 
-def openstack_directory_test_details(
-        user, tmp_dir, client, credential_details=None
-):
+def openstack_directory_test_details(user, tmp_dir, client,
+                                     credential_details=None):
     if credential_details is None:
-        credential_details = openstack_credential_dict_generator()
+        region = client.env.config['region']
+        log.info(
+            'Generating credential_details for openstack {}'.format(region))
+        credential_details = openstack_credential_dict_generator(region)
 
     expected_details, answers = setup_basic_openstack_test_details(
         client, user, credential_details)
-
     write_openstack_config_file(tmp_dir, user, credential_details)
     env_var_changes = dict(HOME=tmp_dir)
 
@@ -398,7 +413,7 @@ def setup_basic_openstack_test_details(client, user, credential_details):
         cloud_listing='openstack region ".*" project "{}" user "{}"'.format(
             credential_details['os_tenant_name'],
             user),
-        save_name='testing_openstack')
+        save_name='testing-openstack')
 
     return expected_details, answers
 
@@ -410,35 +425,45 @@ def write_openstack_config_file(tmp_dir, user, credential_details):
         export OS_USERNAME={user}
         export OS_PASSWORD={password}
         export OS_TENANT_NAME={tenant_name}
+        export OS_AUTH_URL={auth_url}
+        export OS_REGION_NAME={region}
         """.format(
             user=user,
             password=credential_details['os_password'],
             tenant_name=credential_details['os_tenant_name'],
+            auth_url=credential_details['os_auth_url'],
+            region=credential_details['os_region_name'],
             ))
         f.write(credentials)
     return credentials_file
 
 
 def ensure_openstack_personal_cloud_exists(client):
+    juju_home = client.env.juju_home
+    if not juju_home.startswith('/tmp'):
+        raise ValueError('JUJU_HOME is wrongly set to: {}'.format(juju_home))
+    if client.env.clouds['clouds']:
+        cloud_name = client.env.get_cloud()
+        regions = client.env.clouds['clouds'][cloud_name]['regions']
+    else:
+        regions = {'region1': {}}
     os_cloud = {
-        'testing_openstack': {
+        'testing-openstack': {
             'type': 'openstack',
-            'regions': {
-                'test1': {
-                    'endpoint': 'https://example.com',
-                    'auth-types': ['access-key', 'userpass']
-                    }
-                }
+            'auth-types': ['userpass'],
+            'endpoint': client.env.config['auth-url'],
+            'regions': regions
             }
         }
     client.env.clouds['clouds'] = os_cloud
-    client.env.dump_yaml(client.env.juju_home, config=None)
+    client.env.dump_yaml(juju_home, config=None)
 
 
 def get_openstack_expected_details_dict(user, credential_details):
     return {
         'credentials': {
-            'testing_openstack': {
+            'testing-openstack': {
+                'default-region': credential_details['os_region_name'],
                 user: {
                     'auth-type': 'userpass',
                     'domain-name': '',
@@ -451,17 +476,18 @@ def get_openstack_expected_details_dict(user, credential_details):
         }
 
 
-def openstack_credential_dict_generator():
+def openstack_credential_dict_generator(region):
     call_id = CredentialIdCounter.id('openstack')
     creds = 'openstack-credentials-{}'.format(call_id)
     return dict(
         os_tenant_name=creds,
-        os_password=creds)
+        os_password=creds,
+        os_auth_url='https://keystone.example.com:443/v2.0/',
+        os_region_name=region)
 
 
-def gce_envvar_with_file_test_details(
-        user, tmp_dir, client, credential_details=None
-):
+def gce_envvar_with_file_test_details(user, tmp_dir, client,
+                                      credential_details=None):
     if credential_details is None:
         credential_details = gce_credential_dict_generator()
     credentials_path = write_gce_config_file(tmp_dir, credential_details)
@@ -481,9 +507,7 @@ def gce_envvar_with_file_test_details(
     return CloudDetails(env_var_changes, expected_details, answers)
 
 
-def gce_file_test_details(
-        user, tmp_dir, client, credential_details=None
-):
+def gce_file_test_details(user, tmp_dir, client, credential_details=None):
     if credential_details is None:
         credential_details = gce_credential_dict_generator()
 

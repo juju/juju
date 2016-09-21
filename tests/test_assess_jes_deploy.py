@@ -88,7 +88,7 @@ class TestJES(tests.FakeHomeTestCase):
             bootstrap_host='localhost', debug=True, machine=['0'],
             series='trusty', agent_stream='devel', agent_url='some_url',
             logs='log/dir', keep_env=True, juju_home='/path/to/juju/home',
-            juju_bin='/path/to/bin/juju', region='region-foo')
+            juju_bin='/path/to/bin/juju', region='region-foo', deadline=None)
 
         # setup jes with a client that has default jes.
         with patch.object(expected_client, 'enable_jes'):
@@ -105,7 +105,7 @@ class TestJES(tests.FakeHomeTestCase):
 
         # assert that helper funcs were called with expected args.
         by_version_func.assert_called_once_with(
-            'baz', '/path/to/bin/juju', True)
+            'baz', '/path/to/bin/juju', True, soft_deadline=None)
 
         configure_logging_func.assert_called_once_with(True)
         boot_context_func.assert_called_once_with(

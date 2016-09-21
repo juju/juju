@@ -85,7 +85,8 @@ class TestMain(tests.FakeHomeTestCase):
             with patch('run_deployer.boot_context'):
                 with patch('run_deployer.assess_deployer') as ad_mock:
                     main(args)
-        c_mock.assert_called_once_with('an-env', '/bin/juju', debug=False)
+        c_mock.assert_called_once_with('an-env', '/bin/juju', debug=False,
+                                       soft_deadline=None)
         ad_mock.assert_called_once_with(parse_args(args), client, 1200, 1800)
 
     def test_basic_args_native_deploy(self):
@@ -101,7 +102,8 @@ class TestMain(tests.FakeHomeTestCase):
                 with patch('run_deployer.assess_deployer') as ad_mock:
                     with patch('run_deployer.run_command') as mb_mock:
                         main(args)
-        c_mock.assert_called_once_with('an-env', '/bin/juju', debug=False)
+        c_mock.assert_called_once_with('an-env', '/bin/juju', debug=False,
+                                       soft_deadline=None)
         ad_mock.assert_called_once_with(parse_args(args), client, 1200, 1800)
         client_ser = pickle.dumps(client)
         mb_mock.assert_called_once_with(['verify_mediawiki_bundle.py',
@@ -121,7 +123,8 @@ class TestMain(tests.FakeHomeTestCase):
                 with patch('run_deployer.assess_deployer') as ad_mock:
                         with patch('run_deployer.run_command') as rc:
                             main(args)
-        c_mock.assert_called_once_with('an-env', '/bin/juju', debug=False)
+        c_mock.assert_called_once_with('an-env', '/bin/juju', debug=False,
+                                       soft_deadline=None)
         ad_mock.assert_called_once_with(parse_args(args), client, 1200, 1800)
         client_ser = pickle.dumps(client)
         rc.assert_called_once_with(['verify_landscape_bundle.py',

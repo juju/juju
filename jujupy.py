@@ -175,6 +175,13 @@ def coalesce_agent_status(agent_item):
 
 
 def make_client(juju_path, debug, env_name, temp_env_name):
+    """Create a new juju client.
+
+    :param juju_path: Full path to the juju binary the client should wrap.
+    :param debug: Debug flag for the client.
+    :param env_name: Name of the environment to use the configuration from.
+    :param temp_env_name: Name of client's model/environment, if None env_name
+    is used."""
     client = client_from_config(env_name, juju_path, debug)
     if temp_env_name is not None:
         client.env.set_model_name(temp_env_name)
@@ -226,9 +233,17 @@ def temp_yaml_file(yaml_dict):
 
 
 class SimpleEnvironment:
+    """Represents a model in a JUJU_HOME directory for juju 1."""
 
     def __init__(self, environment, config=None, juju_home=None,
                  controller=None):
+        """Constructor.
+
+        :param environment: Name of the environment.
+        :param config: Dictionary with configuration options, default is None.
+        :param juju_home: Path to JUJU_HOME directory, default is None.
+        :param controller: Controller instance-- this model's controller.
+            If not given or None a new instance is created."""
         self.user_name = None
         if controller is None:
             controller = Controller(environment)
@@ -286,6 +301,9 @@ class SimpleEnvironment:
 
     @classmethod
     def from_config(cls, name):
+        """Create an environment from the configuation file.
+
+        :param name: Name of the environment to get the configuration from."""
         return cls._from_config(name)
 
     @classmethod
@@ -312,9 +330,21 @@ class SimpleEnvironment:
 
 
 class JujuData(SimpleEnvironment):
+    """Represents a model in a JUJU_DATA directory for juju 2."""
 
     def __init__(self, environment, config=None, juju_home=None,
                  controller=None):
+        """Constructor.
+
+        This extends SimpleEnvironment's constructor.
+
+        :param environment: Name of the environment.
+        :param config: Dictionary with configuration options; default is None.
+        :param juju_home: Path to JUJU_DATA directory. If None (the default),
+            the home directory is autodetected.
+        :param controller: Controller instance-- this model's controller.
+            If not given or None, a new instance is created.
+        """
         if juju_home is None:
             juju_home = get_juju_home()
         super(JujuData, self).__init__(environment, config, juju_home,
@@ -355,6 +385,7 @@ class JujuData(SimpleEnvironment):
 
     @classmethod
     def from_config(cls, name):
+        """Create a model from the three configuration files."""
         juju_data = cls._from_config(name)
         juju_data.load_yaml()
         return juju_data
@@ -592,7 +623,8 @@ class Juju2Backend:
             full_path = self.full_path
         if debug is None:
             debug = self.debug
-        result = self.__class__(full_path, version, feature_flags, debug)
+        result = self.__class__(full_path, version, feature_flags, debug,
+                                self.soft_deadline)
         return result
 
     @property
@@ -831,7 +863,16 @@ def get_client_class(version):
     return client_class
 
 
-def client_from_config(config, juju_path, debug=False):
+def client_from_config(config, juju_path, debug=False, soft_deadline=None):
+    """Create a client from an environment's configuration.
+
+    :param config: Name of the environment to use the config from.
+    :param juju_path: Path to juju binary the client should wrap.
+    :param debug=False: The debug flag for the client, False by default.
+    :param soft_deadline: A datetime representing the deadline by which
+        normal operations should complete.  If None, no deadline is
+        enforced.
+    """
     version = EnvJujuClient.get_version(juju_path)
     client_class = get_client_class(version)
     env = client_class.config_class.from_config(config)
@@ -839,10 +880,18 @@ def client_from_config(config, juju_path, debug=False):
         full_path = EnvJujuClient.get_full_path()
     else:
         full_path = os.path.abspath(juju_path)
-    return client_class(env, version, full_path, debug=debug)
+    return client_class(env, version, full_path, debug=debug,
+                        soft_deadline=soft_deadline)
 
 
 class EnvJujuClient:
+    """Wraps calls to a juju instance, associated with a single model.
+
+    Note: A model is often called an enviroment (Juju 1 legacy).
+
+    This class represents the latest Juju version.  Subclasses are used to
+    support older versions (see get_client_class).
+    """
 
     # The environments.yaml options that are replaced by bootstrap options.
     #
@@ -887,6 +936,10 @@ class EnvJujuClient:
 
     @classmethod
     def get_version(cls, juju_path=None):
+        """Get the version data from a juju binary.
+
+        :param juju_path: Path to binary. If not given or None, 'juju' is used.
+        """
         if juju_path is None:
             juju_path = 'juju'
         return subprocess.check_output((juju_path, '--version')).strip()
@@ -1003,10 +1056,28 @@ class EnvJujuClient:
         return env
 
     def __init__(self, env, version, full_path, juju_home=None, debug=False,
-                 _backend=None):
+                 soft_deadline=None, _backend=None):
+        """Create a new juju client.
+
+        Required Arguments
+        :param env: Object representing a model in a data directory.
+        :param version: Version of juju the client wraps.
+        :param full_path: Full path to juju binary.
+
+        Optional Arguments
+        :param juju_home: default value for env.juju_home.  Will be
+            autodetected if None (the default).
+        :param debug: Flag to activate debugging output; False by default.
+        :param soft_deadline: A datetime representing the deadline by which
+            normal operations should complete.  If None, no deadline is
+            enforced.
+        :param _backend: The backend to use for interacting with the client.
+            If None (the default), self.default_backend will be used.
+        """
         self.env = self._get_env(env)
         if _backend is None:
-            _backend = self.default_backend(full_path, version, set(), debug)
+            _backend = self.default_backend(full_path, version, set(), debug,
+                                            soft_deadline)
         self._backend = _backend
         if version != _backend.version:
             raise ValueError('Version mismatch: {} {}'.format(
@@ -1100,6 +1171,9 @@ class EnvJujuClient:
         return tuple(args)
 
     def add_model(self, env):
+        """Add a model to this model's controller and return its client.
+
+        :param env: Class representing the new model/environment."""
         model_client = self.clone(env)
         with model_client._bootstrap_config() as config_file:
             self._add_model(env.environment, config_file)
@@ -1237,10 +1311,10 @@ class EnvJujuClient:
 
     def set_config(self, service, options):
         option_strings = self._dict_as_option_strings(options)
-        self.juju('set-config', (service,) + option_strings)
+        self.juju('config', (service,) + option_strings)
 
     def get_config(self, service):
-        return yaml_loads(self.get_juju_output('get-config', service))
+        return yaml_loads(self.get_juju_output('config', service))
 
     def get_service_config(self, service, timeout=60):
         for ignored in until_timeout(timeout):
@@ -1528,10 +1602,14 @@ class EnvJujuClient:
         self.controller_juju('list-models', ())
 
     def get_models(self):
-        """return a models dict with a 'models': [] key-value pair."""
+        """return a models dict with a 'models': [] key-value pair.
+
+        The server has 120 seconds to respond because this method is called
+        often when tearing down a controller-less deployment.
+        """
         output = self.get_juju_output(
             'list-models', '-c', self.env.controller.name, '--format', 'yaml',
-            include_e=False)
+            include_e=False, timeout=120)
         models = yaml_loads(output)
         return models
 
@@ -1812,8 +1890,9 @@ class EnvJujuClient:
         return backup_file_path
 
     def restore_backup(self, backup_file):
-        return self.get_juju_output('restore-backup', '-b', '--constraints',
-                                    'mem=2G', '--file', backup_file)
+        self.juju(
+            'restore-backup',
+            ('-b', '--constraints', 'mem=2G', '--file', backup_file))
 
     def restore_backup_async(self, backup_file):
         return self.juju_async('restore-backup', ('-b', '--constraints',
@@ -2114,6 +2193,13 @@ class EnvJujuClient2B9(EnvJujuClient):
         args = (username, models, '--acl', permissions)
 
         self.controller_juju('revoke', args)
+
+    def set_config(self, service, options):
+        option_strings = self._dict_as_option_strings(options)
+        self.juju('set-config', (service,) + option_strings)
+
+    def get_config(self, service):
+        return yaml_loads(self.get_juju_output('get-config', service))
 
     def get_model_config(self):
         """Return the value of the environment's configured option."""
@@ -2775,6 +2861,10 @@ def uniquify_local(env):
 
 
 def dump_environments_yaml(juju_home, config):
+    """Dump yaml data to the environment file.
+
+    :param juju_home: Path to the JUJU_HOME directory.
+    :param config: Dictionary repersenting yaml data to dump."""
     environments_path = get_environments_path(juju_home)
     with open(environments_path, 'w') as config_file:
         yaml.safe_dump(config, config_file)
@@ -2912,6 +3002,7 @@ def _dns_name_for_machine(status, machine):
 
 
 class Controller:
+    """Represents the controller for a model or models."""
 
     def __init__(self, name):
         self.name = name
