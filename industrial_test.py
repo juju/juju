@@ -1005,15 +1005,23 @@ def maybe_write_json(filename, results):
 
 
 def run_single(args):
-    upgrade_client = client_from_config(args.env, juju_path=None,
-                                        debug=args.debug)
-    env = upgrade_client.env
+    # Do not initialize if we are not testing upgrades, to avoid
+    # incompatibility issues.
+    upgrade_client = None
+    client = client_from_config(args.env, args.new_juju_path, debug=args.debug)
+    env = client.env
     env.set_model_name(env.environment + '-single')
-    client = upgrade_client.clone_path_cls(args.new_juju_path)
     try:
         for suite in args.suite:
             factory = suites[suite]
-            upgrade_sequence = [upgrade_client.full_path, client.full_path]
+            if (
+                    factory.bootstrap_attempt == PrepareUpgradeJujuAttempt and
+                    upgrade_client is None):
+                upgrade_client = client.clone_path_cls(None)
+            if upgrade_client is not None:
+                upgrade_sequence = [upgrade_client.full_path, client.full_path]
+            else:
+                upgrade_sequence = []
             suite = factory.factory(upgrade_sequence, args.log_dir,
                                     args.agent_stream)
             steps_iter = suite.iter_steps(client)
