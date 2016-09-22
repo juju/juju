@@ -3208,7 +3208,7 @@ class TestEnvJujuClient(ClientTest):
     def test_enable_command(self):
         client = EnvJujuClient(JujuData('foo'), None, None)
         with patch.object(client, 'juju', autospec=True) as mock:
-            client.enable_command(('all',))
+            client.enable_command('all')
         mock.assert_called_once_with('enable-command', 'all')
 
 
