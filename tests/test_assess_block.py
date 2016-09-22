@@ -12,7 +12,6 @@ from assess_block import (
     main,
     parse_args,
     )
-from jujupy import EnvJujuClient
 from tests import (
     parse_error,
     TestCase,
