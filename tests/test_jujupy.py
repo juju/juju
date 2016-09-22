@@ -3199,6 +3199,18 @@ class TestEnvJujuClient(ClientTest):
         mock.assert_called_once_with('list-disabled-commands',
                                      '--format', 'yaml')
 
+    def test_disable_command(self):
+        client = EnvJujuClient(JujuData('foo'), None, None)
+        with patch.object(client, 'juju', autospec=True) as mock:
+            client.disable_command(('all', 'message'))
+        mock.assert_called_once_with('disable-command', ('all', 'message'))
+
+    def test_enable_command(self):
+        client = EnvJujuClient(JujuData('foo'), None, None)
+        with patch.object(client, 'juju', autospec=True) as mock:
+            client.enable_command(('all',))
+        mock.assert_called_once_with('enable-command', 'all')
+
 
 class TestEnvJujuClient2B8(ClientTest):
 
@@ -3403,6 +3415,17 @@ class TestEnvJujuClient2B9(ClientTest):
         mock.assert_called_once_with('block list',
                                      '--format', 'yaml')
 
+    def test_disable_command(self):
+        client = EnvJujuClient2B9(JujuData('foo'), None, None)
+        with patch.object(client, 'juju', autospec=True) as mock:
+            client.disable_command(('all', 'message'))
+        mock.assert_called_once_with('block', ('all', 'message'))
+
+    def test_enable_command(self):
+        client = EnvJujuClient2B9(JujuData('foo'), None, None)
+        with patch.object(client, 'juju', autospec=True) as mock:
+            client.enable_command('all')
+        mock.assert_called_once_with('unblock', 'all')
 
 
 class TestEnvJujuClient2B7(ClientTest):

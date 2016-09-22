@@ -7,8 +7,6 @@ import argparse
 import logging
 import sys
 
-import yaml
-
 from assess_min_version import (
     JujuAssertionError
 )
@@ -69,7 +67,7 @@ def assess_block_destroy_model(client, charm_series):
     the model cannot be destroyed, but objects
     can be added, related, and removed.
     """
-    client.juju(client.disable_command, (client.destroy_model_command))
+    client.disable_command(client.destroy_model_command)
     block_list = client.list_disabled_commands()
     if block_list != make_block_list([DisableCommandTypes.destroy_mode]):
         raise JujuAssertionError(block_list)
@@ -87,7 +85,7 @@ def assess_block_remove_object(client, charm_series):
     objects can be added and related, but they
     cannot be removed or the model/environment deleted.
     """
-    client.juju(client.disable_command, (DisableCommandTypes.remove_object))
+    client.disable_command(DisableCommandTypes.remove_object)
     block_list = client.list_disabled_commands()
     if block_list != make_block_list([DisableCommandTypes.remove_object]):
         raise JujuAssertionError(block_list)
@@ -104,21 +102,21 @@ def assess_block_remove_object(client, charm_series):
 def assess_block_all_changes(client, charm_series):
     """Test Block Functionality: block all-changes"""
     client.juju('remove-relation', ('dummy-source', 'dummy-sink'))
-    client.juju(client.disable_command, (DisableCommandTypes.all))
+    client.disable_command(DisableCommandTypes.all)
     block_list = client.list_disabled_commands()
     if block_list != make_block_list([DisableCommandTypes.all]):
         raise JujuAssertionError(block_list)
     test_disabled(client, 'add-relation', ('dummy-source', 'dummy-sink'))
     test_disabled(client, 'unexpose', ('dummy-sink',))
     test_disabled(client, 'remove-service', 'dummy-sink')
-    client.juju(client.enable_command, (DisableCommandTypes.all))
+    client.enable_command(DisableCommandTypes.all)
     client.juju('unexpose', ('dummy-sink',))
-    client.juju(client.disable_command, (DisableCommandTypes.all))
+    client.disable_command(DisableCommandTypes.all)
     test_disabled(client, 'expose', ('dummy-sink',))
-    client.juju(client.enable_command, (DisableCommandTypes.all))
+    client.enable_command(DisableCommandTypes.all)
     client.remove_service('dummy-sink')
     wait_for_removed_services(client, 'dummy-sink')
-    client.juju(client.disable_command, (DisableCommandTypes.all))
+    client.disable_command(DisableCommandTypes.all)
     test_disabled(client, 'deploy', ('dummy-sink',))
     test_disabled(
         client, client.destroy_model_command,
@@ -128,7 +126,7 @@ def assess_block_all_changes(client, charm_series):
 def assess_unblock(client, type):
     """Test Block Functionality
     unblock destroy-model/remove-object/all-changes."""
-    client.juju(client.enable_command, (type))
+    client.enable_command(type)
     block_list = client.list_disabled_commands()
     if block_list != make_block_list([]):
         raise JujuAssertionError(block_list)

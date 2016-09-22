@@ -4,7 +4,6 @@ import logging
 import StringIO
 
 from mock import Mock, patch, call
-import yaml
 
 from assess_block import (
     DisableCommandTypes,
@@ -12,11 +11,12 @@ from assess_block import (
     make_block_list,
     main,
     parse_args,
-)
+    )
+from jujupy import EnvJujuClient
 from tests import (
     parse_error,
     TestCase,
-)
+    )
 
 
 class TestParseArgs(TestCase):
@@ -64,11 +64,10 @@ class TestAssess(TestCase):
     def test_block(self):
         mock_client = Mock(spec=[
             "juju", "wait_for_started", "list_disabled_commands",
+            "disable_command", "enable_command",
             "remove_service", "env", "deploy", "expose",
             "destroy-model", "remove-machine", "get_status"])
         mock_client.destroy_model_command = 'destroy-model'
-        mock_client.disable_command = 'disable-command'
-        mock_client.enable_command = 'enable-command'
         mock_client.list_disabled_commands.side_effect = [
             make_block_list([]),
             make_block_list([DisableCommandTypes.destroy_mode]),
@@ -85,35 +84,37 @@ class TestAssess(TestCase):
                        autospec=True):
                 assess_block(mock_client, 'trusty')
         mock_client.wait_for_started.assert_called_with()
-        self.assertEqual([call(mock_client.disable_command, ('destroy-model')),
-                          call('destroy-model',
+        self.assertEqual([call('destroy-model',
                                ('-y', 'foo'), include_e=False),
-                          call(mock_client.enable_command, ('destroy-model')),
-                          call(mock_client.disable_command, ('remove-object')),
                           call('destroy-model',
                                ('-y', 'foo'), include_e=False),
                           call('remove-unit',
                                ('dummy-source/1',), include_e=True),
                           call('remove-relation',
                                ('dummy-source', 'dummy-sink'), include_e=True),
-                          call(mock_client.enable_command, ('remove-object')),
                           call('remove-relation',
                                ('dummy-source', 'dummy-sink')),
-                          call(mock_client.disable_command, ('all')),
                           call('add-relation',
                                ('dummy-source', 'dummy-sink'), include_e=True),
                           call('unexpose',
                                ('dummy-sink',), include_e=True),
-                          call(mock_client.enable_command, ('all')),
                           call('unexpose', ('dummy-sink',)),
-                          call(mock_client.disable_command, ('all')),
                           call('expose', ('dummy-sink',), include_e=True),
-                          call(mock_client.enable_command, ('all')),
-                          call(mock_client.disable_command, ('all')),
                           call('destroy-model',
-                               ('-y', 'foo'), include_e=False),
-                          call(mock_client.enable_command, ('all'))],
+                               ('-y', 'foo'), include_e=False)],
                          mock_client.juju.mock_calls)
+        self.assertEqual([call('destroy-model'),
+                          call('remove-object'),
+                          call('all'),
+                          call('all'),
+                          call('all')],
+                         mock_client.disable_command.mock_calls)
+        self.assertEqual([call('destroy-model'),
+                          call('remove-object'),
+                          call('all'),
+                          call('all'),
+                          call('all')],
+                         mock_client.enable_command.mock_calls)
         self.assertEqual([call('dummy-source'),
                           call('dummy-sink'),
                           call('dummy-source'),
