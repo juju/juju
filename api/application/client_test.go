@@ -140,6 +140,9 @@ func (s *serviceSuite) TestServiceGetCharmURL(c *gc.C) {
 
 func (s *serviceSuite) TestServiceSetCharm(c *gc.C) {
 	var called bool
+	toUint64Ptr := func(v uint64) *uint64 {
+		return &v
+	}
 	application.PatchFacadeCall(s, s.client, func(request string, a, response interface{}) error {
 		called = true
 		c.Assert(request, gc.Equals, "SetCharm")
@@ -147,8 +150,19 @@ func (s *serviceSuite) TestServiceSetCharm(c *gc.C) {
 		c.Assert(ok, jc.IsTrue)
 		c.Assert(args.ApplicationName, gc.Equals, "application")
 		c.Assert(args.CharmUrl, gc.Equals, "cs:trusty/application-1")
+		c.Assert(args.ConfigSettings, jc.DeepEquals, map[string]string{
+			"a": "b",
+			"c": "d",
+		})
+		c.Assert(args.ConfigSettingsYAML, gc.Equals, "yaml")
 		c.Assert(args.ForceSeries, gc.Equals, true)
 		c.Assert(args.ForceUnits, gc.Equals, true)
+		c.Assert(args.StorageConstraints, jc.DeepEquals, map[string]params.StorageConstraints{
+			"a": {Pool: "radiant"},
+			"b": {Count: toUint64Ptr(123)},
+			"c": {Size: toUint64Ptr(123)},
+		})
+
 		return nil
 	})
 	cfg := application.SetCharmConfig{
@@ -156,8 +170,18 @@ func (s *serviceSuite) TestServiceSetCharm(c *gc.C) {
 		CharmID: charmstore.CharmID{
 			URL: charm.MustParseURL("trusty/application-1"),
 		},
-		ForceSeries: true,
-		ForceUnits:  true,
+		ConfigSettings: map[string]string{
+			"a": "b",
+			"c": "d",
+		},
+		ConfigSettingsYAML: "yaml",
+		ForceSeries:        true,
+		ForceUnits:         true,
+		StorageConstraints: map[string]storage.Constraints{
+			"a": {Pool: "radiant"},
+			"b": {Count: 123},
+			"c": {Size: 123},
+		},
 	}
 	err := s.client.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
