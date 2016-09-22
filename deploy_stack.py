@@ -392,15 +392,22 @@ def assess_juju_run(client):
 
 
 def assess_upgrade(old_client, juju_path):
-    version = EnvJujuClient.get_version(juju_path)
-    client_class = get_client_class(version)
-    client = old_client.clone(cls=client_class, version=version)
-    upgrade_juju(client)
-    if client.env.config['type'] == 'maas':
-        timeout = 1200
-    else:
-        timeout = 600
-    client.wait_for_version(client.get_matching_agent_version(), timeout)
+    # List of all models with controller (if available) sorted to be first.
+    all_models = sorted(
+        old_client.iter_model_clients(),
+        key=lambda m: -1 if m.model_name == 'controller' else 0)
+
+    new_version = EnvJujuClient.get_version(juju_path)
+    for c in all_models:
+        # Need to expect the newer version based on the upgrading binary.
+        client = c.clone(version=new_version)
+        upgrade_juju(client)
+
+        if client.env.config['type'] == 'maas':
+            timeout = 1200
+        else:
+            timeout = 600
+        client.wait_for_version(client.get_matching_agent_version(), timeout)
 
 
 def upgrade_juju(client):
