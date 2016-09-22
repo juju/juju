@@ -4,6 +4,7 @@
 package application
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -30,6 +31,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/resourceadapters"
+	"github.com/juju/juju/storage"
 )
 
 // NewUpgradeCharmCommand returns a command which upgrades application's charm.
@@ -110,6 +112,14 @@ type upgradeCharmCommand struct {
 	// Channel holds the charmstore channel to use when obtaining
 	// the charm to be upgraded to.
 	Channel csclientparams.Channel
+
+	// Config is a config file variable, pointing at a YAML file containing
+	// the application config to update.
+	Config cmd.FileVar
+
+	// Storage is a map of storage constraints, keyed on the storage name
+	// defined in charm storage metadata, to add or update during upgrade.
+	Storage map[string]storage.Constraints
 }
 
 const upgradeCharmDoc = `
@@ -138,6 +148,18 @@ repeated more than once to upload more than one resource.
   juju upgrade-charm foo --resource bar=/some/file.tgz --resource baz=./docs/cfg.xml
 
 Where bar and baz are resources named in the metadata for the foo charm.
+
+Storage constraints may be added or updated at upgrade time by specifying
+the --storage flag, with the same format as specified in "juju deploy".
+If new required storage is added by the new charm revision, then you must
+specify constraints or the defaults will be applied.
+
+  juju upgrade-charm foo --storage cache=ssd,10G
+
+Charm settings may be added or updated at upgrade time by specifying the
+--config flag, pointing to a YAML-encoded application config file.
+
+  juju upgrade-charm foo --config config.yaml
 
 If the new version of a charm does not explicitly support the application's series, the
 upgrade is disallowed unless the --force-series flag is used. This option should be
@@ -191,6 +213,8 @@ func (c *upgradeCharmCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.CharmPath, "path", "", "Upgrade to a charm located at path")
 	f.IntVar(&c.Revision, "revision", -1, "Explicit revision of current charm")
 	f.Var(stringMap{&c.Resources}, "resource", "Resource to be uploaded to the controller")
+	f.Var(storageFlag{&c.Storage, nil}, "storage", "Charm storage constraints")
+	f.Var(&c.Config, "config", "Path to yaml-formatted application config")
 }
 
 func (c *upgradeCharmCommand) Init(args []string) error {
@@ -225,6 +249,22 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 	defer apiRoot.Close()
+
+	// If the user has specified config or storage constraints,
+	// make sure the server has facade version 2 at a minimum.
+	if c.Config.Path != "" || len(c.Storage) > 0 {
+		action := "updating config"
+		if c.Config.Path == "" {
+			action = "updating storage constraints"
+		}
+		if apiRoot.BestFacadeVersion("Application") < 2 {
+			suffix := "this server"
+			if version, ok := apiRoot.ServerVersion(); ok {
+				suffix = fmt.Sprintf("server version %s", version)
+			}
+			return errors.New(action + " at upgrade-charm time is not supported by " + suffix)
+		}
+	}
 
 	charmUpgradeClient := c.NewCharmUpgradeClient(apiRoot)
 	oldURL, err := charmUpgradeClient.GetCharmURL(c.ApplicationName)
@@ -280,12 +320,21 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 	}
 
 	// Finally, upgrade the application.
+	var configYAML []byte
+	if c.Config.Path != "" {
+		configYAML, err = c.Config.Read(ctx)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
 	cfg := application.SetCharmConfig{
-		ApplicationName: c.ApplicationName,
-		CharmID:         chID,
-		ForceSeries:     c.ForceSeries,
-		ForceUnits:      c.ForceUnits,
-		ResourceIDs:     ids,
+		ApplicationName:    c.ApplicationName,
+		CharmID:            chID,
+		ConfigSettingsYAML: string(configYAML),
+		ForceSeries:        c.ForceSeries,
+		ForceUnits:         c.ForceUnits,
+		ResourceIDs:        ids,
+		StorageConstraints: c.Storage,
 	}
 	return block.ProcessBlockedError(charmUpgradeClient.SetCharm(cfg), block.BlockChange)
 }

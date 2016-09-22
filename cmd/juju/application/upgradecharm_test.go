@@ -39,6 +39,7 @@ import (
 	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -160,6 +161,68 @@ func (s *UpgradeCharmSuite) SetUpTest(c *gc.C) {
 
 func (s *UpgradeCharmSuite) runUpgradeCharm(c *gc.C, args ...string) (*cmd.Context, error) {
 	return coretesting.RunCommand(c, s.cmd, args...)
+}
+
+func (s *UpgradeCharmSuite) TestStorageConstraints(c *gc.C) {
+	_, err := s.runUpgradeCharm(c, "foo", "--storage", "bar=baz")
+	c.Assert(err, jc.ErrorIsNil)
+	s.charmUpgradeClient.CheckCallNames(c, "GetCharmURL", "SetCharm")
+	s.charmUpgradeClient.CheckCall(c, 1, "SetCharm", application.SetCharmConfig{
+		ApplicationName: "foo",
+		CharmID: jujucharmstore.CharmID{
+			URL:     s.resolvedCharmURL,
+			Channel: csclientparams.StableChannel,
+		},
+		StorageConstraints: map[string]storage.Constraints{
+			"bar": {Pool: "baz", Count: 1},
+		},
+	})
+}
+
+func (s *UpgradeCharmSuite) TestStorageConstraintsMinFacadeVersion(c *gc.C) {
+	s.apiConnection.bestFacadeVersion = 1
+	_, err := s.runUpgradeCharm(c, "foo", "--storage", "bar=baz")
+	c.Assert(err, gc.ErrorMatches,
+		"updating storage constraints at upgrade-charm time is not supported by server version 1.2.3")
+}
+
+func (s *UpgradeCharmSuite) TestStorageConstraintsMinFacadeVersionNoServerVersion(c *gc.C) {
+	s.apiConnection.bestFacadeVersion = 1
+	s.apiConnection.serverVersion = nil
+	_, err := s.runUpgradeCharm(c, "foo", "--storage", "bar=baz")
+	c.Assert(err, gc.ErrorMatches,
+		"updating storage constraints at upgrade-charm time is not supported by this server")
+}
+
+func (s *UpgradeCharmSuite) TestConfigSettings(c *gc.C) {
+	tempdir := c.MkDir()
+	configFile := filepath.Join(tempdir, "config.yaml")
+	err := ioutil.WriteFile(configFile, []byte("foo:{}"), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.runUpgradeCharm(c, "foo", "--config", configFile)
+	c.Assert(err, jc.ErrorIsNil)
+	s.charmUpgradeClient.CheckCallNames(c, "GetCharmURL", "SetCharm")
+	s.charmUpgradeClient.CheckCall(c, 1, "SetCharm", application.SetCharmConfig{
+		ApplicationName: "foo",
+		CharmID: jujucharmstore.CharmID{
+			URL:     s.resolvedCharmURL,
+			Channel: csclientparams.StableChannel,
+		},
+		ConfigSettingsYAML: "foo:{}",
+	})
+}
+
+func (s *UpgradeCharmSuite) TestConfigSettingsMinFacadeVersion(c *gc.C) {
+	tempdir := c.MkDir()
+	configFile := filepath.Join(tempdir, "config.yaml")
+	err := ioutil.WriteFile(configFile, []byte("foo:{}"), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.apiConnection.bestFacadeVersion = 1
+	_, err = s.runUpgradeCharm(c, "foo", "--config", configFile)
+	c.Assert(err, gc.ErrorMatches,
+		"updating config at upgrade-charm time is not supported by server version 1.2.3")
 }
 
 type UpgradeCharmErrorsStateSuite struct {
