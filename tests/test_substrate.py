@@ -888,6 +888,38 @@ class TestMAASAccount(TestCase):
             ('maas', 'mas', 'fabric', 'delete', '1'))
         self.assertEqual(None, result)
 
+    def test_spaces(self):
+        config = get_maas_env().config
+        account = MAASAccount(
+            config['name'], config['maas-server'], config['maas-oauth'])
+        with patch('subprocess.check_output', autospec=True,
+                   return_value='[]') as co_mock:
+            spaces = account.spaces()
+        co_mock.assert_called_once_with(('maas', 'mas', 'spaces', 'read'))
+        self.assertEqual([], spaces)
+
+    def test_create_space(self):
+        config = get_maas_env().config
+        account = MAASAccount(
+            config['name'], config['maas-server'], config['maas-oauth'])
+        with patch('subprocess.check_output', autospec=True,
+                   return_value='{"id": 1}') as co_mock:
+            fabric = account.create_space('a-space')
+        co_mock.assert_called_once_with((
+            'maas', 'mas', 'spaces', 'create', 'name=a-space'))
+        self.assertEqual({'id': 1}, fabric)
+
+    def test_delete_space(self):
+        config = get_maas_env().config
+        account = MAASAccount(
+            config['name'], config['maas-server'], config['maas-oauth'])
+        with patch('subprocess.check_output', autospec=True,
+                   return_value='') as co_mock:
+            result = account.delete_space(1)
+        co_mock.assert_called_once_with(
+            ('maas', 'mas', 'space', 'delete', '1'))
+        self.assertEqual(None, result)
+
 
 class TestMAAS1Account(TestCase):
 

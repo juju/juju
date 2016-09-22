@@ -502,6 +502,18 @@ class MAASAccount:
         """Delete a fabric with given id."""
         return self._maas(self.profile, 'fabric', 'delete', str(fabric_id))
 
+    def spaces(self):
+        """Return list of all spaces."""
+        return self._maas(self.profile, 'spaces', 'read')
+
+    def create_space(self, name):
+        """Create a new space with given name."""
+        return self._maas(self.profile, 'spaces', 'create', 'name=' + name)
+
+    def delete_space(self, space_id):
+        """Delete a space with given id."""
+        return self._maas(self.profile, 'space', 'delete', str(space_id))
+
 
 class MAAS1Account(MAASAccount):
     """Represent a MAAS 1.X account."""
