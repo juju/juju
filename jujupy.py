@@ -1846,20 +1846,6 @@ class EnvJujuClient:
             version_number += '.1'
         return version_number
 
-    def upgrade_controller(self, force_version=True):
-        args = ()
-        if force_version:
-            version = self.get_matching_agent_version(no_build=True)
-            args += ('--version', version)
-        if self.env.local:
-            args += ('--upload-tools',)
-
-        self._upgrade_controller(args)
-
-    def _upgrade_controller(self, args):
-        controller = self.get_controller_client()
-        controller.juju('upgrade-juju', args)
-
     def upgrade_juju(self, force_version=True):
         args = ()
         if force_version:
