@@ -34,7 +34,7 @@ import (
 // charm or bundle. The deployment output and error are returned.
 func runDeployCommand(c *gc.C, id string, args ...string) (string, error) {
 	args = append([]string{id}, args...)
-	ctx, err := coretesting.RunCommand(c, NewDeployCommand(), args...)
+	ctx, err := coretesting.RunCommand(c, NewDefaultDeployCommand(), args...)
 	return strings.Trim(coretesting.Stderr(ctx), "\n"), err
 }
 

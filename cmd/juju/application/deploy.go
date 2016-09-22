@@ -192,8 +192,17 @@ func (a *deployAPIAdapter) SetAnnotation(annotations map[string]map[string]strin
 
 type NewAPIRootFn func() (DeployAPI, error)
 
-func NewDeployCommand() cmd.Command {
-	deployCmd := newDeployCommand()
+func NewDefaultDeployCommand() cmd.Command {
+	return NewDeployCommandWithDefaultAPI([]DeployStep{
+		&RegisterMeteredCharm{
+			RegisterURL: planURL + "/plan/authorize",
+			QueryURL:    planURL + "/charm",
+		},
+	})
+}
+
+func NewDeployCommandWithDefaultAPI(steps []DeployStep) cmd.Command {
+	deployCmd := &DeployCommand{Steps: steps}
 	cmd := modelcmd.Wrap(deployCmd)
 	deployCmd.NewAPIRoot = func() (DeployAPI, error) {
 		apiRoot, err := deployCmd.ModelCommandBase.NewAPIRoot()
@@ -223,21 +232,11 @@ func NewDeployCommand() cmd.Command {
 }
 
 // NewDeployCommand returns a command to deploy services.
-func NewDeployCommandWithAPI(newAPIRoot NewAPIRootFn) cmd.Command {
-	cmd := newDeployCommand()
-	cmd.NewAPIRoot = newAPIRoot
-	return modelcmd.Wrap(cmd)
-}
-
-func newDeployCommand() *DeployCommand {
-	return &DeployCommand{
-		Steps: []DeployStep{
-			&RegisterMeteredCharm{
-				RegisterURL: planURL + "/plan/authorize",
-				QueryURL:    planURL + "/charm",
-			},
-		},
-	}
+func NewDeployCommand(newAPIRoot NewAPIRootFn, steps []DeployStep) cmd.Command {
+	return modelcmd.Wrap(&DeployCommand{
+		Steps:      steps,
+		NewAPIRoot: newAPIRoot,
+	})
 }
 
 type DeployCommand struct {
