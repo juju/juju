@@ -19,19 +19,18 @@ var (
 	// ErrNoControllersDefined is returned by commands that operate on
 	// a controller if there is no current controller, no controller has been
 	// explicitly specified, and there is no default controller.
-	ErrNoControllersDefined = errors.New(`no controller
+	ErrNoControllersDefined = errors.New(`No controllers registered.
 
-Please either create your own new controller using "juju bootstrap" or
-connect to another controller that you have been given access to using "juju register".
+Please either create a new controller using "juju bootstrap" or connect to
+another controller that you have been given access to using "juju register".
 `)
-	// ErrNotLoggedInToController is returned by commands that operate on
+	// ErrNoCurrentController is returned by commands that operate on
 	// a controller if there is no current controller, no controller has been
 	// explicitly specified, and there is no default controller but there are
-	// controllers that client knows about, i.e. the user needs to log in to one of them.
-	ErrNotLoggedInToController = errors.New(`not logged in
+	// controllers that client knows about.
+	ErrNoCurrentController = errors.New(`No selected controller.
 
-Please use "juju controllers" to view all controllers available to you. 
-You can login into an existing controller using "juju login -c <controller>".
+Please use "juju switch" to select a controller.
 `)
 )
 
@@ -169,7 +168,7 @@ func (c *ControllerCommandBase) newAPIRoot(modelName string) (api.Connection, er
 		if len(controllers) == 0 {
 			return nil, errors.Trace(ErrNoControllersDefined)
 		}
-		return nil, errors.Trace(ErrNotLoggedInToController)
+		return nil, errors.Trace(ErrNoCurrentController)
 	}
 	opener := c.opener
 	if opener == nil {
@@ -270,14 +269,17 @@ func (w *sysCommandWrapper) Init(args []string) error {
 	}
 	store = QualifyingClientStore{store}
 	w.SetClientStore(store)
+
+	return w.ControllerCommand.Init(args)
+}
+
+func (w *sysCommandWrapper) Run(ctx *cmd.Context) error {
 	if w.setControllerFlags {
 		if w.controllerName == "" && w.useDefaultController {
+			store := w.ClientStore()
 			currentController, err := store.CurrentController()
-			if errors.IsNotFound(err) {
-				return ErrNoControllersDefined
-			}
 			if err != nil {
-				return errors.Trace(err)
+				return translateControllerError(store, err)
 			}
 			w.controllerName = currentController
 		}
@@ -287,8 +289,22 @@ func (w *sysCommandWrapper) Init(args []string) error {
 	}
 	if w.controllerName != "" {
 		if err := w.SetControllerName(w.controllerName); err != nil {
-			return errors.Trace(err)
+			return translateControllerError(w.ClientStore(), err)
 		}
 	}
-	return w.ControllerCommand.Init(args)
+	return w.ControllerCommand.Run(ctx)
+}
+
+func translateControllerError(store jujuclient.ClientStore, err error) error {
+	if !errors.IsNotFound(err) {
+		return err
+	}
+	controllers, err2 := store.AllControllers()
+	if err2 != nil {
+		return err2
+	}
+	if len(controllers) == 0 {
+		return errors.Wrap(err, ErrNoControllersDefined)
+	}
+	return errors.Wrap(err, ErrNoCurrentController)
 }
