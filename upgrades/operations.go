@@ -18,11 +18,7 @@ import (
 // (below).
 var stateUpgradeOperations = func() []Operation {
 	steps := []Operation{
-		// Replace when we have upgrades to do
-		upgradeToVersion{
-			version.MustParse("1.26-placeholder1"),
-			[]Step{},
-		},
+		upgradeToVersion{version.MustParse("2.0.0"), []Step{}},
 	}
 	return steps
 }
@@ -32,11 +28,7 @@ var stateUpgradeOperations = func() []Operation {
 // state-based operations above, ordering is important.
 var upgradeOperations = func() []Operation {
 	steps := []Operation{
-		// Replace when we have upgrades to do
-		upgradeToVersion{
-			version.MustParse("1.26-placeholder1"),
-			[]Step{},
-		},
+		upgradeToVersion{version.MustParse("2.0.0"), stepsFor20()},
 	}
 	return steps
 }

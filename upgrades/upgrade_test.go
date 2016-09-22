@@ -30,43 +30,18 @@ func TestPackage(t *stdtesting.T) {
 	coretesting.MgoTestPackage(t)
 }
 
-// assertStateSteps is a helper that ensures that the given
-// state-based upgrade steps match what is expected for that version
-// and that the steps have been added to the global upgrade operations
-// list.
-func assertStateSteps(c *gc.C, ver version.Number, expectedSteps []string) {
-	findAndCheckSteps(c, (*upgrades.StateUpgradeOperations)(), ver, expectedSteps)
-}
-
-// assertSteps is a helper that ensures that the given API-based
-// upgrade steps match what is expected for that version and that the
-// steps have been added to the global upgrade operations list.
-func assertSteps(c *gc.C, ver version.Number, expectedSteps []string) {
-	findAndCheckSteps(c, (*upgrades.UpgradeOperations)(), ver, expectedSteps)
-}
-
-func findAndCheckSteps(c *gc.C, ops []upgrades.Operation, ver version.Number, expectedSteps []string) {
-	for _, op := range ops {
+func findStep(c *gc.C, ver version.Number, description string) upgrades.Step {
+	for _, op := range (*upgrades.UpgradeOperations)() {
 		if op.TargetVersion() == ver {
-			assertExpectedSteps(c, op.Steps(), expectedSteps)
-			return
+			for _, step := range op.Steps() {
+				if step.Description() == description {
+					return step
+				}
+			}
 		}
 	}
-	if len(expectedSteps) > 0 {
-		c.Fatal("upgrade operations for this version are not hooked up")
-	}
-}
-
-// assertExpectedSteps is a helper function used to check that the upgrade steps match
-// what is expected for a version.
-func assertExpectedSteps(c *gc.C, steps []upgrades.Step, expectedSteps []string) {
-	c.Assert(steps, gc.HasLen, len(expectedSteps))
-
-	var stepNames = make([]string, len(steps))
-	for i, step := range steps {
-		stepNames[i] = step.Description()
-	}
-	c.Assert(stepNames, gc.DeepEquals, expectedSteps)
+	c.Fatalf("could not find step %q for %s", description, ver)
+	return nil
 }
 
 type upgradeSuite struct {
@@ -669,14 +644,14 @@ func (s *upgradeSuite) TestUpgradeOperationsOrdered(c *gc.C) {
 func (s *upgradeSuite) TestStateUpgradeOperationsVersions(c *gc.C) {
 	versions := extractUpgradeVersions(c, (*upgrades.StateUpgradeOperations)())
 	c.Assert(versions, gc.DeepEquals, []string{
-		"1.26-placeholder1",
+		"2.0.0",
 	})
 }
 
 func (s *upgradeSuite) TestUpgradeOperationsVersions(c *gc.C) {
 	versions := extractUpgradeVersions(c, (*upgrades.UpgradeOperations)())
 	c.Assert(versions, gc.DeepEquals, []string{
-		"1.26-placeholder1",
+		"2.0.0",
 	})
 }
 
@@ -685,7 +660,7 @@ func extractUpgradeVersions(c *gc.C, ops []upgrades.Operation) []string {
 	for _, utv := range ops {
 		vers := utv.TargetVersion()
 		// Upgrade steps should only be targeted at final versions (not alpha/beta).
-		c.Check(vers.Tag, gc.Equals, "placeholder")
+		c.Check(vers.Tag, gc.Equals, "")
 		versions = append(versions, vers.String())
 	}
 	return versions
