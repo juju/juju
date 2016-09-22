@@ -7,12 +7,12 @@ import (
 	"errors"
 
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/testing"
-	"gopkg.in/juju/names.v2"
 )
 
 // ModelConfig related fake environment for testing.

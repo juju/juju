@@ -2,20 +2,13 @@
 // Licensed under the AGPLv3, see LICENCE file for details.
 package model
 
-// tests to add
-// Test for no arg
-// Test for region only
-// Test for cloud only - fail because unknown key -- just cloud is invalid
-// Test for cloud/region - valid
-// TEst for cloud/region - invalid
-
 import (
 	"bytes"
 	"io"
 	"sort"
 	"strings"
 
-	names "gopkg.in/juju/names.v2"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -367,7 +360,6 @@ func (c *defaultsCommand) parseSetKeys(args []string) error {
 		}
 	}
 	return nil
-
 }
 
 // handleSetArgs parses args for setting defaults.
@@ -401,18 +393,15 @@ func (c *defaultsCommand) handleZeroArgs() error {
 		// values here.
 		return errors.New("specifying a region when retrieving defaults is invalid")
 	case regionSpecified && resetSpecified:
-		// We can reset for a region, c.action stays nil. We want do reset
+		// We can reset for a region, c.action stays nil. We want to do reset
 		// only.
 		return nil
 	case !regionSpecified && resetSpecified:
 		// Again we want to reset, this is for resetting the controller as
 		// there is no region specified. So c.action remains nil.
 		return nil
-		// case !regionSpecified && !resetSpecified:
-		// This means just get everything, but we should never arrive here if
-		// we short circuited at the begining of c.Init.
-		// c.action = c.getDefaults
-		// return nil
+		// We short circuited at the begining of c.Init so we should never
+		// reach a case where "!regionSpecified && !resetSpecified"
 	default:
 		// This should be unreachable.
 		return errors.New("unexpected input, please file a bug")
@@ -436,7 +425,7 @@ func (c *defaultsCommand) handleOneArg(arg string) error {
 		// we are resetting a region, so we must have gotten an invalid region.
 		return errors.Errorf("invalid region specified: %q", arg)
 	case !regionSpecified && !resetSpecified:
-		// Phew, we can retrieve a value.
+		// We can retrieve a value.
 		c.key = arg
 		c.action = c.getDefaults
 		return nil
