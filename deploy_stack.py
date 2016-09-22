@@ -400,7 +400,7 @@ def assess_upgrade(old_client, juju_path):
     new_version = EnvJujuClient.get_version(juju_path)
     for c in all_models:
         # Need to expect the newer version based on the upgrading binary.
-        client = c.clone(version=new_version)
+        client = c.clone(version=new_version, full_path=juju_path)
         upgrade_juju(client)
 
         if client.env.config['type'] == 'maas':
