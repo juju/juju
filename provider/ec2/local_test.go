@@ -1169,7 +1169,7 @@ func (t *localServerSuite) TestConstraintsMerge(c *gc.C) {
 	env := t.Prepare(c)
 	validator, err := env.ConstraintsValidator()
 	c.Assert(err, jc.ErrorIsNil)
-	consA := constraints.MustParse("arch=amd64 mem=1G cpu-power=10 cpu-cores=2 tags=bar")
+	consA := constraints.MustParse("arch=amd64 mem=1G cpu-power=10 cores=2 tags=bar")
 	consB := constraints.MustParse("arch=i386 instance-type=m1.small")
 	cons, err := validator.Merge(consA, consB)
 	c.Assert(err, jc.ErrorIsNil)

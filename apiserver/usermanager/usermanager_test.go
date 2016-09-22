@@ -11,7 +11,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
@@ -19,8 +18,8 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/apiserver/usermanager"
-	"github.com/juju/juju/core/description"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing/factory"
 )
@@ -28,11 +27,10 @@ import (
 type userManagerSuite struct {
 	jujutesting.JujuConnSuite
 
-	usermanager              *usermanager.UserManagerAPI
-	authorizer               apiservertesting.FakeAuthorizer
-	adminName                string
-	resources                *common.Resources
-	createLocalLoginMacaroon func(names.UserTag) (*macaroon.Macaroon, error)
+	usermanager *usermanager.UserManagerAPI
+	authorizer  apiservertesting.FakeAuthorizer
+	adminName   string
+	resources   *common.Resources
 
 	commontesting.BlockHelper
 }
@@ -42,16 +40,7 @@ var _ = gc.Suite(&userManagerSuite{})
 func (s *userManagerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
-	s.createLocalLoginMacaroon = func(tag names.UserTag) (*macaroon.Macaroon, error) {
-		return nil, errors.NotSupportedf("CreateLocalLoginMacaroon")
-	}
 	s.resources = common.NewResources()
-	s.resources.RegisterNamed("createLocalLoginMacaroon", common.ValueResource{
-		func(tag names.UserTag) (*macaroon.Macaroon, error) {
-			return s.createLocalLoginMacaroon(tag)
-		},
-	})
-
 	adminTag := s.AdminUserTag(c)
 	s.adminName = adminTag.Name()
 	s.authorizer = apiservertesting.FakeAuthorizer{
@@ -350,7 +339,7 @@ func (s *userManagerSuite) TestUserInfo(c *gc.C) {
 	userBar := s.Factory.MakeUser(c, &factory.UserParams{Name: "barfoo", DisplayName: "Bar Foo", Disabled: true})
 	err := controller.ChangeControllerAccess(
 		s.State, s.AdminUserTag(c), names.NewUserTag("fred@external"),
-		params.GrantControllerAccess, description.AddModelAccess)
+		params.GrantControllerAccess, permission.AddModelAccess)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.UserInfoRequest{
@@ -511,13 +500,13 @@ func (s *userManagerSuite) TestUserInfoNonControllerAdmin(c *gc.C) {
 func (s *userManagerSuite) TestUserInfoEveryonePermission(c *gc.C) {
 	_, err := s.State.AddControllerUser(state.UserAccessSpec{
 		User:      names.NewUserTag("everyone@external"),
-		Access:    description.AddModelAccess,
+		Access:    permission.AddModelAccess,
 		CreatedBy: s.AdminUserTag(c),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddControllerUser(state.UserAccessSpec{
 		User:      names.NewUserTag("aardvark@external"),
-		Access:    description.LoginAccess,
+		Access:    permission.LoginAccess,
 		CreatedBy: s.AdminUserTag(c),
 	})
 	c.Assert(err, jc.ErrorIsNil)

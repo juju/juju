@@ -14,11 +14,11 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	envmetadata "github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/state/stateenvirons"
@@ -73,7 +73,7 @@ func NewAPI(
 // Returned list contains metadata ordered by priority.
 func (api *API) List(filter params.ImageMetadataFilter) (params.ListCloudImageMetadataResult, error) {
 	if api.authorizer.AuthClient() {
-		admin, err := api.authorizer.HasPermission(description.SuperuserAccess, api.metadata.ControllerTag())
+		admin, err := api.authorizer.HasPermission(permission.SuperuserAccess, api.metadata.ControllerTag())
 		if err != nil {
 			return params.ListCloudImageMetadataResult{}, errors.Trace(err)
 		}
@@ -114,7 +114,7 @@ func (api *API) List(filter params.ImageMetadataFilter) (params.ListCloudImageMe
 func (api *API) Save(metadata params.MetadataSaveParams) (params.ErrorResults, error) {
 	all := make([]params.ErrorResult, len(metadata.Metadata))
 	if api.authorizer.AuthClient() {
-		admin, err := api.authorizer.HasPermission(description.SuperuserAccess, api.metadata.ControllerTag())
+		admin, err := api.authorizer.HasPermission(permission.SuperuserAccess, api.metadata.ControllerTag())
 		if err != nil {
 			return params.ErrorResults{Results: all}, errors.Trace(err)
 		}
@@ -142,7 +142,7 @@ func (api *API) Save(metadata params.MetadataSaveParams) (params.ErrorResults, e
 func (api *API) Delete(images params.MetadataImageIds) (params.ErrorResults, error) {
 	all := make([]params.ErrorResult, len(images.Ids))
 	if api.authorizer.AuthClient() {
-		admin, err := api.authorizer.HasPermission(description.SuperuserAccess, api.metadata.ControllerTag())
+		admin, err := api.authorizer.HasPermission(permission.SuperuserAccess, api.metadata.ControllerTag())
 		if err != nil {
 			return params.ErrorResults{Results: all}, errors.Trace(err)
 		}
@@ -178,7 +178,7 @@ func (api *API) parseMetadataListFromParams(p params.CloudImageMetadataList, cfg
 	results := make([]cloudimagemetadata.Metadata, len(p.Metadata))
 	for i, metadata := range p.Metadata {
 		results[i] = cloudimagemetadata.Metadata{
-			cloudimagemetadata.MetadataAttributes{
+			MetadataAttributes: cloudimagemetadata.MetadataAttributes{
 				Stream:          metadata.Stream,
 				Region:          metadata.Region,
 				Version:         metadata.Version,
@@ -189,8 +189,8 @@ func (api *API) parseMetadataListFromParams(p params.CloudImageMetadataList, cfg
 				RootStorageSize: metadata.RootStorageSize,
 				Source:          metadata.Source,
 			},
-			metadata.Priority,
-			metadata.ImageId,
+			Priority: metadata.Priority,
+			ImageId:  metadata.ImageId,
 		}
 		// TODO (anastasiamac 2016-08-24) This is a band-aid solution.
 		// Once correct value is read from simplestreams, this needs to go.
@@ -206,7 +206,7 @@ func (api *API) parseMetadataListFromParams(p params.CloudImageMetadataList, cfg
 // updates stored ones accordingly.
 func (api *API) UpdateFromPublishedImages() error {
 	if api.authorizer.AuthClient() {
-		admin, err := api.authorizer.HasPermission(description.SuperuserAccess, api.metadata.ControllerTag())
+		admin, err := api.authorizer.HasPermission(permission.SuperuserAccess, api.metadata.ControllerTag())
 		if err != nil {
 			return errors.Trace(err)
 		}

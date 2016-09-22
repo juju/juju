@@ -77,7 +77,7 @@ func (u unitAssignerHandler) Handle(_ <-chan struct{}, ids []string) error {
 		for unit, err := range failures {
 			args.Entities[x] = params.EntityStatusArgs{
 				Tag:    unit,
-				Status: status.StatusError.String(),
+				Status: status.Error.String(),
 				Info:   err.Error(),
 			}
 			x++

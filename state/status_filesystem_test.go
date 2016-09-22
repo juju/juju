@@ -53,7 +53,7 @@ func (s *FilesystemStatusSuite) TestInitialStatus(c *gc.C) {
 func (s *FilesystemStatusSuite) checkInitialStatus(c *gc.C) {
 	statusInfo, err := s.filesystem.Status()
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(statusInfo.Status, gc.Equals, status.StatusPending)
+	c.Check(statusInfo.Status, gc.Equals, status.Pending)
 	c.Check(statusInfo.Message, gc.Equals, "")
 	c.Check(statusInfo.Data, gc.HasLen, 0)
 	c.Check(statusInfo.Since, gc.NotNil)
@@ -62,7 +62,7 @@ func (s *FilesystemStatusSuite) checkInitialStatus(c *gc.C) {
 func (s *FilesystemStatusSuite) TestSetErrorStatusWithoutInfo(c *gc.C) {
 	now := time.Now()
 	sInfo := status.StatusInfo{
-		Status:  status.StatusError,
+		Status:  status.Error,
 		Message: "",
 		Since:   &now,
 	}
@@ -88,7 +88,7 @@ func (s *FilesystemStatusSuite) TestSetUnknownStatus(c *gc.C) {
 func (s *FilesystemStatusSuite) TestSetOverwritesData(c *gc.C) {
 	now := time.Now()
 	sInfo := status.StatusInfo{
-		Status:  status.StatusAttaching,
+		Status:  status.Attaching,
 		Message: "blah",
 		Data: map[string]interface{}{
 			"pew.pew": "zap",
@@ -108,7 +108,7 @@ func (s *FilesystemStatusSuite) TestGetSetStatusAlive(c *gc.C) {
 func (s *FilesystemStatusSuite) checkGetSetStatus(c *gc.C) {
 	now := time.Now()
 	sInfo := status.StatusInfo{
-		Status:  status.StatusAttaching,
+		Status:  status.Attaching,
 		Message: "blah",
 		Data: map[string]interface{}{
 			"$foo.bar.baz": map[string]interface{}{
@@ -125,7 +125,7 @@ func (s *FilesystemStatusSuite) checkGetSetStatus(c *gc.C) {
 
 	statusInfo, err := filesystem.Status()
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(statusInfo.Status, gc.Equals, status.StatusAttaching)
+	c.Check(statusInfo.Status, gc.Equals, status.Attaching)
 	c.Check(statusInfo.Message, gc.Equals, "blah")
 	c.Check(statusInfo.Data, jc.DeepEquals, map[string]interface{}{
 		"$foo.bar.baz": map[string]interface{}{
@@ -165,7 +165,7 @@ func (s *FilesystemStatusSuite) TestGetSetStatusGone(c *gc.C) {
 
 	now := time.Now()
 	sInfo := status.StatusInfo{
-		Status:  status.StatusAttaching,
+		Status:  status.Attaching,
 		Message: "not really",
 		Since:   &now,
 	}
@@ -180,7 +180,7 @@ func (s *FilesystemStatusSuite) TestGetSetStatusGone(c *gc.C) {
 func (s *FilesystemStatusSuite) TestSetStatusPendingUnprovisioned(c *gc.C) {
 	now := time.Now()
 	sInfo := status.StatusInfo{
-		Status:  status.StatusPending,
+		Status:  status.Pending,
 		Message: "still",
 		Since:   &now,
 	}
@@ -195,7 +195,7 @@ func (s *FilesystemStatusSuite) TestSetStatusPendingProvisioned(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	now := time.Now()
 	sInfo := status.StatusInfo{
-		Status:  status.StatusPending,
+		Status:  status.Pending,
 		Message: "",
 		Since:   &now,
 	}

@@ -58,7 +58,16 @@ func SetBootstrapEndpointAddress(
 		return errors.Annotate(err, "failed to get bootstrap instance addresses")
 	}
 	apiHostPorts := network.AddressesWithPort(netAddrs, apiPort)
-	return juju.UpdateControllerDetailsFromLogin(store, controllerName, agentVersion.String(), nil, apiHostPorts...)
+	// At bootstrap we have 2 models, the controller model and the default.
+	two := 2
+	params := juju.UpdateControllerParams{
+		AgentVersion:           agentVersion.String(),
+		AddrConnectedTo:        apiHostPorts,
+		MachineCount:           &length,
+		ControllerMachineCount: &length,
+		ModelCount:             &two,
+	}
+	return juju.UpdateControllerDetailsFromLogin(store, controllerName, params)
 }
 
 var (

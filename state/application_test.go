@@ -72,6 +72,30 @@ func (s *ServiceSuite) TestSetCharm(c *gc.C) {
 	c.Assert(force, jc.IsTrue)
 }
 
+func (s *ServiceSuite) TestSetCharmCharmSettings(c *gc.C) {
+	ch, _, err := s.mysql.Charm()
+	c.Assert(err, jc.ErrorIsNil)
+	cfg := state.SetCharmConfig{
+		Charm:          ch,
+		ConfigSettings: charm.Settings{"key": 123.45},
+	}
+	err = s.mysql.SetCharm(cfg)
+	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+	c.Assert(err, gc.ErrorMatches, "updating config at upgrade-charm time not supported")
+}
+
+func (s *ServiceSuite) TestSetCharmStorageConstraints(c *gc.C) {
+	ch, _, err := s.mysql.Charm()
+	c.Assert(err, jc.ErrorIsNil)
+	cfg := state.SetCharmConfig{
+		Charm:              ch,
+		StorageConstraints: map[string]state.StorageConstraints{"foo": {}},
+	}
+	err = s.mysql.SetCharm(cfg)
+	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+	c.Assert(err, gc.ErrorMatches, "updating storage constraints at upgrade-charm time not supported")
+}
+
 func (s *ServiceSuite) TestSetCharmLegacy(c *gc.C) {
 	chDifferentSeries := state.AddTestingCharmForSeries(c, s.State, "precise", "mysql")
 
@@ -570,7 +594,7 @@ func (s *ServiceSuite) TestSetCharmWithRemovedService(c *gc.C) {
 	}
 
 	err = s.mysql.SetCharm(cfg)
-	c.Assert(err, gc.Equals, state.ErrDead)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *ServiceSuite) TestSetCharmWhenRemoved(c *gc.C) {
@@ -587,7 +611,7 @@ func (s *ServiceSuite) TestSetCharmWhenRemoved(c *gc.C) {
 		ForceUnits: true,
 	}
 	err := s.mysql.SetCharm(cfg)
-	c.Assert(err, gc.Equals, state.ErrDead)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *ServiceSuite) TestSetCharmWhenDyingIsOK(c *gc.C) {
@@ -1031,6 +1055,17 @@ func (s *ServiceSuite) TestSettingsRefCountWorks(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	assertNoSettingsRef(c, s.State, svcName, oldCh)
 	assertNoSettingsRef(c, s.State, svcName, newCh)
+
+	// Having studiously avoided triggering cleanups throughout,
+	// invoke them now and check that the charms are cleaned up
+	// correctly -- and that a storm of cleanups for the same
+	// charm are not a problem.
+	err = s.State.Cleanup()
+	c.Assert(err, jc.ErrorIsNil)
+	err = oldCh.Refresh()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	err = newCh.Refresh()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *ServiceSuite) TestSettingsRefCreateRace(c *gc.C) {
@@ -1055,7 +1090,7 @@ func (s *ServiceSuite) TestSettingsRefCreateRace(c *gc.C) {
 	defer state.SetBeforeHooks(c, s.State, dropSettings).Check()
 
 	err = unit.SetCharmURL(oldCh.URL())
-	c.Check(err, gc.ErrorMatches, "refcount does not exist")
+	c.Check(err, gc.ErrorMatches, "settings reference: does not exist")
 }
 
 func (s *ServiceSuite) TestSettingsRefRemoveRace(c *gc.C) {
@@ -1755,18 +1790,12 @@ func (s *ServiceSuite) TestRemoveQueuesLocalCharmCleanup(c *gc.C) {
 	err = s.State.Cleanup()
 	c.Assert(err, jc.ErrorIsNil)
 
+	// Check charm removed
+	err = s.charm.Refresh()
+	c.Check(err, jc.Satisfies, errors.IsNotFound)
+
 	// Check we're now clean.
 	dirty, err = s.State.NeedsCleanup()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(dirty, jc.IsFalse)
-}
-
-func (s *ServiceSuite) TestRemoveStoreCharmNoCleanup(c *gc.C) {
-	ch := state.AddTestingCharmMultiSeries(c, s.State, "multi-series")
-	svc := state.AddTestingServiceForSeries(c, s.State, "precise", "application", ch)
-
-	err := svc.Destroy()
-	dirty, err := s.State.NeedsCleanup()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(dirty, jc.IsFalse)
 }
@@ -2159,7 +2188,7 @@ func (s *ServiceSuite) testStatus(c *gc.C, status1, status2, expected status.Sta
 		Message: "status 2",
 		Since:   &now,
 	}
-	if status2 == status.StatusError {
+	if status2 == status.Error {
 		err = u2.SetAgentStatus(sInfo)
 	} else {
 		err = u2.SetStatus(sInfo)
@@ -2179,15 +2208,15 @@ func (s *ServiceSuite) testStatus(c *gc.C, status1, status2, expected status.Sta
 
 func (s *ServiceSuite) TestStatus(c *gc.C) {
 	for _, t := range []struct{ status1, status2, expected status.Status }{
-		{status.StatusActive, status.StatusWaiting, status.StatusWaiting},
-		{status.StatusMaintenance, status.StatusWaiting, status.StatusWaiting},
-		{status.StatusActive, status.StatusBlocked, status.StatusBlocked},
-		{status.StatusWaiting, status.StatusBlocked, status.StatusBlocked},
-		{status.StatusMaintenance, status.StatusBlocked, status.StatusBlocked},
-		{status.StatusMaintenance, status.StatusError, status.StatusError},
-		{status.StatusBlocked, status.StatusError, status.StatusError},
-		{status.StatusWaiting, status.StatusError, status.StatusError},
-		{status.StatusActive, status.StatusError, status.StatusError},
+		{status.Active, status.Waiting, status.Waiting},
+		{status.Maintenance, status.Waiting, status.Waiting},
+		{status.Active, status.Blocked, status.Blocked},
+		{status.Waiting, status.Blocked, status.Blocked},
+		{status.Maintenance, status.Blocked, status.Blocked},
+		{status.Maintenance, status.Error, status.Error},
+		{status.Blocked, status.Error, status.Error},
+		{status.Waiting, status.Error, status.Error},
+		{status.Active, status.Error, status.Error},
 	} {
 		s.testStatus(c, t.status1, t.status2, t.expected)
 	}

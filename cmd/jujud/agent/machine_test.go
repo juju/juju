@@ -261,7 +261,7 @@ func (s *MachineSuite) TestHostUnits(c *gc.C) {
 	// lp:1558657
 	now := time.Now()
 	sInfo := status.StatusInfo{
-		Status:  status.StatusIdle,
+		Status:  status.Idle,
 		Message: "",
 		Since:   &now,
 	}
@@ -1043,7 +1043,9 @@ func (s *MachineSuite) TestCertificateUpdateWorkerUpdatesCertificate(c *gc.C) {
 		for {
 			stateInfo, _ := a.CurrentConfig().StateServingInfo()
 			srvCert, err := cert.ParseCert(stateInfo.Cert)
-			c.Assert(err, jc.ErrorIsNil)
+			if !c.Check(err, jc.ErrorIsNil) {
+				break
+			}
 			sanIPs := make([]string, len(srvCert.IPAddresses))
 			for i, ip := range srvCert.IPAddresses {
 				sanIPs[i] = ip.String()
@@ -1052,7 +1054,7 @@ func (s *MachineSuite) TestCertificateUpdateWorkerUpdatesCertificate(c *gc.C) {
 				close(updated)
 				break
 			}
-			time.Sleep(10 * time.Millisecond)
+			time.Sleep(100 * time.Millisecond)
 		}
 	}()
 
@@ -1308,7 +1310,7 @@ func (s *MachineSuite) TestMigratingModelWorkers(c *gc.C) {
 	instrumented := TrackModels(c, tracker, modelManifoldsDisablingMigrationMaster)
 	s.PatchValue(&modelManifolds, instrumented)
 
-	targetControllerTag := names.NewModelTag(utils.MustNewUUID().String())
+	targetControllerTag := names.NewControllerTag(utils.MustNewUUID().String())
 	_, err := st.CreateMigration(state.MigrationSpec{
 		InitiatedBy: names.NewUserTag("admin"),
 		TargetInfo: migration.TargetInfo{

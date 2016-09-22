@@ -157,6 +157,23 @@ func (s *storage) getMetadata(id string) (Metadata, error) {
 	return old.metadata(), nil
 }
 
+// AllCloudImageMetadata returns all cloud image metadata in the model.
+func (s *storage) AllCloudImageMetadata() ([]Metadata, error) {
+	coll, closer := s.store.GetCollection(s.collection)
+	defer closer()
+
+	results := []Metadata{}
+	docs := []imagesMetadataDoc{}
+	err := coll.Find(nil).All(&docs)
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot get all image metadata")
+	}
+	for _, doc := range docs {
+		results = append(results, doc.metadata())
+	}
+	return results, nil
+}
+
 // imagesMetadataDoc results in immutable records. Updates are effectively
 // a delate and an insert.
 type imagesMetadataDoc struct {
@@ -219,6 +236,7 @@ func (m imagesMetadataDoc) metadata() Metadata {
 		},
 		m.Priority,
 		m.ImageId,
+		m.DateCreated,
 	}
 	if m.RootStorageSize != 0 {
 		r.RootStorageSize = &m.RootStorageSize
@@ -227,6 +245,11 @@ func (m imagesMetadataDoc) metadata() Metadata {
 }
 
 func (s *storage) mongoDoc(m Metadata) imagesMetadataDoc {
+	dateCreated := m.DateCreated
+	if dateCreated == 0 {
+		// TODO(fwereade): 2016-03-17 lp:1558657
+		dateCreated = time.Now().UnixNano()
+	}
 	r := imagesMetadataDoc{
 		Id:              buildKey(m),
 		Stream:          m.Stream,
@@ -237,10 +260,9 @@ func (s *storage) mongoDoc(m Metadata) imagesMetadataDoc {
 		VirtType:        m.VirtType,
 		RootStorageType: m.RootStorageType,
 		ImageId:         m.ImageId,
-		// TODO(fwereade): 2016-03-17 lp:1558657
-		DateCreated: time.Now().UnixNano(),
-		Source:      m.Source,
-		Priority:    m.Priority,
+		DateCreated:     dateCreated,
+		Source:          m.Source,
+		Priority:        m.Priority,
 	}
 	if m.RootStorageSize != nil {
 		r.RootStorageSize = *m.RootStorageSize

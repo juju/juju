@@ -121,7 +121,7 @@ type unitStatus struct {
 	Subordinates  map[string]unitStatus `json:"subordinates,omitempty" yaml:"subordinates,omitempty"`
 }
 
-func (s *formattedStatus) applicationScale(name string) string {
+func (s *formattedStatus) applicationScale(name string) (string, bool) {
 	// The current unit count are units that are either in Idle or Executing status.
 	// In other words, units that are active and available.
 	currentUnitCount := 0
@@ -131,7 +131,7 @@ func (s *formattedStatus) applicationScale(name string) string {
 	match := func(u unitStatus) {
 		desiredUnitCount += 1
 		switch u.JujuStatusInfo.Current {
-		case status.StatusExecuting, status.StatusIdle:
+		case status.Executing, status.Idle:
 			currentUnitCount += 1
 		}
 	}
@@ -151,7 +151,10 @@ func (s *formattedStatus) applicationScale(name string) string {
 			match(u)
 		}
 	}
-	return fmt.Sprintf("%d/%d", currentUnitCount, desiredUnitCount)
+	if currentUnitCount == desiredUnitCount {
+		return fmt.Sprint(currentUnitCount), false
+	}
+	return fmt.Sprintf("%d/%d", currentUnitCount, desiredUnitCount), true
 }
 
 type statusInfoContents struct {

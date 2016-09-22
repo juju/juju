@@ -15,12 +15,12 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/modelconfig"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/manual"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 	jujuversion "github.com/juju/juju/version"
@@ -62,7 +62,7 @@ type Client struct {
 }
 
 func (c *Client) checkCanRead() error {
-	canRead, err := c.api.auth.HasPermission(description.ReadAccess, c.api.stateAccessor.ModelTag())
+	canRead, err := c.api.auth.HasPermission(permission.ReadAccess, c.api.stateAccessor.ModelTag())
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -73,7 +73,7 @@ func (c *Client) checkCanRead() error {
 }
 
 func (c *Client) checkCanWrite() error {
-	canWrite, err := c.api.auth.HasPermission(description.WriteAccess, c.api.stateAccessor.ModelTag())
+	canWrite, err := c.api.auth.HasPermission(permission.WriteAccess, c.api.stateAccessor.ModelTag())
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -431,7 +431,7 @@ func (c *Client) ModelInfo() (params.ModelInfo, error) {
 	}
 	info := params.ModelInfo{
 		DefaultSeries: config.PreferredSeries(conf),
-		Cloud:         model.Cloud(),
+		CloudTag:      names.NewCloudTag(model.Cloud()).String(),
 		CloudRegion:   model.CloudRegion(),
 		ProviderType:  conf.Type(),
 		Name:          conf.Name(),
@@ -445,7 +445,7 @@ func (c *Client) ModelInfo() (params.ModelInfo, error) {
 	return info, nil
 }
 
-func modelInfo(st *state.State, user description.UserAccess) (params.ModelUserInfo, error) {
+func modelInfo(st *state.State, user permission.UserAccess) (params.ModelUserInfo, error) {
 	return common.ModelUserInfo(user, st)
 }
 

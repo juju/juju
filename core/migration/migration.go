@@ -27,6 +27,10 @@ type MigrationStatus struct {
 	// its current value.
 	PhaseChangedTime time.Time
 
+	// ExternalControl indicates the current migration should be
+	// controlled by an external process.
+	ExternalControl bool
+
 	// TargetInfo contains the details of how to connect to the target
 	// controller.
 	TargetInfo TargetInfo

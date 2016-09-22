@@ -30,4 +30,5 @@ var allowedMethodsAboutToRestore = set.NewStrings(
 	"Client.WatchDebugLog",  // for "juju debug-log"
 	"Backups.Restore",       // for "juju backups restore"
 	"Backups.FinishRestore", // for "juju backups restore"
+	"Pinger.Ping",           // for connection health checks
 )

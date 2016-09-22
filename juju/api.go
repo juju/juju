@@ -4,13 +4,11 @@
 package juju
 
 import (
-	"encoding/json"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/jujuclient"
@@ -113,7 +111,12 @@ func NewAPIConnection(args NewAPIConnectionParams) (api.Connection, error) {
 	if v, ok := st.ServerVersion(); ok {
 		agentVersion = v.String()
 	}
-	err = updateControllerDetailsFromLogin(args.Store, args.ControllerName, controller, agentVersion, hostPorts, addrConnectedTo)
+	params := UpdateControllerParams{
+		AgentVersion:     agentVersion,
+		AddrConnectedTo:  []network.HostPort{addrConnectedTo},
+		CurrentHostPorts: hostPorts,
+	}
+	err = updateControllerDetailsFromLogin(args.Store, args.ControllerName, controller, params)
 	if err != nil {
 		logger.Errorf("cannot cache API addresses: %v", err)
 	}
@@ -172,25 +175,17 @@ func connectionInfo(args NewAPIConnectionParams) (*api.Info, *jujuclient.Control
 		return apiInfo, controller, nil
 	}
 	account := args.AccountDetails
-	if args.AccountDetails.Password != "" {
-		// If a password is available, we always use
-		// that.
-		//
-		// TODO(axw) make it invalid to store both
-		// password and macaroon in accounts.yaml?
-		apiInfo.Tag = names.NewUserTag(account.User)
-		apiInfo.Password = account.Password
-	} else if args.AccountDetails.Macaroon != "" {
-		var m macaroon.Macaroon
-		if err := json.Unmarshal([]byte(account.Macaroon), &m); err != nil {
-			return nil, nil, errors.Trace(err)
+	if account.User != "" {
+		userTag := names.NewUserTag(account.User)
+		if userTag.IsLocal() {
+			apiInfo.Tag = userTag
 		}
-		apiInfo.Tag = names.NewUserTag(account.User)
-		apiInfo.Macaroons = []macaroon.Slice{{&m}}
-	} else {
-		// Neither a password nor a local user macaroon was
-		// found, so we'll use external macaroon authentication,
-		// which requires that no tag be specified.
+	}
+	if args.AccountDetails.Password != "" {
+		// If a password is available, we always use that.
+		// If no password is recorded, we'll attempt to
+		// authenticate using macaroons.
+		apiInfo.Password = account.Password
 	}
 	return apiInfo, controller, nil
 }
@@ -313,34 +308,51 @@ func addrsChanged(a, b []string) bool {
 	return false
 }
 
+// UpdateControllerParams holds values used to update a controller details
+// after bootstrap or a login operation.
+type UpdateControllerParams struct {
+	// AgentVersion is the version of the controller agent.
+	AgentVersion string
+
+	// CurrentHostPorts are the available api addresses.
+	CurrentHostPorts [][]network.HostPort
+
+	// AddrConnectedTo are the previously known api addresses.
+	AddrConnectedTo []network.HostPort
+
+	// ModelCount (when set) is the number of models visible to the user.
+	ModelCount *int
+
+	// ControllerMachineCount (when set) is the total number of controller machines in the environment.
+	ControllerMachineCount *int
+
+	// MachineCount (when set) is the total number of machines in the models.
+	MachineCount *int
+}
+
 // UpdateControllerDetailsFromLogin writes any new api addresses and other relevant details
 // to the client controller file.
 // Controller may be specified by a UUID or name, and must already exist.
 func UpdateControllerDetailsFromLogin(
-	store jujuclient.ControllerStore, controllerName, agentVersion string,
-	currentHostPorts [][]network.HostPort, addrConnectedTo ...network.HostPort,
+	store jujuclient.ControllerStore, controllerName string,
+	params UpdateControllerParams,
 ) error {
 	controllerDetails, err := store.ControllerByName(controllerName)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return updateControllerDetailsFromLogin(
-		store, controllerName, controllerDetails,
-		agentVersion,
-		currentHostPorts, addrConnectedTo...,
-	)
+	return updateControllerDetailsFromLogin(store, controllerName, controllerDetails, params)
 }
 
 func updateControllerDetailsFromLogin(
 	store jujuclient.ControllerStore,
 	controllerName string, controllerDetails *jujuclient.ControllerDetails,
-	agentVersion string,
-	currentHostPorts [][]network.HostPort, addrConnectedTo ...network.HostPort,
+	params UpdateControllerParams,
 ) error {
 	// Get the new endpoint addresses.
-	addrs, unresolvedAddrs, addrsChanged := PrepareEndpointsForCaching(*controllerDetails, currentHostPorts, addrConnectedTo...)
-	otherDataChanged := agentVersion != controllerDetails.AgentVersion
-	if !addrsChanged && !otherDataChanged {
+	addrs, unresolvedAddrs, addrsChanged := PrepareEndpointsForCaching(*controllerDetails, params.CurrentHostPorts, params.AddrConnectedTo...)
+	agentChanged := params.AgentVersion != controllerDetails.AgentVersion
+	if !addrsChanged && !agentChanged && params.ModelCount == nil && params.MachineCount == nil && params.ControllerMachineCount == nil {
 		return nil
 	}
 
@@ -349,8 +361,17 @@ func updateControllerDetailsFromLogin(
 		controllerDetails.APIEndpoints = addrs
 		controllerDetails.UnresolvedAPIEndpoints = unresolvedAddrs
 	}
-	if otherDataChanged {
-		controllerDetails.AgentVersion = agentVersion
+	if agentChanged {
+		controllerDetails.AgentVersion = params.AgentVersion
+	}
+	if params.ModelCount != nil {
+		controllerDetails.ModelCount = params.ModelCount
+	}
+	if params.MachineCount != nil {
+		controllerDetails.MachineCount = params.MachineCount
+	}
+	if params.ControllerMachineCount != nil {
+		controllerDetails.ControllerMachineCount = *params.ControllerMachineCount
 	}
 	err := store.UpdateController(controllerName, *controllerDetails)
 	return errors.Trace(err)

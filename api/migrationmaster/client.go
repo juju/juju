@@ -4,6 +4,8 @@
 package migrationmaster
 
 import (
+	"encoding/json"
+
 	"github.com/juju/errors"
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
@@ -68,7 +70,7 @@ func (c *Client) MigrationStatus() (migration.MigrationStatus, error) {
 	}
 
 	target := status.Spec.TargetInfo
-	controllerTag, err := names.ParseModelTag(target.ControllerTag)
+	controllerTag, err := names.ParseControllerTag(target.ControllerTag)
 	if err != nil {
 		return empty, errors.Annotatef(err, "parsing controller tag")
 	}
@@ -78,10 +80,9 @@ func (c *Client) MigrationStatus() (migration.MigrationStatus, error) {
 		return empty, errors.Annotatef(err, "unable to parse auth tag")
 	}
 
-	var mac *macaroon.Macaroon
-	if target.Macaroon != "" {
-		mac = new(macaroon.Macaroon)
-		if err := mac.UnmarshalJSON([]byte(target.Macaroon)); err != nil {
+	var macs []macaroon.Slice
+	if target.Macaroons != "" {
+		if err := json.Unmarshal([]byte(target.Macaroons), &macs); err != nil {
 			return empty, errors.Annotatef(err, "unmarshalling macaroon")
 		}
 	}
@@ -89,6 +90,7 @@ func (c *Client) MigrationStatus() (migration.MigrationStatus, error) {
 	return migration.MigrationStatus{
 		MigrationId:      status.MigrationId,
 		ModelUUID:        modelTag.Id(),
+		ExternalControl:  status.Spec.ExternalControl,
 		Phase:            phase,
 		PhaseChangedTime: status.PhaseChangedTime,
 		TargetInfo: migration.TargetInfo{
@@ -97,7 +99,7 @@ func (c *Client) MigrationStatus() (migration.MigrationStatus, error) {
 			CACert:        target.CACert,
 			AuthTag:       authTag,
 			Password:      target.Password,
-			Macaroon:      mac,
+			Macaroons:     macs,
 		},
 	}, nil
 }

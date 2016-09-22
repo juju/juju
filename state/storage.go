@@ -268,7 +268,7 @@ func (st *State) destroyStorageInstanceOps(s *storageInstance) ([]txn.Op, error)
 	}
 	update := bson.D{{"$set", bson.D{{"life", Dying}}}}
 	ops := []txn.Op{
-		st.newCleanupOp(cleanupAttachmentsForDyingStorage, s.doc.Id),
+		newCleanupOp(cleanupAttachmentsForDyingStorage, s.doc.Id),
 		{
 			C:      storageInstancesC,
 			Id:     s.doc.Id,
@@ -782,6 +782,15 @@ func createStorageConstraintsOp(key string, cons map[string]StorageConstraints) 
 	}
 }
 
+func replaceStorageConstraintsOp(key string, cons map[string]StorageConstraints) txn.Op {
+	return txn.Op{
+		C:      storageConstraintsC,
+		Id:     key,
+		Assert: txn.DocExists,
+		Update: bson.D{{"$set", bson.D{{"constraints", cons}}}},
+	}
+}
+
 func removeStorageConstraintsOp(key string) txn.Op {
 	return txn.Op{
 		C:      storageConstraintsC,
@@ -797,7 +806,7 @@ func readStorageConstraints(st *State, key string) (map[string]StorageConstraint
 	var doc storageConstraintsDoc
 	err := coll.FindId(key).One(&doc)
 	if err == mgo.ErrNotFound {
-		return nil, nil
+		return nil, errors.NotFoundf("storage constraints for %q", key)
 	}
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot get storage constraints for %q", key)

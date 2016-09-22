@@ -26,6 +26,7 @@ type DeployerAPI struct {
 	*common.StateAddresser
 	*common.APIAddresser
 	*common.UnitsWatcher
+	*common.StatusSetter
 
 	st         *state.State
 	resources  facade.Resources
@@ -70,6 +71,7 @@ func NewDeployerAPI(
 		StateAddresser:  common.NewStateAddresser(st),
 		APIAddresser:    common.NewAPIAddresser(st, resources),
 		UnitsWatcher:    common.NewUnitsWatcher(st, resources, getCanWatch),
+		StatusSetter:    common.NewStatusSetter(st, getAuthFunc),
 		st:              st,
 		resources:       resources,
 		authorizer:      authorizer,
@@ -95,6 +97,11 @@ func (d *DeployerAPI) ConnectionInfo() (result params.DeployerConnectionValues, 
 	}
 
 	return result, err
+}
+
+// SetStatus sets the status of the specified entities.
+func (d *DeployerAPI) SetStatus(args params.SetStatus) (params.ErrorResults, error) {
+	return d.StatusSetter.SetStatus(args)
 }
 
 // getAllUnits returns a list of all principal and subordinate units

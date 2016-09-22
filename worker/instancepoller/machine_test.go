@@ -61,10 +61,36 @@ func (s *machineSuite) TestSetsInstanceInfoInitially(c *gc.C) {
 	c.Assert(m.instStatusInfo, gc.Equals, "running")
 }
 
+func (s *machineSuite) TestSetsInstanceInfoDeadMachineInitially(c *gc.C) {
+	context := &testMachineContext{
+		getInstanceInfo: instanceInfoGetter(c, "i1234", testAddrs, "deleting", nil),
+		dyingc:          make(chan struct{}),
+	}
+	m := &testMachine{
+		tag:        names.NewMachineTag("99"),
+		instanceId: "i1234",
+		refresh:    func() error { return nil },
+		life:       params.Dead,
+	}
+	died := make(chan machine)
+	// Change the poll intervals to be short, so that we know
+	// that we've polled (probably) at least a few times.
+	s.PatchValue(&ShortPoll, coretesting.ShortWait/10)
+	s.PatchValue(&LongPoll, coretesting.ShortWait/10)
+
+	go runMachine(context, m, nil, died, clock.WallClock)
+	time.Sleep(coretesting.ShortWait)
+
+	killMachineLoop(c, m, context.dyingc, died)
+	c.Assert(context.killErr, gc.Equals, nil)
+	c.Assert(m.setAddressCount, gc.Equals, 0)
+	c.Assert(m.instStatusInfo, gc.Equals, "deleting")
+}
+
 func (s *machineSuite) TestShortPollIntervalWhenNoAddress(c *gc.C) {
 	s.PatchValue(&ShortPoll, 1*time.Millisecond)
 	s.PatchValue(&LongPoll, coretesting.LongWait)
-	count := countPolls(c, nil, "i1234", "running", status.StatusStarted)
+	count := countPolls(c, nil, "i1234", "running", status.Started)
 	c.Assert(count, jc.GreaterThan, 2)
 }
 
@@ -78,14 +104,14 @@ func (s *machineSuite) TestShortPollIntervalWhenNoStatus(c *gc.C) {
 func (s *machineSuite) TestShortPollIntervalWhenNotStarted(c *gc.C) {
 	s.PatchValue(&ShortPoll, 1*time.Millisecond)
 	s.PatchValue(&LongPoll, coretesting.LongWait)
-	count := countPolls(c, testAddrs, "i1234", "pending", status.StatusPending)
+	count := countPolls(c, testAddrs, "i1234", "pending", status.Pending)
 	c.Assert(count, jc.GreaterThan, 2)
 }
 
 func (s *machineSuite) TestShortPollIntervalWhenNotProvisioned(c *gc.C) {
 	s.PatchValue(&ShortPoll, 1*time.Millisecond)
 	s.PatchValue(&LongPoll, coretesting.LongWait)
-	count := countPolls(c, testAddrs, "", "pending", status.StatusPending)
+	count := countPolls(c, testAddrs, "", "pending", status.Pending)
 	c.Assert(count, gc.Equals, 0)
 }
 
@@ -99,7 +125,7 @@ func (s *machineSuite) TestNoPollWhenNotProvisioned(c *gc.C) {
 		case polled <- struct{}{}:
 		default:
 		}
-		return instanceInfo{testAddrs, instance.InstanceStatus{Status: status.StatusUnknown, Message: "pending"}}, nil
+		return instanceInfo{testAddrs, instance.InstanceStatus{Status: status.Unknown, Message: "pending"}}, nil
 	}
 	context := &testMachineContext{
 		getInstanceInfo: getInstanceInfo,
@@ -159,7 +185,7 @@ func (s *machineSuite) TestShortPollIntervalExponent(c *gc.C) {
 	// ShortPollBackoff of ShortWait/ShortPoll, given that sleep will
 	// sleep for at least the requested interval.
 	maxCount := int(math.Log(float64(coretesting.ShortWait)/float64(ShortPoll))/math.Log(ShortPollBackoff) + 1)
-	count := countPolls(c, nil, "i1234", "", status.StatusStarted)
+	count := countPolls(c, nil, "i1234", "", status.Started)
 	c.Assert(count, jc.GreaterThan, 2)
 	c.Assert(count, jc.LessThan, maxCount)
 	c.Logf("actual count: %v; max %v", count, maxCount)
@@ -168,7 +194,7 @@ func (s *machineSuite) TestShortPollIntervalExponent(c *gc.C) {
 func (s *machineSuite) TestLongPollIntervalWhenHasAllInstanceInfo(c *gc.C) {
 	s.PatchValue(&ShortPoll, coretesting.LongWait)
 	s.PatchValue(&LongPoll, 1*time.Millisecond)
-	count := countPolls(c, testAddrs, "i1234", "running", status.StatusStarted)
+	count := countPolls(c, testAddrs, "i1234", "running", status.Started)
 	c.Assert(count, jc.GreaterThan, 2)
 }
 
@@ -184,7 +210,7 @@ func countPolls(c *gc.C, addrs []network.Address, instId, instStatus string, mac
 		if addrs == nil {
 			return instanceInfo{}, fmt.Errorf("no instance addresses available")
 		}
-		return instanceInfo{addrs, instance.InstanceStatus{Status: status.StatusUnknown, Message: instStatus}}, nil
+		return instanceInfo{addrs, instance.InstanceStatus{Status: status.Unknown, Message: instStatus}}, nil
 	}
 	context := &testMachineContext{
 		getInstanceInfo: getInstanceInfo,
@@ -329,7 +355,7 @@ func instanceInfoGetter(
 
 	return func(id instance.Id) (instanceInfo, error) {
 		c.Check(id, gc.Equals, expectId)
-		return instanceInfo{addrs, instance.InstanceStatus{Status: status.StatusUnknown, Message: instanceStatus}}, err
+		return instanceInfo{addrs, instance.InstanceStatus{Status: status.Unknown, Message: instanceStatus}}, err
 	}
 }
 

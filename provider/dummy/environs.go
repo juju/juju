@@ -30,10 +30,12 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/retry"
 	"github.com/juju/schema"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
+	"github.com/juju/utils/clock"
 	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/environschema.v1"
@@ -310,7 +312,17 @@ func Reset(c *gc.C) {
 		s.destroy()
 	}
 	if mongoAlive() {
-		err := gitjujutesting.MgoServer.Reset()
+		err := retry.Call(retry.CallArgs{
+			Func: gitjujutesting.MgoServer.Reset,
+			// Only interested in retrying the intermittent
+			// 'unexpected message'.
+			IsFatalError: func(err error) bool {
+				return !strings.HasSuffix(err.Error(), "unexpected message")
+			},
+			Delay:    time.Millisecond,
+			Clock:    clock.WallClock,
+			Attempts: 5,
+		})
 		c.Assert(err, jc.ErrorIsNil)
 	}
 }
@@ -550,6 +562,10 @@ func (*environProvider) DetectCredentials() (*cloud.CloudCredential, error) {
 	return cloud.NewEmptyCloudCredential(), nil
 }
 
+func (*environProvider) FinalizeCredential(ctx environs.FinalizeCredentialContext, args environs.FinalizeCredentialParams) (*cloud.Credential, error) {
+	return &args.Credential, nil
+}
+
 func (*environProvider) DetectRegions() ([]cloud.Region, error) {
 	return []cloud.Region{{Name: "dummy"}}, nil
 }
@@ -740,6 +756,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 			// user is constructed with an empty password here.
 			// It is set just below.
 			st, err := state.Initialize(state.InitializeParams{
+				Clock:            clock.WallClock,
 				ControllerConfig: icfg.Controller.Config,
 				ControllerModelArgs: state.ModelArgs{
 					Owner:                   adminUser,
@@ -786,6 +803,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 			estate.apiStatePool = state.NewStatePool(st)
 
 			estate.apiServer, err = apiserver.NewServer(st, estate.apiListener, apiserver.ServerConfig{
+				Clock:       clock.WallClock,
 				Cert:        []byte(testing.ServerCert),
 				Key:         []byte(testing.ServerKey),
 				Tag:         names.NewMachineTag("0"),
@@ -1421,7 +1439,7 @@ func (inst *dummyInstance) Status() instance.InstanceStatus {
 	inst.mu.Lock()
 	defer inst.mu.Unlock()
 	// TODO(perrito666) add a provider status -> juju status mapping.
-	jujuStatus := status.StatusPending
+	jujuStatus := status.Pending
 	if inst.status != "" {
 		dummyStatus := status.Status(inst.status)
 		if dummyStatus.KnownInstanceStatus() {

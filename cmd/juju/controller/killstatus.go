@@ -15,7 +15,7 @@ import (
 
 type ctrData struct {
 	UUID               string
-	Life               params.Life
+	Life               string
 	HostedModelCount   int
 	HostedMachineCount int
 	ServiceCount       int
@@ -25,7 +25,7 @@ type modelData struct {
 	UUID  string
 	Owner string
 	Name  string
-	Life  params.Life
+	Life  string
 
 	HostedMachineCount int
 	ServiceCount       int
@@ -88,7 +88,7 @@ func newData(api destroyControllerAPI, controllerModelUUID string) (ctrData, []m
 	var modelsData []modelData
 	var aliveModelCount int
 	for _, model := range hostedStatus {
-		if model.Life == params.Dead {
+		if model.Life == string(params.Dead) {
 			continue
 		}
 		modelsData = append(modelsData, modelData{
@@ -118,7 +118,7 @@ func newData(api destroyControllerAPI, controllerModelUUID string) (ctrData, []m
 
 func hasUnDeadModels(models []modelData) bool {
 	for _, model := range models {
-		if model.Life != params.Dead {
+		if model.Life != string(params.Dead) {
 			return true
 		}
 	}
@@ -127,7 +127,7 @@ func hasUnDeadModels(models []modelData) bool {
 
 func hasAliveModels(models []modelData) bool {
 	for _, model := range models {
-		if model.Life == params.Alive {
+		if model.Life == string(params.Alive) {
 			return true
 		}
 	}

@@ -100,36 +100,42 @@ var parseConstraintsTests = []struct {
 		err:     `bad "arch" constraint: already set`,
 	},
 
-	// "cpu-cores" in detail.
+	// "cores" in detail.
 	{
-		summary: "set cpu-cores empty",
-		args:    []string{"cpu-cores="},
+		summary: "set cores empty",
+		args:    []string{"cores="},
 	}, {
-		summary: "set cpu-cores zero",
-		args:    []string{"cpu-cores=0"},
+		summary: "set cores zero",
+		args:    []string{"cores=0"},
 	}, {
+		summary: "set cores",
+		args:    []string{"cores=4"},
+	}, {
+		summary: "set nonsense cores 1",
+		args:    []string{"cores=cheese"},
+		err:     `bad "cores" constraint: must be a non-negative integer`,
+	}, {
+		summary: "set nonsense cores 2",
+		args:    []string{"cores=-1"},
+		err:     `bad "cores" constraint: must be a non-negative integer`,
+	}, {
+		summary: "set nonsense cores 3",
+		args:    []string{"cores=123.45"},
+		err:     `bad "cores" constraint: must be a non-negative integer`,
+	}, {
+		summary: "double set cores together",
+		args:    []string{"cores=128 cores=1"},
+		err:     `bad "cores" constraint: already set`,
+	}, {
+		summary: "double set cores separately",
+		args:    []string{"cores=128", "cores=1"},
+		err:     `bad "cores" constraint: already set`,
+	},
+
+	// "cpu-cores"
+	{
 		summary: "set cpu-cores",
 		args:    []string{"cpu-cores=4"},
-	}, {
-		summary: "set nonsense cpu-cores 1",
-		args:    []string{"cpu-cores=cheese"},
-		err:     `bad "cpu-cores" constraint: must be a non-negative integer`,
-	}, {
-		summary: "set nonsense cpu-cores 2",
-		args:    []string{"cpu-cores=-1"},
-		err:     `bad "cpu-cores" constraint: must be a non-negative integer`,
-	}, {
-		summary: "set nonsense cpu-cores 3",
-		args:    []string{"cpu-cores=123.45"},
-		err:     `bad "cpu-cores" constraint: must be a non-negative integer`,
-	}, {
-		summary: "double set cpu-cores together",
-		args:    []string{"cpu-cores=128 cpu-cores=1"},
-		err:     `bad "cpu-cores" constraint: already set`,
-	}, {
-		summary: "double set cpu-cores separately",
-		args:    []string{"cpu-cores=128", "cpu-cores=1"},
-		err:     `bad "cpu-cores" constraint: already set`,
 	},
 
 	// "cpu-power" in detail.
@@ -311,13 +317,13 @@ var parseConstraintsTests = []struct {
 	{
 		summary: "kitchen sink together",
 		args: []string{
-			"root-disk=8G mem=2T  arch=i386  cpu-cores=4096 cpu-power=9001 container=lxd " +
+			"root-disk=8G mem=2T  arch=i386  cores=4096 cpu-power=9001 container=lxd " +
 				"tags=foo,bar spaces=space1,^space2 instance-type=foo",
 			"virt-type=kvm"},
 	}, {
 		summary: "kitchen sink separately",
 		args: []string{
-			"root-disk=8G", "mem=2T", "cpu-cores=4096", "cpu-power=9001", "arch=armhf",
+			"root-disk=8G", "mem=2T", "cores=4096", "cpu-power=9001", "arch=armhf",
 			"container=lxd", "tags=foo,bar", "spaces=space1,^space2",
 			"instance-type=foo", "virt-type=kvm"},
 	},
@@ -342,22 +348,34 @@ func (s *ConstraintsSuite) TestParseConstraints(c *gc.C) {
 	}
 }
 
+func (s *ConstraintsSuite) TestParseAliases(c *gc.C) {
+	v, aliases, err := constraints.ParseWithAliases("cpu-cores=5 arch=amd64")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(v, gc.DeepEquals, constraints.Value{
+		CpuCores: uint64p(5),
+		Arch:     strp("amd64"),
+	})
+	c.Assert(aliases, gc.DeepEquals, map[string]string{
+		"cpu-cores": "cores",
+	})
+}
+
 func (s *ConstraintsSuite) TestMerge(c *gc.C) {
 	con1 := constraints.MustParse("arch=amd64 mem=4G")
-	con2 := constraints.MustParse("cpu-cores=42")
+	con2 := constraints.MustParse("cores=42")
 	con3 := constraints.MustParse(
 		"root-disk=8G container=lxd spaces=space1,^space2",
 	)
 	merged, err := constraints.Merge(con1, con2)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(merged, jc.DeepEquals, constraints.MustParse("arch=amd64 mem=4G cpu-cores=42"))
+	c.Assert(merged, jc.DeepEquals, constraints.MustParse("arch=amd64 mem=4G cores=42"))
 	merged, err = constraints.Merge(con1)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(merged, jc.DeepEquals, con1)
 	merged, err = constraints.Merge(con1, con2, con3)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(merged, jc.DeepEquals, constraints.
-		MustParse("arch=amd64 mem=4G cpu-cores=42 root-disk=8G container=lxd spaces=space1,^space2"),
+		MustParse("arch=amd64 mem=4G cores=42 root-disk=8G container=lxd spaces=space1,^space2"),
 	)
 	merged, err = constraints.Merge()
 	c.Assert(err, jc.ErrorIsNil)
@@ -374,14 +392,14 @@ func (s *ConstraintsSuite) TestMerge(c *gc.C) {
 }
 
 func (s *ConstraintsSuite) TestParseMissingTagsAndSpaces(c *gc.C) {
-	con := constraints.MustParse("arch=amd64 mem=4G cpu-cores=1 root-disk=8G")
+	con := constraints.MustParse("arch=amd64 mem=4G cores=1 root-disk=8G")
 	c.Check(con.Tags, gc.IsNil)
 	c.Check(con.Spaces, gc.IsNil)
 }
 
 func (s *ConstraintsSuite) TestParseNoTagsNoSpaces(c *gc.C) {
 	con := constraints.MustParse(
-		"arch=amd64 mem=4G cpu-cores=1 root-disk=8G tags= spaces=",
+		"arch=amd64 mem=4G cores=1 root-disk=8G tags= spaces=",
 	)
 	c.Assert(con.Tags, gc.Not(gc.IsNil))
 	c.Assert(con.Spaces, gc.Not(gc.IsNil))
@@ -439,7 +457,7 @@ func (s *ConstraintsSuite) TestIsEmpty(c *gc.C) {
 	c.Check(&con, gc.Not(jc.Satisfies), constraints.IsEmpty)
 	con = constraints.MustParse("cpu-power=")
 	c.Check(&con, gc.Not(jc.Satisfies), constraints.IsEmpty)
-	con = constraints.MustParse("cpu-cores=")
+	con = constraints.MustParse("cores=")
 	c.Check(&con, gc.Not(jc.Satisfies), constraints.IsEmpty)
 	con = constraints.MustParse("container=")
 	c.Check(&con, gc.Not(jc.Satisfies), constraints.IsEmpty)
@@ -579,7 +597,7 @@ func (s *ConstraintsSuite) TestHasInstanceType(c *gc.C) {
 	c.Check(cons.HasInstanceType(), jc.IsTrue)
 }
 
-const initialWithoutCons = "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4 spaces=space1,^space2 tags=foo container=lxd instance-type=bar"
+const initialWithoutCons = "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cores=4 spaces=space1,^space2 tags=foo container=lxd instance-type=bar"
 
 var withoutTests = []struct {
 	initial string
@@ -588,113 +606,51 @@ var withoutTests = []struct {
 }{{
 	initial: initialWithoutCons,
 	without: []string{"root-disk"},
-	final:   "mem=4G arch=amd64 cpu-power=1000 cpu-cores=4 tags=foo spaces=space1,^space2 container=lxd instance-type=bar",
+	final:   "mem=4G arch=amd64 cpu-power=1000 cores=4 tags=foo spaces=space1,^space2 container=lxd instance-type=bar",
 }, {
 	initial: initialWithoutCons,
 	without: []string{"mem"},
-	final:   "root-disk=8G arch=amd64 cpu-power=1000 cpu-cores=4 tags=foo spaces=space1,^space2 container=lxd instance-type=bar",
+	final:   "root-disk=8G arch=amd64 cpu-power=1000 cores=4 tags=foo spaces=space1,^space2 container=lxd instance-type=bar",
 }, {
 	initial: initialWithoutCons,
 	without: []string{"arch"},
-	final:   "root-disk=8G mem=4G cpu-power=1000 cpu-cores=4 tags=foo spaces=space1,^space2 container=lxd instance-type=bar",
+	final:   "root-disk=8G mem=4G cpu-power=1000 cores=4 tags=foo spaces=space1,^space2 container=lxd instance-type=bar",
 }, {
 	initial: initialWithoutCons,
 	without: []string{"cpu-power"},
-	final:   "root-disk=8G mem=4G arch=amd64 cpu-cores=4 tags=foo spaces=space1,^space2 container=lxd instance-type=bar",
+	final:   "root-disk=8G mem=4G arch=amd64 cores=4 tags=foo spaces=space1,^space2 container=lxd instance-type=bar",
 }, {
 	initial: initialWithoutCons,
-	without: []string{"cpu-cores"},
+	without: []string{"cores"},
 	final:   "root-disk=8G mem=4G arch=amd64 cpu-power=1000 tags=foo spaces=space1,^space2 container=lxd instance-type=bar",
 }, {
 	initial: initialWithoutCons,
 	without: []string{"tags"},
-	final:   "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4 spaces=space1,^space2 container=lxd instance-type=bar",
+	final:   "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cores=4 spaces=space1,^space2 container=lxd instance-type=bar",
 }, {
 	initial: initialWithoutCons,
 	without: []string{"spaces"},
-	final:   "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4 tags=foo container=lxd instance-type=bar",
+	final:   "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cores=4 tags=foo container=lxd instance-type=bar",
 }, {
 	initial: initialWithoutCons,
 	without: []string{"container"},
-	final:   "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4 tags=foo spaces=space1,^space2 instance-type=bar",
+	final:   "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cores=4 tags=foo spaces=space1,^space2 instance-type=bar",
 }, {
 	initial: initialWithoutCons,
 	without: []string{"instance-type"},
-	final:   "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4 tags=foo spaces=space1,^space2 container=lxd",
+	final:   "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cores=4 tags=foo spaces=space1,^space2 container=lxd",
 }, {
 	initial: initialWithoutCons,
 	without: []string{"root-disk", "mem", "arch"},
-	final:   "cpu-power=1000 cpu-cores=4 tags=foo spaces=space1,^space2 container=lxd instance-type=bar",
+	final:   "cpu-power=1000 cores=4 tags=foo spaces=space1,^space2 container=lxd instance-type=bar",
 }}
 
 func (s *ConstraintsSuite) TestWithout(c *gc.C) {
 	for i, t := range withoutTests {
 		c.Logf("test %d", i)
 		initial := constraints.MustParse(t.initial)
-		final, err := constraints.Without(initial, t.without...)
-		c.Assert(err, jc.ErrorIsNil)
+		final := constraints.Without(initial, t.without...)
 		c.Check(final, jc.DeepEquals, constraints.MustParse(t.final))
-	}
-}
-
-func (s *ConstraintsSuite) TestWithoutError(c *gc.C) {
-	cons := constraints.MustParse("mem=4G")
-	_, err := constraints.Without(cons, "foo")
-	c.Assert(err, gc.ErrorMatches, `unknown constraint "foo"`)
-}
-
-func (s *ConstraintsSuite) TestAttributesWithValues(c *gc.C) {
-	for i, consStr := range []string{
-		"",
-		"root-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4 instance-type=foo tags=foo,bar spaces=space1,^space2",
-	} {
-		c.Logf("test %d", i)
-		cons := constraints.MustParse(consStr)
-		obtained := constraints.AttributesWithValues(cons)
-		assertMissing := func(attrName string) {
-			_, ok := obtained[attrName]
-			c.Check(ok, jc.IsFalse)
-		}
-		if cons.Arch != nil {
-			c.Check(obtained["arch"], gc.Equals, *cons.Arch)
-		} else {
-			assertMissing("arch")
-		}
-		if cons.Mem != nil {
-			c.Check(obtained["mem"], gc.Equals, *cons.Mem)
-		} else {
-			assertMissing("mem")
-		}
-		if cons.CpuCores != nil {
-			c.Check(obtained["cpu-cores"], gc.Equals, *cons.CpuCores)
-		} else {
-			assertMissing("cpu-cores")
-		}
-		if cons.CpuPower != nil {
-			c.Check(obtained["cpu-power"], gc.Equals, *cons.CpuPower)
-		} else {
-			assertMissing("cpu-power")
-		}
-		if cons.RootDisk != nil {
-			c.Check(obtained["root-disk"], gc.Equals, *cons.RootDisk)
-		} else {
-			assertMissing("root-disk")
-		}
-		if cons.Tags != nil {
-			c.Check(obtained["tags"], gc.DeepEquals, *cons.Tags)
-		} else {
-			assertMissing("tags")
-		}
-		if cons.Spaces != nil {
-			c.Check(obtained["spaces"], gc.DeepEquals, *cons.Spaces)
-		} else {
-			assertMissing("spaces")
-		}
-		if cons.InstanceType != nil {
-			c.Check(obtained["instance-type"], gc.Equals, *cons.InstanceType)
-		} else {
-			assertMissing("instance-type")
-		}
 	}
 }
 
@@ -704,17 +660,17 @@ var hasAnyTests = []struct {
 	expected []string
 }{
 	{
-		cons:     "root-disk=8G mem=4G arch=amd64 cpu-power=1000 spaces=space1,^space2 cpu-cores=4",
+		cons:     "root-disk=8G mem=4G arch=amd64 cpu-power=1000 spaces=space1,^space2 cores=4",
 		attrs:    []string{"root-disk", "tags", "mem", "spaces"},
 		expected: []string{"root-disk", "mem", "spaces"},
 	},
 	{
-		cons:     "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4",
+		cons:     "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cores=4",
 		attrs:    []string{"root-disk", "tags", "mem"},
 		expected: []string{"root-disk", "mem"},
 	},
 	{
-		cons:     "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4",
+		cons:     "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cores=4",
 		attrs:    []string{"tags", "spaces"},
 		expected: []string{},
 	},

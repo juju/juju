@@ -30,7 +30,7 @@ var (
 
 	// In order for Juju to be able to create the hardware characteristics of
 	// the kvm machines it creates, we need to be explicit in our definition
-	// of memory, cpu-cores and root-disk.  The defaults here have been
+	// of memory, cores and root-disk.  The defaults here have been
 	// extracted from the uvt-kvm executable.
 	DefaultMemory uint64 = 512 // MB
 	DefaultCpu    uint64 = 1
@@ -124,7 +124,7 @@ func (manager *containerManager) CreateContainer(
 
 	defer func() {
 		if err != nil {
-			callback(status.StatusProvisioningError, fmt.Sprintf("Creating container: %v", err), nil)
+			callback(status.ProvisioningError, fmt.Sprintf("Creating container: %v", err), nil)
 		}
 	}()
 
@@ -164,13 +164,13 @@ func (manager *containerManager) CreateContainer(
 
 	var hardware instance.HardwareCharacteristics
 	hardware, err = instance.ParseHardware(
-		fmt.Sprintf("arch=%s mem=%vM root-disk=%vG cpu-cores=%v",
+		fmt.Sprintf("arch=%s mem=%vM root-disk=%vG cores=%v",
 			startParams.Arch, startParams.Memory, startParams.RootDisk, startParams.CpuCores))
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "failed to parse hardware")
 	}
 
-	callback(status.StatusAllocating, "Creating container; it might take some time", nil)
+	callback(status.Allocating, "Creating container; it might take some time", nil)
 	logger.Tracef("create the container, constraints: %v", cons)
 	if err := kvmContainer.Start(startParams); err != nil {
 		err = errors.Annotate(err, "kvm container creation failed")

@@ -17,6 +17,7 @@ type validationSuite struct{}
 var _ = gc.Suite(&validationSuite{})
 
 var validationTests = []struct {
+	desc        string
 	cons        string
 	unsupported []string
 	vocab       map[string][]interface{}
@@ -25,95 +26,111 @@ var validationTests = []struct {
 	err         string
 }{
 	{
-		cons: "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4",
+		desc: "base good",
+		cons: "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cores=4",
 	},
 	{
-		cons:        "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4 tags=foo",
+		desc:        "unsupported",
+		cons:        "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cores=4 tags=foo",
 		unsupported: []string{"tags"},
 	},
 	{
-		cons:        "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4 instance-type=foo",
+		desc:        "multiple unsupported",
+		cons:        "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cores=4 instance-type=foo",
 		unsupported: []string{"cpu-power", "instance-type"},
 	},
 	{
-		// Ambiguous constraint errors take precedence over unsupported errors.
-		cons:        "root-disk=8G mem=4G cpu-cores=4 instance-type=foo",
+		desc:        "Ambiguous constraint errors take precedence over unsupported errors.",
+		cons:        "root-disk=8G mem=4G cores=4 instance-type=foo",
 		reds:        []string{"mem", "arch"},
 		blues:       []string{"instance-type"},
-		unsupported: []string{"cpu-cores"},
+		unsupported: []string{"cores"},
 		err:         `ambiguous constraints: "instance-type" overlaps with "mem"`,
 	},
 	{
-		cons: "root-disk=8G mem=4G arch=amd64 cpu-cores=4 instance-type=foo",
+		desc: "red conflicts",
+		cons: "root-disk=8G mem=4G arch=amd64 cores=4 instance-type=foo",
 		reds: []string{"mem", "arch"},
-		err:  "",
 	},
 	{
-		cons:  "root-disk=8G mem=4G arch=amd64 cpu-cores=4 instance-type=foo",
+		desc:  "blue conflicts",
+		cons:  "root-disk=8G mem=4G arch=amd64 cores=4 instance-type=foo",
 		blues: []string{"mem", "arch"},
-		err:   "",
 	},
 	{
-		cons:  "root-disk=8G mem=4G arch=amd64 cpu-cores=4 instance-type=foo",
+		desc:  "red and blue conflicts",
+		cons:  "root-disk=8G mem=4G arch=amd64 cores=4 instance-type=foo",
 		reds:  []string{"mem", "arch"},
 		blues: []string{"instance-type"},
 		err:   `ambiguous constraints: "arch" overlaps with "instance-type"`,
 	},
 	{
-		cons:  "root-disk=8G mem=4G arch=amd64 cpu-cores=4 instance-type=foo",
+		desc:  "ambiguous constraints red to blue",
+		cons:  "root-disk=8G mem=4G arch=amd64 cores=4 instance-type=foo",
 		reds:  []string{"instance-type"},
 		blues: []string{"mem", "arch"},
 		err:   `ambiguous constraints: "arch" overlaps with "instance-type"`,
 	},
 	{
-		cons:  "root-disk=8G mem=4G cpu-cores=4 instance-type=foo",
+		desc:  "ambiguous constraints blue to red",
+		cons:  "root-disk=8G mem=4G cores=4 instance-type=foo",
 		reds:  []string{"mem", "arch"},
 		blues: []string{"instance-type"},
 		err:   `ambiguous constraints: "instance-type" overlaps with "mem"`,
 	},
 	{
-		cons:  "arch=amd64 mem=4G cpu-cores=4",
+		desc:  "arch vocab",
+		cons:  "arch=amd64 mem=4G cores=4",
 		vocab: map[string][]interface{}{"arch": {"amd64", "i386"}},
 	},
 	{
-		cons:  "mem=4G cpu-cores=4",
-		vocab: map[string][]interface{}{"cpu-cores": {2, 4, 8}},
+		desc:  "cores vocab",
+		cons:  "mem=4G cores=4",
+		vocab: map[string][]interface{}{"cores": {2, 4, 8}},
 	},
 	{
+		desc:  "instance-type vocab",
 		cons:  "mem=4G instance-type=foo",
 		vocab: map[string][]interface{}{"instance-type": {"foo", "bar"}},
 	},
 	{
+		desc:  "tags vocab",
 		cons:  "mem=4G tags=foo,bar",
 		vocab: map[string][]interface{}{"tags": {"foo", "bar", "another"}},
 	},
 	{
-		cons:  "arch=i386 mem=4G cpu-cores=4",
+		desc:  "invalid arch vocab",
+		cons:  "arch=i386 mem=4G cores=4",
 		vocab: map[string][]interface{}{"arch": {"amd64"}},
 		err:   "invalid constraint value: arch=i386\nvalid values are:.*",
 	},
 	{
-		cons:  "mem=4G cpu-cores=5",
-		vocab: map[string][]interface{}{"cpu-cores": {2, 4, 8}},
-		err:   "invalid constraint value: cpu-cores=5\nvalid values are:.*",
+		desc:  "invalid cores vocab",
+		cons:  "mem=4G cores=5",
+		vocab: map[string][]interface{}{"cores": {2, 4, 8}},
+		err:   "invalid constraint value: cores=5\nvalid values are:.*",
 	},
 	{
+		desc:  "invalid instance-type vocab",
 		cons:  "mem=4G instance-type=foo",
 		vocab: map[string][]interface{}{"instance-type": {"bar"}},
 		err:   "invalid constraint value: instance-type=foo\nvalid values are:.*",
 	},
 	{
+		desc:  "invalid tags vocab",
 		cons:  "mem=4G tags=foo,other",
 		vocab: map[string][]interface{}{"tags": {"foo", "bar", "another"}},
 		err:   "invalid constraint value: tags=other\nvalid values are:.*",
 	},
 	{
+		desc: "instance-type and arch",
 		cons: "arch=i386 mem=4G instance-type=foo",
 		vocab: map[string][]interface{}{
 			"instance-type": {"foo", "bar"},
 			"arch":          {"amd64", "i386"}},
 	},
 	{
+		desc:  "virt-type",
 		cons:  "virt-type=bar",
 		vocab: map[string][]interface{}{"virt-type": {"bar"}},
 	},
@@ -121,7 +138,7 @@ var validationTests = []struct {
 
 func (s *validationSuite) TestValidation(c *gc.C) {
 	for i, t := range validationTests {
-		c.Logf("test %d", i)
+		c.Logf("test %d: %s", i, t.desc)
 		validator := constraints.NewValidator()
 		validator.RegisterUnsupported(t.unsupported)
 		validator.RegisterConflicts(t.reds, t.blues)
@@ -185,18 +202,18 @@ var mergeTests = []struct {
 		consFallback: "instance-type=foo",
 		expected:     "instance-type=foo",
 	}, {
-		desc:     "cpu-cores with empty fallback",
-		cons:     "cpu-cores=2",
-		expected: "cpu-cores=2",
+		desc:     "cores with empty fallback",
+		cons:     "cores=2",
+		expected: "cores=2",
 	}, {
-		desc:         "cpu-cores with ignored fallback",
-		cons:         "cpu-cores=4",
-		consFallback: "cpu-cores=8",
-		expected:     "cpu-cores=4",
+		desc:         "cores with ignored fallback",
+		cons:         "cores=4",
+		consFallback: "cores=8",
+		expected:     "cores=4",
 	}, {
-		desc:         "cpu-cores from fallback",
-		consFallback: "cpu-cores=8",
-		expected:     "cpu-cores=8",
+		desc:         "cores from fallback",
+		consFallback: "cores=8",
+		expected:     "cores=8",
 	}, {
 		desc:     "cpu-power with empty fallback",
 		cons:     "cpu-power=100",
@@ -257,68 +274,68 @@ var mergeTests = []struct {
 	}, {
 		desc:         "non-overlapping mix",
 		cons:         "root-disk=8G mem=4G arch=amd64",
-		consFallback: "cpu-power=1000 cpu-cores=4",
-		expected:     "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4",
+		consFallback: "cpu-power=1000 cores=4",
+		expected:     "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cores=4",
 	}, {
 		desc:         "overlapping mix",
 		cons:         "root-disk=8G mem=4G arch=amd64",
-		consFallback: "cpu-power=1000 cpu-cores=4 mem=8G",
-		expected:     "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4",
+		consFallback: "cpu-power=1000 cores=4 mem=8G",
+		expected:     "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cores=4",
 	}, {
 		desc:         "fallback only, no conflicts",
-		consFallback: "root-disk=8G cpu-cores=4 instance-type=foo",
+		consFallback: "root-disk=8G cores=4 instance-type=foo",
 		reds:         []string{"mem", "arch"},
 		blues:        []string{"instance-type"},
-		expected:     "root-disk=8G cpu-cores=4 instance-type=foo",
+		expected:     "root-disk=8G cores=4 instance-type=foo",
 	}, {
 		desc:     "no fallback, no conflicts",
-		cons:     "root-disk=8G cpu-cores=4 instance-type=foo",
+		cons:     "root-disk=8G cores=4 instance-type=foo",
 		reds:     []string{"mem", "arch"},
 		blues:    []string{"instance-type"},
-		expected: "root-disk=8G cpu-cores=4 instance-type=foo",
+		expected: "root-disk=8G cores=4 instance-type=foo",
 	}, {
 		desc:         "conflict value from override",
 		consFallback: "root-disk=8G instance-type=foo",
-		cons:         "root-disk=8G cpu-cores=4 instance-type=bar",
+		cons:         "root-disk=8G cores=4 instance-type=bar",
 		reds:         []string{"mem", "arch"},
 		blues:        []string{"instance-type"},
-		expected:     "root-disk=8G cpu-cores=4 instance-type=bar",
+		expected:     "root-disk=8G cores=4 instance-type=bar",
 	}, {
 		desc:         "unsupported attributes ignored",
 		consFallback: "root-disk=8G instance-type=foo",
-		cons:         "root-disk=8G cpu-cores=4 instance-type=bar",
+		cons:         "root-disk=8G cores=4 instance-type=bar",
 		reds:         []string{"mem", "arch"},
 		blues:        []string{"instance-type"},
 		unsupported:  []string{"instance-type"},
-		expected:     "root-disk=8G cpu-cores=4 instance-type=bar",
+		expected:     "root-disk=8G cores=4 instance-type=bar",
 	}, {
 		desc:         "red conflict masked from fallback",
 		consFallback: "root-disk=8G mem=4G",
-		cons:         "root-disk=8G cpu-cores=4 instance-type=bar",
+		cons:         "root-disk=8G cores=4 instance-type=bar",
 		reds:         []string{"mem", "arch"},
 		blues:        []string{"instance-type"},
-		expected:     "root-disk=8G cpu-cores=4 instance-type=bar",
+		expected:     "root-disk=8G cores=4 instance-type=bar",
 	}, {
 		desc:         "second red conflict masked from fallback",
 		consFallback: "root-disk=8G arch=amd64",
-		cons:         "root-disk=8G cpu-cores=4 instance-type=bar",
+		cons:         "root-disk=8G cores=4 instance-type=bar",
 		reds:         []string{"mem", "arch"},
 		blues:        []string{"instance-type"},
-		expected:     "root-disk=8G cpu-cores=4 instance-type=bar",
+		expected:     "root-disk=8G cores=4 instance-type=bar",
 	}, {
 		desc:         "blue conflict masked from fallback",
-		consFallback: "root-disk=8G cpu-cores=4 instance-type=bar",
+		consFallback: "root-disk=8G cores=4 instance-type=bar",
 		cons:         "root-disk=8G mem=4G",
 		reds:         []string{"mem", "arch"},
 		blues:        []string{"instance-type"},
-		expected:     "root-disk=8G cpu-cores=4 mem=4G",
+		expected:     "root-disk=8G cores=4 mem=4G",
 	}, {
 		desc:         "both red conflicts used, blue mased from fallback",
-		consFallback: "root-disk=8G cpu-cores=4 instance-type=bar",
+		consFallback: "root-disk=8G cores=4 instance-type=bar",
 		cons:         "root-disk=8G arch=amd64 mem=4G",
 		reds:         []string{"mem", "arch"},
 		blues:        []string{"instance-type"},
-		expected:     "root-disk=8G cpu-cores=4 arch=amd64 mem=4G",
+		expected:     "root-disk=8G cores=4 arch=amd64 mem=4G",
 	},
 }
 
@@ -340,7 +357,7 @@ func (s *validationSuite) TestMergeError(c *gc.C) {
 	validator := constraints.NewValidator()
 	validator.RegisterConflicts([]string{"instance-type"}, []string{"mem"})
 	consFallback := constraints.MustParse("instance-type=foo mem=4G")
-	cons := constraints.MustParse("cpu-cores=2")
+	cons := constraints.MustParse("cores=2")
 	_, err := validator.Merge(consFallback, cons)
 	c.Assert(err, gc.ErrorMatches, `ambiguous constraints: "instance-type" overlaps with "mem"`)
 	_, err = validator.Merge(cons, consFallback)

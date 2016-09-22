@@ -11,7 +11,6 @@ import (
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
-	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon.v1"
@@ -34,15 +33,14 @@ var _ = gc.Suite(new(MigrationSuite))
 func (s *MigrationSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
 	s.clock = jujutesting.NewClock(time.Now().Truncate(time.Second))
-	s.PatchValue(&state.GetClock, func() clock.Clock {
-		return s.clock
-	})
+	err := s.State.SetClockForTesting(s.clock)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Create a hosted model to migrate.
 	s.State2 = s.Factory.MakeModel(c, nil)
 	s.AddCleanup(func(*gc.C) { s.State2.Close() })
 
-	targetControllerTag := names.NewModelTag(utils.MustNewUUID().String())
+	targetControllerTag := names.NewControllerTag(utils.MustNewUUID().String())
 
 	mac, err := macaroon.New([]byte("secret"), "id", "location")
 	c.Assert(err, jc.ErrorIsNil)
@@ -56,7 +54,7 @@ func (s *MigrationSuite) SetUpTest(c *gc.C) {
 			CACert:        "cert",
 			AuthTag:       names.NewUserTag("user"),
 			Password:      "password",
-			Macaroon:      mac,
+			Macaroons:     []macaroon.Slice{{mac}},
 		},
 	}
 }
@@ -247,7 +245,7 @@ func (s *MigrationSuite) TestCreateMigrationWhenModelNotAlive(c *gc.C) {
 
 func (s *MigrationSuite) TestMigrationToSameController(c *gc.C) {
 	spec := s.stdSpec
-	spec.TargetInfo.ControllerTag = s.State.ModelTag()
+	spec.TargetInfo.ControllerTag = s.State.ControllerTag()
 
 	mig, err := s.State2.CreateMigration(spec)
 	c.Check(mig, gc.IsNil)

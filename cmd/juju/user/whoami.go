@@ -25,11 +25,12 @@ Examples:
     juju whoami
 
 See also:
-    juju login
-    juju logout
-    juju list-controllers
-    juju list-models
-    juju list-users`[1:]
+    controllers
+    login
+    logout
+    models
+    users
+`[1:]
 
 // NewWhoAmICommand returns a command to print login details.
 func NewWhoAmICommand() cmd.Command {

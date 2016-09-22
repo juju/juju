@@ -39,6 +39,9 @@ func (st *State) Export() (description.Model, error) {
 	if err := export.readAllSettings(); err != nil {
 		return nil, errors.Trace(err)
 	}
+	if err := export.readAllStorageConstraints(); err != nil {
+		return nil, errors.Trace(err)
+	}
 	if err := export.readAllAnnotations(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -114,6 +117,10 @@ func (st *State) Export() (description.Model, error) {
 		return nil, errors.Trace(err)
 	}
 
+	if err := export.cloudimagemetadata(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	if err := export.model.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -129,11 +136,12 @@ type exporter struct {
 	model   description.Model
 	logger  loggo.Logger
 
-	annotations   map[string]annotatorDoc
-	constraints   map[string]bson.M
-	modelSettings map[string]settingsDoc
-	status        map[string]bson.M
-	statusHistory map[string][]historicalStatusDoc
+	annotations             map[string]annotatorDoc
+	constraints             map[string]bson.M
+	modelSettings           map[string]settingsDoc
+	modelStorageConstraints map[string]storageConstraintsDoc
+	status                  map[string]bson.M
+	statusHistory           map[string][]historicalStatusDoc
 	// Map of application name to units. Populated as part
 	// of the applications export.
 	units map[string][]*Unit
@@ -190,7 +198,7 @@ func (e *exporter) modelUsers() error {
 			CreatedBy:      user.CreatedBy,
 			DateCreated:    user.DateCreated,
 			LastConnection: lastConn,
-			Access:         user.Access,
+			Access:         string(user.Access),
 		}
 		e.model.AddUser(arg)
 	}
@@ -459,11 +467,6 @@ func (e *exporter) applications() error {
 		return errors.Trace(err)
 	}
 
-	storageConstraints, err := e.readAllStorageConstraints()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
 	meterStatus, err := e.readAllMeterStatus()
 	if err != nil {
 		return errors.Trace(err)
@@ -483,12 +486,11 @@ func (e *exporter) applications() error {
 		applicationUnits := e.units[application.Name()]
 		leader := leaders[application.Name()]
 		if err := e.addApplication(addApplicationContext{
-			application:        application,
-			units:              applicationUnits,
-			storageConstraints: storageConstraints,
-			meterStatus:        meterStatus,
-			leader:             leader,
-			payloads:           payloads,
+			application: application,
+			units:       applicationUnits,
+			meterStatus: meterStatus,
+			leader:      leader,
+			payloads:    payloads,
 		}); err != nil {
 			return errors.Trace(err)
 		}
@@ -496,29 +498,28 @@ func (e *exporter) applications() error {
 	return nil
 }
 
-func (e *exporter) readAllStorageConstraints() (map[string]map[string]StorageConstraints, error) {
+func (e *exporter) readAllStorageConstraints() error {
 	coll, closer := e.st.getCollection(storageConstraintsC)
 	defer closer()
 
-	result := make(map[string]map[string]StorageConstraints)
+	storageConstraints := make(map[string]storageConstraintsDoc)
 	var doc storageConstraintsDoc
-	var count int
 	iter := coll.Find(nil).Iter()
 	defer iter.Close()
 	for iter.Next(&doc) {
-		result[e.st.localID(doc.DocID)] = doc.Constraints
-		count++
+		storageConstraints[e.st.localID(doc.DocID)] = doc
 	}
 	if err := iter.Err(); err != nil {
-		return nil, errors.Annotate(err, "failed to read storage constraints")
+		return errors.Annotate(err, "failed to read storage constraints")
 	}
-	e.logger.Debugf("read %d storage constraint documents", count)
-	return result, nil
+	e.logger.Debugf("read %d storage constraint documents", len(storageConstraints))
+	e.modelStorageConstraints = storageConstraints
+	return nil
 }
 
-func (e *exporter) storageConstraints(constraints map[string]StorageConstraints) map[string]description.StorageConstraintArgs {
+func (e *exporter) storageConstraints(doc storageConstraintsDoc) map[string]description.StorageConstraintArgs {
 	result := make(map[string]description.StorageConstraintArgs)
-	for key, value := range constraints {
+	for key, value := range doc.Constraints {
 		result[key] = description.StorageConstraintArgs{
 			Pool:  value.Pool,
 			Size:  value.Size,
@@ -554,12 +555,11 @@ func (e *exporter) readAllPayloads() (map[string][]payload.FullPayloadInfo, erro
 }
 
 type addApplicationContext struct {
-	application        *Application
-	units              []*Unit
-	storageConstraints map[string]map[string]StorageConstraints
-	meterStatus        map[string]*meterStatusDoc
-	leader             string
-	payloads           map[string][]payload.FullPayloadInfo
+	application *Application
+	units       []*Unit
+	meterStatus map[string]*meterStatusDoc
+	leader      string
+	payloads    map[string][]payload.FullPayloadInfo
 }
 
 func (e *exporter) addApplication(ctx addApplicationContext) error {
@@ -567,6 +567,7 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 	appName := application.Name()
 	settingsKey := application.settingsKey()
 	leadershipKey := leadershipSettingsKey(appName)
+	storageConstraintsKey := application.storageConstraintsKey()
 
 	applicationSettingsDoc, found := e.modelSettings[settingsKey]
 	if !found {
@@ -592,12 +593,12 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 		LeadershipSettings:   leadershipSettingsDoc.Settings,
 		MetricsCredentials:   application.doc.MetricCredentials,
 	}
-	globalKey := application.globalKey()
-	if constraints, found := ctx.storageConstraints[globalKey]; found {
+	if constraints, found := e.modelStorageConstraints[storageConstraintsKey]; found {
 		args.StorageConstraints = e.storageConstraints(constraints)
 	}
 	exApplication := e.model.AddApplication(args)
 	// Find the current application status.
+	globalKey := application.globalKey()
 	statusArgs, err := e.statusArgs(globalKey)
 	if err != nil {
 		return errors.Annotatef(err, "status for application %s", appName)
@@ -855,6 +856,31 @@ func (e *exporter) sshHostKeys() error {
 		e.model.AddSSHHostKey(description.SSHHostKeyArgs{
 			MachineID: machine.Id(),
 			Keys:      keys,
+		})
+	}
+	return nil
+}
+
+func (e *exporter) cloudimagemetadata() error {
+	cloudimagemetadata, err := e.st.CloudImageMetadataStorage.AllCloudImageMetadata()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	e.logger.Debugf("read %d cloudimagemetadata", len(cloudimagemetadata))
+	for _, metadata := range cloudimagemetadata {
+		e.model.AddCloudImageMetadata(description.CloudImageMetadataArgs{
+			Stream:          metadata.Stream,
+			Region:          metadata.Region,
+			Version:         metadata.Version,
+			Series:          metadata.Series,
+			Arch:            metadata.Arch,
+			VirtType:        metadata.VirtType,
+			RootStorageType: metadata.RootStorageType,
+			RootStorageSize: metadata.RootStorageSize,
+			DateCreated:     metadata.DateCreated,
+			Source:          metadata.Source,
+			Priority:        metadata.Priority,
+			ImageId:         metadata.ImageId,
 		})
 	}
 	return nil

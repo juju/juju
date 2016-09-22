@@ -8,6 +8,7 @@ package metricsmanager
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
@@ -25,7 +26,7 @@ var (
 )
 
 func init() {
-	common.RegisterStandardFacade("MetricsManager", 1, NewMetricsManagerAPI)
+	common.RegisterStandardFacade("MetricsManager", 1, newMetricsManagerAPI)
 }
 
 // MetricsManager defines the methods on the metricsmanager API end point.
@@ -40,15 +41,26 @@ type MetricsManagerAPI struct {
 	state *state.State
 
 	accessEnviron common.GetAuthFunc
+	clock         clock.Clock
 }
 
 var _ MetricsManager = (*MetricsManagerAPI)(nil)
+
+// newMetricsManagerAPI wraps NewMetricsManagerAPI for RegisterStandardFacade.
+func newMetricsManagerAPI(
+	st *state.State,
+	resources facade.Resources,
+	authorizer facade.Authorizer,
+) (*MetricsManagerAPI, error) {
+	return NewMetricsManagerAPI(st, resources, authorizer, clock.WallClock)
+}
 
 // NewMetricsManagerAPI creates a new API endpoint for calling metrics manager functions.
 func NewMetricsManagerAPI(
 	st *state.State,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
+	clock clock.Clock,
 ) (*MetricsManagerAPI, error) {
 	if !(authorizer.AuthMachineAgent() && authorizer.AuthModelManager()) {
 		return nil, common.ErrPerm
@@ -67,6 +79,7 @@ func NewMetricsManagerAPI(
 	return &MetricsManagerAPI{
 		state:         st,
 		accessEnviron: accessEnviron,
+		clock:         clock,
 	}, nil
 }
 
@@ -150,7 +163,7 @@ func (api *MetricsManagerAPI) SendMetrics(args params.Entities) (params.ErrorRes
 			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
-		err = metricsender.SendMetrics(modelState, sender, maxBatchesPerSend, txVendorMetrics)
+		err = metricsender.SendMetrics(modelState, sender, api.clock, maxBatchesPerSend, txVendorMetrics)
 		if err != nil {
 			err = errors.Annotatef(err, "failed to send metrics for %s", tag)
 			logger.Warningf("%v", err)

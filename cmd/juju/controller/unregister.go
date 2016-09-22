@@ -43,9 +43,9 @@ Examples:
     juju unregister my-controller
 
 See also:
-    juju destroy-controller
-    juju kill-controller
-    juju register`
+    destroy-controller
+    kill-controller
+    register`
 
 // Info implements Command.Info
 // `unregister` may seem generic as a command, but aligns with `register`.

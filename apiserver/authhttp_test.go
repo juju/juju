@@ -24,7 +24,7 @@ import (
 
 	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/core/description"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -239,7 +239,7 @@ func (s *authHttpSuite) setupOtherModel(c *gc.C) *state.State {
 		state.UserAccessSpec{
 			User:      user.UserTag(),
 			CreatedBy: s.userTag,
-			Access:    description.ReadAccess})
+			Access:    permission.ReadAccess})
 	c.Assert(err, jc.ErrorIsNil)
 	s.userTag = user.UserTag()
 	s.password = "password"

@@ -107,7 +107,7 @@ var _ = gc.Suite(&ProvisionerSuite{})
 
 func (s *CommonProvisionerSuite) SetUpSuite(c *gc.C) {
 	s.JujuConnSuite.SetUpSuite(c)
-	s.defaultConstraints = constraints.MustParse("arch=amd64 mem=4G cpu-cores=1 root-disk=8G")
+	s.defaultConstraints = constraints.MustParse("arch=amd64 mem=4G cores=1 root-disk=8G")
 }
 
 func (s *CommonProvisionerSuite) SetUpTest(c *gc.C) {
@@ -117,7 +117,7 @@ func (s *CommonProvisionerSuite) SetUpTest(c *gc.C) {
 	imagetesting.PatchOfficialDataSources(&s.CleanupSuite, "")
 	// We want an image to start test instances
 	err := s.State.CloudImageMetadataStorage.SaveMetadata([]cloudimagemetadata.Metadata{{
-		cloudimagemetadata.MetadataAttributes{
+		MetadataAttributes: cloudimagemetadata.MetadataAttributes{
 			Region:          "region",
 			Series:          "trusty",
 			Arch:            "amd64",
@@ -126,8 +126,8 @@ func (s *CommonProvisionerSuite) SetUpTest(c *gc.C) {
 			Source:          "test",
 			Stream:          "released",
 		},
-		10,
-		"-999",
+		Priority: 10,
+		ImageId:  "-999",
 	}})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -453,7 +453,7 @@ func (s *ProvisionerSuite) TestConstraints(c *gc.C) {
 	// Create a machine with non-standard constraints.
 	m, err := s.addMachine()
 	c.Assert(err, jc.ErrorIsNil)
-	cons := constraints.MustParse("mem=8G arch=amd64 cpu-cores=2 root-disk=10G")
+	cons := constraints.MustParse("mem=8G arch=amd64 cores=2 root-disk=10G")
 	err = m.SetConstraints(cons)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -527,11 +527,11 @@ func (s *ProvisionerSuite) TestProvisionerSetsErrorStatusWhenNoToolsAreAvailable
 		// And check the machine status is set to error.
 		statusInfo, err := m.Status()
 		c.Assert(err, jc.ErrorIsNil)
-		if statusInfo.Status == status.StatusPending {
+		if statusInfo.Status == status.Pending {
 			time.Sleep(coretesting.ShortWait)
 			continue
 		}
-		c.Assert(statusInfo.Status, gc.Equals, status.StatusError)
+		c.Assert(statusInfo.Status, gc.Equals, status.Error)
 		c.Assert(statusInfo.Message, gc.Equals, "no matching tools available")
 		break
 	}
@@ -574,11 +574,11 @@ func (s *ProvisionerSuite) TestProvisionerFailedStartInstanceWithInjectedCreatio
 		// And check the machine status is set to error.
 		statusInfo, err := m.Status()
 		c.Assert(err, jc.ErrorIsNil)
-		if statusInfo.Status == status.StatusPending {
+		if statusInfo.Status == status.Pending {
 			time.Sleep(coretesting.ShortWait)
 			continue
 		}
-		c.Assert(statusInfo.Status, gc.Equals, status.StatusError)
+		c.Assert(statusInfo.Status, gc.Equals, status.Error)
 		// check that the status matches the error message
 		c.Assert(statusInfo.Message, gc.Equals, destroyError.Error())
 		return
@@ -635,7 +635,7 @@ func (s *ProvisionerSuite) TestProvisionerStopRetryingIfDying(c *gc.C) {
 	stop(c, p)
 	statusInfo, err := m.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Status, gc.Equals, status.StatusPending)
+	c.Assert(statusInfo.Status, gc.Equals, status.Pending)
 	s.checkNoOperations(c)
 }
 
@@ -744,23 +744,23 @@ type machineClassificationTest struct {
 var machineClassificationTests = []machineClassificationTest{{
 	description:    "Dead machine is dead",
 	life:           params.Dead,
-	status:         status.StatusStarted,
+	status:         status.Started,
 	classification: provisioner.Dead,
 }, {
 	description:    "Dying machine can carry on dying",
 	life:           params.Dying,
-	status:         status.StatusStarted,
+	status:         status.Started,
 	classification: provisioner.None,
 }, {
 	description:    "Dying unprovisioned machine is ensured dead",
 	life:           params.Dying,
-	status:         status.StatusStarted,
+	status:         status.Started,
 	classification: provisioner.Dead,
 	idErr:          params.CodeNotProvisioned,
 }, {
 	description:    "Can't load provisioned dying machine",
 	life:           params.Dying,
-	status:         status.StatusStarted,
+	status:         status.Started,
 	classification: provisioner.None,
 	idErr:          params.CodeNotFound,
 	expectErrCode:  params.CodeNotFound,
@@ -768,14 +768,14 @@ var machineClassificationTests = []machineClassificationTest{{
 }, {
 	description:    "Alive machine is not provisioned - pending",
 	life:           params.Alive,
-	status:         status.StatusPending,
+	status:         status.Pending,
 	classification: provisioner.Pending,
 	idErr:          params.CodeNotProvisioned,
 	expectErrFmt:   "found machine pending provisioning id:%s.*",
 }, {
 	description:    "Alive, pending machine not found",
 	life:           params.Alive,
-	status:         status.StatusPending,
+	status:         status.Pending,
 	classification: provisioner.None,
 	idErr:          params.CodeNotFound,
 	expectErrCode:  params.CodeNotFound,
@@ -789,7 +789,7 @@ var machineClassificationTests = []machineClassificationTest{{
 }, {
 	description:    "Dying machine fails to ensure dead",
 	life:           params.Dying,
-	status:         status.StatusStarted,
+	status:         status.Started,
 	classification: provisioner.None,
 	idErr:          params.CodeNotProvisioned,
 	expectErrCode:  params.CodeNotFound,
@@ -800,14 +800,14 @@ var machineClassificationTests = []machineClassificationTest{{
 var machineClassificationTestsRequireMaintenance = machineClassificationTest{
 	description:    "Machine needs maintaining",
 	life:           params.Alive,
-	status:         status.StatusStarted,
+	status:         status.Started,
 	classification: provisioner.Maintain,
 }
 
 var machineClassificationTestsNoMaintenance = machineClassificationTest{
 	description:    "Machine doesn't need maintaining",
 	life:           params.Alive,
-	status:         status.StatusStarted,
+	status:         status.Started,
 	classification: provisioner.None,
 }
 
@@ -911,11 +911,11 @@ func (s *ProvisionerSuite) testProvisioningFailsAndSetsErrorStatusForConstraints
 	for time.Since(t0) < coretesting.LongWait {
 		statusInfo, err := machine.Status()
 		c.Assert(err, jc.ErrorIsNil)
-		if statusInfo.Status == status.StatusPending {
+		if statusInfo.Status == status.Pending {
 			time.Sleep(coretesting.ShortWait)
 			continue
 		}
-		c.Assert(statusInfo.Status, gc.Equals, status.StatusError)
+		c.Assert(statusInfo.Status, gc.Equals, status.Error)
 		c.Assert(statusInfo.Message, gc.Equals, expectedErrorStatus)
 		break
 	}
@@ -1272,7 +1272,7 @@ func (s *ProvisionerSuite) TestProvisionerRetriesTransientErrors(c *gc.C) {
 			case <-time.After(coretesting.ShortWait):
 				now := time.Now()
 				sInfo := status.StatusInfo{
-					Status:  status.StatusError,
+					Status:  status.Error,
 					Message: "info",
 					Data:    map[string]interface{}{"transient": true},
 					Since:   &now,
@@ -1288,7 +1288,7 @@ func (s *ProvisionerSuite) TestProvisionerRetriesTransientErrors(c *gc.C) {
 	// Machine 4 is never provisioned.
 	statusInfo, err := m4.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Status, gc.Equals, status.StatusError)
+	c.Assert(statusInfo.Status, gc.Equals, status.Error)
 	_, err = m4.InstanceId()
 	c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
 }

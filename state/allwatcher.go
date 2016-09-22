@@ -6,7 +6,6 @@ package state
 import (
 	"reflect"
 	"strings"
-	"time"
 
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
@@ -423,10 +422,9 @@ func (svc *backingApplication) updated(st *State, store *multiwatcherStore, id s
 			// Not sure how status can even return NotFound as it is created
 			// with the application initially. For now, we'll log the error as per
 			// the above and return Unknown.
-			// TODO(fwereade): 2016-03-17 lp:1558657
-			now := time.Now()
+			now := st.clock.Now()
 			info.Status = multiwatcher.StatusInfo{
-				Current: status.StatusUnknown,
+				Current: status.Unknown,
 				Since:   &now,
 				Data:    normaliseStatusData(nil),
 			}
@@ -648,13 +646,13 @@ func (s *backingStatus) updatedUnitStatus(st *State, store *multiwatcherStore, i
 	// Unit or workload status - display the agent status or any error.
 	// NOTE: thumper 2016-06-27, this is truely horrible, and we are lying to our users.
 	// however, this is explicitly what has been asked for as much as we dislike it.
-	if strings.HasSuffix(id, "#charm") || s.Status == status.StatusError {
+	if strings.HasSuffix(id, "#charm") || s.Status == status.Error {
 		newInfo.WorkloadStatus = s.toStatusInfo()
 	} else {
 		newInfo.AgentStatus = s.toStatusInfo()
 		// If the unit was in error and now it's not, we need to reset its
 		// status back to what was previously recorded.
-		if newInfo.WorkloadStatus.Current == status.StatusError {
+		if newInfo.WorkloadStatus.Current == status.Error {
 			newInfo.WorkloadStatus.Current = unitStatus.Status
 			newInfo.WorkloadStatus.Message = unitStatus.Message
 			newInfo.WorkloadStatus.Data = unitStatus.Data

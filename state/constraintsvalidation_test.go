@@ -81,84 +81,84 @@ var setConstraintsTests = []struct {
 }, {
 	about:        "(implicitly) empty constraints never override explictly set fallbacks",
 	consToSet:    "",
-	consFallback: "arch=amd64 cpu-cores=42 mem=2G tags=foo",
+	consFallback: "arch=amd64 cores=42 mem=2G tags=foo",
 
-	effectiveModelCons:   "arch=amd64 cpu-cores=42 mem=2G tags=foo",
+	effectiveModelCons:   "arch=amd64 cores=42 mem=2G tags=foo",
 	effectiveServiceCons: "", // set as given.
-	effectiveUnitCons:    "arch=amd64 cpu-cores=42 mem=2G tags=foo",
+	effectiveUnitCons:    "arch=amd64 cores=42 mem=2G tags=foo",
 	// set as given, then merged with fallbacks; since consToSet is
 	// empty, the effective values inherit everything from fallbacks;
 	// like the unit, but only because the service constraints are
 	// also empty.
-	effectiveMachineCons: "arch=amd64 cpu-cores=42 mem=2G tags=foo",
+	effectiveMachineCons: "arch=amd64 cores=42 mem=2G tags=foo",
 }, {
 	about:        "(explicitly) empty constraints are OK and stored as given",
-	consToSet:    "cpu-cores= cpu-power= root-disk= instance-type= container= tags= spaces=",
+	consToSet:    "cores= cpu-power= root-disk= instance-type= container= tags= spaces=",
 	consFallback: "",
 
 	effectiveModelCons:   "",
-	effectiveServiceCons: "cpu-cores= cpu-power= root-disk= instance-type= container= tags= spaces=",
-	effectiveUnitCons:    "cpu-cores= cpu-power= root-disk= instance-type= container= tags= spaces=",
-	effectiveMachineCons: "cpu-cores= cpu-power= instance-type= root-disk= tags= spaces=", // container= is dropped
+	effectiveServiceCons: "cores= cpu-power= root-disk= instance-type= container= tags= spaces=",
+	effectiveUnitCons:    "cores= cpu-power= root-disk= instance-type= container= tags= spaces=",
+	effectiveMachineCons: "cores= cpu-power= instance-type= root-disk= tags= spaces=", // container= is dropped
 }, {
 	about:        "(explicitly) empty fallback constraints are OK and stored as given",
 	consToSet:    "",
-	consFallback: "cpu-cores= cpu-power= root-disk= instance-type= container= tags= spaces=",
+	consFallback: "cores= cpu-power= root-disk= instance-type= container= tags= spaces=",
 
-	effectiveModelCons:   "cpu-cores= cpu-power= root-disk= instance-type= container= tags= spaces=",
+	effectiveModelCons:   "cores= cpu-power= root-disk= instance-type= container= tags= spaces=",
 	effectiveServiceCons: "",
-	effectiveUnitCons:    "cpu-cores= cpu-power= root-disk= instance-type= container= tags= spaces=",
-	effectiveMachineCons: "cpu-cores= cpu-power= instance-type= root-disk= tags= spaces=", // container= is dropped
+	effectiveUnitCons:    "cores= cpu-power= root-disk= instance-type= container= tags= spaces=",
+	effectiveMachineCons: "cores= cpu-power= instance-type= root-disk= tags= spaces=", // container= is dropped
 }, {
 	about:                "(explicitly) empty constraints and fallbacks are OK and stored as given",
-	consToSet:            "arch= mem= cpu-cores= container=",
-	consFallback:         "cpu-cores= cpu-power= root-disk= instance-type= container= tags= spaces=",
-	effectiveModelCons:   "cpu-cores= cpu-power= root-disk= instance-type= container= tags= spaces=",
-	effectiveServiceCons: "arch= mem= cpu-cores= container=",
-	effectiveUnitCons:    "arch= container= cpu-cores= cpu-power= mem= root-disk= tags= spaces=",
-	effectiveMachineCons: "arch= cpu-cores= cpu-power= mem= root-disk= tags= spaces=", // container= is dropped
+	consToSet:            "arch= mem= cores= container=",
+	consFallback:         "cores= cpu-power= root-disk= instance-type= container= tags= spaces=",
+	effectiveModelCons:   "cores= cpu-power= root-disk= instance-type= container= tags= spaces=",
+	effectiveServiceCons: "arch= mem= cores= container=",
+	effectiveUnitCons:    "arch= container= cores= cpu-power= mem= root-disk= tags= spaces=",
+	effectiveMachineCons: "arch= cores= cpu-power= mem= root-disk= tags= spaces=", // container= is dropped
 }, {
 	about:        "(explicitly) empty constraints override set fallbacks for deployment and provisioning",
-	consToSet:    "cpu-cores= arch= spaces= cpu-power=",
-	consFallback: "cpu-cores=42 arch=amd64 tags=foo spaces=default,^dmz mem=4G",
+	consToSet:    "cores= arch= spaces= cpu-power=",
+	consFallback: "cores=42 arch=amd64 tags=foo spaces=default,^dmz mem=4G",
 
-	effectiveModelCons:   "cpu-cores=42 arch=amd64 tags=foo spaces=default,^dmz mem=4G",
-	effectiveServiceCons: "cpu-cores= arch= spaces= cpu-power=",
-	effectiveUnitCons:    "arch= cpu-cores= cpu-power= mem=4G tags=foo spaces=",
-	effectiveMachineCons: "arch= cpu-cores= cpu-power= mem=4G tags=foo spaces=",
+	effectiveModelCons:   "cores=42 arch=amd64 tags=foo spaces=default,^dmz mem=4G",
+	effectiveServiceCons: "cores= arch= spaces= cpu-power=",
+	effectiveUnitCons:    "arch= cores= cpu-power= mem=4G tags=foo spaces=",
+	effectiveMachineCons: "arch= cores= cpu-power= mem=4G tags=foo spaces=",
 	// we're also checking if m.SetConstraints() does the same with
 	// regards to the effective constraints as AddMachine(), because
 	// some of these tests proved they had different behavior (i.e.
 	// container= was not set to empty)
 }, {
 	about:        "non-empty constraints always override empty or unset fallbacks",
-	consToSet:    "cpu-cores=42 root-disk=20G arch=amd64 tags=foo,bar",
-	consFallback: "cpu-cores= arch= tags=",
+	consToSet:    "cores=42 root-disk=20G arch=amd64 tags=foo,bar",
+	consFallback: "cores= arch= tags=",
 
-	effectiveModelCons:   "cpu-cores= arch= tags=",
-	effectiveServiceCons: "cpu-cores=42 root-disk=20G arch=amd64 tags=foo,bar",
-	effectiveUnitCons:    "cpu-cores=42 root-disk=20G arch=amd64 tags=foo,bar",
-	effectiveMachineCons: "cpu-cores=42 root-disk=20G arch=amd64 tags=foo,bar",
+	effectiveModelCons:   "cores= arch= tags=",
+	effectiveServiceCons: "cores=42 root-disk=20G arch=amd64 tags=foo,bar",
+	effectiveUnitCons:    "cores=42 root-disk=20G arch=amd64 tags=foo,bar",
+	effectiveMachineCons: "cores=42 root-disk=20G arch=amd64 tags=foo,bar",
 }, {
 	about:        "non-empty constraints always override set fallbacks",
-	consToSet:    "cpu-cores=42 root-disk=20G arch=amd64 tags=foo,bar",
-	consFallback: "cpu-cores=12 root-disk=10G arch=i386  tags=bar",
+	consToSet:    "cores=42 root-disk=20G arch=amd64 tags=foo,bar",
+	consFallback: "cores=12 root-disk=10G arch=i386  tags=bar",
 
-	effectiveModelCons:   "cpu-cores=12 root-disk=10G arch=i386  tags=bar",
-	effectiveServiceCons: "cpu-cores=42 root-disk=20G arch=amd64 tags=foo,bar",
-	effectiveUnitCons:    "cpu-cores=42 root-disk=20G arch=amd64 tags=foo,bar",
-	effectiveMachineCons: "cpu-cores=42 root-disk=20G arch=amd64 tags=foo,bar",
+	effectiveModelCons:   "cores=12 root-disk=10G arch=i386  tags=bar",
+	effectiveServiceCons: "cores=42 root-disk=20G arch=amd64 tags=foo,bar",
+	effectiveUnitCons:    "cores=42 root-disk=20G arch=amd64 tags=foo,bar",
+	effectiveMachineCons: "cores=42 root-disk=20G arch=amd64 tags=foo,bar",
 }, {
 	about:        "non-empty constraints override conflicting set fallbacks",
-	consToSet:    "mem=8G arch=amd64 cpu-cores=4 tags=bar",
+	consToSet:    "mem=8G arch=amd64 cores=4 tags=bar",
 	consFallback: "instance-type=small cpu-power=1000", // instance-type conflicts mem, arch
 
 	effectiveModelCons:   "instance-type=small cpu-power=1000",
-	effectiveServiceCons: "mem=8G arch=amd64 cpu-cores=4 tags=bar",
+	effectiveServiceCons: "mem=8G arch=amd64 cores=4 tags=bar",
 	// both of the following contain the explicitly set constraints after
 	// resolving any conflicts with fallbacks (by dropping them).
-	effectiveUnitCons:    "mem=8G arch=amd64 cpu-cores=4 tags=bar cpu-power=1000",
-	effectiveMachineCons: "mem=8G arch=amd64 cpu-cores=4 tags=bar cpu-power=1000",
+	effectiveUnitCons:    "mem=8G arch=amd64 cores=4 tags=bar cpu-power=1000",
+	effectiveMachineCons: "mem=8G arch=amd64 cores=4 tags=bar cpu-power=1000",
 }, {
 	about:        "set fallbacks are overriden the same way for provisioning and deployment",
 	consToSet:    "tags= cpu-power= spaces=bar",

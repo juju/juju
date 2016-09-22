@@ -17,13 +17,13 @@ var _ = gc.Suite(&SSHHostKeySerializationSuite{})
 
 func (s *SSHHostKeySerializationSuite) SetUpTest(c *gc.C) {
 	s.SliceSerializationSuite.SetUpTest(c)
-	s.importName = "sshhostkeys"
-	s.sliceName = "sshhostkeys"
+	s.importName = "ssh-host-keys"
+	s.sliceName = "ssh-host-keys"
 	s.importFunc = func(m map[string]interface{}) (interface{}, error) {
 		return importSSHHostKeys(m)
 	}
 	s.testFields = func(m map[string]interface{}) {
-		m["sshhostkeys"] = []interface{}{}
+		m["ssh-host-keys"] = []interface{}{}
 	}
 }
 

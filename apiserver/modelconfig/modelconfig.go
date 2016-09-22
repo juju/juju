@@ -9,8 +9,8 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 )
 
@@ -43,7 +43,7 @@ func NewModelConfigAPI(backend Backend, authorizer facade.Authorizer) (*ModelCon
 }
 
 func (c *ModelConfigAPI) checkCanWrite() error {
-	canWrite, err := c.auth.HasPermission(description.WriteAccess, c.backend.ModelTag())
+	canWrite, err := c.auth.HasPermission(permission.WriteAccess, c.backend.ModelTag())
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -54,7 +54,7 @@ func (c *ModelConfigAPI) checkCanWrite() error {
 }
 
 func (c *ModelConfigAPI) isAdmin() error {
-	hasAccess, err := c.auth.HasPermission(description.SuperuserAccess, c.backend.ControllerTag())
+	hasAccess, err := c.auth.HasPermission(permission.SuperuserAccess, c.backend.ControllerTag())
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -128,81 +128,4 @@ func (c *ModelConfigAPI) ModelUnset(args params.ModelUnset) error {
 		return errors.Trace(err)
 	}
 	return c.backend.UpdateModelConfig(nil, args.Keys, nil)
-}
-
-// ModelDefaults returns the default config values used when creating a new model.
-func (c *ModelConfigAPI) ModelDefaults() (params.ModelDefaultsResult, error) {
-	result := params.ModelDefaultsResult{}
-	if err := c.isAdmin(); err != nil {
-		return result, errors.Trace(err)
-	}
-
-	values, err := c.backend.ModelConfigDefaultValues()
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-	result.Config = make(map[string]params.ModelDefaults)
-	for attr, val := range values {
-		settings := params.ModelDefaults{
-			Controller: val.Controller,
-			Default:    val.Default,
-		}
-		for _, v := range val.Regions {
-			settings.Regions = append(
-				settings.Regions, params.RegionDefaults{
-					RegionName: v.Name,
-					Value:      v.Value})
-		}
-		result.Config[attr] = settings
-	}
-	return result, nil
-}
-
-// SetModelDefaults writes new values for the specified default model settings.
-func (c *ModelConfigAPI) SetModelDefaults(args params.SetModelDefaults) (params.ErrorResults, error) {
-	results := params.ErrorResults{Results: make([]params.ErrorResult, len(args.Config))}
-	if err := c.check.ChangeAllowed(); err != nil {
-		return results, errors.Trace(err)
-	}
-	for i, arg := range args.Config {
-		// TODO(wallyworld) - use arg.Cloud and arg.CloudRegion as appropriate
-		results.Results[i].Error = common.ServerError(
-			c.setModelDefaults(arg),
-		)
-	}
-	return results, nil
-}
-
-func (c *ModelConfigAPI) setModelDefaults(args params.ModelDefaultValues) error {
-	if err := c.isAdmin(); err != nil {
-		return errors.Trace(err)
-	}
-
-	if err := c.check.ChangeAllowed(); err != nil {
-		return errors.Trace(err)
-	}
-	// Make sure we don't allow changing agent-version.
-	if _, found := args.Config["agent-version"]; found {
-		return errors.New("agent-version cannot have a default value")
-	}
-	return c.backend.UpdateModelConfigDefaultValues(args.Config, nil)
-}
-
-// UnsetModelDefaults removes the specified default model settings.
-func (c *ModelConfigAPI) UnsetModelDefaults(args params.UnsetModelDefaults) (params.ErrorResults, error) {
-	results := params.ErrorResults{Results: make([]params.ErrorResult, len(args.Keys))}
-	if err := c.isAdmin(); err != nil {
-		return results, err
-	}
-
-	if err := c.check.ChangeAllowed(); err != nil {
-		return results, errors.Trace(err)
-	}
-	for i, arg := range args.Keys {
-		// TODO(wallyworld) - use arg.Cloud and arg.CloudRegion as appropriate
-		results.Results[i].Error = common.ServerError(
-			c.backend.UpdateModelConfigDefaultValues(nil, arg.Keys),
-		)
-	}
-	return results, nil
 }

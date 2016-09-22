@@ -46,7 +46,7 @@ func (s *statusSuite) TestFullStatus(c *gc.C) {
 	status, err := client.Status(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(status.Model.Name, gc.Equals, "controller")
-	c.Check(status.Model.Cloud, gc.Equals, "dummy")
+	c.Check(status.Model.CloudTag, gc.Equals, "cloud-dummy")
 	c.Check(status.Applications, gc.HasLen, 0)
 	c.Check(status.Machines, gc.HasLen, 1)
 	resultMachine, ok := status.Machines[machine.Id()]
@@ -117,7 +117,73 @@ var testUnits = []struct {
 }
 
 func (s *statusUnitTestSuite) TestMeterStatus(c *gc.C) {
+	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered"})
+	service := s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm})
+
+	units, err := service.AllUnits()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(units, gc.HasLen, 0)
+
+	for i, unit := range testUnits {
+		u, err := service.AddUnit()
+		testUnits[i].unitName = u.Name()
+		c.Assert(err, jc.ErrorIsNil)
+		if unit.setStatus != nil {
+			err := u.SetMeterStatus(unit.setStatus.Code.String(), unit.setStatus.Info)
+			c.Assert(err, jc.ErrorIsNil)
+		}
+	}
+
+	client := s.APIState.Client()
+	status, err := client.Status(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status, gc.NotNil)
+	serviceStatus, ok := status.Applications[service.Name()]
+	c.Assert(ok, gc.Equals, true)
+
+	c.Assert(serviceStatus.MeterStatuses, gc.HasLen, len(testUnits)-1)
+	for _, unit := range testUnits {
+		unitStatus, ok := serviceStatus.MeterStatuses[unit.unitName]
+
+		if unit.expectedStatus != nil {
+			c.Assert(ok, gc.Equals, true)
+			c.Assert(&unitStatus, gc.DeepEquals, unit.expectedStatus)
+		} else {
+			c.Assert(ok, gc.Equals, false)
+		}
+	}
+}
+
+func (s *statusUnitTestSuite) TestNoMeterStatusWhenNotRequired(c *gc.C) {
 	service := s.Factory.MakeApplication(c, nil)
+
+	units, err := service.AllUnits()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(units, gc.HasLen, 0)
+
+	for i, unit := range testUnits {
+		u, err := service.AddUnit()
+		testUnits[i].unitName = u.Name()
+		c.Assert(err, jc.ErrorIsNil)
+		if unit.setStatus != nil {
+			err := u.SetMeterStatus(unit.setStatus.Code.String(), unit.setStatus.Info)
+			c.Assert(err, jc.ErrorIsNil)
+		}
+	}
+
+	client := s.APIState.Client()
+	status, err := client.Status(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status, gc.NotNil)
+	serviceStatus, ok := status.Applications[service.Name()]
+	c.Assert(ok, gc.Equals, true)
+
+	c.Assert(serviceStatus.MeterStatuses, gc.HasLen, 0)
+}
+
+func (s *statusUnitTestSuite) TestMeterStatusWithCredentials(c *gc.C) {
+	service := s.Factory.MakeApplication(c, nil)
+	c.Assert(service.SetMetricCredentials([]byte("magic-ticket")), jc.ErrorIsNil)
 
 	units, err := service.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
@@ -251,7 +317,7 @@ func (s *statusUnitTestSuite) TestMigrationInProgress(c *gc.C) {
 	mig, err := state2.CreateMigration(state.MigrationSpec{
 		InitiatedBy: names.NewUserTag("admin"),
 		TargetInfo: migration.TargetInfo{
-			ControllerTag: names.NewModelTag(utils.MustNewUUID().String()),
+			ControllerTag: names.NewControllerTag(utils.MustNewUUID().String()),
 			Addrs:         []string{"1.2.3.4:5555", "4.3.2.1:6666"},
 			CACert:        "cert",
 			AuthTag:       names.NewUserTag("user"),

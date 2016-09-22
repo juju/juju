@@ -9,6 +9,7 @@ import (
 	"time"
 
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
@@ -20,8 +21,8 @@ import (
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/observer/fakeobserver"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/core/description"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/testing"
@@ -178,6 +179,7 @@ func (s *legacySuite) TestAPIServerCanShutdownWithOutstandingNext(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	srv, err := apiserver.NewServer(s.State, lis, apiserver.ServerConfig{
+		Clock:       clock.WallClock,
 		Cert:        []byte(testing.ServerCert),
 		Key:         []byte(testing.ServerKey),
 		Tag:         names.NewMachineTag("0"),
@@ -247,15 +249,18 @@ func (s *legacySuite) TestAPIServerCanShutdownWithOutstandingNext(c *gc.C) {
 func (s *legacySuite) TestModelStatus(c *gc.C) {
 	sysManager := s.OpenAPI(c)
 	defer sysManager.Close()
+	s.Factory.MakeMachine(c, nil)
 	modelTag := s.State.ModelTag()
 	results, err := sysManager.ModelStatus(modelTag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, []base.ModelStatus{{
 		UUID:               modelTag.Id(),
-		HostedMachineCount: 0,
+		TotalMachineCount:  1,
+		HostedMachineCount: 1,
 		ServiceCount:       0,
 		Owner:              "admin@local",
-		Life:               params.Alive,
+		Life:               string(params.Alive),
+		Machines:           []base.Machine{{Id: "0", InstanceId: "id-2", Status: "pending"}},
 	}})
 }
 
@@ -266,5 +271,5 @@ func (s *legacySuite) TestGetControllerAccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	access, err := controller.GetControllerAccess("fred@external")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(access, gc.Equals, description.Access("addmodel"))
+	c.Assert(access, gc.Equals, permission.Access("addmodel"))
 }

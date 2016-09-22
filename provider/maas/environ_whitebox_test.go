@@ -184,7 +184,7 @@ func (suite *environSuite) TestStartInstanceStartsInstance(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(instance, gc.NotNil)
 	c.Assert(hc, gc.NotNil)
-	c.Check(hc.String(), gc.Equals, fmt.Sprintf("arch=%s cpu-cores=1 mem=1024M availability-zone=test_zone", arch.HostArch()))
+	c.Check(hc.String(), gc.Equals, fmt.Sprintf("arch=%s cores=1 mem=1024M availability-zone=test_zone", arch.HostArch()))
 
 	// The instance number 1 has been acquired and started.
 	actions, found = operations["node1"]

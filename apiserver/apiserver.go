@@ -11,16 +11,18 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
-	"time"
 
 	"github.com/bmizerany/pat"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
+	"github.com/juju/utils/clock"
 	"golang.org/x/net/websocket"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/macaroon-bakery.v1/httpbakery"
 	"gopkg.in/tomb.v1"
 
+	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/apihttp"
 	"github.com/juju/juju/apiserver/observer"
@@ -39,6 +41,7 @@ const loginRateLimit = 10
 // Server holds the server side of the API.
 type Server struct {
 	tomb              tomb.Tomb
+	clock             clock.Clock
 	wg                sync.WaitGroup
 	state             *state.State
 	statePool         *state.StatePool
@@ -63,6 +66,7 @@ type LoginValidator func(params.LoginRequest) error
 
 // ServerConfig holds parameters required to set up an API server.
 type ServerConfig struct {
+	Clock       clock.Clock
 	Cert        []byte
 	Key         []byte
 	Tag         names.Tag
@@ -81,6 +85,9 @@ type ServerConfig struct {
 }
 
 func (c *ServerConfig) Validate() error {
+	if c.Clock == nil {
+		return errors.NotValidf("missing Clock")
+	}
 	if c.NewObserver == nil {
 		return errors.NotValidf("missing NewObserver")
 	}
@@ -98,18 +105,18 @@ type changeCertListener struct {
 	// A mutex used to block accept operations.
 	m sync.Mutex
 
+	// The current certificate used for tls.Config
+	cert tls.Certificate
+
 	// A channel used to pass in new certificate information.
 	certChanged <-chan params.StateServingInfo
-
-	// The config to update with any new certificate.
-	config *tls.Config
 }
 
-func newChangeCertListener(lis net.Listener, certChanged <-chan params.StateServingInfo, config *tls.Config) *changeCertListener {
+func newChangeCertListener(lis net.Listener, certChanged <-chan params.StateServingInfo, cert tls.Certificate) *changeCertListener {
 	cl := &changeCertListener{
 		Listener:    lis,
+		cert:        cert,
 		certChanged: certChanged,
-		config:      config,
 	}
 	go func() {
 		defer cl.tomb.Done()
@@ -124,13 +131,15 @@ func (cl *changeCertListener) Accept() (net.Conn, error) {
 	if err != nil {
 		return nil, err
 	}
+	return tls.Server(conn, cl.tlsConfig()), nil
+}
+
+func (cl *changeCertListener) tlsConfig() *tls.Config {
 	cl.m.Lock()
 	defer cl.m.Unlock()
-
-	// make a copy of cl.config so that update certificate does not mutate
-	// the config passed to the tls.Server for this conn.
-	config := *cl.config
-	return tls.Server(conn, &config), nil
+	tlsConfig := utils.SecureTLSConfig()
+	tlsConfig.Certificates = []tls.Certificate{cl.cert}
+	return tlsConfig
 }
 
 // Close closes the listener.
@@ -170,8 +179,10 @@ func (cl *changeCertListener) updateCertificate(cert, key []byte) {
 				addr = append(addr, ip.String())
 			}
 			logger.Infof("new certificate addresses: %v", strings.Join(addr, ", "))
+			cl.cert = tlsCert
+		} else {
+			logger.Errorf("parsing x509 cert: %v", err)
 		}
-		cl.config.Certificates = []tls.Certificate{tlsCert}
 	}
 }
 
@@ -208,21 +219,17 @@ func newServer(s *state.State, lis *net.TCPListener, cfg ServerConfig) (_ *Serve
 	if err != nil {
 		return nil, err
 	}
-	// TODO(rog) check that *srvRoot is a valid type for using
-	// as an RPC server.
-	tlsConfig := utils.SecureTLSConfig()
-	tlsConfig.Certificates = []tls.Certificate{tlsCert}
-
 	stPool := cfg.StatePool
 	if stPool == nil {
 		stPool = state.NewStatePool(s)
 	}
 
 	srv := &Server{
+		clock:       cfg.Clock,
 		newObserver: cfg.NewObserver,
 		state:       s,
 		statePool:   stPool,
-		lis:         newChangeCertListener(lis, cfg.CertChanged, tlsConfig),
+		lis:         newChangeCertListener(lis, cfg.CertChanged, tlsCert),
 		tag:         cfg.Tag,
 		dataDir:     cfg.DataDir,
 		logDir:      cfg.LogDir,
@@ -285,6 +292,12 @@ func (srv *Server) run() {
 	go func() {
 		defer srv.wg.Done()
 		srv.tomb.Kill(srv.mongoPinger())
+	}()
+
+	srv.wg.Add(1)
+	go func() {
+		defer srv.wg.Done()
+		srv.tomb.Kill(srv.expireLocalLoginInteractions())
 	}()
 
 	// for pat based handlers, they are matched in-order of being
@@ -394,8 +407,7 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 	)
 	add("/register",
 		&registerUserHandler{
-			httpCtxt,
-			srv.authCtxt.userAuth.CreateLocalLoginMacaroon,
+			ctxt: httpCtxt,
 		},
 	)
 	add("/api", mainAPIHandler)
@@ -404,7 +416,41 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 	// possible endpoints, but only / itself.
 	add("/", mainAPIHandler)
 
+	// Add HTTP handlers for local-user macaroon authentication.
+	localLoginHandlers := &localLoginHandlers{srv.authCtxt, srv.state}
+	dischargeMux := http.NewServeMux()
+	httpbakery.AddDischargeHandler(
+		dischargeMux,
+		localUserIdentityLocationPath,
+		localLoginHandlers.authCtxt.localUserThirdPartyBakeryService,
+		localLoginHandlers.checkThirdPartyCaveat,
+	)
+	dischargeMux.Handle(
+		localUserIdentityLocationPath+"/login",
+		makeHandler(handleJSON(localLoginHandlers.serveLogin)),
+	)
+	dischargeMux.Handle(
+		localUserIdentityLocationPath+"/wait",
+		makeHandler(handleJSON(localLoginHandlers.serveWait)),
+	)
+	add(localUserIdentityLocationPath+"/discharge", dischargeMux)
+	add(localUserIdentityLocationPath+"/publickey", dischargeMux)
+	add(localUserIdentityLocationPath+"/login", dischargeMux)
+	add(localUserIdentityLocationPath+"/wait", dischargeMux)
+
 	return endpoints
+}
+
+func (srv *Server) expireLocalLoginInteractions() error {
+	for {
+		select {
+		case <-srv.tomb.Dying():
+			return tomb.ErrDying
+		case <-srv.clock.After(authentication.LocalLoginInteractionTimeout):
+			now := srv.authCtxt.clock.Now()
+			srv.authCtxt.localUserInteractions.Expire(now)
+		}
+	}
 }
 
 func (srv *Server) newHandlerArgs(spec apihttp.HandlerConstraints) apihttp.NewHandlerArgs {
@@ -496,7 +542,7 @@ func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
 		Handler: func(conn *websocket.Conn) {
 			modelUUID := req.URL.Query().Get(":modeluuid")
 			logger.Tracef("got a request for model %q", modelUUID)
-			if err := srv.serveConn(conn, modelUUID, apiObserver); err != nil {
+			if err := srv.serveConn(conn, modelUUID, apiObserver, req.Host); err != nil {
 				logger.Errorf("error serving RPCs: %v", err)
 			}
 		},
@@ -504,12 +550,12 @@ func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
 	wsServer.ServeHTTP(w, req)
 }
 
-func (srv *Server) serveConn(wsConn *websocket.Conn, modelUUID string, apiObserver observer.Observer) error {
+func (srv *Server) serveConn(wsConn *websocket.Conn, modelUUID string, apiObserver observer.Observer, host string) error {
 	codec := jsoncodec.NewWebsocket(wsConn)
 
 	conn := rpc.NewConn(codec, apiObserver)
 
-	h, err := srv.newAPIHandler(conn, modelUUID)
+	h, err := srv.newAPIHandler(conn, modelUUID, host)
 	if err != nil {
 		conn.ServeRoot(&errRoot{err}, serverError)
 	} else {
@@ -527,7 +573,7 @@ func (srv *Server) serveConn(wsConn *websocket.Conn, modelUUID string, apiObserv
 	return conn.Close()
 }
 
-func (srv *Server) newAPIHandler(conn *rpc.Conn, modelUUID string) (*apiHandler, error) {
+func (srv *Server) newAPIHandler(conn *rpc.Conn, modelUUID, serverHost string) (*apiHandler, error) {
 	// Note that we don't overwrite modelUUID here because
 	// newAPIHandler treats an empty modelUUID as signifying
 	// the API version used.
@@ -542,25 +588,22 @@ func (srv *Server) newAPIHandler(conn *rpc.Conn, modelUUID string) (*apiHandler,
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return newAPIHandler(srv, st, conn, modelUUID)
+	return newAPIHandler(srv, st, conn, modelUUID, serverHost)
 }
 
 func (srv *Server) mongoPinger() error {
-	// TODO(fwereade): 2016-03-17 lp:1558657
-	timer := time.NewTimer(0)
 	session := srv.state.MongoSession().Copy()
 	defer session.Close()
 	for {
-		select {
-		case <-timer.C:
-		case <-srv.tomb.Dying():
-			return tomb.ErrDying
-		}
 		if err := session.Ping(); err != nil {
 			logger.Infof("got error pinging mongo: %v", err)
 			return errors.Annotate(err, "error pinging mongo")
 		}
-		timer.Reset(mongoPingInterval)
+		select {
+		case <-srv.clock.After(mongoPingInterval):
+		case <-srv.tomb.Dying():
+			return tomb.ErrDying
+		}
 	}
 }
 

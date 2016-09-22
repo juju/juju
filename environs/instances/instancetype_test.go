@@ -124,8 +124,8 @@ var getInstanceTypesTest = []struct {
 	arches         []string
 }{
 	{
-		about: "cpu-cores",
-		cons:  "cpu-cores=2",
+		about: "cores",
+		cons:  "cores=2",
 		expectedItypes: []string{
 			"c1.medium", "m1.large", "m1.xlarge", "c1.xlarge", "cc1.4xlarge",
 			"cc2.8xlarge",
@@ -154,7 +154,7 @@ var getInstanceTypesTest = []struct {
 	},
 	{
 		about: "enough memory for mongodb if mem not specified",
-		cons:  "cpu-cores=4",
+		cons:  "cores=4",
 		itypesToUse: []InstanceType{
 			{Id: "5", Name: "it-5", Arches: []string{"amd64"}, Mem: 1024, CpuCores: 2},
 			{Id: "4", Name: "it-4", Arches: []string{"amd64"}, Mem: 2048, CpuCores: 4},
@@ -198,7 +198,7 @@ var getInstanceTypesTest = []struct {
 	},
 	{
 		about: "largest mem available matching other constraints if mem not specified",
-		cons:  "cpu-cores=4",
+		cons:  "cores=4",
 		itypesToUse: []InstanceType{
 			{Id: "3", Name: "it-3", Arches: []string{"amd64"}, Mem: 1024, CpuCores: 2},
 			{Id: "2", Name: "it-2", Arches: []string{"amd64"}, Mem: 256, CpuCores: 4},
@@ -208,7 +208,7 @@ var getInstanceTypesTest = []struct {
 	},
 	{
 		about: "largest mem available matching other constraints if mem not specified, cost is tie breaker",
-		cons:  "cpu-cores=4",
+		cons:  "cores=4",
 		itypesToUse: []InstanceType{
 			{Id: "4", Name: "it-4", Arches: []string{"amd64"}, Mem: 1024, CpuCores: 2},
 			{Id: "3", Name: "it-3", Arches: []string{"amd64"}, Mem: 256, CpuCores: 4},
@@ -261,8 +261,8 @@ func (s *instanceTypeSuite) TestGetMatchingInstanceTypesErrors(c *gc.C) {
 	_, err = MatchingInstanceTypes(instanceTypes, "test", constraints.MustParse("arch=i386 mem=8G"))
 	c.Check(err, gc.ErrorMatches, `no instance types in test matching constraints "arch=i386 mem=8192M"`)
 
-	_, err = MatchingInstanceTypes(instanceTypes, "test", constraints.MustParse("cpu-cores=9000"))
-	c.Check(err, gc.ErrorMatches, `no instance types in test matching constraints "cpu-cores=9000"`)
+	_, err = MatchingInstanceTypes(instanceTypes, "test", constraints.MustParse("cores=9000"))
+	c.Check(err, gc.ErrorMatches, `no instance types in test matching constraints "cores=9000"`)
 
 	_, err = MatchingInstanceTypes(instanceTypes, "test", constraints.MustParse("mem=90000M"))
 	c.Check(err, gc.ErrorMatches, `no instance types in test matching constraints "mem=90000M"`)
@@ -280,7 +280,7 @@ var instanceTypeMatchTests = []struct {
 	{"", "m1.large", []string{"amd64"}},
 	{"cpu-power=100", "m1.small", []string{"amd64", "armhf"}},
 	{"arch=amd64", "m1.small", []string{"amd64"}},
-	{"cpu-cores=3", "m1.xlarge", []string{"amd64"}},
+	{"cores=3", "m1.xlarge", []string{"amd64"}},
 	{"cpu-power=", "t1.micro", []string{"amd64", "armhf"}},
 	{"cpu-power=500", "c1.medium", []string{"amd64", "armhf"}},
 	{"cpu-power=2000", "c1.xlarge", []string{"amd64"}},

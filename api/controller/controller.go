@@ -4,15 +4,18 @@
 package controller
 
 import (
+	"encoding/json"
+
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/api/common/cloudspec"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/core/description"
+	"github.com/juju/juju/permission"
 )
 
 // Client provides methods that the Juju client command uses to interact
@@ -134,12 +137,25 @@ func (c *Client) ModelStatus(tags ...names.ModelTag) ([]base.ModelStatus, error)
 
 		results[i] = base.ModelStatus{
 			UUID:               model.Id(),
-			Life:               r.Life,
+			Life:               string(r.Life),
 			Owner:              owner.Canonical(),
 			HostedMachineCount: r.HostedMachineCount,
 			ServiceCount:       r.ApplicationCount,
+			TotalMachineCount:  len(r.Machines),
 		}
-
+		results[i].Machines = make([]base.Machine, len(r.Machines))
+		for j, mm := range r.Machines {
+			if mm.Hardware != nil && mm.Hardware.Cores != nil {
+				results[i].CoreCount += int(*mm.Hardware.Cores)
+			}
+			results[i].Machines[j] = base.Machine{
+				Id:         mm.Id,
+				InstanceId: mm.InstanceId,
+				HasVote:    mm.HasVote,
+				WantsVote:  mm.WantsVote,
+				Status:     mm.Status,
+			}
+		}
 	}
 	return results, nil
 }
@@ -181,7 +197,7 @@ func (c *Client) modifyControllerUser(action params.ControllerAction, user, acce
 }
 
 // GetControllerAccess returns the access level the user has on the controller.
-func (c *Client) GetControllerAccess(user string) (description.Access, error) {
+func (c *Client) GetControllerAccess(user string) (permission.Access, error) {
 	if !names.IsValidUser(user) {
 		return "", errors.Errorf("invalid username: %q", user)
 	}
@@ -197,20 +213,21 @@ func (c *Client) GetControllerAccess(user string) (description.Access, error) {
 	if err := results.Results[0].Error; err != nil {
 		return "", errors.Trace(err)
 	}
-	return description.Access(results.Results[0].Result.Access), nil
+	return permission.Access(results.Results[0].Result.Access), nil
 }
 
 // MigrationSpec holds the details required to start the migration of
 // a single model.
 type MigrationSpec struct {
 	ModelUUID            string
-	ExternalControl      bool
 	TargetControllerUUID string
 	TargetAddrs          []string
 	TargetCACert         string
 	TargetUser           string
 	TargetPassword       string
-	TargetMacaroon       string
+	TargetMacaroons      []macaroon.Slice
+	ExternalControl      bool
+	SkipInitialPrechecks bool
 }
 
 // Validate performs sanity checks on the migration configuration it
@@ -231,7 +248,7 @@ func (s *MigrationSpec) Validate() error {
 	if !names.IsValidUser(s.TargetUser) {
 		return errors.NotValidf("target user")
 	}
-	if s.TargetPassword == "" && s.TargetMacaroon == "" {
+	if s.TargetPassword == "" && len(s.TargetMacaroons) == 0 {
 		return errors.NotValidf("missing authentication secrets")
 	}
 	return nil
@@ -247,18 +264,25 @@ func (c *Client) InitiateMigration(spec MigrationSpec) (string, error) {
 	if err := spec.Validate(); err != nil {
 		return "", errors.Trace(err)
 	}
+
+	macsJSON, err := macaroonsToJSON(spec.TargetMacaroons)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
 	args := params.InitiateMigrationArgs{
 		Specs: []params.MigrationSpec{{
 			ModelTag: names.NewModelTag(spec.ModelUUID).String(),
 			TargetInfo: params.MigrationTargetInfo{
-				ControllerTag: names.NewModelTag(spec.TargetControllerUUID).String(),
+				ControllerTag: names.NewControllerTag(spec.TargetControllerUUID).String(),
 				Addrs:         spec.TargetAddrs,
 				CACert:        spec.TargetCACert,
 				AuthTag:       names.NewUserTag(spec.TargetUser).String(),
 				Password:      spec.TargetPassword,
-				Macaroon:      spec.TargetMacaroon,
+				Macaroons:     string(macsJSON),
 			},
-			ExternalControl: spec.ExternalControl,
+			ExternalControl:      spec.ExternalControl,
+			SkipInitialPrechecks: spec.SkipInitialPrechecks,
 		}},
 	}
 	response := params.InitiateMigrationResults{}
@@ -273,4 +297,15 @@ func (c *Client) InitiateMigration(spec MigrationSpec) (string, error) {
 		return "", errors.Trace(result.Error)
 	}
 	return result.MigrationId, nil
+}
+
+func macaroonsToJSON(macs []macaroon.Slice) (string, error) {
+	if len(macs) == 0 {
+		return "", nil
+	}
+	out, err := json.Marshal(macs)
+	if err != nil {
+		return "", errors.Annotate(err, "marshalling macaroons")
+	}
+	return string(out), nil
 }

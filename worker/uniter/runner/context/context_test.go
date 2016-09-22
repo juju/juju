@@ -154,13 +154,14 @@ func (s *InterfaceSuite) TestUnitStatusCaching(c *gc.C) {
 	ctx := s.GetContext(c, -1, "")
 	unitStatus, err := ctx.UnitStatus()
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(unitStatus.Status, gc.Equals, "unknown")
+	c.Check(unitStatus.Status, gc.Equals, "waiting")
+	c.Check(unitStatus.Info, gc.Equals, "waiting for machine")
 	c.Check(unitStatus.Data, gc.DeepEquals, map[string]interface{}{})
 
 	// Change remote state.
 	now := time.Now()
 	sInfo := status.StatusInfo{
-		Status:  status.StatusActive,
+		Status:  status.Active,
 		Message: "it works",
 		Since:   &now,
 	}
@@ -170,7 +171,8 @@ func (s *InterfaceSuite) TestUnitStatusCaching(c *gc.C) {
 	// Local view is unchanged.
 	unitStatus, err = ctx.UnitStatus()
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(unitStatus.Status, gc.Equals, "unknown")
+	c.Check(unitStatus.Status, gc.Equals, "waiting")
+	c.Check(unitStatus.Info, gc.Equals, "waiting for machine")
 	c.Check(unitStatus.Data, gc.DeepEquals, map[string]interface{}{})
 }
 

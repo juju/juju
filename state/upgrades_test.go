@@ -13,8 +13,8 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/status"
 )
 
@@ -264,7 +264,7 @@ func (s *upgradesSuite) TestAddFilesystemStatus(c *gc.C) {
 	removeStatusDoc(c, s.state, filesystem)
 	_, err := filesystem.Status()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	s.assertAddFilesystemStatus(c, filesystem, status.StatusPending)
+	s.assertAddFilesystemStatus(c, filesystem, status.Pending)
 }
 
 func (s *upgradesSuite) TestAddFilesystemStatusDoesNotOverwrite(c *gc.C) {
@@ -273,13 +273,13 @@ func (s *upgradesSuite) TestAddFilesystemStatusDoesNotOverwrite(c *gc.C) {
 
 	now := time.Now()
 	sInfo := status.StatusInfo{
-		Status:  status.StatusDestroying,
+		Status:  status.Destroying,
 		Message: "",
 		Since:   &now,
 	}
 	err := filesystem.SetStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertAddFilesystemStatus(c, filesystem, status.StatusDestroying)
+	s.assertAddFilesystemStatus(c, filesystem, status.Destroying)
 }
 
 func (s *upgradesSuite) TestAddFilesystemStatusProvisioned(c *gc.C) {
@@ -291,7 +291,7 @@ func (s *upgradesSuite) TestAddFilesystemStatusProvisioned(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	removeStatusDoc(c, s.state, filesystem)
-	s.assertAddFilesystemStatus(c, filesystem, status.StatusAttaching)
+	s.assertAddFilesystemStatus(c, filesystem, status.Attaching)
 }
 
 func (s *upgradesSuite) TestAddFilesystemStatusAttached(c *gc.C) {
@@ -314,7 +314,7 @@ func (s *upgradesSuite) TestAddFilesystemStatusAttached(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	removeStatusDoc(c, s.state, filesystem)
-	s.assertAddFilesystemStatus(c, filesystem, status.StatusAttached)
+	s.assertAddFilesystemStatus(c, filesystem, status.Attached)
 }
 
 func (s *upgradesSuite) assertAddFilesystemStatus(c *gc.C, filesystem Filesystem, expect status.Status) {
@@ -462,7 +462,7 @@ func (s *upgradesSuite) setupAddDefaultEndpointBindingsToServices(c *gc.C) []*Ap
 		User:        ownerTag,
 		CreatedBy:   ownerTag,
 		DisplayName: "",
-		Access:      description.ReadAccess,
+		Access:      permission.ReadAccess,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

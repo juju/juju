@@ -14,6 +14,7 @@ import (
 	"github.com/juju/utils"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/provider/gce/google"
 )
 
@@ -135,4 +136,9 @@ func parseJSONAuthFile(r io.Reader) (cloud.Credential, error) {
 		credAttrClientEmail: creds.ClientEmail,
 		credAttrPrivateKey:  string(creds.PrivateKey),
 	}), nil
+}
+
+// FinalizeCredential is part of the environs.ProviderCredentials interface.
+func (environProviderCredentials) FinalizeCredential(_ environs.FinalizeCredentialContext, args environs.FinalizeCredentialParams) (*cloud.Credential, error) {
+	return &args.Credential, nil
 }

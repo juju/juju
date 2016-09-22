@@ -13,10 +13,14 @@ import (
 	"github.com/juju/errors"
 	"golang.org/x/crypto/ssh/terminal"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/macaroon.v1"
+	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/authentication"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/juju"
+	"github.com/juju/juju/jujuclient"
 )
 
 const userChangePasswordDoc = `
@@ -31,19 +35,23 @@ Examples:
     juju change-user-password
     juju change-user-password bob
 
-See also: add-user
+See also:
+    add-user
 
 `
 
 func NewChangePasswordCommand() cmd.Command {
-	return modelcmd.WrapController(&changePasswordCommand{})
+	var cmd changePasswordCommand
+	cmd.newAPIConnection = juju.NewAPIConnection
+	return modelcmd.WrapController(&cmd)
 }
 
 // changePasswordCommand changes the password for a user.
 type changePasswordCommand struct {
 	modelcmd.ControllerCommandBase
-	api  ChangePasswordAPI
-	User string
+	newAPIConnection func(juju.NewAPIConnectionParams) (api.Connection, error)
+	api              ChangePasswordAPI
+	User             string
 }
 
 // Info implements Command.Info.
@@ -69,7 +77,6 @@ func (c *changePasswordCommand) Init(args []string) error {
 // ChangePasswordAPI defines the usermanager API methods that the change
 // password command uses.
 type ChangePasswordAPI interface {
-	CreateLocalLoginMacaroon(names.UserTag) (*macaroon.Macaroon, error)
 	SetPassword(username, password string) error
 	Close() error
 }
@@ -118,39 +125,53 @@ func (c *changePasswordCommand) Run(ctx *cmd.Context) error {
 			return errors.Errorf("cannot change password for external user %q", userTag)
 		}
 	}
-
-	if accountDetails != nil && accountDetails.Macaroon == "" {
-		// Generate a macaroon first to guard against I/O failures
-		// occurring after the password has been changed, preventing
-		// future logins.
-		macaroon, err := c.api.CreateLocalLoginMacaroon(userTag)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		accountDetails.Password = ""
-
-		// TODO(axw) update jujuclient with code for marshalling
-		// and unmarshalling macaroons as YAML.
-		macaroonJSON, err := macaroon.MarshalJSON()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		accountDetails.Macaroon = string(macaroonJSON)
-
-		if err := store.UpdateAccount(controllerName, *accountDetails); err != nil {
-			return errors.Annotate(err, "failed to update client credentials")
-		}
-	}
-
 	if err := c.api.SetPassword(userTag.Canonical(), newPassword); err != nil {
 		return block.ProcessBlockedError(err, block.BlockChange)
 	}
+
 	if accountDetails == nil {
 		ctx.Infof("Password for %q has been updated.", c.User)
 	} else {
+		if accountDetails.Password != "" {
+			// Log back in with macaroon authentication, so we can
+			// discard the password without having to log back in
+			// immediately.
+			if err := c.recordMacaroon(accountDetails.User, newPassword); err != nil {
+				return errors.Annotate(err, "recording macaroon")
+			}
+			// Wipe the password from disk. In the event of an
+			// error occurring after SetPassword and before the
+			// account details being updated, the user will be
+			// able to recover by running "juju login".
+			accountDetails.Password = ""
+			if err := store.UpdateAccount(controllerName, *accountDetails); err != nil {
+				return errors.Annotate(err, "failed to update client credentials")
+			}
+		}
 		ctx.Infof("Your password has been updated.")
 	}
 	return nil
+}
+
+func (c *changePasswordCommand) recordMacaroon(user, password string) error {
+	accountDetails := &jujuclient.AccountDetails{User: user}
+	args, err := c.NewAPIConnectionParams(
+		c.ClientStore(), c.ControllerName(), "", accountDetails,
+	)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	args.DialOpts.BakeryClient.WebPageVisitor = httpbakery.NewMultiVisitor(
+		authentication.NewVisitor(accountDetails.User, func(string) (string, error) {
+			return password, nil
+		}),
+		args.DialOpts.BakeryClient.WebPageVisitor,
+	)
+	api, err := c.newAPIConnection(args)
+	if err != nil {
+		return errors.Annotate(err, "connecting to API")
+	}
+	return api.Close()
 }
 
 func readAndConfirmPassword(ctx *cmd.Context) (string, error) {
@@ -159,7 +180,7 @@ func readAndConfirmPassword(ctx *cmd.Context) (string, error) {
 	// on their own lines.
 	//
 	// TODO(axw) retry/loop on failure
-	fmt.Fprint(ctx.Stderr, "password: ")
+	fmt.Fprint(ctx.Stderr, "new password: ")
 	password, err := readPassword(ctx.Stdin)
 	fmt.Fprint(ctx.Stderr, "\n")
 	if err != nil {
@@ -169,7 +190,7 @@ func readAndConfirmPassword(ctx *cmd.Context) (string, error) {
 		return "", errors.Errorf("you must enter a password")
 	}
 
-	fmt.Fprint(ctx.Stderr, "type password again: ")
+	fmt.Fprint(ctx.Stderr, "type new password again: ")
 	verify, err := readPassword(ctx.Stdin)
 	fmt.Fprint(ctx.Stderr, "\n")
 	if err != nil {

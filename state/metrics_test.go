@@ -588,6 +588,16 @@ func (s *MetricSuite) TestUnitMetricBatchesMatchesAllCharms(c *gc.C) {
 	c.Assert(metricBatches, gc.HasLen, 1)
 }
 
+func (s *MetricSuite) TestNoSuchUnitMetricBatches(c *gc.C) {
+	_, err := s.State.MetricBatchesForUnit("chimerical-unit/0")
+	c.Assert(err, gc.ErrorMatches, `unit "chimerical-unit/0" not found`)
+}
+
+func (s *MetricSuite) TestNoSuchApplicationMetricBatches(c *gc.C) {
+	_, err := s.State.MetricBatchesForApplication("unicorn-app")
+	c.Assert(err, gc.ErrorMatches, `application "unicorn-app" not found`)
+}
+
 type MetricLocalCharmSuite struct {
 	ConnSuite
 	unit         *state.Unit
@@ -745,19 +755,31 @@ func (s *MetricLocalCharmSuite) TestModelMetricBatches(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(metricBatches, gc.HasLen, 2)
 
-	c.Check(metricBatches[0].Unit(), gc.Equals, "metered/0")
-	c.Check(metricBatches[0].CharmURL(), gc.Equals, "local:quantal/metered")
-	c.Check(metricBatches[0].ModelUUID(), gc.Equals, s.State.ModelUUID())
-	c.Check(metricBatches[0].Sent(), jc.IsFalse)
-	c.Assert(metricBatches[0].Metrics(), gc.HasLen, 1)
-	c.Check(metricBatches[0].Metrics()[0].Value, gc.Equals, "5")
+	var first, second state.MetricBatch
+	for _, m := range metricBatches {
+		if m.Unit() == "metered/0" {
+			first = m
+		}
+		if m.Unit() == "metered/1" {
+			second = m
+		}
+	}
+	c.Assert(first, gc.NotNil)
+	c.Assert(second, gc.NotNil)
 
-	c.Check(metricBatches[1].Unit(), gc.Equals, "metered/1")
-	c.Check(metricBatches[1].CharmURL(), gc.Equals, "local:quantal/metered")
-	c.Check(metricBatches[1].ModelUUID(), gc.Equals, s.State.ModelUUID())
-	c.Check(metricBatches[1].Sent(), jc.IsFalse)
-	c.Assert(metricBatches[1].Metrics(), gc.HasLen, 1)
-	c.Check(metricBatches[1].Metrics()[0].Value, gc.Equals, "10")
+	c.Check(first.Unit(), gc.Equals, "metered/0")
+	c.Check(first.CharmURL(), gc.Equals, "local:quantal/metered")
+	c.Check(first.ModelUUID(), gc.Equals, s.State.ModelUUID())
+	c.Check(first.Sent(), jc.IsFalse)
+	c.Assert(first.Metrics(), gc.HasLen, 1)
+	c.Check(first.Metrics()[0].Value, gc.Equals, "5")
+
+	c.Check(second.Unit(), gc.Equals, "metered/1")
+	c.Check(second.CharmURL(), gc.Equals, "local:quantal/metered")
+	c.Check(second.ModelUUID(), gc.Equals, s.State.ModelUUID())
+	c.Check(second.Sent(), jc.IsFalse)
+	c.Assert(second.Metrics(), gc.HasLen, 1)
+	c.Check(second.Metrics()[0].Value, gc.Equals, "10")
 
 	// And a single metric batch in the second model.
 	metricBatches, err = st.MetricBatchesForModel()

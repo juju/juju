@@ -120,7 +120,7 @@ func (r *RestoreSuite) TestSetAgentAddressScript(c *gc.C) {
 		"SixtNewControllerAddress:30308",
 	}
 	for _, address := range testServerAddresses {
-		template := setAgentAddressScript(address)
+		template := setAgentAddressScript(address, address)
 		expectedString := fmt.Sprintf("\t\ts/- .*(:[0-9]+)/- %s\\1/\n", address)
 		logger.Infof(fmt.Sprintf("Testing with address %q", address))
 		c.Assert(strings.Contains(template, expectedString), gc.Equals, true)

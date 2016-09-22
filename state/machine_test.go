@@ -903,7 +903,7 @@ func (s *MachineSuite) TestMachineSetInstanceStatus(c *gc.C) {
 
 	now := time.Now()
 	sInfo := status.StatusInfo{
-		Status:  status.StatusRunning,
+		Status:  status.Running,
 		Message: "alive",
 		Since:   &now,
 	}
@@ -915,7 +915,7 @@ func (s *MachineSuite) TestMachineSetInstanceStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	machineStatus, err := s.machine.InstanceStatus()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machineStatus.Status, gc.DeepEquals, status.StatusRunning)
+	c.Assert(machineStatus.Status, gc.DeepEquals, status.Running)
 	c.Assert(machineStatus.Message, gc.DeepEquals, "alive")
 }
 
@@ -1156,7 +1156,7 @@ func (s *MachineSuite) TestWatchPrincipalUnits(c *gc.C) {
 	// Change the unit; no change.
 	now := time.Now()
 	sInfo := status.StatusInfo{
-		Status:  status.StatusIdle,
+		Status:  status.Idle,
 		Message: "",
 		Since:   &now,
 	}
@@ -1190,7 +1190,7 @@ func (s *MachineSuite) TestWatchPrincipalUnits(c *gc.C) {
 
 	// Change the subordinate; no change.
 	sInfo = status.StatusInfo{
-		Status:  status.StatusIdle,
+		Status:  status.Idle,
 		Message: "",
 		Since:   &now,
 	}
@@ -1271,7 +1271,7 @@ func (s *MachineSuite) TestWatchUnits(c *gc.C) {
 	// Change the unit; no change.
 	now := time.Now()
 	sInfo := status.StatusInfo{
-		Status:  status.StatusIdle,
+		Status:  status.Idle,
 		Message: "",
 		Since:   &now,
 	}
@@ -1306,7 +1306,7 @@ func (s *MachineSuite) TestWatchUnits(c *gc.C) {
 
 	// Change the subordinate; no change.
 	sInfo = status.StatusInfo{
-		Status:  status.StatusIdle,
+		Status:  status.Idle,
 		Message: "",
 		Since:   &now,
 	}
@@ -2177,14 +2177,14 @@ func (s *MachineSuite) TestSetSupportedContainersSetsUnknownToError(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	statusInfo, err := supportedContainer.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Status, gc.Equals, status.StatusPending)
+	c.Assert(statusInfo.Status, gc.Equals, status.Pending)
 
 	// An unsupported (lxd) container will have an error status.
 	err = container.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	statusInfo, err = container.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Status, gc.Equals, status.StatusError)
+	c.Assert(statusInfo.Status, gc.Equals, status.Error)
 	c.Assert(statusInfo.Message, gc.Equals, "unsupported container")
 	c.Assert(statusInfo.Data, gc.DeepEquals, map[string]interface{}{"type": "lxd"})
 }
@@ -2212,7 +2212,7 @@ func (s *MachineSuite) TestSupportsNoContainersSetsAllToError(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		statusInfo, err := container.Status()
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(statusInfo.Status, gc.Equals, status.StatusError)
+		c.Assert(statusInfo.Status, gc.Equals, status.Error)
 		c.Assert(statusInfo.Message, gc.Equals, "unsupported container")
 		containerType := state.ContainerTypeFromId(container.Id())
 		c.Assert(statusInfo.Data, gc.DeepEquals, map[string]interface{}{"type": string(containerType)})

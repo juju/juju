@@ -16,9 +16,9 @@ import (
 
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
 )
@@ -265,7 +265,7 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 
 	uuid := args.Config.UUID()
 	session := st.session.Copy()
-	newSt, err := newState(names.NewModelTag(uuid), controllerInfo.ModelTag, session, st.mongoInfo, st.newPolicy)
+	newSt, err := newState(names.NewModelTag(uuid), controllerInfo.ModelTag, session, st.mongoInfo, st.newPolicy, st.clock)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "could not create state for new model")
 	}
@@ -321,7 +321,7 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	_, err = newSt.SetUserAccess(newModel.Owner(), newModel.ModelTag(), description.AdminAccess)
+	_, err = newSt.SetUserAccess(newModel.Owner(), newModel.ModelTag(), permission.AdminAccess)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "granting admin permission to the owner")
 	}
@@ -366,7 +366,7 @@ func validateCloudRegion(cloud jujucloud.Cloud, cloudName, regionName string) (t
 func validateCloudCredential(
 	cloud jujucloud.Cloud,
 	cloudName string,
-	cloudCredentials map[names.CloudCredentialTag]jujucloud.Credential,
+	cloudCredentials map[string]jujucloud.Credential,
 	cloudCredential names.CloudCredentialTag,
 ) (txn.Op, error) {
 	if cloudCredential != (names.CloudCredentialTag{}) {
@@ -375,7 +375,7 @@ func validateCloudCredential(
 		}
 		var found bool
 		for tag := range cloudCredentials {
-			if tag.Canonical() == cloudCredential.Canonical() {
+			if tag == cloudCredential.Canonical() {
 				found = true
 				break
 			}
@@ -611,7 +611,7 @@ func (m *Model) refresh(query mongo.Query) error {
 }
 
 // Users returns a slice of all users for this model.
-func (m *Model) Users() ([]description.UserAccess, error) {
+func (m *Model) Users() ([]permission.UserAccess, error) {
 	if m.st.ModelUUID() != m.UUID() {
 		return nil, errors.New("cannot lookup model users outside the current model")
 	}
@@ -624,7 +624,7 @@ func (m *Model) Users() ([]description.UserAccess, error) {
 		return nil, errors.Trace(err)
 	}
 
-	var modelUsers []description.UserAccess
+	var modelUsers []permission.UserAccess
 	for _, doc := range userDocs {
 		// check if the User belonging to this model user has
 		// been deleted, in this case we should not return it.
@@ -846,7 +846,7 @@ func (m *Model) destroyOps(ensureNoHostedModels, ensureEmpty bool) ([]txn.Op, er
 	// causes a state change that's still consistent; so we make
 	// sure the cleanup ops are the last thing that will execute.
 	if m.isControllerModel() {
-		cleanupOp := st.newCleanupOp(cleanupModelsForDyingController, modelUUID)
+		cleanupOp := newCleanupOp(cleanupModelsForDyingController, modelUUID)
 		ops = append(ops, cleanupOp)
 	}
 	if !isEmpty {
@@ -856,8 +856,8 @@ func (m *Model) destroyOps(ensureNoHostedModels, ensureEmpty bool) ([]txn.Op, er
 		// hosted model in the course of destroying the controller. In
 		// that case we'll get errors if we try to enqueue hosted-model
 		// cleanups, because the cleanups collection is non-global.
-		cleanupMachinesOp := st.newCleanupOp(cleanupMachinesForDyingModel, modelUUID)
-		cleanupServicesOp := st.newCleanupOp(cleanupServicesForDyingModel, modelUUID)
+		cleanupMachinesOp := newCleanupOp(cleanupMachinesForDyingModel, modelUUID)
+		cleanupServicesOp := newCleanupOp(cleanupServicesForDyingModel, modelUUID)
 		ops = append(ops, cleanupMachinesOp, cleanupServicesOp)
 	}
 	return append(prereqOps, ops...), nil

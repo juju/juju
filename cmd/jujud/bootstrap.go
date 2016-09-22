@@ -111,7 +111,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 
 	err = c.ReadConfig("machine-0")
 	if err != nil {
-		return err
+		return errors.Annotate(err, "cannot read config")
 	}
 	agentConfig := c.CurrentConfig()
 
@@ -141,7 +141,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		Config: args.ControllerModelConfig,
 	})
 	if err != nil {
-		return err
+		return errors.Annotate(err, "new environ")
 	}
 	newConfigAttrs := make(map[string]interface{})
 
@@ -175,11 +175,11 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 
 	instances, err := env.Instances([]instance.Id{args.BootstrapMachineInstanceId})
 	if err != nil {
-		return err
+		return errors.Annotate(err, "getting bootstrap instance")
 	}
 	addrs, err := instances[0].Addresses()
 	if err != nil {
-		return err
+		return errors.Annotate(err, "bootstrap instance addresses")
 	}
 
 	// When machine addresses are reported from state, they have
@@ -226,7 +226,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	}
 
 	if err := c.startMongo(addrs, agentConfig); err != nil {
-		return err
+		return errors.Annotate(err, "failed to start mongo")
 	}
 
 	controllerModelCfg, err := env.Config().Apply(newConfigAttrs)
@@ -465,7 +465,7 @@ func storeImageMetadataInState(st *state.State, env environs.Environ, source str
 	metadataState := make([]cloudimagemetadata.Metadata, len(existingMetadata))
 	for i, one := range existingMetadata {
 		m := cloudimagemetadata.Metadata{
-			cloudimagemetadata.MetadataAttributes{
+			MetadataAttributes: cloudimagemetadata.MetadataAttributes{
 				Stream:          one.Stream,
 				Region:          one.RegionName,
 				Arch:            one.Arch,
@@ -474,8 +474,8 @@ func storeImageMetadataInState(st *state.State, env environs.Environ, source str
 				Source:          source,
 				Version:         one.Version,
 			},
-			priority,
-			one.Id,
+			Priority: priority,
+			ImageId:  one.Id,
 		}
 		s, err := seriesFromVersion(one.Version)
 		if err != nil {

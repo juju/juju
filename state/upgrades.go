@@ -4,8 +4,6 @@
 package state
 
 import (
-	"time"
-
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v2"
@@ -87,10 +85,9 @@ func AddFilesystemStatus(st *State) error {
 			if err != nil {
 				return errors.Annotate(err, "deciding filesystem status")
 			}
-			// TODO(perrito666) 2016-05-02 lp:1558657
 			ops = append(ops, createStatusOp(st, filesystem.globalKey(), statusDoc{
 				Status:  status,
-				Updated: time.Now().UnixNano(),
+				Updated: st.clock.Now().UnixNano(),
 			}))
 		}
 		if len(ops) > 0 {
@@ -105,7 +102,7 @@ func AddFilesystemStatus(st *State) error {
 // it should be Attaching; otherwise it is Attached.
 func upgradingFilesystemStatus(st *State, filesystem Filesystem) (status.Status, error) {
 	if _, err := filesystem.Info(); errors.IsNotProvisioned(err) {
-		return status.StatusPending, nil
+		return status.Pending, nil
 	}
 	attachments, err := st.FilesystemAttachments(filesystem.FilesystemTag())
 	if err != nil {
@@ -114,10 +111,10 @@ func upgradingFilesystemStatus(st *State, filesystem Filesystem) (status.Status,
 	for _, attachment := range attachments {
 		_, err := attachment.Info()
 		if errors.IsNotProvisioned(err) {
-			return status.StatusAttaching, nil
+			return status.Attaching, nil
 		}
 	}
-	return status.StatusAttached, nil
+	return status.Attached, nil
 }
 
 // MigrateSettingsSchema migrates the schema of the settings collection,

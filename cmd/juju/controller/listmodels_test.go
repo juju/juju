@@ -30,10 +30,11 @@ type ModelsSuite struct {
 var _ = gc.Suite(&ModelsSuite{})
 
 type fakeModelMgrAPIClient struct {
-	err    error
-	user   string
-	models []base.UserModel
-	all    bool
+	err          error
+	user         string
+	models       []base.UserModel
+	all          bool
+	inclMachines bool
 }
 
 func (f *fakeModelMgrAPIClient) Close() error {
@@ -68,11 +69,12 @@ func (f *fakeModelMgrAPIClient) ModelInfo(tags []names.ModelTag) ([]params.Model
 				Name:     model.Name,
 				UUID:     model.UUID,
 				OwnerTag: names.NewUserTag(model.Owner).String(),
+				CloudTag: "cloud-dummy",
 			}
 			switch model.Name {
 			case "test-model1":
 				last1 := time.Date(2015, 3, 20, 0, 0, 0, 0, time.UTC)
-				result.Status.Status = status.StatusActive
+				result.Status.Status = status.Active
 				if f.user != "" {
 					result.Users = []params.ModelUserInfo{{
 						UserName:       f.user,
@@ -80,9 +82,15 @@ func (f *fakeModelMgrAPIClient) ModelInfo(tags []names.ModelTag) ([]params.Model
 						Access:         params.ModelReadAccess,
 					}}
 				}
+				if f.inclMachines {
+					one := uint64(1)
+					result.Machines = []params.ModelMachineInfo{
+						{Id: "0", Hardware: &params.MachineHardware{Cores: &one}}, {Id: "1"},
+					}
+				}
 			case "test-model2":
 				last2 := time.Date(2015, 3, 1, 0, 0, 0, 0, time.UTC)
-				result.Status.Status = status.StatusActive
+				result.Status.Status = status.Active
 				if f.user != "" {
 					result.Users = []params.ModelUserInfo{{
 						UserName:       f.user,
@@ -91,7 +99,7 @@ func (f *fakeModelMgrAPIClient) ModelInfo(tags []names.ModelTag) ([]params.Model
 					}}
 				}
 			case "test-model3":
-				result.Status.Status = status.StatusDestroying
+				result.Status.Status = status.Destroying
 			}
 			results[i].Result = result
 		}
@@ -194,16 +202,32 @@ func (s *ModelsSuite) TestAllModelsNoneCurrent(c *gc.C) {
 }
 
 func (s *ModelsSuite) TestModelsUUID(c *gc.C) {
+	s.api.inclMachines = true
 	context, err := testing.RunCommand(c, s.newCommand(), "--uuid")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.api.user, gc.Equals, "admin@local")
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
 		"CONTROLLER: fake\n"+
 		"\n"+
-		"MODEL                        UUID              OWNER            STATUS      ACCESS  LAST CONNECTION\n"+
-		"test-model1*                 test-model1-UUID  admin@local      active      read    2015-03-20\n"+
-		"carlotta/test-model2         test-model2-UUID  carlotta@local   active      write   2015-03-01\n"+
-		"daiwik@external/test-model3  test-model3-UUID  daiwik@external  destroying          never connected\n"+
+		"MODEL                        UUID              OWNER            STATUS      MACHINES  CORES  ACCESS  LAST CONNECTION\n"+
+		"test-model1*                 test-model1-UUID  admin@local      active             2      1  read    2015-03-20\n"+
+		"carlotta/test-model2         test-model2-UUID  carlotta@local   active             0      -  write   2015-03-01\n"+
+		"daiwik@external/test-model3  test-model3-UUID  daiwik@external  destroying         0      -          never connected\n"+
+		"\n")
+}
+
+func (s *ModelsSuite) TestModelsMachineInfo(c *gc.C) {
+	s.api.inclMachines = true
+	context, err := testing.RunCommand(c, s.newCommand())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.api.user, gc.Equals, "admin@local")
+	c.Assert(testing.Stdout(context), gc.Equals, ""+
+		"CONTROLLER: fake\n"+
+		"\n"+
+		"MODEL                        OWNER            STATUS      MACHINES  CORES  ACCESS  LAST CONNECTION\n"+
+		"test-model1*                 admin@local      active             2      1  read    2015-03-20\n"+
+		"carlotta/test-model2         carlotta@local   active             0      -  write   2015-03-01\n"+
+		"daiwik@external/test-model3  daiwik@external  destroying         0      -          never connected\n"+
 		"\n")
 }
 

@@ -35,17 +35,17 @@ func (inst *environInstance) Id() instance.Id {
 
 // Status implements instance.Instance.
 func (inst *environInstance) Status() instance.InstanceStatus {
-	jujuStatus := status.StatusPending
+	jujuStatus := status.Pending
 	instStatus := inst.raw.Status()
 	switch instStatus {
 	case lxdclient.StatusStarting, lxdclient.StatusStarted:
-		jujuStatus = status.StatusAllocating
+		jujuStatus = status.Allocating
 	case lxdclient.StatusRunning:
-		jujuStatus = status.StatusRunning
+		jujuStatus = status.Running
 	case lxdclient.StatusFreezing, lxdclient.StatusFrozen, lxdclient.StatusThawed, lxdclient.StatusStopping, lxdclient.StatusStopped:
-		jujuStatus = status.StatusEmpty
+		jujuStatus = status.Empty
 	default:
-		jujuStatus = status.StatusEmpty
+		jujuStatus = status.Empty
 	}
 	return instance.InstanceStatus{
 		Status:  jujuStatus,

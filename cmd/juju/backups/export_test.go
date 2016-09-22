@@ -72,7 +72,7 @@ func NewRestoreCommandForTest(
 	api RestoreAPI,
 	getArchive func(string) (ArchiveReader, *params.BackupsMetadataResult, error),
 	newEnviron func(environs.OpenParams) (environs.Environ, error),
-	getRebootstrapParams func(string, *params.BackupsMetadataResult) (*restoreBootstrapParams, error),
+	getRebootstrapParams func(*cmd.Context, string, *params.BackupsMetadataResult) (*restoreBootstrapParams, error),
 ) cmd.Command {
 	c := &restoreCommand{
 		getArchiveFunc:           getArchive,
@@ -102,8 +102,8 @@ func GetEnvironFunc(e environs.Environ) func(environs.OpenParams) (environs.Envi
 	}
 }
 
-func GetRebootstrapParamsFunc(cloud string) func(string, *params.BackupsMetadataResult) (*restoreBootstrapParams, error) {
-	return func(string, *params.BackupsMetadataResult) (*restoreBootstrapParams, error) {
+func GetRebootstrapParamsFunc(cloud string) func(*cmd.Context, string, *params.BackupsMetadataResult) (*restoreBootstrapParams, error) {
+	return func(*cmd.Context, string, *params.BackupsMetadataResult) (*restoreBootstrapParams, error) {
 		return &restoreBootstrapParams{
 			ControllerConfig: testing.FakeControllerConfig(),
 			Cloud: environs.CloudSpec{
@@ -115,8 +115,8 @@ func GetRebootstrapParamsFunc(cloud string) func(string, *params.BackupsMetadata
 	}
 }
 
-func GetRebootstrapParamsFuncWithError() func(string, *params.BackupsMetadataResult) (*restoreBootstrapParams, error) {
-	return func(string, *params.BackupsMetadataResult) (*restoreBootstrapParams, error) {
+func GetRebootstrapParamsFuncWithError() func(*cmd.Context, string, *params.BackupsMetadataResult) (*restoreBootstrapParams, error) {
+	return func(*cmd.Context, string, *params.BackupsMetadataResult) (*restoreBootstrapParams, error) {
 		return nil, errors.New("failed")
 	}
 }

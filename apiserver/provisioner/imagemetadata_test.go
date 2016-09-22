@@ -87,8 +87,14 @@ func (s *ImageMetadataSuite) TestMetadataNotInStateButInDataSources(c *gc.C) {
 	// Also make sure that these images metadata has been written to state for re-use
 	saved, err := s.State.CloudImageMetadataStorage.FindMetadata(criteria)
 	c.Assert(err, jc.ErrorIsNil)
+	stateExpected := s.convertCloudImageMetadata(expected[0])
+	if len(saved["default cloud images"]) == len(stateExpected) {
+		for i, image := range saved["default cloud images"] {
+			stateExpected[i].DateCreated = image.DateCreated
+		}
+	}
 	c.Assert(saved, gc.DeepEquals, map[string][]cloudimagemetadata.Metadata{
-		"default cloud images": s.convertCloudImageMetadata(expected[0]),
+		"default cloud images": stateExpected,
 	})
 }
 
@@ -139,6 +145,7 @@ func (s *ImageMetadataSuite) convertCloudImageMetadata(all []params.CloudImageMe
 			},
 			one.Priority,
 			one.ImageId,
+			0,
 		}
 	}
 	return expected

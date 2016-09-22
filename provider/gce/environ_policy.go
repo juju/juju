@@ -34,7 +34,7 @@ var unsupportedConstraints = []string{
 // instance types.  See instancetypes.go.
 var instanceTypeConstraints = []string{
 	constraints.Arch, // Arches
-	constraints.CpuCores,
+	constraints.Cores,
 	constraints.CpuPower,
 	constraints.Mem,
 	constraints.Container, // VirtType

@@ -673,7 +673,7 @@ func destroyVolumeOps(st *State, v *volume) []txn.Op {
 			Update: bson.D{{"$set", bson.D{{"life", Dead}}}},
 		}}
 	}
-	cleanupOp := st.newCleanupOp(cleanupAttachmentsForDyingVolume, v.doc.Name)
+	cleanupOp := newCleanupOp(cleanupAttachmentsForDyingVolume, v.doc.Name)
 	hasAttachments := bson.D{{"attachmentcount", bson.D{{"$gt", 0}}}}
 	return []txn.Op{{
 		C:      volumesC,
@@ -747,9 +747,8 @@ func (st *State) addVolumeOps(params VolumeParams, machineId string) ([]txn.Op, 
 		return nil, names.VolumeTag{}, errors.Annotate(err, "cannot generate volume name")
 	}
 	status := statusDoc{
-		Status: status.StatusPending,
-		// TODO(fwereade): 2016-03-17 lp:1558657
-		Updated: time.Now().UnixNano(),
+		Status:  status.Pending,
+		Updated: st.clock.Now().UnixNano(),
 	}
 	doc := volumeDoc{
 		Name:      name,
@@ -1040,12 +1039,12 @@ func (st *State) VolumeStatus(tag names.VolumeTag) (status.StatusInfo, error) {
 // SetVolumeStatus sets the status of the specified volume.
 func (st *State) SetVolumeStatus(tag names.VolumeTag, volumeStatus status.Status, info string, data map[string]interface{}, updated *time.Time) error {
 	switch volumeStatus {
-	case status.StatusAttaching, status.StatusAttached, status.StatusDetaching, status.StatusDetached, status.StatusDestroying:
-	case status.StatusError:
+	case status.Attaching, status.Attached, status.Detaching, status.Detached, status.Destroying:
+	case status.Error:
 		if info == "" {
 			return errors.Errorf("cannot set status %q without info", volumeStatus)
 		}
-	case status.StatusPending:
+	case status.Pending:
 		// If a volume is not yet provisioned, we allow its status
 		// to be set back to pending (when a retry is to occur).
 		v, err := st.Volume(tag)

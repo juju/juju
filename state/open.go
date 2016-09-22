@@ -6,20 +6,20 @@ package state
 import (
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
+	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
@@ -41,7 +41,7 @@ func Open(
 	info *mongo.MongoInfo, opts mongo.DialOpts,
 	newPolicy NewPolicyFunc,
 ) (*State, error) {
-	st, err := open(controllerModelTag, info, opts, newPolicy)
+	st, err := open(controllerModelTag, info, opts, newPolicy, clock.WallClock)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -64,6 +64,7 @@ func open(
 	controllerModelTag names.ModelTag,
 	info *mongo.MongoInfo, opts mongo.DialOpts,
 	newPolicy NewPolicyFunc,
+	clock clock.Clock,
 ) (*State, error) {
 	logger.Infof("opening state, mongo addresses: %q; entity %v", info.Addrs, info.Tag)
 	logger.Debugf("dialing mongo")
@@ -80,7 +81,7 @@ func open(
 	}
 	logger.Debugf("mongodb login successful")
 
-	st, err := newState(controllerModelTag, controllerModelTag, session, info, newPolicy)
+	st, err := newState(controllerModelTag, controllerModelTag, session, info, newPolicy, clock)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -104,6 +105,10 @@ func mongodbLogin(session *mgo.Session, mongoInfo *mongo.MongoInfo) error {
 
 // InitializeParams contains the parameters for initializing the state database.
 type InitializeParams struct {
+	// Clock wraps all calls time. Real uses use clock.WallClock,
+	// tests may override with a testing clock.
+	Clock clock.Clock
+
 	// ControllerModelArgs contains the arguments for creating
 	// the controller model.
 	ControllerModelArgs ModelArgs
@@ -147,6 +152,9 @@ type InitializeParams struct {
 
 // Validate checks that the state initialization parameters are valid.
 func (p InitializeParams) Validate() error {
+	if p.Clock == nil {
+		return errors.NotValidf("missing clock")
+	}
 	if err := p.ControllerModelArgs.Validate(); err != nil {
 		return errors.Trace(err)
 	}
@@ -176,10 +184,14 @@ func (p InitializeParams) Validate() error {
 	if _, err := validateCloudCredentials(p.Cloud, p.CloudName, p.CloudCredentials); err != nil {
 		return errors.Annotate(err, "validating cloud credentials")
 	}
+	creds := make(map[string]cloud.Credential, len(p.CloudCredentials))
+	for tag, cred := range p.CloudCredentials {
+		creds[tag.Canonical()] = cred
+	}
 	if _, err := validateCloudCredential(
 		p.Cloud,
 		p.CloudName,
-		p.CloudCredentials,
+		creds,
 		p.ControllerModelArgs.CloudCredential,
 	); err != nil {
 		return errors.Annotate(err, "validating controller model cloud credential")
@@ -198,7 +210,7 @@ func Initialize(args InitializeParams) (_ *State, err error) {
 	// When creating the controller model, the new model
 	// UUID is also used as the controller UUID.
 	modelTag := names.NewModelTag(args.ControllerModelArgs.Config.UUID())
-	st, err := open(modelTag, args.MongoInfo, args.MongoDialOpts, args.NewPolicy)
+	st, err := open(modelTag, args.MongoInfo, args.MongoDialOpts, args.NewPolicy, args.Clock)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -315,16 +327,12 @@ func (st *State) modelSetupOps(controllerUUID string, args ModelArgs, inherited 
 	modelUUID := args.Config.UUID()
 	modelStatusDoc := statusDoc{
 		ModelUUID: modelUUID,
-		// TODO(fwereade): 2016-03-17 lp:1558657
-		Updated: time.Now().UnixNano(),
-		// TODO(axw) 2016-04-13 lp:1569632
-		// We need to decide how we will
-		// represent migration in model status.
-		Status: status.StatusAvailable,
+		Updated:   st.clock.Now().UnixNano(),
+		Status:    status.Available,
 	}
 
 	modelUserOps := createModelUserOps(
-		modelUUID, args.Owner, args.Owner, args.Owner.Name(), nowToTheSecond(), description.AdminAccess,
+		modelUUID, args.Owner, args.Owner, args.Owner.Name(), nowToTheSecond(), permission.AdminAccess,
 	)
 	ops := []txn.Op{
 		createStatusOp(st, modelGlobalKey, modelStatusDoc),
@@ -454,6 +462,7 @@ func newState(
 	modelTag, controllerModelTag names.ModelTag,
 	session *mgo.Session, mongoInfo *mongo.MongoInfo,
 	newPolicy NewPolicyFunc,
+	clock clock.Clock,
 ) (_ *State, err error) {
 
 	defer func() {
@@ -474,6 +483,7 @@ func newState(
 
 	// Create State.
 	st := &State{
+		clock:              clock,
 		modelTag:           modelTag,
 		controllerModelTag: controllerModelTag,
 		mongoInfo:          mongoInfo,

@@ -197,6 +197,10 @@ func (st *State) queryMetricBatches(query bson.M) ([]MetricBatch, error) {
 
 // MetricBatchesForUnit returns metric batches for the given unit.
 func (st *State) MetricBatchesForUnit(unit string) ([]MetricBatch, error) {
+	_, err := st.Unit(unit)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return st.queryMetricBatches(bson.M{"unit": unit})
 }
 
@@ -240,8 +244,7 @@ func (st *State) MetricBatch(id string) (*MetricBatch, error) {
 // CleanupOldMetrics looks for metrics that are 24 hours old (or older)
 // and have been sent. Any metrics it finds are deleted.
 func (st *State) CleanupOldMetrics() error {
-	// TODO(fwereade): 2016-03-17 lp:1558657
-	now := time.Now()
+	now := st.clock.Now()
 	metrics, closer := st.getCollection(metricsC)
 	defer closer()
 	// Nothing else in the system will interact with sent metrics, and nothing needs
@@ -404,8 +407,7 @@ func setSentOps(batchUUIDs []string, deleteTime time.Time) []txn.Op {
 
 // SetMetricBatchesSent sets sent on each MetricBatch corresponding to the uuids provided.
 func (st *State) SetMetricBatchesSent(batchUUIDs []string) error {
-	// TODO(fwereade): 2016-03-17 lp:1558657
-	deleteTime := time.Now().UTC().Add(CleanupAge)
+	deleteTime := st.clock.Now().UTC().Add(CleanupAge)
 	ops := setSentOps(batchUUIDs, deleteTime)
 	if err := st.runTransaction(ops); err != nil {
 		return errors.Annotatef(err, "cannot set metric sent in bulk call")

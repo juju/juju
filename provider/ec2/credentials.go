@@ -15,6 +15,7 @@ import (
 	"gopkg.in/ini.v1"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/environs"
 )
 
 type environProviderCredentials struct{}
@@ -125,4 +126,9 @@ func (environProviderCredentials) detectEnvCredentials() (*cloud.CloudCredential
 		AuthCredentials: map[string]cloud.Credential{
 			user: accessKeyCredential,
 		}}, nil
+}
+
+// FinalizeCredential is part of the environs.ProviderCredentials interface.
+func (environProviderCredentials) FinalizeCredential(_ environs.FinalizeCredentialContext, args environs.FinalizeCredentialParams) (*cloud.Credential, error) {
+	return &args.Credential, nil
 }

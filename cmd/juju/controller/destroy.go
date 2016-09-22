@@ -125,7 +125,7 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 	defer api.Close()
 
 	// Obtain controller environ so we can clean up afterwards.
-	controllerEnviron, err := c.getControllerEnviron(store, controllerName, api)
+	controllerEnviron, err := c.getControllerEnviron(ctx, store, controllerName, api)
 	if err != nil {
 		return errors.Annotate(err, "getting controller environ")
 	}
@@ -186,7 +186,7 @@ func (c *destroyCommand) checkNoAliveHostedModels(ctx *cmd.Context, models []mod
 	// and there are models still alive.
 	var buf bytes.Buffer
 	for _, model := range models {
-		if model.Life != params.Alive {
+		if model.Life != string(params.Alive) {
 			continue
 		}
 		buf.WriteString(fmtModelStatus(model))
@@ -223,7 +223,7 @@ func (c *destroyCommand) ensureUserFriendlyErrorLog(destroyErr error, ctx *cmd.C
 				err = block.FormatTabularBlockedModels(out, info)
 			}
 			if err != nil {
-				logger.Errorf("Unable to list blocked models: %s", err)
+				logger.Errorf("Unable to list models: %s", err)
 				return cmd.ErrSilent
 			}
 			ctx.Infof(out.String())
@@ -237,10 +237,11 @@ func (c *destroyCommand) ensureUserFriendlyErrorLog(destroyErr error, ctx *cmd.C
 	return destroyErr
 }
 
-const destroyControllerBlockedMsg = `there are blocks preventing controller destruction
-To remove all blocks in the controller, please run:
+const destroyControllerBlockedMsg = `there are models with disabled commands preventing controller destruction
 
-    juju controller remove-blocks
+To enable controller destruction, please run:
+
+    juju enable-destroy-controller
 
 `
 
@@ -307,11 +308,12 @@ func (c *destroyCommandBase) Init(args []string) error {
 // Environ by first checking the config store, then querying the
 // API if the information is not in the store.
 func (c *destroyCommandBase) getControllerEnviron(
+	ctx *cmd.Context,
 	store jujuclient.ClientStore,
 	controllerName string,
 	sysAPI destroyControllerAPI,
 ) (environs.Environ, error) {
-	env, err := c.getControllerEnvironFromStore(store, controllerName)
+	env, err := c.getControllerEnvironFromStore(ctx, store, controllerName)
 	if errors.IsNotFound(err) {
 		return c.getControllerEnvironFromAPI(sysAPI, controllerName)
 	} else if err != nil {
@@ -321,10 +323,11 @@ func (c *destroyCommandBase) getControllerEnviron(
 }
 
 func (c *destroyCommandBase) getControllerEnvironFromStore(
+	ctx *cmd.Context,
 	store jujuclient.ClientStore,
 	controllerName string,
 ) (environs.Environ, error) {
-	bootstrapConfig, params, err := modelcmd.NewGetBootstrapConfigParamsFunc(store)(controllerName)
+	bootstrapConfig, params, err := modelcmd.NewGetBootstrapConfigParamsFunc(ctx, store)(controllerName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

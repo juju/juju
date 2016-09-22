@@ -6,6 +6,7 @@
 package controller
 
 import (
+	"encoding/json"
 	"sort"
 
 	"github.com/juju/errors"
@@ -21,9 +22,9 @@ import (
 	"github.com/juju/juju/apiserver/common/cloudspec"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/core/description"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/migration"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 )
@@ -89,25 +90,8 @@ func NewControllerAPI(
 	}, nil
 }
 
-func (s *ControllerAPI) hasReadAccess() (bool, error) {
-	canRead, err := s.authorizer.HasPermission(description.ReadAccess, s.state.ModelTag())
-	if errors.IsNotFound(err) {
-		return false, nil
-	}
-	return canRead, err
-
-}
-
-func (s *ControllerAPI) hasWriteAccess() (bool, error) {
-	canWrite, err := s.authorizer.HasPermission(description.WriteAccess, s.state.ModelTag())
-	if errors.IsNotFound(err) {
-		return false, nil
-	}
-	return canWrite, err
-}
-
 func (s *ControllerAPI) checkHasAdmin() error {
-	isAdmin, err := s.authorizer.HasPermission(description.SuperuserAccess, s.state.ControllerTag())
+	isAdmin, err := s.authorizer.HasPermission(permission.SuperuserAccess, s.state.ControllerTag())
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -325,7 +309,7 @@ func (c *ControllerAPI) ModelStatus(req params.Entities) (params.ModelStatusResu
 // have on the controller.
 func (c *ControllerAPI) GetControllerAccess(req params.Entities) (params.UserAccessResults, error) {
 	results := params.UserAccessResults{}
-	isAdmin, err := c.authorizer.HasPermission(description.SuperuserAccess, c.state.ControllerTag())
+	isAdmin, err := c.authorizer.HasPermission(permission.SuperuserAccess, c.state.ControllerTag())
 	if err != nil {
 		return results, errors.Trace(err)
 	}
@@ -398,7 +382,7 @@ func (c *ControllerAPI) initiateOneMigration(spec params.MigrationSpec) (string,
 
 	// Construct target info.
 	specTarget := spec.TargetInfo
-	controllerTag, err := names.ParseModelTag(specTarget.ControllerTag)
+	controllerTag, err := names.ParseControllerTag(specTarget.ControllerTag)
 	if err != nil {
 		return "", errors.Annotate(err, "controller tag")
 	}
@@ -406,12 +390,10 @@ func (c *ControllerAPI) initiateOneMigration(spec params.MigrationSpec) (string,
 	if err != nil {
 		return "", errors.Annotate(err, "auth tag")
 	}
-	var mac *macaroon.Macaroon
-	if specTarget.Macaroon != "" {
-		mac = new(macaroon.Macaroon)
-		err := mac.UnmarshalJSON([]byte(specTarget.Macaroon))
-		if err != nil {
-			return "", errors.Annotate(err, "invalid macaroon")
+	var macs []macaroon.Slice
+	if specTarget.Macaroons != "" {
+		if err := json.Unmarshal([]byte(specTarget.Macaroons), &macs); err != nil {
+			return "", errors.Annotate(err, "invalid macaroons")
 		}
 	}
 	targetInfo := coremigration.TargetInfo{
@@ -420,12 +402,14 @@ func (c *ControllerAPI) initiateOneMigration(spec params.MigrationSpec) (string,
 		CACert:        specTarget.CACert,
 		AuthTag:       authTag,
 		Password:      specTarget.Password,
-		Macaroon:      mac,
+		Macaroons:     macs,
 	}
 
 	// Check if the migration is likely to succeed.
-	if err := runMigrationPrechecks(hostedState, targetInfo); err != nil {
-		return "", errors.Trace(err)
+	if !(spec.ExternalControl && spec.SkipInitialPrechecks) {
+		if err := runMigrationPrechecks(hostedState, targetInfo); err != nil {
+			return "", errors.Trace(err)
+		}
 	}
 
 	// Trigger the migration.
@@ -464,25 +448,31 @@ func (c *ControllerAPI) modelStatus(tag string) (params.ModelStatus, error) {
 		}
 	}
 
-	services, err := st.AllApplications()
+	applications, err := st.AllApplications()
 	if err != nil {
 		return status, errors.Trace(err)
 	}
 
-	env, err := st.Model()
+	model, err := st.Model()
 	if err != nil {
 		return status, errors.Trace(err)
 	}
+	if err != nil {
+		return status, errors.Trace(err)
+	}
+
+	modelMachines, err := common.ModelMachineInfo(common.NewModelManagerBackend(st))
 	if err != nil {
 		return status, errors.Trace(err)
 	}
 
 	return params.ModelStatus{
 		ModelTag:           tag,
-		OwnerTag:           env.Owner().String(),
-		Life:               params.Life(env.Life().String()),
+		OwnerTag:           model.Owner().String(),
+		Life:               params.Life(model.Life().String()),
 		HostedMachineCount: len(hostedMachines),
-		ApplicationCount:   len(services),
+		ApplicationCount:   len(applications),
+		Machines:           modelMachines,
 	}, nil
 }
 
@@ -495,7 +485,7 @@ func (c *ControllerAPI) ModifyControllerAccess(args params.ModifyControllerAcces
 		return result, nil
 	}
 
-	hasPermission, err := c.authorizer.HasPermission(description.SuperuserAccess, c.state.ControllerTag())
+	hasPermission, err := c.authorizer.HasPermission(permission.SuperuserAccess, c.state.ControllerTag())
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -506,8 +496,8 @@ func (c *ControllerAPI) ModifyControllerAccess(args params.ModifyControllerAcces
 			continue
 		}
 
-		controllerAccess := description.Access(arg.Access)
-		if err := description.ValidateControllerAccess(controllerAccess); err != nil {
+		controllerAccess := permission.Access(arg.Access)
+		if err := permission.ValidateControllerAccess(controllerAccess); err != nil {
 			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
@@ -531,7 +521,7 @@ var runMigrationPrechecks = func(st *state.State, targetInfo coremigration.Targe
 	}
 
 	// Check target controller.
-	conn, err := api.Open(targetToAPIInfo(targetInfo), api.DialOpts{})
+	conn, err := api.Open(targetToAPIInfo(targetInfo), migration.ControllerDialOpts())
 	if err != nil {
 		return errors.Annotate(err, "connect to target controller")
 	}
@@ -565,19 +555,16 @@ func makeModelInfo(st *state.State) (coremigration.ModelInfo, error) {
 }
 
 func targetToAPIInfo(ti coremigration.TargetInfo) *api.Info {
-	out := &api.Info{
-		Addrs:    ti.Addrs,
-		CACert:   ti.CACert,
-		Tag:      ti.AuthTag,
-		Password: ti.Password,
+	return &api.Info{
+		Addrs:     ti.Addrs,
+		CACert:    ti.CACert,
+		Tag:       ti.AuthTag,
+		Password:  ti.Password,
+		Macaroons: ti.Macaroons,
 	}
-	if ti.Macaroon != nil {
-		out.Macaroons = []macaroon.Slice{{ti.Macaroon}}
-	}
-	return out
 }
 
-func grantControllerAccess(accessor *state.State, targetUserTag, apiUser names.UserTag, access description.Access) error {
+func grantControllerAccess(accessor *state.State, targetUserTag, apiUser names.UserTag, access permission.Access) error {
 	_, err := accessor.AddControllerUser(state.UserAccessSpec{User: targetUserTag, CreatedBy: apiUser, Access: access})
 	if errors.IsAlreadyExists(err) {
 		controllerTag := accessor.ControllerTag()
@@ -606,28 +593,28 @@ func grantControllerAccess(accessor *state.State, targetUserTag, apiUser names.U
 	return nil
 }
 
-func revokeControllerAccess(accessor *state.State, targetUserTag, apiUser names.UserTag, access description.Access) error {
+func revokeControllerAccess(accessor *state.State, targetUserTag, apiUser names.UserTag, access permission.Access) error {
 	controllerTag := accessor.ControllerTag()
 	switch access {
-	case description.LoginAccess:
+	case permission.LoginAccess:
 		// Revoking login access removes all access.
 		err := accessor.RemoveUserAccess(targetUserTag, controllerTag)
 		return errors.Annotate(err, "could not revoke controller access")
-	case description.AddModelAccess:
+	case permission.AddModelAccess:
 		// Revoking add-model access sets login.
 		controllerUser, err := accessor.UserAccess(targetUserTag, controllerTag)
 		if err != nil {
 			return errors.Annotate(err, "could not look up controller access for user")
 		}
-		_, err = accessor.SetUserAccess(controllerUser.UserTag, controllerUser.Object, description.LoginAccess)
+		_, err = accessor.SetUserAccess(controllerUser.UserTag, controllerUser.Object, permission.LoginAccess)
 		return errors.Annotate(err, "could not set controller access to read-only")
-	case description.SuperuserAccess:
+	case permission.SuperuserAccess:
 		// Revoking superuser sets add-model.
 		controllerUser, err := accessor.UserAccess(targetUserTag, controllerTag)
 		if err != nil {
 			return errors.Annotate(err, "could not look up controller access for user")
 		}
-		_, err = accessor.SetUserAccess(controllerUser.UserTag, controllerUser.Object, description.AddModelAccess)
+		_, err = accessor.SetUserAccess(controllerUser.UserTag, controllerUser.Object, permission.AddModelAccess)
 		return errors.Annotate(err, "could not set controller access to add-model")
 
 	default:
@@ -638,7 +625,7 @@ func revokeControllerAccess(accessor *state.State, targetUserTag, apiUser names.
 
 // ChangeControllerAccess performs the requested access grant or revoke action for the
 // specified user on the controller.
-func ChangeControllerAccess(accessor *state.State, apiUser, targetUserTag names.UserTag, action params.ControllerAction, access description.Access) error {
+func ChangeControllerAccess(accessor *state.State, apiUser, targetUserTag names.UserTag, action params.ControllerAction, access permission.Access) error {
 	switch action {
 	case params.GrantControllerAccess:
 		err := grantControllerAccess(accessor, targetUserTag, apiUser, access)

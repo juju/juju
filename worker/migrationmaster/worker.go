@@ -12,7 +12,6 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
-	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/migrationtarget"
@@ -189,6 +188,11 @@ func (w *Worker) run() error {
 		return errors.Trace(err)
 	}
 
+	if status.ExternalControl {
+		err := w.waitForMigrationEnd()
+		return errors.Trace(err)
+	}
+
 	phase := status.Phase
 
 	for {
@@ -313,6 +317,12 @@ func (w *Worker) prechecks(status coremigration.MigrationStatus) error {
 		return errors.Annotate(err, "failed to connect to target controller during prechecks")
 	}
 	defer conn.Close()
+
+	if conn.ControllerTag() != status.TargetInfo.ControllerTag {
+		return errors.Errorf("unexpected target controller UUID (got %s, expected %s)",
+			conn.ControllerTag(), status.TargetInfo.ControllerTag)
+	}
+
 	targetClient := migrationtarget.NewClient(conn)
 	err = targetClient.Prechecks(model)
 	return errors.Annotate(err, "target prechecks failed")
@@ -487,6 +497,40 @@ func (w *Worker) waitForActiveMigration() (coremigration.MigrationStatus, error)
 	}
 }
 
+func (w *Worker) waitForMigrationEnd() error {
+	w.logger.Infof("migration is externally managed. waiting for completion")
+	watcher, err := w.config.Facade.Watch()
+	if err != nil {
+		return errors.Annotate(err, "watching for migration")
+	}
+	if err := w.catacomb.Add(watcher); err != nil {
+		return errors.Trace(err)
+	}
+	defer watcher.Kill()
+
+	for {
+		select {
+		case <-w.catacomb.Dying():
+			return w.catacomb.ErrDying()
+		case <-watcher.Changes():
+		}
+
+		status, err := w.config.Facade.MigrationStatus()
+		if err != nil {
+			return errors.Annotate(err, "retrieving migration status")
+		}
+		w.logger.Infof("migration phase is now %v", status.Phase)
+		if status.Phase.IsTerminal() {
+			if modelHasMigrated(status.Phase) {
+				w.logger.Infof("migration is complete")
+				return ErrMigrated
+			}
+			w.logger.Infof("migration has aborted")
+			return ErrInactive
+		}
+	}
+}
+
 // Possible values for waitForMinion's waitPolicy argument.
 const failFast = false  // Stop waiting at first minion failure report
 const waitForAll = true // Wait for all minion reports to arrive (or timeout)
@@ -633,20 +677,14 @@ func (w *Worker) openAPIConn(targetInfo coremigration.TargetInfo) (api.Connectio
 
 func (w *Worker) openAPIConnForModel(targetInfo coremigration.TargetInfo, modelUUID string) (api.Connection, error) {
 	apiInfo := &api.Info{
-		Addrs:    targetInfo.Addrs,
-		CACert:   targetInfo.CACert,
-		Tag:      targetInfo.AuthTag,
-		Password: targetInfo.Password,
-		ModelTag: names.NewModelTag(modelUUID),
+		Addrs:     targetInfo.Addrs,
+		CACert:    targetInfo.CACert,
+		Tag:       targetInfo.AuthTag,
+		Password:  targetInfo.Password,
+		ModelTag:  names.NewModelTag(modelUUID),
+		Macaroons: targetInfo.Macaroons,
 	}
-	if targetInfo.Macaroon != nil {
-		apiInfo.Macaroons = []macaroon.Slice{{targetInfo.Macaroon}}
-	}
-
-	// Use zero DialOpts (no retries) because the worker must stay
-	// responsive to Kill requests. We don't want it to be blocked by
-	// a long set of retry attempts.
-	return w.config.APIOpen(apiInfo, api.DialOpts{})
+	return w.config.APIOpen(apiInfo, migration.ControllerDialOpts())
 }
 
 func modelHasMigrated(phase coremigration.Phase) bool {

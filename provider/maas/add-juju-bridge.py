@@ -69,16 +69,25 @@ class LogicalInterface(object):
             options = []
         _, self.name, self.family, self.method = definition.split()
         self.options = options
+        self.is_loopback = self.method == 'loopback'
         self.is_bonded = [x for x in self.options if "bond-" in x]
+        self.has_bond_master_option, self.bond_master_options = self.has_option(['bond-master'])
         self.is_alias = ":" in self.name
         self.is_vlan = [x for x in self.options if x.startswith("vlan-raw-device")]
-        self.is_active = self.method == "dhcp" or self.method == "static"
-        self.is_bridged = [x for x in self.options if x.startswith("bridge_ports ")]
+        self.is_bridged, self.bridge_ports = self.has_option(['bridge_ports'])
         self.has_auto_stanza = None
         self.parent = None
 
     def __str__(self):
         return self.name
+
+    def has_option(self, options):
+        for o in self.options:
+            words = o.split()
+            ident = words[0]
+            if ident in options:
+                return True, words[1:]
+        return False, []
 
     @classmethod
     def prune_options(cls, options, invalid_options):
@@ -94,10 +103,10 @@ class LogicalInterface(object):
         if bridge_name is None:
             bridge_name = prefix + self.name
         # Note: the testing order here is significant.
-        if not self.is_active or self.is_bridged:
+        if self.is_loopback or self.is_bridged or self.has_bond_master_option:
             return self._bridge_unchanged()
         elif self.is_alias:
-            if self.parent and self.parent.iface and (not self.parent.iface.is_active or self.parent.iface.is_bridged):
+            if self.parent and self.parent.iface and self.parent.iface.is_bridged:
                 # if we didn't change the parent interface
                 # then we don't change the aliases neither.
                 return self._bridge_unchanged()
@@ -208,6 +217,7 @@ class NetworkInterfaceParser(object):
             s.iface.has_auto_stanza = s.iface.name in physical_interfaces
 
         self._connect_aliases()
+        self._bridged_interfaces = self._find_bridged_ifaces()
 
     def _parse_stanza(self, stanza_line, iterable):
         stanza_options = []
@@ -242,12 +252,51 @@ class NetworkInterfaceParser(object):
             if parent_name in ifaces:
                 alias.iface.parent = ifaces[parent_name]
 
+    def _find_bridged_ifaces(self):
+        bridged_ifaces = {}
+        for stanza in self._stanzas:
+            if not stanza.is_logical_interface:
+                continue
+            if stanza.iface.is_bridged:
+                bridged_ifaces[stanza.iface.name] = stanza.iface
+        return bridged_ifaces
+
     def _physical_interfaces(self):
         return {x.phy.name: x.phy for x in [y for y in self._stanzas if y.is_physical_interface]}
 
     def __iter__(self):  # class iter
         for s in self._stanzas:
             yield s
+
+    def _is_already_bridged(self, name, bridge_port):
+        iface = self._bridged_interfaces.get(name, None)
+        if iface:
+            return bridge_port in iface.bridge_ports
+        return False
+
+    def bridge_all(self, interface_name_to_bridge, bridge_prefix, bridge_name):
+        # The interface_name_to_bridge test is to bridge a single interface
+        # only, which is only used for juju < 2.0. And if that
+        # argument is specified then bridge_name takes precedence over
+        # any bridge_prefix.
+        bridged_stanzas = []
+        for s in self.stanzas():
+            if s.is_logical_interface:
+                if interface_name_to_bridge and interface_name_to_bridge != s.iface.name:
+                    if s.iface.has_auto_stanza:
+                        bridged_stanzas.append(AutoStanza(s.iface.name))
+                    bridged_stanzas.append(s)
+                else:
+                    existing_bridge_name = bridge_prefix + s.iface.name
+                    if self._is_already_bridged(existing_bridge_name, s.iface.name):
+                        if s.iface.has_auto_stanza:
+                            bridged_stanzas.append(AutoStanza(s.iface.name))
+                        bridged_stanzas.append(s)
+                    else:
+                        bridged_stanzas.extend(s.iface.bridge(bridge_prefix, bridge_name))
+            elif not s.is_physical_interface:
+                bridged_stanzas.append(s)
+        return bridged_stanzas
 
 
 def uniq_append(dst, src):
@@ -261,7 +310,7 @@ def IfaceStanza(name, family, method, options):
     """Convenience function to create a new "iface" stanza.
 
 Maintains original options order but removes duplicates with the
-exception of 'dns-*' options which are normlised as required by
+exception of 'dns-*' options which are normalised as required by
 resolvconf(8) and all the dns-* options are moved to the end.
 
     """
@@ -364,27 +413,8 @@ def main(args):
         sys.stderr.write("error: --bridge-name required when using --interface-to-bridge\n")
         exit(1)
 
-    stanzas = []
-    config_parser = NetworkInterfaceParser(args.filename)
-
-    # Bridging requires modifying 'auto' and 'iface' stanzas only.
-    # Calling <iface>.bridge() will return a set of stanzas that cover
-    # both of those stanzas. The 'elif' clause catches all the other
-    # stanza types. The args.interface_to_bridge test is to bridge a
-    # single interface only, which is only used for juju < 2.0. And if
-    # that argument is specified then args.bridge_name takes
-    # precedence over any args.bridge_prefix.
-
-    for s in config_parser.stanzas():
-        if s.is_logical_interface:
-            if args.interface_to_bridge and args.interface_to_bridge != s.iface.name:
-                if s.iface.has_auto_stanza:
-                    stanzas.append(AutoStanza(s.iface.name))
-                stanzas.append(s)
-            else:
-                stanzas.extend(s.iface.bridge(args.bridge_prefix, args.bridge_name))
-        elif not s.is_physical_interface:
-            stanzas.append(s)
+    parser = NetworkInterfaceParser(args.filename)
+    stanzas = parser.bridge_all(args.interface_to_bridge, args.bridge_prefix, args.bridge_name)
 
     if not args.activate:
         print_stanzas(stanzas)

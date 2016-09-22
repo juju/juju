@@ -9,7 +9,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/core/description"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -20,7 +20,7 @@ type ControllerUserSuite struct {
 var _ = gc.Suite(&ControllerUserSuite{})
 
 type accessAwareUser interface {
-	Access() description.Access
+	Access() permission.Access
 }
 
 func (s *ControllerUserSuite) TestDefaultAccessControllerUser(c *gc.C) {
@@ -34,7 +34,7 @@ func (s *ControllerUserSuite) TestDefaultAccessControllerUser(c *gc.C) {
 	ctag := names.NewControllerTag(s.State.ControllerUUID())
 	controllerUser, err := s.State.UserAccess(userTag, ctag)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(controllerUser.Access, gc.Equals, description.LoginAccess)
+	c.Assert(controllerUser.Access, gc.Equals, permission.LoginAccess)
 }
 
 func (s *ControllerUserSuite) TestSetAccessControllerUser(c *gc.C) {
@@ -48,12 +48,12 @@ func (s *ControllerUserSuite) TestSetAccessControllerUser(c *gc.C) {
 	ctag := names.NewControllerTag(s.State.ControllerUUID())
 	controllerUser, err := s.State.UserAccess(userTag, ctag)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(controllerUser.Access, gc.Equals, description.LoginAccess)
+	c.Assert(controllerUser.Access, gc.Equals, permission.LoginAccess)
 
-	s.State.SetUserAccess(userTag, ctag, description.AddModelAccess)
+	s.State.SetUserAccess(userTag, ctag, permission.AddModelAccess)
 
 	controllerUser, err = s.State.UserAccess(user.UserTag(), ctag)
-	c.Assert(controllerUser.Access, gc.Equals, description.AddModelAccess)
+	c.Assert(controllerUser.Access, gc.Equals, permission.AddModelAccess)
 }
 
 func (s *ControllerUserSuite) TestRemoveControllerUser(c *gc.C) {

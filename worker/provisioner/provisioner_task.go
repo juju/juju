@@ -203,7 +203,7 @@ func (task *provisionerTask) processMachinesWithTransientErrors() error {
 			continue
 		}
 		machine := machines[i]
-		if err := machine.SetStatus(status.StatusPending, "", nil); err != nil {
+		if err := machine.SetStatus(status.Pending, "", nil); err != nil {
 			logger.Errorf("cannot reset status of machine %q: %v", statusResult.Id, err)
 			continue
 		}
@@ -396,7 +396,7 @@ func classifyMachine(machine ClassifiableMachine) (
 			logger.Infof("cannot get machine id:%s, details:%v, err:%v", machine.Id(), machine, err)
 			return None, nil
 		}
-		if machineStatus == status.StatusPending {
+		if machineStatus == status.Pending {
 			logger.Infof("found machine pending provisioning id:%s, details:%v", machine.Id(), machine)
 			return Pending, nil
 		}
@@ -680,7 +680,7 @@ func (task *provisionerTask) startMachines(machines []*apiprovisioner.Machine) e
 
 func (task *provisionerTask) setErrorStatus(message string, machine *apiprovisioner.Machine, err error) error {
 	logger.Errorf(message, machine, err)
-	if err1 := machine.SetStatus(status.StatusError, err.Error(), nil); err1 != nil {
+	if err1 := machine.SetStatus(status.Error, err.Error(), nil); err1 != nil {
 		// Something is wrong with this machine, better report it back.
 		return errors.Annotatef(err1, "cannot set error status for machine %q", machine)
 	}
@@ -707,7 +707,7 @@ func (task *provisionerTask) startMachine(
 
 		logger.Warningf("%v", errors.Annotate(err, "starting instance"))
 		retryMsg := fmt.Sprintf("will retry to start instance in %v", task.retryStartInstanceStrategy.retryDelay)
-		if err2 := machine.SetStatus(status.StatusPending, retryMsg, nil); err2 != nil {
+		if err2 := machine.SetStatus(status.Pending, retryMsg, nil); err2 != nil {
 			logger.Errorf("%v", err2)
 		}
 		logger.Infof(retryMsg)

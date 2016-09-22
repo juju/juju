@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/watcher/watchertest"
 )
@@ -236,4 +237,22 @@ func (s *deployerSuite) TestStateAddresses(c *gc.C) {
 	addresses, err := s.st.StateAddresses()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addresses, gc.DeepEquals, stateAddresses)
+}
+
+func (s *deployerSuite) TestUnitSetStatus(c *gc.C) {
+	unit, err := s.st.Unit(s.principal.Tag().(names.UnitTag))
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit.SetStatus(status.Blocked, "waiting", map[string]interface{}{"foo": "bar"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	stateUnit, err := s.BackingState.Unit(unit.Name())
+	c.Assert(err, jc.ErrorIsNil)
+	sInfo, err := stateUnit.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	sInfo.Since = nil
+	c.Assert(sInfo, jc.DeepEquals, status.StatusInfo{
+		Status:  status.Blocked,
+		Message: "waiting",
+		Data:    map[string]interface{}{"foo": "bar"},
+	})
 }

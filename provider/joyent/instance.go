@@ -24,18 +24,18 @@ func (inst *joyentInstance) Id() instance.Id {
 
 func (inst *joyentInstance) Status() instance.InstanceStatus {
 	instStatus := inst.machine.State
-	jujuStatus := status.StatusPending
+	jujuStatus := status.Pending
 	switch instStatus {
 	case "configured", "incomplete", "unavailable", "provisioning":
-		jujuStatus = status.StatusAllocating
+		jujuStatus = status.Allocating
 	case "ready", "running":
-		jujuStatus = status.StatusRunning
+		jujuStatus = status.Running
 	case "halting", "stopping", "shutting_down", "off", "down", "installed", "stopped", "destroyed", "unreachable":
-		jujuStatus = status.StatusEmpty
+		jujuStatus = status.Empty
 	case "failed":
-		jujuStatus = status.StatusProvisioningError
+		jujuStatus = status.ProvisioningError
 	default:
-		jujuStatus = status.StatusEmpty
+		jujuStatus = status.Empty
 	}
 	return instance.InstanceStatus{
 		Status:  jujuStatus,

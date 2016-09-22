@@ -115,7 +115,7 @@ func (s *mongoRestoreSuite) TestRestoreDatabase32(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(ranCommand, gc.Equals, "/a/fake/mongorestore")
-	c.Assert(ranWithArgs, gc.DeepEquals, []string{"--ssl", "--authenticationDatabase", "admin", "--host", "127.0.0.1", "--username", "fakeUsername", "--password", "fakePassword", "--drop", "--oplogReplay", "--batchSize", "100", "fakePath"})
+	c.Assert(ranWithArgs, gc.DeepEquals, []string{"--ssl", "--authenticationDatabase", "admin", "--host", "127.0.0.1", "--username", "fakeUsername", "--password", "fakePassword", "--drop", "--oplogReplay", "--batchSize", "10", "fakePath"})
 	user := &mgo.User{Username: "machine-0", Password: "fakePassword"}
 	c.Assert(mgoDb.user, gc.DeepEquals, user)
 	c.Assert(mgoSession.closed, jc.IsTrue)

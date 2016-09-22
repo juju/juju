@@ -63,9 +63,8 @@ func (s *bridgeConfigSuite) assertScript(c *gc.C, initialConfig, expectedConfig,
 	for i, python := range s.pythonVersions {
 		c.Logf("test #%v using %s", i, python)
 		// To simplify most cases, trim trailing new lines.
-		initialConfig = strings.TrimSuffix(initialConfig, "\n")
 		expectedConfig = strings.TrimSuffix(expectedConfig, "\n")
-		err := ioutil.WriteFile(s.testConfigPath, []byte(initialConfig), 0644)
+		err := ioutil.WriteFile(s.testConfigPath, []byte(strings.TrimSuffix(initialConfig, "\n")), 0644)
 		c.Check(err, jc.ErrorIsNil)
 		// Run the script and verify the modified config.
 		output, retcode := s.runScript(c, python, s.testConfigPath, bridgePrefix, bridgeName, interfaceToBridge)
@@ -380,6 +379,10 @@ iface test-br-eth0:1 inet static
 auto eth1
 iface eth1 inet manual
     mtu 1500
+
+auto test-br-eth1
+iface test-br-eth1 inet manual
+    bridge_ports eth1
     dns-nameservers 10.17.20.200
     dns-search maas`
 
@@ -762,6 +765,10 @@ auto eth1
 iface eth1 inet manual
     mtu 1500
 
+auto vlan-br-eth1
+iface vlan-br-eth1 inet manual
+    bridge_ports eth1
+
 auto eth0.2
 iface eth0.2 inet manual
     vlan-raw-device eth0
@@ -855,13 +862,25 @@ auto eth1
 iface eth1 inet manual
     mtu 1500
 
+auto br-eth1
+iface br-eth1 inet manual
+    bridge_ports eth1
+
 auto eth2
 iface eth2 inet manual
     mtu 1500
 
+auto br-eth2
+iface br-eth2 inet manual
+    bridge_ports eth2
+
 auto eth3
 iface eth3 inet manual
     mtu 1500
+
+auto br-eth3
+iface br-eth3 inet manual
+    bridge_ports eth3
 
 auto eth1.2667
 iface eth1.2667 inet manual
@@ -1061,6 +1080,10 @@ iface br-eth0 inet static
 auto eth1
 iface eth1 inet manual
     mtu 1500
+
+auto br-eth1
+iface br-eth1 inet manual
+    bridge_ports eth1
 
 auto eth1.2
 iface eth1.2 inet manual

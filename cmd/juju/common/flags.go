@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/juju/constraints"
 	"github.com/juju/utils"
 	"gopkg.in/yaml.v2"
 )
@@ -75,4 +76,30 @@ func (f *ConfigFlag) String() string {
 		strs = append(strs, fmt.Sprintf("%s=%v", k, v))
 	}
 	return strings.Join(strs, " ")
+}
+
+// WarnConstraintAliases shows a warning to the user that they have used an
+// alias for a constraint that might go away sometime.
+func WarnConstraintAliases(ctx *cmd.Context, aliases map[string]string) {
+	for alias, canonical := range aliases {
+		ctx.Infof("Warning: constraint %q is deprecated in favor of %q.\n", alias, canonical)
+	}
+}
+
+// ParseConstraints parses the given constraints and uses WarnConstraintAliases
+// if any aliases were used.
+func ParseConstraints(ctx *cmd.Context, cons string) (constraints.Value, error) {
+	if cons == "" {
+		return constraints.Value{}, nil
+	}
+	constraint, aliases, err := constraints.ParseWithAliases(cons)
+	// we always do these, even on errors, so that the error messages have
+	// context.
+	for alias, canonical := range aliases {
+		ctx.Infof("Warning: constraint %q is deprecated in favor of %q.\n", alias, canonical)
+	}
+	if err != nil {
+		return constraints.Value{}, err
+	}
+	return constraint, nil
 }

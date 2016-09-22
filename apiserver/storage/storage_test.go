@@ -84,7 +84,7 @@ func (s *storageSuite) TestStorageListVolume(c *gc.C) {
 	c.Assert(found.Results[0].Result, gc.HasLen, 1)
 	wantedDetails := s.createTestStorageDetails()
 	wantedDetails.Kind = params.StorageKindBlock
-	wantedDetails.Status.Status = status.StatusAttached
+	wantedDetails.Status.Status = status.Attached
 	c.Assert(found.Results[0].Result[0], jc.DeepEquals, wantedDetails)
 }
 

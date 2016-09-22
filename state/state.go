@@ -19,6 +19,7 @@ import (
 	"github.com/juju/loggo"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
+	"github.com/juju/utils/clock"
 	"github.com/juju/utils/os"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
@@ -33,11 +34,11 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/audit"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	stateaudit "github.com/juju/juju/state/internal/audit"
 	statelease "github.com/juju/juju/state/lease"
@@ -75,6 +76,7 @@ type providerIdDoc struct {
 // State represents the state of an model
 // managed by juju.
 type State struct {
+	clock              clock.Clock
 	modelTag           names.ModelTag
 	controllerModelTag names.ModelTag
 	controllerTag      names.ControllerTag
@@ -147,7 +149,7 @@ func (st *State) ControllerTag() names.ControllerTag {
 	return st.controllerTag
 }
 
-func ControllerAccess(st *State, tag names.Tag) (description.UserAccess, error) {
+func ControllerAccess(st *State, tag names.Tag) (permission.UserAccess, error) {
 	return st.UserAccess(tag.(names.UserTag), st.controllerTag)
 }
 
@@ -301,7 +303,7 @@ func (st *State) removeInCollectionOps(name string, sel interface{}) ([]txn.Op, 
 func (st *State) ForModel(modelTag names.ModelTag) (*State, error) {
 	session := st.session.Copy()
 	newSt, err := newState(
-		modelTag, st.controllerModelTag, session, st.mongoInfo, st.newPolicy,
+		modelTag, st.controllerModelTag, session, st.mongoInfo, st.newPolicy, st.clock,
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -350,15 +352,14 @@ func (st *State) start(controllerTag names.ControllerTag) (err error) {
 	// now we've set up leaseClientId, we can use workersFactory
 
 	logger.Infof("starting standard state workers")
-	clock := GetClock()
 	factory := workersFactory{
 		st:    st,
-		clock: clock,
+		clock: st.clock,
 	}
 	workers, err := workers.NewRestartWorkers(workers.RestartConfig{
 		Factory: factory,
 		Logger:  loggo.GetLogger(logger.Name() + ".workers"),
-		Clock:   clock,
+		Clock:   st.clock,
 		Delay:   time.Second,
 	})
 	if err != nil {
@@ -382,7 +383,7 @@ func (st *State) getLeadershipLeaseClient() (lease.Client, error) {
 		Namespace:  applicationLeadershipNamespace,
 		Collection: leasesC,
 		Mongo:      &environMongo{st},
-		Clock:      GetClock(),
+		Clock:      st.clock,
 	})
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot create leadership lease client")
@@ -396,7 +397,7 @@ func (st *State) getSingularLeaseClient() (lease.Client, error) {
 		Namespace:  singularControllerNamespace,
 		Collection: leasesC,
 		Mongo:      &environMongo{st},
-		Clock:      GetClock(),
+		Clock:      st.clock,
 	})
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot create singular lease client")
@@ -683,22 +684,34 @@ func (st *State) SetModelConstraints(cons constraints.Value) error {
 	return writeConstraints(st, modelGlobalKey, cons)
 }
 
-// AllMachines returns all machines in the model
-// ordered by id.
-func (st *State) AllMachines() (machines []*Machine, err error) {
-	machinesCollection, closer := st.getCollection(machinesC)
-	defer closer()
-
+func (st *State) allMachines(machinesCollection mongo.Collection) ([]*Machine, error) {
 	mdocs := machineDocSlice{}
-	err = machinesCollection.Find(nil).All(&mdocs)
+	err := machinesCollection.Find(nil).All(&mdocs)
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot get all machines")
 	}
 	sort.Sort(mdocs)
-	for _, doc := range mdocs {
-		machines = append(machines, newMachine(st, &doc))
+	machines := make([]*Machine, len(mdocs))
+	for i, doc := range mdocs {
+		machines[i] = newMachine(st, &doc)
 	}
-	return
+	return machines, nil
+}
+
+// AllMachines returns all machines in the model
+// ordered by id.
+func (st *State) AllMachines() ([]*Machine, error) {
+	machinesCollection, closer := st.getCollection(machinesC)
+	defer closer()
+	return st.allMachines(machinesCollection)
+}
+
+// AllMachinesFor returns all machines for the model represented
+// by the given modeluuid
+func (st *State) AllMachinesFor(modelUUID string) ([]*Machine, error) {
+	machinesCollection, closer := st.getCollectionFor(modelUUID, machinesC)
+	defer closer()
+	return st.allMachines(machinesCollection)
 }
 
 type machineDocSlice []machineDoc
@@ -1073,14 +1086,10 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 	}
 
 	statusDoc := statusDoc{
-		ModelUUID: st.ModelUUID(),
-		// TODO(fwereade): this violates the spec. Should be "waiting".
-		// Implemented like this to be consistent with incorrect add-unit
-		// behaviour.
-		Status:     status.StatusUnknown,
-		StatusInfo: MessageWaitForAgentInit,
-		// TODO(fwereade): 2016-03-17 lp:1558657
-		Updated: time.Now().UnixNano(),
+		ModelUUID:  st.ModelUUID(),
+		Status:     status.Waiting,
+		StatusInfo: status.MessageWaitForMachine,
+		Updated:    st.clock.Now().UnixNano(),
 		// This exists to preserve questionable unit-aggregation behaviour
 		// while we work out how to switch to an implementation that makes
 		// sense. It is also set in AddMissingServiceStatuses.
@@ -1148,6 +1157,12 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 		if err := checkModelActive(st); err != nil {
 			return nil, errors.Trace(err)
 		}
+		// TODO(fwereade): 2016-09-09 lp:1621754
+		// This is not always correct -- there are a million
+		// operations collected in this func, not *all* of them
+		// imply that this is the problem. (e.g. the charm being
+		// destroyed just as we add application will fail, but
+		// not because "application already exists")
 		return nil, errors.Errorf("application already exists")
 	} else if err != nil {
 		return nil, errors.Trace(err)
@@ -2023,4 +2038,22 @@ func tagForGlobalKey(key string) (string, bool) {
 		return "", false
 	}
 	return p + key[2:], true
+}
+
+// SetClockForTesting is an exported function to allow other packages
+// to set the internal clock for the State instance. It is named such
+// that it should be obvious if it is ever called from a non-test packgae.
+func (st *State) SetClockForTesting(clock clock.Clock) error {
+	st.clock = clock
+	// Need to restart the lease workers so they get the new clock.
+	st.workers.Kill()
+	err := st.workers.Wait()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	err = st.start(st.controllerTag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }

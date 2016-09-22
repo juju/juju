@@ -63,7 +63,7 @@ func (testsuite) TestHandleError(c *gc.C) {
 	c.Assert(entities, gc.HasLen, 1)
 	c.Assert(entities[0], gc.DeepEquals, params.EntityStatusArgs{
 		Tag:    "unit-foo-0",
-		Status: status.StatusError.String(),
+		Status: status.Error.String(),
 		Info:   e.Error(),
 	})
 }

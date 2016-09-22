@@ -50,6 +50,7 @@ func NewModel(args ModelArgs) Model {
 	m.setSubnets(nil)
 	m.setIPAddresses(nil)
 	m.setSSHHostKeys(nil)
+	m.setCloudImageMetadatas(nil)
 	m.setActions(nil)
 	m.setVolumes(nil)
 	m.setFilesystems(nil)
@@ -122,12 +123,15 @@ type model struct {
 	Applications_     applications     `yaml:"applications"`
 	Relations_        relations        `yaml:"relations"`
 	Spaces_           spaces           `yaml:"spaces"`
-	LinkLayerDevices_ linklayerdevices `yaml:"linklayerdevices"`
-	IPAddresses_      ipaddresses      `yaml:"ipaddresses"`
+	LinkLayerDevices_ linklayerdevices `yaml:"link-layer-devices"`
+	IPAddresses_      ipaddresses      `yaml:"ip-addresses"`
 	Subnets_          subnets          `yaml:"subnets"`
-	Actions_          actions          `yaml:"actions"`
 
-	SSHHostKeys_ sshHostKeys `yaml:"sshhostkeys"`
+	CloudImageMetadata_ cloudimagemetadataset `yaml:"cloud-image-metadata"`
+
+	Actions_ actions `yaml:"actions"`
+
+	SSHHostKeys_ sshHostKeys `yaml:"ssh-host-keys"`
 
 	Sequences_ map[string]int `yaml:"sequences"`
 
@@ -406,6 +410,15 @@ func (m *model) setSSHHostKeys(addressesList []*sshHostKey) {
 	}
 }
 
+// CloudImageMetadatas implements Model.
+func (m *model) CloudImageMetadata() []CloudImageMetadata {
+	var result []CloudImageMetadata
+	for _, addr := range m.CloudImageMetadata_.CloudImageMetadata_ {
+		result = append(result, addr)
+	}
+	return result
+}
+
 // Actions implements Model.
 func (m *model) Actions() []Action {
 	var result []Action
@@ -413,6 +426,20 @@ func (m *model) Actions() []Action {
 		result = append(result, addr)
 	}
 	return result
+}
+
+// AddCloudImageMetadata implements Model.
+func (m *model) AddCloudImageMetadata(args CloudImageMetadataArgs) CloudImageMetadata {
+	addr := newCloudImageMetadata(args)
+	m.CloudImageMetadata_.CloudImageMetadata_ = append(m.CloudImageMetadata_.CloudImageMetadata_, addr)
+	return addr
+}
+
+func (m *model) setCloudImageMetadatas(cloudimagemetadataList []*cloudimagemetadata) {
+	m.CloudImageMetadata_ = cloudimagemetadataset{
+		Version:             1,
+		CloudImageMetadata_: cloudimagemetadataList,
+	}
 }
 
 // AddAction implements Model.
@@ -866,27 +893,28 @@ var modelDeserializationFuncs = map[int]modelDeserializationFunc{
 
 func importModelV1(source map[string]interface{}) (*model, error) {
 	fields := schema.Fields{
-		"owner":            schema.String(),
-		"cloud":            schema.String(),
-		"cloud-region":     schema.String(),
-		"config":           schema.StringMap(schema.Any()),
-		"latest-tools":     schema.String(),
-		"blocks":           schema.StringMap(schema.String()),
-		"users":            schema.StringMap(schema.Any()),
-		"machines":         schema.StringMap(schema.Any()),
-		"applications":     schema.StringMap(schema.Any()),
-		"relations":        schema.StringMap(schema.Any()),
-		"sshhostkeys":      schema.StringMap(schema.Any()),
-		"actions":          schema.StringMap(schema.Any()),
-		"ipaddresses":      schema.StringMap(schema.Any()),
-		"spaces":           schema.StringMap(schema.Any()),
-		"subnets":          schema.StringMap(schema.Any()),
-		"linklayerdevices": schema.StringMap(schema.Any()),
-		"volumes":          schema.StringMap(schema.Any()),
-		"filesystems":      schema.StringMap(schema.Any()),
-		"storages":         schema.StringMap(schema.Any()),
-		"storage-pools":    schema.StringMap(schema.Any()),
-		"sequences":        schema.StringMap(schema.Int()),
+		"owner":                schema.String(),
+		"cloud":                schema.String(),
+		"cloud-region":         schema.String(),
+		"config":               schema.StringMap(schema.Any()),
+		"latest-tools":         schema.String(),
+		"blocks":               schema.StringMap(schema.String()),
+		"users":                schema.StringMap(schema.Any()),
+		"machines":             schema.StringMap(schema.Any()),
+		"applications":         schema.StringMap(schema.Any()),
+		"relations":            schema.StringMap(schema.Any()),
+		"ssh-host-keys":        schema.StringMap(schema.Any()),
+		"cloud-image-metadata": schema.StringMap(schema.Any()),
+		"actions":              schema.StringMap(schema.Any()),
+		"ip-addresses":         schema.StringMap(schema.Any()),
+		"spaces":               schema.StringMap(schema.Any()),
+		"subnets":              schema.StringMap(schema.Any()),
+		"link-layer-devices":   schema.StringMap(schema.Any()),
+		"volumes":              schema.StringMap(schema.Any()),
+		"filesystems":          schema.StringMap(schema.Any()),
+		"storages":             schema.StringMap(schema.Any()),
+		"storage-pools":        schema.StringMap(schema.Any()),
+		"sequences":            schema.StringMap(schema.Int()),
 	}
 	// Some values don't have to be there.
 	defaults := schema.Defaults{
@@ -979,10 +1007,10 @@ func importModelV1(source map[string]interface{}) (*model, error) {
 	}
 	result.setSpaces(spaces)
 
-	deviceMap := valid["linklayerdevices"].(map[string]interface{})
+	deviceMap := valid["link-layer-devices"].(map[string]interface{})
 	devices, err := importLinkLayerDevices(deviceMap)
 	if err != nil {
-		return nil, errors.Annotate(err, "linklayerdevices")
+		return nil, errors.Annotate(err, "link-layer-devices")
 	}
 	result.setLinkLayerDevices(devices)
 
@@ -993,19 +1021,26 @@ func importModelV1(source map[string]interface{}) (*model, error) {
 	}
 	result.setSubnets(subnets)
 
-	addressMap := valid["ipaddresses"].(map[string]interface{})
+	addressMap := valid["ip-addresses"].(map[string]interface{})
 	addresses, err := importIPAddresses(addressMap)
 	if err != nil {
-		return nil, errors.Annotate(err, "ipaddresses")
+		return nil, errors.Annotate(err, "ip-addresses")
 	}
 	result.setIPAddresses(addresses)
 
-	sshHostKeyMap := valid["sshhostkeys"].(map[string]interface{})
+	sshHostKeyMap := valid["ssh-host-keys"].(map[string]interface{})
 	hostKeys, err := importSSHHostKeys(sshHostKeyMap)
 	if err != nil {
-		return nil, errors.Annotate(err, "sshhostkeys")
+		return nil, errors.Annotate(err, "ssh-host-keys")
 	}
 	result.setSSHHostKeys(hostKeys)
+
+	cloudimagemetadataMap := valid["cloud-image-metadata"].(map[string]interface{})
+	cloudimagemetadata, err := importCloudImageMetadata(cloudimagemetadataMap)
+	if err != nil {
+		return nil, errors.Annotate(err, "cloud-image-metadata")
+	}
+	result.setCloudImageMetadatas(cloudimagemetadata)
 
 	actionsMap := valid["actions"].(map[string]interface{})
 	actions, err := importActions(actionsMap)

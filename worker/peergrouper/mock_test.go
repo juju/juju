@@ -359,7 +359,7 @@ func (m *fakeMachine) APIHostPorts() []network.HostPort {
 
 func (m *fakeMachine) Status() (status.StatusInfo, error) {
 	return status.StatusInfo{
-		Status: status.StatusStarted,
+		Status: status.Started,
 	}, nil
 }
 

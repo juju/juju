@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/stateenvirons"
+	"github.com/juju/juju/state/watcher"
 )
 
 func init() {
@@ -32,8 +33,9 @@ type AgentAPIV2 struct {
 	*common.ControllerConfigAPI
 	cloudspec.CloudSpecAPI
 
-	st   *state.State
-	auth facade.Authorizer
+	st        *state.State
+	auth      facade.Authorizer
+	resources facade.Resources
 }
 
 // NewAgentAPIV2 returns an object implementing version 2 of the Agent API
@@ -55,6 +57,7 @@ func NewAgentAPIV2(st *state.State, resources facade.Resources, auth facade.Auth
 		CloudSpecAPI:        cloudspec.NewCloudSpec(environConfigGetter.CloudSpec, common.AuthFuncForTag(st.ModelTag())),
 		st:                  st,
 		auth:                auth,
+		resources:           resources,
 	}, nil
 }
 
@@ -153,4 +156,33 @@ func stateJobsToAPIParamsJobs(jobs []state.MachineJob) []multiwatcher.MachineJob
 		pjobs[i] = multiwatcher.MachineJob(job.String())
 	}
 	return pjobs
+}
+
+// WatchCredentials watches for changes to the specified credentials.
+func (api *AgentAPIV2) WatchCredentials(args params.Entities) (params.NotifyWatchResults, error) {
+	if !api.auth.AuthModelManager() {
+		return params.NotifyWatchResults{}, common.ErrPerm
+	}
+
+	results := params.NotifyWatchResults{
+		Results: make([]params.NotifyWatchResult, len(args.Entities)),
+	}
+	for i, entity := range args.Entities {
+		credentialTag, err := names.ParseCloudCredentialTag(entity.Tag)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		watch := api.st.WatchCredential(credentialTag)
+		// Consume the initial event. Technically, API calls to Watch
+		// 'transmit' the initial event in the Watch response. But
+		// NotifyWatchers have no state to transmit.
+		if _, ok := <-watch.Changes(); ok {
+			results.Results[i].NotifyWatcherId = api.resources.Register(watch)
+		} else {
+			err = watcher.EnsureErr(watch)
+			results.Results[i].Error = common.ServerError(err)
+		}
+	}
+	return results, nil
 }

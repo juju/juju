@@ -222,7 +222,7 @@ func (s *AssignSuite) TestDirectAssignIgnoresConstraints(c *gc.C) {
 	scons := constraints.MustParse("mem=2G cpu-power=400")
 	err := s.wordpress.SetConstraints(scons)
 	c.Assert(err, jc.ErrorIsNil)
-	econs := constraints.MustParse("mem=4G cpu-cores=2")
+	econs := constraints.MustParse("mem=4G cores=2")
 	err = s.State.SetModelConstraints(econs)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -405,7 +405,7 @@ func (s *AssignSuite) TestAssignUnitToNewMachineSetsConstraints(c *gc.C) {
 	scons := constraints.MustParse("mem=2G cpu-power=400")
 	err := s.wordpress.SetConstraints(scons)
 	c.Assert(err, jc.ErrorIsNil)
-	econs := constraints.MustParse("mem=4G cpu-cores=2")
+	econs := constraints.MustParse("mem=4G cores=2")
 	err = s.State.SetModelConstraints(econs)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -417,7 +417,7 @@ func (s *AssignSuite) TestAssignUnitToNewMachineSetsConstraints(c *gc.C) {
 	scons = constraints.MustParse("mem=6G cpu-power=800")
 	err = s.wordpress.SetConstraints(scons)
 	c.Assert(err, jc.ErrorIsNil)
-	econs = constraints.MustParse("cpu-cores=4")
+	econs = constraints.MustParse("cores=4")
 	err = s.State.SetModelConstraints(econs)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -432,7 +432,7 @@ func (s *AssignSuite) TestAssignUnitToNewMachineSetsConstraints(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	mcons, err := machine.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
-	expect := constraints.MustParse("mem=2G cpu-cores=2 cpu-power=400")
+	expect := constraints.MustParse("mem=2G cores=2 cpu-power=400")
 	c.Assert(mcons, gc.DeepEquals, expect)
 }
 
@@ -852,7 +852,7 @@ var assignUsingConstraintsTests = []struct {
 		assignOk:                false,
 	}, {
 		unitConstraints:         "arch=amd64",
-		hardwareCharacteristics: "cpu-cores=1",
+		hardwareCharacteristics: "cores=1",
 		assignOk:                false,
 	}, {
 		unitConstraints:         "arch=amd64",
@@ -868,7 +868,7 @@ var assignUsingConstraintsTests = []struct {
 		assignOk:                false,
 	}, {
 		unitConstraints:         "mem=4G",
-		hardwareCharacteristics: "cpu-cores=1",
+		hardwareCharacteristics: "cores=1",
 		assignOk:                false,
 	}, {
 		unitConstraints:         "mem=4G",
@@ -879,15 +879,15 @@ var assignUsingConstraintsTests = []struct {
 		hardwareCharacteristics: "mem=2G",
 		assignOk:                false,
 	}, {
-		unitConstraints:         "cpu-cores=2",
-		hardwareCharacteristics: "cpu-cores=2",
+		unitConstraints:         "cores=2",
+		hardwareCharacteristics: "cores=2",
 		assignOk:                true,
 	}, {
-		unitConstraints:         "cpu-cores=2",
-		hardwareCharacteristics: "cpu-cores=1",
+		unitConstraints:         "cores=2",
+		hardwareCharacteristics: "cores=1",
 		assignOk:                false,
 	}, {
-		unitConstraints:         "cpu-cores=2",
+		unitConstraints:         "cores=2",
 		hardwareCharacteristics: "mem=4G",
 		assignOk:                false,
 	}, {
@@ -915,12 +915,12 @@ var assignUsingConstraintsTests = []struct {
 		hardwareCharacteristics: "root-disk=8192",
 		assignOk:                true,
 	}, {
-		unitConstraints:         "arch=amd64 mem=4G cpu-cores=2 root-disk=8192",
-		hardwareCharacteristics: "arch=amd64 mem=8G cpu-cores=2 root-disk=8192 cpu-power=50",
+		unitConstraints:         "arch=amd64 mem=4G cores=2 root-disk=8192",
+		hardwareCharacteristics: "arch=amd64 mem=8G cores=2 root-disk=8192 cpu-power=50",
 		assignOk:                true,
 	}, {
-		unitConstraints:         "arch=amd64 mem=4G cpu-cores=2 root-disk=8192",
-		hardwareCharacteristics: "arch=amd64 mem=8G cpu-cores=1 root-disk=4096 cpu-power=50",
+		unitConstraints:         "arch=amd64 mem=4G cores=2 root-disk=8192",
+		hardwareCharacteristics: "arch=amd64 mem=8G cores=1 root-disk=4096 cpu-power=50",
 		assignOk:                false,
 	},
 }
@@ -1252,7 +1252,11 @@ func (s *assignCleanSuite) TestAssignUnitPolicyWithContainers(c *gc.C) {
 func (s *assignCleanSuite) TestAssignUnitPolicyConcurrently(c *gc.C) {
 	_, err := s.State.AddMachine("quantal", state.JobManageModel) // bootstrap machine
 	c.Assert(err, jc.ErrorIsNil)
-	us := make([]*state.Unit, 50)
+	unitCount := 50
+	if raceDetector {
+		unitCount = 10
+	}
+	us := make([]*state.Unit, unitCount)
 	for i := range us {
 		us[i], err = s.wordpress.AddUnit()
 		c.Assert(err, jc.ErrorIsNil)

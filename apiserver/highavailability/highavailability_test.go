@@ -50,7 +50,7 @@ func assertKill(c *gc.C, killer KillerForTesting) {
 
 var (
 	emptyCons      = constraints.Value{}
-	controllerCons = constraints.MustParse("mem=16G cpu-cores=16")
+	controllerCons = constraints.MustParse("mem=16G cores=16")
 	defaultSeries  = ""
 )
 

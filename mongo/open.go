@@ -19,17 +19,19 @@ import (
 	"github.com/juju/juju/cert"
 )
 
-// SocketTimeout should be long enough that
-// even a slow mongo server will respond in that
-// length of time. Since mongo servers ping themselves
-// every 10 seconds, we use a value of just over 2
-// ping periods to allow for delayed pings due to
-// issues such as CPU starvation etc.
-const SocketTimeout = 21 * time.Second
+// SocketTimeout should be long enough that even a slow mongo server
+// will respond in that length of time, and must also be long enough
+// to allow for completion of heavyweight queries.
+//
+// Note: 1 minute is mgo's default socket timeout value.
+//
+// Also note: We have observed mongodb occasionally getting "stuck"
+// for over 30s in the field.
+const SocketTimeout = time.Minute
 
-// defaultDialTimeout should be representative of
-// the upper bound of time taken to dial a mongo
-// server from within the same cloud/private network.
+// defaultDialTimeout should be representative of the upper bound of
+// time taken to dial a mongo server from within the same
+// cloud/private network.
 const defaultDialTimeout = 30 * time.Second
 
 // DialOpts holds configuration parameters that control the

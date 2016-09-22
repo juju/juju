@@ -133,7 +133,7 @@ func (c *Client) StatusHistory(request params.StatusHistoryRequests) params.Stat
 			hist []params.DetailedStatus
 		)
 		kind := status.HistoryKind(request.Kind)
-		err = errors.NotValidf("%q requires a unit, got %t", kind, request.Tag)
+		err = errors.NotValidf("%q requires a unit, got %T", kind, request.Tag)
 		switch kind {
 		case status.KindUnit, status.KindWorkload, status.KindUnitAgent:
 			var u names.UnitTag
@@ -288,7 +288,7 @@ func (c *Client) modelStatus() (params.ModelStatusInfo, error) {
 		return info, errors.Annotate(err, "cannot get model")
 	}
 	info.Name = m.Name()
-	info.Cloud = m.Cloud()
+	info.CloudTag = names.NewCloudTag(m.Cloud()).String()
 	info.CloudRegion = m.CloudRegion()
 
 	cfg, err := m.Config()
@@ -609,39 +609,46 @@ func (context *statusContext) processApplications() map[string]params.Applicatio
 }
 
 func (context *statusContext) processApplication(service *state.Application) params.ApplicationStatus {
-	serviceCharmURL, _ := service.CharmURL()
+	serviceCharm, _, err := service.Charm()
+	if err != nil {
+		return params.ApplicationStatus{Err: common.ServerError(err)}
+	}
+
 	var processedStatus = params.ApplicationStatus{
-		Charm:   serviceCharmURL.String(),
+		Charm:   serviceCharm.URL().String(),
 		Series:  service.Series(),
 		Exposed: service.IsExposed(),
 		Life:    processLife(service),
 	}
 
-	if latestCharm, ok := context.latestCharms[*serviceCharmURL.WithRevision(-1)]; ok && latestCharm != nil {
-		if latestCharm.Revision() > serviceCharmURL.Revision {
+	if latestCharm, ok := context.latestCharms[*serviceCharm.URL().WithRevision(-1)]; ok && latestCharm != nil {
+		if latestCharm.Revision() > serviceCharm.URL().Revision {
 			processedStatus.CanUpgradeTo = latestCharm.String()
 		}
 	}
 
-	var err error
 	processedStatus.Relations, processedStatus.SubordinateTo, err = context.processServiceRelations(service)
 	if err != nil {
-		processedStatus.Err = err
+		processedStatus.Err = common.ServerError(err)
 		return processedStatus
 	}
 	units := context.units[service.Name()]
 	if service.IsPrincipal() {
-		processedStatus.Units = context.processUnits(units, serviceCharmURL.String())
-		applicationStatus, err := service.Status()
-		if err != nil {
-			processedStatus.Err = err
-			return processedStatus
-		}
-		processedStatus.Status.Status = applicationStatus.Status.String()
-		processedStatus.Status.Info = applicationStatus.Message
-		processedStatus.Status.Data = applicationStatus.Data
-		processedStatus.Status.Since = applicationStatus.Since
+		processedStatus.Units = context.processUnits(units, serviceCharm.URL().String())
+	}
+	applicationStatus, err := service.Status()
+	if err != nil {
+		processedStatus.Err = common.ServerError(err)
+		return processedStatus
+	}
+	processedStatus.Status.Status = applicationStatus.Status.String()
+	processedStatus.Status.Info = applicationStatus.Message
+	processedStatus.Status.Data = applicationStatus.Data
+	processedStatus.Status.Since = applicationStatus.Since
 
+	metrics := serviceCharm.Metrics()
+	planRequired := metrics != nil && metrics.Plan != nil && metrics.Plan.Required
+	if planRequired || len(service.MetricCredentials()) > 0 {
 		processedStatus.MeterStatuses = context.processUnitMeterStatuses(units)
 	}
 
@@ -651,7 +658,7 @@ func (context *statusContext) processApplication(service *state.Application) par
 			status.StatusHistoryFilter{Size: 1},
 		)
 		if err != nil {
-			processedStatus.Err = err
+			processedStatus.Err = common.ServerError(err)
 			return processedStatus
 		}
 		// Even though we fully expect there to be historical values there,
@@ -797,7 +804,7 @@ func populateStatusFromStatusInfoAndErr(agent *params.DetailedStatus, statusInfo
 // processMachine retrieves version and status information for the given machine.
 // It also returns deprecated legacy status information.
 func processMachine(machine *state.Machine) (out params.DetailedStatus) {
-	statusInfo, err := machine.Status()
+	statusInfo, err := common.MachineStatus(machine)
 	populateStatusFromStatusInfoAndErr(&out, statusInfo, err)
 
 	out.Life = processLife(machine)

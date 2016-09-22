@@ -16,12 +16,13 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/description"
 	"github.com/juju/utils"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
+
+	"github.com/juju/juju/permission"
 )
 
 const userGlobalKeyPrefix = "us"
@@ -172,7 +173,7 @@ func createInitialUserOps(controllerUUID string, user names.UserTag, password, s
 		user.Name(),
 		dateCreated,
 		// first user is controller admin.
-		description.SuperuserAccess)
+		permission.SuperuserAccess)
 
 	ops = append(ops, controllerUserOps...)
 	return ops

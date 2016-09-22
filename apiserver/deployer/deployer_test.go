@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -353,4 +354,31 @@ func (s *deployerSuite) TestConnectionInfo(c *gc.C) {
 	result, err := s.deployer.ConnectionInfo()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, expected)
+}
+
+func (s *deployerSuite) TestSetStatus(c *gc.C) {
+	args := params.SetStatus{
+		Entities: []params.EntityStatusArgs{
+			{Tag: "unit-mysql-0", Status: "blocked", Info: "waiting", Data: map[string]interface{}{"foo": "bar"}},
+			{Tag: "unit-mysql-1", Status: "blocked", Info: "waiting", Data: map[string]interface{}{"foo": "bar"}},
+			{Tag: "unit-fake-42", Status: "blocked", Info: "waiting", Data: map[string]interface{}{"foo": "bar"}},
+		},
+	}
+	results, err := s.deployer.SetStatus(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{nil},
+			{apiservertesting.ErrUnauthorized},
+			{apiservertesting.ErrUnauthorized},
+		},
+	})
+	sInfo, err := s.principal0.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	sInfo.Since = nil
+	c.Assert(sInfo, jc.DeepEquals, status.StatusInfo{
+		Status:  status.Blocked,
+		Message: "waiting",
+		Data:    map[string]interface{}{"foo": "bar"},
+	})
 }

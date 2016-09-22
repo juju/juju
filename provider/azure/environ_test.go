@@ -24,7 +24,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
-	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
@@ -39,10 +38,61 @@ import (
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/azure"
+	"github.com/juju/juju/provider/azure/internal/armtemplates"
+	"github.com/juju/juju/provider/azure/internal/azureauth"
 	"github.com/juju/juju/provider/azure/internal/azuretesting"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 	"github.com/juju/version"
+)
+
+const storageAccountName = "juju400d80004b1d0d06f00d"
+
+var (
+	quantalImageReference = compute.ImageReference{
+		Publisher: to.StringPtr("Canonical"),
+		Offer:     to.StringPtr("UbuntuServer"),
+		Sku:       to.StringPtr("12.10"),
+		Version:   to.StringPtr("latest"),
+	}
+	win2012ImageReference = compute.ImageReference{
+		Publisher: to.StringPtr("MicrosoftWindowsServer"),
+		Offer:     to.StringPtr("WindowsServer"),
+		Sku:       to.StringPtr("2012-Datacenter"),
+		Version:   to.StringPtr("latest"),
+	}
+	centos7ImageReference = compute.ImageReference{
+		Publisher: to.StringPtr("OpenLogic"),
+		Offer:     to.StringPtr("CentOS"),
+		Sku:       to.StringPtr("7.1"),
+		Version:   to.StringPtr("latest"),
+	}
+
+	sshPublicKeys = []compute.SSHPublicKey{{
+		Path:    to.StringPtr("/home/ubuntu/.ssh/authorized_keys"),
+		KeyData: to.StringPtr(testing.FakeAuthKeys),
+	}}
+	linuxOsProfile = compute.OSProfile{
+		ComputerName:  to.StringPtr("machine-0"),
+		CustomData:    to.StringPtr("<juju-goes-here>"),
+		AdminUsername: to.StringPtr("ubuntu"),
+		LinuxConfiguration: &compute.LinuxConfiguration{
+			DisablePasswordAuthentication: to.BoolPtr(true),
+			SSH: &compute.SSHConfiguration{
+				PublicKeys: &sshPublicKeys,
+			},
+		},
+	}
+	windowsOsProfile = compute.OSProfile{
+		ComputerName:  to.StringPtr("machine-0"),
+		CustomData:    to.StringPtr("<juju-goes-here>"),
+		AdminUsername: to.StringPtr("JujuAdministrator"),
+		AdminPassword: to.StringPtr("sorandom"),
+		WindowsConfiguration: &compute.WindowsConfiguration{
+			ProvisionVMAgent:       to.BoolPtr(true),
+			EnableAutomaticUpdates: to.BoolPtr(true),
+		},
+	}
 )
 
 type environSuite struct {
@@ -54,28 +104,16 @@ type environSuite struct {
 	sender        azuretesting.Senders
 	retryClock    mockClock
 
-	controllerUUID                string
-	envTags                       map[string]*string
-	vmTags                        map[string]*string
-	group                         *resources.ResourceGroup
-	vmSizes                       *compute.VirtualMachineSizeListResult
-	storageAccounts               []storage.Account
-	storageNameAvailabilityResult *storage.CheckNameAvailabilityResult
-	storageAccount                *storage.Account
-	storageAccountKeys            *storage.AccountListKeysResult
-	vnet                          *network.VirtualNetwork
-	nsg                           *network.SecurityGroup
-	internalSubnet                *network.Subnet
-	controllerSubnet              *network.Subnet
-	ubuntuServerSKUs              []compute.VirtualMachineImageResource
-	publicIPAddress               *network.PublicIPAddress
-	oldNetworkInterfaces          *network.InterfaceListResult
-	newNetworkInterface           *network.Interface
-	jujuAvailabilitySet           *compute.AvailabilitySet
-	sshPublicKeys                 []compute.SSHPublicKey
-	networkInterfaceReferences    []compute.NetworkInterfaceReference
-	virtualMachine                *compute.VirtualMachine
-	vmExtension                   *compute.VirtualMachineExtension
+	controllerUUID     string
+	envTags            map[string]*string
+	vmTags             map[string]*string
+	group              *resources.ResourceGroup
+	vmSizes            *compute.VirtualMachineSizeListResult
+	storageAccounts    []storage.Account
+	storageAccount     *storage.Account
+	storageAccountKeys *storage.AccountListKeysResult
+	ubuntuServerSKUs   []compute.VirtualMachineImageResource
+	deployment         *resources.Deployment
 }
 
 var _ = gc.Suite(&environSuite{})
@@ -89,11 +127,13 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 
 	s.provider = newProvider(c, azure.ProviderConfig{
 		Sender:           azuretesting.NewSerialSender(&s.sender),
-		RequestInspector: requestRecorder(&s.requests),
+		RequestInspector: azuretesting.RequestRecorder(&s.requests),
 		NewStorageClient: s.storageClient.NewClient,
 		RetryClock: &gitjujutesting.AutoAdvancingClock{
 			&s.retryClock, s.retryClock.Advance,
 		},
+		RandomWindowsAdminPassword:        func() string { return "sorandom" },
+		InteractiveCreateServicePrincipal: azureauth.InteractiveCreateServicePrincipal,
 	})
 
 	s.controllerUUID = testing.ControllerTag.Id()
@@ -102,7 +142,9 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 		"juju-controller-uuid": to.StringPtr(s.controllerUUID),
 	}
 	s.vmTags = map[string]*string{
-		"juju-machine-name": to.StringPtr("machine-0"),
+		"juju-model-uuid":      to.StringPtr(testing.ModelTag.Id()),
+		"juju-controller-uuid": to.StringPtr(s.controllerUUID),
+		"juju-machine-name":    to.StringPtr("machine-0"),
 	}
 
 	s.group = &resources.ResourceGroup{
@@ -123,17 +165,13 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 	}}
 	s.vmSizes = &compute.VirtualMachineSizeListResult{Value: &vmSizes}
 
-	s.storageNameAvailabilityResult = &storage.CheckNameAvailabilityResult{
-		NameAvailable: to.BoolPtr(true),
-	}
-
 	s.storageAccount = &storage.Account{
 		Name: to.StringPtr("my-storage-account"),
 		Type: to.StringPtr("Standard_LRS"),
 		Tags: &s.envTags,
 		Properties: &storage.AccountProperties{
 			PrimaryEndpoints: &storage.Endpoints{
-				Blob: to.StringPtr(fmt.Sprintf("https://%s.blob.storage.azurestack.local/", fakeStorageAccount)),
+				Blob: to.StringPtr(fmt.Sprintf("https://%s.blob.storage.azurestack.local/", storageAccountName)),
 			},
 			ProvisioningState: "Succeeded",
 		},
@@ -148,54 +186,6 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 		Keys: &keys,
 	}
 
-	addressPrefixes := []string{"192.168.0.0/20", "192.168.16.0/20"}
-	s.vnet = &network.VirtualNetwork{
-		ID:       to.StringPtr("juju-internal-network"),
-		Name:     to.StringPtr("juju-internal-network"),
-		Location: to.StringPtr("westus"),
-		Tags:     &s.envTags,
-		Properties: &network.VirtualNetworkPropertiesFormat{
-			AddressSpace:      &network.AddressSpace{&addressPrefixes},
-			ProvisioningState: to.StringPtr("Succeeded"),
-		},
-	}
-
-	s.nsg = &network.SecurityGroup{
-		ID: to.StringPtr(path.Join(
-			"/subscriptions", fakeSubscriptionId,
-			"resourceGroups", "juju-testenv-model-"+testing.ModelTag.Id(),
-			"providers/Microsoft.Network/networkSecurityGroups/juju-internal-nsg",
-		)),
-		Tags: &s.envTags,
-		Properties: &network.SecurityGroupPropertiesFormat{
-			ProvisioningState: to.StringPtr("Succeeded"),
-		},
-	}
-
-	s.internalSubnet = &network.Subnet{
-		ID:   to.StringPtr("/subscriptions/22222222-2222-2222-2222-222222222222/resourceGroups/juju-testenv-model-deadbeef-0bad-400d-8000-4b1d0d06f00d/providers/Microsoft.Network/virtualNetworks/juju-internal-network/subnets/juju-internal-subnet"),
-		Name: to.StringPtr("juju-internal-subnet"),
-		Properties: &network.SubnetPropertiesFormat{
-			AddressPrefix: to.StringPtr("192.168.0.0/20"),
-			NetworkSecurityGroup: &network.SecurityGroup{
-				ID: to.StringPtr("/subscriptions/22222222-2222-2222-2222-222222222222/resourceGroups/juju-testenv-model-deadbeef-0bad-400d-8000-4b1d0d06f00d/providers/Microsoft.Network/networkSecurityGroups/juju-internal-nsg"),
-			},
-			ProvisioningState: to.StringPtr("Succeeded"),
-		},
-	}
-
-	s.controllerSubnet = &network.Subnet{
-		ID:   to.StringPtr("/subscriptions/22222222-2222-2222-2222-222222222222/resourceGroups/juju-testenv-model-deadbeef-0bad-400d-8000-4b1d0d06f00d/providers/Microsoft.Network/virtualNetworks/juju-internal-network/subnets/juju-controller-subnet"),
-		Name: to.StringPtr("juju-controller-subnet"),
-		Properties: &network.SubnetPropertiesFormat{
-			AddressPrefix: to.StringPtr("192.168.16.0/20"),
-			NetworkSecurityGroup: &network.SecurityGroup{
-				ID: to.StringPtr("/subscriptions/22222222-2222-2222-2222-222222222222/resourceGroups/juju-testenv-model-deadbeef-0bad-400d-8000-4b1d0d06f00d/providers/Microsoft.Network/networkSecurityGroups/juju-internal-nsg"),
-			},
-			ProvisioningState: to.StringPtr("Succeeded"),
-		},
-	}
-
 	s.ubuntuServerSKUs = []compute.VirtualMachineImageResource{
 		{Name: to.StringPtr("12.04-LTS")},
 		{Name: to.StringPtr("12.10")},
@@ -205,133 +195,7 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 		{Name: to.StringPtr("16.04-LTS")},
 	}
 
-	s.publicIPAddress = &network.PublicIPAddress{
-		ID:       to.StringPtr("/subscriptions/22222222-2222-2222-2222-222222222222/resourceGroups/juju-testenv-model-deadbeef-0bad-400d-8000-4b1d0d06f00d/providers/Microsoft.Network/publicIPAddresses/machine-0-public-ip"),
-		Name:     to.StringPtr("machine-0-public-ip"),
-		Location: to.StringPtr("westus"),
-		Tags:     &s.vmTags,
-		Properties: &network.PublicIPAddressPropertiesFormat{
-			PublicIPAllocationMethod: network.Dynamic,
-			IPAddress:                to.StringPtr("1.2.3.4"),
-			ProvisioningState:        to.StringPtr("Succeeded"),
-		},
-	}
-
-	// Existing IPs/NICs. These are the results of querying NICs so we
-	// can tell which IP to allocate.
-	oldIPConfigurations := []network.InterfaceIPConfiguration{{
-		ID:   to.StringPtr("ip-configuration-0-id"),
-		Name: to.StringPtr("ip-configuration-0"),
-		Properties: &network.InterfaceIPConfigurationPropertiesFormat{
-			PrivateIPAddress:          to.StringPtr("192.168.0.4"),
-			PrivateIPAllocationMethod: network.Static,
-			Subnet:            s.internalSubnet,
-			ProvisioningState: to.StringPtr("Succeeded"),
-		},
-	}}
-	oldNetworkInterfaces := []network.Interface{{
-		ID:   to.StringPtr("network-interface-0-id"),
-		Name: to.StringPtr("network-interface-0"),
-		Properties: &network.InterfacePropertiesFormat{
-			IPConfigurations:  &oldIPConfigurations,
-			Primary:           to.BoolPtr(true),
-			ProvisioningState: to.StringPtr("Succeeded"),
-		},
-	}}
-	s.oldNetworkInterfaces = &network.InterfaceListResult{
-		Value: &oldNetworkInterfaces,
-	}
-
-	// The newly created IP/NIC.
-	newIPConfigurations := []network.InterfaceIPConfiguration{{
-		ID:   to.StringPtr("ip-configuration-1-id"),
-		Name: to.StringPtr("primary"),
-		Properties: &network.InterfaceIPConfigurationPropertiesFormat{
-			PrivateIPAddress:          to.StringPtr("192.168.0.5"),
-			PrivateIPAllocationMethod: network.Static,
-			Subnet:            s.internalSubnet,
-			PublicIPAddress:   s.publicIPAddress,
-			ProvisioningState: to.StringPtr("Succeeded"),
-		},
-	}}
-	s.newNetworkInterface = &network.Interface{
-		ID:       to.StringPtr("/subscriptions/22222222-2222-2222-2222-222222222222/resourceGroups/juju-testenv-model-deadbeef-0bad-400d-8000-4b1d0d06f00d/providers/Microsoft.Network/networkInterfaces/machine-0-primary"),
-		Name:     to.StringPtr("network-interface-1"),
-		Location: to.StringPtr("westus"),
-		Tags:     &s.vmTags,
-		Properties: &network.InterfacePropertiesFormat{
-			IPConfigurations:  &newIPConfigurations,
-			ProvisioningState: to.StringPtr("Succeeded"),
-		},
-	}
-
-	s.jujuAvailabilitySet = &compute.AvailabilitySet{
-		ID:       to.StringPtr("juju-availability-set-id"),
-		Name:     to.StringPtr("juju"),
-		Location: to.StringPtr("westus"),
-		Tags:     &s.envTags,
-	}
-
-	s.sshPublicKeys = []compute.SSHPublicKey{{
-		Path:    to.StringPtr("/home/ubuntu/.ssh/authorized_keys"),
-		KeyData: to.StringPtr(testing.FakeAuthKeys),
-	}}
-	s.networkInterfaceReferences = []compute.NetworkInterfaceReference{{
-		ID: s.newNetworkInterface.ID,
-		Properties: &compute.NetworkInterfaceReferenceProperties{
-			Primary: to.BoolPtr(true),
-		},
-	}}
-	s.virtualMachine = &compute.VirtualMachine{
-		ID:       to.StringPtr("machine-0-id"),
-		Name:     to.StringPtr("machine-0"),
-		Location: to.StringPtr("westus"),
-		Tags:     &s.vmTags,
-		Properties: &compute.VirtualMachineProperties{
-			HardwareProfile: &compute.HardwareProfile{
-				VMSize: "Standard_D1",
-			},
-			StorageProfile: &compute.StorageProfile{
-				ImageReference: &compute.ImageReference{
-					Publisher: to.StringPtr("Canonical"),
-					Offer:     to.StringPtr("UbuntuServer"),
-					Sku:       to.StringPtr("12.10"),
-					Version:   to.StringPtr("latest"),
-				},
-				OsDisk: &compute.OSDisk{
-					Name:         to.StringPtr("machine-0"),
-					CreateOption: compute.FromImage,
-					Caching:      compute.ReadWrite,
-					Vhd: &compute.VirtualHardDisk{
-						URI: to.StringPtr(fmt.Sprintf(
-							"https://%s.blob.storage.azurestack.local/osvhds/machine-0.vhd",
-							fakeStorageAccount,
-						)),
-					},
-					// 30 GiB is roughly 32 GB.
-					DiskSizeGB: to.Int32Ptr(32),
-				},
-			},
-			OsProfile: &compute.OSProfile{
-				ComputerName:  to.StringPtr("machine-0"),
-				CustomData:    to.StringPtr("<juju-goes-here>"),
-				AdminUsername: to.StringPtr("ubuntu"),
-				LinuxConfiguration: &compute.LinuxConfiguration{
-					DisablePasswordAuthentication: to.BoolPtr(true),
-					SSH: &compute.SSHConfiguration{
-						PublicKeys: &s.sshPublicKeys,
-					},
-				},
-			},
-			NetworkProfile: &compute.NetworkProfile{
-				NetworkInterfaces: &s.networkInterfaceReferences,
-			},
-			AvailabilitySet:   &compute.SubResource{ID: s.jujuAvailabilitySet.ID},
-			ProvisioningState: to.StringPtr("Succeeded"),
-		},
-	}
-
-	s.vmExtension = nil
+	s.deployment = nil
 }
 
 func (s *environSuite) openEnviron(c *gc.C, attrs ...testing.Attrs) environs.Environ {
@@ -355,7 +219,10 @@ func openEnviron(
 
 	// Force an explicit refresh of the access token, so it isn't done
 	// implicitly during the tests.
-	*sender = azuretesting.Senders{tokenRefreshSender()}
+	*sender = azuretesting.Senders{
+		discoverAuthSender(),
+		tokenRefreshSender(),
+	}
 	err = azure.ForceTokenRefresh(env)
 	c.Assert(err, jc.ErrorIsNil)
 	return env
@@ -382,7 +249,10 @@ func prepareForBootstrap(
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	*sender = azuretesting.Senders{tokenRefreshSender()}
+	*sender = azuretesting.Senders{
+		discoverAuthSender(),
+		tokenRefreshSender(),
+	}
 	err = env.PrepareForBootstrap(ctx)
 	c.Assert(err, jc.ErrorIsNil)
 	return env
@@ -396,7 +266,7 @@ func fakeCloudSpec() environs.CloudSpec {
 		Endpoint:         "https://api.azurestack.local",
 		IdentityEndpoint: "https://login.microsoftonline.com",
 		StorageEndpoint:  "https://storage.azurestack.local",
-		Credential:       fakeUserPassCredential(),
+		Credential:       fakeServicePrincipalCredential(),
 	}
 }
 
@@ -410,46 +280,35 @@ func tokenRefreshSender() *azuretesting.MockSender {
 	return tokenRefreshSender
 }
 
-func (s *environSuite) initResourceGroupSenders(controller bool) azuretesting.Senders {
+func discoverAuthSender() *azuretesting.MockSender {
+	const fakeTenantId = "11111111-1111-1111-1111-111111111111"
+	sender := mocks.NewSender()
+	resp := mocks.NewResponseWithStatus("", http.StatusUnauthorized)
+	mocks.SetResponseHeaderValues(resp, "WWW-Authenticate", []string{
+		fmt.Sprintf(
+			`authorization_uri="https://testing.invalid/%s"`,
+			fakeTenantId,
+		),
+	})
+	sender.AppendResponse(resp)
+	return &azuretesting.MockSender{
+		Sender:      sender,
+		PathPattern: ".*/subscriptions/" + fakeSubscriptionId,
+	}
+}
+
+func (s *environSuite) initResourceGroupSenders() azuretesting.Senders {
 	resourceGroupName := "juju-testenv-model-deadbeef-0bad-400d-8000-4b1d0d06f00d"
-	senders := azuretesting.Senders{
-		s.makeSender(".*/resourcegroups/"+resourceGroupName, s.group),
-		s.makeSender(".*/virtualNetworks/juju-internal-network", s.vnet),
-		s.makeSender(".*/networkSecurityGroups/juju-internal-nsg", s.nsg),
-		s.makeSender(".*/virtualNetworks/juju-internal-network/subnets/juju-internal-subnet", s.internalSubnet),
-	}
-	if controller {
-		senders = append(senders,
-			s.makeSender(".*/virtualNetworks/juju-internal-network/subnets/juju-controller-subnet", s.controllerSubnet),
-		)
-	}
-	senders = append(senders,
-		s.makeSender(".*/checkNameAvailability", s.storageNameAvailabilityResult),
-		s.makeSender(".*/storageAccounts/.*", s.storageAccount),
-	)
+	senders := azuretesting.Senders{s.makeSender(".*/resourcegroups/"+resourceGroupName, s.group)}
 	return senders
 }
 
 func (s *environSuite) startInstanceSenders(controller bool) azuretesting.Senders {
-	senders := azuretesting.Senders{
-		s.vmSizesSender(),
-		s.storageAccountsSender(),
-	}
+	senders := azuretesting.Senders{s.vmSizesSender()}
 	if s.ubuntuServerSKUs != nil {
 		senders = append(senders, s.makeSender(".*/Canonical/.*/UbuntuServer/skus", s.ubuntuServerSKUs))
 	}
-	senders = append(senders,
-		s.makeSender(".*/publicIPAddresses/machine-0-public-ip", s.publicIPAddress),
-		s.makeSender(".*/networkInterfaces", s.oldNetworkInterfaces),
-		s.makeSender(".*/networkInterfaces/machine-0-primary", s.newNetworkInterface),
-		s.makeSender(".*/availabilitySets/.*", s.jujuAvailabilitySet),
-		s.makeSender(".*/virtualMachines/machine-0", s.virtualMachine),
-	)
-	if s.vmExtension != nil {
-		senders = append(senders, s.makeSender(
-			".*/virtualMachines/machine-0/extensions/JujuCustomScriptExtension", s.vmExtension),
-		)
-	}
+	senders = append(senders, s.makeSender("/deployments/machine-0", s.deployment))
 	return senders
 }
 
@@ -469,9 +328,8 @@ func (s *environSuite) vmSizesSender() *azuretesting.MockSender {
 	return s.makeSender(".*/vmSizes", s.vmSizes)
 }
 
-func (s *environSuite) storageAccountsSender() *azuretesting.MockSender {
-	accounts := []storage.Account{*s.storageAccount}
-	return s.makeSender(".*/storageAccounts", storage.AccountListResult{Value: &accounts})
+func (s *environSuite) storageAccountSender() *azuretesting.MockSender {
+	return s.makeSender(".*/storageAccounts/"+storageAccountName, s.storageAccount)
 }
 
 func (s *environSuite) storageAccountKeysSender() *azuretesting.MockSender {
@@ -487,7 +345,7 @@ func (s *environSuite) makeSender(pattern string, v interface{}) *azuretesting.M
 func makeStartInstanceParams(c *gc.C, controllerUUID, series string) environs.StartInstanceParams {
 	machineTag := names.NewMachineTag("0")
 	apiInfo := &api.Info{
-		Addrs:    []string{"localhost:246"},
+		Addrs:    []string{"localhost:17777"},
 		CACert:   testing.CACert,
 		Password: "admin",
 		Tag:      machineTag,
@@ -500,6 +358,10 @@ func makeStartInstanceParams(c *gc.C, controllerUUID, series string) environs.St
 		series, apiInfo,
 	)
 	c.Assert(err, jc.ErrorIsNil)
+	icfg.Tags = map[string]string{
+		tags.JujuModel:      testing.ModelTag.Id(),
+		tags.JujuController: controllerUUID,
+	}
 
 	return environs.StartInstanceParams{
 		ControllerUUID: controllerUUID,
@@ -585,27 +447,31 @@ func (s *environSuite) TestStartInstance(c *gc.C) {
 		RootDisk: &rootDisk,
 		CpuCores: &cpuCores,
 	})
-	requests := s.assertStartInstanceRequests(c, s.requests)
-	availabilitySetName := path.Base(requests.availabilitySet.URL.Path)
-	c.Assert(availabilitySetName, gc.Equals, "juju")
+	s.assertStartInstanceRequests(c, s.requests, assertStartInstanceRequestsParams{
+		imageReference: &quantalImageReference,
+		diskSizeGB:     32,
+		osProfile:      &linuxOsProfile,
+	})
 }
 
 func (s *environSuite) TestStartInstanceWindowsMinRootDisk(c *gc.C) {
 	// The minimum OS disk size for Windows machines is 127GiB.
 	cons := constraints.MustParse("root-disk=44G")
-	s.testStartInstanceWindowsRootDisk(c, cons, 127*1024)
+	s.testStartInstanceWindows(c, cons, 127*1024, 136)
 }
 
 func (s *environSuite) TestStartInstanceWindowsGrowableRootDisk(c *gc.C) {
 	// The OS disk size may be grown larger than 127GiB.
 	cons := constraints.MustParse("root-disk=200G")
-	s.testStartInstanceWindowsRootDisk(c, cons, 200*1024)
+	s.testStartInstanceWindows(c, cons, 200*1024, 214)
 }
 
-func (s *environSuite) testStartInstanceWindowsRootDisk(c *gc.C, cons constraints.Value, expect uint64) {
+func (s *environSuite) testStartInstanceWindows(
+	c *gc.C, cons constraints.Value,
+	expect uint64, requestValue int,
+) {
 	// Starting a Windows VM, we should not expect an image query.
 	s.PatchValue(&s.ubuntuServerSKUs, nil)
-	s.PatchValue(&s.vmExtension, &compute.VirtualMachineExtension{})
 
 	env := s.openEnviron(c)
 	s.sender = s.startInstanceSenders(false)
@@ -616,6 +482,53 @@ func (s *environSuite) testStartInstanceWindowsRootDisk(c *gc.C, cons constraint
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.NotNil)
 	c.Assert(result.Hardware.RootDisk, jc.DeepEquals, &expect)
+
+	vmExtensionSettings := map[string]interface{}{
+		"commandToExecute": `` +
+			`move C:\AzureData\CustomData.bin C:\AzureData\CustomData.ps1 && ` +
+			`powershell.exe -ExecutionPolicy Unrestricted -File C:\AzureData\CustomData.ps1 && ` +
+			`del /q C:\AzureData\CustomData.ps1`,
+	}
+	s.assertStartInstanceRequests(c, s.requests, assertStartInstanceRequestsParams{
+		imageReference: &win2012ImageReference,
+		diskSizeGB:     requestValue,
+		vmExtension: &compute.VirtualMachineExtensionProperties{
+			Publisher:               to.StringPtr("Microsoft.Compute"),
+			Type:                    to.StringPtr("CustomScriptExtension"),
+			TypeHandlerVersion:      to.StringPtr("1.4"),
+			AutoUpgradeMinorVersion: to.BoolPtr(true),
+			Settings:                &vmExtensionSettings,
+		},
+		osProfile: &windowsOsProfile,
+	})
+}
+
+func (s *environSuite) TestStartInstanceCentOS(c *gc.C) {
+	// Starting a CentOS VM, we should not expect an image query.
+	s.PatchValue(&s.ubuntuServerSKUs, nil)
+
+	env := s.openEnviron(c)
+	s.sender = s.startInstanceSenders(false)
+	s.requests = nil
+	args := makeStartInstanceParams(c, s.controllerUUID, "centos7")
+	_, err := env.StartInstance(args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	vmExtensionSettings := map[string]interface{}{
+		"commandToExecute": `bash -c 'base64 -d /var/lib/waagent/CustomData | bash'`,
+	}
+	s.assertStartInstanceRequests(c, s.requests, assertStartInstanceRequestsParams{
+		imageReference: &centos7ImageReference,
+		diskSizeGB:     32,
+		vmExtension: &compute.VirtualMachineExtensionProperties{
+			Publisher:               to.StringPtr("Microsoft.OSTCExtensions"),
+			Type:                    to.StringPtr("CustomScriptForLinux"),
+			TypeHandlerVersion:      to.StringPtr("1.4"),
+			AutoUpgradeMinorVersion: to.BoolPtr(true),
+			Settings:                &vmExtensionSettings,
+		},
+		osProfile: &linuxOsProfile,
+	})
 }
 
 func (s *environSuite) TestStartInstanceTooManyRequests(c *gc.C) {
@@ -646,7 +559,11 @@ func (s *environSuite) TestStartInstanceTooManyRequests(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(s.requests, gc.HasLen, numExpectedStartInstanceRequests+failures)
-	s.assertStartInstanceRequests(c, s.requests[:numExpectedStartInstanceRequests])
+	s.assertStartInstanceRequests(c, s.requests[:numExpectedStartInstanceRequests], assertStartInstanceRequestsParams{
+		imageReference: &quantalImageReference,
+		diskSizeGB:     32,
+		osProfile:      &linuxOsProfile,
+	})
 
 	// The final requests should all be identical.
 	for i := numExpectedStartInstanceRequests; i < numExpectedStartInstanceRequests+failures; i++ {
@@ -689,7 +606,7 @@ func (s *environSuite) TestStartInstanceTooManyRequestsTimeout(c *gc.C) {
 	s.sender = senders
 
 	_, err := env.StartInstance(makeStartInstanceParams(c, s.controllerUUID, "quantal"))
-	c.Assert(err, gc.ErrorMatches, `creating virtual machine "machine-0": creating virtual machine: max duration exceeded: .*`)
+	c.Assert(err, gc.ErrorMatches, `creating virtual machine "machine-0": creating deployment "machine-0": max duration exceeded: .*`)
 
 	s.retryClock.CheckCalls(c, []gitjujutesting.StubCall{
 		{"After", []interface{}{5 * time.Second}},  // t0 + 5s
@@ -719,184 +636,30 @@ func (s *environSuite) TestStartInstanceServiceAvailabilitySet(c *gc.C) {
 
 	_, err := env.StartInstance(params)
 	c.Assert(err, jc.ErrorIsNil)
-	requests := s.assertStartInstanceRequests(c, s.requests)
-	availabilitySetName := path.Base(requests.availabilitySet.URL.Path)
-	c.Assert(availabilitySetName, gc.Equals, "mysql")
+	s.assertStartInstanceRequests(c, s.requests, assertStartInstanceRequestsParams{
+		availabilitySetName: "mysql",
+		imageReference:      &quantalImageReference,
+		diskSizeGB:          32,
+		osProfile:           &linuxOsProfile,
+	})
 }
 
-const numExpectedStartInstanceRequests = 8
+const numExpectedStartInstanceRequests = 3
 
-func (s *environSuite) assertStartInstanceRequests(c *gc.C, requests []*http.Request) startInstanceRequests {
-	// The values defined here are the *request* values. They lack IDs,
-	// Names (in most places), and ProvisioningStates. The values defined
-	// on the suite are the *response* values; they are supersets of the
-	// request values.
-
-	publicIPAddress := &network.PublicIPAddress{
-		Location: to.StringPtr("westus"),
-		Tags:     &s.vmTags,
-		Properties: &network.PublicIPAddressPropertiesFormat{
-			PublicIPAllocationMethod: network.Dynamic,
-		},
-	}
-	newIPConfigurations := []network.InterfaceIPConfiguration{{
-		Name: to.StringPtr("primary"),
-		Properties: &network.InterfaceIPConfigurationPropertiesFormat{
-			Primary:                   to.BoolPtr(true),
-			PrivateIPAddress:          to.StringPtr("192.168.0.5"),
-			PrivateIPAllocationMethod: network.Static,
-			Subnet: &network.Subnet{
-				ID: s.internalSubnet.ID,
-			},
-			PublicIPAddress: &network.PublicIPAddress{
-				ID: s.publicIPAddress.ID,
-			},
-		},
-	}}
-	newNetworkInterface := &network.Interface{
-		Location: to.StringPtr("westus"),
-		Tags:     &s.vmTags,
-		Properties: &network.InterfacePropertiesFormat{
-			IPConfigurations: &newIPConfigurations,
-		},
-	}
-	jujuAvailabilitySet := &compute.AvailabilitySet{
-		Location: to.StringPtr("westus"),
-		Tags:     &s.envTags,
-	}
-	virtualMachine := &compute.VirtualMachine{
-		Name:     to.StringPtr("machine-0"),
-		Location: to.StringPtr("westus"),
-		Tags:     &s.vmTags,
-		Properties: &compute.VirtualMachineProperties{
-			HardwareProfile: &compute.HardwareProfile{
-				VMSize: "Standard_D1",
-			},
-			StorageProfile: &compute.StorageProfile{
-				ImageReference: &compute.ImageReference{
-					Publisher: to.StringPtr("Canonical"),
-					Offer:     to.StringPtr("UbuntuServer"),
-					Sku:       to.StringPtr("12.10"),
-					Version:   to.StringPtr("latest"),
-				},
-				OsDisk: &compute.OSDisk{
-					Name:         to.StringPtr("machine-0"),
-					CreateOption: compute.FromImage,
-					Caching:      compute.ReadWrite,
-					Vhd: &compute.VirtualHardDisk{
-						URI: to.StringPtr(fmt.Sprintf(
-							"https://%s.blob.storage.azurestack.local/osvhds/machine-0.vhd",
-							fakeStorageAccount,
-						)),
-					},
-					// 30 GiB is roughly 32 GB.
-					DiskSizeGB: to.Int32Ptr(32),
-				},
-			},
-			OsProfile: &compute.OSProfile{
-				ComputerName:  to.StringPtr("machine-0"),
-				CustomData:    to.StringPtr("<juju-goes-here>"),
-				AdminUsername: to.StringPtr("ubuntu"),
-				LinuxConfiguration: &compute.LinuxConfiguration{
-					DisablePasswordAuthentication: to.BoolPtr(true),
-					SSH: &compute.SSHConfiguration{
-						PublicKeys: &s.sshPublicKeys,
-					},
-				},
-			},
-			NetworkProfile: &compute.NetworkProfile{
-				NetworkInterfaces: &s.networkInterfaceReferences,
-			},
-			AvailabilitySet: &compute.SubResource{ID: s.jujuAvailabilitySet.ID},
-		},
-	}
-
-	// Validate HTTP request bodies.
-	c.Assert(requests, gc.HasLen, numExpectedStartInstanceRequests)
-	c.Assert(requests[0].Method, gc.Equals, "GET") // vmSizes
-	c.Assert(requests[1].Method, gc.Equals, "GET") // storage accounts
-	c.Assert(requests[2].Method, gc.Equals, "GET") // skus
-	c.Assert(requests[3].Method, gc.Equals, "PUT")
-	assertRequestBody(c, requests[3], publicIPAddress)
-	c.Assert(requests[4].Method, gc.Equals, "GET") // list NICs (to choose private IP address)
-	c.Assert(requests[5].Method, gc.Equals, "PUT") // create NIC
-	assertRequestBody(c, requests[5], newNetworkInterface)
-	c.Assert(requests[6].Method, gc.Equals, "PUT") // create availability set
-	assertRequestBody(c, requests[6], jujuAvailabilitySet)
-	c.Assert(requests[7].Method, gc.Equals, "PUT") // create VM
-	assertCreateVirtualMachineRequestBody(c, requests[7], virtualMachine)
-
-	return startInstanceRequests{
-		vmSizes:          requests[0],
-		storageAccounts:  requests[1],
-		skus:             requests[2],
-		publicIPAddress:  requests[3],
-		nics:             requests[4],
-		networkInterface: requests[5],
-		availabilitySet:  requests[6],
-		virtualMachine:   requests[7],
-	}
+type assertStartInstanceRequestsParams struct {
+	availabilitySetName string
+	imageReference      *compute.ImageReference
+	vmExtension         *compute.VirtualMachineExtensionProperties
+	diskSizeGB          int
+	osProfile           *compute.OSProfile
 }
 
-func assertCreateVirtualMachineRequestBody(c *gc.C, req *http.Request, expect *compute.VirtualMachine) {
-	// CustomData is non-deterministic, so don't compare it.
-	// TODO(axw) shouldn't CustomData be deterministic? Look into this.
-	var virtualMachine compute.VirtualMachine
-	unmarshalRequestBody(c, req, &virtualMachine)
-	c.Assert(to.String(virtualMachine.Properties.OsProfile.CustomData), gc.Not(gc.HasLen), 0)
-	virtualMachine.Properties.OsProfile.CustomData = to.StringPtr("<juju-goes-here>")
-	c.Assert(&virtualMachine, jc.DeepEquals, expect)
-}
-
-type startInstanceRequests struct {
-	vmSizes          *http.Request
-	storageAccounts  *http.Request
-	subnet           *http.Request
-	skus             *http.Request
-	publicIPAddress  *http.Request
-	nics             *http.Request
-	networkInterface *http.Request
-	availabilitySet  *http.Request
-	virtualMachine   *http.Request
-}
-
-func (s *environSuite) TestBootstrap(c *gc.C) {
-	defer envtesting.DisableFinishBootstrap()()
-
-	ctx := envtesting.BootstrapContext(c)
-	env := prepareForBootstrap(c, ctx, s.provider, &s.sender)
-
-	s.sender = s.initResourceGroupSenders(true)
-	s.sender = append(s.sender, s.startInstanceSenders(true)...)
-	s.requests = nil
-	result, err := env.Bootstrap(
-		ctx, environs.BootstrapParams{
-			ControllerConfig: testing.FakeControllerConfig(),
-			AvailableTools:   makeToolsList(series.LatestLts()),
-		},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Arch, gc.Equals, "amd64")
-	c.Assert(result.Series, gc.Equals, series.LatestLts())
-
-	c.Assert(len(s.requests), gc.Equals, 15)
-
-	c.Assert(s.requests[0].Method, gc.Equals, "PUT")  // resource group
-	c.Assert(s.requests[1].Method, gc.Equals, "PUT")  // create vnet
-	c.Assert(s.requests[2].Method, gc.Equals, "PUT")  // create network security group
-	c.Assert(s.requests[3].Method, gc.Equals, "PUT")  // create subnet (internal)
-	c.Assert(s.requests[4].Method, gc.Equals, "PUT")  // create subnet (controller)
-	c.Assert(s.requests[5].Method, gc.Equals, "POST") // check storage account name
-	c.Assert(s.requests[6].Method, gc.Equals, "PUT")  // create storage account
-
-	s.group.Properties = nil
-	assertRequestBody(c, s.requests[0], &s.group)
-
-	s.vnet.ID = nil
-	s.vnet.Name = nil
-	s.vnet.Properties.ProvisioningState = nil
-	assertRequestBody(c, s.requests[1], s.vnet)
-
+func (s *environSuite) assertStartInstanceRequests(
+	c *gc.C,
+	requests []*http.Request,
+	args assertStartInstanceRequestsParams,
+) startInstanceRequests {
+	nsgId := `[resourceId('Microsoft.Network/networkSecurityGroups', 'juju-internal-nsg')]`
 	securityRules := []network.SecurityRule{{
 		Name: to.StringPtr("SSHInbound"),
 		Properties: &network.SecurityRulePropertiesFormat{
@@ -924,34 +687,272 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 			Direction:                network.Inbound,
 		},
 	}}
-	assertRequestBody(c, s.requests[2], &network.SecurityGroup{
-		Location: to.StringPtr("westus"),
-		Tags:     s.nsg.Tags,
+	subnets := []network.Subnet{{
+		Name: to.StringPtr("juju-internal-subnet"),
+		Properties: &network.SubnetPropertiesFormat{
+			AddressPrefix: to.StringPtr("192.168.0.0/20"),
+			NetworkSecurityGroup: &network.SecurityGroup{
+				ID: to.StringPtr(nsgId),
+			},
+		},
+	}, {
+		Name: to.StringPtr("juju-controller-subnet"),
+		Properties: &network.SubnetPropertiesFormat{
+			AddressPrefix: to.StringPtr("192.168.16.0/20"),
+			NetworkSecurityGroup: &network.SecurityGroup{
+				ID: to.StringPtr(nsgId),
+			},
+		},
+	}}
+
+	subnetName := "juju-internal-subnet"
+	privateIPAddress := "192.168.0.4"
+	if args.availabilitySetName == "juju-controller" {
+		subnetName = "juju-controller-subnet"
+		privateIPAddress = "192.168.16.4"
+	}
+	subnetId := fmt.Sprintf(
+		`[concat(resourceId('Microsoft.Network/virtualNetworks', 'juju-internal-network'), '/subnets/%s')]`,
+		subnetName,
+	)
+
+	publicIPAddressId := `[resourceId('Microsoft.Network/publicIPAddresses', 'machine-0-public-ip')]`
+
+	ipConfigurations := []network.InterfaceIPConfiguration{{
+		Name: to.StringPtr("primary"),
+		Properties: &network.InterfaceIPConfigurationPropertiesFormat{
+			Primary:                   to.BoolPtr(true),
+			PrivateIPAddress:          to.StringPtr(privateIPAddress),
+			PrivateIPAllocationMethod: network.Static,
+			Subnet: &network.Subnet{ID: to.StringPtr(subnetId)},
+			PublicIPAddress: &network.PublicIPAddress{
+				ID: to.StringPtr(publicIPAddressId),
+			},
+		},
+	}}
+
+	nicId := `[resourceId('Microsoft.Network/networkInterfaces', 'machine-0-primary')]`
+	nics := []compute.NetworkInterfaceReference{{
+		ID: to.StringPtr(nicId),
+		Properties: &compute.NetworkInterfaceReferenceProperties{
+			Primary: to.BoolPtr(true),
+		},
+	}}
+	vmDependsOn := []string{
+		nicId,
+		`[resourceId('Microsoft.Storage/storageAccounts', '` + storageAccountName + `')]`,
+	}
+
+	addressPrefixes := []string{"192.168.0.0/20", "192.168.16.0/20"}
+	templateResources := []armtemplates.Resource{{
+		APIVersion: network.APIVersion,
+		Type:       "Microsoft.Network/networkSecurityGroups",
+		Name:       "juju-internal-nsg",
+		Location:   "westus",
+		Tags:       to.StringMap(s.envTags),
 		Properties: &network.SecurityGroupPropertiesFormat{
 			SecurityRules: &securityRules,
 		},
-	})
-
-	s.internalSubnet.ID = nil
-	s.internalSubnet.Name = nil
-	s.internalSubnet.Properties.ProvisioningState = nil
-	assertRequestBody(c, s.requests[3], s.internalSubnet)
-	s.controllerSubnet.ID = nil
-	s.controllerSubnet.Name = nil
-	s.controllerSubnet.Properties.ProvisioningState = nil
-	assertRequestBody(c, s.requests[4], s.controllerSubnet)
-
-	assertRequestBody(c, s.requests[5], &storage.AccountCheckNameAvailabilityParameters{
-		Name: to.StringPtr(fakeStorageAccount),
-		Type: to.StringPtr("Microsoft.Storage/storageAccounts"),
-	})
-
-	assertRequestBody(c, s.requests[6], &storage.AccountCreateParameters{
-		Location: to.StringPtr("westus"),
-		Tags:     s.storageAccount.Tags,
-		Sku: &storage.Sku{
-			Name: storage.StandardLRS,
+	}, {
+		APIVersion: network.APIVersion,
+		Type:       "Microsoft.Network/virtualNetworks",
+		Name:       "juju-internal-network",
+		Location:   "westus",
+		Tags:       to.StringMap(s.envTags),
+		Properties: &network.VirtualNetworkPropertiesFormat{
+			AddressSpace: &network.AddressSpace{&addressPrefixes},
+			Subnets:      &subnets,
 		},
+		DependsOn: []string{nsgId},
+	}, {
+		APIVersion: storage.APIVersion,
+		Type:       "Microsoft.Storage/storageAccounts",
+		Name:       storageAccountName,
+		Location:   "westus",
+		Tags:       to.StringMap(s.envTags),
+		StorageSku: &storage.Sku{
+			Name: storage.SkuName("Standard_LRS"),
+		},
+	}}
+
+	var availabilitySetSubResource *compute.SubResource
+	if args.availabilitySetName != "" {
+		availabilitySetId := fmt.Sprintf(
+			`[resourceId('Microsoft.Compute/availabilitySets','%s')]`,
+			args.availabilitySetName,
+		)
+		templateResources = append(templateResources, armtemplates.Resource{
+			APIVersion: compute.APIVersion,
+			Type:       "Microsoft.Compute/availabilitySets",
+			Name:       args.availabilitySetName,
+			Location:   "westus",
+			Tags:       to.StringMap(s.envTags),
+		})
+		availabilitySetSubResource = &compute.SubResource{
+			ID: to.StringPtr(availabilitySetId),
+		}
+		vmDependsOn = append([]string{availabilitySetId}, vmDependsOn...)
+	}
+
+	templateResources = append(templateResources, []armtemplates.Resource{{
+		APIVersion: network.APIVersion,
+		Type:       "Microsoft.Network/publicIPAddresses",
+		Name:       "machine-0-public-ip",
+		Location:   "westus",
+		Tags:       to.StringMap(s.vmTags),
+		Properties: &network.PublicIPAddressPropertiesFormat{
+			PublicIPAllocationMethod: network.Dynamic,
+		},
+	}, {
+		APIVersion: network.APIVersion,
+		Type:       "Microsoft.Network/networkInterfaces",
+		Name:       "machine-0-primary",
+		Location:   "westus",
+		Tags:       to.StringMap(s.vmTags),
+		Properties: &network.InterfacePropertiesFormat{
+			IPConfigurations: &ipConfigurations,
+		},
+		DependsOn: []string{
+			publicIPAddressId,
+			`[resourceId('Microsoft.Network/virtualNetworks', 'juju-internal-network')]`,
+		},
+	}, {
+		APIVersion: compute.APIVersion,
+		Type:       "Microsoft.Compute/virtualMachines",
+		Name:       "machine-0",
+		Location:   "westus",
+		Tags:       to.StringMap(s.vmTags),
+		Properties: &compute.VirtualMachineProperties{
+			HardwareProfile: &compute.HardwareProfile{
+				VMSize: "Standard_D1",
+			},
+			StorageProfile: &compute.StorageProfile{
+				ImageReference: args.imageReference,
+				OsDisk: &compute.OSDisk{
+					Name:         to.StringPtr("machine-0"),
+					CreateOption: compute.FromImage,
+					Caching:      compute.ReadWrite,
+					Vhd: &compute.VirtualHardDisk{
+						URI: to.StringPtr(fmt.Sprintf(
+							`[concat(reference(resourceId('Microsoft.Storage/storageAccounts', '%s'), '%s').primaryEndpoints.blob, 'osvhds/machine-0.vhd')]`,
+							storageAccountName, storage.APIVersion,
+						)),
+					},
+					DiskSizeGB: to.Int32Ptr(int32(args.diskSizeGB)),
+				},
+			},
+			OsProfile:       args.osProfile,
+			NetworkProfile:  &compute.NetworkProfile{&nics},
+			AvailabilitySet: availabilitySetSubResource,
+		},
+		DependsOn: vmDependsOn,
+	}}...)
+	if args.vmExtension != nil {
+		templateResources = append(templateResources, armtemplates.Resource{
+			APIVersion: compute.APIVersion,
+			Type:       "Microsoft.Compute/virtualMachines/extensions",
+			Name:       "machine-0/JujuCustomScriptExtension",
+			Location:   "westus",
+			Tags:       to.StringMap(s.vmTags),
+			Properties: args.vmExtension,
+			DependsOn:  []string{"Microsoft.Compute/virtualMachines/machine-0"},
+		})
+	}
+	templateMap := map[string]interface{}{
+		"$schema":        "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+		"contentVersion": "1.0.0.0",
+		"resources":      templateResources,
+	}
+	deployment := &resources.Deployment{
+		&resources.DeploymentProperties{
+			Template: &templateMap,
+			Mode:     resources.Incremental,
+		},
+	}
+
+	// Validate HTTP request bodies.
+	var startInstanceRequests startInstanceRequests
+	if args.vmExtension != nil {
+		// It must be Windows or CentOS, so
+		// there should be no image query.
+		c.Assert(requests, gc.HasLen, numExpectedStartInstanceRequests-1)
+		c.Assert(requests[0].Method, gc.Equals, "GET") // vmSizes
+		c.Assert(requests[1].Method, gc.Equals, "PUT") // create deployment
+		startInstanceRequests.vmSizes = requests[0]
+		startInstanceRequests.deployment = requests[1]
+	} else {
+		c.Assert(requests, gc.HasLen, numExpectedStartInstanceRequests)
+		c.Assert(requests[0].Method, gc.Equals, "GET") // vmSizes
+		c.Assert(requests[1].Method, gc.Equals, "GET") // skus
+		c.Assert(requests[2].Method, gc.Equals, "PUT") // create deployment
+		startInstanceRequests.vmSizes = requests[0]
+		startInstanceRequests.skus = requests[1]
+		startInstanceRequests.deployment = requests[2]
+	}
+
+	// Marshal/unmarshal the deployment we expect, so it's in map form.
+	var expected resources.Deployment
+	data, err := json.Marshal(&deployment)
+	c.Assert(err, jc.ErrorIsNil)
+	err = json.Unmarshal(data, &expected)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check that we send what we expect. CustomData is non-deterministic,
+	// so don't compare it.
+	// TODO(axw) shouldn't CustomData be deterministic? Look into this.
+	var actual resources.Deployment
+	unmarshalRequestBody(c, startInstanceRequests.deployment, &actual)
+	c.Assert(actual.Properties, gc.NotNil)
+	c.Assert(actual.Properties.Template, gc.NotNil)
+	resources := (*actual.Properties.Template)["resources"].([]interface{})
+	c.Assert(resources, gc.HasLen, len(templateResources))
+
+	vmResourceIndex := len(resources) - 1
+	if args.vmExtension != nil {
+		vmResourceIndex--
+	}
+	vmResource := resources[vmResourceIndex].(map[string]interface{})
+	vmResourceProperties := vmResource["properties"].(map[string]interface{})
+	osProfile := vmResourceProperties["osProfile"].(map[string]interface{})
+	osProfile["customData"] = "<juju-goes-here>"
+	c.Assert(actual, jc.DeepEquals, expected)
+
+	return startInstanceRequests
+}
+
+type startInstanceRequests struct {
+	vmSizes    *http.Request
+	skus       *http.Request
+	deployment *http.Request
+}
+
+func (s *environSuite) TestBootstrap(c *gc.C) {
+	defer envtesting.DisableFinishBootstrap()()
+
+	ctx := envtesting.BootstrapContext(c)
+	env := prepareForBootstrap(c, ctx, s.provider, &s.sender)
+
+	s.sender = s.initResourceGroupSenders()
+	s.sender = append(s.sender, s.startInstanceSenders(true)...)
+	s.requests = nil
+	result, err := env.Bootstrap(
+		ctx, environs.BootstrapParams{
+			ControllerConfig: testing.FakeControllerConfig(),
+			AvailableTools:   makeToolsList("quantal"),
+			BootstrapSeries:  "quantal",
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Arch, gc.Equals, "amd64")
+	c.Assert(result.Series, gc.Equals, "quantal")
+
+	c.Assert(len(s.requests), gc.Equals, numExpectedStartInstanceRequests+1)
+	s.vmTags[tags.JujuIsController] = to.StringPtr("true")
+	s.assertStartInstanceRequests(c, s.requests[1:], assertStartInstanceRequestsParams{
+		availabilitySetName: "juju-controller",
+		imageReference:      &quantalImageReference,
+		diskSizeGB:          32,
+		osProfile:           &linuxOsProfile,
 	})
 }
 
@@ -968,11 +969,15 @@ func (s *environSuite) TestAllInstancesResourceGroupNotFound(c *gc.C) {
 
 func (s *environSuite) TestStopInstancesNotFound(c *gc.C) {
 	env := s.openEnviron(c)
-	sender := mocks.NewSender()
-	sender.AppendResponse(mocks.NewResponseWithStatus(
+	sender0 := mocks.NewSender()
+	sender0.AppendResponse(mocks.NewResponseWithStatus(
 		"vm not found", http.StatusNotFound,
 	))
-	s.sender = azuretesting.Senders{sender, sender, sender}
+	sender1 := mocks.NewSender()
+	sender1.AppendResponse(mocks.NewResponseWithStatus(
+		"vm not found", http.StatusNotFound,
+	))
+	s.sender = azuretesting.Senders{sender0, sender1}
 	err := env.StopInstances("a", "b")
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -980,8 +985,7 @@ func (s *environSuite) TestStopInstancesNotFound(c *gc.C) {
 func (s *environSuite) TestStopInstances(c *gc.C) {
 	env := s.openEnviron(c)
 
-	// Security group has rules for machine-0 but not machine-1, and
-	// has a rule that doesn't match either.
+	// Security group has rules for machine-0, as well as a rule that doesn't match.
 	nsg := makeSecurityGroup(
 		makeSecurityRule("machine-0-80", "192.168.0.4", "80"),
 		makeSecurityRule("machine-0-1000-2000", "192.168.0.4", "1000-2000"),
@@ -995,66 +999,116 @@ func (s *environSuite) TestStopInstances(c *gc.C) {
 	nic0 := makeNetworkInterface("nic-0", "machine-0", nic0IPConfiguration)
 
 	s.sender = azuretesting.Senders{
-		s.networkInterfacesSender(
-			nic0,
-			makeNetworkInterface("nic-1", "machine-1"),
-			makeNetworkInterface("nic-2", "machine-1"),
-		),
-		s.virtualMachinesSender(makeVirtualMachine("machine-0")),
-		s.publicIPAddressesSender(
-			makePublicIPAddress("pip-0", "machine-0", "1.2.3.4"),
-		),
-		s.storageAccountsSender(),
+		s.makeSender(".*/deployments/machine-0/cancel", nil), // POST
+		s.storageAccountSender(),
 		s.storageAccountKeysSender(),
+		s.networkInterfacesSender(nic0),
+		s.publicIPAddressesSender(makePublicIPAddress("pip-0", "machine-0", "1.2.3.4")),
 		s.makeSender(".*/virtualMachines/machine-0", nil),                                                 // DELETE
 		s.makeSender(".*/networkSecurityGroups/juju-internal-nsg", nsg),                                   // GET
 		s.makeSender(".*/networkSecurityGroups/juju-internal-nsg/securityRules/machine-0-80", nil),        // DELETE
 		s.makeSender(".*/networkSecurityGroups/juju-internal-nsg/securityRules/machine-0-1000-2000", nil), // DELETE
-		s.makeSender(".*/networkInterfaces/nic-0", nic0),                                                  // PUT
-		s.makeSender(".*/publicIPAddresses/pip-0", nil),                                                   // DELETE
 		s.makeSender(".*/networkInterfaces/nic-0", nil),                                                   // DELETE
-		s.makeSender(".*/virtualMachines/machine-1", nil),                                                 // DELETE
-		s.makeSender(".*/networkSecurityGroups/juju-internal-nsg", nsg),                                   // GET
-		s.makeSender(".*/networkInterfaces/nic-1", nil),                                                   // DELETE
-		s.makeSender(".*/networkInterfaces/nic-2", nil),                                                   // DELETE
+		s.makeSender(".*/publicIPAddresses/pip-0", nil),                                                   // DELETE
+		s.makeSender(".*/deployments/machine-0", nil),                                                     // DELETE
 	}
-	err := env.StopInstances("machine-0", "machine-1", "machine-2")
+	err := env.StopInstances("machine-0")
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.storageClient.CheckCallNames(c,
-		"NewClient", "DeleteBlobIfExists", "DeleteBlobIfExists",
+		"NewClient", "DeleteBlobIfExists",
 	)
 	s.storageClient.CheckCall(c, 1, "DeleteBlobIfExists", "osvhds", "machine-0")
-	s.storageClient.CheckCall(c, 2, "DeleteBlobIfExists", "osvhds", "machine-1")
+}
+
+func (s *environSuite) TestStopInstancesMultiple(c *gc.C) {
+	env := s.openEnviron(c)
+
+	vmDeleteSender0 := s.makeSender(".*/virtualMachines/machine-[01]", nil)
+	vmDeleteSender1 := s.makeSender(".*/virtualMachines/machine-[01]", nil)
+	vmDeleteSender0.SetError(errors.New("blargh"))
+	vmDeleteSender1.SetError(errors.New("blargh"))
+
+	s.sender = azuretesting.Senders{
+		s.makeSender(".*/deployments/machine-[01]/cancel", nil), // POST
+		s.makeSender(".*/deployments/machine-[01]/cancel", nil), // POST
+
+		// We should only query the NICs, public IPs, and storage
+		// account/keys, regardless of how many instances are deleted.
+		s.storageAccountSender(),
+		s.storageAccountKeysSender(),
+		s.networkInterfacesSender(),
+		s.publicIPAddressesSender(),
+
+		vmDeleteSender0,
+		vmDeleteSender1,
+	}
+	err := env.StopInstances("machine-0", "machine-1")
+	c.Assert(err, gc.ErrorMatches, `deleting instance "machine-[01]":.*blargh`)
+}
+
+func (s *environSuite) TestStopInstancesDeploymentNotFound(c *gc.C) {
+	env := s.openEnviron(c)
+
+	cancelSender := mocks.NewSender()
+	cancelSender.AppendResponse(mocks.NewResponseWithStatus(
+		"deployment not found", http.StatusNotFound,
+	))
+	s.sender = azuretesting.Senders{cancelSender}
+	err := env.StopInstances("machine-0")
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *environSuite) TestStopInstancesStorageAccountNoKeys(c *gc.C) {
 	s.PatchValue(&s.storageAccountKeys.Keys, nil)
-	s.testStopInstancesStorageKeysError(c, "getting storage account key: storage account keys not found")
+	s.testStopInstancesStorageAccountNotFound(c)
 }
 
 func (s *environSuite) TestStopInstancesStorageAccountNoFullKey(c *gc.C) {
 	keys := *s.storageAccountKeys.Keys
 	s.PatchValue(&keys[0].Permissions, storage.READ)
-	s.testStopInstancesStorageKeysError(c, `getting storage account key: storage account key with "FULL" permission not found`)
+	s.testStopInstancesStorageAccountNotFound(c)
 }
 
-func (s *environSuite) testStopInstancesStorageKeysError(c *gc.C, expect string) {
+func (s *environSuite) testStopInstancesStorageAccountNotFound(c *gc.C) {
 	env := s.openEnviron(c)
-
-	nic0IPConfiguration := makeIPConfiguration("192.168.0.4")
-	nic0IPConfiguration.Properties.PublicIPAddress = &network.PublicIPAddress{}
-	nic0 := makeNetworkInterface("nic-0", "machine-0", nic0IPConfiguration)
 	s.sender = azuretesting.Senders{
-		s.networkInterfacesSender(nic0),
-		s.virtualMachinesSender(makeVirtualMachine("machine-0")),
-		s.publicIPAddressesSender(makePublicIPAddress("pip-0", "machine-0", "1.2.3.4")),
-		s.storageAccountsSender(),
+		s.makeSender("/deployments/machine-0", s.deployment), // Cancel
+		s.storageAccountSender(),
 		s.storageAccountKeysSender(),
+		s.networkInterfacesSender(),                                                     // GET: no NICs
+		s.publicIPAddressesSender(),                                                     // GET: no public IPs
+		s.makeSender(".*/virtualMachines/machine-0", nil),                               // DELETE
+		s.makeSender(".*/networkSecurityGroups/juju-internal-nsg", makeSecurityGroup()), // GET: no rules
+		s.makeSender(".*/deployments/machine-0", nil),                                   // DELETE
 	}
-
 	err := env.StopInstances("machine-0")
-	c.Assert(err, gc.ErrorMatches, expect)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *environSuite) TestStopInstancesStorageAccountError(c *gc.C) {
+	env := s.openEnviron(c)
+	errorSender := s.storageAccountSender()
+	errorSender.SetError(errors.New("blargh"))
+	s.sender = azuretesting.Senders{
+		s.makeSender("/deployments/machine-0", s.deployment), // Cancel
+		errorSender,
+	}
+	err := env.StopInstances("machine-0")
+	c.Assert(err, gc.ErrorMatches, "getting storage account:.*blargh")
+}
+
+func (s *environSuite) TestStopInstancesStorageAccountKeysError(c *gc.C) {
+	env := s.openEnviron(c)
+	errorSender := s.storageAccountKeysSender()
+	errorSender.SetError(errors.New("blargh"))
+	s.sender = azuretesting.Senders{
+		s.makeSender("/deployments/machine-0", s.deployment), // Cancel
+		s.storageAccountSender(),
+		errorSender,
+	}
+	err := env.StopInstances("machine-0")
+	c.Assert(err, gc.ErrorMatches, "getting storage account key:.*blargh")
 }
 
 func (s *environSuite) TestConstraintsValidatorUnsupported(c *gc.C) {

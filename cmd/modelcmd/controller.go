@@ -140,6 +140,27 @@ func (c *ControllerCommandBase) NewUserManagerAPIClient() (*usermanager.Client, 
 // credentials.  Only the UserManager and ModelManager may be accessed
 // through this API connection.
 func (c *ControllerCommandBase) NewAPIRoot() (api.Connection, error) {
+	return c.newAPIRoot("")
+}
+
+// NewAPIRoot returns a new connection to the API server for the named model
+// in the specified controller.
+func (c *ControllerCommandBase) NewModelAPIRoot(modelName string) (api.Connection, error) {
+	_, err := c.store.ModelByName(c.controllerName, modelName)
+	if err != nil {
+		if !errors.IsNotFound(err) {
+			return nil, errors.Trace(err)
+		}
+		// The model isn't known locally, so query the models
+		// available in the controller, and cache them locally.
+		if err := c.RefreshModels(c.store, c.controllerName); err != nil {
+			return nil, errors.Annotate(err, "refreshing models")
+		}
+	}
+	return c.newAPIRoot(modelName)
+}
+
+func (c *ControllerCommandBase) newAPIRoot(modelName string) (api.Connection, error) {
 	if c.controllerName == "" {
 		controllers, err := c.store.AllControllers()
 		if err != nil {
@@ -154,7 +175,7 @@ func (c *ControllerCommandBase) NewAPIRoot() (api.Connection, error) {
 	if opener == nil {
 		opener = OpenFunc(c.JujuCommandBase.NewAPIRoot)
 	}
-	return opener.Open(c.store, c.controllerName, "")
+	return opener.Open(c.store, c.controllerName, modelName)
 }
 
 // ModelUUIDs returns the model UUIDs for the given model names.

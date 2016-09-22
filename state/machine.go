@@ -486,7 +486,7 @@ func (m *Machine) forceDestroyOps() ([]txn.Op, error) {
 		C:      machinesC,
 		Id:     m.doc.DocID,
 		Assert: bson.D{{"jobs", bson.D{{"$nin", []MachineJob{JobManageModel}}}}},
-	}, m.st.newCleanupOp(cleanupForceDestroyedMachine, m.doc.Id)}, nil
+	}, newCleanupOp(cleanupForceDestroyedMachine, m.doc.Id)}, nil
 }
 
 // EnsureDead sets the machine lifecycle to Dead if it is Alive or Dying.
@@ -623,7 +623,7 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 			{{"principals", bson.D{{"$exists", false}}}},
 		},
 	}
-	cleanupOp := m.st.newCleanupOp(cleanupDyingMachine, m.doc.Id)
+	cleanupOp := newCleanupOp(cleanupDyingMachine, m.doc.Id)
 	// multiple attempts: one with original data, one with refreshed data, and a final
 	// one intended to determine the cause of failure of the preceding attempt.
 	buildTxn := func(attempt int) ([]txn.Op, error) {
@@ -1526,12 +1526,12 @@ func (m *Machine) Status() (status.StatusInfo, error) {
 // SetStatus sets the status of the machine.
 func (m *Machine) SetStatus(statusInfo status.StatusInfo) error {
 	switch statusInfo.Status {
-	case status.StatusStarted, status.StatusStopped:
-	case status.StatusError:
+	case status.Started, status.Stopped:
+	case status.Error:
 		if statusInfo.Message == "" {
 			return errors.Errorf("cannot set status %q without info", statusInfo.Status)
 		}
-	case status.StatusPending:
+	case status.Pending:
 		// If a machine is not yet provisioned, we allow its status
 		// to be set back to pending (when a retry is to occur).
 		_, err := m.InstanceId()
@@ -1540,7 +1540,7 @@ func (m *Machine) SetStatus(statusInfo status.StatusInfo) error {
 			break
 		}
 		fallthrough
-	case status.StatusDown:
+	case status.Down:
 		return errors.Errorf("cannot set status %q", statusInfo.Status)
 	default:
 		return errors.Errorf("cannot set invalid status %q", statusInfo.Status)
@@ -1656,12 +1656,11 @@ func (m *Machine) markInvalidContainers() error {
 				logger.Errorf("finding status of container %v to mark as invalid: %v", containerId, err)
 				continue
 			}
-			if statusInfo.Status == status.StatusPending {
+			if statusInfo.Status == status.Pending {
 				containerType := ContainerTypeFromId(containerId)
-				// TODO(perrito666) 2016-05-02 lp:1558657
-				now := time.Now()
+				now := m.st.clock.Now()
 				s := status.StatusInfo{
-					Status:  status.StatusError,
+					Status:  status.Error,
 					Message: "unsupported container",
 					Data:    map[string]interface{}{"type": containerType},
 					Since:   &now,

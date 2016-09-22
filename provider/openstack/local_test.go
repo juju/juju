@@ -698,7 +698,7 @@ var instanceGathering = []struct {
 func (s *localServerSuite) TestInstanceStatus(c *gc.C) {
 	// goose's test service always returns ACTIVE state.
 	inst, _ := testing.AssertStartInstance(c, s.env, s.ControllerUUID, "100")
-	c.Assert(inst.Status().Status, gc.Equals, status.StatusRunning)
+	c.Assert(inst.Status().Status, gc.Equals, status.Running)
 	err := s.env.StopInstances(inst.Id())
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -776,7 +776,6 @@ func (s *localServerSuite) TestInstancesGatheringWithFloatingIP(c *gc.C) {
 func (s *localServerSuite) TestInstancesBuildSpawning(c *gc.C) {
 	coretesting.SkipIfPPC64EL(c, "lp:1425242")
 
-	// HP servers are available once they are BUILD(spawning).
 	cleanup := s.srv.Nova.RegisterControlPoint(
 		"addServer",
 		func(sc hook.ServiceControl, args ...interface{}) error {

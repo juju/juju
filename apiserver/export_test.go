@@ -16,15 +16,15 @@ import (
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/core/description"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
 )
 
 var (
 	NewPingTimeout        = newPingTimeout
-	MaxClientPingInterval = &maxClientPingInterval
-	MongoPingInterval     = &mongoPingInterval
+	MaxClientPingInterval = maxClientPingInterval
+	MongoPingInterval     = mongoPingInterval
 	NewBackups            = &newBackups
 	BZMimeType            = bzMimeType
 	JSMimeType            = jsMimeType
@@ -32,7 +32,7 @@ var (
 )
 
 func ServerMacaroon(srv *Server) (*macaroon.Macaroon, error) {
-	auth, err := srv.authCtxt.macaroonAuth()
+	auth, err := srv.authCtxt.externalMacaroonAuth()
 	if err != nil {
 		return nil, err
 	}
@@ -40,7 +40,7 @@ func ServerMacaroon(srv *Server) (*macaroon.Macaroon, error) {
 }
 
 func ServerBakeryService(srv *Server) (authentication.BakeryService, error) {
-	auth, err := srv.authCtxt.macaroonAuth()
+	auth, err := srv.authCtxt.externalMacaroonAuth()
 	if err != nil {
 		return nil, err
 	}
@@ -50,7 +50,7 @@ func ServerBakeryService(srv *Server) (authentication.BakeryService, error) {
 // ServerAuthenticatorForTag calls the authenticatorForTag method
 // of the server's authContext.
 func ServerAuthenticatorForTag(srv *Server, tag names.Tag) (authentication.EntityAuthenticator, error) {
-	return srv.authCtxt.authenticatorForTag(tag)
+	return srv.authCtxt.authenticator("testing.invalid:1234").authenticatorForTag(tag)
 }
 
 func APIHandlerWithEntity(entity state.Entity) *apiHandler {
@@ -98,7 +98,7 @@ func TestingAPIHandler(c *gc.C, srvSt, st *state.State) (*apiHandler, *common.Re
 		state:    srvSt,
 		tag:      names.NewMachineTag("0"),
 	}
-	h, err := newAPIHandler(srv, st, nil, st.ModelUUID())
+	h, err := newAPIHandler(srv, st, nil, st.ModelUUID(), "testing.invalid:1234")
 	c.Assert(err, jc.ErrorIsNil)
 	return h, h.getResources()
 }
@@ -186,7 +186,7 @@ type Patcher interface {
 	PatchValue(ptr, value interface{})
 }
 
-func AssertHasPermission(c *gc.C, handler *apiHandler, access description.Access, tag names.Tag, expect bool) {
+func AssertHasPermission(c *gc.C, handler *apiHandler, access permission.Access, tag names.Tag, expect bool) {
 	hasPermission, err := handler.HasPermission(access, tag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hasPermission, gc.Equals, expect)

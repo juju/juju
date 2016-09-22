@@ -211,12 +211,11 @@ func (u *Unit) SetWorkloadVersion(version string) error {
 	// Store in status rather than an attribute of the unit doc - we
 	// want to avoid everything being an attr of the main docs to
 	// stop a swarm of watchers being notified for irrelevant changes.
-	// TODO(babbageclunk) lp:1558657 - should use clock stored on unit
-	now := time.Now()
+	now := u.st.clock.Now()
 	return setStatus(u.st, setStatusParams{
 		badge:     "workload",
 		globalKey: u.globalWorkloadVersionKey(),
-		status:    status.StatusActive,
+		status:    status.Active,
 		message:   version,
 		updated:   &now,
 	})
@@ -390,7 +389,7 @@ func (u *Unit) destroyOps() ([]txn.Op, error) {
 	// the number of tests that have to change and defer that improvement to
 	// its own CL.
 	minUnitsOp := minUnitsTriggerOp(u.st, u.ApplicationName())
-	cleanupOp := u.st.newCleanupOp(cleanupDyingUnit, u.doc.Name)
+	cleanupOp := newCleanupOp(cleanupDyingUnit, u.doc.Name)
 	setDyingOp := txn.Op{
 		C:      unitsC,
 		Id:     u.doc.DocID,
@@ -413,14 +412,14 @@ func (u *Unit) destroyOps() ([]txn.Op, error) {
 	} else if agentErr != nil {
 		return nil, errors.Trace(agentErr)
 	}
-	if agentStatusInfo.Status != status.StatusAllocating {
+	if agentStatusInfo.Status != status.Allocating {
 		return setDyingOps, nil
 	}
 
 	ops := []txn.Op{{
 		C:      statusesC,
 		Id:     u.st.docID(agentStatusDocId),
-		Assert: bson.D{{"status", status.StatusAllocating}},
+		Assert: bson.D{{"status", status.Allocating}},
 	}, minUnitsOp}
 	removeAsserts := append(isAliveDoc, bson.DocElem{
 		"$and", []bson.D{
@@ -855,7 +854,7 @@ func (u *Unit) Status() (status.StatusInfo, error) {
 	if err != nil {
 		return status.StatusInfo{}, err
 	}
-	if info.Status != status.StatusError {
+	if info.Status != status.Error {
 		info, err = getStatus(u.st, u.globalKey(), "unit")
 		if err != nil {
 			return status.StatusInfo{}, err
@@ -1095,7 +1094,7 @@ func (u *Unit) SetCharmURL(curl *charm.URL) error {
 		}
 
 		// Add a reference to the service settings for the new charm.
-		incOps, err := charmIncRefOps(u.st, u.doc.Application, curl, false)
+		incOps, err := appCharmIncRefOps(u.st, u.doc.Application, curl, false)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -1111,7 +1110,7 @@ func (u *Unit) SetCharmURL(curl *charm.URL) error {
 			})
 		if u.doc.CharmURL != nil {
 			// Drop the reference to the old charm.
-			decOps, err := charmDecRefOps(u.st, u.doc.Application, u.doc.CharmURL)
+			decOps, err := appCharmDecRefOps(u.st, u.doc.Application, u.doc.CharmURL)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -2207,7 +2206,7 @@ func (u *Unit) RunningActions() ([]Action, error) {
 // reestablish normal workflow. The retryHooks parameter informs
 // whether to attempt to reexecute previous failed hooks or to continue
 // as if they had succeeded before.
-func (u *Unit) Resolve(retryHooks bool) error {
+func (u *Unit) Resolve(noretryHooks bool) error {
 	// We currently check agent status to see if a unit is
 	// in error state. As the new Juju Health work is completed,
 	// this will change to checking the unit status.
@@ -2215,12 +2214,12 @@ func (u *Unit) Resolve(retryHooks bool) error {
 	if err != nil {
 		return err
 	}
-	if statusInfo.Status != status.StatusError {
+	if statusInfo.Status != status.Error {
 		return errors.Errorf("unit %q is not in an error state", u)
 	}
-	mode := ResolvedNoHooks
-	if retryHooks {
-		mode = ResolvedRetryHooks
+	mode := ResolvedRetryHooks
+	if noretryHooks {
+		mode = ResolvedNoHooks
 	}
 	return u.SetResolved(mode)
 }
@@ -2278,9 +2277,21 @@ func (u *Unit) ClearResolved() error {
 
 // StorageConstraints returns the unit's storage constraints.
 func (u *Unit) StorageConstraints() (map[string]StorageConstraints, error) {
-	// TODO(axw) eventually we should be able to override service
-	// storage constraints at the unit level.
-	return readStorageConstraints(u.st, applicationGlobalKey(u.doc.Application))
+	if u.doc.CharmURL == nil {
+		app, err := u.st.Application(u.doc.Application)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return app.StorageConstraints()
+	}
+	key := applicationStorageConstraintsKey(u.doc.Application, u.doc.CharmURL)
+	cons, err := readStorageConstraints(u.st, key)
+	if errors.IsNotFound(err) {
+		return nil, nil
+	} else if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return cons, nil
 }
 
 type addUnitOpsArgs struct {
@@ -2315,7 +2326,7 @@ func addUnitOps(st *State, args addUnitOpsArgs) ([]txn.Op, error) {
 	// create the settings doc.
 	if curl := args.unitDoc.CharmURL; curl != nil {
 		appName := args.unitDoc.Application
-		charmRefOps, err := charmIncRefOps(st, appName, curl, false)
+		charmRefOps, err := appCharmIncRefOps(st, appName, curl, false)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

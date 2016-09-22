@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/api/highavailability"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
@@ -49,6 +50,9 @@ type enableHACommand struct {
 	// Constraints, if specified, will be merged with those already
 	// in the environment when creating new machines.
 	Constraints constraints.Value
+
+	// ConstraintsStr contains the stringified version of the constraints.
+	ConstraintsStr string
 
 	// Placement specifies specific machine(s) which will be used to host
 	// new controllers. If there are more controllers required than
@@ -147,7 +151,7 @@ func (c *enableHACommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 	f.IntVar(&c.NumControllers, "n", 0, "Number of controllers to make available")
 	f.StringVar(&c.PlacementSpec, "to", "", "The machine(s) to become controllers, bypasses constraints")
-	f.Var(constraints.ConstraintsValue{&c.Constraints}, "constraints", "Additional machine constraints")
+	f.StringVar(&c.ConstraintsStr, "constraints", "", "Additional machine constraints")
 	c.out.AddFlags(f, "simple", map[string]cmd.Formatter{
 		"yaml":   cmd.FormatYaml,
 		"json":   cmd.FormatJson,
@@ -204,6 +208,11 @@ type MakeHAClient interface {
 // Run connects to the environment specified on the command line
 // and calls EnableHA.
 func (c *enableHACommand) Run(ctx *cmd.Context) error {
+	var err error
+	c.Constraints, err = common.ParseConstraints(ctx, c.ConstraintsStr)
+	if err != nil {
+		return err
+	}
 	haClient, err := c.newHAClientFunc()
 	if err != nil {
 		return err

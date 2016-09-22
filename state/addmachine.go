@@ -6,7 +6,6 @@ package state
 import (
 	"fmt"
 	"strconv"
-	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/replicaset"
@@ -462,16 +461,16 @@ func (st *State) machineDocForTemplate(template MachineTemplate, id string) *mac
 // into the database, based on the given template. Only the constraints are
 // taken from the template.
 func (st *State) insertNewMachineOps(mdoc *machineDoc, template MachineTemplate) (prereqOps []txn.Op, machineOp txn.Op, err error) {
+	now := st.clock.Now()
 	machineStatusDoc := statusDoc{
-		Status:    status.StatusPending,
+		Status:    status.Pending,
 		ModelUUID: st.ModelUUID(),
-		// TODO(fwereade): 2016-03-17 lp:1558657
-		Updated: time.Now().UnixNano(),
+		Updated:   now.UnixNano(),
 	}
 	instanceStatusDoc := statusDoc{
-		Status:    status.StatusPending,
+		Status:    status.Pending,
 		ModelUUID: st.ModelUUID(),
-		Updated:   time.Now().UnixNano(),
+		Updated:   now.UnixNano(),
 	}
 
 	prereqOps, machineOp = st.baseNewMachineOps(

@@ -19,7 +19,9 @@ import (
 	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/payload"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
@@ -142,10 +144,10 @@ func (s *MigrationImportSuite) TestNewModel(c *gc.C) {
 	c.Assert(blocks[0].Message(), gc.Equals, "locked down")
 }
 
-func (s *MigrationImportSuite) newModelUser(c *gc.C, name string, readOnly bool, lastConnection time.Time) description.UserAccess {
-	access := description.AdminAccess
+func (s *MigrationImportSuite) newModelUser(c *gc.C, name string, readOnly bool, lastConnection time.Time) permission.UserAccess {
+	access := permission.AdminAccess
 	if readOnly {
-		access = description.ReadAccess
+		access = permission.ReadAccess
 	}
 	user, err := s.State.AddModelUser(s.State.ModelUUID(), state.UserAccessSpec{
 		User:      names.NewUserTag(name),
@@ -160,7 +162,7 @@ func (s *MigrationImportSuite) newModelUser(c *gc.C, name string, readOnly bool,
 	return user
 }
 
-func (s *MigrationImportSuite) AssertUserEqual(c *gc.C, newUser, oldUser description.UserAccess) {
+func (s *MigrationImportSuite) AssertUserEqual(c *gc.C, newUser, oldUser permission.UserAccess) {
 	c.Assert(newUser.UserName, gc.Equals, oldUser.UserName)
 	c.Assert(newUser.DisplayName, gc.Equals, oldUser.DisplayName)
 	c.Assert(newUser.CreatedBy, gc.Equals, oldUser.CreatedBy)
@@ -195,7 +197,7 @@ func (s *MigrationImportSuite) TestModelUsers(c *gc.C) {
 	newModel, newSt := s.importModel(c)
 
 	// Check the import values of the users.
-	for _, user := range []description.UserAccess{bravo, charlie, delta} {
+	for _, user := range []permission.UserAccess{bravo, charlie, delta} {
 		newUser, err := newSt.UserAccess(user.UserTag, newModel.Tag())
 		c.Assert(err, jc.ErrorIsNil)
 		s.AssertUserEqual(c, newUser, user)
@@ -234,7 +236,7 @@ func (s *MigrationImportSuite) TestMachines(c *gc.C) {
 	})
 	err := s.State.SetAnnotations(machine1, testAnnotations)
 	c.Assert(err, jc.ErrorIsNil)
-	s.primeStatusHistory(c, machine1, status.StatusStarted, 5)
+	s.primeStatusHistory(c, machine1, status.Started, 5)
 
 	// machine1 should have some instance data.
 	hardware, err := machine1.HardwareCharacteristics()
@@ -327,7 +329,7 @@ func (s *MigrationImportSuite) TestApplications(c *gc.C) {
 	c.Assert(application.SetExposed(), jc.ErrorIsNil)
 	err = s.State.SetAnnotations(application, testAnnotations)
 	c.Assert(err, jc.ErrorIsNil)
-	s.primeStatusHistory(c, application, status.StatusActive, 5)
+	s.primeStatusHistory(c, application, status.Active, 5)
 
 	allApplications, err := s.State.AllApplications()
 	c.Assert(err, jc.ErrorIsNil)
@@ -404,8 +406,8 @@ func (s *MigrationImportSuite) assertUnitsMigrated(c *gc.C, cons constraints.Val
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.SetAnnotations(exported, testAnnotations)
 	c.Assert(err, jc.ErrorIsNil)
-	s.primeStatusHistory(c, exported, status.StatusActive, 5)
-	s.primeStatusHistory(c, exported.Agent(), status.StatusIdle, 5)
+	s.primeStatusHistory(c, exported, status.Active, 5)
+	s.primeStatusHistory(c, exported.Agent(), status.Idle, 5)
 
 	_, newSt := s.importModel(c)
 
@@ -702,6 +704,46 @@ func (s *MigrationImportSuite) TestSSHHostKey(c *gc.C) {
 	keys, err := newSt.GetSSHHostKeys(machine2.MachineTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(keys, jc.DeepEquals, state.SSHHostKeys{"bam", "mam"})
+}
+
+func (s *MigrationImportSuite) TestCloudImageMetadata(c *gc.C) {
+	storageSize := uint64(3)
+	attrs := cloudimagemetadata.MetadataAttributes{
+		Stream:          "stream",
+		Region:          "region-test",
+		Version:         "14.04",
+		Series:          "trusty",
+		Arch:            "arch",
+		VirtType:        "virtType-test",
+		RootStorageType: "rootStorageType-test",
+		RootStorageSize: &storageSize,
+		Source:          "test",
+	}
+	metadata := []cloudimagemetadata.Metadata{{attrs, 2, "1", 2}}
+
+	err := s.State.CloudImageMetadataStorage.SaveMetadata(metadata)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, newSt := s.importModel(c)
+	defer func() {
+		c.Assert(newSt.Close(), jc.ErrorIsNil)
+	}()
+
+	images, err := s.State.CloudImageMetadataStorage.AllCloudImageMetadata()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(images, gc.HasLen, 1)
+	image := images[0]
+	c.Check(image.Stream, gc.Equals, "stream")
+	c.Check(image.Region, gc.Equals, "region-test")
+	c.Check(image.Version, gc.Equals, "14.04")
+	c.Check(image.Arch, gc.Equals, "arch")
+	c.Check(image.VirtType, gc.Equals, "virtType-test")
+	c.Check(image.RootStorageType, gc.Equals, "rootStorageType-test")
+	c.Check(*image.RootStorageSize, gc.Equals, uint64(3))
+	c.Check(image.Source, gc.Equals, "test")
+	c.Check(image.Priority, gc.Equals, 2)
+	c.Check(image.ImageId, gc.Equals, "1")
+	c.Check(image.DateCreated, gc.Equals, int64(2))
 }
 
 func (s *MigrationImportSuite) TestAction(c *gc.C) {

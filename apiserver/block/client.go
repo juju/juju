@@ -9,7 +9,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/core/description"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 )
 
@@ -60,7 +60,7 @@ var getState = func(st *state.State) blockAccess {
 }
 
 func (a *API) checkCanRead() error {
-	canRead, err := a.authorizer.HasPermission(description.ReadAccess, a.access.ModelTag())
+	canRead, err := a.authorizer.HasPermission(permission.ReadAccess, a.access.ModelTag())
 	if err != nil && !errors.IsNotFound(err) {
 		return errors.Trace(err)
 	}
@@ -71,7 +71,7 @@ func (a *API) checkCanRead() error {
 }
 
 func (a *API) checkCanWrite() error {
-	canWrite, err := a.authorizer.HasPermission(description.WriteAccess, a.access.ModelTag())
+	canWrite, err := a.authorizer.HasPermission(permission.WriteAccess, a.access.ModelTag())
 	if err != nil && !errors.IsNotFound(err) {
 		return errors.Trace(err)
 	}

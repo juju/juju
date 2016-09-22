@@ -262,12 +262,11 @@ func (st *State) EnsureUpgradeInfo(machineId string, previousVersion, targetVers
 	}
 
 	doc := upgradeInfoDoc{
-		Id:              currentUpgradeId,
-		PreviousVersion: previousVersion,
-		TargetVersion:   targetVersion,
-		Status:          UpgradePending,
-		// TODO(fwereade): 2016-03-17 lp:1558657
-		Started:          time.Now().UTC(),
+		Id:               currentUpgradeId,
+		PreviousVersion:  previousVersion,
+		TargetVersion:    targetVersion,
+		Status:           UpgradePending,
+		Started:          st.clock.Now().UTC(),
 		ControllersReady: []string{machineId},
 	}
 

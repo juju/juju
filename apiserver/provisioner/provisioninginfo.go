@@ -500,7 +500,7 @@ func (p *ProvisionerAPI) imageMetadataFromDataSources(env environs.Environ, cons
 	cfg := env.Config()
 	toModel := func(m *imagemetadata.ImageMetadata, mSeries string, source string, priority int) cloudimagemetadata.Metadata {
 		result := cloudimagemetadata.Metadata{
-			cloudimagemetadata.MetadataAttributes{
+			MetadataAttributes: cloudimagemetadata.MetadataAttributes{
 				Region:          m.RegionName,
 				Arch:            m.Arch,
 				VirtType:        m.VirtType,
@@ -510,8 +510,8 @@ func (p *ProvisionerAPI) imageMetadataFromDataSources(env environs.Environ, cons
 				Stream:          m.Stream,
 				Version:         m.Version,
 			},
-			priority,
-			m.Id,
+			Priority: priority,
+			ImageId:  m.Id,
 		}
 		// TODO (anastasiamac 2016-08-24) This is a band-aid solution.
 		// Once correct value is read from simplestreams, this needs to go.

@@ -217,7 +217,7 @@ func (s *instanceTest) TestHardwareCharacteristics(c *gc.C) {
 	hc, err := inst.hardwareCharacteristics()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hc, gc.NotNil)
-	c.Assert(hc.String(), gc.Equals, `arch=amd64 cpu-cores=6 mem=16384M availability-zone=tst`)
+	c.Assert(hc.String(), gc.Equals, `arch=amd64 cores=6 mem=16384M availability-zone=tst`)
 }
 
 func (s *instanceTest) TestHardwareCharacteristicsWithTags(c *gc.C) {
@@ -238,7 +238,7 @@ func (s *instanceTest) TestHardwareCharacteristicsWithTags(c *gc.C) {
 	hc, err := inst.hardwareCharacteristics()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hc, gc.NotNil)
-	c.Assert(hc.String(), gc.Equals, `arch=amd64 cpu-cores=6 mem=16384M tags=a,b availability-zone=tst`)
+	c.Assert(hc.String(), gc.Equals, `arch=amd64 cores=6 mem=16384M tags=a,b availability-zone=tst`)
 }
 
 func (s *instanceTest) TestHardwareCharacteristicsMissing(c *gc.C) {

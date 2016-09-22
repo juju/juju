@@ -5,7 +5,9 @@ package user
 
 import (
 	"github.com/juju/cmd"
+	"github.com/juju/utils/clock"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/jujuclient"
@@ -49,15 +51,24 @@ func NewRemoveCommandForTest(api RemoveUserAPI, store jujuclient.ClientStore) (c
 }
 
 func NewShowUserCommandForTest(api UserInfoAPI, store jujuclient.ClientStore) cmd.Command {
-	cmd := &infoCommand{infoCommandBase: infoCommandBase{api: api}}
+	cmd := &infoCommand{infoCommandBase: infoCommandBase{
+		clock: clock.WallClock,
+		api:   api}}
 	cmd.SetClientStore(store)
 	return modelcmd.WrapController(cmd)
 }
 
 // NewChangePasswordCommand returns a ChangePasswordCommand with the api
 // and writer provided as specified.
-func NewChangePasswordCommandForTest(api ChangePasswordAPI, store jujuclient.ClientStore) (cmd.Command, *ChangePasswordCommand) {
-	c := &changePasswordCommand{api: api}
+func NewChangePasswordCommandForTest(
+	newAPIConnection func(juju.NewAPIConnectionParams) (api.Connection, error),
+	api ChangePasswordAPI,
+	store jujuclient.ClientStore,
+) (cmd.Command, *ChangePasswordCommand) {
+	c := &changePasswordCommand{
+		newAPIConnection: newAPIConnection,
+		api:              api,
+	}
 	c.SetClientStore(store)
 	return modelcmd.WrapController(c), &ChangePasswordCommand{c}
 }
@@ -98,8 +109,14 @@ func NewEnableCommandForTest(api disenableUserAPI, store jujuclient.ClientStore)
 }
 
 // NewListCommand returns a ListCommand with the api provided as specified.
-func NewListCommandForTest(api UserInfoAPI, store jujuclient.ClientStore) cmd.Command {
-	c := &listCommand{infoCommandBase: infoCommandBase{api: api}}
+func NewListCommandForTest(api UserInfoAPI, modelAPI modelUsersAPI, store jujuclient.ClientStore, clock clock.Clock) cmd.Command {
+	c := &listCommand{
+		infoCommandBase: infoCommandBase{
+			clock: clock,
+			api:   api,
+		},
+		modelUserAPI: modelAPI,
+	}
 	c.SetClientStore(store)
 	return modelcmd.WrapController(c)
 }

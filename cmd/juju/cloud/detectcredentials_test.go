@@ -76,6 +76,22 @@ func (p *mockProvider) CredentialSchemas() map[jujucloud.AuthType]jujucloud.Cred
 	return *p.credSchemas
 }
 
+func (p *mockProvider) FinalizeCredential(
+	ctx environs.FinalizeCredentialContext,
+	args environs.FinalizeCredentialParams,
+) (*jujucloud.Credential, error) {
+	if args.Credential.AuthType() == "interactive" {
+		fmt.Fprintln(ctx.GetStderr(), "generating userpass credential")
+		out := jujucloud.NewCredential(jujucloud.UserPassAuthType, map[string]string{
+			"username":             args.Credential.Attributes()["username"],
+			"password":             args.CloudEndpoint,
+			"application-password": args.CloudIdentityEndpoint,
+		})
+		return &out, nil
+	}
+	return &args.Credential, nil
+}
+
 func (s *detectCredentialsSuite) SetUpSuite(c *gc.C) {
 	environs.RegisterProvider("mock-provider", &mockProvider{detectedCreds: &s.aCredential})
 }

@@ -23,6 +23,7 @@ type cloudCredentialDoc struct {
 	Owner      string            `bson:"owner"`
 	Cloud      string            `bson:"cloud"`
 	Name       string            `bson:"name"`
+	Revoked    bool              `bson:"revoked"`
 	AuthType   string            `bson:"auth-type"`
 	Attributes map[string]string `bson:"attributes,omitempty"`
 }
@@ -48,14 +49,12 @@ func (st *State) CloudCredential(tag names.CloudCredentialTag) (cloud.Credential
 
 // CloudCredentials returns the user's cloud credentials for a given cloud,
 // keyed by credential name.
-func (st *State) CloudCredentials(user names.UserTag, cloudName string) (
-	map[names.CloudCredentialTag]cloud.Credential, error,
-) {
+func (st *State) CloudCredentials(user names.UserTag, cloudName string) (map[string]cloud.Credential, error) {
 	coll, cleanup := st.getCollection(cloudCredentialsC)
 	defer cleanup()
 
 	var doc cloudCredentialDoc
-	credentials := make(map[names.CloudCredentialTag]cloud.Credential)
+	credentials := make(map[string]cloud.Credential)
 	iter := coll.Find(bson.D{
 		{"owner", user.Canonical()},
 		{"cloud", cloudName},
@@ -65,7 +64,7 @@ func (st *State) CloudCredentials(user names.UserTag, cloudName string) (
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		credentials[tag] = doc.toCredential()
+		credentials[tag.Canonical()] = doc.toCredential()
 	}
 	if err := iter.Err(); err != nil {
 		return nil, errors.Annotatef(
@@ -89,11 +88,11 @@ func (st *State) UpdateCloudCredential(tag names.CloudCredentialTag, credential 
 		if err != nil {
 			return nil, errors.Annotate(err, "validating cloud credentials")
 		}
-		existingCreds, err := st.CloudCredentials(tag.Owner(), cloudName)
-		if err != nil {
+		_, err = st.CloudCredential(tag)
+		if err != nil && !errors.IsNotFound(err) {
 			return nil, errors.Maskf(err, "fetching cloud credentials")
 		}
-		if _, ok := existingCreds[tag]; ok {
+		if err == nil {
 			ops = append(ops, updateCloudCredentialOp(tag, credential))
 		} else {
 			ops = append(ops, createCloudCredentialOp(tag, credential))
@@ -137,6 +136,7 @@ func createCloudCredentialOp(tag names.CloudCredentialTag, cred cloud.Credential
 			Name:       tag.Name(),
 			AuthType:   string(cred.AuthType()),
 			Attributes: cred.Attributes(),
+			Revoked:    cred.Revoked,
 		},
 	}
 }
@@ -151,6 +151,7 @@ func updateCloudCredentialOp(tag names.CloudCredentialTag, cred cloud.Credential
 		Update: bson.D{{"$set", bson.D{
 			{"auth-type", string(cred.AuthType())},
 			{"attributes", cred.Attributes()},
+			{"revoked", cred.Revoked},
 		}}},
 	}
 }
@@ -171,7 +172,8 @@ func cloudCredentialDocID(tag names.CloudCredentialTag) string {
 }
 
 func (c cloudCredentialDoc) cloudCredentialTag() (names.CloudCredentialTag, error) {
-	id := fmt.Sprintf("%s/%s/%s", c.Cloud, c.Owner, c.Name)
+	ownerTag := names.NewUserTag(c.Owner)
+	id := fmt.Sprintf("%s/%s/%s", c.Cloud, ownerTag.Canonical(), c.Name)
 	if !names.IsValidCloudCredential(id) {
 		return names.CloudCredentialTag{}, errors.NotValidf("cloud credential ID")
 	}
@@ -180,6 +182,7 @@ func (c cloudCredentialDoc) cloudCredentialTag() (names.CloudCredentialTag, erro
 
 func (c cloudCredentialDoc) toCredential() cloud.Credential {
 	out := cloud.NewCredential(cloud.AuthType(c.AuthType), c.Attributes)
+	out.Revoked = c.Revoked
 	out.Label = c.Name
 	return out
 }
@@ -233,4 +236,17 @@ func validateCloudCredentials(
 		}
 	}
 	return ops, nil
+}
+
+// WatchCredential returns a new NotifyWatcher watching for
+// changes to the specified credential.
+func (st *State) WatchCredential(cred names.CloudCredentialTag) NotifyWatcher {
+	filter := func(rawId interface{}) bool {
+		id, ok := rawId.(string)
+		if !ok {
+			return false
+		}
+		return id == cloudCredentialDocID(cred)
+	}
+	return newNotifyCollWatcher(st, cloudCredentialsC, filter)
 }

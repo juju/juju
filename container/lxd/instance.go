@@ -38,23 +38,23 @@ func (lxd *lxdInstance) Addresses() ([]network.Address, error) {
 
 // Status implements instance.Instance.Status.
 func (lxd *lxdInstance) Status() instance.InstanceStatus {
-	jujuStatus := status.StatusPending
+	jujuStatus := status.Pending
 	instStatus, err := lxd.client.Status(lxd.id)
 	if err != nil {
 		return instance.InstanceStatus{
-			Status:  status.StatusEmpty,
+			Status:  status.Empty,
 			Message: fmt.Sprintf("could not get status: %v", err),
 		}
 	}
 	switch instStatus {
 	case lxdclient.StatusStarting, lxdclient.StatusStarted:
-		jujuStatus = status.StatusAllocating
+		jujuStatus = status.Allocating
 	case lxdclient.StatusRunning:
-		jujuStatus = status.StatusRunning
+		jujuStatus = status.Running
 	case lxdclient.StatusFreezing, lxdclient.StatusFrozen, lxdclient.StatusThawed, lxdclient.StatusStopping, lxdclient.StatusStopped:
-		jujuStatus = status.StatusEmpty
+		jujuStatus = status.Empty
 	default:
-		jujuStatus = status.StatusEmpty
+		jujuStatus = status.Empty
 	}
 	return instance.InstanceStatus{
 		Status:  jujuStatus,

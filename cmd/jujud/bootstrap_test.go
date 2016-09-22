@@ -399,7 +399,7 @@ func (s *BootstrapSuite) TestInitializeEnvironmentInvalidOplogSize(c *gc.C) {
 	_, cmd, err := s.initBootstrapCommand(c, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = cmd.Run(nil)
-	c.Assert(err, gc.ErrorMatches, `invalid oplog size: "NaN"`)
+	c.Assert(err, gc.ErrorMatches, `failed to start mongo: invalid oplog size: "NaN"`)
 }
 
 func (s *BootstrapSuite) TestInitializeEnvironmentToolsNotFound(c *gc.C) {
@@ -749,6 +749,9 @@ func assertWrittenToState(c *gc.C, metadata cloudimagemetadata.Metadata) {
 	if metadata.Stream == "" {
 		metadata.Stream = "released"
 	}
+	if metadata.DateCreated == 0 && len(all[metadata.Source]) > 0 {
+		metadata.DateCreated = all[metadata.Source][0].DateCreated
+	}
 	c.Assert(all, gc.DeepEquals, map[string][]cloudimagemetadata.Metadata{
 		metadata.Source: []cloudimagemetadata.Metadata{metadata},
 	})
@@ -764,7 +767,7 @@ func (s *BootstrapSuite) TestStructuredImageMetadataStored(c *gc.C) {
 
 	// This metadata should have also been written to state...
 	expect := cloudimagemetadata.Metadata{
-		cloudimagemetadata.MetadataAttributes{
+		MetadataAttributes: cloudimagemetadata.MetadataAttributes{
 			Region:          "region",
 			Arch:            "amd64",
 			Version:         "14.04",
@@ -773,8 +776,8 @@ func (s *BootstrapSuite) TestStructuredImageMetadataStored(c *gc.C) {
 			VirtType:        "virtType",
 			Source:          "custom",
 		},
-		simplestreams.CUSTOM_CLOUD_DATA,
-		"imageId",
+		Priority: simplestreams.CUSTOM_CLOUD_DATA,
+		ImageId:  "imageId",
 	}
 	assertWrittenToState(c, expect)
 }

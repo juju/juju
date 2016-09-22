@@ -17,6 +17,7 @@ import (
 	"github.com/juju/txn"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
+	"github.com/juju/utils/clock"
 	"github.com/juju/utils/series"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
@@ -28,12 +29,12 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	statetesting "github.com/juju/juju/state/testing"
@@ -57,7 +58,7 @@ var alternatePassword = "bar-12345678901234567890"
 func preventUnitDestroyRemove(c *gc.C, u *state.Unit) {
 	now := time.Now()
 	sInfo := status.StatusInfo{
-		Status:  status.StatusIdle,
+		Status:  status.Idle,
 		Message: "",
 		Since:   &now,
 	}
@@ -492,7 +493,7 @@ func (s *MultiEnvStateSuite) TestWatchTwoEnvironments(c *gc.C) {
 
 				now := time.Now()
 				sInfo := status.StatusInfo{
-					Status:  status.StatusError,
+					Status:  status.Error,
 					Message: "some status",
 					Since:   &now,
 				}
@@ -861,7 +862,7 @@ func (s *StateSuite) TestAddMachineExtraConstraints(c *gc.C) {
 	err := s.State.SetModelConstraints(constraints.MustParse("mem=4G"))
 	c.Assert(err, jc.ErrorIsNil)
 	oneJob := []state.MachineJob{state.JobHostUnits}
-	extraCons := constraints.MustParse("cpu-cores=4")
+	extraCons := constraints.MustParse("cores=4")
 	m, err := s.State.AddOneMachine(state.MachineTemplate{
 		Series:      "quantal",
 		Constraints: extraCons,
@@ -871,7 +872,7 @@ func (s *StateSuite) TestAddMachineExtraConstraints(c *gc.C) {
 	c.Assert(m.Id(), gc.Equals, "0")
 	c.Assert(m.Series(), gc.Equals, "quantal")
 	c.Assert(m.Jobs(), gc.DeepEquals, oneJob)
-	expectedCons := constraints.MustParse("cpu-cores=4 mem=4G")
+	expectedCons := constraints.MustParse("cores=4 mem=4G")
 	mcons, err := m.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mcons, gc.DeepEquals, expectedCons)
@@ -1355,6 +1356,9 @@ func (s *StateSuite) TestAddApplication(c *gc.C) {
 	mysql, err := s.State.AddApplication(state.AddApplicationArgs{Name: "mysql", Charm: ch})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mysql.Name(), gc.Equals, "mysql")
+	sInfo, err := mysql.Status()
+	c.Assert(sInfo.Status, gc.Equals, status.Waiting)
+	c.Assert(sInfo.Message, gc.Equals, "waiting for machine")
 
 	// Check that retrieving the new created services works correctly.
 	wordpress, err = s.State.Application("wordpress")
@@ -2393,7 +2397,7 @@ func (s *StateSuite) insertFakeModelDocs(c *gc.C, st *state.State) string {
 		state.UserAccessSpec{
 			User:      names.NewUserTag("amelia@external"),
 			CreatedBy: s.Owner,
-			Access:    description.ReadAccess,
+			Access:    permission.ReadAccess,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -4145,6 +4149,7 @@ func (s *SetAdminMongoPasswordSuite) TestSetAdminMongoPassword(c *gc.C) {
 	cfg := testing.ModelConfig(c)
 	controllerCfg := testing.FakeControllerConfig()
 	st, err := state.Initialize(state.InitializeParams{
+		Clock:            clock.WallClock,
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
 			CloudName:               "dummy",

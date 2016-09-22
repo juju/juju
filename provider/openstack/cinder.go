@@ -33,7 +33,14 @@ const (
 )
 
 // StorageProviderTypes implements storage.ProviderRegistry.
-func (*Environ) StorageProviderTypes() []storage.ProviderType {
+func (env *Environ) StorageProviderTypes() []storage.ProviderType {
+	env.ecfgMutex.Lock()
+	defer env.ecfgMutex.Unlock()
+
+	if env.volumeURL == nil {
+		return nil
+	}
+
 	return []storage.ProviderType{CinderProviderType}
 }
 
@@ -60,16 +67,13 @@ func (env *Environ) cinderProvider() (*cinderProvider, error) {
 
 var newOpenstackStorage = func(env *Environ) (OpenstackStorage, error) {
 	env.ecfgMutex.Lock()
+	endpointUrl := env.volumeURL
 	authClient := env.client
 	envNovaClient := env.novaUnlocked
 	env.ecfgMutex.Unlock()
 
-	endpointUrl, err := getVolumeEndpointURL(authClient, env.cloud.Region)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			return nil, errors.NewNotSupported(err, "volumes not supported")
-		}
-		return nil, errors.Annotate(err, "getting volume endpoint")
+	if endpointUrl == nil {
+		return nil, errors.NotSupportedf("volumes")
 	}
 
 	return &openstackStorageAdapter{

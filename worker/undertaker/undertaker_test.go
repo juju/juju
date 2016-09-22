@@ -72,11 +72,11 @@ func (s *UndertakerSuite) TestSetStatusDestroying(c *gc.C) {
 		workertest.CheckKilled(c, w)
 	})
 	stub.CheckCall(
-		c, 1, "SetStatus", status.StatusDestroying,
+		c, 1, "SetStatus", status.Destroying,
 		"cleaning up cloud resources", map[string]interface{}(nil),
 	)
 	stub.CheckCall(
-		c, 4, "SetStatus", status.StatusDestroying,
+		c, 4, "SetStatus", status.Destroying,
 		"tearing down cloud environment", map[string]interface{}(nil),
 	)
 }
