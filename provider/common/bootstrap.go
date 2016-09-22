@@ -154,7 +154,9 @@ func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args
 	// current stderr line before the next use, removing any residual status
 	// reporting output.
 	statusCleanup := func(info string) error {
-		fmt.Fprintf(ctx.GetStderr(), "%s\r", info)
+		// The leading spaces account for the leading characters
+		// emitted by instanceStatus above.
+		fmt.Fprintf(ctx.GetStderr(), "   %s\r", info)
 		return nil
 	}
 	result, err := env.StartInstance(environs.StartInstanceParams{
