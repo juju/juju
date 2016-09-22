@@ -389,14 +389,21 @@ func (s *modelManagerSuite) TestUnsetModelDefaults(c *gc.C) {
 	result, err := s.api.UnsetModelDefaults(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.OneError(), jc.ErrorIsNil)
-	c.Assert(s.st.cfgDefaults, jc.DeepEquals, config.ModelDefaultAttributes{
-		"attr2": {
-			Controller: "val3",
+	want := config.ModelDefaultAttributes{
+		"attr": config.AttributeDefaultValues{
+			Regions: []config.RegionDefaultValue{
+				config.RegionDefaultValue{
+					Name:  "dummy",
+					Value: "val++"},
+			}},
+		"attr2": config.AttributeDefaultValues{
 			Default:    "val2",
-			Regions: []config.RegionDefaultValue{{
-				Name:  "left",
-				Value: "spam"}}},
-	})
+			Controller: "val3",
+			Regions: []config.RegionDefaultValue{
+				config.RegionDefaultValue{
+					Name:  "left",
+					Value: "spam"}}}}
+	c.Assert(s.st.cfgDefaults, jc.DeepEquals, want)
 }
 
 func (s *modelManagerSuite) TestBlockUnsetModelDefaults(c *gc.C) {
