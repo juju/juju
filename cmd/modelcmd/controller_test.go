@@ -6,6 +6,7 @@ package modelcmd_test
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -22,8 +23,10 @@ type ControllerCommandSuite struct {
 var _ = gc.Suite(&ControllerCommandSuite{})
 
 func (s *ControllerCommandSuite) TestControllerCommandNoneSpecified(c *gc.C) {
-	_, err := initTestControllerCommand(c, nil)
-	c.Assert(err, gc.ErrorMatches, "no controller(.|\n)*")
+	cmd, _, err := initTestControllerCommand(c, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	err = cmd.Run(nil)
+	c.Assert(errors.Cause(err), gc.Equals, modelcmd.ErrNoControllersDefined)
 }
 
 func (s *ControllerCommandSuite) TestControllerCommandInitCurrentController(c *gc.C) {
@@ -65,18 +68,23 @@ func (c *testControllerCommand) Info() *cmd.Info {
 }
 
 func (c *testControllerCommand) Run(ctx *cmd.Context) error {
-	panic("should not be called")
+	return nil
 }
 
-func initTestControllerCommand(c *gc.C, store jujuclient.ClientStore, args ...string) (*testControllerCommand, error) {
+func initTestControllerCommand(c *gc.C, store jujuclient.ClientStore, args ...string) (cmd.Command, *testControllerCommand, error) {
 	cmd := new(testControllerCommand)
 	cmd.SetClientStore(store)
 	wrapped := modelcmd.WrapController(cmd)
-	return cmd, cmdtesting.InitCommand(wrapped, args)
+	if err := cmdtesting.InitCommand(wrapped, args); err != nil {
+		return nil, nil, err
+	}
+	return wrapped, cmd, nil
 }
 
 func testEnsureControllerName(c *gc.C, store jujuclient.ClientStore, expect string, args ...string) {
-	cmd, err := initTestControllerCommand(c, store, args...)
+	cmd, controllerCmd, err := initTestControllerCommand(c, store, args...)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmd.ControllerName(), gc.Equals, expect)
+	err = cmd.Run(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(controllerCmd.ControllerName(), gc.Equals, expect)
 }

@@ -24,7 +24,7 @@ var logger = loggo.GetLogger("juju.cmd.modelcmd")
 // ErrNoModelSpecified is returned by commands that operate on
 // an environment if there is no current model, no model
 // has been explicitly specified, and there is no default model.
-var ErrNoModelSpecified = errors.New(`no model in focus
+var ErrNoModelSpecified = errors.New(`No model in focus.
 
 Please use "juju models" to see models available to you.
 You can set current model by running "juju switch"
@@ -215,7 +215,7 @@ func (c *ModelCommandBase) newAPIRoot(modelName string) (api.Connection, error) 
 		if len(controllers) == 0 {
 			return nil, errors.Trace(ErrNoControllersDefined)
 		}
-		return nil, errors.Trace(ErrNotLoggedInToController)
+		return nil, errors.Trace(ErrNoCurrentController)
 	}
 	opener := c.opener
 	if opener == nil {
@@ -312,7 +312,7 @@ func (w *modelCommandWrapper) Init(args []string) error {
 	}
 	if w.modelName != "" {
 		if err := w.SetModelName(w.modelName); err != nil {
-			return errors.Annotate(err, "setting model name")
+			return translateControllerError(store, err)
 		}
 	}
 	return w.ModelCommand.Init(args)
