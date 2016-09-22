@@ -4,10 +4,15 @@
 package model_test
 
 import (
+	"errors"
+
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/api"
+	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/testing"
+	"gopkg.in/juju/names.v2"
 )
 
 // ModelConfig related fake environment for testing.
@@ -71,12 +76,15 @@ func (f *fakeEnvAPI) ModelUnset(keys ...string) error {
 
 type fakeModelDefaultEnvSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
-	fake *fakeModelDefaultsAPI
+	fakeAPIRoot     *fakeAPIConnection
+	fakeDefaultsAPI *fakeModelDefaultsAPI
+	fakeCloudAPI    *fakeCloudAPI
 }
 
 func (s *fakeModelDefaultEnvSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
-	s.fake = &fakeModelDefaultsAPI{
+	s.fakeAPIRoot = &fakeAPIConnection{}
+	s.fakeDefaultsAPI = &fakeModelDefaultsAPI{
 		values: map[string]interface{}{
 			"name":    "test-model",
 			"special": "special value",
@@ -91,6 +99,24 @@ func (s *fakeModelDefaultEnvSuite) SetUpTest(c *gc.C) {
 					"dummy-value"}}},
 		},
 	}
+	s.fakeCloudAPI = &fakeCloudAPI{
+		clouds: map[string]jujucloud.Cloud{
+			"cloud-dummy": {
+				Type: "dummy-cloud",
+				Regions: []jujucloud.Region{
+					{Name: "dummy-region"},
+				},
+			},
+		},
+	}
+}
+
+type fakeAPIConnection struct {
+	api.Connection
+}
+
+func (*fakeAPIConnection) Close() error {
+	return nil
 }
 
 type fakeModelDefaultsAPI struct {
@@ -145,4 +171,23 @@ func (f *fakeModelDefaultsAPI) ModelSet(config map[string]interface{}) error {
 func (f *fakeModelDefaultsAPI) ModelUnset(keys ...string) error {
 	f.keys = keys
 	return f.err
+}
+
+type fakeCloudAPI struct {
+	clouds map[string]jujucloud.Cloud
+}
+
+func (f *fakeCloudAPI) Close() error { return nil }
+func (f *fakeCloudAPI) DefaultCloud() (names.CloudTag, error) {
+	return names.NewCloudTag("dummy"), nil
+}
+func (f *fakeCloudAPI) Cloud(name names.CloudTag) (jujucloud.Cloud, error) {
+	var (
+		c  jujucloud.Cloud
+		ok bool
+	)
+	if c, ok = f.clouds[name.String()]; !ok {
+		return jujucloud.Cloud{}, errors.New("Unknown cloud")
+	}
+	return c, nil
 }

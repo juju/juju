@@ -6,6 +6,7 @@ package state
 import (
 	"github.com/juju/errors"
 	"github.com/juju/schema"
+	names "gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
@@ -134,8 +135,18 @@ func (st *State) modelConfigValues(modelCfg attrValues) (config.ConfigValues, er
 }
 
 // UpdateModelConfigDefaultValues updates the inherited settings used when creating a new model.
-func (st *State) UpdateModelConfigDefaultValues(attrs map[string]interface{}, removed []string) error {
-	settings, err := readSettings(st, globalSettingsC, controllerInheritedSettingsGlobalKey)
+func (st *State) UpdateModelConfigDefaultValues(attrs map[string]interface{}, removed []string, cloudTag, regionName string) error {
+	var key string
+	if cloudTag != "" && regionName != "" {
+		cloud, err := names.ParseCloudTag(cloudTag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		key = regionSettingsGlobalKey(cloud.Id(), regionName)
+	} else {
+		key = controllerInheritedSettingsGlobalKey
+	}
+	settings, err := readSettings(st, globalSettingsC, key)
 	if err != nil {
 		return errors.Trace(err)
 	}
