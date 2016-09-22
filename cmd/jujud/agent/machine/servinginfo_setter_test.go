@@ -100,11 +100,7 @@ func (s *ServingInfoSetterSuite) TestEntityLookupFailure(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
 
-func (s *ServingInfoSetterSuite) TestJobManageEnviron(c *gc.C) {
-	// State serving info should be set for machines with JobManageEnviron.
-	const mockAPIPort = 1234
-
-	a := &mockAgent{}
+func (s *ServingInfoSetterSuite) startManifold(c *gc.C, a coreagent.Agent, mockAPIPort int) {
 	apiCaller := basetesting.APICallerFunc(
 		func(objType string, version int, id, request string, args, response interface{}) error {
 			c.Assert(objType, gc.Equals, "Agent")
@@ -118,6 +114,7 @@ func (s *ServingInfoSetterSuite) TestJobManageEnviron(c *gc.C) {
 			case "StateServingInfo":
 				result := response.(*params.StateServingInfo)
 				*result = params.StateServingInfo{
+					Cert:    testing.CACert,
 					APIPort: mockAPIPort,
 				}
 			default:
@@ -133,10 +130,37 @@ func (s *ServingInfoSetterSuite) TestJobManageEnviron(c *gc.C) {
 	w, err := s.manifold.Start(context)
 	c.Assert(w, gc.IsNil)
 	c.Assert(err, gc.Equals, dependency.ErrUninstall)
+}
+
+func (s *ServingInfoSetterSuite) TestJobManageEnviron(c *gc.C) {
+	// State serving info should be set for machines with JobManageEnviron.
+	const mockAPIPort = 1234
+
+	a := &mockAgent{}
+	s.startManifold(c, a, mockAPIPort)
 
 	// Verify that the state serving info was actually set.
 	c.Assert(a.conf.ssiSet, jc.IsTrue)
 	c.Assert(a.conf.ssi.APIPort, gc.Equals, mockAPIPort)
+	c.Assert(a.conf.ssi.Cert, gc.Equals, testing.CACert)
+}
+
+func (s *ServingInfoSetterSuite) TestJobManageEnvironNotOverwriteCert(c *gc.C) {
+	// State serving info should be set for machines with JobManageEnviron.
+	const mockAPIPort = 1234
+
+	a := &mockAgent{}
+	existingCert := "some cert updated by certupdater"
+	a.conf.SetStateServingInfo(params.StateServingInfo{
+		Cert: existingCert,
+	})
+
+	s.startManifold(c, a, mockAPIPort)
+
+	// Verify that the state serving info was actually set.
+	c.Assert(a.conf.ssiSet, jc.IsTrue)
+	c.Assert(a.conf.ssi.APIPort, gc.Equals, mockAPIPort)
+	c.Assert(a.conf.ssi.Cert, gc.Equals, existingCert)
 }
 
 func (s *ServingInfoSetterSuite) TestJobHostUnits(c *gc.C) {
@@ -198,6 +222,10 @@ func (mc *mockConfig) Tag() names.Tag {
 		return names.NewMachineTag("99")
 	}
 	return mc.tag
+}
+
+func (mc *mockConfig) StateServingInfo() (params.StateServingInfo, bool) {
+	return mc.ssi, mc.ssiSet
 }
 
 func (mc *mockConfig) SetStateServingInfo(info params.StateServingInfo) {
