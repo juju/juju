@@ -29,12 +29,6 @@ __metaclass__ = type
 log = logging.getLogger("assess_block")
 
 
-def get_block_list(client):
-    """Return a list of disabled commands and their status."""
-    return yaml.safe_load(client.get_juju_output(
-        'list-disabled-commands', '--format', 'yaml'))
-
-
 class DisableCommandTypes:
     destroy_mode = 'destroy-model'
     remove_object = 'remove-object'
@@ -76,7 +70,7 @@ def assess_block_destroy_model(client, charm_series):
     can be added, related, and removed.
     """
     client.juju(client.disable_command, (client.destroy_model_command))
-    block_list = get_block_list(client)
+    block_list = client.list_disabled_commands()
     if block_list != make_block_list([DisableCommandTypes.destroy_mode]):
         raise JujuAssertionError(block_list)
     test_disabled(
@@ -94,7 +88,7 @@ def assess_block_remove_object(client, charm_series):
     cannot be removed or the model/environment deleted.
     """
     client.juju(client.disable_command, (DisableCommandTypes.remove_object))
-    block_list = get_block_list(client)
+    block_list = client.list_disabled_commands()
     if block_list != make_block_list([DisableCommandTypes.remove_object]):
         raise JujuAssertionError(block_list)
     test_disabled(
@@ -111,7 +105,7 @@ def assess_block_all_changes(client, charm_series):
     """Test Block Functionality: block all-changes"""
     client.juju('remove-relation', ('dummy-source', 'dummy-sink'))
     client.juju(client.disable_command, (DisableCommandTypes.all))
-    block_list = get_block_list(client)
+    block_list = client.list_disabled_commands()
     if block_list != make_block_list([DisableCommandTypes.all]):
         raise JujuAssertionError(block_list)
     test_disabled(client, 'add-relation', ('dummy-source', 'dummy-sink'))
@@ -135,7 +129,7 @@ def assess_unblock(client, type):
     """Test Block Functionality
     unblock destroy-model/remove-object/all-changes."""
     client.juju(client.enable_command, (type))
-    block_list = get_block_list(client)
+    block_list = client.list_disabled_commands()
     if block_list != make_block_list([]):
         raise JujuAssertionError(block_list)
     if type == client.destroy_model_command:
@@ -149,7 +143,7 @@ def assess_block(client, charm_series):
     """Test Block Functionality:
     block/unblock destroy-model/remove-object/all-changes.
     """
-    block_list = get_block_list(client)
+    block_list = client.list_disabled_commands()
     client.wait_for_started()
     expected_none_blocked = make_block_list([])
     if block_list != expected_none_blocked:

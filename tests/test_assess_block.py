@@ -63,20 +63,20 @@ class TestAssess(TestCase):
 
     def test_block(self):
         mock_client = Mock(spec=[
-            "juju", "wait_for_started", "get_juju_output",
+            "juju", "wait_for_started", "list_disabled_commands",
             "remove_service", "env", "deploy", "expose",
             "destroy-model", "remove-machine", "get_status"])
         mock_client.destroy_model_command = 'destroy-model'
         mock_client.disable_command = 'disable-command'
         mock_client.enable_command = 'enable-command'
-        mock_client.get_juju_output.side_effect = [
-            yaml.dump(make_block_list([])),
-            yaml.dump(make_block_list([DisableCommandTypes.destroy_mode])),
-            yaml.dump(make_block_list([])),
-            yaml.dump(make_block_list([DisableCommandTypes.remove_object])),
-            yaml.dump(make_block_list([])),
-            yaml.dump(make_block_list([DisableCommandTypes.all])),
-            yaml.dump(make_block_list({}))
+        mock_client.list_disabled_commands.side_effect = [
+            make_block_list([]),
+            make_block_list([DisableCommandTypes.destroy_mode]),
+            make_block_list([]),
+            make_block_list([DisableCommandTypes.remove_object]),
+            make_block_list([]),
+            make_block_list([DisableCommandTypes.all]),
+            make_block_list([]),
             ]
         mock_client.env.environment = 'foo'
         mock_client.version = '1.25'

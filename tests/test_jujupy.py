@@ -3188,10 +3188,15 @@ class TestEnvJujuClient(ClientTest):
     def test_list_disabled_commands(self):
         client = EnvJujuClient(JujuData('foo'), None, None)
         with patch.object(client, 'get_juju_output', autospec=True,
-                          return_value='yaml') as mock:
+                          return_value=dedent("""\
+             - command-set: destroy-model
+               message: Lock Models
+             - command-set: remove-object""")) as mock:
             output = client.list_disabled_commands()
-        self.assertEqual('dict', output)
-        mock.assert_called_once_with('list_disabled_commands',
+        self.assertEqual([{'command-set': 'destroy-model',
+                           'message': 'Lock Models'},
+                          {'command-set': 'remove-object'}], output)
+        mock.assert_called_once_with('list-disabled-commands',
                                      '--format', 'yaml')
 
 
@@ -3385,11 +3390,16 @@ class TestEnvJujuClient2B9(ClientTest):
              'tools-metadata-url'))
 
     def test_list_disabled_commands(self):
-        client = EnvJujuClient(JujuData('foo'), None, None)
+        client = EnvJujuClient2B9(JujuData('foo'), None, None)
         with patch.object(client, 'get_juju_output', autospec=True,
-                          return_value='yaml') as mock:
+                          return_value=dedent("""\
+             - command-set: destroy-model
+               message: Lock Models
+             - command-set: remove-object""")) as mock:
             output = client.list_disabled_commands()
-        self.assertEqual('dict', output)
+        self.assertEqual([{'command-set': 'destroy-model',
+                           'message': 'Lock Models'},
+                          {'command-set': 'remove-object'}], output)
         mock.assert_called_once_with('block list',
                                      '--format', 'yaml')
 
