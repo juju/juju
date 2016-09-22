@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/cmd/juju/controller"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/testing"
 )
@@ -26,13 +27,11 @@ type ListControllersSuite struct {
 var _ = gc.Suite(&ListControllersSuite{})
 
 func (s *ListControllersSuite) TestListControllersEmptyStore(c *gc.C) {
-	s.expectedOutput = `
-CONTROLLER  MODEL  USER  ACCESS  CLOUD/REGION  MODELS  MACHINES  HA  VERSION
-
-`[1:]
-
 	s.store = jujuclienttesting.NewMemStore()
-	s.assertListControllers(c)
+	context, err := s.runListControllers(c)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(testing.Stdout(context), gc.Equals, "")
+	c.Check(testing.Stderr(context), gc.Equals, modelcmd.ErrNoControllersDefined.Error())
 }
 
 func (s *ListControllersSuite) TestListControllers(c *gc.C) {
