@@ -114,17 +114,24 @@ func (c *ShowServiceCommand) Run(ctx *cmd.Context) error {
 		return errors.Errorf("bad data returned from server")
 	}
 	v := vals[0]
+
 	if unit == "" {
 		return c.formatServiceResources(ctx, v)
 	}
 	return c.formatUnitResources(ctx, unit, service, v)
 }
 
+const noResources = "No resources to display."
+
 func (c *ShowServiceCommand) formatServiceResources(ctx *cmd.Context, sr resource.ServiceResources) error {
 	if c.details {
 		formatted, err := FormatServiceDetails(sr)
 		if err != nil {
 			return errors.Trace(err)
+		}
+		if len(formatted.Resources) == 0 && len(formatted.Updates) == 0 {
+			ctx.Infof(noResources)
+			return nil
 		}
 
 		return c.out.Write(ctx, formatted)
@@ -134,10 +141,19 @@ func (c *ShowServiceCommand) formatServiceResources(ctx *cmd.Context, sr resourc
 	if err != nil {
 		return errors.Trace(err)
 	}
+	if len(formatted.Resources) == 0 && len(formatted.Updates) == 0 {
+		ctx.Infof(noResources)
+		return nil
+	}
 	return c.out.Write(ctx, formatted)
 }
 
 func (c *ShowServiceCommand) formatUnitResources(ctx *cmd.Context, unit, service string, sr resource.ServiceResources) error {
+	if len(sr.UnitResources) == 0 {
+		ctx.Infof(noResources)
+		return nil
+	}
+
 	if c.details {
 		formatted, err := detailedResources(unit, sr)
 		if err != nil {
@@ -150,6 +166,7 @@ func (c *ShowServiceCommand) formatUnitResources(ctx *cmd.Context, unit, service
 	if err != nil {
 		return errors.Trace(err)
 	}
+
 	res := make([]FormattedUnitResource, len(resources))
 
 	for i, r := range resources {

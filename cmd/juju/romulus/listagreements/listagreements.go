@@ -87,8 +87,9 @@ func (c *listAgreementsCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Annotate(err, "failed to list user agreements")
 	}
-	if agreements == nil {
-		agreements = []wireformat.AgreementResponse{}
+	if len(agreements) == 0 {
+		ctx.Infof("No agreements to display.")
+		return nil
 	}
 	err = c.out.Write(ctx, agreements)
 	if err != nil {

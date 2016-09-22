@@ -6,6 +6,7 @@ package action_test
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/juju/cmd"
@@ -122,7 +123,7 @@ snapshot        Take a snapshot of the database.
 		should:          "work properly when no results found",
 		withArgs:        []string{validServiceId},
 		expectNoResults: true,
-		expectMessage:   "No actions defined for " + validServiceId,
+		expectMessage:   fmt.Sprintf("No actions defined for %s.\n", validServiceId),
 	}}
 
 	for i, t := range tests {
@@ -149,7 +150,7 @@ snapshot        Take a snapshot of the database.
 					if t.expectFullSchema {
 						checkFullSchema(c, t.withCharmActions, result)
 					} else if t.expectNoResults {
-						c.Check(string(result), gc.Matches, t.expectMessage+"(?sm).*")
+						c.Check(testing.Stderr(ctx), gc.Matches, t.expectMessage)
 					} else {
 						c.Check(testing.Stdout(ctx), gc.Equals, simpleOutput)
 					}

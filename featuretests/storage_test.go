@@ -279,7 +279,7 @@ block:
 func (s *cmdStorageSuite) TestListPoolsNameNoMatch(c *gc.C) {
 	stdout, stderr, err := runPoolList(c, "--name", "cranky")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(stderr, gc.Equals, "")
+	c.Assert(stderr, gc.Equals, "No storage pools to display.\n")
 	c.Assert(stdout, gc.Equals, "")
 }
 

@@ -137,6 +137,11 @@ func (c *ListPlansCommand) Run(ctx *cmd.Context) (rErr error) {
 		}
 		output[i] = outputPlan
 	}
+
+	if len(output) == 0 && c.out.Name() == "tabular" {
+		ctx.Infof("No plans to display.")
+	}
+
 	err = c.out.Write(ctx, output)
 	if err != nil {
 		return errors.Trace(err)
