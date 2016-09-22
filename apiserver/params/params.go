@@ -243,18 +243,39 @@ type ApplicationUpdate struct {
 type ApplicationSetCharm struct {
 	// ApplicationName is the name of the application to set the charm on.
 	ApplicationName string `json:"application"`
+
 	// CharmUrl is the new url for the charm.
 	CharmUrl string `json:"charm-url"`
+
 	// Channel is the charm store channel from which the charm came.
 	Channel string `json:"channel"`
+
+	// ConfigSettings is the charm settings to set during the upgrade.
+	// This field is only understood by Application facade version 2
+	// and greater.
+	ConfigSettings map[string]string `json:"config-settings,omitempty"`
+
+	// ConfigSettingsYAML is the charm settings in YAML format to set
+	// during the upgrade. If this is non-empty, it will take precedence
+	// over ConfigSettings. This field is only understood by Application
+	// facade version 2
+	ConfigSettingsYAML string `json:"config-settings-yaml,omitempty"`
+
 	// ForceUnits forces the upgrade on units in an error state.
 	ForceUnits bool `json:"force-units"`
+
 	// ForceSeries forces the use of the charm even if it doesn't match the
 	// series of the unit.
 	ForceSeries bool `json:"force-series"`
+
 	// ResourceIDs is a map of resource names to resource IDs to activate during
 	// the upgrade.
 	ResourceIDs map[string]string `json:"resource-ids,omitempty"`
+
+	// StorageConstraints is a map of storage names to storage constraints to
+	// update during the upgrade. This field is only understood by Application
+	// facade version 2 and greater.
+	StorageConstraints map[string]StorageConstraints `json:"storage-constraints,omitempty"`
 }
 
 // ApplicationExpose holds the parameters for making the application Expose call.
