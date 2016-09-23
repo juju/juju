@@ -10,6 +10,7 @@ import logging
 import os
 import sys
 import subprocess
+import time
 
 import rrdtool
 from jinja2 import Template
@@ -25,10 +26,14 @@ import perf_graphing
 from utility import (
     add_basic_testing_arguments,
     configure_logging,
+    until_timeout,
 )
 
 
 __metaclass__ = type
+
+
+MINUTE = 60
 
 
 class TimingData:
@@ -74,7 +79,8 @@ def assess_perf_test_simple(bs_manager, upload_tools):
 
             setup_system_monitoring(admin_client)
 
-            deploy_details = assess_deployment_perf(client)
+            deploy_details = assess_longrun_perf(client, test_length=MINUTE*60)
+            # deploy_details = assess_deployment_perf(client)
         finally:
             results_dir = os.path.join(
                 os.path.abspath(bs_manager.log_dir), 'performance_results/')
@@ -271,6 +277,63 @@ def find_actual_start(fetch_output):
                 return timestamp
         except ValueError:
             pass
+
+
+class Rest:
+    short = MINUTE * 1
+    medium = MINUTE * 30
+    long = MINUTE * 60
+    really_long = MINUTE * 120
+
+
+def assess_longrun_perf(client, test_length=600):
+    for _ in until_timeout(test_length):
+        # Choose one of x different charms/bundles to use.
+        bundle_name = 'cs:bundle/wiki-simple-0'
+        unit_name = 'mediawiki'
+        new_client = action_create(client, bundle_name)
+        action_busy(new_client, unit_name)
+        action_cleanup(new_client)
+
+        action_rest(Rest.medium)
+
+
+def action_create(client, bundle):
+    # Add a model
+    # Deploy something
+    # Wait for it to happen
+    # Do something else?
+    new_model = client.add_model(client.env.clone('newmodel'))
+    new_model.deploy(bundle)
+    new_model.wait_for_started()
+    new_model.wait_for_workloads()
+
+    return new_model
+
+
+def action_busy(client, charm_name):
+    # Check status (in loop?) <- Busy Stuff
+    # Add a unit and wait etc.
+    # Further busy stuff
+    # Remove unit
+    # Busy stuff
+    client.get_status()
+    client.juju('add-unit', (charm_name, '-n', '1'))
+    client.wait_for_started()
+    client.wait_for_workloads()
+
+    for _ in until_timeout(MINUTE*10):
+        client.get_stats()
+        time.sleep(MINUTE)
+
+
+def action_cleanup(client):
+    client.destroy_model()
+    action_rest(Rest.short)
+
+
+def action_rest(rest_type=Rest.short):
+    time.sleep()
 
 
 def assess_deployment_perf(client, bundle_name='cs:ubuntu'):
