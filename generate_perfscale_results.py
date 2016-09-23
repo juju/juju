@@ -79,8 +79,9 @@ def assess_perf_test_simple(bs_manager, upload_tools):
 
             setup_system_monitoring(admin_client)
 
-            deploy_details = assess_longrun_perf(client, test_length=MINUTE*60)
-            # deploy_details = assess_deployment_perf(client)
+            # deploy_details = assess_longrun_perf(client, test_length=MINUTE*60)
+            # Real short for initial test.
+            deploy_details = assess_longrun_perf(client, test_length=MINUTE*10)
         finally:
             results_dir = os.path.join(
                 os.path.abspath(bs_manager.log_dir), 'performance_results/')
@@ -326,7 +327,8 @@ def action_busy(client, applications):
         client.wait_for_started()
         client.wait_for_workloads()
 
-    for _ in until_timeout(MINUTE*10):
+    # for _ in until_timeout(MINUTE*10):
+    for _ in until_timeout(MINUTE*2):
         log.info('Checking status ping.')
         client.show_status()
         log.info('Sleeping . . .')
