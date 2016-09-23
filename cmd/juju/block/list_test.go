@@ -98,6 +98,12 @@ func (s *listCommandSuite) TestListYAML(c *gc.C) {
 	)
 }
 
+func (s *listCommandSuite) TestListJSONEmpty(c *gc.C) {
+	ctx, err := testing.RunCommand(c, block.NewListCommandForTest(&mockListClient{}, nil), "--format", "json")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(testing.Stdout(ctx), gc.Equals, "[]\n")
+}
+
 func (s *listCommandSuite) TestListJSON(c *gc.C) {
 	cmd := block.NewListCommandForTest(s.mock(), nil)
 	ctx, err := testing.RunCommand(c, cmd, "--format", "json")
