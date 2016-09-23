@@ -325,7 +325,9 @@ def action_busy(client, applications):
         client.wait_for_workloads()
 
     for _ in until_timeout(MINUTE*10):
-        client.get_status()
+        log.info('Checking status ping.')
+        client.show_status()
+        log.info('Sleeping . . .')
         time.sleep(MINUTE)
 
 
@@ -335,7 +337,7 @@ def action_cleanup(client):
 
 
 def action_rest(rest_type=Rest.short):
-    time.sleep()
+    time.sleep(rest_type)
 
 
 def assess_deployment_perf(client, bundle_name='cs:ubuntu'):
