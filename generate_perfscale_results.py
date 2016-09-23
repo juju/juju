@@ -290,9 +290,9 @@ def assess_longrun_perf(client, test_length=600):
     for _ in until_timeout(test_length):
         # Choose one of x different charms/bundles to use.
         bundle_name = 'cs:bundle/wiki-simple-0'
-        unit_name = 'mediawiki'
+        applications = ['mysql', 'wiki']
         new_client = action_create(client, bundle_name)
-        action_busy(new_client, unit_name)
+        action_busy(new_client, applications)
         action_cleanup(new_client)
 
         action_rest(Rest.medium)
@@ -311,16 +311,18 @@ def action_create(client, bundle):
     return new_model
 
 
-def action_busy(client, charm_name):
+def action_busy(client, applications):
     # Check status (in loop?) <- Busy Stuff
     # Add a unit and wait etc.
     # Further busy stuff
     # Remove unit
     # Busy stuff
     client.get_status()
-    client.juju('add-unit', (charm_name, '-n', '1'))
-    client.wait_for_started()
-    client.wait_for_workloads()
+
+    for app in applications:
+        client.juju('add-unit', (app, '-n', '1'))
+        client.wait_for_started()
+        client.wait_for_workloads()
 
     for _ in until_timeout(MINUTE*10):
         client.get_stats()
