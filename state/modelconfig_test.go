@@ -556,13 +556,8 @@ func (s *ModelConfigSourceSuite) TestUpdateModelConfigDefaultValuesUnknownRegion
 	err = s.State.UpdateModelConfigDefaultValues(attrs, nil, rspec)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Then check in another state.
-	info := statetesting.NewMongoInfo()
-	anotherState, err := state.Open(s.modelTag, s.State.ControllerTag(), info, mongotest.DialOpts(), state.NewPolicyFunc(nil))
-	c.Assert(err, jc.ErrorIsNil)
-	defer anotherState.Close()
-
-	cfg, err := anotherState.ModelConfigDefaultValues()
+	// Then check config.
+	cfg, err := s.State.ModelConfigDefaultValues()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg["no-proxy"], jc.DeepEquals, config.AttributeDefaultValues{
 		Default:    "",

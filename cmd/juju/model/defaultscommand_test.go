@@ -29,8 +29,10 @@ func (s *DefaultsCommandSuite) SetUpTest(c *gc.C) {
 	s.store = jujuclienttesting.NewMemStore()
 	s.store.CurrentControllerName = "controller"
 	s.store.Controllers["controller"] = jujuclient.ControllerDetails{}
-
 }
+
+// XXX(ro) Add test to ensure region and cloud are correctly passed to the
+// api
 
 func (s *DefaultsCommandSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
 	command := model.NewDefaultsCommandForTest(s.fakeAPIRoot, s.fakeDefaultsAPI, s.fakeCloudAPI, s.store)
@@ -70,7 +72,7 @@ func (s *DefaultsCommandSuite) TestDefaultsInit(c *gc.C) {
 		{
 			description: "test reset with valid region and duplicate key set",
 			args:        []string{"--reset", "something", "dummy-region", "something=weird"},
-			errorMatch:  `key "something" specified more than once`,
+			errorMatch:  `key "something" cannot be both set and unset in the same command`,
 		},
 		{
 			description: "test reset with valid region and extra positional arg",
@@ -99,11 +101,11 @@ func (s *DefaultsCommandSuite) TestDefaultsInit(c *gc.C) {
 		}, {
 			description: "test reset with key=val fails",
 			args:        []string{"--reset", "foo=bar"},
-			errorMatch:  `--reset accepts a single key "a" or comma delimited keys "a,b,c", received: "foo=bar"`,
+			errorMatch:  `--reset accepts a comma delimited set of keys "a,b,c", received: "foo=bar"`,
 		}, {
 			description: "test reset multiple with key=val fails",
 			args:        []string{"--reset", "a,foo=bar,b"},
-			errorMatch:  `--reset accepts a single key "a" or comma delimited keys "a,b,c", received: "foo=bar"`,
+			errorMatch:  `--reset accepts a comma delimited set of keys "a,b,c", received: "foo=bar"`,
 		}, {
 			description: "test reset with two positional args fails expecting a region",
 			args:        []string{"--reset", "a", "b", "c"},
@@ -131,7 +133,7 @@ func (s *DefaultsCommandSuite) TestDefaultsInit(c *gc.C) {
 		}, {
 			description: "test reset multiple with key=val fails",
 			args:        []string{"--reset", "a", "--reset", "b,foo=bar,c"},
-			errorMatch:  `--reset accepts a single key "a" or comma delimited keys "a,b,c", received: "foo=bar"`,
+			errorMatch:  `--reset accepts a comma delimited set of keys "a,b,c", received: "foo=bar"`,
 		}, {
 			// test get
 			description: "test no args inits",

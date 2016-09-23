@@ -75,13 +75,10 @@ type defaultsCommand struct {
 
 	action                func(defaultsCommandAPI, *cmd.Context) error // The function handling the input, set in Init.
 	key                   string
-	resetKeys             []string
+	resetKeys             []string // Holds the keys to be reset once parsed.
 	cloudName, regionName string
-	// reset holds the contents of the reset flag. It contains a list of comma
-	// seperated lists of keys to reset. e.g. []string{"a,b,c", "d", "e,f",
-	// "g,h,i"}
-	reset  []string
-	values attributes
+	reset                 []string // Holds the keys to be reset until parsed.
+	values                attributes
 }
 
 // cloudAPI defines an API to be passed in for testing.
@@ -131,55 +128,45 @@ func (c *defaultsCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 // Init implements part of the cmd.Command interface.
-// Abandon all hope ye who enter here....
-// This needs to parse the a command line invocation as defined in
-// https://goo.gl/yqrrPI.
-// So the following 3 lines are all equivalent:
-// juju model-defaults aws/us-east-1 foo=baz --reset bar
-// juju model-defaults aws/us-east-1 --reset bar foo=baz
-// juju model-defaults --reset bar aws/us-east-1 foo=baz
+// This needs to parse the a command line invocation to reset and set, or get
+// model-default values. The arguments may be interspersed as demosntrated in
+// the examples.
 //
-// They all set foo=baz and unset bar in aws/us-east-1
-// If aws is the cloud of the current or specified controller -- as specified
-// by -c somecontroller or -m somecontroller:somemodel -- then the following
-// 3 lines would also be equivalent.
-// juju model-defaults us-east-1 foo=baz --reset bar
-// juju model-defaults us-east-1 --reset bar foo=baz
-// juju model-defaults --reset bar us-east-1 foo=baz
+// This sets foo=baz and unsets bar in aws/us-east-1
+//     juju model-defaults aws/us-east-1 foo=baz --reset bar
+//
+// If aws is the cloud of the current or specified controller -- specified by
+// -c somecontroller or -m somecontroller:somemodel -- then the following would
+// also be equivalent.
+//     juju model-defaults --reset bar us-east-1 foo=baz
 //
 // If one doesn't specify a cloud or region the command is still valid but for
-// setting the default on the controller. So the following two commands are
-// equivalent.
-// juju model-defaults foo=baz --reset bar
-// juju model-defaults --reset bar foo=baz
+// setting the default on the controller:
+//     juju model-defaults foo=baz --reset bar
 //
 // Of course one can specify multiple keys to reset --reset a,b,c and one can
 // also specify multiple values to set a=b c=d e=f. I.e. comma separated for
-// reset and space separated for setting. One may also only set or reset as a
-// singular action. The last two here are equivalent.
-// juju model-defaults --reset foo
-// juju model-defaults a=b c=d e=f
-// juju model-defaults a=b c=d --reset e,f
-// juju model-defaults --reset e,f a=b c=d
+// resetting and space separated for setting. One may also only set or reset as
+// a singular action.
+//     juju model-defaults --reset foo
+//     juju model-defaults a=b c=d e=f
+//     juju model-defaults a=b c=d --reset e,f
 //
 // cloud/region may also be specified so above examples with that option might
-// be like the following three equivalent invokations.
-// juju model-defaults us-east-1 a=b c=d --reset e,f
-// juju model-defaults us-east-1 --reset e,f a=b c=d
-// juju model-defaults --reset e,f us-east-1 a=b c=d
+// be like the following invokation.
+//     juju model-defaults us-east-1 a=b c=d --reset e,f
 //
 // Finally one can also ask for the all the defaults or the defaults for one
 // specific setting. In this case specifying a region is not valid as
 // model-defaults shows the settings for a value at all locations that it has a
 // default set -- or at a minimum the default and  "-" for a controller with no
 // value set.
-// simultaneously.
-// juju model-defaults
-// juju model-defaults no-proxy
+//     juju model-defaults
+//     juju model-defaults no-proxy
 //
-// It is not valid to reset and get or to set and get values. It is also neiter
-// valid to reset and set the same key, nor to set the same key to different
-// values in the same command.
+// It is not valid to reset and get or to set and get values. It is also
+// neither valid to reset and set the same key, nor to set the same key to
+// different values in the same command.
 //
 // For those playing along that all means the first positional arg can be a
 // cloud/region, a region, a key=value to set, a key to get the settings for,
@@ -206,10 +193,10 @@ func (c *defaultsCommand) Init(args []string) error {
 
 	// Look at the first positional arg and test to see if it is a valid
 	// optional specification of cloud/region or region. If it is then
-	// cloudName and regionName or only regionName are set on the object and
-	// the positional args are returned without the first element. If it cannot
-	// be validated; cloudName and regionName are left empty and we get back
-	// the same args we passed in.
+	// cloudName and regionName are set on the object and the positional args
+	// are returned without the first element. If it cannot be validated;
+	// cloudName and regionName are left empty and we get back the same args we
+	// passed in.
 	args, err = c.parseArgsForRegion(args)
 	if err != nil {
 		return errors.Trace(err)
@@ -230,8 +217,8 @@ func (c *defaultsCommand) Init(args []string) error {
 		// We want to get settings for the provided key.
 		return c.handleOneArg(args[0])
 	default: // case args > 1
-		// Specifying any positional args after a key=value pair is
-		// invalid input. So if we have more than one the input is almost
+		// Specifying any non key=value positional args after a key=value pair
+		// is invalid input. So if we have more than one the input is almost
 		// certainly invalid, but in different possible ways.
 		return c.handleExtraArgs(args)
 	}
@@ -242,24 +229,25 @@ func (c *defaultsCommand) Init(args []string) error {
 // leading or trailing comma. It then verifies that we haven't incorrectly
 // received any key=value pairs and finally sets the value(s) on c.resetKeys.
 func (c *defaultsCommand) parseResetKeys() error {
-	if len(c.reset) > 0 {
-		var resetKeys []string
-		for _, value := range c.reset {
-			keys := strings.Split(strings.Trim(value, ","), ",")
-			resetKeys = append(resetKeys, keys...)
-		}
-
-		for _, k := range resetKeys {
-			if k == config.AgentVersionKey {
-				return errors.Errorf("%q cannot be reset", config.AgentVersionKey)
-			}
-			if strings.Contains(k, "=") {
-				return errors.Errorf(
-					`--reset accepts a single key "a" or comma delimited keys "a,b,c", received: %q`, k)
-			}
-		}
-		c.resetKeys = resetKeys
+	if len(c.reset) == 0 {
+		return nil
 	}
+	var resetKeys []string
+	for _, value := range c.reset {
+		keys := strings.Split(strings.Trim(value, ","), ",")
+		resetKeys = append(resetKeys, keys...)
+	}
+
+	for _, k := range resetKeys {
+		if k == config.AgentVersionKey {
+			return errors.Errorf("%q cannot be reset", config.AgentVersionKey)
+		}
+		if strings.Contains(k, "=") {
+			return errors.Errorf(
+				`--reset accepts a comma delimited set of keys "a,b,c", received: %q`, k)
+		}
+	}
+	c.resetKeys = resetKeys
 	return nil
 }
 
@@ -290,6 +278,12 @@ func (c *defaultsCommand) parseCloudRegion(args []string) ([]string, error) {
 		cloud, region = elems[0], elems[1]
 	} else {
 		region = cr
+	}
+
+	// NB(redir) http://pad.lv/1627162 -- We don't disallow "=" in region
+	// names, but probably should.
+	if strings.Contains(region, "=") {
+		return args, nil
 	}
 
 	valid, err := c.validCloudRegion(cloud, region)
@@ -325,6 +319,9 @@ func (c *defaultsCommand) validCloudRegion(cloudName, region string) (bool, erro
 			return false, errors.Trace(err)
 		}
 	} else {
+		if !names.IsValidCloud(cloudName) {
+			return false, errors.Errorf("invalid cloud %q", cloudName)
+		}
 		cTag = names.NewCloudTag(cloudName)
 	}
 	cloud, err = cc.Cloud(cTag)
@@ -341,32 +338,6 @@ func (c *defaultsCommand) validCloudRegion(cloudName, region string) (bool, erro
 		}
 	}
 	return isCloudRegion, nil
-}
-
-// parseSetKeys iterates over the args and make sure that the key=value pairs
-// are valid. It also checks that the same key isn't also being reset.
-func (c *defaultsCommand) parseSetKeys(args []string) error {
-	options, err := keyvalues.Parse(args, true)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	keyCounter := map[string]int{}
-	c.values = make(attributes)
-	for k, v := range options {
-		if k == config.AgentVersionKey {
-			return errors.Errorf(`%q must be set via "upgrade-juju"`, config.AgentVersionKey)
-		}
-		keyCounter[k]++
-		c.values[k] = v
-	}
-	for _, resetKey := range c.resetKeys {
-		keyCounter[resetKey]++
-		if keyCounter[resetKey] > 1 {
-			return errors.Errorf(`key %q specified more than once`, resetKey)
-		}
-	}
-	return nil
 }
 
 // handleSetArgs parses args for setting defaults.
@@ -388,63 +359,74 @@ func (c *defaultsCommand) handleSetArgs(args []string) error {
 	}
 }
 
+// parseSetKeys iterates over the args and make sure that the key=value pairs
+// are valid. It also checks that the same key isn't also being reset.
+func (c *defaultsCommand) parseSetKeys(args []string) error {
+	options, err := keyvalues.Parse(args, true)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	c.values = make(attributes)
+	for k, v := range options {
+		if k == config.AgentVersionKey {
+			return errors.Errorf(`%q must be set via "upgrade-juju"`, config.AgentVersionKey)
+		}
+		c.values[k] = v
+	}
+	for _, k := range c.resetKeys {
+		if _, ok := c.values[k]; ok {
+			return errors.Errorf(
+				"key %q cannot be both set and unset in the same command", k)
+		}
+	}
+	return nil
+}
+
 // handleZeroArgs determines whether we are doing a reset only and if any
 // additional arguments are valid -- or why they are not.
 func (c *defaultsCommand) handleZeroArgs() error {
-	resetSpecified := c.resetKeys != nil
-	regionSpecified := c.regionName != ""
-
-	switch {
-	case regionSpecified && !resetSpecified:
-		// It doesn't make sense to specify a region unless we are resetting
-		// values here.
-		return errors.New("specifying a region when retrieving defaults is invalid")
-	case regionSpecified && resetSpecified:
-		// We can reset for a region, c.action stays nil. We want to do reset
-		// only.
-		return nil
-	case !regionSpecified && resetSpecified:
-		// Again we want to reset, this is for resetting the controller as
-		// there is no region specified. So c.action remains nil.
-		return nil
-		// We short circuited at the begining of c.Init so we should never
-		// reach a case where "!regionSpecified && !resetSpecified"
-	default:
-		// This should be unreachable.
-		return errors.New("unexpected input, please file a bug")
+	if c.regionName != "" {
+		if c.resetKeys == nil {
+			// It doesn't make sense to specify a region unless we are resetting
+			// values here.
+			return errors.New("specifying a region when retrieving defaults is invalid")
+		}
 	}
+	// We can reset for a region. We can also reset for a controller if there
+	// is no region specified. In either case c.action remains nil. We short
+	// circuited at the begining of c.Init so we should never reach a case
+	// where there is no region or reset keys specified.
+	return nil
 }
 
 // handleOneArg handles the case where we have one positional arg after
-// processing for a region and the reset flag after processing for a region and
-// the reset flagg.
+// processing for a region and the reset flag.
 func (c *defaultsCommand) handleOneArg(arg string) error {
 	resetSpecified := c.resetKeys != nil
 	regionSpecified := c.regionName != ""
 
-	switch {
-	case regionSpecified && !resetSpecified:
-		// It doesn't make sense to specify a region unless we are resetting
-		// values here.
-		return errors.New("specifying a region when retrieving defaults for a setting is invalid")
-	case !regionSpecified && resetSpecified:
-		// It makes no sense to supply a positional arg that isn't a region if
-		// we are resetting a region, so we must have gotten an invalid region.
-		return errors.Errorf("invalid region specified: %q", arg)
-	case !regionSpecified && !resetSpecified:
-		// We can retrieve a value.
-		c.key = arg
-		c.action = c.getDefaults
-		return nil
-	case regionSpecified && resetSpecified:
+	if regionSpecified {
+		if !resetSpecified {
+			// It doesn't make sense to specify a region unless we are resetting
+			// values here.
+			return errors.New("specifying a region when retrieving defaults for a setting is invalid")
+		}
 		// If a region was specified and reset was specified, we shouldn't have
 		// an extra arg. If it had an "=" in it, we should have handled it
 		// already.
 		return errors.New("cannot retrieve defaults for a key and reset args at the same time")
-	default:
-		// This should be unreachable.
-		return errors.New("unexpected input, please file a bug")
 	}
+	if resetSpecified {
+		// It makes no sense to supply a positional arg that isn't a region if
+		// we are resetting keys in a region, so we must have gotten an invalid
+		// region.
+		return errors.Errorf("invalid region specified: %q", arg)
+	}
+	// We can retrieve a value.
+	c.key = arg
+	c.action = c.getDefaults
+	return nil
 }
 
 // handleExtraArgs handles the case where too many args were supplied.
@@ -462,19 +444,22 @@ func (c *defaultsCommand) handleExtraArgs(args []string) error {
 		}
 	}
 
-	switch {
-	case numArgs == 2 && !regionSpecified && resetSpecified:
-		// It makes no sense to supply a positional arg that isn't a region if
-		// we are resetting a region, so we must have gotten an invalid region.
-		return errors.Errorf("invalid region specified: %q", args[0])
-	case !regionSpecified && !resetSpecified:
-		// If we land here it is because there are extraneous positional args.
-		return errors.New("can only retrieve defaults for one key or all")
-	default:
-		// Anything else just has extra positional args, which is invalid in an
-		// unreliably guessable way.
-		return errors.New("invalid input")
+	if !regionSpecified {
+		if resetSpecified {
+			if numArgs == 2 {
+				// It makes no sense to supply a positional arg that isn't a
+				// region if we are resetting a region, so we must have gotten
+				// an invalid region.
+				return errors.Errorf("invalid region specified: %q", args[0])
+			}
+		}
+		if !resetSpecified {
+			// If we land here it is because there are extraneous positional
+			// args.
+			return errors.New("can only retrieve defaults for one key or all")
+		}
 	}
+	return errors.New("invalid input")
 }
 
 // Run implements part of the cmd.Command interface.
@@ -556,28 +541,13 @@ func (c *defaultsCommand) verifyKnownKeys(client defaultsCommandAPI) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	// allKeys gets the all the set and reset keys to validate. This should get
-	// caught in Init so maybe we don't need it here too.
-	// TODO(reviewer) Should we keep this and the init check?
-	allkeys := func() []string {
-		keys := []string{}
-		for k := range c.values {
-			keys = append(keys, k)
-		}
-		keys = append(keys, c.resetKeys...)
-		return keys
+
+	allKeys := c.resetKeys[:]
+	for k := range c.values {
+		allKeys = append(allKeys, k)
 	}
 
-	keys := allkeys()
-	repeats := map[string]int{}
-	// Make sure we aren't trying to reset and set a key.
-	for _, k := range keys {
-		repeats[k]++
-		if repeats[k] > 1 {
-			return errors.Errorf("conflicting operations on key: %q not allowed", k)
-		}
-	}
-	for _, key := range allkeys() {
+	for _, key := range allKeys {
 		// check if the key exists in the known config
 		// and warn the user if the key is not defined
 		if _, exists := known[key]; !exists {
