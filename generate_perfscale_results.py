@@ -139,8 +139,10 @@ def generate_reports(controller_log, results_dir, deployments):
     mongo_query_image, mongo_memory_image = generate_mongo_graph_image(
         results_dir)
 
-    log_message_chunks = get_log_message_in_timed_chunks(
-        controller_log, deployments)
+    # Skip doing the logs for such a long run for now.
+    # log_message_chunks = get_log_message_in_timed_chunks(
+    #     controller_log, deployments)
+    log_message_chunks = defaultdict(defaultdict)
 
     details = dict(
         cpu_graph=cpu_image,
@@ -336,8 +338,9 @@ def action_cleanup(client):
     action_rest(Rest.short)
 
 
-def action_rest(rest_type=Rest.short):
-    time.sleep(rest_type)
+def action_rest(rest_length=Rest.short):
+    log.info('Resting for {} seconds'.format(rest_length))
+    time.sleep(rest_length)
 
 
 def assess_deployment_perf(client, bundle_name='cs:ubuntu'):
