@@ -546,6 +546,7 @@ func (a *Application) checkStorageUpgrade(newMeta, oldMeta *charm.Meta, units []
 func (s *Application) changeCharmOps(
 	ch *Charm,
 	channel string,
+	updatedSettings charm.Settings,
 	forceUnits bool,
 	resourceIDs map[string]string,
 	updatedStorageConstraints map[string]StorageConstraints,
@@ -556,9 +557,12 @@ func (s *Application) changeCharmOps(
 	if err == nil {
 		// Filter the old settings through to get the new settings.
 		newSettings = ch.Config().FilterSettings(oldSettings.Map())
+		for k, v := range updatedSettings {
+			newSettings[k] = v
+		}
 	} else if errors.IsNotFound(err) {
-		// No old settings, start with empty new settings.
-		newSettings = make(charm.Settings)
+		// No old settings, start with the updated settings.
+		newSettings = updatedSettings
 	} else {
 		return nil, errors.Trace(err)
 	}
@@ -824,9 +828,6 @@ type SetCharmConfig struct {
 
 	// ConfigSettings is the charm config settings to apply when upgrading
 	// the charm.
-	//
-	// TODO(axw) support this in Application.SetCharm. At the moment, if
-	// this is set, a "not supported" error will be returned.
 	ConfigSettings charm.Settings
 
 	// ForceUnits forces the upgrade on units in an error state.
@@ -856,11 +857,6 @@ func (s *Application) SetCharm(cfg SetCharmConfig) (err error) {
 	)
 	if cfg.Charm.Meta().Subordinate != s.doc.Subordinate {
 		return errors.Errorf("cannot change an application's subordinacy")
-	}
-	if len(cfg.ConfigSettings) > 0 {
-		// TODO(axw) support updating the application's charm config
-		// at the same time as upgrading the charm.
-		return errors.NotSupportedf("updating config at upgrade-charm time")
 	}
 	// For old style charms written for only one series, we still retain
 	// this check. Newer charms written for multi-series have a URL
@@ -911,6 +907,11 @@ func (s *Application) SetCharm(cfg SetCharmConfig) (err error) {
 		}
 	}
 
+	updatedSettings, err := cfg.Charm.Config().ValidateSettings(cfg.ConfigSettings)
+	if err != nil {
+		return errors.Annotate(err, "validating config settings")
+	}
+
 	var newCharmModifiedVersion int
 	channel := string(cfg.Channel)
 	scopy := &Application{s.st, s.doc}
@@ -959,6 +960,7 @@ func (s *Application) SetCharm(cfg SetCharmConfig) (err error) {
 			chng, err := s.changeCharmOps(
 				cfg.Charm,
 				channel,
+				updatedSettings,
 				cfg.ForceUnits,
 				cfg.ResourceIDs,
 				cfg.StorageConstraints,

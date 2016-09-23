@@ -73,15 +73,39 @@ func (s *ServiceSuite) TestSetCharm(c *gc.C) {
 }
 
 func (s *ServiceSuite) TestSetCharmCharmSettings(c *gc.C) {
-	ch, _, err := s.mysql.Charm()
+	newCh := s.AddConfigCharm(c, "mysql", stringConfig, 2)
+	err := s.mysql.SetCharm(state.SetCharmConfig{
+		Charm:          newCh,
+		ConfigSettings: charm.Settings{"key": "value"},
+	})
 	c.Assert(err, jc.ErrorIsNil)
-	cfg := state.SetCharmConfig{
-		Charm:          ch,
+
+	settings, err := s.mysql.ConfigSettings()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(settings, jc.DeepEquals, charm.Settings{"key": "value"})
+
+	newCh = s.AddConfigCharm(c, "mysql", newStringConfig, 3)
+	err = s.mysql.SetCharm(state.SetCharmConfig{
+		Charm:          newCh,
+		ConfigSettings: charm.Settings{"other": "one"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	settings, err = s.mysql.ConfigSettings()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(settings, jc.DeepEquals, charm.Settings{
+		"key":   "value",
+		"other": "one",
+	})
+}
+
+func (s *ServiceSuite) TestSetCharmCharmSettingsInvalid(c *gc.C) {
+	newCh := s.AddConfigCharm(c, "mysql", stringConfig, 2)
+	err := s.mysql.SetCharm(state.SetCharmConfig{
+		Charm:          newCh,
 		ConfigSettings: charm.Settings{"key": 123.45},
-	}
-	err = s.mysql.SetCharm(cfg)
-	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
-	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "mysql" to charm "local:quantal/quantal-mysql-1": updating config at upgrade-charm time not supported`)
+	})
+	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "mysql" to charm "local:quantal/quantal-mysql-2": validating config settings: option "key" expected string, got 123.45`)
 }
 
 func (s *ServiceSuite) TestSetCharmLegacy(c *gc.C) {
