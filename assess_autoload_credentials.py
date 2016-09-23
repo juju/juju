@@ -218,6 +218,7 @@ def autoload_and_bootstrap(bs_manager, upload_tools, real_credentials,
             with bs_manager.bootstrap_context(
                     machines,
                     omit_config=bs_manager.client.bootstrap_replaces):
+
                 run_autoload_credentials(
                     bs_manager.client,
                     cloud_details.env_var_changes,
@@ -225,7 +226,8 @@ def autoload_and_bootstrap(bs_manager, upload_tools, real_credentials,
                 bs_manager.client.env.load_yaml()
 
                 bs_manager.client.bootstrap(
-                    upload_tools, bootstrap_series=bs_manager.series,
+                    upload_tools=upload_tools,
+                    bootstrap_series=bs_manager.series,
                     credential=user)
                 bs_manager.client.kill_controller()
 

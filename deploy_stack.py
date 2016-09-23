@@ -855,7 +855,8 @@ class BootstrapManager:
                 with self.bootstrap_context(
                         machines, omit_config=self.client.bootstrap_replaces):
                     self.client.bootstrap(
-                        upload_tools, bootstrap_series=self.series)
+                        upload_tools=upload_tools,
+                        bootstrap_series=self.series)
                 with self.runtime_context(machines):
                     self.client.list_controllers()
                     self.client.list_models()
@@ -873,7 +874,8 @@ class BootstrapManager:
                 with self.existing_bootstrap_context(
                         machines, omit_config=self.client.bootstrap_replaces):
                     self.client.bootstrap(
-                        upload_tools, bootstrap_series=self.series)
+                        upload_tools=upload_tools,
+                        bootstrap_series=self.series)
                 with self.runtime_context(machines):
                     yield machines
         except LoggedException:
