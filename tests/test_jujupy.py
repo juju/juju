@@ -3185,6 +3185,32 @@ class TestEnvJujuClient(ClientTest):
         mock.assert_called_once_with(
             'import-ssh-key', 'gh:au', 'lp:bu', merge_stderr=True)
 
+    def test_list_disabled_commands(self):
+        client = EnvJujuClient(JujuData('foo'), None, None)
+        with patch.object(client, 'get_juju_output', autospec=True,
+                          return_value=dedent("""\
+             - command-set: destroy-model
+               message: Lock Models
+             - command-set: remove-object""")) as mock:
+            output = client.list_disabled_commands()
+        self.assertEqual([{'command-set': 'destroy-model',
+                           'message': 'Lock Models'},
+                          {'command-set': 'remove-object'}], output)
+        mock.assert_called_once_with('list-disabled-commands',
+                                     '--format', 'yaml')
+
+    def test_disable_command(self):
+        client = EnvJujuClient(JujuData('foo'), None, None)
+        with patch.object(client, 'juju', autospec=True) as mock:
+            client.disable_command(('all', 'message'))
+        mock.assert_called_once_with('disable-command', ('all', 'message'))
+
+    def test_enable_command(self):
+        client = EnvJujuClient(JujuData('foo'), None, None)
+        with patch.object(client, 'juju', autospec=True) as mock:
+            client.enable_command('all')
+        mock.assert_called_once_with('enable-command', 'all')
+
 
 class TestEnvJujuClient2B8(ClientTest):
 
@@ -3374,6 +3400,32 @@ class TestEnvJujuClient2B9(ClientTest):
         mock.assert_called_with(
             ('juju', '--show-log', 'unset-model-config', '-m', 'foo:foo',
              'tools-metadata-url'))
+
+    def test_list_disabled_commands(self):
+        client = EnvJujuClient2B9(JujuData('foo'), None, None)
+        with patch.object(client, 'get_juju_output', autospec=True,
+                          return_value=dedent("""\
+             - command-set: destroy-model
+               message: Lock Models
+             - command-set: remove-object""")) as mock:
+            output = client.list_disabled_commands()
+        self.assertEqual([{'command-set': 'destroy-model',
+                           'message': 'Lock Models'},
+                          {'command-set': 'remove-object'}], output)
+        mock.assert_called_once_with('block list',
+                                     '--format', 'yaml')
+
+    def test_disable_command(self):
+        client = EnvJujuClient2B9(JujuData('foo'), None, None)
+        with patch.object(client, 'juju', autospec=True) as mock:
+            client.disable_command(('all', 'message'))
+        mock.assert_called_once_with('block', ('all', 'message'))
+
+    def test_enable_command(self):
+        client = EnvJujuClient2B9(JujuData('foo'), None, None)
+        with patch.object(client, 'juju', autospec=True) as mock:
+            client.enable_command('all')
+        mock.assert_called_once_with('unblock', 'all')
 
 
 class TestEnvJujuClient2B7(ClientTest):

@@ -908,8 +908,6 @@ class EnvJujuClient:
     used_feature_flags = frozenset(['address-allocation', 'migration'])
 
     destroy_model_command = 'destroy-model'
-    disable_command = 'disable-command'
-    enable_command = 'enable-command'
 
     supported_container_types = frozenset([KVM_MACHINE, LXC_MACHINE,
                                            LXD_MACHINE])
@@ -2137,11 +2135,22 @@ class EnvJujuClient:
         """Import ssh keys from one or more identities to the current model."""
         return self.get_juju_output('import-ssh-key', *keys, merge_stderr=True)
 
+    def list_disabled_commands(self):
+        """List all the commands disabled on the model."""
+        raw = self.get_juju_output('list-disabled-commands',
+                                   '--format', 'yaml')
+        return yaml.safe_load(raw)
+
+    def disable_command(self, args):
+        """Disable a command set."""
+        return self.juju('disable-command', args)
+
+    def enable_command(self, args):
+        """Enable a command set."""
+        return self.juju('enable-command', args)
+
 
 class EnvJujuClient2B9(EnvJujuClient):
-
-    disable_command = 'block'
-    enable_command = 'unblock'
 
     def update_user_name(self):
         return
@@ -2218,6 +2227,19 @@ class EnvJujuClient2B9(EnvJujuClient):
     def unset_env_option(self, option):
         """Unset the value of the option in the environment."""
         return self.juju('unset-model-config', (option,))
+
+    def list_disabled_commands(self):
+        """List all the commands disabled on the model."""
+        raw = self.get_juju_output('block list', '--format', 'yaml')
+        return yaml.safe_load(raw)
+
+    def disable_command(self, args):
+        """Disable a command set."""
+        return self.juju('block', args)
+
+    def enable_command(self, args):
+        """Enable a command set."""
+        return self.juju('unblock', args)
 
 
 class EnvJujuClient2B8(EnvJujuClient2B9):
