@@ -6359,6 +6359,15 @@ class TestSimpleEnvironment(TestCase):
                                    {'baz': 'qux'}) as jes_home:
                 self.assertFalse(os.path.exists(foo_path))
 
+    def test_get_cloud_credentials_returns_config(self):
+        env = SimpleEnvironment(
+            'foo', {'type': 'ec2', 'region': 'foo'}, 'home')
+        env.credentials = {'credentials': {
+            'aws': {'credentials': {'aws': True}},
+            'azure': {'credentials': {'azure': True}},
+            }}
+        self.assertEqual(env.config, env.get_cloud_credentials())
+
     def test_dump_yaml(self):
         env = SimpleEnvironment('baz', {'type': 'qux'}, 'home')
         with temp_dir() as path:

@@ -325,6 +325,14 @@ class SimpleEnvironment:
         self.dump_yaml(home_path, new_config)
         yield home_path
 
+    def get_cloud_credentials(self):
+        """Return the credentials for this model's cloud.
+
+        This implementation returns config variables in addition to
+        credentials.
+        """
+        return self.config
+
     def dump_yaml(self, path, config):
         dump_environments_yaml(path, config)
 
@@ -445,6 +453,7 @@ class JujuData(SimpleEnvironment):
             return self.config['region']
 
     def get_cloud_credentials(self):
+        """Return the credentials for this model's cloud."""
         cloud_name = self.get_cloud()
         cloud = self.credentials['credentials'][cloud_name]
         (credentials,) = cloud.values()
