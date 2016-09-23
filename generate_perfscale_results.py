@@ -92,6 +92,14 @@ def assess_perf_test_simple(bs_manager, upload_tools):
                  results_dir)
             )
 
+            csv_results_dir = os.path.join(results_dir, 'csv_results')
+            os.makedirs(csv_results_dir)
+            admin_client.juju(
+                'scp',
+                ('--', '-r', '0:/var/lib/collectd/csv/*',
+                 csv_results_dir)
+            )
+
             try:
                 admin_client.juju(
                     'scp', ('0:/tmp/mongodb-stats.log', results_dir)
