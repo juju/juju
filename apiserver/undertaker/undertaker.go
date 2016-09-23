@@ -86,14 +86,7 @@ func (u *UndertakerAPI) ProcessDyingModel() error {
 
 // RemoveModel removes any records of this model from Juju.
 func (u *UndertakerAPI) RemoveModel() error {
-	err := u.st.RemoveAllModelDocs()
-	if err != nil {
-		// TODO(waigani) Return a human friendly error for now. The proper fix
-		// is to run a buildTxn within state.RemoveAllModelDocs, so we
-		// can return better errors than "transaction aborted".
-		return errors.New("an error occurred, unable to remove model")
-	}
-	return nil
+	return u.st.RemoveAllModelDocs()
 }
 
 func (u *UndertakerAPI) environResourceWatcher() params.NotifyWatchResult {

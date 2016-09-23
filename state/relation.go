@@ -295,3 +295,36 @@ func (r *Relation) Unit(u *Unit) (*RelationUnit, error) {
 		scope:    strings.Join(scope, "#"),
 	}, nil
 }
+
+// relationSettingsCleanupChange removes the settings doc.
+type relationSettingsCleanupChange struct {
+	Prefix string
+}
+
+// Prepare is part of the Change interface.
+func (change relationSettingsCleanupChange) Prepare(db Database) ([]txn.Op, error) {
+	settings, closer := db.GetCollection(settingsC)
+	defer closer()
+	sel := bson.D{{"_id", bson.D{{"$regex", "^" + change.Prefix}}}}
+	var docs []struct {
+		DocID string `bson:"_id"`
+	}
+	err := settings.Find(sel).Select(bson.D{{"_id", 1}}).All(&docs)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(docs) == 0 {
+		return nil, ErrChangeComplete
+	}
+
+	ops := make([]txn.Op, len(docs))
+	for i, doc := range docs {
+		ops[i] = txn.Op{
+			C:      settingsC,
+			Id:     doc.DocID,
+			Remove: true,
+		}
+	}
+	return ops, nil
+
+}

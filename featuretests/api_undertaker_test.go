@@ -88,7 +88,7 @@ func (s *undertakerSuite) TestStateRemoveEnvironFails(c *gc.C) {
 	undertakerClient, err := undertaker.NewClient(st, apiwatcher.NewNotifyWatcher)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(undertakerClient, gc.NotNil)
-	c.Assert(undertakerClient.RemoveModel(), gc.ErrorMatches, "an error occurred, unable to remove model")
+	c.Assert(undertakerClient.RemoveModel(), gc.ErrorMatches, "can't remove model: model not dead")
 }
 
 func (s *undertakerSuite) TestHostedEnvironInfo(c *gc.C) {
@@ -147,7 +147,7 @@ func (s *undertakerSuite) TestHostedRemoveEnviron(c *gc.C) {
 
 	// Aborts on alive environ.
 	err := undertakerClient.RemoveModel()
-	c.Assert(err, gc.ErrorMatches, "an error occurred, unable to remove model")
+	c.Assert(err, gc.ErrorMatches, "can't remove model: model not dead")
 
 	factory.NewFactory(otherSt).MakeApplication(c, nil)
 	env, err := otherSt.Model()
@@ -156,7 +156,7 @@ func (s *undertakerSuite) TestHostedRemoveEnviron(c *gc.C) {
 
 	// Aborts on dying environ.
 	err = undertakerClient.RemoveModel()
-	c.Assert(err, gc.ErrorMatches, "an error occurred, unable to remove model")
+	c.Assert(err, gc.ErrorMatches, "can't remove model: model not dead")
 
 	err = otherSt.Cleanup()
 	c.Assert(err, jc.ErrorIsNil)

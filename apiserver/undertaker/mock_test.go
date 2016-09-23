@@ -64,7 +64,7 @@ func (m *mockState) EnsureModelRemoved() error {
 
 func (m *mockState) RemoveAllModelDocs() error {
 	if m.env.life != state.Dead {
-		return errors.New("transaction aborted")
+		return errors.New("model not dead")
 	}
 	m.removed = true
 	return nil
