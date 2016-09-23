@@ -110,19 +110,16 @@ func (i *mockArchiveURLCharm) ArchiveURLs() ([]*url.URL, error) {
 }
 
 func (s *BundlesDirSuite) TestGet(c *gc.C) {
-	basedir := c.MkDir()
-	bunsdir := filepath.Join(basedir, "random", "bundles")
-	d := charm.NewBundlesDir(bunsdir)
+	baseDir := c.MkDir()
+	bunsDir := filepath.Join(baseDir, "random", "bundles")
+	d := charm.NewBundlesDir(bunsDir)
 
 	checkDownloadsEmpty := func() {
-		downloadDir := filepath.Join(bunsdir, "downloads")
-		files, err := ioutil.ReadDir(downloadDir)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(files, gc.HasLen, 0)
+		checkDirEmpty(c, filepath.Join(bunsDir, "downloads"))
 	}
 
 	// Check it doesn't get created until it's needed.
-	_, err := os.Stat(bunsdir)
+	_, err := os.Stat(bunsDir)
 	c.Assert(err, jc.Satisfies, os.IsNotExist)
 
 	// Add a charm to state that we can try to get.
@@ -158,7 +155,7 @@ func (s *BundlesDirSuite) TestGet(c *gc.C) {
 	checkDownloadsEmpty()
 
 	// Abort a download.
-	err = os.RemoveAll(bunsdir)
+	err = os.RemoveAll(bunsDir)
 	c.Assert(err, jc.ErrorIsNil)
 	abort := make(chan struct{})
 	done := make(chan bool)
@@ -178,6 +175,44 @@ func (s *BundlesDirSuite) TestGet(c *gc.C) {
 	checkDownloadsEmpty()
 }
 
+type ClearDownloadsSuite struct {
+	gitjujutesting.IsolationSuite
+}
+
+var _ = gc.Suite(&ClearDownloadsSuite{})
+
+func (s *ClearDownloadsSuite) TestWorks(c *gc.C) {
+	baseDir := c.MkDir()
+	bunsDir := filepath.Join(baseDir, "bundles")
+	downloadDir := filepath.Join(bunsDir, "downloads")
+	c.Assert(os.MkdirAll(downloadDir, 0777), jc.ErrorIsNil)
+	c.Assert(ioutil.WriteFile(filepath.Join(downloadDir, "stuff"), []byte("foo"), 0755), jc.ErrorIsNil)
+	c.Assert(ioutil.WriteFile(filepath.Join(downloadDir, "thing"), []byte("bar"), 0755), jc.ErrorIsNil)
+
+	err := charm.ClearDownloads(bunsDir)
+	c.Assert(err, jc.ErrorIsNil)
+	checkDirEmpty(c, downloadDir)
+}
+
+func (s *ClearDownloadsSuite) TestEmptyOK(c *gc.C) {
+	baseDir := c.MkDir()
+	bunsDir := filepath.Join(baseDir, "bundles")
+	downloadDir := filepath.Join(bunsDir, "downloads")
+	c.Assert(os.MkdirAll(downloadDir, 0777), jc.ErrorIsNil)
+
+	err := charm.ClearDownloads(bunsDir)
+	c.Assert(err, jc.ErrorIsNil)
+	checkDirEmpty(c, downloadDir)
+}
+
+func (s *ClearDownloadsSuite) TestMissingOK(c *gc.C) {
+	baseDir := c.MkDir()
+	bunsDir := filepath.Join(baseDir, "bundles")
+
+	err := charm.ClearDownloads(bunsDir)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func readHash(c *gc.C, path string) ([]byte, string) {
 	data, err := ioutil.ReadFile(path)
 	c.Assert(err, jc.ErrorIsNil)
@@ -191,4 +226,10 @@ func assertCharm(c *gc.C, bun charm.Bundle, sch *state.Charm) {
 	c.Assert(actual.Revision(), gc.Equals, sch.Revision())
 	c.Assert(actual.Meta(), gc.DeepEquals, sch.Meta())
 	c.Assert(actual.Config(), gc.DeepEquals, sch.Config())
+}
+
+func checkDirEmpty(c *gc.C, p string) {
+	files, err := ioutil.ReadDir(p)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(files, gc.HasLen, 0)
 }

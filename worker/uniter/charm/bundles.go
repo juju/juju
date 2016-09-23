@@ -5,8 +5,10 @@ package charm
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path"
+	"path/filepath"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
@@ -50,7 +52,7 @@ func (d *BundlesDir) download(info BundleInfo, abort <-chan struct{}) (err error
 		return errors.Annotatef(err, "failed to get download URLs for charm %q", info.URL())
 	}
 	defer errors.DeferredAnnotatef(&err, "failed to download charm %q from %q", info.URL(), archiveURLs)
-	dir := d.downloadsPath()
+	dir := downloadsPath(d.path)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
 	}
@@ -131,8 +133,29 @@ func (d *BundlesDir) bundleURLPath(url *charm.URL) string {
 	return path.Join(d.path, charm.Quote(url.String()))
 }
 
+// ClearDownloads removes any entries in the temporary bundle download
+// directory. It is intended to be called on uniter startup.
+func ClearDownloads(bundlesDir string) (err error) {
+	defer errors.DeferredAnnotatef(&err, "unable to clear bundle downloads")
+
+	downloadDir := downloadsPath(bundlesDir)
+	entries, err := ioutil.ReadDir(downloadDir)
+	if os.IsNotExist(err) {
+		return nil
+	} else if err != nil {
+		return
+	}
+	for _, entry := range entries {
+		path := filepath.Join(downloadDir, entry.Name())
+		if err = os.RemoveAll(path); err != nil {
+			return
+		}
+	}
+	return
+}
+
 // downloadsPath returns the path to the directory into which charms are
 // downloaded.
-func (d *BundlesDir) downloadsPath() string {
-	return path.Join(d.path, "downloads")
+func downloadsPath(bundlesDir string) string {
+	return path.Join(bundlesDir, "downloads")
 }
