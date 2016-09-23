@@ -17,6 +17,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gomaasapi"
 	"github.com/juju/utils"
+	"github.com/juju/utils/clock"
 	"github.com/juju/utils/os"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
@@ -53,6 +54,8 @@ var shortAttempt = utils.AttemptStrategy{
 	Total: 5 * time.Second,
 	Delay: 200 * time.Millisecond,
 }
+
+const statusPollInterval = 5 * time.Second
 
 var (
 	ReleaseNodes         = releaseNodes
@@ -948,6 +951,16 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 			return nil, errors.Annotatef(err, "cannot run instances")
 		}
 	}
+	go func() {
+		for {
+			instStatus := inst.Status()
+			err := args.StatusCallback(instStatus.Status, instStatus.Message, nil)
+			if err != nil {
+				logger.Errorf("setting instance %s status: %v", inst.Id(), err)
+			}
+			<-clock.WallClock.After(statusPollInterval)
+		}
+	}()
 	defer func() {
 		if err != nil {
 			if err := environ.StopInstances(inst.Id()); err != nil {

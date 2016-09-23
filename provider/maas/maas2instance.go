@@ -67,7 +67,6 @@ func (mi *maas2Instance) Addresses() ([]network.Address, error) {
 // Status returns a juju status based on the maas instance returned
 // status message.
 func (mi *maas2Instance) Status() instance.InstanceStatus {
-	// TODO (babbageclunk): this should rerequest to get live status.
 	args := gomaasapi.MachinesArgs{SystemIDs: []string{mi.machine.SystemID()}}
 	machines, err := mi.maasController.Machines(args)
 	if err != nil {

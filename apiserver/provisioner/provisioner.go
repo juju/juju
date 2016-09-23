@@ -809,6 +809,12 @@ func (p *ProvisionerAPI) SetInstanceStatus(args params.SetStatus) (params.ErrorR
 				Since:   &now,
 			}
 			err = machine.SetInstanceStatus(s)
+			if status.Status(arg.Status) == status.ProvisioningError {
+				s.Status = status.Error
+				if err == nil {
+					err = machine.SetStatus(s)
+				}
+			}
 		}
 		result.Results[i].Error = common.ServerError(err)
 	}

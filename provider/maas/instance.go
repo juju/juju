@@ -64,7 +64,7 @@ func convertInstanceStatus(statusMsg, substatus string, id instance.Id) instance
 		if substatus != "" {
 			statusMsg = fmt.Sprintf("%s: %s", statusMsg, substatus)
 		}
-	case "Failed Deployment":
+	case "Failed Deployment", "Failed deployment":
 		maasInstanceStatus = status.ProvisioningError
 		if substatus != "" {
 			statusMsg = fmt.Sprintf("%s: %s", statusMsg, substatus)
