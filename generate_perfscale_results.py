@@ -298,15 +298,26 @@ class Rest:
 
 
 def assess_longrun_perf(client, test_length=600):
+    longrun_start = datetime.utcnow()
+    run_count = 0
     for _ in until_timeout(test_length):
-        # Choose one of x different charms/bundles to use.
+        # Maybe choose one of x different charms/bundles to use.
         bundle_name = 'cs:bundle/wiki-simple-0'
         applications = ['mysql', 'wiki']
-        new_client = action_create(client, bundle_name)
-        action_busy(new_client, applications)
-        action_cleanup(new_client)
+        # new_client = action_create(client, bundle_name)
+        # action_busy(new_client, applications)
+        # action_cleanup(new_client)
 
-        action_rest(Rest.medium)
+        # action_rest(Rest.medium)
+        run_count += 1
+
+    longrun_end = datetime.utcnow()
+    timing_data = TimingData(longrun_start, longrun_end)
+    return DeployDetails(
+        'Longrun for {}.'.format(test_length/60/60),
+        {'Total action runs': run_count},
+        timing_data
+    )
 
 
 def action_create(client, bundle):
