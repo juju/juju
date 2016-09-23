@@ -1,6 +1,7 @@
 from contextlib import (
     contextmanager,
 )
+from copy import deepcopy
 import json
 import logging
 import os
@@ -62,7 +63,8 @@ def terminate_instances(env, instance_ids):
             substrate.terminate_instances(instance_ids)
         return
     else:
-        with make_substrate_manager(env.config) as substrate:
+        with make_substrate_manager(env.config,
+                                    env.get_cloud_credentials()) as substrate:
             if substrate is None:
                 raise ValueError(
                     "This test does not support the %s provider"
@@ -569,11 +571,13 @@ class LXDAccount:
 
 
 @contextmanager
-def make_substrate_manager(config):
+def make_substrate_manager(config, credentials):
     """A ContextManager that returns an Account for the config's substrate.
 
     Returns None if the substrate is not supported.
     """
+    config = deepcopy(config)
+    config.update(credentials)
     substrate_factory = {
         'ec2': AWSAccount.manager_from_config,
         'openstack': OpenStackAccount.manager_from_config,

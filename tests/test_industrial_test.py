@@ -1187,9 +1187,10 @@ class TestSteppedStageAttempt(JujuPyTestCase):
 
 
 def FakeEnvJujuClient(name='steve', version='1.2', full_path='/jbin/juju'):
+    juju_data = JujuData(name, {'type': 'fake', 'region': 'regionx'})
+    juju_data.credentials = {'credentials': {'fake': {'creds': {}}}}
     return EnvJujuClient(
-        JujuData(name, {'type': 'fake', 'region': 'regionx'}),
-        version, full_path)
+        juju_data, version, full_path)
 
 
 class FakeEnvJujuClient1X(EnvJujuClient1X):
@@ -1336,7 +1337,12 @@ class TestDestroyEnvironmentAttempt(JujuPyTestCase):
     @staticmethod
     def get_openstack_client():
         client = FakeEnvJujuClient()
+        client.env.clouds = {'clouds': {'quxxx': {
+            'type': 'openstack', 'endpoint': 'qux',
+            }}}
         client.env.config = get_os_config()
+        client.env.credentials = {'credentials': {'quxxx': {'creds': {
+            }}}}
         return client
 
     def test_get_security_groups_aws(self):
@@ -2125,16 +2131,19 @@ class TestMakeSubstrate(JujuPyTestCase):
     def test_make_substrate_manager_no_support(self):
         client = EnvJujuClient(JujuData('foo', {'type': 'foo'}),
                                '', '')
+        client.env.credentials = {'credentials': {'foo': {'creds': {}}}}
         with make_substrate_manager(client, []) as substrate:
             self.assertIs(substrate, None)
 
     def test_make_substrate_no_requirements(self):
         client = EnvJujuClient(get_aws_juju_data(), '', '')
+        client.env.credentials = {'credentials': {'aws': {'creds': {}}}}
         with make_substrate_manager(client, []) as substrate:
             self.assertIs(type(substrate), AWSAccount)
 
     def test_make_substrate_manager_unsatisifed_requirements(self):
         client = EnvJujuClient(get_aws_juju_data(), '', '')
+        client.env.credentials = {'credentials': {'aws': {'creds': {}}}}
         with make_substrate_manager(client, ['foo']) as substrate:
             self.assertIs(substrate, None)
         with make_substrate_manager(
@@ -2143,6 +2152,7 @@ class TestMakeSubstrate(JujuPyTestCase):
 
     def test_make_substrate_satisfied_requirements(self):
         client = EnvJujuClient(get_aws_juju_data(), '', '')
+        client.env.credentials = {'credentials': {'aws': {'creds': {}}}}
         with make_substrate_manager(
                 client, ['iter_security_groups']) as substrate:
             self.assertIs(type(substrate), AWSAccount)
