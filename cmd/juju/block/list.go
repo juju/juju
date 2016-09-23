@@ -98,7 +98,7 @@ func (c *listCommand) listForModel(ctx *cmd.Context) (err error) {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if len(result) == 0 {
+	if len(result) == 0 && c.out.Name() == "tabular" {
 		ctx.Infof(noBlocks)
 		return nil
 	}
@@ -116,7 +116,7 @@ func (c *listCommand) listForController(ctx *cmd.Context) (err error) {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if len(result) == 0 {
+	if len(result) == 0 && c.out.Name() == "tabular" {
 		ctx.Infof(noBlocks)
 		return nil
 	}
