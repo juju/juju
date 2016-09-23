@@ -16,8 +16,10 @@ import (
 	"gopkg.in/juju/charmrepo.v2-unstable"
 	csclientparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/macaroon-bakery.v1/httpbakery"
 	"gopkg.in/macaroon.v1"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/charms"
@@ -32,18 +34,76 @@ import (
 
 // NewUpgradeCharmCommand returns a command which upgrades application's charm.
 func NewUpgradeCharmCommand() cmd.Command {
-	return modelcmd.Wrap(&upgradeCharmCommand{})
+	cmd := &upgradeCharmCommand{
+		DeployResources: resourceadapters.DeployResources,
+		ResolveCharm:    resolveCharm,
+		NewCharmAdder:   newCharmAdder,
+		NewCharmClient: func(conn api.Connection) CharmClient {
+			return charms.NewClient(conn)
+		},
+		NewCharmUpgradeClient: func(conn api.Connection) CharmUpgradeClient {
+			return application.NewClient(conn)
+		},
+		NewModelConfigGetter: func(conn api.Connection) ModelConfigGetter {
+			return modelconfig.NewClient(conn)
+		},
+		NewResourceLister: func(conn api.Connection) (ResourceLister, error) {
+			resclient, err := resourceadapters.NewAPIClient(conn)
+			if err != nil {
+				return nil, err
+			}
+			return resclient, nil
+		},
+	}
+	return modelcmd.Wrap(cmd)
 }
+
+// CharmUpgradeClient defines a subset of the application facade, as required
+// by the upgrade-charm command.
+type CharmUpgradeClient interface {
+	GetCharmURL(string) (*charm.URL, error)
+	SetCharm(application.SetCharmConfig) error
+}
+
+// CharmClient defines a subset of the charms facade, as required
+// by the upgrade-charm command.
+type CharmClient interface {
+	CharmInfo(string) (*charms.CharmInfo, error)
+}
+
+// ResourceLister defines a subset of the resources facade, as required
+// by the upgrade-charm command.
+type ResourceLister interface {
+	ListResources([]string) ([]resource.ServiceResources, error)
+}
+
+// NewCharmAdderFunc is the type of a function used to construct
+// a new CharmAdder.
+type NewCharmAdderFunc func(
+	api.Connection,
+	*httpbakery.Client,
+	csclientparams.Channel,
+) CharmAdder
 
 // UpgradeCharm is responsible for upgrading an application's charm.
 type upgradeCharmCommand struct {
 	modelcmd.ModelCommandBase
+
+	DeployResources       resourceadapters.DeployResourcesFunc
+	ResolveCharm          ResolveCharmFunc
+	NewCharmAdder         NewCharmAdderFunc
+	NewCharmClient        func(api.Connection) CharmClient
+	NewCharmUpgradeClient func(api.Connection) CharmUpgradeClient
+	NewModelConfigGetter  func(api.Connection) ModelConfigGetter
+	NewResourceLister     func(api.Connection) (ResourceLister, error)
+
 	ApplicationName string
 	ForceUnits      bool
 	ForceSeries     bool
 	SwitchURL       string
 	CharmPath       string
 	Revision        int // defaults to -1 (latest)
+
 	// Resources is a map of resource name to filename to be uploaded on upgrade.
 	Resources map[string]string
 
@@ -157,22 +217,6 @@ func (c *upgradeCharmCommand) Init(args []string) error {
 	return nil
 }
 
-func (c *upgradeCharmCommand) newServiceAPIClient() (*application.Client, error) {
-	root, err := c.NewAPIRoot()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return application.NewClient(root), nil
-}
-
-func (c *upgradeCharmCommand) newModelConfigAPIClient() (*modelconfig.Client, error) {
-	root, err := c.NewAPIRoot()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return modelconfig.NewClient(root), nil
-}
-
 // Run connects to the specified environment and starts the charm
 // upgrade process.
 func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
@@ -182,13 +226,8 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 	}
 	defer apiRoot.Close()
 
-	serviceClient, err := c.newServiceAPIClient()
-	if err != nil {
-		return err
-	}
-	defer serviceClient.Close()
-
-	oldURL, err := serviceClient.GetCharmURL(c.ApplicationName)
+	charmUpgradeClient := c.NewCharmUpgradeClient(apiRoot)
+	oldURL, err := charmUpgradeClient.GetCharmURL(c.ApplicationName)
 	if err != nil {
 		return err
 	}
@@ -207,41 +246,19 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 		newRef = oldURL.WithRevision(c.Revision).String()
 	}
 
+	// First, ensure the charm is added to the model.
+	modelConfigGetter := c.NewModelConfigGetter(apiRoot)
+	modelConfig, err := getModelConfig(modelConfigGetter)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	bakeryClient, err := c.BakeryClient()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	csClient := newCharmStoreClient(bakeryClient).WithChannel(c.Channel)
-
-	modelConfigClient, err := c.newModelConfigAPIClient()
-	if err != nil {
-		return err
-	}
-	defer modelConfigClient.Close()
-	conf, err := getModelConfig(modelConfigClient)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	// TODO(katco): This is a hack and a half. Get rid of this
-	// nonsense. Only remains here because tests strewn about the
-	// codebase are likely using this to not hit the real charmstore.
-	charmRepo := config.SpecializeCharmRepo(
-		charmrepo.NewCharmStoreFromClient(csClient),
-		conf,
-	).(*charmrepo.CharmStore)
-
-	// TODO(katco): This anonymous adapter should go away in favor of
-	// a comprehensive API passed into the upgrade-charm command.
-	charmstoreAdapter := &struct {
-		*charmstoreClient
-		*apiClient
-	}{
-		charmstoreClient: &charmstoreClient{Client: csClient},
-		apiClient:        &apiClient{Client: apiRoot.Client()},
-	}
-
-	chID, csMac, err := c.addCharm(charmRepo, conf, oldURL, newRef, charmstoreAdapter)
+	charmAdder := c.NewCharmAdder(apiRoot, bakeryClient, c.Channel)
+	charmRepo := c.getCharmStore(bakeryClient, modelConfig)
+	chID, csMac, err := c.addCharm(charmAdder, charmRepo, modelConfig, oldURL, newRef)
 	if err != nil {
 		if err1, ok := errors.Cause(err).(*termsRequiredError); ok {
 			terms := strings.Join(err1.Terms, " ")
@@ -251,11 +268,18 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 	}
 	ctx.Infof("Added charm %q to the model.", chID.URL)
 
-	ids, err := c.upgradeResources(apiRoot, chID, csMac)
+	// Next, upgrade resources.
+	charmsClient := c.NewCharmClient(apiRoot)
+	resourceLister, err := c.NewResourceLister(apiRoot)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	ids, err := c.upgradeResources(apiRoot, charmsClient, resourceLister, chID, csMac)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
+	// Finally, upgrade the application.
 	cfg := application.SetCharmConfig{
 		ApplicationName: c.ApplicationName,
 		CharmID:         chID,
@@ -263,15 +287,29 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 		ForceUnits:      c.ForceUnits,
 		ResourceIDs:     ids,
 	}
-
-	return block.ProcessBlockedError(serviceClient.SetCharm(cfg), block.BlockChange)
+	return block.ProcessBlockedError(charmUpgradeClient.SetCharm(cfg), block.BlockChange)
 }
 
 // upgradeResources pushes metadata up to the server for each resource defined
 // in the new charm's metadata and returns a map of resource names to pending
 // IDs to include in the upgrage-charm call.
-func (c *upgradeCharmCommand) upgradeResources(apiRoot base.APICallCloser, chID charmstore.CharmID, csMac *macaroon.Macaroon) (map[string]string, error) {
-	filtered, err := getUpgradeResources(apiRoot, c.ApplicationName, chID.URL, c.Resources)
+//
+// TODO(axw) apiRoot is passed in here because DeloyResources requires it,
+// DeployResources should accept a resource-specific client instead.
+func (c *upgradeCharmCommand) upgradeResources(
+	apiRoot base.APICallCloser,
+	charmsClient CharmClient,
+	resourceLister ResourceLister,
+	chID charmstore.CharmID,
+	csMac *macaroon.Macaroon,
+) (map[string]string, error) {
+	filtered, err := getUpgradeResources(
+		charmsClient,
+		resourceLister,
+		c.ApplicationName,
+		chID.URL,
+		c.Resources,
+	)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -281,19 +319,25 @@ func (c *upgradeCharmCommand) upgradeResources(apiRoot base.APICallCloser, chID 
 
 	// Note: the validity of user-supplied resources to be uploaded will be
 	// checked further down the stack.
-	return handleResources(apiRoot, c.Resources, c.ApplicationName, chID, csMac, filtered)
+	ids, err := c.DeployResources(
+		c.ApplicationName,
+		chID,
+		csMac,
+		c.Resources,
+		filtered,
+		apiRoot,
+	)
+	return ids, errors.Trace(err)
 }
 
-// TODO(ericsnow) Move these helpers into handleResources()?
-
 func getUpgradeResources(
-	apiRoot base.APICallCloser,
+	charmsClient CharmClient,
+	resourceLister ResourceLister,
 	serviceID string,
-	cURL *charm.URL,
+	charmURL *charm.URL,
 	cliResources map[string]string,
 ) (map[string]charmresource.Meta, error) {
-	charmsClient := charms.NewClient(apiRoot)
-	meta, err := getMetaResources(cURL, charmsClient)
+	meta, err := getMetaResources(charmURL, charmsClient)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -301,7 +345,7 @@ func getUpgradeResources(
 		return nil, nil
 	}
 
-	current, err := getResources(serviceID, apiRoot)
+	current, err := getResources(serviceID, resourceLister)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -309,33 +353,27 @@ func getUpgradeResources(
 	return filtered, nil
 }
 
-func getMetaResources(cURL *charm.URL, client *charms.Client) (map[string]charmresource.Meta, error) {
-	// this gets the charm info that was added to the controller using addcharm.
-	charmInfo, err := client.CharmInfo(cURL.String())
+func getMetaResources(charmURL *charm.URL, client CharmClient) (map[string]charmresource.Meta, error) {
+	charmInfo, err := client.CharmInfo(charmURL.String())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return charmInfo.Meta.Resources, nil
 }
 
-func getResources(serviceID string, apiRoot base.APICallCloser) (map[string]resource.Resource, error) {
-	resclient, err := resourceadapters.NewAPIClient(apiRoot)
+func getResources(serviceID string, resourceLister ResourceLister) (map[string]resource.Resource, error) {
+	svcs, err := resourceLister.ListResources([]string{serviceID})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	svcs, err := resclient.ListResources([]string{serviceID})
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	// ListResources guarantees a number of values returned == number of
-	// services passed in.
 	return resource.AsMap(svcs[0].Resources), nil
 }
 
-// TODO(ericsnow) Move filterResources() and shouldUploadMeta()
-// somewhere more general under the "resource" package?
-
-func filterResources(meta map[string]charmresource.Meta, current map[string]resource.Resource, uploads map[string]string) map[string]charmresource.Meta {
+func filterResources(
+	meta map[string]charmresource.Meta,
+	current map[string]resource.Resource,
+	uploads map[string]string,
+) map[string]charmresource.Meta {
 	filtered := make(map[string]charmresource.Meta)
 	for name, res := range meta {
 		if shouldUpgradeResource(res, uploads, current) {
@@ -368,14 +406,45 @@ func shouldUpgradeResource(res charmresource.Meta, uploads map[string]string, cu
 	return true
 }
 
-// addCharm interprets the new charmRef and adds the specified charm if the new charm is different
-// to what's already deployed as specified by oldURL.
+func newCharmAdder(
+	api api.Connection,
+	bakeryClient *httpbakery.Client,
+	channel csclientparams.Channel,
+) CharmAdder {
+	csClient := newCharmStoreClient(bakeryClient).WithChannel(channel)
+
+	// TODO(katco): This anonymous adapter should go away in favor of
+	// a comprehensive API passed into the upgrade-charm command.
+	charmstoreAdapter := &struct {
+		*charmstoreClient
+		*apiClient
+	}{
+		charmstoreClient: &charmstoreClient{Client: csClient},
+		apiClient:        &apiClient{Client: api.Client()},
+	}
+	return charmstoreAdapter
+}
+
+func (c *upgradeCharmCommand) getCharmStore(
+	bakeryClient *httpbakery.Client,
+	modelConfig *config.Config,
+) *charmrepo.CharmStore {
+	csClient := newCharmStoreClient(bakeryClient).WithChannel(c.Channel)
+	return config.SpecializeCharmRepo(
+		charmrepo.NewCharmStoreFromClient(csClient),
+		modelConfig,
+	).(*charmrepo.CharmStore)
+}
+
+// addCharm interprets the new charmRef and adds the specified charm if
+// the new charm is different to what's already deployed as specified by
+// oldURL.
 func (c *upgradeCharmCommand) addCharm(
+	charmAdder CharmAdder,
 	charmRepo *charmrepo.CharmStore,
 	config *config.Config,
 	oldURL *charm.URL,
 	charmRef string,
-	charmAdder CharmAdder,
 ) (charmstore.CharmID, *macaroon.Macaroon, error) {
 	var id charmstore.CharmID
 	// Charm may have been supplied via a path reference.
@@ -404,7 +473,7 @@ func (c *upgradeCharmCommand) addCharm(
 	}
 
 	// Charm has been supplied as a URL so we resolve and deploy using the store.
-	newURL, channel, supportedSeries, err := resolveCharm(charmRepo.ResolveWithChannel, config, refURL)
+	newURL, channel, supportedSeries, err := c.ResolveCharm(charmRepo.ResolveWithChannel, config, refURL)
 	if err != nil {
 		return id, nil, errors.Trace(err)
 	}
