@@ -1143,7 +1143,8 @@ class EnvJujuClient:
         return '{}/{}'.format(cloud, region)
 
     def get_bootstrap_args(self, upload_tools, config_filename,
-                           bootstrap_series=None, credential=None):
+                           bootstrap_series=None, credential=None,
+                           auto_upgrade=False, metadata_source=None, to=None):
         """Return the bootstrap arguments for the substrate."""
         if self.env.joyent:
             # Only accept kvm packages by requiring >1 cpu core, see lp:1446264
@@ -1159,13 +1160,25 @@ class EnvJujuClient:
             args.insert(0, '--upload-tools')
         else:
             args.extend(['--agent-version', self.get_matching_agent_version()])
-
         if bootstrap_series is not None:
             args.extend(['--bootstrap-series', bootstrap_series])
-
         if credential is not None:
             args.extend(['--credential', credential])
-
+        if metadata_source is not None:
+            args.extend(['--metadata-source', metadata_source])
+        if auto_upgrade:
+            args.append('--auto-upgrade')
+        if to is not None:
+            args.extend(['--to', to])
+        #for (name, value) in kwargs.items():
+        #    if value is None or value is False:
+        #        pass
+        #    elif value is True:
+        #        arg_name = '--' + name.replace('_', '-')
+        #        args.append(arg_name)
+        #    else:
+        #        arg_name = '--' + name.replace('_', '-')
+        #        args.extend([arg_name, value])
         return tuple(args)
 
     def add_model(self, env):
@@ -1230,21 +1243,25 @@ class EnvJujuClient:
         self.env.user_name = 'admin@local'
 
     def bootstrap(self, upload_tools=False, bootstrap_series=None,
-                  credential=None):
+                  credential=None, auto_upgrade=False, metadata_source=None,
+                  to=None):
         """Bootstrap a controller."""
         self._check_bootstrap()
         with self._bootstrap_config() as config_filename:
             args = self.get_bootstrap_args(
-                upload_tools, config_filename, bootstrap_series, credential)
+                upload_tools, config_filename, bootstrap_series, credential,
+                auto_upgrade, metadata_source, to)
             self.update_user_name()
             self.juju('bootstrap', args, include_e=False)
 
     @contextmanager
-    def bootstrap_async(self, upload_tools=False, bootstrap_series=None):
+    def bootstrap_async(self, upload_tools=False, bootstrap_series=None,
+                        auto_upgrade=False, metadata_source=None, to=None):
         self._check_bootstrap()
         with self._bootstrap_config() as config_filename:
             args = self.get_bootstrap_args(
-                upload_tools, config_filename, bootstrap_series)
+                upload_tools, config_filename, bootstrap_series, None,
+                auto_upgrade, metadata_source, to)
             self.update_user_name()
             with self.juju_async('bootstrap', args, include_e=False):
                 yield
@@ -2294,7 +2311,8 @@ class EnvJujuClient2B3(EnvJujuClient2B7):
 class EnvJujuClient2B2(EnvJujuClient2B3):
 
     def get_bootstrap_args(self, upload_tools, config_filename,
-                           bootstrap_series=None, credential=None):
+                           bootstrap_series=None, credential=None,
+                           auto_upgrade=False, metadata_source=None, to=None):
         """Return the bootstrap arguments for the substrate."""
         if self.env.joyent:
             # Only accept kvm packages by requiring >1 cpu core, see lp:1446264
