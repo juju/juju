@@ -115,7 +115,9 @@ func (s *BundlesDirSuite) TestGet(c *gc.C) {
 	d := charm.NewBundlesDir(bunsDir)
 
 	checkDownloadsEmpty := func() {
-		checkDirEmpty(c, filepath.Join(bunsDir, "downloads"))
+		files, err := ioutil.ReadDir(filepath.Join(bunsDir, "downloads"))
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(files, gc.HasLen, 0)
 	}
 
 	// Check it doesn't get created until it's needed.
@@ -191,7 +193,7 @@ func (s *ClearDownloadsSuite) TestWorks(c *gc.C) {
 
 	err := charm.ClearDownloads(bunsDir)
 	c.Assert(err, jc.ErrorIsNil)
-	checkDirEmpty(c, downloadDir)
+	checkMissing(c, downloadDir)
 }
 
 func (s *ClearDownloadsSuite) TestEmptyOK(c *gc.C) {
@@ -202,7 +204,7 @@ func (s *ClearDownloadsSuite) TestEmptyOK(c *gc.C) {
 
 	err := charm.ClearDownloads(bunsDir)
 	c.Assert(err, jc.ErrorIsNil)
-	checkDirEmpty(c, downloadDir)
+	checkMissing(c, downloadDir)
 }
 
 func (s *ClearDownloadsSuite) TestMissingOK(c *gc.C) {
@@ -228,8 +230,9 @@ func assertCharm(c *gc.C, bun charm.Bundle, sch *state.Charm) {
 	c.Assert(actual.Config(), gc.DeepEquals, sch.Config())
 }
 
-func checkDirEmpty(c *gc.C, p string) {
-	files, err := ioutil.ReadDir(p)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(files, gc.HasLen, 0)
+func checkMissing(c *gc.C, p string) {
+	_, err := os.Stat(p)
+	if !os.IsNotExist(err) {
+		c.Fatalf("checking %s is missing: %v", p, err)
+	}
 }

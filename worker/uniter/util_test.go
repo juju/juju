@@ -640,6 +640,30 @@ func (s startupError) step(c *gc.C, ctx *context) {
 	step(c, ctx, verifyCharm{})
 }
 
+type createDownloads struct{}
+
+func (s createDownloads) step(c *gc.C, ctx *context) {
+	dir := downloadDir(ctx)
+	c.Assert(os.MkdirAll(dir, 0775), jc.ErrorIsNil)
+	c.Assert(
+		ioutil.WriteFile(filepath.Join(dir, "foo"), []byte("bar"), 0775),
+		jc.ErrorIsNil,
+	)
+}
+
+type verifyDownloadsCleared struct{}
+
+func (s verifyDownloadsCleared) step(c *gc.C, ctx *context) {
+	files, err := ioutil.ReadDir(downloadDir(ctx))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(files, gc.HasLen, 0)
+}
+
+func downloadDir(ctx *context) string {
+	paths := uniter.NewPaths(ctx.dataDir, ctx.unit.UnitTag())
+	return filepath.Join(paths.State.BundlesDir, "downloads")
+}
+
 type quickStart struct {
 	minion bool
 }
