@@ -1170,15 +1170,6 @@ class EnvJujuClient:
             args.append('--auto-upgrade')
         if to is not None:
             args.extend(['--to', to])
-        #for (name, value) in kwargs.items():
-        #    if value is None or value is False:
-        #        pass
-        #    elif value is True:
-        #        arg_name = '--' + name.replace('_', '-')
-        #        args.append(arg_name)
-        #    else:
-        #        arg_name = '--' + name.replace('_', '-')
-        #        args.extend([arg_name, value])
         return tuple(args)
 
     def add_model(self, env):
