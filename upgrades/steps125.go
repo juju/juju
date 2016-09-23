@@ -4,6 +4,8 @@
 package upgrades
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/juju/errors"
@@ -143,6 +145,17 @@ func stepsFor125() []Step {
 	}
 }
 
+// stepsFor1257 returns upgrade steps for Juju 1.25.7 that only need the API.
+func stepsFor1257() []Step {
+	return []Step{
+		&upgradeStep{
+			description: "remove apiserver charm get cache",
+			targets:     []Target{StateServer},
+			run:         removeCharmGetCache,
+		},
+	}
+}
+
 // removeJujudpass removes a file that is no longer used on versions >1.25
 // The Jujud.pass file was created during cloud init before
 // so we know it's location for sure in case it exists
@@ -177,4 +190,12 @@ func addJujuRegKey(context Context) error {
 		return nil
 	}
 	return nil
+}
+
+// removeCharmGetCache removes the cache directory that was previously
+// used by the charms API endpoint. It is no longer necessary.
+func removeCharmGetCache(context Context) error {
+	dataDir := context.AgentConfig().DataDir()
+	cacheDir := filepath.Join(dataDir, "charm-get-cache")
+	return os.RemoveAll(cacheDir)
 }
