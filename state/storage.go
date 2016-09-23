@@ -132,6 +132,13 @@ func (s *storageInstance) Life() Life {
 	return s.doc.Life
 }
 
+// entityStorageRefcountKey returns a key for refcounting charm storage
+// for a specific entity. Each time a storage instance is created, the
+// named store's refcount is incremented; and decremented when removed.
+func entityStorageRefcountKey(owner names.Tag, storageName string) string {
+	return fmt.Sprintf("storage#%s#%s", owner.String(), storageName)
+}
+
 // storageInstanceDoc describes a charm storage instance.
 type storageInstanceDoc struct {
 	DocID     string `bson:"_id"`
@@ -257,7 +264,7 @@ func (st *State) destroyStorageInstanceOps(s *storageInstance) ([]txn.Op, error)
 		// remove the storage instance immediately.
 		hasNoAttachments := bson.D{{"attachmentcount", 0}}
 		assert := append(hasNoAttachments, isAliveDoc...)
-		return removeStorageInstanceOps(st, s.StorageTag(), assert)
+		return removeStorageInstanceOps(st, s.Owner(), s.StorageTag(), assert)
 	}
 	// There are still attachments: the storage instance will be removed
 	// when the last attachment is removed. We schedule a cleanup to destroy
@@ -283,9 +290,11 @@ func (st *State) destroyStorageInstanceOps(s *storageInstance) ([]txn.Op, error)
 // tag from state, if the specified assertions hold true.
 func removeStorageInstanceOps(
 	st *State,
+	owner names.Tag,
 	tag names.StorageTag,
 	assert bson.D,
 ) ([]txn.Op, error) {
+
 	ops := []txn.Op{{
 		C:      storageInstancesC,
 		Id:     tag.Id(),
@@ -327,6 +336,21 @@ func removeStorageInstanceOps(
 	} else if !errors.IsNotFound(err) {
 		return nil, errors.Trace(err)
 	}
+
+	// Decrement the charm storage reference count.
+	refcounts, closer := st.getCollection(refcountsC)
+	defer closer()
+	storageName, err := names.StorageName(tag.Id())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	storageRefcountKey := entityStorageRefcountKey(owner, storageName)
+	decRefOp, _, err := nsRefcounts.DyingDecRefOp(refcounts, storageRefcountKey)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	ops = append(ops, decRefOp)
+
 	return ops, nil
 }
 
@@ -382,6 +406,9 @@ func createStorageOps(
 		if !ok {
 			return nil, -1, errors.NotFoundf("charm storage %q", store)
 		}
+		if cons.Count == 0 {
+			continue
+		}
 		if createdShared != charmStorage.Shared {
 			// services only get shared storage instances,
 			// units only get non-shared storage instances.
@@ -394,7 +421,10 @@ func createStorageOps(
 		})
 	}
 
-	ops = make([]txn.Op, 0, len(templates)*2)
+	refcounts, closer := st.getCollection(refcountsC)
+	defer closer()
+
+	ops = make([]txn.Op, 0, len(templates)*3)
 	for _, t := range templates {
 		owner := entity.String()
 		var kind StorageKind
@@ -406,6 +436,17 @@ func createStorageOps(
 		default:
 			return nil, -1, errors.Errorf("unknown storage type %q", t.meta.Type)
 		}
+
+		// Increment reference counts for the named storage for each
+		// instance we create. We'll use the reference counts to ensure
+		// we don't exceed limits when adding storage, and for
+		// maintaining model integrity during charm upgrades.
+		storageRefcountKey := entityStorageRefcountKey(entity, t.storageName)
+		incRefOp, err := nsRefcounts.CreateOrIncRefOp(refcounts, storageRefcountKey, int(t.cons.Count))
+		if err != nil {
+			return nil, -1, errors.Trace(err)
+		}
+		ops = append(ops, incRefOp)
 
 		for i := uint64(0); i < t.cons.Count; i++ {
 			id, err := newStorageInstanceId(st, t.storageName)
@@ -435,13 +476,12 @@ func createStorageOps(
 					st, entity, charmMeta, cons, series,
 					&storageInstance{st, *doc},
 				)
-				if err == nil {
-					ops = append(ops, machineOps...)
-				} else if !errors.IsNotAssigned(err) {
+				if err != nil {
 					return nil, -1, errors.Annotatef(
 						err, "creating machine storage for storage %s", id,
 					)
 				}
+				ops = append(ops, machineOps...)
 			}
 		}
 	}
@@ -459,6 +499,9 @@ func createStorageOps(
 // unitAssignedMachineStorageOps returns ops for creating volumes, filesystems
 // and their attachments to the machine that the specified unit is assigned to,
 // corresponding to the specified storage instance.
+//
+// If the unit is not assigned to a machine, then ops will be returned to assert
+// this, and no error will be returned.
 func unitAssignedMachineStorageOps(
 	st *State,
 	entity names.Tag,
@@ -484,6 +527,16 @@ func unitAssignedMachineStorageOps(
 	}
 	m, err := u.machine()
 	if err != nil {
+		if errors.IsNotAssigned(err) {
+			// The unit is not assigned to a machine; return
+			// txn.Op that ensures that this remains the case
+			// until the transaction is committed.
+			return []txn.Op{{
+				C:      unitsC,
+				Id:     u.doc.DocID,
+				Assert: bson.D{{"machineid", ""}},
+			}}, nil
+		}
 		return nil, errors.Trace(err)
 	}
 
@@ -693,7 +746,9 @@ func removeStorageAttachmentOps(
 			// Either the storage instance is dying, or its owner
 			// is a unit; in either case, no more attachments can
 			// be added to the instance, so it can be removed.
-			siOps, err := removeStorageInstanceOps(st, si.StorageTag(), hasLastRef)
+			siOps, err := removeStorageInstanceOps(
+				st, si.Owner(), si.StorageTag(), hasLastRef,
+			)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -739,13 +794,14 @@ func removeStorageInstancesOps(st *State, owner names.Tag) ([]txn.Op, error) {
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot get storage instances for %s", owner)
 	}
-	ops := make([]txn.Op, len(docs))
-	for i, doc := range docs {
-		ops[i] = txn.Op{
-			C:      storageInstancesC,
-			Id:     doc.Id,
-			Remove: true,
+	ops := make([]txn.Op, 0, len(docs))
+	for _, doc := range docs {
+		tag := names.NewStorageTag(doc.Id)
+		storageInstanceOps, err := removeStorageInstanceOps(st, owner, tag, nil)
+		if err != nil {
+			return nil, errors.Trace(err)
 		}
+		ops = append(ops, storageInstanceOps...)
 	}
 	return ops, nil
 }
@@ -1072,11 +1128,11 @@ func defaultStoragePool(cfg *config.Config, kind storage.StorageKind, cons Stora
 }
 
 // AddStorageForUnit adds storage instances to given unit as specified.
-// Missing storage constraints are populated
-// based on model defaults. Storage store name is used to retrieve
-// existing storage instances for this store.
-// Combination of existing storage instances and
-// anticipated additional storage instances is validated against storage
+//
+// Missing storage constraints are populated based on model defaults.
+// Storage store name is used to retrieve existing storage instances
+// for this store. Combination of existing storage instances and
+// anticipated additional storage instances is validated against the
 // store as specified in the charm.
 func (st *State) AddStorageForUnit(
 	tag names.UnitTag, name string, cons StorageConstraints,
@@ -1085,74 +1141,13 @@ func (st *State) AddStorageForUnit(
 	if err != nil {
 		return errors.Trace(err)
 	}
-
-	s, err := u.Application()
-	if err != nil {
-		return errors.Annotatef(err, "getting service for unit %v", u.Tag().Id())
-	}
-	ch, _, err := s.Charm()
-	if err != nil {
-		return errors.Annotatef(err, "getting charm for unit %q", u.Tag().Id())
-	}
-
-	return st.addStorageForUnit(ch, u, name, cons)
-}
-
-// addStorage adds storage instances to given unit as specified.
-func (st *State) addStorageForUnit(
-	ch *Charm, u *Unit,
-	name string, cons StorageConstraints,
-) error {
-	all, err := u.StorageConstraints()
-	if err != nil {
-		return errors.Annotatef(err, "getting existing storage directives for %s", u.Tag().Id())
-	}
-
-	// Check storage name was declared.
-	_, exists := all[name]
-	if !exists {
-		return errors.NotFoundf("charm storage %q", name)
-	}
-
-	// Populate missing configuration parameters with default values.
-	conf, err := st.ModelConfig()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	completeCons, err := storageConstraintsWithDefaults(
-		conf,
-		ch.Meta().Storage[name],
-		name, cons,
-	)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	// This can happen for charm stores that specify instances range from 0,
-	// and no count was specified at deploy as storage constraints for this store,
-	// and no count was specified to storage add as a contraint either.
-	if cons.Count == 0 {
-		return errors.NotValidf("adding storage where instance count is 0")
-	}
-
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			if err := u.Refresh(); err != nil {
 				return nil, errors.Trace(err)
 			}
 		}
-		if u.Life() != Alive {
-			return nil, unitNotAliveErr
-		}
-		err = st.validateUnitStorage(ch.Meta(), u, name, completeCons)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		ops, err := st.constructAddUnitStorageOps(ch, u, name, completeCons)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		return ops, nil
+		return st.addStorageForUnitOps(u, name, cons)
 	}
 	if err := st.run(buildTxn); err != nil {
 		return errors.Annotatef(err, "adding storage to unit %s", u)
@@ -1160,75 +1155,135 @@ func (st *State) addStorageForUnit(
 	return nil
 }
 
-func (st *State) validateUnitStorage(
-	charmMeta *charm.Meta, u *Unit, name string, cons StorageConstraints,
-) error {
-	// Storage directive may provide storage instance count
-	// which combined with existing storage instance may exceed
-	// number of storage instances specified by charm.
-	// We must take it into account when validating.
-	currentCount, err := st.countEntityStorageInstancesForName(u.Tag(), name)
-	if err != nil {
-		return errors.Trace(err)
+// addStorage adds storage instances to given unit as specified.
+func (st *State) addStorageForUnitOps(
+	u *Unit,
+	storageName string,
+	cons StorageConstraints,
+) ([]txn.Op, error) {
+	if u.Life() != Alive {
+		return nil, unitNotAliveErr
 	}
-	cons.Count = cons.Count + currentCount
 
-	err = validateStorageConstraintsAgainstCharm(
-		st,
-		map[string]StorageConstraints{name: cons},
-		charmMeta)
-	if err != nil {
-		return errors.Trace(err)
+	// Storage addition is based on the charm metadata, so make sure that
+	// the charm URL for the unit or application does not change during
+	// the transaction. If the unit does not have a charm URL set yet,
+	// then we use the application's charm URL.
+	ops := []txn.Op{{
+		C:      unitsC,
+		Id:     u.doc.Name,
+		Assert: bson.D{{"charmurl", u.doc.CharmURL}},
+	}}
+	curl, ok := u.CharmURL()
+	if !ok {
+		a, err := u.Application()
+		if err != nil {
+			return nil, errors.Annotatef(err, "getting application for unit %v", u.doc.Name)
+		}
+		curl = a.doc.CharmURL
+		ops = append(ops, txn.Op{
+			C:      applicationsC,
+			Id:     a.doc.Name,
+			Assert: bson.D{{"charmurl", curl}},
+		})
 	}
-	return nil
+	ch, err := st.Charm(curl)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	charmMeta := ch.Meta()
+	charmStorageMeta, ok := charmMeta.Storage[storageName]
+	if !ok {
+		return nil, errors.NotFoundf("charm storage %q", storageName)
+	}
+
+	// Populate missing configuration parameters with default values.
+	modelConfig, err := st.ModelConfig()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	completeCons, err := storageConstraintsWithDefaults(
+		modelConfig,
+		charmStorageMeta,
+		storageName,
+		cons,
+	)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// This can happen for charm stores that specify instances range from 0,
+	// and no count was specified at deploy as storage constraints for this store,
+	// and no count was specified to storage add as a contraint either.
+	if cons.Count == 0 {
+		return nil, errors.NotValidf("adding storage where instance count is 0")
+	}
+
+	addUnitStorageOps, err := st.addUnitStorageOps(charmMeta, u, storageName, completeCons, -1)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	ops = append(ops, addUnitStorageOps...)
+	return ops, nil
 }
 
-func (st *State) constructAddUnitStorageOps(
-	ch *Charm, u *Unit, name string, cons StorageConstraints,
+// addUnitStorageOps returns transaction ops to create storage for the given
+// unit. If countMin is non-negative, the Count field of the constraints will
+// be ignored, and as many storage instances as necessary to make up the
+// shortfall will be created.
+func (st *State) addUnitStorageOps(
+	charmMeta *charm.Meta,
+	u *Unit,
+	storageName string,
+	cons StorageConstraints,
+	countMin int,
 ) ([]txn.Op, error) {
+	currentCountOp, currentCount, err := st.countEntityStorageInstances(u.Tag(), storageName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	ops := []txn.Op{currentCountOp}
+	if countMin >= 0 {
+		if currentCount >= countMin {
+			return ops, nil
+		}
+		cons.Count = uint64(countMin - currentCount)
+	}
+
+	consTotal := cons
+	consTotal.Count += uint64(currentCount)
+	if err := validateStorageConstraintsAgainstCharm(st,
+		map[string]StorageConstraints{storageName: consTotal},
+		charmMeta,
+	); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	// Create storage db operations
 	storageOps, _, err := createStorageOps(
 		st,
 		u.Tag(),
-		ch.Meta(),
-		map[string]StorageConstraints{name: cons},
+		charmMeta,
+		map[string]StorageConstraints{storageName: cons},
 		u.Series(),
 		true, // create machine storage
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
-	// Update storage attachment count.
-	priorCount := u.doc.StorageAttachmentCount
-	newCount := priorCount + int(cons.Count)
-
-	attachmentsUnchanged := bson.D{{"storageattachmentcount", priorCount}}
-	ops := []txn.Op{{
+	ops = append(ops, txn.Op{
 		C:      unitsC,
 		Id:     u.doc.DocID,
-		Assert: append(attachmentsUnchanged, isAliveDoc...),
-		Update: bson.D{{"$set",
-			bson.D{{"storageattachmentcount", newCount}}}},
-	}}
+		Assert: isAliveDoc,
+		Update: bson.D{{"$inc",
+			bson.D{{"storageattachmentcount", int(cons.Count)}}}},
+	})
 	return append(ops, storageOps...), nil
 }
 
-func (st *State) countEntityStorageInstancesForName(
-	tag names.Tag,
-	name string,
-) (uint64, error) {
-	storageCollection, closer := st.getCollection(storageInstancesC)
+func (st *State) countEntityStorageInstances(owner names.Tag, name string) (txn.Op, int, error) {
+	refcounts, closer := st.getCollection(refcountsC)
 	defer closer()
-	criteria := bson.D{{
-		"$and", []bson.D{
-			bson.D{{"owner", tag.String()}},
-			bson.D{{"storagename", name}},
-		},
-	}}
-	result, err := storageCollection.Find(criteria).Count()
-	if err != nil {
-		return 0, err
-	}
-	return uint64(result), err
+	key := entityStorageRefcountKey(owner, name)
+	return nsRefcounts.CurrentOp(refcounts, key)
 }

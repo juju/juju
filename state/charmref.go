@@ -41,17 +41,17 @@ func appCharmIncRefOps(st modelBackend, appName string, curl *charm.URL, canCrea
 		getIncRefOp = nsRefcounts.StrictIncRefOp
 	}
 	settingsKey := applicationSettingsKey(appName, curl)
-	settingsOp, err := getIncRefOp(refcounts, settingsKey)
+	settingsOp, err := getIncRefOp(refcounts, settingsKey, 1)
 	if err != nil {
 		return nil, errors.Annotate(err, "settings reference")
 	}
 	storageConstraintsKey := applicationStorageConstraintsKey(appName, curl)
-	storageConstraintsOp, err := getIncRefOp(refcounts, storageConstraintsKey)
+	storageConstraintsOp, err := getIncRefOp(refcounts, storageConstraintsKey, 1)
 	if err != nil {
 		return nil, errors.Annotate(err, "storage constraints reference")
 	}
 	charmKey := charmGlobalKey(curl)
-	charmOp, err := getIncRefOp(refcounts, charmKey)
+	charmOp, err := getIncRefOp(refcounts, charmKey, 1)
 	if err != nil {
 		return nil, errors.Annotate(err, "charm reference")
 	}

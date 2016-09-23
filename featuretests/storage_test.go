@@ -521,7 +521,9 @@ func (s *cmdStorageSuite) TestStorageAddToUnitStorageDoesntExist(c *gc.C) {
 	context, err := runAddToUnit(c, u, "nonstorage=1")
 	c.Assert(errors.Cause(err), gc.ErrorMatches, "cmd: error out silently")
 	c.Assert(testing.Stdout(context), gc.Equals, "")
-	c.Assert(testing.Stderr(context), gc.Equals, "failed to add \"nonstorage\": charm storage \"nonstorage\" not found\n")
+	c.Assert(testing.Stderr(context), gc.Equals,
+		`failed to add "nonstorage": adding storage to unit storage-block/0: charm storage "nonstorage" not found`+"\n",
+	)
 
 	instancesAfter, err := s.State.AllStorageInstances()
 	c.Assert(err, jc.ErrorIsNil)
