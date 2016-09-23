@@ -5,6 +5,10 @@ package upgrades_test
 
 import (
 	"errors"
+	"fmt"
+	"io/ioutil"
+	"os"
+	"path/filepath"
 	"strings"
 
 	gc "gopkg.in/check.v1"
@@ -55,6 +59,13 @@ func (s *steps125Suite) TestStepsFor125(c *gc.C) {
 		"add juju registry key",
 	}
 	assertSteps(c, version.MustParse("1.25.0"), expected)
+}
+
+func (s *steps125Suite) TestStepsFor1257(c *gc.C) {
+	expected := []string{
+		"remove apiserver charm get cache",
+	}
+	assertSteps(c, version.MustParse("1.25.7"), expected)
 }
 
 type mockOSRemove struct {
@@ -158,4 +169,37 @@ func (s *steps125Suite) TestAddJujuRegKey(c *gc.C) {
 		}
 		c.Assert(mock.called, gc.Equals, t.callExpected)
 	}
+}
+func (s *steps125Suite) TestCharmGetCacheDir(c *gc.C) {
+	// Create a cache directory with some stuff in it.
+	dataDir := c.MkDir()
+	cacheDir := filepath.Join(dataDir, "charm-get-cache")
+	c.Assert(os.MkdirAll(cacheDir, 0777), jc.ErrorIsNil)
+	err := ioutil.WriteFile(filepath.Join(cacheDir, "stuff"), []byte("things"), 0777)
+	c.Assert(err, jc.ErrorIsNil)
+
+	check := func() {
+		context := &mockContext{
+			agentConfig: &mockAgentConfig{dataDir: dataDir},
+		}
+		err := upgrades.RemoveCharmGetCache(context)
+		c.Assert(err, jc.ErrorIsNil)
+
+		// Cache directory should be gone, but data dir should still be there.
+		c.Check(pathExists(cacheDir), jc.IsFalse)
+		c.Check(pathExists(dataDir), jc.IsTrue)
+	}
+
+	check()
+	check() // Check OK when directory not present
+}
+
+func pathExists(p string) bool {
+	_, err := os.Stat(p)
+	if err == nil {
+		return true
+	} else if os.IsNotExist(err) {
+		return false
+	}
+	panic(fmt.Sprintf("stat for %q failed: %v", p, err))
 }
