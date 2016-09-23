@@ -6479,6 +6479,14 @@ class TestJujuData(TestCase):
             'type': 'manual', 'region': 'bar',
             'bootstrap-host': 'baz'}, 'home').get_region())
 
+    def test_get_cloud_credentials(self):
+        juju_data = JujuData('foo', {'type': 'ec2', 'region': 'foo'}, 'home')
+        juju_data.credentials = {'credentials': {
+            'aws': {'credentials': {'aws': True}},
+            'azure': {'credentials': {'azure': True}},
+            }}
+        self.assertEqual({'aws': True}, juju_data.get_cloud_credentials())
+
     def test_dump_yaml(self):
         cloud_dict = {'clouds': {'foo': {}}}
         credential_dict = {'credential': {'bar': {}}}

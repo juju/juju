@@ -444,6 +444,12 @@ class JujuData(SimpleEnvironment):
         else:
             return self.config['region']
 
+    def get_cloud_credentials(self):
+        cloud_name = self.get_cloud()
+        cloud = self.credentials['credentials'][cloud_name]
+        (credentials,) = cloud.values()
+        return credentials
+
 
 class Status:
 
