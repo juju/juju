@@ -741,7 +741,7 @@ func (environ *maasEnviron) acquireNode2(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &maas2Instance{machine, constraintMatches}, nil
+	return &maas2Instance{machine, constraintMatches, environ.maasController}, nil
 }
 
 // acquireNode allocates a node from the MAAS.
@@ -843,7 +843,7 @@ func (environ *maasEnviron) startNode2(node maas2Instance, series string, userda
 		return nil, errors.Trace(err)
 	}
 	// Machine.Start updates the machine in-place when it succeeds.
-	return &maas2Instance{machine: node.machine}, nil
+	return &maas2Instance{machine: node.machine, maasController: environ.maasController}, nil
 
 }
 
@@ -1533,7 +1533,7 @@ func (environ *maasEnviron) instances2(args gomaasapi.MachinesArgs) ([]instance.
 	}
 	instances := make([]instance.Instance, len(machines))
 	for index, machine := range machines {
-		instances[index] = &maas2Instance{machine: machine}
+		instances[index] = &maas2Instance{machine: machine, maasController: environ.maasController}
 	}
 	return instances, nil
 }

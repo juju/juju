@@ -16,6 +16,8 @@ import (
 type maas2Instance struct {
 	machine           gomaasapi.Machine
 	constraintMatches gomaasapi.ConstraintMatches
+	// maasController provides access to the MAAS 2.0 API.
+	maasController gomaasapi.Controller
 }
 
 var _ maasInstance = (*maas2Instance)(nil)
@@ -66,9 +68,19 @@ func (mi *maas2Instance) Addresses() ([]network.Address, error) {
 // status message.
 func (mi *maas2Instance) Status() instance.InstanceStatus {
 	// TODO (babbageclunk): this should rerequest to get live status.
-	statusName := mi.machine.StatusName()
-	statusMsg := mi.machine.StatusMessage()
+	args := gomaasapi.MachinesArgs{SystemIDs: []string{mi.machine.SystemID()}}
+	machines, err := mi.maasController.Machines(args)
+	if err != nil {
+		return convertInstanceStatus("", "", mi.Id())
+	}
+	if len(machines) != 1 {
+		return convertInstanceStatus("", "", mi.Id())
+	}
+	machine := machines[0]
+	statusName := machine.StatusName()
+	statusMsg := machine.StatusMessage()
 	return convertInstanceStatus(statusName, statusMsg, mi.Id())
+
 }
 
 // MAAS does not do firewalling so these port methods do nothing.
