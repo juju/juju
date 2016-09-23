@@ -79,9 +79,8 @@ def assess_perf_test_simple(bs_manager, upload_tools):
 
             setup_system_monitoring(admin_client)
 
-            # deploy_details = assess_longrun_perf(client, test_length=MINUTE*60)
-            # Real short for initial test.
-            deploy_details = assess_longrun_perf(client, test_length=MINUTE*10)
+            deploy_details = assess_longrun_perf(
+                client, test_length=MINUTE*60*12)
         finally:
             results_dir = os.path.join(
                 os.path.abspath(bs_manager.log_dir), 'performance_results/')
@@ -96,7 +95,7 @@ def assess_perf_test_simple(bs_manager, upload_tools):
             os.makedirs(csv_results_dir)
             admin_client.juju(
                 'scp',
-                ('--', '-r', '0:/var/lib/collectd/csv/*',
+                ('--', '-r', '0:/var/lib/collectd/csv/localhost/*',
                  csv_results_dir)
             )
 
@@ -304,11 +303,11 @@ def assess_longrun_perf(client, test_length=600):
         # Maybe choose one of x different charms/bundles to use.
         bundle_name = 'cs:bundle/wiki-simple-0'
         applications = ['mysql', 'wiki']
-        # new_client = action_create(client, bundle_name)
-        # action_busy(new_client, applications)
-        # action_cleanup(new_client)
+        new_client = action_create(client, bundle_name)
+        action_busy(new_client, applications)
+        action_cleanup(new_client)
 
-        # action_rest(Rest.medium)
+        action_rest(Rest.medium)
         run_count += 1
 
     longrun_end = datetime.utcnow()
