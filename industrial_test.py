@@ -792,15 +792,17 @@ class BackupRestoreAttempt(SteppedStageAttempt):
         backup_file = controller_client.backup()
         try:
             status = controller_client.get_status()
-            instance_id = status.get_instance_id('0')
-            if client.env.config['type'] == 'azure':
-                instance_id = convert_to_azure_ids(
-                    controller_client, [instance_id])[0]
+            instance_ids = [status.get_instance_id('0')]
+            with make_substrate_manager(controller_client,
+                                        ['convert_to_azure_ids']) as substrate:
+                if substrate is not None:
+                    instance_ids = substrate.convert_to_azure_ids(
+                        controller_client, instance_ids)
             host = get_machine_dns_name(controller_client, '0')
-            terminate_instances(controller_client.env, [instance_id])
+            terminate_instances(controller_client.env, instance_ids)
             yield results
             wait_for_state_server_to_shutdown(
-                host, controller_client, instance_id)
+                host, controller_client, instance_ids[0])
             yield results
             controller_client.restore_backup(backup_file)
             yield results

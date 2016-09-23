@@ -62,7 +62,10 @@ from jujupy import (
     Status,
     _temp_env,
     )
-from substrate import AWSAccount
+from substrate import (
+    AWSAccount,
+    AzureARMAccount,
+    )
 from tests import (
     FakeHomeTestCase,
     parse_error,
@@ -1811,6 +1814,7 @@ class TestBackupRestoreAttempt(JujuPyTestCase):
         client.env.environment = aws_env.environment
         client.env.config = aws_env.config
         client.env.juju_home = aws_env.juju_home
+        client.env.credentials = {'credentials': {'aws': {'creds': {}}}}
         controller_client = client.get_controller_client()
         environ = dict(os.environ)
         environ.update(get_euca_env(client.env.config))
@@ -1881,6 +1885,7 @@ class TestBackupRestoreAttempt(JujuPyTestCase):
         client = FakeEnvJujuClient()
         client.env.environment = azure_env.environment
         client.env.config = azure_env.config
+        client.env.credentials = {'credentials': {'azure': {'creds': {}}}}
         controller_client = client.get_controller_client()
         # First yield.
         iterator = iter_steps_validate_info(self, br_attempt, client)
@@ -1894,16 +1899,25 @@ class TestBackupRestoreAttempt(JujuPyTestCase):
         }
         # The azure-provider does does not provide sane ids, so the instance-id
         # is used to search for the actual azure instance.
-        with patch_status(controller_client, initial_status):
-            with patch.object(client, 'get_controller_client', autospec=True,
-                              return_value=controller_client):
-                with patch.object(controller_client, 'backup', autospec=True,
-                                  return_value='juju-backup.tgz') as b_mock:
-                    with patch('industrial_test.convert_to_azure_ids',
-                               autospec=True, return_value=['id']) as ca_mock:
+        substrate = AzureARMAccount(None)
+        with patch(
+                'industrial_test.make_substrate_manager'
+                ) as msm_mock:
+            msm_mock.return_value.__enter__.return_value = substrate
+            with patch.object(substrate, 'convert_to_azure_ids',
+                       autospec=True, return_value=['id']) as ca_mock:
+                with patch.object(client, 'get_controller_client',
+                                  autospec=True,
+                                  return_value=controller_client):
+                    with patch.object(controller_client, 'backup',
+                                      autospec=True,
+                                      return_value='juju-backup.tgz'
+                                      ) as b_mock:
                         with patch('industrial_test.terminate_instances',
                                    autospec=True):
-                            self.assertEqual(iterator.next(), test_id)
+                            with patch_status(controller_client,
+                                              initial_status):
+                                self.assertEqual(iterator.next(), test_id)
         b_mock.assert_called_once_with()
         ca_mock.assert_called_once_with(controller_client, ['not-id'])
 
