@@ -81,19 +81,7 @@ func (s *ServiceSuite) TestSetCharmCharmSettings(c *gc.C) {
 	}
 	err = s.mysql.SetCharm(cfg)
 	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
-	c.Assert(err, gc.ErrorMatches, "updating config at upgrade-charm time not supported")
-}
-
-func (s *ServiceSuite) TestSetCharmStorageConstraints(c *gc.C) {
-	ch, _, err := s.mysql.Charm()
-	c.Assert(err, jc.ErrorIsNil)
-	cfg := state.SetCharmConfig{
-		Charm:              ch,
-		StorageConstraints: map[string]state.StorageConstraints{"foo": {}},
-	}
-	err = s.mysql.SetCharm(cfg)
-	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
-	c.Assert(err, gc.ErrorMatches, "updating storage constraints at upgrade-charm time not supported")
+	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "mysql" to charm "local:quantal/quantal-mysql-1": updating config at upgrade-charm time not supported`)
 }
 
 func (s *ServiceSuite) TestSetCharmLegacy(c *gc.C) {
@@ -104,7 +92,7 @@ func (s *ServiceSuite) TestSetCharmLegacy(c *gc.C) {
 		ForceSeries: true,
 	}
 	err := s.mysql.SetCharm(cfg)
-	c.Assert(err, gc.ErrorMatches, "cannot change a service's series")
+	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "mysql" to charm "local:precise/precise-mysql-1": cannot change an application's series`)
 }
 
 func (s *ServiceSuite) TestClientServiceSetCharmUnsupportedSeries(c *gc.C) {
@@ -116,7 +104,7 @@ func (s *ServiceSuite) TestClientServiceSetCharmUnsupportedSeries(c *gc.C) {
 		Charm: chDifferentSeries,
 	}
 	err := svc.SetCharm(cfg)
-	c.Assert(err, gc.ErrorMatches, "cannot upgrade charm, only these series are supported: trusty, wily")
+	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "application" to charm "cs:multi-series2-8": only these series are supported: trusty, wily`)
 }
 
 func (s *ServiceSuite) TestClientServiceSetCharmUnsupportedSeriesForce(c *gc.C) {
@@ -147,19 +135,19 @@ func (s *ServiceSuite) TestClientServiceSetCharmWrongOS(c *gc.C) {
 		ForceSeries: true,
 	}
 	err := svc.SetCharm(cfg)
-	c.Assert(err, gc.ErrorMatches, `cannot upgrade charm, OS "Ubuntu" not supported by charm`)
+	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "application" to charm "cs:multi-series-windows-1": OS "Ubuntu" not supported by charm`)
 }
 
 func (s *ServiceSuite) TestSetCharmPreconditions(c *gc.C) {
 	logging := s.AddTestingCharm(c, "logging")
 	cfg := state.SetCharmConfig{Charm: logging}
 	err := s.mysql.SetCharm(cfg)
-	c.Assert(err, gc.ErrorMatches, "cannot change a service's subordinacy")
+	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "mysql" to charm "local:quantal/quantal-logging-1": cannot change an application's subordinacy`)
 
 	othermysql := s.AddSeriesCharm(c, "mysql", "otherseries")
 	cfg2 := state.SetCharmConfig{Charm: othermysql}
 	err = s.mysql.SetCharm(cfg2)
-	c.Assert(err, gc.ErrorMatches, "cannot change a service's series")
+	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "mysql" to charm "local:otherseries/otherseries-mysql-1": cannot change an application's series`)
 }
 
 func (s *ServiceSuite) TestSetCharmUpdatesBindings(c *gc.C) {
@@ -578,7 +566,7 @@ func (s *ServiceSuite) TestSetCharmWhenDead(c *gc.C) {
 		ForceUnits: true,
 	}
 	err := s.mysql.SetCharm(cfg)
-	c.Assert(err, gc.Equals, state.ErrDead)
+	c.Assert(errors.Cause(err), gc.Equals, state.ErrDead)
 }
 
 func (s *ServiceSuite) TestSetCharmWithRemovedService(c *gc.C) {
@@ -2272,11 +2260,13 @@ storage:
     type: filesystem
 `
 
-const oneRequiredSharedStorageMeta = `
+const oneOptionalSharedStorageMeta = `
 storage:
   data0:
     type: block
     shared: true
+    multiple:
+      range: 0-
 `
 
 const oneRequiredReadOnlyStorageMeta = `
@@ -2355,7 +2345,7 @@ func (s *ServiceSuite) TestSetCharmOptionalUsedStorageRemoved(c *gc.C) {
 	}).Check()
 	cfg := state.SetCharmConfig{Charm: newCh}
 	err := svc.SetCharm(cfg)
-	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "test" to charm "mysql": in-use storage "data1" removed`)
+	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "test" to charm "local:quantal/quantal-mysql-3": in-use storage "data1" removed`)
 }
 
 func (s *ServiceSuite) TestSetCharmRequiredStorageRemoved(c *gc.C) {
@@ -2363,15 +2353,47 @@ func (s *ServiceSuite) TestSetCharmRequiredStorageRemoved(c *gc.C) {
 		mysqlBaseMeta+oneRequiredStorageMeta,
 		mysqlBaseMeta,
 	)
-	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "test" to charm "mysql": required storage "data0" removed`)
+	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "test" to charm "local:quantal/quantal-mysql-3": required storage "data0" removed`)
 }
 
-func (s *ServiceSuite) TestSetCharmRequiredStorageAdded(c *gc.C) {
-	err := s.setCharmFromMeta(c,
-		mysqlBaseMeta+oneRequiredStorageMeta,
-		mysqlBaseMeta+twoRequiredStorageMeta,
-	)
-	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "test" to charm "mysql": required storage "data1" added`)
+func (s *ServiceSuite) TestSetCharmRequiredStorageAddedDefaultConstraints(c *gc.C) {
+	oldCh := s.AddMetaCharm(c, "mysql", mysqlBaseMeta+oneRequiredStorageMeta, 2)
+	newCh := s.AddMetaCharm(c, "mysql", mysqlBaseMeta+twoRequiredStorageMeta, 3)
+	svc := s.AddTestingService(c, "test", oldCh)
+	u, err := svc.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+
+	cfg := state.SetCharmConfig{Charm: newCh}
+	err = svc.SetCharm(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check that the new required storage was added for the unit.
+	attachments, err := s.State.UnitStorageAttachments(u.UnitTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(attachments, gc.HasLen, 2)
+}
+
+func (s *ServiceSuite) TestSetCharmStorageAddedUserSpecifiedConstraints(c *gc.C) {
+	oldCh := s.AddMetaCharm(c, "mysql", mysqlBaseMeta+oneRequiredStorageMeta, 2)
+	newCh := s.AddMetaCharm(c, "mysql", mysqlBaseMeta+twoOptionalStorageMeta, 3)
+	svc := s.AddTestingService(c, "test", oldCh)
+	u, err := svc.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+
+	cfg := state.SetCharmConfig{
+		Charm: newCh,
+		StorageConstraints: map[string]state.StorageConstraints{
+			"data1": {Count: 3},
+		},
+	}
+	err = svc.SetCharm(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check that new storage was added for the unit, based on the
+	// constraints specified in SetCharmConfig.
+	attachments, err := s.State.UnitStorageAttachments(u.UnitTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(attachments, gc.HasLen, 4)
 }
 
 func (s *ServiceSuite) TestSetCharmOptionalStorageAdded(c *gc.C) {
@@ -2395,7 +2417,8 @@ func (s *ServiceSuite) TestSetCharmStorageCountMinIncreased(c *gc.C) {
 		mysqlBaseMeta+oneRequiredStorageMeta+storageRange(1, 3),
 		mysqlBaseMeta+oneRequiredStorageMeta+storageRange(2, 3),
 	)
-	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "test" to charm "mysql": existing storage "data0" range contracted: min increased from 1 to 2`)
+	// User must increase the storage constraints from 1 to 2.
+	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "test" to charm "local:quantal/quantal-mysql-3": validating storage constraints: charm "mysql" store "data0": 2 instances required, 1 specified`)
 }
 
 func (s *ServiceSuite) TestSetCharmStorageCountMaxDecreased(c *gc.C) {
@@ -2403,7 +2426,7 @@ func (s *ServiceSuite) TestSetCharmStorageCountMaxDecreased(c *gc.C) {
 		mysqlBaseMeta+oneRequiredStorageMeta+storageRange(1, 2),
 		mysqlBaseMeta+oneRequiredStorageMeta+storageRange(1, 1),
 	)
-	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "test" to charm "mysql": existing storage "data0" range contracted: max decreased from 2 to 1`)
+	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "test" to charm "local:quantal/quantal-mysql-3": existing storage "data0" range contracted: max decreased from 2 to 1`)
 }
 
 func (s *ServiceSuite) TestSetCharmStorageCountMaxUnboundedToBounded(c *gc.C) {
@@ -2411,7 +2434,7 @@ func (s *ServiceSuite) TestSetCharmStorageCountMaxUnboundedToBounded(c *gc.C) {
 		mysqlBaseMeta+oneRequiredStorageMeta+storageRange(1, -1),
 		mysqlBaseMeta+oneRequiredStorageMeta+storageRange(1, 999),
 	)
-	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "test" to charm "mysql": existing storage "data0" range contracted: max decreased from \<unbounded\> to 999`)
+	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "test" to charm "local:quantal/quantal-mysql-3": existing storage "data0" range contracted: max decreased from \<unbounded\> to 999`)
 }
 
 func (s *ServiceSuite) TestSetCharmStorageTypeChanged(c *gc.C) {
@@ -2419,15 +2442,15 @@ func (s *ServiceSuite) TestSetCharmStorageTypeChanged(c *gc.C) {
 		mysqlBaseMeta+oneRequiredStorageMeta,
 		mysqlBaseMeta+oneRequiredFilesystemStorageMeta,
 	)
-	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "test" to charm "mysql": existing storage "data0" type changed from "block" to "filesystem"`)
+	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "test" to charm "local:quantal/quantal-mysql-3": existing storage "data0" type changed from "block" to "filesystem"`)
 }
 
 func (s *ServiceSuite) TestSetCharmStorageSharedChanged(c *gc.C) {
 	err := s.setCharmFromMeta(c,
-		mysqlBaseMeta+oneRequiredStorageMeta,
-		mysqlBaseMeta+oneRequiredSharedStorageMeta,
+		mysqlBaseMeta+oneOptionalStorageMeta,
+		mysqlBaseMeta+oneOptionalSharedStorageMeta,
 	)
-	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "test" to charm "mysql": existing storage "data0" shared changed from false to true`)
+	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "test" to charm "local:quantal/quantal-mysql-3": existing storage "data0" shared changed from false to true`)
 }
 
 func (s *ServiceSuite) TestSetCharmStorageReadOnlyChanged(c *gc.C) {
@@ -2435,7 +2458,7 @@ func (s *ServiceSuite) TestSetCharmStorageReadOnlyChanged(c *gc.C) {
 		mysqlBaseMeta+oneRequiredStorageMeta,
 		mysqlBaseMeta+oneRequiredReadOnlyStorageMeta,
 	)
-	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "test" to charm "mysql": existing storage "data0" read-only changed from false to true`)
+	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "test" to charm "local:quantal/quantal-mysql-3": existing storage "data0" read-only changed from false to true`)
 }
 
 func (s *ServiceSuite) TestSetCharmStorageLocationChanged(c *gc.C) {
@@ -2443,7 +2466,7 @@ func (s *ServiceSuite) TestSetCharmStorageLocationChanged(c *gc.C) {
 		mysqlBaseMeta+oneRequiredFilesystemStorageMeta,
 		mysqlBaseMeta+oneRequiredLocationStorageMeta,
 	)
-	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "test" to charm "mysql": existing storage "data0" location changed from "" to "/srv"`)
+	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "test" to charm "local:quantal/quantal-mysql-3": existing storage "data0" location changed from "" to "/srv"`)
 }
 
 func (s *ServiceSuite) TestSetCharmStorageWithLocationSingletonToMultipleAdded(c *gc.C) {
@@ -2451,7 +2474,7 @@ func (s *ServiceSuite) TestSetCharmStorageWithLocationSingletonToMultipleAdded(c
 		mysqlBaseMeta+oneRequiredLocationStorageMeta,
 		mysqlBaseMeta+oneMultipleLocationStorageMeta,
 	)
-	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "test" to charm "mysql": existing storage "data0" with location changed from singleton to multiple`)
+	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "test" to charm "local:quantal/quantal-mysql-3": existing storage "data0" with location changed from singleton to multiple`)
 }
 
 func (s *ServiceSuite) assertServiceRemovedWithItsBindings(c *gc.C, service *state.Application) {

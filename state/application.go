@@ -324,7 +324,7 @@ func (s *Application) setExposed(exposed bool) (err error) {
 		Update: bson.D{{"$set", bson.D{{"exposed", exposed}}}},
 	}}
 	if err := s.st.runTransaction(ops); err != nil {
-		return fmt.Errorf("cannot set exposed flag for application %q to %v: %v", s, exposed, onAbort(err, errNotAlive))
+		return errors.Errorf("cannot set exposed flag for application %q to %v: %v", s, exposed, onAbort(err, errNotAlive))
 	}
 	s.doc.Exposed = exposed
 	return nil
@@ -408,7 +408,7 @@ func (s *Application) Endpoint(relationName string) (Endpoint, error) {
 			return ep, nil
 		}
 	}
-	return Endpoint{}, fmt.Errorf("application %q has no %q relation", s, relationName)
+	return Endpoint{}, errors.Errorf("application %q has no %q relation", s, relationName)
 }
 
 // extraPeerRelations returns only the peer relations in newMeta not
@@ -440,7 +440,7 @@ func (s *Application) checkRelationsOps(ch *Charm, relations []*Relation) ([]txn
 		if ep, err := rel.Endpoint(s.doc.Name); err != nil {
 			return nil, err
 		} else if !ep.ImplementedBy(ch) {
-			return nil, fmt.Errorf("cannot upgrade application %q to charm %q: would break relation %q", s, ch, rel)
+			return nil, errors.Errorf("would break relation %q", rel)
 		}
 		asserts = append(asserts, txn.Op{
 			C:      relationsC,
@@ -451,9 +451,7 @@ func (s *Application) checkRelationsOps(ch *Charm, relations []*Relation) ([]txn
 	return asserts, nil
 }
 
-func (s *Application) checkStorageUpgrade(newMeta, oldMeta *charm.Meta, units []*Unit) (_ []txn.Op, err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot upgrade application %q to charm %q", s, newMeta.Name)
-
+func (a *Application) checkStorageUpgrade(newMeta, oldMeta *charm.Meta, units []*Unit) (_ []txn.Op, err error) {
 	// Make sure no storage instances are added or removed.
 	var ops []txn.Op
 	for name, oldStorageMeta := range oldMeta.Storage {
@@ -467,7 +465,7 @@ func (s *Application) checkStorageUpgrade(newMeta, oldMeta *charm.Meta, units []
 		// are no instances of the store, it can safely be
 		// removed.
 		if oldStorageMeta.Shared {
-			op, n, err := s.st.countEntityStorageInstances(s.Tag(), name)
+			op, n, err := a.st.countEntityStorageInstances(a.Tag(), name)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -477,7 +475,7 @@ func (s *Application) checkStorageUpgrade(newMeta, oldMeta *charm.Meta, units []
 			ops = append(ops, op)
 		} else {
 			for _, u := range units {
-				op, n, err := s.st.countEntityStorageInstances(u.Tag(), name)
+				op, n, err := a.st.countEntityStorageInstances(u.Tag(), name)
 				if err != nil {
 					return nil, errors.Trace(err)
 				}
@@ -494,15 +492,6 @@ func (s *Application) checkStorageUpgrade(newMeta, oldMeta *charm.Meta, units []
 	for name, newStorageMeta := range newMeta.Storage {
 		oldStorageMeta, ok := oldMeta.Storage[name]
 		if !ok {
-			if newStorageMeta.CountMin > 0 {
-				return nil, errors.Errorf("required storage %q added", name)
-			}
-			// New storage is fine as long as it is not required.
-			//
-			// TODO(axw) introduce a way of adding storage at
-			// upgrade time. We should also look at supplying
-			// a way of adding/changing other things during
-			// upgrade, e.g. changing application config.
 			continue
 		}
 		if newStorageMeta.Type != oldStorageMeta.Type {
@@ -527,12 +516,6 @@ func (s *Application) checkStorageUpgrade(newMeta, oldMeta *charm.Meta, units []
 			return nil, errors.Errorf(
 				"existing storage %q location changed from %q to %q",
 				name, oldStorageMeta.Location, newStorageMeta.Location,
-			)
-		}
-		if newStorageMeta.CountMin > oldStorageMeta.CountMin {
-			return nil, errors.Errorf(
-				"existing storage %q range contracted: min increased from %d to %d",
-				name, oldStorageMeta.CountMin, newStorageMeta.CountMin,
 			)
 		}
 		if less(newStorageMeta.CountMax, oldStorageMeta.CountMax) {
@@ -565,6 +548,7 @@ func (s *Application) changeCharmOps(
 	channel string,
 	forceUnits bool,
 	resourceIDs map[string]string,
+	updatedStorageConstraints map[string]StorageConstraints,
 ) ([]txn.Op, error) {
 	// Build the new application config from what can be used of the old one.
 	var newSettings charm.Settings
@@ -595,42 +579,6 @@ func (s *Application) changeCharmOps(
 		}
 	}
 
-	// Create or replace storage constraints.
-	var storageConstraintsOp txn.Op
-	oldStorageConstraints, err := s.StorageConstraints()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	newStorageConstraints := oldStorageConstraints
-	newStorageConstraintsKey := applicationStorageConstraintsKey(s.doc.Name, ch.URL())
-	if _, err := readStorageConstraints(s.st, newStorageConstraintsKey); errors.IsNotFound(err) {
-		storageConstraintsOp = createStorageConstraintsOp(
-			newStorageConstraintsKey, newStorageConstraints,
-		)
-	} else if err != nil {
-		return nil, errors.Trace(err)
-	} else {
-		storageConstraintsOp = replaceStorageConstraintsOp(
-			newStorageConstraintsKey, newStorageConstraints,
-		)
-	}
-
-	// Add or create a reference to the new charm, settings,
-	// and storage constraints docs.
-	incOps, err := appCharmIncRefOps(s.st, s.doc.Name, ch.URL(), true)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	var decOps []txn.Op
-	// Drop the references to the old settings, storage constraints,
-	// and charm docs (if the refs actually exist yet).
-	if oldSettings != nil {
-		decOps, err = appCharmDecRefOps(s.st, s.doc.Name, s.doc.CharmURL) // current charm
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
-
 	// Make sure no units are added or removed while the upgrade
 	// transaction is being executed. This allows us to make
 	// changes to units during the upgrade, e.g. add storage
@@ -653,6 +601,79 @@ func (s *Application) changeCharmOps(
 		Id:     s.doc.DocID,
 		Assert: bson.D{{"unitcount", len(units)}},
 	})
+
+	// Check storage to ensure no referenced storage is removed, or changed
+	// in an incompatible way. We do this before computing the new storage
+	// constraints, as incompatible charm changes will otherwise yield
+	// confusing error messages that would suggest the user has supplied
+	// invalid constraints.
+	oldCharm, _, err := s.Charm()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	oldMeta := oldCharm.Meta()
+	checkStorageOps, err := s.checkStorageUpgrade(ch.Meta(), oldMeta, units)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// Create or replace storage constraints. We take the existing storage
+	// constraints, remove any keys that are no longer referenced by the
+	// charm, and update the constraints that the user has specified.
+	var storageConstraintsOp txn.Op
+	oldStorageConstraints, err := s.StorageConstraints()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	newStorageConstraints := oldStorageConstraints
+	for name, cons := range updatedStorageConstraints {
+		newStorageConstraints[name] = cons
+	}
+	for name := range newStorageConstraints {
+		if _, ok := ch.Meta().Storage[name]; !ok {
+			delete(newStorageConstraints, name)
+		}
+	}
+	if err := addDefaultStorageConstraints(s.st, newStorageConstraints, ch.Meta()); err != nil {
+		return nil, errors.Annotate(err, "adding default storage constraints")
+	}
+	if err := validateStorageConstraints(s.st, newStorageConstraints, ch.Meta()); err != nil {
+		return nil, errors.Annotate(err, "validating storage constraints")
+	}
+	newStorageConstraintsKey := applicationStorageConstraintsKey(s.doc.Name, ch.URL())
+	if _, err := readStorageConstraints(s.st, newStorageConstraintsKey); errors.IsNotFound(err) {
+		storageConstraintsOp = createStorageConstraintsOp(
+			newStorageConstraintsKey, newStorageConstraints,
+		)
+	} else if err != nil {
+		return nil, errors.Trace(err)
+	} else {
+		storageConstraintsOp = replaceStorageConstraintsOp(
+			newStorageConstraintsKey, newStorageConstraints,
+		)
+	}
+
+	// Upgrade charm storage.
+	upgradeStorageOps, err := s.upgradeStorageOps(ch.Meta(), oldMeta, units, newStorageConstraints)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// Add or create a reference to the new charm, settings,
+	// and storage constraints docs.
+	incOps, err := appCharmIncRefOps(s.st, s.doc.Name, ch.URL(), true)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	var decOps []txn.Op
+	// Drop the references to the old settings, storage constraints,
+	// and charm docs (if the refs actually exist yet).
+	if oldSettings != nil {
+		decOps, err = appCharmDecRefOps(s.st, s.doc.Name, s.doc.CharmURL) // current charm
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
 
 	// Build the transaction.
 	var ops []txn.Op
@@ -678,6 +699,8 @@ func (s *Application) changeCharmOps(
 			}}},
 		},
 	}...)
+	ops = append(ops, checkStorageOps...)
+	ops = append(ops, upgradeStorageOps...)
 
 	ops = append(ops, incCharmModifiedVersionOps(s.doc.DocID)...)
 
@@ -734,32 +757,37 @@ func (s *Application) changeCharmOps(
 		return nil, errors.Trace(err)
 	}
 
-	// Upgrade charm storage.
-	storageOps, err := s.upgradeStorageOps(ch.Meta(), units, newStorageConstraints)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	ops = append(ops, storageOps...)
-
 	// And finally, decrement the old charm and settings.
 	return append(ops, decOps...), nil
 }
 
 func (a *Application) upgradeStorageOps(
-	meta *charm.Meta,
+	meta, oldMeta *charm.Meta,
 	units []*Unit,
 	allStorageCons map[string]StorageConstraints,
-) ([]txn.Op, error) {
-	// Check storage to ensure no referenced storage is removed, or changed
-	// in an incompatible way.
-	oldCharm, _, err := a.Charm()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	oldMeta := oldCharm.Meta()
-	ops, err := a.checkStorageUpgrade(meta, oldMeta, units)
-	if err != nil {
-		return nil, errors.Trace(err)
+) (_ []txn.Op, err error) {
+	// For each store, ensure that every unit has the minimum requirements.
+	// If a unit has an existing store, but its minimum count has been
+	// increased, we only add the shortfall; we do not necessarily add as
+	// many instances as are specified in the storage constraints.
+	var ops []txn.Op
+	for name, cons := range allStorageCons {
+		for _, u := range units {
+			countMin := meta.Storage[name].CountMin
+			if _, ok := oldMeta.Storage[name]; !ok {
+				// The store did not exist previously, so we
+				// create the full amount specified in the
+				// cosntraints.
+				countMin = int(cons.Count)
+			}
+			unitOps, err := a.st.addUnitStorageOps(
+				meta, u, name, cons, countMin,
+			)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			ops = append(ops, unitOps...)
+		}
 	}
 	return ops, nil
 }
@@ -818,33 +846,28 @@ type SetCharmConfig struct {
 	// Any existing storage instances for the named stores will be
 	// unaffected; the storage constraints will only be used for
 	// provisioning new storage instances.
-	//
-	// TODO(axw) support this in Application.SetCharm. At the moment, if
-	// this is set, a "not supported" error will be returned.
 	StorageConstraints map[string]StorageConstraints
 }
 
 // SetCharm changes the charm for the application.
-func (s *Application) SetCharm(cfg SetCharmConfig) error {
+func (s *Application) SetCharm(cfg SetCharmConfig) (err error) {
+	defer errors.DeferredAnnotatef(
+		&err, "cannot upgrade application %q to charm %q", s, cfg.Charm,
+	)
 	if cfg.Charm.Meta().Subordinate != s.doc.Subordinate {
-		return errors.Errorf("cannot change a service's subordinacy")
+		return errors.Errorf("cannot change an application's subordinacy")
 	}
 	if len(cfg.ConfigSettings) > 0 {
 		// TODO(axw) support updating the application's charm config
 		// at the same time as upgrading the charm.
 		return errors.NotSupportedf("updating config at upgrade-charm time")
 	}
-	if len(cfg.StorageConstraints) > 0 {
-		// TODO(axw) support updating the application's storage
-		// constraints at the same time as updating the charm.
-		return errors.NotSupportedf("updating storage constraints at upgrade-charm time")
-	}
 	// For old style charms written for only one series, we still retain
 	// this check. Newer charms written for multi-series have a URL
 	// with series = "".
 	if cfg.Charm.URL().Series != "" {
 		if cfg.Charm.URL().Series != s.doc.Series {
-			return errors.Errorf("cannot change a service's series")
+			return errors.Errorf("cannot change an application's series")
 		}
 	} else if !cfg.ForceSeries {
 		supported := false
@@ -859,7 +882,7 @@ func (s *Application) SetCharm(cfg SetCharmConfig) error {
 			if len(cfg.Charm.Meta().Series) > 0 {
 				supportedSeries = strings.Join(cfg.Charm.Meta().Series, ", ")
 			}
-			return errors.Errorf("cannot upgrade charm, only these series are supported: %v", supportedSeries)
+			return errors.Errorf("only these series are supported: %v", supportedSeries)
 		}
 	} else {
 		// Even with forceSeries=true, we do not allow a charm to be used which is for
@@ -884,7 +907,7 @@ func (s *Application) SetCharm(cfg SetCharmConfig) error {
 			}
 		}
 		if !supportedOS && len(supportedSeries) > 0 {
-			return errors.Errorf("cannot upgrade charm, OS %q not supported by charm", currentOS)
+			return errors.Errorf("OS %q not supported by charm", currentOS)
 		}
 	}
 
@@ -938,6 +961,7 @@ func (s *Application) SetCharm(cfg SetCharmConfig) error {
 				channel,
 				cfg.ForceUnits,
 				cfg.ResourceIDs,
+				cfg.StorageConstraints,
 			)
 			if err != nil {
 				return nil, errors.Trace(err)
@@ -948,14 +972,14 @@ func (s *Application) SetCharm(cfg SetCharmConfig) error {
 
 		return ops, nil
 	}
-	err := s.st.run(buildTxn)
-	if err == nil {
-		s.doc.CharmURL = cfg.Charm.URL()
-		s.doc.Channel = channel
-		s.doc.ForceCharm = cfg.ForceUnits
-		s.doc.CharmModifiedVersion = newCharmModifiedVersion
+	if err := s.st.run(buildTxn); err != nil {
+		return err
 	}
-	return err
+	s.doc.CharmURL = cfg.Charm.URL()
+	s.doc.Channel = channel
+	s.doc.ForceCharm = cfg.ForceUnits
+	s.doc.CharmModifiedVersion = newCharmModifiedVersion
+	return nil
 }
 
 // String returns the application name.
@@ -975,7 +999,7 @@ func (s *Application) Refresh() error {
 		return errors.NotFoundf("application %q", s)
 	}
 	if err != nil {
-		return fmt.Errorf("cannot refresh application %q: %v", s, err)
+		return errors.Errorf("cannot refresh application %q: %v", s, err)
 	}
 	return nil
 }
@@ -1049,9 +1073,9 @@ func (s *Application) addServiceUnitOps(args applicationAddUnitOpsArgs) (string,
 // addUnitOpsWithCons is a helper method for returning addUnitOps.
 func (s *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string, []txn.Op, error) {
 	if s.doc.Subordinate && args.principalName == "" {
-		return "", nil, fmt.Errorf("application is a subordinate")
+		return "", nil, errors.New("application is a subordinate")
 	} else if !s.doc.Subordinate && args.principalName != "" {
-		return "", nil, fmt.Errorf("application is not a subordinate")
+		return "", nil, errors.New("application is not a subordinate")
 	}
 	name, err := s.newUnitName()
 	if err != nil {
@@ -1175,9 +1199,9 @@ func (s *Application) AddUnit() (unit *Unit, err error) {
 		if alive, err := isAlive(s.st, applicationsC, s.doc.DocID); err != nil {
 			return nil, err
 		} else if !alive {
-			return nil, fmt.Errorf("application is not alive")
+			return nil, errors.New("application is not alive")
 		}
-		return nil, fmt.Errorf("inconsistent state")
+		return nil, errors.New("inconsistent state")
 	} else if err != nil {
 		return nil, err
 	}
@@ -1291,7 +1315,7 @@ func allUnits(st *State, application string) (units []*Unit, err error) {
 	docs := []unitDoc{}
 	err = unitsCollection.Find(bson.D{{"application", application}}).All(&docs)
 	if err != nil {
-		return nil, fmt.Errorf("cannot get all units from application %q: %v", application, err)
+		return nil, errors.Errorf("cannot get all units from application %q: %v", application, err)
 	}
 	for i := range docs {
 		units = append(units, newUnit(st, &docs[i]))
