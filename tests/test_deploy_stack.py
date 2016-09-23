@@ -1,11 +1,11 @@
 from argparse import (
     Namespace,
-)
+    )
 from contextlib import contextmanager
 from datetime import (
     datetime,
     timedelta,
-)
+    )
 import json
 import logging
 import os
@@ -13,13 +13,13 @@ import subprocess
 import sys
 from unittest import (
     skipIf,
-)
+    )
 
 from mock import (
     call,
     MagicMock,
     patch,
-)
+    )
 import yaml
 
 from deploy_stack import (
@@ -45,11 +45,11 @@ from deploy_stack import (
     safe_print_status,
     retain_config,
     update_env,
-)
+    )
 from fakejuju import (
     fake_juju_client,
     fake_juju_client_optional_jes,
-)
+    )
 from jujuconfig import (
     get_environments_path,
     get_jenv_path,
@@ -65,27 +65,27 @@ from jujupy import (
     KILL_CONTROLLER,
     SimpleEnvironment,
     Status,
-)
+    )
 from remote import (
     _Remote,
     remote_from_address,
     SSHRemote,
     winrm,
-)
+    )
 from tests import (
     FakeHomeTestCase,
     temp_os_env,
     use_context,
-)
+    )
 from tests.test_jujupy import (
     assert_juju_call,
     FakePopen,
     observable_temp_file,
-)
+    )
 from utility import (
     LoggedException,
     temp_dir,
-)
+    )
 
 
 def make_logs(log_dir):
@@ -1646,6 +1646,36 @@ class TestBootstrapManager(FakeHomeTestCase):
                                    region=None)
         wfp_mock.assert_called_once_with(
             'bootstrap.example.org', 22, timeout=120)
+
+    @contextmanager
+    def booted_to_bootstrap(self, bs_manager):
+        """Preform patches to focus on the call to bootstrap."""
+        with patch.object(bs_manager, 'dump_all_logs'):
+            with patch.object(bs_manager, 'runtime_context'):
+                with patch.object(bs_manager.client, 'juju'):
+                    with patch.object(bs_manager.client, 'bootstrap') as mock:
+                        yield mock
+
+    def test_booted_context_kwargs(self):
+        client = fake_juju_client()
+        with temp_dir() as root:
+            log_dir = os.path.join(root, 'log-dir')
+            os.mkdir(log_dir)
+            bs_manager = BootstrapManager(
+                'foobar', client, client,
+                None, [], None, None, None, None, log_dir, False,
+                True, True)
+            juju_home = os.path.join(root, 'juju-home')
+            os.mkdir(juju_home)
+            client.env.juju_home = juju_home
+            with self.booted_to_bootstrap(bs_manager) as bootstrap_mock:
+                with bs_manager.booted_context(False, to='test'):
+                    bootstrap_mock.assert_called_once_with(
+                        upload_tools=False, to='test', bootstrap_series=None)
+            with self.booted_to_bootstrap(bs_manager) as bootstrap_mock:
+                with bs_manager.existing_booted_context(False, to='test'):
+                    bootstrap_mock.assert_called_once_with(
+                        upload_tools=False, to='test', bootstrap_series=None)
 
     def test_runtime_context_teardown_ignores_soft_deadline(self):
         env = JujuData('foo', {'type': 'nonlocal'})
