@@ -114,6 +114,13 @@ func (s *BundlesDirSuite) TestGet(c *gc.C) {
 	bunsdir := filepath.Join(basedir, "random", "bundles")
 	d := charm.NewBundlesDir(bunsdir)
 
+	checkDownloadsEmpty := func() {
+		downloadDir := filepath.Join(bunsdir, "downloads")
+		files, err := ioutil.ReadDir(downloadDir)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(files, gc.HasLen, 0)
+	}
+
 	// Check it doesn't get created until it's needed.
 	_, err := os.Stat(bunsdir)
 	c.Assert(err, jc.Satisfies, os.IsNotExist)
@@ -128,11 +135,13 @@ func (s *BundlesDirSuite) TestGet(c *gc.C) {
 	_, err = d.Read(apiCharm, nil)
 	prefix := regexp.QuoteMeta(fmt.Sprintf(`failed to download charm "cs:quantal/dummy-1" from %q: `, archiveURLs))
 	c.Assert(err, gc.ErrorMatches, prefix+fmt.Sprintf(`expected sha256 %q, got ".*"`, sch.BundleSha256()))
+	checkDownloadsEmpty()
 
 	// Try to get a charm whose bundle doesn't exist.
 	gitjujutesting.Server.Responses(2, 404, nil, nil)
 	_, err = d.Read(apiCharm, nil)
 	c.Assert(err, gc.ErrorMatches, prefix+`.* 404 Not Found`)
+	checkDownloadsEmpty()
 
 	// Get a charm whose bundle exists and whose content matches.
 	gitjujutesting.Server.Response(404, nil, nil)
@@ -140,11 +149,13 @@ func (s *BundlesDirSuite) TestGet(c *gc.C) {
 	ch, err := d.Read(apiCharm, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	assertCharm(c, ch, sch)
+	checkDownloadsEmpty()
 
 	// Get the same charm again, without preparing a response from the server.
 	ch, err = d.Read(apiCharm, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	assertCharm(c, ch, sch)
+	checkDownloadsEmpty()
 
 	// Abort a download.
 	err = os.RemoveAll(bunsdir)
@@ -164,6 +175,7 @@ func (s *BundlesDirSuite) TestGet(c *gc.C) {
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for abort")
 	}
+	checkDownloadsEmpty()
 }
 
 func readHash(c *gc.C, path string) ([]byte, string) {

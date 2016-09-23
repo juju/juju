@@ -66,8 +66,17 @@ func (d *BundlesDir) download(info BundleInfo, abort <-chan struct{}) (err error
 	if err != nil {
 		return err
 	}
+	defer func() {
+		st.File.Close()
+		if err != nil {
+			name := st.File.Name()
+			if removeErr := os.Remove(name); removeErr != nil {
+				logger.Warningf("cannot remove download file for %s (%s): %v",
+					info.URL(), name, removeErr)
+			}
+		}
+	}()
 	logger.Infof("download complete")
-	defer st.File.Close()
 	actualSha256, _, err := utils.ReadSHA256(st.File)
 	if err != nil {
 		return err
