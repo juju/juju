@@ -325,7 +325,7 @@ def action_busy(client, applications):
         client.wait_for_workloads()
 
     for _ in until_timeout(MINUTE*10):
-        client.get_stats()
+        client.get_status()
         time.sleep(MINUTE)
 
 
