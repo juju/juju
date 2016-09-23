@@ -285,27 +285,11 @@ def convert_to_azure_ids(client, instance_ids):
     if isinstance(client, EnvJujuClient1X):
         # Juju 1.x reports the true vm instance-id.
         return instance_ids
-    elif not instance_ids[0].startswith('machine'):
-        log.info('Bug Lp 1586089 is fixed in {}.'.format(client.version))
-        log.info('substrate.convert_to_azure_ids can be deleted.')
-        return instance_ids
-    models = client.get_models()['models']
-    model = [m for m in models if m['name'] == client.model_name][0]
-    resource_group = 'juju-{}-model-{}'.format(
-        model['name'], model['model-uuid'])
-    config = client.env.config
-    arm_client = winazurearm.ARMClient(
-        config['subscription-id'], config['application-id'],
-        config['application-password'], config['tenant-id'])
-    arm_client.init_services()
-    resources = winazurearm.list_resources(
-        arm_client, glob=resource_group, recursive=True)
-    vm_ids = []
-    for machine_name in instance_ids:
-        rgd, vm = winazurearm.find_vm_instance(
-            resources, machine_name, resource_group)
-        vm_ids.append(vm.vm_id)
-    return vm_ids
+    else:
+        with AzureARMAccount.manager_from_config(
+                client.env.config) as substrate:
+            return substrate.convert_to_azure_ids(client, instance_ids)
+
 
 
 class AzureARMAccount:
@@ -331,6 +315,26 @@ class AzureARMAccount:
             config['application-password'], config['tenant-id'])
         arm_client.init_services()
         yield cls(arm_client)
+
+    def convert_to_azure_ids(self, client, instance_ids):
+        if not instance_ids[0].startswith('machine'):
+            log.info('Bug Lp 1586089 is fixed in {}.'.format(client.version))
+            log.info('AzureARMAccount.convert_to_azure_ids can be deleted.')
+            return instance_ids
+
+        models = client.get_models()['models']
+        model = [m for m in models if m['name'] == client.model_name][0]
+        resource_group = 'juju-{}-model-{}'.format(
+            model['name'], model['model-uuid'])
+        config = client.env.config
+        resources = winazurearm.list_resources(
+            self.arm_client, glob=resource_group, recursive=True)
+        vm_ids = []
+        for machine_name in instance_ids:
+            rgd, vm = winazurearm.find_vm_instance(
+                resources, machine_name, resource_group)
+            vm_ids.append(vm.vm_id)
+        return vm_ids
 
     def terminate_instances(self, instance_ids):
         """Terminate the specified instances."""

@@ -732,6 +732,37 @@ class TestAzureARMAccount(TestCase):
     def test_convert_to_azure_ids(self, is_mock):
         env = JujuData('controller', get_azure_config(), juju_home='data')
         client = fake_juju_client(env=env)
+
+        arm_client = ARMClient(
+            'subscription-id', 'application-id', 'application-password',
+            'tenant-id')
+        account = AzureARMAccount(arm_client)
+        group = ResourceGroup(name='juju-controller-model-bar')
+        virtual_machine = VirtualMachine('machine-0', 'abcd-1234')
+        other_machine = VirtualMachine('machine-1', 'bcde-1234')
+        fake_listed = [ResourceGroupDetails(
+            arm_client, group, vms=[virtual_machine, other_machine])]
+        models = {'models': [
+            {'name': 'controller',
+                'model-uuid': 'bar', 'controller-uuid': 'bar'},
+            {'name': 'default',
+                'model-uuid': 'baz', 'controller-uuid': 'bar'},
+            ]}
+        with patch.object(client, 'get_models', autospec=True,
+                          return_value=models) as gm_mock:
+            with patch('winazurearm.list_resources', autospec=True,
+                       return_value=fake_listed) as lr_mock:
+                ids = account.convert_to_azure_ids(client, ['machine-0'])
+        self.assertEqual(['abcd-1234'], ids)
+        gm_mock.assert_called_once_with()
+        lr_mock.assert_called_once_with(
+            arm_client, glob='juju-controller-model-bar', recursive=True)
+
+    @patch('winazurearm.ARMClient.init_services',
+           autospec=True, side_effect=fake_init_services)
+    def test_convert_to_azure_ids_function(self, is_mock):
+        env = JujuData('controller', get_azure_config(), juju_home='data')
+        client = fake_juju_client(env=env)
         arm_client = ARMClient(
             'subscription-id', 'application-id', 'application-password',
             'tenant-id')
@@ -756,7 +787,7 @@ class TestAzureARMAccount(TestCase):
         lr_mock.assert_called_once_with(
             arm_client, glob='juju-controller-model-bar', recursive=True)
 
-    def test_convert_to_azure_ids_1x_client(self):
+    def test_convert_to_azure_ids_function_1x_client(self):
         env = SimpleEnvironment('foo', config=get_azure_config())
         client = fake_juju_client(env=env, version='1.2', cls=EnvJujuClient1X)
         with patch.object(client, 'get_models') as gm_mock:
@@ -766,7 +797,9 @@ class TestAzureARMAccount(TestCase):
         self.assertEqual(0, gm_mock.call_count)
         self.assertEqual(0, lr_mock.call_count)
 
-    def test_convert_to_azure_ids_bug_1586089_fixed(self):
+    @patch('winazurearm.ARMClient.init_services',
+           autospec=True, side_effect=fake_init_services)
+    def test_convert_to_azure_ids_function_bug_1586089_fixed(self, is_mock):
         env = JujuData('controller', get_azure_config(), juju_home='data')
         client = fake_juju_client(env=env, version='2.1')
         with patch.object(client, 'get_models') as gm_mock:
