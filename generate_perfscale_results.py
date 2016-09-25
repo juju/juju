@@ -335,8 +335,8 @@ def action_busy(client, applications):
 
     for app in applications:
         client.juju('add-unit', (app, '-n', '1'))
-        client.wait_for_started()
-        client.wait_for_workloads()
+        client.wait_for_started(timeout=1200)
+        client.wait_for_workloads(timeout=1200)
 
     for _ in until_timeout(MINUTE*2):
         log.info('Checking status ping.')
