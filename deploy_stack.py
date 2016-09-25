@@ -298,9 +298,14 @@ def archive_logs(log_dir):
     """Compress log files in given log_dir using gzip."""
     log_files = []
     for r, ds, fs in os.walk(log_dir):
-        log_files.extend(os.path.join(r, f) for f in fs if f.endswith(".log"))
+        log_files.extend(os.path.join(r, f) for f in fs if is_log(f))
     if log_files:
         subprocess.check_call(['gzip', '--best', '-f'] + log_files)
+
+
+def is_log(file_name):
+    """Check to see if the given file name is the name of a log file."""
+    return file_name.endswith('.log') or file_name.endswith('syslog')
 
 
 lxc_template_glob = '/var/lib/juju/containers/juju-*-lxc-template/*.log'
@@ -544,7 +549,8 @@ class BootstrapManager:
             client = fake_juju_client(env=env)
         else:
             client = client_from_config(args.env, args.juju_bin,
-                                        debug=args.debug)
+                                        debug=args.debug,
+                                        soft_deadline=args.deadline)
         jes_enabled = client.is_jes_enabled()
         return cls(
             args.temp_env_name, client, client, args.bootstrap_host,
@@ -634,9 +640,9 @@ class BootstrapManager:
         stdout = getattr(exc, 'output', None)
         stderr = getattr(exc, 'stderr', None)
         if stdout or stderr:
-                logging.info(
-                        'Output from exception:\nstdout:\n%s\nstderr:\n%s',
-                        stdout, stderr)
+            logging.info(
+                'Output from exception:\nstdout:\n%s\nstderr:\n%s',
+                stdout, stderr)
         return LoggedException(exc)
 
     @contextmanager
@@ -922,7 +928,8 @@ def _deploy_job(args, charm_series, series):
         sys.path = [p for p in sys.path if 'OpenSSH' not in p]
     # GZ 2016-01-22: When upgrading, could make sure to tear down with the
     # newer client instead, this will be required for major version upgrades?
-    client = client_from_config(args.env, start_juju_path, args.debug)
+    client = client_from_config(args.env, start_juju_path, args.debug,
+                                soft_deadline=args.deadline)
     if args.jes and not client.is_jes_enabled():
         client.enable_jes()
     jes_enabled = client.is_jes_enabled()

@@ -4,7 +4,10 @@ from fixtures import EnvironmentVariable
 import os
 import logging
 import time
-import rrdtool
+try:
+    import rrdtool
+except ImportError:
+    rrdtool = object()
 
 log = logging.getLogger("perf_graphing")
 

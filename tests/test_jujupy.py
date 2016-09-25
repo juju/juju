@@ -163,6 +163,15 @@ class TestJuju2Backend(TestCase):
         self.assertEqual('/bin/path', backend.full_path)
         self.assertEqual('2.0', backend.version)
 
+    def test_clone_retains_soft_deadline(self):
+        soft_deadline = object()
+        backend = Juju2Backend('/bin/path', '2.0', feature_flags=set(),
+                               debug=False, soft_deadline=soft_deadline)
+        cloned = backend.clone(full_path=None, version=None, debug=None,
+                               feature_flags=None)
+        self.assertIsNot(cloned, backend)
+        self.assertIs(soft_deadline, cloned.soft_deadline)
+
     def test__check_timeouts(self):
         backend = Juju2Backend('/bin/path', '2.0', set(), debug=False,
                                soft_deadline=datetime(2015, 1, 2, 3, 4, 5))
@@ -637,6 +646,15 @@ class TestClientFromConfig(ClientTest):
                 client_from_config('foo', 'foo/bar/qux')
         self.assertEqual('/foo/bar', env.juju_home)
 
+    def test_client_from_config_deadline(self):
+        deadline = datetime(2012, 11, 10, 9, 8, 7)
+        with patch('subprocess.check_output', return_value='2.0-alpha3-a-b'):
+            with patch.object(JujuData, 'from_config',
+                              side_effect=lambda x: JujuData(x, {})):
+                client = client_from_config(
+                    'foo', 'foo/bar/qux', soft_deadline=deadline)
+        self.assertEqual(client._backend.soft_deadline, deadline)
+
 
 @contextmanager
 def client_past_deadline():
@@ -926,6 +944,19 @@ class TestEnvJujuClient(ClientTest):
                     '--upload-tools', '--constraints', 'mem=2G', 'foo',
                     'foo/baz', '--config', config_file.name,
                     '--default-model', 'foo'), include_e=False)
+
+    def test_bootstrap_credential(self):
+        env = JujuData('foo', {'type': 'foo', 'region': 'baz'})
+        client = EnvJujuClient(env, '2.0-zeta1', None)
+        with observable_temp_file() as config_file:
+            with patch.object(client, 'juju') as mock:
+                client.bootstrap(credential='credential_name')
+        mock.assert_called_with(
+            'bootstrap', (
+                '--constraints', 'mem=2G', 'foo',
+                'foo/baz', '--config', config_file.name,
+                '--default-model', 'foo', '--agent-version', '2.0',
+                '--credential', 'credential_name'), include_e=False)
 
     def test_bootstrap_args(self):
         env = JujuData('foo', {'type': 'bar', 'region': 'baz'})
@@ -1858,7 +1889,8 @@ class TestEnvJujuClient(ClientTest):
                           return_value=data) as gjo_mock:
             models = client.get_models()
         gjo_mock.assert_called_once_with(
-            'list-models', '-c', 'baz', '--format', 'yaml', include_e=False)
+            'list-models', '-c', 'baz', '--format', 'yaml',
+            include_e=False, timeout=120)
         expected_models = {
             'models': [
                 {'name': 'foo', 'model-uuid': 'aaaa', 'owner': 'admin@local'},
@@ -1969,9 +2001,8 @@ class TestEnvJujuClient(ClientTest):
             admin@local:
               display-name: admin
               access: admin
-              last-connection: just now""".format(
-                  model=controller_model_uuid,
-                  controller=controller_uuid))
+              last-connection: just now""".format(model=controller_model_uuid,
+                                                  controller=controller_uuid))
         client = EnvJujuClient(JujuData('foo'), None, None)
         with patch.object(client, 'get_juju_output') as m_get_juju_output:
             m_get_juju_output.return_value = yaml_string
@@ -2390,9 +2421,7 @@ class TestEnvJujuClient(ClientTest):
         assert_juju_call(
             self, po_mock, client, (
                 'juju', '--show-log',
-                'get-model-config',
-                '-m', 'foo:foo',
-                '--format', 'yaml'))
+                'model-config', '-m', 'foo:foo', '--format', 'yaml'))
         self.assertEqual({'bar': 'baz'}, result)
 
     def test_get_env_option(self):
@@ -2403,7 +2432,7 @@ class TestEnvJujuClient(ClientTest):
             result = client.get_env_option('tools-metadata-url')
         self.assertEqual(
             mock.call_args[0][0],
-            ('juju', '--show-log', 'get-model-config', '-m', 'foo:foo',
+            ('juju', '--show-log', 'model-config', '-m', 'foo:foo',
              'tools-metadata-url'))
         self.assertEqual('https://example.org/juju/tools', result)
 
@@ -2416,7 +2445,7 @@ class TestEnvJujuClient(ClientTest):
         environ = dict(os.environ)
         environ['JUJU_HOME'] = client.env.juju_home
         mock.assert_called_with(
-            ('juju', '--show-log', 'set-model-config', '-m', 'foo:foo',
+            ('juju', '--show-log', 'model-config', '-m', 'foo:foo',
              'tools-metadata-url=https://example.org/juju/tools'))
 
     def test_unset_env_option(self):
@@ -2427,8 +2456,8 @@ class TestEnvJujuClient(ClientTest):
         environ = dict(os.environ)
         environ['JUJU_HOME'] = client.env.juju_home
         mock.assert_called_with(
-            ('juju', '--show-log', 'unset-model-config', '-m', 'foo:foo',
-             'tools-metadata-url'))
+            ('juju', '--show-log', 'model-config', '-m', 'foo:foo',
+             '--reset', 'tools-metadata-url'))
 
     def test_set_testing_agent_metadata_url(self):
         env = JujuData(None, {'type': 'foo'})
@@ -2606,12 +2635,11 @@ class TestEnvJujuClient(ClientTest):
     def test_restore_backup(self):
         env = JujuData('qux')
         client = EnvJujuClient(env, None, '/foobar/baz')
-        with patch.object(client, 'get_juju_output') as gjo_mock:
-            result = client.restore_backup('quxx')
-        gjo_mock.assert_called_once_with('restore-backup', '-b',
-                                         '--constraints', 'mem=2G',
-                                         '--file', 'quxx')
-        self.assertIs(gjo_mock.return_value, result)
+        with patch.object(client, 'juju') as gjo_mock:
+            client.restore_backup('quxx')
+        gjo_mock.assert_called_once_with(
+            'restore-backup',
+            ('-b', '--constraints', 'mem=2G', '--file', 'quxx'))
 
     def test_restore_backup_async(self):
         env = JujuData('qux')
@@ -2882,7 +2910,7 @@ class TestEnvJujuClient(ClientTest):
         client = EnvJujuClient(JujuData('bar', {}), None, '/foo')
         with patch.object(client, 'juju') as juju_mock:
             client.set_config('foo', {'bar': 'baz'})
-        juju_mock.assert_called_once_with('set-config', ('foo', 'bar=baz'))
+        juju_mock.assert_called_once_with('config', ('foo', 'bar=baz'))
 
     def test_get_config(self):
         def output(*args, **kwargs):
@@ -2904,7 +2932,7 @@ class TestEnvJujuClient(ClientTest):
                           side_effect=output) as gjo_mock:
             results = client.get_config('foo')
         self.assertEqual(expected, results)
-        gjo_mock.assert_called_once_with('get-config', 'foo')
+        gjo_mock.assert_called_once_with('config', 'foo')
 
     def test_get_service_config(self):
         def output(*args, **kwargs):
@@ -3269,6 +3297,83 @@ class TestEnvJujuClient2B9(ClientTest):
             expected_args = _get_expected_args(permissions=permissions)
             get_output.assert_called_with(
                 'add-user', *expected_args, include_e=False)
+
+    def test_set_config(self):
+        client = EnvJujuClient2B9(JujuData('bar', {}), None, '/foo')
+        with patch.object(client, 'juju') as juju_mock:
+            client.set_config('foo', {'bar': 'baz'})
+        juju_mock.assert_called_once_with('set-config', ('foo', 'bar=baz'))
+
+    def test_get_config(self):
+        def output(*args, **kwargs):
+            return yaml.safe_dump({
+                'charm': 'foo',
+                'service': 'foo',
+                'settings': {
+                    'dir': {
+                        'default': 'true',
+                        'description': 'bla bla',
+                        'type': 'string',
+                        'value': '/tmp/charm-dir',
+                    }
+                }
+            })
+        expected = yaml.safe_load(output())
+        client = EnvJujuClient2B9(JujuData('bar', {}), None, '/foo')
+        with patch.object(client, 'get_juju_output',
+                          side_effect=output) as gjo_mock:
+            results = client.get_config('foo')
+        self.assertEqual(expected, results)
+        gjo_mock.assert_called_once_with('get-config', 'foo')
+
+    def test_get_model_config(self):
+        env = JujuData('foo', None)
+        fake_popen = FakePopen(yaml.safe_dump({'bar': 'baz'}), None, 0)
+        client = EnvJujuClient2B9(env, None, 'juju')
+        with patch('subprocess.Popen', return_value=fake_popen) as po_mock:
+            result = client.get_model_config()
+        assert_juju_call(
+            self, po_mock, client, (
+                'juju', '--show-log',
+                'get-model-config',
+                '-m', 'foo:foo',
+                '--format', 'yaml'))
+        self.assertEqual({'bar': 'baz'}, result)
+
+    def test_get_env_option(self):
+        env = JujuData('foo', None)
+        fake_popen = FakePopen('https://example.org/juju/tools', None, 0)
+        client = EnvJujuClient2B9(env, None, 'juju')
+        with patch('subprocess.Popen', return_value=fake_popen) as mock:
+            result = client.get_env_option('tools-metadata-url')
+        self.assertEqual(
+            mock.call_args[0][0],
+            ('juju', '--show-log', 'get-model-config', '-m', 'foo:foo',
+             'tools-metadata-url'))
+        self.assertEqual('https://example.org/juju/tools', result)
+
+    def test_set_env_option(self):
+        env = JujuData('foo')
+        client = EnvJujuClient2B9(env, None, 'juju')
+        with patch('subprocess.check_call') as mock:
+            client.set_env_option(
+                'tools-metadata-url', 'https://example.org/juju/tools')
+        environ = dict(os.environ)
+        environ['JUJU_HOME'] = client.env.juju_home
+        mock.assert_called_with(
+            ('juju', '--show-log', 'set-model-config', '-m', 'foo:foo',
+             'tools-metadata-url=https://example.org/juju/tools'))
+
+    def test_unset_env_option(self):
+        env = JujuData('foo')
+        client = EnvJujuClient2B9(env, None, 'juju')
+        with patch('subprocess.check_call') as mock:
+            client.unset_env_option('tools-metadata-url')
+        environ = dict(os.environ)
+        environ['JUJU_HOME'] = client.env.juju_home
+        mock.assert_called_with(
+            ('juju', '--show-log', 'unset-model-config', '-m', 'foo:foo',
+             'tools-metadata-url'))
 
 
 class TestEnvJujuClient2B7(ClientTest):
@@ -5166,7 +5271,7 @@ class TestEnvJujuClient1X(ClientTest):
                           return_value=given_output) as mock:
             output = client.ssh_keys()
         self.assertEqual(output, given_output)
-        mock.assert_called_once_with('authorized-keys', 'list')
+        mock.assert_called_once_with('authorized-keys list')
 
     def test_ssh_keys_full(self):
         client = EnvJujuClient1X(SimpleEnvironment('foo', {}), None, None)
@@ -5175,7 +5280,7 @@ class TestEnvJujuClient1X(ClientTest):
                           return_value=given_output) as mock:
             output = client.ssh_keys(full=True)
         self.assertEqual(output, given_output)
-        mock.assert_called_once_with('authorized-keys', 'list', '--full')
+        mock.assert_called_once_with('authorized-keys list', '--full')
 
     def test_add_ssh_key(self):
         client = EnvJujuClient1X(SimpleEnvironment('foo', {}), None, None)
@@ -5184,7 +5289,7 @@ class TestEnvJujuClient1X(ClientTest):
             output = client.add_ssh_key('ak', 'bk')
         self.assertEqual(output, '')
         mock.assert_called_once_with(
-            'authorized-keys', 'add', 'ak', 'bk', merge_stderr=True)
+            'authorized-keys add', 'ak', 'bk', merge_stderr=True)
 
     def test_remove_ssh_key(self):
         client = EnvJujuClient1X(SimpleEnvironment('foo', {}), None, None)
@@ -5193,7 +5298,7 @@ class TestEnvJujuClient1X(ClientTest):
             output = client.remove_ssh_key('ak', 'bk')
         self.assertEqual(output, '')
         mock.assert_called_once_with(
-            'authorized-keys', 'delete', 'ak', 'bk', merge_stderr=True)
+            'authorized-keys delete', 'ak', 'bk', merge_stderr=True)
 
     def test_import_ssh_key(self):
         client = EnvJujuClient1X(SimpleEnvironment('foo', {}), None, None)
@@ -5202,7 +5307,7 @@ class TestEnvJujuClient1X(ClientTest):
             output = client.import_ssh_key('gh:au', 'lp:bu')
         self.assertEqual(output, '')
         mock.assert_called_once_with(
-            'authorized-keys', 'import', 'gh:au', 'lp:bu', merge_stderr=True)
+            'authorized-keys import', 'gh:au', 'lp:bu', merge_stderr=True)
 
 
 class TestUniquifyLocal(TestCase):

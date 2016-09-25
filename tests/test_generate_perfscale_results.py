@@ -1,7 +1,6 @@
 """Tests for assess_perf_test_simple module."""
 
-import logging
-from mock import Mock, patch
+from mock import patch
 import StringIO
 from textwrap import dedent
 
@@ -10,7 +9,6 @@ from tests import (
     parse_error,
     TestCase,
 )
-from tests.test_jujupy import fake_juju_client
 
 
 class TestFindActualStart(TestCase):

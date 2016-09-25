@@ -15,26 +15,22 @@ from assess_user_grant_revoke import (
     assert_logout_login,
     list_users,
     User,
-)
+    )
 from deploy_stack import (
     BootstrapManager,
-)
+    )
 from utility import (
+    JujuAssertionError,
     add_basic_testing_arguments,
     configure_logging,
     temp_dir,
-)
+    )
 
 
 __metaclass__ = type
 
 
 log = logging.getLogger("assess_controller_permissions")
-
-
-# This needs refactored out to utility
-class JujuAssertionError(AssertionError):
-    """Exception for juju assertion failures."""
 
 
 def assert_add_model(user_client, permission):

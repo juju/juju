@@ -444,6 +444,8 @@ class MAASAccount:
     def _maas(self, *args):
         """Call maas api with given arguments and parse json result."""
         output = subprocess.check_output(('maas',) + args)
+        if not output:
+            return None
         return json.loads(output)
 
     def login(self):
@@ -484,6 +486,33 @@ class MAASAccount:
         ips = {k: v['ip_addresses'][0] for k, v in allocated.items()
                if v['ip_addresses']}
         return ips
+
+    def fabrics(self):
+        """Return list of all fabrics."""
+        return self._maas(self.profile, 'fabrics', 'read')
+
+    def create_fabric(self, name, class_type=None):
+        """Create a new fabric."""
+        args = [self.profile, 'fabrics', 'create', 'name=' + name]
+        if class_type is not None:
+            args.append('class_type=' + class_type)
+        return self._maas(*args)
+
+    def delete_fabric(self, fabric_id):
+        """Delete a fabric with given id."""
+        return self._maas(self.profile, 'fabric', 'delete', str(fabric_id))
+
+    def spaces(self):
+        """Return list of all spaces."""
+        return self._maas(self.profile, 'spaces', 'read')
+
+    def create_space(self, name):
+        """Create a new space with given name."""
+        return self._maas(self.profile, 'spaces', 'create', 'name=' + name)
+
+    def delete_space(self, space_id):
+        """Delete a space with given id."""
+        return self._maas(self.profile, 'space', 'delete', str(space_id))
 
 
 class MAAS1Account(MAASAccount):
