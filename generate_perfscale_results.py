@@ -17,6 +17,7 @@ from jinja2 import Template
 
 from deploy_stack import (
     BootstrapManager,
+    deploy_dummy_stack,
 )
 from logbreakdown import (
     _render_ds_string,
@@ -301,9 +302,10 @@ def assess_longrun_perf(client, test_length=600):
     run_count = 0
     for _ in until_timeout(test_length):
         # Maybe choose one of x different charms/bundles to use.
-        bundle_name = 'cs:bundle/wiki-simple-0'
-        applications = ['mysql', 'wiki']
-        new_client = action_create(client, bundle_name)
+        # bundle_name = 'cs:bundle/wiki-simple-0'
+        # applications = ['mysql', 'wiki']
+        applications = ['dummy-sink']
+        new_client = action_create(client)
         action_busy(new_client, applications)
         action_cleanup(new_client)
 
@@ -319,25 +321,16 @@ def assess_longrun_perf(client, test_length=600):
     )
 
 
-def action_create(client, bundle):
-    # Add a model
-    # Deploy something
-    # Wait for it to happen
-    # Do something else?
+def action_create(client):
     new_model = client.add_model(client.env.clone('newmodel'))
-    new_model.deploy(bundle)
-    new_model.wait_for_started()
+
+    deploy_dummy_stack(new_model, 'trusty')
     new_model.wait_for_workloads()
 
     return new_model
 
 
 def action_busy(client, applications):
-    # Check status (in loop?) <- Busy Stuff
-    # Add a unit and wait etc.
-    # Further busy stuff
-    # Remove unit
-    # Busy stuff
     client.get_status()
 
     for app in applications:
@@ -345,7 +338,6 @@ def action_busy(client, applications):
         client.wait_for_started()
         client.wait_for_workloads()
 
-    # for _ in until_timeout(MINUTE*10):
     for _ in until_timeout(MINUTE*2):
         log.info('Checking status ping.')
         client.show_status()
