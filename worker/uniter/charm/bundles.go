@@ -50,7 +50,7 @@ func (d *BundlesDir) download(info BundleInfo, abort <-chan struct{}) (err error
 		return errors.Annotatef(err, "failed to get download URLs for charm %q", info.URL())
 	}
 	defer errors.DeferredAnnotatef(&err, "failed to download charm %q from %q", info.URL(), archiveURLs)
-	dir := d.downloadsPath()
+	dir := downloadsPath(d.path)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
 	}
@@ -66,8 +66,17 @@ func (d *BundlesDir) download(info BundleInfo, abort <-chan struct{}) (err error
 	if err != nil {
 		return err
 	}
+	defer func() {
+		st.File.Close()
+		if err != nil {
+			name := st.File.Name()
+			if removeErr := os.Remove(name); removeErr != nil {
+				logger.Warningf("cannot remove download file for %s (%s): %v",
+					info.URL(), name, removeErr)
+			}
+		}
+	}()
 	logger.Infof("download complete")
-	defer st.File.Close()
 	actualSha256, _, err := utils.ReadSHA256(st.File)
 	if err != nil {
 		return err
@@ -122,8 +131,16 @@ func (d *BundlesDir) bundleURLPath(url *charm.URL) string {
 	return path.Join(d.path, charm.Quote(url.String()))
 }
 
+// ClearDownloads removes any entries in the temporary bundle download
+// directory. It is intended to be called on uniter startup.
+func ClearDownloads(bundlesDir string) error {
+	downloadDir := downloadsPath(bundlesDir)
+	err := os.RemoveAll(downloadDir)
+	return errors.Annotate(err, "unable to clear bundle downloads")
+}
+
 // downloadsPath returns the path to the directory into which charms are
 // downloaded.
-func (d *BundlesDir) downloadsPath() string {
-	return path.Join(d.path, "downloads")
+func downloadsPath(bundlesDir string) string {
+	return path.Join(bundlesDir, "downloads")
 }

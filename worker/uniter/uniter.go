@@ -236,6 +236,9 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	u.storage = storageAttachments
 	u.addCleanup(storageAttachments.Stop)
 
+	if err := charm.ClearDownloads(u.paths.State.BundlesDir); err != nil {
+		logger.Warningf(err.Error())
+	}
 	deployer, err := charm.NewDeployer(
 		u.paths.State.CharmDir,
 		u.paths.State.DeployerDir,
