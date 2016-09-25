@@ -22,6 +22,24 @@ type ModelConfigResults struct {
 	Config map[string]ConfigValue `json:"config"`
 }
 
+// HostedModelConfig contains the model config and the cloud spec
+// for the model, both things that the CLI needs to talk directly
+// with the provider. This is used to take down mis-behaving models
+// aggressively.
+type HostedModelConfig struct {
+	Name      string                 `json:"name"`
+	OwnerTag  string                 `json:"owner"`
+	Config    map[string]interface{} `json:"config,omitempty"`
+	CloudSpec *CloudSpec             `json:"cloud-spec,omitempty"`
+	Error     *Error                 `json:"error,omitempty"`
+}
+
+// HostedModelConfigResults contains an entry for each hosted model
+// in the controller.
+type HostedModelConfigResults struct {
+	Models []HostedModelConfig `json:"models"`
+}
+
 // ModelDefaultsResult contains the result of client API calls to get the
 // model default values.
 type ModelDefaultsResult struct {

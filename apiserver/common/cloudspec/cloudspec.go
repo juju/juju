@@ -66,27 +66,34 @@ func (s CloudSpecAPI) CloudSpec(args params.Entities) (params.CloudSpecResults, 
 			results.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
-		spec, err := s.getCloudSpec(tag)
-		if err != nil {
-			results.Results[i].Error = common.ServerError(err)
-			continue
-		}
-		var paramsCloudCredential *params.CloudCredential
-		if spec.Credential != nil && spec.Credential.AuthType() != "" {
-			paramsCloudCredential = &params.CloudCredential{
-				AuthType:   string(spec.Credential.AuthType()),
-				Attributes: spec.Credential.Attributes(),
-			}
-		}
-		results.Results[i].Result = &params.CloudSpec{
-			spec.Type,
-			spec.Name,
-			spec.Region,
-			spec.Endpoint,
-			spec.IdentityEndpoint,
-			spec.StorageEndpoint,
-			paramsCloudCredential,
-		}
+		results.Results[i] = s.GetCloudSpec(tag)
 	}
 	return results, nil
+}
+
+// GetCloudSpec constucts the CloudSpec for a validated and authorized model.
+func (s CloudSpecAPI) GetCloudSpec(tag names.ModelTag) params.CloudSpecResult {
+	var result params.CloudSpecResult
+	spec, err := s.getCloudSpec(tag)
+	if err != nil {
+		result.Error = common.ServerError(err)
+		return result
+	}
+	var paramsCloudCredential *params.CloudCredential
+	if spec.Credential != nil && spec.Credential.AuthType() != "" {
+		paramsCloudCredential = &params.CloudCredential{
+			AuthType:   string(spec.Credential.AuthType()),
+			Attributes: spec.Credential.Attributes(),
+		}
+	}
+	result.Result = &params.CloudSpec{
+		spec.Type,
+		spec.Name,
+		spec.Region,
+		spec.Endpoint,
+		spec.IdentityEndpoint,
+		spec.StorageEndpoint,
+		paramsCloudCredential,
+	}
+	return result
 }
