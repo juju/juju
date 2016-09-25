@@ -20,9 +20,10 @@ except ImportError:
     rrdtool = object()
 from jinja2 import Template
 
+
+from assess_recovery import deploy_stack
 from deploy_stack import (
     BootstrapManager,
-    deploy_dummy_stack,
 )
 from logbreakdown import (
     _render_ds_string,
@@ -306,9 +307,6 @@ def assess_longrun_perf(client, test_length=600):
     longrun_start = datetime.utcnow()
     run_count = 0
     for _ in until_timeout(test_length):
-        # Maybe choose one of x different charms/bundles to use.
-        # bundle_name = 'cs:bundle/wiki-simple-0'
-        # applications = ['mysql', 'wiki']
         applications = ['dummy-sink']
         new_client = action_create(client)
         action_busy(new_client, applications)
@@ -326,12 +324,9 @@ def assess_longrun_perf(client, test_length=600):
     )
 
 
-def action_create(client):
+def action_create(client, series='trusty'):
     new_model = client.add_model(client.env.clone('newmodel'))
-
-    deploy_dummy_stack(new_model, 'trusty')
-    new_model.wait_for_workloads()
-
+    deploy_stack(new_model, series)
     return new_model
 
 
