@@ -15,6 +15,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/base"
+	apicontroller "github.com/juju/juju/api/controller"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/controller"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -54,12 +55,13 @@ type baseDestroySuite struct {
 // fakeDestroyAPI mocks out the controller API
 type fakeDestroyAPI struct {
 	gitjujutesting.Stub
-	cloud      environs.CloudSpec
-	env        map[string]interface{}
-	destroyAll bool
-	blocks     []params.ModelBlockInfo
-	envStatus  map[string]base.ModelStatus
-	allModels  []base.UserModel
+	cloud        environs.CloudSpec
+	env          map[string]interface{}
+	destroyAll   bool
+	blocks       []params.ModelBlockInfo
+	envStatus    map[string]base.ModelStatus
+	allModels    []base.UserModel
+	hostedConfig []apicontroller.HostedConfig
 }
 
 func (f *fakeDestroyAPI) Close() error {
@@ -81,6 +83,14 @@ func (f *fakeDestroyAPI) ModelConfig() (map[string]interface{}, error) {
 		return nil, err
 	}
 	return f.env, nil
+}
+
+func (f *fakeDestroyAPI) HostedModelConfigs() ([]apicontroller.HostedConfig, error) {
+	f.MethodCall(f, "HostedModelConfigs")
+	if err := f.NextErr(); err != nil {
+		return nil, err
+	}
+	return f.hostedConfig, nil
 }
 
 func (f *fakeDestroyAPI) DestroyController(destroyAll bool) error {
