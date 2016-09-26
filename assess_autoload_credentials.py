@@ -225,7 +225,8 @@ def autoload_and_bootstrap(bs_manager, upload_tools, real_credentials,
                 bs_manager.client.env.load_yaml()
 
                 bs_manager.client.bootstrap(
-                    upload_tools, bootstrap_series=bs_manager.series,
+                    upload_tools=upload_tools,
+                    bootstrap_series=bs_manager.series,
                     credential=user)
                 bs_manager.client.kill_controller()
 
