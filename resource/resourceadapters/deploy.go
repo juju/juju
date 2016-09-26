@@ -16,10 +16,33 @@ import (
 	"github.com/juju/juju/resource/cmd"
 )
 
+// DeployResourcesFunc is the function type of DeployResources.
+type DeployResourcesFunc func(
+	applicationID string,
+	chID charmstore.CharmID,
+	csMac *macaroon.Macaroon,
+	filesAndRevisions map[string]string,
+	resources map[string]charmresource.Meta,
+	conn base.APICallCloser,
+) (ids map[string]string, err error)
+
 // DeployResources uploads the bytes for the given files to the server and
 // creates pending resource metadata for the all resource mentioned in the
 // metadata. It returns a map of resource name to pending resource IDs.
-func DeployResources(applicationID string, chID charmstore.CharmID, csMac *macaroon.Macaroon, filesAndRevisions map[string]string, resources map[string]charmresource.Meta, conn base.APICallCloser) (ids map[string]string, err error) {
+func DeployResources(
+	applicationID string,
+	chID charmstore.CharmID,
+	csMac *macaroon.Macaroon,
+	filesAndRevisions map[string]string,
+	resources map[string]charmresource.Meta,
+	conn base.APICallCloser,
+) (ids map[string]string, err error) {
+
+	if len(filesAndRevisions)+len(resources) == 0 {
+		// Nothing to upload.
+		return nil, nil
+	}
+
 	client, err := NewAPIClient(conn)
 	if err != nil {
 		return nil, errors.Trace(err)

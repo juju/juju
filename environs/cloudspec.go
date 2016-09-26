@@ -85,3 +85,11 @@ type RegionSpec struct {
 	// Region is the name of the cloud region.
 	Region string
 }
+
+// NewRegionSpec returns a RegionSpec ensuring neither arg is empty.
+func NewRegionSpec(cloud, region string) (*RegionSpec, error) {
+	if cloud == "" || region == "" {
+		return nil, errors.New("cloud and region are required to be non empty strings")
+	}
+	return &RegionSpec{Cloud: cloud, Region: region}, nil
+}

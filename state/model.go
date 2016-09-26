@@ -142,7 +142,7 @@ func (st *State) AllModels() ([]*Model, error) {
 	defer closer()
 
 	var modelDocs []modelDoc
-	err := models.Find(nil).All(&modelDocs)
+	err := models.Find(nil).Sort("name", "owner").All(&modelDocs)
 	if err != nil {
 		return nil, err
 	}

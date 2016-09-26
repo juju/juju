@@ -495,6 +495,8 @@ func (a *multiwatcherStore) Update(info multiwatcher.EntityInfo) {
 	a.latestRevno++
 	entry.revno = a.latestRevno
 	entry.info = info
+	// The app might have been removed and re-added.
+	entry.removed = false
 	a.list.MoveToFront(elem)
 }
 

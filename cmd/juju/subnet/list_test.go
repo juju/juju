@@ -223,7 +223,7 @@ func (s *ListSuite) TestRunWhenNoneMatchSucceeds(c *gc.C) {
 	s.api.Subnets = s.api.Subnets[0:0]
 
 	s.AssertRunSucceeds(c,
-		`no subnets found matching requested criteria\n`,
+		`No subnets found matching requested criteria.\n`,
 		"", // empty stdout.
 		"--space", "default",
 	)
@@ -237,7 +237,7 @@ func (s *ListSuite) TestRunWhenNoSubnetsExistSucceeds(c *gc.C) {
 	s.api.Subnets = s.api.Subnets[0:0]
 
 	s.AssertRunSucceeds(c,
-		`no subnets to display\n`,
+		`No subnets to display.\n`,
 		"", // empty stdout.
 	)
 

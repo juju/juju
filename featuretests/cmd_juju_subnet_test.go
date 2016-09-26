@@ -150,7 +150,7 @@ func (s *cmdSubnetSuite) TestSubnetListNoResults(c *gc.C) {
 	context := s.Run(c, expectedSuccess, "list-subnets")
 	s.AssertOutput(c, context,
 		"", // no stdout output
-		"no subnets to display\n",
+		"No subnets to display.\n",
 	)
 }
 

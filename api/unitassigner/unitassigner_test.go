@@ -115,11 +115,20 @@ type fakeWatchCaller struct {
 func (f *fakeWatchCaller) APICall(objType string, version int, id, request string, param, response interface{}) error {
 	f.Lock()
 	defer f.Unlock()
-	f.request = request
-	f.params = param
-	_, ok := response.(*params.StringsWatchResult)
-	if !ok {
-		f.c.Errorf("Expected *params.StringsWatchResult as response, but was %#v", response)
+
+	// We only care for the first request as that is all the tests
+	// assert on. The watcher (StringsWatcher) is continuously
+	// running and this function gets called repeatedly
+	// overwriting f.request leading to intermittent failures.
+	// Fixes: https://bugs.launchpad.net/juju/+bug/1606302
+
+	if f.request == "" {
+		f.request = request
+		f.params = param
+		_, ok := response.(*params.StringsWatchResult)
+		if !ok {
+			f.c.Errorf("Expected *params.StringsWatchResult as response, but was %#v", response)
+		}
 	}
 	return f.err
 }

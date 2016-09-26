@@ -99,6 +99,11 @@ func (c *ListCommand) Run(ctx *cmd.Context) error {
 		fmt.Fprintf(ctx.Stderr, "%v\n", err)
 	}
 
+	if len(payloads) == 0 {
+		ctx.Infof("No payloads to display.")
+		return nil
+	}
+
 	// Note that we do not worry about c.CompatVersion for payloads...
 	formatter := newListFormatter(payloads)
 	formatted := formatter.format()

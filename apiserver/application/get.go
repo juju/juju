@@ -15,7 +15,7 @@ func (api *API) Get(args params.ApplicationGet) (params.ApplicationGetResults, e
 	if err := api.checkCanRead(); err != nil {
 		return params.ApplicationGetResults{}, err
 	}
-	app, err := api.state.Application(args.ApplicationName)
+	app, err := api.backend.Application(args.ApplicationName)
 	if err != nil {
 		return params.ApplicationGetResults{}, err
 	}

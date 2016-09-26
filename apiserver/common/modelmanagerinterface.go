@@ -41,7 +41,7 @@ type ModelManagerBackend interface {
 	GetModel(names.ModelTag) (Model, error)
 	Model() (Model, error)
 	ModelConfigDefaultValues() (config.ModelDefaultAttributes, error)
-	UpdateModelConfigDefaultValues(update map[string]interface{}, remove []string) error
+	UpdateModelConfigDefaultValues(update map[string]interface{}, remove []string, regionSpec *environs.RegionSpec) error
 	Unit(name string) (*state.Unit, error)
 	ModelTag() names.ModelTag
 	ModelConfig() (*config.Config, error)

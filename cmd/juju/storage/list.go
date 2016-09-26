@@ -85,7 +85,8 @@ func (c *listCommand) Run(ctx *cmd.Context) (err error) {
 	if err != nil {
 		return err
 	}
-	if output == nil {
+	if output == nil && c.out.Name() == "tabular" {
+		ctx.Infof("No storage to display.")
 		return nil
 	}
 	return c.out.Write(ctx, output)
@@ -123,8 +124,7 @@ func (c *listCommand) generateListOutput(ctx *cmd.Context, api StorageListAPI) (
 }
 
 func formatListTabular(writer io.Writer, value interface{}) error {
-
-	switch value.(type) {
+	switch value := value.(type) {
 	case map[string]StorageInfo:
 		return formatStorageListTabular(writer, value)
 

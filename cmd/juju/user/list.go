@@ -131,6 +131,10 @@ func (c *listCommand) modelUsers(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
+	if len(result) == 0 {
+		ctx.Infof("No users to display.")
+		return nil
+	}
 	return c.out.Write(ctx, common.ModelUserInfoFromParams(result, c.clock.Now()))
 }
 
@@ -146,6 +150,11 @@ func (c *listCommand) controllerUsers(ctx *cmd.Context) error {
 	result, err := client.UserInfo(nil, usermanager.IncludeDisabled(c.All))
 	if err != nil {
 		return err
+	}
+
+	if len(result) == 0 {
+		ctx.Infof("No users to display.")
+		return nil
 	}
 
 	return c.out.Write(ctx, c.apiUsersToUserInfoSlice(result))

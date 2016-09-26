@@ -91,6 +91,45 @@ var StoreChangeMethodTests = []struct {
 		info:          &multiwatcher.MachineInfo{Id: "1"},
 	}},
 }, {
+	about: "mark application removed then update",
+	change: func(all *multiwatcherStore) {
+		all.Update(&multiwatcher.ApplicationInfo{ModelUUID: "uuid0", Name: "logging"})
+		all.Update(&multiwatcher.ApplicationInfo{ModelUUID: "uuid0", Name: "wordpress"})
+		StoreIncRef(all, multiwatcher.EntityId{"application", "uuid0", "logging"})
+		all.Remove(multiwatcher.EntityId{"application", "uuid0", "logging"})
+		all.Update(&multiwatcher.ApplicationInfo{
+			ModelUUID: "uuid0",
+			Name:      "wordpress",
+			Exposed:   true,
+		})
+		all.Update(&multiwatcher.ApplicationInfo{
+			ModelUUID: "uuid0",
+			Name:      "logging",
+			Exposed:   true,
+		})
+	},
+	expectRevno: 5,
+	expectContents: []entityEntry{{
+		revno:         4,
+		creationRevno: 2,
+		removed:       false,
+		refCount:      0,
+		info: &multiwatcher.ApplicationInfo{
+			ModelUUID: "uuid0",
+			Name:      "wordpress",
+			Exposed:   true,
+		}}, {
+		revno:         5,
+		creationRevno: 1,
+		removed:       false,
+		refCount:      1,
+		info: &multiwatcher.ApplicationInfo{
+			ModelUUID: "uuid0",
+			Name:      "logging",
+			Exposed:   true,
+		},
+	}},
+}, {
 	about: "mark removed on existing entry",
 	change: func(all *multiwatcherStore) {
 		all.Update(&multiwatcher.MachineInfo{ModelUUID: "uuid", Id: "0"})
@@ -701,14 +740,9 @@ func (*storeManagerSuite) TestMultiwatcherStop(c *gc.C) {
 		c.Check(sm.Stop(), gc.IsNil)
 	}()
 	w := &Multiwatcher{all: sm}
-	done := make(chan struct{})
-	go func() {
-		checkNext(c, w, nil, ErrStopped.Error())
-		done <- struct{}{}
-	}()
 	err := w.Stop()
 	c.Assert(err, jc.ErrorIsNil)
-	<-done
+	checkNext(c, w, nil, ErrStopped.Error())
 }
 
 func (*storeManagerSuite) TestMultiwatcherStopBecauseStoreManagerError(c *gc.C) {

@@ -196,7 +196,7 @@ func (c *addModelCommand) Run(ctx *cmd.Context) error {
 				return errors.Trace(err)
 			}
 		}
-		credentialTag, err = c.maybeUploadCredential(ctx, cloudClient, cloudTag, cloud, modelOwner)
+		credentialTag, err = c.maybeUploadCredential(ctx, cloudClient, cloudTag, cloudRegion, cloud, modelOwner)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -386,6 +386,7 @@ func (c *addModelCommand) maybeUploadCredential(
 	ctx *cmd.Context,
 	cloudClient CloudAPI,
 	cloudTag names.CloudTag,
+	cloudRegion string,
 	cloud jujucloud.Cloud,
 	modelOwner string,
 ) (names.CloudCredentialTag, error) {
@@ -429,7 +430,7 @@ func (c *addModelCommand) maybeUploadCredential(
 		ctx, c.ClientStore(), modelcmd.GetCredentialsParams{
 			Cloud:          cloud,
 			CloudName:      cloudTag.Id(),
-			CloudRegion:    c.CloudRegion,
+			CloudRegion:    cloudRegion,
 			CredentialName: credentialTag.Name(),
 		},
 	)

@@ -84,6 +84,10 @@ func (c *listKeysCommand) Run(context *cmd.Context) error {
 	if result.Error != nil {
 		return result.Error
 	}
+	if len(result.Result) == 0 {
+		context.Infof("No keys to display.")
+		return nil
+	}
 	fmt.Fprintf(context.Stdout, "Keys used in model: %s\n", c.ConnectionName())
 	fmt.Fprintln(context.Stdout, strings.Join(result.Result, "\n"))
 	return nil

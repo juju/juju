@@ -36,8 +36,16 @@ type DeployApplicationParams struct {
 }
 
 type ApplicationDeployer interface {
-	Model() (*state.Model, error)
 	AddApplication(state.AddApplicationArgs) (*state.Application, error)
+}
+
+type UnitAssigner interface {
+	AssignUnit(*state.Unit, state.AssignmentPolicy) error
+	AssignUnitWithPlacement(*state.Unit, *instance.Placement) error
+}
+
+type UnitAdder interface {
+	AddUnit() (*state.Unit, error)
 }
 
 // DeployApplication takes a charm and various parameters and deploys it.
@@ -104,25 +112,31 @@ func getEffectiveBindingsForCharmMeta(charmMeta *charm.Meta, givenBindings map[s
 
 // AddUnits starts n units of the given application using the specified placement
 // directives to allocate the machines.
-func AddUnits(st *state.State, svc *state.Application, n int, placement []*instance.Placement) ([]*state.Unit, error) {
+func AddUnits(
+	unitAssigner UnitAssigner,
+	unitAdder UnitAdder,
+	appName string,
+	n int,
+	placement []*instance.Placement,
+) ([]*state.Unit, error) {
 	units := make([]*state.Unit, n)
 	// Hard code for now till we implement a different approach.
 	policy := state.AssignCleanEmpty
 	// TODO what do we do if we fail half-way through this process?
 	for i := 0; i < n; i++ {
-		unit, err := svc.AddUnit()
+		unit, err := unitAdder.AddUnit()
 		if err != nil {
-			return nil, errors.Annotatef(err, "cannot add unit %d/%d to application %q", i+1, n, svc.Name())
+			return nil, errors.Annotatef(err, "cannot add unit %d/%d to application %q", i+1, n, appName)
 		}
 		// Are there still placement directives to use?
 		if i > len(placement)-1 {
-			if err := st.AssignUnit(unit, policy); err != nil {
+			if err := unitAssigner.AssignUnit(unit, policy); err != nil {
 				return nil, errors.Trace(err)
 			}
 			units[i] = unit
 			continue
 		}
-		if err := st.AssignUnitWithPlacement(unit, placement[i]); err != nil {
+		if err := unitAssigner.AssignUnitWithPlacement(unit, placement[i]); err != nil {
 			return nil, errors.Annotatef(err, "adding new machine to host unit %q", unit.Name())
 		}
 		units[i] = unit

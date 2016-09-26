@@ -276,7 +276,7 @@ func (s *clientSuite) TestOpenCharmMissing(c *gc.C) {
 
 	_, err := client.OpenCharm(curl)
 
-	c.Check(err, gc.ErrorMatches, `.*unable to retrieve and save the charm: cannot get charm from state: charm "cs:quantal/spam-3" not found`)
+	c.Check(err, gc.ErrorMatches, `.*cannot get charm from state: charm "cs:quantal/spam-3" not found`)
 }
 
 func addLocalCharm(c *gc.C, client *api.Client, name string) (*charm.URL, *charm.CharmArchive) {

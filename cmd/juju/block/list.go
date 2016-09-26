@@ -85,6 +85,8 @@ func (c *listCommand) Run(ctx *cmd.Context) (err error) {
 	return c.listForModel(ctx)
 }
 
+const noBlocks = "No commands are currently disabled."
+
 func (c *listCommand) listForModel(ctx *cmd.Context) (err error) {
 	api, err := c.apiFunc(c)
 	if err != nil {
@@ -95,6 +97,10 @@ func (c *listCommand) listForModel(ctx *cmd.Context) (err error) {
 	result, err := api.List()
 	if err != nil {
 		return errors.Trace(err)
+	}
+	if len(result) == 0 && c.out.Name() == "tabular" {
+		ctx.Infof(noBlocks)
+		return nil
 	}
 	return c.out.Write(ctx, formatBlockInfo(result))
 }
@@ -109,6 +115,10 @@ func (c *listCommand) listForController(ctx *cmd.Context) (err error) {
 	result, err := api.ListBlockedModels()
 	if err != nil {
 		return errors.Trace(err)
+	}
+	if len(result) == 0 && c.out.Name() == "tabular" {
+		ctx.Infof(noBlocks)
+		return nil
 	}
 	info, err := FormatModelBlockInfo(result)
 	if err != nil {

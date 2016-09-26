@@ -114,8 +114,8 @@ func (m *ModelManagerAPI) authCheck(user names.UserTag) error {
 	return common.ErrPerm
 }
 
-func (s *ModelManagerAPI) hasWriteAccess(modelTag names.ModelTag) (bool, error) {
-	canWrite, err := s.authorizer.HasPermission(permission.WriteAccess, modelTag)
+func (m *ModelManagerAPI) hasWriteAccess(modelTag names.ModelTag) (bool, error) {
+	canWrite, err := m.authorizer.HasPermission(permission.WriteAccess, modelTag)
 	if errors.IsNotFound(err) {
 		return false, nil
 	}
@@ -128,7 +128,7 @@ type ConfigSource interface {
 	Config() (*config.Config, error)
 }
 
-func (mm *ModelManagerAPI) newModelConfig(
+func (m *ModelManagerAPI) newModelConfig(
 	cloudSpec environs.CloudSpec,
 	args params.ModelCreateArgs,
 	source ConfigSource,
@@ -157,14 +157,14 @@ func (mm *ModelManagerAPI) newModelConfig(
 	}
 
 	regionSpec := &environs.RegionSpec{Cloud: cloudSpec.Name, Region: cloudSpec.Region}
-	if joint, err = mm.state.ComposeNewModelConfig(joint, regionSpec); err != nil {
+	if joint, err = m.state.ComposeNewModelConfig(joint, regionSpec); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	creator := modelmanager.ModelConfigCreator{
 		Provider: environs.Provider,
 		FindTools: func(n version.Number) (tools.List, error) {
-			result, err := mm.toolsFinder.FindTools(params.FindToolsParams{
+			result, err := m.toolsFinder.FindTools(params.FindToolsParams{
 				Number: n,
 			})
 			if err != nil {
@@ -178,9 +178,9 @@ func (mm *ModelManagerAPI) newModelConfig(
 
 // CreateModel creates a new model using the account and
 // model config specified in the args.
-func (mm *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.ModelInfo, error) {
+func (m *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.ModelInfo, error) {
 	result := params.ModelInfo{}
-	canAddModel, err := mm.authorizer.HasPermission(permission.AddModelAccess, mm.state.ControllerTag())
+	canAddModel, err := m.authorizer.HasPermission(permission.AddModelAccess, m.state.ControllerTag())
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -190,7 +190,7 @@ func (mm *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Mode
 
 	// Get the controller model first. We need it both for the state
 	// server owner and the ability to get the config.
-	controllerModel, err := mm.state.ControllerModel()
+	controllerModel, err := m.state.ControllerModel()
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -215,12 +215,12 @@ func (mm *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Mode
 		cloudRegionName = controllerModel.CloudRegion()
 	}
 
-	cloud, err := mm.state.Cloud(cloudTag.Id())
+	cloud, err := m.state.Cloud(cloudTag.Id())
 	if err != nil {
 		if errors.IsNotFound(err) && args.CloudTag != "" {
 			// A cloud was specified, and it was not found.
 			// Annotate the error with the supported clouds.
-			clouds, err := mm.state.Clouds()
+			clouds, err := m.state.Clouds()
 			if err != nil {
 				return result, errors.Trace(err)
 			}
@@ -268,7 +268,7 @@ func (mm *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Mode
 
 	var credential *jujucloud.Credential
 	if cloudCredentialTag != (names.CloudCredentialTag{}) {
-		credentialValue, err := mm.state.CloudCredential(cloudCredentialTag)
+		credentialValue, err := m.state.CloudCredential(cloudCredentialTag)
 		if err != nil {
 			return result, errors.Annotate(err, "getting credential")
 		}
@@ -280,12 +280,12 @@ func (mm *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Mode
 		return result, errors.Trace(err)
 	}
 
-	controllerCfg, err := mm.state.ControllerConfig()
+	controllerCfg, err := m.state.ControllerConfig()
 	if err != nil {
 		return result, errors.Trace(err)
 	}
 
-	newConfig, err := mm.newModelConfig(cloudSpec, args, controllerModel)
+	newConfig, err := m.newModelConfig(cloudSpec, args, controllerModel)
 	if err != nil {
 		return result, errors.Annotate(err, "failed to create config")
 	}
@@ -308,7 +308,7 @@ func (mm *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Mode
 	// NOTE: check the agent-version of the config, and if it is > the current
 	// version, it is not supported, also check existing tools, and if we don't
 	// have tools for that version, also die.
-	model, st, err := mm.state.NewModel(state.ModelArgs{
+	model, st, err := m.state.NewModel(state.ModelArgs{
 		CloudName:       cloudTag.Id(),
 		CloudRegion:     cloudRegionName,
 		CloudCredential: cloudCredentialTag,
@@ -321,26 +321,26 @@ func (mm *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Mode
 	}
 	defer st.Close()
 
-	return mm.getModelInfo(model.ModelTag())
+	return m.getModelInfo(model.ModelTag())
 }
 
-func (mm *ModelManagerAPI) dumpModel(args params.Entity) (map[string]interface{}, error) {
+func (m *ModelManagerAPI) dumpModel(args params.Entity) (map[string]interface{}, error) {
 	modelTag, err := names.ParseModelTag(args.Tag)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	isModelAdmin, err := mm.authorizer.HasPermission(permission.AdminAccess, modelTag)
+	isModelAdmin, err := m.authorizer.HasPermission(permission.AdminAccess, modelTag)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if !isModelAdmin && !mm.isAdmin {
+	if !isModelAdmin && !m.isAdmin {
 		return nil, common.ErrPerm
 	}
 
-	st := mm.state
+	st := m.state
 	if st.ModelTag() != modelTag {
-		st, err = mm.state.ForModel(modelTag)
+		st, err = m.state.ForModel(modelTag)
 		if err != nil {
 			if errors.IsNotFound(err) {
 				return nil, errors.Trace(common.ErrBadId)
@@ -370,23 +370,23 @@ func (mm *ModelManagerAPI) dumpModel(args params.Entity) (map[string]interface{}
 	return out.(map[string]interface{}), nil
 }
 
-func (mm *ModelManagerAPI) dumpModelDB(args params.Entity) (map[string]interface{}, error) {
+func (m *ModelManagerAPI) dumpModelDB(args params.Entity) (map[string]interface{}, error) {
 	modelTag, err := names.ParseModelTag(args.Tag)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	isModelAdmin, err := mm.authorizer.HasPermission(permission.AdminAccess, modelTag)
+	isModelAdmin, err := m.authorizer.HasPermission(permission.AdminAccess, modelTag)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if !isModelAdmin && !mm.isAdmin {
+	if !isModelAdmin && !m.isAdmin {
 		return nil, common.ErrPerm
 	}
 
-	st := mm.state
+	st := m.state
 	if st.ModelTag() != modelTag {
-		st, err = mm.state.ForModel(modelTag)
+		st, err = m.state.ForModel(modelTag)
 		if err != nil {
 			if errors.IsNotFound(err) {
 				return nil, errors.Trace(common.ErrBadId)
@@ -402,12 +402,12 @@ func (mm *ModelManagerAPI) dumpModelDB(args params.Entity) (map[string]interface
 // DumpModels will export the models into the database agnostic
 // representation. The user needs to either be a controller admin, or have
 // admin privileges on the model itself.
-func (mm *ModelManagerAPI) DumpModels(args params.Entities) params.MapResults {
+func (m *ModelManagerAPI) DumpModels(args params.Entities) params.MapResults {
 	results := params.MapResults{
 		Results: make([]params.MapResult, len(args.Entities)),
 	}
 	for i, entity := range args.Entities {
-		dumped, err := mm.dumpModel(entity)
+		dumped, err := m.dumpModel(entity)
 		if err != nil {
 			results.Results[i].Error = common.ServerError(err)
 			continue
@@ -420,12 +420,12 @@ func (mm *ModelManagerAPI) DumpModels(args params.Entities) params.MapResults {
 // DumpModelsDB will gather all documents from all model collections
 // for the specified model. The map result contains a map of collection
 // names to lists of documents represented as maps.
-func (mm *ModelManagerAPI) DumpModelsDB(args params.Entities) params.MapResults {
+func (m *ModelManagerAPI) DumpModelsDB(args params.Entities) params.MapResults {
 	results := params.MapResults{
 		Results: make([]params.MapResult, len(args.Entities)),
 	}
 	for i, entity := range args.Entities {
-		dumped, err := mm.dumpModelDB(entity)
+		dumped, err := m.dumpModelDB(entity)
 		if err != nil {
 			results.Results[i].Error = common.ServerError(err)
 			continue
@@ -439,7 +439,7 @@ func (mm *ModelManagerAPI) DumpModelsDB(args params.Entities) params.MapResults 
 // has access to in the current server.  Only that controller owner
 // can list models for any user (at this stage).  Other users
 // can only ask about their own models.
-func (mm *ModelManagerAPI) ListModels(user params.Entity) (params.UserModelList, error) {
+func (m *ModelManagerAPI) ListModels(user params.Entity) (params.UserModelList, error) {
 	result := params.UserModelList{}
 
 	userTag, err := names.ParseUserTag(user.Tag)
@@ -447,12 +447,12 @@ func (mm *ModelManagerAPI) ListModels(user params.Entity) (params.UserModelList,
 		return result, errors.Trace(err)
 	}
 
-	err = mm.authCheck(userTag)
+	err = m.authCheck(userTag)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
 
-	models, err := mm.state.ModelsForUser(userTag)
+	models, err := m.state.ModelsForUser(userTag)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -770,13 +770,13 @@ func changeModelAccess(accessor common.ModelManagerBackend, modelTag names.Model
 }
 
 // ModelDefaults returns the default config values used when creating a new model.
-func (c *ModelManagerAPI) ModelDefaults() (params.ModelDefaultsResult, error) {
+func (m *ModelManagerAPI) ModelDefaults() (params.ModelDefaultsResult, error) {
 	result := params.ModelDefaultsResult{}
-	if !c.isAdmin {
+	if !m.isAdmin {
 		return result, common.ErrPerm
 	}
 
-	values, err := c.state.ModelConfigDefaultValues()
+	values, err := m.state.ModelConfigDefaultValues()
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -798,50 +798,82 @@ func (c *ModelManagerAPI) ModelDefaults() (params.ModelDefaultsResult, error) {
 }
 
 // SetModelDefaults writes new values for the specified default model settings.
-func (c *ModelManagerAPI) SetModelDefaults(args params.SetModelDefaults) (params.ErrorResults, error) {
+func (m *ModelManagerAPI) SetModelDefaults(args params.SetModelDefaults) (params.ErrorResults, error) {
 	results := params.ErrorResults{Results: make([]params.ErrorResult, len(args.Config))}
-	if err := c.check.ChangeAllowed(); err != nil {
+	if err := m.check.ChangeAllowed(); err != nil {
 		return results, errors.Trace(err)
 	}
 	for i, arg := range args.Config {
-		// TODO(wallyworld) - use arg.Cloud and arg.CloudRegion as appropriate
 		results.Results[i].Error = common.ServerError(
-			c.setModelDefaults(arg),
+			m.setModelDefaults(arg),
 		)
 	}
 	return results, nil
 }
 
-func (c *ModelManagerAPI) setModelDefaults(args params.ModelDefaultValues) error {
-	if !c.isAdmin {
+func (m *ModelManagerAPI) setModelDefaults(args params.ModelDefaultValues) error {
+	if !m.isAdmin {
 		return common.ErrPerm
 	}
 
-	if err := c.check.ChangeAllowed(); err != nil {
+	if err := m.check.ChangeAllowed(); err != nil {
 		return errors.Trace(err)
 	}
 	// Make sure we don't allow changing agent-version.
 	if _, found := args.Config["agent-version"]; found {
 		return errors.New("agent-version cannot have a default value")
 	}
-	return c.state.UpdateModelConfigDefaultValues(args.Config, nil)
+
+	var rspec *environs.RegionSpec
+	if args.CloudRegion != "" {
+		spec, err := m.makeRegionSpec(args.CloudTag, args.CloudRegion)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		rspec = spec
+	}
+	return m.state.UpdateModelConfigDefaultValues(args.Config, nil, rspec)
 }
 
 // UnsetModelDefaults removes the specified default model settings.
-func (c *ModelManagerAPI) UnsetModelDefaults(args params.UnsetModelDefaults) (params.ErrorResults, error) {
+func (m *ModelManagerAPI) UnsetModelDefaults(args params.UnsetModelDefaults) (params.ErrorResults, error) {
 	results := params.ErrorResults{Results: make([]params.ErrorResult, len(args.Keys))}
-	if !c.isAdmin {
+	if !m.isAdmin {
 		return results, common.ErrPerm
 	}
 
-	if err := c.check.ChangeAllowed(); err != nil {
+	if err := m.check.ChangeAllowed(); err != nil {
 		return results, errors.Trace(err)
 	}
+
 	for i, arg := range args.Keys {
-		// TODO(wallyworld) - use arg.Cloud and arg.CloudRegion as appropriate
+		var rspec *environs.RegionSpec
+		if arg.CloudRegion != "" {
+			spec, err := m.makeRegionSpec(arg.CloudTag, arg.CloudRegion)
+			if err != nil {
+				results.Results[i].Error = common.ServerError(
+					errors.Trace(err))
+				continue
+			}
+			rspec = spec
+		}
 		results.Results[i].Error = common.ServerError(
-			c.state.UpdateModelConfigDefaultValues(nil, arg.Keys),
+			m.state.UpdateModelConfigDefaultValues(nil, arg.Keys, rspec),
 		)
 	}
 	return results, nil
+}
+
+// makeRegionSpec is a helper method for methods that call
+// state.UpdateModelConfigDefaultValues.
+func (m *ModelManagerAPI) makeRegionSpec(cloudTag, r string) (*environs.RegionSpec, error) {
+	cTag, err := names.ParseCloudTag(cloudTag)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	rspec, err := environs.NewRegionSpec(cTag.Id(), r)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return rspec, nil
 }

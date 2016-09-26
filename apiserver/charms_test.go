@@ -4,7 +4,6 @@
 package apiserver_test
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -400,7 +399,7 @@ func (s *charmsSuite) TestGetFailsWithInvalidCharmURL(c *gc.C) {
 	resp := s.authRequest(c, httpRequestParams{method: "GET", url: uri})
 	s.assertErrorResponse(
 		c, resp, http.StatusNotFound,
-		`unable to retrieve and save the charm: cannot get charm from state: charm "local:precise/no-such" not found`,
+		`cannot get charm from state: charm "local:precise/no-such" not found`,
 	)
 }
 
@@ -558,30 +557,20 @@ func (s *charmsSuite) TestGetReturnsManifest(c *gc.C) {
 	c.Assert(ctype, gc.Equals, params.ContentTypeJSON)
 }
 
-func (s *charmsSuite) TestGetUsesCache(c *gc.C) {
-	// Add a fake charm archive in the cache directory.
-	cacheDir := filepath.Join(s.DataDir(), "charm-get-cache", s.State.ModelUUID())
-	err := os.MkdirAll(cacheDir, 0755)
-	c.Assert(err, jc.ErrorIsNil)
+func (s *charmsSuite) TestNoTempFilesLeftBehind(c *gc.C) {
+	// Add the dummy charm.
+	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
+	s.uploadRequest(c, s.charmsURI(c, "?series=quantal"), "application/zip", ch.Path)
 
-	// Create and save a bundle in it.
-	charmDir := testcharms.Repo.ClonedDir(c.MkDir(), "dummy")
-	testPath := filepath.Join(charmDir.Path, "utils.js")
-	contents := "// blah blah"
-	err = ioutil.WriteFile(testPath, []byte(contents), 0755)
-	c.Assert(err, jc.ErrorIsNil)
-	var buffer bytes.Buffer
-	err = charmDir.ArchiveTo(&buffer)
-	c.Assert(err, jc.ErrorIsNil)
-	charmArchivePath := filepath.Join(
-		cacheDir, charm.Quote("local:trusty/django-42")+".zip")
-	err = ioutil.WriteFile(charmArchivePath, buffer.Bytes(), 0644)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Ensure the cached contents are properly retrieved.
-	uri := s.charmsURI(c, "?url=local:trusty/django-42&file=utils.js")
+	// Download it.
+	uri := s.charmsURI(c, "?url=local:quantal/dummy-1&file=*")
 	resp := s.authRequest(c, httpRequestParams{method: "GET", url: uri})
-	s.assertGetFileResponse(c, resp, contents, params.ContentTypeJS)
+	assertResponse(c, resp, http.StatusOK, "application/zip")
+
+	// Ensure the tmp directory exists but nothing is in it.
+	files, err := ioutil.ReadDir(filepath.Join(s.DataDir(), "charm-get-tmp"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(files, gc.HasLen, 0)
 }
 
 type charmsWithMacaroonsSuite struct {

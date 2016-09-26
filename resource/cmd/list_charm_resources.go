@@ -116,6 +116,12 @@ func (c *ListCharmResourcesCommand) Run(ctx *cmd.Context) error {
 	if len(resources) != 1 {
 		return errors.New("got bad data from charm store")
 	}
+	res := resources[0]
+
+	if len(res) == 0 && c.out.Name() == "tabular" {
+		ctx.Infof("No resources to display.")
+		return nil
+	}
 
 	// Note that we do not worry about c.CompatVersion
 	// for show-charm-resources...
