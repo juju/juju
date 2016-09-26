@@ -4035,7 +4035,7 @@ func (s *StateSuite) TestWatchMachineAddresses(c *gc.C) {
 }
 
 func (s *StateSuite) TestNowToTheSecond(c *gc.C) {
-	t := state.NowToTheSecond()
+	t := s.State.NowToTheSecond()
 	rounded := t.Round(time.Second)
 	c.Assert(t, gc.DeepEquals, rounded)
 }

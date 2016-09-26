@@ -188,7 +188,7 @@ func (s *MigrationImportSuite) TestModelUsers(c *gc.C) {
 	err := s.State.RemoveUserAccess(s.Owner, s.modelTag)
 	c.Assert(err, jc.ErrorIsNil)
 
-	lastConnection := state.NowToTheSecond()
+	lastConnection := s.State.NowToTheSecond()
 
 	bravo := s.newModelUser(c, "bravo@external", false, lastConnection)
 	charlie := s.newModelUser(c, "charlie@external", true, lastConnection)

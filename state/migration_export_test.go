@@ -182,7 +182,7 @@ func (s *MigrationExportSuite) TestModelInfo(c *gc.C) {
 func (s *MigrationExportSuite) TestModelUsers(c *gc.C) {
 	// Make sure we have some last connection times for the admin user,
 	// and create a few other users.
-	lastConnection := state.NowToTheSecond()
+	lastConnection := s.State.NowToTheSecond()
 	owner, err := s.State.UserAccess(s.Owner, s.State.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 	err = state.UpdateModelUserLastConnection(s.State, owner, lastConnection)

@@ -192,7 +192,7 @@ func (a *action) Begin() (Action, error) {
 			Assert: bson.D{{"status", ActionPending}},
 			Update: bson.D{{"$set", bson.D{
 				{"status", ActionRunning},
-				{"started", nowToTheSecond()},
+				{"started", a.st.NowToTheSecond()},
 			}}},
 		}})
 	if err != nil {
@@ -225,7 +225,7 @@ func (a *action) removeAndLog(finalStatus ActionStatus, results map[string]inter
 				{"status", finalStatus},
 				{"message", message},
 				{"results", results},
-				{"completed", nowToTheSecond()},
+				{"completed", a.st.NowToTheSecond()},
 			}}},
 		}, {
 			C:      actionNotificationsC,
@@ -261,7 +261,7 @@ func newActionDoc(st *State, receiverTag names.Tag, actionName string, parameter
 			Receiver:   receiverTag.Id(),
 			Name:       actionName,
 			Parameters: parameters,
-			Enqueued:   nowToTheSecond(),
+			Enqueued:   st.NowToTheSecond(),
 			Status:     ActionPending,
 		}, actionNotificationDoc{
 			DocId:     st.docID(prefix + actionId.String()),

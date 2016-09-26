@@ -72,7 +72,7 @@ func (st *State) addUser(name, displayName, password, creator string, secretKey 
 	}
 	nameToLower := strings.ToLower(name)
 
-	dateCreated := nowToTheSecond()
+	dateCreated := st.NowToTheSecond()
 	user := &User{
 		st: st,
 		doc: userDoc{
@@ -149,9 +149,8 @@ func (st *State) RemoveUser(tag names.UserTag) error {
 	return st.run(buildTxn)
 }
 
-func createInitialUserOps(controllerUUID string, user names.UserTag, password, salt string) []txn.Op {
+func createInitialUserOps(controllerUUID string, user names.UserTag, password, salt string, dateCreated time.Time) []txn.Op {
 	nameToLower := strings.ToLower(user.Name())
-	dateCreated := nowToTheSecond()
 	doc := userDoc{
 		DocID:        nameToLower,
 		Name:         user.Name(),
@@ -348,13 +347,13 @@ func (u *User) LastLogin() (time.Time, error) {
 	return lastLogin.LastLogin.UTC(), nil
 }
 
-// nowToTheSecond returns the current time in UTC to the nearest second.
-// We use this for a time source that is not more precise than we can
-// handle. When serializing time in and out of mongo, we lose enough
-// precision that it's misleading to store any more than precision to
-// the second.
-// TODO(fwereade): 2016-03-17 lp:1558657
-var nowToTheSecond = func() time.Time { return time.Now().Round(time.Second).UTC() }
+// NowToTheSecond returns the current time in UTC to the nearest second. We use
+// this for a time source that is not more precise than we can handle. When
+// serializing time in and out of mongo, we lose enough precision that it's
+// misleading to store any more than precision to the second.
+func (st *State) NowToTheSecond() time.Time {
+	return st.clock.Now().Round(time.Second).UTC()
+}
 
 // NeverLoggedInError is used to indicate that a user has never logged in.
 type NeverLoggedInError string
@@ -390,7 +389,7 @@ func (u *User) UpdateLastLogin() (err error) {
 	lastLogin := userLastLoginDoc{
 		DocID:     u.doc.DocID,
 		ModelUUID: u.st.ModelUUID(),
-		LastLogin: nowToTheSecond(),
+		LastLogin: u.st.NowToTheSecond(),
 	}
 
 	_, err = lastLoginsW.UpsertId(lastLogin.DocID, lastLogin)

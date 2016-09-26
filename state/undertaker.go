@@ -46,7 +46,7 @@ func (st *State) ProcessDyingModel() (err error) {
 			Assert: isDyingDoc,
 			Update: bson.M{"$set": bson.M{
 				"life":          Dead,
-				"time-of-death": nowToTheSecond(),
+				"time-of-death": st.NowToTheSecond(),
 			}},
 		}}
 		return ops, nil
