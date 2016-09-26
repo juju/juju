@@ -139,6 +139,25 @@ func (s *DownloadSuite) TestVerifyInvalid(c *gc.C) {
 	checkDirEmpty(c, tmp)
 }
 
+func (s *DownloadSuite) TestAbort(c *gc.C) {
+	tmp := c.MkDir()
+	gitjujutesting.Server.Response(200, nil, []byte("archive"))
+	abort := make(chan struct{})
+	close(abort)
+	dl := downloader.StartDownload(
+		downloader.Request{
+			URL:       s.URL(c, "/archive.tgz"),
+			TargetDir: tmp,
+			Abort:     abort,
+		},
+		downloader.NewHTTPBlobOpener(utils.VerifySSLHostnames),
+	)
+	filename, err := dl.Wait()
+	c.Check(filename, gc.Equals, "")
+	c.Check(err, gc.ErrorMatches, ".+ download aborted")
+	checkDirEmpty(c, tmp)
+}
+
 func assertFileContents(c *gc.C, filename, expect string) {
 	got, err := ioutil.ReadFile(filename)
 	c.Assert(err, jc.ErrorIsNil)

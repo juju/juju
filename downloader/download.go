@@ -125,19 +125,36 @@ func (dl *Download) download(req Request) (filename string, err error) {
 		}
 	}()
 
-	reader, err := dl.openBlob(req.URL)
+	blobReader, err := dl.openBlob(req.URL)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	defer reader.Close()
+	defer blobReader.Close()
 
-	// XXX this should honor the Abort channel
+	reader := &abortableReader{blobReader, req.Abort}
 	_, err = io.Copy(tempFile, reader)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
 
 	return tempFile.Name(), nil
+}
+
+// abortableReader wraps a Reader, returning an error from Read calls
+// if the abort channel provided is closed.
+type abortableReader struct {
+	r     io.Reader
+	abort <-chan struct{}
+}
+
+// Read implements io.Reader.
+func (ar *abortableReader) Read(p []byte) (int, error) {
+	select {
+	case <-ar.abort:
+		return 0, errors.New("download aborted")
+	default:
+	}
+	return ar.r.Read(p)
 }
 
 func verifyDownload(filename string, req Request) error {

@@ -136,7 +136,7 @@ func (s *BundlesDirSuite) TestGet(c *gc.C) {
 
 	ch, err = d.Read(apiCharm, abort)
 	c.Assert(ch, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`failed to download charm "cs:quantal/dummy-1" from API server: aborted`))
+	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`failed to download charm "cs:quantal/dummy-1" from API server: download aborted`))
 }
 
 func assertCharm(c *gc.C, bun charm.Bundle, sch *state.Charm) {
