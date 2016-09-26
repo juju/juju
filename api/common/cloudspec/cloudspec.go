@@ -44,6 +44,8 @@ func (api *CloudSpecAPI) CloudSpec(tag names.ModelTag) (environs.CloudSpec, erro
 	return api.MakeCloudSpec(result.Result)
 }
 
+// MakeCloudSpec creates an environs.CloudSpec from a params.CloudSpec
+// that has been returned from the apiserver.
 func (api *CloudSpecAPI) MakeCloudSpec(pSpec *params.CloudSpec) (environs.CloudSpec, error) {
 	if pSpec == nil {
 		return environs.CloudSpec{}, errors.NotValidf("nil value")

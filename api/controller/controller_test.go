@@ -126,24 +126,24 @@ func (s *Suite) TestInitiateMigrationValidationError(c *gc.C) {
 	c.Check(stub.Calls(), gc.HasLen, 0) // API call shouldn't have happened
 }
 
-func (s *Suite) TestHostedModelConfig_CallError(c *gc.C) {
+func (s *Suite) TestHostedModelConfigs_CallError(c *gc.C) {
 	apiCaller := apitesting.APICallerFunc(func(string, int, string, string, interface{}, interface{}) error {
 		return errors.New("boom")
 	})
 	client := controller.NewClient(apiCaller)
-	config, err := client.HostedModelConfig()
+	config, err := client.HostedModelConfigs()
 	c.Check(config, gc.HasLen, 0)
 	c.Check(err, gc.ErrorMatches, "boom")
 }
 
-func (s *Suite) TestHostedModelConfig_FormatResults(c *gc.C) {
+func (s *Suite) TestHostedModelConfigs_FormatResults(c *gc.C) {
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Assert(objType, gc.Equals, "Controller")
-		c.Assert(request, gc.Equals, "HostedModelConfig")
+		c.Assert(request, gc.Equals, "HostedModelConfigs")
 		c.Assert(arg, gc.IsNil)
-		out := result.(*params.HostedModelConfigResults)
+		out := result.(*params.HostedModelConfigsResults)
 		c.Assert(out, gc.NotNil)
-		*out = params.HostedModelConfigResults{
+		*out = params.HostedModelConfigsResults{
 			Models: []params.HostedModelConfig{
 				{
 					Name:     "first",
@@ -173,7 +173,7 @@ func (s *Suite) TestHostedModelConfig_FormatResults(c *gc.C) {
 		return nil
 	})
 	client := controller.NewClient(apiCaller)
-	config, err := client.HostedModelConfig()
+	config, err := client.HostedModelConfigs()
 	c.Assert(config, gc.HasLen, 3)
 	c.Assert(err, jc.ErrorIsNil)
 	first := config[0]

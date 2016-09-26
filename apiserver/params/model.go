@@ -23,7 +23,7 @@ type ModelConfigResults struct {
 }
 
 // HostedModelConfig contains the model config and the cloud spec
-// for the model, both things that the CLI needs to talk directly
+// for the model, both things that a client needs to talk directly
 // with the provider. This is used to take down mis-behaving models
 // aggressively.
 type HostedModelConfig struct {
@@ -34,9 +34,9 @@ type HostedModelConfig struct {
 	Error     *Error                 `json:"error,omitempty"`
 }
 
-// HostedModelConfigResults contains an entry for each hosted model
+// HostedModelConfigsResults contains an entry for each hosted model
 // in the controller.
-type HostedModelConfigResults struct {
+type HostedModelConfigsResults struct {
 	Models []HostedModelConfig `json:"models"`
 }
 

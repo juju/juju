@@ -88,9 +88,9 @@ type HostedConfig struct {
 
 // HostedModelsConfig returns all model settings for the
 // controller model.
-func (c *Client) HostedModelConfig() ([]HostedConfig, error) {
-	result := params.HostedModelConfigResults{}
-	err := c.facade.FacadeCall("HostedModelConfig", nil, &result)
+func (c *Client) HostedModelConfigs() ([]HostedConfig, error) {
+	result := params.HostedModelConfigsResults{}
+	err := c.facade.FacadeCall("HostedModelConfigs", nil, &result)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

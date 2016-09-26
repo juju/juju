@@ -114,7 +114,7 @@ func (s *controllerSuite) TestAllModels(c *gc.C) {
 	c.Assert(obtained, jc.DeepEquals, expected)
 }
 
-func (s *controllerSuite) TestHostedModelConfig_OnlyHostedModelsReturned(c *gc.C) {
+func (s *controllerSuite) TestHostedModelConfigs_OnlyHostedModelsReturned(c *gc.C) {
 	owner := s.Factory.MakeUser(c, nil)
 	s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "first", Owner: owner.UserTag()}).Close()
@@ -122,7 +122,7 @@ func (s *controllerSuite) TestHostedModelConfig_OnlyHostedModelsReturned(c *gc.C
 	s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "second", Owner: remoteUserTag}).Close()
 
-	results, err := s.controller.HostedModelConfig()
+	results, err := s.controller.HostedModelConfigs()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(results.Models), gc.Equals, 2)
 
@@ -158,7 +158,7 @@ func (s *controllerSuite) makeCloudSpec(c *gc.C, pSpec *params.CloudSpec) enviro
 	return spec
 }
 
-func (s *controllerSuite) TestHostedModelConfig_CanOpenEnviron(c *gc.C) {
+func (s *controllerSuite) TestHostedModelConfigs_CanOpenEnviron(c *gc.C) {
 	owner := s.Factory.MakeUser(c, nil)
 	s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "first", Owner: owner.UserTag()}).Close()
@@ -166,7 +166,7 @@ func (s *controllerSuite) TestHostedModelConfig_CanOpenEnviron(c *gc.C) {
 	s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "second", Owner: remoteUserTag}).Close()
 
-	results, err := s.controller.HostedModelConfig()
+	results, err := s.controller.HostedModelConfigs()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(results.Models), gc.Equals, 2)
 
