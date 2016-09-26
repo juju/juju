@@ -514,6 +514,21 @@ class MAASAccount:
         """Delete a space with given id."""
         return self._maas(self.profile, 'space', 'delete', str(space_id))
 
+    def create_vlan(self, fabric_id, vid, name=None):
+        """Create a new vlan on fabric with given fabric_id."""
+        args = [
+            self.profile, 'vlans', 'create', str(fabric_id),
+            "vid=" + str(vid),
+        ]
+        if name is not None:
+            args.append('name=' + name)
+        return self._maas(*args)
+
+    def delete_vlan(self, fabric_id, vid):
+        """Delete a vlan on given fabric_id with vid."""
+        return self._maas(
+            self.profile, 'vlan', 'delete', str(fabric_id), str(vid))
+
 
 class MAAS1Account(MAASAccount):
     """Represent a MAAS 1.X account."""

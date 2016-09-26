@@ -920,6 +920,33 @@ class TestMAASAccount(TestCase):
             ('maas', 'mas', 'space', 'delete', '1'))
         self.assertEqual(None, result)
 
+    def test_create_vlan(self):
+        config = get_maas_env().config
+        account = MAASAccount(
+            config['name'], config['maas-server'], config['maas-oauth'])
+        with patch('subprocess.check_output', autospec=True,
+                   return_value='{"id": 5000}') as co_mock:
+            vlan = account.create_vlan(0, 1)
+            co_mock.assert_called_once_with((
+                'maas', 'mas', 'vlans', 'create', '0', 'vid=1'))
+            self.assertEqual({'id': 5000}, vlan)
+            co_mock.reset_mock()
+            vlan = account.create_vlan(1, 2, name='a-vlan')
+            co_mock.assert_called_once_with((
+                'maas', 'mas', 'vlans', 'create', '1', 'vid=2', 'name=a-vlan'))
+            self.assertEqual({'id': 5000}, vlan)
+
+    def test_delete_vlan(self):
+        config = get_maas_env().config
+        account = MAASAccount(
+            config['name'], config['maas-server'], config['maas-oauth'])
+        with patch('subprocess.check_output', autospec=True,
+                   return_value='') as co_mock:
+            result = account.delete_vlan(0, 4096)
+        co_mock.assert_called_once_with(
+            ('maas', 'mas', 'vlan', 'delete', '0', '4096'))
+        self.assertEqual(None, result)
+
 
 class TestMAAS1Account(TestCase):
 
