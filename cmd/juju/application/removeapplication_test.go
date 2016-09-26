@@ -67,7 +67,7 @@ func (s *RemoveServiceSuite) TestSuccess(c *gc.C) {
 
 func (s *RemoveServiceSuite) TestRemoveLocalMetered(c *gc.C) {
 	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "metered")
-	deploy := NewDeployCommand()
+	deploy := NewDefaultDeployCommand()
 	_, err := testing.RunCommand(c, deploy, ch, "--series", "quantal")
 	c.Assert(err, jc.ErrorIsNil)
 	err = runRemoveService(c, "metered")

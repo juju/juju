@@ -10,21 +10,11 @@ import (
 	"strings"
 
 	"github.com/dustin/go-humanize"
-	"github.com/juju/errors"
 	"github.com/juju/juju/cmd/output"
 )
 
 // formatFilesystemListTabular writes a tabular summary of filesystem instances.
-func formatFilesystemListTabular(writer io.Writer, value interface{}) error {
-	infos, ok := value.(map[string]FilesystemInfo)
-	if !ok {
-		return errors.Errorf("expected value of type %T, got %T", infos, value)
-	}
-	formatFilesystemListTabularTyped(writer, infos)
-	return nil
-}
-
-func formatFilesystemListTabularTyped(writer io.Writer, infos map[string]FilesystemInfo) {
+func formatFilesystemListTabular(writer io.Writer, infos map[string]FilesystemInfo) error {
 	tw := output.TabWriter(writer)
 
 	print := func(values ...string) {
@@ -76,7 +66,7 @@ func formatFilesystemListTabularTyped(writer io.Writer, infos map[string]Filesys
 		)
 	}
 
-	tw.Flush()
+	return tw.Flush()
 }
 
 type filesystemAttachmentInfo struct {

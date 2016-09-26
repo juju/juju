@@ -30,42 +30,63 @@ var (
 )
 
 func init() {
-	common.RegisterStandardFacade("Application", 1, NewAPI)
-}
+	common.RegisterStandardFacade("Application", 1, newAPI)
 
-// Application defines the methods on the application API end point.
-type Application interface {
-	SetMetricCredentials(args params.ApplicationMetricCredentials) (params.ErrorResults, error)
+	// Facade version 2 adds support for the ConfigSettings
+	// and StorageConstraints fields in SetCharm.
+	common.RegisterStandardFacade("Application", 2, newAPI)
 }
 
 // API implements the application interface and is the concrete
 // implementation of the api end point.
 type API struct {
-	check      *common.BlockChecker
-	state      *state.State
+	backend    Backend
 	authorizer facade.Authorizer
+	check      BlockChecker
+
+	// TODO(axw) stateCharm only exists because I ran out
+	// of time unwinding all of the tendrils of state. We
+	// should pass a charm.Charm and charm.URL back into
+	// state wherever we pass in a state.Charm currently.
+	stateCharm func(Charm) *state.Charm
 }
 
-// NewAPI returns a new application API facade.
-func NewAPI(
+func newAPI(
 	st *state.State,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 ) (*API, error) {
+	backend := NewStateBackend(st)
+	blockChecker := common.NewBlockChecker(st)
+	stateCharm := CharmToStateCharm
+	return NewAPI(
+		backend,
+		authorizer,
+		blockChecker,
+		stateCharm,
+	)
+}
 
+// NewAPI returns a new application API facade.
+func NewAPI(
+	backend Backend,
+	authorizer facade.Authorizer,
+	blockChecker BlockChecker,
+	stateCharm func(Charm) *state.Charm,
+) (*API, error) {
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
 	}
-
 	return &API{
-		state:      st,
+		backend:    backend,
 		authorizer: authorizer,
-		check:      common.NewBlockChecker(st),
+		check:      blockChecker,
+		stateCharm: stateCharm,
 	}, nil
 }
 
 func (api *API) checkCanRead() error {
-	canRead, err := api.authorizer.HasPermission(permission.ReadAccess, api.state.ModelTag())
+	canRead, err := api.authorizer.HasPermission(permission.ReadAccess, api.backend.ModelTag())
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -76,7 +97,7 @@ func (api *API) checkCanRead() error {
 }
 
 func (api *API) checkCanWrite() error {
-	canWrite, err := api.authorizer.HasPermission(permission.WriteAccess, api.state.ModelTag())
+	canWrite, err := api.authorizer.HasPermission(permission.WriteAccess, api.backend.ModelTag())
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -98,7 +119,7 @@ func (api *API) SetMetricCredentials(args params.ApplicationMetricCredentials) (
 		return result, nil
 	}
 	for i, a := range args.Creds {
-		application, err := api.state.Application(a.ApplicationName)
+		application, err := api.backend.Application(a.ApplicationName)
 		if err != nil {
 			result.Results[i].Error = common.ServerError(err)
 			continue
@@ -124,7 +145,7 @@ func (api *API) Deploy(args params.ApplicationsDeploy) (params.ErrorResults, err
 		return result, errors.Trace(err)
 	}
 	for i, arg := range args.Applications {
-		err := deployApplication(api.state, arg)
+		err := deployApplication(api.backend, api.stateCharm, arg)
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil
@@ -133,7 +154,11 @@ func (api *API) Deploy(args params.ApplicationsDeploy) (params.ErrorResults, err
 // deployApplication fetches the charm from the charm store and deploys it.
 // The logic has been factored out into a common function which is called by
 // both the legacy API on the client facade, as well as the new application facade.
-func deployApplication(st *state.State, args params.ApplicationDeploy) error {
+func deployApplication(
+	backend Backend,
+	stateCharm func(Charm) *state.Charm,
+	args params.ApplicationDeploy,
+) error {
 	curl, err := charm.ParseURL(args.CharmUrl)
 	if err != nil {
 		return errors.Trace(err)
@@ -147,14 +172,14 @@ func deployApplication(st *state.State, args params.ApplicationDeploy) error {
 		if p.Scope != instance.MachineScope {
 			continue
 		}
-		_, err = st.Machine(p.Directive)
+		_, err = backend.Machine(p.Directive)
 		if err != nil {
 			return errors.Annotatef(err, `cannot deploy "%v" to machine %v`, args.ApplicationName, p.Directive)
 		}
 	}
 
 	// Try to find the charm URL in state first.
-	ch, err := st.Charm(curl)
+	ch, err := backend.Charm(curl)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -168,7 +193,7 @@ func deployApplication(st *state.State, args params.ApplicationDeploy) error {
 		settings, err = ch.Config().ParseSettingsYAML([]byte(args.ConfigYAML), args.ApplicationName)
 	} else if len(args.Config) > 0 {
 		// Parse config in a compatible way (see function comment).
-		settings, err = parseSettingsCompatible(ch, args.Config)
+		settings, err = parseSettingsCompatible(ch.Config(), args.Config)
 	}
 	if err != nil {
 		return errors.Trace(err)
@@ -176,11 +201,11 @@ func deployApplication(st *state.State, args params.ApplicationDeploy) error {
 
 	channel := csparams.Channel(args.Channel)
 
-	_, err = jjj.DeployApplication(st,
+	_, err = jjj.DeployApplication(backend,
 		jjj.DeployApplicationParams{
 			ApplicationName:  args.ApplicationName,
 			Series:           args.Series,
-			Charm:            ch,
+			Charm:            stateCharm(ch),
 			Channel:          channel,
 			NumUnits:         args.NumUnits,
 			ConfigSettings:   settings,
@@ -195,13 +220,13 @@ func deployApplication(st *state.State, args params.ApplicationDeploy) error {
 
 // ApplicationSetSettingsStrings updates the settings for the given application,
 // taking the configuration from a map of strings.
-func ApplicationSetSettingsStrings(application *state.Application, settings map[string]string) error {
+func ApplicationSetSettingsStrings(application Application, settings map[string]string) error {
 	ch, _, err := application.Charm()
 	if err != nil {
 		return errors.Trace(err)
 	}
 	// Parse config in a compatible way (see function comment).
-	changes, err := parseSettingsCompatible(ch, settings)
+	changes, err := parseSettingsCompatible(ch.Config(), settings)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -214,7 +239,7 @@ func ApplicationSetSettingsStrings(application *state.Application, settings map[
 // string caused it to reset to the default value. We now allow
 // empty strings as actual values, but we want to preserve the API
 // behavior.
-func parseSettingsCompatible(ch *state.Charm, settings map[string]string) (charm.Settings, error) {
+func parseSettingsCompatible(charmConfig *charm.Config, settings map[string]string) (charm.Settings, error) {
 	setSettings := map[string]string{}
 	unsetSettings := charm.Settings{}
 	// Split settings into those which set and those which unset a value.
@@ -226,12 +251,12 @@ func parseSettingsCompatible(ch *state.Charm, settings map[string]string) (charm
 		setSettings[name] = value
 	}
 	// Validate the settings.
-	changes, err := ch.Config().ParseSettingsStrings(setSettings)
+	changes, err := charmConfig.ParseSettingsStrings(setSettings)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	// Validate the unsettings and merge them into the changes.
-	unsetSettings, err = ch.Config().ValidateSettings(unsetSettings)
+	unsetSettings, err = charmConfig.ValidateSettings(unsetSettings)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -253,7 +278,7 @@ func (api *API) Update(args params.ApplicationUpdate) error {
 			return errors.Trace(err)
 		}
 	}
-	svc, err := api.state.Application(args.ApplicationName)
+	app, err := api.backend.Application(args.ApplicationName)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -261,30 +286,41 @@ func (api *API) Update(args params.ApplicationUpdate) error {
 	if args.CharmUrl != "" {
 		// For now we do not support changing the channel through Update().
 		// TODO(ericsnow) Support it?
-		channel := svc.Channel()
-		if err = api.applicationSetCharm(svc, args.CharmUrl, channel, args.ForceSeries, args.ForceCharmUrl, nil); err != nil {
+		channel := app.Channel()
+		if err = api.applicationSetCharm(
+			args.ApplicationName,
+			app,
+			args.CharmUrl,
+			channel,
+			nil, // charm settings (strings map)
+			"",  // charm settings (YAML)
+			args.ForceSeries,
+			args.ForceCharmUrl,
+			nil, // resource IDs
+			nil, // storage constraints
+		); err != nil {
 			return errors.Trace(err)
 		}
 	}
 	// Set the minimum number of units for the given application.
 	if args.MinUnits != nil {
-		if err = svc.SetMinUnits(*args.MinUnits); err != nil {
+		if err = app.SetMinUnits(*args.MinUnits); err != nil {
 			return errors.Trace(err)
 		}
 	}
 	// Set up application's settings.
 	if args.SettingsYAML != "" {
-		if err = applicationSetSettingsYAML(svc, args.SettingsYAML); err != nil {
+		if err = applicationSetSettingsYAML(args.ApplicationName, app, args.SettingsYAML); err != nil {
 			return errors.Annotate(err, "setting configuration from YAML")
 		}
 	} else if len(args.SettingsStrings) > 0 {
-		if err = ApplicationSetSettingsStrings(svc, args.SettingsStrings); err != nil {
+		if err = ApplicationSetSettingsStrings(app, args.SettingsStrings); err != nil {
 			return errors.Trace(err)
 		}
 	}
 	// Update application's constraints.
 	if args.Constraints != nil {
-		return svc.SetConstraints(*args.Constraints)
+		return app.SetConstraints(*args.Constraints)
 	}
 	return nil
 }
@@ -300,30 +336,77 @@ func (api *API) SetCharm(args params.ApplicationSetCharm) error {
 			return errors.Trace(err)
 		}
 	}
-	application, err := api.state.Application(args.ApplicationName)
+	application, err := api.backend.Application(args.ApplicationName)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	channel := csparams.Channel(args.Channel)
-	return api.applicationSetCharm(application, args.CharmUrl, channel, args.ForceSeries, args.ForceUnits, args.ResourceIDs)
+	return api.applicationSetCharm(
+		args.ApplicationName,
+		application,
+		args.CharmUrl,
+		channel,
+		args.ConfigSettings,
+		args.ConfigSettingsYAML,
+		args.ForceSeries,
+		args.ForceUnits,
+		args.ResourceIDs,
+		args.StorageConstraints,
+	)
 }
 
 // applicationSetCharm sets the charm for the given for the application.
-func (api *API) applicationSetCharm(application *state.Application, url string, channel csparams.Channel, forceSeries, forceUnits bool, resourceIDs map[string]string) error {
+func (api *API) applicationSetCharm(
+	appName string,
+	application Application,
+	url string,
+	channel csparams.Channel,
+	configSettingsStrings map[string]string,
+	configSettingsYAML string,
+	forceSeries,
+	forceUnits bool,
+	resourceIDs map[string]string,
+	storageConstraints map[string]params.StorageConstraints,
+) error {
 	curl, err := charm.ParseURL(url)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	sch, err := api.state.Charm(curl)
+	sch, err := api.backend.Charm(curl)
 	if err != nil {
 		return errors.Trace(err)
 	}
+	var settings charm.Settings
+	if configSettingsYAML != "" {
+		settings, err = sch.Config().ParseSettingsYAML([]byte(configSettingsYAML), appName)
+	} else if len(configSettingsStrings) > 0 {
+		settings, err = parseSettingsCompatible(sch.Config(), configSettingsStrings)
+	}
+	if err != nil {
+		return errors.Annotate(err, "parsing config settings")
+	}
+	var stateStorageConstraints map[string]state.StorageConstraints
+	if len(storageConstraints) > 0 {
+		stateStorageConstraints = make(map[string]state.StorageConstraints)
+		for name, cons := range storageConstraints {
+			stateCons := state.StorageConstraints{Pool: cons.Pool}
+			if cons.Size != nil {
+				stateCons.Size = *cons.Size
+			}
+			if cons.Count != nil {
+				stateCons.Count = *cons.Count
+			}
+			stateStorageConstraints[name] = stateCons
+		}
+	}
 	cfg := state.SetCharmConfig{
-		Charm:       sch,
-		Channel:     channel,
-		ForceSeries: forceSeries,
-		ForceUnits:  forceUnits,
-		ResourceIDs: resourceIDs,
+		Charm:              api.stateCharm(sch),
+		Channel:            channel,
+		ConfigSettings:     settings,
+		ForceSeries:        forceSeries,
+		ForceUnits:         forceUnits,
+		ResourceIDs:        resourceIDs,
+		StorageConstraints: stateStorageConstraints,
 	}
 	return application.SetCharm(cfg)
 }
@@ -358,14 +441,14 @@ func settingsFromGetYaml(yamlContents map[string]interface{}) (charm.Settings, e
 
 // applicationSetSettingsYAML updates the settings for the given application,
 // taking the configuration from a YAML string.
-func applicationSetSettingsYAML(application *state.Application, settings string) error {
+func applicationSetSettingsYAML(appName string, application Application, settings string) error {
 	b := []byte(settings)
 	var all map[string]interface{}
 	if err := goyaml.Unmarshal(b, &all); err != nil {
 		return errors.Annotate(err, "parsing settings data")
 	}
 	// The file is already in the right format.
-	if _, ok := all[application.Name()]; !ok {
+	if _, ok := all[appName]; !ok {
 		changes, err := settingsFromGetYaml(all)
 		if err != nil {
 			return errors.Annotate(err, "processing YAML generated by get")
@@ -378,7 +461,7 @@ func applicationSetSettingsYAML(application *state.Application, settings string)
 		return errors.Annotate(err, "obtaining charm for this application")
 	}
 
-	changes, err := ch.Config().ParseSettingsYAML(b, application.Name())
+	changes, err := ch.Config().ParseSettingsYAML(b, appName)
 	if err != nil {
 		return errors.Annotate(err, "creating config from YAML")
 	}
@@ -391,7 +474,7 @@ func (api *API) GetCharmURL(args params.ApplicationGet) (params.StringResult, er
 	if err := api.checkCanWrite(); err != nil {
 		return params.StringResult{}, errors.Trace(err)
 	}
-	application, err := api.state.Application(args.ApplicationName)
+	application, err := api.backend.Application(args.ApplicationName)
 	if err != nil {
 		return params.StringResult{}, errors.Trace(err)
 	}
@@ -409,11 +492,11 @@ func (api *API) Set(p params.ApplicationSet) error {
 	if err := api.check.ChangeAllowed(); err != nil {
 		return errors.Trace(err)
 	}
-	svc, err := api.state.Application(p.ApplicationName)
+	app, err := api.backend.Application(p.ApplicationName)
 	if err != nil {
 		return err
 	}
-	ch, _, err := svc.Charm()
+	ch, _, err := app.Charm()
 	if err != nil {
 		return err
 	}
@@ -423,7 +506,7 @@ func (api *API) Set(p params.ApplicationSet) error {
 		return err
 	}
 
-	return svc.UpdateConfigSettings(changes)
+	return app.UpdateConfigSettings(changes)
 
 }
 
@@ -435,7 +518,7 @@ func (api *API) Unset(p params.ApplicationUnset) error {
 	if err := api.check.ChangeAllowed(); err != nil {
 		return errors.Trace(err)
 	}
-	svc, err := api.state.Application(p.ApplicationName)
+	app, err := api.backend.Application(p.ApplicationName)
 	if err != nil {
 		return err
 	}
@@ -443,7 +526,7 @@ func (api *API) Unset(p params.ApplicationUnset) error {
 	for _, option := range p.Options {
 		settings[option] = nil
 	}
-	return svc.UpdateConfigSettings(settings)
+	return app.UpdateConfigSettings(settings)
 }
 
 // CharmRelations implements the server side of Application.CharmRelations.
@@ -453,7 +536,7 @@ func (api *API) CharmRelations(p params.ApplicationCharmRelations) (params.Appli
 		return results, errors.Trace(err)
 	}
 
-	application, err := api.state.Application(p.ApplicationName)
+	application, err := api.backend.Application(p.ApplicationName)
 	if err != nil {
 		return results, errors.Trace(err)
 	}
@@ -477,11 +560,11 @@ func (api *API) Expose(args params.ApplicationExpose) error {
 	if err := api.check.ChangeAllowed(); err != nil {
 		return errors.Trace(err)
 	}
-	svc, err := api.state.Application(args.ApplicationName)
+	app, err := api.backend.Application(args.ApplicationName)
 	if err != nil {
 		return err
 	}
-	return svc.SetExposed()
+	return app.SetExposed()
 }
 
 // Unexpose changes the juju-managed firewall to unexpose any ports that
@@ -493,23 +576,23 @@ func (api *API) Unexpose(args params.ApplicationUnexpose) error {
 	if err := api.check.ChangeAllowed(); err != nil {
 		return errors.Trace(err)
 	}
-	svc, err := api.state.Application(args.ApplicationName)
+	app, err := api.backend.Application(args.ApplicationName)
 	if err != nil {
 		return err
 	}
-	return svc.ClearExposed()
+	return app.ClearExposed()
 }
 
 // addApplicationUnits adds a given number of units to an application.
-func addApplicationUnits(st *state.State, args params.AddApplicationUnits) ([]*state.Unit, error) {
-	application, err := st.Application(args.ApplicationName)
+func addApplicationUnits(backend Backend, args params.AddApplicationUnits) ([]*state.Unit, error) {
+	application, err := backend.Application(args.ApplicationName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	if args.NumUnits < 1 {
 		return nil, errors.New("must add at least one unit")
 	}
-	return jjj.AddUnits(st, application, args.NumUnits, args.Placement)
+	return jjj.AddUnits(backend, application, args.ApplicationName, args.NumUnits, args.Placement)
 }
 
 // AddUnits adds a given number of units to an application.
@@ -520,7 +603,7 @@ func (api *API) AddUnits(args params.AddApplicationUnits) (params.AddApplication
 	if err := api.check.ChangeAllowed(); err != nil {
 		return params.AddApplicationUnitsResults{}, errors.Trace(err)
 	}
-	units, err := addApplicationUnits(api.state, args)
+	units, err := addApplicationUnits(api.backend, args)
 	if err != nil {
 		return params.AddApplicationUnitsResults{}, errors.Trace(err)
 	}
@@ -541,7 +624,7 @@ func (api *API) DestroyUnits(args params.DestroyApplicationUnits) error {
 	}
 	var errs []string
 	for _, name := range args.UnitNames {
-		unit, err := api.state.Unit(name)
+		unit, err := api.backend.Unit(name)
 		switch {
 		case errors.IsNotFound(err):
 			err = errors.Errorf("unit %q does not exist", name)
@@ -568,11 +651,11 @@ func (api *API) Destroy(args params.ApplicationDestroy) error {
 	if err := api.check.RemoveAllowed(); err != nil {
 		return errors.Trace(err)
 	}
-	svc, err := api.state.Application(args.ApplicationName)
+	app, err := api.backend.Application(args.ApplicationName)
 	if err != nil {
 		return err
 	}
-	return svc.Destroy()
+	return app.Destroy()
 }
 
 // GetConstraints returns the constraints for a given application.
@@ -580,11 +663,11 @@ func (api *API) GetConstraints(args params.GetApplicationConstraints) (params.Ge
 	if err := api.checkCanRead(); err != nil {
 		return params.GetConstraintsResults{}, errors.Trace(err)
 	}
-	svc, err := api.state.Application(args.ApplicationName)
+	app, err := api.backend.Application(args.ApplicationName)
 	if err != nil {
 		return params.GetConstraintsResults{}, errors.Trace(err)
 	}
-	cons, err := svc.Constraints()
+	cons, err := app.Constraints()
 	return params.GetConstraintsResults{cons}, errors.Trace(err)
 }
 
@@ -596,11 +679,11 @@ func (api *API) SetConstraints(args params.SetConstraints) error {
 	if err := api.check.ChangeAllowed(); err != nil {
 		return errors.Trace(err)
 	}
-	svc, err := api.state.Application(args.ApplicationName)
+	app, err := api.backend.Application(args.ApplicationName)
 	if err != nil {
 		return err
 	}
-	return svc.SetConstraints(args.Constraints)
+	return app.SetConstraints(args.Constraints)
 }
 
 // AddRelation adds a relation between the specified endpoints and returns the relation info.
@@ -611,11 +694,11 @@ func (api *API) AddRelation(args params.AddRelation) (params.AddRelationResults,
 	if err := api.check.ChangeAllowed(); err != nil {
 		return params.AddRelationResults{}, errors.Trace(err)
 	}
-	inEps, err := api.state.InferEndpoints(args.Endpoints...)
+	inEps, err := api.backend.InferEndpoints(args.Endpoints...)
 	if err != nil {
 		return params.AddRelationResults{}, errors.Trace(err)
 	}
-	rel, err := api.state.AddRelation(inEps...)
+	rel, err := api.backend.AddRelation(inEps...)
 	if err != nil {
 		return params.AddRelationResults{}, errors.Trace(err)
 	}
@@ -645,11 +728,11 @@ func (api *API) DestroyRelation(args params.DestroyRelation) error {
 	if err := api.check.RemoveAllowed(); err != nil {
 		return errors.Trace(err)
 	}
-	eps, err := api.state.InferEndpoints(args.Endpoints...)
+	eps, err := api.backend.InferEndpoints(args.Endpoints...)
 	if err != nil {
 		return err
 	}
-	rel, err := api.state.EndpointsRelation(eps...)
+	rel, err := api.backend.EndpointsRelation(eps...)
 	if err != nil {
 		return err
 	}

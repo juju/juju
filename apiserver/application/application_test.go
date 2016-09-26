@@ -23,6 +23,7 @@ import (
 	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/apiserver/application"
+	"github.com/juju/juju/apiserver/common"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -50,8 +51,6 @@ type serviceSuite struct {
 
 var _ = gc.Suite(&serviceSuite{})
 
-var _ application.Application = (*application.API)(nil)
-
 func (s *serviceSuite) SetUpSuite(c *gc.C) {
 	s.CharmStoreSuite.SetUpSuite(c)
 	s.JujuConnSuite.SetUpSuite(c)
@@ -75,7 +74,12 @@ func (s *serviceSuite) SetUpTest(c *gc.C) {
 		Tag: s.AdminUserTag(c),
 	}
 	var err error
-	s.applicationAPI, err = application.NewAPI(s.State, nil, s.authorizer)
+	backend := application.NewStateBackend(s.State)
+	blockChecker := common.NewBlockChecker(s.State)
+	s.applicationAPI, err = application.NewAPI(
+		backend, s.authorizer, blockChecker,
+		application.CharmToStateCharm,
+	)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -169,7 +173,7 @@ func (s *serviceSuite) TestCompatibleSettingsParsing(c *gc.C) {
 		"title":    "foobar",
 		"username": "",
 	}
-	settings, err := application.ParseSettingsCompatible(ch, options)
+	settings, err := application.ParseSettingsCompatible(ch.Config(), options)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings, gc.DeepEquals, charm.Settings{
 		"title":    "foobar",
@@ -180,7 +184,7 @@ func (s *serviceSuite) TestCompatibleSettingsParsing(c *gc.C) {
 	options = map[string]string{
 		"yummy": "didgeridoo",
 	}
-	_, err = application.ParseSettingsCompatible(ch, options)
+	_, err = application.ParseSettingsCompatible(ch.Config(), options)
 	c.Assert(err, gc.ErrorMatches, `unknown option "yummy"`)
 }
 
@@ -793,7 +797,7 @@ func (s *serviceSuite) TestServiceSetCharmLegacy(c *gc.C) {
 		CharmUrl:        curl.String(),
 		ForceSeries:     true,
 	})
-	c.Assert(err, gc.ErrorMatches, "cannot change a service's series")
+	c.Assert(err, gc.ErrorMatches, `cannot change a service's series`)
 }
 
 func (s *serviceSuite) TestServiceSetCharmUnsupportedSeries(c *gc.C) {
@@ -821,7 +825,7 @@ func (s *serviceSuite) TestServiceSetCharmUnsupportedSeries(c *gc.C) {
 		ApplicationName: "application",
 		CharmUrl:        curl.String(),
 	})
-	c.Assert(err, gc.ErrorMatches, "cannot upgrade charm, only these series are supported: trusty, wily")
+	c.Assert(err, gc.ErrorMatches, `cannot upgrade charm, only these series are supported: trusty, wily`)
 }
 
 func (s *serviceSuite) assertServiceSetCharmSeries(c *gc.C, upgradeCharm, series string) {

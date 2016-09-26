@@ -119,7 +119,7 @@ func (c *listCommand) Run(ctx *cmd.Context) (err error) {
 	}
 	imageInfo := c.imageMetadataToImageInfo(results)
 	if len(imageInfo) == 0 {
-		fmt.Fprintf(ctx.Stdout, "no matching images found\n")
+		ctx.Infof("No images to display.")
 		return nil
 	}
 	fmt.Fprintf(ctx.Stdout, "Cached images:\n")

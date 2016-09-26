@@ -795,11 +795,11 @@ func (s *ModelSuite) TestAllModels(c *gc.C) {
 		obtained = append(obtained, fmt.Sprintf("%s/%s", env.Owner().Canonical(), env.Name()))
 	}
 	expected := []string{
-		"test-admin@local/testenv",
 		"bob@remote/test",
 		"mary@remote/test",
+		"test-admin@local/testenv",
 	}
-	c.Assert(obtained, jc.SameContents, expected)
+	c.Assert(obtained, jc.DeepEquals, expected)
 }
 
 func (s *ModelSuite) TestHostedModelCount(c *gc.C) {

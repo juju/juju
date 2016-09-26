@@ -33,6 +33,7 @@ import (
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/catacomb"
+	"github.com/juju/juju/wrench"
 	"github.com/juju/version"
 )
 
@@ -465,6 +466,10 @@ func (task *provisionerTask) stopInstances(instances []instance.Instance) error 
 	if len(instances) == 0 {
 		return nil
 	}
+	if wrench.IsActive("provisioner", "stop-instances") {
+		return errors.New("wrench in the works")
+	}
+
 	ids := make([]instance.Id, len(instances))
 	for i, inst := range instances {
 		ids[i] = inst.Id()

@@ -114,8 +114,8 @@ func (s *firewallerBaseSuite) assertEnvironPorts(c *gc.C, expected []network.Por
 	}
 }
 
-func (s *firewallerBaseSuite) addUnit(c *gc.C, svc *state.Application) (*state.Unit, *state.Machine) {
-	units, err := juju.AddUnits(s.State, svc, 1, nil)
+func (s *firewallerBaseSuite) addUnit(c *gc.C, app *state.Application) (*state.Unit, *state.Machine) {
+	units, err := juju.AddUnits(s.State, app, app.Name(), 1, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	u := units[0]
 	id, err := u.AssignedMachineId()
@@ -158,8 +158,8 @@ func (s *InstanceModeSuite) TestNotExposedService(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertKillAndWait(c, fw)
 
-	svc := s.AddTestingService(c, "wordpress", s.charm)
-	u, m := s.addUnit(c, svc)
+	app := s.AddTestingService(c, "wordpress", s.charm)
+	u, m := s.addUnit(c, app)
 	inst := s.startInstance(c, m)
 
 	err = u.OpenPort("tcp", 80)
@@ -180,11 +180,11 @@ func (s *InstanceModeSuite) TestExposedService(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertKillAndWait(c, fw)
 
-	svc := s.AddTestingService(c, "wordpress", s.charm)
+	app := s.AddTestingService(c, "wordpress", s.charm)
 
-	err = svc.SetExposed()
+	err = app.SetExposed()
 	c.Assert(err, jc.ErrorIsNil)
-	u, m := s.addUnit(c, svc)
+	u, m := s.addUnit(c, app)
 	inst := s.startInstance(c, m)
 
 	err = u.OpenPorts("tcp", 80, 90)
@@ -205,23 +205,23 @@ func (s *InstanceModeSuite) TestMultipleExposedServices(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertKillAndWait(c, fw)
 
-	svc1 := s.AddTestingService(c, "wordpress", s.charm)
-	err = svc1.SetExposed()
+	app1 := s.AddTestingService(c, "wordpress", s.charm)
+	err = app1.SetExposed()
 	c.Assert(err, jc.ErrorIsNil)
 
-	u1, m1 := s.addUnit(c, svc1)
+	u1, m1 := s.addUnit(c, app1)
 	inst1 := s.startInstance(c, m1)
 	err = u1.OpenPort("tcp", 80)
 	c.Assert(err, jc.ErrorIsNil)
 	err = u1.OpenPort("tcp", 8080)
 	c.Assert(err, jc.ErrorIsNil)
 
-	svc2 := s.AddTestingService(c, "mysql", s.charm)
+	app2 := s.AddTestingService(c, "mysql", s.charm)
 	c.Assert(err, jc.ErrorIsNil)
-	err = svc2.SetExposed()
+	err = app2.SetExposed()
 	c.Assert(err, jc.ErrorIsNil)
 
-	u2, m2 := s.addUnit(c, svc2)
+	u2, m2 := s.addUnit(c, app2)
 	inst2 := s.startInstance(c, m2)
 	err = u2.OpenPort("tcp", 3306)
 	c.Assert(err, jc.ErrorIsNil)
@@ -243,15 +243,15 @@ func (s *InstanceModeSuite) TestMachineWithoutInstanceId(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertKillAndWait(c, fw)
 
-	svc := s.AddTestingService(c, "wordpress", s.charm)
-	err = svc.SetExposed()
+	app := s.AddTestingService(c, "wordpress", s.charm)
+	err = app.SetExposed()
 	c.Assert(err, jc.ErrorIsNil)
 	// add a unit but don't start its instance yet.
-	u1, m1 := s.addUnit(c, svc)
+	u1, m1 := s.addUnit(c, app)
 
 	// add another unit and start its instance, so that
 	// we're sure the firewaller has seen the first instance.
-	u2, m2 := s.addUnit(c, svc)
+	u2, m2 := s.addUnit(c, app)
 	inst2 := s.startInstance(c, m2)
 	err = u2.OpenPort("tcp", 80)
 	c.Assert(err, jc.ErrorIsNil)
@@ -268,16 +268,16 @@ func (s *InstanceModeSuite) TestMultipleUnits(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertKillAndWait(c, fw)
 
-	svc := s.AddTestingService(c, "wordpress", s.charm)
-	err = svc.SetExposed()
+	app := s.AddTestingService(c, "wordpress", s.charm)
+	err = app.SetExposed()
 	c.Assert(err, jc.ErrorIsNil)
 
-	u1, m1 := s.addUnit(c, svc)
+	u1, m1 := s.addUnit(c, app)
 	inst1 := s.startInstance(c, m1)
 	err = u1.OpenPort("tcp", 80)
 	c.Assert(err, jc.ErrorIsNil)
 
-	u2, m2 := s.addUnit(c, svc)
+	u2, m2 := s.addUnit(c, app)
 	inst2 := s.startInstance(c, m2)
 	err = u2.OpenPort("tcp", 80)
 	c.Assert(err, jc.ErrorIsNil)
@@ -295,10 +295,10 @@ func (s *InstanceModeSuite) TestMultipleUnits(c *gc.C) {
 }
 
 func (s *InstanceModeSuite) TestStartWithState(c *gc.C) {
-	svc := s.AddTestingService(c, "wordpress", s.charm)
-	err := svc.SetExposed()
+	app := s.AddTestingService(c, "wordpress", s.charm)
+	err := app.SetExposed()
 	c.Assert(err, jc.ErrorIsNil)
-	u, m := s.addUnit(c, svc)
+	u, m := s.addUnit(c, app)
 	inst := s.startInstance(c, m)
 
 	err = u.OpenPort("tcp", 80)
@@ -316,7 +316,7 @@ func (s *InstanceModeSuite) TestStartWithState(c *gc.C) {
 
 	s.assertPorts(c, inst, m.Id(), []network.PortRange{{80, 80, "tcp"}, {8080, 8080, "tcp"}})
 
-	err = svc.SetExposed()
+	err = app.SetExposed()
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -325,8 +325,8 @@ func (s *InstanceModeSuite) TestStartWithPartialState(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	inst := s.startInstance(c, m)
 
-	svc := s.AddTestingService(c, "wordpress", s.charm)
-	err = svc.SetExposed()
+	app := s.AddTestingService(c, "wordpress", s.charm)
+	err = app.SetExposed()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Starting the firewaller, no open ports.
@@ -337,7 +337,7 @@ func (s *InstanceModeSuite) TestStartWithPartialState(c *gc.C) {
 	s.assertPorts(c, inst, m.Id(), nil)
 
 	// Complete steps to open port.
-	u, err := svc.AddUnit()
+	u, err := app.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.AssignToMachine(m)
 	c.Assert(err, jc.ErrorIsNil)
@@ -352,8 +352,8 @@ func (s *InstanceModeSuite) TestStartWithUnexposedService(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	inst := s.startInstance(c, m)
 
-	svc := s.AddTestingService(c, "wordpress", s.charm)
-	u, err := svc.AddUnit()
+	app := s.AddTestingService(c, "wordpress", s.charm)
+	u, err := app.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.AssignToMachine(m)
 	c.Assert(err, jc.ErrorIsNil)
@@ -368,7 +368,7 @@ func (s *InstanceModeSuite) TestStartWithUnexposedService(c *gc.C) {
 	s.assertPorts(c, inst, m.Id(), nil)
 
 	// Expose service.
-	err = svc.SetExposed()
+	err = app.SetExposed()
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertPorts(c, inst, m.Id(), []network.PortRange{{80, 80, "tcp"}})
 }
@@ -378,9 +378,9 @@ func (s *InstanceModeSuite) TestSetClearExposedService(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertKillAndWait(c, fw)
 
-	svc := s.AddTestingService(c, "wordpress", s.charm)
+	app := s.AddTestingService(c, "wordpress", s.charm)
 
-	u, m := s.addUnit(c, svc)
+	u, m := s.addUnit(c, app)
 	inst := s.startInstance(c, m)
 	err = u.OpenPort("tcp", 80)
 	c.Assert(err, jc.ErrorIsNil)
@@ -391,13 +391,13 @@ func (s *InstanceModeSuite) TestSetClearExposedService(c *gc.C) {
 	s.assertPorts(c, inst, m.Id(), nil)
 
 	// SeExposed opens the ports.
-	err = svc.SetExposed()
+	err = app.SetExposed()
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.assertPorts(c, inst, m.Id(), []network.PortRange{{80, 80, "tcp"}, {8080, 8080, "tcp"}})
 
 	// ClearExposed closes the ports again.
-	err = svc.ClearExposed()
+	err = app.ClearExposed()
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.assertPorts(c, inst, m.Id(), nil)
@@ -408,16 +408,16 @@ func (s *InstanceModeSuite) TestRemoveUnit(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertKillAndWait(c, fw)
 
-	svc := s.AddTestingService(c, "wordpress", s.charm)
-	err = svc.SetExposed()
+	app := s.AddTestingService(c, "wordpress", s.charm)
+	err = app.SetExposed()
 	c.Assert(err, jc.ErrorIsNil)
 
-	u1, m1 := s.addUnit(c, svc)
+	u1, m1 := s.addUnit(c, app)
 	inst1 := s.startInstance(c, m1)
 	err = u1.OpenPort("tcp", 80)
 	c.Assert(err, jc.ErrorIsNil)
 
-	u2, m2 := s.addUnit(c, svc)
+	u2, m2 := s.addUnit(c, app)
 	inst2 := s.startInstance(c, m2)
 	err = u2.OpenPort("tcp", 80)
 	c.Assert(err, jc.ErrorIsNil)
@@ -440,11 +440,11 @@ func (s *InstanceModeSuite) TestRemoveService(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertKillAndWait(c, fw)
 
-	svc := s.AddTestingService(c, "wordpress", s.charm)
-	err = svc.SetExposed()
+	app := s.AddTestingService(c, "wordpress", s.charm)
+	err = app.SetExposed()
 	c.Assert(err, jc.ErrorIsNil)
 
-	u, m := s.addUnit(c, svc)
+	u, m := s.addUnit(c, app)
 	inst := s.startInstance(c, m)
 	err = u.OpenPort("tcp", 80)
 	c.Assert(err, jc.ErrorIsNil)
@@ -456,7 +456,7 @@ func (s *InstanceModeSuite) TestRemoveService(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.Remove()
 	c.Assert(err, jc.ErrorIsNil)
-	err = svc.Destroy()
+	err = app.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertPorts(c, inst, m.Id(), nil)
 }
@@ -466,20 +466,20 @@ func (s *InstanceModeSuite) TestRemoveMultipleServices(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertKillAndWait(c, fw)
 
-	svc1 := s.AddTestingService(c, "wordpress", s.charm)
-	err = svc1.SetExposed()
+	app1 := s.AddTestingService(c, "wordpress", s.charm)
+	err = app1.SetExposed()
 	c.Assert(err, jc.ErrorIsNil)
 
-	u1, m1 := s.addUnit(c, svc1)
+	u1, m1 := s.addUnit(c, app1)
 	inst1 := s.startInstance(c, m1)
 	err = u1.OpenPort("tcp", 80)
 	c.Assert(err, jc.ErrorIsNil)
 
-	svc2 := s.AddTestingService(c, "mysql", s.charm)
-	err = svc2.SetExposed()
+	app2 := s.AddTestingService(c, "mysql", s.charm)
+	err = app2.SetExposed()
 	c.Assert(err, jc.ErrorIsNil)
 
-	u2, m2 := s.addUnit(c, svc2)
+	u2, m2 := s.addUnit(c, app2)
 	inst2 := s.startInstance(c, m2)
 	err = u2.OpenPort("tcp", 3306)
 	c.Assert(err, jc.ErrorIsNil)
@@ -492,14 +492,14 @@ func (s *InstanceModeSuite) TestRemoveMultipleServices(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = u2.Remove()
 	c.Assert(err, jc.ErrorIsNil)
-	err = svc2.Destroy()
+	err = app2.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = u1.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 	err = u1.Remove()
 	c.Assert(err, jc.ErrorIsNil)
-	err = svc1.Destroy()
+	err = app1.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.assertPorts(c, inst1, m1.Id(), nil)
@@ -511,11 +511,11 @@ func (s *InstanceModeSuite) TestDeadMachine(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertKillAndWait(c, fw)
 
-	svc := s.AddTestingService(c, "wordpress", s.charm)
-	err = svc.SetExposed()
+	app := s.AddTestingService(c, "wordpress", s.charm)
+	err = app.SetExposed()
 	c.Assert(err, jc.ErrorIsNil)
 
-	u, m := s.addUnit(c, svc)
+	u, m := s.addUnit(c, app)
 	inst := s.startInstance(c, m)
 	err = u.OpenPort("tcp", 80)
 	c.Assert(err, jc.ErrorIsNil)
@@ -527,7 +527,7 @@ func (s *InstanceModeSuite) TestDeadMachine(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.Remove()
 	c.Assert(err, jc.ErrorIsNil)
-	err = svc.Destroy()
+	err = app.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Kill machine.
@@ -544,11 +544,11 @@ func (s *InstanceModeSuite) TestRemoveMachine(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertKillAndWait(c, fw)
 
-	svc := s.AddTestingService(c, "wordpress", s.charm)
-	err = svc.SetExposed()
+	app := s.AddTestingService(c, "wordpress", s.charm)
+	err = app.SetExposed()
 	c.Assert(err, jc.ErrorIsNil)
 
-	u, m := s.addUnit(c, svc)
+	u, m := s.addUnit(c, app)
 	inst := s.startInstance(c, m)
 	err = u.OpenPort("tcp", 80)
 	c.Assert(err, jc.ErrorIsNil)
@@ -573,10 +573,10 @@ func (s *InstanceModeSuite) TestRemoveMachine(c *gc.C) {
 }
 
 func (s *InstanceModeSuite) TestStartWithStateOpenPortsBroken(c *gc.C) {
-	svc := s.AddTestingService(c, "wordpress", s.charm)
-	err := svc.SetExposed()
+	app := s.AddTestingService(c, "wordpress", s.charm)
+	err := app.SetExposed()
 	c.Assert(err, jc.ErrorIsNil)
-	u, m := s.addUnit(c, svc)
+	u, m := s.addUnit(c, app)
 	inst := s.startInstance(c, m)
 
 	err = u.OpenPort("tcp", 80)
@@ -631,23 +631,23 @@ func (s *GlobalModeSuite) TestGlobalMode(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertKillAndWait(c, fw)
 
-	svc1 := s.AddTestingService(c, "wordpress", s.charm)
-	err = svc1.SetExposed()
+	app1 := s.AddTestingService(c, "wordpress", s.charm)
+	err = app1.SetExposed()
 	c.Assert(err, jc.ErrorIsNil)
 
-	u1, m1 := s.addUnit(c, svc1)
+	u1, m1 := s.addUnit(c, app1)
 	s.startInstance(c, m1)
 	err = u1.OpenPorts("tcp", 80, 90)
 	c.Assert(err, jc.ErrorIsNil)
 	err = u1.OpenPort("tcp", 8080)
 	c.Assert(err, jc.ErrorIsNil)
 
-	svc2 := s.AddTestingService(c, "moinmoin", s.charm)
+	app2 := s.AddTestingService(c, "moinmoin", s.charm)
 	c.Assert(err, jc.ErrorIsNil)
-	err = svc2.SetExposed()
+	err = app2.SetExposed()
 	c.Assert(err, jc.ErrorIsNil)
 
-	u2, m2 := s.addUnit(c, svc2)
+	u2, m2 := s.addUnit(c, app2)
 	s.startInstance(c, m2)
 	err = u2.OpenPorts("tcp", 80, 90)
 	c.Assert(err, jc.ErrorIsNil)
@@ -675,8 +675,8 @@ func (s *GlobalModeSuite) TestStartWithUnexposedService(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.startInstance(c, m)
 
-	svc := s.AddTestingService(c, "wordpress", s.charm)
-	u, err := svc.AddUnit()
+	app := s.AddTestingService(c, "wordpress", s.charm)
+	u, err := app.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.AssignToMachine(m)
 	c.Assert(err, jc.ErrorIsNil)
@@ -691,7 +691,7 @@ func (s *GlobalModeSuite) TestStartWithUnexposedService(c *gc.C) {
 	s.assertEnvironPorts(c, nil)
 
 	// Expose service.
-	err = svc.SetExposed()
+	err = app.SetExposed()
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertEnvironPorts(c, []network.PortRange{{80, 80, "tcp"}})
 }
@@ -701,11 +701,11 @@ func (s *GlobalModeSuite) TestRestart(c *gc.C) {
 	fw, err := firewaller.NewFirewaller(s.firewaller)
 	c.Assert(err, jc.ErrorIsNil)
 
-	svc := s.AddTestingService(c, "wordpress", s.charm)
-	err = svc.SetExposed()
+	app := s.AddTestingService(c, "wordpress", s.charm)
+	err = app.SetExposed()
 	c.Assert(err, jc.ErrorIsNil)
 
-	u, m := s.addUnit(c, svc)
+	u, m := s.addUnit(c, app)
 	s.startInstance(c, m)
 	err = u.OpenPorts("tcp", 80, 90)
 	c.Assert(err, jc.ErrorIsNil)
@@ -736,11 +736,11 @@ func (s *GlobalModeSuite) TestRestartUnexposedService(c *gc.C) {
 	fw, err := firewaller.NewFirewaller(s.firewaller)
 	c.Assert(err, jc.ErrorIsNil)
 
-	svc := s.AddTestingService(c, "wordpress", s.charm)
-	err = svc.SetExposed()
+	app := s.AddTestingService(c, "wordpress", s.charm)
+	err = app.SetExposed()
 	c.Assert(err, jc.ErrorIsNil)
 
-	u, m := s.addUnit(c, svc)
+	u, m := s.addUnit(c, app)
 	s.startInstance(c, m)
 	err = u.OpenPort("tcp", 80)
 	c.Assert(err, jc.ErrorIsNil)
@@ -753,7 +753,7 @@ func (s *GlobalModeSuite) TestRestartUnexposedService(c *gc.C) {
 	err = worker.Stop(fw)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = svc.ClearExposed()
+	err = app.ClearExposed()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Start firewaller and check port.
@@ -769,11 +769,11 @@ func (s *GlobalModeSuite) TestRestartPortCount(c *gc.C) {
 	fw, err := firewaller.NewFirewaller(s.firewaller)
 	c.Assert(err, jc.ErrorIsNil)
 
-	svc1 := s.AddTestingService(c, "wordpress", s.charm)
-	err = svc1.SetExposed()
+	app1 := s.AddTestingService(c, "wordpress", s.charm)
+	err = app1.SetExposed()
 	c.Assert(err, jc.ErrorIsNil)
 
-	u1, m1 := s.addUnit(c, svc1)
+	u1, m1 := s.addUnit(c, app1)
 	s.startInstance(c, m1)
 	err = u1.OpenPort("tcp", 80)
 	c.Assert(err, jc.ErrorIsNil)
@@ -786,11 +786,11 @@ func (s *GlobalModeSuite) TestRestartPortCount(c *gc.C) {
 	err = worker.Stop(fw)
 	c.Assert(err, jc.ErrorIsNil)
 
-	svc2 := s.AddTestingService(c, "moinmoin", s.charm)
-	err = svc2.SetExposed()
+	app2 := s.AddTestingService(c, "moinmoin", s.charm)
+	err = app2.SetExposed()
 	c.Assert(err, jc.ErrorIsNil)
 
-	u2, m2 := s.addUnit(c, svc2)
+	u2, m2 := s.addUnit(c, app2)
 	s.startInstance(c, m2)
 	err = u2.OpenPort("tcp", 80)
 	c.Assert(err, jc.ErrorIsNil)

@@ -426,13 +426,13 @@ func (s *ModelConfigSourceSuite) TestUpdateModelConfigDefaults(c *gc.C) {
 		"http-proxy":  "http://http-proxy",
 		"https-proxy": "https://https-proxy",
 	}
-	err := s.State.UpdateModelConfigDefaultValues(attrs, nil)
+	err := s.State.UpdateModelConfigDefaultValues(attrs, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	attrs = map[string]interface{}{
 		"apt-mirror": "http://different-mirror",
 	}
-	err = s.State.UpdateModelConfigDefaultValues(attrs, []string{"http-proxy", "https-proxy"})
+	err = s.State.UpdateModelConfigDefaultValues(attrs, []string{"http-proxy", "https-proxy"}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	info := statetesting.NewMongoInfo()
@@ -462,6 +462,82 @@ func (s *ModelConfigSourceSuite) TestUpdateModelConfigDefaults(c *gc.C) {
 		Regions: []config.RegionDefaultValue{{
 			Name:  "dummy-region",
 			Value: "dummy-proxy",
+		}}}
+	c.Assert(cfg, jc.DeepEquals, expectedValues)
+}
+
+func (s *ModelConfigSourceSuite) TestUpdateModelConfigRegionDefaults(c *gc.C) {
+	// The test env is setup with dummy/dummy-region having a no-proxy
+	// dummy-proxy value and nether-region with a nether-proxy value.
+	//
+	// First we change the no-proxy setting in dummy-region
+	attrs := map[string]interface{}{
+		"no-proxy": "changed-proxy",
+	}
+
+	rspec, err := environs.NewRegionSpec("dummy", "dummy-region")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.State.UpdateModelConfigDefaultValues(attrs, nil, rspec)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Then check in another state.
+	info := statetesting.NewMongoInfo()
+	anotherState, err := state.Open(s.modelTag, s.State.ControllerTag(), info, mongotest.DialOpts(), state.NewPolicyFunc(nil))
+	c.Assert(err, jc.ErrorIsNil)
+	defer anotherState.Close()
+
+	cfg, err := anotherState.ModelConfigDefaultValues()
+	c.Assert(err, jc.ErrorIsNil)
+	expectedValues := make(config.ModelDefaultAttributes)
+	for attr, val := range config.ConfigDefaults() {
+		expectedValues[attr] = config.AttributeDefaultValues{
+			Default: val,
+		}
+	}
+	expectedValues["http-proxy"] = config.AttributeDefaultValues{
+		Controller: "http://proxy",
+		Default:    "",
+	}
+	expectedValues["apt-mirror"] = config.AttributeDefaultValues{
+		Controller: "http://mirror",
+		Default:    "",
+		Regions: []config.RegionDefaultValue{{
+			Name:  "dummy-region",
+			Value: "http://dummy-mirror",
+		}}}
+	expectedValues["no-proxy"] = config.AttributeDefaultValues{
+		Default: "",
+		Regions: []config.RegionDefaultValue{{
+			Name:  "dummy-region",
+			Value: "changed-proxy",
+		}}}
+	c.Assert(cfg, jc.DeepEquals, expectedValues)
+
+	// remove the dummy-region setting
+	err = s.State.UpdateModelConfigDefaultValues(nil, []string{"no-proxy"}, rspec)
+
+	// and check again
+	cfg, err = anotherState.ModelConfigDefaultValues()
+	c.Assert(err, jc.ErrorIsNil)
+	cfg, err = anotherState.ModelConfigDefaultValues()
+	c.Assert(err, jc.ErrorIsNil)
+	expectedValues = make(config.ModelDefaultAttributes)
+	for attr, val := range config.ConfigDefaults() {
+		expectedValues[attr] = config.AttributeDefaultValues{
+			Default: val,
+		}
+	}
+	expectedValues["http-proxy"] = config.AttributeDefaultValues{
+		Controller: "http://proxy",
+		Default:    "",
+	}
+	expectedValues["apt-mirror"] = config.AttributeDefaultValues{
+		Controller: "http://mirror",
+		Default:    "",
+		Regions: []config.RegionDefaultValue{{
+			Name:  "dummy-region",
+			Value: "http://dummy-mirror",
 		}}}
 	c.Assert(cfg, jc.DeepEquals, expectedValues)
 }

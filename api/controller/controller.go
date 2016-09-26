@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/api/common/cloudspec"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/permission"
 )
 
@@ -73,6 +74,51 @@ func (c *Client) ModelConfig() (map[string]interface{}, error) {
 		values[name] = val.Value
 	}
 	return values, err
+}
+
+// HostedConfig contains the model config and the cloud spec for that
+// model such that direct access to the provider can be used.
+type HostedConfig struct {
+	Name      string
+	Owner     names.UserTag
+	Config    map[string]interface{}
+	CloudSpec environs.CloudSpec
+	Error     error
+}
+
+// HostedModelsConfig returns all model settings for the
+// controller model.
+func (c *Client) HostedModelConfigs() ([]HostedConfig, error) {
+	result := params.HostedModelConfigsResults{}
+	err := c.facade.FacadeCall("HostedModelConfigs", nil, &result)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	// If we get to here, we have some values. Each value may or
+	// may not have an error, but it should at least have a name
+	// and owner.
+	hostedConfigs := make([]HostedConfig, len(result.Models))
+	for i, modelConfig := range result.Models {
+		hostedConfigs[i].Name = modelConfig.Name
+		tag, err := names.ParseUserTag(modelConfig.OwnerTag)
+		if err != nil {
+			hostedConfigs[i].Error = errors.Trace(err)
+			continue
+		}
+		hostedConfigs[i].Owner = tag
+		if modelConfig.Error != nil {
+			hostedConfigs[i].Error = errors.Trace(modelConfig.Error)
+			continue
+		}
+		hostedConfigs[i].Config = modelConfig.Config
+		spec, err := c.MakeCloudSpec(modelConfig.CloudSpec)
+		if err != nil {
+			hostedConfigs[i].Error = errors.Trace(err)
+			continue
+		}
+		hostedConfigs[i].CloudSpec = spec
+	}
+	return hostedConfigs, err
 }
 
 // DestroyController puts the controller model into a "dying" state,

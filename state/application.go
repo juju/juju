@@ -451,15 +451,11 @@ func (s *Application) checkRelationsOps(ch *Charm, relations []*Relation) ([]txn
 	return asserts, nil
 }
 
-func (s *Application) checkStorageUpgrade(newMeta *charm.Meta) (_ []txn.Op, err error) {
+func (s *Application) checkStorageUpgrade(newMeta, oldMeta *charm.Meta, units []*Unit) (_ []txn.Op, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot upgrade application %q to charm %q", s, newMeta.Name)
-	ch, _, err := s.Charm()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	oldMeta := ch.Meta()
+
+	// Make sure no storage instances are added or removed.
 	var ops []txn.Op
-	var units []*Unit
 	for name, oldStorageMeta := range oldMeta.Storage {
 		if _, ok := newMeta.Storage[name]; ok {
 			continue
@@ -471,70 +467,24 @@ func (s *Application) checkStorageUpgrade(newMeta *charm.Meta) (_ []txn.Op, err 
 		// are no instances of the store, it can safely be
 		// removed.
 		if oldStorageMeta.Shared {
-			n, err := s.st.countEntityStorageInstancesForName(
-				s.Tag(), name,
-			)
+			op, n, err := s.st.countEntityStorageInstances(s.Tag(), name)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
 			if n > 0 {
 				return nil, errors.Errorf("in-use storage %q removed", name)
 			}
-			// TODO(axw) if/when it is possible to
-			// add shared storage instance to an
-			// application post-deployment, we must
-			// include a txn.Op here that asserts
-			// that the number of instances is zero.
+			ops = append(ops, op)
 		} else {
-			if units == nil {
-				var err error
-				units, err = s.AllUnits()
+			for _, u := range units {
+				op, n, err := s.st.countEntityStorageInstances(u.Tag(), name)
 				if err != nil {
 					return nil, errors.Trace(err)
 				}
-				ops = append(ops, txn.Op{
-					C:      applicationsC,
-					Id:     s.doc.DocID,
-					Assert: bson.D{{"unitcount", len(units)}},
-				})
-				for _, unit := range units {
-					// Here we check that the storage
-					// attachment count remains the same.
-					// To get around the ABA problem, we
-					// also add ops for the individual
-					// attachments below.
-					ops = append(ops, txn.Op{
-						C:  unitsC,
-						Id: unit.doc.DocID,
-						Assert: bson.D{{
-							"storageattachmentcount",
-							unit.doc.StorageAttachmentCount,
-						}},
-					})
+				if n > 0 {
+					return nil, errors.Errorf("in-use storage %q removed", name)
 				}
-			}
-			for _, unit := range units {
-				attachments, err := s.st.UnitStorageAttachments(unit.UnitTag())
-				if err != nil {
-					return nil, errors.Trace(err)
-				}
-				for _, attachment := range attachments {
-					storageTag := attachment.StorageInstance()
-					storageName, err := names.StorageName(storageTag.Id())
-					if err != nil {
-						return nil, errors.Trace(err)
-					}
-					if storageName == name {
-						return nil, errors.Errorf("in-use storage %q removed", name)
-					}
-					// We assert that other storage attachments still exist to
-					// avoid the ABA problem.
-					ops = append(ops, txn.Op{
-						C:      storageAttachmentsC,
-						Id:     storageAttachmentId(unit.Name(), storageTag.Id()),
-						Assert: txn.DocExists,
-					})
-				}
+				ops = append(ops, op)
 			}
 		}
 	}
@@ -681,12 +631,36 @@ func (s *Application) changeCharmOps(
 		}
 	}
 
+	// Make sure no units are added or removed while the upgrade
+	// transaction is being executed. This allows us to make
+	// changes to units during the upgrade, e.g. add storage
+	// to existing units, or remove optional storage so long as
+	// it is unreferenced.
+	units, err := s.AllUnits()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	unitOps := make([]txn.Op, len(units))
+	for i, u := range units {
+		unitOps[i] = txn.Op{
+			C:      unitsC,
+			Id:     u.doc.DocID,
+			Assert: txn.DocExists,
+		}
+	}
+	unitOps = append(unitOps, txn.Op{
+		C:      applicationsC,
+		Id:     s.doc.DocID,
+		Assert: bson.D{{"unitcount", len(units)}},
+	})
+
 	// Build the transaction.
 	var ops []txn.Op
 	if oldSettings != nil {
 		// Old settings shouldn't change (when they exist).
 		ops = append(ops, oldSettings.assertUnchangedOp())
 	}
+	ops = append(ops, unitOps...)
 	ops = append(ops, incOps...)
 	ops = append(ops, []txn.Op{
 		// Create or replace new settings.
@@ -760,9 +734,8 @@ func (s *Application) changeCharmOps(
 		return nil, errors.Trace(err)
 	}
 
-	// Check storage to ensure no referenced storage is removed, or changed
-	// in an incompatible way.
-	storageOps, err := s.checkStorageUpgrade(ch.Meta())
+	// Upgrade charm storage.
+	storageOps, err := s.upgradeStorageOps(ch.Meta(), units, newStorageConstraints)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -770,6 +743,25 @@ func (s *Application) changeCharmOps(
 
 	// And finally, decrement the old charm and settings.
 	return append(ops, decOps...), nil
+}
+
+func (a *Application) upgradeStorageOps(
+	meta *charm.Meta,
+	units []*Unit,
+	allStorageCons map[string]StorageConstraints,
+) ([]txn.Op, error) {
+	// Check storage to ensure no referenced storage is removed, or changed
+	// in an incompatible way.
+	oldCharm, _, err := a.Charm()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	oldMeta := oldCharm.Meta()
+	ops, err := a.checkStorageUpgrade(meta, oldMeta, units)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return ops, nil
 }
 
 // incCharmModifiedVersionOps returns the operations necessary to increment

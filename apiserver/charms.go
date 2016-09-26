@@ -78,7 +78,7 @@ func (h *charmsHandler) serveGet(w http.ResponseWriter, r *http.Request) error {
 	// Retrieve or list charm files.
 	// Requires "url" (charm URL) and an optional "file" (the path to the
 	// charm file) to be included in the query.
-	charmArchivePath, filePath, err := h.processGet(r, st)
+	charmArchivePath, fileArg, err := h.processGet(r, st)
 	if err != nil {
 		// An error occurred retrieving the charm bundle.
 		if errors.IsNotFound(err) {
@@ -86,8 +86,10 @@ func (h *charmsHandler) serveGet(w http.ResponseWriter, r *http.Request) error {
 		}
 		return errors.NewBadRequest(err, "")
 	}
+	defer os.Remove(charmArchivePath)
+
 	var sender bundleContentSenderFunc
-	switch filePath {
+	switch fileArg {
 	case "":
 		// The client requested the list of charm files.
 		sender = h.manifestSender
@@ -96,7 +98,7 @@ func (h *charmsHandler) serveGet(w http.ResponseWriter, r *http.Request) error {
 		sender = h.archiveSender
 	default:
 		// The client requested a specific file.
-		sender = h.archiveEntrySender(filePath)
+		sender = h.archiveEntrySender(fileArg)
 	}
 	if err := h.sendBundleContent(w, r, charmArchivePath, sender); err != nil {
 		return errors.Trace(err)
@@ -428,76 +430,41 @@ func (h *charmsHandler) processGet(r *http.Request, st *state.State) (string, st
 		return "", "", errors.Annotate(err, "cannot parse charm URL")
 	}
 
-	var filePath string
-	file := query.Get("file")
-	if file == "" {
-		filePath = ""
-	} else {
-		filePath = path.Clean(file)
+	fileArg := query.Get("file")
+	if fileArg != "" {
+		fileArg = path.Clean(fileArg)
 	}
 
-	// Prepare the bundle directories.
-	name := charm.Quote(curlString)
-	charmArchivePath := filepath.Join(
-		h.dataDir,
-		"charm-get-cache",
-		st.ModelUUID(),
-		name+".zip",
-	)
-
-	// Check if the charm archive is already in the cache.
-	if _, err := os.Stat(charmArchivePath); os.IsNotExist(err) {
-		// Download the charm archive and save it to the cache.
-		if err = h.downloadCharm(st, curl, charmArchivePath); err != nil {
-			return "", "", errors.Annotate(err, "unable to retrieve and save the charm")
-		}
-	} else if err != nil {
-		return "", "", errors.Annotate(err, "cannot access the charms cache")
+	// Ensure the working directory exists.
+	tmpDir := filepath.Join(h.dataDir, "charm-get-tmp")
+	if err = os.MkdirAll(tmpDir, 0755); err != nil {
+		return "", "", errors.Annotate(err, "cannot create charms tmp directory")
 	}
-	return charmArchivePath, filePath, nil
-}
 
-// downloadCharm downloads the given charm name from the provider storage and
-// saves the corresponding zip archive to the given charmArchivePath.
-func (h *charmsHandler) downloadCharm(st *state.State, curl *charm.URL, charmArchivePath string) error {
+	// Use the storage to retrieve and save the charm archive.
 	storage := storage.NewStorage(st.ModelUUID(), st.MongoSession())
 	ch, err := st.Charm(curl)
 	if err != nil {
-		return errors.Annotate(err, "cannot get charm from state")
+		return "", "", errors.Annotate(err, "cannot get charm from state")
 	}
 
-	// In order to avoid races, the archive is saved in a temporary file which
-	// is then atomically renamed. The temporary file is created in the
-	// charm cache directory so that we can safely assume the rename source and
-	// target live in the same file system.
-	cacheDir := filepath.Dir(charmArchivePath)
-	if err = os.MkdirAll(cacheDir, 0755); err != nil {
-		return errors.Annotate(err, "cannot create the charms cache")
-	}
-	tempCharmArchive, err := ioutil.TempFile(cacheDir, "charm")
-	if err != nil {
-		return errors.Annotate(err, "cannot create charm archive temp file")
-	}
-	defer cleanupFile(tempCharmArchive)
-
-	// Use the storage to retrieve and save the charm archive.
 	reader, _, err := storage.Get(ch.StoragePath())
 	if err != nil {
-		return errors.Annotate(err, "cannot get charm from model storage")
+		return "", "", errors.Annotate(err, "cannot get charm from model storage")
 	}
 	defer reader.Close()
-	if _, err = io.Copy(tempCharmArchive, reader); err != nil {
-		return errors.Annotate(err, "error processing charm archive download")
-	}
-	tempCharmArchive.Close()
 
-	// Note that os.Rename won't fail if the target already exists;
-	// there's no problem if there's concurrent get requests for the
-	// same charm.
-	if err = os.Rename(tempCharmArchive.Name(), charmArchivePath); err != nil {
-		return errors.Annotate(err, "error renaming the charm archive")
+	charmFile, err := ioutil.TempFile(tmpDir, "charm")
+	if err != nil {
+		return "", "", errors.Annotate(err, "cannot create charm archive file")
 	}
-	return nil
+	if _, err = io.Copy(charmFile, reader); err != nil {
+		cleanupFile(charmFile)
+		return "", "", errors.Annotate(err, "error processing charm archive download")
+	}
+
+	charmFile.Close()
+	return charmFile.Name(), fileArg, nil
 }
 
 // On windows we cannot remove a file until it has been closed

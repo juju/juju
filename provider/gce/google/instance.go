@@ -6,9 +6,7 @@ package google
 import (
 	"fmt"
 	"path"
-	"strings"
 
-	"github.com/juju/errors"
 	"google.golang.org/api/compute/v1"
 
 	"github.com/juju/juju/network"
@@ -175,27 +173,6 @@ func (gi Instance) Addresses() []network.Address {
 func (gi Instance) Metadata() map[string]string {
 	// TODO*ericsnow) return a copy?
 	return gi.InstanceSummary.Metadata
-}
-
-// FormatAuthorizedKeys returns our authorizedKeys with
-// the username prepended to it. This is the format that
-// GCE expects when we upload sshKeys metadata. The sshKeys
-// metadata is what is used by our scripts and commands
-// like juju ssh to connect to juju machines.
-func FormatAuthorizedKeys(rawAuthorizedKeys, user string) (string, error) {
-	if rawAuthorizedKeys == "" {
-		return "", errors.New("empty rawAuthorizedKeys")
-	}
-	if user == "" {
-		return "", errors.New("empty user")
-	}
-
-	var userKeys string
-	keys := strings.Split(rawAuthorizedKeys, "\n")
-	for _, key := range keys {
-		userKeys += user + ":" + key + "\n"
-	}
-	return userKeys, nil
 }
 
 // packMetadata composes the provided data into the format required

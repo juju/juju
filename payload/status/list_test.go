@@ -95,12 +95,8 @@ func (s *listSuite) TestNoPayloads(c *gc.C) {
 	code, stdout, stderr := runList(c, command)
 	c.Assert(code, gc.Equals, 0)
 
-	c.Check(stdout, gc.Equals, `
-[Unit Payloads]
-UNIT  MACHINE  PAYLOAD-CLASS  STATUS  TYPE  ID  TAGS  
-
-`[1:])
-	c.Check(stderr, gc.Equals, "")
+	c.Check(stderr, gc.Equals, "No payloads to display.\n")
+	c.Check(stdout, gc.Equals, "")
 }
 
 func (s *listSuite) TestPatternsOkay(c *gc.C) {

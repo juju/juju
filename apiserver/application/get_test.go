@@ -12,6 +12,7 @@ import (
 
 	apiapplication "github.com/juju/juju/api/application"
 	"github.com/juju/juju/apiserver/application"
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/constraints"
@@ -34,7 +35,12 @@ func (s *getSuite) SetUpTest(c *gc.C) {
 		Tag: s.AdminUserTag(c),
 	}
 	var err error
-	s.serviceAPI, err = application.NewAPI(s.State, nil, s.authorizer)
+	backend := application.NewStateBackend(s.State)
+	blockChecker := common.NewBlockChecker(s.State)
+	s.serviceAPI, err = application.NewAPI(
+		backend, s.authorizer, blockChecker,
+		application.CharmToStateCharm,
+	)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

@@ -22,10 +22,12 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/application"
+	"github.com/juju/juju/api/charms"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/storage"
@@ -333,7 +335,14 @@ func (h *bundleHandler) addService(
 	if err != nil {
 		return err
 	}
-	resNames2IDs, err := handleResources(api, resources, p.Application, chID, csMac, charmInfo.Meta.Resources)
+	resNames2IDs, err := resourceadapters.DeployResources(
+		p.Application,
+		chID,
+		csMac,
+		resources,
+		charmInfo.Meta.Resources,
+		api,
+	)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -816,13 +825,25 @@ func (h *bundleHandler) upgradeCharm(
 	if url.WithRevision(-1).Path() != existing.WithRevision(-1).Path() {
 		return errors.Errorf("bundle charm %q is incompatible with existing charm %q", id, existing)
 	}
-	filtered, err := getUpgradeResources(api, applicationName, url, resources)
+	charmsClient := charms.NewClient(api)
+	resourceLister, err := resourceadapters.NewAPIClient(api)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	filtered, err := getUpgradeResources(charmsClient, resourceLister, applicationName, url, resources)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	var resNames2IDs map[string]string
 	if len(filtered) != 0 {
-		resNames2IDs, err = handleResources(api, resources, applicationName, chID, csMac, filtered)
+		resNames2IDs, err = resourceadapters.DeployResources(
+			applicationName,
+			chID,
+			csMac,
+			resources,
+			filtered,
+			api,
+		)
 		if err != nil {
 			return errors.Trace(err)
 		}

@@ -22,17 +22,20 @@ import (
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
-	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
+	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
 
 type controllerSuite struct {
-	jujutesting.JujuConnSuite
+	statetesting.StateSuite
 
 	controller *controller.ControllerAPI
 	resources  *common.Resources
@@ -42,12 +45,18 @@ type controllerSuite struct {
 var _ = gc.Suite(&controllerSuite{})
 
 func (s *controllerSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
+	// Initial config needs to be set before the StateSuite SetUpTest.
+	s.InitialConfig = testing.CustomModelConfig(c, testing.Attrs{
+		"name": "controller",
+	})
+
+	s.StateSuite.SetUpTest(c)
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
 	s.authorizer = apiservertesting.FakeAuthorizer{
-		Tag: s.AdminUserTag(c),
+		Tag:      s.Owner,
+		AdminTag: s.Owner,
 	}
 
 	controller, err := controller.NewControllerAPI(s.State, s.resources, s.authorizer)
@@ -105,6 +114,76 @@ func (s *controllerSuite) TestAllModels(c *gc.C) {
 	c.Assert(obtained, jc.DeepEquals, expected)
 }
 
+func (s *controllerSuite) TestHostedModelConfigs_OnlyHostedModelsReturned(c *gc.C) {
+	owner := s.Factory.MakeUser(c, nil)
+	s.Factory.MakeModel(c, &factory.ModelParams{
+		Name: "first", Owner: owner.UserTag()}).Close()
+	remoteUserTag := names.NewUserTag("user@remote")
+	s.Factory.MakeModel(c, &factory.ModelParams{
+		Name: "second", Owner: remoteUserTag}).Close()
+
+	results, err := s.controller.HostedModelConfigs()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(results.Models), gc.Equals, 2)
+
+	one := results.Models[0]
+	two := results.Models[1]
+
+	c.Assert(one.Name, gc.Equals, "first")
+	c.Assert(one.OwnerTag, gc.Equals, owner.UserTag().String())
+	c.Assert(two.Name, gc.Equals, "second")
+	c.Assert(two.OwnerTag, gc.Equals, remoteUserTag.String())
+}
+
+func (s *controllerSuite) makeCloudSpec(c *gc.C, pSpec *params.CloudSpec) environs.CloudSpec {
+	c.Assert(pSpec, gc.NotNil)
+	var credential *cloud.Credential
+	if pSpec.Credential != nil {
+		credentialValue := cloud.NewCredential(
+			cloud.AuthType(pSpec.Credential.AuthType),
+			pSpec.Credential.Attributes,
+		)
+		credential = &credentialValue
+	}
+	spec := environs.CloudSpec{
+		Type:             pSpec.Type,
+		Name:             pSpec.Name,
+		Region:           pSpec.Region,
+		Endpoint:         pSpec.Endpoint,
+		IdentityEndpoint: pSpec.IdentityEndpoint,
+		StorageEndpoint:  pSpec.StorageEndpoint,
+		Credential:       credential,
+	}
+	c.Assert(spec.Validate(), jc.ErrorIsNil)
+	return spec
+}
+
+func (s *controllerSuite) TestHostedModelConfigs_CanOpenEnviron(c *gc.C) {
+	owner := s.Factory.MakeUser(c, nil)
+	s.Factory.MakeModel(c, &factory.ModelParams{
+		Name: "first", Owner: owner.UserTag()}).Close()
+	remoteUserTag := names.NewUserTag("user@remote")
+	s.Factory.MakeModel(c, &factory.ModelParams{
+		Name: "second", Owner: remoteUserTag}).Close()
+
+	results, err := s.controller.HostedModelConfigs()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(results.Models), gc.Equals, 2)
+
+	for _, model := range results.Models {
+		c.Assert(model.Error, gc.IsNil)
+
+		cfg, err := config.New(config.NoDefaults, model.Config)
+		c.Assert(err, jc.ErrorIsNil)
+		spec := s.makeCloudSpec(c, model.CloudSpec)
+		_, err = environs.New(environs.OpenParams{
+			Cloud:  spec,
+			Config: cfg,
+		})
+		c.Assert(err, jc.ErrorIsNil)
+	}
+}
+
 func (s *controllerSuite) TestListBlockedModels(c *gc.C) {
 	st := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "test"})
@@ -122,7 +201,7 @@ func (s *controllerSuite) TestListBlockedModels(c *gc.C) {
 		params.ModelBlockInfo{
 			Name:     "controller",
 			UUID:     s.State.ModelUUID(),
-			OwnerTag: s.AdminUserTag(c).String(),
+			OwnerTag: s.Owner.String(),
 			Blocks: []string{
 				"BlockDestroy",
 				"BlockChange",
@@ -131,7 +210,7 @@ func (s *controllerSuite) TestListBlockedModels(c *gc.C) {
 		params.ModelBlockInfo{
 			Name:     "test",
 			UUID:     st.ModelUUID(),
-			OwnerTag: s.AdminUserTag(c).String(),
+			OwnerTag: s.Owner.String(),
 			Blocks: []string{
 				"BlockDestroy",
 				"BlockChange",
@@ -158,7 +237,10 @@ func (s *controllerSuite) TestModelConfigFromNonController(c *gc.C) {
 		Name: "test"})
 	defer st.Close()
 
-	authorizer := &apiservertesting.FakeAuthorizer{Tag: s.AdminUserTag(c)}
+	authorizer := &apiservertesting.FakeAuthorizer{
+		Tag:      s.Owner,
+		AdminTag: s.Owner,
+	}
 	controller, err := controller.NewControllerAPI(st, common.NewResources(), authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 	cfg, err := controller.ModelConfig()
@@ -181,7 +263,7 @@ func (s *controllerSuite) TestControllerConfigFromNonController(c *gc.C) {
 		Name: "test"})
 	defer st.Close()
 
-	authorizer := &apiservertesting.FakeAuthorizer{Tag: s.AdminUserTag(c)}
+	authorizer := &apiservertesting.FakeAuthorizer{Tag: s.Owner}
 	controller, err := controller.NewControllerAPI(st, common.NewResources(), authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 	cfg, err := controller.ControllerConfig()
@@ -301,7 +383,7 @@ func (s *controllerSuite) TestModelStatus(c *gc.C) {
 		ModelTag:           controllerEnvTag,
 		HostedMachineCount: 1,
 		ApplicationCount:   1,
-		OwnerTag:           "user-admin@local",
+		OwnerTag:           s.Owner.String(),
 		Life:               params.Alive,
 		Machines: []params.ModelMachineInfo{
 			{Id: "0", Hardware: &params.MachineHardware{Cores: &eight}, InstanceId: "id-4", Status: "pending", WantsVote: true},
@@ -381,7 +463,7 @@ func (s *controllerSuite) TestInitiateMigration(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		c.Check(mig.Id(), gc.Equals, expectedId)
 		c.Check(mig.ModelUUID(), gc.Equals, st.ModelUUID())
-		c.Check(mig.InitiatedBy(), gc.Equals, s.AdminUserTag(c).Id())
+		c.Check(mig.InitiatedBy(), gc.Equals, s.Owner.Id())
 		c.Check(mig.ExternalControl(), gc.Equals, args.Specs[i].ExternalControl)
 
 		targetInfo, err := mig.TargetInfo()

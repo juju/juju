@@ -542,7 +542,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	svc, err := st.AddApplication(state.AddApplicationArgs{Name: "dummy", Charm: sch})
 	c.Assert(err, jc.ErrorIsNil)
-	units, err := juju.AddUnits(st, svc, 1, nil)
+	units, err := juju.AddUnits(st, svc, "dummy", 1, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	unit := units[0]
 
