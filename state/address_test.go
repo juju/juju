@@ -7,7 +7,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing/factory"
@@ -40,13 +39,13 @@ func (s *AddressSuite) TestHostPortConversion(c *gc.C) {
 }
 
 type ControllerAddressesSuite struct {
-	testing.JujuConnSuite
+	ConnSuite
 }
 
 var _ = gc.Suite(&ControllerAddressesSuite{})
 
 func (s *ControllerAddressesSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
+	s.ConnSuite.SetUpTest(c)
 	// Make sure there is a machine with manage state in existence.
 	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
 		Jobs: []state.MachineJob{state.JobManageModel, state.JobHostUnits},
