@@ -39,48 +39,17 @@ func New(args NewArgs) *Downloader {
 
 // Start starts a new download and returns it.
 func (dlr Downloader) Start(req Request) *Download {
-	dl := StartDownload(req, dlr.OpenBlob)
-	return dl
+	return StartDownload(req, dlr.OpenBlob)
 }
 
 // Download starts a new download, waits for it to complete, and
-// returns the local name of the file.
-func (dlr Downloader) Download(req Request, abort <-chan struct{}) (filename string, err error) {
+// returns the local name of the file. The download can be aborted by
+// closing the Abort channel in the Request provided.
+func (dlr Downloader) Download(req Request) (string, error) {
 	if err := os.MkdirAll(req.TargetDir, 0755); err != nil {
 		return "", errors.Trace(err)
 	}
 	dl := dlr.Start(req)
-	file, err := dl.Wait(abort)
-	if file != nil {
-		defer file.Close()
-	}
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	return file.Name(), nil
-}
-
-// DownloadWithAlternates tries each of the provided requests until
-// one succeeds. If none succeed then the error from the most recent
-// attempt is returned. At least one request must be provided.
-func (dlr Downloader) DownloadWithAlternates(requests []Request, abort <-chan struct{}) (filename string, err error) {
-	if len(requests) == 0 {
-		return "", errors.New("no requests to try")
-	}
-
-	for _, req := range requests {
-		filename, err = dlr.Download(req, abort)
-		if errors.IsNotValid(err) {
-			break
-		}
-		if err == nil {
-			break
-		}
-		logger.Errorf("download request to %s failed: %v", req.URL, err)
-		// Try the next one.
-	}
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	return filename, nil
+	filename, err := dl.Wait()
+	return filename, errors.Trace(err)
 }

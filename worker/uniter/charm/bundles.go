@@ -19,7 +19,7 @@ import (
 type Downloader interface {
 	// Download starts a new charm archive download, waits for it to
 	// complete, and returns the local name of the file.
-	Download(req downloader.Request, abort <-chan struct{}) (string, error)
+	Download(req downloader.Request) (string, error)
 }
 
 // BundlesDir is responsible for storing and retrieving charm bundles
@@ -36,7 +36,6 @@ func NewBundlesDir(path string, dlr Downloader) *BundlesDir {
 			HostnameVerification: utils.NoVerifySSLHostnames,
 		})
 	}
-
 	return &BundlesDir{
 		path:       path,
 		downloader: dlr,
@@ -73,9 +72,10 @@ func (d *BundlesDir) download(info BundleInfo, target string, abort <-chan struc
 		URL:       curl,
 		TargetDir: d.downloadsPath(),
 		Verify:    downloader.NewSha256Verifier(expectedSha256),
+		Abort:     abort,
 	}
 	logger.Infof("downloading %s from API server", info.URL())
-	filename, err := d.downloader.Download(req, abort)
+	filename, err := d.downloader.Download(req)
 	if err != nil {
 		return errors.Annotatef(err, "failed to download charm %q from API server", info.URL())
 	}
