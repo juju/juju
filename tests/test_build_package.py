@@ -334,9 +334,9 @@ class BuildPackageTestCase(unittest.TestCase):
 
     def test_make_ubuntu_version(self):
         ubuntu_version = make_ubuntu_version('trusty', '1.2.3')
-        self.assertEqual('1:1.2.3~0ubuntu1~14.04.1~juju1', ubuntu_version)
-        ubuntu_version = make_ubuntu_version('precise', '1.22~alpha1', '8')
-        self.assertEqual('1:1.22~alpha1~0ubuntu1~12.04.8~juju1', ubuntu_version)
+        self.assertEqual('1.2.3-0ubuntu1~14.04.1~juju1', ubuntu_version)
+        ubuntu_version = make_ubuntu_version('precise', '1.22-alpha1', '8')
+        self.assertEqual('1.22-alpha1-0ubuntu1~12.04.8~juju1', ubuntu_version)
 
     def test_make_changelog_message(self):
         message = make_changelog_message('1.2.0')
@@ -397,7 +397,6 @@ class CreateBuildSource(TestWithScenarios):
     scenarios = [
         ('release',
             {'date': None,
-             'epoch': '2',
              'build': None,
              'revid': None,
              'version': '1.2.3',
@@ -408,7 +407,6 @@ class CreateBuildSource(TestWithScenarios):
 
         ('daily',
             {'date': '20160502',
-             'epoch': None,
              'build': '3065',
              'revid': '4bbce805',
              'version': '1.2.3~20160502~3065~4bbce805',
@@ -418,7 +416,6 @@ class CreateBuildSource(TestWithScenarios):
              }),
         ('broken_daily',
             {'date': None,
-             'epoch': None,
              'build': '3065',
              'revid': '4bbce805',
              'version': '1.2.3',
@@ -461,25 +458,22 @@ class CreateSourcePackageTests(TestWithScenarios):
     scenarios = [
         ('release',
             {'date': None,
-             'epoch': '1',
              'build': None,
              'revid': None,
-             'ubuntu_version': '1:1.2.3~0ubuntu1~14.04.1~juju1'
+             'ubuntu_version': '1.2.3-0ubuntu1~14.04.1~juju1'
              }),
 
         ('daily',
             {'date': '20160502',
-             'epoch': '2',
              'build': '3065',
              'revid': '4bbce805',
-             'ubuntu_version': '2:1.2.3~20160502+3065+4bbce805~14.04'
+             'ubuntu_version': '1.2.3-20160502+3065+4bbce805~14.04'
              }),
         ('broken_daily',
             {'date': None,
-             'epoch': '1',
              'build': '3065',
              'revid': '4bbce805',
-             'ubuntu_version': '1:1.2.3~0ubuntu1~14.04.1~juju1'
+             'ubuntu_version': '1.2.3-0ubuntu1~14.04.1~juju1'
              })
     ]
 
@@ -490,8 +484,7 @@ class CreateSourcePackageTests(TestWithScenarios):
             '/juju-build-trusty-all', '/juju-build-any-all/spb', 'trusty',
             '1.2.3', upatch='1', bugs=['987'], gpgcmd=None,
             debemail='me@email', debfullname='me', verbose=False,
-            date=self.date, build=self.build, revid=self.revid,
-            epoch=self.epoch)
+            date=self.date, build=self.build, revid=self.revid)
         script = BUILD_SOURCE_TEMPLATE.format(
             spb='/juju-build-any-all/spb',
             source='/juju-build-trusty-all/source',
@@ -510,8 +503,7 @@ class CreateSourcePackageTests(TestWithScenarios):
             '/juju-build-trusty-all', '/juju-build-any-all/spb', 'trusty',
             '1.2.3', upatch='1', bugs=['987'], gpgcmd='/my/gpgcmd',
             debemail='me@email', debfullname='me', verbose=False,
-            date=self.date, build=self.build, revid=self.revid,
-            epoch=self.epoch)
+            date=self.date, build=self.build, revid=self.revid)
         script = BUILD_SOURCE_TEMPLATE.format(
             spb='/juju-build-any-all/spb',
             source='/juju-build-trusty-all/source',
@@ -530,20 +522,17 @@ class GetArgsTests(TestWithScenarios):
     scenarios = [
         ('release',
             {'date': None,
-             'epoch': None,
              'build': None,
              'revid': None
              }),
 
         ('daily',
             {'date': '20160502',
-             'epoch': '1',
              'build': '3065',
              'revid': '4bbce805'
              }),
         ('broken_daily',
             {'date': None,
-             'epoch': None,
              'build': '3065',
              'revid': '4bbce805'
              })
@@ -654,13 +643,10 @@ class GetArgsTests(TestWithScenarios):
             if self.revid:
                 args_list.append('--revid')
                 args_list.append(self.revid)
-            args_list.append('--epoch')
-            args_list.append(self.epoch)
             code = main(args_list)
         self.assertEqual(0, code)
         bs_mock.assert_called_with(
             'my.tar.gz', '~/workspace', 'trusty', ['123', '456'],
             debemail='me@email', debfullname='me', gpgcmd=None,
             branch=DEFAULT_SPB, upatch='1', verbose=False,
-            date=self.date, build=self.build, revid=self.revid,
-            epoch=self.epoch)
+            date=self.date, build=self.build, revid=self.revid)
