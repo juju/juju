@@ -4,10 +4,12 @@
 package charm_test
 
 import (
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"regexp"
 
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
@@ -144,4 +146,49 @@ func assertCharm(c *gc.C, bun charm.Bundle, sch *state.Charm) {
 	c.Assert(actual.Revision(), gc.Equals, sch.Revision())
 	c.Assert(actual.Meta(), gc.DeepEquals, sch.Meta())
 	c.Assert(actual.Config(), gc.DeepEquals, sch.Config())
+}
+
+type ClearDownloadsSuite struct {
+	jujutesting.IsolationSuite
+}
+
+var _ = gc.Suite(&ClearDownloadsSuite{})
+
+func (s *ClearDownloadsSuite) TestWorks(c *gc.C) {
+	baseDir := c.MkDir()
+	bunsDir := filepath.Join(baseDir, "bundles")
+	downloadDir := filepath.Join(bunsDir, "downloads")
+	c.Assert(os.MkdirAll(downloadDir, 0777), jc.ErrorIsNil)
+	c.Assert(ioutil.WriteFile(filepath.Join(downloadDir, "stuff"), []byte("foo"), 0755), jc.ErrorIsNil)
+	c.Assert(ioutil.WriteFile(filepath.Join(downloadDir, "thing"), []byte("bar"), 0755), jc.ErrorIsNil)
+
+	err := charm.ClearDownloads(bunsDir)
+	c.Assert(err, jc.ErrorIsNil)
+	checkMissing(c, downloadDir)
+}
+
+func (s *ClearDownloadsSuite) TestEmptyOK(c *gc.C) {
+	baseDir := c.MkDir()
+	bunsDir := filepath.Join(baseDir, "bundles")
+	downloadDir := filepath.Join(bunsDir, "downloads")
+	c.Assert(os.MkdirAll(downloadDir, 0777), jc.ErrorIsNil)
+
+	err := charm.ClearDownloads(bunsDir)
+	c.Assert(err, jc.ErrorIsNil)
+	checkMissing(c, downloadDir)
+}
+
+func (s *ClearDownloadsSuite) TestMissingOK(c *gc.C) {
+	baseDir := c.MkDir()
+	bunsDir := filepath.Join(baseDir, "bundles")
+
+	err := charm.ClearDownloads(bunsDir)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func checkMissing(c *gc.C, p string) {
+	_, err := os.Stat(p)
+	if !os.IsNotExist(err) {
+		c.Fatalf("checking %s is missing: %v", p, err)
+	}
 }
