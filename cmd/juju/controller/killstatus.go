@@ -10,6 +10,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
 )
 
@@ -33,9 +34,11 @@ type modelData struct {
 
 // newTimedStatusUpdater returns a function which waits a given period of time
 // before querying the apiserver for updated data.
-func newTimedStatusUpdater(ctx *cmd.Context, api destroyControllerAPI, controllerModelUUID string) func(time.Duration) (ctrData, []modelData) {
+func newTimedStatusUpdater(ctx *cmd.Context, api destroyControllerAPI, controllerModelUUID string, clock clock.Clock) func(time.Duration) (ctrData, []modelData) {
 	return func(wait time.Duration) (ctrData, []modelData) {
-		time.Sleep(wait)
+		if wait > 0 {
+			<-clock.After(wait)
+		}
 
 		// If we hit an error, status.HostedModelCount will be 0, the polling
 		// loop will stop and we'll go directly to destroying the model.

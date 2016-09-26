@@ -14,6 +14,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/utils/clock"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/base"
@@ -75,6 +76,7 @@ Continue? (y/N):`[1:]
 type destroyControllerAPI interface {
 	Close() error
 	ModelConfig() (map[string]interface{}, error)
+	HostedModelConfigs() ([]controller.HostedConfig, error)
 	CloudSpec(names.ModelTag) (environs.CloudSpec, error)
 	DestroyController(destroyModels bool) error
 	ListBlockedModels() ([]params.ModelBlockInfo, error)
@@ -146,7 +148,7 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 			}
 		}
 
-		updateStatus := newTimedStatusUpdater(ctx, api, controllerEnviron.Config().UUID())
+		updateStatus := newTimedStatusUpdater(ctx, api, controllerEnviron.Config().UUID(), clock.WallClock)
 		ctrStatus, modelsStatus := updateStatus(0)
 		if !c.destroyModels {
 			if err := c.checkNoAliveHostedModels(ctx, modelsStatus); err != nil {

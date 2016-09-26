@@ -4,8 +4,12 @@
 package controller
 
 import (
+	"time"
+
 	"github.com/juju/cmd"
+	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/clock"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
@@ -115,16 +119,30 @@ func NewKillCommandForTest(
 	apierr error,
 	clock clock.Clock,
 	apiOpen modelcmd.APIOpener,
-) cmd.Command {
+) (cmd.Command, *killCommand) {
 	kill := &killCommand{
 		destroyCommandBase: destroyCommandBase{
 			api:       api,
 			clientapi: clientapi,
 			apierr:    apierr,
 		},
+		clock: clock,
 	}
 	kill.SetClientStore(store)
-	return wrapKillCommand(kill, apiOpen, clock)
+	return wrapKillCommand(kill, apiOpen, clock), kill
+}
+
+// KillTimeout returns the internal timeout duration of the kill command.
+func KillTimeout(c *gc.C, command cmd.Command) time.Duration {
+	kill, ok := command.(*killCommand)
+	c.Assert(ok, jc.IsTrue)
+	return kill.timeout
+}
+
+// KillWaitForModels calls the WaitForModels method of the kill command.
+func KillWaitForModels(command cmd.Command, ctx *cmd.Context, api destroyControllerAPI, cloudName, uuid string) error {
+	kill := command.(*killCommand)
+	return kill.WaitForModels(ctx, api, cloudName, uuid)
 }
 
 // NewGetConfigCommandCommandForTest returns a GetConfigCommandCommand with
