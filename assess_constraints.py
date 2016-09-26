@@ -225,7 +225,7 @@ def assess_virt_type(client, virt_type):
     if virt_type not in VIRT_TYPES:
         raise JujuAssertionError(virt_type)
     constraints = Constraints(virt_type=virt_type)
-    charm_name = 'virt-type-' + virt_type
+    charm_name = 'virt-type-{}'.format(virt_type)
     charm_series = 'xenial'
     with temp_dir() as charm_dir:
         deploy_charm_constraint(client, constraints, charm_name,
@@ -260,7 +260,7 @@ def assess_instance_type(client, provider, instance_type):
     if instance_type not in INSTANCE_TYPES[provider]:
         raise JujuAssertionError(instance_type)
     constraints = Constraints(instance_type=instance_type)
-    charm_name = 'instance-type-' + instance_type.replace('.', '-')
+    charm_name = 'instance-type-{}'.format(instance_type.replace('.', '-'))
     data = prepare_constraint_test(client, constraints, charm_name)
     if not constraints.meets_instance_type(data):
         raise get_failure_exception(client, constraints)
@@ -280,7 +280,7 @@ def assess_root_disk_constraints(client, values):
     """Assess deployment with root-disk constraints."""
     for root_disk in values:
         constraints = Constraints(root_disk=root_disk)
-        charm_name = 'root-disk-' + root_disk.lower()
+        charm_name = 'root-disk-{}'.format(root_disk.lower())
         data = prepare_constraint_test(client, constraints, charm_name)
         if not constraints.meets_root_disk(data['root-disk']):
             raise get_failure_exception(client, constraints)
@@ -290,7 +290,7 @@ def assess_cores_constraints(client, values):
     """Assess deployment with cores constraints."""
     for cores in values:
         constraints = Constraints(cores=cores)
-        charm_name = 'cores-' + cores + 'c'
+        charm_name = 'cores-{}c'.format(cores)
         data = prepare_constraint_test(client, constraints, charm_name)
         if not constraints.meets_cores(data['cores']):
             raise get_failure_exception(client, constraints)
@@ -300,7 +300,7 @@ def assess_cpu_power_constraints(client, values):
     """Assess deployment with cpu_power constraints."""
     for cpu_power in values:
         constraints = Constraints(cpu_power=cpu_power)
-        charm_name = 'cpu-power-' + cpu_power + 'cp'
+        charm_name = 'cpu-power-{}cp'.format(cpu_power)
         data = prepare_constraint_test(client, constraints, charm_name)
         if not constraints.meets_cpu_power(data['cpu-power']):
             raise get_failure_exception(client, constraints)
