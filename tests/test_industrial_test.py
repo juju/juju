@@ -1905,7 +1905,7 @@ class TestBackupRestoreAttempt(JujuPyTestCase):
                 ) as msm_mock:
             msm_mock.return_value.__enter__.return_value = substrate
             with patch.object(substrate, 'convert_to_azure_ids',
-                       autospec=True, return_value=['id']) as ca_mock:
+                              autospec=True, return_value=['id']) as ca_mock:
                 with patch.object(client, 'get_controller_client',
                                   autospec=True,
                                   return_value=controller_client):

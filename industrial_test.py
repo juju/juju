@@ -33,7 +33,6 @@ from jujupy import (
     uniquify_local,
     )
 from substrate import (
-    convert_to_azure_ids,
     make_substrate_manager as real_make_substrate_manager,
     terminate_instances,
     )

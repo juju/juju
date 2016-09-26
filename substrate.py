@@ -291,7 +291,6 @@ def convert_to_azure_ids(client, instance_ids):
             return substrate.convert_to_azure_ids(client, instance_ids)
 
 
-
 class AzureARMAccount:
     """Represent an Azure ARM Account."""
 
@@ -326,7 +325,6 @@ class AzureARMAccount:
         model = [m for m in models if m['name'] == client.model_name][0]
         resource_group = 'juju-{}-model-{}'.format(
             model['name'], model['model-uuid'])
-        config = client.env.config
         resources = winazurearm.list_resources(
             self.arm_client, glob=resource_group, recursive=True)
         vm_ids = []
