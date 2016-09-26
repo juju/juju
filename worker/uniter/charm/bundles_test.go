@@ -111,12 +111,12 @@ func (s *BundlesDirSuite) TestGet(c *gc.C) {
 
 	// Try to get the charm when the content doesn't match.
 	_, err = d.Read(&fakeBundleInfo{apiCharm, nil, "..."}, nil)
-	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`failed to download charm "cs:quantal/dummy-1" from API server: `)+`expected sha256 "...", got ".*"`)
+	c.Check(err, gc.ErrorMatches, regexp.QuoteMeta(`failed to download charm "cs:quantal/dummy-1" from API server: `)+`expected sha256 "...", got ".*"`)
 
 	// Try to get a charm whose bundle doesn't exist.
 	otherURL := corecharm.MustParseURL("cs:quantal/spam-1")
 	_, err = d.Read(&fakeBundleInfo{apiCharm, otherURL, ""}, nil)
-	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`failed to download charm "cs:quantal/spam-1" from API server: `)+`.* not found`)
+	c.Check(err, gc.ErrorMatches, regexp.QuoteMeta(`failed to download charm "cs:quantal/spam-1" from API server: `)+`.* not found`)
 
 	// Get a charm whose bundle exists and whose content matches.
 	ch, err := d.Read(apiCharm, nil)
@@ -135,8 +135,8 @@ func (s *BundlesDirSuite) TestGet(c *gc.C) {
 	close(abort)
 
 	ch, err = d.Read(apiCharm, abort)
-	c.Assert(ch, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`failed to download charm "cs:quantal/dummy-1" from API server: download aborted`))
+	c.Check(ch, gc.IsNil)
+	c.Check(err, gc.ErrorMatches, regexp.QuoteMeta(`failed to download charm "cs:quantal/dummy-1" from API server: download aborted`))
 }
 
 func assertCharm(c *gc.C, bun charm.Bundle, sch *state.Charm) {

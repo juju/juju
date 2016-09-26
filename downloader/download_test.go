@@ -91,7 +91,7 @@ func (s *DownloadSuite) TestDownloadError(c *gc.C) {
 	)
 	filename, err := d.Wait()
 	c.Assert(filename, gc.Equals, "")
-	c.Assert(err, gc.ErrorMatches, `cannot download ".*": bad http response: 404 Not Found`)
+	c.Assert(err, gc.ErrorMatches, `bad http response: 404 Not Found`)
 	checkDirEmpty(c, tmp)
 }
 
@@ -154,7 +154,7 @@ func (s *DownloadSuite) TestAbort(c *gc.C) {
 	)
 	filename, err := dl.Wait()
 	c.Check(filename, gc.Equals, "")
-	c.Check(err, gc.ErrorMatches, ".+ download aborted")
+	c.Check(err, gc.ErrorMatches, "download aborted")
 	checkDirEmpty(c, tmp)
 }
 

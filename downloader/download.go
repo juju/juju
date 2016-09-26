@@ -89,7 +89,7 @@ func (dl *Download) run(req Request) {
 	// disableSSLHostnameVerification behavior here.
 	filename, err := dl.download(req)
 	if err != nil {
-		err = errors.Annotatef(err, "cannot download %q", req.URL)
+		err = errors.Trace(err)
 	} else {
 		logger.Infof("download complete (%q)", req.URL)
 		err = verifyDownload(filename, req)
