@@ -4,13 +4,12 @@
 package state_test
 
 import (
-	"time"
-
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
+	"github.com/juju/juju/testing"
 )
 
 type FilesystemStatusSuite struct {
@@ -60,7 +59,7 @@ func (s *FilesystemStatusSuite) checkInitialStatus(c *gc.C) {
 }
 
 func (s *FilesystemStatusSuite) TestSetErrorStatusWithoutInfo(c *gc.C) {
-	now := time.Now()
+	now := testing.ZeroTime()
 	sInfo := status.StatusInfo{
 		Status:  status.Error,
 		Message: "",
@@ -73,7 +72,7 @@ func (s *FilesystemStatusSuite) TestSetErrorStatusWithoutInfo(c *gc.C) {
 }
 
 func (s *FilesystemStatusSuite) TestSetUnknownStatus(c *gc.C) {
-	now := time.Now()
+	now := testing.ZeroTime()
 	sInfo := status.StatusInfo{
 		Status:  status.Status("vliegkat"),
 		Message: "orville",
@@ -86,7 +85,7 @@ func (s *FilesystemStatusSuite) TestSetUnknownStatus(c *gc.C) {
 }
 
 func (s *FilesystemStatusSuite) TestSetOverwritesData(c *gc.C) {
-	now := time.Now()
+	now := testing.ZeroTime()
 	sInfo := status.StatusInfo{
 		Status:  status.Attaching,
 		Message: "blah",
@@ -106,7 +105,7 @@ func (s *FilesystemStatusSuite) TestGetSetStatusAlive(c *gc.C) {
 }
 
 func (s *FilesystemStatusSuite) checkGetSetStatus(c *gc.C) {
-	now := time.Now()
+	now := testing.ZeroTime()
 	sInfo := status.StatusInfo{
 		Status:  status.Attaching,
 		Message: "blah",
@@ -163,7 +162,7 @@ func (s *FilesystemStatusSuite) TestGetSetStatusDead(c *gc.C) {
 func (s *FilesystemStatusSuite) TestGetSetStatusGone(c *gc.C) {
 	s.obliterateFilesystem(c, s.filesystem.FilesystemTag())
 
-	now := time.Now()
+	now := testing.ZeroTime()
 	sInfo := status.StatusInfo{
 		Status:  status.Attaching,
 		Message: "not really",
@@ -178,7 +177,7 @@ func (s *FilesystemStatusSuite) TestGetSetStatusGone(c *gc.C) {
 }
 
 func (s *FilesystemStatusSuite) TestSetStatusPendingUnprovisioned(c *gc.C) {
-	now := time.Now()
+	now := testing.ZeroTime()
 	sInfo := status.StatusInfo{
 		Status:  status.Pending,
 		Message: "still",
@@ -193,7 +192,7 @@ func (s *FilesystemStatusSuite) TestSetStatusPendingProvisioned(c *gc.C) {
 		FilesystemId: "fs-id",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	now := time.Now()
+	now := testing.ZeroTime()
 	sInfo := status.StatusInfo{
 		Status:  status.Pending,
 		Message: "",

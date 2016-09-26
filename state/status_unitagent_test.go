@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
+	"github.com/juju/juju/testing"
 )
 
 type StatusUnitAgentSuite struct {
@@ -38,7 +39,7 @@ func (s *StatusUnitAgentSuite) checkInitialStatus(c *gc.C) {
 }
 
 func (s *StatusUnitAgentSuite) TestSetUnknownStatus(c *gc.C) {
-	now := time.Now()
+	now := testing.ZeroTime()
 	sInfo := status.StatusInfo{
 		Status:  status.Status("vliegkat"),
 		Message: "orville",
@@ -51,7 +52,7 @@ func (s *StatusUnitAgentSuite) TestSetUnknownStatus(c *gc.C) {
 }
 
 func (s *StatusUnitAgentSuite) TestSetErrorStatusWithoutInfo(c *gc.C) {
-	now := time.Now()
+	now := testing.ZeroTime()
 	sInfo := status.StatusInfo{
 		Status:  status.Error,
 		Message: "",
@@ -64,7 +65,7 @@ func (s *StatusUnitAgentSuite) TestSetErrorStatusWithoutInfo(c *gc.C) {
 }
 
 func (s *StatusUnitAgentSuite) TestSetOverwritesData(c *gc.C) {
-	now := time.Now()
+	now := testing.ZeroTime()
 	sInfo := status.StatusInfo{
 		Status:  status.Idle,
 		Message: "something",
@@ -84,7 +85,7 @@ func (s *StatusUnitAgentSuite) TestGetSetStatusAlive(c *gc.C) {
 }
 
 func (s *StatusUnitAgentSuite) checkGetSetStatus(c *gc.C) {
-	now := time.Now()
+	now := testing.ZeroTime()
 	sInfo := status.StatusInfo{
 		Status:  status.Idle,
 		Message: "something",
@@ -143,7 +144,7 @@ func (s *StatusUnitAgentSuite) TestGetSetStatusGone(c *gc.C) {
 	err := s.unit.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 
-	now := time.Now()
+	now := testing.ZeroTime()
 	sInfo := status.StatusInfo{
 		Status:  status.Idle,
 		Message: "not really",
@@ -158,7 +159,7 @@ func (s *StatusUnitAgentSuite) TestGetSetStatusGone(c *gc.C) {
 }
 
 func (s *StatusUnitAgentSuite) TestGetSetErrorStatus(c *gc.C) {
-	now := time.Now()
+	now := testing.ZeroTime()
 	sInfo := status.StatusInfo{
 		Status:  status.Error,
 		Message: "test-hook failed",
@@ -192,7 +193,7 @@ func timeBeforeOrEqual(timeBefore, timeOther time.Time) bool {
 }
 
 func (s *StatusUnitAgentSuite) TestSetAgentStatusSince(c *gc.C) {
-	now := time.Now()
+	now := testing.ZeroTime()
 	sInfo := status.StatusInfo{
 		Status:  status.Idle,
 		Message: "",

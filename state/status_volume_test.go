@@ -4,13 +4,12 @@
 package state_test
 
 import (
-	"time"
-
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
+	"github.com/juju/juju/testing"
 )
 
 type VolumeStatusSuite struct {
@@ -60,7 +59,7 @@ func (s *VolumeStatusSuite) checkInitialStatus(c *gc.C) {
 }
 
 func (s *VolumeStatusSuite) TestSetErrorStatusWithoutInfo(c *gc.C) {
-	now := time.Now()
+	now := testing.ZeroTime()
 	sInfo := status.StatusInfo{
 		Status:  status.Error,
 		Message: "",
@@ -73,7 +72,7 @@ func (s *VolumeStatusSuite) TestSetErrorStatusWithoutInfo(c *gc.C) {
 }
 
 func (s *VolumeStatusSuite) TestSetUnknownStatus(c *gc.C) {
-	now := time.Now()
+	now := testing.ZeroTime()
 	sInfo := status.StatusInfo{
 		Status:  status.Status("vliegkat"),
 		Message: "orville",
@@ -86,7 +85,7 @@ func (s *VolumeStatusSuite) TestSetUnknownStatus(c *gc.C) {
 }
 
 func (s *VolumeStatusSuite) TestSetOverwritesData(c *gc.C) {
-	now := time.Now()
+	now := testing.ZeroTime()
 	sInfo := status.StatusInfo{
 		Status:  status.Attaching,
 		Message: "blah",
@@ -112,7 +111,7 @@ func (s *VolumeStatusSuite) TestGetSetStatusAlive(c *gc.C) {
 }
 
 func (s *VolumeStatusSuite) checkGetSetStatus(c *gc.C, volumeStatus status.Status) {
-	now := time.Now()
+	now := testing.ZeroTime()
 	sInfo := status.StatusInfo{
 		Status:  volumeStatus,
 		Message: "blah",
@@ -169,7 +168,7 @@ func (s *VolumeStatusSuite) TestGetSetStatusDead(c *gc.C) {
 func (s *VolumeStatusSuite) TestGetSetStatusGone(c *gc.C) {
 	s.obliterateVolume(c, s.volume.VolumeTag())
 
-	now := time.Now()
+	now := testing.ZeroTime()
 	sInfo := status.StatusInfo{
 		Status:  status.Attaching,
 		Message: "not really",
@@ -184,7 +183,7 @@ func (s *VolumeStatusSuite) TestGetSetStatusGone(c *gc.C) {
 }
 
 func (s *VolumeStatusSuite) TestSetStatusPendingUnprovisioned(c *gc.C) {
-	now := time.Now()
+	now := testing.ZeroTime()
 	sInfo := status.StatusInfo{
 		Status:  status.Pending,
 		Message: "still",
@@ -199,7 +198,7 @@ func (s *VolumeStatusSuite) TestSetStatusPendingProvisioned(c *gc.C) {
 		VolumeId: "vol-ume",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	now := time.Now()
+	now := testing.ZeroTime()
 	sInfo := status.StatusInfo{
 		Status:  status.Pending,
 		Message: "",
