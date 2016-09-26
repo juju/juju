@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/environs"
 	jujutesting "github.com/juju/testing"
 	"github.com/juju/utils"
 )
@@ -123,6 +124,74 @@ func (s *Suite) TestInitiateMigrationValidationError(c *gc.C) {
 	c.Check(id, gc.Equals, "")
 	c.Check(err, gc.ErrorMatches, "model UUID not valid")
 	c.Check(stub.Calls(), gc.HasLen, 0) // API call shouldn't have happened
+}
+
+func (s *Suite) TestHostedModelConfigs_CallError(c *gc.C) {
+	apiCaller := apitesting.APICallerFunc(func(string, int, string, string, interface{}, interface{}) error {
+		return errors.New("boom")
+	})
+	client := controller.NewClient(apiCaller)
+	config, err := client.HostedModelConfigs()
+	c.Check(config, gc.HasLen, 0)
+	c.Check(err, gc.ErrorMatches, "boom")
+}
+
+func (s *Suite) TestHostedModelConfigs_FormatResults(c *gc.C) {
+	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Assert(objType, gc.Equals, "Controller")
+		c.Assert(request, gc.Equals, "HostedModelConfigs")
+		c.Assert(arg, gc.IsNil)
+		out := result.(*params.HostedModelConfigsResults)
+		c.Assert(out, gc.NotNil)
+		*out = params.HostedModelConfigsResults{
+			Models: []params.HostedModelConfig{
+				{
+					Name:     "first",
+					OwnerTag: "user-foo@bar",
+					Config: map[string]interface{}{
+						"name": "first",
+					},
+					CloudSpec: &params.CloudSpec{
+						Type: "magic",
+						Name: "first",
+					},
+				}, {
+					Name:     "second",
+					OwnerTag: "bad-tag",
+				}, {
+					Name:     "third",
+					OwnerTag: "user-foo@bar",
+					Config: map[string]interface{}{
+						"name": "third",
+					},
+					CloudSpec: &params.CloudSpec{
+						Name: "third",
+					},
+				},
+			},
+		}
+		return nil
+	})
+	client := controller.NewClient(apiCaller)
+	config, err := client.HostedModelConfigs()
+	c.Assert(config, gc.HasLen, 3)
+	c.Assert(err, jc.ErrorIsNil)
+	first := config[0]
+	c.Assert(first.Name, gc.Equals, "first")
+	c.Assert(first.Owner, gc.Equals, names.NewUserTag("foo@bar"))
+	c.Assert(first.Config, gc.DeepEquals, map[string]interface{}{
+		"name": "first",
+	})
+	c.Assert(first.CloudSpec, gc.DeepEquals, environs.CloudSpec{
+		Type: "magic",
+		Name: "first",
+	})
+	second := config[1]
+	c.Assert(second.Name, gc.Equals, "second")
+	c.Assert(second.Error.Error(), gc.Equals, `"bad-tag" is not a valid tag`)
+	third := config[2]
+	c.Assert(third.Name, gc.Equals, "third")
+	c.Assert(third.Error.Error(), gc.Equals, "validating CloudSpec: empty Type not valid")
 }
 
 func makeClient(results params.InitiateMigrationResults) (
