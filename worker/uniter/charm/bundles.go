@@ -70,7 +70,7 @@ func (d *BundlesDir) download(info BundleInfo, target string, abort <-chan struc
 	expectedSha256, err := info.ArchiveSha256()
 	req := downloader.Request{
 		URL:       curl,
-		TargetDir: downloadsPath(d.path), // XXX check this
+		TargetDir: downloadsPath(d.path),
 		Verify:    downloader.NewSha256Verifier(expectedSha256),
 		Abort:     abort,
 	}
