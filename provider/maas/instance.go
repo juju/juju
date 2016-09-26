@@ -51,20 +51,24 @@ func maasObjectId(maasObject *gomaasapi.MAASObject) instance.Id {
 	return instance.Id(maasObject.URI().String())
 }
 
+func normalizeStatus(statusMsg string) string {
+	return strings.ToLower(strings.TrimSpace(statusMsg))
+}
+
 func convertInstanceStatus(statusMsg, substatus string, id instance.Id) instance.InstanceStatus {
 	maasInstanceStatus := status.Empty
-	switch statusMsg {
+	switch normalizeStatus(statusMsg) {
 	case "":
 		logger.Debugf("unable to obtain status of instance %s", id)
 		statusMsg = "error in getting status"
-	case "Deployed":
+	case "deployed":
 		maasInstanceStatus = status.Running
-	case "Deploying":
+	case "deploying":
 		maasInstanceStatus = status.Allocating
 		if substatus != "" {
 			statusMsg = fmt.Sprintf("%s: %s", statusMsg, substatus)
 		}
-	case "Failed Deployment", "Failed deployment":
+	case "failed deployment":
 		maasInstanceStatus = status.ProvisioningError
 		if substatus != "" {
 			statusMsg = fmt.Sprintf("%s: %s", statusMsg, substatus)

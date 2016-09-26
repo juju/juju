@@ -271,6 +271,7 @@ func pollInstanceInfo(context machineContext, m machine) (instInfo instanceInfo,
 				return instanceInfo{}, err
 			}
 		}
+
 	}
 	if m.Life() != params.Dead {
 		providerAddresses, err := m.ProviderAddresses()

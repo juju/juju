@@ -13,11 +13,15 @@ import (
 	"github.com/juju/juju/network"
 )
 
+type maas2Controller interface {
+	Machines(gomaasapi.MachinesArgs) ([]gomaasapi.Machine, error)
+}
+
 type maas2Instance struct {
 	machine           gomaasapi.Machine
 	constraintMatches gomaasapi.ConstraintMatches
 	// maasController provides access to the MAAS 2.0 API.
-	maasController gomaasapi.Controller
+	maasController maas2Controller
 }
 
 var _ maasInstance = (*maas2Instance)(nil)
@@ -70,9 +74,11 @@ func (mi *maas2Instance) Status() instance.InstanceStatus {
 	args := gomaasapi.MachinesArgs{SystemIDs: []string{mi.machine.SystemID()}}
 	machines, err := mi.maasController.Machines(args)
 	if err != nil {
+		logger.Errorf("obtaining machines: %v", err)
 		return convertInstanceStatus("", "", mi.Id())
 	}
 	if len(machines) != 1 {
+		logger.Warningf("1 machine was epected, got %d", len(machines))
 		return convertInstanceStatus("", "", mi.Id())
 	}
 	machine := machines[0]
