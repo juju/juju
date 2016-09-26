@@ -218,7 +218,6 @@ def autoload_and_bootstrap(bs_manager, upload_tools, real_credentials,
             with bs_manager.bootstrap_context(
                     machines,
                     omit_config=bs_manager.client.bootstrap_replaces):
-
                 run_autoload_credentials(
                     bs_manager.client,
                     cloud_details.env_var_changes,
