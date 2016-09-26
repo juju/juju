@@ -12,7 +12,7 @@ from deploy_stack import (
 from utility import (
     add_basic_testing_arguments,
     configure_logging,
-)
+    )
 
 
 log = logging.getLogger("assess_bootstrap")
