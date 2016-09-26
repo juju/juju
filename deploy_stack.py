@@ -40,7 +40,6 @@ from jujuconfig import (
 from jujupy import (
     client_from_config,
     EnvJujuClient,
-    get_client_class,
     get_local_root,
     get_machine_dns_name,
     jes_home_path,
