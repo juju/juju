@@ -740,14 +740,9 @@ func (*storeManagerSuite) TestMultiwatcherStop(c *gc.C) {
 		c.Check(sm.Stop(), gc.IsNil)
 	}()
 	w := &Multiwatcher{all: sm}
-	done := make(chan struct{})
-	go func() {
-		checkNext(c, w, nil, ErrStopped.Error())
-		done <- struct{}{}
-	}()
 	err := w.Stop()
 	c.Assert(err, jc.ErrorIsNil)
-	<-done
+	checkNext(c, w, nil, ErrStopped.Error())
 }
 
 func (*storeManagerSuite) TestMultiwatcherStopBecauseStoreManagerError(c *gc.C) {
