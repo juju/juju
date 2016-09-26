@@ -1622,7 +1622,6 @@ class EnvJujuClient:
 
         Works only if JES is enabled.
         """
-        # import ipdb; ipdb.set_trace()
         models = self._get_models()
         if not models:
             yield self
