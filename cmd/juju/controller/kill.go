@@ -28,6 +28,12 @@ destroyed through the cloud provisioner.  If there are additional machines,
 including machines within hosted models, these machines will not be destroyed
 and will never be reconnected to the Juju controller being destroyed.
 
+The normal process of killing the controller will involve watching the hosted
+models as they are brought down in a controlled manner. If for some reason the
+models do not stop cleanly, there is a default five minute timeout. If no change
+in the model state occurs for the duration of this timeout, the command will
+stop watching and destroy the models directly through the cloud provider.
+
 See also:
     destroy-controller
     unregister
@@ -124,30 +130,29 @@ func (c *killCommand) Run(ctx *cmd.Context) error {
 	// If we were unable to connect to the API, just destroy the controller through
 	// the environs interface.
 	if api == nil {
-		ctx.Infof("Unable to connect to the API server. Destroying through provider.")
+		ctx.Infof("Unable to connect to the API server, destroying through provider")
 		return environs.Destroy(controllerName, controllerEnviron, store)
 	}
 
 	// Attempt to destroy the controller and all environments.
 	err = api.DestroyController(true)
 	if err != nil {
-		ctx.Infof("Unable to destroy controller through the API: %s.  Destroying through provider.", err)
+		ctx.Infof("Unable to destroy controller through the API: %s\nDestroying through provider", err)
 		return environs.Destroy(controllerName, controllerEnviron, store)
 	}
 
 	ctx.Infof("Destroying controller %q\nWaiting for resources to be reclaimed", controllerName)
 
 	uuid := controllerEnviron.Config().UUID()
-	cloudName := controllerEnviron.Config().Type()
-	if err := c.WaitForModels(ctx, api, cloudName, uuid); err != nil {
-		c.DirectDestroyRemaining(ctx, api, cloudName)
+	if err := c.WaitForModels(ctx, api, uuid); err != nil {
+		c.DirectDestroyRemaining(ctx, api)
 	}
 	return environs.Destroy(controllerName, controllerEnviron, store)
 }
 
 // DirectDestroyRemaining will attempt to directly destroy any remaining
 // models that have machines left.
-func (c *killCommand) DirectDestroyRemaining(ctx *cmd.Context, api destroyControllerAPI, cloudName string) {
+func (c *killCommand) DirectDestroyRemaining(ctx *cmd.Context, api destroyControllerAPI) {
 	hasErrors := false
 	hostedConfig, err := api.HostedModelConfigs()
 	if err != nil {
@@ -155,7 +160,7 @@ func (c *killCommand) DirectDestroyRemaining(ctx *cmd.Context, api destroyContro
 		logger.Errorf("unable to retrieve hosted model config: %v", err)
 	}
 	for _, model := range hostedConfig {
-		ctx.Infof("Killing %s/%s via %s", model.Owner.Canonical(), model.Name, cloudName)
+		ctx.Infof("Killing %s/%s directly", model.Owner.Canonical(), model.Name)
 		cfg, err := config.New(config.NoDefaults, model.Config)
 		if err != nil {
 			logger.Errorf(err.Error())
@@ -187,16 +192,15 @@ func (c *killCommand) DirectDestroyRemaining(ctx *cmd.Context, api destroyContro
 
 // WaitForModels will wait for the models to bring themselves down nicely.
 // It will return the UUIDs of any models that need to be removed forceably.
-func (c *killCommand) WaitForModels(ctx *cmd.Context, api destroyControllerAPI, cloudName, uuid string) error {
+func (c *killCommand) WaitForModels(ctx *cmd.Context, api destroyControllerAPI, uuid string) error {
+	thirtySeconds := (time.Second * 30)
 	updateStatus := newTimedStatusUpdater(ctx, api, uuid, c.clock)
 
 	ctrStatus, modelsStatus := updateStatus(0)
 	lastStatus := ctrStatus
-	thirtySeconds := (time.Second * 30)
 	lastChange := c.clock.Now().Truncate(time.Second)
 	deadline := lastChange.Add(c.timeout)
-	for ; hasUnDeadModels(modelsStatus) &&
-		(deadline.After(c.clock.Now())); ctrStatus, modelsStatus = updateStatus(5 * time.Second) {
+	for ; hasUnDeadModels(modelsStatus) && (deadline.After(c.clock.Now())); ctrStatus, modelsStatus = updateStatus(5 * time.Second) {
 		now := c.clock.Now().Truncate(time.Second)
 		if ctrStatus != lastStatus {
 			lastStatus = ctrStatus
@@ -209,7 +213,7 @@ func (c *killCommand) WaitForModels(ctx *cmd.Context, api destroyControllerAPI, 
 		// We want to show the warning if it has been more than 30 seconds since
 		// the last change, or we are within 30 seconds of our timeout.
 		if timeSinceLastChange > thirtySeconds || timeUntilDestruction < thirtySeconds {
-			warning = fmt.Sprintf(" - will kill directly via %s in %s", cloudName, timeUntilDestruction)
+			warning = fmt.Sprintf(", will kill machines directly in %s", timeUntilDestruction)
 		}
 		ctx.Infof("%s%s", fmtCtrStatus(ctrStatus), warning)
 		for _, modelStatus := range modelsStatus {

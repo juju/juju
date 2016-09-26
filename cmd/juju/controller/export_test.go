@@ -140,9 +140,9 @@ func KillTimeout(c *gc.C, command cmd.Command) time.Duration {
 }
 
 // KillWaitForModels calls the WaitForModels method of the kill command.
-func KillWaitForModels(command cmd.Command, ctx *cmd.Context, api destroyControllerAPI, cloudName, uuid string) error {
+func KillWaitForModels(command cmd.Command, ctx *cmd.Context, api destroyControllerAPI, uuid string) error {
 	kill := command.(*killCommand)
-	return kill.WaitForModels(ctx, api, cloudName, uuid)
+	return kill.WaitForModels(ctx, api, uuid)
 }
 
 // NewGetConfigCommandCommandForTest returns a GetConfigCommandCommand with

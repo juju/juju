@@ -108,7 +108,7 @@ func (s *KillSuite) TestKillWaitForModels_AllGood(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	ctx := coretesting.Context(c)
-	err = controller.KillWaitForModels(inner, ctx, s.api, "magic", test1UUID)
+	err = controller.KillWaitForModels(inner, ctx, s.api, test1UUID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(coretesting.Stderr(ctx), gc.Equals, "All hosted models reclaimed, cleaning up controller machines\n")
 }
@@ -129,7 +129,7 @@ func (s *KillSuite) TestKillWaitForModels_ActuallyWaits(c *gc.C) {
 	ctx := coretesting.Context(c)
 	result := make(chan error)
 	go func() {
-		err := controller.KillWaitForModels(inner, ctx, s.api, "magic", test1UUID)
+		err := controller.KillWaitForModels(inner, ctx, s.api, test1UUID)
 		result <- err
 	}()
 
@@ -176,7 +176,7 @@ func (s *KillSuite) TestKillWaitForModels_TimeoutResetsWithChange(c *gc.C) {
 	ctx := coretesting.Context(c)
 	result := make(chan error)
 	go func() {
-		err := controller.KillWaitForModels(inner, ctx, s.api, "magic", test1UUID)
+		err := controller.KillWaitForModels(inner, ctx, s.api, test1UUID)
 		result <- err
 	}()
 
@@ -203,9 +203,9 @@ func (s *KillSuite) TestKillWaitForModels_TimeoutResetsWithChange(c *gc.C) {
 		c.Fatal("timed out waiting for result")
 	}
 	expect := "" +
-		"Waiting on 1 model, 2 machines, 2 applications - will kill directly via magic in 20s\n" +
-		"Waiting on 1 model, 2 machines, 2 applications - will kill directly via magic in 15s\n" +
-		"Waiting on 1 model, 1 machine - will kill directly via magic in 20s\n" +
+		"Waiting on 1 model, 2 machines, 2 applications, will kill machines directly in 20s\n" +
+		"Waiting on 1 model, 2 machines, 2 applications, will kill machines directly in 15s\n" +
+		"Waiting on 1 model, 1 machine, will kill machines directly in 20s\n" +
 		"All hosted models reclaimed, cleaning up controller machines\n"
 
 	c.Assert(coretesting.Stderr(ctx), gc.Equals, expect)
@@ -227,7 +227,7 @@ func (s *KillSuite) TestKillWaitForModels_TimeoutWithNoChange(c *gc.C) {
 	ctx := coretesting.Context(c)
 	result := make(chan error)
 	go func() {
-		err := controller.KillWaitForModels(inner, ctx, s.api, "magic", test1UUID)
+		err := controller.KillWaitForModels(inner, ctx, s.api, test1UUID)
 		result <- err
 	}()
 
@@ -250,11 +250,11 @@ func (s *KillSuite) TestKillWaitForModels_TimeoutWithNoChange(c *gc.C) {
 		"Waiting on 1 model, 2 machines, 2 applications\n" +
 		"Waiting on 1 model, 2 machines, 2 applications\n" +
 		"Waiting on 1 model, 2 machines, 2 applications\n" +
-		"Waiting on 1 model, 2 machines, 2 applications - will kill directly via magic in 25s\n" +
-		"Waiting on 1 model, 2 machines, 2 applications - will kill directly via magic in 20s\n" +
-		"Waiting on 1 model, 2 machines, 2 applications - will kill directly via magic in 15s\n" +
-		"Waiting on 1 model, 2 machines, 2 applications - will kill directly via magic in 10s\n" +
-		"Waiting on 1 model, 2 machines, 2 applications - will kill directly via magic in 5s\n"
+		"Waiting on 1 model, 2 machines, 2 applications, will kill machines directly in 25s\n" +
+		"Waiting on 1 model, 2 machines, 2 applications, will kill machines directly in 20s\n" +
+		"Waiting on 1 model, 2 machines, 2 applications, will kill machines directly in 15s\n" +
+		"Waiting on 1 model, 2 machines, 2 applications, will kill machines directly in 10s\n" +
+		"Waiting on 1 model, 2 machines, 2 applications, will kill machines directly in 5s\n"
 
 	c.Assert(coretesting.Stderr(ctx), gc.Equals, expect)
 }
@@ -350,7 +350,7 @@ func (s *KillSuite) TestKillDestroysControllerWithAPIError(c *gc.C) {
 	s.api.SetErrors(errors.New("some destroy error"))
 	ctx, err := s.runKillCommand(c, "test1", "-y")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(coretesting.Stderr(ctx), jc.Contains, "Unable to destroy controller through the API: some destroy error.  Destroying through provider.")
+	c.Check(coretesting.Stderr(ctx), jc.Contains, "Unable to destroy controller through the API: some destroy error\nDestroying through provider")
 	c.Assert(s.api.destroyAll, jc.IsTrue)
 	checkControllerRemovedFromStore(c, "test1", s.store)
 }
