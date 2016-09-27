@@ -53,6 +53,22 @@ func NewAddUnitCommandForTest(api serviceAddUnitAPI) cmd.Command {
 	})
 }
 
+// NewAddRelationCommandForTest returns an AddRelationCommand with the api provided as specified.
+func NewAddRelationCommandForTest(api ApplicationAddRelationAPI) cmd.Command {
+	cmd := &addRelationCommand{newAPIFunc: func() (ApplicationAddRelationAPI, error) {
+		return api, nil
+	}}
+	return modelcmd.Wrap(cmd)
+}
+
+// NewRemoveRelationCommandForTest returns an RemoveRelationCommand with the api provided as specified.
+func NewRemoveRelationCommandForTest(api ApplicationDestroyRelationAPI) cmd.Command {
+	cmd := &removeRelationCommand{newAPIFunc: func() (ApplicationDestroyRelationAPI, error) {
+		return api, nil
+	}}
+	return modelcmd.Wrap(cmd)
+}
+
 type Patcher interface {
 	PatchValue(dest, value interface{})
 }

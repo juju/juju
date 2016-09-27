@@ -60,3 +60,10 @@ func (s *CmdBlockHelper) AssertBlocked(c *gc.C, err error, msg string) {
 	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
 	c.Check(stripped, gc.Matches, msg)
 }
+
+func AssertOperationWasBlocked(c *gc.C, err error, msg string) {
+	c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
+	// msg is logged
+	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
+	c.Check(stripped, gc.Matches, msg)
+}

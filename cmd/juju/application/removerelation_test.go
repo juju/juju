@@ -1,78 +1,94 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2012 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package application
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/rpc"
-	"github.com/juju/juju/testcharms"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/apiserver/common"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type RemoveRelationSuite struct {
-	jujutesting.RepoSuite
-	testing.CmdBlockHelper
+	testing.IsolationSuite
+	mockAPI *mockRemoveAPI
 }
 
 func (s *RemoveRelationSuite) SetUpTest(c *gc.C) {
-	s.RepoSuite.SetUpTest(c)
-	s.CmdBlockHelper = testing.NewCmdBlockHelper(s.APIState)
-	c.Assert(s.CmdBlockHelper, gc.NotNil)
-	s.AddCleanup(func(*gc.C) { s.CmdBlockHelper.Close() })
+	s.IsolationSuite.SetUpTest(c)
+	s.mockAPI = &mockRemoveAPI{
+		removeRelationFunc: func(endpoints ...string) error {
+			return nil
+		},
+	}
 }
 
 var _ = gc.Suite(&RemoveRelationSuite{})
 
-func runRemoveRelation(c *gc.C, args ...string) error {
-	_, err := testing.RunCommand(c, NewRemoveRelationCommand(), args...)
+func (s *RemoveRelationSuite) runRemoveRelation(c *gc.C, args ...string) error {
+	_, err := coretesting.RunCommand(c, NewRemoveRelationCommandForTest(s.mockAPI), args...)
 	return err
 }
 
-func (s *RemoveRelationSuite) setupRelationForRemove(c *gc.C) {
-	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "riak")
-	err := runDeploy(c, ch, "riak", "--series", "quantal")
-	c.Assert(err, jc.ErrorIsNil)
-	ch = testcharms.Repo.CharmArchivePath(s.CharmsPath, "logging")
-	err = runDeploy(c, ch, "logging", "--series", "quantal")
-	c.Assert(err, jc.ErrorIsNil)
-	runAddRelation(c, "riak", "logging")
+func (s *RemoveRelationSuite) TestRemoveRelationNotEnoughArguments(c *gc.C) {
+	// No arguments
+	err := s.runRemoveRelation(c)
+	c.Assert(err, gc.ErrorMatches, "a relation must involve two applications")
+
+	// 1 empty argument
+	err = s.runRemoveRelation(c, "")
+	c.Assert(err, gc.ErrorMatches, "a relation must involve two applications")
+
+	// 2 empty arguments
+	err = s.runRemoveRelation(c, "", "")
+	c.Assert(err, gc.ErrorMatches, "a relation must involve two applications")
+
+	// 1 empty and 1 non-empty arguments
+	err = s.runRemoveRelation(c, "application1", "")
+	c.Assert(err, gc.ErrorMatches, "a relation must involve two applications")
+
+	// 1 empty and 1 non-empty arguments
+	err = s.runRemoveRelation(c, "", "application2")
+	c.Assert(err, gc.ErrorMatches, "a relation must involve two applications")
 }
 
-func (s *RemoveRelationSuite) TestRemoveRelation(c *gc.C) {
-	s.setupRelationForRemove(c)
-
-	// Destroy a relation that exists.
-	err := runRemoveRelation(c, "logging", "riak")
+func (s *RemoveRelationSuite) TestRemoveRelationSuccess(c *gc.C) {
+	err := s.runRemoveRelation(c, "application1", "application2")
 	c.Assert(err, jc.ErrorIsNil)
-
-	// Destroy a relation that used to exist.
-	err = runRemoveRelation(c, "riak", "logging")
-	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
-		Message: `relation "logging:info riak:juju-info" not found`,
-		Code:    "not found",
-	})
-
-	// Invalid removes.
-	err = runRemoveRelation(c, "ping", "pong")
-	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
-		Message: `application "ping" not found`,
-		Code:    "not found",
-	})
-	err = runRemoveRelation(c, "riak")
-	c.Assert(err, gc.ErrorMatches, `a relation must involve two applications`)
 }
 
-func (s *RemoveRelationSuite) TestBlockRemoveRelation(c *gc.C) {
-	s.setupRelationForRemove(c)
+func (s *RemoveRelationSuite) TestRemoveRelationFail(c *gc.C) {
+	msg := "fail remove relation"
+	s.mockAPI = &mockRemoveAPI{
+		removeRelationFunc: func(endpoints ...string) error {
+			return errors.New(msg)
+		},
+	}
+	err := s.runRemoveRelation(c, "application1", "application2")
+	c.Assert(err, gc.ErrorMatches, msg)
+}
 
-	// block operation
-	s.BlockRemoveObject(c, "TestBlockRemoveRelation")
-	// Destroy a relation that exists.
-	err := runRemoveRelation(c, "logging", "riak")
-	s.AssertBlocked(c, err, ".*TestBlockRemoveRelation.*")
+func (s *RemoveRelationSuite) TestRemoveRelationBlocked(c *gc.C) {
+	// Block operation
+	s.mockAPI.removeRelationFunc = func(endpoints ...string) error {
+		return common.OperationBlockedError("TestRemoveRelationBlocked")
+	}
+	err := s.runRemoveRelation(c, "application1", "application2")
+	coretesting.AssertOperationWasBlocked(c, err, ".*TestRemoveRelationBlocked.*")
+}
+
+type mockRemoveAPI struct {
+	removeRelationFunc func(endpoints ...string) error
+}
+
+func (s mockRemoveAPI) Close() error {
+	return nil
+}
+
+func (s mockRemoveAPI) DestroyRelation(endpoints ...string) error {
+	return s.removeRelationFunc(endpoints...)
 }
