@@ -574,6 +574,42 @@ class MAASAccount:
             self.profile, 'interface', 'unlink-subnet', system_id,
             str(interface_id), 'id=' + str(link_id))
 
+    def subnets(self):
+        """Return list of all subnets."""
+        return self._maas(self.profile, 'subnets', 'read')
+
+    def create_subnet(self, cidr, name=None, fabric_id=None, vlan_id=None,
+                      vid=None, space=None, gateway_ip=None, dns_servers=None):
+        """Create a subnet with given cidr."""
+        if vlan_id and vid:
+            raise ValueError('Must only give one of vlan_id and vid')
+        args = [self.profile, 'subnets', 'create', 'cidr=' + cidr]
+        if name is not None:
+            # Defaults to cidr if none is given
+            args.append('name=' + name)
+        if fabric_id is not None:
+            # Uses default fabric if none is given
+            args.append('fabric=' + str(fabric_id))
+        if vlan_id is not None:
+            # Uses default vlan on fabric if none is given
+            args.append('vlan=' + str(vlan_id))
+        if vid is not None:
+            args.append('vid=' + str(vid))
+        if space is not None:
+            # Uses default space if none is given
+            args.append('space=' + str(space))
+        if gateway_ip is not None:
+            args.append('gateway_ip=' + str(gateway_ip))
+        if dns_servers is not None:
+            args.append('dns_servers=' + str(dns_servers))
+        # TODO(gz): Add support for rdns_mode and allow_proxy from MAAS 2.0
+        return self._maas(*args)
+
+    def delete_subnet(self, subnet_id):
+        """Delete subnet with given subnet_id."""
+        return self._maas(
+            self.profile, 'subnet', 'delete', str(subnet_id))
+
 
 class MAAS1Account(MAASAccount):
     """Represent a MAAS 1.X account."""

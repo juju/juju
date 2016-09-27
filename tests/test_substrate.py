@@ -1039,6 +1039,69 @@ class TestMAASAccount(TestCase):
             'id=20000'))
         self.assertEqual(None, result)
 
+    def test_subnets(self):
+        config = get_maas_env().config
+        account = MAASAccount(
+            config['name'], config['maas-server'], config['maas-oauth'])
+        with patch('subprocess.check_output', autospec=True,
+                   return_value='[]') as co_mock:
+            subnets = account.subnets()
+        co_mock.assert_called_once_with(('maas', 'mas', 'subnets', 'read'))
+        self.assertEqual([], subnets)
+
+    def test_create_subnet(self):
+        config = get_maas_env().config
+        account = MAASAccount(
+            config['name'], config['maas-server'], config['maas-oauth'])
+        with patch('subprocess.check_output', autospec=True,
+                   return_value='{"id": 1}') as co_mock:
+            subnet = account.create_subnet('10.0.0.0/24')
+            co_mock.assert_called_once_with((
+                'maas', 'mas', 'subnets', 'create', 'cidr=10.0.0.0/24'))
+            self.assertEqual({'id': 1}, subnet)
+            co_mock.reset_mock()
+            subnet = account.create_subnet(
+                '10.10.0.0/24', name='test-subnet', fabric_id='1', vlan_id='5',
+                space='2', gateway_ip='10.10.0.1')
+            co_mock.assert_called_once_with((
+                'maas', 'mas', 'subnets', 'create', 'cidr=10.10.0.0/24',
+                'name=test-subnet', 'fabric=1', 'vlan=5', 'space=2',
+                'gateway_ip=10.10.0.1'))
+            self.assertEqual({'id': 1}, subnet)
+            co_mock.reset_mock()
+            subnet = account.create_subnet(
+                '10.10.0.0/24', name='test-subnet', fabric_id='1', vid='0',
+                space='2', dns_servers='8.8.8.8,8.8.4.4')
+            co_mock.assert_called_once_with((
+                'maas', 'mas', 'subnets', 'create', 'cidr=10.10.0.0/24',
+                'name=test-subnet', 'fabric=1', 'vid=0', 'space=2',
+                'dns_servers=8.8.8.8,8.8.4.4'))
+            self.assertEqual({'id': 1}, subnet)
+
+    def test_create_subnet_invalid(self):
+        config = get_maas_env().config
+        account = MAASAccount(
+            config['name'], config['maas-server'], config['maas-oauth'])
+        with patch('subprocess.check_output', autospec=True,
+                   return_value='') as co_mock:
+            with self.assertRaises(ValueError) as err_ctx:
+                account.create_subnet('10.0.0.0/24', vlan_id=10, vid=1)
+            self.assertEqual(
+                str(err_ctx.exception),
+                'Must only give one of vlan_id and vid')
+        self.assertEqual(0, co_mock.call_count)
+
+    def test_delete_subnet(self):
+        config = get_maas_env().config
+        account = MAASAccount(
+            config['name'], config['maas-server'], config['maas-oauth'])
+        with patch('subprocess.check_output', autospec=True,
+                   return_value='') as co_mock:
+            result = account.delete_subnet(1)
+        co_mock.assert_called_once_with(
+            ('maas', 'mas', 'subnet', 'delete', '1'))
+        self.assertEqual(None, result)
+
 
 class TestMAAS1Account(TestCase):
 
