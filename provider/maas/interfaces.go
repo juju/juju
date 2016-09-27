@@ -121,7 +121,6 @@ func maasObjectNetworkInterfaces(maasObject *gomaasapi.MAASObject, subnetsMap ma
 
 	infos := make([]network.InterfaceInfo, 0, len(interfaces))
 	for i, iface := range interfaces {
-
 		// The below works for all types except bonds and their members.
 		parentName := strings.Join(iface.Parents, "")
 		var nicType network.InterfaceType
@@ -161,10 +160,10 @@ func maasObjectNetworkInterfaces(maasObject *gomaasapi.MAASObject, subnetsMap ma
 		}
 
 		for _, link := range iface.Links {
-			nicInfo.ConfigType = maasLinkToInterfaceConfigType(string(link.Mode), link.IPAddress)
+			nicInfo.ConfigType = maasLinkToInterfaceConfigType(string(link.Mode))
 
-			if link.IPAddress == "" {
-				logger.Debugf("interface %q has no address", iface.Name)
+			if link.IPAddress == "" && link.Subnet == nil {
+				logger.Debugf("interface %q link %d has neither subnet nor address", iface.Name, link.ID)
 				infos = append(infos, nicInfo)
 			} else {
 				// We set it here initially without a space, just so we don't
@@ -264,10 +263,10 @@ func maas2NetworkInterfaces(instance *maas2Instance, subnetsMap map[string]netwo
 		}
 
 		for _, link := range iface.Links() {
-			nicInfo.ConfigType = maasLinkToInterfaceConfigType(link.Mode(), link.IPAddress())
+			nicInfo.ConfigType = maasLinkToInterfaceConfigType(link.Mode())
 
-			if link.IPAddress() == "" {
-				logger.Debugf("interface %q has no address", iface.Name())
+			if link.IPAddress() == "" && link.Subnet() == nil {
+				logger.Debugf("interface %q link %d has neither subnet nor address", iface.Name(), link.ID())
 				infos = append(infos, nicInfo)
 			} else {
 				// We set it here initially without a space, just so we don't
@@ -337,16 +336,14 @@ func (environ *maasEnviron) NetworkInterfaces(instId instance.Id) ([]network.Int
 	}
 }
 
-func maasLinkToInterfaceConfigType(mode, ipAddress string) network.InterfaceConfigType {
+func maasLinkToInterfaceConfigType(mode string) network.InterfaceConfigType {
 	switch maasLinkMode(mode) {
 	case modeUnknown:
 		return network.ConfigUnknown
 	case modeDHCP:
 		return network.ConfigDHCP
 	case modeStatic, modeAuto:
-		if ipAddress != "" {
-			return network.ConfigStatic
-		}
+		return network.ConfigStatic
 	case modeLinkUp:
 	default:
 	}

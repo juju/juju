@@ -99,7 +99,7 @@ class LogicalInterface(object):
         return result
 
     # Returns an ordered set of stanzas to bridge this interface.
-    def bridge(self, prefix, bridge_name):
+    def _bridge(self, prefix, bridge_name):
         if bridge_name is None:
             bridge_name = prefix + self.name
         # Note: the testing order here is significant.
@@ -274,15 +274,11 @@ class NetworkInterfaceParser(object):
             return bridge_port in iface.bridge_ports
         return False
 
-    def bridge_all(self, interface_name_to_bridge, bridge_prefix, bridge_name):
-        # The interface_name_to_bridge test is to bridge a single interface
-        # only, which is only used for juju < 2.0. And if that
-        # argument is specified then bridge_name takes precedence over
-        # any bridge_prefix.
+    def bridge(self, interface_names_to_bridge, bridge_prefix, bridge_name):
         bridged_stanzas = []
         for s in self.stanzas():
             if s.is_logical_interface:
-                if interface_name_to_bridge and interface_name_to_bridge != s.iface.name:
+                if s.iface.name not in interface_names_to_bridge:
                     if s.iface.has_auto_stanza:
                         bridged_stanzas.append(AutoStanza(s.iface.name))
                     bridged_stanzas.append(s)
@@ -293,7 +289,7 @@ class NetworkInterfaceParser(object):
                             bridged_stanzas.append(AutoStanza(s.iface.name))
                         bridged_stanzas.append(s)
                     else:
-                        bridged_stanzas.extend(s.iface.bridge(bridge_prefix, bridge_name))
+                        bridged_stanzas.extend(s.iface._bridge(bridge_prefix, bridge_name))
             elif not s.is_physical_interface:
                 bridged_stanzas.append(s)
         return bridged_stanzas
@@ -398,23 +394,25 @@ def arg_parser():
     parser.add_argument('--bridge-prefix', help="bridge prefix", type=str, required=False, default='br-')
     parser.add_argument('--one-time-backup', help='A one time backup of filename', action='store_true', default=True, required=False)
     parser.add_argument('--activate', help='activate new configuration', action='store_true', default=False, required=False)
-    parser.add_argument('--interface-to-bridge', help="interface to bridge", type=str, required=False)
+    parser.add_argument('--interfaces-to-bridge', help="interfaces to bridge; space delimited", type=str, required=True)
     parser.add_argument('--bridge-name', help="bridge name", type=str, required=False)
     parser.add_argument('filename', help="interfaces(5) based filename")
     return parser
 
 
 def main(args):
-    if args.bridge_name and args.interface_to_bridge is None:
-        sys.stderr.write("error: --interface-to-bridge required when using --bridge-name\n")
+    interfaces = args.interfaces_to_bridge.split()
+
+    if len(interfaces) == 0:
+        sys.stderr.write("error: no interfaces specified\n")
         exit(1)
 
-    if args.interface_to_bridge and args.bridge_name is None:
-        sys.stderr.write("error: --bridge-name required when using --interface-to-bridge\n")
+    if args.bridge_name and len(interfaces) > 1:
+        sys.stderr.write("error: cannot use single bridge name '{}' against multiple interface names\n".format(args.bridge_name))
         exit(1)
 
     parser = NetworkInterfaceParser(args.filename)
-    stanzas = parser.bridge_all(args.interface_to_bridge, args.bridge_prefix, args.bridge_name)
+    stanzas = parser.bridge(interfaces, args.bridge_prefix, args.bridge_name)
 
     if not args.activate:
         print_stanzas(stanzas)

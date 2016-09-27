@@ -73,12 +73,12 @@ func (s *bridgeConfigSuite) assertScript(c *gc.C, initialConfig, expectedConfig,
 	}
 }
 
-func (s *bridgeConfigSuite) assertScriptWithPrefix(c *gc.C, initial, expected, prefix string) {
-	s.assertScript(c, initial, expected, prefix, "", "")
+func (s *bridgeConfigSuite) assertScriptWithPrefix(c *gc.C, initial, expected, prefix, interfaceToBridge string) {
+	s.assertScript(c, initial, expected, prefix, "", interfaceToBridge)
 }
 
-func (s *bridgeConfigSuite) assertScriptWithDefaultPrefix(c *gc.C, initial, expected string) {
-	s.assertScript(c, initial, expected, "", "", "")
+func (s *bridgeConfigSuite) assertScriptWithDefaultPrefix(c *gc.C, initial, expected, interfaceToBridge string) {
+	s.assertScript(c, initial, expected, "", "", interfaceToBridge)
 }
 
 func (s *bridgeConfigSuite) assertScriptWithoutPrefix(c *gc.C, initial, expected, bridgeName, interfaceToBridge string) {
@@ -89,52 +89,54 @@ func (s *bridgeConfigSuite) TestBridgeScriptWithUndefinedArgs(c *gc.C) {
 	for i, python := range s.pythonVersions {
 		c.Logf("test #%v using %s", i, python)
 		_, code := s.runScript(c, python, "", "", "", "")
-		c.Check(code, gc.Equals, 1)
+		c.Check(code, gc.Equals, 2)
 	}
 }
 
 func (s *bridgeConfigSuite) TestBridgeScriptWithPrefixTransformation(c *gc.C) {
 	for i, v := range []struct {
-		initial  string
-		expected string
-		prefix   string
+		interfaceToBridge string
+		initial           string
+		expected          string
+		prefix            string
 	}{
-		{networkDHCPInitial, networkDHCPExpected, "test-br-"},
-		{networkStaticWithAliasInitial, networkStaticWithAliasExpected, "test-br-"},
-		{networkDHCPWithBondInitial, networkDHCPWithBondExpected, "test-br-"},
-		{networkDualNICInitial, networkDualNICExpected, "test-br-"},
-		{networkMultipleAliasesInitial, networkMultipleAliasesExpected, "test-br-"},
-		{networkMultipleStaticWithAliasesInitial, networkMultipleStaticWithAliasesExpected, "test-br-"},
-		{networkSmorgasboardInitial, networkSmorgasboardExpected, "juju-br-"},
-		{networkStaticInitial, networkStaticExpected, "test-br-"},
-		{networkVLANInitial, networkVLANExpected, "vlan-br-"},
-		{networkWithAliasInitial, networkWithAliasExpected, "test-br-"},
+		{networkDHCPInterfacesToBridge, networkDHCPInitial, networkDHCPExpected, "test-br-"},
+		{networkStaticWithAliasInterfacesToBridge, networkStaticWithAliasInitial, networkStaticWithAliasExpected, "test-br-"},
+		{networkDHCPWithBondInterfacesToBridge, networkDHCPWithBondInitial, networkDHCPWithBondExpected, "test-br-"},
+		{networkDualNICInterfacesToBridge, networkDualNICInitial, networkDualNICExpected, "test-br-"},
+		{networkMultipleAliasesInterfacesToBridge, networkMultipleAliasesInitial, networkMultipleAliasesExpected, "test-br-"},
+		{networkMultipleStaticWithAliasesInterfacesToBridge, networkMultipleStaticWithAliasesInitial, networkMultipleStaticWithAliasesExpected, "test-br-"},
+		{networkSmorgasboardInterfacesToBridge, networkSmorgasboardInitial, networkSmorgasboardExpected, "juju-br-"},
+		{networkStaticInterfacesToBridge, networkStaticInitial, networkStaticExpected, "test-br-"},
+		{networkVLANInterfacesToBridge, networkVLANInitial, networkVLANExpected, "vlan-br-"},
+		{networkWithAliasInterfacesToBridge, networkWithAliasInitial, networkWithAliasExpected, "test-br-"},
 	} {
 		c.Logf("test #%v - expected transformation", i)
-		s.assertScriptWithPrefix(c, v.initial, v.expected, v.prefix)
+		s.assertScriptWithPrefix(c, v.initial, v.expected, v.prefix, v.interfaceToBridge)
 		c.Logf("test #%v - idempotent transformation", i)
-		s.assertScriptWithPrefix(c, v.expected, v.expected, v.prefix)
+		s.assertScriptWithPrefix(c, v.expected, v.expected, v.prefix, v.interfaceToBridge)
 	}
 }
 
 func (s *bridgeConfigSuite) TestBridgeScriptWithDefaultPrefixTransformation(c *gc.C) {
 	for i, v := range []struct {
-		initial  string
-		expected string
+		interfaceToBridge string
+		initial           string
+		expected          string
 	}{
-		{networkLoopbackOnlyInitial, networkLoopbackOnlyExpected},
-		{networkStaticBondWithVLANsInitial, networkStaticBondWithVLANsExpected},
-		{networkVLANWithActiveDHCPDeviceInitial, networkVLANWithActiveDHCPDeviceExpected},
-		{networkVLANWithInactiveDeviceInitial, networkVLANWithInactiveDeviceExpected},
-		{networkVLANWithMultipleNameserversInitial, networkVLANWithMultipleNameserversExpected},
-		{networkWithEmptyDNSValuesInitial, networkWithEmptyDNSValuesExpected},
-		{networkWithMultipleDNSValuesInitial, networkWithMultipleDNSValuesExpected},
-		{networkPartiallyBridgedInitial, networkPartiallyBridgedExpected},
+		{networkLoopbackOnlyInterfacesToBridge, networkLoopbackOnlyInitial, networkLoopbackOnlyExpected},
+		{networkStaticBondWithVLANsInterfacesToBridge, networkStaticBondWithVLANsInitial, networkStaticBondWithVLANsExpected},
+		{networkVLANWithActiveDHCPDeviceInterfacesToBridge, networkVLANWithActiveDHCPDeviceInitial, networkVLANWithActiveDHCPDeviceExpected},
+		{networkVLANWithInactiveDeviceInterfacesToBridge, networkVLANWithInactiveDeviceInitial, networkVLANWithInactiveDeviceExpected},
+		{networkVLANWithMultipleNameserversInterfacesToBridge, networkVLANWithMultipleNameserversInitial, networkVLANWithMultipleNameserversExpected},
+		{networkWithEmptyDNSValuesInterfacesToBridge, networkWithEmptyDNSValuesInitial, networkWithEmptyDNSValuesExpected},
+		{networkWithMultipleDNSValuesInterfacesToBridge, networkWithMultipleDNSValuesInitial, networkWithMultipleDNSValuesExpected},
+		{networkPartiallyBridgedInterfacesToBridge, networkPartiallyBridgedInitial, networkPartiallyBridgedExpected},
 	} {
 		c.Logf("test #%v - expected transformation", i)
-		s.assertScriptWithDefaultPrefix(c, v.initial, v.expected)
+		s.assertScriptWithDefaultPrefix(c, v.initial, v.expected, v.interfaceToBridge)
 		c.Logf("test #%v - idempotent transformation", i)
-		s.assertScriptWithDefaultPrefix(c, v.expected, v.expected)
+		s.assertScriptWithDefaultPrefix(c, v.expected, v.expected, v.interfaceToBridge)
 	}
 }
 
@@ -142,22 +144,12 @@ func (s *bridgeConfigSuite) TestBridgeScriptInterfaceNameArgumentRequired(c *gc.
 	for i, python := range s.pythonVersions {
 		c.Logf("test #%v using %s", i, python)
 		output, code := s.runScript(c, python, "# no content", "", "juju-br0", "")
-		c.Check(code, gc.Equals, 1)
-		c.Check(strings.Trim(output, "\n"), gc.Equals, "error: --interface-to-bridge required when using --bridge-name")
+		c.Check(code, gc.Equals, 2)
+		// We match very lazily here to isolate ourselves from
+		// the different formatting of argparse error messages
+		// that has occured between Python 2 and Python 3.
+		c.Check(strings.Trim(output, "\n"), gc.Matches, "(\n|.)*error:.*--interfaces-to-bridge.*")
 	}
-}
-
-func (s *bridgeConfigSuite) TestBridgeScriptBridgeNameArgumentRequired(c *gc.C) {
-	for i, python := range s.pythonVersions {
-		c.Logf("test #%v using %s", i, python)
-		output, code := s.runScript(c, python, "# no content", "", "", "eth0")
-		c.Check(code, gc.Equals, 1)
-		c.Check(strings.Trim(output, "\n"), gc.Equals, "error: --bridge-name required when using --interface-to-bridge")
-	}
-}
-
-func (s *bridgeConfigSuite) TestBridgeScriptMatchingNonExistentSpecificIface(c *gc.C) {
-	s.assertScriptWithoutPrefix(c, networkStaticInitial, networkStaticInitial, "juju-br0", "eth1234567890")
 }
 
 func (s *bridgeConfigSuite) TestBridgeScriptMatchingExistingSpecificIfaceButMissingAutoStanza(c *gc.C) {
@@ -178,7 +170,7 @@ func (s *bridgeConfigSuite) runScript(c *gc.C, pythonBinary, configFile, bridgeP
 	}
 
 	if interfaceToBridge != "" {
-		interfaceToBridge = fmt.Sprintf("--interface-to-bridge=%q", interfaceToBridge)
+		interfaceToBridge = fmt.Sprintf("--interfaces-to-bridge=%q", interfaceToBridge)
 	}
 
 	script := fmt.Sprintf("%q %q %s %s %s %q\n", pythonBinary, s.testPythonScript, bridgePrefix, bridgeName, interfaceToBridge, configFile)
@@ -206,6 +198,8 @@ iface eth0 inet static
     netmask 255.255.255.0
     gateway 4.3.2.1`
 
+const networkStaticInterfacesToBridge = "eth0"
+
 const networkStaticExpected = `auto lo
 iface lo inet loopback
 
@@ -224,6 +218,8 @@ iface lo inet loopback
 
 auto eth0
 iface eth0 inet dhcp`
+
+const networkDHCPInterfacesToBridge = "eth0"
 
 const networkDHCPExpected = `auto lo
 iface lo inet loopback
@@ -249,6 +245,8 @@ iface eth1 inet static
     address 1.2.3.5
     netmask 255.255.255.0
     gateway 4.3.2.1`
+
+const networkDualNICInterfacesToBridge = "eth0 eth1"
 
 const networkDualNICExpected = `auto lo
 iface lo inet loopback
@@ -286,6 +284,9 @@ auto eth0:1
 iface eth0:1 inet static
     address 1.2.3.5`
 
+const networkWithAliasInterfacesToBridge = "eth0 eth0:1"
+const networkWithAliasInterfacesToBridgePass2 = "eth0"
+
 const networkWithAliasExpected = `auto lo
 iface lo inet loopback
 
@@ -320,6 +321,8 @@ iface eth0:2 inet static
     address 10.14.0.100/24
 
 dns-nameserver 192.168.1.142`
+
+const networkStaticWithAliasInterfacesToBridge = "eth0 eth0:1 eth0:2"
 
 const networkStaticWithAliasExpected = `auto lo
 iface lo inet loopback
@@ -361,6 +364,8 @@ iface eth1 inet manual
 dns-nameservers 10.17.20.200
 dns-search maas`
 
+const networkMultipleStaticWithAliasesInterfacesToBridge = "eth0 eth0:1"
+
 const networkMultipleStaticWithAliasesExpected = `auto eth0
 iface eth0 inet manual
     mtu 1500
@@ -379,10 +384,6 @@ iface test-br-eth0:1 inet static
 auto eth1
 iface eth1 inet manual
     mtu 1500
-
-auto test-br-eth1
-iface test-br-eth1 inet manual
-    bridge_ports eth1
     dns-nameservers 10.17.20.200
     dns-search maas`
 
@@ -416,6 +417,8 @@ iface bond0 inet dhcp
 
 dns-nameservers 10.17.20.200
 dns-search maas19`
+
+const networkDHCPWithBondInterfacesToBridge = "bond0"
 
 const networkDHCPWithBondExpected = `auto eth0
 iface eth0 inet manual
@@ -476,6 +479,8 @@ iface eth10:2 inet static
 
 dns-nameservers 10.17.20.200
 dns-search maas19`
+
+const networkMultipleAliasesInterfacesToBridge = "eth0 eth1 eth10 eth10:1 eth10:2"
 
 const networkMultipleAliasesExpected = `auto eth0
 iface eth0 inet manual
@@ -607,6 +612,8 @@ iface bond1 inet dhcp
 
 dns-nameservers 10.17.20.200
 dns-search maas19`
+
+const networkSmorgasboardInterfacesToBridge = "eth4 eth5 eth6 eth6:1 eth6:2 eth6:3 eth6:4 bond0 bond1"
 
 const networkSmorgasboardExpected = `auto eth0
 iface eth0 inet manual
@@ -751,6 +758,8 @@ iface eth1.3 inet static
 dns-nameservers 10.17.20.200
 dns-search maas19`
 
+const networkVLANInterfacesToBridge = "eth0 eth0.2 eth1.3"
+
 const networkVLANExpected = `auto eth0
 iface eth0 inet manual
     mtu 1500
@@ -764,10 +773,6 @@ iface vlan-br-eth0 inet static
 auto eth1
 iface eth1 inet manual
     mtu 1500
-
-auto vlan-br-eth1
-iface vlan-br-eth1 inet manual
-    bridge_ports eth1
 
 auto eth0.2
 iface eth0.2 inet manual
@@ -847,6 +852,8 @@ iface eth1.2670 inet static
 dns-nameservers 10.245.168.2
 dns-search dellstack`
 
+const networkVLANWithMultipleNameserversInterfacesToBridge = "eth0 eth1.2667 eth1.2668 eth1.2669 eth1.2670"
+
 const networkVLANWithMultipleNameserversExpected = `auto eth0
 iface eth0 inet manual
     mtu 1500
@@ -862,25 +869,13 @@ auto eth1
 iface eth1 inet manual
     mtu 1500
 
-auto br-eth1
-iface br-eth1 inet manual
-    bridge_ports eth1
-
 auto eth2
 iface eth2 inet manual
     mtu 1500
 
-auto br-eth2
-iface br-eth2 inet manual
-    bridge_ports eth2
-
 auto eth3
 iface eth3 inet manual
     mtu 1500
-
-auto br-eth3
-iface br-eth3 inet manual
-    bridge_ports eth3
 
 auto eth1.2667
 iface eth1.2667 inet manual
@@ -934,6 +929,8 @@ iface br-eth1.2670 inet static
 const networkLoopbackOnlyInitial = `auto lo
 iface lo inet loopback`
 
+const networkLoopbackOnlyInterfacesToBridge = "lo"
+
 const networkLoopbackOnlyExpected = `auto lo
 iface lo inet loopback`
 
@@ -984,6 +981,8 @@ iface bond0.3 inet static
 
 dns-nameservers 10.17.20.200
 dns-search maas19`
+
+const networkStaticBondWithVLANsInterfacesToBridge = "bond0 bond0.2 bond0.3"
 
 const networkStaticBondWithVLANsExpected = `auto eth0
 iface eth0 inet manual
@@ -1066,6 +1065,8 @@ dns-nameservers 10.17.20.200
 dns-search maas19
 `
 
+const networkVLANWithInactiveDeviceInterfacesToBridge = "eth0 eth1.2"
+
 const networkVLANWithInactiveDeviceExpected = `auto eth0
 iface eth0 inet manual
     mtu 1500
@@ -1080,10 +1081,6 @@ iface br-eth0 inet static
 auto eth1
 iface eth1 inet manual
     mtu 1500
-
-auto br-eth1
-iface br-eth1 inet manual
-    bridge_ports eth1
 
 auto eth1.2
 iface eth1.2 inet manual
@@ -1117,6 +1114,8 @@ iface eth1.2 inet dhcp
 dns-nameservers 10.17.20.200
 dns-search maas19
 `
+
+const networkVLANWithActiveDHCPDeviceInterfacesToBridge = "eth0 eth1 eth1.2"
 
 const networkVLANWithActiveDHCPDeviceExpected = `auto eth0
 iface eth0 inet manual
@@ -1189,6 +1188,8 @@ iface eth3 inet static
 dns-search ubuntu juju
 dns-search dellstack ubuntu dellstack`
 
+const networkWithMultipleDNSValuesInterfacesToBridge = "eth0 eth1 eth2 eth3"
+
 const networkWithMultipleDNSValuesExpected = `auto eth0
 iface eth0 inet manual
     mtu 1500
@@ -1256,6 +1257,8 @@ iface eth1 inet static
 dns-nameservers
 dns-search
 dns-sortlist`
+
+const networkWithEmptyDNSValuesInterfacesToBridge = "eth0 eth1"
 
 const networkWithEmptyDNSValuesExpected = `auto eth0
 iface eth0 inet manual
@@ -1387,6 +1390,8 @@ iface bond1.1019 inet static
 dns-nameservers 10.38.160.10
 dns-search maas`
 
+const networkLP1532167InterfacesToBridge = "bond0 bond0.1016 bond0.161 bond0.162 bond0.163 bond1.1017 bond1.1018 bond1.1019"
+
 const networkLP1532167Expected = `auto eth0
 iface eth0 inet manual
     bond-lacp_rate fast
@@ -1515,6 +1520,8 @@ iface eth1 inet static
     netmask 255.255.255.0
     gateway 4.3.2.1`
 
+const networkWithExistingSpecificIfaceInterfacesToBridge = "eth0 eth1"
+
 const networkWithExistingSpecificIfaceExpected = `auto lo
 iface lo inet loopback
 
@@ -1549,6 +1556,8 @@ iface eth1 inet static
     address 1.2.3.5
     netmask 255.255.255.0
     gateway 4.3.2.1`
+
+const networkPartiallyBridgedInterfacesToBridge = "br-eth0 eth1"
 
 const networkPartiallyBridgedExpected = `auto lo
 iface lo inet loopback
