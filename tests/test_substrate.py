@@ -732,6 +732,37 @@ class TestAzureARMAccount(TestCase):
     def test_convert_to_azure_ids(self, is_mock):
         env = JujuData('controller', get_azure_config(), juju_home='data')
         client = fake_juju_client(env=env)
+
+        arm_client = ARMClient(
+            'subscription-id', 'application-id', 'application-password',
+            'tenant-id')
+        account = AzureARMAccount(arm_client)
+        group = ResourceGroup(name='juju-controller-model-bar')
+        virtual_machine = VirtualMachine('machine-0', 'abcd-1234')
+        other_machine = VirtualMachine('machine-1', 'bcde-1234')
+        fake_listed = [ResourceGroupDetails(
+            arm_client, group, vms=[virtual_machine, other_machine])]
+        models = {'models': [
+            {'name': 'controller',
+                'model-uuid': 'bar', 'controller-uuid': 'bar'},
+            {'name': 'default',
+                'model-uuid': 'baz', 'controller-uuid': 'bar'},
+            ]}
+        with patch.object(client, 'get_models', autospec=True,
+                          return_value=models) as gm_mock:
+            with patch('winazurearm.list_resources', autospec=True,
+                       return_value=fake_listed) as lr_mock:
+                ids = account.convert_to_azure_ids(client, ['machine-0'])
+        self.assertEqual(['abcd-1234'], ids)
+        gm_mock.assert_called_once_with()
+        lr_mock.assert_called_once_with(
+            arm_client, glob='juju-controller-model-bar', recursive=True)
+
+    @patch('winazurearm.ARMClient.init_services',
+           autospec=True, side_effect=fake_init_services)
+    def test_convert_to_azure_ids_function(self, is_mock):
+        env = JujuData('controller', get_azure_config(), juju_home='data')
+        client = fake_juju_client(env=env)
         arm_client = ARMClient(
             'subscription-id', 'application-id', 'application-password',
             'tenant-id')
@@ -756,7 +787,7 @@ class TestAzureARMAccount(TestCase):
         lr_mock.assert_called_once_with(
             arm_client, glob='juju-controller-model-bar', recursive=True)
 
-    def test_convert_to_azure_ids_1x_client(self):
+    def test_convert_to_azure_ids_function_1x_client(self):
         env = SimpleEnvironment('foo', config=get_azure_config())
         client = fake_juju_client(env=env, version='1.2', cls=EnvJujuClient1X)
         with patch.object(client, 'get_models') as gm_mock:
@@ -766,7 +797,9 @@ class TestAzureARMAccount(TestCase):
         self.assertEqual(0, gm_mock.call_count)
         self.assertEqual(0, lr_mock.call_count)
 
-    def test_convert_to_azure_ids_bug_1586089_fixed(self):
+    @patch('winazurearm.ARMClient.init_services',
+           autospec=True, side_effect=fake_init_services)
+    def test_convert_to_azure_ids_function_bug_1586089_fixed(self, is_mock):
         env = JujuData('controller', get_azure_config(), juju_home='data')
         client = fake_juju_client(env=env, version='2.1')
         with patch.object(client, 'get_models') as gm_mock:
@@ -1065,7 +1098,7 @@ class TestMakeSubstrateManager(TestCase):
 
     def test_make_substrate_manager_aws(self):
         aws_env = get_aws_env()
-        with make_substrate_manager(aws_env.config) as aws:
+        with make_substrate_manager(aws_env.config, aws_env.config) as aws:
             self.assertIs(type(aws), AWSAccount)
             self.assertEqual(aws.euca_environ, {
                 'AWS_ACCESS_KEY': 'skeleton-key',
@@ -1078,7 +1111,7 @@ class TestMakeSubstrateManager(TestCase):
 
     def test_make_substrate_manager_openstack(self):
         config = get_os_config()
-        with make_substrate_manager(config) as account:
+        with make_substrate_manager(config, config) as account:
             self.assertIs(type(account), OpenStackAccount)
             self.assertEqual(account._username, 'foo')
             self.assertEqual(account._password, 'bar')
@@ -1089,7 +1122,7 @@ class TestMakeSubstrateManager(TestCase):
     def test_make_substrate_manager_rackspace(self):
         config = get_os_config()
         config['type'] = 'rackspace'
-        with make_substrate_manager(config) as account:
+        with make_substrate_manager(config, config) as account:
             self.assertIs(type(account), OpenStackAccount)
             self.assertEqual(account._username, 'foo')
             self.assertEqual(account._password, 'bar')
@@ -1099,7 +1132,7 @@ class TestMakeSubstrateManager(TestCase):
 
     def test_make_substrate_manager_joyent(self):
         config = get_joyent_config()
-        with make_substrate_manager(config) as account:
+        with make_substrate_manager(config, config) as account:
             self.assertEqual(account.client.sdc_url, 'http://example.org/sdc')
             self.assertEqual(account.client.account, 'user@manta.org')
             self.assertEqual(account.client.key_id, 'key-id@manta.org')
@@ -1110,7 +1143,7 @@ class TestMakeSubstrateManager(TestCase):
             'management-subscription-id': 'fooasdfbar',
             'management-certificate': 'ab\ncd\n'
             }
-        with make_substrate_manager(config) as substrate:
+        with make_substrate_manager(config, config) as substrate:
             self.assertIs(type(substrate), AzureAccount)
             self.assertEqual(substrate.service_client.subscription_id,
                              'fooasdfbar')
@@ -1122,7 +1155,7 @@ class TestMakeSubstrateManager(TestCase):
            autospec=True, side_effect=fake_init_services)
     def test_make_substrate_manager_azure_arm(self, is_mock):
         config = get_azure_config()
-        with make_substrate_manager(config) as substrate:
+        with make_substrate_manager(config, config) as substrate:
             self.assertEqual(
                 substrate.arm_client.subscription_id, 'subscription-id')
             self.assertEqual(
@@ -1135,7 +1168,7 @@ class TestMakeSubstrateManager(TestCase):
     def test_make_substrate_manager_other(self):
         config = get_os_config()
         config['type'] = 'other'
-        with make_substrate_manager(config) as account:
+        with make_substrate_manager(config, config) as account:
             self.assertIs(account, None)
 
 

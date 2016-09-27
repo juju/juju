@@ -6396,6 +6396,15 @@ class TestSimpleEnvironment(TestCase):
                                    {'baz': 'qux'}) as jes_home:
                 self.assertFalse(os.path.exists(foo_path))
 
+    def test_get_cloud_credentials_returns_config(self):
+        env = SimpleEnvironment(
+            'foo', {'type': 'ec2', 'region': 'foo'}, 'home')
+        env.credentials = {'credentials': {
+            'aws': {'credentials': {'aws': True}},
+            'azure': {'credentials': {'azure': True}},
+            }}
+        self.assertEqual(env.config, env.get_cloud_credentials())
+
     def test_dump_yaml(self):
         env = SimpleEnvironment('baz', {'type': 'qux'}, 'home')
         with temp_dir() as path:
@@ -6515,6 +6524,14 @@ class TestJujuData(TestCase):
         self.assertEqual('baz', JujuData('foo', {
             'type': 'manual', 'region': 'bar',
             'bootstrap-host': 'baz'}, 'home').get_region())
+
+    def test_get_cloud_credentials(self):
+        juju_data = JujuData('foo', {'type': 'ec2', 'region': 'foo'}, 'home')
+        juju_data.credentials = {'credentials': {
+            'aws': {'credentials': {'aws': True}},
+            'azure': {'credentials': {'azure': True}},
+            }}
+        self.assertEqual({'aws': True}, juju_data.get_cloud_credentials())
 
     def test_dump_yaml(self):
         cloud_dict = {'clouds': {'foo': {}}}
