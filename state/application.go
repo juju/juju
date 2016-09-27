@@ -1083,9 +1083,34 @@ func (a *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 	if err != nil {
 		return "", nil, err
 	}
+	unitTag := names.NewUnitTag(name)
 
-	// Create instances of the charm's declared stores.
-	storageOps, numStorageAttachments, err := a.unitStorageOps(name, args.storageCons)
+	charm, _, err := a.Charm()
+	if err != nil {
+		return "", nil, err
+	}
+
+	// Add storage instances/attachments for the unit. If the
+	// application is subordinate, we'll add the machine storage
+	// if the principal is assigned to a machine. Otherwise, we
+	// will add the subordinate's storage along with the principal's
+	// when the principal is assigned to a machine.
+	var machineAssignable machineAssignable
+	if a.doc.Subordinate {
+		pu, err := a.st.Unit(args.principalName)
+		if err != nil {
+			return "", nil, errors.Trace(err)
+		}
+		machineAssignable = pu
+	}
+	storageOps, numStorageAttachments, err := createStorageOps(
+		a.st,
+		unitTag,
+		charm.Meta(),
+		args.storageCons,
+		a.doc.Series,
+		machineAssignable,
+	)
 	if err != nil {
 		return "", nil, errors.Trace(err)
 	}
@@ -1164,29 +1189,6 @@ func (a *Application) incUnitCountOp(asserts bson.D) txn.Op {
 		op.Assert = asserts
 	}
 	return op
-}
-
-// unitStorageOps returns operations for creating storage
-// instances and attachments for a new unit. unitStorageOps
-// returns the number of initial storage attachments, to
-// initialise the unit's storage attachment refcount.
-func (a *Application) unitStorageOps(unitName string, cons map[string]StorageConstraints) (ops []txn.Op, numStorageAttachments int, err error) {
-	charm, _, err := a.Charm()
-	if err != nil {
-		return nil, -1, err
-	}
-	meta := charm.Meta()
-	tag := names.NewUnitTag(unitName)
-	// TODO(wallyworld) - record constraints info in data model - size and pool name
-	ops, numStorageAttachments, err = createStorageOps(
-		a.st, tag, meta, cons,
-		a.doc.Series,
-		false, // unit is not assigned yet; don't create machine storage
-	)
-	if err != nil {
-		return nil, -1, errors.Trace(err)
-	}
-	return ops, numStorageAttachments, nil
 }
 
 // AddUnit adds a new principal unit to the service.
