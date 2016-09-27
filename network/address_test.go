@@ -342,6 +342,13 @@ var selectPublicTests = []selectTest{{
 		network.NewScopedAddress("8.8.8.8", network.ScopePublic),
 	},
 	1,
+}, {
+	"IPv4 preferred over IPv",
+	[]network.Address{
+		network.NewScopedAddress("2001:db8::1", network.ScopePublic),
+		network.NewScopedAddress("8.8.8.8", network.ScopePublic),
+	},
+	1,
 }}
 
 func (s *AddressSuite) TestSelectPublicAddress(c *gc.C) {
