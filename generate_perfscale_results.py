@@ -87,24 +87,19 @@ def assess_perf_test_simple(bs_manager, upload_tools):
             setup_system_monitoring(admin_client)
 
             deploy_details = assess_longrun_perf(
-                client, test_length=MINUTE*60*12)
+                bs_manager, test_length=MINUTE*60*12)
         finally:
             results_dir = os.path.join(
                 os.path.abspath(bs_manager.log_dir), 'performance_results/')
             os.makedirs(results_dir)
-            admin_client.juju(
-                'scp',
-                ('--', '-r', '0:/var/lib/collectd/rrd/localhost/*',
-                 results_dir)
-            )
-
-            csv_results_dir = os.path.join(results_dir, 'csv_results')
-            os.makedirs(csv_results_dir)
-            admin_client.juju(
-                'scp',
-                ('--', '-r', '0:/var/lib/collectd/csv/localhost/*',
-                 csv_results_dir)
-            )
+            try:
+                admin_client.juju(
+                    'scp',
+                    ('--', '-r', '0:/var/lib/collectd/rrd/localhost/*',
+                     results_dir)
+                )
+            except subprocess.CalledProcessError as e:
+                log.error('Failed to copy RRD files: {}'.format(e))
 
             try:
                 admin_client.juju(
@@ -303,7 +298,8 @@ class Rest:
     really_long = MINUTE * 120
 
 
-def assess_longrun_perf(client, test_length=600):
+def assess_longrun_perf(bs_manager, test_length):
+    client = bs_manager.client
     longrun_start = datetime.utcnow()
     run_count = 0
     for _ in until_timeout(test_length):
@@ -312,6 +308,8 @@ def assess_longrun_perf(client, test_length=600):
         action_busy(new_client, applications)
         action_cleanup(new_client)
 
+        patch_dir_name = 'temp_logging_{}'.format(run_count)
+        bs_manager.dump_all_logs(patch_dir_name)
         action_rest(Rest.medium)
         run_count += 1
 

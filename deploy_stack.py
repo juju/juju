@@ -792,7 +792,7 @@ class BootstrapManager:
     def _should_dump(self):
         return not isinstance(self.client._backend, FakeBackend)
 
-    def dump_all_logs(self):
+    def dump_all_logs(self, patch_dir=None):
         """Dump logs for all models in the bootstrapped controller."""
         # This is accurate because we bootstrapped self.client.  It might not
         # be accurate for a model created by create_environment.
@@ -823,7 +823,12 @@ class BootstrapManager:
             else:
                 known_hosts = {}
                 runtime_config = None
-            artifacts_dir = os.path.join(self.log_dir, client.env.environment)
+            if patch_dir is None:
+                artifacts_dir = os.path.join(
+                    self.log_dir, client.env.environment)
+            else:
+                artifacts_dir = os.path.join(
+                    self.log_dir, patch_dir, client.env.environment)
             os.mkdir(artifacts_dir)
             dump_env_logs_known_hosts(
                 client, artifacts_dir, runtime_config, known_hosts)
