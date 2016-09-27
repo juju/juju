@@ -5,7 +5,6 @@ package state
 
 import (
 	"strings"
-	"time"
 
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -13,6 +12,7 @@ import (
 	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 
 	"github.com/juju/juju/resource"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type ResourcesMongoSuite struct {
@@ -25,7 +25,7 @@ func (s *ResourcesMongoSuite) TestResource2DocUploadFull(c *gc.C) {
 	content := "some data\n..."
 	fp, err := charmresource.GenerateFingerprint(strings.NewReader(content))
 	c.Assert(err, jc.ErrorIsNil)
-	now := time.Now().UTC()
+	now := coretesting.ZeroTime()
 
 	applicationID := "a-application"
 	docID := applicationResourceID("spam")
@@ -80,7 +80,7 @@ func (s *ResourcesMongoSuite) TestResource2DocUploadBasic(c *gc.C) {
 	content := "some data\n..."
 	fp, err := charmresource.GenerateFingerprint(strings.NewReader(content))
 	c.Assert(err, jc.ErrorIsNil)
-	now := time.Now().UTC()
+	now := coretesting.ZeroTime()
 
 	applicationID := "a-application"
 	docID := applicationResourceID("spam")
@@ -129,7 +129,7 @@ func (s *ResourcesMongoSuite) TestResource2DocUploadPending(c *gc.C) {
 	content := "some data\n..."
 	fp, err := charmresource.GenerateFingerprint(strings.NewReader(content))
 	c.Assert(err, jc.ErrorIsNil)
-	now := time.Now().UTC()
+	now := coretesting.ZeroTime()
 
 	applicationID := "a-application"
 	docID := pendingResourceID("spam", "some-unique-ID-001")
@@ -182,7 +182,7 @@ func (s *ResourcesMongoSuite) TestDoc2Resource(c *gc.C) {
 	content := "some data\n..."
 	fp, err := charmresource.GenerateFingerprint(strings.NewReader(content))
 	c.Assert(err, jc.ErrorIsNil)
-	now := time.Now().UTC()
+	now := coretesting.NonZeroTime()
 
 	res, err := doc2resource(resourceDoc{
 		DocID:         docID,
@@ -233,7 +233,7 @@ func (s *ResourcesMongoSuite) TestDoc2BasicResourceUploadFull(c *gc.C) {
 	content := "some data\n..."
 	fp, err := charmresource.GenerateFingerprint(strings.NewReader(content))
 	c.Assert(err, jc.ErrorIsNil)
-	now := time.Now().UTC()
+	now := coretesting.NonZeroTime()
 
 	res, err := doc2basicResource(resourceDoc{
 		DocID:         docID,
@@ -285,7 +285,7 @@ func (s *ResourcesMongoSuite) TestDoc2BasicResourceUploadBasic(c *gc.C) {
 	content := "some data\n..."
 	fp, err := charmresource.GenerateFingerprint(strings.NewReader(content))
 	c.Assert(err, jc.ErrorIsNil)
-	now := time.Now().UTC()
+	now := coretesting.NonZeroTime()
 
 	res, err := doc2basicResource(resourceDoc{
 		DocID:         docID,
@@ -329,7 +329,7 @@ func (s *ResourcesMongoSuite) TestResource2DocCharmstoreFull(c *gc.C) {
 	content := "some data\n..."
 	fp, err := charmresource.GenerateFingerprint(strings.NewReader(content))
 	c.Assert(err, jc.ErrorIsNil)
-	now := time.Now().UTC()
+	now := coretesting.ZeroTime()
 
 	applicationID := "a-application"
 	docID := applicationResourceID("spam")
@@ -387,7 +387,7 @@ func (s *ResourcesMongoSuite) TestDoc2BasicResourceCharmstoreFull(c *gc.C) {
 	content := "some data\n..."
 	fp, err := charmresource.GenerateFingerprint(strings.NewReader(content))
 	c.Assert(err, jc.ErrorIsNil)
-	now := time.Now().UTC()
+	now := coretesting.NonZeroTime()
 
 	res, err := doc2basicResource(resourceDoc{
 		DocID:     docID,
@@ -505,7 +505,7 @@ func (s *ResourcesMongoSuite) TestCharmStoreResource2DocFull(c *gc.C) {
 	content := "some data\n..."
 	fp, err := charmresource.GenerateFingerprint(strings.NewReader(content))
 	c.Assert(err, jc.ErrorIsNil)
-	now := time.Now().UTC()
+	now := coretesting.ZeroTime()
 
 	applicationID := "a-application"
 	id := applicationID + "/spam"
