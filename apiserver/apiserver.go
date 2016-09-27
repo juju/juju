@@ -45,7 +45,7 @@ type Server struct {
 	wg                sync.WaitGroup
 	state             *state.State
 	statePool         *state.StatePool
-	lis               net.Listener
+	lis               *changeCertListener
 	tag               names.Tag
 	dataDir           string
 	logDir            string
@@ -73,7 +73,7 @@ type ServerConfig struct {
 	DataDir     string
 	LogDir      string
 	Validator   LoginValidator
-	CertChanged chan params.StateServingInfo
+	CertChanged <-chan params.StateServingInfo
 
 	// NewObserver is a function which will return an observer. This
 	// is used per-connection to instantiate a new observer to be
@@ -93,97 +93,6 @@ func (c *ServerConfig) Validate() error {
 	}
 
 	return nil
-}
-
-// changeCertListener wraps a TLS net.Listener.
-// It allows connection handshakes to be
-// blocked while the TLS certificate is updated.
-type changeCertListener struct {
-	net.Listener
-	tomb tomb.Tomb
-
-	// A mutex used to block accept operations.
-	m sync.Mutex
-
-	// The current certificate used for tls.Config
-	cert tls.Certificate
-
-	// A channel used to pass in new certificate information.
-	certChanged <-chan params.StateServingInfo
-}
-
-func newChangeCertListener(lis net.Listener, certChanged <-chan params.StateServingInfo, cert tls.Certificate) *changeCertListener {
-	cl := &changeCertListener{
-		Listener:    lis,
-		cert:        cert,
-		certChanged: certChanged,
-	}
-	go func() {
-		defer cl.tomb.Done()
-		cl.tomb.Kill(cl.processCertChanges())
-	}()
-	return cl
-}
-
-// Accept waits for and returns the next connection to the listener.
-func (cl *changeCertListener) Accept() (net.Conn, error) {
-	conn, err := cl.Listener.Accept()
-	if err != nil {
-		return nil, err
-	}
-	return tls.Server(conn, cl.tlsConfig()), nil
-}
-
-func (cl *changeCertListener) tlsConfig() *tls.Config {
-	cl.m.Lock()
-	defer cl.m.Unlock()
-	tlsConfig := utils.SecureTLSConfig()
-	tlsConfig.Certificates = []tls.Certificate{cl.cert}
-	return tlsConfig
-}
-
-// Close closes the listener.
-func (cl *changeCertListener) Close() error {
-	cl.tomb.Kill(nil)
-	return cl.Listener.Close()
-}
-
-// processCertChanges receives new certificate information and
-// calls a method to update the listener's certificate.
-func (cl *changeCertListener) processCertChanges() error {
-	for {
-		select {
-		case info := <-cl.certChanged:
-			if info.Cert != "" {
-				cl.updateCertificate([]byte(info.Cert), []byte(info.PrivateKey))
-			}
-		case <-cl.tomb.Dying():
-			return tomb.ErrDying
-		}
-	}
-}
-
-// updateCertificate generates a new TLS certificate and assigns it
-// to the TLS listener.
-func (cl *changeCertListener) updateCertificate(cert, key []byte) {
-	cl.m.Lock()
-	defer cl.m.Unlock()
-	if tlsCert, err := tls.X509KeyPair(cert, key); err != nil {
-		logger.Errorf("cannot create new TLS certificate: %v", err)
-	} else {
-		logger.Infof("updating api server certificate")
-		x509Cert, err := x509.ParseCertificate(tlsCert.Certificate[0])
-		if err == nil {
-			var addr []string
-			for _, ip := range x509Cert.IPAddresses {
-				addr = append(addr, ip.String())
-			}
-			logger.Infof("new certificate addresses: %v", strings.Join(addr, ", "))
-			cl.cert = tlsCert
-		} else {
-			logger.Errorf("parsing x509 cert: %v", err)
-		}
-	}
 }
 
 // NewServer serves the given state by accepting requests on the given
@@ -229,7 +138,6 @@ func newServer(s *state.State, lis *net.TCPListener, cfg ServerConfig) (_ *Serve
 		newObserver: cfg.NewObserver,
 		state:       s,
 		statePool:   stPool,
-		lis:         newChangeCertListener(lis, cfg.CertChanged, tlsCert),
 		tag:         cfg.Tag,
 		dataDir:     cfg.DataDir,
 		logDir:      cfg.LogDir,
@@ -239,6 +147,7 @@ func newServer(s *state.State, lis *net.TCPListener, cfg ServerConfig) (_ *Serve
 			3: newAdminAPIV3,
 		},
 	}
+	srv.lis = srv.newChangeCertListener(lis, cfg.CertChanged, tlsCert)
 	srv.authCtxt, err = newAuthContext(s)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -298,6 +207,12 @@ func (srv *Server) run() {
 	go func() {
 		defer srv.wg.Done()
 		srv.tomb.Kill(srv.expireLocalLoginInteractions())
+	}()
+
+	srv.wg.Add(1)
+	go func() {
+		defer srv.wg.Done()
+		srv.tomb.Kill(srv.lis.processCertChanges())
 	}()
 
 	// for pat based handlers, they are matched in-order of being
@@ -605,6 +520,92 @@ func (srv *Server) mongoPinger() error {
 			return tomb.ErrDying
 		}
 	}
+}
+
+// changeCertListener wraps a TLS net.Listener.
+// It allows connection handshakes to be
+// blocked while the TLS certificate is updated.
+type changeCertListener struct {
+	net.Listener
+
+	// srv holds the server that the listener was created by.
+	srv *Server
+
+	// certChanged is used to pass in new certificate information.
+	certChanged <-chan params.StateServingInfo
+
+	// mu guards the fields below it.
+	mu sync.Mutex
+
+	// cert holds the current certificate used for tls.Config
+	cert tls.Certificate
+}
+
+func (srv *Server) newChangeCertListener(lis net.Listener, certChanged <-chan params.StateServingInfo, cert tls.Certificate) *changeCertListener {
+	return &changeCertListener{
+		Listener:    lis,
+		srv:         srv,
+		cert:        cert,
+		certChanged: certChanged,
+	}
+}
+
+// Accept waits for and returns the next connection to the listener.
+func (cl *changeCertListener) Accept() (net.Conn, error) {
+	conn, err := cl.Listener.Accept()
+	if err != nil {
+		return nil, err
+	}
+	return tls.Server(conn, cl.tlsConfig()), nil
+}
+
+func (cl *changeCertListener) tlsConfig() *tls.Config {
+	cl.mu.Lock()
+	defer cl.mu.Unlock()
+	tlsConfig := utils.SecureTLSConfig()
+	tlsConfig.Certificates = []tls.Certificate{cl.cert}
+	return tlsConfig
+}
+
+// processCertChanges receives new certificate information and
+// calls a method to update the listener's certificate.
+func (cl *changeCertListener) processCertChanges() error {
+	for {
+		select {
+		case info := <-cl.certChanged:
+			if info.Cert == "" {
+				break
+			}
+			if err := cl.updateCertificate(info.Cert, info.PrivateKey); err != nil {
+				logger.Errorf("cannot update certificate: %v", err)
+			}
+		case <-cl.srv.tomb.Dying():
+			return tomb.ErrDying
+		}
+	}
+}
+
+// updateCertificate generates a new TLS certificate and assigns it
+// to the TLS listener.
+func (cl *changeCertListener) updateCertificate(cert, key string) error {
+	cl.mu.Lock()
+	defer cl.mu.Unlock()
+	tlsCert, err := tls.X509KeyPair([]byte(cert), []byte(key))
+	if err != nil {
+		return errors.Annotatef(err, "cannot create new TLS certificate")
+	}
+	logger.Infof("updating api server certificate")
+	x509Cert, err := x509.ParseCertificate(tlsCert.Certificate[0])
+	if err != nil {
+		return errors.Annotatef(err, "parsing x509 cert")
+	}
+	var addr []string
+	for _, ip := range x509Cert.IPAddresses {
+		addr = append(addr, ip.String())
+	}
+	logger.Infof("new certificate addresses: %v", strings.Join(addr, ", "))
+	cl.cert = tlsCert
+	return nil
 }
 
 func serverError(err error) error {
