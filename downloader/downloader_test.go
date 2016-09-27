@@ -4,11 +4,8 @@
 package downloader_test
 
 import (
-	"io/ioutil"
 	"net/url"
-	"os"
 	"path/filepath"
-	"time"
 
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -53,7 +50,7 @@ func (s *DownloaderSuite) URL(c *gc.C, path string) *url.URL {
 	return URL
 }
 
-func (s *DownloaderSuite) testDownload(c *gc.C, hostnameVerification utils.SSLHostnameVerification) {
+func (s *DownloaderSuite) testStart(c *gc.C, hostnameVerification utils.SSLHostnameVerification) {
 	tmp := c.MkDir()
 	gitjujutesting.Server.Response(200, nil, []byte("archive"))
 	dlr := downloader.New(downloader.NewArgs{
@@ -64,54 +61,30 @@ func (s *DownloaderSuite) testDownload(c *gc.C, hostnameVerification utils.SSLHo
 		TargetDir: tmp,
 	})
 	status := <-dl.Done()
-	defer os.Remove(status.File.Name())
-	defer status.File.Close()
 	c.Assert(status.Err, gc.IsNil)
-	c.Assert(status.File, gc.NotNil)
-
-	dir, _ := filepath.Split(status.File.Name())
+	dir, _ := filepath.Split(status.Filename)
 	c.Assert(filepath.Clean(dir), gc.Equals, tmp)
-	assertFileContents(c, status.File, "archive")
+	assertFileContents(c, status.Filename, "archive")
 }
 
 func (s *DownloaderSuite) TestDownloadWithoutDisablingSSLHostnameVerification(c *gc.C) {
-	s.testDownload(c, utils.VerifySSLHostnames)
+	s.testStart(c, utils.VerifySSLHostnames)
 }
 
 func (s *DownloaderSuite) TestDownloadWithDisablingSSLHostnameVerification(c *gc.C) {
-	s.testDownload(c, utils.NoVerifySSLHostnames)
+	s.testStart(c, utils.NoVerifySSLHostnames)
 }
 
-func (s *DownloaderSuite) TestDownloadError(c *gc.C) {
-	gitjujutesting.Server.Response(404, nil, nil)
-	dlr := downloader.New(downloader.NewArgs{
-		HostnameVerification: utils.VerifySSLHostnames,
-	})
-	dl := dlr.Start(downloader.Request{
-		URL:       s.URL(c, "/archive.tgz"),
-		TargetDir: c.MkDir(),
-	})
-	status := <-dl.Done()
-	c.Assert(status.File, gc.IsNil)
-	c.Assert(status.Err, gc.ErrorMatches, `cannot download ".*": bad http response: 404 Not Found`)
-}
-
-func (s *DownloaderSuite) TestStopDownload(c *gc.C) {
+func (s *DownloaderSuite) TestDownload(c *gc.C) {
 	tmp := c.MkDir()
-	dlr := downloader.New(downloader.NewArgs{
-		HostnameVerification: utils.VerifySSLHostnames,
-	})
-	dl := dlr.Start(downloader.Request{
-		URL:       s.URL(c, "/x.tgz"),
+	gitjujutesting.Server.Response(200, nil, []byte("archive"))
+	dlr := downloader.New(downloader.NewArgs{})
+	filename, err := dlr.Download(downloader.Request{
+		URL:       s.URL(c, "/archive.tgz"),
 		TargetDir: tmp,
 	})
-	dl.Stop()
-	select {
-	case status := <-dl.Done():
-		c.Fatalf("received status %#v after stop", status)
-	case <-time.After(testing.ShortWait):
-	}
-	infos, err := ioutil.ReadDir(tmp)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(infos, gc.HasLen, 0)
+	dir, _ := filepath.Split(filename)
+	c.Assert(filepath.Clean(dir), gc.Equals, tmp)
+	assertFileContents(c, filename, "archive")
 }

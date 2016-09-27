@@ -19,7 +19,7 @@ import (
 type Downloader interface {
 	// Download starts a new charm archive download, waits for it to
 	// complete, and returns the local name of the file.
-	Download(req downloader.Request, abort <-chan struct{}) (string, error)
+	Download(req downloader.Request) (string, error)
 }
 
 // BundlesDir is responsible for storing and retrieving charm bundles
@@ -36,7 +36,6 @@ func NewBundlesDir(path string, dlr Downloader) *BundlesDir {
 			HostnameVerification: utils.NoVerifySSLHostnames,
 		})
 	}
-
 	return &BundlesDir{
 		path:       path,
 		downloader: dlr,
@@ -71,11 +70,12 @@ func (d *BundlesDir) download(info BundleInfo, target string, abort <-chan struc
 	expectedSha256, err := info.ArchiveSha256()
 	req := downloader.Request{
 		URL:       curl,
-		TargetDir: d.downloadsPath(),
+		TargetDir: downloadsPath(d.path),
 		Verify:    downloader.NewSha256Verifier(expectedSha256),
+		Abort:     abort,
 	}
 	logger.Infof("downloading %s from API server", info.URL())
-	filename, err := d.downloader.Download(req, abort)
+	filename, err := d.downloader.Download(req)
 	if err != nil {
 		return errors.Annotatef(err, "failed to download charm %q from API server", info.URL())
 	}
@@ -103,8 +103,16 @@ func (d *BundlesDir) bundleURLPath(url *charm.URL) string {
 	return path.Join(d.path, charm.Quote(url.String()))
 }
 
+// ClearDownloads removes any entries in the temporary bundle download
+// directory. It is intended to be called on uniter startup.
+func ClearDownloads(bundlesDir string) error {
+	downloadDir := downloadsPath(bundlesDir)
+	err := os.RemoveAll(downloadDir)
+	return errors.Annotate(err, "unable to clear bundle downloads")
+}
+
 // downloadsPath returns the path to the directory into which charms are
 // downloaded.
-func (d *BundlesDir) downloadsPath() string {
-	return path.Join(d.path, "downloads")
+func downloadsPath(bunsDir string) string {
+	return path.Join(bunsDir, "downloads")
 }
