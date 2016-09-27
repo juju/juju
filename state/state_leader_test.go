@@ -130,6 +130,7 @@ func (s *LeadershipSuite) TestHackLeadershipUnblocksClaimer(c *gc.C) {
 
 func (s *LeadershipSuite) expire(c *gc.C, applicationname string) {
 	s.clock.Advance(time.Hour)
+	s.Session.Fsync(false)
 	select {
 	case err := <-s.expiryChan(applicationname):
 		c.Assert(err, jc.ErrorIsNil)
