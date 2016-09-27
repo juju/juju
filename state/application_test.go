@@ -6,7 +6,6 @@ package state_test
 import (
 	"fmt"
 	"sort"
-	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -22,6 +21,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
 	"github.com/juju/juju/status"
+	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -2172,7 +2172,7 @@ func (s *ServiceSuite) TestMetricCredentialsOnDying(c *gc.C) {
 func (s *ServiceSuite) testStatus(c *gc.C, status1, status2, expected status.Status) {
 	u1, err := s.mysql.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
-	now := time.Now()
+	now := coretesting.ZeroTime()
 	sInfo := status.StatusInfo{
 		Status:  status1,
 		Message: "status 1",
