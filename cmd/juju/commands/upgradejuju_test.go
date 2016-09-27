@@ -170,7 +170,7 @@ var upgradeJujuTests = []struct {
 	currentVersion: "3.0.2-quantal-amd64",
 	agentVersion:   "2.8.2",
 	args:           []string{"--version", "3.0.2"},
-	expectVersion:  "3.0.2.1",
+	expectVersion:  "3.0.2",
 	upgradeMap:     map[int]version.Number{3: version.MustParse("2.8.2")},
 }, {
 	about:          "specified version missing, but already set",
@@ -682,7 +682,7 @@ func (s *UpgradeJujuSuite) TestUpgradesDifferentMajor(c *gc.C) {
 		tools:             []string{"6.0.5-trusty-amd64", "5.9.9-trusty-amd64"},
 		currentVersion:    "6.0.0-trusty-amd64",
 		agentVersion:      "5.9.8",
-		expectedVersion:   "6.0.5.1",
+		expectedVersion:   "6.0.5",
 		excludedLogOutput: `incompatible with this client (6.0.0)`,
 		upgradeMap:        map[int]version.Number{6: version.MustParse("5.9.8")},
 	}, {
@@ -691,7 +691,7 @@ func (s *UpgradeJujuSuite) TestUpgradesDifferentMajor(c *gc.C) {
 		tools:             []string{"6.0.5-trusty-amd64", "5.11.0-trusty-amd64"},
 		currentVersion:    "6.0.1-trusty-amd64",
 		agentVersion:      "5.10.8",
-		expectedVersion:   "6.0.5.1",
+		expectedVersion:   "6.0.5",
 		excludedLogOutput: `incompatible with this client (6.0.1)`,
 		upgradeMap:        map[int]version.Number{6: version.MustParse("5.9.8")},
 	}, {

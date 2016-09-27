@@ -321,7 +321,7 @@ func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 	}
 	// If we're running a custom build or the user has asked for a new agent
 	// to be built, upload a local jujud binary if possible.
-	uploadLocalBinary := isControllerModel && tryImplicitUpload(agentVersion)
+	uploadLocalBinary := isControllerModel && c.Version == version.Zero && tryImplicitUpload(agentVersion)
 	if !warnCompat && (uploadLocalBinary || c.BuildAgent) && !c.DryRun {
 		if err := context.uploadTools(c.BuildAgent); err != nil {
 			// If we've explicitly asked to build an agent binary, or the upload failed
@@ -329,14 +329,14 @@ func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 			if err2 := block.ProcessBlockedError(err, block.BlockChange); c.BuildAgent || err2 == cmd.ErrSilent {
 				return err2
 			}
-		} else if err == nil {
-			builtMsg := ""
-			if c.BuildAgent {
-				builtMsg = " (built from source)"
-			}
-			fmt.Fprintf(ctx.Stdout, "no prepackaged tools available, using local agent binary %v%s\n", context.chosen, builtMsg)
 		}
+		builtMsg := ""
+		if c.BuildAgent {
+			builtMsg = " (built from source)"
+		}
+		fmt.Fprintf(ctx.Stdout, "no prepackaged tools available, using local agent binary %v%s\n", context.chosen, builtMsg)
 	}
+
 	// If there was an error implicitly uploading a binary, we'll still look for any packaged binaries
 	// since there may still be a valid upgrade and the user didn't ask for any local binary.
 	if err := context.validate(); err != nil {
