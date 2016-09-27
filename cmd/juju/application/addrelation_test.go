@@ -65,7 +65,7 @@ func (s *AddRelationSuite) TestAddRelationSuccess(c *gc.C) {
 }
 
 func (s *AddRelationSuite) TestAddRelationFail(c *gc.C) {
-	msg := "fail add relation"
+	msg := "fail add-relation call at API"
 	s.mockAPI = &mockAddAPI{
 		addRelationFunc: func(endpoints ...string) (*params.AddRelationResults, error) {
 			return nil, errors.New(msg)

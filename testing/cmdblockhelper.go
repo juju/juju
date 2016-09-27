@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/juju/cmd"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base"
@@ -66,4 +67,5 @@ func AssertOperationWasBlocked(c *gc.C, err error, msg string) {
 	// msg is logged
 	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
 	c.Check(stripped, gc.Matches, msg)
+	c.Check(stripped, jc.Contains, "disabled")
 }

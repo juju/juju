@@ -62,7 +62,7 @@ func (s *RemoveRelationSuite) TestRemoveRelationSuccess(c *gc.C) {
 }
 
 func (s *RemoveRelationSuite) TestRemoveRelationFail(c *gc.C) {
-	msg := "fail remove relation"
+	msg := "fail remove-relation at API"
 	s.mockAPI = &mockRemoveAPI{
 		removeRelationFunc: func(endpoints ...string) error {
 			return errors.New(msg)
