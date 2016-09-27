@@ -61,21 +61,21 @@ func newApplication(st *State, doc *applicationDoc) *Application {
 }
 
 // Name returns the application name.
-func (s *Application) Name() string {
-	return s.doc.Name
+func (a *Application) Name() string {
+	return a.doc.Name
 }
 
 // Tag returns a name identifying the service.
 // The returned name will be different from other Tag values returned by any
 // other entities from the same state.
-func (s *Application) Tag() names.Tag {
-	return s.ApplicationTag()
+func (a *Application) Tag() names.Tag {
+	return a.ApplicationTag()
 }
 
 // ApplicationTag returns the more specific ApplicationTag rather than the generic
 // Tag.
-func (s *Application) ApplicationTag() names.ApplicationTag {
-	return names.NewApplicationTag(s.Name())
+func (a *Application) ApplicationTag() names.ApplicationTag {
+	return names.NewApplicationTag(a.Name())
 }
 
 // applicationGlobalKey returns the global database key for the application
@@ -85,8 +85,8 @@ func applicationGlobalKey(svcName string) string {
 }
 
 // globalKey returns the global database key for the application.
-func (s *Application) globalKey() string {
-	return applicationGlobalKey(s.doc.Name)
+func (a *Application) globalKey() string {
+	return applicationGlobalKey(a.doc.Name)
 }
 
 func applicationSettingsKey(appName string, curl *charm.URL) string {
@@ -95,8 +95,8 @@ func applicationSettingsKey(appName string, curl *charm.URL) string {
 
 // settingsKey returns the charm-version-specific settings collection
 // key for the application.
-func (s *Application) settingsKey() string {
-	return applicationSettingsKey(s.doc.Name, s.doc.CharmURL)
+func (a *Application) settingsKey() string {
+	return applicationSettingsKey(a.doc.Name, a.doc.CharmURL)
 }
 
 func applicationStorageConstraintsKey(appName string, curl *charm.URL) string {
@@ -105,18 +105,18 @@ func applicationStorageConstraintsKey(appName string, curl *charm.URL) string {
 
 // storageConstraintsKey returns the charm-version-specific storage
 // constraints collection key for the application.
-func (s *Application) storageConstraintsKey() string {
-	return applicationStorageConstraintsKey(s.doc.Name, s.doc.CharmURL)
+func (a *Application) storageConstraintsKey() string {
+	return applicationStorageConstraintsKey(a.doc.Name, a.doc.CharmURL)
 }
 
 // Series returns the specified series for this charm.
-func (s *Application) Series() string {
-	return s.doc.Series
+func (a *Application) Series() string {
+	return a.doc.Series
 }
 
 // Life returns whether the application is Alive, Dying or Dead.
-func (s *Application) Life() Life {
-	return s.doc.Life
+func (a *Application) Life() Life {
+	return a.doc.Life
 }
 
 var errRefresh = stderrors.New("state seems inconsistent, refresh and try again")
@@ -124,15 +124,15 @@ var errRefresh = stderrors.New("state seems inconsistent, refresh and try again"
 // Destroy ensures that the application and all its relations will be removed at
 // some point; if the application has no units, and no relation involving the
 // application has any units in scope, they are all removed immediately.
-func (s *Application) Destroy() (err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot destroy application %q", s)
+func (a *Application) Destroy() (err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot destroy application %q", a)
 	defer func() {
 		if err == nil {
 			// This is a white lie; the document might actually be removed.
-			s.doc.Life = Dying
+			a.doc.Life = Dying
 		}
 	}()
-	svc := &Application{st: s.st, doc: s.doc}
+	svc := &Application{st: a.st, doc: a.doc}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			if err := svc.Refresh(); errors.IsNotFound(err) {
@@ -152,30 +152,30 @@ func (s *Application) Destroy() (err error) {
 		}
 		return nil, jujutxn.ErrTransientFailure
 	}
-	return s.st.run(buildTxn)
+	return a.st.run(buildTxn)
 }
 
 // destroyOps returns the operations required to destroy the service. If it
 // returns errRefresh, the application should be refreshed and the destruction
 // operations recalculated.
-func (s *Application) destroyOps() ([]txn.Op, error) {
-	if s.doc.Life == Dying {
+func (a *Application) destroyOps() ([]txn.Op, error) {
+	if a.doc.Life == Dying {
 		return nil, errAlreadyDying
 	}
-	rels, err := s.Relations()
+	rels, err := a.Relations()
 	if err != nil {
 		return nil, err
 	}
-	if len(rels) != s.doc.RelationCount {
+	if len(rels) != a.doc.RelationCount {
 		// This is just an early bail out. The relations obtained may still
 		// be wrong, but that situation will be caught by a combination of
 		// asserts on relationcount and on each known relation, below.
 		return nil, errRefresh
 	}
-	ops := []txn.Op{minUnitsRemoveOp(s.st, s.doc.Name)}
+	ops := []txn.Op{minUnitsRemoveOp(a.st, a.doc.Name)}
 	removeCount := 0
 	for _, rel := range rels {
-		relOps, isRemove, err := rel.destroyOps(s.doc.Name)
+		relOps, isRemove, err := rel.destroyOps(a.doc.Name)
 		if err == errAlreadyDying {
 			relOps = []txn.Op{{
 				C:      relationsC,
@@ -191,16 +191,16 @@ func (s *Application) destroyOps() ([]txn.Op, error) {
 		ops = append(ops, relOps...)
 	}
 	// TODO(ericsnow) Use a generic registry instead.
-	resOps, err := removeResourcesOps(s.st, s.doc.Name)
+	resOps, err := removeResourcesOps(a.st, a.doc.Name)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	ops = append(ops, resOps...)
 	// If the application has no units, and all its known relations will be
 	// removed, the application can also be removed.
-	if s.doc.UnitCount == 0 && s.doc.RelationCount == removeCount {
+	if a.doc.UnitCount == 0 && a.doc.RelationCount == removeCount {
 		hasLastRefs := bson.D{{"life", Alive}, {"unitcount", 0}, {"relationcount", removeCount}}
-		removeOps, err := s.removeOps(hasLastRefs)
+		removeOps, err := a.removeOps(hasLastRefs)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -215,14 +215,14 @@ func (s *Application) destroyOps() ([]txn.Op, error) {
 	// will be caught by virtue of being a remove.
 	notLastRefs := bson.D{
 		{"life", Alive},
-		{"relationcount", s.doc.RelationCount},
+		{"relationcount", a.doc.RelationCount},
 	}
 	// With respect to unit count, a changing value doesn't matter, so long
 	// as the count's equality with zero does not change, because all we care
 	// about is that *some* unit is, or is not, keeping the application from
 	// being removed: the difference between 1 unit and 1000 is irrelevant.
-	if s.doc.UnitCount > 0 {
-		ops = append(ops, newCleanupOp(cleanupUnitsForDyingService, s.doc.Name))
+	if a.doc.UnitCount > 0 {
+		ops = append(ops, newCleanupOp(cleanupUnitsForDyingService, a.doc.Name))
 		notLastRefs = append(notLastRefs, bson.D{{"unitcount", bson.D{{"$gt", 0}}}}...)
 	} else {
 		notLastRefs = append(notLastRefs, bson.D{{"unitcount", 0}}...)
@@ -234,7 +234,7 @@ func (s *Application) destroyOps() ([]txn.Op, error) {
 	}
 	return append(ops, txn.Op{
 		C:      applicationsC,
-		Id:     s.doc.DocID,
+		Id:     a.doc.DocID,
 		Assert: notLastRefs,
 		Update: update,
 	}), nil
@@ -258,16 +258,16 @@ func removeResourcesOps(st *State, serviceID string) ([]txn.Op, error) {
 
 // removeOps returns the operations required to remove the service. Supplied
 // asserts will be included in the operation on the application document.
-func (s *Application) removeOps(asserts bson.D) ([]txn.Op, error) {
+func (a *Application) removeOps(asserts bson.D) ([]txn.Op, error) {
 	ops := []txn.Op{
 		{
 			C:      applicationsC,
-			Id:     s.doc.DocID,
+			Id:     a.doc.DocID,
 			Assert: asserts,
 			Remove: true,
 		}, {
 			C:      settingsC,
-			Id:     s.settingsKey(),
+			Id:     a.settingsKey(),
 			Remove: true,
 		},
 	}
@@ -276,23 +276,23 @@ func (s *Application) removeOps(asserts bson.D) ([]txn.Op, error) {
 	// this case, luckily, we can be sure that we unconditionally
 	// need finalAppCharmRemoveOps; and we trust that it's written
 	// such that it's safe to run multiple times.
-	name := s.doc.Name
-	curl := s.doc.CharmURL
-	charmOps, err := appCharmDecRefOps(s.st, name, curl)
+	name := a.doc.Name
+	curl := a.doc.CharmURL
+	charmOps, err := appCharmDecRefOps(a.st, name, curl)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	ops = append(ops, charmOps...)
 	ops = append(ops, finalAppCharmRemoveOps(name, curl)...)
 
-	globalKey := s.globalKey()
+	globalKey := a.globalKey()
 	ops = append(ops,
 		removeEndpointBindingsOp(globalKey),
-		removeConstraintsOp(s.st, globalKey),
-		annotationRemoveOp(s.st, globalKey),
+		removeConstraintsOp(a.st, globalKey),
+		annotationRemoveOp(a.st, globalKey),
 		removeLeadershipSettingsOp(name),
-		removeStatusOp(s.st, globalKey),
-		removeModelServiceRefOp(s.st, name),
+		removeStatusOp(a.st, globalKey),
+		removeModelServiceRefOp(a.st, name),
 	)
 	return ops, nil
 }
@@ -300,83 +300,83 @@ func (s *Application) removeOps(asserts bson.D) ([]txn.Op, error) {
 // IsExposed returns whether this application is exposed. The explicitly open
 // ports (with open-port) for exposed services may be accessed from machines
 // outside of the local deployment network. See SetExposed and ClearExposed.
-func (s *Application) IsExposed() bool {
-	return s.doc.Exposed
+func (a *Application) IsExposed() bool {
+	return a.doc.Exposed
 }
 
 // SetExposed marks the application as exposed.
 // See ClearExposed and IsExposed.
-func (s *Application) SetExposed() error {
-	return s.setExposed(true)
+func (a *Application) SetExposed() error {
+	return a.setExposed(true)
 }
 
 // ClearExposed removes the exposed flag from the service.
 // See SetExposed and IsExposed.
-func (s *Application) ClearExposed() error {
-	return s.setExposed(false)
+func (a *Application) ClearExposed() error {
+	return a.setExposed(false)
 }
 
-func (s *Application) setExposed(exposed bool) (err error) {
+func (a *Application) setExposed(exposed bool) (err error) {
 	ops := []txn.Op{{
 		C:      applicationsC,
-		Id:     s.doc.DocID,
+		Id:     a.doc.DocID,
 		Assert: isAliveDoc,
 		Update: bson.D{{"$set", bson.D{{"exposed", exposed}}}},
 	}}
-	if err := s.st.runTransaction(ops); err != nil {
-		return errors.Errorf("cannot set exposed flag for application %q to %v: %v", s, exposed, onAbort(err, errNotAlive))
+	if err := a.st.runTransaction(ops); err != nil {
+		return errors.Errorf("cannot set exposed flag for application %q to %v: %v", a, exposed, onAbort(err, errNotAlive))
 	}
-	s.doc.Exposed = exposed
+	a.doc.Exposed = exposed
 	return nil
 }
 
 // Charm returns the service's charm and whether units should upgrade to that
 // charm even if they are in an error state.
-func (s *Application) Charm() (ch *Charm, force bool, err error) {
+func (a *Application) Charm() (ch *Charm, force bool, err error) {
 	// We don't worry about the channel since we aren't interacting
 	// with the charm store here.
-	ch, err = s.st.Charm(s.doc.CharmURL)
+	ch, err = a.st.Charm(a.doc.CharmURL)
 	if err != nil {
 		return nil, false, err
 	}
-	return ch, s.doc.ForceCharm, nil
+	return ch, a.doc.ForceCharm, nil
 }
 
 // IsPrincipal returns whether units of the application can
 // have subordinate units.
-func (s *Application) IsPrincipal() bool {
-	return !s.doc.Subordinate
+func (a *Application) IsPrincipal() bool {
+	return !a.doc.Subordinate
 }
 
 // CharmModifiedVersion increases whenever the service's charm is changed in any
 // way.
-func (s *Application) CharmModifiedVersion() int {
-	return s.doc.CharmModifiedVersion
+func (a *Application) CharmModifiedVersion() int {
+	return a.doc.CharmModifiedVersion
 }
 
 // CharmURL returns the service's charm URL, and whether units should upgrade
 // to the charm with that URL even if they are in an error state.
-func (s *Application) CharmURL() (curl *charm.URL, force bool) {
-	return s.doc.CharmURL, s.doc.ForceCharm
+func (a *Application) CharmURL() (curl *charm.URL, force bool) {
+	return a.doc.CharmURL, a.doc.ForceCharm
 }
 
 // Channel identifies the charm store channel from which the service's
 // charm was deployed. It is only needed when interacting with the charm
 // store.
-func (s *Application) Channel() csparams.Channel {
-	return csparams.Channel(s.doc.Channel)
+func (a *Application) Channel() csparams.Channel {
+	return csparams.Channel(a.doc.Channel)
 }
 
 // Endpoints returns the service's currently available relation endpoints.
-func (s *Application) Endpoints() (eps []Endpoint, err error) {
-	ch, _, err := s.Charm()
+func (a *Application) Endpoints() (eps []Endpoint, err error) {
+	ch, _, err := a.Charm()
 	if err != nil {
 		return nil, err
 	}
 	collect := func(role charm.RelationRole, rels map[string]charm.Relation) {
 		for _, rel := range rels {
 			eps = append(eps, Endpoint{
-				ApplicationName: s.doc.Name,
+				ApplicationName: a.doc.Name,
 				Relation:        rel,
 			})
 		}
@@ -398,8 +398,8 @@ func (s *Application) Endpoints() (eps []Endpoint, err error) {
 }
 
 // Endpoint returns the relation endpoint with the supplied name, if it exists.
-func (s *Application) Endpoint(relationName string) (Endpoint, error) {
-	eps, err := s.Endpoints()
+func (a *Application) Endpoint(relationName string) (Endpoint, error) {
+	eps, err := a.Endpoints()
 	if err != nil {
 		return Endpoint{}, err
 	}
@@ -408,17 +408,17 @@ func (s *Application) Endpoint(relationName string) (Endpoint, error) {
 			return ep, nil
 		}
 	}
-	return Endpoint{}, errors.Errorf("application %q has no %q relation", s, relationName)
+	return Endpoint{}, errors.Errorf("application %q has no %q relation", a, relationName)
 }
 
 // extraPeerRelations returns only the peer relations in newMeta not
 // present in the service's current charm meta data.
-func (s *Application) extraPeerRelations(newMeta *charm.Meta) map[string]charm.Relation {
+func (a *Application) extraPeerRelations(newMeta *charm.Meta) map[string]charm.Relation {
 	if newMeta == nil {
 		// This should never happen, since we're checking the charm in SetCharm already.
 		panic("newMeta is nil")
 	}
-	ch, _, err := s.Charm()
+	ch, _, err := a.Charm()
 	if err != nil {
 		return nil
 	}
@@ -433,11 +433,11 @@ func (s *Application) extraPeerRelations(newMeta *charm.Meta) map[string]charm.R
 	return extraPeers
 }
 
-func (s *Application) checkRelationsOps(ch *Charm, relations []*Relation) ([]txn.Op, error) {
+func (a *Application) checkRelationsOps(ch *Charm, relations []*Relation) ([]txn.Op, error) {
 	asserts := make([]txn.Op, 0, len(relations))
 	// All relations must still exist and their endpoints are implemented by the charm.
 	for _, rel := range relations {
-		if ep, err := rel.Endpoint(s.doc.Name); err != nil {
+		if ep, err := rel.Endpoint(a.doc.Name); err != nil {
 			return nil, err
 		} else if !ep.ImplementedBy(ch) {
 			return nil, errors.Errorf("would break relation %q", rel)
@@ -533,7 +533,7 @@ func (a *Application) checkStorageUpgrade(newMeta, oldMeta *charm.Meta, units []
 			// from being a singleton to multiple, since then the
 			// location has a different meaning.
 			return nil, errors.Errorf(
-				"existing storage %q with location changed from singleton to multiple",
+				"existing storage %q with location changed from single to multiple",
 				name,
 			)
 		}
@@ -543,7 +543,7 @@ func (a *Application) checkStorageUpgrade(newMeta, oldMeta *charm.Meta, units []
 
 // changeCharmOps returns the operations necessary to set a service's
 // charm URL to a new value.
-func (s *Application) changeCharmOps(
+func (a *Application) changeCharmOps(
 	ch *Charm,
 	channel string,
 	updatedSettings charm.Settings,
@@ -553,7 +553,7 @@ func (s *Application) changeCharmOps(
 ) ([]txn.Op, error) {
 	// Build the new application config from what can be used of the old one.
 	var newSettings charm.Settings
-	oldSettings, err := readSettings(s.st, settingsC, s.settingsKey())
+	oldSettings, err := readSettings(a.st, settingsC, a.settingsKey())
 	if err == nil {
 		// Filter the old settings through to get the new settings.
 		newSettings = ch.Config().FilterSettings(oldSettings.Map())
@@ -569,15 +569,15 @@ func (s *Application) changeCharmOps(
 
 	// Create or replace application settings.
 	var settingsOp txn.Op
-	newSettingsKey := applicationSettingsKey(s.doc.Name, ch.URL())
-	if _, err := readSettings(s.st, settingsC, newSettingsKey); errors.IsNotFound(err) {
+	newSettingsKey := applicationSettingsKey(a.doc.Name, ch.URL())
+	if _, err := readSettings(a.st, settingsC, newSettingsKey); errors.IsNotFound(err) {
 		// No settings for this key yet, create it.
 		settingsOp = createSettingsOp(settingsC, newSettingsKey, newSettings)
 	} else if err != nil {
 		return nil, errors.Trace(err)
 	} else {
 		// Settings exist, just replace them with the new ones.
-		settingsOp, _, err = replaceSettingsOp(s.st, settingsC, newSettingsKey, newSettings)
+		settingsOp, _, err = replaceSettingsOp(a.st, settingsC, newSettingsKey, newSettings)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -588,7 +588,7 @@ func (s *Application) changeCharmOps(
 	// changes to units during the upgrade, e.g. add storage
 	// to existing units, or remove optional storage so long as
 	// it is unreferenced.
-	units, err := s.AllUnits()
+	units, err := a.AllUnits()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -602,7 +602,7 @@ func (s *Application) changeCharmOps(
 	}
 	unitOps = append(unitOps, txn.Op{
 		C:      applicationsC,
-		Id:     s.doc.DocID,
+		Id:     a.doc.DocID,
 		Assert: bson.D{{"unitcount", len(units)}},
 	})
 
@@ -611,12 +611,12 @@ func (s *Application) changeCharmOps(
 	// constraints, as incompatible charm changes will otherwise yield
 	// confusing error messages that would suggest the user has supplied
 	// invalid constraints.
-	oldCharm, _, err := s.Charm()
+	oldCharm, _, err := a.Charm()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	oldMeta := oldCharm.Meta()
-	checkStorageOps, err := s.checkStorageUpgrade(ch.Meta(), oldMeta, units)
+	checkStorageOps, err := a.checkStorageUpgrade(ch.Meta(), oldMeta, units)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -625,7 +625,7 @@ func (s *Application) changeCharmOps(
 	// constraints, remove any keys that are no longer referenced by the
 	// charm, and update the constraints that the user has specified.
 	var storageConstraintsOp txn.Op
-	oldStorageConstraints, err := s.StorageConstraints()
+	oldStorageConstraints, err := a.StorageConstraints()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -638,14 +638,14 @@ func (s *Application) changeCharmOps(
 			delete(newStorageConstraints, name)
 		}
 	}
-	if err := addDefaultStorageConstraints(s.st, newStorageConstraints, ch.Meta()); err != nil {
+	if err := addDefaultStorageConstraints(a.st, newStorageConstraints, ch.Meta()); err != nil {
 		return nil, errors.Annotate(err, "adding default storage constraints")
 	}
-	if err := validateStorageConstraints(s.st, newStorageConstraints, ch.Meta()); err != nil {
+	if err := validateStorageConstraints(a.st, newStorageConstraints, ch.Meta()); err != nil {
 		return nil, errors.Annotate(err, "validating storage constraints")
 	}
-	newStorageConstraintsKey := applicationStorageConstraintsKey(s.doc.Name, ch.URL())
-	if _, err := readStorageConstraints(s.st, newStorageConstraintsKey); errors.IsNotFound(err) {
+	newStorageConstraintsKey := applicationStorageConstraintsKey(a.doc.Name, ch.URL())
+	if _, err := readStorageConstraints(a.st, newStorageConstraintsKey); errors.IsNotFound(err) {
 		storageConstraintsOp = createStorageConstraintsOp(
 			newStorageConstraintsKey, newStorageConstraints,
 		)
@@ -658,14 +658,14 @@ func (s *Application) changeCharmOps(
 	}
 
 	// Upgrade charm storage.
-	upgradeStorageOps, err := s.upgradeStorageOps(ch.Meta(), oldMeta, units, newStorageConstraints)
+	upgradeStorageOps, err := a.upgradeStorageOps(ch.Meta(), oldMeta, units, newStorageConstraints)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	// Add or create a reference to the new charm, settings,
 	// and storage constraints docs.
-	incOps, err := appCharmIncRefOps(s.st, s.doc.Name, ch.URL(), true)
+	incOps, err := appCharmIncRefOps(a.st, a.doc.Name, ch.URL(), true)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -673,7 +673,7 @@ func (s *Application) changeCharmOps(
 	// Drop the references to the old settings, storage constraints,
 	// and charm docs (if the refs actually exist yet).
 	if oldSettings != nil {
-		decOps, err = appCharmDecRefOps(s.st, s.doc.Name, s.doc.CharmURL) // current charm
+		decOps, err = appCharmDecRefOps(a.st, a.doc.Name, a.doc.CharmURL) // current charm
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -695,7 +695,7 @@ func (s *Application) changeCharmOps(
 		// Update the charm URL and force flag (if relevant).
 		{
 			C:  applicationsC,
-			Id: s.doc.DocID,
+			Id: a.doc.DocID,
 			Update: bson.D{{"$set", bson.D{
 				{"charmurl", ch.URL()},
 				{"cs-channel", channel},
@@ -706,18 +706,18 @@ func (s *Application) changeCharmOps(
 	ops = append(ops, checkStorageOps...)
 	ops = append(ops, upgradeStorageOps...)
 
-	ops = append(ops, incCharmModifiedVersionOps(s.doc.DocID)...)
+	ops = append(ops, incCharmModifiedVersionOps(a.doc.DocID)...)
 
 	// Add any extra peer relations that need creation.
-	newPeers := s.extraPeerRelations(ch.Meta())
-	peerOps, err := s.st.addPeerRelationsOps(s.doc.Name, newPeers)
+	newPeers := a.extraPeerRelations(ch.Meta())
+	peerOps, err := a.st.addPeerRelationsOps(a.doc.Name, newPeers)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	if len(resourceIDs) > 0 {
 		// Collect pending resource resolution operations.
-		resOps, err := s.resolveResourceOps(resourceIDs)
+		resOps, err := a.resolveResourceOps(resourceIDs)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -725,7 +725,7 @@ func (s *Application) changeCharmOps(
 	}
 
 	// Get all relations - we need to check them later.
-	relations, err := s.Relations()
+	relations, err := a.Relations()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -736,12 +736,12 @@ func (s *Application) changeCharmOps(
 	// Update the relation count as well.
 	ops = append(ops, txn.Op{
 		C:      applicationsC,
-		Id:     s.doc.DocID,
+		Id:     a.doc.DocID,
 		Assert: append(notDeadDoc, sameRelCount...),
 		Update: bson.D{{"$inc", bson.D{{"relationcount", len(newPeers)}}}},
 	})
 	// Check relations to ensure no active relations are removed.
-	relOps, err := s.checkRelationsOps(ch, relations)
+	relOps, err := a.checkRelationsOps(ch, relations)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -751,7 +751,7 @@ func (s *Application) changeCharmOps(
 	//
 	// TODO(dimitern): Once upgrade-charm accepts --bind like deploy, pass the
 	// given bindings below, instead of nil.
-	endpointBindingsOp, err := updateEndpointBindingsOp(s.st, s.globalKey(), nil, ch.Meta())
+	endpointBindingsOp, err := updateEndpointBindingsOp(a.st, a.globalKey(), nil, ch.Meta())
 	if err == nil {
 		ops = append(ops, endpointBindingsOp)
 	} else if !errors.IsNotFound(err) && err != jujutxn.ErrNoOperations {
@@ -807,13 +807,13 @@ func incCharmModifiedVersionOps(serviceID string) []txn.Op {
 	}}
 }
 
-func (s *Application) resolveResourceOps(resourceIDs map[string]string) ([]txn.Op, error) {
+func (a *Application) resolveResourceOps(resourceIDs map[string]string) ([]txn.Op, error) {
 	// Collect pending resource resolution operations.
-	resources, err := s.st.Resources()
+	resources, err := a.st.Resources()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return resources.NewResolvePendingResourcesOps(s.doc.Name, resourceIDs)
+	return resources.NewResolvePendingResourcesOps(a.doc.Name, resourceIDs)
 }
 
 // SetCharmConfig contains the parameters for Application.SetCharm.
@@ -851,24 +851,24 @@ type SetCharmConfig struct {
 }
 
 // SetCharm changes the charm for the application.
-func (s *Application) SetCharm(cfg SetCharmConfig) (err error) {
+func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 	defer errors.DeferredAnnotatef(
-		&err, "cannot upgrade application %q to charm %q", s, cfg.Charm,
+		&err, "cannot upgrade application %q to charm %q", a, cfg.Charm,
 	)
-	if cfg.Charm.Meta().Subordinate != s.doc.Subordinate {
+	if cfg.Charm.Meta().Subordinate != a.doc.Subordinate {
 		return errors.Errorf("cannot change an application's subordinacy")
 	}
 	// For old style charms written for only one series, we still retain
 	// this check. Newer charms written for multi-series have a URL
 	// with series = "".
 	if cfg.Charm.URL().Series != "" {
-		if cfg.Charm.URL().Series != s.doc.Series {
+		if cfg.Charm.URL().Series != a.doc.Series {
 			return errors.Errorf("cannot change an application's series")
 		}
 	} else if !cfg.ForceSeries {
 		supported := false
 		for _, series := range cfg.Charm.Meta().Series {
-			if series == s.doc.Series {
+			if series == a.doc.Series {
 				supported = true
 				break
 			}
@@ -884,7 +884,7 @@ func (s *Application) SetCharm(cfg SetCharmConfig) (err error) {
 		// Even with forceSeries=true, we do not allow a charm to be used which is for
 		// a different OS. This assumes the charm declares it has supported series which
 		// we can check for OS compatibility. Otherwise, we just accept the series supplied.
-		currentOS, err := series.GetOSFromSeries(s.doc.Series)
+		currentOS, err := series.GetOSFromSeries(a.doc.Series)
 		if err != nil {
 			// We don't expect an error here but there's not much we can
 			// do to recover.
@@ -914,11 +914,11 @@ func (s *Application) SetCharm(cfg SetCharmConfig) (err error) {
 
 	var newCharmModifiedVersion int
 	channel := string(cfg.Channel)
-	scopy := &Application{s.st, s.doc}
+	acopy := &Application{a.st, a.doc}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		s := scopy
+		a := acopy
 		if attempt > 0 {
-			if err := s.Refresh(); err != nil {
+			if err := a.Refresh(); err != nil {
 				return nil, errors.Trace(err)
 			}
 		}
@@ -928,7 +928,7 @@ func (s *Application) SetCharm(cfg SetCharmConfig) (err error) {
 		// upgrades should still be allowed to apply to dying
 		// services and units, so that bugs in departed/broken
 		// hooks can be addressed at runtime.
-		if s.Life() == Dead {
+		if a.Life() == Dead {
 			return nil, ErrDead
 		}
 
@@ -936,28 +936,28 @@ func (s *Application) SetCharm(cfg SetCharmConfig) (err error) {
 		// set the value on the method receiver's in-memory document
 		// structure. We increment the version only when we change the
 		// charm URL.
-		newCharmModifiedVersion = s.doc.CharmModifiedVersion
+		newCharmModifiedVersion = a.doc.CharmModifiedVersion
 
 		ops := []txn.Op{{
 			C:  applicationsC,
-			Id: s.doc.DocID,
+			Id: a.doc.DocID,
 			Assert: append(notDeadDoc, bson.DocElem{
-				"charmmodifiedversion", s.doc.CharmModifiedVersion,
+				"charmmodifiedversion", a.doc.CharmModifiedVersion,
 			}),
 		}}
 
-		if s.doc.CharmURL.String() == cfg.Charm.URL().String() {
+		if a.doc.CharmURL.String() == cfg.Charm.URL().String() {
 			// Charm URL already set; just update the force flag and channel.
 			ops = append(ops, txn.Op{
 				C:  applicationsC,
-				Id: s.doc.DocID,
+				Id: a.doc.DocID,
 				Update: bson.D{{"$set", bson.D{
 					{"cs-channel", channel},
 					{"forcecharm", cfg.ForceUnits},
 				}}},
 			})
 		} else {
-			chng, err := s.changeCharmOps(
+			chng, err := a.changeCharmOps(
 				cfg.Charm,
 				channel,
 				updatedSettings,
@@ -974,45 +974,45 @@ func (s *Application) SetCharm(cfg SetCharmConfig) (err error) {
 
 		return ops, nil
 	}
-	if err := s.st.run(buildTxn); err != nil {
+	if err := a.st.run(buildTxn); err != nil {
 		return err
 	}
-	s.doc.CharmURL = cfg.Charm.URL()
-	s.doc.Channel = channel
-	s.doc.ForceCharm = cfg.ForceUnits
-	s.doc.CharmModifiedVersion = newCharmModifiedVersion
+	a.doc.CharmURL = cfg.Charm.URL()
+	a.doc.Channel = channel
+	a.doc.ForceCharm = cfg.ForceUnits
+	a.doc.CharmModifiedVersion = newCharmModifiedVersion
 	return nil
 }
 
 // String returns the application name.
-func (s *Application) String() string {
-	return s.doc.Name
+func (a *Application) String() string {
+	return a.doc.Name
 }
 
 // Refresh refreshes the contents of the Service from the underlying
 // state. It returns an error that satisfies errors.IsNotFound if the
 // application has been removed.
-func (s *Application) Refresh() error {
-	services, closer := s.st.getCollection(applicationsC)
+func (a *Application) Refresh() error {
+	services, closer := a.st.getCollection(applicationsC)
 	defer closer()
 
-	err := services.FindId(s.doc.DocID).One(&s.doc)
+	err := services.FindId(a.doc.DocID).One(&a.doc)
 	if err == mgo.ErrNotFound {
-		return errors.NotFoundf("application %q", s)
+		return errors.NotFoundf("application %q", a)
 	}
 	if err != nil {
-		return errors.Errorf("cannot refresh application %q: %v", s, err)
+		return errors.Errorf("cannot refresh application %q: %v", a, err)
 	}
 	return nil
 }
 
 // newUnitName returns the next unit name.
-func (s *Application) newUnitName() (string, error) {
-	unitSeq, err := s.st.sequence(s.Tag().String())
+func (a *Application) newUnitName() (string, error) {
+	unitSeq, err := a.st.sequence(a.Tag().String())
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	name := s.doc.Name + "/" + strconv.Itoa(unitSeq)
+	name := a.doc.Name + "/" + strconv.Itoa(unitSeq)
 	return name, nil
 }
 
@@ -1022,22 +1022,22 @@ func (s *Application) newUnitName() (string, error) {
 // application will be assigned to a given principal. The asserts param can be used
 // to include additional assertions for the application document.  This method
 // assumes that the application already exists in the db.
-func (s *Application) addUnitOps(principalName string, asserts bson.D) (string, []txn.Op, error) {
+func (a *Application) addUnitOps(principalName string, asserts bson.D) (string, []txn.Op, error) {
 	var cons constraints.Value
-	if !s.doc.Subordinate {
-		scons, err := s.Constraints()
+	if !a.doc.Subordinate {
+		scons, err := a.Constraints()
 		if errors.IsNotFound(err) {
-			return "", nil, errors.NotFoundf("application %q", s.Name())
+			return "", nil, errors.NotFoundf("application %q", a.Name())
 		}
 		if err != nil {
 			return "", nil, err
 		}
-		cons, err = s.st.resolveConstraints(scons)
+		cons, err = a.st.resolveConstraints(scons)
 		if err != nil {
 			return "", nil, err
 		}
 	}
-	storageCons, err := s.StorageConstraints()
+	storageCons, err := a.StorageConstraints()
 	if err != nil {
 		return "", nil, err
 	}
@@ -1046,13 +1046,13 @@ func (s *Application) addUnitOps(principalName string, asserts bson.D) (string, 
 		principalName: principalName,
 		storageCons:   storageCons,
 	}
-	names, ops, err := s.addUnitOpsWithCons(args)
+	names, ops, err := a.addUnitOpsWithCons(args)
 	if err != nil {
 		return names, ops, err
 	}
 	// we verify the application is alive
 	asserts = append(isAliveDoc, asserts...)
-	ops = append(ops, s.incUnitCountOp(asserts))
+	ops = append(ops, a.incUnitCountOp(asserts))
 	return names, ops, err
 }
 
@@ -1064,45 +1064,45 @@ type applicationAddUnitOpsArgs struct {
 
 // addServiceUnitOps is just like addUnitOps but explicitly takes a
 // constraints value (this is used at application creation time).
-func (s *Application) addServiceUnitOps(args applicationAddUnitOpsArgs) (string, []txn.Op, error) {
-	names, ops, err := s.addUnitOpsWithCons(args)
+func (a *Application) addServiceUnitOps(args applicationAddUnitOpsArgs) (string, []txn.Op, error) {
+	names, ops, err := a.addUnitOpsWithCons(args)
 	if err == nil {
-		ops = append(ops, s.incUnitCountOp(nil))
+		ops = append(ops, a.incUnitCountOp(nil))
 	}
 	return names, ops, err
 }
 
 // addUnitOpsWithCons is a helper method for returning addUnitOps.
-func (s *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string, []txn.Op, error) {
-	if s.doc.Subordinate && args.principalName == "" {
+func (a *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string, []txn.Op, error) {
+	if a.doc.Subordinate && args.principalName == "" {
 		return "", nil, errors.New("application is a subordinate")
-	} else if !s.doc.Subordinate && args.principalName != "" {
+	} else if !a.doc.Subordinate && args.principalName != "" {
 		return "", nil, errors.New("application is not a subordinate")
 	}
-	name, err := s.newUnitName()
+	name, err := a.newUnitName()
 	if err != nil {
 		return "", nil, err
 	}
 
 	// Create instances of the charm's declared stores.
-	storageOps, numStorageAttachments, err := s.unitStorageOps(name, args.storageCons)
+	storageOps, numStorageAttachments, err := a.unitStorageOps(name, args.storageCons)
 	if err != nil {
 		return "", nil, errors.Trace(err)
 	}
 
-	docID := s.st.docID(name)
+	docID := a.st.docID(name)
 	globalKey := unitGlobalKey(name)
 	agentGlobalKey := unitAgentGlobalKey(name)
 	udoc := &unitDoc{
 		DocID:                  docID,
 		Name:                   name,
-		Application:            s.doc.Name,
-		Series:                 s.doc.Series,
+		Application:            a.doc.Name,
+		Series:                 a.doc.Series,
 		Life:                   Alive,
 		Principal:              args.principalName,
 		StorageAttachmentCount: numStorageAttachments,
 	}
-	now := s.st.clock.Now()
+	now := a.st.clock.Now()
 	agentStatusDoc := statusDoc{
 		Status:  status.Allocating,
 		Updated: now.UnixNano(),
@@ -1117,7 +1117,7 @@ func (s *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 		Updated: now.UnixNano(),
 	}
 
-	ops, err := addUnitOps(s.st, addUnitOpsArgs{
+	ops, err := addUnitOps(a.st, addUnitOpsArgs{
 		unitDoc:            udoc,
 		agentStatusDoc:     agentStatusDoc,
 		workloadStatusDoc:  unitStatusDoc,
@@ -1130,34 +1130,34 @@ func (s *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 
 	ops = append(ops, storageOps...)
 
-	if s.doc.Subordinate {
+	if a.doc.Subordinate {
 		ops = append(ops, txn.Op{
 			C:  unitsC,
-			Id: s.st.docID(args.principalName),
+			Id: a.st.docID(args.principalName),
 			Assert: append(isAliveDoc, bson.DocElem{
-				"subordinates", bson.D{{"$not", bson.RegEx{Pattern: "^" + s.doc.Name + "/"}}},
+				"subordinates", bson.D{{"$not", bson.RegEx{Pattern: "^" + a.doc.Name + "/"}}},
 			}),
 			Update: bson.D{{"$addToSet", bson.D{{"subordinates", name}}}},
 		})
 	} else {
-		ops = append(ops, createConstraintsOp(s.st, agentGlobalKey, args.cons))
+		ops = append(ops, createConstraintsOp(a.st, agentGlobalKey, args.cons))
 	}
 
 	// At the last moment we still have the statusDocs in scope, set the initial
 	// history entries. This is risky, and may lead to extra entries, but that's
 	// an intrinsic problem with mixing txn and non-txn ops -- we can't sync
 	// them cleanly.
-	probablyUpdateStatusHistory(s.st, globalKey, unitStatusDoc)
-	probablyUpdateStatusHistory(s.st, agentGlobalKey, agentStatusDoc)
-	probablyUpdateStatusHistory(s.st, globalWorkloadVersionKey(name), workloadVersionDoc)
+	probablyUpdateStatusHistory(a.st, globalKey, unitStatusDoc)
+	probablyUpdateStatusHistory(a.st, agentGlobalKey, agentStatusDoc)
+	probablyUpdateStatusHistory(a.st, globalWorkloadVersionKey(name), workloadVersionDoc)
 	return name, ops, nil
 }
 
 // incUnitCountOp returns the operation to increment the service's unit count.
-func (s *Application) incUnitCountOp(asserts bson.D) txn.Op {
+func (a *Application) incUnitCountOp(asserts bson.D) txn.Op {
 	op := txn.Op{
 		C:      applicationsC,
-		Id:     s.doc.DocID,
+		Id:     a.doc.DocID,
 		Update: bson.D{{"$inc", bson.D{{"unitcount", 1}}}},
 	}
 	if len(asserts) > 0 {
@@ -1170,8 +1170,8 @@ func (s *Application) incUnitCountOp(asserts bson.D) txn.Op {
 // instances and attachments for a new unit. unitStorageOps
 // returns the number of initial storage attachments, to
 // initialise the unit's storage attachment refcount.
-func (s *Application) unitStorageOps(unitName string, cons map[string]StorageConstraints) (ops []txn.Op, numStorageAttachments int, err error) {
-	charm, _, err := s.Charm()
+func (a *Application) unitStorageOps(unitName string, cons map[string]StorageConstraints) (ops []txn.Op, numStorageAttachments int, err error) {
+	charm, _, err := a.Charm()
 	if err != nil {
 		return nil, -1, err
 	}
@@ -1179,8 +1179,8 @@ func (s *Application) unitStorageOps(unitName string, cons map[string]StorageCon
 	tag := names.NewUnitTag(unitName)
 	// TODO(wallyworld) - record constraints info in data model - size and pool name
 	ops, numStorageAttachments, err = createStorageOps(
-		s.st, tag, meta, cons,
-		s.doc.Series,
+		a.st, tag, meta, cons,
+		a.doc.Series,
 		false, // unit is not assigned yet; don't create machine storage
 	)
 	if err != nil {
@@ -1190,15 +1190,15 @@ func (s *Application) unitStorageOps(unitName string, cons map[string]StorageCon
 }
 
 // AddUnit adds a new principal unit to the service.
-func (s *Application) AddUnit() (unit *Unit, err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot add unit to application %q", s)
-	name, ops, err := s.addUnitOps("", nil)
+func (a *Application) AddUnit() (unit *Unit, err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot add unit to application %q", a)
+	name, ops, err := a.addUnitOps("", nil)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := s.st.runTransaction(ops); err == txn.ErrAborted {
-		if alive, err := isAlive(s.st, applicationsC, s.doc.DocID); err != nil {
+	if err := a.st.runTransaction(ops); err == txn.ErrAborted {
+		if alive, err := isAlive(a.st, applicationsC, a.doc.DocID); err != nil {
 			return nil, err
 		} else if !alive {
 			return nil, errors.New("application is not alive")
@@ -1207,25 +1207,25 @@ func (s *Application) AddUnit() (unit *Unit, err error) {
 	} else if err != nil {
 		return nil, err
 	}
-	return s.st.Unit(name)
+	return a.st.Unit(name)
 }
 
 // removeUnitOps returns the operations necessary to remove the supplied unit,
 // assuming the supplied asserts apply to the unit document.
-func (s *Application) removeUnitOps(u *Unit, asserts bson.D) ([]txn.Op, error) {
-	ops, err := u.destroyHostOps(s)
+func (a *Application) removeUnitOps(u *Unit, asserts bson.D) ([]txn.Op, error) {
+	ops, err := u.destroyHostOps(a)
 	if err != nil {
 		return nil, err
 	}
-	portsOps, err := removePortsForUnitOps(s.st, u)
+	portsOps, err := removePortsForUnitOps(a.st, u)
 	if err != nil {
 		return nil, err
 	}
-	storageInstanceOps, err := removeStorageInstancesOps(s.st, u.Tag())
+	storageInstanceOps, err := removeStorageInstancesOps(a.st, u.Tag())
 	if err != nil {
 		return nil, err
 	}
-	resOps, err := removeUnitResourcesOps(s.st, u.doc.Application, u.doc.Name)
+	resOps, err := removeUnitResourcesOps(a.st, u.doc.Application, u.doc.Name)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1242,17 +1242,17 @@ func (s *Application) removeUnitOps(u *Unit, asserts bson.D) ([]txn.Op, error) {
 			Assert: append(observedFieldsMatch, asserts...),
 			Remove: true,
 		},
-		removeMeterStatusOp(s.st, u.globalMeterStatusKey()),
-		removeStatusOp(s.st, u.globalAgentKey()),
-		removeStatusOp(s.st, u.globalKey()),
-		removeConstraintsOp(s.st, u.globalAgentKey()),
-		annotationRemoveOp(s.st, u.globalKey()),
+		removeMeterStatusOp(a.st, u.globalMeterStatusKey()),
+		removeStatusOp(a.st, u.globalAgentKey()),
+		removeStatusOp(a.st, u.globalKey()),
+		removeConstraintsOp(a.st, u.globalAgentKey()),
+		annotationRemoveOp(a.st, u.globalKey()),
 		newCleanupOp(cleanupRemovedUnit, u.doc.Name),
 	)
 	ops = append(ops, portsOps...)
 	ops = append(ops, storageInstanceOps...)
 	if u.doc.CharmURL != nil {
-		decOps, err := appCharmDecRefOps(s.st, s.doc.Name, u.doc.CharmURL)
+		decOps, err := appCharmDecRefOps(a.st, a.doc.Name, u.doc.CharmURL)
 		if errors.IsNotFound(err) {
 			return nil, errRefresh
 		} else if err != nil {
@@ -1260,9 +1260,9 @@ func (s *Application) removeUnitOps(u *Unit, asserts bson.D) ([]txn.Op, error) {
 		}
 		ops = append(ops, decOps...)
 	}
-	if s.doc.Life == Dying && s.doc.RelationCount == 0 && s.doc.UnitCount == 1 {
+	if a.doc.Life == Dying && a.doc.RelationCount == 0 && a.doc.UnitCount == 1 {
 		hasLastRef := bson.D{{"life", Dying}, {"relationcount", 0}, {"unitcount", 1}}
-		removeOps, err := s.removeOps(hasLastRef)
+		removeOps, err := a.removeOps(hasLastRef)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -1270,10 +1270,10 @@ func (s *Application) removeUnitOps(u *Unit, asserts bson.D) ([]txn.Op, error) {
 	}
 	svcOp := txn.Op{
 		C:      applicationsC,
-		Id:     s.doc.DocID,
+		Id:     a.doc.DocID,
 		Update: bson.D{{"$inc", bson.D{{"unitcount", -1}}}},
 	}
-	if s.doc.Life == Alive {
+	if a.doc.Life == Alive {
 		svcOp.Assert = bson.D{{"life", Alive}, {"unitcount", bson.D{{"$gt", 0}}}}
 	} else {
 		svcOp.Assert = bson.D{
@@ -1306,8 +1306,8 @@ func removeUnitResourcesOps(st *State, serviceID, unitID string) ([]txn.Op, erro
 }
 
 // AllUnits returns all units of the service.
-func (s *Application) AllUnits() (units []*Unit, err error) {
-	return allUnits(s.st, s.doc.Name)
+func (a *Application) AllUnits() (units []*Unit, err error) {
+	return allUnits(a.st, a.doc.Name)
 }
 
 func allUnits(st *State, application string) (units []*Unit, err error) {
@@ -1326,8 +1326,8 @@ func allUnits(st *State, application string) (units []*Unit, err error) {
 }
 
 // Relations returns a Relation for every relation the application is in.
-func (s *Application) Relations() (relations []*Relation, err error) {
-	return applicationRelations(s.st, s.doc.Name)
+func (a *Application) Relations() (relations []*Relation, err error) {
+	return applicationRelations(a.st, a.doc.Name)
 }
 
 func applicationRelations(st *State, name string) (relations []*Relation, err error) {
@@ -1348,8 +1348,8 @@ func applicationRelations(st *State, name string) (relations []*Relation, err er
 
 // ConfigSettings returns the raw user configuration for the application's charm.
 // Unset values are omitted.
-func (s *Application) ConfigSettings() (charm.Settings, error) {
-	settings, err := readSettings(s.st, settingsC, s.settingsKey())
+func (a *Application) ConfigSettings() (charm.Settings, error) {
+	settings, err := readSettings(a.st, settingsC, a.settingsKey())
 	if err != nil {
 		return nil, err
 	}
@@ -1358,8 +1358,8 @@ func (s *Application) ConfigSettings() (charm.Settings, error) {
 
 // UpdateConfigSettings changes a service's charm config settings. Values set
 // to nil will be deleted; unknown and invalid values will return an error.
-func (s *Application) UpdateConfigSettings(changes charm.Settings) error {
-	charm, _, err := s.Charm()
+func (a *Application) UpdateConfigSettings(changes charm.Settings) error {
+	charm, _, err := a.Charm()
 	if err != nil {
 		return err
 	}
@@ -1371,7 +1371,7 @@ func (s *Application) UpdateConfigSettings(changes charm.Settings) error {
 	// about every use case. This needs to be resolved some time; but at
 	// least the settings docs are keyed by charm url as well as service
 	// name, so the actual impact of a race is non-threatening.
-	node, err := readSettings(s.st, settingsC, s.settingsKey())
+	node, err := readSettings(a.st, settingsC, a.settingsKey())
 	if err != nil {
 		return err
 	}
@@ -1388,12 +1388,12 @@ func (s *Application) UpdateConfigSettings(changes charm.Settings) error {
 
 // LeaderSettings returns a service's leader settings. If nothing has been set
 // yet, it will return an empty map; this is not an error.
-func (s *Application) LeaderSettings() (map[string]string, error) {
+func (a *Application) LeaderSettings() (map[string]string, error) {
 	// There's no compelling reason to have these methods on Service -- and
 	// thus require an extra db read to access them -- but it stops the State
 	// type getting even more cluttered.
 
-	doc, err := readSettingsDoc(s.st, settingsC, leadershipSettingsKey(s.doc.Name))
+	doc, err := readSettingsDoc(a.st, settingsC, leadershipSettingsKey(a.doc.Name))
 	if errors.IsNotFound(err) {
 		return nil, errors.NotFoundf("application")
 	} else if err != nil {
@@ -1416,7 +1416,7 @@ func (s *Application) LeaderSettings() (map[string]string, error) {
 // UpdateLeaderSettings updates the service's leader settings with the supplied
 // values, but will fail (with a suitable error) if the supplied Token loses
 // validity. Empty values in the supplied map will be cleared in the database.
-func (s *Application) UpdateLeaderSettings(token leadership.Token, updates map[string]string) error {
+func (a *Application) UpdateLeaderSettings(token leadership.Token, updates map[string]string) error {
 	// There's no compelling reason to have these methods on Service -- and
 	// thus require an extra db read to access them -- but it stops the State
 	// type getting even more cluttered.
@@ -1424,7 +1424,7 @@ func (s *Application) UpdateLeaderSettings(token leadership.Token, updates map[s
 	// We can calculate the actual update ahead of time; it's not dependent
 	// upon the current state of the document. (*Writing* it should depend
 	// on document state, but that's handled below.)
-	key := leadershipSettingsKey(s.doc.Name)
+	key := leadershipSettingsKey(a.doc.Name)
 	sets := bson.M{}
 	unsets := bson.M{}
 	for unescapedKey, value := range updates {
@@ -1455,7 +1455,7 @@ func (s *Application) UpdateLeaderSettings(token leadership.Token, updates map[s
 		// Read the current document state so we can abort if there's
 		// no actual change; and the version number so we can assert
 		// on it and prevent these settings from landing late.
-		doc, err := readSettingsDoc(s.st, settingsC, key)
+		doc, err := readSettingsDoc(a.st, settingsC, key)
 		if errors.IsNotFound(err) {
 			return nil, errors.NotFoundf("application")
 		} else if err != nil {
@@ -1471,55 +1471,55 @@ func (s *Application) UpdateLeaderSettings(token leadership.Token, updates map[s
 			Update: update,
 		}}, nil
 	}
-	return s.st.run(buildTxnWithLeadership(buildTxn, token))
+	return a.st.run(buildTxnWithLeadership(buildTxn, token))
 }
 
 var ErrSubordinateConstraints = stderrors.New("constraints do not apply to subordinate services")
 
 // Constraints returns the current application constraints.
-func (s *Application) Constraints() (constraints.Value, error) {
-	if s.doc.Subordinate {
+func (a *Application) Constraints() (constraints.Value, error) {
+	if a.doc.Subordinate {
 		return constraints.Value{}, ErrSubordinateConstraints
 	}
-	return readConstraints(s.st, s.globalKey())
+	return readConstraints(a.st, a.globalKey())
 }
 
 // SetConstraints replaces the current application constraints.
-func (s *Application) SetConstraints(cons constraints.Value) (err error) {
-	unsupported, err := s.st.validateConstraints(cons)
+func (a *Application) SetConstraints(cons constraints.Value) (err error) {
+	unsupported, err := a.st.validateConstraints(cons)
 	if len(unsupported) > 0 {
 		logger.Warningf(
-			"setting constraints on application %q: unsupported constraints: %v", s.Name(), strings.Join(unsupported, ","))
+			"setting constraints on application %q: unsupported constraints: %v", a.Name(), strings.Join(unsupported, ","))
 	} else if err != nil {
 		return err
 	}
-	if s.doc.Subordinate {
+	if a.doc.Subordinate {
 		return ErrSubordinateConstraints
 	}
 	defer errors.DeferredAnnotatef(&err, "cannot set constraints")
-	if s.doc.Life != Alive {
+	if a.doc.Life != Alive {
 		return errNotAlive
 	}
 	ops := []txn.Op{{
 		C:      applicationsC,
-		Id:     s.doc.DocID,
+		Id:     a.doc.DocID,
 		Assert: isAliveDoc,
 	}}
-	ops = append(ops, setConstraintsOp(s.st, s.globalKey(), cons))
-	return onAbort(s.st.runTransaction(ops), errNotAlive)
+	ops = append(ops, setConstraintsOp(a.st, a.globalKey(), cons))
+	return onAbort(a.st.runTransaction(ops), errNotAlive)
 }
 
 // EndpointBindings returns the mapping for each endpoint name and the space
 // name it is bound to (or empty if unspecified). When no bindings are stored
 // for the application, defaults are returned.
-func (s *Application) EndpointBindings() (map[string]string, error) {
+func (a *Application) EndpointBindings() (map[string]string, error) {
 	// We don't need the TxnRevno below.
-	bindings, _, err := readEndpointBindings(s.st, s.globalKey())
+	bindings, _, err := readEndpointBindings(a.st, a.globalKey())
 	if err != nil && !errors.IsNotFound(err) {
 		return nil, errors.Trace(err)
 	}
 	if bindings == nil {
-		bindings, err = s.defaultEndpointBindings()
+		bindings, err = a.defaultEndpointBindings()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -1530,12 +1530,12 @@ func (s *Application) EndpointBindings() (map[string]string, error) {
 // defaultEndpointBindings returns a map with each endpoint from the current
 // charm metadata bound to an empty space. If no charm URL is set yet, it
 // returns an empty map.
-func (s *Application) defaultEndpointBindings() (map[string]string, error) {
-	if s.doc.CharmURL == nil {
+func (a *Application) defaultEndpointBindings() (map[string]string, error) {
+	if a.doc.CharmURL == nil {
 		return map[string]string{}, nil
 	}
 
-	charm, _, err := s.Charm()
+	charm, _, err := a.Charm()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1544,15 +1544,15 @@ func (s *Application) defaultEndpointBindings() (map[string]string, error) {
 }
 
 // MetricCredentials returns any metric credentials associated with this service.
-func (s *Application) MetricCredentials() []byte {
-	return s.doc.MetricCredentials
+func (a *Application) MetricCredentials() []byte {
+	return a.doc.MetricCredentials
 }
 
 // SetMetricCredentials updates the metric credentials associated with this service.
-func (s *Application) SetMetricCredentials(b []byte) error {
+func (a *Application) SetMetricCredentials(b []byte) error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
-			alive, err := isAlive(s.st, applicationsC, s.doc.DocID)
+			alive, err := isAlive(a.st, applicationsC, a.doc.DocID)
 			if err != nil {
 				return nil, errors.Trace(err)
 			} else if !alive {
@@ -1562,26 +1562,26 @@ func (s *Application) SetMetricCredentials(b []byte) error {
 		ops := []txn.Op{
 			{
 				C:      applicationsC,
-				Id:     s.doc.DocID,
+				Id:     a.doc.DocID,
 				Assert: isAliveDoc,
 				Update: bson.M{"$set": bson.M{"metric-credentials": b}},
 			},
 		}
 		return ops, nil
 	}
-	if err := s.st.run(buildTxn); err != nil {
+	if err := a.st.run(buildTxn); err != nil {
 		if err == errNotAlive {
 			return errors.New("cannot update metric credentials: application " + err.Error())
 		}
 		return errors.Annotatef(err, "cannot update metric credentials")
 	}
-	s.doc.MetricCredentials = b
+	a.doc.MetricCredentials = b
 	return nil
 }
 
 // StorageConstraints returns the storage constraints for the application.
-func (s *Application) StorageConstraints() (map[string]StorageConstraints, error) {
-	cons, err := readStorageConstraints(s.st, s.storageConstraintsKey())
+func (a *Application) StorageConstraints() (map[string]StorageConstraints, error) {
+	cons, err := readStorageConstraints(a.st, a.storageConstraintsKey())
 	if errors.IsNotFound(err) {
 		return nil, nil
 	} else if err != nil {
@@ -1594,10 +1594,10 @@ func (s *Application) StorageConstraints() (map[string]StorageConstraints, error
 // Only unit leaders are allowed to set the status of the service.
 // If no status is recorded, then there are no unit leaders and the
 // status is derived from the unit status values.
-func (s *Application) Status() (status.StatusInfo, error) {
-	statuses, closer := s.st.getCollection(statusesC)
+func (a *Application) Status() (status.StatusInfo, error) {
+	statuses, closer := a.st.getCollection(statusesC)
 	defer closer()
-	query := statuses.Find(bson.D{{"_id", s.globalKey()}, {"neverset", true}})
+	query := statuses.Find(bson.D{{"_id", a.globalKey()}, {"neverset", true}})
 	if count, err := query.Count(); err != nil {
 		return status.StatusInfo{}, errors.Trace(err)
 	} else if count != 0 {
@@ -1611,26 +1611,26 @@ func (s *Application) Status() (status.StatusInfo, error) {
 		// charm's hooks exists or sets an application status*. This logic should be
 		// removed as soon as possible, and the responsibilities implemented in
 		// the right places rather than being applied at seeming random.
-		units, err := s.AllUnits()
+		units, err := a.AllUnits()
 		if err != nil {
 			return status.StatusInfo{}, err
 		}
-		logger.Tracef("service %q has %d units", s.Name(), len(units))
+		logger.Tracef("service %q has %d units", a.Name(), len(units))
 		if len(units) > 0 {
-			return s.deriveStatus(units)
+			return a.deriveStatus(units)
 		}
 	}
-	return getStatus(s.st, s.globalKey(), "application")
+	return getStatus(a.st, a.globalKey(), "application")
 }
 
 // SetStatus sets the status for the application.
-func (s *Application) SetStatus(statusInfo status.StatusInfo) error {
+func (a *Application) SetStatus(statusInfo status.StatusInfo) error {
 	if !status.ValidWorkloadStatus(statusInfo.Status) {
 		return errors.Errorf("cannot set invalid status %q", statusInfo.Status)
 	}
-	return setStatus(s.st, setStatusParams{
+	return setStatus(a.st, setStatusParams{
 		badge:     "application",
-		globalKey: s.globalKey(),
+		globalKey: a.globalKey(),
 		status:    statusInfo.Status,
 		message:   statusInfo.Message,
 		rawData:   statusInfo.Data,
@@ -1641,22 +1641,22 @@ func (s *Application) SetStatus(statusInfo status.StatusInfo) error {
 // StatusHistory returns a slice of at most filter.Size StatusInfo items
 // or items as old as filter.Date or items newer than now - filter.Delta time
 // representing past statuses for this service.
-func (s *Application) StatusHistory(filter status.StatusHistoryFilter) ([]status.StatusInfo, error) {
+func (a *Application) StatusHistory(filter status.StatusHistoryFilter) ([]status.StatusInfo, error) {
 	args := &statusHistoryArgs{
-		st:        s.st,
-		globalKey: s.globalKey(),
+		st:        a.st,
+		globalKey: a.globalKey(),
 		filter:    filter,
 	}
 	return statusHistory(args)
 }
 
 // ServiceAndUnitsStatus returns the status for this application and all its units.
-func (s *Application) ServiceAndUnitsStatus() (status.StatusInfo, map[string]status.StatusInfo, error) {
-	serviceStatus, err := s.Status()
+func (a *Application) ServiceAndUnitsStatus() (status.StatusInfo, map[string]status.StatusInfo, error) {
+	serviceStatus, err := a.Status()
 	if err != nil {
 		return status.StatusInfo{}, nil, errors.Trace(err)
 	}
-	units, err := s.AllUnits()
+	units, err := a.AllUnits()
 	if err != nil {
 		return status.StatusInfo{}, nil, err
 	}
@@ -1672,7 +1672,7 @@ func (s *Application) ServiceAndUnitsStatus() (status.StatusInfo, map[string]sta
 
 }
 
-func (s *Application) deriveStatus(units []*Unit) (status.StatusInfo, error) {
+func (a *Application) deriveStatus(units []*Unit) (status.StatusInfo, error) {
 	var result status.StatusInfo
 	for _, unit := range units {
 		currentSeverity := statusServerities[result.Status]
