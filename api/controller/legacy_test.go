@@ -180,8 +180,8 @@ func (s *legacySuite) TestAPIServerCanShutdownWithOutstandingNext(c *gc.C) {
 
 	srv, err := apiserver.NewServer(s.State, lis, apiserver.ServerConfig{
 		Clock:       clock.WallClock,
-		Cert:        []byte(testing.ServerCert),
-		Key:         []byte(testing.ServerKey),
+		Cert:        testing.ServerCert,
+		Key:         testing.ServerKey,
 		Tag:         names.NewMachineTag("0"),
 		DataDir:     c.MkDir(),
 		LogDir:      c.MkDir(),

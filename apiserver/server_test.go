@@ -528,8 +528,8 @@ func newServer(c *gc.C, st *state.State) *apiserver.Server {
 	c.Assert(err, jc.ErrorIsNil)
 	srv, err := apiserver.NewServer(st, listener, apiserver.ServerConfig{
 		Clock:       clock.WallClock,
-		Cert:        []byte(coretesting.ServerCert),
-		Key:         []byte(coretesting.ServerKey),
+		Cert:        coretesting.ServerCert,
+		Key:         coretesting.ServerKey,
 		Tag:         names.NewMachineTag("0"),
 		LogDir:      c.MkDir(),
 		NewObserver: func() observer.Observer { return &fakeobserver.Instance{} },

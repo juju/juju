@@ -190,6 +190,13 @@ func allCollections() collectionSchema {
 			global: true,
 		},
 
+		// This collection holds information cached by autocert certificate
+		// acquisition.
+		autocertCacheC: {
+			global:    true,
+			rawAccess: true,
+		},
+
 		// This collection holds the last time the model user connected
 		// to the model.
 		modelUserLastConnectionC: {
@@ -400,6 +407,7 @@ const (
 	actionresultsC           = "actionresults"
 	actionsC                 = "actions"
 	annotationsC             = "annotations"
+	autocertCacheC           = "autocertCache"
 	assignUnitC              = "assignUnits"
 	auditingC                = "audit.log"
 	bakeryStorageItemsC      = "bakeryStorageItems"
