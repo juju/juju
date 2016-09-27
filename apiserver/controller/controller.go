@@ -40,6 +40,7 @@ type Controller interface {
 	AllModels() (params.UserModelList, error)
 	DestroyController(args params.DestroyControllerArgs) error
 	ModelConfig() (params.ModelConfigResults, error)
+	HostedModelConfigs() (params.HostedModelConfigsResults, error)
 	GetControllerAccess(params.Entities) (params.UserAccessResults, error)
 	ControllerConfig() (params.ControllerConfigResult, error)
 	ListBlockedModels() (params.ModelBlockInfoList, error)
@@ -230,6 +231,49 @@ func (s *ControllerAPI) ModelConfig() (params.ModelConfigResults, error) {
 			Value: val,
 		}
 	}
+	return result, nil
+}
+
+// HostedModelConfigs returns all the information that the client needs in
+// order to connect directly with the host model's provider and destroy it
+// directly.
+func (s *ControllerAPI) HostedModelConfigs() (params.HostedModelConfigsResults, error) {
+	result := params.HostedModelConfigsResults{}
+	if err := s.checkHasAdmin(); err != nil {
+		return result, errors.Trace(err)
+	}
+
+	controllerModel, err := s.state.ControllerModel()
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+
+	allModels, err := s.state.AllModels()
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+
+	for _, model := range allModels {
+		if model.UUID() != controllerModel.UUID() {
+			config := params.HostedModelConfig{
+				Name:     model.Name(),
+				OwnerTag: model.Owner().String(),
+			}
+			modelConf, err := model.Config()
+			if err != nil {
+				config.Error = common.ServerError(err)
+			} else {
+				config.Config = modelConf.AllAttrs()
+			}
+			cloudSpec := s.GetCloudSpec(model.ModelTag())
+			if config.Error == nil {
+				config.CloudSpec = cloudSpec.Result
+				config.Error = cloudSpec.Error
+			}
+			result.Models = append(result.Models, config)
+		}
+	}
+
 	return result, nil
 }
 

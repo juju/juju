@@ -41,21 +41,30 @@ func (api *CloudSpecAPI) CloudSpec(tag names.ModelTag) (environs.CloudSpec, erro
 	if result.Error != nil {
 		return environs.CloudSpec{}, errors.Annotate(result.Error, "API request failed")
 	}
+	return api.MakeCloudSpec(result.Result)
+}
+
+// MakeCloudSpec creates an environs.CloudSpec from a params.CloudSpec
+// that has been returned from the apiserver.
+func (api *CloudSpecAPI) MakeCloudSpec(pSpec *params.CloudSpec) (environs.CloudSpec, error) {
+	if pSpec == nil {
+		return environs.CloudSpec{}, errors.NotValidf("nil value")
+	}
 	var credential *cloud.Credential
-	if result.Result.Credential != nil {
+	if pSpec.Credential != nil {
 		credentialValue := cloud.NewCredential(
-			cloud.AuthType(result.Result.Credential.AuthType),
-			result.Result.Credential.Attributes,
+			cloud.AuthType(pSpec.Credential.AuthType),
+			pSpec.Credential.Attributes,
 		)
 		credential = &credentialValue
 	}
 	spec := environs.CloudSpec{
-		Type:             result.Result.Type,
-		Name:             result.Result.Name,
-		Region:           result.Result.Region,
-		Endpoint:         result.Result.Endpoint,
-		IdentityEndpoint: result.Result.IdentityEndpoint,
-		StorageEndpoint:  result.Result.StorageEndpoint,
+		Type:             pSpec.Type,
+		Name:             pSpec.Name,
+		Region:           pSpec.Region,
+		Endpoint:         pSpec.Endpoint,
+		IdentityEndpoint: pSpec.IdentityEndpoint,
+		StorageEndpoint:  pSpec.StorageEndpoint,
 		Credential:       credential,
 	}
 	if err := spec.Validate(); err != nil {

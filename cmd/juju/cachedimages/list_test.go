@@ -59,7 +59,7 @@ func runListCommand(c *gc.C, args ...string) (*cmd.Context, error) {
 func (*listImagesCommandSuite) TestListImagesNone(c *gc.C) {
 	context, err := runListCommand(c, "--kind", "kvm")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stdout(context), gc.Equals, "no matching images found\n")
+	c.Assert(testing.Stderr(context), gc.Equals, "No images to display.\n")
 }
 
 func (*listImagesCommandSuite) TestListImagesFormatJson(c *gc.C) {

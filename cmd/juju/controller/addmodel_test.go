@@ -183,6 +183,13 @@ func (s *AddModelSuite) TestCredentialsOtherUserPassedThrough(c *gc.C) {
 	c.Assert(s.fakeAddModelAPI.cloudCredential, gc.Equals, names.NewCloudCredentialTag("aws/other/secrets"))
 }
 
+func (s *AddModelSuite) TestCredentialsOtherUserPassedThroughWhenCloud(c *gc.C) {
+	_, err := s.run(c, "test", "--credential", "other/secrets", "aws/us-west-1")
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(s.fakeAddModelAPI.cloudCredential, gc.Equals, names.NewCloudCredentialTag("aws/other/secrets"))
+}
+
 func (s *AddModelSuite) TestCredentialsNoDefaultCloud(c *gc.C) {
 	s.fakeCloudAPI.SetErrors(&params.Error{Code: params.CodeNotFound})
 	_, err := s.run(c, "test", "--credential", "secrets")

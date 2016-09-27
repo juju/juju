@@ -337,7 +337,7 @@ func (s *MachineSuite) TestManageModel(c *gc.C) {
 	svc := s.AddTestingService(c, "test-service", charm)
 	err := svc.SetExposed()
 	c.Assert(err, jc.ErrorIsNil)
-	units, err := juju.AddUnits(s.State, svc, 1, nil)
+	units, err := juju.AddUnits(s.State, svc, svc.Name(), 1, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// It should be allocated to a machine, which should then be provisioned.
@@ -387,7 +387,7 @@ func (s *MachineSuite) TestManageModelRunsInstancePoller(c *gc.C) {
 	// Add one unit to a service;
 	charm := s.AddTestingCharm(c, "dummy")
 	svc := s.AddTestingService(c, "test-service", charm)
-	units, err := juju.AddUnits(s.State, svc, 1, nil)
+	units, err := juju.AddUnits(s.State, svc, svc.Name(), 1, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	m, instId := s.waitProvisioned(c, units[0])

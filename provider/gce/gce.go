@@ -17,9 +17,6 @@ const (
 	metadataKeyEncoding        = "user-data-encoding"
 	metadataKeyWindowsUserdata = "windows-startup-script-ps1"
 	metadataKeyWindowsSysprep  = "sysprep-specialize-script-ps1"
-	// GCE uses this specific key for authentication (*handwaving*)
-	// https://cloud.google.com/compute/docs/instances#sshkeys
-	metadataKeySSHKeys = "sshKeys"
 )
 
 const (

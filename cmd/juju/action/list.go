@@ -118,6 +118,10 @@ func (c *listCommand) Run(ctx *cmd.Context) error {
 	case "yaml", "json":
 		output = shortOutput
 	default:
+		if len(sortedNames) == 0 {
+			ctx.Infof("No actions defined for %s.", c.applicationTag.Id())
+			return nil
+		}
 		var list []listOutput
 		for _, name := range sortedNames {
 			list = append(list, listOutput{name, shortOutput[name]})
@@ -138,11 +142,6 @@ func (c *listCommand) printTabular(writer io.Writer, value interface{}) error {
 	list, ok := value.([]listOutput)
 	if !ok {
 		return errors.New("unexpected value")
-	}
-
-	if len(list) == 0 {
-		fmt.Fprintf(writer, "No actions defined for %s", c.applicationTag.Id())
-		return nil
 	}
 
 	tw := output.TabWriter(writer)

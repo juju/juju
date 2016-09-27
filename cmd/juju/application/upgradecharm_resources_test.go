@@ -45,7 +45,7 @@ func (s *UpgradeCharmResourceSuite) SetUpTest(c *gc.C) {
 	s.RepoSuite.SetUpTest(c)
 	chPath := testcharms.Repo.ClonedDirPath(s.CharmsPath, "riak")
 
-	_, err := testing.RunCommand(c, application.NewDeployCommand(), chPath, "riak", "--series", "quantal")
+	_, err := testing.RunCommand(c, application.NewDefaultDeployCommand(), chPath, "riak", "--series", "quantal")
 	c.Assert(err, jc.ErrorIsNil)
 	riak, err := s.State.Application("riak")
 	c.Assert(err, jc.ErrorIsNil)
@@ -193,7 +193,7 @@ func (s *UpgradeCharmStoreResourceSuite) TestDeployStarsaySuccess(c *gc.C) {
 	err := ioutil.WriteFile(resourceFile, []byte(resourceContent), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
-	ctx, err := testing.RunCommand(c, application.NewDeployCommand(), "trusty/starsay", "--resource", "upload-resource="+resourceFile)
+	ctx, err := testing.RunCommand(c, application.NewDefaultDeployCommand(), "trusty/starsay", "--resource", "upload-resource="+resourceFile)
 	c.Assert(err, jc.ErrorIsNil)
 	output := testing.Stderr(ctx)
 

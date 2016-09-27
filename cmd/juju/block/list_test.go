@@ -32,7 +32,7 @@ func (s *listCommandSuite) TestInit(c *gc.C) {
 func (s *listCommandSuite) TestListEmpty(c *gc.C) {
 	ctx, err := testing.RunCommand(c, block.NewListCommandForTest(&mockListClient{}, nil))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stdout(ctx), gc.Equals, "No commands are currently disabled.\n")
+	c.Assert(testing.Stderr(ctx), gc.Equals, "No commands are currently disabled.\n")
 }
 
 func (s *listCommandSuite) TestListError(c *gc.C) {
@@ -96,6 +96,12 @@ func (s *listCommandSuite) TestListYAML(c *gc.C) {
 		"- command-set: all\n"+
 		"  message: just temporary\n",
 	)
+}
+
+func (s *listCommandSuite) TestListJSONEmpty(c *gc.C) {
+	ctx, err := testing.RunCommand(c, block.NewListCommandForTest(&mockListClient{}, nil), "--format", "json")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(testing.Stdout(ctx), gc.Equals, "[]\n")
 }
 
 func (s *listCommandSuite) TestListJSON(c *gc.C) {

@@ -13,7 +13,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"gopkg.in/juju/charm.v6-unstable"
-	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	"gopkg.in/juju/charmrepo.v2-unstable"
 	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
 	"gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
@@ -24,7 +23,6 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/annotations"
 	"github.com/juju/juju/api/application"
-	"github.com/juju/juju/api/base"
 	apicharms "github.com/juju/juju/api/charms"
 	"github.com/juju/juju/api/modelconfig"
 	apiparams "github.com/juju/juju/apiserver/params"
@@ -192,8 +190,17 @@ func (a *deployAPIAdapter) SetAnnotation(annotations map[string]map[string]strin
 
 type NewAPIRootFn func() (DeployAPI, error)
 
-func NewDeployCommand() cmd.Command {
-	deployCmd := newDeployCommand()
+func NewDefaultDeployCommand() cmd.Command {
+	return NewDeployCommandWithDefaultAPI([]DeployStep{
+		&RegisterMeteredCharm{
+			RegisterURL: planURL + "/plan/authorize",
+			QueryURL:    planURL + "/charm",
+		},
+	})
+}
+
+func NewDeployCommandWithDefaultAPI(steps []DeployStep) cmd.Command {
+	deployCmd := &DeployCommand{Steps: steps}
 	cmd := modelcmd.Wrap(deployCmd)
 	deployCmd.NewAPIRoot = func() (DeployAPI, error) {
 		apiRoot, err := deployCmd.ModelCommandBase.NewAPIRoot()
@@ -223,21 +230,11 @@ func NewDeployCommand() cmd.Command {
 }
 
 // NewDeployCommand returns a command to deploy services.
-func NewDeployCommandWithAPI(newAPIRoot NewAPIRootFn) cmd.Command {
-	cmd := newDeployCommand()
-	cmd.NewAPIRoot = newAPIRoot
-	return modelcmd.Wrap(cmd)
-}
-
-func newDeployCommand() *DeployCommand {
-	return &DeployCommand{
-		Steps: []DeployStep{
-			&RegisterMeteredCharm{
-				RegisterURL: planURL + "/plan/authorize",
-				QueryURL:    planURL + "/charm",
-			},
-		},
-	}
+func NewDeployCommand(newAPIRoot NewAPIRootFn, steps []DeployStep) cmd.Command {
+	return modelcmd.Wrap(&DeployCommand{
+		Steps:      steps,
+		NewAPIRoot: newAPIRoot,
+	})
 }
 
 type DeployCommand struct {
@@ -587,7 +584,14 @@ func (c *DeployCommand) deployCharm(
 			strings.Join(charmInfo.Meta.Terms, " "))
 	}
 
-	ids, err := handleResources(apiRoot, c.Resources, serviceName, id, csMac, charmInfo.Meta.Resources)
+	ids, err := resourceadapters.DeployResources(
+		serviceName,
+		id,
+		csMac,
+		c.Resources,
+		charmInfo.Meta.Resources,
+		apiRoot,
+	)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -604,26 +608,6 @@ func (c *DeployCommand) deployCharm(
 		Resources:        ids,
 		EndpointBindings: c.Bindings,
 	}))
-}
-
-func handleResources(
-	apiRoot base.APICallCloser,
-	resources map[string]string,
-	serviceName string,
-	chID charmstore.CharmID,
-	csMac *macaroon.Macaroon,
-	metaResources map[string]charmresource.Meta,
-) (map[string]string, error) {
-	if len(resources) == 0 && len(metaResources) == 0 {
-		return nil, nil
-	}
-
-	ids, err := resourceadapters.DeployResources(serviceName, chID, csMac, resources, metaResources, apiRoot)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return ids, nil
 }
 
 const parseBindErrorPrefix = "--bind must be in the form '[<default-space>] [<endpoint-name>=<space> ...]'. "

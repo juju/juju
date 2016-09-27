@@ -98,11 +98,8 @@ func (s *ListCharmSuite) TestNoResources(c *gc.C) {
 	code, stdout, stderr := runCmd(c, command, "cs:a-charm")
 	c.Check(code, gc.Equals, 0)
 
-	c.Check(stdout, gc.Equals, `
-RESOURCE  REVISION
-
-`[1:])
-	c.Check(stderr, gc.Equals, "")
+	c.Check(stderr, gc.Equals, "No resources to display.\n")
+	c.Check(stdout, gc.Equals, "")
 	s.stub.CheckCallNames(c, "ListResources")
 }
 

@@ -103,9 +103,9 @@ func (c *listCommand) Run(ctx *cmd.Context) error {
 		// Display a nicer message in case no subnets were found.
 		if len(subnets) == 0 {
 			if c.SpaceName != "" || c.ZoneName != "" {
-				ctx.Infof("no subnets found matching requested criteria")
+				ctx.Infof("No subnets found matching requested criteria.")
 			} else {
-				ctx.Infof("no subnets to display")
+				ctx.Infof("No subnets to display.")
 			}
 			return nil
 		}

@@ -58,6 +58,13 @@ func isSeriesSupported(requestedSeries string, supportedSeries []string) bool {
 
 // TODO(ericsnow) Return charmstore.CharmID from resolve()?
 
+// ResolveCharmFunc is the type of a function that resolves a charm URL.
+type ResolveCharmFunc func(
+	resolveWithChannel func(*charm.URL) (*charm.URL, csparams.Channel, []string, error),
+	conf *config.Config,
+	url *charm.URL,
+) (*charm.URL, csparams.Channel, []string, error)
+
 func resolveCharm(
 	resolveWithChannel func(*charm.URL) (*charm.URL, csparams.Channel, []string, error),
 	conf *config.Config,

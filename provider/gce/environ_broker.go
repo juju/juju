@@ -203,12 +203,6 @@ func getMetadata(args environs.StartInstanceParams, os jujuos.OSType) (map[strin
 		// See: http://cloudinit.readthedocs.org
 		metadata[metadataKeyEncoding] = "base64"
 
-		authKeys, err := google.FormatAuthorizedKeys(args.InstanceConfig.AuthorizedKeys, "ubuntu")
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
-		metadata[metadataKeySSHKeys] = authKeys
 	case jujuos.Windows:
 		metadata[metadataKeyWindowsUserdata] = string(userData)
 

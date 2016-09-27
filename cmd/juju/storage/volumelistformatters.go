@@ -10,21 +10,11 @@ import (
 	"strings"
 
 	"github.com/dustin/go-humanize"
-	"github.com/juju/errors"
 	"github.com/juju/juju/cmd/output"
 )
 
 // formatVolumeListTabular returns a tabular summary of volume instances.
-func formatVolumeListTabular(writer io.Writer, value interface{}) error {
-	infos, ok := value.(map[string]VolumeInfo)
-	if !ok {
-		return errors.Errorf("expected value of type %T, got %T", infos, value)
-	}
-	formatVolumeListTabularTyped(writer, infos)
-	return nil
-}
-
-func formatVolumeListTabularTyped(writer io.Writer, infos map[string]VolumeInfo) {
+func formatVolumeListTabular(writer io.Writer, infos map[string]VolumeInfo) error {
 	tw := output.TabWriter(writer)
 
 	print := func(values ...string) {
@@ -76,8 +66,7 @@ func formatVolumeListTabularTyped(writer io.Writer, infos map[string]VolumeInfo)
 		)
 	}
 
-	tw.Flush()
-	return
+	return tw.Flush()
 }
 
 type volumeAttachmentInfo struct {

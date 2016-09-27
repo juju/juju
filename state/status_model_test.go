@@ -4,13 +4,12 @@
 package state_test
 
 import (
-	"time"
-
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
+	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -53,7 +52,7 @@ func (s *ModelStatusSuite) checkInitialStatus(c *gc.C) {
 }
 
 func (s *ModelStatusSuite) TestSetUnknownStatus(c *gc.C) {
-	now := time.Now()
+	now := testing.ZeroTime()
 	sInfo := status.StatusInfo{
 		Status:  status.Status("vliegkat"),
 		Message: "orville",
@@ -66,7 +65,7 @@ func (s *ModelStatusSuite) TestSetUnknownStatus(c *gc.C) {
 }
 
 func (s *ModelStatusSuite) TestSetOverwritesData(c *gc.C) {
-	now := time.Now()
+	now := testing.ZeroTime()
 	sInfo := status.StatusInfo{
 		Status:  status.Available,
 		Message: "blah",
@@ -109,7 +108,7 @@ func (s *ModelStatusSuite) TestGetSetStatusGone(c *gc.C) {
 	err = s.st.RemoveAllModelDocs()
 	c.Assert(err, jc.ErrorIsNil)
 
-	now := time.Now()
+	now := testing.ZeroTime()
 	sInfo := status.StatusInfo{
 		Status:  status.Available,
 		Message: "not really",
@@ -123,7 +122,7 @@ func (s *ModelStatusSuite) TestGetSetStatusGone(c *gc.C) {
 }
 
 func (s *ModelStatusSuite) checkGetSetStatus(c *gc.C) {
-	now := time.Now()
+	now := testing.ZeroTime()
 	sInfo := status.StatusInfo{
 		Status:  status.Available,
 		Message: "blah",

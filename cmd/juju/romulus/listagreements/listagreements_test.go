@@ -61,7 +61,8 @@ const (
 func (s *listAgreementsSuite) TestGetUsersAgreements(c *gc.C) {
 	ctx, err := cmdtesting.RunCommand(c, listagreements.NewListAgreementsCommand())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "[]\n")
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "No agreements to display.\n")
 	c.Assert(s.client.called, jc.IsTrue)
 
 	s.client.setError("well, this is embarassing")
@@ -91,13 +92,8 @@ func (s *listAgreementsSuite) TestGetUsersAgreements(c *gc.C) {
 }
 
 func (s *listAgreementsSuite) TestGetUsersAgreementsWithTermOwner(c *gc.C) {
-	ctx, err := cmdtesting.RunCommand(c, listagreements.NewListAgreementsCommand())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "[]\n")
-	c.Assert(s.client.called, jc.IsTrue)
-
 	s.client.setError("well, this is embarassing")
-	ctx, err = cmdtesting.RunCommand(c, listagreements.NewListAgreementsCommand())
+	ctx, err := cmdtesting.RunCommand(c, listagreements.NewListAgreementsCommand())
 	c.Assert(err, gc.ErrorMatches, "failed to list user agreements: well, this is embarassing")
 	c.Assert(s.client.called, jc.IsTrue)
 
