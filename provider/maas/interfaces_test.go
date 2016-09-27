@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"text/template"
 
+	"github.com/juju/errors"
 	"github.com/juju/gomaasapi"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -271,6 +272,112 @@ const exampleInterfaceSetJSON = `
 	}
 ]`
 
+var exampleParsedInterfaceSetJSON = []network.InterfaceInfo{{
+	DeviceIndex:       0,
+	MACAddress:        "52:54:00:70:9b:fe",
+	CIDR:              "10.20.19.0/24",
+	ProviderId:        "91",
+	ProviderSubnetId:  "3",
+	AvailabilityZones: nil,
+	VLANTag:           0,
+	ProviderVLANId:    "5001",
+	ProviderAddressId: "436",
+	InterfaceName:     "eth0",
+	InterfaceType:     "ethernet",
+	Disabled:          false,
+	NoAutoStart:       false,
+	ConfigType:        "static",
+	Address:           network.NewAddressOnSpace("default", "10.20.19.103"),
+	DNSServers:        network.NewAddressesOnSpace("default", "10.20.19.2", "10.20.19.3"),
+	DNSSearchDomains:  nil,
+	MTU:               1500,
+	GatewayAddress:    network.NewAddressOnSpace("default", "10.20.19.2"),
+}, {
+	DeviceIndex:       0,
+	MACAddress:        "52:54:00:70:9b:fe",
+	CIDR:              "10.20.19.0/24",
+	ProviderId:        "91",
+	ProviderSubnetId:  "3",
+	AvailabilityZones: nil,
+	VLANTag:           0,
+	ProviderVLANId:    "5001",
+	ProviderAddressId: "437",
+	InterfaceName:     "eth0",
+	InterfaceType:     "ethernet",
+	Disabled:          false,
+	NoAutoStart:       false,
+	ConfigType:        "static",
+	Address:           network.NewAddressOnSpace("default", "10.20.19.104"),
+	DNSServers:        network.NewAddressesOnSpace("default", "10.20.19.2", "10.20.19.3"),
+	DNSSearchDomains:  nil,
+	MTU:               1500,
+	GatewayAddress:    network.NewAddressOnSpace("default", "10.20.19.2"),
+}, {
+	DeviceIndex:         1,
+	MACAddress:          "52:54:00:70:9b:fe",
+	CIDR:                "10.50.19.0/24",
+	ProviderId:          "150",
+	ProviderSubnetId:    "5",
+	AvailabilityZones:   nil,
+	VLANTag:             50,
+	ProviderVLANId:      "5004",
+	ProviderAddressId:   "517",
+	InterfaceName:       "eth0.50",
+	ParentInterfaceName: "eth0",
+	InterfaceType:       "802.1q",
+	Disabled:            false,
+	NoAutoStart:         false,
+	ConfigType:          "static",
+	Address:             network.NewAddressOnSpace("admin", "10.50.19.103"),
+	DNSServers:          nil,
+	DNSSearchDomains:    nil,
+	MTU:                 1500,
+	GatewayAddress:      network.NewAddressOnSpace("admin", "10.50.19.2"),
+}, {
+	DeviceIndex:         2,
+	MACAddress:          "52:54:00:70:9b:fe",
+	CIDR:                "10.100.19.0/24",
+	ProviderId:          "151",
+	ProviderSubnetId:    "6",
+	AvailabilityZones:   nil,
+	VLANTag:             100,
+	ProviderVLANId:      "5005",
+	ProviderAddressId:   "519",
+	InterfaceName:       "eth0.100",
+	ParentInterfaceName: "eth0",
+	InterfaceType:       "802.1q",
+	Disabled:            false,
+	NoAutoStart:         false,
+	ConfigType:          "static",
+	Address:             network.NewAddressOnSpace("public", "10.100.19.103"),
+	DNSServers:          nil,
+	DNSSearchDomains:    nil,
+	MTU:                 1500,
+	GatewayAddress:      network.NewAddressOnSpace("public", "10.100.19.2"),
+}, {
+	DeviceIndex:         3,
+	MACAddress:          "52:54:00:70:9b:fe",
+	CIDR:                "10.250.19.0/24",
+	ProviderId:          "152",
+	ProviderSubnetId:    "8",
+	AvailabilityZones:   nil,
+	VLANTag:             250,
+	ProviderVLANId:      "5008",
+	ProviderAddressId:   "523",
+	ProviderSpaceId:     "3",
+	InterfaceName:       "eth0.250",
+	ParentInterfaceName: "eth0",
+	InterfaceType:       "802.1q",
+	Disabled:            false,
+	NoAutoStart:         false,
+	ConfigType:          "static",
+	Address:             newAddressOnSpaceWithId("storage", network.Id("3"), "10.250.19.103"),
+	DNSServers:          nil,
+	DNSSearchDomains:    nil,
+	MTU:                 1500,
+	GatewayAddress:      newAddressOnSpaceWithId("storage", network.Id("3"), "10.250.19.2"),
+}}
+
 func (s *interfacesSuite) TestParseInterfacesNoJSON(c *gc.C) {
 	result, err := parseInterfaces(nil)
 	c.Check(err, gc.ErrorMatches, "parsing interfaces: unexpected end of JSON input")
@@ -449,115 +556,128 @@ func (s *interfacesSuite) TestMAASObjectNetworkInterfaces(c *gc.C) {
 	subnetsMap["10.250.19.0/24"] = network.Id("3")
 	subnetsMap["192.168.1.0/24"] = network.Id("0")
 
-	expected := []network.InterfaceInfo{{
-		DeviceIndex:       0,
-		MACAddress:        "52:54:00:70:9b:fe",
-		CIDR:              "10.20.19.0/24",
-		ProviderId:        "91",
-		ProviderSubnetId:  "3",
-		AvailabilityZones: nil,
-		VLANTag:           0,
-		ProviderVLANId:    "5001",
-		ProviderAddressId: "436",
-		InterfaceName:     "eth0",
-		InterfaceType:     "ethernet",
-		Disabled:          false,
-		NoAutoStart:       false,
-		ConfigType:        "static",
-		Address:           network.NewAddressOnSpace("default", "10.20.19.103"),
-		DNSServers:        network.NewAddressesOnSpace("default", "10.20.19.2", "10.20.19.3"),
-		DNSSearchDomains:  nil,
-		MTU:               1500,
-		GatewayAddress:    network.NewAddressOnSpace("default", "10.20.19.2"),
-	}, {
-		DeviceIndex:       0,
-		MACAddress:        "52:54:00:70:9b:fe",
-		CIDR:              "10.20.19.0/24",
-		ProviderId:        "91",
-		ProviderSubnetId:  "3",
-		AvailabilityZones: nil,
-		VLANTag:           0,
-		ProviderVLANId:    "5001",
-		ProviderAddressId: "437",
-		InterfaceName:     "eth0",
-		InterfaceType:     "ethernet",
-		Disabled:          false,
-		NoAutoStart:       false,
-		ConfigType:        "static",
-		Address:           network.NewAddressOnSpace("default", "10.20.19.104"),
-		DNSServers:        network.NewAddressesOnSpace("default", "10.20.19.2", "10.20.19.3"),
-		DNSSearchDomains:  nil,
-		MTU:               1500,
-		GatewayAddress:    network.NewAddressOnSpace("default", "10.20.19.2"),
-	}, {
-		DeviceIndex:         1,
-		MACAddress:          "52:54:00:70:9b:fe",
-		CIDR:                "10.50.19.0/24",
-		ProviderId:          "150",
-		ProviderSubnetId:    "5",
-		AvailabilityZones:   nil,
-		VLANTag:             50,
-		ProviderVLANId:      "5004",
-		ProviderAddressId:   "517",
-		InterfaceName:       "eth0.50",
-		ParentInterfaceName: "eth0",
-		InterfaceType:       "802.1q",
-		Disabled:            false,
-		NoAutoStart:         false,
-		ConfigType:          "static",
-		Address:             network.NewAddressOnSpace("admin", "10.50.19.103"),
-		DNSServers:          nil,
-		DNSSearchDomains:    nil,
-		MTU:                 1500,
-		GatewayAddress:      network.NewAddressOnSpace("admin", "10.50.19.2"),
-	}, {
-		DeviceIndex:         2,
-		MACAddress:          "52:54:00:70:9b:fe",
-		CIDR:                "10.100.19.0/24",
-		ProviderId:          "151",
-		ProviderSubnetId:    "6",
-		AvailabilityZones:   nil,
-		VLANTag:             100,
-		ProviderVLANId:      "5005",
-		ProviderAddressId:   "519",
-		InterfaceName:       "eth0.100",
-		ParentInterfaceName: "eth0",
-		InterfaceType:       "802.1q",
-		Disabled:            false,
-		NoAutoStart:         false,
-		ConfigType:          "static",
-		Address:             network.NewAddressOnSpace("public", "10.100.19.103"),
-		DNSServers:          nil,
-		DNSSearchDomains:    nil,
-		MTU:                 1500,
-		GatewayAddress:      network.NewAddressOnSpace("public", "10.100.19.2"),
-	}, {
-		DeviceIndex:         3,
-		MACAddress:          "52:54:00:70:9b:fe",
-		CIDR:                "10.250.19.0/24",
-		ProviderId:          "152",
-		ProviderSubnetId:    "8",
-		AvailabilityZones:   nil,
-		VLANTag:             250,
-		ProviderVLANId:      "5008",
-		ProviderAddressId:   "523",
-		ProviderSpaceId:     "3",
-		InterfaceName:       "eth0.250",
-		ParentInterfaceName: "eth0",
-		InterfaceType:       "802.1q",
-		Disabled:            false,
-		NoAutoStart:         false,
-		ConfigType:          "static",
-		Address:             newAddressOnSpaceWithId("storage", network.Id("3"), "10.250.19.103"),
-		DNSServers:          nil,
-		DNSSearchDomains:    nil,
-		MTU:                 1500,
-		GatewayAddress:      newAddressOnSpaceWithId("storage", network.Id("3"), "10.250.19.2"),
-	}}
-
 	infos, err := maasObjectNetworkInterfaces(&obj, subnetsMap)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(infos, jc.DeepEquals, expected)
+	c.Check(infos, jc.DeepEquals, exampleParsedInterfaceSetJSON)
+}
+
+const (
+	notUsingMAAS2 = false
+	notUsingMAAS1 = true
+)
+
+func (s *interfacesSuite) TestInstanceLinkedInterfaceNamesWithExampleMAAS1InterfaceSet(c *gc.C) {
+	nodeJSON := fmt.Sprintf(`{
+        "system_id": "foo",
+        "interface_set": %s
+    }`, exampleInterfaceSetJSON)
+	obj := s.testMAASObject.TestServer.NewNode(nodeJSON)
+
+	inst := &maas1Instance{maasObject: &obj}
+	names, err := instanceLinkedInterfaceNames(notUsingMAAS2, inst, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(names, jc.DeepEquals, []string{"eth0", "eth0:1", "eth0.50", "eth0.100", "eth0.250"})
+}
+
+func (s *interfacesSuite) TestInstanceLinkedInterfaceNamesWithoutInterfaceSetMAAS1(c *gc.C) {
+	nodeJSON := `{"system_id": "foo"}`
+	obj := s.testMAASObject.TestServer.NewNode(nodeJSON)
+
+	inst := &maas1Instance{maasObject: &obj}
+	names, err := instanceLinkedInterfaceNames(notUsingMAAS2, inst, nil)
+	c.Assert(err, gc.ErrorMatches, "interface_set not supported")
+	c.Check(err, jc.Satisfies, errors.IsNotSupported)
+	c.Check(names, gc.HasLen, 0)
+}
+
+func (s *interfacesSuite) TestInstanceLinkedInterfaceNamesPartiallyLinkedMAAS1(c *gc.C) {
+	nodeJSON := `{
+        "system_id": "foo",
+        "interface_set": [{
+          "name": "eth0",
+          "links": [
+              {"subnet": {"cidr": "1.2.3.4/5"}, "mode": "static", "ip_address": "1.2.3.4"},
+              {"subnet": {"cidr": "1.2.3.4/5"}, "mode": "static", "ip_address": "1.2.3.5"},
+              {"subnet": {"cidr": "1.2.3.4/5"}, "mode": "static", "ip_address": "1.2.3.6"}
+          ]
+        }, {
+          "name": "eth1",
+          "links": [{"mode": "link_up"}]
+        }, {
+          "name": "eth1.99",
+          "links": [{"subnet": {"cidr": "192.168.99.0/24"}, "mode": "auto"}]
+        }]}`
+	obj := s.testMAASObject.TestServer.NewNode(nodeJSON)
+
+	inst := &maas1Instance{maasObject: &obj}
+	names, err := instanceLinkedInterfaceNames(notUsingMAAS2, inst, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(names, jc.DeepEquals, []string{"eth0", "eth0:1", "eth0:2", "eth1.99"})
+}
+
+func (s *interfacesSuite) TestInstanceLinkedInterfaceNamesWithoutInterfaceSetMAAS2(c *gc.C) {
+	inst := &maas2Instance{machine: &fakeMachine{interfaceSet: nil}}
+
+	names, err := instanceLinkedInterfaceNames(notUsingMAAS1, inst, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(names, gc.HasLen, 0)
+}
+
+func (s *interfacesSuite) TestInstanceLinkedInterfaceNamesPartiallyLinkedMAAS2(c *gc.C) {
+
+	subnet50 := &fakeSubnet{
+		cidr: "10.50.19.0/24",
+		vlan: &fakeVLAN{id: 5050},
+	}
+	subnet250 := &fakeSubnet{
+		cidr: "10.250.19.0/24",
+		vlan: &fakeVLAN{id: 5250},
+	}
+
+	interfaces := []gomaasapi.Interface{
+		&fakeInterface{
+			name: "eth0",
+			links: []gomaasapi.Link{
+				&fakeLink{mode: "link_up"},
+			},
+		},
+		&fakeInterface{
+			name: "eth0.50",
+			links: []gomaasapi.Link{
+				&fakeLink{
+					subnet:    subnet50,
+					ipAddress: "10.50.19.103",
+					mode:      "static",
+				},
+				&fakeLink{ // alias :1
+					subnet:    subnet50,
+					ipAddress: "10.50.19.104",
+					mode:      "static",
+				},
+				&fakeLink{ // alias :2
+					subnet:    subnet50,
+					ipAddress: "10.50.19.105",
+					mode:      "static",
+				},
+			},
+		},
+		&fakeInterface{name: "eth0.100", links: nil},
+		&fakeInterface{
+			name: "eth0.250",
+			links: []gomaasapi.Link{
+				&fakeLink{
+					subnet: subnet250,
+					mode:   "auto",
+				},
+			},
+		},
+	}
+
+	inst := &maas2Instance{machine: &fakeMachine{interfaceSet: interfaces}}
+
+	names, err := instanceLinkedInterfaceNames(notUsingMAAS1, inst, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(names, jc.DeepEquals, []string{"eth0.50", "eth0.50:1", "eth0.50:2", "eth0.250"})
 }
 
 func (s *interfacesSuite) TestMAAS2NetworkInterfaces(c *gc.C) {

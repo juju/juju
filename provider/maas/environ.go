@@ -981,20 +981,29 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 		return nil, errors.Trace(err)
 	}
 
-	cloudcfg, err := environ.newCloudinitConfig(hostname, series)
+	subnetsMap, err := environ.subnetToSpaceIds()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	// We need to extract the names of all interfaces of the selected node,
+	// which are linked to subnets, in order to pass those to the bridge script.
+	interfaceNamesToBridge, err := instanceLinkedInterfaceNames(environ.usingMAAS2(), inst, subnetsMap)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	cloudcfg, err := environ.newCloudinitConfig(hostname, series, interfaceNamesToBridge)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	userdata, err := providerinit.ComposeUserData(args.InstanceConfig, cloudcfg, MAASRenderer{})
 	if err != nil {
 		return nil, errors.Annotatef(err, "could not compose userdata for bootstrap node")
 	}
 	logger.Debugf("maas user data; %d bytes", len(userdata))
 
-	subnetsMap, err := environ.subnetToSpaceIds()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	var interfaces []network.InterfaceInfo
 	if !environ.usingMAAS2() {
 		inst1 := inst.(*maas1Instance)
@@ -1006,7 +1015,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 		// assigned IP addresses, even when NICs are set to "auto" instead of
 		// "static". So instead of selectedNode, which only contains the
 		// acquire-time details (no IP addresses for NICs set to "auto" vs
-		// "static"), we use the up-to-date startedNode response to get the
+		// "static"),e we use the up-to-date startedNode response to get the
 		// interfaces.
 		interfaces, err = maasObjectNetworkInterfaces(startedNode, subnetsMap)
 		if err != nil {
@@ -1050,6 +1059,50 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 		Volumes:           resultVolumes,
 		VolumeAttachments: resultAttachments,
 	}, nil
+}
+
+func instanceLinkedInterfaceNames(usingMAAS2 bool, inst instance.Instance, subnetsMap map[string]network.Id) ([]string, error) {
+	var (
+		interfaces []network.InterfaceInfo
+		err        error
+	)
+	if !usingMAAS2 {
+		inst1 := inst.(*maas1Instance)
+		interfaces, err = maasObjectNetworkInterfaces(inst1.maasObject, subnetsMap)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	} else {
+		inst2 := inst.(*maas2Instance)
+		interfaces, err = maas2NetworkInterfaces(inst2, subnetsMap)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+
+	nameToNumAliases := make(map[string]int)
+	var linkedNames []string
+	for _, iface := range interfaces {
+		if iface.CIDR == "" { // CIDR comes from a linked subnet.
+			continue
+		}
+
+		finalName := iface.InterfaceName
+		numAliases, seen := nameToNumAliases[iface.InterfaceName]
+		if !seen {
+			nameToNumAliases[iface.InterfaceName] = 0
+		} else {
+			numAliases++ // aliases start from 1
+			finalName += fmt.Sprintf(":%d", numAliases)
+			nameToNumAliases[iface.InterfaceName] = numAliases
+		}
+
+		linkedNames = append(linkedNames, finalName)
+	}
+	systemID := extractSystemId(inst.Id())
+	logger.Infof("interface names to bridge for node %q: %v", systemID, linkedNames)
+
+	return linkedNames, nil
 }
 
 func (environ *maasEnviron) tagInstance1(inst *maas1Instance, instanceConfig *instancecfg.InstanceConfig) {
@@ -1264,7 +1317,7 @@ func (environ *maasEnviron) selectNode2(args selectNodeArgs) (maasInstance, erro
 
 // setupJujuNetworking returns a string representing the script to run
 // in order to prepare the Juju-specific networking config on a node.
-func setupJujuNetworking() string {
+func setupJujuNetworking(interfacesToBridge []string) string {
 	// For ubuntu series < xenial we prefer python2 over python3
 	// as we don't want to invalidate lots of testing against
 	// known cloud-image contents. A summary of Ubuntu releases
@@ -1293,16 +1346,17 @@ fi
 
 if [ ! -z "${juju_networking_preferred_python_binary:-}" ]; then
     if [ -f %[1]q ]; then
-# We are sharing this code between master, maas-spaces2 and 1.25.
-# For the moment we want master and 1.25 to not bridge all interfaces.
+# We are sharing this code between 2.0 and 1.25.
+# For the moment we want 2.0 to bridge all interfaces linked
+# to a subnet, while for 1.25 we only bridge the default route interface.
 # This setting allows us to easily switch the behaviour when merging
 # the code between those various branches.
-        juju_bridge_all_interfaces=1
-        if [ $juju_bridge_all_interfaces -eq 1 ]; then
-            $juju_networking_preferred_python_binary %[1]q --bridge-prefix=%[2]q --one-time-backup --activate %[4]q
+        juju_bridge_linked_interfaces=1
+        if [ $juju_bridge_linked_interfaces -eq 1 ]; then
+            $juju_networking_preferred_python_binary %[1]q --bridge-prefix=%[2]q --interfaces-to-bridge=%[5]q --one-time-backup --activate %[4]q
         else
             juju_ipv4_interface_to_bridge=$(ip -4 route list exact default | head -n1 | cut -d' ' -f5)
-            $juju_networking_preferred_python_binary %[1]q --bridge-name=%[3]q --interface-to-bridge="${juju_ipv4_interface_to_bridge:-unknown}" --one-time-backup --activate %[4]q
+            $juju_networking_preferred_python_binary %[1]q --bridge-name=%[3]q --interfaces-to-bridge="${juju_ipv4_interface_to_bridge:-unknown}" --one-time-backup --activate %[4]q
         fi
     fi
 else
@@ -1311,16 +1365,18 @@ fi`,
 		bridgeScriptPath,
 		instancecfg.DefaultBridgePrefix,
 		instancecfg.DefaultBridgeName,
-		"/etc/network/interfaces")
+		"/etc/network/interfaces",
+		strings.Join(interfacesToBridge, " "),
+	)
 }
 
-func renderEtcNetworkInterfacesScript() string {
-	return setupJujuNetworking()
+func renderEtcNetworkInterfacesScript(interfacesToBridge ...string) string {
+	return setupJujuNetworking(interfacesToBridge)
 }
 
 // newCloudinitConfig creates a cloudinit.Config structure suitable as a base
 // for initialising a MAAS node.
-func (environ *maasEnviron) newCloudinitConfig(hostname, forSeries string) (cloudinit.CloudConfig, error) {
+func (environ *maasEnviron) newCloudinitConfig(hostname, forSeries string, interfacesToBridge []string) (cloudinit.CloudConfig, error) {
 	cloudcfg, err := cloudinit.New(forSeries)
 	if err != nil {
 		return nil, err
@@ -1352,7 +1408,7 @@ func (environ *maasEnviron) newCloudinitConfig(hostname, forSeries string) (clou
 		}
 		cloudcfg.AddPackage("bridge-utils")
 		cloudcfg.AddBootTextFile(bridgeScriptPath, bridgeScriptPython, 0755)
-		cloudcfg.AddScripts(setupJujuNetworking())
+		cloudcfg.AddScripts(setupJujuNetworking(interfacesToBridge))
 	}
 	return cloudcfg, nil
 }
