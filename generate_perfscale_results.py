@@ -88,6 +88,13 @@ def assess_perf_test_simple(bs_manager, upload_tools):
 
             deploy_details = assess_longrun_perf(
                 bs_manager, test_length=MINUTE*60*12)
+        except Exception as e:
+            # Lets get to the bottom of this failure, print lxc details to
+            # stdout.
+            print(subprocess.check_output(['lxc', 'list']))
+            import ipdb; ipdb.set_trace()
+            print(">>> Encountered Error")
+            raise
         finally:
             results_dir = os.path.join(
                 os.path.abspath(bs_manager.log_dir), 'performance_results/')
