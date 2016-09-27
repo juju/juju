@@ -3248,6 +3248,13 @@ class TestEnvJujuClient(ClientTest):
             client.enable_command('all')
         mock.assert_called_once_with('enable-command', 'all')
 
+    def test_sync_tools(self):
+        client = EnvJujuClient(JujuData('foo'), None, None)
+        args = ('--dry-run', '--local-dir', '/var/agents')
+        with patch.object(client, 'juju', autospec=True) as mock:
+            client.sync_tools(*args)
+        mock.assert_called_once_with('sync-tools', args, include_e=False)
+
 
 class TestEnvJujuClient2B8(ClientTest):
 

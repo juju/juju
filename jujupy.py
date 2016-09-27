@@ -2157,6 +2157,10 @@ class EnvJujuClient:
         """Enable a command set."""
         return self.juju('enable-command', args)
 
+    def sync_tools(self, *args):
+        """Copy tools into a local directory."""
+        return self.juju('sync-tools', args, include_e=False)
+
 
 class EnvJujuClient2B9(EnvJujuClient):
 
