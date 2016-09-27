@@ -456,7 +456,7 @@ func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (*envi
 	// Identify the instance type and image to provision.
 	series := args.Tools.OneSeries()
 	instanceSpec, err := findInstanceSpec(
-		compute.VirtualMachineImagesClient{env.compute},
+		args.ImageMetadata,
 		instanceTypes,
 		&instances.InstanceConstraint{
 			Region:      env.location,
@@ -1566,12 +1566,10 @@ func (env *azureEnviron) getStorageAccountKeyLocked(accountName string, refresh 
 // TODO(axw) 2016-04-11 #1568715
 // When we have image simplestreams, we should rename this to "Region",
 // to implement simplestreams.HasRegion.
-func (env *azureEnviron) AgentMirror() (simplestreams.CloudSpec, error) {
+func (env *azureEnviron) Region() (simplestreams.CloudSpec, error) {
 	return simplestreams.CloudSpec{
-		Region: env.location,
-		// The endpoints published in simplestreams
-		// data are the storage endpoints.
-		Endpoint: fmt.Sprintf("https://%s/", env.storageEndpoint),
+		Region:   env.location,
+		Endpoint: env.cloud.Endpoint,
 	}, nil
 }
 
