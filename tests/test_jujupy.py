@@ -958,7 +958,7 @@ class TestEnvJujuClient(ClientTest):
                 '--default-model', 'foo', '--agent-version', '2.0',
                 '--credential', 'credential_name'), include_e=False)
 
-    def test_bootstrap_args(self):
+    def test_bootstrap_bootstrap_series(self):
         env = JujuData('foo', {'type': 'bar', 'region': 'baz'})
         client = EnvJujuClient(env, '2.0-zeta1', None)
         with patch.object(client, 'juju') as mock:
@@ -970,6 +970,43 @@ class TestEnvJujuClient(ClientTest):
                 '--config', config_file.name, '--default-model', 'foo',
                 '--agent-version', '2.0',
                 '--bootstrap-series', 'angsty'), include_e=False)
+
+    def test_bootstrap_auto_upgade(self):
+        env = JujuData('foo', {'type': 'bar', 'region': 'baz'})
+        client = EnvJujuClient(env, '2.0-zeta1', None)
+        with patch.object(client, 'juju') as mock:
+            with observable_temp_file() as config_file:
+                client.bootstrap(auto_upgrade=True)
+        mock.assert_called_with(
+            'bootstrap', (
+                '--constraints', 'mem=2G', 'foo', 'bar/baz',
+                '--config', config_file.name, '--default-model', 'foo',
+                '--agent-version', '2.0', '--auto-upgrade'), include_e=False)
+
+    def test_bootstrap_metadata(self):
+        env = JujuData('foo', {'type': 'bar', 'region': 'baz'})
+        client = EnvJujuClient(env, '2.0-zeta1', None)
+        with patch.object(client, 'juju') as mock:
+            with observable_temp_file() as config_file:
+                client.bootstrap(metadata_source='/var/test-source')
+        mock.assert_called_with(
+            'bootstrap', (
+                '--constraints', 'mem=2G', 'foo', 'bar/baz',
+                '--config', config_file.name, '--default-model', 'foo',
+                '--agent-version', '2.0',
+                '--metadata-source', '/var/test-source'), include_e=False)
+
+    def test_bootstrap_to(self):
+        env = JujuData('foo', {'type': 'bar', 'region': 'baz'})
+        client = EnvJujuClient(env, '2.0-zeta1', None)
+        with patch.object(client, 'juju') as mock:
+            with observable_temp_file() as config_file:
+                client.bootstrap(to='target')
+        mock.assert_called_with(
+            'bootstrap', (
+                '--constraints', 'mem=2G', 'foo', 'bar/baz',
+                '--config', config_file.name, '--default-model', 'foo',
+                '--agent-version', '2.0', '--to', 'target'), include_e=False)
 
     def test_bootstrap_async(self):
         env = JujuData('foo', {'type': 'bar', 'region': 'baz'})
