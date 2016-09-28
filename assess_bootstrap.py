@@ -21,11 +21,11 @@ log = logging.getLogger("assess_bootstrap")
 
 
 @contextmanager
-def thin_booted_context(bs_manager):
+def thin_booted_context(bs_manager, **kwargs):
     with bs_manager.top_context() as machines:
         with bs_manager.bootstrap_context(machines):
             tear_down(bs_manager.client, bs_manager.jes_enabled)
-            bs_manager.client.bootstrap()
+            bs_manager.client.bootstrap(**kwargs)
         with bs_manager.runtime_context(machines):
             yield
 
@@ -53,9 +53,12 @@ def prepare_metadata(client, dest_dir, source_dir=None):
 @contextmanager
 def prepare_temp_metadata(client, source_dir=None):
     """Fill a temperary directory with metadata using sync_tools."""
-    with temp_dir() as md_dir:
-        prepare_metadata(client, md_dir, source_dir)
-        yield md_dir
+    if source_dir is not None:
+        yield source_dir
+    else:
+        with temp_dir() as md_dir:
+            prepare_metadata(client, md_dir, source_dir)
+            yield md_dir
 
 
 def assess_metadata(args):
@@ -69,11 +72,17 @@ def assess_metadata(args):
                 tear_down(bs_manager.client, bs_manager.jes_enabled)
                 bs_manager.client.bootstrap(metadata_source=metadata_dir)
             with bs_manager.runtime_context(machines):
-                log.info("Metadata bootstrap successful.")
+                log.info('Metadata bootstrap successful.')
+                log.info('{!s}'.format(client.get_juju_output(
+                    'model-config')))
 
 
 def parse_args(argv=None):
-    """Parse all arguments."""
+    """Parse all arguments.
+
+    In addition to the basic testing arguments this script also accepts
+    --local-metadata-source. If given it should be a directory that contains
+    the agent to use in the test. This skips downloading them."""
     parser = ArgumentParser(description='Test the bootstrap command.')
     add_basic_testing_arguments(parser)
     parser.add_argument('--local-metadata-source',
