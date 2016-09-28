@@ -19,12 +19,12 @@ import (
 )
 
 const (
-	credAttrTenantName = "tenant-name"
-	credAttrUserName   = "username"
-	credAttrPassword   = "password"
-	credAttrDomainName = "domain-name"
-	credAttrAccessKey  = "access-key"
-	credAttrSecretKey  = "secret-key"
+	CredAttrTenantName = "tenant-name"
+	CredAttrUserName   = "username"
+	CredAttrPassword   = "password"
+	CredAttrDomainName = "domain-name"
+	CredAttrAccessKey  = "access-key"
+	CredAttrSecretKey  = "secret-key"
 )
 
 type OpenstackCredentials struct{}
@@ -34,16 +34,16 @@ func (OpenstackCredentials) CredentialSchemas() map[cloud.AuthType]cloud.Credent
 	return map[cloud.AuthType]cloud.CredentialSchema{
 		cloud.UserPassAuthType: {
 			{
-				credAttrUserName, cloud.CredentialAttr{Description: "The username to authenticate with."},
+				CredAttrUserName, cloud.CredentialAttr{Description: "The username to authenticate with."},
 			}, {
-				credAttrPassword, cloud.CredentialAttr{
+				CredAttrPassword, cloud.CredentialAttr{
 					Description: "The password for the specified username.",
 					Hidden:      true,
 				},
 			}, {
-				credAttrTenantName, cloud.CredentialAttr{Description: "The OpenStack tenant name."},
+				CredAttrTenantName, cloud.CredentialAttr{Description: "The OpenStack tenant name."},
 			}, {
-				credAttrDomainName, cloud.CredentialAttr{
+				CredAttrDomainName, cloud.CredentialAttr{
 					Description: "The OpenStack domain name.",
 					Optional:    true,
 				},
@@ -51,14 +51,14 @@ func (OpenstackCredentials) CredentialSchemas() map[cloud.AuthType]cloud.Credent
 		},
 		cloud.AccessKeyAuthType: {
 			{
-				credAttrAccessKey, cloud.CredentialAttr{Description: "The access key to authenticate with."},
+				CredAttrAccessKey, cloud.CredentialAttr{Description: "The access key to authenticate with."},
 			}, {
-				credAttrSecretKey, cloud.CredentialAttr{
+				CredAttrSecretKey, cloud.CredentialAttr{
 					Description: "The secret key to authenticate with.",
 					Hidden:      true,
 				},
 			}, {
-				credAttrTenantName, cloud.CredentialAttr{Description: "The OpenStack tenant name."},
+				CredAttrTenantName, cloud.CredentialAttr{Description: "The OpenStack tenant name."},
 			},
 		},
 	}
@@ -126,19 +126,19 @@ func (c OpenstackCredentials) detectCredential() (*cloud.Credential, string, str
 		credential = cloud.NewCredential(
 			cloud.UserPassAuthType,
 			map[string]string{
-				credAttrUserName:   creds.User,
-				credAttrPassword:   creds.Secrets,
-				credAttrTenantName: creds.TenantName,
-				credAttrDomainName: creds.DomainName,
+				CredAttrUserName:   creds.User,
+				CredAttrPassword:   creds.Secrets,
+				CredAttrTenantName: creds.TenantName,
+				CredAttrDomainName: creds.DomainName,
 			},
 		)
 	} else {
 		credential = cloud.NewCredential(
 			cloud.AccessKeyAuthType,
 			map[string]string{
-				credAttrAccessKey:  creds.User,
-				credAttrSecretKey:  creds.Secrets,
-				credAttrTenantName: creds.TenantName,
+				CredAttrAccessKey:  creds.User,
+				CredAttrSecretKey:  creds.Secrets,
+				CredAttrTenantName: creds.TenantName,
 			},
 		)
 	}
