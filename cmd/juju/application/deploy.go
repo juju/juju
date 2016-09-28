@@ -63,12 +63,6 @@ type ModelAPI interface {
 	ModelGet() (map[string]interface{}, error)
 }
 
-type CharmRepository interface {
-	Get(curl *charm.URL) (charm.Charm, error)
-	GetBundle(curl *charm.URL) (charm.Bundle, error)
-	Resolve(*charm.URL) (canonRef *charm.URL, supportedSeries []string, _ error)
-}
-
 // MeteredDeployAPI represents the methods of the API the deploy
 // command needs for metered charms.
 type MeteredDeployAPI interface {
@@ -848,11 +842,10 @@ func (c *DeployCommand) maybeReadLocalCharm() (deployFn, error) {
 			// Local charms don't need a channel.
 		}
 
-		var csMac *macaroon.Macaroon // local charms don't need one.
 		ctx.Infof("Deploying charm %q.", curl.String())
 		return errors.Trace(c.deployCharm(
 			id,
-			csMac,
+			(*macaroon.Macaroon)(nil), // local charms don't need one.
 			curl.Series,
 			ctx,
 			apiRoot,

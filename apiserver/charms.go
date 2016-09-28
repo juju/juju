@@ -8,7 +8,6 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"mime"
@@ -31,6 +30,48 @@ import (
 	"github.com/juju/juju/state/storage"
 )
 
+type FailableHandlerFunc func(http.ResponseWriter, *http.Request) error
+
+// CharmsHTTPHandler creates is a http.Handler which serves POST
+// requests to a PostHandler and GET requests to a GetHandler.
+//
+// TODO(katco): This is the beginning of inverting the dependencies in
+// this callstack by splitting out the serving mechanism from the
+// modules that are processing the requests. The next step is to
+// publically expose construction of a suitable PostHandler and
+// GetHandler whose goals should be clearly called out in their names,
+// (e.g. charmPersitAPI for POSTs).
+//
+// To accomplish this, we'll have to make the httpContext type public
+// so that we can pass it into these public functions.
+//
+// After we do this, we can then test the individual funcs/structs
+// without standing up an entire HTTP server. I.e. actual unit
+// tests. If you're in this area and can, please chissle away at this
+// problem and update this TODO as needed! Many thanks, hacker!
+type CharmsHTTPHandler struct {
+	PostHandler FailableHandlerFunc
+	GetHandler  FailableHandlerFunc
+}
+
+func (h *CharmsHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	var err error
+	switch r.Method {
+	case "POST":
+		err = errors.Annotate(h.PostHandler(w, r), "cannot upload charm")
+	case "GET":
+		err = errors.Annotate(h.GetHandler(w, r), "cannot retrieve charm")
+	default:
+		err = emitUnsupportedMethodErr(r.Method)
+	}
+
+	if err != nil {
+		if err := sendJSONError(w, r, errors.Trace(err)); err != nil {
+			logger.Errorf("%v", errors.Annotate(err, "cannot return error to user"))
+		}
+	}
+}
+
 // charmsHandler handles charm upload through HTTPS in the API server.
 type charmsHandler struct {
 	ctxt    httpContext
@@ -41,22 +82,11 @@ type charmsHandler struct {
 // response related to a charm bundle.
 type bundleContentSenderFunc func(w http.ResponseWriter, r *http.Request, bundle *charm.CharmArchive) error
 
-func (h *charmsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	var err error
-	switch r.Method {
-	case "POST":
-		err = h.servePost(w, r)
-	case "GET":
-		err = h.serveGet(w, r)
-	default:
-		err = errors.MethodNotAllowedf("unsupported method: %q", r.Method)
+func (h *charmsHandler) ServePost(w http.ResponseWriter, r *http.Request) error {
+	if r.Method != "POST" {
+		return errors.Trace(emitUnsupportedMethodErr(r.Method))
 	}
-	if err != nil {
-		h.sendError(w, r, err)
-	}
-}
 
-func (h *charmsHandler) servePost(w http.ResponseWriter, r *http.Request) error {
 	st, _, err := h.ctxt.stateForRequestAuthenticatedUser(r)
 	if err != nil {
 		return errors.Trace(err)
@@ -66,11 +96,14 @@ func (h *charmsHandler) servePost(w http.ResponseWriter, r *http.Request) error 
 	if err != nil {
 		return errors.NewBadRequest(err, "")
 	}
-	sendStatusAndJSON(w, http.StatusOK, &params.CharmsResponse{CharmURL: charmURL.String()})
-	return nil
+	return errors.Trace(sendStatusAndJSON(w, http.StatusOK, &params.CharmsResponse{CharmURL: charmURL.String()}))
 }
 
-func (h *charmsHandler) serveGet(w http.ResponseWriter, r *http.Request) error {
+func (h *charmsHandler) ServeGet(w http.ResponseWriter, r *http.Request) error {
+	if r.Method != "GET" {
+		return errors.Trace(emitUnsupportedMethodErr(r.Method))
+	}
+
 	st, _, err := h.ctxt.stateForRequestAuthenticated(r)
 	if err != nil {
 		return errors.Trace(err)
@@ -86,6 +119,7 @@ func (h *charmsHandler) serveGet(w http.ResponseWriter, r *http.Request) error {
 		if errors.IsNotFound(err) {
 			return errors.Trace(err)
 		}
+
 		return errors.NewBadRequest(err, "")
 	}
 	defer os.Remove(charmArchivePath)
@@ -102,38 +136,8 @@ func (h *charmsHandler) serveGet(w http.ResponseWriter, r *http.Request) error {
 		// The client requested a specific file.
 		sender = h.archiveEntrySender(fileArg, serveIcon)
 	}
-	if err := h.sendBundleContent(w, r, charmArchivePath, sender); err != nil {
-		return errors.Trace(err)
-	}
-	return nil
-}
 
-// sendError sends a JSON-encoded error response.
-// Note the difference from the error response sent by
-// the sendError function - the error is encoded in the
-// Error field as a string, not an Error object.
-func (h *charmsHandler) sendError(w http.ResponseWriter, req *http.Request, err error) {
-	logger.Errorf("returning error from %s %s: %s", req.Method, req.URL, errors.Details(err))
-	perr, status := common.ServerErrorAndStatus(err)
-	sendStatusAndJSON(w, status, &params.CharmsResponse{
-		Error:     perr.Message,
-		ErrorCode: perr.Code,
-		ErrorInfo: perr.Info,
-	})
-}
-
-// sendBundleContent uses the given bundleContentSenderFunc to send a response
-// related to the charm archive located in the given archivePath.
-func (h *charmsHandler) sendBundleContent(w http.ResponseWriter, r *http.Request, archivePath string, sender bundleContentSenderFunc) error {
-	bundle, err := charm.ReadCharmArchive(archivePath)
-	if err != nil {
-		return errors.Annotatef(err, "unable to read archive in %q", archivePath)
-	}
-	// The bundleContentSenderFunc will set up and send an appropriate response.
-	if err := sender(w, r, bundle); err != nil {
-		return errors.Trace(err)
-	}
-	return nil
+	return errors.Trace(sendBundleContent(w, r, charmArchivePath, sender))
 }
 
 // manifestSender sends a JSON-encoded response to the client including the
@@ -143,10 +147,9 @@ func (h *charmsHandler) manifestSender(w http.ResponseWriter, r *http.Request, b
 	if err != nil {
 		return errors.Annotatef(err, "unable to read manifest in %q", bundle.Path)
 	}
-	sendStatusAndJSON(w, http.StatusOK, &params.CharmsResponse{
+	return errors.Trace(sendStatusAndJSON(w, http.StatusOK, &params.CharmsResponse{
 		Files: manifest.SortedValues(),
-	})
-	return nil
+	}))
 }
 
 // archiveEntrySender returns a bundleContentSenderFunc which is responsible
@@ -227,12 +230,18 @@ func (h *charmsHandler) processPost(r *http.Request, st *state.State) (*charm.UR
 	if schema == "" {
 		schema = "local"
 	}
+
 	series := query.Get("series")
+	if series != "" {
+		if err := charm.ValidateSeries(series); err != nil {
+			return nil, errors.NewBadRequest(err, "")
+		}
+	}
 
 	// Make sure the content type is zip.
 	contentType := r.Header.Get("Content-Type")
 	if contentType != "application/zip" {
-		return nil, fmt.Errorf("expected Content-Type: application/zip, got: %v", contentType)
+		return nil, errors.BadRequestf("expected Content-Type: application/zip, got: %v", contentType)
 	}
 
 	charmFileName, err := writeCharmToTempFile(r.Body)
@@ -247,7 +256,12 @@ func (h *charmsHandler) processPost(r *http.Request, st *state.State) (*charm.UR
 	}
 	archive, err := charm.ReadCharmArchive(charmFileName)
 	if err != nil {
-		return nil, fmt.Errorf("invalid charm archive: %v", err)
+		return nil, errors.BadRequestf("invalid charm archive: %v", err)
+	}
+
+	name := archive.Meta().Name
+	if err := charm.ValidateName(name); err != nil {
+		return nil, errors.NewBadRequest(err, "")
 	}
 
 	// We got it, now let's reserve a charm URL for it in state.
@@ -260,7 +274,7 @@ func (h *charmsHandler) processPost(r *http.Request, st *state.State) (*charm.UR
 	if schema == "local" {
 		curl, err = st.PrepareLocalCharmUpload(curl)
 		if err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		}
 	} else {
 		// "cs:" charms may only be uploaded into models which are
@@ -281,7 +295,7 @@ func (h *charmsHandler) processPost(r *http.Request, st *state.State) (*charm.UR
 		if revisionStr != "" {
 			curl.Revision, err = strconv.Atoi(revisionStr)
 			if err != nil {
-				return nil, errors.NotValidf("revision")
+				return nil, errors.NewBadRequest(errors.NewNotValid(err, "revision"), "")
 			}
 		}
 		if _, err := st.PrepareStoreCharmUpload(curl); err != nil {
@@ -293,7 +307,7 @@ func (h *charmsHandler) processPost(r *http.Request, st *state.State) (*charm.UR
 	// provider storage and update the state.
 	err = h.repackageAndUploadCharm(st, archive, curl)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	return curl, nil
 }
@@ -364,12 +378,12 @@ func (h *charmsHandler) findArchiveRootDir(zipr *zip.Reader) (string, error) {
 	}
 	switch len(paths) {
 	case 0:
-		return "", fmt.Errorf("invalid charm archive: missing metadata.yaml")
+		return "", errors.Errorf("invalid charm archive: missing metadata.yaml")
 	case 1:
 	default:
 		sort.Sort(byDepth(paths))
 		if depth(paths[0]) == depth(paths[1]) {
-			return "", fmt.Errorf("invalid charm archive: ambiguous root directory")
+			return "", errors.Errorf("invalid charm archive: ambiguous root directory")
 		}
 	}
 	return filepath.Dir(paths[0]), nil
@@ -430,7 +444,12 @@ func (h *charmsHandler) repackageAndUploadCharm(st *state.State, archive *charm.
 // processGet handles a charm file GET request after authentication.
 // It returns the bundle path, the requested file path (if any), whether the
 // default charm icon has been requested and an error.
-func (h *charmsHandler) processGet(r *http.Request, st *state.State) (archivePath string, fileArg string, serveIcon bool, err error) {
+func (h *charmsHandler) processGet(r *http.Request, st *state.State) (
+	archivePath string,
+	fileArg string,
+	serveIcon bool,
+	err error,
+) {
 	errRet := func(err error) (string, string, bool, error) {
 		return "", "", false, err
 	}
@@ -440,11 +459,11 @@ func (h *charmsHandler) processGet(r *http.Request, st *state.State) (archivePat
 	// Retrieve and validate query parameters.
 	curlString := query.Get("url")
 	if curlString == "" {
-		return errRet(fmt.Errorf("expected url=CharmURL query argument"))
+		return errRet(errors.Errorf("expected url=CharmURL query argument"))
 	}
 	curl, err := charm.ParseURL(curlString)
 	if err != nil {
-		return errRet(errors.Annotate(err, "cannot parse charm URL"))
+		return errRet(errors.Trace(err))
 	}
 	fileArg = query.Get("file")
 	if fileArg != "" {
@@ -486,6 +505,40 @@ func (h *charmsHandler) processGet(r *http.Request, st *state.State) (archivePat
 	return charmFile.Name(), fileArg, serveIcon, nil
 }
 
+// sendJSONError sends a JSON-encoded error response.  Note the
+// difference from the error response sent by the sendError function -
+// the error is encoded in the Error field as a string, not an Error
+// object.
+func sendJSONError(w http.ResponseWriter, req *http.Request, err error) error {
+	logger.Errorf("returning error from %s %s: %s", req.Method, req.URL, errors.Details(err))
+	perr, status := common.ServerErrorAndStatus(err)
+	return errors.Trace(sendStatusAndJSON(w, status, &params.CharmsResponse{
+		Error:     perr.Message,
+		ErrorCode: perr.Code,
+		ErrorInfo: perr.Info,
+	}))
+}
+
+// sendBundleContent uses the given bundleContentSenderFunc to send a
+// response related to the charm archive located in the given
+// archivePath.
+func sendBundleContent(
+	w http.ResponseWriter,
+	r *http.Request,
+	archivePath string,
+	sender bundleContentSenderFunc,
+) error {
+	bundle, err := charm.ReadCharmArchive(archivePath)
+	if err != nil {
+		return errors.Annotatef(err, "unable to read archive in %q", archivePath)
+	}
+	// The bundleContentSenderFunc will set up and send an appropriate response.
+	if err := sender(w, r, bundle); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
 // On windows we cannot remove a file until it has been closed
 // If this poses an active problem somewhere else it will be refactored in
 // utils and used everywhere.
@@ -514,4 +567,8 @@ func modelIsImporting(st *state.State) (bool, error) {
 		return false, errors.Trace(err)
 	}
 	return model.MigrationMode() == state.MigrationModeImporting, nil
+}
+
+func emitUnsupportedMethodErr(method string) error {
+	return errors.MethodNotAllowedf("unsupported method: %q", method)
 }

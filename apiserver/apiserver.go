@@ -336,11 +336,16 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 	add("/model/:modeluuid/logsink", logSinkHandler)
 	add("/model/:modeluuid/logstream", logStreamHandler)
 	add("/model/:modeluuid/log", debugLogHandler)
-	add("/model/:modeluuid/charms",
-		&charmsHandler{
-			ctxt:    httpCtxt,
-			dataDir: srv.dataDir},
-	)
+
+	charmsHandler := &charmsHandler{
+		ctxt:    httpCtxt,
+		dataDir: srv.dataDir,
+	}
+	charmsServer := &CharmsHTTPHandler{
+		PostHandler: charmsHandler.ServePost,
+		GetHandler:  charmsHandler.ServeGet,
+	}
+	add("/model/:modeluuid/charms", charmsServer)
 	add("/model/:modeluuid/tools",
 		&toolsUploadHandler{
 			ctxt: httpCtxt,
@@ -369,12 +374,7 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 	// For backwards compatibility we register all the old paths
 	add("/log", debugLogHandler)
 
-	add("/charms",
-		&charmsHandler{
-			ctxt:    httpCtxt,
-			dataDir: srv.dataDir,
-		},
-	)
+	add("/charms", charmsServer)
 	add("/tools",
 		&toolsUploadHandler{
 			ctxt: httpCtxt,

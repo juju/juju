@@ -58,7 +58,7 @@ func (s *bundleSuite) TestGetChangesBundleVerificationErrors(c *gc.C) {
 	c.Assert(r.Errors, jc.SameContents, []string{
 		`placement "1" refers to a machine not defined in this bundle`,
 		`too many units specified in unit placement for application "django"`,
-		`invalid charm URL in application "haproxy": URL has invalid charm or bundle name: "42"`,
+		`invalid charm URL in application "haproxy": cannot parse URL "42": name "42" not valid`,
 		`negative number of units specified on application "haproxy"`,
 	})
 }

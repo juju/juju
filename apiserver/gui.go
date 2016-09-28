@@ -106,12 +106,16 @@ func (gr *guiRouter) ensureFileHandler(h func(gh *guiHandler, w http.ResponseWri
 		rootDir, hash, err := gr.ensureFiles(req)
 		if err != nil {
 			// Note that ensureFiles also checks that the model UUID is valid.
-			sendError(w, err)
+			if err := sendError(w, err); err != nil {
+				logger.Errorf("%v", err)
+			}
 			return
 		}
 		qhash := req.URL.Query().Get(":hash")
 		if qhash != "" && qhash != hash {
-			sendError(w, errors.NotFoundf("resource with %q hash", qhash))
+			if err := sendError(w, errors.NotFoundf("resource with %q hash", qhash)); err != nil {
+				logger.Errorf("%v", err)
+			}
 			return
 		}
 		uuid := req.URL.Query().Get(":modeluuid")
@@ -264,7 +268,9 @@ func (h *guiHandler) serveCombo(w http.ResponseWriter, req *http.Request) {
 	for _, p := range parts {
 		fpath, err := getGUIComboPath(h.rootDir, p)
 		if err != nil {
-			sendError(w, errors.Annotate(err, "cannot combine files"))
+			if err := sendError(w, errors.Annotate(err, "cannot combine files")); err != nil {
+				logger.Errorf("%v", err)
+			}
 			return
 		}
 		if fpath == "" {
@@ -320,11 +326,13 @@ func (h *guiHandler) serveIndex(w http.ResponseWriter, req *http.Request) {
 	spriteFile := filepath.Join(h.rootDir, spritePath)
 	spriteContent, err := ioutil.ReadFile(spriteFile)
 	if err != nil {
-		sendError(w, errors.Annotate(err, "cannot read sprite file"))
+		if err := sendError(w, errors.Annotate(err, "cannot read sprite file")); err != nil {
+			logger.Errorf("%v", err)
+		}
 		return
 	}
 	tmpl := filepath.Join(h.rootDir, "templates", "index.html.go")
-	renderGUITemplate(w, tmpl, map[string]interface{}{
+	if err := renderGUITemplate(w, tmpl, map[string]interface{}{
 		// staticURL holds the root of the static hierarchy, hence why the
 		// empty string is used here.
 		"staticURL": h.hashedPath(""),
@@ -333,14 +341,18 @@ func (h *guiHandler) serveIndex(w http.ResponseWriter, req *http.Request) {
 		// TODO frankban: make it possible to enable debug.
 		"debug":         false,
 		"spriteContent": string(spriteContent),
-	})
+	}); err != nil {
+		if err := sendError(w, err); err != nil {
+			logger.Errorf("%v", errors.Annotate(err, "cannot send error to client from rendering GUI template"))
+		}
+	}
 }
 
 // serveConfig serves the Juju GUI JavaScript configuration file.
 func (h *guiHandler) serveConfig(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Content-Type", jsMimeType)
 	tmpl := filepath.Join(h.rootDir, "templates", "config.js.go")
-	renderGUITemplate(w, tmpl, map[string]interface{}{
+	if err := renderGUITemplate(w, tmpl, map[string]interface{}{
 		"base":             h.baseURLPath,
 		"host":             req.Host,
 		"controllerSocket": "/api",
@@ -350,7 +362,11 @@ func (h *guiHandler) serveConfig(w http.ResponseWriter, req *http.Request) {
 		"staticURL": h.hashedPath(""),
 		"uuid":      h.uuid,
 		"version":   jujuversion.Current.String(),
-	})
+	}); err != nil {
+		if err := sendError(w, err); err != nil {
+			logger.Errorf("%v", errors.Annotate(err, "cannot send error to client from rendering GUI template"))
+		}
+	}
 }
 
 // hashedPath returns the gull path (including the GUI archive hash) to the
@@ -359,16 +375,13 @@ func (h *guiHandler) hashedPath(p string) string {
 	return path.Join(h.baseURLPath, h.hash, p)
 }
 
-func renderGUITemplate(w http.ResponseWriter, tmpl string, ctx map[string]interface{}) {
+func renderGUITemplate(w http.ResponseWriter, tmpl string, ctx map[string]interface{}) error {
 	// TODO frankban: cache parsed template.
 	t, err := template.ParseFiles(tmpl)
 	if err != nil {
-		sendError(w, errors.Annotate(err, "cannot parse template"))
-		return
+		return errors.Annotate(err, "cannot parse template")
 	}
-	if err := t.Execute(w, ctx); err != nil {
-		sendError(w, errors.Annotate(err, "cannot render template"))
-	}
+	return errors.Annotate(t.Execute(w, ctx), "cannot render template")
 }
 
 // guiArchiveHandler serves the Juju GUI archive endpoints, used for uploading
@@ -386,11 +399,15 @@ func (h *guiArchiveHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) 
 	case "POST":
 		handler = h.handlePost
 	default:
-		sendError(w, errors.MethodNotAllowedf("unsupported method: %q", req.Method))
+		if err := sendError(w, errors.MethodNotAllowedf("unsupported method: %q", req.Method)); err != nil {
+			logger.Errorf("%v", err)
+		}
 		return
 	}
 	if err := handler(w, req); err != nil {
-		sendError(w, errors.Trace(err))
+		if err := sendError(w, errors.Trace(err)); err != nil {
+			logger.Errorf("%v", err)
+		}
 	}
 }
 
@@ -433,10 +450,9 @@ func (h *guiArchiveHandler) handleGet(w http.ResponseWriter, req *http.Request) 
 			Current: m.Version == currentVersion,
 		}
 	}
-	sendStatusAndJSON(w, http.StatusOK, params.GUIArchiveResponse{
+	return errors.Trace(sendStatusAndJSON(w, http.StatusOK, params.GUIArchiveResponse{
 		Versions: versions,
-	})
-	return nil
+	}))
 }
 
 // handlePost is used to upload new Juju GUI archives to the controller.
@@ -506,9 +522,9 @@ func (h *guiArchiveHandler) handlePost(w http.ResponseWriter, req *http.Request)
 		}
 	} else if !errors.IsNotFound(err) {
 		return errors.Annotate(err, "cannot retrieve current GUI version")
+
 	}
-	sendStatusAndJSON(w, http.StatusOK, resp)
-	return nil
+	return errors.Trace(sendStatusAndJSON(w, http.StatusOK, resp))
 }
 
 // guiVersionHandler is used to select the Juju GUI version served by the
@@ -520,11 +536,15 @@ type guiVersionHandler struct {
 // ServeHTTP implements http.Handler.
 func (h *guiVersionHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if req.Method != "PUT" {
-		sendError(w, errors.MethodNotAllowedf("unsupported method: %q", req.Method))
+		if err := sendError(w, errors.MethodNotAllowedf("unsupported method: %q", req.Method)); err != nil {
+			logger.Errorf("%v", err)
+		}
 		return
 	}
 	if err := h.handlePut(w, req); err != nil {
-		sendError(w, errors.Trace(err))
+		if err := sendError(w, errors.Trace(err)); err != nil {
+			logger.Errorf("%v", err)
+		}
 	}
 }
 

@@ -194,11 +194,10 @@ func sendJSON(w io.Writer, response interface{}) error {
 
 // sendStatusAndJSON sends an HTTP status code and
 // a JSON-encoded response to a client.
-func sendStatusAndJSON(w http.ResponseWriter, statusCode int, response interface{}) {
+func sendStatusAndJSON(w http.ResponseWriter, statusCode int, response interface{}) error {
 	body, err := json.Marshal(response)
 	if err != nil {
-		logger.Errorf("cannot marshal JSON result %#v: %v", response, err)
-		return
+		return errors.Errorf("cannot marshal JSON result %#v: %v", response, err)
 	}
 
 	if statusCode == http.StatusUnauthorized {
@@ -207,15 +206,18 @@ func sendStatusAndJSON(w http.ResponseWriter, statusCode int, response interface
 	w.Header().Set("Content-Type", params.ContentTypeJSON)
 	w.Header().Set("Content-Length", fmt.Sprint(len(body)))
 	w.WriteHeader(statusCode)
-	w.Write(body)
+	if _, err := w.Write(body); err != nil {
+		return errors.Annotate(err, "cannot write response")
+	}
+	return nil
 }
 
 // sendError sends a JSON-encoded error response
 // for errors encountered during processing.
-func sendError(w http.ResponseWriter, err error) {
-	err1, statusCode := common.ServerErrorAndStatus(err)
-	logger.Debugf("sending error: %d %v", statusCode, err1)
-	sendStatusAndJSON(w, statusCode, &params.ErrorResult{
-		Error: err1,
-	})
+func sendError(w http.ResponseWriter, errToSend error) error {
+	paramsErr, statusCode := common.ServerErrorAndStatus(errToSend)
+	logger.Debugf("sending error: %d %v", statusCode, paramsErr)
+	return errors.Trace(sendStatusAndJSON(w, statusCode, &params.ErrorResult{
+		Error: paramsErr,
+	}))
 }

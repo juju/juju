@@ -138,11 +138,6 @@ func (s *DeploySuite) TestPathWithNoCharmOrBundle(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `charm or bundle at .*`)
 }
 
-func (s *DeploySuite) TestInvalidURL(c *gc.C) {
-	err := runDeploy(c, "cs:craz~ness")
-	c.Assert(err, gc.ErrorMatches, `URL has invalid charm or bundle name: "cs:craz~ness"`)
-}
-
 func (s *DeploySuite) TestCharmDir(c *gc.C) {
 	ch := testcharms.Repo.ClonedDirPath(s.CharmsPath, "dummy")
 	err := runDeploy(c, ch, "--series", "trusty")

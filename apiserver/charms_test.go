@@ -117,12 +117,12 @@ func (s *charmsSuite) TestCharmsServedSecurely(c *gc.C) {
 
 func (s *charmsSuite) TestPOSTRequiresAuth(c *gc.C) {
 	resp := s.sendRequest(c, httpRequestParams{method: "POST", url: s.charmsURI(c, "")})
-	s.assertErrorResponse(c, resp, http.StatusUnauthorized, "no credentials provided")
+	s.assertErrorResponse(c, resp, http.StatusUnauthorized, ".*no credentials provided$")
 }
 
 func (s *charmsSuite) TestGETRequiresAuth(c *gc.C) {
 	resp := s.sendRequest(c, httpRequestParams{method: "GET", url: s.charmsURI(c, "")})
-	s.assertErrorResponse(c, resp, http.StatusUnauthorized, "no credentials provided")
+	s.assertErrorResponse(c, resp, http.StatusUnauthorized, ".*no credentials provided$")
 }
 
 func (s *charmsSuite) TestRequiresPOSTorGET(c *gc.C) {
@@ -143,11 +143,11 @@ func (s *charmsSuite) TestPOSTRequiresUserAuth(c *gc.C) {
 		nonce:       "noncy",
 		contentType: "foo/bar",
 	})
-	s.assertErrorResponse(c, resp, http.StatusInternalServerError, "tag kind machine not valid")
+	s.assertErrorResponse(c, resp, http.StatusInternalServerError, ".*tag kind machine not valid$")
 
 	// Now try a user login.
 	resp = s.authRequest(c, httpRequestParams{method: "POST", url: s.charmsURI(c, "")})
-	s.assertErrorResponse(c, resp, http.StatusBadRequest, "expected Content-Type: application/zip.+")
+	s.assertErrorResponse(c, resp, http.StatusBadRequest, ".*expected Content-Type: application/zip.+")
 }
 
 func (s *charmsSuite) TestUploadFailsWithInvalidZip(c *gc.C) {
@@ -158,11 +158,11 @@ func (s *charmsSuite) TestUploadFailsWithInvalidZip(c *gc.C) {
 	// Pretend we upload a zip by setting the Content-Type, so we can
 	// check the error at extraction time later.
 	resp := s.uploadRequest(c, s.charmsURI(c, "?series=quantal"), "application/zip", tempFile.Name())
-	s.assertErrorResponse(c, resp, http.StatusBadRequest, "cannot open charm archive: zip: not a valid zip file")
+	s.assertErrorResponse(c, resp, http.StatusBadRequest, ".*cannot open charm archive: zip: not a valid zip file$")
 
 	// Now try with the default Content-Type.
 	resp = s.uploadRequest(c, s.charmsURI(c, "?series=quantal"), "application/octet-stream", tempFile.Name())
-	s.assertErrorResponse(c, resp, http.StatusBadRequest, "expected Content-Type: application/zip, got: application/octet-stream")
+	s.assertErrorResponse(c, resp, http.StatusBadRequest, ".*expected Content-Type: application/zip, got: application/octet-stream$")
 }
 
 func (s *charmsSuite) TestUploadBumpsRevision(c *gc.C) {
@@ -280,7 +280,7 @@ func (s *charmsSuite) TestUploadRejectsWrongModelUUIDPath(c *gc.C) {
 	url := s.charmsURL(c, "series=quantal")
 	url.Path = "/model/dead-beef-123456/charms"
 	resp := s.authRequest(c, httpRequestParams{method: "POST", url: url.String()})
-	s.assertErrorResponse(c, resp, http.StatusNotFound, `unknown model: "dead-beef-123456"`)
+	s.assertErrorResponse(c, resp, http.StatusNotFound, `.*unknown model: "dead-beef-123456"$`)
 }
 
 func (s *charmsSuite) TestUploadRepackagesNestedArchives(c *gc.C) {
@@ -352,7 +352,7 @@ func (s *charmsSuite) TestNonLocalCharmUploadFailsIfNotMigrating(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	resp := s.uploadRequest(c, s.charmsURI(c, "?schema=cs&series=quantal"), "application/zip", ch.Path)
-	s.assertErrorResponse(c, resp, 400, "cs charms may only be uploaded during model migration import")
+	s.assertErrorResponse(c, resp, 400, ".*cs charms may only be uploaded during model migration import$")
 }
 
 func (s *charmsSuite) TestNonLocalCharmUpload(c *gc.C) {
@@ -376,7 +376,7 @@ func (s *charmsSuite) TestNonLocalCharmUploadWithRevisionOverride(c *gc.C) {
 	s.setModelImporting(c)
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 
-	resp := s.uploadRequest(c, s.charmsURI(c, "?schema=cs&revision=99"), "application/zip", ch.Path)
+	resp := s.uploadRequest(c, s.charmsURI(c, "?schema=cs&name=dummy&revision=99"), "application/zip", ch.Path)
 
 	expectedURL := charm.MustParseURL("cs:dummy-99")
 	s.assertUploadResponse(c, resp, expectedURL.String())
@@ -392,7 +392,7 @@ func (s *charmsSuite) TestGetRequiresCharmURL(c *gc.C) {
 	resp := s.authRequest(c, httpRequestParams{method: "GET", url: uri})
 	s.assertErrorResponse(
 		c, resp, http.StatusBadRequest,
-		"expected url=CharmURL query argument",
+		".*expected url=CharmURL query argument$",
 	)
 }
 
@@ -401,7 +401,7 @@ func (s *charmsSuite) TestGetFailsWithInvalidCharmURL(c *gc.C) {
 	resp := s.authRequest(c, httpRequestParams{method: "GET", url: uri})
 	s.assertErrorResponse(
 		c, resp, http.StatusNotFound,
-		`cannot get charm from state: charm "local:precise/no-such" not found`,
+		`.*cannot get charm from state: charm "local:precise/no-such" not found$`,
 	)
 }
 
@@ -507,7 +507,7 @@ func (s *charmsSuite) TestGetCharmIcon(c *gc.C) {
 		uri := s.charmsURI(c, test.query)
 		resp := s.authRequest(c, httpRequestParams{method: "GET", url: uri})
 		if test.expectBody == "" {
-			s.assertErrorResponse(c, resp, http.StatusNotFound, "charm file not found")
+			s.assertErrorResponse(c, resp, http.StatusNotFound, ".*charm file not found$")
 			continue
 		}
 		if test.expectType == "" {
@@ -594,7 +594,7 @@ func (s *charmsSuite) TestGetRejectsWrongModelUUIDPath(c *gc.C) {
 	url := s.charmsURL(c, "url=local:quantal/dummy-1&file=revision")
 	url.Path = "/model/dead-beef-123456/charms"
 	resp := s.authRequest(c, httpRequestParams{method: "GET", url: url.String()})
-	s.assertErrorResponse(c, resp, http.StatusNotFound, `unknown model: "dead-beef-123456"`)
+	s.assertErrorResponse(c, resp, http.StatusNotFound, `.*unknown model: "dead-beef-123456"$`)
 }
 
 func (s *charmsSuite) TestGetReturnsManifest(c *gc.C) {
@@ -629,6 +629,13 @@ func (s *charmsSuite) TestNoTempFilesLeftBehind(c *gc.C) {
 	c.Check(files, gc.HasLen, 0)
 }
 
+func (s *charmsSuite) TestPOST_BadCharmNameErrorMessage(c *gc.C) {
+	url := s.charmsURL(c, "url=local:quantal/bad-name-1&file=revision")
+	url.Path = "/model/dead-beef-123456/charms"
+	resp := s.authRequest(c, httpRequestParams{method: "POST", url: url.String()})
+	s.assertErrorResponse(c, resp, http.StatusNotFound, `.*unknown model: "dead-beef-123456"$`)
+}
+
 type charmsWithMacaroonsSuite struct {
 	charmsCommonSuite
 }
@@ -647,7 +654,7 @@ func (s *charmsWithMacaroonsSuite) TestWithNoBasicAuthReturnsDischargeRequiredEr
 	})
 
 	charmResponse := s.assertResponse(c, resp, http.StatusUnauthorized)
-	c.Assert(charmResponse.Error, gc.Equals, "verification failed: no macaroons")
+	c.Assert(charmResponse.Error, gc.Matches, ".*verification failed: no macaroons$")
 	c.Assert(charmResponse.ErrorCode, gc.Equals, params.CodeDischargeRequired)
 	c.Assert(charmResponse.ErrorInfo, gc.NotNil)
 	c.Assert(charmResponse.ErrorInfo.Macaroon, gc.NotNil)
@@ -665,7 +672,7 @@ func (s *charmsWithMacaroonsSuite) TestCanPostWithDischargedMacaroon(c *gc.C) {
 		url:         s.charmsURI(c, ""),
 		contentType: "foo/bar",
 	})
-	s.assertErrorResponse(c, resp, http.StatusBadRequest, "expected Content-Type: application/zip.+")
+	s.assertErrorResponse(c, resp, http.StatusBadRequest, ".*expected Content-Type: application/zip.+")
 	c.Assert(checkCount, gc.Equals, 1)
 }
 
