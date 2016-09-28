@@ -35,9 +35,9 @@ displayed if a key is not specified.
 
 Examples:
 
-    juju get-controller-config
-    juju get-controller-config api-port
-    juju get-controller-config -c mycontroller
+    juju controller-config
+    juju controller-config api-port
+    juju controller-config -c mycontroller
 
 See also:
     controllers
@@ -45,7 +45,7 @@ See also:
 
 func (c *getConfigCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "get-controller-config",
+		Name:    "controller-config",
 		Args:    "[<attribute key>]",
 		Purpose: "Displays configuration settings for a controller.",
 		Doc:     strings.TrimSpace(getControllerHelpDoc),
