@@ -358,7 +358,7 @@ func opRecvTimeout(c *gc.C, st *state.State, opc <-chan dummy.Operation, kinds .
 }
 
 func (s *cmdControllerSuite) TestGetControllerConfigYAML(c *gc.C) {
-	context := s.run(c, "get-controller-config", "--format=yaml")
+	context := s.run(c, "controller-config", "--format=yaml")
 	controllerCfg, err := s.State.ControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	cfgYaml, err := yaml.Marshal(controllerCfg)
