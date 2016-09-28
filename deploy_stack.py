@@ -829,7 +829,7 @@ class BootstrapManager:
             else:
                 artifacts_dir = os.path.join(
                     self.log_dir, patch_dir, client.env.environment)
-            os.mkdir(artifacts_dir)
+            os.makedirs(artifacts_dir)
             dump_env_logs_known_hosts(
                 client, artifacts_dir, runtime_config, known_hosts)
 

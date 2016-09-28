@@ -315,8 +315,12 @@ def assess_longrun_perf(bs_manager, test_length):
         action_busy(new_client, applications)
         action_cleanup(new_client)
 
-        patch_dir_name = 'temp_logging_{}'.format(run_count)
-        bs_manager.dump_all_logs(patch_dir_name)
+        try:
+            patch_dir_name = 'temp_logging_{}'.format(run_count)
+            bs_manager.dump_all_logs(patch_dir_name)
+        except Exception as e:
+            print('Failed to log details.')
+            print(e)
         action_rest(Rest.medium)
         run_count += 1
 
