@@ -536,6 +536,31 @@ type machineStorageParams struct {
 	filesystemAttachments map[names.FilesystemTag]FilesystemAttachmentParams
 }
 
+func combineMachineStorageParams(lhs, rhs *machineStorageParams) *machineStorageParams {
+	out := &machineStorageParams{}
+	out.volumes = append(lhs.volumes[:], rhs.volumes...)
+	out.filesystems = append(lhs.filesystems[:], rhs.filesystems...)
+	if lhs.volumeAttachments != nil || rhs.volumeAttachments != nil {
+		out.volumeAttachments = make(map[names.VolumeTag]VolumeAttachmentParams)
+		for k, v := range lhs.volumeAttachments {
+			out.volumeAttachments[k] = v
+		}
+		for k, v := range rhs.volumeAttachments {
+			out.volumeAttachments[k] = v
+		}
+	}
+	if lhs.filesystemAttachments != nil || rhs.filesystemAttachments != nil {
+		out.filesystemAttachments = make(map[names.FilesystemTag]FilesystemAttachmentParams)
+		for k, v := range lhs.filesystemAttachments {
+			out.filesystemAttachments[k] = v
+		}
+		for k, v := range rhs.filesystemAttachments {
+			out.filesystemAttachments[k] = v
+		}
+	}
+	return out
+}
+
 // machineStorageOps creates txn.Ops for creating volumes, filesystems,
 // and attachments to the specified machine. The results are the txn.Ops,
 // and the tags of volumes and filesystems newly attached to the machine.

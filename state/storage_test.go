@@ -25,12 +25,6 @@ import (
 	"github.com/juju/juju/testing/factory"
 )
 
-type StorageStateSuite struct {
-	StorageStateSuiteBase
-}
-
-var _ = gc.Suite(&StorageStateSuite{})
-
 type StorageStateSuiteBase struct {
 	ConnSuite
 }
@@ -110,7 +104,7 @@ func (s *StorageStateSuiteBase) setupMixedScopeStorageService(c *gc.C, kind stri
 	return s.AddTestingServiceWithStorage(c, "storage-"+kind+"2", ch, storageCons)
 }
 
-func (s *StorageStateSuite) storageInstanceExists(c *gc.C, tag names.StorageTag) bool {
+func (s *StorageStateSuiteBase) storageInstanceExists(c *gc.C, tag names.StorageTag) bool {
 	_, err := state.TxnRevno(
 		s.State,
 		state.StorageInstancesC,
@@ -334,6 +328,12 @@ func assertMachineStorageRefs(c *gc.C, st *state.State, m names.MachineTag) {
 func makeStorageCons(pool string, size, count uint64) state.StorageConstraints {
 	return state.StorageConstraints{Pool: pool, Size: size, Count: count}
 }
+
+type StorageStateSuite struct {
+	StorageStateSuiteBase
+}
+
+var _ = gc.Suite(&StorageStateSuite{})
 
 func (s *StorageStateSuite) TestAddServiceStorageConstraintsDefault(c *gc.C) {
 	ch := s.AddTestingCharm(c, "storage-block")
@@ -942,3 +942,90 @@ func (c byStorageConfigName) Swap(a, b int) {
 // - StorageInstance without attachments is removed by Destroy
 // - concurrent add-unit and StorageAttachment removal does not
 //   remove storage instance.
+
+type StorageSubordinateStateSuite struct {
+	StorageStateSuiteBase
+
+	mysql                  *state.Application
+	mysqlUnit              *state.Unit
+	mysqlRelunit           *state.RelationUnit
+	subordinateApplication *state.Application
+	relation               *state.Relation
+}
+
+var _ = gc.Suite(&StorageSubordinateStateSuite{})
+
+func (s *StorageSubordinateStateSuite) SetUpTest(c *gc.C) {
+	s.StorageStateSuiteBase.SetUpTest(c)
+
+	var err error
+	storageCharm := s.AddTestingCharm(c, "storage-filesystem-subordinate")
+	s.subordinateApplication = s.AddTestingService(c, "storage-filesystem-subordinate", storageCharm)
+	s.mysql = s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	s.mysqlUnit, err = s.mysql.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+
+	eps, err := s.State.InferEndpoints("mysql", "storage-filesystem-subordinate")
+	c.Assert(err, jc.ErrorIsNil)
+	s.relation, err = s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+	s.mysqlRelunit, err = s.relation.Unit(s.mysqlUnit)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *StorageSubordinateStateSuite) TestSubordinateStoragePrincipalUnassigned(c *gc.C) {
+	storageTag := names.NewStorageTag("data/0")
+	exists := s.storageInstanceExists(c, storageTag)
+	c.Assert(exists, jc.IsFalse)
+
+	err := s.mysqlRelunit.EnterScope(nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// The subordinate unit will have been created, along with its storage.
+	exists = s.storageInstanceExists(c, storageTag)
+	c.Assert(exists, jc.IsTrue)
+
+	// The principal unit is not yet assigned to a machine, so there should
+	// be no filesystem associated with the storage instance yet.
+	_, err = s.State.StorageInstanceFilesystem(storageTag)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+
+	// Assigning the principal unit to a machine should cause the subordinate
+	// unit's machine storage to be created.
+	err = s.State.AssignUnit(s.mysqlUnit, state.AssignCleanEmpty)
+	c.Assert(err, jc.ErrorIsNil)
+	_ = s.storageInstanceFilesystem(c, storageTag)
+}
+
+func (s *StorageSubordinateStateSuite) TestSubordinateStoragePrincipalAssigned(c *gc.C) {
+	err := s.State.AssignUnit(s.mysqlUnit, state.AssignCleanEmpty)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.mysqlRelunit.EnterScope(nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// The subordinate unit will have been created, along with its storage.
+	storageTag := names.NewStorageTag("data/0")
+	exists := s.storageInstanceExists(c, storageTag)
+	c.Assert(exists, jc.IsTrue)
+
+	// The principal unit was assigned to a machine when the subordinate
+	// unit was created, so there should be a filesystem associated with
+	// the storage instance now.
+	_ = s.storageInstanceFilesystem(c, storageTag)
+}
+
+func (s *StorageSubordinateStateSuite) TestSubordinateStoragePrincipalAssignRace(c *gc.C) {
+	// Add the subordinate before attempting to commit the transaction
+	// that assigns the unit to a machine. The transaction should fail
+	// and be reattempted with the knowledge of the subordinate, and
+	// add the subordinate's storage.
+	defer state.SetBeforeHooks(c, s.State, func() {
+		err := s.mysqlRelunit.EnterScope(nil)
+		c.Assert(err, jc.ErrorIsNil)
+	}).Check()
+
+	err := s.State.AssignUnit(s.mysqlUnit, state.AssignCleanEmpty)
+	c.Assert(err, jc.ErrorIsNil)
+	_ = s.storageInstanceFilesystem(c, names.NewStorageTag("data/0"))
+}
