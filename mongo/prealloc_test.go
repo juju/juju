@@ -96,7 +96,7 @@ func (s *preallocSuite) TestFsAvailSpaceErrors(c *gc.C) {
 		desc: "result is non-numeric",
 		output: `Filesystem     1K-blocks    Used Available Use% Mounted on
     /dev/vda1        8124856 1365292       abc  18% /`,
-		err: `strconv.ParseInt: parsing "abc": invalid syntax`,
+		err: `strconv.(ParseInt|Atoi): parsing "abc": invalid syntax`,
 	}, {
 		desc:   "not enough lines",
 		output: "abc",

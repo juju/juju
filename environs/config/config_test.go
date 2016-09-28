@@ -55,7 +55,7 @@ var sampleConfig = testing.Attrs{
 	"firewall-mode":             config.FwInstance,
 	"admin-secret":              "foo",
 	"unknown":                   "my-unknown",
-	"ca-cert":                   caCert,
+	"ca-cert":                   testing.CACert,
 	"ssl-hostname-verification": true,
 	"development":               false,
 	"state-port":                1234,
@@ -292,8 +292,8 @@ var configTests = []configTest{
 		attrs: testing.Attrs{
 			"type":           "my-type",
 			"name":           "my-name",
-			"ca-cert":        caCert,
-			"ca-private-key": caKey,
+			"ca-cert":        testing.CACert,
+			"ca-private-key": testing.CAKey,
 		},
 	}, {
 		about:       "Mismatched CA cert and key",
@@ -301,10 +301,10 @@ var configTests = []configTest{
 		attrs: testing.Attrs{
 			"type":           "my-type",
 			"name":           "my-name",
-			"ca-cert":        caCert,
-			"ca-private-key": caKey2,
+			"ca-cert":        testing.CACert,
+			"ca-private-key": testing.OtherCAKey,
 		},
-		err: "bad CA certificate/key in configuration: crypto/tls: private key does not match public key",
+		err: "bad CA certificate/key in configuration: (crypto/)?tls: private key does not match public key",
 	}, {
 		about:       "Invalid CA cert",
 		useDefaults: config.UseDefaults,
@@ -320,10 +320,10 @@ var configTests = []configTest{
 		attrs: testing.Attrs{
 			"type":           "my-type",
 			"name":           "my-name",
-			"ca-cert":        caCert,
+			"ca-cert":        testing.CACert,
 			"ca-private-key": invalidCAKey,
 		},
-		err: "bad CA certificate/key in configuration: crypto/tls:.*",
+		err: "bad CA certificate/key in configuration: (crypto/)?tls:.*",
 	}, {
 		about:       "CA cert specified as non-existent file",
 		useDefaults: config.UseDefaults,
@@ -879,7 +879,7 @@ var configTests = []configTest{
 			"secret-key":                "a-secret-key",
 			"access-key":                "an-access-key",
 			"agent-version":             "1.13.2",
-			"ca-cert":                   caCert,
+			"ca-cert":                   testing.CACert,
 			"firewall-mode":             "instance",
 			"type":                      "ec2",
 		},
@@ -1011,12 +1011,12 @@ func (s *ConfigSuite) TestConfig(c *gc.C) {
 		{".ssh/authorized_keys", "auth0\n# first\nauth1\n\n"},
 		{".ssh/authorized_keys2", "auth2\nauth3\n"},
 
-		{".juju/my-name-cert.pem", caCert},
-		{".juju/my-name-private-key.pem", caKey},
-		{".juju/cacert2.pem", caCert2},
-		{".juju/cakey2.pem", caKey2},
-		{"othercert.pem", caCert3},
-		{"otherkey.pem", caKey3},
+		{".juju/my-name-cert.pem", testing.CACert},
+		{".juju/my-name-private-key.pem", testing.CAKey},
+		{".juju/cacert2.pem", testing.OtherCACert},
+		{".juju/cakey2.pem", testing.OtherCAKey},
+		{"othercert.pem", testing.CACert},
+		{"otherkey.pem", testing.CAKey},
 	}
 	s.FakeHomeSuite.Home.AddFiles(c, files...)
 	for i, test := range configTests {
@@ -1041,9 +1041,9 @@ var noCertFilesTests = []configTest{
 			"type":            "my-type",
 			"name":            "my-name",
 			"authorized-keys": testing.FakeAuthKeys,
-			"ca-private-key":  caKey,
+			"ca-private-key":  testing.CAKey,
 		},
-		err: "bad CA certificate/key in configuration: crypto/tls:.*",
+		err: "bad CA certificate/key in configuration: (crypto/)?tls:.*",
 	},
 }
 
@@ -1062,7 +1062,7 @@ var emptyCertFilesTests = []configTest{
 			"type":            "my-type",
 			"name":            "my-name",
 			"authorized-keys": testing.FakeAuthKeys,
-			"ca-private-key":  caKey,
+			"ca-private-key":  testing.CAKey,
 		},
 		err: fmt.Sprintf(`file ".*%smy-name-cert.pem" is empty`, regexp.QuoteMeta(string(os.PathSeparator))),
 	}, {
@@ -1081,7 +1081,7 @@ var emptyCertFilesTests = []configTest{
 			"type":            "my-type",
 			"name":            "my-name",
 			"authorized-keys": testing.FakeAuthKeys,
-			"ca-cert":         caCert,
+			"ca-cert":         testing.CACert,
 		},
 		err: fmt.Sprintf(`file ".*%smy-name-private-key.pem" is empty`, regexp.QuoteMeta(string(os.PathSeparator))),
 	}, /* {
@@ -1400,7 +1400,7 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 		"firewall-mode":             config.FwInstance,
 		"admin-secret":              "foo",
 		"unknown":                   "my-unknown",
-		"ca-cert":                   caCert,
+		"ca-cert":                   testing.CACert,
 		"ssl-hostname-verification": true,
 		"development":               false,
 		"state-port":                1234,
@@ -1576,8 +1576,8 @@ func (s *ConfigSuite) TestValidateChange(c *gc.C) {
 func (s *ConfigSuite) addJujuFiles(c *gc.C) {
 	s.FakeHomeSuite.Home.AddFiles(c, []gitjujutesting.TestFile{
 		{".ssh/id_rsa.pub", "rsa\n"},
-		{".juju/myenv-cert.pem", caCert},
-		{".juju/myenv-private-key.pem", caKey},
+		{".juju/myenv-cert.pem", testing.CACert},
+		{".juju/myenv-private-key.pem", testing.CAKey},
 	}...)
 }
 
@@ -1965,84 +1965,6 @@ func (s *specializedCharmRepo) WithTestMode() charmrepo.Interface {
 	s.testMode = true
 	return s
 }
-
-var caCert = `
------BEGIN CERTIFICATE-----
-MIIBjDCCATigAwIBAgIBADALBgkqhkiG9w0BAQUwHjENMAsGA1UEChMEanVqdTEN
-MAsGA1UEAxMEcm9vdDAeFw0xMjExMDkxNjQwMjhaFw0yMjExMDkxNjQ1MjhaMB4x
-DTALBgNVBAoTBGp1anUxDTALBgNVBAMTBHJvb3QwWTALBgkqhkiG9w0BAQEDSgAw
-RwJAduA1Gnb2VJLxNGfG4St0Qy48Y3q5Z5HheGtTGmti/FjlvQvScCFGCnJG7fKA
-Knd7ia3vWg7lxYkIvMPVP88LAQIDAQABo2YwZDAOBgNVHQ8BAf8EBAMCAKQwEgYD
-VR0TAQH/BAgwBgEB/wIBATAdBgNVHQ4EFgQUlvKX8vwp0o+VdhdhoA9O6KlOm00w
-HwYDVR0jBBgwFoAUlvKX8vwp0o+VdhdhoA9O6KlOm00wCwYJKoZIhvcNAQEFA0EA
-LlNpevtFr8gngjAFFAO/FXc7KiZcCrA5rBfb/rEy297lIqmKt5++aVbLEPyxCIFC
-r71Sj63TUTFWtRZAxvn9qQ==
------END CERTIFICATE-----
-`[1:]
-
-var caKey = `
------BEGIN RSA PRIVATE KEY-----
-MIIBOQIBAAJAduA1Gnb2VJLxNGfG4St0Qy48Y3q5Z5HheGtTGmti/FjlvQvScCFG
-CnJG7fKAKnd7ia3vWg7lxYkIvMPVP88LAQIDAQABAkEAsFOdMSYn+AcF1M/iBfjo
-uQWJ+Zz+CgwuvumjGNsUtmwxjA+hh0fCn0Ah2nAt4Ma81vKOKOdQ8W6bapvsVDH0
-6QIhAJOkLmEKm4H5POQV7qunRbRsLbft/n/SHlOBz165WFvPAiEAzh9fMf70std1
-sVCHJRQWKK+vw3oaEvPKvkPiV5ui0C8CIGNsvybuo8ald5IKCw5huRlFeIxSo36k
-m3OVCXc6zfwVAiBnTUe7WcivPNZqOC6TAZ8dYvdWo4Ifz3jjpEfymjid1wIgBIJv
-ERPyv2NQqIFQZIyzUP7LVRIWfpFFOo9/Ww/7s5Y=
------END RSA PRIVATE KEY-----
-`[1:]
-
-var caCert2 = `
------BEGIN CERTIFICATE-----
-MIIBjTCCATmgAwIBAgIBADALBgkqhkiG9w0BAQUwHjENMAsGA1UEChMEanVqdTEN
-MAsGA1UEAxMEcm9vdDAeFw0xMjExMDkxNjQxMDhaFw0yMjExMDkxNjQ2MDhaMB4x
-DTALBgNVBAoTBGp1anUxDTALBgNVBAMTBHJvb3QwWjALBgkqhkiG9w0BAQEDSwAw
-SAJBAJkSWRrr81y8pY4dbNgt+8miSKg4z6glp2KO2NnxxAhyyNtQHKvC+fJALJj+
-C2NhuvOv9xImxOl3Hg8fFPCXCtcCAwEAAaNmMGQwDgYDVR0PAQH/BAQDAgCkMBIG
-A1UdEwEB/wQIMAYBAf8CAQEwHQYDVR0OBBYEFOsX/ZCqKzWCAaTTVcWsWKT5Msow
-MB8GA1UdIwQYMBaAFOsX/ZCqKzWCAaTTVcWsWKT5MsowMAsGCSqGSIb3DQEBBQNB
-AAVV57jetEzJQnjgBzhvx/UwauFn78jGhXfV5BrQmxIb4SF4DgSCFstPwUQOAr8h
-XXzJqBQH92KYmp+y3YXDoMQ=
------END CERTIFICATE-----
-`[1:]
-
-var caKey2 = `
------BEGIN RSA PRIVATE KEY-----
-MIIBOQIBAAJBAJkSWRrr81y8pY4dbNgt+8miSKg4z6glp2KO2NnxxAhyyNtQHKvC
-+fJALJj+C2NhuvOv9xImxOl3Hg8fFPCXCtcCAwEAAQJATQNzO11NQvJS5U6eraFt
-FgSFQ8XZjILtVWQDbJv8AjdbEgKMHEy33icsAKIUAx8jL9kjq6K9kTdAKXZi9grF
-UQIhAPD7jccIDUVm785E5eR9eisq0+xpgUIa24Jkn8cAlst5AiEAopxVFl1auer3
-GP2In3pjdL4ydzU/gcRcYisoJqwHpM8CIHtqmaXBPeq5WT9ukb5/dL3+5SJCtmxA
-jQMuvZWRe6khAiBvMztYtPSDKXRbCZ4xeQ+kWSDHtok8Y5zNoTeu4nvDrwIgb3Al
-fikzPveC5g6S6OvEQmyDz59tYBubm2XHgvxqww0=
------END RSA PRIVATE KEY-----
-`[1:]
-
-var caCert3 = `
------BEGIN CERTIFICATE-----
-MIIBjTCCATmgAwIBAgIBADALBgkqhkiG9w0BAQUwHjENMAsGA1UEChMEanVqdTEN
-MAsGA1UEAxMEcm9vdDAeFw0xMjExMDkxNjQxMjlaFw0yMjExMDkxNjQ2MjlaMB4x
-DTALBgNVBAoTBGp1anUxDTALBgNVBAMTBHJvb3QwWjALBgkqhkiG9w0BAQEDSwAw
-SAJBAIW7CbHFJivvV9V6mO8AGzJS9lqjUf6MdEPsdF6wx2Cpzr/lSFIggCwRA138
-9MuFxflxb/3U8Nq+rd8rVtTgFMECAwEAAaNmMGQwDgYDVR0PAQH/BAQDAgCkMBIG
-A1UdEwEB/wQIMAYBAf8CAQEwHQYDVR0OBBYEFJafrxqByMN9BwGfcmuF0Lw/1QII
-MB8GA1UdIwQYMBaAFJafrxqByMN9BwGfcmuF0Lw/1QIIMAsGCSqGSIb3DQEBBQNB
-AHq3vqNhxya3s33DlQfSj9whsnqM0Nm+u8mBX/T76TF5rV7+B33XmYzSyfA3yBi/
-zHaUR/dbHuiNTO+KXs3/+Y4=
------END CERTIFICATE-----
-`[1:]
-
-var caKey3 = `
------BEGIN RSA PRIVATE KEY-----
-MIIBOgIBAAJBAIW7CbHFJivvV9V6mO8AGzJS9lqjUf6MdEPsdF6wx2Cpzr/lSFIg
-gCwRA1389MuFxflxb/3U8Nq+rd8rVtTgFMECAwEAAQJAaivPi4qJPrJb2onl50H/
-VZnWKqmljGF4YQDWduMEt7GTPk+76x9SpO7W4gfY490Ivd9DEXfbr/KZqhwWikNw
-LQIhALlLfRXLF2ZfToMfB1v1v+jith5onAu24O68mkdRc5PLAiEAuMJ/6U07hggr
-Ckf9OT93wh84DK66h780HJ/FUHKcoCMCIDsPZaJBpoa50BOZG0ZjcTTwti3BGCPf
-uZg+w0oCGz27AiEAsUCYKqEXy/ymHhT2kSecozYENdajyXvcaOG3EPkD3nUCICOP
-zatzs7c/4mx4a0JBG6Za0oEPUcm2I34is50KSohz
------END RSA PRIVATE KEY-----
-`[1:]
 
 var invalidCAKey = `
 -----BEGIN RSA PRIVATE KEY-----

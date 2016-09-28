@@ -229,13 +229,13 @@ func (*HostPortSuite) TestParseHostPortsErrors(c *gc.C) {
 		err:   `cannot parse " " as address:port: missing port in address  `,
 	}, {
 		input: ":",
-		err:   `cannot parse ":" port: strconv.ParseInt: parsing "": invalid syntax`,
+		err:   `cannot parse ":" port: strconv.(ParseInt|Atoi): parsing "": invalid syntax`,
 	}, {
 		input: "host",
 		err:   `cannot parse "host" as address:port: missing port in address host`,
 	}, {
 		input: "host:port",
-		err:   `cannot parse "host:port" port: strconv.ParseInt: parsing "port": invalid syntax`,
+		err:   `cannot parse "host:port" port: strconv.(ParseInt|Atoi): parsing "port": invalid syntax`,
 	}, {
 		input: "::1",
 		err:   `cannot parse "::1" as address:port: too many colons in address ::1`,
@@ -244,7 +244,7 @@ func (*HostPortSuite) TestParseHostPortsErrors(c *gc.C) {
 		err:   `cannot parse "1.2.3.4" as address:port: missing port in address 1.2.3.4`,
 	}, {
 		input: "1.2.3.4:foo",
-		err:   `cannot parse "1.2.3.4:foo" port: strconv.ParseInt: parsing "foo": invalid syntax`,
+		err:   `cannot parse "1.2.3.4:foo" port: strconv.(ParseInt|Atoi): parsing "foo": invalid syntax`,
 	}} {
 		c.Logf("test %d: input %q", i, test.input)
 		// First test all error cases with a single argument.

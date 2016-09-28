@@ -151,20 +151,6 @@ func (r *RestoreSuite) TestSetAgentAddressScript(c *gc.C) {
 	}
 }
 
-var caCertPEM = `
------BEGIN CERTIFICATE-----
-MIIBnTCCAUmgAwIBAgIBADALBgkqhkiG9w0BAQUwJjENMAsGA1UEChMEanVqdTEV
-MBMGA1UEAxMManVqdSB0ZXN0aW5nMB4XDTEyMTExNDE0Mzg1NFoXDTIyMTExNDE0
-NDM1NFowJjENMAsGA1UEChMEanVqdTEVMBMGA1UEAxMManVqdSB0ZXN0aW5nMFow
-CwYJKoZIhvcNAQEBA0sAMEgCQQCCOOpn9aWKcKr2GQGtygwD7PdfNe1I9BYiPAqa
-2I33F5+6PqFdfujUKvoyTJI6XG4Qo/CECaaN9smhyq9DxzMhAgMBAAGjZjBkMA4G
-A1UdDwEB/wQEAwIABDASBgNVHRMBAf8ECDAGAQH/AgEBMB0GA1UdDgQWBBQQDswP
-FQGeGMeTzPbHW62EZbbTJzAfBgNVHSMEGDAWgBQQDswPFQGeGMeTzPbHW62EZbbT
-JzALBgkqhkiG9w0BAQUDQQAqZzN0DqUyEfR8zIanozyD2pp10m9le+ODaKZDDNfH
-8cB2x26F1iZ8ccq5IC2LtQf1IKJnpTcYlLuDvW6yB96g
------END CERTIFICATE-----
-`
-
 func (r *RestoreSuite) TestNewDialInfo(c *gc.C) {
 	cases := []struct {
 		machineTag       string
@@ -211,14 +197,14 @@ func (r *RestoreSuite) TestNewDialInfo(c *gc.C) {
 			Nonce:             "dummyNonce",
 			StateAddresses:    []string{"fakeStateAddress:1234"},
 			APIAddresses:      []string{"fakeAPIAddress:12345"},
-			CACert:            caCertPEM,
+			CACert:            coretesting.CACert,
 		}
 		statePort := 12345
 		privateAddress := "dummyPrivateAddress"
 		servingInfo := params.StateServingInfo{
 			APIPort:        1234,
 			StatePort:      statePort,
-			Cert:           caCertPEM,
+			Cert:           coretesting.CACert,
 			CAPrivateKey:   "a ca key",
 			PrivateKey:     "a key",
 			SharedSecret:   "a secret",
