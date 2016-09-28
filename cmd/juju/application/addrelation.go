@@ -44,12 +44,7 @@ func (c *addRelationCommand) Info() *cmd.Info {
 }
 
 func (c *addRelationCommand) Init(args []string) error {
-	// Must have only 2 arguments
 	if len(args) != 2 {
-		return errors.Errorf("a relation must involve two applications")
-	}
-	// None of the arguments can be empty.
-	if args[0] == "" || args[1] == "" {
 		return errors.Errorf("a relation must involve two applications")
 	}
 	c.Endpoints = args

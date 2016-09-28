@@ -34,25 +34,17 @@ func (s *RemoveRelationSuite) runRemoveRelation(c *gc.C, args ...string) error {
 	return err
 }
 
-func (s *RemoveRelationSuite) TestRemoveRelationNotEnoughArguments(c *gc.C) {
+func (s *RemoveRelationSuite) TestRemoveRelationWrongNumberOfArguments(c *gc.C) {
 	// No arguments
 	err := s.runRemoveRelation(c)
 	c.Assert(err, gc.ErrorMatches, "a relation must involve two applications")
 
-	// 1 empty argument
+	// 1 argument
 	err = s.runRemoveRelation(c, "")
 	c.Assert(err, gc.ErrorMatches, "a relation must involve two applications")
 
-	// 2 empty arguments
-	err = s.runRemoveRelation(c, "", "")
-	c.Assert(err, gc.ErrorMatches, "a relation must involve two applications")
-
-	// 1 empty and 1 non-empty arguments
-	err = s.runRemoveRelation(c, "application1", "")
-	c.Assert(err, gc.ErrorMatches, "a relation must involve two applications")
-
-	// 1 empty and 1 non-empty arguments
-	err = s.runRemoveRelation(c, "", "application2")
+	// More than 2 arguments
+	err = s.runRemoveRelation(c, "", "", "")
 	c.Assert(err, gc.ErrorMatches, "a relation must involve two applications")
 }
 

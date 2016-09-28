@@ -37,25 +37,17 @@ func (s *AddRelationSuite) runAddRelation(c *gc.C, args ...string) error {
 	return err
 }
 
-func (s *AddRelationSuite) TestAddRelationNotEnoughArguments(c *gc.C) {
+func (s *AddRelationSuite) TestAddRelationWrongNumberOfArguments(c *gc.C) {
 	// No arguments
 	err := s.runAddRelation(c)
 	c.Assert(err, gc.ErrorMatches, "a relation must involve two applications")
 
-	// 1 empty argument
+	// 1 argument
 	err = s.runAddRelation(c, "")
 	c.Assert(err, gc.ErrorMatches, "a relation must involve two applications")
 
-	// 2 empty arguments
-	err = s.runAddRelation(c, "", "")
-	c.Assert(err, gc.ErrorMatches, "a relation must involve two applications")
-
-	// 1 empty and 1 non-empty arguments
-	err = s.runAddRelation(c, "application1", "")
-	c.Assert(err, gc.ErrorMatches, "a relation must involve two applications")
-
-	// 1 empty and 1 non-empty arguments
-	err = s.runAddRelation(c, "", "application2")
+	// more than 2 arguments
+	err = s.runAddRelation(c, "", "", "")
 	c.Assert(err, gc.ErrorMatches, "a relation must involve two applications")
 }
 

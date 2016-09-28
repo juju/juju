@@ -71,10 +71,6 @@ func (c *removeRelationCommand) Init(args []string) error {
 	if len(args) != 2 {
 		return errors.Errorf("a relation must involve two applications")
 	}
-	// None of the arguments can be empty.
-	if args[0] == "" || args[1] == "" {
-		return errors.Errorf("a relation must involve two applications")
-	}
 	c.Endpoints = args
 	return nil
 }
