@@ -68,7 +68,6 @@ from jujupy import (
     JUJU_DEV_FEATURE_FLAGS,
     KILL_CONTROLLER,
     Machine,
-    make_client,
     make_safe_config,
     parse_new_state_server_from_error,
     SimpleEnvironment,
@@ -6693,43 +6692,6 @@ working: 1 ....................................................................
         ])
         reporter.finish()
         self.assertEqual(sio.getvalue(), changes[-1] + "\n")
-
-
-class TestMakeClient(TestCase):
-
-    @contextmanager
-    def make_client_cxt(self):
-        td = temp_dir()
-        te = temp_env({'environments': {'foo': {
-            'orig-name': 'foo', 'name': 'foo'}}})
-        with td as juju_path, te, patch('subprocess.Popen',
-                                        side_effect=ValueError):
-            with patch('subprocess.check_output') as co_mock:
-                co_mock.return_value = '1.18'
-                juju_path = os.path.join(juju_path, 'juju')
-                yield juju_path
-
-    def test_make_client(self):
-        with self.make_client_cxt() as juju_path:
-            client = make_client(juju_path, False, 'foo', 'bar')
-        self.assertEqual(client.full_path, juju_path)
-        self.assertEqual(client.debug, False)
-        self.assertEqual(client.env.config['orig-name'], 'foo')
-        self.assertEqual(client.env.config['name'], 'bar')
-        self.assertEqual(client.env.environment, 'bar')
-
-    def test_make_client_debug(self):
-        with self.make_client_cxt() as juju_path:
-            client = make_client(juju_path, True, 'foo', 'bar')
-        self.assertEqual(client.debug, True)
-
-    def test_make_client_no_temp_env_name(self):
-        with self.make_client_cxt() as juju_path:
-            client = make_client(juju_path, False, 'foo', None)
-        self.assertEqual(client.full_path, juju_path)
-        self.assertEqual(client.env.config['orig-name'], 'foo')
-        self.assertEqual(client.env.config['name'], 'foo')
-        self.assertEqual(client.env.environment, 'foo')
 
 
 class AssessParseStateServerFromErrorTestCase(TestCase):
