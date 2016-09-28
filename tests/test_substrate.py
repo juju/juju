@@ -812,11 +812,15 @@ class TestAzureARMAccount(TestCase):
 
 class TestMAASAccount(TestCase):
 
+    def get_account(self):
+        """Give a MAASAccount for testing."""
+        config = get_maas_env().config
+        return MAASAccount(
+            config['name'], config['maas-server'], config['maas-oauth'])
+
     @patch('subprocess.check_call', autospec=True)
     def test_login(self, cc_mock):
-        config = get_maas_env().config
-        account = MAASAccount(
-            config['name'], config['maas-server'], config['maas-oauth'])
+        account = self.get_account()
         account.login()
         cc_mock.assert_called_once_with([
             'maas', 'login', 'mas', 'http://10.0.10.10/MAAS/api/2.0/',
@@ -824,16 +828,12 @@ class TestMAASAccount(TestCase):
 
     @patch('subprocess.check_call', autospec=True)
     def test_logout(self, cc_mock):
-        config = get_maas_env().config
-        account = MAASAccount(
-            config['name'], config['maas-server'], config['maas-oauth'])
+        account = self.get_account()
         account.logout()
         cc_mock.assert_called_once_with(['maas', 'logout', 'mas'])
 
     def test_terminate_instances(self):
-        config = get_maas_env().config
-        account = MAASAccount(
-            config['name'], config['maas-server'], config['maas-oauth'])
+        account = self.get_account()
         instance_ids = ['/A/B/C/D/node-1d/', '/A/B/C/D/node-2d/']
         with patch('subprocess.check_output', autospec=True,
                    return_value='{}') as co_mock:
@@ -844,9 +844,7 @@ class TestMAASAccount(TestCase):
             ('maas', 'mas', 'machine', 'release', 'node-2d'))
 
     def test_get_allocated_nodes(self):
-        config = get_maas_env().config
-        account = MAASAccount(
-            config['name'], config['maas-server'], config['maas-oauth'])
+        account = self.get_account()
         node = make_maas_node('maas-node-1.maas')
         allocated_nodes_string = '[%s]' % json.dumps(node)
         with patch('subprocess.check_output', autospec=True,
@@ -857,9 +855,7 @@ class TestMAASAccount(TestCase):
         self.assertEqual(node, allocated['maas-node-1.maas'])
 
     def test_get_allocated_ips(self):
-        config = get_maas_env().config
-        account = MAASAccount(
-            config['name'], config['maas-server'], config['maas-oauth'])
+        account = self.get_account()
         node = make_maas_node('maas-node-1.maas')
         allocated_nodes_string = '[%s]' % json.dumps(node)
         with patch('subprocess.check_output', autospec=True,
@@ -870,9 +866,7 @@ class TestMAASAccount(TestCase):
         self.assertEqual('10.0.30.165', ips['maas-node-1.maas'])
 
     def test_get_allocated_ips_empty(self):
-        config = get_maas_env().config
-        account = MAASAccount(
-            config['name'], config['maas-server'], config['maas-oauth'])
+        account = self.get_account()
         node = make_maas_node('maas-node-1.maas')
         node['ip_addresses'] = []
         allocated_nodes_string = '[%s]' % json.dumps(node)
@@ -884,9 +878,7 @@ class TestMAASAccount(TestCase):
         self.assertEqual({}, ips)
 
     def test_fabrics(self):
-        config = get_maas_env().config
-        account = MAASAccount(
-            config['name'], config['maas-server'], config['maas-oauth'])
+        account = self.get_account()
         with patch('subprocess.check_output', autospec=True,
                    return_value='[]') as co_mock:
             fabrics = account.fabrics()
@@ -894,9 +886,7 @@ class TestMAASAccount(TestCase):
         self.assertEqual([], fabrics)
 
     def test_create_fabric(self):
-        config = get_maas_env().config
-        account = MAASAccount(
-            config['name'], config['maas-server'], config['maas-oauth'])
+        account = self.get_account()
         with patch('subprocess.check_output', autospec=True,
                    return_value='{"id": 1}') as co_mock:
             fabric = account.create_fabric('a-fabric')
@@ -911,9 +901,7 @@ class TestMAASAccount(TestCase):
             self.assertEqual({'id': 1}, fabric)
 
     def test_delete_fabric(self):
-        config = get_maas_env().config
-        account = MAASAccount(
-            config['name'], config['maas-server'], config['maas-oauth'])
+        account = self.get_account()
         with patch('subprocess.check_output', autospec=True,
                    return_value='') as co_mock:
             result = account.delete_fabric(1)
@@ -922,9 +910,7 @@ class TestMAASAccount(TestCase):
         self.assertEqual(None, result)
 
     def test_spaces(self):
-        config = get_maas_env().config
-        account = MAASAccount(
-            config['name'], config['maas-server'], config['maas-oauth'])
+        account = self.get_account()
         with patch('subprocess.check_output', autospec=True,
                    return_value='[]') as co_mock:
             spaces = account.spaces()
@@ -932,9 +918,7 @@ class TestMAASAccount(TestCase):
         self.assertEqual([], spaces)
 
     def test_create_space(self):
-        config = get_maas_env().config
-        account = MAASAccount(
-            config['name'], config['maas-server'], config['maas-oauth'])
+        account = self.get_account()
         with patch('subprocess.check_output', autospec=True,
                    return_value='{"id": 1}') as co_mock:
             fabric = account.create_space('a-space')
@@ -943,9 +927,7 @@ class TestMAASAccount(TestCase):
         self.assertEqual({'id': 1}, fabric)
 
     def test_delete_space(self):
-        config = get_maas_env().config
-        account = MAASAccount(
-            config['name'], config['maas-server'], config['maas-oauth'])
+        account = self.get_account()
         with patch('subprocess.check_output', autospec=True,
                    return_value='') as co_mock:
             result = account.delete_space(1)
@@ -954,9 +936,7 @@ class TestMAASAccount(TestCase):
         self.assertEqual(None, result)
 
     def test_create_vlan(self):
-        config = get_maas_env().config
-        account = MAASAccount(
-            config['name'], config['maas-server'], config['maas-oauth'])
+        account = self.get_account()
         with patch('subprocess.check_output', autospec=True,
                    return_value='{"id": 5000}') as co_mock:
             vlan = account.create_vlan(0, 1)
@@ -970,9 +950,7 @@ class TestMAASAccount(TestCase):
             self.assertEqual({'id': 5000}, vlan)
 
     def test_delete_vlan(self):
-        config = get_maas_env().config
-        account = MAASAccount(
-            config['name'], config['maas-server'], config['maas-oauth'])
+        account = self.get_account()
         with patch('subprocess.check_output', autospec=True,
                    return_value='') as co_mock:
             result = account.delete_vlan(0, 4096)
@@ -981,9 +959,7 @@ class TestMAASAccount(TestCase):
         self.assertEqual(None, result)
 
     def test_interfaces(self):
-        config = get_maas_env().config
-        account = MAASAccount(
-            config['name'], config['maas-server'], config['maas-oauth'])
+        account = self.get_account()
         with patch('subprocess.check_output', autospec=True,
                    return_value='[]') as co_mock:
             interfaces = account.interfaces('node-xyz')
@@ -992,9 +968,7 @@ class TestMAASAccount(TestCase):
         self.assertEqual([], interfaces)
 
     def test_interface_create_vlan(self):
-        config = get_maas_env().config
-        account = MAASAccount(
-            config['name'], config['maas-server'], config['maas-oauth'])
+        account = self.get_account()
         with patch('subprocess.check_output', autospec=True,
                    return_value='{"id": 10}') as co_mock:
             interface = account.interface_create_vlan('node-xyz', 1, 5000)
@@ -1004,9 +978,7 @@ class TestMAASAccount(TestCase):
         self.assertEqual({'id': 10}, interface)
 
     def test_delete_interface(self):
-        config = get_maas_env().config
-        account = MAASAccount(
-            config['name'], config['maas-server'], config['maas-oauth'])
+        account = self.get_account()
         with patch('subprocess.check_output', autospec=True,
                    return_value='') as co_mock:
             result = account.delete_interface('node-xyz', 10)
@@ -1015,9 +987,7 @@ class TestMAASAccount(TestCase):
         self.assertEqual(None, result)
 
     def test_interface_link_subnet(self):
-        config = get_maas_env().config
-        account = MAASAccount(
-            config['name'], config['maas-server'], config['maas-oauth'])
+        account = self.get_account()
         with patch('subprocess.check_output', autospec=True,
                    return_value='{"id": 10}') as co_mock:
             subnet = account.interface_link_subnet('node-xyz', 10, 'AUTO', 40)
@@ -1036,9 +1006,7 @@ class TestMAASAccount(TestCase):
             self.assertEqual({'id': 10}, subnet)
 
     def test_interface_link_subnet_invalid(self):
-        config = get_maas_env().config
-        account = MAASAccount(
-            config['name'], config['maas-server'], config['maas-oauth'])
+        account = self.get_account()
         with patch('subprocess.check_output', autospec=True,
                    return_value='') as co_mock:
             err_pattern = '^Invalid subnet connection mode: MAGIC$'
@@ -1055,9 +1023,7 @@ class TestMAASAccount(TestCase):
         self.assertEqual(0, co_mock.call_count)
 
     def test_interface_unlink_subnet(self):
-        config = get_maas_env().config
-        account = MAASAccount(
-            config['name'], config['maas-server'], config['maas-oauth'])
+        account = self.get_account()
         with patch('subprocess.check_output', autospec=True,
                    return_value='') as co_mock:
             result = account.interface_unlink_subnet('node-xyz', 10, 20000)
@@ -1066,14 +1032,71 @@ class TestMAASAccount(TestCase):
             'id=20000'))
         self.assertEqual(None, result)
 
+    def test_subnets(self):
+        account = self.get_account()
+        with patch('subprocess.check_output', autospec=True,
+                   return_value='[]') as co_mock:
+            subnets = account.subnets()
+        co_mock.assert_called_once_with(('maas', 'mas', 'subnets', 'read'))
+        self.assertEqual([], subnets)
+
+    def test_create_subnet(self):
+        account = self.get_account()
+        with patch('subprocess.check_output', autospec=True,
+                   return_value='{"id": 1}') as co_mock:
+            subnet = account.create_subnet('10.0.0.0/24')
+            co_mock.assert_called_once_with((
+                'maas', 'mas', 'subnets', 'create', 'cidr=10.0.0.0/24'))
+            self.assertEqual({'id': 1}, subnet)
+            co_mock.reset_mock()
+            subnet = account.create_subnet(
+                '10.10.0.0/24', name='test-subnet', fabric_id='1', vlan_id='5',
+                space='2', gateway_ip='10.10.0.1')
+            co_mock.assert_called_once_with((
+                'maas', 'mas', 'subnets', 'create', 'cidr=10.10.0.0/24',
+                'name=test-subnet', 'fabric=1', 'vlan=5', 'space=2',
+                'gateway_ip=10.10.0.1'))
+            self.assertEqual({'id': 1}, subnet)
+            co_mock.reset_mock()
+            subnet = account.create_subnet(
+                '10.10.0.0/24', name='test-subnet', fabric_id='1', vid='0',
+                space='2', dns_servers='8.8.8.8,8.8.4.4')
+            co_mock.assert_called_once_with((
+                'maas', 'mas', 'subnets', 'create', 'cidr=10.10.0.0/24',
+                'name=test-subnet', 'fabric=1', 'vid=0', 'space=2',
+                'dns_servers=8.8.8.8,8.8.4.4'))
+            self.assertEqual({'id': 1}, subnet)
+
+    def test_create_subnet_invalid(self):
+        account = self.get_account()
+        with patch('subprocess.check_output', autospec=True,
+                   return_value='') as co_mock:
+            err_pattern = '^Must only give one of vlan_id and vid$'
+            with self.assertRaisesRegexp(ValueError, err_pattern):
+                account.create_subnet('10.0.0.0/24', vlan_id=10, vid=1)
+        self.assertEqual(0, co_mock.call_count)
+
+    def test_delete_subnet(self):
+        account = self.get_account()
+        with patch('subprocess.check_output', autospec=True,
+                   return_value='') as co_mock:
+            result = account.delete_subnet(1)
+        co_mock.assert_called_once_with(
+            ('maas', 'mas', 'subnet', 'delete', '1'))
+        self.assertEqual(None, result)
+
 
 class TestMAAS1Account(TestCase):
 
+    def get_account(self):
+        """Give a MAAS1Account for testing."""
+        config = get_maas_env().config
+        return MAAS1Account(
+            config['name'], config['maas-server'], config['maas-oauth'])
+
     @patch('subprocess.check_call', autospec=True)
     def test_login(self, cc_mock):
-        config = get_maas_env().config
-        account = MAAS1Account(
-            config['name'], config['maas-server'], config['maas-oauth'])
+        account = self.get_account()
         account.login()
         cc_mock.assert_called_once_with([
             'maas', 'login', 'mas', 'http://10.0.10.10/MAAS/api/1.0/',
@@ -1081,16 +1104,12 @@ class TestMAAS1Account(TestCase):
 
     @patch('subprocess.check_call', autospec=True)
     def test_logout(self, cc_mock):
-        config = get_maas_env().config
-        account = MAAS1Account(
-            config['name'], config['maas-server'], config['maas-oauth'])
+        account = self.get_account()
         account.logout()
         cc_mock.assert_called_once_with(['maas', 'logout', 'mas'])
 
     def test_terminate_instances(self):
-        config = get_maas_env().config
-        account = MAAS1Account(
-            config['name'], config['maas-server'], config['maas-oauth'])
+        account = self.get_account()
         instance_ids = ['/A/B/C/D/node-1d/', '/A/B/C/D/node-2d/']
         with patch('subprocess.check_output', autospec=True,
                    return_value='{}') as co_mock:
@@ -1101,9 +1120,7 @@ class TestMAAS1Account(TestCase):
             ('maas', 'mas', 'node', 'release', 'node-2d'))
 
     def test_get_allocated_nodes(self):
-        config = get_maas_env().config
-        account = MAAS1Account(
-            config['name'], config['maas-server'], config['maas-oauth'])
+        account = self.get_account()
         node = make_maas_node('maas-node-1.maas')
         allocated_nodes_string = '[%s]' % json.dumps(node)
         with patch('subprocess.check_output', autospec=True,
@@ -1114,9 +1131,7 @@ class TestMAAS1Account(TestCase):
         self.assertEqual(node, allocated['maas-node-1.maas'])
 
     def test_get_allocated_ips(self):
-        config = get_maas_env().config
-        account = MAAS1Account(
-            config['name'], config['maas-server'], config['maas-oauth'])
+        account = self.get_account()
         node = make_maas_node('maas-node-1.maas')
         allocated_nodes_string = '[%s]' % json.dumps(node)
         with patch('subprocess.check_output', autospec=True,
@@ -1127,9 +1142,7 @@ class TestMAAS1Account(TestCase):
         self.assertEqual('10.0.30.165', ips['maas-node-1.maas'])
 
     def test_get_allocated_ips_empty(self):
-        config = get_maas_env().config
-        account = MAAS1Account(
-            config['name'], config['maas-server'], config['maas-oauth'])
+        account = self.get_account()
         node = make_maas_node('maas-node-1.maas')
         node['ip_addresses'] = []
         allocated_nodes_string = '[%s]' % json.dumps(node)
