@@ -174,20 +174,6 @@ def coalesce_agent_status(agent_item):
     return state
 
 
-def make_client(juju_path, debug, env_name, temp_env_name):
-    """Create a new juju client.
-
-    :param juju_path: Full path to the juju binary the client should wrap.
-    :param debug: Debug flag for the client.
-    :param env_name: Name of the environment to use the configuration from.
-    :param temp_env_name: Name of client's model/environment, if None env_name
-    is used."""
-    client = client_from_config(env_name, juju_path, debug)
-    if temp_env_name is not None:
-        client.env.set_model_name(temp_env_name)
-    return client
-
-
 class CannotConnectEnv(subprocess.CalledProcessError):
 
     def __init__(self, e):
