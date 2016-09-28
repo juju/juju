@@ -28,14 +28,18 @@ A new development release of Juju, {version}, is here!
 
 ## How do I get it?
 
-If you are running ubuntu, you can get it from the juju devel ppa:
+If you are running Ubuntu, you can get it from the juju devel ppa:
 
-    sudo apt-add-repository ppa:juju/devel
-    sudo apt update; sudo apt install juju-2.0
+    sudo add-apt-repository ppa:juju/devel
+    sudo apt-get update; sudo apt-get install juju-2.0
 
-Windows, Centos, and OS X users can get a corresponding installer at:
+Or install it from the snap store
 
-    https://launchpad.net/juju-core/+milestone/{version}
+    snap install juju --beta --devmode
+
+Windows, Centos, and MacOS users can get a corresponding installer at:
+
+    https://launchpad.net/juju/+milestone/{version}
 
 
 ## Feedback Appreciated!
@@ -66,11 +70,12 @@ This release may replace version {previous} on {release_date}.
 
 ## How do I get it?
 
-If you are running ubuntu, you can get it from the juju proposed ppa:
+If you are running Ubuntu, you can get it from the juju proposed ppa:
 
-    https://launchpad.net/~juju/+archive/proposed
+    sudo add-apt-repository ppa:juju/proposed
+    sudo apt-get update; sudo apt-get install juju-core
 
-Windows, Centos, and OS X users can get a corresponding installer at:
+Windows, Centos, and MacOS users can get a corresponding installer at:
 
     https://launchpad.net/juju-core/+milestone/{version}
 
@@ -97,7 +102,10 @@ def get_lp_bug_tasks(script, milestone_name):
     """Return an iterators of Lp BugTasks,"""
     lp = Launchpad.login_with(
         script, service_root='https://api.launchpad.net', version='devel')
-    project = lp.projects['juju-core']
+    if milestone_name.startswith('1.'):
+        project = lp.projects['juju-core']
+    else:
+        project = lp.projects['juju']
     milestone = project.getMilestone(name=milestone_name)
     return milestone.searchTasks(status=['Fix Committed'])
 

@@ -10,6 +10,9 @@ import subprocess
 import sys
 
 
+PATCH_EXTENSIONS = (".diff", ".patch")
+
+
 def apply_patch(patch_file, base_dir, dry_run=False, verbose=False):
     """Run external patch command to apply given patch_file to base_dir."""
     patch_cmd = ["patch", "-f", "-u", "-p1", "-r-"]
@@ -40,11 +43,12 @@ def main(argv):
     parser = get_arg_parser()
     args = parser.parse_args(argv[1:])
     try:
-        patches = sorted(os.listdir(args.patchdir))
+        maybe_patches = sorted(os.listdir(args.patchdir))
     except OSError as e:
         parser.error("Could not list patch directory: {}".format(e))
     if not os.path.isdir(args.srctree):
         parser.error("Source tree '{}' not a directory".format(args.srctree))
+    patches = [f for f in maybe_patches if f.endswith(PATCH_EXTENSIONS)]
     patch_count = len(patches)
     print(gettext.ngettext(
         u"Applying {} patch", u"Applying {} patches", patch_count).format(
