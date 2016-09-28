@@ -517,9 +517,8 @@ class MAASAccount:
     def create_vlan(self, fabric_id, vid, name=None):
         """Create a new vlan on fabric with given fabric_id."""
         args = [
-            self.profile, 'vlans', 'create', str(fabric_id),
-            "vid=" + str(vid),
-        ]
+            self.profile, 'vlans', 'create', str(fabric_id), 'vid=' + str(vid),
+            ]
         if name is not None:
             args.append('name=' + name)
         return self._maas(*args)
