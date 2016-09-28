@@ -665,6 +665,8 @@ func PruneLogs(st MongoSessioner, minLogTime time.Time, maxLogsMB int) error {
 
 	pruneCounts := make(map[string]int)
 
+	logger.Tracef("prunning logs with min-log-time=%s, max-log-size=%d MB", minLogTime.String(), maxLogsMB)
+
 	// Remove old log entries (per model UUID to take advantage
 	// of indexes on the logs collection).
 	for _, modelUUID := range modelUUIDs {

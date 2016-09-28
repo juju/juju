@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/tomb.v1"
 
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker"
 )
@@ -20,16 +21,14 @@ type LogPruneParams struct {
 	PruneInterval   time.Duration
 }
 
-const DefaultMaxLogAge = 3 * 24 * time.Hour // 3 days
-const DefaultMaxCollectionMB = 4 * 1024     // 4 GB
 const DefaultPruneInterval = 5 * time.Minute
 
 // NewLogPruneParams returns a LogPruneParams initialised with default
 // values.
-func NewLogPruneParams() *LogPruneParams {
+func NewLogPruneParams(cfg controller.Config) *LogPruneParams {
 	return &LogPruneParams{
-		MaxLogAge:       DefaultMaxLogAge,
-		MaxCollectionMB: DefaultMaxCollectionMB,
+		MaxLogAge:       time.Duration(cfg.MaxLogAge()*24) * time.Hour, // Max log age in hours
+		MaxCollectionMB: cfg.MaxLogSize() * 1024,                       // Max log size in MB
 		PruneInterval:   DefaultPruneInterval,
 	}
 }
