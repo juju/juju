@@ -202,17 +202,19 @@ func PrepareNetworkConfigFromInterfaces(interfaces []network.InterfaceInfo) *Pre
 // might include per-interface networking config if both networkConfig
 // is not nil and its Interfaces field is not empty.
 func newCloudInitConfigWithNetworks(series string, networkConfig *container.NetworkConfig) (cloudinit.CloudConfig, error) {
-	config, err := GenerateNetworkConfig(networkConfig)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	cloudConfig, err := cloudinit.New(series)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	cloudConfig.AddBootTextFile(networkInterfacesFile, config, 0644)
-	cloudConfig.AddRunCmd(raiseJujuNetworkInterfacesScript(systemNetworkInterfacesFile, networkInterfacesFile))
+	if networkConfig != nil {
+		config, err := GenerateNetworkConfig(networkConfig)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		cloudConfig.AddBootTextFile(networkInterfacesFile, config, 0644)
+		cloudConfig.AddRunCmd(raiseJujuNetworkInterfacesScript(systemNetworkInterfacesFile, networkInterfacesFile))
+	}
 
 	return cloudConfig, nil
 }
