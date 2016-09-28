@@ -123,7 +123,7 @@ class MakeReleaseNotes(TestCase):
         self.assertIn(
             'https://jujucharms.com/docs/devel/temp-release-notes', text)
         self.assertIn('snap install juju --beta --devmode', text)
-                
+
     def test_make_notes_with_notable(self):
         # The default value of None implies a stable bug fix release.
         text = make_notes('1.20.1', DEVEL, "* One\n  Lp 1", notable=None)
