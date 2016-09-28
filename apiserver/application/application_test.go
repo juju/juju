@@ -797,7 +797,7 @@ func (s *serviceSuite) TestServiceSetCharmLegacy(c *gc.C) {
 		CharmUrl:        curl.String(),
 		ForceSeries:     true,
 	})
-	c.Assert(err, gc.ErrorMatches, `cannot change a service's series`)
+	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "application" to charm "cs:~who/trusty/dummy-1": cannot change an application's series`)
 }
 
 func (s *serviceSuite) TestServiceSetCharmUnsupportedSeries(c *gc.C) {
@@ -825,7 +825,7 @@ func (s *serviceSuite) TestServiceSetCharmUnsupportedSeries(c *gc.C) {
 		ApplicationName: "application",
 		CharmUrl:        curl.String(),
 	})
-	c.Assert(err, gc.ErrorMatches, `cannot upgrade charm, only these series are supported: trusty, wily`)
+	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "application" to charm "cs:~who/multi-series-1": only these series are supported: trusty, wily`)
 }
 
 func (s *serviceSuite) assertServiceSetCharmSeries(c *gc.C, upgradeCharm, series string) {
@@ -901,7 +901,7 @@ func (s *serviceSuite) TestServiceSetCharmWrongOS(c *gc.C) {
 		CharmUrl:        curl.String(),
 		ForceSeries:     true,
 	})
-	c.Assert(err, gc.ErrorMatches, `cannot upgrade charm, OS "Ubuntu" not supported by charm`)
+	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "application" to charm "cs:~who/multi-series-windows-0": OS "Ubuntu" not supported by charm`)
 }
 
 type testModeCharmRepo struct {
