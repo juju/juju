@@ -82,7 +82,7 @@ class MakeReleaseNotes(TestCase):
         self.assertIn(
             'A new development release of Juju, 1.21-alpha1, is here!',
             text)
-        self.assertIn('sudo apt-add-repository ppa/devel', text)
+        self.assertIn('sudo apt-add-repository ppa:juju/devel', text)
         self.assertIn(
             'https://jujucharms.com/docs/devel/temp-release-notes', text)
 
