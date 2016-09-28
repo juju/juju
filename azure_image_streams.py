@@ -248,6 +248,7 @@ def make_item(version_name, urn_version, full_spec, location_name, endpoint):
             'label': 'release',
             'endpoint': endpoint,
             'release': full_spec[0],
+            'version': full_spec[0],
             }
         )
 

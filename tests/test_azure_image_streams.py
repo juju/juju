@@ -262,6 +262,7 @@ class TestMakeItem(TestCase):
                 'label': 'release',
                 'endpoint': 'http://example.org',
                 'release': 'win95',
+                'version': 'win95',
             }), item)
 
     def test_make_item_centos(self):
@@ -278,6 +279,7 @@ class TestMakeItem(TestCase):
                 'label': 'release',
                 'endpoint': 'http://example.org',
                 'release': 'centos7',
+                'version': 'centos7',
             }), item)
 
 
