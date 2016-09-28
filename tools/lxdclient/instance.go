@@ -76,8 +76,11 @@ type InstanceSpec struct {
 	// Metadata is the instance metadata.
 	Metadata map[string]string
 
-	// Devices to be added at container initialisation time
+	// Devices to be added at container initialisation time.
 	Devices
+
+	// LXD templates to be written before start.
+	Templates
 
 	// TODO(ericsnow) Other possible fields:
 	// Disks

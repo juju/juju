@@ -7,6 +7,8 @@ package lxdclient
 
 import (
 	"fmt"
+	"io/ioutil"
+	"path/filepath"
 	"strings"
 
 	"github.com/juju/errors"
@@ -19,6 +21,12 @@ import (
 
 type Device map[string]string
 type Devices map[string]Device
+
+type Template struct {
+	Content []byte
+	Name    string
+}
+type Templates []Template
 
 // TODO(ericsnow) We probably need to address some of the things that
 // get handled in container/lxc/clonetemplate.go.
@@ -87,6 +95,16 @@ func (client *instanceClient) addInstance(spec InstanceSpec) error {
 		// TODO(ericsnow) Handle different failures (from the async
 		// operation) differently?
 		return errors.Trace(err)
+	}
+
+	templates := shared.VarPath("containers", spec.Name, "templates")
+	for _, tpl := range spec.Templates {
+		tplPath := filepath.Join(templates, tpl.Name)
+		logger.Infof("Writing template %s", tplPath)
+		err := ioutil.WriteFile(tplPath, tpl.Content, 0644)
+		if err != nil {
+			return errors.Annotatef(err, "failed to write template %q", tplPath)
+		}
 	}
 
 	return nil
