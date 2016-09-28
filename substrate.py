@@ -440,6 +440,8 @@ class MAASAccount:
 
     _API_PATH = 'api/2.0/'
 
+    SUBNET_CONNECTION_MODES = frozenset(('AUTO', 'DHCP', 'STATIC', 'LINK_UP'))
+
     def __init__(self, profile, url, oauth):
         self.profile = profile
         self.url = urlparse.urljoin(url, self._API_PATH)
@@ -549,6 +551,31 @@ class MAASAccount:
         """Delete interface on node with given system_id with interface_id."""
         return self._maas(
             self.profile, 'interface', 'delete', system_id, str(interface_id))
+
+    def interface_link_subnet(self, system_id, interface_id, mode, subnet_id,
+                              ip_address=None, default_gateway=False):
+        """Link interface from given system_id and interface_id to subnet."""
+        if mode not in self.SUBNET_CONNECTION_MODES:
+            raise ValueError('Invalid subnet connection mode: {}'.format(mode))
+        if ip_address and mode != 'STATIC':
+            raise ValueError('Must be mode STATIC for ip_address')
+        if default_gateway and mode not in ('AUTO', 'STATIC'):
+            raise ValueError('Must be mode AUTO or STATIC for default_gateway')
+        args = [
+            self.profile, 'interface', 'link-subnet', system_id,
+            str(interface_id), 'mode=' + mode, 'subnet=' + str(subnet_id),
+        ]
+        if ip_address:
+            args.append('ip_address=' + ip_address)
+        if default_gateway:
+            args.append('default_gateway=true')
+        return self._maas(*args)
+
+    def interface_unlink_subnet(self, system_id, interface_id, link_id):
+        """Unlink subnet from interface."""
+        return self._maas(
+            self.profile, 'interface', 'unlink-subnet', system_id,
+            str(interface_id), 'id=' + str(link_id))
 
 
 class MAAS1Account(MAASAccount):
