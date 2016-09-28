@@ -54,11 +54,6 @@ var addressTests = []struct {
 	networks: []string{"private"},
 	expected: "192.168.0.1",
 }, {
-	summary:  "private only, both IPv6 and IPv4",
-	private:  []nova.IPAddress{{6, "fc00::1"}, {4, "192.168.0.1"}},
-	networks: []string{"private"},
-	expected: "fc00::1",
-}, {
 	summary:  "private IPv4 plus (what HP cloud used to do)",
 	private:  []nova.IPAddress{{4, "10.0.0.1"}, {4, "8.8.4.4"}},
 	networks: []string{"private"},
