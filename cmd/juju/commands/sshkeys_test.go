@@ -191,9 +191,9 @@ func (s *ImportKeySuite) TestImportKeys(c *gc.C) {
 	key1 := sshtesting.ValidKeyOne.Key + " user@host"
 	s.setAuthorizedKeys(c, key1)
 
-	context, err := coretesting.RunCommand(c, NewImportKeysCommand(), "lp:validuser", "invalid-key")
+	context, err := coretesting.RunCommand(c, NewImportKeysCommand(), "lp:validuser", "lp:invalid-key")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(coretesting.Stderr(context), gc.Matches, `cannot import key id "invalid-key".*\n`)
+	c.Assert(coretesting.Stderr(context), gc.Matches, `cannot import key id "lp:invalid-key".*\n`)
 	s.assertEnvironKeys(c, key1, sshtesting.ValidKeyThree.Key)
 }
 
@@ -203,6 +203,6 @@ func (s *ImportKeySuite) TestBlockImportKeys(c *gc.C) {
 
 	// Block operation
 	s.BlockAllChanges(c, "TestBlockImportKeys")
-	_, err := coretesting.RunCommand(c, NewImportKeysCommand(), "lp:validuser", "invalid-key")
+	_, err := coretesting.RunCommand(c, NewImportKeysCommand(), "lp:validuser", "lp:invalid-key")
 	s.AssertBlocked(c, err, ".*TestBlockImportKeys.*")
 }
