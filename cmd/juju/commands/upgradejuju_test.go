@@ -83,37 +83,37 @@ var upgradeJujuTests = []struct {
 	args:           []string{"--dev"},
 	expectInitErr:  "flag provided but not defined: --dev",
 }, {
-	about:          "invalid --version value",
+	about:          "invalid --agent-version value",
 	currentVersion: "1.0.0-quantal-amd64",
-	args:           []string{"--version", "invalid-version"},
+	args:           []string{"--agent-version", "invalid-version"},
 	expectInitErr:  "invalid version .*",
 }, {
 	about:          "just major version, no minor specified",
 	currentVersion: "4.2.0-quantal-amd64",
-	args:           []string{"--version", "4"},
+	args:           []string{"--agent-version", "4"},
 	expectInitErr:  `invalid version "4"`,
 }, {
 	about:          "major version upgrade to incompatible version",
 	currentVersion: "2.0.0-quantal-amd64",
 	agentVersion:   "2.0.0",
-	args:           []string{"--version", "5.2.0"},
+	args:           []string{"--agent-version", "5.2.0"},
 	expectErr:      `unknown version "5.2.0"`,
 }, {
 	about:          "major version downgrade to incompatible version",
 	currentVersion: "4.2.0-quantal-amd64",
 	agentVersion:   "4.2.0",
-	args:           []string{"--version", "3.2.0"},
+	args:           []string{"--agent-version", "3.2.0"},
 	expectErr:      "cannot change version from 4.2.0 to 3.2.0",
 }, {
 	about:          "--build-agent with inappropriate version 1",
 	currentVersion: "4.2.0-quantal-amd64",
 	agentVersion:   "4.2.0",
-	args:           []string{"--build-agent", "--version", "3.1.0"},
+	args:           []string{"--build-agent", "--agent-version", "3.1.0"},
 	expectErr:      "cannot change version from 4.2.0 to 3.1.0",
 }, {
 	about:          "--build-agent with inappropriate version 2",
 	currentVersion: "3.2.7-quantal-amd64",
-	args:           []string{"--build-agent", "--version", "3.2.8.4"},
+	args:           []string{"--build-agent", "--agent-version", "3.2.8.4"},
 	expectInitErr:  "cannot specify build number when building an agent",
 }, {
 	about:          "latest supported stable release",
@@ -162,83 +162,83 @@ var upgradeJujuTests = []struct {
 	tools:          []string{"2.3-dev0-quantal-amd64"},
 	currentVersion: "2.0.0-quantal-amd64",
 	agentVersion:   "2.0.0",
-	args:           []string{"--version", "2.3-dev0"},
+	args:           []string{"--agent-version", "2.3-dev0"},
 	expectVersion:  "2.3-dev0",
 }, {
 	about:          "specified major version",
 	tools:          []string{"3.0.2-quantal-amd64"},
 	currentVersion: "3.0.2-quantal-amd64",
 	agentVersion:   "2.8.2",
-	args:           []string{"--version", "3.0.2"},
+	args:           []string{"--agent-version", "3.0.2"},
 	expectVersion:  "3.0.2",
 	upgradeMap:     map[int]version.Number{3: version.MustParse("2.8.2")},
 }, {
 	about:          "specified version missing, but already set",
 	currentVersion: "3.0.0-quantal-amd64",
 	agentVersion:   "3.0.0",
-	args:           []string{"--version", "3.0.0"},
+	args:           []string{"--agent-version", "3.0.0"},
 	expectVersion:  "3.0.0",
 }, {
 	about:          "specified version, no tools",
 	currentVersion: "3.0.0-quantal-amd64",
 	agentVersion:   "3.0.0",
-	args:           []string{"--version", "3.2.0"},
+	args:           []string{"--agent-version", "3.2.0"},
 	expectErr:      "no tools available",
 }, {
 	about:          "specified version, no matching major version",
 	tools:          []string{"4.2.0-quantal-amd64"},
 	currentVersion: "3.0.0-quantal-amd64",
 	agentVersion:   "3.0.0",
-	args:           []string{"--version", "3.2.0"},
+	args:           []string{"--agent-version", "3.2.0"},
 	expectErr:      "no matching tools available",
 }, {
 	about:          "specified version, no matching minor version",
 	tools:          []string{"3.4.0-quantal-amd64"},
 	currentVersion: "3.0.0-quantal-amd64",
 	agentVersion:   "3.0.0",
-	args:           []string{"--version", "3.2.0"},
+	args:           []string{"--agent-version", "3.2.0"},
 	expectErr:      "no matching tools available",
 }, {
 	about:          "specified version, no matching patch version",
 	tools:          []string{"3.2.5-quantal-amd64"},
 	currentVersion: "3.0.0-quantal-amd64",
 	agentVersion:   "3.0.0",
-	args:           []string{"--version", "3.2.0"},
+	args:           []string{"--agent-version", "3.2.0"},
 	expectErr:      "no matching tools available",
 }, {
 	about:          "specified version, no matching build version",
 	tools:          []string{"3.2.0.2-quantal-amd64"},
 	currentVersion: "3.0.0-quantal-amd64",
 	agentVersion:   "3.0.0",
-	args:           []string{"--version", "3.2.0"},
+	args:           []string{"--agent-version", "3.2.0"},
 	expectErr:      "no matching tools available",
 }, {
 	about:          "incompatible version (minor != 0)",
 	tools:          []string{"3.2.0-quantal-amd64"},
 	currentVersion: "4.2.0-quantal-amd64",
 	agentVersion:   "3.2.0",
-	args:           []string{"--version", "3.2.0"},
+	args:           []string{"--agent-version", "3.2.0"},
 	expectErr:      "cannot upgrade a 3.2.0 model with a 4.2.0 client",
 }, {
 	about:          "incompatible version (model major > client major)",
 	tools:          []string{"3.2.0-quantal-amd64"},
 	currentVersion: "3.2.0-quantal-amd64",
 	agentVersion:   "4.2.0",
-	args:           []string{"--version", "3.2.0"},
+	args:           []string{"--agent-version", "3.2.0"},
 	expectErr:      "cannot upgrade a 4.2.0 model with a 3.2.0 client",
 }, {
 	about:          "incompatible version (model major < client major - 1)",
 	tools:          []string{"3.2.0-quantal-amd64"},
 	currentVersion: "4.0.2-quantal-amd64",
 	agentVersion:   "2.0.0",
-	args:           []string{"--version", "3.2.0"},
+	args:           []string{"--agent-version", "3.2.0"},
 	expectErr:      "cannot upgrade a 2.0.0 model with a 4.0.2 client",
 }, {
 	about:          "minor version downgrade to incompatible version",
 	tools:          []string{"3.2.0-quantal-amd64"},
 	currentVersion: "3.2.0-quantal-amd64",
 	agentVersion:   "3.3-dev0",
-	args:           []string{"--version", "3.2.0"},
+	args:           []string{"--agent-version", "3.2.0"},
 	expectErr:      "cannot change version from 3.3-dev0 to 3.2.0",
 }, {
 	about:          "nothing available",
@@ -262,7 +262,7 @@ var upgradeJujuTests = []struct {
 	about:          "upload with explicit version",
 	currentVersion: "2.2.0-quantal-amd64",
 	agentVersion:   "2.0.0",
-	args:           []string{"--build-agent", "--version", "2.7.3"},
+	args:           []string{"--build-agent", "--agent-version", "2.7.3"},
 	expectVersion:  "2.7.3.1",
 	expectUploaded: []string{"2.7.3.1-quantal-amd64", "2.7.3.1-%LTS%-amd64", "2.7.3.1-raring-amd64"},
 }, {
@@ -293,7 +293,7 @@ var upgradeJujuTests = []struct {
 	currentVersion: "2.2.0-quantal-amd64",
 	tools:          []string{"2.7.3.1-quantal-amd64"},
 	agentVersion:   "2.0.0",
-	args:           []string{"--build-agent", "--version", "2.7.3"},
+	args:           []string{"--build-agent", "--agent-version", "2.7.3"},
 	expectVersion:  "2.7.3.2",
 	expectUploaded: []string{"2.7.3.2-quantal-amd64", "2.7.3.2-%LTS%-amd64", "2.7.3.2-raring-amd64"},
 }, {
@@ -565,7 +565,7 @@ func (s *UpgradeJujuSuite) TestUpgradeDryRun(c *gc.C) {
 			currentVersion: "2.1.3-quantal-amd64",
 			agentVersion:   "2.0.0",
 			expectedCmdOutput: `upgrade to this version by running
-    juju upgrade-juju --version="2.1.3"
+    juju upgrade-juju --agent-version="2.1.3"
 `,
 		},
 		{
@@ -575,7 +575,7 @@ func (s *UpgradeJujuSuite) TestUpgradeDryRun(c *gc.C) {
 			currentVersion: "2.0.0-quantal-amd64",
 			agentVersion:   "2.0.0",
 			expectedCmdOutput: `upgrade to this version by running
-    juju upgrade-juju --version="2.1.3"
+    juju upgrade-juju --agent-version="2.1.3"
 `,
 		},
 		{
@@ -585,7 +585,7 @@ func (s *UpgradeJujuSuite) TestUpgradeDryRun(c *gc.C) {
 			currentVersion: "2.0.0-quantal-amd64",
 			agentVersion:   "2.0.0",
 			expectedCmdOutput: `upgrade to this version by running
-    juju upgrade-juju --version="2.1.3"
+    juju upgrade-juju --agent-version="2.1.3"
 `,
 		},
 	}
@@ -670,15 +670,15 @@ func (s *UpgradeJujuSuite) TestUpgradesDifferentMajor(c *gc.C) {
 		agentVersion:    "4.8.5",
 		expectedVersion: "4.9.0",
 	}, {
-		about:           "upgrade previous major to latest previous major with --version",
-		cmdArgs:         []string{"--version=4.9.0"},
+		about:           "upgrade previous major to latest previous major with --agent-version",
+		cmdArgs:         []string{"--agent-version=4.9.0"},
 		tools:           []string{"5.0.2-trusty-amd64", "4.9.0-trusty-amd64", "4.8.0-trusty-amd64"},
 		currentVersion:  "5.0.2-trusty-amd64",
 		agentVersion:    "4.7.5",
 		expectedVersion: "4.9.0",
 	}, {
 		about:             "can upgrade lower major version to current major version at minimum level",
-		cmdArgs:           []string{"--version=6.0.5"},
+		cmdArgs:           []string{"--agent-version=6.0.5"},
 		tools:             []string{"6.0.5-trusty-amd64", "5.9.9-trusty-amd64"},
 		currentVersion:    "6.0.0-trusty-amd64",
 		agentVersion:      "5.9.8",
@@ -687,7 +687,7 @@ func (s *UpgradeJujuSuite) TestUpgradesDifferentMajor(c *gc.C) {
 		upgradeMap:        map[int]version.Number{6: version.MustParse("5.9.8")},
 	}, {
 		about:             "can upgrade lower major version to current major version above minimum level",
-		cmdArgs:           []string{"--version=6.0.5"},
+		cmdArgs:           []string{"--agent-version=6.0.5"},
 		tools:             []string{"6.0.5-trusty-amd64", "5.11.0-trusty-amd64"},
 		currentVersion:    "6.0.1-trusty-amd64",
 		agentVersion:      "5.10.8",
@@ -696,7 +696,7 @@ func (s *UpgradeJujuSuite) TestUpgradesDifferentMajor(c *gc.C) {
 		upgradeMap:        map[int]version.Number{6: version.MustParse("5.9.8")},
 	}, {
 		about:           "can upgrade current to next major version",
-		cmdArgs:         []string{"--version=6.0.5"},
+		cmdArgs:         []string{"--agent-version=6.0.5"},
 		tools:           []string{"6.0.5-trusty-amd64", "5.11.0-trusty-amd64"},
 		currentVersion:  "5.10.8-trusty-amd64",
 		agentVersion:    "5.10.8",
@@ -704,7 +704,7 @@ func (s *UpgradeJujuSuite) TestUpgradesDifferentMajor(c *gc.C) {
 		upgradeMap:      map[int]version.Number{6: version.MustParse("5.9.8")},
 	}, {
 		about:             "upgrade fails if not at minimum version",
-		cmdArgs:           []string{"--version=7.0.1"},
+		cmdArgs:           []string{"--agent-version=7.0.1"},
 		tools:             []string{"7.0.1-trusty-amd64"},
 		currentVersion:    "7.0.1-trusty-amd64",
 		agentVersion:      "6.0.0",
@@ -714,7 +714,7 @@ func (s *UpgradeJujuSuite) TestUpgradesDifferentMajor(c *gc.C) {
 		upgradeMap:        map[int]version.Number{7: version.MustParse("6.7.8")},
 	}, {
 		about:             "upgrade fails if not a minor of 0",
-		cmdArgs:           []string{"--version=7.1.1"},
+		cmdArgs:           []string{"--agent-version=7.1.1"},
 		tools:             []string{"7.0.1-trusty-amd64", "7.1.1-trusty-amd64"},
 		currentVersion:    "7.0.1-trusty-amd64",
 		agentVersion:      "6.7.8",
@@ -724,7 +724,7 @@ func (s *UpgradeJujuSuite) TestUpgradesDifferentMajor(c *gc.C) {
 		upgradeMap:        map[int]version.Number{7: version.MustParse("6.7.8")},
 	}, {
 		about:           "upgrade fails if not at minimum version and not a minor of 0",
-		cmdArgs:         []string{"--version=7.1.1"},
+		cmdArgs:         []string{"--agent-version=7.1.1"},
 		tools:           []string{"7.0.1-trusty-amd64", "7.1.1-trusty-amd64"},
 		currentVersion:  "7.0.1-trusty-amd64",
 		agentVersion:    "6.0.0",
