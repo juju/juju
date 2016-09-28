@@ -532,6 +532,24 @@ class MAASAccount:
         return self._maas(
             self.profile, 'vlan', 'delete', str(fabric_id), str(vid))
 
+    def interfaces(self, system_id):
+        """Return list of interfaces belonging to node with given system_id."""
+        return self._maas(self.profile, 'interfaces', 'read', system_id)
+
+    def interface_create_vlan(self, system_id, parent, vlan_id):
+        """Create a vlan interface on machine with given system_id."""
+        args = [
+            self.profile, 'interfaces', 'create-vlan', system_id,
+            'parent=' + str(parent), 'vlan=' + str(vlan_id),
+        ]
+        # TODO(gz): Add support for optional parameters as needed.
+        return self._maas(*args)
+
+    def delete_interface(self, system_id, interface_id):
+        """Delete interface on node with given system_id with interface_id."""
+        return self._maas(
+            self.profile, 'interface', 'delete', system_id, str(interface_id))
+
 
 class MAAS1Account(MAASAccount):
     """Represent a MAAS 1.X account."""

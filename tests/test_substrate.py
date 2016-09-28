@@ -980,6 +980,40 @@ class TestMAASAccount(TestCase):
             ('maas', 'mas', 'vlan', 'delete', '0', '4096'))
         self.assertEqual(None, result)
 
+    def test_interfaces(self):
+        config = get_maas_env().config
+        account = MAASAccount(
+            config['name'], config['maas-server'], config['maas-oauth'])
+        with patch('subprocess.check_output', autospec=True,
+                   return_value='[]') as co_mock:
+            interfaces = account.interfaces('node-xyz')
+        co_mock.assert_called_once_with((
+            'maas', 'mas', 'interfaces', 'read', 'node-xyz'))
+        self.assertEqual([], interfaces)
+
+    def test_interface_create_vlan(self):
+        config = get_maas_env().config
+        account = MAASAccount(
+            config['name'], config['maas-server'], config['maas-oauth'])
+        with patch('subprocess.check_output', autospec=True,
+                   return_value='{"id": 10}') as co_mock:
+            interface = account.interface_create_vlan('node-xyz', 1, 5000)
+        co_mock.assert_called_once_with((
+            'maas', 'mas', 'interfaces', 'create-vlan', 'node-xyz', 'parent=1',
+            'vlan=5000'))
+        self.assertEqual({'id': 10}, interface)
+
+    def test_delete_interface(self):
+        config = get_maas_env().config
+        account = MAASAccount(
+            config['name'], config['maas-server'], config['maas-oauth'])
+        with patch('subprocess.check_output', autospec=True,
+                   return_value='') as co_mock:
+            result = account.delete_interface('node-xyz', 10)
+        co_mock.assert_called_once_with(
+            ('maas', 'mas', 'interface', 'delete', 'node-xyz', '10'))
+        self.assertEqual(None, result)
+
 
 class TestMAAS1Account(TestCase):
 
