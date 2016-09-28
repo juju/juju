@@ -1084,11 +1084,9 @@ class TestMAASAccount(TestCase):
             config['name'], config['maas-server'], config['maas-oauth'])
         with patch('subprocess.check_output', autospec=True,
                    return_value='') as co_mock:
-            with self.assertRaises(ValueError) as err_ctx:
+            err_pattern = '^Must only give one of vlan_id and vid$'
+            with self.assertRaisesRegexp(ValueError, err_pattern):
                 account.create_subnet('10.0.0.0/24', vlan_id=10, vid=1)
-            self.assertEqual(
-                str(err_ctx.exception),
-                'Must only give one of vlan_id and vid')
         self.assertEqual(0, co_mock.call_count)
 
     def test_delete_subnet(self):
