@@ -236,10 +236,7 @@ def make_item(version_name, urn_version, full_spec, location_name, endpoint):
     The item_name is looked up from ITEM_NAMES.
     """
     URN = ':'.join(full_spec[1:] + (urn_version,))
-    pn_template = (
-        'com.ubuntu.cloud:server:{}:amd64' if full_spec[2] == 'CentOS'
-        else 'com.ubuntu.cloud:windows:{}:amd64')
-    product_name = pn_template.format(full_spec[0])
+    product_name = 'com.ubuntu.cloud:server:{}:amd64'.format(full_spec[0])
     return Item(
         'com.ubuntu.cloud:released:azure',
         product_name,

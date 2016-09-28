@@ -252,7 +252,7 @@ class TestMakeItem(TestCase):
         item = self.make_item()
         self.assertEqual(Item(
             'com.ubuntu.cloud:released:azure',
-            'com.ubuntu.cloud:windows:win95:amd64',
+            'com.ubuntu.cloud:server:win95:amd64',
             '1',
             'caee1i3', {
                 'arch': 'amd64',
