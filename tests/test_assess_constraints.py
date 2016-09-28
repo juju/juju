@@ -7,8 +7,12 @@ import os
 import StringIO
 
 from assess_constraints import (
-    assess_virt_type_constraints,
+    application_machines,
+    assess_cores_constraints,
+    assess_cpu_power_constraints,
     assess_instance_type_constraints,
+    assess_root_disk_constraints,
+    assess_virt_type_constraints,
     Constraints,
     deploy_constraint,
     deploy_charm_constraint,
@@ -87,21 +91,41 @@ class TestConstraints(TestCase):
         self.assertTrue(meets_min_mem('1G', '1G'))
         self.assertTrue(meets_min_mem('1G', '2G'))
 
+    def test_meets_root_disk(self):
+        constraints = Constraints(root_disk='8G')
+        self.assertTrue(constraints.meets_root_disk('8G'))
+        self.assertFalse(constraints.meets_root_disk('4G'))
+
+    def test_meets_cores(self):
+        constraints = Constraints(cores='2')
+        self.assertTrue(constraints.meets_cores('3'))
+        self.assertFalse(constraints.meets_cores('1'))
+
+    def test_meets_cpu_power(self):
+        constraints = Constraints(cpu_power='20')
+        self.assertTrue(constraints.meets_cpu_power('30'))
+        self.assertFalse(constraints.meets_cpu_power('10'))
+
+    def test_meets_arch(self):
+        constraints = Constraints(arch='amd64')
+        self.assertTrue(constraints.meets_arch('amd64'))
+        self.assertFalse(constraints.meets_arch('i386'))
+
     def test_meets_instance_type(self):
         constraints = Constraints(instance_type='t2.micro')
-        data1 = {'root-disk': '1G', 'cpu-power': '10', 'cores': '1'}
+        data1 = {'mem': '1G', 'cpu-power': '10', 'cores': '1'}
         self.assertTrue(constraints.meets_instance_type(data1))
-        data2 = {'root-disk': '8G', 'cpu-power': '20', 'cores': '1'}
+        data2 = {'mem': '8G', 'cpu-power': '20', 'cores': '1'}
         self.assertFalse(constraints.meets_instance_type(data2))
         data3 = dict(data1, arch='amd64')
         self.assertTrue(constraints.meets_instance_type(data3))
-        data4 = {'cpu-power': '10', 'cores': '1'}
+        data4 = {'root-disk': '1G', 'cpu-power': '10', 'cores': '1'}
         with self.assertRaises(JujuAssertionError):
             constraints.meets_instance_type(data4)
 
     def test_meets_instance_type_fix(self):
         constraints = Constraints(instance_type='t2.micro')
-        data = {'root-disk': '1G', 'cpu-power': '10', 'cpu-cores': '1'}
+        data = {'mem': '1G', 'cpu-power': '10', 'cpu-cores': '1'}
         self.assertTrue(constraints.meets_instance_type(data))
 
 
@@ -147,6 +171,15 @@ class TestAssess(TestCase):
             args[1]["constraints"] for args in mock.call_args_list]
         return constraint_args
 
+    @contextmanager
+    def patch_hardware(self, return_values):
+        """Patch juju_show_machine_hardware with a series of return values."""
+        def pop_hardware(client, machine):
+            return return_values.pop(0)
+        with patch('assess_constraints.juju_show_machine_hardware',
+                   autospec=True, side_effect=pop_hardware) as hardware_mock:
+            yield hardware_mock
+
     def test_virt_type_constraints_with_kvm(self):
         assert_constraints_calls = ["virt-type=lxd", "virt-type=kvm"]
         with self.prepare_deploy_mock() as (fake_client, deploy_mock):
@@ -162,38 +195,80 @@ class TestAssess(TestCase):
         self.assertEqual(constraints_calls, assert_constraints_calls)
 
     @contextmanager
-    def patch_instance_spec(self):
+    def patch_instance_spec(self, fake_provider, passing=True):
+        fake_instance_types = ['bar', 'baz']
         bar_data = {'cpu-power': '20'}
+        baz_data = {'cpu-power': '30'}
 
         def mock_get_instance_spec(instance_type):
             if 'bar' == instance_type:
                 return bar_data
+            elif 'baz' == instance_type and passing:
+                return baz_data
+            elif 'baz' == instance_type:
+                return {'cpu-power': '40'}
             else:
                 raise ValueError('instance-type not in mock.')
-        with patch('assess_constraints.get_instance_spec', autospec=True,
-                   side_effect=mock_get_instance_spec) as spec_mock:
-            with patch('assess_constraints.juju_show_machine_hardware',
-                       autospec=True, return_value=bar_data):
-                yield spec_mock
+        with patch.dict(INSTANCE_TYPES, {fake_provider: fake_instance_types}):
+            with patch('assess_constraints.get_instance_spec', autospec=True,
+                       side_effect=mock_get_instance_spec) as spec_mock:
+                with self.patch_hardware([bar_data, baz_data]):
+                    with patch('assess_constraints.application_machines',
+                               autospec=True, return_value=['0']):
+                        yield spec_mock
 
     def test_instance_type_constraints(self):
-        assert_constraints_calls = ['instance-type=bar']
-        fake_instance_types = ['bar']
+        assert_constraints_calls = ['instance-type=bar', 'instance-type=baz']
         with self.prepare_deploy_mock() as (fake_client, deploy_mock):
             fake_provider = fake_client.env.config.get('type')
-            with patch.dict(INSTANCE_TYPES,
-                            {fake_provider: fake_instance_types}):
-                with self.patch_instance_spec() as spec_mock:
-                    assess_instance_type_constraints(fake_client)
+            with self.patch_instance_spec(fake_provider) as spec_mock:
+                assess_instance_type_constraints(fake_client)
         constraints_calls = self.gather_constraint_args(deploy_mock)
         self.assertEqual(constraints_calls, assert_constraints_calls)
-        self.assertEqual(spec_mock.call_args_list, [call('bar')])
+        self.assertEqual(spec_mock.call_args_list, [call('bar'), call('baz')])
+
+    def test_instance_type_constraints_fail(self):
+        with self.prepare_deploy_mock() as (fake_client, deploy_mock):
+            fake_provider = fake_client.env.config.get('type')
+            with self.patch_instance_spec(fake_provider, False):
+                with self.assertRaisesRegexp(
+                        JujuAssertionError,
+                        'Test Failed: on {} with constraints "{}"'.format(
+                            fake_provider, 'instance-type=baz')):
+                    assess_instance_type_constraints(fake_client)
 
     def test_instance_type_constraints_missing(self):
         fake_client = Mock(wraps=fake_juju_client())
         with self.prepare_deploy_mock() as (fake_client, deploy_mock):
             assess_instance_type_constraints(fake_client)
         self.assertFalse(deploy_mock.called)
+
+    def test_root_disk_constraints(self):
+        fake_client = Mock(wraps=fake_juju_client())
+        with patch('assess_constraints.prepare_constraint_test',
+                   autospec=True, return_value={'root-disk': '8G'}
+                   ) as prepare_mock:
+            with self.assertRaises(JujuAssertionError):
+                assess_root_disk_constraints(fake_client, ['8G', '16G'])
+        self.assertEqual(2, prepare_mock.call_count)
+
+    def test_cores_constraints(self):
+        fake_client = Mock(wraps=fake_juju_client())
+        with patch('assess_constraints.prepare_constraint_test',
+                   autospec=True, return_value={'cores': '2'}
+                   ) as prepare_mock:
+            with self.assertRaises(JujuAssertionError):
+                assess_cores_constraints(fake_client, ['2', '4'])
+        self.assertEqual(2, prepare_mock.call_count)
+
+    def test_cpu_power_constraints(self):
+        fake_client = Mock(wraps=fake_juju_client())
+        with patch('assess_constraints.prepare_constraint_test',
+                   autospec=True, return_value={'cpu-power': '20'}
+                   ) as prepare_mock:
+            with self.assertRaises(JujuAssertionError):
+                assess_cpu_power_constraints(fake_client, ['10', '30'])
+        self.assertEqual(2, prepare_mock.call_count)
 
 
 class TestDeploy(TestCase):
@@ -231,36 +306,36 @@ class TestDeploy(TestCase):
 
 class TestJujuWrappers(TestCase):
 
-    SAMPLE_JUJU_SHOW_MACHINE_OUTPUT = """\
-model:
-  name: controller
-  controller: assessconstraints-20160914122952-temp-env
-  cloud: lxd
-  region: localhost
-  version: 2.0-beta18
-machines:
-  "0":
-    juju-status:
-      current: started
-      since: 14 Sep 2016 12:32:17-04:00
-      version: 2.0-beta18
-    dns-name: 10.252.22.39
-    instance-id: juju-7d249e-0
-    machine-status:
-      current: pending
-      since: 14 Sep 2016 12:32:07-04:00
-    series: xenial
-    hardware: arch=amd64 cpu-cores=0 mem=0M
-    controller-member-status: has-vote
-applications: {}"""
+    # Dictionaries showing plausable, but reduced and pre-loaded, output.
+    SAMPLE_SHOW_MACHINE_OUTPUT = {
+        'model': {'name': 'controller'},
+        'machines': {'0': {'hardware': 'arch=amd64 cpu-cores=0 mem=0M'}},
+        'applications': {}
+        }
+
+    SAMPLE_SHOW_MODEL_OUTPUT = {
+        'model': 'UNUSED',
+        'machines': {'0': 'UNUSED', '1': 'UNUSED'},
+        'applications':
+        {'wiki': {'units': {'wiki/0': {'machine': '0'}}},
+         'mysql': {'units': {'mysql/0': {'machine': '1'}}},
+         }}
 
     def test_juju_show_machine_hardware(self):
         """Check the juju_show_machine_hardware data translation."""
-        output_mock = Mock(
-            return_value=self.SAMPLE_JUJU_SHOW_MACHINE_OUTPUT)
+        output_mock = Mock(return_value=self.SAMPLE_SHOW_MACHINE_OUTPUT)
         fake_client = Mock(get_juju_output=output_mock)
-        data = juju_show_machine_hardware(fake_client, '0')
+        with patch('yaml.load', side_effect=lambda x: x):
+            data = juju_show_machine_hardware(fake_client, '0')
         output_mock.assert_called_once_with('show-machine', '0',
                                             '--format', 'yaml')
         self.assertEqual({'arch': 'amd64', 'cpu-cores': '0', 'mem': '0M'},
                          data)
+
+    def test_application_machines(self):
+        output_mock = Mock(return_value=self.SAMPLE_SHOW_MODEL_OUTPUT)
+        fake_client = Mock(get_juju_output=output_mock)
+        with patch('yaml.load', side_effect=lambda x: x):
+            data = application_machines(fake_client, 'wiki')
+        output_mock.assert_called_once_with('status', '--format', 'yaml')
+        self.assertEquals(['0'], data)

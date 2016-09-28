@@ -100,8 +100,7 @@ def client_credentials_to_details(client):
     log.info("provider: {}".format(provider))
     cloud_name = client.env.get_cloud()
     log.info("cloud_name: {}".format(cloud_name))
-    cloud = client.env.credentials['credentials'][cloud_name]
-    credentials = cloud['credentials']
+    credentials = client.env.get_cloud_credentials()
     if 'ec2' == provider:
         return {'secret_key': credentials['secret-key'],
                 'access_key': credentials['access-key'],
@@ -225,7 +224,8 @@ def autoload_and_bootstrap(bs_manager, upload_tools, real_credentials,
                 bs_manager.client.env.load_yaml()
 
                 bs_manager.client.bootstrap(
-                    upload_tools, bootstrap_series=bs_manager.series,
+                    upload_tools=upload_tools,
+                    bootstrap_series=bs_manager.series,
                     credential=user)
                 bs_manager.client.kill_controller()
 

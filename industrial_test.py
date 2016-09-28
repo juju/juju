@@ -33,7 +33,6 @@ from jujupy import (
     uniquify_local,
     )
 from substrate import (
-    convert_to_azure_ids,
     make_substrate_manager as real_make_substrate_manager,
     terminate_instances,
     )
@@ -531,7 +530,10 @@ def make_substrate_manager(client, required_attrs):
     If the substrate cannot be made, or does not have the required attributes,
     return None.  Otherwise, return the substrate.
     """
-    with real_make_substrate_manager(client.env.config) as substrate:
+    with real_make_substrate_manager(
+            client.env.config,
+            client.env.get_cloud_credentials(),
+            ) as substrate:
         if substrate is not None:
             for attr in required_attrs:
                 if getattr(substrate, attr, None) is None:
@@ -789,15 +791,17 @@ class BackupRestoreAttempt(SteppedStageAttempt):
         backup_file = controller_client.backup()
         try:
             status = controller_client.get_status()
-            instance_id = status.get_instance_id('0')
-            if client.env.config['type'] == 'azure':
-                instance_id = convert_to_azure_ids(
-                    controller_client, [instance_id])[0]
+            instance_ids = [status.get_instance_id('0')]
+            with make_substrate_manager(controller_client,
+                                        ['convert_to_azure_ids']) as substrate:
+                if substrate is not None:
+                    instance_ids = substrate.convert_to_azure_ids(
+                        controller_client, instance_ids)
             host = get_machine_dns_name(controller_client, '0')
-            terminate_instances(controller_client.env, [instance_id])
+            terminate_instances(controller_client.env, instance_ids)
             yield results
             wait_for_state_server_to_shutdown(
-                host, controller_client, instance_id)
+                host, controller_client, instance_ids[0])
             yield results
             controller_client.restore_backup(backup_file)
             yield results
