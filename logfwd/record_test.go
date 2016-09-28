@@ -131,7 +131,7 @@ func (s *LocationSuite) TestParseLocationMissingLine(c *gc.C) {
 func (s *LocationSuite) TestParseLocationBogusLine(c *gc.C) {
 	_, err := logfwd.ParseLocation(validLocation.Module, "spam.go:xxx")
 
-	c.Check(err, gc.ErrorMatches, `failed to parse sourceLine: line number must be non-negative integer: strconv.ParseInt: parsing "xxx": invalid syntax`)
+	c.Check(err, gc.ErrorMatches, `failed to parse sourceLine: line number must be non-negative integer: strconv.(ParseInt|Atoi): parsing "xxx": invalid syntax`)
 }
 
 func (s *LocationSuite) TestValidateValid(c *gc.C) {
