@@ -6,7 +6,7 @@ package featuretests
 import (
 	"flag"
 	"runtime"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/cmd"
 	"github.com/juju/loggo"
@@ -52,7 +52,7 @@ func init() {
 	}
 }
 
-func TestPackage(t *stdtesting.T) {
+func TestPackage(t *testing.T) {
 	coretesting.MgoTestPackage(t)
 }
 
@@ -62,8 +62,18 @@ func runCommand(c *gc.C, args ...string) (*cmd.Context, error) {
 	// return an error if we attempt to run two commands in the
 	// same test.
 	loggo.ResetWriters()
-	ctx, err := cmd.DefaultContext()
-	c.Assert(err, jc.ErrorIsNil)
+	ctx := coretesting.Context(c)
 	command := jujucmd.NewJujuCommand(ctx)
 	return coretesting.RunCommand(c, command, args...)
+}
+
+func runCommandExpectSuccess(c *gc.C, command string, args ...string) {
+	_, err := runCommand(c, append([]string{command}, args...)...)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func runCommandExpectFailure(c *gc.C, command, expectedError string, args ...string) {
+	context, err := runCommand(c, append([]string{command}, args...)...)
+	c.Assert(err, gc.ErrorMatches, "cmd: error out silently")
+	c.Assert(coretesting.Stderr(context), jc.Contains, expectedError)
 }
