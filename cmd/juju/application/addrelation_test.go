@@ -53,7 +53,8 @@ func (s *AddRelationSuite) TestAddRelationWrongNumberOfArguments(c *gc.C) {
 func (s *AddRelationSuite) TestAddRelationSuccess(c *gc.C) {
 	err := s.runAddRelation(c, "application1", "application2")
 	c.Assert(err, jc.ErrorIsNil)
-	s.mockAPI.CheckCallNames(c, "AddRelation", "Close")
+	s.mockAPI.CheckCall(c, 0, "AddRelation", []string{"application1", "application2"})
+	s.mockAPI.CheckCall(c, 1, "Close")
 }
 
 func (s *AddRelationSuite) TestAddRelationFail(c *gc.C) {
@@ -61,14 +62,16 @@ func (s *AddRelationSuite) TestAddRelationFail(c *gc.C) {
 	s.mockAPI.SetErrors(errors.New(msg))
 	err := s.runAddRelation(c, "application1", "application2")
 	c.Assert(err, gc.ErrorMatches, msg)
-	s.mockAPI.CheckCallNames(c, "AddRelation", "Close")
+	s.mockAPI.CheckCall(c, 0, "AddRelation", []string{"application1", "application2"})
+	s.mockAPI.CheckCall(c, 1, "Close")
 }
 
 func (s *AddRelationSuite) TestAddRelationBlocked(c *gc.C) {
 	s.mockAPI.SetErrors(common.OperationBlockedError("TestBlockAddRelation"))
 	err := s.runAddRelation(c, "application1", "application2")
 	coretesting.AssertOperationWasBlocked(c, err, ".*TestBlockAddRelation.*")
-	s.mockAPI.CheckCallNames(c, "AddRelation", "Close")
+	s.mockAPI.CheckCall(c, 0, "AddRelation", []string{"application1", "application2"})
+	s.mockAPI.CheckCall(c, 1, "Close")
 }
 
 type mockAddAPI struct {

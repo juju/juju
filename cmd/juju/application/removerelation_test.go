@@ -50,7 +50,8 @@ func (s *RemoveRelationSuite) TestRemoveRelationWrongNumberOfArguments(c *gc.C) 
 func (s *RemoveRelationSuite) TestRemoveRelationSuccess(c *gc.C) {
 	err := s.runRemoveRelation(c, "application1", "application2")
 	c.Assert(err, jc.ErrorIsNil)
-	s.mockAPI.CheckCallNames(c, "DestroyRelation", "Close")
+	s.mockAPI.CheckCall(c, 0, "DestroyRelation", []string{"application1", "application2"})
+	s.mockAPI.CheckCall(c, 1, "Close")
 }
 
 func (s *RemoveRelationSuite) TestRemoveRelationFail(c *gc.C) {
@@ -58,14 +59,16 @@ func (s *RemoveRelationSuite) TestRemoveRelationFail(c *gc.C) {
 	s.mockAPI.SetErrors(errors.New(msg))
 	err := s.runRemoveRelation(c, "application1", "application2")
 	c.Assert(err, gc.ErrorMatches, msg)
-	s.mockAPI.CheckCallNames(c, "DestroyRelation", "Close")
+	s.mockAPI.CheckCall(c, 0, "DestroyRelation", []string{"application1", "application2"})
+	s.mockAPI.CheckCall(c, 1, "Close")
 }
 
 func (s *RemoveRelationSuite) TestRemoveRelationBlocked(c *gc.C) {
 	s.mockAPI.SetErrors(common.OperationBlockedError("TestRemoveRelationBlocked"))
 	err := s.runRemoveRelation(c, "application1", "application2")
 	coretesting.AssertOperationWasBlocked(c, err, ".*TestRemoveRelationBlocked.*")
-	s.mockAPI.CheckCallNames(c, "DestroyRelation", "Close")
+	s.mockAPI.CheckCall(c, 0, "DestroyRelation", []string{"application1", "application2"})
+	s.mockAPI.CheckCall(c, 1, "Close")
 }
 
 type mockRemoveAPI struct {
