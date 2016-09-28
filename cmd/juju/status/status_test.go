@@ -1479,7 +1479,7 @@ var statusTests = []testCase{
 		},
 	),
 	test( // 10
-		"simple peer scenario",
+		"simple peer scenario with leader",
 		addMachine{machineId: "0", job: state.JobManageModel},
 		setAddresses{"0", network.NewAddresses("controller-0.dns")},
 		startAliveMachine{"0"},
@@ -1510,6 +1510,7 @@ var statusTests = []testCase{
 		addAliveUnit{"riak", "3"},
 		setAgentStatus{"riak/2", status.Idle, "", nil},
 		setUnitStatus{"riak/2", status.Active, "", nil},
+		setUnitAsLeader{"riak/1"},
 
 		expect{
 			"multiples related peer units",
@@ -1558,6 +1559,7 @@ var statusTests = []testCase{
 									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"public-address": "controller-2.dns",
+								"leader":         true,
 							},
 							"riak/2": M{
 								"machine": "3",
@@ -1583,7 +1585,7 @@ var statusTests = []testCase{
 
 	// Subordinate tests
 	test( // 11
-		"one application with one subordinate application",
+		"one application with one subordinate application and leader",
 		addMachine{machineId: "0", job: state.JobManageModel},
 		setAddresses{"0", network.NewAddresses("controller-0.dns")},
 		startAliveMachine{"0"},
@@ -1627,6 +1629,10 @@ var statusTests = []testCase{
 		setUnitStatus{"logging/0", status.Active, "", nil},
 		setAgentStatus{"logging/1", status.Error, "somehow lost in all those logs", nil},
 
+		setUnitAsLeader{"mysql/0"},
+		setUnitAsLeader{"logging/1"},
+		setUnitAsLeader{"wordpress/0"},
+
 		expect{
 			"multiples related peer units",
 			M{
@@ -1668,6 +1674,7 @@ var statusTests = []testCase{
 									},
 								},
 								"public-address": "controller-1.dns",
+								"leader":         true,
 							},
 						},
 						"relations": M{
@@ -1704,9 +1711,11 @@ var statusTests = []testCase{
 											"since":   "01 Apr 15 01:23+10:00",
 										},
 										"public-address": "controller-2.dns",
+										"leader":         true,
 									},
 								},
 								"public-address": "controller-2.dns",
+								"leader":         true,
 							},
 						},
 						"relations": M{
@@ -1761,6 +1770,7 @@ var statusTests = []testCase{
 									},
 								},
 								"public-address": "controller-1.dns",
+								"leader":         true,
 							},
 						},
 						"relations": M{
@@ -1797,9 +1807,11 @@ var statusTests = []testCase{
 											"since":   "01 Apr 15 01:23+10:00",
 										},
 										"public-address": "controller-2.dns",
+										"leader":         true,
 									},
 								},
 								"public-address": "controller-2.dns",
+								"leader":         true,
 							},
 						},
 						"relations": M{
@@ -1814,7 +1826,7 @@ var statusTests = []testCase{
 
 		// scoped on wordpress/0
 		scopedExpect{
-			"subordinates scoped on logging",
+			"subordinates scoped on wordpress",
 			[]string{"wordpress/0"},
 			M{
 				"model": model,
@@ -1853,6 +1865,7 @@ var statusTests = []testCase{
 									},
 								},
 								"public-address": "controller-1.dns",
+								"leader":         true,
 							},
 						},
 						"relations": M{
@@ -2892,6 +2905,17 @@ func (s setUnitMeterStatus) step(c *gc.C, ctx *context) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+type setUnitAsLeader struct {
+	unitName string
+}
+
+func (s setUnitAsLeader) step(c *gc.C, ctx *context) {
+	u, err := ctx.st.Unit(s.unitName)
+	c.Assert(err, jc.ErrorIsNil)
+	err = ctx.st.LeadershipClaimer().ClaimLeadership(u.ApplicationName(), u.Name(), time.Minute)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 type setUnitStatus struct {
 	unitName   string
 	status     status.Status
@@ -3493,6 +3517,9 @@ func (s *StatusSuite) prepareTabularData(c *gc.C) *context {
 		setUnitWorkloadVersion{"logging/1", "a bit too long, really"},
 		setUnitWorkloadVersion{"wordpress/0", "4.5.3"},
 		setUnitWorkloadVersion{"mysql/0", "5.7.13"},
+		setUnitAsLeader{"mysql/0"},
+		setUnitAsLeader{"logging/1"},
+		setUnitAsLeader{"wordpress/0"},
 	}
 	for _, s := range steps {
 		s.step(c, ctx)
@@ -3519,11 +3546,11 @@ logging    a bit too lo...  error            2  logging    jujucharms    1  ubun
 mysql      5.7.13           maintenance      1  mysql      jujucharms    1  ubuntu  exposed
 wordpress  4.5.3            active           1  wordpress  jujucharms    3  ubuntu  exposed
 
-UNIT         WORKLOAD     AGENT  MACHINE  PUBLIC-ADDRESS    PORTS  MESSAGE
-mysql/0      maintenance  idle   2        controller-2.dns         installing all the things
-  logging/1  error        idle            controller-2.dns         somehow lost in all those logs
-wordpress/0  active       idle   1        controller-1.dns         
-  logging/0  active       idle            controller-1.dns         
+UNIT          WORKLOAD     AGENT  MACHINE  PUBLIC-ADDRESS    PORTS  MESSAGE
+mysql/0*      maintenance  idle   2        controller-2.dns         installing all the things
+  logging/1*  error        idle            controller-2.dns         somehow lost in all those logs
+wordpress/0*  active       idle   1        controller-1.dns         
+  logging/0   active       idle            controller-1.dns         
 
 MACHINE  STATE    DNS               INS-ID        SERIES   AZ
 0        started  controller-0.dns  controller-0  quantal  us-east-1a

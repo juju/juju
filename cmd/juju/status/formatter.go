@@ -207,6 +207,7 @@ func (sf *statusFormatter) formatUnit(info unitFormatInfo) unitStatus {
 		PublicAddress:      info.unit.PublicAddress,
 		Charm:              info.unit.Charm,
 		Subordinates:       make(map[string]unitStatus),
+		Leader:             info.unit.Leader,
 	}
 
 	if ms, ok := info.meterStatuses[info.unitName]; ok {

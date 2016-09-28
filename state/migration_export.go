@@ -472,7 +472,7 @@ func (e *exporter) applications() error {
 		return errors.Trace(err)
 	}
 
-	leaders, err := e.readApplicationLeaders()
+	leaders, err := e.st.ApplicationLeaders()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -527,19 +527,6 @@ func (e *exporter) storageConstraints(doc storageConstraintsDoc) map[string]desc
 		}
 	}
 	return result
-}
-
-func (e *exporter) readApplicationLeaders() (map[string]string, error) {
-	client, err := e.st.getLeadershipLeaseClient()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	leases := client.Leases()
-	result := make(map[string]string, len(leases))
-	for key, value := range leases {
-		result[key] = value.Holder
-	}
-	return result, nil
 }
 
 func (e *exporter) readAllPayloads() (map[string][]payload.FullPayloadInfo, error) {
