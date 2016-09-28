@@ -197,7 +197,7 @@ func (cs *ConnectSuite) TestRemoteConnectError(c *gc.C) {
 }
 
 func (*ConnectSuite) CheckLogContains(c *gc.C, suffix string) {
-	c.Check(c.GetTestLog(), jc.Contains, "WARNING juju.tools.lxdclient "+suffix)
+	c.Check(c.GetTestLog(), gc.Matches, "(?s).*WARNING juju.tools.lxdclient "+suffix+".*")
 }
 
 func (*ConnectSuite) CheckVersionSupported(c *gc.C, version string, supported bool) {
@@ -206,10 +206,10 @@ func (*ConnectSuite) CheckVersionSupported(c *gc.C, version string, supported bo
 
 func (cs *ConnectSuite) TestBadVersionChecks(c *gc.C) {
 	cs.CheckVersionSupported(c, "foo", false)
-	cs.CheckLogContains(c, `LXD API version "foo": expected format <major>.<minor>`)
+	cs.CheckLogContains(c, `LXD API version "foo": expected format <major>\.<minor>`)
 
 	cs.CheckVersionSupported(c, "a.b", false)
-	cs.CheckLogContains(c, `LXD API version "a.b": unexpected major number: strconv.ParseInt: parsing "a": invalid syntax`)
+	cs.CheckLogContains(c, `LXD API version "a.b": unexpected major number: strconv.(ParseInt|Atoi): parsing "a": invalid syntax`)
 
 	cs.CheckVersionSupported(c, "0.9", false)
 	cs.CheckLogContains(c, `LXD API version "0.9": expected major version 1 or later`)

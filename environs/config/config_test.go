@@ -20,6 +20,7 @@ import (
 	"gopkg.in/juju/charmrepo.v2-unstable"
 	"gopkg.in/juju/environschema.v1"
 
+	"github.com/juju/juju/cert"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/testing"
@@ -469,8 +470,8 @@ var configTests = []configTest{
 			"logforward-enabled": true,
 			"syslog-host":        "localhost:1234",
 			"syslog-ca-cert":     "abc",
-			"syslog-client-cert": caCert,
-			"syslog-client-key":  caKey,
+			"syslog-client-cert": testing.CACert,
+			"syslog-client-key":  testing.CAKey,
 		}),
 		err: `invalid syslog forwarding config: validating TLS config: parsing CA certificate: no certificates found`,
 	}, {
@@ -482,8 +483,8 @@ var configTests = []configTest{
 			"logforward-enabled": true,
 			"syslog-host":        "localhost:1234",
 			"syslog-ca-cert":     invalidCACert,
-			"syslog-client-cert": caCert,
-			"syslog-client-key":  caKey,
+			"syslog-client-cert": testing.CACert,
+			"syslog-client-key":  testing.CAKey,
 		}),
 		err: `invalid syslog forwarding config: validating TLS config: parsing CA certificate: asn1: syntax error: data truncated`,
 	}, {
@@ -492,9 +493,9 @@ var configTests = []configTest{
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"logforward-enabled": true,
 			"syslog-host":        "10.0.0.1:12345",
-			"syslog-ca-cert":     caCert,
+			"syslog-ca-cert":     testing.CACert,
 			"syslog-client-cert": invalidCACert,
-			"syslog-client-key":  caKey,
+			"syslog-client-key":  testing.CAKey,
 		}),
 		err: `invalid syslog forwarding config: validating TLS config: parsing client key pair: asn1: syntax error: data truncated`,
 	}, {
@@ -503,8 +504,8 @@ var configTests = []configTest{
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"logforward-enabled": true,
 			"syslog-host":        "10.0.0.1:12345",
-			"syslog-ca-cert":     caCert,
-			"syslog-client-cert": caCert,
+			"syslog-ca-cert":     testing.CACert,
+			"syslog-client-cert": testing.CACert,
 			"syslog-client-key":  invalidCAKey,
 		}),
 		err: `invalid syslog forwarding config: validating TLS config: parsing client key pair: (crypto/)?tls: failed to parse private key`,
@@ -514,9 +515,9 @@ var configTests = []configTest{
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"logforward-enabled": true,
 			"syslog-host":        "10.0.0.1:12345",
-			"syslog-ca-cert":     caCert,
-			"syslog-client-cert": caCert,
-			"syslog-client-key":  caKey2,
+			"syslog-ca-cert":     testing.CACert,
+			"syslog-client-cert": testing.ServerCert,
+			"syslog-client-key":  serverKey2,
 		}),
 		err: `invalid syslog forwarding config: validating TLS config: parsing client key pair: (crypto/)?tls: private key does not match public key`,
 	}, {
@@ -1183,43 +1184,13 @@ func (s *specializedCharmRepo) WithTestMode() charmrepo.Interface {
 	return s
 }
 
-var caCert = `
------BEGIN CERTIFICATE-----
-MIIBjDCCATigAwIBAgIBADALBgkqhkiG9w0BAQUwHjENMAsGA1UEChMEanVqdTEN
-MAsGA1UEAxMEcm9vdDAeFw0xMjExMDkxNjQwMjhaFw0yMjExMDkxNjQ1MjhaMB4x
-DTALBgNVBAoTBGp1anUxDTALBgNVBAMTBHJvb3QwWTALBgkqhkiG9w0BAQEDSgAw
-RwJAduA1Gnb2VJLxNGfG4St0Qy48Y3q5Z5HheGtTGmti/FjlvQvScCFGCnJG7fKA
-Knd7ia3vWg7lxYkIvMPVP88LAQIDAQABo2YwZDAOBgNVHQ8BAf8EBAMCAKQwEgYD
-VR0TAQH/BAgwBgEB/wIBATAdBgNVHQ4EFgQUlvKX8vwp0o+VdhdhoA9O6KlOm00w
-HwYDVR0jBBgwFoAUlvKX8vwp0o+VdhdhoA9O6KlOm00wCwYJKoZIhvcNAQEFA0EA
-LlNpevtFr8gngjAFFAO/FXc7KiZcCrA5rBfb/rEy297lIqmKt5++aVbLEPyxCIFC
-r71Sj63TUTFWtRZAxvn9qQ==
------END CERTIFICATE-----
-`[1:]
-
-var caKey = `
------BEGIN RSA PRIVATE KEY-----
-MIIBOQIBAAJAduA1Gnb2VJLxNGfG4St0Qy48Y3q5Z5HheGtTGmti/FjlvQvScCFG
-CnJG7fKAKnd7ia3vWg7lxYkIvMPVP88LAQIDAQABAkEAsFOdMSYn+AcF1M/iBfjo
-uQWJ+Zz+CgwuvumjGNsUtmwxjA+hh0fCn0Ah2nAt4Ma81vKOKOdQ8W6bapvsVDH0
-6QIhAJOkLmEKm4H5POQV7qunRbRsLbft/n/SHlOBz165WFvPAiEAzh9fMf70std1
-sVCHJRQWKK+vw3oaEvPKvkPiV5ui0C8CIGNsvybuo8ald5IKCw5huRlFeIxSo36k
-m3OVCXc6zfwVAiBnTUe7WcivPNZqOC6TAZ8dYvdWo4Ifz3jjpEfymjid1wIgBIJv
-ERPyv2NQqIFQZIyzUP7LVRIWfpFFOo9/Ww/7s5Y=
------END RSA PRIVATE KEY-----
-`[1:]
-
-var caKey2 = `
------BEGIN RSA PRIVATE KEY-----
-MIIBOQIBAAJBAJkSWRrr81y8pY4dbNgt+8miSKg4z6glp2KO2NnxxAhyyNtQHKvC
-+fJALJj+C2NhuvOv9xImxOl3Hg8fFPCXCtcCAwEAAQJATQNzO11NQvJS5U6eraFt
-FgSFQ8XZjILtVWQDbJv8AjdbEgKMHEy33icsAKIUAx8jL9kjq6K9kTdAKXZi9grF
-UQIhAPD7jccIDUVm785E5eR9eisq0+xpgUIa24Jkn8cAlst5AiEAopxVFl1auer3
-GP2In3pjdL4ydzU/gcRcYisoJqwHpM8CIHtqmaXBPeq5WT9ukb5/dL3+5SJCtmxA
-jQMuvZWRe6khAiBvMztYtPSDKXRbCZ4xeQ+kWSDHtok8Y5zNoTeu4nvDrwIgb3Al
-fikzPveC5g6S6OvEQmyDz59tYBubm2XHgvxqww0=
------END RSA PRIVATE KEY-----
-`[1:]
+var serverKey2 = func() string {
+	_, key, err := cert.NewDefaultServer(testing.CACert, testing.CAKey, nil)
+	if err != nil {
+		panic(err)
+	}
+	return string(key)
+}()
 
 var invalidCAKey = `
 -----BEGIN RSA PRIVATE KEY-----
