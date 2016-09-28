@@ -566,7 +566,7 @@ const (
 	notUsingMAAS1 = true
 )
 
-func (s *interfacesSuite) TestInstanceLinkedInterfaceNamesWithExampleMAAS1InterfaceSet(c *gc.C) {
+func (s *interfacesSuite) TestInstanceConfiguredInterfaceNamesWithExampleMAAS1InterfaceSet(c *gc.C) {
 	nodeJSON := fmt.Sprintf(`{
         "system_id": "foo",
         "interface_set": %s
@@ -574,31 +574,31 @@ func (s *interfacesSuite) TestInstanceLinkedInterfaceNamesWithExampleMAAS1Interf
 	obj := s.testMAASObject.TestServer.NewNode(nodeJSON)
 
 	inst := &maas1Instance{maasObject: &obj}
-	names, err := instanceLinkedInterfaceNames(notUsingMAAS2, inst, nil)
+	names, err := instanceConfiguredInterfaceNames(notUsingMAAS2, inst, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(names, jc.DeepEquals, []string{"eth0", "eth0:1", "eth0.50", "eth0.100", "eth0.250"})
 }
 
-func (s *interfacesSuite) TestInstanceLinkedInterfaceNamesWithoutInterfaceSetMAAS1(c *gc.C) {
+func (s *interfacesSuite) TestInstanceConfiguredNamesWithoutInterfaceSetMAAS1(c *gc.C) {
 	nodeJSON := `{"system_id": "foo"}`
 	obj := s.testMAASObject.TestServer.NewNode(nodeJSON)
 
 	inst := &maas1Instance{maasObject: &obj}
-	names, err := instanceLinkedInterfaceNames(notUsingMAAS2, inst, nil)
+	names, err := instanceConfiguredInterfaceNames(notUsingMAAS2, inst, nil)
 	c.Assert(err, gc.ErrorMatches, "interface_set not supported")
 	c.Check(err, jc.Satisfies, errors.IsNotSupported)
 	c.Check(names, gc.HasLen, 0)
 }
 
-func (s *interfacesSuite) TestInstanceLinkedInterfaceNamesPartiallyLinkedMAAS1(c *gc.C) {
+func (s *interfacesSuite) TestInstanceConfiguredInterfaceNamesPartiallyConfiguredMAAS1(c *gc.C) {
 	nodeJSON := `{
         "system_id": "foo",
         "interface_set": [{
           "name": "eth0",
           "links": [
               {"subnet": {"cidr": "1.2.3.4/5"}, "mode": "static", "ip_address": "1.2.3.4"},
-              {"subnet": {"cidr": "1.2.3.4/5"}, "mode": "static", "ip_address": "1.2.3.5"},
-              {"subnet": {"cidr": "1.2.3.4/5"}, "mode": "static", "ip_address": "1.2.3.6"}
+              {"subnet": {"cidr": "1.2.3.4/5"}, "mode": "auto"},
+              {"subnet": {"cidr": "1.2.3.4/5"}, "mode": "dhcp"}
           ]
         }, {
           "name": "eth1",
@@ -610,20 +610,20 @@ func (s *interfacesSuite) TestInstanceLinkedInterfaceNamesPartiallyLinkedMAAS1(c
 	obj := s.testMAASObject.TestServer.NewNode(nodeJSON)
 
 	inst := &maas1Instance{maasObject: &obj}
-	names, err := instanceLinkedInterfaceNames(notUsingMAAS2, inst, nil)
+	names, err := instanceConfiguredInterfaceNames(notUsingMAAS2, inst, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(names, jc.DeepEquals, []string{"eth0", "eth0:1", "eth0:2", "eth1.99"})
 }
 
-func (s *interfacesSuite) TestInstanceLinkedInterfaceNamesWithoutInterfaceSetMAAS2(c *gc.C) {
+func (s *interfacesSuite) TestInstanceConfiguredInterfaceNamesWithoutInterfaceSetMAAS2(c *gc.C) {
 	inst := &maas2Instance{machine: &fakeMachine{interfaceSet: nil}}
 
-	names, err := instanceLinkedInterfaceNames(notUsingMAAS1, inst, nil)
+	names, err := instanceConfiguredInterfaceNames(notUsingMAAS1, inst, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(names, gc.HasLen, 0)
 }
 
-func (s *interfacesSuite) TestInstanceLinkedInterfaceNamesPartiallyLinkedMAAS2(c *gc.C) {
+func (s *interfacesSuite) TestInstanceConfiguredInterfaceNamesPartiallyConfiguredMAAS2(c *gc.C) {
 
 	subnet50 := &fakeSubnet{
 		cidr: "10.50.19.0/24",
@@ -650,14 +650,12 @@ func (s *interfacesSuite) TestInstanceLinkedInterfaceNamesPartiallyLinkedMAAS2(c
 					mode:      "static",
 				},
 				&fakeLink{ // alias :1
-					subnet:    subnet50,
-					ipAddress: "10.50.19.104",
-					mode:      "static",
+					subnet: subnet50,
+					mode:   "auto", // no address yet, but will have at startNode time
 				},
 				&fakeLink{ // alias :2
-					subnet:    subnet50,
-					ipAddress: "10.50.19.105",
-					mode:      "static",
+					subnet: subnet50,
+					mode:   "dhcp", // will get address at boot via DHCP
 				},
 			},
 		},
@@ -675,7 +673,7 @@ func (s *interfacesSuite) TestInstanceLinkedInterfaceNamesPartiallyLinkedMAAS2(c
 
 	inst := &maas2Instance{machine: &fakeMachine{interfaceSet: interfaces}}
 
-	names, err := instanceLinkedInterfaceNames(notUsingMAAS1, inst, nil)
+	names, err := instanceConfiguredInterfaceNames(notUsingMAAS1, inst, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(names, jc.DeepEquals, []string{"eth0.50", "eth0.50:1", "eth0.50:2", "eth0.250"})
 }

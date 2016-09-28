@@ -212,7 +212,7 @@ func (env *maasEnviron) deviceInterfaceInfo(deviceID instance.Id, nameToParentNa
 		}
 
 		for _, link := range nic.Links {
-			nicInfo.ConfigType = maasLinkToInterfaceConfigType(string(link.Mode), link.IPAddress)
+			nicInfo.ConfigType = maasLinkToInterfaceConfigType(string(link.Mode))
 
 			if link.IPAddress == "" {
 				logger.Debugf("device %q interface %q has no address", deviceID, nic.Name)
@@ -284,7 +284,7 @@ func (env *maasEnviron) deviceInterfaceInfo2(deviceID string, nameToParentName m
 		}
 
 		for _, link := range nic.Links() {
-			nicInfo.ConfigType = maasLinkToInterfaceConfigType(link.Mode(), link.IPAddress())
+			nicInfo.ConfigType = maasLinkToInterfaceConfigType(link.Mode())
 
 			subnet := link.Subnet()
 			if link.IPAddress() == "" || subnet == nil {

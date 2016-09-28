@@ -987,8 +987,9 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	}
 
 	// We need to extract the names of all interfaces of the selected node,
-	// which are linked to subnets, in order to pass those to the bridge script.
-	interfaceNamesToBridge, err := instanceLinkedInterfaceNames(environ.usingMAAS2(), inst, subnetsMap)
+	// which are both linked to subnets, and have an IP address, in order to
+	// pass those to the bridge script.
+	interfaceNamesToBridge, err := instanceConfiguredInterfaceNames(environ.usingMAAS2(), inst, subnetsMap)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1061,7 +1062,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	}, nil
 }
 
-func instanceLinkedInterfaceNames(usingMAAS2 bool, inst instance.Instance, subnetsMap map[string]network.Id) ([]string, error) {
+func instanceConfiguredInterfaceNames(usingMAAS2 bool, inst instance.Instance, subnetsMap map[string]network.Id) ([]string, error) {
 	var (
 		interfaces []network.InterfaceInfo
 		err        error
@@ -1085,6 +1086,11 @@ func instanceLinkedInterfaceNames(usingMAAS2 bool, inst instance.Instance, subne
 	for _, iface := range interfaces {
 		if iface.CIDR == "" { // CIDR comes from a linked subnet.
 			continue
+		}
+
+		switch iface.ConfigType {
+		case network.ConfigUnknown, network.ConfigManual:
+			continue // link is unconfigured
 		}
 
 		finalName := iface.InterfaceName
