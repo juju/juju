@@ -20,10 +20,9 @@ type RemoveRelationSuite struct {
 
 func (s *RemoveRelationSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
-	s.mockAPI = &mockRemoveAPI{
-		removeRelationFunc: func(endpoints ...string) error {
-			return nil
-		},
+	s.mockAPI = &mockRemoveAPI{Stub: &testing.Stub{}}
+	s.mockAPI.removeRelationFunc = func(endpoints ...string) error {
+		return s.mockAPI.NextErr()
 	}
 }
 
@@ -40,47 +39,46 @@ func (s *RemoveRelationSuite) TestRemoveRelationWrongNumberOfArguments(c *gc.C) 
 	c.Assert(err, gc.ErrorMatches, "a relation must involve two applications")
 
 	// 1 argument
-	err = s.runRemoveRelation(c, "")
+	err = s.runRemoveRelation(c, "application1")
 	c.Assert(err, gc.ErrorMatches, "a relation must involve two applications")
 
 	// More than 2 arguments
-	err = s.runRemoveRelation(c, "", "", "")
+	err = s.runRemoveRelation(c, "application1", "application2", "application3")
 	c.Assert(err, gc.ErrorMatches, "a relation must involve two applications")
 }
 
 func (s *RemoveRelationSuite) TestRemoveRelationSuccess(c *gc.C) {
 	err := s.runRemoveRelation(c, "application1", "application2")
 	c.Assert(err, jc.ErrorIsNil)
+	s.mockAPI.CheckCallNames(c, "DestroyRelation", "Close")
 }
 
 func (s *RemoveRelationSuite) TestRemoveRelationFail(c *gc.C) {
 	msg := "fail remove-relation at API"
-	s.mockAPI = &mockRemoveAPI{
-		removeRelationFunc: func(endpoints ...string) error {
-			return errors.New(msg)
-		},
-	}
+	s.mockAPI.SetErrors(errors.New(msg))
 	err := s.runRemoveRelation(c, "application1", "application2")
 	c.Assert(err, gc.ErrorMatches, msg)
+	s.mockAPI.CheckCallNames(c, "DestroyRelation", "Close")
 }
 
 func (s *RemoveRelationSuite) TestRemoveRelationBlocked(c *gc.C) {
-	// Block operation
-	s.mockAPI.removeRelationFunc = func(endpoints ...string) error {
-		return common.OperationBlockedError("TestRemoveRelationBlocked")
-	}
+	s.mockAPI.SetErrors(common.OperationBlockedError("TestRemoveRelationBlocked"))
 	err := s.runRemoveRelation(c, "application1", "application2")
 	coretesting.AssertOperationWasBlocked(c, err, ".*TestRemoveRelationBlocked.*")
+	s.mockAPI.CheckCallNames(c, "DestroyRelation", "Close")
 }
 
 type mockRemoveAPI struct {
+	*testing.Stub
 	removeRelationFunc func(endpoints ...string) error
 }
 
 func (s mockRemoveAPI) Close() error {
-	return nil
+	s.MethodCall(s, "Close")
+	return s.NextErr()
 }
 
 func (s mockRemoveAPI) DestroyRelation(endpoints ...string) error {
+	s.MethodCall(s, "DestroyRelation", endpoints)
 	return s.removeRelationFunc(endpoints...)
 }

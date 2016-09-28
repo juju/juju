@@ -21,12 +21,11 @@ type AddRelationSuite struct {
 
 func (s *AddRelationSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
-	s.mockAPI = &mockAddAPI{
-		addRelationFunc: func(endpoints ...string) (*params.AddRelationResults, error) {
-			// At the moment, cmd implementation ignores the return values,
-			// so nil is an acceptable return for testing purposes.
-			return nil, nil
-		},
+	s.mockAPI = &mockAddAPI{Stub: &testing.Stub{}}
+	s.mockAPI.addRelationFunc = func(endpoints ...string) (*params.AddRelationResults, error) {
+		// At the moment, cmd implementation ignores the return values,
+		// so nil is an acceptable return for testing purposes.
+		return nil, s.mockAPI.NextErr()
 	}
 }
 
@@ -43,47 +42,46 @@ func (s *AddRelationSuite) TestAddRelationWrongNumberOfArguments(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "a relation must involve two applications")
 
 	// 1 argument
-	err = s.runAddRelation(c, "")
+	err = s.runAddRelation(c, "application1")
 	c.Assert(err, gc.ErrorMatches, "a relation must involve two applications")
 
 	// more than 2 arguments
-	err = s.runAddRelation(c, "", "", "")
+	err = s.runAddRelation(c, "application1", "application2", "application3")
 	c.Assert(err, gc.ErrorMatches, "a relation must involve two applications")
 }
 
 func (s *AddRelationSuite) TestAddRelationSuccess(c *gc.C) {
 	err := s.runAddRelation(c, "application1", "application2")
 	c.Assert(err, jc.ErrorIsNil)
+	s.mockAPI.CheckCallNames(c, "AddRelation", "Close")
 }
 
 func (s *AddRelationSuite) TestAddRelationFail(c *gc.C) {
 	msg := "fail add-relation call at API"
-	s.mockAPI = &mockAddAPI{
-		addRelationFunc: func(endpoints ...string) (*params.AddRelationResults, error) {
-			return nil, errors.New(msg)
-		},
-	}
+	s.mockAPI.SetErrors(errors.New(msg))
 	err := s.runAddRelation(c, "application1", "application2")
 	c.Assert(err, gc.ErrorMatches, msg)
+	s.mockAPI.CheckCallNames(c, "AddRelation", "Close")
 }
 
 func (s *AddRelationSuite) TestAddRelationBlocked(c *gc.C) {
-	// Block operation
-	s.mockAPI.addRelationFunc = func(endpoints ...string) (*params.AddRelationResults, error) {
-		return nil, common.OperationBlockedError("TestBlockAddRelation")
-	}
+	s.mockAPI.SetErrors(common.OperationBlockedError("TestBlockAddRelation"))
 	err := s.runAddRelation(c, "application1", "application2")
 	coretesting.AssertOperationWasBlocked(c, err, ".*TestBlockAddRelation.*")
+	s.mockAPI.CheckCallNames(c, "AddRelation", "Close")
 }
 
 type mockAddAPI struct {
+	*testing.Stub
 	addRelationFunc func(endpoints ...string) (*params.AddRelationResults, error)
 }
 
 func (s mockAddAPI) Close() error {
-	return nil
+	s.MethodCall(s, "Close")
+	return s.NextErr()
 }
 
 func (s mockAddAPI) AddRelation(endpoints ...string) (*params.AddRelationResults, error) {
+	s.MethodCall(s, "AddRelation", endpoints)
 	return s.addRelationFunc(endpoints...)
 }
