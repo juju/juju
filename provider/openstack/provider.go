@@ -539,7 +539,7 @@ func newCredentials(spec environs.CloudSpec) (identity.Credentials, identity.Aut
 	cred := identity.Credentials{
 		Region:     spec.Region,
 		URL:        spec.Endpoint,
-		TenantName: credAttrs[credAttrTenantName],
+		TenantName: credAttrs[CredAttrTenantName],
 	}
 
 	// AuthType is validated when the environment is opened, so it's known
@@ -548,16 +548,16 @@ func newCredentials(spec environs.CloudSpec) (identity.Credentials, identity.Aut
 	switch spec.Credential.AuthType() {
 	case cloud.UserPassAuthType:
 		// TODO(axw) we need a way of saying to use legacy auth.
-		cred.User = credAttrs[credAttrUserName]
-		cred.Secrets = credAttrs[credAttrPassword]
-		cred.DomainName = credAttrs[credAttrDomainName]
+		cred.User = credAttrs[CredAttrUserName]
+		cred.Secrets = credAttrs[CredAttrPassword]
+		cred.DomainName = credAttrs[CredAttrDomainName]
 		authMode = identity.AuthUserPass
 		if cred.DomainName != "" {
 			authMode = identity.AuthUserPassV3
 		}
 	case cloud.AccessKeyAuthType:
-		cred.User = credAttrs[credAttrAccessKey]
-		cred.Secrets = credAttrs[credAttrSecretKey]
+		cred.User = credAttrs[CredAttrAccessKey]
+		cred.Secrets = credAttrs[CredAttrSecretKey]
 		authMode = identity.AuthKeyPair
 	}
 	return cred, authMode
