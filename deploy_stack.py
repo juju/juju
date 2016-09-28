@@ -412,7 +412,10 @@ def assess_upgrade(old_client, juju_path):
 def upgrade_juju(client):
     client.set_testing_agent_metadata_url()
     tools_metadata_url = client.get_agent_metadata_url()
-    logging.info('The tools-metadata-url is %s', tools_metadata_url)
+    logging.info(
+        'The {url_type} is {url}'.format(
+            url_type=client.agent_metadata_url,
+            url=tools_metadata_url))
     client.upgrade_juju()
 
 
