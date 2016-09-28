@@ -1008,23 +1008,17 @@ class TestMAASAccount(TestCase):
             config['name'], config['maas-server'], config['maas-oauth'])
         with patch('subprocess.check_output', autospec=True,
                    return_value='') as co_mock:
-            with self.assertRaises(ValueError) as err_ctx:
+            err_pattern = '^Invalid subnet connection mode: MAGIC$'
+            with self.assertRaisesRegexp(ValueError, err_pattern):
                 account.interface_link_subnet('node-xyz', 10, 'MAGIC', 40)
-            self.assertEqual(
-                str(err_ctx.exception),
-                'Invalid subnet connection mode: MAGIC')
-            with self.assertRaises(ValueError) as err_ctx:
+            err_pattern = '^Must be mode STATIC for ip_address$'
+            with self.assertRaisesRegexp(ValueError, err_pattern):
                 account.interface_link_subnet(
                     'node-xyz', 10, 'AUTO', 40, ip_address='127.0.0.1')
-            self.assertEqual(
-                str(err_ctx.exception),
-                'Must be mode STATIC for ip_address')
-            with self.assertRaises(ValueError) as err_ctx:
+            err_pattern = '^Must be mode AUTO or STATIC for default_gateway$'
+            with self.assertRaisesRegexp(ValueError, err_pattern):
                 account.interface_link_subnet(
                     'node-xyz', 10, 'LINK_UP', 40, default_gateway=True)
-            self.assertEqual(
-                str(err_ctx.exception),
-                'Must be mode AUTO or STATIC for default_gateway')
         self.assertEqual(0, co_mock.call_count)
 
     def test_interface_unlink_subnet(self):
