@@ -135,27 +135,69 @@ func (c *Client) GetCharmURL(serviceName string) (*charm.URL, error) {
 type SetCharmConfig struct {
 	// ApplicationName is the name of the application to set the charm on.
 	ApplicationName string
+
 	// CharmID identifies the charm.
 	CharmID charmstore.CharmID
+
+	// ConfigSettings is the charm settings to set during the upgrade.
+	// This field is only understood by Application facade version 2
+	// and greater.
+	ConfigSettings map[string]string `json:"config-settings,omitempty"`
+
+	// ConfigSettingsYAML is the charm settings in YAML format to set
+	// during the upgrade. If this is non-empty, it will take precedence
+	// over ConfigSettings. This field is only understood by Application
+	// facade version 2
+	ConfigSettingsYAML string `json:"config-settings-yaml,omitempty"`
+
 	// ForceSeries forces the use of the charm even if it doesn't match the
 	// series of the unit.
 	ForceSeries bool
+
 	// ForceUnits forces the upgrade on units in an error state.
 	ForceUnits bool
+
 	// ResourceIDs is a map of resource names to resource IDs to activate during
 	// the upgrade.
 	ResourceIDs map[string]string
+
+	// StorageConstraints is a map of storage names to storage constraints to
+	// update during the upgrade. This field is only understood by Application
+	// facade version 2 and greater.
+	StorageConstraints map[string]storage.Constraints `json:"storage-constraints,omitempty"`
 }
 
 // SetCharm sets the charm for a given service.
 func (c *Client) SetCharm(cfg SetCharmConfig) error {
+	var storageConstraints map[string]params.StorageConstraints
+	if len(cfg.StorageConstraints) > 0 {
+		storageConstraints = make(map[string]params.StorageConstraints)
+		for name, cons := range cfg.StorageConstraints {
+			size, count := cons.Size, cons.Count
+			var sizePtr, countPtr *uint64
+			if size > 0 {
+				sizePtr = &size
+			}
+			if count > 0 {
+				countPtr = &count
+			}
+			storageConstraints[name] = params.StorageConstraints{
+				Pool:  cons.Pool,
+				Size:  sizePtr,
+				Count: countPtr,
+			}
+		}
+	}
 	args := params.ApplicationSetCharm{
-		ApplicationName: cfg.ApplicationName,
-		CharmUrl:        cfg.CharmID.URL.String(),
-		Channel:         string(cfg.CharmID.Channel),
-		ForceSeries:     cfg.ForceSeries,
-		ForceUnits:      cfg.ForceUnits,
-		ResourceIDs:     cfg.ResourceIDs,
+		ApplicationName:    cfg.ApplicationName,
+		CharmUrl:           cfg.CharmID.URL.String(),
+		Channel:            string(cfg.CharmID.Channel),
+		ConfigSettings:     cfg.ConfigSettings,
+		ConfigSettingsYAML: cfg.ConfigSettingsYAML,
+		ForceSeries:        cfg.ForceSeries,
+		ForceUnits:         cfg.ForceUnits,
+		ResourceIDs:        cfg.ResourceIDs,
+		StorageConstraints: storageConstraints,
 	}
 	return c.facade.FacadeCall("SetCharm", args, nil)
 }

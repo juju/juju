@@ -21,10 +21,17 @@ type storageFlag struct {
 func (f storageFlag) Set(s string) error {
 	fields := strings.SplitN(s, "=", 2)
 	if len(fields) < 2 {
-		return errors.New("expected [<application>:]<store>=<constraints>")
+		if f.bundleStores != nil {
+			return errors.New("expected [<application>:]<store>=<constraints>")
+		} else {
+			return errors.New("expected <store>=<constraints>")
+		}
 	}
 	var serviceName, storageName string
 	if colon := strings.IndexRune(fields[0], ':'); colon >= 0 {
+		if f.bundleStores == nil {
+			return errors.New("expected <store>=<constraints>")
+		}
 		serviceName = fields[0][:colon]
 		storageName = fields[0][colon+1:]
 	} else {
@@ -56,13 +63,15 @@ func (f storageFlag) Set(s string) error {
 
 // String implements gnuflag.Value.String.
 func (f storageFlag) String() string {
-	strs := make([]string, 0, len(*f.stores)+len(*f.bundleStores))
+	strs := make([]string, 0, len(*f.stores))
 	for store, cons := range *f.stores {
 		strs = append(strs, fmt.Sprintf("%s=%v", store, cons))
 	}
-	for application, stores := range *f.bundleStores {
-		for store, cons := range stores {
-			strs = append(strs, fmt.Sprintf("%s:%s=%v", application, store, cons))
+	if f.bundleStores != nil {
+		for application, stores := range *f.bundleStores {
+			for store, cons := range stores {
+				strs = append(strs, fmt.Sprintf("%s:%s=%v", application, store, cons))
+			}
 		}
 	}
 	return strings.Join(strs, " ")
