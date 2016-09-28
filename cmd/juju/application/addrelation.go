@@ -15,13 +15,23 @@ import (
 
 // NewAddRelationCommand returns a command to add a relation between 2 services.
 func NewAddRelationCommand() cmd.Command {
-	return modelcmd.Wrap(&addRelationCommand{})
+	cmd := &addRelationCommand{}
+	cmd.newAPIFunc = func() (ApplicationAddRelationAPI, error) {
+		root, err := cmd.NewAPIRoot()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return application.NewClient(root), nil
+
+	}
+	return modelcmd.Wrap(cmd)
 }
 
 // addRelationCommand adds a relation between two application endpoints.
 type addRelationCommand struct {
 	modelcmd.ModelCommandBase
-	Endpoints []string
+	Endpoints  []string
+	newAPIFunc func() (ApplicationAddRelationAPI, error)
 }
 
 func (c *addRelationCommand) Info() *cmd.Info {
@@ -41,21 +51,14 @@ func (c *addRelationCommand) Init(args []string) error {
 	return nil
 }
 
-type serviceAddRelationAPI interface {
+// ApplicationAddRelationAPI defines the API methods that application add relation command uses.
+type ApplicationAddRelationAPI interface {
 	Close() error
 	AddRelation(endpoints ...string) (*params.AddRelationResults, error)
 }
 
-func (c *addRelationCommand) getAPI() (serviceAddRelationAPI, error) {
-	root, err := c.NewAPIRoot()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return application.NewClient(root), nil
-}
-
 func (c *addRelationCommand) Run(_ *cmd.Context) error {
-	client, err := c.getAPI()
+	client, err := c.newAPIFunc()
 	if err != nil {
 		return err
 	}

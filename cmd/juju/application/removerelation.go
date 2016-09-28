@@ -39,13 +39,23 @@ See also:
 
 // NewRemoveRelationCommand returns a command to remove a relation between 2 services.
 func NewRemoveRelationCommand() cmd.Command {
-	return modelcmd.Wrap(&removeRelationCommand{})
+	cmd := &removeRelationCommand{}
+	cmd.newAPIFunc = func() (ApplicationDestroyRelationAPI, error) {
+		root, err := cmd.NewAPIRoot()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return application.NewClient(root), nil
+
+	}
+	return modelcmd.Wrap(cmd)
 }
 
 // removeRelationCommand causes an existing application relation to be shut down.
 type removeRelationCommand struct {
 	modelcmd.ModelCommandBase
-	Endpoints []string
+	Endpoints  []string
+	newAPIFunc func() (ApplicationDestroyRelationAPI, error)
 }
 
 func (c *removeRelationCommand) Info() *cmd.Info {
@@ -65,21 +75,14 @@ func (c *removeRelationCommand) Init(args []string) error {
 	return nil
 }
 
-type serviceDestroyRelationAPI interface {
+// ApplicationDestroyRelationAPI defines the API methods that application remove relation command uses.
+type ApplicationDestroyRelationAPI interface {
 	Close() error
 	DestroyRelation(endpoints ...string) error
 }
 
-func (c *removeRelationCommand) getAPI() (serviceDestroyRelationAPI, error) {
-	root, err := c.NewAPIRoot()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return application.NewClient(root), nil
-}
-
 func (c *removeRelationCommand) Run(_ *cmd.Context) error {
-	client, err := c.getAPI()
+	client, err := c.newAPIFunc()
 	if err != nil {
 		return err
 	}
