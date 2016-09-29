@@ -285,7 +285,6 @@ iface eth0:1 inet static
     address 1.2.3.5`
 
 const networkWithAliasInterfacesToBridge = "eth0 eth0:1"
-const networkWithAliasInterfacesToBridgePass2 = "eth0"
 
 const networkWithAliasExpected = `auto lo
 iface lo inet loopback
