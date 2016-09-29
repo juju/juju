@@ -97,6 +97,7 @@ type Client struct {
 	*profileClient
 	*instanceClient
 	*imageClient
+	*networkClient
 	baseURL                  string
 	defaultProfileBridgeName string
 }
@@ -123,15 +124,24 @@ func Connect(cfg Config) (*Client, error) {
 		return nil, errors.Trace(err)
 	}
 
-	// If this is the LXD provider on the localhost, let's do an extra check to
-	// make sure the default profile has a correctly configured bridge, and
-	// which one is it.
-	var bridgeName string
-	if remoteID == remoteIDForLocal {
-		bridgeName, err = verifyDefaultProfileBridgeConfig(raw)
+	networkAPISupported := false
+	if cfg.Remote.Protocol != SimplestreamsProtocol {
+		status, err := raw.ServerStatus()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
+
+		if lxdshared.StringInSlice("network", status.APIExtensions) {
+			networkAPISupported = true
+		}
+	}
+
+	var bridgeName string
+	if remoteID == remoteIDForLocal {
+		// If this is the LXD provider on the localhost, let's do an extra check to
+		// make sure the default profile has a correctly configured bridge, and
+		// which one is it.
+		bridgeName, err = verifyDefaultProfileBridgeConfig(raw, networkAPISupported)
 	}
 
 	conn := &Client{
@@ -140,6 +150,7 @@ func Connect(cfg Config) (*Client, error) {
 		profileClient:            &profileClient{raw},
 		instanceClient:           &instanceClient{raw, remoteID},
 		imageClient:              &imageClient{raw, connectToRaw},
+		networkClient:		  &networkClient{raw, networkAPISupported},
 		baseURL:                  raw.BaseURL,
 		defaultProfileBridgeName: bridgeName,
 	}
@@ -241,7 +252,7 @@ func newRawClient(remote Remote) (*lxd.Client, error) {
 // network bridge configured on the "default" profile. Additionally, if the
 // default bridge bridge is used, its configuration in LXDBridgeFile is also
 // inspected to make sure it has a chance to work.
-func verifyDefaultProfileBridgeConfig(client *lxd.Client) (string, error) {
+func verifyDefaultProfileBridgeConfig(client *lxd.Client, networkAPISupported bool) (string, error) {
 	const (
 		defaultProfileName = "default"
 		configTypeKey      = "type"
@@ -261,6 +272,17 @@ func verifyDefaultProfileBridgeConfig(client *lxd.Client) (string, error) {
 	// with it, so let's just use whatever they set up.
 	eth0, ok := config.Devices[configEth0]
 	if !ok {
+		/* on lxd >= 2.3, there is nothing in the default profile
+		 * w.r.t. eth0, because there is no lxdbr0 by default. Let's
+		 * handle this case and configure one now.
+		 */
+		if networkAPISupported {
+			if err := CreateDefaultBridgeInDefaultProfile(client); err != nil {
+				return "", errors.Errorf("couldn't create default bridge %v", err)
+			}
+
+			return network.DefaultLXDBridge, nil
+		}
 		return "", errors.Errorf("unexpected LXD %q profile config without eth0: %+v", defaultProfileName, config)
 	}
 
@@ -276,6 +298,13 @@ func verifyDefaultProfileBridgeConfig(client *lxd.Client) (string, error) {
 	if bridgeName != network.DefaultLXDBridge {
 		// When the user changed which bridge to use, just return its name and
 		// check no further.
+		return bridgeName, nil
+	}
+
+	/* if the network API is supported, that means the lxd-bridge config
+	 * file has been obsoleted so we don't need to check it for correctness
+	 */
+	if networkAPISupported {
 		return bridgeName, nil
 	}
 
