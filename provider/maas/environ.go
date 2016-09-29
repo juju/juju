@@ -17,7 +17,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gomaasapi"
 	"github.com/juju/utils"
-	"github.com/juju/utils/clock"
 	"github.com/juju/utils/os"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
@@ -862,25 +861,6 @@ func (*maasEnviron) MaintainInstance(args environs.StartInstanceParams) error {
 	return nil
 }
 
-type statusCallbackFunc func(settableStatus status.Status, info string, data map[string]interface{}) error
-
-func pollInstanceStatus(done <-chan struct{}, statusCallback statusCallbackFunc,
-	inst maasInstance, pollClock clock.Clock) {
-	for {
-		instStatus := inst.Status()
-		err := statusCallback(instStatus.Status, instStatus.Message, nil)
-		if err != nil {
-			logger.Errorf("setting instance %s status: %v", inst.Id(), err)
-		}
-
-		select {
-		case <-done:
-			return
-		case <-pollClock.After(statusPollInterval):
-		}
-	}
-}
-
 // StartInstance is specified in the InstanceBroker interface.
 func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	*environs.StartInstanceResult, error,
@@ -969,17 +949,6 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 		if err != nil {
 			return nil, errors.Annotatef(err, "cannot run instances")
 		}
-	}
-	done := make(chan struct{})
-
-	if args.StatusCallback != nil {
-		// the purpose of this goroutine is to provide information while the instance
-		// is coming up, once StartInstance exits instancepoller will take care but
-		// long start times can lead to confusing status stalling, there is no
-		// consequence to this goroutine never running since it means the function
-		// ended fast and instancepoller is taking care now.
-		defer close(done)
-		go pollInstanceStatus(done, args.StatusCallback, inst, clock.WallClock)
 	}
 
 	defer func() {
