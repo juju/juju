@@ -1193,7 +1193,7 @@ class TestTestUpgrade(FakeHomeTestCase):
             [new_client] = _get_clients_to_upgrade(
                 old_client, '/foo/newer/juju')
 
-        self.assertEqual(type(new_client), EnvJujuClient26)
+        self.assertIs(type(new_client), EnvJujuClient26)
 
     def test__get_clients_to_upgrade_returns_controller_and_model(self):
         old_client = fake_juju_client()
