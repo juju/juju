@@ -38,7 +38,7 @@ upgrades that software across an entire model, which is, by default, the
 current model.
 A model's agent version can be shown with `[1:] + "`juju get-model-config agent-\nversion`" + `.
 A version is denoted by: major.minor.patch
-The upgrade candidate will be auto-selected if '--version' is not
+The upgrade candidate will be auto-selected if '--agent-version' is not
 specified:
  - If the server major version matches the client major version, the
  version selected is minor+1. If such a minor version is not available then
@@ -56,7 +56,7 @@ Backups are recommended prior to upgrading.
 
 Examples:
     juju upgrade-juju --dry-run
-    juju upgrade-juju --version 2.0.1
+    juju upgrade-juju --agent-version 2.0.1
     
 See also: 
     sync-tools`
@@ -95,7 +95,7 @@ func (c *upgradeJujuCommand) Info() *cmd.Info {
 
 func (c *upgradeJujuCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	f.StringVar(&c.vers, "version", "", "Upgrade to specific version")
+	f.StringVar(&c.vers, "agent-version", "", "Upgrade to specific version")
 	f.BoolVar(&c.BuildAgent, "build-agent", false, "Build a local version of the agent binary; for development use only")
 	f.BoolVar(&c.DryRun, "dry-run", false, "Don't change anything, just report what would be changed")
 	f.BoolVar(&c.ResetPrevious, "reset-previous-upgrade", false, "Clear the previous (incomplete) upgrade status (use with care)")
@@ -111,7 +111,7 @@ func (c *upgradeJujuCommand) Init(args []string) error {
 		}
 		if c.BuildAgent && vers.Build != 0 {
 			// TODO(fwereade): when we start taking versions from actual built
-			// code, we should disable --version when used with --build-agent.
+			// code, we should disable --agent-version when used with --build-agent.
 			// For now, it's the only way to experiment with version upgrade
 			// behaviour live, so the only restriction is that Build cannot
 			// be used (because its value needs to be chosen internally so as
@@ -259,7 +259,7 @@ func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 	if c.BuildAgent && c.Version == version.Zero {
 		// Currently, uploading tools assumes the version to be
 		// the same as jujuversion.Current if not specified with
-		// --version.
+		// --agent-version.
 		c.Version = jujuversion.Current
 	}
 	warnCompat := false
@@ -292,7 +292,7 @@ func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 	case c.Version.Major > agentVersion.Major:
 		// User is requesting an upgrade to a new major number
 		// Only upgrade to a different major number if:
-		// 1 - Explicitly requested with --version or using --build-agent, and
+		// 1 - Explicitly requested with --agent-version or using --build-agent, and
 		// 2 - The environment is running a valid version to upgrade from, and
 		// 3 - The upgrade is to a minor version of 0.
 		minVer, ok := c.minMajorUpgradeVersion[c.Version.Major]
@@ -321,7 +321,7 @@ func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 	}
 	// If we're running a custom build or the user has asked for a new agent
 	// to be built, upload a local jujud binary if possible.
-	uploadLocalBinary := isControllerModel && tryImplicitUpload(agentVersion)
+	uploadLocalBinary := isControllerModel && c.Version == version.Zero && tryImplicitUpload(agentVersion)
 	if !warnCompat && (uploadLocalBinary || c.BuildAgent) && !c.DryRun {
 		if err := context.uploadTools(c.BuildAgent); err != nil {
 			// If we've explicitly asked to build an agent binary, or the upload failed
@@ -329,14 +329,14 @@ func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 			if err2 := block.ProcessBlockedError(err, block.BlockChange); c.BuildAgent || err2 == cmd.ErrSilent {
 				return err2
 			}
-		} else if err == nil {
-			builtMsg := ""
-			if c.BuildAgent {
-				builtMsg = " (built from source)"
-			}
-			fmt.Fprintf(ctx.Stdout, "no prepackaged tools available, using local agent binary %v%s\n", context.chosen, builtMsg)
 		}
+		builtMsg := ""
+		if c.BuildAgent {
+			builtMsg = " (built from source)"
+		}
+		fmt.Fprintf(ctx.Stdout, "no prepackaged tools available, using local agent binary %v%s\n", context.chosen, builtMsg)
 	}
+
 	// If there was an error implicitly uploading a binary, we'll still look for any packaged binaries
 	// since there may still be a valid upgrade and the user didn't ask for any local binary.
 	if err := context.validate(); err != nil {
@@ -349,7 +349,7 @@ func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 		fmt.Fprintf(ctx.Stderr, "version %s incompatible with this client (%s)\n", context.chosen, jujuversion.Current)
 	}
 	if c.DryRun {
-		fmt.Fprintf(ctx.Stderr, "upgrade to this version by running\n    juju upgrade-juju --version=\"%s\"\n", context.chosen)
+		fmt.Fprintf(ctx.Stderr, "upgrade to this version by running\n    juju upgrade-juju --agent-version=\"%s\"\n", context.chosen)
 	} else {
 		if c.ResetPrevious {
 			if ok, err := c.confirmResetPreviousUpgrade(ctx); !ok || err != nil {
@@ -531,7 +531,7 @@ func (context *upgradeContext) validate() (err error) {
 		// agent version and doing major.minor+1.patch=0.
 
 		// Upgrading across a major release boundary requires that the version
-		// be specified with --version.
+		// be specified with --agent-version.
 		nextVersion := context.agent
 		nextVersion.Minor += 1
 		nextVersion.Patch = 0

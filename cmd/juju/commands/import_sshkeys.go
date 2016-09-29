@@ -4,10 +4,10 @@
 package commands
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -39,7 +39,7 @@ GitHub service:
 
 Multiple identities may be specified in a space delimited list:
 
-    juju import-ssh-key rheinlein lp:iasmiov gh:hharrison
+juju import-ssh-key gh:rheinlein lp:iasmiov gh:hharrison
 
 See also: 
     add-ssh-key
@@ -69,11 +69,20 @@ func (c *importKeysCommand) Info() *cmd.Info {
 
 // Init implements Command.Init.
 func (c *importKeysCommand) Init(args []string) error {
-	switch len(args) {
-	case 0:
+	if len(args) == 0 {
 		return errors.New("no ssh key id specified")
-	default:
-		c.sshKeyIds = args
+	}
+	c.sshKeyIds = args
+	for _, k := range c.sshKeyIds {
+		if len(k) < 3 {
+			return errors.NotValidf("%q key ID", k)
+		}
+		switch k[:3] {
+		case "lp:", "gh:":
+		default:
+			return errors.NewNotSupported(nil,
+				fmt.Sprintf("prefix in Key ID %q not supported, only lp: and gh: are allowed", k))
+		}
 	}
 	return nil
 }

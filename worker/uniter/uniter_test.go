@@ -150,6 +150,23 @@ func (s *UniterSuite) TestUniterStartup(c *gc.C) {
 	})
 }
 
+func (s *UniterSuite) TestPreviousDownloadsCleared(c *gc.C) {
+	s.runUniterTests(c, []uniterTest{
+		ut(
+			"Ensure stale download files are cleared on uniter startup",
+			createCharm{},
+			serveCharm{},
+			ensureStateWorker{},
+			createServiceAndUnit{},
+			createDownloads{},
+			startUniter{},
+			waitAddresses{},
+			waitUnitAgent{status: status.Idle},
+			verifyDownloadsCleared{},
+		),
+	})
+}
+
 func (s *UniterSuite) TestUniterBootstrap(c *gc.C) {
 	//TODO(bogdanteleaga): Fix this on windows
 	if runtime.GOOS == "windows" {

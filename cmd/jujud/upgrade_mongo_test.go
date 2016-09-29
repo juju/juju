@@ -49,16 +49,17 @@ func (mock *mockClock) Now() time.Time {
 	return mock.now
 }
 
+func (mock *mockClock) NewTimer(time.Duration) clock.Timer {
+	panic("unexpected call to NewTimer")
+}
+
 func (mock *mockClock) After(wait time.Duration) <-chan time.Time {
 	mock.now = mock.now.Add(wait)
 	return time.After(time.Microsecond)
 }
 
 func (mock *mockClock) AfterFunc(d time.Duration, f func()) clock.Timer {
-	if d > 0 {
-		mock.now = mock.now.Add(d)
-	}
-	return time.AfterFunc(0, f)
+	panic("unexpected call to AfterFunc")
 }
 
 func retryCallArgs() retry.CallArgs {

@@ -354,6 +354,13 @@ func removeStorageInstanceOps(
 	return ops, nil
 }
 
+// machineAssignable is used by createStorageOps to determine what machine
+// storage needs to be created. This is implemented by Unit.
+type machineAssignable interface {
+	machine() (*Machine, error)
+	noAssignedMachineOp() txn.Op
+}
+
 // createStorageOps returns txn.Ops for creating storage instances
 // and attachments for the newly created unit or service.
 //
@@ -369,13 +376,17 @@ func removeStorageInstanceOps(
 // instances to be created, keyed on the storage name. These constraints
 // will be correlated with the charm storage metadata for validation
 // and supplementing.
+//
+// maybeMachineAssignable may be nil, or an machineAssignable which
+// describes the entity's machine assignment. If the entity is assigned
+// to a machine, then machine storage will be created.
 func createStorageOps(
 	st *State,
-	entity names.Tag,
+	entityTag names.Tag,
 	charmMeta *charm.Meta,
 	cons map[string]StorageConstraints,
 	series string,
-	machineOpsNeeded bool,
+	maybeMachineAssignable machineAssignable,
 ) (ops []txn.Op, numStorageAttachments int, err error) {
 
 	type template struct {
@@ -385,12 +396,12 @@ func createStorageOps(
 	}
 
 	createdShared := false
-	switch entity := entity.(type) {
+	switch entityTag := entityTag.(type) {
 	case names.ApplicationTag:
 		createdShared = true
 	case names.UnitTag:
 	default:
-		return nil, -1, errors.Errorf("expected application or unit tag, got %T", entity)
+		return nil, -1, errors.Errorf("expected application or unit tag, got %T", entityTag)
 	}
 
 	// Create storage instances in order of name, to simplify testing.
@@ -426,7 +437,7 @@ func createStorageOps(
 
 	ops = make([]txn.Op, 0, len(templates)*3)
 	for _, t := range templates {
-		owner := entity.String()
+		owner := entityTag.String()
 		var kind StorageKind
 		switch t.meta.Type {
 		case charm.StorageBlock:
@@ -441,7 +452,7 @@ func createStorageOps(
 		// instance we create. We'll use the reference counts to ensure
 		// we don't exceed limits when adding storage, and for
 		// maintaining model integrity during charm upgrades.
-		storageRefcountKey := entityStorageRefcountKey(entity, t.storageName)
+		storageRefcountKey := entityStorageRefcountKey(entityTag, t.storageName)
 		incRefOp, err := nsRefcounts.CreateOrIncRefOp(refcounts, storageRefcountKey, int(t.cons.Count))
 		if err != nil {
 			return nil, -1, errors.Trace(err)
@@ -459,11 +470,26 @@ func createStorageOps(
 				Owner:       owner,
 				StorageName: t.storageName,
 			}
-			if unit, ok := entity.(names.UnitTag); ok {
+			var machineOps []txn.Op
+			if unitTag, ok := entityTag.(names.UnitTag); ok {
 				doc.AttachmentCount = 1
 				storage := names.NewStorageTag(id)
-				ops = append(ops, createStorageAttachmentOp(storage, unit))
+				ops = append(ops, createStorageAttachmentOp(storage, unitTag))
 				numStorageAttachments++
+
+				if maybeMachineAssignable != nil {
+					var err error
+					machineOps, err = unitAssignedMachineStorageOps(
+						st, unitTag, charmMeta, cons, series,
+						&storageInstance{st, *doc},
+						maybeMachineAssignable,
+					)
+					if err != nil {
+						return nil, -1, errors.Annotatef(
+							err, "creating machine storage for storage %s", id,
+						)
+					}
+				}
 			}
 			ops = append(ops, txn.Op{
 				C:      storageInstancesC,
@@ -471,18 +497,7 @@ func createStorageOps(
 				Assert: txn.DocMissing,
 				Insert: doc,
 			})
-			if machineOpsNeeded {
-				machineOps, err := unitAssignedMachineStorageOps(
-					st, entity, charmMeta, cons, series,
-					&storageInstance{st, *doc},
-				)
-				if err != nil {
-					return nil, -1, errors.Annotatef(
-						err, "creating machine storage for storage %s", id,
-					)
-				}
-				ops = append(ops, machineOps...)
-			}
+			ops = append(ops, machineOps...)
 		}
 	}
 
@@ -504,38 +519,27 @@ func createStorageOps(
 // this, and no error will be returned.
 func unitAssignedMachineStorageOps(
 	st *State,
-	entity names.Tag,
+	unitTag names.UnitTag,
 	charmMeta *charm.Meta,
 	cons map[string]StorageConstraints,
 	series string,
 	storage StorageInstance,
+	machineAssignable machineAssignable,
 ) (ops []txn.Op, err error) {
-	tag, ok := entity.(names.UnitTag)
-	if !ok {
-		return nil, errors.NotSupportedf("dynamic creation of shared storage")
-	}
 	storageParams, err := machineStorageParamsForStorageInstance(
-		st, charmMeta, tag, series, cons, storage,
+		st, charmMeta, unitTag, series, cons, storage,
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	u, err := st.Unit(tag.Id())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	m, err := u.machine()
+	m, err := machineAssignable.machine()
 	if err != nil {
 		if errors.IsNotAssigned(err) {
 			// The unit is not assigned to a machine; return
 			// txn.Op that ensures that this remains the case
 			// until the transaction is committed.
-			return []txn.Op{{
-				C:      unitsC,
-				Id:     u.doc.DocID,
-				Assert: bson.D{{"machineid", ""}},
-			}}, nil
+			return []txn.Op{machineAssignable.noAssignedMachineOp()}, nil
 		}
 		return nil, errors.Trace(err)
 	}
@@ -1266,7 +1270,7 @@ func (st *State) addUnitStorageOps(
 		charmMeta,
 		map[string]StorageConstraints{storageName: cons},
 		u.Series(),
-		true, // create machine storage
+		u,
 	)
 	if err != nil {
 		return nil, errors.Trace(err)

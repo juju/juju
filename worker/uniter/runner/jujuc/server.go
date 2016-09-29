@@ -171,7 +171,10 @@ func (j *Jujuc) Main(req Request, resp *exec.ExecResponse) error {
 	}
 	j.mu.Lock()
 	defer j.mu.Unlock()
-	logger.Infof("running hook tool %q %q", req.CommandName, req.Args)
+	// Beware, reducing the log level of the following line will lead
+	// to passwords leaking if passed as args.
+	logger.Tracef("running hook tool %q %q", req.CommandName, req.Args)
+	logger.Tracef("running hook tool %q", req.CommandName)
 	logger.Debugf("hook context id %q; dir %q", req.ContextId, req.Dir)
 	wrapper := &cmdWrapper{c, nil}
 	resp.Code = cmd.Main(wrapper, ctx, req.Args)

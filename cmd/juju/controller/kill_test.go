@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
@@ -23,22 +24,39 @@ import (
 	cmdtesting "github.com/juju/juju/cmd/testing"
 	"github.com/juju/juju/jujuclient"
 	_ "github.com/juju/juju/provider/dummy"
-	"github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type KillSuite struct {
 	baseDestroySuite
+
+	clock *testing.Clock
 }
 
 var _ = gc.Suite(&KillSuite{})
 
+func (s *KillSuite) SetUpTest(c *gc.C) {
+	s.baseDestroySuite.SetUpTest(c)
+	s.clock = testing.NewClock(time.Now())
+}
+
 func (s *KillSuite) runKillCommand(c *gc.C, args ...string) (*cmd.Context, error) {
-	return testing.RunCommand(c, s.newKillCommand(), args...)
+	return coretesting.RunCommand(c, s.newKillCommand(), args...)
 }
 
 func (s *KillSuite) newKillCommand() cmd.Command {
+	wrapped, _ := controller.NewKillCommandForTest(
+		s.api, s.clientapi, s.store, s.apierror, s.clock, nil)
+	return wrapped
+}
+
+func (s *KillSuite) newKillCommandBoth() (cmd.Command, cmd.Command) {
+	clock := s.clock
+	if clock == nil {
+		clock = testing.NewClock(time.Now())
+	}
 	return controller.NewKillCommandForTest(
-		s.api, s.clientapi, s.store, s.apierror, &mockClock{}, nil)
+		s.api, s.clientapi, s.store, s.apierror, clock, nil)
 }
 
 func (s *KillSuite) TestKillNoControllerNameError(c *gc.C) {
@@ -49,6 +67,238 @@ func (s *KillSuite) TestKillNoControllerNameError(c *gc.C) {
 func (s *KillSuite) TestKillBadFlags(c *gc.C) {
 	_, err := s.runKillCommand(c, "-n")
 	c.Assert(err, gc.ErrorMatches, "flag provided but not defined: -n")
+}
+
+func (s *KillSuite) TestKillDurationFlags(c *gc.C) {
+	for i, test := range []struct {
+		args     []string
+		expected time.Duration
+		err      string
+	}{
+		{
+			expected: 5 * time.Minute,
+		}, {
+			args:     []string{"-t", "2m"},
+			expected: 2 * time.Minute,
+		}, {
+			args:     []string{"--timeout", "2m"},
+			expected: 2 * time.Minute,
+		}, {
+			args:     []string{"-t", "0"},
+			expected: 0,
+		},
+	} {
+		c.Logf("duration test %d", i)
+		wrapped, inner := s.newKillCommandBoth()
+		args := append([]string{"test1"}, test.args...)
+		err := coretesting.InitCommand(wrapped, args)
+		if test.err == "" {
+			c.Check(err, jc.ErrorIsNil)
+			c.Check(controller.KillTimeout(c, inner), gc.Equals, test.expected)
+		} else {
+			c.Check(err, gc.ErrorMatches, test.err)
+		}
+	}
+}
+
+func (s *KillSuite) TestKillWaitForModels_AllGood(c *gc.C) {
+	s.resetAPIModels(c)
+	wrapped, inner := s.newKillCommandBoth()
+	err := coretesting.InitCommand(wrapped, []string{"test1", "--timeout=1m"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	ctx := coretesting.Context(c)
+	err = controller.KillWaitForModels(inner, ctx, s.api, test1UUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(coretesting.Stderr(ctx), gc.Equals, "All hosted models reclaimed, cleaning up controller machines\n")
+}
+
+func (s *KillSuite) TestKillWaitForModels_ActuallyWaits(c *gc.C) {
+	s.resetAPIModels(c)
+	s.addModel("model-1", base.ModelStatus{
+		UUID:               test2UUID,
+		Life:               string(params.Dying),
+		Owner:              "admin",
+		HostedMachineCount: 2,
+		ServiceCount:       2,
+	})
+	wrapped, inner := s.newKillCommandBoth()
+	err := coretesting.InitCommand(wrapped, []string{"test1", "--timeout=1m"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	ctx := coretesting.Context(c)
+	result := make(chan error)
+	go func() {
+		err := controller.KillWaitForModels(inner, ctx, s.api, test1UUID)
+		result <- err
+	}()
+
+	s.syncClockAlarm(c)
+	s.setModelStatus(base.ModelStatus{
+		UUID:               test2UUID,
+		Life:               string(params.Dying),
+		Owner:              "admin",
+		HostedMachineCount: 1,
+	})
+	s.clock.Advance(5 * time.Second)
+
+	s.syncClockAlarm(c)
+	s.removeModel(test2UUID)
+	s.clock.Advance(5 * time.Second)
+
+	select {
+	case err := <-result:
+		c.Assert(err, jc.ErrorIsNil)
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out waiting for result")
+	}
+	expect := "" +
+		"Waiting on 1 model, 2 machines, 2 applications\n" +
+		"Waiting on 1 model, 1 machine\n" +
+		"All hosted models reclaimed, cleaning up controller machines\n"
+
+	c.Assert(coretesting.Stderr(ctx), gc.Equals, expect)
+}
+
+func (s *KillSuite) TestKillWaitForModels_TimeoutResetsWithChange(c *gc.C) {
+	s.resetAPIModels(c)
+	s.addModel("model-1", base.ModelStatus{
+		UUID:               test2UUID,
+		Life:               string(params.Dying),
+		Owner:              "admin",
+		HostedMachineCount: 2,
+		ServiceCount:       2,
+	})
+	wrapped, inner := s.newKillCommandBoth()
+	err := coretesting.InitCommand(wrapped, []string{"test1", "--timeout=20s"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	ctx := coretesting.Context(c)
+	result := make(chan error)
+	go func() {
+		err := controller.KillWaitForModels(inner, ctx, s.api, test1UUID)
+		result <- err
+	}()
+
+	s.syncClockAlarm(c)
+	s.clock.Advance(5 * time.Second)
+
+	s.syncClockAlarm(c)
+	s.setModelStatus(base.ModelStatus{
+		UUID:               test2UUID,
+		Life:               string(params.Dying),
+		Owner:              "admin",
+		HostedMachineCount: 1,
+	})
+	s.clock.Advance(5 * time.Second)
+
+	s.syncClockAlarm(c)
+	s.removeModel(test2UUID)
+	s.clock.Advance(5 * time.Second)
+
+	select {
+	case err := <-result:
+		c.Assert(err, jc.ErrorIsNil)
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out waiting for result")
+	}
+	expect := "" +
+		"Waiting on 1 model, 2 machines, 2 applications, will kill machines directly in 20s\n" +
+		"Waiting on 1 model, 2 machines, 2 applications, will kill machines directly in 15s\n" +
+		"Waiting on 1 model, 1 machine, will kill machines directly in 20s\n" +
+		"All hosted models reclaimed, cleaning up controller machines\n"
+
+	c.Assert(coretesting.Stderr(ctx), gc.Equals, expect)
+}
+
+func (s *KillSuite) TestKillWaitForModels_TimeoutWithNoChange(c *gc.C) {
+	s.resetAPIModels(c)
+	s.addModel("model-1", base.ModelStatus{
+		UUID:               test2UUID,
+		Life:               string(params.Dying),
+		Owner:              "admin",
+		HostedMachineCount: 2,
+		ServiceCount:       2,
+	})
+	wrapped, inner := s.newKillCommandBoth()
+	err := coretesting.InitCommand(wrapped, []string{"test1", "--timeout=1m"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	ctx := coretesting.Context(c)
+	result := make(chan error)
+	go func() {
+		err := controller.KillWaitForModels(inner, ctx, s.api, test1UUID)
+		result <- err
+	}()
+
+	for i := 0; i < 12; i++ {
+		s.syncClockAlarm(c)
+		s.clock.Advance(5 * time.Second)
+	}
+
+	select {
+	case err := <-result:
+		c.Assert(err, gc.ErrorMatches, "timed out")
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out waiting for result")
+	}
+	expect := "" +
+		"Waiting on 1 model, 2 machines, 2 applications\n" +
+		"Waiting on 1 model, 2 machines, 2 applications\n" +
+		"Waiting on 1 model, 2 machines, 2 applications\n" +
+		"Waiting on 1 model, 2 machines, 2 applications\n" +
+		"Waiting on 1 model, 2 machines, 2 applications\n" +
+		"Waiting on 1 model, 2 machines, 2 applications\n" +
+		"Waiting on 1 model, 2 machines, 2 applications\n" +
+		"Waiting on 1 model, 2 machines, 2 applications, will kill machines directly in 25s\n" +
+		"Waiting on 1 model, 2 machines, 2 applications, will kill machines directly in 20s\n" +
+		"Waiting on 1 model, 2 machines, 2 applications, will kill machines directly in 15s\n" +
+		"Waiting on 1 model, 2 machines, 2 applications, will kill machines directly in 10s\n" +
+		"Waiting on 1 model, 2 machines, 2 applications, will kill machines directly in 5s\n"
+
+	c.Assert(coretesting.Stderr(ctx), gc.Equals, expect)
+}
+
+func (s *KillSuite) resetAPIModels(c *gc.C) {
+	s.api.allModels = nil
+	s.api.envStatus = map[string]base.ModelStatus{}
+	s.addModel("controller", base.ModelStatus{
+		UUID:              test1UUID,
+		Life:              string(params.Alive),
+		Owner:             "admin",
+		TotalMachineCount: 1,
+	})
+}
+
+func (s *KillSuite) addModel(name string, status base.ModelStatus) {
+	s.api.allModels = append(s.api.allModels, base.UserModel{
+		Name:  name,
+		UUID:  status.UUID,
+		Owner: status.Owner,
+	})
+	s.api.envStatus[status.UUID] = status
+}
+
+func (s *KillSuite) setModelStatus(status base.ModelStatus) {
+	s.api.envStatus[status.UUID] = status
+}
+
+func (s *KillSuite) removeModel(uuid string) {
+	for i, v := range s.api.allModels {
+		if v.UUID == uuid {
+			s.api.allModels = append(s.api.allModels[:i], s.api.allModels[i+1:]...)
+			break
+		}
+	}
+	delete(s.api.envStatus, uuid)
+}
+
+func (s *KillSuite) syncClockAlarm(c *gc.C) {
+	select {
+	case <-s.clock.Alarms():
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out waiting for test clock After call")
+	}
 }
 
 func (s *KillSuite) TestKillUnknownArgument(c *gc.C) {
@@ -65,7 +315,7 @@ func (s *KillSuite) TestKillCannotConnectToAPISucceeds(c *gc.C) {
 	s.apierror = errors.New("connection refused")
 	ctx, err := s.runKillCommand(c, "test1", "-y")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(testing.Stderr(ctx), jc.Contains, "Unable to open API: connection refused")
+	c.Check(coretesting.Stderr(ctx), jc.Contains, "Unable to open API: connection refused")
 	checkControllerRemovedFromStore(c, "test1", s.store)
 }
 
@@ -100,7 +350,7 @@ func (s *KillSuite) TestKillDestroysControllerWithAPIError(c *gc.C) {
 	s.api.SetErrors(errors.New("some destroy error"))
 	ctx, err := s.runKillCommand(c, "test1", "-y")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(testing.Stderr(ctx), jc.Contains, "Unable to destroy controller through the API: some destroy error.  Destroying through provider.")
+	c.Check(coretesting.Stderr(ctx), jc.Contains, "Unable to destroy controller through the API: some destroy error\nDestroying through provider")
 	c.Assert(s.api.destroyAll, jc.IsTrue)
 	checkControllerRemovedFromStore(c, "test1", s.store)
 }
@@ -118,15 +368,15 @@ func (s *KillSuite) TestKillCommandConfirmation(c *gc.C) {
 	select {
 	case err := <-errc:
 		c.Check(err, gc.ErrorMatches, "controller destruction aborted")
-	case <-time.After(testing.LongWait):
+	case <-time.After(coretesting.LongWait):
 		c.Fatalf("command took too long")
 	}
-	c.Check(testing.Stdout(ctx), gc.Matches, "WARNING!.*test1(.|\n)*")
+	c.Check(coretesting.Stdout(ctx), gc.Matches, "WARNING!.*test1(.|\n)*")
 	checkControllerExistsInStore(c, "test1", s.store)
 }
 
 func (s *KillSuite) TestKillCommandControllerAlias(c *gc.C) {
-	_, err := testing.RunCommand(c, s.newKillCommand(), "test1", "-y")
+	_, err := coretesting.RunCommand(c, s.newKillCommand(), "test1", "-y")
 	c.Assert(err, jc.ErrorIsNil)
 	checkControllerRemovedFromStore(c, "test1:test1", s.store)
 }
@@ -135,8 +385,8 @@ func (s *KillSuite) TestKillAPIPermErrFails(c *gc.C) {
 	testDialer := func(_ jujuclient.ClientStore, controllerName, modelName string) (api.Connection, error) {
 		return nil, common.ErrPerm
 	}
-	cmd := controller.NewKillCommandForTest(nil, nil, s.store, nil, clock.WallClock, modelcmd.OpenFunc(testDialer))
-	_, err := testing.RunCommand(c, cmd, "test1", "-y")
+	cmd, _ := controller.NewKillCommandForTest(nil, nil, s.store, nil, clock.WallClock, modelcmd.OpenFunc(testDialer))
+	_, err := coretesting.RunCommand(c, cmd, "test1", "-y")
 	c.Assert(err, gc.ErrorMatches, "cannot destroy controller: permission denied")
 	checkControllerExistsInStore(c, "test1", s.store)
 }
@@ -151,10 +401,10 @@ func (s *KillSuite) TestKillEarlyAPIConnectionTimeout(c *gc.C) {
 		return nil, errors.New("kill command waited too long")
 	}
 
-	cmd := controller.NewKillCommandForTest(nil, nil, s.store, nil, clock, modelcmd.OpenFunc(testDialer))
-	ctx, err := testing.RunCommand(c, cmd, "test1", "-y")
+	cmd, _ := controller.NewKillCommandForTest(nil, nil, s.store, nil, clock, modelcmd.OpenFunc(testDialer))
+	ctx, err := coretesting.RunCommand(c, cmd, "test1", "-y")
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(testing.Stderr(ctx), jc.Contains, "Unable to open API: open connection timed out")
+	c.Check(coretesting.Stderr(ctx), jc.Contains, "Unable to open API: open connection timed out")
 	checkControllerRemovedFromStore(c, "test1", s.store)
 	// Check that we were actually told to wait for 10s.
 	c.Assert(clock.wait, gc.Equals, 10*time.Second)

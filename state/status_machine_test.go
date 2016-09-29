@@ -4,13 +4,12 @@
 package state_test
 
 import (
-	"time"
-
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
+	"github.com/juju/juju/testing"
 )
 
 type MachineStatusSuite struct {
@@ -39,7 +38,7 @@ func (s *MachineStatusSuite) checkInitialStatus(c *gc.C) {
 }
 
 func (s *MachineStatusSuite) TestSetErrorStatusWithoutInfo(c *gc.C) {
-	now := time.Now()
+	now := testing.ZeroTime()
 	sInfo := status.StatusInfo{
 		Status:  status.Error,
 		Message: "",
@@ -52,7 +51,7 @@ func (s *MachineStatusSuite) TestSetErrorStatusWithoutInfo(c *gc.C) {
 }
 
 func (s *MachineStatusSuite) TestSetDownStatus(c *gc.C) {
-	now := time.Now()
+	now := testing.ZeroTime()
 	sInfo := status.StatusInfo{
 		Status:  status.Down,
 		Message: "",
@@ -65,7 +64,7 @@ func (s *MachineStatusSuite) TestSetDownStatus(c *gc.C) {
 }
 
 func (s *MachineStatusSuite) TestSetUnknownStatus(c *gc.C) {
-	now := time.Now()
+	now := testing.ZeroTime()
 	sInfo := status.StatusInfo{
 		Status:  status.Status("vliegkat"),
 		Message: "orville",
@@ -78,7 +77,7 @@ func (s *MachineStatusSuite) TestSetUnknownStatus(c *gc.C) {
 }
 
 func (s *MachineStatusSuite) TestSetOverwritesData(c *gc.C) {
-	now := time.Now()
+	now := testing.ZeroTime()
 	sInfo := status.StatusInfo{
 		Status:  status.Started,
 		Message: "blah",
@@ -98,7 +97,7 @@ func (s *MachineStatusSuite) TestGetSetStatusAlive(c *gc.C) {
 }
 
 func (s *MachineStatusSuite) checkGetSetStatus(c *gc.C) {
-	now := time.Now()
+	now := testing.ZeroTime()
 	sInfo := status.StatusInfo{
 		Status:  status.Started,
 		Message: "blah",
@@ -150,7 +149,7 @@ func (s *MachineStatusSuite) TestGetSetStatusGone(c *gc.C) {
 	err = s.machine.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 
-	now := time.Now()
+	now := testing.ZeroTime()
 	sInfo := status.StatusInfo{
 		Status:  status.Started,
 		Message: "not really",
@@ -165,7 +164,7 @@ func (s *MachineStatusSuite) TestGetSetStatusGone(c *gc.C) {
 }
 
 func (s *MachineStatusSuite) TestSetStatusPendingProvisioned(c *gc.C) {
-	now := time.Now()
+	now := testing.ZeroTime()
 	sInfo := status.StatusInfo{
 		Status:  status.Pending,
 		Message: "",
@@ -178,7 +177,7 @@ func (s *MachineStatusSuite) TestSetStatusPendingProvisioned(c *gc.C) {
 func (s *MachineStatusSuite) TestSetStatusPendingUnprovisioned(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	now := time.Now()
+	now := testing.ZeroTime()
 	sInfo := status.StatusInfo{
 		Status:  status.Pending,
 		Message: "",

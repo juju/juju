@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
+	"github.com/juju/juju/testing"
 )
 
 type ServiceStatusSuite struct {
@@ -36,7 +37,7 @@ func (s *ServiceStatusSuite) checkInitialStatus(c *gc.C) {
 }
 
 func (s *ServiceStatusSuite) TestSetUnknownStatus(c *gc.C) {
-	now := time.Now()
+	now := testing.ZeroTime()
 	sInfo := status.StatusInfo{
 		Status:  status.Status("vliegkat"),
 		Message: "orville",
@@ -49,7 +50,7 @@ func (s *ServiceStatusSuite) TestSetUnknownStatus(c *gc.C) {
 }
 
 func (s *ServiceStatusSuite) TestSetOverwritesData(c *gc.C) {
-	now := time.Now()
+	now := testing.ZeroTime()
 	sInfo := status.StatusInfo{
 		Status:  status.Active,
 		Message: "healthy",
@@ -69,7 +70,7 @@ func (s *ServiceStatusSuite) TestGetSetStatusAlive(c *gc.C) {
 }
 
 func (s *ServiceStatusSuite) checkGetSetStatus(c *gc.C) {
-	now := time.Now()
+	now := testing.ZeroTime()
 	sInfo := status.StatusInfo{
 		Status:  status.Active,
 		Message: "healthy",
@@ -111,7 +112,7 @@ func (s *ServiceStatusSuite) TestGetSetStatusGone(c *gc.C) {
 	err := s.service.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 
-	now := time.Now()
+	now := testing.ZeroTime()
 	sInfo := status.StatusInfo{
 		Status:  status.Active,
 		Message: "not really",
@@ -126,7 +127,7 @@ func (s *ServiceStatusSuite) TestGetSetStatusGone(c *gc.C) {
 }
 
 func (s *ServiceStatusSuite) TestSetStatusSince(c *gc.C) {
-	now := time.Now()
+	now := testing.ZeroTime()
 	sInfo := status.StatusInfo{
 		Status:  status.Maintenance,
 		Message: "",
@@ -163,7 +164,7 @@ func (s *ServiceStatusSuite) TestDeriveStatus(c *gc.C) {
 	addUnit := func(unitStatus status.Status) *state.Unit {
 		unit, err := s.service.AddUnit()
 		c.Assert(err, gc.IsNil)
-		now := time.Now()
+		now := testing.ZeroTime()
 		sInfo := status.StatusInfo{
 			Status:  unitStatus,
 			Message: "blam",
@@ -183,7 +184,7 @@ func (s *ServiceStatusSuite) TestDeriveStatus(c *gc.C) {
 	// ...and create one with error status by setting it on the agent :-/.
 	errorUnit, err := s.service.AddUnit()
 	c.Assert(err, gc.IsNil)
-	now := time.Now()
+	now := testing.ZeroTime()
 	sInfo := status.StatusInfo{
 		Status:  status.Error,
 		Message: "blam",
@@ -219,7 +220,7 @@ func (s *ServiceStatusSuite) TestDeriveStatus(c *gc.C) {
 func (s *ServiceStatusSuite) TestServiceStatusOverridesDerivedStatus(c *gc.C) {
 	unit, err := s.service.AddUnit()
 	c.Assert(err, gc.IsNil)
-	now := time.Now()
+	now := testing.ZeroTime()
 	sInfo := status.StatusInfo{
 		Status:  status.Blocked,
 		Message: "pow",

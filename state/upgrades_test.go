@@ -4,8 +4,6 @@
 package state
 
 import (
-	"time"
-
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -16,6 +14,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/status"
+	"github.com/juju/juju/testing"
 )
 
 type upgradesSuite struct {
@@ -271,7 +270,7 @@ func (s *upgradesSuite) TestAddFilesystemStatusDoesNotOverwrite(c *gc.C) {
 	_, _, filesystem, cleanup := setupMachineBoundStorageTests(c, s.state)
 	defer cleanup()
 
-	now := time.Now()
+	now := testing.ZeroTime()
 	sInfo := status.StatusInfo{
 		Status:  status.Destroying,
 		Message: "",

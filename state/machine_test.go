@@ -5,7 +5,6 @@ package state_test
 
 import (
 	"sort"
-	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -901,7 +900,7 @@ func (s *MachineSuite) TestMachineSetInstanceStatus(c *gc.C) {
 	err := s.machine.SetProvisioned("umbrella/0", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	now := time.Now()
+	now := coretesting.ZeroTime()
 	sInfo := status.StatusInfo{
 		Status:  status.Running,
 		Message: "alive",
@@ -1154,7 +1153,7 @@ func (s *MachineSuite) TestWatchPrincipalUnits(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Change the unit; no change.
-	now := time.Now()
+	now := coretesting.ZeroTime()
 	sInfo := status.StatusInfo{
 		Status:  status.Idle,
 		Message: "",
@@ -1269,7 +1268,7 @@ func (s *MachineSuite) TestWatchUnits(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Change the unit; no change.
-	now := time.Now()
+	now := coretesting.ZeroTime()
 	sInfo := status.StatusInfo{
 		Status:  status.Idle,
 		Message: "",

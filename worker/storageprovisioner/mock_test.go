@@ -738,6 +738,10 @@ func (c *mockClock) After(d time.Duration) <-chan time.Time {
 	return ch
 }
 
+func (c *mockClock) NewTimer(d time.Duration) clock.Timer {
+	return mockTimer{time.NewTimer(0)}
+}
+
 func (c *mockClock) AfterFunc(d time.Duration, f func()) clock.Timer {
 	c.MethodCall(c, "AfterFunc", d, f)
 	if c.onAfterFunc != nil {
@@ -746,7 +750,15 @@ func (c *mockClock) AfterFunc(d time.Duration, f func()) clock.Timer {
 	if d > 0 {
 		c.now = c.now.Add(d)
 	}
-	return time.AfterFunc(0, f)
+	return mockTimer{time.AfterFunc(0, f)}
+}
+
+type mockTimer struct {
+	*time.Timer
+}
+
+func (t mockTimer) Chan() <-chan time.Time {
+	return t.C
 }
 
 type mockStatusSetter struct {

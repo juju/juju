@@ -123,7 +123,9 @@ func (manager *containerManager) CreateContainer(
 		return nil, nil, errors.Trace(err)
 	}
 
-	userData, err := containerinit.CloudInitUserData(instanceConfig, networkConfig)
+	// Do not pass networkConfig, as we want to directly inject our own ENI
+	// rather than using cloud-init.
+	userData, err := containerinit.CloudInitUserData(instanceConfig, nil)
 	if err != nil {
 		return
 	}
@@ -143,6 +145,8 @@ func (manager *containerManager) CreateContainer(
 		return
 	}
 
+	// TODO(macgreagoir) This might be dead code. Do we always get
+	// len(nics) > 0?
 	profiles := []string{}
 
 	if len(nics) == 0 {
@@ -152,12 +156,34 @@ func (manager *containerManager) CreateContainer(
 		logger.Infof("instance %q configured with %v network devices", name, nics)
 	}
 
+	// Push the required /etc/network/interfaces file to the container.
+	// By pushing this file (which happens after LXD init, and before LXD
+	// start) we ensure that we get Juju's version of ENI, as opposed to
+	// the default LXD version, which may assume it can do DHCP over eth0.
+	// Especially on a multi-nic host, it is possible for MAAS to provide
+	// DHCP on a different space to that which the container eth0 interface
+	// will be bridged, or not provide DHCP at all.
+	eni, err := containerinit.GenerateNetworkConfig(networkConfig)
+	if err != nil {
+		err = errors.Annotatef(err, "failed to generate /etc/network/interfaces content")
+		return
+	}
+
 	spec := lxdclient.InstanceSpec{
 		Name:     name,
 		Image:    manager.client.ImageNameForSeries(series),
 		Metadata: metadata,
 		Devices:  nics,
 		Profiles: profiles,
+		Files: lxdclient.Files{
+			lxdclient.File{
+				Content: []byte(eni),
+				Path:    "/etc/network/interfaces",
+				GID:     0,
+				UID:     0,
+				Mode:    0644,
+			},
+		},
 	}
 
 	logger.Infof("starting instance %q (image %q)...", spec.Name, spec.Image)

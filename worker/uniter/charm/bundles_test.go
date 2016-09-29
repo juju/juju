@@ -4,10 +4,12 @@
 package charm_test
 
 import (
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"regexp"
 
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
@@ -98,12 +100,18 @@ func (f fakeBundleInfo) ArchiveSha256() (string, error) {
 
 func (s *BundlesDirSuite) TestGet(c *gc.C) {
 	basedir := c.MkDir()
-	bunsdir := filepath.Join(basedir, "random", "bundles")
+	bunsDir := filepath.Join(basedir, "random", "bundles")
 	downloader := api.NewCharmDownloader(s.st.Client())
-	d := charm.NewBundlesDir(bunsdir, downloader)
+	d := charm.NewBundlesDir(bunsDir, downloader)
+
+	checkDownloadsEmpty := func() {
+		files, err := ioutil.ReadDir(filepath.Join(bunsDir, "downloads"))
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(files, gc.HasLen, 0)
+	}
 
 	// Check it doesn't get created until it's needed.
-	_, err := os.Stat(bunsdir)
+	_, err := os.Stat(bunsDir)
 	c.Assert(err, jc.Satisfies, os.IsNotExist)
 
 	// Add a charm to state that we can try to get.
@@ -111,32 +119,37 @@ func (s *BundlesDirSuite) TestGet(c *gc.C) {
 
 	// Try to get the charm when the content doesn't match.
 	_, err = d.Read(&fakeBundleInfo{apiCharm, nil, "..."}, nil)
-	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`failed to download charm "cs:quantal/dummy-1" from API server: `)+`expected sha256 "...", got ".*"`)
+	c.Check(err, gc.ErrorMatches, regexp.QuoteMeta(`failed to download charm "cs:quantal/dummy-1" from API server: `)+`expected sha256 "...", got ".*"`)
+	checkDownloadsEmpty()
 
 	// Try to get a charm whose bundle doesn't exist.
 	otherURL := corecharm.MustParseURL("cs:quantal/spam-1")
 	_, err = d.Read(&fakeBundleInfo{apiCharm, otherURL, ""}, nil)
-	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`failed to download charm "cs:quantal/spam-1" from API server: `)+`.* not found`)
+	c.Check(err, gc.ErrorMatches, regexp.QuoteMeta(`failed to download charm "cs:quantal/spam-1" from API server: `)+`.* not found`)
+	checkDownloadsEmpty()
 
 	// Get a charm whose bundle exists and whose content matches.
 	ch, err := d.Read(apiCharm, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	assertCharm(c, ch, sch)
+	checkDownloadsEmpty()
 
 	// Get the same charm again, without preparing a response from the server.
 	ch, err = d.Read(apiCharm, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	assertCharm(c, ch, sch)
+	checkDownloadsEmpty()
 
 	// Check the abort chan is honoured.
-	err = os.RemoveAll(bunsdir)
+	err = os.RemoveAll(bunsDir)
 	c.Assert(err, jc.ErrorIsNil)
 	abort := make(chan struct{})
 	close(abort)
 
 	ch, err = d.Read(apiCharm, abort)
-	c.Assert(ch, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`failed to download charm "cs:quantal/dummy-1" from API server: aborted`))
+	c.Check(ch, gc.IsNil)
+	c.Check(err, gc.ErrorMatches, regexp.QuoteMeta(`failed to download charm "cs:quantal/dummy-1" from API server: download aborted`))
+	checkDownloadsEmpty()
 }
 
 func assertCharm(c *gc.C, bun charm.Bundle, sch *state.Charm) {
@@ -144,4 +157,49 @@ func assertCharm(c *gc.C, bun charm.Bundle, sch *state.Charm) {
 	c.Assert(actual.Revision(), gc.Equals, sch.Revision())
 	c.Assert(actual.Meta(), gc.DeepEquals, sch.Meta())
 	c.Assert(actual.Config(), gc.DeepEquals, sch.Config())
+}
+
+type ClearDownloadsSuite struct {
+	jujutesting.IsolationSuite
+}
+
+var _ = gc.Suite(&ClearDownloadsSuite{})
+
+func (s *ClearDownloadsSuite) TestWorks(c *gc.C) {
+	baseDir := c.MkDir()
+	bunsDir := filepath.Join(baseDir, "bundles")
+	downloadDir := filepath.Join(bunsDir, "downloads")
+	c.Assert(os.MkdirAll(downloadDir, 0777), jc.ErrorIsNil)
+	c.Assert(ioutil.WriteFile(filepath.Join(downloadDir, "stuff"), []byte("foo"), 0755), jc.ErrorIsNil)
+	c.Assert(ioutil.WriteFile(filepath.Join(downloadDir, "thing"), []byte("bar"), 0755), jc.ErrorIsNil)
+
+	err := charm.ClearDownloads(bunsDir)
+	c.Assert(err, jc.ErrorIsNil)
+	checkMissing(c, downloadDir)
+}
+
+func (s *ClearDownloadsSuite) TestEmptyOK(c *gc.C) {
+	baseDir := c.MkDir()
+	bunsDir := filepath.Join(baseDir, "bundles")
+	downloadDir := filepath.Join(bunsDir, "downloads")
+	c.Assert(os.MkdirAll(downloadDir, 0777), jc.ErrorIsNil)
+
+	err := charm.ClearDownloads(bunsDir)
+	c.Assert(err, jc.ErrorIsNil)
+	checkMissing(c, downloadDir)
+}
+
+func (s *ClearDownloadsSuite) TestMissingOK(c *gc.C) {
+	baseDir := c.MkDir()
+	bunsDir := filepath.Join(baseDir, "bundles")
+
+	err := charm.ClearDownloads(bunsDir)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func checkMissing(c *gc.C, p string) {
+	_, err := os.Stat(p)
+	if !os.IsNotExist(err) {
+		c.Fatalf("checking %s is missing: %v", p, err)
+	}
 }

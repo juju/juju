@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
+	"github.com/juju/juju/testing"
 )
 
 type UnitStatusSuite struct {
@@ -36,7 +37,7 @@ func (s *UnitStatusSuite) checkInitialStatus(c *gc.C) {
 }
 
 func (s *UnitStatusSuite) TestSetUnknownStatus(c *gc.C) {
-	now := time.Now()
+	now := testing.ZeroTime()
 	sInfo := status.StatusInfo{
 		Status:  status.Status("vliegkat"),
 		Message: "orville",
@@ -49,7 +50,7 @@ func (s *UnitStatusSuite) TestSetUnknownStatus(c *gc.C) {
 }
 
 func (s *UnitStatusSuite) TestSetOverwritesData(c *gc.C) {
-	now := time.Now()
+	now := testing.ZeroTime()
 	sInfo := status.StatusInfo{
 		Status:  status.Active,
 		Message: "healthy",
@@ -69,7 +70,7 @@ func (s *UnitStatusSuite) TestGetSetStatusAlive(c *gc.C) {
 }
 
 func (s *UnitStatusSuite) checkGetSetStatus(c *gc.C) {
-	now := time.Now()
+	now := testing.ZeroTime()
 	sInfo := status.StatusInfo{
 		Status:  status.Active,
 		Message: "healthy",
@@ -122,7 +123,7 @@ func (s *UnitStatusSuite) TestGetSetStatusGone(c *gc.C) {
 	err := s.unit.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 
-	now := time.Now()
+	now := testing.ZeroTime()
 	sInfo := status.StatusInfo{
 		Status:  status.Active,
 		Message: "not really",
@@ -137,7 +138,7 @@ func (s *UnitStatusSuite) TestGetSetStatusGone(c *gc.C) {
 }
 
 func (s *UnitStatusSuite) TestSetUnitStatusSince(c *gc.C) {
-	now := time.Now()
+	now := testing.ZeroTime()
 	sInfo := status.StatusInfo{
 		Status:  status.Maintenance,
 		Message: "",

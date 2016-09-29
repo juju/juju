@@ -436,6 +436,9 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	u.commands = runcommands.NewCommands()
 	u.commandChannel = make(chan string)
 
+	if err := charm.ClearDownloads(u.paths.State.BundlesDir); err != nil {
+		logger.Warningf(err.Error())
+	}
 	deployer, err := charm.NewDeployer(
 		u.paths.State.CharmDir,
 		u.paths.State.DeployerDir,
