@@ -18,6 +18,7 @@ import (
 	_ "github.com/juju/juju/apiserver/applicationscaler"
 	_ "github.com/juju/juju/apiserver/backups" // ModelUser Write
 	_ "github.com/juju/juju/apiserver/block"   // ModelUser Write
+	_ "github.com/juju/juju/apiserver/bundle"
 	_ "github.com/juju/juju/apiserver/charmrevisionupdater"
 	_ "github.com/juju/juju/apiserver/charms" // ModelUser Write
 	_ "github.com/juju/juju/apiserver/cleaner"

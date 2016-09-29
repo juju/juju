@@ -1,26 +1,47 @@
-// Copyright 2015 Canonical Ltd.
+// Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package client_test
+package bundle_test
 
 import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/apiserver/bundle"
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	apiservertesting "github.com/juju/juju/apiserver/testing"
+	jujutesting "github.com/juju/juju/juju/testing"
 )
 
-func (s *serverSuite) TestGetBundleChangesBundleContentError(c *gc.C) {
-	args := params.GetBundleChangesParams{
-		BundleDataYAML: ":",
-	}
-	r, err := s.client.GetBundleChanges(args)
-	c.Assert(err, gc.ErrorMatches, `cannot read bundle YAML: cannot unmarshal bundle data: yaml: did not find expected key`)
-	c.Assert(r, gc.DeepEquals, params.GetBundleChangesResults{})
+type bundleSuite struct {
+	jujutesting.JujuConnSuite
+	facade bundle.Bundle
 }
 
-func (s *serverSuite) TestGetBundleChangesBundleVerificationErrors(c *gc.C) {
-	args := params.GetBundleChangesParams{
+var _ = gc.Suite(&bundleSuite{})
+
+func (s *bundleSuite) SetUpTest(c *gc.C) {
+	s.JujuConnSuite.SetUpTest(c)
+	auth := apiservertesting.FakeAuthorizer{
+		Tag: s.AdminUserTag(c),
+	}
+	facade, err := bundle.NewFacade(s.State, common.NewResources(), auth)
+	c.Assert(err, jc.ErrorIsNil)
+	s.facade = facade
+}
+
+func (s *bundleSuite) TestGetChangesBundleContentError(c *gc.C) {
+	args := params.BundleGetChangesParams{
+		BundleDataYAML: ":",
+	}
+	r, err := s.facade.GetChanges(args)
+	c.Assert(err, gc.ErrorMatches, `cannot read bundle YAML: cannot unmarshal bundle data: yaml: did not find expected key`)
+	c.Assert(r, gc.DeepEquals, params.BundleGetChangesResults{})
+}
+
+func (s *bundleSuite) TestGetChangesBundleVerificationErrors(c *gc.C) {
+	args := params.BundleGetChangesParams{
 		BundleDataYAML: `
             applications:
                 django:
@@ -31,7 +52,7 @@ func (s *serverSuite) TestGetBundleChangesBundleVerificationErrors(c *gc.C) {
                     num_units: -1
         `,
 	}
-	r, err := s.client.GetBundleChanges(args)
+	r, err := s.facade.GetChanges(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(r.Changes, gc.IsNil)
 	c.Assert(r.Errors, jc.SameContents, []string{
@@ -42,8 +63,8 @@ func (s *serverSuite) TestGetBundleChangesBundleVerificationErrors(c *gc.C) {
 	})
 }
 
-func (s *serverSuite) TestGetBundleChangesBundleConstraintsError(c *gc.C) {
-	args := params.GetBundleChangesParams{
+func (s *bundleSuite) TestGetChangesBundleConstraintsError(c *gc.C) {
+	args := params.BundleGetChangesParams{
 		BundleDataYAML: `
             applications:
                 django:
@@ -52,7 +73,7 @@ func (s *serverSuite) TestGetBundleChangesBundleConstraintsError(c *gc.C) {
                     constraints: bad=wolf
         `,
 	}
-	r, err := s.client.GetBundleChanges(args)
+	r, err := s.facade.GetChanges(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(r.Changes, gc.IsNil)
 	c.Assert(r.Errors, jc.SameContents, []string{
@@ -60,8 +81,8 @@ func (s *serverSuite) TestGetBundleChangesBundleConstraintsError(c *gc.C) {
 	})
 }
 
-func (s *serverSuite) TestGetBundleChangesBundleStorageError(c *gc.C) {
-	args := params.GetBundleChangesParams{
+func (s *bundleSuite) TestGetChangesBundleStorageError(c *gc.C) {
+	args := params.BundleGetChangesParams{
 		BundleDataYAML: `
             applications:
                 django:
@@ -71,7 +92,7 @@ func (s *serverSuite) TestGetBundleChangesBundleStorageError(c *gc.C) {
                         bad: 0,100M
         `,
 	}
-	r, err := s.client.GetBundleChanges(args)
+	r, err := s.facade.GetChanges(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(r.Changes, gc.IsNil)
 	c.Assert(r.Errors, jc.SameContents, []string{
@@ -79,8 +100,8 @@ func (s *serverSuite) TestGetBundleChangesBundleStorageError(c *gc.C) {
 	})
 }
 
-func (s *serverSuite) TestGetBundleChangesSuccess(c *gc.C) {
-	args := params.GetBundleChangesParams{
+func (s *bundleSuite) TestGetChangesSuccess(c *gc.C) {
+	args := params.BundleGetChangesParams{
 		BundleDataYAML: `
             applications:
                 django:
@@ -96,7 +117,7 @@ func (s *serverSuite) TestGetBundleChangesSuccess(c *gc.C) {
                   - haproxy:web
         `,
 	}
-	r, err := s.client.GetBundleChanges(args)
+	r, err := s.facade.GetChanges(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(r.Changes, jc.DeepEquals, []*params.BundleChangesChange{{
 		Id:     "addCharm-0",
@@ -143,8 +164,8 @@ func (s *serverSuite) TestGetBundleChangesSuccess(c *gc.C) {
 	c.Assert(r.Errors, gc.IsNil)
 }
 
-func (s *serverSuite) TestGetBundleChangesBundleEndpointBindingsSuccess(c *gc.C) {
-	args := params.GetBundleChangesParams{
+func (s *bundleSuite) TestGetChangesBundleEndpointBindingsSuccess(c *gc.C) {
+	args := params.BundleGetChangesParams{
 		BundleDataYAML: `
             applications:
                 django:
@@ -154,7 +175,7 @@ func (s *serverSuite) TestGetBundleChangesBundleEndpointBindingsSuccess(c *gc.C)
                         url: public
         `,
 	}
-	r, err := s.client.GetBundleChanges(args)
+	r, err := s.facade.GetChanges(args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	for _, change := range r.Changes {

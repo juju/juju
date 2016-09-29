@@ -1,7 +1,8 @@
-// Copyright 2015 Canonical Ltd.
+// Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package client
+// Package bundle defines an API endpoint for functions dealing with bundles.
+package bundle
 
 import (
 	"strings"
@@ -10,20 +11,43 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6-unstable"
 
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
 )
 
-// GetBundleChanges returns the list of changes required to deploy the given
-// bundle data. The changes are sorted by requirements, so that they can be
-// applied in order.
-func (c *Client) GetBundleChanges(args params.GetBundleChangesParams) (params.GetBundleChangesResults, error) {
-	if err := c.checkCanRead(); err != nil {
-		return params.GetBundleChangesResults{}, err
-	}
+// init registers the Bundle facade.
+func init() {
+	common.RegisterStandardFacade("Bundle", 0, newFacade)
+}
 
-	var results params.GetBundleChangesResults
+// newFacade creates and returns a new Bundle API facade.
+func newFacade(_ *state.State, _ facade.Resources, auth facade.Authorizer) (Bundle, error) {
+	if !auth.AuthClient() {
+		return nil, common.ErrPerm
+	}
+	return &bundleAPI{}, nil
+}
+
+// Bundle defines the API endpoint used to retrieve bundle changes.
+type Bundle interface {
+	// GetChanges returns the list of changes required to deploy the given
+	// bundle data.
+	GetChanges(params.BundleGetChangesParams) (params.BundleGetChangesResults, error)
+}
+
+// bundleAPI implements the Bundle interface and is the concrete implementation
+// of the API end point.
+type bundleAPI struct{}
+
+// GetChanges returns the list of changes required to deploy the given bundle
+// data. The changes are sorted by requirements, so that they can be applied in
+// order.
+func (b *bundleAPI) GetChanges(args params.BundleGetChangesParams) (params.BundleGetChangesResults, error) {
+	var results params.BundleGetChangesResults
 	data, err := charm.ReadBundleData(strings.NewReader(args.BundleDataYAML))
 	if err != nil {
 		return results, errors.Annotate(err, "cannot read bundle YAML")

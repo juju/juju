@@ -801,15 +801,15 @@ type LogRecord struct {
 	Message  string    `json:"x"`
 }
 
-// GetBundleChangesParams holds parameters for making GetBundleChanges calls.
-type GetBundleChangesParams struct {
+// BundleGetChangesParams holds parameters for making Bundle.GetChanges calls.
+type BundleGetChangesParams struct {
 	// BundleDataYAML is the YAML-encoded charm bundle data
 	// (see "github.com/juju/charm.BundleData").
 	BundleDataYAML string `json:"yaml"`
 }
 
-// GetBundleChangesResults holds results of the GetBundleChanges call.
-type GetBundleChangesResults struct {
+// BundleGetChangesResults holds results of the Bundle.GetChanges call.
+type BundleGetChangesResults struct {
 	// Changes holds the list of changes required to deploy the bundle.
 	// It is omitted if the provided bundle YAML has verification errors.
 	Changes []*BundleChangesChange `json:"changes,omitempty"`

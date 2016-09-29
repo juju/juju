@@ -22,6 +22,11 @@ var controllerFacadeNames = set.NewStrings(
 	"UserManager",
 )
 
+var commonFacadeNames = set.NewStrings(
+	"Pinger",
+	"Bundle",
+)
+
 func controllerFacadesOnly(facadeName, _ string) error {
 	if !isControllerFacade(facadeName) {
 		return errors.NewNotSupported(nil, fmt.Sprintf("facade %q not supported for controller API connection", facadeName))
@@ -32,5 +37,5 @@ func controllerFacadesOnly(facadeName, _ string) error {
 func isControllerFacade(facadeName string) bool {
 	// Note: the Pinger facade can be used in both model and controller
 	// connections.
-	return controllerFacadeNames.Contains(facadeName) || facadeName == "Pinger"
+	return controllerFacadeNames.Contains(facadeName) || commonFacadeNames.Contains(facadeName)
 }
