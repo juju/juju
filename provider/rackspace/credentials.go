@@ -16,17 +16,24 @@ type Credentials struct {
 }
 
 // CredentialSchemas is part of the environs.ProviderCredentials interface.
-func (c Credentials) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
-	m := c.OpenstackCredentials.CredentialSchemas()
-	schema := m[cloud.UserPassAuthType]
-	// remove domain name from attributes.
-	for i, attr := range schema {
-		if attr.Name == openstack.CredAttrDomainName {
-			m[cloud.UserPassAuthType] = append(schema[:i], schema[i+1:]...)
-			break
-		}
+func (Credentials) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
+	return map[cloud.AuthType]cloud.CredentialSchema{
+		cloud.UserPassAuthType: {
+			{
+				Name:           openstack.CredAttrUserName,
+				CredentialAttr: cloud.CredentialAttr{Description: "The username to authenticate with."},
+			}, {
+				Name: openstack.CredAttrPassword,
+				CredentialAttr: cloud.CredentialAttr{
+					Description: "The password for the specified username.",
+					Hidden:      true,
+				},
+			}, {
+				Name:           openstack.CredAttrTenantName,
+				CredentialAttr: cloud.CredentialAttr{Description: "The OpenStack tenant name."},
+			},
+		},
 	}
-	return m
 }
 
 // DetectCredentials is part of the environs.ProviderCredentials interface.
@@ -35,14 +42,15 @@ func (c Credentials) DetectCredentials() (*cloud.CloudCredential, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	delete(result.AuthCredentials, string(cloud.AccessKeyAuthType))
+
 	// delete domain name from creds, since rackspace doesn't use it, and it
 	// confuses our code.
 	for k, v := range result.AuthCredentials {
 		attr := v.Attributes()
-		if _, ok := attr[openstack.CredAttrDomainName]; ok {
-			delete(attr, openstack.CredAttrDomainName)
-			result.AuthCredentials[k] = cloud.NewCredential(v.AuthType(), attr)
-		}
+		delete(attr, openstack.CredAttrDomainName)
+		result.AuthCredentials[k] = cloud.NewCredential(v.AuthType(), attr)
 	}
 	return result, nil
 }
