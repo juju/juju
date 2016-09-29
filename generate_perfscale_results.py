@@ -91,9 +91,8 @@ def assess_perf_test_simple(bs_manager, upload_tools):
         except Exception as e:
             # Lets get to the bottom of this failure, print lxc details to
             # stdout.
-            print(subprocess.check_output(['lxc', 'list']))
-            import ipdb; ipdb.set_trace()
             print(">>> Encountered Error")
+            print(subprocess.check_output(['lxc', 'list']))
             raise
         finally:
             results_dir = os.path.join(
