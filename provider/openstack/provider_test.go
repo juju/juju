@@ -74,11 +74,6 @@ var addressTests = []struct {
 	networks: []string{"", "public"},
 	expected: "8.8.8.8",
 }, {
-	summary:  "public only, both IPv6 and IPv4",
-	public:   []nova.IPAddress{{6, "2001:db8::1"}, {4, "8.8.8.8"}},
-	networks: []string{"", "public"},
-	expected: "2001:db8::1",
-}, {
 	summary:  "public and private both IPv4",
 	private:  []nova.IPAddress{{4, "10.0.0.4"}},
 	public:   []nova.IPAddress{{4, "8.8.4.4"}},
