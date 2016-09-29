@@ -1189,7 +1189,7 @@ class TestTestUpgrade(FakeHomeTestCase):
         old_client = fake_juju_client(
             env, '/foo/juju', version='1.25', cls=EnvJujuClient25)
         with patch('jujupy.EnvJujuClient.get_version',
-                   side_effect=lambda cls: '1.26-arch-series'):
+                   return_value='1.26-arch-series'):
             [new_client] = _get_clients_to_upgrade(
                 old_client, '/foo/newer/juju')
 
@@ -1200,7 +1200,7 @@ class TestTestUpgrade(FakeHomeTestCase):
         old_client.bootstrap()
 
         with patch('jujupy.EnvJujuClient.get_version',
-                   side_effect=lambda cls: '2.0-rc2-arch-series'):
+                   return_value='2.0-rc2-arch-series'):
             new_clients = _get_clients_to_upgrade(
                 old_client, '/foo/newer/juju')
 
