@@ -13,15 +13,9 @@ import (
 	"github.com/juju/juju/network"
 )
 
-type maas2Controller interface {
-	Machines(gomaasapi.MachinesArgs) ([]gomaasapi.Machine, error)
-}
-
 type maas2Instance struct {
 	machine           gomaasapi.Machine
 	constraintMatches gomaasapi.ConstraintMatches
-	// maasController provides access to the MAAS 2.0 API.
-	maasController maas2Controller
 }
 
 var _ maasInstance = (*maas2Instance)(nil)
@@ -71,21 +65,13 @@ func (mi *maas2Instance) Addresses() ([]network.Address, error) {
 // Status returns a juju status based on the maas instance returned
 // status message.
 func (mi *maas2Instance) Status() instance.InstanceStatus {
-	args := gomaasapi.MachinesArgs{SystemIDs: []string{mi.machine.SystemID()}}
-	machines, err := mi.maasController.Machines(args)
-	if err != nil {
-		logger.Errorf("obtaining machines: %v", err)
-		return convertInstanceStatus("", "", mi.Id())
-	}
-	if len(machines) != 1 {
-		logger.Warningf("1 machine was epected, got %d", len(machines))
-		return convertInstanceStatus("", "", mi.Id())
-	}
-	machine := machines[0]
-	statusName := machine.StatusName()
-	statusMsg := machine.StatusMessage()
+	// A fresh status is not obtained here because the interface it is intended
+	// to satisfy gets a new maas2Instance before each call, using a fresh status
+	// would cause us to mask errors since this interface does not contemplate
+	// returing them.
+	statusName := mi.machine.StatusName()
+	statusMsg := mi.machine.StatusMessage()
 	return convertInstanceStatus(statusName, statusMsg, mi.Id())
-
 }
 
 // MAAS does not do firewalling so these port methods do nothing.

@@ -4,7 +4,6 @@
 package maas
 
 import (
-	"github.com/juju/gomaasapi"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -21,15 +20,13 @@ var _ = gc.Suite(&maas2InstanceSuite{})
 
 func (s *maas2InstanceSuite) TestString(c *gc.C) {
 	machine := &fakeMachine{hostname: "peewee", systemID: "herman"}
-	instance := &maas2Instance{machine: machine,
-		maasController: &fakeMachineOnlyController{[]gomaasapi.Machine{machine}}}
+	instance := &maas2Instance{machine: machine}
 	c.Assert(instance.String(), gc.Equals, "peewee:herman")
 }
 
 func (s *maas2InstanceSuite) TestID(c *gc.C) {
 	machine := &fakeMachine{systemID: "herman"}
-	thing := &maas2Instance{machine: machine,
-		maasController: &fakeMachineOnlyController{[]gomaasapi.Machine{machine}}}
+	thing := &maas2Instance{machine: machine}
 	c.Assert(thing.Id(), gc.Equals, instance.Id("herman"))
 }
 
@@ -39,8 +36,7 @@ func (s *maas2InstanceSuite) TestAddresses(c *gc.C) {
 		"1.2.3.4",
 		"127.0.0.1",
 	}}
-	instance := &maas2Instance{machine: machine,
-		maasController: &fakeMachineOnlyController{[]gomaasapi.Machine{machine}}}
+	instance := &maas2Instance{machine: machine}
 	expectedAddresses := []network.Address{
 		network.NewAddress("0.0.0.0"),
 		network.NewAddress("1.2.3.4"),
@@ -53,8 +49,7 @@ func (s *maas2InstanceSuite) TestAddresses(c *gc.C) {
 
 func (s *maas2InstanceSuite) TestZone(c *gc.C) {
 	machine := &fakeMachine{zoneName: "inflatable"}
-	instance := &maas2Instance{machine: machine,
-		maasController: &fakeMachineOnlyController{[]gomaasapi.Machine{machine}}}
+	instance := &maas2Instance{machine: machine}
 	zone, err := instance.zone()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(zone, gc.Equals, "inflatable")
@@ -62,24 +57,21 @@ func (s *maas2InstanceSuite) TestZone(c *gc.C) {
 
 func (s *maas2InstanceSuite) TestStatusSuccess(c *gc.C) {
 	machine := &fakeMachine{statusMessage: "Wexler", statusName: "Deploying"}
-	thing := &maas2Instance{machine: machine,
-		maasController: &fakeMachineOnlyController{[]gomaasapi.Machine{machine}}}
+	thing := &maas2Instance{machine: machine}
 	result := thing.Status()
 	c.Assert(result, jc.DeepEquals, instance.InstanceStatus{status.Allocating, "Deploying: Wexler"})
 }
 
 func (s *maas2InstanceSuite) TestStatusError(c *gc.C) {
 	machine := &fakeMachine{statusMessage: "", statusName: ""}
-	thing := &maas2Instance{machine: machine,
-		maasController: &fakeMachineOnlyController{[]gomaasapi.Machine{machine}}}
+	thing := &maas2Instance{machine: machine}
 	result := thing.Status()
 	c.Assert(result, jc.DeepEquals, instance.InstanceStatus{"", "error in getting status"})
 }
 
 func (s *maas2InstanceSuite) TestHostname(c *gc.C) {
 	machine := &fakeMachine{hostname: "saul-goodman"}
-	thing := &maas2Instance{machine: machine,
-		maasController: &fakeMachineOnlyController{[]gomaasapi.Machine{machine}}}
+	thing := &maas2Instance{machine: machine}
 	result, err := thing.hostname()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.Equals, "saul-goodman")
@@ -93,8 +85,7 @@ func (s *maas2InstanceSuite) TestHardwareCharacteristics(c *gc.C) {
 		zoneName:     "bar",
 		tags:         []string{"foo", "bar"},
 	}
-	thing := &maas2Instance{machine: machine,
-		maasController: &fakeMachineOnlyController{[]gomaasapi.Machine{machine}}}
+	thing := &maas2Instance{machine: machine}
 	arch := "foo"
 	cpu := uint64(3)
 	mem := uint64(4)
