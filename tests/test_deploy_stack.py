@@ -39,6 +39,7 @@ from deploy_stack import (
     destroy_environment,
     dump_env_logs,
     dump_juju_timings,
+    _get_clients_to_upgrade,
     iter_remote_machines,
     get_remote_machines,
     GET_TOKEN_SCRIPT,
@@ -58,6 +59,8 @@ from jujuconfig import (
 from jujupy import (
     EnvJujuClient,
     EnvJujuClient1X,
+    EnvJujuClient25,
+    EnvJujuClient26,
     get_cache_path,
     get_timeout_prefix,
     get_timeout_path,
@@ -1122,7 +1125,7 @@ class TestTestUpgrade(FakeHomeTestCase):
         status = yaml.safe_dump({
             'machines': {'0': {
                 'agent-state': 'started',
-                'agent-version': '2.0-beta18'}},
+                'agent-version': '2.0-rc2'}},
             'services': {}})
         juju_run_out = json.dumps([
             {"MachineId": "1", "Stdout": "Linux\n"},
@@ -1152,7 +1155,7 @@ class TestTestUpgrade(FakeHomeTestCase):
                                return_value="FAKETOKEN", autospec=True):
                         with patch('jujupy.EnvJujuClient.get_version',
                                    side_effect=lambda cls:
-                                   '2.0-beta18-arch-series'):
+                                   '2.0-rc2-arch-series'):
                             with patch(
                                     'jujupy.get_timeout_prefix',
                                     autospec=True, return_value=()):
@@ -1167,10 +1170,10 @@ class TestTestUpgrade(FakeHomeTestCase):
         # Needs to upgrade the controller first.
         assert_juju_call(self, cc_mock, new_client, (
             'juju', '--show-log', 'upgrade-juju', '-m', 'foo:controller',
-            '--version', '2.0-beta18'), 0)
+            '--version', '2.0-rc2'), 0)
         assert_juju_call(self, cc_mock, new_client, (
             'juju', '--show-log', 'upgrade-juju', '-m', 'foo:foo', '--version',
-            '2.0-beta18'), 1)
+            '2.0-rc2'), 1)
         self.assertEqual(cc_mock.call_count, 2)
         assert_juju_call(self, co_mock, new_client, self.LIST_MODELS, 0)
         assert_juju_call(self, co_mock, new_client, self.GET_CONTROLLER_ENV, 1)
@@ -1181,17 +1184,41 @@ class TestTestUpgrade(FakeHomeTestCase):
         assert_juju_call(self, co_mock, new_client, self.STATUS, 6)
         self.assertEqual(co_mock.call_count, 7)
 
+    def test__get_clients_to_upgrade_returns_new_version_class(self):
+        env = SimpleEnvironment('foo', {'type': 'foo'})
+        old_client = fake_juju_client(
+            env, '/foo/juju', version='1.25', cls=EnvJujuClient25)
+        with patch('jujupy.EnvJujuClient.get_version',
+                   side_effect=lambda cls: '1.26-arch-series'):
+            [new_client] = _get_clients_to_upgrade(
+                old_client, '/foo/newer/juju')
+
+        self.assertEqual(type(new_client), EnvJujuClient26)
+
+    def test__get_clients_to_upgrade_returns_controller_and_model(self):
+        old_client = fake_juju_client()
+        old_client.bootstrap()
+
+        with patch('jujupy.EnvJujuClient.get_version',
+                   side_effect=lambda cls: '2.0-rc2-arch-series'):
+            new_clients = _get_clients_to_upgrade(
+                old_client, '/foo/newer/juju')
+
+        self.assertEqual(len(new_clients), 2)
+        self.assertEqual(new_clients[0].model_name, 'controller')
+        self.assertEqual(new_clients[1].model_name, 'name')
+
     def test_mass_timeout(self):
         config = {'type': 'foo'}
         old_client = EnvJujuClient(JujuData('foo', config), None, '/foo/juju')
         with self.upgrade_mocks():
             with patch.object(EnvJujuClient, 'wait_for_version') as wfv_mock:
                 assess_upgrade(old_client, '/bar/juju')
-            wfv_mock.assert_has_calls([call('2.0-beta18', 600)] * 2)
+            wfv_mock.assert_has_calls([call('2.0-rc2', 600)] * 2)
             config['type'] = 'maas'
             with patch.object(EnvJujuClient, 'wait_for_version') as wfv_mock:
                 assess_upgrade(old_client, '/bar/juju')
-        wfv_mock.assert_has_calls([call('2.0-beta18', 1200)] * 2)
+        wfv_mock.assert_has_calls([call('2.0-rc2', 1200)] * 2)
 
 
 class TestBootstrapManager(FakeHomeTestCase):
