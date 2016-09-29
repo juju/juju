@@ -1190,8 +1190,9 @@ class TestTestUpgrade(FakeHomeTestCase):
             env, '/foo/juju', version='1.25', cls=EnvJujuClient25)
         with patch('jujupy.EnvJujuClient.get_version',
                    return_value='1.26-arch-series'):
-            [new_client] = _get_clients_to_upgrade(
-                old_client, '/foo/newer/juju')
+            with patch('jujupy.EnvJujuClient26._get_models', return_value=[]):
+                [new_client] = _get_clients_to_upgrade(
+                    old_client, '/foo/newer/juju')
 
         self.assertIs(type(new_client), EnvJujuClient26)
 
