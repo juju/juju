@@ -413,7 +413,8 @@ def _get_clients_to_upgrade(old_client, juju_path):
     new_client = old_client.clone_path_cls(juju_path)
     all_clients = sorted(
         new_client.iter_model_clients(),
-        key=lambda m: -1 if m.model_name == 'controller' else 0)
+        key=lambda m: m.model_name == 'controller',
+        reverse=True)
 
     return all_clients
 
