@@ -38,11 +38,11 @@ import (
 	jujuversion "github.com/juju/juju/version"
 )
 
-// charmsCommonSuite wraps authHttpSuite and adds
+// charmsCommonSuite wraps authHTTPSuite and adds
 // some helper methods suitable for working with the
 // tools endpoint.
 type toolsCommonSuite struct {
-	authHttpSuite
+	authHTTPSuite
 }
 
 func (s *toolsCommonSuite) toolsURL(c *gc.C, query string) *url.URL {

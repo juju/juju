@@ -19,7 +19,7 @@ import (
 // debugLogBaseSuite has tests that should be run for both the file
 // and DB based variants of debuglog, as well as some test helpers.
 type debugLogBaseSuite struct {
-	authHttpSuite
+	authHTTPSuite
 }
 
 func (s *debugLogBaseSuite) TestBadParams(c *gc.C) {

@@ -471,8 +471,8 @@ func (*suite) TestAPIInfoAddsLocalhostWhenServingInfoPresent(c *gc.C) {
 	c.Assert(ok, jc.IsTrue)
 	c.Check(apiinfo.Addrs, gc.HasLen, len(attrParams.APIAddresses)+1)
 	localhostAddressFound := false
-	for _, eachApiAddress := range apiinfo.Addrs {
-		if eachApiAddress == "localhost:47" {
+	for _, eachAPIAddress := range apiinfo.Addrs {
+		if eachAPIAddress == "localhost:47" {
 			localhostAddressFound = true
 			break
 		}

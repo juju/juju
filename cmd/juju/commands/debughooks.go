@@ -64,11 +64,11 @@ func (c *debugHooksCommand) Init(args []string) error {
 	return nil
 }
 
-type charmRelationsApi interface {
+type charmRelationsAPI interface {
 	CharmRelations(serviceName string) ([]string, error)
 }
 
-func (c *debugHooksCommand) getServiceAPI() (charmRelationsApi, error) {
+func (c *debugHooksCommand) getServiceAPI() (charmRelationsAPI, error) {
 	root, err := c.NewAPIRoot()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -84,11 +84,11 @@ func (c *debugHooksCommand) validateHooks() error {
 	if err != nil {
 		return err
 	}
-	serviceApi, err := c.getServiceAPI()
+	serviceAPI, err := c.getServiceAPI()
 	if err != nil {
 		return err
 	}
-	relations, err := serviceApi.CharmRelations(service)
+	relations, err := serviceAPI.CharmRelations(service)
 	if err != nil {
 		return err
 	}

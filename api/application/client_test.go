@@ -84,7 +84,7 @@ func (s *serviceSuite) TestSetServiceDeploy(c *gc.C) {
 		args, ok := a.(params.ApplicationsDeploy)
 		c.Assert(ok, jc.IsTrue)
 		c.Assert(args.Applications, gc.HasLen, 1)
-		c.Assert(args.Applications[0].CharmUrl, gc.Equals, "cs:trusty/a-charm-1")
+		c.Assert(args.Applications[0].CharmURL, gc.Equals, "cs:trusty/a-charm-1")
 		c.Assert(args.Applications[0].ApplicationName, gc.Equals, "serviceA")
 		c.Assert(args.Applications[0].Series, gc.Equals, "series")
 		c.Assert(args.Applications[0].NumUnits, gc.Equals, 2)
@@ -149,7 +149,7 @@ func (s *serviceSuite) TestServiceSetCharm(c *gc.C) {
 		args, ok := a.(params.ApplicationSetCharm)
 		c.Assert(ok, jc.IsTrue)
 		c.Assert(args.ApplicationName, gc.Equals, "application")
-		c.Assert(args.CharmUrl, gc.Equals, "cs:trusty/application-1")
+		c.Assert(args.CharmURL, gc.Equals, "cs:trusty/application-1")
 		c.Assert(args.ConfigSettings, jc.DeepEquals, map[string]string{
 			"a": "b",
 			"c": "d",

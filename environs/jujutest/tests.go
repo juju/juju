@@ -111,8 +111,8 @@ func (t *Tests) AssertPrepareFailsWithConfig(c *gc.C, badConfig coretesting.Attr
 
 func (t *Tests) SetUpTest(c *gc.C) {
 	storageDir := c.MkDir()
-	baseUrlPath := filepath.Join(storageDir, "tools")
-	t.DefaultBaseURL = utils.MakeFileURL(baseUrlPath)
+	baseURLPath := filepath.Join(storageDir, "tools")
+	t.DefaultBaseURL = utils.MakeFileURL(baseURLPath)
 	t.ToolsFixture.SetUpTest(c)
 	stor, err := filestorage.NewFileStorageWriter(storageDir)
 	c.Assert(err, jc.ErrorIsNil)

@@ -166,7 +166,7 @@ const (
 	Namespace         = "NAMESPACE"
 	AgentServiceName  = "AGENT_SERVICE_NAME"
 	MongoOplogSize    = "MONGO_OPLOG_SIZE"
-	NumaCtlPreference = "NUMA_CTL_PREFERENCE"
+	NUMACtlPreference = "NUMA_CTL_PREFERENCE"
 )
 
 // The Config interface is the sole way that the agent gets access to the

@@ -997,12 +997,12 @@ func (s *ConfigSuite) TestProxyValuesWithFallback(c *gc.C) {
 		"ftp-proxy":   "ftp://user@10.0.0.1",
 		"no-proxy":    "localhost,10.0.3.1",
 	})
-	c.Assert(config.HttpProxy(), gc.Equals, "http://user@10.0.0.1")
-	c.Assert(config.AptHttpProxy(), gc.Equals, "http://user@10.0.0.1")
-	c.Assert(config.HttpsProxy(), gc.Equals, "https://user@10.0.0.1")
-	c.Assert(config.AptHttpsProxy(), gc.Equals, "https://user@10.0.0.1")
-	c.Assert(config.FtpProxy(), gc.Equals, "ftp://user@10.0.0.1")
-	c.Assert(config.AptFtpProxy(), gc.Equals, "ftp://user@10.0.0.1")
+	c.Assert(config.HTTPProxy(), gc.Equals, "http://user@10.0.0.1")
+	c.Assert(config.AptHTTPProxy(), gc.Equals, "http://user@10.0.0.1")
+	c.Assert(config.HTTPSProxy(), gc.Equals, "https://user@10.0.0.1")
+	c.Assert(config.AptHTTPSProxy(), gc.Equals, "https://user@10.0.0.1")
+	c.Assert(config.FTPProxy(), gc.Equals, "ftp://user@10.0.0.1")
+	c.Assert(config.AptFTPProxy(), gc.Equals, "ftp://user@10.0.0.1")
 	c.Assert(config.NoProxy(), gc.Equals, "localhost,10.0.3.1")
 }
 
@@ -1015,12 +1015,12 @@ func (s *ConfigSuite) TestProxyValuesWithFallbackNoScheme(c *gc.C) {
 		"ftp-proxy":   "user@10.0.0.1",
 		"no-proxy":    "localhost,10.0.3.1",
 	})
-	c.Assert(config.HttpProxy(), gc.Equals, "user@10.0.0.1")
-	c.Assert(config.AptHttpProxy(), gc.Equals, "http://user@10.0.0.1")
-	c.Assert(config.HttpsProxy(), gc.Equals, "user@10.0.0.1")
-	c.Assert(config.AptHttpsProxy(), gc.Equals, "https://user@10.0.0.1")
-	c.Assert(config.FtpProxy(), gc.Equals, "user@10.0.0.1")
-	c.Assert(config.AptFtpProxy(), gc.Equals, "ftp://user@10.0.0.1")
+	c.Assert(config.HTTPProxy(), gc.Equals, "user@10.0.0.1")
+	c.Assert(config.AptHTTPProxy(), gc.Equals, "http://user@10.0.0.1")
+	c.Assert(config.HTTPSProxy(), gc.Equals, "user@10.0.0.1")
+	c.Assert(config.AptHTTPSProxy(), gc.Equals, "https://user@10.0.0.1")
+	c.Assert(config.FTPProxy(), gc.Equals, "user@10.0.0.1")
+	c.Assert(config.AptFTPProxy(), gc.Equals, "ftp://user@10.0.0.1")
 	c.Assert(config.NoProxy(), gc.Equals, "localhost,10.0.3.1")
 }
 
@@ -1034,23 +1034,23 @@ func (s *ConfigSuite) TestProxyValues(c *gc.C) {
 		"apt-https-proxy": "https://user@10.0.0.2",
 		"apt-ftp-proxy":   "ftp://user@10.0.0.2",
 	})
-	c.Assert(config.HttpProxy(), gc.Equals, "http://user@10.0.0.1")
-	c.Assert(config.AptHttpProxy(), gc.Equals, "http://user@10.0.0.2")
-	c.Assert(config.HttpsProxy(), gc.Equals, "https://user@10.0.0.1")
-	c.Assert(config.AptHttpsProxy(), gc.Equals, "https://user@10.0.0.2")
-	c.Assert(config.FtpProxy(), gc.Equals, "ftp://user@10.0.0.1")
-	c.Assert(config.AptFtpProxy(), gc.Equals, "ftp://user@10.0.0.2")
+	c.Assert(config.HTTPProxy(), gc.Equals, "http://user@10.0.0.1")
+	c.Assert(config.AptHTTPProxy(), gc.Equals, "http://user@10.0.0.2")
+	c.Assert(config.HTTPSProxy(), gc.Equals, "https://user@10.0.0.1")
+	c.Assert(config.AptHTTPSProxy(), gc.Equals, "https://user@10.0.0.2")
+	c.Assert(config.FTPProxy(), gc.Equals, "ftp://user@10.0.0.1")
+	c.Assert(config.AptFTPProxy(), gc.Equals, "ftp://user@10.0.0.2")
 }
 
 func (s *ConfigSuite) TestProxyValuesNotSet(c *gc.C) {
 	s.addJujuFiles(c)
 	config := newTestConfig(c, testing.Attrs{})
-	c.Assert(config.HttpProxy(), gc.Equals, "")
-	c.Assert(config.AptHttpProxy(), gc.Equals, "")
-	c.Assert(config.HttpsProxy(), gc.Equals, "")
-	c.Assert(config.AptHttpsProxy(), gc.Equals, "")
-	c.Assert(config.FtpProxy(), gc.Equals, "")
-	c.Assert(config.AptFtpProxy(), gc.Equals, "")
+	c.Assert(config.HTTPProxy(), gc.Equals, "")
+	c.Assert(config.AptHTTPProxy(), gc.Equals, "")
+	c.Assert(config.HTTPSProxy(), gc.Equals, "")
+	c.Assert(config.AptHTTPSProxy(), gc.Equals, "")
+	c.Assert(config.FTPProxy(), gc.Equals, "")
+	c.Assert(config.AptFTPProxy(), gc.Equals, "")
 	c.Assert(config.NoProxy(), gc.Equals, "")
 }
 

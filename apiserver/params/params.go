@@ -215,7 +215,7 @@ type ApplicationsDeploy struct {
 type ApplicationDeploy struct {
 	ApplicationName  string                         `json:"application"`
 	Series           string                         `json:"series"`
-	CharmUrl         string                         `json:"charm-url"`
+	CharmURL         string                         `json:"charm-url"`
 	Channel          string                         `json:"channel"`
 	NumUnits         int                            `json:"num-units"`
 	Config           map[string]string              `json:"config,omitempty"`
@@ -230,8 +230,8 @@ type ApplicationDeploy struct {
 // ApplicationUpdate holds the parameters for making the application Update call.
 type ApplicationUpdate struct {
 	ApplicationName string             `json:"application"`
-	CharmUrl        string             `json:"charm-url"`
-	ForceCharmUrl   bool               `json:"force-charm-url"`
+	CharmURL        string             `json:"charm-url"`
+	ForceCharmURL   bool               `json:"force-charm-url"`
 	ForceSeries     bool               `json:"force-series"`
 	MinUnits        *int               `json:"min-units,omitempty"`
 	SettingsStrings map[string]string  `json:"settings,omitempty"`
@@ -244,8 +244,8 @@ type ApplicationSetCharm struct {
 	// ApplicationName is the name of the application to set the charm on.
 	ApplicationName string `json:"application"`
 
-	// CharmUrl is the new url for the charm.
-	CharmUrl string `json:"charm-url"`
+	// CharmURL is the new url for the charm.
+	CharmURL string `json:"charm-url"`
 
 	// Channel is the charm store channel from which the charm came.
 	Channel string `json:"channel"`

@@ -18,16 +18,16 @@ import (
 )
 
 // ManifoldConfig defines the names of the manifolds on which a Manifold will depend.
-type ManifoldConfig engine.AgentApiManifoldConfig
+type ManifoldConfig engine.AgentAPIManifoldConfig
 
 // Manifold returns a dependency manifold that runs an identity file writer worker,
 // using the resource names defined in the supplied config.
 func Manifold(config ManifoldConfig) dependency.Manifold {
-	typedConfig := engine.AgentApiManifoldConfig(config)
-	return engine.AgentApiManifold(typedConfig, newWorker)
+	typedConfig := engine.AgentAPIManifoldConfig(config)
+	return engine.AgentAPIManifold(typedConfig, newWorker)
 }
 
-// newWorker trivially wraps NewWorker for use in a engine.AgentApiManifold.
+// newWorker trivially wraps NewWorker for use in a engine.AgentAPIManifold.
 func newWorker(a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
 	cfg := a.CurrentConfig()
 

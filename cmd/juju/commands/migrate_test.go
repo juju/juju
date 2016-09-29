@@ -171,7 +171,7 @@ func (s *MigrateSuite) TestSuccessMacaroons(c *gc.C) {
 
 func (s *MigrateSuite) TestModelDoesntExist(c *gc.C) {
 	cmd := s.makeCommand()
-	cmd.SetModelApi(&fakeModelAPI{})
+	cmd.SetModelAPI(&fakeModelAPI{})
 	_, err := s.run(c, cmd, "wat", "target")
 	c.Check(err, gc.ErrorMatches, "model .+ not found")
 	c.Check(s.api.specSeen, gc.IsNil) // API shouldn't have been called
@@ -179,7 +179,7 @@ func (s *MigrateSuite) TestModelDoesntExist(c *gc.C) {
 
 func (s *MigrateSuite) TestModelDoesntExistBeforeRefresh(c *gc.C) {
 	cmd := s.makeCommand()
-	cmd.SetModelApi(&fakeModelAPI{model: "wat"}) // Model is available after refresh
+	cmd.SetModelAPI(&fakeModelAPI{model: "wat"}) // Model is available after refresh
 	_, err := s.run(c, cmd, "wat", "target")
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(s.api.specSeen, gc.NotNil)

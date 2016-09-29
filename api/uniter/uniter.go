@@ -382,9 +382,9 @@ func (st *State) WatchRelationUnits(
 // ErrIfNotVersionFn returns a function which can be used to check for
 // the minimum supported version, and, if appropriate, generate an
 // error.
-func ErrIfNotVersionFn(minVersion int, bestApiVersion int) func(string) error {
+func ErrIfNotVersionFn(minVersion int, bestAPIVersion int) func(string) error {
 	return func(fnName string) error {
-		if minVersion <= bestApiVersion {
+		if minVersion <= bestAPIVersion {
 			return nil
 		}
 		return errors.NotImplementedf("%s(...) requires v%d+", fnName, minVersion)

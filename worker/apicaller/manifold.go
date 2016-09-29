@@ -81,7 +81,7 @@ func (config ManifoldConfig) startFunc() dependency.StartFunc {
 		} else if err != nil {
 			return nil, errors.Annotate(err, "cannot open api")
 		}
-		return newApiConnWorker(conn), nil
+		return newAPIConnWorker(conn), nil
 	}
 }
 

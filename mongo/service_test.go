@@ -34,7 +34,7 @@ func (s *serviceSuite) TestNewConf(c *gc.C) {
 		MongoPath:   mongodPath,
 		Port:        port,
 		OplogSizeMB: oplogSizeMB,
-		WantNumaCtl: false,
+		WantNUMACtl: false,
 		Version:     mongodVersion,
 		Auth:        true,
 		IPv6:        true,

@@ -1041,11 +1041,11 @@ func (a *MachineAgent) apiserverWorkerStarter(
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return a.newApiserverWorker(st, certChanged)
+		return a.newAPIserverWorker(st, certChanged)
 	}
 }
 
-func (a *MachineAgent) newApiserverWorker(st *state.State, certChanged chan params.StateServingInfo) (worker.Worker, error) {
+func (a *MachineAgent) newAPIserverWorker(st *state.State, certChanged chan params.StateServingInfo) (worker.Worker, error) {
 	agentConfig := a.CurrentConfig()
 	// If the configuration does not have the required information,
 	// it is currently not a recoverable error, so we kill the whole

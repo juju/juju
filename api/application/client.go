@@ -95,7 +95,7 @@ func (c *Client) Deploy(args DeployArgs) error {
 		Applications: []params.ApplicationDeploy{{
 			ApplicationName:  args.ApplicationName,
 			Series:           args.Series,
-			CharmUrl:         args.CharmID.URL.String(),
+			CharmURL:         args.CharmID.URL.String(),
 			Channel:          string(args.CharmID.Channel),
 			NumUnits:         args.NumUnits,
 			ConfigYAML:       args.ConfigYAML,
@@ -190,7 +190,7 @@ func (c *Client) SetCharm(cfg SetCharmConfig) error {
 	}
 	args := params.ApplicationSetCharm{
 		ApplicationName:    cfg.ApplicationName,
-		CharmUrl:           cfg.CharmID.URL.String(),
+		CharmURL:           cfg.CharmID.URL.String(),
 		Channel:            string(cfg.CharmID.Channel),
 		ConfigSettings:     cfg.ConfigSettings,
 		ConfigSettingsYAML: cfg.ConfigSettingsYAML,

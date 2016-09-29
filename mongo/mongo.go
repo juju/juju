@@ -381,9 +381,9 @@ type EnsureServerParams struct {
 	// algorithm defined in Mongo.
 	OplogSize int
 
-	// SetNumaControlPolicy preference - whether the user
+	// SetNUMAControlPolicy preference - whether the user
 	// wants to set the numa control policy when starting mongo.
-	SetNumaControlPolicy bool
+	SetNUMAControlPolicy bool
 }
 
 // EnsureServer ensures that the MongoDB server is installed,
@@ -411,7 +411,7 @@ func EnsureServer(args EnsureServerParams) error {
 	}
 
 	operatingsystem := series.HostSeries()
-	if err := installMongod(operatingsystem, args.SetNumaControlPolicy); err != nil {
+	if err := installMongod(operatingsystem, args.SetNUMAControlPolicy); err != nil {
 		// This isn't treated as fatal because the Juju MongoDB
 		// package is likely to be already installed anyway. There
 		// could just be a temporary issue with apt-get/yum/whatever
@@ -455,7 +455,7 @@ func EnsureServer(args EnsureServerParams) error {
 		MongoPath:   mongoPath,
 		Port:        args.StatePort,
 		OplogSizeMB: oplogSizeMB,
-		WantNumaCtl: args.SetNumaControlPolicy,
+		WantNUMACtl: args.SetNUMAControlPolicy,
 		Version:     mgoVersion,
 		Auth:        true,
 		IPv6:        network.SupportsIPv6(),

@@ -15,21 +15,21 @@ import (
 func NewLeadershipSettingsAccessor(
 	caller FacadeCallFn,
 	newWatcher NewNotifyWatcherFn,
-	checkApiVersion CheckApiVersionFn,
+	checkAPIVersion CheckAPIVersionFn,
 ) *LeadershipSettingsAccessor {
-	return &LeadershipSettingsAccessor{caller, newWatcher, checkApiVersion}
+	return &LeadershipSettingsAccessor{caller, newWatcher, checkAPIVersion}
 }
 
 type FacadeCallFn func(request string, params, response interface{}) error
 type NewNotifyWatcherFn func(params.NotifyWatchResult) watcher.NotifyWatcher
-type CheckApiVersionFn func(functionName string) error
+type CheckAPIVersionFn func(functionName string) error
 
 // LeadershipSettingsAccessor provides a type that can make RPC calls
 // to a service which can read, write, and watch leadership settings.
 type LeadershipSettingsAccessor struct {
 	facadeCaller     FacadeCallFn
 	newNotifyWatcher NewNotifyWatcherFn
-	checkApiVersion  CheckApiVersionFn
+	checkAPIVersion  CheckAPIVersionFn
 }
 
 // Merge merges the provided settings into the leadership settings for
@@ -37,7 +37,7 @@ type LeadershipSettingsAccessor struct {
 // this operation.
 func (lsa *LeadershipSettingsAccessor) Merge(serviceId string, settings map[string]string) error {
 
-	if err := lsa.checkApiVersion("Merge"); err != nil {
+	if err := lsa.checkAPIVersion("Merge"); err != nil {
 		return errors.Annotatef(err, "cannot access leadership api")
 	}
 
@@ -58,7 +58,7 @@ func (lsa *LeadershipSettingsAccessor) Merge(serviceId string, settings map[stri
 // ID. Anyone may perform this operation.
 func (lsa *LeadershipSettingsAccessor) Read(serviceId string) (map[string]string, error) {
 
-	if err := lsa.checkApiVersion("Read"); err != nil {
+	if err := lsa.checkAPIVersion("Read"); err != nil {
 		return nil, errors.Annotatef(err, "cannot access leadership api")
 	}
 
@@ -79,7 +79,7 @@ func (lsa *LeadershipSettingsAccessor) Read(serviceId string) (map[string]string
 // for leadership settings changes to be made for a given service ID.
 func (lsa *LeadershipSettingsAccessor) WatchLeadershipSettings(serviceId string) (watcher.NotifyWatcher, error) {
 
-	if err := lsa.checkApiVersion("WatchLeadershipSettings"); err != nil {
+	if err := lsa.checkAPIVersion("WatchLeadershipSettings"); err != nil {
 		return nil, errors.Annotatef(err, "cannot access leadership api")
 	}
 	var results params.NotifyWatchResults

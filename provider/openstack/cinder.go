@@ -67,17 +67,17 @@ func (env *Environ) cinderProvider() (*cinderProvider, error) {
 
 var newOpenstackStorage = func(env *Environ) (OpenstackStorage, error) {
 	env.ecfgMutex.Lock()
-	endpointUrl := env.volumeURL
+	endpointURL := env.volumeURL
 	authClient := env.client
 	envNovaClient := env.novaUnlocked
 	env.ecfgMutex.Unlock()
 
-	if endpointUrl == nil {
+	if endpointURL == nil {
 		return nil, errors.NotSupportedf("volumes")
 	}
 
 	return &openstackStorageAdapter{
-		cinderClient{cinder.Basic(endpointUrl, authClient.TenantId(), authClient.Token)},
+		cinderClient{cinder.Basic(endpointURL, authClient.TenantId(), authClient.Token)},
 		novaClient{envNovaClient},
 	}, nil
 }

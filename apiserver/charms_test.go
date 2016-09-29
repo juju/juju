@@ -27,11 +27,11 @@ import (
 	"github.com/juju/juju/testing/factory"
 )
 
-// charmsCommonSuite wraps authHttpSuite and adds
+// charmsCommonSuite wraps authHTTPSuite and adds
 // some helper methods suitable for working with the
 // charms endpoint.
 type charmsCommonSuite struct {
-	authHttpSuite
+	authHTTPSuite
 }
 
 func (s *charmsCommonSuite) charmsURL(c *gc.C, query string) *url.URL {
@@ -581,7 +581,7 @@ var _ = gc.Suite(&charmsWithMacaroonsSuite{})
 
 func (s *charmsWithMacaroonsSuite) SetUpTest(c *gc.C) {
 	s.macaroonAuthEnabled = true
-	s.authHttpSuite.SetUpTest(c)
+	s.authHTTPSuite.SetUpTest(c)
 }
 
 func (s *charmsWithMacaroonsSuite) TestWithNoBasicAuthReturnsDischargeRequiredError(c *gc.C) {

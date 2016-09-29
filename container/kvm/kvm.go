@@ -159,7 +159,7 @@ func (manager *containerManager) CreateContainer(
 	// If the Simplestream requested is anything but released, update
 	// our StartParams to request it.
 	if instanceConfig.ImageStream != imagemetadata.ReleasedStream {
-		startParams.ImageDownloadUrl = imagemetadata.UbuntuCloudImagesURL + "/" + instanceConfig.ImageStream
+		startParams.ImageDownloadURL = imagemetadata.UbuntuCloudImagesURL + "/" + instanceConfig.ImageStream
 	}
 
 	var hardware instance.HardwareCharacteristics

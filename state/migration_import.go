@@ -805,7 +805,7 @@ func (i *importer) importUnitPayloads(unit *Unit, payloads []description.Payload
 }
 
 func (i *importer) makeApplicationDoc(s description.Application) (*applicationDoc, error) {
-	charmUrl, err := charm.ParseURL(s.CharmURL())
+	charmURL, err := charm.ParseURL(s.CharmURL())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -814,7 +814,7 @@ func (i *importer) makeApplicationDoc(s description.Application) (*applicationDo
 		Name:                 s.Name(),
 		Series:               s.Series(),
 		Subordinate:          s.Subordinate(),
-		CharmURL:             charmUrl,
+		CharmURL:             charmURL,
 		Channel:              s.Channel(),
 		CharmModifiedVersion: s.CharmModifiedVersion(),
 		ForceCharm:           s.ForceCharm(),
@@ -847,7 +847,7 @@ func (i *importer) makeUnitDoc(s description.Application, u description.Unit) (*
 	// the charm url for each unit rather than grabbing the applications charm url.
 	// Currently the units charm url matching the application is a precondiation
 	// to migration.
-	charmUrl, err := charm.ParseURL(s.CharmURL())
+	charmURL, err := charm.ParseURL(s.CharmURL())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -863,7 +863,7 @@ func (i *importer) makeUnitDoc(s description.Application, u description.Unit) (*
 		Name:                   u.Name(),
 		Application:            s.Name(),
 		Series:                 s.Series(),
-		CharmURL:               charmUrl,
+		CharmURL:               charmURL,
 		Principal:              u.Principal().Id(),
 		Subordinates:           subordinates,
 		StorageAttachmentCount: i.unitStorageAttachmentCount(u.Tag()),

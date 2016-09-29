@@ -64,7 +64,7 @@ func (m *ovaImportManager) importOva(ecfg *environConfig, instSpec *instanceSpec
 			logger.Errorf("can't remove temp directory, error: %s", err.Error())
 		}
 	}()
-	ovf, err := m.downloadOva(basePath, instSpec.img.Url)
+	ovf, err := m.downloadOva(basePath, instSpec.img.URL)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

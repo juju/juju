@@ -189,7 +189,7 @@ func (s *KVMSuite) TestCreateContainerUtilizesReleaseSimpleStream(c *gc.C) {
 	// purely for the side-effect.
 	containertesting.CreateContainerWithMachineConfig(c, s.manager, instanceConfig)
 
-	c.Assert(kvm.TestStartParams.ImageDownloadUrl, gc.Equals, "")
+	c.Assert(kvm.TestStartParams.ImageDownloadURL, gc.Equals, "")
 }
 
 // Test that CreateContainer creates proper startParams.
@@ -204,7 +204,7 @@ func (s *KVMSuite) TestCreateContainerUtilizesDailySimpleStream(c *gc.C) {
 	// purely for the side-effect.
 	containertesting.CreateContainerWithMachineConfig(c, s.manager, instanceConfig)
 
-	c.Assert(kvm.TestStartParams.ImageDownloadUrl, gc.Equals, "http://cloud-images.ubuntu.com/daily")
+	c.Assert(kvm.TestStartParams.ImageDownloadURL, gc.Equals, "http://cloud-images.ubuntu.com/daily")
 }
 
 func (s *KVMSuite) TestStartContainerUtilizesSimpleStream(c *gc.C) {
@@ -215,7 +215,7 @@ func (s *KVMSuite) TestStartContainerUtilizesSimpleStream(c *gc.C) {
 	startParams := kvm.StartParams{
 		Series:           "mocked-series",
 		Arch:             "mocked-arch",
-		ImageDownloadUrl: "mocked-url",
+		ImageDownloadURL: "mocked-url",
 	}
 	mockedContainer := kvm.NewEmptyKvmContainer()
 	mockedContainer.Start(startParams)
@@ -225,7 +225,7 @@ func (s *KVMSuite) TestStartContainerUtilizesSimpleStream(c *gc.C) {
 			"sync arch=%s release=%s --source=%s",
 			startParams.Arch,
 			startParams.Series,
-			startParams.ImageDownloadUrl,
+			startParams.ImageDownloadURL,
 		),
 		" ",
 	)

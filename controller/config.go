@@ -18,8 +18,8 @@ import (
 var logger = loggo.GetLogger("juju.controller")
 
 const (
-	// ApiPort is the port used for api connections.
-	ApiPort = "api-port"
+	// APIPort is the port used for api connections.
+	APIPort = "api-port"
 
 	// AuditingEnabled determines whether the controller will record
 	// auditing information.
@@ -40,8 +40,8 @@ const (
 	// IdentityPublicKey sets the public key of the identity manager.
 	IdentityPublicKey = "identity-public-key"
 
-	// NumaControlPolicyKey stores the value for this setting
-	SetNumaControlPolicyKey = "set-numa-control-policy"
+	// NUMAControlPolicyKey stores the value for this setting
+	SetNUMAControlPolicyKey = "set-numa-control-policy"
 
 	// Attribute Defaults
 
@@ -49,27 +49,27 @@ const (
 	// AuditingEnabled config value.
 	DefaultAuditingEnabled = false
 
-	// DefaultNumaControlPolicy should not be used by default.
+	// DefaultNUMAControlPolicy should not be used by default.
 	// Only use numactl if user specifically requests it
-	DefaultNumaControlPolicy = false
+	DefaultNUMAControlPolicy = false
 
 	// DefaultStatePort is the default port the controller is listening on.
 	DefaultStatePort int = 37017
 
-	// DefaultApiPort is the default port the API server is listening on.
+	// DefaultAPIPort is the default port the API server is listening on.
 	DefaultAPIPort int = 17070
 )
 
 // ControllerOnlyConfigAttributes are attributes which are only relevant
 // for a controller, never a model.
 var ControllerOnlyConfigAttributes = []string{
-	ApiPort,
+	APIPort,
 	StatePort,
 	CACertKey,
 	ControllerUUIDKey,
 	IdentityURL,
 	IdentityPublicKey,
-	SetNumaControlPolicyKey,
+	SetNUMAControlPolicyKey,
 }
 
 // ControllerOnlyAttribute returns true if the specified attribute name
@@ -148,7 +148,7 @@ func (c Config) StatePort() int {
 
 // APIPort returns the API server port for the environment.
 func (c Config) APIPort() int {
-	return c.mustInt(ApiPort)
+	return c.mustInt(APIPort)
 }
 
 // AuditingEnabled returns whether or not auditing has been enabled
@@ -195,12 +195,12 @@ func (c Config) IdentityPublicKey() *bakery.PublicKey {
 	return &pubKey
 }
 
-// NumaCtlPreference returns if numactl is preferred.
-func (c Config) NumaCtlPreference() bool {
-	if numa, ok := c[SetNumaControlPolicyKey]; ok {
+// NUMACtlPreference returns if numactl is preferred.
+func (c Config) NUMACtlPreference() bool {
+	if numa, ok := c[SetNUMAControlPolicyKey]; ok {
 		return numa.(bool)
 	}
-	return DefaultNumaControlPolicy
+	return DefaultNUMAControlPolicy
 }
 
 // Validate ensures that config is a valid configuration.
@@ -246,16 +246,16 @@ func GenerateControllerCertAndKey(caCert, caKey string, hostAddresses []string) 
 
 var configChecker = schema.FieldMap(schema.Fields{
 	AuditingEnabled:         schema.Bool(),
-	ApiPort:                 schema.ForceInt(),
+	APIPort:                 schema.ForceInt(),
 	StatePort:               schema.ForceInt(),
 	IdentityURL:             schema.String(),
 	IdentityPublicKey:       schema.String(),
-	SetNumaControlPolicyKey: schema.Bool(),
+	SetNUMAControlPolicyKey: schema.Bool(),
 }, schema.Defaults{
-	ApiPort:                 DefaultAPIPort,
+	APIPort:                 DefaultAPIPort,
 	AuditingEnabled:         DefaultAuditingEnabled,
 	StatePort:               DefaultStatePort,
 	IdentityURL:             schema.Omit,
 	IdentityPublicKey:       schema.Omit,
-	SetNumaControlPolicyKey: DefaultNumaControlPolicy,
+	SetNUMAControlPolicyKey: DefaultNUMAControlPolicy,
 })

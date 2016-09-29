@@ -46,7 +46,7 @@ func (s *environBrokerSuite) PrepareStartInstanceFakes(c *gc.C) {
 	s.FakeAvailabilityZones(client, "z1")
 	s.FakeAvailabilityZones(client, "z1")
 	s.FakeAvailabilityZones(client, "z1")
-	s.FakeCreateInstance(client, s.ServerUrl, c)
+	s.FakeCreateInstance(client, s.ServerURL, c)
 }
 
 func (s *environBrokerSuite) CreateStartInstanceArgs(c *gc.C) environs.StartInstanceParams {
@@ -180,7 +180,7 @@ func (s *environBrokerSuite) TestStartInstanceSelectZone(c *gc.C) {
 	client := vsphere.ExposeEnvFakeClient(s.Env)
 	s.FakeAvailabilityZones(client, "z1", "z2")
 	s.FakeAvailabilityZones(client, "z1", "z2")
-	s.FakeCreateInstance(client, s.ServerUrl, c)
+	s.FakeCreateInstance(client, s.ServerURL, c)
 	startInstArgs := s.CreateStartInstanceArgs(c)
 	startInstArgs.Placement = "zone=z2"
 	_, err := s.Env.StartInstance(startInstArgs)

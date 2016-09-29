@@ -3311,18 +3311,18 @@ func (s *StatusSuite) setupMigrationTest(c *gc.C) *state.State {
 	return hostedSt
 }
 
-type fakeApiClient struct {
+type fakeAPIClient struct {
 	statusReturn *params.FullStatus
 	patternsUsed []string
 	closeCalled  bool
 }
 
-func (a *fakeApiClient) Status(patterns []string) (*params.FullStatus, error) {
+func (a *fakeAPIClient) Status(patterns []string) (*params.FullStatus, error) {
 	a.patternsUsed = patterns
 	return a.statusReturn, nil
 }
 
-func (a *fakeApiClient) Close() error {
+func (a *fakeAPIClient) Close() error {
 	a.closeCalled = true
 	return nil
 }
@@ -3646,7 +3646,7 @@ func (s *StatusSuite) TestFormatTabularConsistentPeerRelationName(c *gc.C) {
 	})
 }
 
-func (s *StatusSuite) TestStatusWithNilStatusApi(c *gc.C) {
+func (s *StatusSuite) TestStatusWithNilStatusAPI(c *gc.C) {
 	ctx := s.newContext(c)
 	defer s.resetContext(c, ctx)
 	steps := []stepper{
@@ -3660,12 +3660,12 @@ func (s *StatusSuite) TestStatusWithNilStatusApi(c *gc.C) {
 		s.step(c, ctx)
 	}
 
-	client := fakeApiClient{}
+	client := fakeAPIClient{}
 	var status = client.Status
 	s.PatchValue(&status, func(_ []string) (*params.FullStatus, error) {
 		return nil, nil
 	})
-	s.PatchValue(&newApiClientForStatus, func(_ *statusCommand) (statusAPI, error) {
+	s.PatchValue(&newAPIClientForStatus, func(_ *statusCommand) (statusAPI, error) {
 		return &client, nil
 	})
 

@@ -129,12 +129,12 @@ func (c *statusCommand) Init(args []string) error {
 	return nil
 }
 
-var newApiClientForStatus = func(c *statusCommand) (statusAPI, error) {
+var newAPIClientForStatus = func(c *statusCommand) (statusAPI, error) {
 	return c.NewAPIClient()
 }
 
 func (c *statusCommand) Run(ctx *cmd.Context) error {
-	apiclient, err := newApiClientForStatus(c)
+	apiclient, err := newAPIClientForStatus(c)
 	if err != nil {
 		return errors.Trace(err)
 	}

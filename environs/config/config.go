@@ -75,23 +75,23 @@ const (
 	// AgentMetadataURLKey stores the key for this setting.
 	AgentMetadataURLKey = "agent-metadata-url"
 
-	// HttpProxyKey stores the key for this setting.
-	HttpProxyKey = "http-proxy"
+	// HTTPProxyKey stores the key for this setting.
+	HTTPProxyKey = "http-proxy"
 
-	// HttpsProxyKey stores the key for this setting.
-	HttpsProxyKey = "https-proxy"
+	// HTTPSProxyKey stores the key for this setting.
+	HTTPSProxyKey = "https-proxy"
 
-	// FtpProxyKey stores the key for this setting.
-	FtpProxyKey = "ftp-proxy"
+	// FTPProxyKey stores the key for this setting.
+	FTPProxyKey = "ftp-proxy"
 
-	// AptHttpProxyKey stores the key for this setting.
-	AptHttpProxyKey = "apt-http-proxy"
+	// AptHTTPProxyKey stores the key for this setting.
+	AptHTTPProxyKey = "apt-http-proxy"
 
-	// AptHttpsProxyKey stores the key for this setting.
-	AptHttpsProxyKey = "apt-https-proxy"
+	// AptHTTPSProxyKey stores the key for this setting.
+	AptHTTPSProxyKey = "apt-https-proxy"
 
-	// AptFtpProxyKey stores the key for this setting.
-	AptFtpProxyKey = "apt-ftp-proxy"
+	// AptFTPProxyKey stores the key for this setting.
+	AptFTPProxyKey = "apt-ftp-proxy"
 
 	// NoProxyKey stores the key for this setting.
 	NoProxyKey = "no-proxy"
@@ -306,13 +306,13 @@ var defaultConfigValues = map[string]interface{}{
 	LogForwardEnabled: false,
 
 	// Proxy settings.
-	HttpProxyKey:     "",
-	HttpsProxyKey:    "",
-	FtpProxyKey:      "",
+	HTTPProxyKey:     "",
+	HTTPSProxyKey:    "",
+	FTPProxyKey:      "",
 	NoProxyKey:       "",
-	AptHttpProxyKey:  "",
-	AptHttpsProxyKey: "",
-	AptFtpProxyKey:   "",
+	AptHTTPProxyKey:  "",
+	AptHTTPSProxyKey: "",
+	AptFTPProxyKey:   "",
 	"apt-mirror":     "",
 }
 
@@ -571,26 +571,26 @@ func (c *Config) ProxySSH() bool {
 // proxy.
 func (c *Config) ProxySettings() proxy.Settings {
 	return proxy.Settings{
-		Http:    c.HttpProxy(),
-		Https:   c.HttpsProxy(),
-		Ftp:     c.FtpProxy(),
+		Http:    c.HTTPProxy(),
+		Https:   c.HTTPSProxy(),
+		Ftp:     c.FTPProxy(),
 		NoProxy: c.NoProxy(),
 	}
 }
 
-// HttpProxy returns the http proxy for the environment.
-func (c *Config) HttpProxy() string {
-	return c.asString(HttpProxyKey)
+// HTTPProxy returns the http proxy for the environment.
+func (c *Config) HTTPProxy() string {
+	return c.asString(HTTPProxyKey)
 }
 
-// HttpsProxy returns the https proxy for the environment.
-func (c *Config) HttpsProxy() string {
-	return c.asString(HttpsProxyKey)
+// HTTPSProxy returns the https proxy for the environment.
+func (c *Config) HTTPSProxy() string {
+	return c.asString(HTTPSProxyKey)
 }
 
-// FtpProxy returns the ftp proxy for the environment.
-func (c *Config) FtpProxy() string {
-	return c.asString(FtpProxyKey)
+// FTPProxy returns the ftp proxy for the environment.
+func (c *Config) FTPProxy() string {
+	return c.asString(FTPProxyKey)
 }
 
 // NoProxy returns the 'no proxy' for the environment.
@@ -617,28 +617,28 @@ func addSchemeIfMissing(defaultScheme string, url string) string {
 // AptProxySettings returns all three proxy settings; http, https and ftp.
 func (c *Config) AptProxySettings() proxy.Settings {
 	return proxy.Settings{
-		Http:  c.AptHttpProxy(),
-		Https: c.AptHttpsProxy(),
-		Ftp:   c.AptFtpProxy(),
+		Http:  c.AptHTTPProxy(),
+		Https: c.AptHTTPSProxy(),
+		Ftp:   c.AptFTPProxy(),
 	}
 }
 
-// AptHttpProxy returns the apt http proxy for the environment.
+// AptHTTPProxy returns the apt http proxy for the environment.
 // Falls back to the default http-proxy if not specified.
-func (c *Config) AptHttpProxy() string {
-	return addSchemeIfMissing("http", c.getWithFallback(AptHttpProxyKey, HttpProxyKey))
+func (c *Config) AptHTTPProxy() string {
+	return addSchemeIfMissing("http", c.getWithFallback(AptHTTPProxyKey, HTTPProxyKey))
 }
 
-// AptHttpsProxy returns the apt https proxy for the environment.
+// AptHTTPSProxy returns the apt https proxy for the environment.
 // Falls back to the default https-proxy if not specified.
-func (c *Config) AptHttpsProxy() string {
-	return addSchemeIfMissing("https", c.getWithFallback(AptHttpsProxyKey, HttpsProxyKey))
+func (c *Config) AptHTTPSProxy() string {
+	return addSchemeIfMissing("https", c.getWithFallback(AptHTTPSProxyKey, HTTPSProxyKey))
 }
 
-// AptFtpProxy returns the apt ftp proxy for the environment.
+// AptFTPProxy returns the apt ftp proxy for the environment.
 // Falls back to the default ftp-proxy if not specified.
-func (c *Config) AptFtpProxy() string {
-	return addSchemeIfMissing("ftp", c.getWithFallback(AptFtpProxyKey, FtpProxyKey))
+func (c *Config) AptFTPProxy() string {
+	return addSchemeIfMissing("ftp", c.getWithFallback(AptFTPProxyKey, FTPProxyKey))
 }
 
 // AptMirror sets the apt mirror for the environment.
@@ -947,13 +947,13 @@ var alwaysOptional = schema.Defaults{
 	"firewall-mode":              schema.Omit,
 	"logging-config":             schema.Omit,
 	ProvisionerHarvestModeKey:    schema.Omit,
-	HttpProxyKey:                 schema.Omit,
-	HttpsProxyKey:                schema.Omit,
-	FtpProxyKey:                  schema.Omit,
+	HTTPProxyKey:                 schema.Omit,
+	HTTPSProxyKey:                schema.Omit,
+	FTPProxyKey:                  schema.Omit,
 	NoProxyKey:                   schema.Omit,
-	AptHttpProxyKey:              schema.Omit,
-	AptHttpsProxyKey:             schema.Omit,
-	AptFtpProxyKey:               schema.Omit,
+	AptHTTPProxyKey:              schema.Omit,
+	AptHTTPSProxyKey:             schema.Omit,
+	AptFTPProxyKey:               schema.Omit,
 	"apt-mirror":                 schema.Omit,
 	AgentStreamKey:               schema.Omit,
 	ResourceTagsKey:              schema.Omit,
@@ -1065,9 +1065,9 @@ func addIfNotEmpty(settings map[string]interface{}, key, value string) {
 // proxy settings.
 func ProxyConfigMap(proxySettings proxy.Settings) map[string]interface{} {
 	settings := make(map[string]interface{})
-	addIfNotEmpty(settings, HttpProxyKey, proxySettings.Http)
-	addIfNotEmpty(settings, HttpsProxyKey, proxySettings.Https)
-	addIfNotEmpty(settings, FtpProxyKey, proxySettings.Ftp)
+	addIfNotEmpty(settings, HTTPProxyKey, proxySettings.Http)
+	addIfNotEmpty(settings, HTTPSProxyKey, proxySettings.Https)
+	addIfNotEmpty(settings, FTPProxyKey, proxySettings.Ftp)
 	addIfNotEmpty(settings, NoProxyKey, proxySettings.NoProxy)
 	return settings
 }
@@ -1076,9 +1076,9 @@ func ProxyConfigMap(proxySettings proxy.Settings) map[string]interface{} {
 // proxy settings.
 func AptProxyConfigMap(proxySettings proxy.Settings) map[string]interface{} {
 	settings := make(map[string]interface{})
-	addIfNotEmpty(settings, AptHttpProxyKey, proxySettings.Http)
-	addIfNotEmpty(settings, AptHttpsProxyKey, proxySettings.Https)
-	addIfNotEmpty(settings, AptFtpProxyKey, proxySettings.Ftp)
+	addIfNotEmpty(settings, AptHTTPProxyKey, proxySettings.Http)
+	addIfNotEmpty(settings, AptHTTPSProxyKey, proxySettings.Https)
+	addIfNotEmpty(settings, AptFTPProxyKey, proxySettings.Ftp)
 	return settings
 }
 
@@ -1126,19 +1126,19 @@ var configSchema = environschema.Fields{
 		Group:       environschema.JujuGroup,
 		Immutable:   true,
 	},
-	AptFtpProxyKey: {
+	AptFTPProxyKey: {
 		// TODO document acceptable format
 		Description: "The APT FTP proxy for the model",
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
-	AptHttpProxyKey: {
+	AptHTTPProxyKey: {
 		// TODO document acceptable format
 		Description: "The APT HTTP proxy for the model",
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
-	AptHttpsProxyKey: {
+	AptHTTPSProxyKey: {
 		// TODO document acceptable format
 		Description: "The APT HTTPS proxy for the model",
 		Type:        environschema.Tstring,
@@ -1202,17 +1202,17 @@ global or per instance security groups.`,
 		Immutable: true,
 		Group:     environschema.EnvironGroup,
 	},
-	FtpProxyKey: {
+	FTPProxyKey: {
 		Description: "The FTP proxy value to configure on instances, in the FTP_PROXY environment variable",
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
-	HttpProxyKey: {
+	HTTPProxyKey: {
 		Description: "The HTTP proxy value to configure on instances, in the HTTP_PROXY environment variable",
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
-	HttpsProxyKey: {
+	HTTPSProxyKey: {
 		Description: "The HTTPS proxy value to configure on instances, in the HTTPS_PROXY environment variable",
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,

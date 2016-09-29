@@ -14,12 +14,12 @@ import (
 )
 
 // ManifoldConfig describes the resources used by metrics workers.
-type ManifoldConfig engine.ApiManifoldConfig
+type ManifoldConfig engine.APIManifoldConfig
 
 // Manifold returns a Manifold that encapsulates various metrics workers.
 func Manifold(config ManifoldConfig) dependency.Manifold {
-	return engine.ApiManifold(
-		engine.ApiManifoldConfig(config),
+	return engine.APIManifold(
+		engine.APIManifoldConfig(config),
 		manifoldStart,
 	)
 }

@@ -41,7 +41,7 @@ func (s *MachineManifoldSuite) SetUpTest(c *gc.C) {
 			return nil, nil
 		},
 	)
-	config := enginetest.AgentApiManifoldTestConfig()
+	config := enginetest.AgentAPIManifoldTestConfig()
 	s.config = storageprovisioner.MachineManifoldConfig{
 		AgentName:     config.AgentName,
 		APICallerName: config.APICallerName,
@@ -50,7 +50,7 @@ func (s *MachineManifoldSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *MachineManifoldSuite) TestMachine(c *gc.C) {
-	_, err := enginetest.RunAgentApiManifold(
+	_, err := enginetest.RunAgentAPIManifold(
 		storageprovisioner.MachineManifold(s.config),
 		&fakeAgent{tag: names.NewMachineTag("42")},
 		&fakeAPIConn{})
@@ -60,7 +60,7 @@ func (s *MachineManifoldSuite) TestMachine(c *gc.C) {
 
 func (s *MachineManifoldSuite) TestMissingClock(c *gc.C) {
 	s.config.Clock = nil
-	_, err := enginetest.RunAgentApiManifold(
+	_, err := enginetest.RunAgentAPIManifold(
 		storageprovisioner.MachineManifold(s.config),
 		&fakeAgent{tag: names.NewMachineTag("42")},
 		&fakeAPIConn{})
@@ -69,7 +69,7 @@ func (s *MachineManifoldSuite) TestMissingClock(c *gc.C) {
 }
 
 func (s *MachineManifoldSuite) TestUnit(c *gc.C) {
-	_, err := enginetest.RunAgentApiManifold(
+	_, err := enginetest.RunAgentAPIManifold(
 		storageprovisioner.MachineManifold(s.config),
 		&fakeAgent{tag: names.NewUnitTag("foo/0")},
 		&fakeAPIConn{})
@@ -78,7 +78,7 @@ func (s *MachineManifoldSuite) TestUnit(c *gc.C) {
 }
 
 func (s *MachineManifoldSuite) TestNonAgent(c *gc.C) {
-	_, err := enginetest.RunAgentApiManifold(
+	_, err := enginetest.RunAgentAPIManifold(
 		storageprovisioner.MachineManifold(s.config),
 		&fakeAgent{tag: names.NewUserTag("foo")},
 		&fakeAPIConn{})

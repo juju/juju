@@ -88,7 +88,7 @@ func (s *ManifoldSuite) TestStartError(c *gc.C) {
 	s.startErr = errors.New("boom")
 	context := dt.StubContext(nil, map[string]interface{}{
 		"agent-name":      &dummyAgent{},
-		"api-caller-name": &dummyApiCaller{},
+		"api-caller-name": &dummyAPICaller{},
 	})
 
 	worker, err := s.manifold().Start(context)
@@ -99,7 +99,7 @@ func (s *ManifoldSuite) TestStartError(c *gc.C) {
 func (s *ManifoldSuite) TestStartSuccess(c *gc.C) {
 	context := dt.StubContext(nil, map[string]interface{}{
 		"agent-name":      &dummyAgent{},
-		"api-caller-name": &dummyApiCaller{},
+		"api-caller-name": &dummyAPICaller{},
 	})
 
 	worker, err := s.manifold().Start(context)
@@ -130,11 +130,11 @@ func (*dummyConfig) Tag() names.Tag {
 	return names.NewMachineTag("42")
 }
 
-type dummyApiCaller struct {
+type dummyAPICaller struct {
 	base.APICaller
 }
 
-func (*dummyApiCaller) BestFacadeVersion(_ string) int {
+func (*dummyAPICaller) BestFacadeVersion(_ string) int {
 	return 42
 }
 

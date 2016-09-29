@@ -54,9 +54,9 @@ func (*PrepareSuite) TestPrepare(c *gc.C) {
 	controllerCfg := controller.Config{
 		controller.ControllerUUIDKey:       testing.ControllerTag.Id(),
 		controller.CACertKey:               testing.CACert,
-		controller.ApiPort:                 17777,
+		controller.APIPort:                 17777,
 		controller.StatePort:               1234,
-		controller.SetNumaControlPolicyKey: true,
+		controller.SetNUMAControlPolicyKey: true,
 	}
 	_, err = bootstrap.Prepare(ctx, controllerStore, bootstrap.PrepareParams{
 		ControllerConfig: controllerCfg,
@@ -78,9 +78,9 @@ func (*PrepareSuite) TestPrepare(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(bootstrapCfg, jc.DeepEquals, &jujuclient.BootstrapConfig{
 		ControllerConfig: controller.Config{
-			controller.ApiPort:                 17777,
+			controller.APIPort:                 17777,
 			controller.StatePort:               1234,
-			controller.SetNumaControlPolicyKey: true,
+			controller.SetNUMAControlPolicyKey: true,
 		},
 		Config: map[string]interface{}{
 			"default-series":            "xenial",

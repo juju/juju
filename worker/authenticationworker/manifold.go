@@ -15,14 +15,14 @@ import (
 )
 
 // ManifoldConfig defines the names of the manifolds on which a Manifold will depend.
-type ManifoldConfig engine.AgentApiManifoldConfig
+type ManifoldConfig engine.AgentAPIManifoldConfig
 
 // Manifold returns a dependency manifold that runs a authenticationworker worker,
 // using the resource names defined in the supplied config.
 func Manifold(config ManifoldConfig) dependency.Manifold {
-	typedConfig := engine.AgentApiManifoldConfig(config)
+	typedConfig := engine.AgentAPIManifoldConfig(config)
 
-	return engine.AgentApiManifold(typedConfig, newWorker)
+	return engine.AgentAPIManifold(typedConfig, newWorker)
 }
 
 func newWorker(a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {

@@ -14,7 +14,7 @@ import (
 
 var logger = loggo.GetLogger("juju.worker.apicaller")
 
-// newApiConnWorker returns a worker that exists for as long as the associated
+// newAPIConnWorker returns a worker that exists for as long as the associated
 // connection, and provides access to a base.APICaller via its manifold's Output
 // func. If the worker is killed, the connection will be closed; and if the
 // connection is broken, the worker will be killed.
@@ -22,7 +22,7 @@ var logger = loggo.GetLogger("juju.worker.apicaller")
 // The lack of error return is considered and intentional; it signals the
 // transfer of responsibility for the connection from the caller to the
 // worker.
-func newApiConnWorker(conn api.Connection) worker.Worker {
+func newAPIConnWorker(conn api.Connection) worker.Worker {
 	w := &apiConnWorker{conn: conn}
 	go func() {
 		defer w.tomb.Done()

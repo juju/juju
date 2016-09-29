@@ -28,7 +28,7 @@ const worstCase = 5 * time.Second
 type LoggerSuite struct {
 	testing.JujuConnSuite
 
-	loggerApi *apilogger.State
+	loggerAPI *apilogger.State
 	machine   *state.Machine
 }
 
@@ -38,8 +38,8 @@ func (s *LoggerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	apiConn, machine := s.OpenAPIAsNewMachine(c)
 	// Create the machiner API facade.
-	s.loggerApi = apilogger.NewState(apiConn)
-	c.Assert(s.loggerApi, gc.NotNil)
+	s.loggerAPI = apilogger.NewState(apiConn)
+	c.Assert(s.loggerAPI, gc.NotNil)
 	s.machine = machine
 }
 
@@ -76,7 +76,7 @@ func agentConfig(c *gc.C, tag names.Tag) *mockConfig {
 
 func (s *LoggerSuite) makeLogger(c *gc.C) (worker.Worker, *mockConfig) {
 	config := agentConfig(c, s.machine.Tag())
-	w, err := logger.NewLogger(s.loggerApi, config)
+	w, err := logger.NewLogger(s.loggerAPI, config)
 	c.Assert(err, jc.ErrorIsNil)
 	return w, config
 }

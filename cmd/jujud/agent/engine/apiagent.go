@@ -12,18 +12,18 @@ import (
 
 // Many manifolds completely depend on an agent and an API connection; this
 // type configures them.
-type AgentApiManifoldConfig struct {
+type AgentAPIManifoldConfig struct {
 	AgentName     string
 	APICallerName string
 }
 
-// AgentApiStartFunc encapsulates the behaviour that varies among AgentApiManifolds.
-type AgentApiStartFunc func(agent.Agent, base.APICaller) (worker.Worker, error)
+// AgentAPIStartFunc encapsulates the behaviour that varies among AgentAPIManifolds.
+type AgentAPIStartFunc func(agent.Agent, base.APICaller) (worker.Worker, error)
 
-// AgentApiManifold returns a dependency.Manifold that calls the supplied start
+// AgentAPIManifold returns a dependency.Manifold that calls the supplied start
 // func with the API and agent resources defined in the config (once those
 // resources are present).
-func AgentApiManifold(config AgentApiManifoldConfig, start AgentApiStartFunc) dependency.Manifold {
+func AgentAPIManifold(config AgentAPIManifoldConfig, start AgentAPIStartFunc) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
 			config.AgentName,

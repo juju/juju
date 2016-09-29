@@ -608,8 +608,8 @@ func getCapabilities(client *gomaasapi.MAASObject, serverURL string) (set.String
 		if err != nil {
 			if err, ok := errors.Cause(err).(gomaasapi.ServerError); ok && err.StatusCode == 404 {
 				message := "could not connect to MAAS controller - check the endpoint is correct"
-				trimmedUrl := strings.TrimRight(serverURL, "/")
-				if !strings.HasSuffix(trimmedUrl, "/MAAS") {
+				trimmedURL := strings.TrimRight(serverURL, "/")
+				if !strings.HasSuffix(trimmedURL, "/MAAS") {
 					message += " (it normally ends with /MAAS)"
 				}
 				return caps, errors.NewNotSupported(nil, message)

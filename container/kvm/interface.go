@@ -16,7 +16,7 @@ type StartParams struct {
 	Memory           uint64 // MB
 	CpuCores         uint64
 	RootDisk         uint64 // GB
-	ImageDownloadUrl string
+	ImageDownloadURL string
 }
 
 // Container represents a virtualized container instance and provides

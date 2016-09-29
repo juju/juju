@@ -13,24 +13,24 @@ import (
 	dt "github.com/juju/juju/worker/dependency/testing"
 )
 
-// AgentApiManifoldTestConfig returns a AgentApiManifoldConfig
-// suitable for use with RunAgentApiManifold.
-func AgentApiManifoldTestConfig() engine.AgentApiManifoldConfig {
-	return engine.AgentApiManifoldConfig{
+// AgentAPIManifoldTestConfig returns a AgentAPIManifoldConfig
+// suitable for use with RunAgentAPIManifold.
+func AgentAPIManifoldTestConfig() engine.AgentAPIManifoldConfig {
+	return engine.AgentAPIManifoldConfig{
 		AgentName:     "agent-name",
 		APICallerName: "api-caller-name",
 	}
 }
 
-// RunAgentApiManifold is useful for testing manifolds based on
-// AgentApiManifold. It takes the manifold, sets up the resources
-// required to successfully pass AgentApiManifold's checks and then
+// RunAgentAPIManifold is useful for testing manifolds based on
+// AgentAPIManifold. It takes the manifold, sets up the resources
+// required to successfully pass AgentAPIManifold's checks and then
 // runs the manifold start func.
 //
 // An agent and apiCaller may be optionally provided. If they are nil,
 // dummy barely-good-enough defaults will be used (these dummies are
 // fine not actually used for much).
-func RunAgentApiManifold(
+func RunAgentAPIManifold(
 	manifold dependency.Manifold, agent agent.Agent, apiCaller base.APICaller,
 ) (worker.Worker, error) {
 	if agent == nil {

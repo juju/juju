@@ -37,7 +37,7 @@ type metricBatchDoc struct {
 	UUID        string    `bson:"_id"`
 	ModelUUID   string    `bson:"model-uuid"`
 	Unit        string    `bson:"unit"`
-	CharmUrl    string    `bson:"charmurl"`
+	CharmURL    string    `bson:"charmurl"`
 	Sent        bool      `bson:"sent"`
 	DeleteTime  time.Time `bson:"delete-time"`
 	Created     time.Time `bson:"created"`
@@ -62,11 +62,11 @@ func (t byTime) Less(i, j int) bool {
 
 // validate checks that the MetricBatch contains valid metrics.
 func (m *MetricBatch) validate() error {
-	charmUrl, err := charm.ParseURL(m.doc.CharmUrl)
+	charmURL, err := charm.ParseURL(m.doc.CharmURL)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	chrm, err := m.st.Charm(charmUrl)
+	chrm, err := m.st.Charm(charmURL)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -117,7 +117,7 @@ func (st *State) AddMetrics(batch BatchParam) (*MetricBatch, error) {
 			UUID:        batch.UUID,
 			ModelUUID:   st.ModelUUID(),
 			Unit:        batch.Unit.Id(),
-			CharmUrl:    charmURL.String(),
+			CharmURL:    charmURL.String(),
 			Sent:        false,
 			Created:     batch.Created,
 			Metrics:     batch.Metrics,
@@ -334,7 +334,7 @@ func (m *MetricBatch) Unit() string {
 
 // CharmURL returns the charm url for the charm this metric was generated in.
 func (m *MetricBatch) CharmURL() string {
-	return m.doc.CharmUrl
+	return m.doc.CharmURL
 }
 
 // Created returns the time this metric batch was created.

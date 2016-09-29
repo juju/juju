@@ -22,14 +22,14 @@ import (
 )
 
 type registrationSuite struct {
-	authHttpSuite
+	authHTTPSuite
 	bob *state.User
 }
 
 var _ = gc.Suite(&registrationSuite{})
 
 func (s *registrationSuite) SetUpTest(c *gc.C) {
-	s.authHttpSuite.SetUpTest(c)
+	s.authHTTPSuite.SetUpTest(c)
 	bob, err := s.BackingState.AddUserWithSecretKey("bob", "", "admin")
 	c.Assert(err, jc.ErrorIsNil)
 	s.bob = bob

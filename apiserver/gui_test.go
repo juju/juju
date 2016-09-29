@@ -36,7 +36,7 @@ const (
 )
 
 type guiSuite struct {
-	authHttpSuite
+	authHTTPSuite
 }
 
 var _ = gc.Suite(&guiSuite{})
@@ -565,7 +565,7 @@ func (s *guiSuite) TestGUIDirectory(c *gc.C) {
 }
 
 type guiArchiveSuite struct {
-	authHttpSuite
+	authHTTPSuite
 }
 
 var _ = gc.Suite(&guiArchiveSuite{})
@@ -827,7 +827,7 @@ func (s *guiArchiveSuite) TestGUIArchivePostCurrent(c *gc.C) {
 }
 
 type guiVersionSuite struct {
-	authHttpSuite
+	authHTTPSuite
 }
 
 var _ = gc.Suite(&guiVersionSuite{})

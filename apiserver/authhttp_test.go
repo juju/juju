@@ -30,8 +30,8 @@ import (
 	"github.com/juju/juju/testing/factory"
 )
 
-// authHttpSuite provides helpers for testing HTTP "streaming" style APIs.
-type authHttpSuite struct {
+// authHTTPSuite provides helpers for testing HTTP "streaming" style APIs.
+type authHTTPSuite struct {
 	// macaroonAuthEnabled may be set by a test suite
 	// before SetUpTest is called. If it is true, macaroon
 	// authentication will be enabled for the duration
@@ -54,7 +54,7 @@ type authHttpSuite struct {
 	password string
 }
 
-func (s *authHttpSuite) SetUpTest(c *gc.C) {
+func (s *authHTTPSuite) SetUpTest(c *gc.C) {
 	if s.macaroonAuthEnabled {
 		s.MacaroonSuite.SetUpTest(c)
 	} else {
@@ -77,7 +77,7 @@ func (s *authHttpSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *authHttpSuite) TearDownTest(c *gc.C) {
+func (s *authHTTPSuite) TearDownTest(c *gc.C) {
 	if s.macaroonAuthEnabled {
 		s.MacaroonSuite.TearDownTest(c)
 	} else {
@@ -85,7 +85,7 @@ func (s *authHttpSuite) TearDownTest(c *gc.C) {
 	}
 }
 
-func (s *authHttpSuite) baseURL(c *gc.C) *url.URL {
+func (s *authHTTPSuite) baseURL(c *gc.C) *url.URL {
 	info := s.APIInfo(c)
 	return &url.URL{
 		Scheme: "https",
@@ -119,7 +119,7 @@ func assertWebsocketClosed(c *gc.C, reader *bufio.Reader) {
 	c.Assert(err, gc.Equals, io.EOF)
 }
 
-func (s *authHttpSuite) makeURL(c *gc.C, scheme, path string, queryParams url.Values) *url.URL {
+func (s *authHTTPSuite) makeURL(c *gc.C, scheme, path string, queryParams url.Values) *url.URL {
 	url := s.baseURL(c)
 	query := ""
 	if queryParams != nil {
@@ -174,7 +174,7 @@ type httpRequestParams struct {
 	nonce string
 }
 
-func (s *authHttpSuite) sendRequest(c *gc.C, p httpRequestParams) *http.Response {
+func (s *authHTTPSuite) sendRequest(c *gc.C, p httpRequestParams) *http.Response {
 	c.Logf("sendRequest: %s", p.url)
 	hp := httptesting.DoRequestParams{
 		Do:          p.do,
@@ -225,13 +225,13 @@ func bakeryDo(client *http.Client, getBakeryError func(*http.Response) error) fu
 
 // authRequest is like sendRequest but fills out p.tag and p.password
 // from the userTag and password fields in the suite.
-func (s *authHttpSuite) authRequest(c *gc.C, p httpRequestParams) *http.Response {
+func (s *authHTTPSuite) authRequest(c *gc.C, p httpRequestParams) *http.Response {
 	p.tag = s.userTag.String()
 	p.password = s.password
 	return s.sendRequest(c, p)
 }
 
-func (s *authHttpSuite) setupOtherModel(c *gc.C) *state.State {
+func (s *authHTTPSuite) setupOtherModel(c *gc.C) *state.State {
 	envState := s.Factory.MakeModel(c, nil)
 	s.AddCleanup(func(*gc.C) { envState.Close() })
 	user := s.Factory.MakeUser(c, nil)
@@ -247,7 +247,7 @@ func (s *authHttpSuite) setupOtherModel(c *gc.C) *state.State {
 	return envState
 }
 
-func (s *authHttpSuite) uploadRequest(c *gc.C, uri string, contentType, path string) *http.Response {
+func (s *authHTTPSuite) uploadRequest(c *gc.C, uri string, contentType, path string) *http.Response {
 	if path == "" {
 		return s.authRequest(c, httpRequestParams{
 			method:      "POST",

@@ -32,7 +32,7 @@ import (
 
 var noProxies = proxy.Settings{}
 var apiAddrs = []string{"a1:123", "a2:123"}
-var expectedApiAddrs = strings.Join(apiAddrs, " ")
+var expectedAPIAddrs = strings.Join(apiAddrs, " ")
 
 // HookContextSuite contains shared setup for various other test suites. Test
 // methods should not be added to this type, because they'll get run repeatedly.
@@ -49,7 +49,7 @@ type HookContextSuite struct {
 	st             api.Connection
 	uniter         *uniter.State
 	apiUnit        *uniter.Unit
-	meteredApiUnit *uniter.Unit
+	meteredAPIUnit *uniter.Unit
 	meteredCharm   *state.Charm
 	apiRelunits    map[int]*uniter.RelationUnit
 	BlockHelper
@@ -89,7 +89,7 @@ func (s *HookContextSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	meteredState := s.OpenAPIAs(c, meteredUnit.Tag(), password)
 	meteredUniter, err := meteredState.Uniter()
-	s.meteredApiUnit, err = meteredUniter.Unit(meteredUnit.Tag().(names.UnitTag))
+	s.meteredAPIUnit, err = meteredUniter.Unit(meteredUnit.Tag().(names.UnitTag))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Note: The unit must always have a charm URL set, because this
@@ -219,7 +219,7 @@ func (s *HookContextSuite) getMeteredHookContext(c *gc.C, uuid string, relid int
 		relctxs[relId] = context.NewContextRelation(relUnit, cache)
 	}
 
-	context, err := context.NewHookContext(s.meteredApiUnit, facade, "TestCtx", uuid,
+	context, err := context.NewHookContext(s.meteredAPIUnit, facade, "TestCtx", uuid,
 		"test-model-name", relid, remote, relctxs, apiAddrs,
 		proxies, canAddMetrics, metrics, nil, s.machine.Tag().(names.MachineTag),
 		paths, s.clock)

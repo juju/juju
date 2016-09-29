@@ -572,7 +572,7 @@ func (s *upgradeSuite) TestStateStepsGetRestrictedContext(c *gc.C) {
 	s.checkContextRestriction(c, "API not available from this context")
 }
 
-func (s *upgradeSuite) TestApiStepsGetRestrictedContext(c *gc.C) {
+func (s *upgradeSuite) TestAPIStepsGetRestrictedContext(c *gc.C) {
 	s.PatchValue(upgrades.StateUpgradeOperations,
 		func() []upgrades.Operation { return nil })
 

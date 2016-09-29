@@ -20,7 +20,7 @@ Also we use custom append function to filter content of the stream and keep only
 */
 
 type OvaFileMetadata struct {
-	Url      string
+	URL      string
 	Arch     string `json:"arch"`
 	Size     int    `json:"size"`
 	Path     string `json:"path"`
@@ -88,7 +88,7 @@ func appendMatchingFunc(source simplestreams.DataSource, matchingImages []interf
 		if file.FileType == "ova" {
 			//ignore error for url data source
 			url, _ := source.URL(file.Path)
-			file.Url = url
+			file.URL = url
 			matchingImages = append(matchingImages, file)
 		}
 	}

@@ -88,7 +88,7 @@ func fixAddr(addr string) (string, error) {
 		return "", errors.Trace(err)
 	}
 
-	// TODO(ericsnow) Use remoteUrl.String()
+	// TODO(ericsnow) Use remoteURL.String()
 	return fmt.Sprintf("%s://%s%s", remoteURL.Scheme, remoteURL.Host, remoteURL.Path), nil
 }
 

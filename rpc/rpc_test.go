@@ -1065,7 +1065,7 @@ func (*rpcSuite) TestChangeAPIWhileServingRequest(c *gc.C) {
 	}
 }
 
-func (*rpcSuite) TestCodeNotImplementedMatchesApiserverParams(c *gc.C) {
+func (*rpcSuite) TestCodeNotImplementedMatchesAPIserverParams(c *gc.C) {
 	c.Assert(rpc.CodeNotImplemented, gc.Equals, params.CodeNotImplemented)
 }
 

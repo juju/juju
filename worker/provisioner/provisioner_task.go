@@ -725,8 +725,8 @@ func (task *provisionerTask) startMachine(
 	}
 
 	networkConfig := networkingcommon.NetworkConfigFromInterfaceInfo(result.NetworkInfo)
-	volumes := volumesToApiserver(result.Volumes)
-	volumeNameToAttachmentInfo := volumeAttachmentsToApiserver(result.VolumeAttachments)
+	volumes := volumesToAPIserver(result.Volumes)
+	volumeNameToAttachmentInfo := volumeAttachmentsToAPIserver(result.VolumeAttachments)
 
 	if err := machine.SetInstanceInfo(
 		result.Instance.Id(),
@@ -780,7 +780,7 @@ func assocProvInfoAndMachCfg(
 	}
 }
 
-func volumesToApiserver(volumes []storage.Volume) []params.Volume {
+func volumesToAPIserver(volumes []storage.Volume) []params.Volume {
 	result := make([]params.Volume, len(volumes))
 	for i, v := range volumes {
 		result[i] = params.Volume{
@@ -796,7 +796,7 @@ func volumesToApiserver(volumes []storage.Volume) []params.Volume {
 	return result
 }
 
-func volumeAttachmentsToApiserver(attachments []storage.VolumeAttachment) map[string]params.VolumeAttachmentInfo {
+func volumeAttachmentsToAPIserver(attachments []storage.VolumeAttachment) map[string]params.VolumeAttachmentInfo {
 	result := make(map[string]params.VolumeAttachmentInfo)
 	for _, a := range attachments {
 		result[a.Volume.String()] = params.VolumeAttachmentInfo{
