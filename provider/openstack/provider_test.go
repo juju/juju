@@ -54,11 +54,6 @@ var addressTests = []struct {
 	networks: []string{"private"},
 	expected: "192.168.0.1",
 }, {
-	summary:  "private only, both IPv6 and IPv4",
-	private:  []nova.IPAddress{{6, "fc00::1"}, {4, "192.168.0.1"}},
-	networks: []string{"private"},
-	expected: "fc00::1",
-}, {
 	summary:  "private IPv4 plus (what HP cloud used to do)",
 	private:  []nova.IPAddress{{4, "10.0.0.1"}, {4, "8.8.4.4"}},
 	networks: []string{"private"},
@@ -78,11 +73,6 @@ var addressTests = []struct {
 	public:   []nova.IPAddress{{4, "8.8.8.8"}, {6, "2001:db8::1"}},
 	networks: []string{"", "public"},
 	expected: "8.8.8.8",
-}, {
-	summary:  "public only, both IPv6 and IPv4",
-	public:   []nova.IPAddress{{6, "2001:db8::1"}, {4, "8.8.8.8"}},
-	networks: []string{"", "public"},
-	expected: "2001:db8::1",
 }, {
 	summary:  "public and private both IPv4",
 	private:  []nova.IPAddress{{4, "10.0.0.4"}},
@@ -114,12 +104,6 @@ var addressTests = []struct {
 	networks: []string{"private", "public"},
 	expected: "8.8.8.8",
 }, {
-	summary:  "public, private, and localhost - both IPv6 and IPv4",
-	private:  []nova.IPAddress{{6, "::1"}, {6, "fc00::1"}, {4, "127.0.0.4"}, {4, "192.168.0.1"}},
-	public:   []nova.IPAddress{{6, "2001:db8::1"}, {4, "8.8.8.8"}},
-	networks: []string{"private", "public"},
-	expected: "2001:db8::1",
-}, {
 	summary:  "custom only IPv4",
 	private:  []nova.IPAddress{{4, "192.168.0.1"}},
 	networks: []string{"special"},
@@ -134,11 +118,6 @@ var addressTests = []struct {
 	private:  []nova.IPAddress{{4, "192.168.0.1"}, {6, "fc00::1"}},
 	networks: []string{"special"},
 	expected: "192.168.0.1",
-}, {
-	summary:  "custom only - both IPv6 and IPv4",
-	private:  []nova.IPAddress{{6, "fc00::1"}, {4, "192.168.0.1"}},
-	networks: []string{"special"},
-	expected: "fc00::1",
 }, {
 	summary:  "custom and public IPv4",
 	private:  []nova.IPAddress{{4, "172.16.0.1"}},
@@ -157,12 +136,6 @@ var addressTests = []struct {
 	public:   []nova.IPAddress{{4, "8.8.8.8"}, {6, "2001:db8::1"}},
 	networks: []string{"special", "public"},
 	expected: "8.8.8.8",
-}, {
-	summary:  "custom and public - both IPv6 and IPv4",
-	private:  []nova.IPAddress{{6, "fc00::1"}, {4, "172.16.0.1"}},
-	public:   []nova.IPAddress{{6, "2001:db8::1"}, {4, "8.8.8.8"}},
-	networks: []string{"special", "public"},
-	expected: "2001:db8::1",
 }, {
 	summary:    "floating and public, same address",
 	floatingIP: "8.8.8.8",
@@ -209,7 +182,7 @@ func (t *localTests) TestGetServerAddresses(c *gc.C) {
 			}
 		}
 		addr := InstanceAddress(t.floatingIP, addresses)
-		c.Assert(addr, gc.Equals, t.expected)
+		c.Check(addr, gc.Equals, t.expected)
 	}
 }
 
