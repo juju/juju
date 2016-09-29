@@ -574,8 +574,8 @@ func (s *baseLoginSuite) setupServerForModelWithValidator(c *gc.C, modelTag name
 		listener,
 		apiserver.ServerConfig{
 			Clock:       clock.WallClock,
-			Cert:        []byte(coretesting.ServerCert),
-			Key:         []byte(coretesting.ServerKey),
+			Cert:        coretesting.ServerCert,
+			Key:         coretesting.ServerKey,
 			Validator:   validator,
 			Tag:         names.NewMachineTag("0"),
 			LogDir:      c.MkDir(),

@@ -804,8 +804,8 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 
 			estate.apiServer, err = apiserver.NewServer(st, estate.apiListener, apiserver.ServerConfig{
 				Clock:       clock.WallClock,
-				Cert:        []byte(testing.ServerCert),
-				Key:         []byte(testing.ServerKey),
+				Cert:        testing.ServerCert,
+				Key:         testing.ServerKey,
 				Tag:         names.NewMachineTag("0"),
 				DataDir:     DataDir,
 				LogDir:      LogDir,

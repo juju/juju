@@ -42,8 +42,8 @@ func (s *apiserverBaseSuite) SetUpTest(c *gc.C) {
 func (s *apiserverBaseSuite) sampleConfig(c *gc.C) apiserver.ServerConfig {
 	return apiserver.ServerConfig{
 		Clock:       clock.WallClock,
-		Cert:        []byte(coretesting.ServerCert),
-		Key:         []byte(coretesting.ServerKey),
+		Cert:        coretesting.ServerCert,
+		Key:         coretesting.ServerKey,
 		Tag:         names.NewMachineTag("0"),
 		LogDir:      c.MkDir(),
 		NewObserver: func() observer.Observer { return &fakeobserver.Instance{} },

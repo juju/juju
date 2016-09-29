@@ -1055,8 +1055,8 @@ func (a *MachineAgent) newApiserverWorker(st *state.State, certChanged chan para
 	if !ok {
 		return nil, &cmdutil.FatalError{"StateServingInfo not available and we need it"}
 	}
-	cert := []byte(info.Cert)
-	key := []byte(info.PrivateKey)
+	cert := info.Cert
+	key := info.PrivateKey
 
 	if len(cert) == 0 || len(key) == 0 {
 		return nil, &cmdutil.FatalError{"configuration does not have controller cert/key"}

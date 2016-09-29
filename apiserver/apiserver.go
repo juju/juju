@@ -17,6 +17,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 	"github.com/juju/utils/clock"
+	"golang.org/x/crypto/acme/autocert"
 	"golang.org/x/net/websocket"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
@@ -45,7 +46,7 @@ type Server struct {
 	wg                sync.WaitGroup
 	state             *state.State
 	statePool         *state.StatePool
-	lis               *changeCertListener
+	lis               net.Listener
 	tag               names.Tag
 	dataDir           string
 	logDir            string
@@ -57,6 +58,17 @@ type Server struct {
 	lastConnectionID  uint64
 	newObserver       observer.ObserverFactory
 	connCount         int64
+	certChanged       <-chan params.StateServingInfo
+	tlsConfig         *tls.Config
+
+	// mu guards the fields below it.
+	mu sync.Mutex
+
+	// cert holds the current certificate used for tls.Config.
+	cert *tls.Certificate
+
+	// certDNSNames holds the DNS names associated with cert.
+	certDNSNames []string
 }
 
 // LoginValidator functions are used to decide whether login requests
@@ -67,8 +79,8 @@ type LoginValidator func(params.LoginRequest) error
 // ServerConfig holds parameters required to set up an API server.
 type ServerConfig struct {
 	Clock       clock.Clock
-	Cert        []byte
-	Key         []byte
+	Cert        string
+	Key         string
 	Tag         names.Tag
 	DataDir     string
 	LogDir      string
@@ -110,11 +122,7 @@ func NewServer(s *state.State, lis net.Listener, cfg ServerConfig) (*Server, err
 	// server needs to run before mongo upgrades have happened and
 	// any state manipulation may be be relying on features of the
 	// database added by upgrades. Here be dragons.
-	l, ok := lis.(*net.TCPListener)
-	if !ok {
-		return nil, errors.Errorf("listener is not of type *net.TCPListener: %T", lis)
-	}
-	srv, err := newServer(s, l, cfg)
+	srv, err := newServer(s, lis, cfg)
 	if err != nil {
 		// There is no running server around to close the listener.
 		lis.Close()
@@ -123,11 +131,7 @@ func NewServer(s *state.State, lis net.Listener, cfg ServerConfig) (*Server, err
 	return srv, nil
 }
 
-func newServer(s *state.State, lis *net.TCPListener, cfg ServerConfig) (_ *Server, err error) {
-	tlsCert, err := tls.X509KeyPair(cfg.Cert, cfg.Key)
-	if err != nil {
-		return nil, err
-	}
+func newServer(s *state.State, lis net.Listener, cfg ServerConfig) (_ *Server, err error) {
 	stPool := cfg.StatePool
 	if stPool == nil {
 		stPool = state.NewStatePool(s)
@@ -135,6 +139,7 @@ func newServer(s *state.State, lis *net.TCPListener, cfg ServerConfig) (_ *Serve
 
 	srv := &Server{
 		clock:       cfg.Clock,
+		lis:         lis,
 		newObserver: cfg.NewObserver,
 		state:       s,
 		statePool:   stPool,
@@ -146,14 +151,48 @@ func newServer(s *state.State, lis *net.TCPListener, cfg ServerConfig) (_ *Serve
 		adminAPIFactories: map[int]adminAPIFactory{
 			3: newAdminAPIV3,
 		},
+		certChanged: cfg.CertChanged,
 	}
-	srv.lis = srv.newChangeCertListener(lis, cfg.CertChanged, tlsCert)
+
+	srv.tlsConfig = srv.newTLSConfig()
+	srv.lis = tls.NewListener(lis, srv.tlsConfig)
+
 	srv.authCtxt, err = newAuthContext(s)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	if err := srv.updateCertificate(cfg.Cert, cfg.Key); err != nil {
+		return nil, errors.Annotatef(err, "cannot set initial certificate")
+	}
 	go srv.run()
 	return srv, nil
+}
+
+func (srv *Server) newTLSConfig() *tls.Config {
+	m := autocert.Manager{
+		Prompt: autocert.AcceptTOS,
+		Cache:  srv.state.AutocertCache(),
+		// TODO(rogpeppe): use whitelist policy for HostPolicy.
+		// TODO(rogpeppe): allow a different URL to be specified (for example
+		// to use the letencrypt staging endpoint).
+	}
+	tlsConfig := utils.SecureTLSConfig()
+	tlsConfig.GetCertificate = func(clientHello *tls.ClientHelloInfo) (*tls.Certificate, error) {
+		// Get the locally created certificate and whether it's appropriate
+		// for the SNI name. If not, we'll try to get an acme cert and
+		// fall back to the local certificate if that fails.
+		cert, shouldUse := srv.localCertificate(clientHello.ServerName)
+		if shouldUse {
+			return cert, nil
+		}
+		acmeCert, err := m.GetCertificate(clientHello)
+		if err == nil {
+			return acmeCert, nil
+		}
+		logger.Errorf("cannot get autocert certificate for %q: %v", clientHello.ServerName, err)
+		return cert, nil
+	}
+	return tlsConfig
 }
 
 func (srv *Server) ConnectionCount() int64 {
@@ -212,7 +251,7 @@ func (srv *Server) run() {
 	srv.wg.Add(1)
 	go func() {
 		defer srv.wg.Done()
-		srv.tomb.Kill(srv.lis.processCertChanges())
+		srv.tomb.Kill(srv.processCertChanges())
 	}()
 
 	// for pat based handlers, they are matched in-order of being
@@ -224,10 +263,13 @@ func (srv *Server) run() {
 	}
 
 	go func() {
-		addr := srv.lis.Addr() // not valid after addr closed
-		logger.Debugf("Starting API http server on address %q", addr)
-		err := http.Serve(srv.lis, mux)
-		// normally logging an error at debug level would be grounds for a beating,
+		logger.Debugf("Starting API http server on address %q", srv.lis.Addr())
+		httpSrv := &http.Server{
+			Handler:   mux,
+			TLSConfig: srv.tlsConfig,
+		}
+		err := httpSrv.Serve(srv.lis)
+		// Normally logging an error at debug level would be grounds for a beating,
 		// however in this case the error is *expected* to be non nil, and does not
 		// affect the operation of the apiserver, but for completeness log it anyway.
 		logger.Debugf("API http server exited, final error was: %v", err)
@@ -522,79 +564,60 @@ func (srv *Server) mongoPinger() error {
 	}
 }
 
-// changeCertListener wraps a TLS net.Listener.
-// It allows connection handshakes to be
-// blocked while the TLS certificate is updated.
-type changeCertListener struct {
-	net.Listener
-
-	// srv holds the server that the listener was created by.
-	srv *Server
-
-	// certChanged is used to pass in new certificate information.
-	certChanged <-chan params.StateServingInfo
-
-	// mu guards the fields below it.
-	mu sync.Mutex
-
-	// cert holds the current certificate used for tls.Config
-	cert tls.Certificate
-}
-
-func (srv *Server) newChangeCertListener(lis net.Listener, certChanged <-chan params.StateServingInfo, cert tls.Certificate) *changeCertListener {
-	return &changeCertListener{
-		Listener:    lis,
-		srv:         srv,
-		cert:        cert,
-		certChanged: certChanged,
+// localCertificate returns the local server certificate and reports
+// whether it should be used to serve a connection addressed to the
+// given server name.
+func (srv *Server) localCertificate(serverName string) (*tls.Certificate, bool) {
+	srv.mu.Lock()
+	defer srv.mu.Unlock()
+	if net.ParseIP(serverName) != nil {
+		// IP address connections always use the local certificate.
+		return srv.cert, true
 	}
-}
-
-// Accept waits for and returns the next connection to the listener.
-func (cl *changeCertListener) Accept() (net.Conn, error) {
-	conn, err := cl.Listener.Accept()
-	if err != nil {
-		return nil, err
+	if !strings.Contains(serverName, ".") {
+		// If the server name doesn't contain a period there's no
+		// way we can obtain a certificate for it.
+		// This applies to the common case where "juju-apiserver" is
+		// used as the server name.
+		return srv.cert, true
 	}
-	return tls.Server(conn, cl.tlsConfig()), nil
-}
-
-func (cl *changeCertListener) tlsConfig() *tls.Config {
-	cl.mu.Lock()
-	defer cl.mu.Unlock()
-	tlsConfig := utils.SecureTLSConfig()
-	tlsConfig.Certificates = []tls.Certificate{cl.cert}
-	return tlsConfig
+	// Perhaps the server name is explicitly mentioned by the server certificate.
+	for _, name := range srv.certDNSNames {
+		if name == serverName {
+			return srv.cert, true
+		}
+	}
+	return srv.cert, false
 }
 
 // processCertChanges receives new certificate information and
 // calls a method to update the listener's certificate.
-func (cl *changeCertListener) processCertChanges() error {
+func (srv *Server) processCertChanges() error {
 	for {
 		select {
-		case info := <-cl.certChanged:
+		case info := <-srv.certChanged:
 			if info.Cert == "" {
 				break
 			}
-			if err := cl.updateCertificate(info.Cert, info.PrivateKey); err != nil {
+			logger.Infof("received API server certificate")
+			if err := srv.updateCertificate(info.Cert, info.PrivateKey); err != nil {
 				logger.Errorf("cannot update certificate: %v", err)
 			}
-		case <-cl.srv.tomb.Dying():
+		case <-srv.tomb.Dying():
 			return tomb.ErrDying
 		}
 	}
 }
 
-// updateCertificate generates a new TLS certificate and assigns it
-// to the TLS listener.
-func (cl *changeCertListener) updateCertificate(cert, key string) error {
-	cl.mu.Lock()
-	defer cl.mu.Unlock()
+// updateCertificate updates the current CA certificate and key
+// from the given cert and key.
+func (srv *Server) updateCertificate(cert, key string) error {
+	srv.mu.Lock()
+	defer srv.mu.Unlock()
 	tlsCert, err := tls.X509KeyPair([]byte(cert), []byte(key))
 	if err != nil {
 		return errors.Annotatef(err, "cannot create new TLS certificate")
 	}
-	logger.Infof("updating api server certificate")
 	x509Cert, err := x509.ParseCertificate(tlsCert.Certificate[0])
 	if err != nil {
 		return errors.Annotatef(err, "parsing x509 cert")
@@ -604,7 +627,8 @@ func (cl *changeCertListener) updateCertificate(cert, key string) error {
 		addr = append(addr, ip.String())
 	}
 	logger.Infof("new certificate addresses: %v", strings.Join(addr, ", "))
-	cl.cert = tlsCert
+	srv.cert = &tlsCert
+	srv.certDNSNames = x509Cert.DNSNames
 	return nil
 }
 
