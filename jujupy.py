@@ -1850,7 +1850,7 @@ class EnvJujuClient:
         args = ()
         if force_version:
             version = self.get_matching_agent_version(no_build=True)
-            args += ('--version', version)
+            args += ('--agent-version', version)
         self._upgrade_juju(args)
 
     def _upgrade_juju(self, args):
