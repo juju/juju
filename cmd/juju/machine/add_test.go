@@ -5,7 +5,6 @@ package machine_test
 
 import (
 	"strconv"
-	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -175,10 +174,7 @@ failed to create 2 machines
 func (s *AddMachineSuite) TestBlockedError(c *gc.C) {
 	s.fakeAddMachine.addError = common.OperationBlockedError("TestBlockedError")
 	_, err := s.run(c)
-	c.Assert(err, gc.Equals, cmd.ErrSilent)
-	// msg is logged
-	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
-	c.Check(stripped, gc.Matches, ".*TestBlockedError.*")
+	testing.AssertOperationWasBlocked(c, err, ".*TestBlockedError.*")
 }
 
 func (s *AddMachineSuite) TestAddMachineWithDisks(c *gc.C) {

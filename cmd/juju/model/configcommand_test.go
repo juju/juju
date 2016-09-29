@@ -164,9 +164,7 @@ func (s *ConfigCommandSuite) TestSettingKnownValue(c *gc.C) {
 func (s *ConfigCommandSuite) TestBlockedError(c *gc.C) {
 	s.fake.err = common.OperationBlockedError("TestBlockedError")
 	_, err := s.run(c, "special=extra")
-	c.Assert(err, gc.Equals, cmd.ErrSilent)
-	// msg is logged
-	c.Check(c.GetTestLog(), jc.Contains, "TestBlockedError")
+	testing.AssertOperationWasBlocked(c, err, ".*TestBlockedError.*")
 }
 
 func (s *ConfigCommandSuite) TestResetPassesValues(c *gc.C) {
@@ -187,7 +185,5 @@ func (s *ConfigCommandSuite) TestResettingKnownValue(c *gc.C) {
 func (s *ConfigCommandSuite) TestResetBlockedError(c *gc.C) {
 	s.fake.err = common.OperationBlockedError("TestBlockedError")
 	_, err := s.run(c, "--reset", "special")
-	c.Assert(err, gc.Equals, cmd.ErrSilent)
-	// msg is logged
-	c.Check(c.GetTestLog(), jc.Contains, "TestBlockedError")
+	testing.AssertOperationWasBlocked(c, err, ".*TestBlockedError.*")
 }

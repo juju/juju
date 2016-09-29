@@ -143,7 +143,7 @@ func (s *AddKeySuite) TestBlockAddKey(c *gc.C) {
 	// Block operation
 	s.BlockAllChanges(c, "TestBlockAddKey")
 	_, err := coretesting.RunCommand(c, NewAddKeysCommand(), key2, "invalid-key")
-	s.AssertBlocked(c, err, ".*TestBlockAddKey.*")
+	coretesting.AssertOperationWasBlocked(c, err, ".*TestBlockAddKey.*")
 }
 
 type RemoveKeySuite struct {
@@ -173,7 +173,7 @@ func (s *RemoveKeySuite) TestBlockRemoveKeys(c *gc.C) {
 	s.BlockAllChanges(c, "TestBlockRemoveKeys")
 	_, err := coretesting.RunCommand(c, NewRemoveKeysCommand(),
 		sshtesting.ValidKeyTwo.Fingerprint, "invalid-key")
-	s.AssertBlocked(c, err, ".*TestBlockRemoveKeys.*")
+	coretesting.AssertOperationWasBlocked(c, err, ".*TestBlockRemoveKeys.*")
 }
 
 type ImportKeySuite struct {
@@ -204,5 +204,5 @@ func (s *ImportKeySuite) TestBlockImportKeys(c *gc.C) {
 	// Block operation
 	s.BlockAllChanges(c, "TestBlockImportKeys")
 	_, err := coretesting.RunCommand(c, NewImportKeysCommand(), "lp:validuser", "lp:invalid-key")
-	s.AssertBlocked(c, err, ".*TestBlockImportKeys.*")
+	coretesting.AssertOperationWasBlocked(c, err, ".*TestBlockImportKeys.*")
 }

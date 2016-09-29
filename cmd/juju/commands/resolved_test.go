@@ -146,5 +146,5 @@ func (s *ResolvedSuite) TestBlockResolved(c *gc.C) {
 	// Block operation
 	s.BlockAllChanges(c, "TestBlockResolved")
 	err = runResolved(c, []string{"dummy/2"})
-	s.AssertBlocked(c, err, ".*TestBlockResolved.*")
+	testing.AssertOperationWasBlocked(c, err, ".*TestBlockResolved.*")
 }
