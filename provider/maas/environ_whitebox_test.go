@@ -141,15 +141,9 @@ func (suite *environSuite) TestStartInstanceStartsInstance(c *gc.C) {
 	suite.setupFakeTools(c)
 	env := suite.makeEnviron()
 	// Create node 0: it will be used as the bootstrap node.
-	suite.testMAASObject.TestServer.NewNode(fmt.Sprintf(
-		`{"system_id": "node0", "hostname": "host0", "architecture": "%s/generic", "memory": 1024, "cpu_count": 1, "zone": {"name": "test_zone"}}`,
-		arch.HostArch()),
-	)
-	lshwXML, err := suite.generateHWTemplate(map[string]ifaceInfo{"aa:bb:cc:dd:ee:f0": {0, "eth0", false}})
-	c.Assert(err, jc.ErrorIsNil)
-	suite.testMAASObject.TestServer.AddNodeDetails("node0", lshwXML)
+	suite.newNode(c, "node0", "host0", nil)
 	suite.addSubnet(c, 9, 9, "node0")
-	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
 		ControllerConfig: coretesting.FakeControllerConfig(),
 		AdminSecret:      testing.AdminSecret,
 		CAPrivateKey:     coretesting.CAKey,
@@ -172,13 +166,7 @@ func (suite *environSuite) TestStartInstanceStartsInstance(c *gc.C) {
 	c.Check(insts[0].Id(), gc.Equals, instanceIds[0])
 
 	// Create node 1: it will be used as instance number 1.
-	suite.testMAASObject.TestServer.NewNode(fmt.Sprintf(
-		`{"system_id": "node1", "hostname": "host1", "architecture": "%s/generic", "memory": 1024, "cpu_count": 1, "zone": {"name": "test_zone"}}`,
-		arch.HostArch()),
-	)
-	lshwXML, err = suite.generateHWTemplate(map[string]ifaceInfo{"aa:bb:cc:dd:ee:f1": {0, "eth0", false}})
-	c.Assert(err, jc.ErrorIsNil)
-	suite.testMAASObject.TestServer.AddNodeDetails("node1", lshwXML)
+	suite.newNode(c, "node1", "host1", nil)
 	suite.addSubnet(c, 8, 8, "node1")
 	instance, hc := testing.AssertStartInstance(c, env, suite.controllerUUID, "1")
 	c.Assert(err, jc.ErrorIsNil)
@@ -225,39 +213,6 @@ func (suite *environSuite) getInstance(systemId string) *maas1Instance {
 	}
 
 	return &maas1Instance{&node, nil, statusGetter}
-}
-
-func (suite *environSuite) newNetwork(name string, id int, vlanTag int, defaultGateway string) *gomaasapi.MAASObject {
-	var vlan string
-	if vlanTag == 0 {
-		vlan = "null"
-	} else {
-		vlan = fmt.Sprintf("%d", vlanTag)
-	}
-
-	if defaultGateway != "null" {
-		// since we use %s below only "null" (if passed) should remain unquoted.
-		defaultGateway = fmt.Sprintf("%q", defaultGateway)
-	}
-
-	// TODO(dimitern): Use JSON tags on structs, JSON encoder, or at least
-	// text/template below and in similar cases.
-	input := fmt.Sprintf(`{
-		"name": %q,
-		"ip":"192.168.%d.2",
-		"netmask": "255.255.255.0",
-		"vlan_tag": %s,
-		"description": "%s_%d_%d",
-		"default_gateway": %s
-	}`,
-		name,
-		id,
-		vlan,
-		name, id, vlanTag,
-		defaultGateway,
-	)
-	network := suite.testMAASObject.TestServer.NewNetwork(input)
-	return &network
 }
 
 func (suite *environSuite) TestStopInstancesReturnsIfParameterEmpty(c *gc.C) {
@@ -382,15 +337,9 @@ func (suite *environSuite) TestDestroy(c *gc.C) {
 func (suite *environSuite) TestBootstrapSucceeds(c *gc.C) {
 	suite.setupFakeTools(c)
 	env := suite.makeEnviron()
-	suite.testMAASObject.TestServer.NewNode(fmt.Sprintf(
-		`{"system_id": "thenode", "hostname": "host", "architecture": "%s/generic", "memory": 256, "cpu_count": 8, "zone": {"name": "test_zone"}}`,
-		arch.HostArch()),
-	)
+	suite.newNode(c, "thenode", "host", nil)
 	suite.addSubnet(c, 9, 9, "thenode")
-	lshwXML, err := suite.generateHWTemplate(map[string]ifaceInfo{"aa:bb:cc:dd:ee:f0": {0, "eth0", false}})
-	c.Assert(err, jc.ErrorIsNil)
-	suite.testMAASObject.TestServer.AddNodeDetails("thenode", lshwXML)
-	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
 		ControllerConfig: coretesting.FakeControllerConfig(),
 		AdminSecret:      testing.AdminSecret,
 		CAPrivateKey:     coretesting.CAKey,
@@ -401,17 +350,11 @@ func (suite *environSuite) TestBootstrapSucceeds(c *gc.C) {
 func (suite *environSuite) TestBootstrapNodeNotDeployed(c *gc.C) {
 	suite.setupFakeTools(c)
 	env := suite.makeEnviron()
-	suite.testMAASObject.TestServer.NewNode(fmt.Sprintf(
-		`{"system_id": "thenode", "hostname": "host", "architecture": "%s/generic", "memory": 256, "cpu_count": 8, "zone": {"name": "test_zone"}}`,
-		arch.HostArch()),
-	)
+	suite.newNode(c, "thenode", "host", nil)
 	suite.addSubnet(c, 9, 9, "thenode")
-	lshwXML, err := suite.generateHWTemplate(map[string]ifaceInfo{"aa:bb:cc:dd:ee:f0": {0, "eth0", false}})
-	c.Assert(err, jc.ErrorIsNil)
-	suite.testMAASObject.TestServer.AddNodeDetails("thenode", lshwXML)
 	// Ensure node will not be reported as deployed by changing its status.
 	suite.testMAASObject.TestServer.ChangeNode("thenode", "status", "4")
-	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
 		ControllerConfig: coretesting.FakeControllerConfig(),
 		AdminSecret:      testing.AdminSecret,
 		CAPrivateKey:     coretesting.CAKey,
@@ -422,17 +365,11 @@ func (suite *environSuite) TestBootstrapNodeNotDeployed(c *gc.C) {
 func (suite *environSuite) TestBootstrapNodeFailedDeploy(c *gc.C) {
 	suite.setupFakeTools(c)
 	env := suite.makeEnviron()
-	suite.testMAASObject.TestServer.NewNode(fmt.Sprintf(
-		`{"system_id": "thenode", "hostname": "host", "architecture": "%s/generic", "memory": 256, "cpu_count": 8, "zone": {"name": "test_zone"}}`,
-		arch.HostArch()),
-	)
+	suite.newNode(c, "thenode", "host", nil)
 	suite.addSubnet(c, 9, 9, "thenode")
-	lshwXML, err := suite.generateHWTemplate(map[string]ifaceInfo{"aa:bb:cc:dd:ee:f0": {0, "eth0", false}})
-	c.Assert(err, jc.ErrorIsNil)
-	suite.testMAASObject.TestServer.AddNodeDetails("thenode", lshwXML)
 	// Set the node status to "Failed deployment"
 	suite.testMAASObject.TestServer.ChangeNode("thenode", "status", "11")
-	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
 		ControllerConfig: coretesting.FakeControllerConfig(),
 		AdminSecret:      testing.AdminSecret,
 		CAPrivateKey:     coretesting.CAKey,
@@ -941,12 +878,13 @@ func (m *mockAvailabilityZoneAllocations) AvailabilityZoneAllocations(
 
 func (s *environSuite) newNode(c *gc.C, nodename, hostname string, attrs map[string]interface{}) {
 	allAttrs := map[string]interface{}{
-		"system_id":    nodename,
-		"hostname":     hostname,
-		"architecture": fmt.Sprintf("%s/generic", arch.HostArch()),
-		"memory":       1024,
-		"cpu_count":    1,
-		"zone":         map[string]interface{}{"name": "test_zone", "description": "description"},
+		"system_id":     nodename,
+		"hostname":      hostname,
+		"architecture":  fmt.Sprintf("%s/generic", arch.HostArch()),
+		"memory":        1024,
+		"cpu_count":     1,
+		"zone":          map[string]interface{}{"name": "test_zone", "description": "description"},
+		"interface_set": exampleParsedInterfaceSetJSON,
 	}
 	for k, v := range attrs {
 		allAttrs[k] = v
