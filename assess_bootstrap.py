@@ -26,6 +26,7 @@ INVALID_URL = 'example.com/invalid'
 
 @contextmanager
 def thin_booted_context(bs_manager, **kwargs):
+    """Minimal boote_context, for checking bootstrap."""
     with bs_manager.top_context() as machines:
         with bs_manager.bootstrap_context(machines):
             tear_down(bs_manager.client, bs_manager.jes_enabled)
@@ -34,8 +35,7 @@ def thin_booted_context(bs_manager, **kwargs):
             yield
 
 
-def assess_bootstrap(args):
-    bs_manager = BootstrapManager.from_args(args)
+def assess_base_bootstrap(bs_manager):
     client = bs_manager.client
     with bs_manager.top_context() as machines:
         with bs_manager.bootstrap_context(machines):
@@ -65,8 +65,7 @@ def prepare_temp_metadata(client, source_dir=None):
             yield md_dir
 
 
-def assess_metadata(args):
-    bs_manager = BootstrapManager.from_args(args)
+def assess_metadata(bs_manager, args):
     client = bs_manager.client
     # This disconnects from the metadata source, as INVALID_URL is different.
     # agent-metadata-url | tools-metadata-url
@@ -85,6 +84,14 @@ def assess_metadata(args):
                     raise JujuAssertionError('Error, possible web metadata.')
 
 
+def assess_bootstrap(args):
+    bs_manager = BootstrapManager.from_args(args)
+    if 'base' == args.part:
+        assess_base_bootstrap(bs_manager)
+    elif 'metadata' == args.part:
+        assess_metadata(bs_manager, args)
+
+
 def parse_args(argv=None):
     """Parse all arguments.
 
@@ -93,6 +100,8 @@ def parse_args(argv=None):
     the agent to use in the test. This skips downloading them."""
     parser = ArgumentParser(description='Test the bootstrap command.')
     add_basic_testing_arguments(parser)
+    parser.add_argument('--part', choices=['base', 'metadata'],
+                        help='Which part of bootstrap to assess')
     parser.add_argument('--local-metadata-source',
                         action='store', default=None,
                         help='Directory with pre-loaded metadata.')
@@ -102,8 +111,7 @@ def parse_args(argv=None):
 def main(argv=None):
     args = parse_args(argv)
     configure_logging(args.verbose)
-    #assess_bootstrap(args)
-    assess_metadata(args)
+    assess_bootstrap(args)
     return 0
 
 
