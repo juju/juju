@@ -18,8 +18,8 @@ func GetMAASClient(env environs.Environ) *gomaasapi.MAASObject {
 	return env.(*maasEnviron).getMAASClient()
 }
 
-func NewCloudinitConfig(env environs.Environ, hostname, series string) (cloudinit.CloudConfig, error) {
-	return env.(*maasEnviron).newCloudinitConfig(hostname, series)
+func NewCloudinitConfig(env environs.Environ, hostname, series string, interfacesToBridge []string) (cloudinit.CloudConfig, error) {
+	return env.(*maasEnviron).newCloudinitConfig(hostname, series, interfacesToBridge)
 }
 
 var RenderEtcNetworkInterfacesScript = renderEtcNetworkInterfacesScript
