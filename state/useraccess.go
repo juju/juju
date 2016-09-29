@@ -89,7 +89,7 @@ func (st *State) addUserAccess(spec UserAccessSpec, target userAccessTarget) (pe
 			spec.User,
 			spec.CreatedBy,
 			spec.DisplayName,
-			nowToTheSecond(),
+			st.NowToTheSecond(),
 			spec.Access)
 		targetTag = names.NewModelTag(target.uuid)
 	case controllerGlobalKey:
@@ -98,7 +98,7 @@ func (st *State) addUserAccess(spec UserAccessSpec, target userAccessTarget) (pe
 			spec.User,
 			spec.CreatedBy,
 			spec.DisplayName,
-			nowToTheSecond(),
+			st.NowToTheSecond(),
 			spec.Access)
 		targetTag = st.controllerTag
 	default:

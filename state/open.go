@@ -249,7 +249,14 @@ func Initialize(args InitializeParams) (_ *State, err error) {
 		return nil, err
 	}
 
-	ops := createInitialUserOps(args.ControllerConfig.ControllerUUID(), args.ControllerModelArgs.Owner, args.MongoInfo.Password, salt)
+	dateCreated := st.NowToTheSecond()
+	ops := createInitialUserOps(
+		args.ControllerConfig.ControllerUUID(),
+		args.ControllerModelArgs.Owner,
+		args.MongoInfo.Password,
+		salt,
+		dateCreated,
+	)
 	ops = append(ops,
 
 		txn.Op{
@@ -332,7 +339,7 @@ func (st *State) modelSetupOps(controllerUUID string, args ModelArgs, inherited 
 	}
 
 	modelUserOps := createModelUserOps(
-		modelUUID, args.Owner, args.Owner, args.Owner.Name(), nowToTheSecond(), permission.AdminAccess,
+		modelUUID, args.Owner, args.Owner, args.Owner.Name(), st.NowToTheSecond(), permission.AdminAccess,
 	)
 	ops := []txn.Op{
 		createStatusOp(st, modelGlobalKey, modelStatusDoc),

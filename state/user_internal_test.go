@@ -10,6 +10,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/permission"
+	"github.com/juju/juju/testing"
 )
 
 type internalUserSuite struct {
@@ -20,7 +21,7 @@ var _ = gc.Suite(&internalUserSuite{})
 
 func (s *internalUserSuite) TestCreateInitialUserOps(c *gc.C) {
 	tag := names.NewUserTag("AdMiN")
-	ops := createInitialUserOps(s.state.ControllerUUID(), tag, "abc", "salt")
+	ops := createInitialUserOps(s.state.ControllerUUID(), tag, "abc", "salt", testing.ZeroTime())
 	c.Assert(ops, gc.HasLen, 3)
 	op := ops[0]
 	c.Assert(op.Id, gc.Equals, "admin")

@@ -33,7 +33,7 @@ func (s *MetricSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *MetricSuite) TestAddNoMetrics(c *gc.C) {
-	now := state.NowToTheSecond()
+	now := s.State.NowToTheSecond()
 	_, err := s.State.AddMetrics(state.BatchParam{
 		UUID:     utils.MustNewUUID().String(),
 		CharmURL: s.meteredCharm.URL().String(),
@@ -56,7 +56,7 @@ func ensureUnitDead(c *gc.C, unit *state.Unit) {
 }
 
 func (s *MetricSuite) TestAddMetric(c *gc.C) {
-	now := state.NowToTheSecond()
+	now := s.State.NowToTheSecond()
 	modelUUID := s.State.ModelUUID()
 	m := state.Metric{"pings", "5", now}
 	metricBatch, err := s.State.AddMetrics(
@@ -95,7 +95,7 @@ func (s *MetricSuite) TestAddMetric(c *gc.C) {
 
 func (s *MetricSuite) TestAddMetricNonExistentUnit(c *gc.C) {
 	removeUnit(c, s.unit)
-	now := state.NowToTheSecond()
+	now := s.State.NowToTheSecond()
 	m := state.Metric{"pings", "5", now}
 	unitTag := names.NewUnitTag("test/0")
 	_, err := s.State.AddMetrics(
@@ -112,7 +112,7 @@ func (s *MetricSuite) TestAddMetricNonExistentUnit(c *gc.C) {
 
 func (s *MetricSuite) TestAddMetricDeadUnit(c *gc.C) {
 	ensureUnitDead(c, s.unit)
-	now := state.NowToTheSecond()
+	now := s.State.NowToTheSecond()
 	m := state.Metric{"pings", "5", now}
 	_, err := s.State.AddMetrics(
 		state.BatchParam{
@@ -127,7 +127,7 @@ func (s *MetricSuite) TestAddMetricDeadUnit(c *gc.C) {
 }
 
 func (s *MetricSuite) TestSetMetricSent(c *gc.C) {
-	now := state.NowToTheSecond()
+	now := s.State.NowToTheSecond()
 	m := state.Metric{"pings", "5", now}
 	added, err := s.State.AddMetrics(
 		state.BatchParam{
@@ -245,7 +245,7 @@ func (s *MetricSuite) TestCleanupMetricsIgnoreNotSent(c *gc.C) {
 }
 
 func (s *MetricSuite) TestAllMetricBatches(c *gc.C) {
-	now := state.NowToTheSecond()
+	now := s.State.NowToTheSecond()
 	m := state.Metric{"pings", "5", now}
 	_, err := s.State.AddMetrics(
 		state.BatchParam{
@@ -267,7 +267,7 @@ func (s *MetricSuite) TestAllMetricBatches(c *gc.C) {
 }
 
 func (s *MetricSuite) TestAllMetricBatchesCustomCharmURLAndUUID(c *gc.C) {
-	now := state.NowToTheSecond()
+	now := s.State.NowToTheSecond()
 	m := state.Metric{"pings", "5", now}
 	uuid := utils.MustNewUUID().String()
 	charmUrl := "cs:quantal/metered"
@@ -292,7 +292,7 @@ func (s *MetricSuite) TestAllMetricBatchesCustomCharmURLAndUUID(c *gc.C) {
 }
 
 func (s *MetricSuite) TestMetricCredentials(c *gc.C) {
-	now := state.NowToTheSecond()
+	now := s.State.NowToTheSecond()
 	m := state.Metric{"pings", "5", now}
 	err := s.application.SetMetricCredentials([]byte("hello there"))
 	c.Assert(err, gc.IsNil)
@@ -349,7 +349,7 @@ func (s *MetricSuite) TestSetMetricBatchesSent(c *gc.C) {
 }
 
 func (s *MetricSuite) TestMetricsToSend(c *gc.C) {
-	now := state.NowToTheSecond()
+	now := s.State.NowToTheSecond()
 	m := []state.Metric{{Key: "pings", Value: "123", Time: now}}
 	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: false, Time: &now, Metrics: m})
 	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: false, Time: &now, Metrics: m})
@@ -361,7 +361,7 @@ func (s *MetricSuite) TestMetricsToSend(c *gc.C) {
 
 // TestMetricsToSendBatches checks that metrics are properly batched.
 func (s *MetricSuite) TestMetricsToSendBatches(c *gc.C) {
-	now := state.NowToTheSecond()
+	now := s.State.NowToTheSecond()
 	for i := 0; i < 6; i++ {
 		m := []state.Metric{{Key: "pings", Value: "123", Time: now}}
 		s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: false, Time: &now, Metrics: m})
@@ -464,7 +464,7 @@ func (s *MetricSuite) TestMetricValidation(c *gc.C) {
 }
 
 func (s *MetricSuite) TestAddMetricDuplicateUUID(c *gc.C) {
-	now := state.NowToTheSecond()
+	now := s.State.NowToTheSecond()
 	mUUID := utils.MustNewUUID().String()
 	_, err := s.State.AddMetrics(
 		state.BatchParam{
@@ -513,7 +513,7 @@ func (s *MetricSuite) TestAddBuiltInMetric(c *gc.C) {
 	}
 	for _, test := range tests {
 		c.Logf("running test: %v", test.about)
-		now := state.NowToTheSecond()
+		now := s.State.NowToTheSecond()
 		modelUUID := s.State.ModelUUID()
 		m := state.Metric{"juju-units", test.value, now}
 		metricBatch, err := s.State.AddMetrics(
@@ -556,7 +556,7 @@ func (s *MetricSuite) TestAddBuiltInMetric(c *gc.C) {
 }
 
 func (s *MetricSuite) TestUnitMetricBatchesMatchesAllCharms(c *gc.C) {
-	now := state.NowToTheSecond()
+	now := s.State.NowToTheSecond()
 	m := state.Metric{"pings", "5", now}
 	_, err := s.State.AddMetrics(
 		state.BatchParam{
@@ -615,7 +615,7 @@ func (s *MetricLocalCharmSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *MetricLocalCharmSuite) TestUnitMetricBatches(c *gc.C) {
-	now := state.NowToTheSecond()
+	now := s.State.NowToTheSecond()
 	m := state.Metric{"pings", "5", now}
 	m2 := state.Metric{"pings", "10", now}
 	_, err := s.State.AddMetrics(
@@ -661,7 +661,7 @@ func (s *MetricLocalCharmSuite) TestUnitMetricBatches(c *gc.C) {
 }
 
 func (s *MetricLocalCharmSuite) TestApplicationMetricBatches(c *gc.C) {
-	now := state.NowToTheSecond()
+	now := s.State.NowToTheSecond()
 	m := state.Metric{"pings", "5", now}
 	m2 := state.Metric{"pings", "10", now}
 	_, err := s.State.AddMetrics(
@@ -705,7 +705,7 @@ func (s *MetricLocalCharmSuite) TestApplicationMetricBatches(c *gc.C) {
 }
 
 func (s *MetricLocalCharmSuite) TestModelMetricBatches(c *gc.C) {
-	now := state.NowToTheSecond()
+	now := s.State.NowToTheSecond()
 	// Add 2 metric batches to a single unit.
 	m := state.Metric{"pings", "5", now}
 	m2 := state.Metric{"pings", "10", now}
@@ -857,7 +857,7 @@ func assertMetricBatchesTimeAscending(c *gc.C, batches []state.MetricBatch) {
 }
 
 func (s *MetricLocalCharmSuite) TestUnitMetricBatchesReturnsAllCharms(c *gc.C) {
-	now := state.NowToTheSecond()
+	now := s.State.NowToTheSecond()
 	m := state.Metric{"pings", "5", now}
 	_, err := s.State.AddMetrics(
 		state.BatchParam{
@@ -890,7 +890,7 @@ func (s *MetricLocalCharmSuite) TestUnitMetricBatchesReturnsAllCharms(c *gc.C) {
 }
 
 func (s *MetricLocalCharmSuite) TestUnique(c *gc.C) {
-	t0 := state.NowToTheSecond()
+	t0 := s.State.NowToTheSecond()
 	t1 := t0.Add(time.Second)
 	batch, err := s.State.AddMetrics(
 		state.BatchParam{
@@ -973,7 +973,7 @@ func mustCreateMeteredModel(c *gc.C, stateFactory *factory.Factory) (modelData, 
 }
 
 func (s *CrossModelMetricSuite) TestMetricsAcrossEnvironments(c *gc.C) {
-	now := state.NowToTheSecond().Add(-48 * time.Hour)
+	now := s.State.NowToTheSecond().Add(-48 * time.Hour)
 	m := state.Metric{"pings", "5", now}
 	m1, err := s.models[0].state.AddMetrics(
 		state.BatchParam{

@@ -5,7 +5,6 @@ package state_test
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
@@ -48,11 +47,6 @@ func (s *ModelSuite) TestModel(c *gc.C) {
 func (s *ModelSuite) TestModelDestroy(c *gc.C) {
 	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
-
-	now := state.NowToTheSecond()
-	s.PatchValue(&state.NowToTheSecond, func() time.Time {
-		return now
-	})
 
 	err = env.Destroy()
 	c.Assert(err, jc.ErrorIsNil)

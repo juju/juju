@@ -27,7 +27,7 @@ type ModelUserSuite struct {
 var _ = gc.Suite(&ModelUserSuite{})
 
 func (s *ModelUserSuite) TestAddModelUser(c *gc.C) {
-	now := state.NowToTheSecond()
+	now := s.State.NowToTheSecond()
 	user := s.Factory.MakeUser(c,
 		&factory.UserParams{
 			Name:        "validusername",
@@ -304,7 +304,7 @@ func (s *ModelUserSuite) TestRemoveModelUserFails(c *gc.C) {
 }
 
 func (s *ModelUserSuite) TestUpdateLastConnection(c *gc.C) {
-	now := state.NowToTheSecond()
+	now := s.State.NowToTheSecond()
 	createdBy := s.Factory.MakeUser(c, &factory.UserParams{Name: "createdby"})
 	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "validusername", Creator: createdBy.Tag()})
 	modelUser, err := s.State.UserAccess(user.UserTag(), s.State.ModelTag())
@@ -319,7 +319,7 @@ func (s *ModelUserSuite) TestUpdateLastConnection(c *gc.C) {
 }
 
 func (s *ModelUserSuite) TestUpdateLastConnectionTwoModelUsers(c *gc.C) {
-	now := state.NowToTheSecond()
+	now := s.State.NowToTheSecond()
 
 	// Create a user and add them to the inital model.
 	createdBy := s.Factory.MakeUser(c, &factory.UserParams{Name: "createdby"})

@@ -5,7 +5,7 @@ package state_test
 
 import (
 	"fmt"
-	"time"
+	"time" // only uses time.Time values
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
+	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -188,11 +189,11 @@ func (s *MigrationImportSuite) TestModelUsers(c *gc.C) {
 	err := s.State.RemoveUserAccess(s.Owner, s.modelTag)
 	c.Assert(err, jc.ErrorIsNil)
 
-	lastConnection := state.NowToTheSecond()
+	lastConnection := s.State.NowToTheSecond()
 
 	bravo := s.newModelUser(c, "bravo@external", false, lastConnection)
 	charlie := s.newModelUser(c, "charlie@external", true, lastConnection)
-	delta := s.newModelUser(c, "delta@external", true, time.Time{})
+	delta := s.newModelUser(c, "delta@external", true, coretesting.ZeroTime())
 
 	newModel, newSt := s.importModel(c)
 
