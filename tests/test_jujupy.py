@@ -1917,6 +1917,14 @@ class TestEnvJujuClient(ClientTest):
         self.assertIs(client, model_clients[0])
         self.assertEqual('bar', model_clients[1].env.environment)
 
+    def test_iter_model_clients_1x(self):
+        """Must return a single client."""
+        env = SimpleEnvironment('foo', {'type': 'foo'})
+        client = fake_juju_client(
+            env, '/foo/juju', version='1.25', cls=EnvJujuClient1X)
+        [model_client] = list(client.iter_model_clients())
+        self.assertEqual(model_client, client)
+
     def test_get_controller_model_name(self):
         models = {
             'models': [
