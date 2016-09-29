@@ -1170,10 +1170,10 @@ class TestTestUpgrade(FakeHomeTestCase):
         # Needs to upgrade the controller first.
         assert_juju_call(self, cc_mock, new_client, (
             'juju', '--show-log', 'upgrade-juju', '-m', 'foo:controller',
-            '--version', '2.0-rc2'), 0)
+            '--agent-version', '2.0-rc2'), 0)
         assert_juju_call(self, cc_mock, new_client, (
-            'juju', '--show-log', 'upgrade-juju', '-m', 'foo:foo', '--version',
-            '2.0-rc2'), 1)
+            'juju', '--show-log', 'upgrade-juju', '-m', 'foo:foo',
+            '--agent-version', '2.0-rc2'), 1)
         self.assertEqual(cc_mock.call_count, 2)
         assert_juju_call(self, co_mock, new_client, self.LIST_MODELS, 0)
         assert_juju_call(self, co_mock, new_client, self.GET_CONTROLLER_ENV, 1)
