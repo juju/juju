@@ -6,7 +6,6 @@ package commands
 import (
 	"io"
 	"io/ioutil"
-	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -286,10 +285,7 @@ func (s *syncToolsSuite) TestAPIAdapterBlockUploadTools(c *gc.C) {
 		return common.OperationBlockedError("TestAPIAdapterBlockUploadTools")
 	}
 	_, err := s.runSyncToolsCommand(c, "-m", "test-target", "--destination", c.MkDir(), "--stream", "released")
-	c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
-	// msg is logged
-	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
-	c.Check(stripped, gc.Matches, ".*TestAPIAdapterBlockUploadTools.*")
+	coretesting.AssertOperationWasBlocked(c, err, ".*TestAPIAdapterBlockUploadTools.*")
 }
 
 type fakeSyncToolsAPI struct {

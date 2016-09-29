@@ -6,7 +6,6 @@ package testing
 import (
 	"strings"
 
-	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -55,15 +54,16 @@ func (s *CmdBlockHelper) Close() {
 	s.blockClient.Close()
 }
 
+// AssertBlocked is going to be removed as soon as all cmd tests mock out API.
+// the corect method to call will become AssertOperationWasBlocked.
 func (s *CmdBlockHelper) AssertBlocked(c *gc.C, err error, msg string) {
-	c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
-	// msg is logged
+	c.Assert(err.Error(), jc.Contains, "disabled")
 	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
 	c.Check(stripped, gc.Matches, msg)
 }
 
 func AssertOperationWasBlocked(c *gc.C, err error, msg string) {
-	c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
+	c.Assert(err.Error(), jc.Contains, "disabled")
 	// msg is logged
 	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
 	c.Check(stripped, gc.Matches, msg)

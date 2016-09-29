@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"strings"
 
 	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
@@ -115,11 +114,7 @@ func (s *EnableHASuite) TestEnableHA(c *gc.C) {
 func (s *EnableHASuite) TestBlockEnableHA(c *gc.C) {
 	s.fake.err = common.OperationBlockedError("TestBlockEnableHA")
 	_, err := s.runEnableHA(c, "-n", "1")
-	c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
-
-	// msg is logged
-	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
-	c.Check(stripped, gc.Matches, ".*TestBlockEnableHA.*")
+	coretesting.AssertOperationWasBlocked(c, err, ".*TestBlockEnableHA.*")
 }
 
 func (s *EnableHASuite) TestEnableHAFormatYaml(c *gc.C) {

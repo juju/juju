@@ -4,7 +4,7 @@
 package block
 
 import (
-	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/api"
@@ -91,8 +91,9 @@ func ProcessBlockedError(err error, block Block) error {
 		return nil
 	}
 	if params.IsCodeOperationBlocked(err) {
-		logger.Errorf("%v\n%v", err, blockedMessages[block])
-		return cmd.ErrSilent
+		msg := blockedMessages[block]
+		logger.Errorf("%v\n%v", err, msg)
+		return errors.New(msg)
 	}
 	return err
 }

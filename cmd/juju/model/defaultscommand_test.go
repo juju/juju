@@ -115,9 +115,7 @@ func (s *DefaultsCommandSuite) TestResetAttr(c *gc.C) {
 func (s *DefaultsCommandSuite) TestResetBlockedError(c *gc.C) {
 	s.fake.err = common.OperationBlockedError("TestBlockedError")
 	_, err := s.run(c, "--reset", "attr")
-	c.Assert(err, gc.Equals, cmd.ErrSilent)
-	// msg is logged
-	c.Check(c.GetTestLog(), jc.Contains, "TestBlockedError")
+	testing.AssertOperationWasBlocked(c, err, ".*TestBlockedError.*")
 }
 
 func (s *DefaultsCommandSuite) TestSetUnknownValueLogs(c *gc.C) {
@@ -143,9 +141,7 @@ func (s *DefaultsCommandSuite) TestSet(c *gc.C) {
 func (s *DefaultsCommandSuite) TestBlockedErrorOnSet(c *gc.C) {
 	s.fake.err = common.OperationBlockedError("TestBlockedError")
 	_, err := s.run(c, "special=extra")
-	c.Assert(err, gc.Equals, cmd.ErrSilent)
-	// msg is logged
-	c.Check(c.GetTestLog(), jc.Contains, "TestBlockedError")
+	testing.AssertOperationWasBlocked(c, err, ".*TestBlockedError.*")
 }
 
 func (s *DefaultsCommandSuite) TestGetSingleValue(c *gc.C) {

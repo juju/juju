@@ -13,7 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/cmd/juju/model"
 	"github.com/juju/juju/cmd/modelcmd"
 	cmdtesting "github.com/juju/juju/cmd/testing"
@@ -191,7 +191,7 @@ func (s *DestroySuite) TestDestroyCommandConfirmation(c *gc.C) {
 }
 
 func (s *DestroySuite) TestBlockedDestroy(c *gc.C) {
-	s.api.err = &params.Error{Code: params.CodeOperationBlocked}
-	s.runDestroyCommand(c, "test2", "-y")
-	c.Check(c.GetTestLog(), jc.Contains, "To enable the command")
+	s.api.err = common.OperationBlockedError("TestBlockedDestroy")
+	_, err := s.runDestroyCommand(c, "test2", "-y")
+	testing.AssertOperationWasBlocked(c, err, ".*TestBlockedDestroy.*")
 }

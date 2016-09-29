@@ -8,7 +8,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/cmd/juju/model"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
@@ -82,10 +82,9 @@ func (s *grantRevokeSuite) TestAccess(c *gc.C) {
 }
 
 func (s *grantRevokeSuite) TestBlockGrant(c *gc.C) {
-	s.fake.err = &params.Error{Code: params.CodeOperationBlocked}
+	s.fake.err = common.OperationBlockedError("TestBlockGrant")
 	_, err := s.run(c, "sam", "read", "foo")
-	c.Assert(err, gc.Equals, cmd.ErrSilent)
-	c.Check(c.GetTestLog(), jc.Contains, "To enable changes")
+	testing.AssertOperationWasBlocked(c, err, ".*TestBlockGrant.*")
 }
 
 type grantSuite struct {

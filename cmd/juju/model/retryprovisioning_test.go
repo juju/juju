@@ -6,7 +6,6 @@ package model_test
 import (
 	"strings"
 
-	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -152,9 +151,6 @@ func (s *retryProvisioningSuite) TestBlockRetryProvisioning(c *gc.C) {
 			c.Check(err, gc.ErrorMatches, t.err)
 			continue
 		}
-		c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
-		// msg is logged
-		stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
-		c.Check(stripped, gc.Matches, ".*TestBlockRetryProvisioning.*")
+		testing.AssertOperationWasBlocked(c, err, ".*TestBlockRetryProvisioning.*")
 	}
 }

@@ -125,10 +125,7 @@ func (s *UserAddCommandSuite) TestBlockAddUser(c *gc.C) {
 	// Block operation
 	s.mockAPI.blocked = true
 	_, err := s.run(c, "foobar", "Foo Bar")
-	c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
-	// msg is logged
-	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
-	c.Check(stripped, gc.Matches, ".*To enable changes.*")
+	testing.AssertOperationWasBlocked(c, err, ".*To enable changes.*")
 }
 
 func (s *UserAddCommandSuite) TestAddUserErrorResponse(c *gc.C) {

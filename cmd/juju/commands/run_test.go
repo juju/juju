@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"fmt"
 	"sort"
-	"strings"
 	"time"
 
 	"github.com/juju/cmd"
@@ -274,10 +273,7 @@ func (s *RunSuite) TestBlockRunForMachineAndUnit(c *gc.C) {
 	_, err := testing.RunCommand(c, newRunCommand(),
 		"--format=json", "--machine=0", "--unit=unit/0", "hostname",
 	)
-	c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
-	// msg is logged
-	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
-	c.Check(stripped, gc.Matches, ".*To enable changes.*")
+	testing.AssertOperationWasBlocked(c, err, ".*To enable changes.*")
 }
 
 func (s *RunSuite) TestAllMachines(c *gc.C) {
@@ -334,10 +330,7 @@ func (s *RunSuite) TestBlockAllMachines(c *gc.C) {
 	// Block operation
 	mock.block = true
 	_, err := testing.RunCommand(c, newRunCommand(), "--format=json", "--all", "hostname")
-	c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
-	// msg is logged
-	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
-	c.Check(stripped, gc.Matches, ".*To enable changes.*")
+	testing.AssertOperationWasBlocked(c, err, ".*To enable changes.*")
 }
 
 func (s *RunSuite) TestSingleResponse(c *gc.C) {

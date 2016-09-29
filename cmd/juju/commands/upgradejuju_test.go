@@ -526,7 +526,7 @@ func (s *UpgradeJujuSuite) TestBlockUpgradeJujuWithRealUpload(c *gc.C) {
 	// Block operation
 	s.BlockAllChanges(c, "TestBlockUpgradeJujuWithRealUpload")
 	_, err := coretesting.RunCommand(c, cmd, "--build-agent")
-	s.AssertBlocked(c, err, ".*TestBlockUpgradeJujuWithRealUpload.*")
+	coretesting.AssertOperationWasBlocked(c, err, ".*TestBlockUpgradeJujuWithRealUpload.*")
 }
 
 func (s *UpgradeJujuSuite) TestFailUploadOnNonController(c *gc.C) {
