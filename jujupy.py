@@ -1625,8 +1625,9 @@ class EnvJujuClient:
         models = self._get_models()
         if not models:
             yield self
-        for model in models:
-            yield self._acquire_model_client(model['name'])
+        else:
+            for model in models:
+                yield self._acquire_model_client(model['name'])
 
     def get_controller_model_name(self):
         """Return the name of the 'controller' model.
