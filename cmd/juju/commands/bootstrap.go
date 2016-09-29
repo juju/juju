@@ -136,6 +136,7 @@ type bootstrapCommand struct {
 	AutoUpgrade             bool
 	AgentVersionParam       string
 	AgentVersion            *version.Number
+	ForceAPIPort            bool
 	config                  common.ConfigFlag
 
 	showClouds          bool
@@ -171,6 +172,7 @@ func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.Placement, "to", "", "Placement directive indicating an instance to bootstrap")
 	f.BoolVar(&c.KeepBrokenEnvironment, "keep-broken", false, "Do not destroy the model if bootstrap fails")
 	f.BoolVar(&c.AutoUpgrade, "auto-upgrade", false, "Upgrade to the latest patch release tools on first bootstrap")
+	f.BoolVar(&c.ForceAPIPort, "force-api-port", false, "Allow use of non-standard HTTPS port when official DNS name specified")
 	f.StringVar(&c.AgentVersionParam, "agent-version", "", "Version of tools to use for Juju agents")
 	f.StringVar(&c.CredentialName, "credential", "", "Credentials to use when bootstrapping")
 	f.Var(&c.config, "config", "Specify a controller configuration file, or one or more configuration\n    options\n    (--config config.yaml [--config key=value ...])")
@@ -556,6 +558,10 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	if err != nil {
 		return errors.Annotate(err, "constructing controller config")
 	}
+	if controllerConfig.AutocertDNSName() != "" && controllerConfig.APIPort() != 443 && !c.ForceAPIPort {
+		return errors.Errorf(`autocert-dns-name is set but it's not usually possible to obtain official certificates without api-port=443 config; use --force-api-port to override this if you plan on using a port forwarder`)
+	}
+
 	if err := common.FinalizeAuthorizedKeys(ctx, modelConfigAttrs); err != nil {
 		return errors.Annotate(err, "finalizing authorized-keys")
 	}

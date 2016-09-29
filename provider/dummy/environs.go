@@ -811,6 +811,8 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 				LogDir:      LogDir,
 				StatePool:   estate.apiStatePool,
 				NewObserver: func() observer.Observer { return &fakeobserver.Instance{} },
+				// Should never be used but prevent external access just in case.
+				AutocertURL: "https://0.1.2.3/no-autocert-here",
 			})
 			if err != nil {
 				panic(err)

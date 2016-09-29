@@ -23,12 +23,15 @@ func (s *ControllerConfigSuite) TestControllerAndModelConfigInitialisation(c *gc
 	controllerSettings, err := s.State.ReadSettings(state.ControllersC, "controllerSettings")
 	c.Assert(err, jc.ErrorIsNil)
 
-	optional := func(attr string) bool {
-		return attr == controller.IdentityURL || attr == controller.IdentityPublicKey
+	optional := map[string]bool{
+		controller.IdentityURL:        true,
+		controller.IdentityPublicKey:  true,
+		controller.AutocertURLKey:     true,
+		controller.AutocertDNSNameKey: true,
 	}
 	for _, controllerAttr := range controller.ControllerOnlyConfigAttributes {
 		v, ok := controllerSettings.Get(controllerAttr)
-		if !optional(controllerAttr) {
+		if !optional[controllerAttr] {
 			c.Assert(ok, jc.IsTrue)
 			c.Assert(v, gc.Not(gc.Equals), "")
 		}
