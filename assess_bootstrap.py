@@ -13,11 +13,15 @@ from deploy_stack import (
 from utility import (
     add_basic_testing_arguments,
     configure_logging,
+    JujuAssertionError,
     temp_dir,
     )
 
 
 log = logging.getLogger("assess_bootstrap")
+
+
+INVALID_URL = 'example.com/invalid'
 
 
 @contextmanager
@@ -63,18 +67,22 @@ def prepare_temp_metadata(client, source_dir=None):
 
 def assess_metadata(args):
     bs_manager = BootstrapManager.from_args(args)
-    with prepare_temp_metadata(bs_manager.client,
+    client = bs_manager.client
+    # This disconnects from the metadata source, as INVALID_URL is different.
+    # agent-metadata-url | tools-metadata-url
+    client.env.config['agent-metadata-url'] = INVALID_URL
+    with prepare_temp_metadata(client,
                                args.local_metadata_source) as metadata_dir:
         log.info('Metadata written to: {}'.format(metadata_dir))
         with bs_manager.top_context() as machines:
-            # Disconnect from the charm store.
             with bs_manager.bootstrap_context(machines):
-                tear_down(bs_manager.client, bs_manager.jes_enabled)
-                bs_manager.client.bootstrap(metadata_source=metadata_dir)
+                tear_down(client, client.is_jes_enabled())
+                client.bootstrap(metadata_source=metadata_dir)
             with bs_manager.runtime_context(machines):
                 log.info('Metadata bootstrap successful.')
-                log.info('{!s}'.format(client.get_juju_output(
-                    'model-config')))
+                data = client.get_model_config()
+                if INVALID_URL != data['agent-metadata-url']['value']:
+                    raise JujuAssertionError('Error, possible web metadata.')
 
 
 def parse_args(argv=None):
@@ -94,7 +102,7 @@ def parse_args(argv=None):
 def main(argv=None):
     args = parse_args(argv)
     configure_logging(args.verbose)
-    assess_bootstrap(args)
+    #assess_bootstrap(args)
     assess_metadata(args)
     return 0
 
