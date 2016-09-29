@@ -27,31 +27,39 @@ class TestParseArgs(TestCase):
 
     def test_parse_args(self):
         with temp_dir() as log_dir:
-            args = parse_args(['foo', 'bar', log_dir, 'baz'])
+            args = parse_args(['base', 'foo', 'bar', log_dir, 'baz'])
             self.assertEqual(
                 Namespace(
                     agent_stream=None, agent_url=None, bootstrap_host=None,
                     deadline=None, debug=False, env='foo', juju_bin='bar',
                     keep_env=False, local_metadata_source=None, logs=log_dir,
-                    machine=[], region=None, series=None, temp_env_name='baz',
-                    upload_tools=False, verbose=20),
+                    machine=[], part='base', region=None, series=None,
+                    temp_env_name='baz', upload_tools=False, verbose=20),
                 args)
 
     def test_parse_args_debug(self):
-        args = parse_args(['foo', 'bar', '--debug'])
+        args = parse_args(['base', 'foo', 'bar', '--debug'])
         self.assertEqual(args.debug, True)
 
     def test_parse_args_region(self):
-        args = parse_args(['foo', 'bar', '--region', 'foo'])
+        args = parse_args(['base', 'foo', 'bar', '--region', 'foo'])
         self.assertEqual(args.region, 'foo')
 
     def test_parse_args_temp_env_name(self):
-        args = parse_args(['fee', 'fi', 'foe', 'fum'])
+        args = parse_args(['base', 'fee', 'fi', 'foe', 'fum'])
         self.assertEqual(args.temp_env_name, 'fum')
 
     def test_parse_args_local_metadata_source(self):
-        args = parse_args(['foo', 'bar', '--local-metadata-source', 'qux'])
+        args = parse_args(['base', 'foo', 'bar',
+                           '--local-metadata-source', 'qux'])
         self.assertEqual(args.local_metadata_source, 'qux')
+
+    def test_parse_args_part(self):
+        args = parse_args(['metadata'])
+        self.assertEqual(args.part, 'metadata')
+
+#    def test_parse_args_part_required(self):
+#        args = parse_args([])
 
 
 class TestPrepareMetadata(TestCase):
@@ -98,7 +106,7 @@ class TestAssessBootstrap(FakeHomeTestCase):
                        autospec=True):
                 with patch('deploy_stack.get_machine_dns_name'):
                     with patch('deploy_stack.dump_env_logs_known_hosts'):
-                        assess_bootstrap(parse_args(['bar', '/foo']))
+                        assess_bootstrap(parse_args(['base', 'bar', '/foo']))
         self.assertRegexpMatches(
             self.log_stream.getvalue(),
             r"(?m)^INFO Environment successfully bootstrapped.$")
@@ -114,7 +122,7 @@ class TestAssessBootstrap(FakeHomeTestCase):
                        autospec=True):
                 with patch('deploy_stack.get_machine_dns_name'):
                     with patch('deploy_stack.dump_env_logs_known_hosts'):
-                        args = parse_args(['bar', '/foo'])
+                        args = parse_args(['base', 'bar', '/foo'])
                         args.region = 'baz'
                         args.temp_env_name = 'qux'
                         assess_bootstrap(args)

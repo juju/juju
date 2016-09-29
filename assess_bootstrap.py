@@ -99,9 +99,9 @@ def parse_args(argv=None):
     --local-metadata-source. If given it should be a directory that contains
     the agent to use in the test. This skips downloading them."""
     parser = ArgumentParser(description='Test the bootstrap command.')
-    add_basic_testing_arguments(parser)
-    parser.add_argument('--part', choices=['base', 'metadata'],
+    parser.add_argument('part', choices=['base', 'metadata'],
                         help='Which part of bootstrap to assess')
+    add_basic_testing_arguments(parser)
     parser.add_argument('--local-metadata-source',
                         action='store', default=None,
                         help='Directory with pre-loaded metadata.')
