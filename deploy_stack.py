@@ -391,15 +391,16 @@ def assess_juju_run(client):
 
 
 def assess_upgrade(old_client, juju_path):
-    all_models = _get_clients_to_upgrade(old_client, juju_path)
+    all_clients = _get_clients_to_upgrade(old_client, juju_path)
 
-    for client in all_models:
+    # all clients have the same provider type, work this out once.
+    if all_clients[0].env.config['type'] == 'maas':
+        timeout = 1200
+    else:
+        timeout = 600
+
+    for client in all_clients:
         upgrade_juju(client)
-
-        if client.env.config['type'] == 'maas':
-            timeout = 1200
-        else:
-            timeout = 600
         client.wait_for_version(client.get_matching_agent_version(), timeout)
 
 
