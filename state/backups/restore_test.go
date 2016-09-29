@@ -249,7 +249,11 @@ func (r *RestoreSuite) TestNewConnection(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer server.DestroyWithLog()
 
-	st := statetesting.Initialize(c, names.NewLocalUserTag("test-admin"), nil, nil, nil, nil)
+	st := statetesting.InitializeWithArgs(c,
+		statetesting.InitializeArgs{
+			Owner: names.NewLocalUserTag("test-admin"),
+			Clock: gitjujutesting.NewClock(coretesting.NonZeroTime()),
+		})
 	c.Assert(st.Close(), jc.ErrorIsNil)
 
 	r.PatchValue(&mongoDefaultDialOpts, mongotest.DialOpts)

@@ -4,7 +4,7 @@
 package lease_test
 
 import (
-	"time"
+	"time" // Only used for time types.
 
 	gc "gopkg.in/check.v1"
 

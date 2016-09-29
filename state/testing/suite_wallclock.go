@@ -1,27 +1,28 @@
-// Copyright 2015 Canonical Ltd.
+// Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package testing
 
 import (
-	jujutesting "github.com/juju/testing"
+	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
 
-var _ = gc.Suite(&StateSuite{})
+var _ = gc.Suite(&StateWithWallclockSuite{})
 
-// StateSuite provides setup and teardown for tests that require a
-// state.State.
-type StateSuite struct {
-	jujutesting.MgoSuite
-	testing.BaseSuite
+// StateWithWallclockSuite provides setup and teardown for tests that require a
+// state.State. This should be deprecated in favour of StateSuite, and tests
+// updated to use the testing clock StateSuite provides.
+type StateWithWallclockSuite struct {
+	testing.MgoSuite
+	coretesting.BaseSuite
 	NewPolicy                 state.NewPolicyFunc
 	State                     *state.State
 	Owner                     names.UserTag
@@ -29,38 +30,29 @@ type StateSuite struct {
 	InitialConfig             *config.Config
 	ControllerInheritedConfig map[string]interface{}
 	RegionConfig              cloud.RegionConfig
-	Clock                     *jujutesting.Clock
 }
 
-func (s *StateSuite) SetUpSuite(c *gc.C) {
+func (s *StateWithWallclockSuite) SetUpSuite(c *gc.C) {
 	s.MgoSuite.SetUpSuite(c)
 	s.BaseSuite.SetUpSuite(c)
 }
 
-func (s *StateSuite) TearDownSuite(c *gc.C) {
+func (s *StateWithWallclockSuite) TearDownSuite(c *gc.C) {
 	s.BaseSuite.TearDownSuite(c)
 	s.MgoSuite.TearDownSuite(c)
 }
 
-func (s *StateSuite) SetUpTest(c *gc.C) {
+func (s *StateWithWallclockSuite) SetUpTest(c *gc.C) {
 	s.MgoSuite.SetUpTest(c)
 	s.BaseSuite.SetUpTest(c)
 
 	s.Owner = names.NewLocalUserTag("test-admin")
-	s.Clock = jujutesting.NewClock(testing.NonZeroTime())
-	s.State = InitializeWithArgs(c, InitializeArgs{
-		Owner:                     s.Owner,
-		InitialConfig:             s.InitialConfig,
-		ControllerInheritedConfig: s.ControllerInheritedConfig,
-		RegionConfig:              s.RegionConfig,
-		NewPolicy:                 s.NewPolicy,
-		Clock:                     s.Clock,
-	})
+	s.State = Initialize(c, s.Owner, s.InitialConfig, s.ControllerInheritedConfig, s.RegionConfig, s.NewPolicy)
 	s.AddCleanup(func(*gc.C) { s.State.Close() })
 	s.Factory = factory.NewFactory(s.State)
 }
 
-func (s *StateSuite) TearDownTest(c *gc.C) {
+func (s *StateWithWallclockSuite) TearDownTest(c *gc.C) {
 	s.BaseSuite.TearDownTest(c)
 	s.MgoSuite.TearDownTest(c)
 }

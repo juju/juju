@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
-	"time"
+	"time" // Only used for time types.
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"

@@ -167,7 +167,7 @@ func (s *LogsSuite) TestIndexesCreated(c *gc.C) {
 func (s *LogsSuite) TestDbLogger(c *gc.C) {
 	logger := state.NewDbLogger(s.State, names.NewMachineTag("22"), jujuversion.Current)
 	defer logger.Close()
-	t0 := time.Now().Truncate(time.Millisecond) // MongoDB only stores timestamps with ms precision.
+	t0 := coretesting.ZeroTime().Truncate(time.Millisecond) // MongoDB only stores timestamps with ms precision.
 	logger.Log(t0, "some.where", "foo.go:99", loggo.INFO, "all is well")
 	t1 := t0.Add(time.Second)
 	logger.Log(t1, "else.where", "bar.go:42", loggo.ERROR, "oh noes")
@@ -202,7 +202,7 @@ func (s *LogsSuite) TestPruneLogsByTime(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
-	now := time.Now()
+	now := coretesting.NonZeroTime()
 	maxLogTime := now.Add(-time.Minute)
 	log(now, "keep")
 	log(maxLogTime.Add(time.Second), "keep")
@@ -227,7 +227,7 @@ func (s *LogsSuite) TestPruneLogsByTime(c *gc.C) {
 func (s *LogsSuite) TestPruneLogsBySize(c *gc.C) {
 	// Set up 3 models and generate different amounts of logs
 	// for them.
-	now := time.Now().Truncate(time.Millisecond)
+	now := coretesting.NonZeroTime().Truncate(time.Millisecond)
 
 	s0 := s.State
 	startingLogsS0 := 10
@@ -244,7 +244,7 @@ func (s *LogsSuite) TestPruneLogsBySize(c *gc.C) {
 	s.generateLogs(c, s2, now, startingLogsS2)
 
 	// Prune logs collection back to 1 MiB.
-	tsNoPrune := time.Now().Add(-3 * 24 * time.Hour)
+	tsNoPrune := coretesting.NonZeroTime().Add(-3 * 24 * time.Hour)
 	err := state.PruneLogs(s.State, tsNoPrune, 1)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -320,7 +320,7 @@ func (s *LogTailerSuite) SetUpTest(c *gc.C) {
 
 func (s *LogTailerSuite) TestTimeFiltering(c *gc.C) {
 	// Add 10 logs that shouldn't be returned.
-	threshT := time.Now()
+	threshT := coretesting.NonZeroTime()
 	s.writeLogsT(c,
 		threshT.Add(-5*time.Second), threshT.Add(-time.Millisecond), 5,
 		logTemplate{Message: "dont want"},
@@ -540,7 +540,7 @@ func (s *LogTailerSuite) TestNoTail(c *gc.C) {
 	s.writeLogs(c, 2, expected)
 
 	// Write a log entry that's only in the oplog.
-	doc := s.logTemplateToDoc(logTemplate{Message: "dont want"}, time.Now())
+	doc := s.logTemplateToDoc(logTemplate{Message: "dont want"}, coretesting.ZeroTime())
 	err := s.writeLogToOplog(doc)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -766,7 +766,7 @@ type logTemplate struct {
 // the supplied template. As well as writing to the logs collection,
 // entries are also made into the fake oplog collection.
 func (s *LogTailerSuite) writeLogs(c *gc.C, count int, lt logTemplate) {
-	t := time.Now()
+	t := coretesting.ZeroTime()
 	s.writeLogsT(c, t, t, count, lt)
 }
 
@@ -790,9 +790,9 @@ func (s *LogTailerSuite) writeLogsT(c *gc.C, startTime, endTime time.Time, count
 // oplog collection.
 func (s *LogTailerSuite) writeLogToOplog(doc interface{}) error {
 	return s.oplogColl.Insert(bson.D{
-		{"ts", bson.MongoTimestamp(time.Now().Unix() << 32)}, // an approximation which will do
-		{"h", rand.Int63()},                                  // again, a suitable fake
-		{"op", "i"},                                          // this will always be an insert
+		{"ts", bson.MongoTimestamp(coretesting.ZeroTime().Unix() << 32)}, // an approximation which will do
+		{"h", rand.Int63()},                                              // again, a suitable fake
+		{"op", "i"},                                                      // this will always be an insert
 		{"ns", "logs.logs"},
 		{"o", doc},
 	})

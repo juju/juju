@@ -5,7 +5,7 @@ package bakerystorage
 
 import (
 	"errors"
-	"time"
+	"time" // Only used for time types.
 
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -71,7 +71,7 @@ func (s *StorageSuite) TestExpireAt(c *gc.C) {
 	store, err := New(s.config)
 	c.Assert(err, jc.ErrorIsNil)
 
-	expiryTime := time.Now().Add(24 * time.Hour)
+	expiryTime := testing.NonZeroTime().Add(24 * time.Hour)
 	store = store.ExpireAt(expiryTime)
 
 	err = store.Put("foo", "bar")

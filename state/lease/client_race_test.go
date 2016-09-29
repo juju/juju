@@ -4,7 +4,7 @@
 package lease_test
 
 import (
-	"time"
+	"time" // Only used for time types.
 
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn"

@@ -13,17 +13,19 @@ import (
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/status"
+	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
 
 type StatusHistorySuite struct {
-	statetesting.StateSuite
+	// TODO Migrate to StateSuite (with testing clock).
+	statetesting.StateWithWallclockSuite
 }
 
 var _ = gc.Suite(&StatusHistorySuite{})
 
 func (s *StatusHistorySuite) TestPruneStatusHistoryBySize(c *gc.C) {
-	clock := testing.NewClock(time.Now())
+	clock := testing.NewClock(coretesting.NonZeroTime())
 	err := s.State.SetClockForTesting(clock)
 	c.Assert(err, jc.ErrorIsNil)
 	service := s.Factory.MakeApplication(c, nil)

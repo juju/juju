@@ -4,11 +4,10 @@
 package audit_test
 
 import (
-	"time"
-
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2/bson"
@@ -16,7 +15,7 @@ import (
 	"github.com/juju/juju/audit"
 	mongoutils "github.com/juju/juju/mongo/utils"
 	stateaudit "github.com/juju/juju/state/internal/audit"
-	"github.com/juju/utils"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type AuditSuite struct {
@@ -30,7 +29,7 @@ func (*AuditSuite) TestPutAuditEntry_PersistAuditEntry(c *gc.C) {
 	requested := audit.AuditEntry{
 		JujuServerVersion: version.MustParse("1.0.0"),
 		ModelUUID:         utils.MustNewUUID().String(),
-		Timestamp:         time.Now().UTC(),
+		Timestamp:         coretesting.NonZeroTime().UTC(),
 		RemoteAddress:     "8.8.8.8",
 		OriginType:        "user",
 		OriginName:        "bob",
@@ -89,7 +88,7 @@ func (*AuditSuite) TestPutAuditEntry_PropagatesWriteError(c *gc.C) {
 	auditEntry := audit.AuditEntry{
 		JujuServerVersion: version.MustParse("1.0.0"),
 		ModelUUID:         uuid.String(),
-		Timestamp:         time.Now().UTC(),
+		Timestamp:         coretesting.NonZeroTime().UTC(),
 		RemoteAddress:     "8.8.8.8",
 		OriginType:        "user",
 		OriginName:        "bob",

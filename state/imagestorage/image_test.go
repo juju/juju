@@ -10,7 +10,7 @@ import (
 	"io/ioutil"
 	"strings"
 	stdtesting "testing"
-	"time"
+	"time" // Only used for time types.
 
 	"github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
@@ -76,8 +76,11 @@ func (s *ImageSuite) TestAddImageReplaces(c *gc.C) {
 
 func checkMetadata(c *gc.C, fromDb, metadata *imagestorage.Metadata) {
 	c.Assert(fromDb.Created.IsZero(), jc.IsFalse)
+	// We don't want Now() here, we want NonZeroTime().Add(...). Before
+	// that can happen, we need to look at AddImage for its Created
+	// timestamp.
 	c.Assert(fromDb.Created.Before(time.Now()), jc.IsTrue)
-	fromDb.Created = time.Time{}
+	fromDb.Created = testing.ZeroTime()
 	c.Assert(metadata, gc.DeepEquals, fromDb)
 }
 
@@ -406,7 +409,7 @@ func (s *ImageSuite) addMetadataDoc(c *gc.C, kind, series, arch string, size int
 		Size:      size,
 		SHA256:    checksum,
 		Path:      path,
-		Created:   time.Now(),
+		Created:   testing.NonZeroTime(),
 		SourceURL: sourceURL,
 	}
 	err := s.metadataCollection.Insert(&doc)
