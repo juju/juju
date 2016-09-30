@@ -61,17 +61,16 @@ def prepare_temp_metadata(client, source_dir=None):
         yield source_dir
     else:
         with temp_dir() as md_dir:
-            prepare_metadata(client, md_dir, source_dir)
+            prepare_metadata(client, md_dir, None)
             yield md_dir
 
 
-def assess_metadata(bs_manager, args):
+def assess_metadata(bs_manager, local_source):
     client = bs_manager.client
     # This disconnects from the metadata source, as INVALID_URL is different.
     # agent-metadata-url | tools-metadata-url
     client.env.config['agent-metadata-url'] = INVALID_URL
-    with prepare_temp_metadata(client,
-                               args.local_metadata_source) as metadata_dir:
+    with prepare_temp_metadata(client, local_source) as metadata_dir:
         log.info('Metadata written to: {}'.format(metadata_dir))
         with bs_manager.top_context() as machines:
             with bs_manager.bootstrap_context(machines):
@@ -89,7 +88,7 @@ def assess_bootstrap(args):
     if 'base' == args.part:
         assess_base_bootstrap(bs_manager)
     elif 'metadata' == args.part:
-        assess_metadata(bs_manager, args)
+        assess_metadata(bs_manager, args.local_metadata_source)
 
 
 def parse_args(argv=None):
