@@ -127,6 +127,7 @@ func (s *stubConnector) connectToSource(remote Remote) (remoteClient, error) {
 }
 
 func (s *imageSuite) TestEnsureImageExistsAlreadyPresent(c *gc.C) {
+	connector := MakeConnector(s.Stub, s.remoteWithTrusty)
 	raw := &stubClient{
 		stub: s.Stub,
 		Aliases: map[string]string{
@@ -135,8 +136,9 @@ func (s *imageSuite) TestEnsureImageExistsAlreadyPresent(c *gc.C) {
 	}
 	client := &imageClient{
 		raw: raw,
+		connectToSource: connector.connectToSource,
 	}
-	err := client.EnsureImageExists("trusty", nil, nil)
+	err := client.EnsureImageExists("trusty", []Remote{s.remoteWithTrusty.AsRemote()}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
