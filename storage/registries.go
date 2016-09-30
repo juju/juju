@@ -15,12 +15,16 @@ import (
 type ChainedProviderRegistry []ProviderRegistry
 
 // StorageProviderTypes implements ProviderRegistry.
-func (r ChainedProviderRegistry) StorageProviderTypes() []ProviderType {
+func (r ChainedProviderRegistry) StorageProviderTypes() ([]ProviderType, error) {
 	var result []ProviderType
 	for _, r := range r {
-		result = append(result, r.StorageProviderTypes()...)
+		types, err := r.StorageProviderTypes()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		result = append(result, types...)
 	}
-	return result
+	return result, nil
 }
 
 // StorageProvider implements ProviderRegistry.
@@ -46,7 +50,7 @@ type StaticProviderRegistry struct {
 }
 
 // StorageProviderTypes implements ProviderRegistry.
-func (r StaticProviderRegistry) StorageProviderTypes() []ProviderType {
+func (r StaticProviderRegistry) StorageProviderTypes() ([]ProviderType, error) {
 	typeStrings := make([]string, 0, len(r.Providers))
 	for t := range r.Providers {
 		typeStrings = append(typeStrings, string(t))
@@ -56,7 +60,7 @@ func (r StaticProviderRegistry) StorageProviderTypes() []ProviderType {
 	for i, s := range typeStrings {
 		types[i] = ProviderType(s)
 	}
-	return types
+	return types, nil
 }
 
 // StorageProvider implements ProviderRegistry.

@@ -34,8 +34,8 @@ const (
 )
 
 // StorageProviderTypes implements storage.ProviderRegistry.
-func (*maasEnviron) StorageProviderTypes() []storage.ProviderType {
-	return []storage.ProviderType{maasStorageProviderType}
+func (*maasEnviron) StorageProviderTypes() ([]storage.ProviderType, error) {
+	return []storage.ProviderType{maasStorageProviderType}, nil
 }
 
 // StorageProvider implements storage.ProviderRegistry.

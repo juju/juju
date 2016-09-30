@@ -27,7 +27,11 @@ const (
 type ProviderRegistry interface {
 	// StorageProviderTypes returns the storage provider types
 	// contained within this registry.
-	StorageProviderTypes() []ProviderType
+	//
+	// Determining the supported storage providers may be dynamic.
+	// Multiple calls for the same registry must return consistent
+	// results.
+	StorageProviderTypes() ([]ProviderType, error)
 
 	// StorageProvider returns the storage provider with the given
 	// provider type. StorageProvider must return an errors satisfying

@@ -258,7 +258,10 @@ func (a *API) listPools(filter params.StoragePoolFilter) ([]params.StoragePool, 
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	providers := a.registry.StorageProviderTypes()
+	providers, err := a.registry.StorageProviderTypes()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	matches := buildFilter(filter)
 	results := append(
 		filterPools(pools, matches),

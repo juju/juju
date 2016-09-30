@@ -86,7 +86,7 @@ func (env *mockEnviron) GetToolsSources() ([]simplestreams.DataSource, error) {
 	return []simplestreams.DataSource{datasource}, nil
 }
 
-func (env *mockEnviron) StorageProviderTypes() []jujustorage.ProviderType {
+func (env *mockEnviron) StorageProviderTypes() ([]jujustorage.ProviderType, error) {
 	return env.storageProviders.StorageProviderTypes()
 }
 

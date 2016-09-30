@@ -504,15 +504,28 @@ func (ma *mockAdapter) ListVolumeAttachments(serverId string) ([]nova.VolumeAtta
 }
 
 type testEndpointResolver struct {
+	authenticated   bool
 	regionEndpoints map[string]identity.ServiceURLs
 }
 
-func (r testEndpointResolver) EndpointsForRegion(region string) identity.ServiceURLs {
+func (r *testEndpointResolver) IsAuthenticated() bool {
+	return r.authenticated
+}
+
+func (r *testEndpointResolver) Authenticate() error {
+	r.authenticated = true
+	return nil
+}
+
+func (r *testEndpointResolver) EndpointsForRegion(region string) identity.ServiceURLs {
+	if !r.authenticated {
+		return identity.ServiceURLs{}
+	}
 	return r.regionEndpoints[region]
 }
 
 func (s *cinderVolumeSourceSuite) TestGetVolumeEndpointVolume(c *gc.C) {
-	client := testEndpointResolver{regionEndpoints: map[string]identity.ServiceURLs{
+	client := &testEndpointResolver{regionEndpoints: map[string]identity.ServiceURLs{
 		"west": map[string]string{"volume": "http://cinder.testing/v1"},
 	}}
 	url, err := openstack.GetVolumeEndpointURL(client, "west")
@@ -521,7 +534,7 @@ func (s *cinderVolumeSourceSuite) TestGetVolumeEndpointVolume(c *gc.C) {
 }
 
 func (s *cinderVolumeSourceSuite) TestGetVolumeEndpointVolumeV2(c *gc.C) {
-	client := testEndpointResolver{regionEndpoints: map[string]identity.ServiceURLs{
+	client := &testEndpointResolver{regionEndpoints: map[string]identity.ServiceURLs{
 		"west": map[string]string{"volumev2": "http://cinder.testing/v2"},
 	}}
 	url, err := openstack.GetVolumeEndpointURL(client, "west")
@@ -530,7 +543,7 @@ func (s *cinderVolumeSourceSuite) TestGetVolumeEndpointVolumeV2(c *gc.C) {
 }
 
 func (s *cinderVolumeSourceSuite) TestGetVolumeEndpointPreferV2(c *gc.C) {
-	client := testEndpointResolver{regionEndpoints: map[string]identity.ServiceURLs{
+	client := &testEndpointResolver{regionEndpoints: map[string]identity.ServiceURLs{
 		"south": map[string]string{
 			"volume":   "http://cinder.testing/v1",
 			"volumev2": "http://cinder.testing/v2",
@@ -542,7 +555,7 @@ func (s *cinderVolumeSourceSuite) TestGetVolumeEndpointPreferV2(c *gc.C) {
 }
 
 func (s *cinderVolumeSourceSuite) TestGetVolumeEndpointMissing(c *gc.C) {
-	client := testEndpointResolver{}
+	client := &testEndpointResolver{}
 	url, err := openstack.GetVolumeEndpointURL(client, "east")
 	c.Assert(err, gc.ErrorMatches, `endpoint "volume" in region "east" not found`)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
@@ -550,7 +563,7 @@ func (s *cinderVolumeSourceSuite) TestGetVolumeEndpointMissing(c *gc.C) {
 }
 
 func (s *cinderVolumeSourceSuite) TestGetVolumeEndpointBadURL(c *gc.C) {
-	client := testEndpointResolver{regionEndpoints: map[string]identity.ServiceURLs{
+	client := &testEndpointResolver{regionEndpoints: map[string]identity.ServiceURLs{
 		"north": map[string]string{"volumev2": "some %4"},
 	}}
 	url, err := openstack.GetVolumeEndpointURL(client, "north")

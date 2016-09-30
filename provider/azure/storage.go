@@ -44,8 +44,8 @@ const (
 )
 
 // StorageProviderTypes implements storage.ProviderRegistry.
-func (env *azureEnviron) StorageProviderTypes() []storage.ProviderType {
-	return []storage.ProviderType{azureStorageProviderType}
+func (env *azureEnviron) StorageProviderTypes() ([]storage.ProviderType, error) {
+	return []storage.ProviderType{azureStorageProviderType}, nil
 }
 
 // StorageProvider implements storage.ProviderRegistry.

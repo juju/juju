@@ -80,6 +80,7 @@ func (p EnvironProvider) Open(args environs.OpenParams) (environs.Environ, error
 
 	e := &Environ{
 		name:  args.Config.Name(),
+		uuid:  args.Config.UUID(),
 		cloud: args.Cloud,
 	}
 	e.firewaller = p.FirewallerFactory.GetFirewaller(e)
@@ -148,6 +149,7 @@ func (p EnvironProvider) newConfig(cfg *config.Config) (*environConfig, error) {
 
 type Environ struct {
 	name  string
+	uuid  string
 	cloud environs.CloudSpec
 
 	ecfgMutex    sync.Mutex
@@ -484,7 +486,7 @@ func (e *Environ) PrecheckInstance(series string, cons constraints.Value, placem
 // PrepareForBootstrap is part of the Environ interface.
 func (e *Environ) PrepareForBootstrap(ctx environs.BootstrapContext) error {
 	// Verify credentials.
-	if err := authenticateClient(e); err != nil {
+	if err := authenticateClient(e.client); err != nil {
 		return err
 	}
 	return nil
@@ -493,7 +495,7 @@ func (e *Environ) PrepareForBootstrap(ctx environs.BootstrapContext) error {
 // Create is part of the Environ interface.
 func (e *Environ) Create(environs.CreateParams) error {
 	// Verify credentials.
-	if err := authenticateClient(e); err != nil {
+	if err := authenticateClient(e.client); err != nil {
 		return err
 	}
 	// TODO(axw) 2016-08-04 #1609643
@@ -505,7 +507,7 @@ func (e *Environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 	// The client's authentication may have been reset when finding tools if the agent-version
 	// attribute was updated so we need to re-authenticate. This will be a no-op if already authenticated.
 	// An authenticated client is needed for the URL() call below.
-	if err := authenticateClient(e); err != nil {
+	if err := authenticateClient(e.client); err != nil {
 		return nil, err
 	}
 	return common.Bootstrap(ctx, e, args)
@@ -616,8 +618,12 @@ func authClient(spec environs.CloudSpec, ecfg *environConfig) (client.Authentica
 	return client, nil
 }
 
-var authenticateClient = func(e *Environ) error {
-	err := e.client.Authenticate()
+type authenticator interface {
+	Authenticate() error
+}
+
+var authenticateClient = func(auth authenticator) error {
+	err := auth.Authenticate()
 	if err != nil {
 		// Log the error in case there are any useful hints,
 		// but provide a readable and helpful error message
@@ -649,15 +655,6 @@ func (e *Environ) SetConfig(cfg *config.Config) error {
 	}
 	e.client = client
 	e.novaUnlocked = nova.New(e.client)
-
-	if url, err := getVolumeEndpointURL(client, e.cloud.Region); err != nil {
-		if !errors.IsNotFound(err) {
-			return errors.Trace(err)
-		}
-	} else {
-		e.volumeURL = url
-	}
-
 	return nil
 }
 
@@ -706,7 +703,7 @@ func (e *Environ) getKeystoneDataSource(mu *sync.Mutex, datasource *simplestream
 		return *datasource, nil
 	}
 	if !e.client.IsAuthenticated() {
-		if err := authenticateClient(e); err != nil {
+		if err := authenticateClient(e.client); err != nil {
 			return nil, err
 		}
 	}

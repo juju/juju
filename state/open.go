@@ -410,7 +410,11 @@ func (st *State) modelSetupOps(controllerUUID string, args ModelArgs, inherited 
 func (st *State) createDefaultStoragePoolsOps(registry storage.ProviderRegistry) ([]txn.Op, error) {
 	m := poolmanager.MemSettings{make(map[string]map[string]interface{})}
 	pm := poolmanager.New(m, registry)
-	for _, providerType := range registry.StorageProviderTypes() {
+	providerTypes, err := registry.StorageProviderTypes()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	for _, providerType := range providerTypes {
 		p, err := registry.StorageProvider(providerType)
 		if err != nil {
 			return nil, errors.Trace(err)

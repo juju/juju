@@ -10,8 +10,8 @@ import (
 )
 
 // StorageProviderTypes implements storage.ProviderRegistry.
-func (*manualEnviron) StorageProviderTypes() []storage.ProviderType {
-	return nil
+func (*manualEnviron) StorageProviderTypes() ([]storage.ProviderType, error) {
+	return nil, nil
 }
 
 // StorageProvider implements storage.ProviderRegistry.

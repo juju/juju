@@ -115,8 +115,8 @@ const (
 var deviceInUseRegexp = regexp.MustCompile(".*Attachment point .* is already in use")
 
 // StorageProviderTypes implements storage.ProviderRegistry.
-func (env *environ) StorageProviderTypes() []storage.ProviderType {
-	return []storage.ProviderType{EBS_ProviderType}
+func (env *environ) StorageProviderTypes() ([]storage.ProviderType, error) {
+	return []storage.ProviderType{EBS_ProviderType}, nil
 }
 
 // StorageProvider implements storage.ProviderRegistry.

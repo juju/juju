@@ -116,7 +116,7 @@ func (t configTest) check(c *gc.C) {
 
 func (s *ConfigSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.PatchValue(&authenticateClient, func(*Environ) error { return nil })
+	s.PatchValue(&authenticateClient, func(authenticator) error { return nil })
 }
 
 var configTests = []configTest{

@@ -205,9 +205,9 @@ func (e *fakeEnviron) PrecheckInstance(series string, cons constraints.Value, pl
 	return nil
 }
 
-func (e *fakeEnviron) StorageProviderTypes() []storage.ProviderType {
+func (e *fakeEnviron) StorageProviderTypes() ([]storage.ProviderType, error) {
 	e.Push("StorageProviderTypes")
-	return nil
+	return nil, nil
 }
 
 func (e *fakeEnviron) StorageProvider(t storage.ProviderType) (storage.Provider, error) {
