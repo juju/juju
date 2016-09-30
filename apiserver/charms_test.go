@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"mime"
 	"net/http"
 	"net/url"
 	"os"
@@ -20,6 +21,7 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
+	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/storage"
@@ -458,6 +460,60 @@ func (s *charmsSuite) TestGetReturnsFileContents(c *gc.C) {
 		uri := s.charmsURI(c, "?url=local:quantal/dummy-1&file="+t.file)
 		resp := s.authRequest(c, httpRequestParams{method: "GET", url: uri})
 		s.assertGetFileResponse(c, resp, t.response, "text/plain; charset=utf-8")
+	}
+}
+
+func (s *charmsSuite) TestGetCharmIcon(c *gc.C) {
+	// Upload the local charms.
+	ch := testcharms.Repo.CharmArchive(c.MkDir(), "mysql")
+	s.uploadRequest(c, s.charmsURI(c, "?series=quantal"), "application/zip", ch.Path)
+	ch = testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
+	s.uploadRequest(c, s.charmsURI(c, "?series=quantal"), "application/zip", ch.Path)
+
+	// Prepare the tests.
+	svgMimeType := mime.TypeByExtension(".svg")
+	iconPath := filepath.Join(testcharms.Repo.CharmDirPath("mysql"), "icon.svg")
+	icon, err := ioutil.ReadFile(iconPath)
+	c.Assert(err, jc.ErrorIsNil)
+	tests := []struct {
+		about      string
+		query      string
+		expectType string
+		expectBody string
+	}{{
+		about:      "icon found",
+		query:      "?url=local:quantal/mysql-1&file=icon.svg",
+		expectBody: string(icon),
+	}, {
+		about: "icon not found",
+		query: "?url=local:quantal/dummy-1&file=icon.svg",
+	}, {
+		about:      "default icon requested: icon found",
+		query:      "?url=local:quantal/mysql-1&icon=1",
+		expectBody: string(icon),
+	}, {
+		about:      "default icon requested: icon not found",
+		query:      "?url=local:quantal/dummy-1&icon=1",
+		expectBody: apiserver.DefaultIcon,
+	}, {
+		about:      "default icon request ignored",
+		query:      "?url=local:quantal/mysql-1&file=revision&icon=1",
+		expectType: "text/plain; charset=utf-8",
+		expectBody: "1",
+	}}
+
+	for i, test := range tests {
+		c.Logf("\ntest %d: %s", i, test.about)
+		uri := s.charmsURI(c, test.query)
+		resp := s.authRequest(c, httpRequestParams{method: "GET", url: uri})
+		if test.expectBody == "" {
+			s.assertErrorResponse(c, resp, http.StatusNotFound, "charm file not found")
+			continue
+		}
+		if test.expectType == "" {
+			test.expectType = svgMimeType
+		}
+		s.assertGetFileResponse(c, resp, test.expectBody, test.expectType)
 	}
 }
 
