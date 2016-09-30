@@ -24,17 +24,6 @@ log = logging.getLogger("assess_bootstrap")
 INVALID_URL = 'example.com/invalid'
 
 
-@contextmanager
-def thin_booted_context(bs_manager, **kwargs):
-    """Minimal boote_context, for checking bootstrap."""
-    with bs_manager.top_context() as machines:
-        with bs_manager.bootstrap_context(machines):
-            tear_down(bs_manager.client, bs_manager.jes_enabled)
-            bs_manager.client.bootstrap(**kwargs)
-        with bs_manager.runtime_context(machines):
-            yield
-
-
 def assess_base_bootstrap(bs_manager):
     client = bs_manager.client
     with bs_manager.top_context() as machines:
@@ -94,8 +83,9 @@ def assess_bootstrap(args):
 def parse_args(argv=None):
     """Parse all arguments.
 
-    In addition to the basic testing arguments this script also accepts
-    --local-metadata-source. If given it should be a directory that contains
+    In addition to the basic testing arguments this script also accepts:
+    part: The first argument, which is the name of test part to run.
+    --local-metadata-source: If given it should be a directory that contains
     the agent to use in the test. This skips downloading them."""
     parser = ArgumentParser(description='Test the bootstrap command.')
     parser.add_argument('part', choices=['base', 'metadata'],
