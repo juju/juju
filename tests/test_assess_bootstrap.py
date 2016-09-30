@@ -123,6 +123,16 @@ def assess_bootstrap_cxt(juju_version=None):
         yield
 
 
+@contextmanager
+def extended_bootstrap_cxt(juju_version=None):
+    """Extention to assess_bootstrap_cxt if you are using runtime_context."""
+    with assess_bootstrap_cxt(juju_version):
+        gmdn_cxt = patch('deploy_stack.get_machine_dns_name')
+        delkh_cxt = patch('deploy_stack.dump_env_logs_known_hosts')
+        with gmdn_cxt, delkh_cxt:
+            yield
+
+
 class TestAssessBootstrap(FakeHomeTestCase):
 
     @contextmanager
@@ -158,12 +168,10 @@ class TestAssessBaseBootstrap(FakeHomeTestCase):
         def check(myself):
             self.assertEqual(myself.env.config,
                              {'name': 'bar', 'type': 'foo'})
-        with assess_bootstrap_cxt():
+        with extended_bootstrap_cxt():
             with patch('jujupy.EnvJujuClient.bootstrap', side_effect=check,
                        autospec=True):
-                with patch('deploy_stack.get_machine_dns_name'):
-                    with patch('deploy_stack.dump_env_logs_known_hosts'):
-                        assess_bootstrap(parse_args(['base', 'bar', '/foo']))
+                assess_bootstrap(parse_args(['base', 'bar', '/foo']))
         self.assertRegexpMatches(
             self.log_stream.getvalue(),
             r"(?m)^INFO Environment successfully bootstrapped.$")
@@ -174,28 +182,19 @@ class TestAssessBaseBootstrap(FakeHomeTestCase):
                 myself.env.config, {
                     'name': 'qux', 'type': 'foo', 'region': 'baz'})
             self.assertEqual(myself.env.environment, 'qux')
-        with assess_bootstrap_cxt():
+        with extended_bootstrap_cxt():
             with patch('jujupy.EnvJujuClient.bootstrap', side_effect=check,
                        autospec=True):
-                with patch('deploy_stack.get_machine_dns_name'):
-                    with patch('deploy_stack.dump_env_logs_known_hosts'):
-                        args = parse_args(['base', 'bar', '/foo'])
-                        args.region = 'baz'
-                        args.temp_env_name = 'qux'
-                        assess_bootstrap(args)
+                args = parse_args(['base', 'bar', '/foo'])
+                args.region = 'baz'
+                args.temp_env_name = 'qux'
+                assess_bootstrap(args)
         self.assertRegexpMatches(
             self.log_stream.getvalue(),
             r"(?m)^INFO Environment successfully bootstrapped.$")
 
 
 class TestAssessMetadata(FakeHomeTestCase):
-
-    @contextmanager
-    def extend_bootstrap_cxt(self, juju_version=None):
-        with assess_bootstrap_cxt(juju_version):
-            with patch('deploy_stack.get_machine_dns_name'):
-                with patch('deploy_stack.dump_env_logs_known_hosts'):
-                    yield
 
     target_dict = {'name': 'qux', 'type': 'foo',
                    'agent-metadata-url': INVALID_URL}
@@ -209,7 +208,7 @@ class TestAssessMetadata(FakeHomeTestCase):
         def check(myself, metadata_source=None):
             self.assertEqual(self.target_dict, myself.env.config)
             self.assertIsNotNone(metadata_source)
-        with self.extend_bootstrap_cxt('2.0-rc1'):
+        with extended_bootstrap_cxt('2.0-rc1'):
             with patch('jujupy.EnvJujuClient.bootstrap', side_effect=check,
                        autospec=True):
                 args = parse_args(['metadata', 'bar', '/foo'])
@@ -224,7 +223,7 @@ class TestAssessMetadata(FakeHomeTestCase):
         def check(myself, metadata_source=None):
             self.assertEqual(self.target_dict, myself.env.config)
             self.assertEqual('agents', metadata_source)
-        with self.extend_bootstrap_cxt('2.0-rc1'):
+        with extended_bootstrap_cxt('2.0-rc1'):
             with patch('jujupy.EnvJujuClient.bootstrap', side_effect=check,
                        autospec=True):
                 args = parse_args(['metadata', 'bar', '/foo'])
