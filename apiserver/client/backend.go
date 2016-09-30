@@ -32,40 +32,41 @@ type Unit interface {
 // Backend contains the state.State methods used in this package,
 // allowing stubs to be created for testing.
 type Backend interface {
-	FindEntity(names.Tag) (state.Entity, error)
-	Unit(string) (Unit, error)
-	Application(string) (*state.Application, error)
-	Machine(string) (*state.Machine, error)
-	AllMachines() ([]*state.Machine, error)
-	AllApplications() ([]*state.Application, error)
-	AllRelations() ([]*state.Relation, error)
-	AddOneMachine(state.MachineTemplate) (*state.Machine, error)
+	AbortCurrentUpgrade() error
+	AddControllerUser(state.UserAccessSpec) (permission.UserAccess, error)
 	AddMachineInsideMachine(state.MachineTemplate, string, instance.ContainerType) (*state.Machine, error)
 	AddMachineInsideNewMachine(template, parentTemplate state.MachineTemplate, containerType instance.ContainerType) (*state.Machine, error)
-	ModelConstraints() (constraints.Value, error)
+	AddModelUser(string, state.UserAccessSpec) (permission.UserAccess, error)
+	AddOneMachine(state.MachineTemplate) (*state.Machine, error)
+	AddRelation(...state.Endpoint) (*state.Relation, error)
+	AllApplications() ([]*state.Application, error)
+	AllMachines() ([]*state.Machine, error)
+	AllRelations() ([]*state.Relation, error)
+	Annotations(state.GlobalEntity) (map[string]string, error)
+	APIHostPorts() ([][]network.HostPort, error)
+	Application(string) (*state.Application, error)
+	ApplicationLeaders() (map[string]string, error)
+	Charm(*charm.URL) (*state.Charm, error)
+	EndpointsRelation(...state.Endpoint) (*state.Relation, error)
+	FindEntity(names.Tag) (state.Entity, error)
+	ForModel(tag names.ModelTag) (*state.State, error)
+	InferEndpoints(...string) ([]state.Endpoint, error)
+	LatestMigration() (state.ModelMigration, error)
+	LatestPlaceholderCharm(*charm.URL) (*state.Charm, error)
+	Machine(string) (*state.Machine, error)
+	Model() (*state.Model, error)
 	ModelConfig() (*config.Config, error)
 	ModelConfigValues() (config.ConfigValues, error)
-	UpdateModelConfig(map[string]interface{}, []string, state.ValidateConfigFunc) error
-	SetModelConstraints(constraints.Value) error
-	ModelUUID() string
+	ModelConstraints() (constraints.Value, error)
 	ModelTag() names.ModelTag
-	Model() (*state.Model, error)
-	ForModel(tag names.ModelTag) (*state.State, error)
-	SetModelAgentVersion(version.Number) error
-	SetAnnotations(state.GlobalEntity, map[string]string) error
-	Annotations(state.GlobalEntity) (map[string]string, error)
-	InferEndpoints(...string) ([]state.Endpoint, error)
-	EndpointsRelation(...state.Endpoint) (*state.Relation, error)
-	Charm(*charm.URL) (*state.Charm, error)
-	LatestPlaceholderCharm(*charm.URL) (*state.Charm, error)
-	AddRelation(...state.Endpoint) (*state.Relation, error)
-	AddModelUser(string, state.UserAccessSpec) (permission.UserAccess, error)
-	AddControllerUser(state.UserAccessSpec) (permission.UserAccess, error)
+	ModelUUID() string
 	RemoveUserAccess(names.UserTag, names.Tag) error
+	SetAnnotations(state.GlobalEntity, map[string]string) error
+	SetModelAgentVersion(version.Number) error
+	SetModelConstraints(constraints.Value) error
+	Unit(string) (Unit, error)
+	UpdateModelConfig(map[string]interface{}, []string, state.ValidateConfigFunc) error
 	Watch() *state.Multiwatcher
-	AbortCurrentUpgrade() error
-	APIHostPorts() ([][]network.HostPort, error)
-	LatestMigration() (state.ModelMigration, error)
 }
 
 func NewStateBackend(st *state.State) Backend {

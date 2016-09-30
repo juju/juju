@@ -128,6 +128,20 @@ func (s *LeadershipSuite) TestHackLeadershipUnblocksClaimer(c *gc.C) {
 	}
 }
 
+func (s *LeadershipSuite) TestApplicationLeaders(c *gc.C) {
+	err := s.claimer.ClaimLeadership("blah", "blah/0", time.Minute)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.claimer.ClaimLeadership("application", "application/1", time.Minute)
+	c.Assert(err, jc.ErrorIsNil)
+
+	leaders, err := s.State.ApplicationLeaders()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(leaders, jc.DeepEquals, map[string]string{
+		"application": "application/1",
+		"blah":        "blah/0",
+	})
+}
+
 func (s *LeadershipSuite) expire(c *gc.C, applicationname string) {
 	s.clock.Advance(time.Hour)
 	s.Session.Fsync(false)

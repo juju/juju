@@ -89,6 +89,7 @@ type UnitStatus struct {
 	PublicAddress string                `json:"public-address"`
 	Charm         string                `json:"charm"`
 	Subordinates  map[string]UnitStatus `json:"subordinates"`
+	Leader        bool                  `json:"leader,omitempty"`
 }
 
 // RelationStatus holds status info about a relation.

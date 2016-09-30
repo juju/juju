@@ -114,6 +114,7 @@ type unitStatus struct {
 	JujuStatusInfo     statusInfoContents `json:"juju-status,omitempty" yaml:"juju-status"`
 	MeterStatus        *meterStatus       `json:"meter-status,omitempty" yaml:"meter-status,omitempty"`
 
+	Leader        bool                  `json:"leader,omitempty" yaml:"leader,omitempty"`
 	Charm         string                `json:"upgrading-from,omitempty" yaml:"upgrading-from,omitempty"`
 	Machine       string                `json:"machine,omitempty" yaml:"machine,omitempty"`
 	OpenedPorts   []string              `json:"open-ports,omitempty" yaml:"open-ports,omitempty"`

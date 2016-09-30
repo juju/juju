@@ -57,6 +57,19 @@ func (s *statusSuite) TestFullStatus(c *gc.C) {
 	c.Check(resultMachine.Series, gc.Equals, machine.Series())
 }
 
+func (s *statusSuite) TestFullStatusUnitLeadership(c *gc.C) {
+	u := s.Factory.MakeUnit(c, nil)
+	s.State.LeadershipClaimer().ClaimLeadership(u.ApplicationName(), u.Name(), time.Minute)
+	client := s.APIState.Client()
+	status, err := client.Status(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	app, ok := status.Applications[u.ApplicationName()]
+	c.Assert(ok, jc.IsTrue)
+	unit, ok := app.Units[u.Name()]
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(unit.Leader, jc.IsTrue)
+}
+
 var _ = gc.Suite(&statusUnitTestSuite{})
 
 type statusUnitTestSuite struct {

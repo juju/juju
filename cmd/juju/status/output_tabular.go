@@ -177,6 +177,9 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 		if agentDoing != "" {
 			message = fmt.Sprintf("(%s) %s", agentDoing, message)
 		}
+		if u.Leader {
+			name += "*"
+		}
 		w.Print(indent("", level*2, name))
 		w.PrintStatus(u.WorkloadStatusInfo.Current)
 		w.PrintStatus(u.JujuStatusInfo.Current)

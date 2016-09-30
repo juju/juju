@@ -377,6 +377,21 @@ func (st *State) start(controllerTag names.ControllerTag) (err error) {
 	return nil
 }
 
+// ApplicationLeaders returns a map of the application name to the
+// unit name that is the current leader.
+func (st *State) ApplicationLeaders() (map[string]string, error) {
+	client, err := st.getLeadershipLeaseClient()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	leases := client.Leases()
+	result := make(map[string]string, len(leases))
+	for key, value := range leases {
+		result[key] = value.Holder
+	}
+	return result, nil
+}
+
 func (st *State) getLeadershipLeaseClient() (lease.Client, error) {
 	client, err := statelease.NewClient(statelease.ClientConfig{
 		Id:         st.leaseClientId,

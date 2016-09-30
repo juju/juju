@@ -172,10 +172,17 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 	if context.services, context.units, context.latestCharms, err =
 		fetchAllApplicationsAndUnits(c.api.stateAccessor, len(args.Patterns) <= 0); err != nil {
 		return noStatus, errors.Annotate(err, "could not fetch services and units")
-	} else if context.machines, err = fetchMachines(c.api.stateAccessor, nil); err != nil {
+	}
+	if context.machines, err = fetchMachines(c.api.stateAccessor, nil); err != nil {
 		return noStatus, errors.Annotate(err, "could not fetch machines")
-	} else if context.relations, err = fetchRelations(c.api.stateAccessor); err != nil {
+	}
+	if context.relations, err = fetchRelations(c.api.stateAccessor); err != nil {
 		return noStatus, errors.Annotate(err, "could not fetch relations")
+	}
+	if len(context.services) > 0 {
+		if context.leaders, err = c.api.stateAccessor.ApplicationLeaders(); err != nil {
+			return noStatus, errors.Annotate(err, " could not fetch leaders")
+		}
 	}
 
 	logger.Debugf("Applications: %v", context.services)
@@ -349,6 +356,7 @@ type statusContext struct {
 	relations    map[string][]*state.Relation
 	units        map[string]map[string]*state.Unit
 	latestCharms map[charm.URL]*state.Charm
+	leaders      map[string]string
 }
 
 // fetchMachines returns a map from top level machine id to machines, where machines[0] is the host
@@ -745,6 +753,9 @@ func (context *statusContext) processUnit(unit *state.Unit, serviceCharm string)
 				result.Subordinates[name] = context.processUnit(subUnit, serviceCharm)
 			}
 		}
+	}
+	if leader := context.leaders[unit.ApplicationName()]; leader == unit.Name() {
+		result.Leader = true
 	}
 	return result
 }
