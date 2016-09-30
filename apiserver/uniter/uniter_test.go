@@ -772,9 +772,9 @@ func (s *uniterSuite) TestSetCharmURL(c *gc.C) {
 	// Verify the charm URL was set.
 	err = s.wordpressUnit.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	charmUrl, needsUpgrade := s.wordpressUnit.CharmURL()
-	c.Assert(charmUrl, gc.NotNil)
-	c.Assert(charmUrl.String(), gc.Equals, s.wpCharm.String())
+	charmURL, needsUpgrade := s.wordpressUnit.CharmURL()
+	c.Assert(charmURL, gc.NotNil)
+	c.Assert(charmURL.String(), gc.Equals, s.wpCharm.String())
 	c.Assert(needsUpgrade, jc.IsTrue)
 }
 

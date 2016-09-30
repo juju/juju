@@ -629,7 +629,7 @@ func (st *State) LatestPlaceholderCharm(curl *charm.URL) (*Charm, error) {
 // in state for the charm.
 //
 // The url's schema must be "local" and it must include a revision.
-func (st *State) PrepareLocalCharmUpload(curl *charm.URL) (chosenUrl *charm.URL, err error) {
+func (st *State) PrepareLocalCharmUpload(curl *charm.URL) (chosenURL *charm.URL, err error) {
 	// Perform a few sanity checks first.
 	if curl.Schema != "local" {
 		return nil, errors.Errorf("expected charm URL with local schema, got %q", curl)
@@ -666,11 +666,11 @@ func (st *State) PrepareLocalCharmUpload(curl *charm.URL) (chosenUrl *charm.URL,
 			// More recent revision exists in state, pick the next.
 			chosenRevision = maxRevision + 1
 		}
-		chosenUrl = curl.WithRevision(chosenRevision)
-		return insertPendingCharmOps(st, chosenUrl)
+		chosenURL = curl.WithRevision(chosenRevision)
+		return insertPendingCharmOps(st, chosenURL)
 	}
 	if err = st.run(buildTxn); err == nil {
-		return chosenUrl, nil
+		return chosenURL, nil
 	}
 	return nil, errors.Trace(err)
 }

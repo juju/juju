@@ -14,12 +14,12 @@ import (
 )
 
 // ManifoldConfig describes the resources used by a unitassigner worker.
-type ManifoldConfig engine.ApiManifoldConfig
+type ManifoldConfig engine.APIManifoldConfig
 
 // Manifold returns a Manifold that runs a unitassigner worker.
 func Manifold(config ManifoldConfig) dependency.Manifold {
-	return engine.ApiManifold(
-		engine.ApiManifoldConfig(config),
+	return engine.APIManifold(
+		engine.APIManifoldConfig(config),
 		manifoldStart,
 	)
 }

@@ -88,20 +88,20 @@ func resolveCharm(
 		}
 	}
 
-	resultUrl, channel, supportedSeries, err := resolveWithChannel(url)
+	resultURL, channel, supportedSeries, err := resolveWithChannel(url)
 	if defaultedSeries && errors.Cause(err) == csparams.ErrNotFound {
 		// we tried to use the model's default the series, but the store said it doesn't exist.
 		// retry without the defaulted series, to take what we can get.
 		url.Series = ""
-		resultUrl, channel, supportedSeries, err = resolveWithChannel(url)
+		resultURL, channel, supportedSeries, err = resolveWithChannel(url)
 	}
 	if err != nil {
 		return nil, csparams.NoChannel, nil, errors.Trace(err)
 	}
-	if resultUrl.Series != "" && len(supportedSeries) == 0 {
-		supportedSeries = []string{resultUrl.Series}
+	if resultURL.Series != "" && len(supportedSeries) == 0 {
+		supportedSeries = []string{resultURL.Series}
 	}
-	return resultUrl, channel, supportedSeries, nil
+	return resultURL, channel, supportedSeries, nil
 }
 
 // TODO(ericsnow) Return charmstore.CharmID from addCharmFromURL()?

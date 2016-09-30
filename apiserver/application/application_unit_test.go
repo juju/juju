@@ -68,7 +68,7 @@ func (s *ApplicationSuite) TestSetCharmStorageConstraints(c *gc.C) {
 	}
 	err := s.api.SetCharm(params.ApplicationSetCharm{
 		ApplicationName: "postgresql",
-		CharmUrl:        "cs:postgresql",
+		CharmURL:        "cs:postgresql",
 		StorageConstraints: map[string]params.StorageConstraints{
 			"a": {},
 			"b": {Pool: "radiant"},
@@ -93,7 +93,7 @@ func (s *ApplicationSuite) TestSetCharmStorageConstraints(c *gc.C) {
 func (s *ApplicationSuite) TestSetCharmConfigSettings(c *gc.C) {
 	err := s.api.SetCharm(params.ApplicationSetCharm{
 		ApplicationName: "postgresql",
-		CharmUrl:        "cs:postgresql",
+		CharmURL:        "cs:postgresql",
 		ConfigSettings:  map[string]string{"stringOption": "value"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -109,7 +109,7 @@ func (s *ApplicationSuite) TestSetCharmConfigSettings(c *gc.C) {
 func (s *ApplicationSuite) TestSetCharmConfigSettingsYAML(c *gc.C) {
 	err := s.api.SetCharm(params.ApplicationSetCharm{
 		ApplicationName: "postgresql",
-		CharmUrl:        "cs:postgresql",
+		CharmURL:        "cs:postgresql",
 		ConfigSettingsYAML: `
 postgresql:
   stringOption: value

@@ -31,7 +31,7 @@ type liveTestData struct {
 	validCloudSpec simplestreams.CloudSpec
 }
 
-var liveUrls = map[string]liveTestData{
+var liveURLs = map[string]liveTestData{
 	"ec2": {
 		baseURL:        imagemetadata.DefaultUbuntuBaseURL,
 		requireSigned:  true,
@@ -51,8 +51,8 @@ func Test(t *stdtesting.T) {
 		}
 		var ok bool
 		var testData liveTestData
-		if testData, ok = liveUrls[*vendor]; !ok {
-			keys := reflect.ValueOf(liveUrls).MapKeys()
+		if testData, ok = liveURLs[*vendor]; !ok {
+			keys := reflect.ValueOf(liveURLs).MapKeys()
 			t.Fatalf("Unknown vendor %s. Must be one of %s", *vendor, keys)
 		}
 		registerLiveSimpleStreamsTests(testData.baseURL, imagemetadata.NewImageConstraint(simplestreams.LookupParams{

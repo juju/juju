@@ -62,7 +62,7 @@ type BaseSuite struct {
 	Env       *environ
 
 	ServeMux  *http.ServeMux
-	ServerUrl string
+	ServerURL string
 }
 
 func (s *BaseSuite) SetUpTest(c *gc.C) {
@@ -70,7 +70,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 
 	s.PatchValue(&newConnection, newFakeConnection)
 	s.initEnv(c)
-	s.setUpHttpProxy(c)
+	s.setUpHTTPProxy(c)
 	s.FakeMetadataServer()
 }
 
@@ -100,19 +100,19 @@ func (s *BaseSuite) UpdateConfig(c *gc.C, attrs map[string]interface{}) {
 	s.setConfig(c, cfg)
 }
 
-func (s *BaseSuite) setUpHttpProxy(c *gc.C) {
+func (s *BaseSuite) setUpHTTPProxy(c *gc.C) {
 	s.ServeMux = http.NewServeMux()
 	server := httptest.NewServer(s.ServeMux)
-	s.ServerUrl = server.URL
+	s.ServerURL = server.URL
 	cfg, _ := s.Config.Apply(map[string]interface{}{"image-metadata-url": server.URL})
 	s.setConfig(c, cfg)
 }
 
-type fakeApiHandler func(req, res soap.HasFault)
+type fakeAPIHandler func(req, res soap.HasFault)
 type fakePropertiesHandler func(req, res *methods.RetrievePropertiesBody)
 
-type fakeApiCall struct {
-	handler fakeApiHandler
+type fakeAPICall struct {
+	handler fakeAPIHandler
 	method  string
 }
 
@@ -122,7 +122,7 @@ type fakePropertiesCall struct {
 }
 
 type fakeClient struct {
-	handlers         []fakeApiCall
+	handlers         []fakeAPICall
 	propertyHandlers []fakePropertiesCall
 }
 
@@ -152,8 +152,8 @@ func (c *fakeClient) RoundTrip(ctx context.Context, req, res soap.HasFault) erro
 	return nil
 }
 
-func (c *fakeClient) SetProxyHandler(method string, handler fakeApiHandler) {
-	c.handlers = append(c.handlers, fakeApiCall{method: method, handler: handler})
+func (c *fakeClient) SetProxyHandler(method string, handler fakeAPIHandler) {
+	c.handlers = append(c.handlers, fakeAPICall{method: method, handler: handler})
 }
 
 func (c *fakeClient) SetPropertyProxyHandler(obj string, handler fakePropertiesHandler) {
@@ -162,7 +162,7 @@ func (c *fakeClient) SetPropertyProxyHandler(obj string, handler fakePropertiesH
 
 var newFakeConnection = func(url *url.URL) (*govmomi.Client, error) {
 	fakeClient := &fakeClient{
-		handlers:         make([]fakeApiCall, 0, 100),
+		handlers:         make([]fakeAPICall, 0, 100),
 		propertyHandlers: make([]fakePropertiesCall, 0, 100),
 	}
 

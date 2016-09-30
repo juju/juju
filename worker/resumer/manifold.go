@@ -29,7 +29,7 @@ type ManifoldConfig struct {
 	NewWorker     func(Config) (worker.Worker, error)
 }
 
-// newWorker is an engine.AgentApiStartFunc that draws context from the
+// newWorker is an engine.AgentAPIStartFunc that draws context from the
 // ManifoldConfig on which it is defined.
 func (config ManifoldConfig) newWorker(a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
 
@@ -74,11 +74,11 @@ func (config ManifoldConfig) newWorker(a agent.Agent, apiCaller base.APICaller) 
 // Manifold returns a dependency manifold that runs a resumer worker,
 // using the resources named or defined in the supplied config.
 func Manifold(config ManifoldConfig) dependency.Manifold {
-	aaConfig := engine.AgentApiManifoldConfig{
+	aaConfig := engine.AgentAPIManifoldConfig{
 		AgentName:     config.AgentName,
 		APICallerName: config.APICallerName,
 	}
-	return engine.AgentApiManifold(aaConfig, config.newWorker)
+	return engine.AgentAPIManifold(aaConfig, config.newWorker)
 }
 
 // isModelManager returns whether the agent has JobManageModel,

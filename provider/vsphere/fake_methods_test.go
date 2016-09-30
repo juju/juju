@@ -230,8 +230,8 @@ func (s *BaseSuite) FakeAvailabilityZonesWithResourcePool(c *fakeClient, zones .
 	})
 }
 
-func (s *BaseSuite) FakeCreateInstance(c *fakeClient, serverUrl string, checker *gc.C) {
-	s.FakeImportOvf(c, serverUrl, checker)
+func (s *BaseSuite) FakeCreateInstance(c *fakeClient, serverURL string, checker *gc.C) {
+	s.FakeImportOvf(c, serverURL, checker)
 	powerOnTask := types.ManagedObjectReference{}
 	c.SetProxyHandler("PowerOnVM_Task", func(req, res soap.HasFault) {
 		resBody := res.(*methods.PowerOnVM_TaskBody)
@@ -292,7 +292,7 @@ func (s *BaseSuite) FakeCreateInstance(c *fakeClient, serverUrl string, checker 
 	})
 }
 
-func (s *BaseSuite) FakeImportOvf(c *fakeClient, serverUrl string, checker *gc.C) {
+func (s *BaseSuite) FakeImportOvf(c *fakeClient, serverURL string, checker *gc.C) {
 	c.SetPropertyProxyHandler("FakeDatacenter", RetrieveDatacenterProperties)
 	c.SetProxyHandler("CreateImportSpec", func(req, res soap.HasFault) {
 		resBody := res.(*methods.CreateImportSpecBody)
@@ -352,7 +352,7 @@ func (s *BaseSuite) FakeImportOvf(c *fakeClient, serverUrl string, checker *gc.C
 											DeviceUrl: []types.HttpNfcLeaseDeviceUrl{
 												types.HttpNfcLeaseDeviceUrl{
 													ImportKey: "key1",
-													Url:       serverUrl + "/disk-device/",
+													Url:       serverURL + "/disk-device/",
 												},
 											},
 										},

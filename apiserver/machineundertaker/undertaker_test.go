@@ -47,7 +47,7 @@ func (*undertakerSuite) TestRequiresModelManager(c *gc.C) {
 }
 
 func (*undertakerSuite) TestAllMachineRemovalsNoResults(c *gc.C) {
-	_, _, api := makeApi(c, uuid1)
+	_, _, api := makeAPI(c, uuid1)
 	result := api.AllMachineRemovals(makeEntities(tag1))
 	c.Assert(result, gc.DeepEquals, params.EntitiesResults{
 		Results: []params.EntitiesResult{{}}, // So, one empty set of entities.
@@ -55,7 +55,7 @@ func (*undertakerSuite) TestAllMachineRemovalsNoResults(c *gc.C) {
 }
 
 func (*undertakerSuite) TestAllMachineRemovalsError(c *gc.C) {
-	backend, _, api := makeApi(c, uuid1)
+	backend, _, api := makeAPI(c, uuid1)
 	backend.SetErrors(errors.New("I don't want to set the world on fire"))
 	result := api.AllMachineRemovals(makeEntities(tag1))
 	c.Assert(result.Results, gc.HasLen, 1)
@@ -64,7 +64,7 @@ func (*undertakerSuite) TestAllMachineRemovalsError(c *gc.C) {
 }
 
 func (*undertakerSuite) TestAllMachineRemovalsRequiresModelTags(c *gc.C) {
-	_, _, api := makeApi(c, uuid1)
+	_, _, api := makeAPI(c, uuid1)
 	results := api.AllMachineRemovals(makeEntities(tag1, "machine-0"))
 	c.Assert(results.Results, gc.HasLen, 2)
 	c.Assert(results.Results[0].Error, gc.IsNil)
@@ -74,7 +74,7 @@ func (*undertakerSuite) TestAllMachineRemovalsRequiresModelTags(c *gc.C) {
 }
 
 func (*undertakerSuite) TestAllMachineRemovalsChecksModelTag(c *gc.C) {
-	_, _, api := makeApi(c, uuid1)
+	_, _, api := makeAPI(c, uuid1)
 	results := api.AllMachineRemovals(makeEntities(tag2))
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.ErrorMatches, "permission denied")
@@ -82,7 +82,7 @@ func (*undertakerSuite) TestAllMachineRemovalsChecksModelTag(c *gc.C) {
 }
 
 func (*undertakerSuite) TestAllMachineRemovals(c *gc.C) {
-	backend, _, api := makeApi(c, uuid1)
+	backend, _, api := makeAPI(c, uuid1)
 	backend.removals = []string{"0", "2"}
 
 	result := api.AllMachineRemovals(makeEntities(tag1))
@@ -90,7 +90,7 @@ func (*undertakerSuite) TestAllMachineRemovals(c *gc.C) {
 }
 
 func (*undertakerSuite) TestGetMachineProviderInterfaceInfo(c *gc.C) {
-	backend, _, api := makeApi(c, "")
+	backend, _, api := makeAPI(c, "")
 	backend.machines = map[string]*mockMachine{
 		"0": &mockMachine{
 			Stub: &testing.Stub{},
@@ -151,7 +151,7 @@ func (*undertakerSuite) TestGetMachineProviderInterfaceInfo(c *gc.C) {
 }
 
 func (*undertakerSuite) TestGetMachineProviderInterfaceInfoHandlesError(c *gc.C) {
-	backend, _, api := makeApi(c, "")
+	backend, _, api := makeAPI(c, "")
 	backend.machines = map[string]*mockMachine{
 		"0": &mockMachine{Stub: backend.Stub},
 	}
@@ -165,20 +165,20 @@ func (*undertakerSuite) TestGetMachineProviderInterfaceInfoHandlesError(c *gc.C)
 }
 
 func (*undertakerSuite) TestCompleteMachineRemovalsWithNonMachineTags(c *gc.C) {
-	_, _, api := makeApi(c, "")
+	_, _, api := makeAPI(c, "")
 	err := api.CompleteMachineRemovals(makeEntities("machine-2", "application-a1"))
 	c.Assert(err, gc.ErrorMatches, `"application-a1" is not a valid machine tag`)
 }
 
 func (*undertakerSuite) TestCompleteMachineRemovalsWithOtherError(c *gc.C) {
-	backend, _, api := makeApi(c, "")
+	backend, _, api := makeAPI(c, "")
 	backend.SetErrors(errors.New("boom"))
 	err := api.CompleteMachineRemovals(makeEntities("machine-2"))
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
 
 func (*undertakerSuite) TestCompleteMachineRemovals(c *gc.C) {
-	backend, _, api := makeApi(c, "")
+	backend, _, api := makeAPI(c, "")
 	err := api.CompleteMachineRemovals(makeEntities("machine-2", "machine-52"))
 	c.Assert(err, jc.ErrorIsNil)
 	backend.CheckCallNames(c, "CompleteMachineRemovals")
@@ -190,7 +190,7 @@ func (*undertakerSuite) TestCompleteMachineRemovals(c *gc.C) {
 }
 
 func (*undertakerSuite) TestWatchMachineRemovals(c *gc.C) {
-	backend, res, api := makeApi(c, uuid1)
+	backend, res, api := makeAPI(c, uuid1)
 
 	result := api.WatchMachineRemovals(makeEntities(tag1))
 	c.Assert(result.Results, gc.HasLen, 1)
@@ -200,14 +200,14 @@ func (*undertakerSuite) TestWatchMachineRemovals(c *gc.C) {
 }
 
 func (*undertakerSuite) TestWatchMachineRemovalsPermissionError(c *gc.C) {
-	_, _, api := makeApi(c, uuid1)
+	_, _, api := makeAPI(c, uuid1)
 	result := api.WatchMachineRemovals(makeEntities(tag2))
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0].Error, gc.ErrorMatches, "permission denied")
 }
 
 func (*undertakerSuite) TestWatchMachineRemovalsError(c *gc.C) {
-	backend, _, api := makeApi(c, uuid1)
+	backend, _, api := makeAPI(c, uuid1)
 	backend.watcherBlowsUp = true
 	backend.SetErrors(errors.New("oh no!"))
 
@@ -218,7 +218,7 @@ func (*undertakerSuite) TestWatchMachineRemovalsError(c *gc.C) {
 	backend.CheckCallNames(c, "WatchMachineRemovals")
 }
 
-func makeApi(c *gc.C, modelUUID string) (*mockBackend, *common.Resources, *machineundertaker.API) {
+func makeAPI(c *gc.C, modelUUID string) (*mockBackend, *common.Resources, *machineundertaker.API) {
 	backend := &mockBackend{Stub: &testing.Stub{}}
 	res := common.NewResources()
 	api, err := machineundertaker.NewAPI(

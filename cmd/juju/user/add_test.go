@@ -34,7 +34,7 @@ func (s *UserAddCommandSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *UserAddCommandSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
-	addCommand, _ := user.NewAddCommandForTest(s.mockAPI, s.store, &mockModelApi{})
+	addCommand, _ := user.NewAddCommandForTest(s.mockAPI, s.store, &mockModelAPI{})
 	return testing.RunCommand(c, addCommand, args...)
 }
 
@@ -67,7 +67,7 @@ func (s *UserAddCommandSuite) TestInit(c *gc.C) {
 		user: "foobar",
 	}} {
 		c.Logf("test %d (%q)", i, test.args)
-		wrappedCommand, command := user.NewAddCommandForTest(s.mockAPI, s.store, &mockModelApi{})
+		wrappedCommand, command := user.NewAddCommandForTest(s.mockAPI, s.store, &mockModelAPI{})
 		err := testing.InitCommand(wrappedCommand, test.args)
 		if test.errorString == "" {
 			c.Check(err, jc.ErrorIsNil)
@@ -111,13 +111,13 @@ Please send this command to foobar:
 	c.Assert(testing.Stderr(context), gc.Equals, "")
 }
 
-type mockModelApi struct{}
+type mockModelAPI struct{}
 
-func (m *mockModelApi) ListModels(user string) ([]base.UserModel, error) {
+func (m *mockModelAPI) ListModels(user string) ([]base.UserModel, error) {
 	return []base.UserModel{{Name: "model", UUID: "modeluuid", Owner: "current-user@local"}}, nil
 }
 
-func (m *mockModelApi) Close() error {
+func (m *mockModelAPI) Close() error {
 	return nil
 }
 

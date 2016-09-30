@@ -23,7 +23,7 @@ type ManifoldConfig struct {
 	NewWorker func(WorkerConfig) (worker.Worker, error)
 }
 
-// start is used by engine.AgentApiManifold to create a StartFunc.
+// start is used by engine.AgentAPIManifold to create a StartFunc.
 func (config ManifoldConfig) start(a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
 	machineTag, ok := a.CurrentConfig().Tag().(names.MachineTag)
 	if !ok {
@@ -39,9 +39,9 @@ func (config ManifoldConfig) start(a agent.Agent, apiCaller base.APICaller) (wor
 
 // Manifold returns a dependency.Manifold as configured.
 func Manifold(config ManifoldConfig) dependency.Manifold {
-	typedConfig := engine.AgentApiManifoldConfig{
+	typedConfig := engine.AgentAPIManifoldConfig{
 		AgentName:     config.AgentName,
 		APICallerName: config.APICallerName,
 	}
-	return engine.AgentApiManifold(typedConfig, config.start)
+	return engine.AgentAPIManifold(typedConfig, config.start)
 }

@@ -205,7 +205,7 @@ func (s *serviceSuite) TestServiceDeployWithStorage(c *gc.C) {
 	var cons constraints.Value
 	args := params.ApplicationDeploy{
 		ApplicationName: "application",
-		CharmUrl:        curl.String(),
+		CharmURL:        curl.String(),
 		NumUnits:        1,
 		Constraints:     cons,
 		Storage:         storageConstraints,
@@ -260,7 +260,7 @@ func (s *serviceSuite) TestServiceDeployWithInvalidStoragePool(c *gc.C) {
 	var cons constraints.Value
 	args := params.ApplicationDeploy{
 		ApplicationName: "application",
-		CharmUrl:        curl.String(),
+		CharmURL:        curl.String(),
 		NumUnits:        1,
 		Constraints:     cons,
 		Storage:         storageConstraints,
@@ -282,7 +282,7 @@ func (s *serviceSuite) TestServiceDeployDefaultFilesystemStorage(c *gc.C) {
 	var cons constraints.Value
 	args := params.ApplicationDeploy{
 		ApplicationName: "application",
-		CharmUrl:        curl.String(),
+		CharmURL:        curl.String(),
 		NumUnits:        1,
 		Constraints:     cons,
 	}
@@ -314,7 +314,7 @@ func (s *serviceSuite) TestServiceDeploy(c *gc.C) {
 	var cons constraints.Value
 	args := params.ApplicationDeploy{
 		ApplicationName: "application",
-		CharmUrl:        curl.String(),
+		CharmURL:        curl.String(),
 		NumUnits:        1,
 		Constraints:     cons,
 		Placement: []*instance.Placement{
@@ -343,7 +343,7 @@ func (s *serviceSuite) TestServiceDeployWithInvalidPlacement(c *gc.C) {
 	var cons constraints.Value
 	args := params.ApplicationDeploy{
 		ApplicationName: "application",
-		CharmUrl:        curl.String(),
+		CharmURL:        curl.String(),
 		NumUnits:        1,
 		Constraints:     cons,
 		Placement: []*instance.Placement{
@@ -369,7 +369,7 @@ func (s *serviceSuite) testClientServicesDeployWithBindings(c *gc.C, endpointBin
 	var cons constraints.Value
 	args := params.ApplicationDeploy{
 		ApplicationName:  "application",
-		CharmUrl:         curl.String(),
+		CharmURL:         curl.String(),
 		NumUnits:         1,
 		Constraints:      cons,
 		EndpointBindings: endpointBindings,
@@ -608,7 +608,7 @@ func (s *serviceSuite) TestServiceSetCharm(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
-			CharmUrl:        curl.String(),
+			CharmURL:        curl.String(),
 			ApplicationName: "application",
 			NumUnits:        3,
 		}}})
@@ -622,7 +622,7 @@ func (s *serviceSuite) TestServiceSetCharm(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.applicationAPI.SetCharm(params.ApplicationSetCharm{
 		ApplicationName: "application",
-		CharmUrl:        curl.String(),
+		CharmURL:        curl.String(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -643,7 +643,7 @@ func (s *serviceSuite) setupServiceSetCharm(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
-			CharmUrl:        curl.String(),
+			CharmURL:        curl.String(),
 			ApplicationName: "application",
 			NumUnits:        3,
 		}}})
@@ -660,7 +660,7 @@ func (s *serviceSuite) setupServiceSetCharm(c *gc.C) {
 func (s *serviceSuite) assertServiceSetCharm(c *gc.C, forceUnits bool) {
 	err := s.applicationAPI.SetCharm(params.ApplicationSetCharm{
 		ApplicationName: "application",
-		CharmUrl:        "cs:~who/precise/wordpress-3",
+		CharmURL:        "cs:~who/precise/wordpress-3",
 		ForceUnits:      forceUnits,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -675,7 +675,7 @@ func (s *serviceSuite) assertServiceSetCharm(c *gc.C, forceUnits bool) {
 func (s *serviceSuite) assertServiceSetCharmBlocked(c *gc.C, msg string) {
 	err := s.applicationAPI.SetCharm(params.ApplicationSetCharm{
 		ApplicationName: "application",
-		CharmUrl:        "cs:~who/precise/wordpress-3",
+		CharmURL:        "cs:~who/precise/wordpress-3",
 	})
 	s.AssertBlocked(c, err, msg)
 }
@@ -706,7 +706,7 @@ func (s *serviceSuite) TestServiceSetCharmForceUnits(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
-			CharmUrl:        curl.String(),
+			CharmURL:        curl.String(),
 			ApplicationName: "application",
 			NumUnits:        3,
 		}}})
@@ -720,7 +720,7 @@ func (s *serviceSuite) TestServiceSetCharmForceUnits(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.applicationAPI.SetCharm(params.ApplicationSetCharm{
 		ApplicationName: "application",
-		CharmUrl:        curl.String(),
+		CharmURL:        curl.String(),
 		ForceUnits:      true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -748,7 +748,7 @@ func (s *serviceSuite) TestBlockServiceSetCharmForce(c *gc.C) {
 func (s *serviceSuite) TestServiceSetCharmInvalidService(c *gc.C) {
 	err := s.applicationAPI.SetCharm(params.ApplicationSetCharm{
 		ApplicationName: "badservice",
-		CharmUrl:        "cs:precise/wordpress-3",
+		CharmURL:        "cs:precise/wordpress-3",
 		ForceSeries:     true,
 		ForceUnits:      true,
 	})
@@ -778,7 +778,7 @@ func (s *serviceSuite) TestServiceSetCharmLegacy(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
-			CharmUrl:        curl.String(),
+			CharmURL:        curl.String(),
 			ApplicationName: "application",
 		}}})
 	c.Assert(err, jc.ErrorIsNil)
@@ -794,7 +794,7 @@ func (s *serviceSuite) TestServiceSetCharmLegacy(c *gc.C) {
 	// the series is sepcified in the URL.
 	err = s.applicationAPI.SetCharm(params.ApplicationSetCharm{
 		ApplicationName: "application",
-		CharmUrl:        curl.String(),
+		CharmURL:        curl.String(),
 		ForceSeries:     true,
 	})
 	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "application" to charm "cs:~who/trusty/dummy-1": cannot change an application's series`)
@@ -808,7 +808,7 @@ func (s *serviceSuite) TestServiceSetCharmUnsupportedSeries(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
-			CharmUrl:        curl.String(),
+			CharmURL:        curl.String(),
 			ApplicationName: "application",
 			Series:          "precise",
 		}}})
@@ -823,7 +823,7 @@ func (s *serviceSuite) TestServiceSetCharmUnsupportedSeries(c *gc.C) {
 
 	err = s.applicationAPI.SetCharm(params.ApplicationSetCharm{
 		ApplicationName: "application",
-		CharmUrl:        curl.String(),
+		CharmURL:        curl.String(),
 	})
 	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "application" to charm "cs:~who/multi-series-1": only these series are supported: trusty, wily`)
 }
@@ -836,7 +836,7 @@ func (s *serviceSuite) assertServiceSetCharmSeries(c *gc.C, upgradeCharm, series
 	c.Assert(err, jc.ErrorIsNil)
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
-			CharmUrl:        curl.String(),
+			CharmURL:        curl.String(),
 			ApplicationName: "application",
 			Series:          "precise",
 		}}})
@@ -856,7 +856,7 @@ func (s *serviceSuite) assertServiceSetCharmSeries(c *gc.C, upgradeCharm, series
 
 	err = s.applicationAPI.SetCharm(params.ApplicationSetCharm{
 		ApplicationName: "application",
-		CharmUrl:        curl.String(),
+		CharmURL:        curl.String(),
 		ForceSeries:     true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -883,7 +883,7 @@ func (s *serviceSuite) TestServiceSetCharmWrongOS(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
-			CharmUrl:        curl.String(),
+			CharmURL:        curl.String(),
 			ApplicationName: "application",
 			Series:          "precise",
 		}}})
@@ -898,7 +898,7 @@ func (s *serviceSuite) TestServiceSetCharmWrongOS(c *gc.C) {
 
 	err = s.applicationAPI.SetCharm(params.ApplicationSetCharm{
 		ApplicationName: "application",
-		CharmUrl:        curl.String(),
+		CharmURL:        curl.String(),
 		ForceSeries:     true,
 	})
 	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "application" to charm "cs:~who/multi-series-windows-0": OS "Ubuntu" not supported by charm`)
@@ -935,7 +935,7 @@ func (s *serviceSuite) TestSpecializeStoreOnDeployServiceSetCharmAndAddCharm(c *
 	c.Assert(err, jc.ErrorIsNil)
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
-			CharmUrl:        curl.String(),
+			CharmURL:        curl.String(),
 			ApplicationName: "application",
 			NumUnits:        3,
 		}}})
@@ -948,7 +948,7 @@ func (s *serviceSuite) TestSpecializeStoreOnDeployServiceSetCharmAndAddCharm(c *
 	curl, _ = s.UploadCharm(c, "trusty/wordpress-2", "wordpress")
 	err = s.applicationAPI.SetCharm(params.ApplicationSetCharm{
 		ApplicationName: "application",
-		CharmUrl:        curl.String(),
+		CharmURL:        curl.String(),
 	})
 	c.Assert(repo.testMode, jc.IsTrue)
 
@@ -972,7 +972,7 @@ func (s *serviceSuite) setupServiceDeploy(c *gc.C, args string) (*charm.URL, cha
 func (s *serviceSuite) assertServiceDeployPrincipal(c *gc.C, curl *charm.URL, ch charm.Charm, mem4g constraints.Value) {
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
-			CharmUrl:        curl.String(),
+			CharmURL:        curl.String(),
 			ApplicationName: "application",
 			NumUnits:        3,
 			Constraints:     mem4g,
@@ -986,7 +986,7 @@ func (s *serviceSuite) assertServiceDeployPrincipal(c *gc.C, curl *charm.URL, ch
 func (s *serviceSuite) assertServiceDeployPrincipalBlocked(c *gc.C, msg string, curl *charm.URL, mem4g constraints.Value) {
 	_, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
-			CharmUrl:        curl.String(),
+			CharmURL:        curl.String(),
 			ApplicationName: "application",
 			NumUnits:        3,
 			Constraints:     mem4g,
@@ -1020,7 +1020,7 @@ func (s *serviceSuite) TestServiceDeploySubordinate(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
-			CharmUrl:        curl.String(),
+			CharmURL:        curl.String(),
 			ApplicationName: "application-name",
 		}}})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1049,7 +1049,7 @@ func (s *serviceSuite) TestServiceDeployConfig(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
-			CharmUrl:        curl.String(),
+			CharmURL:        curl.String(),
 			ApplicationName: "application-name",
 			NumUnits:        1,
 			ConfigYAML:      "application-name:\n  username: fred",
@@ -1075,7 +1075,7 @@ func (s *serviceSuite) TestServiceDeployConfigError(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
-			CharmUrl:        curl.String(),
+			CharmURL:        curl.String(),
 			ApplicationName: "application-name",
 			NumUnits:        1,
 			ConfigYAML:      "application-name:\n  skill-level: fred",
@@ -1098,7 +1098,7 @@ func (s *serviceSuite) TestServiceDeployToMachine(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
-			CharmUrl:        curl.String(),
+			CharmURL:        curl.String(),
 			ApplicationName: "application-name",
 			NumUnits:        1,
 			ConfigYAML:      "application-name:\n  username: fred",
@@ -1132,7 +1132,7 @@ func (s *serviceSuite) TestServiceDeployToMachine(c *gc.C) {
 func (s *serviceSuite) TestServiceDeployToMachineNotFound(c *gc.C) {
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
-			CharmUrl:        "cs:precise/application-name-1",
+			CharmURL:        "cs:precise/application-name-1",
 			ApplicationName: "application-name",
 			NumUnits:        1,
 			Placement:       []*instance.Placement{instance.MustParsePlacement("42")},
@@ -1153,7 +1153,7 @@ func (s *serviceSuite) deployServiceForUpdateTests(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
-			CharmUrl:        curl.String(),
+			CharmURL:        curl.String(),
 			ApplicationName: "application",
 			NumUnits:        1,
 		}}})
@@ -1162,7 +1162,7 @@ func (s *serviceSuite) deployServiceForUpdateTests(c *gc.C) {
 	c.Assert(results.Results[0].Error, gc.IsNil)
 }
 
-func (s *serviceSuite) checkClientServiceUpdateSetCharm(c *gc.C, forceCharmUrl bool) {
+func (s *serviceSuite) checkClientServiceUpdateSetCharm(c *gc.C, forceCharmURL bool) {
 	s.deployServiceForUpdateTests(c)
 	curl, _ := s.UploadCharm(c, "precise/wordpress-3", "wordpress")
 	err := application.AddCharmWithAuthorization(s.State, params.AddCharmWithAuthorization{
@@ -1173,8 +1173,8 @@ func (s *serviceSuite) checkClientServiceUpdateSetCharm(c *gc.C, forceCharmUrl b
 	// Update the charm for the application.
 	args := params.ApplicationUpdate{
 		ApplicationName: "application",
-		CharmUrl:        curl.String(),
-		ForceCharmUrl:   forceCharmUrl,
+		CharmURL:        curl.String(),
+		ForceCharmURL:   forceCharmURL,
 	}
 	err = s.applicationAPI.Update(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1185,7 +1185,7 @@ func (s *serviceSuite) checkClientServiceUpdateSetCharm(c *gc.C, forceCharmUrl b
 	ch, force, err := application.Charm()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ch.URL().String(), gc.Equals, curl.String())
-	c.Assert(force, gc.Equals, forceCharmUrl)
+	c.Assert(force, gc.Equals, forceCharmURL)
 }
 
 func (s *serviceSuite) TestServiceUpdateSetCharm(c *gc.C) {
@@ -1218,8 +1218,8 @@ func (s *serviceSuite) TestBlockChangeServiceUpdate(c *gc.C) {
 	// Update the charm for the application.
 	args := params.ApplicationUpdate{
 		ApplicationName: "application",
-		CharmUrl:        curl,
-		ForceCharmUrl:   false,
+		CharmURL:        curl,
+		ForceCharmURL:   false,
 	}
 	err := s.applicationAPI.Update(args)
 	s.AssertBlocked(c, err, "TestBlockChangeServiceUpdate")
@@ -1240,8 +1240,8 @@ func (s *serviceSuite) TestBlockServiceUpdateForced(c *gc.C) {
 	// Update the charm for the application.
 	args := params.ApplicationUpdate{
 		ApplicationName: "application",
-		CharmUrl:        curl,
-		ForceCharmUrl:   true,
+		CharmURL:        curl,
+		ForceCharmURL:   true,
 	}
 	err := s.applicationAPI.Update(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1259,7 +1259,7 @@ func (s *serviceSuite) TestServiceUpdateSetCharmNotFound(c *gc.C) {
 	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	args := params.ApplicationUpdate{
 		ApplicationName: "wordpress",
-		CharmUrl:        "cs:precise/wordpress-999999",
+		CharmURL:        "cs:precise/wordpress-999999",
 	}
 	err := s.applicationAPI.Update(args)
 	c.Check(err, gc.ErrorMatches, `charm "cs:precise/wordpress-999999" not found`)
@@ -1387,8 +1387,8 @@ func (s *serviceSuite) TestServiceUpdateAllParams(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	args := params.ApplicationUpdate{
 		ApplicationName: "application",
-		CharmUrl:        curl.String(),
-		ForceCharmUrl:   true,
+		CharmURL:        curl.String(),
+		ForceCharmURL:   true,
 		MinUnits:        &minUnits,
 		SettingsStrings: map[string]string{"blog-title": "string-title"},
 		SettingsYAML:    "application:\n  blog-title: yaml-title\n",

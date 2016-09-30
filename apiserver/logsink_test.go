@@ -29,7 +29,7 @@ import (
 
 // logsinkBaseSuite has functionality that's shared between the the 2 logsink related suites
 type logsinkBaseSuite struct {
-	authHttpSuite
+	authHTTPSuite
 }
 
 func (s *logsinkBaseSuite) logsinkURL(c *gc.C, scheme string) *url.URL {

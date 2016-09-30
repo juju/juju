@@ -159,7 +159,7 @@ func deployApplication(
 	stateCharm func(Charm) *state.Charm,
 	args params.ApplicationDeploy,
 ) error {
-	curl, err := charm.ParseURL(args.CharmUrl)
+	curl, err := charm.ParseURL(args.CharmURL)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -273,7 +273,7 @@ func (api *API) Update(args params.ApplicationUpdate) error {
 	if err := api.checkCanWrite(); err != nil {
 		return err
 	}
-	if !args.ForceCharmUrl {
+	if !args.ForceCharmURL {
 		if err := api.check.ChangeAllowed(); err != nil {
 			return errors.Trace(err)
 		}
@@ -283,19 +283,19 @@ func (api *API) Update(args params.ApplicationUpdate) error {
 		return errors.Trace(err)
 	}
 	// Set the charm for the given application.
-	if args.CharmUrl != "" {
+	if args.CharmURL != "" {
 		// For now we do not support changing the channel through Update().
 		// TODO(ericsnow) Support it?
 		channel := app.Channel()
 		if err = api.applicationSetCharm(
 			args.ApplicationName,
 			app,
-			args.CharmUrl,
+			args.CharmURL,
 			channel,
 			nil, // charm settings (strings map)
 			"",  // charm settings (YAML)
 			args.ForceSeries,
-			args.ForceCharmUrl,
+			args.ForceCharmURL,
 			nil, // resource IDs
 			nil, // storage constraints
 		); err != nil {
@@ -344,7 +344,7 @@ func (api *API) SetCharm(args params.ApplicationSetCharm) error {
 	return api.applicationSetCharm(
 		args.ApplicationName,
 		application,
-		args.CharmUrl,
+		args.CharmURL,
 		channel,
 		args.ConfigSettings,
 		args.ConfigSettingsYAML,

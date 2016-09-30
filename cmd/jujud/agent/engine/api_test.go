@@ -16,25 +16,25 @@ import (
 	dt "github.com/juju/juju/worker/dependency/testing"
 )
 
-type ApiManifoldSuite struct {
+type APIManifoldSuite struct {
 	testing.IsolationSuite
 	testing.Stub
 	manifold dependency.Manifold
 	worker   worker.Worker
 }
 
-var _ = gc.Suite(&ApiManifoldSuite{})
+var _ = gc.Suite(&APIManifoldSuite{})
 
-func (s *ApiManifoldSuite) SetUpTest(c *gc.C) {
+func (s *APIManifoldSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.Stub = testing.Stub{}
 	s.worker = &dummyWorker{}
-	s.manifold = engine.ApiManifold(engine.ApiManifoldConfig{
+	s.manifold = engine.APIManifold(engine.APIManifoldConfig{
 		APICallerName: "api-caller-name",
 	}, s.newWorker)
 }
 
-func (s *ApiManifoldSuite) newWorker(apiCaller base.APICaller) (worker.Worker, error) {
+func (s *APIManifoldSuite) newWorker(apiCaller base.APICaller) (worker.Worker, error) {
 	s.AddCall("newWorker", apiCaller)
 	if err := s.NextErr(); err != nil {
 		return nil, err
@@ -42,15 +42,15 @@ func (s *ApiManifoldSuite) newWorker(apiCaller base.APICaller) (worker.Worker, e
 	return s.worker, nil
 }
 
-func (s *ApiManifoldSuite) TestInputs(c *gc.C) {
+func (s *APIManifoldSuite) TestInputs(c *gc.C) {
 	c.Check(s.manifold.Inputs, jc.DeepEquals, []string{"api-caller-name"})
 }
 
-func (s *ApiManifoldSuite) TestOutput(c *gc.C) {
+func (s *APIManifoldSuite) TestOutput(c *gc.C) {
 	c.Check(s.manifold.Output, gc.IsNil)
 }
 
-func (s *ApiManifoldSuite) TestStartApiMissing(c *gc.C) {
+func (s *APIManifoldSuite) TestStartAPIMissing(c *gc.C) {
 	context := dt.StubContext(nil, map[string]interface{}{
 		"api-caller-name": dependency.ErrMissing,
 	})
@@ -60,10 +60,10 @@ func (s *ApiManifoldSuite) TestStartApiMissing(c *gc.C) {
 	c.Check(err, gc.Equals, dependency.ErrMissing)
 }
 
-func (s *ApiManifoldSuite) TestStartFailure(c *gc.C) {
-	expectApiCaller := &dummyApiCaller{}
+func (s *APIManifoldSuite) TestStartFailure(c *gc.C) {
+	expectAPICaller := &dummyAPICaller{}
 	context := dt.StubContext(nil, map[string]interface{}{
-		"api-caller-name": expectApiCaller,
+		"api-caller-name": expectAPICaller,
 	})
 	s.SetErrors(errors.New("some error"))
 
@@ -72,14 +72,14 @@ func (s *ApiManifoldSuite) TestStartFailure(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, "some error")
 	s.CheckCalls(c, []testing.StubCall{{
 		FuncName: "newWorker",
-		Args:     []interface{}{expectApiCaller},
+		Args:     []interface{}{expectAPICaller},
 	}})
 }
 
-func (s *ApiManifoldSuite) TestStartSuccess(c *gc.C) {
-	expectApiCaller := &dummyApiCaller{}
+func (s *APIManifoldSuite) TestStartSuccess(c *gc.C) {
+	expectAPICaller := &dummyAPICaller{}
 	context := dt.StubContext(nil, map[string]interface{}{
-		"api-caller-name": expectApiCaller,
+		"api-caller-name": expectAPICaller,
 	})
 
 	worker, err := s.manifold.Start(context)
@@ -87,6 +87,6 @@ func (s *ApiManifoldSuite) TestStartSuccess(c *gc.C) {
 	c.Check(worker, gc.Equals, s.worker)
 	s.CheckCalls(c, []testing.StubCall{{
 		FuncName: "newWorker",
-		Args:     []interface{}{expectApiCaller},
+		Args:     []interface{}{expectAPICaller},
 	}})
 }

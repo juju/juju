@@ -35,7 +35,7 @@ func (f *fakeControllerAccessor) ControllerConfig() (controller.Config, error) {
 	return map[string]interface{}{
 		controller.ControllerUUIDKey: testing.ControllerTag.Id(),
 		controller.CACertKey:         testing.CACert,
-		controller.ApiPort:           4321,
+		controller.APIPort:           4321,
 		controller.StatePort:         1234,
 	}, nil
 }

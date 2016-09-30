@@ -115,7 +115,7 @@ func (s *MongoSuite) makeConfigArgs(dataDir string) mongo.ConfigArgs {
 		MongoPath:   mongo.JujuMongod24Path,
 		Port:        1234,
 		OplogSizeMB: 1024,
-		WantNumaCtl: false,
+		WantNUMACtl: false,
 		Version:     s.mongodVersion,
 		Auth:        true,
 		IPv6:        true,
@@ -221,7 +221,7 @@ func (s *MongoSuite) assertMongoConfigFile(c *gc.C) {
 }
 
 func (s *MongoSuite) TestEnsureServer(c *gc.C) {
-	dataDir := s.testEnsureServerNumaCtl(c, false)
+	dataDir := s.testEnsureServerNUMACtl(c, false)
 
 	s.assertSSLKeyFile(c, dataDir)
 	s.assertSharedSecretFile(c, dataDir)
@@ -298,11 +298,11 @@ func (s *MongoSuite) TestEnsureServerServerExistsNotRunningStartError(c *gc.C) {
 	s.data.CheckCallNames(c, "Installed", "Exists", "Running", "Start")
 }
 
-func (s *MongoSuite) TestEnsureServerNumaCtl(c *gc.C) {
-	s.testEnsureServerNumaCtl(c, true)
+func (s *MongoSuite) TestEnsureServerNUMACtl(c *gc.C) {
+	s.testEnsureServerNUMACtl(c, true)
 }
 
-func (s *MongoSuite) testEnsureServerNumaCtl(c *gc.C, setNumaPolicy bool) string {
+func (s *MongoSuite) testEnsureServerNUMACtl(c *gc.C, setNUMAPolicy bool) string {
 	dataDir := c.MkDir()
 	dbDir := filepath.Join(dataDir, "db")
 
@@ -311,7 +311,7 @@ func (s *MongoSuite) testEnsureServerNumaCtl(c *gc.C, setNumaPolicy bool) string
 	testing.PatchExecutableAsEchoArgs(c, s, pm.PackageManager)
 
 	testParams := makeEnsureServerParams(dataDir)
-	testParams.SetNumaControlPolicy = setNumaPolicy
+	testParams.SetNUMAControlPolicy = setNUMAPolicy
 	err = mongo.EnsureServer(testParams)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -323,7 +323,7 @@ func (s *MongoSuite) testEnsureServerNumaCtl(c *gc.C, setNumaPolicy bool) string
 		service := installed[0]
 		c.Assert(service.Name(), gc.Equals, "juju-db")
 		c.Assert(service.Conf().Desc, gc.Equals, "juju state database")
-		if setNumaPolicy {
+		if setNUMAPolicy {
 			stripped := strings.Replace(service.Conf().ExtraScript, "\n", "", -1)
 			c.Assert(stripped, gc.Matches, `.* sysctl .*`)
 		} else {
@@ -599,7 +599,7 @@ func (s *MongoSuite) TestNewServiceWithReplSet(c *gc.C) {
 
 func (s *MongoSuite) TestNewServiceWithNumCtl(c *gc.C) {
 	args := s.makeConfigArgs(c.MkDir())
-	args.WantNumaCtl = true
+	args.WantNUMACtl = true
 	conf := mongo.NewConf(args)
 	c.Assert(conf.ExtraScript, gc.Not(gc.Matches), "")
 }

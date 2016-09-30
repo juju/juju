@@ -45,7 +45,7 @@ type liveTestData struct {
 	validCloudSpec simplestreams.CloudSpec
 }
 
-var liveUrls = map[string]liveTestData{
+var liveURLs = map[string]liveTestData{
 	"ec2": {
 		baseURL:        tools.DefaultBaseURL,
 		requireSigned:  true,
@@ -65,8 +65,8 @@ func setupSimpleStreamsTests(t *testing.T) {
 		}
 		var ok bool
 		var testData liveTestData
-		if testData, ok = liveUrls[*vendor]; !ok {
-			keys := reflect.ValueOf(liveUrls).MapKeys()
+		if testData, ok = liveURLs[*vendor]; !ok {
+			keys := reflect.ValueOf(liveURLs).MapKeys()
 			t.Fatalf("Unknown vendor %s. Must be one of %s", *vendor, keys)
 		}
 		registerLiveSimpleStreamsTests(testData.baseURL,

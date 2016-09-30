@@ -140,7 +140,7 @@ func sharedSecretPath(dataDir string) string {
 type ConfigArgs struct {
 	DataDir, DBDir, MongoPath string
 	Port, OplogSizeMB         int
-	WantNumaCtl               bool
+	WantNUMACtl               bool
 	Version                   Version
 	Auth                      bool
 	IPv6                      bool
@@ -186,7 +186,7 @@ func newConf(args ConfigArgs) common.Conf {
 			" --storageEngine wiredTiger"
 	}
 	extraScript := ""
-	if args.WantNumaCtl {
+	if args.WantNUMACtl {
 		extraScript = fmt.Sprintf(detectMultiNodeScript, multinodeVarName, multinodeVarName)
 		mongoCmd = fmt.Sprintf(numaCtlWrap, multinodeVarName) + mongoCmd
 	}
@@ -205,7 +205,7 @@ func newConf(args ConfigArgs) common.Conf {
 
 // EnsureServiceInstalled is a convenience method to [re]create
 // the mongo service.
-func EnsureServiceInstalled(dataDir string, statePort, oplogSizeMB int, setNumaControlPolicy bool, version Version, auth bool) error {
+func EnsureServiceInstalled(dataDir string, statePort, oplogSizeMB int, setNUMAControlPolicy bool, version Version, auth bool) error {
 	mongoPath, err := Path(version)
 	if err != nil {
 		return errors.Annotate(err, "cannot get mongo path")
@@ -226,7 +226,7 @@ func EnsureServiceInstalled(dataDir string, statePort, oplogSizeMB int, setNumaC
 		MongoPath:   mongoPath,
 		Port:        statePort,
 		OplogSizeMB: oplogSizeMB,
-		WantNumaCtl: setNumaControlPolicy,
+		WantNUMACtl: setNUMAControlPolicy,
 		Version:     version,
 		Auth:        auth,
 		IPv6:        network.SupportsIPv6(),

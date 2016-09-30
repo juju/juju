@@ -356,7 +356,7 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 
 	s.PatchValue(&keys.JujuPublicKey, sstesting.SignedMetadataPublicKey)
 	// Dummy provider uses a random port, which is added to cfg used to create environment.
-	apiPort := dummy.ApiPort(environ.Provider())
+	apiPort := dummy.APIPort(environ.Provider())
 	s.ControllerConfig["api-port"] = apiPort
 	err = bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), environ, bootstrap.BootstrapParams{
 		ControllerConfig: s.ControllerConfig,

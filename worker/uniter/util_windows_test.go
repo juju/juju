@@ -136,7 +136,7 @@ func (s *UniterSuite) TestRunCommand(c *gc.C) {
 		), ut(
 			"run commands: proxy settings set",
 			quickStartRelation{},
-			setProxySettings{Http: "http", Https: "https", Ftp: "ftp", NoProxy: "localhost"},
+			setProxySettings{HTTP: "http", HTTPS: "https", FTP: "ftp", NoProxy: "localhost"},
 			runCommands{
 				fmt.Sprintf("Set-Content %s $env:http_proxy", testFile("proxy.output")),
 				fmt.Sprintf("Add-Content %s $env:HTTP_PROXY", testFile("proxy.output")),

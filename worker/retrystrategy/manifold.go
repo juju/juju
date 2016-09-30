@@ -26,11 +26,11 @@ type ManifoldConfig struct {
 // Manifold returns a dependency manifold that runs a hook retry strategy worker,
 // using the agent name and the api connection resources named in the supplied config.
 func Manifold(config ManifoldConfig) dependency.Manifold {
-	typedConfig := engine.AgentApiManifoldConfig{
+	typedConfig := engine.AgentAPIManifoldConfig{
 		AgentName:     config.AgentName,
 		APICallerName: config.APICallerName,
 	}
-	manifold := engine.AgentApiManifold(typedConfig, config.start)
+	manifold := engine.AgentAPIManifold(typedConfig, config.start)
 	manifold.Output = config.output
 	return manifold
 }

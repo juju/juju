@@ -307,8 +307,8 @@ func opClientSetAnnotations(c *gc.C, st api.Connection, mst *state.State) (func(
 func opClientServiceUpdate(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
 	args := params.ApplicationUpdate{
 		ApplicationName: "no-such-charm",
-		CharmUrl:        "cs:quantal/wordpress-42",
-		ForceCharmUrl:   true,
+		CharmURL:        "cs:quantal/wordpress-42",
+		ForceCharmURL:   true,
 		SettingsStrings: map[string]string{"blog-title": "foo"},
 		SettingsYAML:    `"wordpress": {"blog-title": "foo"}`,
 	}

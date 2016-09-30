@@ -11,16 +11,16 @@ import (
 
 // Some (hopefully growing number of) manifolds completely depend on an API
 // connection; this type configures them.
-type ApiManifoldConfig struct {
+type APIManifoldConfig struct {
 	APICallerName string
 }
 
-// ApiStartFunc encapsulates the behaviour that varies among ApiManifolds.
-type ApiStartFunc func(base.APICaller) (worker.Worker, error)
+// APIStartFunc encapsulates the behaviour that varies among APIManifolds.
+type APIStartFunc func(base.APICaller) (worker.Worker, error)
 
-// ApiManifold returns a dependency.Manifold that calls the supplied start
+// APIManifold returns a dependency.Manifold that calls the supplied start
 // func with the API resource defined in the config (once it's present).
-func ApiManifold(config ApiManifoldConfig, start ApiStartFunc) dependency.Manifold {
+func APIManifold(config APIManifoldConfig, start APIStartFunc) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
 			config.APICallerName,

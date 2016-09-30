@@ -62,9 +62,9 @@ func (config MachineManifoldConfig) newWorker(a agent.Agent, apiCaller base.APIC
 
 // MachineManifold returns a dependency.Manifold that runs a storage provisioner.
 func MachineManifold(config MachineManifoldConfig) dependency.Manifold {
-	typedConfig := engine.AgentApiManifoldConfig{
+	typedConfig := engine.AgentAPIManifoldConfig{
 		AgentName:     config.AgentName,
 		APICallerName: config.APICallerName,
 	}
-	return engine.AgentApiManifold(typedConfig, config.newWorker)
+	return engine.AgentAPIManifold(typedConfig, config.newWorker)
 }

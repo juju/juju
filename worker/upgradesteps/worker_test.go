@@ -239,7 +239,7 @@ func (s *UpgradeSuite) TestOtherUpgradeRunFailure(c *gc.C) {
 	c.Assert(doneLock.IsUnlocked(), jc.IsFalse)
 }
 
-func (s *UpgradeSuite) TestApiConnectionFailure(c *gc.C) {
+func (s *UpgradeSuite) TestAPIConnectionFailure(c *gc.C) {
 	// This test checks what happens when an upgrade fails because the
 	// connection to mongo has gone away. This will happen when the
 	// mongo master changes. In this case we want the upgrade worker

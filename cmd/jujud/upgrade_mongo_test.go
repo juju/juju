@@ -262,12 +262,12 @@ func (f *fakeRunCommand) reStartServiceFail() error {
 	f.ranCommands = append(f.ranCommands, []string{"mongo.ReStartServiceFail"})
 	return errors.New("failing restart")
 }
-func (f *fakeRunCommand) ensureServiceInstalled(dataDir string, statePort, oplogSizeMB int, setNumaControlPolicy bool, version mongo.Version, auth bool) error {
+func (f *fakeRunCommand) ensureServiceInstalled(dataDir string, statePort, oplogSizeMB int, setNUMAControlPolicy bool, version mongo.Version, auth bool) error {
 	ran := []string{"mongo.EnsureServiceInstalled",
 		dataDir,
 		strconv.Itoa(statePort),
 		strconv.Itoa(oplogSizeMB),
-		strconv.FormatBool(setNumaControlPolicy),
+		strconv.FormatBool(setNUMAControlPolicy),
 		version.String(),
 		strconv.FormatBool(auth)}
 

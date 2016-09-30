@@ -166,10 +166,10 @@ func streamThroughTempFile(r io.Reader) (_ io.ReadSeeker, cleanup func(), err er
 }
 
 func uploadCharms(config UploadBinariesConfig) error {
-	for _, charmUrl := range config.Charms {
-		logger.Debugf("sending charm %s to target", charmUrl)
+	for _, charmURL := range config.Charms {
+		logger.Debugf("sending charm %s to target", charmURL)
 
-		curl, err := charm.ParseURL(charmUrl)
+		curl, err := charm.ParseURL(charmURL)
 		if err != nil {
 			return errors.Annotate(err, "bad charm URL")
 		}

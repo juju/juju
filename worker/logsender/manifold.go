@@ -21,10 +21,10 @@ type ManifoldConfig struct {
 // Manifold returns a dependency manifold that runs a logger
 // worker, using the resource names defined in the supplied config.
 func Manifold(config ManifoldConfig) dependency.Manifold {
-	typedConfig := engine.ApiManifoldConfig{
+	typedConfig := engine.APIManifoldConfig{
 		APICallerName: config.APICallerName,
 	}
-	return engine.ApiManifold(typedConfig, config.newWorker)
+	return engine.APIManifold(typedConfig, config.newWorker)
 }
 
 func (config ManifoldConfig) newWorker(apiCaller base.APICaller) (worker.Worker, error) {

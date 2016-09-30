@@ -271,12 +271,12 @@ func (s *MetricSuite) TestAllMetricBatchesCustomCharmURLAndUUID(c *gc.C) {
 	now := s.State.NowToTheSecond()
 	m := state.Metric{"pings", "5", now}
 	uuid := utils.MustNewUUID().String()
-	charmUrl := "cs:quantal/metered"
+	charmURL := "cs:quantal/metered"
 	_, err := s.State.AddMetrics(
 		state.BatchParam{
 			UUID:     uuid,
 			Created:  now,
-			CharmURL: charmUrl,
+			CharmURL: charmURL,
 			Metrics:  []state.Metric{m},
 			Unit:     s.unit.UnitTag(),
 		},
@@ -287,7 +287,7 @@ func (s *MetricSuite) TestAllMetricBatchesCustomCharmURLAndUUID(c *gc.C) {
 	c.Assert(metricBatches, gc.HasLen, 1)
 	c.Assert(metricBatches[0].Unit(), gc.Equals, "metered/0")
 	c.Assert(metricBatches[0].UUID(), gc.Equals, uuid)
-	c.Assert(metricBatches[0].CharmURL(), gc.Equals, charmUrl)
+	c.Assert(metricBatches[0].CharmURL(), gc.Equals, charmURL)
 	c.Assert(metricBatches[0].Sent(), jc.IsFalse)
 	c.Assert(metricBatches[0].Metrics(), gc.HasLen, 1)
 }

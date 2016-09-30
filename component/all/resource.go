@@ -83,7 +83,7 @@ func (r resources) registerPublicFacade() {
 	})
 }
 
-// resourcesApiClient adds a Close() method to the resources public API client.
+// resourcesAPIClient adds a Close() method to the resources public API client.
 type resourcesAPIClient struct {
 	*client.Client
 	closeConnFunc func() error

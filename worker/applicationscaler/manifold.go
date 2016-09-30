@@ -33,8 +33,8 @@ func (config ManifoldConfig) start(apiCaller base.APICaller) (worker.Worker, err
 
 // Manifold returns a dependency.Manifold that runs an applicationscaler worker.
 func Manifold(config ManifoldConfig) dependency.Manifold {
-	return engine.ApiManifold(
-		engine.ApiManifoldConfig{config.APICallerName},
+	return engine.APIManifold(
+		engine.APIManifoldConfig{config.APICallerName},
 		config.start,
 	)
 }

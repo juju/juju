@@ -32,7 +32,7 @@ func ensureMongoService(agentConfig agent.Config) error {
 	}
 
 	var numaCtlPolicy bool
-	if numaCtlString := agentConfig.Value(agent.NumaCtlPreference); numaCtlString != "" {
+	if numaCtlString := agentConfig.Value(agent.NUMACtlPreference); numaCtlString != "" {
 		var err error
 		if numaCtlPolicy, err = strconv.ParseBool(numaCtlString); err != nil {
 			return errors.Annotatef(err, "invalid numactl preference: %q", numaCtlString)

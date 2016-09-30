@@ -391,7 +391,7 @@ func (cfg *InstanceConfig) AgentConfig(
 		Password:          password,
 		Nonce:             cfg.MachineNonce,
 		StateAddresses:    cfg.stateHostAddrs(),
-		APIAddresses:      cfg.ApiHostAddrs(),
+		APIAddresses:      cfg.APIHostAddrs(),
 		CACert:            cacert,
 		Values:            cfg.AgentEnvironment,
 		Controller:        cfg.ControllerTag,
@@ -426,7 +426,7 @@ func (cfg *InstanceConfig) stateHostAddrs() []string {
 	return hosts
 }
 
-func (cfg *InstanceConfig) ApiHostAddrs() []string {
+func (cfg *InstanceConfig) APIHostAddrs() []string {
 	var hosts []string
 	if cfg.Bootstrap != nil {
 		hosts = append(hosts, net.JoinHostPort(
@@ -779,9 +779,9 @@ func FinishInstanceConfig(icfg *InstanceConfig, cfg *config.Config) (err error) 
 	if icfg.Controller != nil {
 		// Add NUMACTL preference. Needed to work for both bootstrap and high availability
 		// Only makes sense for controller
-		logger.Debugf("Setting numa ctl preference to %v", icfg.Controller.Config.NumaCtlPreference())
+		logger.Debugf("Setting numa ctl preference to %v", icfg.Controller.Config.NUMACtlPreference())
 		// Unfortunately, AgentEnvironment can only take strings as values
-		icfg.AgentEnvironment[agent.NumaCtlPreference] = fmt.Sprintf("%v", icfg.Controller.Config.NumaCtlPreference())
+		icfg.AgentEnvironment[agent.NUMACtlPreference] = fmt.Sprintf("%v", icfg.Controller.Config.NUMACtlPreference())
 	}
 	return nil
 }

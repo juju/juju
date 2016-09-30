@@ -48,7 +48,7 @@ func (s *ServingInfoSetterSuite) TestStartAgentMissing(c *gc.C) {
 	c.Check(err, gc.Equals, dependency.ErrMissing)
 }
 
-func (s *ServingInfoSetterSuite) TestStartApiCallerMissing(c *gc.C) {
+func (s *ServingInfoSetterSuite) TestStartAPICallerMissing(c *gc.C) {
 	context := dt.StubContext(nil, map[string]interface{}{
 		"agent":      &mockAgent{},
 		"api-caller": dependency.ErrMissing,

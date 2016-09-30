@@ -27,14 +27,14 @@ type ManifoldConfig struct {
 // Manifold returns a dependency manifold that runs a deployer worker,
 // using the resource names defined in the supplied config.
 func Manifold(config ManifoldConfig) dependency.Manifold {
-	typedConfig := engine.AgentApiManifoldConfig{
+	typedConfig := engine.AgentAPIManifoldConfig{
 		AgentName:     config.AgentName,
 		APICallerName: config.APICallerName,
 	}
-	return engine.AgentApiManifold(typedConfig, config.newWorker)
+	return engine.AgentAPIManifold(typedConfig, config.newWorker)
 }
 
-// newWorker trivially wraps NewDeployer for use in a engine.AgentApiManifold.
+// newWorker trivially wraps NewDeployer for use in a engine.AgentAPIManifold.
 //
 // It's not tested at the moment, because the scaffolding
 // necessary is too unwieldy/distracting to introduce at this point.

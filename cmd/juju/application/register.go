@@ -75,8 +75,8 @@ func (r *RegisterMeteredCharm) RunPre(api MeteredDeployAPI, bakeryClient *httpba
 				if err1 != nil {
 					return err1
 				}
-				charmUrl := deployInfo.CharmID.URL.String()
-				return errors.Errorf(`%v has no default plan. Try "juju deploy --plan <plan-name> with one of %v"`, charmUrl, strings.Join(options, ", "))
+				charmURL := deployInfo.CharmID.URL.String()
+				return errors.Errorf(`%v has no default plan. Try "juju deploy --plan <plan-name> with one of %v"`, charmURL, strings.Join(options, ", "))
 			}
 			return err
 		}
@@ -118,11 +118,11 @@ func (r *RegisterMeteredCharm) RunPost(api MeteredDeployAPI, bakeryClient *httpb
 }
 
 type noDefaultPlanError struct {
-	cUrl string
+	cURL string
 }
 
 func (e *noDefaultPlanError) Error() string {
-	return fmt.Sprintf("%v has no default plan", e.cUrl)
+	return fmt.Sprintf("%v has no default plan", e.cURL)
 }
 
 func isNoDefaultPlanError(e error) bool {

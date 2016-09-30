@@ -53,7 +53,7 @@ type JujuCommandBase struct {
 	cmd.CommandBase
 	cmdContext  *cmd.Context
 	apiContext  *APIContext
-	modelApi    ModelAPI
+	modelAPI_   ModelAPI
 	apiOpenFunc api.OpenFunc
 	authOpts    AuthOpts
 }
@@ -73,9 +73,9 @@ func (c *JujuCommandBase) SetFlags(f *gnuflag.FlagSet) {
 	c.authOpts.SetFlags(f)
 }
 
-// SetModelApi sets the api used to access model information.
-func (c *JujuCommandBase) SetModelApi(api ModelAPI) {
-	c.modelApi = api
+// SetModelAPI sets the api used to access model information.
+func (c *JujuCommandBase) SetModelAPI(api ModelAPI) {
+	c.modelAPI_ = api
 }
 
 // SetAPIOpen sets the function used for opening an API connection.
@@ -84,15 +84,15 @@ func (c *JujuCommandBase) SetAPIOpen(apiOpen api.OpenFunc) {
 }
 
 func (c *JujuCommandBase) modelAPI(store jujuclient.ClientStore, controllerName string) (ModelAPI, error) {
-	if c.modelApi != nil {
-		return c.modelApi, nil
+	if c.modelAPI_ != nil {
+		return c.modelAPI_, nil
 	}
 	conn, err := c.NewAPIRoot(store, controllerName, "")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	c.modelApi = modelmanager.NewClient(conn)
-	return c.modelApi, nil
+	c.modelAPI_ = modelmanager.NewClient(conn)
+	return c.modelAPI_, nil
 }
 
 // NewAPIRoot returns a new connection to the API server for the given

@@ -299,7 +299,7 @@ func canLoginToAPIAsMachine(c *gc.C, fromConf, toConf agent.Config) bool {
 	return apiState != nil && err == nil
 }
 
-func (s *upgradeSuite) checkLoginToAPIAsUser(c *gc.C, conf agent.Config, expectFullApi bool) {
+func (s *upgradeSuite) checkLoginToAPIAsUser(c *gc.C, conf agent.Config, expectFullAPI bool) {
 	var err error
 	// Multiple attempts may be necessary because there is a small gap
 	// between the post-upgrade version being written to the agent's
@@ -309,7 +309,7 @@ func (s *upgradeSuite) checkLoginToAPIAsUser(c *gc.C, conf agent.Config, expectF
 	// can occasionally fail.
 	for a := coretesting.LongAttempt.Start(); a.Next(); {
 		err = s.attemptRestrictedAPIAsUser(c, conf)
-		switch expectFullApi {
+		switch expectFullAPI {
 		case FullAPIExposed:
 			if err == nil {
 				return

@@ -140,7 +140,7 @@ type CloudAPI interface {
 	UpdateCredential(names.CloudCredentialTag, jujucloud.Credential) error
 }
 
-func (c *addModelCommand) newApiRoot() (api.Connection, error) {
+func (c *addModelCommand) newAPIRoot() (api.Connection, error) {
 	if c.apiRoot != nil {
 		return c.apiRoot, nil
 	}
@@ -148,7 +148,7 @@ func (c *addModelCommand) newApiRoot() (api.Connection, error) {
 }
 
 func (c *addModelCommand) Run(ctx *cmd.Context) error {
-	api, err := c.newApiRoot()
+	api, err := c.newAPIRoot()
 	if err != nil {
 		return errors.Annotate(err, "opening API connection")
 	}

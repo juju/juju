@@ -47,23 +47,23 @@ func (s *ActionSuite) SetUpTest(c *gc.C) {
 	s.actionlessService = s.AddTestingService(c, "actionless", s.actionlessCharm)
 	c.Assert(err, jc.ErrorIsNil)
 
-	sUrl, _ := s.service.CharmURL()
-	c.Assert(sUrl, gc.NotNil)
-	actionlessSUrl, _ := s.actionlessService.CharmURL()
-	c.Assert(actionlessSUrl, gc.NotNil)
+	sURL, _ := s.service.CharmURL()
+	c.Assert(sURL, gc.NotNil)
+	actionlessSURL, _ := s.actionlessService.CharmURL()
+	c.Assert(actionlessSURL, gc.NotNil)
 
 	s.unit, err = s.service.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.unit.Series(), gc.Equals, "quantal")
 
-	err = s.unit.SetCharmURL(sUrl)
+	err = s.unit.SetCharmURL(sURL)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.unit2, err = s.service.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.unit2.Series(), gc.Equals, "quantal")
 
-	err = s.unit2.SetCharmURL(sUrl)
+	err = s.unit2.SetCharmURL(sURL)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.charmlessUnit, err = s.service.AddUnit()
@@ -74,7 +74,7 @@ func (s *ActionSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.actionlessUnit.Series(), gc.Equals, "quantal")
 
-	err = s.actionlessUnit.SetCharmURL(actionlessSUrl)
+	err = s.actionlessUnit.SetCharmURL(actionlessSURL)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -278,15 +278,15 @@ func makeUnits(c *gc.C, s *ActionSuite, units map[string]*state.Unit, schemas ma
 		svc := s.AddTestingService(c, svcName, ch)
 
 		// Get its charm URL
-		sUrl, _ := svc.CharmURL()
-		c.Assert(sUrl, gc.NotNil)
+		sURL, _ := svc.CharmURL()
+		c.Assert(sURL, gc.NotNil)
 
 		// Add a unit
 		var err error
 		u, err := svc.AddUnit()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(u.Series(), gc.Equals, "quantal")
-		err = u.SetCharmURL(sUrl)
+		err = u.SetCharmURL(sURL)
 		c.Assert(err, jc.ErrorIsNil)
 
 		units[name] = u
