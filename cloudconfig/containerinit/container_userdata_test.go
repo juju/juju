@@ -211,55 +211,7 @@ func (s *UserDataSuite) TestNewCloudInitConfigWithNetworksFallbackConfig(c *gc.C
 	assertUserData(c, cloudConf, expected)
 }
 
-// TestCloudInitUserDataNoNetworkConfig tests that no network-interfaces, or
-// related data, appear in user-data when no networkConfig is passed to
-// CloudInitUserData.
-func (s *UserDataSuite) TestCloudInitUserDataNoNetworkConfig(c *gc.C) {
-	instanceConfig, err := containertesting.MockMachineConfig("1/lxd/0")
-	c.Assert(err, jc.ErrorIsNil)
-	data, err := containerinit.CloudInitUserData(instanceConfig, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(data, gc.NotNil)
-
-	// Extract the "#cloud-config" header and any lines from the "bootcmd"
-	// section up to (but not including) the "output" sections, to match
-	// against expected. We do not expect to find any, as we have not
-	// passed in a networkConfig.
-	// In this test we care about the networkConfig not all the /other/
-	// output that may be added by CloudInitUserData() in the future, which
-	// we cannot know about, so we do not check beyond "bootcmd".
-	var linesToMatch []string
-	seenBootcmd := false
-	for _, line := range strings.Split(string(data), "\n") {
-		if strings.HasPrefix(line, "#cloud-config") {
-			linesToMatch = append(linesToMatch, line)
-			continue
-		}
-
-		if strings.HasPrefix(line, "bootcmd:") {
-			seenBootcmd = true
-		}
-
-		if strings.HasPrefix(line, "output:") && seenBootcmd {
-			break
-		}
-
-		if seenBootcmd {
-			linesToMatch = append(linesToMatch, line)
-		}
-	}
-
-	c.Assert(strings.Join(linesToMatch, "\n"), gc.Equals, "#cloud-config")
-}
-
-func (s *UserDataSuite) TestCloudInitUserDataFallbackConfig(c *gc.C) {
-	instanceConfig, err := containertesting.MockMachineConfig("1/lxd/0")
-	c.Assert(err, jc.ErrorIsNil)
-	networkConfig := container.BridgeNetworkConfig("foo", 0, nil)
-	data, err := containerinit.CloudInitUserData(instanceConfig, networkConfig)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(data, gc.NotNil)
-
+func CloudInitDataExcludingOutputSection(data string) []string {
 	// Extract the "#cloud-config" header and all lines between
 	// from the "bootcmd" section up to (but not including) the
 	// "output" sections to match against expected. But we cannot
@@ -290,8 +242,36 @@ func (s *UserDataSuite) TestCloudInitUserDataFallbackConfig(c *gc.C) {
 			linesToMatch = append(linesToMatch, line)
 		}
 	}
-	expected := fmt.Sprintf(s.expectedFallbackUserData, s.networkInterfacesFile, s.systemNetworkInterfacesFile)
 
+	return linesToMatch
+}
+
+// TestCloudInitUserDataNoNetworkConfig tests that no network-interfaces, or
+// related data, appear in user-data when no networkConfig is passed to
+// CloudInitUserData.
+func (s *UserDataSuite) TestCloudInitUserDataNoNetworkConfig(c *gc.C) {
+	instanceConfig, err := containertesting.MockMachineConfig("1/lxd/0")
+	c.Assert(err, jc.ErrorIsNil)
+	data, err := containerinit.CloudInitUserData(instanceConfig, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(data, gc.NotNil)
+
+	linesToMatch := CloudInitDataExcludingOutputSection(string(data))
+
+	c.Assert(strings.Join(linesToMatch, "\n"), gc.Equals, "#cloud-config")
+}
+
+func (s *UserDataSuite) TestCloudInitUserDataFallbackConfig(c *gc.C) {
+	instanceConfig, err := containertesting.MockMachineConfig("1/lxd/0")
+	c.Assert(err, jc.ErrorIsNil)
+	networkConfig := container.BridgeNetworkConfig("foo", 0, nil)
+	data, err := containerinit.CloudInitUserData(instanceConfig, networkConfig)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(data, gc.NotNil)
+
+	linesToMatch := CloudInitDataExcludingOutputSection(string(data))
+
+	expected := fmt.Sprintf(s.expectedFallbackUserData, s.networkInterfacesFile, s.systemNetworkInterfacesFile)
 	var expectedLinesToMatch []string
 
 	for _, line := range strings.Split(expected, "\n") {
@@ -300,6 +280,35 @@ func (s *UserDataSuite) TestCloudInitUserDataFallbackConfig(c *gc.C) {
 		}
 		expectedLinesToMatch = append(expectedLinesToMatch, line)
 	}
+
+	expectedLinesToMatch = append(expectedLinesToMatch, "manage_etc_hosts: true")
+
+	c.Assert(strings.Join(linesToMatch, "\n")+"\n", gc.Equals, strings.Join(expectedLinesToMatch, "\n")+"\n")
+}
+
+func (s *UserDataSuite) TestCloudInitUserDataFallbackConfigWithContainerHostname(c *gc.C) {
+	instanceConfig, err := containertesting.MockMachineConfig("1/lxd/0")
+	instanceConfig.MachineContainerHostname = "lxdhostname"
+	c.Assert(err, jc.ErrorIsNil)
+	networkConfig := container.BridgeNetworkConfig("foo", 0, nil)
+	data, err := containerinit.CloudInitUserData(instanceConfig, networkConfig)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(data, gc.NotNil)
+
+	linesToMatch := CloudInitDataExcludingOutputSection(string(data))
+
+	expected := fmt.Sprintf(s.expectedFallbackUserData, s.networkInterfacesFile, s.systemNetworkInterfacesFile)
+	var expectedLinesToMatch []string
+
+	for _, line := range strings.Split(expected, "\n") {
+		if strings.HasPrefix(line, "runcmd:") {
+			break
+		}
+		expectedLinesToMatch = append(expectedLinesToMatch, line)
+	}
+
+	expectedLinesToMatch = append(expectedLinesToMatch, "hostname: lxdhostname")
+	expectedLinesToMatch = append(expectedLinesToMatch, "manage_etc_hosts: true")
 
 	c.Assert(strings.Join(linesToMatch, "\n")+"\n", gc.Equals, strings.Join(expectedLinesToMatch, "\n")+"\n")
 }

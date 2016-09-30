@@ -239,8 +239,11 @@ func CloudInitUserData(
 	cloudConfig.AddRunCmd("ifconfig")
 
 	if instanceConfig.MachineContainerHostname != "" {
+		logger.Debugf("Cloud-init configured to set hostname")
 		cloudConfig.SetAttr("hostname", instanceConfig.MachineContainerHostname)
 	}
+
+	cloudConfig.SetAttr("manage_etc_hosts", true)
 
 	data, err := cloudConfig.RenderYAML()
 	if err != nil {
