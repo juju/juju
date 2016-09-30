@@ -21,28 +21,53 @@ import (
 	"github.com/juju/juju/testing"
 )
 
+type InitializeArgs struct {
+	Owner                     names.UserTag
+	InitialConfig             *config.Config
+	ControllerInheritedConfig map[string]interface{}
+	RegionConfig              cloud.RegionConfig
+	NewPolicy                 state.NewPolicyFunc
+	Clock                     clock.Clock
+}
+
 // Initialize initializes the state and returns it. If state was not
 // already initialized, and cfg is nil, the minimal default model
 // configuration will be used.
+// This provides for tests still using a real clock from utils as tests are
+// migrated to use the testing clock
 func Initialize(c *gc.C, owner names.UserTag, cfg *config.Config, controllerInheritedConfig map[string]interface{}, regionConfig cloud.RegionConfig, newPolicy state.NewPolicyFunc) *state.State {
-	if cfg == nil {
-		cfg = testing.ModelConfig(c)
+	return InitializeWithArgs(c, InitializeArgs{
+		Owner:                     owner,
+		InitialConfig:             cfg,
+		ControllerInheritedConfig: controllerInheritedConfig,
+		RegionConfig:              regionConfig,
+		NewPolicy:                 newPolicy,
+		Clock:                     &clock.WallClock,
+	})
+}
+
+// InitializeWithArgs initializes the state and returns it. If state was not
+// already initialized, and args.Config is nil, the minimal default model
+// configuration will be used.
+func InitializeWithArgs(c *gc.C, args InitializeArgs) *state.State {
+	if args.InitialConfig == nil {
+		args.InitialConfig = testing.ModelConfig(c)
 	}
 	mgoInfo := NewMongoInfo()
 	dialOpts := mongotest.DialOpts()
 
 	controllerCfg := testing.FakeControllerConfig()
 	st, err := state.Initialize(state.InitializeParams{
-		Clock:            clock.WallClock,
+		Clock:            args.Clock,
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
 			CloudName:   "dummy",
 			CloudRegion: "dummy-region",
-			Config:      cfg,
-			Owner:       owner,
+			Config:      args.InitialConfig,
+			Owner:       args.Owner,
 			StorageProviderRegistry: StorageProviders(),
 		},
-		ControllerInheritedConfig: controllerInheritedConfig,
+		ControllerInheritedConfig: args.ControllerInheritedConfig,
 		CloudName:                 "dummy",
 		Cloud: cloud.Cloud{
 			Type:      "dummy",
@@ -61,11 +86,11 @@ func Initialize(c *gc.C, owner names.UserTag, cfg *config.Config, controllerInhe
 					StorageEndpoint:  "nether-storage-endpoint",
 				},
 			},
-			RegionConfig: regionConfig,
+			RegionConfig: args.RegionConfig,
 		},
 		MongoInfo:     mgoInfo,
 		MongoDialOpts: dialOpts,
-		NewPolicy:     newPolicy,
+		NewPolicy:     args.NewPolicy,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return st

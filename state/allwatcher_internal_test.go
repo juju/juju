@@ -6,7 +6,6 @@ package state
 import (
 	"fmt"
 	"sort"
-	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -216,7 +215,7 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 
 		err = m.SetProvisioned(instance.Id("i-"+m.Tag().String()), "fake_nonce", nil)
 		c.Assert(err, jc.ErrorIsNil)
-		now := time.Now()
+		now := testing.ZeroTime()
 		sInfo := status.StatusInfo{
 			Status:  status.Error,
 			Message: m.Tag().String(),
@@ -725,7 +724,7 @@ func (s *allWatcherStateSuite) TestStateWatcher(c *gc.C) {
 
 	// Expect to see events for the already created machines first.
 	deltas := tw.All(2)
-	now := time.Now()
+	now := testing.ZeroTime()
 	checkDeltasEqual(c, deltas, []multiwatcher.Delta{{
 		Entity: &multiwatcher.MachineInfo{
 			ModelUUID: s.state.ModelUUID(),
@@ -1020,7 +1019,7 @@ func (s *allWatcherStateSuite) TestStateWatcherTwoModels(c *gc.C) {
 				m, err := st.Machine("0")
 				c.Assert(err, jc.ErrorIsNil)
 
-				now := time.Now()
+				now := testing.ZeroTime()
 				sInfo := status.StatusInfo{
 					Status:  status.Error,
 					Message: "pete tong",
@@ -1735,7 +1734,7 @@ func testChangeAnnotations(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)
 }
 
 func testChangeMachines(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
-	now := time.Now()
+	now := testing.ZeroTime()
 	changeTestFuncs := []changeTestFunc{
 		func(c *gc.C, st *State) changeTestCase {
 			return changeTestCase{
@@ -1768,7 +1767,7 @@ func testChangeMachines(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
 		func(c *gc.C, st *State) changeTestCase {
 			m, err := st.AddMachine("quantal", JobHostUnits)
 			c.Assert(err, jc.ErrorIsNil)
-			now := time.Now()
+			now := testing.ZeroTime()
 			sInfo := status.StatusInfo{
 				Status:  status.Error,
 				Message: "failure",
@@ -1889,7 +1888,7 @@ func testChangeMachines(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
 		func(c *gc.C, st *State) changeTestCase {
 			m, err := st.AddMachine("quantal", JobHostUnits)
 			c.Assert(err, jc.ErrorIsNil)
-			now := time.Now()
+			now := testing.ZeroTime()
 			sInfo := status.StatusInfo{
 				Status:  status.Started,
 				Message: "",
@@ -2293,7 +2292,7 @@ func testChangeServicesConstraints(c *gc.C, owner names.UserTag, runChangeTests 
 }
 
 func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []changeTestFunc)) {
-	now := time.Now()
+	now := testing.ZeroTime()
 	changeTestFuncs := []changeTestFunc{
 		func(c *gc.C, st *State) changeTestCase {
 			return changeTestCase{
@@ -2331,7 +2330,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 			c.Assert(err, jc.ErrorIsNil)
 			err = u.OpenPorts("tcp", 5555, 5558)
 			c.Assert(err, jc.ErrorIsNil)
-			now := time.Now()
+			now := testing.ZeroTime()
 			sInfo := status.StatusInfo{
 				Status:  status.Error,
 				Message: "failure",
@@ -2536,7 +2535,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 			privateAddress := network.NewScopedAddress("private", network.ScopeCloudLocal)
 			err = m.SetProviderAddresses(publicAddress, privateAddress)
 			c.Assert(err, jc.ErrorIsNil)
-			now := time.Now()
+			now := testing.ZeroTime()
 			sInfo := status.StatusInfo{
 				Status:  status.Error,
 				Message: "failure",
@@ -2627,7 +2626,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
 			u, err := wordpress.AddUnit()
 			c.Assert(err, jc.ErrorIsNil)
-			now := time.Now()
+			now := testing.ZeroTime()
 			sInfo := status.StatusInfo{
 				Status:  status.Idle,
 				Message: "",
@@ -2680,7 +2679,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
 			u, err := wordpress.AddUnit()
 			c.Assert(err, jc.ErrorIsNil)
-			now := time.Now()
+			now := testing.ZeroTime()
 			sInfo := status.StatusInfo{
 				Status:  status.Idle,
 				Message: "",
@@ -2740,7 +2739,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
 			u, err := wordpress.AddUnit()
 			c.Assert(err, jc.ErrorIsNil)
-			now := time.Now()
+			now := testing.ZeroTime()
 			sInfo := status.StatusInfo{
 				Status:  status.Error,
 				Message: "hook error",
@@ -2800,7 +2799,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
 			u, err := wordpress.AddUnit()
 			c.Assert(err, jc.ErrorIsNil)
-			now := time.Now()
+			now := testing.ZeroTime()
 			sInfo := status.StatusInfo{
 				Status:  status.Active,
 				Message: "",
@@ -3107,7 +3106,7 @@ done:
 					break done
 				}
 			}
-		case <-time.After(maxDuration):
+		case <-tw.st.clock.After(maxDuration):
 			// timed out
 			break done
 		}
@@ -3128,7 +3127,7 @@ func (tw *testWatcher) AssertNoChange(c *gc.C) {
 		if len(d) > 0 {
 			c.Error("change detected")
 		}
-	case <-time.After(testing.ShortWait):
+	case <-tw.st.clock.After(testing.ShortWait):
 		// expected
 	}
 }
@@ -3136,7 +3135,7 @@ func (tw *testWatcher) AssertNoChange(c *gc.C) {
 func (tw *testWatcher) AssertChanges(c *gc.C, expected int) {
 	var count int
 	tw.st.StartSync()
-	maxWait := time.After(testing.LongWait)
+	maxWait := tw.st.clock.After(testing.LongWait)
 done:
 	for {
 		select {

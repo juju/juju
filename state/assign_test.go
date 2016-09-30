@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
-	"time"
+	"time" // Only used to Sleep().
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/txn"

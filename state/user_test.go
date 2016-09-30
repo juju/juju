@@ -16,6 +16,7 @@ import (
 
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -48,7 +49,7 @@ func (s *UserSuite) TestAddUser(c *gc.C) {
 	password := "password"
 	creator := "admin"
 
-	now := time.Now().Round(time.Second).UTC()
+	now := testing.NonZeroTime().Round(time.Second).UTC()
 
 	user, err := s.State.AddUser(name, displayName, password, creator)
 	c.Assert(err, jc.ErrorIsNil)
@@ -93,7 +94,7 @@ func (s *UserSuite) TestString(c *gc.C) {
 }
 
 func (s *UserSuite) TestUpdateLastLogin(c *gc.C) {
-	now := time.Now().Round(time.Second).UTC()
+	now := testing.NonZeroTime().Round(time.Second).UTC()
 	user := s.Factory.MakeUser(c, nil)
 	err := user.UpdateLastLogin()
 	c.Assert(err, jc.ErrorIsNil)

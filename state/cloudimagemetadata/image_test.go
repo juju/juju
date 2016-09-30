@@ -5,7 +5,6 @@ package cloudimagemetadata_test
 
 import (
 	"regexp"
-	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/testing"
@@ -17,6 +16,7 @@ import (
 
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/cloudimagemetadata"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type cloudImageMetadataSuite struct {
@@ -80,7 +80,7 @@ func (s *cloudImageMetadataSuite) TestSaveMetadataWithDateCreated(c *gc.C) {
 		RootStorageType: "rootStorageType-test",
 		Source:          "test",
 	}
-	now := time.Now().UnixNano()
+	now := coretesting.NonZeroTime().UnixNano()
 	metadata := cloudimagemetadata.Metadata{attrs, 0, "1", now}
 	s.assertRecordMetadata(c, metadata)
 	s.assertMetadataRecorded(c, cloudimagemetadata.MetadataAttributes{}, metadata)

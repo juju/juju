@@ -4,12 +4,13 @@
 package lease_test
 
 import (
-	"time"
+	"time" // Only used for time types.
 
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/state/lease"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type SkewSuite struct {
@@ -19,7 +20,7 @@ type SkewSuite struct {
 var _ = gc.Suite(&SkewSuite{})
 
 func (s *SkewSuite) TestZero(c *gc.C) {
-	now := time.Now()
+	now := coretesting.ZeroTime()
 
 	// The zero Skew should act as unskewed.
 	skew := lease.Skew{}
@@ -29,7 +30,7 @@ func (s *SkewSuite) TestZero(c *gc.C) {
 }
 
 func (s *SkewSuite) TestApparentPastWrite(c *gc.C) {
-	now := time.Now()
+	now := coretesting.ZeroTime()
 	c.Logf("now: %s", now)
 	oneSecondAgo := now.Add(-time.Second)
 	threeSecondsAgo := now.Add(-3 * time.Second)
@@ -60,7 +61,7 @@ func (s *SkewSuite) TestApparentPastWrite(c *gc.C) {
 }
 
 func (s *SkewSuite) TestApparentFutureWrite(c *gc.C) {
-	now := time.Now()
+	now := coretesting.ZeroTime()
 	c.Logf("now: %s", now)
 	oneSecondAgo := now.Add(-time.Second)
 	threeSecondsAgo := now.Add(-3 * time.Second)
@@ -92,7 +93,7 @@ func (s *SkewSuite) TestApparentFutureWrite(c *gc.C) {
 }
 
 func (s *SkewSuite) TestBracketedWrite(c *gc.C) {
-	now := time.Now()
+	now := coretesting.ZeroTime()
 	c.Logf("now: %s", now)
 	oneSecondAgo := now.Add(-time.Second)
 	twoSecondsAgo := now.Add(-2 * time.Second)
@@ -130,7 +131,7 @@ func (s *SkewSuite) TestMixedTimezones(c *gc.C) {
 
 	// This is a straight copy of TestBracketedWrite, with strange timezones
 	// inserted to check that they don't affect the results at all.
-	now := time.Now()
+	now := coretesting.ZeroTime()
 	c.Logf("now: %s", now)
 	oneSecondAgo := now.Add(-time.Second)
 	twoSecondsAgo := now.Add(-2 * time.Second)
