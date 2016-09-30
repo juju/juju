@@ -36,14 +36,14 @@ var commonFacadeNames = set.NewStrings(
 )
 
 func controllerFacadesOnly(facadeName, _ string) error {
-	if !isControllerFacade(facadeName) {
+	if !IsControllerFacade(facadeName) {
 		return errors.NewNotSupported(nil, fmt.Sprintf("facade %q not supported for controller API connection", facadeName))
 	}
 	return nil
 }
 
-// isControllerFacade reports whether the given facade name can be accessed
-// using the controller connection.
-func isControllerFacade(facadeName string) bool {
+// IsControllerFacade reports whether the given facade name can be accessed
+// using a controller connection.
+func IsControllerFacade(facadeName string) bool {
 	return controllerFacadeNames.Contains(facadeName) || commonFacadeNames.Contains(facadeName)
 }
