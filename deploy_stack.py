@@ -298,9 +298,14 @@ def archive_logs(log_dir):
     """Compress log files in given log_dir using gzip."""
     log_files = []
     for r, ds, fs in os.walk(log_dir):
-        log_files.extend(os.path.join(r, f) for f in fs if f.endswith(".log"))
+        log_files.extend(os.path.join(r, f) for f in fs if is_log(f))
     if log_files:
         subprocess.check_call(['gzip', '--best', '-f'] + log_files)
+
+
+def is_log(file_name):
+    """Check to see if the given file name is the name of a log file."""
+    return file_name.endswith('.log') or file_name.endswith('syslog')
 
 
 lxc_template_glob = '/var/lib/juju/containers/juju-*-lxc-template/*.log'
@@ -544,7 +549,8 @@ class BootstrapManager:
             client = fake_juju_client(env=env)
         else:
             client = client_from_config(args.env, args.juju_bin,
-                                        debug=args.debug)
+                                        debug=args.debug,
+                                        soft_deadline=args.deadline)
         jes_enabled = client.is_jes_enabled()
         return cls(
             args.temp_env_name, client, client, args.bootstrap_host,
@@ -634,9 +640,9 @@ class BootstrapManager:
         stdout = getattr(exc, 'output', None)
         stderr = getattr(exc, 'stderr', None)
         if stdout or stderr:
-                logging.info(
-                        'Output from exception:\nstdout:\n%s\nstderr:\n%s',
-                        stdout, stderr)
+            logging.info(
+                'Output from exception:\nstdout:\n%s\nstderr:\n%s',
+                stdout, stderr)
         return LoggedException(exc)
 
     @contextmanager
@@ -830,7 +836,7 @@ class BootstrapManager:
                 yield machines + new_machines
 
     @contextmanager
-    def booted_context(self, upload_tools):
+    def booted_context(self, upload_tools, **kwargs):
         """Create a temporary environment in a context manager to run tests in.
 
         Bootstrap a new environment from a temporary config that is suitable
@@ -843,13 +849,17 @@ class BootstrapManager:
 
         :param upload_tools: False or True to upload the local agent instead
             of using streams.
+        :param **kwargs: All remaining keyword arguments are passed to the
+        client's bootstrap.
         """
         try:
             with self.top_context() as machines:
                 with self.bootstrap_context(
                         machines, omit_config=self.client.bootstrap_replaces):
                     self.client.bootstrap(
-                        upload_tools, bootstrap_series=self.series)
+                        upload_tools=upload_tools,
+                        bootstrap_series=self.series,
+                        **kwargs)
                 with self.runtime_context(machines):
                     self.client.list_controllers()
                     self.client.list_models()
@@ -860,14 +870,16 @@ class BootstrapManager:
             sys.exit(1)
 
     @contextmanager
-    def existing_booted_context(self, upload_tools):
+    def existing_booted_context(self, upload_tools, **kwargs):
         try:
             with self.top_context() as machines:
                 # Existing does less things as there is no pre-cleanup needed.
                 with self.existing_bootstrap_context(
                         machines, omit_config=self.client.bootstrap_replaces):
                     self.client.bootstrap(
-                        upload_tools, bootstrap_series=self.series)
+                        upload_tools=upload_tools,
+                        bootstrap_series=self.series,
+                        **kwargs)
                 with self.runtime_context(machines):
                     yield machines
         except LoggedException:
@@ -922,7 +934,8 @@ def _deploy_job(args, charm_series, series):
         sys.path = [p for p in sys.path if 'OpenSSH' not in p]
     # GZ 2016-01-22: When upgrading, could make sure to tear down with the
     # newer client instead, this will be required for major version upgrades?
-    client = client_from_config(args.env, start_juju_path, args.debug)
+    client = client_from_config(args.env, start_juju_path, args.debug,
+                                soft_deadline=args.deadline)
     if args.jes and not client.is_jes_enabled():
         client.enable_jes()
     jes_enabled = client.is_jes_enabled()

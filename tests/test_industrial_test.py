@@ -62,7 +62,10 @@ from jujupy import (
     Status,
     _temp_env,
     )
-from substrate import AWSAccount
+from substrate import (
+    AWSAccount,
+    AzureARMAccount,
+    )
 from tests import (
     FakeHomeTestCase,
     parse_error,
@@ -77,6 +80,7 @@ from tests.test_jujupy import (
     )
 from tests.test_substrate import (
     get_aws_env,
+    get_azure_config,
     get_os_config,
     make_os_security_group_instance,
     make_os_security_groups,
@@ -1186,9 +1190,10 @@ class TestSteppedStageAttempt(JujuPyTestCase):
 
 
 def FakeEnvJujuClient(name='steve', version='1.2', full_path='/jbin/juju'):
+    juju_data = JujuData(name, {'type': 'fake', 'region': 'regionx'})
+    juju_data.credentials = {'credentials': {'fake': {'creds': {}}}}
     return EnvJujuClient(
-        JujuData(name, {'type': 'fake', 'region': 'regionx'}),
-        version, full_path)
+        juju_data, version, full_path)
 
 
 class FakeEnvJujuClient1X(EnvJujuClient1X):
@@ -1335,7 +1340,12 @@ class TestDestroyEnvironmentAttempt(JujuPyTestCase):
     @staticmethod
     def get_openstack_client():
         client = FakeEnvJujuClient()
+        client.env.clouds = {'clouds': {'quxxx': {
+            'type': 'openstack', 'endpoint': 'qux',
+            }}}
         client.env.config = get_os_config()
+        client.env.credentials = {'credentials': {'quxxx': {'creds': {
+            }}}}
         return client
 
     def test_get_security_groups_aws(self):
@@ -1766,6 +1776,29 @@ class TestDeployManyAttempt(JujuPyTestCase):
     def test_wait_until_removed_timeout_lxc(self):
         self.assertEqual(30, self.get_wait_until_removed_timeout(LXC_MACHINE))
 
+    def test_wait_until_removed_timeout_azure(self):
+        deploy_many = DeployManyAttempt(host_count=4, container_count=0)
+        client = fake_juju_client()
+        client.env.config['type'] = 'azure'
+        client.env.config['location'] = 'us-west-1'
+        client.bootstrap()
+        deploy_iter = iter_steps_validate_info(self, deploy_many, client)
+        with patch('industrial_test.wait_until_removed') as wur_mock:
+            list(deploy_iter)
+        remove_timeout = wur_mock.mock_calls[3][2]['timeout']
+        self.assertEqual(2400, remove_timeout)
+
+    def test_wait_until_removed_timeout_not_azure(self):
+        deploy_many = DeployManyAttempt(host_count=4, container_count=0)
+        client = fake_juju_client()
+        client.env.config['type'] = 'aws'
+        client.bootstrap()
+        deploy_iter = iter_steps_validate_info(self, deploy_many, client)
+        with patch('industrial_test.wait_until_removed') as wur_mock:
+            list(deploy_iter)
+        remove_timeout = wur_mock.mock_calls[3][2]['timeout']
+        self.assertEqual(300, remove_timeout)
+
 
 class TestBackupRestoreAttempt(JujuPyTestCase):
 
@@ -1781,6 +1814,7 @@ class TestBackupRestoreAttempt(JujuPyTestCase):
         client.env.environment = aws_env.environment
         client.env.config = aws_env.config
         client.env.juju_home = aws_env.juju_home
+        client.env.credentials = {'credentials': {'aws': {'creds': {}}}}
         controller_client = client.get_controller_client()
         environ = dict(os.environ)
         environ.update(get_euca_env(client.env.config))
@@ -1843,6 +1877,49 @@ class TestBackupRestoreAttempt(JujuPyTestCase):
             self.assertEqual(iterator.next(),
                              {'test_id': 'back-up-restore', 'result': True})
         gs_mock.assert_called_once_with()
+
+    def test_iter_steps_azure(self):
+        test_id = {'test_id': 'back-up-restore'}
+        br_attempt = BackupRestoreAttempt()
+        azure_env = SimpleEnvironment('steve', get_azure_config())
+        client = FakeEnvJujuClient()
+        client.env.environment = azure_env.environment
+        client.env.config = azure_env.config
+        client.env.credentials = {'credentials': {'azure': {'creds': {}}}}
+        controller_client = client.get_controller_client()
+        # First yield.
+        iterator = iter_steps_validate_info(self, br_attempt, client)
+        self.assertEqual(iterator.next(), test_id)
+        # Second yield.
+        initial_status = {
+            'machines': {'0': {
+                'instance-id': 'not-id',
+                'dns-name': '128.100.100.128',
+                }}
+        }
+        # The azure-provider does does not provide sane ids, so the instance-id
+        # is used to search for the actual azure instance.
+        substrate = AzureARMAccount(None)
+        with patch(
+                'industrial_test.make_substrate_manager'
+                ) as msm_mock:
+            msm_mock.return_value.__enter__.return_value = substrate
+            with patch.object(substrate, 'convert_to_azure_ids',
+                              autospec=True, return_value=['id']) as ca_mock:
+                with patch.object(client, 'get_controller_client',
+                                  autospec=True,
+                                  return_value=controller_client):
+                    with patch.object(controller_client, 'backup',
+                                      autospec=True,
+                                      return_value='juju-backup.tgz'
+                                      ) as b_mock:
+                        with patch('industrial_test.terminate_instances',
+                                   autospec=True):
+                            with patch_status(controller_client,
+                                              initial_status):
+                                self.assertEqual(iterator.next(), test_id)
+        b_mock.assert_called_once_with()
+        ca_mock.assert_called_once_with(controller_client, ['not-id'])
 
 
 class TestPrepareUpgradeJujuAttempt(JujuPyTestCase):
@@ -2068,16 +2145,19 @@ class TestMakeSubstrate(JujuPyTestCase):
     def test_make_substrate_manager_no_support(self):
         client = EnvJujuClient(JujuData('foo', {'type': 'foo'}),
                                '', '')
+        client.env.credentials = {'credentials': {'foo': {'creds': {}}}}
         with make_substrate_manager(client, []) as substrate:
             self.assertIs(substrate, None)
 
     def test_make_substrate_no_requirements(self):
         client = EnvJujuClient(get_aws_juju_data(), '', '')
+        client.env.credentials = {'credentials': {'aws': {'creds': {}}}}
         with make_substrate_manager(client, []) as substrate:
             self.assertIs(type(substrate), AWSAccount)
 
     def test_make_substrate_manager_unsatisifed_requirements(self):
         client = EnvJujuClient(get_aws_juju_data(), '', '')
+        client.env.credentials = {'credentials': {'aws': {'creds': {}}}}
         with make_substrate_manager(client, ['foo']) as substrate:
             self.assertIs(substrate, None)
         with make_substrate_manager(
@@ -2086,6 +2166,7 @@ class TestMakeSubstrate(JujuPyTestCase):
 
     def test_make_substrate_satisfied_requirements(self):
         client = EnvJujuClient(get_aws_juju_data(), '', '')
+        client.env.credentials = {'credentials': {'aws': {'creds': {}}}}
         with make_substrate_manager(
                 client, ['iter_security_groups']) as substrate:
             self.assertIs(type(substrate), AWSAccount)

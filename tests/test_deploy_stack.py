@@ -1,11 +1,11 @@
 from argparse import (
     Namespace,
-)
+    )
 from contextlib import contextmanager
 from datetime import (
     datetime,
     timedelta,
-)
+    )
 import json
 import logging
 import os
@@ -13,13 +13,13 @@ import subprocess
 import sys
 from unittest import (
     skipIf,
-)
+    )
 
 from mock import (
     call,
     MagicMock,
     patch,
-)
+    )
 import yaml
 
 from deploy_stack import (
@@ -45,11 +45,11 @@ from deploy_stack import (
     safe_print_status,
     retain_config,
     update_env,
-)
+    )
 from fakejuju import (
     fake_juju_client,
     fake_juju_client_optional_jes,
-)
+    )
 from jujuconfig import (
     get_environments_path,
     get_jenv_path,
@@ -65,27 +65,27 @@ from jujupy import (
     KILL_CONTROLLER,
     SimpleEnvironment,
     Status,
-)
+    )
 from remote import (
     _Remote,
     remote_from_address,
     SSHRemote,
     winrm,
-)
+    )
 from tests import (
     FakeHomeTestCase,
     temp_os_env,
     use_context,
-)
+    )
 from tests.test_jujupy import (
     assert_juju_call,
     FakePopen,
     observable_temp_file,
-)
+    )
 from utility import (
     LoggedException,
     temp_dir,
-)
+    )
 
 
 def make_logs(log_dir):
@@ -496,6 +496,15 @@ class DumpEnvLogsTestCase(FakeHomeTestCase):
             log_path = os.path.join(log_dir, 'fake.log')
             cc_mock.assert_called_once_with(['gzip', '--best', '-f', log_path])
 
+    def test_archive_logs_syslog(self):
+        with temp_dir() as log_dir:
+            log_path = os.path.join(log_dir, 'syslog')
+            with open(log_path, 'w') as f:
+                f.write('syslog contents')
+            with patch('subprocess.check_call', autospec=True) as cc_mock:
+                archive_logs(log_dir)
+            cc_mock.assert_called_once_with(['gzip', '--best', '-f', log_path])
+
     def test_archive_logs_subdir(self):
         with temp_dir() as log_dir:
             subdir = os.path.join(log_dir, "subdir")
@@ -512,6 +521,26 @@ class DumpEnvLogsTestCase(FakeHomeTestCase):
             with patch('subprocess.check_call', autospec=True) as cc_mock:
                 archive_logs(log_dir)
         self.assertEquals(cc_mock.call_count, 0)
+
+    def test_archive_logs_multiple(self):
+        with temp_dir() as log_dir:
+            log_paths = []
+            with open(os.path.join(log_dir, 'fake.log'), 'w') as f:
+                f.write('log contents')
+            log_paths.append(os.path.join(log_dir, 'fake.log'))
+            subdir = os.path.join(log_dir, "subdir")
+            os.mkdir(subdir)
+            with open(os.path.join(subdir, 'syslog'), 'w') as f:
+                f.write('syslog contents')
+            log_paths.append(os.path.join(subdir, 'syslog'))
+            with patch('subprocess.check_call', autospec=True) as cc_mock:
+                archive_logs(log_dir)
+            self.assertEqual(1, cc_mock.call_count)
+            call_args, call_kwargs = cc_mock.call_args
+            gzip_args = call_args[0]
+            self.assertEqual(0, len(call_kwargs))
+            self.assertEqual(gzip_args[:3], ['gzip', '--best', '-f'])
+            self.assertEqual(set(gzip_args[3:]), set(log_paths))
 
     def test_copy_local_logs(self):
         # Relevent local log files are copied, after changing their permissions
@@ -800,7 +829,7 @@ class TestDeployDummyStack(FakeHomeTestCase):
                                autospec=True) as ct_mock:
                         assess_juju_relations(client)
         assert_juju_call(self, cc_mock, client, (
-            'juju', '--show-log', 'set-config', '-m', 'foo:foo',
+            'juju', '--show-log', 'config', '-m', 'foo:foo',
             'dummy-source', 'token=fake-token'), 0)
         ct_mock.assert_called_once_with(client, 'fake-token')
 
@@ -988,7 +1017,7 @@ class TestDeployJob(FakeHomeTestCase):
             charm_prefix=None, bootstrap_host=None, machine=None,
             series='trusty', debug=False, agent_url=None, agent_stream=None,
             keep_env=False, upload_tools=False, with_chaos=1, jes=False,
-            region=None, verbose=False, upgrade=False,
+            region=None, verbose=False, upgrade=False, deadline=None,
         )
         with self.ds_cxt():
             with patch('deploy_stack.background_chaos',
@@ -1011,7 +1040,7 @@ class TestDeployJob(FakeHomeTestCase):
             charm_prefix=None, bootstrap_host=None, machine=None,
             series='trusty', debug=False, agent_url=None, agent_stream=None,
             keep_env=False, upload_tools=False, with_chaos=0, jes=False,
-            region=None, verbose=False, upgrade=False,
+            region=None, verbose=False, upgrade=False, deadline=None,
         )
         with self.ds_cxt():
             with patch('deploy_stack.background_chaos',
@@ -1029,7 +1058,7 @@ class TestDeployJob(FakeHomeTestCase):
             charm_prefix=None, bootstrap_host=None, machine=None,
             series='trusty', debug=False, agent_url=None, agent_stream=None,
             keep_env=False, upload_tools=False, with_chaos=0, jes=False,
-            region='region-foo', verbose=False, upgrade=False,
+            region='region-foo', verbose=False, upgrade=False, deadline=None,
         )
         with self.ds_cxt() as (client, bm_mock):
             with patch('deploy_stack.assess_juju_relations',
@@ -1077,7 +1106,7 @@ class TestTestUpgrade(FakeHomeTestCase):
     STATUS = (
         'juju', '--show-log', 'show-status', '-m', 'foo:foo',
         '--format', 'yaml')
-    GET_ENV = ('juju', '--show-log', 'get-model-config', '-m', 'foo:foo',
+    GET_ENV = ('juju', '--show-log', 'model-config', '-m', 'foo:foo',
                'agent-metadata-url')
 
     @classmethod
@@ -1085,7 +1114,7 @@ class TestTestUpgrade(FakeHomeTestCase):
         status = yaml.safe_dump({
             'machines': {'0': {
                 'agent-state': 'started',
-                'agent-version': '2.0-alpha3'}},
+                'agent-version': '2.0-beta18'}},
             'services': {}})
         juju_run_out = json.dumps([
             {"MachineId": "1", "Stdout": "Linux\n"},
@@ -1107,7 +1136,7 @@ class TestTestUpgrade(FakeHomeTestCase):
                                return_value="FAKETOKEN", autospec=True):
                         with patch('jujupy.EnvJujuClient.get_version',
                                    side_effect=lambda cls:
-                                   '2.0-alpha3-arch-series'):
+                                   '2.0-beta18-arch-series'):
                             yield (co_mock, cc_mock)
 
     def test_assess_upgrade(self):
@@ -1118,7 +1147,7 @@ class TestTestUpgrade(FakeHomeTestCase):
         new_client = EnvJujuClient(env, None, '/bar/juju')
         assert_juju_call(self, cc_mock, new_client, (
             'juju', '--show-log', 'upgrade-juju', '-m', 'foo:foo', '--version',
-            '2.0-alpha3'), 0)
+            '2.0-beta18'), 0)
         self.assertEqual(cc_mock.call_count, 1)
         assert_juju_call(self, co_mock, new_client, self.GET_ENV, 0)
         assert_juju_call(self, co_mock, new_client, self.GET_ENV, 1)
@@ -1131,24 +1160,27 @@ class TestTestUpgrade(FakeHomeTestCase):
         with self.upgrade_mocks():
             with patch.object(EnvJujuClient, 'wait_for_version') as wfv_mock:
                 assess_upgrade(old_client, '/bar/juju')
-            wfv_mock.assert_called_once_with('2.0-alpha3', 600)
+            wfv_mock.assert_called_once_with('2.0-beta18', 600)
             config['type'] = 'maas'
             with patch.object(EnvJujuClient, 'wait_for_version') as wfv_mock:
                 assess_upgrade(old_client, '/bar/juju')
-        wfv_mock.assert_called_once_with('2.0-alpha3', 1200)
+        wfv_mock.assert_called_once_with('2.0-beta18', 1200)
 
 
 class TestBootstrapManager(FakeHomeTestCase):
 
     def test_from_args(self):
+        deadline = datetime(2012, 11, 10, 9, 8, 7)
         args = Namespace(
             env='foo', juju_bin='bar', debug=True, temp_env_name='baz',
             bootstrap_host='example.org', machine=['example.com'],
             series='angsty', agent_url='qux', agent_stream='escaped',
-            region='eu-west-northwest-5', logs='pine', keep_env=True)
+            region='eu-west-northwest-5', logs='pine', keep_env=True,
+            deadline=deadline)
         with patch('deploy_stack.client_from_config') as fc_mock:
             bs_manager = BootstrapManager.from_args(args)
-        fc_mock.assert_called_once_with('foo', 'bar', debug=True)
+        fc_mock.assert_called_once_with('foo', 'bar', debug=True,
+                                        soft_deadline=deadline)
         self.assertEqual('baz', bs_manager.temp_env_name)
         self.assertIs(fc_mock.return_value, bs_manager.client)
         self.assertIs(fc_mock.return_value, bs_manager.tear_down_client)
@@ -1170,11 +1202,13 @@ class TestBootstrapManager(FakeHomeTestCase):
             env='foo', juju_bin='bar', debug=True, temp_env_name='baz',
             bootstrap_host='example.org', machine=['example.com'],
             series='angsty', agent_url='qux', agent_stream='escaped',
-            region='eu-west-northwest-5', logs=None, keep_env=True)
+            region='eu-west-northwest-5', logs=None, keep_env=True,
+            deadline=None)
         with patch('deploy_stack.client_from_config') as fc_mock:
             with patch('utility.os.makedirs'):
                 bs_manager = BootstrapManager.from_args(args)
-        fc_mock.assert_called_once_with('foo', 'bar', debug=True)
+        fc_mock.assert_called_once_with('foo', 'bar', debug=True,
+                                        soft_deadline=None)
         self.assertEqual('baz', bs_manager.temp_env_name)
         self.assertIs(fc_mock.return_value, bs_manager.client)
         self.assertIs(fc_mock.return_value, bs_manager.tear_down_client)
@@ -1221,7 +1255,8 @@ class TestBootstrapManager(FakeHomeTestCase):
             env='foo', juju_bin='bar', debug=True, temp_env_name='baz',
             bootstrap_host=None, machine=['example.com'],
             series='angsty', agent_url='qux', agent_stream='escaped',
-            region='eu-west-northwest-5', logs='pine', keep_env=True)
+            region='eu-west-northwest-5', logs='pine', keep_env=True,
+            deadline=None)
         with patch('deploy_stack.client_from_config'):
             bs_manager = BootstrapManager.from_args(args)
         self.assertIs(None, bs_manager.bootstrap_host)
@@ -1611,6 +1646,36 @@ class TestBootstrapManager(FakeHomeTestCase):
                                    region=None)
         wfp_mock.assert_called_once_with(
             'bootstrap.example.org', 22, timeout=120)
+
+    @contextmanager
+    def booted_to_bootstrap(self, bs_manager):
+        """Preform patches to focus on the call to bootstrap."""
+        with patch.object(bs_manager, 'dump_all_logs'):
+            with patch.object(bs_manager, 'runtime_context'):
+                with patch.object(bs_manager.client, 'juju'):
+                    with patch.object(bs_manager.client, 'bootstrap') as mock:
+                        yield mock
+
+    def test_booted_context_kwargs(self):
+        client = fake_juju_client()
+        with temp_dir() as root:
+            log_dir = os.path.join(root, 'log-dir')
+            os.mkdir(log_dir)
+            bs_manager = BootstrapManager(
+                'foobar', client, client,
+                None, [], None, None, None, None, log_dir, False,
+                True, True)
+            juju_home = os.path.join(root, 'juju-home')
+            os.mkdir(juju_home)
+            client.env.juju_home = juju_home
+            with self.booted_to_bootstrap(bs_manager) as bootstrap_mock:
+                with bs_manager.booted_context(False, to='test'):
+                    bootstrap_mock.assert_called_once_with(
+                        upload_tools=False, to='test', bootstrap_series=None)
+            with self.booted_to_bootstrap(bs_manager) as bootstrap_mock:
+                with bs_manager.existing_booted_context(False, to='test'):
+                    bootstrap_mock.assert_called_once_with(
+                        upload_tools=False, to='test', bootstrap_series=None)
 
     def test_runtime_context_teardown_ignores_soft_deadline(self):
         env = JujuData('foo', {'type': 'nonlocal'})
@@ -2043,6 +2108,7 @@ class TestDeployJobParseArgs(FakeHomeTestCase):
             with_chaos=0,
             jes=False,
             region=None,
+            deadline=None,
         ))
 
     def test_upload_tools(self):

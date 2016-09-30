@@ -23,12 +23,13 @@ import pexpect
 
 from deploy_stack import (
     BootstrapManager,
-)
+    )
 from utility import (
+    JujuAssertionError,
     add_basic_testing_arguments,
     configure_logging,
     temp_dir,
-)
+    )
 
 __metaclass__ = type
 
@@ -61,11 +62,6 @@ SHARE_LIST_CTRL_ADMIN = copy.deepcopy(SHARE_LIST_CTRL)
 SHARE_LIST_CTRL_ADMIN["adminuser@local"] = {"access": "admin"}
 
 
-# This needs refactored out to utility
-class JujuAssertionError(AssertionError):
-    """Exception for juju assertion failures."""
-
-
 def assert_equal(found, expected):
     found = sorted(found)
     expected = sorted(expected)
@@ -86,8 +82,10 @@ def list_users(client):
 
 def list_shares(client):
     """Test listing users' shares"""
-    share_list = json.loads(client.get_juju_output('list-shares', '--format',
-                                                   'json', include_e=False))
+    model_data = json.loads(
+        client.get_juju_output(
+            'show-model', '--format', 'json', include_e=False))
+    share_list = model_data[client.model_name]['users']
     for key, value in share_list.iteritems():
         value.pop("last-connection", None)
     return share_list
@@ -129,23 +127,21 @@ def assert_write_model(client, permission, has_permission):
     log.info('Checking write model acl {}'.format(client.env.user_name))
     if has_permission:
         try:
-            tags = 'resource-tags="{}={}"'.format(
-                client.env.user_name, permission)
-            client.juju('set-model-config', (tags))
+            tags = '"{}={}"'.format(client.env.user_name, permission)
+            client.set_env_option('resource-tags', tags)
         except subprocess.CalledProcessError:
             raise JujuAssertionError(
                 'FAIL {} could not set-model-config with {} permission'.format(
                     client.env.user_name, permission))
     else:
         try:
-            tags = 'resource-tags="{}=no-{}"'.format(
-                client.env.user_name, permission)
-            client.juju('set-model-config', (tags))
+            tags = '"{}=no-{}"'.format(client.env.user_name, permission)
+            client.set_env_option('resource-tags', tags)
         except subprocess.CalledProcessError:
             pass
         else:
             raise JujuAssertionError(
-                'FAIL User set-model-config without {} permission'.format(
+                'FAIL User set model-config without {} permission'.format(
                     permission))
     log.info('PASS {} write model acl'.format(client.env.user_name))
 
@@ -253,23 +249,30 @@ def assert_logout_login(controller_client, user_client, user, fake_home):
     controller_name = '{}_controller'.format(username)
     client = controller_client.create_cloned_environment(
         fake_home, controller_name, user.name)
-    try:
-        child = client.expect('login', (user.name, '-c', controller_name),
-                              include_e=False)
-        child.expect('(?i)password')
-        child.sendline(user.name + '_password_2')
-        child.expect(pexpect.EOF)
-        if child.isalive():
+    if client.env.config['type'] == 'lxd':
+        client.juju(
+            'login', (user.name, '-c', controller_name), include_e=False)
+    else:
+        try:
+            child = client.expect('login', (user.name, '-c', controller_name),
+                                  include_e=False)
+            # This scenario is pre-macaroon.
+            # See https://bugs.launchpad.net/bugs/1621532
+            child.expect('(?i)password')
+            child.sendline(user.name + '_password_2')
+            # end non-macaroon.
+            child.expect(pexpect.EOF)
+            if child.isalive():
+                raise JujuAssertionError(
+                    'FAIL Login user: pexpect session still alive')
+            child.close()
+            if child.exitstatus != 0:
+                raise JujuAssertionError(
+                    'FAIL Login user: pexpect process exited with {}'.format(
+                        child.exitstatus))
+        except pexpect.TIMEOUT:
             raise JujuAssertionError(
-                'FAIL Login user: pexpect session still alive')
-        child.close()
-        if child.exitstatus != 0:
-            raise JujuAssertionError(
-                'FAIL Login user: pexpect process exited with {}'.format(
-                    child.exitstatus))
-    except pexpect.TIMEOUT:
-        raise JujuAssertionError(
-            'FAIL Login user failed: pexpect session timed out')
+                'FAIL Login user failed: pexpect session timed out')
     log.info('PASS logout and login')
     return client
 
