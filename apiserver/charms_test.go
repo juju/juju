@@ -502,7 +502,6 @@ func (s *charmsSuite) TestGetCharmIcon(c *gc.C) {
 		expectBody: "1",
 	}}
 
-	// Run the tests.
 	for i, test := range tests {
 		c.Logf("\ntest %d: %s", i, test.about)
 		uri := s.charmsURI(c, test.query)

@@ -77,8 +77,10 @@ func (h *charmsHandler) serveGet(w http.ResponseWriter, r *http.Request) error {
 	}
 	// Retrieve or list charm files.
 	// Requires "url" (charm URL) and an optional "file" (the path to the
-	// charm file) to be included in the query.
-	charmArchivePath, fileArg, serveDefaultIcon, err := h.processGet(r, st)
+	// charm file) to be included in the query. Optionally also receives an
+	// "icon" query for returning the charm icon or a default one in case the
+	// charm has no icon.
+	charmArchivePath, fileArg, serveIcon, err := h.processGet(r, st)
 	if err != nil {
 		// An error occurred retrieving the charm bundle.
 		if errors.IsNotFound(err) {
@@ -98,7 +100,7 @@ func (h *charmsHandler) serveGet(w http.ResponseWriter, r *http.Request) error {
 		sender = h.archiveSender
 	default:
 		// The client requested a specific file.
-		sender = h.archiveEntrySender(fileArg, serveDefaultIcon)
+		sender = h.archiveEntrySender(fileArg, serveIcon)
 	}
 	if err := h.sendBundleContent(w, r, charmArchivePath, sender); err != nil {
 		return errors.Trace(err)
@@ -150,9 +152,9 @@ func (h *charmsHandler) manifestSender(w http.ResponseWriter, r *http.Request, b
 // archiveEntrySender returns a bundleContentSenderFunc which is responsible
 // for sending the contents of filePath included in the given charm bundle. If
 // filePath does not identify a file or a symlink, a 403 forbidden error is
-// returned. If serveDefaultIcon is true, then the charm icon.svg file is sent,
-// or a default icon if that file is not included in the charm.
-func (h *charmsHandler) archiveEntrySender(filePath string, serveDefaultIcon bool) bundleContentSenderFunc {
+// returned. If serveIcon is true, then the charm icon.svg file is sent, or a
+// default icon if that file is not included in the charm.
+func (h *charmsHandler) archiveEntrySender(filePath string, serveIcon bool) bundleContentSenderFunc {
 	return func(w http.ResponseWriter, r *http.Request, bundle *charm.CharmArchive) error {
 		// TODO(fwereade) 2014-01-27 bug #1285685
 		// This doesn't handle symlinks helpfully, and should be talking in
@@ -193,9 +195,9 @@ func (h *charmsHandler) archiveEntrySender(filePath string, serveDefaultIcon boo
 			io.Copy(w, contents)
 			return nil
 		}
-		// Serve the default icon (if the charm icon was requested), or return
-		// a 404 not found response.
-		if serveDefaultIcon {
+		if serveIcon {
+			// An icon was requested but none was found in the archive so
+			// return the default icon instead.
 			w.Header().Set("Content-Type", "image/svg+xml")
 			w.WriteHeader(http.StatusOK)
 			io.Copy(w, strings.NewReader(defaultIcon))
@@ -428,57 +430,60 @@ func (h *charmsHandler) repackageAndUploadCharm(st *state.State, archive *charm.
 // processGet handles a charm file GET request after authentication.
 // It returns the bundle path, the requested file path (if any), whether the
 // default charm icon has been requested and an error.
-func (h *charmsHandler) processGet(r *http.Request, st *state.State) (string, string, bool, error) {
+func (h *charmsHandler) processGet(r *http.Request, st *state.State) (archivePath string, fileArg string, serveIcon bool, err error) {
+	errRet := func(err error) (string, string, bool, error) {
+		return "", "", false, err
+	}
+
 	query := r.URL.Query()
 
 	// Retrieve and validate query parameters.
 	curlString := query.Get("url")
 	if curlString == "" {
-		return "", "", false, fmt.Errorf("expected url=CharmURL query argument")
+		return errRet(fmt.Errorf("expected url=CharmURL query argument"))
 	}
 	curl, err := charm.ParseURL(curlString)
 	if err != nil {
-		return "", "", false, errors.Annotate(err, "cannot parse charm URL")
+		return errRet(errors.Annotate(err, "cannot parse charm URL"))
 	}
-	var serveDefaultIcon bool
-	fileArg := query.Get("file")
+	fileArg = query.Get("file")
 	if fileArg != "" {
 		fileArg = path.Clean(fileArg)
 	} else if query.Get("icon") == "1" {
-		serveDefaultIcon = true
+		serveIcon = true
 		fileArg = "icon.svg"
 	}
 
 	// Ensure the working directory exists.
 	tmpDir := filepath.Join(h.dataDir, "charm-get-tmp")
 	if err = os.MkdirAll(tmpDir, 0755); err != nil {
-		return "", "", false, errors.Annotate(err, "cannot create charms tmp directory")
+		return errRet(errors.Annotate(err, "cannot create charms tmp directory"))
 	}
 
 	// Use the storage to retrieve and save the charm archive.
 	storage := storage.NewStorage(st.ModelUUID(), st.MongoSession())
 	ch, err := st.Charm(curl)
 	if err != nil {
-		return "", "", false, errors.Annotate(err, "cannot get charm from state")
+		return errRet(errors.Annotate(err, "cannot get charm from state"))
 	}
 
 	reader, _, err := storage.Get(ch.StoragePath())
 	if err != nil {
-		return "", "", false, errors.Annotate(err, "cannot get charm from model storage")
+		return errRet(errors.Annotate(err, "cannot get charm from model storage"))
 	}
 	defer reader.Close()
 
 	charmFile, err := ioutil.TempFile(tmpDir, "charm")
 	if err != nil {
-		return "", "", false, errors.Annotate(err, "cannot create charm archive file")
+		return errRet(errors.Annotate(err, "cannot create charm archive file"))
 	}
 	if _, err = io.Copy(charmFile, reader); err != nil {
 		cleanupFile(charmFile)
-		return "", "", false, errors.Annotate(err, "error processing charm archive download")
+		return errRet(errors.Annotate(err, "error processing charm archive download"))
 	}
 
 	charmFile.Close()
-	return charmFile.Name(), fileArg, serveDefaultIcon, nil
+	return charmFile.Name(), fileArg, serveIcon, nil
 }
 
 // On windows we cannot remove a file until it has been closed
