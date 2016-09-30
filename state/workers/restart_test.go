@@ -175,6 +175,7 @@ func (*RestartWorkersSuite) TestLeadershipManagerRestart(c *gc.C) {
 	fix := BasicFixture()
 	fix.LW_errors = []error{errors.New("oof"), nil}
 	fix.RunRestart(c, func(ctx Context, rw *workers.RestartWorkers) {
+		origw := rw.LeadershipManager()
 		w := NextWorker(c, ctx.LWs())
 		c.Assert(w, gc.NotNil)
 		AssertWorker(c, rw.LeadershipManager(), w)
@@ -187,6 +188,11 @@ func (*RestartWorkersSuite) TestLeadershipManagerRestart(c *gc.C) {
 		c.Assert(w, gc.NotNil)
 		WaitWorker(c, LM_getter(rw), w2)
 
+		// The new worker should underlie the originally
+		// acquired leadership manager, so that restarts
+		// do not require callers to acquire a new manager
+		AssertWorker(c, origw, w2)
+
 		workertest.CleanKill(c, rw)
 	})
 }
@@ -195,6 +201,7 @@ func (*RestartWorkersSuite) TestSingularManagerRestart(c *gc.C) {
 	fix := BasicFixture()
 	fix.SW_errors = []error{errors.New("oof"), nil}
 	fix.RunRestart(c, func(ctx Context, rw *workers.RestartWorkers) {
+		origw := rw.SingularManager()
 		w := NextWorker(c, ctx.SWs())
 		c.Assert(w, gc.NotNil)
 		AssertWorker(c, rw.SingularManager(), w)
@@ -206,6 +213,11 @@ func (*RestartWorkersSuite) TestSingularManagerRestart(c *gc.C) {
 		w2 := NextWorker(c, ctx.SWs())
 		c.Assert(w, gc.NotNil)
 		WaitWorker(c, SM_getter(rw), w2)
+
+		// The new worker should underlie the originally
+		// acquired singular manager, so that restarts
+		// do not require callers to acquire a new manager
+		AssertWorker(c, origw, w2)
 
 		workertest.CleanKill(c, rw)
 	})

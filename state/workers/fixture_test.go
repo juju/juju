@@ -298,6 +298,9 @@ type fakePresenceWorker struct {
 // types (as returned by the factory methods) and also wraps the
 // `expect` worker.
 func IsWorker(wrapped interface{}, expect worker.Worker) bool {
+	if w, ok := wrapped.(workers.DynamicLeaseManager); ok {
+		wrapped = w.Underlying()
+	}
 	var actual worker.Worker
 	switch wrapped := wrapped.(type) {
 	case fakeLeaseWorker:
