@@ -42,7 +42,7 @@ def prepare_metadata(client, local_dir):
 
 @contextmanager
 def prepare_temp_metadata(client, source_dir=None):
-    """Fill a temperary directory with metadata using sync_tools."""
+    """Fill a temporary directory with metadata using sync_tools."""
     if source_dir is not None:
         yield source_dir
     else:
