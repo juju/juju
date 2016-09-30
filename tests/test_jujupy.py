@@ -3250,10 +3250,16 @@ class TestEnvJujuClient(ClientTest):
 
     def test_sync_tools(self):
         client = EnvJujuClient(JujuData('foo'), None, None)
-        args = ('--dry-run', '--local-dir', '/var/agents')
         with patch.object(client, 'juju', autospec=True) as mock:
-            client.sync_tools(*args)
-        mock.assert_called_once_with('sync-tools', args, include_e=False)
+            client.sync_tools()
+        mock.assert_called_once_with('sync-tools', ())
+
+    def test_sync_tools_local_dir(self):
+        client = EnvJujuClient(JujuData('foo'), None, None)
+        with patch.object(client, 'juju', autospec=True) as mock:
+            client.sync_tools('/agents')
+        mock.assert_called_once_with('sync-tools', ('--local-dir', '/agents'),
+                                     include_e=False)
 
 
 class TestEnvJujuClient2B8(ClientTest):
