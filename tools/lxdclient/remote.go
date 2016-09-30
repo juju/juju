@@ -44,8 +44,16 @@ var CloudImagesRemote = Remote{
 	ServerPEMCert: "",
 }
 
+var CloudImagesDailyRemote = Remote{
+	Name:		"cloud-images.ubuntu.com",
+	Host:		"https://cloud-images.ubuntu.com/daily",
+	Protocol:	SimplestreamsProtocol,
+	Cert:		nil,
+	ServerPEMCert:  "",
+}
+
 var generateCertificate = lxdshared.GenerateMemCert
-var DefaultImageSources = []Remote{CloudImagesRemote}
+var DefaultImageSources = []Remote{CloudImagesRemote, CloudImagesDailyRemote}
 
 // Remote describes a LXD "remote" server for a client. In
 // particular it holds the information needed for the client
