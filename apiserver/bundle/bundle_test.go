@@ -11,20 +11,22 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	jujutesting "github.com/juju/juju/juju/testing"
+	statetesting "github.com/juju/juju/state/testing"
 )
 
 type bundleSuite struct {
-	jujutesting.JujuConnSuite
+	statetesting.StateSuite
 	facade bundle.Bundle
 }
 
 var _ = gc.Suite(&bundleSuite{})
 
 func (s *bundleSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
+	s.StateSuite.SetUpTest(c)
+	model, err := s.State.ControllerModel()
+	c.Assert(err, jc.ErrorIsNil)
 	auth := apiservertesting.FakeAuthorizer{
-		Tag: s.AdminUserTag(c),
+		Tag: model.Owner(),
 	}
 	facade, err := bundle.NewFacade(s.State, common.NewResources(), auth)
 	c.Assert(err, jc.ErrorIsNil)
@@ -32,16 +34,16 @@ func (s *bundleSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *bundleSuite) TestGetChangesBundleContentError(c *gc.C) {
-	args := params.BundleGetChangesParams{
+	args := params.BundleChangesParams{
 		BundleDataYAML: ":",
 	}
 	r, err := s.facade.GetChanges(args)
 	c.Assert(err, gc.ErrorMatches, `cannot read bundle YAML: cannot unmarshal bundle data: yaml: did not find expected key`)
-	c.Assert(r, gc.DeepEquals, params.BundleGetChangesResults{})
+	c.Assert(r, gc.DeepEquals, params.BundleChangesResults{})
 }
 
 func (s *bundleSuite) TestGetChangesBundleVerificationErrors(c *gc.C) {
-	args := params.BundleGetChangesParams{
+	args := params.BundleChangesParams{
 		BundleDataYAML: `
             applications:
                 django:
@@ -64,7 +66,7 @@ func (s *bundleSuite) TestGetChangesBundleVerificationErrors(c *gc.C) {
 }
 
 func (s *bundleSuite) TestGetChangesBundleConstraintsError(c *gc.C) {
-	args := params.BundleGetChangesParams{
+	args := params.BundleChangesParams{
 		BundleDataYAML: `
             applications:
                 django:
@@ -82,7 +84,7 @@ func (s *bundleSuite) TestGetChangesBundleConstraintsError(c *gc.C) {
 }
 
 func (s *bundleSuite) TestGetChangesBundleStorageError(c *gc.C) {
-	args := params.BundleGetChangesParams{
+	args := params.BundleChangesParams{
 		BundleDataYAML: `
             applications:
                 django:
@@ -101,7 +103,7 @@ func (s *bundleSuite) TestGetChangesBundleStorageError(c *gc.C) {
 }
 
 func (s *bundleSuite) TestGetChangesSuccess(c *gc.C) {
-	args := params.BundleGetChangesParams{
+	args := params.BundleChangesParams{
 		BundleDataYAML: `
             applications:
                 django:
@@ -119,7 +121,7 @@ func (s *bundleSuite) TestGetChangesSuccess(c *gc.C) {
 	}
 	r, err := s.facade.GetChanges(args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(r.Changes, jc.DeepEquals, []*params.BundleChangesChange{{
+	c.Assert(r.Changes, jc.DeepEquals, []*params.BundleChange{{
 		Id:     "addCharm-0",
 		Method: "addCharm",
 		Args:   []interface{}{"django", ""},
@@ -165,7 +167,7 @@ func (s *bundleSuite) TestGetChangesSuccess(c *gc.C) {
 }
 
 func (s *bundleSuite) TestGetChangesBundleEndpointBindingsSuccess(c *gc.C) {
-	args := params.BundleGetChangesParams{
+	args := params.BundleChangesParams{
 		BundleDataYAML: `
             applications:
                 django:
@@ -180,7 +182,7 @@ func (s *bundleSuite) TestGetChangesBundleEndpointBindingsSuccess(c *gc.C) {
 
 	for _, change := range r.Changes {
 		if change.Method == "deploy" {
-			c.Assert(change, jc.DeepEquals, &params.BundleChangesChange{
+			c.Assert(change, jc.DeepEquals, &params.BundleChange{
 				Id:     "deploy-1",
 				Method: "deploy",
 				Args: []interface{}{

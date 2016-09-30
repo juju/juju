@@ -21,11 +21,11 @@ import (
 
 // init registers the Bundle facade.
 func init() {
-	common.RegisterStandardFacade("Bundle", 0, newFacade)
+	common.RegisterStandardFacade("Bundle", 1, NewFacade)
 }
 
-// newFacade creates and returns a new Bundle API facade.
-func newFacade(_ *state.State, _ facade.Resources, auth facade.Authorizer) (Bundle, error) {
+// NewFacade creates and returns a new Bundle API facade.
+func NewFacade(_ *state.State, _ facade.Resources, auth facade.Authorizer) (Bundle, error) {
 	if !auth.AuthClient() {
 		return nil, common.ErrPerm
 	}
@@ -36,7 +36,7 @@ func newFacade(_ *state.State, _ facade.Resources, auth facade.Authorizer) (Bund
 type Bundle interface {
 	// GetChanges returns the list of changes required to deploy the given
 	// bundle data.
-	GetChanges(params.BundleGetChangesParams) (params.BundleGetChangesResults, error)
+	GetChanges(params.BundleChangesParams) (params.BundleChangesResults, error)
 }
 
 // bundleAPI implements the Bundle interface and is the concrete implementation
@@ -46,8 +46,8 @@ type bundleAPI struct{}
 // GetChanges returns the list of changes required to deploy the given bundle
 // data. The changes are sorted by requirements, so that they can be applied in
 // order.
-func (b *bundleAPI) GetChanges(args params.BundleGetChangesParams) (params.BundleGetChangesResults, error) {
-	var results params.BundleGetChangesResults
+func (b *bundleAPI) GetChanges(args params.BundleChangesParams) (params.BundleChangesResults, error) {
+	var results params.BundleChangesResults
 	data, err := charm.ReadBundleData(strings.NewReader(args.BundleDataYAML))
 	if err != nil {
 		return results, errors.Annotate(err, "cannot read bundle YAML")
@@ -72,9 +72,9 @@ func (b *bundleAPI) GetChanges(args params.BundleGetChangesParams) (params.Bundl
 		return results, errors.Annotate(err, "cannot verify bundle")
 	}
 	changes := bundlechanges.FromData(data)
-	results.Changes = make([]*params.BundleChangesChange, len(changes))
+	results.Changes = make([]*params.BundleChange, len(changes))
 	for i, c := range changes {
-		results.Changes[i] = &params.BundleChangesChange{
+		results.Changes[i] = &params.BundleChange{
 			Id:       c.Id(),
 			Method:   c.Method(),
 			Args:     c.GUIArgs(),

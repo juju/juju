@@ -22,6 +22,8 @@ var controllerFacadeNames = set.NewStrings(
 	"UserManager",
 )
 
+// commonFacadeNames holds root names that can be accessed using both
+// controller and model connections.
 var commonFacadeNames = set.NewStrings(
 	"Pinger",
 	"Bundle",
@@ -34,8 +36,8 @@ func controllerFacadesOnly(facadeName, _ string) error {
 	return nil
 }
 
+// isControllerFacade reports whether the given facade name can be accessed
+// using the controller connection.
 func isControllerFacade(facadeName string) bool {
-	// Note: the Pinger facade can be used in both model and controller
-	// connections.
 	return controllerFacadeNames.Contains(facadeName) || commonFacadeNames.Contains(facadeName)
 }
