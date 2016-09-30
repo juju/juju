@@ -82,7 +82,7 @@ func (c *listCommand) Run(ctx *cmd.Context) error {
 		}
 		if len(spaces) == 0 {
 			ctx.Infof("no spaces to display")
-			return c.out.Write(ctx, nil)
+			return nil
 		}
 
 		if c.Short {
