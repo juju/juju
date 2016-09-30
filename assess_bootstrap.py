@@ -2,7 +2,6 @@
 from __future__ import print_function
 
 from argparse import ArgumentParser
-from contextlib import contextmanager
 import logging
 import sys
 
@@ -13,15 +12,10 @@ from deploy_stack import (
 from utility import (
     add_basic_testing_arguments,
     configure_logging,
-    JujuAssertionError,
-    temp_dir,
     )
 
 
 log = logging.getLogger("assess_bootstrap")
-
-
-INVALID_URL = 'example.com/invalid'
 
 
 def assess_base_bootstrap(bs_manager):
@@ -35,49 +29,12 @@ def assess_base_bootstrap(bs_manager):
             log.info('Environment successfully bootstrapped.')
 
 
-def prepare_metadata(client, dest_dir, source_dir=None):
-    """Fill the given directory with metadata using sync_tools."""
-    args = []
-    if source_dir is not None:
-        args.extend(['--source', source_dir])
-    client.sync_tools('--local-dir', dest_dir, *args)
-
-
-@contextmanager
-def prepare_temp_metadata(client, source_dir=None):
-    """Fill a temperary directory with metadata using sync_tools."""
-    if source_dir is not None:
-        yield source_dir
-    else:
-        with temp_dir() as md_dir:
-            prepare_metadata(client, md_dir, None)
-            yield md_dir
-
-
-def assess_metadata(bs_manager, local_source):
-    client = bs_manager.client
-    # This disconnects from the metadata source, as INVALID_URL is different.
-    # agent-metadata-url | tools-metadata-url
-    client.env.config['agent-metadata-url'] = INVALID_URL
-    with prepare_temp_metadata(client, local_source) as metadata_dir:
-        log.info('Metadata written to: {}'.format(metadata_dir))
-        with bs_manager.top_context() as machines:
-            with bs_manager.bootstrap_context(machines):
-                tear_down(client, client.is_jes_enabled())
-                client.bootstrap(metadata_source=metadata_dir)
-            with bs_manager.runtime_context(machines):
-                log.info('Metadata bootstrap successful.')
-                data = client.get_model_config()
-                if INVALID_URL != data['agent-metadata-url']['value']:
-                    raise JujuAssertionError('Error, possible web metadata.')
-
-
 def assess_bootstrap(args):
     bs_manager = BootstrapManager.from_args(args)
     if 'base' == args.part:
         assess_base_bootstrap(bs_manager)
     elif 'metadata' == args.part:
-        assess_metadata(bs_manager, args.local_metadata_source)
+        pass
 
 
 def parse_args(argv=None):
