@@ -5,6 +5,7 @@ package space
 
 import (
 	"fmt"
+	"io"
 	"net"
 	"strings"
 
@@ -50,7 +51,11 @@ func (c *listCommand) Info() *cmd.Info {
 // SetFlags is defined on the cmd.Command interface.
 func (c *listCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.SpaceCommandBase.SetFlags(f)
-	c.out.AddFlags(f, "yaml", output.DefaultFormatters)
+	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
+		"yaml":    cmd.FormatYaml,
+		"json":    cmd.FormatJson,
+		"tabular": c.printTabular,
+	})
 	f.BoolVar(&c.Short, "short", false, "only display spaces.")
 }
 
@@ -130,6 +135,30 @@ func (c *listCommand) Run(ctx *cmd.Context) error {
 		}
 		return c.out.Write(ctx, result)
 	})
+}
+
+// printTabular prints the list of spaces in tabular format
+func (c *listCommand) printTabular(writer io.Writer, value interface{}) error {
+	list, ok := value.(formattedList)
+	if !ok {
+		return errors.New("unexpected value")
+	}
+
+	tw := output.TabWriter(writer)
+	fmt.Fprintf(tw, "%s\t%s\n", "SPACE", "SUBNETS")
+	for space, subnets := range list.Spaces {
+		fmt.Fprintf(tw, "%s", space)
+		if len(subnets) == 0 {
+			fmt.Fprintf(tw, "\n")
+			continue
+		}
+		for subnet, _ := range subnets {
+			fmt.Fprintf(tw, "\t%v\n", subnet)
+		}
+
+	}
+	tw.Flush()
+	return nil
 }
 
 const (
