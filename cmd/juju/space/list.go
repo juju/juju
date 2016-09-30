@@ -139,23 +139,33 @@ func (c *listCommand) Run(ctx *cmd.Context) error {
 
 // printTabular prints the list of spaces in tabular format
 func (c *listCommand) printTabular(writer io.Writer, value interface{}) error {
-	list, ok := value.(formattedList)
-	if !ok {
-		return errors.New("unexpected value")
-	}
-
 	tw := output.TabWriter(writer)
-	fmt.Fprintf(tw, "%s\t%s\n", "SPACE", "SUBNETS")
-	for space, subnets := range list.Spaces {
-		fmt.Fprintf(tw, "%s", space)
-		if len(subnets) == 0 {
-			fmt.Fprintf(tw, "\n")
-			continue
+	if c.Short {
+		list, ok := value.(formattedShortList)
+		if !ok {
+			return errors.New("unexpected value")
 		}
-		for subnet, _ := range subnets {
-			fmt.Fprintf(tw, "\t%v\n", subnet)
+		fmt.Fprintf(tw, "SPACE\n")
+		for _, space := range list.Spaces {
+			fmt.Fprintf(tw, "%v\n", space)
+		}
+	} else {
+		list, ok := value.(formattedList)
+		if !ok {
+			return errors.New("unexpected value")
 		}
 
+		fmt.Fprintf(tw, "%s\t%s\n", "SPACE", "SUBNETS")
+		for space, subnets := range list.Spaces {
+			fmt.Fprintf(tw, "%s", space)
+			if len(subnets) == 0 {
+				fmt.Fprintf(tw, "\n")
+				continue
+			}
+			for subnet, _ := range subnets {
+				fmt.Fprintf(tw, "\t%v\n", subnet)
+			}
+		}
 	}
 	tw.Flush()
 	return nil
