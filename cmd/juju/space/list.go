@@ -5,7 +5,9 @@ package space
 
 import (
 	"fmt"
+	"io"
 	"net"
+	"sort"
 	"strings"
 
 	"github.com/juju/cmd"
@@ -50,7 +52,11 @@ func (c *listCommand) Info() *cmd.Info {
 // SetFlags is defined on the cmd.Command interface.
 func (c *listCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.SpaceCommandBase.SetFlags(f)
-	c.out.AddFlags(f, "yaml", output.DefaultFormatters)
+	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
+		"yaml":    cmd.FormatYaml,
+		"json":    cmd.FormatJson,
+		"tabular": c.printTabular,
+	})
 	f.BoolVar(&c.Short, "short", false, "only display spaces.")
 }
 
@@ -77,7 +83,7 @@ func (c *listCommand) Run(ctx *cmd.Context) error {
 		}
 		if len(spaces) == 0 {
 			ctx.Infof("no spaces to display")
-			return c.out.Write(ctx, nil)
+			return nil
 		}
 
 		if c.Short {
@@ -130,6 +136,53 @@ func (c *listCommand) Run(ctx *cmd.Context) error {
 		}
 		return c.out.Write(ctx, result)
 	})
+}
+
+// printTabular prints the list of spaces in tabular format
+func (c *listCommand) printTabular(writer io.Writer, value interface{}) error {
+	tw := output.TabWriter(writer)
+	if c.Short {
+		list, ok := value.(formattedShortList)
+		if !ok {
+			return errors.New("unexpected value")
+		}
+		fmt.Fprintf(tw, "SPACE\n")
+		spaces := list.Spaces
+		sort.Strings(spaces)
+		for _, space := range spaces {
+			fmt.Fprintf(tw, "%v\n", space)
+		}
+	} else {
+		list, ok := value.(formattedList)
+		if !ok {
+			return errors.New("unexpected value")
+		}
+
+		fmt.Fprintf(tw, "%s\t%s\n", "SPACE", "SUBNETS")
+		spaces := []string{}
+		for name, _ := range list.Spaces {
+			spaces = append(spaces, name)
+		}
+		sort.Strings(spaces)
+		for _, name := range spaces {
+			subnets := list.Spaces[name]
+			fmt.Fprintf(tw, "%s", name)
+			if len(subnets) == 0 {
+				fmt.Fprintf(tw, "\n")
+				continue
+			}
+			cidrs := []string{}
+			for subnet, _ := range subnets {
+				cidrs = append(cidrs, subnet)
+			}
+			sort.Strings(cidrs)
+			for _, cidr := range cidrs {
+				fmt.Fprintf(tw, "\t%v\n", cidr)
+			}
+		}
+	}
+	tw.Flush()
+	return nil
 }
 
 const (
