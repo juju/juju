@@ -47,6 +47,7 @@ func (s *apiserverBaseSuite) sampleConfig(c *gc.C) apiserver.ServerConfig {
 		Tag:         names.NewMachineTag("0"),
 		LogDir:      c.MkDir(),
 		NewObserver: func() observer.Observer { return &fakeobserver.Instance{} },
+		AutocertURL: "https://0.1.2.3/no-autocert-here",
 	}
 }
 

@@ -4,8 +4,10 @@
 package apiserver_test
 
 import (
+	"crypto/tls"
 	"time"
 
+	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -69,4 +71,84 @@ func (s *certSuite) TestUpdateCert(c *gc.C) {
 	conn = s.OpenAPIAsAdmin(c, srv)
 	err = conn.Ping()
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *certSuite) TestAutocertFailure(c *gc.C) {
+	// We don't have a fake autocert server, but we can at lease
+	// smoke test that the autocert path is followed when we try
+	// to connect to a DNS name - the AutocertURL configured
+	// by the testing suite is invalid so it should fail.
+
+	config := s.sampleConfig(c)
+	config.AutocertDNSName = "somewhere.example"
+
+	srv := s.newServer(c, config)
+	apiInfo := s.APIInfo(srv)
+	entries := gatherLog(func() {
+		_, err := tls.Dial("tcp", apiInfo.Addrs[0], &tls.Config{
+			ServerName: "somewhere.example",
+		})
+		// If we can't get an autocert certificate, so we'll fall back to the local certificate
+		// which isn't valid for connecting to somewhere.example.
+		c.Assert(err, gc.ErrorMatches, `x509: certificate is valid for \*, not somewhere.example`)
+	})
+	// We will log the failure to get the certificate, thus assuring us that we actually tried.
+	c.Assert(entries, jc.LogMatches, jc.SimpleMessages{{
+		loggo.ERROR,
+		`.*cannot get autocert certificate for "somewhere.example": Get https://0\.1\.2\.3/no-autocert-here: access to address "0\.1\.2\.3:443" not allowed`,
+	}})
+}
+
+func (s *certSuite) TestAutocertNameMismatch(c *gc.C) {
+	config := s.sampleConfig(c)
+	config.AutocertDNSName = "somewhere.example"
+
+	srv := s.newServer(c, config)
+	apiInfo := s.APIInfo(srv)
+
+	entries := gatherLog(func() {
+		_, err := tls.Dial("tcp", apiInfo.Addrs[0], &tls.Config{
+			ServerName: "somewhere.else",
+		})
+		// If we can't get an autocert certificate, so we'll fall back to the local certificate
+		// which isn't valid for connecting to somewhere.example.
+		c.Assert(err, gc.ErrorMatches, `x509: certificate is valid for \*, not somewhere.else`)
+	})
+	// Check that we logged the mismatch.
+	c.Assert(entries, jc.LogMatches, jc.SimpleMessages{{
+		loggo.ERROR,
+		`.*cannot get autocert certificate for "somewhere.else": acme/autocert: host not configured`,
+	}})
+}
+
+func (s *certSuite) TestAutocertNoAutocertDNSName(c *gc.C) {
+	config := s.sampleConfig(c)
+	c.Assert(config.AutocertDNSName, gc.Equals, "") // sanity check
+	srv := s.newServer(c, config)
+	apiInfo := s.APIInfo(srv)
+
+	entries := gatherLog(func() {
+		_, err := tls.Dial("tcp", apiInfo.Addrs[0], &tls.Config{
+			ServerName: "somewhere.example",
+		})
+		// If we can't get an autocert certificate, so we'll fall back to the local certificate
+		// which isn't valid for connecting to somewhere.example.
+		c.Assert(err, gc.ErrorMatches, `x509: certificate is valid for \*, not somewhere.example`)
+	})
+	// Check that we never logged a failure to get the certificate.
+	c.Assert(entries, gc.Not(jc.LogMatches), jc.SimpleMessages{{
+		loggo.ERROR,
+		`.*cannot get autocert certificate.*`,
+	}})
+}
+
+func gatherLog(f func()) []loggo.Entry {
+	var tw loggo.TestWriter
+	err := loggo.RegisterWriter("test", &tw)
+	if err != nil {
+		panic(err)
+	}
+	defer loggo.RemoveWriter("test")
+	f()
+	return tw.Log()
 }

@@ -1084,14 +1084,16 @@ func (a *MachineAgent) newAPIserverWorker(st *state.State, certChanged chan para
 	}
 
 	server, err := apiserver.NewServer(st, listener, apiserver.ServerConfig{
-		Clock:       clock.WallClock,
-		Cert:        cert,
-		Key:         key,
-		Tag:         tag,
-		DataDir:     dataDir,
-		LogDir:      logDir,
-		Validator:   a.limitLogins,
-		CertChanged: certChanged,
+		Clock:           clock.WallClock,
+		Cert:            cert,
+		Key:             key,
+		Tag:             tag,
+		DataDir:         dataDir,
+		LogDir:          logDir,
+		Validator:       a.limitLogins,
+		CertChanged:     certChanged,
+		AutocertURL:     controllerConfig.AutocertURL(),
+		AutocertDNSName: controllerConfig.AutocertDNSName(),
 		NewObserver: newObserverFn(
 			controllerConfig,
 			clock.WallClock,

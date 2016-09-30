@@ -17,6 +17,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 	"github.com/juju/utils/clock"
+	"golang.org/x/crypto/acme"
 	"golang.org/x/crypto/acme/autocert"
 	"golang.org/x/net/websocket"
 	"gopkg.in/juju/names.v2"
@@ -87,6 +88,16 @@ type ServerConfig struct {
 	Validator   LoginValidator
 	CertChanged <-chan params.StateServingInfo
 
+	// AutocertDNSName holds the DNS name for which
+	// official TLS certificates will be obtained. If this is
+	// empty, no certificates will be requested.
+	AutocertDNSName string
+
+	// AutocertURL holds the URL from which official
+	// TLS certificates will be obtained. By default,
+	// acme.LetsEncryptURL will be used.
+	AutocertURL string
+
 	// NewObserver is a function which will return an observer. This
 	// is used per-connection to instantiate a new observer to be
 	// notified of key events during API requests.
@@ -154,7 +165,7 @@ func newServer(s *state.State, lis net.Listener, cfg ServerConfig) (_ *Server, e
 		certChanged: cfg.CertChanged,
 	}
 
-	srv.tlsConfig = srv.newTLSConfig()
+	srv.tlsConfig = srv.newTLSConfig(cfg)
 	srv.lis = tls.NewListener(lis, srv.tlsConfig)
 
 	srv.authCtxt, err = newAuthContext(s)
@@ -168,16 +179,28 @@ func newServer(s *state.State, lis net.Listener, cfg ServerConfig) (_ *Server, e
 	return srv, nil
 }
 
-func (srv *Server) newTLSConfig() *tls.Config {
-	m := autocert.Manager{
-		Prompt: autocert.AcceptTOS,
-		Cache:  srv.state.AutocertCache(),
-		// TODO(rogpeppe): use whitelist policy for HostPolicy.
-		// TODO(rogpeppe): allow a different URL to be specified (for example
-		// to use the letencrypt staging endpoint).
-	}
+func (srv *Server) newTLSConfig(cfg ServerConfig) *tls.Config {
 	tlsConfig := utils.SecureTLSConfig()
+	if cfg.AutocertDNSName == "" {
+		// No official DNS name, no certificate.
+		tlsConfig.GetCertificate = func(clientHello *tls.ClientHelloInfo) (*tls.Certificate, error) {
+			cert, _ := srv.localCertificate(clientHello.ServerName)
+			return cert, nil
+		}
+		return tlsConfig
+	}
+	m := autocert.Manager{
+		Prompt:     autocert.AcceptTOS,
+		Cache:      srv.state.AutocertCache(),
+		HostPolicy: autocert.HostWhitelist(cfg.AutocertDNSName),
+	}
+	if cfg.AutocertURL != "" {
+		m.Client = &acme.Client{
+			DirectoryURL: cfg.AutocertURL,
+		}
+	}
 	tlsConfig.GetCertificate = func(clientHello *tls.ClientHelloInfo) (*tls.Certificate, error) {
+		logger.Infof("getting certificate for server name %q", clientHello.ServerName)
 		// Get the locally created certificate and whether it's appropriate
 		// for the SNI name. If not, we'll try to get an acme cert and
 		// fall back to the local certificate if that fails.

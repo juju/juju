@@ -43,6 +43,19 @@ const (
 	// NUMAControlPolicyKey stores the value for this setting
 	SetNUMAControlPolicyKey = "set-numa-control-policy"
 
+	// AutocertDNSNameKey sets the DNS name of the controller. If a
+	// client connects to this name, an official certificate will be
+	// automatically requested. Connecting to any other host name
+	// will use the usual self-generated certificate.
+	AutocertDNSNameKey = "autocert-dns-name"
+
+	// AutocertURLKey sets the URL used to obtain official TLS
+	// certificates when a client connects to the API. By default,
+	// certficates are obtains from LetsEncrypt. A good value for
+	// testing is
+	// "https://acme-staging.api.letsencrypt.org/directory".
+	AutocertURLKey = "autocert-url"
+
 	// Attribute Defaults
 
 	// DefaultAuditingEnabled contains the default value for the
@@ -70,6 +83,8 @@ var ControllerOnlyConfigAttributes = []string{
 	IdentityURL,
 	IdentityPublicKey,
 	SetNUMAControlPolicyKey,
+	AutocertDNSNameKey,
+	AutocertURLKey,
 }
 
 // ControllerOnlyAttribute returns true if the specified attribute name
@@ -179,6 +194,19 @@ func (c Config) IdentityURL() string {
 	return c.asString(IdentityURL)
 }
 
+// AutocertURL returns the URL used to obtain official TLS certificates
+// when a client connects to the API. See AutocertURLKey
+// for more details.
+func (c Config) AutocertURL() string {
+	return c.asString(AutocertURLKey)
+}
+
+// AutocertDNSName returns the DNS name of the controller.
+// See AutocertDNSNameKey for more details.
+func (c Config) AutocertDNSName() string {
+	return c.asString(AutocertDNSNameKey)
+}
+
 // IdentityPublicKey returns the public key of the identity manager.
 func (c Config) IdentityPublicKey() *bakery.PublicKey {
 	key := c.asString(IdentityPublicKey)
@@ -251,6 +279,8 @@ var configChecker = schema.FieldMap(schema.Fields{
 	IdentityURL:             schema.String(),
 	IdentityPublicKey:       schema.String(),
 	SetNUMAControlPolicyKey: schema.Bool(),
+	AutocertURLKey:          schema.String(),
+	AutocertDNSNameKey:      schema.String(),
 }, schema.Defaults{
 	APIPort:                 DefaultAPIPort,
 	AuditingEnabled:         DefaultAuditingEnabled,
@@ -258,4 +288,6 @@ var configChecker = schema.FieldMap(schema.Fields{
 	IdentityURL:             schema.Omit,
 	IdentityPublicKey:       schema.Omit,
 	SetNUMAControlPolicyKey: DefaultNUMAControlPolicy,
+	AutocertURLKey:          schema.Omit,
+	AutocertDNSNameKey:      schema.Omit,
 })
