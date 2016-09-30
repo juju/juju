@@ -20,8 +20,8 @@ import (
 var usageSummary = `
 Adds a Juju user to a controller.`[1:]
 
-var usageDetails = `
-A ` + "`juju register`" + ` command will be printed, which must be executed by the
+const usageDetails = (
+"A `juju register` command will be printed, which must be executed by the" + `
 user to complete the registration process. The user's details are stored
 within the shared model, and will be removed when the model is destroyed.
 
@@ -32,7 +32,7 @@ Examples:
     juju add-user bob
     juju add-user --controller mycontroller bob
 
-See also: 
+See also:
     register
     grant
     users
@@ -40,7 +40,7 @@ See also:
     disable-user
     enable-user
     change-user-password
-    remove-user`[1:]
+    remove-user`)
 
 // AddUserAPI defines the usermanager API methods that the add command uses.
 type AddUserAPI interface {
