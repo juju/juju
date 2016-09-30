@@ -179,6 +179,19 @@ spaces:
 }
 `, "") + "\n"
 
+	expectedTabular := `SPACE   SUBNETS
+space1  2001:db8::/32
+        invalid
+space2  10.1.2.0/24
+        4.3.2.0/28
+
+`
+	expectedShortTabular := `SPACE
+space1
+space2
+
+`
+
 	assertAPICalls := func() {
 		// Verify the API calls and reset the recorded calls.
 		s.api.CheckCallNames(c, "ListSpaces", "Close")
@@ -243,10 +256,12 @@ spaces:
 		expected string
 		short    bool
 	}{
-		{"", expectedYAML, false}, // default format is YAML
+		{"", expectedTabular, false}, // default format is tabular
+		{"tabular", expectedTabular, false},
 		{"yaml", expectedYAML, false},
 		{"json", expectedJSON, false},
-		{"", expectedShortYAML, true}, // default format is YAML
+		{"", expectedShortTabular, true}, // default format is tabular
+		{"tabular", expectedShortTabular, true},
 		{"yaml", expectedShortYAML, true},
 		{"json", expectedShortJSON, true},
 	} {

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"sort"
 	"strings"
 
 	"github.com/juju/cmd"
@@ -146,7 +147,9 @@ func (c *listCommand) printTabular(writer io.Writer, value interface{}) error {
 			return errors.New("unexpected value")
 		}
 		fmt.Fprintf(tw, "SPACE\n")
-		for _, space := range list.Spaces {
+		spaces := list.Spaces
+		sort.Strings(spaces)
+		for _, space := range spaces {
 			fmt.Fprintf(tw, "%v\n", space)
 		}
 	} else {
@@ -156,14 +159,25 @@ func (c *listCommand) printTabular(writer io.Writer, value interface{}) error {
 		}
 
 		fmt.Fprintf(tw, "%s\t%s\n", "SPACE", "SUBNETS")
-		for space, subnets := range list.Spaces {
-			fmt.Fprintf(tw, "%s", space)
+		spaces := []string{}
+		for name, _ := range list.Spaces {
+			spaces = append(spaces, name)
+		}
+		sort.Strings(spaces)
+		for _, name := range spaces {
+			subnets := list.Spaces[name]
+			fmt.Fprintf(tw, "%s", name)
 			if len(subnets) == 0 {
 				fmt.Fprintf(tw, "\n")
 				continue
 			}
+			cidrs := []string{}
 			for subnet, _ := range subnets {
-				fmt.Fprintf(tw, "\t%v\n", subnet)
+				cidrs = append(cidrs, subnet)
+			}
+			sort.Strings(cidrs)
+			for _, cidr := range cidrs {
+				fmt.Fprintf(tw, "\t%v\n", cidr)
 			}
 		}
 	}
