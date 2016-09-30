@@ -517,6 +517,29 @@ func (s *BootstrapSuite) TestBootstrapDefaultConfigStripsProcessedAttributes(c *
 	c.Assert(ok, jc.IsFalse)
 }
 
+func (s *BootstrapSuite) TestBootstrapModelDefaultConfig(c *gc.C) {
+	s.patchVersionAndSeries(c, "raring")
+
+	var bootstrap fakeBootstrapFuncs
+	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
+		return &bootstrap
+	})
+
+	coretesting.RunCommand(
+		c, s.newBootstrapCommand(),
+		"devcontroller", "dummy",
+		"--model-default", "network=foo",
+		"--model-default", "ftp-proxy=model-proxy",
+		"--config", "ftp-proxy=controller-proxy",
+	)
+
+	c.Check(bootstrap.args.HostedModelConfig["network"], gc.Equals, "foo")
+	c.Check(bootstrap.args.ControllerInheritedConfig["network"], gc.Equals, "foo")
+
+	c.Check(bootstrap.args.HostedModelConfig["ftp-proxy"], gc.Equals, "controller-proxy")
+	c.Check(bootstrap.args.ControllerInheritedConfig["ftp-proxy"], gc.Equals, "model-proxy")
+}
+
 func (s *BootstrapSuite) TestBootstrapDefaultConfigStripsInheritedAttributes(c *gc.C) {
 	s.patchVersionAndSeries(c, "raring")
 
