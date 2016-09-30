@@ -42,17 +42,17 @@ func (s *ListSuite) TestInit(c *gc.C) {
 		about:        "unrecognized arguments",
 		args:         s.Strings("foo"),
 		expectErr:    `unrecognized args: \["foo"\]`,
-		expectFormat: "yaml",
+		expectFormat: "tabular",
 	}, {
 		about:        "invalid format",
 		args:         s.Strings("--format", "foo"),
 		expectErr:    `invalid value "foo" for flag --format: unknown format "foo"`,
-		expectFormat: "yaml",
+		expectFormat: "tabular",
 	}, {
 		about:        "invalid format (value is case-sensitive)",
 		args:         s.Strings("--format", "JSON"),
 		expectErr:    `invalid value "JSON" for flag --format: unknown format "JSON"`,
-		expectFormat: "yaml",
+		expectFormat: "tabular",
 	}, {
 		about:        "json format",
 		args:         s.Strings("--format", "json"),
@@ -62,10 +62,14 @@ func (s *ListSuite) TestInit(c *gc.C) {
 		args:         s.Strings("--format", "yaml"),
 		expectFormat: "yaml",
 	}, {
+		about:        "tabular format",
+		args:         s.Strings("--format", "tabular"),
+		expectFormat: "tabular",
+	}, {
 		// --output and -o are tested separately in TestOutputFormats.
 		about:        "both --output and -o specified (latter overrides former)",
 		args:         s.Strings("--output", "foo", "-o", "bar"),
-		expectFormat: "yaml",
+		expectFormat: "tabular",
 	}} {
 		c.Logf("test #%d: %s", i, test.about)
 		// Create a new instance of the subcommand for each test, but
