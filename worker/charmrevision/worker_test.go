@@ -45,7 +45,9 @@ func (s *WorkerSuite) TestUpdatesAfterPeriod(c *gc.C) {
 	fix := newFixture(time.Minute)
 	fix.cleanTest(c, func(_ worker.Worker) {
 		fix.waitCall(c)
-		fix.clock.Advance(time.Minute)
+		if err := fix.clock.WaitAdvance(time.Minute, 1*time.Second, 1); err != nil {
+			c.Fatal(err)
+		}
 		fix.waitCall(c)
 		fix.waitNoCall(c)
 	})
@@ -91,7 +93,7 @@ type workerFixture struct {
 func newFixture(period time.Duration) workerFixture {
 	return workerFixture{
 		revisionUpdater: newMockRevisionUpdater(),
-		clock:           testing.NewClock(time.Now()),
+		clock:           testing.NewClock(coretesting.ZeroTime()),
 		period:          period,
 	}
 }
