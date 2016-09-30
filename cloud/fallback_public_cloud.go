@@ -145,7 +145,7 @@ clouds:
         identity-endpoint: https://graph.chinacloudapi.cn
   rackspace:
     type: rackspace
-    auth-types: [ access-key, userpass ]
+    auth-types: [ userpass ]
     endpoint: https://identity.api.rackspacecloud.com/v2.0
     regions:
       dfw:
