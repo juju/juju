@@ -163,9 +163,7 @@ def get_assert_regex(raw_uuid, message=None):
 
 
 def enable_log_forwarding(client):
-    client.juju(
-        'set-model-config',
-        ('-m', 'controller', 'logforward-enabled=true'), include_e=False)
+    client.get_controller_client().set_env_option('logforward-enabled', 'true')
 
 
 def update_client_config(client, rsyslog_details):
@@ -182,7 +180,7 @@ def deploy_rsyslog(client):
     app_name = 'rsyslog'
     client.deploy('rsyslog', (app_name))
     client.wait_for_started()
-    client.juju('set-config', (app_name, 'protocol="tcp"'))
+    client.set_config(app_name, {'protocol': 'tcp'})
     client.juju('expose', app_name)
 
     return setup_tls_rsyslog(client, app_name)

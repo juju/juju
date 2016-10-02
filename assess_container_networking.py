@@ -5,7 +5,7 @@ import contextlib
 from copy import (
     copy,
     deepcopy,
-)
+    )
 import logging
 import re
 import os
@@ -19,28 +19,24 @@ from deploy_stack import (
     BootstrapManager,
     get_random_string,
     update_env,
-)
+    )
 from jujupy import (
     KVM_MACHINE,
     LXC_MACHINE,
     LXD_MACHINE,
-)
+    )
 from utility import (
+    JujuAssertionError,
     add_basic_testing_arguments,
     configure_logging,
     wait_for_port,
-)
+    )
 
 
 __metaclass__ = type
 
 
 log = logging.getLogger("assess_container_networking")
-
-
-# This needs refactored out to utility
-class JujuAssertionError(AssertionError):
-    """Exception for juju assertion failures."""
 
 
 def parse_args(argv=None):

@@ -59,10 +59,9 @@ class FakeControllerState:
         self.shares = ['admin']
 
     def add_model(self, name):
-        state = FakeEnvironmentState()
+        state = FakeEnvironmentState(self)
         state.name = name
         self.models[name] = state
-        state.controller = self
         state.controller.state = 'created'
         return state
 
@@ -186,6 +185,7 @@ class FakeEnvironmentState:
         self.controller.require_controller('restore', self.name)
         if len(self.state_servers) > 0:
             return self._fail_stderr('Operation not permitted')
+        self.state_servers.append(self.add_machine())
 
     def enable_ha(self):
         self.controller.require_controller('enable-ha', self.name)
@@ -263,13 +263,22 @@ class FakeEnvironmentState:
         return '\n'.join(errors)
 
     def remove_ssh_key(self, keys_to_remove):
+        errors = []
+        for i in reversed(range(len(keys_to_remove))):
+            key = keys_to_remove[i]
+            if key in ('juju-client-key', 'juju-system-key'):
+                keys_to_remove = keys_to_remove[:i] + keys_to_remove[i + 1:]
+                errors.append(
+                    'cannot remove key id "{0}": may not delete internal key:'
+                    ' {0}'.format(key))
         for i in range(len(self.ssh_keys)):
             if self.ssh_keys[i] in keys_to_remove:
                 keys_to_remove.remove(self.ssh_keys[i])
                 del self.ssh_keys[i]
-        return '\n'.join(
+        errors.extend(
             'cannot remove key id "{0}": invalid ssh key: {0}'.format(key)
             for key in keys_to_remove)
+        return '\n'.join(errors)
 
     def import_ssh_key(self, names_to_add):
         for name in names_to_add:
@@ -319,13 +328,15 @@ class AutoloadCredentials(FakeExpectChild):
         juju_data = JujuData('foo', juju_home=self.juju_home)
         juju_data.load_yaml()
         creds = juju_data.credentials.setdefault('credentials', {})
-        creds.update({self.cloud: {self.extra_env['OS_USERNAME']: {
-            'domain-name': '',
-            'auth-type': 'userpass',
-            'username': self.extra_env['OS_USERNAME'],
-            'password': self.extra_env['OS_PASSWORD'],
-            'tenant-name': self.extra_env['OS_TENANT_NAME'],
-            }}})
+        creds.update({self.cloud: {
+            'default-region': self.extra_env['OS_REGION_NAME'],
+            self.extra_env['OS_USERNAME']: {
+                'domain-name': '',
+                'auth-type': 'userpass',
+                'username': self.extra_env['OS_USERNAME'],
+                'password': self.extra_env['OS_PASSWORD'],
+                'tenant-name': self.extra_env['OS_TENANT_NAME'],
+                }}})
         juju_data.dump_yaml(self.juju_home, {})
         return False
 
@@ -407,7 +418,7 @@ class FakeBackend:
         cloud_region = parsed.cloud_name_region.split('/', 1)
         cloud = cloud_region[0]
         # Although they are specified with specific arguments instead of as
-        # config, these values are listed by get-model-config:
+        # config, these values are listed by model-config:
         # name, region, type (from cloud).
         config['type'] = cloud
         if len(cloud_region) > 1:
@@ -495,7 +506,7 @@ class FakeBackend:
             user_status = {'user-name': user_name, 'display-name': ''}
         return user_status
 
-    def list_shares(self):
+    def get_users(self):
         share_names = self.controller_state.shares
         permissions = []
         for key, value in self.controller_state.users.iteritems():
@@ -512,6 +523,19 @@ class FakeBackend:
             else:
                 share_list[name]['access'] = 'admin'
         return share_list
+
+    def show_model(self):
+        # To get data from the model we would need:
+        # self.controller_state.current_model
+        model_name = 'name'
+        data = {
+            'name': model_name,
+            'owner': 'admin@local',
+            'life': 'alive',
+            'status': {'current': 'available', 'since': '15 minutes ago'},
+            'users': self.get_users(),
+            }
+        return {model_name: data}
 
     def _log_command(self, command, args, model, level=logging.INFO):
         full_args = ['juju', command]
@@ -533,7 +557,8 @@ class FakeBackend:
             model_state = self.controller_state.models[model]
             if command == 'enable-ha':
                 model_state.enable_ha()
-            if (command, args[:1]) == ('set-config', ('dummy-source',)):
+            if ((command, args[:1]) == ('set-config', ('dummy-source',)) or
+                    (command, args[:1]) == ('config', ('dummy-source',))):
                 name, value = args[1].split('=')
                 if name == 'token':
                     model_state.token = value
@@ -627,6 +652,8 @@ class FakeBackend:
                 self.controller_state.users.pop(username)
                 if username in self.controller_state.shares:
                     self.controller_state.shares.remove(username)
+            if command == 'restore-backup':
+                model_state.restore_backup()
 
     @contextmanager
     def juju_async(self, command, args, used_feature_flags,
@@ -652,18 +679,16 @@ class FakeBackend:
         if (command, args) == ('ssh', ('0', 'lsb_release', '-c')):
             return 'Codename:\t{}\n'.format(
                 model_state.model_config['default-series'])
-        if command == 'get-model-config':
+        if command in ('model-config', 'get-model-config'):
             return yaml.safe_dump(model_state.model_config)
-        if command == 'restore-backup':
-            model_state.restore_backup()
         if command == 'show-controller':
             return yaml.safe_dump(self.make_controller_dict(args[0]))
         if command == 'list-models':
             return yaml.safe_dump(self.list_models())
         if command == 'list-users':
             return json.dumps(self.list_users())
-        if command == 'list-shares':
-            return json.dumps(self.list_shares())
+        if command == 'show-model':
+            return json.dumps(self.show_model())
         if command == 'show-user':
             return json.dumps(self.show_user(user_name))
         if command == 'add-user':
@@ -749,6 +774,7 @@ def fake_juju_client(env=None, full_path=None, debug=False, version='2.0.0',
             'default-series': 'angsty',
             'region': 'bar',
             }, juju_home='foo')
+        env.credentials = {'credentials': {'foo': {'creds': {}}}}
     juju_home = env.juju_home
     if juju_home is None:
         juju_home = 'foo'

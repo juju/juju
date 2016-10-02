@@ -318,7 +318,11 @@ def _generate_default_binary():
     return '/usr/bin/juju'
 
 
-def add_basic_testing_arguments(parser, using_jes=False):
+def _to_deadline(timeout):
+    return datetime.utcnow() + timedelta(seconds=int(timeout))
+
+
+def add_basic_testing_arguments(parser, using_jes=False, deadline=True):
     """Returns the parser loaded with basic testing arguments.
 
     The basic testing arguments, used in conjuction with boot_context ensures
@@ -339,6 +343,8 @@ def add_basic_testing_arguments(parser, using_jes=False):
 
     :param parser: an ArgumentParser.
     :param using_jes: whether args should be tailored for JES testing.
+    :param deadline: If true, support the --timeout option and convert to a
+        deadline.
     """
 
     # Optional postional arguments
@@ -386,6 +392,9 @@ def add_basic_testing_arguments(parser, using_jes=False):
     parser.add_argument('--keep-env', action='store_true',
                         help='Keep the Juju environment after the test'
                         ' completes.')
+    if deadline:
+        parser.add_argument('--timeout', dest='deadline', type=_to_deadline,
+                            help="The script timeout, in seconds.")
     return parser
 
 

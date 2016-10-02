@@ -530,7 +530,10 @@ def make_substrate_manager(client, required_attrs):
     If the substrate cannot be made, or does not have the required attributes,
     return None.  Otherwise, return the substrate.
     """
-    with real_make_substrate_manager(client.env.config) as substrate:
+    with real_make_substrate_manager(
+            client.env.config,
+            client.env.get_cloud_credentials(),
+            ) as substrate:
         if substrate is not None:
             for attr in required_attrs:
                 if getattr(substrate, attr, None) is None:
@@ -622,6 +625,10 @@ def wait_until_removed(client, to_remove, timeout=300):
     This is implemented as a context manager so that it is coroutine-friendly.
     The start of the timeout begins at the with statement, but the actual
     waiting (if any) is done when exiting the with block.
+
+    Cloud performance differs. The caller must pass a timeout that matches
+    the expected performance of the cloud. Most clouds need 300s to remove
+    a machine, but aure will need much more.
     """
     timeout_iter = until_timeout(timeout)
     yield
@@ -727,7 +734,13 @@ class DeployManyAttempt(SteppedStageAttempt):
                 application_names.append(application)
         timeout_start = datetime.now()
         yield results
-        status = client.wait_for_started(start=timeout_start)
+        # Joyent needs longer to deploy so many containers (bug #1624384).
+        if client.env.config['type'] == 'joyent':
+            deploy_many_timeout = 3000
+        else:
+            deploy_many_timeout = 1200
+        status = client.wait_for_started(deploy_many_timeout,
+                                         start=timeout_start)
         results['result'] = True
         yield results
         results = {'test_id': 'remove-machine-many-container'}
@@ -752,7 +765,12 @@ class DeployManyAttempt(SteppedStageAttempt):
         yield results
         for machine_name in machine_names:
             client.juju('remove-machine', (machine_name,))
-        with wait_until_removed(client, machine_names):
+        if client.env.config['type'] == 'azure':
+            # Azure takes a minimum of 5 minutes per machine to delete.
+            remove_timeout = 600 * len(machine_names)
+        else:
+            remove_timeout = 300
+        with wait_until_removed(client, machine_names, timeout=remove_timeout):
             yield results
         results['result'] = True
         yield results
@@ -773,15 +791,20 @@ class BackupRestoreAttempt(SteppedStageAttempt):
         backup_file = controller_client.backup()
         try:
             status = controller_client.get_status()
-            instance_id = status.get_instance_id('0')
+            instance_ids = [status.get_instance_id('0')]
+            with make_substrate_manager(controller_client,
+                                        ['convert_to_azure_ids']) as substrate:
+                if substrate is not None:
+                    instance_ids = substrate.convert_to_azure_ids(
+                        controller_client, instance_ids)
             host = get_machine_dns_name(controller_client, '0')
-            terminate_instances(controller_client.env, [instance_id])
+            terminate_instances(controller_client.env, instance_ids)
             yield results
             wait_for_state_server_to_shutdown(
-                host, controller_client, instance_id)
+                host, controller_client, instance_ids[0])
             yield results
-            with controller_client.restore_backup(backup_file):
-                yield results
+            controller_client.restore_backup(backup_file)
+            yield results
         finally:
             os.unlink(backup_file)
         with wait_for_started(controller_client):
@@ -986,15 +1009,23 @@ def maybe_write_json(filename, results):
 
 
 def run_single(args):
-    upgrade_client = client_from_config(args.env, juju_path=None,
-                                        debug=args.debug)
-    env = upgrade_client.env
+    # Do not initialize if we are not testing upgrades, to avoid
+    # incompatibility issues.
+    upgrade_client = None
+    client = client_from_config(args.env, args.new_juju_path, debug=args.debug)
+    env = client.env
     env.set_model_name(env.environment + '-single')
-    client = upgrade_client.clone_path_cls(args.new_juju_path)
     try:
         for suite in args.suite:
             factory = suites[suite]
-            upgrade_sequence = [upgrade_client.full_path, client.full_path]
+            if (
+                    factory.bootstrap_attempt == PrepareUpgradeJujuAttempt and
+                    upgrade_client is None):
+                upgrade_client = client.clone_path_cls(None)
+            if upgrade_client is not None:
+                upgrade_sequence = [upgrade_client.full_path, client.full_path]
+            else:
+                upgrade_sequence = []
             suite = factory.factory(upgrade_sequence, args.log_dir,
                                     args.agent_stream)
             steps_iter = suite.iter_steps(client)

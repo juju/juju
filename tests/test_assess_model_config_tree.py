@@ -35,7 +35,9 @@ class TestParseArgs(TestCase):
                 region=None,
                 series=None,
                 upload_tools=False,
-                verbose=20))
+                verbose=20,
+                deadline=None,
+                ))
 
     def test_help(self):
         fake_stdout = StringIO.StringIO()
