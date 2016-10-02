@@ -11,6 +11,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils/clock"
 
+	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/catacomb"
 )
@@ -104,16 +105,12 @@ func (rw *RestartWorkers) PresenceWatcher() PresenceWatcher {
 
 // LeadershipManager is part of the Workers interface.
 func (rw *RestartWorkers) LeadershipManager() LeaseManager {
-	rw.mu.Lock()
-	defer rw.mu.Unlock()
-	return rw.workers.leadershipWorker
+	return DynamicLeaseManager{&rw.mu, &rw.workers.leadershipWorker}
 }
 
 // SingularManager is part of the Workers interface.
 func (rw *RestartWorkers) SingularManager() LeaseManager {
-	rw.mu.Lock()
-	defer rw.mu.Unlock()
-	return rw.workers.singularWorker
+	return DynamicLeaseManager{&rw.mu, &rw.workers.singularWorker}
 }
 
 // Kill is part of the worker.Worker interface.
@@ -304,4 +301,34 @@ func (r *leaseWorkerReplacer) replace() {
 	*r.target = r.next
 	r.current = r.next
 	r.next = nil
+}
+
+// DynamicLeaseManager is a workers.LeaseManager that calls a given function
+// to acquire a fresh LeaseManager for each method call. This enables us to
+// hide the fact that workers returned from RestartManager may become stale.
+type DynamicLeaseManager struct {
+	mu *sync.Mutex
+	w  *LeaseWorker
+}
+
+// Claim is part of the lease.Claimer interface.
+func (d DynamicLeaseManager) Claim(leaseName, holderName string, duration time.Duration) error {
+	return d.Underlying().Claim(leaseName, holderName, duration)
+}
+
+// WaitUntilExpired is part of the lease.Claimer interface.
+func (d DynamicLeaseManager) WaitUntilExpired(leaseName string) error {
+	return d.Underlying().WaitUntilExpired(leaseName)
+}
+
+// Token is part of the lease.Checker interface.
+func (d DynamicLeaseManager) Token(leaseName, holderName string) lease.Token {
+	return d.Underlying().Token(leaseName, holderName)
+}
+
+// Underlying returns the current underlying LeaseManager.
+func (d DynamicLeaseManager) Underlying() LeaseManager {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return *d.w
 }
