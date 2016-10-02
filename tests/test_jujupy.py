@@ -710,14 +710,14 @@ class TestEnvJujuClient(ClientTest):
             JujuData('foo', {'type': 'nonlocal'}), '2.0-betaX', None)
         with patch.object(client, '_upgrade_juju') as juju_mock:
             client.upgrade_juju()
-        juju_mock.assert_called_with(('--version', '2.0'))
+        juju_mock.assert_called_with(('--agent-version', '2.0'))
 
     def test_upgrade_juju_local(self):
         client = EnvJujuClient(
             JujuData('foo', {'type': 'local'}), '2.0-betaX', None)
         with patch.object(client, '_upgrade_juju') as juju_mock:
             client.upgrade_juju()
-        juju_mock.assert_called_with(('--version', '2.0',))
+        juju_mock.assert_called_with(('--agent-version', '2.0',))
 
     def test_upgrade_juju_no_force_version(self):
         client = EnvJujuClient(

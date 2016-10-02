@@ -2008,7 +2008,7 @@ class TestUpgradeJujuAttempt(JujuPyTestCase):
             cc_mock,
             future_client,
             ('juju', '--show-log', 'upgrade-juju',
-             '-m', 'steve:steve', '--version',
+             '-m', 'steve:steve', '--agent-version',
              future_client.get_matching_agent_version()))
         version_status = {
             'machines': {'0': {
