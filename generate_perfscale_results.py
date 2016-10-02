@@ -10,6 +10,7 @@ import logging
 import os
 import sys
 import subprocess
+import time
 
 try:
     import rrdtool
