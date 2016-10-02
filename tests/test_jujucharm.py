@@ -121,6 +121,11 @@ class TestCharm(TestCase):
             'Invalid Juju Charm Name, "BAD_NAME" does not match ".*"\.',
             Charm, 'BAD_NAME', 'A charm with a checked bad name')
 
+    def test_ensure_valid_name_anchoring(self):
+        for name in ['~bad-name', 'bad-name-!']:
+            self.assertRaises(JujuAssertionError, Charm, name,
+                              'A charm with a partially correct name')
+
 
 class TestLocalCharm(TestCase):
 

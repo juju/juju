@@ -174,20 +174,6 @@ def coalesce_agent_status(agent_item):
     return state
 
 
-def make_client(juju_path, debug, env_name, temp_env_name):
-    """Create a new juju client.
-
-    :param juju_path: Full path to the juju binary the client should wrap.
-    :param debug: Debug flag for the client.
-    :param env_name: Name of the environment to use the configuration from.
-    :param temp_env_name: Name of client's model/environment, if None env_name
-    is used."""
-    client = client_from_config(env_name, juju_path, debug)
-    if temp_env_name is not None:
-        client.env.set_model_name(temp_env_name)
-    return client
-
-
 class CannotConnectEnv(subprocess.CalledProcessError):
 
     def __init__(self, e):
@@ -325,6 +311,14 @@ class SimpleEnvironment:
         self.dump_yaml(home_path, new_config)
         yield home_path
 
+    def get_cloud_credentials(self):
+        """Return the credentials for this model's cloud.
+
+        This implementation returns config variables in addition to
+        credentials.
+        """
+        return self.config
+
     def dump_yaml(self, path, config):
         dump_environments_yaml(path, config)
 
@@ -443,6 +437,13 @@ class JujuData(SimpleEnvironment):
             return None
         else:
             return self.config['region']
+
+    def get_cloud_credentials(self):
+        """Return the credentials for this model's cloud."""
+        cloud_name = self.get_cloud()
+        cloud = self.credentials['credentials'][cloud_name]
+        (credentials,) = cloud.values()
+        return credentials
 
 
 class Status:
@@ -908,8 +909,6 @@ class EnvJujuClient:
     used_feature_flags = frozenset(['address-allocation', 'migration'])
 
     destroy_model_command = 'destroy-model'
-    disable_command = 'disable-command'
-    enable_command = 'enable-command'
 
     supported_container_types = frozenset([KVM_MACHINE, LXC_MACHINE,
                                            LXD_MACHINE])
@@ -1145,7 +1144,8 @@ class EnvJujuClient:
         return '{}/{}'.format(cloud, region)
 
     def get_bootstrap_args(self, upload_tools, config_filename,
-                           bootstrap_series=None, credential=None):
+                           bootstrap_series=None, credential=None,
+                           auto_upgrade=False, metadata_source=None, to=None):
         """Return the bootstrap arguments for the substrate."""
         if self.env.joyent:
             # Only accept kvm packages by requiring >1 cpu core, see lp:1446264
@@ -1161,13 +1161,16 @@ class EnvJujuClient:
             args.insert(0, '--upload-tools')
         else:
             args.extend(['--agent-version', self.get_matching_agent_version()])
-
         if bootstrap_series is not None:
             args.extend(['--bootstrap-series', bootstrap_series])
-
         if credential is not None:
             args.extend(['--credential', credential])
-
+        if metadata_source is not None:
+            args.extend(['--metadata-source', metadata_source])
+        if auto_upgrade:
+            args.append('--auto-upgrade')
+        if to is not None:
+            args.extend(['--to', to])
         return tuple(args)
 
     def add_model(self, env):
@@ -1232,21 +1235,25 @@ class EnvJujuClient:
         self.env.user_name = 'admin@local'
 
     def bootstrap(self, upload_tools=False, bootstrap_series=None,
-                  credential=None):
+                  credential=None, auto_upgrade=False, metadata_source=None,
+                  to=None):
         """Bootstrap a controller."""
         self._check_bootstrap()
         with self._bootstrap_config() as config_filename:
             args = self.get_bootstrap_args(
-                upload_tools, config_filename, bootstrap_series, credential)
+                upload_tools, config_filename, bootstrap_series, credential,
+                auto_upgrade, metadata_source, to)
             self.update_user_name()
             self.juju('bootstrap', args, include_e=False)
 
     @contextmanager
-    def bootstrap_async(self, upload_tools=False, bootstrap_series=None):
+    def bootstrap_async(self, upload_tools=False, bootstrap_series=None,
+                        auto_upgrade=False, metadata_source=None, to=None):
         self._check_bootstrap()
         with self._bootstrap_config() as config_filename:
             args = self.get_bootstrap_args(
-                upload_tools, config_filename, bootstrap_series)
+                upload_tools, config_filename, bootstrap_series, None,
+                auto_upgrade, metadata_source, to)
             self.update_user_name()
             with self.juju_async('bootstrap', args, include_e=False):
                 yield
@@ -1845,25 +1852,11 @@ class EnvJujuClient:
             version_number += '.1'
         return version_number
 
-    def upgrade_controller(self, force_version=True):
-        args = ()
-        if force_version:
-            version = self.get_matching_agent_version(no_build=True)
-            args += ('--version', version)
-        if self.env.local:
-            args += ('--upload-tools',)
-
-        self._upgrade_controller(args)
-
-    def _upgrade_controller(self, args):
-        controller = self.get_controller_client()
-        controller.juju('upgrade-juju', args)
-
     def upgrade_juju(self, force_version=True):
         args = ()
         if force_version:
             version = self.get_matching_agent_version(no_build=True)
-            args += ('--version', version)
+            args += ('--agent-version', version)
         self._upgrade_juju(args)
 
     def _upgrade_juju(self, args):
@@ -2137,11 +2130,22 @@ class EnvJujuClient:
         """Import ssh keys from one or more identities to the current model."""
         return self.get_juju_output('import-ssh-key', *keys, merge_stderr=True)
 
+    def list_disabled_commands(self):
+        """List all the commands disabled on the model."""
+        raw = self.get_juju_output('list-disabled-commands',
+                                   '--format', 'yaml')
+        return yaml.safe_load(raw)
+
+    def disable_command(self, args):
+        """Disable a command set."""
+        return self.juju('disable-command', args)
+
+    def enable_command(self, args):
+        """Enable a command set."""
+        return self.juju('enable-command', args)
+
 
 class EnvJujuClient2B9(EnvJujuClient):
-
-    disable_command = 'block'
-    enable_command = 'unblock'
 
     def update_user_name(self):
         return
@@ -2219,6 +2223,19 @@ class EnvJujuClient2B9(EnvJujuClient):
         """Unset the value of the option in the environment."""
         return self.juju('unset-model-config', (option,))
 
+    def list_disabled_commands(self):
+        """List all the commands disabled on the model."""
+        raw = self.get_juju_output('block list', '--format', 'yaml')
+        return yaml.safe_load(raw)
+
+    def disable_command(self, args):
+        """Disable a command set."""
+        return self.juju('block', args)
+
+    def enable_command(self, args):
+        """Enable a command set."""
+        return self.juju('unblock', args)
+
 
 class EnvJujuClient2B8(EnvJujuClient2B9):
 
@@ -2272,7 +2289,8 @@ class EnvJujuClient2B3(EnvJujuClient2B7):
 class EnvJujuClient2B2(EnvJujuClient2B3):
 
     def get_bootstrap_args(self, upload_tools, config_filename,
-                           bootstrap_series=None, credential=None):
+                           bootstrap_series=None, credential=None,
+                           auto_upgrade=False, metadata_source=None, to=None):
         """Return the bootstrap arguments for the substrate."""
         if self.env.joyent:
             # Only accept kvm packages by requiring >1 cpu core, see lp:1446264

@@ -62,7 +62,10 @@ from jujupy import (
     Status,
     _temp_env,
     )
-from substrate import AWSAccount
+from substrate import (
+    AWSAccount,
+    AzureARMAccount,
+    )
 from tests import (
     FakeHomeTestCase,
     parse_error,
@@ -1187,9 +1190,10 @@ class TestSteppedStageAttempt(JujuPyTestCase):
 
 
 def FakeEnvJujuClient(name='steve', version='1.2', full_path='/jbin/juju'):
+    juju_data = JujuData(name, {'type': 'fake', 'region': 'regionx'})
+    juju_data.credentials = {'credentials': {'fake': {'creds': {}}}}
     return EnvJujuClient(
-        JujuData(name, {'type': 'fake', 'region': 'regionx'}),
-        version, full_path)
+        juju_data, version, full_path)
 
 
 class FakeEnvJujuClient1X(EnvJujuClient1X):
@@ -1336,7 +1340,12 @@ class TestDestroyEnvironmentAttempt(JujuPyTestCase):
     @staticmethod
     def get_openstack_client():
         client = FakeEnvJujuClient()
+        client.env.clouds = {'clouds': {'quxxx': {
+            'type': 'openstack', 'endpoint': 'qux',
+            }}}
         client.env.config = get_os_config()
+        client.env.credentials = {'credentials': {'quxxx': {'creds': {
+            }}}}
         return client
 
     def test_get_security_groups_aws(self):
@@ -1805,6 +1814,7 @@ class TestBackupRestoreAttempt(JujuPyTestCase):
         client.env.environment = aws_env.environment
         client.env.config = aws_env.config
         client.env.juju_home = aws_env.juju_home
+        client.env.credentials = {'credentials': {'aws': {'creds': {}}}}
         controller_client = client.get_controller_client()
         environ = dict(os.environ)
         environ.update(get_euca_env(client.env.config))
@@ -1875,6 +1885,7 @@ class TestBackupRestoreAttempt(JujuPyTestCase):
         client = FakeEnvJujuClient()
         client.env.environment = azure_env.environment
         client.env.config = azure_env.config
+        client.env.credentials = {'credentials': {'azure': {'creds': {}}}}
         controller_client = client.get_controller_client()
         # First yield.
         iterator = iter_steps_validate_info(self, br_attempt, client)
@@ -1888,16 +1899,25 @@ class TestBackupRestoreAttempt(JujuPyTestCase):
         }
         # The azure-provider does does not provide sane ids, so the instance-id
         # is used to search for the actual azure instance.
-        with patch_status(controller_client, initial_status):
-            with patch.object(client, 'get_controller_client', autospec=True,
-                              return_value=controller_client):
-                with patch.object(controller_client, 'backup', autospec=True,
-                                  return_value='juju-backup.tgz') as b_mock:
-                    with patch('industrial_test.convert_to_azure_ids',
-                               autospec=True, return_value=['id']) as ca_mock:
+        substrate = AzureARMAccount(None)
+        with patch(
+                'industrial_test.make_substrate_manager'
+                ) as msm_mock:
+            msm_mock.return_value.__enter__.return_value = substrate
+            with patch.object(substrate, 'convert_to_azure_ids',
+                              autospec=True, return_value=['id']) as ca_mock:
+                with patch.object(client, 'get_controller_client',
+                                  autospec=True,
+                                  return_value=controller_client):
+                    with patch.object(controller_client, 'backup',
+                                      autospec=True,
+                                      return_value='juju-backup.tgz'
+                                      ) as b_mock:
                         with patch('industrial_test.terminate_instances',
                                    autospec=True):
-                            self.assertEqual(iterator.next(), test_id)
+                            with patch_status(controller_client,
+                                              initial_status):
+                                self.assertEqual(iterator.next(), test_id)
         b_mock.assert_called_once_with()
         ca_mock.assert_called_once_with(controller_client, ['not-id'])
 
@@ -1988,7 +2008,7 @@ class TestUpgradeJujuAttempt(JujuPyTestCase):
             cc_mock,
             future_client,
             ('juju', '--show-log', 'upgrade-juju',
-             '-m', 'steve:steve', '--version',
+             '-m', 'steve:steve', '--agent-version',
              future_client.get_matching_agent_version()))
         version_status = {
             'machines': {'0': {
@@ -2125,16 +2145,19 @@ class TestMakeSubstrate(JujuPyTestCase):
     def test_make_substrate_manager_no_support(self):
         client = EnvJujuClient(JujuData('foo', {'type': 'foo'}),
                                '', '')
+        client.env.credentials = {'credentials': {'foo': {'creds': {}}}}
         with make_substrate_manager(client, []) as substrate:
             self.assertIs(substrate, None)
 
     def test_make_substrate_no_requirements(self):
         client = EnvJujuClient(get_aws_juju_data(), '', '')
+        client.env.credentials = {'credentials': {'aws': {'creds': {}}}}
         with make_substrate_manager(client, []) as substrate:
             self.assertIs(type(substrate), AWSAccount)
 
     def test_make_substrate_manager_unsatisifed_requirements(self):
         client = EnvJujuClient(get_aws_juju_data(), '', '')
+        client.env.credentials = {'credentials': {'aws': {'creds': {}}}}
         with make_substrate_manager(client, ['foo']) as substrate:
             self.assertIs(substrate, None)
         with make_substrate_manager(
@@ -2143,6 +2166,7 @@ class TestMakeSubstrate(JujuPyTestCase):
 
     def test_make_substrate_satisfied_requirements(self):
         client = EnvJujuClient(get_aws_juju_data(), '', '')
+        client.env.credentials = {'credentials': {'aws': {'creds': {}}}}
         with make_substrate_manager(
                 client, ['iter_security_groups']) as substrate:
             self.assertIs(type(substrate), AWSAccount)

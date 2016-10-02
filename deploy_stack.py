@@ -40,7 +40,6 @@ from jujuconfig import (
 from jujupy import (
     client_from_config,
     EnvJujuClient,
-    get_client_class,
     get_local_root,
     get_machine_dns_name,
     jes_home_path,
@@ -392,21 +391,40 @@ def assess_juju_run(client):
 
 
 def assess_upgrade(old_client, juju_path):
-    version = EnvJujuClient.get_version(juju_path)
-    client_class = get_client_class(version)
-    client = old_client.clone(cls=client_class, version=version)
-    upgrade_juju(client)
-    if client.env.config['type'] == 'maas':
+    all_clients = _get_clients_to_upgrade(old_client, juju_path)
+
+    # all clients have the same provider type, work this out once.
+    if all_clients[0].env.config['type'] == 'maas':
         timeout = 1200
     else:
         timeout = 600
-    client.wait_for_version(client.get_matching_agent_version(), timeout)
+
+    for client in all_clients:
+        upgrade_juju(client)
+        client.wait_for_version(client.get_matching_agent_version(), timeout)
+
+
+def _get_clients_to_upgrade(old_client, juju_path):
+    """Return a list of cloned clients to upgrade.
+
+    Ensure that the controller (if available) is the first client in the list.
+    """
+    new_client = old_client.clone_path_cls(juju_path)
+    all_clients = sorted(
+        new_client.iter_model_clients(),
+        key=lambda m: m.model_name == 'controller',
+        reverse=True)
+
+    return all_clients
 
 
 def upgrade_juju(client):
     client.set_testing_agent_metadata_url()
     tools_metadata_url = client.get_agent_metadata_url()
-    logging.info('The tools-metadata-url is %s', tools_metadata_url)
+    logging.info(
+        'The {url_type} is {url}'.format(
+            url_type=client.agent_metadata_url,
+            url=tools_metadata_url))
     client.upgrade_juju()
 
 
@@ -841,7 +859,7 @@ class BootstrapManager:
                 yield machines + new_machines
 
     @contextmanager
-    def booted_context(self, upload_tools):
+    def booted_context(self, upload_tools, **kwargs):
         """Create a temporary environment in a context manager to run tests in.
 
         Bootstrap a new environment from a temporary config that is suitable
@@ -854,13 +872,17 @@ class BootstrapManager:
 
         :param upload_tools: False or True to upload the local agent instead
             of using streams.
+        :param **kwargs: All remaining keyword arguments are passed to the
+        client's bootstrap.
         """
         try:
             with self.top_context() as machines:
                 with self.bootstrap_context(
                         machines, omit_config=self.client.bootstrap_replaces):
                     self.client.bootstrap(
-                        upload_tools, bootstrap_series=self.series)
+                        upload_tools=upload_tools,
+                        bootstrap_series=self.series,
+                        **kwargs)
                 with self.runtime_context(machines):
                     self.client.list_controllers()
                     self.client.list_models()
@@ -871,14 +893,16 @@ class BootstrapManager:
             sys.exit(1)
 
     @contextmanager
-    def existing_booted_context(self, upload_tools):
+    def existing_booted_context(self, upload_tools, **kwargs):
         try:
             with self.top_context() as machines:
                 # Existing does less things as there is no pre-cleanup needed.
                 with self.existing_bootstrap_context(
                         machines, omit_config=self.client.bootstrap_replaces):
                     self.client.bootstrap(
-                        upload_tools, bootstrap_series=self.series)
+                        upload_tools=upload_tools,
+                        bootstrap_series=self.series,
+                        **kwargs)
                 with self.runtime_context(machines):
                     yield machines
         except LoggedException:

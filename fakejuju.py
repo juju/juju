@@ -774,6 +774,7 @@ def fake_juju_client(env=None, full_path=None, debug=False, version='2.0.0',
             'default-series': 'angsty',
             'region': 'bar',
             }, juju_home='foo')
+        env.credentials = {'credentials': {'foo': {'creds': {}}}}
     juju_home = env.juju_home
     if juju_home is None:
         juju_home = 'foo'

@@ -13,16 +13,25 @@ from jujupy import (
 from tests import (
     FakeHomeTestCase,
     TestCase,
-)
+    )
+from utility import (
+    temp_dir,
+    )
 
 
 class TestParseArgs(TestCase):
 
     def test_parse_args(self):
-        args = parse_args(['foo', 'bar'])
-        self.assertEqual(args, Namespace(
-            juju='foo', env='bar', debug=False, region=None,
-            temp_env_name=None))
+        with temp_dir() as log_dir:
+            args = parse_args(['foo', 'bar', log_dir, 'baz'])
+            self.assertEqual(
+                Namespace(
+                    agent_stream=None, agent_url=None, bootstrap_host=None,
+                    deadline=None, debug=False, env='foo', juju_bin='bar',
+                    keep_env=False, logs=log_dir, machine=[], region=None,
+                    series=None, temp_env_name='baz', upload_tools=False,
+                    verbose=20),
+                args)
 
     def test_parse_args_debug(self):
         args = parse_args(['foo', 'bar', '--debug'])
@@ -33,8 +42,8 @@ class TestParseArgs(TestCase):
         self.assertEqual(args.region, 'foo')
 
     def test_parse_args_temp_env_name(self):
-        args = parse_args(['foo', 'bar', 'foo'])
-        self.assertEqual(args.temp_env_name, 'foo')
+        args = parse_args(['fee', 'fi', 'foe', 'fum'])
+        self.assertEqual(args.temp_env_name, 'fum')
 
 
 class TestAssessBootstrap(FakeHomeTestCase):
@@ -62,7 +71,7 @@ class TestAssessBootstrap(FakeHomeTestCase):
                        autospec=True):
                 with patch('deploy_stack.get_machine_dns_name'):
                     with patch('deploy_stack.dump_env_logs_known_hosts'):
-                        assess_bootstrap('/foo', 'bar', False, None, None)
+                        assess_bootstrap(parse_args(['bar', '/foo']))
         self.assertRegexpMatches(
             self.log_stream.getvalue(),
             r"(?m)^INFO Environment successfully bootstrapped.$")
@@ -78,7 +87,10 @@ class TestAssessBootstrap(FakeHomeTestCase):
                        autospec=True):
                 with patch('deploy_stack.get_machine_dns_name'):
                     with patch('deploy_stack.dump_env_logs_known_hosts'):
-                        assess_bootstrap('/foo', 'bar', False, 'baz', 'qux')
+                        args = parse_args(['bar', '/foo'])
+                        args.region = 'baz'
+                        args.temp_env_name = 'qux'
+                        assess_bootstrap(args)
         self.assertRegexpMatches(
             self.log_stream.getvalue(),
             r"(?m)^INFO Environment successfully bootstrapped.$")

@@ -1,11 +1,11 @@
 from argparse import (
     Namespace,
-)
+    )
 from contextlib import contextmanager
 from datetime import (
     datetime,
     timedelta,
-)
+    )
 import json
 import logging
 import os
@@ -13,13 +13,13 @@ import subprocess
 import sys
 from unittest import (
     skipIf,
-)
+    )
 
 from mock import (
     call,
     MagicMock,
     patch,
-)
+    )
 import yaml
 
 from deploy_stack import (
@@ -39,17 +39,18 @@ from deploy_stack import (
     destroy_environment,
     dump_env_logs,
     dump_juju_timings,
+    _get_clients_to_upgrade,
     iter_remote_machines,
     get_remote_machines,
     GET_TOKEN_SCRIPT,
     safe_print_status,
     retain_config,
     update_env,
-)
+    )
 from fakejuju import (
     fake_juju_client,
     fake_juju_client_optional_jes,
-)
+    )
 from jujuconfig import (
     get_environments_path,
     get_jenv_path,
@@ -58,6 +59,8 @@ from jujuconfig import (
 from jujupy import (
     EnvJujuClient,
     EnvJujuClient1X,
+    EnvJujuClient25,
+    EnvJujuClient26,
     get_cache_path,
     get_timeout_prefix,
     get_timeout_path,
@@ -65,27 +68,27 @@ from jujupy import (
     KILL_CONTROLLER,
     SimpleEnvironment,
     Status,
-)
+    )
 from remote import (
     _Remote,
     remote_from_address,
     SSHRemote,
     winrm,
-)
+    )
 from tests import (
     FakeHomeTestCase,
     temp_os_env,
     use_context,
-)
+    )
 from tests.test_jujupy import (
     assert_juju_call,
     FakePopen,
     observable_temp_file,
-)
+    )
 from utility import (
     LoggedException,
     temp_dir,
-)
+    )
 
 
 def make_logs(log_dir):
@@ -1106,23 +1109,39 @@ class TestTestUpgrade(FakeHomeTestCase):
     STATUS = (
         'juju', '--show-log', 'show-status', '-m', 'foo:foo',
         '--format', 'yaml')
+    CONTROLLER_STATUS = (
+        'juju', '--show-log', 'show-status', '-m', 'foo:controller',
+        '--format', 'yaml')
     GET_ENV = ('juju', '--show-log', 'model-config', '-m', 'foo:foo',
                'agent-metadata-url')
+    GET_CONTROLLER_ENV = (
+        'juju', '--show-log', 'model-config', '-m', 'foo:controller',
+        'agent-metadata-url')
+    LIST_MODELS = (
+        'juju', '--show-log', 'list-models', '-c', 'foo', '--format', 'yaml')
 
     @classmethod
     def upgrade_output(cls, args, **kwargs):
         status = yaml.safe_dump({
             'machines': {'0': {
                 'agent-state': 'started',
-                'agent-version': '2.0-beta18'}},
+                'agent-version': '2.0-rc2'}},
             'services': {}})
         juju_run_out = json.dumps([
             {"MachineId": "1", "Stdout": "Linux\n"},
             {"MachineId": "2", "Stdout": "Linux\n"}])
+        list_models = json.dumps(
+            {'models': [
+                {'name': 'controller'},
+                {'name': 'foo'},
+            ]})
         output = {
             cls.STATUS: status,
+            cls.CONTROLLER_STATUS: status,
             cls.RUN_UNAME: juju_run_out,
-            cls.GET_ENV: 'testing'
+            cls.GET_ENV: 'testing',
+            cls.GET_CONTROLLER_ENV: 'testing',
+            cls.LIST_MODELS: list_models,
         }
         return FakePopen(output[args], '', 0)
 
@@ -1136,8 +1155,11 @@ class TestTestUpgrade(FakeHomeTestCase):
                                return_value="FAKETOKEN", autospec=True):
                         with patch('jujupy.EnvJujuClient.get_version',
                                    side_effect=lambda cls:
-                                   '2.0-beta18-arch-series'):
-                            yield (co_mock, cc_mock)
+                                   '2.0-rc2-arch-series'):
+                            with patch(
+                                    'jujupy.get_timeout_prefix',
+                                    autospec=True, return_value=()):
+                                yield (co_mock, cc_mock)
 
     def test_assess_upgrade(self):
         env = JujuData('foo', {'type': 'foo'})
@@ -1145,14 +1167,47 @@ class TestTestUpgrade(FakeHomeTestCase):
         with self.upgrade_mocks() as (co_mock, cc_mock):
             assess_upgrade(old_client, '/bar/juju')
         new_client = EnvJujuClient(env, None, '/bar/juju')
+        # Needs to upgrade the controller first.
         assert_juju_call(self, cc_mock, new_client, (
-            'juju', '--show-log', 'upgrade-juju', '-m', 'foo:foo', '--version',
-            '2.0-beta18'), 0)
-        self.assertEqual(cc_mock.call_count, 1)
-        assert_juju_call(self, co_mock, new_client, self.GET_ENV, 0)
-        assert_juju_call(self, co_mock, new_client, self.GET_ENV, 1)
-        assert_juju_call(self, co_mock, new_client, self.STATUS, 2)
-        self.assertEqual(co_mock.call_count, 3)
+            'juju', '--show-log', 'upgrade-juju', '-m', 'foo:controller',
+            '--agent-version', '2.0-rc2'), 0)
+        assert_juju_call(self, cc_mock, new_client, (
+            'juju', '--show-log', 'upgrade-juju', '-m', 'foo:foo',
+            '--agent-version', '2.0-rc2'), 1)
+        self.assertEqual(cc_mock.call_count, 2)
+        assert_juju_call(self, co_mock, new_client, self.LIST_MODELS, 0)
+        assert_juju_call(self, co_mock, new_client, self.GET_CONTROLLER_ENV, 1)
+        assert_juju_call(self, co_mock, new_client, self.GET_CONTROLLER_ENV, 2)
+        assert_juju_call(self, co_mock, new_client, self.CONTROLLER_STATUS, 3)
+        assert_juju_call(self, co_mock, new_client, self.GET_ENV, 4)
+        assert_juju_call(self, co_mock, new_client, self.GET_ENV, 5)
+        assert_juju_call(self, co_mock, new_client, self.STATUS, 6)
+        self.assertEqual(co_mock.call_count, 7)
+
+    def test__get_clients_to_upgrade_returns_new_version_class(self):
+        env = SimpleEnvironment('foo', {'type': 'foo'})
+        old_client = fake_juju_client(
+            env, '/foo/juju', version='1.25', cls=EnvJujuClient25)
+        with patch('jujupy.EnvJujuClient.get_version',
+                   return_value='1.26-arch-series'):
+            with patch('jujupy.EnvJujuClient26._get_models', return_value=[]):
+                [new_client] = _get_clients_to_upgrade(
+                    old_client, '/foo/newer/juju')
+
+        self.assertIs(type(new_client), EnvJujuClient26)
+
+    def test__get_clients_to_upgrade_returns_controller_and_model(self):
+        old_client = fake_juju_client()
+        old_client.bootstrap()
+
+        with patch('jujupy.EnvJujuClient.get_version',
+                   return_value='2.0-rc2-arch-series'):
+            new_clients = _get_clients_to_upgrade(
+                old_client, '/foo/newer/juju')
+
+        self.assertEqual(len(new_clients), 2)
+        self.assertEqual(new_clients[0].model_name, 'controller')
+        self.assertEqual(new_clients[1].model_name, 'name')
 
     def test_mass_timeout(self):
         config = {'type': 'foo'}
@@ -1160,11 +1215,11 @@ class TestTestUpgrade(FakeHomeTestCase):
         with self.upgrade_mocks():
             with patch.object(EnvJujuClient, 'wait_for_version') as wfv_mock:
                 assess_upgrade(old_client, '/bar/juju')
-            wfv_mock.assert_called_once_with('2.0-beta18', 600)
+            wfv_mock.assert_has_calls([call('2.0-rc2', 600)] * 2)
             config['type'] = 'maas'
             with patch.object(EnvJujuClient, 'wait_for_version') as wfv_mock:
                 assess_upgrade(old_client, '/bar/juju')
-        wfv_mock.assert_called_once_with('2.0-beta18', 1200)
+        wfv_mock.assert_has_calls([call('2.0-rc2', 1200)] * 2)
 
 
 class TestBootstrapManager(FakeHomeTestCase):
@@ -1646,6 +1701,36 @@ class TestBootstrapManager(FakeHomeTestCase):
                                    region=None)
         wfp_mock.assert_called_once_with(
             'bootstrap.example.org', 22, timeout=120)
+
+    @contextmanager
+    def booted_to_bootstrap(self, bs_manager):
+        """Preform patches to focus on the call to bootstrap."""
+        with patch.object(bs_manager, 'dump_all_logs'):
+            with patch.object(bs_manager, 'runtime_context'):
+                with patch.object(bs_manager.client, 'juju'):
+                    with patch.object(bs_manager.client, 'bootstrap') as mock:
+                        yield mock
+
+    def test_booted_context_kwargs(self):
+        client = fake_juju_client()
+        with temp_dir() as root:
+            log_dir = os.path.join(root, 'log-dir')
+            os.mkdir(log_dir)
+            bs_manager = BootstrapManager(
+                'foobar', client, client,
+                None, [], None, None, None, None, log_dir, False,
+                True, True)
+            juju_home = os.path.join(root, 'juju-home')
+            os.mkdir(juju_home)
+            client.env.juju_home = juju_home
+            with self.booted_to_bootstrap(bs_manager) as bootstrap_mock:
+                with bs_manager.booted_context(False, to='test'):
+                    bootstrap_mock.assert_called_once_with(
+                        upload_tools=False, to='test', bootstrap_series=None)
+            with self.booted_to_bootstrap(bs_manager) as bootstrap_mock:
+                with bs_manager.existing_booted_context(False, to='test'):
+                    bootstrap_mock.assert_called_once_with(
+                        upload_tools=False, to='test', bootstrap_series=None)
 
     def test_runtime_context_teardown_ignores_soft_deadline(self):
         env = JujuData('foo', {'type': 'nonlocal'})

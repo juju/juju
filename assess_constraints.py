@@ -195,12 +195,37 @@ def juju_show_machine_hardware(client, machine):
     return data
 
 
+def application_machines(client, application):
+    """Get all the machines used to host the given application."""
+    raw = client.get_juju_output('status', '--format', 'yaml')
+    raw_yaml = yaml.load(raw)
+    try:
+        app_data = raw_yaml['applications'][application]
+        machines = []
+        for (unit, unit_data) in app_data['units'].items():
+            machines.append(unit_data['machine'])
+        return machines
+    except KeyError as error:
+        raise KeyError(error.args, raw_yaml)
+
+
+def prepare_constraint_test(client, constraints, charm_name,
+                            charm_series='xenial'):
+    """Deploy a charm with constraints and data to see if it meets them."""
+    with temp_dir() as charm_dir:
+        deploy_charm_constraint(client, constraints, charm_name,
+                                charm_series, charm_dir)
+        client.wait_for_started()
+        machines = application_machines(client, charm_name)
+        return juju_show_machine_hardware(client, machines[0])
+
+
 def assess_virt_type(client, virt_type):
     """Assess the virt-type option for constraints"""
     if virt_type not in VIRT_TYPES:
         raise JujuAssertionError(virt_type)
     constraints = Constraints(virt_type=virt_type)
-    charm_name = 'virt-type-' + virt_type
+    charm_name = 'virt-type-{}'.format(virt_type)
     charm_series = 'xenial'
     with temp_dir() as charm_dir:
         deploy_charm_constraint(client, constraints, charm_name,
@@ -223,20 +248,22 @@ def assess_virt_type_constraints(client, test_kvm=False):
         VIRT_TYPES.remove("kvm")
 
 
+def get_failure_exception(client, constraints):
+    """Create a JujuAssertionError with a detailed error message."""
+    message = 'Test Failed: on {} with constraints "{}"'.format(
+        client.env.config.get('type'), str(constraints))
+    return JujuAssertionError(message)
+
+
 def assess_instance_type(client, provider, instance_type):
     """Assess the instance-type option for constraints"""
     if instance_type not in INSTANCE_TYPES[provider]:
         raise JujuAssertionError(instance_type)
     constraints = Constraints(instance_type=instance_type)
-    charm_name = 'instance-type-' + instance_type.replace('.', '-')
-    charm_series = 'xenial'
-    with temp_dir() as charm_dir:
-        deploy_charm_constraint(client, constraints, charm_name,
-                                charm_series, charm_dir)
-        client.wait_for_started()
-        data = juju_show_machine_hardware(client, '0')
-        if not constraints.meets_instance_type(data):
-            raise ValueError('Test failed', charm_name)
+    charm_name = 'instance-type-{}'.format(instance_type.replace('.', '-'))
+    data = prepare_constraint_test(client, constraints, charm_name)
+    if not constraints.meets_instance_type(data):
+        raise get_failure_exception(client, constraints)
 
 
 def assess_instance_type_constraints(client, provider=None):
@@ -249,6 +276,36 @@ def assess_instance_type_constraints(client, provider=None):
         assess_instance_type(client, provider, instance_type)
 
 
+def assess_root_disk_constraints(client, values):
+    """Assess deployment with root-disk constraints."""
+    for root_disk in values:
+        constraints = Constraints(root_disk=root_disk)
+        charm_name = 'root-disk-{}'.format(root_disk.lower())
+        data = prepare_constraint_test(client, constraints, charm_name)
+        if not constraints.meets_root_disk(data['root-disk']):
+            raise get_failure_exception(client, constraints)
+
+
+def assess_cores_constraints(client, values):
+    """Assess deployment with cores constraints."""
+    for cores in values:
+        constraints = Constraints(cores=cores)
+        charm_name = 'cores-{}c'.format(cores)
+        data = prepare_constraint_test(client, constraints, charm_name)
+        if not constraints.meets_cores(data['cores']):
+            raise get_failure_exception(client, constraints)
+
+
+def assess_cpu_power_constraints(client, values):
+    """Assess deployment with cpu_power constraints."""
+    for cpu_power in values:
+        constraints = Constraints(cpu_power=cpu_power)
+        charm_name = 'cpu-power-{}cp'.format(cpu_power)
+        data = prepare_constraint_test(client, constraints, charm_name)
+        if not constraints.meets_cpu_power(data['cpu-power']):
+            raise get_failure_exception(client, constraints)
+
+
 def assess_constraints(client, test_kvm=False):
     """Assess deployment with constraints."""
     provider = client.env.config.get('type')
@@ -256,6 +313,9 @@ def assess_constraints(client, test_kvm=False):
         assess_virt_type_constraints(client, test_kvm)
     elif 'ec2' == provider:
         assess_instance_type_constraints(client, provider)
+        assess_root_disk_constraints(client, ['16G'])
+        assess_cores_constraints(client, ['2'])
+        assess_cpu_power_constraints(client, ['30'])
 
 
 def parse_args(argv):
