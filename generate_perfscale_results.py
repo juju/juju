@@ -73,6 +73,8 @@ def assess_perf_test_simple(bs_manager, upload_tools):
     sys.setdefaultencoding('utf-8')
     # XXX
 
+    ensure_complete_system()
+
     bs_start = datetime.utcnow()
     with bs_manager.booted_context(upload_tools):
         client = bs_manager.client
@@ -130,6 +132,23 @@ def assess_perf_test_simple(bs_manager, upload_tools):
         'machine-0.log.gz')
 
     generate_reports(controller_log_file, results_dir, deployments)
+
+
+def ensure_complete_system():
+    """Ensure all tools are installed and ready.
+
+    Because this is a long running test double check that all reqs. are
+    installed, error now if not an not in 12 hours time.
+    """
+    try:
+        subprocess.check_call(['rrdtool', '--help'])
+    except Exception as e:
+        err_message = "Unable to find rrdtool, {}." \
+                      "ensure it's installed (apt-get install rrdtool)".format(
+                          str(e)
+                      )
+        log.error(err_message)
+        raise RuntimeError(err_message)
 
 
 def apply_any_workarounds(client):
