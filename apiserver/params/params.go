@@ -801,24 +801,24 @@ type LogRecord struct {
 	Message  string    `json:"x"`
 }
 
-// GetBundleChangesParams holds parameters for making GetBundleChanges calls.
-type GetBundleChangesParams struct {
+// BundleChangesParams holds parameters for making Bundle.GetChanges calls.
+type BundleChangesParams struct {
 	// BundleDataYAML is the YAML-encoded charm bundle data
 	// (see "github.com/juju/charm.BundleData").
 	BundleDataYAML string `json:"yaml"`
 }
 
-// GetBundleChangesResults holds results of the GetBundleChanges call.
-type GetBundleChangesResults struct {
+// BundleChangesResults holds results of the Bundle.GetChanges call.
+type BundleChangesResults struct {
 	// Changes holds the list of changes required to deploy the bundle.
 	// It is omitted if the provided bundle YAML has verification errors.
-	Changes []*BundleChangesChange `json:"changes,omitempty"`
+	Changes []*BundleChange `json:"changes,omitempty"`
 	// Errors holds possible bundle verification errors.
 	Errors []string `json:"errors,omitempty"`
 }
 
-// BundleChangesChange holds a single change required to deploy a bundle.
-type BundleChangesChange struct {
+// BundleChange holds a single change required to deploy a bundle.
+type BundleChange struct {
 	// Id is the unique identifier for this change.
 	Id string `json:"id"`
 	// Method is the action to be performed to apply this change.

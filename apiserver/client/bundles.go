@@ -4,58 +4,19 @@
 package client
 
 import (
-	"strings"
-
-	"github.com/juju/bundlechanges"
-	"github.com/juju/errors"
-	"gopkg.in/juju/charm.v6-unstable"
-
+	"github.com/juju/juju/apiserver/bundle"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/storage"
 )
 
 // GetBundleChanges returns the list of changes required to deploy the given
 // bundle data. The changes are sorted by requirements, so that they can be
 // applied in order.
-func (c *Client) GetBundleChanges(args params.GetBundleChangesParams) (params.GetBundleChangesResults, error) {
-	if err := c.checkCanRead(); err != nil {
-		return params.GetBundleChangesResults{}, err
-	}
-
-	var results params.GetBundleChangesResults
-	data, err := charm.ReadBundleData(strings.NewReader(args.BundleDataYAML))
+// This call is deprecated, clients should use the GetChanges endpoint on the
+// Bundle facade.
+func (c *Client) GetBundleChanges(args params.BundleChangesParams) (params.BundleChangesResults, error) {
+	bundleAPI, err := bundle.NewFacade(c.api.auth)
 	if err != nil {
-		return results, errors.Annotate(err, "cannot read bundle YAML")
+		return params.BundleChangesResults{}, err
 	}
-	verifyConstraints := func(s string) error {
-		_, err := constraints.Parse(s)
-		return err
-	}
-	verifyStorage := func(s string) error {
-		_, err := storage.ParseConstraints(s)
-		return err
-	}
-	if err := data.Verify(verifyConstraints, verifyStorage); err != nil {
-		if err, ok := err.(*charm.VerificationError); ok {
-			results.Errors = make([]string, len(err.Errors))
-			for i, e := range err.Errors {
-				results.Errors[i] = e.Error()
-			}
-			return results, nil
-		}
-		// This should never happen as Verify only returns verification errors.
-		return results, errors.Annotate(err, "cannot verify bundle")
-	}
-	changes := bundlechanges.FromData(data)
-	results.Changes = make([]*params.BundleChangesChange, len(changes))
-	for i, c := range changes {
-		results.Changes[i] = &params.BundleChangesChange{
-			Id:       c.Id(),
-			Method:   c.Method(),
-			Args:     c.GUIArgs(),
-			Requires: c.Requires(),
-		}
-	}
-	return results, nil
+	return bundleAPI.GetChanges(args)
 }

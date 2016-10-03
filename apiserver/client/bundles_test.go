@@ -10,77 +10,10 @@ import (
 	"github.com/juju/juju/apiserver/params"
 )
 
-func (s *serverSuite) TestGetBundleChangesBundleContentError(c *gc.C) {
-	args := params.GetBundleChangesParams{
-		BundleDataYAML: ":",
-	}
-	r, err := s.client.GetBundleChanges(args)
-	c.Assert(err, gc.ErrorMatches, `cannot read bundle YAML: cannot unmarshal bundle data: yaml: did not find expected key`)
-	c.Assert(r, gc.DeepEquals, params.GetBundleChangesResults{})
-}
-
-func (s *serverSuite) TestGetBundleChangesBundleVerificationErrors(c *gc.C) {
-	args := params.GetBundleChangesParams{
-		BundleDataYAML: `
-            applications:
-                django:
-                    charm: django
-                    to: [1]
-                haproxy:
-                    charm: 42
-                    num_units: -1
-        `,
-	}
-	r, err := s.client.GetBundleChanges(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(r.Changes, gc.IsNil)
-	c.Assert(r.Errors, jc.SameContents, []string{
-		`placement "1" refers to a machine not defined in this bundle`,
-		`too many units specified in unit placement for application "django"`,
-		`invalid charm URL in application "haproxy": URL has invalid charm or bundle name: "42"`,
-		`negative number of units specified on application "haproxy"`,
-	})
-}
-
-func (s *serverSuite) TestGetBundleChangesBundleConstraintsError(c *gc.C) {
-	args := params.GetBundleChangesParams{
-		BundleDataYAML: `
-            applications:
-                django:
-                    charm: django
-                    num_units: 1
-                    constraints: bad=wolf
-        `,
-	}
-	r, err := s.client.GetBundleChanges(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(r.Changes, gc.IsNil)
-	c.Assert(r.Errors, jc.SameContents, []string{
-		`invalid constraints "bad=wolf" in application "django": unknown constraint "bad"`,
-	})
-}
-
-func (s *serverSuite) TestGetBundleChangesBundleStorageError(c *gc.C) {
-	args := params.GetBundleChangesParams{
-		BundleDataYAML: `
-            applications:
-                django:
-                    charm: django
-                    num_units: 1
-                    storage:
-                        bad: 0,100M
-        `,
-	}
-	r, err := s.client.GetBundleChanges(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(r.Changes, gc.IsNil)
-	c.Assert(r.Errors, jc.SameContents, []string{
-		`invalid storage "bad" in application "django": cannot parse count: count must be greater than zero, got "0"`,
-	})
-}
-
+// This test is here only to make sure that the endpoint is still provided by
+// the Client facade. For full coverage, see tests in the Bundle facade.
 func (s *serverSuite) TestGetBundleChangesSuccess(c *gc.C) {
-	args := params.GetBundleChangesParams{
+	args := params.BundleChangesParams{
 		BundleDataYAML: `
             applications:
                 django:
@@ -98,7 +31,7 @@ func (s *serverSuite) TestGetBundleChangesSuccess(c *gc.C) {
 	}
 	r, err := s.client.GetBundleChanges(args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(r.Changes, jc.DeepEquals, []*params.BundleChangesChange{{
+	c.Assert(r.Changes, jc.DeepEquals, []*params.BundleChange{{
 		Id:     "addCharm-0",
 		Method: "addCharm",
 		Args:   []interface{}{"django", ""},
@@ -141,39 +74,4 @@ func (s *serverSuite) TestGetBundleChangesSuccess(c *gc.C) {
 		Requires: []string{"deploy-1", "deploy-3"},
 	}})
 	c.Assert(r.Errors, gc.IsNil)
-}
-
-func (s *serverSuite) TestGetBundleChangesBundleEndpointBindingsSuccess(c *gc.C) {
-	args := params.GetBundleChangesParams{
-		BundleDataYAML: `
-            applications:
-                django:
-                    charm: django
-                    num_units: 1
-                    bindings:
-                        url: public
-        `,
-	}
-	r, err := s.client.GetBundleChanges(args)
-	c.Assert(err, jc.ErrorIsNil)
-
-	for _, change := range r.Changes {
-		if change.Method == "deploy" {
-			c.Assert(change, jc.DeepEquals, &params.BundleChangesChange{
-				Id:     "deploy-1",
-				Method: "deploy",
-				Args: []interface{}{
-					"$addCharm-0",
-					"",
-					"django",
-					map[string]interface{}{},
-					"",
-					map[string]string{},
-					map[string]string{"url": "public"},
-					map[string]int{},
-				},
-				Requires: []string{"addCharm-0"},
-			})
-		}
-	}
 }

@@ -31,6 +31,7 @@ func (s *restrictControllerSuite) TestAllowed(c *gc.C) {
 	s.assertMethod(c, "ModelManager", 2, "CreateModel")
 	s.assertMethod(c, "ModelManager", 2, "ListModels")
 	s.assertMethod(c, "Pinger", 1, "Ping")
+	s.assertMethod(c, "Bundle", 1, "GetChanges")
 }
 
 func (s *restrictControllerSuite) TestNotAllowed(c *gc.C) {
