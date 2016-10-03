@@ -36,7 +36,7 @@ type: ec2
 auth-types: [access-key]
 regions:
   cn-north-1:
-    endpoint: https://ec2.cn-north-1.amazonaws.com.cn/
+    endpoint: https://ec2.cn-north-1.amazonaws.com.cn
 `[1:])
 }
 

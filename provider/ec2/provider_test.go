@@ -52,9 +52,16 @@ func (s *ProviderSuite) TestOpen(c *gc.C) {
 	c.Assert(env, gc.NotNil)
 }
 
-func (s *ProviderSuite) TestOpenInvalidRegion(c *gc.C) {
+func (s *ProviderSuite) TestOpenUnknownRegion(c *gc.C) {
+	// This test shows that we do *not* check the region names against
+	// anything in the client. That means that when new regions are
+	// added to AWS, we'll be able to support them.
 	s.spec.Region = "foobar"
-	s.testOpenError(c, s.spec, `validating cloud spec: region name "foobar" not valid`)
+	_, err := s.provider.Open(environs.OpenParams{
+		Cloud:  s.spec,
+		Config: coretesting.ModelConfig(c),
+	})
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *ProviderSuite) TestOpenMissingCredential(c *gc.C) {

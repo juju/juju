@@ -129,12 +129,12 @@ func (t *LiveTests) TestStartInstanceConstraints(c *gc.C) {
 	inst, hc := testing.AssertStartInstanceWithConstraints(c, t.Env, t.ControllerUUID, "30", cons)
 	defer t.Env.StopInstances(inst.Id())
 	ec2inst := ec2.InstanceEC2(inst)
-	c.Assert(ec2inst.InstanceType, gc.Equals, "m3.large")
+	c.Assert(ec2inst.InstanceType, gc.Equals, "m4.large")
 	c.Assert(*hc.Arch, gc.Equals, "amd64")
-	c.Assert(*hc.Mem, gc.Equals, uint64(7680))
+	c.Assert(*hc.Mem, gc.Equals, uint64(8192))
 	c.Assert(*hc.RootDisk, gc.Equals, uint64(8192))
 	c.Assert(*hc.CpuCores, gc.Equals, uint64(2))
-	c.Assert(*hc.CpuPower, gc.Equals, uint64(650))
+	c.Assert(*hc.CpuPower, gc.Equals, uint64(672)) // approx
 }
 
 func (t *LiveTests) TestControllerInstances(c *gc.C) {

@@ -98,7 +98,6 @@ func cacheTestEnvConfig(c *gc.C, store *jujuclienttesting.MemStore) {
 		"name":            "ec2",
 		"type":            "ec2",
 		"default-series":  "precise",
-		"region":          "us-east-1",
 		"controller-uuid": coretesting.ControllerTag.Id(),
 		"uuid":            ec2UUID,
 	})
@@ -117,19 +116,16 @@ func cacheTestEnvConfig(c *gc.C, store *jujuclienttesting.MemStore) {
 		Cloud:               "ec2",
 		CloudType:           "ec2",
 		CloudRegion:         "us-east-1",
+		CloudEndpoint:       "https://ec2.us-east-1.amazonaws.com",
 	}
 
 	azureUUID := utils.MustNewUUID().String()
 	azureConfig, err := config.New(config.UseDefaults, map[string]interface{}{
-		"name":                 "azure",
-		"type":                 "azure",
-		"controller-uuid":      coretesting.ControllerTag.Id(),
-		"uuid":                 azureUUID,
-		"default-series":       "raring",
-		"location":             "West US",
-		"subscription-id":      "foo",
-		"application-id":       "bar",
-		"application-password": "baz",
+		"name":            "azure",
+		"type":            "azure",
+		"controller-uuid": coretesting.ControllerTag.Id(),
+		"uuid":            azureUUID,
+		"default-series":  "raring",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	store.Controllers["azure-controller"] = jujuclient.ControllerDetails{

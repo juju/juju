@@ -38,8 +38,8 @@ type ebsSuite struct {
 	testing.BaseSuite
 	// TODO(axw) the EBS tests should not be embedding jujutest.Tests.
 	jujutest.Tests
-	srv                localServer
-	restoreEC2Patching func()
+	srv    localServer
+	client *awsec2.EC2
 
 	instanceId string
 }
@@ -56,7 +56,6 @@ func (s *ebsSuite) SetUpSuite(c *gc.C) {
 			"secret-key": "x",
 		},
 	)
-	s.CloudRegion = "test"
 
 	// Upload arches that ec2 supports; add to this
 	// as ec2 coverage expands.
@@ -66,7 +65,6 @@ func (s *ebsSuite) SetUpSuite(c *gc.C) {
 		"secret-key": "x",
 		"region":     "test",
 	})
-	s.restoreEC2Patching = patchEC2ForTesting(c)
 	s.BaseSuite.PatchValue(&imagemetadata.SimplestreamsImagesPublicKey, sstesting.SignedMetadataPublicKey)
 	s.BaseSuite.PatchValue(&keys.JujuPublicKey, sstesting.SignedMetadataPublicKey)
 	imagetesting.PatchOfficialDataSources(&s.BaseSuite.CleanupSuite, "test:")
@@ -74,7 +72,6 @@ func (s *ebsSuite) SetUpSuite(c *gc.C) {
 }
 
 func (s *ebsSuite) TearDownSuite(c *gc.C) {
-	s.restoreEC2Patching()
 	s.Tests.TearDownSuite(c)
 	s.BaseSuite.TearDownSuite(c)
 }
@@ -87,6 +84,13 @@ func (s *ebsSuite) SetUpTest(c *gc.C) {
 	s.srv.startServer(c)
 	s.Tests.SetUpTest(c)
 	s.PatchValue(&ec2.DestroyVolumeAttempt.Delay, time.Duration(0))
+
+	region := s.srv.region()
+	s.CloudRegion = region.Name
+	s.CloudEndpoint = region.EC2Endpoint
+	s.client = s.srv.client()
+	restoreEC2Patching := patchEC2ForTesting(c, region)
+	s.AddCleanup(func(c *gc.C) { restoreEC2Patching() })
 }
 
 func (s *ebsSuite) TearDownTest(c *gc.C) {
@@ -430,7 +434,7 @@ func (s *ebsSuite) TestListVolumesIgnoresRootDisks(c *gc.C) {
 	s.srv.ec2srv.NewInstances(1, "m1.medium", imageId, ec2test.Pending, nil)
 
 	// Tag the root disk with the model UUID.
-	_, err := s.srv.client.CreateTags([]string{"vol-0"}, []awsec2.Tag{
+	_, err := s.client.CreateTags([]string{"vol-0"}, []awsec2.Tag{
 		{tags.JujuModel, s.TestConfig["uuid"].(string)},
 	})
 	c.Assert(err, jc.ErrorIsNil)

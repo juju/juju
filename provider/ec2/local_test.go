@@ -21,7 +21,6 @@ import (
 	"gopkg.in/amz.v3/aws"
 	amzec2 "gopkg.in/amz.v3/ec2"
 	"gopkg.in/amz.v3/ec2/ec2test"
-	"gopkg.in/amz.v3/s3/s3test"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 	goyaml "gopkg.in/yaml.v2"
@@ -72,8 +71,7 @@ func registerLocalTests() {
 // EC2 server that runs within the test process itself.
 type localLiveSuite struct {
 	LiveTests
-	srv                localServer
-	restoreEC2Patching func()
+	srv localServer
 }
 
 func (t *localLiveSuite) SetUpSuite(c *gc.C) {
@@ -85,25 +83,28 @@ func (t *localLiveSuite) SetUpSuite(c *gc.C) {
 			"secret-key": "x",
 		},
 	)
-	t.CloudRegion = "test"
 
 	// Upload arches that ec2 supports; add to this
 	// as ec2 coverage expands.
 	t.UploadArches = []string{arch.AMD64, arch.I386}
 	t.TestConfig = localConfigAttrs
-	t.restoreEC2Patching = patchEC2ForTesting(c)
 	imagetesting.PatchOfficialDataSources(&t.BaseSuite.CleanupSuite, "test:")
 	t.BaseSuite.PatchValue(&imagemetadata.SimplestreamsImagesPublicKey, sstesting.SignedMetadataPublicKey)
 	t.BaseSuite.PatchValue(&keys.JujuPublicKey, sstesting.SignedMetadataPublicKey)
 	t.BaseSuite.PatchValue(ec2.DeleteSecurityGroupInsistently, deleteSecurityGroupForTestFunc)
 	t.srv.createRootDisks = true
 	t.srv.startServer(c)
+
+	region := t.srv.region()
+	t.CloudRegion = region.Name
+	t.CloudEndpoint = region.EC2Endpoint
+	restoreEC2Patching := patchEC2ForTesting(c, region)
+	t.BaseSuite.AddCleanup(func(c *gc.C) { restoreEC2Patching() })
 }
 
 func (t *localLiveSuite) TearDownSuite(c *gc.C) {
 	t.LiveTests.TearDownSuite(c)
 	t.srv.stopServer(c)
-	t.restoreEC2Patching()
 }
 
 // localServer represents a fake EC2 server running within
@@ -114,10 +115,7 @@ type localServer struct {
 	// instances.
 	createRootDisks bool
 
-	client *amzec2.EC2
 	ec2srv *ec2test.Server
-	s3srv  *s3test.Server
-	config *s3test.Config
 
 	defaultVPC *amzec2.VPC
 	zones      []amzec2.AvailabilityZoneInfo
@@ -130,31 +128,19 @@ func (srv *localServer) startServer(c *gc.C) {
 		c.Fatalf("cannot start ec2 test server: %v", err)
 	}
 	srv.ec2srv.SetCreateRootDisks(srv.createRootDisks)
-	srv.s3srv, err = s3test.NewServer(srv.config)
-	if err != nil {
-		c.Fatalf("cannot start s3 test server: %v", err)
-	}
-	aws.Regions["test"] = aws.Region{
-		Name:                 "test",
-		EC2Endpoint:          srv.ec2srv.URL(),
-		S3Endpoint:           srv.s3srv.URL(),
-		S3LocationConstraint: true,
-	}
 	srv.addSpice(c)
 
-	region := aws.Regions["test"]
-	signer := aws.SignV4Factory(region.Name, "ec2")
-	srv.client = amzec2.New(aws.Auth{}, region, signer)
+	region := srv.region()
 
 	zones := make([]amzec2.AvailabilityZoneInfo, 3)
-	zones[0].Region = "test"
-	zones[0].Name = "test-available"
+	zones[0].Region = region.Name
+	zones[0].Name = region.Name + "-available"
 	zones[0].State = "available"
-	zones[1].Region = "test"
-	zones[1].Name = "test-impaired"
+	zones[1].Region = region.Name
+	zones[1].Name = region.Name + "-impaired"
 	zones[1].State = "impaired"
-	zones[2].Region = "test"
-	zones[2].Name = "test-unavailable"
+	zones[2].Region = region.Name
+	zones[2].Name = region.Name + "-unavailable"
 	zones[2].State = "unavailable"
 	srv.ec2srv.SetAvailabilityZones(zones)
 	srv.ec2srv.SetInitialInstanceState(ec2test.Pending)
@@ -163,6 +149,18 @@ func (srv *localServer) startServer(c *gc.C) {
 	defaultVPC, err := srv.ec2srv.AddDefaultVPCAndSubnets()
 	c.Assert(err, jc.ErrorIsNil)
 	srv.defaultVPC = &defaultVPC
+}
+
+func (srv *localServer) client() *amzec2.EC2 {
+	region := srv.region()
+	return amzec2.New(aws.Auth{}, region, aws.SignV4Factory(region.Name, "ec2"))
+}
+
+func (srv *localServer) region() aws.Region {
+	return aws.Region{
+		Name:        "test",
+		EC2Endpoint: srv.ec2srv.URL(),
+	}
 }
 
 // addSpice adds some "spice" to the local server
@@ -181,11 +179,6 @@ func (srv *localServer) addSpice(c *gc.C) {
 func (srv *localServer) stopServer(c *gc.C) {
 	srv.ec2srv.Reset(false)
 	srv.ec2srv.Quit()
-	srv.s3srv.Quit()
-	// Clear out the region because the server address is
-	// no longer valid.
-	delete(aws.Regions, "test")
-
 	srv.defaultVPC = nil
 }
 
@@ -198,8 +191,8 @@ func (srv *localServer) stopServer(c *gc.C) {
 type localServerSuite struct {
 	coretesting.BaseSuite
 	jujutest.Tests
-	srv                localServer
-	restoreEC2Patching func()
+	srv    localServer
+	client *amzec2.EC2
 }
 
 func (t *localServerSuite) SetUpSuite(c *gc.C) {
@@ -211,13 +204,11 @@ func (t *localServerSuite) SetUpSuite(c *gc.C) {
 			"secret-key": "x",
 		},
 	)
-	t.CloudRegion = "test"
 
 	// Upload arches that ec2 supports; add to this
 	// as ec2 coverage expands.
 	t.UploadArches = []string{arch.AMD64, arch.I386}
 	t.TestConfig = localConfigAttrs
-	t.restoreEC2Patching = patchEC2ForTesting(c)
 	imagetesting.PatchOfficialDataSources(&t.BaseSuite.CleanupSuite, "test:")
 	t.BaseSuite.PatchValue(&imagemetadata.SimplestreamsImagesPublicKey, sstesting.SignedMetadataPublicKey)
 	t.BaseSuite.PatchValue(&keys.JujuPublicKey, sstesting.SignedMetadataPublicKey)
@@ -235,7 +226,6 @@ func (t *localServerSuite) SetUpSuite(c *gc.C) {
 }
 
 func (t *localServerSuite) TearDownSuite(c *gc.C) {
-	t.restoreEC2Patching()
 	t.Tests.TearDownSuite(c)
 	t.BaseSuite.TearDownSuite(c)
 }
@@ -243,6 +233,12 @@ func (t *localServerSuite) TearDownSuite(c *gc.C) {
 func (t *localServerSuite) SetUpTest(c *gc.C) {
 	t.BaseSuite.SetUpTest(c)
 	t.srv.startServer(c)
+	region := t.srv.region()
+	t.CloudRegion = region.Name
+	t.CloudEndpoint = region.EC2Endpoint
+	t.client = t.srv.client()
+	restoreEC2Patching := patchEC2ForTesting(c, region)
+	t.AddCleanup(func(c *gc.C) { restoreEC2Patching() })
 	t.Tests.SetUpTest(c)
 }
 
@@ -401,7 +397,6 @@ func (t *localServerSuite) TestSystemdBootstrapInstanceUserDataAndState(c *gc.C)
 	c.Check(*hc.Arch, gc.Equals, "amd64")
 	c.Check(*hc.Mem, gc.Equals, uint64(3840))
 	c.Check(*hc.CpuCores, gc.Equals, uint64(1))
-	c.Assert(*hc.CpuPower, gc.Equals, uint64(300))
 	inst = t.srv.ec2srv.Instance(string(inst1.Id()))
 	c.Assert(inst, gc.NotNil)
 	userData, err = utils.Gunzip(inst.UserData)
@@ -487,7 +482,6 @@ func (t *localServerSuite) TestUpstartBootstrapInstanceUserDataAndState(c *gc.C)
 	c.Check(*hc.Arch, gc.Equals, "amd64")
 	c.Check(*hc.Mem, gc.Equals, uint64(3840))
 	c.Check(*hc.CpuCores, gc.Equals, uint64(1))
-	c.Assert(*hc.CpuPower, gc.Equals, uint64(300))
 	inst = t.srv.ec2srv.Instance(string(inst1.Id()))
 	c.Assert(inst, gc.NotNil)
 	userData, err = utils.Gunzip(inst.UserData)
@@ -679,7 +673,7 @@ func (t *localServerSuite) TestDestroyControllerDestroysHostedModelResources(c *
 		c.Assert(volIds, jc.SameContents, expect)
 	}
 	assertGroups := func(expect ...string) {
-		groupsResp, err := t.srv.client.SecurityGroups(nil, nil)
+		groupsResp, err := t.client.SecurityGroups(nil, nil)
 		c.Assert(err, jc.ErrorIsNil)
 		names := make([]string, len(groupsResp.Groups))
 		for i, group := range groupsResp.Groups {
@@ -742,7 +736,6 @@ func (t *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 	c.Check(*hc.Arch, gc.Equals, "amd64")
 	c.Check(*hc.Mem, gc.Equals, uint64(3840))
 	c.Check(*hc.CpuCores, gc.Equals, uint64(1))
-	c.Assert(*hc.CpuPower, gc.Equals, uint64(300))
 }
 
 func (t *localServerSuite) TestStartInstanceAvailZone(c *gc.C) {
@@ -1222,11 +1215,15 @@ func (t *localServerSuite) TestPrecheckInstanceAvailZoneUnknown(c *gc.C) {
 }
 
 func (t *localServerSuite) TestValidateImageMetadata(c *gc.C) {
+	region := t.srv.region()
+	aws.Regions[region.Name] = t.srv.region()
+	defer delete(aws.Regions, region.Name)
+
 	env := t.Prepare(c)
 	params, err := env.(simplestreams.MetadataValidator).MetadataLookupParams("test")
 	c.Assert(err, jc.ErrorIsNil)
 	params.Series = series.LatestLts()
-	params.Endpoint = "https://ec2.endpoint.com"
+	params.Endpoint = region.EC2Endpoint
 	params.Sources, err = environs.ImageMetadataSources(env)
 	c.Assert(err, jc.ErrorIsNil)
 	image_ids, _, err := imagemetadata.ValidateImageMetadata(params)
@@ -1444,9 +1441,8 @@ type localNonUSEastSuite struct {
 	coretesting.BaseSuite
 	sstesting.TestDataSuite
 
-	restoreEC2Patching func()
-	srv                localServer
-	env                environs.Environ
+	srv localServer
+	env environs.Environ
 }
 
 func (t *localNonUSEastSuite) SetUpSuite(c *gc.C) {
@@ -1455,24 +1451,19 @@ func (t *localNonUSEastSuite) SetUpSuite(c *gc.C) {
 
 	t.PatchValue(&imagemetadata.SimplestreamsImagesPublicKey, sstesting.SignedMetadataPublicKey)
 	t.PatchValue(&keys.JujuPublicKey, sstesting.SignedMetadataPublicKey)
-
-	t.restoreEC2Patching = patchEC2ForTesting(c)
 	t.BaseSuite.PatchValue(ec2.DeleteSecurityGroupInsistently, deleteSecurityGroupForTestFunc)
 }
 
 func (t *localNonUSEastSuite) TearDownSuite(c *gc.C) {
-	t.restoreEC2Patching()
 	t.TestDataSuite.TearDownSuite(c)
 	t.BaseSuite.TearDownSuite(c)
 }
 
 func (t *localNonUSEastSuite) SetUpTest(c *gc.C) {
 	t.BaseSuite.SetUpTest(c)
-	t.srv.config = &s3test.Config{
-		Send409Conflict: true,
-	}
 	t.srv.startServer(c)
 
+	region := t.srv.region()
 	credential := cloud.NewCredential(
 		cloud.AccessKeyAuthType,
 		map[string]string{
@@ -1480,6 +1471,8 @@ func (t *localNonUSEastSuite) SetUpTest(c *gc.C) {
 			"secret-key": "x",
 		},
 	)
+	restoreEC2Patching := patchEC2ForTesting(c, region)
+	t.AddCleanup(func(c *gc.C) { restoreEC2Patching() })
 
 	env, err := bootstrap.Prepare(
 		envtesting.BootstrapContext(c),
@@ -1490,7 +1483,8 @@ func (t *localNonUSEastSuite) SetUpTest(c *gc.C) {
 			ControllerName:   localConfigAttrs["name"].(string),
 			Cloud: environs.CloudSpec{
 				Type:       "ec2",
-				Region:     "test",
+				Region:     region.Name,
+				Endpoint:   region.EC2Endpoint,
 				Credential: &credential,
 			},
 			AdminSecret: testing.AdminSecret,
@@ -1505,18 +1499,14 @@ func (t *localNonUSEastSuite) TearDownTest(c *gc.C) {
 	t.BaseSuite.TearDownTest(c)
 }
 
-func patchEC2ForTesting(c *gc.C) func() {
-	ec2.UseTestImageData(c, ec2.TestImagesData)
-	ec2.UseTestInstanceTypeData(ec2.TestInstanceTypeCosts)
-	ec2.UseTestRegionData(ec2.TestRegions)
-	restoreTimeouts := envtesting.PatchAttemptStrategies(ec2.ShortAttempt, ec2.StorageAttempt)
+func patchEC2ForTesting(c *gc.C, region aws.Region) func() {
+	ec2.UseTestImageData(c, ec2.MakeTestImageStreamsData(region))
+	restoreTimeouts := envtesting.PatchAttemptStrategies(ec2.ShortAttempt)
 	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
 	return func() {
 		restoreFinishBootstrap()
 		restoreTimeouts()
 		ec2.UseTestImageData(c, nil)
-		ec2.UseTestInstanceTypeData(nil)
-		ec2.UseTestRegionData(nil)
 	}
 }
 
