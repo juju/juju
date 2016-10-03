@@ -88,7 +88,7 @@ def assess_perf_test_simple(bs_manager, upload_tools):
 
             setup_system_monitoring(admin_client)
 
-            deploy_details, graph_period = assess_longrun_perf(
+            deploy_details = assess_longrun_perf(
                 bs_manager, test_length=MINUTE*60*12)
         except Exception as e:
             # Lets get to the bottom of this failure, print lxc details to
@@ -132,8 +132,7 @@ def assess_perf_test_simple(bs_manager, upload_tools):
         'machine-0',
         'machine-0.log.gz')
 
-    generate_reports(
-        controller_log_file, results_dir, deployments, graph_period)
+    generate_reports(controller_log_file, results_dir, deployments)
 
 
 def ensure_complete_system():
@@ -167,14 +166,13 @@ def apply_any_workarounds(client):
         subprocess.check_output(constraint_cmd)
 
 
-# This needs rra index
-def generate_reports(controller_log, results_dir, deployments, graph_period):
+def generate_reports(controller_log, results_dir, deployments):
     """Generate reports and graphs from run results."""
-    cpu_image = generate_cpu_graph_image(results_dir, graph_period)
-    memory_image = generate_memory_graph_image(results_dir, graph_period)
-    network_image = generate_network_graph_image(results_dir, graph_period)
+    cpu_image = generate_cpu_graph_image(results_dir)
+    memory_image = generate_memory_graph_image(results_dir)
+    network_image = generate_network_graph_image(results_dir)
     mongo_query_image, mongo_memory_image = generate_mongo_graph_image(
-        results_dir, graph_period)
+        results_dir)
 
     # Skip doing the logs for such a long run for now.
     # log_message_chunks = get_log_message_in_timed_chunks(
@@ -245,18 +243,14 @@ def create_html_report(results_dir, details):
         f.write(template.render(details))
 
 
-# This needs rra index
-def generate_graph_image(base_dir, results_dir, name, generator, graph_period):
+def generate_graph_image(base_dir, results_dir, name, generator):
     metric_files_dir = os.path.join(os.path.abspath(base_dir), results_dir)
-    return create_report_graph(
-        metric_files_dir, base_dir, name, generator, graph_period)
+    return create_report_graph(metric_files_dir, base_dir, name, generator)
 
 
-# This needs rra index
-def create_report_graph(rrd_dir, output_dir, name, generator, graph_period):
+def create_report_graph(rrd_dir, output_dir, name, generator):
     any_file = os.listdir(rrd_dir)[0]
-    start, end = get_duration_points(
-        os.path.join(rrd_dir, any_file), graph_period)
+    start, end = get_duration_points(os.path.join(rrd_dir, any_file))
     output_file = os.path.join(
         os.path.abspath(output_dir), '{}.png'.format(name))
     generator(start, end, rrd_dir, output_file)
@@ -264,34 +258,22 @@ def create_report_graph(rrd_dir, output_dir, name, generator, graph_period):
     return output_file
 
 
-def generate_cpu_graph_image(results_dir, graph_period):
+def generate_cpu_graph_image(results_dir):
     return generate_graph_image(
-        results_dir,
-        'aggregation-cpu-average',
-        'cpu',
-        perf_graphing.cpu_graph,
-        graph_period)
+        results_dir, 'aggregation-cpu-average', 'cpu', perf_graphing.cpu_graph)
 
 
-def generate_memory_graph_image(results_dir, graph_period):
+def generate_memory_graph_image(results_dir):
     return generate_graph_image(
-        results_dir,
-        'memory',
-        'memory',
-        perf_graphing.memory_graph,
-        graph_period)
+        results_dir, 'memory', 'memory', perf_graphing.memory_graph)
 
 
-def generate_network_graph_image(results_dir, graph_period):
+def generate_network_graph_image(results_dir):
     return generate_graph_image(
-        results_dir,
-        'interface-eth0',
-        'network',
-        perf_graphing.network_graph,
-        graph_period)
+        results_dir, 'interface-eth0', 'network', perf_graphing.network_graph)
 
 
-def generate_mongo_graph_image(results_dir, graph_period):
+def generate_mongo_graph_image(results_dir):
     dest_path = os.path.join(results_dir, 'mongodb')
 
     if not perf_graphing.create_mongodb_rrd_file(results_dir, dest_path):
@@ -304,15 +286,13 @@ def generate_mongo_graph_image(results_dir, graph_period):
         results_dir,
         'mongodb',
         'mongodb_memory',
-        perf_graphing.mongodb_memory_graph,
-        graph_period
-    )
+        perf_graphing.mongodb_memory_graph)
 
     return query_graph, memory_graph
 
 
-def get_duration_points(rrd_file, graph_period):
-    start = rrdtool.first(rrd_file, '--rraindex', graph_period)
+def get_duration_points(rrd_file):
+    start = rrdtool.first(rrd_file)
     end = rrdtool.last(rrd_file)
 
     command = [
@@ -368,7 +348,7 @@ def assess_longrun_perf(bs_manager, test_length):
         'Longrun for {}.'.format(test_length/60/60),
         {'Total action runs': run_count},
         timing_data
-    ), perf_graphing.GraphPeriod.day
+    )
 
 
 def action_create(client, series='trusty'):
