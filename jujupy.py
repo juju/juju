@@ -500,6 +500,13 @@ class Status:
             states[coalesce_agent_status(item)].append(item_name)
         return states
 
+    def any_dying(self):
+        """Check if any services are dying, shown by the life entry."""
+        for (service_name, service_value) in self.status['services'].items():
+            life = service_value.get('life')
+            if life is not None and life == 'dying':
+                return True
+
     def check_agents_started(self, environment_name=None):
         """Check whether all agents are in the 'started' state.
 
@@ -513,7 +520,7 @@ class Status:
             if bad_state_info.match(state_info):
                 raise ErroredUnit(item_name, state_info)
         states = self.agent_states()
-        if set(states.keys()).issubset(AGENTS_READY):
+        if set(states.keys()).issubset(AGENTS_READY) and not any_dying():
             return None
         for state, entries in states.items():
             if 'error' in state:
