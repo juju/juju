@@ -501,11 +501,16 @@ class Status:
         return states
 
     def any_dying(self):
-        """Check if any services are dying, shown by the life entry."""
-        for (service_name, service_value) in self.status['services'].items():
-            life = service_value.get('life')
+        """Check if any applications are dying, shown by the life entry."""
+        # We check both the new and old name.
+        applications = self.status.get('applications', None)
+        if applications is None:
+            applications = self.status['services']
+        for (app_name, app_value) in applications.iteritems():
+            life = app_value.get('life')
             if life is not None and life == 'dying':
                 return True
+        return False
 
     def check_agents_started(self, environment_name=None):
         """Check whether all agents are in the 'started' state.
@@ -520,7 +525,7 @@ class Status:
             if bad_state_info.match(state_info):
                 raise ErroredUnit(item_name, state_info)
         states = self.agent_states()
-        if set(states.keys()).issubset(AGENTS_READY) and not any_dying():
+        if set(states.keys()).issubset(AGENTS_READY) and not self.any_dying():
             return None
         for state, entries in states.items():
             if 'error' in state:

@@ -5979,6 +5979,25 @@ class TestStatus(FakeHomeTestCase):
         }
         self.assertEqual(expected, status.agent_states())
 
+    def test_any_dying_false(self):
+        status = Status({
+            'applications': {
+                'jenkins': {'life': 'alive'},
+                'fakejob': {'life': 'dead'},
+                'whisper': {},
+                }
+            }, '')
+        self.assertFalse(status.any_dying())
+
+    def test_any_dying_true(self):
+        status = Status({
+            'applications': {
+                'jenkins': {'life': 'alive'},
+                'fakejob': {'life': 'dying'},
+                }
+            }, '')
+        self.assertTrue(status.any_dying())
+
     def test_check_agents_started_not_started(self):
         status = Status({
             'machines': {
@@ -6019,7 +6038,7 @@ class TestStatus(FakeHomeTestCase):
                 }
             }
         }, '')
-        self.assertIs(None, status.check_agents_started('env1'))
+        self.assertIsNone(status.check_agents_started('env1'))
 
     def test_check_agents_started_all_started_with_agent_status(self):
         status = Status({
@@ -6043,7 +6062,33 @@ class TestStatus(FakeHomeTestCase):
                 }
             }
         }, '')
-        self.assertIs(None, status.check_agents_started('env1'))
+        self.assertIsNone(status.check_agents_started('env1'))
+
+    def test_check_agents_started_dying(self):
+        status = Status({
+            'machines': {
+                '1': {'agent-state': 'started'},
+                '2': {'agent-state': 'started'},
+                },
+            'applications': {
+                'jenkins': {
+                    'units': {
+                        'jenkins/1': {
+                            'agent-status': {'current': 'idle'},
+                            'subordinates': {
+                                'sub1': {
+                                    'agent-status': {'current': 'idle'}
+                                    }
+                                }
+                            },
+                        'jenkins/2': {'agent-status': {'current': 'idle'}},
+                        },
+                    'life': 'dying',
+                    }
+                }
+            }, '')
+        self.assertEqual(status.agent_states(),
+                         status.check_agents_started('env1'))
 
     def test_check_agents_started_agent_error(self):
         status = Status({
