@@ -521,6 +521,16 @@ func (st *mockState) RemoveModelUser(tag names.UserTag) error {
 
 func (st *mockState) UserAccess(tag names.UserTag, target names.Tag) (permission.UserAccess, error) {
 	st.MethodCall(st, "ModelUser", tag, target)
+	for _, user := range st.users {
+		if user.UserTag != tag {
+			continue
+		}
+		nextErr := st.NextErr()
+		if nextErr != nil {
+			return permission.UserAccess{}, nextErr
+		}
+		return user, nil
+	}
 	return permission.UserAccess{}, st.NextErr()
 }
 

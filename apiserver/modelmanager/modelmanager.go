@@ -190,14 +190,20 @@ func (m *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Model
 		return result, common.ErrPerm
 	}
 
-	// Get the controller model first. We need it both for the state
-	// server owner and the ability to get the config.
-	controllerModel, err := m.state.ControllerModel()
+	ownerTag, err := names.ParseUserTag(args.OwnerTag)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
 
-	ownerTag, err := names.ParseUserTag(args.OwnerTag)
+	// a special case of ErrPerm will happen if the user has add-model permission but is trying to
+	// create a model for another person, which is not yet supported.
+	if !m.isAdmin && ownerTag != m.apiUser {
+		return result, errors.Annotatef(common.ErrPerm, "%q permission does not permit creation of models for different owners", permission.AddModelAccess)
+	}
+
+	// Get the controller model first. We need it both for the state
+	// server owner and the ability to get the config.
+	controllerModel, err := m.state.ControllerModel()
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -542,7 +548,7 @@ func (m *ModelManagerAPI) ModelInfo(args params.Entities) (params.ModelInfoResul
 func (m *ModelManagerAPI) getModelInfo(tag names.ModelTag) (params.ModelInfo, error) {
 	st, err := m.state.ForModel(tag)
 	if errors.IsNotFound(err) {
-		return params.ModelInfo{}, common.ErrPerm
+		return params.ModelInfo{}, errors.Trace(common.ErrPerm)
 	} else if err != nil {
 		return params.ModelInfo{}, errors.Trace(err)
 	}
@@ -550,7 +556,7 @@ func (m *ModelManagerAPI) getModelInfo(tag names.ModelTag) (params.ModelInfo, er
 
 	model, err := st.Model()
 	if errors.IsNotFound(err) {
-		return params.ModelInfo{}, common.ErrPerm
+		return params.ModelInfo{}, errors.Trace(common.ErrPerm)
 	} else if err != nil {
 		return params.ModelInfo{}, errors.Trace(err)
 	}
@@ -609,7 +615,7 @@ func (m *ModelManagerAPI) getModelInfo(tag names.ModelTag) (params.ModelInfo, er
 	if len(info.Users) == 0 {
 		// No users, which means the authenticated user doesn't
 		// have access to the model.
-		return params.ModelInfo{}, common.ErrPerm
+		return params.ModelInfo{}, errors.Trace(common.ErrPerm)
 	}
 
 	canSeeMachines := authorizedOwner
