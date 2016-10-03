@@ -6,29 +6,27 @@ package bundle_test
 import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/bundle"
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	statetesting "github.com/juju/juju/state/testing"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type bundleSuite struct {
-	statetesting.StateSuite
+	coretesting.BaseSuite
 	facade bundle.Bundle
 }
 
 var _ = gc.Suite(&bundleSuite{})
 
 func (s *bundleSuite) SetUpTest(c *gc.C) {
-	s.StateSuite.SetUpTest(c)
-	model, err := s.State.ControllerModel()
-	c.Assert(err, jc.ErrorIsNil)
+	s.BaseSuite.SetUpTest(c)
 	auth := apiservertesting.FakeAuthorizer{
-		Tag: model.Owner(),
+		Tag: names.NewUserTag("who"),
 	}
-	facade, err := bundle.NewFacade(s.State, common.NewResources(), auth)
+	facade, err := bundle.NewFacade(auth)
 	c.Assert(err, jc.ErrorIsNil)
 	s.facade = facade
 }

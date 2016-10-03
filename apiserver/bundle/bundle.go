@@ -21,11 +21,15 @@ import (
 
 // init registers the Bundle facade.
 func init() {
-	common.RegisterStandardFacade("Bundle", 1, NewFacade)
+	common.RegisterStandardFacade("Bundle", 1, newFacade)
+}
+
+func newFacade(_ *state.State, _ facade.Resources, auth facade.Authorizer) (Bundle, error) {
+	return NewFacade(auth)
 }
 
 // NewFacade creates and returns a new Bundle API facade.
-func NewFacade(_ *state.State, _ facade.Resources, auth facade.Authorizer) (Bundle, error) {
+func NewFacade(auth facade.Authorizer) (Bundle, error) {
 	if !auth.AuthClient() {
 		return nil, common.ErrPerm
 	}
