@@ -174,9 +174,9 @@ func (env *environ) DestroyController(controllerUUID string) error {
 }
 
 func (env *environ) destroyHostedModelResources(controllerUUID string) error {
-	// Destroy all instances where juju-controller-uuid,
-	// but not juju-model-uuid, matches env.uuid.
-	prefix := env.namespace.Prefix()
+	// Destroy all instances with juju-controller-uuid
+	// matching the specified UUID.
+	const prefix = "juju-"
 	instances, err := env.prefixedInstances(prefix)
 	if err != nil {
 		return errors.Annotate(err, "listing instances")
@@ -193,7 +193,7 @@ func (env *environ) destroyHostedModelResources(controllerUUID string) error {
 		}
 		names = append(names, string(inst.Id()))
 	}
-	if err := env.raw.RemoveInstances(prefix, names...); err != nil {
+	if err := removeInstances(env.raw, prefix, names); err != nil {
 		return errors.Annotate(err, "removing hosted model instances")
 	}
 	return nil

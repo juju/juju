@@ -41,6 +41,7 @@ type rawProvider struct {
 
 type lxdCerts interface {
 	AddCert(lxdclient.Cert) error
+	RemoveCertByFingerprint(string) error
 }
 
 type lxdConfig interface {
