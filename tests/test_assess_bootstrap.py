@@ -5,7 +5,17 @@ from mock import patch
 
 from assess_bootstrap import (
     assess_bootstrap,
+    assess_metadata,
+    INVALID_URL,
     parse_args,
+    prepare_metadata,
+    prepare_temp_metadata,
+    )
+from deploy_stack import (
+    BootstrapManager,
+    )
+from fakejuju import (
+    fake_juju_client,
     )
 from jujupy import (
     _temp_env as temp_env,
@@ -55,6 +65,35 @@ class TestParseArgs(TestCase):
         self.assertEqual(args.part, 'metadata')
 
 
+class TestPrepareMetadata(TestCase):
+
+    def test_prepare_metadata(self):
+        client = fake_juju_client()
+        with patch.object(client, 'sync_tools') as sync_mock:
+            with temp_dir() as metadata_dir:
+                prepare_metadata(client, metadata_dir)
+        sync_mock.assert_called_once_with(metadata_dir)
+
+    def test_prepare_temp_metadata(self):
+        client = fake_juju_client()
+        with patch('assess_bootstrap.prepare_metadata',
+                   autospec=True) as prepare_mock:
+            with prepare_temp_metadata(client) as metadata_dir:
+                pass
+        prepare_mock.assert_called_once_with(client, metadata_dir)
+
+    def test_prepare_temp_metadata_source(self):
+        client = fake_juju_client()
+        with patch('assess_bootstrap.prepare_metadata',
+                   autospec=True) as prepare_mock:
+            with temp_dir() as source_dir:
+                with prepare_temp_metadata(
+                        client, source_dir) as metadata_dir:
+                    pass
+        self.assertEqual(source_dir, metadata_dir)
+        self.assertEqual(0, prepare_mock.call_count)
+
+
 @contextmanager
 def assess_bootstrap_cxt(juju_version=None):
     """Mock helper functions used in the bootstrap process.
@@ -92,22 +131,26 @@ class TestAssessBootstrap(FakeHomeTestCase):
         """Mock all of the sub assess functions."""
         base_patch = patch('assess_bootstrap.assess_base_bootstrap',
                            autospec=True)
-        with base_patch as base_mock:
-            yield base_mock
+        metadata_patch = patch('assess_bootstrap.assess_metadata',
+                               autospec=True)
+        with base_patch as base_mock, metadata_patch as metadata_mock:
+            yield (base_mock, metadata_mock)
 
     def test_assess_bootstrap_part_base(self):
         args = parse_args(['base', 'bar'])
         with assess_bootstrap_cxt():
-            with self.sub_assess_mocks() as base_mock:
+            with self.sub_assess_mocks() as (base_mock, metadata_mock):
                 assess_bootstrap(args)
         self.assertEqual(1, base_mock.call_count)
+        self.assertEqual(0, metadata_mock.call_count)
 
     def test_assess_bootstrap_part_metadata(self):
         args = parse_args(['metadata', 'bar'])
         with assess_bootstrap_cxt():
-            with self.sub_assess_mocks() as base_mock:
+            with self.sub_assess_mocks() as (base_mock, metadata_mock):
                 assess_bootstrap(args)
         self.assertEqual(0, base_mock.call_count)
+        self.assertEqual(1, metadata_mock.call_count)
 
 
 class TestAssessBaseBootstrap(FakeHomeTestCase):
@@ -140,3 +183,44 @@ class TestAssessBaseBootstrap(FakeHomeTestCase):
         self.assertRegexpMatches(
             self.log_stream.getvalue(),
             r"(?m)^INFO Environment successfully bootstrapped.$")
+
+
+class TestAssessMetadata(FakeHomeTestCase):
+
+    target_dict = {'name': 'qux', 'type': 'foo',
+                   'agent-metadata-url': INVALID_URL}
+
+    def get_url(self, bs_manager):
+        """Wrap up the agent-metadata-url as model-config data."""
+        url = bs_manager.client.env.config['agent-metadata-url']
+        return {'agent-metadata-url': {'value': url}}
+
+    def test_assess_metadata(self):
+        def check(myself, metadata_source=None):
+            self.assertEqual(self.target_dict, myself.env.config)
+            self.assertIsNotNone(metadata_source)
+        with extended_bootstrap_cxt('2.0-rc1'):
+            with patch('jujupy.EnvJujuClient.bootstrap', side_effect=check,
+                       autospec=True):
+                args = parse_args(['metadata', 'bar', '/foo'])
+                args.temp_env_name = 'qux'
+                bs_manager = BootstrapManager.from_args(args)
+                with patch.object(
+                        bs_manager.client, 'get_model_config',
+                        side_effect=lambda: self.get_url(bs_manager)):
+                    assess_metadata(bs_manager, None)
+
+    def test_assess_metadata_local_source(self):
+        def check(myself, metadata_source=None):
+            self.assertEqual(self.target_dict, myself.env.config)
+            self.assertEqual('agents', metadata_source)
+        with extended_bootstrap_cxt('2.0-rc1'):
+            with patch('jujupy.EnvJujuClient.bootstrap', side_effect=check,
+                       autospec=True):
+                args = parse_args(['metadata', 'bar', '/foo'])
+                args.temp_env_name = 'qux'
+                bs_manager = BootstrapManager.from_args(args)
+                with patch.object(
+                        bs_manager.client, 'get_model_config',
+                        side_effect=lambda: self.get_url(bs_manager)):
+                    assess_metadata(bs_manager, 'agents')
