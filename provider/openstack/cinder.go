@@ -33,15 +33,14 @@ const (
 )
 
 // StorageProviderTypes implements storage.ProviderRegistry.
-func (env *Environ) StorageProviderTypes() []storage.ProviderType {
-	env.ecfgMutex.Lock()
-	defer env.ecfgMutex.Unlock()
-
-	if env.volumeURL == nil {
-		return nil
+func (env *Environ) StorageProviderTypes() ([]storage.ProviderType, error) {
+	var types []storage.ProviderType
+	if _, err := env.cinderProvider(); err == nil {
+		types = append(types, CinderProviderType)
+	} else if !errors.IsNotSupported(err) {
+		return nil, errors.Trace(err)
 	}
-
-	return []storage.ProviderType{CinderProviderType}
+	return types, nil
 }
 
 // StorageProvider implements storage.ProviderRegistry.
@@ -53,32 +52,32 @@ func (env *Environ) StorageProvider(t storage.ProviderType) (storage.Provider, e
 }
 
 func (env *Environ) cinderProvider() (*cinderProvider, error) {
-	env.ecfgMutex.Lock()
-	envName := env.ecfgUnlocked.Config.Name()
-	modelUUID := env.ecfgUnlocked.Config.UUID()
-	env.ecfgMutex.Unlock()
-
 	storageAdapter, err := newOpenstackStorage(env)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &cinderProvider{storageAdapter, envName, modelUUID}, nil
+	return &cinderProvider{storageAdapter, env.name, env.uuid}, nil
 }
 
 var newOpenstackStorage = func(env *Environ) (OpenstackStorage, error) {
 	env.ecfgMutex.Lock()
-	endpointURL := env.volumeURL
-	authClient := env.client
-	envNovaClient := env.novaUnlocked
-	env.ecfgMutex.Unlock()
+	defer env.ecfgMutex.Unlock()
 
-	if endpointURL == nil {
-		return nil, errors.NotSupportedf("volumes")
+	if env.volumeURL == nil {
+		url, err := getVolumeEndpointURL(env.client, env.cloud.Region)
+		if errors.IsNotFound(err) {
+			// No volume endpoint found; Cinder is not supported.
+			return nil, errors.NotSupportedf("volumes")
+		} else if err != nil {
+			return nil, errors.Trace(err)
+		}
+		env.volumeURL = url
+		logger.Debugf("volume URL: %v", url)
 	}
 
 	return &openstackStorageAdapter{
-		cinderClient{cinder.Basic(endpointURL, authClient.TenantId(), authClient.Token)},
-		novaClient{envNovaClient},
+		cinderClient{cinder.Basic(env.volumeURL, env.client.TenantId(), env.client.Token)},
+		novaClient{env.novaUnlocked},
 	}, nil
 }
 
@@ -473,10 +472,17 @@ type OpenstackStorage interface {
 }
 
 type endpointResolver interface {
+	Authenticate() error
+	IsAuthenticated() bool
 	EndpointsForRegion(region string) identity.ServiceURLs
 }
 
 func getVolumeEndpointURL(client endpointResolver, region string) (*url.URL, error) {
+	if !client.IsAuthenticated() {
+		if err := authenticateClient(client); err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
 	endpointMap := client.EndpointsForRegion(region)
 	// The cinder openstack charm appends 'v2' to the type for the v2 api.
 	endpoint, ok := endpointMap["volumev2"]

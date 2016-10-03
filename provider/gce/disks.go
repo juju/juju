@@ -21,8 +21,8 @@ const (
 )
 
 // StorageProviderTypes implements storage.ProviderRegistry.
-func (env *environ) StorageProviderTypes() []storage.ProviderType {
-	return []storage.ProviderType{storageProviderType}
+func (env *environ) StorageProviderTypes() ([]storage.ProviderType, error) {
+	return []storage.ProviderType{storageProviderType}, nil
 }
 
 // StorageProvider implements storage.ProviderRegistry.

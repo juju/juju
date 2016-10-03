@@ -12,8 +12,8 @@ import (
 )
 
 // StorageProviderTypes implements storage.ProviderRegistry.
-func (*environ) StorageProviderTypes() []storage.ProviderType {
-	return nil
+func (*environ) StorageProviderTypes() ([]storage.ProviderType, error) {
+	return nil, nil
 }
 
 // StorageProvider implements storage.ProviderRegistry.

@@ -255,7 +255,9 @@ func (s *poolSuite) TestListFilterInvalidProvidersAndNames(c *gc.C) {
 
 func (s *poolSuite) registerProviders(c *gc.C) {
 	common := provider.CommonStorageProviders()
-	for _, providerType := range common.StorageProviderTypes() {
+	providerTypes, err := common.StorageProviderTypes()
+	c.Assert(err, jc.ErrorIsNil)
+	for _, providerType := range providerTypes {
 		p, err := common.StorageProvider(providerType)
 		c.Assert(err, jc.ErrorIsNil)
 		s.registry.Providers[providerType] = p

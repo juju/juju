@@ -49,7 +49,11 @@ func destroyInstances(env environs.Environ) error {
 
 func destroyStorage(env environs.Environ) error {
 	logger.Infof("destroying storage")
-	for _, storageProviderType := range env.StorageProviderTypes() {
+	storageProviderTypes, err := env.StorageProviderTypes()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, storageProviderType := range storageProviderTypes {
 		storageProvider, err := env.StorageProvider(storageProviderType)
 		if err != nil {
 			return errors.Trace(err)

@@ -21,7 +21,9 @@ var _ = gc.Suite(&providerCommonSuite{})
 func (s *providerCommonSuite) TestCommonProvidersExported(c *gc.C) {
 	registry := provider.CommonStorageProviders()
 	var common []storage.ProviderType
-	for _, pType := range registry.StorageProviderTypes() {
+	pTypes, err := registry.StorageProviderTypes()
+	c.Assert(err, jc.ErrorIsNil)
+	for _, pType := range pTypes {
 		common = append(common, pType)
 		p, err := registry.StorageProvider(pType)
 		c.Assert(err, jc.ErrorIsNil)

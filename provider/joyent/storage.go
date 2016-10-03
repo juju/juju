@@ -10,8 +10,8 @@ import (
 )
 
 // StorageProviderTypes implements storage.ProviderRegistry.
-func (*joyentEnviron) StorageProviderTypes() []storage.ProviderType {
-	return nil
+func (*joyentEnviron) StorageProviderTypes() ([]storage.ProviderType, error) {
+	return nil, nil
 }
 
 // StorageProvider implements storage.ProviderRegistry.
