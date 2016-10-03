@@ -41,7 +41,6 @@ func (s *credentialsSuite) TestCredentialSchemas(c *gc.C) {
 	envtesting.AssertProviderAuthTypes(c, s.provider,
 		"interactive",
 		"service-principal-secret",
-		"userpass",
 	)
 }
 
@@ -49,15 +48,6 @@ var sampleCredentialAttributes = map[string]string{
 	"application-id":       "application",
 	"application-password": "password",
 	"subscription-id":      "subscription",
-}
-
-func (s *credentialsSuite) TestUserPassCredentialsValid(c *gc.C) {
-	envtesting.AssertProviderCredentialsValid(c, s.provider, "userpass", map[string]string{
-		"application-id":       "application",
-		"application-password": "password",
-		"subscription-id":      "subscription",
-		"tenant-id":            "tenant",
-	})
 }
 
 func (s *credentialsSuite) TestServicePrincipalSecretCredentialsValid(c *gc.C) {
@@ -75,33 +65,6 @@ func (s *credentialsSuite) TestServicePrincipalSecretHiddenAttributes(c *gc.C) {
 func (s *credentialsSuite) TestDetectCredentials(c *gc.C) {
 	_, err := s.provider.DetectCredentials()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-}
-
-func (s *credentialsSuite) TestFinalizeCredentialUserPass(c *gc.C) {
-	in := cloud.NewCredential("userpass", map[string]string{
-		"application-id":       "application",
-		"application-password": "password",
-		"subscription-id":      "subscription",
-		"tenant-id":            "tenant",
-	})
-	ctx := coretesting.Context(c)
-	out, err := s.provider.FinalizeCredential(ctx, environs.FinalizeCredentialParams{Credential: in})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(out, gc.NotNil)
-	c.Assert(out.AuthType(), gc.Equals, cloud.AuthType("service-principal-secret"))
-	c.Assert(out.Attributes(), jc.DeepEquals, map[string]string{
-		"application-id":       "application",
-		"application-password": "password",
-		"subscription-id":      "subscription",
-	})
-	stderr := coretesting.Stderr(ctx)
-	c.Assert(stderr, gc.Equals, `
-WARNING: The "userpass" auth-type is deprecated, and will be removed soon.
-
-Please update the credential in ~/.local/share/juju/credentials.yaml,
-changing auth-type to "service-principal-secret", and dropping the tenant-id field.
-
-`[1:])
 }
 
 func (s *credentialsSuite) TestFinalizeCredentialInteractive(c *gc.C) {
