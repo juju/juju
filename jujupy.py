@@ -2144,6 +2144,14 @@ class EnvJujuClient:
         """Enable a command set."""
         return self.juju('enable-command', args)
 
+    def sync_tools(self, local_dir=None):
+        """Copy tools into a local directory or model."""
+        if local_dir is None:
+            return self.juju('sync-tools', ())
+        else:
+            return self.juju('sync-tools', ('--local-dir', local_dir),
+                             include_e=False)
+
 
 class EnvJujuClient2B9(EnvJujuClient):
 

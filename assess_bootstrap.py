@@ -18,8 +18,7 @@ from utility import (
 log = logging.getLogger("assess_bootstrap")
 
 
-def assess_bootstrap(args):
-    bs_manager = BootstrapManager.from_args(args)
+def assess_base_bootstrap(bs_manager):
     client = bs_manager.client
     with bs_manager.top_context() as machines:
         with bs_manager.bootstrap_context(machines):
@@ -30,9 +29,28 @@ def assess_bootstrap(args):
             log.info('Environment successfully bootstrapped.')
 
 
+def assess_bootstrap(args):
+    bs_manager = BootstrapManager.from_args(args)
+    if 'base' == args.part:
+        assess_base_bootstrap(bs_manager)
+    elif 'metadata' == args.part:
+        pass
+
+
 def parse_args(argv=None):
+    """Parse all arguments.
+
+    In addition to the basic testing arguments this script also accepts:
+    part: The first argument, which is the name of test part to run.
+    --local-metadata-source: If given it should be a directory that contains
+    the agent to use in the test. This skips downloading them."""
     parser = ArgumentParser(description='Test the bootstrap command.')
+    parser.add_argument('part', choices=['base', 'metadata'],
+                        help='Which part of bootstrap to assess')
     add_basic_testing_arguments(parser)
+    parser.add_argument('--local-metadata-source',
+                        action='store', default=None,
+                        help='Directory with pre-loaded metadata.')
     return parser.parse_args(argv)
 
 
