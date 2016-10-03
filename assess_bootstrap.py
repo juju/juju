@@ -69,12 +69,50 @@ def assess_metadata(bs_manager, local_source):
                     raise JujuAssertionError('Error, possible web metadata.')
 
 
+def assess_auto_upgrade(bs_manager):
+    client = bs_manager.client
+    with prepare_temp_metadata(client, local_source, version) as metadata_dir:
+        log.info('Metadata written to: {}'.format(metadata_dir))
+        with bs_manager.top_context() as machines:
+            with bs_manager.bootstrap_context(machines):
+                tear_down(client, client.is_jes_enabled())
+                client.bootstrap(metadata_source=metadata_source,
+                                 auto_upgrade=True)
+            with bs_manager.runtime_context(machines):
+                log.info('Auto-upgrade bootstrap successful.')
+                # Check to see if the agents have been upgraded.
+
+
+@contextmanager
+def custom_booted_context(bs_manager):
+    client = bs_manager.client
+    with bs_manager.top_context() as machines:
+        @contextmanager
+        def custom_bootstrap_context():
+            with bs_manager.bootstrap_context(machines):
+                tear_down(client, client.is_jes_enabled())
+                yield
+        @contextmanager
+        def custom_runtime_context():
+            with bs_manager.runtime_context(machines):
+                yield
+        yield (custom_bootstrap_context, custom_runtime_context)
+# with custom_booted_context(bs_manager) as (machines,
+#         bootstrap_cxt, runtime_cxt):
+#     with bootstrap_cxt():
+#         ...
+#     with runtime_cxt():
+#         ...
+
+
 def assess_bootstrap(args):
     bs_manager = BootstrapManager.from_args(args)
     if 'base' == args.part:
         assess_base_bootstrap(bs_manager)
     elif 'metadata' == args.part:
         assess_metadata(bs_manager, args.local_metadata_source)
+    elif 'auto-upgrade' == args.part:
+        assess_auto_upgrade(bs_manager, args.local_metadata_source)
 
 
 def parse_args(argv=None):
