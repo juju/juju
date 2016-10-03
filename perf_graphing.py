@@ -12,11 +12,6 @@ except ImportError:
 log = logging.getLogger("perf_graphing")
 
 
-class GraphPeriod:
-    hours = '0'
-    day = '3'
-
-
 class GraphDefaults:
     height = '600'
     width = '800'
@@ -166,66 +161,6 @@ def mongodb_memory_graph(start, end, rrd_path, output_file):
             'LINE1:vsize_stk#00E000: vsize',
             'AREA:res_stk#bfbfff80',
             'LINE1:res_stk#0000FF: res')
-
-
-
-def cpu_graph(start, end, rrd_path, output_file):
-    with EnvironmentVariable('TZ', 'UTC'):
-        rrdtool.graph(
-            output_file,
-            '--start', str(start),
-            '--end', str(end),
-            '--full-size-mode',
-            '-w', GraphDefaults.width,
-            '-h', GraphDefaults.height,
-            '-n', GraphDefaults.font,
-            '-v', 'Jiffies',
-            '--alt-autoscale-max',
-            '-t', 'CPU Average',
-            '-u', '100',
-            '-r',
-            'DEF:idle_avg={}/cpu-idle.rrd:value:AVERAGE'.format(rrd_path),
-            'CDEF:idle_nnl=idle_avg,UN,0,idle_avg,IF',
-            'DEF:wait_avg={}/cpu-wait.rrd:value:AVERAGE'.format(rrd_path),
-            'CDEF:wait_nnl=wait_avg,UN,0,wait_avg,IF',
-            'DEF:nice_avg={}/cpu-nice.rrd:value:AVERAGE'.format(rrd_path),
-            'CDEF:nice_nnl=nice_avg,UN,0,nice_avg,IF',
-            'DEF:user_avg={}/cpu-user.rrd:value:AVERAGE'.format(rrd_path),
-            'CDEF:user_nnl=user_avg,UN,0,user_avg,IF',
-            'DEF:system_avg={}/cpu-system.rrd:value:AVERAGE'.format(rrd_path),
-            'CDEF:system_nnl=system_avg,UN,0,system_avg,IF',
-            'DEF:softirq_avg={}/cpu-softirq.rrd:value:AVERAGE'.format(
-                rrd_path),
-            'CDEF:softirq_nnl=softirq_avg,UN,0,softirq_avg,IF',
-            'DEF:interrupt_avg={}/cpu-interrupt.rrd:value:AVERAGE'.format(
-                rrd_path),
-            'CDEF:interrupt_nnl=interrupt_avg,UN,0,interrupt_avg,IF',
-            'DEF:steal_avg={}/cpu-steal.rrd:value:AVERAGE'.format(rrd_path),
-            'CDEF:steal_nnl=steal_avg,UN,0,steal_avg,IF',
-            'CDEF:steal_stk=steal_nnl',
-            'CDEF:interrupt_stk=interrupt_nnl',
-            'CDEF:softirq_stk=softirq_nnl',
-            'CDEF:system_stk=system_nnl',
-            'CDEF:user_stk=user_nnl',
-            'CDEF:nice_stk=nice_nnl',
-            'CDEF:wait_stk=wait_nnl',
-            'CDEF:idle_stk=idle_nnl',
-            'AREA:idle_stk#ffffff',
-            'LINE1:idle_stk#ffffff: Idle',
-            'AREA:wait_stk#ffebbf',
-            'LINE1:wait_stk#ffb000: Wait',
-            'AREA:nice_stk#bff7bf',
-            'LINE1:nice_stk#00e000: Nice',
-            'AREA:user_stk#bfbfff',
-            'LINE1:user_stk#0000ff: User',
-            'AREA:system_stk#ffbfbf',
-            'LINE1:system_stk#ff0000: system',
-            'AREA:softirq_stk#ffbfff',
-            'LINE1:softirq_stk#ff00ff: Softirq',
-            'AREA:interrupt_stk#e7bfe7',
-            'LINE1:interrupt_stk#a000a0: Interrupt',
-            'AREA:steal_stk#bfbfbf',
-            'LINE1:steal_stk#000000: Steal')
 
 
 def cpu_graph(start, end, rrd_path, output_file):
