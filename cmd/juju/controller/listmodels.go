@@ -190,7 +190,7 @@ func (c *modelsCommand) Run(ctx *cmd.Context) error {
 		// When the output is tabular, we inform the user when there
 		// are no models available, and tell them how to go about
 		// creating or granting access to them.
-		fmt.Fprintf(ctx.Stderr, "\n%s\n\n", errNoModels.Error())
+		fmt.Fprintln(ctx.Stderr, noModelsMessage)
 	}
 	return nil
 }

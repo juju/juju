@@ -5,7 +5,7 @@ package featuretests
 
 import (
 	"io"
-	"strings"
+	"regexp"
 
 	"github.com/juju/cmd"
 	"github.com/juju/loggo"
@@ -16,6 +16,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/juju/commands"
+	cmdtesting "github.com/juju/juju/cmd/testing"
 	"github.com/juju/juju/juju"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/testing"
@@ -25,63 +26,50 @@ type cmdRegistrationSuite struct {
 	jujutesting.JujuConnSuite
 }
 
-func (s *cmdRegistrationSuite) run(c *gc.C, stdin io.Reader, args ...string) *cmd.Context {
-	context := testing.Context(c)
-	if stdin != nil {
-		context.Stdin = stdin
-	}
-	command := commands.NewJujuCommand(context)
-	c.Assert(testing.InitCommand(command, args), jc.ErrorIsNil)
-	c.Assert(command.Run(context), jc.ErrorIsNil)
-	loggo.RemoveWriter("warning") // remove logger added by main command
-	return context
-}
-
 func (s *cmdRegistrationSuite) TestAddUserAndRegister(c *gc.C) {
 	// First, add user "bob", and record the "juju register" command
 	// that is printed out.
-	context := s.run(c, nil, "add-user", "bob", "Bob Dobbs")
+
+	context := run(c, nil, "add-user", "bob", "Bob Dobbs")
 	c.Check(testing.Stderr(context), gc.Equals, "")
 	stdout := testing.Stdout(context)
-	c.Check(stdout, gc.Matches, `
+	expectPat := `
 User "Bob Dobbs \(bob\)" added
 Please send this command to bob:
-    juju register .*
+    juju register (.+)
 
 "Bob Dobbs \(bob\)" has not been granted access to any models(.|\n)*
-`[1:])
-	jujuRegisterCommand := strings.Fields(strings.TrimSpace(
-		strings.SplitN(stdout[strings.Index(stdout, "juju register"):], "\n", 2)[0],
-	))
-	c.Logf("%q", jujuRegisterCommand)
+`[1:]
+	c.Assert(stdout, gc.Matches, expectPat)
+
+	arg := regexp.MustCompile("^" + expectPat + "$").FindStringSubmatch(stdout)[1]
+	c.Logf("juju register %q", arg)
 
 	// Now run the "juju register" command. We need to pass the
 	// controller name and password to set, and we need a different
 	// file store to mimic a different local OS user.
-	userHomeParams := jujutesting.UserHomeParams{Username: "bob"}
-	s.CreateUserHome(c, &userHomeParams)
-	stdin := strings.NewReader("bob-controller\nhunter2\nhunter2\n")
-	args := jujuRegisterCommand[1:] // drop the "juju"
+	s.CreateUserHome(c, &jujutesting.UserHomeParams{
+		Username: "bob",
+	})
 
 	// The expected prompt does not include a warning about the controller
 	// name, as this new local user does not have a controller named
 	// "kontroll" registered.
-	expectedPrompt := `
-Enter a name for this controller [kontroll]: 
-Enter a new password: 
-Confirm password: 
+	prompter := cmdtesting.NewSeqPrompter(c, "»", `
+Enter a new password: »hunter2
+
+Confirm password: »hunter2
+
+Initial password successfully set for bob.
+Enter a name for this controller \[kontroll\]: »bob-controller
 
 Welcome, bob. You are now logged into "bob-controller".
 
-There are no models available. You can add models with
-"juju add-model", or you can ask an administrator or owner
-of a model to grant access to that model with "juju grant".
+There are no models available. (.|\n)*
+`[1:])
 
-`[1:]
-
-	context = s.run(c, stdin, args...)
-	c.Check(testing.Stdout(context), gc.Equals, "")
-	c.Check(testing.Stderr(context), gc.Equals, expectedPrompt)
+	context = run(c, prompter, "register", arg)
+	prompter.AssertDone()
 
 	// Make sure that the saved server details are sufficient to connect
 	// to the api server.
@@ -103,4 +91,29 @@ of a model to grant access to that model with "juju grant".
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(api.Close(), jc.ErrorIsNil)
+}
+
+// run runs a juju command with the given arguments.
+// If stdio is given, it will be used for all input and output
+// to the command; otherwise testing.Context will be used.
+//
+// It returns the context used to run the command.
+func run(c *gc.C, stdio io.ReadWriter, args ...string) *cmd.Context {
+	var context *cmd.Context
+	if stdio != nil {
+		context = &cmd.Context{
+			Dir:    c.MkDir(),
+			Stdin:  stdio,
+			Stdout: stdio,
+			Stderr: stdio,
+		}
+	} else {
+		context = testing.Context(c)
+	}
+	command := commands.NewJujuCommand(context)
+	c.Assert(testing.InitCommand(command, args), jc.ErrorIsNil)
+	err := command.Run(context)
+	c.Assert(err, jc.ErrorIsNil, gc.Commentf("stderr: %q", context.Stderr))
+	loggo.RemoveWriter("warning") // remove logger added by main command
+	return context
 }

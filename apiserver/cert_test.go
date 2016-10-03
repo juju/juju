@@ -75,7 +75,7 @@ func (s *certSuite) TestUpdateCert(c *gc.C) {
 }
 
 func (s *certSuite) TestAutocertFailure(c *gc.C) {
-	// We don't have a fake autocert server, but we can at lease
+	// We don't have a fake autocert server, but we can at least
 	// smoke test that the autocert path is followed when we try
 	// to connect to a DNS name - the AutocertURL configured
 	// by the testing suite is invalid so it should fail.
@@ -95,7 +95,7 @@ func (s *certSuite) TestAutocertFailure(c *gc.C) {
 			// by a valid authority. This could be problematic.
 			expectedErr = "x509: certificate signed by unknown authority"
 		}
-		// If we can't get an autocert certificate, so we'll fall back to the local certificate
+		// We can't get an autocert certificate, so we'll fall back to the local certificate
 		// which isn't valid for connecting to somewhere.example.
 		c.Assert(err, gc.ErrorMatches, expectedErr)
 	})
@@ -123,7 +123,7 @@ func (s *certSuite) TestAutocertNameMismatch(c *gc.C) {
 			// by a valid authority. This could be problematic.
 			expectedErr = "x509: certificate signed by unknown authority"
 		}
-		// If we can't get an autocert certificate, so we'll fall back to the local certificate
+		// We can't get an autocert certificate, so we'll fall back to the local certificate
 		// which isn't valid for connecting to somewhere.example.
 		c.Assert(err, gc.ErrorMatches, expectedErr)
 	})
@@ -150,7 +150,7 @@ func (s *certSuite) TestAutocertNoAutocertDNSName(c *gc.C) {
 			// by a valid authority. This could be problematic.
 			expectedErr = "x509: certificate signed by unknown authority"
 		}
-		// If we can't get an autocert certificate, so we'll fall back to the local certificate
+		// We can't get an autocert certificate, so we'll fall back to the local certificate
 		// which isn't valid for connecting to somewhere.example.
 		c.Assert(err, gc.ErrorMatches, expectedErr)
 	})
