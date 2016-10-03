@@ -1047,6 +1047,24 @@ class TestEnvJujuClient(ClientTest):
             '--config', 'config', '--default-model', 'foo',
             '--bootstrap-series', 'angsty'))
 
+    def test_get_bootstrap_args_agent_verion(self):
+        env = JujuData('foo', {'type': 'bar', 'region': 'baz'})
+        client = EnvJujuClient(env, '2.0-zeta1', None)
+        args = client.get_bootstrap_args(upload_tools=False,
+                                         config_filename='config',
+                                         agent_version='2.0-lambda1')
+        self.assertEqual(('--constraints', 'mem=2G', 'foo', 'bar/baz',
+                          '--config', 'config', '--default-model', 'foo',
+                          '--agent-version', '2.0-lambda1'), args)
+
+    def test_get_bootstrap_args_upload_tools_and_agent_verion(self):
+        env = JujuData('foo', {'type': 'bar', 'region': 'baz'})
+        client = EnvJujuClient(env, '2.0-zeta1', None)
+        with self.assertRaises(ValueError):
+            args = client.get_bootstrap_args(upload_tools=True,
+                                             config_filename='config',
+                                             agent_version='2.0-lambda1')
+
     def test_add_model_hypenated_controller(self):
         self.do_add_model(
             'kill-controller', 'add-model', ('-c', 'foo'))

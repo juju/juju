@@ -4,12 +4,15 @@ from contextlib import contextmanager
 from mock import patch
 
 from assess_bootstrap import (
+    assess_auto_upgrade,
     assess_bootstrap,
     assess_metadata,
+    get_agent_version,
     INVALID_URL,
     parse_args,
     prepare_metadata,
     prepare_temp_metadata,
+    prev_agent_version,
     )
 from deploy_stack import (
     BootstrapManager,
@@ -19,6 +22,7 @@ from fakejuju import (
     )
 from jujupy import (
     _temp_env as temp_env,
+    Status,
     )
 from tests import (
     FakeHomeTestCase,
@@ -224,3 +228,41 @@ class TestAssessMetadata(FakeHomeTestCase):
                         bs_manager.client, 'get_model_config',
                         side_effect=lambda: self.get_url(bs_manager)):
                     assess_metadata(bs_manager, 'agents')
+
+
+class TestAgentVersionHelpers(TestCase):
+
+    def test_prev_agent_version(self):
+        self.assertEqual('2.0-beta18', prev_agent_version('2.0-rc1'))
+
+    def test_get_agent_version(self):
+        status = Status({
+            'machines': {
+                "0": {'juju-status': {'version': '2.0-zeta1'}},
+                "1": {'juju-status': {'version': '2.0-lambda1'}},
+                }
+            }, '')
+        self.assertEqual(['2.0-zeta1', '2.0-lambda1'],
+                         get_agent_version(status))
+
+
+class TestAssessAutoUpgrade(FakeHomeTestCase):
+
+    def test_assess_auto_upgrade_runs(self):
+        def check(myself, auto_upgrade, agent_version):
+            self.assertEqual(myself.env.config,
+                             {'name': 'qux', 'type': 'foo'})
+            self.assertTrue(auto_upgrade)
+            self.assertEqual('2.0-lambda1', agent_version)
+        with extended_bootstrap_cxt('2.0-rc1'):
+            with patch('jujupy.EnvJujuClient.bootstrap', side_effect=check,
+                    autospec=True):
+                with patch('assess_bootstrap.prev_agent_version',
+                       return_value='2.0-lambda1', autospec=True) as pav_mock:
+                    args = parse_args(['metadata', 'bar', '/foo'])
+                    args.temp_env_name = 'qux'
+                    bs_manager = BootstrapManager.from_args(args)
+                    with patch.object(bs_manager.client, 'get_version',
+                                      return_value='2.0-rc1'):
+                        assess_auto_upgrade(bs_manager)
+        pav_mock.assert_called_once_with('2.0-rc1')

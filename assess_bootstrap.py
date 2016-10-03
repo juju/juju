@@ -25,6 +25,7 @@ INVALID_URL = 'example.com/invalid'
 
 
 def assess_base_bootstrap(bs_manager):
+    """Test bootstrapping under basic conditions."""
     client = bs_manager.client
     with bs_manager.top_context() as machines:
         with bs_manager.bootstrap_context(machines):
@@ -52,6 +53,7 @@ def prepare_temp_metadata(client, source_dir=None):
 
 
 def assess_metadata(bs_manager, local_source):
+    """Test bootstraping with a metadata source for agents."""
     client = bs_manager.client
     # This disconnects from the metadata source, as INVALID_URL is different.
     # agent-metadata-url | tools-metadata-url
@@ -69,40 +71,33 @@ def assess_metadata(bs_manager, local_source):
                     raise JujuAssertionError('Error, possible web metadata.')
 
 
+def prev_agent_version(current_version):
+    """Get a version that is older than, but upgradable to current_version."""
+    # I don't actually have a way to figure this out yet.
+    return '2.0-beta18'
+
+
+def get_agent_version(client):
+    """Get the agent version of the machines used by the client."""
+    status = client.get_status()
+    versions = []
+    for (machine, machine_status) in status['machines'].iteritems():
+        versions.append(machine_status['juju-status']['version'])
+    return versions
+
+
 def assess_auto_upgrade(bs_manager):
+    """Test bootstraping with auto-upgrading the agents."""
     client = bs_manager.client
-    with prepare_temp_metadata(client, local_source, version) as metadata_dir:
-        log.info('Metadata written to: {}'.format(metadata_dir))
-        with bs_manager.top_context() as machines:
-            with bs_manager.bootstrap_context(machines):
-                tear_down(client, client.is_jes_enabled())
-                client.bootstrap(metadata_source=metadata_source,
-                                 auto_upgrade=True)
-            with bs_manager.runtime_context(machines):
-                log.info('Auto-upgrade bootstrap successful.')
-                # Check to see if the agents have been upgraded.
-
-
-@contextmanager
-def custom_booted_context(bs_manager):
-    client = bs_manager.client
+    agent_version = prev_agent_version(client.get_version())
     with bs_manager.top_context() as machines:
-        @contextmanager
-        def custom_bootstrap_context():
-            with bs_manager.bootstrap_context(machines):
-                tear_down(client, client.is_jes_enabled())
-                yield
-        @contextmanager
-        def custom_runtime_context():
-            with bs_manager.runtime_context(machines):
-                yield
-        yield (custom_bootstrap_context, custom_runtime_context)
-# with custom_booted_context(bs_manager) as (machines,
-#         bootstrap_cxt, runtime_cxt):
-#     with bootstrap_cxt():
-#         ...
-#     with runtime_cxt():
-#         ...
+        with bs_manager.bootstrap_context(machines):
+            tear_down(client, client.is_jes_enabled())
+            client.bootstrap(auto_upgrade=True,
+                             agent_version=agent_version)
+        with bs_manager.runtime_context(machines):
+            log.info('Auto-upgrade bootstrap successful.')
+            # Check to see if the agents have been upgraded.
 
 
 def assess_bootstrap(args):
@@ -111,8 +106,8 @@ def assess_bootstrap(args):
         assess_base_bootstrap(bs_manager)
     elif 'metadata' == args.part:
         assess_metadata(bs_manager, args.local_metadata_source)
-    elif 'auto-upgrade' == args.part:
-        assess_auto_upgrade(bs_manager, args.local_metadata_source)
+    elif 'upgrade' == args.part:
+        assess_auto_upgrade(bs_manager)
 
 
 def parse_args(argv=None):
@@ -123,7 +118,7 @@ def parse_args(argv=None):
     --local-metadata-source: If given it should be a directory that contains
     the agent to use in the test. This skips downloading them."""
     parser = ArgumentParser(description='Test the bootstrap command.')
-    parser.add_argument('part', choices=['base', 'metadata'],
+    parser.add_argument('part', choices=['base', 'metadata', 'upgrade'],
                         help='Which part of bootstrap to assess')
     add_basic_testing_arguments(parser)
     parser.add_argument('--local-metadata-source',
