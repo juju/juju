@@ -281,7 +281,7 @@ func verifyDefaultProfileBridgeConfig(client *lxd.Client, networkAPISupported bo
 		 */
 		if networkAPISupported {
 			if err := CreateDefaultBridgeInDefaultProfile(client); err != nil {
-				return "", errors.Errorf("couldn't create default bridge %v", err)
+				return "", errors.Annotate(err, "couldn't create default bridge")
 			}
 
 			return network.DefaultLXDBridge, nil
