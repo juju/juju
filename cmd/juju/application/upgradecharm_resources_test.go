@@ -55,8 +55,9 @@ func (s *UpgradeCharmResourceSuite) SetUpTest(c *gc.C) {
 	c.Assert(forced, jc.IsFalse)
 }
 
-var riakResourceMeta = []byte(`
-name: riakresource
+func (s *UpgradeCharmResourceSuite) TestUpgradeWithResources(c *gc.C) {
+	const riakResourceMeta = `
+name: riak
 summary: "K/V storage engine"
 description: "Scalable K/V Store in Erlang with Clocks :-)"
 provides:
@@ -72,11 +73,10 @@ resources:
     type: file
     filename: foo.lib
     description: some comment
-`)
+`
 
-func (s *UpgradeCharmResourceSuite) TestUpgradeWithResources(c *gc.C) {
 	myriakPath := testcharms.Repo.ClonedDir(c.MkDir(), "riak")
-	err := ioutil.WriteFile(path.Join(myriakPath.Path, "metadata.yaml"), riakResourceMeta, 0644)
+	err := ioutil.WriteFile(path.Join(myriakPath.Path, "metadata.yaml"), []byte(riakResourceMeta), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
 	data := []byte("some-data")

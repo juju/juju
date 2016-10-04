@@ -61,29 +61,40 @@ func (c *Client) ModelUUID() string {
 
 // DeployArgs holds the arguments to be sent to Client.ServiceDeploy.
 type DeployArgs struct {
+
 	// CharmID identifies the charm to deploy.
 	CharmID charmstore.CharmID
+
 	// ApplicationName is the name to give the application.
 	ApplicationName string
+
 	// Series to be used for the machine.
 	Series string
+
 	// NumUnits is the number of units to deploy.
 	NumUnits int
+
 	// ConfigYAML is a string that overrides the default config.yml.
 	ConfigYAML string
-	// Cons contains constraints on where units of this application may be
-	// placed.
+
+	// Cons contains constraints on where units of this application
+	// may be placed.
 	Cons constraints.Value
+
 	// Placement directives on where the machines for the unit must be
 	// created.
 	Placement []*instance.Placement
+
 	// Storage contains Constraints specifying how storage should be
 	// handled.
 	Storage map[string]storage.Constraints
+
 	// EndpointBindings
 	EndpointBindings map[string]string
-	// Collection of resource names for the application, with the value being the
-	// unique ID of a pre-uploaded resources in storage.
+
+	// Collection of resource names for the application, with the
+	// value being the unique ID of a pre-uploaded resources in
+	// storage.
 	Resources map[string]string
 }
 
@@ -110,9 +121,9 @@ func (c *Client) Deploy(args DeployArgs) error {
 	var err error
 	err = c.facade.FacadeCall("Deploy", deployArgs, &results)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
-	return results.OneError()
+	return errors.Trace(results.OneError())
 }
 
 // GetCharmURL returns the charm URL the given service is
@@ -122,10 +133,10 @@ func (c *Client) GetCharmURL(serviceName string) (*charm.URL, error) {
 	args := params.ApplicationGet{ApplicationName: serviceName}
 	err := c.facade.FacadeCall("GetCharmURL", args, result)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	if result.Error != nil {
-		return nil, result.Error
+		return nil, errors.Trace(result.Error)
 	}
 	return charm.ParseURL(result.Result)
 }

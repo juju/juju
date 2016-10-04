@@ -675,20 +675,6 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 	return block.ProcessBlockedError(deploy(ctx, apiRoot), block.BlockChange)
 }
 
-func (c *DeployCommand) newResolver(apiRoot DeployAPI) (*config.Config, *csclient.Client, error) {
-	bakeryClient, err := c.BakeryClient()
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-	csClient := newCharmStoreClient(bakeryClient).WithChannel(c.Channel)
-	conf, err := getModelConfig(apiRoot)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-
-	return conf, csClient, nil
-}
-
 func findDeployerFIFO(maybeDeployers ...func() (deployFn, error)) (deployFn, error) {
 	for _, d := range maybeDeployers {
 		if deploy, err := d(); err != nil {
