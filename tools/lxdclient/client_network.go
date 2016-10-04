@@ -25,7 +25,7 @@ type networkClient struct {
 	supported bool
 }
 
-// create a network
+// NetworkCreate creates the specified network.
 func (c *networkClient) NetworkCreate(name string, config map[string]string) error {
 	if !c.supported {
 		return errors.NotSupportedf("network API not supported on this remote")
@@ -34,7 +34,7 @@ func (c *networkClient) NetworkCreate(name string, config map[string]string) err
 	return c.raw.NetworkCreate(name, config)
 }
 
-// acquire a network's configuration
+// NetworkGet returns the specified network's configuration.
 func (c *networkClient) NetworkGet(name string) (shared.NetworkConfig, error) {
 	if !c.supported {
 		return shared.NetworkConfig{}, errors.NotSupportedf("network API not supported on this remote")
@@ -49,7 +49,8 @@ type creator interface {
 	ProfileConfig(profile string) (*shared.ProfileConfig, error)
 }
 
-// Create a default bridge and (if necessary) insert it into the default profile.
+// CreateDefaultBridgeInDefaultProfile creates a default bridge if it doesn't
+// exist and (if necessary) inserts it into the default profile.
 func CreateDefaultBridgeInDefaultProfile(client creator) error {
 	/* create the default bridge if it doesn't exist */
 	n, err := client.NetworkGet(network.DefaultLXDBridge)
