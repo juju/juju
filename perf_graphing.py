@@ -257,9 +257,10 @@ def get_mongodb_stat_data(log_file):
         for line in f:
             details = line.split()
             raw_time = details[MongoStats.timestamp]
-            epoch = int(
-                time.mktime(
-                    time.strptime(raw_time, '%Y-%m-%dT%H:%M:%SZ')))
+            with EnvironmentVariable('TZ', 'UTC'):
+                epoch = int(
+                    time.mktime(
+                        time.strptime(raw_time, '%Y-%m-%dT%H:%M:%SZ')))
             data_lines.append(
                 MongoStatsData(
                     epoch,
