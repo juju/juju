@@ -6,6 +6,7 @@ package apiserver_test
 import (
 	"fmt"
 	"net"
+	"net/url"
 	"strconv"
 	"sync"
 	"time"
@@ -17,17 +18,21 @@ import (
 	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
+	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
 	"github.com/juju/juju/api"
 	apimachiner "github.com/juju/juju/api/machiner"
 	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/apiserver"
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/controller"
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/observer/fakeobserver"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -71,7 +76,6 @@ func (s *loginSuite) TestLoginWithInvalidTag(c *gc.C) {
 	info.Tag = nil
 	info.Password = ""
 	st := s.openAPIWithoutLogin(c, info)
-	defer st.Close()
 
 	request := &params.LoginRequest{
 		AuthTag:     "bar",
@@ -119,7 +123,6 @@ func (s *loginSuite) TestBadLogin(c *gc.C) {
 			// Open the API without logging in, so we can perform
 			// operations on the connection before calling Login.
 			st := s.openAPIWithoutLogin(c, info)
-			defer st.Close()
 
 			_, err := apimachiner.NewState(st).Machine(names.NewMachineTag("0"))
 			c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
@@ -146,7 +149,6 @@ func (s *loginSuite) TestLoginAsDeactivatedUser(c *gc.C) {
 	defer cleanup()
 
 	st := s.openAPIWithoutLogin(c, info)
-	defer st.Close()
 	password := "password"
 	u := s.Factory.MakeUser(c, &factory.UserParams{Password: password, Disabled: true})
 
@@ -158,10 +160,7 @@ func (s *loginSuite) TestLoginAsDeactivatedUser(c *gc.C) {
 
 	// Since these are user login tests, the nonce is empty.
 	err = st.Login(u.Tag(), password, "", nil)
-	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
-		Message: "invalid entity name or password",
-		Code:    "unauthorized access",
-	})
+	assertInvalidEntityPassword(c, err)
 
 	_, err = st.Client().Status([]string{})
 	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
@@ -467,10 +466,7 @@ func (s *loginSuite) TestNonModelUserLoginFails(c *gc.C) {
 	info.Password = "dummy-password"
 	info.Tag = user.UserTag()
 	_, err = api.Open(info, fastDialOpts)
-	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
-		Message: "invalid entity name or password",
-		Code:    "unauthorized access",
-	})
+	assertInvalidEntityPassword(c, err)
 }
 
 func (s *loginSuite) TestLoginValidationSuccess(c *gc.C) {
@@ -525,7 +521,6 @@ func (s *loginSuite) TestFailedLoginDuringMaintenance(c *gc.C) {
 
 	checkLogin := func(tag names.Tag) {
 		st := s.openAPIWithoutLogin(c, info)
-		defer st.Close()
 		err := st.Login(tag, "dummy-secret", "nonce", nil)
 		c.Assert(err, gc.ErrorMatches, "something")
 	}
@@ -540,7 +535,6 @@ func (s *baseLoginSuite) checkLoginWithValidator(c *gc.C, validator apiserver.Lo
 	defer cleanup()
 
 	st := s.openAPIWithoutLogin(c, info)
-	defer st.Close()
 
 	// Ensure not already logged in.
 	_, err := apimachiner.NewState(st).Machine(names.NewMachineTag("0"))
@@ -605,6 +599,7 @@ func (s *baseLoginSuite) openAPIWithoutLogin(c *gc.C, info *api.Info) api.Connec
 	info.SkipLogin = true
 	st, err := api.Open(info, fastDialOpts)
 	c.Assert(err, jc.ErrorIsNil)
+	s.AddCleanup(func(*gc.C) { st.Close() })
 	return st
 }
 
@@ -614,7 +609,6 @@ func (s *loginSuite) TestControllerModel(c *gc.C) {
 
 	c.Assert(info.ModelTag, gc.Equals, s.State.ModelTag())
 	st := s.openAPIWithoutLogin(c, info)
-	defer st.Close()
 
 	adminUser := s.AdminUserTag(c)
 	err := st.Login(adminUser, "dummy-secret", "", nil)
@@ -629,14 +623,10 @@ func (s *loginSuite) TestControllerModelBadCreds(c *gc.C) {
 
 	c.Assert(info.ModelTag, gc.Equals, s.State.ModelTag())
 	st := s.openAPIWithoutLogin(c, info)
-	defer st.Close()
 
 	adminUser := s.AdminUserTag(c)
 	err := st.Login(adminUser, "bad-password", "", nil)
-	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
-		Message: `invalid entity name or password`,
-		Code:    "unauthorized access",
-	})
+	assertInvalidEntityPassword(c, err)
 }
 
 func (s *loginSuite) TestNonExistentModel(c *gc.C) {
@@ -647,7 +637,6 @@ func (s *loginSuite) TestNonExistentModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	info.ModelTag = names.NewModelTag(uuid.String())
 	st := s.openAPIWithoutLogin(c, info)
-	defer st.Close()
 
 	adminUser := s.AdminUserTag(c)
 	err = st.Login(adminUser, "dummy-secret", "", nil)
@@ -663,7 +652,6 @@ func (s *loginSuite) TestInvalidModel(c *gc.C) {
 
 	info.ModelTag = names.NewModelTag("rubbish")
 	st := s.openAPIWithoutLogin(c, info)
-	defer st.Close()
 
 	adminUser := s.AdminUserTag(c)
 	err := st.Login(adminUser, "dummy-secret", "", nil)
@@ -684,7 +672,6 @@ func (s *loginSuite) TestOtherModel(c *gc.C) {
 	defer envState.Close()
 	info.ModelTag = envState.ModelTag()
 	st := s.openAPIWithoutLogin(c, info)
-	defer st.Close()
 
 	err := st.Login(envOwner.UserTag(), "password", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -715,7 +702,6 @@ func (s *loginSuite) TestMachineLoginOtherModel(c *gc.C) {
 
 	info.ModelTag = envState.ModelTag()
 	st := s.openAPIWithoutLogin(c, info)
-	defer st.Close()
 
 	err := st.Login(machine.Tag(), password, "nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -739,7 +725,6 @@ func (s *loginSuite) TestMachineLoginOtherModelNotProvisioned(c *gc.C) {
 
 	info.ModelTag = envState.ModelTag()
 	st := s.openAPIWithoutLogin(c, info)
-	defer st.Close()
 
 	// If the agent attempts Login before the provisioner has recorded
 	// the machine's nonce in state, then the agent should get back an
@@ -761,7 +746,6 @@ func (s *loginSuite) TestOtherEnvironmentFromController(c *gc.C) {
 	defer envState.Close()
 	info.ModelTag = envState.ModelTag()
 	st := s.openAPIWithoutLogin(c, info)
-	defer st.Close()
 
 	err := st.Login(machine.Tag(), password, "nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -785,7 +769,6 @@ func (s *loginSuite) TestOtherEnvironmentFromControllerOtherNotProvisioned(c *gc
 
 	info.ModelTag = hostedModelState.ModelTag()
 	st := s.openAPIWithoutLogin(c, info)
-	defer st.Close()
 
 	// The fact that the machine with the same tag in the hosted
 	// model is unprovisioned should not cause the login to fail
@@ -804,13 +787,49 @@ func (s *loginSuite) TestOtherEnvironmentWhenNotController(c *gc.C) {
 	defer envState.Close()
 	info.ModelTag = envState.ModelTag()
 	st := s.openAPIWithoutLogin(c, info)
-	defer st.Close()
 
 	err := st.Login(machine.Tag(), password, "nonce", nil)
-	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
-		Message: "permission denied",
-		Code:    "unauthorized access",
+	assertPermissionDenied(c, err)
+}
+
+func (s *loginSuite) loginUserWithAccess(c *gc.C, info *api.Info) (*state.User, params.LoginResult) {
+	password := "shhh..."
+	user := s.Factory.MakeUser(c, &factory.UserParams{
+		Password: password,
 	})
+	conn := s.openAPIWithoutLogin(c, info)
+
+	var result params.LoginResult
+	request := &params.LoginRequest{
+		AuthTag:     user.Tag().String(),
+		Credentials: password,
+	}
+	err := conn.APICall("Admin", 3, "", "Login", request, &result)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.UserInfo, gc.NotNil)
+	return user, result
+}
+
+func (s *loginSuite) TestLoginResultModelUser(c *gc.C) {
+	info, cleanup := s.setupServer(c)
+	defer cleanup()
+
+	user, result := s.loginUserWithAccess(c, info)
+	c.Check(result.UserInfo.Identity, gc.Equals, user.Tag().String())
+	c.Check(result.UserInfo.ControllerAccess, gc.Equals, "login")
+	c.Check(result.UserInfo.ModelAccess, gc.Equals, "admin")
+}
+
+func (s *loginSuite) TestLoginResultModelUserEveryoneCreateOnlyNonLocal(c *gc.C) {
+	info, cleanup := s.setupServer(c)
+	defer cleanup()
+
+	setEveryoneAccess(c, s.State, s.AdminUserTag(c), permission.AddModelAccess)
+
+	user, result := s.loginUserWithAccess(c, info)
+	c.Check(result.UserInfo.Identity, gc.Equals, user.Tag().String())
+	c.Check(result.UserInfo.ControllerAccess, gc.Equals, "login")
+	c.Check(result.UserInfo.ModelAccess, gc.Equals, "admin")
 }
 
 func (s *loginSuite) assertRemoteModel(c *gc.C, api api.Connection, expected names.ModelTag) {
@@ -901,11 +920,137 @@ func (s *macaroonLoginSuite) TestLoginToController(c *gc.C) {
 	info.ModelTag = names.ModelTag{}
 
 	client, err := api.Open(info, api.DialOpts{})
-	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
-		Message: "invalid entity name or password",
-		Code:    "unauthorized access",
-	})
+	assertInvalidEntityPassword(c, err)
 	c.Assert(client, gc.Equals, nil)
+}
+
+func (s *macaroonLoginSuite) login(c *gc.C, info *api.Info) (params.LoginResult, error) {
+	info.SkipLogin = true
+
+	cookieJar := apitesting.NewClearableCookieJar()
+
+	client := s.OpenAPI(c, info, cookieJar)
+	defer client.Close()
+
+	var (
+		// Remote users start with an empty login request.
+		request params.LoginRequest
+		result  params.LoginResult
+	)
+	err := client.APICall("Admin", 3, "", "Login", &request, &result)
+	c.Assert(err, jc.ErrorIsNil)
+
+	cookieURL := &url.URL{
+		Scheme: "https",
+		Host:   "localhost",
+		Path:   "/",
+	}
+
+	bakeryClient := httpbakery.NewClient()
+
+	err = bakeryClient.HandleError(cookieURL, &httpbakery.Error{
+		Message: result.DischargeRequiredReason,
+		Code:    httpbakery.ErrDischargeRequired,
+		Info: &httpbakery.ErrorInfo{
+			Macaroon:     result.DischargeRequired,
+			MacaroonPath: "/",
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	// Add the macaroons that have been saved by HandleError to our login request.
+	request.Macaroons = httpbakery.MacaroonsForURL(bakeryClient.Client.Jar, cookieURL)
+
+	err = client.APICall("Admin", 3, "", "Login", &request, &result)
+	return result, err
+}
+
+func (s *macaroonLoginSuite) TestRemoteUserLoginToControllerNoAccess(c *gc.C) {
+	s.DischargerLogin = func() string {
+		return "test@somewhere"
+	}
+	info := s.APIInfo(c)
+	// Log in to the controller, not the model.
+	info.ModelTag = names.ModelTag{}
+
+	_, err := s.login(c, info)
+	assertInvalidEntityPassword(c, err)
+}
+
+func (s *macaroonLoginSuite) TestRemoteUserLoginToControllerLoginAccess(c *gc.C) {
+	setEveryoneAccess(c, s.State, s.AdminUserTag(c), permission.LoginAccess)
+	const remoteUser = "test@somewhere"
+	var remoteUserTag = names.NewUserTag(remoteUser)
+
+	s.DischargerLogin = func() string {
+		return remoteUser
+	}
+	info := s.APIInfo(c)
+	// Log in to the controller, not the model.
+	info.ModelTag = names.ModelTag{}
+
+	result, err := s.login(c, info)
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(result.UserInfo, gc.NotNil)
+	c.Check(result.UserInfo.Identity, gc.Equals, remoteUserTag.String())
+	c.Check(result.UserInfo.ControllerAccess, gc.Equals, "login")
+	c.Check(result.UserInfo.ModelAccess, gc.Equals, "")
+}
+
+func (s *macaroonLoginSuite) TestRemoteUserLoginToControllerAddModelAccess(c *gc.C) {
+	setEveryoneAccess(c, s.State, s.AdminUserTag(c), permission.AddModelAccess)
+	const remoteUser = "test@somewhere"
+	var remoteUserTag = names.NewUserTag(remoteUser)
+
+	s.DischargerLogin = func() string {
+		return remoteUser
+	}
+	info := s.APIInfo(c)
+	// Log in to the controller, not the model.
+	info.ModelTag = names.ModelTag{}
+
+	result, err := s.login(c, info)
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(result.UserInfo, gc.NotNil)
+	c.Check(result.UserInfo.Identity, gc.Equals, remoteUserTag.String())
+	c.Check(result.UserInfo.ControllerAccess, gc.Equals, "addmodel")
+	c.Check(result.UserInfo.ModelAccess, gc.Equals, "")
+}
+
+func (s *macaroonLoginSuite) TestRemoteUserLoginToModelNoExplicitAccess(c *gc.C) {
+	// If we have a remote user which the controller knows nothing about,
+	// and the macaroon is discharged successfully, and the user is attempting
+	// to log into a model, that is permission denied.
+	setEveryoneAccess(c, s.State, s.AdminUserTag(c), permission.LoginAccess)
+	s.DischargerLogin = func() string {
+		return "test@somewhere"
+	}
+	info := s.APIInfo(c)
+
+	_, err := s.login(c, info)
+	assertPermissionDenied(c, err)
+}
+
+func (s *macaroonLoginSuite) TestRemoteUserLoginToModelWithExplicitAccess(c *gc.C) {
+	// If we have a remote user which has explict model access, but there
+	// is no 'everyone' access, the user has assumed login access.
+	const remoteUser = "test@somewhere"
+	var remoteUserTag = names.NewUserTag(remoteUser)
+	s.Factory.MakeModelUser(c, &factory.ModelUserParams{
+		User:   remoteUser,
+		Access: permission.WriteAccess,
+	})
+
+	s.DischargerLogin = func() string {
+		return remoteUser
+	}
+	info := s.APIInfo(c)
+
+	result, err := s.login(c, info)
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(result.UserInfo, gc.NotNil)
+	c.Check(result.UserInfo.Identity, gc.Equals, remoteUserTag.String())
+	c.Check(result.UserInfo.ControllerAccess, gc.Equals, "login")
+	c.Check(result.UserInfo.ModelAccess, gc.Equals, "write")
 }
 
 func (s *macaroonLoginSuite) TestLoginToEnvironmentSuccess(c *gc.C) {
@@ -913,6 +1058,7 @@ func (s *macaroonLoginSuite) TestLoginToEnvironmentSuccess(c *gc.C) {
 	s.DischargerLogin = func() string {
 		return "test@somewhere"
 	}
+	loggo.GetLogger("juju.apiserver").SetLogLevel(loggo.TRACE)
 	client, err := api.Open(s.APIInfo(c), api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	defer client.Close()
@@ -935,11 +1081,29 @@ func (s *macaroonLoginSuite) TestUnknownUserLogin(c *gc.C) {
 		return "testUnknown@somewhere"
 	}
 	client, err := api.Open(s.APIInfo(c), api.DialOpts{})
+	assertInvalidEntityPassword(c, err)
+	c.Assert(client, gc.Equals, nil)
+}
+
+func assertInvalidEntityPassword(c *gc.C, err error) {
 	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
 		Message: "invalid entity name or password",
 		Code:    "unauthorized access",
 	})
-	c.Assert(client, gc.Equals, nil)
+}
+
+func assertPermissionDenied(c *gc.C, err error) {
+	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
+		Message: "permission denied",
+		Code:    "unauthorized access",
+	})
+}
+
+func setEveryoneAccess(c *gc.C, st *state.State, adminUser names.UserTag, access permission.Access) {
+	err := controller.ChangeControllerAccess(
+		st, adminUser, names.NewUserTag(common.EveryoneTagName),
+		params.GrantControllerAccess, access)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 var _ = gc.Suite(&migrationSuite{

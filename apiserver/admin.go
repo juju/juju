@@ -187,10 +187,34 @@ func (a *admin) login(req params.LoginRequest, loginVersion int) (params.LoginRe
 			permission.IsEmptyUserAccess(everyoneGroupUser) {
 			return fail, errors.NotFoundf("model or controller access for logged in user %q", userTag.Canonical())
 		}
-		maybeUserInfo.ControllerAccess = string(controllerUser.Access)
-		maybeUserInfo.ModelAccess = string(modelUser.Access)
-		logger.Tracef("controller user %s has %v", entity.Tag(), controllerUser.Access)
-		logger.Tracef("model user %s has %s", entity.Tag(), modelUser.Access)
+		controllerAccess := controllerUser.Access
+		modelAccess := modelUser.Access
+		if !userTag.IsLocal() {
+			// There are special access rules around remote users when there are no
+			// explicit users defined.
+
+			// If there is no explicit model user for a remote user for whom
+			// the macaroon was successfully discharged, this means that the user
+			// should not have access to the model, so is permission denied.
+			if !controllerOnlyLogin && permission.ReadAccess.GreaterModelAccessThan(modelAccess) {
+				return fail, errors.Trace(common.ErrPerm)
+			}
+
+			// It is possible that there isn't a controllerUser for the remote user,
+			// so in that situation, we allows the remote user login access.
+			if permission.LoginAccess.GreaterControllerAccessThan(controllerAccess) {
+				controllerAccess = permission.LoginAccess
+			}
+		}
+		// It is possible that the everyoneGroup permissions are more capable than an
+		// individuals. If it is, use that.
+		if everyoneGroupUser.Access.GreaterControllerAccessThan(controllerAccess) {
+			controllerAccess = everyoneGroupUser.Access
+		}
+		maybeUserInfo.ControllerAccess = string(controllerAccess)
+		maybeUserInfo.ModelAccess = string(modelAccess)
+		logger.Tracef("controller user %s has %v", entity.Tag(), controllerAccess)
+		logger.Tracef("model user %s has %s", entity.Tag(), modelAccess)
 	}
 
 	// Fetch the API server addresses from state.

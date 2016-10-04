@@ -70,47 +70,74 @@ func ValidateControllerAccess(access Access) error {
 	return errors.NotValidf("%q controller access", access)
 }
 
-// EqualOrGreaterModelAccessThan returns true if the provided access is equal or
-// less than the current.
-func (a Access) EqualOrGreaterModelAccessThan(access Access) bool {
-	if a == access {
-		return true
-	}
+func (a Access) controllerValue() int {
 	switch a {
 	case UndefinedAccess:
-		return false
-	case ReadAccess:
-		return access == UndefinedAccess
-	case WriteAccess:
-		return access == ReadAccess ||
-			access == UndefinedAccess
-	case AdminAccess, SuperuserAccess:
-		return access == ReadAccess ||
-			access == WriteAccess
+		return 0
+	case LoginAccess:
+		return 1
+	case AddModelAccess:
+		return 2
+	case SuperuserAccess:
+		return 3
+	default:
+		return -1
 	}
-	return false
 }
 
-// EqualOrGreaterControllerAccessThan returns true if the provided access is equal or
-// less than the current.
-func (a Access) EqualOrGreaterControllerAccessThan(access Access) bool {
-	if a == access {
-		return true
-	}
+func (a Access) modelValue() int {
 	switch a {
 	case UndefinedAccess:
-		return false
-	case LoginAccess:
-		return access == UndefinedAccess
-	case AddModelAccess:
-		return access == UndefinedAccess ||
-			access == LoginAccess
-	case SuperuserAccess:
-		return access == UndefinedAccess ||
-			access == LoginAccess ||
-			access == AddModelAccess
+		return 0
+	case ReadAccess:
+		return 1
+	case WriteAccess:
+		return 2
+	case AdminAccess:
+		return 3
+	default:
+		return -1
 	}
-	return false
+}
+
+// EqualOrGreaterModelAccessThan returns true if the current access is equal
+// or greater than the passed in access level.
+func (a Access) EqualOrGreaterModelAccessThan(access Access) bool {
+	v1, v2 := a.modelValue(), access.modelValue()
+	if v1 < 0 || v2 < 0 {
+		return false
+	}
+	return v1 >= v2
+}
+
+// GreaterModelAccessThan returns true if the current access is greater than
+// the passed in access level.
+func (a Access) GreaterModelAccessThan(access Access) bool {
+	v1, v2 := a.modelValue(), access.modelValue()
+	if v1 < 0 || v2 < 0 {
+		return false
+	}
+	return v1 > v2
+}
+
+// EqualOrGreaterControllerAccessThan returns true if the current access is
+// equal or greater than the passed in access level.
+func (a Access) EqualOrGreaterControllerAccessThan(access Access) bool {
+	v1, v2 := a.controllerValue(), access.controllerValue()
+	if v1 < 0 || v2 < 0 {
+		return false
+	}
+	return v1 >= v2
+}
+
+// GreaterControllerAccessThan returns true if the current access is
+// greater than the passed in access level.
+func (a Access) GreaterControllerAccessThan(access Access) bool {
+	v1, v2 := a.controllerValue(), access.controllerValue()
+	if v1 < 0 || v2 < 0 {
+		return false
+	}
+	return v1 > v2
 }
 
 // accessField returns a Checker that accepts a string value only
