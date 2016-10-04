@@ -36,12 +36,41 @@ class MongoStatsData:
     def __init__(self, timestamp, insert, query, update, delete, vsize, res):
 
         self.timestamp = timestamp
-        self.insert = int(insert.replace('*', ''))
-        self.query = int(query.replace('*', ''))
-        self.update = int(update.replace('*', ''))
-        self.delete = int(delete.replace('*', ''))
-        self.vsize = int(vsize.replace('M', '')) * 1024 * 1024
-        self.res = int(res.replace('M', '')) * 1024 * 1024
+        self.insert = float(insert.replace('*', ''))
+        self.query = float(query.replace('*', ''))
+        self.update = float(update.replace('*', ''))
+        self.delete = float(delete.replace('*', ''))
+        try:
+            self.vsize = value_to_bytes(vsize)
+        except ValueError:
+            self.vsize = 'U'
+        try:
+            self.res = value_to_bytes(res)
+        except ValueError:
+            self.res = 'U'
+
+
+class SIUnits:
+    kB = 1e3
+    MB = 1e6
+    GB = 1e9
+
+
+def value_to_bytes(amount):
+    """Using SI Prefix rules."""
+
+    if not amount[-1].isalpha():
+        return float(amount)
+    elif amount.endswith('K'):
+        return float(amount.replace('K', '')) * SIUnits.kB
+    elif amount.endswith('M'):
+        return float(amount.replace('M', '')) * SIUnits.MB
+    elif amount.endswith('G'):
+        return float(amount.replace('G', '')) * SIUnits.GB
+
+    err_str = 'Unable to convert: {}'.format(amount)
+    log.error(err_str)
+    raise ValueError(err_str)
 
 
 def network_graph(start, end, rrd_path, output_file):
