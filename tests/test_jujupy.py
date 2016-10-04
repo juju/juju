@@ -1047,7 +1047,7 @@ class TestEnvJujuClient(ClientTest):
             '--config', 'config', '--default-model', 'foo',
             '--bootstrap-series', 'angsty'))
 
-    def test_get_bootstrap_args_agent_verion(self):
+    def test_get_bootstrap_args_agent_version(self):
         env = JujuData('foo', {'type': 'bar', 'region': 'baz'})
         client = EnvJujuClient(env, '2.0-zeta1', None)
         args = client.get_bootstrap_args(upload_tools=False,
@@ -1057,7 +1057,7 @@ class TestEnvJujuClient(ClientTest):
                           '--config', 'config', '--default-model', 'foo',
                           '--agent-version', '2.0-lambda1'), args)
 
-    def test_get_bootstrap_args_upload_tools_and_agent_verion(self):
+    def test_get_bootstrap_args_upload_tools_and_agent_version(self):
         env = JujuData('foo', {'type': 'bar', 'region': 'baz'})
         client = EnvJujuClient(env, '2.0-zeta1', None)
         with self.assertRaises(ValueError):

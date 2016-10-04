@@ -1157,15 +1157,15 @@ class EnvJujuClient:
         args = ['--constraints', constraints, self.env.environment,
                 cloud_region, '--config', config_filename,
                 '--default-model', self.env.environment]
-        if upload_tools and agent_version is not None:
-            raise ValueError(
-                'agent-version may not be given with upload-tools.')
         if upload_tools:
+            if agent_version is not None:
+                raise ValueError(
+                    'agent-version may not be given with upload-tools.')
             args.insert(0, '--upload-tools')
-        elif agent_version is not None:
-            args.extend(['--agent-version', agent_version])
         else:
-            args.extend(['--agent-version', self.get_matching_agent_version()])
+            if agent_version is None:
+                agent_version = self.get_matching_agent_version()
+            args.extend(['--agent-version', agent_version])
         if bootstrap_series is not None:
             args.extend(['--bootstrap-series', bootstrap_series])
         if credential is not None:
