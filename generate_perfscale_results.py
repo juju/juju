@@ -90,12 +90,6 @@ def assess_perf_test_simple(bs_manager, upload_tools):
 
             deploy_details = assess_longrun_perf(
                 bs_manager, test_length=MINUTE*60*12)
-        except Exception as e:
-            # Lets get to the bottom of this failure, print lxc details to
-            # stdout.
-            print(">>> Encountered Error")
-            print(subprocess.check_output(['lxc', 'list']))
-            raise
         finally:
             results_dir = os.path.join(
                 os.path.abspath(bs_manager.log_dir), 'performance_results/')
@@ -333,13 +327,7 @@ def assess_longrun_perf(bs_manager, test_length):
         action_busy(new_client, applications)
         action_cleanup(new_client)
 
-        try:
-            patch_dir_name = 'temp_logging_{}'.format(run_count)
-            bs_manager.dump_all_logs(patch_dir_name)
-        except Exception as e:
-            print('Failed to log details.')
-            print(e)
-        action_rest(Rest.medium)
+        action_rest(Rest.short)
         run_count += 1
 
     longrun_end = datetime.utcnow()
@@ -374,7 +362,6 @@ def action_busy(client, applications):
 
 def action_cleanup(client):
     client.destroy_model()
-    action_rest(Rest.short)
 
 
 def action_rest(rest_length=Rest.short):
