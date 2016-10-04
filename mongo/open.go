@@ -127,26 +127,27 @@ func DialInfo(info Info, opts DialOpts) (*mgo.DialInfo, error) {
 	tlsConfig.RootCAs = pool
 	tlsConfig.ServerName = "juju-mongodb"
 
-	dial := func(addr net.Addr) (net.Conn, error) {
-		c, err := net.Dial("tcp", addr.String())
+	dial := func(server *mgo.ServerAddr) (net.Conn, error) {
+		addr := server.TCPAddr().String()
+		c, err := net.DialTimeout("tcp", addr, opts.Timeout)
 		if err != nil {
-			logger.Debugf("connection failed, will retry: %v", err)
+			logger.Errorf("mongodb connection failed, will retry: %v", err)
 			return nil, err
 		}
 		cc := tls.Client(c, tlsConfig)
 		if err := cc.Handshake(); err != nil {
-			logger.Debugf("TLS handshake failed: %v", err)
+			logger.Errorf("TLS handshake failed: %v", err)
 			return nil, err
 		}
-		logger.Infof("dialled mongo successfully on address %q", addr)
+		logger.Debugf("dialled mongodb server at %q", addr)
 		return cc, nil
 	}
 
 	return &mgo.DialInfo{
-		Addrs:   info.Addrs,
-		Timeout: opts.Timeout,
-		Dial:    dial,
-		Direct:  opts.Direct,
+		Addrs:      info.Addrs,
+		Timeout:    opts.Timeout,
+		DialServer: dial,
+		Direct:     opts.Direct,
 	}, nil
 }
 
