@@ -4,7 +4,7 @@
 package manual
 
 import (
-	"github.com/juju/juju/environs/manual"
+	manualcommon "github.com/juju/juju/environs/manual/common"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/status"
@@ -31,7 +31,7 @@ func (manualBootstrapInstance) Refresh() error {
 }
 
 func (inst manualBootstrapInstance) Addresses() (addresses []network.Address, err error) {
-	addr, err := manual.HostAddress(inst.host)
+	addr, err := manualcommon.HostAddress(inst.host)
 	if err != nil {
 		return nil, err
 	}

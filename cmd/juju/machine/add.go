@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/manual"
+	manualcommon "github.com/juju/juju/environs/manual/common"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/storage"
@@ -64,7 +65,7 @@ Examples:
    juju add-machine lxd -n 2             (starts 2 new machines with an lxd container)
    juju add-machine lxd:4                (starts a new lxd container on machine 4)
    juju add-machine --constraints mem=8G (starts a machine with at least 8GB RAM)
-   juju add-machine ssh:user@10.10.0.3   (manually provisions a machine with ssh)
+   juju add-machine ssh:user@10.10.0.3   (manually provisions a linux machine with ssh)
    juju add-machine zone=us-east-1a      (start a machine in zone us-east-1a on AWS)
    juju add-machine maas2.name           (acquire machine maas2.name on MAAS)
 
@@ -170,6 +171,15 @@ type MachineManagerAPI interface {
 
 var manualProvisioner = manual.ProvisionMachine
 
+// splitUserHost given a host string of example user@192.168.122.122
+// it will return user and 192.168.122.122
+func splitUserHost(host string) (string, string) {
+	if at := strings.Index(host, "@"); at != -1 {
+		return host[:at], host[at+1:]
+	}
+	return "", host
+}
+
 func (c *addCommand) getClientAPI() (AddMachineAPI, error) {
 	if c.api != nil {
 		return c.api, nil
@@ -246,29 +256,11 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	if c.Placement != nil && c.Placement.Scope == "ssh" {
-		logger.Infof("manual provisioning")
-		authKeys, err := common.ReadAuthorizedKeys(ctx, "")
-		if err != nil {
-			return errors.Annotate(err, "reading authorized-keys")
+	if c.Placement != nil {
+		err := c.scopeRun(client, config, ctx)
+		if err != manualcommon.ErrNoProtoScope {
+			return err
 		}
-		args := manual.ProvisionMachineArgs{
-			Host:           c.Placement.Directive,
-			Client:         client,
-			Stdin:          ctx.Stdin,
-			Stdout:         ctx.Stdout,
-			Stderr:         ctx.Stderr,
-			AuthorizedKeys: authKeys,
-			UpdateBehavior: &params.UpdateBehavior{
-				config.EnableOSRefreshUpdate(),
-				config.EnableOSUpgrade(),
-			},
-		}
-		machineId, err := manualProvisioner(args)
-		if err == nil {
-			ctx.Infof("created machine %v", machineId)
-		}
-		return err
 	}
 
 	logger.Infof("model provisioning")
@@ -313,7 +305,7 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	errs := []error{}
+	errs := make([]error, 0, 10) // avoid extra allocations
 	for _, machineInfo := range results {
 		if machineInfo.Error != nil {
 			errs = append(errs, machineInfo.Error)
@@ -340,4 +332,34 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 		return errors.New(strings.Join(returnErr, ", "))
 	}
 	return nil
+}
+
+func (c *addCommand) scopeRun(client AddMachineAPI, config *config.Config, ctx *cmd.Context) error {
+
+	authKeys, err := common.ReadAuthorizedKeys(ctx, "")
+	if err != nil {
+		return errors.Annotate(err, "reading authorized-keys")
+	}
+
+	user, host := splitUserHost(c.Placement.Directive)
+	args := manualcommon.ProvisionMachineArgs{
+		Host:           host,
+		User:           user,
+		Client:         client,
+		Stdin:          ctx.Stdin,
+		Stdout:         ctx.Stdout,
+		Stderr:         ctx.Stderr,
+		AuthorizedKeys: authKeys,
+		UpdateBehavior: &params.UpdateBehavior{
+			config.EnableOSRefreshUpdate(),
+			config.EnableOSUpgrade(),
+		},
+	}
+
+	logger.Infof("manual provisioning")
+	machineId, err := manualProvisioner(args, c.Placement)
+	if err == nil {
+		ctx.Infof("created machine %v", machineId)
+	}
+	return err
 }

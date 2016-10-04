@@ -374,7 +374,6 @@ func (c *Client) ProvisioningScript(args params.ProvisioningScriptParams) (param
 			err, "getting instance config",
 		))
 	}
-
 	// Until DisablePackageCommands is retired, for backwards
 	// compatibility, we must respect the client's request and
 	// override any model settings the user may have specified.
@@ -393,12 +392,20 @@ func (c *Client) ProvisioningScript(args params.ProvisioningScriptParams) (param
 		icfg.EnableOSRefreshUpdate = cfg.EnableOSRefreshUpdate()
 	}
 
-	result.Script, err = manual.ProvisioningScript(icfg)
+	machine, err := manual.NewScriptProvisioner(icfg)
+	if err != nil {
+		return result, common.ServerError(errors.Annotate(
+			err, "making provisioning object",
+		))
+	}
+
+	result.Script, err = machine.ProvisioningScript()
 	if err != nil {
 		return result, common.ServerError(errors.Annotate(
 			err, "getting provisioning script",
 		))
 	}
+
 	return result, nil
 }
 

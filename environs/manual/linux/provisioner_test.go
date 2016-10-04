@@ -1,17 +1,12 @@
-// Copyright 2013 Canonical Ltd.
+// Copyright 2016 Canonical Ltd.
+// Copyright 2016 Cloudbase Solutions SRL
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package manual_test
+package linux_test
 
 import (
 	"fmt"
 	"os"
-
-	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/series"
-	"github.com/juju/utils/shell"
-	"github.com/juju/version"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/client"
@@ -19,10 +14,18 @@ import (
 	"github.com/juju/juju/cloudconfig"
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/environs/manual"
+	"github.com/juju/juju/environs/manual/common"
+	"github.com/juju/juju/environs/manual/linux"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
+
+	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/series"
+	"github.com/juju/utils/shell"
+	"github.com/juju/version"
+	gc "gopkg.in/check.v1"
 )
 
 type provisionerSuite struct {
@@ -31,12 +34,12 @@ type provisionerSuite struct {
 
 var _ = gc.Suite(&provisionerSuite{})
 
-func (s *provisionerSuite) getArgs(c *gc.C) manual.ProvisionMachineArgs {
+func (s *provisionerSuite) getArgs(c *gc.C) common.ProvisionMachineArgs {
 	hostname, err := os.Hostname()
 	c.Assert(err, jc.ErrorIsNil)
 	client := s.APIState.Client()
 	s.AddCleanup(func(*gc.C) { client.Close() })
-	return manual.ProvisionMachineArgs{
+	return common.ProvisionMachineArgs{
 		Host:           hostname,
 		Client:         client,
 		UpdateBehavior: &params.UpdateBehavior{true, true},
@@ -49,11 +52,14 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 
 	args := s.getArgs(c)
 	hostname := args.Host
-	args.Host = "ubuntu@" + args.Host
+	args.Host = args.Host
+	args.User = "ubuntu"
 
 	defaultToolsURL := envtools.DefaultBaseURL
 	envtools.DefaultBaseURL = ""
-
+	placement := &instance.Placement{
+		Scope: "ssh",
+	}
 	defer fakeSSH{
 		Series:             series,
 		Arch:               arch,
@@ -61,7 +67,7 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 		SkipProvisionAgent: true,
 	}.install(c).Restore()
 	// Attempt to provision a machine with no tools available, expect it to fail.
-	machineId, err := manual.ProvisionMachine(args)
+	machineId, err := manual.ProvisionMachine(args, placement)
 	c.Assert(err, jc.Satisfies, params.IsCodeNotFound)
 	c.Assert(machineId, gc.Equals, "")
 
@@ -84,7 +90,7 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 			InitUbuntuUser:         true,
 			ProvisionAgentExitCode: errorCode,
 		}.install(c).Restore()
-		machineId, err = manual.ProvisionMachine(args)
+		machineId, err = manual.ProvisionMachine(args, placement)
 		if errorCode != 0 {
 			c.Assert(err, gc.ErrorMatches, fmt.Sprintf("subprocess encountered error code %d", errorCode))
 			c.Assert(machineId, gc.Equals, "")
@@ -110,8 +116,8 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 		SkipDetection:      true,
 		SkipProvisionAgent: true,
 	}.install(c).Restore()
-	_, err = manual.ProvisionMachine(args)
-	c.Assert(err, gc.Equals, manual.ErrProvisioned)
+	_, err = manual.ProvisionMachine(args, placement)
+	c.Assert(err, gc.Equals, common.ErrProvisioned)
 	defer fakeSSH{
 		Provisioned:              true,
 		CheckProvisionedExitCode: 255,
@@ -119,7 +125,7 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 		SkipDetection:            true,
 		SkipProvisionAgent:       true,
 	}.install(c).Restore()
-	_, err = manual.ProvisionMachine(args)
+	_, err = manual.ProvisionMachine(args, placement)
 	c.Assert(err, gc.ErrorMatches, "error checking if provisioned: subprocess encountered error code 255")
 }
 
@@ -131,7 +137,10 @@ func (s *provisionerSuite) TestFinishInstancConfig(c *gc.C) {
 		Arch:           arch,
 		InitUbuntuUser: true,
 	}.install(c).Restore()
-	machineId, err := manual.ProvisionMachine(s.getArgs(c))
+	placement := &instance.Placement{
+		Scope: "ssh",
+	}
+	machineId, err := manual.ProvisionMachine(s.getArgs(c), placement)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Now check what we would've configured it with.
@@ -152,8 +161,11 @@ func (s *provisionerSuite) TestProvisioningScript(c *gc.C) {
 		Arch:           arch,
 		InitUbuntuUser: true,
 	}.install(c).Restore()
+	placement := &instance.Placement{
+		Scope: "ssh",
+	}
 
-	machineId, err := manual.ProvisionMachine(s.getArgs(c))
+	machineId, err := manual.ProvisionMachine(s.getArgs(c), placement)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.State.UpdateModelConfig(
@@ -163,9 +175,11 @@ func (s *provisionerSuite) TestProvisioningScript(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	icfg, err := client.InstanceConfig(s.State, machineId, agent.BootstrapNonce, "/var/lib/juju")
-
 	c.Assert(err, jc.ErrorIsNil)
-	script, err := manual.ProvisioningScript(icfg)
+
+	sc := linux.NewScript(icfg)
+	c.Assert(err, jc.ErrorIsNil)
+	script, err := sc.ProvisioningScript()
 	c.Assert(err, jc.ErrorIsNil)
 
 	cloudcfg, err := cloudinit.New(series)

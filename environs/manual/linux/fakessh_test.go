@@ -1,7 +1,8 @@
-// Copyright 2013 Canonical Ltd.
+// Copyright 2016 Canonical Ltd.
+// Copyright 2016 Cloudbase Solutions SRL
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package manual_test
+package linux_test
 
 import (
 	"fmt"
@@ -9,12 +10,12 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/juju/juju/environs/manual/linux"
+	"github.com/juju/juju/service"
+
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-
-	"github.com/juju/juju/environs/manual"
-	"github.com/juju/juju/service"
 )
 
 // sshscript should only print the result on the first execution,
@@ -99,7 +100,7 @@ func installDetectionFakeSSH(c *gc.C, series, arch string) testing.Restorer {
 		"MemTotal: 4096 kB",
 		"processor: 0",
 	}, "\n")
-	return installFakeSSH(c, manual.DetectionScript, detectionoutput, 0)
+	return installFakeSSH(c, linux.DetectionScript, detectionoutput, 0)
 }
 
 // fakeSSH wraps the invocation of InstallFakeSSH based on the parameters.

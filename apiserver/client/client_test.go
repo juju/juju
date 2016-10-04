@@ -1050,7 +1050,9 @@ func (s *clientSuite) TestProvisioningScript(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	icfg, err := client.InstanceConfig(s.State, machineId, apiParams.Nonce, "")
 	c.Assert(err, jc.ErrorIsNil)
-	provisioningScript, err := manual.ProvisioningScript(icfg)
+	machine, err := manual.NewScriptProvisioner(icfg)
+	c.Assert(err, jc.ErrorIsNil)
+	provisioningScript, err := machine.ProvisioningScript()
 	c.Assert(err, jc.ErrorIsNil)
 	// ProvisioningScript internally calls MachineConfig,
 	// which allocates a new, random password. Everything
