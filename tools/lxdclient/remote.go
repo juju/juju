@@ -36,6 +36,9 @@ const (
 	SimplestreamsProtocol Protocol = "simplestreams"
 )
 
+/* The "releases" stream for images. This consists of blessed releases by the
+ * Canonical team.
+ */
 var CloudImagesRemote = Remote{
 	Name:          "cloud-images.ubuntu.com",
 	Host:          "https://cloud-images.ubuntu.com/releases",
@@ -44,6 +47,11 @@ var CloudImagesRemote = Remote{
 	ServerPEMCert: "",
 }
 
+/* The "daily" stream. This consists of images that are built from the daily
+ * package builds. These images have not been independently tested, but in
+ * theory "should" be good, since they're build from packages from the released
+ * archive.
+ */
 var CloudImagesDailyRemote = Remote{
 	Name:          "cloud-images.ubuntu.com",
 	Host:          "https://cloud-images.ubuntu.com/daily",
