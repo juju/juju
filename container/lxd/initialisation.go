@@ -145,7 +145,7 @@ var configureZFS = func() {
 var configureLXDBridge = func() error {
 	client, err := ConnectLocal()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	status, err := client.ServerStatus()
