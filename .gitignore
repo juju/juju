@@ -3,6 +3,7 @@ cmd/jujud/jujud
 cmd/builddb/builddb
 cmd/charmd/charmd
 cmd/charmload/charmload
+provider/ec2/internal/ec2instancetypes/index.json
 tags
 !tags/
 TAGS
