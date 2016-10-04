@@ -135,7 +135,7 @@ func (s *imageSuite) TestEnsureImageExistsAlreadyPresent(c *gc.C) {
 		},
 	}
 	client := &imageClient{
-		raw: raw,
+		raw:             raw,
 		connectToSource: connector.connectToSource,
 	}
 	err := client.EnsureImageExists("trusty", []Remote{s.remoteWithTrusty.AsRemote()}, nil)

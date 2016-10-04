@@ -153,7 +153,7 @@ func Connect(cfg Config) (*Client, error) {
 		profileClient:            &profileClient{raw},
 		instanceClient:           &instanceClient{raw, remoteID},
 		imageClient:              &imageClient{raw, connectToRaw},
-		networkClient:		  &networkClient{raw, networkAPISupported},
+		networkClient:            &networkClient{raw, networkAPISupported},
 		baseURL:                  raw.BaseURL,
 		defaultProfileBridgeName: bridgeName,
 	}

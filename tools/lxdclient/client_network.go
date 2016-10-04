@@ -20,7 +20,7 @@ type rawNetworkClient interface {
 }
 
 type networkClient struct {
-	raw rawNetworkClient
+	raw       rawNetworkClient
 	supported bool
 }
 

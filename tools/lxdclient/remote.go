@@ -45,11 +45,11 @@ var CloudImagesRemote = Remote{
 }
 
 var CloudImagesDailyRemote = Remote{
-	Name:		"cloud-images.ubuntu.com",
-	Host:		"https://cloud-images.ubuntu.com/daily",
-	Protocol:	SimplestreamsProtocol,
-	Cert:		nil,
-	ServerPEMCert:  "",
+	Name:          "cloud-images.ubuntu.com",
+	Host:          "https://cloud-images.ubuntu.com/daily",
+	Protocol:      SimplestreamsProtocol,
+	Cert:          nil,
+	ServerPEMCert: "",
 }
 
 var generateCertificate = lxdshared.GenerateMemCert
