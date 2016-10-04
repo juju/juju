@@ -223,6 +223,20 @@ func (s *addSuite) TestCollapseUnitErrors(c *gc.C) {
 	s.assertAddErrorOutput(c, "cmd: error out silently", "", fmt.Sprintf("%v\n", expectedErr))
 }
 
+func (s *addSuite) TestUnauthorizedMentionsJujuGrant(c *gc.C) {
+	s.args = []string{"tst/123", "data"}
+	s.mockAPI.addToUnitFunc = func(storages []params.StorageAddParams) ([]params.ErrorResult, error) {
+		return nil, &params.Error{
+			Message: "permission denied",
+			Code:    params.CodeUnauthorized,
+		}
+	}
+
+	_, err := s.runAdd(c, s.args...)
+	errString := strings.Replace(err.Error(), "\n", " ", -1)
+	c.Assert(errString, gc.Matches, `.*juju grant.*`)
+}
+
 func (s *addSuite) assertAddOutput(c *gc.C, expectedOut, expectedErr string) {
 	context, err := s.runAdd(c, s.args...)
 	c.Assert(err, jc.ErrorIsNil)

@@ -13,7 +13,9 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/application"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/instance"
 )
@@ -179,6 +181,9 @@ func (c *addUnitCommand) Run(_ *cmd.Context) error {
 		c.Placement[i] = p
 	}
 	_, err = apiclient.AddUnits(c.ApplicationName, c.NumUnits, c.Placement)
+	if params.IsCodeUnauthorized(err) {
+		return common.PermissionsError(err, "add a unit")
+	}
 	return block.ProcessBlockedError(err, block.BlockChange)
 }
 

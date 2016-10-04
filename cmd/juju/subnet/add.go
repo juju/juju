@@ -11,6 +11,8 @@ import (
 	"github.com/juju/juju/network"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
@@ -111,6 +113,8 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 			// Special case: multiple subnets with the same CIDR exist
 			ctx.Infof("ERROR: %v.", err)
 			return nil
+		} else if err != nil && params.IsCodeUnauthorized(err) {
+			return common.PermissionsError(err, "add a subnet")
 		} else if err != nil {
 			return errors.Annotatef(err, "cannot add subnet")
 		}

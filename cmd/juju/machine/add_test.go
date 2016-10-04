@@ -5,6 +5,7 @@ package machine_test
 
 import (
 	"strconv"
+	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -122,6 +123,17 @@ func (s *AddMachineSuite) TestAddMachine(c *gc.C) {
 	})
 }
 
+func (s *AddMachineSuite) TestAddMachineUnauthorizedMentionsJujuGrant(c *gc.C) {
+	s.fakeAddMachine.addModelGetError = &params.Error{
+		Message: "permission denied",
+		Code:    params.CodeUnauthorized,
+	}
+	_, err := s.run(c)
+	// Expect a friendly message mentioning the need use `juju grant`.
+	stripped := strings.Replace(err.Error(), "\n", " ", -1)
+	c.Assert(stripped, gc.Matches, `.*juju grant.*`)
+}
+
 func (s *AddMachineSuite) TestSSHPlacement(c *gc.C) {
 	s.PatchValue(machine.ManualProvisioner, func(args manual.ProvisionMachineArgs) (string, error) {
 		return "42", nil
@@ -196,11 +208,12 @@ func (s *AddMachineSuite) TestAddMachineWithDisksUnsupported(c *gc.C) {
 }
 
 type fakeAddMachineAPI struct {
-	successOrder []bool
-	currentOp    int
-	args         []params.AddMachineParams
-	addError     error
-	providerType string
+	successOrder     []bool
+	currentOp        int
+	args             []params.AddMachineParams
+	addError         error
+	addModelGetError error
+	providerType     string
 }
 
 func (f *fakeAddMachineAPI) Close() error {
@@ -243,6 +256,9 @@ func (f *fakeAddMachineAPI) ProvisioningScript(params.ProvisioningScriptParams) 
 }
 
 func (f *fakeAddMachineAPI) ModelGet() (map[string]interface{}, error) {
+	if f.addModelGetError != nil {
+		return nil, f.addModelGetError
+	}
 	providerType := "dummy"
 	if f.providerType != "" {
 		providerType = f.providerType

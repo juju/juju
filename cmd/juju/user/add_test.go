@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/user"
 	"github.com/juju/juju/testing"
 )
@@ -134,7 +135,18 @@ func (s *UserAddCommandSuite) TestAddUserErrorResponse(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, s.mockAPI.failMessage)
 }
 
+func (s *UserAddCommandSuite) TestAddUserUnauthorizedMentionsJujuGrant(c *gc.C) {
+	s.mockAPI.addError = &params.Error{
+		Message: "permission denied",
+		Code:    params.CodeUnauthorized,
+	}
+	_, err := s.run(c, "foobar")
+	errString := strings.Replace(err.Error(), "\n", " ", -1)
+	c.Assert(errString, gc.Matches, `*.juju grant.*`)
+}
+
 type mockAddUserAPI struct {
+	addError    error
 	failMessage string
 	blocked     bool
 	secretKey   []byte
@@ -147,6 +159,9 @@ type mockAddUserAPI struct {
 func (m *mockAddUserAPI) AddUser(username, displayname, password string) (names.UserTag, []byte, error) {
 	if m.blocked {
 		return names.UserTag{}, nil, common.OperationBlockedError("the operation has been blocked")
+	}
+	if m.addError != nil {
+		return names.UserTag{}, nil, m.addError
 	}
 	m.username = username
 	m.displayname = displayname

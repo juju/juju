@@ -4,6 +4,7 @@
 package space_test
 
 import (
+	"strings"
 	stdtesting "testing"
 
 	"github.com/juju/cmd"
@@ -88,6 +89,16 @@ func (s *BaseSpaceSuite) AssertRunSpacesNotSupported(c *gc.C, expectErr string, 
 	c.Assert(err, gc.ErrorMatches, expectErr)
 	c.Assert(stdout, gc.Equals, "")
 	c.Assert(stderr, gc.Equals, expectErr+"\n")
+	return err
+}
+
+// AssertRunFailsUnauthoirzed is a shortcut for calling RunCommand with the
+// passed args then asserting the error is as expected, finally returning the
+// error.
+func (s *BaseSpaceSuite) AssertRunFailsUnauthorized(c *gc.C, expectErr string, args ...string) error {
+	_, _, err := s.RunCommand(c, args...)
+	errString := strings.Replace(err.Error(), "\n", " ", -1)
+	c.Assert(errString, gc.Matches, expectErr)
 	return err
 }
 

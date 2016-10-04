@@ -11,6 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
@@ -133,6 +134,17 @@ func (s *AddUnitSuite) TestBlockAddUnit(c *gc.C) {
 	// msg is logged
 	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
 	c.Check(stripped, gc.Matches, ".*TestBlockAddUnit.*")
+}
+
+func (s *AddUnitSuite) TestUnauthorizedMentionsJujuGrant(c *gc.C) {
+	s.fake.err = &params.Error{
+		Message: "permission denied",
+		Code:    params.CodeUnauthorized,
+	}
+	err := s.runAddUnit(c, "some-application-name")
+
+	stripped := strings.Replace(err.Error(), "\n", " ", -1)
+	c.Assert(stripped, gc.Matches, `.*juju grant.*`)
 }
 
 func (s *AddUnitSuite) TestForceMachine(c *gc.C) {

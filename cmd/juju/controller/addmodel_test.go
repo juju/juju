@@ -6,6 +6,7 @@ package controller_test
 import (
 	"fmt"
 	"io/ioutil"
+	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -167,6 +168,17 @@ func (s *AddModelSuite) TestAddExistingName(c *gc.C) {
 	details, err := s.store.ModelByName("test-master", "bob/test")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(details, jc.DeepEquals, &jujuclient.ModelDetails{"fake-model-uuid"})
+}
+
+func (s *AddModelSuite) TestAddModelUnauthorizedMentionsJujuGrant(c *gc.C) {
+	s.fakeAddModelAPI.err = &params.Error{
+		Message: "permission denied",
+		Code:    params.CodeUnauthorized,
+	}
+	_, err := s.run(c, "test")
+	// Expect a friendly message mentioning the need use `juju grant`.
+	stripped := strings.Replace(err.Error(), "\n", " ", -1)
+	c.Assert(stripped, gc.Matches, `.*juju grant.*`)
 }
 
 func (s *AddModelSuite) TestCredentialsPassedThrough(c *gc.C) {

@@ -4,6 +4,8 @@
 package application
 
 import (
+	"strings"
+
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -72,6 +74,16 @@ func (s *AddRelationSuite) TestAddRelationBlocked(c *gc.C) {
 	coretesting.AssertOperationWasBlocked(c, err, ".*TestBlockAddRelation.*")
 	s.mockAPI.CheckCall(c, 0, "AddRelation", []string{"application1", "application2"})
 	s.mockAPI.CheckCall(c, 1, "Close")
+}
+
+func (s *AddRelationSuite) TestAddRelationUnauthorizedMentionsJujuGrant(c *gc.C) {
+	s.mockAPI.SetErrors(&params.Error{
+		Message: "permission denied",
+		Code:    params.CodeUnauthorized,
+	})
+	err := s.runAddRelation(c, "application1", "application2")
+	errString := strings.Replace(err.Error(), "\n", " ", -1)
+	c.Assert(errString, gc.Matches, `.*juju grant.*`)
 }
 
 type mockAddAPI struct {

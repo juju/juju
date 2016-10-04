@@ -8,6 +8,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/space"
 )
 
@@ -71,4 +72,16 @@ func (s *AddSuite) TestRunWhenSpacesAPIFails(c *gc.C) {
 
 	s.api.CheckCallNames(c, "AddSpace", "Close")
 	s.api.CheckCall(c, 0, "AddSpace", "foo", s.Strings("10.1.2.0/24"), true)
+}
+
+func (s *AddSuite) TestRunUnauthorizedMentionsJujuGrant(c *gc.C) {
+	s.api.SetErrors(&params.Error{
+		Message: "permission denied",
+		Code:    params.CodeUnauthorized,
+	})
+
+	s.AssertRunFailsUnauthorized(c,
+		`*.juju grant.*`,
+		"foo", "10.1.2.0/24",
+	)
 }

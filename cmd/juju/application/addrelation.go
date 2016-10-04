@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
@@ -64,5 +65,8 @@ func (c *addRelationCommand) Run(_ *cmd.Context) error {
 	}
 	defer client.Close()
 	_, err = client.AddRelation(c.Endpoints...)
+	if params.IsCodeUnauthorized(err) {
+		return common.PermissionsError(err, "add a relation")
+	}
 	return block.ProcessBlockedError(err, block.BlockChange)
 }
