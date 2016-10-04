@@ -7,7 +7,6 @@ from assess_bootstrap import (
     assess_auto_upgrade,
     assess_bootstrap,
     assess_metadata,
-    get_agent_version,
     INVALID_URL,
     parse_args,
     prepare_metadata,
@@ -230,20 +229,10 @@ class TestAssessMetadata(FakeHomeTestCase):
                     assess_metadata(bs_manager, 'agents')
 
 
-class TestAgentVersionHelpers(TestCase):
+class TestPrevAgentVersion(TestCase):
 
     def test_prev_agent_version(self):
         self.assertEqual('2.0-beta18', prev_agent_version('2.0-rc1'))
-
-    def test_get_agent_version(self):
-        status = Status({
-            'machines': {
-                "0": {'juju-status': {'version': '2.0-zeta1'}},
-                "1": {'juju-status': {'version': '2.0-lambda1'}},
-                }
-            }, '')
-        self.assertEqual(['2.0-zeta1', '2.0-lambda1'],
-                         get_agent_version(status))
 
 
 class TestAssessAutoUpgrade(FakeHomeTestCase):

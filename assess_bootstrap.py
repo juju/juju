@@ -77,15 +77,6 @@ def prev_agent_version(current_version):
     return '2.0-beta18'
 
 
-def get_agent_version(client):
-    """Get the agent version of the machines used by the client."""
-    status = client.get_status()
-    versions = []
-    for (machine, machine_status) in status['machines'].iteritems():
-        versions.append(machine_status['juju-status']['version'])
-    return versions
-
-
 def assess_auto_upgrade(bs_manager):
     """Test bootstraping with auto-upgrading the agents."""
     client = bs_manager.client
@@ -98,6 +89,7 @@ def assess_auto_upgrade(bs_manager):
         with bs_manager.runtime_context(machines):
             log.info('Auto-upgrade bootstrap successful.')
             # Check to see if the agents have been upgraded.
+            # versions = client.get_status().get_agent_versions()
 
 
 def assess_bootstrap(args):
