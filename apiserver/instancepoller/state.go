@@ -20,6 +20,7 @@ type StateMachine interface {
 	SetProviderAddresses(...network.Address) error
 	InstanceStatus() (status.StatusInfo, error)
 	SetInstanceStatus(status.StatusInfo) error
+	SetStatus(status.StatusInfo) error
 	String() string
 	Refresh() error
 	Life() state.Life

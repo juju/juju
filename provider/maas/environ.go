@@ -54,6 +54,8 @@ var shortAttempt = utils.AttemptStrategy{
 	Delay: 200 * time.Millisecond,
 }
 
+const statusPollInterval = 5 * time.Second
+
 var (
 	ReleaseNodes         = releaseNodes
 	DeploymentStatusCall = deploymentStatusCall
@@ -948,6 +950,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 			return nil, errors.Annotatef(err, "cannot run instances")
 		}
 	}
+
 	defer func() {
 		if err != nil {
 			if err := environ.StopInstances(inst.Id()); err != nil {

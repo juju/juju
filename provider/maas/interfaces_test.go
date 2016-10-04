@@ -923,8 +923,8 @@ func (s *interfacesSuite) TestMAAS2NetworkInterfaces(c *gc.C) {
 		MTU:                 1500,
 		GatewayAddress:      newAddressOnSpaceWithId("storage", network.Id("3"), "10.250.19.2"),
 	}}
-
-	instance := &maas2Instance{machine: &fakeMachine{interfaceSet: exampleInterfaces}}
+	machine := &fakeMachine{interfaceSet: exampleInterfaces}
+	instance := &maas2Instance{machine: machine}
 
 	infos, err := maas2NetworkInterfaces(instance, subnetsMap)
 	c.Assert(err, jc.ErrorIsNil)
@@ -965,8 +965,8 @@ func (s *interfacesSuite) TestMAAS2InterfacesNilVLAN(c *gc.C) {
 			children: []string{"eth0.100", "eth0.250", "eth0.50"},
 		},
 	}
-
-	instance := &maas2Instance{machine: &fakeMachine{interfaceSet: exampleInterfaces}}
+	machine := &fakeMachine{interfaceSet: exampleInterfaces}
+	instance := &maas2Instance{machine: machine}
 
 	expected := []network.InterfaceInfo{{
 		DeviceIndex:       0,

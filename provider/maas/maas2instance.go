@@ -65,7 +65,10 @@ func (mi *maas2Instance) Addresses() ([]network.Address, error) {
 // Status returns a juju status based on the maas instance returned
 // status message.
 func (mi *maas2Instance) Status() instance.InstanceStatus {
-	// TODO (babbageclunk): this should rerequest to get live status.
+	// A fresh status is not obtained here because the interface it is intended
+	// to satisfy gets a new maas2Instance before each call, using a fresh status
+	// would cause us to mask errors since this interface does not contemplate
+	// returing them.
 	statusName := mi.machine.StatusName()
 	statusMsg := mi.machine.StatusMessage()
 	return convertInstanceStatus(statusName, statusMsg, mi.Id())
