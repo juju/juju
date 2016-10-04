@@ -142,6 +142,9 @@ func Connect(cfg Config) (*Client, error) {
 		// make sure the default profile has a correctly configured bridge, and
 		// which one is it.
 		bridgeName, err = verifyDefaultProfileBridgeConfig(raw, networkAPISupported)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
 
 	conn := &Client{
