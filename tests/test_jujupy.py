@@ -1061,9 +1061,9 @@ class TestEnvJujuClient(ClientTest):
         env = JujuData('foo', {'type': 'bar', 'region': 'baz'})
         client = EnvJujuClient(env, '2.0-zeta1', None)
         with self.assertRaises(ValueError):
-            args = client.get_bootstrap_args(upload_tools=True,
-                                             config_filename='config',
-                                             agent_version='2.0-lambda1')
+            client.get_bootstrap_args(upload_tools=True,
+                                      config_filename='config',
+                                      agent_version='2.0-lambda1')
 
     def test_add_model_hypenated_controller(self):
         self.do_add_model(
