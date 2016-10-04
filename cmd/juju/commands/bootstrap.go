@@ -175,7 +175,7 @@ func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.AgentVersionParam, "agent-version", "", "Version of tools to use for Juju agents")
 	f.StringVar(&c.CredentialName, "credential", "", "Credentials to use when bootstrapping")
 	f.Var(&c.config, "config", "Specify a controller configuration file, or one or more configuration\n    options\n    (--config config.yaml [--config key=value ...])")
-	f.Var(&c.modelDefaults, "model-default", "Specify a configuration file, or one or more configuration\n    options to be set for all models\n    (--config config.yaml [--config key=value ...])")
+	f.Var(&c.modelDefaults, "model-default", "Specify a configuration file, or one or more configuration\n    options to be set for all models, unless otherwise specified\n    (--config config.yaml [--config key=value ...])")
 	f.StringVar(&c.hostedModelName, "d", defaultHostedModelName, "Name of the default hosted model for the controller")
 	f.StringVar(&c.hostedModelName, "default-model", defaultHostedModelName, "Name of the default hosted model for the controller")
 	f.BoolVar(&c.noGUI, "no-gui", false, "Do not install the Juju GUI in the controller when bootstrapping")
@@ -555,6 +555,12 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	// Model defaults are added to the inherited controller attributes.
 	// Any command line set model defaults override what is in the cloud config.
 	for k, v := range modelDefaultConfigAttrs {
+		switch {
+		case bootstrap.IsBootstrapAttribute(k):
+			return errors.Errorf("%q is a bootstrap only attribute, and cannot be set as a model-default", k)
+		case controller.ControllerOnlyAttribute(k):
+			return errors.Errorf("%q is a controller attribute, and cannot be set as a model-default", k)
+		}
 		inheritedControllerAttrs[k] = v
 	}
 	for k, v := range modelConfigAttrs {

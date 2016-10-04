@@ -393,6 +393,14 @@ var bootstrapTests = []bootstrapTest{{
 	info: "--clouds with --regions",
 	args: []string{"--clouds", "--regions", "aws"},
 	err:  `--clouds and --regions can't be used together`,
+}, {
+	info: "specifying bootstrap attribute as model-default",
+	args: []string{"--model-default", "bootstrap-timeout=10"},
+	err:  `"bootstrap-timeout" is a bootstrap only attribute, and cannot be set as a model-default`,
+}, {
+	info: "specifying controller attribute as model-default",
+	args: []string{"--model-default", "api-port=12345"},
+	err:  `"api-port" is a controller attribute, and cannot be set as a model-default`,
 }}
 
 func (s *BootstrapSuite) TestRunCloudNameMissing(c *gc.C) {
