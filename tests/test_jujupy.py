@@ -3572,6 +3572,21 @@ class TestEnvJujuClient2B2(ClientTest):
             '--upload-tools', '--constraints', 'mem=2G', 'foo', 'bar/baz',
             '--config', 'config', '--bootstrap-series', 'angsty'))
 
+    def test_get_bootstrap_args_reject_new_args(self):
+        env = JujuData('foo', {'type': 'bar', 'region': 'baz'})
+        client = EnvJujuClient2B2(env, '2.0-zeta1', None)
+        base_args = {'upload_tools': True,
+                     'config_filename': 'config',
+                     'bootstrap_series': 'angsty'}
+        with self.assertRaises(ValueError):
+            client.get_bootstrap_args(auto_upgrade=True, **base_args)
+        with self.assertRaises(ValueError):
+            client.get_bootstrap_args(metadata_source='/foo', **base_args)
+        with self.assertRaises(ValueError):
+            client.get_bootstrap_args(to='cur', **base_args)
+        with self.assertRaises(ValueError):
+            client.get_bootstrap_args(agent_version='1.0.0', **base_args)
+
     def test_bootstrap_upload_tools(self):
         env = JujuData('foo', {'type': 'foo', 'region': 'baz'})
         client = EnvJujuClient2B2(env, '2.0-zeta1', None)

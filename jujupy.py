@@ -1160,7 +1160,7 @@ class EnvJujuClient:
         if upload_tools and agent_version is not None:
             raise ValueError(
                 'agent-version may not be given with upload-tools.')
-        elif upload_tools:
+        if upload_tools:
             args.insert(0, '--upload-tools')
         elif agent_version is not None:
             args.extend(['--agent-version', agent_version])
@@ -2320,6 +2320,15 @@ class EnvJujuClient2B2(EnvJujuClient2B3):
             credential=None, auto_upgrade=False, metadata_source=None,
             to=None, agent_version=None):
         """Return the bootstrap arguments for the substrate."""
+        err_fmt = 'EnvJujuClient2B2 does not support bootstrap argument {}'
+        if auto_upgrade:
+            raise ValueError(err_fmt.format('auto_upgrade'))
+        if metadata_source is not None:
+            raise ValueError(err_fmt.format('metadata_source'))
+        if to is not None:
+            raise ValueError(err_fmt.format('to'))
+        if agent_version is not None:
+            raise ValueError(err_fmt.format('agent_version'))
         if self.env.joyent:
             # Only accept kvm packages by requiring >1 cpu core, see lp:1446264
             constraints = 'mem=2G cpu-cores=1'
