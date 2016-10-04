@@ -25,6 +25,7 @@ define DEPENDENCIES
   git-core
   mercurial
   zip
+  golang-1.[6-9]-race-detector-runtime
   $(GO_C)
 endef
 
