@@ -10,6 +10,7 @@ import (
 
 	"github.com/lxc/lxd"
 	"github.com/lxc/lxd/shared"
+	"github.com/juju/errors"
 
 	"github.com/juju/juju/network"
 )
@@ -27,7 +28,7 @@ type networkClient struct {
 // create a network
 func (c *networkClient) NetworkCreate(name string, config map[string]string) error {
 	if !c.supported {
-		return fmt.Errorf("network API not supported on this remote")
+		return errors.NotSupportedf("network API not supported on this remote")
 	}
 
 	return c.raw.NetworkCreate(name, config)
@@ -36,7 +37,7 @@ func (c *networkClient) NetworkCreate(name string, config map[string]string) err
 // acquire a network's configuration
 func (c *networkClient) NetworkGet(name string) (shared.NetworkConfig, error) {
 	if !c.supported {
-		return shared.NetworkConfig{}, fmt.Errorf("network API not supported on this remote")
+		return shared.NetworkConfig{}, errors.NotSupportedf("network API not supported on this remote")
 	}
 
 	return c.raw.NetworkGet(name)
