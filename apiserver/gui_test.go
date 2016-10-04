@@ -385,12 +385,14 @@ func (s *guiSuite) TestGUIHandler(c *gc.C) {
 		}
 		body := assertResponse(c, resp, test.expectedStatus, test.expectedContentType)
 		if test.expectedError == "" {
-			c.Assert(string(body), gc.Equals, test.expectedBody)
+			c.Check(string(body), gc.Equals, test.expectedBody)
 		} else {
 			var jsonResp params.ErrorResult
 			err := json.Unmarshal(body, &jsonResp)
-			c.Assert(err, jc.ErrorIsNil, gc.Commentf("body: %s", body))
-			c.Assert(jsonResp.Error.Message, gc.Matches, test.expectedError)
+			if !c.Check(err, jc.ErrorIsNil, gc.Commentf("body: %s", body)) {
+				continue
+			}
+			c.Check(jsonResp.Error.Message, gc.Matches, test.expectedError)
 		}
 	}
 }

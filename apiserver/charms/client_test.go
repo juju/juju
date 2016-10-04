@@ -171,13 +171,13 @@ func (s *charmsSuite) TestClientCharmInfo(c *gc.C) {
 			about: "invalid URL",
 			charm: "wordpress",
 			url:   "not-valid!",
-			err:   `URL has invalid charm or bundle name: "not-valid!"`,
+			err:   `cannot parse URL "not-valid!": name "not-valid!" not valid`,
 		},
 		{
 			about: "invalid schema",
 			charm: "wordpress",
 			url:   "not-valid:your-arguments",
-			err:   `charm or bundle URL has invalid schema: "not-valid:your-arguments"`,
+			err:   `cannot parse URL "not-valid:your-arguments": schema "not-valid" not valid`,
 		},
 		{
 			about: "unknown charm",
@@ -195,7 +195,9 @@ func (s *charmsSuite) TestClientCharmInfo(c *gc.C) {
 			c.Check(err, gc.ErrorMatches, t.err)
 			continue
 		}
-		c.Assert(err, jc.ErrorIsNil)
+		if c.Check(err, jc.ErrorIsNil) == false {
+			continue
+		}
 		c.Check(info, jc.DeepEquals, t.expected)
 	}
 }

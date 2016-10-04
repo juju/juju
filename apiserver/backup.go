@@ -101,7 +101,9 @@ func (h *backupHandler) upload(backups backups.Backups, resp http.ResponseWriter
 		return "", err
 	}
 
-	sendStatusAndJSON(resp, http.StatusOK, &params.BackupsUploadResult{ID: id})
+	if err := sendStatusAndJSON(resp, http.StatusOK, &params.BackupsUploadResult{ID: id}); err != nil {
+		return "", errors.Trace(err)
+	}
 	return id, nil
 }
 
@@ -162,6 +164,7 @@ func (h *backupHandler) sendFile(file io.Reader, checksum string, resp http.Resp
 // rather than in the Error field.
 func (h *backupHandler) sendError(w http.ResponseWriter, err error) {
 	err, status := common.ServerErrorAndStatus(err)
-
-	sendStatusAndJSON(w, status, err)
+	if err := sendStatusAndJSON(w, status, err); err != nil {
+		logger.Errorf("%v", err)
+	}
 }

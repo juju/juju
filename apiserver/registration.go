@@ -34,17 +34,24 @@ type registerUserHandler struct {
 // ServeHTTP implements the http.Handler interface.
 func (h *registerUserHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if req.Method != "POST" {
-		sendError(w, errors.MethodNotAllowedf("unsupported method: %q", req.Method))
+		err := sendError(w, errors.MethodNotAllowedf("unsupported method: %q", req.Method))
+		if err != nil {
+			logger.Errorf("%v", err)
+		}
 		return
 	}
 	st, err := h.ctxt.stateForRequestUnauthenticated(req)
 	if err != nil {
-		sendError(w, err)
+		if err := sendError(w, err); err != nil {
+			logger.Errorf("%v", err)
+		}
 		return
 	}
 	userTag, response, err := h.processPost(req, st)
 	if err != nil {
-		sendError(w, err)
+		if err := sendError(w, err); err != nil {
+			logger.Errorf("%v", err)
+		}
 		return
 	}
 
@@ -52,17 +59,23 @@ func (h *registerUserHandler) ServeHTTP(w http.ResponseWriter, req *http.Request
 	// which the client can use to obtain a discharge macaroon.
 	m, err := h.ctxt.srv.authCtxt.CreateLocalLoginMacaroon(userTag)
 	if err != nil {
-		sendError(w, err)
+		if err := sendError(w, err); err != nil {
+			logger.Errorf("%v", err)
+		}
 		return
 	}
 	cookie, err := httpbakery.NewCookie(macaroon.Slice{m})
 	if err != nil {
-		sendError(w, err)
+		if err := sendError(w, err); err != nil {
+			logger.Errorf("%v", err)
+		}
 		return
 	}
 	http.SetCookie(w, cookie)
 
-	sendStatusAndJSON(w, http.StatusOK, response)
+	if err := sendStatusAndJSON(w, http.StatusOK, response); err != nil {
+		logger.Errorf("%v", err)
+	}
 }
 
 // The client will POST to the "/register" endpoint with a JSON-encoded

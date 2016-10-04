@@ -40,7 +40,9 @@ type toolsDownloadHandler struct {
 func (h *toolsDownloadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	st, err := h.ctxt.stateForRequestUnauthenticated(r)
 	if err != nil {
-		sendError(w, err)
+		if err := sendError(w, err); err != nil {
+			logger.Errorf("%v", err)
+		}
 		return
 	}
 
@@ -49,12 +51,18 @@ func (h *toolsDownloadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		tarball, err := h.processGet(r, st)
 		if err != nil {
 			logger.Errorf("GET(%s) failed: %v", r.URL, err)
-			sendError(w, errors.NewBadRequest(err, ""))
+			if err := sendError(w, errors.NewBadRequest(err, "")); err != nil {
+				logger.Errorf("%v", err)
+			}
 			return
 		}
-		h.sendTools(w, http.StatusOK, tarball)
+		if err := h.sendTools(w, http.StatusOK, tarball); err != nil {
+			logger.Errorf("%v", err)
+		}
 	default:
-		sendError(w, errors.MethodNotAllowedf("unsupported method: %q", r.Method))
+		if err := sendError(w, errors.MethodNotAllowedf("unsupported method: %q", r.Method)); err != nil {
+			logger.Errorf("%v", err)
+		}
 	}
 }
 
@@ -63,7 +71,9 @@ func (h *toolsUploadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// on the state connection that is determined during the validation.
 	st, _, err := h.ctxt.stateForRequestAuthenticatedUser(r)
 	if err != nil {
-		sendError(w, err)
+		if err := sendError(w, err); err != nil {
+			logger.Errorf("%v", err)
+		}
 		return
 	}
 
@@ -72,14 +82,20 @@ func (h *toolsUploadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// Add tools to storage.
 		agentTools, err := h.processPost(r, st)
 		if err != nil {
-			sendError(w, err)
+			if err := sendError(w, err); err != nil {
+				logger.Errorf("%v", err)
+			}
 			return
 		}
-		sendStatusAndJSON(w, http.StatusOK, &params.ToolsResult{
+		if err := sendStatusAndJSON(w, http.StatusOK, &params.ToolsResult{
 			ToolsList: tools.List{agentTools},
-		})
+		}); err != nil {
+			logger.Errorf("%v", err)
+		}
 	default:
-		sendError(w, errors.MethodNotAllowedf("unsupported method: %q", r.Method))
+		if err := sendError(w, errors.MethodNotAllowedf("unsupported method: %q", r.Method)); err != nil {
+			logger.Errorf("%v", err)
+		}
 	}
 }
 
@@ -168,14 +184,17 @@ func (h *toolsDownloadHandler) fetchAndCacheTools(v version.Binary, stor binarys
 }
 
 // sendTools streams the tools tarball to the client.
-func (h *toolsDownloadHandler) sendTools(w http.ResponseWriter, statusCode int, tarball []byte) {
+func (h *toolsDownloadHandler) sendTools(w http.ResponseWriter, statusCode int, tarball []byte) error {
 	w.Header().Set("Content-Type", "application/x-tar-gz")
 	w.Header().Set("Content-Length", fmt.Sprint(len(tarball)))
 	w.WriteHeader(statusCode)
 	if _, err := w.Write(tarball); err != nil {
-		sendError(w, errors.NewBadRequest(errors.Annotatef(err, "failed to write tools"), ""))
-		return
+		return errors.Trace(sendError(
+			w,
+			errors.NewBadRequest(errors.Annotatef(err, "failed to write tools"), ""),
+		))
 	}
+	return nil
 }
 
 // processPost handles a tools upload POST request after authentication.

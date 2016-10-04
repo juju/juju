@@ -1131,51 +1131,51 @@ func (s *clientSuite) TestProvisioningScriptDisablePackageCommands(c *gc.C) {
 	c.Check(script, gc.Not(jc.Contains), "apt-get upgrade")
 }
 
-var resolveCharmTests = []struct {
-	about      string
-	url        string
-	resolved   string
-	parseErr   string
-	resolveErr string
-}{{
-	about:    "wordpress resolved",
-	url:      "cs:wordpress",
-	resolved: "cs:trusty/wordpress",
-}, {
-	about:    "mysql resolved",
-	url:      "cs:mysql",
-	resolved: "cs:precise/mysql",
-}, {
-	about:    "riak resolved",
-	url:      "cs:riak",
-	resolved: "cs:trusty/riak",
-}, {
-	about:    "fully qualified char reference",
-	url:      "cs:utopic/riak-5",
-	resolved: "cs:utopic/riak-5",
-}, {
-	about:    "charm with series and no revision",
-	url:      "cs:precise/wordpress",
-	resolved: "cs:precise/wordpress",
-}, {
-	about:      "fully qualified reference not found",
-	url:        "cs:utopic/riak-42",
-	resolveErr: `cannot resolve URL "cs:utopic/riak-42": charm not found`,
-}, {
-	about:      "reference not found",
-	url:        "cs:no-such",
-	resolveErr: `cannot resolve URL "cs:no-such": charm or bundle not found`,
-}, {
-	about:    "invalid charm name",
-	url:      "cs:",
-	parseErr: `URL has invalid charm or bundle name: "cs:"`,
-}, {
-	about:      "local charm",
-	url:        "local:wordpress",
-	resolveErr: `only charm store charm references are supported, with cs: schema`,
-}}
-
 func (s *clientRepoSuite) TestResolveCharm(c *gc.C) {
+	resolveCharmTests := []struct {
+		about      string
+		url        string
+		resolved   string
+		parseErr   string
+		resolveErr string
+	}{{
+		about:    "wordpress resolved",
+		url:      "cs:wordpress",
+		resolved: "cs:trusty/wordpress",
+	}, {
+		about:    "mysql resolved",
+		url:      "cs:mysql",
+		resolved: "cs:precise/mysql",
+	}, {
+		about:    "riak resolved",
+		url:      "cs:riak",
+		resolved: "cs:trusty/riak",
+	}, {
+		about:    "fully qualified char reference",
+		url:      "cs:utopic/riak-5",
+		resolved: "cs:utopic/riak-5",
+	}, {
+		about:    "charm with series and no revision",
+		url:      "cs:precise/wordpress",
+		resolved: "cs:precise/wordpress",
+	}, {
+		about:      "fully qualified reference not found",
+		url:        "cs:utopic/riak-42",
+		resolveErr: `cannot resolve URL "cs:utopic/riak-42": charm not found`,
+	}, {
+		about:      "reference not found",
+		url:        "cs:no-such",
+		resolveErr: `cannot resolve URL "cs:no-such": charm or bundle not found`,
+	}, {
+		about:    "invalid charm name",
+		url:      "cs:",
+		parseErr: `cannot parse URL "cs://": name "" not valid`,
+	}, {
+		about:      "local charm",
+		url:        "local:wordpress",
+		resolveErr: `only charm store charm references are supported, with cs: schema`,
+	}}
+
 	// Add some charms to be resolved later.
 	for _, url := range []string{
 		"precise/wordpress-1",
@@ -1194,18 +1194,22 @@ func (s *clientRepoSuite) TestResolveCharm(c *gc.C) {
 		client := s.APIState.Client()
 		ref, err := charm.ParseURL(test.url)
 		if test.parseErr == "" {
-			if !c.Check(err, jc.ErrorIsNil) {
+			if c.Check(err, jc.ErrorIsNil) == false {
 				continue
 			}
 		} else {
-			c.Assert(err, gc.NotNil)
+			if c.Check(err, gc.NotNil) == false {
+				continue
+			}
 			c.Check(err, gc.ErrorMatches, test.parseErr)
 			continue
 		}
 
 		curl, err := client.ResolveCharm(ref)
 		if test.resolveErr == "" {
-			c.Assert(err, jc.ErrorIsNil)
+			if c.Check(err, jc.ErrorIsNil) == false {
+				continue
+			}
 			c.Check(curl.String(), gc.Equals, test.resolved)
 			continue
 		}
