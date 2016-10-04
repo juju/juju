@@ -98,7 +98,7 @@ func (i *imageClient) EnsureImageExists(series string, sources []Remote, copyPro
 	// at private methods so we can't easily tweak it.
 	name := i.ImageNameForSeries(series)
 
-	lastErr := errors.Errorf("image not imported!")
+	lastErr := errors.New("image not imported!")
 	for _, remote := range sources {
 		source, err := i.connectToSource(remote)
 		if err != nil {
