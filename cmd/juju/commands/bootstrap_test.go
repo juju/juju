@@ -393,6 +393,14 @@ var bootstrapTests = []bootstrapTest{{
 	info: "--clouds with --regions",
 	args: []string{"--clouds", "--regions", "aws"},
 	err:  `--clouds and --regions can't be used together`,
+}, {
+	info: "specifying bootstrap attribute as model-default",
+	args: []string{"--model-default", "bootstrap-timeout=10"},
+	err:  `"bootstrap-timeout" is a bootstrap only attribute, and cannot be set as a model-default`,
+}, {
+	info: "specifying controller attribute as model-default",
+	args: []string{"--model-default", "api-port=12345"},
+	err:  `"api-port" is a controller attribute, and cannot be set as a model-default`,
 }}
 
 func (s *BootstrapSuite) TestRunCloudNameMissing(c *gc.C) {
@@ -515,6 +523,29 @@ func (s *BootstrapSuite) TestBootstrapDefaultConfigStripsProcessedAttributes(c *
 	)
 	_, ok := bootstrap.args.HostedModelConfig["authorized-keys-path"]
 	c.Assert(ok, jc.IsFalse)
+}
+
+func (s *BootstrapSuite) TestBootstrapModelDefaultConfig(c *gc.C) {
+	s.patchVersionAndSeries(c, "raring")
+
+	var bootstrap fakeBootstrapFuncs
+	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
+		return &bootstrap
+	})
+
+	coretesting.RunCommand(
+		c, s.newBootstrapCommand(),
+		"devcontroller", "dummy",
+		"--model-default", "network=foo",
+		"--model-default", "ftp-proxy=model-proxy",
+		"--config", "ftp-proxy=controller-proxy",
+	)
+
+	c.Check(bootstrap.args.HostedModelConfig["network"], gc.Equals, "foo")
+	c.Check(bootstrap.args.ControllerInheritedConfig["network"], gc.Equals, "foo")
+
+	c.Check(bootstrap.args.HostedModelConfig["ftp-proxy"], gc.Equals, "controller-proxy")
+	c.Check(bootstrap.args.ControllerInheritedConfig["ftp-proxy"], gc.Equals, "model-proxy")
 }
 
 func (s *BootstrapSuite) TestBootstrapDefaultConfigStripsInheritedAttributes(c *gc.C) {

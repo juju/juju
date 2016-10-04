@@ -138,6 +138,7 @@ type bootstrapCommand struct {
 	AgentVersion            *version.Number
 	ForceAPIPort            bool
 	config                  common.ConfigFlag
+	modelDefaults           common.ConfigFlag
 
 	showClouds          bool
 	showRegionsForCloud string
@@ -176,6 +177,7 @@ func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.AgentVersionParam, "agent-version", "", "Version of tools to use for Juju agents")
 	f.StringVar(&c.CredentialName, "credential", "", "Credentials to use when bootstrapping")
 	f.Var(&c.config, "config", "Specify a controller configuration file, or one or more configuration\n    options\n    (--config config.yaml [--config key=value ...])")
+	f.Var(&c.modelDefaults, "model-default", "Specify a configuration file, or one or more configuration\n    options to be set for all models, unless otherwise specified\n    (--config config.yaml [--config key=value ...])")
 	f.StringVar(&c.hostedModelName, "d", defaultHostedModelName, "Name of the default hosted model for the controller")
 	f.StringVar(&c.hostedModelName, "default-model", defaultHostedModelName, "Name of the default hosted model for the controller")
 	f.BoolVar(&c.noGUI, "no-gui", false, "Do not install the Juju GUI in the controller when bootstrapping")
@@ -491,7 +493,12 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		"name":         bootstrap.ControllerModelName,
 		config.UUIDKey: controllerModelUUID.String(),
 	}
+
 	userConfigAttrs, err := c.config.ReadAttrs(ctx)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	modelDefaultConfigAttrs, err := c.modelDefaults.ReadAttrs(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -501,6 +508,11 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	providerAttrs := make(map[string]interface{})
 	if ps, ok := provider.(config.ConfigSchemaSource); ok {
 		for attr := range ps.ConfigSchema() {
+			// Start with the model defaults, and if also specified
+			// in the user config attrs, they override the model default.
+			if v, ok := modelDefaultConfigAttrs[attr]; ok {
+				providerAttrs[attr] = v
+			}
 			if v, ok := userConfigAttrs[attr]; ok {
 				providerAttrs[attr] = v
 			}
@@ -512,13 +524,17 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 			providerAttrs = coercedAttrs.(map[string]interface{})
 		}
 	}
-	logger.Debugf("provider attrs: %v", providerAttrs)
+	// Start with the model defaults, then add in user config attributes.
+	for k, v := range modelDefaultConfigAttrs {
+		modelConfigAttrs[k] = v
+	}
 	for k, v := range userConfigAttrs {
 		modelConfigAttrs[k] = v
 	}
 	// Provider specific attributes are either already specified in model
 	// config (but may have been coerced), or were not present. Either way,
 	// copy them in.
+	logger.Debugf("provider attrs: %v", providerAttrs)
 	for k, v := range providerAttrs {
 		modelConfigAttrs[k] = v
 	}
@@ -535,6 +551,17 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		case controller.ControllerOnlyAttribute(k):
 			controllerConfigAttrs[k] = v
 			continue
+		}
+		inheritedControllerAttrs[k] = v
+	}
+	// Model defaults are added to the inherited controller attributes.
+	// Any command line set model defaults override what is in the cloud config.
+	for k, v := range modelDefaultConfigAttrs {
+		switch {
+		case bootstrap.IsBootstrapAttribute(k):
+			return errors.Errorf("%q is a bootstrap only attribute, and cannot be set as a model-default", k)
+		case controller.ControllerOnlyAttribute(k):
+			return errors.Errorf("%q is a controller attribute, and cannot be set as a model-default", k)
 		}
 		inheritedControllerAttrs[k] = v
 	}
