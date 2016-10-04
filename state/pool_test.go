@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/worker/workertest"
 )
 
 type statePoolSuite struct {
@@ -72,6 +73,30 @@ func (s *statePoolSuite) TestSystemState(c *gc.C) {
 
 	st0 := p.SystemState()
 	c.Assert(st0, gc.Equals, s.State)
+}
+
+func (s *statePoolSuite) TestKillWorkers(c *gc.C) {
+	p := state.NewStatePool(s.State)
+	defer p.Close()
+
+	// Get some State instances via the pool and extract their
+	// internal workers.
+	st1, err := p.Get(s.ModelUUID1)
+	c.Assert(err, jc.ErrorIsNil)
+	w1 := state.GetInternalWorkers(st1)
+	workertest.CheckAlive(c, w1)
+
+	st2, err := p.Get(s.ModelUUID1)
+	c.Assert(err, jc.ErrorIsNil)
+	w2 := state.GetInternalWorkers(st2)
+	workertest.CheckAlive(c, w2)
+
+	// Now kill their workers.
+	p.KillWorkers()
+
+	// Ensure the internal workers for each State died.
+	c.Check(workertest.CheckKilled(c, w1), jc.ErrorIsNil)
+	c.Check(workertest.CheckKilled(c, w2), jc.ErrorIsNil)
 }
 
 func (s *statePoolSuite) TestClose(c *gc.C) {
