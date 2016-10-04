@@ -792,7 +792,7 @@ func (s *loginSuite) TestOtherEnvironmentWhenNotController(c *gc.C) {
 	assertPermissionDenied(c, err)
 }
 
-func (s *loginSuite) loginUserWithAccess(c *gc.C, info *api.Info) (*state.User, params.LoginResult) {
+func (s *loginSuite) loginLocalUser(c *gc.C, info *api.Info) (*state.User, params.LoginResult) {
 	password := "shhh..."
 	user := s.Factory.MakeUser(c, &factory.UserParams{
 		Password: password,
@@ -810,23 +810,23 @@ func (s *loginSuite) loginUserWithAccess(c *gc.C, info *api.Info) (*state.User, 
 	return user, result
 }
 
-func (s *loginSuite) TestLoginResultModelUser(c *gc.C) {
+func (s *loginSuite) TestLoginResultLocalUser(c *gc.C) {
 	info, cleanup := s.setupServer(c)
 	defer cleanup()
 
-	user, result := s.loginUserWithAccess(c, info)
+	user, result := s.loginLocalUser(c, info)
 	c.Check(result.UserInfo.Identity, gc.Equals, user.Tag().String())
 	c.Check(result.UserInfo.ControllerAccess, gc.Equals, "login")
 	c.Check(result.UserInfo.ModelAccess, gc.Equals, "admin")
 }
 
-func (s *loginSuite) TestLoginResultModelUserEveryoneCreateOnlyNonLocal(c *gc.C) {
+func (s *loginSuite) TestLoginResultLocalUserEveryoneCreateOnlyNonLocal(c *gc.C) {
 	info, cleanup := s.setupServer(c)
 	defer cleanup()
 
 	setEveryoneAccess(c, s.State, s.AdminUserTag(c), permission.AddModelAccess)
 
-	user, result := s.loginUserWithAccess(c, info)
+	user, result := s.loginLocalUser(c, info)
 	c.Check(result.UserInfo.Identity, gc.Equals, user.Tag().String())
 	c.Check(result.UserInfo.ControllerAccess, gc.Equals, "login")
 	c.Check(result.UserInfo.ModelAccess, gc.Equals, "admin")
@@ -1031,14 +1031,30 @@ func (s *macaroonLoginSuite) TestRemoteUserLoginToModelNoExplicitAccess(c *gc.C)
 }
 
 func (s *macaroonLoginSuite) TestRemoteUserLoginToModelWithExplicitAccess(c *gc.C) {
-	// If we have a remote user which has explict model access, but there
-	// is no 'everyone' access, the user has assumed login access.
+	// If we have a remote user which has explict model access, but no
+	// controller access, nor no 'everyone' access, the user has no access.
+	const remoteUser = "test@somewhere"
+	s.Factory.MakeModelUser(c, &factory.ModelUserParams{
+		User:   remoteUser,
+		Access: permission.WriteAccess,
+	})
+	s.DischargerLogin = func() string {
+		return remoteUser
+	}
+	info := s.APIInfo(c)
+
+	_, err := s.login(c, info)
+	assertPermissionDenied(c, err)
+}
+
+func (s *macaroonLoginSuite) TestRemoteUserLoginToModelWithControllerAccess(c *gc.C) {
 	const remoteUser = "test@somewhere"
 	var remoteUserTag = names.NewUserTag(remoteUser)
 	s.Factory.MakeModelUser(c, &factory.ModelUserParams{
 		User:   remoteUser,
 		Access: permission.WriteAccess,
 	})
+	s.AddControllerUser(c, remoteUserTag, permission.AddModelAccess)
 
 	s.DischargerLogin = func() string {
 		return remoteUser
@@ -1049,12 +1065,24 @@ func (s *macaroonLoginSuite) TestRemoteUserLoginToModelWithExplicitAccess(c *gc.
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(result.UserInfo, gc.NotNil)
 	c.Check(result.UserInfo.Identity, gc.Equals, remoteUserTag.String())
-	c.Check(result.UserInfo.ControllerAccess, gc.Equals, "login")
+	c.Check(result.UserInfo.ControllerAccess, gc.Equals, "addmodel")
 	c.Check(result.UserInfo.ModelAccess, gc.Equals, "write")
 }
 
+func (s *macaroonLoginSuite) AddControllerUser(c *gc.C, user names.UserTag, access permission.Access) {
+	_, err := s.State.AddControllerUser(state.UserAccessSpec{
+		User:      user,
+		CreatedBy: s.AdminUserTag(c),
+		Access:    access,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *macaroonLoginSuite) TestLoginToEnvironmentSuccess(c *gc.C) {
-	s.AddModelUser(c, "test@somewhere")
+	const remoteUser = "test@somewhere"
+	var remoteUserTag = names.NewUserTag(remoteUser)
+	s.AddModelUser(c, remoteUser)
+	s.AddControllerUser(c, remoteUserTag, permission.LoginAccess)
 	s.DischargerLogin = func() string {
 		return "test@somewhere"
 	}
