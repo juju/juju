@@ -4,7 +4,6 @@
 package cloud_test
 
 import (
-	"fmt"
 	"strings"
 
 	jc "github.com/juju/testing/checkers"
@@ -89,11 +88,7 @@ func (s *updateCredentialSuite) TestUpdate(c *gc.C) {
 			},
 		},
 	}
-	fake := &fakeUpdateCredentialAPI{
-		clouds: map[names.CloudTag]jujucloud.Cloud{
-			names.NewCloudTag("aws"): {},
-		},
-	}
+	fake := &fakeUpdateCredentialAPI{}
 	cmd := cloud.NewUpdateCredentialCommandForTest(store, fake)
 	ctx, err := testing.RunCommand(c, cmd, "aws", "my-credential")
 	c.Assert(err, jc.ErrorIsNil)
@@ -105,49 +100,16 @@ func (s *updateCredentialSuite) TestUpdate(c *gc.C) {
 	})
 }
 
-func (s *updateCredentialSuite) TestInvalidCloud(c *gc.C) {
-	store := &jujuclienttesting.MemStore{
-		Controllers: map[string]jujuclient.ControllerDetails{
-			"controller": {},
-		},
-		CurrentControllerName: "controller",
-		Accounts: map[string]jujuclient.AccountDetails{
-			"controller": {
-				User: "admin@local",
-			},
-		},
-		Credentials: map[string]jujucloud.CloudCredential{
-			"aws": {
-				AuthCredentials: map[string]jujucloud.Credential{
-					"my-credential": jujucloud.NewCredential(jujucloud.AccessKeyAuthType, nil),
-				},
-			},
-		},
-	}
-	fake := &fakeUpdateCredentialAPI{}
-	cmd := cloud.NewUpdateCredentialCommandForTest(store, fake)
-	_, err := testing.RunCommand(c, cmd, "aws", "my-credential")
-	c.Assert(err, gc.ErrorMatches, `cannot update credential "my-credential" for cloud "aws" because controller does not run on the specified cloud`)
-}
-
 type fakeUpdateCredentialAPI struct {
-	creds  map[names.CloudCredentialTag]jujucloud.Credential
-	clouds map[names.CloudTag]jujucloud.Cloud
+	creds map[names.CloudCredentialTag]jujucloud.Credential
 }
 
 func (f *fakeUpdateCredentialAPI) UpdateCredential(tag names.CloudCredentialTag, credential jujucloud.Credential) error {
-	if _, ok := f.clouds[tag.Cloud()]; !ok {
-		return fmt.Errorf("error")
-	}
 	if f.creds == nil {
 		f.creds = make(map[names.CloudCredentialTag]jujucloud.Credential)
 	}
 	f.creds[tag] = credential
 	return nil
-}
-
-func (f *fakeUpdateCredentialAPI) Clouds() (map[names.CloudTag]jujucloud.Cloud, error) {
-	return f.clouds, nil
 }
 
 func (*fakeUpdateCredentialAPI) Close() error {

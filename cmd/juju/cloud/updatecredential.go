@@ -71,7 +71,6 @@ func (c *updateCredentialCommand) SetFlags(f *gnuflag.FlagSet) {
 
 type credentialAPI interface {
 	UpdateCredential(tag names.CloudCredentialTag, credential jujucloud.Credential) error
-	Clouds() (map[names.CloudTag]jujucloud.Cloud, error)
 	Close() error
 }
 
@@ -116,19 +115,8 @@ func (c *updateCredentialCommand) Run(ctx *cmd.Context) error {
 	defer client.Close()
 
 	if err := client.UpdateCredential(credentialTag, credToUpdate); err != nil {
-		return c.processError(client, err)
+		return err
 	}
 	ctx.Infof("Updated credential %q for user %q on cloud %q.", c.credential, accountDetails.User, c.cloud)
 	return nil
-}
-
-func (c *updateCredentialCommand) processError(client credentialAPI, initialErr error) error {
-	cloudDetails, err := client.Clouds()
-	if err != nil {
-		return initialErr
-	}
-	if _, ok := cloudDetails[names.NewCloudTag(c.cloud)]; !ok {
-		return errors.Errorf("cannot update credential %q for cloud %q because controller does not run on the specified cloud", c.credential, c.cloud)
-	}
-	return initialErr
 }
