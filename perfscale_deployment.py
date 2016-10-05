@@ -1,4 +1,4 @@
-#!/usr/bin/env/python
+#!/usr/bin/env python
 """Perfscale test for general deployment measurements.
 
 Steps taken in this test:
