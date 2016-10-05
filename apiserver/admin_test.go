@@ -1071,7 +1071,6 @@ func (s *macaroonLoginSuite) TestRemoteUserLoginToModelWithControllerAccess(c *g
 
 func (s *macaroonLoginSuite) TestLoginToEnvironmentSuccess(c *gc.C) {
 	const remoteUser = "test@somewhere"
-	var remoteUserTag = names.NewUserTag(remoteUser)
 	s.AddModelUser(c, remoteUser)
 	s.AddControllerUser(c, remoteUser, permission.LoginAccess)
 	s.DischargerLogin = func() string {
@@ -1083,7 +1082,7 @@ func (s *macaroonLoginSuite) TestLoginToEnvironmentSuccess(c *gc.C) {
 	defer client.Close()
 
 	// The auth tag has been correctly returned by the server.
-	c.Assert(client.AuthTag(), gc.Equals, names.NewUserTag("test@somewhere"))
+	c.Assert(client.AuthTag(), gc.Equals, names.NewUserTag(remoteUser))
 }
 
 func (s *macaroonLoginSuite) TestFailedToObtainDischargeLogin(c *gc.C) {
