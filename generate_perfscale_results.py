@@ -41,6 +41,7 @@ __metaclass__ = type
 
 
 MINUTE = 60
+total_new_models = 0
 
 
 class TimingData:
@@ -355,10 +356,10 @@ def assess_longrun_perf(bs_manager, test_length):
     for _ in until_timeout(test_length):
         applications = ['dummy-sink']
         new_client = action_create(client)
-        action_busy(new_client, applications)
-        action_cleanup(new_client)
+        new_models = action_busy(new_client, applications)
+        action_cleanup(new_client, new_models)
 
-        action_rest(Rest.short)
+        action_rest(Rest.short/2)
         run_count += 1
 
     longrun_end = datetime.utcnow()
@@ -384,15 +385,29 @@ def action_busy(client, applications):
         client.wait_for_started(timeout=1200)
         client.wait_for_workloads(timeout=1200)
 
+    global total_new_models
+    new_models = []
+    for i in range(0, 20):
+        total_new_models += 1
+        new_model_name = 'model{}'.format(total_new_models)
+        new_model = client.add_model(client.env.clone(new_model_name))
+        new_model.wait_for_started()
+        log.info('Added model number {}'.format(total_new_models))
+        new_models.append(new_model)
+
     for _ in until_timeout(MINUTE*2):
         log.info('Checking status ping.')
         client.show_status()
         log.info('Sleeping . . .')
-        time.sleep(MINUTE)
+        time.sleep(MINUTE/2)
+
+    return new_models
 
 
-def action_cleanup(client):
+def action_cleanup(client, new_models):
     client.destroy_model()
+    for model in new_models:
+        model.destroy_model()
 
 
 def action_rest(rest_length=Rest.short):
