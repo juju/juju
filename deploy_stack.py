@@ -39,7 +39,6 @@ from jujuconfig import (
 )
 from jujupy import (
     client_from_config,
-    EnvJujuClient,
     get_local_root,
     get_machine_dns_name,
     jes_home_path,
@@ -601,12 +600,6 @@ class BootstrapManager:
             else:
                 yield self.machines
         finally:
-            # Although this isn't MAAS-related, it was in this context in
-            # boot_context.
-            logging.info(
-                'Juju command timings: {}'.format(
-                    self.client.get_juju_timings()))
-            dump_juju_timings(self.client, self.log_dir)
             if self.client.env.config['type'] == 'maas' and not self.keep_env:
                 logging.info("Waiting for destroy-environment to complete")
                 time.sleep(90)
@@ -856,7 +849,13 @@ class BootstrapManager:
         """Context for running all juju operations in."""
         with self.maas_machines() as machines:
             with self.aws_machines() as new_machines:
-                yield machines + new_machines
+                try:
+                    yield machines + new_machines
+                finally:
+                    # This is not done in dump_all_logs because it should be
+                    # done after tear down.
+                    if self.log_dir is not None:
+                        dump_juju_timings(self.client, self.log_dir)
 
     @contextmanager
     def booted_context(self, upload_tools, **kwargs):
