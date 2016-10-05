@@ -6,7 +6,7 @@ package backups_test
 import (
 	"bytes"
 	"io/ioutil"
-	"time"
+	"time" // Only used for time types.
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/backups"
 	backupstesting "github.com/juju/juju/state/backups/testing"
+	"github.com/juju/juju/testing"
 )
 
 type backupsSuite struct {
@@ -36,7 +37,7 @@ func (s *backupsSuite) setStored(id string) *time.Time {
 	s.Storage.ID = id
 	s.Storage.Meta = backupstesting.NewMetadataStarted()
 	s.Storage.Meta.SetID(id)
-	stored := time.Now().UTC()
+	stored := testing.NonZeroTime().UTC()
 	s.Storage.Meta.SetStored(&stored)
 	return &stored
 }

@@ -4,10 +4,9 @@
 package state_test
 
 import (
-	"time"
+	"time" // Only used for time types.
 
 	"github.com/juju/errors"
-	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2/txn"
@@ -18,7 +17,6 @@ import (
 
 type LeadershipSuite struct {
 	ConnSuite
-	clock   *jujutesting.Clock
 	checker leadership.Checker
 	claimer leadership.Claimer
 }
@@ -27,8 +25,7 @@ var _ = gc.Suite(&LeadershipSuite{})
 
 func (s *LeadershipSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
-	s.clock = jujutesting.NewClock(time.Now())
-	err := s.State.SetClockForTesting(s.clock)
+	err := s.State.SetClockForTesting(s.Clock)
 	c.Assert(err, jc.ErrorIsNil)
 	s.checker = s.State.LeadershipChecker()
 	s.claimer = s.State.LeadershipClaimer()
@@ -120,10 +117,11 @@ func (s *LeadershipSuite) TestKillWorkersUnblocksClaimer(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.State.KillWorkers()
+	s.Clock.Advance(coretesting.LongWait)
 	select {
 	case err := <-s.expiryChan("blah"):
 		c.Check(err, gc.ErrorMatches, "lease manager stopped")
-	case <-time.After(coretesting.LongWait):
+	case <-s.Clock.After(coretesting.LongWait):
 		c.Fatalf("timed out while waiting for unblock")
 	}
 }
@@ -143,12 +141,12 @@ func (s *LeadershipSuite) TestApplicationLeaders(c *gc.C) {
 }
 
 func (s *LeadershipSuite) expire(c *gc.C, applicationname string) {
-	s.clock.Advance(time.Hour)
+	s.Clock.Advance(time.Hour)
 	s.Session.Fsync(false)
 	select {
 	case err := <-s.expiryChan(applicationname):
 		c.Assert(err, jc.ErrorIsNil)
-	case <-time.After(coretesting.LongWait):
+	case <-s.Clock.After(coretesting.LongWait):
 		c.Fatalf("never unblocked")
 	}
 }

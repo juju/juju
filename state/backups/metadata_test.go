@@ -7,7 +7,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
-	"time"
+	"time" // Only used for time types and funcs, not Now().
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
@@ -116,7 +116,7 @@ func (s *metadataSuite) TestBuildMetadata(c *gc.C) {
 	c.Check(meta.ChecksumFormat(), gc.Equals, "SHA-1, base64 encoded")
 	c.Check(meta.Size(), gc.Equals, int64(17))
 	c.Check(meta.Stored(), gc.IsNil)
-	c.Check(meta.Started.Unix(), gc.Equals, int64(time.Time{}.Unix()))
+	c.Check(meta.Started.Unix(), gc.Equals, int64(testing.ZeroTime().Unix()))
 	c.Check(meta.Finished.Unix(), gc.Equals, finished)
 	c.Check(meta.Notes, gc.Equals, "")
 	c.Check(meta.Origin.Model, gc.Equals, backups.UnknownString)

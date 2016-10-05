@@ -5,7 +5,7 @@ package state_test
 
 import (
 	"bytes"
-	"time"
+	"time" // Only using time func.
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/component/all"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/resourcetesting"
+	"github.com/juju/juju/testing"
 )
 
 func init() {
@@ -48,7 +49,7 @@ func (s *ResourcesSuite) TestFunctional(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	csResources := []charmresource.Resource{res.Resource}
-	err = st.SetCharmStoreResources("a-application", csResources, time.Now())
+	err = st.SetCharmStoreResources("a-application", csResources, testing.NonZeroTime())
 	c.Assert(err, jc.ErrorIsNil)
 
 	resources, err = st.ListResources("a-application")

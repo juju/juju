@@ -6,7 +6,6 @@ package state_test
 import (
 	"time"
 
-	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -16,15 +15,13 @@ import (
 
 type SingularSuite struct {
 	ConnSuite
-	clock *jujutesting.Clock
 }
 
 var _ = gc.Suite(&SingularSuite{})
 
 func (s *SingularSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
-	s.clock = jujutesting.NewClock(time.Now())
-	err := s.State.SetClockForTesting(s.clock)
+	err := s.State.SetClockForTesting(s.Clock)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -62,22 +59,22 @@ func (s *SingularSuite) TestExpire(c *gc.C) {
 	claimer := s.State.SingularClaimer()
 	err := claimer.Claim(s.modelTag.Id(), "machine-123", time.Minute)
 	c.Assert(err, jc.ErrorIsNil)
-
 	wait := make(chan error)
 	go func() {
+		s.Clock.Advance(coretesting.ShortWait)
 		wait <- claimer.WaitUntilExpired(s.modelTag.Id())
 	}()
 	select {
 	case err := <-wait:
 		c.Fatalf("expired early with %v", err)
-	case <-time.After(coretesting.ShortWait):
+	case <-s.Clock.After(coretesting.ShortWait):
 	}
 
-	s.clock.Advance(time.Hour)
+	s.Clock.Advance(time.Hour)
 	select {
 	case err := <-wait:
 		c.Check(err, jc.ErrorIsNil)
-	case <-time.After(coretesting.LongWait):
+	case <-s.Clock.After(coretesting.LongWait):
 		c.Fatalf("never expired")
 	}
 

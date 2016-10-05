@@ -287,7 +287,7 @@ func (s *LogsSuite) countLogs(c *gc.C, st *state.State) int {
 }
 
 type LogTailerSuite struct {
-	ConnSuite
+	ConnWithWallClockSuite
 	logsColl   *mgo.Collection
 	oplogColl  *mgo.Collection
 	otherState *state.State
@@ -296,7 +296,7 @@ type LogTailerSuite struct {
 var _ = gc.Suite(&LogTailerSuite{})
 
 func (s *LogTailerSuite) SetUpTest(c *gc.C) {
-	s.ConnSuite.SetUpTest(c)
+	s.ConnWithWallClockSuite.SetUpTest(c)
 
 	session := s.State.MongoSession()
 	s.logsColl = session.DB("logs").C("logs")

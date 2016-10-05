@@ -5,7 +5,7 @@ package state_test
 
 import (
 	"fmt"
-	"time"
+	"time" // Only used for time types.
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
