@@ -4,8 +4,6 @@
 package azure
 
 import (
-	"fmt"
-
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/juju/errors"
 	"github.com/juju/utils"
@@ -44,27 +42,6 @@ type environProviderCredentials struct {
 // CredentialSchemas is part of the environs.ProviderCredentials interface.
 func (environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
 	return map[cloud.AuthType]cloud.CredentialSchema{
-		// TODO(axw) 2016-09-15 #1623761
-		// UserPassAuthType is here for backwards
-		// compatibility. Drop it when rc1 is out.
-		cloud.UserPassAuthType: {
-			{
-				credAttrAppId, cloud.CredentialAttr{Description: "Azure Active Directory application ID"},
-			}, {
-				credAttrSubscriptionId, cloud.CredentialAttr{Description: "Azure subscription ID"},
-			}, {
-				credAttrTenantId, cloud.CredentialAttr{
-					Description: "Azure Active Directory tenant ID",
-					Optional:    true,
-				},
-			}, {
-				credAttrAppPassword, cloud.CredentialAttr{
-					Description: "Azure Active Directory application password",
-					Hidden:      true,
-				},
-			},
-		},
-
 		// deviceCodeAuthType is the interactive device-code oauth
 		// flow. This is only supported on the client side; it will
 		// be used to generate a service principal, and transformed
@@ -102,22 +79,6 @@ func (c environProviderCredentials) FinalizeCredential(
 	args environs.FinalizeCredentialParams,
 ) (*cloud.Credential, error) {
 	switch authType := args.Credential.AuthType(); authType {
-	case cloud.UserPassAuthType:
-		fmt.Fprintf(ctx.GetStderr(), `
-WARNING: The %q auth-type is deprecated, and will be removed soon.
-
-Please update the credential in ~/.local/share/juju/credentials.yaml,
-changing auth-type to %q, and dropping the tenant-id field.
-
-`[1:],
-			authType, clientCredentialsAuthType,
-		)
-		attrs := args.Credential.Attributes()
-		delete(attrs, credAttrTenantId)
-		out := cloud.NewCredential(clientCredentialsAuthType, attrs)
-		out.Label = args.Credential.Label
-		return &out, nil
-
 	case deviceCodeAuthType:
 		subscriptionId := args.Credential.Attributes()[credAttrSubscriptionId]
 		applicationId, password, err := c.interactiveCreateServicePrincipal(

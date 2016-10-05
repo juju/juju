@@ -153,7 +153,7 @@ func cacheTestEnvConfig(c *gc.C, store *jujuclienttesting.MemStore) {
 	store.Credentials["azure"] = cloud.CloudCredential{
 		AuthCredentials: map[string]cloud.Credential{
 			"default": cloud.NewCredential(
-				cloud.UserPassAuthType,
+				"service-principal-secret",
 				map[string]string{
 					"application-id":       "application-id",
 					"subscription-id":      "subscription-id",
