@@ -9,6 +9,7 @@ import (
 	"net/url"
 
 	"github.com/juju/errors"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
@@ -18,6 +19,8 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/controller"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/permission"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -73,6 +76,17 @@ func (s *MacaroonSuite) AddModelUser(c *gc.C, username string) {
 	s.Factory.MakeModelUser(c, &factory.ModelUserParams{
 		User: username,
 	})
+}
+
+// AddControllerUser is a convenience funcation that adds
+// a controller user with the specified access.
+func (s *MacaroonSuite) AddControllerUser(c *gc.C, username string, access permission.Access) {
+	_, err := s.State.AddControllerUser(state.UserAccessSpec{
+		User:      names.NewUserTag(username),
+		CreatedBy: s.AdminUserTag(c),
+		Access:    access,
+	})
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 // OpenAPI opens a connection to the API using the given information.

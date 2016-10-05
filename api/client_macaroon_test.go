@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/api"
 	apitesting "github.com/juju/juju/api/testing"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/testcharms"
 )
 
@@ -28,9 +29,11 @@ type clientMacaroonSuite struct {
 
 func (s *clientMacaroonSuite) SetUpTest(c *gc.C) {
 	s.MacaroonSuite.SetUpTest(c)
-	s.AddModelUser(c, "testuser@somewhere")
+	const username = "testuser@somewhere"
+	s.AddModelUser(c, username)
+	s.AddControllerUser(c, username, permission.LoginAccess)
 	s.cookieJar = apitesting.NewClearableCookieJar()
-	s.DischargerLogin = func() string { return "testuser@somewhere" }
+	s.DischargerLogin = func() string { return username }
 	s.client = s.OpenAPI(c, nil, s.cookieJar).Client()
 
 	// Even though we've logged into the API, we want

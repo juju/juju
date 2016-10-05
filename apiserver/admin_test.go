@@ -1054,7 +1054,7 @@ func (s *macaroonLoginSuite) TestRemoteUserLoginToModelWithControllerAccess(c *g
 		User:   remoteUser,
 		Access: permission.WriteAccess,
 	})
-	s.AddControllerUser(c, remoteUserTag, permission.AddModelAccess)
+	s.AddControllerUser(c, remoteUser, permission.AddModelAccess)
 
 	s.DischargerLogin = func() string {
 		return remoteUser
@@ -1069,20 +1069,11 @@ func (s *macaroonLoginSuite) TestRemoteUserLoginToModelWithControllerAccess(c *g
 	c.Check(result.UserInfo.ModelAccess, gc.Equals, "write")
 }
 
-func (s *macaroonLoginSuite) AddControllerUser(c *gc.C, user names.UserTag, access permission.Access) {
-	_, err := s.State.AddControllerUser(state.UserAccessSpec{
-		User:      user,
-		CreatedBy: s.AdminUserTag(c),
-		Access:    access,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-}
-
 func (s *macaroonLoginSuite) TestLoginToEnvironmentSuccess(c *gc.C) {
 	const remoteUser = "test@somewhere"
 	var remoteUserTag = names.NewUserTag(remoteUser)
 	s.AddModelUser(c, remoteUser)
-	s.AddControllerUser(c, remoteUserTag, permission.LoginAccess)
+	s.AddControllerUser(c, remoteUser, permission.LoginAccess)
 	s.DischargerLogin = func() string {
 		return "test@somewhere"
 	}
