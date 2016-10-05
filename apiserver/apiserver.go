@@ -252,8 +252,11 @@ func (srv *Server) run() {
 		err := srv.lis.Close()
 		logger.Infof("closed listening socket %q with final error: %v", addr, err)
 
-		srv.state.KillWorkers() // Break deadlocks caused by leadership BlockUntil... calls.
-		srv.wg.Wait()           // wait for any outstanding requests to complete.
+		// Break deadlocks caused by leadership BlockUntil... calls.
+		srv.statePool.KillWorkers()
+		srv.state.KillWorkers()
+
+		srv.wg.Wait() // wait for any outstanding requests to complete.
 		srv.tomb.Done()
 		srv.statePool.Close()
 		srv.state.Close()
