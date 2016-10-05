@@ -4,7 +4,10 @@
 package cloud
 
 import (
+	"github.com/juju/cmd"
+
 	jujucloud "github.com/juju/juju/cloud"
+	"github.com/juju/juju/cmd/modelcmd"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/jujuclient"
 )
@@ -69,4 +72,12 @@ func NewSetDefaultRegionCommandForTest(testStore jujuclient.CredentialStore) *se
 	return &setDefaultRegionCommand{
 		store: testStore,
 	}
+}
+
+func NewUpdateCredentialCommandForTest(testStore jujuclient.ClientStore, api credentialAPI) cmd.Command {
+	c := &updateCredentialCommand{
+		api: api,
+	}
+	c.SetClientStore(testStore)
+	return modelcmd.WrapController(c)
 }

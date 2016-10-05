@@ -516,6 +516,7 @@ var commandNames = []string{
 	"upload-backup",
 	"unregister",
 	"update-clouds",
+	"update-credential",
 	"upgrade-charm",
 	"upgrade-gui",
 	"upgrade-juju",

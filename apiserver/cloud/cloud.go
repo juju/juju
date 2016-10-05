@@ -208,6 +208,11 @@ func (api *CloudAPI) UpdateCredentials(args params.UpdateCloudCredentials) (para
 			arg.Credential.Attributes,
 		)
 		if err := api.backend.UpdateCloudCredential(tag, in); err != nil {
+			if errors.IsNotFound(err) {
+				err = errors.Errorf(
+					"cannot update credential %q: controller does not manage cloud %q",
+					tag.Name(), tag.Cloud().Id())
+			}
 			results.Results[i].Error = common.ServerError(err)
 			continue
 		}

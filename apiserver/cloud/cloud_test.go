@@ -9,6 +9,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/errors"
 	cloudfacade "github.com/juju/juju/apiserver/cloud"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -135,6 +136,7 @@ func (s *cloudSuite) TestUserCredentialsAdminAccess(c *gc.C) {
 }
 
 func (s *cloudSuite) TestUpdateCredentials(c *gc.C) {
+	s.backend.SetErrors(nil, errors.NotFoundf("cloud"))
 	s.authorizer.Tag = names.NewUserTag("bruce@local")
 	results, err := s.api.UpdateCredentials(params.UpdateCloudCredentials{Credentials: []params.UpdateCloudCredential{{
 		Tag: "machine-0",
@@ -146,10 +148,16 @@ func (s *cloudSuite) TestUpdateCredentials(c *gc.C) {
 			AuthType:   "oauth1",
 			Attributes: map[string]string{"token": "foo:bar:baz"},
 		},
+	}, {
+		Tag: "cloudcred-badcloud_bruce_three",
+		Credential: params.CloudCredential{
+			AuthType:   "oauth1",
+			Attributes: map[string]string{"token": "foo:bar:baz"},
+		},
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
-	s.backend.CheckCallNames(c, "ControllerTag", "UpdateCloudCredential")
-	c.Assert(results.Results, gc.HasLen, 3)
+	s.backend.CheckCallNames(c, "ControllerTag", "UpdateCloudCredential", "UpdateCloudCredential")
+	c.Assert(results.Results, gc.HasLen, 4)
 	c.Assert(results.Results[0].Error, jc.DeepEquals, &params.Error{
 		Message: `"machine-0" is not a valid cloudcred tag`,
 	})
@@ -157,6 +165,9 @@ func (s *cloudSuite) TestUpdateCredentials(c *gc.C) {
 		Message: "permission denied", Code: params.CodeUnauthorized,
 	})
 	c.Assert(results.Results[2].Error, gc.IsNil)
+	c.Assert(results.Results[3].Error, jc.DeepEquals, &params.Error{
+		Message: `cannot update credential "three": controller does not manage cloud "badcloud"`,
+	})
 
 	s.backend.CheckCall(
 		c, 1, "UpdateCloudCredential",

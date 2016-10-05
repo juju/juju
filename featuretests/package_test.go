@@ -32,6 +32,7 @@ func init() {
 	gc.Suite(&BakeryStorageSuite{})
 	gc.Suite(&blockSuite{})
 	gc.Suite(&cmdControllerSuite{})
+	gc.Suite(&cmdCredentialSuite{})
 	gc.Suite(&cmdJujuSuite{})
 	gc.Suite(&cmdLoginSuite{})
 	gc.Suite(&cmdModelSuite{})
