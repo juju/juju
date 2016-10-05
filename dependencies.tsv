@@ -52,7 +52,7 @@ github.com/juju/xml	git	eb759a627588d35166bc505fceb51b88500e291e	2015-04-13T13:1
 github.com/juju/zip	git	f6b1e93fa2e29a1d7d49b566b2b51efb060c982a	2016-02-05T10:52:21Z
 github.com/julienschmidt/httprouter	git	77a895ad01ebc98a4dc95d8355bc825ce80a56f6	2015-10-13T22:55:20Z
 github.com/lunixbochs/vtclean	git	4fbf7632a2c6d3fbdb9931439bdbbeded02cbe36	2016-01-25T03:51:06Z
-github.com/lxc/lxd	git	48fbe34449699b78c314b4fcf7db5a515357dfea	2016-09-28T03:03:51Z
+github.com/lxc/lxd	git	18b9ab963052d020c8accd10c64c13780140ced3	2016-10-05T07:54:22Z
 github.com/mattn/go-colorable	git	ed8eb9e318d7a84ce5915b495b7d35e0cfe7b5a8	2016-07-31T23:54:17Z
 github.com/mattn/go-isatty	git	66b8e73f3f5cda9f96b69efd03dd3d7fc4a5cdb8	2016-08-06T12:27:52Z
 github.com/mattn/go-runewidth	git	d96d1bd051f2bd9e7e43d602782b37b93b1b5666	2015-11-18T07:21:59Z

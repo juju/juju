@@ -13,7 +13,7 @@ import (
 
 type rawProfileClient interface {
 	ProfileCreate(name string) error
-	ListProfiles() ([]string, error)
+	ListProfiles() ([]shared.ProfileConfig, error)
 	SetProfileConfigItem(profile, key, value string) error
 	GetProfileConfig(profile string) (map[string]string, error)
 	ProfileDelete(profile string) error
@@ -67,7 +67,7 @@ func (p profileClient) HasProfile(name string) (bool, error) {
 		return false, errors.Trace(err)
 	}
 	for _, profile := range profiles {
-		if profile == name {
+		if profile.Name == name {
 			return true, nil
 		}
 	}
