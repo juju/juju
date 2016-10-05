@@ -25,5 +25,5 @@ sudo /etc/init.d/collectd restart
 
 sudo echo "deb http://repo.mongodb.org/apt/ubuntu xenial/mongodb-org/testing multiverse" | sudo tee /etc/apt/sources.list.d/mongo-org.list
 sudo apt-get update
-sudo apt-get install --yes --allow-unauthenticated mongodb-org-tools daemon
+sudo apt-get install --yes --allow-unauthenticated mongodb-org-tools=3.2.10~rc2 daemon
 sudo chmod +x ${runner_script_output_path}
