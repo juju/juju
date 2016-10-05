@@ -114,6 +114,9 @@ def assess_perf_test_simple(bs_manager, upload_tools):
     # Cleanup happens when we move out of context
     cleanup_end = datetime.utcnow()
     cleanup_timing = TimingData(cleanup_start, cleanup_end)
+
+    output_test_run_length(cleanup_timing)
+
     graph_period = _determine_graph_period(cleanup_timing)
     deployments = dict(
         bootstrap=bootstrap_timing,
@@ -130,6 +133,12 @@ def assess_perf_test_simple(bs_manager, upload_tools):
 
     generate_reports(
         controller_log_file, results_dir, deployments, graph_period)
+
+
+def output_test_run_length(timing):
+    m, s = divmod(timing.seconds, 60)
+    h, m = divmod(m, 60)
+    log.info('Test took: {0}h:{1:02d}m:{2:02d}s'.format(h, m, s))
 
 
 def _determine_graph_period(cleanup_timing):
