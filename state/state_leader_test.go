@@ -115,11 +115,11 @@ func (s *LeadershipSuite) TestCheck(c *gc.C) {
 	c.Check(ops2, gc.IsNil)
 }
 
-func (s *LeadershipSuite) TestHackLeadershipUnblocksClaimer(c *gc.C) {
+func (s *LeadershipSuite) TestKillWorkersUnblocksClaimer(c *gc.C) {
 	err := s.claimer.ClaimLeadership("blah", "blah/0", time.Minute)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.State.HackLeadership()
+	s.State.KillWorkers()
 	select {
 	case err := <-s.expiryChan("blah"):
 		c.Check(err, gc.ErrorMatches, "lease manager stopped")

@@ -55,6 +55,16 @@ func (p *StatePool) SystemState() *State {
 	return p.systemState
 }
 
+// KillWorkers tells the internal worker for all cached State
+// instances in the pool to die.
+func (p *StatePool) KillWorkers() {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	for _, st := range p.pool {
+		st.KillWorkers()
+	}
+}
+
 // Close closes all State instances in the pool.
 func (p *StatePool) Close() error {
 	p.mu.Lock()

@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/version"
+	"github.com/juju/juju/worker"
 )
 
 const (
@@ -555,4 +556,10 @@ func PrimeUnitStatusHistory(
 	buildTxn := updateStatusSource(unit.st, globalKey, doc)
 	err := unit.st.run(buildTxn)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+// GetInternalWorkers returns the internal workers managed by a State
+// to allow inspection in tests.
+func GetInternalWorkers(st *State) worker.Worker {
+	return st.workers
 }

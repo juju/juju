@@ -377,6 +377,26 @@ func (st *State) start(controllerTag names.ControllerTag) (err error) {
 	return nil
 }
 
+// KillWorkers tells the state's internal workers to die. This is
+// mainly used to kill the leadership manager to prevent it from
+// interfering with apiserver shutdown.
+func (st *State) KillWorkers() {
+	// TODO(fwereade): 2015-08-07 lp:1482634
+	// obviously, this should not exist: it's a quick hack to address lp:1481368 in
+	// 1.24.4, and should be quickly replaced with something that isn't so heinous.
+	//
+	// But.
+	//
+	// I *believe* that what it'll take to fix this is to extract the mongo-session-
+	// opening from state.Open, so we can create a mongosessioner Manifold on which
+	// state, leadership, watching, tools storage, etc etc etc can all independently
+	// depend. (Each dependency would/should have a separate session so they can
+	// close them all on their own schedule, without panics -- but the failure of
+	// the shared component should successfully goose them all into shutting down,
+	// in parallel, of their own accord.)
+	st.workers.Kill()
+}
+
 // ApplicationLeaders returns a map of the application name to the
 // unit name that is the current leader.
 func (st *State) ApplicationLeaders() (map[string]string, error) {
