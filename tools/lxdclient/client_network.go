@@ -8,9 +8,9 @@ package lxdclient
 import (
 	"fmt"
 
+	"github.com/juju/errors"
 	"github.com/lxc/lxd"
 	"github.com/lxc/lxd/shared"
-	"github.com/juju/errors"
 
 	"github.com/juju/juju/network"
 )
