@@ -5,16 +5,16 @@ package common
 
 import (
 	jujuos "github.com/juju/utils/os"
-	"github.com/juju/utils/series"
+	jujuseries "github.com/juju/utils/series"
 )
 
 // MinRootDiskSizeGiB is the minimum size for the root disk of an
 // instance, in Gigabytes. This value accommodates the anticipated
 // size of the initial image, any updates, and future application
 // data.
-func MinRootDiskSizeGiB(ser string) uint64 {
+func MinRootDiskSizeGiB(series string) uint64 {
 	// See comment below that explains why we're ignoring the error
-	os, _ := series.GetOSFromSeries(ser)
+	os, _ := jujuseries.GetOSFromSeries(series)
 	switch os {
 	case jujuos.Ubuntu, jujuos.CentOS:
 		return 8

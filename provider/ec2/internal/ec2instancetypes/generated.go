@@ -188,14 +188,13 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 		// Instance family: General purpose
 		// Storage: EBS only
 		{
-			Name:       "t2.micro",
-			Arches:     both,
-			CpuCores:   1,
-			CpuPower:   instances.CpuPower(10),
-			Mem:        1024,
-			VirtType:   &hvm,
-			Cost:       20,
-			Deprecated: true,
+			Name:     "t2.micro",
+			Arches:   both,
+			CpuCores: 1,
+			CpuPower: instances.CpuPower(10),
+			Mem:      1024,
+			VirtType: &hvm,
+			Cost:     20,
 		},
 
 		// SKU: AKQ89V8E78T6H534
@@ -321,28 +320,26 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 		// Instance family: General purpose
 		// Storage: EBS only
 		{
-			Name:       "t2.medium",
-			Arches:     both,
-			CpuCores:   2,
-			CpuPower:   instances.CpuPower(40),
-			Mem:        4096,
-			VirtType:   &hvm,
-			Cost:       80,
-			Deprecated: true,
+			Name:     "t2.medium",
+			Arches:   both,
+			CpuCores: 2,
+			CpuPower: instances.CpuPower(40),
+			Mem:      4096,
+			VirtType: &hvm,
+			Cost:     80,
 		},
 
 		// SKU: ERVWZ4V3UBYH4NQH
 		// Instance family: Micro instances
 		// Storage: EBS only
 		{
-			Name:       "t1.micro",
-			Arches:     both,
-			CpuCores:   1,
-			CpuPower:   instances.CpuPower(20),
-			Mem:        628,
-			VirtType:   &paravirtual,
-			Cost:       26,
-			Deprecated: true,
+			Name:     "t1.micro",
+			Arches:   both,
+			CpuCores: 1,
+			CpuPower: instances.CpuPower(20),
+			Mem:      628,
+			VirtType: &paravirtual,
+			Cost:     26,
 		},
 
 		// SKU: EZCSGZJ8PMXA2QF2
@@ -376,14 +373,13 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 		// Instance family: General purpose
 		// Storage: EBS only
 		{
-			Name:       "t2.nano",
-			Arches:     both,
-			CpuCores:   1,
-			CpuPower:   instances.CpuPower(5),
-			Mem:        512,
-			VirtType:   &hvm,
-			Cost:       10,
-			Deprecated: true,
+			Name:     "t2.nano",
+			Arches:   both,
+			CpuCores: 1,
+			CpuPower: instances.CpuPower(5),
+			Mem:      512,
+			VirtType: &hvm,
+			Cost:     10,
 		},
 
 		// SKU: FBUWUPNC8FXRUS5W
@@ -510,14 +506,13 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 		// Instance family: Memory optimized
 		// Storage: 2 x 1,920
 		{
-			Name:       "x1.32xlarge",
-			Arches:     amd64,
-			CpuCores:   128,
-			CpuPower:   instances.CpuPower(41216),
-			Mem:        1998848,
-			VirtType:   &hvm,
-			Cost:       19341,
-			Deprecated: true,
+			Name:     "x1.32xlarge",
+			Arches:   amd64,
+			CpuCores: 128,
+			CpuPower: instances.CpuPower(41216),
+			Mem:      1998848,
+			VirtType: &hvm,
+			Cost:     19341,
 		},
 
 		// SKU: PCB5ARVZ6TNS7A96
@@ -590,14 +585,13 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 		// Instance family: General purpose
 		// Storage: EBS only
 		{
-			Name:       "t2.large",
-			Arches:     amd64,
-			CpuCores:   2,
-			CpuPower:   instances.CpuPower(60),
-			Mem:        8192,
-			VirtType:   &hvm,
-			Cost:       160,
-			Deprecated: true,
+			Name:     "t2.large",
+			Arches:   amd64,
+			CpuCores: 2,
+			CpuPower: instances.CpuPower(60),
+			Mem:      8192,
+			VirtType: &hvm,
+			Cost:     160,
 		},
 
 		// SKU: Q85F79PK8VHHZT6X
@@ -737,14 +731,13 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 		// Instance family: General purpose
 		// Storage: EBS only
 		{
-			Name:       "t2.small",
-			Arches:     both,
-			CpuCores:   1,
-			CpuPower:   instances.CpuPower(20),
-			Mem:        2048,
-			VirtType:   &hvm,
-			Cost:       40,
-			Deprecated: true,
+			Name:     "t2.small",
+			Arches:   both,
+			CpuCores: 1,
+			CpuPower: instances.CpuPower(20),
+			Mem:      2048,
+			VirtType: &hvm,
+			Cost:     40,
 		},
 	},
 
@@ -819,14 +812,13 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 		// Instance family: Memory optimized
 		// Storage: 2 x 1,920
 		{
-			Name:       "x1.32xlarge",
-			Arches:     amd64,
-			CpuCores:   128,
-			CpuPower:   instances.CpuPower(41216),
-			Mem:        1998848,
-			VirtType:   &hvm,
-			Cost:       19341,
-			Deprecated: true,
+			Name:     "x1.32xlarge",
+			Arches:   amd64,
+			CpuCores: 128,
+			CpuPower: instances.CpuPower(41216),
+			Mem:      1998848,
+			VirtType: &hvm,
+			Cost:     19341,
 		},
 
 		// SKU: 6K25ZNG5NAXQC5AB
@@ -911,14 +903,13 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 		// Instance family: General purpose
 		// Storage: EBS only
 		{
-			Name:       "t2.medium",
-			Arches:     both,
-			CpuCores:   2,
-			CpuPower:   instances.CpuPower(40),
-			Mem:        4096,
-			VirtType:   &hvm,
-			Cost:       80,
-			Deprecated: true,
+			Name:     "t2.medium",
+			Arches:   both,
+			CpuCores: 2,
+			CpuPower: instances.CpuPower(40),
+			Mem:      4096,
+			VirtType: &hvm,
+			Cost:     80,
 		},
 
 		// SKU: 852A82DVHUAQRBUS
@@ -1003,14 +994,13 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 		// Instance family: General purpose
 		// Storage: EBS only
 		{
-			Name:       "t2.large",
-			Arches:     amd64,
-			CpuCores:   2,
-			CpuPower:   instances.CpuPower(60),
-			Mem:        8192,
-			VirtType:   &hvm,
-			Cost:       160,
-			Deprecated: true,
+			Name:     "t2.large",
+			Arches:   amd64,
+			CpuCores: 2,
+			CpuPower: instances.CpuPower(60),
+			Mem:      8192,
+			VirtType: &hvm,
+			Cost:     160,
 		},
 
 		// SKU: CFXCUT5A22XNZ43Y
@@ -1095,14 +1085,13 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 		// Instance family: General purpose
 		// Storage: EBS only
 		{
-			Name:       "t2.nano",
-			Arches:     both,
-			CpuCores:   1,
-			CpuPower:   instances.CpuPower(5),
-			Mem:        512,
-			VirtType:   &hvm,
-			Cost:       10,
-			Deprecated: true,
+			Name:     "t2.nano",
+			Arches:   both,
+			CpuCores: 1,
+			CpuPower: instances.CpuPower(5),
+			Mem:      512,
+			VirtType: &hvm,
+			Cost:     10,
 		},
 
 		// SKU: KUKJATN7HCNF2UFT
@@ -1187,14 +1176,13 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 		// Instance family: General purpose
 		// Storage: EBS only
 		{
-			Name:       "t2.small",
-			Arches:     both,
-			CpuCores:   1,
-			CpuPower:   instances.CpuPower(20),
-			Mem:        2048,
-			VirtType:   &hvm,
-			Cost:       40,
-			Deprecated: true,
+			Name:     "t2.small",
+			Arches:   both,
+			CpuCores: 1,
+			CpuPower: instances.CpuPower(20),
+			Mem:      2048,
+			VirtType: &hvm,
+			Cost:     40,
 		},
 
 		// SKU: R7GFV82WRF8QTZYP
@@ -1266,14 +1254,13 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 		// Instance family: General purpose
 		// Storage: EBS only
 		{
-			Name:       "t2.micro",
-			Arches:     both,
-			CpuCores:   1,
-			CpuPower:   instances.CpuPower(10),
-			Mem:        1024,
-			VirtType:   &hvm,
-			Cost:       20,
-			Deprecated: true,
+			Name:     "t2.micro",
+			Arches:   both,
+			CpuCores: 1,
+			CpuPower: instances.CpuPower(10),
+			Mem:      1024,
+			VirtType: &hvm,
+			Cost:     20,
 		},
 	},
 
@@ -1335,28 +1322,26 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 		// Instance family: General purpose
 		// Storage: EBS only
 		{
-			Name:       "t2.nano",
-			Arches:     both,
-			CpuCores:   1,
-			CpuPower:   instances.CpuPower(5),
-			Mem:        512,
-			VirtType:   &hvm,
-			Cost:       9,
-			Deprecated: true,
+			Name:     "t2.nano",
+			Arches:   both,
+			CpuCores: 1,
+			CpuPower: instances.CpuPower(5),
+			Mem:      512,
+			VirtType: &hvm,
+			Cost:     9,
 		},
 
 		// SKU: 6WAFB82CP99WZXD9
 		// Instance family: General purpose
 		// Storage: EBS only
 		{
-			Name:       "t2.small",
-			Arches:     both,
-			CpuCores:   1,
-			CpuPower:   instances.CpuPower(20),
-			Mem:        2048,
-			VirtType:   &hvm,
-			Cost:       38,
-			Deprecated: true,
+			Name:     "t2.small",
+			Arches:   both,
+			CpuCores: 1,
+			CpuPower: instances.CpuPower(20),
+			Mem:      2048,
+			VirtType: &hvm,
+			Cost:     38,
 		},
 
 		// SKU: 7HYM8MHNNFW2NN6T
@@ -1480,14 +1465,13 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 		// Instance family: General purpose
 		// Storage: EBS only
 		{
-			Name:       "t2.large",
-			Arches:     amd64,
-			CpuCores:   2,
-			CpuPower:   instances.CpuPower(60),
-			Mem:        8192,
-			VirtType:   &hvm,
-			Cost:       152,
-			Deprecated: true,
+			Name:     "t2.large",
+			Arches:   amd64,
+			CpuCores: 2,
+			CpuPower: instances.CpuPower(60),
+			Mem:      8192,
+			VirtType: &hvm,
+			Cost:     152,
 		},
 
 		// SKU: GGTGBU32M4STN8YS
@@ -1507,14 +1491,13 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 		// Instance family: General purpose
 		// Storage: EBS only
 		{
-			Name:       "t2.micro",
-			Arches:     both,
-			CpuCores:   1,
-			CpuPower:   instances.CpuPower(10),
-			Mem:        1024,
-			VirtType:   &hvm,
-			Cost:       19,
-			Deprecated: true,
+			Name:     "t2.micro",
+			Arches:   both,
+			CpuCores: 1,
+			CpuPower: instances.CpuPower(10),
+			Mem:      1024,
+			VirtType: &hvm,
+			Cost:     19,
 		},
 
 		// SKU: KFTR5EQCGQ6AUYXP
@@ -1560,14 +1543,13 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 		// Instance family: General purpose
 		// Storage: EBS only
 		{
-			Name:       "t2.medium",
-			Arches:     both,
-			CpuCores:   2,
-			CpuPower:   instances.CpuPower(40),
-			Mem:        4096,
-			VirtType:   &hvm,
-			Cost:       76,
-			Deprecated: true,
+			Name:     "t2.medium",
+			Arches:   both,
+			CpuCores: 2,
+			CpuPower: instances.CpuPower(40),
+			Mem:      4096,
+			VirtType: &hvm,
+			Cost:     76,
 		},
 
 		// SKU: TEV889FX73ZKZ8TU
@@ -1696,14 +1678,13 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 		// Instance family: Memory optimized
 		// Storage: 2 x 1,920
 		{
-			Name:       "x1.32xlarge",
-			Arches:     amd64,
-			CpuCores:   128,
-			CpuPower:   instances.CpuPower(41216),
-			Mem:        1998848,
-			VirtType:   &hvm,
-			Cost:       19341,
-			Deprecated: true,
+			Name:     "x1.32xlarge",
+			Arches:   amd64,
+			CpuCores: 128,
+			CpuPower: instances.CpuPower(41216),
+			Mem:      1998848,
+			VirtType: &hvm,
+			Cost:     19341,
 		},
 
 		// SKU: 5ES8X7PS795W6ZD4
@@ -1751,14 +1732,13 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 		// Instance family: General purpose
 		// Storage: EBS only
 		{
-			Name:       "t2.small",
-			Arches:     both,
-			CpuCores:   1,
-			CpuPower:   instances.CpuPower(20),
-			Mem:        2048,
-			VirtType:   &hvm,
-			Cost:       40,
-			Deprecated: true,
+			Name:     "t2.small",
+			Arches:   both,
+			CpuCores: 1,
+			CpuPower: instances.CpuPower(20),
+			Mem:      2048,
+			VirtType: &hvm,
+			Cost:     40,
 		},
 
 		// SKU: 7TMGTEJPM5UPWQ8X
@@ -1963,28 +1943,26 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 		// Instance family: General purpose
 		// Storage: EBS only
 		{
-			Name:       "t2.medium",
-			Arches:     both,
-			CpuCores:   2,
-			CpuPower:   instances.CpuPower(40),
-			Mem:        4096,
-			VirtType:   &hvm,
-			Cost:       80,
-			Deprecated: true,
+			Name:     "t2.medium",
+			Arches:   both,
+			CpuCores: 2,
+			CpuPower: instances.CpuPower(40),
+			Mem:      4096,
+			VirtType: &hvm,
+			Cost:     80,
 		},
 
 		// SKU: J65Z38YCBYKP7Q49
 		// Instance family: Micro instances
 		// Storage: EBS only
 		{
-			Name:       "t1.micro",
-			Arches:     both,
-			CpuCores:   1,
-			CpuPower:   instances.CpuPower(20),
-			Mem:        628,
-			VirtType:   &paravirtual,
-			Cost:       20,
-			Deprecated: true,
+			Name:     "t1.micro",
+			Arches:   both,
+			CpuCores: 1,
+			CpuPower: instances.CpuPower(20),
+			Mem:      628,
+			VirtType: &paravirtual,
+			Cost:     20,
 		},
 
 		// SKU: JDH4WM7E92WUS9JS
@@ -2095,14 +2073,13 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 		// Instance family: General purpose
 		// Storage: EBS only
 		{
-			Name:       "t2.micro",
-			Arches:     both,
-			CpuCores:   1,
-			CpuPower:   instances.CpuPower(10),
-			Mem:        1024,
-			VirtType:   &hvm,
-			Cost:       20,
-			Deprecated: true,
+			Name:     "t2.micro",
+			Arches:   both,
+			CpuCores: 1,
+			CpuPower: instances.CpuPower(10),
+			Mem:      1024,
+			VirtType: &hvm,
+			Cost:     20,
 		},
 
 		// SKU: SKTEJ2QN2YW8UFKF
@@ -2135,14 +2112,13 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 		// Instance family: General purpose
 		// Storage: EBS only
 		{
-			Name:       "t2.nano",
-			Arches:     both,
-			CpuCores:   1,
-			CpuPower:   instances.CpuPower(5),
-			Mem:        512,
-			VirtType:   &hvm,
-			Cost:       10,
-			Deprecated: true,
+			Name:     "t2.nano",
+			Arches:   both,
+			CpuCores: 1,
+			CpuPower: instances.CpuPower(5),
+			Mem:      512,
+			VirtType: &hvm,
+			Cost:     10,
 		},
 
 		// SKU: TYGKARPH33A4B8DT
@@ -2215,14 +2191,13 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 		// Instance family: General purpose
 		// Storage: EBS only
 		{
-			Name:       "t2.large",
-			Arches:     amd64,
-			CpuCores:   2,
-			CpuPower:   instances.CpuPower(60),
-			Mem:        8192,
-			VirtType:   &hvm,
-			Cost:       160,
-			Deprecated: true,
+			Name:     "t2.large",
+			Arches:   amd64,
+			CpuCores: 2,
+			CpuPower: instances.CpuPower(60),
+			Mem:      8192,
+			VirtType: &hvm,
+			Cost:     160,
 		},
 
 		// SKU: VE5MWWHUXS2VR8DV
@@ -2405,14 +2380,13 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 		// Instance family: Memory optimized
 		// Storage: 2 x 1,920
 		{
-			Name:       "x1.32xlarge",
-			Arches:     amd64,
-			CpuCores:   128,
-			CpuPower:   instances.CpuPower(41216),
-			Mem:        1998848,
-			VirtType:   &hvm,
-			Cost:       19341,
-			Deprecated: true,
+			Name:     "x1.32xlarge",
+			Arches:   amd64,
+			CpuCores: 128,
+			CpuPower: instances.CpuPower(41216),
+			Mem:      1998848,
+			VirtType: &hvm,
+			Cost:     19341,
 		},
 
 		// SKU: 69UM5U8QFXRAU255
@@ -2498,14 +2472,13 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 		// Instance family: General purpose
 		// Storage: EBS only
 		{
-			Name:       "t2.micro",
-			Arches:     both,
-			CpuCores:   1,
-			CpuPower:   instances.CpuPower(10),
-			Mem:        1024,
-			VirtType:   &hvm,
-			Cost:       20,
-			Deprecated: true,
+			Name:     "t2.micro",
+			Arches:   both,
+			CpuCores: 1,
+			CpuPower: instances.CpuPower(10),
+			Mem:      1024,
+			VirtType: &hvm,
+			Cost:     20,
 		},
 
 		// SKU: 8A5X9KQR4YKYYXCQ
@@ -2539,14 +2512,13 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 		// Instance family: Micro instances
 		// Storage: EBS only
 		{
-			Name:       "t1.micro",
-			Arches:     both,
-			CpuCores:   1,
-			CpuPower:   instances.CpuPower(20),
-			Mem:        628,
-			VirtType:   &paravirtual,
-			Cost:       20,
-			Deprecated: true,
+			Name:     "t1.micro",
+			Arches:   both,
+			CpuCores: 1,
+			CpuPower: instances.CpuPower(20),
+			Mem:      628,
+			VirtType: &paravirtual,
+			Cost:     20,
 		},
 
 		// SKU: C4A5RM72TUGX8R5D
@@ -2632,14 +2604,13 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 		// Instance family: General purpose
 		// Storage: EBS only
 		{
-			Name:       "t2.small",
-			Arches:     both,
-			CpuCores:   1,
-			CpuPower:   instances.CpuPower(20),
-			Mem:        2048,
-			VirtType:   &hvm,
-			Cost:       40,
-			Deprecated: true,
+			Name:     "t2.small",
+			Arches:   both,
+			CpuCores: 1,
+			CpuPower: instances.CpuPower(20),
+			Mem:      2048,
+			VirtType: &hvm,
+			Cost:     40,
 		},
 
 		// SKU: F9BAR5QA2VU3ZTBF
@@ -2737,14 +2708,13 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 		// Instance family: General purpose
 		// Storage: EBS only
 		{
-			Name:       "t2.large",
-			Arches:     amd64,
-			CpuCores:   2,
-			CpuPower:   instances.CpuPower(60),
-			Mem:        8192,
-			VirtType:   &hvm,
-			Cost:       160,
-			Deprecated: true,
+			Name:     "t2.large",
+			Arches:   amd64,
+			CpuCores: 2,
+			CpuPower: instances.CpuPower(60),
+			Mem:      8192,
+			VirtType: &hvm,
+			Cost:     160,
 		},
 
 		// SKU: KEVDJ9YEEGJZZGDS
@@ -2791,14 +2761,13 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 		// Instance family: General purpose
 		// Storage: EBS only
 		{
-			Name:       "t2.nano",
-			Arches:     both,
-			CpuCores:   1,
-			CpuPower:   instances.CpuPower(5),
-			Mem:        512,
-			VirtType:   &hvm,
-			Cost:       10,
-			Deprecated: true,
+			Name:     "t2.nano",
+			Arches:   both,
+			CpuCores: 1,
+			CpuPower: instances.CpuPower(5),
+			Mem:      512,
+			VirtType: &hvm,
+			Cost:     10,
 		},
 
 		// SKU: MSGAHYMZTGGJN5WS
@@ -3004,14 +2973,13 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 		// Instance family: General purpose
 		// Storage: EBS only
 		{
-			Name:       "t2.medium",
-			Arches:     both,
-			CpuCores:   2,
-			CpuPower:   instances.CpuPower(40),
-			Mem:        4096,
-			VirtType:   &hvm,
-			Cost:       80,
-			Deprecated: true,
+			Name:     "t2.medium",
+			Arches:   both,
+			CpuCores: 2,
+			CpuPower: instances.CpuPower(40),
+			Mem:      4096,
+			VirtType: &hvm,
+			Cost:     80,
 		},
 	},
 
@@ -3060,14 +3028,13 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 		// Instance family: General purpose
 		// Storage: EBS only
 		{
-			Name:       "t2.medium",
-			Arches:     both,
-			CpuCores:   2,
-			CpuPower:   instances.CpuPower(40),
-			Mem:        4096,
-			VirtType:   &hvm,
-			Cost:       60,
-			Deprecated: true,
+			Name:     "t2.medium",
+			Arches:   both,
+			CpuCores: 2,
+			CpuPower: instances.CpuPower(40),
+			Mem:      4096,
+			VirtType: &hvm,
+			Cost:     60,
 		},
 
 		// SKU: 5RNA3KEVYJW8UJWT
@@ -3113,14 +3080,13 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 		// Instance family: General purpose
 		// Storage: EBS only
 		{
-			Name:       "t2.nano",
-			Arches:     both,
-			CpuCores:   1,
-			CpuPower:   instances.CpuPower(5),
-			Mem:        512,
-			VirtType:   &hvm,
-			Cost:       7,
-			Deprecated: true,
+			Name:     "t2.nano",
+			Arches:   both,
+			CpuCores: 1,
+			CpuPower: instances.CpuPower(5),
+			Mem:      512,
+			VirtType: &hvm,
+			Cost:     7,
 		},
 
 		// SKU: 6Y959B8MKQZ55MGT
@@ -3140,28 +3106,26 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 		// Instance family: Memory optimized
 		// Storage: 2 x 1,920
 		{
-			Name:       "x1.32xlarge",
-			Arches:     amd64,
-			CpuCores:   128,
-			CpuPower:   instances.CpuPower(41216),
-			Mem:        1998848,
-			VirtType:   &hvm,
-			Cost:       18674,
-			Deprecated: true,
+			Name:     "x1.32xlarge",
+			Arches:   amd64,
+			CpuCores: 128,
+			CpuPower: instances.CpuPower(41216),
+			Mem:      1998848,
+			VirtType: &hvm,
+			Cost:     18674,
 		},
 
 		// SKU: 7W6DNQ55YG9FCPXZ
 		// Instance family: General purpose
 		// Storage: EBS only
 		{
-			Name:       "t2.large",
-			Arches:     amd64,
-			CpuCores:   2,
-			CpuPower:   instances.CpuPower(60),
-			Mem:        8192,
-			VirtType:   &hvm,
-			Cost:       120,
-			Deprecated: true,
+			Name:     "t2.large",
+			Arches:   amd64,
+			CpuCores: 2,
+			CpuPower: instances.CpuPower(60),
+			Mem:      8192,
+			VirtType: &hvm,
+			Cost:     120,
 		},
 
 		// SKU: 8KTQAHWA58GUHDGC
@@ -3246,14 +3210,13 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 		// Instance family: General purpose
 		// Storage: EBS only
 		{
-			Name:       "t2.small",
-			Arches:     both,
-			CpuCores:   1,
-			CpuPower:   instances.CpuPower(20),
-			Mem:        2048,
-			VirtType:   &hvm,
-			Cost:       30,
-			Deprecated: true,
+			Name:     "t2.small",
+			Arches:   both,
+			CpuCores: 1,
+			CpuPower: instances.CpuPower(20),
+			Mem:      2048,
+			VirtType: &hvm,
+			Cost:     30,
 		},
 
 		// SKU: D8BFUEFHTHMN4XUY
@@ -3494,14 +3457,13 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 		// Instance family: General purpose
 		// Storage: EBS only
 		{
-			Name:       "t2.micro",
-			Arches:     both,
-			CpuCores:   1,
-			CpuPower:   instances.CpuPower(10),
-			Mem:        1024,
-			VirtType:   &hvm,
-			Cost:       15,
-			Deprecated: true,
+			Name:     "t2.micro",
+			Arches:   both,
+			CpuCores: 1,
+			CpuPower: instances.CpuPower(10),
+			Mem:      1024,
+			VirtType: &hvm,
+			Cost:     15,
 		},
 
 		// SKU: WWTVB5GY85P5FGNW
@@ -3550,14 +3512,13 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 		// Instance family: Memory optimized
 		// Storage: 2 x 1,920
 		{
-			Name:       "x1.32xlarge",
-			Arches:     amd64,
-			CpuCores:   128,
-			CpuPower:   instances.CpuPower(41216),
-			Mem:        1998848,
-			VirtType:   &hvm,
-			Cost:       16006,
-			Deprecated: true,
+			Name:     "x1.32xlarge",
+			Arches:   amd64,
+			CpuCores: 128,
+			CpuPower: instances.CpuPower(41216),
+			Mem:      1998848,
+			VirtType: &hvm,
+			Cost:     16006,
 		},
 
 		// SKU: 2SX63SRBXZK94TSA
@@ -3590,14 +3551,13 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 		// Instance family: General purpose
 		// Storage: EBS only
 		{
-			Name:       "t2.large",
-			Arches:     amd64,
-			CpuCores:   2,
-			CpuPower:   instances.CpuPower(60),
-			Mem:        8192,
-			VirtType:   &hvm,
-			Cost:       112,
-			Deprecated: true,
+			Name:     "t2.large",
+			Arches:   amd64,
+			CpuCores: 2,
+			CpuPower: instances.CpuPower(60),
+			Mem:      8192,
+			VirtType: &hvm,
+			Cost:     112,
 		},
 
 		// SKU: 6FU9JEK79WWSARQ9
@@ -3761,14 +3721,13 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 		// Instance family: Micro instances
 		// Storage: EBS only
 		{
-			Name:       "t1.micro",
-			Arches:     both,
-			CpuCores:   1,
-			CpuPower:   instances.CpuPower(20),
-			Mem:        628,
-			VirtType:   &paravirtual,
-			Cost:       20,
-			Deprecated: true,
+			Name:     "t1.micro",
+			Arches:   both,
+			CpuCores: 1,
+			CpuPower: instances.CpuPower(20),
+			Mem:      628,
+			VirtType: &paravirtual,
+			Cost:     20,
 		},
 
 		// SKU: DYTSK9JJGPSR6VQB
@@ -3856,14 +3815,13 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 		// Instance family: General purpose
 		// Storage: EBS only
 		{
-			Name:       "t2.medium",
-			Arches:     both,
-			CpuCores:   2,
-			CpuPower:   instances.CpuPower(40),
-			Mem:        4096,
-			VirtType:   &hvm,
-			Cost:       56,
-			Deprecated: true,
+			Name:     "t2.medium",
+			Arches:   both,
+			CpuCores: 2,
+			CpuPower: instances.CpuPower(40),
+			Mem:      4096,
+			VirtType: &hvm,
+			Cost:     56,
 		},
 
 		// SKU: HG3TP7M3FQZ54HKR
@@ -3910,14 +3868,13 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 		// Instance family: General purpose
 		// Storage: EBS only
 		{
-			Name:       "t2.small",
-			Arches:     both,
-			CpuCores:   1,
-			CpuPower:   instances.CpuPower(20),
-			Mem:        2048,
-			VirtType:   &hvm,
-			Cost:       28,
-			Deprecated: true,
+			Name:     "t2.small",
+			Arches:   both,
+			CpuCores: 1,
+			CpuPower: instances.CpuPower(20),
+			Mem:      2048,
+			VirtType: &hvm,
+			Cost:     28,
 		},
 
 		// SKU: NSCRWEDQZZESFDFG
@@ -4070,28 +4027,26 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 		// Instance family: General purpose
 		// Storage: EBS only
 		{
-			Name:       "t2.nano",
-			Arches:     both,
-			CpuCores:   1,
-			CpuPower:   instances.CpuPower(5),
-			Mem:        512,
-			VirtType:   &hvm,
-			Cost:       7,
-			Deprecated: true,
+			Name:     "t2.nano",
+			Arches:   both,
+			CpuCores: 1,
+			CpuPower: instances.CpuPower(5),
+			Mem:      512,
+			VirtType: &hvm,
+			Cost:     7,
 		},
 
 		// SKU: STTHYT3WDDQU8UBR
 		// Instance family: General purpose
 		// Storage: EBS only
 		{
-			Name:       "t2.micro",
-			Arches:     both,
-			CpuCores:   1,
-			CpuPower:   instances.CpuPower(10),
-			Mem:        1024,
-			VirtType:   &hvm,
-			Cost:       14,
-			Deprecated: true,
+			Name:     "t2.micro",
+			Arches:   both,
+			CpuCores: 1,
+			CpuPower: instances.CpuPower(10),
+			Mem:      1024,
+			VirtType: &hvm,
+			Cost:     14,
 		},
 
 		// SKU: T3ZC3B9VPS8PA59H
@@ -4288,28 +4243,26 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 		// Instance family: Memory optimized
 		// Storage: 2 x 1,920
 		{
-			Name:       "x1.32xlarge",
-			Arches:     amd64,
-			CpuCores:   128,
-			CpuPower:   instances.CpuPower(41216),
-			Mem:        1998848,
-			VirtType:   &hvm,
-			Cost:       26010,
-			Deprecated: true,
+			Name:     "x1.32xlarge",
+			Arches:   amd64,
+			CpuCores: 128,
+			CpuPower: instances.CpuPower(41216),
+			Mem:      1998848,
+			VirtType: &hvm,
+			Cost:     26010,
 		},
 
 		// SKU: 3AW2EEGJZNBGCQTC
 		// Instance family: General purpose
 		// Storage: EBS only
 		{
-			Name:       "t2.large",
-			Arches:     amd64,
-			CpuCores:   2,
-			CpuPower:   instances.CpuPower(60),
-			Mem:        8192,
-			VirtType:   &hvm,
-			Cost:       216,
-			Deprecated: true,
+			Name:     "t2.large",
+			Arches:   amd64,
+			CpuCores: 2,
+			CpuPower: instances.CpuPower(60),
+			Mem:      8192,
+			VirtType: &hvm,
+			Cost:     216,
 		},
 
 		// SKU: 4KCYN288G4U4BEAG
@@ -4383,28 +4336,26 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 		// Instance family: General purpose
 		// Storage: EBS only
 		{
-			Name:       "t2.nano",
-			Arches:     both,
-			CpuCores:   1,
-			CpuPower:   instances.CpuPower(5),
-			Mem:        512,
-			VirtType:   &hvm,
-			Cost:       13,
-			Deprecated: true,
+			Name:     "t2.nano",
+			Arches:   both,
+			CpuCores: 1,
+			CpuPower: instances.CpuPower(5),
+			Mem:      512,
+			VirtType: &hvm,
+			Cost:     13,
 		},
 
 		// SKU: 84JB45JJDJXM67K4
 		// Instance family: General purpose
 		// Storage: EBS only
 		{
-			Name:       "t2.small",
-			Arches:     both,
-			CpuCores:   1,
-			CpuPower:   instances.CpuPower(20),
-			Mem:        2048,
-			VirtType:   &hvm,
-			Cost:       54,
-			Deprecated: true,
+			Name:     "t2.small",
+			Arches:   both,
+			CpuCores: 1,
+			CpuPower: instances.CpuPower(20),
+			Mem:      2048,
+			VirtType: &hvm,
+			Cost:     54,
 		},
 
 		// SKU: 8VWG8TTVN5G378AH
@@ -4572,14 +4523,13 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 		// Instance family: General purpose
 		// Storage: EBS only
 		{
-			Name:       "t2.micro",
-			Arches:     both,
-			CpuCores:   1,
-			CpuPower:   instances.CpuPower(10),
-			Mem:        1024,
-			VirtType:   &hvm,
-			Cost:       27,
-			Deprecated: true,
+			Name:     "t2.micro",
+			Arches:   both,
+			CpuCores: 1,
+			CpuPower: instances.CpuPower(10),
+			Mem:      1024,
+			VirtType: &hvm,
+			Cost:     27,
 		},
 
 		// SKU: M6GCPQTQDNQK5XUW
@@ -4600,14 +4550,13 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 		// Instance family: Micro instances
 		// Storage: EBS only
 		{
-			Name:       "t1.micro",
-			Arches:     both,
-			CpuCores:   1,
-			CpuPower:   instances.CpuPower(20),
-			Mem:        628,
-			VirtType:   &paravirtual,
-			Cost:       27,
-			Deprecated: true,
+			Name:     "t1.micro",
+			Arches:   both,
+			CpuCores: 1,
+			CpuPower: instances.CpuPower(20),
+			Mem:      628,
+			VirtType: &paravirtual,
+			Cost:     27,
 		},
 
 		// SKU: PDY52X9T9DZY9CT5
@@ -4654,14 +4603,13 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 		// Instance family: General purpose
 		// Storage: EBS only
 		{
-			Name:       "t2.medium",
-			Arches:     both,
-			CpuCores:   2,
-			CpuPower:   instances.CpuPower(40),
-			Mem:        4096,
-			VirtType:   &hvm,
-			Cost:       108,
-			Deprecated: true,
+			Name:     "t2.medium",
+			Arches:   both,
+			CpuCores: 2,
+			CpuPower: instances.CpuPower(40),
+			Mem:      4096,
+			VirtType: &hvm,
+			Cost:     108,
 		},
 
 		// SKU: W6ARQS59M94CBPW2
@@ -4869,14 +4817,13 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 		// Instance family: Micro instances
 		// Storage: EBS only
 		{
-			Name:       "t1.micro",
-			Arches:     both,
-			CpuCores:   1,
-			CpuPower:   instances.CpuPower(20),
-			Mem:        628,
-			VirtType:   &paravirtual,
-			Cost:       20,
-			Deprecated: true,
+			Name:     "t1.micro",
+			Arches:   both,
+			CpuCores: 1,
+			CpuPower: instances.CpuPower(20),
+			Mem:      628,
+			VirtType: &paravirtual,
+			Cost:     20,
 		},
 
 		// SKU: 6TEX73KEE94WMEED
@@ -4897,14 +4844,13 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 		// Instance family: Memory optimized
 		// Storage: 2 x 1,920
 		{
-			Name:       "x1.32xlarge",
-			Arches:     amd64,
-			CpuCores:   128,
-			CpuPower:   instances.CpuPower(41216),
-			Mem:        1998848,
-			VirtType:   &hvm,
-			Cost:       13338,
-			Deprecated: true,
+			Name:     "x1.32xlarge",
+			Arches:   amd64,
+			CpuCores: 128,
+			CpuPower: instances.CpuPower(41216),
+			Mem:      1998848,
+			VirtType: &hvm,
+			Cost:     13338,
 		},
 
 		// SKU: 8VCNEHQMSCQS4P39
@@ -4963,14 +4909,13 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 		// Instance family: General purpose
 		// Storage: EBS only
 		{
-			Name:       "t2.nano",
-			Arches:     both,
-			CpuCores:   1,
-			CpuPower:   instances.CpuPower(5),
-			Mem:        512,
-			VirtType:   &hvm,
-			Cost:       6,
-			Deprecated: true,
+			Name:     "t2.nano",
+			Arches:   both,
+			CpuCores: 1,
+			CpuPower: instances.CpuPower(5),
+			Mem:      512,
+			VirtType: &hvm,
+			Cost:     6,
 		},
 
 		// SKU: ARPJFM962U4P5HAT
@@ -5096,14 +5041,13 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 		// Instance family: General purpose
 		// Storage: EBS only
 		{
-			Name:       "t2.micro",
-			Arches:     both,
-			CpuCores:   1,
-			CpuPower:   instances.CpuPower(10),
-			Mem:        1024,
-			VirtType:   &hvm,
-			Cost:       13,
-			Deprecated: true,
+			Name:     "t2.micro",
+			Arches:   both,
+			CpuCores: 1,
+			CpuPower: instances.CpuPower(10),
+			Mem:      1024,
+			VirtType: &hvm,
+			Cost:     13,
 		},
 
 		// SKU: J4T9ZF4AJ2DXE7SA
@@ -5230,14 +5174,13 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 		// Instance family: General purpose
 		// Storage: EBS only
 		{
-			Name:       "t2.large",
-			Arches:     amd64,
-			CpuCores:   2,
-			CpuPower:   instances.CpuPower(60),
-			Mem:        8192,
-			VirtType:   &hvm,
-			Cost:       104,
-			Deprecated: true,
+			Name:     "t2.large",
+			Arches:   amd64,
+			CpuCores: 2,
+			CpuPower: instances.CpuPower(60),
+			Mem:      8192,
+			VirtType: &hvm,
+			Cost:     104,
 		},
 
 		// SKU: QSNKQ8P78YXPTAH8
@@ -5257,14 +5200,13 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 		// Instance family: General purpose
 		// Storage: EBS only
 		{
-			Name:       "t2.medium",
-			Arches:     both,
-			CpuCores:   2,
-			CpuPower:   instances.CpuPower(40),
-			Mem:        4096,
-			VirtType:   &hvm,
-			Cost:       52,
-			Deprecated: true,
+			Name:     "t2.medium",
+			Arches:   both,
+			CpuCores: 2,
+			CpuPower: instances.CpuPower(40),
+			Mem:      4096,
+			VirtType: &hvm,
+			Cost:     52,
 		},
 
 		// SKU: RJZ63YZJGC58TPTS
@@ -5338,14 +5280,13 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 		// Instance family: General purpose
 		// Storage: EBS only
 		{
-			Name:       "t2.small",
-			Arches:     both,
-			CpuCores:   1,
-			CpuPower:   instances.CpuPower(20),
-			Mem:        2048,
-			VirtType:   &hvm,
-			Cost:       26,
-			Deprecated: true,
+			Name:     "t2.small",
+			Arches:   both,
+			CpuCores: 1,
+			CpuPower: instances.CpuPower(20),
+			Mem:      2048,
+			VirtType: &hvm,
+			Cost:     26,
 		},
 
 		// SKU: VHC3YWSZ6ZFZPJN4
@@ -5608,14 +5549,13 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 		// Instance family: General purpose
 		// Storage: EBS only
 		{
-			Name:       "t2.large",
-			Arches:     amd64,
-			CpuCores:   2,
-			CpuPower:   instances.CpuPower(60),
-			Mem:        8192,
-			VirtType:   &hvm,
-			Cost:       124,
-			Deprecated: true,
+			Name:     "t2.large",
+			Arches:   amd64,
+			CpuCores: 2,
+			CpuPower: instances.CpuPower(60),
+			Mem:      8192,
+			VirtType: &hvm,
+			Cost:     124,
 		},
 
 		// SKU: BXAR9D46EJJXYWD9
@@ -5676,14 +5616,13 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 		// Instance family: Memory optimized
 		// Storage: 2 x 1,920
 		{
-			Name:       "x1.32xlarge",
-			Arches:     amd64,
-			CpuCores:   128,
-			CpuPower:   instances.CpuPower(41216),
-			Mem:        1998848,
-			VirtType:   &hvm,
-			Cost:       16006,
-			Deprecated: true,
+			Name:     "x1.32xlarge",
+			Arches:   amd64,
+			CpuCores: 128,
+			CpuPower: instances.CpuPower(41216),
+			Mem:      1998848,
+			VirtType: &hvm,
+			Cost:     16006,
 		},
 
 		// SKU: EG7K36A6WPQ4YM89
@@ -5744,14 +5683,13 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 		// Instance family: Micro instances
 		// Storage: EBS only
 		{
-			Name:       "t1.micro",
-			Arches:     both,
-			CpuCores:   1,
-			CpuPower:   instances.CpuPower(20),
-			Mem:        628,
-			VirtType:   &paravirtual,
-			Cost:       24,
-			Deprecated: true,
+			Name:     "t1.micro",
+			Arches:   both,
+			CpuCores: 1,
+			CpuPower: instances.CpuPower(20),
+			Mem:      628,
+			VirtType: &paravirtual,
+			Cost:     24,
 		},
 
 		// SKU: K5CWXN5HSW7SME2R
@@ -5784,14 +5722,13 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 		// Instance family: General purpose
 		// Storage: EBS only
 		{
-			Name:       "t2.micro",
-			Arches:     both,
-			CpuCores:   1,
-			CpuPower:   instances.CpuPower(10),
-			Mem:        1024,
-			VirtType:   &hvm,
-			Cost:       15,
-			Deprecated: true,
+			Name:     "t2.micro",
+			Arches:   both,
+			CpuCores: 1,
+			CpuPower: instances.CpuPower(10),
+			Mem:      1024,
+			VirtType: &hvm,
+			Cost:     15,
 		},
 
 		// SKU: P76AN6DXWYCD69GD
@@ -5837,14 +5774,13 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 		// Instance family: General purpose
 		// Storage: EBS only
 		{
-			Name:       "t2.nano",
-			Arches:     both,
-			CpuCores:   1,
-			CpuPower:   instances.CpuPower(5),
-			Mem:        512,
-			VirtType:   &hvm,
-			Cost:       7,
-			Deprecated: true,
+			Name:     "t2.nano",
+			Arches:   both,
+			CpuCores: 1,
+			CpuPower: instances.CpuPower(5),
+			Mem:      512,
+			VirtType: &hvm,
+			Cost:     7,
 		},
 
 		// SKU: RG9GWJUK8NQBF57M
@@ -5918,14 +5854,13 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 		// Instance family: General purpose
 		// Storage: EBS only
 		{
-			Name:       "t2.small",
-			Arches:     both,
-			CpuCores:   1,
-			CpuPower:   instances.CpuPower(20),
-			Mem:        2048,
-			VirtType:   &hvm,
-			Cost:       31,
-			Deprecated: true,
+			Name:     "t2.small",
+			Arches:   both,
+			CpuCores: 1,
+			CpuPower: instances.CpuPower(20),
+			Mem:      2048,
+			VirtType: &hvm,
+			Cost:     31,
 		},
 
 		// SKU: VXKKRPEQERAMFSFJ
@@ -5985,14 +5920,13 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 		// Instance family: General purpose
 		// Storage: EBS only
 		{
-			Name:       "t2.medium",
-			Arches:     both,
-			CpuCores:   2,
-			CpuPower:   instances.CpuPower(40),
-			Mem:        4096,
-			VirtType:   &hvm,
-			Cost:       62,
-			Deprecated: true,
+			Name:     "t2.medium",
+			Arches:   both,
+			CpuCores: 2,
+			CpuPower: instances.CpuPower(40),
+			Mem:      4096,
+			VirtType: &hvm,
+			Cost:     62,
 		},
 
 		// SKU: ZZTR42B59D85VUCY
@@ -6080,14 +6014,13 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 		// Instance family: Micro instances
 		// Storage: EBS only
 		{
-			Name:       "t1.micro",
-			Arches:     both,
-			CpuCores:   1,
-			CpuPower:   instances.CpuPower(20),
-			Mem:        628,
-			VirtType:   &paravirtual,
-			Cost:       25,
-			Deprecated: true,
+			Name:     "t1.micro",
+			Arches:   both,
+			CpuCores: 1,
+			CpuPower: instances.CpuPower(20),
+			Mem:      628,
+			VirtType: &paravirtual,
+			Cost:     25,
 		},
 
 		// SKU: 5JQZHK4R7B7U6R3D
@@ -6148,14 +6081,13 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 		// Instance family: General purpose
 		// Storage: EBS only
 		{
-			Name:       "t2.medium",
-			Arches:     both,
-			CpuCores:   2,
-			CpuPower:   instances.CpuPower(40),
-			Mem:        4096,
-			VirtType:   &hvm,
-			Cost:       68,
-			Deprecated: true,
+			Name:     "t2.medium",
+			Arches:   both,
+			CpuCores: 2,
+			CpuPower: instances.CpuPower(40),
+			Mem:      4096,
+			VirtType: &hvm,
+			Cost:     68,
 		},
 
 		// SKU: 87ZU79BG86PYWTSG
@@ -6201,14 +6133,13 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 		// Instance family: Memory optimized
 		// Storage: 2 x 1,920
 		{
-			Name:       "x1.32xlarge",
-			Arches:     amd64,
-			CpuCores:   128,
-			CpuPower:   instances.CpuPower(41216),
-			Mem:        1998848,
-			VirtType:   &hvm,
-			Cost:       17340,
-			Deprecated: true,
+			Name:     "x1.32xlarge",
+			Arches:   amd64,
+			CpuCores: 128,
+			CpuPower: instances.CpuPower(41216),
+			Mem:      1998848,
+			VirtType: &hvm,
+			Cost:     17340,
 		},
 
 		// SKU: CTG879VYY65QE94C
@@ -6241,14 +6172,13 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 		// Instance family: General purpose
 		// Storage: EBS only
 		{
-			Name:       "t2.large",
-			Arches:     amd64,
-			CpuCores:   2,
-			CpuPower:   instances.CpuPower(60),
-			Mem:        8192,
-			VirtType:   &hvm,
-			Cost:       136,
-			Deprecated: true,
+			Name:     "t2.large",
+			Arches:   amd64,
+			CpuCores: 2,
+			CpuPower: instances.CpuPower(60),
+			Mem:      8192,
+			VirtType: &hvm,
+			Cost:     136,
 		},
 
 		// SKU: EVYB78ZE853DF3CC
@@ -6334,14 +6264,13 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 		// Instance family: General purpose
 		// Storage: EBS only
 		{
-			Name:       "t2.nano",
-			Arches:     both,
-			CpuCores:   1,
-			CpuPower:   instances.CpuPower(5),
-			Mem:        512,
-			VirtType:   &hvm,
-			Cost:       8,
-			Deprecated: true,
+			Name:     "t2.nano",
+			Arches:   both,
+			CpuCores: 1,
+			CpuPower: instances.CpuPower(5),
+			Mem:      512,
+			VirtType: &hvm,
+			Cost:     8,
 		},
 
 		// SKU: GSN36ZXJH466ES5F
@@ -6387,28 +6316,26 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 		// Instance family: General purpose
 		// Storage: EBS only
 		{
-			Name:       "t2.micro",
-			Arches:     both,
-			CpuCores:   1,
-			CpuPower:   instances.CpuPower(10),
-			Mem:        1024,
-			VirtType:   &hvm,
-			Cost:       17,
-			Deprecated: true,
+			Name:     "t2.micro",
+			Arches:   both,
+			CpuCores: 1,
+			CpuPower: instances.CpuPower(10),
+			Mem:      1024,
+			VirtType: &hvm,
+			Cost:     17,
 		},
 
 		// SKU: JHV4BKWFVMXQ2T6R
 		// Instance family: General purpose
 		// Storage: EBS only
 		{
-			Name:       "t2.small",
-			Arches:     both,
-			CpuCores:   1,
-			CpuPower:   instances.CpuPower(20),
-			Mem:        2048,
-			VirtType:   &hvm,
-			Cost:       34,
-			Deprecated: true,
+			Name:     "t2.small",
+			Arches:   both,
+			CpuCores: 1,
+			CpuPower: instances.CpuPower(20),
+			Mem:      2048,
+			VirtType: &hvm,
+			Cost:     34,
 		},
 
 		// SKU: JJRB8PAXGN6JTB3D
@@ -6684,28 +6611,26 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 		// Instance family: General purpose
 		// Storage: EBS only
 		{
-			Name:       "t2.medium",
-			Arches:     both,
-			CpuCores:   2,
-			CpuPower:   instances.CpuPower(40),
-			Mem:        4096,
-			VirtType:   &hvm,
-			Cost:       52,
-			Deprecated: true,
+			Name:     "t2.medium",
+			Arches:   both,
+			CpuCores: 2,
+			CpuPower: instances.CpuPower(40),
+			Mem:      4096,
+			VirtType: &hvm,
+			Cost:     52,
 		},
 
 		// SKU: 2J3G8CUM4UVYVFJH
 		// Instance family: General purpose
 		// Storage: EBS only
 		{
-			Name:       "t2.nano",
-			Arches:     both,
-			CpuCores:   1,
-			CpuPower:   instances.CpuPower(5),
-			Mem:        512,
-			VirtType:   &hvm,
-			Cost:       6,
-			Deprecated: true,
+			Name:     "t2.nano",
+			Arches:   both,
+			CpuCores: 1,
+			CpuPower: instances.CpuPower(5),
+			Mem:      512,
+			VirtType: &hvm,
+			Cost:     6,
 		},
 
 		// SKU: 2JUMD5V8V9V6D9JC
@@ -6726,14 +6651,13 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 		// Instance family: Memory optimized
 		// Storage: 2 x 1,920
 		{
-			Name:       "x1.32xlarge",
-			Arches:     amd64,
-			CpuCores:   128,
-			CpuPower:   instances.CpuPower(41216),
-			Mem:        1998848,
-			VirtType:   &hvm,
-			Cost:       13338,
-			Deprecated: true,
+			Name:     "x1.32xlarge",
+			Arches:   amd64,
+			CpuCores: 128,
+			CpuPower: instances.CpuPower(41216),
+			Mem:      1998848,
+			VirtType: &hvm,
+			Cost:     13338,
 		},
 
 		// SKU: 3FTJBHZMWT7D76MD
@@ -7191,14 +7115,13 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 		// Instance family: General purpose
 		// Storage: EBS only
 		{
-			Name:       "t2.micro",
-			Arches:     both,
-			CpuCores:   1,
-			CpuPower:   instances.CpuPower(10),
-			Mem:        1024,
-			VirtType:   &hvm,
-			Cost:       13,
-			Deprecated: true,
+			Name:     "t2.micro",
+			Arches:   both,
+			CpuCores: 1,
+			CpuPower: instances.CpuPower(10),
+			Mem:      1024,
+			VirtType: &hvm,
+			Cost:     13,
 		},
 
 		// SKU: N5F93UFYUKWKB8KE
@@ -7312,14 +7235,13 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 		// Instance family: General purpose
 		// Storage: EBS only
 		{
-			Name:       "t2.large",
-			Arches:     amd64,
-			CpuCores:   2,
-			CpuPower:   instances.CpuPower(60),
-			Mem:        8192,
-			VirtType:   &hvm,
-			Cost:       104,
-			Deprecated: true,
+			Name:     "t2.large",
+			Arches:   amd64,
+			CpuCores: 2,
+			CpuPower: instances.CpuPower(60),
+			Mem:      8192,
+			VirtType: &hvm,
+			Cost:     104,
 		},
 
 		// SKU: X5NPE8XF7KHV7AAD
@@ -7339,28 +7261,26 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 		// Instance family: General purpose
 		// Storage: EBS only
 		{
-			Name:       "t2.small",
-			Arches:     both,
-			CpuCores:   1,
-			CpuPower:   instances.CpuPower(20),
-			Mem:        2048,
-			VirtType:   &hvm,
-			Cost:       26,
-			Deprecated: true,
+			Name:     "t2.small",
+			Arches:   both,
+			CpuCores: 1,
+			CpuPower: instances.CpuPower(20),
+			Mem:      2048,
+			VirtType: &hvm,
+			Cost:     26,
 		},
 
 		// SKU: XUTTHNZ5B5VJKKDE
 		// Instance family: Micro instances
 		// Storage: EBS only
 		{
-			Name:       "t1.micro",
-			Arches:     both,
-			CpuCores:   1,
-			CpuPower:   instances.CpuPower(20),
-			Mem:        628,
-			VirtType:   &paravirtual,
-			Cost:       20,
-			Deprecated: true,
+			Name:     "t1.micro",
+			Arches:   both,
+			CpuCores: 1,
+			CpuPower: instances.CpuPower(20),
+			Mem:      628,
+			VirtType: &paravirtual,
+			Cost:     20,
 		},
 
 		// SKU: YBN8Q7AQJD9ZT57S

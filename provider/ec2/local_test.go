@@ -395,7 +395,7 @@ func (t *localServerSuite) TestSystemdBootstrapInstanceUserDataAndState(c *gc.C)
 	// check that a new instance will be started with a machine agent
 	inst1, hc := testing.AssertStartInstance(c, env, t.ControllerUUID, "1")
 	c.Check(*hc.Arch, gc.Equals, "amd64")
-	c.Check(*hc.Mem, gc.Equals, uint64(3840))
+	c.Check(*hc.Mem, gc.Equals, uint64(3.75*1024))
 	c.Check(*hc.CpuCores, gc.Equals, uint64(1))
 	inst = t.srv.ec2srv.Instance(string(inst1.Id()))
 	c.Assert(inst, gc.NotNil)
@@ -480,7 +480,7 @@ func (t *localServerSuite) TestUpstartBootstrapInstanceUserDataAndState(c *gc.C)
 	// check that a new instance will be started with a machine agent
 	inst1, hc := testing.AssertStartInstance(c, env, t.ControllerUUID, "1")
 	c.Check(*hc.Arch, gc.Equals, "amd64")
-	c.Check(*hc.Mem, gc.Equals, uint64(3840))
+	c.Check(*hc.Mem, gc.Equals, uint64(3.75*1024))
 	c.Check(*hc.CpuCores, gc.Equals, uint64(1))
 	inst = t.srv.ec2srv.Instance(string(inst1.Id()))
 	c.Assert(inst, gc.NotNil)
@@ -734,7 +734,7 @@ func (t *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 	env := t.prepareAndBootstrap(c)
 	_, hc := testing.AssertStartInstance(c, env, t.ControllerUUID, "1")
 	c.Check(*hc.Arch, gc.Equals, "amd64")
-	c.Check(*hc.Mem, gc.Equals, uint64(3840))
+	c.Check(*hc.Mem, gc.Equals, uint64(3.75*1024))
 	c.Check(*hc.CpuCores, gc.Equals, uint64(1))
 }
 
@@ -1158,6 +1158,46 @@ func (t *localServerSuite) TestConstraintsValidatorVocab(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "invalid constraint value: instance-type=foo\nvalid values are:.*")
 }
 
+func (t *localServerSuite) TestConstraintsValidatorVocabNoDefaultOrSpecifiedVPC(c *gc.C) {
+	t.srv.defaultVPC.IsDefault = false
+	err := t.srv.ec2srv.UpdateVPC(*t.srv.defaultVPC)
+	c.Assert(err, jc.ErrorIsNil)
+
+	env := t.Prepare(c)
+	assertVPCInstanceTypeNotAvailable(c, env)
+}
+
+func (t *localServerSuite) TestConstraintsValidatorVocabDefaultVPC(c *gc.C) {
+	env := t.Prepare(c)
+	assertVPCInstanceTypeAvailable(c, env)
+}
+
+func (t *localServerSuite) TestConstraintsValidatorVocabSpecifiedVPC(c *gc.C) {
+	t.srv.defaultVPC.IsDefault = false
+	err := t.srv.ec2srv.UpdateVPC(*t.srv.defaultVPC)
+	c.Assert(err, jc.ErrorIsNil)
+
+	t.TestConfig["vpc-id"] = t.srv.defaultVPC.Id
+	defer delete(t.TestConfig, "vpc-id")
+
+	env := t.Prepare(c)
+	assertVPCInstanceTypeAvailable(c, env)
+}
+
+func assertVPCInstanceTypeAvailable(c *gc.C, env environs.Environ) {
+	validator, err := env.ConstraintsValidator()
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = validator.Validate(constraints.MustParse("instance-type=t2.medium"))
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func assertVPCInstanceTypeNotAvailable(c *gc.C, env environs.Environ) {
+	validator, err := env.ConstraintsValidator()
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = validator.Validate(constraints.MustParse("instance-type=t2.medium"))
+	c.Assert(err, gc.ErrorMatches, "invalid constraint value: instance-type=t2.medium\n.*")
+}
+
 func (t *localServerSuite) TestConstraintsMerge(c *gc.C) {
 	env := t.Prepare(c)
 	validator, err := env.ConstraintsValidator()
@@ -1433,6 +1473,20 @@ func (t *localServerSuite) TestRootDiskTags(c *gc.C) {
 		{"juju-model-uuid", coretesting.ModelTag.Id()},
 		{"juju-controller-uuid", t.ControllerUUID},
 	})
+}
+
+func (s *localServerSuite) TestBootstrapInstanceConstraints(c *gc.C) {
+	env := s.prepareAndBootstrap(c)
+	inst, hc := testing.AssertStartControllerInstance(c, env, s.ControllerUUID, "1")
+	ec2inst := ec2.InstanceEC2(inst)
+
+	// Controllers should be started with a burstable
+	// instance if possible, and a 32 GiB disk.
+	c.Assert(ec2inst.InstanceType, gc.Equals, "t2.medium")
+	c.Assert(*hc.Arch, gc.Equals, "amd64")
+	c.Assert(*hc.Mem, gc.Equals, uint64(4*1024))
+	c.Assert(*hc.RootDisk, gc.Equals, uint64(32*1024))
+	c.Assert(*hc.CpuCores, gc.Equals, uint64(2))
 }
 
 // localNonUSEastSuite is similar to localServerSuite but the S3 mock server

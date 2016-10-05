@@ -66,6 +66,10 @@ type environ struct {
 
 	availabilityZonesMutex sync.Mutex
 	availabilityZones      []common.AvailabilityZone
+
+	defaultVPCMutex   sync.Mutex
+	defaultVPCChecked bool
+	defaultVPC        *ec2.VPC
 }
 
 func (e *environ) Config() *config.Config {
@@ -123,10 +127,6 @@ func (env *environ) Create(args environs.CreateParams) error {
 	return nil
 }
 
-func (env *environ) validateVPC(logInfof func(string, ...interface{}), badge string) error {
-	return nil
-}
-
 // Bootstrap is part of the Environ interface.
 func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	return common.Bootstrap(ctx, e, args)
@@ -156,7 +156,10 @@ func (e *environ) ConstraintsValidator() (constraints.Validator, error) {
 		[]string{constraints.InstanceType},
 		[]string{constraints.Mem, constraints.Cores, constraints.CpuPower})
 	validator.RegisterUnsupported(unsupportedConstraints)
-	instanceTypes := ec2instancetypes.RegionInstanceTypes(e.cloud.Region)
+	instanceTypes, err := e.supportedInstanceTypes()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	instTypeNames := make([]string, len(instanceTypes))
 	for i, itype := range instanceTypes {
 		instTypeNames[i] = itype.Name
@@ -268,7 +271,11 @@ func (e *environ) PrecheckInstance(series string, cons constraints.Value, placem
 		return nil
 	}
 	// Constraint has an instance-type constraint so let's see if it is valid.
-	for _, itype := range ec2instancetypes.RegionInstanceTypes(e.cloud.Region) {
+	instanceTypes, err := e.supportedInstanceTypes()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, itype := range instanceTypes {
 		if itype.Name != *cons.InstanceType {
 			continue
 		}
@@ -390,13 +397,23 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 
 	arches := args.Tools.Arches()
 
-	spec, err := findInstanceSpec(args.ImageMetadata, &instances.InstanceConstraint{
-		Region:      e.cloud.Region,
-		Series:      args.InstanceConfig.Series,
-		Arches:      arches,
-		Constraints: args.Constraints,
-		Storage:     []string{ssdStorage, ebsStorage},
-	})
+	instanceTypes, err := e.supportedInstanceTypes()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	spec, err := findInstanceSpec(
+		args.InstanceConfig.Controller != nil,
+		args.ImageMetadata,
+		instanceTypes,
+		&instances.InstanceConstraint{
+			Region:      e.cloud.Region,
+			Series:      args.InstanceConfig.Series,
+			Arches:      arches,
+			Constraints: args.Constraints,
+			Storage:     []string{ssdStorage, ebsStorage},
+		},
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -432,7 +449,11 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 		return nil, errors.Annotate(err, "cannot set up groups")
 	}
 
-	blockDeviceMappings := getBlockDeviceMappings(args.Constraints, args.InstanceConfig.Series)
+	blockDeviceMappings := getBlockDeviceMappings(
+		args.Constraints,
+		args.InstanceConfig.Series,
+		args.InstanceConfig.Controller != nil,
+	)
 	rootDiskSize := uint64(blockDeviceMappings[0].VolumeSize) * 1024
 
 	// If --constraints spaces=foo was passed, the provisioner will populate
@@ -1694,4 +1715,48 @@ func (e *environ) AllocateContainerAddresses(hostInstanceID instance.Id, contain
 
 func (e *environ) ReleaseContainerAddresses(interfaces []network.ProviderInterfaceInfo) error {
 	return errors.NotSupportedf("container address allocation")
+}
+
+func (e *environ) supportedInstanceTypes() ([]instances.InstanceType, error) {
+	allInstanceTypes := ec2instancetypes.RegionInstanceTypes(e.cloud.Region)
+	if isVPCIDSet(e.ecfg().vpcID()) {
+		return allInstanceTypes, nil
+	}
+	hasDefaultVPC, err := e.hasDefaultVPC()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if hasDefaultVPC {
+		return allInstanceTypes, nil
+	}
+
+	// The region has no default VPC, and the user has not specified
+	// one to use. We filter out any instance types that are not
+	// supported in EC2-Classic.
+	supportedInstanceTypes := make([]instances.InstanceType, 0, len(allInstanceTypes))
+	for _, instanceType := range allInstanceTypes {
+		if !ec2instancetypes.SupportsClassic(instanceType.Name) {
+			continue
+		}
+		supportedInstanceTypes = append(supportedInstanceTypes, instanceType)
+	}
+	return supportedInstanceTypes, nil
+}
+
+func (e *environ) hasDefaultVPC() (bool, error) {
+	e.defaultVPCMutex.Lock()
+	defer e.defaultVPCMutex.Unlock()
+	if !e.defaultVPCChecked {
+		filter := ec2.NewFilter()
+		filter.Add("isDefault", "true")
+		resp, err := e.ec2.VPCs(nil, filter)
+		if err != nil {
+			return false, errors.Trace(err)
+		}
+		if len(resp.VPCs) > 0 {
+			e.defaultVPC = &resp.VPCs[0]
+		}
+		e.defaultVPCChecked = true
+	}
+	return e.defaultVPC != nil, nil
 }

@@ -221,7 +221,7 @@ func process(in io.Reader) (map[string][]instanceType, metadata, error) {
 			InstanceFamily: productInfo.InstanceFamily,
 			Storage:        productInfo.Storage,
 		}
-		if strings.ToLower(productInfo.CurrentGeneration) != "yes" {
+		if strings.ToLower(productInfo.CurrentGeneration) == "no" {
 			instanceType.Deprecated = true
 		}
 
@@ -349,7 +349,7 @@ type productInfo struct {
 type ProductAttributes struct {
 	Location              string `json:"location"`              // e.g. US East (N. Virginia)
 	InstanceType          string `json:"instanceType"`          // e.g. t2.nano
-	CurrentGeneration     string `json:"currentGeneration"`     // Yes|No
+	CurrentGeneration     string `json:"currentGeneration"`     // Yes|No (or missing)
 	InstanceFamily        string `json:"instanceFamily"`        // e.g. Storage optimised
 	Storage               string `json:"storage"`               // e.g. 24 x 2000
 	VCPU                  uint64 `json:"vcpu,string"`           // e.g. 16
