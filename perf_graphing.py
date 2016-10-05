@@ -36,12 +36,41 @@ class MongoStatsData:
     def __init__(self, timestamp, insert, query, update, delete, vsize, res):
 
         self.timestamp = timestamp
-        self.insert = int(insert.replace('*', ''))
-        self.query = int(query.replace('*', ''))
-        self.update = int(update.replace('*', ''))
-        self.delete = int(delete.replace('*', ''))
-        self.vsize = int(vsize.replace('M', '')) * 1024 * 1024
-        self.res = int(res.replace('M', '')) * 1024 * 1024
+        self.insert = float(insert.replace('*', ''))
+        self.query = float(query.replace('*', ''))
+        self.update = float(update.replace('*', ''))
+        self.delete = float(delete.replace('*', ''))
+        try:
+            self.vsize = value_to_bytes(vsize)
+        except ValueError:
+            self.vsize = 'U'
+        try:
+            self.res = value_to_bytes(res)
+        except ValueError:
+            self.res = 'U'
+
+
+class SIUnits:
+    kB = 1e3
+    MB = 1e6
+    GB = 1e9
+
+
+def value_to_bytes(amount):
+    """Using SI Prefix rules."""
+
+    if not amount[-1].isalpha():
+        return float(amount)
+    elif amount.endswith('K'):
+        return float(amount.replace('K', '')) * SIUnits.kB
+    elif amount.endswith('M'):
+        return float(amount.replace('M', '')) * SIUnits.MB
+    elif amount.endswith('G'):
+        return float(amount.replace('G', '')) * SIUnits.GB
+
+    err_str = 'Unable to convert: {}'.format(amount)
+    log.error(err_str)
+    raise ValueError(err_str)
 
 
 def network_graph(start, end, rrd_path, output_file):
@@ -228,9 +257,10 @@ def get_mongodb_stat_data(log_file):
         for line in f:
             details = line.split()
             raw_time = details[MongoStats.timestamp]
-            epoch = int(
-                time.mktime(
-                    time.strptime(raw_time, '%Y-%m-%dT%H:%M:%SZ')))
+            with EnvironmentVariable('TZ', 'UTC'):
+                epoch = int(
+                    time.mktime(
+                        time.strptime(raw_time, '%Y-%m-%dT%H:%M:%SZ')))
             data_lines.append(
                 MongoStatsData(
                     epoch,
@@ -288,13 +318,25 @@ def _create_mongodb_actions_file(destination_file, first_ts):
         destination_file,
         '--start', '{}-10'.format(first_ts),
         '--step', '5',
-        'DS:insert:GAUGE:600:{min}:{max}'.format(min=0, max=281474976710000),
-        'DS:query:GAUGE:600:{min}:{max}'.format(min=0, max=281474976710000),
-        'DS:update:GAUGE:600:{min}:{max}'.format(min=0, max=281474976710000),
-        'DS:delete:GAUGE:600:{min}:{max}'.format(min=0, max=281474976710000),
-        'RRA:MIN:0.5:1:1200',
-        'RRA:MAX:0.5:1:1200',
-        'RRA:AVERAGE:0.5:1:120'
+        'DS:insert:GAUGE:10:{min}:{max}'.format(min=0, max=281474976710000),
+        'DS:query:GAUGE:10:{min}:{max}'.format(min=0, max=281474976710000),
+        'DS:update:GAUGE:10:{min}:{max}'.format(min=0, max=281474976710000),
+        'DS:delete:GAUGE:10:{min}:{max}'.format(min=0, max=281474976710000),
+        'RRA:AVERAGE:0.1:1:1200',
+        'RRA:MIN:0.1:1:1200',
+        'RRA:MAX:0.1:1:1200',
+        'RRA:AVERAGE:0.1:14:1234',
+        'RRA:MIN:0.1:14:1234',
+        'RRA:MAX:0.1:14:1234',
+        'RRA:AVERAGE:0.1:100:1209',
+        'RRA:MIN:0.1:100:1209',
+        'RRA:MAX:0.1:100:1209',
+        'RRA:AVERAGE:0.1:446:1201',
+        'RRA:MIN:0.1:446:1201',
+        'RRA:MAX:0.1:446:1201',
+        'RRA:AVERAGE:0.1:5270:1200',
+        'RRA:MIN:0.1:5270:1200',
+        'RRA:MAX:0.1:5270:1200',
     )
 
 
@@ -305,7 +347,19 @@ def _create_mongodb_memory_file(destination_file, first_ts):
         '--step', '5',
         'DS:vsize:GAUGE:600:{min}:{max}'.format(min=0, max=281474976710000),
         'DS:res:GAUGE:600:{min}:{max}'.format(min=0, max=281474976710000),
-        'RRA:MIN:0.5:1:1200',
-        'RRA:MAX:0.5:1:1200',
-        'RRA:AVERAGE:0.5:1:120'
+        'RRA:AVERAGE:0.1:1:1200',
+        'RRA:MIN:0.1:1:1200',
+        'RRA:MAX:0.1:1:1200',
+        'RRA:AVERAGE:0.1:14:1234',
+        'RRA:MIN:0.1:14:1234',
+        'RRA:MAX:0.1:14:1234',
+        'RRA:AVERAGE:0.1:100:1209',
+        'RRA:MIN:0.1:100:1209',
+        'RRA:MAX:0.1:100:1209',
+        'RRA:AVERAGE:0.1:446:1201',
+        'RRA:MIN:0.1:446:1201',
+        'RRA:MAX:0.1:446:1201',
+        'RRA:AVERAGE:0.1:5270:1200',
+        'RRA:MIN:0.1:5270:1200',
+        'RRA:MAX:0.1:5270:1200',
     )
