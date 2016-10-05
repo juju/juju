@@ -139,8 +139,7 @@ class TestAssessBootstrap(FakeHomeTestCase):
                            autospec=True)
         metadata_patch = patch('assess_bootstrap.assess_metadata',
                                autospec=True)
-        to_patch = patch('assess_bootstrap.assess_to',
-                               autospec=True)
+        to_patch = patch('assess_bootstrap.assess_to', autospec=True)
         with base_patch as base_mock, metadata_patch as metadata_mock:
             with to_patch as to_mock:
                 yield (base_mock, metadata_mock, to_mock)
