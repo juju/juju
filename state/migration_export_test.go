@@ -42,7 +42,7 @@ var testAnnotations = map[string]string{
 }
 
 type MigrationBaseSuite struct {
-	ConnWithWallclockSuite
+	ConnWithWallClockSuite
 }
 
 func (s *MigrationBaseSuite) setLatestTools(c *gc.C, latestTools version.Number) {

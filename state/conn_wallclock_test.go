@@ -17,12 +17,12 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-// ConnWithWallclockSuite provides the infrastructure for all other test suites
+// ConnWithWallClockSuite provides the infrastructure for all other test suites
 // (StateSuite, CharmSuite, MachineSuite, etc). This should be deprecated in
 // favour of ConnSuite, and tests updated to use the testing clock provided in
 // ConnSuite via StateSuite.
-type ConnWithWallclockSuite struct {
-	statetesting.StateWithWallclockSuite
+type ConnWithWallClockSuite struct {
+	statetesting.StateWithWallClockSuite
 	annotations  *mgo.Collection
 	charms       *mgo.Collection
 	machines     *mgo.Collection
@@ -35,17 +35,17 @@ type ConnWithWallclockSuite struct {
 	modelTag     names.ModelTag
 }
 
-func (cs *ConnWithWallclockSuite) SetUpTest(c *gc.C) {
+func (cs *ConnWithWallClockSuite) SetUpTest(c *gc.C) {
 	cs.policy = statetesting.MockPolicy{
 		GetStorageProviderRegistry: func() (storage.ProviderRegistry, error) {
 			return dummy.StorageProviders(), nil
 		},
 	}
-	cs.StateWithWallclockSuite.NewPolicy = func(*state.State) state.Policy {
+	cs.StateWithWallClockSuite.NewPolicy = func(*state.State) state.Policy {
 		return &cs.policy
 	}
 
-	cs.StateWithWallclockSuite.SetUpTest(c)
+	cs.StateWithWallClockSuite.SetUpTest(c)
 
 	cs.modelTag = cs.State.ModelTag()
 
@@ -60,54 +60,54 @@ func (cs *ConnWithWallclockSuite) SetUpTest(c *gc.C) {
 	cs.controllers = jujuDB.C("controllers")
 }
 
-func (s *ConnWithWallclockSuite) AddTestingCharm(c *gc.C, name string) *state.Charm {
+func (s *ConnWithWallClockSuite) AddTestingCharm(c *gc.C, name string) *state.Charm {
 	return state.AddTestingCharm(c, s.State, name)
 }
 
-func (s *ConnWithWallclockSuite) AddTestingService(c *gc.C, name string, ch *state.Charm) *state.Application {
+func (s *ConnWithWallClockSuite) AddTestingService(c *gc.C, name string, ch *state.Charm) *state.Application {
 	return state.AddTestingService(c, s.State, name, ch)
 }
 
-func (s *ConnWithWallclockSuite) AddTestingServiceWithStorage(c *gc.C, name string, ch *state.Charm, storage map[string]state.StorageConstraints) *state.Application {
+func (s *ConnWithWallClockSuite) AddTestingServiceWithStorage(c *gc.C, name string, ch *state.Charm, storage map[string]state.StorageConstraints) *state.Application {
 	return state.AddTestingServiceWithStorage(c, s.State, name, ch, storage)
 }
 
-func (s *ConnWithWallclockSuite) AddTestingServiceWithBindings(c *gc.C, name string, ch *state.Charm, bindings map[string]string) *state.Application {
+func (s *ConnWithWallClockSuite) AddTestingServiceWithBindings(c *gc.C, name string, ch *state.Charm, bindings map[string]string) *state.Application {
 	return state.AddTestingServiceWithBindings(c, s.State, name, ch, bindings)
 }
 
-func (s *ConnWithWallclockSuite) AddSeriesCharm(c *gc.C, name, series string) *state.Charm {
+func (s *ConnWithWallClockSuite) AddSeriesCharm(c *gc.C, name, series string) *state.Charm {
 	return state.AddCustomCharm(c, s.State, name, "", "", series, -1)
 }
 
 // AddConfigCharm clones a testing charm, replaces its config with
 // the given YAML string and adds it to the state, using the given
 // revision.
-func (s *ConnWithWallclockSuite) AddConfigCharm(c *gc.C, name, configYaml string, revision int) *state.Charm {
+func (s *ConnWithWallClockSuite) AddConfigCharm(c *gc.C, name, configYaml string, revision int) *state.Charm {
 	return state.AddCustomCharm(c, s.State, name, "config.yaml", configYaml, "quantal", revision)
 }
 
 // AddActionsCharm clones a testing charm, replaces its actions schema with
 // the given YAML, and adds it to the state, using the given revision.
-func (s *ConnWithWallclockSuite) AddActionsCharm(c *gc.C, name, actionsYaml string, revision int) *state.Charm {
+func (s *ConnWithWallClockSuite) AddActionsCharm(c *gc.C, name, actionsYaml string, revision int) *state.Charm {
 	return state.AddCustomCharm(c, s.State, name, "actions.yaml", actionsYaml, "quantal", revision)
 }
 
 // AddMetaCharm clones a testing charm, replaces its metadata with the
 // given YAML string and adds it to the state, using the given revision.
-func (s *ConnWithWallclockSuite) AddMetaCharm(c *gc.C, name, metaYaml string, revision int) *state.Charm {
+func (s *ConnWithWallClockSuite) AddMetaCharm(c *gc.C, name, metaYaml string, revision int) *state.Charm {
 	return state.AddCustomCharm(c, s.State, name, "metadata.yaml", metaYaml, "quantal", revision)
 }
 
 // AddMetricsCharm clones a testing charm, replaces its metrics declaration with the
 // given YAML string and adds it to the state, using the given revision.
-func (s *ConnWithWallclockSuite) AddMetricsCharm(c *gc.C, name, metricsYaml string, revision int) *state.Charm {
+func (s *ConnWithWallClockSuite) AddMetricsCharm(c *gc.C, name, metricsYaml string, revision int) *state.Charm {
 	return state.AddCustomCharm(c, s.State, name, "metrics.yaml", metricsYaml, "quantal", revision)
 }
 
 // NewStateForModelNamed returns an new model with the given modelName, which
 // has a unique UUID, and does not need to be closed when the test completes.
-func (s *ConnWithWallclockSuite) NewStateForModelNamed(c *gc.C, modelName string) *state.State {
+func (s *ConnWithWallClockSuite) NewStateForModelNamed(c *gc.C, modelName string) *state.State {
 	cfg := testing.CustomModelConfig(c, testing.Attrs{
 		"name": modelName,
 		"uuid": utils.MustNewUUID().String(),

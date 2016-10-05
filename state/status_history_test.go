@@ -19,7 +19,7 @@ import (
 
 type StatusHistorySuite struct {
 	// TODO Migrate to StateSuite (with testing clock).
-	statetesting.StateWithWallclockSuite
+	statetesting.StateWithWallClockSuite
 }
 
 var _ = gc.Suite(&StatusHistorySuite{})

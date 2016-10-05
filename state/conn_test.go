@@ -34,8 +34,6 @@ type ConnSuite struct {
 }
 
 func (cs *ConnSuite) SetUpTest(c *gc.C) {
-	c.Log("SetUpTest")
-
 	cs.policy = statetesting.MockPolicy{
 		GetStorageProviderRegistry: func() (storage.ProviderRegistry, error) {
 			return dummy.StorageProviders(), nil
@@ -58,8 +56,6 @@ func (cs *ConnSuite) SetUpTest(c *gc.C) {
 	cs.services = jujuDB.C("applications")
 	cs.units = jujuDB.C("units")
 	cs.controllers = jujuDB.C("controllers")
-
-	c.Log("SetUpTest done")
 }
 
 func (s *ConnSuite) AddTestingCharm(c *gc.C, name string) *state.Charm {
