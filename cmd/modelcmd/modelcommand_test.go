@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/testing"
 )
 
@@ -189,6 +190,7 @@ const testUser = "testuser@somewhere"
 func (s *macaroonLoginSuite) SetUpTest(c *gc.C) {
 	s.MacaroonSuite.SetUpTest(c)
 	s.MacaroonSuite.AddModelUser(c, testUser)
+	s.MacaroonSuite.AddControllerUser(c, testUser, permission.LoginAccess)
 
 	s.controllerName = "my-controller"
 	s.modelName = testUser + "/my-model"

@@ -149,48 +149,14 @@ func (a *admin) login(req params.LoginRequest, loginVersion int) (params.LoginRe
 	}
 
 	var maybeUserInfo *params.AuthUserInfo
-	var modelUser permission.UserAccess
-	var everyoneGroupUser permission.UserAccess
 	// Send back user info if user
 	if isUser {
-		maybeUserInfo = &params.AuthUserInfo{
-			Identity:       entity.Tag().String(),
-			LastConnection: lastConnection,
-		}
 		userTag := entity.Tag().(names.UserTag)
-
-		// TODO(perrito666) remove the following section about everyone group
-		// when groups are implemented, this accounts only for the lack of a local
-		// ControllerUser when logging in from an external user that has not been granted
-		// permissions on the controller but there are permissions for the special
-		// everyone group.
-		if !userTag.IsLocal() {
-			everyoneTag := names.NewUserTag(common.EveryoneTagName)
-			everyoneGroupUser, err = state.ControllerAccess(a.root.state, everyoneTag)
-			if err != nil && !errors.IsNotFound(err) {
-				return fail, errors.Annotatef(err, "obtaining ControllerUser for everyone group")
-			}
+		maybeUserInfo, err = a.checkUserPermissions(userTag, controllerOnlyLogin)
+		if err != nil {
+			return fail, errors.Trace(err)
 		}
-
-		modelUser, err = a.root.state.UserAccess(userTag, a.root.state.ModelTag())
-		if err != nil && !errors.IsNotFound(err) {
-			return fail, errors.Annotatef(err, "obtaining ModelUser for logged in user %s", entity.Tag())
-		}
-
-		controllerUser, err := state.ControllerAccess(a.root.state, entity.Tag())
-		if err != nil && !errors.IsNotFound(err) {
-			return fail, errors.Annotatef(err, "obtaining ControllerUser for logged in user %s", entity.Tag())
-		}
-
-		if permission.IsEmptyUserAccess(modelUser) &&
-			permission.IsEmptyUserAccess(controllerUser) &&
-			permission.IsEmptyUserAccess(everyoneGroupUser) {
-			return fail, errors.NotFoundf("model or controller access for logged in user %q", userTag.Canonical())
-		}
-		maybeUserInfo.ControllerAccess = string(controllerUser.Access)
-		maybeUserInfo.ModelAccess = string(modelUser.Access)
-		logger.Tracef("controller user %s has %v", entity.Tag(), controllerUser.Access)
-		logger.Tracef("model user %s has %s", entity.Tag(), modelUser.Access)
+		maybeUserInfo.LastConnection = lastConnection
 	}
 
 	// Fetch the API server addresses from state.
@@ -228,6 +194,70 @@ func (a *admin) login(req params.LoginRequest, loginVersion int) (params.LoginRe
 	a.root.rpcConn.ServeRoot(apiRoot, serverError)
 
 	return loginResult, nil
+}
+
+func (a *admin) checkUserPermissions(userTag names.UserTag, controllerOnlyLogin bool) (*params.AuthUserInfo, error) {
+
+	modelAccess := permission.UndefinedAccess
+	if !controllerOnlyLogin {
+		// Only grab modelUser permissions if this is not a controller only
+		// login. In all situations, if the model user is not found, they have
+		// no authorisation to access this model.
+		modelUser, err := a.root.state.UserAccess(userTag, a.root.state.ModelTag())
+		if err != nil {
+			return nil, errors.Wrap(err, common.ErrPerm)
+		}
+		modelAccess = modelUser.Access
+	}
+
+	// TODO(perrito666) remove the following section about everyone group
+	// when groups are implemented, this accounts only for the lack of a local
+	// ControllerUser when logging in from an external user that has not been granted
+	// permissions on the controller but there are permissions for the special
+	// everyone group.
+	everyoneGroupAccess := permission.UndefinedAccess
+	if !userTag.IsLocal() {
+		everyoneTag := names.NewUserTag(common.EveryoneTagName)
+		everyoneGroupUser, err := state.ControllerAccess(a.root.state, everyoneTag)
+		if err != nil && !errors.IsNotFound(err) {
+			return nil, errors.Annotatef(err, "obtaining ControllerUser for everyone group")
+		}
+		everyoneGroupAccess = everyoneGroupUser.Access
+	}
+
+	controllerUser, err := state.ControllerAccess(a.root.state, userTag)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			// If we couldn't find a controller user, and the
+			// everyoneGroupAccess is undefined, then the user has no
+			// authorisation to access the controller. If however we couldn't
+			// find a controller user, but there is everyone group access,
+			// then that's ok. Note that the everyone group access will be
+			// undefined if the user is a local user.
+			if everyoneGroupAccess == permission.UndefinedAccess {
+				return nil, errors.Wrap(err, common.ErrPerm)
+			}
+		} else {
+			return nil, errors.Annotatef(err, "obtaining ControllerUser for logged in user %s", userTag.Canonical())
+		}
+	}
+	controllerAccess := controllerUser.Access
+	// It is possible that the everyoneGroup permissions are more capable than an
+	// individuals. If it is, use that.
+	if everyoneGroupAccess.GreaterControllerAccessThan(controllerAccess) {
+		controllerAccess = everyoneGroupAccess
+	}
+
+	logger.Tracef("controller user %s has %v", userTag.Canonical(), controllerAccess)
+	if !controllerOnlyLogin {
+		logger.Tracef("model user %s has %s", userTag.Canonical(), modelAccess)
+	}
+	info := &params.AuthUserInfo{
+		Identity:         userTag.String(),
+		ControllerAccess: string(controllerAccess),
+		ModelAccess:      string(modelAccess),
+	}
+	return info, nil
 }
 
 func filterFacades(allowFacade func(name string) bool) []params.FacadeVersions {

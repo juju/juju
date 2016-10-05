@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/api"
 	apitesting "github.com/juju/juju/api/testing"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/rpc"
 )
 
@@ -27,6 +28,7 @@ const testUserName = "testuser@somewhere"
 func (s *macaroonLoginSuite) SetUpTest(c *gc.C) {
 	s.MacaroonSuite.SetUpTest(c)
 	s.AddModelUser(c, testUserName)
+	s.AddControllerUser(c, testUserName, permission.LoginAccess)
 	info := s.APIInfo(c)
 	info.SkipLogin = true
 	s.client = s.OpenAPI(c, info, nil)
