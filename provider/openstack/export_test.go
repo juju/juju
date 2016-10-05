@@ -77,7 +77,20 @@ var (
 func NewCinderVolumeSource(s OpenstackStorage) storage.VolumeSource {
 	const envName = "testenv"
 	modelUUID := testing.ModelTag.Id()
-	return &cinderVolumeSource{s, envName, modelUUID}
+	return &cinderVolumeSource{
+		storageAdapter: s,
+		envName:        envName,
+		modelUUID:      modelUUID,
+		namespace:      fakeNamespace{},
+	}
+}
+
+type fakeNamespace struct {
+	instance.Namespace
+}
+
+func (fakeNamespace) Value(s string) string {
+	return "juju-" + s
 }
 
 // Include images for arches currently supported.  i386 is no longer
