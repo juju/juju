@@ -16,10 +16,9 @@ var (
 // Instance types are not associated with disks in GCE, so we do not
 // set RootDisk.
 
-// TODO(ericsnow) Dynamically generate the type specs from the official
-// JSON file.
-
-// Shared-core machine types.
+// TODO(axw) 2016-10-03 #1629821
+// Query the machine types dynamically, to avoid hard-coding this
+// information (if possible), or else to augment it.
 var allInstanceTypes = []instances.InstanceType{
 	{ // Standard machine types
 		Name:     "n1-standard-1",
@@ -56,6 +55,13 @@ var allInstanceTypes = []instances.InstanceType{
 		CpuPower: instances.CpuPower(4400),
 		Mem:      60000,
 		VirtType: &vtype,
+	}, {
+		Name:     "n1-standard-32",
+		Arches:   arches,
+		CpuCores: 32,
+		CpuPower: instances.CpuPower(8800),
+		Mem:      120000,
+		VirtType: &vtype,
 	},
 
 	{ // High memory machine types
@@ -85,6 +91,13 @@ var allInstanceTypes = []instances.InstanceType{
 		CpuCores: 16,
 		CpuPower: instances.CpuPower(4400),
 		Mem:      104000,
+		VirtType: &vtype,
+	}, {
+		Name:     "n1-highmem-32",
+		Arches:   arches,
+		CpuCores: 32,
+		CpuPower: instances.CpuPower(8800),
+		Mem:      208000,
 		VirtType: &vtype,
 	},
 
@@ -116,9 +129,16 @@ var allInstanceTypes = []instances.InstanceType{
 		CpuPower: instances.CpuPower(4400),
 		Mem:      14400,
 		VirtType: &vtype,
+	}, {
+		Name:     "n1-highcpu-32",
+		Arches:   arches,
+		CpuCores: 32,
+		CpuPower: instances.CpuPower(8800),
+		Mem:      28800,
+		VirtType: &vtype,
 	},
 
-	{ // Micro and small machine types
+	{ // Shared-core machine types.
 		Name:     "f1-micro",
 		Arches:   arches,
 		CpuCores: 1,
