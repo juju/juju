@@ -88,7 +88,7 @@ def assess_perf_test_simple(bs_manager, upload_tools):
 
             setup_system_monitoring(admin_client)
 
-            deploy_details assess_longrun_perf(
+            deploy_details = assess_longrun_perf(
                 bs_manager, test_length=MINUTE*60*12)
         finally:
             results_dir = os.path.join(
