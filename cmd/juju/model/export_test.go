@@ -37,8 +37,8 @@ func NewRetryProvisioningCommandForTest(api RetryProvisioningAPI) cmd.Command {
 }
 
 // NewShowCommandForTest returns a ShowCommand with the api provided as specified.
-func NewShowCommandForTest(api ShowModelAPI, store jujuclient.ClientStore) cmd.Command {
-	cmd := &showModelCommand{api: api}
+func NewShowCommandForTest(api ShowModelAPI, refreshFunc func(jujuclient.ClientStore, string) error, store jujuclient.ClientStore) cmd.Command {
+	cmd := &showModelCommand{api: api, RefreshModels: refreshFunc}
 	cmd.SetClientStore(store)
 	return modelcmd.Wrap(cmd)
 }
@@ -58,9 +58,10 @@ func NewDumpDBCommandForTest(api DumpDBAPI, store jujuclient.ClientStore) cmd.Co
 }
 
 // NewDestroyCommandForTest returns a DestroyCommand with the api provided as specified.
-func NewDestroyCommandForTest(api DestroyModelAPI, store jujuclient.ClientStore) cmd.Command {
+func NewDestroyCommandForTest(api DestroyModelAPI, refreshFunc func(jujuclient.ClientStore, string) error, store jujuclient.ClientStore) cmd.Command {
 	cmd := &destroyCommand{
-		api: api,
+		api:           api,
+		RefreshModels: refreshFunc,
 	}
 	cmd.SetClientStore(store)
 	return modelcmd.Wrap(

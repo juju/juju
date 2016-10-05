@@ -17,14 +17,17 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/jujuclient"
 )
 
 var logger = loggo.GetLogger("juju.cmd.juju.model")
 
 // NewDestroyCommand returns a command used to destroy a model.
 func NewDestroyCommand() cmd.Command {
+	destroyCmd := &destroyCommand{}
+	destroyCmd.RefreshModels = destroyCmd.ModelCommandBase.RefreshModels
 	return modelcmd.Wrap(
-		&destroyCommand{},
+		destroyCmd,
 		modelcmd.WrapSkipDefaultModel,
 		modelcmd.WrapSkipModelFlags,
 	)
@@ -33,6 +36,10 @@ func NewDestroyCommand() cmd.Command {
 // destroyCommand destroys the specified model.
 type destroyCommand struct {
 	modelcmd.ModelCommandBase
+	// RefreshModels is hides the RefreshModels function defined
+	// in ModelCommandBase. This allows overriding for testing.
+	RefreshModels func(jujuclient.ClientStore, string) error
+
 	envName   string
 	assumeYes bool
 	api       DestroyModelAPI
@@ -117,9 +124,17 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 		return errors.Annotate(err, "cannot read controller details")
 	}
 	modelDetails, err := store.ModelByName(controllerName, modelName)
+	if errors.IsNotFound(err) {
+		if err := c.RefreshModels(store, controllerName); err != nil {
+			return errors.Annotate(err, "refreshing models cache")
+		}
+		// Now try again.
+		modelDetails, err = store.ModelByName(controllerName, modelName)
+	}
 	if err != nil {
 		return errors.Annotate(err, "cannot read model info")
 	}
+
 	if modelDetails.ModelUUID == controllerDetails.ControllerUUID {
 		return errors.Errorf("%q is a controller; use 'juju destroy-controller' to destroy it", modelName)
 	}
