@@ -1143,9 +1143,10 @@ class EnvJujuClient:
             return cloud
         return '{}/{}'.format(cloud, region)
 
-    def get_bootstrap_args(self, upload_tools, config_filename,
-                           bootstrap_series=None, credential=None,
-                           auto_upgrade=False, metadata_source=None, to=None):
+    def get_bootstrap_args(
+            self, upload_tools, config_filename, bootstrap_series=None,
+            credential=None, auto_upgrade=False, metadata_source=None,
+            to=None, agent_version=None):
         """Return the bootstrap arguments for the substrate."""
         if self.env.joyent:
             # Only accept kvm packages by requiring >1 cpu core, see lp:1446264
@@ -1158,9 +1159,14 @@ class EnvJujuClient:
                 cloud_region, '--config', config_filename,
                 '--default-model', self.env.environment]
         if upload_tools:
+            if agent_version is not None:
+                raise ValueError(
+                    'agent-version may not be given with upload-tools.')
             args.insert(0, '--upload-tools')
         else:
-            args.extend(['--agent-version', self.get_matching_agent_version()])
+            if agent_version is None:
+                agent_version = self.get_matching_agent_version()
+            args.extend(['--agent-version', agent_version])
         if bootstrap_series is not None:
             args.extend(['--bootstrap-series', bootstrap_series])
         if credential is not None:
@@ -1236,13 +1242,13 @@ class EnvJujuClient:
 
     def bootstrap(self, upload_tools=False, bootstrap_series=None,
                   credential=None, auto_upgrade=False, metadata_source=None,
-                  to=None):
+                  to=None, agent_version=None):
         """Bootstrap a controller."""
         self._check_bootstrap()
         with self._bootstrap_config() as config_filename:
             args = self.get_bootstrap_args(
                 upload_tools, config_filename, bootstrap_series, credential,
-                auto_upgrade, metadata_source, to)
+                auto_upgrade, metadata_source, to, agent_version)
             self.update_user_name()
             self.juju('bootstrap', args, include_e=False)
 
@@ -2144,6 +2150,14 @@ class EnvJujuClient:
         """Enable a command set."""
         return self.juju('enable-command', args)
 
+    def sync_tools(self, local_dir=None):
+        """Copy tools into a local directory or model."""
+        if local_dir is None:
+            return self.juju('sync-tools', ())
+        else:
+            return self.juju('sync-tools', ('--local-dir', local_dir),
+                             include_e=False)
+
 
 class EnvJujuClient2B9(EnvJujuClient):
 
@@ -2288,10 +2302,20 @@ class EnvJujuClient2B3(EnvJujuClient2B7):
 
 class EnvJujuClient2B2(EnvJujuClient2B3):
 
-    def get_bootstrap_args(self, upload_tools, config_filename,
-                           bootstrap_series=None, credential=None,
-                           auto_upgrade=False, metadata_source=None, to=None):
+    def get_bootstrap_args(
+            self, upload_tools, config_filename, bootstrap_series=None,
+            credential=None, auto_upgrade=False, metadata_source=None,
+            to=None, agent_version=None):
         """Return the bootstrap arguments for the substrate."""
+        err_fmt = 'EnvJujuClient2B2 does not support bootstrap argument {}'
+        if auto_upgrade:
+            raise ValueError(err_fmt.format('auto_upgrade'))
+        if metadata_source is not None:
+            raise ValueError(err_fmt.format('metadata_source'))
+        if to is not None:
+            raise ValueError(err_fmt.format('to'))
+        if agent_version is not None:
+            raise ValueError(err_fmt.format('agent_version'))
         if self.env.joyent:
             # Only accept kvm packages by requiring >1 cpu core, see lp:1446264
             constraints = 'mem=2G cpu-cores=1'

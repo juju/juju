@@ -1006,7 +1006,7 @@ class TestDeployJob(FakeHomeTestCase):
         mgr = MagicMock()
         bm_cxt = patch('deploy_stack.BootstrapManager', autospec=True,
                        return_value=mgr)
-        juju_cxt = patch('deploy_stack.EnvJujuClient.juju', autospec=True)
+        juju_cxt = patch('jujupy.EnvJujuClient.juju', autospec=True)
         ajr_cxt = patch('deploy_stack.assess_juju_run', autospec=True)
         dds_cxt = patch('deploy_stack.deploy_dummy_stack', autospec=True)
         with bc_cxt, fc_cxt, bm_cxt as bm_mock, juju_cxt, ajr_cxt, dds_cxt:
@@ -1766,6 +1766,39 @@ class TestBootstrapManager(FakeHomeTestCase):
                                 client._backend.soft_deadline = soft_deadline
                                 td_backend = tear_down_client._backend
                                 td_backend.soft_deadline = soft_deadline
+
+    @contextmanager
+    def make_bootstrap_manager(self):
+        client = fake_juju_client()
+        with temp_dir() as log_dir:
+            bs_manager = BootstrapManager(
+                'foobar', client, client,
+                None, [], None, None, None, None, log_dir, False,
+                True, True)
+            yield bs_manager
+
+    def test_top_context_dumps_timings(self):
+        with self.make_bootstrap_manager() as bs_manager:
+            with patch('deploy_stack.dump_juju_timings') as djt_mock:
+                with bs_manager.top_context():
+                    pass
+        djt_mock.assert_called_once_with(bs_manager.client, bs_manager.log_dir)
+
+    def test_top_context_dumps_timings_on_exception(self):
+        with self.make_bootstrap_manager() as bs_manager:
+            with patch('deploy_stack.dump_juju_timings') as djt_mock:
+                with self.assertRaises(ValueError):
+                    with bs_manager.top_context():
+                        raise ValueError
+        djt_mock.assert_called_once_with(bs_manager.client, bs_manager.log_dir)
+
+    def test_top_context_no_log_dir_skips_timings(self):
+        with self.make_bootstrap_manager() as bs_manager:
+            bs_manager.log_dir = None
+            with patch('deploy_stack.dump_juju_timings') as djt_mock:
+                with bs_manager.top_context():
+                    pass
+        self.assertEqual(djt_mock.call_count, 0)
 
 
 class TestBootContext(FakeHomeTestCase):
