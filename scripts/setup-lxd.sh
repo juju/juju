@@ -15,7 +15,7 @@ if [[ "$VERSION" > "2.2" ]]; then
         # Configure a known address ranges for lxdbr0.
         lxc network create lxdbr0 \
             ipv4.address=10.0.8.1/24 ipv4.nat=true \
-            ipv6.address=d42:964b:da9f:f1a5::1/64 ipv6.nat=true
+            ipv6.address=none ipv6.nat=false
     fi
     lxc network show lxdbr0
     exit 0
