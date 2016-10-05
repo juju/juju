@@ -46,7 +46,7 @@ func (cs *ConnectSuite) TestLocalConnectError(c *gc.C) {
 	/* ECONNREFUSED because it's not a socket (mimics behavior of a socket
 	 * with nobody listening)
 	 */
-	_, err = Connect(cfg)
+	_, err = Connect(cfg, false)
 	c.Assert(err.Error(), gc.Equals, `can't connect to the local LXD server: LXD refused connections; is LXD running?
 
 Please configure LXD by running:
@@ -56,7 +56,7 @@ Please configure LXD by running:
 
 	/* EACCESS because we can't read/write */
 	c.Assert(f.Chmod(0400), jc.ErrorIsNil)
-	_, err = Connect(cfg)
+	_, err = Connect(cfg, false)
 	c.Assert(err.Error(), gc.Equals, `can't connect to the local LXD server: Permisson denied, are you in the lxd group?
 
 Please configure LXD by running:
@@ -66,7 +66,7 @@ Please configure LXD by running:
 
 	/* ENOENT because it doesn't exist */
 	c.Assert(os.RemoveAll(f.Name()), jc.ErrorIsNil)
-	_, err = Connect(cfg)
+	_, err = Connect(cfg, false)
 	c.Assert(err.Error(), gc.Equals, `can't connect to the local LXD server: LXD socket not found; is LXD installed & running?
 
 Please install LXD by running:
@@ -79,7 +79,7 @@ and then configure it with:
 	// Yes, the error message actually matters here... this is being displayed
 	// to the user.
 	cs.PatchValue(&lxdNewClientFromInfo, fakeNewClientFromInfo)
-	_, err = Connect(cfg)
+	_, err = Connect(cfg, false)
 	c.Assert(err.Error(), gc.Equals, `can't connect to the local LXD server: boo!
 
 Please install LXD by running:
@@ -191,7 +191,7 @@ func (cs *ConnectSuite) TestRemoteConnectError(c *gc.C) {
 		},
 	}.WithDefaults()
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = Connect(cfg)
+	_, err = Connect(cfg, false)
 
 	c.Assert(errors.Cause(err), gc.Equals, testerr)
 }
