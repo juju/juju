@@ -14,12 +14,15 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/lxc/lxd/shared"
+
 	"github.com/juju/errors"
 	"github.com/juju/utils/packaging/config"
 	"github.com/juju/utils/packaging/manager"
 	"github.com/juju/utils/proxy"
 
 	"github.com/juju/juju/container"
+	"github.com/juju/juju/tools/lxdclient"
 )
 
 const lxdBridgeFile = "/etc/default/lxd-bridge"
@@ -140,6 +143,20 @@ var configureZFS = func() {
 }
 
 var configureLXDBridge = func() error {
+	client, err := ConnectLocal()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	status, err := client.ServerStatus()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if shared.StringInSlice("network", status.APIExtensions) {
+		return lxdclient.CreateDefaultBridgeInDefaultProfile(client)
+	}
+
 	f, err := os.OpenFile(lxdBridgeFile, os.O_RDWR, 0777)
 	if err != nil {
 		/* We're using an old version of LXD which doesn't have

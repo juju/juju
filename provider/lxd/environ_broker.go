@@ -184,7 +184,7 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams) (*lxdclien
 		// For controller machines, generate a certificate pair and write
 		// them to the instance's disk in a well-defined location, along
 		// with the server's certificate.
-		certPEM, keyPEM, err := lxdshared.GenerateMemCert()
+		certPEM, keyPEM, err := lxdshared.GenerateMemCert(true)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

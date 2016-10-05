@@ -8,15 +8,17 @@ package lxdclient
 import (
 	"github.com/juju/errors"
 	"github.com/lxc/lxd"
+	"github.com/lxc/lxd/shared"
 )
 
 type rawProfileClient interface {
 	ProfileCreate(name string) error
-	ListProfiles() ([]string, error)
+	ListProfiles() ([]shared.ProfileConfig, error)
 	SetProfileConfigItem(profile, key, value string) error
 	GetProfileConfig(profile string) (map[string]string, error)
 	ProfileDelete(profile string) error
 	ProfileDeviceAdd(profile, devname, devtype string, props []string) (*lxd.Response, error)
+	ProfileConfig(profile string) (*shared.ProfileConfig, error)
 }
 
 type profileClient struct {
@@ -65,7 +67,7 @@ func (p profileClient) HasProfile(name string) (bool, error) {
 		return false, errors.Trace(err)
 	}
 	for _, profile := range profiles {
-		if profile == name {
+		if profile.Name == name {
 			return true, nil
 		}
 	}
@@ -88,4 +90,8 @@ func (p profileClient) GetProfileConfig(profile string) (map[string]string, erro
 		return nil, errors.Trace(err)
 	}
 	return config, nil
+}
+
+func (p profileClient) ProfileConfig(profile string) (*shared.ProfileConfig, error) {
+	return p.raw.ProfileConfig(profile)
 }
