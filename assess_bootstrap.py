@@ -69,12 +69,26 @@ def assess_metadata(bs_manager, local_source):
                     raise JujuAssertionError('Error, possible web metadata.')
 
 
+def assess_to(bs_manager, to):
+    if to is None:
+        raise ValueError('--to not given when testing to')
+    client = bs_manager.client
+    with bs_manager.top_context() as machines:
+        with bs_manager.bootstrap_context(machines):
+            tear_down(client, client.is_jes_enabled())
+            client.bootstrap(to=to)
+        with bs_manager.runtime_context(machines):
+            log.info('To {} bootstrap successful.'.format(to))
+
+
 def assess_bootstrap(args):
     bs_manager = BootstrapManager.from_args(args)
     if 'base' == args.part:
         assess_base_bootstrap(bs_manager)
     elif 'metadata' == args.part:
         assess_metadata(bs_manager, args.local_metadata_source)
+    elif 'to' == args.part:
+        assess_to(bs_manager, args.to)
 
 
 def parse_args(argv=None):
@@ -85,12 +99,14 @@ def parse_args(argv=None):
     --local-metadata-source: If given it should be a directory that contains
     the agent to use in the test. This skips downloading them."""
     parser = ArgumentParser(description='Test the bootstrap command.')
-    parser.add_argument('part', choices=['base', 'metadata'],
+    parser.add_argument('part', choices=['base', 'metadata', 'to'],
                         help='Which part of bootstrap to assess')
     add_basic_testing_arguments(parser)
     parser.add_argument('--local-metadata-source',
                         action='store', default=None,
                         help='Directory with pre-loaded metadata.')
+    parser.add_argument('--to', action='store', default=None,
+                        help='bootstrap to (when part=to only)')
     return parser.parse_args(argv)
 
 

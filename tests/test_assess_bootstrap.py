@@ -6,6 +6,7 @@ from mock import patch
 from assess_bootstrap import (
     assess_bootstrap,
     assess_metadata,
+    assess_to,
     INVALID_URL,
     parse_args,
     prepare_metadata,
@@ -40,12 +41,13 @@ class TestParseArgs(TestCase):
                     deadline=None, debug=False, env='foo', juju_bin='bar',
                     keep_env=False, local_metadata_source=None, logs=log_dir,
                     machine=[], part='base', region=None, series=None,
-                    temp_env_name='baz', upload_tools=False, verbose=20),
+                    temp_env_name='baz', to=None, upload_tools=False,
+                    verbose=20),
                 args)
 
     def test_parse_args_debug(self):
         args = parse_args(['base', 'foo', 'bar', '--debug'])
-        self.assertEqual(args.debug, True)
+        self.assertTrue(args.debug)
 
     def test_parse_args_region(self):
         args = parse_args(['base', 'foo', 'bar', '--region', 'foo'])
@@ -59,6 +61,10 @@ class TestParseArgs(TestCase):
         args = parse_args(['base', 'foo', 'bar',
                            '--local-metadata-source', 'qux'])
         self.assertEqual(args.local_metadata_source, 'qux')
+
+    def test_parse_args_to(self):
+        args = parse_args(['to', 'foo', 'bar', '--to', 'qux'])
+        self.assertEqual(args.to, 'qux')
 
     def test_parse_args_part(self):
         args = parse_args(['metadata'])
@@ -133,24 +139,41 @@ class TestAssessBootstrap(FakeHomeTestCase):
                            autospec=True)
         metadata_patch = patch('assess_bootstrap.assess_metadata',
                                autospec=True)
+        to_patch = patch('assess_bootstrap.assess_to',
+                               autospec=True)
         with base_patch as base_mock, metadata_patch as metadata_mock:
-            yield (base_mock, metadata_mock)
+            with to_patch as to_mock:
+                yield (base_mock, metadata_mock, to_mock)
 
     def test_assess_bootstrap_part_base(self):
         args = parse_args(['base', 'bar'])
         with assess_bootstrap_cxt():
-            with self.sub_assess_mocks() as (base_mock, metadata_mock):
+            with self.sub_assess_mocks() as (base_mock, metadata_mock,
+                                             to_mock):
                 assess_bootstrap(args)
         self.assertEqual(1, base_mock.call_count)
         self.assertEqual(0, metadata_mock.call_count)
+        self.assertEqual(0, to_mock.call_count)
 
     def test_assess_bootstrap_part_metadata(self):
         args = parse_args(['metadata', 'bar'])
         with assess_bootstrap_cxt():
-            with self.sub_assess_mocks() as (base_mock, metadata_mock):
+            with self.sub_assess_mocks() as (base_mock, metadata_mock,
+                                             to_mock):
                 assess_bootstrap(args)
         self.assertEqual(0, base_mock.call_count)
         self.assertEqual(1, metadata_mock.call_count)
+        self.assertEqual(0, to_mock.call_count)
+
+    def test_assess_bootstrap_part_to(self):
+        args = parse_args(['to', 'bar'])
+        with assess_bootstrap_cxt():
+            with self.sub_assess_mocks() as (base_mock, metadata_mock,
+                                             to_mock):
+                assess_bootstrap(args)
+        self.assertEqual(0, base_mock.call_count)
+        self.assertEqual(0, metadata_mock.call_count)
+        self.assertEqual(1, to_mock.call_count)
 
 
 class TestAssessBaseBootstrap(FakeHomeTestCase):
@@ -224,3 +247,23 @@ class TestAssessMetadata(FakeHomeTestCase):
                         bs_manager.client, 'get_model_config',
                         side_effect=lambda: self.get_url(bs_manager)):
                     assess_metadata(bs_manager, 'agents')
+
+
+class TestAssessTo(FakeHomeTestCase):
+
+    def test_assess_to(self):
+        def check(myself, to):
+            self.assertEqual({'name': 'qux', 'type': 'foo'},
+                             myself.env.config)
+            self.assertEqual('255.1.1.0', to)
+        with extended_bootstrap_cxt('2.0-rc1'):
+            with patch('jujupy.EnvJujuClient.bootstrap', side_effect=check,
+                       autospec=True):
+                args = parse_args(['to', 'bar', '/foo', '--to', '255.1.1.0'])
+                args.temp_env_name = 'qux'
+                bs_manager = BootstrapManager.from_args(args)
+                assess_to(bs_manager, args.to)
+
+    def test_assess_to_requires_to(self):
+        with self.assertRaises(ValueError):
+            assess_to('bs_manager', None)
