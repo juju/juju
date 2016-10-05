@@ -12,6 +12,12 @@ except ImportError:
 log = logging.getLogger("perf_graphing")
 
 
+class GraphPeriod:
+    """This relates to the RRA index in the RRD file."""
+    hours = '0'
+    day = '3'
+
+
 class GraphDefaults:
     height = '600'
     width = '800'
