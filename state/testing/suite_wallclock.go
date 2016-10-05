@@ -15,12 +15,12 @@ import (
 	"github.com/juju/juju/testing/factory"
 )
 
-var _ = gc.Suite(&StateWithWallclockSuite{})
+var _ = gc.Suite(&StateWithWallClockSuite{})
 
-// StateWithWallclockSuite provides setup and teardown for tests that require a
+// StateWithWallClockSuite provides setup and teardown for tests that require a
 // state.State. This should be deprecated in favour of StateSuite, and tests
 // updated to use the testing clock StateSuite provides.
-type StateWithWallclockSuite struct {
+type StateWithWallClockSuite struct {
 	testing.MgoSuite
 	coretesting.BaseSuite
 	NewPolicy                 state.NewPolicyFunc
@@ -32,17 +32,17 @@ type StateWithWallclockSuite struct {
 	RegionConfig              cloud.RegionConfig
 }
 
-func (s *StateWithWallclockSuite) SetUpSuite(c *gc.C) {
+func (s *StateWithWallClockSuite) SetUpSuite(c *gc.C) {
 	s.MgoSuite.SetUpSuite(c)
 	s.BaseSuite.SetUpSuite(c)
 }
 
-func (s *StateWithWallclockSuite) TearDownSuite(c *gc.C) {
+func (s *StateWithWallClockSuite) TearDownSuite(c *gc.C) {
 	s.BaseSuite.TearDownSuite(c)
 	s.MgoSuite.TearDownSuite(c)
 }
 
-func (s *StateWithWallclockSuite) SetUpTest(c *gc.C) {
+func (s *StateWithWallClockSuite) SetUpTest(c *gc.C) {
 	s.MgoSuite.SetUpTest(c)
 	s.BaseSuite.SetUpTest(c)
 
@@ -52,7 +52,7 @@ func (s *StateWithWallclockSuite) SetUpTest(c *gc.C) {
 	s.Factory = factory.NewFactory(s.State)
 }
 
-func (s *StateWithWallclockSuite) TearDownTest(c *gc.C) {
+func (s *StateWithWallClockSuite) TearDownTest(c *gc.C) {
 	s.BaseSuite.TearDownTest(c)
 	s.MgoSuite.TearDownTest(c)
 }
