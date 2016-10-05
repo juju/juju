@@ -467,7 +467,7 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	region, err := getRegion(cloud, c.Cloud, regionName)
 	if err != nil {
 		fmt.Fprintf(ctx.GetStderr(),
-			"%s\n\nSpecify an alternative region, or try %q.",
+			"%s\n\nSpecify an alternative region, or try %q.\n",
 			err, "juju update-clouds",
 		)
 		return cmd.ErrSilent

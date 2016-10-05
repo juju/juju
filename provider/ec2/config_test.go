@@ -31,11 +31,6 @@ type ConfigSuite struct {
 
 var _ = gc.Suite(&ConfigSuite{})
 
-var configTestRegion = aws.Region{
-	Name:        "configtest",
-	EC2Endpoint: "testregion.nowhere:1234",
-}
-
 var testAuth = aws.Auth{
 	AccessKey: "gopher",
 	SecretKey: "long teeth",
@@ -318,13 +313,11 @@ func (s *ConfigSuite) SetUpTest(c *gc.C) {
 
 	err = utils.SetHome(home)
 	c.Assert(err, jc.ErrorIsNil)
-	aws.Regions["configtest"] = configTestRegion
 }
 
 func (s *ConfigSuite) TearDownTest(c *gc.C) {
 	err := utils.SetHome(s.savedHome)
 	c.Assert(err, jc.ErrorIsNil)
-	delete(aws.Regions, "configtest")
 	s.BaseSuite.TearDownTest(c)
 }
 

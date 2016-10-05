@@ -15,8 +15,8 @@ import (
 	"github.com/juju/retry"
 	"github.com/juju/utils"
 	"github.com/juju/utils/clock"
+	"gopkg.in/amz.v3/aws"
 	"gopkg.in/amz.v3/ec2"
-	"gopkg.in/amz.v3/s3"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
+	"github.com/juju/juju/provider/ec2/internal/ec2instancetypes"
 	"github.com/juju/juju/tools"
 )
 
@@ -58,7 +59,6 @@ type environ struct {
 	name  string
 	cloud environs.CloudSpec
 	ec2   *ec2.EC2
-	s3    *s3.S3
 
 	// ecfgMutex protects the *Unlocked fields below.
 	ecfgMutex    sync.Mutex
@@ -156,8 +156,9 @@ func (e *environ) ConstraintsValidator() (constraints.Validator, error) {
 		[]string{constraints.InstanceType},
 		[]string{constraints.Mem, constraints.Cores, constraints.CpuPower})
 	validator.RegisterUnsupported(unsupportedConstraints)
-	instTypeNames := make([]string, len(allInstanceTypes))
-	for i, itype := range allInstanceTypes {
+	instanceTypes := ec2instancetypes.RegionInstanceTypes(e.cloud.Region)
+	instTypeNames := make([]string, len(instanceTypes))
+	for i, itype := range instanceTypes {
 		instTypeNames[i] = itype.Name
 	}
 	validator.RegisterVocabulary(constraints.InstanceType, instTypeNames)
@@ -267,7 +268,7 @@ func (e *environ) PrecheckInstance(series string, cons constraints.Value, placem
 		return nil
 	}
 	// Constraint has an instance-type constraint so let's see if it is valid.
-	for _, itype := range allInstanceTypes {
+	for _, itype := range ec2instancetypes.RegionInstanceTypes(e.cloud.Region) {
 		if itype.Name != *cons.InstanceType {
 			continue
 		}
@@ -283,33 +284,32 @@ func (e *environ) PrecheckInstance(series string, cons constraints.Value, placem
 
 // MetadataLookupParams returns parameters which are used to query simplestreams metadata.
 func (e *environ) MetadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
+	var endpoint string
 	if region == "" {
 		region = e.cloud.Region
-	}
-	cloudSpec, err := e.cloudSpec(region)
-	if err != nil {
-		return nil, err
+		endpoint = e.cloud.Endpoint
+	} else {
+		// TODO(axw) 2016-10-04 #1630089
+		// MetadataLookupParams needs to be updated so that providers
+		// are not expected to know how to map regions to endpoints.
+		ec2Region, ok := aws.Regions[region]
+		if !ok {
+			return nil, errors.Errorf("unknown region %q", region)
+		}
+		endpoint = ec2Region.EC2Endpoint
 	}
 	return &simplestreams.MetadataLookupParams{
 		Series:   config.PreferredSeries(e.ecfg()),
-		Region:   cloudSpec.Region,
-		Endpoint: cloudSpec.Endpoint,
+		Region:   region,
+		Endpoint: endpoint,
 	}, nil
 }
 
 // Region is specified in the HasRegion interface.
 func (e *environ) Region() (simplestreams.CloudSpec, error) {
-	return e.cloudSpec(e.cloud.Region)
-}
-
-func (e *environ) cloudSpec(region string) (simplestreams.CloudSpec, error) {
-	ec2Region, ok := allRegions[region]
-	if !ok {
-		return simplestreams.CloudSpec{}, fmt.Errorf("unknown region %q", region)
-	}
 	return simplestreams.CloudSpec{
-		Region:   region,
-		Endpoint: ec2Region.EC2Endpoint,
+		Region:   e.cloud.Region,
+		Endpoint: e.cloud.Endpoint,
 	}, nil
 }
 

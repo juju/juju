@@ -5,37 +5,39 @@ clouds:
     auth-types: [ access-key ]
     regions:
       us-east-1:
-        endpoint: https://us-east-1.aws.amazon.com/v1.2/
+        endpoint: https://ec2.us-east-1.amazonaws.com
       us-west-1:
-        endpoint: https://us-west-1.aws.amazon.com/v1.2/
+        endpoint: https://ec2.us-west-1.amazonaws.com
       us-west-2:
-        endpoint: https://us-west-2.aws.amazon.com/v1.2/
+        endpoint: https://ec2.us-west-2.amazonaws.com
       eu-west-1:
-        endpoint: https://eu-west-1.aws.amazon.com/v1.2/
+        endpoint: https://ec2.eu-west-1.amazonaws.com
       eu-central-1:
-        endpoint: https://eu-central-1.aws.amazon.com/v1.2/
+        endpoint: https://ec2.eu-central-1.amazonaws.com
+      ap-south-1:
+        endpoint: https://ec2.ap-south-1.amazonaws.com
       ap-southeast-1:
-        endpoint: https://ap-southeast-1.aws.amazon.com/v1.2/
+        endpoint: https://ec2.ap-southeast-1.amazonaws.com
       ap-southeast-2:
-        endpoint: https://ap-southeast-2.aws.amazon.com/v1.2/
+        endpoint: https://ec2.ap-southeast-2.amazonaws.com
       ap-northeast-1:
-        endpoint: https://ap-northeast-1.aws.amazon.com/v1.2/
+        endpoint: https://ec2.ap-northeast-1.amazonaws.com
       ap-northeast-2:
-        endpoint: https://ap-northeast-2.aws.amazon.com/v1.2/
+        endpoint: https://ec2.ap-northeast-2.amazonaws.com
       sa-east-1:
-        endpoint: https://sa-east-1.aws.amazon.com/v1.2/
+        endpoint: https://ec2.sa-east-1.amazonaws.com
   aws-china:
     type: ec2
     auth-types: [ access-key ]
     regions:
       cn-north-1:
-        endpoint: https://ec2.cn-north-1.amazonaws.com.cn/
+        endpoint: https://ec2.cn-north-1.amazonaws.com.cn
   aws-gov:
     type: ec2
     auth-types: [ access-key ]
     regions:
       us-gov-west-1:
-        endpoint: https://ec2.us-gov-west-1.amazonaws-govcloud.com
+        endpoint: https://ec2.us-gov-west-1.amazonaws.com
   google:
     type: gce
     auth-types: [ jsonfile, oauth2 ]

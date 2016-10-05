@@ -12,10 +12,7 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/imagemetadata"
-	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
 	"github.com/juju/juju/environs/instances"
-	sstesting "github.com/juju/juju/environs/simplestreams/testing"
-	"github.com/juju/juju/juju/keys"
 	"github.com/juju/juju/testing"
 )
 
@@ -23,28 +20,6 @@ var _ = gc.Suite(&specSuite{})
 
 type specSuite struct {
 	testing.BaseSuite
-	sstesting.TestDataSuite
-}
-
-func (s *specSuite) SetUpSuite(c *gc.C) {
-	s.BaseSuite.SetUpSuite(c)
-	s.TestDataSuite.SetUpSuite(c)
-
-	imagetesting.PatchOfficialDataSources(&s.CleanupSuite, "test:")
-	s.PatchValue(&imagemetadata.SimplestreamsImagesPublicKey, sstesting.SignedMetadataPublicKey)
-	s.PatchValue(&keys.JujuPublicKey, sstesting.SignedMetadataPublicKey)
-
-	UseTestImageData(c, TestImagesData)
-	UseTestInstanceTypeData(TestInstanceTypeCosts)
-	UseTestRegionData(TestRegions)
-}
-
-func (s *specSuite) TearDownSuite(c *gc.C) {
-	UseTestInstanceTypeData(nil)
-	UseTestImageData(c, nil)
-	UseTestRegionData(nil)
-	s.TestDataSuite.TearDownSuite(c)
-	s.BaseSuite.TearDownSuite(c)
 }
 
 var findInstanceSpecTests = []struct {
@@ -64,19 +39,19 @@ var findInstanceSpecTests = []struct {
 	}, {
 		series: "quantal",
 		arches: []string{"i386"},
-		itype:  "c1.medium",
+		itype:  "c3.large",
 		image:  "ami-01000034",
 	}, {
 		series: "xenial",
 		arches: []string{"amd64"},
 		cons:   "cores=4",
-		itype:  "m3.xlarge",
+		itype:  "c4.xlarge",
 		image:  "ami-00000133",
 	}, {
 		series: "xenial",
 		arches: []string{"amd64"},
 		cons:   "mem=10G",
-		itype:  "m3.xlarge",
+		itype:  "r3.large",
 		image:  "ami-00000133",
 	}, {
 		series: "xenial",
@@ -94,14 +69,14 @@ var findInstanceSpecTests = []struct {
 		series: "xenial",
 		arches: []string{"amd64"},
 		cons:   "cpu-power=800",
-		itype:  "m3.xlarge",
+		itype:  "c4.large",
 		image:  "ami-00000133",
 	}, {
 		series: "xenial",
 		arches: []string{"amd64"},
-		cons:   "instance-type=m1.medium cpu-power=200",
+		cons:   "instance-type=m1.medium cpu-power=100",
 		itype:  "m1.medium",
-		image:  "ami-00000133",
+		image:  "ami-00000135",
 	}, {
 		series: "xenial",
 		arches: []string{"amd64"},
@@ -112,21 +87,21 @@ var findInstanceSpecTests = []struct {
 		series:  "xenial",
 		arches:  []string{"amd64"},
 		cons:    "mem=4G root-disk=16384M",
-		itype:   "m3.large",
+		itype:   "m4.large",
 		storage: []string{"ssd", "ebs"},
 		image:   "ami-00000133",
 	}, {
 		series:  "xenial",
 		arches:  []string{"amd64"},
 		cons:    "mem=4G root-disk=16384M",
-		itype:   "m3.large",
+		itype:   "m4.large",
 		storage: []string{"ebs", "ssd"},
 		image:   "ami-00000139",
 	}, {
 		series:  "xenial",
 		arches:  []string{"amd64"},
 		cons:    "mem=4G root-disk=16384M",
-		itype:   "m3.large",
+		itype:   "m4.large",
 		storage: []string{"ebs"},
 		image:   "ami-00000139",
 	}, {
@@ -137,17 +112,17 @@ var findInstanceSpecTests = []struct {
 	}, {
 		series: "quantal",
 		arches: []string{"i386"},
-		itype:  "c1.medium",
+		itype:  "c3.large",
 		image:  "ami-01000034",
 	}, {
 		series: "quantal",
-		arches: both,
+		arches: []string{"amd64", "i386"},
 		cons:   "arch=amd64",
-		itype:  "cc2.8xlarge",
+		itype:  "m3.medium",
 		image:  "ami-01000035",
 	}, {
 		series: "quantal",
-		arches: both,
+		arches: []string{"amd64", "i386"},
 		cons:   "instance-type=cc2.8xlarge",
 		itype:  "cc2.8xlarge",
 		image:  "ami-01000035",
@@ -214,9 +189,9 @@ var findInstanceSpecErrorTests = []struct {
 		err:    fmt.Sprintf(`no "%s" images in test with arches \[arm\]`, series.LatestLts()),
 	}, {
 		series: "raring",
-		arches: both,
+		arches: []string{"amd64", "i386"},
 		cons:   "mem=4G",
-		err:    `no "raring" images in test matching instance types \[m3.large m3.xlarge c1.xlarge m3.2xlarge cc2.8xlarge\]`,
+		err:    `no "raring" images in test matching instance types \[.*\]`,
 	}, {
 		series: series.LatestLts(),
 		arches: []string{"amd64"},

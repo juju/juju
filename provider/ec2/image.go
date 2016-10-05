@@ -4,10 +4,10 @@
 package ec2
 
 import (
-	"fmt"
-
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
+
+	"github.com/juju/juju/provider/ec2/internal/ec2instancetypes"
 )
 
 // defaultCpuPower is larger the smallest instance's cpuPower, and no larger than
@@ -58,21 +58,6 @@ func findInstanceSpec(
 	logger.Debugf("found %d suitable image(s)", len(suitableImages))
 	images := instances.ImageMetadataToImages(suitableImages)
 
-	// Make a copy of the known EC2 instance types, filling in the cost for the specified region.
-	regionCosts := allRegionCosts[ic.Region]
-	if len(regionCosts) == 0 && len(allRegionCosts) > 0 {
-		return nil, fmt.Errorf("no instance types found in %s", ic.Region)
-	}
-
-	var itypesWithCosts []instances.InstanceType
-	for _, itype := range allInstanceTypes {
-		cost, ok := regionCosts[itype.Name]
-		if !ok {
-			continue
-		}
-		itWithCost := itype
-		itWithCost.Cost = cost
-		itypesWithCosts = append(itypesWithCosts, itWithCost)
-	}
-	return instances.FindInstanceSpec(images, ic, itypesWithCosts)
+	instanceTypes := ec2instancetypes.RegionInstanceTypes(ic.Region)
+	return instances.FindInstanceSpec(images, ic, instanceTypes)
 }

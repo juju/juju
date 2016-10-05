@@ -10,7 +10,6 @@ import (
 	"github.com/juju/loggo"
 	"gopkg.in/amz.v3/aws"
 	"gopkg.in/amz.v3/ec2"
-	"gopkg.in/amz.v3/s3"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
@@ -35,7 +34,7 @@ func (p environProvider) Open(args environs.OpenParams) (environs.Environ, error
 	e.name = args.Config.Name()
 
 	var err error
-	e.ec2, e.s3, err = awsClients(args.Cloud)
+	e.ec2, err = awsClient(args.Cloud)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -46,9 +45,9 @@ func (p environProvider) Open(args environs.OpenParams) (environs.Environ, error
 	return e, nil
 }
 
-func awsClients(cloud environs.CloudSpec) (*ec2.EC2, *s3.S3, error) {
+func awsClient(cloud environs.CloudSpec) (*ec2.EC2, error) {
 	if err := validateCloudSpec(cloud); err != nil {
-		return nil, nil, errors.Annotate(err, "validating cloud spec")
+		return nil, errors.Annotate(err, "validating cloud spec")
 	}
 
 	credentialAttrs := cloud.Credential.Attributes()
@@ -59,10 +58,12 @@ func awsClients(cloud environs.CloudSpec) (*ec2.EC2, *s3.S3, error) {
 		SecretKey: secretKey,
 	}
 
-	// TODO(axw) define region in terms of EC2 and S3 endpoints.
-	region := aws.Regions[cloud.Region]
-	signer := aws.SignV4Factory(region.Name, "ec2")
-	return ec2.New(auth, region, signer), s3.New(auth, region), nil
+	region := aws.Region{
+		Name:        cloud.Region,
+		EC2Endpoint: cloud.Endpoint,
+	}
+	signer := aws.SignV4Factory(cloud.Region, "ec2")
+	return ec2.New(auth, region, signer), nil
 }
 
 // PrepareConfig is specified in the EnvironProvider interface.
@@ -84,9 +85,6 @@ func (p environProvider) PrepareConfig(args environs.PrepareConfigParams) (*conf
 func validateCloudSpec(c environs.CloudSpec) error {
 	if err := c.Validate(); err != nil {
 		return errors.Trace(err)
-	}
-	if _, ok := aws.Regions[c.Region]; !ok {
-		return errors.NotValidf("region name %q", c.Region)
 	}
 	if c.Credential == nil {
 		return errors.NotValidf("missing credential")
@@ -112,7 +110,7 @@ func (p environProvider) MetadataLookupParams(region string) (*simplestreams.Met
 	if region == "" {
 		return nil, fmt.Errorf("region must be specified")
 	}
-	ec2Region, ok := allRegions[region]
+	ec2Region, ok := aws.Regions[region]
 	if !ok {
 		return nil, fmt.Errorf("unknown region %q", region)
 	}

@@ -1105,7 +1105,7 @@ func (s *BootstrapSuite) TestBootstrapCloudNoRegionsOneSpecified(c *gc.C) {
 		"--config", "default-series=precise",
 	)
 	c.Check(coretesting.Stderr(ctx), gc.Matches,
-		"region \"my-region\" not found \\(expected one of \\[\\]\\)\n\n.*")
+		"region \"my-region\" not found \\(expected one of \\[\\]\\)\n\n.*\n")
 	c.Assert(err, gc.Equals, cmd.ErrSilent)
 }
 
@@ -1387,6 +1387,7 @@ us-west-1
 us-west-2
 eu-west-1
 eu-central-1
+ap-south-1
 ap-southeast-1
 ap-southeast-2
 ap-northeast-1
