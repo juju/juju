@@ -115,7 +115,8 @@ def assess_perf_test_simple(bs_manager, upload_tools):
     cleanup_end = datetime.utcnow()
     cleanup_timing = TimingData(cleanup_start, cleanup_end)
 
-    output_test_run_length(cleanup_timing)
+    total_timing = TimingData(bs_start, cleanup_end)
+    output_test_run_length(total_timing)
 
     graph_period = _determine_graph_period(cleanup_timing)
     deployments = dict(
