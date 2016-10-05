@@ -131,12 +131,12 @@ func DialInfo(info Info, opts DialOpts) (*mgo.DialInfo, error) {
 		addr := server.TCPAddr().String()
 		c, err := net.DialTimeout("tcp", addr, opts.Timeout)
 		if err != nil {
-			logger.Errorf("mongodb connection failed, will retry: %v", err)
+			logger.Warningf("mongodb connection failed, will retry: %v", err)
 			return nil, err
 		}
 		cc := tls.Client(c, tlsConfig)
 		if err := cc.Handshake(); err != nil {
-			logger.Errorf("TLS handshake failed: %v", err)
+			logger.Warningf("TLS handshake failed: %v", err)
 			return nil, err
 		}
 		logger.Debugf("dialled mongodb server at %q", addr)
