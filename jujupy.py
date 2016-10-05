@@ -503,9 +503,7 @@ class Status:
     def any_dying(self):
         """Check if any applications are dying, shown by the life entry."""
         # We check both the new and old name.
-        applications = self.status.get('applications', None)
-        if applications is None:
-            applications = self.status['services']
+        applications = self.get_applications()
         for (app_name, app_value) in applications.iteritems():
             life = app_value.get('life')
             if life is not None and life == 'dying':
