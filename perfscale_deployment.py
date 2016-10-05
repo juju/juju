@@ -60,7 +60,7 @@ def parse_args(argv):
         description="Perfscale bundle deployment test.")
     add_basic_testing_arguments(parser)
     parser.add_argument(
-        'bundle_name',
+        '--bundle-name',
         default='cs:~landscape/bundle/landscape-scalable')
     return parser.parse_args(argv)
 

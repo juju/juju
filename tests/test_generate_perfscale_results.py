@@ -52,27 +52,3 @@ class TestFindActualStart(TestCase):
         self.assertEqual(
             gpr.find_actual_start(self.example_multivalue_output),
             '1472708613')
-
-
-class TestParseArgs(TestCase):
-
-    def test_common_args(self):
-        args = gpr.parse_args(
-            ["an-env", "/bin/juju", "/tmp/logs", "an-env-mod"])
-        self.assertEqual("an-env", args.env)
-        self.assertEqual("/bin/juju", args.juju_bin)
-        self.assertEqual("/tmp/logs", args.logs)
-        self.assertEqual("an-env-mod", args.temp_env_name)
-        self.assertEqual(False, args.debug)
-
-    def test_help(self):
-        fake_stdout = StringIO.StringIO()
-        with parse_error(self) as fake_stderr:
-            with patch("sys.stdout", fake_stdout):
-                gpr.parse_args(["--help"])
-        self.assertEqual("", fake_stderr.getvalue())
-        self.assertNotIn("TODO", fake_stdout.getvalue())
-
-
-class TestMain(TestCase):
-    pass
