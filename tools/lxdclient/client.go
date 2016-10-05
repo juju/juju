@@ -137,7 +137,7 @@ func Connect(cfg Config, verifyBridgeConfig bool) (*Client, error) {
 	}
 
 	var bridgeName string
-	if verifyBridgeConfig {
+	if remoteID == remoteIDForLocal && verifyBridgeConfig {
 		// If this is the LXD provider on the localhost, let's do an extra check to
 		// make sure the default profile has a correctly configured bridge, and
 		// which one is it.
