@@ -4,7 +4,7 @@
 package state_test
 
 import (
-	"time"
+	"time" // Only used for time types.
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"

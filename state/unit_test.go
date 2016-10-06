@@ -5,7 +5,7 @@ package state_test
 
 import (
 	"strconv"
-	"time"
+	"time" // Only used for time types.
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -683,7 +683,7 @@ func (s *UnitSuite) TestSetCharmURLRetriesWithDifferentURL(c *gc.C) {
 
 func (s *UnitSuite) TestDestroySetStatusRetry(c *gc.C) {
 	defer state.SetRetryHooks(c, s.State, func() {
-		now := time.Now()
+		now := coretesting.NonZeroTime()
 		sInfo := status.StatusInfo{
 			Status:  status.Idle,
 			Message: "",
@@ -807,7 +807,7 @@ func (s *UnitSuite) TestCannotShortCircuitDestroyWithAgentStatus(c *gc.C) {
 		c.Logf("test %d: %s", i, test.status)
 		unit, err := s.service.AddUnit()
 		c.Assert(err, jc.ErrorIsNil)
-		now := time.Now()
+		now := coretesting.NonZeroTime()
 		sInfo := status.StatusInfo{
 			Status:  test.status,
 			Message: test.info,
@@ -920,7 +920,7 @@ func (s *UnitSuite) TestResolve(c *gc.C) {
 	err = s.unit.Resolve(true)
 	c.Assert(err, gc.ErrorMatches, `unit "wordpress/0" is not in an error state`)
 
-	now := time.Now()
+	now := coretesting.NonZeroTime()
 	sInfo := status.StatusInfo{
 		Status:  status.Error,
 		Message: "gaaah",

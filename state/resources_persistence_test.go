@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/resourcetesting"
 	"github.com/juju/juju/state/statetest"
+	coretesting "github.com/juju/juju/testing"
 )
 
 var _ = gc.Suite(&ResourcePersistenceSuite{})
@@ -121,7 +122,7 @@ func (s *ResourcePersistenceSuite) TestListResourcesBaseError(c *gc.C) {
 
 func (s *ResourcePersistenceSuite) TestListResourcesBadDoc(c *gc.C) {
 	_, docs := newPersistenceResources(c, "a-application", "spam", "eggs")
-	docs[0].Timestamp = time.Time{}
+	docs[0].Timestamp = coretesting.ZeroTime()
 	s.base.ReturnAll = docs
 
 	p := NewResourcePersistence(s.base)
@@ -227,7 +228,7 @@ func (s *ResourcePersistenceSuite) TestStageResourceMissingStoragePath(c *gc.C) 
 
 func (s *ResourcePersistenceSuite) TestStageResourceBadResource(c *gc.C) {
 	res, _ := newPersistenceResource(c, "a-application", "spam")
-	res.Resource.Timestamp = time.Time{}
+	res.Resource.Timestamp = coretesting.ZeroTime()
 	p := NewResourcePersistence(s.base)
 
 	_, err := p.StageResource(res.Resource, res.storagePath)
@@ -300,13 +301,13 @@ func (s *ResourcePersistenceSuite) TestSetResourceNotFound(c *gc.C) {
 }
 
 func (s *ResourcePersistenceSuite) TestSetCharmStoreResourceOkay(c *gc.C) {
-	lastPolled := time.Now().UTC()
+	lastPolled := coretesting.NonZeroTime().UTC()
 	applicationname := "a-application"
 	res, doc := newPersistenceResource(c, applicationname, "spam")
 	expected := doc // a copy
 	expected.DocID += "#charmstore"
 	expected.Username = ""
-	expected.Timestamp = time.Time{}
+	expected.Timestamp = coretesting.ZeroTime()
 	expected.StoragePath = ""
 	expected.LastPolled = lastPolled
 	p := NewResourcePersistence(s.base)
@@ -414,7 +415,7 @@ func (s *ResourcePersistenceSuite) TestSetUnitResourceExists(c *gc.C) {
 func (s *ResourcePersistenceSuite) TestSetUnitResourceBadResource(c *gc.C) {
 	res, doc := newPersistenceUnitResource(c, "a-application", "a-application/0", "spam")
 	s.base.ReturnOne = doc
-	res.Timestamp = time.Time{}
+	res.Timestamp = coretesting.ZeroTime()
 	p := NewResourcePersistence(s.base)
 
 	err := p.SetUnitResource("a-application/0", res)
@@ -466,6 +467,9 @@ func (s *ResourcePersistenceSuite) TestNewResourcePendingResourceOpsExists(c *gc
 	s.base.ReturnOne = doc
 	p := NewResourcePersistence(s.base)
 
+	// TODO(macgreagoir) We need to keep using time.Now() for now, while we
+	// have NewResolvePendingResourceOps returning LastPolled based on
+	// timeNow(). lp:1558657
 	lastPolled := time.Now().UTC().Round(time.Second)
 
 	ops, err := p.NewResolvePendingResourceOps(stored.ID, stored.PendingID)
@@ -474,7 +478,7 @@ func (s *ResourcePersistenceSuite) TestNewResourcePendingResourceOpsExists(c *gc
 	csresourceDoc := expected
 	csresourceDoc.DocID = "resource#a-application/spam#charmstore"
 	csresourceDoc.Username = ""
-	csresourceDoc.Timestamp = time.Time{}
+	csresourceDoc.Timestamp = coretesting.ZeroTime()
 	csresourceDoc.StoragePath = ""
 	csresourceDoc.LastPolled = lastPolled
 
@@ -527,6 +531,9 @@ func (s *ResourcePersistenceSuite) TestNewResourcePendingResourceOpsNotFound(c *
 	s.stub.SetErrors(nil, notFound)
 	p := NewResourcePersistence(s.base)
 
+	// TODO(macgreagoir) We need to keep using time.Now() for now, while we
+	// have NewResolvePendingResourceOps returning LastPolled based on
+	// timeNow(). lp:1558657
 	lastPolled := time.Now().UTC().Round(time.Second)
 	ops, err := p.NewResolvePendingResourceOps(stored.ID, stored.PendingID)
 	c.Assert(err, jc.ErrorIsNil)
@@ -537,7 +544,7 @@ func (s *ResourcePersistenceSuite) TestNewResourcePendingResourceOpsNotFound(c *
 	csresourceDoc := expected
 	csresourceDoc.DocID = "resource#a-application/spam#charmstore"
 	csresourceDoc.Username = ""
-	csresourceDoc.Timestamp = time.Time{}
+	csresourceDoc.Timestamp = coretesting.ZeroTime()
 	csresourceDoc.StoragePath = ""
 	csresourceDoc.LastPolled = lastPolled
 
@@ -594,9 +601,9 @@ func newPersistenceResources(c *gc.C, serviceID string, names ...string) (resour
 		csDoc := doc // a copy
 		csDoc.DocID += "#charmstore"
 		csDoc.Username = ""
-		csDoc.Timestamp = time.Time{}
+		csDoc.Timestamp = coretesting.ZeroTime()
 		csDoc.StoragePath = ""
-		csDoc.LastPolled = time.Now().UTC()
+		csDoc.LastPolled = coretesting.NonZeroTime().UTC()
 		docs = append(docs, csDoc)
 	}
 	return svcResources, docs

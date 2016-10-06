@@ -7,7 +7,7 @@ import (
 	"bytes"
 	"io"
 	"io/ioutil"
-	"time"
+	"time" // Only used for time types.
 
 	"github.com/juju/errors"
 	"github.com/juju/testing"
