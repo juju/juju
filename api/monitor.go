@@ -32,6 +32,7 @@ func (m *monitor) run() {
 		case <-m.closed:
 			return
 		case <-m.dead:
+			logger.Debugf("RPC connection died")
 			return
 		case <-m.clock.After(m.pingPeriod):
 			if !m.pingWithTimeout() {
