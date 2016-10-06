@@ -21,6 +21,8 @@ import (
 	"github.com/juju/utils/packaging/manager"
 	"github.com/juju/utils/proxy"
 
+	"syscall"
+
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/tools/lxdclient"
 )
@@ -122,19 +124,36 @@ func configureLXDProxies(setter configSetter, proxies proxy.Settings) error {
 	return nil
 }
 
-var execCommand = exec.Command
+// df returns the number of free bytes on the file system at the given path
+var df = func(path string) (uint64, error) {
+	statfs := syscall.Statfs_t{}
+	err := syscall.Statfs(path, &statfs)
+	if err != nil {
+		return 0, err
+	}
+
+	return uint64(statfs.Bsize) * statfs.Bfree, nil
+}
 
 var configureZFS = func() {
-	/* create a 100 GB pool by default (sparse, so it won't actually fill
-	 * that immediately)
-	 */
-	output, err := execCommand(
+	/* create a pool that will occupy 90% of the free disk space
+	   (sparse, so it won't actually fill that immediately)
+	*/
+
+	// Find 90% of the free disk space
+	freeBytes, err := df("/")
+	if err != nil {
+		logger.Errorf("configuring zfs failed - unable to find file system size: %s", err)
+	}
+	freeBytes = freeBytes * 9 / 10
+
+	output, err := exec.Command(
 		"lxd",
 		"init",
 		"--auto",
 		"--storage-backend", "zfs",
 		"--storage-pool", "lxd",
-		"--storage-create-loop", "100",
+		"--storage-create-loop", fmt.Sprintf("%d", freeBytes/(1024*1024*1024)),
 	).CombinedOutput()
 
 	if err != nil {

@@ -79,13 +79,13 @@ func (s *InitialiserSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.calledCmds = []string{}
 	s.PatchValue(&manager.RunCommandWithRetry, getMockRunCommandWithRetry(&s.calledCmds))
-	s.PatchValue(&configureZFS, func() {})
 	s.PatchValue(&configureLXDBridge, func() error { return nil })
 	s.PatchValue(&getLXDConfigSetter, func() (configSetter, error) {
 		return &mockConfigSetter{}, nil
 	})
 	// Fake the lxc executable for all the tests.
 	testing.PatchExecutableAsEchoArgs(c, s, "lxc")
+	testing.PatchExecutableAsEchoArgs(c, s, "lxd")
 }
 
 func (s *InitialiserSuite) TestLTSSeriesPackages(c *gc.C) {
@@ -120,6 +120,21 @@ func (s *InitialiserSuite) TestNoSeriesPackages(c *gc.C) {
 	c.Assert(s.calledCmds, gc.DeepEquals, []string{
 		paccmder.InstallCmd("lxd"),
 	})
+}
+
+func (s *InitialiserSuite) TestLXDInitZFS(c *gc.C) {
+	// Patch df so it always returns 100GB
+	df100 := func(path string) (uint64, error) {
+		return 100 * 1024 * 1024 * 1024, nil
+	}
+	s.PatchValue(&df, df100)
+
+	container := NewContainerInitialiser("xenial")
+	err := container.Initialise()
+	c.Assert(err, jc.ErrorIsNil)
+
+	testing.AssertEchoArgs(c, "lxd", "init", "--auto", "--storage-backend",
+		"zfs", "--storage-pool", "lxd", "--storage-create-loop", "90")
 }
 
 type mockConfigSetter struct {
