@@ -2053,12 +2053,12 @@ class EnvJujuClient:
 
         try:
             child = user_client.expect('register', (token), include_e=False)
+            child.expect('(?i)password')
+            child.sendline(username + '_password')
+            child.expect('(?i)password')
+            child.sendline(username + '_password')
             child.expect('(?i)name')
             child.sendline(controller_name)
-            child.expect('(?i)password')
-            child.sendline(username + '_password')
-            child.expect('(?i)password')
-            child.sendline(username + '_password')
             child.expect(pexpect.EOF)
             if child.isalive():
                 raise Exception(
