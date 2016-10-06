@@ -27,15 +27,21 @@ log = logging.getLogger("assess_bootstrap")
 INVALID_URL = 'example.com/invalid'
 
 
-def assess_base_bootstrap(bs_manager):
+@contextmanager
+def thin_booted_context(bs_manager, **kwargs):
     client = bs_manager.client
     with bs_manager.top_context() as machines:
         with bs_manager.bootstrap_context(machines):
             tear_down(client, client.is_jes_enabled())
-            client.bootstrap()
+            client.bootstrap(**kwargs)
         with bs_manager.runtime_context(machines):
-            client.get_status(1)
-            log.info('Environment successfully bootstrapped.')
+            yield client
+
+
+def assess_base_bootstrap(bs_manager):
+    with thin_booted_context(bs_manager) as client:
+        client.get_status(1)
+        log.info('Environment successfully bootstrapped.')
 
 
 def prepare_metadata(client, local_dir):
@@ -61,15 +67,12 @@ def assess_metadata(bs_manager, local_source):
     client.env.config['agent-metadata-url'] = INVALID_URL
     with prepare_temp_metadata(client, local_source) as metadata_dir:
         log.info('Metadata written to: {}'.format(metadata_dir))
-        with bs_manager.top_context() as machines:
-            with bs_manager.bootstrap_context(machines):
-                tear_down(client, client.is_jes_enabled())
-                client.bootstrap(metadata_source=metadata_dir)
-            with bs_manager.runtime_context(machines):
-                log.info('Metadata bootstrap successful.')
-                data = client.get_model_config()
-                if INVALID_URL != data['agent-metadata-url']['value']:
-                    raise JujuAssertionError('Error, possible web metadata.')
+        with thin_booted_context(bs_manager,
+                                 metadata_source=metadata_dir):
+            log.info('Metadata bootstrap successful.')
+            data = client.get_model_config()
+            if INVALID_URL != data['agent-metadata-url']['value']:
+                raise JujuAssertionError('Error, possible web metadata.')
 
 
 def get_controller_address(client):
@@ -81,16 +84,11 @@ def assess_to(bs_manager, to):
     """Assess bootstraping with the --to option."""
     if to is None:
         raise ValueError('--to not given when testing to')
-    client = bs_manager.client
-    with bs_manager.top_context() as machines:
-        with bs_manager.bootstrap_context(machines):
-            tear_down(client, client.is_jes_enabled())
-            client.bootstrap(to=to)
-        with bs_manager.runtime_context(machines):
-            log.info('To {} bootstrap successful.'.format(to))
-            # This might be needed:
-            # client.juju('switch', 'controller', include_e=False)
-            addr = get_controller_address(client)
+    with thin_booted_context(bs_manager, to=to) as client:
+        log.info('To {} bootstrap successful.'.format(to))
+        # This might be needed:
+        # client.juju('switch', 'controller', include_e=False)
+        addr = get_controller_address(client)
     if addr != to:
         raise JujuAssertionError('Not bootstrapped to the correct address.')
 

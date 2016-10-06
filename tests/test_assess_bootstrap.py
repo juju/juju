@@ -2,6 +2,7 @@ from argparse import Namespace
 from contextlib import contextmanager
 
 from mock import (
+    Mock,
     patch,
     )
 
@@ -14,6 +15,7 @@ from assess_bootstrap import (
     parse_args,
     prepare_metadata,
     prepare_temp_metadata,
+    thin_booted_context,
     )
 from deploy_stack import (
     BootstrapManager,
@@ -33,6 +35,51 @@ from utility import (
     JujuAssertionError,
     temp_dir,
     )
+
+
+class TestThinBootedContext(TestCase):
+
+    def make_bs_manager_mock(self, jes_enabled=False):
+        client = Mock()
+        client.attach_mock(Mock(), 'bootstrap')
+        client.attack_mock(Mock(return_value=jes_enabled), 'is_jes_enabled')
+        bs_manager = Mock()
+        bs_manager.attach_mock(client, 'client')
+        bs_manager.attack_mock(Mock(), 'tear_down')
+
+        @contextmanager
+        def top_mock():
+            yield 'machines'
+
+        @contextmanager
+        def cxt_mock(machines):
+            yield
+
+        bs_manager.attach_mock(Mock(side_effect=top_mock), 'top_context')
+        bs_manager.attach_mock(Mock(side_effect=cxt_mock),
+                               'bootstrap_context')
+        bs_manager.attach_mock(Mock(side_effect=cxt_mock), 'runtime_context')
+        return bs_manager
+
+    def test_thin_booted_context(self):
+        bs_manager = self.make_bs_manager_mock()
+        with patch('assess_bootstrap.tear_down',
+                   autospec=True) as (tear_down_mock):
+            with thin_booted_context(bs_manager):
+                pass
+        tear_down_mock.assert_called_once_with(
+            bs_manager.client, bs_manager.client.is_jes_enabled())
+        bs_manager.top_context.assert_called_once_with()
+        bs_manager.bootstrap_context.assert_called_once_with('machines')
+        bs_manager.runtime_context.assert_called_once_with('machines')
+        bs_manager.client.bootstrap.assert_called_once_with()
+
+    def test_thin_booted_context_kwargs(self):
+        bs_manager = self.make_bs_manager_mock(True)
+        with patch('assess_bootstrap.tear_down', autospec=True):
+            with thin_booted_context(bs_manager, alpha='foo', beta='bar'):
+                bs_manager.client.bootstrap.assert_called_once_with(
+                    alpha='foo', beta='bar')
 
 
 class TestParseArgs(TestCase):
