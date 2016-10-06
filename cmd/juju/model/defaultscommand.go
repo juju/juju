@@ -108,7 +108,7 @@ type defaultsCommandAPI interface {
 // Info implements part of the cmd.Command interface.
 func (c *defaultsCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Args:    "[<model-key>[<=value>] ...]",
+		Args:    "[[<cloud/>]<region> ]<model-key>[<=value>] ...]",
 		Doc:     modelDefaultsHelpDoc,
 		Name:    "model-defaults",
 		Purpose: modelDefaultsSummary,
@@ -124,7 +124,7 @@ func (c *defaultsCommand) SetFlags(f *gnuflag.FlagSet) {
 		"json":    cmd.FormatJson,
 		"tabular": formatDefaultConfigTabular,
 	})
-	f.Var(cmd.NewAppendStringsValue(&c.reset), "reset", "Reset the provided keys")
+	f.Var(cmd.NewAppendStringsValue(&c.reset), "reset", "Reset the provided comma delimited keys")
 }
 
 // Init implements part of the cmd.Command interface.
