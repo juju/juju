@@ -31,9 +31,6 @@ func (s *DefaultsCommandSuite) SetUpTest(c *gc.C) {
 	s.store.Controllers["controller"] = jujuclient.ControllerDetails{}
 }
 
-// XXX(ro) Add test to ensure region and cloud are correctly passed to the
-// api
-
 func (s *DefaultsCommandSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
 	command := model.NewDefaultsCommandForTest(s.fakeAPIRoot, s.fakeDefaultsAPI, s.fakeCloudAPI, s.store)
 	return testing.RunCommand(c, command, args...)
@@ -275,6 +272,29 @@ func (s *DefaultsCommandSuite) TestSet(c *gc.C) {
 		}}},
 		"special": {Controller: "extra", Default: nil, Regions: nil},
 	})
+}
+
+func (s *DefaultsCommandSuite) TestSetConveysCloudRegion(c *gc.C) {
+	table := []struct {
+		input, cloud, region string
+	}{
+		{"", "", ""},
+		{"dummy-region", "dummy", "dummy-region"},
+		{"dummy/dummy-region", "dummy", "dummy-region"},
+		{"another-region", "dummy", "another-region"},
+	}
+	for i, test := range table {
+		c.Logf("test %d", i)
+		var err error
+		if test.input == "" {
+			_, err = s.run(c, "special=extra", "--reset", "attr")
+		} else {
+			_, err = s.run(c, test.input, "special=extra", "--reset", "attr")
+		}
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(s.fakeDefaultsAPI.region, jc.DeepEquals, test.region)
+		c.Assert(s.fakeDefaultsAPI.cloud, jc.DeepEquals, test.cloud)
+	}
 }
 
 func (s *DefaultsCommandSuite) TestBlockedErrorOnSet(c *gc.C) {

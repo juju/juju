@@ -105,6 +105,7 @@ func (s *fakeModelDefaultEnvSuite) SetUpTest(c *gc.C) {
 				Type: "dummy-cloud",
 				Regions: []jujucloud.Region{
 					{Name: "dummy-region"},
+					{Name: "another-region"},
 				},
 			},
 		},

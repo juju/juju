@@ -128,7 +128,7 @@ func (c *defaultsCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 // Init implements part of the cmd.Command interface.
-// This needs to parse the a command line invocation to reset and set, or get
+// This needs to parse a command line invocation to reset and set, or get
 // model-default values. The arguments may be interspersed as demosntrated in
 // the examples.
 //
@@ -136,8 +136,7 @@ func (c *defaultsCommand) SetFlags(f *gnuflag.FlagSet) {
 //     juju model-defaults aws/us-east-1 foo=baz --reset bar
 //
 // If aws is the cloud of the current or specified controller -- specified by
-// -c somecontroller or -m somecontroller:somemodel -- then the following would
-// also be equivalent.
+// -c somecontroller -- then the following would also be equivalent.
 //     juju model-defaults --reset bar us-east-1 foo=baz
 //
 // If one doesn't specify a cloud or region the command is still valid but for
@@ -280,8 +279,8 @@ func (c *defaultsCommand) parseCloudRegion(args []string) ([]string, error) {
 		region = cr
 	}
 
-	// NB(redir) http://pad.lv/1627162 -- We don't disallow "=" in region
-	// names, but probably should.
+	// TODO(redir) 2016-10-05 #1627162
+	// We don't disallow "=" in region names, but probably should.
 	if strings.Contains(region, "=") {
 		return args, nil
 	}
