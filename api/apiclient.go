@@ -36,19 +36,18 @@ import (
 	"github.com/juju/juju/rpc/jsoncodec"
 )
 
-var logger = loggo.GetLogger("juju.api")
-
-// TODO(fwereade): we should be injecting a Clock; and injecting these values;
+// TODO(fwereade): we should be injecting these values;
 // across the board, instead of using these global variables.
-var (
-	// PingPeriod defines how often the internal connection health check
-	// will run.
-	PingPeriod = 1 * time.Minute
 
-	// PingTimeout defines how long a health check can take before we
-	// consider it to have failed.
-	PingTimeout = 30 * time.Second
-)
+// PingPeriod defines how often the internal connection health check
+// will run.
+const PingPeriod = 1 * time.Minute
+
+// PingTimeout defines how long a health check can take before we
+// consider it to have failed.
+const PingTimeout = 30 * time.Second
+
+var logger = loggo.GetLogger("juju.api")
 
 type rpcConnection interface {
 	Call(req rpc.Request, params, response interface{}) error
@@ -556,49 +555,6 @@ func isX509Error(err error) bool {
 		return true
 	}
 	return false
-}
-
-type monitor struct {
-	clock  clock.Clock
-	ping   func() error
-	closed <-chan struct{}
-	dead   <-chan struct{}
-	broken chan<- struct{}
-}
-
-func (m *monitor) run() {
-	defer close(m.broken)
-	for {
-		select {
-		case <-m.closed:
-			return
-		case <-m.dead:
-			return
-		case <-m.clock.After(PingPeriod):
-			if !m.pingWithTimeout() {
-				return
-			}
-		}
-	}
-}
-
-func (m *monitor) pingWithTimeout() bool {
-	result := make(chan error, 1)
-	go func() {
-		// Note that result is buffered so that we don't leak this
-		// goroutine when a timeout happens.
-		result <- m.ping()
-	}()
-	select {
-	case err := <-result:
-		if err != nil {
-			logger.Debugf("health ping failed: %v", err)
-		}
-		return err == nil
-	case <-m.clock.After(PingTimeout):
-		logger.Errorf("health ping timed out after %s", PingTimeout)
-		return false
-	}
 }
 
 type hasErrorCode interface {
