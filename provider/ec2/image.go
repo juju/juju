@@ -4,17 +4,10 @@
 package ec2
 
 import (
+	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
-
-	"github.com/juju/juju/provider/ec2/internal/ec2instancetypes"
 )
-
-// defaultCpuPower is larger the smallest instance's cpuPower, and no larger than
-// any other instance type's cpuPower. It is used when no explicit CpuPower
-// constraint exists, preventing the smallest instance from being chosen unless
-// the user has clearly indicated that they are willing to accept poor performance.
-const defaultCpuPower = 100
 
 // filterImages returns only that subset of the input (in the same order) that
 // this provider finds suitable.
@@ -44,20 +37,53 @@ func filterImages(images []*imagemetadata.ImageMetadata, ic *instances.InstanceC
 
 // findInstanceSpec returns an InstanceSpec satisfying the supplied instanceConstraint.
 func findInstanceSpec(
+	controller bool,
 	allImageMetadata []*imagemetadata.ImageMetadata,
+	instanceTypes []instances.InstanceType,
 	ic *instances.InstanceConstraint,
 ) (*instances.InstanceSpec, error) {
 	logger.Debugf("received %d image(s)", len(allImageMetadata))
-	// If the instance type is set, don't also set a default CPU power
-	// as this is implied.
-	cons := ic.Constraints
-	if cons.CpuPower == nil && (cons.InstanceType == nil || *cons.InstanceType == "") {
-		ic.Constraints.CpuPower = instances.CpuPower(defaultCpuPower)
+	if controller {
+		ic.Constraints = withDefaultControllerConstraints(ic.Constraints)
+	} else {
+		ic.Constraints = withDefaultNonControllerConstraints(ic.Constraints)
 	}
 	suitableImages := filterImages(allImageMetadata, ic)
 	logger.Debugf("found %d suitable image(s)", len(suitableImages))
 	images := instances.ImageMetadataToImages(suitableImages)
-
-	instanceTypes := ec2instancetypes.RegionInstanceTypes(ic.Region)
 	return instances.FindInstanceSpec(images, ic, instanceTypes)
+}
+
+// withDefaultControllerConstraints returns the given constraints,
+// updated to choose a default instance type appropriate for a
+// controller machine. We use this only if the user does not specify
+// any constraints that would otherwise control the instance type
+// selection.
+//
+// At the time of writing, this will choose
+//   - t2.medium, for VPC
+//   - m3.medium, for EC2-Classic
+func withDefaultControllerConstraints(cons constraints.Value) constraints.Value {
+	if !cons.HasInstanceType() && !cons.HasCpuCores() && !cons.HasCpuPower() && !cons.HasMem() {
+		var mem uint64 = 3.75 * 1024
+		cons.Mem = &mem
+	}
+	return cons
+}
+
+// withDefaultNonControllerConstraints returns the given constraints,
+// updated to choose a default instance type appropriate for a
+// non-controller machine. We use this only if the user does not
+// specify an instance-type, or cpu-power.
+//
+// At the time of writing, this will choose the cheapest non-burstable
+// instance available in the account/region. At the time of writing, that
+// is, for example:
+//   - m3.medium (for EC2-Classic)
+//   - c4.large (e.g. in ap-south-1)
+func withDefaultNonControllerConstraints(cons constraints.Value) constraints.Value {
+	if !cons.HasInstanceType() && !cons.HasCpuPower() {
+		cons.CpuPower = instances.CpuPower(100)
+	}
+	return cons
 }

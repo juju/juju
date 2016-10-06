@@ -110,6 +110,24 @@ func (v *Value) HasArch() bool {
 	return v.Arch != nil && *v.Arch != ""
 }
 
+// HasMem returns true if the constraints.Value specifies a minimum amount
+// of memory.
+func (v *Value) HasMem() bool {
+	return v.Mem != nil && *v.Mem > 0
+}
+
+// HasCpuPower returns true if the constraints.Value specifies a minimum amount
+// of CPU power.
+func (v *Value) HasCpuPower() bool {
+	return v.CpuPower != nil && *v.CpuPower > 0
+}
+
+// HasCpuCores returns true if the constraints.Value specifies a minimum number
+// of CPU cores.
+func (v *Value) HasCpuCores() bool {
+	return v.CpuCores != nil && *v.CpuCores > 0
+}
+
 // HasInstanceType returns true if the constraints.Value specifies an instance type.
 func (v *Value) HasInstanceType() bool {
 	return v.InstanceType != nil && *v.InstanceType != ""

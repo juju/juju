@@ -728,9 +728,29 @@ func (*blockDeviceMappingSuite) TestBlockDeviceNamer(c *gc.C) {
 }
 
 func (*blockDeviceMappingSuite) TestGetBlockDeviceMappings(c *gc.C) {
-	mapping := ec2.GetBlockDeviceMappings(constraints.Value{}, "trusty")
+	mapping := ec2.GetBlockDeviceMappings(constraints.Value{}, "trusty", false)
 	c.Assert(mapping, gc.DeepEquals, []awsec2.BlockDeviceMapping{{
 		VolumeSize: 8,
+		DeviceName: "/dev/sda1",
+	}, {
+		VirtualName: "ephemeral0",
+		DeviceName:  "/dev/sdb",
+	}, {
+		VirtualName: "ephemeral1",
+		DeviceName:  "/dev/sdc",
+	}, {
+		VirtualName: "ephemeral2",
+		DeviceName:  "/dev/sdd",
+	}, {
+		VirtualName: "ephemeral3",
+		DeviceName:  "/dev/sde",
+	}})
+}
+
+func (*blockDeviceMappingSuite) TestGetBlockDeviceMappingsController(c *gc.C) {
+	mapping := ec2.GetBlockDeviceMappings(constraints.Value{}, "trusty", true)
+	c.Assert(mapping, gc.DeepEquals, []awsec2.BlockDeviceMapping{{
+		VolumeSize: 32,
 		DeviceName: "/dev/sda1",
 	}, {
 		VirtualName: "ephemeral0",

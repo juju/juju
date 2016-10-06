@@ -96,7 +96,7 @@ func (*Suite) TestRootDiskBlockDeviceMapping(c *gc.C) {
 	for _, t := range rootDiskTests {
 		c.Logf("Test %s", t.name)
 		cons := constraints.Value{RootDisk: t.constraint}
-		mappings := getBlockDeviceMappings(cons, t.series)
+		mappings := getBlockDeviceMappings(cons, t.series, false)
 		expected := append([]amzec2.BlockDeviceMapping{t.device}, commonInstanceStoreDisks...)
 		c.Assert(mappings, gc.DeepEquals, expected)
 	}

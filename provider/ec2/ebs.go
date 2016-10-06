@@ -41,13 +41,18 @@ const (
 	EBS_Encrypted = "encrypted"
 
 	volumeTypeMagnetic        = "magnetic"         // standard
-	volumeTypeSsd             = "ssd"              // gp2
+	volumeTypeSSD             = "ssd"              // gp2
 	volumeTypeProvisionedIops = "provisioned-iops" // io1
 	volumeTypeStandard        = "standard"
-	volumeTypeGp2             = "gp2"
-	volumeTypeIo1             = "io1"
+	volumeTypeGP2             = "gp2"
+	volumeTypeIO1             = "io1"
 
 	rootDiskDeviceName = "/dev/sda1"
+
+	// defaultControllerDiskSizeMiB is the default size for the
+	// root disk of controller machines, if no root-disk constraint
+	// is specified.
+	defaultControllerDiskSizeMiB = 32 * 1024
 )
 
 // AWS error codes
@@ -78,11 +83,11 @@ const (
 	// maxMagneticVolumeSizeGiB is the maximum size for magnetic volumes in GiB.
 	maxMagneticVolumeSizeGiB = 1024
 
-	// minSsdVolumeSizeGiB is the minimum size for SSD volumes in GiB.
-	minSsdVolumeSizeGiB = 1
+	// minSSDVolumeSizeGiB is the minimum size for SSD volumes in GiB.
+	minSSDVolumeSizeGiB = 1
 
-	// maxSsdVolumeSizeGiB is the maximum size for SSD volumes in GiB.
-	maxSsdVolumeSizeGiB = 16 * 1024
+	// maxSSDVolumeSizeGiB is the maximum size for SSD volumes in GiB.
+	maxSSDVolumeSizeGiB = 16 * 1024
 
 	// minProvisionedIopsVolumeSizeGiB is the minimum size of provisioned IOPS
 	// volumes in GiB.
@@ -137,11 +142,11 @@ var _ storage.Provider = (*ebsProvider)(nil)
 var ebsConfigFields = schema.Fields{
 	EBS_VolumeType: schema.OneOf(
 		schema.Const(volumeTypeMagnetic),
-		schema.Const(volumeTypeSsd),
+		schema.Const(volumeTypeSSD),
 		schema.Const(volumeTypeProvisionedIops),
 		schema.Const(volumeTypeStandard),
-		schema.Const(volumeTypeGp2),
-		schema.Const(volumeTypeIo1),
+		schema.Const(volumeTypeGP2),
+		schema.Const(volumeTypeIO1),
 	),
 	EBS_IOPS:      schema.ForceInt(),
 	EBS_Encrypted: schema.Bool(),
@@ -178,15 +183,15 @@ func newEbsConfig(attrs map[string]interface{}) (*ebsConfig, error) {
 	switch ebsConfig.volumeType {
 	case volumeTypeMagnetic:
 		ebsConfig.volumeType = volumeTypeStandard
-	case volumeTypeSsd:
-		ebsConfig.volumeType = volumeTypeGp2
+	case volumeTypeSSD:
+		ebsConfig.volumeType = volumeTypeGP2
 	case volumeTypeProvisionedIops:
-		ebsConfig.volumeType = volumeTypeIo1
+		ebsConfig.volumeType = volumeTypeIO1
 	}
-	if ebsConfig.iops > 0 && ebsConfig.volumeType != volumeTypeIo1 {
+	if ebsConfig.iops > 0 && ebsConfig.volumeType != volumeTypeIO1 {
 		return nil, errors.Errorf("IOPS specified, but volume type is %q", volumeType)
-	} else if ebsConfig.iops == 0 && ebsConfig.volumeType == volumeTypeIo1 {
-		return nil, errors.Errorf("volume type is %q, IOPS unspecified or zero", volumeTypeIo1)
+	} else if ebsConfig.iops == 0 && ebsConfig.volumeType == volumeTypeIO1 {
+		return nil, errors.Errorf("volume type is %q, IOPS unspecified or zero", volumeTypeIO1)
 	}
 	return ebsConfig, nil
 }
@@ -215,7 +220,7 @@ func (e *ebsProvider) Dynamic() bool {
 // DefaultPools is defined on the Provider interface.
 func (e *ebsProvider) DefaultPools() []*storage.Config {
 	ssdPool, _ := storage.NewConfig("ebs-ssd", EBS_ProviderType, map[string]interface{}{
-		EBS_VolumeType: volumeTypeSsd,
+		EBS_VolumeType: volumeTypeSSD,
 	})
 	return []*storage.Config{ssdPool}
 }
@@ -579,10 +584,10 @@ func (v *ebsVolumeSource) ValidateVolumeParams(params storage.VolumeParams) erro
 	case volumeTypeStandard:
 		minVolumeSize = minMagneticVolumeSizeGiB
 		maxVolumeSize = maxMagneticVolumeSizeGiB
-	case volumeTypeGp2:
-		minVolumeSize = minSsdVolumeSizeGiB
-		maxVolumeSize = maxSsdVolumeSizeGiB
-	case volumeTypeIo1:
+	case volumeTypeGP2:
+		minVolumeSize = minSSDVolumeSizeGiB
+		maxVolumeSize = maxSSDVolumeSizeGiB
+	case volumeTypeIO1:
 		minVolumeSize = minProvisionedIopsVolumeSizeGiB
 		maxVolumeSize = maxProvisionedIopsVolumeSizeGiB
 	}
@@ -869,24 +874,32 @@ func blockDeviceNamer(numbers bool) func() (requestName, actualName string, err 
 	}
 }
 
-func minRootDiskSizeMiB(ser string) uint64 {
-	return gibToMib(common.MinRootDiskSizeGiB(ser))
+func minRootDiskSizeMiB(series string) uint64 {
+	return gibToMib(common.MinRootDiskSizeGiB(series))
 }
 
 // getBlockDeviceMappings translates constraints into BlockDeviceMappings.
 //
 // The first entry is always the root disk mapping, followed by instance
 // stores (ephemeral disks).
-func getBlockDeviceMappings(cons constraints.Value, ser string) []ec2.BlockDeviceMapping {
-	rootDiskSizeMiB := minRootDiskSizeMiB(ser)
+func getBlockDeviceMappings(
+	cons constraints.Value,
+	series string,
+	controller bool,
+) []ec2.BlockDeviceMapping {
+	minRootDiskSizeMiB := minRootDiskSizeMiB(series)
+	rootDiskSizeMiB := minRootDiskSizeMiB
+	if controller {
+		rootDiskSizeMiB = defaultControllerDiskSizeMiB
+	}
 	if cons.RootDisk != nil {
-		if *cons.RootDisk >= minRootDiskSizeMiB(ser) {
+		if *cons.RootDisk >= minRootDiskSizeMiB {
 			rootDiskSizeMiB = *cons.RootDisk
 		} else {
 			logger.Infof(
-				"Ignoring root-disk constraint of %dM because it is smaller than the EC2 image size of %dM",
+				"Ignoring root-disk constraint of %dM because it is smaller than the minimum size %dM",
 				*cons.RootDisk,
-				minRootDiskSizeMiB(ser),
+				minRootDiskSizeMiB,
 			)
 		}
 	}

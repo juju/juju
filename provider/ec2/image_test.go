@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/provider/ec2/internal/ec2instancetypes"
 	"github.com/juju/juju/testing"
 )
 
@@ -149,7 +150,9 @@ func (s *specSuite) TestFindInstanceSpec(c *gc.C) {
 			c, TestImageMetadata, test.series, test.arches,
 		)
 		spec, err := findInstanceSpec(
+			false, // non-controller
 			imageMetadata,
+			ec2instancetypes.RegionInstanceTypes("test"),
 			&instances.InstanceConstraint{
 				Region:      "test",
 				Series:      test.series,
@@ -172,7 +175,12 @@ func (s *specSuite) TestFindInstanceSpecNotSetCpuPowerWhenInstanceTypeSet(c *gc.
 	}
 
 	c.Check(instanceConstraint.Constraints.CpuPower, gc.IsNil)
-	findInstanceSpec(TestImageMetadata, instanceConstraint)
+	findInstanceSpec(
+		false, // non-controller
+		TestImageMetadata,
+		ec2instancetypes.RegionInstanceTypes("test"),
+		instanceConstraint,
+	)
 
 	c.Check(instanceConstraint.Constraints.CpuPower, gc.IsNil)
 }
@@ -210,7 +218,9 @@ func (s *specSuite) TestFindInstanceSpecErrors(c *gc.C) {
 			c, TestImageMetadata, t.series, t.arches,
 		)
 		_, err := findInstanceSpec(
+			false, // non-controller
 			imageMetadata,
+			ec2instancetypes.RegionInstanceTypes("test"),
 			&instances.InstanceConstraint{
 				Region:      "test",
 				Series:      t.series,
