@@ -36,16 +36,13 @@ import (
 	"github.com/juju/juju/rpc/jsoncodec"
 )
 
-// TODO(fwereade): we should be injecting these values;
-// across the board, instead of using these global variables.
-
 // PingPeriod defines how often the internal connection health check
 // will run.
 const PingPeriod = 1 * time.Minute
 
-// PingTimeout defines how long a health check can take before we
+// pingTimeout defines how long a health check can take before we
 // consider it to have failed.
-const PingTimeout = 30 * time.Second
+const pingTimeout = 30 * time.Second
 
 var logger = loggo.GetLogger("juju.api")
 
@@ -250,7 +247,7 @@ func open(
 		clock:       clock,
 		ping:        st.Ping,
 		pingPeriod:  PingPeriod,
-		pingTimeout: PingTimeout,
+		pingTimeout: pingTimeout,
 		closed:      st.closed,
 		dead:        client.Dead(),
 		broken:      st.broken,
