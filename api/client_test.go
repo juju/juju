@@ -167,7 +167,7 @@ func (s *clientSuite) TestAddLocalCharmError(c *gc.C) {
 	)
 
 	_, err := client.AddLocalCharm(curl, charmArchive)
-	c.Assert(err, gc.ErrorMatches, `POST http://.+: the POST method is not allowed`)
+	c.Assert(err, gc.ErrorMatches, `.*the POST method is not allowed$`)
 }
 
 func (s *clientSuite) TestMinVersionLocalCharm(c *gc.C) {
@@ -252,7 +252,7 @@ func (s *clientSuite) TestOpenURIFound(c *gc.C) {
 func (s *clientSuite) TestOpenURIError(c *gc.C) {
 	client := s.APIState.Client()
 	_, err := client.OpenURI("/tools/foobar", nil)
-	c.Assert(err, gc.ErrorMatches, ".+error parsing version.+")
+	c.Assert(err, gc.ErrorMatches, ".*error parsing version.+")
 }
 
 func (s *clientSuite) TestOpenCharmFound(c *gc.C) {

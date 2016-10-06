@@ -79,5 +79,5 @@ func (s *clientMacaroonSuite) TestAddLocalCharmUnauthorized(c *gc.C) {
 	)
 	// Upload an archive with its original revision.
 	_, err := s.client.AddLocalCharm(curl, charmArchive)
-	c.Assert(err, gc.ErrorMatches, `POST https://.+: invalid entity name or password`)
+	c.Assert(err, gc.ErrorMatches, `.*invalid entity name or password$`)
 }
