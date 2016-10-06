@@ -22,13 +22,21 @@ import (
 )
 
 var usageListUsersSummary = `
-Lists Juju users allowed to connect to a controller.`[1:]
+Lists Juju users allowed to connect to a controller or model.`[1:]
 
 var usageListUsersDetails = `
-By default, the tabular format is used.
+When used without a model name argument, users relevant to a controller are printed.
+When used with a model name, users relevant to the specified model are printed.
 
 Examples:
+    Print the users relevant to the current controller: 
     juju users
+    
+    Print the users relevant to the controller "another":
+    juju users -c another
+
+    Print the users relevant to the model "mymodel":
+    juju users mymodel
 
 See also: 
     add-user
