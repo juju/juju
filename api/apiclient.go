@@ -52,6 +52,7 @@ var (
 
 type rpcConnection interface {
 	Call(req rpc.Request, params, response interface{}) error
+	Dead() <-chan struct{}
 	Close() error
 }
 
@@ -250,6 +251,7 @@ func open(
 		clock:  clock,
 		closed: st.closed,
 		ping:   st.Ping,
+		dead:   client.Dead(),
 		broken: st.broken,
 	}).run()
 	return st, nil
@@ -560,6 +562,7 @@ type monitor struct {
 	clock  clock.Clock
 	ping   func() error
 	closed <-chan struct{}
+	dead   <-chan struct{}
 	broken chan<- struct{}
 }
 
@@ -568,6 +571,8 @@ func (m *monitor) run() {
 	for {
 		select {
 		case <-m.closed:
+			return
+		case <-m.dead:
 			return
 		case <-m.clock.After(PingPeriod):
 			if !m.pingWithTimeout() {

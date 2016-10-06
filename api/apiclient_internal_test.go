@@ -19,6 +19,7 @@ type MonitorSuite struct {
 	testing.IsolationSuite
 	clock   *testing.Clock
 	closed  chan (struct{})
+	dead    chan (struct{})
 	broken  chan (struct{})
 	monitor *monitor
 }
@@ -27,20 +28,28 @@ func (s *MonitorSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.clock = testing.NewClock(time.Time{})
 	s.closed = make(chan struct{})
+	s.dead = make(chan struct{})
 	s.broken = make(chan struct{})
 	s.monitor = &monitor{
 		clock:  s.clock,
 		ping:   func() error { return nil },
 		closed: s.closed,
+		dead:   s.dead,
 		broken: s.broken,
 	}
 }
 
 func (s *MonitorSuite) TestClose(c *gc.C) {
 	go s.monitor.run()
-
 	assertEvent(c, s.clock.Alarms())
 	close(s.closed)
+	assertEvent(c, s.broken)
+}
+
+func (s *MonitorSuite) TestDead(c *gc.C) {
+	go s.monitor.run()
+	assertEvent(c, s.clock.Alarms())
+	close(s.dead)
 	assertEvent(c, s.broken)
 }
 
