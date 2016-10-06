@@ -110,7 +110,7 @@ var httpClientTests = []struct {
 			},
 		})
 	},
-	expectError:     `GET http://.*/: some error`,
+	expectError:     `.*some error$`,
 	expectErrorCode: params.CodeBadRequest,
 	expectErrorInfo: &params.ErrorInfo{
 		MacaroonPath: "foo",
