@@ -6,6 +6,7 @@ package model_test
 import (
 	"time"
 
+	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -128,8 +129,12 @@ func (s *ShowCommandSuite) SetUpTest(c *gc.C) {
 	s.store.Models["testing"].CurrentModel = "admin@local/mymodel"
 }
 
+func (s *ShowCommandSuite) newShowCommand() cmd.Command {
+	return model.NewShowCommandForTest(&s.fake, noOpRefresh, s.store)
+}
+
 func (s *ShowCommandSuite) TestShow(c *gc.C) {
-	_, err := testing.RunCommand(c, model.NewShowCommandForTest(&s.fake, s.store))
+	_, err := testing.RunCommand(c, s.newShowCommand())
 	c.Assert(err, jc.ErrorIsNil)
 	s.fake.CheckCalls(c, []gitjujutesting.StubCall{
 		{"ModelInfo", []interface{}{[]names.ModelTag{testing.ModelTag}}},
@@ -137,19 +142,34 @@ func (s *ShowCommandSuite) TestShow(c *gc.C) {
 	})
 }
 
+func (s *ShowCommandSuite) TestShowUnknownCallsRefresh(c *gc.C) {
+	called := false
+	refresh := func(jujuclient.ClientStore, string) error {
+		called = true
+		return nil
+	}
+	_, err := testing.RunCommand(c, model.NewShowCommandForTest(&s.fake, refresh, s.store), "unknown")
+	c.Check(called, jc.IsTrue)
+	c.Check(err, jc.Satisfies, errors.IsNotFound)
+}
+
 func (s *ShowCommandSuite) TestShowFormatYaml(c *gc.C) {
-	ctx, err := testing.RunCommand(c, model.NewShowCommandForTest(&s.fake, s.store), "--format", "yaml")
+	ctx, err := testing.RunCommand(c, s.newShowCommand(), "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(ctx), jc.YAMLEquals, s.expectedOutput)
 }
 
 func (s *ShowCommandSuite) TestShowFormatJson(c *gc.C) {
-	ctx, err := testing.RunCommand(c, model.NewShowCommandForTest(&s.fake, s.store), "--format", "json")
+	ctx, err := testing.RunCommand(c, s.newShowCommand(), "--format", "json")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(ctx), jc.JSONEquals, s.expectedOutput)
 }
 
 func (s *ShowCommandSuite) TestUnrecognizedArg(c *gc.C) {
-	_, err := testing.RunCommand(c, model.NewShowCommandForTest(&s.fake, s.store), "admin", "whoops")
+	_, err := testing.RunCommand(c, s.newShowCommand(), "admin", "whoops")
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["whoops"\]`)
+}
+
+func noOpRefresh(jujuclient.ClientStore, string) error {
+	return nil
 }

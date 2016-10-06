@@ -16,17 +16,26 @@ import (
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
+	"github.com/juju/juju/jujuclient"
 )
 
 const showModelCommandDoc = `Show information about the current or specified model`
 
 func NewShowCommand() cmd.Command {
-	return modelcmd.Wrap(&showModelCommand{}, modelcmd.WrapSkipModelFlags)
+	showCmd := &showModelCommand{}
+	showCmd.RefreshModels = showCmd.ModelCommandBase.RefreshModels
+	return modelcmd.Wrap(showCmd, modelcmd.WrapSkipModelFlags)
 }
 
 // showModelCommand shows all the users with access to the current model.
 type showModelCommand struct {
 	modelcmd.ModelCommandBase
+	// RefreshModels hides the RefreshModels function defined
+	// in ModelCommandBase. This allows overriding for testing.
+	// NOTE: ideal solution would be to have the base implement a method
+	// like store.ModelByName which auto-refreshes.
+	RefreshModels func(jujuclient.ClientStore, string) error
+
 	out cmd.Output
 	api ShowModelAPI
 }
@@ -97,6 +106,16 @@ func (c *showModelCommand) Run(ctx *cmd.Context) (err error) {
 		c.ControllerName(),
 		c.ModelName(),
 	)
+	if errors.IsNotFound(err) {
+		if err := c.RefreshModels(store, c.ControllerName()); err != nil {
+			return errors.Annotate(err, "refreshing models cache")
+		}
+		// Now try again.
+		modelDetails, err = store.ModelByName(
+			c.ControllerName(),
+			c.ModelName(),
+		)
+	}
 	if err != nil {
 		return errors.Annotate(err, "getting model details")
 	}

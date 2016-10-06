@@ -63,12 +63,12 @@ func (s *DestroySuite) SetUpTest(c *gc.C) {
 }
 
 func (s *DestroySuite) runDestroyCommand(c *gc.C, args ...string) (*cmd.Context, error) {
-	cmd := model.NewDestroyCommandForTest(s.api, s.store)
+	cmd := model.NewDestroyCommandForTest(s.api, noOpRefresh, s.store)
 	return testing.RunCommand(c, cmd, args...)
 }
 
 func (s *DestroySuite) NewDestroyCommand() cmd.Command {
-	return model.NewDestroyCommandForTest(s.api, s.store)
+	return model.NewDestroyCommandForTest(s.api, noOpRefresh, s.store)
 }
 
 func checkModelExistsInStore(c *gc.C, name string, store jujuclient.ClientStore) {
@@ -98,9 +98,17 @@ func (s *DestroySuite) TestDestroyUnknownArgument(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["whoops"\]`)
 }
 
-func (s *DestroySuite) TestDestroyUnknownModel(c *gc.C) {
-	_, err := s.runDestroyCommand(c, "foo")
-	c.Assert(err, gc.ErrorMatches, `cannot read model info: model test1:admin@local/foo not found`)
+func (s *DestroySuite) TestDestroyUnknownModelCallsRefresh(c *gc.C) {
+	called := false
+	refresh := func(jujuclient.ClientStore, string) error {
+		called = true
+		return nil
+	}
+
+	cmd := model.NewDestroyCommandForTest(s.api, refresh, s.store)
+	_, err := testing.RunCommand(c, cmd, "foo")
+	c.Check(called, jc.IsTrue)
+	c.Check(err, gc.ErrorMatches, `cannot read model info: model test1:admin@local/foo not found`)
 }
 
 func (s *DestroySuite) TestDestroyCannotConnectToAPI(c *gc.C) {
