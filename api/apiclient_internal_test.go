@@ -40,11 +40,7 @@ func (s *MonitorSuite) TestInitialPingFails(c *gc.C) {
 	s.monitor.ping = func() error { return errors.New("boom") }
 	go s.monitor.run()
 
-	select {
-	case <-s.broken:
-	case <-time.After(jjtesting.LongWait):
-		c.Fatal("timed out waiting for broken to close")
-	}
+	assertEvent(c, s.broken)
 }
 
 func (s *MonitorSuite) TestLaterPingFails(c *gc.C) {
@@ -60,20 +56,11 @@ func (s *MonitorSuite) TestLaterPingFails(c *gc.C) {
 
 	// Wait for the time.After in the main loop.
 	for i := 0; i < 2; i++ {
-		select {
-		case <-s.clock.Alarms():
-		case <-time.After(jjtesting.LongWait):
-			c.Fatal("timed out waiting for monitor to wait")
-		}
+		assertEvent(c, s.clock.Alarms())
 	}
 
 	s.clock.Advance(PingPeriod)
-
-	select {
-	case <-s.broken:
-	case <-time.After(jjtesting.LongWait):
-		c.Fatal("timed out waiting for broken to close")
-	}
+	assertEvent(c, s.broken)
 }
 
 func (s *MonitorSuite) TestPingsTimesOut(c *gc.C) {
@@ -83,27 +70,20 @@ func (s *MonitorSuite) TestPingsTimesOut(c *gc.C) {
 	}
 	go s.monitor.run()
 
-	select {
-	case <-s.broken:
-	case <-time.After(jjtesting.LongWait):
-		c.Fatal("timed out waiting for broken to close")
-	}
+	assertEvent(c, s.broken)
 }
 
 func (s *MonitorSuite) TestClose(c *gc.C) {
 	go s.monitor.run()
-
-	select {
-	case <-s.clock.Alarms():
-	case <-time.After(jjtesting.LongWait):
-		c.Fatal("timed out waiting for monitor to start")
-	}
-
+	assertEvent(c, s.clock.Alarms())
 	close(s.closed)
+	assertEvent(c, s.broken)
+}
 
+func assertEvent(c *gc.C, ch <-chan struct{}) {
 	select {
-	case <-s.broken:
+	case <-ch:
 	case <-time.After(jjtesting.LongWait):
-		c.Fatal("timed out waiting for broken to close")
+		c.Fatal("timed out waiting for channel event")
 	}
 }
