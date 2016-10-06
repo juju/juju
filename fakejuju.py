@@ -529,7 +529,7 @@ class FakeBackend:
         model_name = 'name'
         data = {
             'name': model_name,
-            'owner': 'admin@local',
+            'owner': 'admin',
             'life': 'alive',
             'status': {'current': 'available', 'since': '15 minutes ago'},
             'users': self.get_users(),

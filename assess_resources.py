@@ -36,7 +36,7 @@ def _resource_info(name, fingerprint, size, service_app_id):
     data['size'] = size
     data['origin'] = 'upload'
     data['used'] = True
-    data['username'] = 'admin@local'
+    data['username'] = 'admin'
     data['path'] = '{}.txt'.format(name)
     return data
 
