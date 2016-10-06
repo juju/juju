@@ -59,7 +59,7 @@ class TestMain(TestCase):
 
 class TestParseSSHKeysOutput(TestCase):
 
-    header_model = "Keys used in model: admin@local/assesssshkeys-env\n"
+    header_model = "Keys used in model: admin/assesssshkeys-env\n"
     header_admin = "Keys for user admin:\n"
     key_output = (
         "47:2d:88:82:a6:84:9a:ca:44:3e:54:79:ed:bc:e4:64 (abentley@speedy)\n"
@@ -69,7 +69,7 @@ class TestParseSSHKeysOutput(TestCase):
 
     def test_ssh_keys(self):
         output_with_model = self.header_model + self.key_output
-        model = "admin@local/assesssshkeys-env"
+        model = "admin/assesssshkeys-env"
         keys = parse_ssh_keys_output(output_with_model, model)
         self.assertEqual(map(str, keys), output_with_model.splitlines()[1:])
 

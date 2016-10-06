@@ -1238,7 +1238,7 @@ class EnvJujuClient:
                 'Controller and environment names should not vary (yet)')
 
     def update_user_name(self):
-        self.env.user_name = 'admin@local'
+        self.env.user_name = 'admin'
 
     def bootstrap(self, upload_tools=False, bootstrap_series=None,
                   credential=None, auto_upgrade=False, metadata_source=None,
