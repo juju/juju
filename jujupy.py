@@ -547,6 +547,9 @@ class Status:
     def get_instance_id(self, machine_id):
         return self.status['machines'][machine_id]['instance-id']
 
+    def get_machine_dns_name(self, machine_id):
+        return _dns_name_for_machine(self, machine_id)
+
     def get_unit(self, unit_name):
         """Return metadata about a unit."""
         for service in sorted(self.get_applications().values()):

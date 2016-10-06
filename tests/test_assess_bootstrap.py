@@ -1,12 +1,16 @@
 from argparse import Namespace
 from contextlib import contextmanager
 
-from mock import patch
+from mock import (
+    Mock,
+    patch,
+    )
 
 from assess_bootstrap import (
     assess_bootstrap,
     assess_metadata,
     assess_to,
+    get_controller_address,
     INVALID_URL,
     parse_args,
     prepare_metadata,
@@ -20,12 +24,14 @@ from fakejuju import (
     )
 from jujupy import (
     _temp_env as temp_env,
+    Status,
     )
 from tests import (
     FakeHomeTestCase,
     TestCase,
     )
 from utility import (
+    JujuAssertionError,
     temp_dir,
     )
 
@@ -250,6 +256,12 @@ class TestAssessMetadata(FakeHomeTestCase):
 
 class TestAssessTo(FakeHomeTestCase):
 
+    def test_get_controller_address(self):
+        status = Status({'machines': {"0": {'dns-name': '255.1.1.0'}}}, '')
+        client = Mock()
+        client.configure_mock(**{'get_status.return_value': status})
+        self.assertEqual('255.1.1.0', get_controller_address(client))
+
     def test_assess_to(self):
         def check(myself, to):
             self.assertEqual({'name': 'qux', 'type': 'foo'},
@@ -258,11 +270,26 @@ class TestAssessTo(FakeHomeTestCase):
         with extended_bootstrap_cxt('2.0-rc1'):
             with patch('jujupy.EnvJujuClient.bootstrap', side_effect=check,
                        autospec=True):
-                args = parse_args(['to', 'bar', '/foo', '--to', '255.1.1.0'])
-                args.temp_env_name = 'qux'
-                bs_manager = BootstrapManager.from_args(args)
-                assess_to(bs_manager, args.to)
+                with patch('assess_bootstrap.get_controller_address',
+                           return_value='255.1.1.0', autospec=True):
+                    args = parse_args(['to', 'bar', '/foo',
+                                       '--to', '255.1.1.0'])
+                    args.temp_env_name = 'qux'
+                    bs_manager = BootstrapManager.from_args(args)
+                    assess_to(bs_manager, args.to)
 
     def test_assess_to_requires_to(self):
         with self.assertRaises(ValueError):
             assess_to('bs_manager', None)
+
+    def test_assess_to_fails(self):
+        with extended_bootstrap_cxt('2.0-rc1'):
+            with patch('jujupy.EnvJujuClient.bootstrap', autospec=True):
+                with patch('assess_bootstrap.get_controller_address',
+                           return_value='255.1.1.0', autospec=True):
+                    args = parse_args(['to', 'bar', '/foo',
+                                       '--to', '255.1.13.0'])
+                    args.temp_env_name = 'qux'
+                    bs_manager = BootstrapManager.from_args(args)
+                    with self.assertRaises(JujuAssertionError):
+                        assess_to(bs_manager, args.to)

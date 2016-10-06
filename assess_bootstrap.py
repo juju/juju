@@ -69,7 +69,13 @@ def assess_metadata(bs_manager, local_source):
                     raise JujuAssertionError('Error, possible web metadata.')
 
 
+def get_controller_address(client):
+    """Get the address of the controller for this model."""
+    return client.get_status().get_machine_dns_name("0")
+
+
 def assess_to(bs_manager, to):
+    """Assess bootstraping with the --to option."""
     if to is None:
         raise ValueError('--to not given when testing to')
     client = bs_manager.client
@@ -79,6 +85,9 @@ def assess_to(bs_manager, to):
             client.bootstrap(to=to)
         with bs_manager.runtime_context(machines):
             log.info('To {} bootstrap successful.'.format(to))
+            addr = get_controller_address(client)
+    if addr != to:
+        raise JujuAssertionError('Not bootstrapped to the correct address.')
 
 
 def assess_bootstrap(args):
