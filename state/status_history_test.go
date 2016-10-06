@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/state"
@@ -76,12 +77,12 @@ func (s *StatusHistorySuite) TestPruneStatusHistoryByDate(c *gc.C) {
 	primeUnitStatusHistory(c, units[1], 50, 24*time.Hour)
 	primeUnitStatusHistory(c, units[2], 100, 0)
 	primeUnitStatusHistory(c, units[2], 100, 24*time.Hour)
-	primeUnitAgentStatusHistory(c, agents[0], 100, 0)
-	primeUnitAgentStatusHistory(c, agents[0], 100, 24*time.Hour)
-	primeUnitAgentStatusHistory(c, agents[1], 50, 0)
-	primeUnitAgentStatusHistory(c, agents[1], 50, 24*time.Hour)
-	primeUnitAgentStatusHistory(c, agents[2], 10, 0)
-	primeUnitAgentStatusHistory(c, agents[2], 10, 24*time.Hour)
+	primeUnitAgentStatusHistory(c, agents[0], 100, 0, "")
+	primeUnitAgentStatusHistory(c, agents[0], 100, 24*time.Hour, "")
+	primeUnitAgentStatusHistory(c, agents[1], 50, 0, "")
+	primeUnitAgentStatusHistory(c, agents[1], 50, 24*time.Hour, "")
+	primeUnitAgentStatusHistory(c, agents[2], 10, 0, "")
+	primeUnitAgentStatusHistory(c, agents[2], 10, 24*time.Hour, "")
 
 	history, err := units[0].StatusHistory(status.StatusHistoryFilter{Size: 50})
 	c.Assert(err, jc.ErrorIsNil)
@@ -142,6 +143,41 @@ func (s *StatusHistorySuite) TestPruneStatusHistoryByDate(c *gc.C) {
 	}
 }
 
+func (s *StatusHistorySuite) TestStatusHistoryFilterRunningUpdateStatusHook(c *gc.C) {
+
+	service := s.Factory.MakeApplication(c, nil)
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: service})
+	agent := unit.Agent()
+
+	primeUnitAgentStatusHistory(c, agent, 100, 0, "running update-status hook")
+	primeUnitAgentStatusHistory(c, agent, 100, 0, "doing something else")
+	history, err := agent.StatusHistory(status.StatusHistoryFilter{Size: 200})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(history, gc.HasLen, 200)
+	stateNumber := 0
+	for i := 0; i < len(history); i += 2 {
+		checkPrimedUnitAgentStatusWithCustomMessage(c, history[i], 99-stateNumber, 0, "doing something else")
+		checkPrimedUnitAgentStatusWithCustomMessage(c, history[i+1], 99-stateNumber, 0, "running update-status hook")
+		stateNumber++
+	}
+}
+
+func (s *StatusHistorySuite) TestStatusHistoryFilterRunningUpdateStatusHookFiltered(c *gc.C) {
+
+	service := s.Factory.MakeApplication(c, nil)
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: service})
+	agent := unit.Agent()
+
+	primeUnitAgentStatusHistory(c, agent, 100, 0, "running update-status hook")
+	primeUnitAgentStatusHistory(c, agent, 100, 0, "doing something else")
+	history, err := agent.StatusHistory(status.StatusHistoryFilter{Size: 200, Exclude: set.NewStrings("running update-status hook")})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(history, gc.HasLen, 101)
+	for i, statusInfo := range history[:100] {
+		checkPrimedUnitAgentStatusWithCustomMessage(c, statusInfo, 99-i, 0, "doing something else")
+	}
+}
+
 func (s *StatusHistorySuite) TestStatusHistoryFiltersByDateAndDelta(c *gc.C) {
 	// TODO(perrito666) setup should be extracted into a fixture and the
 	// 6 or 7 test cases each get their own method.
@@ -191,7 +227,7 @@ func (s *StatusHistorySuite) TestStatusHistoryFiltersByDateAndDelta(c *gc.C) {
 
 	// logs up to one day back, using date.
 	yesterday := now.Add(-(time.Hour * 24))
-	history, err = unit.StatusHistory(status.StatusHistoryFilter{Date: &yesterday})
+	history, err = unit.StatusHistory(status.StatusHistoryFilter{FromDate: &yesterday})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(history, gc.HasLen, 2)
 	c.Assert(history[0].Message, gc.Equals, "current status")
@@ -206,7 +242,7 @@ func (s *StatusHistorySuite) TestStatusHistoryFiltersByDateAndDelta(c *gc.C) {
 
 	// Logs up to two days ago, using date.
 
-	history, err = unit.StatusHistory(status.StatusHistoryFilter{Date: &twoDaysAgo})
+	history, err = unit.StatusHistory(status.StatusHistoryFilter{FromDate: &twoDaysAgo})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(history, gc.HasLen, 2)
 	c.Assert(history[0].Message, gc.Equals, "current status")
@@ -221,7 +257,7 @@ func (s *StatusHistorySuite) TestStatusHistoryFiltersByDateAndDelta(c *gc.C) {
 	c.Assert(history[2].Message, gc.Equals, "2 days ago")
 
 	// Logs up to three days ago, using date.
-	history, err = unit.StatusHistory(status.StatusHistoryFilter{Date: &threeDaysAgo})
+	history, err = unit.StatusHistory(status.StatusHistoryFilter{FromDate: &threeDaysAgo})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(history, gc.HasLen, 3)
 	c.Assert(history[0].Message, gc.Equals, "current status")

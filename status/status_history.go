@@ -8,24 +8,31 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/set"
 )
 
 // StatusHistoryFilter holds arguments that can be use to filter a status history backlog.
 type StatusHistoryFilter struct {
-	Size  int
-	Date  *time.Time
+	// Size indicates how many results are expected at most.
+	Size int
+	// FromDate indicates the earliest date from which logs are expected.
+	FromDate *time.Time
+	// Delta indicates the age of the oldest log expected.
 	Delta *time.Duration
+	// Exclude indicates the status messages that should be excluded
+	// from the returned result.
+	Exclude set.Strings
 }
 
 // Validate checks that the minimum requirements of a StatusHistoryFilter are met.
 func (f *StatusHistoryFilter) Validate() error {
 	s := f.Size > 0
-	t := f.Date != nil
+	t := f.FromDate != nil
 	d := f.Delta != nil
 
 	switch {
 	case !(s || t || d):
-		return errors.NotValidf("empty struct")
+		return errors.NotValidf("missing filter parameters")
 	case s && t:
 		return errors.NotValidf("Size and Date together")
 	case s && d:

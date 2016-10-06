@@ -192,9 +192,10 @@ type History struct {
 
 // StatusHistoryFilter holds arguments that can be use to filter a status history backlog.
 type StatusHistoryFilter struct {
-	Size  int            `json:"size"`
-	Date  *time.Time     `json:"date"`
-	Delta *time.Duration `json:"delta"`
+	Size    int            `json:"size"`
+	Date    *time.Time     `json:"date"`
+	Delta   *time.Duration `json:"delta"`
+	Exclude []string       `json:"exclude"`
 }
 
 // StatusHistoryRequest holds the parameters to filter a status history query.
