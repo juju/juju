@@ -238,7 +238,7 @@ func (a *admin) checkUserPermissions(userTag names.UserTag, controllerOnlyLogin 
 				return nil, errors.Wrap(err, common.ErrPerm)
 			}
 		} else {
-			return nil, errors.Annotatef(err, "obtaining ControllerUser for logged in user %s", userTag.Canonical())
+			return nil, errors.Annotatef(err, "obtaining ControllerUser for logged in user %s", userTag.Id())
 		}
 	}
 	controllerAccess := controllerUser.Access
@@ -248,9 +248,9 @@ func (a *admin) checkUserPermissions(userTag names.UserTag, controllerOnlyLogin 
 		controllerAccess = everyoneGroupAccess
 	}
 
-	logger.Tracef("controller user %s has %v", userTag.Canonical(), controllerAccess)
+	logger.Tracef("controller user %s has %v", userTag.Id(), controllerAccess)
 	if !controllerOnlyLogin {
-		logger.Tracef("model user %s has %s", userTag.Canonical(), modelAccess)
+		logger.Tracef("model user %s has %s", userTag.Id(), modelAccess)
 	}
 	info := &params.AuthUserInfo{
 		Identity:         userTag.String(),

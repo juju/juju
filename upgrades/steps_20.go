@@ -6,7 +6,22 @@ package upgrades
 import (
 	"os"
 	"path/filepath"
+
+	"github.com/juju/juju/state"
 )
+
+// stateStepsFor20 returns upgrade steps for Juju 2.0 that manipulate state directly.
+func stateStepsFor20() []Step {
+	return []Step{
+		&upgradeStep{
+			description: "strip @local from local user names",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.StripLocalUserDomain(context.State())
+			},
+		},
+	}
+}
 
 // stepsFor20 returns upgrade steps for Juju 2.0 that only need the API.
 func stepsFor20() []Step {

@@ -54,7 +54,7 @@ func (s *AddModelSuite) SetUpTest(c *gc.C) {
 	s.store.CurrentControllerName = controllerName
 	s.store.Controllers[controllerName] = jujuclient.ControllerDetails{}
 	s.store.Accounts[controllerName] = jujuclient.AccountDetails{
-		User: "bob@local",
+		User: "bob",
 	}
 	s.store.Credentials["aws"] = cloud.CloudCredential{
 		AuthCredentials: map[string]cloud.Credential{
@@ -156,7 +156,7 @@ func (s *AddModelSuite) TestAddExistingName(c *gc.C) {
 	// controller will error out if the model already exists. Overwriting
 	// means we'll replace any stale details from an previously existing
 	// model with the same name.
-	err := s.store.UpdateModel("test-master", "bob@local/test", jujuclient.ModelDetails{
+	err := s.store.UpdateModel("test-master", "bob/test", jujuclient.ModelDetails{
 		"stale-uuid",
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -164,7 +164,7 @@ func (s *AddModelSuite) TestAddExistingName(c *gc.C) {
 	_, err = s.run(c, "test")
 	c.Assert(err, jc.ErrorIsNil)
 
-	details, err := s.store.ModelByName("test-master", "bob@local/test")
+	details, err := s.store.ModelByName("test-master", "bob/test")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(details, jc.DeepEquals, &jujuclient.ModelDetails{"fake-model-uuid"})
 }
@@ -173,7 +173,7 @@ func (s *AddModelSuite) TestCredentialsPassedThrough(c *gc.C) {
 	_, err := s.run(c, "test", "--credential", "secrets")
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(s.fakeAddModelAPI.cloudCredential, gc.Equals, names.NewCloudCredentialTag("aws/bob@local/secrets"))
+	c.Assert(s.fakeAddModelAPI.cloudCredential, gc.Equals, names.NewCloudCredentialTag("aws/bob/secrets"))
 }
 
 func (s *AddModelSuite) TestCredentialsOtherUserPassedThrough(c *gc.C) {
@@ -378,7 +378,7 @@ func (s *AddModelSuite) TestAddErrorRemoveConfigstoreInfo(c *gc.C) {
 	_, err := s.run(c, "test")
 	c.Assert(err, gc.ErrorMatches, "bah humbug")
 
-	_, err = s.store.ModelByName("test-master", "bob@local/test")
+	_, err = s.store.ModelByName("test-master", "bob/test")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
@@ -386,7 +386,7 @@ func (s *AddModelSuite) TestAddStoresValues(c *gc.C) {
 	_, err := s.run(c, "test")
 	c.Assert(err, jc.ErrorIsNil)
 
-	model, err := s.store.ModelByName("test-master", "bob@local/test")
+	model, err := s.store.ModelByName("test-master", "bob/test")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(model, jc.DeepEquals, &jujuclient.ModelDetails{"fake-model-uuid"})
 }
@@ -396,7 +396,7 @@ func (s *AddModelSuite) TestNoEnvCacheOtherUser(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Creating a model for another user does not update the model cache.
-	_, err = s.store.ModelByName("test-master", "bob@local/test")
+	_, err = s.store.ModelByName("test-master", "bob/test")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
@@ -472,8 +472,8 @@ func (c *fakeCloudAPI) Cloud(tag names.CloudTag) (cloud.Cloud, error) {
 func (c *fakeCloudAPI) UserCredentials(user names.UserTag, cloud names.CloudTag) ([]names.CloudCredentialTag, error) {
 	c.MethodCall(c, "UserCredentials", user, cloud)
 	return []names.CloudCredentialTag{
-		names.NewCloudCredentialTag("cloud/admin@local/default"),
-		names.NewCloudCredentialTag("aws/other@local/secrets"),
+		names.NewCloudCredentialTag("cloud/admin/default"),
+		names.NewCloudCredentialTag("aws/other/secrets"),
 	}, c.NextErr()
 }
 

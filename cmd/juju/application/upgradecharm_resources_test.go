@@ -266,7 +266,7 @@ Deploying charm "cs:trusty/starsay-1".
 		},
 		ID:            "starsay/upload-resource",
 		ApplicationID: "starsay",
-		Username:      "admin@local",
+		Username:      "admin",
 		// Timestamp is checked above
 	}}
 

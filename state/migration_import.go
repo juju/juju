@@ -71,7 +71,7 @@ func (st *State) Import(model description.Model) (_ *Model, _ *State, err error)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	logger.Debugf("model created %s/%s", dbModel.Owner().Canonical(), dbModel.Name())
+	logger.Debugf("model created %s/%s", dbModel.Owner().Id(), dbModel.Name())
 	defer func() {
 		if err != nil {
 			newSt.Close()

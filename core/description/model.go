@@ -192,7 +192,7 @@ func (m *model) Blocks() map[string]string {
 type ByName []User
 
 func (a ByName) Len() int           { return len(a) }
-func (a ByName) Less(i, j int) bool { return a[i].Name().Canonical() < a[j].Name().Canonical() }
+func (a ByName) Less(i, j int) bool { return a[i].Name().Id() < a[j].Name().Id() }
 func (a ByName) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 
 // Users implements Model.

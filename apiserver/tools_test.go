@@ -522,9 +522,9 @@ func (s *toolsWithMacaroonsSuite) TestCanPostWithLocalLogin(c *gc.C) {
 	bakeryClient := httpbakery.NewClient()
 	bakeryClient.Client = client
 	bakeryClient.WebPageVisitor = httpbakery.NewMultiVisitor(apiauthentication.NewVisitor(
-		user.UserTag().Canonical(),
+		user.UserTag().Id(),
 		func(username string) (string, error) {
-			c.Assert(username, gc.Equals, user.UserTag().Canonical())
+			c.Assert(username, gc.Equals, user.UserTag().Id())
 			prompted = true
 			return password, nil
 		},

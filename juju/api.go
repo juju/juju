@@ -138,7 +138,7 @@ func NewAPIConnection(args NewAPIConnectionParams) (api.Connection, error) {
 			// We used macaroon auth to login; save the username
 			// that we've logged in as.
 			accountDetails = &jujuclient.AccountDetails{
-				User:            user.Canonical(),
+				User:            user.Id(),
 				LastKnownAccess: st.ControllerAccess(),
 			}
 		} else if apiInfo.Tag == nil {

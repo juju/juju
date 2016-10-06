@@ -24,6 +24,21 @@ const testModelsYAML = `
 controllers:
   ctrl:
     models:
+      admin/admin:
+        uuid: ghi
+  kontroll:
+    models:
+      admin/admin:
+        uuid: abc
+      admin/my-model:
+        uuid: def
+    current-model: admin/my-model
+`
+
+const testLegacyModelsYAML = `
+controllers:
+  ctrl:
+    models:
       admin@local/admin:
         uuid: ghi
   kontroll:
@@ -38,14 +53,14 @@ controllers:
 var testControllerModels = map[string]*jujuclient.ControllerModels{
 	"kontroll": {
 		Models: map[string]jujuclient.ModelDetails{
-			"admin@local/admin":    kontrollAdminModelDetails,
-			"admin@local/my-model": kontrollMyModelModelDetails,
+			"admin/admin":    kontrollAdminModelDetails,
+			"admin/my-model": kontrollMyModelModelDetails,
 		},
-		CurrentModel: "admin@local/my-model",
+		CurrentModel: "admin/my-model",
 	},
 	"ctrl": {
 		Models: map[string]jujuclient.ModelDetails{
-			"admin@local/admin": ctrlAdminModelDetails,
+			"admin/admin": ctrlAdminModelDetails,
 		},
 	},
 }
@@ -73,6 +88,21 @@ func (s *ModelsFileSuite) TestReadEmptyFile(c *gc.C) {
 	models, err := jujuclient.ReadModelsFile(jujuclient.JujuModelsPath())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(models, gc.HasLen, 0)
+}
+
+func (s *ModelsFileSuite) TestMigrateLegacyLocal(c *gc.C) {
+	err := ioutil.WriteFile(jujuclient.JujuModelsPath(), []byte(testLegacyModelsYAML), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+
+	models, err := jujuclient.ReadModelsFile(jujuclient.JujuModelsPath())
+	c.Assert(err, jc.ErrorIsNil)
+
+	migratedData, err := ioutil.ReadFile(jujuclient.JujuModelsPath())
+	c.Assert(err, jc.ErrorIsNil)
+	migratedModels, err := jujuclient.ParseModels(migratedData)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(string(migratedData), jc.DeepEquals, testModelsYAML[1:])
+	c.Assert(migratedModels, jc.DeepEquals, models)
 }
 
 func writeTestModelsFile(c *gc.C) {

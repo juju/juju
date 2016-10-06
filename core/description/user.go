@@ -27,9 +27,9 @@ type UserArgs struct {
 
 func newUser(args UserArgs) *user {
 	u := &user{
-		Name_:        args.Name.Canonical(),
+		Name_:        args.Name.Id(),
 		DisplayName_: args.DisplayName,
-		CreatedBy_:   args.CreatedBy.Canonical(),
+		CreatedBy_:   args.CreatedBy.Id(),
 		DateCreated_: args.DateCreated,
 		Access_:      args.Access,
 	}

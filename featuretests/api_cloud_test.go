@@ -56,7 +56,7 @@ func (s *CloudAPISuite) TestCloudAPI(c *gc.C) {
 }
 
 func (s *CloudAPISuite) TestCredentialsAPI(c *gc.C) {
-	tag := names.NewCloudCredentialTag("dummy/admin@local/default")
+	tag := names.NewCloudCredentialTag("dummy/admin/default")
 	err := s.client.UpdateCredential(tag, cloud.NewCredential(
 		cloud.UserPassAuthType,
 		map[string]string{"username": "fred", "password": "secret"},

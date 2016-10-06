@@ -46,7 +46,7 @@ func (s *syncToolsSuite) SetUpTest(c *gc.C) {
 	s.store = jujuclienttesting.NewMemStore()
 	s.store.CurrentControllerName = "ctrl"
 	s.store.Accounts["ctrl"] = jujuclient.AccountDetails{
-		User: "admin@local",
+		User: "admin",
 	}
 }
 

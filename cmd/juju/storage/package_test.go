@@ -44,6 +44,6 @@ func (s *SubStorageSuite) SetUpTest(c *gc.C) {
 	s.store.CurrentControllerName = "testing"
 	s.store.Controllers["testing"] = jujuclient.ControllerDetails{}
 	s.store.Accounts["testing"] = jujuclient.AccountDetails{
-		User: "admin@local",
+		User: "admin",
 	}
 }

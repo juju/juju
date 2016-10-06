@@ -189,7 +189,7 @@ func updateAllMachines(privateAddress, publicAddress string, machines []machineM
 		machineUpdating.Add(1)
 		go func(machine *state.Machine, model *state.Model) {
 			defer machineUpdating.Done()
-			logger.Debugf("updating addresses for machine %s in model %s/%s", machine.Tag().Id(), model.Owner().Canonical(), model.Name())
+			logger.Debugf("updating addresses for machine %s in model %s/%s", machine.Tag().Id(), model.Owner().Id(), model.Name())
 			// TODO: thumper 2016-09-20
 			// runMachineUpdate only handles linux machines, what about windows?
 			err := runMachineUpdate(machine, setAgentAddressScript(privateAddress, publicAddress))

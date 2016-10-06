@@ -74,8 +74,8 @@ func (s *cmdControllerSuite) TestControllerListCommand(c *gc.C) {
 	expectedOutput := `
 Use --refresh to see the latest information.
 
-CONTROLLER  MODEL       USER         ACCESS     CLOUD/REGION        MODELS  MACHINES  HA  VERSION
-kontroll*   controller  admin@local  superuser  dummy/dummy-region       -         -   -  (unknown)  
+CONTROLLER  MODEL       USER   ACCESS     CLOUD/REGION        MODELS  MACHINES  HA  VERSION
+kontroll*   controller  admin  superuser  dummy/dummy-region       -         -   -  (unknown)  
 
 `[1:]
 	c.Assert(testing.Stdout(context), gc.Equals, expectedOutput)
@@ -87,9 +87,9 @@ func (s *cmdControllerSuite) TestCreateModelAdminUser(c *gc.C) {
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
 		"CONTROLLER: kontroll\n"+
 		"\n"+
-		"MODEL        OWNER        STATUS     ACCESS  LAST CONNECTION\n"+
-		"controller*  admin@local  available  admin   just now\n"+
-		"new-model    admin@local  available  admin   never connected\n"+
+		"MODEL        OWNER  STATUS     ACCESS  LAST CONNECTION\n"+
+		"controller*  admin  available  admin   just now\n"+
+		"new-model    admin  available  admin   never connected\n"+
 		"\n")
 }
 
@@ -99,9 +99,9 @@ func (s *cmdControllerSuite) TestAddModelNormalUser(c *gc.C) {
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
 		"CONTROLLER: kontroll\n"+
 		"\n"+
-		"MODEL              OWNER        STATUS     ACCESS  LAST CONNECTION\n"+
-		"admin/controller*  admin@local  available  admin   just now\n"+
-		"test/new-model     test@local   available          never connected\n"+
+		"MODEL              OWNER  STATUS     ACCESS  LAST CONNECTION\n"+
+		"admin/controller*  admin  available  admin   just now\n"+
+		"test/new-model     test   available          never connected\n"+
 		"\n")
 }
 
@@ -116,7 +116,7 @@ models:
   model-uuid: deadbeef-0bad-400d-8000-4b1d0d06f00d
   controller-uuid: deadbeef-1bad-500d-9000-4b1d0d06f00d
   controller-name: kontroll
-  owner: admin@local
+  owner: admin
   cloud: dummy
   region: dummy-region
   type: dummy
@@ -125,7 +125,7 @@ models:
     current: available
     since: .*
   users:
-    admin@local:
+    admin:
       display-name: admin
       access: admin
       last-connection: just now
@@ -162,9 +162,9 @@ func (s *cmdControllerSuite) TestListDeadModels(c *gc.C) {
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
 		"CONTROLLER: kontroll\n"+
 		"\n"+
-		"MODEL        OWNER        STATUS      ACCESS  LAST CONNECTION\n"+
-		"controller*  admin@local  available   admin   just now\n"+
-		"new-model    admin@local  destroying  admin   never connected\n"+
+		"MODEL        OWNER  STATUS      ACCESS  LAST CONNECTION\n"+
+		"controller*  admin  available   admin   just now\n"+
+		"new-model    admin  destroying  admin   never connected\n"+
 		"\n")
 }
 
@@ -195,7 +195,7 @@ Added 'new-model' model on dummy/dummy-region with credential 'cred' for user 'a
 	// to the api server.
 	accountDetails, err := s.ControllerStore.AccountDetails("kontroll")
 	c.Assert(err, jc.ErrorIsNil)
-	modelDetails, err := s.ControllerStore.ModelByName("kontroll", "admin@local/new-model")
+	modelDetails, err := s.ControllerStore.ModelByName("kontroll", "admin/new-model")
 	c.Assert(err, jc.ErrorIsNil)
 	api, err := juju.NewAPIConnection(juju.NewAPIConnectionParams{
 		Store:          s.ControllerStore,

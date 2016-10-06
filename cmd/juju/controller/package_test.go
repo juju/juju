@@ -96,13 +96,13 @@ controllers:
 const testAccountsYaml = `
 controllers:
   aws-test:
-    user: admin@local
+    user: admin
     password: hun+er2
   mark-test-prodstack:
-    user: admin@local
+    user: admin
     password: hunter2
   mallards:
-    user: admin@local
+    user: admin
     password: hunter2
     last-known-access: superuser
 `

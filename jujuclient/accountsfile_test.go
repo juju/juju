@@ -20,10 +20,20 @@ type AccountsFileSuite struct {
 
 var _ = gc.Suite(&AccountsFileSuite{})
 
-const testAccountsYAML = `
+const testLegacyAccountsYAML = `
 controllers:
   ctrl:
     user: admin@local
+    password: hunter2
+    last-known-access: superuser
+  kontroll:
+    user: bob@remote
+`
+
+const testAccountsYAML = `
+controllers:
+  ctrl:
+    user: admin
     password: hunter2
     last-known-access: superuser
   kontroll:
@@ -37,7 +47,7 @@ var testControllerAccounts = map[string]jujuclient.AccountDetails{
 
 var (
 	ctrlAdminAccountDetails = jujuclient.AccountDetails{
-		User:            "admin@local",
+		User:            "admin",
 		Password:        "hunter2",
 		LastKnownAccess: "superuser",
 	}
@@ -65,6 +75,21 @@ func (s *AccountsFileSuite) TestReadEmptyFile(c *gc.C) {
 	accounts, err := jujuclient.ReadAccountsFile(jujuclient.JujuAccountsPath())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(accounts, gc.HasLen, 0)
+}
+
+func (s *AccountsFileSuite) TestMigrateLegacyLocal(c *gc.C) {
+	err := ioutil.WriteFile(jujuclient.JujuAccountsPath(), []byte(testLegacyAccountsYAML), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+
+	accounts, err := jujuclient.ReadAccountsFile(jujuclient.JujuAccountsPath())
+	c.Assert(err, jc.ErrorIsNil)
+
+	migratedData, err := ioutil.ReadFile(jujuclient.JujuAccountsPath())
+	c.Assert(err, jc.ErrorIsNil)
+	migratedAccounts, err := jujuclient.ParseAccounts(migratedData)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(string(migratedData), jc.DeepEquals, testAccountsYAML[1:])
+	c.Assert(migratedAccounts, jc.DeepEquals, accounts)
 }
 
 func writeTestAccountsFile(c *gc.C) {

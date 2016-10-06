@@ -38,10 +38,10 @@ func (s *ListControllersSuite) TestListControllers(c *gc.C) {
 	s.expectedOutput = `
 Use --refresh to see the latest information.
 
-CONTROLLER           MODEL       USER         ACCESS     CLOUD/REGION        MODELS  MACHINES  HA  VERSION
-aws-test             controller  -            -          aws/us-east-1            2         5   -  2.0.1      
-mallards*            my-model    admin@local  superuser  mallards/mallards1       -         -   -  (unknown)  
-mark-test-prodstack  -           admin@local  (unknown)  prodstack                -         -   -  (unknown)  
+CONTROLLER           MODEL       USER   ACCESS     CLOUD/REGION        MODELS  MACHINES  HA  VERSION
+aws-test             controller  -      -          aws/us-east-1            2         5   -  2.0.1      
+mallards*            my-model    admin  superuser  mallards/mallards1       -         -   -  (unknown)  
+mark-test-prodstack  -           admin  (unknown)  prodstack                -         -   -  (unknown)  
 
 `[1:]
 
@@ -65,10 +65,10 @@ func (s *ListControllersSuite) TestListControllersRefresh(c *gc.C) {
 		return fakeController
 	}
 	s.expectedOutput = `
-CONTROLLER           MODEL       USER         ACCESS     CLOUD/REGION        MODELS  MACHINES  HA  VERSION
-aws-test             controller  admin@local  (unknown)  aws/us-east-1            1         2   -  2.0.1      
-mallards*            my-model    admin@local  superuser  mallards/mallards1       2         4   -  (unknown)  
-mark-test-prodstack  -           admin@local  (unknown)  prodstack                -         -   -  (unknown)  
+CONTROLLER           MODEL       USER   ACCESS     CLOUD/REGION        MODELS  MACHINES  HA  VERSION
+aws-test             controller  admin  (unknown)  aws/us-east-1            1         2   -  2.0.1      
+mallards*            my-model    admin  superuser  mallards/mallards1       2         4   -  (unknown)  
+mark-test-prodstack  -           admin  (unknown)  prodstack                -         -   -  (unknown)  
 
 `[1:]
 	s.assertListControllers(c, "--refresh")
@@ -115,10 +115,10 @@ func (s *ListControllersSuite) TestListControllersKnownHAStatus(c *gc.C) {
 	s.createTestClientStore(c)
 	s.setupAPIForControllerMachines()
 	s.expectedOutput = `
-CONTROLLER           MODEL       USER         ACCESS     CLOUD/REGION        MODELS  MACHINES    HA  VERSION
-aws-test             controller  admin@local  (unknown)  aws/us-east-1            1         2   1/3  2.0.1      
-mallards*            my-model    admin@local  superuser  mallards/mallards1       2         4  none  (unknown)  
-mark-test-prodstack  -           admin@local  (unknown)  prodstack                -         -     -  (unknown)  
+CONTROLLER           MODEL       USER   ACCESS     CLOUD/REGION        MODELS  MACHINES    HA  VERSION
+aws-test             controller  admin  (unknown)  aws/us-east-1            1         2   1/3  2.0.1      
+mallards*            my-model    admin  superuser  mallards/mallards1       2         4  none  (unknown)  
+mark-test-prodstack  -           admin  (unknown)  prodstack                -         -     -  (unknown)  
 
 `[1:]
 	s.assertListControllers(c, "--refresh")
@@ -129,7 +129,7 @@ func (s *ListControllersSuite) TestListControllersYaml(c *gc.C) {
 controllers:
   aws-test:
     current-model: controller
-    user: admin@local
+    user: admin
     recent-server: this-is-aws-test-of-many-api-endpoints
     uuid: this-is-the-aws-test-uuid
     api-endpoints: [this-is-aws-test-of-many-api-endpoints]
@@ -144,7 +144,7 @@ controllers:
       total: 3
   mallards:
     current-model: my-model
-    user: admin@local
+    user: admin
     access: superuser
     recent-server: this-is-another-of-many-api-endpoints
     uuid: this-is-another-uuid
@@ -158,7 +158,7 @@ controllers:
       active: 1
       total: 1
   mark-test-prodstack:
-    user: admin@local
+    user: admin
     recent-server: this-is-one-of-many-api-endpoints
     uuid: this-is-a-uuid
     api-endpoints: [this-is-one-of-many-api-endpoints]
@@ -188,7 +188,7 @@ func (s *ListControllersSuite) TestListControllersJson(c *gc.C) {
 			"aws-test": {
 				ControllerUUID: "this-is-the-aws-test-uuid",
 				ModelName:      "controller",
-				User:           "admin@local",
+				User:           "admin",
 				Server:         "this-is-aws-test-of-many-api-endpoints",
 				APIEndpoints:   []string{"this-is-aws-test-of-many-api-endpoints"},
 				CACert:         "this-is-aws-test-ca-cert",
@@ -201,7 +201,7 @@ func (s *ListControllersSuite) TestListControllersJson(c *gc.C) {
 			"mallards": {
 				ControllerUUID: "this-is-another-uuid",
 				ModelName:      "my-model",
-				User:           "admin@local",
+				User:           "admin",
 				Access:         "superuser",
 				Server:         "this-is-another-of-many-api-endpoints",
 				APIEndpoints:   []string{"this-is-another-of-many-api-endpoints", "this-is-one-more-of-many-api-endpoints"},
@@ -211,7 +211,7 @@ func (s *ListControllersSuite) TestListControllersJson(c *gc.C) {
 			},
 			"mark-test-prodstack": {
 				ControllerUUID: "this-is-a-uuid",
-				User:           "admin@local",
+				User:           "admin",
 				Server:         "this-is-one-of-many-api-endpoints",
 				APIEndpoints:   []string{"this-is-one-of-many-api-endpoints"},
 				CACert:         "this-is-a-ca-cert",

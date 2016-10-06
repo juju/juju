@@ -60,11 +60,11 @@ func (s *ShowCommandSuite) SetUpTest(c *gc.C) {
 	statusSince := time.Date(2016, 4, 5, 0, 0, 0, 0, time.UTC)
 
 	users := []params.ModelUserInfo{{
-		UserName:       "admin@local",
+		UserName:       "admin",
 		LastConnection: &lastConnection,
 		Access:         "write",
 	}, {
-		UserName:    "bob@local",
+		UserName:    "bob",
 		DisplayName: "Bob",
 		Access:      "read",
 	}}
@@ -75,7 +75,7 @@ func (s *ShowCommandSuite) SetUpTest(c *gc.C) {
 		Name:           "mymodel",
 		UUID:           testing.ModelTag.Id(),
 		ControllerUUID: "1ca2293b-fdb9-4299-97d6-55583bb39364",
-		OwnerTag:       "user-admin@local",
+		OwnerTag:       "user-admin",
 		CloudTag:       "cloud-some-cloud",
 		CloudRegion:    "some-region",
 		ProviderType:   "openstack",
@@ -93,7 +93,7 @@ func (s *ShowCommandSuite) SetUpTest(c *gc.C) {
 			"model-uuid":      "deadbeef-0bad-400d-8000-4b1d0d06f00d",
 			"controller-uuid": "1ca2293b-fdb9-4299-97d6-55583bb39364",
 			"controller-name": "testing",
-			"owner":           "admin@local",
+			"owner":           "admin",
 			"cloud":           "some-cloud",
 			"region":          "some-region",
 			"type":            "openstack",
@@ -103,11 +103,11 @@ func (s *ShowCommandSuite) SetUpTest(c *gc.C) {
 				"since":   "2016-04-05",
 			},
 			"users": attrs{
-				"admin@local": attrs{
+				"admin": attrs{
 					"access":          "write",
 					"last-connection": "2015-03-20",
 				},
-				"bob@local": attrs{
+				"bob": attrs{
 					"display-name":    "Bob",
 					"access":          "read",
 					"last-connection": "never connected",
@@ -120,13 +120,13 @@ func (s *ShowCommandSuite) SetUpTest(c *gc.C) {
 	s.store.CurrentControllerName = "testing"
 	s.store.Controllers["testing"] = jujuclient.ControllerDetails{}
 	s.store.Accounts["testing"] = jujuclient.AccountDetails{
-		User: "admin@local",
+		User: "admin",
 	}
-	err := s.store.UpdateModel("testing", "admin@local/mymodel", jujuclient.ModelDetails{
+	err := s.store.UpdateModel("testing", "admin/mymodel", jujuclient.ModelDetails{
 		testing.ModelTag.Id(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	s.store.Models["testing"].CurrentModel = "admin@local/mymodel"
+	s.store.Models["testing"].CurrentModel = "admin/mymodel"
 }
 
 func (s *ShowCommandSuite) newShowCommand() cmd.Command {

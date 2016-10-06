@@ -186,7 +186,7 @@ func (p InitializeParams) Validate() error {
 	}
 	creds := make(map[string]cloud.Credential, len(p.CloudCredentials))
 	for tag, cred := range p.CloudCredentials {
-		creds[tag.Canonical()] = cred
+		creds[tag.Id()] = cred
 	}
 	if _, err := validateCloudCredential(
 		p.Cloud,

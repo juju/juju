@@ -204,7 +204,7 @@ func (s *usermanagerSuite) TestSetUserPassword(c *gc.C) {
 
 func (s *usermanagerSuite) TestSetUserPasswordCanonical(c *gc.C) {
 	tag := s.AdminUserTag(c)
-	err := s.usermanager.SetPassword(tag.Canonical(), "new-password")
+	err := s.usermanager.SetPassword(tag.Id(), "new-password")
 	c.Assert(err, jc.ErrorIsNil)
 	user, err := s.State.User(tag)
 	c.Assert(err, jc.ErrorIsNil)

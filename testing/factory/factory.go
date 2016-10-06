@@ -214,7 +214,7 @@ func (factory *Factory) MakeModelUser(c *gc.C, params *ModelUserParams) permissi
 	}
 	if params.User == "" {
 		user := factory.MakeUser(c, &UserParams{NoModelUser: true})
-		params.User = user.UserTag().Canonical()
+		params.User = user.UserTag().Id()
 	}
 	if params.DisplayName == "" {
 		params.DisplayName = uniqueString("display name")

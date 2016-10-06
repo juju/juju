@@ -35,18 +35,18 @@ func (s *internalUserSuite) TestCreateInitialUserOps(c *gc.C) {
 	op = ops[1]
 	permdoc := op.Insert.(*permissionDoc)
 	c.Assert(permdoc.Access, gc.Equals, string(permission.SuperuserAccess))
-	c.Assert(permdoc.ID, gc.Equals, permissionID(controllerKey(s.state.ControllerUUID()), userGlobalKey(strings.ToLower(tag.Canonical()))))
-	c.Assert(permdoc.SubjectGlobalKey, gc.Equals, userGlobalKey(strings.ToLower(tag.Canonical())))
+	c.Assert(permdoc.ID, gc.Equals, permissionID(controllerKey(s.state.ControllerUUID()), userGlobalKey(strings.ToLower(tag.Id()))))
+	c.Assert(permdoc.SubjectGlobalKey, gc.Equals, userGlobalKey(strings.ToLower(tag.Id())))
 	c.Assert(permdoc.ObjectGlobalKey, gc.Equals, controllerKey(s.state.ControllerUUID()))
 
 	// controller user
 	op = ops[2]
 	cudoc := op.Insert.(*userAccessDoc)
-	c.Assert(cudoc.ID, gc.Equals, "admin@local")
+	c.Assert(cudoc.ID, gc.Equals, "admin")
 	c.Assert(cudoc.ObjectUUID, gc.Equals, s.state.ControllerUUID())
-	c.Assert(cudoc.UserName, gc.Equals, "AdMiN@local")
+	c.Assert(cudoc.UserName, gc.Equals, "AdMiN")
 	c.Assert(cudoc.DisplayName, gc.Equals, "AdMiN")
-	c.Assert(cudoc.CreatedBy, gc.Equals, "AdMiN@local")
+	c.Assert(cudoc.CreatedBy, gc.Equals, "AdMiN")
 }
 
 func (s *internalUserSuite) TestCaseNameVsId(c *gc.C) {

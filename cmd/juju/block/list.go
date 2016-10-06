@@ -223,7 +223,7 @@ func FormatModelBlockInfo(all []params.ModelBlockInfo) ([]modelBlockInfo, error)
 		output[i] = modelBlockInfo{
 			Name:        one.Name,
 			UUID:        one.UUID,
-			Owner:       tag.Canonical(),
+			Owner:       tag.Id(),
 			CommandSets: blocksToStr(one.Blocks),
 		}
 	}

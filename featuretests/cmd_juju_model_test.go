@@ -52,8 +52,8 @@ func (s *cmdModelSuite) TestGrantModelCmdStack(c *gc.C) {
 	user := names.NewUserTag(username)
 	modelUser, err := s.State.UserAccess(user, s.State.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(modelUser.UserName, gc.Equals, user.Canonical())
-	c.Assert(modelUser.CreatedBy.Canonical(), gc.Equals, s.AdminUserTag(c).Canonical())
+	c.Assert(modelUser.UserName, gc.Equals, user.Id())
+	c.Assert(modelUser.CreatedBy.Id(), gc.Equals, s.AdminUserTag(c).Id())
 	lastConn, err := s.State.LastModelConnection(modelUser.UserTag)
 	c.Assert(err, jc.Satisfies, state.IsNeverConnectedError)
 	c.Assert(lastConn.IsZero(), jc.IsTrue)
@@ -100,7 +100,7 @@ func (s *cmdModelSuite) TestModelUsersCmd(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
 		"NAME           DISPLAY NAME  ACCESS  LAST CONNECTION\n"+
-		"admin@local*   admin         admin   just now\n"+
+		"admin*         admin         admin   just now\n"+
 		"bar@ubuntuone                read    never connected\n"+
 		"\n")
 

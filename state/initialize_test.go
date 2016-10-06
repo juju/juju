@@ -72,10 +72,10 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 	owner := names.NewLocalUserTag("initialize-admin")
 
 	userPassCredentialTag := names.NewCloudCredentialTag(
-		"dummy/" + owner.Canonical() + "/some-credential",
+		"dummy/" + owner.Id() + "/some-credential",
 	)
 	emptyCredentialTag := names.NewCloudCredentialTag(
-		"dummy/" + owner.Canonical() + "/empty-credential",
+		"dummy/" + owner.Id() + "/empty-credential",
 	)
 	userpassCredential := cloud.NewCredential(
 		cloud.UserPassAuthType,
@@ -176,7 +176,7 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	expectedCred := make(map[string]cloud.Credential, len(cloudCredentialsIn))
 	for tag, cred := range cloudCredentialsIn {
-		expectedCred[tag.Canonical()] = cred
+		expectedCred[tag.Id()] = cred
 	}
 	c.Assert(cloudCredentials, jc.DeepEquals, expectedCred)
 }
@@ -185,7 +185,7 @@ func (s *InitializeSuite) TestInitializeWithInvalidCredentialType(c *gc.C) {
 	owner := names.NewLocalUserTag("initialize-admin")
 	modelCfg := testing.ModelConfig(c)
 	controllerCfg := testing.FakeControllerConfig()
-	credentialTag := names.NewCloudCredentialTag("dummy/" + owner.Canonical() + "/borken")
+	credentialTag := names.NewCloudCredentialTag("dummy/" + owner.Id() + "/borken")
 	_, err := state.Initialize(state.InitializeParams{
 		Clock:            clock.WallClock,
 		ControllerConfig: controllerCfg,
@@ -209,7 +209,7 @@ func (s *InitializeSuite) TestInitializeWithInvalidCredentialType(c *gc.C) {
 		MongoDialOpts: mongotest.DialOpts(),
 	})
 	c.Assert(err, gc.ErrorMatches,
-		`validating initialization args: validating cloud credentials: credential "dummy/initialize-admin@local/borken" with auth-type "userpass" is not supported \(expected one of \["access-key" "oauth1"\]\)`,
+		`validating initialization args: validating cloud credentials: credential "dummy/initialize-admin/borken" with auth-type "userpass" is not supported \(expected one of \["access-key" "oauth1"\]\)`,
 	)
 }
 

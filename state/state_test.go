@@ -2401,7 +2401,7 @@ func (s *StateSuite) insertFakeModelDocs(c *gc.C, st *state.State) string {
 		})
 	c.Assert(err, jc.ErrorIsNil)
 
-	return state.UserModelNameIndex(model.Owner().Canonical(), model.Name())
+	return state.UserModelNameIndex(model.Owner().Id(), model.Name())
 }
 
 type checkUserModelNameArgs struct {
@@ -2812,8 +2812,8 @@ func (s *StateSuite) TestFindEntity(c *gc.C) {
 				c.Assert(e.Tag(), gc.Equals, env.Tag())
 			} else if kind == names.UserTagKind {
 				// Test the fully qualified username rather than the tag structure itself.
-				expected := test.tag.(names.UserTag).Canonical()
-				c.Assert(e.Tag().(names.UserTag).Canonical(), gc.Equals, expected)
+				expected := test.tag.(names.UserTag).Id()
+				c.Assert(e.Tag().(names.UserTag).Id(), gc.Equals, expected)
 			} else {
 				c.Assert(e.Tag(), gc.Equals, test.tag)
 			}

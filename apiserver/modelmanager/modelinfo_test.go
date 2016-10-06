@@ -101,15 +101,15 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 			userName: "admin",
 			access:   permission.AdminAccess,
 		}, {
-			userName:    "bob@local",
+			userName:    "bob",
 			displayName: "Bob",
 			access:      permission.ReadAccess,
 		}, {
-			userName:    "charlotte@local",
+			userName:    "charlotte",
 			displayName: "Charlotte",
 			access:      permission.ReadAccess,
 		}, {
-			userName:    "mary@local",
+			userName:    "mary",
 			displayName: "Mary",
 			access:      permission.WriteAccess,
 		}},
@@ -150,11 +150,11 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 		Name:               "testenv",
 		UUID:               s.st.model.cfg.UUID(),
 		ControllerUUID:     "deadbeef-1bad-500d-9000-4b1d0d06f00d",
-		OwnerTag:           "user-bob@local",
+		OwnerTag:           "user-bob",
 		ProviderType:       "someprovider",
 		CloudTag:           "cloud-some-cloud",
 		CloudRegion:        "some-region",
-		CloudCredentialTag: "cloudcred-some-cloud_bob@local_some-credential",
+		CloudCredentialTag: "cloudcred-some-cloud_bob_some-credential",
 		DefaultSeries:      series.LatestLts(),
 		Life:               params.Dying,
 		Status: params.EntityStatus{
@@ -166,17 +166,17 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 			LastConnection: &time.Time{},
 			Access:         params.ModelAdminAccess,
 		}, {
-			UserName:       "bob@local",
+			UserName:       "bob",
 			DisplayName:    "Bob",
 			LastConnection: &time.Time{},
 			Access:         params.ModelReadAccess,
 		}, {
-			UserName:       "charlotte@local",
+			UserName:       "charlotte",
 			DisplayName:    "Charlotte",
 			LastConnection: &time.Time{},
 			Access:         params.ModelReadAccess,
 		}, {
-			UserName:       "mary@local",
+			UserName:       "mary",
 			DisplayName:    "Mary",
 			LastConnection: &time.Time{},
 			Access:         params.ModelWriteAccess,
@@ -230,7 +230,7 @@ func (s *modelInfoSuite) TestModelInfoWriteAccess(c *gc.C) {
 	s.setAPIUser(c, mary)
 	info := s.getModelInfo(c)
 	c.Assert(info.Users, gc.HasLen, 1)
-	c.Assert(info.Users[0].UserName, gc.Equals, "mary@local")
+	c.Assert(info.Users[0].UserName, gc.Equals, "mary")
 	c.Assert(info.Machines, gc.HasLen, 2)
 }
 
@@ -238,7 +238,7 @@ func (s *modelInfoSuite) TestModelInfoNonOwner(c *gc.C) {
 	s.setAPIUser(c, names.NewUserTag("charlotte@local"))
 	info := s.getModelInfo(c)
 	c.Assert(info.Users, gc.HasLen, 1)
-	c.Assert(info.Users[0].UserName, gc.Equals, "charlotte@local")
+	c.Assert(info.Users[0].UserName, gc.Equals, "charlotte")
 	c.Assert(info.Machines, gc.HasLen, 0)
 }
 
@@ -345,10 +345,10 @@ func (st *mockState) ModelsForUser(user names.UserTag) ([]*state.UserModel, erro
 func (st *mockState) IsControllerAdmin(user names.UserTag) (bool, error) {
 	st.MethodCall(st, "IsControllerAdmin", user)
 	if st.controllerModel == nil {
-		return user.Canonical() == "admin@local", st.NextErr()
+		return user.Id() == "admin", st.NextErr()
 	}
 	if st.controllerModel.users == nil {
-		return user.Canonical() == "admin@local", st.NextErr()
+		return user.Id() == "admin", st.NextErr()
 	}
 
 	for _, u := range st.controllerModel.users {
@@ -655,7 +655,7 @@ func (m *mockModel) CloudRegion() string {
 func (m *mockModel) CloudCredential() (names.CloudCredentialTag, bool) {
 	m.MethodCall(m, "CloudCredential")
 	m.PopNoErr()
-	return names.NewCloudCredentialTag("some-cloud/bob@local/some-credential"), true
+	return names.NewCloudCredentialTag("some-cloud/bob/some-credential"), true
 }
 
 func (m *mockModel) Users() ([]permission.UserAccess, error) {

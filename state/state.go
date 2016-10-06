@@ -239,7 +239,7 @@ func (st *State) removeAllModelDocs(modelAssertion bson.D) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	id := userModelNameIndex(env.Owner().Canonical(), env.Name())
+	id := userModelNameIndex(env.Owner().Id(), env.Name())
 	ops = []txn.Op{{
 		// Cleanup the owner:envName unique key.
 		C:      usermodelnameC,
@@ -907,7 +907,7 @@ func (st *State) tagToCollectionAndId(tag names.Tag) (string, interface{}, error
 	case names.UserTag:
 		coll = usersC
 		if !tag.IsLocal() {
-			return "", nil, fmt.Errorf("%q is not a local user", tag.Canonical())
+			return "", nil, fmt.Errorf("%q is not a local user", tag.Id())
 		}
 		id = tag.Name()
 	case names.RelationTag:

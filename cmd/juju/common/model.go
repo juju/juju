@@ -111,7 +111,7 @@ func ModelUserInfoFromParams(users []params.ModelUserInfo, now time.Time) map[st
 		} else {
 			outInfo.LastConnection = "never connected"
 		}
-		output[names.NewUserTag(info.UserName).Canonical()] = outInfo
+		output[names.NewUserTag(info.UserName).Id()] = outInfo
 	}
 	return output
 }
@@ -120,14 +120,9 @@ func ModelUserInfoFromParams(users []params.ModelUserInfo, now time.Time) map[st
 // model owner if the owner is not the same as the given canonical
 // user name. If the owner is a local user, we omit the domain.
 func OwnerQualifiedModelName(modelName string, owner, user names.UserTag) string {
-	if owner.Canonical() == user.Canonical() {
+	if owner.Id() == user.Id() {
 		return modelName
 	}
-	var ownerName string
-	if owner.IsLocal() {
-		ownerName = owner.Name()
-	} else {
-		ownerName = owner.Canonical()
-	}
+	ownerName := owner.Id()
 	return fmt.Sprintf("%s/%s", ownerName, modelName)
 }

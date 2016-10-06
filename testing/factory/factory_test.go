@@ -153,7 +153,7 @@ func (s *factorySuite) TestMakeModelUserPartialParams(c *gc.C) {
 	saved, err := s.State.UserAccess(modelUser.UserTag, modelUser.Object)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(saved.Object.Id(), gc.Equals, modelUser.Object.Id())
-	c.Assert(saved.UserName, gc.Equals, "foobar123@local")
+	c.Assert(saved.UserName, gc.Equals, "foobar123")
 	c.Assert(saved.DisplayName, gc.Equals, modelUser.DisplayName)
 	c.Assert(saved.CreatedBy, gc.Equals, modelUser.CreatedBy)
 }
@@ -175,8 +175,8 @@ func (s *factorySuite) TestMakeModelUserParams(c *gc.C) {
 	saved, err := s.State.UserAccess(modelUser.UserTag, s.State.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(saved.Object.Id(), gc.Equals, modelUser.Object.Id())
-	c.Assert(saved.UserName, gc.Equals, "foobar@local")
-	c.Assert(saved.CreatedBy.Id(), gc.Equals, "createdby@local")
+	c.Assert(saved.UserName, gc.Equals, "foobar")
+	c.Assert(saved.CreatedBy.Id(), gc.Equals, "createdby")
 	c.Assert(saved.DisplayName, gc.Equals, "Foo Bar")
 }
 
@@ -207,7 +207,7 @@ func (s *factorySuite) TestMakeModelUserNonLocalUser(c *gc.C) {
 	c.Assert(saved.Object.Id(), gc.Equals, modelUser.Object.Id())
 	c.Assert(saved.UserName, gc.Equals, "foobar@ubuntuone")
 	c.Assert(saved.DisplayName, gc.Equals, "Foo Bar")
-	c.Assert(saved.CreatedBy.Canonical(), gc.Equals, creator.UserTag().Canonical())
+	c.Assert(saved.CreatedBy.Id(), gc.Equals, creator.UserTag().Id())
 }
 
 func (s *factorySuite) TestMakeMachineNil(c *gc.C) {

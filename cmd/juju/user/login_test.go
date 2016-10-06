@@ -94,12 +94,12 @@ func (s *LoginCommandSuite) TestLogin(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(coretesting.Stdout(context), gc.Equals, "")
 	c.Assert(coretesting.Stderr(context), gc.Equals, `
-username: You are now logged in to "testing" as "current-user@local".
+username: You are now logged in to "testing" as "current-user".
 `[1:],
 	)
-	s.assertStorePassword(c, "current-user@local", "", "superuser")
+	s.assertStorePassword(c, "current-user", "", "superuser")
 	c.Assert(args.AccountDetails, jc.DeepEquals, &jujuclient.AccountDetails{
-		User: "current-user@local",
+		User: "current-user",
 	})
 }
 
@@ -110,12 +110,12 @@ func (s *LoginCommandSuite) TestLoginNewUser(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(coretesting.Stdout(context), gc.Equals, "")
 	c.Assert(coretesting.Stderr(context), gc.Equals, `
-You are now logged in to "testing" as "new-user@local".
+You are now logged in to "testing" as "new-user".
 `[1:],
 	)
-	s.assertStorePassword(c, "new-user@local", "", "superuser")
+	s.assertStorePassword(c, "new-user", "", "superuser")
 	c.Assert(args.AccountDetails, jc.DeepEquals, &jujuclient.AccountDetails{
-		User: "new-user@local",
+		User: "new-user",
 	})
 }
 
@@ -153,7 +153,7 @@ func (s *LoginCommandSuite) TestLoginWithMacaroonsNotSupported(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(coretesting.Stdout(context), gc.Equals, "")
 	c.Assert(coretesting.Stderr(context), gc.Equals, `
-username: You are now logged in to "testing" as "new-user@local".
+username: You are now logged in to "testing" as "new-user".
 `[1:],
 	)
 }

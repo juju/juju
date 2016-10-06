@@ -99,7 +99,7 @@ func InitializeState(
 		cloudCredentialTag = names.NewCloudCredentialTag(fmt.Sprintf(
 			"%s/%s/%s",
 			args.ControllerCloudName,
-			adminUser.Canonical(),
+			adminUser.Id(),
 			args.ControllerCloudCredentialName,
 		))
 		cloudCredentials[cloudCredentialTag] = *args.ControllerCloudCredential

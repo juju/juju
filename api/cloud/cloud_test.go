@@ -134,14 +134,14 @@ func (s *cloudSuite) TestUserCredentials(c *gc.C) {
 			c.Check(request, gc.Equals, "UserCredentials")
 			c.Assert(result, gc.FitsTypeOf, &params.StringsResults{})
 			c.Assert(a, jc.DeepEquals, params.UserClouds{UserClouds: []params.UserCloud{{
-				UserTag:  "user-bob@local",
+				UserTag:  "user-bob",
 				CloudTag: "cloud-foo",
 			}}})
 			*result.(*params.StringsResults) = params.StringsResults{
 				Results: []params.StringsResult{{
 					Result: []string{
-						"cloudcred-foo_bob@local_one",
-						"cloudcred-foo_bob@local_two",
+						"cloudcred-foo_bob_one",
+						"cloudcred-foo_bob_two",
 					},
 				}},
 			}
@@ -150,11 +150,11 @@ func (s *cloudSuite) TestUserCredentials(c *gc.C) {
 	)
 
 	client := cloudapi.NewClient(apiCaller)
-	result, err := client.UserCredentials(names.NewUserTag("bob@local"), names.NewCloudTag("foo"))
+	result, err := client.UserCredentials(names.NewUserTag("bob"), names.NewCloudTag("foo"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.SameContents, []names.CloudCredentialTag{
-		names.NewCloudCredentialTag("foo/bob@local/one"),
-		names.NewCloudCredentialTag("foo/bob@local/two"),
+		names.NewCloudCredentialTag("foo/bob/one"),
+		names.NewCloudCredentialTag("foo/bob/two"),
 	})
 }
 
@@ -171,7 +171,7 @@ func (s *cloudSuite) TestUpdateCredentials(c *gc.C) {
 			c.Check(request, gc.Equals, "UpdateCredentials")
 			c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
 			c.Assert(a, jc.DeepEquals, params.UpdateCloudCredentials{Credentials: []params.UpdateCloudCredential{{
-				Tag: "cloudcred-foo_bob@local_bar",
+				Tag: "cloudcred-foo_bob_bar",
 				Credential: params.CloudCredential{
 					AuthType: "userpass",
 					Attributes: map[string]string{
@@ -189,7 +189,7 @@ func (s *cloudSuite) TestUpdateCredentials(c *gc.C) {
 	)
 
 	client := cloudapi.NewClient(apiCaller)
-	tag := names.NewCloudCredentialTag("foo/bob@local/bar")
+	tag := names.NewCloudCredentialTag("foo/bob/bar")
 	err := client.UpdateCredential(tag, cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
 		"username": "admin",
 		"password": "adm1n",
@@ -211,7 +211,7 @@ func (s *cloudSuite) TestRevokeCredential(c *gc.C) {
 			c.Check(request, gc.Equals, "RevokeCredentials")
 			c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
 			c.Assert(a, jc.DeepEquals, params.Entities{Entities: []params.Entity{{
-				Tag: "cloudcred-foo_bob@local_bar",
+				Tag: "cloudcred-foo_bob_bar",
 			}}})
 			*result.(*params.ErrorResults) = params.ErrorResults{
 				Results: []params.ErrorResult{{}},
@@ -222,7 +222,7 @@ func (s *cloudSuite) TestRevokeCredential(c *gc.C) {
 	)
 
 	client := cloudapi.NewClient(apiCaller)
-	tag := names.NewCloudCredentialTag("foo/bob@local/bar")
+	tag := names.NewCloudCredentialTag("foo/bob/bar")
 	err := client.RevokeCredential(tag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
@@ -240,7 +240,7 @@ func (s *cloudSuite) TestCredentials(c *gc.C) {
 			c.Check(request, gc.Equals, "Credential")
 			c.Assert(result, gc.FitsTypeOf, &params.CloudCredentialResults{})
 			c.Assert(a, jc.DeepEquals, params.Entities{Entities: []params.Entity{{
-				Tag: "cloudcred-foo_bob@local_bar",
+				Tag: "cloudcred-foo_bob_bar",
 			}}})
 			*result.(*params.CloudCredentialResults) = params.CloudCredentialResults{
 				Results: []params.CloudCredentialResult{
@@ -264,7 +264,7 @@ func (s *cloudSuite) TestCredentials(c *gc.C) {
 	)
 
 	client := cloudapi.NewClient(apiCaller)
-	tag := names.NewCloudCredentialTag("foo/bob@local/bar")
+	tag := names.NewCloudCredentialTag("foo/bob/bar")
 	result, err := client.Credentials(tag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, []params.CloudCredentialResult{

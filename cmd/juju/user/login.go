@@ -140,7 +140,7 @@ func (c *loginCommand) Run(ctx *cmd.Context) error {
 	// Make sure that the client is not already logged in,
 	// or if it is, that it is logged in as the specified
 	// user.
-	if accountDetails != nil && accountDetails.User != userTag.Canonical() {
+	if accountDetails != nil && accountDetails.User != userTag.Id() {
 		return errors.New(`already logged in
 
 Run "juju logout" first before attempting to log in as a different user.
@@ -151,7 +151,7 @@ Run "juju logout" first before attempting to log in as a different user.
 	// will trigger macaroon-based authentication, which will prompt the
 	// user for their password.
 	accountDetails = &jujuclient.AccountDetails{
-		User: userTag.Canonical(),
+		User: userTag.Id(),
 	}
 	params, err := c.NewAPIConnectionParams(store, controllerName, "", accountDetails)
 	if err != nil {
@@ -167,6 +167,6 @@ Run "juju logout" first before attempting to log in as a different user.
 	if err := store.UpdateAccount(controllerName, *accountDetails); err != nil {
 		return errors.Annotate(err, "failed to record temporary credential")
 	}
-	ctx.Infof("You are now logged in to %q as %q.", controllerName, userTag.Canonical())
+	ctx.Infof("You are now logged in to %q as %q.", controllerName, userTag.Id())
 	return nil
 }

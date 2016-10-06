@@ -54,7 +54,7 @@ func NewCloudAPI(backend Backend, authorizer facade.Authorizer) (*CloudAPI, erro
 			if !ok {
 				return false
 			}
-			return isAdmin || userTag.Canonical() == authUser.Canonical()
+			return isAdmin || userTag == authUser
 		}, nil
 	}
 	return &CloudAPI{
@@ -294,7 +294,7 @@ func (api *CloudAPI) Credential(args params.Entities) (params.CloudCredentialRes
 			continue
 		}
 
-		cred, ok := cloudCredentials[credentialTag.Canonical()]
+		cred, ok := cloudCredentials[credentialTag.Id()]
 		if !ok {
 			results.Results[i].Error = common.ServerError(errors.NotFoundf("credential %q", credentialTag.Name()))
 			continue

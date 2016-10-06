@@ -94,7 +94,7 @@ func (s *LogoutCommandSuite) TestLogoutCount(c *gc.C) {
 }
 
 func (s *LogoutCommandSuite) TestLogoutWithPassword(c *gc.C) {
-	s.assertStorePassword(c, "current-user@local", "old-password", "")
+	s.assertStorePassword(c, "current-user", "old-password", "")
 	_, err := s.run(c)
 	c.Assert(err, gc.NotNil)
 	c.Assert(err.Error(), gc.Equals, `preventing account loss
@@ -112,7 +112,7 @@ this command again with the "--force" flag.
 }
 
 func (s *LogoutCommandSuite) TestLogoutWithPasswordForced(c *gc.C) {
-	s.assertStorePassword(c, "current-user@local", "old-password", "")
+	s.assertStorePassword(c, "current-user", "old-password", "")
 	_, err := s.run(c, "--force")
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.store.AccountDetails("testing")

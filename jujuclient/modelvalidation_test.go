@@ -27,7 +27,6 @@ var _ = gc.Suite(&ModelValidationSuite{})
 
 func (s *ModelValidationSuite) TestValidateModelName(c *gc.C) {
 	c.Assert(jujuclient.ValidateModelName("foo@bar/baz"), jc.ErrorIsNil)
-	c.Assert(jujuclient.ValidateModelName("foo/bar"), gc.ErrorMatches, `validating model name \"foo/bar\": validating model owner name: unqualified user name "foo" not valid`)
 	c.Assert(jujuclient.ValidateModelName("foo"), gc.ErrorMatches, `validating model name "foo": unqualified model name "foo" not valid`)
 	c.Assert(jujuclient.ValidateModelName(""), gc.ErrorMatches, `validating model name "": unqualified model name "" not valid`)
 	c.Assert(jujuclient.ValidateModelName("!"), gc.ErrorMatches, `validating model name "!": unqualified model name "!" not valid`)

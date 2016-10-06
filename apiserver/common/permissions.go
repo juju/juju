@@ -149,7 +149,7 @@ type userAccessFunc func(names.UserTag, names.Tag) (permission.UserAccess, error
 func newControllerUserFromGroup(everyoneAccess permission.UserAccess,
 	userTag names.UserTag) permission.UserAccess {
 	everyoneAccess.UserTag = userTag
-	everyoneAccess.UserID = strings.ToLower(userTag.Canonical())
-	everyoneAccess.UserName = userTag.Canonical()
+	everyoneAccess.UserID = strings.ToLower(userTag.Id())
+	everyoneAccess.UserName = userTag.Id()
 	return everyoneAccess
 }

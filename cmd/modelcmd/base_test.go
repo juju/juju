@@ -34,13 +34,13 @@ func (s *BaseCommandSuite) SetUpTest(c *gc.C) {
 	}
 	s.store.Models["foo"] = &jujuclient.ControllerModels{
 		Models: map[string]jujuclient.ModelDetails{
-			"admin@local/badmodel":  {"deadbeef"},
-			"admin@local/goodmodel": {"deadbeef2"},
+			"admin/badmodel":  {"deadbeef"},
+			"admin/goodmodel": {"deadbeef2"},
 		},
-		CurrentModel: "admin@local/badmodel",
+		CurrentModel: "admin/badmodel",
 	}
 	s.store.Accounts["foo"] = jujuclient.AccountDetails{
-		User: "bar@local", Password: "hunter2",
+		User: "bar", Password: "hunter2",
 	}
 }
 
@@ -49,21 +49,21 @@ func (s *BaseCommandSuite) assertUnknownModel(c *gc.C, current, expectedCurrent 
 	apiOpen := func(*api.Info, api.DialOpts) (api.Connection, error) {
 		return nil, errors.Trace(&params.Error{Code: params.CodeModelNotFound, Message: "model deaddeaf not found"})
 	}
-	cmd := modelcmd.NewModelCommandBase(s.store, "foo", "admin@local/badmodel")
+	cmd := modelcmd.NewModelCommandBase(s.store, "foo", "admin/badmodel")
 	cmd.SetAPIOpen(apiOpen)
 	conn, err := cmd.NewAPIRoot()
 	c.Assert(conn, gc.IsNil)
 	msg := strings.Replace(err.Error(), "\n", "", -1)
-	c.Assert(msg, gc.Equals, `model "admin@local/badmodel" has been removed from the controller, run 'juju models' and switch to one of them.There are 1 accessible models on controller "foo".`)
+	c.Assert(msg, gc.Equals, `model "admin/badmodel" has been removed from the controller, run 'juju models' and switch to one of them.There are 1 accessible models on controller "foo".`)
 	c.Assert(s.store.Models["foo"].Models, gc.HasLen, 1)
-	c.Assert(s.store.Models["foo"].Models["admin@local/goodmodel"], gc.DeepEquals, jujuclient.ModelDetails{"deadbeef2"})
+	c.Assert(s.store.Models["foo"].Models["admin/goodmodel"], gc.DeepEquals, jujuclient.ModelDetails{"deadbeef2"})
 	c.Assert(s.store.Models["foo"].CurrentModel, gc.Equals, expectedCurrent)
 }
 
 func (s *BaseCommandSuite) TestUnknownModel(c *gc.C) {
-	s.assertUnknownModel(c, "admin@local/badmodel", "")
+	s.assertUnknownModel(c, "admin/badmodel", "")
 }
 
 func (s *BaseCommandSuite) TestUnknownModelNotCurrent(c *gc.C) {
-	s.assertUnknownModel(c, "admin@local/goodmodel", "admin@local/goodmodel")
+	s.assertUnknownModel(c, "admin/goodmodel", "admin/goodmodel")
 }

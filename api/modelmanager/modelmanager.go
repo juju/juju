@@ -169,7 +169,7 @@ func (c *Client) ListModels(user string) ([]base.UserModel, error) {
 		result[i] = base.UserModel{
 			Name:           model.Name,
 			UUID:           model.UUID,
-			Owner:          owner.Canonical(),
+			Owner:          owner.Id(),
 			LastConnection: model.LastConnection,
 		}
 	}
@@ -302,7 +302,7 @@ func (c *Client) modifyModelUser(action params.ModelAction, user, access string,
 
 	for i, r := range result.Results {
 		if r.Error != nil && r.Error.Code == params.CodeAlreadyExists {
-			logger.Warningf("model %q is already shared with %q", modelUUIDs[i], userTag.Canonical())
+			logger.Warningf("model %q is already shared with %q", modelUUIDs[i], userTag.Id())
 			result.Results[i].Error = nil
 		}
 	}

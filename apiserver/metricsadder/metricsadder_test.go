@@ -174,7 +174,7 @@ func (s *metricsAdderSuite) TestAddMetricsBatchDiffTag(c *gc.C) {
 	}, {
 		about:  "user tag",
 		tag:    names.NewLocalUserTag("admin").String(),
-		expect: `"user-admin@local" is not a valid unit tag`,
+		expect: `"user-admin" is not a valid unit tag`,
 	}, {
 		about:  "machine tag",
 		tag:    names.NewMachineTag("0").String(),

@@ -163,7 +163,6 @@ func TargetPrecheck(backend PrecheckBackend, modelInfo coremigration.ModelInfo) 
 	if err != nil {
 		return errors.Annotate(err, "retrieving models")
 	}
-	canonicalOwner := modelInfo.Owner.Canonical()
 	for _, model := range models {
 		// If the model is importing then it's probably left behind
 		// from a previous migration attempt. It will be removed
@@ -171,7 +170,7 @@ func TargetPrecheck(backend PrecheckBackend, modelInfo coremigration.ModelInfo) 
 		if model.UUID() == modelInfo.UUID && model.MigrationMode() != state.MigrationModeImporting {
 			return errors.Errorf("model with same UUID already exists (%s)", modelInfo.UUID)
 		}
-		if model.Name() == modelInfo.Name && model.Owner().Canonical() == canonicalOwner {
+		if model.Name() == modelInfo.Name && model.Owner() == modelInfo.Owner {
 			return errors.Errorf("model named %q already exists", model.Name())
 		}
 	}

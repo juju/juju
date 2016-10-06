@@ -31,28 +31,28 @@ func (s *ModelsSuite) SetUpTest(c *gc.C) {
 func (s *ModelsSuite) TestModelByNameNoFile(c *gc.C) {
 	err := os.Remove(jujuclient.JujuModelsPath())
 	c.Assert(err, jc.ErrorIsNil)
-	details, err := s.store.ModelByName("not-found", "admin@local/admin")
+	details, err := s.store.ModelByName("not-found", "admin/admin")
 	c.Assert(err, gc.ErrorMatches, "models for controller not-found not found")
 	c.Assert(details, gc.IsNil)
 }
 
 func (s *ModelsSuite) TestModelByNameControllerNotFound(c *gc.C) {
-	details, err := s.store.ModelByName("not-found", "admin@local/admin")
+	details, err := s.store.ModelByName("not-found", "admin/admin")
 	c.Assert(err, gc.ErrorMatches, "models for controller not-found not found")
 	c.Assert(details, gc.IsNil)
 }
 
 func (s *ModelsSuite) TestModelByNameModelNotFound(c *gc.C) {
-	details, err := s.store.ModelByName("kontroll", "admin@local/not-found")
-	c.Assert(err, gc.ErrorMatches, "model kontroll:admin@local/not-found not found")
+	details, err := s.store.ModelByName("kontroll", "admin/not-found")
+	c.Assert(err, gc.ErrorMatches, "model kontroll:admin/not-found not found")
 	c.Assert(details, gc.IsNil)
 }
 
 func (s *ModelsSuite) TestModelByName(c *gc.C) {
-	details, err := s.store.ModelByName("kontroll", "admin@local/admin")
+	details, err := s.store.ModelByName("kontroll", "admin/admin")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(details, gc.NotNil)
-	c.Assert(*details, jc.DeepEquals, testControllerModels["kontroll"].Models["admin@local/admin"])
+	c.Assert(*details, jc.DeepEquals, testControllerModels["kontroll"].Models["admin/admin"])
 }
 
 func (s *ModelsSuite) TestAllModelsNoFile(c *gc.C) {
@@ -72,7 +72,7 @@ func (s *ModelsSuite) TestAllModels(c *gc.C) {
 func (s *ModelsSuite) TestCurrentModel(c *gc.C) {
 	current, err := s.store.CurrentModel("kontroll")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(current, gc.Equals, "admin@local/my-model")
+	c.Assert(current, gc.Equals, "admin/my-model")
 }
 
 func (s *ModelsSuite) TestCurrentModelNotSet(c *gc.C) {
@@ -86,44 +86,44 @@ func (s *ModelsSuite) TestCurrentModelControllerNotFound(c *gc.C) {
 }
 
 func (s *ModelsSuite) TestSetCurrentModelControllerNotFound(c *gc.C) {
-	err := s.store.SetCurrentModel("not-found", "admin@local/admin")
+	err := s.store.SetCurrentModel("not-found", "admin/admin")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *ModelsSuite) TestSetCurrentModelModelNotFound(c *gc.C) {
-	err := s.store.SetCurrentModel("kontroll", "admin@local/not-found")
+	err := s.store.SetCurrentModel("kontroll", "admin/not-found")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *ModelsSuite) TestSetCurrentModel(c *gc.C) {
-	err := s.store.SetCurrentModel("kontroll", "admin@local/admin")
+	err := s.store.SetCurrentModel("kontroll", "admin/admin")
 	c.Assert(err, jc.ErrorIsNil)
 	all, err := jujuclient.ReadModelsFile(jujuclient.JujuModelsPath())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(all["kontroll"].CurrentModel, gc.Equals, "admin@local/admin")
+	c.Assert(all["kontroll"].CurrentModel, gc.Equals, "admin/admin")
 }
 
 func (s *ModelsSuite) TestUpdateModelNewController(c *gc.C) {
 	testModelDetails := jujuclient.ModelDetails{"test.uuid"}
-	err := s.store.UpdateModel("new-controller", "admin@local/new-model", testModelDetails)
+	err := s.store.UpdateModel("new-controller", "admin/new-model", testModelDetails)
 	c.Assert(err, jc.ErrorIsNil)
 	models, err := s.store.AllModels("new-controller")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(models, jc.DeepEquals, map[string]jujuclient.ModelDetails{
-		"admin@local/new-model": testModelDetails,
+		"admin/new-model": testModelDetails,
 	})
 }
 
 func (s *ModelsSuite) TestUpdateModelExistingControllerAndModelNewModel(c *gc.C) {
 	testModelDetails := jujuclient.ModelDetails{"test.uuid"}
-	err := s.store.UpdateModel("kontroll", "admin@local/new-model", testModelDetails)
+	err := s.store.UpdateModel("kontroll", "admin/new-model", testModelDetails)
 	c.Assert(err, jc.ErrorIsNil)
 	models, err := s.store.AllModels("kontroll")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(models, jc.DeepEquals, map[string]jujuclient.ModelDetails{
-		"admin@local/admin":     kontrollAdminModelDetails,
-		"admin@local/my-model":  kontrollMyModelModelDetails,
-		"admin@local/new-model": testModelDetails,
+		"admin/admin":     kontrollAdminModelDetails,
+		"admin/my-model":  kontrollMyModelModelDetails,
+		"admin/new-model": testModelDetails,
 	})
 }
 
@@ -132,9 +132,9 @@ func (s *ModelsSuite) TestUpdateModelOverwrites(c *gc.C) {
 	for i := 0; i < 2; i++ {
 		// Twice so we exercise the code path of updating with
 		// identical details.
-		err := s.store.UpdateModel("kontroll", "admin@local/admin", testModelDetails)
+		err := s.store.UpdateModel("kontroll", "admin/admin", testModelDetails)
 		c.Assert(err, jc.ErrorIsNil)
-		details, err := s.store.ModelByName("kontroll", "admin@local/admin")
+		details, err := s.store.ModelByName("kontroll", "admin/admin")
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(*details, jc.DeepEquals, testModelDetails)
 	}
@@ -152,36 +152,36 @@ controllers:
 	c.Assert(err, jc.ErrorIsNil)
 
 	testModelDetails := jujuclient.ModelDetails{"test.uuid"}
-	err = s.store.UpdateModel("ctrl", "admin@local/admin", testModelDetails)
+	err = s.store.UpdateModel("ctrl", "admin/admin", testModelDetails)
 	c.Assert(err, jc.ErrorIsNil)
 	models, err := s.store.AllModels("ctrl")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(models, jc.DeepEquals, map[string]jujuclient.ModelDetails{
-		"admin@local/admin": testModelDetails,
+		"admin/admin": testModelDetails,
 	})
 }
 
 func (s *ModelsSuite) TestRemoveModelNoFile(c *gc.C) {
 	err := os.Remove(jujuclient.JujuModelsPath())
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.store.RemoveModel("not-found", "admin@local/admin")
+	err = s.store.RemoveModel("not-found", "admin/admin")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *ModelsSuite) TestRemoveModelControllerNotFound(c *gc.C) {
-	err := s.store.RemoveModel("not-found", "admin@local/admin")
+	err := s.store.RemoveModel("not-found", "admin/admin")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *ModelsSuite) TestRemoveModelNotFound(c *gc.C) {
-	err := s.store.RemoveModel("kontroll", "admin@local/not-found")
+	err := s.store.RemoveModel("kontroll", "admin/not-found")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *ModelsSuite) TestRemoveModel(c *gc.C) {
-	err := s.store.RemoveModel("kontroll", "admin@local/admin")
+	err := s.store.RemoveModel("kontroll", "admin/admin")
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.store.ModelByName("kontroll", "admin@local/admin")
+	_, err = s.store.ModelByName("kontroll", "admin/admin")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
@@ -197,6 +197,6 @@ func (s *ModelsSuite) TestRemoveControllerRemovesModels(c *gc.C) {
 
 	models, err := jujuclient.ReadModelsFile(jujuclient.JujuModelsPath())
 	c.Assert(err, jc.ErrorIsNil)
-	_, ok := models["admin@local/kontroll"]
+	_, ok := models["admin/kontroll"]
 	c.Assert(ok, jc.IsFalse) // kontroll models are removed
 }

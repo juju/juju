@@ -114,7 +114,7 @@ Please send this command to foobar:
 type mockModelAPI struct{}
 
 func (m *mockModelAPI) ListModels(user string) ([]base.UserModel, error) {
-	return []base.UserModel{{Name: "model", UUID: "modeluuid", Owner: "current-user@local"}}, nil
+	return []base.UserModel{{Name: "model", UUID: "modeluuid", Owner: "current-user"}}, nil
 }
 
 func (m *mockModelAPI) Close() error {

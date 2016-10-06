@@ -107,7 +107,7 @@ func cacheTestEnvConfig(c *gc.C, store *jujuclienttesting.MemStore) {
 		CACert:         coretesting.CACert,
 	}
 	store.Accounts["ec2-controller"] = jujuclient.AccountDetails{
-		User: "admin@local",
+		User: "admin",
 	}
 	store.BootstrapConfig["ec2-controller"] = jujuclient.BootstrapConfig{
 		ControllerConfig:    coretesting.FakeControllerConfig(),
@@ -133,7 +133,7 @@ func cacheTestEnvConfig(c *gc.C, store *jujuclienttesting.MemStore) {
 		CACert:         coretesting.CACert,
 	}
 	store.Accounts["azure-controller"] = jujuclient.AccountDetails{
-		User: "admin@local",
+		User: "admin",
 	}
 	store.BootstrapConfig["azure-controller"] = jujuclient.BootstrapConfig{
 		ControllerConfig:     coretesting.FakeControllerConfig(),

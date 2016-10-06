@@ -14,6 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/testing"
+	"github.com/juju/juju/upgrades"
 )
 
 var v200 = version.MustParse("2.0.0")
@@ -23,6 +24,12 @@ type steps20Suite struct {
 }
 
 var _ = gc.Suite(&steps20Suite{})
+
+func (s *steps20Suite) TestStripLocalUserDomain(c *gc.C) {
+	step := findStateStep(c, v200, "strip @local from local user names")
+	// Logic for step itself is tested in state package.
+	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})
+}
 
 func (s *steps20Suite) TestCharmGetCacheDir(c *gc.C) {
 	// Create a cache directory with some stuff in it.

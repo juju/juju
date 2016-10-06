@@ -55,19 +55,19 @@ func (s *MigrateSuite) SetUpTest(c *gc.C) {
 
 	// Define an account for the model in the source controller in the config.
 	err = s.store.UpdateAccount("source", jujuclient.AccountDetails{
-		User: "source@local",
+		User: "source",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Define the model to migrate in the config.
-	err = s.store.UpdateModel("source", "source@local/model", jujuclient.ModelDetails{
+	err = s.store.UpdateModel("source", "source/model", jujuclient.ModelDetails{
 		ModelUUID: modelUUID,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Define the account for the target controller.
 	err = s.store.UpdateAccount("target", jujuclient.AccountDetails{
-		User:     "target@local",
+		User:     "target",
 		Password: "secret",
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -143,14 +143,14 @@ func (s *MigrateSuite) TestSuccess(c *gc.C) {
 		TargetControllerUUID: targetControllerUUID,
 		TargetAddrs:          []string{"1.2.3.4:5"},
 		TargetCACert:         "cert",
-		TargetUser:           "target@local",
+		TargetUser:           "target",
 		TargetPassword:       "secret",
 	})
 }
 
 func (s *MigrateSuite) TestSuccessMacaroons(c *gc.C) {
 	err := s.store.UpdateAccount("target", jujuclient.AccountDetails{
-		User:     "target@local",
+		User:     "target",
 		Password: "",
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -164,7 +164,7 @@ func (s *MigrateSuite) TestSuccessMacaroons(c *gc.C) {
 		TargetControllerUUID: targetControllerUUID,
 		TargetAddrs:          []string{"1.2.3.4:5"},
 		TargetCACert:         "cert",
-		TargetUser:           "target@local",
+		TargetUser:           "target",
 		TargetMacaroons:      s.targetControllerAPI.macaroons,
 	})
 }
@@ -230,7 +230,7 @@ func (m *fakeModelAPI) ListModels(user string) ([]base.UserModel, error) {
 	return []base.UserModel{{
 		Name:  m.model,
 		UUID:  modelUUID,
-		Owner: "source@local",
+		Owner: "source",
 	}}, nil
 }
 

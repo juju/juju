@@ -106,7 +106,7 @@ func (st *State) addUserAccess(spec UserAccessSpec, target userAccessTarget) (pe
 	}
 	err = st.runTransactionFor(target.uuid, ops)
 	if err == txn.ErrAborted {
-		err = errors.AlreadyExistsf("user access %q", spec.User.Canonical())
+		err = errors.AlreadyExistsf("user access %q", spec.User.Id())
 	}
 	if err != nil {
 		return permission.UserAccess{}, errors.Trace(err)
@@ -116,7 +116,7 @@ func (st *State) addUserAccess(spec UserAccessSpec, target userAccessTarget) (pe
 
 // userAccessID returns the document id of the user access.
 func userAccessID(user names.UserTag) string {
-	username := user.Canonical()
+	username := user.Id()
 	return strings.ToLower(username)
 }
 
