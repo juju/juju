@@ -30,8 +30,10 @@ func NewShowCommand() cmd.Command {
 // showModelCommand shows all the users with access to the current model.
 type showModelCommand struct {
 	modelcmd.ModelCommandBase
-	// RefreshModels is hides the RefreshModels function defined
+	// RefreshModels hides the RefreshModels function defined
 	// in ModelCommandBase. This allows overriding for testing.
+	// NOTE: ideal solution would be to have the base implement a method
+	// like store.ModelByName which auto-refreshes.
 	RefreshModels func(jujuclient.ClientStore, string) error
 
 	out cmd.Output
