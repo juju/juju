@@ -83,18 +83,18 @@ func (s *MachinerSuite) TestMachinerConfigValidate(c *gc.C) {
 func (s *MachinerSuite) TestMachinerMachineNotFound(c *gc.C) {
 	// Accessing the machine initially yields "not found or unauthorized".
 	// We don't know which, so we don't report that the machine is dead.
-	var machineDead machineDeathTracker
-	w, err := machiner.NewMachiner(machiner.Config{
-		s.accessor, s.machineTag, false,
-		machineDead.machineDead,
-	})
-	c.Assert(err, jc.ErrorIsNil)
 	s.accessor.machine.SetErrors(
 		nil, // SetMachineAddresses
 		nil, // SetStatus
 		nil, // Watch
 		&params.Error{Code: params.CodeNotFound}, // Refresh
 	)
+	var machineDead machineDeathTracker
+	w, err := machiner.NewMachiner(machiner.Config{
+		s.accessor, s.machineTag, false,
+		machineDead.machineDead,
+	})
+	c.Assert(err, jc.ErrorIsNil)
 	s.accessor.machine.watcher.changes <- struct{}{}
 	err = stopWorker(w)
 	c.Assert(errors.Cause(err), gc.Equals, worker.ErrTerminateAgent)
@@ -102,11 +102,6 @@ func (s *MachinerSuite) TestMachinerMachineNotFound(c *gc.C) {
 }
 
 func (s *MachinerSuite) TestMachinerSetStatusStopped(c *gc.C) {
-	w, err := machiner.NewMachiner(machiner.Config{
-		MachineAccessor: s.accessor,
-		Tag:             s.machineTag,
-	})
-	c.Assert(err, jc.ErrorIsNil)
 	s.accessor.machine.life = params.Dying
 	s.accessor.machine.SetErrors(
 		nil, // SetMachineAddresses
@@ -115,6 +110,11 @@ func (s *MachinerSuite) TestMachinerSetStatusStopped(c *gc.C) {
 		nil, // Refresh
 		errors.New("cannot set status"), // SetStatus (stopped)
 	)
+	w, err := machiner.NewMachiner(machiner.Config{
+		MachineAccessor: s.accessor,
+		Tag:             s.machineTag,
+	})
+	c.Assert(err, jc.ErrorIsNil)
 	s.accessor.machine.watcher.changes <- struct{}{}
 	err = stopWorker(w)
 	c.Assert(
@@ -138,11 +138,6 @@ func (s *MachinerSuite) TestMachinerSetStatusStopped(c *gc.C) {
 }
 
 func (s *MachinerSuite) TestMachinerMachineEnsureDeadError(c *gc.C) {
-	w, err := machiner.NewMachiner(machiner.Config{
-		MachineAccessor: s.accessor,
-		Tag:             s.machineTag,
-	})
-	c.Assert(err, jc.ErrorIsNil)
 	s.accessor.machine.life = params.Dying
 	s.accessor.machine.SetErrors(
 		nil, // SetMachineAddresses
@@ -152,6 +147,11 @@ func (s *MachinerSuite) TestMachinerMachineEnsureDeadError(c *gc.C) {
 		nil, // SetStatus
 		errors.New("cannot ensure machine is dead"), // EnsureDead
 	)
+	w, err := machiner.NewMachiner(machiner.Config{
+		MachineAccessor: s.accessor,
+		Tag:             s.machineTag,
+	})
+	c.Assert(err, jc.ErrorIsNil)
 	s.accessor.machine.watcher.changes <- struct{}{}
 	err = stopWorker(w)
 	c.Check(
@@ -161,11 +161,6 @@ func (s *MachinerSuite) TestMachinerMachineEnsureDeadError(c *gc.C) {
 }
 
 func (s *MachinerSuite) TestMachinerMachineAssignedUnits(c *gc.C) {
-	w, err := machiner.NewMachiner(machiner.Config{
-		MachineAccessor: s.accessor,
-		Tag:             s.machineTag,
-	})
-	c.Assert(err, jc.ErrorIsNil)
 	s.accessor.machine.life = params.Dying
 	s.accessor.machine.SetErrors(
 		nil, // SetMachineAddresses
@@ -175,6 +170,11 @@ func (s *MachinerSuite) TestMachinerMachineAssignedUnits(c *gc.C) {
 		nil, // SetStatus
 		&params.Error{Code: params.CodeHasAssignedUnits}, // EnsureDead
 	)
+	w, err := machiner.NewMachiner(machiner.Config{
+		MachineAccessor: s.accessor,
+		Tag:             s.machineTag,
+	})
+	c.Assert(err, jc.ErrorIsNil)
 	s.accessor.machine.watcher.changes <- struct{}{}
 	err = stopWorker(w)
 
