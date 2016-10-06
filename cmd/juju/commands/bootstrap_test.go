@@ -1287,33 +1287,31 @@ func (s *BootstrapSuite) TestBootstrapConfigFileAndAdHoc(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *BootstrapSuite) TestBootstrapAutocertDNSNameBadPort(c *gc.C) {
+func (s *BootstrapSuite) TestBootstrapAutocertDNSNameDefaultPort(c *gc.C) {
 	s.patchVersionAndSeries(c, "raring")
-	_, err := coretesting.RunCommand(
+	var bootstrap fakeBootstrapFuncs
+	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
+		return &bootstrap
+	})
+	coretesting.RunCommand(
 		c, s.newBootstrapCommand(), "ctrl", "dummy",
 		"--config", "autocert-dns-name=foo.example",
 	)
-	c.Assert(err, gc.ErrorMatches, `autocert-dns-name is set but it's not usually possible to obtain official certificates without api-port=443 config; use --force-api-port to override this if you plan on using a port forwarder`)
+	c.Assert(bootstrap.args.ControllerConfig.APIPort(), gc.Equals, 443)
 }
 
-func (s *BootstrapSuite) TestBootstrapAutocertDNSNameOKPort(c *gc.C) {
+func (s *BootstrapSuite) TestBootstrapAutocertDNSNameExplicitAPIPort(c *gc.C) {
 	s.patchVersionAndSeries(c, "raring")
-	_, err := coretesting.RunCommand(
+	var bootstrap fakeBootstrapFuncs
+	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
+		return &bootstrap
+	})
+	coretesting.RunCommand(
 		c, s.newBootstrapCommand(), "ctrl", "dummy",
 		"--config", "autocert-dns-name=foo.example",
-		"--config", "api-port=443",
+		"--config", "api-port=12345",
 	)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *BootstrapSuite) TestBootstrapAutocertDNSNameForceAPIPort(c *gc.C) {
-	s.patchVersionAndSeries(c, "raring")
-	_, err := coretesting.RunCommand(
-		c, s.newBootstrapCommand(), "ctrl", "dummy",
-		"--config", "autocert-dns-name=foo.example",
-		"--force-api-port",
-	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(bootstrap.args.ControllerConfig.APIPort(), gc.Equals, 12345)
 }
 
 func (s *BootstrapSuite) TestBootstrapCloudConfigAndAdHoc(c *gc.C) {
