@@ -10,8 +10,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/retry"
-	"github.com/juju/utils/clock"
+	"github.com/juju/utils/retry"
 	gooseerrors "gopkg.in/goose.v1/errors"
 	"gopkg.in/goose.v1/nova"
 
@@ -280,30 +279,32 @@ func (c *defaultFirewaller) DeleteAllModelGroups() error {
 // of the groups is tried multiple times.
 func deleteSecurityGroup(novaclient *nova.Client, name, id string) {
 	logger.Debugf("deleting security group %q", name)
-	err := retry.Call(retry.CallArgs{
-		Func: func() error {
-			return novaclient.DeleteSecurityGroup(id)
-		},
-		NotifyFunc: func(err error, attempt int) {
-			if attempt%4 == 0 {
-				message := fmt.Sprintf("waiting to delete security group %q", name)
-				if attempt != 4 {
-					message = "still " + message
-				}
-				logger.Debugf(message)
-			}
-		},
-		Attempts: 30,
-		Delay:    time.Second,
-		// TODO(dimitern): This should be fixed to take a clock.Clock arg, not
-		// hard-coded WallClock, like in provider/ec2/securitygroups_test.go!
-		// See PR juju:#5197, especially the code around autoAdvancingClock.
-		// LP Bug: http://pad.lv/1580626.
-		Clock: clock.WallClock,
-	})
-	if err != nil {
-		logger.Warningf("cannot delete security group %q. Used by another model?", name)
+	strategy := retry.Regular{
+		Min:   30,
+		Delay: time.Second,
 	}
+	// TODO(dimitern): This should be fixed to take a clock.Clock arg, not
+	// hard-coded WallClock, like in provider/ec2/securitygroups_test.go!
+	// See PR juju:#5197, especially the code around autoAdvancingClock.
+	// LP Bug: http://pad.lv/1580626.
+	for a := strategy.Start(nil, nil); a.Next(); {
+		err := novaclient.DeleteSecurityGroup(id)
+		if err == nil {
+			return
+		}
+		if !a.HasNext() {
+			logger.Warningf("cannot delete security group %q: %v. Used by another model?", name, err)
+			return
+		}
+		if i := a.Count(); i%4 == 0 {
+			message := fmt.Sprintf("waiting to delete security group %q", name)
+			if i != 4 {
+				message = "still " + message
+			}
+			logger.Debugf("%s", message)
+		}
+	}
+	panic("unreachable")
 }
 
 // OpenPorts implements Firewaller interface.
