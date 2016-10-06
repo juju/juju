@@ -10,6 +10,9 @@ from deploy_stack import (
     BootstrapManager,
     tear_down,
     )
+from jujupy import (
+    get_machine_dns_name,
+    )
 from utility import (
     add_basic_testing_arguments,
     configure_logging,
@@ -71,7 +74,7 @@ def assess_metadata(bs_manager, local_source):
 
 def get_controller_address(client):
     """Get the address of the controller for this model."""
-    return client.get_status().get_machine_dns_name("0")
+    return get_machine_dns_name(client, "0")
 
 
 def assess_to(bs_manager, to):
@@ -85,6 +88,8 @@ def assess_to(bs_manager, to):
             client.bootstrap(to=to)
         with bs_manager.runtime_context(machines):
             log.info('To {} bootstrap successful.'.format(to))
+            # This might be needed:
+            # client.juju('switch', 'controller', include_e=False)
             addr = get_controller_address(client)
     if addr != to:
         raise JujuAssertionError('Not bootstrapped to the correct address.')

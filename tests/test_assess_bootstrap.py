@@ -2,7 +2,6 @@ from argparse import Namespace
 from contextlib import contextmanager
 
 from mock import (
-    Mock,
     patch,
     )
 
@@ -258,9 +257,10 @@ class TestAssessTo(FakeHomeTestCase):
 
     def test_get_controller_address(self):
         status = Status({'machines': {"0": {'dns-name': '255.1.1.0'}}}, '')
-        client = Mock()
-        client.configure_mock(**{'get_status.return_value': status})
-        self.assertEqual('255.1.1.0', get_controller_address(client))
+        client = fake_juju_client()
+        with patch('jujupy.EnvJujuClient.status_until', return_value=[status],
+                   autospec=True):
+            self.assertEqual('255.1.1.0', get_controller_address(client))
 
     def test_assess_to(self):
         def check(myself, to):
