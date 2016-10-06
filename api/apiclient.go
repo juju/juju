@@ -242,9 +242,16 @@ func open(
 			return nil, errors.Trace(err)
 		}
 	}
+
 	st.broken = make(chan struct{})
 	st.closed = make(chan struct{})
-	go st.heartbeatMonitor()
+
+	go (&monitor{
+		clock:  clock,
+		closed: st.closed,
+		ping:   st.Ping,
+		broken: st.broken,
+	}).run()
 	return st, nil
 }
 
@@ -453,6 +460,10 @@ func (st *state) apiEndpoint(path, query string) (*url.URL, error) {
 	}, nil
 }
 
+func (s *state) Ping() error {
+	return s.APICall("Pinger", s.pingerFacadeVersion, "", "Ping", nil, nil)
+}
+
 // apiPath returns the given API endpoint path relative
 // to the given model tag.
 func apiPath(modelTag names.ModelTag, path string) (string, error) {
@@ -545,12 +556,33 @@ func isX509Error(err error) bool {
 	return false
 }
 
-func callWithTimeout(f func() error, timeout time.Duration) bool {
+type monitor struct {
+	clock  clock.Clock
+	ping   func() error
+	closed <-chan struct{}
+	broken chan<- struct{}
+}
+
+func (m *monitor) run() {
+	defer close(m.broken)
+	for {
+		if !m.pingWithTimeout() {
+			return
+		}
+		select {
+		case <-m.closed:
+			return
+		case <-m.clock.After(PingPeriod):
+		}
+	}
+}
+
+func (m *monitor) pingWithTimeout() bool {
 	result := make(chan error, 1)
 	go func() {
 		// Note that result is buffered so that we don't leak this
 		// goroutine when a timeout happens.
-		result <- f()
+		result <- m.ping()
 	}()
 	select {
 	case err := <-result:
@@ -558,27 +590,10 @@ func callWithTimeout(f func() error, timeout time.Duration) bool {
 			logger.Debugf("health ping failed: %v", err)
 		}
 		return err == nil
-	case <-time.After(timeout):
-		logger.Errorf("health ping timed out after %s", timeout)
+	case <-m.clock.After(PingTimeout):
+		logger.Errorf("health ping timed out after %s", PingTimeout)
 		return false
 	}
-}
-
-func (s *state) heartbeatMonitor() {
-	for {
-		if !callWithTimeout(s.Ping, PingTimeout) {
-			close(s.broken)
-			return
-		}
-		select {
-		case <-time.After(PingPeriod):
-		case <-s.closed:
-		}
-	}
-}
-
-func (s *state) Ping() error {
-	return s.APICall("Pinger", s.pingerFacadeVersion, "", "Ping", nil, nil)
 }
 
 type hasErrorCode interface {
