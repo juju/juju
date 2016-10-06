@@ -75,7 +75,7 @@ func (s *AccountsSuite) TestUpdateAccountOverwrites(c *gc.C) {
 	testAccountDetails := jujuclient.AccountDetails{
 		User:            "admin",
 		Password:        "fnord",
-		LastKnownAccess: "addmodel",
+		LastKnownAccess: "add-model",
 	}
 	for i := 0; i < 2; i++ {
 		// Twice so we exercise the code path of updating with

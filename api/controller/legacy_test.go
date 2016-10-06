@@ -268,9 +268,9 @@ func (s *legacySuite) TestModelStatus(c *gc.C) {
 func (s *legacySuite) TestGetControllerAccess(c *gc.C) {
 	controller := s.OpenAPI(c)
 	defer controller.Close()
-	err := controller.GrantController("fred@external", "addmodel")
+	err := controller.GrantController("fred@external", "add-model")
 	c.Assert(err, jc.ErrorIsNil)
 	access, err := controller.GetControllerAccess("fred@external")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(access, gc.Equals, permission.Access("addmodel"))
+	c.Assert(access, gc.Equals, permission.Access("add-model"))
 }

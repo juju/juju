@@ -92,7 +92,7 @@ func (f *fakeUserListAPI) UserInfo(usernames []string, all usermanager.IncludeDi
 		}, {
 			Username:       "barbara",
 			DisplayName:    "Barbara Yellow",
-			Access:         "addmodel",
+			Access:         "add-model",
 			DateCreated:    time.Date(2013, 5, 2, 0, 0, 0, 0, time.UTC),
 			LastConnection: &now,
 		}, {
@@ -129,7 +129,7 @@ func (s *UserListCommandSuite) TestUserInfo(c *gc.C) {
 		"Controller: testing\n\n"+
 		"Name     Display name    Access     Date created  Last connection\n"+
 		"adam*    Adam Zulu       login      2012-10-08    2014-01-01\n"+
-		"barbara  Barbara Yellow  addmodel   2013-05-02    just now\n"+
+		"barbara  Barbara Yellow  add-model  2013-05-02    just now\n"+
 		"charlie  Charlie Xavier  superuser  6 hours ago   never connected\n"+
 		"\n")
 }
@@ -141,7 +141,7 @@ func (s *UserListCommandSuite) TestUserInfoWithDisabled(c *gc.C) {
 		"Controller: testing\n\n"+
 		"Name     Display name    Access     Date created  Last connection\n"+
 		"adam*    Adam Zulu       login      2012-10-08    2014-01-01\n"+
-		"barbara  Barbara Yellow  addmodel   2013-05-02    just now\n"+
+		"barbara  Barbara Yellow  add-model  2013-05-02    just now\n"+
 		"charlie  Charlie Xavier  superuser  6 hours ago   never connected\n"+
 		"davey    Davey Willow               2014-10-09    35 minutes ago (disabled)\n"+
 		"\n")
@@ -154,7 +154,7 @@ func (s *UserListCommandSuite) TestUserInfoExactTime(c *gc.C) {
 		"Controller: testing\n\n"+
 		"Name     Display name    Access     Date created                   Last connection\n"+
 		"adam*    Adam Zulu       login      2012-10-08 00:00:00 +0000 UTC  2014-01-01 00:00:00 +0000 UTC\n"+
-		"barbara  Barbara Yellow  addmodel   2013-05-02 00:00:00 +0000 UTC  2016-09-15 12:00:00 +0000 UTC\n"+
+		"barbara  Barbara Yellow  add-model  2013-05-02 00:00:00 +0000 UTC  2016-09-15 12:00:00 +0000 UTC\n"+
 		"charlie  Charlie Xavier  superuser  2016-09-15 06:00:00 +0000 UTC  never connected\n"+
 		"\n")
 }
@@ -164,7 +164,7 @@ func (s *UserListCommandSuite) TestUserInfoFormatJson(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, "["+
 		`{"user-name":"adam","display-name":"Adam Zulu","access":"login","date-created":"2012-10-08","last-connection":"2014-01-01"},`+
-		`{"user-name":"barbara","display-name":"Barbara Yellow","access":"addmodel","date-created":"2013-05-02","last-connection":"just now"},`+
+		`{"user-name":"barbara","display-name":"Barbara Yellow","access":"add-model","date-created":"2013-05-02","last-connection":"just now"},`+
 		`{"user-name":"charlie","display-name":"Charlie Xavier","access":"superuser","date-created":"6 hours ago","last-connection":"never connected"}`+
 		"]\n")
 }
@@ -180,7 +180,7 @@ func (s *UserListCommandSuite) TestUserInfoFormatYaml(c *gc.C) {
 		"  last-connection: 2014-01-01\n"+
 		"- user-name: barbara\n"+
 		"  display-name: Barbara Yellow\n"+
-		"  access: addmodel\n"+
+		"  access: add-model\n"+
 		"  date-created: 2013-05-02\n"+
 		"  last-connection: just now\n"+
 		"- user-name: charlie\n"+

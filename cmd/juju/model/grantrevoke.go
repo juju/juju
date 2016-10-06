@@ -34,9 +34,9 @@ Grant user 'sam' 'read' access to models 'model1' and 'model2':
 
     juju grant sam read model1 model2
 
-Grant user 'maria' 'addmodel' access to the controller:
+Grant user 'maria' 'add-model' access to the controller:
 
-    juju grant maria addmodel
+    juju grant maria add-model
 
 Valid access levels for models are:
     read
@@ -45,7 +45,7 @@ Valid access levels for models are:
 
 Valid access levels for controllers are:
     login
-    addmodel
+    add-model
     superuser
 
 See also: 
@@ -71,9 +71,9 @@ Revoke 'write' access from user 'sam' for models 'model1' and 'model2':
 
     juju revoke sam write model1 model2
 
-Revoke 'addmodel' acces from user 'maria' to the controller:
+Revoke 'add-model' access from user 'maria' to the controller:
 
-    juju revoke maria addmodel
+    juju revoke maria add-model
 
 See also: 
     grant`[1:]

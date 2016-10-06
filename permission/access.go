@@ -34,7 +34,7 @@ const (
 	LoginAccess Access = "login"
 
 	// AddModelAccess allows user to add new models in subjects supporting it.
-	AddModelAccess Access = "addmodel"
+	AddModelAccess Access = "add-model"
 
 	// SuperuserAccess allows user unrestricted permissions in the subject.
 	SuperuserAccess Access = "superuser"

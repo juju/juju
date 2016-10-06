@@ -1012,7 +1012,7 @@ func (s *macaroonLoginSuite) TestRemoteUserLoginToControllerAddModelAccess(c *gc
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(result.UserInfo, gc.NotNil)
 	c.Check(result.UserInfo.Identity, gc.Equals, remoteUserTag.String())
-	c.Check(result.UserInfo.ControllerAccess, gc.Equals, "addmodel")
+	c.Check(result.UserInfo.ControllerAccess, gc.Equals, "add-model")
 	c.Check(result.UserInfo.ModelAccess, gc.Equals, "")
 }
 
@@ -1065,7 +1065,7 @@ func (s *macaroonLoginSuite) TestRemoteUserLoginToModelWithControllerAccess(c *g
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(result.UserInfo, gc.NotNil)
 	c.Check(result.UserInfo.Identity, gc.Equals, remoteUserTag.String())
-	c.Check(result.UserInfo.ControllerAccess, gc.Equals, "addmodel")
+	c.Check(result.UserInfo.ControllerAccess, gc.Equals, "add-model")
 	c.Check(result.UserInfo.ModelAccess, gc.Equals, "write")
 }
 
