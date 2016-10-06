@@ -427,6 +427,13 @@ func (s *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 	c.Assert(hc.CpuPower, gc.IsNil)
 }
 
+func (s *localServerSuite) TestInstanceName(c *gc.C) {
+	inst, _ := testing.AssertStartInstance(c, s.env, s.ControllerUUID, "100")
+	serverDetail := openstack.InstanceServerDetail(inst)
+	envName := s.env.Config().Name()
+	c.Assert(serverDetail.Name, gc.Matches, "juju-06f00d-"+envName+"-100")
+}
+
 func (s *localServerSuite) TestStartInstanceNetwork(c *gc.C) {
 	cfg, err := s.env.Config().Apply(coretesting.Attrs{
 		// A label that corresponds to a nova test service network

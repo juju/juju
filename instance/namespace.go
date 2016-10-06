@@ -19,6 +19,7 @@ const uuidSuffixDigits = 6
 type Namespace interface {
 	// Prefix returns the common part of the hostnames. i.e. 'juju-xxxxxx-'
 	Prefix() string
+
 	// Hostname returns a name suitable to be used for a machine hostname.
 	// This function returns an error if the machine tags is invalid.
 	Hostname(machineID string) (string, error)
@@ -26,6 +27,9 @@ type Namespace interface {
 	// MachineTag does the reverse of the Hostname method, and extracts the
 	// Tag from the hostname.
 	MachineTag(hostname string) (names.MachineTag, error)
+
+	// Value returns the input prefixed with the namespace prefix.
+	Value(string) string
 }
 
 type namespace struct {
@@ -50,7 +54,12 @@ func (n *namespace) Hostname(machineID string) (string, error) {
 		return "", errors.Errorf("machine ID %q is not a valid machine", machineID)
 	}
 	machineID = strings.Replace(machineID, "/", "-", -1)
-	return n.Prefix() + machineID, nil
+	return n.Value(machineID), nil
+}
+
+// Value returns the input prefixed with the namespace prefix.
+func (n *namespace) Value(s string) string {
+	return n.Prefix() + s
 }
 
 // Hostname implements Namespace.

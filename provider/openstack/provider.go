@@ -22,7 +22,6 @@ import (
 	gooseerrors "gopkg.in/goose.v1/errors"
 	"gopkg.in/goose.v1/identity"
 	"gopkg.in/goose.v1/nova"
-	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -77,16 +76,21 @@ func (p EnvironProvider) Open(args environs.OpenParams) (environs.Environ, error
 	if err := validateCloudSpec(args.Cloud); err != nil {
 		return nil, errors.Annotate(err, "validating cloud spec")
 	}
+	uuid := args.Config.UUID()
+	namespace, err := instance.NewNamespace(uuid)
+	if err != nil {
+		return nil, errors.Annotate(err, "creating instance namespace")
+	}
 
 	e := &Environ{
-		name:  args.Config.Name(),
-		uuid:  args.Config.UUID(),
-		cloud: args.Cloud,
+		name:      args.Config.Name(),
+		uuid:      uuid,
+		cloud:     args.Cloud,
+		namespace: namespace,
 	}
 	e.firewaller = p.FirewallerFactory.GetFirewaller(e)
 	e.configurator = p.Configurator
-	err := e.SetConfig(args.Config)
-	if err != nil {
+	if err := e.SetConfig(args.Config); err != nil {
 		return nil, err
 	}
 	return e, nil
@@ -148,9 +152,10 @@ func (p EnvironProvider) newConfig(cfg *config.Config) (*environConfig, error) {
 }
 
 type Environ struct {
-	name  string
-	uuid  string
-	cloud environs.CloudSpec
+	name      string
+	uuid      string
+	cloud     environs.CloudSpec
+	namespace instance.Namespace
 
 	ecfgMutex    sync.Mutex
 	ecfgUnlocked *environConfig
@@ -928,8 +933,9 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		groupNames = append(groupNames, nova.SecurityGroupName{g.Name})
 	}
 	machineName := resourceName(
-		names.NewMachineTag(args.InstanceConfig.MachineId),
-		e.Config().UUID(),
+		e.namespace,
+		e.name,
+		args.InstanceConfig.MachineId,
 	)
 
 	tryStartNovaInstance := func(
@@ -1064,20 +1070,24 @@ func (e *Environ) listServers(ids []instance.Id) ([]nova.ServerDetail, error) {
 		}
 		return wantedServers, nil
 	}
-	// List all servers that may be in the environment
-	servers, err := e.nova().ListServersDetail(e.machinesFilter())
+	// List all instances in the environment.
+	instances, err := e.AllInstances()
 	if err != nil {
 		return nil, err
 	}
-	// Create a set of the ids of servers that are wanted
-	idSet := make(map[string]struct{}, len(ids))
-	for _, id := range ids {
-		idSet[string(id)] = struct{}{}
-	}
 	// Return only servers with the wanted ids that are currently alive
-	for _, server := range servers {
-		if _, ok := idSet[server.Id]; ok && e.isAliveServer(server) {
-			wantedServers = append(wantedServers, server)
+	for _, inst := range instances {
+		inst := inst.(*openstackInstance)
+		serverDetail := *inst.serverDetail
+		if !e.isAliveServer(serverDetail) {
+			continue
+		}
+		for _, id := range ids {
+			if inst.Id() != id {
+				continue
+			}
+			wantedServers = append(wantedServers, serverDetail)
+			break
 		}
 	}
 	return wantedServers, nil
@@ -1159,16 +1169,15 @@ func (e *Environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
 
 // AllInstances returns all instances in this environment.
 func (e *Environ) AllInstances() ([]instance.Instance, error) {
-	filter := e.machinesFilter()
 	tagFilter := tagValue{tags.JujuModel, e.ecfg().UUID()}
-	return e.allInstances(filter, tagFilter, e.ecfg().useFloatingIP())
+	return e.allInstances(tagFilter, e.ecfg().useFloatingIP())
 }
 
 // allControllerManagedInstances returns all instances managed by this
 // environment's controller, matching the optionally specified filter.
 func (e *Environ) allControllerManagedInstances(controllerUUID string, updateFloatingIPAddresses bool) ([]instance.Instance, error) {
 	tagFilter := tagValue{tags.JujuController, controllerUUID}
-	return e.allInstances(nil, tagFilter, updateFloatingIPAddresses)
+	return e.allInstances(tagFilter, updateFloatingIPAddresses)
 }
 
 type tagValue struct {
@@ -1177,8 +1186,8 @@ type tagValue struct {
 
 // allControllerManagedInstances returns all instances managed by this
 // environment's controller, matching the optionally specified filter.
-func (e *Environ) allInstances(filter *nova.Filter, tagFilter tagValue, updateFloatingIPAddresses bool) ([]instance.Instance, error) {
-	servers, err := e.nova().ListServersDetail(filter)
+func (e *Environ) allInstances(tagFilter tagValue, updateFloatingIPAddresses bool) ([]instance.Instance, error) {
+	servers, err := e.nova().ListServersDetail(jujuMachineFilter())
 	if err != nil {
 		return nil, err
 	}
@@ -1281,15 +1290,16 @@ func allControllerManagedVolumes(storageAdapter OpenstackStorage, controllerUUID
 	return volIds, nil
 }
 
-func resourceName(tag names.Tag, envName string) string {
-	return fmt.Sprintf("juju-%s-%s", envName, tag)
+func resourceName(namespace instance.Namespace, envName, resourceId string) string {
+	return namespace.Value(envName + "-" + resourceId)
 }
 
-// machinesFilter returns a nova.Filter matching all machines in the environment.
-func (e *Environ) machinesFilter() *nova.Filter {
+// jujuMachineFilter returns a nova.Filter matching machines created by Juju.
+// The machines are not filtered to any particular environment. To do that,
+// instance tags must be compared.
+func jujuMachineFilter() *nova.Filter {
 	filter := nova.NewFilter()
-	modelUUID := e.Config().UUID()
-	filter.Set(nova.FilterServer, fmt.Sprintf("juju-%s-machine-\\d*", modelUUID))
+	filter.Set(nova.FilterServer, "juju-.*")
 	return filter
 }
 

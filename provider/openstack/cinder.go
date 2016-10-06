@@ -56,7 +56,12 @@ func (env *Environ) cinderProvider() (*cinderProvider, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &cinderProvider{storageAdapter, env.name, env.uuid}, nil
+	return &cinderProvider{
+		storageAdapter: storageAdapter,
+		envName:        env.name,
+		modelUUID:      env.uuid,
+		namespace:      env.namespace,
+	}, nil
 }
 
 var newOpenstackStorage = func(env *Environ) (OpenstackStorage, error) {
@@ -85,6 +90,7 @@ type cinderProvider struct {
 	storageAdapter OpenstackStorage
 	envName        string
 	modelUUID      string
+	namespace      instance.Namespace
 }
 
 var _ storage.Provider = (*cinderProvider)(nil)
@@ -103,6 +109,7 @@ func (p *cinderProvider) VolumeSource(providerConfig *storage.Config) (storage.V
 		storageAdapter: p.storageAdapter,
 		envName:        p.envName,
 		modelUUID:      p.modelUUID,
+		namespace:      p.namespace,
 	}
 	return source, nil
 }
@@ -147,6 +154,7 @@ type cinderVolumeSource struct {
 	storageAdapter OpenstackStorage
 	envName        string // non unique, informational only
 	modelUUID      string
+	namespace      instance.Namespace
 }
 
 var _ storage.VolumeSource = (*cinderVolumeSource)(nil)
@@ -174,7 +182,7 @@ func (s *cinderVolumeSource) createVolume(arg storage.VolumeParams) (*storage.Vo
 		// The Cinder documentation incorrectly states the
 		// size parameter is in GB. It is actually GiB.
 		Size: int(math.Ceil(float64(arg.Size / 1024))),
-		Name: resourceName(arg.Tag, s.envName),
+		Name: resourceName(s.namespace, s.envName, arg.Tag.String()),
 		// TODO(axw) use the AZ of the initially attached machine.
 		AvailabilityZone: "",
 		Metadata:         metadata,
