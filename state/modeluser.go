@@ -48,7 +48,7 @@ func (st *State) LastModelConnection(user names.UserTag) (time.Time, error) {
 	lastConnections, closer := st.getRawCollection(modelUserLastConnectionC)
 	defer closer()
 
-	username := user.Canonical()
+	username := user.Id()
 	var lastConn modelUserLastConnectionDoc
 	err := lastConnections.FindId(st.docID(username)).Select(bson.D{{"last-connection", 1}}).One(&lastConn)
 	if err != nil {
@@ -94,9 +94,9 @@ func (st *State) updateLastModelConnection(user names.UserTag, when time.Time) e
 	session.SetSafe(&mgo.Safe{})
 
 	lastConn := modelUserLastConnectionDoc{
-		ID:             st.docID(strings.ToLower(user.Canonical())),
+		ID:             st.docID(strings.ToLower(user.Id())),
 		ModelUUID:      st.ModelUUID(),
-		UserName:       user.Canonical(),
+		UserName:       user.Id(),
 		LastConnection: when,
 	}
 	_, err := lastConnectionsW.UpsertId(lastConn.ID, lastConn)
@@ -109,7 +109,7 @@ func (st *State) modelUser(modelUUID string, user names.UserTag) (userAccessDoc,
 	modelUsers, closer := st.getCollectionFor(modelUUID, modelUsersC)
 	defer closer()
 
-	username := strings.ToLower(user.Canonical())
+	username := strings.ToLower(user.Id())
 	err := modelUsers.FindId(username).One(&modelUser)
 	if err == mgo.ErrNotFound {
 		return userAccessDoc{}, errors.NotFoundf("model user %q", username)
@@ -124,11 +124,11 @@ func (st *State) modelUser(modelUUID string, user names.UserTag) (userAccessDoc,
 }
 
 func createModelUserOps(modelUUID string, user, createdBy names.UserTag, displayName string, dateCreated time.Time, access permission.Access) []txn.Op {
-	creatorname := createdBy.Canonical()
+	creatorname := createdBy.Id()
 	doc := &userAccessDoc{
 		ID:          userAccessID(user),
 		ObjectUUID:  modelUUID,
-		UserName:    user.Canonical(),
+		UserName:    user.Id(),
 		DisplayName: displayName,
 		CreatedBy:   creatorname,
 		DateCreated: dateCreated,
@@ -162,7 +162,7 @@ func (st *State) removeModelUser(user names.UserTag) error {
 	ops := removeModelUserOps(st.ModelUUID(), user)
 	err := st.runTransaction(ops)
 	if err == txn.ErrAborted {
-		err = errors.NewNotFound(nil, fmt.Sprintf("model user %q does not exist", user.Canonical()))
+		err = errors.NewNotFound(nil, fmt.Sprintf("model user %q does not exist", user.Id()))
 	}
 	if err != nil {
 		return errors.Trace(err)
@@ -184,10 +184,10 @@ func (e *UserModel) LastConnection() (time.Time, error) {
 	defer lastConnCloser()
 
 	lastConnDoc := modelUserLastConnectionDoc{}
-	id := ensureModelUUID(e.ModelTag().Id(), strings.ToLower(e.User.Canonical()))
+	id := ensureModelUUID(e.ModelTag().Id(), strings.ToLower(e.User.Id()))
 	err := lastConnections.FindId(id).Select(bson.D{{"last-connection", 1}}).One(&lastConnDoc)
 	if (err != nil && err != mgo.ErrNotFound) || lastConnDoc.LastConnection.IsZero() {
-		return time.Time{}, errors.Trace(NeverConnectedError(e.User.Canonical()))
+		return time.Time{}, errors.Trace(NeverConnectedError(e.User.Id()))
 	}
 
 	return lastConnDoc.LastConnection, nil
@@ -204,7 +204,7 @@ func (st *State) ModelsForUser(user names.UserTag) ([]*UserModel, error) {
 	defer userCloser()
 
 	var userSlice []userAccessDoc
-	err := modelUsers.Find(bson.D{{"user", user.Canonical()}}).Select(bson.D{{"object-uuid", 1}, {"_id", 1}}).All(&userSlice)
+	err := modelUsers.Find(bson.D{{"user", user.Id()}}).Select(bson.D{{"object-uuid", 1}, {"_id", 1}}).All(&userSlice)
 	if err != nil {
 		return nil, err
 	}

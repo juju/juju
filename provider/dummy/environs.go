@@ -740,7 +740,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 				cloudCredentialTag = names.NewCloudCredentialTag(fmt.Sprintf(
 					"%s/%s/%s",
 					icfg.Bootstrap.ControllerCloudName,
-					adminUser.Canonical(),
+					adminUser.Id(),
 					icfg.Bootstrap.ControllerCloudCredentialName,
 				))
 			}

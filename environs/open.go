@@ -10,7 +10,7 @@ import (
 )
 
 // AdminUser is the initial admin user created for all controllers.
-const AdminUser = "admin@local"
+const AdminUser = "admin"
 
 // New returns a new environment based on the provided configuration.
 func New(args OpenParams) (Environ, error) {

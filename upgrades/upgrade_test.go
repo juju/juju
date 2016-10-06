@@ -44,6 +44,20 @@ func findStep(c *gc.C, ver version.Number, description string) upgrades.Step {
 	return nil
 }
 
+func findStateStep(c *gc.C, ver version.Number, description string) upgrades.Step {
+	for _, op := range (*upgrades.StateUpgradeOperations)() {
+		if op.TargetVersion() == ver {
+			for _, step := range op.Steps() {
+				if step.Description() == description {
+					return step
+				}
+			}
+		}
+	}
+	c.Fatalf("could not find state step %q for %s", description, ver)
+	return nil
+}
+
 type upgradeSuite struct {
 	coretesting.BaseSuite
 }

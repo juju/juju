@@ -173,7 +173,7 @@ func (suite *PluginSuite) TestJujuEnvVars(c *gc.C) {
 	err = store.SetCurrentController("myctrl")
 	c.Assert(err, jc.ErrorIsNil)
 	err = store.UpdateAccount("myctrl", jujuclient.AccountDetails{
-		User:     "admin@local",
+		User:     "admin",
 		Password: "hunter2",
 	})
 	c.Assert(err, jc.ErrorIsNil)

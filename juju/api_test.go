@@ -129,7 +129,7 @@ func (s *NewAPIClientSuite) TestWithBootstrapConfig(c *gc.C) {
 		return expectState, nil
 	}
 
-	st, err := newAPIConnectionFromNames(c, "noconfig", "admin@local/admin", store, apiOpen)
+	st, err := newAPIConnectionFromNames(c, "noconfig", "admin/admin", store, apiOpen)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st, gc.Equals, expectState)
 	c.Assert(called, gc.Equals, 1)
@@ -150,7 +150,7 @@ func (s *NewAPIClientSuite) TestWithBootstrapConfig(c *gc.C) {
 
 	// If APIHostPorts or agent version haven't changed, then the store won't be updated.
 	stubStore := jujuclienttesting.WrapClientStore(store)
-	st, err = newAPIConnectionFromNames(c, "noconfig", "admin@local/admin", stubStore, apiOpen)
+	st, err = newAPIConnectionFromNames(c, "noconfig", "admin/admin", stubStore, apiOpen)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st, gc.Equals, expectState)
 	c.Assert(called, gc.Equals, 2)
@@ -174,7 +174,7 @@ func (s *NewAPIClientSuite) TestUpdatesLastKnownAccess(c *gc.C) {
 	}
 
 	stubStore := jujuclienttesting.WrapClientStore(store)
-	st, err := newAPIConnectionFromNames(c, "noconfig", "admin@local/admin", stubStore, apiOpen)
+	st, err := newAPIConnectionFromNames(c, "noconfig", "admin/admin", stubStore, apiOpen)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st, gc.Equals, expectState)
 	c.Assert(called, gc.Equals, 1)
@@ -183,7 +183,7 @@ func (s *NewAPIClientSuite) TestUpdatesLastKnownAccess(c *gc.C) {
 	c.Assert(
 		store.Accounts["noconfig"],
 		jc.DeepEquals,
-		jujuclient.AccountDetails{User: "admin@local", Password: "hunter2", LastKnownAccess: "superuser"},
+		jujuclient.AccountDetails{User: "admin", Password: "hunter2", LastKnownAccess: "superuser"},
 	)
 }
 
@@ -237,7 +237,7 @@ func (s *NewAPIClientSuite) TestWithRedirect(c *gc.C) {
 		return nil, fmt.Errorf("OpenAPI called too many times")
 	}
 
-	st0, err := newAPIConnectionFromNames(c, "ctl", "admin@local/admin", store, redirOpen)
+	st0, err := newAPIConnectionFromNames(c, "ctl", "admin/admin", store, redirOpen)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(openCount, gc.Equals, 2)
 	st := st0.(*mockAPIState)
@@ -251,7 +251,7 @@ func (s *NewAPIClientSuite) TestWithRedirect(c *gc.C) {
 }
 
 func checkCommonAPIInfoAttrs(c *gc.C, apiInfo *api.Info, opts api.DialOpts) {
-	c.Check(apiInfo.Tag, gc.Equals, names.NewUserTag("admin@local"))
+	c.Check(apiInfo.Tag, gc.Equals, names.NewUserTag("admin"))
 	c.Check(string(apiInfo.CACert), gc.Equals, "certificate")
 	c.Check(apiInfo.Password, gc.Equals, "hunter2")
 	c.Check(opts, gc.DeepEquals, api.DefaultDialOpts())
@@ -281,7 +281,7 @@ func newClientStore(c *gc.C, controllerName string) *jujuclienttesting.MemStore 
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = store.UpdateModel(controllerName, "admin@local/admin", jujuclient.ModelDetails{
+	err = store.UpdateModel(controllerName, "admin/admin", jujuclient.ModelDetails{
 		fakeUUID,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -290,7 +290,7 @@ func newClientStore(c *gc.C, controllerName string) *jujuclienttesting.MemStore 
 	// if "creds" is not initialised. If it is, it may overwrite
 	// this one.
 	err = store.UpdateAccount(controllerName, jujuclient.AccountDetails{
-		User:     "admin@local",
+		User:     "admin",
 		Password: "hunter2",
 	})
 	c.Assert(err, jc.ErrorIsNil)

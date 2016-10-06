@@ -51,7 +51,7 @@ func (*fakeUserInfoAPI) UserInfo(usernames []string, all usermanager.IncludeDisa
 		LastConnection: &lastConnection,
 	}
 	switch usernames[0] {
-	case "current-user@local":
+	case "current-user":
 		info.Username = "current-user"
 		info.Access = "addmodel"
 	case "foobar":

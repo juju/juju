@@ -50,7 +50,7 @@ func (s *apiEnvironmentSuite) TestGrantModel(c *gc.C) {
 	user := names.NewUserTag(username)
 	modelUser, err := s.State.UserAccess(user, model.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(modelUser.UserName, gc.Equals, user.Canonical())
+	c.Assert(modelUser.UserName, gc.Equals, user.Id())
 	lastConn, err := s.State.LastModelConnection(modelUser.UserTag)
 	c.Assert(err, jc.Satisfies, state.IsNeverConnectedError)
 	c.Assert(lastConn.IsZero(), jc.IsTrue)

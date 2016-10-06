@@ -61,7 +61,7 @@ func (s *legacySuite) TestAllModels(c *gc.C) {
 		obtained = append(obtained, fmt.Sprintf("%s/%s", env.Owner, env.Name))
 	}
 	expected := []string{
-		"admin@local/controller",
+		"admin/controller",
 		"user@remote/first",
 		"user@remote/second",
 	}
@@ -259,7 +259,7 @@ func (s *legacySuite) TestModelStatus(c *gc.C) {
 		TotalMachineCount:  1,
 		HostedMachineCount: 1,
 		ServiceCount:       0,
-		Owner:              "admin@local",
+		Owner:              "admin",
 		Life:               string(params.Alive),
 		Machines:           []base.Machine{{Id: "0", InstanceId: "id-2", Status: "pending"}},
 	}})

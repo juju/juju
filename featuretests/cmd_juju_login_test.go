@@ -69,8 +69,8 @@ func (s *cmdLoginSuite) TestLoginCommand(c *gc.C) {
 	context := s.run(c, strings.NewReader("hunter2\nhunter2\n"), "login", "test")
 	c.Assert(testing.Stdout(context), gc.Equals, "")
 	c.Assert(testing.Stderr(context), gc.Equals, `
-please enter password for test@local on kontroll: 
-You are now logged in to "kontroll" as "test@local".
+please enter password for test on kontroll: 
+You are now logged in to "kontroll" as "test".
 `[1:])
 
 	// We should have a macaroon, but no password, in the client store.

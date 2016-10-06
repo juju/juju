@@ -43,12 +43,12 @@ func (s *ModelUserSuite) TestAddModelUser(c *gc.C) {
 		})
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(modelUser.UserID, gc.Equals, fmt.Sprintf("%s:validusername@local", s.modelTag.Id()))
+	c.Assert(modelUser.UserID, gc.Equals, fmt.Sprintf("%s:validusername", s.modelTag.Id()))
 	c.Assert(modelUser.Object, gc.Equals, s.modelTag)
-	c.Assert(modelUser.UserName, gc.Equals, "validusername@local")
+	c.Assert(modelUser.UserName, gc.Equals, "validusername")
 	c.Assert(modelUser.DisplayName, gc.Equals, user.DisplayName())
 	c.Assert(modelUser.Access, gc.Equals, permission.WriteAccess)
-	c.Assert(modelUser.CreatedBy.Id(), gc.Equals, "createdby@local")
+	c.Assert(modelUser.CreatedBy.Id(), gc.Equals, "createdby")
 	c.Assert(modelUser.DateCreated.Equal(now) || modelUser.DateCreated.After(now), jc.IsTrue)
 	when, err := s.State.LastModelConnection(modelUser.UserTag)
 	c.Assert(err, jc.Satisfies, state.IsNeverConnectedError)
@@ -56,12 +56,12 @@ func (s *ModelUserSuite) TestAddModelUser(c *gc.C) {
 
 	modelUser, err = s.State.UserAccess(user.UserTag(), s.State.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(modelUser.UserID, gc.Equals, fmt.Sprintf("%s:validusername@local", s.modelTag.Id()))
+	c.Assert(modelUser.UserID, gc.Equals, fmt.Sprintf("%s:validusername", s.modelTag.Id()))
 	c.Assert(modelUser.Object, gc.Equals, s.modelTag)
-	c.Assert(modelUser.UserName, gc.Equals, "validusername@local")
+	c.Assert(modelUser.UserName, gc.Equals, "validusername")
 	c.Assert(modelUser.DisplayName, gc.Equals, user.DisplayName())
 	c.Assert(modelUser.Access, gc.Equals, permission.WriteAccess)
-	c.Assert(modelUser.CreatedBy.Id(), gc.Equals, "createdby@local")
+	c.Assert(modelUser.CreatedBy.Id(), gc.Equals, "createdby")
 	c.Assert(modelUser.DateCreated.Equal(now) || modelUser.DateCreated.After(now), jc.IsTrue)
 	when, err = s.State.LastModelConnection(modelUser.UserTag)
 	c.Assert(err, jc.Satisfies, state.IsNeverConnectedError)
@@ -84,14 +84,14 @@ func (s *ModelUserSuite) TestAddReadOnlyModelUser(c *gc.C) {
 		})
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(modelUser.UserName, gc.Equals, "validusername@local")
+	c.Assert(modelUser.UserName, gc.Equals, "validusername")
 	c.Assert(modelUser.DisplayName, gc.Equals, user.DisplayName())
 	c.Assert(modelUser.Access, gc.Equals, permission.ReadAccess)
 
 	// Make sure that it is set when we read the user out.
 	modelUser, err = s.State.UserAccess(user.UserTag(), s.State.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(modelUser.UserName, gc.Equals, "validusername@local")
+	c.Assert(modelUser.UserName, gc.Equals, "validusername")
 	c.Assert(modelUser.Access, gc.Equals, permission.ReadAccess)
 }
 
@@ -111,14 +111,14 @@ func (s *ModelUserSuite) TestAddReadWriteModelUser(c *gc.C) {
 		})
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(modelUser.UserName, gc.Equals, "validusername@local")
+	c.Assert(modelUser.UserName, gc.Equals, "validusername")
 	c.Assert(modelUser.DisplayName, gc.Equals, user.DisplayName())
 	c.Assert(modelUser.Access, gc.Equals, permission.WriteAccess)
 
 	// Make sure that it is set when we read the user out.
 	modelUser, err = s.State.UserAccess(user.UserTag(), s.State.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(modelUser.UserName, gc.Equals, "validusername@local")
+	c.Assert(modelUser.UserName, gc.Equals, "validusername")
 	c.Assert(modelUser.Access, gc.Equals, permission.WriteAccess)
 }
 
@@ -138,14 +138,14 @@ func (s *ModelUserSuite) TestAddAdminModelUser(c *gc.C) {
 		})
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(modelUser.UserName, gc.Equals, "validusername@local")
+	c.Assert(modelUser.UserName, gc.Equals, "validusername")
 	c.Assert(modelUser.DisplayName, gc.Equals, user.DisplayName())
 	c.Assert(modelUser.Access, gc.Equals, permission.AdminAccess)
 
 	// Make sure that it is set when we read the user out.
 	modelUser, err = s.State.UserAccess(user.UserTag(), s.State.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(modelUser.UserName, gc.Equals, "validusername@local")
+	c.Assert(modelUser.UserName, gc.Equals, "validusername")
 	c.Assert(modelUser.Access, gc.Equals, permission.AdminAccess)
 }
 
@@ -352,7 +352,7 @@ func (s *ModelUserSuite) TestUpdateLastConnectionTwoModelUsers(c *gc.C) {
 	// Try to get last connection for modelUser2. As they have never connected,
 	// we expect to get an error.
 	_, err = st2.LastModelConnection(modelUser2.UserTag)
-	c.Assert(err, gc.ErrorMatches, `never connected: "validusername@local"`)
+	c.Assert(err, gc.ErrorMatches, `never connected: "validusername"`)
 
 	// Connect modelUser2 and get last connection.
 	err = s.State.UpdateLastModelConnection(modelUser2.UserTag)

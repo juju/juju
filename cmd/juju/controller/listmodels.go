@@ -116,9 +116,9 @@ type ModelSet struct {
 	Models []common.ModelInfo `yaml:"models" json:"models"`
 
 	// CurrentModel is the name of the current model, qualified for the
-	// user for which we're listing models. i.e. for the user admin@local,
-	// and the model admin@local/foo, this field will contain "foo"; for
-	// bob@local and the same model, the field will contain "admin/foo".
+	// user for which we're listing models. i.e. for the user admin,
+	// and the model admin/foo, this field will contain "foo"; for
+	// bob and the same model, the field will contain "admin/foo".
 	CurrentModel string `yaml:"current-model,omitempty" json:"current-model,omitempty"`
 
 	// CurrentModelQualified is the fully qualified name for the current
@@ -304,7 +304,7 @@ func (c *modelsCommand) formatTabular(writer io.Writer, value interface{}) error
 		if c.listUUID {
 			w.Print(model.UUID)
 		}
-		lastConnection := model.Users[userForLastConn.Canonical()].LastConnection
+		lastConnection := model.Users[userForLastConn.Id()].LastConnection
 		if lastConnection == "" {
 			lastConnection = "never connected"
 		}
@@ -312,7 +312,7 @@ func (c *modelsCommand) formatTabular(writer io.Writer, value interface{}) error
 		if c.user != "" {
 			userForAccess = names.NewUserTag(c.user)
 		}
-		access := model.Users[userForAccess.Canonical()].Access
+		access := model.Users[userForAccess.Id()].Access
 		w.Print(model.Owner, model.Status.Current)
 		if haveMachineInfo {
 			machineInfo := fmt.Sprintf("%d", len(model.Machines))

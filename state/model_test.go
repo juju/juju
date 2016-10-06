@@ -99,7 +99,7 @@ func (s *ModelSuite) TestNewModelSameUserSameNameFails(c *gc.C) {
 		Owner:       owner,
 		StorageProviderRegistry: storage.StaticProviderRegistry{},
 	})
-	errMsg := fmt.Sprintf("model %q for %s already exists", cfg2.Name(), owner.Canonical())
+	errMsg := fmt.Sprintf("model %q for %s already exists", cfg2.Name(), owner.Id())
 	c.Assert(err, gc.ErrorMatches, errMsg)
 	c.Assert(errors.IsAlreadyExists(err), jc.IsTrue)
 
@@ -786,12 +786,12 @@ func (s *ModelSuite) TestAllModels(c *gc.C) {
 	c.Assert(envs, gc.HasLen, 3)
 	var obtained []string
 	for _, env := range envs {
-		obtained = append(obtained, fmt.Sprintf("%s/%s", env.Owner().Canonical(), env.Name()))
+		obtained = append(obtained, fmt.Sprintf("%s/%s", env.Owner().Id(), env.Name()))
 	}
 	expected := []string{
 		"bob@remote/test",
 		"mary@remote/test",
-		"test-admin@local/testenv",
+		"test-admin/testenv",
 	}
 	c.Assert(obtained, jc.DeepEquals, expected)
 }
@@ -878,7 +878,7 @@ func (s *ModelCloudValidationSuite) TestNewModelUnknownCloudCredential(c *gc.C) 
 		},
 	)
 	defer st.Close()
-	unknownCredentialTag := names.NewCloudCredentialTag("dummy/" + owner.Canonical() + "/unknown-credential")
+	unknownCredentialTag := names.NewCloudCredentialTag("dummy/" + owner.Id() + "/unknown-credential")
 	cfg, _ := createTestModelConfig(c, st.ModelUUID())
 	_, _, err := st.NewModel(state.ModelArgs{
 		CloudName:               "dummy",

@@ -218,7 +218,7 @@ func (c *registerCommand) publicControllerDetails(host string) (jujuclient.Contr
 			APIEndpoints:   []string{apiAddr},
 			ControllerUUID: conn.ControllerTag().Id(),
 		}, jujuclient.AccountDetails{
-			User:            user.Canonical(),
+			User:            user.Id(),
 			LastKnownAccess: conn.ControllerAccess(),
 		}, nil
 }
@@ -271,7 +271,7 @@ func (c *registerCommand) nonPublicControllerDetails(ctx *cmd.Context, registrat
 	if err := json.Unmarshal(payloadBytes, &responsePayload); err != nil {
 		return errRet(errors.Annotate(err, "unmarshalling response payload"))
 	}
-	user := registrationParams.userTag.Canonical()
+	user := registrationParams.userTag.Id()
 	ctx.Infof("Initial password successfully set for %s.", friendlyUserName(user))
 	return jujuclient.ControllerDetails{
 			APIEndpoints:   registrationParams.controllerAddrs,

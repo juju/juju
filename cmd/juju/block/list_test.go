@@ -56,7 +56,7 @@ func (s *listCommandSuite) mock() *mockListClient {
 			{
 				Name:     "controller",
 				UUID:     "fake-uuid-1",
-				OwnerTag: "user-admin@local",
+				OwnerTag: "user-admin",
 				Blocks:   []string{"BlockDestroy", "BlockRemove"},
 			}, {
 				Name:     "model-a",
@@ -120,7 +120,7 @@ func (s *listCommandSuite) TestListAll(c *gc.C) {
 	c.Assert(testing.Stderr(ctx), gc.Equals, "")
 	c.Assert(testing.Stdout(ctx), gc.Equals, ""+
 		"NAME        MODEL UUID   OWNER             DISABLED COMMANDS\n"+
-		"controller  fake-uuid-1  admin@local       destroy-model, remove-object\n"+
+		"controller  fake-uuid-1  admin             destroy-model, remove-object\n"+
 		"model-a     fake-uuid-2  bob@external      all\n"+
 		"model-b     fake-uuid-3  charlie@external  all, destroy-model\n"+
 		"\n")
@@ -133,7 +133,7 @@ func (s *listCommandSuite) TestListAllYAML(c *gc.C) {
 	c.Assert(testing.Stdout(ctx), gc.Equals, ""+
 		"- name: controller\n"+
 		"  model-uuid: fake-uuid-1\n"+
-		"  owner: admin@local\n"+
+		"  owner: admin\n"+
 		"  disabled-commands:\n"+
 		"  - destroy-model\n"+
 		"  - remove-object\n"+
@@ -155,7 +155,7 @@ func (s *listCommandSuite) TestListAllJSON(c *gc.C) {
 	ctx, err := testing.RunCommand(c, cmd, "--format", "json", "--all")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(ctx), gc.Equals, "["+
-		`{"name":"controller","model-uuid":"fake-uuid-1","owner":"admin@local","disabled-commands":["destroy-model","remove-object"]},`+
+		`{"name":"controller","model-uuid":"fake-uuid-1","owner":"admin","disabled-commands":["destroy-model","remove-object"]},`+
 		`{"name":"model-a","model-uuid":"fake-uuid-2","owner":"bob@external","disabled-commands":["all"]},`+
 		`{"name":"model-b","model-uuid":"fake-uuid-3","owner":"charlie@external","disabled-commands":["all","destroy-model"]}`+
 		"]\n")

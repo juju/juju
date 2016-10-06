@@ -35,8 +35,7 @@ func (s QualifyingClientStore) QualifiedModelName(controllerName, modelName stri
 		if err != nil {
 			return "", errors.Trace(err)
 		}
-		// Make sure that the user name is canonical.
-		owner = names.NewUserTag(owner.Canonical())
+		owner = names.NewUserTag(owner.Id())
 		modelName = jujuclient.JoinOwnerModelName(owner, unqualifiedModelName)
 	}
 	return modelName, nil

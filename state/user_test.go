@@ -90,7 +90,7 @@ func (s *UserSuite) TestCheckUserExists(c *gc.C) {
 
 func (s *UserSuite) TestString(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "foo"})
-	c.Assert(user.String(), gc.Equals, "foo@local")
+	c.Assert(user.String(), gc.Equals, "foo")
 }
 
 func (s *UserSuite) TestUpdateLastLogin(c *gc.C) {

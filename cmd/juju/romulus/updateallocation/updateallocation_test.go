@@ -35,14 +35,14 @@ func (s *updateAllocationSuite) SetUpTest(c *gc.C) {
 		Models: map[string]*jujuclient.ControllerModels{
 			"controller": {
 				Models: map[string]jujuclient.ModelDetails{
-					"admin@local/model": {"model-uuid"},
+					"admin/model": {"model-uuid"},
 				},
-				CurrentModel: "admin@local/model",
+				CurrentModel: "admin/model",
 			},
 		},
 		Accounts: map[string]jujuclient.AccountDetails{
 			"controller": {
-				User: "admin@local",
+				User: "admin",
 			},
 		},
 	}

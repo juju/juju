@@ -35,7 +35,7 @@ func (s *ModelCommandSuite) SetUpTest(c *gc.C) {
 	s.store.CurrentControllerName = "foo"
 	s.store.Controllers["foo"] = jujuclient.ControllerDetails{}
 	s.store.Accounts["foo"] = jujuclient.AccountDetails{
-		User: "bar@local", Password: "hunter2",
+		User: "bar", Password: "hunter2",
 	}
 }
 
@@ -55,34 +55,34 @@ func (s *ModelCommandSuite) TestGetCurrentModelCurrentControllerNoCurrentModel(c
 }
 
 func (s *ModelCommandSuite) TestGetCurrentModelCurrentControllerModel(c *gc.C) {
-	err := s.store.UpdateModel("foo", "admin@local/mymodel", jujuclient.ModelDetails{"uuid"})
+	err := s.store.UpdateModel("foo", "admin/mymodel", jujuclient.ModelDetails{"uuid"})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.store.SetCurrentModel("foo", "admin@local/mymodel")
+	err = s.store.SetCurrentModel("foo", "admin/mymodel")
 	c.Assert(err, jc.ErrorIsNil)
 
 	env, err := modelcmd.GetCurrentModel(s.store)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env, gc.Equals, "foo:admin@local/mymodel")
+	c.Assert(env, gc.Equals, "foo:admin/mymodel")
 }
 
 func (s *ModelCommandSuite) TestGetCurrentModelJujuEnvSet(c *gc.C) {
-	os.Setenv(osenv.JujuModelEnvKey, "admin@local/magic")
+	os.Setenv(osenv.JujuModelEnvKey, "admin/magic")
 	env, err := modelcmd.GetCurrentModel(s.store)
-	c.Assert(env, gc.Equals, "admin@local/magic")
+	c.Assert(env, gc.Equals, "admin/magic")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *ModelCommandSuite) TestGetCurrentModelBothSet(c *gc.C) {
-	os.Setenv(osenv.JujuModelEnvKey, "admin@local/magic")
+	os.Setenv(osenv.JujuModelEnvKey, "admin/magic")
 
-	err := s.store.UpdateModel("foo", "admin@local/mymodel", jujuclient.ModelDetails{"uuid"})
+	err := s.store.UpdateModel("foo", "admin/mymodel", jujuclient.ModelDetails{"uuid"})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.store.SetCurrentModel("foo", "admin@local/mymodel")
+	err = s.store.SetCurrentModel("foo", "admin/mymodel")
 	c.Assert(err, jc.ErrorIsNil)
 
 	env, err := modelcmd.GetCurrentModel(s.store)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env, gc.Equals, "admin@local/magic")
+	c.Assert(env, gc.Equals, "admin/magic")
 }
 
 func (s *ModelCommandSuite) TestModelCommandInitExplicit(c *gc.C) {
@@ -96,11 +96,11 @@ func (s *ModelCommandSuite) TestModelCommandInitExplicitLongForm(c *gc.C) {
 }
 
 func (s *ModelCommandSuite) TestModelCommandInitEnvFile(c *gc.C) {
-	err := s.store.UpdateModel("foo", "admin@local/mymodel", jujuclient.ModelDetails{"uuid"})
+	err := s.store.UpdateModel("foo", "admin/mymodel", jujuclient.ModelDetails{"uuid"})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.store.SetCurrentModel("foo", "admin@local/mymodel")
+	err = s.store.SetCurrentModel("foo", "admin/mymodel")
 	c.Assert(err, jc.ErrorIsNil)
-	s.testEnsureModelName(c, "admin@local/mymodel")
+	s.testEnsureModelName(c, "admin/mymodel")
 }
 
 func (s *ModelCommandSuite) TestBootstrapContext(c *gc.C) {

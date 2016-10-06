@@ -2,7 +2,7 @@
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 // NOTE: the users that are being stored in the database here are only
-// the local users, like "admin" or "bob" (@local).  In the  world
+// the local users, like "admin" or "bob".  In the  world
 // where we have external user providers hooked up, there are no records
 // in the database for users that are authenticated elsewhere.
 
@@ -199,7 +199,7 @@ func (st *State) getUser(name string, udoc *userDoc) error {
 // User returns the state User for the given name.
 func (st *State) User(tag names.UserTag) (*User, error) {
 	if !tag.IsLocal() {
-		return nil, errors.NotFoundf("user %q", tag.Canonical())
+		return nil, errors.NotFoundf("user %q", tag.Id())
 	}
 	user := &User{st: st}
 	if err := st.getUser(tag.Name(), &user.doc); err != nil {
@@ -291,9 +291,9 @@ type userLastLoginDoc struct {
 	LastLogin time.Time `bson:"last-login"`
 }
 
-// String returns "<name>@local" where <name> is the Name of the user.
+// String returns "<name>" where <name> is the Name of the user.
 func (u *User) String() string {
-	return u.UserTag().Canonical()
+	return u.UserTag().Id()
 }
 
 // Name returns the User name.

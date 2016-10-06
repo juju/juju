@@ -88,7 +88,7 @@ func (s *ChangePasswordCommandSuite) assertAPICalls(c *gc.C, user, pass string) 
 func (s *ChangePasswordCommandSuite) TestChangePassword(c *gc.C) {
 	context, args, err := s.run(c)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertAPICalls(c, "current-user@local", "sekrit")
+	s.assertAPICalls(c, "current-user", "sekrit")
 	c.Assert(coretesting.Stdout(context), gc.Equals, "")
 	c.Assert(coretesting.Stderr(context), gc.Equals, `
 new password: 
@@ -97,7 +97,7 @@ Your password has been updated.
 `[1:])
 	// The command should have logged in without a password to get a macaroon.
 	c.Assert(args.AccountDetails, jc.DeepEquals, &jujuclient.AccountDetails{
-		User: "current-user@local",
+		User: "current-user",
 	})
 }
 
@@ -105,7 +105,7 @@ func (s *ChangePasswordCommandSuite) TestChangePasswordFail(c *gc.C) {
 	s.mockAPI.SetErrors(errors.New("failed to do something"))
 	_, _, err := s.run(c)
 	c.Assert(err, gc.ErrorMatches, "failed to do something")
-	s.assertAPICalls(c, "current-user@local", "sekrit")
+	s.assertAPICalls(c, "current-user", "sekrit")
 }
 
 func (s *ChangePasswordCommandSuite) TestChangeOthersPassword(c *gc.C) {
@@ -113,7 +113,7 @@ func (s *ChangePasswordCommandSuite) TestChangeOthersPassword(c *gc.C) {
 	// at the apiserver level.
 	_, _, err := s.run(c, "other")
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertAPICalls(c, "other@local", "sekrit")
+	s.assertAPICalls(c, "other", "sekrit")
 }
 
 type mockChangePasswordAPI struct {

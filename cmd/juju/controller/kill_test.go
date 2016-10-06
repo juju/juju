@@ -444,7 +444,7 @@ func (s *KillSuite) TestControllerStatus(c *gc.C) {
 			Life:               string(params.Dying),
 			HostedMachineCount: 2,
 			ServiceCount:       1,
-			Owner:              owner.Canonical(),
+			Owner:              owner.Id(),
 		}
 	}
 
@@ -463,13 +463,13 @@ func (s *KillSuite) TestControllerStatus(c *gc.C) {
 		ServiceCount       int
 	}{
 		{
-			Owner:              "bob@local",
+			Owner:              "bob",
 			Name:               "env1",
 			Life:               params.Dying,
 			HostedMachineCount: 2,
 			ServiceCount:       1,
 		}, {
-			Owner:              "jo@local",
+			Owner:              "jo",
 			Name:               "env2",
 			Life:               params.Dying,
 			HostedMachineCount: 2,
@@ -500,7 +500,7 @@ func (s *KillSuite) TestFmtControllerStatus(c *gc.C) {
 func (s *KillSuite) TestFmtEnvironStatus(c *gc.C) {
 	data := controller.ModelData{
 		"uuid",
-		"owner@local",
+		"owner",
 		"envname",
 		string(params.Dying),
 		8,
@@ -508,5 +508,5 @@ func (s *KillSuite) TestFmtEnvironStatus(c *gc.C) {
 	}
 
 	out := controller.FmtModelStatus(data)
-	c.Assert(out, gc.Equals, "\towner@local/envname (dying), 8 machines, 1 application")
+	c.Assert(out, gc.Equals, "\towner/envname (dying), 8 machines, 1 application")
 }

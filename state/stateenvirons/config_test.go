@@ -40,7 +40,7 @@ func (s *environSuite) TestGetNewEnvironFunc(c *gc.C) {
 func (s *environSuite) TestCloudSpec(c *gc.C) {
 	owner := s.Factory.MakeUser(c, nil).UserTag()
 	emptyCredential := cloud.NewEmptyCredential()
-	tag := names.NewCloudCredentialTag("dummy/" + owner.Canonical() + "/empty-credential")
+	tag := names.NewCloudCredentialTag("dummy/" + owner.Id() + "/empty-credential")
 	err := s.State.UpdateCloudCredential(tag, emptyCredential)
 	c.Assert(err, jc.ErrorIsNil)
 

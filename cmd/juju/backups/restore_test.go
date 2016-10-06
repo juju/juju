@@ -67,7 +67,7 @@ func (s *restoreSuite) SetUpTest(c *gc.C) {
 		CurrentModel: "admin",
 	}
 	s.store.Accounts["testing"] = jujuclient.AccountDetails{
-		User:     "current-user@local",
+		User:     "current-user",
 		Password: "old-password",
 	}
 	s.store.BootstrapConfig["testing"] = jujuclient.BootstrapConfig{

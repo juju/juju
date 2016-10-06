@@ -102,7 +102,7 @@ func (s *OpenSuite) TestUpdateEnvInfo(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(foundController.ControllerUUID, gc.Not(gc.Equals), "")
 	c.Assert(foundController.CACert, gc.Not(gc.Equals), "")
-	foundModel, err := store.ModelByName("controller-name", "admin@local/admin-model")
+	foundModel, err := store.ModelByName("controller-name", "admin/admin-model")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(foundModel, jc.DeepEquals, &jujuclient.ModelDetails{
 		ModelUUID: cfg.UUID(),

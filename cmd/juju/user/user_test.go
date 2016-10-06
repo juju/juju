@@ -28,7 +28,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 		ControllerUUID: testing.ControllerTag.Id(),
 	}
 	s.store.Accounts["testing"] = jujuclient.AccountDetails{
-		User:     "current-user@local",
+		User:     "current-user",
 		Password: "old-password",
 	}
 }

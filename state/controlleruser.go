@@ -38,10 +38,10 @@ func (st *State) controllerUser(user names.UserTag) (userAccessDoc, error) {
 	controllerUsers, closer := st.getCollection(controllerUsersC)
 	defer closer()
 
-	username := strings.ToLower(user.Canonical())
+	username := strings.ToLower(user.Id())
 	err := controllerUsers.FindId(username).One(&controllerUser)
 	if err == mgo.ErrNotFound {
-		return userAccessDoc{}, errors.NotFoundf("controller user %q", user.Canonical())
+		return userAccessDoc{}, errors.NotFoundf("controller user %q", user.Id())
 	}
 	// DateCreated is inserted as UTC, but read out as local time. So we
 	// convert it back to UTC here.
@@ -50,11 +50,11 @@ func (st *State) controllerUser(user names.UserTag) (userAccessDoc, error) {
 }
 
 func createControllerUserOps(controllerUUID string, user, createdBy names.UserTag, displayName string, dateCreated time.Time, access permission.Access) []txn.Op {
-	creatorname := createdBy.Canonical()
+	creatorname := createdBy.Id()
 	doc := &userAccessDoc{
 		ID:          userAccessID(user),
 		ObjectUUID:  controllerUUID,
-		UserName:    user.Canonical(),
+		UserName:    user.Id(),
 		DisplayName: displayName,
 		CreatedBy:   creatorname,
 		DateCreated: dateCreated,
@@ -88,7 +88,7 @@ func (st *State) removeControllerUser(user names.UserTag) error {
 	ops := removeControllerUserOps(st.ControllerUUID(), user)
 	err := st.runTransaction(ops)
 	if err == txn.ErrAborted {
-		err = errors.NewNotFound(nil, fmt.Sprintf("controller user %q does not exist", user.Canonical()))
+		err = errors.NewNotFound(nil, fmt.Sprintf("controller user %q does not exist", user.Id()))
 	}
 	if err != nil {
 		return errors.Trace(err)

@@ -99,14 +99,14 @@ func (s *RegisterSuite) TestInit(c *gc.C) {
 func (s *RegisterSuite) TestRegister(c *gc.C) {
 	s.testRegisterSuccess(c, nil, "")
 	c.Assert(s.listModelsControllerName, gc.Equals, "controller-name")
-	c.Assert(s.listModelsUserName, gc.Equals, "bob@local")
+	c.Assert(s.listModelsUserName, gc.Equals, "bob")
 }
 
 func (s *RegisterSuite) TestRegisterOneModel(c *gc.C) {
 	s.listModels = func(_ jujuclient.ClientStore, controllerName, userName string) ([]base.UserModel, error) {
 		return []base.UserModel{{
 			Name:  "theoneandonly",
-			Owner: "carol@local",
+			Owner: "carol",
 			UUID:  mockControllerUUID,
 		}}, nil
 	}
@@ -120,12 +120,12 @@ Enter a name for this controller \[controller-name\]: »
 
 Welcome, bob. You are now logged into "controller-name".
 
-Current model set to "carol@local/theoneandonly".
+Current model set to "carol/theoneandonly".
 `[1:])
 	s.testRegisterSuccess(c, prompter, "")
 	c.Assert(
 		s.store.Models["controller-name"].CurrentModel,
-		gc.Equals, "carol@local/theoneandonly",
+		gc.Equals, "carol/theoneandonly",
 	)
 	prompter.CheckDone()
 }
@@ -134,11 +134,11 @@ func (s *RegisterSuite) TestRegisterMultipleModels(c *gc.C) {
 	s.listModels = func(_ jujuclient.ClientStore, controllerName, userName string) ([]base.UserModel, error) {
 		return []base.UserModel{{
 			Name:  "model1",
-			Owner: "bob@local",
+			Owner: "bob",
 			UUID:  mockControllerUUID,
 		}, {
 			Name:  "model2",
-			Owner: "bob@local",
+			Owner: "bob",
 			UUID:  "eeeeeeee-12e9-11e4-8a70-b2227cce2b55",
 		}}, nil
 	}
@@ -233,7 +233,7 @@ Welcome, bob. You are now logged into "controller-name".
 	account, err := s.store.AccountDetails(controllerName)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(account, jc.DeepEquals, &jujuclient.AccountDetails{
-		User:            "bob@local",
+		User:            "bob",
 		LastKnownAccess: "login",
 	})
 }
@@ -306,7 +306,7 @@ func (s *RegisterSuite) TestControllerUUIDExists(c *gc.C) {
 	s.listModels = func(_ jujuclient.ClientStore, controllerName, userName string) ([]base.UserModel, error) {
 		return []base.UserModel{{
 			Name:  "model-name",
-			Owner: "bob@local",
+			Owner: "bob",
 			UUID:  mockControllerUUID,
 		}}, nil
 	}
@@ -344,7 +344,7 @@ func (s *RegisterSuite) TestProposedControllerNameExists(c *gc.C) {
 	s.listModels = func(_ jujuclient.ClientStore, controllerName, userName string) ([]base.UserModel, error) {
 		return []base.UserModel{{
 			Name:  "model-name",
-			Owner: "bob@local",
+			Owner: "bob",
 			UUID:  mockControllerUUID,
 		}}, nil
 	}
@@ -361,7 +361,7 @@ Enter a name for this controller: »other-name
 
 Welcome, bob. You are now logged into "other-name".
 
-Current model set to "bob@local/model-name".
+Current model set to "bob/model-name".
 `[1:])
 	defer prompter.CheckDone()
 	s.testRegisterSuccess(c, prompter, "other-name")

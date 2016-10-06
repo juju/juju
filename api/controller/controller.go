@@ -57,7 +57,7 @@ func (c *Client) AllModels() ([]base.UserModel, error) {
 		result[i] = base.UserModel{
 			Name:           model.Name,
 			UUID:           model.UUID,
-			Owner:          owner.Canonical(),
+			Owner:          owner.Id(),
 			LastConnection: model.LastConnection,
 		}
 	}
@@ -184,7 +184,7 @@ func (c *Client) ModelStatus(tags ...names.ModelTag) ([]base.ModelStatus, error)
 		results[i] = base.ModelStatus{
 			UUID:               model.Id(),
 			Life:               string(r.Life),
-			Owner:              owner.Canonical(),
+			Owner:              owner.Id(),
 			HostedMachineCount: r.HostedMachineCount,
 			ServiceCount:       r.ApplicationCount,
 			TotalMachineCount:  len(r.Machines),

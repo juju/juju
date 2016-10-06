@@ -52,7 +52,7 @@ func (s *WhoAmITestSuite) TestNoCurrentModel(c *gc.C) {
 	s.expectedOutput = `
 Controller:  controller
 Model:       <no-current-model>
-User:        admin@local
+User:        admin
 `[1:]
 
 	s.store = &jujuclienttesting.MemStore{
@@ -63,13 +63,13 @@ User:        admin@local
 		Models: map[string]*jujuclient.ControllerModels{
 			"controller": {
 				Models: map[string]jujuclient.ModelDetails{
-					"admin@local/model": {"model-uuid"},
+					"admin/model": {"model-uuid"},
 				},
 			},
 		},
 		Accounts: map[string]jujuclient.AccountDetails{
 			"controller": {
-				User: "admin@local",
+				User: "admin",
 			},
 		},
 	}
@@ -78,7 +78,7 @@ User:        admin@local
 
 func (s *WhoAmITestSuite) TestNoCurrentUser(c *gc.C) {
 	s.expectedOutput = `
-You are not logged in to controller "controller" and model "admin@local/model".
+You are not logged in to controller "controller" and model "admin/model".
 Run juju login if you want to login.
 `[1:]
 
@@ -90,9 +90,9 @@ Run juju login if you want to login.
 		Models: map[string]*jujuclient.ControllerModels{
 			"controller": {
 				Models: map[string]jujuclient.ModelDetails{
-					"admin@local/model": {"model-uuid"},
+					"admin/model": {"model-uuid"},
 				},
-				CurrentModel: "admin@local/model",
+				CurrentModel: "admin/model",
 			},
 		},
 	}
@@ -108,9 +108,9 @@ func (s *WhoAmITestSuite) assertWhoAmIForUser(c *gc.C, user, format string) {
 		Models: map[string]*jujuclient.ControllerModels{
 			"controller": {
 				Models: map[string]jujuclient.ModelDetails{
-					"admin@local/model": {"model-uuid"},
+					"admin/model": {"model-uuid"},
 				},
-				CurrentModel: "admin@local/model",
+				CurrentModel: "admin/model",
 			},
 		},
 		Accounts: map[string]jujuclient.AccountDetails{
@@ -126,34 +126,34 @@ func (s *WhoAmITestSuite) TestWhoAmISameUser(c *gc.C) {
 	s.expectedOutput = `
 Controller:  controller
 Model:       model
-User:        admin@local
+User:        admin
 `[1:]
-	s.assertWhoAmIForUser(c, "admin@local", "tabular")
+	s.assertWhoAmIForUser(c, "admin", "tabular")
 }
 
 func (s *WhoAmITestSuite) TestWhoAmIYaml(c *gc.C) {
 	s.expectedOutput = `
 controller: controller
 model: model
-user: admin@local
+user: admin
 `[1:]
-	s.assertWhoAmIForUser(c, "admin@local", "yaml")
+	s.assertWhoAmIForUser(c, "admin", "yaml")
 }
 
 func (s *WhoAmITestSuite) TestWhoAmIJson(c *gc.C) {
 	s.expectedOutput = `
-{"controller":"controller","model":"model","user":"admin@local"}
+{"controller":"controller","model":"model","user":"admin"}
 `[1:]
-	s.assertWhoAmIForUser(c, "admin@local", "json")
+	s.assertWhoAmIForUser(c, "admin", "json")
 }
 
 func (s *WhoAmITestSuite) TestWhoAmIDifferentUsersModel(c *gc.C) {
 	s.expectedOutput = `
 Controller:  controller
 Model:       admin/model
-User:        bob@local
+User:        bob
 `[1:]
-	s.assertWhoAmIForUser(c, "bob@local", "tabular")
+	s.assertWhoAmIForUser(c, "bob", "tabular")
 }
 
 func (s *WhoAmITestSuite) TestFromStoreErr(c *gc.C) {

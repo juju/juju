@@ -58,11 +58,11 @@ func (f *fakeUserListAPI) ModelUserInfo() ([]params.ModelUserInfo, error) {
 
 	userlist := []params.ModelUserInfo{
 		{
-			UserName:       "admin@local",
+			UserName:       "admin",
 			LastConnection: &last1,
 			Access:         "write",
 		}, {
-			UserName:       "adam@local",
+			UserName:       "adam",
 			DisplayName:    "Adam",
 			LastConnection: &last2,
 			Access:         "read",
@@ -117,7 +117,7 @@ func (f *fakeUserListAPI) UserInfo(usernames []string, all usermanager.IncludeDi
 func (s *UserListCommandSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.store.Accounts["testing"] = jujuclient.AccountDetails{
-		User:     "adam@local",
+		User:     "adam",
 		Password: "password",
 	}
 }
@@ -195,8 +195,8 @@ func (s *UserListCommandSuite) TestModelUsers(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
 		"NAME                DISPLAY NAME  ACCESS  LAST CONNECTION\n"+
-		"adam@local*         Adam          read    2015-03-01\n"+
-		"admin@local                       write   2015-03-20\n"+
+		"adam*               Adam          read    2015-03-01\n"+
+		"admin                             write   2015-03-20\n"+
 		"charlie@ubuntu.com  Charlie       read    never connected\n"+
 		"\n")
 }
@@ -205,8 +205,8 @@ func (s *UserListCommandSuite) TestModelUsersFormatJson(c *gc.C) {
 	context, err := testing.RunCommand(c, s.newUserListCommand(), "admin", "--format", "json")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, "{"+
-		`"adam@local":{"display-name":"Adam","access":"read","last-connection":"2015-03-01"},`+
-		`"admin@local":{"access":"write","last-connection":"2015-03-20"},`+
+		`"adam":{"display-name":"Adam","access":"read","last-connection":"2015-03-01"},`+
+		`"admin":{"access":"write","last-connection":"2015-03-20"},`+
 		`"charlie@ubuntu.com":{"display-name":"Charlie","access":"read","last-connection":"never connected"}`+
 		"}\n")
 }
@@ -215,11 +215,11 @@ func (s *UserListCommandSuite) TestModelUsersInfoFormatYaml(c *gc.C) {
 	context, err := testing.RunCommand(c, s.newUserListCommand(), "admin", "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
-		"adam@local:\n"+
+		"adam:\n"+
 		"  display-name: Adam\n"+
 		"  access: read\n"+
 		"  last-connection: 2015-03-01\n"+
-		"admin@local:\n"+
+		"admin:\n"+
 		"  access: write\n"+
 		"  last-connection: 2015-03-20\n"+
 		"charlie@ubuntu.com:\n"+

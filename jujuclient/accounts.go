@@ -6,9 +6,11 @@ package jujuclient
 import (
 	"io/ioutil"
 	"os"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/juju/osenv"
@@ -30,14 +32,32 @@ func ReadAccountsFile(file string) (map[string]AccountDetails, error) {
 		}
 		return nil, err
 	}
-	if err := migrateLegacyAccounts(data); err != nil {
-		return nil, err
-	}
 	accounts, err := ParseAccounts(data)
 	if err != nil {
 		return nil, err
 	}
+	if err := migrateLocalAccountUsers(accounts); err != nil {
+		return nil, err
+	}
 	return accounts, nil
+}
+
+func migrateLocalAccountUsers(accounts map[string]AccountDetails) error {
+	changes := false
+	for user, account := range accounts {
+		if !strings.HasSuffix(account.User, "@local") {
+			continue
+		}
+		tag := names.NewUserTag(account.User)
+		updated := account
+		updated.User = tag.Id()
+		accounts[user] = updated
+		changes = true
+	}
+	if changes {
+		return WriteAccountsFile(accounts)
+	}
+	return nil
 }
 
 // WriteAccountsFile marshals to YAML details of the given accounts
@@ -61,38 +81,4 @@ func ParseAccounts(data []byte) (map[string]AccountDetails, error) {
 
 type accountsCollection struct {
 	ControllerAccounts map[string]AccountDetails `yaml:"controllers"`
-}
-
-// TODO(axw) 2016-07-14 #1603841
-// Drop this code once we get to 2.0.
-func migrateLegacyAccounts(data []byte) error {
-	type legacyControllerAccounts struct {
-		Accounts       map[string]AccountDetails `yaml:"accounts"`
-		CurrentAccount string                    `yaml:"current-account,omitempty"`
-	}
-	type legacyAccountsCollection struct {
-		ControllerAccounts map[string]legacyControllerAccounts `yaml:"controllers"`
-	}
-	var legacy legacyAccountsCollection
-	if err := yaml.Unmarshal(data, &legacy); err != nil {
-		return errors.Annotate(err, "cannot unmarshal accounts")
-	}
-	result := make(map[string]AccountDetails)
-	for controller, controllerAccounts := range legacy.ControllerAccounts {
-		if controllerAccounts.CurrentAccount == "" {
-			continue
-		}
-		details, ok := controllerAccounts.Accounts[controllerAccounts.CurrentAccount]
-		if !ok {
-			continue
-		}
-		result[controller] = details
-	}
-	if len(result) > 0 {
-		// Only write if we found at least one,
-		// which means the file was in legacy
-		// format. Otherwise leave it alone.
-		return WriteAccountsFile(result)
-	}
-	return nil
 }

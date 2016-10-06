@@ -101,14 +101,14 @@ func NewModelManagerAPI(
 // are an administrator acting on behalf of another user.
 func (m *ModelManagerAPI) authCheck(user names.UserTag) error {
 	if m.isAdmin {
-		logger.Tracef("%q is a controller admin", m.apiUser.Canonical())
+		logger.Tracef("%q is a controller admin", m.apiUser.Id())
 		return nil
 	}
 
 	// We can't just compare the UserTags themselves as the provider part
 	// may be unset, and gets replaced with 'local'. We must compare against
 	// the Canonical value of the user tag.
-	if m.apiUser.Canonical() == user.Canonical() {
+	if m.apiUser == user {
 		return nil
 	}
 	return common.ErrPerm
@@ -245,7 +245,7 @@ func (m *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Model
 			return result, errors.Trace(err)
 		}
 	} else {
-		if ownerTag.Canonical() == controllerModel.Owner().Canonical() {
+		if ownerTag == controllerModel.Owner() {
 			cloudCredentialTag, _ = controllerModel.CloudCredential()
 		} else {
 			// TODO(axw) check if the user has one and only one

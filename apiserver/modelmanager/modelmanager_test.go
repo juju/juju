@@ -154,12 +154,12 @@ func (s *modelManagerSuite) getModelArgs(c *gc.C) state.ModelArgs {
 func (s *modelManagerSuite) TestCreateModelArgs(c *gc.C) {
 	args := params.ModelCreateArgs{
 		Name:     "foo",
-		OwnerTag: "user-admin@local",
+		OwnerTag: "user-admin",
 		Config: map[string]interface{}{
 			"bar": "baz",
 		},
 		CloudRegion:        "qux",
-		CloudCredentialTag: "cloudcred-some-cloud_admin@local_some-credential",
+		CloudCredentialTag: "cloudcred-some-cloud_admin_some-credential",
 	}
 	_, err := s.api.CreateModel(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -211,7 +211,7 @@ func (s *modelManagerSuite) TestCreateModelArgs(c *gc.C) {
 		CloudName:   "some-cloud",
 		CloudRegion: "qux",
 		CloudCredential: names.NewCloudCredentialTag(
-			"some-cloud/admin@local/some-credential",
+			"some-cloud/admin/some-credential",
 		),
 		Config: cfg,
 	})
@@ -220,13 +220,13 @@ func (s *modelManagerSuite) TestCreateModelArgs(c *gc.C) {
 func (s *modelManagerSuite) TestCreateModelArgsWithCloud(c *gc.C) {
 	args := params.ModelCreateArgs{
 		Name:     "foo",
-		OwnerTag: "user-admin@local",
+		OwnerTag: "user-admin",
 		Config: map[string]interface{}{
 			"bar": "baz",
 		},
 		CloudTag:           "cloud-some-cloud",
 		CloudRegion:        "qux",
-		CloudCredentialTag: "cloudcred-some-cloud_admin@local_some-credential",
+		CloudCredentialTag: "cloudcred-some-cloud_admin_some-credential",
 	}
 	_, err := s.api.CreateModel(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -239,7 +239,7 @@ func (s *modelManagerSuite) TestCreateModelArgsWithCloudNotFound(c *gc.C) {
 	s.st.SetErrors(nil, errors.NotFoundf("cloud"))
 	args := params.ModelCreateArgs{
 		Name:     "foo",
-		OwnerTag: "user-admin@local",
+		OwnerTag: "user-admin",
 		CloudTag: "cloud-some-unknown-cloud",
 	}
 	_, err := s.api.CreateModel(args)
@@ -249,7 +249,7 @@ func (s *modelManagerSuite) TestCreateModelArgsWithCloudNotFound(c *gc.C) {
 func (s *modelManagerSuite) TestCreateModelDefaultRegion(c *gc.C) {
 	args := params.ModelCreateArgs{
 		Name:     "foo",
-		OwnerTag: "user-admin@local",
+		OwnerTag: "user-admin",
 	}
 	_, err := s.api.CreateModel(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -259,7 +259,7 @@ func (s *modelManagerSuite) TestCreateModelDefaultRegion(c *gc.C) {
 }
 
 func (s *modelManagerSuite) TestCreateModelDefaultCredentialAdmin(c *gc.C) {
-	s.testCreateModelDefaultCredentialAdmin(c, "user-admin@local")
+	s.testCreateModelDefaultCredentialAdmin(c, "user-admin")
 }
 
 func (s *modelManagerSuite) TestCreateModelDefaultCredentialAdminNoDomain(c *gc.C) {
@@ -277,14 +277,14 @@ func (s *modelManagerSuite) testCreateModelDefaultCredentialAdmin(c *gc.C, owner
 
 	newModelArgs := s.getModelArgs(c)
 	c.Assert(newModelArgs.CloudCredential, gc.Equals, names.NewCloudCredentialTag(
-		"some-cloud/bob@local/some-credential",
+		"some-cloud/bob/some-credential",
 	))
 }
 
 func (s *modelManagerSuite) TestCreateModelEmptyCredentialNonAdmin(c *gc.C) {
 	args := params.ModelCreateArgs{
 		Name:     "foo",
-		OwnerTag: "user-bob@local",
+		OwnerTag: "user-bob",
 	}
 	_, err := s.api.CreateModel(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -297,7 +297,7 @@ func (s *modelManagerSuite) TestCreateModelNoDefaultCredentialNonAdmin(c *gc.C) 
 	s.st.cloud.AuthTypes = nil
 	args := params.ModelCreateArgs{
 		Name:     "foo",
-		OwnerTag: "user-bob@local",
+		OwnerTag: "user-bob",
 	}
 	_, err := s.api.CreateModel(args)
 	c.Assert(err, gc.ErrorMatches, "no credential specified")
@@ -307,8 +307,8 @@ func (s *modelManagerSuite) TestCreateModelUnknownCredential(c *gc.C) {
 	s.st.SetErrors(nil, nil, errors.NotFoundf("credential"))
 	args := params.ModelCreateArgs{
 		Name:               "foo",
-		OwnerTag:           "user-admin@local",
-		CloudCredentialTag: "cloudcred-some-cloud_admin@local_bar",
+		OwnerTag:           "user-admin",
+		CloudCredentialTag: "cloudcred-some-cloud_admin_bar",
 	}
 	_, err := s.api.CreateModel(args)
 	c.Assert(err, gc.ErrorMatches, `getting credential: credential not found`)
@@ -1039,7 +1039,7 @@ func (s *modelManagerStateSuite) TestRevokeModelMissingUser(c *gc.C) {
 
 	user := names.NewUserTag("bob")
 	err := s.revoke(c, user, params.ModelReadAccess, st.ModelTag())
-	c.Assert(err, gc.ErrorMatches, `could not revoke model access: model user "bob@local" does not exist`)
+	c.Assert(err, gc.ErrorMatches, `could not revoke model access: model user "bob" does not exist`)
 
 	_, err = st.UserAccess(user, st.ModelTag())
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
@@ -1164,7 +1164,7 @@ func (s *modelManagerStateSuite) TestGrantToModelReadAccess(c *gc.C) {
 
 	stFactory := factory.NewFactory(st)
 	stFactory.MakeModelUser(c, &factory.ModelUserParams{
-		User: apiUser.Canonical(), Access: permission.ReadAccess})
+		User: apiUser.Id(), Access: permission.ReadAccess})
 
 	other := names.NewUserTag("other@remote")
 	err := s.grant(c, other, params.ModelReadAccess, st.ModelTag())
@@ -1180,7 +1180,7 @@ func (s *modelManagerStateSuite) TestGrantToModelWriteAccess(c *gc.C) {
 	s.setAPIUser(c, apiUser)
 	stFactory := factory.NewFactory(st)
 	stFactory.MakeModelUser(c, &factory.ModelUserParams{
-		User: apiUser.Canonical(), Access: permission.AdminAccess})
+		User: apiUser.Id(), Access: permission.AdminAccess})
 
 	other := names.NewUserTag("other@remote")
 	err := s.grant(c, other, params.ModelReadAccess, st.ModelTag())
@@ -1275,7 +1275,7 @@ func (s *modelManagerStateSuite) TestModifyModelAccessInvalidAction(c *gc.C) {
 	var dance params.ModelAction = "dance"
 	args := params.ModifyModelAccessRequest{
 		Changes: []params.ModifyModelAccess{{
-			UserTag:  "user-user@local",
+			UserTag:  "user-user",
 			Action:   dance,
 			Access:   params.ModelReadAccess,
 			ModelTag: s.State.ModelTag().String(),

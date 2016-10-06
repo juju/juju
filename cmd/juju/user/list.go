@@ -112,7 +112,7 @@ func (c *listCommand) Run(ctx *cmd.Context) (err error) {
 		if err != nil {
 			return err
 		}
-		c.currentUser = names.NewUserTag(accountDetails.User).Canonical()
+		c.currentUser = names.NewUserTag(accountDetails.User).Id()
 	}
 	if c.modelName == "" {
 		return c.controllerUsers(ctx)
@@ -169,7 +169,7 @@ func (c *listCommand) formatTabular(writer io.Writer, value interface{}) error {
 
 func (c *listCommand) isLoggedInUser(username string) bool {
 	tag := names.NewUserTag(username)
-	return tag.Canonical() == c.currentUser
+	return tag.Id() == c.currentUser
 }
 
 func (c *listCommand) formatModelUsers(writer io.Writer, value interface{}) error {

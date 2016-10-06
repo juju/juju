@@ -91,7 +91,7 @@ func CreateLocalLoginMacaroon(
 	// enables multiple clients to login as the same user and obtain separate
 	// macaroons without having them use the same root key.
 	return service.NewMacaroon("", nil, []checkers.Caveat{
-		{Condition: "is-authenticated-user " + tag.Canonical()},
+		{Condition: "is-authenticated-user " + tag.Id()},
 		checkers.TimeBeforeCaveat(clock.Now().Add(LocalLoginInteractionTimeout)),
 	})
 }
@@ -142,7 +142,7 @@ func CheckLocalLoginRequest(
 		return nil, errors.Trace(err)
 	}
 	firstPartyCaveats := []checkers.Caveat{
-		checkers.DeclaredCaveat("username", tag.Canonical()),
+		checkers.DeclaredCaveat("username", tag.Id()),
 		checkers.TimeBeforeCaveat(clock.Now().Add(localLoginExpiryTime)),
 	}
 	return firstPartyCaveats, nil
@@ -152,7 +152,7 @@ func (u *UserAuthenticator) authenticateMacaroons(
 	entityFinder EntityFinder, tag names.UserTag, req params.LoginRequest,
 ) (state.Entity, error) {
 	// Check for a valid request macaroon.
-	assert := map[string]string{usernameKey: tag.Canonical()}
+	assert := map[string]string{usernameKey: tag.Id()}
 	_, err := u.Service.CheckAny(req.Macaroons, assert, checkers.New(checkers.TimeBefore))
 	if err != nil {
 		cause := err
@@ -173,7 +173,7 @@ func (u *UserAuthenticator) authenticateMacaroons(
 			checkers.NeedDeclaredCaveat(
 				checkers.Caveat{
 					Location:  u.LocalUserIdentityLocation,
-					Condition: "is-authenticated-user " + tag.Canonical(),
+					Condition: "is-authenticated-user " + tag.Id(),
 				},
 				usernameKey,
 			),

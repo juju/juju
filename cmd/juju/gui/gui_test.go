@@ -78,7 +78,7 @@ func (s *guiSuite) TestGUISuccessWithCredentials(c *gc.C) {
 	s.patchBrowser(nil)
 	out, err := s.run(c, "--show-credentials")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(out, jc.Contains, "Username: admin@local\nPassword: dummy-secret")
+	c.Assert(out, jc.Contains, "Username: admin\nPassword: dummy-secret")
 }
 
 func (s *guiSuite) TestGUISuccessNoBrowser(c *gc.C) {

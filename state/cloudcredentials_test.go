@@ -31,7 +31,7 @@ func (s *CloudCredentialsSuite) TestUpdateCloudCredentialNew(c *gc.C) {
 		"foo": "foo val",
 		"bar": "bar val",
 	})
-	tag := names.NewCloudCredentialTag("stratus/bob@local/foobar")
+	tag := names.NewCloudCredentialTag("stratus/bob/foobar")
 	err = s.State.UpdateCloudCredential(tag, cred)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -55,7 +55,7 @@ func (s *CloudCredentialsSuite) TestUpdateCloudCredentialsExisting(c *gc.C) {
 		"foo": "foo val",
 		"bar": "bar val",
 	})
-	tag := names.NewCloudCredentialTag("stratus/bob@local/foobar")
+	tag := names.NewCloudCredentialTag("stratus/bob/foobar")
 	err = s.State.UpdateCloudCredential(tag, cred)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -81,10 +81,10 @@ func (s *CloudCredentialsSuite) TestUpdateCloudCredentialInvalidAuthType(c *gc.C
 		Type:      "low",
 		AuthTypes: cloud.AuthTypes{cloud.AccessKeyAuthType},
 	})
-	tag := names.NewCloudCredentialTag("stratus/bob@local/foobar")
+	tag := names.NewCloudCredentialTag("stratus/bob/foobar")
 	cred := cloud.NewCredential(cloud.UserPassAuthType, nil)
 	err = s.State.UpdateCloudCredential(tag, cred)
-	c.Assert(err, gc.ErrorMatches, `updating cloud credentials: validating cloud credentials: credential "stratus/bob@local/foobar" with auth-type "userpass" is not supported \(expected one of \["access-key"\]\)`)
+	c.Assert(err, gc.ErrorMatches, `updating cloud credentials: validating cloud credentials: credential "stratus/bob/foobar" with auth-type "userpass" is not supported \(expected one of \["access-key"\]\)`)
 }
 
 func (s *CloudCredentialsSuite) TestCloudCredentialsEmpty(c *gc.C) {
@@ -101,7 +101,7 @@ func (s *CloudCredentialsSuite) TestCloudCredentials(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	otherUser := s.Factory.MakeUser(c, nil).UserTag()
 
-	tag1 := names.NewCloudCredentialTag("stratus/bob@local/bobcred1")
+	tag1 := names.NewCloudCredentialTag("stratus/bob/bobcred1")
 	cred1 := cloud.NewCredential(cloud.AccessKeyAuthType, map[string]string{
 		"foo": "foo val",
 		"bar": "bar val",
@@ -109,8 +109,8 @@ func (s *CloudCredentialsSuite) TestCloudCredentials(c *gc.C) {
 	err = s.State.UpdateCloudCredential(tag1, cred1)
 	c.Assert(err, jc.ErrorIsNil)
 
-	tag2 := names.NewCloudCredentialTag("stratus/" + otherUser.Canonical() + "/foobar")
-	tag3 := names.NewCloudCredentialTag("stratus/bob@local/bobcred2")
+	tag2 := names.NewCloudCredentialTag("stratus/" + otherUser.Id() + "/foobar")
+	tag3 := names.NewCloudCredentialTag("stratus/bob/bobcred2")
 	cred2 := cloud.NewCredential(cloud.AccessKeyAuthType, map[string]string{
 		"baz": "baz val",
 		"qux": "qux val",
@@ -123,12 +123,12 @@ func (s *CloudCredentialsSuite) TestCloudCredentials(c *gc.C) {
 	cred1.Label = "bobcred1"
 	cred2.Label = "bobcred2"
 
-	for _, userName := range []string{"bob", "bob@local"} {
+	for _, userName := range []string{"bob", "bob"} {
 		creds, err := s.State.CloudCredentials(names.NewUserTag(userName), "stratus")
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(creds, jc.DeepEquals, map[string]cloud.Credential{
-			tag1.Canonical(): cred1,
-			tag3.Canonical(): cred2,
+			tag1.Id(): cred1,
+			tag3.Id(): cred2,
 		})
 	}
 }
@@ -141,7 +141,7 @@ func (s *CloudCredentialsSuite) TestRemoveCredentials(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	tag := names.NewCloudCredentialTag("stratus/bob@local/bobcred1")
+	tag := names.NewCloudCredentialTag("stratus/bob/bobcred1")
 	cred := cloud.NewCredential(cloud.AccessKeyAuthType, map[string]string{
 		"foo": "foo val",
 		"bar": "bar val",

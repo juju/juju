@@ -166,7 +166,7 @@ func (c *addModelCommand) Run(ctx *cmd.Context) error {
 		if !names.IsValidUser(c.Owner) {
 			return errors.Errorf("%q is not a valid user name", c.Owner)
 		}
-		modelOwner = names.NewUserTag(c.Owner).Canonical()
+		modelOwner = names.NewUserTag(c.Owner).Id()
 	}
 	forUserSuffix := fmt.Sprintf(" for user '%s'", names.NewUserTag(modelOwner).Name())
 
@@ -238,8 +238,8 @@ func (c *addModelCommand) Run(ctx *cmd.Context) error {
 	if model.CloudCredential != "" {
 		tag := names.NewCloudCredentialTag(model.CloudCredential)
 		credentialName := tag.Name()
-		if tag.Owner().Canonical() != modelOwner {
-			credentialName = fmt.Sprintf("%s/%s", tag.Owner().Canonical(), credentialName)
+		if tag.Owner().Id() != modelOwner {
+			credentialName = fmt.Sprintf("%s/%s", tag.Owner().Id(), credentialName)
 		}
 		messageFormat += " with credential '%s'"
 		messageArgs = append(messageArgs, credentialName)
@@ -408,16 +408,16 @@ func (c *addModelCommand) maybeUploadCredential(
 	if err != nil {
 		return names.CloudCredentialTag{}, errors.Trace(err)
 	}
-	credentialId := credentialTag.Canonical()
+	credentialId := credentialTag.Id()
 	for _, tag := range credentialTags {
-		if tag.Canonical() != credentialId {
+		if tag.Id() != credentialId {
 			continue
 		}
 		ctx.Infof("Using credential '%s' cached in controller", c.CredentialName)
 		return credentialTag, nil
 	}
 
-	if credentialTag.Owner().Canonical() != modelOwner {
+	if credentialTag.Owner().Id() != modelOwner {
 		// Another user's credential was specified, so
 		// we cannot automatically upload.
 		return names.CloudCredentialTag{}, errors.NotFoundf(

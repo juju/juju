@@ -149,14 +149,14 @@ func (s *serverSuite) TestModelUsersInfo(c *gc.C) {
 		}, {
 			localUser1,
 			&params.ModelUserInfo{
-				UserName:    "ralphdoe@local",
+				UserName:    "ralphdoe",
 				DisplayName: "Ralph Doe",
 				Access:      "admin",
 			},
 		}, {
 			localUser2,
 			&params.ModelUserInfo{
-				UserName:    "samsmith@local",
+				UserName:    "samsmith",
 				DisplayName: "Sam Smith",
 				Access:      "admin",
 			},

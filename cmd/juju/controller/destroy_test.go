@@ -173,7 +173,7 @@ func (s *baseDestroySuite) SetUpTest(c *gc.C) {
 		ControllerUUID: test3ControllerUUID,
 	}
 	s.store.Accounts["test1"] = jujuclient.AccountDetails{
-		User: "admin@local",
+		User: "admin",
 	}
 
 	var modelList = []struct {
@@ -219,14 +219,14 @@ func (s *baseDestroySuite) SetUpTest(c *gc.C) {
 		s.api.allModels = append(s.api.allModels, base.UserModel{
 			Name:  model.name,
 			UUID:  uuid,
-			Owner: owner.Canonical(),
+			Owner: owner.Id(),
 		})
 		s.api.envStatus[model.modelUUID] = base.ModelStatus{
 			UUID:               uuid,
 			Life:               string(params.Dead),
 			HostedMachineCount: 0,
 			ServiceCount:       0,
-			Owner:              owner.Canonical(),
+			Owner:              owner.Id(),
 		}
 	}
 }
@@ -340,8 +340,8 @@ run this command again with the --destroy-all-models
 flag.
 
 Models:
-	owner@local/test2:test2 (alive)
-	owner@local/test3:admin (alive)
+	owner/test2:test2 (alive)
+	owner/test3:admin (alive)
 `)
 
 }
@@ -375,7 +375,7 @@ func (s *DestroySuite) resetController(c *gc.C) {
 		ControllerUUID: test1UUID,
 	}
 	s.store.Accounts["test1"] = jujuclient.AccountDetails{
-		User: "admin@local",
+		User: "admin",
 	}
 	s.store.BootstrapConfig["test1"] = jujuclient.BootstrapConfig{
 		ControllerModelUUID: test1UUID,
@@ -459,7 +459,7 @@ func (s *DestroySuite) TestDestroyReturnsBlocks(c *gc.C) {
 		params.ModelBlockInfo{
 			Name:     "test1",
 			UUID:     test1UUID,
-			OwnerTag: "user-cheryl@local",
+			OwnerTag: "user-cheryl",
 			Blocks: []string{
 				"BlockDestroy",
 			},
@@ -467,7 +467,7 @@ func (s *DestroySuite) TestDestroyReturnsBlocks(c *gc.C) {
 		params.ModelBlockInfo{
 			Name:     "test2",
 			UUID:     test2UUID,
-			OwnerTag: "user-bob@local",
+			OwnerTag: "user-bob",
 			Blocks: []string{
 				"BlockDestroy",
 				"BlockChange",
@@ -476,8 +476,8 @@ func (s *DestroySuite) TestDestroyReturnsBlocks(c *gc.C) {
 	}
 	ctx, _ := s.runDestroyCommand(c, "test1", "-y", "--destroy-all-models")
 	c.Assert(testing.Stderr(ctx), gc.Equals, "Destroying controller\n"+
-		"NAME   MODEL UUID                            OWNER         DISABLED COMMANDS\n"+
-		"test1  1871299e-1370-4f3e-83ab-1849ed7b1076  cheryl@local  destroy-model\n"+
-		"test2  c59d0e3b-2bd7-4867-b1b9-f1ef8a0bb004  bob@local     all, destroy-model\n")
+		"NAME   MODEL UUID                            OWNER   DISABLED COMMANDS\n"+
+		"test1  1871299e-1370-4f3e-83ab-1849ed7b1076  cheryl  destroy-model\n"+
+		"test2  c59d0e3b-2bd7-4867-b1b9-f1ef8a0bb004  bob     all, destroy-model\n")
 	c.Assert(testing.Stdout(ctx), gc.Equals, "")
 }

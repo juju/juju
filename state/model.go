@@ -297,13 +297,13 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 		models, closer := st.getCollection(modelsC)
 		defer closer()
 		envCount, countErr := models.Find(bson.D{
-			{"owner", owner.Canonical()},
+			{"owner", owner.Id()},
 			{"name", name}},
 		).Count()
 		if countErr != nil {
 			err = errors.Trace(countErr)
 		} else if envCount > 0 {
-			err = errors.AlreadyExistsf("model %q for %s", name, owner.Canonical())
+			err = errors.AlreadyExistsf("model %q for %s", name, owner.Id())
 		} else {
 			err = errors.New("model already exists")
 		}
@@ -375,7 +375,7 @@ func validateCloudCredential(
 		}
 		var found bool
 		for tag := range cloudCredentials {
-			if tag == cloudCredential.Canonical() {
+			if tag == cloudCredential.Id() {
 				found = true
 				break
 			}
@@ -938,12 +938,12 @@ func createModelOp(
 		UUID:            uuid,
 		Name:            name,
 		Life:            Alive,
-		Owner:           owner.Canonical(),
+		Owner:           owner.Id(),
 		ControllerUUID:  controllerUUID,
 		MigrationMode:   migrationMode,
 		Cloud:           cloudName,
 		CloudRegion:     cloudRegion,
-		CloudCredential: cloudCredential.Canonical(),
+		CloudCredential: cloudCredential.Id(),
 	}
 	return txn.Op{
 		C:      modelsC,
@@ -1013,7 +1013,7 @@ func hostedModelCount(st *State) (int, error) {
 func createUniqueOwnerModelNameOp(owner names.UserTag, envName string) txn.Op {
 	return txn.Op{
 		C:      usermodelnameC,
-		Id:     userModelNameIndex(owner.Canonical(), envName),
+		Id:     userModelNameIndex(owner.Id(), envName),
 		Assert: txn.DocMissing,
 		Insert: bson.M{},
 	}

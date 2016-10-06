@@ -110,7 +110,7 @@ func (c *changePasswordCommand) Run(ctx *cmd.Context) error {
 			return errors.NotValidf("user name %q", c.User)
 		}
 		userTag = names.NewUserTag(c.User)
-		if userTag.Canonical() != accountDetails.User {
+		if userTag.Id() != accountDetails.User {
 			// The account details don't correspond to the username
 			// being changed, so we don't need to update the account
 			// locally.
@@ -125,7 +125,7 @@ func (c *changePasswordCommand) Run(ctx *cmd.Context) error {
 			return errors.Errorf("cannot change password for external user %q", userTag)
 		}
 	}
-	if err := c.api.SetPassword(userTag.Canonical(), newPassword); err != nil {
+	if err := c.api.SetPassword(userTag.Id(), newPassword); err != nil {
 		return block.ProcessBlockedError(err, block.BlockChange)
 	}
 

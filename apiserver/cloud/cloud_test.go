@@ -29,7 +29,7 @@ var _ = gc.Suite(&cloudSuite{})
 func (s *cloudSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.authorizer = apiservertesting.FakeAuthorizer{
-		Tag: names.NewUserTag("admin@local"),
+		Tag: names.NewUserTag("admin"),
 	}
 	s.backend = mockBackend{
 		cloud: cloud.Cloud{
@@ -38,8 +38,8 @@ func (s *cloudSuite) SetUpTest(c *gc.C) {
 			Regions:   []cloud.Region{{Name: "nether", Endpoint: "endpoint"}},
 		},
 		creds: map[string]cloud.Credential{
-			names.NewCloudCredentialTag("meep/bruce@local/one").Canonical(): cloud.NewEmptyCredential(),
-			names.NewCloudCredentialTag("meep/bruce@local/two").Canonical(): cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
+			names.NewCloudCredentialTag("meep/bruce/one").Id(): cloud.NewEmptyCredential(),
+			names.NewCloudCredentialTag("meep/bruce/two").Id(): cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
 				"username": "admin",
 				"password": "adm1n",
 			}),
@@ -93,7 +93,7 @@ func (s *cloudSuite) TestDefaultCloud(c *gc.C) {
 }
 
 func (s *cloudSuite) TestUserCredentials(c *gc.C) {
-	s.authorizer.Tag = names.NewUserTag("bruce@local")
+	s.authorizer.Tag = names.NewUserTag("bruce")
 	results, err := s.api.UserCredentials(params.UserClouds{UserClouds: []params.UserCloud{{
 		UserTag:  "machine-0",
 		CloudTag: "cloud-meep",
@@ -117,13 +117,13 @@ func (s *cloudSuite) TestUserCredentials(c *gc.C) {
 	})
 	c.Assert(results.Results[2].Error, gc.IsNil)
 	c.Assert(results.Results[2].Result, jc.SameContents, []string{
-		"cloudcred-meep_bruce@local_one",
-		"cloudcred-meep_bruce@local_two",
+		"cloudcred-meep_bruce_one",
+		"cloudcred-meep_bruce_two",
 	})
 }
 
 func (s *cloudSuite) TestUserCredentialsAdminAccess(c *gc.C) {
-	s.authorizer.Tag = names.NewUserTag("admin@local")
+	s.authorizer.Tag = names.NewUserTag("admin")
 	results, err := s.api.UserCredentials(params.UserClouds{UserClouds: []params.UserCloud{{
 		UserTag:  "user-julia",
 		CloudTag: "cloud-meep",
@@ -137,7 +137,7 @@ func (s *cloudSuite) TestUserCredentialsAdminAccess(c *gc.C) {
 
 func (s *cloudSuite) TestUpdateCredentials(c *gc.C) {
 	s.backend.SetErrors(nil, errors.NotFoundf("cloud"))
-	s.authorizer.Tag = names.NewUserTag("bruce@local")
+	s.authorizer.Tag = names.NewUserTag("bruce")
 	results, err := s.api.UpdateCredentials(params.UpdateCloudCredentials{Credentials: []params.UpdateCloudCredential{{
 		Tag: "machine-0",
 	}, {
@@ -180,7 +180,7 @@ func (s *cloudSuite) TestUpdateCredentials(c *gc.C) {
 }
 
 func (s *cloudSuite) TestUpdateCredentialsAdminAccess(c *gc.C) {
-	s.authorizer.Tag = names.NewUserTag("admin@local")
+	s.authorizer.Tag = names.NewUserTag("admin")
 	results, err := s.api.UpdateCredentials(params.UpdateCloudCredentials{Credentials: []params.UpdateCloudCredential{{
 		Tag: "cloudcred-meep_julia_three",
 		Credential: params.CloudCredential{
@@ -196,7 +196,7 @@ func (s *cloudSuite) TestUpdateCredentialsAdminAccess(c *gc.C) {
 }
 
 func (s *cloudSuite) TestRevokeCredentials(c *gc.C) {
-	s.authorizer.Tag = names.NewUserTag("bruce@local")
+	s.authorizer.Tag = names.NewUserTag("bruce")
 	results, err := s.api.RevokeCredentials(params.Entities{Entities: []params.Entity{{
 		Tag: "machine-0",
 	}, {
@@ -222,7 +222,7 @@ func (s *cloudSuite) TestRevokeCredentials(c *gc.C) {
 }
 
 func (s *cloudSuite) TestRevokeCredentialsAdminAccess(c *gc.C) {
-	s.authorizer.Tag = names.NewUserTag("admin@local")
+	s.authorizer.Tag = names.NewUserTag("admin")
 	results, err := s.api.RevokeCredentials(params.Entities{Entities: []params.Entity{{
 		Tag: "cloudcred-meep_julia_three",
 	}}})
@@ -234,17 +234,17 @@ func (s *cloudSuite) TestRevokeCredentialsAdminAccess(c *gc.C) {
 }
 
 func (s *cloudSuite) TestCredential(c *gc.C) {
-	s.authorizer.Tag = names.NewUserTag("bruce@local")
+	s.authorizer.Tag = names.NewUserTag("bruce")
 	results, err := s.api.Credential(params.Entities{Entities: []params.Entity{{
 		Tag: "machine-0",
 	}, {
 		Tag: "cloudcred-meep_admin_foo",
 	}, {
-		Tag: "cloudcred-meep_bruce@local_two",
+		Tag: "cloudcred-meep_bruce_two",
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
 	s.backend.CheckCallNames(c, "ControllerTag", "CloudCredentials", "Cloud")
-	s.backend.CheckCall(c, 1, "CloudCredentials", names.NewUserTag("bruce@local"), "meep")
+	s.backend.CheckCall(c, 1, "CloudCredentials", names.NewUserTag("bruce"), "meep")
 
 	c.Assert(results.Results, gc.HasLen, 3)
 	c.Assert(results.Results[0].Error, jc.DeepEquals, &params.Error{
@@ -262,9 +262,9 @@ func (s *cloudSuite) TestCredential(c *gc.C) {
 }
 
 func (s *cloudSuite) TestCredentialAdminAccess(c *gc.C) {
-	s.authorizer.Tag = names.NewUserTag("admin@local")
+	s.authorizer.Tag = names.NewUserTag("admin")
 	results, err := s.api.Credential(params.Entities{Entities: []params.Entity{{
-		Tag: "cloudcred-meep_bruce@local_two",
+		Tag: "cloudcred-meep_bruce_two",
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
 	s.backend.CheckCallNames(c, "ControllerTag", "CloudCredentials", "Cloud")
@@ -281,12 +281,12 @@ type mockBackend struct {
 
 func (st *mockBackend) IsControllerAdmin(user names.UserTag) (bool, error) {
 	st.MethodCall(st, "IsControllerAdmin", user)
-	return user.Canonical() == "admin@local", st.NextErr()
+	return user.Id() == "admin", st.NextErr()
 }
 
 func (st *mockBackend) ControllerModel() (cloudfacade.Model, error) {
 	st.MethodCall(st, "ControllerModel")
-	credentialTag := names.NewCloudCredentialTag("some-cloud/admin@local/some-credential")
+	credentialTag := names.NewCloudCredentialTag("some-cloud/admin/some-credential")
 	return &mockModel{"some-cloud", "some-region", credentialTag}, st.NextErr()
 }
 

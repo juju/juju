@@ -34,14 +34,61 @@ func ReadModelsFile(file string) (map[string]*ControllerModels, error) {
 		}
 		return nil, err
 	}
-	if err := migrateLegacyModels(data); err != nil {
-		return nil, err
-	}
 	models, err := ParseModels(data)
 	if err != nil {
 		return nil, err
 	}
+	if err := migrateLocalModelUsers(models); err != nil {
+		return nil, err
+	}
 	return models, nil
+}
+
+// migrateLocalModelUsers strips any @local domains from any qualified model names.
+func migrateLocalModelUsers(usermodels map[string]*ControllerModels) error {
+	changes := false
+	for _, modelDetails := range usermodels {
+		for name, model := range modelDetails.Models {
+			migratedName, changed, err := migrateModelName(name)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			if !changed {
+				continue
+			}
+			delete(modelDetails.Models, name)
+			modelDetails.Models[migratedName] = model
+			changes = true
+		}
+		migratedName, changed, err := migrateModelName(modelDetails.CurrentModel)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if !changed {
+			continue
+		}
+		modelDetails.CurrentModel = migratedName
+	}
+	if changes {
+		return WriteModelsFile(usermodels)
+	}
+	return nil
+}
+
+func migrateModelName(legacyName string) (string, bool, error) {
+	i := strings.IndexRune(legacyName, '/')
+	if i < 0 {
+		return legacyName, false, nil
+	}
+	owner := legacyName[:i]
+	if !names.IsValidUser(owner) {
+		return "", false, errors.NotValidf("user name %q", owner)
+	}
+	if !strings.HasSuffix(owner, "@local") {
+		return legacyName, false, nil
+	}
+	rawModelName := legacyName[i+1:]
+	return JoinOwnerModelName(names.NewUserTag(owner), rawModelName), true, nil
 }
 
 // WriteModelsFile marshals to YAML details of the given models
@@ -79,56 +126,9 @@ type ControllerModels struct {
 	CurrentModel string `yaml:"current-model,omitempty"`
 }
 
-// TODO(axw) 2016-07-14 #1603841
-// Drop this code once we get to 2.0.
-func migrateLegacyModels(data []byte) error {
-	accounts, err := ReadAccountsFile(JujuAccountsPath())
-	if err != nil {
-		return err
-	}
-
-	type legacyAccountModels struct {
-		Models       map[string]ModelDetails `yaml:"models"`
-		CurrentModel string                  `yaml:"current-model,omitempty"`
-	}
-	type legacyControllerAccountModels struct {
-		AccountModels map[string]*legacyAccountModels `yaml:"accounts"`
-	}
-	type legacyModelsCollection struct {
-		ControllerAccountModels map[string]legacyControllerAccountModels `yaml:"controllers"`
-	}
-
-	var legacy legacyModelsCollection
-	if err := yaml.Unmarshal(data, &legacy); err != nil {
-		return errors.Annotate(err, "cannot unmarshal models")
-	}
-	result := make(map[string]*ControllerModels)
-	for controller, controllerAccountModels := range legacy.ControllerAccountModels {
-		accountDetails, ok := accounts[controller]
-		if !ok {
-			continue
-		}
-		accountModels, ok := controllerAccountModels.AccountModels[accountDetails.User]
-		if !ok {
-			continue
-		}
-		result[controller] = &ControllerModels{
-			accountModels.Models,
-			accountModels.CurrentModel,
-		}
-	}
-	if len(result) > 0 {
-		// Only write if we found at least one,
-		// which means the file was in legacy
-		// format. Otherwise leave it alone.
-		return WriteModelsFile(result)
-	}
-	return nil
-}
-
 // JoinOwnerModelName returns a model name qualified with the model owner.
 func JoinOwnerModelName(owner names.UserTag, modelName string) string {
-	return fmt.Sprintf("%s/%s", owner.Canonical(), modelName)
+	return fmt.Sprintf("%s/%s", owner.Id(), modelName)
 }
 
 // IsQualifiedModelName returns true if the provided model name is qualified

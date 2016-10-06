@@ -161,7 +161,7 @@ func (s *userAuthenticatorSuite) TestValidMacaroonUserLogin(c *gc.C) {
 	call := service.Calls()[0]
 	c.Assert(call.Args, gc.HasLen, 3)
 	c.Assert(call.Args[0], jc.DeepEquals, macaroons)
-	c.Assert(call.Args[1], jc.DeepEquals, map[string]string{"username": "bobbrown@local"})
+	c.Assert(call.Args[1], jc.DeepEquals, map[string]string{"username": "bobbrown"})
 	// no check for checker function, can't compare functions
 }
 
@@ -174,7 +174,7 @@ func (s *userAuthenticatorSuite) TestCreateLocalLoginMacaroon(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	service.CheckCallNames(c, "NewMacaroon")
 	service.CheckCall(c, 0, "NewMacaroon", "", []byte(nil), []checkers.Caveat{
-		{Condition: "is-authenticated-user bobbrown@local"},
+		{Condition: "is-authenticated-user bobbrown"},
 		{Condition: "time-before 0001-01-01T00:02:00Z"},
 	})
 }
@@ -204,7 +204,7 @@ func (s *userAuthenticatorSuite) TestAuthenticateLocalLoginMacaroon(c *gc.C) {
 			checkers.NeedDeclaredCaveat(
 				checkers.Caveat{
 					Location:  "https://testing.invalid:1234/auth",
-					Condition: "is-authenticated-user bobbrown@local",
+					Condition: "is-authenticated-user bobbrown",
 				},
 				"username",
 			),
@@ -354,7 +354,7 @@ func (f simpleEntityFinder) FindEntity(tag names.Tag) (state.Entity, error) {
 	if utag, ok := tag.(names.UserTag); ok {
 		// It's a user tag which we need to be in canonical form
 		// so we can look it up unambiguously.
-		tag = names.NewUserTag(utag.Canonical())
+		tag = names.NewUserTag(utag.Id())
 	}
 	if f[tag.String()] {
 		return &simpleEntity{tag}, nil

@@ -50,13 +50,13 @@ func (s *DumpCommandSuite) SetUpTest(c *gc.C) {
 	s.store.CurrentControllerName = "testing"
 	s.store.Controllers["testing"] = jujuclient.ControllerDetails{}
 	s.store.Accounts["testing"] = jujuclient.AccountDetails{
-		User: "admin@local",
+		User: "admin",
 	}
-	err := s.store.UpdateModel("testing", "admin@local/mymodel", jujuclient.ModelDetails{
+	err := s.store.UpdateModel("testing", "admin/mymodel", jujuclient.ModelDetails{
 		testing.ModelTag.Id(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	s.store.Models["testing"].CurrentModel = "admin@local/mymodel"
+	s.store.Models["testing"].CurrentModel = "admin/mymodel"
 }
 
 func (s *DumpCommandSuite) TestDump(c *gc.C) {

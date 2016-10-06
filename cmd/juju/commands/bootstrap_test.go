@@ -276,7 +276,7 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 	controllerVers.Build = 0
 	c.Assert(controllerVers.String(), gc.Equals, bootstrapVers.String())
 
-	controllerModel, err := s.store.ModelByName(controllerName, "admin@local/controller")
+	controllerModel, err := s.store.ModelByName(controllerName, "admin/controller")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(utils.IsValidUUIDString(controllerModel.ModelUUID), jc.IsTrue)
 
@@ -453,7 +453,7 @@ func (s *BootstrapSuite) TestBootstrapSetsCurrentModel(c *gc.C) {
 	c.Assert(currentController, gc.Equals, "devcontroller")
 	modelName, err := s.store.CurrentModel(currentController)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(modelName, gc.Equals, "admin@local/default")
+	c.Assert(modelName, gc.Equals, "admin/default")
 }
 
 func (s *BootstrapSuite) TestBootstrapSetsControllerDetails(c *gc.C) {
@@ -702,8 +702,8 @@ func (s *BootstrapSuite) TestBootstrapErrorRestoresOldMetadata(c *gc.C) {
 	) (environs.Environ, error) {
 		ctx := controllerModelAccountParams{
 			controller: "foo",
-			model:      "foobar@local/bar",
-			user:       "foobar@local",
+			model:      "foobar/bar",
+			user:       "foobar",
 		}
 		s.writeControllerModelAccountInfo(c, &ctx)
 		return nil, errors.New("mock-prepare")
@@ -712,8 +712,8 @@ func (s *BootstrapSuite) TestBootstrapErrorRestoresOldMetadata(c *gc.C) {
 	ctx := controllerModelAccountParams{
 		controller:     "olddevcontroller",
 		controllerUUID: "another-uuid",
-		model:          "fred@local/fredmodel",
-		user:           "fred@local",
+		model:          "fred/fredmodel",
+		user:           "fred",
 	}
 	s.writeControllerModelAccountInfo(c, &ctx)
 	_, err := coretesting.RunCommand(c, s.newBootstrapCommand(), "devcontroller", "dummy", "--auto-upgrade")
@@ -723,10 +723,10 @@ func (s *BootstrapSuite) TestBootstrapErrorRestoresOldMetadata(c *gc.C) {
 	c.Assert(currentController, gc.Equals, "olddevcontroller")
 	accountDetails, err := s.store.AccountDetails(currentController)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(accountDetails.User, gc.Equals, "fred@local")
+	c.Assert(accountDetails.User, gc.Equals, "fred")
 	currentModel, err := s.store.CurrentModel(currentController)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(currentModel, gc.Equals, "fred@local/fredmodel")
+	c.Assert(currentModel, gc.Equals, "fred/fredmodel")
 }
 
 func (s *BootstrapSuite) TestBootstrapAlreadyExists(c *gc.C) {
@@ -735,8 +735,8 @@ func (s *BootstrapSuite) TestBootstrapAlreadyExists(c *gc.C) {
 
 	cmaCtx := controllerModelAccountParams{
 		controller: "devcontroller",
-		model:      "fred@local/fredmodel",
-		user:       "fred@local",
+		model:      "fred/fredmodel",
+		user:       "fred",
 	}
 	s.writeControllerModelAccountInfo(c, &cmaCtx)
 
@@ -749,10 +749,10 @@ func (s *BootstrapSuite) TestBootstrapAlreadyExists(c *gc.C) {
 	c.Assert(currentController, gc.Equals, "devcontroller")
 	accountDetails, err := s.store.AccountDetails(currentController)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(accountDetails.User, gc.Equals, "fred@local")
+	c.Assert(accountDetails.User, gc.Equals, "fred")
 	currentModel, err := s.store.CurrentModel(currentController)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(currentModel, gc.Equals, "fred@local/fredmodel")
+	c.Assert(currentModel, gc.Equals, "fred/fredmodel")
 }
 
 func (s *BootstrapSuite) TestInvalidLocalSource(c *gc.C) {

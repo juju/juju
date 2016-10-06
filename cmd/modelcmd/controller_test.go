@@ -33,7 +33,7 @@ func (s *ControllerCommandSuite) TestControllerCommandInitCurrentController(c *g
 	store := jujuclienttesting.NewMemStore()
 	store.CurrentControllerName = "foo"
 	store.Accounts["foo"] = jujuclient.AccountDetails{
-		User: "bar@local",
+		User: "bar",
 	}
 	store.Controllers["foo"] = jujuclient.ControllerDetails{}
 	testEnsureControllerName(c, store, "foo")
@@ -45,7 +45,7 @@ func (s *ControllerCommandSuite) TestControllerCommandInitExplicit(c *gc.C) {
 	store := jujuclienttesting.NewMemStore()
 	store.CurrentControllerName = "foo"
 	store.Accounts["explicit"] = jujuclient.AccountDetails{
-		User: "bar@local",
+		User: "bar",
 	}
 	store.Controllers["explicit"] = jujuclient.ControllerDetails{}
 	testEnsureControllerName(c, store, "explicit", "-c", "explicit")

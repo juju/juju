@@ -55,7 +55,7 @@ func (s *modelmanagerSuite) testCreateModel(c *gc.C, cloud, region string) {
 	modelManager := s.OpenAPI(c)
 	defer modelManager.Close()
 	user := s.Factory.MakeUser(c, nil)
-	owner := user.UserTag().Canonical()
+	owner := user.UserTag().Id()
 	newModel, err := modelManager.CreateModel("new-model", owner, cloud, region, names.CloudCredentialTag{}, map[string]interface{}{
 		"authorized-keys": "ssh-key",
 		// dummy needs controller

@@ -120,8 +120,8 @@ func (s *UpgradeCharmSuite) SetUpTest(c *gc.C) {
 	store.CurrentControllerName = "foo"
 	store.Controllers["foo"] = jujuclient.ControllerDetails{}
 	store.Models["foo"] = &jujuclient.ControllerModels{
-		CurrentModel: "admin@local/bar",
-		Models:       map[string]jujuclient.ModelDetails{"admin@local/bar": {}},
+		CurrentModel: "admin/bar",
+		Models:       map[string]jujuclient.ModelDetails{"admin/bar": {}},
 	}
 	apiOpener := modelcmd.OpenFunc(func(store jujuclient.ClientStore, controller, model string) (api.Connection, error) {
 		s.AddCall("OpenAPI", store, controller, model)

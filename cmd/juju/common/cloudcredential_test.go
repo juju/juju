@@ -23,7 +23,7 @@ func (*cloudCredentialSuite) TestResolveCloudCredentialTag(c *gc.C) {
 		names.NewUserTag("admin@local"),
 		names.NewCloudTag("aws"),
 		"foo",
-		"aws/admin@local/foo",
+		"aws/admin/foo",
 	)
 }
 
@@ -31,8 +31,8 @@ func (*cloudCredentialSuite) TestResolveCloudCredentialTagOtherUser(c *gc.C) {
 	testResolveCloudCredentialTag(c,
 		names.NewUserTag("admin@local"),
 		names.NewCloudTag("aws"),
-		"brenda@local/foo",
-		"aws/brenda@local/foo",
+		"brenda/foo",
+		"aws/brenda/foo",
 	)
 }
 

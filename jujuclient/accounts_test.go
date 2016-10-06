@@ -50,7 +50,7 @@ func (s *AccountsSuite) TestAccountDetails(c *gc.C) {
 
 func (s *AccountsSuite) TestUpdateAccountIgnoresEmptyAccess(c *gc.C) {
 	testAccountDetails := jujuclient.AccountDetails{
-		User:     "admin@local",
+		User:     "admin",
 		Password: "fnord",
 	}
 	err := s.store.UpdateAccount("ctrl", testAccountDetails)
@@ -63,7 +63,7 @@ func (s *AccountsSuite) TestUpdateAccountIgnoresEmptyAccess(c *gc.C) {
 }
 
 func (s *AccountsSuite) TestUpdateAccountNewController(c *gc.C) {
-	testAccountDetails := jujuclient.AccountDetails{User: "admin@local"}
+	testAccountDetails := jujuclient.AccountDetails{User: "admin"}
 	err := s.store.UpdateAccount("new-controller", testAccountDetails)
 	c.Assert(err, jc.ErrorIsNil)
 	details, err := s.store.AccountDetails("new-controller")
@@ -73,7 +73,7 @@ func (s *AccountsSuite) TestUpdateAccountNewController(c *gc.C) {
 
 func (s *AccountsSuite) TestUpdateAccountOverwrites(c *gc.C) {
 	testAccountDetails := jujuclient.AccountDetails{
-		User:            "admin@local",
+		User:            "admin",
 		Password:        "fnord",
 		LastKnownAccess: "addmodel",
 	}
