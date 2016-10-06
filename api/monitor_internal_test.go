@@ -24,6 +24,9 @@ type MonitorSuite struct {
 	monitor *monitor
 }
 
+const testPingPeriod = 30 * time.Second
+const testPingTimeout = time.Second
+
 func (s *MonitorSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.clock = testing.NewClock(time.Time{})
@@ -31,11 +34,13 @@ func (s *MonitorSuite) SetUpTest(c *gc.C) {
 	s.dead = make(chan struct{})
 	s.broken = make(chan struct{})
 	s.monitor = &monitor{
-		clock:  s.clock,
-		ping:   func() error { return nil },
-		closed: s.closed,
-		dead:   s.dead,
-		broken: s.broken,
+		clock:       s.clock,
+		ping:        func() error { return nil },
+		pingPeriod:  testPingPeriod,
+		pingTimeout: testPingTimeout,
+		closed:      s.closed,
+		dead:        s.dead,
+		broken:      s.broken,
 	}
 }
 
@@ -57,7 +62,7 @@ func (s *MonitorSuite) TestFirstPingFails(c *gc.C) {
 	s.monitor.ping = func() error { return errors.New("boom") }
 	go s.monitor.run()
 
-	s.waitThenAdvance(c, PingPeriod)
+	s.waitThenAdvance(c, testPingPeriod)
 	assertEvent(c, s.broken)
 }
 
@@ -72,20 +77,20 @@ func (s *MonitorSuite) TestLaterPingFails(c *gc.C) {
 	}
 	go s.monitor.run()
 
-	s.waitThenAdvance(c, PingPeriod)
-	s.waitThenAdvance(c, PingPeriod)
+	s.waitThenAdvance(c, testPingPeriod)
+	s.waitThenAdvance(c, testPingPeriod)
 	assertEvent(c, s.broken)
 }
 
 func (s *MonitorSuite) TestPingsTimesOut(c *gc.C) {
 	s.monitor.ping = func() error {
 		// Advance the clock only once this ping call is being waited on.
-		s.waitThenAdvance(c, PingTimeout)
+		s.waitThenAdvance(c, testPingTimeout)
 		return nil
 	}
 	go s.monitor.run()
 
-	s.waitThenAdvance(c, PingPeriod)
+	s.waitThenAdvance(c, testPingPeriod)
 	assertEvent(c, s.broken)
 }
 

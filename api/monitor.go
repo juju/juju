@@ -3,15 +3,23 @@
 
 package api
 
-import "github.com/juju/utils/clock"
+import (
+	"time"
+
+	"github.com/juju/utils/clock"
+)
 
 // monitor performs regular pings of an API connection as well as
 // monitoring the connection closed channel and the underlying
 // rpc.Conn's dead channel. It will close `broken` if pings fail, or
 // if `closed` or `dead` are closed.
 type monitor struct {
-	clock  clock.Clock
-	ping   func() error
+	clock clock.Clock
+
+	ping        func() error
+	pingPeriod  time.Duration
+	pingTimeout time.Duration
+
 	closed <-chan struct{}
 	dead   <-chan struct{}
 	broken chan<- struct{}
@@ -25,7 +33,7 @@ func (m *monitor) run() {
 			return
 		case <-m.dead:
 			return
-		case <-m.clock.After(PingPeriod):
+		case <-m.clock.After(m.pingPeriod):
 			if !m.pingWithTimeout() {
 				return
 			}
@@ -46,8 +54,8 @@ func (m *monitor) pingWithTimeout() bool {
 			logger.Debugf("health ping failed: %v", err)
 		}
 		return err == nil
-	case <-m.clock.After(PingTimeout):
-		logger.Errorf("health ping timed out after %s", PingTimeout)
+	case <-m.clock.After(m.pingTimeout):
+		logger.Errorf("health ping timed out after %s", m.pingTimeout)
 		return false
 	}
 }

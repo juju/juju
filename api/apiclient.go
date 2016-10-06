@@ -247,11 +247,13 @@ func open(
 	st.closed = make(chan struct{})
 
 	go (&monitor{
-		clock:  clock,
-		closed: st.closed,
-		ping:   st.Ping,
-		dead:   client.Dead(),
-		broken: st.broken,
+		clock:       clock,
+		ping:        st.Ping,
+		pingPeriod:  PingPeriod,
+		pingTimeout: PingTimeout,
+		closed:      st.closed,
+		dead:        client.Dead(),
+		broken:      st.broken,
 	}).run()
 	return st, nil
 }
