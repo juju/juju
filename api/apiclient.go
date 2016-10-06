@@ -566,13 +566,13 @@ type monitor struct {
 func (m *monitor) run() {
 	defer close(m.broken)
 	for {
-		if !m.pingWithTimeout() {
-			return
-		}
 		select {
 		case <-m.closed:
 			return
 		case <-m.clock.After(PingPeriod):
+			if !m.pingWithTimeout() {
+				return
+			}
 		}
 	}
 }

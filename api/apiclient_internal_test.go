@@ -36,10 +36,12 @@ func (s *MonitorSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *MonitorSuite) TestInitialPingFails(c *gc.C) {
+func (s *MonitorSuite) TestFirstPingFails(c *gc.C) {
 	s.monitor.ping = func() error { return errors.New("boom") }
 	go s.monitor.run()
 
+	assertEvent(c, s.clock.Alarms())
+	s.clock.Advance(PingPeriod)
 	assertEvent(c, s.broken)
 }
 
@@ -54,22 +56,23 @@ func (s *MonitorSuite) TestLaterPingFails(c *gc.C) {
 	}
 	go s.monitor.run()
 
-	// Wait for the time.After in the main loop.
-	for i := 0; i < 2; i++ {
-		assertEvent(c, s.clock.Alarms())
-	}
-
+	assertEvent(c, s.clock.Alarms())
+	s.clock.Advance(PingPeriod)
+	assertEvent(c, s.clock.Alarms())
 	s.clock.Advance(PingPeriod)
 	assertEvent(c, s.broken)
 }
 
 func (s *MonitorSuite) TestPingsTimesOut(c *gc.C) {
 	s.monitor.ping = func() error {
+		// Advance the clock only once this ping call is being waited on.
 		s.clock.WaitAdvance(PingTimeout, jjtesting.LongWait, 1)
 		return nil
 	}
 	go s.monitor.run()
 
+	assertEvent(c, s.clock.Alarms())
+	s.clock.Advance(PingPeriod)
 	assertEvent(c, s.broken)
 }
 
