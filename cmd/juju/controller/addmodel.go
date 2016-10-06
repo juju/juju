@@ -464,11 +464,3 @@ func (c *addModelCommand) getConfigValues(ctx *cmd.Context) (map[string]interfac
 	}
 	return attrs, nil
 }
-
-func canonicalCredentialIds(tags []names.CloudCredentialTag) []string {
-	ids := make([]string, len(tags))
-	for i, tag := range tags {
-		ids[i] = tag.Canonical()
-	}
-	return ids
-}
