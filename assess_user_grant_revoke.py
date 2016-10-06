@@ -52,14 +52,14 @@ USER_LIST_CTRL_ADMIN = copy.deepcopy(USER_LIST_CTRL)
 # bug 1606354
 USER_LIST_CTRL_ADMIN.append(
     {"access": "superuser", "user-name": "adminuser"})
-SHARE_LIST_CTRL = {"admin@local": {"display-name": "admin",
-                                   "access": "admin"}}
+SHARE_LIST_CTRL = {"admin": {"display-name": "admin",
+                             "access": "admin"}}
 SHARE_LIST_CTRL_READ = copy.deepcopy(SHARE_LIST_CTRL)
-SHARE_LIST_CTRL_READ["readuser@local"] = {"access": "read"}
+SHARE_LIST_CTRL_READ["readuser"] = {"access": "read"}
 SHARE_LIST_CTRL_WRITE = copy.deepcopy(SHARE_LIST_CTRL)
-SHARE_LIST_CTRL_WRITE["writeuser@local"] = {"access": "write"}
+SHARE_LIST_CTRL_WRITE["writeuser"] = {"access": "write"}
 SHARE_LIST_CTRL_ADMIN = copy.deepcopy(SHARE_LIST_CTRL)
-SHARE_LIST_CTRL_ADMIN["adminuser@local"] = {"access": "admin"}
+SHARE_LIST_CTRL_ADMIN["adminuser"] = {"access": "admin"}
 
 
 def assert_equal(found, expected):

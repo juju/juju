@@ -515,13 +515,12 @@ class FakeBackend:
         share_list = {}
         for i, (share_name, permission) in enumerate(
                 zip(share_names, permissions)):
-            name = share_name + '@local'
-            share_list[name] = {'display-name': share_name,
-                                'access': permission}
-            if name != 'admin@local':
-                share_list[name].pop('display-name')
+            share_list[share_name] = {'display-name': share_name,
+                                      'access': permission}
+            if share_name != 'admin':
+                share_list[share_name].pop('display-name')
             else:
-                share_list[name]['access'] = 'admin'
+                share_list[share_name]['access'] = 'admin'
         return share_list
 
     def show_model(self):
