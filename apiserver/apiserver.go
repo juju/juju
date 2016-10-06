@@ -280,6 +280,12 @@ func (srv *Server) run() {
 		srv.tomb.Kill(srv.processCertChanges())
 	}()
 
+	srv.wg.Add(1)
+	go func() {
+		defer srv.wg.Done()
+		srv.tomb.Kill(srv.processModelRemovals())
+	}()
+
 	// for pat based handlers, they are matched in-order of being
 	// registered, first match wins. So more specific ones have to be
 	// registered first.
@@ -538,9 +544,33 @@ func (srv *Server) serveConn(wsConn *websocket.Conn, modelUUID string, apiObserv
 
 	conn := rpc.NewConn(codec, apiObserver)
 
-	h, err := srv.newAPIHandler(conn, modelUUID, host)
+	// Note that we don't overwrite modelUUID here because
+	// newAPIHandler treats an empty modelUUID as signifying
+	// the API version used.
+	resolvedModelUUID, err := validateModelUUID(validateArgs{
+		statePool: srv.statePool,
+		modelUUID: modelUUID,
+	})
+	var (
+		st *state.State
+		h  *apiHandler
+	)
+	if err == nil {
+		st, err = srv.statePool.Get(resolvedModelUUID)
+	}
+	if err == nil {
+		logger.Debugf("xtian got state %v", resolvedModelUUID)
+		defer func() {
+			err := srv.statePool.Put(resolvedModelUUID)
+			logger.Debugf("xtian put state %v", resolvedModelUUID)
+			if err != nil {
+				logger.Errorf("error putting %v back into the state pool:", err)
+			}
+		}()
+		h, err = newAPIHandler(srv, st, conn, modelUUID, host)
+	}
 	if err != nil {
-		conn.ServeRoot(&errRoot{err}, serverError)
+		conn.ServeRoot(&errRoot{errors.Trace(err)}, serverError)
 	} else {
 		adminAPIs := make(map[int]interface{})
 		for apiVersion, factory := range srv.adminAPIFactories {
@@ -554,24 +584,6 @@ func (srv *Server) serveConn(wsConn *websocket.Conn, modelUUID string, apiObserv
 	case <-srv.tomb.Dying():
 	}
 	return conn.Close()
-}
-
-func (srv *Server) newAPIHandler(conn *rpc.Conn, modelUUID, serverHost string) (*apiHandler, error) {
-	// Note that we don't overwrite modelUUID here because
-	// newAPIHandler treats an empty modelUUID as signifying
-	// the API version used.
-	resolvedModelUUID, err := validateModelUUID(validateArgs{
-		statePool: srv.statePool,
-		modelUUID: modelUUID,
-	})
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	st, err := srv.statePool.Get(resolvedModelUUID)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return newAPIHandler(srv, st, conn, modelUUID, serverHost)
 }
 
 func (srv *Server) mongoPinger() error {
@@ -663,4 +675,37 @@ func serverError(err error) error {
 		return err
 	}
 	return nil
+}
+
+func (srv *Server) processModelRemovals() error {
+	w := srv.state.WatchModels()
+	defer w.Stop()
+	for {
+		select {
+		case <-srv.tomb.Dying():
+			return tomb.ErrDying
+		case modelIDs := <-w.Changes():
+			logger.Debugf("xtian changes: %v", modelIDs)
+			for _, modelID := range modelIDs {
+				model, err := srv.state.GetModel(names.NewModelTag(modelID))
+				gone := errors.IsNotFound(err)
+				dead := err == nil && model.Life() == state.Dead
+				logger.Debugf("xtian dead: %v, gone: %v, err: %v", dead, gone, err)
+				if err != nil && !gone {
+					return errors.Trace(err)
+				}
+				if !dead && !gone {
+					continue
+				}
+
+				// Model's gone away - ensure that we remove it
+				// from the state pool.
+				logger.Debugf("xtian removing model %v from state pool", modelID)
+				err = srv.statePool.Remove(modelID)
+				if err != nil {
+					return errors.Trace(err)
+				}
+			}
+		}
+	}
 }
