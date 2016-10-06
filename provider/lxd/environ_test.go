@@ -126,16 +126,16 @@ func (s *environSuite) TestDestroyHostedModels(c *gc.C) {
 	s.Stub.ResetCalls()
 
 	// machine0 is in the controller model.
-	machine0 := s.NewRawInstance(c, "juju-whatever-machine-0")
+	machine0 := s.NewRawInstance(c, "juju-controller-machine-0")
 	machine0.InstanceSummary.Metadata["juju-model-uuid"] = s.Config.UUID()
 	machine0.InstanceSummary.Metadata["juju-controller-uuid"] = s.Config.UUID()
 	// machine1 is not in the controller model, but managed
 	// by the same controller.
-	machine1 := s.NewRawInstance(c, "juju-whatever-machine-1")
+	machine1 := s.NewRawInstance(c, "juju-hosted-machine-1")
 	machine1.InstanceSummary.Metadata["juju-model-uuid"] = "not-" + s.Config.UUID()
 	machine1.InstanceSummary.Metadata["juju-controller-uuid"] = s.Config.UUID()
 	// machine2 is not managed by the same controller.
-	machine2 := s.NewRawInstance(c, "juju-whatever-machine-2")
+	machine2 := s.NewRawInstance(c, "juju-controller-machine-2")
 	machine2.InstanceSummary.Metadata["juju-model-uuid"] = "not-" + s.Config.UUID()
 	machine2.InstanceSummary.Metadata["juju-controller-uuid"] = "not-" + s.Config.UUID()
 	s.Client.Insts = append(s.Client.Insts, *machine0, *machine1, *machine2)
@@ -143,13 +143,13 @@ func (s *environSuite) TestDestroyHostedModels(c *gc.C) {
 	err := s.Env.DestroyController(s.Config.UUID())
 	c.Assert(err, jc.ErrorIsNil)
 
-	prefix := s.Prefix()
 	fwname := common.EnvFullName(s.Env.Config().UUID())
 	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{
 		{"Ports", []interface{}{fwname}},
 		{"Destroy", nil},
-		{"Instances", []interface{}{prefix, lxdclient.AliveStatuses}},
-		{"RemoveInstances", []interface{}{prefix, []string{machine1.Name}}},
+		{"Instances", []interface{}{"juju-", lxdclient.AliveStatuses}},
+		{"Instances", []interface{}{"juju-", []string{}}},
+		{"RemoveInstances", []interface{}{"juju-", []string{machine1.Name}}},
 	})
 }
 

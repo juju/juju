@@ -7,8 +7,10 @@ package lxdclient
 
 import (
 	"crypto/x509"
+	"net/http"
 
 	"github.com/juju/errors"
+	"github.com/lxc/lxd"
 	"github.com/lxc/lxd/shared"
 )
 
@@ -36,36 +38,12 @@ func (c certClient) AddCert(cert Cert) error {
 	return nil
 }
 
-// ListCerts returns the list of cert fingerprints from the server.
-func (c certClient) ListCerts() ([]string, error) {
-	certs, err := c.raw.CertificateList()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	var fingerprints []string
-	for _, cert := range certs {
-		fingerprints = append(fingerprints, cert.Fingerprint)
-	}
-	return fingerprints, nil
-}
-
-// RemoveCert removes the cert from the server.
-func (c certClient) RemoveCert(cert *Cert) error {
-	fingerprint, err := cert.Fingerprint()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	if err := c.raw.CertificateRemove(fingerprint); err != nil {
-		return errors.Trace(err)
-	}
-	return nil
-}
-
 // RemoveCertByFingerprint removes the cert from the server.
 func (c certClient) RemoveCertByFingerprint(fingerprint string) error {
 	if err := c.raw.CertificateRemove(fingerprint); err != nil {
+		if err == lxd.LXDErrors[http.StatusNotFound] {
+			return errors.NotFoundf("certificate with fingerprint %q", fingerprint)
+		}
 		return errors.Trace(err)
 	}
 	return nil

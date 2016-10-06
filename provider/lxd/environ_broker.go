@@ -180,6 +180,8 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams) (*lxdclien
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	var certificateFingerprint string
 	if args.InstanceConfig.Controller != nil {
 		// For controller machines, generate a certificate pair and write
 		// them to the instance's disk in a well-defined location, along
@@ -190,9 +192,14 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams) (*lxdclien
 		}
 		cert := lxdclient.NewCert(certPEM, keyPEM)
 		cert.Name = hostname
-		// TODO(axw) 2016-08-24 #1616346
-		// We need to remove this cert when removing
-		// the machine and/or destroying the controller.
+
+		// We record the certificate's fingerprint in metadata, so we can
+		// remove the certificate along with the instance.
+		certificateFingerprint, err = cert.Fingerprint()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
 		if err := env.raw.AddCert(cert); err != nil {
 			return nil, errors.Annotatef(err, "adding certificate %q", cert.Name)
 		}
@@ -212,11 +219,10 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams) (*lxdclien
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	if certificateFingerprint != "" {
+		metadata[metadataKeyCertificateFingerprint] = certificateFingerprint
+	}
 
-	//tags := []string{
-	//	env.globalFirewallName(),
-	//	machineID,
-	//}
 	// TODO(ericsnow) Use the env ID for the network name (instead of default)?
 	// TODO(ericsnow) Make the network name configurable?
 	// TODO(ericsnow) Support multiple networks?
@@ -236,7 +242,6 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams) (*lxdclien
 			"default",
 			env.profileName(),
 		},
-		//Tags:              tags,
 		// Network is omitted (left empty).
 	}
 
@@ -330,6 +335,36 @@ func (env *environ) StopInstances(instances ...instance.Id) error {
 	}
 
 	prefix := env.namespace.Prefix()
-	err := env.raw.RemoveInstances(prefix, ids...)
+	err := removeInstances(env.raw, prefix, ids)
 	return errors.Trace(err)
+}
+
+func removeInstances(raw *rawProvider, prefix string, ids []string) error {
+	// We must first list the instances so we can remove any
+	// controller certificates.
+	allInstances, err := raw.Instances(prefix)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, inst := range allInstances {
+		certificateFingerprint := inst.Metadata()[lxdclient.CertificateFingerprintKey]
+		if certificateFingerprint == "" {
+			continue
+		}
+		var found bool
+		for _, id := range ids {
+			if inst.Name == id {
+				found = true
+				break
+			}
+		}
+		if !found {
+			continue
+		}
+		err := raw.RemoveCertByFingerprint(certificateFingerprint)
+		if err != nil && !errors.IsNotFound(err) {
+			return errors.Annotatef(err, "removing certificate for %q", inst.Name)
+		}
+	}
+	return raw.RemoveInstances(prefix, ids...)
 }

@@ -26,6 +26,11 @@ const (
 	// Also see https://github.com/lxc/lxd/blob/master/specs/configuration.md.
 	UserdataKey = "user-data"
 
+	// CertificateFingerprintKey is a key that we define to associate
+	// a certificate fingerprint with an instance. We use this to clean
+	// up certificates when removing controller instances.
+	CertificateFingerprintKey = "certificate-fingerprint"
+
 	megabyte = 1024 * 1024
 )
 

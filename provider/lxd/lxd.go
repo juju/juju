@@ -13,13 +13,8 @@ import (
 
 // The metadata keys used when creating new instances.
 const (
-	metadataKeyCloudInit = lxdclient.UserdataKey
-)
-
-// Common metadata values used when creating new instances.
-const (
-	metadataValueTrue  = "true"
-	metadataValueFalse = "false"
+	metadataKeyCloudInit              = lxdclient.UserdataKey
+	metadataKeyCertificateFingerprint = lxdclient.CertificateFingerprintKey
 )
 
 var (

@@ -465,6 +465,11 @@ func (conn *StubClient) AddCert(cert lxdclient.Cert) error {
 	return conn.NextErr()
 }
 
+func (conn *StubClient) RemoveCertByFingerprint(fingerprint string) error {
+	conn.AddCall("RemoveCertByFingerprint", fingerprint)
+	return conn.NextErr()
+}
+
 func (conn *StubClient) ServerStatus() (*shared.ServerState, error) {
 	conn.AddCall("ServerStatus")
 	if err := conn.NextErr(); err != nil {
