@@ -128,10 +128,9 @@ func (s *AddMachineSuite) TestAddMachineUnauthorizedMentionsJujuGrant(c *gc.C) {
 		Message: "permission denied",
 		Code:    params.CodeUnauthorized,
 	}
-	_, err := s.run(c)
-	// Expect a friendly message mentioning the need use `juju grant`.
-	stripped := strings.Replace(err.Error(), "\n", " ", -1)
-	c.Assert(stripped, gc.Matches, `.*juju grant.*`)
+	ctx, _ := s.run(c)
+	outString := strings.Replace(testing.Stdout(ctx), "\n", " ", -1)
+	c.Assert(outString, gc.Matches, `.*juju grant.*`)
 }
 
 func (s *AddMachineSuite) TestSSHPlacement(c *gc.C) {

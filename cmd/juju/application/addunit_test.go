@@ -141,10 +141,9 @@ func (s *AddUnitSuite) TestUnauthorizedMentionsJujuGrant(c *gc.C) {
 		Message: "permission denied",
 		Code:    params.CodeUnauthorized,
 	}
-	err := s.runAddUnit(c, "some-application-name")
-
-	stripped := strings.Replace(err.Error(), "\n", " ", -1)
-	c.Assert(stripped, gc.Matches, `.*juju grant.*`)
+	ctx, _ := testing.RunCommand(c, application.NewAddUnitCommandForTest(s.fake), "some-application-name")
+	outString := strings.Replace(testing.Stdout(ctx), "\n", " ", -1)
+	c.Assert(outString, gc.Matches, `.*juju grant.*`)
 }
 
 func (s *AddUnitSuite) TestForceMachine(c *gc.C) {

@@ -206,7 +206,7 @@ func (c *addModelCommand) Run(ctx *cmd.Context) error {
 	model, err := addModelClient.CreateModel(c.Name, modelOwner, cloudTag.Id(), cloudRegion, credentialTag, attrs)
 	if err != nil {
 		if params.IsCodeUnauthorized(err) {
-			return common.PermissionsError(err, "add a model")
+			return common.PermissionsError(err, ctx.Stdout, "add a model")
 		}
 		return errors.Trace(err)
 	}

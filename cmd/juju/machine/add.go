@@ -237,7 +237,7 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 	configAttrs, err := modelConfigClient.ModelGet()
 	if err != nil {
 		if params.IsCodeUnauthorized(err) {
-			return common.PermissionsError(err, "add a machine to this model")
+			return common.PermissionsError(err, ctx.Stdout, "add a machine to this model")
 		}
 		return errors.Trace(err)
 	}

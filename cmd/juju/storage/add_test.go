@@ -232,9 +232,9 @@ func (s *addSuite) TestUnauthorizedMentionsJujuGrant(c *gc.C) {
 		}
 	}
 
-	_, err := s.runAdd(c, s.args...)
-	errString := strings.Replace(err.Error(), "\n", " ", -1)
-	c.Assert(errString, gc.Matches, `.*juju grant.*`)
+	ctx, _ := s.runAdd(c, s.args...)
+	outString := strings.Replace(testing.Stdout(ctx), "\n", " ", -1)
+	c.Assert(outString, gc.Matches, `.*juju grant.*`)
 }
 
 func (s *addSuite) assertAddOutput(c *gc.C, expectedOut, expectedErr string) {

@@ -58,7 +58,7 @@ type ApplicationAddRelationAPI interface {
 	AddRelation(endpoints ...string) (*params.AddRelationResults, error)
 }
 
-func (c *addRelationCommand) Run(_ *cmd.Context) error {
+func (c *addRelationCommand) Run(ctx *cmd.Context) error {
 	client, err := c.newAPIFunc()
 	if err != nil {
 		return err
@@ -66,7 +66,7 @@ func (c *addRelationCommand) Run(_ *cmd.Context) error {
 	defer client.Close()
 	_, err = client.AddRelation(c.Endpoints...)
 	if params.IsCodeUnauthorized(err) {
-		return common.PermissionsError(err, "add a relation")
+		return common.PermissionsError(err, ctx.Stdout, "add a relation")
 	}
 	return block.ProcessBlockedError(err, block.BlockChange)
 }

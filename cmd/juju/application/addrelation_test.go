@@ -81,9 +81,9 @@ func (s *AddRelationSuite) TestAddRelationUnauthorizedMentionsJujuGrant(c *gc.C)
 		Message: "permission denied",
 		Code:    params.CodeUnauthorized,
 	})
-	err := s.runAddRelation(c, "application1", "application2")
-	errString := strings.Replace(err.Error(), "\n", " ", -1)
-	c.Assert(errString, gc.Matches, `.*juju grant.*`)
+	ctx, _ := coretesting.RunCommand(c, NewAddRelationCommandForTest(s.mockAPI), "application1", "application2")
+	outString := strings.Replace(coretesting.Stdout(ctx), "\n", " ", -1)
+	c.Assert(outString, gc.Matches, `.*juju grant.*`)
 }
 
 type mockAddAPI struct {

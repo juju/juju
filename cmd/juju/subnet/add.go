@@ -114,7 +114,7 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 			ctx.Infof("ERROR: %v.", err)
 			return nil
 		} else if err != nil && params.IsCodeUnauthorized(err) {
-			return common.PermissionsError(err, "add a subnet")
+			return common.PermissionsError(err, ctx.Stdout, "add a subnet")
 		} else if err != nil {
 			return errors.Annotatef(err, "cannot add subnet")
 		}

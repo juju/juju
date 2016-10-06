@@ -140,9 +140,9 @@ func (s *UserAddCommandSuite) TestAddUserUnauthorizedMentionsJujuGrant(c *gc.C) 
 		Message: "permission denied",
 		Code:    params.CodeUnauthorized,
 	}
-	_, err := s.run(c, "foobar")
-	errString := strings.Replace(err.Error(), "\n", " ", -1)
-	c.Assert(errString, gc.Matches, `*.juju grant.*`)
+	ctx, _ := s.run(c, "foobar")
+	outString := strings.Replace(testing.Stdout(ctx), "\n", " ", -1)
+	c.Assert(outString, gc.Matches, `.*juju grant.*`)
 }
 
 type mockAddUserAPI struct {

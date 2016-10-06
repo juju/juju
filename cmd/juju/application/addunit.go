@@ -167,7 +167,7 @@ func (c *addUnitCommand) getAPI() (serviceAddUnitAPI, error) {
 
 // Run connects to the environment specified on the command line
 // and calls AddUnits for the given application.
-func (c *addUnitCommand) Run(_ *cmd.Context) error {
+func (c *addUnitCommand) Run(ctx *cmd.Context) error {
 	apiclient, err := c.getAPI()
 	if err != nil {
 		return err
@@ -182,7 +182,7 @@ func (c *addUnitCommand) Run(_ *cmd.Context) error {
 	}
 	_, err = apiclient.AddUnits(c.ApplicationName, c.NumUnits, c.Placement)
 	if params.IsCodeUnauthorized(err) {
-		return common.PermissionsError(err, "add a unit")
+		return common.PermissionsError(err, ctx.Stdout, "add a unit")
 	}
 	return block.ProcessBlockedError(err, block.BlockChange)
 }
