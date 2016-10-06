@@ -101,7 +101,7 @@ func newClient(
 		return nil, errors.Trace(err)
 	}
 
-	client, err := lxdclient.Connect(*config)
+	client, err := lxdclient.Connect(*config, true)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

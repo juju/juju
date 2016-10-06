@@ -112,7 +112,7 @@ func (c Client) DefaultProfileBridgeName() string {
 
 // Connect opens an API connection to LXD and returns a high-level
 // Client wrapper around that connection.
-func Connect(cfg Config) (*Client, error) {
+func Connect(cfg Config, verifyBridgeConfig bool) (*Client, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -137,7 +137,7 @@ func Connect(cfg Config) (*Client, error) {
 	}
 
 	var bridgeName string
-	if remoteID == remoteIDForLocal {
+	if remoteID == remoteIDForLocal && verifyBridgeConfig {
 		// If this is the LXD provider on the localhost, let's do an extra check to
 		// make sure the default profile has a correctly configured bridge, and
 		// which one is it.

@@ -26,7 +26,7 @@ import (
 func skipIfWily(c *gc.C) {
 	if series.HostSeries() == "wily" {
 		cfg, _ := lxdclient.Config{}.WithDefaults()
-		_, err := lxdclient.Connect(cfg)
+		_, err := lxdclient.Connect(cfg, false)
 		// We try to create a client here. On wily this should fail, because
 		// the default 0.20 lxd version should make juju/tools/lxdclient return
 		// an error.

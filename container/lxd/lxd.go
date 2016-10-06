@@ -51,7 +51,7 @@ func ConnectLocal() (*lxdclient.Client, error) {
 		return nil, errors.Trace(err)
 	}
 
-	client, err := lxdclient.Connect(cfg)
+	client, err := lxdclient.Connect(cfg, false)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
