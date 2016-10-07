@@ -107,11 +107,6 @@ func (s *configCommandSuite) TestGetCommandInitWithKey(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *configCommandSuite) TestGetCommandInitTooManyArgs(c *gc.C) {
-	err := coretesting.InitCommand(application.NewConfigCommandForTest(s.fake), []string{"app", "key", "another"})
-	c.Assert(err, gc.ErrorMatches, "can only retrieve a single value, or all values")
-}
-
 func (s *configCommandSuite) TestGetConfig(c *gc.C) {
 	for _, t := range getTests {
 		ctx := coretesting.Context(c)
@@ -169,7 +164,23 @@ func (s *configCommandSuite) TestSetCommandInit(c *gc.C) {
 
 	// --reset and no config name provided
 	err = coretesting.InitCommand(application.NewConfigCommandForTest(s.fake), []string{"application", "--reset"})
-	c.Assert(err, gc.ErrorMatches, "no configuration options specified")
+	c.Assert(err, gc.ErrorMatches, "flag needs an argument: --reset")
+
+	// cannot set and retrieve simultaneously
+	err = coretesting.InitCommand(application.NewConfigCommandForTest(s.fake), []string{"application", "get", "set=value"})
+	c.Assert(err, gc.ErrorMatches, "cannot set and retrieve values simultaneously")
+
+	// cannot reset and get simultaneously
+	err = coretesting.InitCommand(application.NewConfigCommandForTest(s.fake), []string{"application", "--reset", "reset", "get"})
+	c.Assert(err, gc.ErrorMatches, "cannot reset and retrieve values simultaneously")
+
+	// invalid reset keys
+	err = coretesting.InitCommand(application.NewConfigCommandForTest(s.fake), []string{"application", "--reset", "reset,bad=key"})
+	c.Assert(err, gc.ErrorMatches, `--reset accepts a comma delimited set of keys "a,b,c", received: "bad=key"`)
+
+	// init too many args fails
+	err = coretesting.InitCommand(application.NewConfigCommandForTest(s.fake), []string{"application", "key", "another"})
+	c.Assert(err, gc.ErrorMatches, "can only retrieve a single value, or all values")
 
 }
 
