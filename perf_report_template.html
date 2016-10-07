@@ -3,196 +3,175 @@
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <!-- Latest compiled and minified CSS -->
-    <link
-       rel="stylesheet"
-       href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css"
-       integrity="sha384-1q8mTJOASx8j1Au+a5WDVnPi2lkFfwwEAa8hDDdjZlpLegxhjVME1fgjWPGmkzs7"
-       crossorigin="anonymous">
 
-    <!-- Optional theme -->
-    <link
-       rel="stylesheet"
-       href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap-theme.min.css"
-       integrity="sha384-fLW2N01lMqjakBkx3l/M9EahuwpSfeNvV63J5ezn3uZzapT0u7EYsXMjQV+0En5r"
-       crossorigin="anonymous">
-
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
-    <!-- Latest compiled and minified JavaScript -->
-    <script
-       src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js"
-       integrity="sha384-0mSbJDEHialfmuBBQP6A4Qrprq5OVfW37PRR3j5ELqxss1yVqOtnepnHVP9aJ7xS"
-       crossorigin="anonymous"></script>
-
-    <!-- WIP stylings for table collapse. -->
-    <style type="text/css" media="screen">
-      table.table tr.clickable td:first-child:before {
-      content: " \25b2 ";
-      font-weight: bold;
-      padding-left: 8px;
-      padding-right: 8px;
-      }
-      table.table tr.collapsed td:first-child:before {
-      content: " \25bc ";
-      font-weight: bold;
-      padding-left: 8px;
-      padding-right: 8px;
-      }
-    </style>
+    <link rel="stylesheet" type="text/css"
+      href="http://assets.ubuntu.com/sites/guidelines/css/latest/ubuntu-styles.css" />
+    <link rel="stylesheet" type="text/css"
+      href="http://fonts.googleapis.com/css?family=Ubuntu:400,300,300italic,400italic,700,700italic|Ubuntu+Mono" />
+    <link rel="stylesheet" type="text/css"
+      href="http://reports.vapour.ws/static/css/base.css" />
+    <link rel="shortcut icon"  type="image/png"
+      href="http://reports.vapour.ws/static/images/favicon.ico" />
 
     <title>Simple performance/scale reporting</title>
 
   </head>
-  <body role="document">
-    <div class="container" role="main">
-      <div class="page-header">
-        <h1>Performance &amp; Scale testing</h1>
-      </div>
-
-      <div class="page-header">
-        <h2>Action Timings</h2>
-      </div>
-
-      <blockquote>
-        <p>
-          Breakdown of start and end times of an action (i.e. either
-          bootstrapping or deploying a charm).
-        </p>
-      </blockquote>
-
-      <table class="table">
-        <tr>
-          <th>Action</th>
-          <th>Start</th>
-          <th>End</th>
-          <th>Duration</th>
-        </tr>
-        <tr>
-          <td>Bootstrap</td>
-          <td>{{deployments.bootstrap.start}}</td>
-          <td>{{deployments.bootstrap.end}}</td>
-          <td>{{deployments.bootstrap.seconds}} Seconds</td>
-        </tr>
-        {% for deploy in deployments.deploys %}
-        <tr>
-          <td>Deploy {{deploy.name}}</td>
-          <td>{{deploy.timings.start}}</td>
-          <td>{{deploy.timings.end}}</td>
-          <td>{{deploy.timings.seconds}} Seconds</td>
-        </tr>
-        <tr>
-          <td colspan=4>
-            Units
-            <ul>
-              {% for name in deploy.applications.keys() %}
-              <li><b>{{name}}:</b> {{deploy.applications[name]}}</li>
-              {% endfor %}
-            </ul>
-          </td>
-        </tr>
-        {% endfor %}
-        <tr>
-          <td>Kill Controller</td>
-          <td>{{deployments.cleanup.start}}</td>
-          <td>{{deployments.cleanup.end}}</td>
-          <td>{{deployments.cleanup.seconds}} Seconds</td>
-        </tr>
-      </table>
-
-      <div class="page-header">
-        <h1>Controller system metrics</h1>
-      </div>
-
-      <blockquote>
-        <p>
-          System metrics are collected on the api-server(s) during the deployment
-          of charms. No metrics are collected during the bootstrap process.
-        </p>
-      </blockquote>
-
-      <h2>CPU Usage</h2>
-      <img src="file://{{cpu_graph}}" alt="CPU Usage Graph" />
-
-      <h2>Memory Usage</h2>
-      <img src="file://{{memory_graph}}" alt="Memory Usage Graph" />
-
-      <h2>Network Usage</h2>
-      <img src="file://{{network_graph}}" alt="Network Usage Graph" />
-
-      <h2>MongoDB Action Statistics</h2>
-      <img src="file://{{mongo_graph}}" alt="MongoDB Actions Details Graph" />
-
-      <h2>MongoDB Memory Usage Statistics</h2>
-      <img src="file://{{mongo_memory_graph}}" alt="MongoDB Memory Usage Details Graph" />
-
-      <div class="page-header">
-        <h1>Log Breakdown</h1>
-      </div>
-      <blockquote>
-        <p>
-          Logs broken down into 20 second chunks (to match the graphs.)
-        </p>
-      </blockquote>
-
-      <ul class="nav nav-tabs" role="tablist">
-        {% for date_stamp, values in log_message_chunks|dictsort %}
-        {% set safe_date_stamp = date_stamp|replace(":", "")|replace(" ", "") %}
-        <li
-           role="presentation"
-           {% if loop.index == 1 %}
-           class="active"
-           {% endif %}
-           >
-          <a
-             href="#{{safe_date_stamp}}"
-             aria-controls="{{safe_date_stamp}}"
-             role="tab"
-             data-toggle="tab">
-            {{values.name}}
+  <body>
+    <header class="banner global" role="banner">
+      <nav role="navigation" class="nav-primary nav-right">
+        <div class="logo">
+          <a class="logo-ubuntu" href="/">
+            <img width="118" height="27" src="https://assets.ubuntu.com/sites/ubuntu/latest/u/img/logo.png" alt="Juju Logo" />
+            <span>juju reports</span>
           </a>
-        </li>
-        {% endfor %}
-      </ul>
+        </div>
+      </nav>
+    </header>
 
-      <div class="tab-content">
-        {% for date_stamp, values in log_message_chunks|dictsort %}
-        {% set safe_date_stamp = date_stamp|replace(":", "")|replace(" ", "")|replace("(", "")|replace(")", "") %}
-        <div
-           role="tabpanel"
-           class="tab-pane {% if loop.index == 1 %}active{% endif %}"
-           id="{{safe_date_stamp}}">
-          <h4 class="text-center">Log period: <b>{{date_stamp}}</b></h4>
-          <table class="table table-condensed table-bordered">
-            {% for log_detail in values.logs|sort(attribute='timeframe') %}
-            {% set safe_timeframe = log_detail.timeframe|replace(":", "")|replace(" ", "")|replace("(", "")|replace(")", "") %}
-            <tr
-               data-toggle="collapse"
-               data-target="#{{safe_timeframe}}"
-               style="cursor: pointer;"
-               class="clickable active collapsed">
-              <td>
-                {{log_detail.timeframe}}
-              </td>
+    <div class="wrapper">
+      <div id="main-content" class="inner-wrapper">
+        <div class="row no-border">
+          <h1>Performance &amp; Scale testing</h1>
+
+          <h2>Action Timings</h2>
+
+          <blockquote>
+            Breakdown of start and end times of an action (i.e. either
+            bootstrapping or deploying a charm).
+          </blockquote>
+
+          <table>
+            <tr>
+              <th>Action</th>
+              <th>Start</th>
+              <th>End</th>
+              <th>Duration</th>
             </tr>
             <tr>
-              <td>
-                <div id="{{safe_timeframe}}" class="collapse">
-                  <small>
-                    {{log_detail.message}}
-                  </small>
-                </div>
+              <td>Bootstrap</td>
+              <td>{{deployments.bootstrap.start}}</td>
+              <td>{{deployments.bootstrap.end}}</td>
+              <td>{{deployments.bootstrap.seconds}} Seconds</td>
+            </tr>
+            {% for deploy in deployments.deploys %}
+            <tr>
+              <td>Deploy {{deploy.name}}</td>
+              <td>{{deploy.timings.start}}</td>
+              <td>{{deploy.timings.end}}</td>
+              <td>{{deploy.timings.seconds}} Seconds</td>
+            </tr>
+            <tr>
+              <td colspan=4>
+                Units
+                <ul>
+                  {% for name in deploy.applications.keys() %}
+                  <li><b>{{name}}:</b> {{deploy.applications[name]}}</li>
+                  {% endfor %}
+                </ul>
               </td>
             </tr>
-            {%endfor%}
-
+            {% endfor %}
+            <tr>
+              <td>Kill Controller</td>
+              <td>{{deployments.cleanup.start}}</td>
+              <td>{{deployments.cleanup.end}}</td>
+              <td>{{deployments.cleanup.seconds}} Seconds</td>
+            </tr>
           </table>
-        </div>
-        {% endfor %}
-      </div>
 
+          <h1>Controller system metrics</h1>
+
+          <blockquote>
+            System metrics are collected on the api-server(s) during the deployment
+            of charms. No metrics are collected during the bootstrap process.
+          </blockquote>
+
+          <h2>CPU Usage</h2>
+          <img src="file://{{cpu_graph}}" alt="CPU Usage Graph" />
+
+          <h2>Memory Usage</h2>
+          <img src="file://{{memory_graph}}" alt="Memory Usage Graph" />
+
+          <h2>Network Usage</h2>
+          <img src="file://{{network_graph}}" alt="Network Usage Graph" />
+
+          <h2>MongoDB Action Statistics</h2>
+          <img src="file://{{mongo_graph}}" alt="MongoDB Actions Details Graph" />
+
+          <h2>MongoDB Memory Usage Statistics</h2>
+          <img src="file://{{mongo_memory_graph}}" alt="MongoDB Memory Usage Details Graph" />
+
+          <h1>Log Breakdown</h1>
+          <blockquote>
+            Logs broken down into 20 second chunks (to match the graphs.)
+          </blockquote>
+
+          <ul class="nav nav-tabs" role="tablist">
+            {% for date_stamp, values in log_message_chunks|dictsort %}
+            {% set safe_date_stamp = date_stamp|replace(":", "")|replace(" ", "") %}
+            <li
+               role="presentation"
+               {% if loop.index == 1 %}
+               class="active"
+               {% endif %}
+               >
+              <a
+                 href="#{{safe_date_stamp}}"
+                 aria-controls="{{safe_date_stamp}}"
+                 role="tab"
+                 data-toggle="tab">
+                {{values.name}}
+              </a>
+            </li>
+            {% endfor %}
+          </ul>
+
+          <div class="tab-content">
+            {% for date_stamp, values in log_message_chunks|dictsort %}
+            {% set safe_date_stamp = date_stamp|replace(":", "")|replace(" ", "")|replace("(", "")|replace(")", "") %}
+            <div
+               role="tabpanel"
+               class="tab-pane {% if loop.index == 1 %}active{% endif %}"
+               id="{{safe_date_stamp}}">
+              <h4 class="text-center">Log period: <b>{{date_stamp}}</b></h4>
+              <table>
+                {% for log_detail in values.logs|sort(attribute='timeframe') %}
+                {% set safe_timeframe = log_detail.timeframe|replace(":", "")|replace(" ", "")|replace("(", "")|replace(")", "") %}
+                <tr
+                   data-toggle="collapse"
+                   data-target="#{{safe_timeframe}}"
+                   style="cursor: pointer;"
+                   class="clickable active collapsed">
+                  <td>
+                    {{log_detail.timeframe}}
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                    <div id="{{safe_timeframe}}" class="collapse">
+                      <small>
+                        {{log_detail.message}}
+                      </small>
+                    </div>
+                  </td>
+                </tr>
+                {%endfor%}
+
+              </table>
+            </div>
+            {% endfor %}
+          </div>
+
+        </div>
+      </div>
     </div>
-    <footer style="background-color: #f5f5f5; height: 25px; border-top: 1px solid lightgray; padding-left: 12px;">
-      Juju Performance/Scale testing
+    <footer class="global clearfix">
+      <div class="legal clearfix">
+        <p class="twelve-col">
+          &copy; 2016 Canonical Ltd. Ubuntu and Canonical are registered
+          trademarks of Canonical Ltd.
+        </p>
+      </div>
     </footer>
   </body>
 </html>
