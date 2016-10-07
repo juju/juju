@@ -65,7 +65,7 @@ func (c *ModelConfigAPI) isAdmin() error {
 }
 
 // ModelGet implements the server-side part of the
-// get-model-config CLI command.
+// model-config CLI command.
 func (c *ModelConfigAPI) ModelGet() (params.ModelConfigResults, error) {
 	result := params.ModelConfigResults{}
 	if err := c.checkCanWrite(); err != nil {
