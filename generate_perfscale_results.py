@@ -135,8 +135,22 @@ def generate_reports(controller_log, results_dir, deployments):
     cpu_image = generate_cpu_graph_image(results_dir)
     memory_image = generate_memory_graph_image(results_dir)
     network_image = generate_network_graph_image(results_dir)
-    mongo_query_image, mongo_memory_image = generate_mongo_graph_image(
-        results_dir)
+
+    try:
+        destination_dir = os.path.join(results_dir, 'mongodb')
+        os.mkdir(destination_dir)
+        perf_graphing.create_mongodb_rrd_files(results_dir, destination_dir)
+        mongo_query_image = generate_mongo_query_graph_image(results_dir)
+        mongo_memory_image = generate_mongo_memory_graph_image(results_dir)
+    except IOError:
+        log.error(
+            'Failed to create the MongoDB RRD file. Source file not found.'
+        )
+        # Sometimes mongostats fails to startup and start logging. Unsure yet
+        # why this is. For now generate the report without the mongodb details,
+        # the rest of the report is still useful.
+        mongo_query_image = None
+        mongo_memory_image = None
 
     log_message_chunks = get_log_message_in_timed_chunks(
         controller_log, deployments)
@@ -235,28 +249,26 @@ def generate_network_graph_image(results_dir):
         results_dir, 'interface-eth0', 'network', perf_graphing.network_graph)
 
 
-def generate_mongo_graph_image(results_dir):
-    dest_path = os.path.join(results_dir, 'mongodb')
-
-    if not perf_graphing.create_mongodb_rrd_file(results_dir, dest_path):
-        log.error('Failed to create the MongoDB RRD file.')
-        return None
-    query_graph = generate_graph_image(
+def generate_mongo_query_graph_image(results_dir):
+    return generate_graph_image(
         results_dir, 'mongodb', 'mongodb', perf_graphing.mongodb_graph)
 
-    memory_graph = generate_graph_image(
+
+def generate_mongo_memory_graph_image(results_dir):
+    return generate_graph_image(
         results_dir,
         'mongodb',
         'mongodb_memory',
         perf_graphing.mongodb_memory_graph)
-
-    return query_graph, memory_graph
 
 
 def get_duration_points(rrd_file):
     start = rrdtool.first(rrd_file)
     end = rrdtool.last(rrd_file)
 
+    # Start gives us the start timestamp in the data but it might be null/empty
+    # (i.e no data entered for that time.)
+    # Find the timestamp in which data was first entered.
     command = [
         'rrdtool', 'fetch', rrd_file, 'AVERAGE',
         '--start', str(start), '--end', str(end)]
@@ -312,7 +324,7 @@ def setup_system_monitoring(admin_client):
 
     installer_script_path = _get_static_script_path(SETUP_SCRIPT_PATH)
     collectd_config_path = _get_static_script_path(COLLECTD_CONFIG_PATH)
-    installer_script_dest_path = '/tmp/installer.sh'
+    installer_script_destination_path = '/tmp/installer.sh'
     runner_script_dest_path = '/tmp/runner.sh'
     collectd_config_dest_file = '/tmp/collectd.config'
 

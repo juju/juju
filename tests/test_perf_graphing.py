@@ -1,7 +1,35 @@
 """Tests for perf_graphing support module."""
 
+from mock import patch, Mock
+
 import perf_graphing as pg
 from tests import TestCase
+
+
+class TestCreateMongodbRRDFiles(TestCase):
+
+    def test_create_mongodb_rrd_files(self):
+        results_dir = '/foo/test/'
+        destination_dir = '/bar/test/'
+        start_ts = '0000'
+        end_ts = '9999'
+        all_data = [Mock()]
+        stat_data = (start_ts, end_ts, all_data)
+        with patch.object(
+                pg, 'get_mongodb_stat_data',
+                autospec=True, return_value=stat_data) as m_gmst:
+            with patch.object(
+                    pg, '_create_mongodb_memory_database',
+                    autospec=True) as m_mdb:
+                with patch.object(
+                        pg, '_create_mongodb_query_database',
+                        autospec=True) as m_qdb:
+                    pg.create_mongodb_rrd_files(results_dir, destination_dir)
+        m_gmst.assert_called_once_with('/foo/test/mongodb-stats.log')
+        m_mdb.assert_called_once_with(
+            '/bar/test/mongodb_memory.rrd', start_ts, all_data)
+        m_qdb.assert_called_once_with(
+            '/bar/test/mongodb.rrd', start_ts, all_data)
 
 
 class TestValueToBytes(TestCase):
