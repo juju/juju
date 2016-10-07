@@ -41,15 +41,15 @@ func (s *ConfigCommandSuite) TestInit(c *gc.C) {
 			// Test reset
 			// 2
 			args:       []string{"--reset"},
-			errorMatch: "no keys specified",
+			errorMatch: "flag needs an argument: --reset",
 		}, {
 			// 3
-			args:   []string{"--reset", "something", "weird"},
-			nilErr: true,
+			args:       []string{"--reset", "something", "weird"},
+			errorMatch: "cannot set and retrieve default values simultaneously",
 		}, {
 			// 4
 			args:       []string{"--reset", "agent-version"},
-			errorMatch: "agent-version cannot be reset",
+			errorMatch: `"agent-version" cannot be reset`,
 		}, {
 			// Test get
 			// 5
@@ -168,15 +168,15 @@ func (s *ConfigCommandSuite) TestBlockedError(c *gc.C) {
 }
 
 func (s *ConfigCommandSuite) TestResetPassesValues(c *gc.C) {
-	_, err := s.run(c, "--reset", "special", "running")
+	_, err := s.run(c, "--reset", "special,running")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.fake.keys, jc.DeepEquals, []string{"special", "running"})
+	c.Assert(s.fake.resetKeys, jc.DeepEquals, []string{"special", "running"})
 }
 
-func (s *ConfigCommandSuite) TestResettingKnownValue(c *gc.C) {
+func (s *ConfigCommandSuite) TestResettingUnKnownValue(c *gc.C) {
 	_, err := s.run(c, "--reset", "unknown")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.fake.keys, jc.DeepEquals, []string{"unknown"})
+	c.Assert(s.fake.resetKeys, jc.DeepEquals, []string{"unknown"})
 	// Command succeeds, but warning logged.
 	expected := `key "unknown" is not defined in the current model configuration: possible misspelling`
 	c.Check(c.GetTestLog(), jc.Contains, expected)

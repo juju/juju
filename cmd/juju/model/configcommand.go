@@ -57,10 +57,20 @@ type configCommand struct {
 	modelcmd.ModelCommandBase
 	out cmd.Output
 
-	action func(configCommandAPI, *cmd.Context) error // The action which we want to handle, set in cmd.Init.
-	keys   []string
-	reset  bool // Flag denoting whether we are resetting the keys provided.
-	values attributes
+	action    func(configCommandAPI, *cmd.Context) error // The action which we want to handle, set in cmd.Init.
+	keys      []string
+	reset     []string // Holds the keys to be reset until parsed.
+	resetKeys []string // Holds the keys to be reset once parsed.
+	values    attributes
+}
+
+// configCommandAPI defines an API interface to be used during testing.
+type configCommandAPI interface {
+	Close() error
+	ModelGet() (map[string]interface{}, error)
+	ModelGetWithMetadata() (config.ConfigValues, error)
+	ModelSet(config map[string]interface{}) error
+	ModelUnset(keys ...string) error
 }
 
 // Info implements part of the cmd.Command interface.
@@ -82,74 +92,118 @@ func (c *configCommand) SetFlags(f *gnuflag.FlagSet) {
 		"tabular": formatConfigTabular,
 		"yaml":    cmd.FormatYaml,
 	})
-	f.BoolVar(&c.reset, "reset", false, "Reset the provided keys to be empty")
+	f.Var(cmd.NewAppendStringsValue(&c.reset), "reset", "Reset the provided comma delimited keys")
 }
 
 // Init implements part of the cmd.Command interface.
 func (c *configCommand) Init(args []string) error {
-	if c.reset {
-		// We're doing resetConfig.
-		if len(args) == 0 {
-			return errors.New("no keys specified")
-		}
-		for _, k := range args {
-			if k == config.AgentVersionKey {
-				return errors.Errorf("agent-version cannot be reset")
-			}
-		}
-		c.keys = args
-		c.action = c.resetConfig
-		return nil
+	// If there are arguments provided to reset, we turn it into a slice of
+	// strings and verify them. If there is one or more valid keys to reset and
+	// no other errors initalizing the command, c.resetDefaults will be called
+	// in c.Run.
+	if err := c.parseResetKeys(); err != nil {
+		return errors.Trace(err)
 	}
 
-	if len(args) > 0 && strings.Contains(args[0], "=") {
-		// We're setting values.
-		options, err := keyvalues.Parse(args, true)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		c.values = make(attributes)
-		for k, v := range options {
-			if k == config.AgentVersionKey {
-				return errors.Errorf(`agent-version must be set via "upgrade-juju"`)
-			}
-			c.values[k] = v
-		}
-
-		c.action = c.setConfig
-		return nil
+	switch len(args) {
+	case 0:
+		return c.handleZeroArgs()
+	case 1:
+		return c.handleOneArg(args[0])
+	default:
+		return c.handleArgs(args)
 	}
+}
 
-	val, err := cmd.ZeroOrOneArgs(args)
-	if err != nil {
-		return errors.New("can only retrieve a single value, or all values")
+// handleZeroArgs handles the case where there are no positional args.
+func (c *configCommand) handleZeroArgs() error {
+	// If reset is empty we're getting configuration
+	if len(c.reset) == 0 {
+		c.action = c.getConfig
 	}
-
-	// We're doing getConfig.
-	if val != "" {
-		c.keys = []string{val}
-	}
-	c.action = c.getConfig
+	// Otherwise we're going to reset args.
 	return nil
 }
 
-// configCommandAPI defines an API interface to be used during testing.
-type configCommandAPI interface {
-	Close() error
-	ModelGet() (map[string]interface{}, error)
-	ModelGetWithMetadata() (config.ConfigValues, error)
-	ModelSet(config map[string]interface{}) error
-	ModelUnset(keys ...string) error
+// handleOneArg handles the case where there is one positional arg.
+func (c *configCommand) handleOneArg(arg string) error {
+	if strings.Contains(arg, "=") {
+		return c.parseSetKeys([]string{arg})
+	}
+	// If we are not setting a value, then we are retrieving one so we need to
+	// make sure that we are not resetting because it is not valid to get and
+	// reset simultaneously.
+	if len(c.reset) > 0 {
+		return errors.New("cannot set and retrieve default values simultaneously")
+	}
+	c.keys = []string{arg}
+	c.action = c.getConfig
+	return nil
+
 }
 
-// isModelAttribute returns if the supplied attribute is a valid model
-// attribute.
-func (c *configCommand) isModelAttrbute(attr string) bool {
-	switch attr {
-	case config.NameKey, config.TypeKey, config.UUIDKey:
-		return true
+// handleArgs handles the case where there's more than one positional arg.
+func (c *configCommand) handleArgs(args []string) error {
+	err := c.parseSetKeys(args)
+	if err != nil {
+		if !strings.Contains(strings.Join(args, " "), "=") {
+			return errors.New("can only retrieve a single value, or all values")
+		}
+		return errors.Trace(err)
 	}
-	return false
+	return nil
+}
+
+// parseSetKeys iterates over the args and make sure that the key=value pairs
+// are valid. It also checks that the same key isn't being reset.
+func (c *configCommand) parseSetKeys(args []string) error {
+	options, err := keyvalues.Parse(args, true)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	c.values = make(attributes)
+	for k, v := range options {
+		if k == config.AgentVersionKey {
+			return errors.Errorf(`agent-version must be set via "upgrade-juju"`)
+		}
+		c.values[k] = v
+	}
+
+	for _, k := range c.resetKeys {
+		if _, ok := c.values[k]; ok {
+			return errors.Errorf(
+				"key %q cannot be both set and unset in the same command", k)
+		}
+	}
+
+	c.action = c.setConfig
+	return nil
+}
+
+// parseResetKeys splits the keys provided to --reset after trimming any
+// leading or trailing comma. It then verifies that we haven't incorrectly
+// received any key=value pairs and finally sets the value(s) on c.resetKeys.
+func (c *configCommand) parseResetKeys() error {
+	if len(c.reset) == 0 {
+		return nil
+	}
+	var resetKeys []string
+	for _, value := range c.reset {
+		keys := strings.Split(strings.Trim(value, ","), ",")
+		resetKeys = append(resetKeys, keys...)
+	}
+
+	for _, k := range resetKeys {
+		if k == config.AgentVersionKey {
+			return errors.Errorf("%q cannot be reset", config.AgentVersionKey)
+		}
+		if strings.Contains(k, "=") {
+			return errors.Errorf(
+				`--reset accepts a comma delimited set of keys "a,b,c", received: %q`, k)
+		}
+	}
+	c.resetKeys = resetKeys
+	return nil
 }
 
 // getAPI returns the API. This allows passing in a test configCommandAPI
@@ -174,33 +228,30 @@ func (c *configCommand) Run(ctx *cmd.Context) error {
 	}
 	defer client.Close()
 
+	if len(c.resetKeys) > 0 {
+		err := c.resetConfig(client, ctx)
+		if err != nil {
+			// We return this error naked as it is almost certainly going to be
+			// cmd.ErrSilent and the cmd.Command framework expects that back
+			// from cmd.Run if the process is blocked.
+			return err
+		}
+	}
+	if c.action == nil {
+		// If we are reset only we end up here, only we've already done that.
+		return nil
+	}
 	return c.action(client, ctx)
 }
 
 // reset unsets the keys provided to the command.
 func (c *configCommand) resetConfig(client configCommandAPI, ctx *cmd.Context) error {
 	// ctx unused in this method
-
-	// extra call to the API to retrieve env config
-	envAttrs, err := client.ModelGet()
-	if err != nil {
-		return err
+	if err := c.verifyKnownKeys(client); err != nil {
+		return errors.Trace(err)
 	}
-	for _, key := range c.keys {
-		// check if the key exists in the existing env config
-		// and warn the user if the key is not defined in
-		// the existing config
-		if _, exists := envAttrs[key]; !exists {
-			// TODO(ro) This error used to be a false positive. Now, if it is
-			// printed, there really is a problem or misspelling. Ian would like to
-			// do some further testing and look at making this situation a fatal
-			// error, not just a warning. I think it's ok to leave for now, but
-			// with a todo.
-			logger.Warningf("key %q is not defined in the current model configuration: possible misspelling", key)
-		}
 
-	}
-	return block.ProcessBlockedError(client.ModelUnset(c.keys...), block.BlockChange)
+	return block.ProcessBlockedError(client.ModelUnset(c.resetKeys...), block.BlockChange)
 }
 
 // set sets the provided key/value pairs on the model.
@@ -251,6 +302,40 @@ func (c *configCommand) getConfig(client configCommandAPI, ctx *cmd.Context) err
 		}
 	}
 	return c.out.Write(ctx, attrs)
+}
+
+// verifyKnownKeys is a helper to validate the keys we are operating with
+// against the set of known attributes from the model.
+func (c *configCommand) verifyKnownKeys(client configCommandAPI) error {
+	known, err := client.ModelGet()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	allKeys := c.resetKeys[:]
+	for k := range c.values {
+		allKeys = append(allKeys, k)
+	}
+
+	for _, key := range allKeys {
+		// check if the key exists in the known config
+		// and warn the user if the key is not defined
+		if _, exists := known[key]; !exists {
+			logger.Warningf(
+				"key %q is not defined in the current model configuration: possible misspelling", key)
+		}
+	}
+	return nil
+}
+
+// isModelAttribute returns if the supplied attribute is a valid model
+// attribute.
+func (c *configCommand) isModelAttrbute(attr string) bool {
+	switch attr {
+	case config.NameKey, config.TypeKey, config.UUIDKey:
+		return true
+	}
+	return false
 }
 
 // formatConfigTabular writes a tabular summary of config information.
