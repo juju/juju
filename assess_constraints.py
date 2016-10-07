@@ -197,16 +197,12 @@ def juju_show_machine_hardware(client, machine):
 
 def application_machines(client, application):
     """Get all the machines used to host the given application."""
-    raw = client.get_juju_output('status', '--format', 'yaml')
-    raw_yaml = yaml.load(raw)
-    try:
-        app_data = raw_yaml['applications'][application]
-        machines = []
-        for (unit, unit_data) in app_data['units'].items():
-            machines.append(unit_data['machine'])
-        return machines
-    except KeyError as error:
-        raise KeyError(error.args, raw_yaml)
+    status = client.get_status()
+    app_data = status.get_applications()[application]
+    machines = []
+    for (unit, unit_data) in app_data['units'].items():
+        machines.append(unit_data['machine'])
+    return machines
 
 
 def prepare_constraint_test(client, constraints, charm_name,

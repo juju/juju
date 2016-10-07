@@ -22,6 +22,9 @@ from assess_constraints import (
     mem_to_int,
     INSTANCE_TYPES,
     )
+from jujupy import (
+    Status,
+    )
 from tests import (
     parse_error,
     TestCase,
@@ -333,9 +336,9 @@ class TestJujuWrappers(TestCase):
                          data)
 
     def test_application_machines(self):
-        output_mock = Mock(return_value=self.SAMPLE_SHOW_MODEL_OUTPUT)
-        fake_client = Mock(get_juju_output=output_mock)
-        with patch('yaml.load', side_effect=lambda x: x):
-            data = application_machines(fake_client, 'wiki')
-        output_mock.assert_called_once_with('status', '--format', 'yaml')
+        status = Status(self.SAMPLE_SHOW_MODEL_OUTPUT, '')
+        output_mock = Mock(return_value=status)
+        fake_client = Mock(get_status=output_mock)
+        data = application_machines(fake_client, 'wiki')
+        output_mock.assert_called_once_with()
         self.assertEquals(['0'], data)
