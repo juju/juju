@@ -460,6 +460,7 @@ func (st *state) apiEndpoint(path, query string) (*url.URL, error) {
 	}, nil
 }
 
+// Ping implements api.Connection.
 func (s *state) Ping() error {
 	return s.APICall("Pinger", s.pingerFacadeVersion, "", "Ping", nil, nil)
 }
