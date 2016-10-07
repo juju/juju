@@ -132,7 +132,7 @@ func (c *addCommand) Run(ctx *cmd.Context) (err error) {
 	results, err := api.AddToUnit(storages)
 	if err != nil {
 		if params.IsCodeUnauthorized(err) {
-			return common.PermissionsError(err, ctx.Stdout, "add storage")
+			common.PermissionsMessage(ctx.Stderr, "add storage")
 		}
 		return err
 	}

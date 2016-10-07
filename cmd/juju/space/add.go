@@ -70,7 +70,7 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 				ctx.Infof("cannot add space %q: %v", c.Name, err)
 			}
 			if params.IsCodeUnauthorized(err) {
-				return common.PermissionsError(err, ctx.Stdout, "add a space")
+				common.PermissionsMessage(ctx.Stderr, "add a space")
 			}
 			return errors.Annotatef(err, "cannot add space %q", c.Name)
 		}

@@ -182,7 +182,7 @@ func (c *addUnitCommand) Run(ctx *cmd.Context) error {
 	}
 	_, err = apiclient.AddUnits(c.ApplicationName, c.NumUnits, c.Placement)
 	if params.IsCodeUnauthorized(err) {
-		return common.PermissionsError(err, ctx.Stdout, "add a unit")
+		common.PermissionsMessage(ctx.Stderr, "add a unit")
 	}
 	return block.ProcessBlockedError(err, block.BlockChange)
 }

@@ -141,8 +141,8 @@ func (s *UserAddCommandSuite) TestAddUserUnauthorizedMentionsJujuGrant(c *gc.C) 
 		Code:    params.CodeUnauthorized,
 	}
 	ctx, _ := s.run(c, "foobar")
-	outString := strings.Replace(testing.Stdout(ctx), "\n", " ", -1)
-	c.Assert(outString, gc.Matches, `.*juju grant.*`)
+	errString := strings.Replace(testing.Stderr(ctx), "\n", " ", -1)
+	c.Assert(errString, gc.Matches, `.*juju grant.*`)
 }
 
 type mockAddUserAPI struct {

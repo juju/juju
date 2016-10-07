@@ -142,8 +142,8 @@ func (s *AddUnitSuite) TestUnauthorizedMentionsJujuGrant(c *gc.C) {
 		Code:    params.CodeUnauthorized,
 	}
 	ctx, _ := testing.RunCommand(c, application.NewAddUnitCommandForTest(s.fake), "some-application-name")
-	outString := strings.Replace(testing.Stdout(ctx), "\n", " ", -1)
-	c.Assert(outString, gc.Matches, `.*juju grant.*`)
+	errString := strings.Replace(testing.Stderr(ctx), "\n", " ", -1)
+	c.Assert(errString, gc.Matches, `.*juju grant.*`)
 }
 
 func (s *AddUnitSuite) TestForceMachine(c *gc.C) {

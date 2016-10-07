@@ -102,7 +102,7 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 	_, secretKey, err := api.AddUser(c.User, c.DisplayName, "")
 	if err != nil {
 		if params.IsCodeUnauthorized(err) {
-			return common.PermissionsError(err, ctx.Stdout, "add a user")
+			common.PermissionsMessage(ctx.Stderr, "add a user")
 		}
 		return block.ProcessBlockedError(err, block.BlockChange)
 	}

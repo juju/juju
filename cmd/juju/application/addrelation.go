@@ -66,7 +66,7 @@ func (c *addRelationCommand) Run(ctx *cmd.Context) error {
 	defer client.Close()
 	_, err = client.AddRelation(c.Endpoints...)
 	if params.IsCodeUnauthorized(err) {
-		return common.PermissionsError(err, ctx.Stdout, "add a relation")
+		common.PermissionsMessage(ctx.Stderr, "add a relation")
 	}
 	return block.ProcessBlockedError(err, block.BlockChange)
 }

@@ -225,8 +225,8 @@ func (s *AddSuite) TestRunUnauthorizedMentionsJujuGrant(c *gc.C) {
 		Message: "permission denied",
 		Code:    params.CodeUnauthorized,
 	})
-	stdout, _, _ := s.RunCommand(c, "10.10.0.0/24", "myspace")
-	c.Assert(strings.Replace(stdout, "\n", " ", -1), gc.Matches, `.*juju grant.*`)
+	_, stderr, _ := s.RunCommand(c, "10.10.0.0/24", "myspace")
+	c.Assert(strings.Replace(stderr, "\n", " ", -1), gc.Matches, `.*juju grant.*`)
 }
 
 func (s *AddSuite) TestRunWithAmbiguousCIDRDisplaysError(c *gc.C) {

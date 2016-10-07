@@ -8,16 +8,14 @@ import (
 	"io"
 )
 
-var permMsg = "You do not have permission to %s."
-var grantMsg = `You may ask an administrator to grant you access with "juju grant".`
+func PermissionsMessage(writer io.Writer, command string) {
+	const (
+		perm  = "You do not have permission to %s."
+		grant = `You may ask an administrator to grant you access with "juju grant".`
+	)
 
-func PermissionsError(err error, stdout io.Writer, command string) error {
 	if command == "" {
 		command = "complete this operation"
 	}
-	permMsg := fmt.Sprintf(permMsg, command)
-	stdout.Write([]byte(
-		fmt.Sprintf("\n%s\n%s\n\n", permMsg, grantMsg)),
-	)
-	return err
+	fmt.Fprintf(writer, "\n%s\n%s\n\n", fmt.Sprintf(perm, command), grant)
 }

@@ -96,8 +96,8 @@ func (s *BaseSpaceSuite) AssertRunSpacesNotSupported(c *gc.C, expectErr string, 
 // passed args then asserting the error is as expected, finally returning the
 // error.
 func (s *BaseSpaceSuite) AssertRunFailsUnauthorized(c *gc.C, expectErr string, args ...string) error {
-	stdout, _, _ := s.RunCommand(c, args...)
-	c.Assert(strings.Replace(stdout, "\n", " ", -1), gc.Matches, `.*juju grant.*`)
+	_, stderr, err := s.RunCommand(c, args...)
+	c.Assert(strings.Replace(stderr, "\n", " ", -1), gc.Matches, `.*juju grant.*`)
 	return err
 }
 

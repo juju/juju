@@ -113,9 +113,10 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 			// Special case: multiple subnets with the same CIDR exist
 			ctx.Infof("ERROR: %v.", err)
 			return nil
-		} else if err != nil && params.IsCodeUnauthorized(err) {
-			return common.PermissionsError(err, ctx.Stdout, "add a subnet")
 		} else if err != nil {
+			if params.IsCodeUnauthorized(err) {
+				common.PermissionsMessage(ctx.Stderr, "add a subnet")
+			}
 			return errors.Annotatef(err, "cannot add subnet")
 		}
 
