@@ -558,17 +558,17 @@ func (srv *Server) serveConn(wsConn *websocket.Conn, modelUUID string, apiObserv
 	if err == nil {
 		st, err = srv.statePool.Get(resolvedModelUUID)
 	}
+
 	if err == nil {
-		logger.Debugf("xtian got state %v", resolvedModelUUID)
 		defer func() {
 			err := srv.statePool.Put(resolvedModelUUID)
-			logger.Debugf("xtian put state %v", resolvedModelUUID)
 			if err != nil {
 				logger.Errorf("error putting %v back into the state pool:", err)
 			}
 		}()
 		h, err = newAPIHandler(srv, st, conn, modelUUID, host)
 	}
+
 	if err != nil {
 		conn.ServeRoot(&errRoot{errors.Trace(err)}, serverError)
 	} else {
@@ -685,12 +685,10 @@ func (srv *Server) processModelRemovals() error {
 		case <-srv.tomb.Dying():
 			return tomb.ErrDying
 		case modelIDs := <-w.Changes():
-			logger.Debugf("xtian changes: %v", modelIDs)
 			for _, modelID := range modelIDs {
 				model, err := srv.state.GetModel(names.NewModelTag(modelID))
 				gone := errors.IsNotFound(err)
 				dead := err == nil && model.Life() == state.Dead
-				logger.Debugf("xtian dead: %v, gone: %v, err: %v", dead, gone, err)
 				if err != nil && !gone {
 					return errors.Trace(err)
 				}
@@ -698,9 +696,10 @@ func (srv *Server) processModelRemovals() error {
 					continue
 				}
 
-				// Model's gone away - ensure that we remove it
-				// from the state pool.
-				logger.Debugf("xtian removing model %v from state pool", modelID)
+				logger.Debugf("removing model %v from the state pool", modelID)
+				// Model's gone away - ensure that it gets removed
+				// from from the state pool once people are finished
+				// with it.
 				err = srv.statePool.Remove(modelID)
 				if err != nil {
 					return errors.Trace(err)
