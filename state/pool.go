@@ -142,6 +142,14 @@ func (p *StatePool) Close() error {
 
 	var lastErr error
 	for _, item := range p.pool {
+		if item.references != 0 || item.remove {
+			logger.Warningf(
+				"state for %v leaked from pool - references: %v, removed: %v",
+				item.state.ModelUUID(),
+				item.references,
+				item.remove,
+			)
+		}
 		err := item.state.Close()
 		if err != nil {
 			lastErr = err
