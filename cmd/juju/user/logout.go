@@ -131,6 +131,22 @@ this command again with the "--force" flag.
 `)
 	}
 
+	details, err := store.ControllerByName(controllerName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	apictx, err := c.APIContext()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	for _, s := range details.APIEndpoints {
+		apictx.Jar.RemoveAllHost(s)
+	}
+	if err := apictx.Jar.Save(); err != nil {
+		return errors.Annotate(err, "can't remove cached authentication cookie")
+	}
+
 	// Remove the account credentials.
 	if err := store.RemoveAccount(controllerName); err != nil {
 		return errors.Annotate(err, "failed to clear credentials")
