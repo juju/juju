@@ -1,5 +1,6 @@
 """Generate graphs for system statistics."""
 
+import calendar
 from fixtures import EnvironmentVariable
 import os
 import logging
@@ -19,6 +20,7 @@ class GraphDefaults:
 
 
 class MongoStats:
+    """Map field order of mongostat (csv/tsv) output to readable name."""
     # Timestamp is last item in the output
     timestamp = -1
     # Query stats
@@ -32,6 +34,11 @@ class MongoStats:
 
 
 class MongoStatsData:
+    """Wrapper class for a line of data in mongostats output.
+
+    Handles converting raw data from the output to data that we can use to
+    populate an rrd database etc.
+    """
 
     def __init__(self, timestamp, insert, query, update, delete, vsize, res):
 
@@ -50,27 +57,20 @@ class MongoStatsData:
             self.res = 'U'
 
 
-class SIUnits:
-    kB = 1e3
-    MB = 1e6
-    GB = 1e9
-
-
 def value_to_bytes(amount):
     """Using SI Prefix rules."""
 
+    # Convert to float due to mongostats output having values like: 96.0M.
     if not amount[-1].isalpha():
         return float(amount)
-    elif amount.endswith('K'):
-        return float(amount.replace('K', '')) * SIUnits.kB
-    elif amount.endswith('M'):
-        return float(amount.replace('M', '')) * SIUnits.MB
-    elif amount.endswith('G'):
-        return float(amount.replace('G', '')) * SIUnits.GB
 
-    err_str = 'Unable to convert: {}'.format(amount)
-    log.error(err_str)
-    raise ValueError(err_str)
+    SIUnits = dict(K=1e3, M=1e6, G=1e9)
+    try:
+        return float(amount[:-1]) * SIUnits[amount[-1]]
+    except KeyError:
+        err_str = 'Unable to convert: {}'.format(amount)
+        log.error(err_str)
+        raise ValueError(err_str)
 
 
 def network_graph(start, end, rrd_path, output_file):
@@ -128,6 +128,7 @@ def memory_graph(start, end, rrd_path, output_file):
 
 
 def mongodb_graph(start, end, rrd_path, output_file):
+    """Create a graph image for mongo db actions details."""
     with EnvironmentVariable('TZ', 'UTC'):
         rrdtool.graph(
             output_file,
@@ -167,6 +168,7 @@ def mongodb_graph(start, end, rrd_path, output_file):
 
 
 def mongodb_memory_graph(start, end, rrd_path, output_file):
+    """Create a graph image for mongo memory usage."""
     rrd_file = os.path.join(rrd_path, 'mongodb_memory.rrd')
     with EnvironmentVariable('TZ', 'UTC'):
         rrdtool.graph(
@@ -252,18 +254,21 @@ def cpu_graph(start, end, rrd_path, output_file):
 
 
 def get_mongodb_stat_data(log_file):
+    """Parse raw mongostats log file output for use in creating rrd values.
+
+    :return: List of MongoStatsData objects
+    """
     data_lines = []
     with open(log_file, 'rt') as f:
         for line in f:
             details = line.split()
             raw_time = details[MongoStats.timestamp]
-            with EnvironmentVariable('TZ', 'UTC'):
-                epoch = int(
-                    time.mktime(
-                        time.strptime(raw_time, '%Y-%m-%dT%H:%M:%SZ')))
+            timestamp = int(
+                calendar.timegm(
+                    time.strptime(raw_time, '%Y-%m-%dT%H:%M:%SZ')))
             data_lines.append(
                 MongoStatsData(
-                    epoch,
+                    timestamp,
                     details[MongoStats.inserts],
                     details[MongoStats.query],
                     details[MongoStats.update],
@@ -277,6 +282,10 @@ def get_mongodb_stat_data(log_file):
 
 
 def create_mongodb_rrd_files(results_dir, destination_dir):
+    """Convert mongostats log output into populated rrd files.
+
+    Creates 2 rrd files, one for db actions and another for db memory usage.
+    """
     source_file = os.path.join(results_dir, 'mongodb-stats.log')
 
     first_ts, last_ts, all_data = get_mongodb_stat_data(source_file)
@@ -289,16 +298,20 @@ def create_mongodb_rrd_files(results_dir, destination_dir):
 
 
 def _create_mongodb_memory_database(memory_detail_file, first_ts, all_data):
+    """Create a rrd file and populate it with memory usage from mongostats."""
     _create_mongodb_memory_file(memory_detail_file, first_ts)
     _populate_mongodb_memory_database(memory_detail_file, all_data)
 
 
 def _create_mongodb_query_database(query_detail_file, first_ts, all_data):
+    """Create a rrd file and populate it with db action data from mongostats.
+    """
     _create_mongodb_actions_file(query_detail_file, first_ts)
     _populate_mongodb_query_database(query_detail_file, all_data)
 
 
 def _populate_mongodb_query_database(query_detail_file, all_data):
+    """Populate a rrd file with db action details."""
     for entry in all_data:
         query_update_details = '{time}:{i}:{q}:{u}:{d}'.format(
             time=entry.timestamp,
@@ -311,6 +324,7 @@ def _populate_mongodb_query_database(query_detail_file, all_data):
 
 
 def _populate_mongodb_memory_database(memory_detail_file, all_data):
+    """Populate a rrd file with db memory usage details."""
     for entry in all_data:
         memory_update_details = '{time}:{vsize}:{res}'.format(
             time=entry.timestamp,
@@ -321,6 +335,10 @@ def _populate_mongodb_memory_database(memory_detail_file, all_data):
 
 
 def _create_mongodb_actions_file(destination_file, first_ts):
+    """Create a rrd file to store mongodb action statistics.
+
+    Mimics the file settings used by collectd for it's rrd file creation.
+    """
     rrdtool.create(
         destination_file,
         '--start', '{}-10'.format(first_ts),
@@ -348,6 +366,10 @@ def _create_mongodb_actions_file(destination_file, first_ts):
 
 
 def _create_mongodb_memory_file(destination_file, first_ts):
+    """Create a rrd file to store mongodb memory usage statistics.
+
+    Mimics the file settings used by collectd for it's rrd file creation.
+    """
     rrdtool.create(
         destination_file,
         '--start', '{}-10'.format(first_ts),
