@@ -276,24 +276,29 @@ def get_mongodb_stat_data(log_file):
     return first_timestamp, final_timestamp, data_lines
 
 
-def create_mongodb_rrd_file(results_dir, destination_dir):
-    os.mkdir(destination_dir)
+def create_mongodb_rrd_files(results_dir, destination_dir):
     source_file = os.path.join(results_dir, 'mongodb-stats.log')
-
-    if not os.path.exists(source_file):
-        log.warning(
-            'Not creating mongodb rrd. Source file not found ({})'.format(
-                source_file))
-        return False
 
     first_ts, last_ts, all_data = get_mongodb_stat_data(source_file)
 
     query_detail_file = os.path.join(destination_dir, 'mongodb.rrd')
     memory_detail_file = os.path.join(destination_dir, 'mongodb_memory.rrd')
 
-    _create_mongodb_actions_file(query_detail_file, first_ts)
-    _create_mongodb_memory_file(memory_detail_file, first_ts)
+    _create_mongodb_memory_database(memory_detail_file, first_ts, all_data)
+    _create_mongodb_query_database(query_detail_file, first_ts, all_data)
 
+
+def _create_mongodb_memory_database(memory_detail_file, first_ts, all_data):
+    _create_mongodb_memory_file(memory_detail_file, first_ts)
+    _populate_mongodb_memory_database(memory_detail_file, all_data)
+
+
+def _create_mongodb_query_database(query_detail_file, first_ts, all_data):
+    _create_mongodb_actions_file(query_detail_file, first_ts)
+    _populate_mongodb_query_database(query_detail_file, all_data)
+
+
+def _populate_mongodb_query_database(query_detail_file, all_data):
     for entry in all_data:
         query_update_details = '{time}:{i}:{q}:{u}:{d}'.format(
             time=entry.timestamp,
@@ -304,13 +309,15 @@ def create_mongodb_rrd_file(results_dir, destination_dir):
         )
         rrdtool.update(query_detail_file, query_update_details)
 
+
+def _populate_mongodb_memory_database(memory_detail_file, all_data):
+    for entry in all_data:
         memory_update_details = '{time}:{vsize}:{res}'.format(
             time=entry.timestamp,
             vsize=entry.vsize,
             res=entry.res,
         )
         rrdtool.update(memory_detail_file, memory_update_details)
-    return True
 
 
 def _create_mongodb_actions_file(destination_file, first_ts):
