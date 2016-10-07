@@ -14,14 +14,12 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/lxc/lxd/shared"
-
 	"github.com/juju/errors"
 	"github.com/juju/utils/packaging/config"
 	"github.com/juju/utils/packaging/manager"
 	"github.com/juju/utils/proxy"
-
-	"syscall"
+	"github.com/lxc/lxd/shared"
+	"golang.org/x/sys/unix"
 
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/tools/lxdclient"
@@ -126,8 +124,8 @@ func configureLXDProxies(setter configSetter, proxies proxy.Settings) error {
 
 // df returns the number of free bytes on the file system at the given path
 var df = func(path string) (uint64, error) {
-	statfs := syscall.Statfs_t{}
-	err := syscall.Statfs(path, &statfs)
+	statfs := unix.Statfs_t{}
+	err := unix.Statfs(path, &statfs)
 	if err != nil {
 		return 0, err
 	}
@@ -145,7 +143,7 @@ var configureZFS = func() {
 	if err != nil {
 		logger.Errorf("configuring zfs failed - unable to find file system size: %s", err)
 	}
-	freeBytes = freeBytes * 9 / 10
+	GigaBytesToUse := freeBytes * 9 / (10 * 1024 * 1024 * 1024)
 
 	output, err := exec.Command(
 		"lxd",
@@ -153,7 +151,7 @@ var configureZFS = func() {
 		"--auto",
 		"--storage-backend", "zfs",
 		"--storage-pool", "lxd",
-		"--storage-create-loop", fmt.Sprintf("%d", freeBytes/(1024*1024*1024)),
+		"--storage-create-loop", fmt.Sprintf("%d", GigaBytesToUse),
 	).CombinedOutput()
 
 	if err != nil {
