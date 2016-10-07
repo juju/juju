@@ -6,6 +6,7 @@ from __future__ import print_function
 import argparse
 from collections import defaultdict, namedtuple
 from datetime import datetime
+import errno
 import logging
 import os
 import sys
@@ -142,9 +143,12 @@ def generate_reports(controller_log, results_dir, deployments):
         perf_graphing.create_mongodb_rrd_files(results_dir, destination_dir)
         mongo_query_image = generate_mongo_query_graph_image(results_dir)
         mongo_memory_image = generate_mongo_memory_graph_image(results_dir)
-    except IOError:
+    except IOError as e:
+        extra_log = ''
+        if e.errno == errno.ENOENT:
+            extra_log = ' Source file not found.'
         log.error(
-            'Failed to create the MongoDB RRD file. Source file not found.'
+            'Failed to create the MongoDB RRD file.{}'.format(extra_log)
         )
         # Sometimes mongostats fails to startup and start logging. Unsure yet
         # why this is. For now generate the report without the mongodb details,
