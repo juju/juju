@@ -192,12 +192,15 @@ class TestAssess(TestCase):
 
     @contextmanager
     def patch_hardware(self, return_values):
-        """Patch juju_show_machine_hardware with a series of return values."""
-        def pop_hardware(client, machine):
-            return return_values.pop(0)
+        """Patch juju_show_machine_hardware with a series of return values.
+
+        Also patches out application_machines as its output would be
+        ignored anyways."""
         with patch('assess_constraints.juju_show_machine_hardware',
-                   autospec=True, side_effect=pop_hardware) as hardware_mock:
-            yield hardware_mock
+                   autospec=True, side_effect=return_values) as hardware_mock:
+            with patch('assess_constraints.application_machines',
+                       autospec=True, return_value=['0']):
+                yield hardware_mock
 
     def test_virt_type_constraints_with_kvm(self):
         assert_constraints_calls = ["virt-type=lxd", "virt-type=kvm"]
@@ -221,15 +224,12 @@ class TestAssess(TestCase):
         constraints_list = [spec[0] for spec in tests_specs]
         expected_call_list = [spec[1] for spec in tests_specs]
         patch_return_list = [spec[2] for spec in tests_specs]
-        with patch('assess_constraints.application_machines',
-                   autospec=True, return_value=['0']):
-            with patch('assess_constraints.juju_show_machine_hardware',
-                       autospec=True, side_effect=patch_return_list):
-                with self.prepare_deploy_mock() as (fake_client, deploy_mock):
-                    for constraints_args in constraints_list:
-                        constraints = Constraints(**constraints_args)
-                        assess_constraints_deploy(fake_client, constraints,
-                                                  'tests')
+        with self.patch_hardware(patch_return_list):
+            with self.prepare_deploy_mock() as (fake_client, deploy_mock):
+                for constraints_args in constraints_list:
+                    constraints = Constraints(**constraints_args)
+                    assess_constraints_deploy(fake_client, constraints,
+                                              'tests')
         constraints_calls = self.gather_constraint_args(deploy_mock)
         self.assertEqual(constraints_calls, expected_call_list)
 
@@ -266,9 +266,7 @@ class TestAssess(TestCase):
             with patch('assess_constraints.get_instance_spec', autospec=True,
                        side_effect=mock_get_instance_spec) as spec_mock:
                 with self.patch_hardware([bar_data, baz_data]):
-                    with patch('assess_constraints.application_machines',
-                               autospec=True, return_value=['0']):
-                        yield spec_mock
+                    yield spec_mock
 
     def test_constraints_deploy_instance_type(self):
         constraints_list = [Constraints(instance_type='bar'),
