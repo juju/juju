@@ -4,6 +4,8 @@
 package model
 
 import (
+	"time"
+
 	"github.com/juju/cmd"
 
 	"github.com/juju/juju/api"
@@ -62,10 +64,15 @@ func NewDumpDBCommandForTest(api DumpDBAPI, store jujuclient.ClientStore) cmd.Co
 }
 
 // NewDestroyCommandForTest returns a DestroyCommand with the api provided as specified.
-func NewDestroyCommandForTest(api DestroyModelAPI, refreshFunc func(jujuclient.ClientStore, string) error, store jujuclient.ClientStore) cmd.Command {
+func NewDestroyCommandForTest(
+	api DestroyModelAPI,
+	refreshFunc func(jujuclient.ClientStore, string) error, store jujuclient.ClientStore,
+	sleepFunc func(time.Duration),
+) cmd.Command {
 	cmd := &destroyCommand{
 		api:           api,
 		RefreshModels: refreshFunc,
+		sleepFunc:     sleepFunc,
 	}
 	cmd.SetClientStore(store)
 	return modelcmd.Wrap(

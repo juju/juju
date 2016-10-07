@@ -51,6 +51,7 @@ type ModelManagerBackend interface {
 	RemoveUserAccess(names.UserTag, names.Tag) error
 	UserAccess(names.UserTag, names.Tag) (permission.UserAccess, error)
 	AllMachines() (machines []Machine, err error)
+	AllApplications() (applications []Application, err error)
 	ControllerUUID() string
 	ControllerTag() names.ControllerTag
 	Export() (description.Model, error)
@@ -176,6 +177,25 @@ func (st modelManagerStateShim) AllMachines() ([]Machine, error) {
 	all := make([]Machine, len(allStateMachines))
 	for i, m := range allStateMachines {
 		all[i] = machineShim{m}
+	}
+	return all, nil
+}
+
+// Application defines methods provided by a state.Application instance.
+type Application interface{}
+
+type applicationShim struct {
+	*state.Application
+}
+
+func (st modelManagerStateShim) AllApplications() ([]Application, error) {
+	allStateApplications, err := st.State.AllApplications()
+	if err != nil {
+		return nil, err
+	}
+	all := make([]Application, len(allStateApplications))
+	for i, a := range allStateApplications {
+		all[i] = applicationShim{a}
 	}
 	return all, nil
 }

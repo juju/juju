@@ -9,6 +9,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/api/base"
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/modelmanager"
 	"github.com/juju/juju/apiserver/params"
@@ -215,6 +216,26 @@ func (s *modelmanagerSuite) TestUnsetModelDefaults(c *gc.C) {
 	err := client.UnsetModelDefaults("mycloud", "region", "foo", "bar")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
+}
+
+func (s *modelmanagerSuite) TestModelStatus(c *gc.C) {
+	sysManager := s.OpenAPI(c)
+	defer sysManager.Close()
+	m := s.Factory.MakeMachine(c, nil)
+	id, err := m.InstanceId()
+	c.Assert(err, jc.ErrorIsNil)
+	modelTag := s.State.ModelTag()
+	results, err := sysManager.ModelStatus(modelTag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, []base.ModelStatus{{
+		UUID:               modelTag.Id(),
+		TotalMachineCount:  1,
+		HostedMachineCount: 1,
+		ServiceCount:       0,
+		Owner:              "admin",
+		Life:               string(params.Alive),
+		Machines:           []base.Machine{{Id: "0", InstanceId: string(id), Status: "pending"}},
+	}})
 }
 
 type dumpModelSuite struct {

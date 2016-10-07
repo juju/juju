@@ -66,6 +66,7 @@ type Machine interface {
 	ForceDestroy() error
 	Destroy() error
 	AgentPresence() (bool, error)
+	IsManager() bool
 }
 
 func DestroyMachines(st origStateInterface, force bool, ids ...string) error {

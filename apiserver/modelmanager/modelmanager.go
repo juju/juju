@@ -52,6 +52,7 @@ type ModelManager interface {
 // ModelManagerAPI implements the model manager interface and is
 // the concrete implementation of the api end point.
 type ModelManagerAPI struct {
+	*common.ModelStatusAPI
 	state       common.ModelManagerBackend
 	check       *common.BlockChecker
 	authorizer  facade.Authorizer
@@ -88,12 +89,13 @@ func NewModelManagerAPI(
 	}
 	urlGetter := common.NewToolsURLGetter(st.ModelUUID(), st)
 	return &ModelManagerAPI{
-		state:       st,
-		check:       common.NewBlockChecker(st),
-		authorizer:  authorizer,
-		toolsFinder: common.NewToolsFinder(configGetter, st, urlGetter),
-		apiUser:     apiUser,
-		isAdmin:     isAdmin,
+		ModelStatusAPI: common.NewModelStatusAPI(st, authorizer, apiUser),
+		state:          st,
+		check:          common.NewBlockChecker(st),
+		authorizer:     authorizer,
+		toolsFinder:    common.NewToolsFinder(configGetter, st, urlGetter),
+		apiUser:        apiUser,
+		isAdmin:        isAdmin,
 	}, nil
 }
 

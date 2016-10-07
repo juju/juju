@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
@@ -332,74 +331,6 @@ func (s *controllerSuite) TestWatchAllModels(c *gc.C) {
 	case <-time.After(testing.LongWait):
 		c.Fatal("timed out")
 	}
-}
-
-func (s *controllerSuite) TestModelStatus(c *gc.C) {
-	otherEnvOwner := s.Factory.MakeModelUser(c, nil)
-	otherSt := s.Factory.MakeModel(c, &factory.ModelParams{
-		Name:  "dummytoo",
-		Owner: otherEnvOwner.UserTag,
-		ConfigAttrs: testing.Attrs{
-			"controller": false,
-		},
-	})
-	defer otherSt.Close()
-
-	eight := uint64(8)
-	s.Factory.MakeMachine(c, &factory.MachineParams{
-		Jobs:            []state.MachineJob{state.JobManageModel},
-		Characteristics: &instance.HardwareCharacteristics{CpuCores: &eight},
-		InstanceId:      "id-4",
-	})
-	s.Factory.MakeMachine(c, &factory.MachineParams{
-		Jobs: []state.MachineJob{state.JobHostUnits}, InstanceId: "id-5"})
-	s.Factory.MakeApplication(c, &factory.ApplicationParams{
-		Charm: s.Factory.MakeCharm(c, nil),
-	})
-
-	otherFactory := factory.NewFactory(otherSt)
-	otherFactory.MakeMachine(c, &factory.MachineParams{InstanceId: "id-8"})
-	otherFactory.MakeMachine(c, &factory.MachineParams{InstanceId: "id-9"})
-	otherFactory.MakeApplication(c, &factory.ApplicationParams{
-		Charm: otherFactory.MakeCharm(c, nil),
-	})
-
-	controllerEnvTag := s.State.ModelTag().String()
-	hostedEnvTag := otherSt.ModelTag().String()
-
-	req := params.Entities{
-		Entities: []params.Entity{{Tag: controllerEnvTag}, {Tag: hostedEnvTag}},
-	}
-	results, err := s.controller.ModelStatus(req)
-	c.Assert(err, jc.ErrorIsNil)
-
-	arch := "amd64"
-	mem := uint64(64 * 1024 * 1024 * 1024)
-	stdHw := &params.MachineHardware{
-		Arch: &arch,
-		Mem:  &mem,
-	}
-	c.Assert(results.Results, jc.DeepEquals, []params.ModelStatus{{
-		ModelTag:           controllerEnvTag,
-		HostedMachineCount: 1,
-		ApplicationCount:   1,
-		OwnerTag:           s.Owner.String(),
-		Life:               params.Alive,
-		Machines: []params.ModelMachineInfo{
-			{Id: "0", Hardware: &params.MachineHardware{Cores: &eight}, InstanceId: "id-4", Status: "pending", WantsVote: true},
-			{Id: "1", Hardware: stdHw, InstanceId: "id-5", Status: "pending"},
-		},
-	}, {
-		ModelTag:           hostedEnvTag,
-		HostedMachineCount: 2,
-		ApplicationCount:   1,
-		OwnerTag:           otherEnvOwner.UserTag.String(),
-		Life:               params.Alive,
-		Machines: []params.ModelMachineInfo{
-			{Id: "0", Hardware: stdHw, InstanceId: "id-8", Status: "pending"},
-			{Id: "1", Hardware: stdHw, InstanceId: "id-9", Status: "pending"},
-		},
-	}})
 }
 
 func (s *controllerSuite) TestInitiateMigration(c *gc.C) {
