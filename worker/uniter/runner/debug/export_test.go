@@ -1,11 +1,16 @@
-// Copyright 2013 Canonical Ltd.
+// Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package debug
 
-// RunHookOutput returns the most recent combined output from RunHook.
-func (s *ServerSession) RunHookOutput() string {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.output
+import "io"
+
+// FindSessionWithWriter returns the server session with the writer
+// specified so the run output can be captured for tests.
+func (c *HooksContext) FindSessionWithWriter(writer io.Writer) (*ServerSession, error) {
+	session, err := c.FindSession()
+	if session != nil {
+		session.output = writer
+	}
+	return session, err
 }

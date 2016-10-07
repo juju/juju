@@ -4,6 +4,7 @@
 package debug
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -142,7 +143,8 @@ func (s *DebugHooksServerSuite) TestRunHookExceptional(c *gc.C) {
 func (s *DebugHooksServerSuite) TestRunHook(c *gc.C) {
 	err := ioutil.WriteFile(s.ctx.ClientFileLock(), []byte{}, 0777)
 	c.Assert(err, jc.ErrorIsNil)
-	session, err := s.ctx.FindSession()
+	var output bytes.Buffer
+	session, err := s.ctx.FindSessionWithWriter(&output)
 	c.Assert(session, gc.NotNil)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -171,7 +173,7 @@ func (s *DebugHooksServerSuite) TestRunHook(c *gc.C) {
 			c.Fatal("test timed out")
 		case err = <-ch:
 			// flock was released before we found the debug dir.
-			c.Fatalf("could not find hook.sh\nerr: %v\noutput: %s", err, session.RunHookOutput())
+			c.Fatalf("could not find hook.sh\nerr: %v\noutput: %s", err, output.String())
 		case <-ticker:
 			tmpdir, err := os.Open(s.tmpdir)
 			if err != nil {

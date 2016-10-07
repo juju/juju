@@ -6,10 +6,10 @@ package debug
 import (
 	"bytes"
 	"errors"
+	"io"
 	"io/ioutil"
 	"os"
 	"os/exec"
-	"sync"
 
 	"github.com/juju/utils/set"
 	goyaml "gopkg.in/yaml.v2"
@@ -20,8 +20,7 @@ type ServerSession struct {
 	*HooksContext
 	hooks set.Strings
 
-	mu     sync.Mutex
-	output string
+	output io.Writer
 }
 
 // MatchHook returns true if the specified hook name matches
@@ -44,9 +43,10 @@ func (s *ServerSession) RunHook(hookName, charmDir string, env []string) error {
 	cmd.Env = env
 	cmd.Dir = charmDir
 	cmd.Stdin = bytes.NewBufferString(debugHooksServerScript)
-	var combinedOutput bytes.Buffer
-	cmd.Stdout = &combinedOutput
-	cmd.Stderr = &combinedOutput
+	if s.output != nil {
+		cmd.Stdout = s.output
+		cmd.Stderr = s.output
+	}
 	if err := cmd.Start(); err != nil {
 		return err
 	}
@@ -57,11 +57,7 @@ func (s *ServerSession) RunHook(hookName, charmDir string, env []string) error {
 		waitClientExit(s)
 		proc.Kill()
 	}(cmd.Process)
-	err := cmd.Wait()
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.output = combinedOutput.String()
-	return err
+	return cmd.Wait()
 }
 
 // FindSession attempts to find a debug hooks session for the unit specified
