@@ -9,17 +9,17 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/errors"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/testing"
 )
 
 type listCredentialsSuite struct {
 	testing.BaseSuite
-	store              jujuclient.CredentialGetter
+	store              *jujuclienttesting.MemStore
 	personalCloudsFunc func() (map[string]jujucloud.Cloud, error)
 	cloudByNameFunc    func(string) (*jujucloud.Cloud, error)
 }
@@ -30,7 +30,10 @@ var _ = gc.Suite(&listCredentialsSuite{
 			"mycloud": {},
 		}, nil
 	},
-	cloudByNameFunc: func(string) (*jujucloud.Cloud, error) {
+	cloudByNameFunc: func(name string) (*jujucloud.Cloud, error) {
+		if name == "missingcloud" {
+			return nil, errors.NotValidf(name)
+		}
 		return &jujucloud.Cloud{Type: "test-provider"}, nil
 	},
 })
@@ -116,6 +119,22 @@ mycloud  me
 `[1:])
 }
 
+func (s *listCredentialsSuite) TestListCredentialsTabularMissingCloud(c *gc.C) {
+	s.store.Credentials["missingcloud"] = jujucloud.CloudCredential{}
+	out := s.listCredentials(c)
+	c.Assert(out, gc.Equals, `
+The following clouds have been removed and are omitted from the results to avoid leaking secrets.
+Run with --show-secrets to display these clouds' credentials: missingcloud
+
+CLOUD    CREDENTIALS
+aws      down*, bob
+azure    azhja
+google   default
+mycloud  me
+
+`[1:])
+}
+
 func (s *listCredentialsSuite) TestListCredentialsTabularFiltered(c *gc.C) {
 	out := s.listCredentials(c, "aws")
 	c.Assert(out, gc.Equals, `
@@ -126,6 +145,17 @@ aws    down*, bob
 }
 
 func (s *listCredentialsSuite) TestListCredentialsYAMLWithSecrets(c *gc.C) {
+	s.store.Credentials["missingcloud"] = jujucloud.CloudCredential{
+		AuthCredentials: map[string]jujucloud.Credential{
+			"default": jujucloud.NewCredential(
+				jujucloud.AccessKeyAuthType,
+				map[string]string{
+					"access-key": "key",
+					"secret-key": "secret",
+				},
+			),
+		},
+	}
 	out := s.listCredentials(c, "--format", "yaml", "--show-secrets")
 	c.Assert(out, gc.Equals, `
 credentials:
@@ -153,6 +183,11 @@ credentials:
       client-email: email
       client-id: id
       private-key: key
+  missingcloud:
+    default:
+      auth-type: access-key
+      access-key: key
+      secret-key: secret
   mycloud:
     me:
       auth-type: access-key
@@ -162,6 +197,17 @@ credentials:
 }
 
 func (s *listCredentialsSuite) TestListCredentialsYAMLNoSecrets(c *gc.C) {
+	s.store.Credentials["missingcloud"] = jujucloud.CloudCredential{
+		AuthCredentials: map[string]jujucloud.Credential{
+			"default": jujucloud.NewCredential(
+				jujucloud.AccessKeyAuthType,
+				map[string]string{
+					"access-key": "key",
+					"secret-key": "secret",
+				},
+			),
+		},
+	}
 	out := s.listCredentials(c, "--format", "yaml")
 	c.Assert(out, gc.Equals, `
 credentials:

@@ -162,9 +162,14 @@ func (c *listCredentialsCommand) Run(ctxt *cmd.Context) error {
 	}
 
 	displayCredentials := make(map[string]CloudCredential)
+	var missingClouds []string
 	for cloudName, cred := range credentials {
 		if !c.showSecrets {
 			if err := c.removeSecrets(cloudName, &cred); err != nil {
+				if errors.IsNotValid(err) {
+					missingClouds = append(missingClouds, cloudName)
+					continue
+				}
 				return errors.Annotatef(err, "removing secrets from credentials for cloud %v", cloudName)
 			}
 		}
@@ -184,6 +189,10 @@ func (c *listCredentialsCommand) Run(ctxt *cmd.Context) error {
 			}
 		}
 		displayCredentials[cloudName] = displayCredential
+	}
+	if c.out.Name() == "tabular" && len(missingClouds) > 0 {
+		fmt.Fprintf(ctxt.GetStdout(), "The following clouds have been removed and are omitted from the results to avoid leaking secrets.\n"+
+			"Run with --show-secrets to display these clouds' credentials: %v\n\n", strings.Join(missingClouds, ", "))
 	}
 	return c.out.Write(ctxt, credentialsMap{displayCredentials})
 }
