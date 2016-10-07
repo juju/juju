@@ -134,7 +134,7 @@ func (c *configCommand) handleOneArg(arg string) error {
 	// make sure that we are not resetting because it is not valid to get and
 	// reset simultaneously.
 	if len(c.reset) > 0 {
-		return errors.New("cannot set and retrieve default values simultaneously")
+		return errors.New("cannot set and retrieve model values simultaneously")
 	}
 	c.keys = []string{arg}
 	c.action = c.getConfig
@@ -172,7 +172,7 @@ func (c *configCommand) parseSetKeys(args []string) error {
 	for _, k := range c.resetKeys {
 		if _, ok := c.values[k]; ok {
 			return errors.Errorf(
-				"key %q cannot be both set and unset in the same command", k)
+				"key %q cannot be both set and reset in the same command", k)
 		}
 	}
 

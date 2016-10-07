@@ -25,47 +25,61 @@ func (s *ConfigCommandSuite) run(c *gc.C, args ...string) (*cmd.Context, error) 
 
 func (s *ConfigCommandSuite) TestInit(c *gc.C) {
 	for i, test := range []struct {
+		desc       string
 		args       []string
 		errorMatch string
 		nilErr     bool
 	}{
 		{ // Test set
-			// 0
+			desc:       "keys cannot be duplicates",
 			args:       []string{"special=extra", "special=other"},
 			errorMatch: `key "special" specified more than once`,
 		}, {
-			// 1
+			desc:       "agent-version cannot be set",
 			args:       []string{"agent-version=2.0.0"},
 			errorMatch: `agent-version must be set via "upgrade-juju"`,
 		}, {
 			// Test reset
-			// 2
+			desc:       "reset requires arg",
 			args:       []string{"--reset"},
 			errorMatch: "flag needs an argument: --reset",
 		}, {
-			// 3
+			desc:       "cannot set and retrieve at the same time",
 			args:       []string{"--reset", "something", "weird"},
-			errorMatch: "cannot set and retrieve default values simultaneously",
+			errorMatch: "cannot set and retrieve model values simultaneously",
 		}, {
-			// 4
+			desc:       "agent-version cannot be reset",
 			args:       []string{"--reset", "agent-version"},
 			errorMatch: `"agent-version" cannot be reset`,
 		}, {
+			desc:       "set and reset cannot have duplicate keys",
+			args:       []string{"--reset", "special", "special=extra"},
+			errorMatch: `key "special" cannot be both set and reset in the same command`,
+		}, {
+			desc:       "reset cannot have k=v pairs",
+			args:       []string{"--reset", "a,b,c=d,e"},
+			errorMatch: `--reset accepts a comma delimited set of keys "a,b,c", received: "c=d"`,
+		}, {
 			// Test get
-			// 5
+			desc:   "get all succeds",
 			args:   nil,
 			nilErr: true,
 		}, {
-			// 6
+			desc:   "get one succeeds",
 			args:   []string{"one"},
 			nilErr: true,
 		}, {
-			// 7
+			desc:       "get multiple fails",
 			args:       []string{"one", "two"},
 			errorMatch: "can only retrieve a single value, or all values",
+		}, {
+			// test variations
+			desc:   "test reset interspersed",
+			args:   []string{"--reset", "one", "special=foo", "--reset", "two"},
+			nilErr: true,
 		},
 	} {
-		c.Logf("test %d", i)
+		c.Logf("test %d: %s", i, test.desc)
 		cmd := model.NewConfigCommandForTest(s.fake)
 		err := testing.InitCommand(cmd, test.args)
 		if test.nilErr {
@@ -82,6 +96,14 @@ func (s *ConfigCommandSuite) TestSingleValue(c *gc.C) {
 
 	output := testing.Stdout(context)
 	c.Assert(output, gc.Equals, "special value\n")
+}
+
+func (s *ConfigCommandSuite) TestGetUnknownValue(c *gc.C) {
+	context, err := s.run(c, "unknown")
+	c.Assert(err, gc.ErrorMatches, `key "unknown" not found in {<nil> ""} model.`)
+
+	output := testing.Stdout(context)
+	c.Assert(output, gc.Equals, "")
 }
 
 func (s *ConfigCommandSuite) TestSingleValueJSON(c *gc.C) {
