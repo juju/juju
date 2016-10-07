@@ -4,9 +4,16 @@
 package user_test
 
 import (
+	"net/http"
+	"net/url"
+	"path/filepath"
+	"time"
+
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/persistent-cookiejar"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/user"
@@ -55,6 +62,30 @@ func (s *LogoutCommandSuite) TestInit(c *gc.C) {
 }
 
 func (s *LogoutCommandSuite) TestLogout(c *gc.C) {
+	cookiefile := filepath.Join(utils.Home(), ".go-cookies")
+	jar, err := cookiejar.New(&cookiejar.Options{Filename: cookiefile})
+	c.Assert(err, jc.ErrorIsNil)
+	cont, err := s.store.CurrentController()
+	c.Assert(err, jc.ErrorIsNil)
+	host := s.store.Controllers[cont].APIEndpoints[0]
+	u, err := url.Parse("https://" + host)
+	c.Assert(err, jc.ErrorIsNil)
+	other, err := url.Parse("https://www.example.com")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// we hav to set the expiration or it's not considered a "persistent"
+	// cookie, and the jar won't save it.
+	jar.SetCookies(u, []*http.Cookie{{
+		Name:    "foo",
+		Value:   "bar",
+		Expires: time.Now().Add(time.Hour * 24)}})
+	jar.SetCookies(other, []*http.Cookie{{
+		Name:    "baz",
+		Value:   "bat",
+		Expires: time.Now().Add(time.Hour * 24)}})
+	err = jar.Save()
+	c.Assert(err, jc.ErrorIsNil)
+
 	s.setPassword(c, "testing", "")
 	ctx, err := s.run(c)
 	c.Assert(err, jc.ErrorIsNil)
@@ -65,6 +96,11 @@ Logged out. You are no longer logged into any controllers.
 	)
 	_, err = s.store.AccountDetails("testing")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+
+	jar, err = cookiejar.New(&cookiejar.Options{Filename: cookiefile})
+	c.Assert(err, jc.ErrorIsNil)
+	cookies := jar.Cookies(other)
+	c.Assert(cookies, gc.HasLen, 1)
 }
 
 func (s *LogoutCommandSuite) TestLogoutCount(c *gc.C) {

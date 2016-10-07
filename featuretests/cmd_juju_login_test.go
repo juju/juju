@@ -6,13 +6,11 @@ package featuretests
 import (
 	"io"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/commands"
@@ -61,10 +59,6 @@ func (s *cmdLoginSuite) TestLoginCommand(c *gc.C) {
 	// a non-random password before we can do so.
 	s.changeUserPassword(c, "admin", "hunter2")
 	s.run(c, nil, "logout")
-
-	// TODO(axw) 2016-09-08 #1621375
-	// "juju logout" should clear the cookies for the controller.
-	os.Remove(filepath.Join(utils.Home(), ".go-cookies"))
 
 	context := s.run(c, strings.NewReader("hunter2\nhunter2\n"), "login", "test")
 	c.Assert(testing.Stdout(context), gc.Equals, "")
