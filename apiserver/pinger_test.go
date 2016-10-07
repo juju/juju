@@ -35,6 +35,11 @@ func (s *pingerSuite) newServerWithTestClock(c *gc.C) (*apiserver.Server, *testi
 	return server, clock
 }
 
+func pingConn(conn api.Connection) error {
+	version := conn.BestFacadeVersion("Pinger")
+	return conn.APICall("Pinger", version, "", "Ping", nil, nil)
+}
+
 func (s *pingerSuite) TestConnectionBrokenDetection(c *gc.C) {
 	server, clock := s.newServerWithTestClock(c)
 	conn, _ := s.OpenAPIAsNewMachine(c, server)
@@ -67,12 +72,9 @@ func (s *pingerSuite) TestPing(c *gc.C) {
 	server, _ := s.newServerWithTestClock(c)
 	conn, _ := s.OpenAPIAsNewMachine(c, server)
 
-	err := conn.Ping()
-	c.Assert(err, jc.ErrorIsNil)
-	err = conn.Close()
-	c.Assert(err, jc.ErrorIsNil)
-	err = conn.Ping()
-	c.Assert(errors.Cause(err), gc.Equals, rpc.ErrShutdown)
+	c.Assert(pingConn(conn), jc.ErrorIsNil)
+	c.Assert(conn.Close(), jc.ErrorIsNil)
+	c.Assert(errors.Cause(pingConn(conn)), gc.Equals, rpc.ErrShutdown)
 
 	// Make sure that ping messages have not been logged.
 	for _, m := range tw.Log() {
@@ -97,8 +99,7 @@ func (s *pingerSuite) TestClientNoNeedToPing(c *gc.C) {
 	time.Sleep(coretesting.ShortWait)
 
 	s.advanceClock(c, clock, apiserver.MaxClientPingInterval, 2)
-	err := conn.Ping()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(pingConn(conn), jc.ErrorIsNil)
 }
 
 func (s *pingerSuite) checkConnectionDies(c *gc.C, conn api.Connection) {
@@ -107,7 +108,7 @@ func (s *pingerSuite) checkConnectionDies(c *gc.C, conn api.Connection) {
 		Delay: coretesting.ShortWait,
 	}
 	for a := attempt.Start(); a.Next(); {
-		err := conn.Ping()
+		err := pingConn(conn)
 		if err != nil {
 			c.Assert(err, gc.ErrorMatches, "connection is shut down")
 			return
@@ -128,7 +129,7 @@ func (s *pingerSuite) TestAgentConnectionDelaysShutdownWithPing(c *gc.C) {
 	server, clock := s.newServerWithTestClock(c)
 	conn, _ := s.OpenAPIAsNewMachine(c, server)
 
-	err := conn.Ping()
+	err := pingConn(conn)
 	c.Assert(err, jc.ErrorIsNil)
 
 	attemptDelay := apiserver.MaxClientPingInterval / 2
@@ -148,7 +149,7 @@ func (s *pingerSuite) TestAgentConnectionDelaysShutdownWithPing(c *gc.C) {
 			loopDelta = 0
 		}
 		c.Logf("duration since last ping: %v", loopDelta)
-		err = conn.Ping()
+		err = pingConn(conn)
 		if !c.Check(
 			err, jc.ErrorIsNil,
 			gc.Commentf(
@@ -174,7 +175,7 @@ func (s *pingerSuite) TestAgentConnectionsShutDownWhenAPIServerDies(c *gc.C) {
 	server := s.newServerDirtyKill(c, config)
 	conn, _ := s.OpenAPIAsNewMachine(c, server)
 
-	err := conn.Ping()
+	err := pingConn(conn)
 	c.Assert(err, jc.ErrorIsNil)
 	server.Kill()
 

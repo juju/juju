@@ -115,18 +115,16 @@ func AgentDone(logger loggo.Logger, err error) error {
 	return err
 }
 
-// Pinger provides a type that knows how to ping.
-type Pinger interface {
-
-	// Ping pings something.
-	Ping() error
+// Breakable provides a type that exposes a "broken" channel.
+type Breakable interface {
+	Broken() <-chan struct{}
 }
 
 // ConnectionIsFatal returns a function suitable for passing as the
 // isFatal argument to worker.NewRunner, that diagnoses an error as
 // fatal if the connection has failed or if the error is otherwise
 // fatal.
-func ConnectionIsFatal(logger loggo.Logger, conns ...Pinger) func(err error) bool {
+func ConnectionIsFatal(logger loggo.Logger, conns ...Breakable) func(err error) bool {
 	return func(err error) bool {
 		if IsFatal(err) {
 			return true
@@ -140,8 +138,47 @@ func ConnectionIsFatal(logger loggo.Logger, conns ...Pinger) func(err error) boo
 	}
 }
 
-// ConnectionIsDead returns true if the given pinger fails to ping.
-var ConnectionIsDead = func(logger loggo.Logger, conn Pinger) bool {
+// ConnectionIsDead returns true if the given Breakable is broken.
+var ConnectionIsDead = func(logger loggo.Logger, conn Breakable) bool {
+	select {
+	case <-conn.Broken():
+		return true
+	default:
+		return false
+	}
+}
+
+// Pinger provides a type that knows how to ping.
+type Pinger interface {
+	Ping() error
+}
+
+// PingerIsFatal returns a function suitable for passing as the
+// isFatal argument to worker.NewRunner, that diagnoses an error as
+// fatal if the Pinger has failed or if the error is otherwise fatal.
+//
+// TODO(mjs) - this only exists for checking State instances in the
+// machine agent and won't be necessary once either:
+// 1. State grows a Broken() channel like api.Connection (which is
+//    actually quite a nice idea).
+// 2. The dependency engine conversion is completed for the machine
+//    agent.
+func PingerIsFatal(logger loggo.Logger, conns ...Pinger) func(err error) bool {
+	return func(err error) bool {
+		if IsFatal(err) {
+			return true
+		}
+		for _, conn := range conns {
+			if PingerIsDead(logger, conn) {
+				return true
+			}
+		}
+		return false
+	}
+}
+
+// PingerIsDead returns true if the given pinger fails to ping.
+var PingerIsDead = func(logger loggo.Logger, conn Pinger) bool {
 	if err := conn.Ping(); err != nil {
 		logger.Infof("error pinging %T: %v", conn, err)
 		return true
