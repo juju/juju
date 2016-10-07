@@ -78,18 +78,14 @@ var isFatalTests = []struct {
 }
 
 func (s *toolSuite) TestConnectionIsFatal(c *gc.C) {
-	var (
-		errPinger testPinger = func() error {
-			return stderrors.New("ping error")
-		}
-		okPinger testPinger = func() error {
-			return nil
-		}
-	)
-	for i, pinger := range []testPinger{errPinger, okPinger} {
+	okConn := &testConn{make(chan struct{})}
+	errConn := &testConn{make(chan struct{})}
+	close(errConn.broken)
+
+	for i, conn := range []*testConn{errConn, okConn} {
 		for j, test := range isFatalTests {
 			c.Logf("test %d.%d: %s", i, j, test.err)
-			fatal := ConnectionIsFatal(logger, pinger)(test.err)
+			fatal := ConnectionIsFatal(logger, conn)(test.err)
 			if test.isFatal {
 				c.Check(fatal, jc.IsTrue)
 			} else {
@@ -100,26 +96,63 @@ func (s *toolSuite) TestConnectionIsFatal(c *gc.C) {
 }
 
 func (s *toolSuite) TestConnectionIsFatalWithMultipleConns(c *gc.C) {
-	var (
-		errPinger testPinger = func() error {
-			return stderrors.New("ping error")
-		}
-		okPinger testPinger = func() error {
-			return nil
-		}
-	)
+	okConn := &testConn{make(chan struct{})}
+	errConn := &testConn{make(chan struct{})}
+	close(errConn.broken)
 
 	someErr := stderrors.New("foo")
 
-	c.Assert(ConnectionIsFatal(logger, okPinger, okPinger)(someErr),
+	c.Assert(ConnectionIsFatal(logger, okConn, okConn)(someErr),
 		jc.IsFalse)
-	c.Assert(ConnectionIsFatal(logger, okPinger, okPinger, okPinger)(someErr),
+	c.Assert(ConnectionIsFatal(logger, okConn, okConn, okConn)(someErr),
 		jc.IsFalse)
-	c.Assert(ConnectionIsFatal(logger, okPinger, errPinger)(someErr),
+	c.Assert(ConnectionIsFatal(logger, okConn, errConn)(someErr),
 		jc.IsTrue)
-	c.Assert(ConnectionIsFatal(logger, okPinger, okPinger, errPinger)(someErr),
+	c.Assert(ConnectionIsFatal(logger, okConn, okConn, errConn)(someErr),
 		jc.IsTrue)
-	c.Assert(ConnectionIsFatal(logger, errPinger, okPinger, okPinger)(someErr),
+	c.Assert(ConnectionIsFatal(logger, errConn, okConn, okConn)(someErr),
+		jc.IsTrue)
+}
+
+func (s *toolSuite) TestPingerIsFatal(c *gc.C) {
+	var errPinger testPinger = func() error {
+		return stderrors.New("ping error")
+	}
+	var okPinger testPinger = func() error {
+		return nil
+	}
+	for i, pinger := range []testPinger{errPinger, okPinger} {
+		for j, test := range isFatalTests {
+			c.Logf("test %d.%d: %s", i, j, test.err)
+			fatal := PingerIsFatal(logger, pinger)(test.err)
+			if test.isFatal {
+				c.Check(fatal, jc.IsTrue)
+			} else {
+				c.Check(fatal, gc.Equals, i == 0)
+			}
+		}
+	}
+}
+
+func (s *toolSuite) TestPingerIsFatalWithMultipleConns(c *gc.C) {
+	var errPinger testPinger = func() error {
+		return stderrors.New("ping error")
+	}
+	var okPinger testPinger = func() error {
+		return nil
+	}
+
+	someErr := stderrors.New("foo")
+
+	c.Assert(PingerIsFatal(logger, okPinger, okPinger)(someErr),
+		jc.IsFalse)
+	c.Assert(PingerIsFatal(logger, okPinger, okPinger, okPinger)(someErr),
+		jc.IsFalse)
+	c.Assert(PingerIsFatal(logger, okPinger, errPinger)(someErr),
+		jc.IsTrue)
+	c.Assert(PingerIsFatal(logger, okPinger, okPinger, errPinger)(someErr),
+		jc.IsTrue)
+	c.Assert(PingerIsFatal(logger, errPinger, okPinger, okPinger)(someErr),
 		jc.IsTrue)
 }
 
@@ -129,6 +162,14 @@ func (*toolSuite) TestIsFatal(c *gc.C) {
 		c.Logf("test %d: %s", i, test.err)
 		c.Assert(IsFatal(test.err), gc.Equals, test.isFatal)
 	}
+}
+
+type testConn struct {
+	broken chan struct{}
+}
+
+func (c *testConn) Broken() <-chan struct{} {
+	return c.broken
 }
 
 type testPinger func() error

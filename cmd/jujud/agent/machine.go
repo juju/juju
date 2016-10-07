@@ -665,7 +665,11 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 		}
 	}
 
-	runner := newConnRunner(apiConn)
+	runner := worker.NewRunner(
+		cmdutil.ConnectionIsFatal(logger, apiConn),
+		cmdutil.MoreImportant,
+		worker.RestartDelay,
+	)
 	defer func() {
 		// If startAPIWorkers exits early with an error, stop the
 		// runner so that any already started runners aren't leaked.
@@ -881,7 +885,11 @@ func (a *MachineAgent) startStateWorkers(st *state.State) (worker.Worker, error)
 		return nil, errors.Annotate(err, "machine lookup")
 	}
 
-	runner := newConnRunner(st)
+	runner := worker.NewRunner(
+		cmdutil.PingerIsFatal(logger, st),
+		cmdutil.MoreImportant,
+		worker.RestartDelay,
+	)
 	singularRunner, err := newSingularStateRunner(runner, st, m)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -1493,10 +1501,6 @@ func (a *MachineAgent) uninstallAgent() error {
 		return nil
 	}
 	return errors.Errorf("uninstall failed: %v", errs)
-}
-
-func newConnRunner(conns ...cmdutil.Pinger) worker.Runner {
-	return worker.NewRunner(cmdutil.ConnectionIsFatal(logger, conns...), cmdutil.MoreImportant, worker.RestartDelay)
 }
 
 type MongoSessioner interface {

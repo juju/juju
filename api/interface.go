@@ -178,12 +178,6 @@ type Connection interface {
 	// All the rest are strange and questionable and deserve extra attention
 	// and/or discussion.
 
-	// Something-or-other expects Ping to exist, and *maybe* the heartbeat
-	// *should* be handled outside the State type, but it's also handled
-	// inside it as well. We should figure this out sometime -- we should
-	// either expose Ping() or Broken() but not both.
-	Ping() error
-
 	// I think this is actually dead code. It's tested, at least, so I'm
 	// keeping it for now, but it's not apparently used anywhere else.
 	AllFacadeVersions() map[string][]int
