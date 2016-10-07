@@ -36,22 +36,19 @@ import (
 	"github.com/juju/juju/rpc/jsoncodec"
 )
 
+// PingPeriod defines how often the internal connection health check
+// will run.
+const PingPeriod = 1 * time.Minute
+
+// pingTimeout defines how long a health check can take before we
+// consider it to have failed.
+const pingTimeout = 30 * time.Second
+
 var logger = loggo.GetLogger("juju.api")
-
-// TODO(fwereade): we should be injecting a Clock; and injecting these values;
-// across the board, instead of using these global variables.
-var (
-	// PingPeriod defines how often the internal connection health check
-	// will run.
-	PingPeriod = 1 * time.Minute
-
-	// PingTimeout defines how long a health check can take before we
-	// consider it to have failed.
-	PingTimeout = 30 * time.Second
-)
 
 type rpcConnection interface {
 	Call(req rpc.Request, params, response interface{}) error
+	Dead() <-chan struct{}
 	Close() error
 }
 
@@ -242,9 +239,19 @@ func open(
 			return nil, errors.Trace(err)
 		}
 	}
+
 	st.broken = make(chan struct{})
 	st.closed = make(chan struct{})
-	go st.heartbeatMonitor()
+
+	go (&monitor{
+		clock:       clock,
+		ping:        st.Ping,
+		pingPeriod:  PingPeriod,
+		pingTimeout: pingTimeout,
+		closed:      st.closed,
+		dead:        client.Dead(),
+		broken:      st.broken,
+	}).run()
 	return st, nil
 }
 
@@ -453,6 +460,11 @@ func (st *state) apiEndpoint(path, query string) (*url.URL, error) {
 	}, nil
 }
 
+// Ping implements api.Connection.
+func (s *state) Ping() error {
+	return s.APICall("Pinger", s.pingerFacadeVersion, "", "Ping", nil, nil)
+}
+
 // apiPath returns the given API endpoint path relative
 // to the given model tag.
 func apiPath(modelTag names.ModelTag, path string) (string, error) {
@@ -543,42 +555,6 @@ func isX509Error(err error) bool {
 		return true
 	}
 	return false
-}
-
-func callWithTimeout(f func() error, timeout time.Duration) bool {
-	result := make(chan error, 1)
-	go func() {
-		// Note that result is buffered so that we don't leak this
-		// goroutine when a timeout happens.
-		result <- f()
-	}()
-	select {
-	case err := <-result:
-		if err != nil {
-			logger.Debugf("health ping failed: %v", err)
-		}
-		return err == nil
-	case <-time.After(timeout):
-		logger.Errorf("health ping timed out after %s", timeout)
-		return false
-	}
-}
-
-func (s *state) heartbeatMonitor() {
-	for {
-		if !callWithTimeout(s.Ping, PingTimeout) {
-			close(s.broken)
-			return
-		}
-		select {
-		case <-time.After(PingPeriod):
-		case <-s.closed:
-		}
-	}
-}
-
-func (s *state) Ping() error {
-	return s.APICall("Pinger", s.pingerFacadeVersion, "", "Ping", nil, nil)
 }
 
 type hasErrorCode interface {

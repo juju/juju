@@ -312,6 +312,10 @@ type fakeRPCConnection struct {
 	errors []error
 }
 
+func (f *fakeRPCConnection) Dead() <-chan struct{} {
+	return nil
+}
+
 func (f *fakeRPCConnection) Close() error {
 	return nil
 }
