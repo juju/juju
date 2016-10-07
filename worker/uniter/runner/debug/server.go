@@ -6,6 +6,7 @@ package debug
 import (
 	"bytes"
 	"errors"
+	"io"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -18,6 +19,8 @@ import (
 type ServerSession struct {
 	*HooksContext
 	hooks set.Strings
+
+	output io.Writer
 }
 
 // MatchHook returns true if the specified hook name matches
@@ -40,6 +43,10 @@ func (s *ServerSession) RunHook(hookName, charmDir string, env []string) error {
 	cmd.Env = env
 	cmd.Dir = charmDir
 	cmd.Stdin = bytes.NewBufferString(debugHooksServerScript)
+	if s.output != nil {
+		cmd.Stdout = s.output
+		cmd.Stderr = s.output
+	}
 	if err := cmd.Start(); err != nil {
 		return err
 	}
@@ -76,7 +83,7 @@ func (c *HooksContext) FindSession() (*ServerSession, error) {
 		return nil, err
 	}
 	hooks := set.NewStrings(args.Hooks...)
-	session := &ServerSession{c, hooks}
+	session := &ServerSession{HooksContext: c, hooks: hooks}
 	return session, nil
 }
 
