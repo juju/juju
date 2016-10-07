@@ -85,6 +85,12 @@ func InitializeWithArgs(c *gc.C, args InitializeArgs) *state.State {
 					IdentityEndpoint: "nether-identity-endpoint",
 					StorageEndpoint:  "nether-storage-endpoint",
 				},
+				cloud.Region{
+					Name:             "unused-region",
+					Endpoint:         "unused-endpoint",
+					IdentityEndpoint: "unused-identity-endpoint",
+					StorageEndpoint:  "unused-storage-endpoint",
+				},
 			},
 			RegionConfig: args.RegionConfig,
 		},
