@@ -324,7 +324,7 @@ def setup_system_monitoring(admin_client):
 
     installer_script_path = _get_static_script_path(SETUP_SCRIPT_PATH)
     collectd_config_path = _get_static_script_path(COLLECTD_CONFIG_PATH)
-    installer_script_destination_path = '/tmp/installer.sh'
+    installer_script_dest_path = '/tmp/installer.sh'
     runner_script_dest_path = '/tmp/runner.sh'
     collectd_config_dest_file = '/tmp/collectd.config'
 
