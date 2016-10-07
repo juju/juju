@@ -33,8 +33,7 @@ func (s *certSuite) TestUpdateCert(c *gc.C) {
 
 	// Sanity check that the server works initially.
 	conn := s.OpenAPIAsAdmin(c, srv)
-	err := conn.Ping()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(pingConn(conn), jc.ErrorIsNil)
 
 	// Create a new certificate that's a year out of date, so we can
 	// tell that the server is using it because the connection
@@ -70,8 +69,7 @@ func (s *certSuite) TestUpdateCert(c *gc.C) {
 	certChanged <- info
 
 	conn = s.OpenAPIAsAdmin(c, srv)
-	err = conn.Ping()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(pingConn(conn), jc.ErrorIsNil)
 }
 
 func (s *certSuite) TestAutocertFailure(c *gc.C) {

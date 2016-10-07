@@ -77,7 +77,7 @@ func (s *UpgradeSuite) SetUpTest(c *gc.C) {
 
 	// Allow tests to make the API connection appear to be dead.
 	s.connectionDead = false
-	s.PatchValue(&cmdutil.ConnectionIsDead, func(loggo.Logger, cmdutil.Pinger) bool {
+	s.PatchValue(&cmdutil.ConnectionIsDead, func(loggo.Logger, cmdutil.Breakable) bool {
 		return s.connectionDead
 	})
 

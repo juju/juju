@@ -115,8 +115,8 @@ func AgentDone(logger loggo.Logger, err error) error {
 	return err
 }
 
-// Brokener provides a type that exposes a "broken" channel.
-type Brokener interface {
+// Breakable provides a type that exposes a "broken" channel.
+type Breakable interface {
 	Broken() <-chan struct{}
 }
 
@@ -124,7 +124,7 @@ type Brokener interface {
 // isFatal argument to worker.NewRunner, that diagnoses an error as
 // fatal if the connection has failed or if the error is otherwise
 // fatal.
-func ConnectionIsFatal(logger loggo.Logger, conns ...Brokener) func(err error) bool {
+func ConnectionIsFatal(logger loggo.Logger, conns ...Breakable) func(err error) bool {
 	return func(err error) bool {
 		if IsFatal(err) {
 			return true
@@ -138,8 +138,8 @@ func ConnectionIsFatal(logger loggo.Logger, conns ...Brokener) func(err error) b
 	}
 }
 
-// ConnectionIsDead returns true if the given Brokener is broken.
-var ConnectionIsDead = func(logger loggo.Logger, conn Brokener) bool {
+// ConnectionIsDead returns true if the given Breakable is broken.
+var ConnectionIsDead = func(logger loggo.Logger, conn Breakable) bool {
 	select {
 	case <-conn.Broken():
 		return true
