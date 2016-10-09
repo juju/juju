@@ -245,7 +245,7 @@ func open(
 
 	go (&monitor{
 		clock:       clock,
-		ping:        st.ping,
+		ping:        st.Ping,
 		pingPeriod:  PingPeriod,
 		pingTimeout: pingTimeout,
 		closed:      st.closed,
@@ -460,7 +460,8 @@ func (st *state) apiEndpoint(path, query string) (*url.URL, error) {
 	}, nil
 }
 
-func (s *state) ping() error {
+// Ping implements api.Connection.
+func (s *state) Ping() error {
 	return s.APICall("Pinger", s.pingerFacadeVersion, "", "Ping", nil, nil)
 }
 

@@ -213,7 +213,7 @@ func (s *apiclientSuite) TestOpenWithRedirect(c *gc.C) {
 func (s *apiclientSuite) TestAPICallNoError(c *gc.C) {
 	clock := &fakeClock{}
 	conn := api.NewTestingState(api.TestingStateParams{
-		RPCConnection: &fakeRPCConnection{},
+		RPCConnection: newRPCConnection(),
 		Clock:         clock,
 	})
 
@@ -225,10 +225,8 @@ func (s *apiclientSuite) TestAPICallNoError(c *gc.C) {
 func (s *apiclientSuite) TestAPICallError(c *gc.C) {
 	clock := &fakeClock{}
 	conn := api.NewTestingState(api.TestingStateParams{
-		RPCConnection: &fakeRPCConnection{
-			errors: []error{errors.BadRequestf("boom")},
-		},
-		Clock: clock,
+		RPCConnection: newRPCConnection(errors.BadRequestf("boom")),
+		Clock:         clock,
 	})
 
 	err := conn.APICall("facade", 1, "id", "method", nil, nil)
@@ -240,15 +238,13 @@ func (s *apiclientSuite) TestAPICallError(c *gc.C) {
 func (s *apiclientSuite) TestAPICallRetries(c *gc.C) {
 	clock := &fakeClock{}
 	conn := api.NewTestingState(api.TestingStateParams{
-		RPCConnection: &fakeRPCConnection{
-			errors: []error{
-				errors.Trace(
-					&rpc.RequestError{
-						Message: "hmm...",
-						Code:    params.CodeRetry,
-					}),
-			},
-		},
+		RPCConnection: newRPCConnection(
+			errors.Trace(
+				&rpc.RequestError{
+					Message: "hmm...",
+					Code:    params.CodeRetry,
+				}),
+		),
 		Clock: clock,
 	})
 
@@ -265,10 +261,8 @@ func (s *apiclientSuite) TestAPICallRetriesLimit(c *gc.C) {
 		errors = append(errors, retryError)
 	}
 	conn := api.NewTestingState(api.TestingStateParams{
-		RPCConnection: &fakeRPCConnection{
-			errors: errors,
-		},
-		Clock: clock,
+		RPCConnection: newRPCConnection(errors...),
+		Clock:         clock,
 	})
 
 	err := conn.APICall("facade", 1, "id", "method", nil, nil)
@@ -285,6 +279,20 @@ func (s *apiclientSuite) TestAPICallRetriesLimit(c *gc.C) {
 		1500 * time.Millisecond,
 		1500 * time.Millisecond,
 	})
+}
+
+func (s *apiclientSuite) TestPing(c *gc.C) {
+	clock := &fakeClock{}
+	rpcConn := newRPCConnection()
+	conn := api.NewTestingState(api.TestingStateParams{
+		RPCConnection: rpcConn,
+		Clock:         clock,
+	})
+	err := conn.Ping()
+	c.Assert(err, jc.ErrorIsNil)
+	rpcConn.stub.CheckCalls(c, []testing.StubCall{{
+		"Pinger.Ping", []interface{}{0, nil},
+	}})
 }
 
 type fakeClock struct {
@@ -307,9 +315,14 @@ func (f *fakeClock) After(d time.Duration) <-chan time.Time {
 	return time.After(0)
 }
 
+func newRPCConnection(errs ...error) *fakeRPCConnection {
+	conn := new(fakeRPCConnection)
+	conn.stub.SetErrors(errs...)
+	return conn
+}
+
 type fakeRPCConnection struct {
-	pos    int
-	errors []error
+	stub testing.Stub
 }
 
 func (f *fakeRPCConnection) Dead() <-chan struct{} {
@@ -321,12 +334,8 @@ func (f *fakeRPCConnection) Close() error {
 }
 
 func (f *fakeRPCConnection) Call(req rpc.Request, params, response interface{}) error {
-	if f.pos >= len(f.errors) {
-		return nil
-	}
-	err := f.errors[f.pos]
-	f.pos++
-	return err
+	f.stub.AddCall(req.Type+"."+req.Action, req.Version, params)
+	return f.stub.NextErr()
 }
 
 type redirectAPI struct {
