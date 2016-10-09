@@ -1,6 +1,7 @@
 """Generate graphs for system statistics."""
 
 import calendar
+import errno
 from fixtures import EnvironmentVariable
 import os
 import logging
@@ -43,10 +44,10 @@ class MongoStatsData:
     def __init__(self, timestamp, insert, query, update, delete, vsize, res):
 
         self.timestamp = timestamp
-        self.insert = float(insert.replace('*', ''))
-        self.query = float(query.replace('*', ''))
-        self.update = float(update.replace('*', ''))
-        self.delete = float(delete.replace('*', ''))
+        self.insert = int(insert.replace('*', ''))
+        self.query = int(query.replace('*', ''))
+        self.update = int(update.replace('*', ''))
+        self.delete = int(delete.replace('*', ''))
         try:
             self.vsize = value_to_bytes(vsize)
         except ValueError:
@@ -55,6 +56,11 @@ class MongoStatsData:
             self.res = value_to_bytes(res)
         except ValueError:
             self.res = 'U'
+
+
+class SourceFileNotFound(Exception):
+    """Indicate when an expected metrics data file does not exist."""
+    pass
 
 
 def value_to_bytes(amount):
@@ -255,29 +261,29 @@ def cpu_graph(start, end, rrd_path, output_file):
             'LINE1:steal_stk#000000: Steal')
 
 
-def get_mongodb_stat_data(log_file):
+def get_mongodb_stat_data(stats_file):
     """Parse raw mongostats log file output for use in creating rrd values.
 
+    :param stats_file: File-like object from which to extract the data from.
     :return: List of MongoStatsData objects
     """
     data_lines = []
-    with open(log_file, 'rt') as f:
-        for line in f:
-            details = line.split()
-            raw_time = details[MongoStats.timestamp]
-            timestamp = int(
-                calendar.timegm(
-                    time.strptime(raw_time, '%Y-%m-%dT%H:%M:%SZ')))
-            data_lines.append(
-                MongoStatsData(
-                    timestamp,
-                    details[MongoStats.inserts],
-                    details[MongoStats.query],
-                    details[MongoStats.update],
-                    details[MongoStats.delete],
-                    details[MongoStats.vsize],
-                    details[MongoStats.res],
-                ))
+    for line in stats_file:
+        details = line.split()
+        raw_time = details[MongoStats.timestamp]
+        timestamp = int(
+            calendar.timegm(
+                time.strptime(raw_time, '%Y-%m-%dT%H:%M:%SZ')))
+        data_lines.append(
+            MongoStatsData(
+                timestamp,
+                details[MongoStats.inserts],
+                details[MongoStats.query],
+                details[MongoStats.update],
+                details[MongoStats.delete],
+                details[MongoStats.vsize],
+                details[MongoStats.res],
+            ))
     first_timestamp = data_lines[0].timestamp
     final_timestamp = data_lines[-1].timestamp
     return first_timestamp, final_timestamp, data_lines
@@ -289,8 +295,13 @@ def create_mongodb_rrd_files(results_dir, destination_dir):
     Creates 2 rrd files, one for db actions and another for db memory usage.
     """
     source_file = os.path.join(results_dir, 'mongodb-stats.log')
-
-    first_ts, last_ts, all_data = get_mongodb_stat_data(source_file)
+    try:
+        with open(source_file, 'rt') as stats_file:
+            first_ts, last_ts, all_data = get_mongodb_stat_data(stats_file)
+    except IOError as e:
+        if e.errno == errno.ENOENT:
+            raise SourceFileNotFound()
+        raise
 
     query_detail_file = os.path.join(destination_dir, 'mongodb.rrd')
     memory_detail_file = os.path.join(destination_dir, 'mongodb_memory.rrd')
