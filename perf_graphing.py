@@ -60,13 +60,15 @@ class MongoStatsData:
 def value_to_bytes(amount):
     """Using SI Prefix rules."""
 
-    # Convert to float due to mongostats output having values like: 96.0M.
+    # Initially Convert to float due to mongostats output having values like:
+    # 96.0M.
+
     if not amount[-1].isalpha():
-        return float(amount)
+        return int(float(amount))
 
     SIUnits = dict(K=1e3, M=1e6, G=1e9)
     try:
-        return float(amount[:-1]) * SIUnits[amount[-1]]
+        return int(float(amount[:-1]) * SIUnits[amount[-1]])
     except KeyError:
         err_str = 'Unable to convert: {}'.format(amount)
         log.error(err_str)

@@ -54,6 +54,9 @@ class TestValueToBytes(TestCase):
         with self.assertRaises(ValueError):
             pg.value_to_bytes('abc')
 
+    def test_returns_inttype(self):
+        self.assertIsInstance(pg.value_to_bytes('1M'), int)
+
 
 class TestMongoStatsData(TestCase):
 
