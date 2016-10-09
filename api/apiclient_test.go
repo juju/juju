@@ -295,6 +295,33 @@ func (s *apiclientSuite) TestPing(c *gc.C) {
 	}})
 }
 
+func (s *apiclientSuite) TestIsBrokenOk(c *gc.C) {
+	conn := api.NewTestingState(api.TestingStateParams{
+		RPCConnection: newRPCConnection(),
+		Clock:         new(fakeClock),
+	})
+	c.Assert(conn.IsBroken(), jc.IsFalse)
+}
+
+func (s *apiclientSuite) TestIsBrokenChannelClosed(c *gc.C) {
+	broken := make(chan struct{})
+	close(broken)
+	conn := api.NewTestingState(api.TestingStateParams{
+		RPCConnection: newRPCConnection(),
+		Clock:         new(fakeClock),
+		Broken:        broken,
+	})
+	c.Assert(conn.IsBroken(), jc.IsTrue)
+}
+
+func (s *apiclientSuite) TestIsBrokenPingFailed(c *gc.C) {
+	conn := api.NewTestingState(api.TestingStateParams{
+		RPCConnection: newRPCConnection(errors.New("no biscuit")),
+		Clock:         new(fakeClock),
+	})
+	c.Assert(conn.IsBroken(), jc.IsTrue)
+}
+
 type fakeClock struct {
 	clock.Clock
 
