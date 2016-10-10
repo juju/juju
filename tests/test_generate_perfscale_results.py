@@ -3,7 +3,6 @@
 from contextlib import contextmanager
 from datetime import datetime
 from mock import call, patch, Mock
-import StringIO
 from textwrap import dedent
 
 from fakejuju import fake_juju_client
@@ -11,10 +10,7 @@ import generate_perfscale_results as gpr
 import perf_graphing
 from test_perfscale_deployment import default_args
 from test_quickstart_deploy import make_bootstrap_manager
-from tests import (
-    parse_error,
-    TestCase,
-)
+from tests import TestCase
 
 
 class TestRunPerfscaleTest(TestCase):
