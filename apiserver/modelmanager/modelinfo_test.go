@@ -342,6 +342,11 @@ func (st *mockState) ModelsForUser(user names.UserTag) ([]*state.UserModel, erro
 	return nil, st.NextErr()
 }
 
+func (st *mockState) AllApplications() ([]common.Application, error) {
+	st.MethodCall(st, "AllApplications")
+	return nil, st.NextErr()
+}
+
 func (st *mockState) IsControllerAdmin(user names.UserTag) (bool, error) {
 	st.MethodCall(st, "IsControllerAdmin", user)
 	if st.controllerModel == nil {

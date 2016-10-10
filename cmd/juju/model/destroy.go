@@ -5,6 +5,7 @@ package model
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -12,6 +13,7 @@ import (
 	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/modelmanager"
 	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
@@ -26,6 +28,7 @@ var logger = loggo.GetLogger("juju.cmd.juju.model")
 func NewDestroyCommand() cmd.Command {
 	destroyCmd := &destroyCommand{}
 	destroyCmd.RefreshModels = destroyCmd.ModelCommandBase.RefreshModels
+	destroyCmd.sleepFunc = time.Sleep
 	return modelcmd.Wrap(
 		destroyCmd,
 		modelcmd.WrapSkipDefaultModel,
@@ -41,6 +44,9 @@ type destroyCommand struct {
 	// NOTE: ideal solution would be to have the base implement a method
 	// like store.ModelByName which auto-refreshes.
 	RefreshModels func(jujuclient.ClientStore, string) error
+
+	// sleepFunc is used when calling the timed function to get model status updates.
+	sleepFunc func(time.Duration)
 
 	envName   string
 	assumeYes bool
@@ -73,6 +79,7 @@ Continue [y/N]? `[1:]
 type DestroyModelAPI interface {
 	Close() error
 	DestroyModel(names.ModelTag) error
+	ModelStatus(models ...names.ModelTag) ([]base.ModelStatus, error)
 }
 
 // Info implements Command.Info.
@@ -157,9 +164,19 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 	defer api.Close()
 
 	// Attempt to destroy the model.
+	ctx.Infof("Destroying model")
 	err = api.DestroyModel(names.NewModelTag(modelDetails.ModelUUID))
 	if err != nil {
 		return c.handleError(errors.Annotate(err, "cannot destroy model"), modelName)
+	}
+
+	// Wait for model to be destroyed.
+	const modelStatusPollWait = 2 * time.Second
+	modelStatus := newTimedModelStatus(ctx, api, names.NewModelTag(modelDetails.ModelUUID), c.sleepFunc)
+	modelData := modelStatus(0)
+	for modelData != nil {
+		ctx.Infof(formatDestroyModelInfo(modelData) + "...")
+		modelData = modelStatus(modelStatusPollWait)
 	}
 
 	err = store.RemoveModel(controllerName, modelName)
@@ -167,6 +184,48 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 	return nil
+}
+
+type modelData struct {
+	machineCount     int
+	applicationCount int
+}
+
+// newTimedModelStatus returns a function which waits a given period of time
+// before querying the API server for the status of a model.
+func newTimedModelStatus(ctx *cmd.Context, api DestroyModelAPI, tag names.ModelTag, sleepFunc func(time.Duration)) func(time.Duration) *modelData {
+	return func(wait time.Duration) *modelData {
+		sleepFunc(wait)
+		status, err := api.ModelStatus(tag)
+		if err != nil {
+			if params.ErrCode(err) != params.CodeNotFound {
+				ctx.Infof("Unable to get the model status from the API: %v.", err)
+			}
+			return nil
+		}
+		if l := len(status); l != 1 {
+			ctx.Infof("error finding model status: expected one result, got %d", l)
+			return nil
+		}
+		return &modelData{
+			machineCount:     status[0].HostedMachineCount,
+			applicationCount: status[0].ServiceCount,
+		}
+	}
+}
+
+func formatDestroyModelInfo(data *modelData) string {
+	out := "Waiting on model to be removed"
+	if data.machineCount == 0 && data.applicationCount == 0 {
+		return out
+	}
+	if data.machineCount > 0 {
+		out += fmt.Sprintf(", %d machine(s)", data.machineCount)
+	}
+	if data.applicationCount > 0 {
+		out += fmt.Sprintf(", %d application(s)", data.applicationCount)
+	}
+	return out
 }
 
 func (c *destroyCommand) handleError(err error, modelName string) error {

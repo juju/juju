@@ -25,6 +25,7 @@ type Client struct {
 	base.ClientFacade
 	facade base.FacadeCaller
 	*common.ControllerConfigAPI
+	*common.ModelStatusAPI
 	*cloudspec.CloudSpecAPI
 }
 
@@ -36,6 +37,7 @@ func NewClient(st base.APICallCloser) *Client {
 		ClientFacade:        frontend,
 		facade:              backend,
 		ControllerConfigAPI: common.NewControllerConfig(backend),
+		ModelStatusAPI:      common.NewModelStatusAPI(backend),
 		CloudSpecAPI:        cloudspec.NewCloudSpecAPI(backend),
 	}
 }
@@ -154,56 +156,6 @@ func (c *Client) WatchAllModels() (*api.AllWatcher, error) {
 		return nil, err
 	}
 	return api.NewAllModelWatcher(c.facade.RawAPICaller(), &info.AllWatcherId), nil
-}
-
-// ModelStatus returns a status summary for each model tag passed in.
-func (c *Client) ModelStatus(tags ...names.ModelTag) ([]base.ModelStatus, error) {
-	result := params.ModelStatusResults{}
-	models := make([]params.Entity, len(tags))
-	for i, tag := range tags {
-		models[i] = params.Entity{Tag: tag.String()}
-	}
-	req := params.Entities{
-		Entities: models,
-	}
-	if err := c.facade.FacadeCall("ModelStatus", req, &result); err != nil {
-		return nil, err
-	}
-
-	results := make([]base.ModelStatus, len(result.Results))
-	for i, r := range result.Results {
-		model, err := names.ParseModelTag(r.ModelTag)
-		if err != nil {
-			return nil, errors.Annotatef(err, "ModelTag %q at position %d", r.ModelTag, i)
-		}
-		owner, err := names.ParseUserTag(r.OwnerTag)
-		if err != nil {
-			return nil, errors.Annotatef(err, "OwnerTag %q at position %d", r.OwnerTag, i)
-		}
-
-		results[i] = base.ModelStatus{
-			UUID:               model.Id(),
-			Life:               string(r.Life),
-			Owner:              owner.Id(),
-			HostedMachineCount: r.HostedMachineCount,
-			ServiceCount:       r.ApplicationCount,
-			TotalMachineCount:  len(r.Machines),
-		}
-		results[i].Machines = make([]base.Machine, len(r.Machines))
-		for j, mm := range r.Machines {
-			if mm.Hardware != nil && mm.Hardware.Cores != nil {
-				results[i].CoreCount += int(*mm.Hardware.Cores)
-			}
-			results[i].Machines[j] = base.Machine{
-				Id:         mm.Id,
-				InstanceId: mm.InstanceId,
-				HasVote:    mm.HasVote,
-				WantsVote:  mm.WantsVote,
-				Status:     mm.Status,
-			}
-		}
-	}
-	return results, nil
 }
 
 // GrantController grants a user access to the controller.

@@ -55,6 +55,7 @@ type Controller interface {
 // the concrete implementation of the api end point.
 type ControllerAPI struct {
 	*common.ControllerConfigAPI
+	*common.ModelStatusAPI
 	cloudspec.CloudSpecAPI
 
 	state      *state.State
@@ -83,6 +84,7 @@ func NewControllerAPI(
 	environConfigGetter := stateenvirons.EnvironConfigGetter{st}
 	return &ControllerAPI{
 		ControllerConfigAPI: common.NewControllerConfig(st),
+		ModelStatusAPI:      common.NewModelStatusAPI(common.NewModelManagerBackend(st), authorizer, apiUser),
 		CloudSpecAPI:        cloudspec.NewCloudSpec(environConfigGetter.CloudSpec, common.AuthFuncForTag(st.ModelTag())),
 		state:               st,
 		authorizer:          authorizer,
@@ -329,26 +331,6 @@ func (o orderedBlockInfo) Less(i, j int) bool {
 	return false
 }
 
-// ModelStatus returns a summary of the environment.
-func (c *ControllerAPI) ModelStatus(req params.Entities) (params.ModelStatusResults, error) {
-	models := req.Entities
-	results := params.ModelStatusResults{}
-	if err := c.checkHasAdmin(); err != nil {
-		return results, errors.Trace(err)
-	}
-
-	status := make([]params.ModelStatus, len(models))
-	for i, model := range models {
-		modelStatus, err := c.modelStatus(model.Tag)
-		if err != nil {
-			return results, errors.Trace(err)
-		}
-		status[i] = modelStatus
-	}
-	results.Results = status
-	return results, nil
-}
-
 // GetControllerAccess returns the level of access the specifed users
 // have on the controller.
 func (c *ControllerAPI) GetControllerAccess(req params.Entities) (params.UserAccessResults, error) {
@@ -466,58 +448,6 @@ func (c *ControllerAPI) initiateOneMigration(spec params.MigrationSpec) (string,
 		return "", errors.Trace(err)
 	}
 	return mig.Id(), nil
-}
-
-func (c *ControllerAPI) modelStatus(tag string) (params.ModelStatus, error) {
-	var status params.ModelStatus
-	modelTag, err := names.ParseModelTag(tag)
-	if err != nil {
-		return status, errors.Trace(err)
-	}
-	st, err := c.state.ForModel(modelTag)
-	if err != nil {
-		return status, errors.Trace(err)
-	}
-	defer st.Close()
-
-	machines, err := st.AllMachines()
-	if err != nil {
-		return status, errors.Trace(err)
-	}
-
-	var hostedMachines []*state.Machine
-	for _, m := range machines {
-		if !m.IsManager() {
-			hostedMachines = append(hostedMachines, m)
-		}
-	}
-
-	applications, err := st.AllApplications()
-	if err != nil {
-		return status, errors.Trace(err)
-	}
-
-	model, err := st.Model()
-	if err != nil {
-		return status, errors.Trace(err)
-	}
-	if err != nil {
-		return status, errors.Trace(err)
-	}
-
-	modelMachines, err := common.ModelMachineInfo(common.NewModelManagerBackend(st))
-	if err != nil {
-		return status, errors.Trace(err)
-	}
-
-	return params.ModelStatus{
-		ModelTag:           tag,
-		OwnerTag:           model.Owner().String(),
-		Life:               params.Life(model.Life().String()),
-		HostedMachineCount: len(hostedMachines),
-		ApplicationCount:   len(applications),
-		Machines:           modelMachines,
-	}, nil
 }
 
 // ModifyControllerAccess changes the model access granted to users.

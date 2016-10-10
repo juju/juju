@@ -9,6 +9,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
@@ -22,13 +23,18 @@ var logger = loggo.GetLogger("juju.api.modelmanager")
 type Client struct {
 	base.ClientFacade
 	facade base.FacadeCaller
+	*common.ModelStatusAPI
 }
 
 // NewClient creates a new `Client` based on an existing authenticated API
 // connection.
 func NewClient(st base.APICallCloser) *Client {
 	frontend, backend := base.NewClientFacade(st, "ModelManager")
-	return &Client{ClientFacade: frontend, facade: backend}
+	return &Client{
+		ClientFacade:   frontend,
+		facade:         backend,
+		ModelStatusAPI: common.NewModelStatusAPI(backend),
+	}
 }
 
 // Close closes the api connection.

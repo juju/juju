@@ -13,7 +13,9 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/model"
 	"github.com/juju/juju/cmd/modelcmd"
 	cmdtesting "github.com/juju/juju/cmd/testing"
@@ -25,27 +27,39 @@ import (
 
 type DestroySuite struct {
 	testing.FakeJujuXDGDataHomeSuite
-	api   *fakeDestroyAPI
+	api   *fakeAPI
 	store *jujuclienttesting.MemStore
+	sleep func(time.Duration)
 }
 
 var _ = gc.Suite(&DestroySuite{})
 
 // fakeDestroyAPI mocks out the cient API
-type fakeDestroyAPI struct {
-	err error
-	env map[string]interface{}
+type fakeAPI struct {
+	err             error
+	env             map[string]interface{}
+	statusCallCount int
+	modelInfoErr    []*params.Error
 }
 
-func (f *fakeDestroyAPI) Close() error { return nil }
+func (f *fakeAPI) Close() error { return nil }
 
-func (f *fakeDestroyAPI) DestroyModel(names.ModelTag) error {
+func (f *fakeAPI) DestroyModel(names.ModelTag) error {
 	return f.err
+}
+
+func (f *fakeAPI) ModelStatus(models ...names.ModelTag) ([]base.ModelStatus, error) {
+	var err *params.Error = &params.Error{Code: params.CodeNotFound}
+	if f.statusCallCount < len(f.modelInfoErr) {
+		err = f.modelInfoErr[f.statusCallCount]
+	}
+	f.statusCallCount++
+	return []base.ModelStatus{{}}, err
 }
 
 func (s *DestroySuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
-	s.api = &fakeDestroyAPI{}
+	s.api = &fakeAPI{}
 	s.api.err = nil
 
 	s.store = jujuclienttesting.NewMemStore()
@@ -60,15 +74,16 @@ func (s *DestroySuite) SetUpTest(c *gc.C) {
 	s.store.Accounts["test1"] = jujuclient.AccountDetails{
 		User: "admin",
 	}
+	s.sleep = func(time.Duration) {}
 }
 
 func (s *DestroySuite) runDestroyCommand(c *gc.C, args ...string) (*cmd.Context, error) {
-	cmd := model.NewDestroyCommandForTest(s.api, noOpRefresh, s.store)
+	cmd := model.NewDestroyCommandForTest(s.api, noOpRefresh, s.store, s.sleep)
 	return testing.RunCommand(c, cmd, args...)
 }
 
 func (s *DestroySuite) NewDestroyCommand() cmd.Command {
-	return model.NewDestroyCommandForTest(s.api, noOpRefresh, s.store)
+	return model.NewDestroyCommandForTest(s.api, noOpRefresh, s.store, s.sleep)
 }
 
 func checkModelExistsInStore(c *gc.C, name string, store jujuclient.ClientStore) {
@@ -105,7 +120,7 @@ func (s *DestroySuite) TestDestroyUnknownModelCallsRefresh(c *gc.C) {
 		return nil
 	}
 
-	cmd := model.NewDestroyCommandForTest(s.api, refresh, s.store)
+	cmd := model.NewDestroyCommandForTest(s.api, refresh, s.store, s.sleep)
 	_, err := testing.RunCommand(c, cmd, "foo")
 	c.Check(called, jc.IsTrue)
 	c.Check(err, gc.ErrorMatches, `cannot read model info: model test1:admin/foo not found`)
@@ -130,6 +145,15 @@ func (s *DestroySuite) TestDestroy(c *gc.C) {
 	_, err := s.runDestroyCommand(c, "test2", "-y")
 	c.Assert(err, jc.ErrorIsNil)
 	checkModelRemovedFromStore(c, "test1:admin/test2", s.store)
+}
+
+func (s *DestroySuite) TestDestroyBlocks(c *gc.C) {
+	checkModelExistsInStore(c, "test1:admin/test2", s.store)
+	s.api.modelInfoErr = []*params.Error{{}, {Code: params.CodeNotFound}}
+	_, err := s.runDestroyCommand(c, "test2", "-y")
+	c.Assert(err, jc.ErrorIsNil)
+	checkModelRemovedFromStore(c, "test1:admin/test2", s.store)
+	c.Assert(s.api.statusCallCount, gc.Equals, 1)
 }
 
 func (s *DestroySuite) TestFailedDestroyModel(c *gc.C) {
