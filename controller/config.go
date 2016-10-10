@@ -233,21 +233,24 @@ func (c Config) NUMACtlPreference() bool {
 
 // Validate ensures that config is a valid configuration.
 func Validate(c Config) error {
+	if v, ok := c[IdentityPublicKey].(string); ok {
+		var key bakery.PublicKey
+		if err := key.UnmarshalText([]byte(v)); err != nil {
+			return errors.Annotate(err, "invalid identity public key")
+		}
+	}
+
 	if v, ok := c[IdentityURL].(string); ok {
 		u, err := url.Parse(v)
 		if err != nil {
 			return errors.Annotate(err, "invalid identity URL")
 		}
-		if u.Scheme != "https" {
-			return errors.Errorf("URL needs to be https")
-		}
-
-	}
-
-	if v, ok := c[IdentityPublicKey].(string); ok {
-		var key bakery.PublicKey
-		if err := key.UnmarshalText([]byte(v)); err != nil {
-			return errors.Annotate(err, "invalid identity public key")
+		// If we've got an identity public key, we allow an HTTP
+		// scheme for the identity server because we won't need
+		// to rely on insecure transport to obtain the public
+		// key.
+		if _, ok := c[IdentityPublicKey]; !ok && u.Scheme != "https" {
+			return errors.Errorf("URL needs to be https when %s not provided", IdentityPublicKey)
 		}
 	}
 
