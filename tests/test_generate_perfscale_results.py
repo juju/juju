@@ -1,14 +1,89 @@
 """Tests for assess_perf_test_simple module."""
 
-from mock import patch
+from contextlib import contextmanager
+from mock import patch, Mock
 import StringIO
 from textwrap import dedent
 
 import generate_perfscale_results as gpr
+import perf_graphing
 from tests import (
     parse_error,
     TestCase,
 )
+
+
+class TestGenerateGraphImages(TestCase):
+
+    @contextmanager
+    def patch_generator(self, image):
+        with patch.object(
+                gpr, 'generate_graph_image',
+                return_value=image, autospec=True) as m_ggi:
+            yield m_ggi
+
+    def test_generate_graph_image(self):
+        image = Mock()
+        base_dir = '/foo/test'
+        results_dir = 'results'
+        name = 'testing_name'
+        generator = Mock()
+        with patch.object(
+                gpr, 'create_report_graph', return_value=image) as m_crg:
+            self.assertEqual(
+                image,
+                gpr.generate_graph_image(
+                    base_dir, results_dir, name, generator))
+        m_crg.assert_called_once_with(
+            '/foo/test/results', base_dir, name, generator)
+
+    def test_generate_cpu_graph(self):
+        image = Mock()
+        with self.patch_generator(image) as m_ggi:
+            self.assertEqual(
+                image,
+                gpr.generate_cpu_graph_image('/foo'))
+        m_ggi.assert_called_once_with(
+            '/foo', 'aggregation-cpu-average', 'cpu', perf_graphing.cpu_graph)
+
+    def test_generate_memory_graph_calls_(self):
+        image = Mock()
+        with self.patch_generator(image) as m_ggi:
+            self.assertEqual(
+                image,
+                gpr.generate_memory_graph_image('/foo'))
+        m_ggi.assert_called_once_with(
+            '/foo', 'memory', 'memory', perf_graphing.memory_graph)
+
+    def test_generate_network_graph(self):
+        image = Mock()
+        with self.patch_generator(image) as m_ggi:
+            self.assertEqual(
+                image,
+                gpr.generate_network_graph_image('/foo'))
+        m_ggi.assert_called_once_with(
+            '/foo', 'interface-eth0', 'network', perf_graphing.network_graph)
+
+    def test_generate_mongo_query_graph(self):
+        image = Mock()
+        with self.patch_generator(image) as m_ggi:
+            self.assertEqual(
+                image,
+                gpr.generate_mongo_query_graph_image('/foo'))
+        m_ggi.assert_called_once_with(
+            '/foo', 'mongodb', 'mongodb', perf_graphing.mongodb_graph)
+
+    def test_generate_mongo_memory_graph(self):
+        image = Mock()
+        with self.patch_generator(image) as m_ggi:
+            self.assertEqual(
+                image,
+                gpr.generate_mongo_memory_graph_image('/foo'))
+        m_ggi.assert_called_once_with(
+            '/foo',
+            'mongodb',
+            'mongodb_memory',
+            perf_graphing.mongodb_memory_graph)
 
 
 class TestFindActualStart(TestCase):
