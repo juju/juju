@@ -346,21 +346,29 @@ func (a *MachineAgent) Stop() error {
 
 // upgradeCertificateDNSNames ensure that the controller certificate
 // recorded in the agent config and also mongo server.pem contains the
-// DNSNames entires required by Juju/
-func (a *MachineAgent) upgradeCertificateDNSNames() error {
-	agentConfig := a.CurrentConfig()
-	si, ok := agentConfig.StateServingInfo()
+// DNSNames entries required by Juju.
+func upgradeCertificateDNSNames(config agent.ConfigSetter) error {
+	si, ok := config.StateServingInfo()
 	if !ok || si.CAPrivateKey == "" {
 		// No certificate information exists yet, nothing to do.
 		return nil
 	}
-	// Parse the current certificate to get the current dns names.
-	serverCert, err := cert.ParseCert(si.Cert)
+
+	// Validate the current certificate and private key pair, and then
+	// extract the current DNS names from the certificate. If the
+	// certificate validation fails, or it does not contain the DNS
+	// names we require, we will generate a new one.
+	var dnsNames set.Strings
+	serverCert, _, err := cert.ParseCertAndKey(si.Cert, si.PrivateKey)
 	if err != nil {
-		return err
+		// The certificate is invalid, so create a new one.
+		logger.Infof("parsing certificate/key failed, will generate a new one: %v", err)
+		dnsNames = set.NewStrings()
+	} else {
+		dnsNames = set.NewStrings(serverCert.DNSNames...)
 	}
+
 	update := false
-	dnsNames := set.NewStrings(serverCert.DNSNames...)
 	requiredDNSNames := []string{"local", "juju-apiserver", "juju-mongodb"}
 	for _, dnsName := range requiredDNSNames {
 		if dnsNames.Contains(dnsName) {
@@ -372,18 +380,17 @@ func (a *MachineAgent) upgradeCertificateDNSNames() error {
 	if !update {
 		return nil
 	}
+
 	// Write a new certificate to the mongo pem and agent config files.
-	si.Cert, si.PrivateKey, err = cert.NewDefaultServer(agentConfig.CACert(), si.CAPrivateKey, dnsNames.Values())
+	si.Cert, si.PrivateKey, err = cert.NewDefaultServer(config.CACert(), si.CAPrivateKey, dnsNames.Values())
 	if err != nil {
 		return err
 	}
-	if err := mongo.UpdateSSLKey(agentConfig.DataDir(), si.Cert, si.PrivateKey); err != nil {
+	if err := mongo.UpdateSSLKey(config.DataDir(), si.Cert, si.PrivateKey); err != nil {
 		return err
 	}
-	return a.AgentConfigWriter.ChangeConfig(func(config agent.ConfigSetter) error {
-		config.SetStateServingInfo(si)
-		return nil
-	})
+	config.SetStateServingInfo(si)
+	return nil
 }
 
 // Run runs a machine agent.
@@ -407,7 +414,7 @@ func (a *MachineAgent) Run(*cmd.Context) error {
 	// use by mongo to validate controller connections is correct. This needs to be done
 	// before any possible restart of the mongo service.
 	// See bug http://pad.lv/1434680
-	if err := a.upgradeCertificateDNSNames(); err != nil {
+	if err := a.AgentConfigWriter.ChangeConfig(upgradeCertificateDNSNames); err != nil {
 		return errors.Annotate(err, "error upgrading server certificate")
 	}
 

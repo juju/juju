@@ -1064,6 +1064,28 @@ func (s *MachineSuite) TestCertificateUpdateWorkerUpdatesCertificate(c *gc.C) {
 }
 
 func (s *MachineSuite) TestCertificateDNSUpdated(c *gc.C) {
+	m, _, _ := s.primeAgent(c, state.JobManageModel)
+	a := s.newAgent(c, m)
+	s.testCertificateDNSUpdated(c, a)
+}
+
+func (s *MachineSuite) TestCertificateDNSUpdatedInvalidPrivateKey(c *gc.C) {
+	m, agentConfig, _ := s.primeAgent(c, state.JobManageModel)
+
+	// Write out config with an invalid private key. This should
+	// cause the agent to rewrite the cert and key.
+	si, ok := agentConfig.StateServingInfo()
+	c.Assert(ok, jc.IsTrue)
+	si.PrivateKey = "foo"
+	agentConfig.SetStateServingInfo(si)
+	err := agentConfig.Write()
+	c.Assert(err, jc.ErrorIsNil)
+
+	a := s.newAgent(c, m)
+	s.testCertificateDNSUpdated(c, a)
+}
+
+func (s *MachineSuite) testCertificateDNSUpdated(c *gc.C, a *MachineAgent) {
 	// Disable the certificate work so it doesn't update the certificate.
 	newUpdater := func(certupdater.AddressWatcher, certupdater.StateServingInfoGetter, certupdater.ControllerConfigGetter,
 		certupdater.APIHostPortsGetter, certupdater.StateServingInfoSetter,
@@ -1072,17 +1094,13 @@ func (s *MachineSuite) TestCertificateDNSUpdated(c *gc.C) {
 	}
 	s.PatchValue(&newCertificateUpdater, newUpdater)
 
-	// Set up the machine agent.
-	m, _, _ := s.primeAgent(c, state.JobManageModel)
-	a := s.newAgent(c, m)
-
 	// Set up check that certificate has been updated when the agent starts.
 	updated := make(chan struct{})
 	expectedDnsNames := set.NewStrings("local", "juju-apiserver", "juju-mongodb")
 	go func() {
 		for {
 			stateInfo, _ := a.CurrentConfig().StateServingInfo()
-			srvCert, err := cert.ParseCert(stateInfo.Cert)
+			srvCert, _, err := cert.ParseCertAndKey(stateInfo.Cert, stateInfo.PrivateKey)
 			c.Assert(err, jc.ErrorIsNil)
 			certDnsNames := set.NewStrings(srvCert.DNSNames...)
 			if !expectedDnsNames.Difference(certDnsNames).IsEmpty() {
