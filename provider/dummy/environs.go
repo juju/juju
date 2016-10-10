@@ -831,6 +831,11 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 	return bsResult, nil
 }
 
+// BootstrapMessage is part of the Environ interface.
+func (e *environ) BootstrapMessage() string {
+	return ""
+}
+
 func (e *environ) ControllerInstances(controllerUUID string) ([]instance.Id, error) {
 	estate, err := e.state()
 	if err != nil {
