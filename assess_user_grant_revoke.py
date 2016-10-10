@@ -249,30 +249,26 @@ def assert_logout_login(controller_client, user_client, user, fake_home):
     controller_name = '{}_controller'.format(username)
     client = controller_client.create_cloned_environment(
         fake_home, controller_name, user.name)
-    if client.env.config['type'] == 'lxd':
-        client.juju(
-            'login', (user.name, '-c', controller_name), include_e=False)
-    else:
-        try:
-            child = client.expect('login', (user.name, '-c', controller_name),
-                                  include_e=False)
-            # This scenario is pre-macaroon.
-            # See https://bugs.launchpad.net/bugs/1621532
-            child.expect('(?i)password')
-            child.sendline(user.name + '_password_2')
-            # end non-macaroon.
-            child.expect(pexpect.EOF)
-            if child.isalive():
-                raise JujuAssertionError(
-                    'FAIL Login user: pexpect session still alive')
-            child.close()
-            if child.exitstatus != 0:
-                raise JujuAssertionError(
-                    'FAIL Login user: pexpect process exited with {}'.format(
-                        child.exitstatus))
-        except pexpect.TIMEOUT:
+    try:
+        child = client.expect('login', (user.name, '-c', controller_name),
+                              include_e=False)
+        # This scenario is pre-macaroon.
+        # See https://bugs.launchpad.net/bugs/1621532
+        child.expect('(?i)password')
+        child.sendline(user.name + '_password_2')
+        # end non-macaroon.
+        child.expect(pexpect.EOF)
+        if child.isalive():
             raise JujuAssertionError(
-                'FAIL Login user failed: pexpect session timed out')
+                'FAIL Login user: pexpect session still alive')
+        child.close()
+        if child.exitstatus != 0:
+            raise JujuAssertionError(
+                'FAIL Login user: pexpect process exited with {}'.format(
+                    child.exitstatus))
+    except pexpect.TIMEOUT:
+        raise JujuAssertionError(
+            'FAIL Login user failed: pexpect session timed out')
     log.info('PASS logout and login')
     return client
 
