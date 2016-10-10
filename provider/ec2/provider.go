@@ -5,6 +5,7 @@ package ec2
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -33,8 +34,17 @@ func (p environProvider) Open(args environs.OpenParams) (environs.Environ, error
 	e.cloud = args.Cloud
 	e.name = args.Config.Name()
 
+	// The endpoints in public-clouds.yaml from 2.0-rc2
+	// and before were wrong, so we use whatever is defined
+	// in goamz/aws if available.
+	if isBrokenCloud(e.cloud) {
+		if region, ok := aws.Regions[e.cloud.Region]; ok {
+			e.cloud.Endpoint = region.EC2Endpoint
+		}
+	}
+
 	var err error
-	e.ec2, err = awsClient(args.Cloud)
+	e.ec2, err = awsClient(e.cloud)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -43,6 +53,27 @@ func (p environProvider) Open(args environs.OpenParams) (environs.Environ, error
 		return nil, errors.Trace(err)
 	}
 	return e, nil
+}
+
+// isBrokenCloud reports whether the given CloudSpec is from an old,
+// broken version of public-clouds.yaml.
+func isBrokenCloud(cloud environs.CloudSpec) bool {
+	// The public-clouds.yaml from 2.0-rc2 and before was
+	// complete nonsense for general regions and for
+	// govcloud. The cn-north-1 region has a trailing slash,
+	// which we don't want as it means we won't match the
+	// simplestreams data.
+	switch cloud.Region {
+	case "us-east-1", "us-west-1", "us-west-2", "eu-west-1",
+		"eu-central-1", "ap-southeast-1", "ap-southeast-2",
+		"ap-northeast-1", "ap-northeast-2", "sa-east-1":
+		return cloud.Endpoint == fmt.Sprintf("https://%s.aws.amazon.com/v1.2/", cloud.Region)
+	case "cn-north-1":
+		return strings.HasSuffix(cloud.Endpoint, "/")
+	case "us-gov-west-1":
+		return cloud.Endpoint == "https://ec2.us-gov-west-1.amazonaws-govcloud.com"
+	}
+	return false
 }
 
 func awsClient(cloud environs.CloudSpec) (*ec2.EC2, error) {

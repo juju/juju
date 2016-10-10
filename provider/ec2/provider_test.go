@@ -6,10 +6,12 @@ package ec2_test
 import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"gopkg.in/amz.v3/aws"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/provider/ec2"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -62,6 +64,46 @@ func (s *ProviderSuite) TestOpenUnknownRegion(c *gc.C) {
 		Config: coretesting.ModelConfig(c),
 	})
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *ProviderSuite) TestOpenKnownRegionInvalidEndpoint(c *gc.C) {
+	s.PatchValue(&aws.Regions, map[string]aws.Region{
+		"us-east-1": {
+			EC2Endpoint: "https://testing.invalid",
+		},
+	})
+	s.spec.Endpoint = "https://us-east-1.aws.amazon.com/v1.2/"
+
+	env, err := s.provider.Open(environs.OpenParams{
+		Cloud:  s.spec,
+		Config: coretesting.ModelConfig(c),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	ec2Client := ec2.EnvironEC2(env)
+	c.Assert(ec2Client.Region.EC2Endpoint, gc.Equals, "https://testing.invalid")
+}
+
+func (s *ProviderSuite) TestOpenKnownRegionValidEndpoint(c *gc.C) {
+	// If the endpoint in the cloudspec is not known to be invalid,
+	// we ignore whatever is in aws.Regions. This way, if the AWS
+	// endpoints do ever change, we can update public-clouds.yaml
+	// and have it picked up.
+	s.PatchValue(&aws.Regions, map[string]aws.Region{
+		"us-east-1": {
+			EC2Endpoint: "https://testing.invalid",
+		},
+	})
+	s.spec.Endpoint = "https://ec2.us-east-1.amazonaws.com"
+
+	env, err := s.provider.Open(environs.OpenParams{
+		Cloud:  s.spec,
+		Config: coretesting.ModelConfig(c),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	ec2Client := ec2.EnvironEC2(env)
+	c.Assert(ec2Client.Region.EC2Endpoint, gc.Equals, "https://ec2.us-east-1.amazonaws.com")
 }
 
 func (s *ProviderSuite) TestOpenMissingCredential(c *gc.C) {
