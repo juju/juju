@@ -12,6 +12,68 @@
       href="http://reports.vapour.ws/static/css/base.css" />
     <link rel="shortcut icon"  type="image/png"
       href="http://reports.vapour.ws/static/images/favicon.ico" />
+    <!-- Additional styles for 'tabs' -->
+    <style type="text/css" media="screen">
+        ul.tabs {
+            list-style: none;
+            border: 0;
+            margin: 0;
+            margin-left: 20px;
+            margin-bottom: 20px;
+            padding: 0;
+            vertical-align: 0;
+            display: inline-block;
+        }
+
+        ul.tabs li {
+            background: none;
+            display: inline-block;
+            cursor: pointer;
+        }
+
+        ul.tabs li span.tab {
+            color: #888;
+        }
+
+        ul.tabs li.current span.tab {
+            border-bottom: 3px solid #dd4814;
+        }
+
+        ul.tabs li::after {
+            content: '';
+            width: 1px;
+            display: inline-block;
+            background: #d2d2d2;
+            height: 11px;
+            padding: 0;
+            margin: 0 5px;
+        }
+
+        .tab-content {
+            display: none;
+            background: #ededed;
+        }
+
+        .tab-content.current {
+            display: inherit;
+        }
+    </style>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
+    <!-- Quick glue code for 'tabs' -->
+    <script type="text/javascript">
+      $(document).ready(function(){
+	      $('ul.tabs li').click(function(){
+		    var tab_id = $(this).attr('data-tab');
+
+    		$('ul.tabs li').removeClass('current');
+    		$('.tab-content').removeClass('current');
+
+    		$(this).addClass('current');
+    		$("#"+tab_id).addClass('current');
+          });
+      });
+
+    </script>
 
     <title>Simple performance/scale reporting</title>
 
@@ -106,61 +168,48 @@
             Logs broken down into 20 second chunks (to match the graphs.)
           </blockquote>
 
-          <ul class="nav nav-tabs" role="tablist">
+          <ul class="tabs">
             {% for date_stamp, values in log_message_chunks|dictsort %}
             {% set safe_date_stamp = date_stamp|replace(":", "")|replace(" ", "") %}
-            <li
-               role="presentation"
-               {% if loop.index == 1 %}
-               class="active"
-               {% endif %}
-               >
-              <a
-                 href="#{{safe_date_stamp}}"
-                 aria-controls="{{safe_date_stamp}}"
-                 role="tab"
-                 data-toggle="tab">
-                {{values.name}}
-              </a>
+            <li class="tab_tablink {% if loop.index == 1 %} current {% endif %}">
+              <span class="tab" data-tab="{{safe_date_stamp}}">{{values.name}}</span>
             </li>
             {% endfor %}
           </ul>
 
-          <div class="tab-content">
-            {% for date_stamp, values in log_message_chunks|dictsort %}
-            {% set safe_date_stamp = date_stamp|replace(":", "")|replace(" ", "")|replace("(", "")|replace(")", "") %}
-            <div
-               role="tabpanel"
-               class="tab-pane {% if loop.index == 1 %}active{% endif %}"
-               id="{{safe_date_stamp}}">
-              <h4 class="text-center">Log period: <b>{{date_stamp}}</b></h4>
-              <table>
-                {% for log_detail in values.logs|sort(attribute='timeframe') %}
-                {% set safe_timeframe = log_detail.timeframe|replace(":", "")|replace(" ", "")|replace("(", "")|replace(")", "") %}
-                <tr
-                   data-toggle="collapse"
-                   data-target="#{{safe_timeframe}}"
-                   style="cursor: pointer;"
-                   class="clickable active collapsed">
-                  <td>
-                    {{log_detail.timeframe}}
-                  </td>
-                </tr>
-                <tr>
-                  <td>
-                    <div id="{{safe_timeframe}}" class="collapse">
-                      <small>
-                        {{log_detail.message}}
-                      </small>
-                    </div>
-                  </td>
-                </tr>
-                {%endfor%}
+          {% for date_stamp, values in log_message_chunks|dictsort %}
+          {% set safe_date_stamp = date_stamp|replace(":", "")|replace(" ", "")|replace("(", "")|replace(")", "") %}
+          <div
+             class="tab-content {% if loop.index == 1 %} current {% endif %}"
+             id="{{safe_date_stamp}}">
+            <h4 class="text-center">{{values.name}}</h4>
+            <div class="text-center">Log period: <b>{{date_stamp}}</b></div>
+            <table>
+              {% for log_detail in values.logs|sort(attribute='timeframe') %}
+              {% set safe_timeframe = log_detail.timeframe|replace(":", "")|replace(" ", "")|replace("(", "")|replace(")", "") %}
+              <tr
+                 data-toggle="collapse"
+                 data-target="#{{safe_timeframe}}"
+                 style="cursor: pointer;"
+                 class="clickable active collapsed">
+                <td>
+                  {{log_detail.timeframe}}
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  <div id="{{safe_timeframe}}" class="collapse">
+                    <small>
+                      {{log_detail.message}}
+                    </small>
+                  </div>
+                </td>
+              </tr>
+              {%endfor%}
 
-              </table>
-            </div>
-            {% endfor %}
+            </table>
           </div>
+          {% endfor %}
 
         </div>
       </div>
