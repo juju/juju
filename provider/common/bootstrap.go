@@ -134,7 +134,7 @@ func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args
 
 	bootstrapMsg := env.BootstrapMessage()
 	if bootstrapMsg != "" {
-		fmt.Println(bootstrapMsg)
+		ctx.Infof(bootstrapMsg)
 	}
 
 	cloudRegion := args.CloudName

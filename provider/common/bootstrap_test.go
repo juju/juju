@@ -4,8 +4,10 @@
 package common_test
 
 import (
+	"bytes"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -17,6 +19,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -215,7 +218,8 @@ func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 		config:        getConfig,
 		setConfig:     setConfig,
 	}
-	ctx := envtesting.BootstrapContext(c)
+	inner := coretesting.Context(c)
+	ctx := modelcmd.BootstrapContext(inner)
 	result, err := common.Bootstrap(ctx, env, environs.BootstrapParams{
 		ControllerConfig: coretesting.FakeControllerConfig(),
 		AvailableTools: tools.List{
@@ -230,6 +234,10 @@ func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Arch, gc.Equals, "ppc64el") // based on hardware characteristics
 	c.Assert(result.Series, gc.Equals, config.PreferredSeries(mocksConfig))
+	output := inner.Stderr.(*bytes.Buffer)
+	lines := strings.Split(output.String(), "\n")
+	c.Assert(len(lines), jc.GreaterThan, 1)
+	c.Assert(lines[0], gc.Equals, "Some message")
 }
 
 type neverRefreshes struct {

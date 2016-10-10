@@ -47,7 +47,7 @@ func (env *mockEnviron) AllInstances() ([]instance.Instance, error) {
 }
 
 func (env *mockEnviron) BootstrapMessage() string {
-	return ""
+	return "Some message"
 }
 
 func (env *mockEnviron) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
