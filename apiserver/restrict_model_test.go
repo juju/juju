@@ -26,9 +26,8 @@ func (s *restrictModelSuite) SetUpSuite(c *gc.C) {
 }
 
 func (s *restrictModelSuite) TestAllowed(c *gc.C) {
-	caller, err := s.root.FindMethod("Client", 1, "FullStatus")
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(caller, gc.NotNil)
+	s.assertMethod(c, "Client", 1, "FullStatus")
+	s.assertMethod(c, "Pinger", 1, "Ping")
 }
 
 func (s *restrictModelSuite) TestBlocked(c *gc.C) {
@@ -36,4 +35,10 @@ func (s *restrictModelSuite) TestBlocked(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `facade "ModelManager" not supported for model API connection`)
 	c.Assert(errors.IsNotSupported(err), jc.IsTrue)
 	c.Assert(caller, gc.IsNil)
+}
+
+func (s *restrictModelSuite) assertMethod(c *gc.C, facadeName string, version int, method string) {
+	caller, err := s.root.FindMethod(facadeName, version, method)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(caller, gc.NotNil)
 }
