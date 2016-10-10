@@ -35,11 +35,6 @@ func (s *pingerSuite) newServerWithTestClock(c *gc.C) (*apiserver.Server, *testi
 	return server, clock
 }
 
-func pingConn(conn api.Connection) error {
-	version := conn.BestFacadeVersion("Pinger")
-	return conn.APICall("Pinger", version, "", "Ping", nil, nil)
-}
-
 func (s *pingerSuite) TestConnectionBrokenDetection(c *gc.C) {
 	server, clock := s.newServerWithTestClock(c)
 	conn, _ := s.OpenAPIAsNewMachine(c, server)
@@ -83,12 +78,6 @@ func (s *pingerSuite) TestPing(c *gc.C) {
 	}
 }
 
-func (s *pingerSuite) advanceClock(c *gc.C, clock *testing.Clock, delta time.Duration, count int) {
-	for i := 0; i < count; i++ {
-		clock.Advance(delta)
-	}
-}
-
 func (s *pingerSuite) TestClientNoNeedToPing(c *gc.C) {
 	server, clock := s.newServerWithTestClock(c)
 	conn := s.OpenAPIAsAdmin(c, server)
@@ -98,74 +87,32 @@ func (s *pingerSuite) TestClientNoNeedToPing(c *gc.C) {
 	// a short wait then.
 	time.Sleep(coretesting.ShortWait)
 
-	s.advanceClock(c, clock, apiserver.MaxClientPingInterval, 2)
+	clock.Advance(apiserver.MaxClientPingInterval * 2)
 	c.Assert(pingConn(conn), jc.ErrorIsNil)
-}
-
-func (s *pingerSuite) checkConnectionDies(c *gc.C, conn api.Connection) {
-	attempt := utils.AttemptStrategy{
-		Total: coretesting.LongWait,
-		Delay: coretesting.ShortWait,
-	}
-	for a := attempt.Start(); a.Next(); {
-		err := pingConn(conn)
-		if err != nil {
-			c.Assert(err, gc.ErrorMatches, "connection is shut down")
-			return
-		}
-	}
-	c.Fatal("connection didn't get shut down")
 }
 
 func (s *pingerSuite) TestAgentConnectionShutsDownWithNoPing(c *gc.C) {
 	server, clock := s.newServerWithTestClock(c)
 	conn, _ := s.OpenAPIAsNewMachine(c, server)
 
-	s.advanceClock(c, clock, apiserver.MaxClientPingInterval, 2)
-	s.checkConnectionDies(c, conn)
+	waitAndAdvance(c, clock, apiserver.MaxClientPingInterval)
+	checkConnectionDies(c, conn)
 }
 
 func (s *pingerSuite) TestAgentConnectionDelaysShutdownWithPing(c *gc.C) {
 	server, clock := s.newServerWithTestClock(c)
 	conn, _ := s.OpenAPIAsNewMachine(c, server)
 
-	err := pingConn(conn)
-	c.Assert(err, jc.ErrorIsNil)
-
-	attemptDelay := apiserver.MaxClientPingInterval / 2
 	// As long as we don't wait too long, the connection stays open
-
-	testStart := clock.Now()
-	c.Logf(
-		"pinging 10 times with %v delay, ping timeout %v, starting at %v",
-		attemptDelay, apiserver.MaxClientPingInterval, testStart,
-	)
-	lastLoop := testStart
+	attemptDelay := apiserver.MaxClientPingInterval / 2
 	for i := 0; i < 10; i++ {
-		clock.Advance(attemptDelay)
-		testNow := clock.Now()
-		loopDelta := testNow.Sub(lastLoop)
-		if lastLoop.IsZero() {
-			loopDelta = 0
-		}
-		c.Logf("duration since last ping: %v", loopDelta)
-		err = pingConn(conn)
-		if !c.Check(
-			err, jc.ErrorIsNil,
-			gc.Commentf(
-				"ping timeout exceeded at %v (%v since the test start)",
-				testNow, testNow.Sub(testStart),
-			),
-		) {
-			c.Check(err, gc.ErrorMatches, "connection is shut down")
-			return
-		}
-		lastLoop = clock.Now()
+		waitAndAdvance(c, clock, attemptDelay)
+		c.Assert(pingConn(conn), jc.ErrorIsNil)
 	}
 
 	// However, once we stop pinging for too long, the connection dies
-	s.advanceClock(c, clock, apiserver.MaxClientPingInterval, 2)
-	s.checkConnectionDies(c, conn)
+	waitAndAdvance(c, clock, apiserver.MaxClientPingInterval)
+	checkConnectionDies(c, conn)
 }
 
 func (s *pingerSuite) TestAgentConnectionsShutDownWhenAPIServerDies(c *gc.C) {
@@ -181,5 +128,38 @@ func (s *pingerSuite) TestAgentConnectionsShutDownWhenAPIServerDies(c *gc.C) {
 
 	// We know this is less than the client ping interval.
 	clock.Advance(apiserver.MongoPingInterval)
-	s.checkConnectionDies(c, conn)
+	checkConnectionDies(c, conn)
+}
+
+func waitAndAdvance(c *gc.C, clock *testing.Clock, delta time.Duration) {
+	waitForClock(c, clock)
+	clock.Advance(delta)
+}
+
+func waitForClock(c *gc.C, clock *testing.Clock) {
+	select {
+	case <-clock.Alarms():
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out waiting for clock")
+	}
+}
+
+func checkConnectionDies(c *gc.C, conn api.Connection) {
+	attempt := utils.AttemptStrategy{
+		Total: coretesting.LongWait,
+		Delay: coretesting.ShortWait,
+	}
+	for a := attempt.Start(); a.Next(); {
+		err := pingConn(conn)
+		if err != nil {
+			c.Assert(err, gc.ErrorMatches, "connection is shut down")
+			return
+		}
+	}
+	c.Fatal("connection didn't get shut down")
+}
+
+func pingConn(conn api.Connection) error {
+	version := conn.BestFacadeVersion("Pinger")
+	return conn.APICall("Pinger", version, "", "Ping", nil, nil)
 }
