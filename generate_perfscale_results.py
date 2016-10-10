@@ -6,7 +6,6 @@ from __future__ import print_function
 import argparse
 from collections import defaultdict, namedtuple
 from datetime import datetime
-import errno
 import logging
 import os
 import sys
