@@ -561,9 +561,9 @@ func (srv *Server) serveConn(wsConn *websocket.Conn, modelUUID string, apiObserv
 
 	if err == nil {
 		defer func() {
-			err := srv.statePool.Put(resolvedModelUUID)
+			err := srv.statePool.Release(resolvedModelUUID)
 			if err != nil {
-				logger.Errorf("error putting %v back into the state pool:", err)
+				logger.Errorf("error releasing %v back into the state pool:", err)
 			}
 		}()
 		h, err = newAPIHandler(srv, st, conn, modelUUID, host)
@@ -684,9 +684,9 @@ func (srv *Server) processModelRemovals() error {
 		select {
 		case <-srv.tomb.Dying():
 			return tomb.ErrDying
-		case modelIDs := <-w.Changes():
-			for _, modelID := range modelIDs {
-				model, err := srv.state.GetModel(names.NewModelTag(modelID))
+		case modelUUIDs := <-w.Changes():
+			for _, modelUUID := range modelUUIDs {
+				model, err := srv.state.GetModel(names.NewModelTag(modelUUID))
 				gone := errors.IsNotFound(err)
 				dead := err == nil && model.Life() == state.Dead
 				if err != nil && !gone {
@@ -696,11 +696,11 @@ func (srv *Server) processModelRemovals() error {
 					continue
 				}
 
-				logger.Debugf("removing model %v from the state pool", modelID)
+				logger.Debugf("removing model %v from the state pool", modelUUID)
 				// Model's gone away - ensure that it gets removed
 				// from from the state pool once people are finished
 				// with it.
-				err = srv.statePool.Remove(modelID)
+				err = srv.statePool.Remove(modelUUID)
 				if err != nil {
 					return errors.Trace(err)
 				}

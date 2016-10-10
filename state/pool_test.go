@@ -49,7 +49,7 @@ func (s *statePoolSuite) TestGet(c *gc.C) {
 	c.Assert(st2.ModelUUID(), gc.Equals, s.ModelUUID2)
 
 	// Check that the same instances are returned
-	// when a State for the same env is re-requested.
+	// when a State for the same model is re-requested.
 	st1_, err := s.Pool.Get(s.ModelUUID1)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st1_, gc.Equals, st1)
@@ -59,8 +59,8 @@ func (s *statePoolSuite) TestGet(c *gc.C) {
 	c.Assert(st2_, gc.Equals, st2)
 }
 
-func (s *statePoolSuite) TestGetWithControllerEnv(c *gc.C) {
-	// When a State for the controller env is requested, the same
+func (s *statePoolSuite) TestGetWithControllerModel(c *gc.C) {
+	// When a State for the controller model is requested, the same
 	// State that was original passed in should be returned.
 	st0, err := s.Pool.Get(s.ModelUUID)
 	c.Assert(err, jc.ErrorIsNil)
@@ -120,23 +120,23 @@ func (s *statePoolSuite) TestClose(c *gc.C) {
 	c.Assert(st2_, gc.Not(gc.Equals), st2)
 }
 
-func (s *statePoolSuite) TestPutSystemState(c *gc.C) {
+func (s *statePoolSuite) TestReleaseSystemState(c *gc.C) {
 	// Doesn't maintain a refcount for the system state.
-	err := s.Pool.Put(s.ModelUUID)
+	err := s.Pool.Release(s.ModelUUID)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *statePoolSuite) TestPutUnknownModel(c *gc.C) {
-	err := s.Pool.Put("deadbeef")
+func (s *statePoolSuite) TestReleaseUnknownModel(c *gc.C) {
+	err := s.Pool.Release("deadbeef")
 	c.Assert(err, gc.ErrorMatches, "unable to return unknown model deadbeef to the pool")
 }
 
-func (s *statePoolSuite) TestTooManyPuts(c *gc.C) {
+func (s *statePoolSuite) TestTooManyReleases(c *gc.C) {
 	_, err := s.Pool.Get(s.ModelUUID1)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.Pool.Put(s.ModelUUID1)
+	err = s.Pool.Release(s.ModelUUID1)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.Pool.Put(s.ModelUUID1)
+	err = s.Pool.Release(s.ModelUUID1)
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(
 		"state pool refcount for model %s is already 0", s.ModelUUID1))
 }
@@ -166,7 +166,7 @@ func assertClosed(c *gc.C, st *state.State) {
 func (s *statePoolSuite) TestRemoveWithNoRefsCloses(c *gc.C) {
 	st, err := s.Pool.Get(s.ModelUUID1)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.Pool.Put(s.ModelUUID1)
+	err = s.Pool.Release(s.ModelUUID1)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Confirm the state isn't closed.
@@ -178,7 +178,7 @@ func (s *statePoolSuite) TestRemoveWithNoRefsCloses(c *gc.C) {
 	assertClosed(c, st)
 }
 
-func (s *statePoolSuite) TestRemoveWithRefsClosesOnLastPut(c *gc.C) {
+func (s *statePoolSuite) TestRemoveWithRefsClosesOnLastRelease(c *gc.C) {
 	st, err := s.Pool.Get(s.ModelUUID1)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.Pool.Get(s.ModelUUID1)
@@ -192,13 +192,13 @@ func (s *statePoolSuite) TestRemoveWithRefsClosesOnLastPut(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	assertNotClosed(c, st)
 
-	err = s.Pool.Put(s.ModelUUID1)
+	err = s.Pool.Release(s.ModelUUID1)
 	c.Assert(err, jc.ErrorIsNil)
 	// Hasn't been closed - still one outstanding reference.
 	assertNotClosed(c, st)
 
-	// Should be closed when it's put back into the pool.
-	err = s.Pool.Put(s.ModelUUID1)
+	// Should be closed when it's released back into the pool.
+	err = s.Pool.Release(s.ModelUUID1)
 	c.Assert(err, jc.ErrorIsNil)
 	assertClosed(c, st)
 }

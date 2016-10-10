@@ -28,7 +28,7 @@ type PoolItem struct {
 }
 
 // StatePool is a cache of State instances for multiple
-// models. Clients should call Put when they have finished with any
+// models. Clients should call Release when they have finished with any
 // state.
 type StatePool struct {
 	systemState *State
@@ -67,10 +67,10 @@ func (p *StatePool) Get(modelUUID string) (*State, error) {
 	return st, nil
 }
 
-// Put indicates that the client has finished using the State. If the
+// Release indicates that the client has finished using the State. If the
 // state has been marked for removal, it will be closed and removed
-// when the final Put is done.
-func (p *StatePool) Put(modelUUID string) error {
+// when the final Release is done.
+func (p *StatePool) Release(modelUUID string) error {
 	if modelUUID == p.systemState.ModelUUID() {
 		// We don't maintain a refcount for the controller.
 		return nil
@@ -92,7 +92,7 @@ func (p *StatePool) Put(modelUUID string) error {
 
 // Remove takes the state out of the pool and closes it, or marks it
 // for removal if it's currently being used (indicated by Gets without
-// corresponding Puts).
+// corresponding Releases).
 func (p *StatePool) Remove(modelUUID string) error {
 	if modelUUID == p.systemState.ModelUUID() {
 		// We don't manage the controller state.
@@ -105,7 +105,7 @@ func (p *StatePool) Remove(modelUUID string) error {
 	item, ok := p.pool[modelUUID]
 	if !ok {
 		// Don't require the client to keep track of what we've seen -
-		// ignore unknown model ids.
+		// ignore unknown model uuids.
 		return nil
 	}
 	item.remove = true

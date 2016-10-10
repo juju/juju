@@ -534,10 +534,10 @@ func (s *serverSuite) TestClosesStateFromPool(c *gc.C) {
 	// Ensure the model's in the pool but not referenced.
 	st, err := pool.Get(otherState.ModelUUID())
 	c.Assert(err, jc.ErrorIsNil)
-	err = pool.Put(otherState.ModelUUID())
+	err = pool.Release(otherState.ModelUUID())
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Make a request for the model API to check it puts
+	// Make a request for the model API to check it releases
 	// state back into the pool once the connection is closed.
 	addr := fmt.Sprintf("localhost:%d", server.Addr().Port)
 	conn, err := dialWebsocket(c, addr, fmt.Sprintf("/model/%s/api", st.ModelUUID()), 0)
