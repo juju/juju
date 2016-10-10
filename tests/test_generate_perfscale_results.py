@@ -1,16 +1,61 @@
 """Tests for assess_perf_test_simple module."""
 
 from contextlib import contextmanager
-from mock import patch, Mock
+from datetime import datetime
+from mock import call, patch, Mock
 import StringIO
 from textwrap import dedent
 
+from fakejuju import fake_juju_client
 import generate_perfscale_results as gpr
 import perf_graphing
+from test_perfscale_deployment import default_args
+from test_quickstart_deploy import make_bootstrap_manager
 from tests import (
     parse_error,
     TestCase,
 )
+
+
+class TestRunPerfscaleTest(TestCase):
+
+    def test_calls_provided_test(self):
+        client = fake_juju_client()
+        bs_manager = make_bootstrap_manager(client)
+
+        timing = gpr.TimingData(datetime.utcnow(), datetime.utcnow())
+        deploy_details = gpr.DeployDetails('test', dict(), timing)
+        noop_test = Mock(return_value=deploy_details)
+
+        with patch.object(gpr, 'dump_performance_metrics_logs', autospec=True):
+            with patch.object(gpr, 'generate_reports', autospec=True):
+                gpr.run_perfscale_test(noop_test, bs_manager, default_args)
+
+        noop_test.assert_called_once_with(client, default_args)
+
+
+class TestDumpPerformanceMetricsLogs(TestCase):
+
+    def test_pulls_rrd_and_mongostats_logs(self):
+        client = Mock()
+        res_dir = '/foo/performance_results/'
+
+        with patch.object(gpr.os, 'makedirs', autospec=True) as m_makedirs:
+            self.assertEqual(
+                res_dir,
+                gpr.dump_performance_metrics_logs('/foo', client))
+        m_makedirs.assert_called_once_with(res_dir)
+        expected_calls = [
+            call(
+                'scp',
+                ('--', '-r', '0:/var/lib/collectd/rrd/localhost/*', res_dir)),
+            call(
+                'scp',
+                ('0:/tmp/mongodb-stats.log', res_dir)
+                )]
+        self.assertEqual(
+            client.juju.call_args_list,
+            expected_calls)
 
 
 class TestGenerateGraphImages(TestCase):
