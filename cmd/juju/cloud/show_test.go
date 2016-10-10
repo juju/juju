@@ -33,6 +33,7 @@ func (s *showSuite) TestShow(c *gc.C) {
 	c.Assert(out, gc.Equals, `
 defined: public
 type: ec2
+description: Amazon China
 auth-types: [access-key]
 regions:
   cn-north-1:
@@ -45,6 +46,7 @@ func (s *showSuite) TestShowWithConfig(c *gc.C) {
 clouds:
   homestack:
     type: openstack
+    description: Openstack Cloud
     auth-types: [userpass, access-key]
     endpoint: http://homestack
     regions:
@@ -61,6 +63,7 @@ clouds:
 	c.Assert(out, gc.Equals, `
 defined: local
 type: openstack
+description: Openstack Cloud
 auth-types: [userpass, access-key]
 endpoint: http://homestack
 regions:
@@ -76,6 +79,7 @@ func (s *showSuite) TestShowWithRegionConfig(c *gc.C) {
 clouds:
   homestack:
     type: openstack
+    description: Openstack Cloud
     auth-types: [userpass, access-key]
     endpoint: http://homestack
     regions:
@@ -93,6 +97,7 @@ clouds:
 	c.Assert(out, gc.Equals, `
 defined: local
 type: openstack
+description: Openstack Cloud
 auth-types: [userpass, access-key]
 endpoint: http://homestack
 regions:

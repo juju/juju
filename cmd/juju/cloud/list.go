@@ -4,11 +4,10 @@
 package cloud
 
 import (
-	"fmt"
 	"io"
 	"sort"
-	"strings"
 
+	"github.com/juju/ansiterm"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -43,6 +42,7 @@ Examples:
 
 See also:
     add-cloud
+    regions
     show-cloud
     update-clouds
 `
@@ -164,11 +164,9 @@ func formatCloudsTabular(writer io.Writer, value interface{}) error {
 	}
 
 	tw := output.TabWriter(writer)
-	p := func(values ...string) {
-		text := strings.Join(values, "\t")
-		fmt.Fprintln(tw, text)
-	}
-	p("CLOUD\tTYPE\tREGIONS")
+	w := output.Wrapper{tw}
+	w.Println("Cloud", "Regions", "Default", "Type", "Description")
+	w.SetColumnAlignRight(1)
 
 	cloudNamesSorted := func(someClouds map[string]*cloudDetails) []string {
 		// For tabular we'll sort alphabetically, user clouds last.
@@ -180,34 +178,31 @@ func formatCloudsTabular(writer io.Writer, value interface{}) error {
 		return names
 	}
 
-	printClouds := func(someClouds map[string]*cloudDetails) {
+	printClouds := func(someClouds map[string]*cloudDetails, color *ansiterm.Context) {
 		cloudNames := cloudNamesSorted(someClouds)
 
 		for _, name := range cloudNames {
 			info := someClouds[name]
-			var regions []string
-			for _, region := range info.Regions {
-				regions = append(regions, fmt.Sprint(region.Key))
+			defaultRegion := ""
+			if len(info.Regions) > 0 {
+				defaultRegion = info.RegionsMap[info.Regions[0].Key.(string)].Name
 			}
-			// TODO(wallyworld) - we should be smarter about handling
-			// long region text, for now we'll display the first 7 as
-			// that covers all clouds except AWS and Azure and will
-			// prevent wrapping on a reasonable terminal width.
-			regionCount := len(regions)
-			if regionCount > 7 {
-				regionCount = 7
+			description := info.CloudDescription
+			if len(description) > 40 {
+				description = description[:39]
 			}
-			regionText := strings.Join(regions[:regionCount], ", ")
-			if len(regions) > 7 {
-				regionText = regionText + " ..."
-			}
-			p(name, info.CloudType, regionText)
+			w.PrintColor(color, name)
+			w.Println(len(info.Regions), defaultRegion, info.CloudType, description)
 		}
 	}
-	printClouds(clouds.public)
-	printClouds(clouds.builtin)
-	printClouds(clouds.personal)
+	printClouds(clouds.public, nil)
+	printClouds(clouds.builtin, nil)
+	printClouds(clouds.personal, ansiterm.Foreground(ansiterm.BrightBlue))
 
+	w.Println("\nTry 'list-regions <cloud>' to see available regions.")
+	w.Println("'show-cloud <cloud>' or 'regions --format yaml <cloud>' can be used to see region endpoints.")
+	w.Println("'add-cloud' can add private clouds or private infrastructure.")
+	w.Println("Update the known public clouds with 'update-clouds'.")
 	tw.Flush()
 	return nil
 }

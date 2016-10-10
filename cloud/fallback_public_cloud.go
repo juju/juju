@@ -9,6 +9,7 @@ const fallbackPublicCloudInfo = `# DO NOT EDIT, will be overwritten, use "juju u
 clouds:
   aws:
     type: ec2
+    description: Amazon Web Services
     auth-types: [ access-key ]
     regions:
       us-east-1:
@@ -35,18 +36,21 @@ clouds:
         endpoint: https://ec2.sa-east-1.amazonaws.com
   aws-china:
     type: ec2
+    description: Amazon China
     auth-types: [ access-key ]
     regions:
       cn-north-1:
         endpoint: https://ec2.cn-north-1.amazonaws.com.cn
   aws-gov:
     type: ec2
+    description: Amazon (USA Government)
     auth-types: [ access-key ]
     regions:
       us-gov-west-1:
         endpoint: https://ec2.us-gov-west-1.amazonaws.com
   google:
     type: gce
+    description: Google Cloud Platform
     auth-types: [ jsonfile, oauth2 ]
     regions:
       us-east1:
@@ -59,6 +63,7 @@ clouds:
         endpoint: https://www.googleapis.com
   azure:
     type: azure
+    description: Microsoft Azure
     auth-types: [ interactive, service-principal-secret ]
     regions:
       centralus:
@@ -135,6 +140,7 @@ clouds:
         identity-endpoint: https://graph.windows.net
   azure-china:
     type: azure
+    description: Microsoft Azure China
     auth-types: [ interactive, service-principal-secret ]
     regions:
       chinaeast:
@@ -147,6 +153,7 @@ clouds:
         identity-endpoint: https://graph.chinacloudapi.cn
   rackspace:
     type: rackspace
+    description: Rackspace Cloud
     auth-types: [ userpass ]
     endpoint: https://identity.api.rackspacecloud.com/v2.0
     regions:
@@ -164,6 +171,7 @@ clouds:
         endpoint: https://identity.api.rackspacecloud.com/v2.0
   joyent:
     type: joyent
+    description: Joyent Cloud
     auth-types: [ userpass ]
     regions:
       eu-ams-1: 
@@ -180,6 +188,7 @@ clouds:
         endpoint: https://us-west-1.api.joyentcloud.com
   cloudsigma:
     type: cloudsigma
+    description: CloudSigma Cloud
     auth-types: [ userpass ]
     regions:
       hnl:

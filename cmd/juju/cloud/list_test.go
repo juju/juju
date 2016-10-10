@@ -29,7 +29,7 @@ func (s *listSuite) TestListPublic(c *gc.C) {
 	out := testing.Stdout(ctx)
 	out = strings.Replace(out, "\n", "", -1)
 	// Just check couple of snippets of the output to make sure it looks ok.
-	c.Assert(out, gc.Matches, `.*aws-china[ ]*ec2[ ]*cn-north-1.*`)
+	c.Assert(out, gc.Matches, `.*aws-china[ ]*1[ ]*cn-north-1[ ]*ec2.*`)
 	// TODO(wallyworld) - uncomment when we build with go 1.3 or greater
 	// LXD should be there too.
 	// c.Assert(out, gc.Matches, `.*localhost[ ]*lxd[ ]*localhost.*`)
@@ -56,7 +56,7 @@ clouds:
 	// Just check a snippet of the output to make sure it looks ok.
 	// local clouds are last.
 	// homestack should abut localhost and hence come last in the output.
-	c.Assert(out, jc.Contains, `localhosthomestack    openstack   london`)
+	c.Assert(out, jc.Contains, `Hypervisorhomestack          1  london         openstack   Openstack Cloud`)
 }
 
 func (s *listSuite) TestListPublicAndPersonalSameName(c *gc.C) {
@@ -77,7 +77,7 @@ clouds:
 	// Just check a snippet of the output to make sure it looks ok.
 	// local clouds are last.
 	c.Assert(out, gc.Not(gc.Matches), `.*aws:[ ]*defined: public[ ]*type: ec2[ ]*auth-types: \[access-key\].*`)
-	c.Assert(out, gc.Matches, `.*aws:[ ]*defined: local[ ]*type: ec2[ ]*auth-types: \[access-key\].*`)
+	c.Assert(out, gc.Matches, `.*aws:[ ]*defined: local[ ]*type: ec2[ ]*description: Amazon Web Services[ ]*auth-types: \[access-key\].*`)
 }
 
 func (s *listSuite) TestListYAML(c *gc.C) {
@@ -86,7 +86,7 @@ func (s *listSuite) TestListYAML(c *gc.C) {
 	out := testing.Stdout(ctx)
 	out = strings.Replace(out, "\n", "", -1)
 	// Just check a snippet of the output to make sure it looks ok.
-	c.Assert(out, gc.Matches, `.*aws:[ ]*defined: public[ ]*type: ec2[ ]*auth-types: \[access-key\].*`)
+	c.Assert(out, gc.Matches, `.*aws:[ ]*defined: public[ ]*type: ec2[ ]*description: Amazon Web Services[ ]*auth-types: \[access-key\].*`)
 }
 
 func (s *listSuite) TestListJSON(c *gc.C) {
@@ -95,7 +95,7 @@ func (s *listSuite) TestListJSON(c *gc.C) {
 	out := testing.Stdout(ctx)
 	out = strings.Replace(out, "\n", "", -1)
 	// Just check a snippet of the output to make sure it looks ok.
-	c.Assert(out, gc.Matches, `.*{"aws":{"defined":"public","type":"ec2","auth-types":\["access-key"\].*`)
+	c.Assert(out, gc.Matches, `.*{"aws":{"defined":"public","type":"ec2","description":"Amazon Web Services","auth-types":\["access-key"\].*`)
 }
 
 func (s *listSuite) TestListPreservesRegionOrder(c *gc.C) {
