@@ -7,6 +7,7 @@ from __future__ import print_function
 
 from collections import defaultdict, namedtuple
 from datetime import datetime
+import errno
 import logging
 import os
 import subprocess
@@ -141,21 +142,23 @@ def generate_reports(controller_log, results_dir, deployments):
     memory_image = generate_memory_graph_image(results_dir)
     network_image = generate_network_graph_image(results_dir)
 
+    destination_dir = os.path.join(results_dir, 'mongodb')
+    os.mkdir(destination_dir)
     try:
-        destination_dir = os.path.join(results_dir, 'mongodb')
-        os.mkdir(destination_dir)
         perf_graphing.create_mongodb_rrd_files(results_dir, destination_dir)
-        mongo_query_image = generate_mongo_query_graph_image(results_dir)
-        mongo_memory_image = generate_mongo_memory_graph_image(results_dir)
-    except IOError:
+    except perf_graphing.SourceFileNotFound:
         log.error(
             'Failed to create the MongoDB RRD file. Source file not found.'
         )
+
         # Sometimes mongostats fails to startup and start logging. Unsure yet
         # why this is. For now generate the report without the mongodb details,
         # the rest of the report is still useful.
         mongo_query_image = None
         mongo_memory_image = None
+    else:
+        mongo_query_image = generate_mongo_query_graph_image(results_dir)
+        mongo_memory_image = generate_mongo_memory_graph_image(results_dir)
 
     log_message_chunks = get_log_message_in_timed_chunks(
         controller_log, deployments)
