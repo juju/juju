@@ -40,6 +40,7 @@ import (
 	"github.com/juju/juju/state/presence"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
+	"github.com/juju/juju/worker/workertest"
 )
 
 var fastDialOpts = api.DialOpts{}
@@ -517,6 +518,11 @@ func (s *serverSuite) TestClosesStateFromPool(c *gc.C) {
 	server := newServer(c, s.State, pool)
 	defer server.Stop()
 
+	w := s.State.WatchModels()
+	defer workertest.CleanKill(c, w)
+	// Initial change.
+	assertChange(c, w)
+
 	otherState := s.Factory.MakeModel(c, nil)
 	defer otherState.Close()
 
@@ -526,7 +532,7 @@ func (s *serverSuite) TestClosesStateFromPool(c *gc.C) {
 	// events. Without it the model appears and disappears quickly
 	// enough that it never generates a change from WatchModels.
 	// Many Bothans died to bring us this information.
-	time.Sleep(coretesting.ShortWait)
+	assertChange(c, w)
 
 	model, err := otherState.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -550,6 +556,15 @@ func (s *serverSuite) TestClosesStateFromPool(c *gc.C) {
 
 	s.State.StartSync()
 	assertStateBecomesClosed(c, st)
+}
+
+func assertChange(c *gc.C, w state.StringsWatcher) {
+	select {
+	case <-w.Changes():
+		return
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("no changes on watcher")
+	}
 }
 
 func assertStateBecomesClosed(c *gc.C, st *state.State) {
