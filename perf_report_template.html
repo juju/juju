@@ -12,7 +12,7 @@
       href="http://reports.vapour.ws/static/css/base.css" />
     <link rel="shortcut icon"  type="image/png"
       href="http://reports.vapour.ws/static/images/favicon.ico" />
-    <!-- Additional styles for 'tabs' -->
+    <!-- Additional styles for 'tabs' and overwrite for table. -->
     <style type="text/css" media="screen">
         ul.tabs {
             list-style: none;
@@ -56,6 +56,16 @@
 
         .tab-content.current {
             display: inherit;
+        }
+
+        table.log-report {
+            table-layout: fixed;
+        }
+
+        table.log-report td {
+            text-align: left;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
         }
     </style>
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
@@ -191,7 +201,7 @@
              id="{{safe_date_stamp}}">
             <h4 class="text-center">{{values.name}}</h4>
             <div class="text-center">Log period: <b>{{date_stamp}}</b></div>
-            <table>
+            <table class="log-report">
               {% for log_detail in values.logs|sort(attribute='timeframe') %}
               {% set safe_timeframe = log_detail.timeframe|replace(":", "")|replace(" ", "")|replace("(", "")|replace(")", "") %}
               <tr
