@@ -605,9 +605,23 @@ func (s *state) Close() error {
 	return err
 }
 
-// Broken returns a channel that's closed when the connection is broken.
+// Broken implements api.Connection.
 func (s *state) Broken() <-chan struct{} {
 	return s.broken
+}
+
+// IsBroken implements api.Connection.
+func (s *state) IsBroken() bool {
+	select {
+	case <-s.broken:
+		return true
+	default:
+	}
+	if err := s.Ping(); err != nil {
+		logger.Debugf("connection ping failed: %v", err)
+		return true
+	}
+	return false
 }
 
 // Addr returns the address used to connect to the API server.

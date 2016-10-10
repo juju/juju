@@ -158,9 +158,18 @@ type Connection interface {
 
 	// This first block of methods is pretty close to a sane Connection interface.
 	Close() error
-	Broken() <-chan struct{}
 	Addr() string
 	APIHostPorts() [][]network.HostPort
+
+	// Broken returns a channel which will be closed if the connection
+	// is detected to be broken, either because the underlying
+	// connection has closed or because API pings have failed.
+	Broken() <-chan struct{}
+
+	// IsBroken returns whether the connection is broken. It checks
+	// the Broken channel and if that is open, attempts a connection
+	// ping.
+	IsBroken() bool
 
 	// These are a bit off -- ServerVersion is apparently not known until after
 	// Login()? Maybe evidence of need for a separate AuthenticatedConnection..?
@@ -178,10 +187,9 @@ type Connection interface {
 	// All the rest are strange and questionable and deserve extra attention
 	// and/or discussion.
 
-	// Something-or-other expects Ping to exist, and *maybe* the heartbeat
-	// *should* be handled outside the State type, but it's also handled
-	// inside it as well. We should figure this out sometime -- we should
-	// either expose Ping() or Broken() but not both.
+	// Ping makes an API request which checks if the connection is
+	// still functioning.
+	// NOTE: This method is deprecated. Please use IsBroken or Broken instead.
 	Ping() error
 
 	// I think this is actually dead code. It's tested, at least, so I'm

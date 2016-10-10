@@ -78,9 +78,8 @@ var isFatalTests = []struct {
 }
 
 func (s *toolSuite) TestConnectionIsFatal(c *gc.C) {
-	okConn := &testConn{make(chan struct{})}
-	errConn := &testConn{make(chan struct{})}
-	close(errConn.broken)
+	okConn := &testConn{broken: false}
+	errConn := &testConn{broken: true}
 
 	for i, conn := range []*testConn{errConn, okConn} {
 		for j, test := range isFatalTests {
@@ -96,9 +95,8 @@ func (s *toolSuite) TestConnectionIsFatal(c *gc.C) {
 }
 
 func (s *toolSuite) TestConnectionIsFatalWithMultipleConns(c *gc.C) {
-	okConn := &testConn{make(chan struct{})}
-	errConn := &testConn{make(chan struct{})}
-	close(errConn.broken)
+	okConn := &testConn{broken: false}
+	errConn := &testConn{broken: true}
 
 	someErr := stderrors.New("foo")
 
@@ -165,10 +163,10 @@ func (*toolSuite) TestIsFatal(c *gc.C) {
 }
 
 type testConn struct {
-	broken chan struct{}
+	broken bool
 }
 
-func (c *testConn) Broken() <-chan struct{} {
+func (c *testConn) IsBroken() bool {
 	return c.broken
 }
 

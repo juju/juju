@@ -115,9 +115,9 @@ func AgentDone(logger loggo.Logger, err error) error {
 	return err
 }
 
-// Breakable provides a type that exposes a "broken" channel.
+// Breakable provides a type that exposes an IsBroken check.
 type Breakable interface {
-	Broken() <-chan struct{}
+	IsBroken() bool
 }
 
 // ConnectionIsFatal returns a function suitable for passing as the
@@ -140,12 +140,7 @@ func ConnectionIsFatal(logger loggo.Logger, conns ...Breakable) func(err error) 
 
 // ConnectionIsDead returns true if the given Breakable is broken.
 var ConnectionIsDead = func(logger loggo.Logger, conn Breakable) bool {
-	select {
-	case <-conn.Broken():
-		return true
-	default:
-		return false
-	}
+	return conn.IsBroken()
 }
 
 // Pinger provides a type that knows how to ping.
