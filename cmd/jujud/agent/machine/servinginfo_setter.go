@@ -65,12 +65,15 @@ func ServingInfoSetterManifold(config ServingInfoSetterConfig) dependency.Manifo
 						return nil, errors.Errorf("cannot get state serving info: %v", err)
 					}
 					if hasInfo {
-						// Use the existing Cert as it may have been updated already
-						// by the cert updater worker to have this machine's IP address
-						// as part of the cert. This changed cert is never put back into
-						// the database, so it isn't reflected in the copy we have got
-						// from apiState.
+						// Use the existing cert and key as they
+						// appear to have been already updated by the
+						// cert updater worker to have this machine's
+						// IP address as part of the cert. This
+						// changed cert is never put back into the
+						// database, so it isn't reflected in the copy
+						// we have got from apiState.
 						info.Cert = existing.Cert
+						info.PrivateKey = existing.PrivateKey
 					}
 					err = agent.ChangeConfig(func(config coreagent.ConfigSetter) error {
 						config.SetStateServingInfo(info)

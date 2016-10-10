@@ -114,8 +114,9 @@ func (s *ServingInfoSetterSuite) startManifold(c *gc.C, a coreagent.Agent, mockA
 			case "StateServingInfo":
 				result := response.(*params.StateServingInfo)
 				*result = params.StateServingInfo{
-					Cert:    testing.CACert,
-					APIPort: mockAPIPort,
+					Cert:       "cert",
+					PrivateKey: "key",
+					APIPort:    mockAPIPort,
 				}
 			default:
 				c.Fatalf("not sure how to handle: %q", request)
@@ -142,7 +143,8 @@ func (s *ServingInfoSetterSuite) TestJobManageEnviron(c *gc.C) {
 	// Verify that the state serving info was actually set.
 	c.Assert(a.conf.ssiSet, jc.IsTrue)
 	c.Assert(a.conf.ssi.APIPort, gc.Equals, mockAPIPort)
-	c.Assert(a.conf.ssi.Cert, gc.Equals, testing.CACert)
+	c.Assert(a.conf.ssi.Cert, gc.Equals, "cert")
+	c.Assert(a.conf.ssi.PrivateKey, gc.Equals, "key")
 }
 
 func (s *ServingInfoSetterSuite) TestJobManageEnvironNotOverwriteCert(c *gc.C) {
@@ -150,9 +152,11 @@ func (s *ServingInfoSetterSuite) TestJobManageEnvironNotOverwriteCert(c *gc.C) {
 	const mockAPIPort = 1234
 
 	a := &mockAgent{}
-	existingCert := "some cert updated by certupdater"
+	existingCert := "some cert set by certupdater"
+	existingKey := "some key set by certupdater"
 	a.conf.SetStateServingInfo(params.StateServingInfo{
-		Cert: existingCert,
+		Cert:       existingCert,
+		PrivateKey: existingKey,
 	})
 
 	s.startManifold(c, a, mockAPIPort)
@@ -161,6 +165,7 @@ func (s *ServingInfoSetterSuite) TestJobManageEnvironNotOverwriteCert(c *gc.C) {
 	c.Assert(a.conf.ssiSet, jc.IsTrue)
 	c.Assert(a.conf.ssi.APIPort, gc.Equals, mockAPIPort)
 	c.Assert(a.conf.ssi.Cert, gc.Equals, existingCert)
+	c.Assert(a.conf.ssi.PrivateKey, gc.Equals, existingKey)
 }
 
 func (s *ServingInfoSetterSuite) TestJobHostUnits(c *gc.C) {
