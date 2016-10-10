@@ -53,40 +53,52 @@ func ServingInfoSetterManifold(config ServingInfoSetterConfig) dependency.Manifo
 
 			// If the machine needs State, grab the state serving info
 			// over the API and write it to the agent configuration.
-			machine, err := apiState.Entity(tag)
-			if err != nil {
-				return nil, err
+			if controller, err := isController(apiState, tag); err != nil {
+				return nil, errors.Annotate(err, "checking controller status")
+			} else if !controller {
+				// Not a controller, nothing to do.
+				return nil, dependency.ErrUninstall
 			}
-			existing, hasInfo := agent.CurrentConfig().StateServingInfo()
-			for _, job := range machine.Jobs() {
-				if job.NeedsState() {
-					info, err := apiState.StateServingInfo()
-					if err != nil {
-						return nil, errors.Errorf("cannot get state serving info: %v", err)
-					}
-					if hasInfo {
-						// Use the existing cert and key as they
-						// appear to have been already updated by the
-						// cert updater worker to have this machine's
-						// IP address as part of the cert. This
-						// changed cert is never put back into the
-						// database, so it isn't reflected in the copy
-						// we have got from apiState.
-						info.Cert = existing.Cert
-						info.PrivateKey = existing.PrivateKey
-					}
-					err = agent.ChangeConfig(func(config coreagent.ConfigSetter) error {
-						config.SetStateServingInfo(info)
-						return nil
-					})
-					if err != nil {
-						return nil, err
-					}
+
+			info, err := apiState.StateServingInfo()
+			if err != nil {
+				return nil, errors.Annotate(err, "getting state serving info")
+			}
+			err = agent.ChangeConfig(func(config coreagent.ConfigSetter) error {
+				existing, hasInfo := config.StateServingInfo()
+				if hasInfo {
+					// Use the existing cert and key as they appear to
+					// have been already updated by the cert updater
+					// worker to have this machine's IP address as
+					// part of the cert. This changed cert is never
+					// put back into the database, so it isn't
+					// reflected in the copy we have got from
+					// apiState.
+					info.Cert = existing.Cert
+					info.PrivateKey = existing.PrivateKey
 				}
+				config.SetStateServingInfo(info)
+				return nil
+			})
+			if err != nil {
+				return nil, errors.Trace(err)
 			}
 
 			// All is well - we're done (no actual worker is actually returned).
 			return nil, dependency.ErrUninstall
 		},
 	}
+}
+
+func isController(apiState *apiagent.State, tag names.MachineTag) (bool, error) {
+	machine, err := apiState.Entity(tag)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	for _, job := range machine.Jobs() {
+		if job.NeedsState() {
+			return true, nil
+		}
+	}
+	return false, nil
 }

@@ -97,7 +97,7 @@ func (s *ServingInfoSetterSuite) TestEntityLookupFailure(c *gc.C) {
 	})
 	w, err := s.manifold.Start(context)
 	c.Assert(w, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "boom")
+	c.Assert(err, gc.ErrorMatches, "checking controller status: boom")
 }
 
 func (s *ServingInfoSetterSuite) startManifold(c *gc.C, a coreagent.Agent, mockAPIPort int) {
