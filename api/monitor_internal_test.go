@@ -46,14 +46,14 @@ func (s *MonitorSuite) SetUpTest(c *gc.C) {
 
 func (s *MonitorSuite) TestClose(c *gc.C) {
 	go s.monitor.run()
-	assertEvent(c, s.clock.Alarms())
+	s.waitForClock(c)
 	close(s.closed)
 	assertEvent(c, s.broken)
 }
 
 func (s *MonitorSuite) TestDead(c *gc.C) {
 	go s.monitor.run()
-	assertEvent(c, s.clock.Alarms())
+	s.waitForClock(c)
 	close(s.dead)
 	assertEvent(c, s.broken)
 }
@@ -77,8 +77,10 @@ func (s *MonitorSuite) TestLaterPingFails(c *gc.C) {
 	}
 	go s.monitor.run()
 
-	s.waitThenAdvance(c, testPingPeriod)
-	s.waitThenAdvance(c, testPingPeriod)
+	s.waitThenAdvance(c, testPingPeriod) // in run
+	s.waitForClock(c)                    // in pingWithTimeout
+	s.waitThenAdvance(c, testPingPeriod) // in run
+	s.waitForClock(c)                    // in pingWithTimeout
 	assertEvent(c, s.broken)
 }
 
@@ -94,8 +96,12 @@ func (s *MonitorSuite) TestPingsTimesOut(c *gc.C) {
 	assertEvent(c, s.broken)
 }
 
-func (s *MonitorSuite) waitThenAdvance(c *gc.C, d time.Duration) {
+func (s *MonitorSuite) waitForClock(c *gc.C) {
 	assertEvent(c, s.clock.Alarms())
+}
+
+func (s *MonitorSuite) waitThenAdvance(c *gc.C, d time.Duration) {
+	s.waitForClock(c)
 	s.clock.Advance(d)
 }
 
