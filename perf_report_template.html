@@ -175,8 +175,11 @@
           <ul class="tabs">
             {% for date_stamp, values in log_message_chunks|dictsort %}
             {% set safe_date_stamp = date_stamp|replace(":", "")|replace(" ", "") %}
-            <li class="tab_tablink {% if loop.index == 1 %} current {% endif %}">
-              <span class="tab" data-tab="{{safe_date_stamp}}">{{values.name}}</span>
+            <li
+               class="tab-link {% if loop.index == 1 %} current {% endif %}"
+               data-tab="{{safe_date_stamp}}"
+               >
+              <span class="tab" >{{values.name}}</span>
             </li>
             {% endfor %}
           </ul>
