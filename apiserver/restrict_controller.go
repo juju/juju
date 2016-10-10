@@ -27,6 +27,7 @@ var controllerFacadeNames = set.NewStrings(
 var commonFacadeNames = set.NewStrings(
 	"Pinger",
 	"Bundle",
+	"HighAvailability", // Exposed for model logins for backwards compatibility.
 )
 
 func controllerFacadesOnly(facadeName, _ string) error {

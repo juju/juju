@@ -28,6 +28,7 @@ func (s *restrictModelSuite) SetUpSuite(c *gc.C) {
 func (s *restrictModelSuite) TestAllowed(c *gc.C) {
 	s.assertMethod(c, "Client", 1, "FullStatus")
 	s.assertMethod(c, "Pinger", 1, "Ping")
+	s.assertMethod(c, "HighAvailability", 2, "EnableHA")
 }
 
 func (s *restrictModelSuite) TestBlocked(c *gc.C) {
