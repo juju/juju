@@ -72,3 +72,64 @@ func (s *ConfigSuite) TestGenerateControllerCertAndKey(c *gc.C) {
 		c.Assert(sanIPs, jc.SameContents, test.sanValues)
 	}
 }
+
+var validateTests = []struct {
+	about       string
+	config      controller.Config
+	expectError string
+}{{
+	about:       "missing CA cert",
+	expectError: `missing CA certificate`,
+}, {
+	about: "bad CA cert",
+	config: controller.Config{
+		controller.CACertKey: "xxx",
+	},
+	expectError: `bad CA certificate in configuration: no certificates found`,
+}, {
+	about: "bad controller UUID",
+	config: controller.Config{
+		controller.ControllerUUIDKey: "xxx",
+		controller.CACertKey:         testing.CACert,
+	},
+	expectError: `controller-uuid: expected UUID, got string\("xxx"\)`,
+}, {
+	about: "HTTPS identity URL OK",
+	config: controller.Config{
+		controller.IdentityURL: "https://0.1.2.3/foo",
+		controller.CACertKey:   testing.CACert,
+	},
+}, {
+	about: "HTTP identity URL requires public key",
+	config: controller.Config{
+		controller.IdentityURL: "http://0.1.2.3/foo",
+		controller.CACertKey:   testing.CACert,
+	},
+	expectError: `URL needs to be https when identity-public-key not provided`,
+}, {
+	about: "HTTP identity URL OK if public key is provided",
+	config: controller.Config{
+		controller.IdentityPublicKey: `o/yOqSNWncMo1GURWuez/dGR30TscmmuIxgjztpoHEY=`,
+		controller.IdentityURL:       "http://0.1.2.3/foo",
+		controller.CACertKey:         testing.CACert,
+	},
+}, {
+	about: "invalid identity public key",
+	config: controller.Config{
+		controller.IdentityPublicKey: `xxxx`,
+		controller.CACertKey:         testing.CACert,
+	},
+	expectError: `invalid identity public key: wrong length for base64 key, got 3 want 32`,
+}}
+
+func (s *ConfigSuite) TestValidate(c *gc.C) {
+	for i, test := range validateTests {
+		c.Logf("test %d: %v", i, test.about)
+		err := test.config.Validate()
+		if test.expectError != "" {
+			c.Assert(err, gc.ErrorMatches, test.expectError)
+		} else {
+			c.Assert(err, jc.ErrorIsNil)
+		}
+	}
+}
