@@ -40,6 +40,7 @@ import (
 	"github.com/juju/juju/state/presence"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
+	"github.com/juju/juju/worker/workertest"
 )
 
 var fastDialOpts = api.DialOpts{}
@@ -53,7 +54,7 @@ var _ = gc.Suite(&serverSuite{})
 func (s *serverSuite) TestStop(c *gc.C) {
 	// Start our own instance of the server so we have
 	// a handle on it to stop it.
-	srv := newServer(c, s.State)
+	srv := newServer(c, s.State, nil)
 	defer srv.Stop()
 
 	machine, password := s.Factory.MakeMachineReturningPassword(
@@ -98,7 +99,7 @@ func (s *serverSuite) TestAPIServerCanListenOnBothIPv4AndIPv6(c *gc.C) {
 
 	// Start our own instance of the server listening on
 	// both IPv4 and IPv6 localhost addresses and an ephemeral port.
-	srv := newServer(c, s.State)
+	srv := newServer(c, s.State, nil)
 	defer srv.Stop()
 
 	port := srv.Addr().Port
@@ -208,7 +209,7 @@ func (s *serverSuite) TestNewServerDoesNotAccessState(c *gc.C) {
 	// Creating the server should succeed because it doesn't
 	// access the state (note that newServer does not log in,
 	// which *would* access the state).
-	srv := newServer(c, st)
+	srv := newServer(c, st, nil)
 	srv.Stop()
 }
 
@@ -279,7 +280,7 @@ func dialWebsocket(c *gc.C, addr, path string, tlsVersion uint16) (*websocket.Co
 
 func (s *serverSuite) TestMinTLSVersion(c *gc.C) {
 	loggo.GetLogger("juju.apiserver").SetLogLevel(loggo.TRACE)
-	srv := newServer(c, s.State)
+	srv := newServer(c, s.State, nil)
 	defer srv.Stop()
 
 	// We have to use 'localhost' because that is what the TLS cert says.
@@ -295,7 +296,7 @@ func (s *serverSuite) TestNonCompatiblePathsAre404(c *gc.C) {
 	// We expose the API at '/api', '/' (controller-only), and at '/ModelUUID/api'
 	// for the correct location, but other paths should fail.
 	loggo.GetLogger("juju.apiserver").SetLogLevel(loggo.TRACE)
-	srv := newServer(c, s.State)
+	srv := newServer(c, s.State, nil)
 	defer srv.Stop()
 
 	// We have to use 'localhost' because that is what the TLS cert says.
@@ -326,7 +327,7 @@ func (s *serverSuite) TestNonCompatiblePathsAre404(c *gc.C) {
 }
 
 func (s *serverSuite) TestNoBakeryWhenNoIdentityURL(c *gc.C) {
-	srv := newServer(c, s.State)
+	srv := newServer(c, s.State, nil)
 	defer srv.Stop()
 	// By default, when there is no identity location, no
 	// bakery service or macaroon is created.
@@ -357,7 +358,7 @@ func (s *macaroonServerSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *macaroonServerSuite) TestServerBakery(c *gc.C) {
-	srv := newServer(c, s.State)
+	srv := newServer(c, s.State, nil)
 	defer srv.Stop()
 	m, err := apiserver.ServerMacaroon(srv)
 	c.Assert(err, gc.IsNil)
@@ -408,7 +409,7 @@ func (s *macaroonServerWrongPublicKeySuite) TearDownTest(c *gc.C) {
 }
 
 func (s *macaroonServerWrongPublicKeySuite) TestDischargeFailsWithWrongPublicKey(c *gc.C) {
-	srv := newServer(c, s.State)
+	srv := newServer(c, s.State, nil)
 	defer srv.Stop()
 	m, err := apiserver.ServerMacaroon(srv)
 	c.Assert(err, gc.IsNil)
@@ -512,6 +513,78 @@ func (s *serverSuite) TestAPIHandlerConnectedModel(c *gc.C) {
 	c.Check(handler.ConnectedModel(), gc.Equals, otherState.ModelUUID())
 }
 
+func (s *serverSuite) TestClosesStateFromPool(c *gc.C) {
+	pool := state.NewStatePool(s.State)
+	server := newServer(c, s.State, pool)
+	defer server.Stop()
+
+	w := s.State.WatchModels()
+	defer workertest.CleanKill(c, w)
+	// Initial change.
+	assertChange(c, w)
+
+	otherState := s.Factory.MakeModel(c, nil)
+	defer otherState.Close()
+
+	s.State.StartSync()
+	// This ensures that the model exists for more than one of the
+	// time slices that the watcher uses for coalescing
+	// events. Without it the model appears and disappears quickly
+	// enough that it never generates a change from WatchModels.
+	// Many Bothans died to bring us this information.
+	assertChange(c, w)
+
+	model, err := otherState.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Ensure the model's in the pool but not referenced.
+	st, err := pool.Get(otherState.ModelUUID())
+	c.Assert(err, jc.ErrorIsNil)
+	err = pool.Release(otherState.ModelUUID())
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Make a request for the model API to check it releases
+	// state back into the pool once the connection is closed.
+	addr := fmt.Sprintf("localhost:%d", server.Addr().Port)
+	conn, err := dialWebsocket(c, addr, fmt.Sprintf("/model/%s/api", st.ModelUUID()), 0)
+	c.Assert(err, jc.ErrorIsNil)
+	conn.Close()
+
+	// When the model goes away the API server should ensure st gets closed.
+	err = model.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.State.StartSync()
+	assertStateBecomesClosed(c, st)
+}
+
+func assertChange(c *gc.C, w state.StringsWatcher) {
+	select {
+	case <-w.Changes():
+		return
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("no changes on watcher")
+	}
+}
+
+func assertStateBecomesClosed(c *gc.C, st *state.State) {
+	// This is gross but I can't see any other way to check for
+	// closedness outside the state package.
+	checkModel := func() {
+		attempt := utils.AttemptStrategy{
+			Total: coretesting.LongWait,
+			Delay: coretesting.ShortWait,
+		}
+		for a := attempt.Start(); a.Next(); {
+			// This will panic once the state is closed.
+			_, _ = st.Model()
+		}
+		// If we got here then st is still open.
+		st.Close()
+	}
+	c.Assert(checkModel, gc.PanicMatches, "Session already closed")
+}
+
 func (s *serverSuite) checkAPIHandlerTeardown(c *gc.C, srvSt, st *state.State) {
 	handler, resources := apiserver.TestingAPIHandler(c, srvSt, st)
 	resource := new(fakeResource)
@@ -523,7 +596,7 @@ func (s *serverSuite) checkAPIHandlerTeardown(c *gc.C, srvSt, st *state.State) {
 }
 
 // newServer returns a new running API server.
-func newServer(c *gc.C, st *state.State) *apiserver.Server {
+func newServer(c *gc.C, st *state.State, pool *state.StatePool) *apiserver.Server {
 	listener, err := net.Listen("tcp", ":0")
 	c.Assert(err, jc.ErrorIsNil)
 	srv, err := apiserver.NewServer(st, listener, apiserver.ServerConfig{
@@ -534,6 +607,7 @@ func newServer(c *gc.C, st *state.State) *apiserver.Server {
 		LogDir:      c.MkDir(),
 		NewObserver: func() observer.Observer { return &fakeobserver.Instance{} },
 		AutocertURL: "https://0.1.2.3/no-autocert-here",
+		StatePool:   pool,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return srv

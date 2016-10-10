@@ -32,7 +32,7 @@ var _ = gc.Suite(&agentAuthenticatorSuite{})
 func (s *agentAuthenticatorSuite) TestAuthenticatorForTag(c *gc.C) {
 	fact := factory.NewFactory(s.State)
 	user := fact.MakeUser(c, &factory.UserParams{Password: "password"})
-	srv := newServer(c, s.State)
+	srv := newServer(c, s.State, nil)
 	defer srv.Stop()
 	authenticator, err := apiserver.ServerAuthenticatorForTag(srv, user.Tag())
 	c.Assert(err, jc.ErrorIsNil)
@@ -48,7 +48,7 @@ func (s *agentAuthenticatorSuite) TestAuthenticatorForTag(c *gc.C) {
 }
 
 func (s *agentAuthenticatorSuite) TestMachineGetsAgentAuthenticator(c *gc.C) {
-	srv := newServer(c, s.State)
+	srv := newServer(c, s.State, nil)
 	defer srv.Stop()
 	authenticator, err := apiserver.ServerAuthenticatorForTag(srv, names.NewMachineTag("0"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -57,7 +57,7 @@ func (s *agentAuthenticatorSuite) TestMachineGetsAgentAuthenticator(c *gc.C) {
 }
 
 func (s *agentAuthenticatorSuite) TestUnitGetsAgentAuthenticator(c *gc.C) {
-	srv := newServer(c, s.State)
+	srv := newServer(c, s.State, nil)
 	defer srv.Stop()
 	authenticator, err := apiserver.ServerAuthenticatorForTag(srv, names.NewUnitTag("wordpress/0"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -66,7 +66,7 @@ func (s *agentAuthenticatorSuite) TestUnitGetsAgentAuthenticator(c *gc.C) {
 }
 
 func (s *agentAuthenticatorSuite) TestNotSupportedTag(c *gc.C) {
-	srv := newServer(c, s.State)
+	srv := newServer(c, s.State, nil)
 	defer srv.Stop()
 	authenticator, err := apiserver.ServerAuthenticatorForTag(srv, names.NewApplicationTag("not-support"))
 	c.Assert(err, gc.ErrorMatches, "unexpected login entity tag: invalid request")
