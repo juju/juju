@@ -43,7 +43,7 @@ var _ HighAvailability = (*HighAvailabilityAPI)(nil)
 
 // NewHighAvailabilityAPI creates a new server-side highavailability API end point.
 func NewHighAvailabilityAPI(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*HighAvailabilityAPI, error) {
-	// Only clients and environment managers can access the high availability service.
+	// Only clients and model managers can access the high availability facade.
 	if !authorizer.AuthClient() && !authorizer.AuthModelManager() {
 		return nil, common.ErrPerm
 	}
@@ -112,16 +112,6 @@ func enableHASingle(st *state.State, spec params.ControllersSpec) (params.Contro
 	blockChecker := common.NewBlockChecker(st)
 	if err := blockChecker.ChangeAllowed(); err != nil {
 		return params.ControllersChanges{}, errors.Trace(err)
-	}
-	// Validate the environment tag if present.
-	if spec.ModelTag != "" {
-		tag, err := names.ParseModelTag(spec.ModelTag)
-		if err != nil {
-			return params.ControllersChanges{}, errors.Errorf("invalid model tag: %v", err)
-		}
-		if _, err := st.FindEntity(tag); err != nil {
-			return params.ControllersChanges{}, err
-		}
 	}
 
 	series := spec.Series
