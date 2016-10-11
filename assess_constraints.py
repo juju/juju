@@ -346,7 +346,7 @@ def assess_constraints(client, test_kvm=False):
         assess_constraints_deploy_dict(client, {
             'root-disk-and-cpu-power': {'root_disk': '15G',
                                         'cpu_power': '40'},
-            }
+            })
 
 
 def parse_args(argv):
