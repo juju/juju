@@ -113,6 +113,11 @@ func (env *joyentEnviron) Bootstrap(ctx environs.BootstrapContext, args environs
 	return common.Bootstrap(ctx, env, args)
 }
 
+// BootstrapMessage is part of the Environ interface.
+func (env *joyentEnviron) BootstrapMessage() string {
+	return ""
+}
+
 func (env *joyentEnviron) ControllerInstances(controllerUUID string) ([]instance.Id, error) {
 	instanceIds := []instance.Id{}
 

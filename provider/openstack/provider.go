@@ -518,6 +518,11 @@ func (e *Environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 	return common.Bootstrap(ctx, e, args)
 }
 
+// BootstrapMessage is part of the Environ interface.
+func (e *Environ) BootstrapMessage() string {
+	return ""
+}
+
 func (e *Environ) ControllerInstances(controllerUUID string) ([]instance.Id, error) {
 	// Find all instances tagged with tags.JujuIsController.
 	instances, err := e.allControllerManagedInstances(controllerUUID, e.ecfg().useFloatingIP())

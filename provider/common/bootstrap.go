@@ -132,6 +132,11 @@ func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args
 	}
 	maybeSetBridge(instanceConfig)
 
+	bootstrapMsg := env.BootstrapMessage()
+	if bootstrapMsg != "" {
+		ctx.Infof(bootstrapMsg)
+	}
+
 	cloudRegion := args.CloudName
 	if args.CloudRegion != "" {
 		cloudRegion += "/" + args.CloudRegion

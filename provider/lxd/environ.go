@@ -18,6 +18,8 @@ import (
 	"github.com/juju/juju/tools/lxdclient"
 )
 
+const bootstrapMessage = `To configure your system to better support LXD containers, please see: https://github.com/lxc/lxd/blob/master/doc/production-setup.md`
+
 type baseProvider interface {
 	// BootstrapEnv bootstraps a Juju environment.
 	BootstrapEnv(environs.BootstrapContext, environs.BootstrapParams) (*environs.BootstrapResult, error)
@@ -145,6 +147,11 @@ func (env *environ) Bootstrap(ctx environs.BootstrapContext, params environs.Boo
 	// Local provider does its own thing because it has to deal directly
 	// with localhost rather than using SSH.
 	return env.base.BootstrapEnv(ctx, params)
+}
+
+// BootstrapMessage is part of the Environ interface.
+func (env *environ) BootstrapMessage() string {
+	return bootstrapMessage
 }
 
 // Destroy shuts down all known machines and destroys the rest of the
