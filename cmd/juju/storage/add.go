@@ -14,6 +14,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/storage"
 )
@@ -130,6 +131,9 @@ func (c *addCommand) Run(ctx *cmd.Context) (err error) {
 	storages := c.createStorageAddParams()
 	results, err := api.AddToUnit(storages)
 	if err != nil {
+		if params.IsCodeUnauthorized(err) {
+			common.PermissionsMessage(ctx.Stderr, "add storage")
+		}
 		return err
 	}
 

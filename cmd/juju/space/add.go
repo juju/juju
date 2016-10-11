@@ -11,6 +11,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
 
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
@@ -66,6 +68,9 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 		if err != nil {
 			if errors.IsNotSupported(err) {
 				ctx.Infof("cannot add space %q: %v", c.Name, err)
+			}
+			if params.IsCodeUnauthorized(err) {
+				common.PermissionsMessage(ctx.Stderr, "add a space")
 			}
 			return errors.Annotatef(err, "cannot add space %q", c.Name)
 		}

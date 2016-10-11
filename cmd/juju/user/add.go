@@ -12,7 +12,9 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient"
 )
@@ -99,6 +101,9 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 	// "juju register".
 	_, secretKey, err := api.AddUser(c.User, c.DisplayName, "")
 	if err != nil {
+		if params.IsCodeUnauthorized(err) {
+			common.PermissionsMessage(ctx.Stderr, "add a user")
+		}
 		return block.ProcessBlockedError(err, block.BlockChange)
 	}
 

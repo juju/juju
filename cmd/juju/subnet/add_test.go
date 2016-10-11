@@ -12,6 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/subnet"
 	"github.com/juju/juju/network"
 	coretesting "github.com/juju/juju/testing"
@@ -217,6 +218,15 @@ func (s *AddSuite) TestRunWithNonExistingSpaceFails(c *gc.C) {
 		names.NewSpaceTag("space"),
 		s.Strings("zone1", "zone2"),
 	)
+}
+
+func (s *AddSuite) TestRunUnauthorizedMentionsJujuGrant(c *gc.C) {
+	s.api.SetErrors(&params.Error{
+		Message: "permission denied",
+		Code:    params.CodeUnauthorized,
+	})
+	_, stderr, _ := s.RunCommand(c, "10.10.0.0/24", "myspace")
+	c.Assert(strings.Replace(stderr, "\n", " ", -1), gc.Matches, `.*juju grant.*`)
 }
 
 func (s *AddSuite) TestRunWithAmbiguousCIDRDisplaysError(c *gc.C) {

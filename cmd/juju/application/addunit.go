@@ -13,7 +13,9 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/application"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/instance"
 )
@@ -165,7 +167,7 @@ func (c *addUnitCommand) getAPI() (serviceAddUnitAPI, error) {
 
 // Run connects to the environment specified on the command line
 // and calls AddUnits for the given application.
-func (c *addUnitCommand) Run(_ *cmd.Context) error {
+func (c *addUnitCommand) Run(ctx *cmd.Context) error {
 	apiclient, err := c.getAPI()
 	if err != nil {
 		return err
@@ -179,6 +181,9 @@ func (c *addUnitCommand) Run(_ *cmd.Context) error {
 		c.Placement[i] = p
 	}
 	_, err = apiclient.AddUnits(c.ApplicationName, c.NumUnits, c.Placement)
+	if params.IsCodeUnauthorized(err) {
+		common.PermissionsMessage(ctx.Stderr, "add a unit")
+	}
 	return block.ProcessBlockedError(err, block.BlockChange)
 }
 
