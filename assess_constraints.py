@@ -278,18 +278,6 @@ def assess_constraints_deploy(client, constraints, charm_name):
         raise get_failure_exception(client, constraints)
 
 
-def assess_constraints_deploy_dict(client, tests):
-    """Check that all constraints are followed on deploy.
-
-    :param client: Client to deploy the charm to.
-    :param tests: Dict of charm_names mapped to a dict of constraint
-    constructor arguments.
-    :raises JujuAssertionError if any test fails."""
-    for (charm_name, constraint_args) in tests.iteritems():
-        constraints = Constraints(**constraint_args)
-        assess_constraints_deploy(client, constraints, charm_name)
-
-
 def assess_instance_type(client, provider, instance_type):
     """Assess the instance-type option for constraints"""
     if instance_type not in INSTANCE_TYPES[provider]:
@@ -343,10 +331,10 @@ def assess_constraints(client, test_kvm=False):
         assess_root_disk_constraints(client, ['16G'])
         assess_cores_constraints(client, ['2'])
         assess_cpu_power_constraints(client, ['30'])
-        assess_constraints_deploy_dict(client, {
-            'root-disk-and-cpu-power': {'root_disk': '15G',
-                                        'cpu_power': '40'},
-            })
+        assess_constraints_deploy(
+            client, Constraints(root_disk='15G', cpu_power='40'),
+            'root-disk-and-cpu-power'
+            )
 
 
 def parse_args(argv):
