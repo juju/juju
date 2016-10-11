@@ -233,7 +233,7 @@ class TestAssess(TestCase):
         constraints_calls = self.gather_constraint_args(deploy_mock)
         self.assertEqual(constraints_calls, expected_call_list)
 
-    def test_constraint_deploy(self):
+    def test_constraints_deploy(self):
         self.inner_test_constraints_deploy([
             ({'mem': '2G'}, 'mem=2G', {'mem': '2G'}),
             ({'arch': 'amd64'}, 'arch=amd64', {'arch': 'amd64'}),
@@ -241,7 +241,7 @@ class TestAssess(TestCase):
              {'cores': '2', 'arch': 'i386'}),
             ])
 
-    def test_constraint_deploy_fail(self):
+    def test_constraints_deploy_fail(self):
         with self.assertRaises(JujuAssertionError):
             self.inner_test_constraints_deploy(
                 [({'cores': '2', 'arch': 'i386'}, 'cores=2 arch=i386',
