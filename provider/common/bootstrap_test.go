@@ -398,3 +398,56 @@ func (s *BootstrapSuite) TestWaitSSHRefreshAddresses(c *gc.C) {
 		"Waiting for address\n"+
 			"(.|\n)*(Attempting to connect to 0.1.2.4:22\n)+(.|\n)*")
 }
+
+type FormatHardwareSuite struct{}
+
+var _ = gc.Suite(&FormatHardwareSuite{})
+
+func (s *FormatHardwareSuite) check(c *gc.C, hw *instance.HardwareCharacteristics, expected string) {
+	c.Check(common.FormatHardware(hw), gc.Equals, expected)
+}
+
+func (s *FormatHardwareSuite) TestNil(c *gc.C) {
+	s.check(c, nil, "")
+}
+
+func (s *FormatHardwareSuite) TestFieldsNil(c *gc.C) {
+	s.check(c, &instance.HardwareCharacteristics{}, "")
+}
+
+func (s *FormatHardwareSuite) TestArch(c *gc.C) {
+	arch := ""
+	s.check(c, &instance.HardwareCharacteristics{Arch: &arch}, "")
+	arch = "amd64"
+	s.check(c, &instance.HardwareCharacteristics{Arch: &arch}, "arch=amd64")
+}
+
+func (s *FormatHardwareSuite) TestCores(c *gc.C) {
+	var cores uint64
+	s.check(c, &instance.HardwareCharacteristics{CpuCores: &cores}, "")
+	cores = 24
+	s.check(c, &instance.HardwareCharacteristics{CpuCores: &cores}, "cores=24")
+}
+
+func (s *FormatHardwareSuite) TestMem(c *gc.C) {
+	var mem uint64
+	s.check(c, &instance.HardwareCharacteristics{Mem: &mem}, "")
+	mem = 800
+	s.check(c, &instance.HardwareCharacteristics{Mem: &mem}, "mem=800M")
+	mem = 1024
+	s.check(c, &instance.HardwareCharacteristics{Mem: &mem}, "mem=1G")
+	mem = 2712
+	s.check(c, &instance.HardwareCharacteristics{Mem: &mem}, "mem=2.6G")
+}
+
+func (s *FormatHardwareSuite) TestAll(c *gc.C) {
+	arch := "ppc64"
+	var cores uint64 = 2
+	var mem uint64 = 123
+	hw := &instance.HardwareCharacteristics{
+		Arch:     &arch,
+		CpuCores: &cores,
+		Mem:      &mem,
+	}
+	s.check(c, hw, "arch=ppc64 mem=123M cores=2")
+}
