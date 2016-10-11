@@ -7,7 +7,6 @@ from __future__ import print_function
 
 from collections import defaultdict, namedtuple
 from datetime import datetime
-import errno
 import logging
 import os
 import subprocess
@@ -37,13 +36,28 @@ class TimingData:
     # Log breakdown uses the start/end too. Perhaps have a property for string
     # rep and a ds for the datetime.
     def __init__(self, start, end):
+        """Time difference details for an event.
+
+        :param start: datetime.datetime object representing the start of the
+          event.
+        :param end: datetime.datetime object representing the end of the event.
+        """
         self.start = start.strftime(self.strf_format)
         self.end = end.strftime(self.strf_format)
         self.seconds = int((end - start).total_seconds())
 
-DeployDetails = namedtuple(
-    'DeployDetails', ['name', 'applications', 'timings'])
 
+class DeployDetails(
+        namedtuple('DeployDetails', ['name', 'applications', 'timings'])):
+    """Details regarding a perfscale testrun.
+
+    :param name: String naming deploy details
+    :param applications: A dict containg a {name -> single detail} mapping. For
+    instance: {application name -> unit count}
+    or {'version' -> juju version string}
+    :param timings: A TimingData object representing the test runs start/end
+    details
+    """
 
 SETUP_SCRIPT_PATH = 'perf_static/setup-perf-monitoring.sh'
 COLLECTD_CONFIG_PATH = 'perf_static/collectd.conf'
@@ -88,21 +102,8 @@ def run_perfscale_test(target_test, bs_manager, args):
 
             deploy_details = target_test(client, args)
         finally:
-            results_dir = os.path.join(
-                os.path.abspath(bs_manager.log_dir), 'performance_results/')
-            os.makedirs(results_dir)
-            admin_client.juju(
-                'scp',
-                ('--', '-r', '0:/var/lib/collectd/rrd/localhost/*',
-                 results_dir)
-            )
-
-            try:
-                admin_client.juju(
-                    'scp', ('0:/tmp/mongodb-stats.log', results_dir)
-                )
-            except subprocess.CalledProcessError as e:
-                log.error('Failed to copy mongodb stats: {}'.format(e))
+            results_dir = dump_performance_metrics_logs(
+                bs_manager.log_dir, admin_client)
             cleanup_start = datetime.utcnow()
     # Cleanup happens when we move out of context
     cleanup_end = datetime.utcnow()
@@ -120,6 +121,24 @@ def run_perfscale_test(target_test, bs_manager, args):
         'machine-0.log.gz')
 
     generate_reports(controller_log_file, results_dir, deployments)
+
+
+def dump_performance_metrics_logs(log_dir, admin_client):
+    results_dir = os.path.join(
+        os.path.abspath(log_dir), 'performance_results/')
+    os.makedirs(results_dir)
+    admin_client.juju(
+        'scp',
+        ('--', '-r', '0:/var/lib/collectd/rrd/localhost/*',
+         results_dir)
+    )
+    try:
+        admin_client.juju(
+            'scp', ('0:/tmp/mongodb-stats.log', results_dir)
+        )
+    except subprocess.CalledProcessError as e:
+        log.error('Failed to copy mongodb stats: {}'.format(e))
+    return results_dir
 
 
 def apply_any_workarounds(client):

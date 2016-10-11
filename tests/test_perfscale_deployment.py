@@ -4,6 +4,7 @@ import argparse
 from mock import patch, Mock
 import StringIO
 
+from fakejuju import fake_juju_client
 import perfscale_deployment as pd
 from tests import (
     parse_error,
@@ -70,6 +71,17 @@ class TestParseArgs(TestCase):
         self.assertEqual('', fake_stderr.getvalue())
         self.assertIn(
             'Perfscale bundle deployment test.', fake_stdout.getvalue())
+
+
+class TestGetClientDetails(TestCase):
+
+    def test_returns_expected_details(self):
+        client = fake_juju_client()
+        client.bootstrap()
+        client.deploy('mongodb')
+        self.assertEqual(
+            dict(mongodb=1),
+            pd.get_client_details(client))
 
 
 class TestMain(TestCase):

@@ -47,6 +47,10 @@ def assess_deployment_perf(client, args):
 
 
 def get_client_details(client):
+    """Get unit count details for all units.
+
+    :return: Dict containing a name -> unit_count mapping.
+    """
     status = client.get_status()
     units = dict()
     for name in status.get_applications().keys():
@@ -61,6 +65,7 @@ def parse_args(argv):
     add_basic_testing_arguments(parser)
     parser.add_argument(
         '--bundle-name',
+        help='Bundle to deploy during test run.',
         default='cs:~landscape/bundle/landscape-scalable')
     return parser.parse_args(argv)
 
