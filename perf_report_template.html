@@ -241,6 +241,7 @@
               {% set safe_timeframe = log_detail.timeframe|replace(":", "")|replace(" ", "")|replace("(", "")|replace(")", "") %}
               <tr class="log-header hidden">
                 <td>
+                  <a name="top_{{safe_timeframe}}"></a>
                   {{log_detail.timeframe}}
                 </td>
               </tr>
@@ -249,6 +250,9 @@
                   <div id="{{safe_timeframe}}" class="collapse">
                     <small>
                       {{log_detail.message}}
+                      <div class="text-center">
+                        <a href="#top_{{safe_timeframe}}">Back to log top</a>
+                      </div>
                     </small>
                   </div>
                 </td>
