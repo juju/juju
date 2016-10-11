@@ -257,7 +257,7 @@ def create_report_graph(rrd_dir, output_file, generator):
     start, end = get_duration_points(os.path.join(rrd_dir, any_file))
     generator(start, end, rrd_dir, output_file)
     print('Created: {}'.format(output_file))
-    return output_file
+    return os.path.basename(output_file)
 
 
 def generate_cpu_graph_image(results_dir):

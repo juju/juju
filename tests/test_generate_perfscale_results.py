@@ -76,7 +76,7 @@ class TestGenerateGraphImages(TestCase):
                 gpr.generate_graph_image(
                     base_dir, results_dir, name, generator))
         m_crg.assert_called_once_with(
-            '/foo/test/results', base_dir, name, generator)
+            '/foo/test/results', '/foo/test/testing_name.png', generator)
 
     def test_generate_cpu_graph(self):
         image = Mock()
