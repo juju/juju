@@ -181,7 +181,7 @@ func (factory *Factory) MakeUser(c *gc.C, params *UserParams) *state.User {
 		c.Assert(err, jc.ErrorIsNil)
 		params.Creator = env.Owner()
 	}
-	if params.Access == permission.UndefinedAccess {
+	if params.Access == permission.NoAccess {
 		params.Access = permission.AdminAccess
 	}
 	creatorUserTag := params.Creator.(names.UserTag)
@@ -219,7 +219,7 @@ func (factory *Factory) MakeModelUser(c *gc.C, params *ModelUserParams) permissi
 	if params.DisplayName == "" {
 		params.DisplayName = uniqueString("display name")
 	}
-	if params.Access == permission.UndefinedAccess {
+	if params.Access == permission.NoAccess {
 		params.Access = permission.AdminAccess
 	}
 	if params.CreatedBy == nil {

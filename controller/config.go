@@ -56,6 +56,11 @@ const (
 	// "https://acme-staging.api.letsencrypt.org/directory".
 	AutocertURLKey = "autocert-url"
 
+	// AllowModelAccessKey sets whether the controller will allow users to
+	// connect to models they have been authorized for even when
+	// they don't have any access rights to the controller itself.
+	AllowModelAccessKey = "allow-model-access"
+
 	// Attribute Defaults
 
 	// DefaultAuditingEnabled contains the default value for the
@@ -76,15 +81,16 @@ const (
 // ControllerOnlyConfigAttributes are attributes which are only relevant
 // for a controller, never a model.
 var ControllerOnlyConfigAttributes = []string{
+	AllowModelAccessKey,
 	APIPort,
-	StatePort,
-	CACertKey,
-	ControllerUUIDKey,
-	IdentityURL,
-	IdentityPublicKey,
-	SetNUMAControlPolicyKey,
 	AutocertDNSNameKey,
 	AutocertURLKey,
+	CACertKey,
+	ControllerUUIDKey,
+	IdentityPublicKey,
+	IdentityURL,
+	SetNUMAControlPolicyKey,
+	StatePort,
 }
 
 // ControllerOnlyAttribute returns true if the specified attribute name
@@ -231,6 +237,14 @@ func (c Config) NUMACtlPreference() bool {
 	return DefaultNUMAControlPolicy
 }
 
+// AllowModelAccess reports whether users are allowed to access models
+// they have been granted permission for even when they can't access
+// the controller.
+func (c Config) AllowModelAccess() bool {
+	value, _ := c[AllowModelAccessKey].(bool)
+	return value
+}
+
 // Validate ensures that config is a valid configuration.
 func Validate(c Config) error {
 	if v, ok := c[IdentityPublicKey].(string); ok {
@@ -284,6 +298,7 @@ var configChecker = schema.FieldMap(schema.Fields{
 	SetNUMAControlPolicyKey: schema.Bool(),
 	AutocertURLKey:          schema.String(),
 	AutocertDNSNameKey:      schema.String(),
+	AllowModelAccessKey:     schema.Bool(),
 }, schema.Defaults{
 	APIPort:                 DefaultAPIPort,
 	AuditingEnabled:         DefaultAuditingEnabled,
@@ -293,4 +308,5 @@ var configChecker = schema.FieldMap(schema.Fields{
 	SetNUMAControlPolicyKey: DefaultNUMAControlPolicy,
 	AutocertURLKey:          schema.Omit,
 	AutocertDNSNameKey:      schema.Omit,
+	AllowModelAccessKey:     schema.Omit,
 })

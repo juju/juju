@@ -54,8 +54,8 @@ var _ = gc.Suite(&serverSuite{})
 func (s *serverSuite) TestStop(c *gc.C) {
 	// Start our own instance of the server so we have
 	// a handle on it to stop it.
-	srv := newServer(c, s.State, nil)
-	defer srv.Stop()
+	_, srv := newServer(c, s.State)
+	defer assertStop(c, srv)
 
 	machine, password := s.Factory.MakeMachineReturningPassword(
 		c, &factory.MachineParams{Nonce: "fake_nonce"})
@@ -99,8 +99,8 @@ func (s *serverSuite) TestAPIServerCanListenOnBothIPv4AndIPv6(c *gc.C) {
 
 	// Start our own instance of the server listening on
 	// both IPv4 and IPv6 localhost addresses and an ephemeral port.
-	srv := newServer(c, s.State, nil)
-	defer srv.Stop()
+	_, srv := newServer(c, s.State)
+	defer assertStop(c, srv)
 
 	port := srv.Addr().Port
 	portString := fmt.Sprintf("%d", port)
@@ -209,7 +209,7 @@ func (s *serverSuite) TestNewServerDoesNotAccessState(c *gc.C) {
 	// Creating the server should succeed because it doesn't
 	// access the state (note that newServer does not log in,
 	// which *would* access the state).
-	srv := newServer(c, st, nil)
+	_, srv := newServer(c, st)
 	srv.Stop()
 }
 
@@ -280,8 +280,8 @@ func dialWebsocket(c *gc.C, addr, path string, tlsVersion uint16) (*websocket.Co
 
 func (s *serverSuite) TestMinTLSVersion(c *gc.C) {
 	loggo.GetLogger("juju.apiserver").SetLogLevel(loggo.TRACE)
-	srv := newServer(c, s.State, nil)
-	defer srv.Stop()
+	_, srv := newServer(c, s.State)
+	defer assertStop(c, srv)
 
 	// We have to use 'localhost' because that is what the TLS cert says.
 	addr := fmt.Sprintf("localhost:%d", srv.Addr().Port)
@@ -296,8 +296,8 @@ func (s *serverSuite) TestNonCompatiblePathsAre404(c *gc.C) {
 	// We expose the API at '/api', '/' (controller-only), and at '/ModelUUID/api'
 	// for the correct location, but other paths should fail.
 	loggo.GetLogger("juju.apiserver").SetLogLevel(loggo.TRACE)
-	srv := newServer(c, s.State, nil)
-	defer srv.Stop()
+	_, srv := newServer(c, s.State)
+	defer assertStop(c, srv)
 
 	// We have to use 'localhost' because that is what the TLS cert says.
 	addr := fmt.Sprintf("localhost:%d", srv.Addr().Port)
@@ -327,8 +327,8 @@ func (s *serverSuite) TestNonCompatiblePathsAre404(c *gc.C) {
 }
 
 func (s *serverSuite) TestNoBakeryWhenNoIdentityURL(c *gc.C) {
-	srv := newServer(c, s.State, nil)
-	defer srv.Stop()
+	_, srv := newServer(c, s.State)
+	defer assertStop(c, srv)
 	// By default, when there is no identity location, no
 	// bakery service or macaroon is created.
 	_, err := apiserver.ServerMacaroon(srv)
@@ -358,8 +358,8 @@ func (s *macaroonServerSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *macaroonServerSuite) TestServerBakery(c *gc.C) {
-	srv := newServer(c, s.State, nil)
-	defer srv.Stop()
+	_, srv := newServer(c, s.State)
+	defer assertStop(c, srv)
 	m, err := apiserver.ServerMacaroon(srv)
 	c.Assert(err, gc.IsNil)
 	bsvc, err := apiserver.ServerBakeryService(srv)
@@ -409,8 +409,8 @@ func (s *macaroonServerWrongPublicKeySuite) TearDownTest(c *gc.C) {
 }
 
 func (s *macaroonServerWrongPublicKeySuite) TestDischargeFailsWithWrongPublicKey(c *gc.C) {
-	srv := newServer(c, s.State, nil)
-	defer srv.Stop()
+	_, srv := newServer(c, s.State)
+	defer assertStop(c, srv)
 	m, err := apiserver.ServerMacaroon(srv)
 	c.Assert(err, gc.IsNil)
 	m = m.Clone()
@@ -515,8 +515,10 @@ func (s *serverSuite) TestAPIHandlerConnectedModel(c *gc.C) {
 
 func (s *serverSuite) TestClosesStateFromPool(c *gc.C) {
 	pool := state.NewStatePool(s.State)
-	server := newServer(c, s.State, pool)
-	defer server.Stop()
+	cfg := defaultServerConfig(c)
+	cfg.StatePool = pool
+	_, server := newServerWithConfig(c, s.State, cfg)
+	defer assertStop(c, server)
 
 	w := s.State.WatchModels()
 	defer workertest.CleanKill(c, w)
@@ -595,11 +597,9 @@ func (s *serverSuite) checkAPIHandlerTeardown(c *gc.C, srvSt, st *state.State) {
 	c.Assert(resource.stopped, jc.IsTrue)
 }
 
-// newServer returns a new running API server.
-func newServer(c *gc.C, st *state.State, pool *state.StatePool) *apiserver.Server {
-	listener, err := net.Listen("tcp", ":0")
-	c.Assert(err, jc.ErrorIsNil)
-	srv, err := apiserver.NewServer(st, listener, apiserver.ServerConfig{
+// defaultServerConfig returns the default configuration for starting a test server.
+func defaultServerConfig(c *gc.C) apiserver.ServerConfig {
+	return apiserver.ServerConfig{
 		Clock:       clock.WallClock,
 		Cert:        coretesting.ServerCert,
 		Key:         coretesting.ServerKey,
@@ -607,8 +607,38 @@ func newServer(c *gc.C, st *state.State, pool *state.StatePool) *apiserver.Serve
 		LogDir:      c.MkDir(),
 		NewObserver: func() observer.Observer { return &fakeobserver.Instance{} },
 		AutocertURL: "https://0.1.2.3/no-autocert-here",
-		StatePool:   pool,
-	})
+	}
+}
+
+// newServer returns a new running API server using the given state.
+// The pool may be nil, in which case a pool using the given state
+// will be used.
+//
+// It returns information suitable for connecting to the state
+// without any authentication information or model tag, and the server
+// that's been started.
+func newServer(c *gc.C, st *state.State) (*api.Info, *apiserver.Server) {
+	return newServerWithConfig(c, st, defaultServerConfig(c))
+}
+
+// newServerWithConfig is like newServer except that the entire
+// server configuration may be specified (see defaultServerConfig
+// for a suitable starting point).
+func newServerWithConfig(c *gc.C, st *state.State, cfg apiserver.ServerConfig) (*api.Info, *apiserver.Server) {
+	listener, err := net.Listen("tcp", ":0")
 	c.Assert(err, jc.ErrorIsNil)
-	return srv
+	srv, err := apiserver.NewServer(st, listener, cfg)
+	c.Assert(err, jc.ErrorIsNil)
+	return &api.Info{
+		Addrs:  []string{srv.Addr().String()},
+		CACert: coretesting.CACert,
+	}, srv
+}
+
+type stopper interface {
+	Stop() error
+}
+
+func assertStop(c *gc.C, stopper stopper) {
+	c.Assert(stopper.Stop(), gc.IsNil)
 }

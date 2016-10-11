@@ -30,9 +30,6 @@ var _ = gc.Suite(&loginV3Suite{
 })
 
 func (s *loginV3Suite) TestClientLoginToEnvironment(c *gc.C) {
-	_, cleanup := s.setupServer(c)
-	defer cleanup()
-
 	info := s.APIInfo(c)
 	apiState, err := api.Open(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -44,9 +41,6 @@ func (s *loginV3Suite) TestClientLoginToEnvironment(c *gc.C) {
 }
 
 func (s *loginV3Suite) TestClientLoginToServer(c *gc.C) {
-	_, cleanup := s.setupServer(c)
-	defer cleanup()
-
 	info := s.APIInfo(c)
 	info.ModelTag = names.ModelTag{}
 	apiState, err := api.Open(info, api.DialOpts{})
@@ -62,9 +56,6 @@ func (s *loginV3Suite) TestClientLoginToServer(c *gc.C) {
 }
 
 func (s *loginV3Suite) TestClientLoginToServerNoAccessToControllerEnv(c *gc.C) {
-	_, cleanup := s.setupServer(c)
-	defer cleanup()
-
 	password := "shhh..."
 	user := s.Factory.MakeUser(c, &factory.UserParams{
 		NoModelUser: true,
@@ -87,9 +78,6 @@ func (s *loginV3Suite) TestClientLoginToServerNoAccessToControllerEnv(c *gc.C) {
 }
 
 func (s *loginV3Suite) TestClientLoginToRootOldClient(c *gc.C) {
-	_, cleanup := s.setupServer(c)
-	defer cleanup()
-
 	info := s.APIInfo(c)
 	info.Tag = nil
 	info.Password = ""

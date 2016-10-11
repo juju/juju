@@ -12,9 +12,8 @@ import (
 type Access string
 
 const (
-	// UndefinedAccess is not a valid access type. It is the value
-	// used when access is not defined at all.
-	UndefinedAccess Access = ""
+	// NoAccess allows a user no permissions at all.
+	NoAccess Access = ""
 
 	// Model Permissions
 
@@ -43,7 +42,7 @@ const (
 // Validate returns error if the current is not a valid access level.
 func (a Access) Validate() error {
 	switch a {
-	case UndefinedAccess, AdminAccess, ReadAccess, WriteAccess,
+	case NoAccess, AdminAccess, ReadAccess, WriteAccess,
 		LoginAccess, AddModelAccess, SuperuserAccess:
 		return nil
 	}
@@ -72,7 +71,7 @@ func ValidateControllerAccess(access Access) error {
 
 func (a Access) controllerValue() int {
 	switch a {
-	case UndefinedAccess:
+	case NoAccess:
 		return 0
 	case LoginAccess:
 		return 1
@@ -87,7 +86,7 @@ func (a Access) controllerValue() int {
 
 func (a Access) modelValue() int {
 	switch a {
-	case UndefinedAccess:
+	case NoAccess:
 		return 0
 	case ReadAccess:
 		return 1

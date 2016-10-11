@@ -17,7 +17,7 @@ var _ = gc.Suite(&accessSuite{})
 func (*accessSuite) TestEqualOrGreaterModelAccessThan(c *gc.C) {
 	// A very boring but necessary test to test explicit responses.
 	var (
-		undefined = permission.UndefinedAccess
+		undefined = permission.NoAccess
 		read      = permission.ReadAccess
 		write     = permission.WriteAccess
 		admin     = permission.AdminAccess
@@ -66,7 +66,7 @@ func (*accessSuite) TestEqualOrGreaterModelAccessThan(c *gc.C) {
 func (*accessSuite) TestGreaterModelAccessThan(c *gc.C) {
 	// A very boring but necessary test to test explicit responses.
 	var (
-		undefined = permission.UndefinedAccess
+		undefined = permission.NoAccess
 		read      = permission.ReadAccess
 		write     = permission.WriteAccess
 		admin     = permission.AdminAccess
@@ -110,7 +110,7 @@ func (*accessSuite) TestGreaterModelAccessThan(c *gc.C) {
 func (*accessSuite) TestEqualOrGreaterControllerAccessThan(c *gc.C) {
 	// A very boring but necessary test to test explicit responses.
 	var (
-		undefined = permission.UndefinedAccess
+		undefined = permission.NoAccess
 		read      = permission.ReadAccess
 		write     = permission.WriteAccess
 		admin     = permission.AdminAccess
@@ -159,7 +159,7 @@ func (*accessSuite) TestEqualOrGreaterControllerAccessThan(c *gc.C) {
 func (*accessSuite) TestGreaterControllerAccessThan(c *gc.C) {
 	// A very boring but necessary test to test explicit responses.
 	var (
-		undefined = permission.UndefinedAccess
+		undefined = permission.NoAccess
 		read      = permission.ReadAccess
 		write     = permission.WriteAccess
 		admin     = permission.AdminAccess
