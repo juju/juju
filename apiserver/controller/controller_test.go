@@ -649,7 +649,7 @@ func (s *controllerSuite) TestGrantOnlyGreaterAccess(c *gc.C) {
 	c.Assert(controllerUser.Access, gc.Equals, permission.AddModelAccess)
 
 	err = s.controllerGrant(c, user.UserTag(), string(permission.AddModelAccess))
-	expectedErr := `could not grant controller access: user already has "addmodel" access or greater`
+	expectedErr := `could not grant controller access: user already has "add-model" access or greater`
 	c.Assert(err, gc.ErrorMatches, expectedErr)
 }
 
@@ -775,7 +775,7 @@ func (s *controllerSuite) TestGetControllerAccess(c *gc.C) {
 			UserTag: user.Tag().String(),
 		}}, {
 		Result: &params.UserAccess{
-			Access:  "addmodel",
+			Access:  "add-model",
 			UserTag: user2.Tag().String(),
 		}}})
 }

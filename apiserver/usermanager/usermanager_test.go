@@ -388,7 +388,7 @@ func (s *userManagerSuite) TestUserInfo(c *gc.C) {
 		}, {
 			info: &params.UserInfo{
 				Username: "fred@external",
-				Access:   "addmodel",
+				Access:   "add-model",
 			},
 		}, {
 			err: &params.Error{
@@ -518,7 +518,7 @@ func (s *userManagerSuite) TestUserInfoEveryonePermission(c *gc.C) {
 	c.Assert(results, jc.DeepEquals, params.UserInfoResults{
 		Results: []params.UserInfoResult{{Result: &params.UserInfo{
 			Username: "aardvark@external",
-			Access:   "addmodel",
+			Access:   "add-model",
 		}}},
 	})
 }
