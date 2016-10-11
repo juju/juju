@@ -1898,7 +1898,9 @@ class EnvJujuClient:
                                'mem=2G', '--file', backup_file))
 
     def enable_ha(self):
-        self.juju('enable-ha', ('-n', '3'))
+        self.juju(
+            'enable-ha', ('-n', '3', '-c', self.get_controller_model_name()),
+            include_e=False)
 
     def action_fetch(self, id, action=None, timeout="1m"):
         """Fetches the results of the action with the given id.
@@ -2249,6 +2251,9 @@ class EnvJujuClient2B9(EnvJujuClient):
     def enable_command(self, args):
         """Enable a command set."""
         return self.juju('unblock', args)
+
+    def enable_ha(self):
+        self.juju('enable-ha', ('-n', '3'))
 
 
 class EnvJujuClient2B8(EnvJujuClient2B9):

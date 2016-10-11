@@ -1477,8 +1477,8 @@ class TestEnsureAvailabilityAttempt(JujuPyTestCase):
         assert_juju_call(
             self,
             cc_mock, client,
-            ('juju', '--show-log', 'enable-ha', '-m',
-             'steve:{}'.format(controller_client.env.environment), '-n', '3'))
+            ('juju', '--show-log', 'enable-ha', '-n', '3', '-c',
+             controller_client.env.environment))
         status = {
             'machines': {
                 '0': {'controller-member-status': 'has-vote'},

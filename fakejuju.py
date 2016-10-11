@@ -554,8 +554,6 @@ class FakeBackend:
             if ':' in model:
                 model = model.split(':')[1]
             model_state = self.controller_state.models[model]
-            if command == 'enable-ha':
-                model_state.enable_ha()
             if ((command, args[:1]) == ('set-config', ('dummy-source',)) or
                     (command, args[:1]) == ('config', ('dummy-source',))):
                 name, value = args[1].split('=')
@@ -623,6 +621,13 @@ class FakeBackend:
                 model = args[0]
                 model_state = self.controller_state.models[model]
                 model_state.destroy_model()
+            if command == 'enable-ha':
+                parser = ArgumentParser()
+                parser.add_argument('-n', '--number')
+                parser.add_argument('-c', '--controller')
+                parsed = parser.parse_args(args)
+                model_state = self.controller_state.models[parsed.controller]
+                model_state.enable_ha()
             if command == 'add-model':
                 if not self.is_feature_enabled('jes'):
                     raise JESNotSupported()
