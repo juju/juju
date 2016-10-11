@@ -79,7 +79,7 @@ class TestConstraints(TestCase):
         self.assertTrue(meets_string(None, 'amd64'))
         self.assertFalse(meets_string('amd64', None))
         self.assertTrue(meets_string('amd64', 'amd64'))
-        self.assertFalse(meets_string('i32', 'amd64'))
+        self.assertFalse(meets_string('arm64', 'amd64'))
 
     def test__meets_min_int(self):
         meets_min_int = Constraints._meets_min_int
@@ -116,7 +116,7 @@ class TestConstraints(TestCase):
     def test_meets_arch(self):
         constraints = Constraints(arch='amd64')
         self.assertTrue(constraints.meets_arch('amd64'))
-        self.assertFalse(constraints.meets_arch('i386'))
+        self.assertFalse(constraints.meets_arch('arm64'))
 
     def test_meets_instance_type(self):
         constraints = Constraints(instance_type='t2.micro')
@@ -237,15 +237,15 @@ class TestAssess(TestCase):
         self.inner_test_constraints_deploy([
             ({'mem': '2G'}, 'mem=2G', {'mem': '2G'}),
             ({'arch': 'amd64'}, 'arch=amd64', {'arch': 'amd64'}),
-            ({'cores': '2', 'arch': 'i386'}, 'cores=2 arch=i386',
-             {'cores': '2', 'arch': 'i386'}),
+            ({'cores': '2', 'arch': 'arm64'}, 'cores=2 arch=arm64',
+             {'cores': '2', 'arch': 'arm64'}),
             ])
 
     def test_constraints_deploy_fail(self):
         with self.assertRaises(JujuAssertionError):
             self.inner_test_constraints_deploy(
-                [({'cores': '2', 'arch': 'i386'}, 'cores=2 arch=i386',
-                  {'cores': '1', 'arch': 'i386'})])
+                [({'cores': '2', 'arch': 'arm64'}, 'cores=2 arch=arm64',
+                  {'cores': '1', 'arch': 'arm64'})])
 
     @contextmanager
     def patch_instance_spec(self, fake_provider, passing=True):
