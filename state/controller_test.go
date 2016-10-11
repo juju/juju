@@ -24,10 +24,11 @@ func (s *ControllerConfigSuite) TestControllerAndModelConfigInitialisation(c *gc
 	c.Assert(err, jc.ErrorIsNil)
 
 	optional := map[string]bool{
-		controller.IdentityURL:        true,
-		controller.IdentityPublicKey:  true,
-		controller.AutocertURLKey:     true,
-		controller.AutocertDNSNameKey: true,
+		controller.IdentityURL:         true,
+		controller.IdentityPublicKey:   true,
+		controller.AutocertURLKey:      true,
+		controller.AutocertDNSNameKey:  true,
+		controller.AllowModelAccessKey: true,
 	}
 	for _, controllerAttr := range controller.ControllerOnlyConfigAttributes {
 		v, ok := controllerSettings.Get(controllerAttr)

@@ -71,7 +71,7 @@ func (st *State) controllerUserPermission(objectGlobalKey, subjectGlobalKey stri
 // isReadOnly returns whether or not the user has write access or only
 // read access to the model.
 func (p *userPermission) isReadOnly() bool {
-	return stringToAccess(p.doc.Access) == permission.UndefinedAccess || stringToAccess(p.doc.Access) == permission.ReadAccess
+	return stringToAccess(p.doc.Access) == permission.NoAccess || stringToAccess(p.doc.Access) == permission.ReadAccess
 }
 
 // isAdmin is a convenience method that

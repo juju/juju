@@ -61,6 +61,7 @@ type Server struct {
 	connCount         int64
 	certChanged       <-chan params.StateServingInfo
 	tlsConfig         *tls.Config
+	allowModelAccess  bool
 
 	// mu guards the fields below it.
 	mu sync.Mutex
@@ -97,6 +98,11 @@ type ServerConfig struct {
 	// TLS certificates will be obtained. By default,
 	// acme.LetsEncryptURL will be used.
 	AutocertURL string
+
+	// AllowModelAccess holds whether users will be allowed to
+	// access models that they have access rights to even when
+	// they don't have access to the controller.
+	AllowModelAccess bool
 
 	// NewObserver is a function which will return an observer. This
 	// is used per-connection to instantiate a new observer to be
@@ -162,7 +168,8 @@ func newServer(s *state.State, lis net.Listener, cfg ServerConfig) (_ *Server, e
 		adminAPIFactories: map[int]adminAPIFactory{
 			3: newAdminAPIV3,
 		},
-		certChanged: cfg.CertChanged,
+		certChanged:      cfg.CertChanged,
+		allowModelAccess: cfg.AllowModelAccess,
 	}
 
 	srv.tlsConfig = srv.newTLSConfig(cfg)

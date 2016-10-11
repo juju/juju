@@ -640,7 +640,9 @@ type AuthUserInfo struct {
 	Credentials *string `json:"credentials,omitempty"`
 
 	// ControllerAccess holds the access the user has to the connected controller.
+	// It will be empty if the user has no access to the controller.
 	ControllerAccess string `json:"controller-access"`
+
 	// ModelAccess holds the access the user has to the connected model.
 	ModelAccess string `json:"model-access"`
 }
