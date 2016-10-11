@@ -238,7 +238,7 @@ func (s *AddModelSuite) TestNoDefaultCloudRegion(c *gc.C) {
 and there is no default cloud. The clouds/regions supported
 by this controller are:
 
-CLOUD  REGIONS
+Cloud  Regions
 aws    us-east-1, us-west-1
 lxd    
 `[1:])
@@ -264,7 +264,7 @@ func (s *AddModelSuite) TestInvalidCloudOrRegionName(c *gc.C) {
 nor a region in the controller's default cloud "aws".
 The clouds/regions supported by this controller are:
 
-CLOUD  REGIONS
+Cloud  Regions
 aws    us-east-1, us-west-1
 lxd    
 `[1:])

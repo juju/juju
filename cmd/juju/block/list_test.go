@@ -79,7 +79,7 @@ func (s *listCommandSuite) TestList(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stderr(ctx), gc.Equals, "")
 	c.Assert(testing.Stdout(ctx), gc.Equals, ""+
-		"DISABLED COMMANDS  MESSAGE\n"+
+		"Disabled commands  Message\n"+
 		"destroy-model      Sysadmins in control.\n"+
 		"all                just temporary\n"+
 		"\n",
@@ -119,7 +119,7 @@ func (s *listCommandSuite) TestListAll(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stderr(ctx), gc.Equals, "")
 	c.Assert(testing.Stdout(ctx), gc.Equals, ""+
-		"NAME        MODEL UUID   OWNER             DISABLED COMMANDS\n"+
+		"Name        Model UUID   Owner             Disabled commands\n"+
 		"controller  fake-uuid-1  admin             destroy-model, remove-object\n"+
 		"model-a     fake-uuid-2  bob@external      all\n"+
 		"model-b     fake-uuid-3  charlie@external  all, destroy-model\n"+

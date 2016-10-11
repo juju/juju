@@ -268,9 +268,9 @@ func (c *modelsCommand) formatTabular(writer io.Writer, value interface{}) error
 
 	tw := output.TabWriter(writer)
 	w := output.Wrapper{tw}
-	w.Println("CONTROLLER: " + c.ControllerName())
+	w.Println("Controller: " + c.ControllerName())
 	w.Println()
-	w.Print("MODEL")
+	w.Print("Model")
 	if c.listUUID {
 		w.Print("UUID")
 	}
@@ -282,7 +282,7 @@ func (c *modelsCommand) formatTabular(writer io.Writer, value interface{}) error
 		}
 	}
 	if haveMachineInfo {
-		w.Println("OWNER", "STATUS", "MACHINES", "CORES", "ACCESS", "LAST CONNECTION")
+		w.Println("Owner", "Status", "Machines", "Cores", "Access", "Last connection")
 		offset := 0
 		if c.listUUID {
 			offset++
@@ -290,7 +290,7 @@ func (c *modelsCommand) formatTabular(writer io.Writer, value interface{}) error
 		tw.SetColumnAlignRight(3 + offset)
 		tw.SetColumnAlignRight(4 + offset)
 	} else {
-		w.Println("OWNER", "STATUS", "ACCESS", "LAST CONNECTION")
+		w.Println("Owner", "Status", "Access", "Last connection")
 	}
 	for _, model := range modelSet.Models {
 		owner := names.NewUserTag(model.Owner)

@@ -3239,14 +3239,14 @@ func (s *StatusSuite) TestMigrationInProgress(c *gc.C) {
 
 func (s *StatusSuite) TestMigrationInProgressTabular(c *gc.C) {
 	expected := `
-MODEL   CONTROLLER  CLOUD/REGION        VERSION  NOTES
+Model   Controller  Cloud/Region        Version  Notes
 hosted  kontroll    dummy/dummy-region  1.2.3    migrating: foo bar
 
-APP  VERSION  STATUS  SCALE  CHARM  STORE  REV  OS  NOTES
+App  Version  Status  Scale  Charm  Store  Rev  OS  Notes
 
-UNIT  WORKLOAD  AGENT  MACHINE  PUBLIC-ADDRESS  PORTS  MESSAGE
+Unit  Workload  Agent  Machine  Public address  Ports  Message
 
-MACHINE  STATE  DNS  INS-ID  SERIES  AZ
+Machine  State  DNS  Inst id  Series  AZ
 
 `[1:]
 
@@ -3260,14 +3260,14 @@ MACHINE  STATE  DNS  INS-ID  SERIES  AZ
 
 func (s *StatusSuite) TestMigrationInProgressAndUpgradeAvailable(c *gc.C) {
 	expected := `
-MODEL   CONTROLLER  CLOUD/REGION        VERSION  NOTES
+Model   Controller  Cloud/Region        Version  Notes
 hosted  kontroll    dummy/dummy-region  1.2.3    migrating: foo bar
 
-APP  VERSION  STATUS  SCALE  CHARM  STORE  REV  OS  NOTES
+App  Version  Status  Scale  Charm  Store  Rev  OS  Notes
 
-UNIT  WORKLOAD  AGENT  MACHINE  PUBLIC-ADDRESS  PORTS  MESSAGE
+Unit  Workload  Agent  Machine  Public address  Ports  Message
 
-MACHINE  STATE  DNS  INS-ID  SERIES  AZ
+Machine  State  DNS  Inst id  Series  AZ
 
 `[1:]
 
@@ -3377,14 +3377,14 @@ func (s *StatusSuite) TestStatusWithFormatSummary(c *gc.C) {
 	c.Assert(string(stdout), gc.Equals, `
 Running on subnets:  127.0.0.1/8, 10.0.0.1/8  
  Utilizing ports:                             
-      # MACHINES:  (3)
+      # Machines:  (3)
          started:   3 
                  
-         # UNITS:  (4)
+         # Units:  (4)
           active:   3 
            error:   1 
                  
-  # APPLICATIONS:  (3)
+  # Applications:  (3)
           logging  1/1  exposed
             mysql  1/1  exposed
         wordpress  1/1  exposed
@@ -3538,26 +3538,26 @@ func (s *StatusSuite) testStatusWithFormatTabular(c *gc.C, useFeatureFlag bool) 
 	c.Check(code, gc.Equals, 0)
 	c.Check(string(stderr), gc.Equals, "")
 	expected := `
-MODEL       CONTROLLER  CLOUD/REGION        VERSION  NOTES
+Model       Controller  Cloud/Region        Version  Notes
 controller  kontroll    dummy/dummy-region  1.2.3    upgrade available: 1.2.4
 
-APP        VERSION          STATUS       SCALE  CHARM      STORE       REV  OS      NOTES
+App        Version          Status       Scale  Charm      Store       Rev  OS      Notes
 logging    a bit too lo...  error            2  logging    jujucharms    1  ubuntu  exposed
 mysql      5.7.13           maintenance      1  mysql      jujucharms    1  ubuntu  exposed
 wordpress  4.5.3            active           1  wordpress  jujucharms    3  ubuntu  exposed
 
-UNIT          WORKLOAD     AGENT  MACHINE  PUBLIC-ADDRESS    PORTS  MESSAGE
+Unit          Workload     Agent  Machine  Public address    Ports  Message
 mysql/0*      maintenance  idle   2        controller-2.dns         installing all the things
   logging/1*  error        idle            controller-2.dns         somehow lost in all those logs
 wordpress/0*  active       idle   1        controller-1.dns         
   logging/0   active       idle            controller-1.dns         
 
-MACHINE  STATE    DNS               INS-ID        SERIES   AZ
+Machine  State    DNS               Inst id       Series   AZ
 0        started  controller-0.dns  controller-0  quantal  us-east-1a
 1        started  controller-1.dns  controller-1  quantal  
 2        started  controller-2.dns  controller-2  quantal  
 
-RELATION           PROVIDES   CONSUMES   TYPE
+Relation           Provides   Consumes   Type
 juju-info          logging    mysql      regular
 logging-dir        logging    wordpress  regular
 info               mysql      logging    subordinate
@@ -3605,17 +3605,17 @@ func (s *StatusSuite) TestFormatTabularHookActionName(c *gc.C) {
 	err := FormatTabular(out, false, status)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(out.String(), gc.Equals, `
-MODEL  CONTROLLER  CLOUD/REGION  VERSION
+Model  Controller  Cloud/Region  Version
                                  
 
-APP  VERSION  STATUS  SCALE  CHARM  STORE  REV  OS  NOTES
+App  Version  Status  Scale  Charm  Store  Rev  OS  Notes
 foo                       2                  0      
 
-UNIT   WORKLOAD     AGENT      MACHINE  PUBLIC-ADDRESS  PORTS  MESSAGE
+Unit   Workload     Agent      Machine  Public address  Ports  Message
 foo/0  maintenance  executing                                  (config-changed) doing some work
 foo/1  maintenance  executing                                  (backup database) doing some work
 
-MACHINE  STATE  DNS  INS-ID  SERIES  AZ
+Machine  State  DNS  Inst id  Series  AZ
 `[1:])
 }
 
@@ -3640,8 +3640,8 @@ func (s *StatusSuite) TestFormatTabularConsistentPeerRelationName(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	sections, err := splitTableSections(out.Bytes())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(sections["RELATION"], gc.DeepEquals, []string{
-		"RELATION    PROVIDES  CONSUMES  TYPE",
+	c.Assert(sections["Relation"], gc.DeepEquals, []string{
+		"Relation    Provides  Consumes  Type",
 		"replicator  foo       foo       peer",
 	})
 }
@@ -3699,21 +3699,21 @@ func (s *StatusSuite) TestFormatTabularMetering(c *gc.C) {
 	err := FormatTabular(out, false, status)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(out.String(), gc.Equals, `
-MODEL  CONTROLLER  CLOUD/REGION  VERSION
+Model  Controller  Cloud/Region  Version
                                  
 
-APP  VERSION  STATUS  SCALE  CHARM  STORE  REV  OS  NOTES
+App  Version  Status  Scale  Charm  Store  Rev  OS  Notes
 foo                     0/2                  0      
 
-UNIT   WORKLOAD  AGENT  MACHINE  PUBLIC-ADDRESS  PORTS  MESSAGE
+Unit   Workload  Agent  Machine  Public address  Ports  Message
 foo/0                                                   
 foo/1                                                   
 
-METER  STATUS   MESSAGE
+Meter  Status   Message
 foo/0  strange  warning: stable strangelets
 foo/1  up       things are looking up
 
-MACHINE  STATE  DNS  INS-ID  SERIES  AZ
+Machine  State  DNS  Inst id  Series  AZ
 `[1:])
 }
 

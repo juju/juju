@@ -38,7 +38,7 @@ func (s *ListControllersSuite) TestListControllers(c *gc.C) {
 	s.expectedOutput = `
 Use --refresh to see the latest information.
 
-CONTROLLER           MODEL       USER   ACCESS     CLOUD/REGION        MODELS  MACHINES  HA  VERSION
+Controller           Model       User   Access     Cloud/Region        Models  Machines  HA  Version
 aws-test             controller  -      -          aws/us-east-1            2         5   -  2.0.1      
 mallards*            my-model    admin  superuser  mallards/mallards1       -         -   -  (unknown)  
 mark-test-prodstack  -           admin  (unknown)  prodstack                -         -   -  (unknown)  
@@ -65,7 +65,7 @@ func (s *ListControllersSuite) TestListControllersRefresh(c *gc.C) {
 		return fakeController
 	}
 	s.expectedOutput = `
-CONTROLLER           MODEL       USER   ACCESS     CLOUD/REGION        MODELS  MACHINES  HA  VERSION
+Controller           Model       User   Access     Cloud/Region        Models  Machines  HA  Version
 aws-test             controller  admin  (unknown)  aws/us-east-1            1         2   -  2.0.1      
 mallards*            my-model    admin  superuser  mallards/mallards1       2         4   -  (unknown)  
 mark-test-prodstack  -           admin  (unknown)  prodstack                -         -   -  (unknown)  
@@ -115,7 +115,7 @@ func (s *ListControllersSuite) TestListControllersKnownHAStatus(c *gc.C) {
 	s.createTestClientStore(c)
 	s.setupAPIForControllerMachines()
 	s.expectedOutput = `
-CONTROLLER           MODEL       USER   ACCESS     CLOUD/REGION        MODELS  MACHINES    HA  VERSION
+Controller           Model       User   Access     Cloud/Region        Models  Machines    HA  Version
 aws-test             controller  admin  (unknown)  aws/us-east-1            1         2   1/3  2.0.1      
 mallards*            my-model    admin  superuser  mallards/mallards1       2         4  none  (unknown)  
 mark-test-prodstack  -           admin  (unknown)  prodstack                -         -     -  (unknown)  

@@ -175,14 +175,14 @@ func (s *ShowServiceSuite) TestRun(c *gc.C) {
 
 	c.Check(stdout, gc.Equals, `
 [Service]
-RESOURCE  SUPPLIED BY  REVISION
+Resource  Supplied by  Revision
 openjdk   charmstore   7
 website   upload       -
 rsc1234   charmstore   15
 website2  Bill User    2012-12-12T12:12
 
 [Updates Available]
-RESOURCE  REVISION
+Resource  Revision
 openjdk   10
 
 `[1:])
@@ -238,7 +238,7 @@ func (s *ShowServiceSuite) TestRunUnit(c *gc.C) {
 
 	c.Check(stdout, gc.Equals, `
 [Unit]
-RESOURCE  REVISION
+Resource  Revision
 rsc1234   15
 website2  2012-12-12T12:12
 
@@ -402,7 +402,7 @@ func (s *ShowServiceSuite) TestRunDetails(c *gc.C) {
 
 	c.Check(stdout, gc.Equals, `
 [Units]
-UNIT  RESOURCE  REVISION          EXPECTED
+Unit  Resource  Revision          Expected
 5     alpha     10                15
 5     beta      2012-12-12T12:12  2012-12-12T12:12
 5     charlie   2011-11-11T11:11  2012-12-12T12:12 (fetching: 2%)
@@ -542,7 +542,7 @@ func (s *ShowServiceSuite) TestRunUnitDetails(c *gc.C) {
 
 	c.Check(stdout, gc.Equals, `
 [Unit]
-RESOURCE  REVISION          EXPECTED
+Resource  Revision          Expected
 alpha     10                15
 beta      -                 2012-12-12T12:12
 charlie   2011-11-11T11:11  2012-12-12T12:12 (fetching: 0%)

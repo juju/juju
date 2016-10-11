@@ -136,7 +136,7 @@ func (s *ConfigCommandSuite) TestAllValuesTabular(c *gc.C) {
 
 	output := testing.Stdout(context)
 	expected := "" +
-		"ATTRIBUTE  FROM   VALUE\n" +
+		"Attribute  From   Value\n" +
 		"running    model  true\n" +
 		"special    model  special value\n" +
 		"\n"

@@ -476,7 +476,7 @@ func (s *DestroySuite) TestDestroyReturnsBlocks(c *gc.C) {
 	}
 	ctx, _ := s.runDestroyCommand(c, "test1", "-y", "--destroy-all-models")
 	c.Assert(testing.Stderr(ctx), gc.Equals, "Destroying controller\n"+
-		"NAME   MODEL UUID                            OWNER   DISABLED COMMANDS\n"+
+		"Name   Model UUID                            Owner   Disabled commands\n"+
 		"test1  1871299e-1370-4f3e-83ab-1849ed7b1076  cheryl  destroy-model\n"+
 		"test2  c59d0e3b-2bd7-4867-b1b9-f1ef8a0bb004  bob     all, destroy-model\n")
 	c.Assert(testing.Stdout(ctx), gc.Equals, "")

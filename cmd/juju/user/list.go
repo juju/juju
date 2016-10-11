@@ -191,7 +191,7 @@ func (c *listCommand) formatModelUsers(writer io.Writer, value interface{}) erro
 	}
 	tw := output.TabWriter(writer)
 	w := output.Wrapper{tw}
-	w.Println("NAME", "DISPLAY NAME", "ACCESS", "LAST CONNECTION")
+	w.Println("Name", "Display name", "Access", "Last connection")
 	for _, name := range modelUsers.SortedValues() {
 		user := users[name]
 
@@ -216,9 +216,9 @@ func (c *listCommand) formatControllerUsers(writer io.Writer, value interface{})
 
 	tw := output.TabWriter(writer)
 	w := output.Wrapper{tw}
-	w.Println("CONTROLLER: " + c.ControllerName())
+	w.Println("Controller: " + c.ControllerName())
 	w.Println()
-	w.Println("NAME", "DISPLAY NAME", "ACCESS", "DATE CREATED", "LAST CONNECTION")
+	w.Println("Name", "Display name", "Access", "Date created", "Last connection")
 	for _, user := range users {
 		conn := user.LastConnection
 		if user.Disabled {

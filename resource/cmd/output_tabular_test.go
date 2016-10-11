@@ -34,7 +34,7 @@ func (s *CharmTabularSuite) TestFormatCharmTabularOkay(c *gc.C) {
 
 	data := s.formatTabular(c, formatted)
 	c.Check(data, gc.Equals, `
-RESOURCE  REVISION
+Resource  Revision
 spam      1
 `[1:])
 }
@@ -45,7 +45,7 @@ func (s *CharmTabularSuite) TestFormatCharmTabularMinimal(c *gc.C) {
 
 	data := s.formatTabular(c, formatted)
 	c.Check(data, gc.Equals, `
-RESOURCE  REVISION
+Resource  Revision
 spam      1
 `[1:])
 }
@@ -57,7 +57,7 @@ func (s *CharmTabularSuite) TestFormatCharmTabularUpload(c *gc.C) {
 
 	data := s.formatTabular(c, formatted)
 	c.Check(data, gc.Equals, `
-RESOURCE  REVISION
+Resource  Revision
 spam      1
 `[1:])
 }
@@ -74,7 +74,7 @@ func (s *CharmTabularSuite) TestFormatCharmTabularMulti(c *gc.C) {
 
 	data := s.formatTabular(c, formatted)
 	c.Check(data, gc.Equals, `
-RESOURCE      REVISION
+Resource      Revision
 spam          1
 eggs          2
 somethingbig  1
@@ -123,7 +123,7 @@ func (s *SvcTabularSuite) TestFormatServiceOkay(c *gc.C) {
 	data := s.formatTabular(c, formatted)
 	c.Check(data, gc.Equals, `
 [Service]
-RESOURCE  SUPPLIED BY  REVISION
+Resource  Supplied by  Revision
 openjdk   charmstore   7
 `[1:])
 }
@@ -149,7 +149,7 @@ func (s *SvcTabularSuite) TestFormatUnitOkay(c *gc.C) {
 	data := s.formatTabular(c, formatted)
 	c.Check(data, gc.Equals, `
 [Unit]
-RESOURCE  REVISION
+Resource  Revision
 openjdk   7
 `[1:])
 }
@@ -252,14 +252,14 @@ func (s *SvcTabularSuite) TestFormatSvcTabularMulti(c *gc.C) {
 	// Notes: sorted by name, then by revision, newest first.
 	c.Check(data, gc.Equals, `
 [Service]
-RESOURCE  SUPPLIED BY  REVISION
+Resource  Supplied by  Revision
 openjdk   charmstore   7
 website   upload       -
 openjdk2  charmstore   8
 website2  Bill User    2012-12-12T12:12
 
 [Updates Available]
-RESOURCE  REVISION
+Resource  Revision
 openjdk   10
 `[1:])
 }
@@ -299,12 +299,12 @@ func (s *SvcTabularSuite) TestFormatServiceDetailsOkay(c *gc.C) {
 	output := s.formatTabular(c, data)
 	c.Assert(output, gc.Equals, `
 [Units]
-UNIT  RESOURCE  REVISION  EXPECTED
+Unit  Resource  Revision  Expected
 5     config    combRev2  combRev3
 10    data      combRev1  combRev1 (fetching: 17%)
 
 [Updates Available]
-RESOURCE  REVISION
+Resource  Revision
 spam      1
 `[1:])
 }
@@ -332,7 +332,7 @@ func (s *SvcTabularSuite) TestFormatUnitDetailsOkay(c *gc.C) {
 	output := s.formatTabular(c, data)
 	c.Assert(output, gc.Equals, `
 [Unit]
-RESOURCE  REVISION  EXPECTED
+Resource  Revision  Expected
 config    combRev2  combRev3 (fetching: 91%)
 data      combRev1  combRev1
 `[1:])

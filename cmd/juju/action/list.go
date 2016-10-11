@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/juju/cmd"
-	errors "github.com/juju/errors"
+	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/utils"
 	"gopkg.in/juju/names.v2"
@@ -145,7 +145,7 @@ func (c *listCommand) printTabular(writer io.Writer, value interface{}) error {
 	}
 
 	tw := output.TabWriter(writer)
-	fmt.Fprintf(tw, "%s\t%s\n", "ACTION", "DESCRIPTION")
+	fmt.Fprintf(tw, "%s\t%s\n", "Action", "Description")
 	for _, value := range list {
 		fmt.Fprintf(tw, "%s\t%s\n", value.action, strings.TrimSpace(value.description))
 	}

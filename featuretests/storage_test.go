@@ -126,7 +126,7 @@ func (s *cmdStorageSuite) TestStorageList(c *gc.C) {
 
 	expected := `
 [Storage]        
-UNIT             ID      LOCATION  STATUS   MESSAGE  
+Unit             Id      Location  Status   Message  
 storage-block/0  data/0            pending           
 
 `[1:]
@@ -140,7 +140,7 @@ func (s *cmdStorageSuite) TestStorageListPersistent(c *gc.C) {
 	// will be persistent until it has been provisioned.
 	expected := `
 [Storage]        
-UNIT             ID      LOCATION  STATUS   MESSAGE  
+Unit             Id      Location  Status   Message  
 storage-block/0  data/0            pending           
 
 `[1:]
@@ -250,7 +250,7 @@ func (s *cmdStorageSuite) TestListPoolsTabular(c *gc.C) {
 	stdout, _, err := runPoolList(c)
 	c.Assert(err, jc.ErrorIsNil)
 	expected := `
-NAME                 PROVIDER             ATTRS
+Name                 Provider             Attrs
 block                loop                 it=works
 environscoped        environscoped        
 environscoped-block  environscoped-block  
@@ -443,7 +443,7 @@ func (s *cmdStorageSuite) TestListVolumeTabularFilterMatch(c *gc.C) {
 	stdout, _, err := runVolumeList(c, "0")
 	c.Assert(err, jc.ErrorIsNil)
 	expected := `
-MACHINE  UNIT             STORAGE  ID   PROVIDER-ID  DEVICE  SIZE  STATE    MESSAGE
+Machine  Unit             Storage  Id   Provider Id  Device  Size  State    Message
 0        storage-block/0  data/0   0/0                             pending  
 
 `[1:]
@@ -548,7 +548,7 @@ func (s *cmdStorageSuite) TestStorageAddToUnitHasVolumes(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, `
 [Storage]             
-UNIT                  ID      LOCATION  STATUS   MESSAGE  
+Unit                  Id      Location  Status   Message  
 storage-filesystem/0  data/0            pending           
 
 `[1:])
@@ -571,7 +571,7 @@ storage-filesystem/0  data/0            pending
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, `
 [Storage]             
-UNIT                  ID      LOCATION  STATUS   MESSAGE  
+Unit                  Id      Location  Status   Message  
 storage-filesystem/0  data/0            pending           
 storage-filesystem/0  data/1            pending           
 

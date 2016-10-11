@@ -48,15 +48,15 @@ func FormatSummary(writer io.Writer, value interface{}) error {
 
 	// Right align summary information
 	f.tw.Init(writer, 0, 1, 2, ' ', tabwriter.AlignRight)
-	p("# MACHINES:", fmt.Sprintf("(%d)", len(fs.Machines)))
+	p("# Machines:", fmt.Sprintf("(%d)", len(fs.Machines)))
 	f.printStateToCount(stateToMachine)
 	p(" ")
 
-	p("# UNITS:", fmt.Sprintf("(%d)", f.numUnits))
+	p("# Units:", fmt.Sprintf("(%d)", f.numUnits))
 	f.printStateToCount(f.stateToUnit)
 	p(" ")
 
-	p("# APPLICATIONS:", fmt.Sprintf("(%d)", len(fs.Applications)))
+	p("# Applications:", fmt.Sprintf("(%d)", len(fs.Applications)))
 	for _, svcName := range utils.SortStringsNaturally(stringKeysFromMap(svcExposure)) {
 		s := svcExposure[svcName]
 		p(svcName, fmt.Sprintf("%d/%d\texposed", s[true], s[true]+s[false]))

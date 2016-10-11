@@ -184,7 +184,7 @@ func formatBlocks(writer io.Writer, value interface{}) error {
 
 	tw := output.TabWriter(writer)
 	w := output.Wrapper{tw}
-	w.Println("DISABLED COMMANDS", "MESSAGE")
+	w.Println("Disabled commands", "Message")
 	for _, info := range blocks {
 		w.Println(info.Commands, info.Message)
 	}
@@ -240,7 +240,7 @@ func FormatTabularBlockedModels(writer io.Writer, value interface{}) error {
 
 	tw := output.TabWriter(writer)
 	w := output.Wrapper{tw}
-	w.Println("NAME", "MODEL UUID", "OWNER", "DISABLED COMMANDS")
+	w.Println("Name", "Model UUID", "Owner", "Disabled commands")
 	for _, model := range models {
 		w.Println(model.Name, model.UUID, model.Owner, strings.Join(model.CommandSets, ", "))
 	}

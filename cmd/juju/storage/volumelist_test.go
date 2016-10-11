@@ -89,7 +89,7 @@ func (s *ListSuite) TestVolumeListWithErrorResults(c *gc.C) {
 }
 
 var expectedVolumeListTabular = `
-MACHINE  UNIT         STORAGE      ID   PROVIDER-ID                   DEVICE  SIZE    STATE      MESSAGE
+Machine  Unit         Storage      Id   Provider Id                   Device  Size    State      Message
 0        abc/0        db-dir/1001  0/0  provider-supplied-volume-0-0  loop0   512MiB  attached   
 0        transcode/0  shared-fs/0  4    provider-supplied-volume-4    xvdf2   1.0GiB  attached   
 0                                  1    provider-supplied-volume-1            2.0GiB  attaching  failed to attach, will retry

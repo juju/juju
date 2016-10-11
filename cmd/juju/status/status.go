@@ -65,9 +65,9 @@ The available output formats are:
       address and agent status are listed.
 - summary: Displays the subnet(s) and port(s) the model utilises. Also displays
       aggregate information about:
-      - MACHINES: total #, and # in each state.
-      - UNITS: total #, and # in each state.
-      - APPLICATIONS: total #, and # exposed of each application.
+      - Machines: total #, and # in each state.
+      - Units: total #, and # in each state.
+      - Applications: total #, and # exposed of each application.
 - yaml: Displays information about the model, machines, applications, and units
       in structured YAML format.
 - json: Displays information about the model, machines, applications, and units
