@@ -379,3 +379,24 @@ func (s *clientSuite) TestEnableHAHostedEnvErrors(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.HasLen, 0)
 }
+
+func (s *clientSuite) TestEnableHAMultipleSpecs(c *gc.C) {
+	arg := params.ControllersSpecs{
+		Specs: []params.ControllersSpec{
+			{NumControllers: 3},
+			{NumControllers: 5},
+		},
+	}
+	results, err := s.haServer.EnableHA(arg)
+	c.Check(err, gc.ErrorMatches, "only one controller spec is supported")
+	c.Check(results.Results, gc.HasLen, 0)
+}
+
+func (s *clientSuite) TestEnableHANoSpecs(c *gc.C) {
+	arg := params.ControllersSpecs{
+		Specs: []params.ControllersSpec{},
+	}
+	results, err := s.haServer.EnableHA(arg)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(results.Results, gc.HasLen, 0)
+}

@@ -57,22 +57,29 @@ func NewHighAvailabilityAPI(st *state.State, resources facade.Resources, authori
 // EnableHA adds controller machines as necessary to ensure the
 // controller has the number of machines specified.
 func (api *HighAvailabilityAPI) EnableHA(args params.ControllersSpecs) (params.ControllersChangeResults, error) {
-	results := params.ControllersChangeResults{Results: make([]params.ControllersChangeResult, len(args.Specs))}
-	for i, controllersServersSpec := range args.Specs {
-		if api.authorizer.AuthClient() {
-			admin, err := api.authorizer.HasPermission(permission.SuperuserAccess, api.state.ControllerTag())
-			if err != nil && !errors.IsNotFound(err) {
-				return results, errors.Trace(err)
-			}
-			if !admin {
-				return results, common.ServerError(common.ErrPerm)
-			}
+	results := params.ControllersChangeResults{}
 
+	if api.authorizer.AuthClient() {
+		admin, err := api.authorizer.HasPermission(permission.SuperuserAccess, api.state.ControllerTag())
+		if err != nil && !errors.IsNotFound(err) {
+			return results, errors.Trace(err)
 		}
-		result, err := enableHASingle(api.state, controllersServersSpec)
-		results.Results[i].Result = result
-		results.Results[i].Error = common.ServerError(err)
+		if !admin {
+			return results, common.ServerError(common.ErrPerm)
+		}
 	}
+
+	if len(args.Specs) == 0 {
+		return results, nil
+	}
+	if len(args.Specs) > 1 {
+		return results, errors.New("only one controller spec is supported")
+	}
+
+	result, err := enableHASingle(api.state, args.Specs[0])
+	results.Results = make([]params.ControllersChangeResult, 1)
+	results.Results[0].Result = result
+	results.Results[0].Error = common.ServerError(err)
 	return results, nil
 }
 
