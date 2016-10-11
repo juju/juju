@@ -18,17 +18,17 @@ type containerInitialiser struct {
 // containerInitialiser implements container.Initialiser.
 var _ container.Initialiser = (*containerInitialiser)(nil)
 
-// NewContainerInitialiser  - on Windows this is a NOP
+// NewContainerInitialiser  - on anything but Linux this is a NOP
 func NewContainerInitialiser(series string) container.Initialiser {
 	return &containerInitialiser{}
 }
 
-// Initialise - on Windows this is a NOP
+// Initialise - on anything but Linux this is a NOP
 func (ci *containerInitialiser) Initialise() error {
 	return nil
 }
 
-// ConfigureLXDProxies - on Windows this is a NOP
+// ConfigureLXDProxies - on anything but Linux this is a NOP
 func ConfigureLXDProxies(proxies proxy.Settings) error {
 	return nil
 }
