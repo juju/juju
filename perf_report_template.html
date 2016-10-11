@@ -62,10 +62,34 @@
             table-layout: fixed;
         }
 
+        table.log-report tr {
+            cursor: pointer;
+        }
+
         table.log-report td {
             text-align: left;
             word-wrap: break-word;
             overflow-wrap: break-word;
+        }
+
+        table .unit-details {
+            text-align: left;
+        }
+
+        table.log-report tr.displayNone {
+            display: none;
+        }
+
+        table.log-report tr.log-header.hidden > td::before {
+            content: " \25ba ";
+        }
+
+        table.log-report tr.displayRow {
+            display: block;
+        }
+
+        table.log-report tr.log-header.shown > td::before {
+            content: " \25bc ";
         }
     </style>
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
@@ -81,6 +105,12 @@
     		$(this).addClass('current');
     		$("#"+tab_id).addClass('current');
           });
+
+          $('table tr.log-header').click(function(){
+              $(this).toggleClass('hidden shown');
+              $(this).nextUntil('table tr.log-header').slideToggle('normal',
+                  function() { $(this).toggleClass('displayNone displayRow')});
+              });
       });
 
     </script>
@@ -134,8 +164,8 @@
             </tr>
             <tr>
               <td colspan=4>
-                Units
-                <ul>
+                <div class="unit-details">Units</div>
+                <ul class="unit-details">
                   {% for name in deploy.applications.keys() %}
                   <li><b>{{name}}:</b> {{deploy.applications[name]}}</li>
                   {% endfor %}
@@ -199,21 +229,17 @@
           <div
              class="tab-content {% if loop.index == 1 %} current {% endif %}"
              id="{{safe_date_stamp}}">
-            <h4 class="text-center">{{values.name}}</h4>
+            <h4 class="text-center">Log for: {{values.name}}</h4>
             <div class="text-center">Log period: <b>{{date_stamp}}</b></div>
             <table class="log-report">
               {% for log_detail in values.logs|sort(attribute='timeframe') %}
               {% set safe_timeframe = log_detail.timeframe|replace(":", "")|replace(" ", "")|replace("(", "")|replace(")", "") %}
-              <tr
-                 data-toggle="collapse"
-                 data-target="#{{safe_timeframe}}"
-                 style="cursor: pointer;"
-                 class="clickable active collapsed">
+              <tr class="log-header hidden">
                 <td>
                   {{log_detail.timeframe}}
                 </td>
               </tr>
-              <tr>
+              <tr class="displayNone">
                 <td>
                   <div id="{{safe_timeframe}}" class="collapse">
                     <small>
