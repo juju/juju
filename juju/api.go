@@ -4,6 +4,7 @@
 package juju
 
 import (
+	"reflect"
 	"time"
 
 	"github.com/juju/errors"
@@ -113,8 +114,11 @@ func NewAPIConnection(args NewAPIConnectionParams) (api.Connection, error) {
 	}
 	params := UpdateControllerParams{
 		AgentVersion:     agentVersion,
-		AddrConnectedTo:  []network.HostPort{addrConnectedTo},
+		AddrConnectedTo:  &addrConnectedTo,
 		CurrentHostPorts: hostPorts,
+	}
+	if host := st.PublicDNSName(); host != "" {
+		params.PublicDNSName = &host
 	}
 	err = updateControllerDetailsFromLogin(args.Store, args.ControllerName, controller, params)
 	if err != nil {
@@ -170,6 +174,9 @@ func connectionInfo(args NewAPIConnectionParams) (*api.Info, *jujuclient.Control
 	if args.ModelUUID != "" {
 		apiInfo.ModelTag = names.NewModelTag(args.ModelUUID)
 	}
+	if controller.PublicDNSName != "" {
+		apiInfo.SNIHostName = controller.PublicDNSName
+	}
 	if args.AccountDetails == nil {
 		apiInfo.SkipLogin = true
 		return apiInfo, controller, nil
@@ -200,89 +207,55 @@ func isAPIError(err error) bool {
 
 var resolveOrDropHostnames = network.ResolveOrDropHostnames
 
-// PrepareEndpointsForCaching performs the necessary operations on the
-// given API hostPorts so they are suitable for saving into the
-// controller.yaml file, taking into account the addrConnectedTo
-// and the existing config store info:
-//
-// 1. Collapses hostPorts into a single slice.
-// 2. Filters out machine-local and link-local addresses.
-// 3. Removes any duplicates
-// 4. Call network.SortHostPorts() on the list.
-// 5. Puts the addrConnectedTo on top.
-// 6. Compares the result against info.APIEndpoint.Hostnames.
-// 7. If the addresses differ, call network.ResolveOrDropHostnames()
-// on the list and perform all steps again from step 1.
-// 8. Compare the list of resolved addresses against the cached info
-// APIEndpoint.Addresses, and if changed return both addresses and
-// hostnames as strings (so they can be cached on APIEndpoint) and
-// set haveChanged to true.
-// 9. If the hostnames haven't changed, return two empty slices and set
-// haveChanged to false. No DNS resolution is performed to save time.
+// filterAndResolveControllerHostPorts sorts and resolves the given controller
+// addresses and returns the filtered addresses and the resolved addresses
+// as string slices.
 //
 // This is used right after bootstrap to saved the initial API
 // endpoints, as well as on each CLI connection to verify if the
 // saved endpoints need updating.
 //
-// TODO(rogpeppe) this function mixes too many concerns - the
-// logic is difficult to follow and has non-obvious properties.
-func PrepareEndpointsForCaching(
-	controllerDetails jujuclient.ControllerDetails,
-	hostPorts [][]network.HostPort,
-	addrConnectedTo ...network.HostPort,
-) (addrs, unresolvedAddrs []string, haveChanged bool) {
-	processHostPorts := func(allHostPorts [][]network.HostPort) []network.HostPort {
-		uniqueHPs := usableHostPorts(allHostPorts)
-		network.SortHostPorts(uniqueHPs)
-		for _, addr := range addrConnectedTo {
-			uniqueHPs = network.EnsureFirstHostPort(addr, uniqueHPs)
-		}
-		return uniqueHPs
+// The given controller details are used to decide whether the unresolved
+// host names have changed and hence whether we can save time
+// by avoiding DNS resolution.
+//
+// If addrConnectedTo is non-nil, the resulting slices will
+// have that address at the start.
+func filterAndResolveControllerHostPorts(
+	controllerHostPorts [][]network.HostPort,
+	controllerDetails *jujuclient.ControllerDetails,
+	addrConnectedTo *network.HostPort,
+) (resolvedAddrs, unresolvedAddrs []string) {
+	unresolved := usableHostPorts(controllerHostPorts)
+	network.SortHostPorts(unresolved)
+	if addrConnectedTo != nil {
+		// We know what address we connected to recently so
+		// make sure it's always present at the start of the slice,
+		// even if it isn't in controllerHostPorts.
+		unresolved = network.EnsureFirstHostPort(*addrConnectedTo, unresolved)
 	}
-
-	apiHosts := processHostPorts(hostPorts)
-	hostsStrings := network.HostPortsToStrings(apiHosts)
-	needResolving := false
-
-	// Verify if the unresolved addresses have changed.
-	if len(apiHosts) > 0 && len(controllerDetails.UnresolvedAPIEndpoints) > 0 {
-		if addrsChanged(hostsStrings, controllerDetails.UnresolvedAPIEndpoints) {
-			logger.Debugf(
-				"API hostnames changed from %v to %v - resolving hostnames",
-				controllerDetails.UnresolvedAPIEndpoints, hostsStrings,
-			)
-			needResolving = true
-		}
-	} else if len(apiHosts) > 0 {
-		// No cached hostnames, most likely right after bootstrap.
-		logger.Debugf("API hostnames %v - resolving hostnames", hostsStrings)
-		needResolving = true
-	}
-	if !needResolving {
-		// We're done - nothing changed.
+	unresolvedAddrs = network.HostPortsToStrings(unresolved)
+	if len(unresolvedAddrs) == 0 || !addrsChanged(unresolvedAddrs, controllerDetails.UnresolvedAPIEndpoints) {
+		// We have no valid addresses or the unresolved addresses haven't changed, so
+		// leave things as they are.
 		logger.Debugf("API hostnames unchanged - not resolving")
-		return nil, nil, false
+		return controllerDetails.APIEndpoints, controllerDetails.UnresolvedAPIEndpoints
 	}
+	logger.Debugf("API hostnames %v - resolving hostnames", unresolvedAddrs)
+
 	// Perform DNS resolution and check against APIEndpoints.Addresses.
-	resolved := resolveOrDropHostnames(apiHosts)
-	apiAddrs := processHostPorts([][]network.HostPort{resolved})
-	addrsStrings := network.HostPortsToStrings(apiAddrs)
-	if len(apiAddrs) > 0 && len(controllerDetails.APIEndpoints) > 0 {
-		if addrsChanged(addrsStrings, controllerDetails.APIEndpoints) {
-			logger.Infof(
-				"API addresses changed from %v to %v",
-				controllerDetails.APIEndpoints, addrsStrings,
-			)
-			return addrsStrings, hostsStrings, true
-		}
-	} else if len(apiAddrs) > 0 {
-		// No cached addresses, most likely right after bootstrap.
-		logger.Infof("new API addresses to cache %v", addrsStrings)
-		return addrsStrings, hostsStrings, true
+	// Note that we don't drop "unusable" addresses at this step because
+	// we trust the DNS resolver to return usable addresses and it doesn't matter
+	// too much if they're not.
+	resolved := network.UniqueHostPorts(resolveOrDropHostnames(unresolved))
+	if addrConnectedTo != nil && len(resolved) > 1 {
+		// Leave the resolved connected-to address at the start.
+		network.SortHostPorts(resolved[1:])
+	} else {
+		network.SortHostPorts(resolved)
 	}
-	// No changes.
-	logger.Debugf("API addresses unchanged")
-	return nil, nil, false
+	resolvedAddrs = network.HostPortsToStrings(resolved)
+	return resolvedAddrs, unresolvedAddrs
 }
 
 // usableHostPorts returns hps with unusable and non-unique
@@ -317,8 +290,12 @@ type UpdateControllerParams struct {
 	// CurrentHostPorts are the available api addresses.
 	CurrentHostPorts [][]network.HostPort
 
-	// AddrConnectedTo are the previously known api addresses.
-	AddrConnectedTo []network.HostPort
+	// AddrConnectedTo (when set) is an API address that has been recently
+	// connected to.
+	AddrConnectedTo *network.HostPort
+
+	// PublicDNSName (when set) holds the public host name of the controller.
+	PublicDNSName *string
 
 	// ModelCount (when set) is the number of models visible to the user.
 	ModelCount *int
@@ -346,34 +323,41 @@ func UpdateControllerDetailsFromLogin(
 
 func updateControllerDetailsFromLogin(
 	store jujuclient.ControllerStore,
-	controllerName string, controllerDetails *jujuclient.ControllerDetails,
+	controllerName string, details *jujuclient.ControllerDetails,
 	params UpdateControllerParams,
 ) error {
 	// Get the new endpoint addresses.
-	addrs, unresolvedAddrs, addrsChanged := PrepareEndpointsForCaching(*controllerDetails, params.CurrentHostPorts, params.AddrConnectedTo...)
-	agentChanged := params.AgentVersion != controllerDetails.AgentVersion
-	if !addrsChanged && !agentChanged && params.ModelCount == nil && params.MachineCount == nil && params.ControllerMachineCount == nil {
-		return nil
-	}
+	resolvedAddrs, unresolvedAddrs := filterAndResolveControllerHostPorts(params.CurrentHostPorts, details, params.AddrConnectedTo)
 
-	// Write the new controller data.
-	if addrsChanged {
-		controllerDetails.APIEndpoints = addrs
-		controllerDetails.UnresolvedAPIEndpoints = unresolvedAddrs
-	}
-	if agentChanged {
-		controllerDetails.AgentVersion = params.AgentVersion
-	}
+	newDetails := new(jujuclient.ControllerDetails)
+	*newDetails = *details
+
+	newDetails.AgentVersion = params.AgentVersion
+	newDetails.APIEndpoints = resolvedAddrs
+	newDetails.UnresolvedAPIEndpoints = unresolvedAddrs
 	if params.ModelCount != nil {
-		controllerDetails.ModelCount = params.ModelCount
+		newDetails.ModelCount = params.ModelCount
 	}
 	if params.MachineCount != nil {
-		controllerDetails.MachineCount = params.MachineCount
+		newDetails.MachineCount = params.MachineCount
 	}
 	if params.ControllerMachineCount != nil {
-		controllerDetails.ControllerMachineCount = *params.ControllerMachineCount
+		newDetails.ControllerMachineCount = *params.ControllerMachineCount
 	}
-	err := store.UpdateController(controllerName, *controllerDetails)
+	if params.PublicDNSName != nil {
+		newDetails.PublicDNSName = *params.PublicDNSName
+	}
+	if reflect.DeepEqual(newDetails, details) {
+		// Nothing has changed - no need to update the controller details.
+		return nil
+	}
+	if addrsChanged(newDetails.APIEndpoints, details.APIEndpoints) {
+		logger.Infof("resolved API endpoints changed from %v to %v", details.APIEndpoints, newDetails.APIEndpoints)
+	}
+	if addrsChanged(newDetails.UnresolvedAPIEndpoints, details.UnresolvedAPIEndpoints) {
+		logger.Infof("unresolved API endpoints changed from %v to %v", details.UnresolvedAPIEndpoints, newDetails.UnresolvedAPIEndpoints)
+	}
+	err := store.UpdateController(controllerName, *newDetails)
 	return errors.Trace(err)
 }
 
@@ -381,10 +365,10 @@ func updateControllerDetailsFromLogin(
 //
 // TODO(axw) fix the tests that pass invalid addresses, and drop this.
 var serverAddress = func(hostPort string) (network.HostPort, error) {
-	addrConnectedTo, err := network.ParseHostPorts(hostPort)
+	hp, err := network.ParseHostPort(hostPort)
 	if err != nil {
 		// Should never happen, since we've just connected with it.
 		return network.HostPort{}, errors.Annotatef(err, "invalid API address %q", hostPort)
 	}
-	return addrConnectedTo[0], nil
+	return *hp, nil
 }

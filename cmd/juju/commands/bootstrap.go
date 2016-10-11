@@ -603,6 +603,7 @@ See `[1:] + "`juju kill-controller`" + `.`)
 		juju.UpdateControllerParams{
 			AgentVersion:           agentVersion.String(),
 			CurrentHostPorts:       [][]network.HostPort{network.AddressesWithPort(addrs, config.controller.APIPort())},
+			PublicDNSName:          newStringIfNonEmpty(config.controller.AutocertDNSName()),
 			MachineCount:           newInt(1),
 			ControllerMachineCount: newInt(1),
 			ModelCount:             newInt(2), // controller model + default model
@@ -1094,4 +1095,11 @@ func handleChooseCloudRegionError(ctx *cmd.Context, err error) error {
 
 func newInt(i int) *int {
 	return &i
+}
+
+func newStringIfNonEmpty(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
 }
