@@ -278,15 +278,25 @@ def assess_constraints_deploy(client, constraints, charm_name):
         raise get_failure_exception(client, constraints)
 
 
+def assess_constraints_deploy_dict(client, tests):
+    """Check that all constraints are followed on deploy.
+
+    :param client: Client to deploy the charm to.
+    :param tests: Dict of charm_names mapped to a dict of constraint
+    constructor arguments.
+    :raises JujuAssertionError if any test fails."""
+    for (charm_name, constraint_args) in tests.iteritems():
+        constraints = Constraints(**constraint_args)
+        assess_constraints_deploy(client, constraints, charm_name)
+
+
 def assess_instance_type(client, provider, instance_type):
     """Assess the instance-type option for constraints"""
     if instance_type not in INSTANCE_TYPES[provider]:
         raise JujuAssertionError(instance_type)
     constraints = Constraints(instance_type=instance_type)
     charm_name = 'instance-type-{}'.format(instance_type.replace('.', '-'))
-    data = prepare_constraint_test(client, constraints, charm_name)
-    if not constraints.meets_instance_type(data):
-        raise get_failure_exception(client, constraints)
+    assess_constraints_deploy(client, constraints, charm_name)
 
 
 def assess_instance_type_constraints(client, provider=None):
@@ -304,9 +314,7 @@ def assess_root_disk_constraints(client, values):
     for root_disk in values:
         constraints = Constraints(root_disk=root_disk)
         charm_name = 'root-disk-{}'.format(root_disk.lower())
-        data = prepare_constraint_test(client, constraints, charm_name)
-        if not constraints.meets_root_disk(data['root-disk']):
-            raise get_failure_exception(client, constraints)
+        assess_constraints_deploy(client, constraints, charm_name)
 
 
 def assess_cores_constraints(client, values):
@@ -314,9 +322,7 @@ def assess_cores_constraints(client, values):
     for cores in values:
         constraints = Constraints(cores=cores)
         charm_name = 'cores-{}c'.format(cores)
-        data = prepare_constraint_test(client, constraints, charm_name)
-        if not constraints.meets_cores(data['cores']):
-            raise get_failure_exception(client, constraints)
+        assess_constraints_deploy(client, constraints, charm_name)
 
 
 def assess_cpu_power_constraints(client, values):
@@ -324,9 +330,7 @@ def assess_cpu_power_constraints(client, values):
     for cpu_power in values:
         constraints = Constraints(cpu_power=cpu_power)
         charm_name = 'cpu-power-{}cp'.format(cpu_power)
-        data = prepare_constraint_test(client, constraints, charm_name)
-        if not constraints.meets_cpu_power(data['cpu-power']):
-            raise get_failure_exception(client, constraints)
+        assess_constraints_deploy(client, constraints, charm_name)
 
 
 def assess_constraints(client, test_kvm=False):
@@ -339,6 +343,10 @@ def assess_constraints(client, test_kvm=False):
         assess_root_disk_constraints(client, ['16G'])
         assess_cores_constraints(client, ['2'])
         assess_cpu_power_constraints(client, ['30'])
+        assess_constraints_deploy_dict(client, {
+            'root-disk-and-cpu-power': {'root_disk': '15G',
+                                        'cpu_power': '40'},
+            }
 
 
 def parse_args(argv):

@@ -9,6 +9,7 @@ import StringIO
 from assess_constraints import (
     application_machines,
     assess_constraints_deploy,
+    assess_constraints_deploy_dict,
     assess_cores_constraints,
     assess_cpu_power_constraints,
     assess_instance_type_constraints,
@@ -246,6 +247,19 @@ class TestAssess(TestCase):
             self.inner_test_constraints_deploy(
                 [({'cores': '2', 'arch': 'arm64'}, 'cores=2 arch=arm64',
                   {'cores': '1', 'arch': 'arm64'})])
+
+    def test_constraints_deploy_dict(self):
+        tests = {'single': {'mem': '8G'},
+                 'double': {'root_disk': '8G', 'arch': 'amd64'},
+                 }
+        with patch('assess_constraints.assess_constraints_deploy',
+                   autospec=True) as acd_mock:
+            assess_constraints_deploy_dict('client', tests)
+        self.assertEqual(2, acd_mock.call_count)
+        singleCall = call('client', Constraints(mem='8G'), 'single')
+        doubleCall = call('client', Constraints(root_disk='8G', arch='amd64'),
+                          'double')
+        acd_mock.assert_has_calls([singleCall, doubleCall], any_order=True)
 
     @contextmanager
     def patch_instance_spec(self, fake_provider, passing=True):
