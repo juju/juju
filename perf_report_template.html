@@ -194,22 +194,22 @@
           </blockquote>
 
           <h2>CPU Usage</h2>
-          <img src="file://{{cpu_graph}}" alt="CPU Usage Graph" />
+          <img src="{{cpu_graph}}" alt="CPU Usage Graph" />
 
           <h2>Memory Usage</h2>
-          <img src="file://{{memory_graph}}" alt="Memory Usage Graph" />
+          <img src="{{memory_graph}}" alt="Memory Usage Graph" />
 
           <h2>Network Usage</h2>
-          <img src="file://{{network_graph}}" alt="Network Usage Graph" />
+          <img src="{{network_graph}}" alt="Network Usage Graph" />
 
           {% if mongo_graph is not none %}
           <h2>MongoDB Action Statistics</h2>
-          <img src="file://{{mongo_graph}}" alt="MongoDB Actions Details Graph" />
+          <img src="{{mongo_graph}}" alt="MongoDB Actions Details Graph" />
           {% endif %}
 
           {% if mongo_memory_graph is not none %}
           <h2>MongoDB Memory Usage Statistics</h2>
-          <img src="file://{{mongo_memory_graph}}" alt="MongoDB Memory Usage Details Graph" />
+          <img src="{{mongo_memory_graph}}" alt="MongoDB Memory Usage Details Graph" />
           {% endif %}
 
           <h1>Log Breakdown</h1>
