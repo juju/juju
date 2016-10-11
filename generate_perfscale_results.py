@@ -247,14 +247,14 @@ def create_html_report(results_dir, details):
 
 def generate_graph_image(base_dir, results_dir, name, generator):
     metric_files_dir = os.path.join(os.path.abspath(base_dir), results_dir)
-    return create_report_graph(metric_files_dir, base_dir, name, generator)
+    output_file = os.path.join(
+        os.path.abspath(base_dir), '{}.png'.format(name))
+    return create_report_graph(metric_files_dir, output_file, generator)
 
 
-def create_report_graph(rrd_dir, output_dir, name, generator):
+def create_report_graph(rrd_dir, output_file, generator):
     any_file = os.listdir(rrd_dir)[0]
     start, end = get_duration_points(os.path.join(rrd_dir, any_file))
-    output_file = os.path.join(
-        os.path.abspath(output_dir), '{}.png'.format(name))
     generator(start, end, rrd_dir, output_file)
     print('Created: {}'.format(output_file))
     return output_file

@@ -126,6 +126,30 @@ class TestGenerateGraphImages(TestCase):
             'mongodb_memory',
             perf_graphing.mongodb_memory_graph)
 
+    def test_create_report_graph_returns_base_file_path(self):
+        """The returned filepath should just be the basename."""
+        generator = Mock()
+        start = 0000
+        end = 9999
+        file_list = ['example.rrd']
+        rrd_dir = '/foo'
+        output_file = '/bar/test.png'
+        output_file_base = 'test.png'
+
+        with patch.object(
+                gpr.os, 'listdir',
+                autospec=True, return_value=file_list) as m_list:
+            with patch.object(
+                    gpr, 'get_duration_points',
+                    autospec=True, return_value=(start, end)) as m_gdp:
+                self.assertEqual(
+                    output_file_base,
+                    gpr.create_report_graph(rrd_dir, output_file, generator)
+                )
+        m_gdp.assert_called_once_with('/foo/example.rrd')
+        m_list.assert_called_once_with(rrd_dir)
+        generator.assert_called_once_with(start, end, rrd_dir, output_file)
+
 
 class TestFindActualStart(TestCase):
     example_output = dedent("""\
