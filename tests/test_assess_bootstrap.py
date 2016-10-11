@@ -99,7 +99,7 @@ class TestParseArgs(TestCase):
 
     def test_parse_args_debug(self):
         args = parse_args(['base', 'foo', 'bar', '--debug'])
-        self.assertTrue(args.debug)
+        self.assertIsTrue(args.debug)
 
     def test_parse_args_region(self):
         args = parse_args(['base', 'foo', 'bar', '--region', 'foo'])
