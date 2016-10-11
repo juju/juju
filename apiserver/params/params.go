@@ -685,7 +685,6 @@ type LoginResult struct {
 // ControllersServersSpec contains arguments for
 // the EnableHA client API call.
 type ControllersSpec struct {
-	ModelTag       string            `json:"model-tag"`
 	NumControllers int               `json:"num-controllers"`
 	Constraints    constraints.Value `json:"constraints,omitempty"`
 	// Series is the series to associate with new controller machines.

@@ -43,7 +43,7 @@ var _ HighAvailability = (*HighAvailabilityAPI)(nil)
 
 // NewHighAvailabilityAPI creates a new server-side highavailability API end point.
 func NewHighAvailabilityAPI(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*HighAvailabilityAPI, error) {
-	// Only clients and environment managers can access the high availability service.
+	// Only clients and model managers can access the high availability facade.
 	if !authorizer.AuthClient() && !authorizer.AuthModelManager() {
 		return nil, common.ErrPerm
 	}
@@ -54,23 +54,32 @@ func NewHighAvailabilityAPI(st *state.State, resources facade.Resources, authori
 	}, nil
 }
 
+// EnableHA adds controller machines as necessary to ensure the
+// controller has the number of machines specified.
 func (api *HighAvailabilityAPI) EnableHA(args params.ControllersSpecs) (params.ControllersChangeResults, error) {
-	results := params.ControllersChangeResults{Results: make([]params.ControllersChangeResult, len(args.Specs))}
-	for i, controllersServersSpec := range args.Specs {
-		if api.authorizer.AuthClient() {
-			admin, err := api.authorizer.HasPermission(permission.SuperuserAccess, api.state.ControllerTag())
-			if err != nil && !errors.IsNotFound(err) {
-				return results, errors.Trace(err)
-			}
-			if !admin {
-				return results, common.ServerError(common.ErrPerm)
-			}
+	results := params.ControllersChangeResults{}
 
+	if api.authorizer.AuthClient() {
+		admin, err := api.authorizer.HasPermission(permission.SuperuserAccess, api.state.ControllerTag())
+		if err != nil && !errors.IsNotFound(err) {
+			return results, errors.Trace(err)
 		}
-		result, err := EnableHASingle(api.state, controllersServersSpec)
-		results.Results[i].Result = result
-		results.Results[i].Error = common.ServerError(err)
+		if !admin {
+			return results, common.ServerError(common.ErrPerm)
+		}
 	}
+
+	if len(args.Specs) == 0 {
+		return results, nil
+	}
+	if len(args.Specs) > 1 {
+		return results, errors.New("only one controller spec is supported")
+	}
+
+	result, err := enableHASingle(api.state, args.Specs[0])
+	results.Results = make([]params.ControllersChangeResult, 1)
+	results.Results[0].Result = result
+	results.Results[0].Error = common.ServerError(err)
 	return results, nil
 }
 
@@ -95,9 +104,7 @@ func controllersChanges(change state.ControllersChanges) params.ControllersChang
 	}
 }
 
-// EnableHASingle applies a single ControllersServersSpec specification to the current environment.
-// Exported so it can be called by the legacy client API in the client package.
-func EnableHASingle(st *state.State, spec params.ControllersSpec) (params.ControllersChanges, error) {
+func enableHASingle(st *state.State, spec params.ControllersSpec) (params.ControllersChanges, error) {
 	if !st.IsController() {
 		return params.ControllersChanges{}, errors.New("unsupported with hosted models")
 	}
@@ -105,16 +112,6 @@ func EnableHASingle(st *state.State, spec params.ControllersSpec) (params.Contro
 	blockChecker := common.NewBlockChecker(st)
 	if err := blockChecker.ChangeAllowed(); err != nil {
 		return params.ControllersChanges{}, errors.Trace(err)
-	}
-	// Validate the environment tag if present.
-	if spec.ModelTag != "" {
-		tag, err := names.ParseModelTag(spec.ModelTag)
-		if err != nil {
-			return params.ControllersChanges{}, errors.Errorf("invalid model tag: %v", err)
-		}
-		if _, err := st.FindEntity(tag); err != nil {
-			return params.ControllersChanges{}, err
-		}
 	}
 
 	series := spec.Series

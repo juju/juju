@@ -33,12 +33,12 @@ func newEnableHACommand() cmd.Command {
 		// NewClient does not return an error, so we'll return nil
 		return highavailability.NewClient(root), nil
 	}
-	return modelcmd.Wrap(haCommand)
+	return modelcmd.WrapController(haCommand)
 }
 
 // enableHACommand makes the controller highly available.
 type enableHACommand struct {
-	modelcmd.ModelCommandBase
+	modelcmd.ControllerCommandBase
 	out cmd.Output
 
 	// newHAClientFunc returns HA Client to be used by the command.
@@ -66,8 +66,9 @@ type enableHACommand struct {
 
 const enableHADoc = `
 To ensure availability of deployed applications, the Juju infrastructure
-must itself be highly available.  enable-ha must be called
-to ensure that the specified number of controllers are made available.
+must itself be highly available. The enable-ha command will ensure
+that the specified number of controller machines are used to make up the
+controller.
 
 An odd number of controllers is required.
 
@@ -148,7 +149,7 @@ func (c *enableHACommand) Info() *cmd.Info {
 }
 
 func (c *enableHACommand) SetFlags(f *gnuflag.FlagSet) {
-	c.ModelCommandBase.SetFlags(f)
+	c.ControllerCommandBase.SetFlags(f)
 	f.IntVar(&c.NumControllers, "n", 0, "Number of controllers to make available")
 	f.StringVar(&c.PlacementSpec, "to", "", "The machine(s) to become controllers, bypasses constraints")
 	f.StringVar(&c.ConstraintsStr, "constraints", "", "Additional machine constraints")

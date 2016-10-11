@@ -7,7 +7,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/replicaset"
-	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
@@ -20,15 +19,13 @@ var logger = loggo.GetLogger("juju.api.highavailability")
 // Client provides access to the high availability service, used to manage controllers.
 type Client struct {
 	base.ClientFacade
-	facade   base.FacadeCaller
-	modelTag names.ModelTag
+	facade base.FacadeCaller
 }
 
 // NewClient returns a new HighAvailability client.
 func NewClient(caller base.APICallCloser) *Client {
-	modelTag, _ := caller.ModelTag()
 	frontend, backend := base.NewClientFacade(caller, "HighAvailability")
-	return &Client{ClientFacade: frontend, facade: backend, modelTag: modelTag}
+	return &Client{ClientFacade: frontend, facade: backend}
 }
 
 // EnableHA ensures the availability of Juju controllers.
@@ -39,7 +36,6 @@ func (c *Client) EnableHA(
 	var results params.ControllersChangeResults
 	arg := params.ControllersSpecs{
 		Specs: []params.ControllersSpec{{
-			ModelTag:       c.modelTag.String(),
 			NumControllers: numControllers,
 			Constraints:    cons,
 			Placement:      placement,
