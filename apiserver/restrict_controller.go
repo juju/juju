@@ -27,7 +27,11 @@ var controllerFacadeNames = set.NewStrings(
 var commonFacadeNames = set.NewStrings(
 	"Pinger",
 	"Bundle",
-	"HighAvailability", // Exposed for model logins for backwards compatibility.
+
+	// TODO(mjs) - bug 1632172 - Exposed for model logins for
+	// backwards compatibility. Remove once we're sure no non-Juju
+	// clients care about it.
+	"HighAvailability",
 )
 
 func controllerFacadesOnly(facadeName, _ string) error {
