@@ -523,12 +523,11 @@ func (*HostPortSuite) TestFastestHostPortAllUnreachable(c *gc.C) {
 	// All of the endpoints below should either block indefinitely (without a
 	// timeout) or fail immediately.
 	unreachableHPs := network.NewHostPorts(49151, // IANA reserved port (unreachable)
-		"255.1.2.3",       // IPv4 route unreachable
-		"bad.example.com", // unresolvable
-		"2001:db8::1",     // IPv6 route unreachable
-		"localhost",       // dualstack, port unreachable
-		"example.org",     // resolvable, but unreachable
-		"127.0.0.1",       // IPv4 port unreachable
+		"255.1.2.3",   // IPv4 route unreachable
+		"2001:db8::1", // IPv6 route unreachable
+		"localhost",   // dualstack, port unreachable
+		"example.org", // resolvable, but unreachable
+		"127.0.0.1",   // IPv4 port unreachable
 	)
 
 	fastest, err := network.FastestHostPort(shortTimeout, unreachableHPs...)

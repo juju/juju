@@ -247,7 +247,7 @@ func EnsureFirstHostPort(first HostPort, hps []HostPort) []HostPort {
 // successfully connected to - the one with the lowest latency - or an error if
 // none of the given hostPorts can be reached.
 //
-// Timeout should be short, e.g. between 100ms and 1000ms.
+// Timeout should be short, e.g. between 100ms and 3s.
 func FastestHostPort(timeout time.Duration, hostPorts ...HostPort) (*HostPort, error) {
 	maxParallel := runtime.GOMAXPROCS(0) // 0 just returns the value unchanged
 	try := parallel.NewTry(maxParallel, nil)
@@ -269,6 +269,5 @@ func FastestHostPort(timeout time.Duration, hostPorts ...HostPort) (*HostPort, e
 	conn, _ := result.(net.Conn) // cannot fail
 	defer conn.Close()
 
-	fastest := conn.RemoteAddr().String()
-	return ParseHostPort(fastest)
+	return ParseHostPort(conn.RemoteAddr().String())
 }
