@@ -99,6 +99,10 @@ func (c *accessCommand) Init(args []string) error {
 	c.User = args[0]
 	c.ModelNames = args[2:]
 	c.ModelAccess = args[1]
+	// Special case for backwards compatibility.
+	if c.ModelAccess == "addmodel" {
+		c.ModelAccess = "add-model"
+	}
 	if len(c.ModelNames) > 0 {
 		err := permission.ValidateModelAccess(permission.Access(c.ModelAccess))
 		if err != nil {
