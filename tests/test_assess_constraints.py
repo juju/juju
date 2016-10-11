@@ -8,6 +8,7 @@ import StringIO
 
 from assess_constraints import (
     application_machines,
+    assess_constraints_deploy,
     assess_cores_constraints,
     assess_cpu_power_constraints,
     assess_instance_type_constraints,
@@ -21,6 +22,9 @@ from assess_constraints import (
     main,
     mem_to_int,
     INSTANCE_TYPES,
+    )
+from jujupy import (
+    Status,
     )
 from tests import (
     parse_error,
@@ -73,12 +77,14 @@ class TestConstraints(TestCase):
     def test__meets_string(self):
         meets_string = Constraints._meets_string
         self.assertTrue(meets_string(None, 'amd64'))
+        self.assertFalse(meets_string('amd64', None))
         self.assertTrue(meets_string('amd64', 'amd64'))
-        self.assertFalse(meets_string('i32', 'amd64'))
+        self.assertFalse(meets_string('arm64', 'amd64'))
 
     def test__meets_min_int(self):
         meets_min_int = Constraints._meets_min_int
         self.assertTrue(meets_min_int(None, '2'))
+        self.assertFalse(meets_min_int('2', None))
         self.assertFalse(meets_min_int('2', '1'))
         self.assertTrue(meets_min_int('2', '2'))
         self.assertTrue(meets_min_int('2', '3'))
@@ -86,6 +92,7 @@ class TestConstraints(TestCase):
     def test__meets_min_mem(self):
         meets_min_mem = Constraints._meets_min_mem
         self.assertTrue(meets_min_mem(None, '64'))
+        self.assertFalse(meets_min_mem('1G', None))
         self.assertFalse(meets_min_mem('1G', '512M'))
         self.assertTrue(meets_min_mem('1G', '1024'))
         self.assertTrue(meets_min_mem('1G', '1G'))
@@ -109,7 +116,7 @@ class TestConstraints(TestCase):
     def test_meets_arch(self):
         constraints = Constraints(arch='amd64')
         self.assertTrue(constraints.meets_arch('amd64'))
-        self.assertFalse(constraints.meets_arch('i386'))
+        self.assertFalse(constraints.meets_arch('arm64'))
 
     def test_meets_instance_type(self):
         constraints = Constraints(instance_type='t2.micro')
@@ -127,6 +134,18 @@ class TestConstraints(TestCase):
         constraints = Constraints(instance_type='t2.micro')
         data = {'mem': '1G', 'cpu-power': '10', 'cpu-cores': '1'}
         self.assertTrue(constraints.meets_instance_type(data))
+
+    def test_meets_instance_type_none(self):
+        constraints = Constraints()
+        data = {'mem': '1G', 'cores': '1'}
+        self.assertTrue(constraints.meets_instance_type(data))
+
+    def test_meets_all(self):
+        constraints = Constraints(cores='2', arch='amd64')
+        data1 = {'cores': '2', 'arch': 'amd64'}
+        self.assertTrue(constraints.meets_all(data1))
+        data2 = {'cores': '1', 'arch': 'amd64'}
+        self.assertFalse(constraints.meets_all(data2))
 
 
 class TestMain(TestCase):
@@ -173,12 +192,15 @@ class TestAssess(TestCase):
 
     @contextmanager
     def patch_hardware(self, return_values):
-        """Patch juju_show_machine_hardware with a series of return values."""
-        def pop_hardware(client, machine):
-            return return_values.pop(0)
+        """Patch juju_show_machine_hardware with a series of return values.
+
+        Also patches out application_machines as its output would be
+        ignored anyways."""
         with patch('assess_constraints.juju_show_machine_hardware',
-                   autospec=True, side_effect=pop_hardware) as hardware_mock:
-            yield hardware_mock
+                   autospec=True, side_effect=return_values) as hardware_mock:
+            with patch('assess_constraints.application_machines',
+                       autospec=True, return_value=['0']):
+                yield hardware_mock
 
     def test_virt_type_constraints_with_kvm(self):
         assert_constraints_calls = ["virt-type=lxd", "virt-type=kvm"]
@@ -193,6 +215,37 @@ class TestAssess(TestCase):
             assess_virt_type_constraints(fake_client, False)
         constraints_calls = self.gather_constraint_args(deploy_mock)
         self.assertEqual(constraints_calls, assert_constraints_calls)
+
+    def inner_test_constraints_deploy(self, tests_specs):
+        """Run a test or series of tests on assess_constraints_deploy.
+
+        :param tests_spec: List of 3 tuples (Constraints args dict, expected
+        constraint argument on deploy, return value for data)."""
+        constraints_list = [spec[0] for spec in tests_specs]
+        expected_call_list = [spec[1] for spec in tests_specs]
+        patch_return_list = [spec[2] for spec in tests_specs]
+        with self.patch_hardware(patch_return_list):
+            with self.prepare_deploy_mock() as (fake_client, deploy_mock):
+                for constraints_args in constraints_list:
+                    constraints = Constraints(**constraints_args)
+                    assess_constraints_deploy(fake_client, constraints,
+                                              'tests')
+        constraints_calls = self.gather_constraint_args(deploy_mock)
+        self.assertEqual(constraints_calls, expected_call_list)
+
+    def test_constraints_deploy(self):
+        self.inner_test_constraints_deploy([
+            ({'mem': '2G'}, 'mem=2G', {'mem': '2G'}),
+            ({'arch': 'amd64'}, 'arch=amd64', {'arch': 'amd64'}),
+            ({'cores': '2', 'arch': 'arm64'}, 'cores=2 arch=arm64',
+             {'cores': '2', 'arch': 'arm64'}),
+            ])
+
+    def test_constraints_deploy_fail(self):
+        with self.assertRaises(JujuAssertionError):
+            self.inner_test_constraints_deploy(
+                [({'cores': '2', 'arch': 'arm64'}, 'cores=2 arch=arm64',
+                  {'cores': '1', 'arch': 'arm64'})])
 
     @contextmanager
     def patch_instance_spec(self, fake_provider, passing=True):
@@ -213,9 +266,20 @@ class TestAssess(TestCase):
             with patch('assess_constraints.get_instance_spec', autospec=True,
                        side_effect=mock_get_instance_spec) as spec_mock:
                 with self.patch_hardware([bar_data, baz_data]):
-                    with patch('assess_constraints.application_machines',
-                               autospec=True, return_value=['0']):
-                        yield spec_mock
+                    yield spec_mock
+
+    def test_constraints_deploy_instance_type(self):
+        constraints_list = [Constraints(instance_type='bar'),
+                            Constraints(instance_type='baz')]
+        expected_calls = ['instance-type=bar', 'instance-type=baz']
+        with self.prepare_deploy_mock() as (fake_client, deploy_mock):
+            fake_provider = fake_client.env.config.get('type')
+            with self.patch_instance_spec(fake_provider):
+                for constraints in constraints_list:
+                    assess_constraints_deploy(fake_client, constraints,
+                                              'tests')
+        constraints_calls = self.gather_constraint_args(deploy_mock)
+        self.assertEqual(constraints_calls, expected_calls)
 
     def test_instance_type_constraints(self):
         assert_constraints_calls = ['instance-type=bar', 'instance-type=baz']
@@ -333,9 +397,9 @@ class TestJujuWrappers(TestCase):
                          data)
 
     def test_application_machines(self):
-        output_mock = Mock(return_value=self.SAMPLE_SHOW_MODEL_OUTPUT)
-        fake_client = Mock(get_juju_output=output_mock)
-        with patch('yaml.load', side_effect=lambda x: x):
-            data = application_machines(fake_client, 'wiki')
-        output_mock.assert_called_once_with('status', '--format', 'yaml')
+        status = Status(self.SAMPLE_SHOW_MODEL_OUTPUT, '')
+        output_mock = Mock(return_value=status)
+        fake_client = Mock(get_status=output_mock)
+        data = application_machines(fake_client, 'wiki')
+        output_mock.assert_called_once_with()
         self.assertEquals(['0'], data)

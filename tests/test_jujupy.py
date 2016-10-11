@@ -1932,10 +1932,10 @@ class TestEnvJujuClient(ClientTest):
             models:
             - name: foo
               model-uuid: aaaa
-              owner: admin@local
+              owner: admin
             - name: bar
               model-uuid: bbbb
-              owner: admin@local
+              owner: admin
             current-model: foo
         """
         client = EnvJujuClient(JujuData('baz'), None, None)
@@ -1947,8 +1947,8 @@ class TestEnvJujuClient(ClientTest):
             include_e=False, timeout=120)
         expected_models = {
             'models': [
-                {'name': 'foo', 'model-uuid': 'aaaa', 'owner': 'admin@local'},
-                {'name': 'bar', 'model-uuid': 'bbbb', 'owner': 'admin@local'}],
+                {'name': 'foo', 'model-uuid': 'aaaa', 'owner': 'admin'},
+                {'name': 'bar', 'model-uuid': 'bbbb', 'owner': 'admin'}],
             'current-model': 'foo'
         }
         self.assertEqual(expected_models, models)
@@ -1958,10 +1958,10 @@ class TestEnvJujuClient(ClientTest):
             models:
             - name: foo
               model-uuid: aaaa
-              owner: admin@local
+              owner: admin
             - name: bar
               model-uuid: bbbb
-              owner: admin@local
+              owner: admin
             current-model: foo
         """
         client = EnvJujuClient(JujuData('foo', {}), None, None)
@@ -2010,7 +2010,7 @@ class TestEnvJujuClient(ClientTest):
           name: foo
           model-uuid: {uuid}
           controller-uuid: eb67e1eb-6c54-45f5-8b6a-b6243be97202
-          owner: admin@local
+          owner: admin
           cloud: lxd
           region: localhost
           type: lxd
@@ -2019,7 +2019,7 @@ class TestEnvJujuClient(ClientTest):
             current: available
             since: 1 minute ago
           users:
-            admin@local:
+            admin:
               display-name: admin
               access: admin
               last-connection: just now
@@ -2043,7 +2043,7 @@ class TestEnvJujuClient(ClientTest):
           model-uuid: {model}
           controller-uuid: {controller}
           controller-name: localtempveebers
-          owner: admin@local
+          owner: admin
           cloud: lxd
           region: localhost
           type: lxd
@@ -2052,7 +2052,7 @@ class TestEnvJujuClient(ClientTest):
             current: available
             since: 59 seconds ago
           users:
-            admin@local:
+            admin:
               display-name: admin
               access: admin
               last-connection: just now""".format(model=controller_model_uuid,
@@ -2084,7 +2084,7 @@ class TestEnvJujuClient(ClientTest):
               uuid: 772cdd39-b454-4bd5-8704-dc9aa9ff1750
           current-model: default
           account:
-            user: admin@local
+            user: admin
           bootstrap-config:
             config:
             cloud: lxd

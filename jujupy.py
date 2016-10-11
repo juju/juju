@@ -1241,7 +1241,7 @@ class EnvJujuClient:
                 'Controller and environment names should not vary (yet)')
 
     def update_user_name(self):
-        self.env.user_name = 'admin@local'
+        self.env.user_name = 'admin'
 
     def bootstrap(self, upload_tools=False, bootstrap_series=None,
                   credential=None, auto_upgrade=False, metadata_source=None,
@@ -2056,12 +2056,12 @@ class EnvJujuClient:
 
         try:
             child = user_client.expect('register', (token), include_e=False)
+            child.expect('(?i)password')
+            child.sendline(username + '_password')
+            child.expect('(?i)password')
+            child.sendline(username + '_password')
             child.expect('(?i)name')
             child.sendline(controller_name)
-            child.expect('(?i)password')
-            child.sendline(username + '_password')
-            child.expect('(?i)password')
-            child.sendline(username + '_password')
             child.expect(pexpect.EOF)
             if child.isalive():
                 raise Exception(

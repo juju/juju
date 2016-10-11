@@ -52,14 +52,14 @@ USER_LIST_CTRL_ADMIN = copy.deepcopy(USER_LIST_CTRL)
 # bug 1606354
 USER_LIST_CTRL_ADMIN.append(
     {"access": "superuser", "user-name": "adminuser"})
-SHARE_LIST_CTRL = {"admin@local": {"display-name": "admin",
-                                   "access": "admin"}}
+SHARE_LIST_CTRL = {"admin": {"display-name": "admin",
+                             "access": "admin"}}
 SHARE_LIST_CTRL_READ = copy.deepcopy(SHARE_LIST_CTRL)
-SHARE_LIST_CTRL_READ["readuser@local"] = {"access": "read"}
+SHARE_LIST_CTRL_READ["readuser"] = {"access": "read"}
 SHARE_LIST_CTRL_WRITE = copy.deepcopy(SHARE_LIST_CTRL)
-SHARE_LIST_CTRL_WRITE["writeuser@local"] = {"access": "write"}
+SHARE_LIST_CTRL_WRITE["writeuser"] = {"access": "write"}
 SHARE_LIST_CTRL_ADMIN = copy.deepcopy(SHARE_LIST_CTRL)
-SHARE_LIST_CTRL_ADMIN["adminuser@local"] = {"access": "admin"}
+SHARE_LIST_CTRL_ADMIN["adminuser"] = {"access": "admin"}
 
 
 def assert_equal(found, expected):
@@ -249,30 +249,26 @@ def assert_logout_login(controller_client, user_client, user, fake_home):
     controller_name = '{}_controller'.format(username)
     client = controller_client.create_cloned_environment(
         fake_home, controller_name, user.name)
-    if client.env.config['type'] == 'lxd':
-        client.juju(
-            'login', (user.name, '-c', controller_name), include_e=False)
-    else:
-        try:
-            child = client.expect('login', (user.name, '-c', controller_name),
-                                  include_e=False)
-            # This scenario is pre-macaroon.
-            # See https://bugs.launchpad.net/bugs/1621532
-            child.expect('(?i)password')
-            child.sendline(user.name + '_password_2')
-            # end non-macaroon.
-            child.expect(pexpect.EOF)
-            if child.isalive():
-                raise JujuAssertionError(
-                    'FAIL Login user: pexpect session still alive')
-            child.close()
-            if child.exitstatus != 0:
-                raise JujuAssertionError(
-                    'FAIL Login user: pexpect process exited with {}'.format(
-                        child.exitstatus))
-        except pexpect.TIMEOUT:
+    try:
+        child = client.expect('login', (user.name, '-c', controller_name),
+                              include_e=False)
+        # This scenario is pre-macaroon.
+        # See https://bugs.launchpad.net/bugs/1621532
+        child.expect('(?i)password')
+        child.sendline(user.name + '_password_2')
+        # end non-macaroon.
+        child.expect(pexpect.EOF)
+        if child.isalive():
             raise JujuAssertionError(
-                'FAIL Login user failed: pexpect session timed out')
+                'FAIL Login user: pexpect session still alive')
+        child.close()
+        if child.exitstatus != 0:
+            raise JujuAssertionError(
+                'FAIL Login user: pexpect process exited with {}'.format(
+                    child.exitstatus))
+    except pexpect.TIMEOUT:
+        raise JujuAssertionError(
+            'FAIL Login user failed: pexpect session timed out')
     log.info('PASS logout and login')
     return client
 

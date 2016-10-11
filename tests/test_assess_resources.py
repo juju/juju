@@ -229,11 +229,11 @@ def make_resource_list(service_app_id='applicationId'):
     return {'resources': [{
         'expected': {
             'origin': 'upload', 'used': True, 'description': 'foo resource.',
-            'username': 'admin@local', 'resourceid': 'dummy-resource/foo',
+            'username': 'admin', 'resourceid': 'dummy-resource/foo',
             'name': 'foo', service_app_id: 'dummy-resource', 'size': 27,
             'fingerprint': '1234', 'type': 'file', 'path': 'foo.txt'},
         'unit': {
-            'origin': 'upload', 'username': 'admin@local', 'used': True,
+            'origin': 'upload', 'username': 'admin', 'used': True,
             'name': 'foo', 'resourceid': 'dummy-resource/foo',
             service_app_id: 'dummy-resource', 'fingerprint': '1234',
             'path': 'foo.txt', 'size': 27, 'type': 'file',
