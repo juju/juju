@@ -237,11 +237,8 @@ func formatCredentialsTabular(writer io.Writer, value interface{}) error {
 	sort.Strings(cloudNames)
 
 	tw := output.TabWriter(writer)
-	p := func(values ...string) {
-		text := strings.Join(values, "\t")
-		fmt.Fprintln(tw, text)
-	}
-	p("CLOUD\tCREDENTIALS")
+	w := output.Wrapper{tw}
+	w.Println("Cloud", "Credentials")
 	for _, cloudName := range cloudNames {
 		var haveDefault bool
 		var credentialNames []string
@@ -259,7 +256,7 @@ func formatCredentialsTabular(writer io.Writer, value interface{}) error {
 		} else {
 			sort.Strings(credentialNames)
 		}
-		p(cloudName, strings.Join(credentialNames, ", "))
+		w.Println(cloudName, strings.Join(credentialNames, ", "))
 	}
 	tw.Flush()
 

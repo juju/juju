@@ -110,7 +110,7 @@ func (s *listCredentialsSuite) SetUpTest(c *gc.C) {
 func (s *listCredentialsSuite) TestListCredentialsTabular(c *gc.C) {
 	out := s.listCredentials(c)
 	c.Assert(out, gc.Equals, `
-CLOUD    CREDENTIALS
+Cloud    Credentials
 aws      down*, bob
 azure    azhja
 google   default
@@ -126,7 +126,7 @@ func (s *listCredentialsSuite) TestListCredentialsTabularMissingCloud(c *gc.C) {
 The following clouds have been removed and are omitted from the results to avoid leaking secrets.
 Run with --show-secrets to display these clouds' credentials: missingcloud
 
-CLOUD    CREDENTIALS
+Cloud    Credentials
 aws      down*, bob
 azure    azhja
 google   default
@@ -138,7 +138,7 @@ mycloud  me
 func (s *listCredentialsSuite) TestListCredentialsTabularFiltered(c *gc.C) {
 	out := s.listCredentials(c, "aws")
 	c.Assert(out, gc.Equals, `
-CLOUD  CREDENTIALS
+Cloud  Credentials
 aws    down*, bob
 
 `[1:])
@@ -286,7 +286,7 @@ func (s *listCredentialsSuite) TestListCredentialsEmpty(c *gc.C) {
 		},
 	}
 	out := strings.Replace(s.listCredentials(c), "\n", "", -1)
-	c.Assert(out, gc.Equals, "CLOUD  CREDENTIALSaws    bob")
+	c.Assert(out, gc.Equals, "Cloud  Credentialsaws    bob")
 
 	out = strings.Replace(s.listCredentials(c, "--format", "yaml"), "\n", "", -1)
 	c.Assert(out, gc.Equals, "credentials:  aws:    bob:      auth-type: oauth2")

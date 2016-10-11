@@ -76,6 +76,9 @@ type Cloud struct {
 	// environs.RegisterProvider.
 	Type string
 
+	// Description describes the type of cloud.
+	Description string
+
 	// AuthTypes are the authentication modes supported by the cloud.
 	AuthTypes AuthTypes
 
@@ -139,6 +142,7 @@ type cloudSet struct {
 // cloud is equivalent to Cloud, for marshalling and unmarshalling.
 type cloud struct {
 	Type             string                 `yaml:"type"`
+	Description      string                 `yaml:"description,omitempty"`
 	AuthTypes        []AuthType             `yaml:"auth-types,omitempty,flow"`
 	Endpoint         string                 `yaml:"endpoint,omitempty"`
 	IdentityEndpoint string                 `yaml:"identity-endpoint,omitempty"`
@@ -176,9 +180,10 @@ const DefaultLXD = "localhost"
 // BuiltInClouds work out of the box.
 var BuiltInClouds = map[string]Cloud{
 	DefaultLXD: {
-		Type:      lxdnames.ProviderType,
-		AuthTypes: []AuthType{EmptyAuthType},
-		Regions:   []Region{{Name: lxdnames.DefaultRegion}},
+		Type:        lxdnames.ProviderType,
+		AuthTypes:   []AuthType{EmptyAuthType},
+		Regions:     []Region{{Name: lxdnames.DefaultRegion}},
+		Description: defaultCloudDescription[lxdnames.ProviderType],
 	},
 }
 
@@ -272,9 +277,31 @@ func ParseCloudMetadata(data []byte) (map[string]Cloud, error) {
 	// the first region for the cloud as its default region.
 	clouds := make(map[string]Cloud)
 	for name, cloud := range metadata.Clouds {
-		clouds[name] = cloudFromInternal(cloud)
+		details := cloudFromInternal(cloud)
+		if details.Description == "" {
+			var ok bool
+			if details.Description, ok = defaultCloudDescription[name]; !ok {
+				details.Description = defaultCloudDescription[cloud.Type]
+			}
+		}
+		clouds[name] = details
 	}
 	return clouds, nil
+}
+
+var defaultCloudDescription = map[string]string{
+	"aws":         "Amazon Web Services",
+	"aws-china":   "Amazon China",
+	"aws-gov":     "Amazon (USA Government)",
+	"google":      "Google Cloud Platform",
+	"azure":       "Microsoft Azure",
+	"azure-china": "Microsoft Azure China",
+	"rackspace":   "Rackspace Cloud",
+	"joyent":      "Joyent Cloud",
+	"cloudsigma":  "CloudSigma Cloud",
+	"lxd":         "LXD Container Hypervisor",
+	"maas":        "Metal As A Service",
+	"openstack":   "Openstack Cloud",
 }
 
 // WritePublicCloudMetadata marshals to YAML and writes the cloud metadata
@@ -381,6 +408,7 @@ func cloudFromInternal(in *cloud) Cloud {
 		Regions:          regions,
 		Config:           in.Config,
 		RegionConfig:     in.RegionConfig,
+		Description:      in.Description,
 	}
 	meta.denormaliseMetadata()
 	return meta

@@ -87,11 +87,12 @@ type regionDetails struct {
 type cloudDetails struct {
 	Source           string   `yaml:"defined,omitempty" json:"defined,omitempty"`
 	CloudType        string   `yaml:"type" json:"type"`
+	CloudDescription string   `yaml:"description" json:"description"`
 	AuthTypes        []string `yaml:"auth-types,omitempty,flow" json:"auth-types,omitempty"`
 	Endpoint         string   `yaml:"endpoint,omitempty" json:"endpoint,omitempty"`
 	IdentityEndpoint string   `yaml:"identity-endpoint,omitempty" json:"identity-endpoint,omitempty"`
 	StorageEndpoint  string   `yaml:"storage-endpoint,omitempty" json:"storage-endpoint,omitempty"`
-	// Regions is for when we want to print regions in order for yaml or tabular output.
+	// Regions is for when we want to print regions in order for yaml output.
 	Regions yaml.MapSlice `yaml:"regions,omitempty" json:"-"`
 	// Regions map is for json marshalling where format is important but not order.
 	RegionsMap   map[string]regionDetails `yaml:"-" json:"regions,omitempty"`
@@ -108,6 +109,7 @@ func makeCloudDetails(cloud jujucloud.Cloud) *cloudDetails {
 		StorageEndpoint:  cloud.StorageEndpoint,
 		Config:           cloud.Config,
 		RegionConfig:     cloud.RegionConfig,
+		CloudDescription: cloud.Description,
 	}
 	result.AuthTypes = make([]string, len(cloud.AuthTypes))
 	for i, at := range cloud.AuthTypes {

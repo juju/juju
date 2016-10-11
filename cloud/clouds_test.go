@@ -150,8 +150,9 @@ clouds:
 	c.Assert(fallbackUsed, jc.IsFalse)
 	c.Assert(clouds, jc.DeepEquals, map[string]cloud.Cloud{
 		"aws-me": cloud.Cloud{
-			Type:      "aws",
-			AuthTypes: []cloud.AuthType{"userpass"},
+			Type:        "aws",
+			Description: "Amazon Web Services",
+			AuthTypes:   []cloud.AuthType{"userpass"},
 		},
 	})
 }
@@ -169,8 +170,9 @@ func (s *cloudSuite) TestGeneratedPublicCloudInfo(c *gc.C) {
 func (s *cloudSuite) TestWritePublicCloudsMetadata(c *gc.C) {
 	clouds := map[string]cloud.Cloud{
 		"aws-me": cloud.Cloud{
-			Type:      "aws",
-			AuthTypes: []cloud.AuthType{"userpass"},
+			Type:        "aws",
+			Description: "Amazon Web Services",
+			AuthTypes:   []cloud.AuthType{"userpass"},
 		},
 	}
 	err := cloud.WritePublicCloudMetadata(clouds)
