@@ -41,7 +41,7 @@ func (s *ListSuite) TestList(c *gc.C) {
 		// Default format is tabular
 		`
 \[Storage\]     
-UNIT          ID           LOCATION  STATUS    MESSAGE  
+Unit          Id           Location  Status    Message  
 postgresql/0  db-dir/1100  hither    attached           
 transcode/0   db-dir/1000  thither   pending            
 transcode/0   shared-fs/0  there     attached           
@@ -98,7 +98,7 @@ func (s *ListSuite) TestListOwnerStorageIdSort(c *gc.C) {
 		// Default format is tabular
 		`
 \[Storage\]     
-UNIT          ID           LOCATION  STATUS    MESSAGE  
+Unit          Id           Location  Status    Message  
 postgresql/0  db-dir/1100  hither    attached           
 transcode/0   db-dir/1000  thither   pending            
 transcode/0   shared-fs/0  there     attached           

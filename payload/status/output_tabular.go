@@ -16,13 +16,13 @@ const tabularSection = "[Unit Payloads]"
 
 var (
 	tabularColumns = []string{
-		"UNIT",
-		"MACHINE",
-		"PAYLOAD-CLASS",
-		"STATUS",
-		"TYPE",
-		"ID",
-		"TAGS", // TODO(ericsnow) Chane this to "LABELS"?
+		"Unit",
+		"Machine",
+		"Payload class",
+		"Status",
+		"Type",
+		"Id",
+		"Tags", // TODO(ericsnow) Chane this to "LABELS"?
 	}
 
 	tabularHeader = strings.Join(tabularColumns, "\t") + "\t"

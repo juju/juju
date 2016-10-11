@@ -23,7 +23,7 @@ func formatStorageListTabular(writer io.Writer, storageInfo map[string]StorageIn
 		fmt.Fprintln(tw)
 	}
 	p("[Storage]")
-	p("UNIT\tID\tLOCATION\tSTATUS\tMESSAGE")
+	p("Unit\tId\tLocation\tStatus\tMessage")
 
 	byUnit := make(map[string]map[string]storageAttachmentInfo)
 	for storageId, storageInfo := range storageInfo {

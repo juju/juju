@@ -126,8 +126,8 @@ func (s *UserListCommandSuite) TestUserInfo(c *gc.C) {
 	context, err := testing.RunCommand(c, s.newUserListCommand())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
-		"CONTROLLER: testing\n\n"+
-		"NAME     DISPLAY NAME    ACCESS     DATE CREATED  LAST CONNECTION\n"+
+		"Controller: testing\n\n"+
+		"Name     Display name    Access     Date created  Last connection\n"+
 		"adam*    Adam Zulu       login      2012-10-08    2014-01-01\n"+
 		"barbara  Barbara Yellow  addmodel   2013-05-02    just now\n"+
 		"charlie  Charlie Xavier  superuser  6 hours ago   never connected\n"+
@@ -138,8 +138,8 @@ func (s *UserListCommandSuite) TestUserInfoWithDisabled(c *gc.C) {
 	context, err := testing.RunCommand(c, s.newUserListCommand(), "--all")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
-		"CONTROLLER: testing\n\n"+
-		"NAME     DISPLAY NAME    ACCESS     DATE CREATED  LAST CONNECTION\n"+
+		"Controller: testing\n\n"+
+		"Name     Display name    Access     Date created  Last connection\n"+
 		"adam*    Adam Zulu       login      2012-10-08    2014-01-01\n"+
 		"barbara  Barbara Yellow  addmodel   2013-05-02    just now\n"+
 		"charlie  Charlie Xavier  superuser  6 hours ago   never connected\n"+
@@ -151,8 +151,8 @@ func (s *UserListCommandSuite) TestUserInfoExactTime(c *gc.C) {
 	context, err := testing.RunCommand(c, s.newUserListCommand(), "--exact-time")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
-		"CONTROLLER: testing\n\n"+
-		"NAME     DISPLAY NAME    ACCESS     DATE CREATED                   LAST CONNECTION\n"+
+		"Controller: testing\n\n"+
+		"Name     Display name    Access     Date created                   Last connection\n"+
 		"adam*    Adam Zulu       login      2012-10-08 00:00:00 +0000 UTC  2014-01-01 00:00:00 +0000 UTC\n"+
 		"barbara  Barbara Yellow  addmodel   2013-05-02 00:00:00 +0000 UTC  2016-09-15 12:00:00 +0000 UTC\n"+
 		"charlie  Charlie Xavier  superuser  2016-09-15 06:00:00 +0000 UTC  never connected\n"+
@@ -194,7 +194,7 @@ func (s *UserListCommandSuite) TestModelUsers(c *gc.C) {
 	context, err := testing.RunCommand(c, s.newUserListCommand(), "admin")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
-		"NAME                DISPLAY NAME  ACCESS  LAST CONNECTION\n"+
+		"Name                Display name  Access  Last connection\n"+
 		"adam*               Adam          read    2015-03-01\n"+
 		"admin                             write   2015-03-20\n"+
 		"charlie@ubuntu.com  Charlie       read    never connected\n"+

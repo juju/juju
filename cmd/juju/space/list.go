@@ -146,7 +146,7 @@ func (c *listCommand) printTabular(writer io.Writer, value interface{}) error {
 		if !ok {
 			return errors.New("unexpected value")
 		}
-		fmt.Fprintf(tw, "SPACE\n")
+		fmt.Fprintln(tw, "Space")
 		spaces := list.Spaces
 		sort.Strings(spaces)
 		for _, space := range spaces {
@@ -158,7 +158,7 @@ func (c *listCommand) printTabular(writer io.Writer, value interface{}) error {
 			return errors.New("unexpected value")
 		}
 
-		fmt.Fprintf(tw, "%s\t%s\n", "SPACE", "SUBNETS")
+		fmt.Fprintf(tw, "%s\t%s\n", "Space", "Subnets")
 		spaces := []string{}
 		for name, _ := range list.Spaces {
 			spaces = append(spaces, name)

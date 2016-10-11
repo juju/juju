@@ -70,7 +70,7 @@ func (s *ListPlansCommandSuite) TestTabularOutput(c *gc.C) {
 	ctx, err := cmdtesting.RunCommand(c, listPlans, "some-charm-url")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals,
-		`PLAN             	PRICE	DESCRIPTION                                       
+		`Plan             	Price	Description                                       
 bob/test-plan-1  	     	Lorem ipsum dolor sit amet,                       
                  	     	consectetur adipiscing elit.                      
                  	     	Nunc pretium purus nec magna faucibus, sed        

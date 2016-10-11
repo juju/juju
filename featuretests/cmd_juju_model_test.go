@@ -99,7 +99,7 @@ func (s *cmdModelSuite) TestModelUsersCmd(c *gc.C) {
 	context = s.run(c, "list-users", "controller")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
-		"NAME           DISPLAY NAME  ACCESS  LAST CONNECTION\n"+
+		"Name           Display name  Access  Last connection\n"+
 		"admin*         admin         admin   just now\n"+
 		"bar@ubuntuone                read    never connected\n"+
 		"\n")

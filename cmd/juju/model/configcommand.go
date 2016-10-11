@@ -268,7 +268,7 @@ func formatConfigTabular(writer io.Writer, value interface{}) error {
 		valueNames = append(valueNames, name)
 	}
 	sort.Strings(valueNames)
-	w.Println("ATTRIBUTE", "FROM", "VALUE")
+	w.Println("Attribute", "From", "Value")
 
 	for _, name := range valueNames {
 		info := configValues[name]

@@ -27,7 +27,7 @@ func formatMetadataTabular(writer io.Writer, metadata []MetadataInfo) {
 	print := func(values ...string) {
 		fmt.Fprintln(tw, strings.Join(values, "\t"))
 	}
-	print("SOURCE", "SERIES", "ARCH", "REGION", "IMAGE-ID", "STREAM", "VIRT-TYPE", "STORAGE-TYPE")
+	print("Source", "Series", "Arch", "Region", "Image id", "Stream", "Virt Type", "Storage Type")
 
 	for _, m := range metadata {
 		print(m.Source, m.Series, m.Arch, m.Region, m.ImageId, m.Stream, m.VirtType, m.RootStorageType)

@@ -150,9 +150,9 @@ func (s *ModelsSuite) TestModelsOwner(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.api.user, gc.Equals, "admin")
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
-		"CONTROLLER: fake\n"+
+		"Controller: fake\n"+
 		"\n"+
-		"MODEL                        OWNER            STATUS      ACCESS  LAST CONNECTION\n"+
+		"Model                        Owner            Status      Access  Last connection\n"+
 		"test-model1*                 admin            active      read    2015-03-20\n"+
 		"carlotta/test-model2         carlotta         active      write   2015-03-01\n"+
 		"daiwik@external/test-model3  daiwik@external  destroying          never connected\n"+
@@ -164,9 +164,9 @@ func (s *ModelsSuite) TestModelsNonOwner(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.api.user, gc.Equals, "bob")
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
-		"CONTROLLER: fake\n"+
+		"Controller: fake\n"+
 		"\n"+
-		"MODEL                        OWNER            STATUS      ACCESS  LAST CONNECTION\n"+
+		"Model                        Owner            Status      Access  Last connection\n"+
 		"admin/test-model1*           admin            active      read    2015-03-20\n"+
 		"carlotta/test-model2         carlotta         active      write   2015-03-01\n"+
 		"daiwik@external/test-model3  daiwik@external  destroying          never connected\n"+
@@ -178,9 +178,9 @@ func (s *ModelsSuite) TestAllModels(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.api.all, jc.IsTrue)
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
-		"CONTROLLER: fake\n"+
+		"Controller: fake\n"+
 		"\n"+
-		"MODEL                        OWNER            STATUS      ACCESS  LAST CONNECTION\n"+
+		"Model                        Owner            Status      Access  Last connection\n"+
 		"admin/test-model1*           admin            active      read    2015-03-20\n"+
 		"carlotta/test-model2         carlotta         active      write   2015-03-01\n"+
 		"daiwik@external/test-model3  daiwik@external  destroying          never connected\n"+
@@ -192,9 +192,9 @@ func (s *ModelsSuite) TestAllModelsNoneCurrent(c *gc.C) {
 	context, err := testing.RunCommand(c, s.newCommand())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
-		"CONTROLLER: fake\n"+
+		"Controller: fake\n"+
 		"\n"+
-		"MODEL                        OWNER            STATUS      ACCESS  LAST CONNECTION\n"+
+		"Model                        Owner            Status      Access  Last connection\n"+
 		"test-model1                  admin            active      read    2015-03-20\n"+
 		"carlotta/test-model2         carlotta         active      write   2015-03-01\n"+
 		"daiwik@external/test-model3  daiwik@external  destroying          never connected\n"+
@@ -207,9 +207,9 @@ func (s *ModelsSuite) TestModelsUUID(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.api.user, gc.Equals, "admin")
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
-		"CONTROLLER: fake\n"+
+		"Controller: fake\n"+
 		"\n"+
-		"MODEL                        UUID              OWNER            STATUS      MACHINES  CORES  ACCESS  LAST CONNECTION\n"+
+		"Model                        UUID              Owner            Status      Machines  Cores  Access  Last connection\n"+
 		"test-model1*                 test-model1-UUID  admin            active             2      1  read    2015-03-20\n"+
 		"carlotta/test-model2         test-model2-UUID  carlotta         active             0      -  write   2015-03-01\n"+
 		"daiwik@external/test-model3  test-model3-UUID  daiwik@external  destroying         0      -          never connected\n"+
@@ -222,9 +222,9 @@ func (s *ModelsSuite) TestModelsMachineInfo(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.api.user, gc.Equals, "admin")
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
-		"CONTROLLER: fake\n"+
+		"Controller: fake\n"+
 		"\n"+
-		"MODEL                        OWNER            STATUS      MACHINES  CORES  ACCESS  LAST CONNECTION\n"+
+		"Model                        Owner            Status      Machines  Cores  Access  Last connection\n"+
 		"test-model1*                 admin            active             2      1  read    2015-03-20\n"+
 		"carlotta/test-model2         carlotta         active             0      -  write   2015-03-01\n"+
 		"daiwik@external/test-model3  daiwik@external  destroying         0      -          never connected\n"+

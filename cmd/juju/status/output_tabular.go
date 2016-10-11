@@ -105,11 +105,11 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 		cloudRegion += "/" + fs.Model.CloudRegion
 	}
 
-	header := []interface{}{"MODEL", "CONTROLLER", "CLOUD/REGION", "VERSION"}
+	header := []interface{}{"Model", "Controller", "Cloud/Region", "Version"}
 	values := []interface{}{fs.Model.Name, fs.Model.Controller, cloudRegion, fs.Model.Version}
 	message := getModelMessage(fs.Model)
 	if message != "" {
-		header = append(header, "NOTES")
+		header = append(header, "Notes")
 		values = append(values, message)
 	}
 
@@ -120,7 +120,7 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 	units := make(map[string]unitStatus)
 	metering := false
 	relations := newRelationFormatter()
-	outputHeaders("APP", "VERSION", "STATUS", "SCALE", "CHARM", "STORE", "REV", "OS", "NOTES")
+	outputHeaders("App", "Version", "Status", "Scale", "Charm", "Store", "Rev", "OS", "Notes")
 	tw.SetColumnAlignRight(3)
 	tw.SetColumnAlignRight(6)
 	for _, appName := range utils.SortStringsNaturally(stringKeysFromMap(fs.Applications)) {
@@ -191,7 +191,7 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 		)
 	}
 
-	outputHeaders("UNIT", "WORKLOAD", "AGENT", "MACHINE", "PUBLIC-ADDRESS", "PORTS", "MESSAGE")
+	outputHeaders("Unit", "Workload", "Agent", "Machine", "Public address", "Ports", "Message")
 	for _, name := range utils.SortStringsNaturally(stringKeysFromMap(units)) {
 		u := units[name]
 		pUnit(name, u, 0)
@@ -200,7 +200,7 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 	}
 
 	if metering {
-		outputHeaders("METER", "STATUS", "MESSAGE")
+		outputHeaders("Meter", "Status", "Message")
 		for _, name := range utils.SortStringsNaturally(stringKeysFromMap(units)) {
 			u := units[name]
 			if u.MeterStatus != nil {
@@ -213,7 +213,7 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 	printMachines(tw, fs.Machines)
 
 	if relations.len() > 0 {
-		outputHeaders("RELATION", "PROVIDES", "CONSUMES", "TYPE")
+		outputHeaders("Relation", "Provides", "Consumes", "Type")
 		for _, k := range relations.sorted() {
 			r := relations.get(k)
 			if r != nil {
@@ -240,7 +240,7 @@ func getModelMessage(model modelStatus) string {
 
 func printMachines(tw *ansiterm.TabWriter, machines map[string]machineStatus) {
 	w := output.Wrapper{tw}
-	w.Println("MACHINE", "STATE", "DNS", "INS-ID", "SERIES", "AZ")
+	w.Println("Machine", "State", "DNS", "Inst id", "Series", "AZ")
 	for _, name := range utils.SortStringsNaturally(stringKeysFromMap(machines)) {
 		printMachine(w, machines[name])
 	}

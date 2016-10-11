@@ -79,7 +79,7 @@ func (c *listRegionsCommand) Run(ctxt *cmd.Context) error {
 	}
 
 	if len(cloud.Regions) == 0 {
-		fmt.Fprintln(ctxt.GetStdout(), "Cloud %q has no regions defined.", c.cloudName)
+		fmt.Fprintf(ctxt.GetStdout(), "Cloud %q has no regions defined.\n", c.cloudName)
 		return nil
 	}
 	var regions interface{}

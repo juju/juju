@@ -121,9 +121,9 @@ func (s *UserSuite) TestUserList(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	periodPattern := `(just now|\d+ \S+ ago)`
 	expected := fmt.Sprintf(`
-CONTROLLER: kontroll
+Controller: kontroll
 
-NAME\s+DISPLAY NAME\s+ACCESS\s+DATE CREATED\s+LAST CONNECTION
+Name\s+Display name\s+Access\s+Date created\s+Last connection
 admin.*\s+admin\s+superuser\s+%s\s+%s
 
 `[1:], periodPattern, periodPattern)

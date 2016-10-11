@@ -82,7 +82,7 @@ func (s *listSuite) TestOkay(c *gc.C) {
 
 	c.Check(stdout, gc.Equals, `
 [Unit Payloads]
-UNIT                   MACHINE  PAYLOAD-CLASS  STATUS   TYPE    ID      TAGS   
+Unit                   Machine  Payload class  Status   Type    Id      Tags   
 a-application/0        1        spam           running  docker  idspam  a-tag  
 another-application/1  2        eggs           running  docker  ideggs         
 
@@ -117,7 +117,7 @@ func (s *listSuite) TestPatternsOkay(c *gc.C) {
 
 	c.Check(stdout, gc.Equals, `
 [Unit Payloads]
-UNIT                   MACHINE  PAYLOAD-CLASS  STATUS   TYPE    ID      TAGS   
+Unit                   Machine  Payload class  Status   Type    Id      Tags   
 a-application/0        1        spam           running  docker  idspam  a-tag  
 another-application/1  2        eggs           running  docker  ideggs  a-tag  
 
@@ -154,7 +154,7 @@ func (s *listSuite) TestOutputFormats(c *gc.C) {
 	formats := map[string]string{
 		"tabular": `
 [Unit Payloads]
-UNIT                   MACHINE  PAYLOAD-CLASS  STATUS   TYPE    ID      TAGS   
+Unit                   Machine  Payload class  Status   Type    Id      Tags   
 a-application/0        1        spam           running  docker  idspam  a-tag  
 another-application/1  2        eggs           running  docker  ideggs         
 

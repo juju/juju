@@ -27,7 +27,7 @@ func FormatCharmTabular(writer io.Writer, value interface{}) error {
 
 	// Write the header.
 	// We do not print a section label.
-	fmt.Fprintln(tw, "RESOURCE\tREVISION")
+	fmt.Fprintln(tw, "Resource\tRevision")
 
 	// Print each info to its own row.
 	for _, res := range resources {
@@ -67,7 +67,7 @@ func formatServiceTabular(writer io.Writer, info FormattedServiceInfo) {
 
 	fmt.Fprintln(writer, "[Service]")
 	tw := output.TabWriter(writer)
-	fmt.Fprintln(tw, "RESOURCE\tSUPPLIED BY\tREVISION")
+	fmt.Fprintln(tw, "Resource\tSupplied by\tRevision")
 
 	// Print each info to its own row.
 	for _, r := range info.Resources {
@@ -91,7 +91,7 @@ func writeUpdates(updates []FormattedCharmResource, out io.Writer, tw *ansiterm.
 	if len(updates) > 0 {
 		fmt.Fprintln(out, "")
 		fmt.Fprintln(out, "[Updates Available]")
-		fmt.Fprintln(tw, "RESOURCE\tREVISION")
+		fmt.Fprintln(tw, "Resource\tRevision")
 		for _, r := range updates {
 			fmt.Fprintf(tw, "%v\t%v\n",
 				r.Name,
@@ -113,7 +113,7 @@ func formatUnitTabular(writer io.Writer, resources []FormattedUnitResource) {
 
 	// Write the header.
 	// We do not print a section label.
-	fmt.Fprintln(tw, "RESOURCE\tREVISION")
+	fmt.Fprintln(tw, "Resource\tRevision")
 
 	// Print each info to its own row.
 	for _, r := range resources {
@@ -137,7 +137,7 @@ func formatServiceDetailTabular(writer io.Writer, resources FormattedServiceDeta
 	tw := output.TabWriter(writer)
 
 	// Write the header.
-	fmt.Fprintln(tw, "UNIT\tRESOURCE\tREVISION\tEXPECTED")
+	fmt.Fprintln(tw, "Unit\tResource\tRevision\tExpected")
 
 	for _, r := range resources.Resources {
 		fmt.Fprintf(tw, "%v\t%v\t%v\t%v\n",
@@ -163,7 +163,7 @@ func formatUnitDetailTabular(writer io.Writer, resources FormattedUnitDetails) {
 	tw := output.TabWriter(writer)
 
 	// Write the header.
-	fmt.Fprintln(tw, "RESOURCE\tREVISION\tEXPECTED")
+	fmt.Fprintln(tw, "Resource\tRevision\tExpected")
 
 	for _, r := range resources {
 		fmt.Fprintf(tw, "%v\t%v\t%v\n",

@@ -169,7 +169,7 @@ func formatSummary(writer io.Writer, value interface{}) error {
 		}
 		fmt.Fprintln(tw)
 	}
-	p("PLAN", "PRICE")
+	p("Plan", "Price")
 	for _, plan := range plans {
 		p(plan.URL, plan.Price)
 	}
@@ -188,7 +188,7 @@ func formatTabular(writer io.Writer, value interface{}) error {
 	table.MaxColWidth = 50
 	table.Wrap = true
 
-	table.AddRow("PLAN", "PRICE", "DESCRIPTION")
+	table.AddRow("Plan", "Price", "Description")
 	for _, plan := range plans {
 		table.AddRow(plan.URL, plan.Price, plan.Description)
 	}

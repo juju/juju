@@ -74,7 +74,7 @@ func (s *cmdControllerSuite) TestControllerListCommand(c *gc.C) {
 	expectedOutput := `
 Use --refresh to see the latest information.
 
-CONTROLLER  MODEL       USER   ACCESS     CLOUD/REGION        MODELS  MACHINES  HA  VERSION
+Controller  Model       User   Access     Cloud/Region        Models  Machines  HA  Version
 kontroll*   controller  admin  superuser  dummy/dummy-region       -         -   -  (unknown)  
 
 `[1:]
@@ -85,9 +85,9 @@ func (s *cmdControllerSuite) TestCreateModelAdminUser(c *gc.C) {
 	s.createModelAdminUser(c, "new-model", false)
 	context := s.run(c, "list-models")
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
-		"CONTROLLER: kontroll\n"+
+		"Controller: kontroll\n"+
 		"\n"+
-		"MODEL        OWNER  STATUS     ACCESS  LAST CONNECTION\n"+
+		"Model        Owner  Status     Access  Last connection\n"+
 		"controller*  admin  available  admin   just now\n"+
 		"new-model    admin  available  admin   never connected\n"+
 		"\n")
@@ -97,9 +97,9 @@ func (s *cmdControllerSuite) TestAddModelNormalUser(c *gc.C) {
 	s.createModelNormalUser(c, "new-model", false)
 	context := s.run(c, "list-models", "--all")
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
-		"CONTROLLER: kontroll\n"+
+		"Controller: kontroll\n"+
 		"\n"+
-		"MODEL              OWNER  STATUS     ACCESS  LAST CONNECTION\n"+
+		"Model              Owner  Status     Access  Last connection\n"+
 		"admin/controller*  admin  available  admin   just now\n"+
 		"test/new-model     test   available          never connected\n"+
 		"\n")
@@ -160,9 +160,9 @@ func (s *cmdControllerSuite) TestListDeadModels(c *gc.C) {
 	// don't exist, and they will go away quickly.
 	context := s.run(c, "list-models")
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
-		"CONTROLLER: kontroll\n"+
+		"Controller: kontroll\n"+
 		"\n"+
-		"MODEL        OWNER  STATUS      ACCESS  LAST CONNECTION\n"+
+		"Model        Owner  Status      Access  Last connection\n"+
 		"controller*  admin  available   admin   just now\n"+
 		"new-model    admin  destroying  admin   never connected\n"+
 		"\n")

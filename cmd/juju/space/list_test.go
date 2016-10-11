@@ -179,14 +179,14 @@ spaces:
 }
 `, "") + "\n"
 
-	expectedTabular := `SPACE   SUBNETS
+	expectedTabular := `Space   Subnets
 space1  2001:db8::/32
         invalid
 space2  10.1.2.0/24
         4.3.2.0/28
 
 `
-	expectedShortTabular := `SPACE
+	expectedShortTabular := `Space
 space1
 space2
 

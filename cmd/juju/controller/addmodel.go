@@ -337,7 +337,7 @@ func (c *addModelCommand) unsupportedCloudOrRegionError(cloudClient CloudAPI, de
 
 	var buf bytes.Buffer
 	tw := output.TabWriter(&buf)
-	fmt.Fprintln(tw, "CLOUD\tREGIONS")
+	fmt.Fprintln(tw, "Cloud\tRegions")
 	for _, cloudName := range cloudNames {
 		cloud := clouds[names.NewCloudTag(cloudName)]
 		regionNames := make([]string, len(cloud.Regions))

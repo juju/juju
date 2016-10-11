@@ -88,7 +88,7 @@ func (s *ListSuite) TestInit(c *gc.C) {
 
 func (s *ListSuite) TestRun(c *gc.C) {
 	simpleOutput := `
-ACTION          DESCRIPTION
+Action          Description
 kill            Kill the database.
 no-description  No description
 no-params       An action with no parameters.
