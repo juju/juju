@@ -50,13 +50,13 @@ class TestCase(unittest.TestCase):
 
         setup_test_logging(self, self.log_level)
 
-    def assertIsTrue(expr, msg=None):
+    def assertIsTrue(self, expr, msg=None):
         """Assert that expr is the True object."""
-        self.assertIs(True, expr, msg);
+        self.assertIs(True, expr, msg)
 
-    def assertIsFalse(expr, msg=None):
+    def assertIsFalse(self, expr, msg=None):
         """Assert that expr is the False object."""
-        self.assertIs(False, expr, msg);
+        self.assertIs(False, expr, msg)
 
 
 class FakeHomeTestCase(TestCase):
