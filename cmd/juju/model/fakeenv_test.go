@@ -44,6 +44,7 @@ type fakeEnvAPI struct {
 	defaults      config.ConfigValues
 	err           error
 	keys          []string
+	resetKeys     []string
 }
 
 func (f *fakeEnvAPI) Close() error {
@@ -68,7 +69,7 @@ func (f *fakeEnvAPI) ModelSet(config map[string]interface{}) error {
 }
 
 func (f *fakeEnvAPI) ModelUnset(keys ...string) error {
-	f.keys = keys
+	f.resetKeys = keys
 	return f.err
 }
 
