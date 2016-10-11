@@ -65,6 +65,7 @@ github.com/rogpeppe/fastuuid	git	6724a57986aff9bff1a1770e9347036def7c89f6	2015-0
 golang.org/x/crypto	git	8e06e8ddd9629eb88639aba897641bff8031f1d3	2016-09-22T17:06:29Z
 golang.org/x/net	git	ea47fc708ee3e20177f3ca3716217c4ab75942cb	2015-08-29T23:03:18Z
 golang.org/x/oauth2	git	11c60b6f71a6ad48ed6f93c65fa4c6f9b1b5b46a	2015-03-25T02:00:22Z
+golang.org/x/sys	git	58da1121af381632b48b2843aeb16299f2e1dc50	2015-07-30T00:44:47Z
 google.golang.org/api	git	0d3983fb069cb6651353fc44c5cb604e263f2a93	2014-12-10T23:51:26Z
 google.golang.org/cloud	git	f20d6dcccb44ed49de45ae3703312cb46e627db1	2015-03-19T22:36:35Z
 gopkg.in/amz.v3	git	18899065239e006cc73b0e66800c98c2ce4eee50	2016-10-06T07:29:34Z
