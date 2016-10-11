@@ -81,7 +81,7 @@ func (s *cmdJujuSuite) TestServiceUnset(c *gc.C) {
 	err := svc.UpdateConfigSettings(settings)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = testing.RunCommand(c, application.NewConfigCommand(), "--reset", "dummy-service", "username")
+	_, err = testing.RunCommand(c, application.NewConfigCommand(), "dummy-service", "--reset", "username")
 	c.Assert(err, jc.ErrorIsNil)
 
 	expect := charm.Settings{

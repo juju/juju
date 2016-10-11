@@ -37,7 +37,7 @@ Examples:
     juju config apache2
     juju config --format=json apache2
     juju config mysql dataset-size
-    juju config mysql --reset dataset-size backup_dir
+    juju config mysql --reset dataset-size,backup_dir
     juju config apache2 --file path/to/config.yaml
     juju config mysql dataset-size=80% backup_dir=/vol1/mysql/backups
     juju config apache2 --model mymodel --file /home/ubuntu/mysql.yaml
@@ -66,7 +66,8 @@ type configCommand struct {
 	applicationName string
 	configFile      cmd.FileVar
 	keys            []string
-	reset           bool
+	reset           []string // Holds the keys to be reset until parsed.
+	resetKeys       []string // Holds the keys to be reset once parsed.
 	useFile         bool
 	values          attributes
 }
@@ -84,7 +85,7 @@ type configCommandAPI interface {
 func (c *configCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "config",
-		Args:    "<application name> [[--reset] <attribute-key>][=<value>] ...]",
+		Args:    "<application name> [--reset <key[,key]>] [<attribute-key>][=<value>] ...]",
 		Purpose: configSummary,
 		Doc:     configDetails,
 	}
@@ -95,7 +96,7 @@ func (c *configCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 	c.out.AddFlags(f, "yaml", output.DefaultFormatters)
 	f.Var(&c.configFile, "file", "path to yaml-formatted application config")
-	f.BoolVar(&c.reset, "reset", false, "Reset the provided keys to be empty")
+	f.Var(cmd.NewAppendStringsValue(&c.reset), "reset", "Reset the provided comma delimited keys")
 }
 
 // getAPI either uses the fake API set at test time or that is nil, gets a real
@@ -117,34 +118,102 @@ func (c *configCommand) Init(args []string) error {
 	if len(args) == 0 || len(strings.Split(args[0], "=")) > 1 {
 		return errors.New("no application name specified")
 	}
+
+	// If there are arguments provided to reset, we turn it into a slice of
+	// strings and verify them. If there is one or more valid keys to reset and
+	// no other errors initalizing the command, c.resetDefaults will be called
+	// in c.Run.
+	if err := c.parseResetKeys(); err != nil {
+		return errors.Trace(err)
+	}
+
 	c.applicationName = args[0]
-	if c.reset {
-		c.action = c.resetConfig
-		return c.parseReset(args[1:])
+	args = args[1:]
+
+	switch len(args) {
+	case 0:
+		return c.handleZeroArgs()
+	case 1:
+		return c.handleOneArg(args)
+	default:
+		return c.handleArgs(args)
 	}
-	if c.configFile.Path != "" {
-		return c.parseSet(args[1:], true)
-	}
-	if len(args[1:]) > 0 && strings.Contains(args[1], "=") {
-		return c.parseSet(args[1:], false)
-	}
-	return c.parseGet(args[1:])
 }
 
-// parseReset parses command line args when the --reset flag is supplied.
-func (c *configCommand) parseReset(args []string) error {
-	if len(args) == 0 {
-		return errors.New("no configuration options specified")
+// handleZeroArgs handles the case where there are no positional args.
+func (c *configCommand) handleZeroArgs() error {
+	// If there's a path we're setting args from a file
+	if c.configFile.Path != "" {
+		return c.parseSet([]string{})
 	}
-	c.action = c.resetConfig
-	c.keys = args
+	if len(c.reset) == 0 {
+		// If there's nothing to reset we're getting all the settings.
+		c.action = c.getConfig
+	}
+	// Otherwise just reset.
+	return nil
+}
 
+// handleOneArg handles the case where there is one positional arg.
+func (c *configCommand) handleOneArg(args []string) error {
+	// If there's an '=', this must be setting a value
+	if strings.Contains(args[0], "=") {
+		return c.parseSet(args)
+	}
+	// If there's no reset,	we want to get a single value
+	if len(c.reset) == 0 {
+		c.action = c.getConfig
+		c.keys = args
+		return nil
+	}
+	// Otherwise we have reset and a get arg, which is invalid.
+	return errors.New("cannot reset and retrieve values simultaneously")
+}
+
+// handleArgs handles the case where there's more than one positional arg.
+func (c *configCommand) handleArgs(args []string) error {
+	// This must be setting values but let's make sure.
+	var pairs, numArgs int
+	numArgs = len(args)
+	for _, a := range args {
+		if strings.Contains(a, "=") {
+			pairs++
+		}
+	}
+	if pairs == numArgs {
+		return c.parseSet(args)
+	}
+	if pairs == 0 {
+		return errors.New("can only retrieve a single value, or all values")
+	}
+	return errors.New("cannot set and retrieve values simultaneously")
+}
+
+// parseResetKeys splits the keys provided to --reset.
+func (c *configCommand) parseResetKeys() error {
+	if len(c.reset) == 0 {
+		return nil
+	}
+	var resetKeys []string
+	for _, value := range c.reset {
+		keys := strings.Split(strings.Trim(value, ","), ",")
+		resetKeys = append(resetKeys, keys...)
+	}
+	for _, k := range resetKeys {
+		if strings.Contains(k, "=") {
+			return errors.Errorf(
+				`--reset accepts a comma delimited set of keys "a,b,c", received: %q`, k)
+		}
+	}
+
+	c.resetKeys = resetKeys
 	return nil
 }
 
 // parseSet parses the command line args when --file is set or if the
 // positional args are key=value pairs.
-func (c *configCommand) parseSet(args []string, file bool) error {
+func (c *configCommand) parseSet(args []string) error {
+	file := c.configFile.Path != ""
 	if file && len(args) > 0 {
 		return errors.New("cannot specify --file and key=value arguments simultaneously")
 	}
@@ -163,16 +232,6 @@ func (c *configCommand) parseSet(args []string, file bool) error {
 	return nil
 }
 
-// parseGet parses the command line args if we aren't setting or resetting.
-func (c *configCommand) parseGet(args []string) error {
-	if len(args) > 1 {
-		return errors.New("can only retrieve a single value, or all values")
-	}
-	c.action = c.getConfig
-	c.keys = args
-	return nil
-}
-
 // Run implements the cmd.Command interface.
 func (c *configCommand) Run(ctx *cmd.Context) error {
 	client, err := c.getAPI()
@@ -180,44 +239,25 @@ func (c *configCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 	defer client.Close()
+	if len(c.resetKeys) > 0 {
+		if err := c.resetConfig(client, ctx); err != nil {
+			// We return this error naked as it is almost certainly going to be
+			// cmd.ErrSilent and the cmd.Command framework expects that back
+			// from cmd.Run if the process is blocked.
+			return err
+		}
+	}
+	if c.action == nil {
+		// If we are reset only we end up here, only we've already done that.
+		return nil
+	}
 
 	return c.action(client, ctx)
 }
 
 // resetConfig is the run action when we are resetting attributes.
 func (c *configCommand) resetConfig(client configCommandAPI, ctx *cmd.Context) error {
-	return block.ProcessBlockedError(client.Unset(c.applicationName, c.keys), block.BlockChange)
-}
-
-// validateValues reads the values provided as args and validates that they are
-// valid UTF-8.
-func (c *configCommand) validateValues(ctx *cmd.Context) (map[string]string, error) {
-	settings := map[string]string{}
-	for k, v := range c.values {
-		//empty string is also valid as a setting value
-		if v == "" {
-			settings[k] = v
-			continue
-		}
-
-		if v[0] != '@' {
-			if !utf8.ValidString(v) {
-				return nil, errors.Errorf("value for option %q contains non-UTF-8 sequences", k)
-			}
-			settings[k] = v
-			continue
-		}
-		nv, err := readValue(ctx, v[1:])
-		if err != nil {
-			return nil, err
-		}
-		if !utf8.ValidString(nv) {
-			return nil, errors.Errorf("value for option %q contains non-UTF-8 sequences", k)
-		}
-		settings[k] = nv
-	}
-	return settings, nil
-
+	return block.ProcessBlockedError(client.Unset(c.applicationName, c.resetKeys), block.BlockChange)
 }
 
 // setConfig is the run action when we are setting new attribute values as args
@@ -274,7 +314,6 @@ func (c *configCommand) setConfigFromFile(client configCommandAPI, ctx *cmd.Cont
 			params.ApplicationUpdate{
 				ApplicationName: c.applicationName,
 				SettingsYAML:    string(b)}), block.BlockChange)
-
 }
 
 // getConfig is the run action to return one or all configuration values.
@@ -304,6 +343,36 @@ func (c *configCommand) getConfig(client configCommandAPI, ctx *cmd.Context) err
 		"settings":    results.Config,
 	}
 	return c.out.Write(ctx, resultsMap)
+}
+
+// validateValues reads the values provided as args and validates that they are
+// valid UTF-8.
+func (c *configCommand) validateValues(ctx *cmd.Context) (map[string]string, error) {
+	settings := map[string]string{}
+	for k, v := range c.values {
+		//empty string is also valid as a setting value
+		if v == "" {
+			settings[k] = v
+			continue
+		}
+
+		if v[0] != '@' {
+			if !utf8.ValidString(v) {
+				return nil, errors.Errorf("value for option %q contains non-UTF-8 sequences", k)
+			}
+			settings[k] = v
+			continue
+		}
+		nv, err := readValue(ctx, v[1:])
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if !utf8.ValidString(nv) {
+			return nil, errors.Errorf("value for option %q contains non-UTF-8 sequences", k)
+		}
+		settings[k] = nv
+	}
+	return settings, nil
 }
 
 // readValue reads the value of an option out of the named file.
