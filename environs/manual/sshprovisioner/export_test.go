@@ -2,7 +2,7 @@
 // Copyright 2016 Cloudbase Solutions SRL
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package linux
+package sshprovisioner
 
 const (
 	DetectionScript = detectionScript

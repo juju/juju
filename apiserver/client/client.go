@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/manual"
+	"github.com/juju/juju/environs/manual/sshprovisioner"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/permission"
@@ -392,14 +392,7 @@ func (c *Client) ProvisioningScript(args params.ProvisioningScriptParams) (param
 		icfg.EnableOSRefreshUpdate = cfg.EnableOSRefreshUpdate()
 	}
 
-	machine, err := manual.NewScriptProvisioner(icfg)
-	if err != nil {
-		return result, common.ServerError(errors.Annotate(
-			err, "making provisioning object",
-		))
-	}
-
-	result.Script, err = machine.ProvisioningScript()
+	result.Script, err = sshprovisioner.ProvisioningScript(icfg)
 	if err != nil {
 		return result, common.ServerError(errors.Annotate(
 			err, "getting provisioning script",

@@ -24,8 +24,8 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	manualcommon "github.com/juju/juju/environs/manual/common"
-	"github.com/juju/juju/environs/manual/linux"
+	"github.com/juju/juju/environs/manual"
+	"github.com/juju/juju/environs/manual/sshprovisioner"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/names"
@@ -42,8 +42,7 @@ const (
 )
 
 var (
-	logger                 = loggo.GetLogger("juju.provider.manual")
-	manualCheckProvisioned = linux.CheckProvisioned
+	logger = loggo.GetLogger("juju.provider.manual")
 )
 
 type manualEnviron struct {
@@ -103,12 +102,12 @@ func (e *manualEnviron) Create(environs.CreateParams) error {
 
 // Bootstrap is part of the Environ interface.
 func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
-	provisioned, err := manualCheckProvisioned(e.host)
+	provisioned, err := sshprovisioner.CheckProvisioned(e.host)
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to check provisioned status")
 	}
 	if provisioned {
-		return nil, manualcommon.ErrProvisioned
+		return nil, manual.ErrProvisioned
 	}
 	hw, series, err := e.seriesAndHardwareCharacteristics()
 	if err != nil {
@@ -332,7 +331,7 @@ func (e *manualEnviron) seriesAndHardwareCharacteristics() (_ *instance.Hardware
 	if e.hw != nil {
 		return e.hw, e.series, nil
 	}
-	hw, series, err := linux.DetectSeriesAndHardwareCharacteristics(e.host)
+	hw, series, err := sshprovisioner.DetectSeriesAndHardwareCharacteristics(e.host)
 	if err != nil {
 		return nil, "", errors.Trace(err)
 	}

@@ -15,8 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/machine"
-	manualcommon "github.com/juju/juju/environs/manual/common"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/environs/manual"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/storage"
@@ -135,7 +134,7 @@ func (s *AddMachineSuite) TestAddMachineUnauthorizedMentionsJujuGrant(c *gc.C) {
 }
 
 func (s *AddMachineSuite) TestSSHPlacement(c *gc.C) {
-	s.PatchValue(machine.ManualProvisioner, func(args manualcommon.ProvisionMachineArgs, placement *instance.Placement) (string, error) {
+	s.PatchValue(machine.SSHProvisioner, func(args manual.ProvisionMachineArgs) (string, error) {
 		return "42", nil
 	})
 	context, err := s.run(c, "ssh:10.1.2.3")
@@ -144,7 +143,7 @@ func (s *AddMachineSuite) TestSSHPlacement(c *gc.C) {
 }
 
 func (s *AddMachineSuite) TestSSHPlacementError(c *gc.C) {
-	s.PatchValue(machine.ManualProvisioner, func(args manualcommon.ProvisionMachineArgs, placement *instance.Placement) (string, error) {
+	s.PatchValue(machine.SSHProvisioner, func(args manual.ProvisionMachineArgs) (string, error) {
 		return "", errors.New("failed to initialize warp core")
 	})
 	context, err := s.run(c, "ssh:10.1.2.3")

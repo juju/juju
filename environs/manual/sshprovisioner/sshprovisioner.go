@@ -2,7 +2,7 @@
 // Copyright 2016 Cloudbase Solutions SRL
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package linux
+package sshprovisioner
 
 import (
 	"bytes"
@@ -11,21 +11,21 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cloudconfig"
-	"github.com/juju/juju/cloudconfig/cloudinit"
-	"github.com/juju/juju/cloudconfig/instancecfg"
-	"github.com/juju/juju/cloudconfig/sshinit"
-	"github.com/juju/juju/environs/manual/common"
-	"github.com/juju/juju/instance"
-	"github.com/juju/juju/service"
-	"github.com/juju/juju/state/multiwatcher"
-
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/shell"
 	"github.com/juju/utils/ssh"
+
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cloudconfig"
+	"github.com/juju/juju/cloudconfig/cloudinit"
+	"github.com/juju/juju/cloudconfig/instancecfg"
+	"github.com/juju/juju/cloudconfig/sshinit"
+	"github.com/juju/juju/environs/manual"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/service"
+	"github.com/juju/juju/state/multiwatcher"
 )
 
 // InitUbuntuUser adds the ubuntu user if it doesn't
@@ -39,10 +39,7 @@ import (
 //
 // authorizedKeys may be empty, in which case the file
 // will be created and left empty.
-//
-// stdin and stdout will be used for remote sudo prompts,
-// if the ubuntu user must be created/updated.
-func InitUbuntuUser(host, login, authorizedKeys string, stdin io.Reader, stdout io.Writer) error {
+func InitUbuntuUser(host, login, authorizedKeys string, read io.Reader, write io.Writer) error {
 	logger.Infof("initialising %q, user %q", host, login)
 
 	// To avoid unnecessary prompting for the specified login,
@@ -69,8 +66,8 @@ func InitUbuntuUser(host, login, authorizedKeys string, stdin io.Reader, stdout 
 	options.EnablePTY()
 	cmd = ssh.Command(host, []string{"sudo", "/bin/bash -c " + utils.ShQuote(script)}, &options)
 	var stderr bytes.Buffer
-	cmd.Stdin = stdin
-	cmd.Stdout = stdout // for sudo prompt
+	cmd.Stdin = read
+	cmd.Stdout = write
 	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {
 		if stderr.Len() != 0 {
@@ -181,11 +178,6 @@ func checkProvisioned(host string) (bool, error) {
 
 	output := strings.TrimSpace(stdout.String())
 	provisioned := strings.Contains(output, "juju")
-	if provisioned {
-		logger.Infof("%s is already provisioned [%q]", host, output)
-	} else {
-		logger.Infof("%s is not provisioned", host)
-	}
 	return provisioned, nil
 }
 
@@ -211,24 +203,22 @@ func gatherMachineParams(hostname string) (*params.AddMachineParams, error) {
 		return nil, err
 	}
 
-	addr, err := common.HostAddress(hostname)
+	addr, err := manual.HostAddress(hostname)
 	if err != nil {
 		return nil, errors.Annotatef(err, "failed to compute public address for %q", hostname)
 	}
 
 	provisioned, err := checkProvisioned(hostname)
 	if err != nil {
-		err = fmt.Errorf("error checking if provisioned: %v", err)
-		return nil, err
+		return nil, errors.Annotatef(err, "error checking if provisioned")
 	}
 	if provisioned {
-		return nil, common.ErrProvisioned
+		return nil, manual.ErrProvisioned
 	}
 
 	hc, series, err := DetectSeriesAndHardwareCharacteristics(hostname)
 	if err != nil {
-		err = fmt.Errorf("error detecting linux hardware characteristics: %v", err)
-		return nil, err
+		return nil, errors.Annotatef(err, "error detecting linux hardware characteristics")
 	}
 
 	// There will never be a corresponding "instance" that any provider
@@ -236,8 +226,7 @@ func gatherMachineParams(hostname string) (*params.AddMachineParams, error) {
 	// task. The provisioner task will happily remove any and all dead
 	// machines from state, but will ignore the associated instance ID
 	// if it isn't one that the environment provider knows about.
-
-	instanceId := instance.Id(common.ManualInstancePrefix + hostname)
+	instanceId := instance.Id(manual.ManualInstancePrefix + hostname)
 	nonce := fmt.Sprintf("%s:%s", instanceId, uuid.String())
 	machineParams := &params.AddMachineParams{
 		Series:                  series,
@@ -258,30 +247,18 @@ func runProvisionScript(script, host string, progressWriter io.Writer) error {
 	return sshinit.RunConfigureScript(script, params)
 }
 
-// Script type implements common.ScriptProvisioner interface
-// it is used to make/return the a script that will be used for
-// manual provisioning the linux machine.
-type Script struct {
-	icfg *instancecfg.InstanceConfig
-}
-
-// NewScript returns a new instance of Script
-func NewScript(icfg *instancecfg.InstanceConfig) *Script {
-	return &Script{icfg: icfg}
-}
-
 // ProvisioningScript generates a bash script that can be
 // executed on a remote host to carry out the cloud-init
 // configuration.
-func (s *Script) ProvisioningScript() (string, error) {
-	cloudcfg, err := cloudinit.New(s.icfg.Series)
+func ProvisioningScript(icfg *instancecfg.InstanceConfig) (string, error) {
+	cloudcfg, err := cloudinit.New(icfg.Series)
 	if err != nil {
 		return "", errors.Annotate(err, "error generating cloud-config")
 	}
-	cloudcfg.SetSystemUpdate(s.icfg.EnableOSRefreshUpdate)
-	cloudcfg.SetSystemUpgrade(s.icfg.EnableOSUpgrade)
+	cloudcfg.SetSystemUpdate(icfg.EnableOSRefreshUpdate)
+	cloudcfg.SetSystemUpgrade(icfg.EnableOSUpgrade)
 
-	udata, err := cloudconfig.NewUserdataConfig(s.icfg, cloudcfg)
+	udata, err := cloudconfig.NewUserdataConfig(icfg, cloudcfg)
 	if err != nil {
 		return "", errors.Annotate(err, "error generating cloud-config")
 	}
@@ -296,9 +273,9 @@ func (s *Script) ProvisioningScript() (string, error) {
 
 	var buf bytes.Buffer
 	// Always remove the cloud-init-output.log file first, if it exists.
-	fmt.Fprintf(&buf, "rm -f %s\n", utils.ShQuote(s.icfg.CloudInitOutputLog))
+	fmt.Fprintf(&buf, "rm -f %s\n", utils.ShQuote(icfg.CloudInitOutputLog))
 	// If something goes wrong, dump cloud-init-output.log to stderr.
-	buf.WriteString(shell.DumpFileOnErrorScript(s.icfg.CloudInitOutputLog))
+	buf.WriteString(shell.DumpFileOnErrorScript(icfg.CloudInitOutputLog))
 	buf.WriteString(configScript)
 	return buf.String(), nil
 }

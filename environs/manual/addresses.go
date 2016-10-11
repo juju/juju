@@ -1,15 +1,13 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package common
+package manual
 
 import (
 	"net"
 
 	"github.com/juju/juju/network"
 )
-
-var netLookupHost = net.LookupHost
 
 // HostAddress returns an network.Address for the specified
 // hostname, depending on whether it is an IP or a resolvable
