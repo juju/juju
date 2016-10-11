@@ -105,18 +105,24 @@ class Constraints:
     def _meets_string(constraint, actual):
         if constraint is None:
             return True
+        if actual is None:
+            return False
         return constraint == actual
 
     @staticmethod
     def _meets_min_int(constraint, actual):
         if constraint is None:
             return True
+        if actual is None:
+            return False
         return int(constraint) <= int(actual)
 
     @staticmethod
     def _meets_min_mem(constraint, actual):
         if constraint is None:
             return True
+        if actual is None:
+            return False
         return mem_to_int(constraint) <= mem_to_int(actual)
 
     def meets_root_disk(self, actual_root_disk):
@@ -140,6 +146,8 @@ class Constraints:
 
         Currently there is no direct way to check for it, so we 'fingerprint'
         each instance_type in a dictionary."""
+        if self.instance_type is None:
+            return True
         instance_data = get_instance_spec(self.instance_type)
         for (key, value) in instance_data.iteritems():
             # Temperary fix until cpu-cores -> cores switch is finished.
@@ -154,6 +162,13 @@ class Constraints:
                 return False
         else:
             return True
+
+    def meets_all(self, actual_data):
+        return (self.meets_root_disk(actual_data.get('root-disk')) and
+                self.meets_cores(actual_data.get('cores')) and
+                self.meets_cpu_power(actual_data.get('cpu-power')) and
+                self.meets_arch(actual_data.get('arch')) and
+                self.meets_instance_type(actual_data))
 
 
 def deploy_constraint(client, constraints, charm, series, charm_repo):
@@ -197,16 +212,12 @@ def juju_show_machine_hardware(client, machine):
 
 def application_machines(client, application):
     """Get all the machines used to host the given application."""
-    raw = client.get_juju_output('status', '--format', 'yaml')
-    raw_yaml = yaml.load(raw)
-    try:
-        app_data = raw_yaml['applications'][application]
-        machines = []
-        for (unit, unit_data) in app_data['units'].items():
-            machines.append(unit_data['machine'])
-        return machines
-    except KeyError as error:
-        raise KeyError(error.args, raw_yaml)
+    status = client.get_status()
+    app_data = status.get_applications()[application]
+    machines = []
+    for (unit, unit_data) in app_data['units'].items():
+        machines.append(unit_data['machine'])
+    return machines
 
 
 def prepare_constraint_test(client, constraints, charm_name,
@@ -253,6 +264,18 @@ def get_failure_exception(client, constraints):
     message = 'Test Failed: on {} with constraints "{}"'.format(
         client.env.config.get('type'), str(constraints))
     return JujuAssertionError(message)
+
+
+def assess_constraints_deploy(client, constraints, charm_name):
+    """Check a single set of constraints on deploy.
+
+    :param client: Client to deploy the charm to.
+    :param constraints: Constraints used and checked against.
+    :param charm_name: Name of the charm to try deploying.
+    :raises JujuAssertionError if test fails."""
+    data = prepare_constraint_test(client, constraints, charm_name)
+    if not constraints.meets_all(data):
+        raise get_failure_exception(client, constraints)
 
 
 def assess_instance_type(client, provider, instance_type):
