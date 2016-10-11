@@ -271,7 +271,7 @@ func verifyDefaultProfileBridgeConfig(client *lxd.Client, networkAPISupported bo
 		return "", errors.Trace(err)
 	}
 
-	// If the default profile doesn't have eth0 in it, then the user has messed
+	// If the default profile has eth0 in it, then the user has messed
 	// with it, so let's just use whatever they set up.
 	eth0, ok := config.Devices[configEth0]
 	if !ok {
@@ -287,6 +287,10 @@ func verifyDefaultProfileBridgeConfig(client *lxd.Client, networkAPISupported bo
 			return network.DefaultLXDBridge, nil
 		}
 		return "", errors.Errorf("unexpected LXD %q profile config without eth0: %+v", defaultProfileName, config)
+	} else if networkAPISupported {
+		if err := checkBridgeConfig(client, eth0[configParentKey]); err != nil {
+			return "", err
+		}
 	}
 
 	// If eth0 is there, but not with the expected attributes, likewise fail
