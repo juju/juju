@@ -738,10 +738,6 @@ func (environ *maasEnviron) acquireNode2(
 	}
 	if nodeName != "" {
 		acquireParams.Hostname = nodeName
-	} else if cons.Arch == nil {
-		logger.Warningf(
-			"no architecture was specified, acquiring an arbitrary node",
-		)
 	}
 	machine, constraintMatches, err := environ.maasController.AllocateMachine(acquireParams)
 
@@ -758,6 +754,15 @@ func (environ *maasEnviron) acquireNode(
 	interfaces []interfaceBinding,
 	volumes []volumeInfo,
 ) (gomaasapi.MAASObject, error) {
+
+	// TODO(axw) 2014-08-18 #1358219
+	// We should be requesting preferred architectures if unspecified,
+	// like in the other providers.
+	//
+	// This is slightly complicated in MAAS as there are a finite
+	// number of each architecture; preference may also conflict with
+	// other constraints, such as tags. Thus, a preference becomes a
+	// demand (which may fail) if not handled properly.
 
 	acquireParams := convertConstraints(cons)
 	positiveSpaceNames, negativeSpaceNames := convertSpacesFromConstraints(cons.Spaces)
@@ -777,22 +782,6 @@ func (environ *maasEnviron) acquireNode(
 	}
 	if nodeName != "" {
 		acquireParams.Add("name", nodeName)
-	} else if cons.Arch == nil {
-		// TODO(axw) 2014-08-18 #1358219
-		// We should be requesting preferred
-		// architectures if unspecified, like
-		// in the other providers.
-		//
-		// This is slightly complicated in MAAS
-		// as there are a finite number of each
-		// architecture; preference may also
-		// conflict with other constraints, such
-		// as tags. Thus, a preference becomes a
-		// demand (which may fail) if not handled
-		// properly.
-		logger.Warningf(
-			"no architecture was specified, acquiring an arbitrary node",
-		)
 	}
 
 	var result gomaasapi.JSONObject

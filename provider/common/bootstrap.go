@@ -177,8 +177,9 @@ func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args
 	if err != nil {
 		return nil, "", nil, errors.Annotate(err, "cannot start bootstrap instance")
 	}
-	// We need some padding below to overwrite any previous messages. We'll use a width of 40.
-	msg := fmt.Sprintf(" - %s", result.Instance.Id())
+
+	msg := fmt.Sprintf(" - %s (%s)", result.Instance.Id(), formatHardware(result.Hardware))
+	// We need some padding below to overwrite any previous messages.
 	if len(msg) < 40 {
 		padding := make([]string, 40-len(msg))
 		msg += strings.Join(padding, " ")
@@ -203,6 +204,31 @@ func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args
 		return FinishBootstrap(ctx, client, env, result.Instance, icfg, opts)
 	}
 	return result, selectedSeries, finalize, nil
+}
+
+func formatHardware(hw *instance.HardwareCharacteristics) string {
+	if hw == nil {
+		return ""
+	}
+	out := make([]string, 0, 3)
+	if hw.Arch != nil && *hw.Arch != "" {
+		out = append(out, fmt.Sprintf("arch=%s", *hw.Arch))
+	}
+	if hw.Mem != nil && *hw.Mem > 0 {
+		out = append(out, fmt.Sprintf("mem=%s", formatMemory(*hw.Mem)))
+	}
+	if hw.CpuCores != nil && *hw.CpuCores > 0 {
+		out = append(out, fmt.Sprintf("cores=%d", *hw.CpuCores))
+	}
+	return strings.Join(out, " ")
+}
+
+func formatMemory(m uint64) string {
+	if m < 1024 {
+		return fmt.Sprintf("%dM", m)
+	}
+	s := fmt.Sprintf("%.1f", float32(m)/1024.0)
+	return strings.TrimSuffix(s, ".0") + "G"
 }
 
 // FinishBootstrap completes the bootstrap process by connecting
