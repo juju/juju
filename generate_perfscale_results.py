@@ -144,7 +144,7 @@ def output_test_run_length(timing):
 
 def _determine_graph_period(cleanup_timing):
     """Given a tests length determine what graphing period is needed."""
-    if cleanup_timing.seconds > (MINUTE * 60 * 8):
+    if cleanup_timing.seconds >= (MINUTE * 60 * 2):
         return perf_graphing.GraphPeriod.day
     return perf_graphing.GraphPeriod.hours
 
@@ -279,7 +279,7 @@ def create_report_graph(rrd_dir, output_dir, name, generator, graph_period):
 def generate_cpu_graph_image(results_dir, graph_period):
     return generate_graph_image(
         results_dir,
-        'aggregation-cpu-average',
+        'aggregation-cpu-max',
         'cpu',
         perf_graphing.cpu_graph,
         graph_period)
@@ -375,7 +375,7 @@ def assess_longrun_perf(bs_manager, test_length):
     longrun_end = datetime.utcnow()
     timing_data = TimingData(longrun_start, longrun_end)
     return DeployDetails(
-        'Longrun for {}.'.format(test_length/60/60),
+        'Longrun for {} Hours.'.format(test_length/60/60),
         {'Total action runs': run_count},
         timing_data
     )

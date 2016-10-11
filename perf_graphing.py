@@ -210,7 +210,7 @@ def cpu_graph(start, end, rrd_path, output_file):
             '-n', GraphDefaults.font,
             '-v', 'Jiffies',
             '--alt-autoscale-max',
-            '-t', 'CPU Average',
+            '-t', 'CPU Aggregated Max',
             '-u', '100',
             '-r',
             'DEF:idle_avg={}/cpu-idle.rrd:value:AVERAGE'.format(rrd_path),
