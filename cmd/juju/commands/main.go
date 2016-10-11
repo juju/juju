@@ -384,6 +384,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	// Manage clouds and credentials
 	r.Register(cloud.NewUpdateCloudsCommand())
 	r.Register(cloud.NewListCloudsCommand())
+	r.Register(cloud.NewListRegionsCommand())
 	r.Register(cloud.NewShowCloudCommand())
 	r.Register(cloud.NewAddCloudCommand())
 	r.Register(cloud.NewRemoveCloudCommand())

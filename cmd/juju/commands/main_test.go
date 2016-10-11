@@ -451,6 +451,7 @@ var commandNames = []string{
 	"list-machines",
 	"list-models",
 	"list-plans",
+	"list-regions",
 	"list-ssh-keys",
 	"list-spaces",
 	"list-storage",
@@ -465,6 +466,7 @@ var commandNames = []string{
 	"model-defaults",
 	"models",
 	"plans",
+	"regions",
 	"register",
 	"relate", //alias for add-relation
 	"remove-application",
