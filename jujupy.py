@@ -1899,7 +1899,7 @@ class EnvJujuClient:
 
     def enable_ha(self):
         self.juju(
-            'enable-ha', ('-n', '3', '-c', self.get_controller_model_name()),
+            'enable-ha', ('-n', '3', '-c', self.env.controller.name),
             include_e=False)
 
     def action_fetch(self, id, action=None, timeout="1m"):

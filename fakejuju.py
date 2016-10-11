@@ -48,6 +48,7 @@ def assert_juju_call(test_case, mock_method, client, expected_args,
 class FakeControllerState:
 
     def __init__(self):
+        self.name = 'name'
         self.state = 'not-bootstrapped'
         self.models = {}
         self.users = {
@@ -626,7 +627,9 @@ class FakeBackend:
                 parser.add_argument('-n', '--number')
                 parser.add_argument('-c', '--controller')
                 parsed = parser.parse_args(args)
-                model_state = self.controller_state.models[parsed.controller]
+                if not self.controller_state.name == parsed.controller:
+                    raise AssertionError('Test does not setup controller name')
+                model_state = self.controller_state.controller_model
                 model_state.enable_ha()
             if command == 'add-model':
                 if not self.is_feature_enabled('jes'):
