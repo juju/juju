@@ -54,6 +54,8 @@ func NewHighAvailabilityAPI(st *state.State, resources facade.Resources, authori
 	}, nil
 }
 
+// EnableHA adds controller machines as necessary to ensure the
+// controller has the number of machines specified.
 func (api *HighAvailabilityAPI) EnableHA(args params.ControllersSpecs) (params.ControllersChangeResults, error) {
 	results := params.ControllersChangeResults{Results: make([]params.ControllersChangeResult, len(args.Specs))}
 	for i, controllersServersSpec := range args.Specs {
@@ -67,7 +69,7 @@ func (api *HighAvailabilityAPI) EnableHA(args params.ControllersSpecs) (params.C
 			}
 
 		}
-		result, err := EnableHASingle(api.state, controllersServersSpec)
+		result, err := enableHASingle(api.state, controllersServersSpec)
 		results.Results[i].Result = result
 		results.Results[i].Error = common.ServerError(err)
 	}
@@ -95,9 +97,7 @@ func controllersChanges(change state.ControllersChanges) params.ControllersChang
 	}
 }
 
-// EnableHASingle applies a single ControllersServersSpec specification to the current environment.
-// Exported so it can be called by the legacy client API in the client package.
-func EnableHASingle(st *state.State, spec params.ControllersSpec) (params.ControllersChanges, error) {
+func enableHASingle(st *state.State, spec params.ControllersSpec) (params.ControllersChanges, error) {
 	if !st.IsController() {
 		return params.ControllersChanges{}, errors.New("unsupported with hosted models")
 	}
