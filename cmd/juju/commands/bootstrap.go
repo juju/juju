@@ -30,8 +30,10 @@ import (
 	"github.com/juju/juju/environs/sync"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/lxd/lxdnames"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -591,8 +593,20 @@ See `[1:] + "`juju kill-controller`" + `.`)
 	if c.AgentVersion != nil {
 		agentVersion = *c.AgentVersion
 	}
-	err = common.SetBootstrapEndpointAddress(c.ClientStore(), c.controllerName, agentVersion, config.controller.APIPort(), environ)
+	addrs, err := common.BootstrapEndpointAddresses(environ)
 	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := juju.UpdateControllerDetailsFromLogin(
+		c.ClientStore(),
+		c.controllerName,
+		juju.UpdateControllerParams{
+			AgentVersion:           agentVersion.String(),
+			CurrentHostPorts:       [][]network.HostPort{network.AddressesWithPort(addrs, config.controller.APIPort())},
+			MachineCount:           newInt(1),
+			ControllerMachineCount: newInt(1),
+			ModelCount:             newInt(2), // controller model + default model
+		}); err != nil {
 		return errors.Annotate(err, "saving bootstrap endpoint address")
 	}
 
@@ -1076,4 +1090,8 @@ func handleChooseCloudRegionError(ctx *cmd.Context, err error) error {
 		err, "juju update-clouds",
 	)
 	return cmd.ErrSilent
+}
+
+func newInt(i int) *int {
+	return &i
 }

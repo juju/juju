@@ -81,6 +81,13 @@ type Server struct {
 	// mu guards the fields below it.
 	mu sync.Mutex
 
+	// publicDNSName_ holds the value that will be returned in
+	// LoginResult.PublicDNSName. Currently this is set once from
+	// AutocertDNSName and does not change but in the future it
+	// may change when a server certificate is explicitly set,
+	// hence it's here guarded by the mutex.
+	publicDNSName_ string
+
 	// cert holds the current certificate used for tls.Config.
 	cert *tls.Certificate
 
@@ -213,6 +220,7 @@ func newServer(s *state.State, lis net.Listener, cfg ServerConfig) (_ *Server, e
 		centralHub:                    cfg.Hub,
 		certChanged:                   cfg.CertChanged,
 		allowModelAccess:              cfg.AllowModelAccess,
+		publicDNSName_:                cfg.AutocertDNSName,
 		registerIntrospectionHandlers: cfg.RegisterIntrospectionHandlers,
 	}
 
@@ -734,6 +742,13 @@ func (srv *Server) mongoPinger() error {
 			return tomb.ErrDying
 		}
 	}
+}
+
+// publicDNSName returns the current public hostname.
+func (srv *Server) publicDNSName() string {
+	srv.mu.Lock()
+	defer srv.mu.Unlock()
+	return srv.publicDNSName_
 }
 
 // localCertificate returns the local server certificate and reports

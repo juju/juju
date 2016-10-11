@@ -90,6 +90,11 @@ type state struct {
 	// which the client may cache and use for failover.
 	hostPorts [][]network.HostPort
 
+	// publicDNSName is the public host name returned from Login
+	// which the client can use to make a connection verified
+	// by an officially signed certificate.
+	publicDNSName string
+
 	// facadeVersions holds the versions of all facades as reported by
 	// Login
 	facadeVersions map[string][]int
@@ -815,6 +820,14 @@ func (s *state) APIHostPorts() [][]network.HostPort {
 		hostPorts[i] = append([]network.HostPort{}, server...)
 	}
 	return hostPorts
+}
+
+// PublicDNSName returns the host name for which an officially
+// signed certificate will be used for TLS connection to the server.
+// If empty, the private Juju CA certificate must be used to verify
+// the connection.
+func (s *state) PublicDNSName() string {
+	return s.publicDNSName
 }
 
 // AllFacadeVersions returns what versions we know about for all facades
