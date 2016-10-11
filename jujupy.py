@@ -479,13 +479,19 @@ class Status:
                 continue
             yield machine, data
 
+    def _iter_units_in_application(self, app_data):
+        """Given application data, iterate through every unit in it."""
+        for unit_name, unit in sorted(app_data.get('units', {}).items()):
+            yield unit_name, unit
+            subordinates = unit.get('subordinates', ())
+            for sub_name in sorted(subordinates):
+                yield sub_name, subordinates[sub_name]
+
     def iter_units(self):
+        """Iterate over every unit in every application."""
         for service_name, service in sorted(self.get_applications().items()):
-            for unit_name, unit in sorted(service.get('units', {}).items()):
-                yield unit_name, unit
-                subordinates = unit.get('subordinates', ())
-                for sub_name in sorted(subordinates):
-                    yield sub_name, subordinates[sub_name]
+            for name, data in self._iter_units_in_application(service):
+                yield name, data
 
     def agent_items(self):
         for machine_name, machine in self.iter_machines(containers=True):
@@ -493,22 +499,31 @@ class Status:
         for unit_name, unit in self.iter_units():
             yield unit_name, unit
 
+    def unit_agent_states(self, states=None):
+        """Fill in a dictionary with the states of units.
+
+        Units of a dying application are marked as dying.
+
+        :param states: If not None, when it should be a defaultdict(list)),
+        then states are added to this dictionary."""
+        if states is None:
+            states = defaultdict(list)
+        for app_name, app_data in sorted(self.get_applications().items()):
+            if app_data.get('life') == 'dying':
+                for unit, data in self._iter_units_in_application(app_data):
+                    states['dying'].append(unit)
+            else:
+                for unit, data in self._iter_units_in_application(app_data):
+                    states[coalesce_agent_status(data)].append(unit)
+        return states
+
     def agent_states(self):
         """Map agent states to the units and machines in those states."""
         states = defaultdict(list)
-        for item_name, item in self.agent_items():
+        for item_name, item in self.iter_machines(containers=True):
             states[coalesce_agent_status(item)].append(item_name)
+        self.unit_agent_states(states)
         return states
-
-    def any_dying(self):
-        """Check if any applications are dying, shown by the life entry."""
-        # We check both the new and old name.
-        applications = self.get_applications()
-        for (app_name, app_value) in applications.iteritems():
-            life = app_value.get('life')
-            if life is not None and life == 'dying':
-                return True
-        return False
 
     def check_agents_started(self, environment_name=None):
         """Check whether all agents are in the 'started' state.
@@ -523,7 +538,7 @@ class Status:
             if bad_state_info.match(state_info):
                 raise ErroredUnit(item_name, state_info)
         states = self.agent_states()
-        if set(states.keys()).issubset(AGENTS_READY) and not self.any_dying():
+        if set(states.keys()).issubset(AGENTS_READY):
             return None
         for state, entries in states.items():
             if 'error' in state:
