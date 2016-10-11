@@ -1,3 +1,4 @@
+from collections import defaultdict
 from contextlib import contextmanager
 import copy
 from datetime import (
@@ -5750,6 +5751,17 @@ class TestStatus(FakeHomeTestCase):
             ('1/lxc/0', {'baz': 'qux'}),
         ])
 
+    def test__iter_units_in_application(self):
+        status = Status({}, '')
+        app_status = {
+            'units': {'jenkins/1': {'subordinates': {'sub': {'baz': 'qux'}}}}
+            }
+        expected = [
+            ('jenkins/1', {'subordinates': {'sub': {'baz': 'qux'}}}),
+            ('sub', {'baz': 'qux'})]
+        self.assertItemsEqual(expected,
+                              status._iter_units_in_application(app_status))
+
     def test_agent_items_empty(self):
         status = Status({'machines': {}, 'applications': {}}, '')
         self.assertItemsEqual([], status.agent_items())
@@ -5782,23 +5794,54 @@ class TestStatus(FakeHomeTestCase):
             'machines': {
                 '1': {'foo': 'bar', 'containers': {
                     '2': {'qux': 'baz'},
-                }}
-            },
+                    }}
+                },
             'applications': {}
-        }, '')
+            }, '')
         expected = [
             ('1', {'foo': 'bar', 'containers': {'2': {'qux': 'baz'}}}),
             ('2', {'qux': 'baz'})
-        ]
+            ]
         self.assertItemsEqual(expected, status.agent_items())
+
+    def get_unit_agent_states_data(self):
+        status = Status({
+            'applications': {
+                'jenkins': {
+                    'units': {'jenkins/0': {'agent-state': 'good'},
+                              'jenkins/1': {'agent-state': 'bad'}},
+                    },
+                'fakejob': {
+                    'life': 'dying',
+                    'units': {'fakejob/0': {'agent-state': 'good'}},
+                    },
+                }
+            }, '')
+        expected = {
+            'good': ['jenkins/0'],
+            'bad': ['jenkins/1'],
+            'dying': ['fakejob/0'],
+            }
+        return status, expected
+
+    def test_unit_agent_states_new(self):
+        (status, expected) = self.get_unit_agent_states_data()
+        actual = status.unit_agent_states()
+        self.assertEqual(expected, actual)
+
+    def test_unit_agent_states_existing(self):
+        (status, expected) = self.get_unit_agent_states_data()
+        actual = defaultdict(list)
+        status.unit_agent_states(actual)
+        self.assertEqual(expected, actual)
 
     def test_get_service_count_zero(self):
         status = Status({
             'machines': {
                 '1': {'agent-state': 'good'},
                 '2': {},
-            },
-        }, '')
+                },
+            }, '')
         self.assertEqual(0, status.get_service_count())
 
     def test_get_service_count(self):
@@ -6012,6 +6055,33 @@ class TestStatus(FakeHomeTestCase):
         }
         self.assertEqual(expected, status.agent_states())
 
+    def test_agent_states_with_dying(self):
+        status = Status({
+            'machines': {},
+            'applications': {
+                'jenkins': {
+                    'life': 'alive',
+                    'units': {
+                        'jenkins/1': {'juju-status': {'current': 'bad'}},
+                        'jenkins/2': {'juju-status': {'current': 'good'}},
+                        }
+                    },
+                'fakejob': {
+                    'life': 'dying',
+                    'units': {
+                        'fakejob/1': {'juju-status': {'current': 'bad'}},
+                        'fakejob/2': {'juju-status': {'current': 'good'}},
+                        }
+                    },
+                }
+            }, '')
+        expected = {
+            'good': ['jenkins/2'],
+            'bad': ['jenkins/1'],
+            'dying': ['fakejob/1', 'fakejob/2'],
+            }
+        self.assertEqual(expected, status.agent_states())
+
     def test_check_agents_started_not_started(self):
         status = Status({
             'machines': {
@@ -6052,7 +6122,7 @@ class TestStatus(FakeHomeTestCase):
                 }
             }
         }, '')
-        self.assertIs(None, status.check_agents_started('env1'))
+        self.assertIsNone(status.check_agents_started('env1'))
 
     def test_check_agents_started_all_started_with_agent_status(self):
         status = Status({
@@ -6076,7 +6146,33 @@ class TestStatus(FakeHomeTestCase):
                 }
             }
         }, '')
-        self.assertIs(None, status.check_agents_started('env1'))
+        self.assertIsNone(status.check_agents_started('env1'))
+
+    def test_check_agents_started_dying(self):
+        status = Status({
+            'machines': {
+                '1': {'agent-state': 'started'},
+                '2': {'agent-state': 'started'},
+                },
+            'applications': {
+                'jenkins': {
+                    'units': {
+                        'jenkins/1': {
+                            'agent-status': {'current': 'idle'},
+                            'subordinates': {
+                                'sub1': {
+                                    'agent-status': {'current': 'idle'}
+                                    }
+                                }
+                            },
+                        'jenkins/2': {'agent-status': {'current': 'idle'}},
+                        },
+                    'life': 'dying',
+                    }
+                }
+            }, '')
+        self.assertEqual(status.agent_states(),
+                         status.check_agents_started('env1'))
 
     def test_check_agents_started_agent_error(self):
         status = Status({
