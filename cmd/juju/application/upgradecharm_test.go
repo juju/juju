@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http/httptest"
+	"os"
 	"path"
 	"path/filepath"
 
@@ -14,7 +15,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
@@ -25,6 +25,8 @@ import (
 	charmstore "gopkg.in/juju/charmstore.v5-unstable"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 	macaroon "gopkg.in/macaroon.v1"
+
+	"strings"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/application"
@@ -409,25 +411,41 @@ func (s *UpgradeCharmSuccessStateSuite) TestForcedSeriesUpgrade(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ch.Revision(), gc.Equals, 1)
 
-	// Copy files from a charm supporting a different set of series
-	// so we can try an upgrade requiring --force-series.
-	for _, f := range []string{"metadata.yaml", "revision"} {
-		err = utils.CopyFile(
-			filepath.Join(path, f),
-			filepath.Join(testcharms.Repo.CharmDirPath("multi-series2"), f))
-		c.Assert(err, jc.ErrorIsNil)
+	// Overwrite the metadata.yaml to change the supported series.
+	metadataPath := filepath.Join(path, "metadata.yaml")
+	file, err := os.OpenFile(metadataPath, os.O_TRUNC|os.O_RDWR, 0666)
+	if err != nil {
+		c.Fatal(errors.Annotate(err, "cannot open metadata.yaml for overwriting"))
 	}
+	defer file.Close()
+
+	metadata := strings.Join(
+		[]string{
+			`name: multi-series`,
+			`summary: "That's a dummy charm with multi-series."`,
+			`description: |`,
+			`    This is a longer description which`,
+			`    potentially contains multiple lines.`,
+			`series:`,
+			`    - trusty`,
+			`    - wily`,
+		},
+		"\n",
+	)
+	if _, err := file.WriteString(metadata); err != nil {
+		c.Fatal(errors.Annotate(err, "cannot write to metadata.yaml"))
+	}
+
 	err = runUpgradeCharm(c, "multi-series", "--path", path, "--force-series")
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = application.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
+
 	ch, force, err := application.Charm()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ch.Revision(), gc.Equals, 8)
-	c.Assert(force, gc.Equals, false)
-	s.AssertCharmUploaded(c, ch.URL())
-	c.Assert(ch.URL().String(), gc.Equals, "local:precise/multi-series2-8")
+	c.Check(ch.Revision(), gc.Equals, 2)
+	c.Check(force, gc.Equals, false)
 }
 
 func (s *UpgradeCharmSuccessStateSuite) TestInitWithResources(c *gc.C) {
@@ -500,7 +518,19 @@ func (s *UpgradeCharmSuccessStateSuite) TestCharmPathNoRevUpgrade(c *gc.C) {
 
 func (s *UpgradeCharmSuccessStateSuite) TestCharmPathDifferentNameFails(c *gc.C) {
 	myriakPath := testcharms.Repo.RenamedClonedDirPath(s.CharmsPath, "riak", "myriak")
-	err := runUpgradeCharm(c, "riak", "--path", myriakPath)
+	metadataPath := filepath.Join(myriakPath, "metadata.yaml")
+	file, err := os.OpenFile(metadataPath, os.O_TRUNC|os.O_RDWR, 0666)
+	if err != nil {
+		c.Fatal(errors.Annotate(err, "cannot open metadata.yaml"))
+	}
+	defer file.Close()
+
+	// Overwrite the metadata.yaml to contain a new name.
+	newMetadata := strings.Join([]string{`name: myriak`, `summary: ""`, `description: ""`}, "\n")
+	if _, err := file.WriteString(newMetadata); err != nil {
+		c.Fatal("cannot write to metadata.yaml")
+	}
+	err = runUpgradeCharm(c, "riak", "--path", myriakPath)
 	c.Assert(err, gc.ErrorMatches, `cannot upgrade "riak" to "myriak"`)
 }
 

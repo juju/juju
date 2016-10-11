@@ -6,7 +6,6 @@ package application
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/juju/cmd"
@@ -269,7 +268,7 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 	charmUpgradeClient := c.NewCharmUpgradeClient(apiRoot)
 	oldURL, err := charmUpgradeClient.GetCharmURL(c.ApplicationName)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	newRef := c.SwitchURL
@@ -300,9 +299,15 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 	charmRepo := c.getCharmStore(bakeryClient, modelConfig)
 	chID, csMac, err := c.addCharm(charmAdder, charmRepo, modelConfig, oldURL, newRef)
 	if err != nil {
-		if err1, ok := errors.Cause(err).(*termsRequiredError); ok {
-			terms := strings.Join(err1.Terms, " ")
-			return errors.Errorf(`Declined: please agree to the following terms %s. Try: "juju agree %s"`, terms, terms)
+		if termsErr, ok := errors.Cause(err).(*termsRequiredError); ok {
+			terms := strings.Join(termsErr.Terms, " ")
+			return errors.Wrap(
+				termsErr,
+				errors.Errorf(
+					`Declined: please agree to the following terms %s. Try: "juju agree %[1]s"`,
+					terms,
+				),
+			)
 		}
 		return block.ProcessBlockedError(err, block.BlockChange)
 	}
@@ -499,7 +504,7 @@ func (c *upgradeCharmCommand) addCharm(
 	// Charm may have been supplied via a path reference.
 	ch, newURL, err := charmrepo.NewCharmAtPathForceSeries(charmRef, oldURL.Series, c.ForceSeries)
 	if err == nil {
-		_, newName := filepath.Split(charmRef)
+		newName := ch.Meta().Name
 		if newName != oldURL.Name {
 			return id, nil, errors.Errorf("cannot upgrade %q to %q", oldURL.Name, newName)
 		}
