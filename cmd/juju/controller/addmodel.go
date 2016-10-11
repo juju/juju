@@ -55,14 +55,21 @@ type addModelCommand struct {
 
 const addModelHelpDoc = `
 Adding a model is typically done in order to run a specific workload.
-To add a model, you must at a minimum specify a model name. You may
-also supply model-specific configuration, a credential, and which
-cloud/region to deploy the model to. The cloud/region and credentials
-are the ones used to create any future resources within the model.
 
+To add a model, you must specify a model name. 
 Model names can be duplicated across controllers but must be unique for
 any given controller. Model names may only contain lowercase letters,
 digits and hyphens, and may not start with a hyphen.
+
+You may also supply model-specific configuration, a credential, and which
+cloud/region to deploy the model to. The cloud/region and credentials
+are the ones used to create any future resources within the model.
+
+Credentials are always used when adding a model.
+If you are the admin user, your credentials will already be stored in the controller. 
+If you are another user with add-model permission, 
+you will need to specify what credential you want to use the first time a model is added. 
+You may need to run juju add-credential first to make Juju aware of any credential you want to use.
 
 Credential names are specified either in the form "credential-name", or
 "credential-owner/credential-name". There is currently no way to acquire
