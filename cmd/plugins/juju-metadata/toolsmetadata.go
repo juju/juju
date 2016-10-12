@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
@@ -35,7 +36,7 @@ type toolsMetadataCommand struct {
 	public      bool
 }
 
-var toolsMetadataDoc = `
+const toolsMetadataDoc = `
 generate-tools creates simplestreams tools metadata.
 
 This command works by scanning a directory for tools tarballs from which to generate
@@ -60,22 +61,17 @@ use the --clean option.
 
 Examples:
 
-  - generate metadata for "released" tools, looking in the "releases" directory:
+# generate metadata for "released":
+juju metadata generate-tools -d <workingdir>
 
-   juju metadata generate-tools -d <workingdir>
+# generate metadata for "released":
+juju metadata generate-tools -d <workingdir> --stream released
 
-  - generate metadata for "released" tools, looking in the "released" directory:
+# generate metadata for "proposed":
+juju metadata generate-tools -d <workingdir> --stream proposed
 
-   juju metadata generate-tools -d <workingdir> --stream released
-
-  - generate metadata for "proposed" tools, looking in the "proposed" directory:
-
-   juju metadata generate-tools -d <workingdir> --stream proposed
-
-  - generate metadata for "proposed" tools, first removing existing "proposed" metadata:
-
-   juju metadata generate-tools -d <workingdir> --stream proposed --clean
-
+# generate metadata for "proposed", first removing existing "proposed" metadata:
+juju metadata generate-tools -d <workingdir> --stream proposed --clean
 `
 
 func (c *toolsMetadataCommand) Info() *cmd.Info {
@@ -88,10 +84,12 @@ func (c *toolsMetadataCommand) Info() *cmd.Info {
 
 func (c *toolsMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.metadataDir, "d", "", "local directory in which to store metadata")
-	// If no stream is specified, we'll generate metadata for the legacy tools location.
-	f.StringVar(&c.stream, "stream", "", "simplestreams stream for which to generate the metadata")
-	f.BoolVar(&c.clean, "clean", false, "remove any existing metadata for the specified stream before generating new metadata")
-	f.BoolVar(&c.public, "public", false, "tools are for a public cloud, so generate mirrors information")
+	f.StringVar(&c.stream, "stream", envtools.ReleasedStream,
+		"simplestreams stream for which to generate the metadata")
+	f.BoolVar(&c.clean, "clean", false,
+		"remove any existing metadata for the specified stream before generating new metadata")
+	f.BoolVar(&c.public, "public", false,
+		"tools are for a public cloud, so generate mirrors information")
 }
 
 func (c *toolsMetadataCommand) Run(context *cmd.Context) error {
@@ -108,40 +106,32 @@ func (c *toolsMetadataCommand) Run(context *cmd.Context) error {
 
 	sourceStorage, err := filestorage.NewFileStorageReader(c.metadataDir)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
-	// We now store the tools in a directory named after their stream, but the
-	// legacy behaviour is to store all tools in a single "releases" directory.
-	toolsDir := c.stream
-	if c.stream == "" {
-		fmt.Fprintln(context.Stdout, "No stream specified, defaulting to released tools in the releases directory.")
-		c.stream = envtools.ReleasedStream
-		toolsDir = envtools.LegacyReleaseDirectory
-	}
 	fmt.Fprintf(context.Stdout, "Finding tools in %s for stream %s.\n", c.metadataDir, c.stream)
-	toolsList, err := envtools.ReadList(sourceStorage, toolsDir, -1, -1)
+	toolsList, err := envtools.ReadList(sourceStorage, c.stream, -1, -1)
 	if err == envtools.ErrNoTools {
 		var source string
 		source, err = envtools.ToolsURL(envtools.DefaultBaseURL)
 		if err != nil {
-			return err
+			return errors.Trace(err)
 		}
 		toolsList, err = envtools.FindToolsForCloud(toolsDataSources(source), simplestreams.CloudSpec{}, c.stream, -1, -1, coretools.Filter{})
 	}
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	targetStorage, err := filestorage.NewFileStorageWriter(c.metadataDir)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	writeMirrors := envtools.DoNotWriteMirrors
 	if c.public {
 		writeMirrors = envtools.WriteMirrors
 	}
-	return mergeAndWriteMetadata(targetStorage, toolsDir, c.stream, c.clean, toolsList, writeMirrors)
+	return errors.Trace(mergeAndWriteMetadata(targetStorage, c.stream, c.stream, c.clean, toolsList, writeMirrors))
 }
 
 func toolsDataSources(urls ...string) []simplestreams.DataSource {
