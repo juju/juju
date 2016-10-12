@@ -1088,22 +1088,26 @@ func (s *MachineSuite) TestCertificateDNSUpdatedInvalidPrivateKey(c *gc.C) {
 func (s *MachineSuite) testCertificateDNSUpdated(c *gc.C, a *MachineAgent) {
 	// Disable the certificate worker so that the certificate could
 	// only have been updated during agent startup.
-	started := make(chan struct{}, 16)
 	newUpdater := func(certupdater.AddressWatcher, certupdater.StateServingInfoGetter, certupdater.ControllerConfigGetter,
 		certupdater.APIHostPortsGetter, certupdater.StateServingInfoSetter,
 	) worker.Worker {
-		started <- struct{}{}
 		return worker.NewNoOpWorker()
 	}
 	s.PatchValue(&newCertificateUpdater, newUpdater)
+
+	// Set up a channel which fires when State is opened.
+	started := make(chan struct{}, 16)
+	s.PatchValue(&reportOpenedState, func(*state.State) {
+		started <- struct{}{}
+	})
 
 	// Start the agent.
 	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
 	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
 
-	// Wait for the the certupdater start func to be called. Once this
-	// is called we know that the agent's initial startup has happened.
-	s.assertChannelActive(c, started, "cert updater to be started")
+	// Wait for State to be opened. Once this occurs we know that the
+	// agent's initial startup has happened.
+	s.assertChannelActive(c, started, "agent to start up")
 
 	// Check that certificate was updated when the agent started.
 	stateInfo, _ := a.CurrentConfig().StateServingInfo()
