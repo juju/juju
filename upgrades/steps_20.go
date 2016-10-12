@@ -20,6 +20,13 @@ func stateStepsFor20() []Step {
 				return state.StripLocalUserDomain(context.State())
 			},
 		},
+		&upgradeStep{
+			description: "rename addmodel permission to add-model",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.RenameAddModelPermission(context.State())
+			},
+		},
 	}
 }
 

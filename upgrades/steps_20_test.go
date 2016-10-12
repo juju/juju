@@ -31,6 +31,12 @@ func (s *steps20Suite) TestStripLocalUserDomain(c *gc.C) {
 	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})
 }
 
+func (s *steps20Suite) TestRenameAddModelPermission(c *gc.C) {
+	step := findStateStep(c, v200, "rename addmodel permission to add-model")
+	// Logic for step itself is tested in state package.
+	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})
+}
+
 func (s *steps20Suite) TestCharmGetCacheDir(c *gc.C) {
 	// Create a cache directory with some stuff in it.
 	dataDir := c.MkDir()
