@@ -135,16 +135,8 @@ this command again with the "--force" flag.
 	if err != nil {
 		return errors.Trace(err)
 	}
-	apictx, err := c.APIContext()
-	if err != nil {
+	if err := c.ClearControllerMacaroons(details.APIEndpoints); err != nil {
 		return errors.Trace(err)
-	}
-
-	for _, s := range details.APIEndpoints {
-		apictx.Jar.RemoveAllHost(s)
-	}
-	if err := apictx.Jar.Save(); err != nil {
-		return errors.Annotate(err, "can't remove cached authentication cookie")
 	}
 
 	// Remove the account credentials.
