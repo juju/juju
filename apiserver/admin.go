@@ -157,6 +157,12 @@ func (a *admin) login(req params.LoginRequest, loginVersion int) (params.LoginRe
 			return fail, errors.Trace(err)
 		}
 		maybeUserInfo.LastConnection = lastConnection
+	} else {
+		if controllerOnlyLogin {
+			logger.Debugf("controller login: %s", entity.Tag())
+		} else {
+			logger.Debugf("model login: %s for %s", entity.Tag(), a.root.state.ModelTag().Id())
+		}
 	}
 
 	// Fetch the API server addresses from state.
@@ -164,7 +170,6 @@ func (a *admin) login(req params.LoginRequest, loginVersion int) (params.LoginRe
 	if err != nil {
 		return fail, errors.Trace(err)
 	}
-	logger.Debugf("hostPorts: %v", hostPorts)
 
 	model, err := a.root.state.Model()
 	if err != nil {
@@ -247,9 +252,10 @@ func (a *admin) checkUserPermissions(userTag names.UserTag, controllerOnlyLogin 
 		}
 	}
 	if controllerOnlyLogin {
-		logger.Debugf("user %s has controller access %q", userTag.Id(), controllerAccess)
+		logger.Debugf("controller login: user %s has %q access", userTag.Id(), controllerAccess)
 	} else {
-		logger.Debugf("user %s has controller access %q; model access %q", userTag.Id(), controllerAccess, modelAccess)
+		logger.Debugf("model login: user %s has %q for controller; %q for model %s",
+			userTag.Id(), controllerAccess, modelAccess, a.root.state.ModelTag().Id())
 	}
 	return &params.AuthUserInfo{
 		Identity:         userTag.String(),

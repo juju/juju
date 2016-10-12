@@ -52,11 +52,9 @@ func validateModelUUID(args validateArgs) (string, error) {
 		if args.strict {
 			return "", errors.Trace(common.UnknownModelError(args.modelUUID))
 		}
-		logger.Debugf("validate model uuid: empty modelUUID")
 		return ssState.ModelUUID(), nil
 	}
 	if args.modelUUID == ssState.ModelUUID() {
-		logger.Debugf("validate model uuid: controller model - %s", args.modelUUID)
 		return args.modelUUID, nil
 	}
 	if args.controllerModelOnly {
@@ -69,6 +67,5 @@ func validateModelUUID(args validateArgs) (string, error) {
 	if _, err := ssState.GetModel(modelTag); err != nil {
 		return "", errors.Wrap(err, common.UnknownModelError(args.modelUUID))
 	}
-	logger.Debugf("validate model uuid: %s", args.modelUUID)
 	return args.modelUUID, nil
 }
