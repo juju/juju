@@ -3201,16 +3201,14 @@ class TestEnvJujuClient(ClientTest):
         machines:
           "0":
             series: xenial
-          "1":
-            series: trusty
         """
         env = JujuData('foo')
         client = EnvJujuClient(env, None, None)
         with patch.object(client, 'get_juju_output', autospec=True,
                           return_value=output) as mock:
-            data = client.show_machine('1')
-        mock.assert_called_once_with('show-machine', '1', '--format', 'yaml')
-        data = {'machines': {'1': {'series': 'trusty'}}}
+            data = client.show_machine('0')
+        mock.assert_called_once_with('show-machine', '0', '--format', 'yaml')
+        self.assertEqual({'machines': {'0': {'series': 'xenial'}}}, data)
 
     def test_ssh_keys(self):
         client = EnvJujuClient(JujuData('foo'), None, None)

@@ -8,8 +8,6 @@ import os
 import sys
 import re
 
-import yaml
-
 from deploy_stack import (
     BootstrapManager,
     )
@@ -220,9 +218,8 @@ def application_machines(client, application):
     """Get all the machines used to host the given application."""
     status = client.get_status()
     app_data = status.get_applications()[application]
-    machines = []
-    for (unit, unit_data) in app_data['units'].items():
-        machines.append(unit_data['machine'])
+    machines = [unit_data['machine'] for unit_data in
+                app_data['units'].itervalues()]
     return machines
 
 
@@ -332,6 +329,26 @@ def assess_cpu_power_constraints(client, values):
         assess_constraints_deploy(client, constraints, charm_name)
 
 
+def assess_multiple_constraints(client, base_name, **kwargs):
+    """Assess deployment with muliple_constraints.
+
+    Makes sure the combination of constraints gives us new instance type."""
+    finger_prints = []
+    for (part, (constraint, value)) in enumerate(kwargs.iteritems()):
+        data = prepare_constraint_test(
+            client, Constraints(**{constraint: value}),
+            '{}-part{}'.format(base_name, part))
+        finger_prints.append(data)
+    final_constraints = Constraints(**kwargs)
+    data = prepare_constraint_test(client, final_constraints,
+                                   '{}-whole'.format(base_name))
+    if not final_constraints.meets_all(data):
+        raise get_failure_exception(client, final_constraints)
+    if data in finger_prints:
+        raise JujuAssertionError(
+            'Multiple Constraints did not change the hardware.')
+
+
 def assess_constraints(client, test_kvm=False):
     """Assess deployment with constraints."""
     provider = client.env.config.get('type')
@@ -342,10 +359,8 @@ def assess_constraints(client, test_kvm=False):
         assess_root_disk_constraints(client, ['16G'])
         assess_cores_constraints(client, ['2'])
         assess_cpu_power_constraints(client, ['30'])
-        assess_constraints_deploy(
-            client, Constraints(root_disk='15G', cpu_power='40'),
-            'root-disk-and-cpu-power'
-            )
+        assess_multiple_constraints(client, 'root-disk-and-cpu-power',
+                                    root_disk='15G', cpu_power='40')
 
 
 def parse_args(argv):

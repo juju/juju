@@ -13,6 +13,7 @@ from assess_constraints import (
     assess_cores_constraints,
     assess_cpu_power_constraints,
     assess_instance_type_constraints,
+    assess_multiple_constraints,
     assess_root_disk_constraints,
     assess_virt_type_constraints,
     Constraints,
@@ -340,6 +341,48 @@ class TestAssess(TestCase):
             with self.assertRaises(JujuAssertionError):
                 assess_cpu_power_constraints(fake_client, ['10', '30'])
         self.assertEqual(2, prepare_mock.call_count)
+
+    def test_multiple_constraints(self):
+        fake_client = Mock(wraps=fake_juju_client())
+        with patch('assess_constraints.prepare_constraint_test',
+                   autospec=True, side_effect=[
+                       {'root-disk': '8G', 'cpu-power': '40'},
+                       {'root-disk': '15G', 'cpu-power': '20'},
+                       {'root-disk': '15G', 'cpu-power': '40'},
+                       ]) as prepare_mock:
+            assess_multiple_constraints(
+                fake_client, 'test', root_disk='15G', cpu_power='40')
+        self.assertEqual(3, prepare_mock.call_count)
+        prepare_mock.assert_has_calls([
+            call(fake_client, Constraints(cpu_power='40'), 'test-part0'),
+            call(fake_client, Constraints(root_disk='15G'), 'test-part1'),
+            call(fake_client, Constraints(root_disk='15G', cpu_power='40'),
+                 'test-whole'),
+            ])
+
+    def test_multiple_constraints_not_met(self):
+        fake_client = Mock(wraps=fake_juju_client())
+        with patch('assess_constraints.prepare_constraint_test',
+                   autospec=True, side_effect=[
+                       {'root-disk': '8G', 'cpu-power': '40'},
+                       {'root-disk': '15G', 'cpu-power': '20'},
+                       {'root-disk': '15G', 'cpu-power': '30'},
+                       ]):
+            with self.assertRaisesRegexp(JujuAssertionError, 'Test Failed.*'):
+                assess_multiple_constraints(
+                    fake_client, 'test', root_disk='15G', cpu_power='40')
+
+    def test_multiple_constraints_not_unique(self):
+        fake_client = Mock(wraps=fake_juju_client())
+        with patch('assess_constraints.prepare_constraint_test',
+                   autospec=True, side_effect=[
+                       {'root-disk': '15G', 'cpu-power': '40'},
+                       {'root-disk': '15G', 'cpu-power': '20'},
+                       {'root-disk': '15G', 'cpu-power': '40'},
+                       ]):
+            with self.assertRaisesRegexp(JujuAssertionError, 'Multiple.*'):
+                assess_multiple_constraints(
+                    fake_client, 'test', root_disk='15G', cpu_power='40')
 
 
 class TestDeploy(TestCase):
