@@ -137,9 +137,15 @@ def assess_perf_test_simple(bs_manager, upload_tools):
 
 
 def output_test_run_length(seconds):
+    time_taken = _convert_seconds_to_readable(seconds)
+
+    log.info('Test took: {}'.format(time_taken))
+
+
+def _convert_seconds_to_readable(seconds):
     m, s = divmod(seconds, 60)
     h, m = divmod(m, 60)
-    log.info('Test took: {0}h:{1:02d}m:{2:02d}s'.format(h, m, s))
+    return '{0}h:{1:02d}m:{2:02d}s'.format(h, m, s)
 
 
 def _determine_graph_period(seconds):
@@ -382,12 +388,17 @@ def assess_longrun_perf(bs_manager, test_length):
 
 
 def action_create(client, series='trusty'):
+    start = datetime.utcnow()
     new_model = client.add_model(client.env.clone('newmodel'))
     deploy_stack(new_model, series)
+    end = datetime.utcnow()
+    log.info('Create action took: {}'.format(
+        _convert_seconds_to_readable(int((end - start).total_seconds()))))
     return new_model
 
 
 def action_busy(client, applications):
+    start = datetime.utcnow()
     client.get_status()
 
     for app in applications:
@@ -410,6 +421,10 @@ def action_busy(client, applications):
         client.show_status()
         log.info('Sleeping . . .')
         time.sleep(MINUTE/2)
+    end = datetime.utcnow()
+
+    log.info('Create action took: {}'.format(
+        _convert_seconds_to_readable(int((end - start).total_seconds()))))
 
     return new_models
 
