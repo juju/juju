@@ -70,6 +70,15 @@ class Constraints:
                  constraints_list if value is not None]
         return ' '.join(parts)
 
+    def _get_constraint_pairs(self):
+        """Get a list of (constraint-name, constraint-value) pairs."""
+        return [('mem', self.mem), ('cores', self.cores),
+                ('virt-type', self.virt_type),
+                ('instance-type', self.instance_type),
+                ('root-disk', self.root_disk), ('cpu-power', self.cpu_power),
+                ('arch', self.arch),
+                ]
+
     def __init__(self, mem=None, cores=None, virt_type=None,
                  instance_type=None, root_disk=None, cpu_power=None,
                  arch=None):
@@ -82,15 +91,16 @@ class Constraints:
         self.cpu_power = cpu_power
         self.arch = arch
 
+    def __repr__(self):
+        """Get a detailed string reperentation of the object."""
+        pairs = self._get_constraint_pairs()
+        parts = ['{}={!r}'.format(name.replace('-', '_'), value)
+                 for (name, value) in pairs if value is not None]
+        return 'Constraints({})'.format(', '.join(parts))
+
     def __str__(self):
         """Convert the instance constraint values into an argument string."""
-        return Constraints._list_to_str(
-            [('mem', self.mem), ('cores', self.cores),
-             ('virt-type', self.virt_type),
-             ('instance-type', self.instance_type),
-             ('root-disk', self.root_disk), ('cpu-power', self.cpu_power),
-             ('arch', self.arch),
-             ])
+        return Constraints._list_to_str(self._get_constraint_pairs())
 
     def __eq__(self, other):
         return (self.mem == other.mem and self.cores == other.cores and

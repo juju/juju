@@ -66,6 +66,12 @@ class TestConstraints(TestCase):
         with self.assertRaises(JujuAssertionError):
             mem_to_int('40XB')
 
+    def test_repr_operator(self):
+        self.assertEqual("Constraints()", repr(Constraints()))
+        constraints = Constraints(root_disk='4G', mem='2G')
+        self.assertEqual("Constraints(mem='2G', root_disk='4G')",
+                         repr(constraints))
+
     def test_str_operator(self):
         constraints = Constraints(mem='2G', root_disk='4G', virt_type='lxd')
         self.assertEqual('mem=2G virt-type=lxd root-disk=4G',
