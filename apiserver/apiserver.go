@@ -44,6 +44,7 @@ const loginRateLimit = 10
 type Server struct {
 	tomb              tomb.Tomb
 	clock             clock.Clock
+	pingClock         clock.Clock
 	wg                sync.WaitGroup
 	state             *state.State
 	statePool         *state.StatePool
@@ -81,6 +82,7 @@ type LoginValidator func(params.LoginRequest) error
 // ServerConfig holds parameters required to set up an API server.
 type ServerConfig struct {
 	Clock       clock.Clock
+	PingClock   clock.Clock
 	Cert        string
 	Key         string
 	Tag         names.Tag
@@ -124,6 +126,13 @@ func (c *ServerConfig) Validate() error {
 	return nil
 }
 
+func (c *ServerConfig) pingClock() clock.Clock {
+	if c.PingClock == nil {
+		return c.Clock
+	}
+	return c.PingClock
+}
+
 // NewServer serves the given state by accepting requests on the given
 // listener, using the given certificate and key (in PEM format) for
 // authentication.
@@ -156,6 +165,7 @@ func newServer(s *state.State, lis net.Listener, cfg ServerConfig) (_ *Server, e
 
 	srv := &Server{
 		clock:       cfg.Clock,
+		pingClock:   cfg.pingClock(),
 		lis:         lis,
 		newObserver: cfg.NewObserver,
 		state:       s,
