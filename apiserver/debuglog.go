@@ -72,7 +72,6 @@ func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			socket := &debugLogSocketImpl{conn}
 			defer conn.Close()
 
-			logger.Infof("debug log handler starting")
 			// Validate before authenticate because the authentication is
 			// dependent on the state connection that is determined during the
 			// validation.
