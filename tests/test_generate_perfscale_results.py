@@ -16,7 +16,7 @@ from tests import (
 class TestGenerateGraphImages(TestCase):
 
     @contextmanager
-    def patch_generator(self, image):
+    def patch_image_creation_ctx(self, image):
         with patch.object(
                 gpr, 'generate_graph_image',
                 return_value=image, autospec=True) as m_ggi:
@@ -39,7 +39,7 @@ class TestGenerateGraphImages(TestCase):
 
     def test_generate_cpu_graph(self):
         image = Mock()
-        with self.patch_generator(image) as m_ggi:
+        with self.patch_image_creation_ctx(image) as m_ggi:
             self.assertEqual(
                 image,
                 gpr.generate_cpu_graph_image('/foo'))
@@ -48,7 +48,7 @@ class TestGenerateGraphImages(TestCase):
 
     def test_generate_memory_graph_calls_(self):
         image = Mock()
-        with self.patch_generator(image) as m_ggi:
+        with self.patch_image_creation_ctx(image) as m_ggi:
             self.assertEqual(
                 image,
                 gpr.generate_memory_graph_image('/foo'))
@@ -57,7 +57,7 @@ class TestGenerateGraphImages(TestCase):
 
     def test_generate_network_graph(self):
         image = Mock()
-        with self.patch_generator(image) as m_ggi:
+        with self.patch_image_creation_ctx(image) as m_ggi:
             self.assertEqual(
                 image,
                 gpr.generate_network_graph_image('/foo'))
@@ -66,7 +66,7 @@ class TestGenerateGraphImages(TestCase):
 
     def test_generate_mongo_query_graph(self):
         image = Mock()
-        with self.patch_generator(image) as m_ggi:
+        with self.patch_image_creation_ctx(image) as m_ggi:
             self.assertEqual(
                 image,
                 gpr.generate_mongo_query_graph_image('/foo'))
@@ -75,7 +75,7 @@ class TestGenerateGraphImages(TestCase):
 
     def test_generate_mongo_memory_graph(self):
         image = Mock()
-        with self.patch_generator(image) as m_ggi:
+        with self.patch_image_creation_ctx(image) as m_ggi:
             self.assertEqual(
                 image,
                 gpr.generate_mongo_memory_graph_image('/foo'))
