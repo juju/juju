@@ -116,9 +116,9 @@ def assess_perf_test_simple(bs_manager, upload_tools):
     cleanup_timing = TimingData(cleanup_start, cleanup_end)
 
     total_timing = TimingData(bs_start, cleanup_end)
-    output_test_run_length(total_timing)
+    output_test_run_length(total_timing.seconds)
 
-    graph_period = _determine_graph_period(cleanup_timing)
+    graph_period = _determine_graph_period(total_timing.seconds)
     deployments = dict(
         bootstrap=bootstrap_timing,
         deploys=[deploy_details],
@@ -136,15 +136,15 @@ def assess_perf_test_simple(bs_manager, upload_tools):
         controller_log_file, results_dir, deployments, graph_period)
 
 
-def output_test_run_length(timing):
-    m, s = divmod(timing.seconds, 60)
+def output_test_run_length(seconds):
+    m, s = divmod(seconds, 60)
     h, m = divmod(m, 60)
     log.info('Test took: {0}h:{1:02d}m:{2:02d}s'.format(h, m, s))
 
 
-def _determine_graph_period(cleanup_timing):
+def _determine_graph_period(seconds):
     """Given a tests length determine what graphing period is needed."""
-    if cleanup_timing.seconds >= (MINUTE * 60 * 2):
+    if seconds >= (MINUTE * 60 * 2):
         return perf_graphing.GraphPeriod.day
     return perf_graphing.GraphPeriod.hours
 
