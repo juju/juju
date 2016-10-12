@@ -515,7 +515,7 @@ func bestAddressIndexes(numAddr int, getAddrFunc addressByIndexFunc, matchFunc s
 	matches := filterAndCollateAddressIndexes(numAddr, getAddrFunc, matchFunc)
 
 	// Retrieve the indexes of the addresses with the best scope and type match.
-	allowedMatchTypes := []scopeMatch{exactScopeIPv4, exactScope, fallbackScopeIPv4, fallbackScope}
+	allowedMatchTypes := []scopeMatch{exactScopeIPv4, fallbackScopeIPv4, exactScope, fallbackScope}
 	for _, matchType := range allowedMatchTypes {
 		indexes, ok := matches[matchType]
 		if ok && len(indexes) > 0 {
@@ -530,7 +530,7 @@ func prioritizedAddressIndexes(numAddr int, getAddrFunc addressByIndexFunc, matc
 	matches := filterAndCollateAddressIndexes(numAddr, getAddrFunc, matchFunc)
 
 	// Retrieve the indexes of the addresses with the best scope and type match.
-	allowedMatchTypes := []scopeMatch{exactScopeIPv4, exactScope, fallbackScopeIPv4, fallbackScope}
+	allowedMatchTypes := []scopeMatch{exactScopeIPv4, fallbackScopeIPv4, exactScope, fallbackScope}
 	var prioritized []int
 	for _, matchType := range allowedMatchTypes {
 		indexes, ok := matches[matchType]
@@ -547,7 +547,7 @@ func filterAndCollateAddressIndexes(numAddr int, getAddrFunc addressByIndexFunc,
 	for i := 0; i < numAddr; i++ {
 		matchType := matchFunc(getAddrFunc(i))
 		switch matchType {
-		case exactScopeIPv4, exactScope, fallbackScopeIPv4, fallbackScope:
+		case exactScopeIPv4, fallbackScopeIPv4, exactScope, fallbackScope:
 			matches[matchType] = append(matches[matchType], i)
 		}
 	}

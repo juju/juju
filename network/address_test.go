@@ -317,14 +317,22 @@ var selectPublicTests = []selectTest{{
 	},
 	-1,
 }, {
-	"a public name is preferred to an unknown or cloud local address",
+	"a public name is preferred to an unknown or cloud local address (no IPv4)",
+	[]network.Address{
+		network.NewScopedAddress("127.0.0.1", network.ScopeUnknown),
+		network.NewScopedAddress("fc00::1", network.ScopeCloudLocal),
+		network.NewScopedAddress("public.invalid.testing", network.ScopePublic),
+	},
+	2,
+}, {
+	"a cloud local IPv4 is preferred to a name,  unknown scope or cloud local address",
 	[]network.Address{
 		network.NewScopedAddress("127.0.0.1", network.ScopeUnknown),
 		network.NewScopedAddress("10.0.0.1", network.ScopeCloudLocal),
 		network.NewScopedAddress("fc00::1", network.ScopeCloudLocal),
 		network.NewScopedAddress("public.invalid.testing", network.ScopePublic),
 	},
-	3,
+	1,
 }, {
 	"first unknown address selected",
 	// NOTE(dimitern): Not using NewScopedAddress() below as it derives the
@@ -343,12 +351,12 @@ var selectPublicTests = []selectTest{{
 	},
 	2,
 }, {
-	"hostname is picked over cloud local address",
+	"cloud local is picked over hostname",
 	[]network.Address{
 		network.NewScopedAddress("10.0.0.1", network.ScopeUnknown),
 		network.NewScopedAddress("example.com", network.ScopePublic),
 	},
-	1,
+	0,
 }, {
 	"IPv4 preferred over IPv6",
 	[]network.Address{
@@ -407,19 +415,11 @@ var selectInternalTests = []selectTest{{
 	},
 	-1,
 }, {
-	"a cloud local address is preferred to a public address",
+	"an IPv4 public address is preferred to a  cloud local IPv6 address",
 	[]network.Address{
 		network.NewScopedAddress("2001:db8::1", network.ScopePublic),
 		network.NewScopedAddress("fc00::1", network.ScopeCloudLocal),
 		network.NewScopedAddress("8.8.8.8", network.ScopePublic),
-	},
-	1,
-}, {
-	"an IPv6 cloud local address is preferred to a public address if the former appears first",
-	[]network.Address{
-		network.NewScopedAddress("8.8.8.8", network.ScopePublic),
-		network.NewScopedAddress("2001:db8::1", network.ScopePublic),
-		network.NewScopedAddress("fc00::1", network.ScopeCloudLocal),
 	},
 	2,
 }}
@@ -435,7 +435,7 @@ func (s *AddressSuite) TestSelectInternalAddress(c *gc.C) {
 }
 
 var selectInternalMachineTests = []selectTest{{
-	"first cloud local IPv4 address is selected",
+	"first IPv4 address is selected",
 	[]network.Address{
 		network.NewScopedAddress("fc00::1", network.ScopeCloudLocal),
 		network.NewScopedAddress("2001:db8::1", network.ScopePublic),
@@ -443,14 +443,6 @@ var selectInternalMachineTests = []selectTest{{
 		network.NewScopedAddress("8.8.8.8", network.ScopePublic),
 	},
 	2,
-}, {
-	"first cloud local address is selected",
-	[]network.Address{
-		network.NewScopedAddress("fc00::1", network.ScopeCloudLocal),
-		network.NewScopedAddress("2001:db8::1", network.ScopePublic),
-		network.NewScopedAddress("8.8.8.8", network.ScopePublic),
-	},
-	0,
 }, {
 	"first cloud local hostname is selected",
 	[]network.Address{
@@ -562,14 +554,6 @@ var selectInternalHostPortsTests = []selectInternalHostPortsTest{{
 		{network.NewScopedAddress("10.0.0.1", network.ScopeCloudLocal), 4444},
 	},
 	[]string{"10.0.0.1:4444"},
-}, {
-	"cloud local IPv6 addresses are preferred to a public addresses",
-	[]network.HostPort{
-		{network.NewScopedAddress("2001:db8::1", network.ScopePublic), 123},
-		{network.NewScopedAddress("fc00::1", network.ScopeCloudLocal), 123},
-		{network.NewScopedAddress("8.8.8.8", network.ScopePublic), 123},
-	},
-	[]string{"[fc00::1]:123"},
 }}
 
 func (s *AddressSuite) TestSelectInternalHostPorts(c *gc.C) {
@@ -613,7 +597,7 @@ var prioritizeInternalHostPortsTests = []selectInternalHostPortsTest{{
 		{network.NewScopedAddress("8.8.8.8", network.ScopePublic), 123},
 		{network.NewScopedAddress("10.0.0.1", network.ScopeCloudLocal), 4444},
 	},
-	[]string{"10.0.0.1:4444", "[fc00::1]:123", "8.8.8.8:123", "[2001:db8::1]:123"},
+	[]string{"10.0.0.1:4444", "8.8.8.8:123", "[fc00::1]:123", "[2001:db8::1]:123"},
 }}
 
 func (s *AddressSuite) TestPrioritizeInternalHostPorts(c *gc.C) {
