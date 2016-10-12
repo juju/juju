@@ -289,7 +289,7 @@ func (conn *Conn) Close() error {
 
 	// Closing the codec should cause the input loop to terminate.
 	if err := conn.codec.Close(); err != nil {
-		logger.Infof("error closing codec: %v", err)
+		logger.Debugf("error closing codec: %v", err)
 	}
 	<-conn.dead
 
