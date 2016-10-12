@@ -42,15 +42,16 @@ type MachineStatus struct {
 	AgentStatus    DetailedStatus `json:"agent-status"`
 	InstanceStatus DetailedStatus `json:"instance-status"`
 
-	DNSName    string                    `json:"dns-name"`
-	InstanceId instance.Id               `json:"instance-id"`
-	Series     string                    `json:"series"`
-	Id         string                    `json:"id"`
-	Containers map[string]MachineStatus  `json:"containers"`
-	Hardware   string                    `json:"hardware"`
-	Jobs       []multiwatcher.MachineJob `json:"jobs"`
-	HasVote    bool                      `json:"has-vote"`
-	WantsVote  bool                      `json:"wants-vote"`
+	DNSName     string                    `json:"dns-name"`
+	IPAddresses []string                  `json:"ip-addresses"`
+	InstanceId  instance.Id               `json:"instance-id"`
+	Series      string                    `json:"series"`
+	Id          string                    `json:"id"`
+	Containers  map[string]MachineStatus  `json:"containers"`
+	Hardware    string                    `json:"hardware"`
+	Jobs        []multiwatcher.MachineJob `json:"jobs"`
+	HasVote     bool                      `json:"has-vote"`
+	WantsVote   bool                      `json:"wants-vote"`
 }
 
 // ApplicationStatus holds status info about an application.
