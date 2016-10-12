@@ -164,7 +164,6 @@ func (a *admin) login(req params.LoginRequest, loginVersion int) (params.LoginRe
 	if err != nil {
 		return fail, errors.Trace(err)
 	}
-	logger.Debugf("hostPorts: %v", hostPorts)
 
 	model, err := a.root.state.Model()
 	if err != nil {
