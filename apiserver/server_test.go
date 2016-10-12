@@ -625,12 +625,14 @@ func newServer(c *gc.C, st *state.State) (*api.Info, *apiserver.Server) {
 // server configuration may be specified (see defaultServerConfig
 // for a suitable starting point).
 func newServerWithConfig(c *gc.C, st *state.State, cfg apiserver.ServerConfig) (*api.Info, *apiserver.Server) {
+	// Note that we can't listen on localhost here because TestAPIServerCanListenOnBothIPv4AndIPv6 assumes
+	// that we listen on IPv6 too, and listening on localhost does not do that.
 	listener, err := net.Listen("tcp", ":0")
 	c.Assert(err, jc.ErrorIsNil)
 	srv, err := apiserver.NewServer(st, listener, cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	return &api.Info{
-		Addrs:  []string{srv.Addr().String()},
+		Addrs:  []string{fmt.Sprintf("localhost:%d", srv.Addr().Port)},
 		CACert: coretesting.CACert,
 	}, srv
 }
