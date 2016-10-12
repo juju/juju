@@ -3196,6 +3196,22 @@ class TestEnvJujuClient(ClientTest):
         mock.assert_called_with(
             'show-controller', '--format', 'json', include_e=False)
 
+    def test_show_machine(self):
+        output = """\
+        machines:
+          "0":
+            series: xenial
+          "1":
+            series: trusty
+        """
+        env = JujuData('foo')
+        client = EnvJujuClient(env, None, None)
+        with patch.object(client, 'get_juju_output', autospec=True,
+                          return_value=output) as mock:
+            data = client.show_machine('1')
+        mock.assert_called_once_with('show-machine', '1', '--format', 'yaml')
+        data = {'machines': {'1': {'series': 'trusty'}}}
+
     def test_ssh_keys(self):
         client = EnvJujuClient(JujuData('foo'), None, None)
         given_output = 'ssh keys output'

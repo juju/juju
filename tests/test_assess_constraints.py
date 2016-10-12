@@ -7,6 +7,7 @@ import os
 import StringIO
 
 from assess_constraints import (
+    application_hardware,
     application_machines,
     assess_constraints_deploy,
     assess_cores_constraints,
@@ -17,7 +18,7 @@ from assess_constraints import (
     Constraints,
     deploy_constraint,
     deploy_charm_constraint,
-    juju_show_machine_hardware,
+    machine_hardware,
     parse_args,
     main,
     mem_to_int,
@@ -192,11 +193,11 @@ class TestAssess(TestCase):
 
     @contextmanager
     def patch_hardware(self, return_values):
-        """Patch juju_show_machine_hardware with a series of return values.
+        """Patch machine_hardware with a series of return values.
 
-        Also patches out application_machines as its output would be
-        ignored anyways."""
-        with patch('assess_constraints.juju_show_machine_hardware',
+        Also patches application_machines so application_hardware goes
+        straight to machine_hardware."""
+        with patch('assess_constraints.machine_hardware',
                    autospec=True, side_effect=return_values) as hardware_mock:
             with patch('assess_constraints.application_machines',
                        autospec=True, return_value=['0']):
@@ -385,14 +386,12 @@ class TestJujuWrappers(TestCase):
          'mysql': {'units': {'mysql/0': {'machine': '1'}}},
          }}
 
-    def test_juju_show_machine_hardware(self):
-        """Check the juju_show_machine_hardware data translation."""
+    def test_machine_hardware(self):
+        """Check the machine_hardware data translation."""
         output_mock = Mock(return_value=self.SAMPLE_SHOW_MACHINE_OUTPUT)
-        fake_client = Mock(get_juju_output=output_mock)
-        with patch('yaml.load', side_effect=lambda x: x):
-            data = juju_show_machine_hardware(fake_client, '0')
-        output_mock.assert_called_once_with('show-machine', '0',
-                                            '--format', 'yaml')
+        fake_client = Mock(show_machine=output_mock)
+        data = machine_hardware(fake_client, '0')
+        output_mock.assert_called_once_with('0')
         self.assertEqual({'arch': 'amd64', 'cpu-cores': '0', 'mem': '0M'},
                          data)
 
@@ -403,3 +402,14 @@ class TestJujuWrappers(TestCase):
         data = application_machines(fake_client, 'wiki')
         output_mock.assert_called_once_with()
         self.assertEquals(['0'], data)
+
+    def test_application_hardware(self):
+        fake_client = fake_juju_client()
+        with patch('assess_constraints.application_machines',
+                   autospec=True, return_value=['7']) as am_mock:
+            with patch('assess_constraints.machine_hardware',
+                       autospec=True, return_value='test') as mh_mock:
+                data = application_hardware(fake_client, 'fakejob')
+        self.assertEqual('test', data)
+        am_mock.assert_called_once_with(fake_client, 'fakejob')
+        mh_mock.assert_called_once_with(fake_client, '7')

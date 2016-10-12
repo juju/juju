@@ -2147,6 +2147,12 @@ class EnvJujuClient:
         return self.get_juju_output('show-controller', '--format',
                                     format, include_e=False)
 
+    def show_machine(self, machine):
+        """Return data on a machine as a dict."""
+        text = self.get_juju_output('show-machine', machine,
+                                    '--format', 'yaml')
+        return yaml_loads(text)
+
     def ssh_keys(self, full=False):
         """Give the ssh keys registered for the current model."""
         args = []
