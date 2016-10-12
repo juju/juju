@@ -63,7 +63,7 @@ func (n *RequestObserver) Join(req *http.Request, connectionID uint64) {
 	n.state.id = connectionID
 	n.state.websocketConnected = n.clock.Now()
 
-	n.logger.Infof(
+	n.logger.Debugf(
 		"[%X] API connection from %s",
 		n.state.id,
 		req.RemoteAddr,
@@ -72,7 +72,7 @@ func (n *RequestObserver) Join(req *http.Request, connectionID uint64) {
 
 // Leave implements Observer.
 func (n *RequestObserver) Leave() {
-	n.logger.Infof(
+	n.logger.Debugf(
 		"[%X] %s API connection terminated after %v",
 		n.state.id,
 		n.state.tag,
