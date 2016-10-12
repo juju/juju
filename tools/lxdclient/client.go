@@ -358,10 +358,15 @@ func checkLXDBridgeConfiguration(conf string) error {
 			if name != network.DefaultLXDBridge {
 				return bridgeConfigError(fmt.Sprintf(LXDBridgeFile+" has a bridge named %s, not lxdbr0", name))
 			}
-		} else if strings.HasPrefix(line, "LXD_IPV4_ADDR=") || strings.HasPrefix(line, "LXD_IPV6_ADDR=") {
-			contents := strings.Trim(line[len("LXD_IPVN_ADDR="):], " \"")
+		} else if strings.HasPrefix(line, "LXD_IPV4_ADDR=") {
+			contents := strings.Trim(line[len("LXD_IPV4_ADDR="):], " \"")
 			if len(contents) > 0 {
 				foundSubnetConfig = true
+			}
+		} else if strings.HasPrefix(line, "LXD_IPV6_ADDR=") {
+			contents := strings.Trim(line[len("LXD_IPV6_ADDR="):], " \"")
+			if len(contents) > 0 {
+				return bridgeConfigError(LXDBridgeFile+" has IPV6 configuration, which juju doesn't support.")
 			}
 		}
 	}

@@ -174,6 +174,20 @@ It looks like your lxdbr0 has not yet been configured. Please configure it via:
 
 and then bootstrap again.`)
 
+	ipv6 := `
+USE_LXD_BRIDGE="true"
+LXD_BRIDGE="lxdbr0"
+LXD_IPV6_ADDR="2001:470:b368:4242::1"
+`
+
+	err = checkLXDBridgeConfiguration(ipv6)
+	c.Assert(err.Error(), gc.Equals, LXDBridgeFile+` has IPV6 configuration, which juju doesn't support.
+It looks like your lxdbr0 has not yet been configured. Please configure it via:
+
+	sudo dpkg-reconfigure -p medium lxd
+
+and then bootstrap again.`)
+
 }
 
 func (cs *ConnectSuite) TestRemoteConnectError(c *gc.C) {
