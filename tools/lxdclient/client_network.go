@@ -49,19 +49,43 @@ type creator interface {
 	ProfileConfig(profile string) (*shared.ProfileConfig, error)
 }
 
+func checkBridgeConfig(client rawNetworkClient, bridge string) error {
+	n, err := client.NetworkGet(bridge)
+	if err != nil {
+		return err
+	}
+
+	if n.Config["ipv6.address"] != "none" {
+		return errors.Errorf(`juju doesn't support ipv6. Please disable LXD's IPV6:
+
+	$ lxc network set %s ipv6.address none
+
+and rebootstrap`, bridge)
+	}
+
+	return nil
+}
+
 // CreateDefaultBridgeInDefaultProfile creates a default bridge if it doesn't
 // exist and (if necessary) inserts it into the default profile.
 func CreateDefaultBridgeInDefaultProfile(client creator) error {
 	/* create the default bridge if it doesn't exist */
 	n, err := client.NetworkGet(network.DefaultLXDBridge)
 	if err != nil {
-		err := client.NetworkCreate(network.DefaultLXDBridge, map[string]string{})
+		err := client.NetworkCreate(network.DefaultLXDBridge, map[string]string{
+			"ipv6.address": "none",
+			"ipv6.nat":     "false",
+		})
 		if err != nil {
 			return err
 		}
 
 		n, err = client.NetworkGet(network.DefaultLXDBridge)
 		if err != nil {
+			return err
+		}
+	} else {
+		if err := checkBridgeConfig(client, network.DefaultLXDBridge); err != nil {
 			return err
 		}
 	}

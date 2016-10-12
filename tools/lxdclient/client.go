@@ -271,8 +271,6 @@ func verifyDefaultProfileBridgeConfig(client *lxd.Client, networkAPISupported bo
 		return "", errors.Trace(err)
 	}
 
-	// If the default profile doesn't have eth0 in it, then the user has messed
-	// with it, so let's just use whatever they set up.
 	eth0, ok := config.Devices[configEth0]
 	if !ok {
 		/* on lxd >= 2.3, there is nothing in the default profile
@@ -287,6 +285,10 @@ func verifyDefaultProfileBridgeConfig(client *lxd.Client, networkAPISupported bo
 			return network.DefaultLXDBridge, nil
 		}
 		return "", errors.Errorf("unexpected LXD %q profile config without eth0: %+v", defaultProfileName, config)
+	} else if networkAPISupported {
+		if err := checkBridgeConfig(client, eth0[configParentKey]); err != nil {
+			return "", err
+		}
 	}
 
 	// If eth0 is there, but not with the expected attributes, likewise fail
@@ -334,6 +336,17 @@ It looks like your lxdbr0 has not yet been configured. Please configure it via:
 and then bootstrap again.`, err)
 }
 
+func ipv6BridgeConfigError(filename string) error {
+       return errors.Errorf(`%s has IPv6 enabled.
+Juju doesn't currently support IPv6.
+
+IPv6 can be disabled by running:
+
+       sudo dpkg-reconfigure -p medium lxd
+
+and then bootstrap again.`, filename)
+}
+
 func checkLXDBridgeConfiguration(conf string) error {
 	foundSubnetConfig := false
 	for _, line := range strings.Split(conf, "\n") {
@@ -356,10 +369,15 @@ func checkLXDBridgeConfiguration(conf string) error {
 			if name != network.DefaultLXDBridge {
 				return bridgeConfigError(fmt.Sprintf(LXDBridgeFile+" has a bridge named %s, not lxdbr0", name))
 			}
-		} else if strings.HasPrefix(line, "LXD_IPV4_ADDR=") || strings.HasPrefix(line, "LXD_IPV6_ADDR=") {
-			contents := strings.Trim(line[len("LXD_IPVN_ADDR="):], " \"")
+		} else if strings.HasPrefix(line, "LXD_IPV4_ADDR=") {
+			contents := strings.Trim(line[len("LXD_IPV4_ADDR="):], " \"")
 			if len(contents) > 0 {
 				foundSubnetConfig = true
+			}
+		} else if strings.HasPrefix(line, "LXD_IPV6_ADDR=") {
+			contents := strings.Trim(line[len("LXD_IPV6_ADDR="):], " \"")
+			if len(contents) > 0 {
+				return ipv6BridgeConfigError(LXDBridgeFile)
 			}
 		}
 	}
