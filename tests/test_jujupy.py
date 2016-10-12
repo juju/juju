@@ -6338,6 +6338,19 @@ class TestStatus(FakeHomeTestCase):
         with self.assertRaises(KeyError):
             status.get_instance_id('2')
 
+    def test_get_machine_dns_name(self):
+        status = Status({
+            'machines': {
+                '0': {'dns-name': '255.1.1.0'},
+                '1': {},
+            }
+        }, '')
+        self.assertEqual(status.get_machine_dns_name('0'), '255.1.1.0')
+        with self.assertRaisesRegexp(KeyError, 'dns-name'):
+            status.get_machine_dns_name('1')
+        with self.assertRaisesRegexp(KeyError, '2'):
+            status.get_machine_dns_name('2')
+
     def test_from_text(self):
         text = TestEnvJujuClient.make_status_yaml(
             'agent-state', 'pending', 'horsefeathers')
