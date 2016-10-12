@@ -1,14 +1,14 @@
-#!/usr/bin/env python
-"""Simple performance and scale tests."""
+"""
+Framework for perfscale testing incl. timing and controller system metric
+collection.
+"""
 
 from __future__ import print_function
 
-import argparse
 from collections import defaultdict, namedtuple
 from datetime import datetime
 import logging
 import os
-import sys
 import subprocess
 
 try:
@@ -19,18 +19,11 @@ except ImportError:
     rrdtool = object()
 from jinja2 import Template
 
-from deploy_stack import (
-    BootstrapManager,
-)
 from logbreakdown import (
     _render_ds_string,
     breakdown_log_by_timeframes,
 )
 import perf_graphing
-from utility import (
-    add_basic_testing_arguments,
-    configure_logging,
-)
 
 
 __metaclass__ = type
@@ -43,22 +36,50 @@ class TimingData:
     # Log breakdown uses the start/end too. Perhaps have a property for string
     # rep and a ds for the datetime.
     def __init__(self, start, end):
+        """Time difference details for an event.
+
+        :param start: datetime.datetime object representing the start of the
+          event.
+        :param end: datetime.datetime object representing the end of the event.
+        """
         self.start = start.strftime(self.strf_format)
         self.end = end.strftime(self.strf_format)
         self.seconds = int((end - start).total_seconds())
 
-DeployDetails = namedtuple(
-    'DeployDetails', ['name', 'applications', 'timings'])
 
+class DeployDetails(
+        namedtuple('DeployDetails', ['name', 'applications', 'timings'])):
+    """Details regarding a perfscale testrun.
+
+    :param name: String naming deploy details
+    :param applications: A dict containg a {name -> single detail} mapping. For
+    instance: {application name -> unit count}
+    or {'version' -> juju version string}
+    :param timings: A TimingData object representing the test runs start/end
+    details
+    """
 
 SETUP_SCRIPT_PATH = 'perf_static/setup-perf-monitoring.sh'
 COLLECTD_CONFIG_PATH = 'perf_static/collectd.conf'
 
 
-log = logging.getLogger("assess_perf_test_simple")
+log = logging.getLogger("run_perfscale_test")
 
 
-def assess_perf_test_simple(bs_manager, upload_tools):
+def run_perfscale_test(target_test, bs_manager, args):
+    """Run a perfscale test collect the data and generate a report.
+
+    Run the callable `target_test` and collect timing data and system metrics
+    for the controller during the test run.
+
+    :param target_test: A callable that takes 2 arguments:
+        - EnvJujuClient client object  (bootstrapped)
+        - argparse args object
+      This callable must return a `DeployDetails` object.
+
+    :param bs_manager: `BootstrapManager` object.
+    :param args: `argparse` object to pass to `target_test` when run.
+    """
     # XXX
     # Find the actual cause for this!! (Something to do with the template and
     # the logs.)
@@ -68,7 +89,7 @@ def assess_perf_test_simple(bs_manager, upload_tools):
     # XXX
 
     bs_start = datetime.utcnow()
-    with bs_manager.booted_context(upload_tools):
+    with bs_manager.booted_context(args.upload_tools):
         client = bs_manager.client
         admin_client = client.get_controller_client()
         admin_client.wait_for_started()
@@ -79,23 +100,10 @@ def assess_perf_test_simple(bs_manager, upload_tools):
 
             setup_system_monitoring(admin_client)
 
-            deploy_details = assess_deployment_perf(client)
+            deploy_details = target_test(client, args)
         finally:
-            results_dir = os.path.join(
-                os.path.abspath(bs_manager.log_dir), 'performance_results/')
-            os.makedirs(results_dir)
-            admin_client.juju(
-                'scp',
-                ('--', '-r', '0:/var/lib/collectd/rrd/localhost/*',
-                 results_dir)
-            )
-
-            try:
-                admin_client.juju(
-                    'scp', ('0:/tmp/mongodb-stats.log', results_dir)
-                )
-            except subprocess.CalledProcessError as e:
-                log.error('Failed to copy mongodb stats: {}'.format(e))
+            results_dir = dump_performance_metrics_logs(
+                bs_manager.log_dir, admin_client)
             cleanup_start = datetime.utcnow()
     # Cleanup happens when we move out of context
     cleanup_end = datetime.utcnow()
@@ -106,7 +114,6 @@ def assess_perf_test_simple(bs_manager, upload_tools):
         cleanup=cleanup_timing,
     )
 
-    # Could be smarter about this.
     controller_log_file = os.path.join(
         bs_manager.log_dir,
         'controller',
@@ -114,6 +121,24 @@ def assess_perf_test_simple(bs_manager, upload_tools):
         'machine-0.log.gz')
 
     generate_reports(controller_log_file, results_dir, deployments)
+
+
+def dump_performance_metrics_logs(log_dir, admin_client):
+    results_dir = os.path.join(
+        os.path.abspath(log_dir), 'performance_results/')
+    os.makedirs(results_dir)
+    admin_client.juju(
+        'scp',
+        ('--', '-r', '0:/var/lib/collectd/rrd/localhost/*',
+         results_dir)
+    )
+    try:
+        admin_client.juju(
+            'scp', ('0:/tmp/mongodb-stats.log', results_dir)
+        )
+    except subprocess.CalledProcessError as e:
+        log.error('Failed to copy mongodb stats: {}'.format(e))
+    return results_dir
 
 
 def apply_any_workarounds(client):
@@ -212,7 +237,6 @@ def get_log_message_in_timed_chunks(log_file, deployments):
 
 
 def create_html_report(results_dir, details):
-    # render the html file to the results dir
     with open('./perf_report_template.html', 'rt') as f:
         template = Template(f.read())
 
@@ -292,33 +316,6 @@ def find_actual_start(fetch_output):
             pass
 
 
-def assess_deployment_perf(client, bundle_name='cs:ubuntu'):
-    # This is where multiple services are started either at the same time
-    # or one after the other etc.
-    deploy_start = datetime.utcnow()
-
-    # We possibly want 2 timing details here, one for started (i.e. agents
-    # ready) and the other for the workloads to be complete.
-    client.deploy(bundle_name)
-    client.wait_for_started()
-    client.wait_for_workloads()
-
-    deploy_end = datetime.utcnow()
-    deploy_timing = TimingData(deploy_start, deploy_end)
-
-    client_details = get_client_details(client)
-
-    return DeployDetails(bundle_name, client_details, deploy_timing)
-
-
-def get_client_details(client):
-    status = client.get_status()
-    units = dict()
-    for name in status.get_applications().keys():
-        units[name] = status.get_service_unit_count(name)
-    return units
-
-
 def setup_system_monitoring(admin_client):
     # Using ssh get into the machine-0 (or all api/state servers)
     # Install the required packages and start up logging of systems collections
@@ -356,23 +353,3 @@ def _get_static_script_path(script_path):
     full_path = os.path.abspath(__file__)
     current_dir = os.path.dirname(full_path)
     return os.path.join(current_dir, script_path)
-
-
-def parse_args(argv):
-    """Parse all arguments."""
-    parser = argparse.ArgumentParser(description="Simple perf/scale testing")
-    add_basic_testing_arguments(parser)
-    return parser.parse_args(argv)
-
-
-def main(argv=None):
-    args = parse_args(argv)
-    configure_logging(args.verbose)
-    bs_manager = BootstrapManager.from_args(args)
-    assess_perf_test_simple(bs_manager, args.upload_tools)
-
-    return 0
-
-
-if __name__ == '__main__':
-    sys.exit(main())
