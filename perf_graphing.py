@@ -1,17 +1,83 @@
 """Generate graphs for system statistics."""
 
+import calendar
+import errno
 from fixtures import EnvironmentVariable
 import os
+import logging
+import time
 try:
     import rrdtool
 except ImportError:
     rrdtool = object()
+
+log = logging.getLogger("perf_graphing")
 
 
 class GraphDefaults:
     height = '600'
     width = '800'
     font = 'DEFAULT:0:Bitstream Vera Sans'
+
+
+class MongoStats:
+    """Map field order of mongostat (csv/tsv) output to readable name."""
+    # Timestamp is last item in the output
+    timestamp = -1
+    # Query stats
+    inserts = 0
+    query = 1
+    update = 2
+    delete = 3
+    # Memory stats
+    vsize = 9
+    res = 10
+
+
+class MongoStatsData:
+    """Wrapper class for a line of data in mongostats output.
+
+    Handles converting raw data from the output to data that we can use to
+    populate an rrd database etc.
+    """
+
+    def __init__(self, timestamp, insert, query, update, delete, vsize, res):
+
+        self.timestamp = timestamp
+        self.insert = int(insert.replace('*', ''))
+        self.query = int(query.replace('*', ''))
+        self.update = int(update.replace('*', ''))
+        self.delete = int(delete.replace('*', ''))
+        try:
+            self.vsize = value_to_bytes(vsize)
+        except ValueError:
+            self.vsize = 'U'
+        try:
+            self.res = value_to_bytes(res)
+        except ValueError:
+            self.res = 'U'
+
+
+class SourceFileNotFound(Exception):
+    """Indicate when an expected metrics data file does not exist."""
+
+
+def value_to_bytes(amount):
+    """Using SI Prefix rules."""
+
+    # Initially Convert to float due to mongostats output having values like:
+    # 96.0M.
+
+    if not amount[-1].isalpha():
+        return int(float(amount))
+
+    SIUnits = dict(K=1e3, M=1e6, G=1e9)
+    try:
+        return int(float(amount[:-1]) * SIUnits[amount[-1]])
+    except KeyError:
+        err_str = 'Unable to convert: {}'.format(amount)
+        log.error(err_str)
+        raise ValueError(err_str)
 
 
 def network_graph(start, end, rrd_path, output_file):
@@ -68,7 +134,8 @@ def memory_graph(start, end, rrd_path, output_file):
             'LINE1:used_stk#ffb000: used')
 
 
-def mongdb_graph(start, end, rrd_path, output_file):
+def mongodb_graph(start, end, rrd_path, output_file):
+    """Create a graph image for mongo db actions details."""
     with EnvironmentVariable('TZ', 'UTC'):
         rrdtool.graph(
             output_file,
@@ -105,6 +172,33 @@ def mongdb_graph(start, end, rrd_path, output_file):
             'LINE1:update_stk#FFB000: update',
             'AREA:delete_stk#ffbfbf80',
             'LINE1:delete_stk#FF0000: delete')
+
+
+def mongodb_memory_graph(start, end, rrd_path, output_file):
+    """Create a graph image for mongo memory usage."""
+    rrd_file = os.path.join(rrd_path, 'mongodb_memory.rrd')
+    with EnvironmentVariable('TZ', 'UTC'):
+        rrdtool.graph(
+            output_file,
+            '--start', str(start),
+            '--end', str(end),
+            '--full-size-mode',
+            '-w', '800',
+            '-h', '600',
+            '-n', 'DEFAULT:0:Bitstream Vera Sans',
+            '-v', 'Queries',
+            '--alt-autoscale-max',
+            '-t', 'MongoDB Memory Usage',
+            'DEF:vsize_avg={}:vsize:AVERAGE'.format(rrd_file),
+            'CDEF:vsize_nnl=vsize_avg,UN,0,vsize_avg,IF',
+            'DEF:res_avg={}:res:AVERAGE'.format(rrd_file),
+            'CDEF:res_nnl=res_avg,UN,0,res_avg,IF',
+            'CDEF:vsize_stk=vsize_nnl',
+            'CDEF:res_stk=res_nnl,vsize_stk,+',
+            'AREA:vsize_stk#bff7bf80',
+            'LINE1:vsize_stk#00E000: vsize',
+            'AREA:res_stk#bfbfff80',
+            'LINE1:res_stk#0000FF: res')
 
 
 def cpu_graph(start, end, rrd_path, output_file):
@@ -164,3 +258,152 @@ def cpu_graph(start, end, rrd_path, output_file):
             'LINE1:interrupt_stk#a000a0: Interrupt',
             'AREA:steal_stk#bfbfbf',
             'LINE1:steal_stk#000000: Steal')
+
+
+def get_mongodb_stat_data(stats_file):
+    """Parse raw mongostats log file output for use in creating rrd values.
+
+    :param stats_file: File-like object from which to extract the data from.
+    :return: List of MongoStatsData objects
+    """
+    data_lines = []
+    for line in stats_file:
+        details = line.split()
+        raw_time = details[MongoStats.timestamp]
+        timestamp = int(
+            calendar.timegm(
+                time.strptime(raw_time, '%Y-%m-%dT%H:%M:%SZ')))
+        data_lines.append(
+            MongoStatsData(
+                timestamp,
+                details[MongoStats.inserts],
+                details[MongoStats.query],
+                details[MongoStats.update],
+                details[MongoStats.delete],
+                details[MongoStats.vsize],
+                details[MongoStats.res],
+            ))
+    first_timestamp = data_lines[0].timestamp
+    final_timestamp = data_lines[-1].timestamp
+    return first_timestamp, final_timestamp, data_lines
+
+
+def create_mongodb_rrd_files(results_dir, destination_dir):
+    """Convert mongostats log output into populated rrd files.
+
+    Creates 2 rrd files, one for db actions and another for db memory usage.
+    """
+    source_file = os.path.join(results_dir, 'mongodb-stats.log')
+    try:
+        stats_file = open(source_file, 'rt')
+    except IOError as e:
+        if e.errno == errno.ENOENT:
+            raise SourceFileNotFound(
+                'mongodb stats file not found ({})'.format(source_file))
+        raise
+
+    with stats_file:
+        first_ts, last_ts, all_data = get_mongodb_stat_data(stats_file)
+
+    query_detail_file = os.path.join(destination_dir, 'mongodb.rrd')
+    memory_detail_file = os.path.join(destination_dir, 'mongodb_memory.rrd')
+
+    _create_mongodb_memory_database(memory_detail_file, first_ts, all_data)
+    _create_mongodb_query_database(query_detail_file, first_ts, all_data)
+
+
+def _create_mongodb_memory_database(memory_detail_file, first_ts, all_data):
+    """Create a rrd file and populate it with memory usage from mongostats."""
+    _create_mongodb_memory_file(memory_detail_file, first_ts)
+    _populate_mongodb_memory_database(memory_detail_file, all_data)
+
+
+def _create_mongodb_query_database(query_detail_file, first_ts, all_data):
+    """Create a rrd file and populate it with db action data from mongostats.
+    """
+    _create_mongodb_actions_file(query_detail_file, first_ts)
+    _populate_mongodb_query_database(query_detail_file, all_data)
+
+
+def _populate_mongodb_query_database(query_detail_file, all_data):
+    """Populate a rrd file with db action details."""
+    for entry in all_data:
+        query_update_details = '{time}:{i}:{q}:{u}:{d}'.format(
+            time=entry.timestamp,
+            i=entry.insert,
+            q=entry.query,
+            u=entry.update,
+            d=entry.delete,
+        )
+        rrdtool.update(query_detail_file, query_update_details)
+
+
+def _populate_mongodb_memory_database(memory_detail_file, all_data):
+    """Populate a rrd file with db memory usage details."""
+    for entry in all_data:
+        memory_update_details = '{time}:{vsize}:{res}'.format(
+            time=entry.timestamp,
+            vsize=entry.vsize,
+            res=entry.res,
+        )
+        rrdtool.update(memory_detail_file, memory_update_details)
+
+
+def _create_mongodb_actions_file(destination_file, first_ts):
+    """Create a rrd file to store mongodb action statistics.
+
+    Mimics the file settings used by collectd for it's rrd file creation.
+    """
+    rrdtool.create(
+        destination_file,
+        '--start', '{}-10'.format(first_ts),
+        '--step', '5',
+        'DS:insert:GAUGE:10:{min}:{max}'.format(min=0, max=281474976710000),
+        'DS:query:GAUGE:10:{min}:{max}'.format(min=0, max=281474976710000),
+        'DS:update:GAUGE:10:{min}:{max}'.format(min=0, max=281474976710000),
+        'DS:delete:GAUGE:10:{min}:{max}'.format(min=0, max=281474976710000),
+        'RRA:AVERAGE:0.1:1:1200',
+        'RRA:MIN:0.1:1:1200',
+        'RRA:MAX:0.1:1:1200',
+        'RRA:AVERAGE:0.1:14:1234',
+        'RRA:MIN:0.1:14:1234',
+        'RRA:MAX:0.1:14:1234',
+        'RRA:AVERAGE:0.1:100:1209',
+        'RRA:MIN:0.1:100:1209',
+        'RRA:MAX:0.1:100:1209',
+        'RRA:AVERAGE:0.1:446:1201',
+        'RRA:MIN:0.1:446:1201',
+        'RRA:MAX:0.1:446:1201',
+        'RRA:AVERAGE:0.1:5270:1200',
+        'RRA:MIN:0.1:5270:1200',
+        'RRA:MAX:0.1:5270:1200',
+    )
+
+
+def _create_mongodb_memory_file(destination_file, first_ts):
+    """Create a rrd file to store mongodb memory usage statistics.
+
+    Mimics the file settings used by collectd for it's rrd file creation.
+    """
+    rrdtool.create(
+        destination_file,
+        '--start', '{}-10'.format(first_ts),
+        '--step', '5',
+        'DS:vsize:GAUGE:600:{min}:{max}'.format(min=0, max=281474976710000),
+        'DS:res:GAUGE:600:{min}:{max}'.format(min=0, max=281474976710000),
+        'RRA:AVERAGE:0.1:1:1200',
+        'RRA:MIN:0.1:1:1200',
+        'RRA:MAX:0.1:1:1200',
+        'RRA:AVERAGE:0.1:14:1234',
+        'RRA:MIN:0.1:14:1234',
+        'RRA:MAX:0.1:14:1234',
+        'RRA:AVERAGE:0.1:100:1209',
+        'RRA:MIN:0.1:100:1209',
+        'RRA:MAX:0.1:100:1209',
+        'RRA:AVERAGE:0.1:446:1201',
+        'RRA:MIN:0.1:446:1201',
+        'RRA:MAX:0.1:446:1201',
+        'RRA:AVERAGE:0.1:5270:1200',
+        'RRA:MIN:0.1:5270:1200',
+        'RRA:MAX:0.1:5270:1200',
+    )
