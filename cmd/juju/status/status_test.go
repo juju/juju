@@ -171,8 +171,9 @@ var (
 			"current": "started",
 			"since":   "01 Apr 15 01:23+10:00",
 		},
-		"dns-name":    "controller-0.dns",
-		"instance-id": "controller-0",
+		"dns-name":     "10.0.0.1",
+		"ip-addresses": []string{"10.0.0.1"},
+		"instance-id":  "controller-0",
 		"machine-status": M{
 			"current": "pending",
 			"since":   "01 Apr 15 01:23+10:00",
@@ -186,8 +187,9 @@ var (
 			"current": "started",
 			"since":   "01 Apr 15 01:23+10:00",
 		},
-		"dns-name":    "controller-1.dns",
-		"instance-id": "controller-1",
+		"dns-name":     "10.0.1.1",
+		"ip-addresses": []string{"10.0.1.1"},
+		"instance-id":  "controller-1",
 		"machine-status": M{
 			"current": "pending",
 			"since":   "01 Apr 15 01:23+10:00",
@@ -200,8 +202,9 @@ var (
 			"current": "started",
 			"since":   "01 Apr 15 01:23+10:00",
 		},
-		"dns-name":    "controller-2.dns",
-		"instance-id": "controller-2",
+		"dns-name":     "10.0.2.1",
+		"ip-addresses": []string{"10.0.2.1"},
+		"instance-id":  "controller-2",
 		"machine-status": M{
 			"current": "pending",
 			"since":   "01 Apr 15 01:23+10:00",
@@ -214,8 +217,9 @@ var (
 			"current": "started",
 			"since":   "01 Apr 15 01:23+10:00",
 		},
-		"dns-name":    "controller-3.dns",
-		"instance-id": "controller-3",
+		"dns-name":     "10.0.3.1",
+		"ip-addresses": []string{"10.0.3.1"},
+		"instance-id":  "controller-3",
 		"machine-status": M{
 			"current": "pending",
 			"since":   "01 Apr 15 01:23+10:00",
@@ -228,8 +232,9 @@ var (
 			"current": "started",
 			"since":   "01 Apr 15 01:23+10:00",
 		},
-		"dns-name":    "controller-4.dns",
-		"instance-id": "controller-4",
+		"dns-name":     "10.0.4.1",
+		"ip-addresses": []string{"10.0.4.1"},
+		"instance-id":  "controller-4",
 		"machine-status": M{
 			"current": "pending",
 			"since":   "01 Apr 15 01:23+10:00",
@@ -254,8 +259,9 @@ var (
 							"current": "started",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
-						"dns-name":    "controller-3.dns",
-						"instance-id": "controller-3",
+						"dns-name":     "10.0.3.1",
+						"ip-addresses": []string{"10.0.3.1"},
+						"instance-id":  "controller-3",
 						"machine-status": M{
 							"current": "pending",
 							"since":   "01 Apr 15 01:23+10:00",
@@ -263,8 +269,9 @@ var (
 						"series": "quantal",
 					},
 				},
-				"dns-name":    "controller-2.dns",
-				"instance-id": "controller-2",
+				"dns-name":     "10.0.2.1",
+				"ip-addresses": []string{"10.0.2.1"},
+				"instance-id":  "controller-2",
 				"machine-status": M{
 					"current": "pending",
 					"since":   "01 Apr 15 01:23+10:00",
@@ -284,8 +291,9 @@ var (
 				"series": "quantal",
 			},
 		},
-		"dns-name":    "controller-1.dns",
-		"instance-id": "controller-1",
+		"dns-name":     "10.0.1.1",
+		"ip-addresses": []string{"10.0.1.1"},
+		"instance-id":  "controller-1",
 		"machine-status": M{
 			"current": "pending",
 			"since":   "01 Apr 15 01:23+10:00",
@@ -376,8 +384,8 @@ var statusTests = []testCase{
 
 		startAliveMachine{"0"},
 		setAddresses{"0", []network.Address{
-			network.NewAddress("10.0.0.1"),
-			network.NewScopedAddress("controller-0.dns", network.ScopePublic),
+			network.NewAddress("10.0.0.2"),
+			network.NewScopedAddress("10.0.0.1", network.ScopePublic),
 		}},
 		expect{
 			"simulate the PA starting an instance in response to the state change",
@@ -389,8 +397,9 @@ var statusTests = []testCase{
 							"current": "pending",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
-						"dns-name":    "controller-0.dns",
-						"instance-id": "controller-0",
+						"dns-name":     "10.0.0.1",
+						"ip-addresses": []string{"10.0.0.1", "10.0.0.2"},
+						"instance-id":  "controller-0",
 						"machine-status": M{
 							"current": "pending",
 							"since":   "01 Apr 15 01:23+10:00",
@@ -410,7 +419,22 @@ var statusTests = []testCase{
 			M{
 				"model": model,
 				"machines": M{
-					"0": machine0,
+					"0": M{
+						"juju-status": M{
+							"current": "started",
+							"since":   "01 Apr 15 01:23+10:00",
+						},
+						"dns-name":     "10.0.0.1",
+						"ip-addresses": []string{"10.0.0.1", "10.0.0.2"},
+						"instance-id":  "controller-0",
+						"machine-status": M{
+							"current": "pending",
+							"since":   "01 Apr 15 01:23+10:00",
+						},
+						"series":                   "quantal",
+						"hardware":                 "arch=amd64 cores=1 mem=1024M root-disk=8192M",
+						"controller-member-status": "adding-vote",
+					},
 				},
 				"applications": M{},
 			},
@@ -423,8 +447,9 @@ var statusTests = []testCase{
 				"model": model,
 				"machines": M{
 					"0": M{
-						"dns-name":    "controller-0.dns",
-						"instance-id": "controller-0",
+						"dns-name":     "10.0.0.1",
+						"ip-addresses": []string{"10.0.0.1", "10.0.0.2"},
+						"instance-id":  "controller-0",
 						"machine-status": M{
 							"current": "pending",
 							"since":   "01 Apr 15 01:23+10:00",
@@ -447,8 +472,8 @@ var statusTests = []testCase{
 		"instance with different hardware characteristics",
 		addMachine{machineId: "0", cons: machineCons, job: state.JobManageModel},
 		setAddresses{"0", []network.Address{
-			network.NewAddress("10.0.0.1"),
-			network.NewScopedAddress("controller-0.dns", network.ScopePublic),
+			network.NewAddress("10.0.0.2"),
+			network.NewScopedAddress("10.0.0.1", network.ScopePublic),
 		}},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", status.Started, ""},
@@ -462,8 +487,9 @@ var statusTests = []testCase{
 							"current": "started",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
-						"dns-name":    "controller-0.dns",
-						"instance-id": "controller-0",
+						"dns-name":     "10.0.0.1",
+						"ip-addresses": []string{"10.0.0.1", "10.0.0.2"},
+						"instance-id":  "controller-0",
 						"machine-status": M{
 							"current": "pending",
 							"since":   "01 Apr 15 01:23+10:00",
@@ -562,7 +588,7 @@ var statusTests = []testCase{
 		"add two services and expose one, then add 2 more machines and some units",
 		// step 0
 		addMachine{machineId: "0", job: state.JobManageModel},
-		setAddresses{"0", network.NewAddresses("controller-0.dns")},
+		setAddresses{"0", network.NewAddresses("10.0.0.1")},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", status.Started, ""},
 		addCharm{"dummy"},
@@ -600,11 +626,11 @@ var statusTests = []testCase{
 
 		// step 10
 		addMachine{machineId: "1", job: state.JobHostUnits},
-		setAddresses{"1", network.NewAddresses("controller-1.dns")},
+		setAddresses{"1", network.NewAddresses("10.0.1.1")},
 		startAliveMachine{"1"},
 		setMachineStatus{"1", status.Started, ""},
 		addMachine{machineId: "2", job: state.JobHostUnits},
-		setAddresses{"2", network.NewAddresses("controller-2.dns")},
+		setAddresses{"2", network.NewAddresses("10.0.2.1")},
 		startAliveMachine{"2"},
 		setMachineStatus{"2", status.Started, ""},
 		expect{
@@ -671,7 +697,7 @@ var statusTests = []testCase{
 								"open-ports": L{
 									"2/tcp", "3/tcp", "2/udp", "10/udp",
 								},
-								"public-address": "controller-2.dns",
+								"public-address": "10.0.2.1",
 							},
 						},
 					}),
@@ -691,7 +717,7 @@ var statusTests = []testCase{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"public-address": "controller-1.dns",
+								"public-address": "10.0.1.1",
 							},
 						},
 					}),
@@ -703,10 +729,10 @@ var statusTests = []testCase{
 		addMachine{machineId: "3", job: state.JobHostUnits},
 		startMachine{"3"},
 		// Simulate some status with info, while the agent is down.
-		setAddresses{"3", network.NewAddresses("controller-3.dns")},
+		setAddresses{"3", network.NewAddresses("10.0.3.1")},
 		setMachineStatus{"3", status.Stopped, "Really?"},
 		addMachine{machineId: "4", job: state.JobHostUnits},
-		setAddresses{"4", network.NewAddresses("controller-4.dns")},
+		setAddresses{"4", network.NewAddresses("10.0.4.1")},
 		startAliveMachine{"4"},
 		setMachineStatus{"4", status.Error, "Beware the red toys"},
 		ensureDyingUnit{"dummy-application/0"},
@@ -721,8 +747,9 @@ var statusTests = []testCase{
 					"1": machine1,
 					"2": machine2,
 					"3": M{
-						"dns-name":    "controller-3.dns",
-						"instance-id": "controller-3",
+						"dns-name":     "10.0.3.1",
+						"ip-addresses": []string{"10.0.3.1"},
+						"instance-id":  "controller-3",
 						"machine-status": M{
 							"current": "pending",
 							"since":   "01 Apr 15 01:23+10:00",
@@ -736,8 +763,9 @@ var statusTests = []testCase{
 						"hardware": "arch=amd64 cores=1 mem=1024M root-disk=8192M",
 					},
 					"4": M{
-						"dns-name":    "controller-4.dns",
-						"instance-id": "controller-4",
+						"dns-name":     "10.0.4.1",
+						"ip-addresses": []string{"10.0.4.1"},
+						"instance-id":  "controller-4",
 						"machine-status": M{
 							"current": "pending",
 							"since":   "01 Apr 15 01:23+10:00",
@@ -787,7 +815,7 @@ var statusTests = []testCase{
 								"open-ports": L{
 									"2/tcp", "3/tcp", "2/udp", "10/udp",
 								},
-								"public-address": "controller-2.dns",
+								"public-address": "10.0.2.1",
 							},
 						},
 					}),
@@ -807,7 +835,7 @@ var statusTests = []testCase{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"public-address": "controller-1.dns",
+								"public-address": "10.0.1.1",
 							},
 						},
 					}),
@@ -841,7 +869,7 @@ var statusTests = []testCase{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"public-address": "controller-1.dns",
+								"public-address": "10.0.1.1",
 							},
 						},
 					}),
@@ -879,7 +907,7 @@ var statusTests = []testCase{
 								"open-ports": L{
 									"2/tcp", "3/tcp", "2/udp", "10/udp",
 								},
-								"public-address": "controller-2.dns",
+								"public-address": "10.0.2.1",
 							},
 						},
 					}),
@@ -911,7 +939,7 @@ var statusTests = []testCase{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"public-address": "controller-1.dns",
+								"public-address": "10.0.1.1",
 							},
 						},
 					}),
@@ -949,7 +977,7 @@ var statusTests = []testCase{
 								"open-ports": L{
 									"2/tcp", "3/tcp", "2/udp", "10/udp",
 								},
-								"public-address": "controller-2.dns",
+								"public-address": "10.0.2.1",
 							},
 						},
 					}),
@@ -982,7 +1010,7 @@ var statusTests = []testCase{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"public-address": "controller-1.dns",
+								"public-address": "10.0.1.1",
 							},
 						},
 					}),
@@ -1008,7 +1036,7 @@ var statusTests = []testCase{
 								"open-ports": L{
 									"2/tcp", "3/tcp", "2/udp", "10/udp",
 								},
-								"public-address": "controller-2.dns",
+								"public-address": "10.0.2.1",
 							},
 						},
 					}),
@@ -1019,12 +1047,12 @@ var statusTests = []testCase{
 	test( // 5
 		"a unit with a hook relation error",
 		addMachine{machineId: "0", job: state.JobManageModel},
-		setAddresses{"0", network.NewAddresses("controller-0.dns")},
+		setAddresses{"0", network.NewAddresses("10.0.0.1")},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", status.Started, ""},
 
 		addMachine{machineId: "1", job: state.JobHostUnits},
-		setAddresses{"1", network.NewAddresses("controller-1.dns")},
+		setAddresses{"1", network.NewAddresses("10.0.1.1")},
 		startAliveMachine{"1"},
 		setMachineStatus{"1", status.Started, ""},
 
@@ -1072,7 +1100,7 @@ var statusTests = []testCase{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"public-address": "controller-1.dns",
+								"public-address": "10.0.1.1",
 							},
 						},
 					}),
@@ -1097,7 +1125,7 @@ var statusTests = []testCase{
 									"current": "allocating",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"public-address": "controller-1.dns",
+								"public-address": "10.0.1.1",
 							},
 						},
 					}),
@@ -1108,12 +1136,12 @@ var statusTests = []testCase{
 	test( // 6
 		"a unit with a hook relation error when the agent is down",
 		addMachine{machineId: "0", job: state.JobManageModel},
-		setAddresses{"0", network.NewAddresses("controller-0.dns")},
+		setAddresses{"0", network.NewAddresses("10.0.0.1")},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", status.Started, ""},
 
 		addMachine{machineId: "1", job: state.JobHostUnits},
-		setAddresses{"1", network.NewAddresses("controller-1.dns")},
+		setAddresses{"1", network.NewAddresses("10.0.1.1")},
 		startAliveMachine{"1"},
 		setMachineStatus{"1", status.Started, ""},
 
@@ -1161,7 +1189,7 @@ var statusTests = []testCase{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"public-address": "controller-1.dns",
+								"public-address": "10.0.1.1",
 							},
 						},
 					}),
@@ -1186,7 +1214,7 @@ var statusTests = []testCase{
 									"current": "allocating",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"public-address": "controller-1.dns",
+								"public-address": "10.0.1.1",
 							},
 						},
 					}),
@@ -1308,7 +1336,7 @@ var statusTests = []testCase{
 	test( // 9
 		"complex scenario with multiple related services",
 		addMachine{machineId: "0", job: state.JobManageModel},
-		setAddresses{"0", network.NewAddresses("controller-0.dns")},
+		setAddresses{"0", network.NewAddresses("10.0.0.1")},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", status.Started, ""},
 		addCharm{"wordpress"},
@@ -1318,7 +1346,7 @@ var statusTests = []testCase{
 		addService{name: "project", charm: "wordpress"},
 		setServiceExposed{"project", true},
 		addMachine{machineId: "1", job: state.JobHostUnits},
-		setAddresses{"1", network.NewAddresses("controller-1.dns")},
+		setAddresses{"1", network.NewAddresses("10.0.1.1")},
 		startAliveMachine{"1"},
 		setMachineStatus{"1", status.Started, ""},
 		addAliveUnit{"project", "1"},
@@ -1328,7 +1356,7 @@ var statusTests = []testCase{
 		addService{name: "mysql", charm: "mysql"},
 		setServiceExposed{"mysql", true},
 		addMachine{machineId: "2", job: state.JobHostUnits},
-		setAddresses{"2", network.NewAddresses("controller-2.dns")},
+		setAddresses{"2", network.NewAddresses("10.0.2.1")},
 		startAliveMachine{"2"},
 		setMachineStatus{"2", status.Started, ""},
 		addAliveUnit{"mysql", "2"},
@@ -1338,7 +1366,7 @@ var statusTests = []testCase{
 		addService{name: "varnish", charm: "varnish"},
 		setServiceExposed{"varnish", true},
 		addMachine{machineId: "3", job: state.JobHostUnits},
-		setAddresses{"3", network.NewAddresses("controller-3.dns")},
+		setAddresses{"3", network.NewAddresses("10.0.3.1")},
 		startAliveMachine{"3"},
 		setMachineStatus{"3", status.Started, ""},
 		addAliveUnit{"varnish", "3"},
@@ -1346,7 +1374,7 @@ var statusTests = []testCase{
 		addService{name: "private", charm: "wordpress"},
 		setServiceExposed{"private", true},
 		addMachine{machineId: "4", job: state.JobHostUnits},
-		setAddresses{"4", network.NewAddresses("controller-4.dns")},
+		setAddresses{"4", network.NewAddresses("10.0.4.1")},
 		startAliveMachine{"4"},
 		setMachineStatus{"4", status.Started, ""},
 		addAliveUnit{"private", "4"},
@@ -1384,7 +1412,7 @@ var statusTests = []testCase{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"public-address": "controller-1.dns",
+								"public-address": "10.0.1.1",
 							},
 						},
 						"relations": M{
@@ -1409,7 +1437,7 @@ var statusTests = []testCase{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"public-address": "controller-2.dns",
+								"public-address": "10.0.2.1",
 							},
 						},
 						"relations": M{
@@ -1441,7 +1469,7 @@ var statusTests = []testCase{
 									"current": "allocating",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"public-address": "controller-3.dns",
+								"public-address": "10.0.3.1",
 							},
 						},
 						"relations": M{
@@ -1467,7 +1495,7 @@ var statusTests = []testCase{
 									"current": "allocating",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"public-address": "controller-4.dns",
+								"public-address": "10.0.4.1",
 							},
 						},
 						"relations": M{
@@ -1481,7 +1509,7 @@ var statusTests = []testCase{
 	test( // 10
 		"simple peer scenario with leader",
 		addMachine{machineId: "0", job: state.JobManageModel},
-		setAddresses{"0", network.NewAddresses("controller-0.dns")},
+		setAddresses{"0", network.NewAddresses("10.0.0.1")},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", status.Started, ""},
 		addCharm{"riak"},
@@ -1490,21 +1518,21 @@ var statusTests = []testCase{
 		addService{name: "riak", charm: "riak"},
 		setServiceExposed{"riak", true},
 		addMachine{machineId: "1", job: state.JobHostUnits},
-		setAddresses{"1", network.NewAddresses("controller-1.dns")},
+		setAddresses{"1", network.NewAddresses("10.0.1.1")},
 		startAliveMachine{"1"},
 		setMachineStatus{"1", status.Started, ""},
 		addAliveUnit{"riak", "1"},
 		setAgentStatus{"riak/0", status.Idle, "", nil},
 		setUnitStatus{"riak/0", status.Active, "", nil},
 		addMachine{machineId: "2", job: state.JobHostUnits},
-		setAddresses{"2", network.NewAddresses("controller-2.dns")},
+		setAddresses{"2", network.NewAddresses("10.0.2.1")},
 		startAliveMachine{"2"},
 		setMachineStatus{"2", status.Started, ""},
 		addAliveUnit{"riak", "2"},
 		setAgentStatus{"riak/1", status.Idle, "", nil},
 		setUnitStatus{"riak/1", status.Active, "", nil},
 		addMachine{machineId: "3", job: state.JobHostUnits},
-		setAddresses{"3", network.NewAddresses("controller-3.dns")},
+		setAddresses{"3", network.NewAddresses("10.0.3.1")},
 		startAliveMachine{"3"},
 		setMachineStatus{"3", status.Started, ""},
 		addAliveUnit{"riak", "3"},
@@ -1546,7 +1574,7 @@ var statusTests = []testCase{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"public-address": "controller-1.dns",
+								"public-address": "10.0.1.1",
 							},
 							"riak/1": M{
 								"machine": "2",
@@ -1558,7 +1586,7 @@ var statusTests = []testCase{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"public-address": "controller-2.dns",
+								"public-address": "10.0.2.1",
 								"leader":         true,
 							},
 							"riak/2": M{
@@ -1571,7 +1599,7 @@ var statusTests = []testCase{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"public-address": "controller-3.dns",
+								"public-address": "10.0.3.1",
 							},
 						},
 						"relations": M{
@@ -1587,7 +1615,7 @@ var statusTests = []testCase{
 	test( // 11
 		"one application with one subordinate application and leader",
 		addMachine{machineId: "0", job: state.JobManageModel},
-		setAddresses{"0", network.NewAddresses("controller-0.dns")},
+		setAddresses{"0", network.NewAddresses("10.0.0.1")},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", status.Started, ""},
 		addCharm{"wordpress"},
@@ -1597,7 +1625,7 @@ var statusTests = []testCase{
 		addService{name: "wordpress", charm: "wordpress"},
 		setServiceExposed{"wordpress", true},
 		addMachine{machineId: "1", job: state.JobHostUnits},
-		setAddresses{"1", network.NewAddresses("controller-1.dns")},
+		setAddresses{"1", network.NewAddresses("10.0.1.1")},
 		startAliveMachine{"1"},
 		setMachineStatus{"1", status.Started, ""},
 		addAliveUnit{"wordpress", "1"},
@@ -1607,7 +1635,7 @@ var statusTests = []testCase{
 		addService{name: "mysql", charm: "mysql"},
 		setServiceExposed{"mysql", true},
 		addMachine{machineId: "2", job: state.JobHostUnits},
-		setAddresses{"2", network.NewAddresses("controller-2.dns")},
+		setAddresses{"2", network.NewAddresses("10.0.2.1")},
 		startAliveMachine{"2"},
 		setMachineStatus{"2", status.Started, ""},
 		addAliveUnit{"mysql", "2"},
@@ -1670,10 +1698,10 @@ var statusTests = []testCase{
 											"current": "idle",
 											"since":   "01 Apr 15 01:23+10:00",
 										},
-										"public-address": "controller-1.dns",
+										"public-address": "10.0.1.1",
 									},
 								},
-								"public-address": "controller-1.dns",
+								"public-address": "10.0.1.1",
 								"leader":         true,
 							},
 						},
@@ -1710,11 +1738,11 @@ var statusTests = []testCase{
 											"current": "idle",
 											"since":   "01 Apr 15 01:23+10:00",
 										},
-										"public-address": "controller-2.dns",
+										"public-address": "10.0.2.1",
 										"leader":         true,
 									},
 								},
-								"public-address": "controller-2.dns",
+								"public-address": "10.0.2.1",
 								"leader":         true,
 							},
 						},
@@ -1766,10 +1794,10 @@ var statusTests = []testCase{
 											"current": "idle",
 											"since":   "01 Apr 15 01:23+10:00",
 										},
-										"public-address": "controller-1.dns",
+										"public-address": "10.0.1.1",
 									},
 								},
-								"public-address": "controller-1.dns",
+								"public-address": "10.0.1.1",
 								"leader":         true,
 							},
 						},
@@ -1806,11 +1834,11 @@ var statusTests = []testCase{
 											"current": "idle",
 											"since":   "01 Apr 15 01:23+10:00",
 										},
-										"public-address": "controller-2.dns",
+										"public-address": "10.0.2.1",
 										"leader":         true,
 									},
 								},
-								"public-address": "controller-2.dns",
+								"public-address": "10.0.2.1",
 								"leader":         true,
 							},
 						},
@@ -1861,10 +1889,10 @@ var statusTests = []testCase{
 											"current": "idle",
 											"since":   "01 Apr 15 01:23+10:00",
 										},
-										"public-address": "controller-1.dns",
+										"public-address": "10.0.1.1",
 									},
 								},
-								"public-address": "controller-1.dns",
+								"public-address": "10.0.1.1",
 								"leader":         true,
 							},
 						},
@@ -1882,7 +1910,7 @@ var statusTests = []testCase{
 		"machines with containers",
 		// step 0
 		addMachine{machineId: "0", job: state.JobManageModel},
-		setAddresses{"0", network.NewAddresses("controller-0.dns")},
+		setAddresses{"0", network.NewAddresses("10.0.0.1")},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", status.Started, ""},
 		addCharm{"mysql"},
@@ -1891,7 +1919,7 @@ var statusTests = []testCase{
 
 		// step 7
 		addMachine{machineId: "1", job: state.JobHostUnits},
-		setAddresses{"1", network.NewAddresses("controller-1.dns")},
+		setAddresses{"1", network.NewAddresses("10.0.1.1")},
 		startAliveMachine{"1"},
 		setMachineStatus{"1", status.Started, ""},
 		addAliveUnit{"mysql", "1"},
@@ -1900,7 +1928,7 @@ var statusTests = []testCase{
 
 		// step 14: A container on machine 1.
 		addContainer{"1", "1/lxd/0", state.JobHostUnits},
-		setAddresses{"1/lxd/0", network.NewAddresses("controller-2.dns")},
+		setAddresses{"1/lxd/0", network.NewAddresses("10.0.2.1")},
 		startAliveMachine{"1/lxd/0"},
 		setMachineStatus{"1/lxd/0", status.Started, ""},
 		addAliveUnit{"mysql", "1/lxd/0"},
@@ -1910,7 +1938,7 @@ var statusTests = []testCase{
 
 		// step 22: A nested container.
 		addContainer{"1/lxd/0", "1/lxd/0/lxd/0", state.JobHostUnits},
-		setAddresses{"1/lxd/0/lxd/0", network.NewAddresses("controller-3.dns")},
+		setAddresses{"1/lxd/0/lxd/0", network.NewAddresses("10.0.3.1")},
 		startAliveMachine{"1/lxd/0/lxd/0"},
 		setMachineStatus{"1/lxd/0/lxd/0", status.Started, ""},
 
@@ -1940,7 +1968,7 @@ var statusTests = []testCase{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"public-address": "controller-1.dns",
+								"public-address": "10.0.1.1",
 							},
 							"mysql/1": M{
 								"machine": "1/lxd/0",
@@ -1952,7 +1980,7 @@ var statusTests = []testCase{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"public-address": "controller-2.dns",
+								"public-address": "10.0.2.1",
 							},
 						},
 					}),
@@ -1978,8 +2006,9 @@ var statusTests = []testCase{
 									"current": "started",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"dns-name":    "controller-2.dns",
-								"instance-id": "controller-2",
+								"dns-name":     "10.0.2.1",
+								"ip-addresses": []string{"10.0.2.1"},
+								"instance-id":  "controller-2",
 								"machine-status": M{
 									"current": "pending",
 									"since":   "01 Apr 15 01:23+10:00",
@@ -1988,8 +2017,9 @@ var statusTests = []testCase{
 								"series": "quantal",
 							},
 						},
-						"dns-name":    "controller-1.dns",
-						"instance-id": "controller-1",
+						"dns-name":     "10.0.1.1",
+						"ip-addresses": []string{"10.0.1.1"},
+						"instance-id":  "controller-1",
 						"machine-status": M{
 							"current": "pending",
 							"since":   "01 Apr 15 01:23+10:00",
@@ -2017,7 +2047,7 @@ var statusTests = []testCase{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"public-address": "controller-2.dns",
+								"public-address": "10.0.2.1",
 							},
 						},
 					}),
@@ -2028,11 +2058,11 @@ var statusTests = []testCase{
 	test( // 13
 		"application with out of date charm",
 		addMachine{machineId: "0", job: state.JobManageModel},
-		setAddresses{"0", network.NewAddresses("controller-0.dns")},
+		setAddresses{"0", network.NewAddresses("10.0.0.1")},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", status.Started, ""},
 		addMachine{machineId: "1", job: state.JobHostUnits},
-		setAddresses{"1", network.NewAddresses("controller-1.dns")},
+		setAddresses{"1", network.NewAddresses("10.0.1.1")},
 		startAliveMachine{"1"},
 		setMachineStatus{"1", status.Started, ""},
 		addCharm{"mysql"},
@@ -2070,7 +2100,7 @@ var statusTests = []testCase{
 									"current": "allocating",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"public-address": "controller-1.dns",
+								"public-address": "10.0.1.1",
 							},
 						},
 					}),
@@ -2081,11 +2111,11 @@ var statusTests = []testCase{
 	test( // 14
 		"unit with out of date charm",
 		addMachine{machineId: "0", job: state.JobManageModel},
-		setAddresses{"0", network.NewAddresses("controller-0.dns")},
+		setAddresses{"0", network.NewAddresses("10.0.0.1")},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", status.Started, ""},
 		addMachine{machineId: "1", job: state.JobHostUnits},
-		setAddresses{"1", network.NewAddresses("controller-1.dns")},
+		setAddresses{"1", network.NewAddresses("10.0.1.1")},
 		startAliveMachine{"1"},
 		setMachineStatus{"1", status.Started, ""},
 		addCharm{"mysql"},
@@ -2125,7 +2155,7 @@ var statusTests = []testCase{
 									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"upgrading-from": "cs:quantal/mysql-1",
-								"public-address": "controller-1.dns",
+								"public-address": "10.0.1.1",
 							},
 						},
 					}),
@@ -2136,11 +2166,11 @@ var statusTests = []testCase{
 	test( // 15
 		"application and unit with out of date charms",
 		addMachine{machineId: "0", job: state.JobManageModel},
-		setAddresses{"0", network.NewAddresses("controller-0.dns")},
+		setAddresses{"0", network.NewAddresses("10.0.0.1")},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", status.Started, ""},
 		addMachine{machineId: "1", job: state.JobHostUnits},
-		setAddresses{"1", network.NewAddresses("controller-1.dns")},
+		setAddresses{"1", network.NewAddresses("10.0.1.1")},
 		startAliveMachine{"1"},
 		setMachineStatus{"1", status.Started, ""},
 		addCharm{"mysql"},
@@ -2182,7 +2212,7 @@ var statusTests = []testCase{
 									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"upgrading-from": "cs:quantal/mysql-1",
-								"public-address": "controller-1.dns",
+								"public-address": "10.0.1.1",
 							},
 						},
 					}),
@@ -2193,11 +2223,11 @@ var statusTests = []testCase{
 	test( // 16
 		"application with local charm not shown as out of date",
 		addMachine{machineId: "0", job: state.JobManageModel},
-		setAddresses{"0", network.NewAddresses("controller-0.dns")},
+		setAddresses{"0", network.NewAddresses("10.0.0.1")},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", status.Started, ""},
 		addMachine{machineId: "1", job: state.JobHostUnits},
-		setAddresses{"1", network.NewAddresses("controller-1.dns")},
+		setAddresses{"1", network.NewAddresses("10.0.1.1")},
 		startAliveMachine{"1"},
 		setMachineStatus{"1", status.Started, ""},
 		addCharm{"mysql"},
@@ -2238,7 +2268,7 @@ var statusTests = []testCase{
 									"since":   "01 Apr 15 01:23+10:00",
 								},
 								"upgrading-from": "cs:quantal/mysql-1",
-								"public-address": "controller-1.dns",
+								"public-address": "10.0.1.1",
 							},
 						},
 					}),
@@ -2249,27 +2279,27 @@ var statusTests = []testCase{
 	test( // 17
 		"deploy two services; set meter statuses on one",
 		addMachine{machineId: "0", job: state.JobManageModel},
-		setAddresses{"0", network.NewAddresses("controller-0.dns")},
+		setAddresses{"0", network.NewAddresses("10.0.0.1")},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", status.Started, ""},
 
 		addMachine{machineId: "1", job: state.JobHostUnits},
-		setAddresses{"1", network.NewAddresses("controller-1.dns")},
+		setAddresses{"1", network.NewAddresses("10.0.1.1")},
 		startAliveMachine{"1"},
 		setMachineStatus{"1", status.Started, ""},
 
 		addMachine{machineId: "2", job: state.JobHostUnits},
-		setAddresses{"2", network.NewAddresses("controller-2.dns")},
+		setAddresses{"2", network.NewAddresses("10.0.2.1")},
 		startAliveMachine{"2"},
 		setMachineStatus{"2", status.Started, ""},
 
 		addMachine{machineId: "3", job: state.JobHostUnits},
-		setAddresses{"3", network.NewAddresses("controller-3.dns")},
+		setAddresses{"3", network.NewAddresses("10.0.3.1")},
 		startAliveMachine{"3"},
 		setMachineStatus{"3", status.Started, ""},
 
 		addMachine{machineId: "4", job: state.JobHostUnits},
-		setAddresses{"4", network.NewAddresses("controller-4.dns")},
+		setAddresses{"4", network.NewAddresses("10.0.4.1")},
 		startAliveMachine{"4"},
 		setMachineStatus{"4", status.Started, ""},
 
@@ -2328,7 +2358,7 @@ var statusTests = []testCase{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"public-address": "controller-1.dns",
+								"public-address": "10.0.1.1",
 							},
 						},
 					}),
@@ -2349,7 +2379,7 @@ var statusTests = []testCase{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"public-address": "controller-2.dns",
+								"public-address": "10.0.2.1",
 							},
 							"servicewithmeterstatus/1": M{
 								"machine": "3",
@@ -2365,7 +2395,7 @@ var statusTests = []testCase{
 									"color":   "green",
 									"message": "test green status",
 								},
-								"public-address": "controller-3.dns",
+								"public-address": "10.0.3.1",
 							},
 							"servicewithmeterstatus/2": M{
 								"machine": "4",
@@ -2381,7 +2411,7 @@ var statusTests = []testCase{
 									"color":   "red",
 									"message": "test red status",
 								},
-								"public-address": "controller-4.dns",
+								"public-address": "10.0.4.1",
 							},
 						},
 					}),
@@ -2411,7 +2441,7 @@ var statusTests = []testCase{
 	test( // 19
 		"consistent workload version",
 		addMachine{machineId: "0", job: state.JobManageModel},
-		setAddresses{"0", network.NewAddresses("controller-0.dns")},
+		setAddresses{"0", network.NewAddresses("10.0.0.1")},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", status.Started, ""},
 
@@ -2419,7 +2449,7 @@ var statusTests = []testCase{
 		addService{name: "mysql", charm: "mysql"},
 
 		addMachine{machineId: "1", job: state.JobHostUnits},
-		setAddresses{"1", network.NewAddresses("controller-1.dns")},
+		setAddresses{"1", network.NewAddresses("10.0.1.1")},
 		startAliveMachine{"1"},
 		setMachineStatus{"1", status.Started, ""},
 		addAliveUnit{"mysql", "1"},
@@ -2453,7 +2483,7 @@ var statusTests = []testCase{
 									"current": "allocating",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"public-address": "controller-1.dns",
+								"public-address": "10.0.1.1",
 							},
 						},
 					}),
@@ -2464,7 +2494,7 @@ var statusTests = []testCase{
 	test( // 20
 		"mixed workload version",
 		addMachine{machineId: "0", job: state.JobManageModel},
-		setAddresses{"0", network.NewAddresses("controller-0.dns")},
+		setAddresses{"0", network.NewAddresses("10.0.0.1")},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", status.Started, ""},
 
@@ -2472,14 +2502,14 @@ var statusTests = []testCase{
 		addService{name: "mysql", charm: "mysql"},
 
 		addMachine{machineId: "1", job: state.JobHostUnits},
-		setAddresses{"1", network.NewAddresses("controller-1.dns")},
+		setAddresses{"1", network.NewAddresses("10.0.1.1")},
 		startAliveMachine{"1"},
 		setMachineStatus{"1", status.Started, ""},
 		addAliveUnit{"mysql", "1"},
 		setUnitWorkloadVersion{"mysql/0", "the best!"},
 
 		addMachine{machineId: "2", job: state.JobHostUnits},
-		setAddresses{"2", network.NewAddresses("controller-2.dns")},
+		setAddresses{"2", network.NewAddresses("10.0.2.1")},
 		startAliveMachine{"2"},
 		setMachineStatus{"2", status.Started, ""},
 		addAliveUnit{"mysql", "2"},
@@ -2514,7 +2544,7 @@ var statusTests = []testCase{
 									"current": "allocating",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"public-address": "controller-1.dns",
+								"public-address": "10.0.1.1",
 							},
 							"mysql/1": M{
 								"machine": "2",
@@ -2527,11 +2557,82 @@ var statusTests = []testCase{
 									"current": "allocating",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"public-address": "controller-2.dns",
+								"public-address": "10.0.2.1",
 							},
 						},
 					}),
 				},
+			},
+		},
+	),
+	test( // 21
+		"instance with localhost addresses",
+		addMachine{machineId: "0", cons: machineCons, job: state.JobManageModel},
+		setAddresses{"0", []network.Address{
+			network.NewScopedAddress("127.0.0.1", network.ScopeMachineLocal),
+			network.NewScopedAddress("::1", network.ScopeMachineLocal),
+			network.NewScopedAddress("10.0.0.2", network.ScopeCloudLocal),
+		}},
+		startAliveMachine{"0"},
+		setMachineStatus{"0", status.Started, ""},
+		expect{
+			"machine 0 has localhost addresses that should not display",
+			M{
+				"model": model,
+				"machines": M{
+					"0": M{
+						"juju-status": M{
+							"current": "started",
+							"since":   "01 Apr 15 01:23+10:00",
+						},
+						"dns-name":     "10.0.0.2",
+						"ip-addresses": []string{"10.0.0.2"},
+						"instance-id":  "controller-0",
+						"machine-status": M{
+							"current": "pending",
+							"since":   "01 Apr 15 01:23+10:00",
+						},
+						"series":                   "quantal",
+						"hardware":                 "arch=amd64 cores=2 mem=8192M root-disk=8192M",
+						"controller-member-status": "adding-vote",
+					},
+				},
+				"applications": M{},
+			},
+		},
+	),
+	test( // 22
+		"instance with IPv6 addresses",
+		addMachine{machineId: "0", cons: machineCons, job: state.JobManageModel},
+		setAddresses{"0", []network.Address{
+			network.NewScopedAddress("::1", network.ScopeMachineLocal),
+			network.NewScopedAddress("2001:db8::0:1", network.ScopeCloudLocal),
+		}},
+		startAliveMachine{"0"},
+		setMachineStatus{"0", status.Started, ""},
+		expect{
+			"machine 0 has an IPv6 address",
+			M{
+				"model": model,
+				"machines": M{
+					"0": M{
+						"juju-status": M{
+							"current": "started",
+							"since":   "01 Apr 15 01:23+10:00",
+						},
+						"dns-name":     "2001:db8::0:1",
+						"ip-addresses": []string{"2001:db8::0:1"},
+						"instance-id":  "controller-0",
+						"machine-status": M{
+							"current": "pending",
+							"since":   "01 Apr 15 01:23+10:00",
+						},
+						"series":                   "quantal",
+						"hardware":                 "arch=amd64 cores=2 mem=8192M root-disk=8192M",
+						"controller-member-status": "adding-vote",
+					},
+				},
+				"applications": M{},
 			},
 		},
 	),
@@ -3350,7 +3451,7 @@ func (s *StatusSuite) TestStatusWithFormatSummary(c *gc.C) {
 		addService{name: "mysql", charm: "mysql"},
 		setServiceExposed{"mysql", true},
 		addMachine{machineId: "2", job: state.JobHostUnits},
-		setAddresses{"2", network.NewAddresses("10.0.0.1")},
+		setAddresses{"2", network.NewAddresses("10.0.0.2")},
 		startAliveMachine{"2"},
 		setMachineStatus{"2", status.Started, ""},
 		addAliveUnit{"mysql", "2"},
@@ -3375,7 +3476,7 @@ func (s *StatusSuite) TestStatusWithFormatSummary(c *gc.C) {
 	c.Check(code, gc.Equals, 0)
 	c.Check(string(stderr), gc.Equals, "")
 	c.Assert(string(stdout), gc.Equals, `
-Running on subnets:  127.0.0.1/8, 10.0.0.1/8  
+Running on subnets:  127.0.0.1/8, 10.0.0.2/8  
  Utilizing ports:                             
       # Machines:  (3)
          started:   3 
@@ -3396,7 +3497,7 @@ func (s *StatusSuite) TestStatusWithFormatOneline(c *gc.C) {
 	defer s.resetContext(c, ctx)
 	steps := []stepper{
 		addMachine{machineId: "0", job: state.JobManageModel},
-		setAddresses{"0", network.NewAddresses("controller-0.dns")},
+		setAddresses{"0", network.NewAddresses("10.0.0.1")},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", status.Started, ""},
 		addCharm{"wordpress"},
@@ -3406,7 +3507,7 @@ func (s *StatusSuite) TestStatusWithFormatOneline(c *gc.C) {
 		addService{name: "wordpress", charm: "wordpress"},
 		setServiceExposed{"wordpress", true},
 		addMachine{machineId: "1", job: state.JobHostUnits},
-		setAddresses{"1", network.NewAddresses("controller-1.dns")},
+		setAddresses{"1", network.NewAddresses("10.0.1.1")},
 		startAliveMachine{"1"},
 		setMachineStatus{"1", status.Started, ""},
 		addAliveUnit{"wordpress", "1"},
@@ -3416,7 +3517,7 @@ func (s *StatusSuite) TestStatusWithFormatOneline(c *gc.C) {
 		addService{name: "mysql", charm: "mysql"},
 		setServiceExposed{"mysql", true},
 		addMachine{machineId: "2", job: state.JobHostUnits},
-		setAddresses{"2", network.NewAddresses("controller-2.dns")},
+		setAddresses{"2", network.NewAddresses("10.0.2.1")},
 		startAliveMachine{"2"},
 		setMachineStatus{"2", status.Started, ""},
 		addAliveUnit{"mysql", "2"},
@@ -3442,10 +3543,10 @@ func (s *StatusSuite) TestStatusWithFormatOneline(c *gc.C) {
 	ctx.run(c, steps)
 
 	const expected = `
-- mysql/0: controller-2.dns (agent:idle, workload:active)
-  - logging/1: controller-2.dns (agent:idle, workload:error)
-- wordpress/0: controller-1.dns (agent:idle, workload:active)
-  - logging/0: controller-1.dns (agent:idle, workload:active)
+- mysql/0: 10.0.2.1 (agent:idle, workload:active)
+  - logging/1: 10.0.2.1 (agent:idle, workload:error)
+- wordpress/0: 10.0.1.1 (agent:idle, workload:active)
+  - logging/0: 10.0.1.1 (agent:idle, workload:active)
 `
 	assertOneLineStatus(c, expected)
 }
@@ -3474,7 +3575,7 @@ func (s *StatusSuite) prepareTabularData(c *gc.C) *context {
 	steps := []stepper{
 		setToolsUpgradeAvailable{},
 		addMachine{machineId: "0", job: state.JobManageModel},
-		setAddresses{"0", network.NewAddresses("controller-0.dns")},
+		setAddresses{"0", network.NewAddresses("10.0.0.1")},
 		startMachineWithHardware{"0", instance.MustParseHardware("availability-zone=us-east-1a")},
 		setMachineStatus{"0", status.Started, ""},
 		addCharm{"wordpress"},
@@ -3483,7 +3584,7 @@ func (s *StatusSuite) prepareTabularData(c *gc.C) *context {
 		addService{name: "wordpress", charm: "wordpress"},
 		setServiceExposed{"wordpress", true},
 		addMachine{machineId: "1", job: state.JobHostUnits},
-		setAddresses{"1", network.NewAddresses("controller-1.dns")},
+		setAddresses{"1", network.NewAddresses("10.0.1.1")},
 		startAliveMachine{"1"},
 		setMachineStatus{"1", status.Started, ""},
 		addAliveUnit{"wordpress", "1"},
@@ -3493,7 +3594,7 @@ func (s *StatusSuite) prepareTabularData(c *gc.C) *context {
 		addService{name: "mysql", charm: "mysql"},
 		setServiceExposed{"mysql", true},
 		addMachine{machineId: "2", job: state.JobHostUnits},
-		setAddresses{"2", network.NewAddresses("controller-2.dns")},
+		setAddresses{"2", network.NewAddresses("10.0.2.1")},
 		startAliveMachine{"2"},
 		setMachineStatus{"2", status.Started, ""},
 		addAliveUnit{"mysql", "2"},
@@ -3546,16 +3647,16 @@ logging    a bit too lo...  error            2  logging    jujucharms    1  ubun
 mysql      5.7.13           maintenance      1  mysql      jujucharms    1  ubuntu  exposed
 wordpress  4.5.3            active           1  wordpress  jujucharms    3  ubuntu  exposed
 
-Unit          Workload     Agent  Machine  Public address    Ports  Message
-mysql/0*      maintenance  idle   2        controller-2.dns         installing all the things
-  logging/1*  error        idle            controller-2.dns         somehow lost in all those logs
-wordpress/0*  active       idle   1        controller-1.dns         
-  logging/0   active       idle            controller-1.dns         
+Unit          Workload     Agent  Machine  Public address  Ports  Message
+mysql/0*      maintenance  idle   2        10.0.2.1               installing all the things
+  logging/1*  error        idle            10.0.2.1               somehow lost in all those logs
+wordpress/0*  active       idle   1        10.0.1.1               
+  logging/0   active       idle            10.0.1.1               
 
-Machine  State    DNS               Inst id       Series   AZ
-0        started  controller-0.dns  controller-0  quantal  us-east-1a
-1        started  controller-1.dns  controller-1  quantal  
-2        started  controller-2.dns  controller-2  quantal  
+Machine  State    DNS       Inst id       Series   AZ
+0        started  10.0.0.1  controller-0  quantal  us-east-1a
+1        started  10.0.1.1  controller-1  quantal  
+2        started  10.0.2.1  controller-2  quantal  
 
 Relation           Provides   Consumes   Type
 juju-info          logging    mysql      regular
@@ -3651,7 +3752,7 @@ func (s *StatusSuite) TestStatusWithNilStatusAPI(c *gc.C) {
 	defer s.resetContext(c, ctx)
 	steps := []stepper{
 		addMachine{machineId: "0", job: state.JobManageModel},
-		setAddresses{"0", network.NewAddresses("controller-0.dns")},
+		setAddresses{"0", network.NewAddresses("10.0.0.1")},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", status.Started, ""},
 	}
@@ -3731,8 +3832,8 @@ func (s *StatusSuite) FilteringTestSetup(c *gc.C) *context {
 		addMachine{machineId: "0", job: state.JobManageModel},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", status.Started, ""},
-		// And the machine's address is "controller-0.dns"
-		setAddresses{"0", network.NewAddresses("controller-0.dns")},
+		// And the machine's address is "10.0.0.1"
+		setAddresses{"0", network.NewAddresses("10.0.0.1")},
 		// And a container is started
 		// And the container's ID is "0/lxd/0"
 		addContainer{"0", "0/lxd/0", state.JobHostUnits},
@@ -3752,8 +3853,8 @@ func (s *StatusSuite) FilteringTestSetup(c *gc.C) *context {
 		addMachine{machineId: "1", job: state.JobHostUnits},
 		startAliveMachine{"1"},
 		setMachineStatus{"1", status.Started, ""},
-		// And the machine's address is "controller-1.dns"
-		setAddresses{"1", network.NewAddresses("controller-1.dns")},
+		// And the machine's address is "10.0.1.1"
+		setAddresses{"1", network.NewAddresses("10.0.1.1")},
 		// And a unit of "wordpress" is deployed to machine "1"
 		addAliveUnit{"wordpress", "1"},
 		// And the unit is started
@@ -3766,8 +3867,8 @@ func (s *StatusSuite) FilteringTestSetup(c *gc.C) *context {
 		addMachine{machineId: "2", job: state.JobHostUnits},
 		startAliveMachine{"2"},
 		setMachineStatus{"2", status.Started, ""},
-		// And the machine's address is "controller-2.dns"
-		setAddresses{"2", network.NewAddresses("controller-2.dns")},
+		// And the machine's address is "10.0.2.1"
+		setAddresses{"2", network.NewAddresses("10.0.2.1")},
 		// And a unit of "mysql" is deployed to machine "2"
 		addAliveUnit{"mysql", "2"},
 		// And the unit is started
@@ -3813,8 +3914,8 @@ func (s *StatusSuite) TestFilterToActive(c *gc.C) {
 	// Then I should receive output prefixed with:
 	const expected = `
 
-- wordpress/0: controller-1.dns (agent:idle, workload:active)
-  - logging/0: controller-1.dns (agent:idle, workload:active)
+- wordpress/0: 10.0.1.1 (agent:idle, workload:active)
+  - logging/0: 10.0.1.1 (agent:idle, workload:active)
 `
 	c.Assert(string(stdout), gc.Equals, expected[1:])
 }
@@ -3830,8 +3931,8 @@ func (s *StatusSuite) TestFilterToMachine(c *gc.C) {
 	// Then I should receive output prefixed with:
 	const expected = `
 
-- wordpress/0: controller-1.dns (agent:idle, workload:active)
-  - logging/0: controller-1.dns (agent:idle, workload:active)
+- wordpress/0: 10.0.1.1 (agent:idle, workload:active)
+  - logging/0: 10.0.1.1 (agent:idle, workload:active)
 `
 	c.Assert(string(stdout), gc.Equals, expected[1:])
 }
@@ -3870,7 +3971,9 @@ func (s *StatusSuite) TestFilterToContainer(c *gc.C) {
 		"    juju-status:\n" +
 		"      current: started\n" +
 		"      since: 01 Apr 15 01:23+10:00\n" +
-		"    dns-name: controller-0.dns\n" +
+		"    dns-name: 10.0.0.1\n" +
+		"    ip-addresses:\n" +
+		"    - 10.0.0.1\n" +
 		"    instance-id: controller-0\n" +
 		"    machine-status:\n" +
 		"      current: pending\n" +
@@ -3906,8 +4009,8 @@ func (s *StatusSuite) TestFilterToErrored(c *gc.C) {
 	// Then I should receive output prefixed with:
 	const expected = `
 
-- mysql/0: controller-2.dns (agent:idle, workload:active)
-  - logging/1: controller-2.dns (agent:idle, workload:error)
+- mysql/0: 10.0.2.1 (agent:idle, workload:active)
+  - logging/1: 10.0.2.1 (agent:idle, workload:error)
 `
 	c.Assert(string(stdout), gc.Equals, expected[1:])
 }
@@ -3923,8 +4026,8 @@ func (s *StatusSuite) TestFilterToService(c *gc.C) {
 	// Then I should receive output prefixed with:
 	const expected = `
 
-- mysql/0: controller-2.dns (agent:idle, workload:active)
-  - logging/1: controller-2.dns (agent:idle, workload:active)
+- mysql/0: 10.0.2.1 (agent:idle, workload:active)
+  - logging/1: 10.0.2.1 (agent:idle, workload:active)
 `
 
 	c.Assert(string(stdout), gc.Equals, expected[1:])
@@ -3947,8 +4050,8 @@ func (s *StatusSuite) TestFilterToExposedService(c *gc.C) {
 	// Then I should receive output prefixed with:
 	const expected = `
 
-- mysql/0: controller-2.dns (agent:idle, workload:active)
-  - logging/1: controller-2.dns (agent:idle, workload:active)
+- mysql/0: 10.0.2.1 (agent:idle, workload:active)
+  - logging/1: 10.0.2.1 (agent:idle, workload:active)
 `
 	c.Assert(string(stdout), gc.Equals, expected[1:])
 }
@@ -3965,8 +4068,8 @@ func (s *StatusSuite) TestFilterToNotExposedService(c *gc.C) {
 	// Then I should receive output prefixed with:
 	const expected = `
 
-- wordpress/0: controller-1.dns (agent:idle, workload:active)
-  - logging/0: controller-1.dns (agent:idle, workload:active)
+- wordpress/0: 10.0.1.1 (agent:idle, workload:active)
+  - logging/0: 10.0.1.1 (agent:idle, workload:active)
 `
 	c.Assert(string(stdout), gc.Equals, expected[1:])
 }
@@ -3978,8 +4081,8 @@ func (s *StatusSuite) TestFilterOnSubnet(c *gc.C) {
 
 	// Given the address for machine "1" is "localhost"
 	setAddresses{"1", network.NewAddresses("localhost", "127.0.0.1")}.step(c, ctx)
-	// And the address for machine "2" is "10.0.0.1"
-	setAddresses{"2", network.NewAddresses("10.0.0.1")}.step(c, ctx)
+	// And the address for machine "2" is "10.0.0.2"
+	setAddresses{"2", network.NewAddresses("10.0.0.2")}.step(c, ctx)
 	// When I run juju status --format oneline 127.0.0.1
 	_, stdout, stderr := runStatus(c, "--format", "oneline", "127.0.0.1")
 	c.Assert(stderr, gc.IsNil)
@@ -3999,8 +4102,8 @@ func (s *StatusSuite) TestFilterOnPorts(c *gc.C) {
 
 	// Given the address for machine "1" is "localhost"
 	setAddresses{"1", network.NewAddresses("localhost")}.step(c, ctx)
-	// And the address for machine "2" is "10.0.0.1"
-	setAddresses{"2", network.NewAddresses("10.0.0.1")}.step(c, ctx)
+	// And the address for machine "2" is "10.0.0.2"
+	setAddresses{"2", network.NewAddresses("10.0.0.2")}.step(c, ctx)
 	openUnitPort{"wordpress/0", "tcp", 80}.step(c, ctx)
 	// When I run juju status --format oneline 80/tcp
 	_, stdout, stderr := runStatus(c, "--format", "oneline", "80/tcp")
@@ -4025,10 +4128,10 @@ func (s *StatusSuite) TestFilterParentButNotSubordinate(c *gc.C) {
 	// Then I should receive output prefixed with:
 	const expected = `
 
-- mysql/0: controller-2.dns (agent:idle, workload:active)
-  - logging/1: controller-2.dns (agent:idle, workload:active)
-- wordpress/0: controller-1.dns (agent:idle, workload:active)
-  - logging/0: controller-1.dns (agent:idle, workload:active)
+- mysql/0: 10.0.2.1 (agent:idle, workload:active)
+  - logging/1: 10.0.2.1 (agent:idle, workload:active)
+- wordpress/0: 10.0.1.1 (agent:idle, workload:active)
+  - logging/0: 10.0.1.1 (agent:idle, workload:active)
 `
 	c.Assert(string(stdout), gc.Equals, expected[1:])
 }
@@ -4046,8 +4149,8 @@ func (s *StatusSuite) TestFilterSubordinateButNotParent(c *gc.C) {
 	// Then I should receive output prefixed with:
 	const expected = `
 
-- mysql/0: controller-2.dns (agent:idle, workload:active)
-  - logging/1: controller-2.dns (agent:idle, workload:active)
+- mysql/0: 10.0.2.1 (agent:idle, workload:active)
+  - logging/1: 10.0.2.1 (agent:idle, workload:active)
 `
 	c.Assert(string(stdout), gc.Equals, expected[1:])
 }
@@ -4061,10 +4164,10 @@ func (s *StatusSuite) TestFilterMultipleHomogenousPatterns(c *gc.C) {
 	// Then I should receive output prefixed with:
 	const expected = `
 
-- mysql/0: controller-2.dns (agent:idle, workload:active)
-  - logging/1: controller-2.dns (agent:idle, workload:active)
-- wordpress/0: controller-1.dns (agent:idle, workload:active)
-  - logging/0: controller-1.dns (agent:idle, workload:active)
+- mysql/0: 10.0.2.1 (agent:idle, workload:active)
+  - logging/1: 10.0.2.1 (agent:idle, workload:active)
+- wordpress/0: 10.0.1.1 (agent:idle, workload:active)
+  - logging/0: 10.0.1.1 (agent:idle, workload:active)
 `
 	c.Assert(string(stdout), gc.Equals, expected[1:])
 }
@@ -4078,10 +4181,10 @@ func (s *StatusSuite) TestFilterMultipleHeterogenousPatterns(c *gc.C) {
 	// Then I should receive output prefixed with:
 	const expected = `
 
-- mysql/0: controller-2.dns (agent:idle, workload:active)
-  - logging/1: controller-2.dns (agent:idle, workload:active)
-- wordpress/0: controller-1.dns (agent:idle, workload:active)
-  - logging/0: controller-1.dns (agent:idle, workload:active)
+- mysql/0: 10.0.2.1 (agent:idle, workload:active)
+  - logging/1: 10.0.2.1 (agent:idle, workload:active)
+- wordpress/0: 10.0.1.1 (agent:idle, workload:active)
+  - logging/0: 10.0.1.1 (agent:idle, workload:active)
 `
 	c.Assert(string(stdout), gc.Equals, expected[1:])
 }
@@ -4137,7 +4240,7 @@ func (*StatusSuite) TestStatusCommandInit(c *gc.C) {
 var statusTimeTest = test(
 	"status generates timestamps as UTC in ISO format",
 	addMachine{machineId: "0", job: state.JobManageModel},
-	setAddresses{"0", network.NewAddresses("controller-0.dns")},
+	setAddresses{"0", network.NewAddresses("10.0.0.1")},
 	startAliveMachine{"0"},
 	setMachineStatus{"0", status.Started, ""},
 	addCharm{"dummy"},
@@ -4145,7 +4248,7 @@ var statusTimeTest = test(
 
 	addMachine{machineId: "1", job: state.JobHostUnits},
 	startAliveMachine{"1"},
-	setAddresses{"1", network.NewAddresses("controller-1.dns")},
+	setAddresses{"1", network.NewAddresses("10.0.1.1")},
 	setMachineStatus{"1", status.Started, ""},
 
 	addAliveUnit{"dummy-application", "1"},
@@ -4182,7 +4285,7 @@ var statusTimeTest = test(
 								"current": "allocating",
 								"since":   "01 Apr 15 01:23+10:00",
 							},
-							"public-address": "controller-1.dns",
+							"public-address": "10.0.1.1",
 						},
 					},
 				}),
