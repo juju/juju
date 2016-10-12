@@ -60,7 +60,6 @@ class MongoStatsData:
 
 class SourceFileNotFound(Exception):
     """Indicate when an expected metrics data file does not exist."""
-    pass
 
 
 def value_to_bytes(amount):
