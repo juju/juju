@@ -337,7 +337,7 @@ and then bootstrap again.`, err)
 }
 
 func ipv6BridgeConfigError(filename string) error {
-       return errors.Errorf(`%s has IPv6 enabled.
+	return errors.Errorf(`%s has IPv6 enabled.
 Juju doesn't currently support IPv6.
 
 IPv6 can be disabled by running:

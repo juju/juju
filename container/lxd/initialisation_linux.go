@@ -13,13 +13,13 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"syscall"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/packaging/config"
 	"github.com/juju/utils/packaging/manager"
 	"github.com/juju/utils/proxy"
 	"github.com/lxc/lxd/shared"
-	"golang.org/x/sys/unix"
 
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/tools/lxdclient"
@@ -124,12 +124,14 @@ func configureLXDProxies(setter configSetter, proxies proxy.Settings) error {
 
 // df returns the number of free bytes on the file system at the given path
 var df = func(path string) (uint64, error) {
-	statfs := unix.Statfs_t{}
-	err := unix.Statfs(path, &statfs)
+	// Note: do not use golang.org/x/sys/unix for this, it is
+	// the best solution but will break the build in s390x
+	// and introduce cgo dependency lp:1632541
+	statfs := syscall.Statfs_t{}
+	err := syscall.Statfs(path, &statfs)
 	if err != nil {
 		return 0, err
 	}
-
 	return uint64(statfs.Bsize) * statfs.Bfree, nil
 }
 
