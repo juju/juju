@@ -295,12 +295,15 @@ def create_mongodb_rrd_files(results_dir, destination_dir):
     """
     source_file = os.path.join(results_dir, 'mongodb-stats.log')
     try:
-        with open(source_file, 'rt') as stats_file:
-            first_ts, last_ts, all_data = get_mongodb_stat_data(stats_file)
+        stats_file = open(source_file, 'rt')
     except IOError as e:
         if e.errno == errno.ENOENT:
-            raise SourceFileNotFound()
+            raise SourceFileNotFound(
+                'mongodb stats file not found ({})'.format(source_file))
         raise
+
+    with stats_file:
+        first_ts, last_ts, all_data = get_mongodb_stat_data(stats_file)
 
     query_detail_file = os.path.join(destination_dir, 'mongodb.rrd')
     memory_detail_file = os.path.join(destination_dir, 'mongodb_memory.rrd')
