@@ -1086,39 +1086,37 @@ func (s *MachineSuite) TestCertificateDNSUpdatedInvalidPrivateKey(c *gc.C) {
 }
 
 func (s *MachineSuite) testCertificateDNSUpdated(c *gc.C, a *MachineAgent) {
-	// Disable the certificate work so it doesn't update the certificate.
+	// Disable the certificate worker so that the certificate could
+	// only have been updated during agent startup.
+	started := make(chan struct{}, 16)
 	newUpdater := func(certupdater.AddressWatcher, certupdater.StateServingInfoGetter, certupdater.ControllerConfigGetter,
 		certupdater.APIHostPortsGetter, certupdater.StateServingInfoSetter,
 	) worker.Worker {
+		started <- struct{}{}
 		return worker.NewNoOpWorker()
 	}
 	s.PatchValue(&newCertificateUpdater, newUpdater)
 
-	// Set up check that certificate has been updated when the agent starts.
-	updated := make(chan struct{})
-	expectedDnsNames := set.NewStrings("local", "juju-apiserver", "juju-mongodb")
-	go func() {
-		for {
-			stateInfo, _ := a.CurrentConfig().StateServingInfo()
-			srvCert, _, err := cert.ParseCertAndKey(stateInfo.Cert, stateInfo.PrivateKey)
-			c.Assert(err, jc.ErrorIsNil)
-			certDnsNames := set.NewStrings(srvCert.DNSNames...)
-			if !expectedDnsNames.Difference(certDnsNames).IsEmpty() {
-				continue
-			}
-			pemContent, err := ioutil.ReadFile(filepath.Join(s.DataDir(), "server.pem"))
-			c.Assert(err, jc.ErrorIsNil)
-			if string(pemContent) == stateInfo.Cert+"\n"+stateInfo.PrivateKey {
-				close(updated)
-				break
-			}
-			time.Sleep(10 * time.Millisecond)
-		}
-	}()
-
+	// Start the agent.
 	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
 	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
-	s.assertChannelActive(c, updated, "certificate to be updated")
+
+	// Wait for the the certupdater start func to be called. Once this
+	// is called we know that the agent's initial startup has happened.
+	s.assertChannelActive(c, started, "cert updater to be started")
+
+	// Check that certificate was updated when the agent started.
+	stateInfo, _ := a.CurrentConfig().StateServingInfo()
+	srvCert, _, err := cert.ParseCertAndKey(stateInfo.Cert, stateInfo.PrivateKey)
+	c.Assert(err, jc.ErrorIsNil)
+	expectedDnsNames := set.NewStrings("local", "juju-apiserver", "juju-mongodb")
+	certDnsNames := set.NewStrings(srvCert.DNSNames...)
+	c.Check(expectedDnsNames.Difference(certDnsNames).IsEmpty(), jc.IsTrue)
+
+	// Check the mongo certificate file too.
+	pemContent, err := ioutil.ReadFile(filepath.Join(s.DataDir(), "server.pem"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(string(pemContent), gc.Equals, stateInfo.Cert+"\n"+stateInfo.PrivateKey)
 }
 
 func (s *MachineSuite) setupIgnoreAddresses(c *gc.C, expectedIgnoreValue bool) chan bool {
