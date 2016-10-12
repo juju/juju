@@ -58,7 +58,7 @@ func (s *upgradesSuite) TestStripLocalUserDomainCredentials(c *gc.C) {
 		"auth-type":  "userpass",
 		"attributes": bson.M{"user": "fred"},
 	}}
-	s.assertStrippedData(c, coll, expected)
+	s.assertStrippedUserData(c, coll, expected)
 }
 
 func (s *upgradesSuite) TestStripLocalUserDomainModels(c *gc.C) {
@@ -121,7 +121,7 @@ func (s *upgradesSuite) TestStripLocalUserDomainModels(c *gc.C) {
 		initialModel,
 	}
 
-	s.assertStrippedData(c, coll, expected)
+	s.assertStrippedUserData(c, coll, expected)
 }
 
 func (s *upgradesSuite) TestStripLocalUserDomainModelNames(c *gc.C) {
@@ -142,7 +142,7 @@ func (s *upgradesSuite) TestStripLocalUserDomainModelNames(c *gc.C) {
 		"_id": "test-admin:testenv",
 	}}
 
-	s.assertStrippedData(c, coll, expected)
+	s.assertStrippedUserData(c, coll, expected)
 }
 
 func (s *upgradesSuite) TestStripLocalUserDomainControllerUser(c *gc.C) {
@@ -208,7 +208,7 @@ func (s *upgradesSuite) assertStripLocalUserDomainUserAccess(c *gc.C, collName s
 			"datecreated": roundedNow,
 		},
 	}
-	s.assertStrippedData(c, coll, expected)
+	s.assertStrippedUserData(c, coll, expected)
 }
 
 func (s *upgradesSuite) TestStripLocalUserDomainPermissions(c *gc.C) {
@@ -254,7 +254,7 @@ func (s *upgradesSuite) TestStripLocalUserDomainPermissions(c *gc.C) {
 		"subject-global-key": "mary@external",
 		"access":             "addmodel",
 	}}
-	s.assertStrippedData(c, coll, expected)
+	s.assertStrippedUserData(c, coll, expected)
 }
 
 func (s *upgradesSuite) TestStripLocalUserDomainLastConnection(c *gc.C) {
@@ -290,13 +290,17 @@ func (s *upgradesSuite) TestStripLocalUserDomainLastConnection(c *gc.C) {
 		"user":            "mary@external",
 		"last-connection": roundedNow,
 	}}
-	s.assertStrippedData(c, coll, expected)
+	s.assertStrippedUserData(c, coll, expected)
 }
 
-func (s *upgradesSuite) assertStrippedData(c *gc.C, coll *mgo.Collection, expected []bson.M) {
+func (s *upgradesSuite) assertStrippedUserData(c *gc.C, coll *mgo.Collection, expected []bson.M) {
+	s.assertUpgradedData(c, StripLocalUserDomain, coll, expected)
+}
+
+func (s *upgradesSuite) assertUpgradedData(c *gc.C, upgrade func(*State) error, coll *mgo.Collection, expected []bson.M) {
 	// Two rounds to check idempotency.
 	for i := 0; i < 2; i++ {
-		err := StripLocalUserDomain(s.state)
+		err := upgrade(s.state)
 		c.Assert(err, jc.ErrorIsNil)
 
 		var docs []bson.M
@@ -310,4 +314,50 @@ func (s *upgradesSuite) assertStrippedData(c *gc.C, coll *mgo.Collection, expect
 		}
 		c.Assert(docs, jc.DeepEquals, expected)
 	}
+}
+
+func (s *upgradesSuite) TestRenameAddModelPermission(c *gc.C) {
+	coll, closer := s.state.getRawCollection(permissionsC)
+	defer closer()
+
+	var initialPermissions []bson.M
+	err := coll.Find(nil).Sort("_id").All(&initialPermissions)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(initialPermissions, gc.HasLen, 2)
+
+	err = coll.Insert(
+		permissionDoc{
+			ID:               "uuid#fred",
+			ObjectGlobalKey:  "c#uuid",
+			SubjectGlobalKey: "fred",
+			Access:           "superuser",
+		},
+		permissionDoc{
+			ID:               "uuid#mary@external",
+			ObjectGlobalKey:  "c#uuid",
+			SubjectGlobalKey: "mary@external",
+			Access:           "addmodel",
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	for i, inital := range initialPermissions {
+		perm := inital
+		delete(perm, "txn-queue")
+		delete(perm, "txn-revno")
+		initialPermissions[i] = perm
+	}
+
+	expected := []bson.M{initialPermissions[0], initialPermissions[1], {
+		"_id":                "uuid#fred",
+		"object-global-key":  "c#uuid",
+		"subject-global-key": "fred",
+		"access":             "superuser",
+	}, {
+		"_id":                "uuid#mary@external",
+		"object-global-key":  "c#uuid",
+		"subject-global-key": "mary@external",
+		"access":             "add-model",
+	}}
+	s.assertUpgradedData(c, RenameAddModelPermission, coll, expected)
 }

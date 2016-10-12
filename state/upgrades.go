@@ -65,6 +65,35 @@ func replaceBsonDField(d bson.D, name string, value interface{}) error {
 	return errors.NotFoundf("field %q", name)
 }
 
+// RenameAddModelPermission renames any permissions called addmodel to add-model.
+func RenameAddModelPermission(st *State) error {
+	coll, closer := st.getRawCollection(permissionsC)
+	defer closer()
+	upgradesLogger.Infof("migrating addmodel permission")
+
+	iter := coll.Find(bson.M{"access": "addmodel"}).Iter()
+	defer iter.Close()
+	var ops []txn.Op
+	var doc bson.M
+	for iter.Next(&doc) {
+		id, ok := doc["_id"]
+		if !ok {
+			return errors.New("no id found in permission doc")
+		}
+
+		ops = append(ops, txn.Op{
+			C:      permissionsC,
+			Id:     id,
+			Assert: txn.DocExists,
+			Update: bson.D{{"$set", bson.D{{"access", "add-model"}}}},
+		})
+	}
+	if err := iter.Err(); err != nil {
+		return errors.Trace(err)
+	}
+	return st.runRawTransaction(ops)
+}
+
 // StripLocalUserDomain removes any @local suffix from any relevant document field values.
 func StripLocalUserDomain(st *State) error {
 	var ops []txn.Op
