@@ -76,7 +76,7 @@ type ToolsUploader interface {
 func SyncTools(syncContext *SyncContext) error {
 	sourceDataSource, err := selectSourceDatasource(syncContext)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	logger.Infof("listing available tools")
@@ -93,8 +93,8 @@ func SyncTools(syncContext *SyncContext) error {
 	if syncContext.Stream == "" {
 		// We now store the tools in a directory named after their stream, but the
 		// legacy behaviour is to store all tools in a single "releases" directory.
-		toolsDir = envtools.LegacyReleaseDirectory
-		syncContext.Stream = envtools.PreferredStream(&jujuversion.Current, false, syncContext.Stream)
+		toolsDir = envtools.ReleasedStream
+		syncContext.Stream = envtools.PreferredStream(&jujuversion.Current, false, "")
 	}
 	sourceTools, err := envtools.FindToolsForCloud(
 		[]simplestreams.DataSource{sourceDataSource}, simplestreams.CloudSpec{},
@@ -108,7 +108,7 @@ func SyncTools(syncContext *SyncContext) error {
 			envtools.ReleasedStream, syncContext.MajorVersion, syncContext.MinorVersion, coretools.Filter{})
 	}
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	logger.Infof("found %d tools", len(sourceTools))
@@ -126,7 +126,7 @@ func SyncTools(syncContext *SyncContext) error {
 	switch err {
 	case nil, coretools.ErrNoMatches, envtools.ErrNoTools:
 	default:
-		return err
+		return errors.Trace(err)
 	}
 	for _, tool := range targetTools {
 		logger.Debugf("found target tool: %v", tool)

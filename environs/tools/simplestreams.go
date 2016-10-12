@@ -51,9 +51,6 @@ var currentStreamsVersion = StreamsVersionV1
 var DefaultBaseURL = "https://streams.canonical.com/juju/tools"
 
 const (
-	// Legacy release directory for Juju < 1.21.
-	LegacyReleaseDirectory = "releases"
-
 	// Used to specify the released tools metadata.
 	ReleasedStream = "released"
 

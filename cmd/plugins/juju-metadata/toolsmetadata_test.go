@@ -112,63 +112,34 @@ func makeExpectedOutput(templ, stream, toolsDir string) string {
 	return buf.String()
 }
 
-var expectedOutputDirectoryReleasedTemplate = expectedOutputCommon + `
-.*Writing tools/streams/v1/index2\.json
-.*Writing tools/streams/v1/index\.json
-.*Writing tools/streams/v1/com\.ubuntu\.juju-{{.Stream}}-tools\.json
-`
-
 var expectedOutputDirectoryTemplate = expectedOutputCommon + `
 .*Writing tools/streams/v1/index2\.json
 .*Writing tools/streams/v1/com\.ubuntu\.juju-{{.Stream}}-tools\.json
 `
 
-var expectedOutputMirrorsTemplate = expectedOutputCommon + `
+func (s *ToolsMetadataSuite) TestGenerateToDirectory(c *gc.C) {
+	metadataDir := c.MkDir()
+	toolstesting.MakeTools(c, metadataDir, "released", versionStrings)
+	ctx := coretesting.Context(c)
+	code := cmd.Main(newToolsMetadataCommand(), ctx, []string{"-d", metadataDir})
+	c.Check(code, gc.Equals, 0)
+	output := ctx.Stdout.(*bytes.Buffer).String()
+
+	outputDirReleasedTmpl := expectedOutputCommon + `
 .*Writing tools/streams/v1/index2\.json
 .*Writing tools/streams/v1/index\.json
 .*Writing tools/streams/v1/com\.ubuntu\.juju-{{.Stream}}-tools\.json
-.*Writing tools/streams/v1/mirrors\.json
 `
-
-var expectedOutputDirectoryLegacyReleased = "No stream specified, defaulting to released tools in the releases directory.\n" +
-	makeExpectedOutput(expectedOutputDirectoryReleasedTemplate, "released", "releases")
-
-var expectedOutputMirrorsReleased = makeExpectedOutput(expectedOutputMirrorsTemplate, "released", "released")
-
-func (s *ToolsMetadataSuite) TestGenerateLegacyRelease(c *gc.C) {
-	metadataDir := osenv.JujuXDGDataHomeDir() // default metadata dir
-	toolstesting.MakeTools(c, metadataDir, "releases", versionStrings)
-	ctx := coretesting.Context(c)
-	code := cmd.Main(newToolsMetadataCommand(), ctx, nil)
-	c.Assert(code, gc.Equals, 0)
-	output := ctx.Stdout.(*bytes.Buffer).String()
-	c.Assert(output, gc.Matches, expectedOutputDirectoryLegacyReleased)
+	expectedOutput := makeExpectedOutput(outputDirReleasedTmpl, "released", "released")
+	c.Check(output, gc.Matches, expectedOutput)
 	metadata := toolstesting.ParseMetadataFromDir(c, metadataDir, "released", false)
-	c.Assert(metadata, gc.HasLen, len(versionStrings))
+	c.Check(metadata, gc.HasLen, len(versionStrings))
 	obtainedVersionStrings := make([]string, len(versionStrings))
 	for i, metadata := range metadata {
 		s := fmt.Sprintf("%s-%s-%s", metadata.Version, metadata.Release, metadata.Arch)
 		obtainedVersionStrings[i] = s
 	}
-	c.Assert(obtainedVersionStrings, gc.DeepEquals, versionStrings)
-}
-
-func (s *ToolsMetadataSuite) TestGenerateToDirectory(c *gc.C) {
-	metadataDir := c.MkDir()
-	toolstesting.MakeTools(c, metadataDir, "releases", versionStrings)
-	ctx := coretesting.Context(c)
-	code := cmd.Main(newToolsMetadataCommand(), ctx, []string{"-d", metadataDir})
-	c.Assert(code, gc.Equals, 0)
-	output := ctx.Stdout.(*bytes.Buffer).String()
-	c.Assert(output, gc.Matches, expectedOutputDirectoryLegacyReleased)
-	metadata := toolstesting.ParseMetadataFromDir(c, metadataDir, "released", false)
-	c.Assert(metadata, gc.HasLen, len(versionStrings))
-	obtainedVersionStrings := make([]string, len(versionStrings))
-	for i, metadata := range metadata {
-		s := fmt.Sprintf("%s-%s-%s", metadata.Version, metadata.Release, metadata.Arch)
-		obtainedVersionStrings[i] = s
-	}
-	c.Assert(obtainedVersionStrings, gc.DeepEquals, versionStrings)
+	c.Check(obtainedVersionStrings, gc.DeepEquals, versionStrings)
 }
 
 func (s *ToolsMetadataSuite) TestGenerateStream(c *gc.C) {
@@ -290,15 +261,24 @@ func (s *ToolsMetadataSuite) TestGenerateWithPublicFallback(c *gc.C) {
 }
 
 func (s *ToolsMetadataSuite) TestGenerateWithMirrors(c *gc.C) {
+
 	metadataDir := c.MkDir()
 	toolstesting.MakeTools(c, metadataDir, "released", versionStrings)
 	ctx := coretesting.Context(c)
 	code := cmd.Main(newToolsMetadataCommand(), ctx, []string{"--public", "-d", metadataDir, "--stream", "released"})
 	c.Assert(code, gc.Equals, 0)
 	output := ctx.Stdout.(*bytes.Buffer).String()
-	c.Assert(output, gc.Matches, expectedOutputMirrorsReleased)
+
+	mirrosTmpl := expectedOutputCommon + `
+.*Writing tools/streams/v1/index2\.json
+.*Writing tools/streams/v1/index\.json
+.*Writing tools/streams/v1/com\.ubuntu\.juju-{{.Stream}}-tools\.json
+.*Writing tools/streams/v1/mirrors\.json
+`
+	expectedOutput := makeExpectedOutput(mirrosTmpl, "released", "released")
+	c.Check(output, gc.Matches, expectedOutput)
 	metadata := toolstesting.ParseMetadataFromDir(c, metadataDir, "released", true)
-	c.Assert(metadata, gc.HasLen, len(versionStrings))
+	c.Check(metadata, gc.HasLen, len(versionStrings))
 	obtainedVersionStrings := make([]string, len(versionStrings))
 	for i, metadata := range metadata {
 		s := fmt.Sprintf("%s-%s-%s", metadata.Version, metadata.Release, metadata.Arch)
@@ -315,7 +295,7 @@ func (s *ToolsMetadataSuite) TestNoTools(c *gc.C) {
 	code := cmd.Main(newToolsMetadataCommand(), ctx, nil)
 	c.Assert(code, gc.Equals, 1)
 	stdout := ctx.Stdout.(*bytes.Buffer).String()
-	c.Assert(stdout, gc.Matches, ".*\nFinding tools in .*\n")
+	c.Assert(stdout, gc.Matches, ".*Finding tools in .*\n")
 	stderr := ctx.Stderr.(*bytes.Buffer).String()
 	c.Assert(stderr, gc.Matches, "error: no tools available\n")
 }
