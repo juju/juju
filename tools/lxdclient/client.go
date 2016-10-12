@@ -336,6 +336,17 @@ It looks like your lxdbr0 has not yet been configured. Please configure it via:
 and then bootstrap again.`, err)
 }
 
+func ipv6BridgeConfigError(filename string) error {
+       return errors.Errorf(`%s has IPv6 enabled.
+Juju doesn't currently support IPv6.
+
+IPv6 can be disabled by running:
+
+       sudo dpkg-reconfigure -p medium lxd
+
+and then bootstrap again.`, filename)
+}
+
 func checkLXDBridgeConfiguration(conf string) error {
 	foundSubnetConfig := false
 	for _, line := range strings.Split(conf, "\n") {
@@ -366,7 +377,7 @@ func checkLXDBridgeConfiguration(conf string) error {
 		} else if strings.HasPrefix(line, "LXD_IPV6_ADDR=") {
 			contents := strings.Trim(line[len("LXD_IPV6_ADDR="):], " \"")
 			if len(contents) > 0 {
-				return bridgeConfigError(LXDBridgeFile+" has IPV6 configuration, which juju doesn't support.")
+				return ipv6BridgeConfigError(LXDBridgeFile)
 			}
 		}
 	}
