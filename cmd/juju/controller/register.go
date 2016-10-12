@@ -57,6 +57,10 @@ type registerCommand struct {
 	listModelsFunc func(_ jujuclient.ClientStore, controller, user string) ([]base.UserModel, error)
 	store          jujuclient.ClientStore
 	Arg            string
+
+	// onRunError is executed if non-nil if there is an error at the end
+	// of the Run method.
+	onRunError func()
 }
 
 var usageRegisterSummary = `
@@ -116,7 +120,16 @@ func (c *registerCommand) Init(args []string) error {
 	return nil
 }
 
+// Run implements Command.Run.
 func (c *registerCommand) Run(ctx *cmd.Context) error {
+	err := c.run(ctx)
+	if err != nil && c.onRunError != nil {
+		c.onRunError()
+	}
+	return err
+}
+
+func (c *registerCommand) run(ctx *cmd.Context) error {
 	store := modelcmd.QualifyingClientStore{c.store}
 	registrationParams, err := c.getParameters(ctx, store)
 	if err != nil {
@@ -214,6 +227,13 @@ func (c *registerCommand) publicControllerDetails(host string) (jujuclient.Contr
 	if !ok {
 		return errRet(errors.Errorf("logged in as %v, not a user", conn.AuthTag()))
 	}
+	// If we get to here, then we have a cached macaroon for the registered
+	// user. If we encounter an error after here, we need to clear it.
+	c.onRunError = func() {
+		if err := c.ClearControllerMacaroons([]string{apiAddr}); err != nil {
+			logger.Errorf("failed to clear macaroon: %v", err)
+		}
+	}
 	return jujuclient.ControllerDetails{
 			APIEndpoints:   []string{apiAddr},
 			ControllerUUID: conn.ControllerTag().Id(),
@@ -273,6 +293,13 @@ func (c *registerCommand) nonPublicControllerDetails(ctx *cmd.Context, registrat
 	}
 	user := registrationParams.userTag.Id()
 	ctx.Infof("Initial password successfully set for %s.", friendlyUserName(user))
+	// If we get to here, then we have a cached macaroon for the registered
+	// user. If we encounter an error after here, we need to clear it.
+	c.onRunError = func() {
+		if err := c.ClearControllerMacaroons(registrationParams.controllerAddrs); err != nil {
+			logger.Errorf("failed to clear macaroon: %v", err)
+		}
+	}
 	return jujuclient.ControllerDetails{
 			APIEndpoints:   registrationParams.controllerAddrs,
 			ControllerUUID: responsePayload.ControllerUUID,

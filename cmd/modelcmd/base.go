@@ -276,6 +276,23 @@ func (c *JujuCommandBase) APIContext() (*APIContext, error) {
 	return c.apiContext, nil
 }
 
+// ClearControllerMacaroons will remove all macaroons stored
+// for the controller from the persistent cookie jar.
+// This is called both from 'juju logout' and a failed 'juju register'.
+func (c *JujuCommandBase) ClearControllerMacaroons(endpoints []string) error {
+	apictx, err := c.APIContext()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, s := range endpoints {
+		apictx.Jar.RemoveAllHost(s)
+	}
+	if err := apictx.Jar.Save(); err != nil {
+		return errors.Annotate(err, "can't remove cached authentication cookie")
+	}
+	return nil
+}
+
 func (c *JujuCommandBase) setCmdContext(ctx *cmd.Context) {
 	c.cmdContext = ctx
 }
