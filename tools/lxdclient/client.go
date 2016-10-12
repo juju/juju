@@ -271,8 +271,6 @@ func verifyDefaultProfileBridgeConfig(client *lxd.Client, networkAPISupported bo
 		return "", errors.Trace(err)
 	}
 
-	// If the default profile has eth0 in it, then the user has messed
-	// with it, so let's just use whatever they set up.
 	eth0, ok := config.Devices[configEth0]
 	if !ok {
 		/* on lxd >= 2.3, there is nothing in the default profile
