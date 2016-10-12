@@ -19,18 +19,20 @@ import (
 	coretesting "github.com/juju/juju/testing"
 )
 
+// pingerSuite exercises the apiserver's ping timeout functionality
+// from the outside. Ping API requests are made (or not) to a running
+// API server to ensure that the server shuts down the API connection
+// as expected once there's been no pings within the timeout period.
 type pingerSuite struct {
 	apiserverBaseSuite
 }
 
 var _ = gc.Suite(&pingerSuite{})
 
-var testPingPeriod = 100 * time.Millisecond
-
 func (s *pingerSuite) newServerWithTestClock(c *gc.C) (*apiserver.Server, *testing.Clock) {
 	clock := testing.NewClock(time.Now())
 	config := s.sampleConfig(c)
-	config.Clock = clock
+	config.PingClock = clock
 	server := s.newServer(c, config)
 	return server, clock
 }

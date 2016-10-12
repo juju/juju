@@ -143,7 +143,7 @@ func (a *admin) login(req params.LoginRequest, loginVersion int) (params.LoginRe
 	a.loggedIn = true
 
 	if !controllerMachineLogin {
-		if err := startPingerIfAgent(a.srv.clock, a.root, entity); err != nil {
+		if err := startPingerIfAgent(a.srv.pingClock, a.root, entity); err != nil {
 			return fail, errors.Trace(err)
 		}
 	}
