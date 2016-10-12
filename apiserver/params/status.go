@@ -42,16 +42,33 @@ type MachineStatus struct {
 	AgentStatus    DetailedStatus `json:"agent-status"`
 	InstanceStatus DetailedStatus `json:"instance-status"`
 
-	DNSName     string                    `json:"dns-name"`
-	IPAddresses []string                  `json:"ip-addresses"`
-	InstanceId  instance.Id               `json:"instance-id"`
-	Series      string                    `json:"series"`
-	Id          string                    `json:"id"`
-	Containers  map[string]MachineStatus  `json:"containers"`
-	Hardware    string                    `json:"hardware"`
-	Jobs        []multiwatcher.MachineJob `json:"jobs"`
-	HasVote     bool                      `json:"has-vote"`
-	WantsVote   bool                      `json:"wants-vote"`
+	DNSName string `json:"dns-name"`
+
+	// IPAddresses holds the IP addresses bound to this machine.
+	IPAddresses []string `json:"ip-addresses"`
+
+	// InstanceId holds the unique identifier for this machine, based on
+	// what is supplied by the provider.
+	InstanceId instance.Id `json:"instance-id"`
+
+	// Series holds the name of the operating system release installed on
+	// this machine.
+	Series string `json:"series"`
+
+	// Id is the Juju identifier for this machine in this model.
+	Id string `json:"id"`
+
+	// Containers holds the MachineStatus of any containers hosted on this
+	// machine.
+	Containers map[string]MachineStatus `json:"containers"`
+
+	// Hardware holds a string of space-separated key=value pairs of
+	// hardware specification datum.
+	Hardware string `json:"hardware"`
+
+	Jobs      []multiwatcher.MachineJob `json:"jobs"`
+	HasVote   bool                      `json:"has-vote"`
+	WantsVote bool                      `json:"wants-vote"`
 }
 
 // ApplicationStatus holds status info about an application.
@@ -81,7 +98,7 @@ type UnitStatus struct {
 	// AgentStatus holds the status for a unit's agent.
 	AgentStatus DetailedStatus `json:"agent-status"`
 
-	// WorkloadStatus holds the status for a unit's workload
+	// WorkloadStatus holds the status for a unit's workload.
 	WorkloadStatus  DetailedStatus `json:"workload-status"`
 	WorkloadVersion string         `json:"workload-version"`
 
@@ -102,7 +119,7 @@ type RelationStatus struct {
 	Endpoints []EndpointStatus `json:"endpoints"`
 }
 
-// EndpointStatus holds status info about a single endpoint
+// EndpointStatus holds status info about a single endpoint.
 type EndpointStatus struct {
 	ApplicationName string `json:"application"`
 	Name            string `json:"name"`
@@ -128,7 +145,7 @@ type DetailedStatus struct {
 	Err     error                  `json:"err,omitempty"`
 }
 
-// History holds many DetailedStatus,
+// History holds many DetailedStatus.
 type History struct {
 	Statuses []DetailedStatus `json:"statuses"`
 	Error    *Error           `json:"error,omitempty"`
@@ -149,7 +166,7 @@ type StatusHistoryRequest struct {
 	Tag    string              `json:"tag"`
 }
 
-// StatusHistoryRequests holds a slice of StatusHistoryArgs
+// StatusHistoryRequests holds a slice of StatusHistoryArgs.
 type StatusHistoryRequests struct {
 	Requests []StatusHistoryRequest `json:"requests"`
 }
@@ -189,7 +206,7 @@ type StatusResults struct {
 	Results []StatusResult `json:"results"`
 }
 
-// ApplicationStatusResult holds results for an application Full Status
+// ApplicationStatusResult holds results for an application Full Status.
 type ApplicationStatusResult struct {
 	Application StatusResult            `json:"application"`
 	Units       map[string]StatusResult `json:"units"`
