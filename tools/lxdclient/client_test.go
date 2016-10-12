@@ -181,10 +181,12 @@ LXD_IPV6_ADDR="2001:470:b368:4242::1"
 `
 
 	err = checkLXDBridgeConfiguration(ipv6)
-	c.Assert(err.Error(), gc.Equals, LXDBridgeFile+` has IPV6 configuration, which juju doesn't support.
-It looks like your lxdbr0 has not yet been configured. Please configure it via:
+	c.Assert(err.Error(), gc.Equals, LXDBridgeFile+` has IPv6 enabled.
+Juju doesn't currently support IPv6.
 
-	sudo dpkg-reconfigure -p medium lxd
+IPv6 can be disabled by running:
+
+       sudo dpkg-reconfigure -p medium lxd
 
 and then bootstrap again.`)
 
