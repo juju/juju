@@ -2710,7 +2710,8 @@ class TestEnvJujuClient(ClientTest):
         client = EnvJujuClient(env, None, '/foobar/baz')
         with patch.object(client, 'juju', autospec=True) as eha_mock:
             client.enable_ha()
-        eha_mock.assert_called_once_with('enable-ha', ('-n', '3'))
+        eha_mock.assert_called_once_with(
+            'enable-ha', ('-n', '3', '-c', 'qux'), include_e=False)
 
     def test_juju_async(self):
         env = JujuData('qux')
