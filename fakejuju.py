@@ -354,7 +354,7 @@ class FakeBackend:
     """
 
     def __init__(self, controller_state, feature_flags=None, version=None,
-                 full_path=None, debug=False):
+                 full_path=None, debug=False, past_deadline=False):
         assert isinstance(controller_state, FakeControllerState)
         self.controller_state = controller_state
         if feature_flags is None:
@@ -365,7 +365,7 @@ class FakeBackend:
         self.debug = debug
         self.juju_timings = {}
         self.log = logging.getLogger('jujupy')
-        self._past_deadline = False
+        self._past_deadline = past_deadline
         self._ignore_soft_deadline = False
 
     def clone(self, full_path=None, version=None, debug=None,
@@ -380,7 +380,8 @@ class FakeBackend:
             feature_flags = set(self.feature_flags)
         controller_state = self.controller_state
         return self.__class__(controller_state, feature_flags, version,
-                              full_path, debug)
+                              full_path, debug,
+                              past_deadline=self._past_deadline)
 
     def set_feature(self, feature, enabled):
         if enabled:

@@ -1611,6 +1611,26 @@ class TestBootstrapManager(FakeHomeTestCase):
                 '2': 'example.org',
                 })
 
+    def test_dump_all_logs_ignores_soft_deadline(self):
+
+        def do_check(client, *args, **kwargs):
+            with client.check_timeouts():
+                pass
+
+        client = fake_juju_client()
+        client._backend._past_deadline = True
+        client.bootstrap()
+        with temp_dir() as log_dir:
+            bs_manager = BootstrapManager(
+                    'foobar', client, client,
+                    None, [], None, None, None, None, log_dir, False,
+                    True, True)
+            with patch.object(bs_manager, '_should_dump', return_value=True,
+                              autospec=True):
+                with patch('deploy_stack.dump_env_logs_known_hosts',
+                           side_effect=do_check, autospec=True):
+                    bs_manager.dump_all_logs()
+
     def test_runtime_context_raises_logged_exception(self):
         client = fake_juju_client()
         client.bootstrap()
