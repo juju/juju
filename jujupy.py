@@ -85,6 +85,10 @@ class IncompatibleConfigClass(Exception):
 class SoftDeadlineExceeded(Exception):
     """Raised when an overall client operation takes too long."""
 
+    def __init__(self):
+        super(SoftDeadlineExceeded, self).__init__(
+            'Operation exceeded deadline.')
+
 
 def get_timeout_path():
     import timeout
@@ -633,7 +637,7 @@ class Juju2Backend:
         if self.soft_deadline is None or self._ignore_soft_deadline:
             return
         if self._now() > self.soft_deadline:
-            raise SoftDeadlineExceeded('Operation exceeded deadline.')
+            raise SoftDeadlineExceeded()
 
     @contextmanager
     def ignore_soft_deadline(self):

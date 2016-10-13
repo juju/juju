@@ -67,6 +67,7 @@ from jujupy import (
     JujuData,
     KILL_CONTROLLER,
     SimpleEnvironment,
+    SoftDeadlineExceeded,
     Status,
     )
 from remote import (
@@ -178,6 +179,20 @@ class DeployStackTestCase(FakeHomeTestCase):
                 safe_print_status(client)
         mock.assert_called_once_with('show-status', ('--format', 'yaml'))
         imc_mock.assert_called_once_with()
+
+    def test_safe_print_status_ignores_soft_deadline(self):
+        client = fake_juju_client()
+        client._backend._past_deadline = True
+        client.bootstrap()
+
+        def raise_exception(e):
+            raise e
+
+        try:
+            with patch('logging.exception', side_effect=raise_exception):
+                safe_print_status(client)
+        except SoftDeadlineExceeded:
+            self.fail('Raised SoftDeadlineExceeded.')
 
     def test_update_env(self):
         env = SimpleEnvironment('foo', {'type': 'paas'})

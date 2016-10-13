@@ -989,8 +989,9 @@ def _deploy_job(args, charm_series, series):
 def safe_print_status(client):
     """Show the output of juju status without raising exceptions."""
     try:
-        for m_client in client.iter_model_clients():
-            m_client.show_status()
+        with client.ignore_soft_deadline():
+            for m_client in client.iter_model_clients():
+                m_client.show_status()
     except Exception as e:
         logging.exception(e)
 

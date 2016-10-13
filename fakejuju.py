@@ -14,6 +14,7 @@ from jujupy import (
     EnvJujuClient,
     JESNotSupported,
     JujuData,
+    SoftDeadlineExceeded,
 )
 
 __metaclass__ = type
@@ -364,6 +365,8 @@ class FakeBackend:
         self.debug = debug
         self.juju_timings = {}
         self.log = logging.getLogger('jujupy')
+        self._past_deadline = False
+        self._ignore_soft_deadline = False
 
     def clone(self, full_path=None, version=None, debug=None,
               feature_flags=None):
@@ -392,11 +395,21 @@ class FakeBackend:
 
     @contextmanager
     def ignore_soft_deadline(self):
-        yield
+        """Ignore the client deadline.  For cleanup code."""
+        old_val = self._ignore_soft_deadline
+        self._ignore_soft_deadline = True
+        try:
+            yield
+        finally:
+            self._ignore_soft_deadline = old_val
 
     @contextmanager
     def _check_timeouts(self):
-        yield
+        try:
+            yield
+        finally:
+            if self._past_deadline and not self._ignore_soft_deadline:
+                raise SoftDeadlineExceeded()
 
     def deploy(self, model_state, charm_name, service_name=None, series=None):
         if service_name is None:
@@ -675,61 +688,62 @@ class FakeBackend:
                         merge_stderr=False):
         if 'service' in command:
             raise Exception('No service')
-        self._log_command(command, args, model, logging.DEBUG)
-        if model is not None:
-            if ':' in model:
-                model = model.split(':')[1]
-            model_state = self.controller_state.models[model]
-        from deploy_stack import GET_TOKEN_SCRIPT
-        if (command, args) == ('ssh', ('dummy-sink/0', GET_TOKEN_SCRIPT)):
-            return model_state.token
-        if (command, args) == ('ssh', ('0', 'lsb_release', '-c')):
-            return 'Codename:\t{}\n'.format(
-                model_state.model_config['default-series'])
-        if command in ('model-config', 'get-model-config'):
-            return yaml.safe_dump(model_state.model_config)
-        if command == 'show-controller':
-            return yaml.safe_dump(self.make_controller_dict(args[0]))
-        if command == 'list-models':
-            return yaml.safe_dump(self.list_models())
-        if command == 'list-users':
-            return json.dumps(self.list_users())
-        if command == 'show-model':
-            return json.dumps(self.show_model())
-        if command == 'show-user':
-            return json.dumps(self.show_user(user_name))
-        if command == 'add-user':
-            permissions = 'read'
-            if set(["--acl", "write"]).issubset(args):
-                permissions = 'write'
-            username = args[0]
-            info_string = 'User "{}" added\n'.format(username)
-            self.controller_state.add_user_perms(username, permissions)
-            register_string = get_user_register_command_info(username)
-            return info_string + register_string
-        if command == 'show-status':
-            status_dict = model_state.get_status_dict()
-            # Parsing JSON is much faster than parsing YAML, and JSON is a
-            # subset of YAML, so emit JSON.
-            return json.dumps(status_dict)
-        if command == 'create-backup':
-            self.controller_state.require_controller('backup', model)
-            return 'juju-backup-0.tar.gz'
-        if command == 'ssh-keys':
-            lines = ['Keys used in model: ' + model_state.name]
-            if '--full' in args:
-                lines.extend(model_state.ssh_keys)
-            else:
-                lines.extend(':fake:fingerprint: ({})'.format(
-                    k.split(' ', 2)[-1]) for k in model_state.ssh_keys)
-            return '\n'.join(lines)
-        if command == 'add-ssh-key':
-            return model_state.add_ssh_key(args)
-        if command == 'remove-ssh-key':
-            return model_state.remove_ssh_key(args)
-        if command == 'import-ssh-key':
-            return model_state.import_ssh_key(args)
-        return ''
+        with self._check_timeouts():
+            self._log_command(command, args, model, logging.DEBUG)
+            if model is not None:
+                if ':' in model:
+                    model = model.split(':')[1]
+                model_state = self.controller_state.models[model]
+            from deploy_stack import GET_TOKEN_SCRIPT
+            if (command, args) == ('ssh', ('dummy-sink/0', GET_TOKEN_SCRIPT)):
+                return model_state.token
+            if (command, args) == ('ssh', ('0', 'lsb_release', '-c')):
+                return 'Codename:\t{}\n'.format(
+                    model_state.model_config['default-series'])
+            if command in ('model-config', 'get-model-config'):
+                return yaml.safe_dump(model_state.model_config)
+            if command == 'show-controller':
+                return yaml.safe_dump(self.make_controller_dict(args[0]))
+            if command == 'list-models':
+                return yaml.safe_dump(self.list_models())
+            if command == 'list-users':
+                return json.dumps(self.list_users())
+            if command == 'show-model':
+                return json.dumps(self.show_model())
+            if command == 'show-user':
+                return json.dumps(self.show_user(user_name))
+            if command == 'add-user':
+                permissions = 'read'
+                if set(["--acl", "write"]).issubset(args):
+                    permissions = 'write'
+                username = args[0]
+                info_string = 'User "{}" added\n'.format(username)
+                self.controller_state.add_user_perms(username, permissions)
+                register_string = get_user_register_command_info(username)
+                return info_string + register_string
+            if command == 'show-status':
+                status_dict = model_state.get_status_dict()
+                # Parsing JSON is much faster than parsing YAML, and JSON is a
+                # subset of YAML, so emit JSON.
+                return json.dumps(status_dict)
+            if command == 'create-backup':
+                self.controller_state.require_controller('backup', model)
+                return 'juju-backup-0.tar.gz'
+            if command == 'ssh-keys':
+                lines = ['Keys used in model: ' + model_state.name]
+                if '--full' in args:
+                    lines.extend(model_state.ssh_keys)
+                else:
+                    lines.extend(':fake:fingerprint: ({})'.format(
+                        k.split(' ', 2)[-1]) for k in model_state.ssh_keys)
+                return '\n'.join(lines)
+            if command == 'add-ssh-key':
+                return model_state.add_ssh_key(args)
+            if command == 'remove-ssh-key':
+                return model_state.remove_ssh_key(args)
+            if command == 'import-ssh-key':
+                return model_state.import_ssh_key(args)
+            return ''
 
     def expect(self, command, args, used_feature_flags, juju_home, model=None,
                timeout=None, extra_env=None):
