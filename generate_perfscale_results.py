@@ -237,10 +237,12 @@ def get_log_message_in_timed_chunks(log_file, deployments):
 
 
 def create_html_report(results_dir, details):
-    with open('./perf_report_template.html', 'rt') as f:
+    template_path = os.path.join(
+        os.path.dirname(__file__), 'perf_report_template.html')
+    with open(template_path, 'rt') as f:
         template = Template(f.read())
 
-    results_output = os.path.join(results_dir, 'report.html')
+    results_output = os.path.join(results_dir, 'index.html')
     with open(results_output, 'wt') as f:
         f.write(template.render(details))
 
