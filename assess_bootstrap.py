@@ -71,8 +71,8 @@ def assess_metadata(bs_manager, local_source):
                                  metadata_source=metadata_dir):
             log.info('Metadata bootstrap successful.')
             data = client.get_model_config()
-            if INVALID_URL != data['agent-metadata-url']['value']:
-                raise JujuAssertionError('Error, possible web metadata.')
+    if INVALID_URL != data['agent-metadata-url']['value']:
+        raise JujuAssertionError('Error, possible web metadata.')
 
 
 def get_controller_address(client):
