@@ -4,6 +4,7 @@ package model
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"sort"
 	"strings"
@@ -38,6 +39,8 @@ By default, the model is the current model.
 Examples:
     juju model-defaults
     juju model-defaults http-proxy
+    juju model-defaults aws/us-east-1 http-proxy
+    juju model-defaults us-east-1 http-proxy
     juju model-defaults -m mymodel type
     juju model-defaults ftp-proxy=10.0.0.1:8000
     juju model-defaults aws/us-east-1 ftp-proxy=10.0.0.1:8000
@@ -214,8 +217,8 @@ func (c *defaultsCommand) Init(args []string) error {
 		// set args.
 		return c.handleSetArgs(args)
 	case len(args) == 0:
-		// This should be reset only (but possibly for a region).
-		return c.handleZeroArgs()
+		c.action = c.getDefaults
+		return nil
 	case len(args) == 1:
 		// We want to get settings for the provided key.
 		return c.handleOneArg(args[0])
@@ -386,23 +389,6 @@ func (c *defaultsCommand) parseSetKeys(args []string) error {
 	return nil
 }
 
-// handleZeroArgs determines whether we are doing a reset only and if any
-// additional arguments are valid -- or why they are not.
-func (c *defaultsCommand) handleZeroArgs() error {
-	if c.regionName != "" {
-		if c.resetKeys == nil {
-			// It doesn't make sense to specify a region unless we are resetting
-			// values here.
-			return errors.New("specifying a region when retrieving defaults is invalid")
-		}
-	}
-	// We can reset for a region. We can also reset for a controller if there
-	// is no region specified. In either case c.action remains nil. We short
-	// circuited at the begining of c.Init so we should never reach a case
-	// where there is no region or reset keys specified.
-	return nil
-}
-
 // handleOneArg handles the case where we have one positional arg after
 // processing for a region and the reset flag.
 func (c *defaultsCommand) handleOneArg(arg string) error {
@@ -410,15 +396,12 @@ func (c *defaultsCommand) handleOneArg(arg string) error {
 	regionSpecified := c.regionName != ""
 
 	if regionSpecified {
-		if !resetSpecified {
-			// It doesn't make sense to specify a region unless we are resetting
-			// values here.
-			return errors.New("specifying a region when retrieving defaults for a setting is invalid")
+		if resetSpecified {
+			// If a region was specified and reset was specified, we shouldn't have
+			// an extra arg. If it had an "=" in it, we should have handled it
+			// already.
+			return errors.New("cannot retrieve defaults for a region and reset attributes at the same time")
 		}
-		// If a region was specified and reset was specified, we shouldn't have
-		// an extra arg. If it had an "=" in it, we should have handled it
-		// already.
-		return errors.New("cannot retrieve defaults for a key and reset args at the same time")
 	}
 	if resetSpecified {
 		// It makes no sense to supply a positional arg that isn't a region if
@@ -501,13 +484,39 @@ func (c *defaultsCommand) getDefaults(client defaultsCommandAPI, ctx *cmd.Contex
 		return err
 	}
 
+	valueForRegion := func(region string, regions []config.RegionDefaultValue) (config.RegionDefaultValue, bool) {
+		for _, r := range regions {
+			if r.Name == region {
+				return r, true
+			}
+		}
+		return config.RegionDefaultValue{}, false
+	}
+
+	// Filter by region if necessary.
+	if c.regionName != "" {
+		for attrName, attr := range attrs {
+			if regionDefault, ok := valueForRegion(c.regionName, attr.Regions); !ok {
+				delete(attrs, attrName)
+			} else {
+				attrForRegion := attr
+				attrForRegion.Regions = []config.RegionDefaultValue{regionDefault}
+				attrs[attrName] = attrForRegion
+			}
+		}
+	}
+
 	if c.key != "" {
 		if value, ok := attrs[c.key]; ok {
 			attrs = config.ModelDefaultAttributes{
 				c.key: value,
 			}
 		} else {
-			return errors.Errorf("key %q not found in %q model defaults.", c.key, attrs["name"])
+			msg := fmt.Sprintf("there are no default model values for %q", c.key)
+			if c.regionName != "" {
+				msg += fmt.Sprintf(" in region %q", c.regionName)
+			}
+			return errors.New(msg)
 		}
 	}
 	// If c.keys is empty, write out the whole lot.

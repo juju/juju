@@ -74,7 +74,7 @@ func (s *DefaultsCommandSuite) TestDefaultsInit(c *gc.C) {
 		{
 			description: "test reset with valid region and extra positional arg",
 			args:        []string{"--reset", "something", "dummy-region", "weird"},
-			errorMatch:  "cannot retrieve defaults for a key and reset args at the same time",
+			errorMatch:  "cannot retrieve defaults for a region and reset attributes at the same time",
 		}, {
 			description: "test reset with valid region only",
 			args:        []string{"--reset", "foo", "dummy-region"},
@@ -151,11 +151,11 @@ func (s *DefaultsCommandSuite) TestDefaultsInit(c *gc.C) {
 		}, {
 			description: "test valid region and one arg",
 			args:        []string{"dummy-region", "one"},
-			errorMatch:  "specifying a region when retrieving defaults for a setting is invalid",
+			nilErr:      true,
 		}, {
 			description: "test valid region and no args",
 			args:        []string{"dummy-region"},
-			errorMatch:  "specifying a region when retrieving defaults is invalid",
+			nilErr:      true,
 		}, {
 			// test cloud/region
 			description: "test invalid cloud fails",
@@ -242,6 +242,9 @@ func (s *DefaultsCommandSuite) TestResetAttr(c *gc.C) {
 		"attr2": {Controller: "bar", Default: nil, Regions: []config.RegionDefaultValue{{
 			Name:  "dummy-region",
 			Value: "dummy-value",
+		}, {
+			Name:  "another-region",
+			Value: "another-value",
 		}}},
 	})
 }
@@ -267,6 +270,9 @@ func (s *DefaultsCommandSuite) TestSet(c *gc.C) {
 		"attr2": {Controller: "bar", Default: nil, Regions: []config.RegionDefaultValue{{
 			Name:  "dummy-region",
 			Value: "dummy-value",
+		}, {
+			Name:  "another-region",
+			Value: "another-value",
 		}}},
 		"special": {Controller: "extra", Default: nil, Regions: nil},
 	})
@@ -307,9 +313,10 @@ func (s *DefaultsCommandSuite) TestGetSingleValue(c *gc.C) {
 
 	output := strings.TrimSpace(testing.Stdout(context))
 	expected := "" +
-		"Attribute       Default      Controller\n" +
-		"attr2           -            bar\n" +
-		"  dummy-region  dummy-value  -"
+		"Attribute         Default        Controller\n" +
+		"attr2             -              bar\n" +
+		"  dummy-region    dummy-value    -\n" +
+		"  another-region  another-value  -"
 	c.Assert(output, gc.Equals, expected)
 }
 
@@ -319,7 +326,7 @@ func (s *DefaultsCommandSuite) TestGetSingleValueJSON(c *gc.C) {
 
 	output := strings.TrimSpace(testing.Stdout(context))
 	c.Assert(output, gc.Equals,
-		`{"attr2":{"controller":"bar","regions":[{"name":"dummy-region","value":"dummy-value"}]}}`)
+		`{"attr2":{"controller":"bar","regions":[{"name":"dummy-region","value":"dummy-value"},{"name":"another-region","value":"another-value"}]}}`)
 }
 
 func (s *DefaultsCommandSuite) TestGetAllValuesYAML(c *gc.C) {
@@ -334,7 +341,9 @@ func (s *DefaultsCommandSuite) TestGetAllValuesYAML(c *gc.C) {
 		"  controller: bar\n" +
 		"  regions:\n" +
 		"  - name: dummy-region\n" +
-		"    value: dummy-value"
+		"    value: dummy-value\n" +
+		"  - name: another-region\n" +
+		"    value: another-value"
 	c.Assert(output, gc.Equals, expected)
 }
 
@@ -343,7 +352,7 @@ func (s *DefaultsCommandSuite) TestGetAllValuesJSON(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	output := strings.TrimSpace(testing.Stdout(context))
-	expected := `{"attr":{"default":"foo"},"attr2":{"controller":"bar","regions":[{"name":"dummy-region","value":"dummy-value"}]}}`
+	expected := `{"attr":{"default":"foo"},"attr2":{"controller":"bar","regions":[{"name":"dummy-region","value":"dummy-value"},{"name":"another-region","value":"another-value"}]}}`
 	c.Assert(output, gc.Equals, expected)
 }
 
@@ -353,8 +362,21 @@ func (s *DefaultsCommandSuite) TestGetAllValuesTabular(c *gc.C) {
 
 	output := strings.TrimSpace(testing.Stdout(context))
 	expected := "" +
+		"Attribute         Default        Controller\n" +
+		"attr              foo            -\n" +
+		"attr2             -              bar\n" +
+		"  dummy-region    dummy-value    -\n" +
+		"  another-region  another-value  -"
+	c.Assert(output, gc.Equals, expected)
+}
+
+func (s *DefaultsCommandSuite) TestGetRegionValuesTabular(c *gc.C) {
+	context, err := s.run(c, "dummy-region")
+	c.Assert(err, jc.ErrorIsNil)
+
+	output := strings.TrimSpace(testing.Stdout(context))
+	expected := "" +
 		"Attribute       Default      Controller\n" +
-		"attr            foo          -\n" +
 		"attr2           -            bar\n" +
 		"  dummy-region  dummy-value  -"
 	c.Assert(output, gc.Equals, expected)
