@@ -81,9 +81,9 @@ See also:
 type accessCommand struct {
 	modelcmd.ControllerCommandBase
 
-	User        string
-	ModelNames  []string
-	ModelAccess string
+	User       string
+	ModelNames []string
+	Access     string
 }
 
 // Init implements cmd.Command.
@@ -98,16 +98,23 @@ func (c *accessCommand) Init(args []string) error {
 
 	c.User = args[0]
 	c.ModelNames = args[2:]
-	c.ModelAccess = args[1]
+	c.Access = args[1]
 	// Special case for backwards compatibility.
-	if c.ModelAccess == "addmodel" {
-		c.ModelAccess = "add-model"
+	if c.Access == "addmodel" {
+		c.Access = "add-model"
 	}
 	if len(c.ModelNames) > 0 {
-		err := permission.ValidateModelAccess(permission.Access(c.ModelAccess))
-		if err != nil {
-			return err
+		if err := permission.ValidateControllerAccess(permission.Access(c.Access)); err == nil {
+			return errors.Errorf("You have specified a controller access permission %q.\n"+
+				"If you intended to change controller access, do not specify any model names.\n"+
+				"See 'juju help grant'.", c.Access)
 		}
+		return permission.ValidateModelAccess(permission.Access(c.Access))
+	}
+	if err := permission.ValidateModelAccess(permission.Access(c.Access)); err == nil {
+		return errors.Errorf("You have specified a model access permission %q.\n"+
+			"If you intended to change model access, you need to specify one or more model names.\n"+
+			"See 'juju help grant'.", c.Access)
 	}
 	return nil
 }
@@ -171,7 +178,7 @@ func (c *grantCommand) runForController() error {
 	}
 	defer client.Close()
 
-	return block.ProcessBlockedError(client.GrantController(c.User, c.ModelAccess), block.BlockChange)
+	return block.ProcessBlockedError(client.GrantController(c.User, c.Access), block.BlockChange)
 }
 
 func (c *grantCommand) runForModel() error {
@@ -185,7 +192,7 @@ func (c *grantCommand) runForModel() error {
 	if err != nil {
 		return err
 	}
-	return block.ProcessBlockedError(client.GrantModel(c.User, c.ModelAccess, models...), block.BlockChange)
+	return block.ProcessBlockedError(client.GrantModel(c.User, c.Access, models...), block.BlockChange)
 }
 
 // NewRevokeCommand returns a new revoke command.
@@ -247,7 +254,7 @@ func (c *revokeCommand) runForController() error {
 	}
 	defer client.Close()
 
-	return block.ProcessBlockedError(client.RevokeController(c.User, c.ModelAccess), block.BlockChange)
+	return block.ProcessBlockedError(client.RevokeController(c.User, c.Access), block.BlockChange)
 }
 
 func (c *revokeCommand) runForModel() error {
@@ -261,5 +268,5 @@ func (c *revokeCommand) runForModel() error {
 	if err != nil {
 		return err
 	}
-	return block.ProcessBlockedError(client.RevokeModel(c.User, c.ModelAccess, models...), block.BlockChange)
+	return block.ProcessBlockedError(client.RevokeModel(c.User, c.Access, models...), block.BlockChange)
 }

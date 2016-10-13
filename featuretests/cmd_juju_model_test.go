@@ -16,6 +16,8 @@ import (
 
 	"github.com/juju/juju/cmd/juju/commands"
 	"github.com/juju/juju/core/description"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/feature"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/permission"
@@ -106,7 +108,7 @@ func (s *cmdModelSuite) TestModelUsersCmd(c *gc.C) {
 
 }
 
-func (s *cmdModelSuite) TestGet(c *gc.C) {
+func (s *cmdModelSuite) TestModelConfigGet(c *gc.C) {
 	err := s.State.UpdateModelConfig(map[string]interface{}{"special": "known"}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -114,17 +116,70 @@ func (s *cmdModelSuite) TestGet(c *gc.C) {
 	c.Assert(testing.Stdout(context), gc.Equals, "known\n")
 }
 
-func (s *cmdModelSuite) TestSet(c *gc.C) {
+func (s *cmdModelSuite) TestModelConfigSet(c *gc.C) {
 	s.run(c, "model-config", "special=known")
-	s.assertEnvValue(c, "special", "known")
+	s.assertModelValue(c, "special", "known")
 }
 
-func (s *cmdModelSuite) TestUnset(c *gc.C) {
+func (s *cmdModelSuite) TestModelConfigReset(c *gc.C) {
 	err := s.State.UpdateModelConfig(map[string]interface{}{"special": "known"}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.run(c, "model-config", "--reset", "special")
-	s.assertEnvValueMissing(c, "special")
+	s.assertModelValueMissing(c, "special")
+}
+
+func (s *cmdModelSuite) TestModelDefaultsGet(c *gc.C) {
+	err := s.State.UpdateModelConfigDefaultValues(map[string]interface{}{"special": "known"}, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	context := s.run(c, "model-defaults", "special")
+	c.Assert(testing.Stdout(context), gc.Equals, `
+Attribute  Default  Controller
+special    -        known
+
+`[1:])
+}
+
+func (s *cmdModelSuite) TestModelDefaultsSet(c *gc.C) {
+	s.run(c, "model-defaults", "special=known")
+	defaults, err := s.State.ModelConfigDefaultValues()
+	c.Assert(err, jc.ErrorIsNil)
+	value, found := defaults["special"]
+	c.Assert(found, jc.IsTrue)
+	c.Assert(value.Controller, gc.Equals, "known")
+}
+
+func (s *cmdModelSuite) TestModelDefaultsSetRegion(c *gc.C) {
+	s.run(c, "model-defaults", "dummy/dummy-region", "special=known")
+	defaults, err := s.State.ModelConfigDefaultValues()
+	c.Assert(err, jc.ErrorIsNil)
+	value, found := defaults["special"]
+	c.Assert(found, jc.IsTrue)
+	c.Assert(value.Controller, gc.IsNil)
+	c.Assert(value.Regions, jc.SameContents, []config.RegionDefaultValue{{"dummy-region", "known"}})
+}
+
+func (s *cmdModelSuite) TestModelDefaultsReset(c *gc.C) {
+	err := s.State.UpdateModelConfigDefaultValues(map[string]interface{}{"special": "known"}, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.run(c, "model-defaults", "--reset", "special")
+	defaults, err := s.State.ModelConfigDefaultValues()
+	c.Assert(err, jc.ErrorIsNil)
+	_, found := defaults["special"]
+	c.Assert(found, jc.IsFalse)
+}
+
+func (s *cmdModelSuite) TestModelDefaultsResetRegion(c *gc.C) {
+	err := s.State.UpdateModelConfigDefaultValues(map[string]interface{}{"special": "known"}, nil, &environs.RegionSpec{"dummy", "dummy-region"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.run(c, "model-defaults", "dummy-region", "--reset", "special")
+	defaults, err := s.State.ModelConfigDefaultValues()
+	c.Assert(err, jc.ErrorIsNil)
+	_, found := defaults["special"]
+	c.Assert(found, jc.IsFalse)
 }
 
 func (s *cmdModelSuite) TestRetryProvisioning(c *gc.C) {
@@ -170,17 +225,17 @@ func (s *cmdModelSuite) TestDumpModelDB(c *gc.C) {
 	c.Assert(modelMap["name"], gc.Equals, "controller")
 }
 
-func (s *cmdModelSuite) assertEnvValue(c *gc.C, key string, expected interface{}) {
-	envConfig, err := s.State.ModelConfig()
+func (s *cmdModelSuite) assertModelValue(c *gc.C, key string, expected interface{}) {
+	modelConfig, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	value, found := envConfig.AllAttrs()[key]
+	value, found := modelConfig.AllAttrs()[key]
 	c.Assert(found, jc.IsTrue)
 	c.Assert(value, gc.Equals, expected)
 }
 
-func (s *cmdModelSuite) assertEnvValueMissing(c *gc.C, key string) {
-	envConfig, err := s.State.ModelConfig()
+func (s *cmdModelSuite) assertModelValueMissing(c *gc.C, key string) {
+	modelConfig, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	_, found := envConfig.AllAttrs()[key]
+	_, found := modelConfig.AllAttrs()[key]
 	c.Assert(found, jc.IsFalse)
 }

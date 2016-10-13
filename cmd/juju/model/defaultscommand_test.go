@@ -307,7 +307,7 @@ func (s *DefaultsCommandSuite) TestGetSingleValue(c *gc.C) {
 
 	output := strings.TrimSpace(testing.Stdout(context))
 	expected := "" +
-		"ATTRIBUTE       DEFAULT      CONTROLLER\n" +
+		"Attribute       Default      Controller\n" +
 		"attr2           -            bar\n" +
 		"  dummy-region  dummy-value  -"
 	c.Assert(output, gc.Equals, expected)
@@ -353,7 +353,7 @@ func (s *DefaultsCommandSuite) TestGetAllValuesTabular(c *gc.C) {
 
 	output := strings.TrimSpace(testing.Stdout(context))
 	expected := "" +
-		"ATTRIBUTE       DEFAULT      CONTROLLER\n" +
+		"Attribute       Default      Controller\n" +
 		"attr            foo          -\n" +
 		"attr2           -            bar\n" +
 		"  dummy-region  dummy-value  -"

@@ -24,7 +24,13 @@ type updateCredentialSuite struct {
 var _ = gc.Suite(&updateCredentialSuite{})
 
 func (s *updateCredentialSuite) TestBadArgs(c *gc.C) {
-	cmd := cloud.NewUpdateCredentialCommand()
+	store := &jujuclienttesting.MemStore{
+		Controllers: map[string]jujuclient.ControllerDetails{
+			"controller": {},
+		},
+		CurrentControllerName: "controller",
+	}
+	cmd := cloud.NewUpdateCredentialCommandForTest(store, nil)
 	_, err := testing.RunCommand(c, cmd)
 	c.Assert(err, gc.ErrorMatches, "Usage: juju update-credential <cloud-name> <credential-name>")
 	_, err = testing.RunCommand(c, cmd, "cloud", "credential", "extra")

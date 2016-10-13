@@ -23,9 +23,7 @@ type ControllerCommandSuite struct {
 var _ = gc.Suite(&ControllerCommandSuite{})
 
 func (s *ControllerCommandSuite) TestControllerCommandNoneSpecified(c *gc.C) {
-	cmd, _, err := initTestControllerCommand(c, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	err = cmd.Run(nil)
+	_, _, err := initTestControllerCommand(c, nil)
 	c.Assert(errors.Cause(err), gc.Equals, modelcmd.ErrNoControllersDefined)
 }
 
