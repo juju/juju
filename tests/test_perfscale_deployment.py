@@ -10,26 +10,28 @@ from tests import (
     parse_error,
     TestCase,
 )
+from utility import temp_dir
 
 
-default_args = argparse.Namespace(
-    env='an-env',
-    juju_bin='/bin/juju',
-    logs='/tmp/logs',
-    temp_env_name='an-env-mod',
-    bundle_name='cs:~landscape/bundle/landscape-scalable',
-    debug=False,
-    agent_stream=None,
-    agent_url=None,
-    bootstrap_host=None,
-    keep_env=False,
-    machine=[],
-    region=None,
-    series=None,
-    upload_tools=False,
-    verbose=20,
-    deadline=None,
-)
+def get_default_args(log_dir='/tmp/logs'):
+    return argparse.Namespace(
+        env='an-env',
+        juju_bin='/bin/juju',
+        logs=log_dir,
+        temp_env_name='an-env-mod',
+        bundle_name='cs:~landscape/bundle/landscape-scalable',
+        debug=False,
+        agent_stream=None,
+        agent_url=None,
+        bootstrap_host=None,
+        keep_env=False,
+        machine=[],
+        region=None,
+        series=None,
+        upload_tools=False,
+        verbose=20,
+        deadline=None,
+    )
 
 
 class TestParseArgs(TestCase):
@@ -43,7 +45,7 @@ class TestParseArgs(TestCase):
                 'an-env-mod'])
         self.assertEqual(
             args,
-            default_args
+            get_default_args()
         )
 
     def test_default_bundle_name(self):
@@ -85,13 +87,14 @@ class TestGetClientDetails(TestCase):
 
 
 class TestMain(TestCase):
-    argv = ['an-env', '/bin/juju', '/tmp/logs', 'an-env-mod']
-    bs_manager = Mock()
-    with patch.object(pd, 'run_perfscale_test') as mock_run_pt:
-        with patch.object(pd.BootstrapManager, 'from_args',
-                          return_value=bs_manager):
-            pd.main(argv)
-    mock_run_pt.assert_called_once_with(
-        pd.assess_deployment_perf,
-        bs_manager,
-        default_args)
+    with temp_dir() as log_dir:
+        argv = ['an-env', '/bin/juju', log_dir, 'an-env-mod']
+        bs_manager = Mock()
+        with patch.object(pd, 'run_perfscale_test') as mock_run_pt:
+            with patch.object(pd.BootstrapManager, 'from_args',
+                              return_value=bs_manager):
+                pd.main(argv)
+        mock_run_pt.assert_called_once_with(
+            pd.assess_deployment_perf,
+            bs_manager,
+            get_default_args(log_dir))
