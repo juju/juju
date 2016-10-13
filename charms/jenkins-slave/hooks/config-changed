@@ -1,1 +1,58 @@
-install
+#!/bin/bash
+set -eux
+
+status-set maintenance "Updating scripts" || true
+if [[ ! -d  /var/lib/jenkins/bin ]]; then
+    mkdir -p /var/lib/jenkins/bin
+fi
+cp $JUJU_CHARM_DIR/scripts/start-jenkins-slave.sh /var/lib/jenkins/bin
+chmod +x /var/lib/jenkins/bin/start-jenkins-slave.sh
+cp $JUJU_CHARM_DIR/scripts/place-slave.sh /var/lib/jenkins/bin
+chmod +x /var/lib/jenkins/bin/place-slave.sh
+
+status-set maintenance "Checking config" 
+PACKAGES$(config-get packages)
+if [[ -n "$MASTER_URL" ]]; then
+    status-set maintenance "Installing packages." || true
+    apt-get install $PACKAGES
+fi
+
+SLAVE_NAME=$(config-get slave-name)
+if [[ -x "$SLAVE_NAME" ]]; then
+    SLAVE_NAME=$(echo $JUJU_UNIT_NAME | sed s,/,-,)
+fi
+
+MASTER_URL=$(relation-get url)
+if [[ -x "$MASTER_URL" ]]; then
+    MASTER_URL=$(config-get master-url)
+fi
+if [[ -x "$MASTER_URL" ]]; then
+    status-set blocked "Set master-url option or relate to master" || true
+    juju-log "master-url config is not set or master needs to export its url"
+    exit 0
+fi
+
+status-set maintenance "Updating configuration." || true
+cp $JUJU_CHARM_DIR/files/default/jenkins-slave /etc/default/jenkins-slave
+sed -i -r \
+    "s,NAME=jenkins-slave,NAME=$SLAVE_NAME-slave," /etc/default/jenkins-slave
+sed -i -r \
+    "s,#MASTER_URL=.*,MASTER_URL=$MASTER_URL," /etc/default/jenkins-slave
+
+if [[ -d /etc/systemd ]]; then
+    cp $JUJU_CHARM_DIR/files/systemd/system/jenkins-slave.service \
+        /etc/systemd/system/jenkins-slave.service
+    systemctl enable jenkins-slave
+else
+    cp $JUJU_CHARM_DIR/files/init/jenkins-slave.conf \
+        /etc/init/jenkins-slave.conf
+    ln -s /lib/init/upstart-job /etc/init.d/jenkins-slave || true
+fi
+
+status-set maintenance "Checking jenkins slave.jar" || true
+/var/bin/jenlins/bin/place-slave.sh "$MASTER_URL"
+
+status-set maintenance "Starting services." || true
+service jenkins-slave stop 2>/dev/null || true
+service jenkins-slave start || true
+status-set active "$SLAVE_NAME is accepting work" || true

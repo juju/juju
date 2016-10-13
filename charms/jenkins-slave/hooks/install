@@ -2,54 +2,19 @@
 
 set -eux
 
+status-set maintenance "Installing" || true
+apt-get install -y adduser default-jre-headless
 
-# Install the slave if it is not installed already.
-install_slave () {
-    juju-log "Installing jenkins-slave..."
-    if [[ ! -f /etc/init/jenkins-slave.conf ]]
-    then
-        if [[ $(apt-cache madison jenkins-slave) =~ .*jenkins-slave.* ]]
-        then
-            apt-get -y install -qq jenkins-slave wget
-        else
-            # This series doesn't provide a jenkins.
-            # Install the same slave package as the precise Jenkins master.
-            apt-get -y install -qq wget adduser default-jre-headless upstart-job
-            dpkg -i files/jenkins-slave_*.deb
-        fi
-    else
-        juju-log "Jenkins-slave is already installed"
-    fi
-}
+if ! id jenkins > /dev/null 2>&1 ; then
+    mkdir -p /var/lib/jenkins
+    adduser --system --home /var/lib/jenkins  \
+        --group --disabled-password --quiet --shell /bin/bash \
+        jenkins
+    chown -R jenkins:jenkins /var/lib/jenkins
+fi
 
+if [[ ! -d  /var/log/jenkins ]]; then
+    mkdir -p /var/log/jenkins
+fi
 
-# Install extra packages needed by the slave.
-install_tools () {
-    juju-log "Installing tools..."
-    apt-get -y install -qq $(config-get tools)
-}
-
-
-# Execute any hook overlay which may be provided
-# by forks of this charm.
-install_extra_hooks () {
-    juju-log "Installing hooks..."
-    if [[ -d hooks/install.d ]]
-    then
-        for i in $(ls -1 hooks/install.d/*)
-        do
-            if [[ -x $i ]]
-            then
-                source ./$i
-            fi
-        done
-    else
-        juju-log "No extra hooks found."
-    fi
-}
-
-
-install_slave
-install_tools
-install_extra_hooks
-exit 0
+status-set maintenance "Installed" || true
