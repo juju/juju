@@ -4,6 +4,8 @@
 package model_test
 
 import (
+	"strings"
+
 	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -127,7 +129,7 @@ func (s *grantSuite) TestInitGrantAddModel(c *gc.C) {
 	// The backwards-compatible case, addmodel.
 	err = testing.InitCommand(wrappedCmd, []string{"bob", "addmodel"})
 	c.Check(err, jc.ErrorIsNil)
-	c.Assert(grantCmd.ModelAccess, gc.Equals, "add-model")
+	c.Assert(grantCmd.Access, gc.Equals, "add-model")
 }
 
 type revokeSuite struct {
@@ -171,7 +173,21 @@ func (s *grantSuite) TestInitRevokeAddModel(c *gc.C) {
 	// The backwards-compatible case, addmodel.
 	err = testing.InitCommand(wrappedCmd, []string{"bob", "addmodel"})
 	c.Check(err, jc.ErrorIsNil)
-	c.Assert(revokeCmd.ModelAccess, gc.Equals, "add-model")
+	c.Assert(revokeCmd.Access, gc.Equals, "add-model")
+}
+
+func (s *grantSuite) TestModelAccessForController(c *gc.C) {
+	wrappedCmd, _ := model.NewRevokeCommandForTest(s.fake, s.store)
+	err := testing.InitCommand(wrappedCmd, []string{"bob", "write"})
+	msg := strings.Replace(err.Error(), "\n", "", -1)
+	c.Check(msg, gc.Matches, `You have specified a model access permission "write".*`)
+}
+
+func (s *grantSuite) TestControllerAccessForModel(c *gc.C) {
+	wrappedCmd, _ := model.NewRevokeCommandForTest(s.fake, s.store)
+	err := testing.InitCommand(wrappedCmd, []string{"bob", "superuser", "default"})
+	msg := strings.Replace(err.Error(), "\n", "", -1)
+	c.Check(msg, gc.Matches, `You have specified a controller access permission "superuser".*`)
 }
 
 type fakeGrantRevokeAPI struct {

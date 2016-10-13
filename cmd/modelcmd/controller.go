@@ -270,10 +270,6 @@ func (w *sysCommandWrapper) Init(args []string) error {
 	store = QualifyingClientStore{store}
 	w.SetClientStore(store)
 
-	return w.ControllerCommand.Init(args)
-}
-
-func (w *sysCommandWrapper) Run(ctx *cmd.Context) error {
 	if w.setControllerFlags {
 		if w.controllerName == "" && w.useDefaultController {
 			store := w.ClientStore()
@@ -292,7 +288,7 @@ func (w *sysCommandWrapper) Run(ctx *cmd.Context) error {
 			return translateControllerError(w.ClientStore(), err)
 		}
 	}
-	return w.ControllerCommand.Run(ctx)
+	return w.ControllerCommand.Init(args)
 }
 
 func translateControllerError(store jujuclient.ClientStore, err error) error {

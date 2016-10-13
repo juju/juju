@@ -40,8 +40,12 @@ Examples:
     juju model-defaults http-proxy
     juju model-defaults -m mymodel type
     juju model-defaults ftp-proxy=10.0.0.1:8000
+    juju model-defaults aws/us-east-1 ftp-proxy=10.0.0.1:8000
+    juju model-defaults us-east-1 ftp-proxy=10.0.0.1:8000
     juju model-defaults -m othercontroller:mymodel default-series=yakkety test-mode=false
     juju model-defaults --reset default-series test-mode
+    juju model-defaults aws/us-east-1 --reset http-proxy
+    juju model-defaults us-east-1 --reset http-proxy
 
 See also:
     models
@@ -596,7 +600,7 @@ func formatDefaultConfigTabular(writer io.Writer, value interface{}) error {
 	}
 	sort.Strings(valueNames)
 
-	w.Println("ATTRIBUTE", "DEFAULT", "CONTROLLER")
+	w.Println("Attribute", "Default", "Controller")
 
 	for _, name := range valueNames {
 		info := defaultValues[name]
