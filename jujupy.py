@@ -3,13 +3,12 @@ from __future__ import print_function
 from collections import (
     defaultdict,
     namedtuple,
-)
+    )
 from contextlib import (
     contextmanager,
     nested,
-)
+    )
 from copy import deepcopy
-from cStringIO import StringIO
 from datetime import datetime
 import errno
 from itertools import chain
@@ -31,7 +30,7 @@ from jujuconfig import (
     get_jenv_path,
     get_juju_home,
     get_selected_environment,
-)
+    )
 from utility import (
     check_free_disk_space,
     ensure_deleted,
@@ -46,7 +45,7 @@ from utility import (
     temp_dir,
     unqualified_model_name,
     until_timeout,
-)
+    )
 
 
 __metaclass__ = type
@@ -160,10 +159,6 @@ class JESByDefault(Exception):
 
 
 Machine = namedtuple('Machine', ['machine_id', 'info'])
-
-
-def yaml_loads(yaml_str):
-    return yaml.safe_load(StringIO(yaml_str))
 
 
 def coalesce_agent_status(agent_item):
@@ -463,7 +458,7 @@ class Status:
             # parsing as JSON first and fall back to YAML.
             status_yaml = json.loads(text)
         except ValueError:
-            status_yaml = yaml_loads(text)
+            status_yaml = yaml.safe_load(text)
         return cls(status_yaml, text)
 
     def get_applications(self):
@@ -1364,7 +1359,7 @@ class EnvJujuClient:
         self.juju('config', (service,) + option_strings)
 
     def get_config(self, service):
-        return yaml_loads(self.get_juju_output('config', service))
+        return yaml.safe_load(self.get_juju_output('config', service))
 
     def get_service_config(self, service, timeout=60):
         for ignored in until_timeout(timeout):
@@ -1480,7 +1475,7 @@ class EnvJujuClient:
         args = ('--format', 'yaml', service_or_unit)
         if details:
             args = args + ('--details',)
-        return yaml_loads(self.get_juju_output('list-resources', *args))
+        return yaml.safe_load(self.get_juju_output('list-resources', *args))
 
     def wait_for_resource(self, resource_id, service_or_unit, timeout=60):
         log.info('Waiting for resource. Resource id:{}'.format(resource_id))
@@ -1660,7 +1655,7 @@ class EnvJujuClient:
         output = self.get_juju_output(
             'list-models', '-c', self.env.controller.name, '--format', 'yaml',
             include_e=False, timeout=120)
-        models = yaml_loads(output)
+        models = yaml.safe_load(output)
         return models
 
     def _get_models(self):
@@ -1735,7 +1730,7 @@ class EnvJujuClient:
         controller = self.env.controller.name
         output = self.get_juju_output(
             'show-controller', controller, include_e=False)
-        info = yaml_loads(output)
+        info = yaml.safe_load(output)
         endpoint = info[controller]['details']['api-endpoints'][0]
         address, port = split_address_port(endpoint)
         return address
@@ -1948,7 +1943,7 @@ class EnvJujuClient:
         Returns the yaml output of the fetched action.
         """
         out = self.get_juju_output("show-action-output", id, "--wait", timeout)
-        status = yaml_loads(out)["status"]
+        status = yaml.safe_load(out)["status"]
         if status != "completed":
             name = ""
             if action is not None:
@@ -2160,7 +2155,7 @@ class EnvJujuClient:
         """Return data on a machine as a dict."""
         text = self.get_juju_output('show-machine', machine,
                                     '--format', 'yaml')
-        return yaml_loads(text)
+        return yaml.safe_load(text)
 
     def ssh_keys(self, full=False):
         """Give the ssh keys registered for the current model."""
@@ -2304,7 +2299,7 @@ class EnvJujuClient2B9(EnvJujuClientRC):
         self.juju('set-config', (service,) + option_strings)
 
     def get_config(self, service):
-        return yaml_loads(self.get_juju_output('get-config', service))
+        return yaml.safe_load(self.get_juju_output('get-config', service))
 
     def get_model_config(self):
         """Return the value of the environment's configured option."""
@@ -2600,7 +2595,7 @@ class EnvJujuClient2A1(EnvJujuClient2A2):
         # the command has to be "action fetch" so that the -e <env> args are
         # placed after "fetch", since that's where action requires them to be.
         out = self.get_juju_output("action fetch", id, "--wait", timeout)
-        status = yaml_loads(out)["status"]
+        status = yaml.safe_load(out)["status"]
         if status != "completed":
             name = ""
             if action is not None:
@@ -2647,7 +2642,7 @@ class EnvJujuClient2A1(EnvJujuClient2A2):
         self.juju('set', (service,) + tuple(option_strings))
 
     def get_config(self, service):
-        return yaml_loads(self.get_juju_output('get', service))
+        return yaml.safe_load(self.get_juju_output('get', service))
 
     def get_model_config(self):
         """Return the value of the environment's configured option."""

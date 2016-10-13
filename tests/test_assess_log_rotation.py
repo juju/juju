@@ -4,7 +4,8 @@ from contextlib import contextmanager
 from mock import (
     Mock,
     patch,
-)
+    )
+import yaml
 
 from assess_log_rotation import (
     check_expected_backup,
@@ -15,7 +16,7 @@ from assess_log_rotation import (
     parse_args,
     assess_debug_log,
     assess_machine_rotation,
-)
+    )
 from fakejuju import (
     fake_juju_client,
     fake_juju_client_optional_jes,
@@ -24,7 +25,6 @@ from jujupy import (
     EnvJujuClient,
     JujuData,
     _temp_env as temp_env,
-    yaml_loads,
     )
 from tests import TestCase
 
@@ -48,7 +48,7 @@ timing:
   started: 2015-05-21 09:57:02 -0400 EDT
 """
 
-good_obj = yaml_loads(good_yaml)
+good_obj = yaml.safe_load(good_yaml)
 
 big_yaml = \
     """
@@ -73,7 +73,7 @@ timing:
   started: 2015-05-21 09:57:02 -0400 EDT
 """
 
-big_obj = yaml_loads(big_yaml)
+big_obj = yaml.safe_load(big_yaml)
 
 no_files_yaml = \
     """
@@ -86,7 +86,7 @@ timing:
   started: 2015-05-21 09:57:02 -0400 EDT
 """
 
-no_files_obj = yaml_loads(no_files_yaml)
+no_files_obj = yaml.safe_load(no_files_yaml)
 
 
 class TestCheckForExtraBackup(TestCase):
