@@ -2,32 +2,40 @@
 
 from contextlib import contextmanager
 from datetime import datetime
+import os
 from mock import call, patch, Mock
 from textwrap import dedent
 
 from fakejuju import fake_juju_client
 import generate_perfscale_results as gpr
 import perf_graphing
-from test_perfscale_deployment import default_args
+from test_perfscale_deployment import get_default_args
 from test_quickstart_deploy import make_bootstrap_manager
 from tests import TestCase
+from utility import temp_dir
 
 
 class TestRunPerfscaleTest(TestCase):
 
     def test_calls_provided_test(self):
         client = fake_juju_client()
-        bs_manager = make_bootstrap_manager(client)
+        with temp_dir() as juju_home:
+            client.env.juju_home = juju_home
+            bs_manager = make_bootstrap_manager(client)
+            bs_manager.log_dir = os.path.join(juju_home, 'log-dir')
+            os.mkdir(bs_manager.log_dir)
 
-        timing = gpr.TimingData(datetime.utcnow(), datetime.utcnow())
-        deploy_details = gpr.DeployDetails('test', dict(), timing)
-        noop_test = Mock(return_value=deploy_details)
+            timing = gpr.TimingData(datetime.utcnow(), datetime.utcnow())
+            deploy_details = gpr.DeployDetails('test', dict(), timing)
+            noop_test = Mock(return_value=deploy_details)
 
-        with patch.object(gpr, 'dump_performance_metrics_logs', autospec=True):
-            with patch.object(gpr, 'generate_reports', autospec=True):
-                gpr.run_perfscale_test(noop_test, bs_manager, default_args)
+            with patch.object(gpr, 'dump_performance_metrics_logs',
+                              autospec=True):
+                with patch.object(gpr, 'generate_reports', autospec=True):
+                    gpr.run_perfscale_test(noop_test, bs_manager,
+                                           get_default_args())
 
-        noop_test.assert_called_once_with(client, default_args)
+            noop_test.assert_called_once_with(client, get_default_args())
 
 
 class TestDumpPerformanceMetricsLogs(TestCase):
