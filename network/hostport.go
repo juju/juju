@@ -4,11 +4,15 @@
 package network
 
 import (
+	"io"
 	"net"
+	"runtime"
 	"sort"
 	"strconv"
+	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/parallel"
 	"github.com/juju/utils/set"
 )
 
@@ -235,4 +239,35 @@ func EnsureFirstHostPort(first HostPort, hps []HostPort) []HostPort {
 	// Insert it at the top.
 	result = append([]HostPort{first}, result...)
 	return result
+}
+
+// FastestHostPort tries to connect to all given hostPorts in parallel, waiting
+// up to the given timeout for each connection to be established, and using up
+// to GOMAXPROCS concurrent connection attempts. Returns the first HostPort
+// successfully connected to - the one with the lowest latency - or an error if
+// none of the given hostPorts can be reached.
+//
+// Timeout should be short, e.g. between 100ms and 3s.
+func FastestHostPort(timeout time.Duration, hostPorts ...HostPort) (*HostPort, error) {
+	maxParallel := runtime.GOMAXPROCS(0) // 0 just returns the value unchanged
+	try := parallel.NewTry(maxParallel, nil)
+	defer try.Kill()
+
+	endpoints := set.NewStrings(HostPortsToStrings(hostPorts)...)
+	for _, endpoint := range endpoints.Values() {
+		try.Start(func(stop <-chan struct{}) (io.Closer, error) {
+			return net.DialTimeout("tcp", endpoint, timeout)
+		})
+	}
+	try.Close()
+
+	result, err := try.Result()
+	if err != nil {
+		return nil, errors.Annotatef(err, "no reachable endpoints in %v", endpoints)
+	}
+
+	conn, _ := result.(net.Conn) // cannot fail
+	defer conn.Close()
+
+	return ParseHostPort(conn.RemoteAddr().String())
 }

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 	"strings"
+	"time"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -509,4 +510,79 @@ func (*HostPortSuite) makeHostPorts() []network.HostPort {
 			"fe80::2",     // link-local
 		)...,
 	)
+}
+
+const (
+	shortTimeout  = 250 * time.Millisecond
+	mediumTimeout = 4 * shortTimeout
+	longTimeout   = 5 * mediumTimeout
+	noTimeout     = 0
+)
+
+func (*HostPortSuite) TestFastestHostPortAllUnreachable(c *gc.C) {
+	// All of the endpoints below should either block indefinitely (without a
+	// timeout) or fail immediately.
+	unreachableHPs := network.NewHostPorts(49151, // IANA reserved port (unreachable)
+		"255.1.2.3",   // IPv4 route unreachable
+		"2001:db8::1", // IPv6 route unreachable
+		"localhost",   // dualstack, port unreachable
+		"example.org", // resolvable, but unreachable
+		"127.0.0.1",   // IPv4 port unreachable
+	)
+
+	fastest, err := network.FastestHostPort(shortTimeout, unreachableHPs...)
+	c.Check(err, gc.ErrorMatches, "no reachable endpoints in .*")
+	c.Check(fastest, gc.IsNil)
+}
+
+func (*HostPortSuite) TestFastestHostPortSlowConnection(c *gc.C) {
+	slowServerHP := testTCPServer(c, mediumTimeout)
+
+	fastest, err := network.FastestHostPort(shortTimeout, slowServerHP)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(*fastest, jc.DeepEquals, slowServerHP)
+}
+
+func (*HostPortSuite) TestFastestHostPortSingleListener(c *gc.C) {
+	testHostPort := testTCPServer(c, noTimeout)
+
+	fastest, err := network.FastestHostPort(shortTimeout, testHostPort)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(*fastest, jc.DeepEquals, testHostPort)
+}
+
+func (*HostPortSuite) TestFastestHostPortMultipleListeners(c *gc.C) {
+	fastest, err := network.FastestHostPort(
+		noTimeout,
+		testTCPServer(c, longTimeout),
+		testTCPServer(c, mediumTimeout),
+		testTCPServer(c, shortTimeout),
+	)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(fastest, gc.NotNil) // can be any one of the 3 listeners.
+}
+
+func testTCPServer(c *gc.C, acceptDelay time.Duration) network.HostPort {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	c.Assert(err, jc.ErrorIsNil)
+
+	listenAddress := listener.Addr().String()
+	hostPort, err := network.ParseHostPort(listenAddress)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Logf("listening on %q", hostPort)
+
+	go func() {
+		defer listener.Close()
+
+		conn, err := listener.Accept()
+		c.Check(err, jc.ErrorIsNil)
+		c.Check(conn, gc.NotNil)
+
+		conn.SetDeadline(time.Now())
+		conn.Close()
+
+		time.Sleep(acceptDelay)
+	}()
+
+	return *hostPort
 }
