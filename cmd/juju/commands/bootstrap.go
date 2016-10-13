@@ -154,7 +154,7 @@ type bootstrapCommand struct {
 func (c *bootstrapCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "bootstrap",
-		Args:    "<controller name> <cloud name>[/region]",
+		Args:    "[<cloud name>[/region] [<controller name>]]",
 		Purpose: usageBootstrapSummary,
 		Doc:     usageBootstrapDetails,
 	}
