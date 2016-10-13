@@ -141,6 +141,19 @@ special    -        known
 `[1:])
 }
 
+func (s *cmdModelSuite) TestModelDefaultsGetRegion(c *gc.C) {
+	err := s.State.UpdateModelConfigDefaultValues(map[string]interface{}{"special": "known"}, nil, &environs.RegionSpec{"dummy", "dummy-region"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	context := s.run(c, "model-defaults", "dummy-region", "special")
+	c.Assert(testing.Stdout(context), gc.Equals, `
+Attribute       Default  Controller
+special         -        -
+  dummy-region  known    -
+
+`[1:])
+}
+
 func (s *cmdModelSuite) TestModelDefaultsSet(c *gc.C) {
 	s.run(c, "model-defaults", "special=known")
 	defaults, err := s.State.ModelConfigDefaultValues()

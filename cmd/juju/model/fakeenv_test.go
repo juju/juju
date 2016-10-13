@@ -97,7 +97,11 @@ func (s *fakeModelDefaultEnvSuite) SetUpTest(c *gc.C) {
 				Controller: "bar",
 				Regions: []config.RegionDefaultValue{{
 					"dummy-region",
-					"dummy-value"}}},
+					"dummy-value",
+				}, {
+					"another-region",
+					"another-value",
+				}}},
 		},
 	}
 	s.fakeCloudAPI = &fakeCloudAPI{
