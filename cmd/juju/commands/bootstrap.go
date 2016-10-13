@@ -7,7 +7,6 @@ import (
 	"bufio"
 	"fmt"
 	"os"
-	"os/user"
 	"sort"
 	"strings"
 
@@ -97,10 +96,12 @@ Examples:
     juju bootstrap
     juju bootstrap --clouds
     juju bootstrap --regions aws
-    juju bootstrap joe-us-east1 google
-    juju bootstrap --config=~/config-rs.yaml joe-syd rackspace
-    juju bootstrap --config agent-version=1.25.3 joe-us-east-1 aws
-    juju bootstrap --config bootstrap-timeout=1200 joe-eastus azure
+    juju bootstrap aws
+    juju bootstrap aws/us-east-1
+    juju bootstrap google joe-us-east1
+    juju bootstrap --config=~/config-rs.yaml rackspace joe-syd
+    juju bootstrap --config agent-version=1.25.3 aws joe-us-east-1
+    juju bootstrap --config bootstrap-timeout=1200 azure joe-eastus
 
 See also:
     add-credentials
@@ -232,17 +233,16 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 		// no args or flags, go interactive.
 		c.interactive = true
 		return nil
-	case 1:
-		// The user must specify both positional arguments: the controller name,
-		// and the cloud name (optionally with region specified).
-		return errors.New("controller name and cloud name are required")
 	}
-	c.controllerName = args[0]
-	c.Cloud = args[1]
+	c.Cloud = args[0]
 	if i := strings.IndexRune(c.Cloud, '/'); i > 0 {
 		c.Cloud, c.Region = c.Cloud[:i], c.Cloud[i+1:]
 	}
-	return cmd.CheckEmpty(args[2:])
+	if len(args) > 1 {
+		c.controllerName = args[1]
+		return cmd.CheckEmpty(args[2:])
+	}
+	return nil
 }
 
 // BootstrapInterface provides bootstrap functionality that Run calls to support cleaner testing.
@@ -469,6 +469,9 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 			err, "juju update-clouds",
 		)
 		return cmd.ErrSilent
+	}
+	if c.controllerName == "" {
+		c.controllerName = defaultControllerName(c.Cloud, region.Name)
 	}
 
 	controllerModelUUID, err := utils.NewUUID()
@@ -859,11 +862,7 @@ func (c *bootstrapCommand) runInteractive(ctx *cmd.Context) error {
 		}
 	}
 
-	var username string
-	if u, err := user.Current(); err == nil {
-		username = u.Username
-	}
-	defName := defaultControllerName(username, c.Cloud, c.Region, cloud)
+	defName := defaultControllerName(c.Cloud, c.Region)
 
 	c.controllerName, err = queryName(defName, scanner, ctx.Stdout)
 	if err != nil {

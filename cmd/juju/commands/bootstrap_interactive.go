@@ -91,15 +91,11 @@ func queryRegion(cloud string, regions []jujucloud.Region, scanner *bufio.Scanne
 	return regionName, nil
 }
 
-func defaultControllerName(username, cloudname, region string, cloud *jujucloud.Cloud) string {
-	name := cloudname
-	if len(cloud.Regions) > 1 {
-		name = region
+func defaultControllerName(cloudname, region string) string {
+	if region == "" {
+		return cloudname
 	}
-	if username == "" {
-		return name
-	}
-	return username + "-" + name
+	return cloudname + "-" + region
 }
 
 func queryName(defName string, scanner *bufio.Scanner, w io.Writer) (string, error) {

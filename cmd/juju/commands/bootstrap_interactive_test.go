@@ -42,7 +42,7 @@ func (BSInteractSuite) TestInitBuildAgent(c *gc.C) {
 func (BSInteractSuite) TestInitArg(c *gc.C) {
 	cmd := &bootstrapCommand{}
 	err := jujutesting.InitCommand(cmd, []string{"foo"})
-	c.Assert(err, gc.ErrorMatches, "controller name and cloud name are required")
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmd.interactive, jc.IsFalse)
 }
 
