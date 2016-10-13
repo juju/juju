@@ -405,8 +405,8 @@ class FakeBackend:
 
     def bootstrap(self, args):
         parser = ArgumentParser()
-        parser.add_argument('controller_name')
         parser.add_argument('cloud_name_region')
+        parser.add_argument('controller_name')
         parser.add_argument('--constraints')
         parser.add_argument('--config')
         parser.add_argument('--default-model')
