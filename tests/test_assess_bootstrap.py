@@ -299,6 +299,19 @@ class TestAssessMetadata(FakeHomeTestCase):
                         side_effect=lambda: self.get_url(bs_manager)):
                     assess_metadata(bs_manager, 'agents')
 
+    def test_assess_metadata_valid_url(self):
+        with extended_bootstrap_cxt('2.0-rc1'):
+            with patch('jujupy.EnvJujuClient.bootstrap', autospec=True):
+                args = parse_args(['metadata', 'bar', '/foo'])
+                args.temp_env_name = 'qux'
+                bs_manager = BootstrapManager.from_args(args)
+                with patch.object(
+                        bs_manager.client, 'get_model_config',
+                        return_value={'agent-metadata-url':
+                                      {'value': 'example.com/valid'}}):
+                    with self.assertRaises(JujuAssertionError):
+                        assess_metadata(bs_manager, None)
+
 
 class TestAssessTo(FakeHomeTestCase):
 
