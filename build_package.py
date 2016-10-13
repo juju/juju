@@ -115,8 +115,8 @@ bzr bd -S -- -us -uc
 DEBSIGN_TEMPLATE = 'debsign -p {gpgcmd} *.changes'
 
 
-UBUNTU_VERSION_TEMPLATE = '{version}-0ubuntu1~{release}.{upatch}~juju1'
-DAILY_VERSION_TEMPLATE = '{version}-{date}+{build}+{revid}~{release}'
+UBUNTU_VERSION_TEMPLATE = '{epoch}:{version}-0ubuntu1~{release}.{upatch}~juju1'
+DAILY_VERSION_TEMPLATE = '{epoch}:{version}-{date}+{build}+{revid}~{release}'
 
 
 VERSION_PATTERN = re.compile('(\d+)\.(\d+)\.(\d+)')
@@ -320,7 +320,7 @@ def create_source_package_branch(build_dir, version, tarfile, branch):
 
 
 def make_ubuntu_version(series, version, upatch=1,
-                        date=None, build=None, revid=None):
+                        date=None, build=None, revid=None, epoch=1):
     """Return an Ubuntu package version.
 
     :param series: The series codename.
@@ -330,17 +330,18 @@ def make_ubuntu_version(series, version, upatch=1,
     :param date: The date of the build.
     :param build: The build number in CI.
     :param revid: The revid hash of the source.
+    :param epoch: The epoch to pass in version name
     :return: An Ubuntu version string.
     """
     release = juju_series.get_version(series)
     # if daily params are set, we make daily build
     if all([date, build, revid]):
         return DAILY_VERSION_TEMPLATE.format(
-            version=version, release=release, upatch=upatch,
+            epoch=epoch, version=version, release=release, upatch=upatch,
             date=date, build=build, revid=revid)
     else:
         return UBUNTU_VERSION_TEMPLATE.format(
-            version=version, release=release, upatch=upatch)
+            epoch=epoch, version=version, release=release, upatch=upatch)
 
 
 def make_changelog_message(version, bugs=None):
@@ -396,7 +397,7 @@ def sign_source_package(source_dir, gpgcmd, debemail, debfullname):
 def create_source_package(source_dir, spb, series, version,
                           upatch='1', bugs=None, gpgcmd=None, debemail=None,
                           debfullname=None, verbose=False,
-                          date=None, build=None, revid=None):
+                          date=None, build=None, revid=None, epoch=1):
     """Create a series source package from a source package branch.
 
     The new source package can be used to create series source packages.
@@ -417,10 +418,11 @@ def create_source_package(source_dir, spb, series, version,
     :param date: The date of the build.
     :param build: The build number in CI.
     :param revid: The revid hash of the source.
+    :param epoch: The epoch to pass in version name
     """
 
     ubuntu_version = make_ubuntu_version(series, version, upatch,
-                                         date, build, revid)
+                                         date, build, revid, epoch)
     message = make_changelog_message(version, bugs=bugs)
     source = os.path.join(source_dir, 'source')
     env = make_deb_shell_env(debemail, debfullname)
@@ -435,7 +437,7 @@ def create_source_package(source_dir, spb, series, version,
 def build_source(tarfile_path, location, series, bugs,
                  debemail=None, debfullname=None, gpgcmd=None,
                  branch=None, upatch=1, verbose=False,
-                 date=None, build=None, revid=None):
+                 date=None, build=None, revid=None, epoch=1):
     """Build one or more series source packages from a new release tarfile.
 
     The packages are unsigned by default, but providing the path to a gpgcmd,
@@ -457,6 +459,7 @@ def build_source(tarfile_path, location, series, bugs,
     :param date: The date of the build.
     :param build: The build number in CI.
     :param revid: The revid hash of the source.
+    :param epoch: The epoch to pass in version name
     :return: the exit code (which is 0 or else an exception was raised).
     """
     if not isinstance(series, list):
@@ -483,7 +486,7 @@ def build_source(tarfile_path, location, series, bugs,
             build_dir, spb, a_series, version,
             upatch=upatch, bugs=bugs, gpgcmd=gpgcmd,
             debemail=debemail, debfullname=debfullname, verbose=verbose,
-            date=date, build=build, revid=revid)
+            date=date, build=build, revid=revid, epoch=epoch)
     return 0
 
 
@@ -506,8 +509,8 @@ def main(argv):
             args.tar_file, args.location, args.series, args.bugs,
             debemail=args.debemail, debfullname=args.debfullname,
             gpgcmd=args.gpgcmd, branch=args.branch, upatch=args.upatch,
-            verbose=args.verbose,
-            date=args.date, build=args.build, revid=args.revid)
+            verbose=args.verbose, date=args.date, build=args.build,
+            revid=args.revid, epoch=args.epoch)
     elif args.command == 'binary':
         exitcode = build_binary(
             args.dsc, args.location, args.series, args.arch,
@@ -532,6 +535,8 @@ def get_args(argv=None):
     src_parser.add_argument(
         '--debfullname', default=os.environ.get("DEBFULLNAME"),
         help="Your full name; Environment: DEBFULLNAME.")
+    src_parser.add_argument(
+        '--epoch', default='1', help="The epoch for package version")
     src_parser.add_argument(
         '--gpgcmd', default=None,
         help="Path to a gpg signing command to make signed packages.")
