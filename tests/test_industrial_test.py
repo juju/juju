@@ -1215,7 +1215,7 @@ class TestBootstrapAttempt(JujuPyTestCase):
                 self.assertEqual(boot_iter.next(), {'test_id': 'bootstrap'})
             assert_juju_call(self, popen_mock, client, (
                 'juju', '--show-log', 'bootstrap', '--constraints', 'mem=2G',
-                'steve', 'fake/regionx', '--config', config_file.name,
+                'fake/regionx', 'steve', '--config', config_file.name,
                 '--default-model', 'steve', '--agent-version', '1.2'))
             statuses = [
                 {'machines': {'0': {'agent-state': 'pending'}},

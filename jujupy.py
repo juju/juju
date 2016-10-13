@@ -887,6 +887,8 @@ def get_client_class(version):
     # between beta 9-14
     elif re.match('^2\.0-beta(9|1[0-4])([^\d]|$)', version):
         client_class = EnvJujuClient2B9
+    elif re.match('^2\.0-rc[1-3]', version):
+        client_class = EnvJujuClientRC
     else:
         client_class = EnvJujuClient
     return client_class
@@ -1183,8 +1185,11 @@ class EnvJujuClient:
             constraints = 'mem=2G'
         cloud_region = self.get_cloud_region(self.env.get_cloud(),
                                              self.env.get_region())
-        args = ['--constraints', constraints, self.env.environment,
-                cloud_region, '--config', config_filename,
+        # Note cloud_region before controller name
+        args = ['--constraints', constraints,
+                cloud_region,
+                self.env.environment,
+                '--config', config_filename,
                 '--default-model', self.env.environment]
         if upload_tools:
             if agent_version is not None:
@@ -2195,7 +2200,49 @@ class EnvJujuClient:
                              include_e=False)
 
 
-class EnvJujuClient2B9(EnvJujuClient):
+class EnvJujuClientRC(EnvJujuClient):
+
+    def get_bootstrap_args(
+            self, upload_tools, config_filename, bootstrap_series=None,
+            credential=None, auto_upgrade=False, metadata_source=None,
+            to=None, agent_version=None):
+        """Return the bootstrap arguments for the substrate."""
+        if self.env.joyent:
+            # Only accept kvm packages by requiring >1 cpu core, see lp:1446264
+            constraints = 'mem=2G cpu-cores=1'
+        else:
+            constraints = 'mem=2G'
+        cloud_region = self.get_cloud_region(self.env.get_cloud(),
+                                             self.env.get_region())
+        # Note controller name before cloud_region
+        args = ['--constraints', constraints,
+                self.env.environment,
+                cloud_region,
+                '--config', config_filename,
+                '--default-model', self.env.environment]
+        if upload_tools:
+            if agent_version is not None:
+                raise ValueError(
+                    'agent-version may not be given with upload-tools.')
+            args.insert(0, '--upload-tools')
+        else:
+            if agent_version is None:
+                agent_version = self.get_matching_agent_version()
+            args.extend(['--agent-version', agent_version])
+        if bootstrap_series is not None:
+            args.extend(['--bootstrap-series', bootstrap_series])
+        if credential is not None:
+            args.extend(['--credential', credential])
+        if metadata_source is not None:
+            args.extend(['--metadata-source', metadata_source])
+        if auto_upgrade:
+            args.append('--auto-upgrade')
+        if to is not None:
+            args.extend(['--to', to])
+        return tuple(args)
+
+
+class EnvJujuClient2B9(EnvJujuClientRC):
 
     def update_user_name(self):
         return
