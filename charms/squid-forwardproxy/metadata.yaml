@@ -1,0 +1,16 @@
+name: squid-forwardproxy
+maintainer: Curtis Hovey <curtis.hovey@canonical.com>
+summary: A Squid 3 setup as a forwad proxy.
+description: |
+  Provide a forward proxy for client hosts on a closed or restricted network
+  to access the outside network. Squid 3 can proxy FTP, HTTP, HTTPS, and SOCKS.
+provides:
+  forwardproxy:
+    interface: http
+tags:
+  - cache-proxy
+series:
+  - xenial
+  - trusty
+  - precise
+  - yakkety
