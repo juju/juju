@@ -1,4 +1,1 @@
-#!/bin/bash
-set -eux
-
-status-set maintenance "Started" || true
+config-changed

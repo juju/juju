@@ -25,7 +25,7 @@ fi
 status-set maintenance "Checking proxy." || true
 set +e
 # This is a hack. We don't want to iterate, but we need to
-# because we need the state of realtions and config to know
+# because we need the state of relations and config to know
 # if this charm is active or something else.
 for app in $(relation-ids forwardproxy); do
     for unit in $(relation-list -r $app); do
