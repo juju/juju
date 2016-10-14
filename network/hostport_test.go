@@ -7,17 +7,20 @@ import (
 	"fmt"
 	"net"
 	"strings"
+	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type HostPortSuite struct {
-	testing.BaseSuite
+	coretesting.BaseSuite
 }
 
 var _ = gc.Suite(&HostPortSuite{})
@@ -509,4 +512,292 @@ func (*HostPortSuite) makeHostPorts() []network.HostPort {
 			"fe80::2",     // link-local
 		)...,
 	)
+}
+
+func (s *HostPortSuite) TestUniqueHostPortsSimpleInput(c *gc.C) {
+	input := network.NewHostPorts(1234, "127.0.0.1", "::1")
+	expected := input
+
+	// Ensure it works just the same with nil or already-closed stop channel.
+	stopChannels := []chan struct{}{
+		nil,
+		make(chan struct{}), // closed below.
+		make(chan struct{}),
+	}
+	close(stopChannels[1])
+
+	for _, stopChannel := range stopChannels {
+		results := network.UniqueHostPorts(stopChannel, input)
+		s.assertUniqueHostPorts(c, stopChannel, results, expected)
+		s.ensureStopped(c, stopChannel)
+		s.assertClosed(c, results)
+	}
+}
+
+func (s *HostPortSuite) TestUniqueHostPortsOnlyDuplicates(c *gc.C) {
+	input := s.manyHostPorts(c, 10000, 1234) // use the same port for all.
+	expected := input[0:1]
+	stop := make(chan struct{})
+
+	results := network.UniqueHostPorts(stop, input)
+	s.assertUniqueHostPorts(c, stop, results, expected)
+	s.ensureStopped(c, stop)
+	s.assertClosed(c, results)
+}
+
+func (s *HostPortSuite) TestUniqueHostPortsHugeUniqueInput(c *gc.C) {
+	input := s.manyHostPorts(c, maxTCPPort, -1) // use sequential ports from 1.
+	expected := input
+	stop := make(chan struct{})
+
+	results := network.UniqueHostPorts(stop, input)
+	s.assertUniqueHostPorts(c, stop, results, expected)
+	s.ensureStopped(c, stop)
+	s.assertClosed(c, results)
+}
+
+func (s *HostPortSuite) TestUniqueHostPortsHugeInputEarlyStop(c *gc.C) {
+	input := s.manyHostPorts(c, maxTCPPort, -1) // use sequential ports from 1.
+	expected := input
+
+	// Ensure we can stop before consuming all input.
+	stoppedEarly := make(chan struct{})
+	go func() {
+		time.Sleep(coretesting.ShortWait / 2)
+		close(stoppedEarly)
+	}()
+	results := network.UniqueHostPorts(stoppedEarly, input)
+	s.assertUniqueHostPorts(c, stoppedEarly, results, expected)
+	s.ensureStopped(c, stoppedEarly)
+	s.assertClosed(c, results)
+}
+
+func (s *HostPortSuite) TestDialHostPortSuccess(c *gc.C) {
+	delay := 42 * time.Millisecond
+	stub, clock, dialer := s.setupDialingStubs(delay)
+	hostPort := network.NewHostPorts(1234, "localhost")[0]
+
+	select {
+	case result := <-network.DialHostPort(hostPort, dialer, clock):
+		c.Check(result.Endpoint, jc.DeepEquals, &hostPort)
+		c.Check(result.Error, jc.ErrorIsNil)
+		c.Check(result.Duration, gc.Equals, delay)
+
+		stub.CheckCallNames(c,
+			"Dial",  // dialer.Dial()
+			"Close", // dialed conn.Close()
+		)
+		stub.CheckCall(c, 0, "Dial", "tcp", "localhost:1234")
+		stub.ResetCalls()
+
+	case <-time.After(coretesting.ShortWait):
+		c.Fatalf("timed out waiting for a result")
+	}
+}
+
+func (s *HostPortSuite) TestDialHostPortError(c *gc.C) {
+	delay := 42 * time.Millisecond
+	stub, clock, dialer := s.setupDialingStubs(delay)
+	stub.SetErrors(errors.New("boom!"))
+	hostPort := network.NewHostPorts(1234, "localhost")[0]
+
+	select {
+	case result := <-network.DialHostPort(hostPort, dialer, clock):
+		c.Check(result.Endpoint, jc.DeepEquals, &hostPort)
+		c.Check(result.Error, gc.ErrorMatches, "boom!")
+		c.Check(result.Duration, gc.Equals, delay)
+
+	case <-time.After(coretesting.ShortWait):
+		c.Fatalf("timed out waiting for a result")
+	}
+}
+
+func (s *HostPortSuite) TestFastestHostPortAllUnreachable(c *gc.C) {
+	dialer := &net.Dialer{Timeout: 100 * time.Millisecond}
+	clock := testing.NewClock(coretesting.ZeroTime())
+	unreachableHPs := s.manyHostPorts(c, 10000, 49151) // IANA reserved port
+
+	best, err := network.FastestHostPort(dialer, clock, unreachableHPs)
+	c.Check(err, gc.ErrorMatches, "cannot connect to any address: .*")
+	c.Check(best, gc.Equals, network.HostPort{})
+}
+
+func (s *HostPortSuite) TestFastestHostPortPicksFastest(c *gc.C) {
+	_, clock, dialer := s.setupDialingStubs(0) // no fixed delay
+	hostPorts := s.manyHostPorts(c, 100, -1)   // IANA reserved port
+
+	initialDelay := 10000 * time.Millisecond
+	delayStep := 10 * time.Millisecond
+	dialer.dialDelayFunc = func() time.Duration {
+		currentDelay := initialDelay
+		initialDelay -= delayStep
+		return currentDelay
+	}
+
+	best, err := network.FastestHostPort(dialer, clock, hostPorts)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(best, jc.DeepEquals, hostPorts[99]) // last one had the lowest duration.
+}
+
+func (s *HostPortSuite) TestFastestHostPortRealDial(c *gc.C) {
+	fakeHostPort := network.NewHostPorts(1234, "127.0.0.1")[0]
+	hostPorts := []network.HostPort{
+		fakeHostPort,
+		testTCPServer(c),
+	}
+
+	dialer := &net.Dialer{Timeout: 100 * time.Millisecond}
+	clock := clock.WallClock
+
+	best, err := network.FastestHostPort(dialer, clock, hostPorts)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(best, jc.DeepEquals, hostPorts[1]) // the only real listener
+}
+
+func (s *HostPortSuite) assertUniqueHostPorts(c *gc.C, stop <-chan struct{}, input <-chan network.HostPort, expected []network.HostPort) {
+	numReceived, numExpected := 0, len(expected)
+	timeout := time.After(coretesting.LongWait)
+	for {
+		select {
+		case <-stop:
+			if numReceived < numExpected {
+				c.Logf("stopped: received %d of %d", numReceived, numExpected)
+			}
+			return
+
+		case result, ok := <-input:
+			if !ok {
+				if numReceived < numExpected {
+					c.Logf("stopped or done: received %d of %d", numReceived, numExpected)
+				}
+				return
+			}
+			c.Check(result, gc.Equals, expected[numReceived])
+			numReceived++
+
+		case <-timeout:
+			c.Fatalf("timed out waiting for HostPorts - received %d of %d", numReceived, numExpected)
+		}
+	}
+}
+
+func (s *HostPortSuite) assertClosed(c *gc.C, input <-chan network.HostPort) {
+	select {
+	case _, ok := <-input:
+		c.Check(ok, jc.IsFalse)
+	case <-time.After(coretesting.ShortWait):
+		c.Fatalf("timed out waiting for the input channel to close")
+	}
+}
+
+func (s *HostPortSuite) ensureStopped(c *gc.C, stop chan struct{}) {
+	select {
+	case <-stop:
+	default:
+		if stop != nil {
+			close(stop)
+		}
+	}
+}
+
+const maxTCPPort = 65535
+
+func (s *HostPortSuite) manyHostPorts(c *gc.C, count, portToUse int) []network.HostPort {
+	templateHostPort, err := network.ParseHostPort("127.0.0.1:1")
+	c.Assert(err, jc.ErrorIsNil)
+
+	results := make([]network.HostPort, count)
+	for i := range results {
+		hostPort := *templateHostPort
+		hostPort.Port = portToUse
+		if portToUse < 0 { // use sequential ports
+			hostPort.Port = (i + 1) % maxTCPPort
+		}
+		results[i] = hostPort
+	}
+	return results
+}
+
+func (s *HostPortSuite) setupDialingStubs(delay time.Duration) (*testing.Stub, *fakeClock, *stubDialer) {
+	stub := &testing.Stub{}
+	clock := &fakeClock{
+		now:     coretesting.ZeroTime(),
+		advance: delay,
+	}
+	dialer := &stubDialer{
+		Stub:      stub,
+		clock:     clock,
+		dialDelay: delay,
+	}
+
+	return stub, clock, dialer
+}
+
+type stubDialer struct {
+	*testing.Stub
+	net.Conn
+
+	clock     *fakeClock
+	dialDelay time.Duration
+
+	dialDelayFunc func() time.Duration
+}
+
+// Dial implements network.Dialer.
+func (s *stubDialer) Dial(network, address string) (net.Conn, error) {
+	s.Stub.AddCall("Dial", network, address)
+
+	dialDelay := s.dialDelay
+	if s.dialDelayFunc != nil {
+		dialDelay = s.dialDelayFunc()
+	}
+	s.clock.Advance(dialDelay)
+
+	if err := s.Stub.NextErr(); err != nil {
+		return nil, err
+	}
+
+	return s, nil
+}
+
+// Close implements io.Closer, which is also implemented by net.Conn.
+func (s *stubDialer) Close() error {
+	s.Stub.AddCall("Close")
+	return s.Stub.NextErr()
+}
+
+type fakeClock struct {
+	clock.Clock
+
+	now     time.Time
+	advance time.Duration
+}
+
+func (f *fakeClock) Now() time.Time {
+	return f.now
+}
+
+func (f *fakeClock) Advance(duration time.Duration) {
+	f.now = f.now.Add(duration)
+}
+
+func testTCPServer(c *gc.C) network.HostPort {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	c.Assert(err, jc.ErrorIsNil)
+
+	listenAddress := listener.Addr().String()
+	hostPort, err := network.ParseHostPort(listenAddress)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Logf("listening on %q", hostPort)
+
+	go func() {
+		conn, _ := listener.Accept()
+		if conn != nil {
+			c.Logf("accepted connection on %q from %s", hostPort, conn.RemoteAddr())
+			conn.Close()
+		}
+		listener.Close()
+	}()
+
+	return *hostPort
 }

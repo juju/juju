@@ -7,8 +7,10 @@ import (
 	"net"
 	"sort"
 	"strconv"
+	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/clock"
 	"github.com/juju/utils/set"
 )
 
@@ -235,4 +237,116 @@ func EnsureFirstHostPort(first HostPort, hps []HostPort) []HostPort {
 	// Insert it at the top.
 	result = append([]HostPort{first}, result...)
 	return result
+}
+
+// UniqueHostPorts sends the unique entries in the given hostPorts slice on the
+// returned channel, closing the channel when done. It takes a stop channel,
+// which can be used to signal the sending loop to stop earlier.
+func UniqueHostPorts(stop <-chan struct{}, hostPorts []HostPort) <-chan HostPort {
+	results := make(chan HostPort)
+
+	go func() {
+		defer close(results)
+
+		sent := make(map[HostPort]bool, len(hostPorts))
+		for _, hostPort := range hostPorts {
+			select {
+			case <-stop:
+				return
+			default:
+				if sent[hostPort] {
+					continue
+				}
+			}
+
+			select {
+			case <-stop:
+				return
+			case results <- hostPort:
+				sent[hostPort] = true
+			}
+		}
+	}()
+
+	return results
+}
+
+// Dialer defines a Dial() method matching the signature of net.Dial().
+type Dialer interface {
+	Dial(network, address string) (net.Conn, error)
+}
+
+// DialResult holds the results written by DialHostPort() on its returned
+// channel.
+type DialResult struct {
+	Endpoint *HostPort
+	Duration time.Duration
+	Error    error
+}
+
+// DialHostPort dials the given hostPort asynchronously and writes a DialResult
+// on the returned channel when done, then closing the channel. If a connection
+// was successfully established, it will be closed immediately. The given dialer
+// and clock are used to perform the dialing and measuring the time taken (which
+// is also set on error). Usually, a net.Dialer and clock.WallClock are passed
+// for dialer and clock, respectively.
+func DialHostPort(hostPort HostPort, dialer Dialer, clock clock.Clock) <-chan DialResult {
+	dialResult := make(chan DialResult, 1)
+
+	go func() {
+		defer close(dialResult)
+
+		result := DialResult{
+			Endpoint: &hostPort,
+		}
+
+		startTime := clock.Now()
+
+		conn, err := dialer.Dial("tcp", hostPort.NetAddr())
+
+		result.Duration = clock.Now().Sub(startTime)
+		if err != nil {
+			result.Error = err
+		}
+
+		if conn != nil {
+			conn.Close()
+		}
+
+		dialResult <- result
+	}()
+
+	return dialResult
+}
+
+// FastestHostPort uses the given dialer and clock to determine the best
+// HostPort from the given hostPorts. Each unique HostPort entry is dialed in
+// parallel, measuring the time taken to establish a successful connection,
+// which is then closed. Individual connection errors are discarded, and an
+// error is returned only if none of the hostPorts can be reached.
+func FastestHostPort(dialer Dialer, clock clock.Clock, hostPorts []HostPort) (HostPort, error) {
+	stop := make(chan struct{})
+	defer close(stop)
+
+	bestResult := DialResult{Duration: 24 * time.Hour}
+	for hostPort := range UniqueHostPorts(stop, hostPorts) {
+		lastResult := <-DialHostPort(hostPort, dialer, clock)
+
+		if lastResult.Error != nil {
+			// Discard individual connection errors.
+			logger.Debugf("discarding error dialing %q: %v", lastResult.Endpoint, lastResult.Error)
+			continue
+		}
+
+		if bestResult.Duration > lastResult.Duration {
+			bestResult = lastResult
+			logger.Debugf("best endpoint %q has duration %s", bestResult.Endpoint, bestResult.Duration)
+		}
+	}
+
+	if bestResult.Endpoint == nil {
+		return HostPort{}, errors.Errorf("cannot connect to any address: %v", hostPorts)
+	}
+
+	return *bestResult.Endpoint, nil
 }
