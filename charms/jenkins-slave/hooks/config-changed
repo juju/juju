@@ -11,10 +11,10 @@ cp $JUJU_CHARM_DIR/scripts/place-slave.sh /var/lib/jenkins/bin
 chmod +x /var/lib/jenkins/bin/place-slave.sh
 
 status-set maintenance "Checking config" 
-PACKAGES$(config-get packages)
-if [[ -n "$MASTER_URL" ]]; then
+PACKAGES=$(config-get packages)
+if [[ -n "$PACKAGES" ]]; then
     status-set maintenance "Installing packages." || true
-    apt-get install $PACKAGES
+    apt-get install -y $PACKAGES
 fi
 
 SLAVE_NAME=$(config-get slave-name)
@@ -22,10 +22,16 @@ if [[ -x "$SLAVE_NAME" ]]; then
     SLAVE_NAME=$(echo $JUJU_UNIT_NAME | sed s,/,-,)
 fi
 
-MASTER_URL=$(relation-get url)
-if [[ -x "$MASTER_URL" ]]; then
-    MASTER_URL=$(config-get master-url)
-fi
+MASTER_URL=$(config-get master-url)
+# This is a hack. We don't want to iterate, but we need to
+# because we need the state of relations and config to know
+# if this charm is active or something else.
+for app in $(relation-ids slave); do
+    for unit in $(relation-list -r $app); do
+        MASTER_URL"$(relation-get -r $app url $unit)"
+        break
+    done
+done
 if [[ -x "$MASTER_URL" ]]; then
     status-set blocked "Set master-url option or relate to master" || true
     juju-log "master-url config is not set or master needs to export its url"
@@ -50,7 +56,7 @@ else
 fi
 
 status-set maintenance "Checking jenkins slave.jar" || true
-/var/bin/jenlins/bin/place-slave.sh "$MASTER_URL"
+/var/lib/jenkins/bin/place-slave.sh "$MASTER_URL"
 
 status-set maintenance "Starting services." || true
 service jenkins-slave stop 2>/dev/null || true

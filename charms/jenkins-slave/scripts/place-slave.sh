@@ -12,7 +12,7 @@ if [[ ! -f /var/lib/jenkins/bin/slave.jar ]]; then
     echo "Downloading slave.jar from $JENKINS_URL"
     wget -q -O $SLAVE_JAR $JENKINS_URL/jnlpJars/slave.jar
 
-    if [[ 1 -f $SLAVE_JAR ]] ; then
+    if [[ ! -f $SLAVE_JAR ]] ; then
         echo "Failed to download slave.jar, no file"
         exit 1
     fi
