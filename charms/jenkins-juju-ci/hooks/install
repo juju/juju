@@ -22,7 +22,7 @@ apt-get update
 apt-get install -y ntp make bzr git lxc
 
 status-set maintenance "Installing: moving directories to big partition" || true
-if [[ -n \$(df -h | grep /mnt | tr -s ' ' |  cut -d ' ' -f 4 | grep G) ]]; then
+if [[ -n $(df -h | grep /mnt | tr -s ' ' |  cut -d ' ' -f 4 | grep G) ]]; then
     if [[ ! -d /mnt/jenkins ]]; then
         cp -rp /var/lib/jenkins /mnt
         mv /var/lib/jenkins /var/lib/jenkins.old
