@@ -212,7 +212,7 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams) (*lxdclien
 		cloudcfg.AddRunTextFile(serverCertPath, serverState.Environment.Certificate, 0600)
 	}
 
-	cloudcfg.SetAttr("hostname", hostname)
+	cloudcfg.SetAttr("fqdn", hostname+".lxd")
 	cloudcfg.SetAttr("manage_etc_hosts", true)
 
 	metadata, err := getMetadata(cloudcfg, args)
@@ -253,6 +253,7 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams) (*lxdclien
 		return nil, errors.Trace(err)
 	}
 	statusCallback(status.Running, "container started")
+
 	return inst, nil
 }
 

@@ -39,6 +39,24 @@ func (s *environBrokerSuite) TestStartInstance(c *gc.C) {
 	c.Assert(s.StartInstArgs.InstanceConfig.AgentVersion().Arch, gc.Equals, arch.ARM64)
 }
 
+func (s *environBrokerSuite) TestStartInstanceFQDN(c *gc.C) {
+	s.Client.Inst = s.RawInstance
+
+	// Patch the host's arch, so the broker will filter tools.
+	s.PatchValue(&arch.HostArch, func() string { return arch.ARM64 })
+
+	_, err := s.Env.StartInstance(s.StartInstArgs)
+	c.Assert(err, jc.ErrorIsNil)
+	calls := s.Stub.Calls()
+	c.Assert(len(calls), gc.Equals, 4)
+	c.Assert(calls[3].FuncName, gc.Equals, "AddInstance")
+
+	addInstanceCall := calls[3]
+	args := addInstanceCall.Args[0].(lxdclient.InstanceSpec)
+	fqdn := args.Name + ".lxd"
+	c.Assert(args.Metadata["user-data"], jc.Contains, "\nfqdn: "+fqdn+"\n")
+}
+
 func (s *environBrokerSuite) TestStartInstanceNoTools(c *gc.C) {
 	s.Client.Inst = s.RawInstance
 
