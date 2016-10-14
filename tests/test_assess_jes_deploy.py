@@ -9,14 +9,14 @@ from assess_jes_deploy import (
     env_token,
     hosted_environment,
     jes_setup,
-)
+    )
+from fakejuju import fake_juju_client
 from jujupy import (
     EnvJujuClient25,
     JUJU_DEV_FEATURE_FLAGS,
     SimpleEnvironment,
-)
+    )
 import tests
-from tests.test_jujupy import fake_juju_client
 
 
 class TestJES(tests.FakeHomeTestCase):
