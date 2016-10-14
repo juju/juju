@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
@@ -338,13 +339,17 @@ func (s *upgradeSuite) attemptRestrictedAPIAsUser(c *gc.C, conf agent.Config) er
 	}
 	defer apiState.Close()
 
-	// this call should always work
-	var result params.FullStatus
-	err = apiState.APICall("Client", 1, "", "FullStatus", nil, &result)
-	c.Assert(err, jc.ErrorIsNil)
+	// This call should always work, but might fail if the apiserver
+	// is restarting. If it fails just return the error so retries
+	// can continue.
+	err = apiState.APICall("Client", 1, "", "FullStatus", nil, new(params.FullStatus))
+	if err != nil {
+		return errors.Annotate(err, "FullStatus call")
+	}
 
 	// this call should only work if API is not restricted
-	return apiState.APICall("Client", 1, "", "WatchAll", nil, nil)
+	err = apiState.APICall("Client", 1, "", "WatchAll", nil, nil)
+	return errors.Annotate(err, "WatchAll call")
 }
 
 var upgradeTestDialOpts = api.DialOpts{
