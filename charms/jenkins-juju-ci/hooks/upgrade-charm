@@ -1,0 +1,20 @@
+#!/bin/bash
+
+set -eux
+
+status-set maintenance "Installing" || true
+apt-get install -y adduser default-jre-headless
+
+if ! id jenkins > /dev/null 2>&1 ; then
+    mkdir -p /var/lib/jenkins
+    adduser --system --home /var/lib/jenkins  \
+        --group --disabled-password --quiet --shell /bin/bash \
+        jenkins
+    chown -R jenkins:jenkins /var/lib/jenkins
+fi
+
+if [[ ! -d  /var/log/jenkins ]]; then
+    mkdir -p /var/log/jenkins
+fi
+
+status-set maintenance "Installed" || true

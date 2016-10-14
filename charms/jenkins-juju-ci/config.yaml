@@ -1,0 +1,5 @@
+options:
+  lp-key:
+    type: string
+    default: ""
+    description: "SSH key for accessing private code on launchpad."

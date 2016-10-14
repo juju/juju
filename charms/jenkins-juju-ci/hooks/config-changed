@@ -1,0 +1,96 @@
+#!/bin/bash
+set -eux
+
+HOSTNAME=$(hostname)
+JENKINS_HOME="/var/lib/jenkins"
+KEY="staging-juju-rsa"
+
+
+as_jenkins() {
+    sudo -H -u jenkins bash -c "$@"
+}
+
+
+update_branch() {
+    local_branch=$1
+    local_dir=$(basename $local_branch)
+    locaL_path="$JENKINS_HOME/$locaL_dir"
+    if [[ -d $local_path ]]; then
+        as_jenkins bzr pull -d $locaL_path
+    else
+        as_jenkins bzr branch $local_branch $locaL_path
+}
+
+
+status-set maintenance "Updating scripts" || true
+
+LP_KEY=$(config-get lp-key)
+if [[ -x "$LP_KEY" ]]; then
+    status-set blocked "Waiting for lp-key to be set" || true
+    exit 0
+fi
+
+status-set maintenance "Updating bzr" || true
+echo "$LP_KEY" > $JENKINS_HOME/.ssh/lp_rsa
+chown jenkins:jenkins $JENKINS_HOME/.ssh/lp_rsa
+chmod 600 var/lib/jenkins/.ssh/lp_rsa
+as_jenkins bzr --no-aliases lp-login juju-qa-bot
+
+status-set maintenance "Updating branches" || true
+if [[ -d $JENKINS_HOME/ci-director ]]; then
+    update_branch lp:ci-director
+fi
+update_branch lp:workspace-runner
+update_branch lp:juju-release-tools
+update_branch lp:juju-ci-tools
+update_branch lp:juju-ci-tools/repository
+update_branch lp:~juju-qa/+junk/cloud-city
+
+status-set maintenance "Updating permissions" || true
+chown -R jenkins $JENKINS_HOME/cloud-city
+chmod -R go-w $JENKINS_HOME/cloud-city
+chmod 700 $JENKINS_HOME/cloud-city
+chmod 700 $JENKINS_HOME/cloud-city/gnupg
+chmod 600 $JENKINS_HOME/cloud-city/$KEY
+
+status-set maintenance "Updating ssh" || true
+if [[ ! -f $JENKINS_HOME/.ssh/config ]]; then
+cat << EOC | tee $JENKINS_HOME/.ssh/config
+Host 10.* 192.168.*
+  StrictHostKeyChecking no
+  UserKnownHostsFile /dev/null
+  User ubuntu
+  IdentityFile $JENKINS_HOME/cloud-city/$KEY
+EOC
+fi
+if [[ ! -f $JENKINS_HOME/.ssh/id_rsa ]];
+    as_jenkins ln -s $JENKINS_HOME/cloud-city/$KEY $JENKINS_HOME/.ssh/id_rsa
+fi
+if [[ ! -f $JENKINS_HOME/.ssh/id_rsa.pub ]];
+    as_jenkins ln -s $JENKINS_HOME/cloud-city/$KEY.pub $JENKINS_HOME/.ssh/id_rsa.pub
+fi
+
+status-set maintenance "Updating dependencies from branches" || true
+if [[ $(uname) == "Linux" ]]; then
+    (cd $JENKINS_HOME/juju-ci-tools && as_jenkins make install-deps)
+    (cd $JENKINS_HOME/workspace-runner && as_jenkins make install)
+fi
+
+status-set maintenance "Updating git" || true
+github_username=$(sed -r '/github_user/!d; s/.*"(.*)"/\1/' $JENKINS_HOME/cloud-city/juju-bot.txt)
+github_password=$(sed -r '/github_password/!d; s/.*"(.*)"/\1/; s/%20/ /' $JENKINS_HOME/cloud-city/juju-bot.txt)
+cat << EOC | tee $JENKINS_HOME/.gitconfig
+[user]
+        name = jenkins
+        email = jenkins@vapour.ws
+[credential]
+        helper = cache
+[credential "https://github.com"]
+        username = $github_username
+        password = $github_password
+[url "https://"]
+        insteadOf = http://
+EOC
+
+NOW=$(date +%Y-%m-%dT%H:%M)
+status-set active "$HOSTNAME updated $NOW" || true
