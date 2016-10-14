@@ -1,6 +1,7 @@
 #!/bin/bash
 set -eux
 
+export PATH=/usr/local/bin:\$HOME/Bin:\$PATH
 HOSTNAME=$(hostname)
 JENKINS_HOME="/var/lib/jenkins"
 KEY="staging-juju-rsa"
@@ -33,7 +34,7 @@ fi
 status-set maintenance "Updating bzr" || true
 echo "$LP_KEY" > $JENKINS_HOME/.ssh/lp_rsa
 chown jenkins:jenkins $JENKINS_HOME/.ssh/lp_rsa
-chmod 600 var/lib/jenkins/.ssh/lp_rsa
+chmod 600 $JENKINS_HOME/.ssh/lp_rsa
 as_jenkins bzr --no-aliases lp-login juju-qa-bot
 
 status-set maintenance "Updating branches" || true
@@ -55,7 +56,7 @@ chmod 600 $JENKINS_HOME/cloud-city/$KEY
 
 status-set maintenance "Updating ssh" || true
 if [[ ! -f $JENKINS_HOME/.ssh/config ]]; then
-cat << EOC | tee $JENKINS_HOME/.ssh/config
+cat << EOC > $JENKINS_HOME/.ssh/config
 Host 10.* 192.168.*
   StrictHostKeyChecking no
   UserKnownHostsFile /dev/null
@@ -77,9 +78,9 @@ if [[ $(uname) == "Linux" ]]; then
 fi
 
 status-set maintenance "Updating git" || true
-github_username=$(sed -r '/github_user/!d; s/.*"(.*)"/\1/' $JENKINS_HOME/cloud-city/juju-bot.txt)
+github_username=$(sed -r '/github_user/!d; s/.*"(.*)"/\1/; s/%20/ /' $JENKINS_HOME/cloud-city/juju-bot.txt)
 github_password=$(sed -r '/github_password/!d; s/.*"(.*)"/\1/; s/%20/ /' $JENKINS_HOME/cloud-city/juju-bot.txt)
-cat << EOC | tee $JENKINS_HOME/.gitconfig
+cat << EOC > $JENKINS_HOME/.gitconfig
 [user]
         name = jenkins
         email = jenkins@vapour.ws
