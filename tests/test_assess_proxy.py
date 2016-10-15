@@ -21,12 +21,14 @@ class TestParseArgs(TestCase):
 
     def test_common_args(self):
         with temp_dir() as log_dir:
-            args = parse_args(["an-env", "/bin/juju", log_dir, "an-env-mod"])
+            args = parse_args(["an-env", "/bin/juju", log_dir, "an-env-mod",
+                               'both-proxied'])
         self.assertEqual("an-env", args.env)
         self.assertEqual("/bin/juju", args.juju_bin)
         self.assertEqual(log_dir, args.logs)
         self.assertEqual("an-env-mod", args.temp_env_name)
-        self.assertEqual(False, args.debug)
+        self.assertEqual("both-proxied", args.scenario)
+        self.assertIsFalse(args.debug)
 
     def test_help(self):
         fake_stdout = StringIO.StringIO()
@@ -41,7 +43,8 @@ class TestMain(TestCase):
 
     def test_main(self):
         with temp_dir() as log_dir:
-            argv = ["an-env", "/bin/juju", log_dir, "an-env-mod", "--verbose"]
+            argv = ["an-env", "/bin/juju", log_dir, "an-env-mod",
+                    "both-proxied", "--verbose"]
             client = Mock(spec=["is_jes_enabled"])
             with patch("assess_proxy.configure_logging",
                        autospec=True) as mock_cl:
@@ -59,10 +62,10 @@ class TestMain(TestCase):
         mock_cl.assert_called_once_with(logging.DEBUG)
         mock_c.assert_called_once_with(
             'an-env', "/bin/juju", debug=False, soft_deadline=None)
-        mock_set.assert_called_once_with('scenario')
+        mock_set.assert_called_once_with('both-proxied')
         mock_reset.assert_called_once_with()
         self.assertEqual(mock_bc.call_count, 1)
-        mock_assess.assert_called_once_with(client)
+        mock_assess.assert_called_once_with(client, 'both-proxied')
 
 
 class TestAssess(TestCase):
@@ -74,7 +77,7 @@ class TestAssess(TestCase):
         # can also be used separately.
         fake_client = Mock(wraps=fake_juju_client())
         fake_client.bootstrap()
-        assess_proxy(fake_client)
+        assess_proxy(fake_client, 'both-proxied')
         fake_client.deploy.assert_called_once_with('cs:xenial/ubuntu')
         fake_client.wait_for_started.assert_called_once_with()
         fake_client.wait_for_workloads.assert_called_once_with()
