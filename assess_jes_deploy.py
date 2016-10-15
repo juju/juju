@@ -16,8 +16,7 @@ from deploy_stack import (
     safe_print_status,
     )
 from jujupy import (
-    EnvJujuClient,
-    SimpleEnvironment,
+    client_from_config,
     )
 from utility import (
     add_basic_testing_arguments,
@@ -56,9 +55,8 @@ def jes_setup(args):
     if series is None:
         series = 'precise'
     charm_series = series
-    client = EnvJujuClient.by_version(
-        SimpleEnvironment.from_config(base_env), args.juju_bin, args.debug,
-    )
+    client = client_from_config(base_env, args.juju_bin, args.debug,
+                                soft_deadline=args.deadline)
     if not client.is_jes_enabled():
         client.enable_jes()
     with boot_context(
@@ -108,7 +106,7 @@ def check_services(client):
 
 def main():
     parser = ArgumentParser()
-    add_basic_testing_arguments(parser, using_jes=True)
+    add_basic_testing_arguments(parser, using_jes=True, deadline=True)
     args = parser.parse_args()
     with jes_setup(args) as (client, charm_series, base_env):
         test_jes_deploy(client, charm_series, args.logs, base_env)

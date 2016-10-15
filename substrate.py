@@ -1,6 +1,7 @@
 from contextlib import (
     contextmanager,
 )
+from copy import deepcopy
 import json
 import logging
 import os
@@ -61,12 +62,9 @@ def terminate_instances(env, instance_ids):
         with maas_account_from_config(env.config) as substrate:
             substrate.terminate_instances(instance_ids)
         return
-    elif provider_type == 'lxd':
-        with LXDAccount.manager_from_config(env.config) as substrate:
-            substrate.terminate_instances(instance_ids)
-        return
     else:
-        with make_substrate_manager(env.config) as substrate:
+        with make_substrate_manager(env.config,
+                                    env.get_cloud_credentials()) as substrate:
             if substrate is None:
                 raise ValueError(
                     "This test does not support the %s provider"
@@ -287,27 +285,60 @@ def convert_to_azure_ids(client, instance_ids):
     if isinstance(client, EnvJujuClient1X):
         # Juju 1.x reports the true vm instance-id.
         return instance_ids
-    elif not instance_ids[0].startswith('machine'):
-        log.info('Bug Lp 1586089 is fixed in {}.'.format(client.version))
-        log.info('substrate.convert_to_azure_ids can be deleted.')
-        return instance_ids
-    models = client.get_models()['models']
-    model = [m for m in models if m['name'] == client.model_name][0]
-    resource_group = 'juju-{}-model-{}'.format(
-        model['name'], model['model-uuid'])
-    config = client.env.config
-    arm_client = winazurearm.ARMClient(
-        config['subscription_id'], config['client_id'],
-        config['secret'], config['tenant'])
-    arm_client.init_services()
-    resources = winazurearm.list_resources(
-        arm_client, glob=resource_group, recursive=True)
-    vm_ids = []
-    for machine_name in instance_ids:
-        rgd, vm = winazurearm.find_vm_instance(
-            resources, machine_name, resource_group)
-        vm_ids.append(vm.vm_id)
-    return vm_ids
+    else:
+        with AzureARMAccount.manager_from_config(
+                client.env.config) as substrate:
+            return substrate.convert_to_azure_ids(client, instance_ids)
+
+
+class AzureARMAccount:
+    """Represent an Azure ARM Account."""
+
+    def __init__(self, arm_client):
+        """Constructor.
+
+        :param arm_client: An instance of winazurearm.ARMClient.
+        """
+        self.arm_client = arm_client
+
+    @classmethod
+    @contextmanager
+    def manager_from_config(cls, config):
+        """A context manager for a Azure RM account.
+
+        In the case of the Juju 1x, the ARM keys must be in the env's config.
+        subscription_id is the same. The PEM for the SMS is ignored.
+        """
+        arm_client = winazurearm.ARMClient(
+            config['subscription-id'], config['application-id'],
+            config['application-password'], config['tenant-id'])
+        arm_client.init_services()
+        yield cls(arm_client)
+
+    def convert_to_azure_ids(self, client, instance_ids):
+        if not instance_ids[0].startswith('machine'):
+            log.info('Bug Lp 1586089 is fixed in {}.'.format(client.version))
+            log.info('AzureARMAccount.convert_to_azure_ids can be deleted.')
+            return instance_ids
+
+        models = client.get_models()['models']
+        model = [m for m in models if m['name'] == client.model_name][0]
+        resource_group = 'juju-{}-model-{}'.format(
+            model['name'], model['model-uuid'])
+        resources = winazurearm.list_resources(
+            self.arm_client, glob=resource_group, recursive=True)
+        vm_ids = []
+        for machine_name in instance_ids:
+            rgd, vm = winazurearm.find_vm_instance(
+                resources, machine_name, resource_group)
+            vm_ids.append(vm.vm_id)
+        return vm_ids
+
+    def terminate_instances(self, instance_ids):
+        """Terminate the specified instances."""
+        for instance_id in instance_ids:
+            winazurearm.delete_instance(
+                self.arm_client, instance_id, resource_group=None)
 
 
 class AzureAccount:
@@ -409,38 +440,45 @@ class MAASAccount:
 
     _API_PATH = 'api/2.0/'
 
+    SUBNET_CONNECTION_MODES = frozenset(('AUTO', 'DHCP', 'STATIC', 'LINK_UP'))
+
     def __init__(self, profile, url, oauth):
         self.profile = profile
         self.url = urlparse.urljoin(url, self._API_PATH)
         self.oauth = oauth
 
+    def _maas(self, *args):
+        """Call maas api with given arguments and parse json result."""
+        output = subprocess.check_output(('maas',) + args)
+        if not output:
+            return None
+        return json.loads(output)
+
     def login(self):
         """Login with the maas cli."""
-        subprocess.check_call(
-            ['maas', 'login', self.profile, self.url, self.oauth])
+        subprocess.check_call([
+            'maas', 'login', self.profile, self.url, self.oauth])
 
     def logout(self):
         """Logout with the maas cli."""
-        subprocess.check_call(
-            ['maas', 'logout', self.profile])
+        subprocess.check_call(['maas', 'logout', self.profile])
 
     def _machine_release_args(self, machine_id):
-        return ['maas', self.profile, 'machine', 'release', machine_id]
+        return (self.profile, 'machine', 'release', machine_id)
 
     def terminate_instances(self, instance_ids):
         """Terminate the specified instances."""
         for instance in instance_ids:
             maas_system_id = instance.split('/')[5]
             log.info('Deleting %s.' % instance)
-            subprocess.check_call(self._machine_release_args(maas_system_id))
+            self._maas(*self._machine_release_args(maas_system_id))
 
     def _list_allocated_args(self):
-        return ['maas', self.profile, 'machines', 'list-allocated']
+        return (self.profile, 'machines', 'list-allocated')
 
     def get_allocated_nodes(self):
         """Return a dict of allocated nodes with the hostname as keys."""
-        data = subprocess.check_output(self._list_allocated_args())
-        nodes = json.loads(data)
+        nodes = self._maas(*self._list_allocated_args())
         allocated = {node['hostname']: node for node in nodes}
         return allocated
 
@@ -455,6 +493,126 @@ class MAASAccount:
                if v['ip_addresses']}
         return ips
 
+    def fabrics(self):
+        """Return list of all fabrics."""
+        return self._maas(self.profile, 'fabrics', 'read')
+
+    def create_fabric(self, name, class_type=None):
+        """Create a new fabric."""
+        args = [self.profile, 'fabrics', 'create', 'name=' + name]
+        if class_type is not None:
+            args.append('class_type=' + class_type)
+        return self._maas(*args)
+
+    def delete_fabric(self, fabric_id):
+        """Delete a fabric with given id."""
+        return self._maas(self.profile, 'fabric', 'delete', str(fabric_id))
+
+    def spaces(self):
+        """Return list of all spaces."""
+        return self._maas(self.profile, 'spaces', 'read')
+
+    def create_space(self, name):
+        """Create a new space with given name."""
+        return self._maas(self.profile, 'spaces', 'create', 'name=' + name)
+
+    def delete_space(self, space_id):
+        """Delete a space with given id."""
+        return self._maas(self.profile, 'space', 'delete', str(space_id))
+
+    def create_vlan(self, fabric_id, vid, name=None):
+        """Create a new vlan on fabric with given fabric_id."""
+        args = [
+            self.profile, 'vlans', 'create', str(fabric_id), 'vid=' + str(vid),
+            ]
+        if name is not None:
+            args.append('name=' + name)
+        return self._maas(*args)
+
+    def delete_vlan(self, fabric_id, vid):
+        """Delete a vlan on given fabric_id with vid."""
+        return self._maas(
+            self.profile, 'vlan', 'delete', str(fabric_id), str(vid))
+
+    def interfaces(self, system_id):
+        """Return list of interfaces belonging to node with given system_id."""
+        return self._maas(self.profile, 'interfaces', 'read', system_id)
+
+    def interface_create_vlan(self, system_id, parent, vlan_id):
+        """Create a vlan interface on machine with given system_id."""
+        args = [
+            self.profile, 'interfaces', 'create-vlan', system_id,
+            'parent=' + str(parent), 'vlan=' + str(vlan_id),
+        ]
+        # TODO(gz): Add support for optional parameters as needed.
+        return self._maas(*args)
+
+    def delete_interface(self, system_id, interface_id):
+        """Delete interface on node with given system_id with interface_id."""
+        return self._maas(
+            self.profile, 'interface', 'delete', system_id, str(interface_id))
+
+    def interface_link_subnet(self, system_id, interface_id, mode, subnet_id,
+                              ip_address=None, default_gateway=False):
+        """Link interface from given system_id and interface_id to subnet."""
+        if mode not in self.SUBNET_CONNECTION_MODES:
+            raise ValueError('Invalid subnet connection mode: {}'.format(mode))
+        if ip_address and mode != 'STATIC':
+            raise ValueError('Must be mode STATIC for ip_address')
+        if default_gateway and mode not in ('AUTO', 'STATIC'):
+            raise ValueError('Must be mode AUTO or STATIC for default_gateway')
+        args = [
+            self.profile, 'interface', 'link-subnet', system_id,
+            str(interface_id), 'mode=' + mode, 'subnet=' + str(subnet_id),
+        ]
+        if ip_address:
+            args.append('ip_address=' + ip_address)
+        if default_gateway:
+            args.append('default_gateway=true')
+        return self._maas(*args)
+
+    def interface_unlink_subnet(self, system_id, interface_id, link_id):
+        """Unlink subnet from interface."""
+        return self._maas(
+            self.profile, 'interface', 'unlink-subnet', system_id,
+            str(interface_id), 'id=' + str(link_id))
+
+    def subnets(self):
+        """Return list of all subnets."""
+        return self._maas(self.profile, 'subnets', 'read')
+
+    def create_subnet(self, cidr, name=None, fabric_id=None, vlan_id=None,
+                      vid=None, space=None, gateway_ip=None, dns_servers=None):
+        """Create a subnet with given cidr."""
+        if vlan_id and vid:
+            raise ValueError('Must only give one of vlan_id and vid')
+        args = [self.profile, 'subnets', 'create', 'cidr=' + cidr]
+        if name is not None:
+            # Defaults to cidr if none is given
+            args.append('name=' + name)
+        if fabric_id is not None:
+            # Uses default fabric if none is given
+            args.append('fabric=' + str(fabric_id))
+        if vlan_id is not None:
+            # Uses default vlan on fabric if none is given
+            args.append('vlan=' + str(vlan_id))
+        if vid is not None:
+            args.append('vid=' + str(vid))
+        if space is not None:
+            # Uses default space if none is given
+            args.append('space=' + str(space))
+        if gateway_ip is not None:
+            args.append('gateway_ip=' + str(gateway_ip))
+        if dns_servers is not None:
+            args.append('dns_servers=' + str(dns_servers))
+        # TODO(gz): Add support for rdns_mode and allow_proxy from MAAS 2.0
+        return self._maas(*args)
+
+    def delete_subnet(self, subnet_id):
+        """Delete subnet with given subnet_id."""
+        return self._maas(
+            self.profile, 'subnet', 'delete', str(subnet_id))
+
 
 class MAAS1Account(MAASAccount):
     """Represent a MAAS 1.X account."""
@@ -462,10 +620,10 @@ class MAAS1Account(MAASAccount):
     _API_PATH = 'api/1.0/'
 
     def _list_allocated_args(self):
-        return ['maas', self.profile, 'nodes', 'list-allocated']
+        return (self.profile, 'nodes', 'list-allocated')
 
     def _machine_release_args(self, machine_id):
-        return ['maas', self.profile, 'node', 'release', machine_id]
+        return (self.profile, 'node', 'release', machine_id)
 
 
 @contextmanager
@@ -510,20 +668,26 @@ class LXDAccount:
 
 
 @contextmanager
-def make_substrate_manager(config):
+def make_substrate_manager(config, credentials):
     """A ContextManager that returns an Account for the config's substrate.
 
     Returns None if the substrate is not supported.
     """
+    config = deepcopy(config)
+    config.update(credentials)
     substrate_factory = {
         'ec2': AWSAccount.manager_from_config,
         'openstack': OpenStackAccount.manager_from_config,
         'rackspace': OpenStackAccount.manager_from_config,
         'joyent': JoyentAccount.manager_from_config,
         'azure': AzureAccount.manager_from_config,
+        'azure-arm': AzureARMAccount.manager_from_config,
         'lxd': LXDAccount.manager_from_config,
     }
-    factory = substrate_factory.get(config['type'])
+    substrate_type = config['type']
+    if substrate_type == 'azure' and 'application-id' in config:
+        substrate_type = 'azure-arm'
+    factory = substrate_factory.get(substrate_type)
     if factory is None:
         yield None
     else:
@@ -624,7 +788,7 @@ def run_instances(count, job_name, series, region=None):
     ami = get_ami.query_ami(series, "amd64", region=region)
     command = [
         'euca-run-instances', '-k', 'id_rsa', '-n', '%d' % count,
-        '-t', 'm1.large', '-g', 'manual-juju-test', ami]
+        '-t', 'm3.large', '-g', 'manual-juju-test', ami]
     run_output = subprocess.check_output(command, env=environ).strip()
     machine_ids = dict(parse_euca(run_output)).keys()
     for remaining in until_timeout(300):

@@ -8,8 +8,7 @@ from deploy_stack import (
     boot_context,
 )
 from jujupy import (
-    EnvJujuClient,
-    SimpleEnvironment,
+    client_from_config,
 )
 from utility import (
     add_basic_testing_arguments,
@@ -35,8 +34,8 @@ def scaleout_setup(args):
     series = args.series
     if series is None:
         series = 'trusty'
-    client = EnvJujuClient.by_version(
-        SimpleEnvironment.from_config(args.env), args.juju_bin, args.debug)
+    client = client_from_config(args.env, args.juju_bin, args.debug,
+                                soft_deadline=args.deadline)
     with boot_context(
             args.temp_env_name,
             client,

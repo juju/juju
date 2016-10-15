@@ -1,7 +1,11 @@
 from argparse import (
     Namespace,
-)
+    )
 from contextlib import contextmanager
+from datetime import (
+    datetime,
+    timedelta,
+    )
 import json
 import logging
 import os
@@ -9,13 +13,13 @@ import subprocess
 import sys
 from unittest import (
     skipIf,
-)
+    )
 
 from mock import (
     call,
     MagicMock,
     patch,
-)
+    )
 import yaml
 
 from deploy_stack import (
@@ -35,13 +39,18 @@ from deploy_stack import (
     destroy_environment,
     dump_env_logs,
     dump_juju_timings,
+    _get_clients_to_upgrade,
     iter_remote_machines,
     get_remote_machines,
     GET_TOKEN_SCRIPT,
     safe_print_status,
     retain_config,
     update_env,
-)
+    )
+from fakejuju import (
+    fake_juju_client,
+    fake_juju_client_optional_jes,
+    )
 from jujuconfig import (
     get_environments_path,
     get_jenv_path,
@@ -50,35 +59,37 @@ from jujuconfig import (
 from jujupy import (
     EnvJujuClient,
     EnvJujuClient1X,
+    EnvJujuClient25,
+    EnvJujuClient26,
     get_cache_path,
     get_timeout_prefix,
     get_timeout_path,
     JujuData,
     KILL_CONTROLLER,
     SimpleEnvironment,
+    SoftDeadlineExceeded,
     Status,
-)
+    )
 from remote import (
     _Remote,
     remote_from_address,
     SSHRemote,
-)
+    winrm,
+    )
 from tests import (
     FakeHomeTestCase,
     temp_os_env,
     use_context,
-)
+    )
 from tests.test_jujupy import (
     assert_juju_call,
-    fake_juju_client,
-    fake_juju_client_optional_jes,
     FakePopen,
     observable_temp_file,
-)
+    )
 from utility import (
     LoggedException,
     temp_dir,
-)
+    )
 
 
 def make_logs(log_dir):
@@ -169,6 +180,20 @@ class DeployStackTestCase(FakeHomeTestCase):
         mock.assert_called_once_with('show-status', ('--format', 'yaml'))
         imc_mock.assert_called_once_with()
 
+    def test_safe_print_status_ignores_soft_deadline(self):
+        client = fake_juju_client()
+        client._backend._past_deadline = True
+        client.bootstrap()
+
+        def raise_exception(e):
+            raise e
+
+        try:
+            with patch('logging.exception', side_effect=raise_exception):
+                safe_print_status(client)
+        except SoftDeadlineExceeded:
+            self.fail('Raised SoftDeadlineExceeded.')
+
     def test_update_env(self):
         env = SimpleEnvironment('foo', {'type': 'paas'})
         update_env(
@@ -209,22 +234,45 @@ class DeployStackTestCase(FakeHomeTestCase):
     def test_check_token(self):
         env = JujuData('foo', {'type': 'local'})
         client = EnvJujuClient(env, None, None)
+        status = Status.from_text("""\
+            applications:
+              dummy-sink:
+                units:
+                  dummy-sink/0:
+                    workload-status:
+                      current: active
+                      message: Token is token
+
+            """)
         remote = SSHRemote(client, 'unit', None, series='xenial')
         with patch('deploy_stack.remote_from_unit', autospec=True,
                    return_value=remote):
             with patch.object(remote, 'run', autospec=True,
                               return_value='token') as rr_mock:
-                check_token(client, 'token', timeout=0)
+                with patch.object(client, 'get_status', autospec=True,
+                                  return_value=status):
+                    check_token(client, 'token', timeout=0)
         rr_mock.assert_called_once_with(GET_TOKEN_SCRIPT)
         self.assertTrue(remote.use_juju_ssh)
         self.assertEqual(
-            ['INFO Retrieving token.',
+            ['INFO Waiting for applications to reach ready.',
+             'INFO Retrieving token.',
              "INFO Token matches expected 'token'"],
             self.log_stream.getvalue().splitlines())
 
     def test_check_token_not_found(self):
         env = JujuData('foo', {'type': 'local'})
         client = EnvJujuClient(env, None, None)
+        status = Status.from_text("""\
+            applications:
+              dummy-sink:
+                units:
+                  dummy-sink/0:
+                    workload-status:
+                      current: active
+                      message: Waiting for token
+
+            """)
         remote = SSHRemote(client, 'unit', None, series='xenial')
         with patch('deploy_stack.remote_from_unit', autospec=True,
                    return_value=remote):
@@ -232,19 +280,33 @@ class DeployStackTestCase(FakeHomeTestCase):
                               return_value='') as rr_mock:
                 with patch.object(remote, 'get_address',
                                   autospec=True) as ga_mock:
-                    with self.assertRaisesRegexp(ValueError, "Token is ''"):
-                        check_token(client, 'token', timeout=0)
+                    with patch.object(client, 'get_status', autospec=True,
+                                      return_value=status):
+                        with self.assertRaisesRegexp(ValueError,
+                                                     "Token is ''"):
+                            check_token(client, 'token', timeout=0)
         self.assertEqual(2, rr_mock.call_count)
         rr_mock.assert_called_with(GET_TOKEN_SCRIPT)
         ga_mock.assert_called_once_with()
         self.assertFalse(remote.use_juju_ssh)
         self.assertEqual(
-            ['INFO Retrieving token.'],
+            ['INFO Waiting for applications to reach ready.',
+             'INFO Retrieving token.'],
             self.log_stream.getvalue().splitlines())
 
     def test_check_token_not_found_juju_ssh_broken(self):
         env = JujuData('foo', {'type': 'local'})
         client = EnvJujuClient(env, None, None)
+        status = Status.from_text("""\
+            applications:
+              dummy-sink:
+                units:
+                  dummy-sink/0:
+                    workload-status:
+                      current: active
+                      message: Token is token
+
+            """)
         remote = SSHRemote(client, 'unit', None, series='xenial')
         with patch('deploy_stack.remote_from_unit', autospec=True,
                    return_value=remote):
@@ -252,17 +314,104 @@ class DeployStackTestCase(FakeHomeTestCase):
                               side_effect=['', 'token']) as rr_mock:
                 with patch.object(remote, 'get_address',
                                   autospec=True) as ga_mock:
-                    with self.assertRaisesRegexp(ValueError,
-                                                 "Token is 'token'"):
-                        check_token(client, 'token', timeout=0)
+                    with patch.object(client, 'get_status', autospec=True,
+                                      return_value=status):
+                        with self.assertRaisesRegexp(ValueError,
+                                                     "Token is 'token'"):
+                            check_token(client, 'token', timeout=0)
         self.assertEqual(2, rr_mock.call_count)
         rr_mock.assert_called_with(GET_TOKEN_SCRIPT)
         ga_mock.assert_called_once_with()
         self.assertFalse(remote.use_juju_ssh)
         self.assertEqual(
-            ['INFO Retrieving token.',
+            ['INFO Waiting for applications to reach ready.',
+             'INFO Retrieving token.',
              "INFO Token matches expected 'token'",
              'ERROR juju ssh to unit is broken.'],
+            self.log_stream.getvalue().splitlines())
+
+    def test_check_token_win_status(self):
+        env = JujuData('foo', {'type': 'azure'})
+        client = EnvJujuClient(env, None, None)
+        remote = MagicMock(spec=['cat', 'is_windows'])
+        remote.is_windows.return_value = True
+        status = Status.from_text("""\
+            applications:
+              dummy-sink:
+                units:
+                  dummy-sink/0:
+                    workload-status:
+                      current: active
+                      message: Token is token
+
+            """)
+        with patch('deploy_stack.remote_from_unit', autospec=True,
+                   return_value=remote):
+            with patch.object(client, 'get_status', autospec=True,
+                              return_value=status):
+                check_token(client, 'token', timeout=0)
+        # application-status had the token.
+        self.assertEqual(0, remote.cat.call_count)
+        self.assertEqual(
+            ['INFO Waiting for applications to reach ready.',
+             'INFO Retrieving token.',
+             "INFO Token matches expected 'token'"],
+            self.log_stream.getvalue().splitlines())
+
+    def test_check_token_win_remote(self):
+        env = JujuData('foo', {'type': 'azure'})
+        client = EnvJujuClient(env, None, None)
+        remote = MagicMock(spec=['cat', 'is_windows'])
+        remote.is_windows.return_value = True
+        remote.cat.return_value = 'token'
+        status = Status.from_text("""\
+            applications:
+              dummy-sink:
+                units:
+                  dummy-sink/0:
+                    juju-status:
+                      current: active
+            """)
+        with patch('deploy_stack.remote_from_unit', autospec=True,
+                   return_value=remote):
+            with patch.object(client, 'get_status', autospec=True,
+                              return_value=status):
+                check_token(client, 'token', timeout=0)
+        # application-status did not have the token, winrm did.
+        remote.cat.assert_called_once_with('%ProgramData%\\dummy-sink\\token')
+        self.assertEqual(
+            ['INFO Waiting for applications to reach ready.',
+             'INFO Retrieving token.',
+             "INFO Token matches expected 'token'"],
+            self.log_stream.getvalue().splitlines())
+
+    def test_check_token_win_remote_failure(self):
+        env = JujuData('foo', {'type': 'azure'})
+        client = EnvJujuClient(env, None, None)
+        remote = MagicMock(spec=['cat', 'is_windows'])
+        remote.is_windows.return_value = True
+        remote.cat.side_effect = winrm.exceptions.WinRMTransportError(
+            'a', 'oops')
+        status = Status.from_text("""\
+            applications:
+              dummy-sink:
+                units:
+                  dummy-sink/0:
+                    juju-status:
+                      current: active
+            """)
+        with patch('deploy_stack.remote_from_unit', autospec=True,
+                   return_value=remote):
+            with patch.object(client, 'get_status', autospec=True,
+                              return_value=status):
+                check_token(client, 'token', timeout=0)
+        # application-status did not have the token, winrm did.
+        remote.cat.assert_called_once_with('%ProgramData%\\dummy-sink\\token')
+        self.assertEqual(
+            ['INFO Waiting for applications to reach ready.',
+             'INFO Retrieving token.',
+             'WARNING Skipping token check because of: '
+                '500 WinRMTransport. oops'],
             self.log_stream.getvalue().splitlines())
 
     log_level = logging.DEBUG
@@ -365,6 +514,15 @@ class DumpEnvLogsTestCase(FakeHomeTestCase):
             log_path = os.path.join(log_dir, 'fake.log')
             cc_mock.assert_called_once_with(['gzip', '--best', '-f', log_path])
 
+    def test_archive_logs_syslog(self):
+        with temp_dir() as log_dir:
+            log_path = os.path.join(log_dir, 'syslog')
+            with open(log_path, 'w') as f:
+                f.write('syslog contents')
+            with patch('subprocess.check_call', autospec=True) as cc_mock:
+                archive_logs(log_dir)
+            cc_mock.assert_called_once_with(['gzip', '--best', '-f', log_path])
+
     def test_archive_logs_subdir(self):
         with temp_dir() as log_dir:
             subdir = os.path.join(log_dir, "subdir")
@@ -381,6 +539,26 @@ class DumpEnvLogsTestCase(FakeHomeTestCase):
             with patch('subprocess.check_call', autospec=True) as cc_mock:
                 archive_logs(log_dir)
         self.assertEquals(cc_mock.call_count, 0)
+
+    def test_archive_logs_multiple(self):
+        with temp_dir() as log_dir:
+            log_paths = []
+            with open(os.path.join(log_dir, 'fake.log'), 'w') as f:
+                f.write('log contents')
+            log_paths.append(os.path.join(log_dir, 'fake.log'))
+            subdir = os.path.join(log_dir, "subdir")
+            os.mkdir(subdir)
+            with open(os.path.join(subdir, 'syslog'), 'w') as f:
+                f.write('syslog contents')
+            log_paths.append(os.path.join(subdir, 'syslog'))
+            with patch('subprocess.check_call', autospec=True) as cc_mock:
+                archive_logs(log_dir)
+            self.assertEqual(1, cc_mock.call_count)
+            call_args, call_kwargs = cc_mock.call_args
+            gzip_args = call_args[0]
+            self.assertEqual(0, len(call_kwargs))
+            self.assertEqual(gzip_args[:3], ['gzip', '--best', '-f'])
+            self.assertEqual(set(gzip_args[3:]), set(log_paths))
 
     def test_copy_local_logs(self):
         # Relevent local log files are copied, after changing their permissions
@@ -669,7 +847,7 @@ class TestDeployDummyStack(FakeHomeTestCase):
                                autospec=True) as ct_mock:
                         assess_juju_relations(client)
         assert_juju_call(self, cc_mock, client, (
-            'juju', '--show-log', 'set-config', '-m', 'foo:foo',
+            'juju', '--show-log', 'config', '-m', 'foo:foo',
             'dummy-source', 'token=fake-token'), 0)
         ct_mock.assert_called_once_with(client, 'fake-token')
 
@@ -736,7 +914,7 @@ class TestDeployDummyStack(FakeHomeTestCase):
         self.assertEqual(cc_mock.call_count, 4)
         self.assertEqual(
             [
-                call('show-status', '--format', 'yaml', admin=False)
+                call('show-status', '--format', 'yaml', controller=False)
             ],
             gjo_mock.call_args_list)
 
@@ -836,14 +1014,14 @@ class TestDeployJob(FakeHomeTestCase):
     def ds_cxt(self):
         env = JujuData('foo', {})
         client = fake_EnvJujuClient(env)
-        bc_cxt = patch('jujupy.EnvJujuClient.by_version',
+        bc_cxt = patch('deploy_stack.client_from_config',
                        return_value=client)
         fc_cxt = patch('jujupy.SimpleEnvironment.from_config',
                        return_value=env)
         mgr = MagicMock()
         bm_cxt = patch('deploy_stack.BootstrapManager', autospec=True,
                        return_value=mgr)
-        juju_cxt = patch('deploy_stack.EnvJujuClient.juju', autospec=True)
+        juju_cxt = patch('jujupy.EnvJujuClient.juju', autospec=True)
         ajr_cxt = patch('deploy_stack.assess_juju_run', autospec=True)
         dds_cxt = patch('deploy_stack.deploy_dummy_stack', autospec=True)
         with bc_cxt, fc_cxt, bm_cxt as bm_mock, juju_cxt, ajr_cxt, dds_cxt:
@@ -857,7 +1035,7 @@ class TestDeployJob(FakeHomeTestCase):
             charm_prefix=None, bootstrap_host=None, machine=None,
             series='trusty', debug=False, agent_url=None, agent_stream=None,
             keep_env=False, upload_tools=False, with_chaos=1, jes=False,
-            region=None, verbose=False, upgrade=False,
+            region=None, verbose=False, upgrade=False, deadline=None,
         )
         with self.ds_cxt():
             with patch('deploy_stack.background_chaos',
@@ -880,7 +1058,7 @@ class TestDeployJob(FakeHomeTestCase):
             charm_prefix=None, bootstrap_host=None, machine=None,
             series='trusty', debug=False, agent_url=None, agent_stream=None,
             keep_env=False, upload_tools=False, with_chaos=0, jes=False,
-            region=None, verbose=False, upgrade=False,
+            region=None, verbose=False, upgrade=False, deadline=None,
         )
         with self.ds_cxt():
             with patch('deploy_stack.background_chaos',
@@ -898,7 +1076,7 @@ class TestDeployJob(FakeHomeTestCase):
             charm_prefix=None, bootstrap_host=None, machine=None,
             series='trusty', debug=False, agent_url=None, agent_stream=None,
             keep_env=False, upload_tools=False, with_chaos=0, jes=False,
-            region='region-foo', verbose=False, upgrade=False,
+            region='region-foo', verbose=False, upgrade=False, deadline=None,
         )
         with self.ds_cxt() as (client, bm_mock):
             with patch('deploy_stack.assess_juju_relations',
@@ -946,23 +1124,39 @@ class TestTestUpgrade(FakeHomeTestCase):
     STATUS = (
         'juju', '--show-log', 'show-status', '-m', 'foo:foo',
         '--format', 'yaml')
-    GET_ENV = ('juju', '--show-log', 'get-model-config', '-m', 'foo:foo',
-               'tools-metadata-url')
+    CONTROLLER_STATUS = (
+        'juju', '--show-log', 'show-status', '-m', 'foo:controller',
+        '--format', 'yaml')
+    GET_ENV = ('juju', '--show-log', 'model-config', '-m', 'foo:foo',
+               'agent-metadata-url')
+    GET_CONTROLLER_ENV = (
+        'juju', '--show-log', 'model-config', '-m', 'foo:controller',
+        'agent-metadata-url')
+    LIST_MODELS = (
+        'juju', '--show-log', 'list-models', '-c', 'foo', '--format', 'yaml')
 
     @classmethod
     def upgrade_output(cls, args, **kwargs):
         status = yaml.safe_dump({
             'machines': {'0': {
                 'agent-state': 'started',
-                'agent-version': '2.0-alpha3'}},
+                'agent-version': '2.0-rc2'}},
             'services': {}})
         juju_run_out = json.dumps([
             {"MachineId": "1", "Stdout": "Linux\n"},
             {"MachineId": "2", "Stdout": "Linux\n"}])
+        list_models = json.dumps(
+            {'models': [
+                {'name': 'controller'},
+                {'name': 'foo'},
+            ]})
         output = {
             cls.STATUS: status,
+            cls.CONTROLLER_STATUS: status,
             cls.RUN_UNAME: juju_run_out,
-            cls.GET_ENV: 'testing'
+            cls.GET_ENV: 'testing',
+            cls.GET_CONTROLLER_ENV: 'testing',
+            cls.LIST_MODELS: list_models,
         }
         return FakePopen(output[args], '', 0)
 
@@ -976,8 +1170,11 @@ class TestTestUpgrade(FakeHomeTestCase):
                                return_value="FAKETOKEN", autospec=True):
                         with patch('jujupy.EnvJujuClient.get_version',
                                    side_effect=lambda cls:
-                                   '2.0-alpha3-arch-series'):
-                            yield (co_mock, cc_mock)
+                                   '2.0-rc2-arch-series'):
+                            with patch(
+                                    'jujupy.get_timeout_prefix',
+                                    autospec=True, return_value=()):
+                                yield (co_mock, cc_mock)
 
     def test_assess_upgrade(self):
         env = JujuData('foo', {'type': 'foo'})
@@ -985,14 +1182,47 @@ class TestTestUpgrade(FakeHomeTestCase):
         with self.upgrade_mocks() as (co_mock, cc_mock):
             assess_upgrade(old_client, '/bar/juju')
         new_client = EnvJujuClient(env, None, '/bar/juju')
+        # Needs to upgrade the controller first.
         assert_juju_call(self, cc_mock, new_client, (
-            'juju', '--show-log', 'upgrade-juju', '-m', 'foo:foo', '--version',
-            '2.0-alpha3'), 0)
-        self.assertEqual(cc_mock.call_count, 1)
-        assert_juju_call(self, co_mock, new_client, self.GET_ENV, 0)
-        assert_juju_call(self, co_mock, new_client, self.GET_ENV, 1)
-        assert_juju_call(self, co_mock, new_client, self.STATUS, 2)
-        self.assertEqual(co_mock.call_count, 3)
+            'juju', '--show-log', 'upgrade-juju', '-m', 'foo:controller',
+            '--agent-version', '2.0-rc2'), 0)
+        assert_juju_call(self, cc_mock, new_client, (
+            'juju', '--show-log', 'upgrade-juju', '-m', 'foo:foo',
+            '--agent-version', '2.0-rc2'), 1)
+        self.assertEqual(cc_mock.call_count, 2)
+        assert_juju_call(self, co_mock, new_client, self.LIST_MODELS, 0)
+        assert_juju_call(self, co_mock, new_client, self.GET_CONTROLLER_ENV, 1)
+        assert_juju_call(self, co_mock, new_client, self.GET_CONTROLLER_ENV, 2)
+        assert_juju_call(self, co_mock, new_client, self.CONTROLLER_STATUS, 3)
+        assert_juju_call(self, co_mock, new_client, self.GET_ENV, 4)
+        assert_juju_call(self, co_mock, new_client, self.GET_ENV, 5)
+        assert_juju_call(self, co_mock, new_client, self.STATUS, 6)
+        self.assertEqual(co_mock.call_count, 7)
+
+    def test__get_clients_to_upgrade_returns_new_version_class(self):
+        env = SimpleEnvironment('foo', {'type': 'foo'})
+        old_client = fake_juju_client(
+            env, '/foo/juju', version='1.25', cls=EnvJujuClient25)
+        with patch('jujupy.EnvJujuClient.get_version',
+                   return_value='1.26-arch-series'):
+            with patch('jujupy.EnvJujuClient26._get_models', return_value=[]):
+                [new_client] = _get_clients_to_upgrade(
+                    old_client, '/foo/newer/juju')
+
+        self.assertIs(type(new_client), EnvJujuClient26)
+
+    def test__get_clients_to_upgrade_returns_controller_and_model(self):
+        old_client = fake_juju_client()
+        old_client.bootstrap()
+
+        with patch('jujupy.EnvJujuClient.get_version',
+                   return_value='2.0-rc2-arch-series'):
+            new_clients = _get_clients_to_upgrade(
+                old_client, '/foo/newer/juju')
+
+        self.assertEqual(len(new_clients), 2)
+        self.assertEqual(new_clients[0].model_name, 'controller')
+        self.assertEqual(new_clients[1].model_name, 'name')
 
     def test_mass_timeout(self):
         config = {'type': 'foo'}
@@ -1000,30 +1230,30 @@ class TestTestUpgrade(FakeHomeTestCase):
         with self.upgrade_mocks():
             with patch.object(EnvJujuClient, 'wait_for_version') as wfv_mock:
                 assess_upgrade(old_client, '/bar/juju')
-            wfv_mock.assert_called_once_with('2.0-alpha3', 600)
+            wfv_mock.assert_has_calls([call('2.0-rc2', 600)] * 2)
             config['type'] = 'maas'
             with patch.object(EnvJujuClient, 'wait_for_version') as wfv_mock:
                 assess_upgrade(old_client, '/bar/juju')
-        wfv_mock.assert_called_once_with('2.0-alpha3', 1200)
+        wfv_mock.assert_has_calls([call('2.0-rc2', 1200)] * 2)
 
 
 class TestBootstrapManager(FakeHomeTestCase):
 
     def test_from_args(self):
+        deadline = datetime(2012, 11, 10, 9, 8, 7)
         args = Namespace(
             env='foo', juju_bin='bar', debug=True, temp_env_name='baz',
             bootstrap_host='example.org', machine=['example.com'],
             series='angsty', agent_url='qux', agent_stream='escaped',
-            region='eu-west-northwest-5', logs='pine', keep_env=True)
-        with patch.object(SimpleEnvironment, 'from_config') as fc_mock:
-            with patch.object(EnvJujuClient, 'by_version') as bv_mock:
-                bs_manager = BootstrapManager.from_args(args)
-        fc_mock.assert_called_once_with('foo')
-        bv_mock.assert_called_once_with(fc_mock.return_value, 'bar',
-                                        debug=True)
+            region='eu-west-northwest-5', logs='pine', keep_env=True,
+            deadline=deadline)
+        with patch('deploy_stack.client_from_config') as fc_mock:
+            bs_manager = BootstrapManager.from_args(args)
+        fc_mock.assert_called_once_with('foo', 'bar', debug=True,
+                                        soft_deadline=deadline)
         self.assertEqual('baz', bs_manager.temp_env_name)
-        self.assertIs(bv_mock.return_value, bs_manager.client)
-        self.assertIs(bv_mock.return_value, bs_manager.tear_down_client)
+        self.assertIs(fc_mock.return_value, bs_manager.client)
+        self.assertIs(fc_mock.return_value, bs_manager.tear_down_client)
         self.assertEqual('example.org', bs_manager.bootstrap_host)
         self.assertEqual(['example.com'], bs_manager.machines)
         self.assertEqual('angsty', bs_manager.series)
@@ -1032,6 +1262,37 @@ class TestBootstrapManager(FakeHomeTestCase):
         self.assertEqual('eu-west-northwest-5', bs_manager.region)
         self.assertIs(True, bs_manager.keep_env)
         self.assertEqual('pine', bs_manager.log_dir)
+        jes_enabled = bs_manager.client.is_jes_enabled.return_value
+        self.assertEqual(jes_enabled, bs_manager.permanent)
+        self.assertEqual(jes_enabled, bs_manager.jes_enabled)
+        self.assertEqual({'0': 'example.org'}, bs_manager.known_hosts)
+
+    def test_no_args(self):
+        args = Namespace(
+            env='foo', juju_bin='bar', debug=True, temp_env_name='baz',
+            bootstrap_host='example.org', machine=['example.com'],
+            series='angsty', agent_url='qux', agent_stream='escaped',
+            region='eu-west-northwest-5', logs=None, keep_env=True,
+            deadline=None)
+        with patch('deploy_stack.client_from_config') as fc_mock:
+            with patch('utility.os.makedirs'):
+                bs_manager = BootstrapManager.from_args(args)
+        fc_mock.assert_called_once_with('foo', 'bar', debug=True,
+                                        soft_deadline=None)
+        self.assertEqual('baz', bs_manager.temp_env_name)
+        self.assertIs(fc_mock.return_value, bs_manager.client)
+        self.assertIs(fc_mock.return_value, bs_manager.tear_down_client)
+        self.assertEqual('example.org', bs_manager.bootstrap_host)
+        self.assertEqual(['example.com'], bs_manager.machines)
+        self.assertEqual('angsty', bs_manager.series)
+        self.assertEqual('qux', bs_manager.agent_url)
+        self.assertEqual('escaped', bs_manager.agent_stream)
+        self.assertEqual('eu-west-northwest-5', bs_manager.region)
+        self.assertIs(True, bs_manager.keep_env)
+        logs_arg = bs_manager.log_dir.split("/")
+        logs_ts = logs_arg[4]
+        self.assertEqual(logs_arg[1:4], ['tmp', 'baz', 'logs'])
+        self.assertTrue(logs_ts, datetime.strptime(logs_ts, "%Y%m%d%H%M%S"))
         jes_enabled = bs_manager.client.is_jes_enabled.return_value
         self.assertEqual(jes_enabled, bs_manager.permanent)
         self.assertEqual(jes_enabled, bs_manager.jes_enabled)
@@ -1064,10 +1325,10 @@ class TestBootstrapManager(FakeHomeTestCase):
             env='foo', juju_bin='bar', debug=True, temp_env_name='baz',
             bootstrap_host=None, machine=['example.com'],
             series='angsty', agent_url='qux', agent_stream='escaped',
-            region='eu-west-northwest-5', logs='pine', keep_env=True)
-        with patch.object(SimpleEnvironment, 'from_config'):
-            with patch.object(EnvJujuClient, 'by_version'):
-                bs_manager = BootstrapManager.from_args(args)
+            region='eu-west-northwest-5', logs='pine', keep_env=True,
+            deadline=None)
+        with patch('deploy_stack.client_from_config'):
+            bs_manager = BootstrapManager.from_args(args)
         self.assertIs(None, bs_manager.bootstrap_host)
         self.assertEqual({}, bs_manager.known_hosts)
 
@@ -1224,6 +1485,34 @@ class TestBootstrapManager(FakeHomeTestCase):
         wfp_mock.assert_called_once_with(
             'bootstrap.example.org', 22, timeout=120)
 
+    def test_handle_bootstrap_exceptions_ignores_soft_deadline(self):
+        env = JujuData('foo', {'type': 'nonlocal'})
+        client = EnvJujuClient(env, None, None)
+        tear_down_client = EnvJujuClient(env, None, None)
+        soft_deadline = datetime(2015, 1, 2, 3, 4, 6)
+        now = soft_deadline + timedelta(seconds=1)
+        client.env.juju_home = use_context(self, temp_dir())
+        bs_manager = BootstrapManager(
+            'foobar', client, tear_down_client, None, [], None, None, None,
+            None, client.env.juju_home, False, permanent=True,
+            jes_enabled=True)
+
+        def do_check(*args, **kwargs):
+            with client.check_timeouts():
+                with tear_down_client.check_timeouts():
+                    pass
+
+        with patch.object(bs_manager.tear_down_client, 'juju',
+                          side_effect=do_check, autospec=True):
+            with patch.object(client._backend, '_now', return_value=now):
+                fake_exception = Exception()
+                with self.assertRaises(LoggedException) as exc:
+                    with bs_manager.handle_bootstrap_exceptions():
+                        client._backend.soft_deadline = soft_deadline
+                        tear_down_client._backend.soft_deadline = soft_deadline
+                        raise fake_exception
+                self.assertIs(fake_exception, exc.exception.exception)
+
     def test_tear_down_requires_same_env(self):
         client = self.make_client()
         client.env.juju_home = 'foobar'
@@ -1322,6 +1611,44 @@ class TestBootstrapManager(FakeHomeTestCase):
                 '2': 'example.org',
                 })
 
+    def test_dump_all_logs_ignores_soft_deadline(self):
+
+        def do_check(client, *args, **kwargs):
+            with client.check_timeouts():
+                pass
+
+        client = fake_juju_client()
+        client._backend._past_deadline = True
+        client.bootstrap()
+        with temp_dir() as log_dir:
+            bs_manager = BootstrapManager(
+                    'foobar', client, client,
+                    None, [], None, None, None, None, log_dir, False,
+                    True, True)
+            with patch.object(bs_manager, '_should_dump', return_value=True,
+                              autospec=True):
+                with patch('deploy_stack.dump_env_logs_known_hosts',
+                           side_effect=do_check, autospec=True):
+                    bs_manager.dump_all_logs()
+
+    def test_runtime_context_raises_logged_exception(self):
+        client = fake_juju_client()
+        client.bootstrap()
+        bs_manager = BootstrapManager(
+                'foobar', client, client,
+                None, [], None, None, None, None, client.env.juju_home, False,
+                True, True)
+        test_error = Exception("Some exception")
+        test_error.output = "a stdout value"
+        test_error.stderr = "a stderr value"
+        with patch.object(bs_manager, 'dump_all_logs', autospec=True):
+            with self.assertRaises(LoggedException) as err_ctx:
+                with bs_manager.runtime_context([]):
+                    raise test_error
+                self.assertIs(err_ctx.exception.exception, test_error)
+        self.assertIn("a stdout value", self.log_stream.getvalue())
+        self.assertIn("a stderr value", self.log_stream.getvalue())
+
     def test_runtime_context_looks_up_host(self):
         client = fake_juju_client()
         client.bootstrap()
@@ -1410,6 +1737,104 @@ class TestBootstrapManager(FakeHomeTestCase):
         wfp_mock.assert_called_once_with(
             'bootstrap.example.org', 22, timeout=120)
 
+    @contextmanager
+    def booted_to_bootstrap(self, bs_manager):
+        """Preform patches to focus on the call to bootstrap."""
+        with patch.object(bs_manager, 'dump_all_logs'):
+            with patch.object(bs_manager, 'runtime_context'):
+                with patch.object(bs_manager.client, 'juju'):
+                    with patch.object(bs_manager.client, 'bootstrap') as mock:
+                        yield mock
+
+    def test_booted_context_kwargs(self):
+        client = fake_juju_client()
+        with temp_dir() as root:
+            log_dir = os.path.join(root, 'log-dir')
+            os.mkdir(log_dir)
+            bs_manager = BootstrapManager(
+                'foobar', client, client,
+                None, [], None, None, None, None, log_dir, False,
+                True, True)
+            juju_home = os.path.join(root, 'juju-home')
+            os.mkdir(juju_home)
+            client.env.juju_home = juju_home
+            with self.booted_to_bootstrap(bs_manager) as bootstrap_mock:
+                with bs_manager.booted_context(False, to='test'):
+                    bootstrap_mock.assert_called_once_with(
+                        upload_tools=False, to='test', bootstrap_series=None)
+            with self.booted_to_bootstrap(bs_manager) as bootstrap_mock:
+                with bs_manager.existing_booted_context(False, to='test'):
+                    bootstrap_mock.assert_called_once_with(
+                        upload_tools=False, to='test', bootstrap_series=None)
+
+    def test_runtime_context_teardown_ignores_soft_deadline(self):
+        env = JujuData('foo', {'type': 'nonlocal'})
+        soft_deadline = datetime(2015, 1, 2, 3, 4, 6)
+        now = soft_deadline + timedelta(seconds=1)
+        client = EnvJujuClient(env, None, None)
+        tear_down_client = EnvJujuClient(env, None, None)
+
+        def do_check_client(*args, **kwargs):
+            with client.check_timeouts():
+                return iter([])
+
+        def do_check_teardown_client(*args, **kwargs):
+            with tear_down_client.check_timeouts():
+                return iter([])
+
+        with temp_dir() as log_dir:
+            bs_manager = BootstrapManager(
+                'foobar', client, tear_down_client,
+                None, [], None, None, None, None, log_dir, False,
+                True, True)
+            bs_manager.known_hosts['0'] = 'example.org'
+            with patch.object(bs_manager.client, 'juju',
+                              side_effect=do_check_client, autospec=True):
+                with patch.object(bs_manager.client, 'iter_model_clients',
+                                  side_effect=do_check_client, autospec=True,
+                                  ):
+                    with patch.object(bs_manager, 'tear_down',
+                                      do_check_teardown_client):
+                        with patch.object(client._backend, '_now',
+                                          return_value=now):
+                            with bs_manager.runtime_context(['baz']):
+                                client._backend.soft_deadline = soft_deadline
+                                td_backend = tear_down_client._backend
+                                td_backend.soft_deadline = soft_deadline
+
+    @contextmanager
+    def make_bootstrap_manager(self):
+        client = fake_juju_client()
+        with temp_dir() as log_dir:
+            bs_manager = BootstrapManager(
+                'foobar', client, client,
+                None, [], None, None, None, None, log_dir, False,
+                True, True)
+            yield bs_manager
+
+    def test_top_context_dumps_timings(self):
+        with self.make_bootstrap_manager() as bs_manager:
+            with patch('deploy_stack.dump_juju_timings') as djt_mock:
+                with bs_manager.top_context():
+                    pass
+        djt_mock.assert_called_once_with(bs_manager.client, bs_manager.log_dir)
+
+    def test_top_context_dumps_timings_on_exception(self):
+        with self.make_bootstrap_manager() as bs_manager:
+            with patch('deploy_stack.dump_juju_timings') as djt_mock:
+                with self.assertRaises(ValueError):
+                    with bs_manager.top_context():
+                        raise ValueError
+        djt_mock.assert_called_once_with(bs_manager.client, bs_manager.log_dir)
+
+    def test_top_context_no_log_dir_skips_timings(self):
+        with self.make_bootstrap_manager() as bs_manager:
+            bs_manager.log_dir = None
+            with patch('deploy_stack.dump_juju_timings') as djt_mock:
+                with bs_manager.top_context():
+                    pass
+        self.assertEqual(djt_mock.call_count, 0)
+
 
 class TestBootContext(FakeHomeTestCase):
 
@@ -1482,7 +1907,7 @@ class TestBootContext(FakeHomeTestCase):
                     pass
         assert_juju_call(self, cc_mock, client, (
             'path', '--show-log', 'bootstrap', '--constraints',
-            'mem=2G', 'bar', 'paas/qux', '--config', config_file.name,
+            'mem=2G', 'paas/qux', 'bar', '--config', config_file.name,
             '--default-model', 'bar', '--agent-version', '1.23'), 0)
         assert_juju_call(self, cc_mock, client, (
             'path', '--show-log', 'list-controllers'), 1)
@@ -1521,7 +1946,7 @@ class TestBootContext(FakeHomeTestCase):
                     pass
         assert_juju_call(self, cc_mock, client, (
             'path', '--show-log', 'bootstrap', '--constraints',
-            'mem=2G', 'bar', 'paas/qux', '--config', config_file.name,
+            'mem=2G', 'paas/qux', 'bar', '--config', config_file.name,
             '--default-model', 'bar', '--agent-version', '1.23'), 0)
         assert_juju_call(self, cc_mock, client, (
             'path', '--show-log', 'list-controllers'), 1)
@@ -1560,7 +1985,7 @@ class TestBootContext(FakeHomeTestCase):
                     pass
         assert_juju_call(self, cc_mock, client, (
             'path', '--show-log', 'bootstrap', '--upload-tools',
-            '--constraints', 'mem=2G', 'bar', 'paas/qux', '--config',
+            '--constraints', 'mem=2G', 'paas/qux', 'bar', '--config',
             config_file.name, '--default-model', 'bar'), 0)
 
     def test_upload_tools_non_jes(self):
@@ -1592,7 +2017,7 @@ class TestBootContext(FakeHomeTestCase):
             series='wacky', bootstrap_host=None, region=None)
         assert_juju_call(self, cc_mock, client, (
             'path', '--show-log', 'bootstrap', '--constraints', 'mem=2G',
-            'bar', 'paas/qux', '--config', config_file.name,
+            'paas/qux', 'bar', '--config', config_file.name,
             '--default-model', 'bar', '--agent-version', '1.23',
             '--bootstrap-series', 'wacky'), 0)
 
@@ -1770,7 +2195,7 @@ class TestBootContext(FakeHomeTestCase):
                 self.assertIs(ctx.exception, error)
         assert_juju_call(self, cc_mock, client, (
             'path', '--show-log', 'bootstrap', '--constraints',
-            'mem=2G', 'bar', 'paas/qux', '--config', config_file.name,
+            'mem=2G', 'paas/qux', 'bar', '--config', config_file.name,
             '--default-model', 'bar', '--agent-version', '1.23'), 0)
         assert_juju_call(self, cc_mock, client, (
             'path', '--show-log', 'list-controllers'), 1)
@@ -1806,6 +2231,7 @@ class TestDeployJobParseArgs(FakeHomeTestCase):
             with_chaos=0,
             jes=False,
             region=None,
+            deadline=None,
         ))
 
     def test_upload_tools(self):

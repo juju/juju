@@ -82,7 +82,12 @@ def get_lp_bugs(lp, branch, tags):
         raise ValueError('tags must be a list of bug tags')
     bug_tags = tags
     bugs = {}
-    project = lp.projects['juju-core']
+    if branch.startswith('1.'):
+        # Historic Juju 1.x
+        project = lp.projects['juju-core']
+    else:
+        # Juju 2.x.
+        project = lp.projects['juju']
     if branch == 'master':
         # Lp implicitly assigns bugs to trunk, which is not a series query.
         target = project
@@ -128,6 +133,9 @@ def update_bugs(bugs, branch, build, dry_run=False):
     """Update the critical blocker+ci bugs for the branch to Fix Released."""
     changes = []
     for bug_id, bug_task in bugs.items():
+        if 'intermittent-failure' in bug_task.bug.tags:
+            changes.append('Skipping intermittent-failure %s' % bug_task.title)
+            continue
         changes.append('Updated %s' % bug_task.title)
         bug_task.status = 'Fix Released'
         if not dry_run:

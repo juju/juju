@@ -7,11 +7,11 @@ from mock import (
 )
 
 from assess_min_version import JujuAssertionError
-import tests
-from tests.test_jujupy import (
+from fakejuju import (
     fake_juju_client,
     fake_juju_client_optional_jes,
     )
+import tests
 import verify_mediawiki_bundle
 from verify_mediawiki_bundle import(
     assess_mediawiki_bundle,

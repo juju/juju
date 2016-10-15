@@ -2,8 +2,8 @@
 from __future__ import print_function
 
 from argparse import ArgumentParser
+from contextlib import contextmanager
 import logging
-import os.path
 import sys
 
 from deploy_stack import (
@@ -11,64 +11,123 @@ from deploy_stack import (
     tear_down,
     )
 from jujupy import (
-    EnvJujuClient,
-    SimpleEnvironment,
+    get_machine_dns_name,
     )
 from utility import (
+    add_basic_testing_arguments,
     configure_logging,
-    LoggedException,
-    scoped_environ,
+    JujuAssertionError,
     temp_dir,
-)
+    )
 
 
 log = logging.getLogger("assess_bootstrap")
 
 
-def assess_bootstrap(juju, env, debug, region, temp_env_name):
-    with scoped_environ():
-        juju_bin = os.path.dirname(os.path.abspath(juju))
-        os.environ['PATH'] = '{}:{}'.format(juju_bin, os.environ['PATH'])
-        client = EnvJujuClient.by_version(SimpleEnvironment.from_config(env),
-                                          juju, debug)
-    jes_enabled = client.is_jes_enabled()
-    if temp_env_name is None:
-        temp_env_name = client.env.environment
-    with temp_dir() as log_dir:
-        bs_manager = BootstrapManager(
-            temp_env_name, client, client, region=region,
-            permanent=jes_enabled, jes_enabled=jes_enabled, log_dir=log_dir,
-            bootstrap_host=None, machines=[], series=None, agent_url=None,
-            agent_stream=None, keep_env=False)
-        with bs_manager.top_context() as machines:
-            with bs_manager.bootstrap_context(machines):
-                tear_down(client, jes_enabled)
-                client.bootstrap()
-            with bs_manager.runtime_context(machines):
-                client.get_status(1)
-                log.info('Environment successfully bootstrapped.')
+INVALID_URL = 'example.com/invalid'
+
+
+@contextmanager
+def thin_booted_context(bs_manager, **kwargs):
+    client = bs_manager.client
+    with bs_manager.top_context() as machines:
+        with bs_manager.bootstrap_context(machines):
+            tear_down(client, client.is_jes_enabled())
+            client.bootstrap(**kwargs)
+        with bs_manager.runtime_context(machines):
+            yield client
+
+
+def assess_base_bootstrap(bs_manager):
+    with thin_booted_context(bs_manager) as client:
+        client.get_status(1)
+        log.info('Environment successfully bootstrapped.')
+
+
+def prepare_metadata(client, local_dir):
+    """Fill the given directory with metadata using sync_tools."""
+    client.sync_tools(local_dir)
+
+
+@contextmanager
+def prepare_temp_metadata(client, source_dir=None):
+    """Fill a temporary directory with metadata using sync_tools."""
+    if source_dir is not None:
+        yield source_dir
+    else:
+        with temp_dir() as md_dir:
+            prepare_metadata(client, md_dir)
+            yield md_dir
+
+
+def assess_metadata(bs_manager, local_source):
+    client = bs_manager.client
+    # This disconnects from the metadata source, as INVALID_URL is different.
+    # agent-metadata-url | tools-metadata-url
+    client.env.config['agent-metadata-url'] = INVALID_URL
+    with prepare_temp_metadata(client, local_source) as metadata_dir:
+        log.info('Metadata written to: {}'.format(metadata_dir))
+        with thin_booted_context(bs_manager,
+                                 metadata_source=metadata_dir):
+            log.info('Metadata bootstrap successful.')
+            data = client.get_model_config()
+    if INVALID_URL != data['agent-metadata-url']['value']:
+        raise JujuAssertionError('Error, possible web metadata.')
+
+
+def get_controller_address(client):
+    """Get the address of the controller for this model."""
+    return get_machine_dns_name(client, "0")
+
+
+def assess_to(bs_manager, to):
+    """Assess bootstraping with the --to option."""
+    if to is None:
+        raise ValueError('--to not given when testing to')
+    with thin_booted_context(bs_manager, to=to) as client:
+        log.info('To {} bootstrap successful.'.format(to))
+        # This might be needed:
+        # client.juju('switch', 'controller', include_e=False)
+        addr = get_controller_address(client)
+    if addr != to:
+        raise JujuAssertionError('Not bootstrapped to the correct address.')
+
+
+def assess_bootstrap(args):
+    bs_manager = BootstrapManager.from_args(args)
+    if 'base' == args.part:
+        assess_base_bootstrap(bs_manager)
+    elif 'metadata' == args.part:
+        assess_metadata(bs_manager, args.local_metadata_source)
+    elif 'to' == args.part:
+        assess_to(bs_manager, args.to)
 
 
 def parse_args(argv=None):
-    parser = ArgumentParser()
-    parser.add_argument('juju', help="The Juju client to use.")
-    parser.add_argument('env', help="The environment to test with.")
-    parser.add_argument('temp_env_name', nargs='?',
-                        help="Temporary environment name to use.")
-    parser.add_argument('--debug', action="store_true", default=False,
-                        help='Use --debug juju logging.')
-    parser.add_argument('--region', help='Override environment region.')
+    """Parse all arguments.
+
+    In addition to the basic testing arguments this script also accepts:
+    part: The first argument, which is the name of test part to run.
+    --local-metadata-source: If given it should be a directory that contains
+    the agent to use in the test. This skips downloading them."""
+    parser = ArgumentParser(description='Test the bootstrap command.')
+    parser.add_argument('part', choices=['base', 'metadata', 'to'],
+                        help='Which part of bootstrap to assess')
+    add_basic_testing_arguments(parser)
+    parser.add_argument('--local-metadata-source',
+                        action='store', default=None,
+                        help='Directory with pre-loaded metadata.')
+    parser.add_argument('--to', action='store', default=None,
+                        help='bootstrap to (when part=to only)')
     return parser.parse_args(argv)
 
 
-def main():
-    args = parse_args()
-    configure_logging(logging.INFO)
-    try:
-        assess_bootstrap(**args.__dict__)
-    except LoggedException:
-        sys.exit(1)
+def main(argv=None):
+    args = parse_args(argv)
+    configure_logging(args.verbose)
+    assess_bootstrap(args)
+    return 0
 
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())

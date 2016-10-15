@@ -22,6 +22,7 @@ class TestGetParser(unittest.TestCase):
         parser = pipdeps.get_parser("pipdeps.py")
         args = parser.parse_args(["-v", "install"])
         self.assertEqual("install", args.command)
+        self.assertEqual(pipdeps.get_requirements(), args.requirements)
         self.assertEqual(True, args.verbose)
 
     def test_update_cloud_city(self):
@@ -70,12 +71,49 @@ class TestRunPipInstall(unittest.TestCase):
 
     def test_added_args(self):
         with mock.patch("subprocess.check_call", autospec=True) as cc_mock:
-            pipdeps.run_pip_install(["--user"])
+            pipdeps.run_pip_install(["--user"], self.req_path)
         cc_mock.assert_called_once_with([
             "pip", "-q", "install", "-r", self.req_path, "--user"])
 
     def test_verbose(self):
         with mock.patch("subprocess.check_call", autospec=True) as cc_mock:
-            pipdeps.run_pip_install(["--download", "/tmp/pip"], verbose=True)
+            pipdeps.run_pip_install(
+                ["--download", "/tmp/pip"], self.req_path, verbose=True)
         cc_mock.assert_called_once_with([
             "pip", "install", "-r", self.req_path, "--download", "/tmp/pip"])
+
+
+class TestRunPipUninstall(unittest.TestCase):
+
+    def test_run_pip_uninstall(self):
+        with utility.temp_dir() as base:
+            obsolete = os.path.join(base, 'obsolete.txt')
+            with open(obsolete, 'w') as o_file:
+                o_file.write('foo (9.7.6)\nazure (0.8.0)')
+            list_output = 'azure (0.8.0)\nbar (1.2.3)'
+            with mock.patch("subprocess.check_output", autospec=True,
+                            return_value=list_output) as co_mock:
+                with mock.patch("subprocess.check_call",
+                                autospec=True) as cc_mock:
+                    pipdeps.run_pip_uninstall(obsolete)
+        co_mock.assert_called_once_with(['pip', 'list'])
+        cc_mock.assert_called_once_with(
+            ['pip', 'uninstall', '-y', 'azure'])
+
+
+class TestGetRequirements(unittest.TestCase):
+
+    def test_get_requirements(self):
+        dists = [
+            ('Ubuntu', '16.04', 'xenial'),
+            ('debian', 'squeeze/sid', ''),
+            ('centos', '7.2.1511', 'Core'),
+            ('', '', ''),  # Windows and MacOS
+            ]
+        with mock.patch('platform.dist', autospec=True,
+                        side_effect=dists):
+            self.assertEqual(pipdeps.REQUIREMENTS, pipdeps.get_requirements())
+            self.assertEqual(pipdeps.REQUIREMENTS, pipdeps.get_requirements())
+            self.assertEqual(pipdeps.MAC_WIN_REQS, pipdeps.get_requirements())
+
+            self.assertEqual(pipdeps.MAC_WIN_REQS, pipdeps.get_requirements())

@@ -50,11 +50,11 @@ class TestStartJob(TestCase):
         with temp_dir() as root:
             write_config(root, 'foo', 'token_str')
             start_job(root, 'foo', '/some/path', 'me', 'pw', 1)
-        j_mock.assert_called_once_with('http://localhost:8080', 'me', 'pw')
+        j_mock.assert_called_once_with(
+            'http://juju-ci.vapour.ws:8080', 'me', 'pw')
         calls = j_mock.return_value.build_job.mock_calls
-        expected = [call('foo', {'juju_bin': '/some/path',
-                         'sequence_number': 1},
-                    token='token_str')]
+        expected = [
+            call('foo', {'juju_bin': '/some/path', 'sequence_number': 1})]
         self.assertEqual(calls, expected)
 
 

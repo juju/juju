@@ -1,11 +1,24 @@
 """Helpers to create and manage local juju charms."""
 
+from contextlib import contextmanager
+import logging
 import os
+import pexpect
+import re
+import subprocess
 
 import yaml
 
+from utility import (
+    ensure_deleted,
+    JujuAssertionError,
+    )
+
 
 __metaclass__ = type
+
+
+log = logging.getLogger("jujucharm")
 
 
 class Charm:
@@ -15,8 +28,14 @@ class Charm:
     DEFAULT_SERIES = ("xenial", "trusty")
     DEFAULT_DESCRIPTION = "description"
 
-    def __init__(self, name, summary,
-                 maintainer=None, series=None, description=None, storage=None):
+    NAME_REGEX = re.compile('^[a-z][a-z0-9]*(-[a-z0-9]*[a-z][a-z0-9]*)*$')
+
+    def __init__(self, name, summary, maintainer=None, series=None,
+                 description=None, storage=None, ensure_valid_name=True):
+        if ensure_valid_name and Charm.NAME_REGEX.match(name) is None:
+            raise JujuAssertionError(
+                'Invalid Juju Charm Name, "{}" does not match "{}".'.format(
+                    name, Charm.NAME_REGEX.pattern))
         self.metadata = {
             "name": name,
             "summary": summary,
@@ -82,3 +101,78 @@ def local_charm_path(charm, juju_ver, series=None, repository=None,
                 os.environ['JUJU_REPOSITORY'], charm_dir[platform])
             abs_path = os.path.join(repository, charm)
         return abs_path
+
+
+class CharmCommand:
+    default_api_url = 'https://api.jujucharms.com/charmstore'
+
+    def __init__(self, charm_bin, api_url=None):
+        """Simple charm command wrapper."""
+        self.charm_bin = charm_bin
+        self.api_url = sane_charm_store_api_url(api_url)
+
+    def _get_env(self):
+        return {'JUJU_CHARMSTORE': self.api_url}
+
+    @contextmanager
+    def logged_in_user(self, user_email, password):
+        """Contextmanager that logs in and ensures user logs out."""
+        try:
+            self.login(user_email, password)
+            yield
+        finally:
+            try:
+                self.logout()
+            except Exception as e:
+                log.error('Failed to logout: {}'.format(str(e)))
+                default_juju_data = os.path.join(
+                    os.environ['HOME'], '.local', 'share', 'juju')
+                juju_data = os.environ.get('JUJU_DATA', default_juju_data)
+                token_file = os.path.join(juju_data, 'store-usso-token')
+                cookie_file = os.path.join(os.environ['HOME'], '.go-cookies')
+                log.debug('Removing {} and {}'.format(token_file, cookie_file))
+                ensure_deleted(token_file)
+                ensure_deleted(cookie_file)
+
+    def login(self, user_email, password):
+        log.debug('Logging {} in.'.format(user_email))
+        try:
+            command = pexpect.spawn(
+                self.charm_bin, ['login'], env=self._get_env())
+            command.expect('(?i)Login to Ubuntu SSO')
+            command.expect('(?i)Press return to select.*\.')
+            command.expect('(?i)E-Mail:')
+            command.sendline(user_email)
+            command.expect('(?i)Password')
+            command.sendline(password)
+            command.expect('(?i)Two-factor auth')
+            command.sendline()
+            command.expect(pexpect.EOF)
+            if command.isalive():
+                raise AssertionError(
+                    'Failed to log user in to {}'.format(
+                        self.api_url))
+        except (pexpect.TIMEOUT, pexpect.EOF) as e:
+            raise AssertionError(
+                'Failed to log user in: {}'.format(e))
+
+    def logout(self):
+        log.debug('Logging out.')
+        self.run('logout')
+
+    def run(self, sub_command, *arguments):
+        try:
+            output = subprocess.check_output(
+                [self.charm_bin, sub_command] + list(arguments),
+                env=self._get_env(),
+                stderr=subprocess.STDOUT)
+            return output
+        except subprocess.CalledProcessError as e:
+            log.error(e.output)
+            raise
+
+
+def sane_charm_store_api_url(url):
+    if url is None:
+        return CharmCommand.default_api_url
+    return '{}/charmstore'.format(re.sub('//(www\.)?', '//api.', url))
