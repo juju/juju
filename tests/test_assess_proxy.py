@@ -1,14 +1,14 @@
 """Tests for assess_proxy module."""
 
 import logging
-from mock import Mock, patch
+from mock import (
+    call,
+    Mock,
+    patch,
+)
 import StringIO
 
-from assess_proxy import (
-    assess_proxy,
-    parse_args,
-    main,
-)
+import assess_proxy
 from tests import (
     parse_error,
     TestCase,
@@ -21,8 +21,8 @@ class TestParseArgs(TestCase):
 
     def test_common_args(self):
         with temp_dir() as log_dir:
-            args = parse_args(["an-env", "/bin/juju", log_dir, "an-env-mod",
-                               'both-proxied'])
+            args = assess_proxy.parse_args(
+                ["an-env", "/bin/juju", log_dir, "an-env-mod", 'both-proxied'])
         self.assertEqual("an-env", args.env)
         self.assertEqual("/bin/juju", args.juju_bin)
         self.assertEqual(log_dir, args.logs)
@@ -34,7 +34,7 @@ class TestParseArgs(TestCase):
         fake_stdout = StringIO.StringIO()
         with parse_error(self) as fake_stderr:
             with patch("sys.stdout", fake_stdout):
-                parse_args(["--help"])
+                assess_proxy.parse_args(["--help"])
         self.assertEqual("", fake_stderr.getvalue())
         self.assertNotIn("TODO", fake_stdout.getvalue())
 
@@ -58,7 +58,7 @@ class TestMain(TestCase):
                                        autospec=True) as mock_set:
                                 with patch("assess_proxy.reset_firewall",
                                            autospec=True) as mock_reset:
-                                    main(argv)
+                                    assess_proxy.main(argv)
         mock_cl.assert_called_once_with(logging.DEBUG)
         mock_c.assert_called_once_with(
             'an-env', "/bin/juju", debug=False, soft_deadline=None)
@@ -77,10 +77,26 @@ class TestAssess(TestCase):
         # can also be used separately.
         fake_client = Mock(wraps=fake_juju_client())
         fake_client.bootstrap()
-        assess_proxy(fake_client, 'both-proxied')
+        assess_proxy.assess_proxy(fake_client, 'both-proxied')
         fake_client.deploy.assert_called_once_with('cs:xenial/ubuntu')
         fake_client.wait_for_started.assert_called_once_with()
         fake_client.wait_for_workloads.assert_called_once_with()
         self.assertEqual(
             1, fake_client.get_status().get_service_unit_count('ubuntu'))
         self.assertNotIn("TODO", self.log_stream.getvalue())
+
+    def test_reset_firewall(self):
+        # Verify the ufw wa called to reset and disable even if one of the
+        # commands exited with an error.
+        with patch('subprocess.call', autospec=True,
+                   side_effect=[1, 0]) as mock_sc:
+            assess_proxy.reset_firewall()
+        self.assertEqual([
+            call(('sudo', 'ufw', '--force', 'reset')),
+            call(('sudo', 'ufw', '--force', 'disable'))],
+            mock_sc.mock_calls)
+        expected_log = (
+            "ERROR ('sudo', 'ufw', '--force', 'reset') exited with 1\n"
+            "ERROR This host may be in a dirty state.\n"
+            "INFO ('sudo', 'ufw', '--force', 'disable') exited successfully\n")
+        self.assertEqual(expected_log, self.log_stream.getvalue())

@@ -5,6 +5,7 @@ from __future__ import print_function
 
 import argparse
 import logging
+import subprocess
 import sys
 
 from deploy_stack import (
@@ -22,14 +23,31 @@ __metaclass__ = type
 log = logging.getLogger("assess_proxy")
 
 
+UFW_RESET_COMMANDS = [
+    ('sudo', 'ufw', '--force', 'reset'),
+    ('sudo', 'ufw', '--force', 'disable'),
+]
+
+
 def set_firewall(scenario):
     """Setup the firewall to match the scenario."""
     pass
 
 
 def reset_firewall():
-    """Reset the firewall and disable it."""
-    pass
+    """Reset the firewall and disable it.
+
+    The firewall's rules are reset, then it is disabled. The ufw reset command
+    implicitly disables, but disable is explicitly called to ensure ufw
+    is not running.
+    """
+    for command in UFW_RESET_COMMANDS:
+        exitcode = subprocess.call(command)
+        if exitcode == 0:
+            log.info('{} exited successfully'.format(command))
+        else:
+            log.error('{} exited with {}'.format(command, exitcode))
+            log.error('This host may be in a dirty state.')
 
 
 def assess_proxy(client, scenario):
