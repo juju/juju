@@ -5,20 +5,23 @@ from argparse import ArgumentParser
 from datetime import datetime
 import re
 
+import yaml
+
 from deploy_stack import (
     boot_context,
     tear_down,
     update_env,
-)
+    )
+from jujucharm import (
+    local_charm_path,
+    )
 from jujupy import (
+    client_from_config,
     jes_home_path,
-    make_client,
-    yaml_loads,
-)
+    )
 from utility import (
     add_basic_testing_arguments,
-    local_charm_path,
-)
+    )
 
 
 __metaclass__ = type
@@ -86,7 +89,7 @@ def test_rotation(client, logfile, prefix, fill_action, size_action, *args):
     # we run do_fetch here so that we wait for fill-logs to finish.
     client.action_do_fetch("fill-logs/0", fill_action, FILL_TIMEOUT, *args)
     out = client.action_do_fetch("fill-logs/0", size_action)
-    action_output = yaml_loads(out)
+    action_output = yaml.safe_load(out)
 
     # Now we should have one primary log file, and one backup log file.
     # The backup should be approximately 300 megs.
@@ -102,7 +105,7 @@ def test_rotation(client, logfile, prefix, fill_action, size_action, *args):
 
     client.action_do_fetch("fill-logs/0", fill_action, FILL_TIMEOUT, *args)
     out = client.action_do_fetch("fill-logs/0", size_action)
-    action_output = yaml_loads(out)
+    action_output = yaml.safe_load(out)
 
     # we should have two backups.
     check_log0(logfile, action_output)
@@ -115,7 +118,7 @@ def test_rotation(client, logfile, prefix, fill_action, size_action, *args):
 
     client.action_do_fetch("fill-logs/0", fill_action, FILL_TIMEOUT, *args)
     out = client.action_do_fetch("fill-logs/0", size_action)
-    action_output = yaml_loads(out)
+    action_output = yaml.safe_load(out)
 
     check_log0(logfile, action_output)
     check_expected_backup("log1", prefix, action_output)
@@ -193,7 +196,7 @@ def check_log0(expected, action_output):
 def parse_args(argv=None):
     """Parse all arguments."""
     parser = add_basic_testing_arguments(
-        ArgumentParser(description='Test log rotation.'))
+        ArgumentParser(description='Test log rotation.'), deadline=False)
     parser.add_argument(
         'agent',
         help='Which agent log rotation to test.',
@@ -202,8 +205,9 @@ def parse_args(argv=None):
 
 
 def make_client_from_args(args):
-    client = make_client(
-        args.juju_bin, args.debug, args.env, args.temp_env_name)
+    client = client_from_config(args.env, args.juju_bin, args.debug)
+    if args.temp_env_name is not None:
+        client.env.set_model_name(args.temp_env_name)
     update_env(
         client.env, args.temp_env_name, series=args.series,
         bootstrap_host=args.bootstrap_host, agent_url=args.agent_url,

@@ -12,7 +12,6 @@ export JOB_NAME
 FIXUP_SOURCES=""
 IS_LOCAL="false"
 RETRY="false"
-ROBUST="false"
 REVISION_BUILD="none"
 USE_PPA=""
 INSTALL_DEPS=""
@@ -29,12 +28,8 @@ while [[ "${1-}" != "" ]]; do
         --retry)
             RETRY="true"
             ;;
-        --robust)
-            ROBUST="true"
-            GOTESTCMD="$GOTESTCMD -p 2 -test.timeout=1200s"
-            ;;
         --safe)
-            GOTESTCMD="$GOTESTCMD -p 2 -test.timeout=1200s"
+            GOTESTCMD="$GOTESTCMD -p 2 -test.timeout=2400s"
             ;;
         --local)
             IS_LOCAL="true"
@@ -61,7 +56,7 @@ while [[ "${1-}" != "" ]]; do
             USE_TMPFS="true"
             ;;
         --race)
-            GOTESTCMD="$GOTESTCMD -race -test.timeout=1800s"
+            GOTESTCMD="$GOTESTCMD -race -test.timeout=2400s"
             ;;
     esac
     shift
@@ -153,8 +148,12 @@ if [[ "$USE_TMPFS" == "true" ]]; then
     sudo mount -t tmpfs -o size=3G /mnt/tmp /mnt/tmp
     export TMPDIR=/mnt/tmp
 fi
-tar -xzf $tarfile_basename
 export GOPATH=\$HOME/$juju_version
+if [[ -d \$GOPATH ]]; then
+    echo "Cleaning up files unpacked into the GOPATH by a previous test."
+    rm -r \$GOPATH
+fi
+tar -xzf $tarfile_basename
 if [[ -d \$HOME/goroot ]]; then
     export GOROOT=\$HOME/goroot
 fi
@@ -206,11 +205,14 @@ if [[ $INSTANCE_TYPE == "host" ]]; then
     echo "Cleaning up /tmp if it is dirty."
     sudo killall -SIGABRT /usr/bin/mongod || true
     sudo killall -SIGABRT /usr/lib/juju/bin/mongod || true
-    sudo rm -rf /tmp/adduser-* || true
-    sudo rm -rf /tmp/go-* || true
-    sudo rm -rf /tmp/gocheck-* || true
-    sudo rm -rf /tmp/juju-* || true
-    sudo rm -rf /tmp/test-* || true
+    rm -rf /tmp/adduser-* || true
+    rm -rf /tmp/check* || true
+    rm -rf /tmp/go-* || true
+    rm -rf /tmp/gocheck* || true
+    rm -rf /tmp/gui* || true
+    rm -rf /tmp/juju-* || true
+    rm -rf /tmp/pprof* || true
+    rm -rf /tmp/test-* || true
 fi
 
 make setup-lxd || true
@@ -218,16 +220,6 @@ make setup-lxd || true
 go test -i ./...
 if [[ "$RETRY" == "true" ]]; then
     $GOTESTCMD ./... || $GOTESTCMD ./...
-elif [[ "$ROBUST" == "true" ]]; then
-    JUJUD_PACKAGES=\$(go list github.com/juju/juju/... |
-        grep 'juju/juju/cmd/jujud')
-    OTHER_PACKAGES=\$(go list github.com/juju/juju/... |
-        grep -v 'juju/juju/cmd/jujud')
-    for packages in "\$JUJUD_PACKAGES" "\$OTHER_PACKAGES"; do
-        $GOTESTCMD \$packages
-        sudo killall -SIGABRT /usr/bin/mongod || true
-        sudo killall -SIGABRT /usr/lib/juju/bin/mongod || true
-    done
 elif [[  "$GOTESTCMD" != "go test"  ]]; then
     $GOTESTCMD ./...
 else
@@ -248,15 +240,15 @@ elif [[ $INSTANCE_TYPE == "host" ]]; then
     echo "Cleaning up /tmp"
     sudo killall -SIGABRT /usr/bin/mongod || true
     sudo killall -SIGABRT /usr/lib/juju/bin/mongod || true
-    rm -rf /home/ubuntu/$juju_version
+    rm -rf /home/ubuntu/$juju_version || true
     rm -rf /tmp/adduser-* || true
+    rm -rf /tmp/check* || true
     rm -rf /tmp/go-* || true
-    rm -rf /tmp/gocheck-* || true
-    rm -rf /tmp/gui-* || true
-    rm -rf /tmp/pprof-* || true
+    rm -rf /tmp/gocheck* || true
+    rm -rf /tmp/gui* || true
     rm -rf /tmp/juju-* || true
+    rm -rf /tmp/pprof* || true
     rm -rf /tmp/test-* || true
-    rm -rf /tmp/gui-* || true
 EOT
 else
     set +e

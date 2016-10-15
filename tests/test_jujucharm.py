@@ -6,15 +6,18 @@ import yaml
 
 from jujucharm import (
     Charm,
+    CharmCommand,
     local_charm_path,
-)
+    sane_charm_store_api_url,
+    )
 from tests import (
     temp_os_env,
     TestCase,
-)
+    )
 from utility import (
+    JujuAssertionError,
     temp_dir,
-)
+    )
 
 
 class TestCharm(TestCase):
@@ -108,6 +111,21 @@ class TestCharm(TestCase):
             with open(upgradedfile) as f:
                 self.assertEqual(f.read(), upgrade_charm)
 
+    def test_ensure_valid_name(self):
+        Charm('good-name', 'A charm with a valid name')
+        charm = Charm('BAD_NAME', 'A charm with a bad name',
+                      ensure_valid_name=False)
+        self.assertIsNone(Charm.NAME_REGEX.match(charm.metadata['name']))
+        self.assertRaisesRegexp(
+            JujuAssertionError,
+            'Invalid Juju Charm Name, "BAD_NAME" does not match ".*"\.',
+            Charm, 'BAD_NAME', 'A charm with a checked bad name')
+
+    def test_ensure_valid_name_anchoring(self):
+        for name in ['~bad-name', 'bad-name-!']:
+            self.assertRaises(JujuAssertionError, Charm, name,
+                              'A charm with a partially correct name')
+
 
 class TestLocalCharm(TestCase):
 
@@ -143,3 +161,25 @@ class TestLocalCharm(TestCase):
         with temp_os_env('JUJU_REPOSITORY', '/home/foo/repository'):
             path = local_charm_path(charm, '2.0.0', platform='centos')
         self.assertEqual(path, '/home/foo/repository/charms-centos/mysql')
+
+
+class TestSaneCharmStoreApiUrl(TestCase):
+
+    def test_returns_default_value(self):
+        self.assertEqual(
+            sane_charm_store_api_url(None),
+            CharmCommand.default_api_url)
+
+    def test_replaces_places_api_characters(self):
+        api = 'https://example.com'
+        expected = 'https://api.example.com/charmstore'
+        self.assertEqual(
+            sane_charm_store_api_url(api),
+            expected)
+
+    def test_replaces_www_characters(self):
+        api = 'https://www.example.com'
+        expected = 'https://api.example.com/charmstore'
+        self.assertEqual(
+            sane_charm_store_api_url(api),
+            expected)

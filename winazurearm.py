@@ -185,7 +185,8 @@ class ResourceGroupDetails:
             # left behind when Juju cannot complete a delete in time.
             log.debug('{} only has a network, likely a failed delete'.format(
                       self.name))
-            return True
+            # https://bugs.launchpad.net/juju-ci-tools/+bug/1613767
+            # return True
         return False
 
     def delete(self):

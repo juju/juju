@@ -1,0 +1,7 @@
+#cloud-config
+ssh_authorized_keys:
+  - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDyEdd8eDyy2WA6Q+W4GV2NqKX+yfkkW5ogSu3/7DjlqjED7dCNkevq2qpdR1AMkbKTouihWdyc8QKl9lzuwn0zoocXJUVgIOPV+KFxSAhj1djGvryHDjYUwdrLYUMu3CUFeIsRao2cn7EgZs0w1Y1quqr9c8cEg7XsAs0ZMN9YksEjG000VupOIZJNtk+5EYJm/6vNFI83IOn7ctWfjXymBuh7XM8d8vszyYDRdeDXY5Q9VLqHOP7/CFteIvcdHnSC1ObQuKzXRWz+m9thgQnRQjvirdwvDUXhjjQk9MNJZj84EukB8HyAVSN863MfuVGoCsNn7iEdtT6W2nKTWyL3 abentley@speedy
+password: passw0rd
+chpasswd: 
+  expire: False
+ssh_pwauth: True

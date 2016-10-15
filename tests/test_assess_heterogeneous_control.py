@@ -5,7 +5,7 @@ from unittest import TestCase
 from mock import (
     MagicMock,
     patch,
-    )
+)
 
 from assess_heterogeneous_control import (
     assess_heterogeneous,
@@ -13,15 +13,15 @@ from assess_heterogeneous_control import (
     get_clients,
     parse_args,
     test_control_heterogeneous,
-    )
-from jujupy import (
-    _temp_env,
-    )
-from tests.test_deploy_stack import FakeBootstrapManager
-from tests.test_jujupy import (
+)
+from fakejuju import (
     fake_juju_client,
     fake_juju_client_optional_jes,
-    )
+)
+from jujupy import (
+    _temp_env,
+)
+from tests.test_deploy_stack import FakeBootstrapManager
 
 __metaclass__ = type
 
@@ -85,6 +85,20 @@ class TestGetClients(TestCase):
             ('foo', '--version'): '1.18.73',
             ('bar', '--version'): '1.18.74',
             ('juju', '--version'): '2.0',
+            ('which', 'juju'): '/usr/bun/juju'
+            }
+        with _temp_env({'environments': {'baz': {}}}):
+            with patch('subprocess.check_output', lambda x: boo[x]):
+                with patch('jujupy.JujuData.load_yaml'):
+                    initial, other, teardown = get_clients('foo', 'bar', 'baz',
+                                                           True, 'quxx')
+        self.assertIs(initial, teardown)
+
+    def test_old_released(self):
+        boo = {
+            ('foo', '--version'): '2.1',
+            ('bar', '--version'): '2.0',
+            ('juju', '--version'): '1.18',
             ('which', 'juju'): '/usr/bun/juju'
             }
         with _temp_env({'environments': {'baz': {}}}):

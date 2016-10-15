@@ -280,7 +280,8 @@ class WinAzureARMTestCase(TestCase):
         self.assertEqual(1, client.resource.resource_groups.delete.call_count)
         self.assertIs(True, poller.is_done)
 
-    def test_delete_resources_only_network(self, is_mock):
+    # https://bugs.launchpad.net/juju-ci-tools/+bug/1613767
+    def xxx_test_delete_resources_only_network(self, is_mock):
         now = datetime.now(tz=pytz.utc)
         client = ARMClient('subscription_id', 'client_id', 'secret', 'tenant')
         client.init_services()

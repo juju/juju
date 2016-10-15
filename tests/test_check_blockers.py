@@ -16,13 +16,15 @@ SERIES_LIST = {
     ]}
 
 
-def make_fake_lp(series=False, bugs=False):
+def make_fake_lp(series=False, bugs=False, project_name='juju', tags=[]):
     """Return a fake Lp lib object based on Mocks"""
     if bugs:
         task_1 = Mock(
             self_link='https://lp/j/98765', title='one', status='Triaged')
+        task_1.bug.tags = tags
         task_2 = Mock(
             self_link='https://lp/j/54321', title='two', status='Triaged')
+        task_2.bug.tags = tags
         bugs = [task_1, task_2]
     else:
         bugs = []
@@ -37,7 +39,7 @@ def make_fake_lp(series=False, bugs=False):
         project.searchTasks.return_value = bugs
         lp._target = project
     project.getSeries.return_value = series
-    lp.projects['juju-core'] = project
+    lp.projects[project_name] = project
     return lp
 
 
@@ -121,10 +123,10 @@ class CheckBlockers(TestCase):
         self.assertEqual(0, code)
 
     def test_get_lp_bugs_with_master_branch(self):
-        lp = make_fake_lp(series=False, bugs=True)
+        lp = make_fake_lp(series=False, bugs=True, tags=['blocker'])
         bugs = check_blockers.get_lp_bugs(lp, 'master', ['blocker'])
         self.assertEqual(['54321', '98765'], sorted(bugs.keys()))
-        project = lp.projects['juju-core']
+        project = lp.projects['juju']
         self.assertEqual(0, project.getSeries.call_count)
         project.searchTasks.assert_called_with(
             status=check_blockers.BUG_STATUSES,
@@ -132,7 +134,8 @@ class CheckBlockers(TestCase):
             tags=check_blockers.BUG_TAGS, tags_combinator='All')
 
     def test_get_lp_bugs_with_supported_branch(self):
-        lp = make_fake_lp(series=True, bugs=True)
+        lp = make_fake_lp(series=True, bugs=True,
+                          project_name='juju-core', tags=['blocker'])
         bugs = check_blockers.get_lp_bugs(lp, '1.20', ['blocker'])
         self.assertEqual(['54321', '98765'], sorted(bugs.keys()))
         project = lp.projects['juju-core']
@@ -147,7 +150,7 @@ class CheckBlockers(TestCase):
         lp = make_fake_lp(series=False, bugs=False)
         bugs = check_blockers.get_lp_bugs(lp, 'foo', ['blocker'])
         self.assertEqual({}, bugs)
-        project = lp.projects['juju-core']
+        project = lp.projects['juju']
         project.getSeries.assert_called_with(name='foo')
         self.assertEqual(0, project.searchTasks.call_count)
 
@@ -155,7 +158,7 @@ class CheckBlockers(TestCase):
         lp = make_fake_lp(series=False, bugs=False)
         bugs = check_blockers.get_lp_bugs(lp, 'master', ['blocker'])
         self.assertEqual({}, bugs)
-        project = lp.projects['juju-core']
+        project = lp.projects['juju']
         project.searchTasks.assert_called_with(
             status=check_blockers.BUG_STATUSES,
             importance=check_blockers.BUG_IMPORTANCES,
@@ -251,7 +254,7 @@ class CheckBlockers(TestCase):
             self.assertEqual(json, {"result": []})
 
     def test_update_bugs(self):
-        lp = make_fake_lp(series=False, bugs=True)
+        lp = make_fake_lp(series=False, bugs=True, tags=['blocker'])
         bugs = check_blockers.get_lp_bugs(lp, 'master', ['blocker'])
         code, changes = check_blockers.update_bugs(
             bugs, 'master', '1234', dry_run=False)
@@ -265,6 +268,18 @@ class CheckBlockers(TestCase):
             '    http://reports.vapour.ws/releases/1234' % expected_subject)
         bugs['54321'].bug.newMessage.assert_called_with(
             subject=expected_subject, content=expected_content)
+
+    def test_update_bugs_skipped(self):
+        lp = make_fake_lp(
+            series=False, bugs=True, tags=['blocker', 'intermittent-failure'])
+        bugs = check_blockers.get_lp_bugs(lp, 'master', ['blocker'])
+        code, changes = check_blockers.update_bugs(
+            bugs, 'master', '1234', dry_run=False)
+        self.assertEqual(0, code)
+        self.assertIn('Skipping intermittent-failure', changes)
+        self.assertEqual('Triaged', bugs['54321'].status)
+        self.assertEqual(0, bugs['54321'].lp_save.call_count)
+        self.assertEqual(0, bugs['54321'].bug.newMessage.call_count)
 
     def test_update_bugs_with_dry_run(self):
         lp = make_fake_lp(series=False, bugs=True)

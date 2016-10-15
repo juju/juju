@@ -7,6 +7,11 @@ from contextlib import (
     contextmanager,
     nested,
 )
+from datetime import (
+    datetime,
+)
+
+import errno
 import glob
 import logging
 import os
@@ -20,6 +25,10 @@ import json
 import shutil
 
 from chaos import background_chaos
+from fakejuju import (
+    FakeBackend,
+    fake_juju_client,
+)
 from jujucharm import (
     local_charm_path,
 )
@@ -29,7 +38,7 @@ from jujuconfig import (
     translate_to_env,
 )
 from jujupy import (
-    EnvJujuClient,
+    client_from_config,
     get_local_root,
     get_machine_dns_name,
     jes_home_path,
@@ -99,9 +108,9 @@ def deploy_dummy_stack(client, charm_series):
         # finished; two machines initializing concurrently may
         # need even 40 minutes. In addition Windows image blobs or
         # any system deployment using MAAS requires extra time.
-        client.wait_for_started(3600)
+        client.wait_for_started(7200)
     else:
-        client.wait_for_started()
+        client.wait_for_started(3600)
 
 
 def assess_juju_relations(client):
@@ -124,10 +133,24 @@ GET_TOKEN_SCRIPT = """
     """
 
 
+def get_token_from_status(client):
+    """Return the token from the application status message or None."""
+    status = client.get_status()
+    unit = status.get_unit('dummy-sink/0')
+    app_status = unit.get('workload-status')
+    if app_status is not None:
+        message = app_status.get('message', '')
+        parts = message.split()
+        if parts:
+            return parts[-1]
+    return None
+
+
 def check_token(client, token, timeout=120):
+    """Check the token found on dummy-sink/0 or raise ValueError."""
+    logging.info('Waiting for applications to reach ready.')
+    client.wait_for_workloads()
     # Wait up to 120 seconds for token to be created.
-    # Utopic is slower, maybe because the devel series gets more
-    # package updates.
     logging.info('Retrieving token.')
     remote = remote_from_unit(client, "dummy-sink/0")
     # Update remote with real address if needed.
@@ -135,10 +158,14 @@ def check_token(client, token, timeout=120):
     start = time.time()
     while True:
         if remote.is_windows():
-            try:
-                result = remote.cat("%ProgramData%\\dummy-sink\\token")
-            except winrm.exceptions.WinRMTransportError as e:
-                print("Skipping token check because of: {}".format(str(e)))
+            result = get_token_from_status(client)
+            if not result:
+                try:
+                    result = remote.cat("%ProgramData%\\dummy-sink\\token")
+                except winrm.exceptions.WinRMTransportError as e:
+                    logging.warning(
+                        "Skipping token check because of: {}".format(str(e)))
+                    return
         else:
             result = remote.run(GET_TOKEN_SCRIPT)
         token_pattern = re.compile(r'([^\n\r]*)\r?\n?')
@@ -269,9 +296,14 @@ def archive_logs(log_dir):
     """Compress log files in given log_dir using gzip."""
     log_files = []
     for r, ds, fs in os.walk(log_dir):
-        log_files.extend(os.path.join(r, f) for f in fs if f.endswith(".log"))
+        log_files.extend(os.path.join(r, f) for f in fs if is_log(f))
     if log_files:
         subprocess.check_call(['gzip', '--best', '-f'] + log_files)
+
+
+def is_log(file_name):
+    """Check to see if the given file name is the name of a log file."""
+    return file_name.endswith('.log') or file_name.endswith('syslog')
 
 
 lxc_template_glob = '/var/lib/juju/containers/juju-*-lxc-template/*.log'
@@ -358,20 +390,40 @@ def assess_juju_run(client):
 
 
 def assess_upgrade(old_client, juju_path):
-    client = EnvJujuClient.by_version(old_client.env, juju_path,
-                                      old_client.debug)
-    upgrade_juju(client)
-    if client.env.config['type'] == 'maas':
+    all_clients = _get_clients_to_upgrade(old_client, juju_path)
+
+    # all clients have the same provider type, work this out once.
+    if all_clients[0].env.config['type'] == 'maas':
         timeout = 1200
     else:
         timeout = 600
-    client.wait_for_version(client.get_matching_agent_version(), timeout)
+
+    for client in all_clients:
+        upgrade_juju(client)
+        client.wait_for_version(client.get_matching_agent_version(), timeout)
+
+
+def _get_clients_to_upgrade(old_client, juju_path):
+    """Return a list of cloned clients to upgrade.
+
+    Ensure that the controller (if available) is the first client in the list.
+    """
+    new_client = old_client.clone_path_cls(juju_path)
+    all_clients = sorted(
+        new_client.iter_model_clients(),
+        key=lambda m: m.model_name == 'controller',
+        reverse=True)
+
+    return all_clients
 
 
 def upgrade_juju(client):
-    client.set_testing_tools_metadata_url()
-    tools_metadata_url = client.get_env_option('tools-metadata-url')
-    logging.info('The tools-metadata-url is %s', tools_metadata_url)
+    client.set_testing_agent_metadata_url()
+    tools_metadata_url = client.get_agent_metadata_url()
+    logging.info(
+        'The {url_type} is {url}'.format(
+            url_type=client.agent_metadata_url,
+            url=tools_metadata_url))
     client.upgrade_juju()
 
 
@@ -484,14 +536,38 @@ class BootstrapManager:
             self.known_hosts['0'] = bootstrap_host
 
     @classmethod
+    def _generate_default_clean_dir(cls, temp_env_name):
+        """Creates a new unique directory for logging and returns name"""
+        logging.info('Environment {}'.format(temp_env_name))
+        test_name = temp_env_name.split('-')[0]
+        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+        log_dir = os.path.join('/tmp', test_name, 'logs', timestamp)
+
+        try:
+            os.makedirs(log_dir)
+            logging.info('Created logging directory {}'.format(log_dir))
+        except OSError as e:
+            if e.errno == errno.EEXIST:
+                logging.warn('"Directory {} already exists'.format(log_dir))
+            else:
+                raise('Failed to create logging directory: {} ' +
+                      log_dir +
+                      '. Please specify empty folder or try again')
+        return log_dir
+
+    @classmethod
     def from_args(cls, args):
-        env = SimpleEnvironment.from_config(args.env)
+        if not args.logs:
+            args.logs = cls._generate_default_clean_dir(args.temp_env_name)
+
+        # GZ 2016-08-11: Move this logic into client_from_config maybe?
         if args.juju_bin == 'FAKE':
-            from tests.test_jujupy import fake_juju_client  # Circular imports
+            env = SimpleEnvironment.from_config(args.env)
             client = fake_juju_client(env=env)
         else:
-            client = EnvJujuClient.by_version(env, args.juju_bin,
-                                              debug=args.debug)
+            client = client_from_config(args.env, args.juju_bin,
+                                        debug=args.debug,
+                                        soft_deadline=args.deadline)
         jes_enabled = client.is_jes_enabled()
         return cls(
             args.temp_env_name, client, client, args.bootstrap_host,
@@ -524,12 +600,6 @@ class BootstrapManager:
             else:
                 yield self.machines
         finally:
-            # Although this isn't MAAS-related, it was in this context in
-            # boot_context.
-            logging.info(
-                'Juju command timings: {}'.format(
-                    self.client.get_juju_timings()))
-            dump_juju_timings(self.client, self.log_dir)
             if self.client.env.config['type'] == 'maas' and not self.keep_env:
                 logging.info("Waiting for destroy-environment to complete")
                 time.sleep(90)
@@ -576,6 +646,16 @@ class BootstrapManager:
             raise AssertionError('Tear down client needs same env!')
         tear_down(self.tear_down_client, jes_enabled, try_jes=try_jes)
 
+    def _log_and_wrap_exception(self, exc):
+        logging.exception(exc)
+        stdout = getattr(exc, 'output', None)
+        stderr = getattr(exc, 'stderr', None)
+        if stdout or stderr:
+            logging.info(
+                'Output from exception:\nstdout:\n%s\nstderr:\n%s',
+                stdout, stderr)
+        return LoggedException(exc)
+
     @contextmanager
     def bootstrap_context(self, machines, omit_config=None):
         """Context for bootstrapping a state server."""
@@ -615,30 +695,10 @@ class BootstrapManager:
         ensure_deleted(jenv_path)
         with temp_bootstrap_env(self.client.env.juju_home, self.client,
                                 permanent=self.permanent, set_home=False):
-            try:
-                try:
-                    if not torn_down:
-                        self.tear_down(try_jes=True)
-                    yield
-                # If an exception is raised that indicates an error, log it
-                # before tearing down so that the error is closely tied to
-                # the failed operation.
-                except Exception as e:
-                    logging.exception(e)
-                    if getattr(e, 'output', None):
-                        print_now('\n')
-                        print_now(e.output)
-                    raise LoggedException(e)
-            except:
-                # If run from a windows machine may not have ssh to get
-                # logs
-                if self.bootstrap_host is not None and _can_run_ssh():
-                    remote = remote_from_address(self.bootstrap_host,
-                                                 series=self.series)
-                    copy_remote_logs(remote, self.log_dir)
-                    archive_logs(self.log_dir)
-                self.tear_down()
-                raise
+            with self.handle_bootstrap_exceptions():
+                if not torn_down:
+                    self.tear_down(try_jes=True)
+                yield
 
     @contextmanager
     def existing_bootstrap_context(self, machines, omit_config=None):
@@ -665,6 +725,17 @@ class BootstrapManager:
             logging.info('Waiting for port 22 on %s' % machine)
             wait_for_port(machine, 22, timeout=120)
 
+        with self.handle_bootstrap_exceptions():
+            yield
+
+    @contextmanager
+    def handle_bootstrap_exceptions(self):
+        """If an exception is raised during bootstrap, handle it.
+
+        Log the exception, re-raise as a LoggedException.
+        Copy logs for the bootstrap host
+        Tear down.  (self.keep_env is ignored.)
+        """
         try:
             try:
                 yield
@@ -672,20 +743,18 @@ class BootstrapManager:
             # before tearing down so that the error is closely tied to
             # the failed operation.
             except Exception as e:
-                logging.exception(e)
-                if getattr(e, 'output', None):
-                    print_now('\n')
-                    print_now(e.output)
-                raise LoggedException(e)
+                raise self._log_and_wrap_exception(e)
         except:
             # If run from a windows machine may not have ssh to get
             # logs
-            if self.bootstrap_host is not None and _can_run_ssh():
-                remote = remote_from_address(self.bootstrap_host,
-                                             series=self.series)
-                copy_remote_logs(remote, self.log_dir)
-                archive_logs(self.log_dir)
-            self.tear_down()
+            with self.client.ignore_soft_deadline():
+                with self.tear_down_client.ignore_soft_deadline():
+                    if self.bootstrap_host is not None and _can_run_ssh():
+                        remote = remote_from_address(self.bootstrap_host,
+                                                     series=self.series)
+                        copy_remote_logs(remote, self.log_dir)
+                        archive_logs(self.log_dir)
+                    self.tear_down()
             raise
 
     @contextmanager
@@ -698,8 +767,8 @@ class BootstrapManager:
         try:
             try:
                 if len(self.known_hosts) == 0:
-                    host = get_machine_dns_name(self.client.get_admin_client(),
-                                                '0')
+                    host = get_machine_dns_name(
+                        self.client.get_controller_client(), '0')
                     if host is None:
                         raise ValueError('Could not get machine 0 host')
                     self.known_hosts['0'] = host
@@ -710,28 +779,28 @@ class BootstrapManager:
             except GeneratorExit:
                 raise
             except BaseException as e:
-                logging.exception(e)
-                raise LoggedException(e)
+                raise self._log_and_wrap_exception(e)
         except:
             safe_print_status(self.client)
             raise
         else:
-            self.client.list_controllers()
-            self.client.list_models()
-            for m_client in self.client.iter_model_clients():
-                m_client.show_status()
+            with self.client.ignore_soft_deadline():
+                self.client.list_controllers()
+                self.client.list_models()
+                for m_client in self.client.iter_model_clients():
+                    m_client.show_status()
         finally:
-            try:
-                self.dump_all_logs()
-            except KeyboardInterrupt:
-                pass
-            if not self.keep_env:
-                self.tear_down(self.jes_enabled)
+            with self.client.ignore_soft_deadline():
+                with self.tear_down_client.ignore_soft_deadline():
+                    try:
+                        self.dump_all_logs()
+                    except KeyboardInterrupt:
+                        pass
+                    if not self.keep_env:
+                        self.tear_down(self.jes_enabled)
 
+    # GZ 2016-08-11: Should this method be elsewhere to avoid poking backend?
     def _should_dump(self):
-        if sys.platform == 'win32':
-            return True
-        from tests.test_jujupy import FakeBackend  # Circular imports
         return not isinstance(self.client._backend, FakeBackend)
 
     def dump_all_logs(self):
@@ -740,7 +809,7 @@ class BootstrapManager:
         # be accurate for a model created by create_environment.
         if not self._should_dump():
             return
-        admin_client = self.client.get_admin_client()
+        controller_client = self.client.get_controller_client()
         if not self.jes_enabled:
             clients = [self.client]
         else:
@@ -748,37 +817,45 @@ class BootstrapManager:
                 clients = list(self.client.iter_model_clients())
             except Exception:
                 # Even if the controller is unreachable, we may still be able
-                # to gather some logs.  admin_client and self.client are all
-                # we have knowledge of.
-                clients = [admin_client]
-                if self.client is not admin_client:
+                # to gather some logs. The controller_client and self.client
+                # instances are all we have knowledge of.
+                clients = [controller_client]
+                if self.client is not controller_client:
                     clients.append(self.client)
         for client in clients:
-            if client.env.environment == admin_client.env.environment:
-                known_hosts = self.known_hosts
-                if self.jes_enabled:
-                    runtime_config = self.client.get_cache_path()
+            with client.ignore_soft_deadline():
+                if client.env.environment == controller_client.env.environment:
+                    known_hosts = self.known_hosts
+                    if self.jes_enabled:
+                        runtime_config = self.client.get_cache_path()
+                    else:
+                        runtime_config = get_jenv_path(
+                            self.client.env.juju_home,
+                            self.client.env.environment)
                 else:
-                    runtime_config = get_jenv_path(
-                        self.client.env.juju_home,
-                        self.client.env.environment)
-            else:
-                known_hosts = {}
-                runtime_config = None
-            artifacts_dir = os.path.join(self.log_dir, client.env.environment)
-            os.mkdir(artifacts_dir)
-            dump_env_logs_known_hosts(
-                client, artifacts_dir, runtime_config, known_hosts)
+                    known_hosts = {}
+                    runtime_config = None
+                artifacts_dir = os.path.join(self.log_dir,
+                                             client.env.environment)
+                os.mkdir(artifacts_dir)
+                dump_env_logs_known_hosts(
+                    client, artifacts_dir, runtime_config, known_hosts)
 
     @contextmanager
     def top_context(self):
         """Context for running all juju operations in."""
         with self.maas_machines() as machines:
             with self.aws_machines() as new_machines:
-                yield machines + new_machines
+                try:
+                    yield machines + new_machines
+                finally:
+                    # This is not done in dump_all_logs because it should be
+                    # done after tear down.
+                    if self.log_dir is not None:
+                        dump_juju_timings(self.client, self.log_dir)
 
     @contextmanager
-    def booted_context(self, upload_tools):
+    def booted_context(self, upload_tools, **kwargs):
         """Create a temporary environment in a context manager to run tests in.
 
         Bootstrap a new environment from a temporary config that is suitable
@@ -791,13 +868,17 @@ class BootstrapManager:
 
         :param upload_tools: False or True to upload the local agent instead
             of using streams.
+        :param **kwargs: All remaining keyword arguments are passed to the
+        client's bootstrap.
         """
         try:
             with self.top_context() as machines:
                 with self.bootstrap_context(
                         machines, omit_config=self.client.bootstrap_replaces):
                     self.client.bootstrap(
-                        upload_tools, bootstrap_series=self.series)
+                        upload_tools=upload_tools,
+                        bootstrap_series=self.series,
+                        **kwargs)
                 with self.runtime_context(machines):
                     self.client.list_controllers()
                     self.client.list_models()
@@ -808,14 +889,16 @@ class BootstrapManager:
             sys.exit(1)
 
     @contextmanager
-    def existing_booted_context(self, upload_tools):
+    def existing_booted_context(self, upload_tools, **kwargs):
         try:
             with self.top_context() as machines:
                 # Existing does less things as there is no pre-cleanup needed.
                 with self.existing_bootstrap_context(
                         machines, omit_config=self.client.bootstrap_replaces):
                     self.client.bootstrap(
-                        upload_tools, bootstrap_series=self.series)
+                        upload_tools=upload_tools,
+                        bootstrap_series=self.series,
+                        **kwargs)
                 with self.runtime_context(machines):
                     yield machines
         except LoggedException:
@@ -870,8 +953,8 @@ def _deploy_job(args, charm_series, series):
         sys.path = [p for p in sys.path if 'OpenSSH' not in p]
     # GZ 2016-01-22: When upgrading, could make sure to tear down with the
     # newer client instead, this will be required for major version upgrades?
-    client = EnvJujuClient.by_version(
-        SimpleEnvironment.from_config(args.env), start_juju_path, args.debug)
+    client = client_from_config(args.env, start_juju_path, args.debug,
+                                soft_deadline=args.deadline)
     if args.jes and not client.is_jes_enabled():
         client.enable_jes()
     jes_enabled = client.is_jes_enabled()
@@ -908,15 +991,16 @@ def _deploy_job(args, charm_series, series):
 def safe_print_status(client):
     """Show the output of juju status without raising exceptions."""
     try:
-        for m_client in client.iter_model_clients():
-            m_client.show_status()
+        with client.ignore_soft_deadline():
+            for m_client in client.iter_model_clients():
+                m_client.show_status()
     except Exception as e:
         logging.exception(e)
 
 
-def wait_for_state_server_to_shutdown(host, client, instance_id):
+def wait_for_state_server_to_shutdown(host, client, instance_id, timeout=60):
     print_now("Waiting for port to close on %s" % host)
-    wait_for_port(host, 17070, closed=True)
+    wait_for_port(host, 17070, closed=True, timeout=timeout)
     print_now("Closed.")
     provider_type = client.env.config.get('type')
     if provider_type == 'openstack':

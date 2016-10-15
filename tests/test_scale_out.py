@@ -30,12 +30,10 @@ class TestScaleOut(TestCase):
     def fake_client_cxt(self):
         env = JujuData('foo', {})
         client = fake_EnvJujuClient(env)
-        bv_cxt = patch('jujupy.EnvJujuClient.by_version',
+        bv_cxt = patch('scale_out.client_from_config',
                        return_value=client)
-        fc_cxt = patch('jujupy.SimpleEnvironment.from_config',
-                       return_value=env)
-        with bv_cxt, fc_cxt:
-            yield (client, env)
+        with bv_cxt as bv_mock:
+            yield (client, env, bv_mock)
 
     def test_parse_args(self):
         args = parse_args(
@@ -55,12 +53,13 @@ class TestScaleOut(TestCase):
             series=None,
             temp_env_name='temp_name',
             upload_tools=False,
-            verbose=logging.INFO
+            verbose=logging.INFO,
+            deadline=None,
         )
         self.assertEqual(args, expected)
 
     @patch('scale_out.boot_context', autospec=True)
-    @patch('scale_out.EnvJujuClient.add_ssh_machines', autospec=True)
+    @patch('jujupy.EnvJujuClient.add_ssh_machines', autospec=True)
     def test_scaleout_setup(
             self,
             add_ssh_machines_func,
@@ -81,14 +80,12 @@ class TestScaleOut(TestCase):
             series=None,
             temp_env_name='temp_name',
             upload_tools=False,
-            verbose=logging.INFO
+            verbose=logging.INFO,
+            deadline=None,
         )
 
-        with self.fake_client_cxt() as (fake_client, fake_env):
+        with self.fake_client_cxt() as (fake_client, fake_env, bv_mock):
             with scaleout_setup(args) as client:
-                # Get a reference to the by_version function that was patched
-                # in fake_client_cxt()
-                bv_mock = EnvJujuClient.by_version
                 pass
         boot_context_func.assert_called_once_with(
             args.temp_env_name,
@@ -102,7 +99,8 @@ class TestScaleOut(TestCase):
             args.keep_env,
             args.upload_tools,
             region=args.region)
-        bv_mock.assert_called_once_with(fake_env, '/path/juju', False)
+        bv_mock.assert_called_once_with('test_env', '/path/juju', False,
+                                        soft_deadline=None)
         add_ssh_machines_func.assert_called_once_with(client, ['0'])
         self.assertIs(client, fake_client)
 
@@ -123,12 +121,13 @@ class TestScaleOut(TestCase):
             series='my_series',
             temp_env_name='temp_name',
             upload_tools=False,
-            verbose=logging.INFO
+            verbose=logging.INFO,
+            deadline=None,
         )
 
         with self.fake_client_cxt():
             with patch('scale_out.boot_context', autospec=True) as bc_mock:
-                with patch('scale_out.EnvJujuClient.add_ssh_machines',
+                with patch('jujupy.EnvJujuClient.add_ssh_machines',
                            autospec=True):
                     with scaleout_setup(args) as client:
                         pass
@@ -146,7 +145,7 @@ class TestScaleOut(TestCase):
             region=args.region)
 
     def test_deploy_charms(self):
-        with self.fake_client_cxt() as (client, env):
+        with self.fake_client_cxt() as (client, env, bv_mock):
             with patch.object(EnvJujuClient, 'deploy') as d_mock:
                 with patch.object(EnvJujuClient,
                                   'wait_for_started') as wfs_mock:
@@ -157,7 +156,7 @@ class TestScaleOut(TestCase):
         wfs_mock.assert_called_once_with()
 
     def test_deploy_charms_local(self):
-        with self.fake_client_cxt() as (client, env):
+        with self.fake_client_cxt() as (client, env, bv_mock):
             with patch.object(EnvJujuClient, 'deploy') as d_mock:
                 with patch.object(EnvJujuClient,
                                   'wait_for_started') as wfs_mock:
@@ -168,7 +167,7 @@ class TestScaleOut(TestCase):
         wfs_mock.assert_called_once_with()
 
     def test_scale_out(self):
-        with self.fake_client_cxt() as (client, env):
+        with self.fake_client_cxt() as (client, env, bv_mock):
             with patch.object(EnvJujuClient, 'juju') as j_mock:
                 with patch.object(EnvJujuClient,
                                   'wait_for_started') as wfs_mock:

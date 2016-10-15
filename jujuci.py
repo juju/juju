@@ -18,8 +18,7 @@ import urllib2
 from deploy_stack import destroy_environment
 from jujuconfig import NoSuchEnvironment
 from jujupy import (
-    SimpleEnvironment,
-    EnvJujuClient,
+    client_from_config,
 )
 try:
     from lsb_release import get_distro_information
@@ -138,13 +137,12 @@ def get_artifacts(credentials, job_name, build, glob, path,
 
 def clean_environment(env_name, verbose=False):
     try:
-        env = SimpleEnvironment.from_config(env_name)
+        client = client_from_config(env_name, None)
     except NoSuchEnvironment as e:
         # Nothing to do.
         if verbose:
             print_now(str(e))
         return False
-    client = EnvJujuClient.by_version(env)
     if verbose:
         print_now("Destroying %s" % env_name)
     destroy_environment(client, env_name)

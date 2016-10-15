@@ -10,11 +10,13 @@ import sys
 from deploy_stack import (
     BootstrapManager,
 )
+from jujucharm import (
+    local_charm_path,
+)
 from remote import remote_from_address
 from utility import (
     add_basic_testing_arguments,
     configure_logging,
-    local_charm_path,
 )
 
 

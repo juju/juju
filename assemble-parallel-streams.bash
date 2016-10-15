@@ -1,6 +1,6 @@
 #!/bin/bash
 set -eu
-export JUJU_HOME=$HOME/cloud-city
+export JUJU_HOME=${JUJU_HOME:-$HOME/cloud-city}
 source $JUJU_HOME/juju-qa.jujuci
 set -x
 revision_build=$1
@@ -18,8 +18,8 @@ source $(s3ci.py get $revision_build build-revision buildvars.bash)
 mkdir $WS_JSON
 mkdir -p $WS_AGENTS
 for job in $AGENT_JOBS; do
-  s3ci.py get $revision_build $job '.*.tgz' $WS_AGENTS
-  s3ci.py get $revision_build $job '.*.json' $WS_JSON
+  s3ci.py get $revision_build $job '.*\.tgz' $WS_AGENTS
+  s3ci.py get $revision_build $job '.*\.json' $WS_JSON
 done
 set_stream.py $AGENT_JSON/release.json \
   $WS_JSON/release-$revision_build.json $revision_build

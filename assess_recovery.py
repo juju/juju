@@ -12,19 +12,23 @@ import sys
 
 from deploy_stack import (
     BootstrapManager,
+    deploy_dummy_stack,
+    get_token_from_status,
     wait_for_state_server_to_shutdown,
 )
 from jujupy import (
     parse_new_state_server_from_error,
 )
 from substrate import (
+    convert_to_azure_ids,
     terminate_instances,
 )
 from utility import (
     add_basic_testing_arguments,
     configure_logging,
-    local_charm_path,
+    JujuAssertionError,
     LoggedException,
+    until_timeout,
 )
 
 
@@ -37,33 +41,41 @@ running_instance_pattern = re.compile('\["([^"]+)"\]')
 log = logging.getLogger("assess_recovery")
 
 
+def check_token(client, token):
+    for ignored in until_timeout(300):
+        found = get_token_from_status(client)
+        if found and token in found:
+            return found
+    raise JujuAssertionError('Token is not {}: {}'.format(
+                             token, found))
+
+
 def deploy_stack(client, charm_series):
     """"Deploy a simple stack, state-server and ubuntu."""
-    charm = local_charm_path(
-        charm='ubuntu', juju_ver=client.version, series=charm_series)
-    client.deploy(charm, series=charm_series)
-    client.wait_for_started().status
+    deploy_dummy_stack(client, charm_series)
+    client.set_config('dummy-source', {'token': 'One'})
+    client.wait_for_workloads()
+    check_token(client, 'One')
     log.info("%s is ready to testing", client.env.environment)
 
 
-def restore_present_state_server(admin_client, backup_file):
+def show_controller(client):
+    controller_info = client.show_controller(format='yaml')
+    log.info('Controller is:\n{}'.format(controller_info))
+
+
+def restore_present_state_server(controller_client, backup_file):
     """juju-restore won't restore when the state-server is still present."""
     try:
-        output = admin_client.restore_backup(backup_file)
-    except CalledProcessError as e:
+        controller_client.restore_backup(backup_file)
+    except CalledProcessError:
         log.info(
             "juju-restore correctly refused to restore "
             "because the state-server was still up.")
-        match = running_instance_pattern.search(e.stderr)
-        if match is None:
-            log.warning("Could not find the instance_id in output:\n%s\n",
-                        e.stderr)
-            return None
-        return match.group(1)
+        return
     else:
         raise Exception(
-            "juju-restore restored to an operational state-server: %s" %
-            output)
+            "juju-restore restored to an operational state-serve")
 
 
 def delete_controller_members(client, leader_only=False):
@@ -82,28 +94,36 @@ def delete_controller_members(client, leader_only=False):
     deleted_machines = []
     for machine in members:
         instance_id = machine.info.get('instance-id')
+        if client.env.config['type'] == 'azure':
+            instance_id = convert_to_azure_ids(client, [instance_id])[0]
         host = machine.info.get('dns-name')
         log.info("Instrumenting node failure for member {}: {} at {}".format(
-                  machine.machine_id, instance_id, host))
+                 machine.machine_id, instance_id, host))
         terminate_instances(client.env, [instance_id])
-        wait_for_state_server_to_shutdown(host, client, instance_id)
+        wait_for_state_server_to_shutdown(
+            host, client, instance_id, timeout=120)
         deleted_machines.append(machine.machine_id)
     return deleted_machines
 
 
-def restore_missing_state_server(client, admin_client, backup_file):
+def restore_missing_state_server(client, controller_client, backup_file,
+                                 check_controller=True):
     """juju-restore creates a replacement state-server for the services."""
     log.info("Starting restore.")
     try:
-        output = admin_client.restore_backup(backup_file)
+        controller_client.restore_backup(backup_file)
     except CalledProcessError as e:
         log.info('Call of juju restore exited with an error\n')
         log.info('Call:  %r\n', e.cmd)
-        log.info('Restore failed: \n%s\n', e.stderr)
         log.exception(e)
         raise LoggedException(e)
-    log.info(output)
-    admin_client.wait_for_started(600).status
+    if check_controller:
+        controller_client.wait_for_started(600)
+    show_controller(client)
+    client.set_config('dummy-source', {'token': 'Two'})
+    client.wait_for_started()
+    client.wait_for_workloads()
+    check_token(client, 'Two')
     log.info("%s restored", client.env.environment)
     log.info("PASS")
 
@@ -139,21 +159,22 @@ def assess_recovery(bs_manager, strategy, charm_series):
     log.info("Setting up test.")
     client = bs_manager.client
     deploy_stack(client, charm_series)
+    client.set_config('dummy-source', {'token': ''})
     log.info("Setup complete.")
     log.info("Test started.")
-    admin_client = client.get_admin_client()
+    controller_client = client.get_controller_client()
     if strategy in ('ha', 'ha-backup'):
-        admin_client.enable_ha()
-        admin_client.wait_for_ha()
+        controller_client.enable_ha()
+        controller_client.wait_for_ha()
     if strategy in ('ha-backup', 'backup'):
-        backup_file = admin_client.backup()
-        restore_present_state_server(admin_client, backup_file)
+        backup_file = controller_client.backup()
+        restore_present_state_server(controller_client, backup_file)
     if strategy == 'ha':
         leader_only = True
     else:
         leader_only = False
     deleted_machine_ids = delete_controller_members(
-        admin_client, leader_only=leader_only)
+        controller_client, leader_only=leader_only)
     log.info("Deleted {}".format(deleted_machine_ids))
     for m_id in deleted_machine_ids:
         if bs_manager.known_hosts.get(m_id):
@@ -163,7 +184,9 @@ def assess_recovery(bs_manager, strategy, charm_series):
         log.info("HA recovered from leader failure.")
         log.info("PASS")
     else:
-        restore_missing_state_server(client, admin_client, backup_file)
+        check_controller = strategy != 'ha-backup'
+        restore_missing_state_server(client, controller_client, backup_file,
+                                     check_controller=check_controller)
     log.info("Test complete.")
 
 

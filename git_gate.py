@@ -59,8 +59,8 @@ def go_test(args, gopath):
 
     if args.tsv_path:
         print_now("Getting and installing godeps")
-        go("get", "-v", "-d", "launchpad.net/godeps/...")
-        go("install", "launchpad.net/godeps/...")
+        go("get", "-v", "-d", "github.com/rogpeppe/godeps/...")
+        go("install", "github.com/rogpeppe/godeps/...")
     if args.project_url:
         print_now("Cloning {} from {}".format(final_project, args.project_url))
         git("clone", args.project_url, directory)
