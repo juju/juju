@@ -22,6 +22,16 @@ __metaclass__ = type
 log = logging.getLogger("assess_proxy")
 
 
+def set_firewall(scenario):
+    """Setup the firewall to match the scenario."""
+    pass
+
+
+def reset_firewall():
+    """Reset the firewall and disable it."""
+    pass
+
+
 def assess_proxy(client):
     client.deploy('cs:xenial/ubuntu')
     client.wait_for_started()
@@ -42,6 +52,7 @@ def main(argv=None):
     configure_logging(args.verbose)
     try:
         log.info("Setting firewall")
+        set_firewall('scenario')
         log.info("Starting test")
         bs_manager = BootstrapManager.from_args(args)
         log.info("Starting bootstrap")
@@ -50,7 +61,10 @@ def main(argv=None):
             assess_proxy(bs_manager.client)
             log.info("Finished test")
     finally:
+        # Always open the network, regardless of what happened.
+        # Do not lockout the host.
         log.info("Resetting firewall")
+        reset_firewall()
     return 0
 
 

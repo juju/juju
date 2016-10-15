@@ -51,10 +51,16 @@ class TestMain(TestCase):
                                return_value=client) as mock_c:
                         with patch("assess_proxy.assess_proxy",
                                    autospec=True) as mock_assess:
-                            main(argv)
+                            with patch("assess_proxy.set_firewall",
+                                       autospec=True) as mock_set:
+                                with patch("assess_proxy.reset_firewall",
+                                           autospec=True) as mock_reset:
+                                    main(argv)
         mock_cl.assert_called_once_with(logging.DEBUG)
         mock_c.assert_called_once_with(
             'an-env', "/bin/juju", debug=False, soft_deadline=None)
+        mock_set.assert_called_once_with('scenario')
+        mock_reset.assert_called_once_with()
         self.assertEqual(mock_bc.call_count, 1)
         mock_assess.assert_called_once_with(client)
 
