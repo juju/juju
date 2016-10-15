@@ -69,9 +69,9 @@ class TestAssess(TestCase):
         fake_client = Mock(wraps=fake_juju_client())
         fake_client.bootstrap()
         assess_proxy(fake_client)
-        fake_client.deploy.assert_called_once_with(
-            'local:trusty/my-charm')
+        fake_client.deploy.assert_called_once_with('cs:xenial/ubuntu')
         fake_client.wait_for_started.assert_called_once_with()
+        fake_client.wait_for_workloads.assert_called_once_with()
         self.assertEqual(
-            1, fake_client.get_status().get_service_unit_count('my-charm'))
+            1, fake_client.get_status().get_service_unit_count('ubuntu'))
         self.assertNotIn("TODO", self.log_stream.getvalue())

@@ -23,7 +23,7 @@ log = logging.getLogger("assess_proxy")
 
 
 def assess_proxy(client):
-    client.deploy('local:trusty/my-charm')
+    client.deploy('cs:xenial/ubuntu')
     client.wait_for_started()
     client.wait_for_workloads()
     log.info("SUCCESS")
@@ -40,9 +40,17 @@ def parse_args(argv):
 def main(argv=None):
     args = parse_args(argv)
     configure_logging(args.verbose)
-    bs_manager = BootstrapManager.from_args(args)
-    with bs_manager.booted_context(args.upload_tools):
-        assess_proxy(bs_manager.client)
+    try:
+        log.info("Setting firewall")
+        log.info("Starting test")
+        bs_manager = BootstrapManager.from_args(args)
+        log.info("Starting bootstrap")
+        with bs_manager.booted_context(args.upload_tools):
+            log.info("PASS bootstrap")
+            assess_proxy(bs_manager.client)
+            log.info("Finished test")
+    finally:
+        log.info("Resetting firewall")
     return 0
 
 
