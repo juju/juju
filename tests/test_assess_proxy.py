@@ -1,4 +1,7 @@
-"""Tests for assess_proxy module."""
+"""Tests for assess_proxy module.
+
+This test is dangerous to run.
+"""
 
 import logging
 from mock import (
@@ -28,6 +31,8 @@ class TestParseArgs(TestCase):
         self.assertEqual(log_dir, args.logs)
         self.assertEqual("an-env-mod", args.temp_env_name)
         self.assertEqual("both-proxied", args.scenario)
+        self.assertEqual("eth0", args.client_interface)
+        self.assertEqual("lxdbr0", args.controller_interface)
         self.assertIsFalse(args.debug)
 
     def test_help(self):

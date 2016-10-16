@@ -65,6 +65,12 @@ def parse_args(argv):
     parser.add_argument(
         'scenario', choices=['both-proxied'],
         help="The proxy scenario to run.")
+    parser.add_argument(
+        '--client-interface', default='eth0',
+        help="The interface used by the client to access the internet.")
+    parser.add_argument(
+        '--controller-interface', default='lxdbr0',
+        help="The interface used by the controller to access the internet.")
     return parser.parse_args(argv)
 
 
