@@ -19,7 +19,6 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/watcher"
-	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/logforwarder"
 	"github.com/juju/juju/worker/workertest"
 )
@@ -27,7 +26,6 @@ import (
 type LogForwarderSuite struct {
 	testing.IsolationSuite
 
-	stub   *testing.Stub
 	stream *stubStream
 	sender *stubSender
 	rec    logfwd.Record
@@ -38,9 +36,8 @@ var _ = gc.Suite(&LogForwarderSuite{})
 func (s *LogForwarderSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
-	s.stub = &testing.Stub{}
-	s.stream = newStubStream(s.stub)
-	s.sender = newStubSender(s.stub)
+	s.stream = newStubStream()
+	s.sender = newStubSender()
 	s.rec = logfwd.Record{
 		Origin: logfwd.Origin{
 			ControllerUUID: "feebdaed-2f18-4fd2-967d-db9663db7bea",
@@ -66,27 +63,148 @@ func (s *LogForwarderSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *LogForwarderSuite) checkNext(c *gc.C, rec logfwd.Record) {
-	s.stream.waitBeforeNext(c)
-	s.stream.waitAfterNext(c)
-	s.sender.waitAfterSend(c)
-	s.stub.CheckCallNames(c, "Next", "Send")
-	s.stub.CheckCall(c, 1, "Send", []logfwd.Record{rec})
-	s.stub.ResetCalls()
+func (s *LogForwarderSuite) newLogForwarderArgs(
+	c *gc.C,
+	stream logforwarder.LogStream,
+	sender *stubSender,
+) logforwarder.OpenLogForwarderArgs {
+	api := &mockLogForwardConfig{
+		enabled: stream != nil,
+		host:    "10.0.0.1",
+	}
+	return s.newLogForwarderArgsWithAPI(c, api, stream, sender)
 }
 
-func (s *LogForwarderSuite) checkClose(c *gc.C, lf worker.Worker, expected error) {
-	go func() {
-		s.sender.waitBeforeClose(c)
-	}()
-	var err error
-	if expected == nil {
-		workertest.CleanKill(c, lf)
-	} else {
-		err = workertest.CheckKill(c, lf)
+func (s *LogForwarderSuite) newLogForwarderArgsWithAPI(
+	c *gc.C,
+	configAPI logforwarder.LogForwardConfig,
+	stream logforwarder.LogStream,
+	sender *stubSender,
+) logforwarder.OpenLogForwarderArgs {
+	return logforwarder.OpenLogForwarderArgs{
+		Caller:           &mockCaller{},
+		LogForwardConfig: configAPI,
+		AllModels:        true,
+		ControllerUUID:   "feebdaed-2f18-4fd2-967d-db9663db7bea",
+		OpenSink: func(cfg *syslog.RawConfig) (*logforwarder.LogSink, error) {
+			sender.host = cfg.Host
+			sink := &logforwarder.LogSink{
+				sender,
+			}
+			return sink, nil
+		},
+		OpenLogStream: func(_ base.APICaller, _ params.LogStreamConfig, controllerUUID string) (logforwarder.LogStream, error) {
+			c.Assert(controllerUUID, gc.Equals, "feebdaed-2f18-4fd2-967d-db9663db7bea")
+			return stream, nil
+		},
 	}
-	c.Check(errors.Cause(err), gc.Equals, expected)
-	s.stub.CheckCallNames(c, "Close")
+}
+
+func (s *LogForwarderSuite) TestOne(c *gc.C) {
+	s.stream.addRecords(c, s.rec)
+	lf, err := logforwarder.NewLogForwarder(s.newLogForwarderArgs(c, s.stream, s.sender))
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.DirtyKill(c, lf)
+
+	s.sender.waitForSend(c)
+	workertest.CleanKill(c, lf)
+	s.sender.stub.CheckCalls(c, []testing.StubCall{
+		{"Send", []interface{}{[]logfwd.Record{s.rec}}},
+		{"Close", nil},
+	})
+}
+
+func (s *LogForwarderSuite) TestConfigChange(c *gc.C) {
+	rec0 := s.rec
+	rec1 := s.rec
+	rec1.ID = 11
+
+	api := &mockLogForwardConfig{
+		enabled: true,
+		host:    "10.0.0.1",
+	}
+	lf, err := logforwarder.NewLogForwarder(s.newLogForwarderArgsWithAPI(c, api, s.stream, s.sender))
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.DirtyKill(c, lf)
+
+	// Send the first record.
+	s.stream.addRecords(c, rec0)
+	s.sender.waitForSend(c)
+
+	// Config change.
+	api.host = "10.0.0.2"
+	api.changes <- struct{}{}
+	s.sender.waitForClose(c)
+
+	// Send the second record.
+	s.stream.addRecords(c, rec1)
+	s.sender.waitForSend(c)
+
+	workertest.CleanKill(c, lf)
+
+	// Check that both records were sent with the config change
+	// applied for the second send.
+	rec1.Message = "send to 10.0.0.2"
+	s.sender.stub.CheckCalls(c, []testing.StubCall{
+		{"Send", []interface{}{[]logfwd.Record{rec0}}},
+		{"Close", nil},
+		{"Send", []interface{}{[]logfwd.Record{rec1}}},
+		{"Close", nil},
+	})
+}
+
+func (s *LogForwarderSuite) TestNotEnabled(c *gc.C) {
+	lf, err := logforwarder.NewLogForwarder(s.newLogForwarderArgs(c, nil, s.sender))
+	c.Assert(err, jc.ErrorIsNil)
+
+	time.Sleep(coretesting.ShortWait)
+	workertest.CleanKill(c, lf)
+
+	// There should be no stream or sender activity when log
+	// forwarding is disabled.
+	s.stream.stub.CheckCallNames(c)
+	s.sender.stub.CheckCallNames(c)
+}
+
+func (s *LogForwarderSuite) TestStreamError(c *gc.C) {
+	failure := errors.New("<failure>")
+	s.stream.stub.SetErrors(nil, failure)
+	s.stream.addRecords(c, s.rec)
+
+	lf, err := logforwarder.NewLogForwarder(s.newLogForwarderArgs(c, s.stream, s.sender))
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.DirtyKill(c, lf)
+
+	err = workertest.CheckKilled(c, lf)
+	c.Check(errors.Cause(err), gc.Equals, failure)
+
+	s.sender.stub.CheckCalls(c, []testing.StubCall{
+		{"Send", []interface{}{[]logfwd.Record{s.rec}}},
+		{"Close", nil},
+	})
+}
+
+func (s *LogForwarderSuite) TestSenderError(c *gc.C) {
+	failure := errors.New("<failure>")
+	s.sender.stub.SetErrors(nil, failure)
+
+	rec0 := s.rec
+	rec1 := s.rec
+	rec1.ID = 11
+	s.stream.addRecords(c, rec0, rec1)
+
+	lf, err := logforwarder.NewLogForwarder(s.newLogForwarderArgs(c, s.stream, s.sender))
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.DirtyKill(c, lf)
+
+	err = workertest.CheckKilled(c, lf)
+	c.Check(errors.Cause(err), gc.Equals, failure)
+
+	s.sender.stub.CheckCalls(c, []testing.StubCall{
+		{"Send", []interface{}{[]logfwd.Record{rec0}}},
+		{"Send", []interface{}{[]logfwd.Record{rec1}}},
+		{"Close", nil},
+	})
 }
 
 type mockLogForwardConfig struct {
@@ -141,203 +259,42 @@ func (c *mockLogForwardConfig) LogForwardConfig() (*syslog.RawConfig, bool, erro
 	}, true, nil
 }
 
-func (s *LogForwarderSuite) newLogForwarderArgs(c *gc.C, stream logforwarder.LogStream, sender *stubSender) logforwarder.OpenLogForwarderArgs {
-	api := &mockLogForwardConfig{
-		enabled: stream != nil,
-		host:    "10.0.0.1",
-	}
-	return s.newLogForwarderArgsWithAPI(c, api, stream, sender)
-}
-
-func (s *LogForwarderSuite) newLogForwarderArgsWithAPI(c *gc.C, configAPI logforwarder.LogForwardConfig, stream logforwarder.LogStream, sender *stubSender) logforwarder.OpenLogForwarderArgs {
-	return logforwarder.OpenLogForwarderArgs{
-		Caller:           &mockCaller{},
-		LogForwardConfig: configAPI,
-		AllModels:        true,
-		ControllerUUID:   "feebdaed-2f18-4fd2-967d-db9663db7bea",
-		OpenSink: func(cfg *syslog.RawConfig) (*logforwarder.LogSink, error) {
-			sender.host = cfg.Host
-			sink := &logforwarder.LogSink{
-				sender,
-			}
-			return sink, nil
-		},
-		OpenLogStream: func(_ base.APICaller, _ params.LogStreamConfig, controllerUUID string) (logforwarder.LogStream, error) {
-			c.Assert(controllerUUID, gc.Equals, "feebdaed-2f18-4fd2-967d-db9663db7bea")
-			return stream, nil
-		},
-	}
-}
-
-func (s *LogForwarderSuite) TestOne(c *gc.C) {
-	s.stream.setRecords(c, []logfwd.Record{
-		s.rec,
-	})
-
-	lf, err := logforwarder.NewLogForwarder(s.newLogForwarderArgs(c, s.stream, s.sender))
-	c.Assert(err, jc.ErrorIsNil)
-	defer s.checkClose(c, lf, nil)
-
-	s.checkNext(c, s.rec)
-}
-
-func (s *LogForwarderSuite) TestConfigChange(c *gc.C) {
-	rec2 := s.rec
-	rec2.ID = 11
-	s.stream.setRecords(c, []logfwd.Record{
-		s.rec,
-		rec2,
-	})
-
-	api := &mockLogForwardConfig{
-		enabled: true,
-		host:    "10.0.0.1",
-	}
-	lf, err := logforwarder.NewLogForwarder(s.newLogForwarderArgsWithAPI(c, api, s.stream, s.sender))
-	c.Assert(err, jc.ErrorIsNil)
-	defer s.checkClose(c, lf, nil)
-
-	s.checkNext(c, s.rec)
-
-	api.host = "10.0.0.2"
-	api.changes <- struct{}{}
-	s.sender.waitBeforeClose(c)
-	s.stream.waitBeforeNext(c)
-	s.stream.waitAfterNext(c)
-	s.sender.waitAfterSend(c)
-	// Check that the config change has been picked up and
-	// that the second record is sent.
-	rec2.Message = "send to 10.0.0.2"
-	s.stub.CheckCall(c, 2, "Send", []logfwd.Record{rec2})
-	s.stub.ResetCalls()
-}
-
-func (s *LogForwarderSuite) TestNotEnabled(c *gc.C) {
-	lf, err := logforwarder.NewLogForwarder(s.newLogForwarderArgs(c, nil, s.sender))
-	c.Assert(err, jc.ErrorIsNil)
-	workertest.CleanKill(c, lf)
-}
-
-func (s *LogForwarderSuite) TestStreamError(c *gc.C) {
-	failure := errors.New("<failure>")
-	s.stub.SetErrors(nil, nil, failure)
-	s.stream.setRecords(c, []logfwd.Record{
-		s.rec,
-	})
-	lf, err := logforwarder.NewLogForwarder(s.newLogForwarderArgs(c, s.stream, s.sender))
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.checkNext(c, s.rec)
-	s.stream.waitBeforeNext(c)
-	s.stream.waitAfterNext(c)
-	s.stub.CheckCallNames(c, "Next")
-	s.stub.ResetCalls()
-	s.checkClose(c, lf, failure)
-}
-
-func (s *LogForwarderSuite) TestSenderError(c *gc.C) {
-	failure := errors.New("<failure>")
-	s.stub.SetErrors(nil, nil, nil, failure)
-	rec2 := s.rec
-	rec2.ID = 11
-	s.stream.setRecords(c, []logfwd.Record{
-		s.rec,
-		rec2,
-	})
-	lf, err := logforwarder.NewLogForwarder(s.newLogForwarderArgs(c, s.stream, s.sender))
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.checkNext(c, s.rec)
-	s.checkNext(c, rec2)
-	s.checkClose(c, lf, failure)
-}
-
 type stubStream struct {
-	stub *testing.Stub
-
-	waitCh     chan struct{}
-	ReturnNext <-chan logfwd.Record
+	stub     *testing.Stub
+	nextRecs chan logfwd.Record
 }
 
-func newStubStream(stub *testing.Stub) *stubStream {
+func newStubStream() *stubStream {
 	return &stubStream{
-		stub:   stub,
-		waitCh: make(chan struct{}),
+		stub:     new(testing.Stub),
+		nextRecs: make(chan logfwd.Record, 16),
 	}
 }
 
-func (s *stubStream) setRecords(c *gc.C, recs []logfwd.Record) {
-	recCh := make(chan logfwd.Record)
-	go func() {
-		for _, rec := range recs {
-			select {
-			case recCh <- rec:
-			case <-time.After(coretesting.LongWait):
-				c.Error("timed out waiting for records on the channel")
-			}
-
-		}
-	}()
-	s.ReturnNext = recCh
-}
-
-func (s *stubStream) waitBeforeNext(c *gc.C) {
-	select {
-	case <-s.waitCh:
-	case <-time.After(coretesting.LongWait):
-		c.Error("timed out waiting")
-	}
-}
-
-func (s *stubStream) waitAfterNext(c *gc.C) {
-	select {
-	case <-s.waitCh:
-	case <-time.After(coretesting.LongWait):
-		c.Error("timed out waiting")
+func (s *stubStream) addRecords(c *gc.C, recs ...logfwd.Record) {
+	for _, rec := range recs {
+		s.nextRecs <- rec
 	}
 }
 
 func (s *stubStream) Next() ([]logfwd.Record, error) {
-	s.waitCh <- struct{}{}
 	s.stub.AddCall("Next")
-	s.waitCh <- struct{}{}
 	if err := s.stub.NextErr(); err != nil {
 		return []logfwd.Record{}, errors.Trace(err)
 	}
-
-	rec := <-s.ReturnNext
-	return []logfwd.Record{rec}, nil
+	return []logfwd.Record{<-s.nextRecs}, nil
 }
 
 type stubSender struct {
-	stub *testing.Stub
-
-	host        string
-	waitSendCh  chan struct{}
-	waitCloseCh chan struct{}
+	stub     *testing.Stub
+	activity chan string
+	host     string
 }
 
-func newStubSender(stub *testing.Stub) *stubSender {
+func newStubSender() *stubSender {
 	return &stubSender{
-		stub:        stub,
-		waitSendCh:  make(chan struct{}),
-		waitCloseCh: make(chan struct{}),
-	}
-}
-
-func (s *stubSender) waitAfterSend(c *gc.C) {
-	select {
-	case <-s.waitSendCh:
-	case <-time.After(coretesting.LongWait):
-		c.Error("timed out waiting")
-	}
-}
-
-func (s *stubSender) waitBeforeClose(c *gc.C) {
-	select {
-	case <-s.waitCloseCh:
-	case <-time.After(coretesting.LongWait):
-		c.Error("timed out waiting")
+		stub:     new(testing.Stub),
+		activity: make(chan string, 16),
 	}
 }
 
@@ -347,20 +304,31 @@ func (s *stubSender) Send(records []logfwd.Record) error {
 		records[i] = rec
 	}
 	s.stub.AddCall("Send", records)
-	s.waitSendCh <- struct{}{}
-	if err := s.stub.NextErr(); err != nil {
-		return errors.Trace(err)
-	}
-
-	return nil
+	s.activity <- "Send"
+	return errors.Trace(s.stub.NextErr())
 }
 
 func (s *stubSender) Close() error {
-	s.waitCloseCh <- struct{}{}
 	s.stub.AddCall("Close")
-	if err := s.stub.NextErr(); err != nil {
-		return errors.Trace(err)
-	}
+	s.activity <- "Close"
+	return errors.Trace(s.stub.NextErr())
+}
 
-	return nil
+func (s *stubSender) waitForSend(c *gc.C) {
+	s.waitForActivity(c, "Send")
+}
+
+func (s *stubSender) waitForClose(c *gc.C) {
+	s.waitForActivity(c, "Close")
+}
+
+func (s *stubSender) waitForActivity(c *gc.C, name string) {
+	select {
+	case a := <-s.activity:
+		if a != name {
+			c.Fatalf("expected %v, got %v", name, a)
+		}
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timeout out waiting for %v", name)
+	}
 }
