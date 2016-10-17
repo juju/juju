@@ -5,6 +5,7 @@ from datetime import datetime
 import os
 from mock import call, patch, Mock
 from textwrap import dedent
+import json
 
 from fakejuju import fake_juju_client
 import generate_perfscale_results as gpr
@@ -60,6 +61,29 @@ class TestDumpPerformanceMetricsLogs(TestCase):
         self.assertEqual(
             client.juju.call_args_list,
             expected_calls)
+
+
+class TestJsonSerialisation(TestCase):
+
+    def test_serialise_stores_values(self):
+        """Must serialise data for TimingData and DeployDetails objects."""
+        start = datetime.utcnow()
+        end = datetime.utcnow()
+        seconds = int((end-start).total_seconds())
+        app_details = dict(app_name=1)
+        timing_data = gpr.TimingData(start, end)
+        deploy_details = gpr.DeployDetails(
+            'name', app_details, timing_data)
+        json_string = json.dumps(
+            deploy_details, cls=gpr.PerfTestDataJsonSerialisation)
+
+        stored_data = json.loads(json_string)
+
+        self.assertEqual(stored_data['name'], 'name')
+        self.assertEqual(stored_data['applications'], app_details)
+        self.assertEqual(stored_data['timings']['start'], timing_data.start)
+        self.assertEqual(stored_data['timings']['end'], timing_data.end)
+        self.assertEqual(stored_data['timings']['seconds'], seconds)
 
 
 class TestGenerateGraphImages(TestCase):
