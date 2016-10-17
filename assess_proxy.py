@@ -33,8 +33,8 @@ SCENARIO_BOTH = 'both-proxied'
 SCENARIO_CLIENT = 'client-proxied'
 SCENARIO_CONTROLLER = 'controller-proxied'
 
-IPTABLES_BACKUP = '/etc/iptables.before-assess-proxy'
 IPTABLES_FORWARD_PROXY = '-A FORWARD -i {} -p tcp --d port 3128 -j ACCEPT'
+IPTABLES_BACKUP = '/etc/iptables.before-assess-proxy'
 
 UFW_RESET_COMMANDS = [
     ('sudo', 'iptables-restore', IPTABLES_BACKUP),
@@ -93,7 +93,7 @@ def reset_firewall():
 
     The firewall's rules are reset, then it is disabled. The ufw reset command
     implicitly disables, but disable is explicitly called to ensure ufw
-    is not running. iptables-restore it called with the .before-assess_proxy
+    is not running. iptables-restore it called with the .before-assess-proxy
     backup.
     """
     for command in UFW_RESET_COMMANDS:
