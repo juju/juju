@@ -11,6 +11,7 @@ from assess_bootstrap import (
     assess_metadata,
     assess_to,
     get_controller_address,
+    get_controller_hostname,
     INVALID_URL,
     parse_args,
     prepare_metadata,
@@ -322,18 +323,32 @@ class TestAssessTo(FakeHomeTestCase):
                    autospec=True):
             self.assertEqual('255.1.1.0', get_controller_address(client))
 
+    def test_get_controller_hostname(self):
+        controller_client = Mock(wraps=fake_juju_client())
+        client = Mock(wraps=fake_juju_client())
+        with patch.object(client, 'get_controller_client',
+                          return_value=controller_client):
+            with patch.object(controller_client, 'run',
+                              return_value=' maas-node-x\n') as run_mock:
+                self.assertEqual('maas-node-x',
+                                 get_controller_hostname(client))
+        run_mock.assert_called_once_with(['hostname'], machines=['0'],
+                                         use_json=False)
+
     def test_assess_to(self):
+        DEST = 'test-host'
+
         def check(myself, to):
             self.assertEqual({'name': 'qux', 'type': 'foo'},
                              myself.env.config)
-            self.assertEqual('255.1.1.0', to)
+            self.assertEqual(DEST, to)
         with extended_bootstrap_cxt('2.0-rc1'):
             with patch('jujupy.EnvJujuClient.bootstrap', side_effect=check,
                        autospec=True):
-                with patch('assess_bootstrap.get_controller_address',
-                           return_value='255.1.1.0', autospec=True):
+                with patch('assess_bootstrap.get_controller_hostname',
+                           return_value=DEST, autospec=True):
                     args = parse_args(['to', 'bar', '/foo',
-                                       '--to', '255.1.1.0'])
+                                       '--to', DEST])
                     args.temp_env_name = 'qux'
                     bs_manager = BootstrapManager.from_args(args)
                     assess_to(bs_manager, args.to)
