@@ -1,5 +1,6 @@
 """Tests for assess_proxy module."""
 
+from argparse import Namespace
 import logging
 from mock import (
     call,
@@ -7,6 +8,7 @@ from mock import (
     patch,
 )
 import StringIO
+import subprocess
 
 import assess_proxy
 from tests import (
@@ -23,14 +25,14 @@ class TestParseArgs(TestCase):
         with temp_dir() as log_dir:
             args = assess_proxy.parse_args(
                 ["an-env", "/bin/juju", log_dir, "an-env-mod", 'both-proxied'])
-        self.assertEqual("an-env", args.env)
-        self.assertEqual("/bin/juju", args.juju_bin)
-        self.assertEqual(log_dir, args.logs)
-        self.assertEqual("an-env-mod", args.temp_env_name)
-        self.assertEqual("both-proxied", args.scenario)
-        self.assertEqual("eth0", args.client_interface)
-        self.assertEqual("lxdbr0", args.controller_interface)
-        self.assertIsFalse(args.debug)
+        expected_args = Namespace(
+            agent_stream=None, agent_url=None, bootstrap_host=None,
+            client_interface='eth0', controller_interface='lxdbr0',
+            deadline=None, debug=False, env='an-env', juju_bin='/bin/juju',
+            keep_env=False, logs=log_dir, machine=[], region=None,
+            scenario='both-proxied', series=None, temp_env_name='an-env-mod',
+            upload_tools=False, verbose=20)
+        self.assertEqual(expected_args, args)
 
     def test_help(self):
         fake_stdout = StringIO.StringIO()
@@ -53,7 +55,7 @@ class TestMain(TestCase):
                 with patch("assess_proxy.BootstrapManager.booted_context",
                            autospec=True) as mock_bc:
                     with patch('deploy_stack.client_from_config',
-                               return_value=client) as mock_c:
+                               return_value=client) as mock_cfc:
                         with patch("assess_proxy.assess_proxy",
                                    autospec=True) as mock_assess:
                             with patch("assess_proxy.check_network",
@@ -65,7 +67,7 @@ class TestMain(TestCase):
                                                autospec=True) as mock_reset:
                                         assess_proxy.main(argv)
         mock_cl.assert_called_once_with(logging.DEBUG)
-        mock_c.assert_called_once_with(
+        mock_cfc.assert_called_once_with(
             'an-env', "/bin/juju", debug=False, soft_deadline=None)
         mock_check.assert_called_once_with('eth0', 'lxdbr0')
         mock_set.assert_called_once_with('both-proxied', 'FORWARD')
@@ -144,11 +146,14 @@ class TestAssess(TestCase):
                     assess_proxy.check_network('eth0', 'lxdbr0')
 
     def test_reset_firewall(self):
-        # Verify the ufw wa called to reset and disable even if one of the
+        # Verify the ufw was called to reset and disable even if one of the
         # commands exited with an error.
+        error = subprocess.CalledProcessError(
+            1, ('sudo', 'ufw', '--force', 'reset'))
         with patch('subprocess.call', autospec=True,
-                   side_effect=[0, 1, 0]) as mock_sc:
-            assess_proxy.reset_firewall()
+                   side_effect=[0, error, 0]) as mock_sc:
+            errors = assess_proxy.reset_firewall()
+        self.assertEqual([error], errors)
         self.assertEqual([
             call(('sudo', 'iptables-restore',
                   '/etc/iptables.before-assess-proxy')),

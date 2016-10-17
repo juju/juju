@@ -96,13 +96,16 @@ def reset_firewall():
     is not running. iptables-restore it called with the .before-assess-proxy
     backup.
     """
+    errors = []
     for command in UFW_RESET_COMMANDS:
-        exitcode = subprocess.call(command)
-        if exitcode == 0:
+        try:
+            subprocess.check_call(command)
             log.info('{} exited successfully'.format(command))
-        else:
-            log.error('{} exited with {}'.format(command, exitcode))
+        except subprocess.CalledProcessError as e:
+            errors.append(e)
+            log.error('{} exited with {}'.format(e.cmd, e.returncode))
             log.error('This host may be in a dirty state.')
+    return errors
 
 
 def assess_proxy(client, scenario):
