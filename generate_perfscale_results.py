@@ -5,10 +5,14 @@ collection.
 
 from __future__ import print_function
 
-from collections import defaultdict
+from collections import (
+    OrderedDict,
+    defaultdict
+)
 from datetime import datetime
 import logging
 import os
+import re
 import subprocess
 
 try:
@@ -193,8 +197,11 @@ def generate_reports(controller_log, results_dir, deployments):
         mongo_query_image = generate_mongo_query_graph_image(results_dir)
         mongo_memory_image = generate_mongo_memory_graph_image(results_dir)
 
-    log_message_chunks = get_log_message_in_timed_chunks(
-        controller_log, deployments)
+    log_message_chunks = breakdown_log_by_events_timeframe(
+        controller_log,
+        deployments['bootstrap'],
+        deployments['cleanup'],
+        deployments['deploys'])
 
     details = dict(
         cpu_graph=cpu_image,
@@ -213,18 +220,68 @@ def generate_reports(controller_log, results_dir, deployments):
     create_html_report(results_dir, details)
 
 
-def get_log_message_in_timed_chunks(log_file, deployments):
-    """Breakdown log into timechunks based on event timeranges in 'deployments'
+def breakdown_log_by_events_timeframe(log, bootstrap, cleanup, deployments):
+    """Breakdown a log file into event chunks.
 
+    Given a log file and time details for events (i.e. bootstrap, cleanup and
+    deployments) return a datastructure containing the log contents broken up
+    into time chunks relevant for those events.
+
+    :param log: Log file path from which to breakdown data.
+    :param bootstrap: TimingData object representing bootstrap timings.
+    :param cleanup: TimingData object representing clean timings.
+    :param deployments: List of DeployDetails representing each deploy made.
+    :return: OrderedDict of dictionaries, with a structure like:
+       {'date range':
+            { name, display name, logs -> [{'time frame', display, logs}]}
     """
-    deploy_timings = [d.timings for d in deployments['deploys']]
+    name_lookup = _get_log_name_lookup_table(bootstrap, cleanup, deployments)
 
-    bootstrap = deployments['bootstrap']
-    cleanup = deployments['cleanup']
-    all_event_timings = [bootstrap] + deploy_timings + [cleanup]
+    deploy_timings = [d.timings for d in deployments]
+    raw_details = _get_chunked_log(log, bootstrap, cleanup, deploy_timings)
 
-    raw_details = breakdown_log_by_timeframes(log_file, all_event_timings)
+    # Outer-layer (i.e. event)
+    event_details = defaultdict(defaultdict)
+    for event_range in raw_details.keys():
+        display_name = _display_safe_daterange(event_range)
+        event_details[event_range]['name'] = name_lookup[event_range]
+        event_details[event_range]['logs'] = []
+        event_details[event_range]['event_range_display'] = display_name
 
+        # sort here so that the log list is in order.
+        for log_range in raw_details[event_range].keys():
+            timeframe = log_range
+            display_timeframe = _display_safe_timerange(log_range)
+            message = '<br/>'.join(raw_details[event_range][log_range])
+            event_details[event_range]['logs'].append(
+                dict(
+                    timeframe=timeframe,
+                    display_timeframe=display_timeframe,
+                    message=message))
+
+    return OrderedDict(sorted(event_details.items()))
+
+
+def _display_safe_daterange(datestamp):
+    """Return a datestamp string that can be used as an html class/id."""
+    return re.sub('[:\ ]', '', datestamp)
+
+
+def _display_safe_timerange(timerange):
+    """Return a timerange string that can be used as an html class/id."""
+    return re.sub('[:\(\)\ ]', '', timerange)
+
+
+def _get_chunked_log(log_file, bootstrap, cleanup, deployments):
+    all_event_timings = [bootstrap] + deployments + [cleanup]
+    return breakdown_log_by_timeframes(log_file, all_event_timings)
+
+
+def _get_log_name_lookup_table(bootstrap, cleanup, deployments):
+    """Given event details construct a lookup table to give them names.
+
+    :return: dict containing { daterange -> event name } look up.
+    """
     bs_name = _render_ds_string(bootstrap.start, bootstrap.end)
     cleanup_name = _render_ds_string(cleanup.start, cleanup.end)
 
@@ -232,26 +289,12 @@ def get_log_message_in_timed_chunks(log_file, deployments):
         bs_name: 'Bootstrap',
         cleanup_name: 'Kill-Controller',
     }
-    for dep in deployments['deploys']:
+    for dep in deployments:
         name_range = _render_ds_string(
             dep.timings.start, dep.timings.end)
         name_lookup[name_range] = dep.name
 
-    event_details = defaultdict(defaultdict)
-    # Outer-layer (i.e. event)
-    for event_range in raw_details.keys():
-        event_details[event_range]['name'] = name_lookup[event_range]
-        event_details[event_range]['logs'] = []
-
-        for log_range in raw_details[event_range].keys():
-            timeframe = log_range
-            message = '<br/>'.join(raw_details[event_range][log_range])
-            event_details[event_range]['logs'].append(
-                dict(
-                    timeframe=timeframe,
-                    message=message))
-
-    return event_details
+    return name_lookup
 
 
 def create_html_report(results_dir, details):

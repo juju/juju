@@ -1,7 +1,11 @@
 """Tests for assess_perf_test_simple module."""
 
 from contextlib import contextmanager
-from datetime import datetime
+from collections import OrderedDict
+from datetime import (
+    datetime,
+    timedelta,
+)
 import os
 from mock import call, patch, Mock
 from textwrap import dedent
@@ -224,3 +228,134 @@ class TestFindActualStart(TestCase):
         self.assertEqual(
             gpr.find_actual_start(self.example_multivalue_output),
             '1472708613')
+
+
+class TestLogBreakdown(TestCase):
+
+    def test__get_chunked_log(self):
+        log_file = '/path/to/file'
+        deployments = ['deploy1', 'deploy2']
+        with patch.object(
+                gpr,
+                'breakdown_log_by_timeframes',
+                return_value='chunked_log',
+                autospec=True) as m_blt:
+            self.assertEqual(
+                'chunked_log',
+                gpr._get_chunked_log(
+                    log_file, 'bootstrap', 'cleanup', deployments))
+        m_blt.assert_called_once_with(
+            log_file, ['bootstrap'] + deployments + ['cleanup'])
+
+    def test__get_log_name_lookup_table(self):
+        """Must return a dict of the date range as key and a display name."""
+        start = datetime.utcnow()
+        end = datetime.utcnow()
+        bootstrap = gpr.TimingData(start, end)
+        cleanup = gpr.TimingData(
+            start + timedelta(seconds=1),
+            end + timedelta(seconds=1))
+        deploy_timing = gpr.TimingData(
+            start + timedelta(seconds=2),
+            end + timedelta(seconds=2))
+        deployments = [
+            gpr.DeployDetails('Deploy Name', {}, deploy_timing)]
+
+        bs_name = gpr._render_ds_string(bootstrap.start, bootstrap.end)
+        cleanup_name = gpr._render_ds_string(cleanup.start, cleanup.end)
+        deploy_name = gpr._render_ds_string(
+            deploy_timing.start, deploy_timing.end)
+
+        table = gpr._get_log_name_lookup_table(bootstrap, cleanup, deployments)
+        self.assertDictEqual(
+            table,
+            {
+                bs_name: 'Bootstrap',
+                cleanup_name: 'Kill-Controller',
+                deploy_name: 'Deploy Name',
+            }
+        )
+
+    def test__get_display_safe_daterange(self):
+        self.assertEqual(
+            '2016-10-16202806-2016-10-16202944',
+            gpr._display_safe_daterange(
+                '2016-10-16 20:28:06 - 2016-10-16 20:29:44')
+        )
+
+    def test__get_display_safe_timerange(self):
+        self.assertEqual(
+            '203013-203033',
+            gpr._display_safe_timerange('20:30:13 - 20:30:33')
+        )
+        self.assertEqual(
+            '203013-203033condensed',
+            gpr._display_safe_timerange('20:30:13 - 20:30:33 (condensed)')
+        )
+
+
+class TestBreakdownLogByEventsTimeframe(TestCase):
+
+    def test_returns_ordered_dictionary_of_details(self):
+        """Must be ordered on the event_range."""
+        # Use ordered dict here so we can check the returned order has changed
+        # later on.
+        first = '2016-10-16 20:28:06 - 2016-10-16 20:29:44'
+        second = '2016-10-16 20:30:13 - 2016-10-16 20:32:21'
+        fake_data = OrderedDict()
+        fake_data[second] = {'20:30:13 - 20:30:33': 'Log message second'}
+        fake_data[first] = {'20:28:06 - 20:28:26': 'Log message'}
+
+        name_lookup = {first: 'First', second: 'Second'}
+
+        with patch.object(
+                gpr, '_get_chunked_log',
+                return_value=fake_data, autospec=True):
+            with patch.object(
+                    gpr, '_get_log_name_lookup_table',
+                    return_value=name_lookup, autospec=True):
+                details = gpr.breakdown_log_by_events_timeframe(
+                    '/tmp', 'boostrap', 'cleanup', [])
+
+        self.assertIsInstance(details, OrderedDict)
+        items = details.items()
+        self.assertEqual(items[0][0], first)
+        self.assertEqual(items[1][0], second)
+
+    def test_contains_display_friendly_datestamp(self):
+        first = '2016-10-16 20:28:06 - 2016-10-16 20:29:44'
+        display = '2016-10-16202806-2016-10-16202944'
+        fake_data = dict()
+        fake_data[first] = {'20:28:06 - 20:28:26': 'Log message'}
+
+        name_lookup = {first: 'First'}
+
+        with patch.object(
+                gpr, '_get_chunked_log',
+                return_value=fake_data, autospec=True):
+            with patch.object(
+                    gpr, '_get_log_name_lookup_table',
+                    return_value=name_lookup, autospec=True):
+                details = gpr.breakdown_log_by_events_timeframe(
+                    '/tmp', 'boostrap', 'cleanup', [])
+        self.assertEqual(details[first]['event_range_display'], display)
+
+    def test_contains_display_friendly_timestamp(self):
+        first = '2016-10-16 20:28:06 - 2016-10-16 20:29:44'
+        display_time = '202806-202826'
+        fake_data = dict()
+        fake_data[first] = {'20:28:06 - 20:28:26': 'Log message'}
+
+        name_lookup = {first: 'First'}
+
+        with patch.object(
+                gpr, '_get_chunked_log',
+                return_value=fake_data, autospec=True):
+            with patch.object(
+                    gpr, '_get_log_name_lookup_table',
+                    return_value=name_lookup, autospec=True):
+                details = gpr.breakdown_log_by_events_timeframe(
+                    '/tmp', 'boostrap', 'cleanup', [])
+        self.assertEqual(
+            details[first]['logs'][0]['display_timeframe'],
+            display_time)
