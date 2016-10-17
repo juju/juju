@@ -241,27 +241,6 @@ class TestFindActualStart(TestCase):
 
 class TestLogBreakdown(TestCase):
 
-    def test_get_log_message_in_timed_chunks_returns_log_data(self):
-        log_file = '/path/to/log'
-        deploy_timings = [Mock(), Mock()]
-        deployments = dict(
-            bootstrap='bootstrap', cleanup='cleanup', deploys=deploy_timings)
-        log_details = Mock()
-
-        with patch.object(
-                gpr,
-                'breakdown_log_by_events_timeframe',
-                return_value=log_details,
-                autospec=True) as m_blbt:
-            self.assertEqual(
-                log_details,
-                gpr.get_log_message_in_timed_chunks(log_file, deployments))
-        m_blbt.assert_called_once_with(
-            log_file,
-            'bootstrap',
-            'cleanup',
-            deploy_timings)
-
     def test__get_chunked_log(self):
         log_file = '/path/to/file'
         deployments = ['deploy1', 'deploy2']

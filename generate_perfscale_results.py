@@ -197,8 +197,11 @@ def generate_reports(controller_log, results_dir, deployments):
         mongo_query_image = generate_mongo_query_graph_image(results_dir)
         mongo_memory_image = generate_mongo_memory_graph_image(results_dir)
 
-    log_message_chunks = get_log_message_in_timed_chunks(
-        controller_log, deployments)
+    log_message_chunks = breakdown_log_by_events_timeframe(
+        controller_log,
+        deployments['bootstrap'],
+        deployments['cleanup'],
+        deployments['deploys'])
 
     details = dict(
         cpu_graph=cpu_image,
@@ -215,19 +218,6 @@ def generate_reports(controller_log, results_dir, deployments):
         json.dump(details, f, cls=PerfTestDataJsonSerialisation)
 
     create_html_report(results_dir, details)
-
-
-def get_log_message_in_timed_chunks(log_file, deployments):
-    """Breakdown log into timechunks based on event timeranges in 'deployments'
-
-    """
-
-    bootstrap = deployments.pop('bootstrap')
-    cleanup = deployments.pop('cleanup')
-    deployments = deployments.pop('deploys')
-
-    return breakdown_log_by_events_timeframe(
-        log_file, bootstrap, cleanup, deployments)
 
 
 def breakdown_log_by_events_timeframe(log, bootstrap, cleanup, deployments):
