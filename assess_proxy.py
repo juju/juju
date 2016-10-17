@@ -123,6 +123,8 @@ def parse_args(argv):
 def main(argv=None):
     args = parse_args(argv)
     configure_logging(args.verbose)
+    forward_rule = check_network(
+        args.client_interface, args.controller_interface)
     try:
         log.info("Setting firewall")
         set_firewall(args.scenario)
