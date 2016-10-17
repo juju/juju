@@ -231,7 +231,7 @@ def breakdown_log_by_events_timeframe(log, bootstrap, cleanup, deployments):
     :param bootstrap: TimingData object representing bootstrap timings.
     :param cleanup: TimingData object representing clean timings.
     :param deployments: List of DeployDetails representing each deploy made.
-    :returns: OrderedDict of dictionaries, with a structure like:
+    :return: OrderedDict of dictionaries, with a structure like:
        {'date range':
             { name, display name, logs -> [{'time frame', display, logs}]}
     """
