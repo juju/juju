@@ -5,7 +5,10 @@ collection.
 
 from __future__ import print_function
 
-from collections import defaultdict
+from collections import (
+    OrderedDict,
+    defaultdict
+)
 from datetime import datetime
 import logging
 import os
@@ -252,7 +255,7 @@ def breakdown_log_by_events_timeframe(log, bootstrap, cleanup, deployments):
 
     # Created an ordereddict based on sorting event_details on key.
 
-    return event_details
+    return OrderedDict(sorted(event_details.items()))
 
 
 def _display_safe_daterange(datestamp):
