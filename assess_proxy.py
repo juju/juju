@@ -33,7 +33,7 @@ SCENARIO_BOTH = 'both-proxied'
 SCENARIO_CLIENT = 'client-proxied'
 SCENARIO_CONTROLLER = 'controller-proxied'
 
-IPTABLES_BACKUP = '/etc/iptables.before-assess_proxy'
+IPTABLES_BACKUP = '/etc/iptables.before-assess-proxy'
 IPTABLES_FORWARD_PROXY = '-A FORWARD -i {} -p tcp --d port 3128 -j ACCEPT'
 
 UFW_RESET_COMMANDS = [
@@ -133,6 +133,7 @@ def parse_args(argv):
 def main(argv=None):
     args = parse_args(argv)
     configure_logging(args.verbose)
+    log.info("Checking the setup of the network and firewall")
     forward_rule = check_network(
         args.client_interface, args.controller_interface)
     try:
@@ -146,7 +147,7 @@ def main(argv=None):
             assess_proxy(bs_manager.client, args.scenario)
             log.info("Finished test")
     finally:
-        # Always open the network, regardless of what happened.
+        # Always reopen the network, regardless of what happened.
         # Do not lockout the host.
         log.info("Resetting firewall")
         reset_firewall()

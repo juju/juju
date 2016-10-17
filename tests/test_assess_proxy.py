@@ -151,13 +151,13 @@ class TestAssess(TestCase):
             assess_proxy.reset_firewall()
         self.assertEqual([
             call(('sudo', 'iptables-restore',
-                  '/etc/iptables.before-assess_proxy')),
+                  '/etc/iptables.before-assess-proxy')),
             call(('sudo', 'ufw', '--force', 'reset')),
             call(('sudo', 'ufw', '--force', 'disable'))],
             mock_sc.mock_calls)
         expected_log = (
             "INFO ('sudo', 'iptables-restore',"
-            " '/etc/iptables.before-assess_proxy') exited successfully\n"
+            " '/etc/iptables.before-assess-proxy') exited successfully\n"
             "ERROR ('sudo', 'ufw', '--force', 'reset') exited with 1\n"
             "ERROR This host may be in a dirty state.\n"
             "INFO ('sudo', 'ufw', '--force', 'disable') exited successfully\n")
