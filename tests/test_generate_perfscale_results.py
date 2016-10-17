@@ -65,17 +65,8 @@ class TestDumpPerformanceMetricsLogs(TestCase):
 
 class TestJsonSerialisation(TestCase):
 
-    def test_TimingData_serialises(self):
-        timing_data = gpr.TimingData(datetime.utcnow(), datetime.utcnow())
-        json.dumps(timing_data, cls=gpr.PerfTestDataJsonSerialisation)
-
-    def test_DeployDetails_serialises(self):
-        timing_data = gpr.TimingData(datetime.utcnow(), datetime.utcnow())
-        deploy_details = gpr.DeployDetails(
-            'name', dict(app_name=1), timing_data)
-        json.dumps(deploy_details, cls=gpr.PerfTestDataJsonSerialisation)
-
     def test_serialise_stores_values(self):
+        """Must serialise data for TimingData and DeployDetails objects."""
         start = datetime.utcnow()
         end = datetime.utcnow()
         seconds = int((end-start).total_seconds())
