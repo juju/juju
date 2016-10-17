@@ -36,7 +36,7 @@ func (s *ListControllersSuite) TestListControllersEmptyStore(c *gc.C) {
 
 func (s *ListControllersSuite) TestListControllers(c *gc.C) {
 	s.expectedOutput = `
-Use --refresh to see the latest information.
+Use --refresh flag to see the latest information.
 
 Controller           Model       User   Access     Cloud/Region        Models  Machines  HA  Version
 aws-test             controller  -      -          aws/us-east-1            2         5   -  2.0.1      
