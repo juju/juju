@@ -35,7 +35,36 @@ SCENARIO_CONTROLLER = 'controller-proxied'
 
 IPTABLES_FORWARD_PROXY = '-A FORWARD -i {} -p tcp --d port 3128 -j ACCEPT'
 IPTABLES_BACKUP = '/etc/iptables.before-assess-proxy'
+IPTABLES_BACKUP_BASH = """
+#!/bin/bash
+set -eux
+sudo iptables-save | sudo tee {iptables_backup}
+""".format(iptables_backup=IPTABLES_BACKUP)
 
+UFW_PROXY_COMMON_BASH = """
+#!/bin/bash
+set -eux
+sudo ufw allow in 22/tcp
+sudo ufw allow out 22/tcp
+sudo ufw allow out 53/udp
+sudo ufw allow out 123/udp
+sudo ufw allow out 3128/tcp
+"""
+UFW_PROXY_CLIENT_BASH = """
+#!/bin/bash
+set -eux
+sudo ufw deny out on {interface} to any
+"""
+UFW_PROXY_CONTROLLER_BASH = """
+#!/bin/bash
+set -eux
+sudo ufw allow out on {interface} to any port 3128
+sudo ufw allow out on {interface} to any port 53
+sudo ufw allow out on {interface} to any port 67
+sudo iptables -A FORWARD -i {interface} -p tcp --dport 3128 -j ACCEPT
+{sudo iptables -D {original_forward_rule}
+"""
+UFW_ENABLE_COMMAND = ['sudo', 'ufw', '--force', 'enable']
 UFW_RESET_COMMANDS = [
     ('sudo', 'iptables-restore', IPTABLES_BACKUP),
     ('sudo', 'ufw', '--force', 'reset'),
