@@ -9,6 +9,7 @@ from collections import defaultdict
 from datetime import datetime
 import logging
 import os
+import re
 import subprocess
 
 try:
@@ -217,14 +218,57 @@ def get_log_message_in_timed_chunks(log_file, deployments):
     """Breakdown log into timechunks based on event timeranges in 'deployments'
 
     """
-    deploy_timings = [d.timings for d in deployments['deploys']]
 
     bootstrap = deployments['bootstrap']
     cleanup = deployments['cleanup']
-    all_event_timings = [bootstrap] + deploy_timings + [cleanup]
+    deploy_timings = [d.timings for d in deployments['deploys']]
 
-    raw_details = breakdown_log_by_timeframes(log_file, all_event_timings)
+    return breakdown_log_by_events_timeframe(
+        log_file, bootstrap, cleanup, deploy_timings)
 
+
+def breakdown_log_by_events_timeframe(log, bootstrap, cleanup, deployments):
+    raw_details = _get_chunked_log(log, bootstrap, cleanup, deployments)
+    name_lookup = _get_log_name_lookup_table(bootstrap, cleanup, deployments)
+
+    # Outer-layer (i.e. event)
+    event_details = defaultdict(defaultdict)
+    for event_range in raw_details.keys():
+        display_name = _display_safe_daterange(event_range)
+        event_details[event_range]['name'] = name_lookup[event_range]
+        event_details[event_range]['logs'] = []
+        event_details[event_range]['event_range_display'] = display_name
+
+        # sort here so that the log list is in order.
+        for log_range in raw_details[event_range].keys():
+            timeframe = log_range
+            display_timeframe = _display_safe_timerange(log_range)
+            message = '<br/>'.join(raw_details[event_range][log_range])
+            event_details[event_range]['logs'].append(
+                dict(
+                    timeframe=timeframe,
+                    display_timeframe=display_timeframe,
+                    message=message))
+
+    # Created an ordereddict based on sorting event_details on key.
+
+    return event_details
+
+
+def _display_safe_daterange(datestamp):
+    return re.sub('[:\ ]', '', datestamp)
+
+
+def _display_safe_timerange(timerange):
+    return re.sub('[:\(\)\ ]', '', timerange)
+
+
+def _get_chunked_log(log_file, bootstrap, cleanup, deployments):
+    all_event_timings = [bootstrap] + deployments + [cleanup]
+    return breakdown_log_by_timeframes(log_file, all_event_timings)
+
+
+def _get_log_name_lookup_table(bootstrap, cleanup, deployments):
     bs_name = _render_ds_string(bootstrap.start, bootstrap.end)
     cleanup_name = _render_ds_string(cleanup.start, cleanup.end)
 
@@ -232,26 +276,12 @@ def get_log_message_in_timed_chunks(log_file, deployments):
         bs_name: 'Bootstrap',
         cleanup_name: 'Kill-Controller',
     }
-    for dep in deployments['deploys']:
+    for dep in deployments:
         name_range = _render_ds_string(
             dep.timings.start, dep.timings.end)
         name_lookup[name_range] = dep.name
 
-    event_details = defaultdict(defaultdict)
-    # Outer-layer (i.e. event)
-    for event_range in raw_details.keys():
-        event_details[event_range]['name'] = name_lookup[event_range]
-        event_details[event_range]['logs'] = []
-
-        for log_range in raw_details[event_range].keys():
-            timeframe = log_range
-            message = '<br/>'.join(raw_details[event_range][log_range])
-            event_details[event_range]['logs'].append(
-                dict(
-                    timeframe=timeframe,
-                    message=message))
-
-    return event_details
+    return name_lookup
 
 
 def create_html_report(results_dir, details):
