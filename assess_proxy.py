@@ -29,6 +29,10 @@ __metaclass__ = type
 
 log = logging.getLogger("assess_proxy")
 
+SCENARIO_BOTH = 'both-proxied'
+SCENARIO_CLIENT = 'client-proxied'
+SCENARIO_CONTROLLER = 'controller-proxied'
+
 IPTABLES_BACKUP = '/etc/iptables.before-assess_proxy'
 IPTABLES_FORWARD_PROXY = '-A FORWARD -i {} -p tcp --d port 3128 -j ACCEPT'
 
@@ -79,7 +83,7 @@ def check_network(client_interface, controller_interface):
     return forward_rule
 
 
-def set_firewall(scenario):
+def set_firewall(scenario, forward_rule):
     """Setup the firewall to match the scenario."""
     pass
 
@@ -114,7 +118,8 @@ def parse_args(argv):
         description="Assess Juju under various proxy network conditions.")
     add_basic_testing_arguments(parser)
     parser.add_argument(
-        'scenario', choices=['both-proxied'],
+        'scenario', choices=[
+            SCENARIO_BOTH, SCENARIO_CLIENT, SCENARIO_CONTROLLER],
         help="The proxy scenario to run.")
     parser.add_argument(
         '--client-interface', default='eth0',
@@ -132,7 +137,7 @@ def main(argv=None):
         args.client_interface, args.controller_interface)
     try:
         log.info("Setting firewall")
-        set_firewall(args.scenario)
+        set_firewall(args.scenario, forward_rule)
         log.info("Starting test")
         bs_manager = BootstrapManager.from_args(args)
         log.info("Starting bootstrap")
