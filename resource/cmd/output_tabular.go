@@ -65,7 +65,7 @@ func FormatSvcTabular(writer io.Writer, value interface{}) error {
 func formatServiceTabular(writer io.Writer, info FormattedServiceInfo) {
 	// TODO(ericsnow) sort the rows first?
 
-	fmt.Fprintln(writer, "[Service]")
+	fmt.Fprintln(writer, "[Application]")
 	tw := output.TabWriter(writer)
 	fmt.Fprintln(tw, "Resource\tSupplied by\tRevision")
 
