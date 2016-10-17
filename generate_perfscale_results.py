@@ -224,15 +224,30 @@ def get_log_message_in_timed_chunks(log_file, deployments):
 
     bootstrap = deployments.pop('bootstrap')
     cleanup = deployments.pop('cleanup')
+    deployments = deployments.pop('deploys')
 
     return breakdown_log_by_events_timeframe(
         log_file, bootstrap, cleanup, deployments)
 
 
 def breakdown_log_by_events_timeframe(log, bootstrap, cleanup, deployments):
+    """Breakdown a log file into event chunks.
+
+    Given a log file and time details for events (i.e. bootstrap, cleanup and
+    deployments) return a datastructure containing the log contents broken up
+    into time chunks relevant for those events.
+
+    :param log: Log file path from which to breakdown data.
+    :param bootstrap: TimingData object representing bootstrap timings.
+    :param cleanup: TimingData object representing clean timings.
+    :param deployments: List of DeployDetails representing each deploy made.
+    :returns: OrderedDict of dictionaries, with a structure like:
+       {'date range':
+            { name, display name, logs -> [{'time frame', display, logs}]}
+    """
     name_lookup = _get_log_name_lookup_table(bootstrap, cleanup, deployments)
 
-    deploy_timings = [d.timings for d in deployments['deploys']]
+    deploy_timings = [d.timings for d in deployments]
     raw_details = _get_chunked_log(log, bootstrap, cleanup, deploy_timings)
 
     # Outer-layer (i.e. event)
@@ -254,16 +269,16 @@ def breakdown_log_by_events_timeframe(log, bootstrap, cleanup, deployments):
                     display_timeframe=display_timeframe,
                     message=message))
 
-    # Created an ordereddict based on sorting event_details on key.
-
     return OrderedDict(sorted(event_details.items()))
 
 
 def _display_safe_daterange(datestamp):
+    """Return a datestamp string that can be used as an html class/id."""
     return re.sub('[:\ ]', '', datestamp)
 
 
 def _display_safe_timerange(timerange):
+    """Return a timerange string that can be used as an html class/id."""
     return re.sub('[:\(\)\ ]', '', timerange)
 
 
@@ -273,6 +288,10 @@ def _get_chunked_log(log_file, bootstrap, cleanup, deployments):
 
 
 def _get_log_name_lookup_table(bootstrap, cleanup, deployments):
+    """Given event details construct a lookup table to give them names.
+
+    :return: dict containing { daterange -> event name } look up.
+    """
     bs_name = _render_ds_string(bootstrap.start, bootstrap.end)
     cleanup_name = _render_ds_string(cleanup.start, cleanup.end)
 
