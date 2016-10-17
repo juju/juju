@@ -247,11 +247,6 @@ type Dialer interface {
 	Dial(network, address string) (net.Conn, error)
 }
 
-type dialResult struct {
-	endpoint HostPort
-	err      error
-}
-
 // FastestHostPort dials the unique entries in the given hostPorts, in parallel,
 // using the given dialer, closing successfully established connections
 // immediately. Individual connection errors are discarded, and an error is
