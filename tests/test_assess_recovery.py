@@ -5,7 +5,7 @@ from mock import (
     patch,
     Mock,
     sentinel,
-)
+    )
 
 from assess_recovery import (
     assess_recovery,
@@ -14,15 +14,15 @@ from assess_recovery import (
     main,
     parse_args,
     restore_missing_state_server,
-)
+    )
+from fakejuju import fake_juju_client
 from jujupy import (
     Machine,
-)
+    )
 from tests import (
     FakeHomeTestCase,
     TestCase,
-)
-from tests.test_jujupy import fake_juju_client
+    )
 from utility import JujuAssertionError
 
 

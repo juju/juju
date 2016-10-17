@@ -6,7 +6,7 @@ from mock import (
     call,
     patch,
     Mock,
-)
+    )
 
 from jujupy import (
     EnvJujuClient,
@@ -16,15 +16,15 @@ from jujupy import (
     LXD_MACHINE,
     SimpleEnvironment,
     Status,
-)
+    )
 
 import assess_container_networking as jcnet
+from fakejuju import fake_juju_client
 from tests import (
     FakeHomeTestCase,
     parse_error,
     TestCase,
-)
-from tests.test_jujupy import fake_juju_client
+    )
 
 
 __metaclass__ = type
