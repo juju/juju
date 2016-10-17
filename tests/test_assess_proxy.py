@@ -147,13 +147,17 @@ class TestAssess(TestCase):
         # Verify the ufw wa called to reset and disable even if one of the
         # commands exited with an error.
         with patch('subprocess.call', autospec=True,
-                   side_effect=[1, 0]) as mock_sc:
+                   side_effect=[0, 1, 0]) as mock_sc:
             assess_proxy.reset_firewall()
         self.assertEqual([
+            call(('sudo', 'iptables-restore',
+                  '/etc/iptables.before-assess_proxy')),
             call(('sudo', 'ufw', '--force', 'reset')),
             call(('sudo', 'ufw', '--force', 'disable'))],
             mock_sc.mock_calls)
         expected_log = (
+            "INFO ('sudo', 'iptables-restore',"
+            " '/etc/iptables.before-assess_proxy') exited successfully\n"
             "ERROR ('sudo', 'ufw', '--force', 'reset') exited with 1\n"
             "ERROR This host may be in a dirty state.\n"
             "INFO ('sudo', 'ufw', '--force', 'disable') exited successfully\n")
