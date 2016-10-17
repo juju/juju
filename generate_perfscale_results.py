@@ -222,17 +222,18 @@ def get_log_message_in_timed_chunks(log_file, deployments):
 
     """
 
-    bootstrap = deployments['bootstrap']
-    cleanup = deployments['cleanup']
-    deploy_timings = [d.timings for d in deployments['deploys']]
+    bootstrap = deployments.pop('bootstrap')
+    cleanup = deployments.pop('cleanup')
 
     return breakdown_log_by_events_timeframe(
-        log_file, bootstrap, cleanup, deploy_timings)
+        log_file, bootstrap, cleanup, deployments)
 
 
 def breakdown_log_by_events_timeframe(log, bootstrap, cleanup, deployments):
-    raw_details = _get_chunked_log(log, bootstrap, cleanup, deployments)
     name_lookup = _get_log_name_lookup_table(bootstrap, cleanup, deployments)
+
+    deploy_timings = [d.timings for d in deployments['deploys']]
+    raw_details = _get_chunked_log(log, bootstrap, cleanup, deploy_timings)
 
     # Outer-layer (i.e. event)
     event_details = defaultdict(defaultdict)

@@ -243,7 +243,6 @@ class TestLogBreakdown(TestCase):
 
     def test_get_log_message_in_timed_chunks_returns_log_data(self):
         log_file = '/path/to/log'
-        # Not sure if this shouldn't just be Mocks
         deploy_timings = [Mock(), Mock()]
         deployments = dict(
             bootstrap='bootstrap', cleanup='cleanup', deploys=deploy_timings)
@@ -261,7 +260,7 @@ class TestLogBreakdown(TestCase):
             log_file,
             'bootstrap',
             'cleanup',
-            [deploy_timings[0].timings, deploy_timings[1].timings])
+            dict(deploys=deploy_timings))
 
     def test__get_chunked_log(self):
         log_file = '/path/to/file'
@@ -346,7 +345,7 @@ class TestBreakdownLogByEventsTimeframe(TestCase):
                     gpr, '_get_log_name_lookup_table',
                     return_value=name_lookup, autospec=True):
                 details = gpr.breakdown_log_by_events_timeframe(
-                    '/tmp', 'boostrap', 'cleanup', 'deployments')
+                    '/tmp', 'boostrap', 'cleanup', dict(deploys=[]))
 
         self.assertIsInstance(details, OrderedDict)
         items = details.items()
@@ -368,7 +367,7 @@ class TestBreakdownLogByEventsTimeframe(TestCase):
                     gpr, '_get_log_name_lookup_table',
                     return_value=name_lookup, autospec=True):
                 details = gpr.breakdown_log_by_events_timeframe(
-                    '/tmp', 'boostrap', 'cleanup', 'deployments')
+                    '/tmp', 'boostrap', 'cleanup', dict(deploys=[]))
         self.assertEqual(details[first]['event_range_display'], display)
 
     def test_contains_display_friendly_timestamp(self):
@@ -386,7 +385,7 @@ class TestBreakdownLogByEventsTimeframe(TestCase):
                     gpr, '_get_log_name_lookup_table',
                     return_value=name_lookup, autospec=True):
                 details = gpr.breakdown_log_by_events_timeframe(
-                    '/tmp', 'boostrap', 'cleanup', 'deployments')
+                    '/tmp', 'boostrap', 'cleanup', dict(deploys=[]))
         self.assertEqual(
             details[first]['logs'][0]['display_timeframe'],
             display_time)
