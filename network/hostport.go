@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils/clock"
 	"github.com/juju/utils/set"
 )
 
@@ -186,20 +185,6 @@ func FilterUnusableHostPorts(hps []HostPort) []HostPort {
 	return filtered
 }
 
-// DropDuplicatedHostPorts removes any HostPorts duplicates from the
-// given slice and returns the result.
-func DropDuplicatedHostPorts(hps []HostPort) []HostPort {
-	uniqueHPs := set.NewStrings()
-	var result []HostPort
-	for _, hp := range hps {
-		if !uniqueHPs.Contains(hp.NetAddr()) {
-			uniqueHPs.Add(hp.NetAddr())
-			result = append(result, hp)
-		}
-	}
-	return result
-}
-
 // HostPortsToStrings converts each HostPort to string calling its
 // NetAddr() method.
 func HostPortsToStrings(hps []HostPort) []string {
@@ -239,34 +224,20 @@ func EnsureFirstHostPort(first HostPort, hps []HostPort) []HostPort {
 	return result
 }
 
-// UniqueHostPorts sends the unique entries in the given hostPorts slice on the
-// returned channel, closing the channel when done. It takes a stop channel,
-// which can be used to signal the sending loop to stop earlier.
-func UniqueHostPorts(stop <-chan struct{}, hostPorts []HostPort) <-chan HostPort {
-	results := make(chan HostPort)
+// UniqueHostPorts returns the given hostPorts after filtering out any
+// duplicates, preserving the input order.
+func UniqueHostPorts(hostPorts []HostPort) []HostPort {
+	results := make([]HostPort, 0, len(hostPorts))
 
-	go func() {
-		defer close(results)
-
-		sent := make(map[HostPort]bool, len(hostPorts))
-		for _, hostPort := range hostPorts {
-			select {
-			case <-stop:
-				return
-			default:
-				if sent[hostPort] {
-					continue
-				}
-			}
-
-			select {
-			case <-stop:
-				return
-			case results <- hostPort:
-				sent[hostPort] = true
-			}
+	seen := make(map[HostPort]bool, len(hostPorts))
+	for _, hostPort := range hostPorts {
+		if seen[hostPort] {
+			continue
 		}
-	}()
+
+		seen[hostPort] = true
+		results = append(results, hostPort)
+	}
 
 	return results
 }
@@ -276,77 +247,39 @@ type Dialer interface {
 	Dial(network, address string) (net.Conn, error)
 }
 
-// DialResult holds the results written by DialHostPort() on its returned
-// channel.
-type DialResult struct {
-	Endpoint *HostPort
-	Duration time.Duration
-	Error    error
+type dialResult struct {
+	endpoint HostPort
+	err      error
 }
 
-// DialHostPort dials the given hostPort asynchronously and writes a DialResult
-// on the returned channel when done, then closing the channel. If a connection
-// was successfully established, it will be closed immediately. The given dialer
-// and clock are used to perform the dialing and measuring the time taken (which
-// is also set on error). Usually, a net.Dialer and clock.WallClock are passed
-// for dialer and clock, respectively.
-func DialHostPort(hostPort HostPort, dialer Dialer, clock clock.Clock) <-chan DialResult {
-	dialResult := make(chan DialResult, 1)
+// FastestHostPort dials the unique entries in the given hostPorts, in parallel,
+// using the given dialer, closing successfully established connections
+// immediately. Individual connection errors are discarded, and an error is
+// returned only if none of the hostPorts can be reached when the given timeout
+// expires.
+//
+// Usually, a net.Dialer initialized with a non-empty Timeout field is passed
+// for dialer.
+func FastestHostPort(hostPorts []HostPort, dialer Dialer, timeout time.Duration) (HostPort, error) {
+	uniqueHPs := UniqueHostPorts(hostPorts)
+	successful := make(chan HostPort, 1)
 
-	go func() {
-		defer close(dialResult)
-
-		result := DialResult{
-			Endpoint: &hostPort,
-		}
-
-		startTime := clock.Now()
-
-		conn, err := dialer.Dial("tcp", hostPort.NetAddr())
-
-		result.Duration = clock.Now().Sub(startTime)
-		if err != nil {
-			result.Error = err
-		}
-
-		if conn != nil {
-			conn.Close()
-		}
-
-		dialResult <- result
-	}()
-
-	return dialResult
-}
-
-// FastestHostPort uses the given dialer and clock to determine the best
-// HostPort from the given hostPorts. Each unique HostPort entry is dialed in
-// parallel, measuring the time taken to establish a successful connection,
-// which is then closed. Individual connection errors are discarded, and an
-// error is returned only if none of the hostPorts can be reached.
-func FastestHostPort(dialer Dialer, clock clock.Clock, hostPorts []HostPort) (HostPort, error) {
-	stop := make(chan struct{})
-	defer close(stop)
-
-	bestResult := DialResult{Duration: 24 * time.Hour}
-	for hostPort := range UniqueHostPorts(stop, hostPorts) {
-		lastResult := <-DialHostPort(hostPort, dialer, clock)
-
-		if lastResult.Error != nil {
-			// Discard individual connection errors.
-			logger.Debugf("discarding error dialing %q: %v", lastResult.Endpoint, lastResult.Error)
-			continue
-		}
-
-		if bestResult.Duration > lastResult.Duration {
-			bestResult = lastResult
-			logger.Debugf("best endpoint %q has duration %s", bestResult.Endpoint, bestResult.Duration)
-		}
+	for _, hostPort := range uniqueHPs {
+		go func(hp HostPort) {
+			conn, err := dialer.Dial("tcp", hp.NetAddr())
+			if err == nil {
+				defer conn.Close()
+				successful <- hp
+			}
+		}(hostPort)
 	}
 
-	if bestResult.Endpoint == nil {
+	select {
+	case result := <-successful:
+		logger.Infof("dialed %q successfully", result)
+		return result, nil
+
+	case <-time.After(timeout):
 		return HostPort{}, errors.Errorf("cannot connect to any address: %v", hostPorts)
 	}
-
-	return *bestResult.Endpoint, nil
 }
