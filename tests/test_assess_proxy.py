@@ -164,6 +164,18 @@ class TestAssess(TestCase):
                 with self.assertRaises(ValueError):
                     assess_proxy.check_network('eth0', 'lxdbr0')
 
+    def test_backup_iptables(self):
+        pass
+
+    def test_setup_common_firewall(self):
+        pass
+
+    def test_setup_client_firewall(self):
+        pass
+
+    def test_controller_firewall(self):
+        pass
+
     def test_set_firewall(self):
         forward_rule = '-A FORWARD -i lxdbr0 -j ACCEPT'
         assess_proxy.set_firewall(
