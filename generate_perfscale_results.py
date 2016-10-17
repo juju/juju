@@ -5,7 +5,7 @@ collection.
 
 from __future__ import print_function
 
-from collections import defaultdict, namedtuple
+from collections import defaultdict
 from datetime import datetime
 import logging
 import os
@@ -18,6 +18,7 @@ except ImportError:
     # on non-linux.
     rrdtool = object()
 from jinja2 import Template
+import json
 
 from logbreakdown import (
     _render_ds_string,
@@ -47,8 +48,7 @@ class TimingData:
         self.seconds = int((end - start).total_seconds())
 
 
-class DeployDetails(
-        namedtuple('DeployDetails', ['name', 'applications', 'timings'])):
+class DeployDetails:
     """Details regarding a perfscale testrun.
 
     :param name: String naming deploy details
@@ -58,6 +58,20 @@ class DeployDetails(
     :param timings: A TimingData object representing the test runs start/end
     details
     """
+    def __init__(self, name, applications, timings):
+        self.name = name
+        self.applications = applications
+        self.timings = timings
+
+
+class PerfTestDataJsonSerialisation(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, TimingData):
+            return obj.__dict__
+        if isinstance(obj, DeployDetails):
+            return obj.__dict__
+        return super(PerfTestDataJsonSerialisation, self).default(obj)
+
 
 SETUP_SCRIPT_PATH = 'perf_static/setup-perf-monitoring.sh'
 COLLECTD_CONFIG_PATH = 'perf_static/collectd.conf'
@@ -191,6 +205,10 @@ def generate_reports(controller_log, results_dir, deployments):
         deployments=deployments,
         log_message_chunks=log_message_chunks
     )
+
+    json_dump_path = os.path.join(results_dir, 'report-data.json')
+    with open(json_dump_path, 'wt') as f:
+        json.dump(details, f, cls=PerfTestDataJsonSerialisation)
 
     create_html_report(results_dir, details)
 
