@@ -1948,11 +1948,20 @@ class EnvJujuClient:
         id = self.action_do(unit, action, *args)
         return self.action_fetch(id, action, timeout)
 
-    def run(self, commands, applications):
-        responses = self.get_juju_output(
-            'run', '--format', 'json', '--application', ','.join(applications),
-            *commands)
-        return json.loads(responses)
+    def run(self, commands, applications=None, machines=None, use_json=True):
+        args = []
+        if use_json:
+            args.extend(['--format', 'json'])
+        if applications is not None:
+            args.extend(['--application', ','.join(applications)])
+        if machines is not None:
+            args.extend(['--machine', ','.join(machines)])
+        args.extend(commands)
+        responces = self.get_juju_output('run', *args)
+        if use_json:
+            return json.loads(responces)
+        else:
+            return responces
 
     def list_space(self):
         return yaml.safe_load(self.get_juju_output('list-space'))
