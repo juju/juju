@@ -1,10 +1,17 @@
 #!/usr/bin/env python
-"""Assess Juju under various proxy network conditions."""
+"""Assess Juju under various proxy network conditions.
+
+This test is dangerous to run on your own host. It will change the host's
+network and can lock you out of your host. There are checks to ensure the
+host matches expectations so that the network can be reset. While the test
+is running, other processes on the host may be crippled.
+"""
 
 from __future__ import print_function
 
 import argparse
 import logging
+import re
 import subprocess
 import sys
 
@@ -22,11 +29,50 @@ __metaclass__ = type
 
 log = logging.getLogger("assess_proxy")
 
-
 UFW_RESET_COMMANDS = [
     ('sudo', 'ufw', '--force', 'reset'),
     ('sudo', 'ufw', '--force', 'disable'),
 ]
+
+
+def check_network(client_interface, controller_interface):
+    """Verify the interfaces are usable and return the FORWARD IN rule.
+
+    :raises ValueError: when the interfaces are not present or the FORWARD IN
+        rule cannot be identified.
+    :return: the FORWARD IN rule that must be restored before the test exits.
+    """
+    if subprocess.call(['ifconfig', client_interface]) != 0:
+        message = 'client_interface {} not found'.format(client_interface)
+        log.error(message)
+        raise ValueError(message)
+    if subprocess.call(['ifconfig', controller_interface]) != 0:
+        message = 'controller_interface {} not found'.format(
+            controller_interface)
+        log.error(message)
+        raise ValueError(message)
+    # We need to match a single rule from iptables:
+    # sudo iptables -S lxdbr0
+    # -A FORWARD -i lxdbr0 -m comment --comment "managed by lxd" -j ACCEPT
+    rules = subprocess.check_output(['sudo', 'iptables', '-S', 'FORWARD'])
+    forward_pattern = re.compile(
+        '(-A FORWARD -i {}.*-j ACCEPT)'.format(controller_interface))
+    forward_rule = None
+    for rule in rules.splitlines():
+        match = forward_pattern.search(rule)
+        if match and forward_rule is None:
+            forward_rule = match.group(1)
+        elif match and forward_rule is not None:
+            # There is more than one match. We did not match a unique to
+            # delete and restore.
+            forward_rule = None
+            break
+    if forward_rule is None:
+        # Either the rule was not matched or it was matched more than once.
+        raise ValueError(
+            'Cannot identify the unique iptables FOWARD IN rule for {}'.format(
+                controller_interface))
+    return forward_rule
 
 
 def set_firewall(scenario):

@@ -1,7 +1,4 @@
-"""Tests for assess_proxy module.
-
-This test is dangerous to run.
-"""
+"""Tests for assess_proxy module."""
 
 import logging
 from mock import (
@@ -89,6 +86,58 @@ class TestAssess(TestCase):
         self.assertEqual(
             1, fake_client.get_status().get_service_unit_count('ubuntu'))
         self.assertNotIn("TODO", self.log_stream.getvalue())
+
+    def test_check_network(self):
+        iptables_rule = (
+            '-A INPUT -i lxdbr0 -p tcp -m tcp --dport 53 -j ACCEPT\n'
+            '-A FORWARD -i lxdbr0 -m comment --comment "by lxd" -j ACCEPT\n'
+            '-A FORWARD -0 lxdbr0 -m comment --comment "by lxd" -j ACCEPT')
+        with patch('subprocess.check_output', autospec=True,
+                   return_value=iptables_rule) as mock_scc:
+            with patch('subprocess.call', autospec=True,
+                       side_effect=[0, 0]) as mock_sc:
+                forward_rule = assess_proxy.check_network('eth0', 'lxdbr0')
+        self.assertEqual(
+            '-A FORWARD -i lxdbr0 -m comment --comment "by lxd" -j ACCEPT',
+            forward_rule)
+        mock_scc.assert_called_once_with(
+            ['sudo', 'iptables', '-S', 'FORWARD'])
+        self.assertEqual(
+            [call(['ifconfig', 'eth0']), call(['ifconfig', 'lxdbr0'])],
+            mock_sc.mock_calls)
+
+    def test_check_network_forward_rule_no_match_error(self):
+        iptables_rule = '-A FORWARD -i lxdbr1 -j ACCEPT'
+        with patch('subprocess.check_output', autospec=True,
+                   return_value=iptables_rule):
+            with patch('subprocess.call', autospec=True,
+                       side_effect=[0, 0]):
+                with self.assertRaises(ValueError):
+                    assess_proxy.check_network('eth0', 'lxdbr0')
+
+    def test_check_network_forward_rule_many_match_error(self):
+        iptables_rule = (
+            '-A FORWARD -i lxdbr0 -m comment --comment "by lxd" -j ACCEPT\n'
+            '-A FORWARD -i lxdbr0 -m comment --comment "by other" -j ACCEPT'
+            )
+        with patch('subprocess.check_output', autospec=True,
+                   return_value=iptables_rule):
+            with patch('subprocess.call', autospec=True,
+                       side_effect=[0, 0]):
+                with self.assertRaises(ValueError):
+                    assess_proxy.check_network('eth0', 'lxdbr0')
+
+    def test_check_network_client_interface_error(self):
+            with patch('subprocess.call', autospec=True,
+                       side_effect=[0, 1]):
+                with self.assertRaises(ValueError):
+                    assess_proxy.check_network('eth0', 'lxdbr0')
+
+    def test_check_network_controller_interface_error(self):
+            with patch('subprocess.call', autospec=True,
+                       side_effect=[1, 0]):
+                with self.assertRaises(ValueError):
+                    assess_proxy.check_network('eth0', 'lxdbr0')
 
     def test_reset_firewall(self):
         # Verify the ufw wa called to reset and disable even if one of the
