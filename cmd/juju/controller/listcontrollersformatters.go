@@ -35,7 +35,7 @@ func formatControllersTabular(writer io.Writer, set ControllerSet, promptRefresh
 	w := output.Wrapper{tw}
 
 	if promptRefresh && len(set.Controllers) > 0 {
-		fmt.Fprintln(writer, "Use --refresh flag to see the latest information.")
+		fmt.Fprintln(writer, "Use --refresh flag with this command to see the latest information.")
 		fmt.Fprintln(writer)
 	}
 	w.Println("Controller", "Model", "User", "Access", "Cloud/Region", "Models", "Machines", "HA", "Version")
