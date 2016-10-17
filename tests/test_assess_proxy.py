@@ -71,7 +71,8 @@ class TestMain(TestCase):
         mock_cfc.assert_called_once_with(
             'an-env', "/bin/juju", debug=False, soft_deadline=None)
         mock_check.assert_called_once_with('eth0', 'lxdbr0')
-        mock_set.assert_called_once_with('both-proxied', 'FORWARD')
+        mock_set.assert_called_once_with(
+            'both-proxied', 'eth0', 'lxdbr0', 'FORWARD')
         mock_reset.assert_called_once_with()
         self.assertEqual(mock_bc.call_count, 1)
         mock_assess.assert_called_once_with(client, 'both-proxied')
@@ -162,6 +163,11 @@ class TestAssess(TestCase):
                        side_effect=[1, 0]):
                 with self.assertRaises(ValueError):
                     assess_proxy.check_network('eth0', 'lxdbr0')
+
+    def test_set_firewall(self):
+        forward_rule = '-A FORWARD -i lxdbr0 -j ACCEPT'
+        assess_proxy.set_firewall(
+            'both-proxied', 'eth0', 'lxdbr0', forward_rule)
 
     def test_reset_firewall(self):
         # Verify the ufw was called to reset and disable even if one of the

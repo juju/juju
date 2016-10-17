@@ -48,7 +48,7 @@ def check_network(client_interface, controller_interface):
 
     :raises ValueError: when the interfaces are not present or the FORWARD IN
         rule cannot be identified.
-    :return: the FORWARD IN rule that must be restored before the test exits.
+    :return: the FORWARD IN rule that must be deleted to test, then restored.
     """
     if subprocess.call(['ifconfig', client_interface]) != 0:
         message = 'client_interface {} not found'.format(client_interface)
@@ -83,9 +83,80 @@ def check_network(client_interface, controller_interface):
     return forward_rule
 
 
-def set_firewall(scenario, forward_rule):
-    """Setup the firewall to match the scenario."""
-    pass
+def backup_iptables():
+    """Backup iptables so that it can be restored later.
+
+    The backup is to /etc/iptables.before-assess-proxy.
+    """
+    log.info('Backing up iptables to {}'.format(IPTABLES_BACKUP))
+
+
+def setup_common_firewall():
+    """Setup rules for basic proxy testing.
+
+    These rules ensure ssh in and proxy, dns, dhcp, and ntp are permitted.
+    These rules are safe to keep, but unnecessary on open networks.
+    """
+    log.info('Setting common firewall rules.')
+    log.info('These are safe permissive rules.')
+
+
+def setup_client_firewall(client_interface):
+    """Setup rules for Juju client proxy testing.
+
+    These rules block the localhost's interface to the internet. Call
+    setup_common_firewall() first to ensure the host has basic egress.
+
+    :param client-interface: the interface used by the client to access
+        the internet. It will be blocked.
+    """
+    log.info('Setting client firewall rules.')
+    log.info(
+        'These rules restrict the localhost on {}.'.format(client_interface))
+
+
+def setup_controller_firewall(forward_rule, controller_interface):
+    """Setup rules for Juju controller proxy testing.
+
+    These rules block the network interface the controller and its models use.
+    Call setup_common_firewall() first to ensure the host has basic egress.
+
+    :param controller-interface: the interface used by the controller to access
+        the internet. It will be blocked
+    :param forward_rule: the iptables FORWARD IN rule that must be deleted to
+         setup then test, then restored later
+    """
+    log.info('Setting controller firewall rules.')
+    log.info(
+        'These rules restrict the controller on {}.'.format(
+            controller_interface))
+
+
+def set_firewall(scenario,
+                 client_interface, controller_interface, forward_rule):
+    """Setup the firewall to match the scenario.
+
+    Calling this will create a backup of iptables, then update both ufw and
+    iptables to setup the scenario under test.
+
+    :param scenario: the scenario to setup: both-proxied, client-proxied, or
+        controller-proxied.
+    :param client-interface: the interface used by the client to access
+        the internet.
+    :param controller-interface: the interface used by the controller to access
+        the internet.
+    :param forward_rule: the iptables FORWARD IN rule that must be deleted to
+         setup then test, then restored later.
+    """
+    backup_iptables()
+    log.info('\nIn case of disaster, the firewall can be restored by running:')
+    log.info('sudo iptables-restore {}'.format(IPTABLES_BACKUP))
+    log.info('sudo ufw reset\n')
+    setup_common_firewall()
+    if scenario in (SCENARIO_BOTH, SCENARIO_CLIENT):
+        setup_client_firewall(client_interface)
+    if scenario in (SCENARIO_BOTH, SCENARIO_CONTROLLER):
+        setup_controller_firewall(controller_interface, forward_rule)
 
 
 def reset_firewall():
@@ -141,7 +212,9 @@ def main(argv=None):
         args.client_interface, args.controller_interface)
     try:
         log.info("Setting firewall")
-        set_firewall(args.scenario, forward_rule)
+        set_firewall(
+            args.scenario, args.client_interface, args.controller_interface,
+            forward_rule)
         log.info("Starting test")
         bs_manager = BootstrapManager.from_args(args)
         log.info("Starting bootstrap")
