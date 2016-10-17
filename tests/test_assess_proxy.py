@@ -65,7 +65,8 @@ class TestMain(TestCase):
                                            autospec=True) as mock_set:
                                     with patch("assess_proxy.reset_firewall",
                                                autospec=True) as mock_reset:
-                                        assess_proxy.main(argv)
+                                        returecode = assess_proxy.main(argv)
+        self.assertEqual(0, returecode)
         mock_cl.assert_called_once_with(logging.DEBUG)
         mock_cfc.assert_called_once_with(
             'an-env', "/bin/juju", debug=False, soft_deadline=None)
@@ -74,6 +75,23 @@ class TestMain(TestCase):
         mock_reset.assert_called_once_with()
         self.assertEqual(mock_bc.call_count, 1)
         mock_assess.assert_called_once_with(client, 'both-proxied')
+
+    def test_main_error(self):
+        # When there is an error raised during setup or testing, the finally
+        # block with reset_firewall is always called.
+        with temp_dir() as log_dir:
+            argv = ["an-env", "/bin/juju", log_dir, "an-env-mod",
+                    "both-proxied", "--verbose"]
+            with patch("assess_proxy.configure_logging", autospec=True):
+                with patch("assess_proxy.check_network",
+                           autospec=True, return_value='FORWARD'):
+                    with patch("assess_proxy.set_firewall",
+                               autospec=True, side_effect=ValueError):
+                        with patch("assess_proxy.reset_firewall",
+                                   autospec=True) as mock_reset:
+                            with self.assertRaises(ValueError):
+                                assess_proxy.main(argv)
+        mock_reset.assert_called_once_with()
 
 
 class TestAssess(TestCase):
