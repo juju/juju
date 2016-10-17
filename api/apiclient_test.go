@@ -161,55 +161,78 @@ func (s *apiclientSuite) TestDialWebsocketStopped(c *gc.C) {
 	c.Assert(result, gc.IsNil)
 }
 
-func (s *apiclientSuite) TestOpenWithSNIHostNameEmptyCert(c *gc.C) {
-	info := &api.Info{
-		Addrs:       []string{"foo.com:1234", "0.1.2.3:1234"},
-		SNIHostName: "foo.com",
-		SkipLogin:   true,
-	}
-	// When we dial with an SNI name and no CA certificate, the connection should
-	// always be made with the provided SNI name.
-	s.testSNIHostName(c, info, []apiDialInfo{{
-		location:   "wss://foo.com:1234/api",
-		hasRootCAs: false,
-		serverName: "foo.com",
-	}, {
-		location:   "wss://0.1.2.3:1234/api",
-		hasRootCAs: false,
-		serverName: "foo.com",
-	}})
-}
-
-func (s *apiclientSuite) TestOpenWithSNIHostNameWithCACert(c *gc.C) {
-	info := &api.Info{
-		Addrs:       []string{"foo.com:1234", "0.1.2.3:1234"},
-		SNIHostName: "foo.com",
-		SkipLogin:   true,
-		CACert:      jtesting.CACert,
-	}
-	// When we dial with an SNI name and a CA cert, the SNI name
-	// should be ignored.
-	s.testSNIHostName(c, info, []apiDialInfo{{
-		location:   "wss://foo.com:1234/api",
-		hasRootCAs: true,
-		serverName: "juju-apiserver",
-	}, {
-		location:   "wss://0.1.2.3:1234/api",
-		hasRootCAs: true,
-		serverName: "juju-apiserver",
-	}})
-}
-
 type apiDialInfo struct {
 	location   string
 	hasRootCAs bool
 	serverName string
 }
 
+var openWithSNIHostnameTests = []struct {
+	about      string
+	info       *api.Info
+	expectDial apiDialInfo
+}{{
+	about: "no cert; DNS name - use SNI hostname",
+	info: &api.Info{
+		Addrs:       []string{"foo.com:1234"},
+		SNIHostName: "foo.com",
+		SkipLogin:   true,
+	},
+	expectDial: apiDialInfo{
+		location:   "wss://foo.com:1234/api",
+		hasRootCAs: false,
+		serverName: "foo.com",
+	},
+}, {
+	about: "no cert; numeric IP address - use SNI hostname",
+	info: &api.Info{
+		Addrs:       []string{"0.1.2.3:1234"},
+		SNIHostName: "foo.com",
+		SkipLogin:   true,
+	},
+	expectDial: apiDialInfo{
+		location:   "wss://0.1.2.3:1234/api",
+		hasRootCAs: false,
+		serverName: "foo.com",
+	},
+}, {
+	about: "with cert; DNS name - use cert",
+	info: &api.Info{
+		Addrs:       []string{"foo.com:1234"},
+		SNIHostName: "foo.com",
+		SkipLogin:   true,
+		CACert:      jtesting.CACert,
+	},
+	expectDial: apiDialInfo{
+		location:   "wss://foo.com:1234/api",
+		hasRootCAs: true,
+		serverName: "juju-apiserver",
+	},
+}, {
+	about: "with cert; numeric IP address - use cert",
+	info: &api.Info{
+		Addrs:       []string{"0.1.2.3:1234"},
+		SNIHostName: "foo.com",
+		SkipLogin:   true,
+		CACert:      jtesting.CACert,
+	},
+	expectDial: apiDialInfo{
+		location:   "wss://0.1.2.3:1234/api",
+		hasRootCAs: true,
+		serverName: "juju-apiserver",
+	},
+}}
+
+func (s *apiclientSuite) TestOpenWithSNIHostname(c *gc.C) {
+	for i, test := range openWithSNIHostnameTests {
+		c.Logf("test %d: %v", i, test.about)
+		s.testSNIHostName(c, test.info, test.expectDial)
+	}
+}
+
 // testSNIHostName tests that when the API is dialed with the given info,
-// api.newWebsocketDialer is called with the expected information
-// (one element for each call to newWebsocketDialer)
-func (s *apiclientSuite) testSNIHostName(c *gc.C, info *api.Info, expectDials []apiDialInfo) {
+// api.newWebsocketDialer is called with the expected information.
+func (s *apiclientSuite) testSNIHostName(c *gc.C, info *api.Info, expectDial apiDialInfo) {
 	dialed := make(chan *websocket.Config)
 	fakeDialer := func(cfg *websocket.Config) (*websocket.Conn, error) {
 		dialed <- cfg
@@ -224,16 +247,14 @@ func (s *apiclientSuite) testSNIHostName(c *gc.C, info *api.Info, expectDials []
 		c.Check(conn, gc.Equals, nil)
 		c.Check(err, gc.ErrorMatches, `unable to connect to API: nope`)
 	}()
-	for _, expect := range expectDials {
-		select {
-		case cfg := <-dialed:
-			c.Check(cfg.Location.String(), gc.Equals, expect.location)
-			c.Assert(cfg.TlsConfig, gc.NotNil)
-			c.Check(cfg.TlsConfig.RootCAs != nil, gc.Equals, expect.hasRootCAs)
-			c.Check(cfg.TlsConfig.ServerName, gc.Equals, expect.serverName)
-		case <-time.After(jtesting.LongWait):
-			c.Fatalf("timed out waiting for dial")
-		}
+	select {
+	case cfg := <-dialed:
+		c.Check(cfg.Location.String(), gc.Equals, expectDial.location)
+		c.Assert(cfg.TlsConfig, gc.NotNil)
+		c.Check(cfg.TlsConfig.RootCAs != nil, gc.Equals, expectDial.hasRootCAs)
+		c.Check(cfg.TlsConfig.ServerName, gc.Equals, expectDial.serverName)
+	case <-time.After(jtesting.LongWait):
+		c.Fatalf("timed out waiting for dial")
 	}
 	select {
 	case <-done:
