@@ -1399,6 +1399,7 @@ func (s *BootstrapSuite) TestBootstrapPrintCloudRegions(c *gc.C) {
 	c.Assert(coretesting.Stdout(ctx), jc.DeepEquals, `
 Showing regions for aws:
 us-east-1
+us-east-2
 us-west-1
 us-west-2
 eu-west-1
