@@ -103,6 +103,33 @@ func (s *facadeSuite) TestPrivateAddress(c *gc.C) {
 	})
 }
 
+func (s *facadeSuite) TestAllAddresses(c *gc.C) {
+	args := params.Entities{
+		Entities: []params.Entity{{s.uOther}, {s.m0}, {s.uFoo}},
+	}
+	results, err := s.facade.AllAddresses(args)
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(results, gc.DeepEquals, params.SSHAddressesResults{
+		Results: []params.SSHAddressesResult{
+			{Error: apiservertesting.NotFoundError("entity")},
+			{Addresses: []string{
+				"0.1.2.3", "1.1.1.1", "2.2.2.2", // From AllNetworkAddresses()
+				"1.1.1.1", "2.2.2.2", // From Addresses()
+			}},
+			{Addresses: []string{
+				"0.3.2.1", "3.3.3.3", "4.4.4.4", // From AllNetworkAddresses()
+				"3.3.3.3", "4.4.4.4", // From Addresses()
+			}},
+		},
+	})
+	s.backend.stub.CheckCalls(c, []jujutesting.StubCall{
+		{"GetMachineForEntity", []interface{}{s.uOther}},
+		{"GetMachineForEntity", []interface{}{s.m0}},
+		{"GetMachineForEntity", []interface{}{s.uFoo}},
+	})
+}
+
 func (s *facadeSuite) TestPublicKeys(c *gc.C) {
 	args := params.Entities{
 		Entities: []params.Entity{{s.m0}, {s.uOther}, {s.uFoo}},
@@ -171,15 +198,19 @@ func (backend *mockBackend) GetMachineForEntity(tagString string) (sshclient.SSH
 	switch tagString {
 	case names.NewMachineTag("0").String():
 		return &mockMachine{
-			tag:            names.NewMachineTag("0"),
-			publicAddress:  "1.1.1.1",
-			privateAddress: "2.2.2.2",
+			tag:                 names.NewMachineTag("0"),
+			publicAddress:       "1.1.1.1",
+			privateAddress:      "2.2.2.2",
+			addresses:           network.NewAddresses("1.1.1.1", "2.2.2.2"),
+			allNetworkAddresses: network.NewAddresses("0.1.2.3", "1.1.1.1", "2.2.2.2"),
 		}, nil
 	case names.NewUnitTag("foo/0").String():
 		return &mockMachine{
-			tag:            names.NewMachineTag("1"),
-			publicAddress:  "3.3.3.3",
-			privateAddress: "4.4.4.4",
+			tag:                 names.NewMachineTag("1"),
+			publicAddress:       "3.3.3.3",
+			privateAddress:      "4.4.4.4",
+			addresses:           network.NewAddresses("3.3.3.3", "4.4.4.4"),
+			allNetworkAddresses: network.NewAddresses("0.3.2.1", "3.3.3.3", "4.4.4.4"),
 		}, nil
 	}
 	return nil, errors.NotFoundf("entity")
@@ -200,6 +231,9 @@ type mockMachine struct {
 	tag            names.MachineTag
 	publicAddress  string
 	privateAddress string
+
+	addresses           []network.Address
+	allNetworkAddresses []network.Address
 }
 
 func (m *mockMachine) MachineTag() names.MachineTag {
@@ -216,4 +250,12 @@ func (m *mockMachine) PrivateAddress() (network.Address, error) {
 	return network.Address{
 		Value: m.privateAddress,
 	}, nil
+}
+
+func (m *mockMachine) AllNetworkAddresses() ([]network.Address, error) {
+	return m.allNetworkAddresses, nil
+}
+
+func (m *mockMachine) Addresses() []network.Address {
+	return m.addresses
 }

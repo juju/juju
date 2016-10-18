@@ -27,6 +27,8 @@ type SSHMachine interface {
 	MachineTag() names.MachineTag
 	PublicAddress() (network.Address, error)
 	PrivateAddress() (network.Address, error)
+	Addresses() []network.Address
+	AllNetworkAddresses() ([]network.Address, error)
 }
 
 // newFacade wraps New to express the supplied *state.State as a Backend.

@@ -74,7 +74,7 @@ var facadeVersions = map[string]int{
 	"RetryStrategy":                1,
 	"Singular":                     1,
 	"Spaces":                       2,
-	"SSHClient":                    1,
+	"SSHClient":                    2,
 	"StatusHistory":                2,
 	"Storage":                      3,
 	"StorageProvisioner":           3,
