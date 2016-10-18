@@ -7,14 +7,17 @@ import sys
 import yaml
 
 from jujuconfig import get_juju_home
-from jujupy import client_from_config
+from jujupy import (
+    client_from_config,
+    get_teardown_timeout,
+    )
 
 
 def bootstrap_cloud(config, region):
     try:
         client = client_from_config(config, 'juju-2.0')
         client.env.environment = 'boot-cpc-{}-{}'.format(
-            client.env.get_cloud(), region)
+            client.env.get_cloud(), region)[:30]
         client.env.controller.name = client.env.environment
         client.env.config['region'] = region
         client.kill_controller()
@@ -27,7 +30,10 @@ def bootstrap_cloud(config, region):
     try:
         try:
             client.wait_for_started()
-            client.juju('destroy-controller')
+            client.juju(
+                'destroy-controller', (
+                    self.env.controller.name, '-y'), include_e=False,
+                    timeout=get_teardown_timeout(client))
         except Exception as e:
             logging.exception(e)
             raise
