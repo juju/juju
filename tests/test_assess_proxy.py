@@ -129,7 +129,7 @@ class TestAssess(TestCase):
     def test_check_environment_missing_env(self):
         proxy_env = {'http_proxy': 'http'}
         with patch.dict(os.environ, proxy_env, clear=True):
-            with self.assertRaises(ValueError):
+            with self.assertRaises(assess_proxy.UndefinedProxyError):
                 assess_proxy.check_environment()
 
     def test_check_environment_mising_environment_file(self):
@@ -137,7 +137,7 @@ class TestAssess(TestCase):
         with patch.dict(os.environ, proxy_env):
             with patch('assess_proxy.get_environment_file_path',
                        return_value='/tmp/etc/evironment.missing'):
-                with self.assertRaises(ValueError):
+                with self.assertRaises(assess_proxy.UndefinedProxyError):
                     assess_proxy.check_environment()
 
     def test_check_environment_environment_file_proxy_undefined(self):
@@ -150,7 +150,7 @@ class TestAssess(TestCase):
             with patch('assess_proxy.get_environment_file_path',
                        return_value=env_file):
                 with patch.dict(os.environ, proxy_env):
-                    with self.assertRaises(ValueError):
+                    with self.assertRaises(assess_proxy.UndefinedProxyError):
                         assess_proxy.check_environment()
 
     def test_check_network(self):

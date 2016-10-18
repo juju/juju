@@ -10,7 +10,6 @@ is running, other processes on the host may be crippled.
 from __future__ import print_function
 
 import argparse
-import errno
 import logging
 import os
 import re
@@ -47,6 +46,10 @@ UFW_RESET_COMMANDS = [
 ]
 
 
+class UndefinedProxyError(Exception):
+    """The current env or /etc/environment does not define proxy info."""
+
+
 def get_environment_file_path():
     return ENVIRONMENT_FILE
 
@@ -63,7 +66,7 @@ def check_environment():
     if http_proxy is None or https_proxy is None:
         message = 'http_proxy and https_proxy not defined in env'
         log.error(message)
-        raise ValueError(message)
+        raise UndefinedProxyError(message)
     try:
         with open(get_environment_file_path(), 'r') as env_file:
             env_data = env_file.read()
@@ -82,7 +85,7 @@ def check_environment():
         message = (
             'http_proxy and https_proxy not defined in /etc/environment')
         log.error(message)
-        raise ValueError(message)
+        raise UndefinedProxyError(message)
     return http_proxy, https_proxy
 
 
