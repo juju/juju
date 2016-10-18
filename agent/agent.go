@@ -17,7 +17,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
-	"github.com/juju/utils/series"
 	"github.com/juju/utils/shell"
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
@@ -43,14 +42,6 @@ const (
 	// ensure serialization of tasks such as uniter hook executions, juju-run,
 	// and others.
 	MachineLockName = "machine-lock"
-)
-
-// These are base values used for the corresponding defaults.
-var (
-	logDir          = paths.MustSucceed(paths.LogDir(series.HostSeries()))
-	dataDir         = paths.MustSucceed(paths.DataDir(series.HostSeries()))
-	confDir         = paths.MustSucceed(paths.ConfDir(series.HostSeries()))
-	metricsSpoolDir = paths.MustSucceed(paths.MetricsSpoolDir(series.HostSeries()))
 )
 
 // Agent exposes the agent's configuration to other components. This
@@ -148,10 +139,10 @@ func NewPathsWithDefaults(p Paths) Paths {
 var (
 	// DefaultPaths defines the default paths for an agent.
 	DefaultPaths = Paths{
-		DataDir:         dataDir,
-		LogDir:          path.Join(logDir, "juju"),
-		MetricsSpoolDir: metricsSpoolDir,
-		ConfDir:         confDir,
+		DataDir:         paths.Data,
+		LogDir:          path.Join(paths.Log, "juju"),
+		MetricsSpoolDir: paths.MetricsSpool,
+		ConfDir:         paths.Conf,
 	}
 )
 

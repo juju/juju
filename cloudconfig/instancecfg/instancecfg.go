@@ -16,6 +16,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/proxy"
+	"github.com/juju/utils/series"
 	"github.com/juju/utils/shell"
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
@@ -651,31 +652,24 @@ func NewInstanceConfig(
 	machineID,
 	machineNonce,
 	imageStream,
-	series string,
+	seriesName string,
 	apiInfo *api.Info,
 ) (*InstanceConfig, error) {
-	dataDir, err := paths.DataDir(series)
+	osType, err := series.GetOSFromSeries(seriesName)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
-	logDir, err := paths.LogDir(series)
-	if err != nil {
-		return nil, err
-	}
-	metricsSpoolDir, err := paths.MetricsSpoolDir(series)
-	if err != nil {
-		return nil, err
-	}
-	cloudInitOutputLog := path.Join(logDir, "cloud-init-output.log")
+
+	cloudInitOutputLog := path.Join(paths.Log, "cloud-init-output.log")
 	icfg := &InstanceConfig{
 		// Fixed entries.
-		DataDir:                 dataDir,
-		LogDir:                  path.Join(logDir, "juju"),
-		MetricsSpoolDir:         metricsSpoolDir,
+		DataDir:                 paths.DataForOS(osType),
+		LogDir:                  path.Join(paths.LogForOS(osType), "juju"),
+		MetricsSpoolDir:         paths.MetricsSpoolForOS(osType),
 		Jobs:                    []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 		CloudInitOutputLog:      cloudInitOutputLog,
 		MachineAgentServiceName: "jujud-" + names.NewMachineTag(machineID).String(),
-		Series:                  series,
+		Series:                  seriesName,
 		Tags:                    map[string]string{},
 
 		// Parameter entries.

@@ -13,21 +13,19 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
-	"github.com/juju/utils/series"
 	lxdshared "github.com/lxc/lxd/shared"
 
 	"github.com/juju/juju/environs"
-	jujupaths "github.com/juju/juju/juju/paths"
+	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/tools/lxdclient"
 )
 
 var (
-	jujuConfDir    = jujupaths.MustSucceed(jujupaths.ConfDir(series.LatestLts()))
-	clientCertPath = path.Join(jujuConfDir, "lxd-client.crt")
-	clientKeyPath  = path.Join(jujuConfDir, "lxd-client.key")
-	serverCertPath = path.Join(jujuConfDir, "lxd-server.crt")
+	clientCertPath = path.Join(paths.Conf, "lxd-client.crt")
+	clientKeyPath  = path.Join(paths.Conf, "lxd-client.key")
+	serverCertPath = path.Join(paths.Conf, "lxd-server.crt")
 )
 
 type rawProvider struct {

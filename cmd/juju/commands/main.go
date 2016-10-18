@@ -12,6 +12,7 @@ import (
 	"text/template"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/featureflag"
 	utilsos "github.com/juju/utils/os"
@@ -84,25 +85,25 @@ See https://jujucharms.com/docs/stable/help for documentation.
 
 Common commands:
 
-    add-cloud           Adds a user-defined cloud to Juju.
-    add-credential      Adds or replaces credentials for a cloud.
-    add-model           Adds a hosted model.
-    add-relation        Adds a relation between two applications.
-    add-unit            Adds extra units of a deployed application.
-    add-user            Adds a Juju user to a controller.
-    bootstrap           Initializes a cloud environment.
-    controllers         Lists all controllers.
-    deploy              Deploys a new application.
-    expose              Makes an application publicly available over the network.
-    models              Lists models a user can access on a controller.
-    status              Displays the current status of Juju, applications, and units.
-    switch              Selects or identifies the current controller and model.
+	add-cloud           Adds a user-defined cloud to Juju.
+	add-credential      Adds or replaces credentials for a cloud.
+	add-model           Adds a hosted model.
+	add-relation        Adds a relation between two applications.
+	add-unit            Adds extra units of a deployed application.
+	add-user            Adds a Juju user to a controller.
+	bootstrap           Initializes a cloud environment.
+	controllers         Lists all controllers.
+	deploy              Deploys a new application.
+	expose              Makes an application publicly available over the network.
+	models              Lists models a user can access on a controller.
+	status              Displays the current status of Juju, applications, and units.
+	switch              Selects or identifies the current controller and model.
 
 Example help commands:
 
-    `[1:] + "`juju help`" + `          This help page
-    ` + "`juju help commands`" + ` Lists all commands
-    ` + "`juju help deploy`" + `   Shows help for command 'deploy'
+	`[1:] + "`juju help`" + `          This help page
+	` + "`juju help commands`" + ` Lists all commands
+	` + "`juju help deploy`" + `   Shows help for command 'deploy'
 `
 
 var x = []byte("\x96\x8c\x99\x8a\x9c\x94\x96\x91\x98\xdf\x9e\x92\x9e\x85\x96\x91\x98\xf5")
@@ -131,17 +132,25 @@ func (m main) Run(args []string) int {
 		return 2
 	}
 
+	firstRun := juju2xConfigDataExists() == false
+
 	// note that this has to come before we init the juju home directory,
 	// since it relies on detecting the lack of said directory.
-	newInstall := m.maybeWarnJuju1x()
+	if firstRun && shouldWarnJuju1x() {
+		m.warnJuju1x()
+	}
 
 	if err = juju.InitJujuXDGDataHome(); err != nil {
 		fmt.Fprintf(os.Stderr, "error: %s\n", err)
 		return 2
 	}
 
-	if newInstall {
-		fmt.Fprintf(ctx.Stderr, "Since Juju %v is being run for the first time, downloading latest cloud information.\n", jujuversion.Current.Major)
+	if firstRun {
+		fmt.Fprintf(
+			ctx.Stderr,
+			"Since Juju %v is being run for the first time, downloading latest cloud information.\n",
+			jujuversion.Current.Major,
+		)
 		updateCmd := cloud.NewUpdateCloudsCommand()
 		if err := updateCmd.Run(ctx); err != nil {
 			fmt.Fprintf(ctx.Stderr, "error: %v\n", err)
@@ -160,24 +169,20 @@ func (m main) Run(args []string) int {
 	return cmd.Main(jcmd, ctx, args[1:])
 }
 
-func (m main) maybeWarnJuju1x() (newInstall bool) {
-	newInstall = !juju2xConfigDataExists()
-	if !shouldWarnJuju1x() {
-		return newInstall
-	}
+func (m main) warnJuju1x() {
 	ver, exists := m.juju1xVersion()
 	if !exists {
-		return newInstall
+		return
 	}
 	// TODO (anastasiamac 2016-10-21) Once manual page exists as per
 	// https://github.com/juju/docs/issues/1487,
 	// link it in the Note below to avoid propose here.
 	welcomeMsgTemplate := `
-Welcome to Juju {{.CurrentJujuVersion}}. 
-    See https://jujucharms.com/docs/stable/introducing-2 for more details.
+Welcome to Juju {{.CurrentJujuVersion}}.
+	See https://jujucharms.com/docs/stable/introducing-2 for more details.
 
 If you want to use Juju {{.OldJujuVersion}}, run 'juju' commands as '{{.OldJujuCommand}}'. For example, '{{.OldJujuCommand}} bootstrap'.
-   See https://jujucharms.com/docs/stable/juju-coexist for installation details. 
+   See https://jujucharms.com/docs/stable/juju-coexist for installation details.
 `[1:]
 	t := template.Must(template.New("plugin").Parse(welcomeMsgTemplate))
 	var buf bytes.Buffer
@@ -209,7 +214,16 @@ func (m main) juju1xVersion() (ver string, exists bool) {
 
 func shouldWarnJuju1x() bool {
 	// this code only applies to Ubuntu, where we renamed Juju 1.x to juju-1.
-	ostype, err := series.GetOSFromSeries(series.HostSeries())
+
+	seriesName, err := series.HostSeries()
+	if err != nil {
+		// This is a non-critical error. The inability to determine
+		// the series of the machine running the Juju command does not
+		// preclude people from actually using Juju.
+		logger.Warningf("%v", errors.Annotatef(err, "cannot determine whether to warn about Juju 1.x"))
+		return false
+	}
+	ostype, err := series.GetOSFromSeries(seriesName)
 	if err != nil || ostype != utilsos.Ubuntu {
 		return false
 	}

@@ -35,13 +35,19 @@ var logger = loggo.GetLogger("juju.cmd")
 // - The version is configured to the current juju version;
 // - The command emits a log message when a command runs.
 func NewSuperCommand(p cmd.SuperCommandParams) *cmd.SuperCommand {
+	series, err := series.HostSeries()
+	if err != nil {
+		logger.Warningf("%v", err)
+		series = "unknown"
+	}
+
 	p.Log = &cmd.Log{
 		DefaultConfig: os.Getenv(osenv.JujuLoggingConfigEnvKey),
 	}
 	current := version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
-		Series: series.HostSeries(),
+		Series: series,
 	}
 
 	// p.Version should be a version.Binary, but juju/cmd does not

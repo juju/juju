@@ -27,7 +27,6 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/clock"
 	"github.com/juju/utils/featureflag"
-	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
 	"github.com/juju/utils/symlink"
 	"github.com/juju/utils/voyeur"
@@ -94,9 +93,7 @@ import (
 )
 
 var (
-	logger       = loggo.GetLogger("juju.cmd.jujud")
-	jujuRun      = paths.MustSucceed(paths.JujuRun(series.HostSeries()))
-	jujuDumpLogs = paths.MustSucceed(paths.JujuDumpLogs(series.HostSeries()))
+	logger = loggo.GetLogger("juju.cmd.jujud")
 
 	// The following are defined as variables to allow the tests to
 	// intercept calls to the functions. In every case, they should
@@ -1459,7 +1456,7 @@ func (a *MachineAgent) Tag() names.Tag {
 
 func (a *MachineAgent) createJujudSymlinks(dataDir string) error {
 	jujud := filepath.Join(tools.ToolsDir(dataDir, a.Tag().String()), jujunames.Jujud)
-	for _, link := range []string{jujuRun, jujuDumpLogs} {
+	for _, link := range []string{paths.JujuRun, paths.JujuDumpLogs} {
 		err := a.createSymlink(jujud, link)
 		if err != nil {
 			return errors.Annotatef(err, "failed to create %s symlink", link)
@@ -1493,7 +1490,7 @@ func (a *MachineAgent) createSymlink(target, link string) error {
 }
 
 func (a *MachineAgent) removeJujudSymlinks() (errs []error) {
-	for _, link := range []string{jujuRun, jujuDumpLogs} {
+	for _, link := range []string{paths.JujuRun, paths.JujuDumpLogs} {
 		err := os.Remove(utils.EnsureBaseDir(a.rootDir, link))
 		if err != nil && !os.IsNotExist(err) {
 			errs = append(errs, errors.Annotatef(err, "failed to remove %s symlink", link))

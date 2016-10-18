@@ -111,10 +111,15 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 	tag := names.NewUnitTag(unitName)
 	dataDir := ctx.agentConfig.DataDir()
 	logDir := ctx.agentConfig.LogDir()
+	series, err := series.HostSeries()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	current := version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
-		Series: series.HostSeries(),
+		Series: series,
 	}
 	toolsDir := tools.ToolsDir(dataDir, tag.String())
 	defer removeOnErr(&err, toolsDir)

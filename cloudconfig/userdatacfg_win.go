@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/featureflag"
+	"github.com/juju/utils/os"
 	"github.com/juju/utils/series"
 	"gopkg.in/juju/names.v2"
 
@@ -46,11 +47,7 @@ func (w *windowsConfigure) Configure() error {
 }
 
 func (w *windowsConfigure) ConfigureBasic() error {
-
-	tmpDir, err := paths.TempDir(w.icfg.Series)
-	if err != nil {
-		return err
-	}
+	tmpDir := paths.TempForOS(os.Windows)
 
 	renderer := w.conf.ShellRenderer()
 	dataDir := renderer.FromSlash(w.icfg.DataDir)

@@ -16,6 +16,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cmd/jujud/util"
+	"github.com/juju/juju/juju/paths"
 )
 
 // AgentConf is a terribly confused interface.
@@ -62,7 +63,7 @@ func (c *agentConf) AddFlags(f *gnuflag.FlagSet) {
 	// We need to pass a config location here instead and
 	// use it to locate the conf and the infer the data-dir
 	// from there instead of passing it like that.
-	f.StringVar(&c.dataDir, "data-dir", util.DataDir, "directory for juju data")
+	f.StringVar(&c.dataDir, "data-dir", paths.Data, "directory for juju data")
 }
 
 // CheckArgs reports whether the given args are valid for this agent.

@@ -21,7 +21,6 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/packaging/config"
 	"github.com/juju/utils/packaging/manager"
-	"github.com/juju/utils/series"
 	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/controller"
@@ -384,6 +383,10 @@ type EnsureServerParams struct {
 	// SetNUMAControlPolicy preference - whether the user
 	// wants to set the numa control policy when starting mongo.
 	SetNUMAControlPolicy bool
+
+	// OSSeriesName is the name of the OS's series the current process
+	// is running under.
+	OSSeriesName string
 }
 
 // EnsureServer ensures that the MongoDB server is installed,
@@ -410,8 +413,7 @@ func EnsureServer(args EnsureServerParams) error {
 		}
 	}
 
-	operatingsystem := series.HostSeries()
-	if err := installMongod(operatingsystem, args.SetNUMAControlPolicy); err != nil {
+	if err := installMongod(args.OSSeriesName, args.SetNUMAControlPolicy); err != nil {
 		// This isn't treated as fatal because the Juju MongoDB
 		// package is likely to be already installed anyway. There
 		// could just be a temporary issue with apt-get/yum/whatever

@@ -27,7 +27,6 @@ import (
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
@@ -50,7 +49,11 @@ var defaultCallArgs = retry.CallArgs{
 
 // NewUpgradeMongoCommand returns a new UpgradeMongo command initialized with
 // the default helper functions.
-func NewUpgradeMongoCommand() *UpgradeMongoCommand {
+func NewUpgradeMongoCommand(dataPath string) *UpgradeMongoCommand {
+	if dataPath == "" {
+		panic("dataPath is required")
+	}
+
 	return &UpgradeMongoCommand{
 		stat:                 os.Stat,
 		remove:               os.RemoveAll,
@@ -62,6 +65,7 @@ func NewUpgradeMongoCommand() *UpgradeMongoCommand {
 		discoverService:      service.DiscoverService,
 		fsCopy:               fs.Copy,
 		osGetenv:             os.Getenv,
+		dataPath:             dataPath,
 
 		callArgs:                    defaultCallArgs,
 		mongoStart:                  mongo.StartService,
@@ -118,6 +122,7 @@ type UpgradeMongoCommand struct {
 	rollback       bool
 	slave          bool
 	members        string
+	dataPath       string
 
 	// utils used by this struct.
 	callArgs             retry.CallArgs
@@ -172,16 +177,12 @@ func (u *UpgradeMongoCommand) Run(ctx *cmd.Context) error {
 }
 
 func (u *UpgradeMongoCommand) run() (err error) {
-	dataDir, err := paths.DataDir(u.series)
-	if err != nil {
-		return errors.Annotatef(err, "cannot determine data dir for %q", u.series)
-	}
 	if u.configFilePath == "" {
 		machineTag, err := names.ParseMachineTag(u.machineTag)
 		if err != nil {
 			return errors.Annotatef(err, "%q is not a valid machine tag", u.machineTag)
 		}
-		u.configFilePath = agent.ConfigPath(dataDir, machineTag)
+		u.configFilePath = agent.ConfigPath(u.dataPath, machineTag)
 	}
 	u.agentConfig, err = agent.ReadConfig(u.configFilePath)
 	if err != nil {
@@ -221,7 +222,7 @@ func (u *UpgradeMongoCommand) run() (err error) {
 		if origin == "" {
 			return errors.New("no available backup")
 		}
-		return u.rollbackCopyBackup(dataDir, origin)
+		return u.rollbackCopyBackup(u.dataPath, origin)
 	}
 
 	u.tmpDir, err = u.createTempDir()
@@ -236,16 +237,16 @@ func (u *UpgradeMongoCommand) run() (err error) {
 	}
 	if current == mongo.Mongo24 || current == mongo.MongoUpgrade {
 		if u.slave {
-			return u.upgradeSlave(dataDir)
+			return u.upgradeSlave(u.dataPath)
 		}
 		u.replicaRemove()
-		if err := u.maybeUpgrade24to26(dataDir); err != nil {
+		if err := u.maybeUpgrade24to26(u.dataPath); err != nil {
 			defer func() {
 				if u.backupPath == "" {
 					return
 				}
 				logger.Infof("will roll back after failed 2.6 upgrade")
-				if err := u.rollbackCopyBackup(dataDir, u.backupPath); err != nil {
+				if err := u.rollbackCopyBackup(u.dataPath, u.backupPath); err != nil {
 					logger.Errorf("could not rollback the upgrade: %v", err)
 				}
 			}()
@@ -254,13 +255,13 @@ func (u *UpgradeMongoCommand) run() (err error) {
 		current = mongo.Mongo26
 	}
 	if current == mongo.Mongo26 || current.StorageEngine != mongo.WiredTiger {
-		if err := u.maybeUpgrade26to3x(dataDir); err != nil {
+		if err := u.maybeUpgrade26to3x(u.dataPath); err != nil {
 			defer func() {
 				if u.backupPath == "" {
 					return
 				}
 				logger.Infof("will roll back after failed 3.0 upgrade")
-				if err := u.rollbackCopyBackup(dataDir, u.backupPath); err != nil {
+				if err := u.rollbackCopyBackup(u.dataPath, u.backupPath); err != nil {
 					logger.Errorf("could not rollback the upgrade: %v", err)
 				}
 			}()

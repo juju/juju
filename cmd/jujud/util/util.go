@@ -14,7 +14,6 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker"
@@ -23,7 +22,6 @@ import (
 
 var (
 	logger            = loggo.GetLogger("juju.cmd.jujud.util")
-	DataDir           = paths.MustSucceed(paths.DataDir(series.HostSeries()))
 	EnsureMongoServer = mongo.EnsureServer
 )
 
@@ -211,6 +209,11 @@ func NewEnsureServerParams(agentConfig agent.Config) (mongo.EnsureServerParams, 
 		return mongo.EnsureServerParams{}, fmt.Errorf("agent config has no state serving info")
 	}
 
+	series, err := series.HostSeries()
+	if err != nil {
+		return mongo.EnsureServerParams{}, errors.Trace(err)
+	}
+
 	params := mongo.EnsureServerParams{
 		APIPort:        si.APIPort,
 		StatePort:      si.StatePort,
@@ -223,6 +226,7 @@ func NewEnsureServerParams(agentConfig agent.Config) (mongo.EnsureServerParams, 
 		DataDir:              agentConfig.DataDir(),
 		OplogSize:            oplogSize,
 		SetNUMAControlPolicy: numaCtlPolicy,
+		OSSeriesName:         series,
 	}
 	return params, nil
 }

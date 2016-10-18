@@ -1115,7 +1115,6 @@ func (a *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 		unitTag,
 		charm.Meta(),
 		args.storageCons,
-		a.doc.Series,
 		machineAssignable,
 	)
 	if err != nil {

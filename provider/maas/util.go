@@ -48,17 +48,18 @@ type machineInfo struct {
 	Hostname string `yaml:",omitempty"`
 }
 
-var maasDataDir = paths.MustSucceed(paths.DataDir(series.LatestLts()))
-var _MAASInstanceFilename = path.Join(maasDataDir, "MAASmachine.txt")
+var _MAASInstanceFilename = path.Join(paths.Data, "MAASmachine.txt")
 
 // cloudinitRunCmd returns the shell command that, when run, will create the
 // "machine info" file containing the hostname of a machine.
 // That command is destined to be used by cloudinit.
 func (info *machineInfo) cloudinitRunCmd(cloudcfg cloudinit.CloudConfig) (string, error) {
-	dataDir, err := paths.DataDir(cloudcfg.GetSeries())
+	os, err := series.GetOSFromSeries(cloudcfg.GetSeries())
 	if err != nil {
 		return "", errors.Trace(err)
 	}
+	dataDir := paths.DataForOS(os)
+
 	yaml, err := goyaml.Marshal(info)
 	if err != nil {
 		return "", errors.Trace(err)

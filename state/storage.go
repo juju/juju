@@ -385,7 +385,6 @@ func createStorageOps(
 	entityTag names.Tag,
 	charmMeta *charm.Meta,
 	cons map[string]StorageConstraints,
-	series string,
 	maybeMachineAssignable machineAssignable,
 ) (ops []txn.Op, numStorageAttachments int, err error) {
 
@@ -480,7 +479,7 @@ func createStorageOps(
 				if maybeMachineAssignable != nil {
 					var err error
 					machineOps, err = unitAssignedMachineStorageOps(
-						st, unitTag, charmMeta, cons, series,
+						st, unitTag, charmMeta, cons,
 						&storageInstance{st, *doc},
 						maybeMachineAssignable,
 					)
@@ -522,12 +521,11 @@ func unitAssignedMachineStorageOps(
 	unitTag names.UnitTag,
 	charmMeta *charm.Meta,
 	cons map[string]StorageConstraints,
-	series string,
 	storage StorageInstance,
 	machineAssignable machineAssignable,
 ) (ops []txn.Op, err error) {
 	storageParams, err := machineStorageParamsForStorageInstance(
-		st, charmMeta, unitTag, series, cons, storage,
+		st, charmMeta, unitTag, cons, storage,
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -1269,7 +1267,6 @@ func (st *State) addUnitStorageOps(
 		u.Tag(),
 		charmMeta,
 		map[string]StorageConstraints{storageName: cons},
-		u.Series(),
 		u,
 	)
 	if err != nil {

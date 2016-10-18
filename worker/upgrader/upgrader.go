@@ -115,9 +115,14 @@ func allowedTargetVersion(
 }
 
 func (u *Upgrader) loop() error {
+	series, err := series.HostSeries()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	// Start by reporting current tools (which includes arch/series, and is
 	// used by the controller in communicating the desired version below).
-	if err := u.st.SetVersion(u.tag.String(), toBinaryVersion(jujuversion.Current)); err != nil {
+	if err := u.st.SetVersion(u.tag.String(), toBinaryVersion(series, jujuversion.Current)); err != nil {
 		return errors.Annotate(err, "cannot set agent version")
 	}
 
@@ -199,9 +204,9 @@ func (u *Upgrader) loop() error {
 		logger.Infof("upgrade requested from %v to %v", jujuversion.Current, wantVersion)
 
 		// Check if tools have already been downloaded.
-		wantVersionBinary := toBinaryVersion(wantVersion)
+		wantVersionBinary := toBinaryVersion(series, wantVersion)
 		if u.toolsAlreadyDownloaded(wantVersionBinary) {
-			return u.newUpgradeReadyError(wantVersionBinary)
+			return u.newUpgradeReadyError(series, wantVersionBinary)
 		}
 
 		// Check if tools are available for download.
@@ -218,7 +223,7 @@ func (u *Upgrader) loop() error {
 		for _, wantTools := range wantToolsList {
 			err = u.ensureTools(wantTools)
 			if err == nil {
-				return u.newUpgradeReadyError(wantTools.Version)
+				return u.newUpgradeReadyError(series, wantTools.Version)
 			}
 			logger.Errorf("failed to fetch tools from %q: %v", wantTools.URL, err)
 		}
@@ -226,13 +231,12 @@ func (u *Upgrader) loop() error {
 	}
 }
 
-func toBinaryVersion(vers version.Number) version.Binary {
-	outVers := version.Binary{
+func toBinaryVersion(series string, vers version.Number) version.Binary {
+	return version.Binary{
 		Number: vers,
 		Arch:   arch.HostArch(),
-		Series: series.HostSeries(),
+		Series: series,
 	}
-	return outVers
 }
 
 func (u *Upgrader) toolsAlreadyDownloaded(wantVersion version.Binary) bool {
@@ -240,9 +244,9 @@ func (u *Upgrader) toolsAlreadyDownloaded(wantVersion version.Binary) bool {
 	return err == nil
 }
 
-func (u *Upgrader) newUpgradeReadyError(newVersion version.Binary) *UpgradeReadyError {
+func (u *Upgrader) newUpgradeReadyError(series string, newVersion version.Binary) *UpgradeReadyError {
 	return &UpgradeReadyError{
-		OldTools:  toBinaryVersion(jujuversion.Current),
+		OldTools:  toBinaryVersion(series, jujuversion.Current),
 		NewTools:  newVersion,
 		AgentName: u.tag.String(),
 		DataDir:   u.dataDir,

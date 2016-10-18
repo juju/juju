@@ -1780,7 +1780,7 @@ func unitMachineStorageParams(u *Unit) (*machineStorageParams, error) {
 			return nil, errors.Annotatef(err, "getting storage instance")
 		}
 		machineParams, err := machineStorageParamsForStorageInstance(
-			u.st, chMeta, u.UnitTag(), u.Series(), allCons, storage,
+			u.st, chMeta, u.UnitTag(), allCons, storage,
 		)
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -1813,7 +1813,6 @@ func machineStorageParamsForStorageInstance(
 	st *State,
 	charmMeta *charm.Meta,
 	unit names.UnitTag,
-	series string,
 	allCons map[string]StorageConstraints,
 	storage StorageInstance,
 ) (*machineStorageParams, error) {
@@ -1854,7 +1853,7 @@ func machineStorageParamsForStorageInstance(
 			volumeAttachments[volume.VolumeTag()] = volumeAttachmentParams
 		}
 	case StorageKindFilesystem:
-		location, err := filesystemMountPoint(charmStorage, storage.StorageTag(), series)
+		location, err := filesystemMountPoint(charmStorage, storage.StorageTag())
 		if err != nil {
 			return nil, errors.Annotatef(
 				err, "getting filesystem mount point for storage %s",

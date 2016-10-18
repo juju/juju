@@ -166,7 +166,11 @@ func (w *proxyWorker) handleProxyValues(proxySettings proxyutils.Settings) {
 // getPackageCommander is a helper function which returns the
 // package commands implementation for the current system.
 func getPackageCommander() (commands.PackageCommander, error) {
-	return commands.NewPackageCommander(series.HostSeries())
+	series, err := series.HostSeries()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return commands.NewPackageCommander(series)
 }
 
 func (w *proxyWorker) handleAptProxyValues(aptSettings proxyutils.Settings) error {

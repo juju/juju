@@ -103,14 +103,14 @@ func NewService(name string, conf common.Conf, series string) (Service, error) {
 		return nil, errors.New("missing name")
 	}
 
-	initSystem, err := versionInitSystem(series)
+	initSystem, err := VersionInitSystem(series)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return newService(name, conf, initSystem, series)
+	return newService(name, conf, initSystem)
 }
 
-func newService(name string, conf common.Conf, initSystem, series string) (Service, error) {
+func newService(name string, conf common.Conf, initSystem string) (Service, error) {
 	switch initSystem {
 	case InitSystemWindows:
 		svc, err := windows.NewService(name, conf)
@@ -121,12 +121,7 @@ func newService(name string, conf common.Conf, initSystem, series string) (Servi
 	case InitSystemUpstart:
 		return upstart.NewService(name, conf), nil
 	case InitSystemSystemd:
-		dataDir, err := paths.DataDir(series)
-		if err != nil {
-			return nil, errors.Annotatef(err, "failed to find juju data dir for application %q", name)
-		}
-
-		svc, err := systemd.NewService(name, conf, dataDir)
+		svc, err := systemd.NewService(name, conf, paths.Data)
 		if err != nil {
 			return nil, errors.Annotatef(err, "failed to wrap service %q", name)
 		}
@@ -138,7 +133,11 @@ func newService(name string, conf common.Conf, initSystem, series string) (Servi
 
 // ListServices lists all installed services on the running system
 func ListServices() ([]string, error) {
-	initName, err := VersionInitSystem(series.HostSeries())
+	series, err := series.HostSeries()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	initName, err := VersionInitSystem(series)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

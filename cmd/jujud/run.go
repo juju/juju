@@ -19,7 +19,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/agent"
-	cmdutil "github.com/juju/juju/cmd/jujud/util"
+	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/worker/uniter"
 	jujuos "github.com/juju/utils/os"
@@ -118,12 +118,12 @@ func (c *RunCommand) Run(ctx *cmd.Context) error {
 }
 
 func (c *RunCommand) socketPath() string {
-	paths := uniter.NewPaths(cmdutil.DataDir, c.unit)
+	paths := uniter.NewPaths(paths.Data, c.unit)
 	return paths.Runtime.JujuRunSocket
 }
 
 func (c *RunCommand) executeInUnitContext() (*exec.ExecResponse, error) {
-	unitDir := agent.Dir(cmdutil.DataDir, c.unit)
+	unitDir := agent.Dir(paths.Data, c.unit)
 	logger.Debugf("looking for unit dir %s", unitDir)
 	// make sure the unit exists
 	_, err := os.Stat(unitDir)
