@@ -16,7 +16,7 @@ import (
 
 // Resources describes the state functionality for resources.
 type Resources interface {
-	// ListResources returns the list of resources for the given service.
+	// ListResources returns the list of resources for the given application.
 	ListResources(applicationID string) (resource.ServiceResources, error)
 
 	// AddPendingResource adds the resource to the data store in a
