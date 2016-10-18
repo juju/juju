@@ -100,14 +100,6 @@ func (d *MockDeployer) Deploy() error {
 	return d.MockDeploy.Call()
 }
 
-func (d *MockDeployer) NotifyRevert() error {
-	return d.MockNotifyRevert.Call()
-}
-
-func (d *MockDeployer) NotifyResolved() error {
-	return d.MockNotifyResolved.Call()
-}
-
 type MockFailAction struct {
 	gotActionId *string
 	gotMessage  *string

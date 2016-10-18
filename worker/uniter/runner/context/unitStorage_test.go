@@ -4,18 +4,17 @@
 package context_test
 
 import (
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/provider/ec2"
+	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
-	"github.com/juju/juju/storage/provider/registry"
 	"github.com/juju/juju/worker/uniter/runner/context"
 )
 
@@ -51,7 +50,7 @@ func (s *unitStorageSuite) TestAddUnitStorage(c *gc.C) {
 func (s *unitStorageSuite) TestAddUnitStorageIgnoresBlocks(c *gc.C) {
 	s.createStorageBlockUnit(c)
 	count := uint64(1)
-	s.BlockDestroyEnvironment(c, "TestAddUnitStorageIgnoresBlocks")
+	s.BlockDestroyModel(c, "TestAddUnitStorageIgnoresBlocks")
 	s.BlockRemoveObject(c, "TestAddUnitStorageIgnoresBlocks")
 	s.BlockAllChanges(c, "TestAddUnitStorageIgnoresBlocks")
 	s.assertUnitStorageAdded(c,
@@ -136,14 +135,11 @@ func (s *unitStorageSuite) TestAddUnitStorageAccumulatedSame(c *gc.C) {
 
 func setupTestStorageSupport(c *gc.C, s *state.State) {
 	stsetts := state.NewStateSettings(s)
-	poolManager := poolmanager.New(stsetts)
+	poolManager := poolmanager.New(stsetts, dummy.StorageProviders())
 	_, err := poolManager.Create(testPool, provider.LoopProviderType, map[string]interface{}{"it": "works"})
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = poolManager.Create(testPersistentPool, ec2.EBS_ProviderType, map[string]interface{}{"persistent": true})
+	_, err = poolManager.Create(testPersistentPool, "environscoped", map[string]interface{}{"persistent": true})
 	c.Assert(err, jc.ErrorIsNil)
-
-	registry.RegisterEnvironStorageProviders("dummy", ec2.EBS_ProviderType)
-	registry.RegisterEnvironStorageProviders("dummyenv", ec2.EBS_ProviderType)
 }
 
 func (s *unitStorageSuite) createStorageEnabledUnit(c *gc.C) {
@@ -206,7 +202,7 @@ func makeStorageCons(pool string, size, count uint64) state.StorageConstraints {
 
 func (s *unitStorageSuite) addUnitStorage(c *gc.C, cons ...map[string]params.StorageConstraints) *context.HookContext {
 	// Get the context.
-	ctx := s.getHookContext(c, s.State.EnvironUUID(), -1, "", noProxies)
+	ctx := s.getHookContext(c, s.State.ModelUUID(), -1, "", noProxies)
 	c.Assert(ctx.UnitName(), gc.Equals, s.unit.Name())
 
 	for _, one := range cons {

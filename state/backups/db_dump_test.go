@@ -11,6 +11,7 @@ import (
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/backups"
 	"github.com/juju/juju/testing"
 )
@@ -30,7 +31,7 @@ func (s *dumpSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	targets := set.NewStrings("juju", "admin")
-	s.dbInfo = &backups.DBInfo{"a", "b", "c", targets}
+	s.dbInfo = &backups.DBInfo{"a", "b", "c", targets, mongo.Mongo24}
 	s.targets = targets
 	s.dumpDir = c.MkDir()
 }
@@ -92,6 +93,35 @@ func (s *dumpSuite) TestDumpStripped(c *gc.C) {
 	s.patch(c)
 	dumper := s.prep(c, "juju", "admin")
 	s.prepDB(c, "backups") // ignored
+
+	err := dumper.Dump(s.dumpDir)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.checkDBs(c, "juju", "admin")
+	s.checkStripped(c, "backups")
+}
+
+func (s *dumpSuite) TestDumpStrippedAdmin(c *gc.C) {
+	s.dbInfo.MongoVersion = mongo.Mongo32wt
+	s.dbInfo.Targets = set.NewStrings("juju")
+	s.patch(c)
+	dumper := s.prep(c, "juju")
+	s.prepDB(c, "backups") // ignored
+	s.prepDB(c, "admin")   // ignored
+
+	err := dumper.Dump(s.dumpDir)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.checkDBs(c, "juju")
+	s.checkStripped(c, "backups")
+	s.checkStripped(c, "admin")
+}
+
+func (s *dumpSuite) TestDumpNotStrippedAdmin(c *gc.C) {
+	s.patch(c)
+	dumper := s.prep(c, "juju")
+	s.prepDB(c, "backups") // ignored
+	s.prepDB(c, "admin")
 
 	err := dumper.Dump(s.dumpDir)
 	c.Assert(err, jc.ErrorIsNil)

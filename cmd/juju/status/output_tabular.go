@@ -4,156 +4,313 @@
 package status
 
 import (
-	"bytes"
 	"fmt"
+	"io"
 	"regexp"
+	"sort"
 	"strings"
-	"text/tabwriter"
 
+	"github.com/juju/ansiterm"
 	"github.com/juju/errors"
+	"github.com/juju/utils"
+	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v6-unstable/hooks"
 
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/juju/common"
+	"github.com/juju/juju/cmd/output"
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/model/crossmodel"
+	"github.com/juju/juju/status"
 )
 
-// FormatTabular returns a tabular summary of machines, services, and
+type statusRelation struct {
+	application1 string
+	application2 string
+	relation     string
+	subordinate  bool
+}
+
+func (s *statusRelation) relationType() string {
+	if s.subordinate {
+		return "subordinate"
+	} else if s.application1 == s.application2 {
+		return "peer"
+	}
+	return "regular"
+}
+
+type relationFormatter struct {
+	relationIndex set.Strings
+	relations     map[string]*statusRelation
+}
+
+func newRelationFormatter() *relationFormatter {
+	return &relationFormatter{
+		relationIndex: set.NewStrings(),
+		relations:     make(map[string]*statusRelation),
+	}
+}
+
+func (r *relationFormatter) len() int {
+	return r.relationIndex.Size()
+}
+
+func (r *relationFormatter) add(rel1, rel2, relation string, is2SubOf1 bool) {
+	rel := []string{rel1, rel2}
+	if !is2SubOf1 {
+		sort.Sort(sort.StringSlice(rel))
+	}
+	k := strings.Join(rel, "\t")
+	r.relations[k] = &statusRelation{
+		application1: rel[0],
+		application2: rel[1],
+		relation:     relation,
+		subordinate:  is2SubOf1,
+	}
+	r.relationIndex.Add(k)
+}
+
+func (r *relationFormatter) sorted() []string {
+	return r.relationIndex.SortedValues()
+}
+
+func (r *relationFormatter) get(k string) *statusRelation {
+	return r.relations[k]
+}
+
+// FormatTabular writes a tabular summary of machines, applications, and
 // units. Any subordinate items are indented by two spaces beneath
 // their superior.
-func FormatTabular(value interface{}) ([]byte, error) {
+func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
+	const maxVersionWidth = 15
+	const ellipsis = "..."
+	const truncatedWidth = maxVersionWidth - len(ellipsis)
+
 	fs, valueConverted := value.(formattedStatus)
 	if !valueConverted {
-		return nil, errors.Errorf("expected value of type %T, got %T", fs, value)
+		return errors.Errorf("expected value of type %T, got %T", fs, value)
 	}
-	var out bytes.Buffer
 	// To format things into columns.
-	tw := tabwriter.NewWriter(&out, 0, 1, 1, ' ', 0)
-	p := func(values ...interface{}) {
-		for _, v := range values {
-			fmt.Fprintf(tw, "%s\t", v)
-		}
-		fmt.Fprintln(tw)
+	tw := output.TabWriter(writer)
+	if forceColor {
+		tw.SetColorCapable(forceColor)
 	}
-
-	if envStatus := fs.EnvironmentStatus; envStatus != nil {
-		p("[Environment]")
-		if envStatus.AvailableVersion != "" {
-			p("UPGRADE-AVAILABLE")
-			p(envStatus.AvailableVersion)
-		}
+	w := output.Wrapper{tw}
+	p := w.Println
+	outputHeaders := func(values ...interface{}) {
 		p()
-		tw.Flush()
+		p(values...)
 	}
 
-	if len(fs.RemoteServices) > 0 {
-		p("[Service Endpoints]")
-		p("NAME\tSTATUS\tSTORE\tURL\tINTERFACES")
-		for _, svcName := range common.SortStringsNaturally(stringKeysFromMap(fs.RemoteServices)) {
-			svc := fs.RemoteServices[svcName]
+	cloudRegion := fs.Model.Cloud
+	if fs.Model.CloudRegion != "" {
+		cloudRegion += "/" + fs.Model.CloudRegion
+	}
+
+	header := []interface{}{"Model", "Controller", "Cloud/Region", "Version"}
+	values := []interface{}{fs.Model.Name, fs.Model.Controller, cloudRegion, fs.Model.Version}
+	message := getModelMessage(fs.Model)
+	if message != "" {
+		header = append(header, "Notes")
+		values = append(values, message)
+	}
+
+	// The first set of headers don't use outputHeaders because it adds the blank line.
+	p(header...)
+	p(values...)
+
+	if len(fs.RemoteApplications) > 0 {
+		outputHeaders("SAAS name", "Status", "Store", "URL", "Interfaces")
+		for _, svcName := range utils.SortStringsNaturally(stringKeysFromMap(fs.RemoteApplications)) {
+			svc := fs.RemoteApplications[svcName]
 			var store, urlPath string
-			url, err := crossmodel.ParseServiceURL(svc.ServiceURL)
+			url, err := crossmodel.ParseApplicationURL(svc.ApplicationURL)
 			if err == nil {
 				store = url.Directory
 				urlPath = url.Path()
 			} else {
 				// This is not expected.
-				logger.Errorf("invalid service URL %q: %v", svc.ServiceURL, err)
+				logger.Errorf("invalid application URL %q: %v", svc.ApplicationURL, err)
 				store = "unknown"
-				urlPath = svc.ServiceURL
+				urlPath = svc.ApplicationURL
 			}
 			interfaces := make([]string, len(svc.Endpoints))
-			for i, name := range common.SortStringsNaturally(stringKeysFromMap(svc.Endpoints)) {
+			for i, name := range utils.SortStringsNaturally(stringKeysFromMap(svc.Endpoints)) {
 				ep := svc.Endpoints[name]
 				interfaces[i] = fmt.Sprintf("%s:%s", ep.Interface, name)
 			}
 			p(svcName, svc.StatusInfo.Current, store, urlPath, strings.Join(interfaces, ", "))
 		}
-		p()
 		tw.Flush()
 	}
 
 	units := make(map[string]unitStatus)
-	p("[Services]")
-	p("NAME\tSTATUS\tEXPOSED\tCHARM")
-	for _, svcName := range common.SortStringsNaturally(stringKeysFromMap(fs.Services)) {
-		svc := fs.Services[svcName]
-		for un, u := range svc.Units {
-			units[un] = u
+	metering := false
+	relations := newRelationFormatter()
+	outputHeaders("App", "Version", "Status", "Scale", "Charm", "Store", "Rev", "OS", "Notes")
+	tw.SetColumnAlignRight(3)
+	tw.SetColumnAlignRight(6)
+	for _, appName := range utils.SortStringsNaturally(stringKeysFromMap(fs.Applications)) {
+		app := fs.Applications[appName]
+		version := app.Version
+		// Don't let a long version push out the version column.
+		if len(version) > maxVersionWidth {
+			version = version[:truncatedWidth] + ellipsis
 		}
-		p(svcName, svc.StatusInfo.Current, fmt.Sprintf("%t", svc.Exposed), svc.Charm)
+		// Notes may well contain other things later.
+		notes := ""
+		if app.Exposed {
+			notes = "exposed"
+		}
+		w.Print(appName, version)
+		w.PrintStatus(app.StatusInfo.Current)
+		scale, warn := fs.applicationScale(appName)
+		if warn {
+			w.PrintColor(output.WarningHighlight, scale)
+		} else {
+			w.Print(scale)
+		}
+		p(app.CharmName,
+			app.CharmOrigin,
+			app.CharmRev,
+			app.OS,
+			notes)
+
+		for un, u := range app.Units {
+			units[un] = u
+			if u.MeterStatus != nil {
+				metering = true
+			}
+		}
+		// Ensure that we pick a consistent name for peer relations.
+		sortedRelTypes := make([]string, 0, len(app.Relations))
+		for relType := range app.Relations {
+			sortedRelTypes = append(sortedRelTypes, relType)
+		}
+		sort.Strings(sortedRelTypes)
+
+		subs := set.NewStrings(app.SubordinateTo...)
+		for _, relType := range sortedRelTypes {
+			for _, related := range app.Relations[relType] {
+				relations.add(related, appName, relType, subs.Contains(related))
+			}
+		}
+
 	}
-	tw.Flush()
 
 	pUnit := func(name string, u unitStatus, level int) {
 		message := u.WorkloadStatusInfo.Message
-		agentDoing := agentDoing(u.AgentStatusInfo)
+		agentDoing := agentDoing(u.JujuStatusInfo)
 		if agentDoing != "" {
 			message = fmt.Sprintf("(%s) %s", agentDoing, message)
 		}
+		if u.Leader {
+			name += "*"
+		}
+		w.Print(indent("", level*2, name))
+		w.PrintStatus(u.WorkloadStatusInfo.Current)
+		w.PrintStatus(u.JujuStatusInfo.Current)
 		p(
-			indent("", level*2, name),
-			u.WorkloadStatusInfo.Current,
-			u.AgentStatusInfo.Current,
-			u.AgentStatusInfo.Version,
 			u.Machine,
-			strings.Join(u.OpenedPorts, ","),
 			u.PublicAddress,
+			strings.Join(u.OpenedPorts, ","),
 			message,
 		)
 	}
 
-	// See if we have new or old data; that determines what data we can display.
-	newStatus := false
-	for _, u := range units {
-		if u.AgentStatusInfo.Current != "" {
-			newStatus = true
-			break
-		}
-	}
-	var header []string
-	if newStatus {
-		header = []string{"ID", "WORKLOAD-STATE", "AGENT-STATE", "VERSION", "MACHINE", "PORTS", "PUBLIC-ADDRESS", "MESSAGE"}
-	} else {
-		header = []string{"ID", "STATE", "VERSION", "MACHINE", "PORTS", "PUBLIC-ADDRESS"}
-	}
-
-	p("\n[Units]")
-	p(strings.Join(header, "\t"))
-	for _, name := range common.SortStringsNaturally(stringKeysFromMap(units)) {
+	outputHeaders("Unit", "Workload", "Agent", "Machine", "Public address", "Ports", "Message")
+	for _, name := range utils.SortStringsNaturally(stringKeysFromMap(units)) {
 		u := units[name]
 		pUnit(name, u, 0)
 		const indentationLevel = 1
 		recurseUnits(u, indentationLevel, pUnit)
 	}
-	tw.Flush()
 
-	p("\n[Machines]")
-	p("ID\tSTATE\tDNS\tINS-ID\tSERIES\tAZ")
-	for _, name := range common.SortStringsNaturally(stringKeysFromMap(fs.Machines)) {
-		m := fs.Machines[name]
-		// We want to display availability zone so extract from hardware info".
-		hw, err := instance.ParseHardware(m.Hardware)
-		if err != nil {
-			logger.Warningf("invalid hardware info %s for machine %v", m.Hardware, m)
+	if metering {
+		outputHeaders("Meter", "Status", "Message")
+		for _, name := range utils.SortStringsNaturally(stringKeysFromMap(units)) {
+			u := units[name]
+			if u.MeterStatus != nil {
+				p(name, u.MeterStatus.Color, u.MeterStatus.Message)
+			}
 		}
-		az := ""
-		if hw.AvailabilityZone != nil {
-			az = *hw.AvailabilityZone
-		}
-		p(m.Id, m.AgentState, m.DNSName, m.InstanceId, m.Series, az)
 	}
+
+	p()
+	printMachines(tw, fs.Machines)
+
+	if relations.len() > 0 {
+		outputHeaders("Relation", "Provides", "Consumes", "Type")
+		for _, k := range relations.sorted() {
+			r := relations.get(k)
+			if r != nil {
+				p(r.relation, r.application1, r.application2, r.relationType())
+			}
+		}
+	}
+
+	tw.Flush()
+	return nil
+}
+
+func getModelMessage(model modelStatus) string {
+	// Select the most important message about the model (if any).
+	switch {
+	case model.Migration != "":
+		return "migrating: " + model.Migration
+	case model.AvailableVersion != "":
+		return "upgrade available: " + model.AvailableVersion
+	default:
+		return ""
+	}
+}
+
+func printMachines(tw *ansiterm.TabWriter, machines map[string]machineStatus) {
+	w := output.Wrapper{tw}
+	w.Println("Machine", "State", "DNS", "Inst id", "Series", "AZ")
+	for _, name := range utils.SortStringsNaturally(stringKeysFromMap(machines)) {
+		printMachine(w, machines[name])
+	}
+}
+
+func printMachine(w output.Wrapper, m machineStatus) {
+	// We want to display availability zone so extract from hardware info".
+	hw, err := instance.ParseHardware(m.Hardware)
+	if err != nil {
+		logger.Warningf("invalid hardware info %s for machine %v", m.Hardware, m)
+	}
+	az := ""
+	if hw.AvailabilityZone != nil {
+		az = *hw.AvailabilityZone
+	}
+	w.Print(m.Id)
+	w.PrintStatus(m.JujuStatus.Current)
+	w.Println(m.DNSName, m.InstanceId, m.Series, az)
+	for _, name := range utils.SortStringsNaturally(stringKeysFromMap(m.Containers)) {
+		printMachine(w, m.Containers[name])
+	}
+}
+
+// FormatMachineTabular writes a tabular summary of machine
+func FormatMachineTabular(writer io.Writer, forceColor bool, value interface{}) error {
+	fs, valueConverted := value.(formattedMachineStatus)
+	if !valueConverted {
+		return errors.Errorf("expected value of type %T, got %T", fs, value)
+	}
+	tw := output.TabWriter(writer)
+	if forceColor {
+		tw.SetColorCapable(forceColor)
+	}
+	printMachines(tw, fs.Machines)
 	tw.Flush()
 
-	return out.Bytes(), nil
+	return nil
 }
 
 // agentDoing returns what hook or action, if any,
 // the agent is currently executing.
 // The hook name or action is extracted from the agent message.
-func agentDoing(status statusInfoContents) string {
-	if status.Current != params.StatusExecuting {
+func agentDoing(agentStatus statusInfoContents) string {
+	if agentStatus.Current != status.Executing {
 		return ""
 	}
 	// First see if we can determine a hook name.
@@ -165,13 +322,13 @@ func agentDoing(status statusInfoContents) string {
 		hookNames = append(hookNames, string(h))
 	}
 	hookExp := regexp.MustCompile(fmt.Sprintf(`running (?P<hook>%s?) hook`, strings.Join(hookNames, "|")))
-	match := hookExp.FindStringSubmatch(status.Message)
+	match := hookExp.FindStringSubmatch(agentStatus.Message)
 	if len(match) > 0 {
 		return match[1]
 	}
 	// Now try for an action name.
 	actionExp := regexp.MustCompile(`running action (?P<action>.*)`)
-	match = actionExp.FindStringSubmatch(status.Message)
+	match = actionExp.FindStringSubmatch(agentStatus.Message)
 	if len(match) > 0 {
 		return match[1]
 	}

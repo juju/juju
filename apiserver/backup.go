@@ -5,7 +5,6 @@ package apiserver
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -102,7 +101,9 @@ func (h *backupHandler) upload(backups backups.Backups, resp http.ResponseWriter
 		return "", err
 	}
 
-	sendStatusAndJSON(resp, http.StatusOK, &params.BackupsUploadResult{ID: id})
+	if err := sendStatusAndJSON(resp, http.StatusOK, &params.BackupsUploadResult{ID: id}); err != nil {
+		return "", errors.Trace(err)
+	}
 	return id, nil
 }
 
@@ -149,7 +150,7 @@ func (h *backupHandler) parseGETArgs(req *http.Request) (*params.BackupsDownload
 func (h *backupHandler) sendFile(file io.Reader, checksum string, resp http.ResponseWriter) error {
 	// We don't set the Content-Length header, leaving it at -1.
 	resp.Header().Set("Content-Type", params.ContentTypeRaw)
-	resp.Header().Set("Digest", fmt.Sprintf("%s=%s", params.DigestSHA, checksum))
+	resp.Header().Set("Digest", params.EncodeChecksum(checksum))
 	resp.WriteHeader(http.StatusOK)
 	if _, err := io.Copy(resp, file); err != nil {
 		return errors.Annotate(err, "while streaming archive")
@@ -163,6 +164,7 @@ func (h *backupHandler) sendFile(file io.Reader, checksum string, resp http.Resp
 // rather than in the Error field.
 func (h *backupHandler) sendError(w http.ResponseWriter, err error) {
 	err, status := common.ServerErrorAndStatus(err)
-
-	sendStatusAndJSON(w, status, err)
+	if err := sendStatusAndJSON(w, status, err); err != nil {
+		logger.Errorf("%v", err)
+	}
 }

@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"path"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 	"github.com/juju/utils/exec"
@@ -17,28 +18,28 @@ import (
 	proxyutils "github.com/juju/utils/proxy"
 	"github.com/juju/utils/series"
 
-	"github.com/juju/juju/api/environment"
-	"github.com/juju/juju/api/watcher"
+	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker"
 )
 
 var (
 	logger = loggo.GetLogger("juju.worker.proxyupdater")
-
-	// ProxyDirectory is the directory containing the proxy file that contains
-	// the environment settings for the proxies based on the environment
-	// config values.
-	ProxyDirectory = "/home/ubuntu"
-
-	// proxySettingsRegistryPath is the Windows registry path where the proxy settings are saved
-	proxySettingsRegistryPath = `HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings`
-
-	// ProxyFile is the name of the file to be stored in the ProxyDirectory.
-	ProxyFile = ".juju-proxy"
-
-	// Started is a function that is called when the worker has started.
-	Started = func() {}
 )
+
+type Config struct {
+	Directory      string
+	RegistryPath   string
+	Filename       string
+	API            API
+	ExternalUpdate func(proxyutils.Settings) error
+}
+
+// API is an interface that is provided to New
+// which can be used to fetch the API host ports
+type API interface {
+	ProxyConfig() (proxyutils.Settings, proxyutils.Settings, error)
+	WatchForProxyConfigAndAPIHostPortChanges() (watcher.NotifyWatcher, error)
+}
 
 // proxyWorker is responsible for monitoring the juju environment
 // configuration and making changes on the physical (or virtual) machine as
@@ -46,11 +47,9 @@ var (
 // changes are apt proxy configuration and the juju proxies stored in the juju
 // proxy file.
 type proxyWorker struct {
-	api      *environment.Facade
 	aptProxy proxyutils.Settings
 	proxy    proxyutils.Settings
 
-	writeSystemFiles bool
 	// The whole point of the first value is to make sure that the the files
 	// are written out the first time through, even if they are the same as
 	// "last" time, as the initial value for last time is the zeroed struct.
@@ -59,49 +58,46 @@ type proxyWorker struct {
 	// need to make sure that the disk reflects the environment, so the first
 	// time through, even if the proxies are empty, we write the files to
 	// disk.
-	first bool
+	first  bool
+	config Config
 }
 
-var _ worker.NotifyWatchHandler = (*proxyWorker)(nil)
-
-// New returns a worker.Worker that updates proxy environment variables for the
-// process; and, if writeSystemFiles is true, for the whole machine.
-var New = func(api *environment.Facade, writeSystemFiles bool) worker.Worker {
-	logger.Debugf("write system files: %v", writeSystemFiles)
+// NewWorker returns a worker.Worker that updates proxy environment variables for the
+// process and for the whole machine.
+var NewWorker = func(config Config) (worker.Worker, error) {
 	envWorker := &proxyWorker{
-		api:              api,
-		writeSystemFiles: writeSystemFiles,
-		first:            true,
+		first:  true,
+		config: config,
 	}
-	return worker.NewNotifyWorker(envWorker)
+	w, err := watcher.NewNotifyWorker(watcher.NotifyConfig{
+		Handler: envWorker,
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return w, nil
 }
 
 func (w *proxyWorker) writeEnvironmentFile() error {
-	// Writing the environment file is handled by executing the script for two
-	// primary reasons:
+	// Writing the environment file is handled by executing the script:
 	//
-	// 1: In order to have the local provider specify the environment settings
-	// for the machine agent running on the host, this worker needs to run,
-	// but it shouldn't be touching any files on the disk.  If however there is
-	// an ubuntu user, it will. This shouldn't be a problem.
-	//
-	// 2: On cloud-instance ubuntu images, the ubuntu user is uid 1000, but in
+	// On cloud-instance ubuntu images, the ubuntu user is uid 1000, but in
 	// the situation where the ubuntu user has been created as a part of the
 	// manual provisioning process, the user will exist, and will not have the
 	// same uid/gid as the default cloud image.
 	//
-	// It is easier to shell out to check both these things, and is also the
-	// same way that the file is written in the cloud-init process, so
-	// consistency FTW.
-	filePath := path.Join(ProxyDirectory, ProxyFile)
+	// It is easier to shell out to check, and is also the same way that the file
+	// is written in the cloud-init process, so consistency FTW.
+	filePath := path.Join(w.config.Directory, w.config.Filename)
 	result, err := exec.RunCommands(exec.RunParams{
 		Commands: fmt.Sprintf(
 			`[ -e %s ] && (printf '%%s\n' %s > %s && chown ubuntu:ubuntu %s)`,
-			ProxyDirectory,
+			w.config.Directory,
 			utils.ShQuote(w.proxy.AsScriptEnvironment()),
 			filePath, filePath),
-		WorkingDir: ProxyDirectory,
+		WorkingDir: w.config.Directory,
 	})
+
 	if err != nil {
 		return err
 	}
@@ -118,10 +114,17 @@ func (w *proxyWorker) writeEnvironmentToRegistry() error {
     $proxy_val = Get-ItemProperty -Path $value_path -Name ProxySettings
     if ($? -eq $false){ New-ItemProperty -Path $value_path -Name ProxySettings -PropertyType String -Value $new_proxy }else{ Set-ItemProperty -Path $value_path -Name ProxySettings -Value $new_proxy }
     `
+
+	if w.config.RegistryPath == "" {
+		err := fmt.Errorf("config.RegistryPath is empty")
+		logger.Errorf("writeEnvironmentToRegistry couldn't write proxy settings to registry: %s", err)
+		return err
+	}
+
 	result, err := exec.RunCommands(exec.RunParams{
 		Commands: fmt.Sprintf(
 			setProxyScript,
-			proxySettingsRegistryPath,
+			w.config.RegistryPath,
 			w.proxy.Http),
 	})
 	if err != nil {
@@ -134,12 +137,7 @@ func (w *proxyWorker) writeEnvironmentToRegistry() error {
 }
 
 func (w *proxyWorker) writeEnvironment() error {
-	// TODO(dfc) this should be replaced with a switch on os.HostOS()
-	osystem, err := series.GetOSFromSeries(series.HostSeries())
-	if err != nil {
-		return err
-	}
-	switch osystem {
+	switch os.HostOS() {
 	case os.Windows:
 		return w.writeEnvironmentToRegistry()
 	default:
@@ -152,10 +150,14 @@ func (w *proxyWorker) handleProxyValues(proxySettings proxyutils.Settings) {
 	if proxySettings != w.proxy || w.first {
 		logger.Debugf("new proxy settings %#v", proxySettings)
 		w.proxy = proxySettings
-		if w.writeSystemFiles {
-			if err := w.writeEnvironment(); err != nil {
+		if err := w.writeEnvironment(); err != nil {
+			// It isn't really fatal, but we should record it.
+			logger.Errorf("error writing proxy environment file: %v", err)
+		}
+		if externalFunc := w.config.ExternalUpdate; externalFunc != nil {
+			if err := externalFunc(proxySettings); err != nil {
 				// It isn't really fatal, but we should record it.
-				logger.Errorf("error writing proxy environment file: %v", err)
+				logger.Errorf("%v", err)
 			}
 		}
 	}
@@ -168,7 +170,7 @@ func getPackageCommander() (commands.PackageCommander, error) {
 }
 
 func (w *proxyWorker) handleAptProxyValues(aptSettings proxyutils.Settings) error {
-	if w.writeSystemFiles && (aptSettings != w.aptProxy || w.first) {
+	if aptSettings != w.aptProxy || w.first {
 		logger.Debugf("new apt proxy settings %#v", aptSettings)
 		paccmder, err := getPackageCommander()
 		if err != nil {
@@ -188,16 +190,13 @@ func (w *proxyWorker) handleAptProxyValues(aptSettings proxyutils.Settings) erro
 }
 
 func (w *proxyWorker) onChange() error {
-	env, err := w.api.EnvironConfig()
+	proxySettings, APTProxySettings, err := w.config.API.ProxyConfig()
 	if err != nil {
 		return err
 	}
-	w.handleProxyValues(env.ProxySettings())
-	err = w.handleAptProxyValues(env.AptProxySettings())
-	if err != nil {
-		return err
-	}
-	return nil
+
+	w.handleProxyValues(proxySettings)
+	return w.handleAptProxyValues(APTProxySettings)
 }
 
 // SetUp is defined on the worker.NotifyWatchHandler interface.
@@ -209,8 +208,7 @@ func (w *proxyWorker) SetUp() (watcher.NotifyWatcher, error) {
 		return nil, err
 	}
 	w.first = false
-	Started()
-	return w.api.WatchForEnvironConfigChanges()
+	return w.config.API.WatchForProxyConfigAndAPIHostPortChanges()
 }
 
 // Handle is defined on the worker.NotifyWatchHandler interface.

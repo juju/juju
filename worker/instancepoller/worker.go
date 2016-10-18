@@ -4,78 +4,127 @@
 package instancepoller
 
 import (
-	"github.com/juju/names"
-	"launchpad.net/tomb"
+	"time"
 
-	apiinstancepoller "github.com/juju/juju/api/instancepoller"
-	apiwatcher "github.com/juju/juju/api/watcher"
+	"github.com/juju/errors"
+	"github.com/juju/utils/clock"
+	"gopkg.in/juju/names.v2"
+
+	"github.com/juju/juju/api/instancepoller"
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/catacomb"
 )
 
-type updaterWorker struct {
-	st   *apiinstancepoller.API
-	tomb tomb.Tomb
-	*aggregator
+type Config struct {
+	Clock   clock.Clock
+	Delay   time.Duration
+	Facade  *instancepoller.API
+	Environ InstanceGetter
+}
 
-	observer *worker.EnvironObserver
+func (config Config) Validate() error {
+	if config.Clock == nil {
+		return errors.NotValidf("nil clock.Clock")
+	}
+	if config.Delay == 0 {
+		return errors.NotValidf("zero Delay")
+	}
+	if config.Facade == nil {
+		return errors.NotValidf("nil Facade")
+	}
+	if config.Environ == nil {
+		return errors.NotValidf("nil Environ")
+	}
+	return nil
+}
+
+type updaterWorker struct {
+	config     Config
+	aggregator *aggregator
+	catacomb   catacomb.Catacomb
 }
 
 // NewWorker returns a worker that keeps track of
 // the machines in the state and polls their instance
 // addresses and status periodically to keep them up to date.
-func NewWorker(st *apiinstancepoller.API) worker.Worker {
-	u := &updaterWorker{
-		st: st,
+func NewWorker(config Config) (worker.Worker, error) {
+	if err := config.Validate(); err != nil {
+		return nil, errors.Trace(err)
 	}
-	// wait for environment
-	go func() {
-		defer u.tomb.Done()
-		u.tomb.Kill(u.loop())
-	}()
-	return u
+	u := &updaterWorker{
+		config: config,
+	}
+	err := catacomb.Invoke(catacomb.Plan{
+		Site: &u.catacomb,
+		Work: u.loop,
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return u, nil
 }
 
+// Kill is part of the worker.Worker interface.
 func (u *updaterWorker) Kill() {
-	u.tomb.Kill(nil)
+	u.catacomb.Kill(nil)
 }
 
+// Wait is part of the worker.Worker interface.
 func (u *updaterWorker) Wait() error {
-	return u.tomb.Wait()
+	return u.catacomb.Wait()
 }
 
 func (u *updaterWorker) loop() (err error) {
-	u.observer, err = worker.NewEnvironObserver(u.st)
+	u.aggregator, err = newAggregator(
+		aggregatorConfig{
+			Clock:   u.config.Clock,
+			Delay:   u.config.Delay,
+			Environ: u.config.Environ,
+		},
+	)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
-	u.aggregator = newAggregator(u.observer.Environ())
-	logger.Infof("instance poller received inital environment configuration")
-	defer func() {
-		obsErr := worker.Stop(u.observer)
-		if err == nil {
-			err = obsErr
-		}
-	}()
-	var w apiwatcher.StringsWatcher
-	w, err = u.st.WatchEnvironMachines()
+	if err := u.catacomb.Add(u.aggregator); err != nil {
+		return errors.Trace(err)
+	}
+	watcher, err := u.config.Facade.WatchModelMachines()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
-	return watchMachinesLoop(u, w)
+	if err := u.catacomb.Add(watcher); err != nil {
+		return errors.Trace(err)
+	}
+	return watchMachinesLoop(u, watcher)
 }
 
+// newMachineContext is part of the updaterContext interface.
 func (u *updaterWorker) newMachineContext() machineContext {
 	return u
 }
 
+// getMachine is part of the machineContext interface.
 func (u *updaterWorker) getMachine(tag names.MachineTag) (machine, error) {
-	return u.st.Machine(tag)
+	return u.config.Facade.Machine(tag)
 }
 
+// instanceInfo is part of the machineContext interface.
+func (u *updaterWorker) instanceInfo(id instance.Id) (instanceInfo, error) {
+	return u.aggregator.instanceInfo(id)
+}
+
+// kill is part of the lifetimeContext interface.
+func (u *updaterWorker) kill(err error) {
+	u.catacomb.Kill(err)
+}
+
+// dying is part of the lifetimeContext interface.
 func (u *updaterWorker) dying() <-chan struct{} {
-	return u.tomb.Dying()
+	return u.catacomb.Dying()
 }
 
-func (u *updaterWorker) killAll(err error) {
-	u.tomb.Kill(err)
+// errDying is part of the lifetimeContext interface.
+func (u *updaterWorker) errDying() error {
+	return u.catacomb.ErrDying()
 }

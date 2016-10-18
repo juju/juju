@@ -7,28 +7,28 @@ package openstack
 
 import (
 	"fmt"
-	"io/ioutil"
-	"net/http"
+	"log"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
 	"github.com/juju/utils"
-	"github.com/juju/utils/arch"
+	"github.com/juju/version"
+	"gopkg.in/goose.v1/cinder"
 	"gopkg.in/goose.v1/client"
 	gooseerrors "gopkg.in/goose.v1/errors"
 	"gopkg.in/goose.v1/identity"
 	"gopkg.in/goose.v1/nova"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/tags"
@@ -36,271 +36,111 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/tools"
 )
 
 var logger = loggo.GetLogger("juju.provider.openstack")
 
 type EnvironProvider struct {
+	environs.ProviderCredentials
 	Configurator      ProviderConfigurator
 	FirewallerFactory FirewallerFactory
 }
 
-var _ environs.EnvironProvider = (*EnvironProvider)(nil)
+var (
+	_ environs.EnvironProvider = (*EnvironProvider)(nil)
+	_ environs.ProviderSchema  = (*EnvironProvider)(nil)
+)
 
-var providerInstance *EnvironProvider = &EnvironProvider{&defaultConfigurator{}, &firewallerFactory{}}
+var providerInstance *EnvironProvider = &EnvironProvider{
+	OpenstackCredentials{},
+	&defaultConfigurator{},
+	&firewallerFactory{},
+}
 
 var makeServiceURL = client.AuthenticatingClient.MakeServiceURL
 
-// Use shortAttempt to poll for short-term events.
-// TODO: This was kept to a long timeout because Nova needs more time than EC2.
-// For example, HP Cloud takes around 9.1 seconds (10 samples) to return a
-// BUILD(spawning) status. But storage delays are handled separately now, and
+// TODO: shortAttempt was kept to a long timeout because Nova needs
+// more time than EC2.  Storage delays are handled separately now, and
 // perhaps other polling attempts can time out faster.
+
+// shortAttempt is used when polling for short-term events in tests.
 var shortAttempt = utils.AttemptStrategy{
 	Total: 15 * time.Second,
 	Delay: 200 * time.Millisecond,
 }
 
-func (p EnvironProvider) BoilerplateConfig() string {
-	return `
-# https://juju.ubuntu.com/docs/config-openstack.html
-openstack:
-    type: openstack
+func (p EnvironProvider) Open(args environs.OpenParams) (environs.Environ, error) {
+	logger.Infof("opening model %q", args.Config.Name())
+	if err := validateCloudSpec(args.Cloud); err != nil {
+		return nil, errors.Annotate(err, "validating cloud spec")
+	}
+	uuid := args.Config.UUID()
+	namespace, err := instance.NewNamespace(uuid)
+	if err != nil {
+		return nil, errors.Annotate(err, "creating instance namespace")
+	}
 
-    # use-floating-ip specifies whether a floating IP address is
-    # required to give the nodes a public IP address. Some
-    # installations assign public IP addresses by default without
-    # requiring a floating IP address.
-    #
-    # use-floating-ip: false
-
-    # use-default-secgroup specifies whether new machine instances
-    # should have the "default" Openstack security group assigned.
-    #
-    # use-default-secgroup: false
-
-    # network specifies the network label or uuid to bring machines up
-    # on, in the case where multiple networks exist. It may be omitted
-    # otherwise.
-    #
-    # network: <your network label or uuid>
-
-    # agent-metadata-url specifies the location of the Juju tools and
-    # metadata. It defaults to the global public tools metadata
-    # location https://streams.canonical.com/tools.
-    #
-    # agent-metadata-url:  https://your-agent-metadata-url
-
-    # image-metadata-url specifies the location of Ubuntu cloud image
-    # metadata. It defaults to the global public image metadata
-    # location https://cloud-images.ubuntu.com/releases.
-    #
-    # image-metadata-url:  https://your-image-metadata-url
-
-    # image-stream chooses a simplestreams stream from which to select
-    # OS images, for example daily or released images (or any other stream
-    # available on simplestreams).
-    #
-    # image-stream: "released"
-
-    # agent-stream chooses a simplestreams stream from which to select tools,
-    # for example released or proposed tools (or any other stream available
-    # on simplestreams).
-    #
-    # agent-stream: "released"
-
-    # auth-url defaults to the value of the environment variable
-    # OS_AUTH_URL, but can be specified here.
-    #
-    # auth-url: https://yourkeystoneurl:443/v2.0/
-
-    # tenant-name holds the openstack tenant name. It defaults to the
-    # environment variable OS_TENANT_NAME.
-    #
-    # tenant-name: <your tenant name>
-
-    # region holds the openstack region. It defaults to the
-    # environment variable OS_REGION_NAME.
-    #
-    # region: <your region>
-
-    # The auth-mode, username and password attributes are used for
-    # userpass authentication (the default).
-    #
-    # auth-mode holds the authentication mode. For user-password
-    # authentication, auth-mode should be "userpass" and username and
-    # password should be set appropriately; they default to the
-    # environment variables OS_USERNAME and OS_PASSWORD respectively.
-    #
-    # auth-mode: userpass
-    # username: <your username>
-    # password: <secret>
-
-    # For key-pair authentication, auth-mode should be "keypair" and
-    # access-key and secret-key should be set appropriately; they
-    # default to the environment variables OS_ACCESS_KEY and
-    # OS_SECRET_KEY respectively.
-    #
-    # auth-mode: keypair
-    # access-key: <secret>
-    # secret-key: <secret>
-
-    # Whether or not to refresh the list of available updates for an
-    # OS. The default option of true is recommended for use in
-    # production systems, but disabling this can speed up local
-    # deployments for development or testing.
-    #
-    # enable-os-refresh-update: true
-
-    # Whether or not to perform OS upgrades when machines are
-    # provisioned. The default option of true is recommended for use
-    # in production systems, but disabling this can speed up local
-    # deployments for development or testing.
-    #
-    # enable-os-upgrade: true
-
-# https://juju.ubuntu.com/docs/config-hpcloud.html
-hpcloud:
-    type: openstack
-
-    # use-floating-ip specifies whether a floating IP address is
-    # required to give the nodes a public IP address. Some
-    # installations assign public IP addresses by default without
-    # requiring a floating IP address.
-    #
-    # use-floating-ip: true
-
-    # use-default-secgroup specifies whether new machine instances
-    # should have the "default" Openstack security group assigned.
-    #
-    # use-default-secgroup: false
-
-    # tenant-name holds the openstack tenant name. In HPCloud, this is
-    # synonymous with the project-name It defaults to the environment
-    # variable OS_TENANT_NAME.
-    #
-    # tenant-name: <your tenant name>
-
-    # image-stream chooses a simplestreams stream from which to select
-    # OS images, for example daily or released images (or any other stream
-    # available on simplestreams).
-    #
-    # image-stream: "released"
-
-    # agent-stream chooses a simplestreams stream from which to select tools,
-    # for example released or proposed tools (or any other stream available
-    # on simplestreams).
-    #
-    # agent-stream: "released"
-
-    # auth-url holds the keystone url for authentication. It defaults
-    # to the value of the environment variable OS_AUTH_URL.
-    #
-    # auth-url: https://region-a.geo-1.identity.hpcloudsvc.com:35357/v2.0/
-
-    # region holds the HP Cloud region (e.g. region-a.geo-1). It
-    # defaults to the environment variable OS_REGION_NAME.
-    #
-    # region: <your region>
-
-    # auth-mode holds the authentication mode. For user-password
-    # authentication, auth-mode should be "userpass" and username and
-    # password should be set appropriately; they default to the
-    # environment variables OS_USERNAME and OS_PASSWORD respectively.
-    #
-    # auth-mode: userpass
-    # username: <your_username>
-    # password: <your_password>
-
-    # For key-pair authentication, auth-mode should be "keypair" and
-    # access-key and secret-key should be set appropriately; they
-    # default to the environment variables OS_ACCESS_KEY and
-    # OS_SECRET_KEY respectively.
-    #
-    # auth-mode: keypair
-    # access-key: <secret>
-    # secret-key: <secret>
-
-    # Whether or not to refresh the list of available updates for an
-    # OS. The default option of true is recommended for use in
-    # production systems, but disabling this can speed up local
-    # deployments for development or testing.
-    #
-    # enable-os-refresh-update: true
-
-    # Whether or not to perform OS upgrades when machines are
-    # provisioned. The default option of true is recommended for use
-    # in production systems, but disabling this can speed up local
-    # deployments for development or testing.
-    #
-    # enable-os-upgrade: true
-
-`[1:]
-}
-
-func (p EnvironProvider) Open(cfg *config.Config) (environs.Environ, error) {
-	logger.Infof("opening environment %q", cfg.Name())
-	e := new(Environ)
-
+	e := &Environ{
+		name:      args.Config.Name(),
+		uuid:      uuid,
+		cloud:     args.Cloud,
+		namespace: namespace,
+	}
 	e.firewaller = p.FirewallerFactory.GetFirewaller(e)
 	e.configurator = p.Configurator
-	err := e.SetConfig(cfg)
-	if err != nil {
+	if err := e.SetConfig(args.Config); err != nil {
 		return nil, err
 	}
-	e.name = cfg.Name()
 	return e, nil
 }
 
-// RestrictedConfigAttributes is specified in the EnvironProvider interface.
-func (p EnvironProvider) RestrictedConfigAttributes() []string {
-	return []string{"region", "auth-url", "auth-mode"}
+// DetectRegions implements environs.CloudRegionDetector.
+func (EnvironProvider) DetectRegions() ([]cloud.Region, error) {
+	// If OS_REGION_NAME and OS_AUTH_URL are both set,
+	// return return a region using them.
+	creds := identity.CredentialsFromEnv()
+	if creds.Region == "" {
+		return nil, errors.NewNotFound(nil, "OS_REGION_NAME environment variable not set")
+	}
+	if creds.URL == "" {
+		return nil, errors.NewNotFound(nil, "OS_AUTH_URL environment variable not set")
+	}
+	return []cloud.Region{{
+		Name:     creds.Region,
+		Endpoint: creds.URL,
+	}}, nil
 }
 
-// PrepareForCreateEnvironment is specified in the EnvironProvider interface.
-func (p EnvironProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
+// PrepareConfig is specified in the EnvironProvider interface.
+func (p EnvironProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {
+	if err := validateCloudSpec(args.Cloud); err != nil {
+		return nil, errors.Annotate(err, "validating cloud spec")
+	}
+
+	// Set the default block-storage source.
+	attrs := make(map[string]interface{})
+	if _, ok := args.Config.StorageDefaultBlockSource(); !ok {
+		attrs[config.StorageDefaultBlockSourceKey] = CinderProviderType
+	}
+
+	cfg, err := args.Config.Apply(attrs)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return cfg, nil
-}
-
-func (p EnvironProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
-	cfg, err := p.PrepareForCreateEnvironment(cfg)
-	if err != nil {
-		return nil, err
-	}
-	e, err := p.Open(cfg)
-	if err != nil {
-		return nil, err
-	}
-	// Verify credentials.
-	if err := authenticateClient(e.(*Environ)); err != nil {
-		return nil, err
-	}
-	return e, nil
 }
 
 // MetadataLookupParams returns parameters which are used to query image metadata to
 // find matching image information.
 func (p EnvironProvider) MetadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
 	if region == "" {
-		return nil, fmt.Errorf("region must be specified")
+		return nil, errors.Errorf("region must be specified")
 	}
 	return &simplestreams.MetadataLookupParams{
-		Region:        region,
-		Architectures: arch.AllSupportedArches,
+		Region: region,
 	}, nil
-}
-
-func (p EnvironProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
-	m := make(map[string]string)
-	ecfg, err := p.newConfig(cfg)
-	if err != nil {
-		return nil, err
-	}
-	m["username"] = ecfg.username()
-	m["password"] = ecfg.password()
-	m["tenant-name"] = ecfg.tenantName()
-	return m, nil
 }
 
 func (p EnvironProvider) newConfig(cfg *config.Config) (*environConfig, error) {
@@ -311,46 +151,17 @@ func (p EnvironProvider) newConfig(cfg *config.Config) (*environConfig, error) {
 	return &environConfig{valid, valid.UnknownAttrs()}, nil
 }
 
-func retryGet(uri string) (data []byte, err error) {
-	for a := shortAttempt.Start(); a.Next(); {
-		var resp *http.Response
-		resp, err = http.Get(uri)
-		if err != nil {
-			continue
-		}
-		defer resp.Body.Close()
-		if resp.StatusCode != http.StatusOK {
-			err = fmt.Errorf("bad http response %v", resp.Status)
-			continue
-		}
-		var data []byte
-		data, err = ioutil.ReadAll(resp.Body)
-		if err != nil {
-			continue
-		}
-		return data, nil
-	}
-	if err != nil {
-		return nil, fmt.Errorf("cannot get %q: %v", uri, err)
-	}
-	return
-}
-
 type Environ struct {
-	common.SupportsUnitPlacementPolicy
-
-	name string
-
-	// archMutex gates access to supportedArchitectures
-	archMutex sync.Mutex
-	// supportedArchitectures caches the architectures
-	// for which images can be instantiated.
-	supportedArchitectures []string
+	name      string
+	uuid      string
+	cloud     environs.CloudSpec
+	namespace instance.Namespace
 
 	ecfgMutex    sync.Mutex
 	ecfgUnlocked *environConfig
 	client       client.AuthenticatingClient
 	novaUnlocked *nova.Client
+	volumeURL    *url.URL
 
 	// keystoneImageDataSource caches the result of getKeystoneImageSource.
 	keystoneImageDataSourceMutex sync.Mutex
@@ -369,7 +180,7 @@ type Environ struct {
 var _ environs.Environ = (*Environ)(nil)
 var _ simplestreams.HasRegion = (*Environ)(nil)
 var _ state.Prechecker = (*Environ)(nil)
-var _ state.InstanceDistributor = (*Environ)(nil)
+var _ instance.Distributor = (*Environ)(nil)
 var _ environs.InstanceTagger = (*Environ)(nil)
 
 type openstackInstance struct {
@@ -410,8 +221,30 @@ func (inst *openstackInstance) Id() instance.Id {
 	return instance.Id(inst.getServerDetail().Id)
 }
 
-func (inst *openstackInstance) Status() string {
-	return inst.getServerDetail().Status
+func (inst *openstackInstance) Status() instance.InstanceStatus {
+	instStatus := inst.getServerDetail().Status
+	jujuStatus := status.Pending
+	switch instStatus {
+	case nova.StatusActive:
+		jujuStatus = status.Running
+	case nova.StatusError:
+		jujuStatus = status.ProvisioningError
+	case nova.StatusBuild, nova.StatusBuildSpawning,
+		nova.StatusDeleted, nova.StatusHardReboot,
+		nova.StatusPassword, nova.StatusReboot,
+		nova.StatusRebuild, nova.StatusRescue,
+		nova.StatusResize, nova.StatusShutoff,
+		nova.StatusSuspended, nova.StatusVerifyResize:
+		jujuStatus = status.Empty
+	case nova.StatusUnknown:
+		jujuStatus = status.Unknown
+	default:
+		jujuStatus = status.Empty
+	}
+	return instance.InstanceStatus{
+		Status:  jujuStatus,
+		Message: instStatus,
+	}
 }
 
 func (inst *openstackInstance) hardwareCharacteristics() *instance.HardwareCharacteristics {
@@ -470,7 +303,6 @@ func convertNovaAddresses(publicIP string, addresses map[string][]nova.IPAddress
 	var machineAddresses []network.Address
 	if publicIP != "" {
 		publicAddr := network.NewScopedAddress(publicIP, network.ScopePublic)
-		publicAddr.NetworkName = "public"
 		machineAddresses = append(machineAddresses, publicAddr)
 	}
 	// TODO(gz) Network ordering may be significant but is not preserved by
@@ -492,7 +324,6 @@ func convertNovaAddresses(publicIP string, addresses map[string][]nova.IPAddress
 				addrtype = network.IPv6Address
 			}
 			machineAddr := network.NewScopedAddress(address.Address, networkScope)
-			machineAddr.NetworkName = netName
 			if machineAddr.Type != addrtype {
 				logger.Warningf("derived address type %v, nova reports %v", machineAddr.Type, addrtype)
 			}
@@ -528,26 +359,6 @@ func (e *Environ) nova() *nova.Client {
 	return nova
 }
 
-// SupportedArchitectures is specified on the EnvironCapability interface.
-func (e *Environ) SupportedArchitectures() ([]string, error) {
-	e.archMutex.Lock()
-	defer e.archMutex.Unlock()
-	if e.supportedArchitectures != nil {
-		return e.supportedArchitectures, nil
-	}
-	// Create a filter to get all images from our region and for the correct stream.
-	cloudSpec, err := e.Region()
-	if err != nil {
-		return nil, err
-	}
-	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
-		CloudSpec: cloudSpec,
-		Stream:    e.Config().ImageStream(),
-	})
-	e.supportedArchitectures, err = common.SupportedArchitectures(e, imageConstraint)
-	return e.supportedArchitectures, err
-}
-
 var unsupportedConstraints = []string{
 	constraints.Tags,
 	constraints.CpuPower,
@@ -558,13 +369,8 @@ func (e *Environ) ConstraintsValidator() (constraints.Validator, error) {
 	validator := constraints.NewValidator()
 	validator.RegisterConflicts(
 		[]string{constraints.InstanceType},
-		[]string{constraints.Mem, constraints.Arch, constraints.RootDisk, constraints.CpuCores})
+		[]string{constraints.Mem, constraints.RootDisk, constraints.Cores})
 	validator.RegisterUnsupported(unsupportedConstraints)
-	supportedArches, err := e.SupportedArchitectures()
-	if err != nil {
-		return nil, err
-	}
-	validator.RegisterVocabulary(constraints.Arch, supportedArches)
 	novaClient := e.nova()
 	flavors, err := novaClient.ListFlavorsDetail()
 	if err != nil {
@@ -575,6 +381,7 @@ func (e *Environ) ConstraintsValidator() (constraints.Validator, error) {
 		instTypeNames[i] = flavor.Name
 	}
 	validator.RegisterVocabulary(constraints.InstanceType, instTypeNames)
+	validator.RegisterVocabulary(constraints.VirtType, []string{"kvm", "lxd"})
 	return validator, nil
 }
 
@@ -636,7 +443,7 @@ type openstackPlacement struct {
 func (e *Environ) parsePlacement(placement string) (*openstackPlacement, error) {
 	pos := strings.IndexRune(placement, '=')
 	if pos == -1 {
-		return nil, fmt.Errorf("unknown placement directive: %v", placement)
+		return nil, errors.Errorf("unknown placement directive: %v", placement)
 	}
 	switch key, value := placement[:pos], placement[pos+1:]; key {
 	case "zone":
@@ -652,9 +459,9 @@ func (e *Environ) parsePlacement(placement string) (*openstackPlacement, error) 
 				}, nil
 			}
 		}
-		return nil, fmt.Errorf("invalid availability zone %q", availabilityZone)
+		return nil, errors.Errorf("invalid availability zone %q", availabilityZone)
 	}
-	return nil, fmt.Errorf("unknown placement directive: %v", placement)
+	return nil, errors.Errorf("unknown placement directive: %v", placement)
 }
 
 // PrecheckInstance is defined on the state.Prechecker interface.
@@ -678,29 +485,54 @@ func (e *Environ) PrecheckInstance(series string, cons constraints.Value, placem
 			return nil
 		}
 	}
-	return fmt.Errorf("invalid Openstack flavour %q specified", *cons.InstanceType)
+	return errors.Errorf("invalid Openstack flavour %q specified", *cons.InstanceType)
+}
+
+// PrepareForBootstrap is part of the Environ interface.
+func (e *Environ) PrepareForBootstrap(ctx environs.BootstrapContext) error {
+	// Verify credentials.
+	if err := authenticateClient(e.client); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Create is part of the Environ interface.
+func (e *Environ) Create(environs.CreateParams) error {
+	// Verify credentials.
+	if err := authenticateClient(e.client); err != nil {
+		return err
+	}
+	// TODO(axw) 2016-08-04 #1609643
+	// Create global security group(s) here.
+	return nil
 }
 
 func (e *Environ) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	// The client's authentication may have been reset when finding tools if the agent-version
 	// attribute was updated so we need to re-authenticate. This will be a no-op if already authenticated.
 	// An authenticated client is needed for the URL() call below.
-	if err := authenticateClient(e); err != nil {
+	if err := authenticateClient(e.client); err != nil {
 		return nil, err
 	}
 	return common.Bootstrap(ctx, e, args)
 }
 
-func (e *Environ) StateServerInstances() ([]instance.Id, error) {
-	// Find all instances tagged with tags.JujuStateServer.
-	instances, err := e.AllInstances()
+// BootstrapMessage is part of the Environ interface.
+func (e *Environ) BootstrapMessage() string {
+	return ""
+}
+
+func (e *Environ) ControllerInstances(controllerUUID string) ([]instance.Id, error) {
+	// Find all instances tagged with tags.JujuIsController.
+	instances, err := e.allControllerManagedInstances(controllerUUID, e.ecfg().useFloatingIP())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	ids := make([]instance.Id, 0, 1)
 	for _, instance := range instances {
 		detail := instance.(*openstackInstance).getServerDetail()
-		if detail.Metadata[tags.JujuStateServer] == "true" {
+		if detail.Metadata[tags.JujuIsController] == "true" {
 			ids = append(ids, instance.Id())
 		}
 	}
@@ -714,39 +546,94 @@ func (e *Environ) Config() *config.Config {
 	return e.ecfg().Config
 }
 
-func authClient(ecfg *environConfig) client.AuthenticatingClient {
-	cred := &identity.Credentials{
-		User:       ecfg.username(),
-		Secrets:    ecfg.password(),
-		Region:     ecfg.region(),
-		TenantName: ecfg.tenantName(),
-		URL:        ecfg.authURL(),
+func newCredentials(spec environs.CloudSpec) (identity.Credentials, identity.AuthMode) {
+	credAttrs := spec.Credential.Attributes()
+	cred := identity.Credentials{
+		Region:     spec.Region,
+		URL:        spec.Endpoint,
+		TenantName: credAttrs[CredAttrTenantName],
 	}
-	// authModeCfg has already been validated so we know it's one of the values below.
+
+	// AuthType is validated when the environment is opened, so it's known
+	// to be one of these values.
 	var authMode identity.AuthMode
-	switch AuthMode(ecfg.authMode()) {
-	case AuthLegacy:
-		authMode = identity.AuthLegacy
-	case AuthUserPass:
+	switch spec.Credential.AuthType() {
+	case cloud.UserPassAuthType:
+		// TODO(axw) we need a way of saying to use legacy auth.
+		cred.User = credAttrs[CredAttrUserName]
+		cred.Secrets = credAttrs[CredAttrPassword]
+		cred.DomainName = credAttrs[CredAttrDomainName]
 		authMode = identity.AuthUserPass
-	case AuthKeyPair:
+		if cred.DomainName != "" {
+			authMode = identity.AuthUserPassV3
+		}
+	case cloud.AccessKeyAuthType:
+		cred.User = credAttrs[CredAttrAccessKey]
+		cred.Secrets = credAttrs[CredAttrSecretKey]
 		authMode = identity.AuthKeyPair
-		cred.User = ecfg.accessKey()
-		cred.Secrets = ecfg.secretKey()
 	}
-	newClient := client.NewClient
-	if !ecfg.SSLHostnameVerification() {
-		newClient = client.NewNonValidatingClient
+	return cred, authMode
+}
+
+func determineBestClient(
+	options identity.AuthOptions,
+	client client.AuthenticatingClient,
+	cred identity.Credentials,
+	newClient func(*identity.Credentials, identity.AuthMode, *log.Logger) client.AuthenticatingClient,
+) client.AuthenticatingClient {
+	for _, option := range options {
+		if option.Mode != identity.AuthUserPassV3 {
+			continue
+		}
+		cred.URL = option.Endpoint
+		v3client := newClient(&cred, identity.AuthUserPassV3, nil)
+		// V3 being advertised is not necessaritly a guarantee that it will
+		// work.
+		err := v3client.Authenticate()
+		if err == nil {
+			return v3client
+		}
 	}
-	client := newClient(cred, authMode, nil)
-	// By default, the client requires "compute" and
-	// "object-store". Juju only requires "compute".
-	client.SetRequiredServiceTypes([]string{"compute"})
 	return client
 }
 
-var authenticateClient = func(e *Environ) error {
-	err := e.client.Authenticate()
+func authClient(spec environs.CloudSpec, ecfg *environConfig) (client.AuthenticatingClient, error) {
+
+	identityClientVersion, err := identityClientVersion(spec.Endpoint)
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot create a client")
+	}
+	cred, authMode := newCredentials(spec)
+
+	newClient := client.NewClient
+	if ecfg.SSLHostnameVerification() == false {
+		newClient = client.NewNonValidatingClient
+	}
+	client := newClient(&cred, authMode, nil)
+
+	// before returning, lets make sure that we want to have AuthMode
+	// AuthUserPass instead of its V3 counterpart.
+	if authMode == identity.AuthUserPass && (identityClientVersion == -1 || identityClientVersion == 3) {
+		options, err := client.IdentityAuthOptions()
+		if err != nil {
+			logger.Errorf("cannot determine available auth versions %v", err)
+		} else {
+			client = determineBestClient(options, client, cred, newClient)
+		}
+	}
+
+	// By default, the client requires "compute" and
+	// "object-store". Juju only requires "compute".
+	client.SetRequiredServiceTypes([]string{"compute"})
+	return client, nil
+}
+
+type authenticator interface {
+	Authenticate() error
+}
+
+var authenticateClient = func(auth authenticator) error {
+	err := auth.Authenticate()
 	if err != nil {
 		// Log the error in case there are any useful hints,
 		// but provide a readable and helpful error message
@@ -756,7 +643,7 @@ var authenticateClient = func(e *Environ) error {
 
 Please ensure the credentials are correct. A common mistake is
 to specify the wrong tenant. Use the OpenStack "project" name
-for tenant-name in your environment configuration.`)
+for tenant-name in your model configuration.`)
 	}
 	return nil
 }
@@ -772,10 +659,31 @@ func (e *Environ) SetConfig(cfg *config.Config) error {
 	defer e.ecfgMutex.Unlock()
 	e.ecfgUnlocked = ecfg
 
-	e.client = authClient(ecfg)
-
+	client, err := authClient(e.cloud, ecfg)
+	if err != nil {
+		return errors.Annotate(err, "cannot set config")
+	}
+	e.client = client
 	e.novaUnlocked = nova.New(e.client)
 	return nil
+}
+
+func identityClientVersion(authURL string) (int, error) {
+	url, err := url.Parse(authURL)
+	if err != nil {
+		return -1, err
+	} else if url.Path == "" {
+		return -1, err
+	}
+	// The last part of the path should be the version #.
+	// Example: https://keystone.foo:443/v3/
+	logger.Tracef("authURL: %s", authURL)
+	versionNumStr := url.Path[2:]
+	if versionNumStr[len(versionNumStr)-1] == '/' {
+		versionNumStr = versionNumStr[:len(versionNumStr)-1]
+	}
+	major, _, err := version.ParseMajorMinor(versionNumStr)
+	return major, err
 }
 
 // getKeystoneImageSource is an imagemetadata.ImageDataSourceFunc that
@@ -783,7 +691,7 @@ func (e *Environ) SetConfig(cfg *config.Config) error {
 func getKeystoneImageSource(env environs.Environ) (simplestreams.DataSource, error) {
 	e, ok := env.(*Environ)
 	if !ok {
-		return nil, errors.NotSupportedf("non-openstack environment")
+		return nil, errors.NotSupportedf("non-openstack model")
 	}
 	return e.getKeystoneDataSource(&e.keystoneImageDataSourceMutex, &e.keystoneImageDataSource, "product-streams")
 }
@@ -793,7 +701,7 @@ func getKeystoneImageSource(env environs.Environ) (simplestreams.DataSource, err
 func getKeystoneToolsSource(env environs.Environ) (simplestreams.DataSource, error) {
 	e, ok := env.(*Environ)
 	if !ok {
-		return nil, errors.NotSupportedf("non-openstack environment")
+		return nil, errors.NotSupportedf("non-openstack model")
 	}
 	return e.getKeystoneDataSource(&e.keystoneToolsDataSourceMutex, &e.keystoneToolsDataSource, "juju-tools")
 }
@@ -805,7 +713,7 @@ func (e *Environ) getKeystoneDataSource(mu *sync.Mutex, datasource *simplestream
 		return *datasource, nil
 	}
 	if !e.client.IsAuthenticated() {
-		if err := authenticateClient(e); err != nil {
+		if err := authenticateClient(e.client); err != nil {
 			return nil, err
 		}
 	}
@@ -818,7 +726,7 @@ func (e *Environ) getKeystoneDataSource(mu *sync.Mutex, datasource *simplestream
 	if !e.Config().SSLHostnameVerification() {
 		verify = utils.NoVerifySSLHostnames
 	}
-	*datasource = simplestreams.NewURLDataSource("keystone catalog", url, verify)
+	*datasource = simplestreams.NewURLDataSource("keystone catalog", url, verify, simplestreams.SPECIFIC_CLOUD_DATA, false)
 	return *datasource, nil
 }
 
@@ -843,9 +751,9 @@ func (e *Environ) resolveNetwork(networkName string) (string, error) {
 	case 1:
 		return networkIds[0], nil
 	case 0:
-		return "", fmt.Errorf("No networks exist with label %q", networkName)
+		return "", errors.Errorf("No networks exist with label %q", networkName)
 	}
-	return "", fmt.Errorf("Multiple networks with label %q: %v", networkName, networkIds)
+	return "", errors.Errorf("Multiple networks with label %q: %v", networkName, networkIds)
 }
 
 // allocatePublicIP tries to find an available floating IP address, or
@@ -883,7 +791,7 @@ func (e *Environ) allocatePublicIP() (*nova.FloatingIP, error) {
 // specified server, or returns an error.
 func (e *Environ) assignPublicIP(fip *nova.FloatingIP, serverId string) (err error) {
 	if fip == nil {
-		return fmt.Errorf("cannot assign a nil public IP to %q", serverId)
+		return errors.Errorf("cannot assign a nil public IP to %q", serverId)
 	}
 	if fip.InstanceId != nil && *fip.InstanceId == serverId {
 		// IP already assigned, nothing to do
@@ -914,6 +822,9 @@ func (*Environ) MaintainInstance(args environs.StartInstanceParams) error {
 
 // StartInstance is specified in the InstanceBroker interface.
 func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
+	if args.ControllerUUID == "" {
+		return nil, errors.New("missing controller UUID")
+	}
 	var availabilityZones []string
 	if args.Placement != "" {
 		placement, err := e.parsePlacement(args.Placement)
@@ -921,7 +832,7 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 			return nil, err
 		}
 		if !placement.availabilityZone.State.Available {
-			return nil, fmt.Errorf("availability zone %q is unavailable", placement.availabilityZone.Name)
+			return nil, errors.Errorf("availability zone %q is unavailable", placement.availabilityZone.Name)
 		}
 		availabilityZones = append(availabilityZones, placement.availabilityZone.Name)
 	}
@@ -955,27 +866,25 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		}
 	}
 
-	if args.InstanceConfig.HasNetworks() {
-		return nil, fmt.Errorf("starting instances with networks is not supported yet.")
-	}
-
 	series := args.Tools.OneSeries()
 	arches := args.Tools.Arches()
 	spec, err := findInstanceSpec(e, &instances.InstanceConstraint{
-		Region:      e.ecfg().region(),
+		Region:      e.cloud.Region,
 		Series:      series,
 		Arches:      arches,
 		Constraints: args.Constraints,
-	})
+	}, args.ImageMetadata)
 	if err != nil {
 		return nil, err
 	}
 	tools, err := args.Tools.Match(tools.Filter{Arch: spec.Image.Arch})
 	if err != nil {
-		return nil, fmt.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, arches)
+		return nil, errors.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, arches)
 	}
 
-	args.InstanceConfig.Tools = tools[0]
+	if err := args.InstanceConfig.SetTools(tools); err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	if err := instancecfg.FinishInstanceConfig(args.InstanceConfig, e.Config()); err != nil {
 		return nil, err
@@ -986,7 +895,7 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	}
 	userData, err := providerinit.ComposeUserData(args.InstanceConfig, cloudcfg, OpenstackRenderer{})
 	if err != nil {
-		return nil, fmt.Errorf("cannot make user data: %v", err)
+		return nil, errors.Annotate(err, "cannot make user data")
 	}
 	logger.Debugf("openstack user data; %d bytes", len(userData))
 
@@ -1005,60 +914,92 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	if withPublicIP {
 		logger.Debugf("allocating public IP address for openstack node")
 		if fip, err := e.allocatePublicIP(); err != nil {
-			return nil, fmt.Errorf("cannot allocate a public IP as needed: %v", err)
+			return nil, errors.Annotate(err, "cannot allocate a public IP as needed")
 		} else {
 			publicIP = fip
 			logger.Infof("allocated public IP %s", publicIP.IP)
 		}
 	}
 
-	cfg := e.Config()
+	var apiPort int
+	if args.InstanceConfig.Controller != nil {
+		apiPort = args.InstanceConfig.Controller.Config.APIPort()
+	} else {
+		// All ports are the same so pick the first.
+		apiPort = args.InstanceConfig.APIInfo.Ports()[0]
+	}
 	var groupNames = make([]nova.SecurityGroupName, 0)
-	groups, err := e.firewaller.SetUpGroups(args.InstanceConfig.MachineId, cfg.APIPort())
+	groups, err := e.firewaller.SetUpGroups(args.ControllerUUID, args.InstanceConfig.MachineId, apiPort)
 	if err != nil {
-		return nil, fmt.Errorf("cannot set up groups: %v", err)
+		return nil, errors.Annotate(err, "cannot set up groups")
 	}
 
 	for _, g := range groups {
 		groupNames = append(groupNames, nova.SecurityGroupName{g.Name})
 	}
 	machineName := resourceName(
-		names.NewMachineTag(args.InstanceConfig.MachineId),
-		e.Config().Name(),
+		e.namespace,
+		e.name,
+		args.InstanceConfig.MachineId,
 	)
 
-	var server *nova.Entity
-	for _, availZone := range availabilityZones {
-		var opts = nova.RunServerOpts{
-			Name:               machineName,
-			FlavorId:           spec.InstanceType.Id,
-			ImageId:            spec.Image.Id,
-			UserData:           userData,
-			SecurityGroupNames: groupNames,
-			Networks:           networks,
-			AvailabilityZone:   availZone,
-			Metadata:           args.InstanceConfig.Tags,
-		}
-		e.configurator.ModifyRunServerOptions(&opts)
-		for a := shortAttempt.Start(); a.Next(); {
-			server, err = e.nova().RunServer(opts)
-			if err == nil || !gooseerrors.IsNotFound(err) {
+	tryStartNovaInstance := func(
+		attempts utils.AttemptStrategy,
+		client *nova.Client,
+		instanceOpts nova.RunServerOpts,
+	) (server *nova.Entity, err error) {
+		for a := attempts.Start(); a.Next(); {
+			server, err = client.RunServer(instanceOpts)
+			if err == nil || gooseerrors.IsNotFound(err) == false {
 				break
 			}
 		}
-		if isNoValidHostsError(err) {
-			logger.Infof("no valid hosts available in zone %q, trying another availability zone", availZone)
-		} else {
-			break
+		return server, err
+	}
+
+	tryStartNovaInstanceAcrossAvailZones := func(
+		attempts utils.AttemptStrategy,
+		client *nova.Client,
+		instanceOpts nova.RunServerOpts,
+		availabilityZones []string,
+	) (server *nova.Entity, err error) {
+		for _, zone := range availabilityZones {
+			instanceOpts.AvailabilityZone = zone
+			e.configurator.ModifyRunServerOptions(&instanceOpts)
+			server, err = tryStartNovaInstance(attempts, client, instanceOpts)
+			if err == nil || isNoValidHostsError(err) == false {
+				break
+			}
+
+			logger.Infof("no valid hosts available in zone %q, trying another availability zone", zone)
 		}
+
+		if err != nil {
+			err = errors.Annotate(err, "cannot run instance")
+		}
+
+		return server, err
 	}
+
+	var opts = nova.RunServerOpts{
+		Name:               machineName,
+		FlavorId:           spec.InstanceType.Id,
+		ImageId:            spec.Image.Id,
+		UserData:           userData,
+		SecurityGroupNames: groupNames,
+		Networks:           networks,
+		Metadata:           args.InstanceConfig.Tags,
+	}
+	server, err := tryStartNovaInstanceAcrossAvailZones(shortAttempt, e.nova(), opts, availabilityZones)
 	if err != nil {
-		return nil, fmt.Errorf("cannot run instance: %v", err)
+		return nil, errors.Trace(err)
 	}
+
 	detail, err := e.nova().GetServer(server.Id)
 	if err != nil {
-		return nil, fmt.Errorf("cannot get started instance: %v", err)
+		return nil, errors.Annotate(err, "cannot get started instance")
 	}
+
 	inst := &openstackInstance{
 		e:            e,
 		serverDetail: detail,
@@ -1072,7 +1013,7 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 				// ignore the failure at this stage, just log it
 				logger.Debugf("failed to terminate instance %q: %v", inst.Id(), err)
 			}
-			return nil, fmt.Errorf("cannot assign public address %s to instance %q: %v", publicIP.IP, inst.Id(), err)
+			return nil, errors.Annotatef(err, "cannot assign public address %s to instance %q", publicIP.IP, inst.Id())
 		}
 		inst.floatingIP = publicIP
 		logger.Infof("assigned public IP %s to %q", publicIP.IP, inst.Id())
@@ -1084,8 +1025,12 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 }
 
 func isNoValidHostsError(err error) bool {
-	gooseErr, ok := err.(gooseerrors.Error)
-	return ok && strings.Contains(gooseErr.Cause().Error(), "No valid host was found")
+	if gooseErr, ok := err.(gooseerrors.Error); ok {
+		if cause := gooseErr.Cause(); cause != nil {
+			return strings.Contains(cause.Error(), "No valid host was found")
+		}
+	}
+	return false
 }
 
 func (e *Environ) StopInstances(ids ...instance.Id) error {
@@ -1109,8 +1054,6 @@ func (e *Environ) StopInstances(ids ...instance.Id) error {
 
 func (e *Environ) isAliveServer(server nova.ServerDetail) bool {
 	switch server.Status {
-	// HPCloud uses "BUILD(spawning)" as an intermediate BUILD state
-	// once networking is available.
 	case nova.StatusActive, nova.StatusBuild, nova.StatusBuildSpawning, nova.StatusShutoff, nova.StatusSuspended:
 		return true
 	}
@@ -1132,20 +1075,24 @@ func (e *Environ) listServers(ids []instance.Id) ([]nova.ServerDetail, error) {
 		}
 		return wantedServers, nil
 	}
-	// List all servers that may be in the environment
-	servers, err := e.nova().ListServersDetail(e.machinesFilter())
+	// List all instances in the environment.
+	instances, err := e.AllInstances()
 	if err != nil {
 		return nil, err
 	}
-	// Create a set of the ids of servers that are wanted
-	idSet := make(map[string]struct{}, len(ids))
-	for _, id := range ids {
-		idSet[string(id)] = struct{}{}
-	}
 	// Return only servers with the wanted ids that are currently alive
-	for _, server := range servers {
-		if _, ok := idSet[server.Id]; ok && e.isAliveServer(server) {
-			wantedServers = append(wantedServers, server)
+	for _, inst := range instances {
+		inst := inst.(*openstackInstance)
+		serverDetail := *inst.serverDetail
+		if !e.isAliveServer(serverDetail) {
+			continue
+		}
+		for _, id := range ids {
+			if inst.Id() != id {
+				continue
+			}
+			wantedServers = append(wantedServers, serverDetail)
+			break
 		}
 	}
 	return wantedServers, nil
@@ -1225,30 +1172,51 @@ func (e *Environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
 	return insts, err
 }
 
-func (e *Environ) AllInstances() (insts []instance.Instance, err error) {
-	servers, err := e.nova().ListServersDetail(e.machinesFilter())
+// AllInstances returns all instances in this environment.
+func (e *Environ) AllInstances() ([]instance.Instance, error) {
+	tagFilter := tagValue{tags.JujuModel, e.ecfg().UUID()}
+	return e.allInstances(tagFilter, e.ecfg().useFloatingIP())
+}
+
+// allControllerManagedInstances returns all instances managed by this
+// environment's controller, matching the optionally specified filter.
+func (e *Environ) allControllerManagedInstances(controllerUUID string, updateFloatingIPAddresses bool) ([]instance.Instance, error) {
+	tagFilter := tagValue{tags.JujuController, controllerUUID}
+	return e.allInstances(tagFilter, updateFloatingIPAddresses)
+}
+
+type tagValue struct {
+	tag, value string
+}
+
+// allControllerManagedInstances returns all instances managed by this
+// environment's controller, matching the optionally specified filter.
+func (e *Environ) allInstances(tagFilter tagValue, updateFloatingIPAddresses bool) ([]instance.Instance, error) {
+	servers, err := e.nova().ListServersDetail(jujuMachineFilter())
 	if err != nil {
 		return nil, err
 	}
 	instsById := make(map[string]instance.Instance)
 	for _, server := range servers {
+		if server.Metadata[tagFilter.tag] != tagFilter.value {
+			continue
+		}
 		if e.isAliveServer(server) {
 			var s = server
 			// TODO(wallyworld): lookup the flavor details to fill in the instance type data
 			instsById[s.Id] = &openstackInstance{e: e, serverDetail: &s}
 		}
 	}
-
-	if e.ecfg().useFloatingIP() {
+	if updateFloatingIPAddresses {
 		if err := e.updateFloatingIPAddresses(instsById); err != nil {
 			return nil, err
 		}
 	}
-
+	insts := make([]instance.Instance, 0, len(instsById))
 	for _, inst := range instsById {
 		insts = append(insts, inst)
 	}
-	return insts, err
+	return insts, nil
 }
 
 func (e *Environ) Destroy() error {
@@ -1256,17 +1224,87 @@ func (e *Environ) Destroy() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return e.firewaller.DeleteGlobalGroups()
+	// Delete all security groups remaining in the model.
+	return e.firewaller.DeleteAllModelGroups()
 }
 
-func resourceName(tag names.Tag, envName string) string {
-	return fmt.Sprintf("juju-%s-%s", envName, tag)
+// DestroyController implements the Environ interface.
+func (e *Environ) DestroyController(controllerUUID string) error {
+	if err := e.Destroy(); err != nil {
+		return errors.Annotate(err, "destroying controller model")
+	}
+	// In case any hosted environment hasn't been cleaned up yet,
+	// we also attempt to delete their resources when the controller
+	// environment is destroyed.
+	if err := e.destroyControllerManagedEnvirons(controllerUUID); err != nil {
+		return errors.Annotate(err, "destroying managed models")
+	}
+	return e.firewaller.DeleteAllControllerGroups(controllerUUID)
 }
 
-// machinesFilter returns a nova.Filter matching all machines in the environment.
-func (e *Environ) machinesFilter() *nova.Filter {
+// destroyControllerManagedEnvirons destroys all environments managed by this
+// models's controller.
+func (e *Environ) destroyControllerManagedEnvirons(controllerUUID string) error {
+	// Terminate all instances managed by the controller.
+	insts, err := e.allControllerManagedInstances(controllerUUID, false)
+	if err != nil {
+		return errors.Annotate(err, "listing instances")
+	}
+	instIds := make([]instance.Id, len(insts))
+	for i, inst := range insts {
+		instIds[i] = inst.Id()
+	}
+	if err := e.terminateInstances(instIds); err != nil {
+		return errors.Annotate(err, "terminating instances")
+	}
+
+	// Delete all volumes managed by the controller.
+	cinder, err := e.cinderProvider()
+	if err == nil {
+		volIds, err := allControllerManagedVolumes(cinder.storageAdapter, controllerUUID)
+		if err != nil {
+			return errors.Annotate(err, "listing volumes")
+		}
+		errs := destroyVolumes(cinder.storageAdapter, volIds)
+		for i, err := range errs {
+			if err == nil {
+				continue
+			}
+			return errors.Annotatef(err, "destroying volume %q", volIds[i], err)
+		}
+	} else if !errors.IsNotSupported(err) {
+		return errors.Trace(err)
+	}
+
+	// Security groups for hosted models are destroyed by the
+	// DeleteAllControllerGroups method call from Destroy().
+	return nil
+}
+
+func allControllerManagedVolumes(storageAdapter OpenstackStorage, controllerUUID string) ([]string, error) {
+	volumes, err := listVolumes(storageAdapter, func(v *cinder.Volume) bool {
+		return v.Metadata[tags.JujuController] == controllerUUID
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	volIds := make([]string, len(volumes))
+	for i, v := range volumes {
+		volIds[i] = v.VolumeId
+	}
+	return volIds, nil
+}
+
+func resourceName(namespace instance.Namespace, envName, resourceId string) string {
+	return namespace.Value(envName + "-" + resourceId)
+}
+
+// jujuMachineFilter returns a nova.Filter matching machines created by Juju.
+// The machines are not filtered to any particular environment. To do that,
+// instance tags must be compared.
+func jujuMachineFilter() *nova.Filter {
 	filter := nova.NewFilter()
-	filter.Set(nova.FilterServer, fmt.Sprintf("juju-%s-machine-\\d*", e.Config().Name()))
+	filter.Set(nova.FilterServer, "juju-.*")
 	return filter
 }
 
@@ -1343,29 +1381,28 @@ func (e *Environ) terminateInstances(ids []instance.Id) error {
 // MetadataLookupParams returns parameters which are used to query simplestreams metadata.
 func (e *Environ) MetadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
 	if region == "" {
-		region = e.ecfg().region()
+		region = e.cloud.Region
 	}
 	cloudSpec, err := e.cloudSpec(region)
 	if err != nil {
 		return nil, err
 	}
 	return &simplestreams.MetadataLookupParams{
-		Series:        config.PreferredSeries(e.ecfg()),
-		Region:        cloudSpec.Region,
-		Endpoint:      cloudSpec.Endpoint,
-		Architectures: arch.AllSupportedArches,
+		Series:   config.PreferredSeries(e.ecfg()),
+		Region:   cloudSpec.Region,
+		Endpoint: cloudSpec.Endpoint,
 	}, nil
 }
 
 // Region is specified in the HasRegion interface.
 func (e *Environ) Region() (simplestreams.CloudSpec, error) {
-	return e.cloudSpec(e.ecfg().region())
+	return e.cloudSpec(e.cloud.Region)
 }
 
 func (e *Environ) cloudSpec(region string) (simplestreams.CloudSpec, error) {
 	return simplestreams.CloudSpec{
 		Region:   region,
-		Endpoint: e.ecfg().authURL(),
+		Endpoint: e.cloud.Endpoint,
 	}, nil
 }
 
@@ -1373,6 +1410,33 @@ func (e *Environ) cloudSpec(region string) (simplestreams.CloudSpec, error) {
 func (e *Environ) TagInstance(id instance.Id, tags map[string]string) error {
 	if err := e.nova().SetServerMetadata(string(id), tags); err != nil {
 		return errors.Annotate(err, "setting server metadata")
+	}
+	return nil
+}
+
+func validateCloudSpec(spec environs.CloudSpec) error {
+	if err := spec.Validate(); err != nil {
+		return errors.Trace(err)
+	}
+	if err := validateAuthURL(spec.Endpoint); err != nil {
+		return errors.Annotate(err, "validating auth-url")
+	}
+	if spec.Credential == nil {
+		return errors.NotValidf("missing credential")
+	}
+	switch authType := spec.Credential.AuthType(); authType {
+	case cloud.UserPassAuthType:
+	case cloud.AccessKeyAuthType:
+	default:
+		return errors.NotSupportedf("%q auth-type", authType)
+	}
+	return nil
+}
+
+func validateAuthURL(authURL string) error {
+	parts, err := url.Parse(authURL)
+	if err != nil || parts.Host == "" || parts.Scheme == "" {
+		return errors.NotValidf("auth-url %q", authURL)
 	}
 	return nil
 }

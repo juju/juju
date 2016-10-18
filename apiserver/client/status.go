@@ -11,113 +11,221 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v6-unstable"
-	"gopkg.in/juju/charm.v6-unstable/hooks"
+	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
-	"github.com/juju/juju/worker/uniter/operation"
+	"github.com/juju/juju/status"
 )
 
-func agentStatusFromStatusInfo(s []state.StatusInfo, kind params.HistoryKind) []params.AgentStatus {
-	result := []params.AgentStatus{}
+func agentStatusFromStatusInfo(s []status.StatusInfo, kind status.HistoryKind) []params.DetailedStatus {
+	result := []params.DetailedStatus{}
 	for _, v := range s {
-		result = append(result, params.AgentStatus{
-			Status: params.Status(v.Status),
+		result = append(result, params.DetailedStatus{
+			Status: string(v.Status),
 			Info:   v.Message,
 			Data:   v.Data,
 			Since:  v.Since,
-			Kind:   kind,
+			Kind:   string(kind),
 		})
 	}
 	return result
 
 }
 
-type sortableStatuses []params.AgentStatus
+type byTime []params.DetailedStatus
 
-func (s sortableStatuses) Len() int {
+func (s byTime) Len() int {
 	return len(s)
 }
-func (s sortableStatuses) Swap(i, j int) {
+func (s byTime) Swap(i, j int) {
 	s[i], s[j] = s[j], s[i]
 }
-func (s sortableStatuses) Less(i, j int) bool {
+func (s byTime) Less(i, j int) bool {
 	return s[i].Since.Before(*s[j].Since)
 }
 
-// UnitStatusHistory returns a slice of past statuses for a given unit.
-func (c *Client) UnitStatusHistory(args params.StatusHistory) (params.UnitStatusHistory, error) {
-	if args.Size < 1 {
-		return params.UnitStatusHistory{}, errors.Errorf("invalid history size: %d", args.Size)
-	}
-	unit, err := c.api.stateAccessor.Unit(args.Name)
+// unitStatusHistory returns a list of status history entries for unit agents or workloads.
+func (c *Client) unitStatusHistory(unitTag names.UnitTag, filter status.StatusHistoryFilter, kind status.HistoryKind) ([]params.DetailedStatus, error) {
+	unit, err := c.api.stateAccessor.Unit(unitTag.Id())
 	if err != nil {
-		return params.UnitStatusHistory{}, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
-	statuses := params.UnitStatusHistory{}
-	if args.Kind == params.KindCombined || args.Kind == params.KindWorkload {
-		unitStatuses, err := unit.StatusHistory(args.Size)
+	statuses := []params.DetailedStatus{}
+	if kind == status.KindUnit || kind == status.KindWorkload {
+		unitStatuses, err := unit.StatusHistory(filter)
 		if err != nil {
-			return params.UnitStatusHistory{}, errors.Trace(err)
+			return nil, errors.Trace(err)
 		}
-		statuses.Statuses = append(statuses.Statuses, agentStatusFromStatusInfo(unitStatuses, params.KindWorkload)...)
+		statuses = agentStatusFromStatusInfo(unitStatuses, status.KindWorkload)
+
 	}
-	if args.Kind == params.KindCombined || args.Kind == params.KindAgent {
-		agentStatuses, err := unit.AgentHistory().StatusHistory(args.Size)
+	if kind == status.KindUnit || kind == status.KindUnitAgent {
+		agentStatuses, err := unit.AgentHistory().StatusHistory(filter)
 		if err != nil {
-			return params.UnitStatusHistory{}, errors.Trace(err)
+			return nil, errors.Trace(err)
 		}
-		statuses.Statuses = append(statuses.Statuses, agentStatusFromStatusInfo(agentStatuses, params.KindAgent)...)
+		statuses = append(statuses, agentStatusFromStatusInfo(agentStatuses, status.KindUnitAgent)...)
 	}
 
-	sort.Sort(sortableStatuses(statuses.Statuses))
-	if args.Kind == params.KindCombined {
-
-		if len(statuses.Statuses) > args.Size {
-			statuses.Statuses = statuses.Statuses[len(statuses.Statuses)-args.Size:]
+	sort.Sort(byTime(statuses))
+	if kind == status.KindUnit && filter.Size > 0 {
+		if len(statuses) > filter.Size {
+			statuses = statuses[len(statuses)-filter.Size:]
 		}
-
 	}
+
 	return statuses, nil
+}
+
+// machineStatusHistory returns status history for the given machine.
+func (c *Client) machineStatusHistory(machineTag names.MachineTag, filter status.StatusHistoryFilter, kind status.HistoryKind) ([]params.DetailedStatus, error) {
+	machine, err := c.api.stateAccessor.Machine(machineTag.Id())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	var sInfo []status.StatusInfo
+	if kind == status.KindMachineInstance || kind == status.KindContainerInstance {
+		sInfo, err = machine.InstanceStatusHistory(filter)
+	} else {
+		sInfo, err = machine.StatusHistory(filter)
+	}
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return agentStatusFromStatusInfo(sInfo, kind), nil
+}
+
+// StatusHistory returns a slice of past statuses for several entities.
+func (c *Client) StatusHistory(request params.StatusHistoryRequests) params.StatusHistoryResults {
+
+	results := params.StatusHistoryResults{}
+	// TODO(perrito666) the contents of the loop could be split into
+	// a oneHistory method for clarity.
+	for _, request := range request.Requests {
+		filter := status.StatusHistoryFilter{
+			Size:  request.Filter.Size,
+			Date:  request.Filter.Date,
+			Delta: request.Filter.Delta,
+		}
+		if err := c.checkCanRead(); err != nil {
+			history := params.StatusHistoryResult{
+				Error: common.ServerError(err),
+			}
+			results.Results = append(results.Results, history)
+			continue
+
+		}
+
+		if err := filter.Validate(); err != nil {
+			history := params.StatusHistoryResult{
+				Error: common.ServerError(errors.Annotate(err, "cannot validate status history filter")),
+			}
+			results.Results = append(results.Results, history)
+			continue
+		}
+
+		var (
+			err  error
+			hist []params.DetailedStatus
+		)
+		kind := status.HistoryKind(request.Kind)
+		err = errors.NotValidf("%q requires a unit, got %T", kind, request.Tag)
+		switch kind {
+		case status.KindUnit, status.KindWorkload, status.KindUnitAgent:
+			var u names.UnitTag
+			if u, err = names.ParseUnitTag(request.Tag); err == nil {
+				hist, err = c.unitStatusHistory(u, filter, kind)
+			}
+		default:
+			var m names.MachineTag
+			if m, err = names.ParseMachineTag(request.Tag); err == nil {
+				hist, err = c.machineStatusHistory(m, filter, kind)
+			}
+		}
+
+		if err == nil {
+			sort.Sort(byTime(hist))
+		}
+
+		results.Results = append(results.Results,
+			params.StatusHistoryResult{
+				History: params.History{Statuses: hist},
+				Error:   common.ServerError(errors.Annotatef(err, "fetching status history for %q", request.Tag)),
+			})
+	}
+	return results
 }
 
 // FullStatus gives the information needed for juju status over the api
 func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error) {
-	cfg, err := c.api.stateAccessor.EnvironConfig()
-	if err != nil {
-		return params.FullStatus{}, errors.Annotate(err, "could not get environ config")
-	}
-	var noStatus params.FullStatus
-	var context statusContext
-	if context.services, context.units, context.latestCharms, err =
-		fetchAllServicesAndUnits(c.api.stateAccessor, len(args.Patterns) <= 0); err != nil {
-		return noStatus, errors.Annotate(err, "could not fetch services and units")
-	} else if context.remoteServices, err =
-		fetchRemoteServices(c.api.stateAccessor); err != nil {
-		return noStatus, errors.Annotate(err, "could not fetch remote services")
-	} else if context.machines, err = fetchMachines(c.api.stateAccessor, nil); err != nil {
-		return noStatus, errors.Annotate(err, "could not fetch machines")
-	} else if context.relations, err = fetchRelations(c.api.stateAccessor); err != nil {
-		return noStatus, errors.Annotate(err, "could not fetch relations")
-	} else if context.networks, err = fetchNetworks(c.api.stateAccessor); err != nil {
-		return noStatus, errors.Annotate(err, "could not fetch networks")
+	if err := c.checkCanRead(); err != nil {
+		return params.FullStatus{}, err
 	}
 
-	logger.Debugf("Services: %v", context.services)
-	logger.Debugf("Remote Services: %v", context.remoteServices)
+	var noStatus params.FullStatus
+	var context statusContext
+	var err error
+	if context.applications, context.units, context.latestCharms, err =
+		fetchAllApplicationsAndUnits(c.api.stateAccessor, len(args.Patterns) <= 0); err != nil {
+		return noStatus, errors.Annotate(err, "could not fetch applications and units")
+	}
+	if context.remoteApplications, err =
+		fetchRemoteApplications(c.api.stateAccessor); err != nil {
+		return noStatus, errors.Annotate(err, "could not fetch remote applications")
+	}
+	if context.machines, err = fetchMachines(c.api.stateAccessor, nil); err != nil {
+		return noStatus, errors.Annotate(err, "could not fetch machines")
+	}
+	if context.relations, err = fetchRelations(c.api.stateAccessor); err != nil {
+		return noStatus, errors.Annotate(err, "could not fetch relations")
+	}
+	if len(context.applications) > 0 {
+		if context.leaders, err = c.api.stateAccessor.ApplicationLeaders(); err != nil {
+			return noStatus, errors.Annotate(err, " could not fetch leaders")
+		}
+	}
+
+	logger.Debugf("Applications: %v", context.applications)
+	logger.Debugf("Remote applications: %v", context.remoteApplications)
 
 	if len(args.Patterns) > 0 {
 		predicate := BuildPredicateFor(args.Patterns)
 
+		// First, attempt to match machines. Any units on those
+		// machines are implicitly matched.
+		matchedMachines := make(set.Strings)
+		for _, machineList := range context.machines {
+			for _, m := range machineList {
+				matches, err := predicate(m)
+				if err != nil {
+					return noStatus, errors.Annotate(
+						err, "could not filter machines",
+					)
+				}
+				if matches {
+					matchedMachines.Add(m.Id())
+				}
+			}
+		}
+
 		// Filter units
-		unfilteredSvcs := make(set.Strings)
-		unfilteredMachines := make(set.Strings)
+		matchedSvcs := make(set.Strings)
 		unitChainPredicate := UnitChainPredicateFn(predicate, context.unitByName)
 		for _, unitMap := range context.units {
 			for name, unit := range unitMap {
+				machineId, err := unit.AssignedMachineId()
+				if err != nil {
+					machineId = ""
+				} else if matchedMachines.Contains(machineId) {
+					// Unit is on a matching machine.
+					matchedSvcs.Add(unit.ApplicationName())
+					continue
+				}
+
 				// Always start examining at the top-level. This
 				// prevents a situation where we filter a subordinate
 				// before we discover its parent is a match.
@@ -129,36 +237,30 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 					delete(unitMap, name)
 					continue
 				}
-
-				// Track which services are utilized by the units so
-				// that we can be sure to not filter that service out.
-				unfilteredSvcs.Add(unit.ServiceName())
-				machineId, err := unit.AssignedMachineId()
-				if err != nil {
-					return noStatus, err
+				matchedSvcs.Add(unit.ApplicationName())
+				if machineId != "" {
+					matchedMachines.Add(machineId)
 				}
-				unfilteredMachines.Add(machineId)
 			}
 		}
 
-		// Filter services
-		for svcName, svc := range context.services {
-			if unfilteredSvcs.Contains(svcName) {
-				// Don't filter services which have units that were
-				// not filtered.
+		// Filter applications
+		for svcName, svc := range context.applications {
+			if matchedSvcs.Contains(svcName) {
+				// There are matched units for this application.
 				continue
 			} else if matches, err := predicate(svc); err != nil {
-				return noStatus, errors.Annotate(err, "could not filter services")
+				return noStatus, errors.Annotate(err, "could not filter applications")
 			} else if !matches {
-				delete(context.services, svcName)
+				delete(context.applications, svcName)
 			}
 		}
 
-		// TODO(wallyworld) - filter remote services
+		// TODO(wallyworld) - filter remote applications
 
 		// Filter machines
 		for status, machineList := range context.machines {
-			filteredList := make([]*state.Machine, 0, len(machineList))
+			matched := make([]*state.Machine, 0, len(machineList))
 			for _, m := range machineList {
 				machineContainers, err := m.Containers()
 				if err != nil {
@@ -166,98 +268,112 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 				}
 				machineContainersSet := set.NewStrings(machineContainers...)
 
-				if unfilteredMachines.Contains(m.Id()) || !unfilteredMachines.Intersection(machineContainersSet).IsEmpty() {
-					// Don't filter machines which have an unfiltered
-					// unit running on them.
-					logger.Debugf("mid %s is hosting something.", m.Id())
-					filteredList = append(filteredList, m)
+				if matchedMachines.Contains(m.Id()) || !matchedMachines.Intersection(machineContainersSet).IsEmpty() {
+					// The machine is matched directly, or contains a unit
+					// or container that matches.
+					logger.Tracef("machine %s is hosting something.", m.Id())
+					matched = append(matched, m)
 					continue
-				} else if matches, err := predicate(m); err != nil {
-					return noStatus, errors.Annotate(err, "could not filter machines")
-				} else if matches {
-					filteredList = append(filteredList, m)
 				}
 			}
-			context.machines[status] = filteredList
+			context.machines[status] = matched
 		}
 	}
 
-	newToolsVersion, err := c.newToolsVersionAvailable()
+	modelStatus, err := c.modelStatus()
 	if err != nil {
-		return noStatus, errors.Annotate(err, "cannot determine if there is a new tools version available")
+		return noStatus, errors.Annotate(err, "cannot determine model status")
 	}
-
 	return params.FullStatus{
-		EnvironmentName:  cfg.Name(),
-		AvailableVersion: newToolsVersion,
-		Machines:         processMachines(context.machines),
-		Services:         context.processServices(),
-		RemoteServices:   context.processRemoteServices(),
-		Networks:         context.processNetworks(),
-		Relations:        context.processRelations(),
+		Model:              modelStatus,
+		Machines:           processMachines(context.machines),
+		Applications:       context.processApplications(),
+		RemoteApplications: context.processRemoteApplications(),
+		Relations:          context.processRelations(),
 	}, nil
 }
 
 // newToolsVersionAvailable will return a string representing a tools
 // version only if the latest check is newer than current tools.
-func (c *Client) newToolsVersionAvailable() (string, error) {
-	env, err := c.api.stateAccessor.Environment()
+func (c *Client) modelStatus() (params.ModelStatusInfo, error) {
+	var info params.ModelStatusInfo
+
+	m, err := c.api.stateAccessor.Model()
 	if err != nil {
-		return "", errors.Annotate(err, "cannot get environment")
+		return info, errors.Annotate(err, "cannot get model")
 	}
+	info.Name = m.Name()
+	info.CloudTag = names.NewCloudTag(m.Cloud()).String()
+	info.CloudRegion = m.CloudRegion()
 
-	latestVersion := env.LatestToolsVersion()
-
-	envConfig, err := c.api.stateAccessor.EnvironConfig()
+	cfg, err := m.Config()
 	if err != nil {
-		return "", errors.Annotate(err, "cannot obtain current environ config")
-	}
-	oldV, ok := envConfig.AgentVersion()
-	if !ok {
-		return "", nil
-	}
-	if oldV.Compare(latestVersion) < 0 {
-		return latestVersion.String(), nil
-	}
-	return "", nil
-}
-
-// Status is a stub version of FullStatus that was introduced in 1.16
-func (c *Client) Status() (params.LegacyStatus, error) {
-	var legacyStatus params.LegacyStatus
-	status, err := c.FullStatus(params.StatusParams{})
-	if err != nil {
-		return legacyStatus, err
+		return info, errors.Annotate(err, "cannot obtain current model config")
 	}
 
-	legacyStatus.Machines = make(map[string]params.LegacyMachineStatus)
-	for machineName, machineStatus := range status.Machines {
-		legacyStatus.Machines[machineName] = params.LegacyMachineStatus{
-			InstanceId: string(machineStatus.InstanceId),
+	latestVersion := m.LatestToolsVersion()
+	current, ok := cfg.AgentVersion()
+	if ok {
+		info.Version = current.String()
+		if current.Compare(latestVersion) < 0 {
+			info.AvailableVersion = latestVersion.String()
 		}
 	}
-	return legacyStatus, nil
+
+	migStatus, err := c.getMigrationStatus()
+	if err != nil {
+		// It's not worth killing the entire status out if migration
+		// status can't be retrieved.
+		logger.Errorf("error retrieving migration status: %v", err)
+		info.Migration = "error retrieving migration status"
+	} else {
+		info.Migration = migStatus
+	}
+
+	return info, nil
+}
+
+func (c *Client) getMigrationStatus() (string, error) {
+	mig, err := c.api.stateAccessor.LatestMigration()
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return "", nil
+		}
+		return "", errors.Trace(err)
+	}
+
+	phase, err := mig.Phase()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	if phase.IsTerminal() {
+		// There has been a migration attempt but it's no longer
+		// active - don't include this in status.
+		return "", nil
+	}
+
+	return mig.StatusMessage(), nil
 }
 
 type statusContext struct {
 	// machines: top-level machine id -> list of machines nested in
 	// this machine.
 	machines map[string][]*state.Machine
-	// services: service name -> service
-	services map[string]*state.Service
-	// remote services: service name -> service
-	remoteServices map[string]*state.RemoteService
-	relations      map[string][]*state.Relation
-	units          map[string]map[string]*state.Unit
-	networks       map[string]*state.Network
-	latestCharms   map[charm.URL]string
+	// applications: application name -> application
+	applications map[string]*state.Application
+	// remote applications: application name -> application
+	remoteApplications map[string]*state.RemoteApplication
+	relations          map[string][]*state.Relation
+	units              map[string]map[string]*state.Unit
+	latestCharms       map[charm.URL]*state.Charm
+	leaders            map[string]string
 }
 
 // fetchMachines returns a map from top level machine id to machines, where machines[0] is the host
 // machine and machines[1..n] are any containers (including nested ones).
 //
 // If machineIds is non-nil, only machines whose IDs are in the set are returned.
-func fetchMachines(st stateInterface, machineIds set.Strings) (map[string][]*state.Machine, error) {
+func fetchMachines(st Backend, machineIds set.Strings) (map[string][]*state.Machine, error) {
 	v := make(map[string][]*state.Machine)
 	machines, err := st.AllMachines()
 	if err != nil {
@@ -285,37 +401,37 @@ func fetchMachines(st stateInterface, machineIds set.Strings) (map[string][]*sta
 	return v, nil
 }
 
-// fetchAllServicesAndUnits returns a map from service name to service,
-// a map from service name to unit name to unit, and a map from base charm URL to latest URL.
-func fetchAllServicesAndUnits(
-	st stateInterface,
+// fetchAllApplicationsAndUnits returns a map from application name to application,
+// a map from application name to unit name to unit, and a map from base charm URL to latest URL.
+func fetchAllApplicationsAndUnits(
+	st Backend,
 	matchAny bool,
-) (map[string]*state.Service, map[string]map[string]*state.Unit, map[charm.URL]string, error) {
+) (map[string]*state.Application, map[string]map[string]*state.Unit, map[charm.URL]*state.Charm, error) {
 
-	svcMap := make(map[string]*state.Service)
+	appMap := make(map[string]*state.Application)
 	unitMap := make(map[string]map[string]*state.Unit)
-	latestCharms := make(map[charm.URL]string)
-	services, err := st.AllServices()
+	latestCharms := make(map[charm.URL]*state.Charm)
+	applications, err := st.AllApplications()
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	for _, s := range services {
+	for _, s := range applications {
 		units, err := s.AllUnits()
 		if err != nil {
 			return nil, nil, nil, err
 		}
-		svcUnitMap := make(map[string]*state.Unit)
+		appUnitMap := make(map[string]*state.Unit)
 		for _, u := range units {
-			svcUnitMap[u.Name()] = u
+			appUnitMap[u.Name()] = u
 		}
-		if matchAny || len(svcUnitMap) > 0 {
-			unitMap[s.Name()] = svcUnitMap
-			svcMap[s.Name()] = s
-			// Record the base URL for the service's charm so that
+		if matchAny || len(appUnitMap) > 0 {
+			unitMap[s.Name()] = appUnitMap
+			appMap[s.Name()] = s
+			// Record the base URL for the application's charm so that
 			// the latest store revision can be looked up.
 			charmURL, _ := s.CharmURL()
 			if charmURL.Schema == "cs" {
-				latestCharms[*charmURL.WithRevision(-1)] = ""
+				latestCharms[*charmURL.WithRevision(-1)] = nil
 			}
 		}
 	}
@@ -327,53 +443,32 @@ func fetchAllServicesAndUnits(
 		if err != nil {
 			return nil, nil, nil, err
 		}
-		latestCharms[baseURL] = ch.String()
+		latestCharms[baseURL] = ch
 	}
-	return svcMap, unitMap, latestCharms, nil
+
+	return appMap, unitMap, latestCharms, nil
 }
 
-// fetchRemoteServices returns a map from service name to remote service.
-func fetchRemoteServices(st stateInterface) (map[string]*state.RemoteService, error) {
-	svcMap := make(map[string]*state.RemoteService)
-	services, err := st.AllRemoteServices()
+// fetchRemoteApplications returns a map from application name to remote application.
+func fetchRemoteApplications(st Backend) (map[string]*state.RemoteApplication, error) {
+	appMap := make(map[string]*state.RemoteApplication)
+	applications, err := st.AllRemoteApplications()
 	if err != nil {
 		return nil, err
 	}
-	for _, s := range services {
-		svcMap[s.Name()] = s
+	for _, s := range applications {
+		appMap[s.Name()] = s
 	}
-	return svcMap, nil
+	return appMap, nil
 }
 
-// fetchUnitMachineIds returns a set of IDs for machines that
-// the specified units reside on, and those machines' ancestors.
-func fetchUnitMachineIds(units map[string]map[string]*state.Unit) (set.Strings, error) {
-	machineIds := make(set.Strings)
-	for _, svcUnitMap := range units {
-		for _, unit := range svcUnitMap {
-			if !unit.IsPrincipal() {
-				continue
-			}
-			mid, err := unit.AssignedMachineId()
-			if err != nil {
-				return nil, err
-			}
-			for mid != "" {
-				machineIds.Add(mid)
-				mid = state.ParentId(mid)
-			}
-		}
-	}
-	return machineIds, nil
-}
-
-// fetchRelations returns a map of all relations keyed by service name.
+// fetchRelations returns a map of all relations keyed by application name.
 //
-// This structure is useful for processServiceRelations() which needs
-// to have the relations for each service. Reading them once here
+// This structure is useful for processApplicationRelations() which needs
+// to have the relations for each application. Reading them once here
 // avoids the repeated DB hits to retrieve the relations for each
-// service that used to happen in processServiceRelations().
-func fetchRelations(st stateInterface) (map[string][]*state.Relation, error) {
+// application that used to happen in processApplicationRelations().
+func fetchRelations(st Backend) (map[string][]*state.Relation, error) {
 	relations, err := st.AllRelations()
 	if err != nil {
 		return nil, err
@@ -381,21 +476,8 @@ func fetchRelations(st stateInterface) (map[string][]*state.Relation, error) {
 	out := make(map[string][]*state.Relation)
 	for _, relation := range relations {
 		for _, ep := range relation.Endpoints() {
-			out[ep.ServiceName] = append(out[ep.ServiceName], relation)
+			out[ep.ApplicationName] = append(out[ep.ApplicationName], relation)
 		}
-	}
-	return out, nil
-}
-
-// fetchNetworks returns a map from network name to network.
-func fetchNetworks(st stateInterface) (map[string]*state.Network, error) {
-	networks, err := st.AllNetworks()
-	if err != nil {
-		return nil, err
-	}
-	out := make(map[string]*state.Network)
-	for _, n := range networks {
-		out[n.Name()] = n
 	}
 	return out, nil
 }
@@ -421,7 +503,8 @@ func processMachines(idToMachines map[string][]*state.Machine) map[string]params
 		}
 
 		// Element 0 is assumed to be the top-level machine.
-		hostStatus := makeMachineStatus(machines[0])
+		tlMachine := machines[0]
+		hostStatus := makeMachineStatus(tlMachine)
 		machinesMap[id] = hostStatus
 		cache[id] = hostStatus
 
@@ -440,28 +523,20 @@ func processMachines(idToMachines map[string][]*state.Machine) map[string]params
 }
 
 func makeMachineStatus(machine *state.Machine) (status params.MachineStatus) {
+	var err error
 	status.Id = machine.Id()
-	agentStatus, compatStatus := processMachine(machine)
-	status.Agent = agentStatus
-
-	// These legacy status values will be deprecated for Juju 2.0.
-	status.AgentState = compatStatus.Status
-	status.AgentStateInfo = compatStatus.Info
-	status.AgentVersion = compatStatus.Version
-	status.Life = compatStatus.Life
-	status.Err = compatStatus.Err
+	agentStatus := processMachine(machine)
+	status.AgentStatus = agentStatus
 
 	status.Series = machine.Series()
 	status.Jobs = paramsJobsFromJobs(machine.Jobs())
 	status.WantsVote = machine.WantsVote()
 	status.HasVote = machine.HasVote()
+	sInfo, err := machine.InstanceStatus()
+	populateStatusFromStatusInfoAndErr(&status.InstanceStatus, sInfo, err)
 	instid, err := machine.InstanceId()
 	if err == nil {
 		status.InstanceId = instid
-		status.InstanceState, err = machine.InstanceStatus()
-		if err != nil {
-			status.InstanceState = "error"
-		}
 		addr, err := machine.PublicAddress()
 		if err != nil {
 			// Usually this indicates that no addresses have been set on the
@@ -470,17 +545,28 @@ func makeMachineStatus(machine *state.Machine) (status params.MachineStatus) {
 			logger.Debugf("error fetching public address: %q", err)
 		}
 		status.DNSName = addr.Value
+
+		mAddrs := machine.Addresses()
+		if len(mAddrs) == 0 {
+			logger.Debugf("no IP addresses fetched for machine %q", instid)
+			// At least give it the newly created DNSName address, if it exists.
+			if addr.Value != "" {
+				mAddrs = append(mAddrs, addr)
+			}
+		}
+		for _, mAddr := range mAddrs {
+			switch mAddr.Scope {
+			case network.ScopeMachineLocal, network.ScopeLinkLocal:
+				continue
+			}
+			status.IPAddresses = append(status.IPAddresses, mAddr.Value)
+		}
 	} else {
 		if errors.IsNotProvisioned(err) {
 			status.InstanceId = "pending"
 		} else {
 			status.InstanceId = "error"
 		}
-		// There's no point in reporting a pending agent state
-		// if the machine hasn't been provisioned. This
-		// also makes unprovisioned machines visually distinct
-		// in the output.
-		status.AgentState = ""
 	}
 	hc, err := machine.HardwareCharacteristics()
 	if err != nil {
@@ -503,10 +589,10 @@ func (context *statusContext) processRelations() []params.RelationStatus {
 		var relationInterface string
 		for _, ep := range relation.Endpoints() {
 			eps = append(eps, params.EndpointStatus{
-				ServiceName: ep.ServiceName,
-				Name:        ep.Name,
-				Role:        ep.Role,
-				Subordinate: context.isSubordinate(&ep),
+				ApplicationName: ep.ApplicationName,
+				Name:            ep.Name,
+				Role:            string(ep.Role),
+				Subordinate:     context.isSubordinate(&ep),
 			})
 			// these should match on both sides so use the last
 			relationInterface = ep.Interface
@@ -516,7 +602,7 @@ func (context *statusContext) processRelations() []params.RelationStatus {
 			Id:        relation.Id(),
 			Key:       relation.String(),
 			Interface: relationInterface,
-			Scope:     scope,
+			Scope:     string(scope),
 			Endpoints: eps,
 		}
 		out = append(out, relStatus)
@@ -540,32 +626,16 @@ func (context *statusContext) getAllRelations() []*state.Relation {
 	return out
 }
 
-func (context *statusContext) processNetworks() map[string]params.NetworkStatus {
-	networksMap := make(map[string]params.NetworkStatus)
-	for name, network := range context.networks {
-		networksMap[name] = context.makeNetworkStatus(network)
-	}
-	return networksMap
-}
-
-func (context *statusContext) makeNetworkStatus(network *state.Network) params.NetworkStatus {
-	return params.NetworkStatus{
-		ProviderId: network.ProviderId(),
-		CIDR:       network.CIDR(),
-		VLANTag:    network.VLANTag(),
-	}
-}
-
 func (context *statusContext) isSubordinate(ep *state.Endpoint) bool {
-	service := context.services[ep.ServiceName]
-	if service == nil {
+	application := context.applications[ep.ApplicationName]
+	if application == nil {
 		return false
 	}
-	return isSubordinate(ep, service)
+	return isSubordinate(ep, application)
 }
 
-func isSubordinate(ep *state.Endpoint, service *state.Service) bool {
-	return ep.Scope == charm.ScopeContainer && !service.IsPrincipal()
+func isSubordinate(ep *state.Endpoint, application *state.Application) bool {
+	return ep.Scope == charm.ScopeContainer && !application.IsPrincipal()
 }
 
 // paramsJobsFromJobs converts state jobs to params jobs.
@@ -577,84 +647,95 @@ func paramsJobsFromJobs(jobs []state.MachineJob) []multiwatcher.MachineJob {
 	return paramsJobs
 }
 
-func (context *statusContext) processServices() map[string]params.ServiceStatus {
-	servicesMap := make(map[string]params.ServiceStatus)
-	for _, s := range context.services {
-		servicesMap[s.Name()] = context.processService(s)
+func (context *statusContext) processApplications() map[string]params.ApplicationStatus {
+	applicationsMap := make(map[string]params.ApplicationStatus)
+	for _, s := range context.applications {
+		applicationsMap[s.Name()] = context.processApplication(s)
 	}
-	return servicesMap
+	return applicationsMap
 }
 
-func (context *statusContext) processService(service *state.Service) (status params.ServiceStatus) {
-	serviceCharmURL, _ := service.CharmURL()
-	status.Charm = serviceCharmURL.String()
-	status.Exposed = service.IsExposed()
-	status.Life = processLife(service)
-
-	latestCharm, ok := context.latestCharms[*serviceCharmURL.WithRevision(-1)]
-	if ok && latestCharm != serviceCharmURL.String() {
-		status.CanUpgradeTo = latestCharm
-	}
-	var err error
-	status.Relations, status.SubordinateTo, err = context.processServiceRelations(service)
+func (context *statusContext) processApplication(application *state.Application) params.ApplicationStatus {
+	applicationCharm, _, err := application.Charm()
 	if err != nil {
-		status.Err = err
-		return
+		return params.ApplicationStatus{Err: common.ServerError(err)}
 	}
-	networks, err := service.Networks()
+
+	var processedStatus = params.ApplicationStatus{
+		Charm:   applicationCharm.URL().String(),
+		Series:  application.Series(),
+		Exposed: application.IsExposed(),
+		Life:    processLife(application),
+	}
+
+	if latestCharm, ok := context.latestCharms[*applicationCharm.URL().WithRevision(-1)]; ok && latestCharm != nil {
+		if latestCharm.Revision() > applicationCharm.URL().Revision {
+			processedStatus.CanUpgradeTo = latestCharm.String()
+		}
+	}
+
+	processedStatus.Relations, processedStatus.SubordinateTo, err = context.processApplicationRelations(application)
 	if err != nil {
-		status.Err = err
-		return
+		processedStatus.Err = common.ServerError(err)
+		return processedStatus
 	}
-	var cons constraints.Value
-	if service.IsPrincipal() {
-		// Only principals can have constraints.
-		cons, err = service.Constraints()
-		if err != nil {
-			status.Err = err
-			return
-		}
+	units := context.units[application.Name()]
+	if application.IsPrincipal() {
+		processedStatus.Units = context.processUnits(units, applicationCharm.URL().String())
 	}
-	// TODO(dimitern): Drop support for this in a follow-up.
-	if len(networks) > 0 || cons.HaveNetworks() {
-		// Only the explicitly requested networks (using "juju deploy
-		// <svc> --networks=...") will be enabled, and altough when
-		// specified, networks constraints will be used for instance
-		// selection, they won't be actually enabled.
-		status.Networks = params.NetworksSpecification{
-			Enabled:  networks,
-			Disabled: append(cons.IncludeNetworks(), cons.ExcludeNetworks()...),
-		}
+	applicationStatus, err := application.Status()
+	if err != nil {
+		processedStatus.Err = common.ServerError(err)
+		return processedStatus
 	}
-	if service.IsPrincipal() {
-		status.Units = context.processUnits(context.units[service.Name()], serviceCharmURL.String())
-		serviceStatus, err := service.Status()
-		if err != nil {
-			status.Err = err
-			return
-		}
-		status.Status.Status = params.Status(serviceStatus.Status)
-		status.Status.Info = serviceStatus.Message
-		status.Status.Data = serviceStatus.Data
-		status.Status.Since = serviceStatus.Since
+	processedStatus.Status.Status = applicationStatus.Status.String()
+	processedStatus.Status.Info = applicationStatus.Message
+	processedStatus.Status.Data = applicationStatus.Data
+	processedStatus.Status.Since = applicationStatus.Since
 
-		status.MeterStatuses = context.processUnitMeterStatuses(context.units[service.Name()])
+	metrics := applicationCharm.Metrics()
+	planRequired := metrics != nil && metrics.Plan != nil && metrics.Plan.Required
+	if planRequired || len(application.MetricCredentials()) > 0 {
+		processedStatus.MeterStatuses = context.processUnitMeterStatuses(units)
 	}
-	return status
+
+	versions := make([]status.StatusInfo, 0, len(units))
+	for _, unit := range units {
+		statuses, err := unit.WorkloadVersionHistory().StatusHistory(
+			status.StatusHistoryFilter{Size: 1},
+		)
+		if err != nil {
+			processedStatus.Err = common.ServerError(err)
+			return processedStatus
+		}
+		// Even though we fully expect there to be historical values there,
+		// even the first should be the empty string, the status history
+		// collection is not added to in a transactional manner, so it may be
+		// not there even though we'd really like it to be. Such is mongo.
+		if len(statuses) > 0 {
+			versions = append(versions, statuses[0])
+		}
+	}
+	if len(versions) > 0 {
+		sort.Sort(bySinceDescending(versions))
+		processedStatus.WorkloadVersion = versions[0].Message
+	}
+
+	return processedStatus
 }
 
-func (context *statusContext) processRemoteServices() map[string]params.RemoteServiceStatus {
-	servicesMap := make(map[string]params.RemoteServiceStatus)
-	for _, s := range context.remoteServices {
-		servicesMap[s.Name()] = context.processRemoteService(s)
+func (context *statusContext) processRemoteApplications() map[string]params.RemoteApplicationStatus {
+	applicationsMap := make(map[string]params.RemoteApplicationStatus)
+	for _, s := range context.remoteApplications {
+		applicationsMap[s.Name()] = context.processRemoteApplication(s)
 	}
-	return servicesMap
+	return applicationsMap
 }
 
-func (context *statusContext) processRemoteService(service *state.RemoteService) (status params.RemoteServiceStatus) {
-	status.ServiceURL = service.URL()
-	status.ServiceName = service.Name()
-	eps, err := service.Endpoints()
+func (context *statusContext) processRemoteApplication(application *state.RemoteApplication) (status params.RemoteApplicationStatus) {
+	status.ApplicationURL = application.URL()
+	status.ApplicationName = application.Name()
+	eps, err := application.Endpoints()
 	if err != nil {
 		status.Err = err
 		return
@@ -667,22 +748,15 @@ func (context *statusContext) processRemoteService(service *state.RemoteService)
 			Role:      ep.Role,
 		}
 	}
-	status.Life = processLife(service)
+	status.Life = processLife(application)
 
-	status.Relations, err = context.processRemoteServiceRelations(service)
+	status.Relations, err = context.processRemoteApplicationRelations(application)
 	if err != nil {
 		status.Err = err
 		return
 	}
-	serviceStatus, err := service.Status()
-	if err != nil {
-		status.Err = err
-		return
-	}
-	status.Status.Status = params.Status(serviceStatus.Status)
-	status.Status.Info = serviceStatus.Message
-	status.Status.Data = serviceStatus.Data
-	status.Status.Since = serviceStatus.Since
+	applicationStatus, err := application.Status()
+	populateStatusFromStatusInfoAndErr(&status.Status, applicationStatus, err)
 	return status
 }
 
@@ -693,12 +767,12 @@ func isColorStatus(code state.MeterStatusCode) bool {
 func (context *statusContext) processUnitMeterStatuses(units map[string]*state.Unit) map[string]params.MeterStatus {
 	unitsMap := make(map[string]params.MeterStatus)
 	for _, unit := range units {
-		status, err := unit.GetMeterStatus()
+		meterStatus, err := unit.GetMeterStatus()
 		if err != nil {
 			continue
 		}
-		if isColorStatus(status.Code) {
-			unitsMap[unit.Name()] = params.MeterStatus{Color: strings.ToLower(status.Code.String()), Message: status.Info}
+		if isColorStatus(meterStatus.Code) {
+			unitsMap[unit.Name()] = params.MeterStatus{Color: strings.ToLower(meterStatus.Code.String()), Message: meterStatus.Info}
 		}
 	}
 	if len(unitsMap) > 0 {
@@ -707,15 +781,15 @@ func (context *statusContext) processUnitMeterStatuses(units map[string]*state.U
 	return nil
 }
 
-func (context *statusContext) processUnits(units map[string]*state.Unit, serviceCharm string) map[string]params.UnitStatus {
+func (context *statusContext) processUnits(units map[string]*state.Unit, applicationCharm string) map[string]params.UnitStatus {
 	unitsMap := make(map[string]params.UnitStatus)
 	for _, unit := range units {
-		unitsMap[unit.Name()] = context.processUnit(unit, serviceCharm)
+		unitsMap[unit.Name()] = context.processUnit(unit, applicationCharm)
 	}
 	return unitsMap
 }
 
-func (context *statusContext) processUnit(unit *state.Unit, serviceCharm string) params.UnitStatus {
+func (context *statusContext) processUnit(unit *state.Unit, applicationCharm string) params.UnitStatus {
 	var result params.UnitStatus
 	addr, err := unit.PublicAddress()
 	if err != nil {
@@ -733,9 +807,16 @@ func (context *statusContext) processUnit(unit *state.Unit, serviceCharm string)
 		result.Machine, _ = unit.AssignedMachineId()
 	}
 	curl, _ := unit.CharmURL()
-	if serviceCharm != "" && curl != nil && curl.String() != serviceCharm {
+	if applicationCharm != "" && curl != nil && curl.String() != applicationCharm {
 		result.Charm = curl.String()
 	}
+	workloadVersion, err := unit.WorkloadVersion()
+	if err == nil {
+		result.WorkloadVersion = workloadVersion
+	} else {
+		logger.Debugf("error fetching workload version: %v", err)
+	}
+
 	processUnitAndAgentStatus(unit, &result)
 
 	if subUnits := unit.SubordinateNames(); len(subUnits) > 0 {
@@ -744,65 +825,68 @@ func (context *statusContext) processUnit(unit *state.Unit, serviceCharm string)
 			subUnit := context.unitByName(name)
 			// subUnit may be nil if subordinate was filtered out.
 			if subUnit != nil {
-				result.Subordinates[name] = context.processUnit(subUnit, serviceCharm)
+				result.Subordinates[name] = context.processUnit(subUnit, applicationCharm)
 			}
 		}
+	}
+	if leader := context.leaders[unit.ApplicationName()]; leader == unit.Name() {
+		result.Leader = true
 	}
 	return result
 }
 
 func (context *statusContext) unitByName(name string) *state.Unit {
-	serviceName := strings.Split(name, "/")[0]
-	return context.units[serviceName][name]
+	applicationName := strings.Split(name, "/")[0]
+	return context.units[applicationName][name]
 }
 
-func (context *statusContext) processServiceRelations(service *state.Service) (related map[string][]string, subord []string, err error) {
+func (context *statusContext) processApplicationRelations(application *state.Application) (related map[string][]string, subord []string, err error) {
 	subordSet := make(set.Strings)
 	related = make(map[string][]string)
-	relations := context.relations[service.Name()]
+	relations := context.relations[application.Name()]
 	for _, relation := range relations {
-		ep, err := relation.Endpoint(service.Name())
+		ep, err := relation.Endpoint(application.Name())
 		if err != nil {
 			return nil, nil, err
 		}
 		relationName := ep.Relation.Name
-		eps, err := relation.RelatedEndpoints(service.Name())
+		eps, err := relation.RelatedEndpoints(application.Name())
 		if err != nil {
 			return nil, nil, err
 		}
 		for _, ep := range eps {
-			if isSubordinate(&ep, service) {
-				subordSet.Add(ep.ServiceName)
+			if isSubordinate(&ep, application) {
+				subordSet.Add(ep.ApplicationName)
 			}
-			related[relationName] = append(related[relationName], ep.ServiceName)
+			related[relationName] = append(related[relationName], ep.ApplicationName)
 		}
 	}
-	for relationName, serviceNames := range related {
-		sn := set.NewStrings(serviceNames...)
+	for relationName, applicationNames := range related {
+		sn := set.NewStrings(applicationNames...)
 		related[relationName] = sn.SortedValues()
 	}
 	return related, subordSet.SortedValues(), nil
 }
 
-func (context *statusContext) processRemoteServiceRelations(service *state.RemoteService) (related map[string][]string, err error) {
+func (context *statusContext) processRemoteApplicationRelations(application *state.RemoteApplication) (related map[string][]string, err error) {
 	related = make(map[string][]string)
-	relations := context.relations[service.Name()]
+	relations := context.relations[application.Name()]
 	for _, relation := range relations {
-		ep, err := relation.Endpoint(service.Name())
+		ep, err := relation.Endpoint(application.Name())
 		if err != nil {
 			return nil, err
 		}
 		relationName := ep.Relation.Name
-		eps, err := relation.RelatedEndpoints(service.Name())
+		eps, err := relation.RelatedEndpoints(application.Name())
 		if err != nil {
 			return nil, err
 		}
 		for _, ep := range eps {
-			related[relationName] = append(related[relationName], ep.ServiceName)
+			related[relationName] = append(related[relationName], ep.ApplicationName)
 		}
 	}
-	for relationName, serviceNames := range related {
-		sn := set.NewStrings(serviceNames...)
+	for relationName, applicationNames := range related {
+		sn := set.NewStrings(applicationNames...)
 		related[relationName] = sn.SortedValues()
 	}
 	return related, nil
@@ -813,40 +897,15 @@ type lifer interface {
 }
 
 // processUnitAndAgentStatus retrieves status information for both unit and unitAgents.
-func processUnitAndAgentStatus(unit *state.Unit, status *params.UnitStatus) {
-	status.UnitAgent, status.Workload = processUnitStatus(unit)
-
-	// Legacy fields required until Juju 2.0.
-	// We only display pending, started, error, stopped.
-	var ok bool
-	legacyState, ok := state.TranslateToLegacyAgentState(
-		state.Status(status.UnitAgent.Status),
-		state.Status(status.Workload.Status),
-		status.Workload.Info,
-	)
-	if !ok {
-		logger.Warningf(
-			"translate to legacy status encounted unexpected workload status %q and agent status %q",
-			status.Workload.Status, status.UnitAgent.Status)
-	}
-	status.AgentState = params.Status(legacyState)
-	if status.AgentState == params.StatusError {
-		status.AgentStateInfo = status.Workload.Info
-	}
-	status.AgentVersion = status.UnitAgent.Version
-	status.Life = status.UnitAgent.Life
-	status.Err = status.UnitAgent.Err
-
-	processUnitLost(unit, status)
-
-	return
+func processUnitAndAgentStatus(unit *state.Unit, unitStatus *params.UnitStatus) {
+	unitStatus.AgentStatus, unitStatus.WorkloadStatus = processUnit(unit)
 }
 
-// populateStatusFromGetter creates status information for machines, units.
-func populateStatusFromGetter(agent *params.AgentStatus, getter state.StatusGetter) {
-	statusInfo, err := getter.Status()
+// populateStatusFromStatusInfoAndErr creates AgentStatus from the typical output
+// of a status getter.
+func populateStatusFromStatusInfoAndErr(agent *params.DetailedStatus, statusInfo status.StatusInfo, err error) {
 	agent.Err = err
-	agent.Status = params.Status(statusInfo.Status)
+	agent.Status = statusInfo.Status.String()
 	agent.Info = statusInfo.Message
 	agent.Data = filterStatusData(statusInfo.Data)
 	agent.Since = statusInfo.Since
@@ -854,112 +913,30 @@ func populateStatusFromGetter(agent *params.AgentStatus, getter state.StatusGett
 
 // processMachine retrieves version and status information for the given machine.
 // It also returns deprecated legacy status information.
-func processMachine(machine *state.Machine) (out params.AgentStatus, compat params.AgentStatus) {
+func processMachine(machine *state.Machine) (out params.DetailedStatus) {
+	statusInfo, err := common.MachineStatus(machine)
+	populateStatusFromStatusInfoAndErr(&out, statusInfo, err)
+
 	out.Life = processLife(machine)
 
 	if t, err := machine.AgentTools(); err == nil {
 		out.Version = t.Version.Number.String()
 	}
-
-	populateStatusFromGetter(&out, machine)
-	compat = out
-
-	if out.Err != nil {
-		return
-	}
-	if out.Status == params.StatusPending {
-		// The status is pending - there's no point
-		// in enquiring about the agent liveness.
-		return
-	}
-	agentAlive, err := machine.AgentPresence()
-	if err != nil {
-		return
-	}
-
-	if machine.Life() != state.Dead && !agentAlive {
-		// The agent *should* be alive but is not. Set status to
-		// StatusDown and munge Info to indicate the previous status and
-		// info. This is unfortunately making presentation decisions
-		// on behalf of the client (crappy).
-		//
-		// This is munging is only being left in place for
-		// compatibility with older clients.  TODO: At some point we
-		// should change this so that Info left alone. API version may
-		// help here.
-		//
-		// Better yet, Status shouldn't be changed here in the API at
-		// all! Status changes should only happen in State. One
-		// problem caused by this is that this status change won't be
-		// seen by clients using a watcher because it didn't happen in
-		// State.
-		if out.Info != "" {
-			compat.Info = fmt.Sprintf("(%s: %s)", out.Status, out.Info)
-		} else {
-			compat.Info = fmt.Sprintf("(%s)", out.Status)
-		}
-		compat.Status = params.StatusDown
-	}
-
 	return
 }
 
 // processUnit retrieves version and status information for the given unit.
-func processUnitStatus(unit *state.Unit) (agentStatus, workloadStatus params.AgentStatus) {
-	// First determine the agent status information.
-	unitAgent := unit.Agent()
-	populateStatusFromGetter(&agentStatus, unitAgent)
+func processUnit(unit *state.Unit) (agentStatus, workloadStatus params.DetailedStatus) {
+	agent, workload := common.UnitStatus(unit)
+	populateStatusFromStatusInfoAndErr(&agentStatus, agent.Status, agent.Err)
+	populateStatusFromStatusInfoAndErr(&workloadStatus, workload.Status, workload.Err)
+
 	agentStatus.Life = processLife(unit)
+
 	if t, err := unit.AgentTools(); err == nil {
 		agentStatus.Version = t.Version.Number.String()
 	}
-
-	// Second, determine the workload (unit) status.
-	populateStatusFromGetter(&workloadStatus, unit)
 	return
-}
-
-func canBeLost(status *params.UnitStatus) bool {
-	// Pending and Installing are deprecated.
-	// Need to still check pending for existing deployments.
-	switch status.UnitAgent.Status {
-	case params.StatusPending, params.StatusInstalling, params.StatusAllocating:
-		return false
-	case params.StatusExecuting:
-		return status.UnitAgent.Info != operation.RunningHookMessage(string(hooks.Install))
-	}
-	// TODO(fwereade/wallyworld): we should have an explicit place in the model
-	// to tell us when we've hit this point, instead of piggybacking on top of
-	// status and/or status history.
-	isInstalled := status.Workload.Status != params.StatusMaintenance || status.Workload.Info != state.MessageInstalling
-	return isInstalled
-}
-
-// processUnitLost determines whether the given unit should be marked as lost.
-// TODO(fwereade/wallyworld): this is also model-level code and should sit in
-// between state and this package.
-func processUnitLost(unit *state.Unit, status *params.UnitStatus) {
-	if !canBeLost(status) {
-		// The status is allocating or installing - there's no point
-		// in enquiring about the agent liveness.
-		return
-	}
-	agentAlive, err := unit.AgentPresence()
-	if err != nil {
-		return
-	}
-
-	if unit.Life() != state.Dead && !agentAlive {
-		// If the unit is in error, it would be bad to throw away
-		// the error information as when the agent reconnects, that
-		// error information would then be lost.
-		if status.Workload.Status != params.StatusError {
-			status.Workload.Status = params.StatusUnknown
-			status.Workload.Info = fmt.Sprintf("agent is lost, sorry! See 'juju status-history %s'", unit.Name())
-		}
-		status.UnitAgent.Status = params.StatusLost
-		status.UnitAgent.Info = "agent is not communicating with the server"
-	}
 }
 
 // filterStatusData limits what agent StatusData data is passed over
@@ -982,3 +959,14 @@ func processLife(entity lifer) string {
 	}
 	return ""
 }
+
+type bySinceDescending []status.StatusInfo
+
+// Len implements sort.Interface.
+func (s bySinceDescending) Len() int { return len(s) }
+
+// Swap implements sort.Interface.
+func (s bySinceDescending) Swap(a, b int) { s[a], s[b] = s[b], s[a] }
+
+// Less implements sort.Interface.
+func (s bySinceDescending) Less(a, b int) bool { return s[a].Since.After(*s[b].Since) }

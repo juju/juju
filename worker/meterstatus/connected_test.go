@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/fslock"
 	gc "gopkg.in/check.v1"
 
 	coretesting "github.com/juju/juju/testing"
@@ -24,7 +23,6 @@ type ConnectedWorkerSuite struct {
 	stub *testing.Stub
 
 	dataDir  string
-	lock     *fslock.Lock
 	msClient *stubMeterStatusClient
 }
 

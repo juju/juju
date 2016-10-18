@@ -10,21 +10,22 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"launchpad.net/gnuflag"
+	"github.com/juju/gnuflag"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/state/backups"
 )
 
 const downloadDoc = `
-"download" retrieves a backup archive file.
+download-backup retrieves a backup archive file.
 
 If --filename is not used, the archive is downloaded to a temporary
 location and the filename is printed to stdout.
 `
 
-func newDownloadCommand() cmd.Command {
-	return envcmd.Wrap(&downloadCommand{})
+// NewDownloadCommand returns a commant used to download backups.
+func NewDownloadCommand() cmd.Command {
+	return modelcmd.Wrap(&downloadCommand{})
 }
 
 // downloadCommand is the sub-command for downloading a backup archive.
@@ -39,16 +40,17 @@ type downloadCommand struct {
 // Info implements Command.Info.
 func (c *downloadCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "download",
+		Name:    "download-backup",
 		Args:    "<ID>",
-		Purpose: "get an archive file",
+		Purpose: "Get an archive file.",
 		Doc:     downloadDoc,
 	}
 }
 
 // SetFlags implements Command.SetFlags.
 func (c *downloadCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.StringVar(&c.Filename, "filename", "", "download target")
+	c.CommandBase.SetFlags(f)
+	f.StringVar(&c.Filename, "filename", "", "Download target")
 }
 
 // Init implements Command.Init.
@@ -66,6 +68,11 @@ func (c *downloadCommand) Init(args []string) error {
 
 // Run implements Command.Run.
 func (c *downloadCommand) Run(ctx *cmd.Context) error {
+	if c.Log != nil {
+		if err := c.Log.Start(ctx); err != nil {
+			return err
+		}
+	}
 	client, err := c.NewAPIClient()
 	if err != nil {
 		return errors.Trace(err)

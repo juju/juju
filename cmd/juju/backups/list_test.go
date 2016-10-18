@@ -23,18 +23,14 @@ var _ = gc.Suite(&listSuite{})
 
 func (s *listSuite) SetUpTest(c *gc.C) {
 	s.BaseBackupsSuite.SetUpTest(c)
-	s.subcommand = backups.NewListCommand()
-}
-
-func (s *listSuite) TestHelp(c *gc.C) {
-	s.checkHelp(c, s.subcommand)
+	s.subcommand = backups.NewListCommandForTest()
 }
 
 func (s *listSuite) TestOkay(c *gc.C) {
 	s.setSuccess()
 	ctx := cmdtesting.Context(c)
-	err := s.subcommand.Run(ctx)
-	c.Check(err, jc.ErrorIsNil)
+	ctx, err := testing.RunCommand(c, s.subcommand, []string{"--verbose"}...)
+	c.Assert(err, jc.ErrorIsNil)
 
 	out := MetaResultString
 	s.checkStd(c, ctx, out, "")
@@ -42,7 +38,7 @@ func (s *listSuite) TestOkay(c *gc.C) {
 
 func (s *listSuite) TestBrief(c *gc.C) {
 	s.setSuccess()
-	ctx, err := testing.RunCommand(c, s.subcommand, []string{"--brief"}...)
+	ctx, err := testing.RunCommand(c, s.subcommand)
 	c.Assert(err, jc.ErrorIsNil)
 	out := s.metaresult.ID + "\n"
 	s.checkStd(c, ctx, out, "")

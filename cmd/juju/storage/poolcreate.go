@@ -7,9 +7,8 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/utils/keyvalues"
-	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 // PoolCreateAPI defines the API methods that pool create command uses.
@@ -19,12 +18,10 @@ type PoolCreateAPI interface {
 }
 
 const poolCreateCommandDoc = `
-Create or define a storage pool.
-
 Pools are a mechanism for administrators to define sources of storage that
-they will use to satisfy service storage requirements.
+they will use to satisfy application storage requirements.
 
-A single pool might be used for storage from units of many different services -
+A single pool might be used for storage from units of many different applications -
 it is a resource from which different stores may be drawn.
 
 A pool describes provider-specific parameters for creating storage,
@@ -36,28 +33,18 @@ where storage can be requested (e.g. EBS in amazon).
 Creating pools there maps provider specific settings
 into named resources that can be used during deployment.
 
-Pools defined at the environment level are easily reused across services.
-
-options:
-    -e, --environment (= "")
-        juju environment to operate in
-    -o, --output (= "")
-        specify an output file
-    <name>
-        pool name
-    <provider type>
-        pool provider type
-    <key>=<value> (<key>=<value> ...)
-        pool configuration attributes as space-separated pairs, 
-        for e.g. tags, size, path, etc...
+Pools defined at the model level are easily reused across applications.
+Pool creation requires a pool name, the provider type and attributes for
+configuration as space-separated pairs, e.g. tags, size, path, etc.
 `
 
-func newPoolCreateCommand() cmd.Command {
+// NewPoolCreateCommand returns a command that creates or defines a storage pool
+func NewPoolCreateCommand() cmd.Command {
 	cmd := &poolCreateCommand{}
 	cmd.newAPIFunc = func() (PoolCreateAPI, error) {
 		return cmd.NewStorageAPI()
 	}
-	return envcmd.Wrap(cmd)
+	return modelcmd.Wrap(cmd)
 }
 
 // poolCreateCommand lists storage pools.
@@ -98,16 +85,11 @@ func (c *poolCreateCommand) Init(args []string) (err error) {
 // Info implements Command.Info.
 func (c *poolCreateCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "create",
+		Name:    "create-storage-pool",
 		Args:    "<name> <provider> [<key>=<value> [<key>=<value>...]]",
-		Purpose: "create storage pool",
+		Purpose: "Create or define a storage pool.",
 		Doc:     poolCreateCommandDoc,
 	}
-}
-
-// SetFlags implements Command.SetFlags.
-func (c *poolCreateCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.StorageCommandBase.SetFlags(f)
 }
 
 // Run implements Command.Run.

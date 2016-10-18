@@ -10,12 +10,14 @@ import (
 	"crypto/x509"
 	"io"
 	"io/ioutil"
+	"math/big"
 	"net"
 	"strings"
 	"testing"
 	"time"
 
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cert"
@@ -45,7 +47,7 @@ func checkNotAfter(c *gc.C, cert *x509.Certificate, expiry time.Time) {
 func (certSuite) TestParseCertificate(c *gc.C) {
 	xcert, err := cert.ParseCert(caCertPEM)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(xcert.Subject.CommonName, gc.Equals, "juju testing")
+	c.Assert(xcert.Subject.CommonName, gc.Equals, `juju-generated CA for model "juju testing"`)
 
 	xcert, err = cert.ParseCert(caKeyPEM)
 	c.Check(xcert, gc.IsNil)
@@ -59,7 +61,7 @@ func (certSuite) TestParseCertificate(c *gc.C) {
 func (certSuite) TestParseCertAndKey(c *gc.C) {
 	xcert, key, err := cert.ParseCertAndKey(caCertPEM, caKeyPEM)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(xcert.Subject.CommonName, gc.Equals, "juju testing")
+	c.Assert(xcert.Subject.CommonName, gc.Equals, `juju-generated CA for model "juju testing"`)
 	c.Assert(key, gc.NotNil)
 
 	c.Assert(xcert.PublicKey.(*rsa.PublicKey), gc.DeepEquals, &key.PublicKey)
@@ -68,14 +70,14 @@ func (certSuite) TestParseCertAndKey(c *gc.C) {
 func (certSuite) TestNewCA(c *gc.C) {
 	now := time.Now()
 	expiry := roundTime(now.AddDate(0, 0, 1))
-	caCertPEM, caKeyPEM, err := cert.NewCA("foo", expiry)
+	caCertPEM, caKeyPEM, err := cert.NewCA("foo", "1", expiry)
 	c.Assert(err, jc.ErrorIsNil)
 
 	caCert, caKey, err := cert.ParseCertAndKey(caCertPEM, caKeyPEM)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(caKey, gc.FitsTypeOf, (*rsa.PrivateKey)(nil))
-	c.Check(caCert.Subject.CommonName, gc.Equals, `juju-generated CA for environment "foo"`)
+	c.Check(caCert.Subject.CommonName, gc.Equals, `juju-generated CA for model "foo"`)
 	checkNotBefore(c, caCert, now)
 	checkNotAfter(c, caCert, expiry)
 	c.Check(caCert.BasicConstraintsValid, jc.IsTrue)
@@ -86,7 +88,7 @@ func (certSuite) TestNewCA(c *gc.C) {
 func (certSuite) TestNewServer(c *gc.C) {
 	now := time.Now()
 	expiry := roundTime(now.AddDate(1, 0, 0))
-	caCertPEM, caKeyPEM, err := cert.NewCA("foo", expiry)
+	caCertPEM, caKeyPEM, err := cert.NewCA("foo", "1", expiry)
 	c.Assert(err, jc.ErrorIsNil)
 
 	caCert, _, err := cert.ParseCertAndKey(caCertPEM, caKeyPEM)
@@ -100,7 +102,7 @@ func (certSuite) TestNewServer(c *gc.C) {
 func (certSuite) TestNewDefaultServer(c *gc.C) {
 	now := time.Now()
 	expiry := roundTime(now.AddDate(1, 0, 0))
-	caCertPEM, caKeyPEM, err := cert.NewCA("foo", expiry)
+	caCertPEM, caKeyPEM, err := cert.NewCA("foo", "1", expiry)
 	c.Assert(err, jc.ErrorIsNil)
 
 	caCert, _, err := cert.ParseCertAndKey(caCertPEM, caKeyPEM)
@@ -121,6 +123,10 @@ func checkCertificate(c *gc.C, caCert *x509.Certificate, srvCertPEM, srvKeyPEM s
 	c.Assert(srvCert.BasicConstraintsValid, jc.IsFalse)
 	c.Assert(srvCert.IsCA, jc.IsFalse)
 	c.Assert(srvCert.ExtKeyUsage, gc.DeepEquals, []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth})
+	c.Assert(srvCert.SerialNumber, gc.NotNil)
+	if srvCert.SerialNumber.Cmp(big.NewInt(0)) == 0 {
+		c.Fatalf("zero serial number")
+	}
 
 	checkTLSConnection(c, caCert, srvCert, srvKey)
 }
@@ -163,7 +169,7 @@ func (certSuite) TestNewServerHostnames(c *gc.C) {
 func (certSuite) TestWithNonUTCExpiry(c *gc.C) {
 	expiry, err := time.Parse("2006-01-02 15:04:05.999999999 -0700 MST", "2012-11-28 15:53:57 +0100 CET")
 	c.Assert(err, jc.ErrorIsNil)
-	certPEM, keyPEM, err := cert.NewCA("foo", expiry)
+	certPEM, keyPEM, err := cert.NewCA("foo", "1", expiry)
 	xcert, err := cert.ParseCert(certPEM)
 	c.Assert(err, jc.ErrorIsNil)
 	checkNotAfter(c, xcert, expiry)
@@ -185,7 +191,7 @@ func (certSuite) TestNewServerWithInvalidCert(c *gc.C) {
 
 func (certSuite) TestVerify(c *gc.C) {
 	now := time.Now()
-	caCert, caKey, err := cert.NewCA("foo", now.Add(1*time.Minute))
+	caCert, caKey, err := cert.NewCA("foo", "1", now.Add(1*time.Minute))
 	c.Assert(err, jc.ErrorIsNil)
 
 	var noHostnames []string
@@ -204,7 +210,7 @@ func (certSuite) TestVerify(c *gc.C) {
 	err = cert.Verify(srvCert, caCert, now.Add(2*time.Minute))
 	c.Check(err, gc.ErrorMatches, "x509: certificate has expired or is not yet valid")
 
-	caCert2, caKey2, err := cert.NewCA("bar", now.Add(1*time.Minute))
+	caCert2, caKey2, err := cert.NewCA("bar", "1", now.Add(1*time.Minute))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check original server certificate against wrong CA.
@@ -237,14 +243,13 @@ func checkTLSConnection(c *gc.C, caCert, srvCert *x509.Certificate, srvKey *rsa.
 	var clientState tls.ConnectionState
 	done := make(chan error)
 	go func() {
-		config := tls.Config{
-			Certificates: []tls.Certificate{{
-				Certificate: [][]byte{srvCert.Raw},
-				PrivateKey:  srvKey,
-			}},
-		}
+		config := utils.SecureTLSConfig()
+		config.Certificates = []tls.Certificate{{
+			Certificate: [][]byte{srvCert.Raw},
+			PrivateKey:  srvKey,
+		}}
 
-		conn := tls.Server(p1, &config)
+		conn := tls.Server(p1, config)
 		defer conn.Close()
 		data, err := ioutil.ReadAll(conn)
 		c.Assert(err, jc.ErrorIsNil)
@@ -252,10 +257,10 @@ func checkTLSConnection(c *gc.C, caCert, srvCert *x509.Certificate, srvKey *rsa.
 		close(done)
 	}()
 
-	clientConn := tls.Client(p0, &tls.Config{
-		ServerName: "anyServer",
-		RootCAs:    clientCertPool,
-	})
+	tlsConfig := utils.SecureTLSConfig()
+	tlsConfig.ServerName = "anyServer"
+	tlsConfig.RootCAs = clientCertPool
+	clientConn := tls.Client(p0, tlsConfig)
 	defer clientConn.Close()
 
 	_, err := clientConn.Write([]byte(msg))
@@ -293,51 +298,58 @@ func roundTime(t time.Time) time.Time {
 var (
 	caCertPEM = `
 -----BEGIN CERTIFICATE-----
-MIIBnTCCAUmgAwIBAgIBADALBgkqhkiG9w0BAQUwJjENMAsGA1UEChMEanVqdTEV
-MBMGA1UEAxMManVqdSB0ZXN0aW5nMB4XDTEyMTExNDE0Mzg1NFoXDTIyMTExNDE0
-NDM1NFowJjENMAsGA1UEChMEanVqdTEVMBMGA1UEAxMManVqdSB0ZXN0aW5nMFow
-CwYJKoZIhvcNAQEBA0sAMEgCQQCCOOpn9aWKcKr2GQGtygwD7PdfNe1I9BYiPAqa
-2I33F5+6PqFdfujUKvoyTJI6XG4Qo/CECaaN9smhyq9DxzMhAgMBAAGjZjBkMA4G
-A1UdDwEB/wQEAwIABDASBgNVHRMBAf8ECDAGAQH/AgEBMB0GA1UdDgQWBBQQDswP
-FQGeGMeTzPbHW62EZbbTJzAfBgNVHSMEGDAWgBQQDswPFQGeGMeTzPbHW62EZbbT
-JzALBgkqhkiG9w0BAQUDQQAqZzN0DqUyEfR8zIanozyD2pp10m9le+ODaKZDDNfH
-8cB2x26F1iZ8ccq5IC2LtQf1IKJnpTcYlLuDvW6yB96g
+MIICHDCCAcagAwIBAgIUfzWn5ktGMxD6OiTgfiZyvKdM+ZYwDQYJKoZIhvcNAQEL
+BQAwazENMAsGA1UEChMEanVqdTEzMDEGA1UEAwwqanVqdS1nZW5lcmF0ZWQgQ0Eg
+Zm9yIG1vZGVsICJqdWp1IHRlc3RpbmciMSUwIwYDVQQFExwxMjM0LUFCQ0QtSVMt
+Tk9ULUEtUkVBTC1VVUlEMB4XDTE2MDkyMTEwNDgyN1oXDTI2MDkyODEwNDgyN1ow
+azENMAsGA1UEChMEanVqdTEzMDEGA1UEAwwqanVqdS1nZW5lcmF0ZWQgQ0EgZm9y
+IG1vZGVsICJqdWp1IHRlc3RpbmciMSUwIwYDVQQFExwxMjM0LUFCQ0QtSVMtTk9U
+LUEtUkVBTC1VVUlEMFwwDQYJKoZIhvcNAQEBBQADSwAwSAJBAL+0X+1zl2vt1wI4
+1Q+RnlltJyaJmtwCbHRhREXVGU7t0kTMMNERxqLnuNUyWRz90Rg8s9XvOtCqNYW7
+mypGrFECAwEAAaNCMEAwDgYDVR0PAQH/BAQDAgKkMA8GA1UdEwEB/wQFMAMBAf8w
+HQYDVR0OBBYEFHueMLZ1QJ/2sKiPIJ28TzjIMRENMA0GCSqGSIb3DQEBCwUAA0EA
+ovZN0RbUHrO8q9Eazh0qPO4mwW9jbGTDz126uNrLoz1g3TyWxIas1wRJ8IbCgxLy
+XUrBZO5UPZab66lJWXyseA==
 -----END CERTIFICATE-----
 `
 
 	caKeyPEM = `
 -----BEGIN RSA PRIVATE KEY-----
-MIIBOwIBAAJBAII46mf1pYpwqvYZAa3KDAPs91817Uj0FiI8CprYjfcXn7o+oV1+
-6NQq+jJMkjpcbhCj8IQJpo32yaHKr0PHMyECAwEAAQJAYctedh4raLE+Ir0a3qnK
-pjQSfiUggtYTvTf7+tfAnZu946PX88ysr7XHPkXEGP4tWDTbl8BfGndrTKswVOx6
-RQIhAOT5OzafJneDQ5cuGLN/hxIPBLWxKT1/25O6dhtBlRyPAiEAkZfFvCtBZyKB
-JFwDdp+7gE98mXtaFrjctLWeFx797U8CIAnnqiMTwWM8H2ljyhfBtYMXeTmu3zzU
-0hfS4hcNwDiLAiEAkNXXU7YEPkFJD46ps1x7/s0UOutHV8tXZD44ou+l1GkCIQDO
-HOzuvYngJpoClGw0ipzJPoNZ2Z/GkdOWGByPeKu/8g==
+MIIBOgIBAAJBAL+0X+1zl2vt1wI41Q+RnlltJyaJmtwCbHRhREXVGU7t0kTMMNER
+xqLnuNUyWRz90Rg8s9XvOtCqNYW7mypGrFECAwEAAQJAMPa+JaUHgO6foxam/LIB
+0u95N3OgFR+dWeBaEsgKDclpREdJ0rXNI+3C3kwqeEZR4omoPlBeSEewSkwHxpmI
+0QIhAOjKiHZ5v6R8haleipbDzkGUnZW07hEwL5Ld4MNx/QQ1AiEA0tEzSSNAdM0C
+M/vY0x5mekIYai8/tFSEG9PJ3ZkpEy0CIQCo9B3YxwI1Un777vbs903iQQeiWP+U
+EAHnOQvhLgDxpQIgGkpml+9igW5zoOH+h02aQBLwEoXz7tw/YW0HFrCcE70CIGkS
+ve4WjiEqnQaHNAPy0hY/1DfIgBOSpOfnkFHOk9vX
 -----END RSA PRIVATE KEY-----
 `
 
-	nonCACert = `-----BEGIN CERTIFICATE-----
-MIIBmjCCAUagAwIBAgIBADALBgkqhkiG9w0BAQUwJjENMAsGA1UEChMEanVqdTEV
-MBMGA1UEAxMManVqdSB0ZXN0aW5nMB4XDTEyMTExNDE3MTU1NloXDTIyMTExNDE3
-MjA1NlowJjENMAsGA1UEChMEanVqdTEVMBMGA1UEAxMManVqdSB0ZXN0aW5nMFow
-CwYJKoZIhvcNAQEBA0sAMEgCQQC96/CsTTY1Va8et6QYNXwrssAi36asFlV/fksG
-hqRucidiz/+xHvhs9EiqEu7NGxeVAkcfIhXu6/BDlobtj2v5AgMBAAGjYzBhMA4G
-A1UdDwEB/wQEAwIABDAPBgNVHRMBAf8EBTADAgEBMB0GA1UdDgQWBBRqbxkIW4R0
-vmmkUoYuWg9sDob4jzAfBgNVHSMEGDAWgBRqbxkIW4R0vmmkUoYuWg9sDob4jzAL
-BgkqhkiG9w0BAQUDQQC3+KN8RppKdvlbP6fDwRC22PaCxd0PVyIHsn7I4jgpBPf8
-Z3codMYYA5/f0AmUsD7wi7nnJVPPLZK7JWu4VI/w
+	nonCACert = `
+-----BEGIN CERTIFICATE-----
+MIIB8jCCAZygAwIBAgIVANueMZWTFEIx6AcNAWsG4VL4sUn5MA0GCSqGSIb3DQEB
+CwUAMGsxDTALBgNVBAoTBGp1anUxMzAxBgNVBAMMKmp1anUtZ2VuZXJhdGVkIENB
+IGZvciBtb2RlbCAianVqdSB0ZXN0aW5nIjElMCMGA1UEBRMcMTIzNC1BQkNELUlT
+LU5PVC1BLVJFQUwtVVVJRDAeFw0xNjA5MjExMDQ4MjdaFw0yNjA5MjgxMDQ4Mjda
+MBsxDTALBgNVBAoTBGp1anUxCjAIBgNVBAMTASowXDANBgkqhkiG9w0BAQEFAANL
+ADBIAkEAwZps3qpPu2FCAhbxolf/BvSa+dMal3AhPMe+lwTuSbtS81W+WSrbwUSI
+ZKSGHYDpFRN6ytNjt1oPbDNKDIR30wIDAQABo2cwZTAOBgNVHQ8BAf8EBAMCA6gw
+EwYDVR0lBAwwCgYIKwYBBQUHAwEwHQYDVR0OBBYEFNNUDrcyP/4RbGBpKeC3gmfL
+kjlwMB8GA1UdIwQYMBaAFHueMLZ1QJ/2sKiPIJ28TzjIMRENMA0GCSqGSIb3DQEB
+CwUAA0EALiurKx//Qh5TQQ0TmT0P5f7OFLIs5XPSS98Lseb92h12CPNO4kB000Yh
+Xa7kZRGngwFbvjzqZ0eOfmo0l8M23A==
 -----END CERTIFICATE-----
 `
 
-	nonCAKey = `-----BEGIN RSA PRIVATE KEY-----
-MIIBOgIBAAJBAL3r8KxNNjVVrx63pBg1fCuywCLfpqwWVX9+SwaGpG5yJ2LP/7Ee
-+Gz0SKoS7s0bF5UCRx8iFe7r8EOWhu2Pa/kCAwEAAQJAdzuAxStUNPeuEWLJKkmp
-wuVdqocuZCtBUeE/yMEOyibZ9NLKSuDJuDorkoeoiBz2vyUITHkLp4jgNmCI8NGg
-AQIhAPZG9+3OghlzcqWR4nTho8KO/CuO9bu5G4jNEdIrSJ6BAiEAxWtoLZNMwI4Q
-kj2moFk9GdBXZV9I0t1VTwcDvVyeAXkCIDrfvldQPdO9wJOKK3vLkS1qpyf2lhIZ
-b1alx3PZuxOBAiAthPltYMRWtar+fTaZTFo5RH+SQSkibaRI534mQF+ySQIhAIml
-yiWVLC2XrtwijDu1fwh/wtFCb/bPvqvgG5wgAO+2
+	nonCAKey = `
+-----BEGIN RSA PRIVATE KEY-----
+MIIBOwIBAAJBAMGabN6qT7thQgIW8aJX/wb0mvnTGpdwITzHvpcE7km7UvNVvlkq
+28FEiGSkhh2A6RUTesrTY7daD2wzSgyEd9MCAwEAAQJBAKfeuOvRjVUSneOl9Vsp
+Je7oBcD9dR8+kPNc1zungN7YVhIuxqvzXJSPeMGsHloPI+BcFFXv3t+eVCDT9sPL
+L+ECIQDq1nqVIEX3k5nn6eI0L5CQbIfEyvWGJ/mOGSo9TWdN+QIhANMMsopPb9ct
+Z61LqPmTtNX4nhHyMEjxbUzqzsZzsRcrAiBeYyhP6fHVSXERopK1kOyU79o+Aalf
+a4/FSl4M16CO2QIgOBQZpNKyvxRbhhqijZ6H4IstRUt7NQahqlyCEQ1Qsv0CIQDQ
+tUzgFwUpd6NVButkqWGqnmBeKUOs97dqSyOzN9Nk8w==
 -----END RSA PRIVATE KEY-----
 `
 )

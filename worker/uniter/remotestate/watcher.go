@@ -9,14 +9,13 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
-	"launchpad.net/tomb"
+	"gopkg.in/juju/names.v2"
 
-	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/state/watcher"
+	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/leadership"
+	"github.com/juju/juju/worker/catacomb"
 )
 
 var logger = loggo.GetLogger("juju.worker.uniter.remotestate")
@@ -27,7 +26,7 @@ var logger = loggo.GetLogger("juju.worker.uniter.remotestate")
 type RemoteStateWatcher struct {
 	st                        State
 	unit                      Unit
-	service                   Service
+	service                   Application
 	relations                 map[names.RelationTag]*relationUnitsWatcher
 	relationUnitsChanges      chan relationUnitsChange
 	storageAttachmentWatchers map[names.StorageTag]*storageAttachmentWatcher
@@ -37,7 +36,7 @@ type RemoteStateWatcher struct {
 	commandChannel            <-chan string
 	retryHookChannel          <-chan struct{}
 
-	tomb tomb.Tomb
+	catacomb catacomb.Catacomb
 
 	out     chan struct{}
 	mu      sync.Mutex
@@ -78,41 +77,26 @@ func NewWatcher(config WatcherConfig) (*RemoteStateWatcher, error) {
 			Storage:   make(map[names.StorageTag]StorageSnapshot),
 		},
 	}
-	if err := w.init(config.UnitTag); err != nil {
+	err := catacomb.Invoke(catacomb.Plan{
+		Site: &w.catacomb,
+		Work: func() error {
+			return w.loop(config.UnitTag)
+		},
+	})
+	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	go func() {
-		defer w.tomb.Done()
-		err := w.loop(config.UnitTag)
-		logger.Errorf("remote state watcher exited: %v", err)
-		w.tomb.Kill(errors.Cause(err))
-
-		// Stop all remaining sub-watchers.
-		for _, w := range w.storageAttachmentWatchers {
-			watcher.Stop(w, &w.tomb)
-		}
-		for _, w := range w.relations {
-			watcher.Stop(w, &w.tomb)
-		}
-	}()
 	return w, nil
 }
 
-func (w *RemoteStateWatcher) Stop() error {
-	w.tomb.Kill(nil)
-	return w.tomb.Wait()
-}
-
-func (w *RemoteStateWatcher) Dead() <-chan struct{} {
-	return w.tomb.Dead()
-}
-
-func (w *RemoteStateWatcher) Wait() error {
-	return w.tomb.Wait()
-}
-
+// Kill is part of the worker.Worker interface.
 func (w *RemoteStateWatcher) Kill() {
-	w.tomb.Kill(nil)
+	w.catacomb.Kill(nil)
+}
+
+// Wait is part of the worker.Worker interface.
+func (w *RemoteStateWatcher) Wait() error {
+	return w.catacomb.Wait()
 }
 
 func (w *RemoteStateWatcher) RemoteStateChanged() <-chan struct{} {
@@ -125,7 +109,14 @@ func (w *RemoteStateWatcher) Snapshot() Snapshot {
 	snapshot := w.current
 	snapshot.Relations = make(map[int]RelationSnapshot)
 	for id, relationSnapshot := range w.current.Relations {
-		snapshot.Relations[id] = relationSnapshot
+		relationSnapshotCopy := RelationSnapshot{
+			Life:    relationSnapshot.Life,
+			Members: make(map[string]int64),
+		}
+		for name, version := range relationSnapshot.Members {
+			relationSnapshotCopy.Members[name] = version
+		}
+		snapshot.Relations[id] = relationSnapshotCopy
 	}
 	snapshot.Storage = make(map[names.StorageTag]StorageSnapshot)
 	for tag, storageSnapshot := range w.current.Storage {
@@ -159,89 +150,110 @@ func (w *RemoteStateWatcher) CommandCompleted(completed string) {
 	}
 }
 
-func (w *RemoteStateWatcher) init(unitTag names.UnitTag) (err error) {
+func (w *RemoteStateWatcher) setUp(unitTag names.UnitTag) (err error) {
 	// TODO(dfc) named return value is a time bomb
 	// TODO(axw) move this logic.
 	defer func() {
-		if params.IsCodeNotFoundOrCodeUnauthorized(err) {
+		cause := errors.Cause(err)
+		if params.IsCodeNotFoundOrCodeUnauthorized(cause) {
 			err = worker.ErrTerminateAgent
 		}
 	}()
 	if w.unit, err = w.st.Unit(unitTag); err != nil {
-		return err
+		return errors.Trace(err)
 	}
-	w.service, err = w.unit.Service()
+	w.service, err = w.unit.Application()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	return nil
 }
 
 func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
+	if err := w.setUp(unitTag); err != nil {
+		return errors.Trace(err)
+	}
+
 	var requiredEvents int
 
 	var seenUnitChange bool
 	unitw, err := w.unit.Watch()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
-	defer watcher.Stop(unitw, &w.tomb)
+	if err := w.catacomb.Add(unitw); err != nil {
+		return errors.Trace(err)
+	}
 	requiredEvents++
 
-	var seenServiceChange bool
+	var seenApplicationChange bool
 	servicew, err := w.service.Watch()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
-	defer watcher.Stop(servicew, &w.tomb)
+	if err := w.catacomb.Add(servicew); err != nil {
+		return errors.Trace(err)
+	}
 	requiredEvents++
 
 	var seenConfigChange bool
 	configw, err := w.unit.WatchConfigSettings()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
-	defer watcher.Stop(configw, &w.tomb)
+	if err := w.catacomb.Add(configw); err != nil {
+		return errors.Trace(err)
+	}
 	requiredEvents++
 
 	var seenRelationsChange bool
 	relationsw, err := w.service.WatchRelations()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
-	defer watcher.Stop(relationsw, &w.tomb)
+	if err := w.catacomb.Add(relationsw); err != nil {
+		return errors.Trace(err)
+	}
 	requiredEvents++
 
 	var seenAddressesChange bool
 	addressesw, err := w.unit.WatchAddresses()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
-	defer watcher.Stop(addressesw, &w.tomb)
+	if err := w.catacomb.Add(addressesw); err != nil {
+		return errors.Trace(err)
+	}
 	requiredEvents++
 
 	var seenStorageChange bool
 	storagew, err := w.unit.WatchStorage()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
-	defer watcher.Stop(storagew, &w.tomb)
+	if err := w.catacomb.Add(storagew); err != nil {
+		return errors.Trace(err)
+	}
 	requiredEvents++
 
 	var seenLeaderSettingsChange bool
 	leaderSettingsw, err := w.service.WatchLeadershipSettings()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
-	defer watcher.Stop(leaderSettingsw, &w.tomb)
+	if err := w.catacomb.Add(leaderSettingsw); err != nil {
+		return errors.Trace(err)
+	}
 	requiredEvents++
 
 	var seenActionsChange bool
 	actionsw, err := w.unit.WatchActionNotifications()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
-	defer watcher.Stop(actionsw, &w.tomb)
+	if err := w.catacomb.Add(actionsw); err != nil {
+		return errors.Trace(err)
+	}
 	requiredEvents++
 
 	var seenLeadershipChange bool
@@ -269,19 +281,13 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 		}
 	}
 
-	defer func() {
-		for _, ruw := range w.relations {
-			watcher.Stop(ruw, &w.tomb)
-		}
-	}()
-
 	// Check the initial leadership status, and then we can flip-flop
 	// waiting on leader or minion to trigger the changed event.
 	var waitLeader, waitMinion <-chan struct{}
 	claimLeader := w.leadershipTracker.ClaimLeader()
 	select {
-	case <-w.tomb.Dying():
-		return tomb.ErrDying
+	case <-w.catacomb.Dying():
+		return w.catacomb.ErrDying()
 	case <-claimLeader.Ready():
 		isLeader := claimLeader.Wait()
 		w.leadershipChanged(isLeader)
@@ -295,93 +301,93 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 
 	for {
 		select {
-		case <-w.tomb.Dying():
-			return tomb.ErrDying
+		case <-w.catacomb.Dying():
+			return w.catacomb.ErrDying()
 
 		case _, ok := <-unitw.Changes():
 			logger.Debugf("got unit change")
 			if !ok {
-				return watcher.EnsureErr(unitw)
+				return errors.New("unit watcher closed")
 			}
 			if err := w.unitChanged(); err != nil {
-				return err
+				return errors.Trace(err)
 			}
 			observedEvent(&seenUnitChange)
 
 		case _, ok := <-servicew.Changes():
 			logger.Debugf("got service change")
 			if !ok {
-				return watcher.EnsureErr(servicew)
+				return errors.New("service watcher closed")
 			}
-			if err := w.serviceChanged(); err != nil {
-				return err
+			if err := w.applicationChanged(); err != nil {
+				return errors.Trace(err)
 			}
-			observedEvent(&seenServiceChange)
+			observedEvent(&seenApplicationChange)
 
 		case _, ok := <-configw.Changes():
 			logger.Debugf("got config change: ok=%t", ok)
 			if !ok {
-				return watcher.EnsureErr(configw)
+				return errors.New("config watcher closed")
 			}
 			if err := w.configChanged(); err != nil {
-				return err
+				return errors.Trace(err)
 			}
 			observedEvent(&seenConfigChange)
 
 		case _, ok := <-addressesw.Changes():
 			logger.Debugf("got address change: ok=%t", ok)
 			if !ok {
-				return watcher.EnsureErr(addressesw)
+				return errors.New("addresses watcher closed")
 			}
 			if err := w.addressesChanged(); err != nil {
-				return err
+				return errors.Trace(err)
 			}
 			observedEvent(&seenAddressesChange)
 
 		case _, ok := <-leaderSettingsw.Changes():
 			logger.Debugf("got leader settings change: ok=%t", ok)
 			if !ok {
-				return watcher.EnsureErr(leaderSettingsw)
+				return errors.New("leader settings watcher closed")
 			}
 			if err := w.leaderSettingsChanged(); err != nil {
-				return err
+				return errors.Trace(err)
 			}
 			observedEvent(&seenLeaderSettingsChange)
 
 		case actions, ok := <-actionsw.Changes():
 			logger.Debugf("got action change: %v ok=%t", actions, ok)
 			if !ok {
-				return watcher.EnsureErr(actionsw)
+				return errors.New("actions watcher closed")
 			}
 			if err := w.actionsChanged(actions); err != nil {
-				return err
+				return errors.Trace(err)
 			}
 			observedEvent(&seenActionsChange)
 
 		case keys, ok := <-relationsw.Changes():
 			logger.Debugf("got relations change: ok=%t", ok)
 			if !ok {
-				return watcher.EnsureErr(relationsw)
+				return errors.New("relations watcher closed")
 			}
 			if err := w.relationsChanged(keys); err != nil {
-				return err
+				return errors.Trace(err)
 			}
 			observedEvent(&seenRelationsChange)
 
 		case keys, ok := <-storagew.Changes():
 			logger.Debugf("got storage change: %v ok=%t", keys, ok)
 			if !ok {
-				return watcher.EnsureErr(storagew)
+				return errors.New("storage watcher closed")
 			}
 			if err := w.storageChanged(keys); err != nil {
-				return err
+				return errors.Trace(err)
 			}
 			observedEvent(&seenStorageChange)
 
 		case <-waitMinion:
 			logger.Debugf("got leadership change: minion")
 			if err := w.leadershipChanged(false); err != nil {
-				return err
+				return errors.Trace(err)
 			}
 			waitMinion = nil
 			waitLeader = w.leadershipTracker.WaitLeader().Ready()
@@ -389,7 +395,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 		case <-waitLeader:
 			logger.Debugf("got leadership change: leader")
 			if err := w.leadershipChanged(true); err != nil {
-				return err
+				return errors.Trace(err)
 			}
 			waitLeader = nil
 			waitMinion = w.leadershipTracker.WaitMinion().Ready()
@@ -397,28 +403,34 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 		case change := <-w.storageAttachmentChanges:
 			logger.Debugf("storage attachment change %v", change)
 			if err := w.storageAttachmentChanged(change); err != nil {
-				return err
+				return errors.Trace(err)
 			}
 
 		case change := <-w.relationUnitsChanges:
 			logger.Debugf("got a relation units change: %v", change)
 			if err := w.relationUnitsChanged(change); err != nil {
-				return err
+				return errors.Trace(err)
 			}
 
 		case <-w.updateStatusChannel():
 			logger.Debugf("update status timer triggered")
 			if err := w.updateStatusChanged(); err != nil {
-				return err
+				return errors.Trace(err)
 			}
 
-		case id := <-w.commandChannel:
+		case id, ok := <-w.commandChannel:
+			if !ok {
+				return errors.New("commandChannel closed")
+			}
 			logger.Debugf("command enqueued: %v", id)
 			if err := w.commandsChanged(id); err != nil {
 				return err
 			}
 
-		case <-w.retryHookChannel:
+		case _, ok := <-w.retryHookChannel:
+			if !ok {
+				return errors.New("retryHookChannel closed")
+			}
 			logger.Debugf("retry hook timer triggered")
 			if err := w.retryHookTimerTriggered(); err != nil {
 				return err
@@ -457,11 +469,11 @@ func (w *RemoteStateWatcher) retryHookTimerTriggered() error {
 // unitChanged responds to changes in the unit.
 func (w *RemoteStateWatcher) unitChanged() error {
 	if err := w.unit.Refresh(); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	resolved, err := w.unit.Resolved()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	w.mu.Lock()
 	defer w.mu.Unlock()
@@ -470,18 +482,23 @@ func (w *RemoteStateWatcher) unitChanged() error {
 	return nil
 }
 
-// serviceChanged responds to changes in the service.
-func (w *RemoteStateWatcher) serviceChanged() error {
+// applicationChanged responds to changes in the application.
+func (w *RemoteStateWatcher) applicationChanged() error {
 	if err := w.service.Refresh(); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	url, force, err := w.service.CharmURL()
 	if err != nil {
-		return err
+		return errors.Trace(err)
+	}
+	ver, err := w.service.CharmModifiedVersion()
+	if err != nil {
+		return errors.Trace(err)
 	}
 	w.mu.Lock()
 	w.current.CharmURL = url
 	w.current.ForceCharmUpgrade = force
+	w.current.CharmModifiedVersion = ver
 	w.mu.Unlock()
 	return nil
 }
@@ -525,14 +542,12 @@ func (w *RemoteStateWatcher) relationsChanged(keys []string) error {
 			// If it's actually gone, this unit cannot have entered
 			// scope, and therefore never needs to know about it.
 			if ruw, ok := w.relations[relationTag]; ok {
-				if err := ruw.Stop(); err != nil {
-					return errors.Trace(err)
-				}
+				worker.Stop(ruw)
 				delete(w.relations, relationTag)
 				delete(w.current.Relations, ruw.relationId)
 			}
 		} else if err != nil {
-			return err
+			return errors.Trace(err)
 		} else {
 			if _, ok := w.relations[relationTag]; ok {
 				relationSnapshot := w.current.Relations[rel.Id()]
@@ -540,12 +555,17 @@ func (w *RemoteStateWatcher) relationsChanged(keys []string) error {
 				w.current.Relations[rel.Id()] = relationSnapshot
 				continue
 			}
-			in, err := w.st.WatchRelationUnits(relationTag, w.unit.Tag())
+			ruw, err := w.st.WatchRelationUnits(relationTag, w.unit.Tag())
 			if err != nil {
 				return errors.Trace(err)
 			}
-			if err := w.watchRelationUnits(rel, relationTag, in); err != nil {
-				watcher.Stop(in, &w.tomb)
+			// Because of the delay before handing off responsibility to
+			// newRelationUnitsWatcher below, add to our own catacomb to
+			// ensure errors get picked up if they happen.
+			if err := w.catacomb.Add(ruw); err != nil {
+				return errors.Trace(err)
+			}
+			if err := w.watchRelationUnits(rel, relationTag, ruw); err != nil {
 				return errors.Trace(err)
 			}
 		}
@@ -557,27 +577,32 @@ func (w *RemoteStateWatcher) relationsChanged(keys []string) error {
 // relation, waits for its first event, and records the information in
 // the current snapshot.
 func (w *RemoteStateWatcher) watchRelationUnits(
-	rel Relation, relationTag names.RelationTag, in apiwatcher.RelationUnitsWatcher,
+	rel Relation, relationTag names.RelationTag, ruw watcher.RelationUnitsWatcher,
 ) error {
 	relationSnapshot := RelationSnapshot{
 		Life:    rel.Life(),
 		Members: make(map[string]int64),
 	}
 	select {
-	case <-w.tomb.Dying():
-		return tomb.ErrDying
-	case change, ok := <-in.Changes():
+	case <-w.catacomb.Dying():
+		return w.catacomb.ErrDying()
+	case change, ok := <-ruw.Changes():
 		if !ok {
-			return watcher.EnsureErr(in)
+			return errors.New("relation units watcher closed")
 		}
 		for unit, settings := range change.Changed {
 			relationSnapshot.Members[unit] = settings.Version
 		}
 	}
+	innerRUW, err := newRelationUnitsWatcher(rel.Id(), ruw, w.relationUnitsChanges)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := w.catacomb.Add(innerRUW); err != nil {
+		return errors.Trace(err)
+	}
 	w.current.Relations[rel.Id()] = relationSnapshot
-	w.relations[relationTag] = newRelationUnitsWatcher(
-		rel.Id(), in, w.relationUnitsChanges,
-	)
+	w.relations[relationTag] = innerRUW
 	return nil
 }
 
@@ -646,23 +671,22 @@ func (w *RemoteStateWatcher) storageChanged(keys []string) error {
 				continue
 			}
 			// We haven't seen this storage attachment before, so start
-			// a watcher now and wait for the initial event.
-			in, err := w.st.WatchStorageAttachment(tag, w.unit.Tag())
+			// a watcher now; add it to our catacomb in case of mishap;
+			// and wait for the initial event.
+			saw, err := w.st.WatchStorageAttachment(tag, w.unit.Tag())
 			if err != nil {
 				return errors.Annotate(err, "watching storage attachment")
 			}
-			if err := w.watchStorageAttachment(tag, result.Life, in); err != nil {
-				watcher.Stop(in, &w.tomb)
+			if err := w.catacomb.Add(saw); err != nil {
+				return errors.Trace(err)
+			}
+			if err := w.watchStorageAttachment(tag, result.Life, saw); err != nil {
 				return errors.Trace(err)
 			}
 		} else if params.IsCodeNotFound(result.Error) {
 			if watcher, ok := w.storageAttachmentWatchers[tag]; ok {
-				if err := watcher.Stop(); err != nil {
-					return errors.Annotatef(
-						err, "stopping watcher of %s attachment",
-						names.ReadableString(tag),
-					)
-				}
+				// already under catacomb management, any error tracked already
+				worker.Stop(watcher)
 				delete(w.storageAttachmentWatchers, tag)
 			}
 			delete(w.current.Storage, tag)
@@ -682,15 +706,15 @@ func (w *RemoteStateWatcher) storageChanged(keys []string) error {
 func (w *RemoteStateWatcher) watchStorageAttachment(
 	tag names.StorageTag,
 	life params.Life,
-	in apiwatcher.NotifyWatcher,
+	saw watcher.NotifyWatcher,
 ) error {
 	var storageSnapshot StorageSnapshot
 	select {
-	case <-w.tomb.Dying():
-		return tomb.ErrDying
-	case _, ok := <-in.Changes():
+	case <-w.catacomb.Dying():
+		return w.catacomb.ErrDying()
+	case _, ok := <-saw.Changes():
 		if !ok {
-			return watcher.EnsureErr(in)
+			return errors.New("storage attachment watcher closed")
 		}
 		var err error
 		storageSnapshot, err = getStorageSnapshot(w.st, tag, w.unit.Tag())
@@ -704,9 +728,13 @@ func (w *RemoteStateWatcher) watchStorageAttachment(
 			return errors.Annotatef(err, "processing initial storage attachment change")
 		}
 	}
-	w.current.Storage[tag] = storageSnapshot
-	w.storageAttachmentWatchers[tag] = newStorageAttachmentWatcher(
-		w.st, in, w.unit.Tag(), tag, w.storageAttachmentChanges,
+	innerSAW, err := newStorageAttachmentWatcher(
+		w.st, saw, w.unit.Tag(), tag, w.storageAttachmentChanges,
 	)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	w.current.Storage[tag] = storageSnapshot
+	w.storageAttachmentWatchers[tag] = innerSAW
 	return nil
 }

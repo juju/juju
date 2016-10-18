@@ -53,7 +53,7 @@ func verifyCertificates() error {
 
 func mustNewCA() (string, string) {
 	cert.KeyBits = 512
-	caCert, caKey, err := cert.NewCA("juju testing", time.Now().AddDate(10, 0, 0))
+	caCert, caKey, err := cert.NewCA("juju testing", "1234-ABCD-IS-NOT-A-REAL-UUID", time.Now().AddDate(10, 0, 0))
 	if err != nil {
 		panic(err)
 	}
@@ -68,14 +68,6 @@ func mustNewServer() (string, string) {
 		panic(err)
 	}
 	return string(srvCert), string(srvKey)
-}
-
-func mustParseCert(pemData string) *x509.Certificate {
-	cert, err := cert.ParseCert(pemData)
-	if err != nil {
-		panic(err)
-	}
-	return cert
 }
 
 func mustParseCertAndKey(certPEM, keyPEM string) (*x509.Certificate, *rsa.PrivateKey) {

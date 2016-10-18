@@ -4,9 +4,9 @@
 package tags_test
 
 import (
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/testing"
@@ -19,16 +19,18 @@ type tagsSuite struct {
 var _ = gc.Suite(&tagsSuite{})
 
 func (*tagsSuite) TestResourceTagsUUID(c *gc.C) {
-	testResourceTags(c, testing.EnvironmentTag, nil, map[string]string{
-		"juju-env-uuid": testing.EnvironmentTag.Id(),
+	testResourceTags(c, testing.ControllerTag, names.NewModelTag(""), nil, map[string]string{
+		"juju-model-uuid":      "",
+		"juju-controller-uuid": testing.ControllerTag.Id(),
 	})
-	testResourceTags(c, names.NewEnvironTag(""), nil, map[string]string{
-		"juju-env-uuid": "",
+	testResourceTags(c, names.NewControllerTag(""), testing.ModelTag, nil, map[string]string{
+		"juju-model-uuid":      testing.ModelTag.Id(),
+		"juju-controller-uuid": "",
 	})
 }
 
 func (*tagsSuite) TestResourceTagsResourceTaggers(c *gc.C) {
-	testResourceTags(c, testing.EnvironmentTag, []tags.ResourceTagger{
+	testResourceTags(c, testing.ControllerTag, testing.ModelTag, []tags.ResourceTagger{
 		resourceTagger(func() (map[string]string, bool) {
 			return map[string]string{
 				"over":   "ridden",
@@ -51,15 +53,16 @@ func (*tagsSuite) TestResourceTagsResourceTaggers(c *gc.C) {
 			}, true
 		}),
 	}, map[string]string{
-		"juju-env-uuid": testing.EnvironmentTag.Id(),
-		"froman":        "egg",
-		"over":          "easy",
-		"extra":         "play",
+		"juju-model-uuid":      testing.ModelTag.Id(),
+		"juju-controller-uuid": testing.ControllerTag.Id(),
+		"froman":               "egg",
+		"over":                 "easy",
+		"extra":                "play",
 	})
 }
 
-func testResourceTags(c *gc.C, tag names.EnvironTag, taggers []tags.ResourceTagger, expectTags map[string]string) {
-	tags := tags.ResourceTags(tag, taggers...)
+func testResourceTags(c *gc.C, controller names.ControllerTag, model names.ModelTag, taggers []tags.ResourceTagger, expectTags map[string]string) {
+	tags := tags.ResourceTags(model, controller, taggers...)
 	c.Assert(tags, jc.DeepEquals, expectTags)
 }
 

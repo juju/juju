@@ -16,6 +16,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 	"github.com/juju/utils/parallel"
+	"github.com/juju/utils/series"
 	"github.com/juju/utils/shell"
 	"github.com/juju/utils/ssh"
 
@@ -26,9 +27,11 @@ import (
 	"github.com/juju/juju/cloudconfig/sshinit"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/status"
 	coretools "github.com/juju/juju/tools"
 )
 
@@ -52,24 +55,43 @@ func Bootstrap(ctx environs.BootstrapContext, env environs.Environ, args environ
 	return bsResult, nil
 }
 
-// BootstrapInstance creates a new instance with the series and architecture
-// of its choice, constrained to those of the available tools, and
+// BootstrapInstance creates a new instance with the series of its choice,
+// constrained to those of the available tools, and
 // returns the instance result, series, and a function that
 // must be called to finalize the bootstrap process by transferring
-// the tools and installing the initial Juju state server.
+// the tools and installing the initial Juju controller.
 // This method is called by Bootstrap above, which implements environs.Bootstrap, but
 // is also exported so that providers can manipulate the started instance.
 func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args environs.BootstrapParams,
-) (_ *environs.StartInstanceResult, series string, _ environs.BootstrapFinalizer, err error) {
+) (_ *environs.StartInstanceResult, selectedSeries string, _ environs.BootstrapFinalizer, err error) {
 	// TODO make safe in the case of racing Bootstraps
 	// If two Bootstraps are called concurrently, there's
 	// no way to make sure that only one succeeds.
 
 	// First thing, ensure we have tools otherwise there's no point.
-	series = config.PreferredSeries(env.Config())
-	availableTools, err := args.AvailableTools.Match(coretools.Filter{Series: series})
+	if args.BootstrapSeries != "" {
+		selectedSeries = args.BootstrapSeries
+	} else {
+		selectedSeries = config.PreferredSeries(env.Config())
+	}
+	availableTools, err := args.AvailableTools.Match(coretools.Filter{
+		Series: selectedSeries,
+	})
 	if err != nil {
 		return nil, "", nil, err
+	}
+
+	// Filter image metadata to the selected series.
+	var imageMetadata []*imagemetadata.ImageMetadata
+	seriesVersion, err := series.SeriesVersion(selectedSeries)
+	if err != nil {
+		return nil, "", nil, errors.Trace(err)
+	}
+	for _, m := range args.ImageMetadata {
+		if m.Version != seriesVersion {
+			continue
+		}
+		imageMetadata = append(imageMetadata, m)
 	}
 
 	// Get the bootstrap SSH client. Do this early, so we know
@@ -85,13 +107,17 @@ func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args
 	if err != nil {
 		return nil, "", nil, err
 	}
-	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(args.Constraints, series, publicKey)
+	envCfg := env.Config()
+	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(
+		args.ControllerConfig, args.BootstrapConstraints, args.ModelConstraints, selectedSeries, publicKey,
+	)
 	if err != nil {
 		return nil, "", nil, err
 	}
 	instanceConfig.EnableOSRefreshUpdate = env.Config().EnableOSRefreshUpdate()
 	instanceConfig.EnableOSUpgrade = env.Config().EnableOSUpgrade()
-	instanceConfig.Tags = instancecfg.InstanceTags(env.Config(), instanceConfig.Jobs)
+
+	instanceConfig.Tags = instancecfg.InstanceTags(envCfg.UUID(), args.ControllerConfig.ControllerUUID(), envCfg, instanceConfig.Jobs)
 	maybeSetBridge := func(icfg *instancecfg.InstanceConfig) {
 		// If we need to override the default bridge name, do it now. When
 		// args.ContainerBridgeName is empty, the default names for LXC
@@ -106,21 +132,63 @@ func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args
 	}
 	maybeSetBridge(instanceConfig)
 
-	fmt.Fprintln(ctx.GetStderr(), "Launching instance")
+	bootstrapMsg := env.BootstrapMessage()
+	if bootstrapMsg != "" {
+		ctx.Infof(bootstrapMsg)
+	}
+
+	cloudRegion := args.CloudName
+	if args.CloudRegion != "" {
+		cloudRegion += "/" + args.CloudRegion
+	}
+	fmt.Fprintf(ctx.GetStderr(), "Launching controller instance(s) on %s...\n", cloudRegion)
+	// Print instance status reports status changes during provisioning.
+	// Note the carriage returns, meaning subsequent prints are to the same
+	// line of stderr, not a new line.
+	instanceStatus := func(settableStatus status.Status, info string, data map[string]interface{}) error {
+		// The data arg is not expected to be used in this case, but
+		// print it, rather than ignore it, if we get something.
+		dataString := ""
+		if len(data) > 0 {
+			dataString = fmt.Sprintf(" %v", data)
+		}
+		fmt.Fprintf(ctx.GetStderr(), " - %s%s\r", info, dataString)
+		return nil
+	}
+	// Likely used after the final instanceStatus call to white-out the
+	// current stderr line before the next use, removing any residual status
+	// reporting output.
+	statusCleanup := func(info string) error {
+		// The leading spaces account for the leading characters
+		// emitted by instanceStatus above.
+		fmt.Fprintf(ctx.GetStderr(), "   %s\r", info)
+		return nil
+	}
 	result, err := env.StartInstance(environs.StartInstanceParams{
-		Constraints:    args.Constraints,
-		Tools:          availableTools,
-		InstanceConfig: instanceConfig,
-		Placement:      args.Placement,
+		ControllerUUID:  args.ControllerConfig.ControllerUUID(),
+		Constraints:     args.BootstrapConstraints,
+		Tools:           availableTools,
+		InstanceConfig:  instanceConfig,
+		Placement:       args.Placement,
+		ImageMetadata:   imageMetadata,
+		StatusCallback:  instanceStatus,
+		CleanupCallback: statusCleanup,
 	})
 	if err != nil {
 		return nil, "", nil, errors.Annotate(err, "cannot start bootstrap instance")
 	}
-	fmt.Fprintf(ctx.GetStderr(), " - %s\n", result.Instance.Id())
 
-	finalize := func(ctx environs.BootstrapContext, icfg *instancecfg.InstanceConfig) error {
-		icfg.InstanceId = result.Instance.Id()
-		icfg.HardwareCharacteristics = result.Hardware
+	msg := fmt.Sprintf(" - %s (%s)", result.Instance.Id(), formatHardware(result.Hardware))
+	// We need some padding below to overwrite any previous messages.
+	if len(msg) < 40 {
+		padding := make([]string, 40-len(msg))
+		msg += strings.Join(padding, " ")
+	}
+	fmt.Fprintln(ctx.GetStderr(), msg)
+
+	finalize := func(ctx environs.BootstrapContext, icfg *instancecfg.InstanceConfig, opts environs.BootstrapDialOpts) error {
+		icfg.Bootstrap.BootstrapMachineInstanceId = result.Instance.Id()
+		icfg.Bootstrap.BootstrapMachineHardwareCharacteristics = result.Hardware
 		envConfig := env.Config()
 		if result.Config != nil {
 			updated, err := envConfig.Apply(result.Config.UnknownAttrs())
@@ -133,9 +201,34 @@ func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args
 			return err
 		}
 		maybeSetBridge(icfg)
-		return FinishBootstrap(ctx, client, env, result.Instance, icfg)
+		return FinishBootstrap(ctx, client, env, result.Instance, icfg, opts)
 	}
-	return result, series, finalize, nil
+	return result, selectedSeries, finalize, nil
+}
+
+func formatHardware(hw *instance.HardwareCharacteristics) string {
+	if hw == nil {
+		return ""
+	}
+	out := make([]string, 0, 3)
+	if hw.Arch != nil && *hw.Arch != "" {
+		out = append(out, fmt.Sprintf("arch=%s", *hw.Arch))
+	}
+	if hw.Mem != nil && *hw.Mem > 0 {
+		out = append(out, fmt.Sprintf("mem=%s", formatMemory(*hw.Mem)))
+	}
+	if hw.CpuCores != nil && *hw.CpuCores > 0 {
+		out = append(out, fmt.Sprintf("cores=%d", *hw.CpuCores))
+	}
+	return strings.Join(out, " ")
+}
+
+func formatMemory(m uint64) string {
+	if m < 1024 {
+		return fmt.Sprintf("%dM", m)
+	}
+	s := fmt.Sprintf("%.1f", float32(m)/1024.0)
+	return strings.TrimSuffix(s, ".0") + "G"
 }
 
 // FinishBootstrap completes the bootstrap process by connecting
@@ -148,6 +241,7 @@ var FinishBootstrap = func(
 	env environs.Environ,
 	inst instance.Instance,
 	instanceConfig *instancecfg.InstanceConfig,
+	opts environs.BootstrapDialOpts,
 ) error {
 	interrupted := make(chan os.Signal, 1)
 	ctx.InterruptNotify(interrupted)
@@ -158,7 +252,7 @@ var FinishBootstrap = func(
 		client,
 		GetCheckNonceCommand(instanceConfig),
 		&RefreshableInstance{inst, env},
-		instanceConfig.Config.BootstrapSSHOpts(),
+		opts,
 	)
 	if err != nil {
 		return err
@@ -225,7 +319,9 @@ func ConfigureMachine(ctx environs.BootstrapContext, client ssh.Client, host str
 	})
 }
 
-type Addresser interface {
+// InstanceRefresher is the subet of the Instance interface required
+// for waiting for SSH access to become availble.
+type InstanceRefresher interface {
 	// Refresh refreshes the addresses for the instance.
 	Refresh() error
 
@@ -233,6 +329,10 @@ type Addresser interface {
 	// To ensure that the results are up to date, call
 	// Refresh first.
 	Addresses() ([]network.Address, error)
+
+	// Status returns the provider-specific status for the
+	// instance.
+	Status() instance.InstanceStatus
 }
 
 type RefreshableInstance struct {
@@ -287,19 +387,17 @@ func (hc *hostChecker) loop(dying <-chan struct{}) (io.Closer, error) {
 			done <- connectSSH(hc.client, address, hc.checkHostScript)
 		}()
 		select {
-		case <-hc.closed:
-			return hc, lastErr
 		case <-dying:
 			return hc, lastErr
 		case lastErr = <-done:
 			if lastErr == nil {
 				return hc, nil
-			} else {
-				logger.Debugf("connection attempt for %s failed: %v", address, lastErr)
 			}
+			logger.Debugf("connection attempt for %s failed: %v", address, lastErr)
 		}
 		select {
 		case <-hc.closed:
+			return hc, lastErr
 		case <-dying:
 		case <-time.After(hc.checkDelay):
 		}
@@ -373,7 +471,7 @@ var connectSSH = func(client ssh.Client, host, checkHostScript string) error {
 	return err
 }
 
-// waitSSH waits for the instance to be assigned a routable
+// WaitSSH waits for the instance to be assigned a routable
 // address, then waits until we can connect to it via SSH.
 //
 // waitSSH attempts on all addresses returned by the instance
@@ -382,8 +480,15 @@ var connectSSH = func(client ssh.Client, host, checkHostScript string) error {
 // the presence of a file on the machine that contains the
 // machine's nonce. The "checkHostScript" is a bash script
 // that performs this file check.
-func WaitSSH(stdErr io.Writer, interrupted <-chan os.Signal, client ssh.Client, checkHostScript string, inst Addresser, timeout config.SSHTimeoutOpts) (addr string, err error) {
-	globalTimeout := time.After(timeout.Timeout)
+func WaitSSH(
+	stdErr io.Writer,
+	interrupted <-chan os.Signal,
+	client ssh.Client,
+	checkHostScript string,
+	inst InstanceRefresher,
+	opts environs.BootstrapDialOpts,
+) (addr string, err error) {
+	globalTimeout := time.After(opts.Timeout)
 	pollAddresses := time.NewTimer(0)
 
 	// checker checks each address in a loop, in parallel,
@@ -394,7 +499,7 @@ func WaitSSH(stdErr io.Writer, interrupted <-chan os.Signal, client ssh.Client, 
 		client:          client,
 		stderr:          stdErr,
 		active:          make(map[network.Address]chan struct{}),
-		checkDelay:      timeout.RetryDelay,
+		checkDelay:      opts.RetryDelay,
 		checkHostScript: checkHostScript,
 	}
 	defer checker.wg.Wait()
@@ -404,9 +509,16 @@ func WaitSSH(stdErr io.Writer, interrupted <-chan os.Signal, client ssh.Client, 
 	for {
 		select {
 		case <-pollAddresses.C:
-			pollAddresses.Reset(timeout.AddressesDelay)
+			pollAddresses.Reset(opts.AddressesDelay)
 			if err := inst.Refresh(); err != nil {
 				return "", fmt.Errorf("refreshing addresses: %v", err)
+			}
+			instanceStatus := inst.Status()
+			if instanceStatus.Status == status.ProvisioningError {
+				if instanceStatus.Message != "" {
+					return "", errors.Errorf("instance provisioning failed (%v)", instanceStatus.Message)
+				}
+				return "", errors.Errorf("instance provisioning failed")
 			}
 			addresses, err := inst.Addresses()
 			if err != nil {
@@ -417,7 +529,7 @@ func WaitSSH(stdErr io.Writer, interrupted <-chan os.Signal, client ssh.Client, 
 			checker.Close()
 			lastErr := checker.Wait()
 			format := "waited for %v "
-			args := []interface{}{timeout.Timeout}
+			args := []interface{}{opts.Timeout}
 			if len(checker.active) == 0 {
 				format += "without getting any addresses"
 			} else {

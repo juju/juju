@@ -5,10 +5,10 @@ package state
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
+	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -18,37 +18,37 @@ type cleanupKind string
 
 const (
 	// SCHEMACHANGE: the names are expressive, the values not so much.
-	cleanupRelationSettings               cleanupKind = "settings"
-	cleanupUnitsForDyingService           cleanupKind = "units"
-	cleanupDyingUnit                      cleanupKind = "dyingUnit"
-	cleanupRemovedUnit                    cleanupKind = "removedUnit"
-	cleanupServicesForDyingEnvironment    cleanupKind = "services"
-	cleanupDyingMachine                   cleanupKind = "dyingMachine"
-	cleanupForceDestroyedMachine          cleanupKind = "machine"
-	cleanupAttachmentsForDyingStorage     cleanupKind = "storageAttachments"
-	cleanupAttachmentsForDyingVolume      cleanupKind = "volumeAttachments"
-	cleanupAttachmentsForDyingFilesystem  cleanupKind = "filesystemAttachments"
-	cleanupEnvironmentsForDyingController cleanupKind = "environments"
-	cleanupMachinesForDyingEnvironment    cleanupKind = "environmentMachines"
+	cleanupRelationSettings              cleanupKind = "settings"
+	cleanupUnitsForDyingApplication      cleanupKind = "units"
+	cleanupCharm                         cleanupKind = "charm"
+	cleanupDyingUnit                     cleanupKind = "dyingUnit"
+	cleanupRemovedUnit                   cleanupKind = "removedUnit"
+	cleanupServicesForDyingModel         cleanupKind = "applications"
+	cleanupDyingMachine                  cleanupKind = "dyingMachine"
+	cleanupForceDestroyedMachine         cleanupKind = "machine"
+	cleanupAttachmentsForDyingStorage    cleanupKind = "storageAttachments"
+	cleanupAttachmentsForDyingVolume     cleanupKind = "volumeAttachments"
+	cleanupAttachmentsForDyingFilesystem cleanupKind = "filesystemAttachments"
+	cleanupModelsForDyingController      cleanupKind = "models"
+	cleanupMachinesForDyingModel         cleanupKind = "modelMachines"
 )
 
-// cleanupDoc represents a potentially large set of documents that should be
-// removed.
+// cleanupDoc originally represented a set of documents that should be
+// removed, but the Prefix field no longer means anything more than
+// "what will be passed to the cleanup func".
 type cleanupDoc struct {
-	DocID   string `bson:"_id"`
-	EnvUUID string `bson:"env-uuid"`
-	Kind    cleanupKind
-	Prefix  string
+	DocID  string      `bson:"_id"`
+	Kind   cleanupKind `bson:"kind"`
+	Prefix string      `bson:"prefix"`
 }
 
 // newCleanupOp returns a txn.Op that creates a cleanup document with a unique
 // id and the supplied kind and prefix.
-func (st *State) newCleanupOp(kind cleanupKind, prefix string) txn.Op {
+func newCleanupOp(kind cleanupKind, prefix string) txn.Op {
 	doc := &cleanupDoc{
-		DocID:   st.docID(fmt.Sprint(bson.NewObjectId())),
-		EnvUUID: st.EnvironUUID(),
-		Kind:    kind,
-		Prefix:  prefix,
+		DocID:  fmt.Sprint(bson.NewObjectId()),
+		Kind:   kind,
+		Prefix: prefix,
 	}
 	return txn.Op{
 		C:      cleanupsC,
@@ -83,14 +83,16 @@ func (st *State) Cleanup() (err error) {
 		switch doc.Kind {
 		case cleanupRelationSettings:
 			err = st.cleanupRelationSettings(doc.Prefix)
-		case cleanupUnitsForDyingService:
+		case cleanupCharm:
+			err = st.cleanupCharm(doc.Prefix)
+		case cleanupUnitsForDyingApplication:
 			err = st.cleanupUnitsForDyingService(doc.Prefix)
 		case cleanupDyingUnit:
 			err = st.cleanupDyingUnit(doc.Prefix)
 		case cleanupRemovedUnit:
 			err = st.cleanupRemovedUnit(doc.Prefix)
-		case cleanupServicesForDyingEnvironment:
-			err = st.cleanupServicesForDyingEnvironment()
+		case cleanupServicesForDyingModel:
+			err = st.cleanupServicesForDyingModel()
 		case cleanupDyingMachine:
 			err = st.cleanupDyingMachine(doc.Prefix)
 		case cleanupForceDestroyedMachine:
@@ -101,15 +103,21 @@ func (st *State) Cleanup() (err error) {
 			err = st.cleanupAttachmentsForDyingVolume(doc.Prefix)
 		case cleanupAttachmentsForDyingFilesystem:
 			err = st.cleanupAttachmentsForDyingFilesystem(doc.Prefix)
-		case cleanupEnvironmentsForDyingController:
-			err = st.cleanupEnvironmentsForDyingController()
-		case cleanupMachinesForDyingEnvironment:
-			err = st.cleanupMachinesForDyingEnvironment()
+		case cleanupModelsForDyingController:
+			err = st.cleanupModelsForDyingController()
+		case cleanupMachinesForDyingModel:
+			err = st.cleanupMachinesForDyingModel()
 		default:
-			err = fmt.Errorf("unknown cleanup kind %q", doc.Kind)
+			handler, ok := cleanupHandlers[doc.Kind]
+			if !ok {
+				err = errors.Errorf("unknown cleanup kind %q", doc.Kind)
+			} else {
+				persist := st.newPersistence()
+				err = handler(st, persist, doc.Prefix)
+			}
 		}
 		if err != nil {
-			logger.Warningf("cleanup failed: %v", err)
+			logger.Errorf("cleanup failed for %v(%q): %v", doc.Kind, doc.Prefix, err)
 			continue
 		}
 		ops := []txn.Op{{
@@ -118,55 +126,58 @@ func (st *State) Cleanup() (err error) {
 			Remove: true,
 		}}
 		if err := st.runTransaction(ops); err != nil {
-			logger.Warningf("cannot remove empty cleanup document: %v", err)
+			return errors.Annotate(err, "cannot remove empty cleanup document")
 		}
 	}
+	return nil
+}
+
+// CleanupHandler is a function that state may call during cleanup
+// to perform cleanup actions for some cleanup type.
+type CleanupHandler func(st *State, persist Persistence, prefix string) error
+
+var cleanupHandlers = map[cleanupKind]CleanupHandler{}
+
+// RegisterCleanupHandler identifies the handler to use a given
+// cleanup kind.
+func RegisterCleanupHandler(kindStr string, handler CleanupHandler) error {
+	kind := cleanupKind(kindStr)
+	if _, ok := cleanupHandlers[kind]; ok {
+		return errors.NewAlreadyExists(nil, fmt.Sprintf("cleanup handler for %q already registered", kindStr))
+	}
+	cleanupHandlers[kind] = handler
 	return nil
 }
 
 func (st *State) cleanupRelationSettings(prefix string) error {
-	settings, closer := st.getCollection(settingsC)
-	defer closer()
-	// Documents marked for cleanup are not otherwise referenced in the
-	// system, and will not be under watch, and are therefore safe to
-	// delete directly.
-	settingsW := settings.Writeable()
-
-	sel := bson.D{{"_id", bson.D{{"$regex", "^" + st.docID(prefix)}}}}
-	if count, err := settingsW.Find(sel).Count(); err != nil {
-		return fmt.Errorf("cannot detect cleanup targets: %v", err)
-	} else if count != 0 {
-		if _, err := settingsW.RemoveAll(sel); err != nil {
-			return fmt.Errorf("cannot remove documents marked for cleanup: %v", err)
-		}
+	change := relationSettingsCleanupChange{Prefix: st.docID(prefix)}
+	if err := Apply(st.database, change); err != nil {
+		return errors.Trace(err)
 	}
 	return nil
 }
 
-// cleanupEnvironmentsForDyingController sets all environments to dying, if
+// cleanupModelsForDyingController sets all models to dying, if
 // they are not already Dying or Dead. It's expected to be used when a
 // controller is destroyed.
-func (st *State) cleanupEnvironmentsForDyingController() (err error) {
-	environs, err := st.AllEnvironments()
+func (st *State) cleanupModelsForDyingController() (err error) {
+	models, err := st.AllModels()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	for _, env := range environs {
-
-		if env.Life() == Alive {
-			if err := env.Destroy(); err != nil {
-				return errors.Trace(err)
-			}
+	for _, model := range models {
+		if err := model.Destroy(); err != nil {
+			return errors.Trace(err)
 		}
 	}
 	return nil
 }
 
-// cleanupMachinesForDyingEnvironment sets all non-manager, non-manual
-// machines to Dying, if they are not already Dying or Dead. It's expected to
-// be used when an environment is destroyed.
-func (st *State) cleanupMachinesForDyingEnvironment() (err error) {
-	// This won't miss machines, because a Dying environment cannot have
+// cleanupMachinesForDyingModel sets all non-manager machines to Dying,
+// if they are not already Dying or Dead. It's expected to be used when
+// a model is destroyed.
+func (st *State) cleanupMachinesForDyingModel() (err error) {
+	// This won't miss machines, because a Dying model cannot have
 	// machines added to it. But we do have to remove the machines themselves
 	// via individual transactions, because they could be in any state at all.
 	machines, err := st.AllMachines()
@@ -182,33 +193,40 @@ func (st *State) cleanupMachinesForDyingEnvironment() (err error) {
 		}
 		manual, err := m.IsManual()
 		if err != nil {
-			return err
-		} else if manual {
-			continue
+			return errors.Trace(err)
 		}
-		err = m.ForceDestroy()
-		if err != nil {
+		destroy := m.ForceDestroy
+		if manual {
+			// Manually added machines should never be force-
+			// destroyed automatically. That should be a user-
+			// driven decision, since it may leak applications
+			// and resources on the machine. If something is
+			// stuck, then the user can still force-destroy
+			// the manual machines.
+			destroy = m.Destroy
+		}
+		if err := destroy(); err != nil {
 			return errors.Trace(err)
 		}
 	}
 	return nil
 }
 
-// cleanupServicesForDyingEnvironment sets all services to Dying, if they are
-// not already Dying or Dead. It's expected to be used when an environment is
+// cleanupServicesForDyingModel sets all services to Dying, if they are
+// not already Dying or Dead. It's expected to be used when a model is
 // destroyed.
-func (st *State) cleanupServicesForDyingEnvironment() (err error) {
-	// This won't miss services, because a Dying environment cannot have
+func (st *State) cleanupServicesForDyingModel() (err error) {
+	// This won't miss services, because a Dying model cannot have
 	// services added to it. But we do have to remove the services themselves
 	// via individual transactions, because they could be in any state at all.
-	services, closer := st.getCollection(servicesC)
+	applications, closer := st.getCollection(applicationsC)
 	defer closer()
-	service := Service{st: st}
+	application := Application{st: st}
 	sel := bson.D{{"life", Alive}}
-	iter := services.Find(sel).Iter()
+	iter := applications.Find(sel).Iter()
 	defer closeIter(iter, &err, "reading service document")
-	for iter.Next(&service.doc) {
-		if err := service.Destroy(); err != nil {
+	for iter.Next(&application.doc) {
+		if err := application.Destroy(); err != nil {
 			return err
 		}
 	}
@@ -218,27 +236,58 @@ func (st *State) cleanupServicesForDyingEnvironment() (err error) {
 // cleanupUnitsForDyingService sets all units with the given prefix to Dying,
 // if they are not already Dying or Dead. It's expected to be used when a
 // service is destroyed.
-func (st *State) cleanupUnitsForDyingService(serviceName string) (err error) {
+func (st *State) cleanupUnitsForDyingService(applicationname string) (err error) {
 	// This won't miss units, because a Dying service cannot have units added
 	// to it. But we do have to remove the units themselves via individual
 	// transactions, because they could be in any state at all.
 	units, closer := st.getCollection(unitsC)
 	defer closer()
 
-	// TODO(mjs) - remove this post v1.21
-	// Older versions of the code put a trailing forward slash on the
-	// end of the service name. Remove it here in case a pre-upgrade
-	// cleanup document is seen.
-	serviceName = strings.TrimSuffix(serviceName, "/")
-
 	unit := Unit{st: st}
-	sel := bson.D{{"service", serviceName}, {"life", Alive}}
+	sel := bson.D{{"application", applicationname}, {"life", Alive}}
 	iter := units.Find(sel).Iter()
 	defer closeIter(iter, &err, "reading unit document")
 	for iter.Next(&unit.doc) {
 		if err := unit.Destroy(); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+// cleanupCharm is speculative: it can abort without error for many
+// reasons, because it's triggered somewhat overenthusiastically for
+// simplicity's sake.
+func (st *State) cleanupCharm(charmURL string) error {
+	curl, err := charm.ParseURL(charmURL)
+	if err != nil {
+		return errors.Annotatef(err, "invalid charm URL %v", charmURL)
+	}
+	if curl.Schema != "local" {
+		// No cleanup necessary or possible.
+		return nil
+	}
+
+	ch, err := st.Charm(curl)
+	if errors.IsNotFound(err) {
+		// Charm already removed.
+		return nil
+	} else if err != nil {
+		return errors.Annotate(err, "reading charm")
+	}
+
+	err = ch.Destroy()
+	switch errors.Cause(err) {
+	case nil:
+	case errCharmInUse:
+		// No cleanup necessary at this time.
+		return nil
+	default:
+		return errors.Annotate(err, "destroying charm")
+	}
+
+	if err := ch.Remove(); err != nil {
+		return errors.Trace(err)
 	}
 	return nil
 }
@@ -272,14 +321,26 @@ func (st *State) cleanupDyingUnit(name string) error {
 	}
 	// Mark storage attachments as dying, so that they are detached
 	// and removed from state, allowing the unit to terminate.
-	storageAttachments, err := st.UnitStorageAttachments(unit.UnitTag())
+	return st.cleanupUnitStorageAttachments(unit.UnitTag(), false)
+}
+
+func (st *State) cleanupUnitStorageAttachments(unitTag names.UnitTag, remove bool) error {
+	storageAttachments, err := st.UnitStorageAttachments(unitTag)
 	if err != nil {
 		return err
 	}
 	for _, storageAttachment := range storageAttachments {
-		err := st.DestroyStorageAttachment(
-			storageAttachment.StorageInstance(), unit.UnitTag(),
-		)
+		storageTag := storageAttachment.StorageInstance()
+		err := st.DestroyStorageAttachment(storageTag, unitTag)
+		if errors.IsNotFound(err) {
+			continue
+		} else if err != nil {
+			return err
+		}
+		if !remove {
+			continue
+		}
+		err = st.RemoveStorageAttachment(storageTag, unitTag)
 		if errors.IsNotFound(err) {
 			continue
 		} else if err != nil {
@@ -294,14 +355,23 @@ func (st *State) cleanupDyingUnit(name string) error {
 func (st *State) cleanupRemovedUnit(unitId string) error {
 	actions, err := st.matchingActionsByReceiverId(unitId)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
-
-	cancelled := ActionResults{Status: ActionCancelled, Message: "unit removed"}
+	cancelled := ActionResults{
+		Status:  ActionCancelled,
+		Message: "unit removed",
+	}
 	for _, action := range actions {
 		if _, err = action.Finish(cancelled); err != nil {
-			return err
+			return errors.Trace(err)
 		}
+	}
+
+	change := payloadCleanupChange{
+		Unit: unitId,
+	}
+	if err := Apply(st.database, change); err != nil {
+		return errors.Trace(err)
 	}
 	return nil
 }
@@ -328,9 +398,6 @@ func (st *State) cleanupForceDestroyedMachine(machineId string) error {
 	} else if err != nil {
 		return err
 	}
-	if err := cleanupDyingMachineResources(machine); err != nil {
-		return err
-	}
 	// In an ideal world, we'd call machine.Destroy() here, and thus prevent
 	// new dependencies being added while we clean up the ones we know about.
 	// But machine destruction is unsophisticated, and doesn't allow for
@@ -343,6 +410,9 @@ func (st *State) cleanupForceDestroyedMachine(machineId string) error {
 		if err := st.obliterateUnit(unitName); err != nil {
 			return err
 		}
+	}
+	if err := cleanupDyingMachineResources(machine); err != nil {
+		return err
 	}
 	// We need to refresh the machine at this point, because the local copy
 	// of the document will not reflect changes caused by the unit cleanups
@@ -447,6 +517,10 @@ func (st *State) obliterateUnit(unitName string) error {
 		return nil
 	} else if err != nil {
 		return err
+	}
+	// Destroy and remove all storage attachments for the unit.
+	if err := st.cleanupUnitStorageAttachments(unit.UnitTag(), true); err != nil {
+		return errors.Annotatef(err, "cannot destroy storage for unit %q", unitName)
 	}
 	for _, subName := range unit.SubordinateNames() {
 		if err := st.obliterateUnit(subName); err != nil {

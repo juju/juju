@@ -8,7 +8,21 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/simplestreams"
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/state"
+)
+
+// Ensure EC2 provider supports the expected interfaces,
+var (
+	_ environs.NetworkingEnviron = (*environ)(nil)
+	_ config.ConfigSchemaSource  = (*environProvider)(nil)
+	_ simplestreams.HasRegion    = (*environ)(nil)
+	_ state.Prechecker           = (*environ)(nil)
+	_ instance.Distributor       = (*environ)(nil)
 )
 
 type Suite struct{}
@@ -82,7 +96,7 @@ func (*Suite) TestRootDiskBlockDeviceMapping(c *gc.C) {
 	for _, t := range rootDiskTests {
 		c.Logf("Test %s", t.name)
 		cons := constraints.Value{RootDisk: t.constraint}
-		mappings := getBlockDeviceMappings(cons, t.series)
+		mappings := getBlockDeviceMappings(cons, t.series, false)
 		expected := append([]amzec2.BlockDeviceMapping{t.device}, commonInstanceStoreDisks...)
 		c.Assert(mappings, gc.DeepEquals, expected)
 	}

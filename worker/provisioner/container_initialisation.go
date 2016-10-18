@@ -5,24 +5,23 @@ package provisioner
 
 import (
 	"fmt"
-	"strconv"
 	"sync/atomic"
+	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils"
-	"github.com/juju/utils/exec"
-	"github.com/juju/utils/fslock"
+	"github.com/juju/mutex"
+	"github.com/juju/utils/clock"
 
 	"github.com/juju/juju/agent"
 	apiprovisioner "github.com/juju/juju/api/provisioner"
-	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/kvm"
-	"github.com/juju/juju/container/lxc"
+	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker"
 )
 
@@ -30,16 +29,12 @@ import (
 // are created on the given machine. It will set up the machine to be able
 // to create containers and start a suitable provisioner.
 type ContainerSetup struct {
-	runner                worker.Runner
-	supportedContainers   []instance.ContainerType
-	imageURLGetter        container.ImageURLGetter
-	provisioner           *apiprovisioner.State
-	machine               *apiprovisioner.Machine
-	config                agent.Config
-	initLock              *fslock.Lock
-	addressableContainers bool
-	enableNAT             bool
-	lxcDefaultMTU         int
+	runner              worker.Runner
+	supportedContainers []instance.ContainerType
+	provisioner         *apiprovisioner.State
+	machine             *apiprovisioner.Machine
+	config              agent.Config
+	initLockName        string
 
 	// Save the workerName so the worker thread can be stopped.
 	workerName string
@@ -56,25 +51,23 @@ type ContainerSetupParams struct {
 	Runner              worker.Runner
 	WorkerName          string
 	SupportedContainers []instance.ContainerType
-	ImageURLGetter      container.ImageURLGetter
 	Machine             *apiprovisioner.Machine
 	Provisioner         *apiprovisioner.State
 	Config              agent.Config
-	InitLock            *fslock.Lock
+	InitLockName        string
 }
 
 // NewContainerSetupHandler returns a StringsWatchHandler which is notified when
 // containers are created on the given machine.
-func NewContainerSetupHandler(params ContainerSetupParams) worker.StringsWatchHandler {
+func NewContainerSetupHandler(params ContainerSetupParams) watcher.StringsHandler {
 	return &ContainerSetup{
 		runner:              params.Runner,
-		imageURLGetter:      params.ImageURLGetter,
 		machine:             params.Machine,
 		supportedContainers: params.SupportedContainers,
 		provisioner:         params.Provisioner,
 		config:              params.Config,
 		workerName:          params.WorkerName,
-		initLock:            params.InitLock,
+		initLockName:        params.InitLockName,
 	}
 }
 
@@ -96,7 +89,7 @@ func (cs *ContainerSetup) SetUp() (watcher watcher.StringsWatcher, err error) {
 // Handle is called whenever containers change on the machine being watched.
 // Machines start out with no containers so the first time Handle is called,
 // it will be because a container has been added.
-func (cs *ContainerSetup) Handle(containerIds []string) (resultError error) {
+func (cs *ContainerSetup) Handle(abort <-chan struct{}, containerIds []string) (resultError error) {
 	// Consume the initial watcher event.
 	if len(containerIds) == 0 {
 		return nil
@@ -109,7 +102,7 @@ func (cs *ContainerSetup) Handle(containerIds []string) (resultError error) {
 		if atomic.LoadInt32(cs.setupDone[containerType]) != 0 {
 			continue
 		}
-		if err := cs.initialiseAndStartProvisioner(containerType); err != nil {
+		if err := cs.initialiseAndStartProvisioner(abort, containerType); err != nil {
 			logger.Errorf("starting container provisioner for %v: %v", containerType, err)
 			// Just because dealing with one type of container fails, we won't exit the entire
 			// function because we still want to try and start other container types. So we
@@ -122,7 +115,7 @@ func (cs *ContainerSetup) Handle(containerIds []string) (resultError error) {
 	return resultError
 }
 
-func (cs *ContainerSetup) initialiseAndStartProvisioner(containerType instance.ContainerType) (resultError error) {
+func (cs *ContainerSetup) initialiseAndStartProvisioner(abort <-chan struct{}, containerType instance.ContainerType) (resultError error) {
 	// Flag that this container type has been handled.
 	atomic.StoreInt32(cs.setupDone[containerType], 1)
 
@@ -147,69 +140,31 @@ func (cs *ContainerSetup) initialiseAndStartProvisioner(containerType instance.C
 	if err != nil {
 		return errors.Annotate(err, "initialising container infrastructure on host machine")
 	}
-	if err := cs.runInitialiser(containerType, initialiser); err != nil {
+	if err := cs.runInitialiser(abort, containerType, initialiser); err != nil {
 		return errors.Annotate(err, "setting up container dependencies on host machine")
 	}
 	return StartProvisioner(cs.runner, containerType, cs.provisioner, cs.config, broker, toolsFinder)
 }
 
-const etcDefaultLXCNet = `
-# Modified by Juju to enable addressable LXC containers.
-USE_LXC_BRIDGE="true"
-LXC_BRIDGE="lxcbr0"
-LXC_ADDR="10.0.3.1"
-LXC_NETMASK="255.255.255.0"
-LXC_NETWORK="10.0.3.0/24"
-LXC_DHCP_RANGE="10.0.3.2,10.0.3.254,infinite"
-LXC_DHCP_MAX="253"
-`
-
-var etcDefaultLXCNetPath = "/etc/default/lxc-net"
-
-// maybeOverrideDefaultLXCNet writes a modified version of
-// /etc/default/lxc-net file on the host before installing the lxc
-// package, if we're about to start an addressable LXC container. This
-// is needed to guarantee stable statically assigned IP addresses for
-// the container. See also runInitialiser.
-func maybeOverrideDefaultLXCNet(containerType instance.ContainerType, addressable bool) error {
-	if containerType != instance.LXC || !addressable {
-		// Nothing to do.
-		return nil
-	}
-
-	err := utils.AtomicWriteFile(etcDefaultLXCNetPath, []byte(etcDefaultLXCNet), 0644)
-	if err != nil {
-		return errors.Annotatef(err, "cannot write %q", etcDefaultLXCNetPath)
-	}
-	return nil
-}
-
 // runInitialiser runs the container initialiser with the initialisation hook held.
-func (cs *ContainerSetup) runInitialiser(containerType instance.ContainerType, initialiser container.Initialiser) error {
+func (cs *ContainerSetup) runInitialiser(abort <-chan struct{}, containerType instance.ContainerType, initialiser container.Initialiser) error {
 	logger.Debugf("running initialiser for %s containers", containerType)
-	if err := cs.initLock.Lock(fmt.Sprintf("initialise-%s", containerType)); err != nil {
+	spec := mutex.Spec{
+		Name:  cs.initLockName,
+		Clock: clock.WallClock,
+		// If we don't get the lock straigh away, there is no point trying multiple
+		// times per second for an operation that is likelty to take multiple seconds.
+		Delay:  time.Second,
+		Cancel: abort,
+	}
+	logger.Debugf("acquire lock %q for container initialisation", cs.initLockName)
+	releaser, err := mutex.Acquire(spec)
+	if err != nil {
 		return errors.Annotate(err, "failed to acquire initialization lock")
 	}
-	defer cs.initLock.Unlock()
-
-	// Only tweak default LXC network config when address allocation
-	// feature flag is enabled.
-	if environs.AddressAllocationEnabled() {
-		// In order to guarantee stable statically assigned IP addresses
-		// for LXC containers, we need to install a custom version of
-		// /etc/default/lxc-net before we install the lxc package. The
-		// custom version of lxc-net is almost the same as the original,
-		// but the defined LXC_DHCP_RANGE (used by dnsmasq to give away
-		// 10.0.3.x addresses to containers bound to lxcbr0) has infinite
-		// lease time. This is necessary, because with the default lease
-		// time of 1h, dhclient running inside each container will request
-		// a renewal from dnsmasq and replace our statically configured IP
-		// address within an hour after starting the container.
-		err := maybeOverrideDefaultLXCNet(containerType, cs.addressableContainers)
-		if err != nil {
-			return errors.Trace(err)
-		}
-	}
+	logger.Debugf("lock %q acquired", cs.initLockName)
+	defer logger.Debugf("release lock %q for container initialisation", cs.initLockName)
+	defer releaser.Release()
 
 	if err := initialiser.Initialise(); err != nil {
 		return errors.Trace(err)
@@ -245,67 +200,36 @@ func (cs *ContainerSetup) getContainerArtifacts(
 		return nil, nil, nil, err
 	}
 
-	// Override default MTU for LXC NICs, if needed.
-	if mtu := managerConfig.PopValue(container.ConfigLXCDefaultMTU); mtu != "" {
-		value, err := strconv.Atoi(mtu)
-		if err != nil {
-			return nil, nil, nil, errors.Trace(err)
-		}
-		logger.Infof("setting MTU to %v for all LXC containers' interfaces", value)
-		cs.lxcDefaultMTU = value
-	}
-
-	// Enable IP forwarding and ARP proxying if needed.
-	if ipfwd := managerConfig.PopValue(container.ConfigIPForwarding); ipfwd != "" {
-		if err := setIPAndARPForwarding(true); err != nil {
-			return nil, nil, nil, errors.Trace(err)
-		}
-		cs.addressableContainers = true
-		logger.Infof("enabled IP forwarding and ARP proxying for containers")
-	}
-
-	// Enable NAT if needed.
-	if nat := managerConfig.PopValue(container.ConfigEnableNAT); nat != "" {
-		cs.enableNAT = true
-		logger.Infof("enabling NAT for containers")
-	}
-
 	switch containerType {
-	case instance.LXC:
-		series, err := cs.machine.Series()
-		if err != nil {
-			return nil, nil, nil, err
-		}
-
-		initialiser = lxc.NewContainerInitialiser(series)
-		broker, err = NewLxcBroker(
-			cs.provisioner,
-			cs.config,
-			managerConfig,
-			cs.imageURLGetter,
-			cs.enableNAT,
-			cs.lxcDefaultMTU,
-		)
-		if err != nil {
-			return nil, nil, nil, err
-		}
-
-		// LXC containers must have the same architecture as the host.
-		// We should call through to the finder since the version of
-		// tools running on the host may not match, but we want to
-		// override the arch constraint with the arch of the host.
-		toolsFinder = hostArchToolsFinder{toolsFinder}
-
 	case instance.KVM:
 		initialiser = kvm.NewContainerInitialiser()
 		broker, err = NewKvmBroker(
 			cs.provisioner,
 			cs.config,
 			managerConfig,
-			cs.enableNAT,
 		)
 		if err != nil {
 			logger.Errorf("failed to create new kvm broker")
+			return nil, nil, nil, err
+		}
+	case instance.LXD:
+		series, err := cs.machine.Series()
+		if err != nil {
+			return nil, nil, nil, err
+		}
+
+		initialiser = lxd.NewContainerInitialiser(series)
+		manager, err := lxd.NewContainerManager(managerConfig)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		broker, err = NewLxdBroker(
+			cs.provisioner,
+			manager,
+			cs.config,
+		)
+		if err != nil {
+			logger.Errorf("failed to create new lxd broker")
 			return nil, nil, nil, err
 		}
 	default:
@@ -324,34 +248,15 @@ func containerManagerConfig(
 	managerConfigResult, err := provisioner.ContainerManagerConfig(
 		params.ContainerManagerConfigParams{Type: containerType},
 	)
-	if params.IsCodeNotImplemented(err) {
-		// We currently don't support upgrading;
-		// revert to the old configuration.
-		managerConfigResult.ManagerConfig = container.ManagerConfig{container.ConfigName: container.DefaultNamespace}
-	}
 	if err != nil {
-		return nil, err
-	}
-	// If a namespace is specified, that should instead be used as the config name.
-	if namespace := agentConfig.Value(agent.Namespace); namespace != "" {
-		managerConfigResult.ManagerConfig[container.ConfigName] = namespace
+		return nil, errors.Trace(err)
 	}
 	managerConfig := container.ManagerConfig(managerConfigResult.ManagerConfig)
-
 	return managerConfig, nil
 }
 
 // Override for testing.
-var (
-	StartProvisioner = startProvisionerWorker
-
-	sysctlConfig = "/etc/sysctl.conf"
-)
-
-const (
-	ipForwardSysctlKey = "net.ipv4.ip_forward"
-	arpProxySysctlKey  = "net.ipv4.conf.all.proxy_arp"
-)
+var StartProvisioner = startProvisionerWorker
 
 // startProvisionerWorker kicks off a provisioner task responsible for creating containers
 // of the specified type on the machine.
@@ -369,49 +274,10 @@ func startProvisionerWorker(
 	// already been added to the machine. It will see that the
 	// container does not have an instance yet and create one.
 	return runner.StartWorker(workerName, func() (worker.Worker, error) {
-		return NewContainerProvisioner(containerType, provisioner, config, broker, toolsFinder), nil
+		w, err := NewContainerProvisioner(containerType, provisioner, config, broker, toolsFinder)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return w, nil
 	})
-}
-
-// setIPAndARPForwarding enables or disables IP and ARP forwarding on
-// the machine. This is needed when the machine needs to host
-// addressable containers.
-var setIPAndARPForwarding = func(enabled bool) error {
-	val := "0"
-	if enabled {
-		val = "1"
-	}
-
-	runCmds := func(keyAndVal string) (err error) {
-
-		defer errors.DeferredAnnotatef(&err, "cannot set %s", keyAndVal)
-
-		commands := []string{
-			// Change it immediately:
-			fmt.Sprintf("sysctl -w %s", keyAndVal),
-
-			// Change it also on next boot:
-			fmt.Sprintf("echo '%s' | tee -a %s", keyAndVal, sysctlConfig),
-		}
-		for _, cmd := range commands {
-			result, err := exec.RunCommands(exec.RunParams{Commands: cmd})
-			if err != nil {
-				return errors.Trace(err)
-			}
-			logger.Debugf(
-				"command %q returned: code: %d, stdout: %q, stderr: %q",
-				cmd, result.Code, string(result.Stdout), string(result.Stderr),
-			)
-			if result.Code != 0 {
-				return errors.Errorf("unexpected exit code %d", result.Code)
-			}
-		}
-		return nil
-	}
-
-	err := runCmds(fmt.Sprintf("%s=%s", ipForwardSysctlKey, val))
-	if err != nil {
-		return err
-	}
-	return runCmds(fmt.Sprintf("%s=%s", arpProxySysctlKey, val))
 }

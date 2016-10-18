@@ -55,9 +55,9 @@ func (s *meterStatusSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *meterStatusSuite) TestGetMeterStatusUnauthenticated(c *gc.C) {
-	service, err := s.unit.Service()
+	application, err := s.unit.Application()
 	c.Assert(err, jc.ErrorIsNil)
-	otherunit := s.factory.MakeUnit(c, &jujufactory.UnitParams{Service: service})
+	otherunit := s.factory.MakeUnit(c, &jujufactory.UnitParams{Application: application})
 	args := params.Entities{Entities: []params.Entity{{otherunit.Tag().String()}}}
 	result, err := s.status.GetMeterStatus(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -73,7 +73,7 @@ func (s *meterStatusSuite) TestGetMeterStatusBadTag(c *gc.C) {
 		"unit-nosuchunit",
 		"thisisnotatag",
 		"machine-0",
-		"environment-blah",
+		"model-blah",
 	}
 	args := params.Entities{Entities: make([]params.Entity, len(tags))}
 	for i, tag := range tags {

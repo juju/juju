@@ -6,9 +6,9 @@ package jujuc
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"launchpad.net/gnuflag"
+	"github.com/juju/gnuflag"
 
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/status"
 )
 
 // StatusSetCommand implements the status-set command.
@@ -39,15 +39,16 @@ status and message are the same as what's already set.
 	}
 }
 
-var validStatus = []params.Status{
-	params.StatusMaintenance,
-	params.StatusBlocked,
-	params.StatusWaiting,
-	params.StatusActive,
+var validStatus = []status.Status{
+	status.Maintenance,
+	status.Blocked,
+	status.Waiting,
+	status.Active,
 }
 
 func (c *StatusSetCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.BoolVar(&c.service, "service", false, "set this status for the service to which the unit belongs if the unit is the leader")
+	f.BoolVar(&c.service, "application", false, "set this status for the application to which the unit belongs if the unit is the leader")
+	f.BoolVar(&c.service, "service", false, "set this status for the application to which the unit belongs if the unit is the leader")
 }
 
 func (c *StatusSetCommand) Init(args []string) error {
@@ -78,7 +79,7 @@ func (c *StatusSetCommand) Run(ctx *cmd.Context) error {
 		Info:   c.message,
 	}
 	if c.service {
-		return c.ctx.SetServiceStatus(statusInfo)
+		return c.ctx.SetApplicationStatus(statusInfo)
 	}
 	return c.ctx.SetUnitStatus(statusInfo)
 

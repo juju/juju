@@ -12,30 +12,33 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
+	"github.com/juju/utils"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/cert"
 )
 
-// SocketTimeout should be long enough that
-// even a slow mongo server will respond in that
-// length of time. Since mongo servers ping themselves
-// every 10 seconds, we use a value of just over 2
-// ping periods to allow for delayed pings due to
-// issues such as CPU starvation etc.
-const SocketTimeout = 21 * time.Second
+// SocketTimeout should be long enough that even a slow mongo server
+// will respond in that length of time, and must also be long enough
+// to allow for completion of heavyweight queries.
+//
+// Note: 1 minute is mgo's default socket timeout value.
+//
+// Also note: We have observed mongodb occasionally getting "stuck"
+// for over 30s in the field.
+const SocketTimeout = time.Minute
 
-// defaultDialTimeout should be representative of
-// the upper bound of time taken to dial a mongo
-// server from within the same cloud/private network.
+// defaultDialTimeout should be representative of the upper bound of
+// time taken to dial a mongo server from within the same
+// cloud/private network.
 const defaultDialTimeout = 30 * time.Second
 
 // DialOpts holds configuration parameters that control the
-// Dialing behavior when connecting to a state server.
+// Dialing behavior when connecting to a controller.
 type DialOpts struct {
 	// Timeout is the amount of time to wait contacting
-	// a state server.
+	// a controller.
 	Timeout time.Duration
 
 	// SocketTimeout is the amount of time to wait for a
@@ -56,7 +59,11 @@ type DialOpts struct {
 }
 
 // DefaultDialOpts returns a DialOpts representing the default
-// parameters for contacting a state server.
+// parameters for contacting a controller.
+//
+// NOTE(axw) these options are inappropriate for tests in CI,
+// as CI tends to run on machines with slow I/O (or thrashed
+// I/O with limited IOPs). For tests, use mongotest.DialOpts().
 func DefaultDialOpts() DialOpts {
 	return DialOpts{
 		Timeout:       defaultDialTimeout,
@@ -73,7 +80,7 @@ type Info struct {
 	Addrs []string
 
 	// CACert holds the CA certificate that will be used
-	// to validate the state server's certificate, in PEM format.
+	// to validate the controller's certificate, in PEM format.
 	CACert string
 }
 
@@ -107,30 +114,40 @@ func DialInfo(info Info, opts DialOpts) (*mgo.DialInfo, error) {
 	}
 	pool := x509.NewCertPool()
 	pool.AddCert(xcert)
-	tlsConfig := &tls.Config{
-		RootCAs:    pool,
-		ServerName: "juju-mongodb",
+	tlsConfig := utils.SecureTLSConfig()
+
+	// TODO(natefinch): revisit this when are full-time on mongo 3.
+	// We have to add non-ECDHE suites because mongo doesn't support ECDHE.
+	moreSuites := []uint16{
+		tls.TLS_RSA_WITH_AES_128_GCM_SHA256,
+		tls.TLS_RSA_WITH_AES_256_GCM_SHA384,
 	}
-	dial := func(addr net.Addr) (net.Conn, error) {
-		c, err := net.Dial("tcp", addr.String())
+
+	tlsConfig.CipherSuites = append(tlsConfig.CipherSuites, moreSuites...)
+	tlsConfig.RootCAs = pool
+	tlsConfig.ServerName = "juju-mongodb"
+
+	dial := func(server *mgo.ServerAddr) (net.Conn, error) {
+		addr := server.TCPAddr().String()
+		c, err := net.DialTimeout("tcp", addr, opts.Timeout)
 		if err != nil {
-			logger.Debugf("connection failed, will retry: %v", err)
+			logger.Warningf("mongodb connection failed, will retry: %v", err)
 			return nil, err
 		}
 		cc := tls.Client(c, tlsConfig)
 		if err := cc.Handshake(); err != nil {
-			logger.Debugf("TLS handshake failed: %v", err)
+			logger.Warningf("TLS handshake failed: %v", err)
 			return nil, err
 		}
-		logger.Infof("dialled mongo successfully on address %q", addr)
+		logger.Debugf("dialled mongodb server at %q", addr)
 		return cc, nil
 	}
 
 	return &mgo.DialInfo{
-		Addrs:   info.Addrs,
-		Timeout: opts.Timeout,
-		Dial:    dial,
-		Direct:  opts.Direct,
+		Addrs:      info.Addrs,
+		Timeout:    opts.Timeout,
+		DialServer: dial,
+		Direct:     opts.Direct,
 	}, nil
 }
 

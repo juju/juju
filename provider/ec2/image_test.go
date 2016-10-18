@@ -4,15 +4,16 @@
 package ec2
 
 import (
+	"fmt"
+
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
+	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/imagemetadata"
-	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
 	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/environs/simplestreams"
+	"github.com/juju/juju/provider/ec2/internal/ec2instancetypes"
 	"github.com/juju/juju/testing"
 )
 
@@ -22,22 +23,8 @@ type specSuite struct {
 	testing.BaseSuite
 }
 
-func (s *specSuite) SetUpSuite(c *gc.C) {
-	s.BaseSuite.SetUpSuite(c)
-	imagetesting.PatchOfficialDataSources(&s.CleanupSuite, "test:")
-	UseTestImageData(TestImagesData)
-	UseTestInstanceTypeData(TestInstanceTypeCosts)
-	UseTestRegionData(TestRegions)
-}
-
-func (s *specSuite) TearDownSuite(c *gc.C) {
-	UseTestInstanceTypeData(nil)
-	UseTestImageData(nil)
-	UseTestRegionData(nil)
-	s.BaseSuite.TearDownSuite(c)
-}
-
 var findInstanceSpecTests = []struct {
+	// LTS-dependent requires new or updated entries upon a new LTS release.
 	series  string
 	arches  []string
 	cons    string
@@ -46,114 +33,106 @@ var findInstanceSpecTests = []struct {
 	storage []string
 }{
 	{
-		series: testing.FakeDefaultSeries,
-		arches: both,
+		series: "xenial",
+		arches: []string{"amd64"},
 		itype:  "m3.medium",
-		image:  "ami-00000033",
+		image:  "ami-00000133",
 	}, {
 		series: "quantal",
 		arches: []string{"i386"},
-		itype:  "c1.medium",
+		itype:  "c3.large",
 		image:  "ami-01000034",
 	}, {
-		series: testing.FakeDefaultSeries,
-		arches: both,
-		cons:   "cpu-cores=4",
-		itype:  "m3.xlarge",
-		image:  "ami-00000033",
+		series: "xenial",
+		arches: []string{"amd64"},
+		cons:   "cores=4",
+		itype:  "c4.xlarge",
+		image:  "ami-00000133",
 	}, {
-		series: testing.FakeDefaultSeries,
-		arches: both,
-		cons:   "cpu-cores=2 arch=i386",
-		itype:  "c1.medium",
-		image:  "ami-00000034",
-	}, {
-		series: testing.FakeDefaultSeries,
-		arches: both,
+		series: "xenial",
+		arches: []string{"amd64"},
 		cons:   "mem=10G",
-		itype:  "m3.xlarge",
-		image:  "ami-00000033",
+		itype:  "r3.large",
+		image:  "ami-00000133",
 	}, {
-		series: testing.FakeDefaultSeries,
-		arches: both,
+		series: "xenial",
+		arches: []string{"amd64"},
 		cons:   "mem=",
 		itype:  "m3.medium",
-		image:  "ami-00000033",
+		image:  "ami-00000133",
 	}, {
-		series: testing.FakeDefaultSeries,
-		arches: both,
+		series: "xenial",
+		arches: []string{"amd64"},
 		cons:   "cpu-power=",
+		itype:  "m3.medium",
+		image:  "ami-00000133",
+	}, {
+		series: "xenial",
+		arches: []string{"amd64"},
+		cons:   "cpu-power=800",
+		itype:  "c4.large",
+		image:  "ami-00000133",
+	}, {
+		series: "xenial",
+		arches: []string{"amd64"},
+		cons:   "instance-type=m1.medium cpu-power=100",
+		itype:  "m1.medium",
+		image:  "ami-00000135",
+	}, {
+		series: "xenial",
+		arches: []string{"amd64"},
+		cons:   "mem=2G root-disk=16384M",
+		itype:  "m3.medium",
+		image:  "ami-00000133",
+	}, {
+		series:  "xenial",
+		arches:  []string{"amd64"},
+		cons:    "mem=4G root-disk=16384M",
+		itype:   "m4.large",
+		storage: []string{"ssd", "ebs"},
+		image:   "ami-00000133",
+	}, {
+		series:  "xenial",
+		arches:  []string{"amd64"},
+		cons:    "mem=4G root-disk=16384M",
+		itype:   "m4.large",
+		storage: []string{"ebs", "ssd"},
+		image:   "ami-00000139",
+	}, {
+		series:  "xenial",
+		arches:  []string{"amd64"},
+		cons:    "mem=4G root-disk=16384M",
+		itype:   "m4.large",
+		storage: []string{"ebs"},
+		image:   "ami-00000139",
+	}, {
+		series: "trusty",
+		arches: []string{"amd64"},
 		itype:  "m3.medium",
 		image:  "ami-00000033",
 	}, {
-		series: testing.FakeDefaultSeries,
-		arches: both,
-		cons:   "cpu-power=800",
-		itype:  "m3.xlarge",
-		image:  "ami-00000033",
-	}, {
-		series: testing.FakeDefaultSeries,
-		arches: both,
-		cons:   "cpu-power=500 arch=i386",
-		itype:  "c1.medium",
-		image:  "ami-00000034",
-	}, {
-		series: testing.FakeDefaultSeries,
+		series: "quantal",
 		arches: []string{"i386"},
-		cons:   "cpu-power=400",
-		itype:  "c1.medium",
-		image:  "ami-00000034",
+		itype:  "c3.large",
+		image:  "ami-01000034",
 	}, {
 		series: "quantal",
-		arches: both,
+		arches: []string{"amd64", "i386"},
 		cons:   "arch=amd64",
-		itype:  "cc2.8xlarge",
+		itype:  "m3.medium",
 		image:  "ami-01000035",
 	}, {
 		series: "quantal",
-		arches: both,
+		arches: []string{"amd64", "i386"},
 		cons:   "instance-type=cc2.8xlarge",
 		itype:  "cc2.8xlarge",
 		image:  "ami-01000035",
 	}, {
-		series: testing.FakeDefaultSeries,
+		series: "trusty",
 		arches: []string{"i386"},
 		cons:   "instance-type=c1.medium",
 		itype:  "c1.medium",
 		image:  "ami-00000034",
-	}, {
-		series: testing.FakeDefaultSeries,
-		arches: []string{"amd64"},
-		cons:   "instance-type=m1.medium cpu-power=200",
-		itype:  "m1.medium",
-		image:  "ami-00000033",
-	}, {
-		series: testing.FakeDefaultSeries,
-		arches: both,
-		cons:   "mem=2G root-disk=16384M",
-		itype:  "m3.medium",
-		image:  "ami-00000033",
-	}, {
-		series:  testing.FakeDefaultSeries,
-		arches:  both,
-		cons:    "mem=4G root-disk=16384M",
-		itype:   "m3.large",
-		storage: []string{"ssd", "ebs"},
-		image:   "ami-00000033",
-	}, {
-		series:  testing.FakeDefaultSeries,
-		arches:  both,
-		cons:    "mem=4G root-disk=16384M",
-		itype:   "m3.large",
-		storage: []string{"ebs", "ssd"},
-		image:   "ami-00000039",
-	}, {
-		series:  testing.FakeDefaultSeries,
-		arches:  both,
-		cons:    "mem=4G root-disk=16384M",
-		itype:   "m3.large",
-		storage: []string{"ebs"},
-		image:   "ami-00000039",
 	},
 }
 
@@ -164,10 +143,16 @@ func (s *specSuite) TestFindInstanceSpec(c *gc.C) {
 		if len(stor) == 0 {
 			stor = []string{ssdStorage, ebsStorage}
 		}
+		// We need to filter the image metadata to the test's
+		// arches and series; the provisioner and bootstrap
+		// code will do this.
+		imageMetadata := filterImageMetadata(
+			c, TestImageMetadata, test.series, test.arches,
+		)
 		spec, err := findInstanceSpec(
-			[]simplestreams.DataSource{
-				simplestreams.NewURLDataSource("test", "test:", utils.VerifySSLHostnames)},
-			"released",
+			false, // non-controller
+			imageMetadata,
+			ec2instancetypes.RegionInstanceTypes("test"),
 			&instances.InstanceConstraint{
 				Region:      "test",
 				Series:      test.series,
@@ -183,17 +168,19 @@ func (s *specSuite) TestFindInstanceSpec(c *gc.C) {
 
 func (s *specSuite) TestFindInstanceSpecNotSetCpuPowerWhenInstanceTypeSet(c *gc.C) {
 
-	source := []simplestreams.DataSource{
-		simplestreams.NewURLDataSource("test", "test:", utils.VerifySSLHostnames),
-	}
 	instanceConstraint := &instances.InstanceConstraint{
 		Region:      "test",
-		Series:      testing.FakeDefaultSeries,
+		Series:      series.LatestLts(),
 		Constraints: constraints.MustParse("instance-type=t2.medium"),
 	}
 
 	c.Check(instanceConstraint.Constraints.CpuPower, gc.IsNil)
-	findInstanceSpec(source, "released", instanceConstraint)
+	findInstanceSpec(
+		false, // non-controller
+		TestImageMetadata,
+		ec2instancetypes.RegionInstanceTypes("test"),
+		instanceConstraint,
+	)
 
 	c.Check(instanceConstraint.Constraints.CpuPower, gc.IsNil)
 }
@@ -205,21 +192,17 @@ var findInstanceSpecErrorTests = []struct {
 	err    string
 }{
 	{
-		series: "bad",
-		arches: both,
-		err:    `unknown version for series: "bad"`,
-	}, {
-		series: testing.FakeDefaultSeries,
+		series: series.LatestLts(),
 		arches: []string{"arm"},
-		err:    `no "trusty" images in test with arches \[arm\]`,
+		err:    fmt.Sprintf(`no "%s" images in test with arches \[arm\]`, series.LatestLts()),
 	}, {
 		series: "raring",
-		arches: both,
+		arches: []string{"amd64", "i386"},
 		cons:   "mem=4G",
-		err:    `no "raring" images in test matching instance types \[m3.large m3.xlarge c1.xlarge m3.2xlarge cc2.8xlarge\]`,
+		err:    `no "raring" images in test matching instance types \[.*\]`,
 	}, {
-		series: testing.FakeDefaultSeries,
-		arches: both,
+		series: series.LatestLts(),
+		arches: []string{"amd64"},
 		cons:   "instance-type=m1.small mem=4G",
 		err:    `no instance types in test matching constraints "instance-type=m1.small mem=4096M"`,
 	},
@@ -228,10 +211,16 @@ var findInstanceSpecErrorTests = []struct {
 func (s *specSuite) TestFindInstanceSpecErrors(c *gc.C) {
 	for i, t := range findInstanceSpecErrorTests {
 		c.Logf("test %d", i)
+		// We need to filter the image metadata to the test's
+		// arches and series; the provisioner and bootstrap
+		// code will do this.
+		imageMetadata := filterImageMetadata(
+			c, TestImageMetadata, t.series, t.arches,
+		)
 		_, err := findInstanceSpec(
-			[]simplestreams.DataSource{
-				simplestreams.NewURLDataSource("test", "test:", utils.VerifySSLHostnames)},
-			"released",
+			false, // non-controller
+			imageMetadata,
+			ec2instancetypes.RegionInstanceTypes("test"),
 			&instances.InstanceConstraint{
 				Region:      "test",
 				Series:      t.series,
@@ -240,6 +229,29 @@ func (s *specSuite) TestFindInstanceSpecErrors(c *gc.C) {
 			})
 		c.Check(err, gc.ErrorMatches, t.err)
 	}
+}
+
+func filterImageMetadata(
+	c *gc.C,
+	in []*imagemetadata.ImageMetadata,
+	filterSeries string, filterArches []string,
+) []*imagemetadata.ImageMetadata {
+	var imageMetadata []*imagemetadata.ImageMetadata
+	for _, im := range in {
+		version, err := series.SeriesVersion(filterSeries)
+		c.Assert(err, jc.ErrorIsNil)
+		if im.Version != version {
+			continue
+		}
+		match := false
+		for _, arch := range filterArches {
+			match = match || im.Arch == arch
+		}
+		if match {
+			imageMetadata = append(imageMetadata, im)
+		}
+	}
+	return imageMetadata
 }
 
 func (*specSuite) TestFilterImagesAcceptsNil(c *gc.C) {

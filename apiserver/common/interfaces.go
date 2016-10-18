@@ -5,7 +5,7 @@ package common
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 )
 
 // AuthFunc returns whether the given entity is available to some operation.
@@ -13,35 +13,6 @@ type AuthFunc func(tag names.Tag) bool
 
 // GetAuthFunc returns an AuthFunc.
 type GetAuthFunc func() (AuthFunc, error)
-
-// Authorizer represents a value that can be asked for authorization
-// information on its associated authenticated entity. It is
-// implemented by an API server to allow an API implementation to ask
-// questions about the client that is currently connected.
-type Authorizer interface {
-	// AuthMachineAgent returns whether the authenticated entity is a
-	// machine agent.
-	AuthMachineAgent() bool
-
-	// AuthUnitAgent returns whether the authenticated entity is a
-	// unit agent.
-	AuthUnitAgent() bool
-
-	// AuthOwner returns whether the authenticated entity is the same
-	// as the given entity.
-	AuthOwner(tag names.Tag) bool
-
-	// AuthEnvironManager returns whether the authenticated entity is
-	// a machine running the environment manager job.
-	AuthEnvironManager() bool
-
-	// AuthClient returns whether the authenticated entity
-	// is a client user.
-	AuthClient() bool
-
-	// GetAuthTag returns the tag of the authenticated entity.
-	GetAuthTag() names.Tag
-}
 
 // AuthEither returns an AuthFunc generator that returns an AuthFunc
 // that accepts any tag authorized by either of its arguments.
@@ -75,6 +46,15 @@ func AuthNever() GetAuthFunc {
 	return func() (AuthFunc, error) {
 		return func(tag names.Tag) bool {
 			return false
+		}, nil
+	}
+}
+
+// AuthFuncForTag returns an authentication function that always returns true iff it is passed a specific tag.
+func AuthFuncForTag(valid names.Tag) GetAuthFunc {
+	return func() (AuthFunc, error) {
+		return func(tag names.Tag) bool {
+			return tag == valid
 		}, nil
 	}
 }

@@ -5,8 +5,9 @@ package cleaner
 
 import (
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/watcher"
+	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/watcher"
 )
 
 const cleanerFacade = "Cleaner"
@@ -37,6 +38,6 @@ func (api *API) WatchCleanups() (watcher.NotifyWatcher, error) {
 	if err := result.Error; err != nil {
 		return nil, result.Error
 	}
-	w := watcher.NewNotifyWatcher(api.facade.RawAPICaller(), result)
+	w := apiwatcher.NewNotifyWatcher(api.facade.RawAPICaller(), result)
 	return w, nil
 }

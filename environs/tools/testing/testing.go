@@ -21,40 +21,45 @@ import (
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/simplestreams"
+	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/environs/sync"
+	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/juju/names"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
-func GetMockBundleTools(c *gc.C) tools.BundleToolsFunc {
-	return func(w io.Writer, forceVersion *version.Number) (version.Binary, string, error) {
+func GetMockBundleTools(c *gc.C, expectedForceVersion *version.Number) tools.BundleToolsFunc {
+	return func(build bool, w io.Writer, forceVersion *version.Number) (version.Binary, string, error) {
+		if expectedForceVersion != nil {
+			c.Assert(forceVersion, jc.DeepEquals, expectedForceVersion)
+		} else {
+			c.Assert(forceVersion, gc.IsNil)
+		}
 		vers := version.Binary{
-			Number: version.Current,
+			Number: jujuversion.Current,
 			Arch:   arch.HostArch(),
 			Series: series.HostSeries(),
-		}
-		if forceVersion != nil {
-			vers.Number = *forceVersion
 		}
 		sha256Hash := fmt.Sprintf("%x", sha256.New().Sum(nil))
 		return vers, sha256Hash, nil
 	}
 }
 
-// GetMockBuildTools returns a sync.BuildToolsTarballFunc implementation which generates
+// GetMockBuildTools returns a sync.BuildAgentTarballFunc implementation which generates
 // a fake tools tarball.
-func GetMockBuildTools(c *gc.C) sync.BuildToolsTarballFunc {
-	return func(forceVersion *version.Number, stream string) (*sync.BuiltTools, error) {
+func GetMockBuildTools(c *gc.C) sync.BuildAgentTarballFunc {
+	return func(build bool, forceVersion *version.Number, stream string) (*sync.BuiltAgent, error) {
 		vers := version.Binary{
-			Number: version.Current,
+			Number: jujuversion.Current,
 			Arch:   arch.HostArch(),
 			Series: series.HostSeries(),
 		}
@@ -70,7 +75,7 @@ func GetMockBuildTools(c *gc.C) sync.BuildToolsTarballFunc {
 		name := "name"
 		ioutil.WriteFile(filepath.Join(toolsDir, name), tgz, 0777)
 
-		return &sync.BuiltTools{
+		return &sync.BuiltAgent{
 			Dir:         toolsDir,
 			StorageName: name,
 			Version:     vers,
@@ -117,6 +122,10 @@ func makeTools(c *gc.C, metadataDir, stream string, versionStrings []string, wit
 	c.Assert(err, jc.ErrorIsNil)
 	err = tools.MergeAndWriteMetadata(stor, stream, stream, toolsList, false)
 	c.Assert(err, jc.ErrorIsNil)
+
+	// Sign metadata
+	err = envtesting.SignTestTools(stor)
+	c.Assert(err, jc.ErrorIsNil)
 	return toolsList
 }
 
@@ -139,7 +148,7 @@ func ParseMetadataFromDir(c *gc.C, metadataDir, stream string, expectMirrors boo
 
 // ParseMetadataFromStorage loads ToolsMetadata from the specified storage reader.
 func ParseMetadataFromStorage(c *gc.C, stor storage.StorageReader, stream string, expectMirrors bool) []*tools.ToolsMetadata {
-	source := storage.NewStorageSimpleStreamsDataSource("test storage reader", stor, "tools")
+	source := storage.NewStorageSimpleStreamsDataSource("test storage reader", stor, "tools", simplestreams.CUSTOM_CLOUD_DATA, false)
 	params := simplestreams.ValueParams{
 		DataType:      tools.ContentDownload,
 		ValueTemplate: tools.ToolsMetadata{},
@@ -227,16 +236,28 @@ func generateMetadata(c *gc.C, stream string, versions ...version.Binary) []meta
 	var streamMetadata = map[string][]*tools.ToolsMetadata{
 		stream: metadata,
 	}
+	// TODO(perrito666) 2016-05-02 lp:1558657
 	index, legacyIndex, products, err := tools.MarshalToolsMetadataJSON(streamMetadata, time.Now())
 	c.Assert(err, jc.ErrorIsNil)
-	objects := []metadataFile{
-		{simplestreams.UnsignedIndex("v1", 2), index},
+
+	objects := []metadataFile{}
+	addTools := func(fileName string, content []byte) {
+		// add unsigned
+		objects = append(objects, metadataFile{fileName, content})
+
+		signedFilename, signedContent, err := sstesting.SignMetadata(fileName, content)
+		c.Assert(err, jc.ErrorIsNil)
+
+		// add signed
+		objects = append(objects, metadataFile{signedFilename, signedContent})
 	}
+
+	addTools(simplestreams.UnsignedIndex("v1", 2), index)
 	if stream == "released" {
-		objects = append(objects, metadataFile{simplestreams.UnsignedIndex("v1", 1), legacyIndex})
+		addTools(simplestreams.UnsignedIndex("v1", 1), legacyIndex)
 	}
 	for stream, metadata := range products {
-		objects = append(objects, metadataFile{tools.ProductMetadataPath(stream), metadata})
+		addTools(tools.ProductMetadataPath(stream), metadata)
 	}
 	return objects
 }

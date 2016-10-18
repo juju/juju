@@ -5,9 +5,9 @@ package testing
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -15,38 +15,26 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
+	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 )
-
-// FakeStateInfo holds information about no state - it will always
-// give an error when connected to.  The machine id gives the machine id
-// of the machine to be started.
-func FakeStateInfo(machineId string) *mongo.MongoInfo {
-	return &mongo.MongoInfo{
-		Info: mongo.Info{
-			Addrs:  []string{"0.1.2.3:1234"},
-			CACert: testing.CACert,
-		},
-		Tag:      names.NewMachineTag(machineId),
-		Password: "unimportant",
-	}
-}
 
 // FakeAPIInfo holds information about no state - it will always
 // give an error when connected to.  The machine id gives the machine id
 // of the machine to be started.
 func FakeAPIInfo(machineId string) *api.Info {
 	return &api.Info{
-		Addrs:      []string{"0.1.2.3:1234"},
-		Tag:        names.NewMachineTag(machineId),
-		Password:   "unimportant",
-		CACert:     testing.CACert,
-		EnvironTag: testing.EnvironmentTag,
+		Addrs:    []string{"0.1.2.3:17777"},
+		Tag:      names.NewMachineTag(machineId),
+		Password: "unimportant",
+		CACert:   testing.CACert,
+		ModelTag: testing.ModelTag,
 	}
 }
 
@@ -68,14 +56,30 @@ func WaitInstanceAddresses(env environs.Environ, instId instance.Id) ([]network.
 	return nil, errors.Errorf("timed out trying to get addresses for %v", instId)
 }
 
-// AssertStartInstance is a test helper function that starts an instance with a
-// plausible but invalid configuration, and checks that it succeeds.
-func AssertStartInstance(
-	c *gc.C, env environs.Environ, machineId string,
+// AssertStartControllerInstance is a test helper function that starts a
+// controller instance with a plausible but invalid configuration, and
+// checks that it succeeds.
+func AssertStartControllerInstance(
+	c *gc.C, env environs.Environ, controllerUUID, machineId string,
 ) (
 	instance.Instance, *instance.HardwareCharacteristics,
 ) {
-	inst, hc, _, err := StartInstance(env, machineId)
+	params := environs.StartInstanceParams{ControllerUUID: controllerUUID}
+	err := fillinStartInstanceParams(env, machineId, true, &params)
+	c.Assert(err, jc.ErrorIsNil)
+	result, err := env.StartInstance(params)
+	c.Assert(err, jc.ErrorIsNil)
+	return result.Instance, result.Hardware
+}
+
+// AssertStartInstance is a test helper function that starts an instance with a
+// plausible but invalid configuration, and checks that it succeeds.
+func AssertStartInstance(
+	c *gc.C, env environs.Environ, controllerUUID, machineId string,
+) (
+	instance.Instance, *instance.HardwareCharacteristics,
+) {
+	inst, hc, _, err := StartInstance(env, controllerUUID, machineId)
 	c.Assert(err, jc.ErrorIsNil)
 	return inst, hc
 }
@@ -83,22 +87,22 @@ func AssertStartInstance(
 // StartInstance is a test helper function that starts an instance with a plausible
 // but invalid configuration, and returns the result of Environ.StartInstance.
 func StartInstance(
-	env environs.Environ, machineId string,
+	env environs.Environ, controllerUUID, machineId string,
 ) (
 	instance.Instance, *instance.HardwareCharacteristics, []network.InterfaceInfo, error,
 ) {
-	return StartInstanceWithConstraints(env, machineId, constraints.Value{})
+	return StartInstanceWithConstraints(env, controllerUUID, machineId, constraints.Value{})
 }
 
 // AssertStartInstanceWithConstraints is a test helper function that starts an instance
 // with the given constraints, and a plausible but invalid configuration, and returns
 // the result of Environ.StartInstance.
 func AssertStartInstanceWithConstraints(
-	c *gc.C, env environs.Environ, machineId string, cons constraints.Value,
+	c *gc.C, env environs.Environ, controllerUUID, machineId string, cons constraints.Value,
 ) (
 	instance.Instance, *instance.HardwareCharacteristics,
 ) {
-	inst, hc, _, err := StartInstanceWithConstraints(env, machineId, cons)
+	inst, hc, _, err := StartInstanceWithConstraints(env, controllerUUID, machineId, cons)
 	c.Assert(err, jc.ErrorIsNil)
 	return inst, hc
 }
@@ -107,39 +111,12 @@ func AssertStartInstanceWithConstraints(
 // with the given constraints, and a plausible but invalid configuration, and returns
 // the result of Environ.StartInstance.
 func StartInstanceWithConstraints(
-	env environs.Environ, machineId string, cons constraints.Value,
+	env environs.Environ, controllerUUID, machineId string, cons constraints.Value,
 ) (
 	instance.Instance, *instance.HardwareCharacteristics, []network.InterfaceInfo, error,
 ) {
-	return StartInstanceWithConstraintsAndNetworks(env, machineId, cons, nil)
-}
-
-// AssertStartInstanceWithNetworks is a test helper function that starts an
-// instance with the given networks, and a plausible but invalid
-// configuration, and returns the result of Environ.StartInstance.
-func AssertStartInstanceWithNetworks(
-	c *gc.C, env environs.Environ, machineId string, cons constraints.Value,
-	networks []string,
-) (
-	instance.Instance, *instance.HardwareCharacteristics,
-) {
-	inst, hc, _, err := StartInstanceWithConstraintsAndNetworks(
-		env, machineId, cons, networks)
-	c.Assert(err, jc.ErrorIsNil)
-	return inst, hc
-}
-
-// StartInstanceWithConstraintsAndNetworks is a test helper function that
-// starts an instance with the given networks, and a plausible but invalid
-// configuration, and returns the result of Environ.StartInstance.
-func StartInstanceWithConstraintsAndNetworks(
-	env environs.Environ, machineId string, cons constraints.Value,
-	networks []string,
-) (
-	instance.Instance, *instance.HardwareCharacteristics, []network.InterfaceInfo, error,
-) {
-	params := environs.StartInstanceParams{Constraints: cons}
-	result, err := StartInstanceWithParams(env, machineId, params, networks)
+	params := environs.StartInstanceParams{ControllerUUID: controllerUUID, Constraints: cons}
+	result, err := StartInstanceWithParams(env, machineId, params)
 	if err != nil {
 		return nil, nil, nil, errors.Trace(err)
 	}
@@ -153,18 +130,27 @@ func StartInstanceWithConstraintsAndNetworks(
 func StartInstanceWithParams(
 	env environs.Environ, machineId string,
 	params environs.StartInstanceParams,
-	networks []string,
 ) (
 	*environs.StartInstanceResult, error,
 ) {
-	series := config.PreferredSeries(env.Config())
+	if err := fillinStartInstanceParams(env, machineId, false, &params); err != nil {
+		return nil, err
+	}
+	return env.StartInstance(params)
+}
+
+func fillinStartInstanceParams(env environs.Environ, machineId string, isController bool, params *environs.StartInstanceParams) error {
+	if params.ControllerUUID == "" {
+		return errors.New("missing controller UUID in start instance parameters")
+	}
+	preferredSeries := config.PreferredSeries(env.Config())
 	agentVersion, ok := env.Config().AgentVersion()
 	if !ok {
-		return nil, errors.New("missing agent version in environment config")
+		return errors.New("missing agent version in model config")
 	}
 	filter := coretools.Filter{
 		Number: agentVersion,
-		Series: series,
+		Series: preferredSeries,
 	}
 	if params.Constraints.Arch != nil {
 		filter.Arch = *params.Constraints.Arch
@@ -172,26 +158,77 @@ func StartInstanceWithParams(
 	stream := tools.PreferredStream(&agentVersion, env.Config().Development(), env.Config().AgentStream())
 	possibleTools, err := tools.FindTools(env, -1, -1, stream, filter)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return errors.Trace(err)
 	}
+
+	if params.ImageMetadata == nil {
+		if err := SetImageMetadata(
+			env,
+			possibleTools.AllSeries(),
+			possibleTools.Arches(),
+			&params.ImageMetadata,
+		); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
 	machineNonce := "fake_nonce"
-	stateInfo := FakeStateInfo(machineId)
 	apiInfo := FakeAPIInfo(machineId)
 	instanceConfig, err := instancecfg.NewInstanceConfig(
+		testing.ControllerTag,
 		machineId,
 		machineNonce,
 		imagemetadata.ReleasedStream,
-		series,
-		"",
-		true,
-		networks,
-		stateInfo,
+		preferredSeries,
 		apiInfo,
 	)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return errors.Trace(err)
 	}
+	if isController {
+		instanceConfig.Controller = &instancecfg.ControllerConfig{
+			Config: testing.FakeControllerConfig(),
+			MongoInfo: &mongo.MongoInfo{
+				Info: mongo.Info{
+					Addrs:  []string{"127.0.0.1:1234"},
+					CACert: "CA CERT\n" + testing.CACert,
+				},
+				Password: "mongosecret",
+				Tag:      names.NewMachineTag(machineId),
+			},
+		}
+		instanceConfig.Jobs = []multiwatcher.MachineJob{multiwatcher.JobHostUnits, multiwatcher.JobManageModel}
+	}
+	cfg := env.Config()
+	instanceConfig.Tags = instancecfg.InstanceTags(env.Config().UUID(), params.ControllerUUID, cfg, nil)
 	params.Tools = possibleTools
 	params.InstanceConfig = instanceConfig
-	return env.StartInstance(params)
+	return nil
+}
+
+func SetImageMetadata(env environs.Environ, series, arches []string, out *[]*imagemetadata.ImageMetadata) error {
+	hasRegion, ok := env.(simplestreams.HasRegion)
+	if !ok {
+		return nil
+	}
+	sources, err := environs.ImageMetadataSources(env)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	region, err := hasRegion.Region()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
+		CloudSpec: region,
+		Series:    series,
+		Arches:    arches,
+		Stream:    env.Config().ImageStream(),
+	})
+	imageMetadata, _, err := imagemetadata.Fetch(sources, imageConstraint)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	*out = imageMetadata
+	return nil
 }

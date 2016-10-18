@@ -7,59 +7,68 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
-	"time"
+	"time" // Only used for time types.
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn"
 	txntesting "github.com/juju/txn/testing"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/model/crossmodel"
+	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/mongo/utils"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/permission"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/testcharms"
+	"github.com/juju/juju/version"
+	"github.com/juju/juju/worker"
 )
 
 const (
-	InstanceDataC      = instanceDataC
-	MachinesC          = machinesC
-	NetworkInterfacesC = networkInterfacesC
-	ServicesC          = servicesC
-	SettingsC          = settingsC
-	UnitsC             = unitsC
-	UsersC             = usersC
-	BlockDevicesC      = blockDevicesC
-	StorageInstancesC  = storageInstancesC
-	StatusesHistoryC   = statusesHistoryC
+	MachinesC         = machinesC
+	ApplicationsC     = applicationsC
+	EndpointBindingsC = endpointBindingsC
+	ControllersC      = controllersC
+	UsersC            = usersC
+	BlockDevicesC     = blockDevicesC
+	StorageInstancesC = storageInstancesC
+	GUISettingsC      = guisettingsC
+	GlobalSettingsC   = globalSettingsC
+	SettingsC         = settingsC
 )
 
 var (
-	ToolstorageNewStorage  = &toolstorageNewStorage
-	ImageStorageNewStorage = &imageStorageNewStorage
-	MachineIdLessThan      = machineIdLessThan
-	StateServerAvailable   = &stateServerAvailable
-	GetOrCreatePorts       = getOrCreatePorts
-	GetPorts               = getPorts
-	PortsGlobalKey         = portsGlobalKey
-	CurrentUpgradeId       = currentUpgradeId
-	NowToTheSecond         = nowToTheSecond
-	PickAddress            = &pickAddress
-	AddVolumeOps           = (*State).addVolumeOps
-	CombineMeterStatus     = combineMeterStatus
+	BinarystorageNew                     = &binarystorageNew
+	ImageStorageNewStorage               = &imageStorageNewStorage
+	MachineIdLessThan                    = machineIdLessThan
+	ControllerAvailable                  = &controllerAvailable
+	GetOrCreatePorts                     = getOrCreatePorts
+	GetPorts                             = getPorts
+	AddVolumeOps                         = (*State).addVolumeOps
+	CombineMeterStatus                   = combineMeterStatus
+	ApplicationGlobalKey                 = applicationGlobalKey
+	ReadSettings                         = readSettings
+	ControllerInheritedSettingsGlobalKey = controllerInheritedSettingsGlobalKey
+	ModelGlobalKey                       = modelGlobalKey
+	MergeBindings                        = mergeBindings
+	UpgradeInProgressError               = errUpgradeInProgress
 )
 
 type (
 	CharmDoc        charmDoc
 	MachineDoc      machineDoc
 	RelationDoc     relationDoc
-	ServiceDoc      serviceDoc
+	ApplicationDoc  applicationDoc
 	UnitDoc         unitDoc
 	BlockDevicesDoc blockDevicesDoc
 )
@@ -87,12 +96,12 @@ func newRunnerForHooks(st *State) jujutxn.Runner {
 	return runner
 }
 
-func OfferAtURL(sd crossmodel.ServiceDirectory, url string) (*serviceOfferDoc, error) {
-	return sd.(*serviceDirectory).offerAtURL(url)
+func OfferAtURL(sd crossmodel.ApplicationDirectory, url string) (*applicationOfferDoc, error) {
+	return sd.(*applicationDirectory).offerAtURL(url)
 }
 
-func MakeServiceOfferDoc(sd crossmodel.ServiceDirectory, url string, offer crossmodel.ServiceOffer) serviceOfferDoc {
-	return sd.(*serviceDirectory).makeServiceOfferDoc(offer)
+func MakeApplicationOfferDoc(sd crossmodel.ApplicationDirectory, url string, offer crossmodel.ApplicationOffer) applicationOfferDoc {
+	return sd.(*applicationDirectory).makeApplicationOfferDoc(offer)
 }
 
 // SetPolicy updates the State's policy field to the
@@ -108,16 +117,12 @@ func (doc *MachineDoc) String() string {
 	return m.String()
 }
 
-func ServiceSettingsRefCount(st *State, serviceName string, curl *charm.URL) (int, error) {
-	settingsRefsCollection, closer := st.getCollection(settingsrefsC)
+func ServiceSettingsRefCount(st *State, appName string, curl *charm.URL) (int, error) {
+	refcounts, closer := st.getCollection(refcountsC)
 	defer closer()
 
-	key := serviceSettingsKey(serviceName, curl)
-	var doc settingsRefsDoc
-	if err := settingsRefsCollection.FindId(key).One(&doc); err == nil {
-		return doc.RefCount, nil
-	}
-	return 0, mgo.ErrNotFound
+	key := applicationSettingsKey(appName, curl)
+	return nsRefcounts.read(refcounts, key)
 }
 
 func AddTestingCharm(c *gc.C, st *State, name string) *Charm {
@@ -132,30 +137,42 @@ func AddTestingCharmMultiSeries(c *gc.C, st *State, name string) *Charm {
 	ch := testcharms.Repo.CharmDir(name)
 	ident := fmt.Sprintf("%s-%d", ch.Meta().Name, ch.Revision())
 	curl := charm.MustParseURL("cs:" + ident)
-	sch, err := st.AddCharm(ch, curl, "dummy-path", ident+"-sha256")
+	info := CharmInfo{
+		Charm:       ch,
+		ID:          curl,
+		StoragePath: "dummy-path",
+		SHA256:      ident + "-sha256",
+	}
+	sch, err := st.AddCharm(info)
 	c.Assert(err, jc.ErrorIsNil)
 	return sch
 }
 
-func AddTestingService(c *gc.C, st *State, name string, ch *Charm, owner names.UserTag) *Service {
-	return addTestingService(c, st, "", name, ch, owner, nil, nil)
+func AddTestingService(c *gc.C, st *State, name string, ch *Charm) *Application {
+	return addTestingService(c, st, "", name, ch, nil, nil)
 }
 
-func AddTestingServiceForSeries(c *gc.C, st *State, series, name string, ch *Charm, owner names.UserTag) *Service {
-	return addTestingService(c, st, series, name, ch, owner, nil, nil)
+func AddTestingServiceForSeries(c *gc.C, st *State, series, name string, ch *Charm) *Application {
+	return addTestingService(c, st, series, name, ch, nil, nil)
 }
 
-func AddTestingServiceWithNetworks(c *gc.C, st *State, name string, ch *Charm, owner names.UserTag, networks []string) *Service {
-	return addTestingService(c, st, "", name, ch, owner, networks, nil)
+func AddTestingServiceWithStorage(c *gc.C, st *State, name string, ch *Charm, storage map[string]StorageConstraints) *Application {
+	return addTestingService(c, st, "", name, ch, nil, storage)
 }
 
-func AddTestingServiceWithStorage(c *gc.C, st *State, name string, ch *Charm, owner names.UserTag, storage map[string]StorageConstraints) *Service {
-	return addTestingService(c, st, "", name, ch, owner, nil, storage)
+func AddTestingServiceWithBindings(c *gc.C, st *State, name string, ch *Charm, bindings map[string]string) *Application {
+	return addTestingService(c, st, "", name, ch, bindings, nil)
 }
 
-func addTestingService(c *gc.C, st *State, series, name string, ch *Charm, owner names.UserTag, networks []string, storage map[string]StorageConstraints) *Service {
+func addTestingService(c *gc.C, st *State, series, name string, ch *Charm, bindings map[string]string, storage map[string]StorageConstraints) *Application {
 	c.Assert(ch, gc.NotNil)
-	service, err := st.AddService(AddServiceArgs{Name: name, Series: series, Owner: owner.String(), Charm: ch, Networks: networks, Storage: storage})
+	service, err := st.AddApplication(AddApplicationArgs{
+		Name:             name,
+		Series:           series,
+		Charm:            ch,
+		EndpointBindings: bindings,
+		Storage:          storage,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	return service
 }
@@ -177,8 +194,19 @@ func AddCustomCharm(c *gc.C, st *State, name, filename, content, series string, 
 
 func addCharm(c *gc.C, st *State, series string, ch charm.Charm) *Charm {
 	ident := fmt.Sprintf("%s-%s-%d", series, ch.Meta().Name, ch.Revision())
-	curl := charm.MustParseURL("local:" + series + "/" + ident)
-	sch, err := st.AddCharm(ch, curl, "dummy-path", ident+"-sha256")
+	url := "local:" + series + "/" + ident
+	if series == "" {
+		ident = fmt.Sprintf("%s-%d", ch.Meta().Name, ch.Revision())
+		url = "local:" + ident
+	}
+	curl := charm.MustParseURL(url)
+	info := CharmInfo{
+		Charm:       ch,
+		ID:          curl,
+		StoragePath: "dummy-path",
+		SHA256:      ident + "-sha256",
+	}
+	sch, err := st.AddCharm(info)
 	c.Assert(err, jc.ErrorIsNil)
 	return sch
 }
@@ -194,18 +222,6 @@ func SetCharmBundleURL(c *gc.C, st *State, curl *charm.URL, bundleURL string) {
 	}}
 	err := st.runTransaction(ops)
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-// SCHEMACHANGE
-// This method is used to reset the ownertag attribute
-func SetServiceOwnerTag(s *Service, ownerTag string) {
-	s.doc.OwnerTag = ownerTag
-}
-
-// SCHEMACHANGE
-// Get the owner directly
-func GetServiceOwnerTag(s *Service) string {
-	return s.doc.OwnerTag
 }
 
 func SetPasswordHash(e Authenticator, passwordHash string) error {
@@ -245,12 +261,12 @@ func TxnRevno(st *State, collName string, id interface{}) (int64, error) {
 }
 
 // MinUnitsRevno returns the Revno of the minUnits document
-// associated with the given service name.
-func MinUnitsRevno(st *State, serviceName string) (int, error) {
+// associated with the given application name.
+func MinUnitsRevno(st *State, applicationname string) (int, error) {
 	minUnitsCollection, closer := st.getCollection(minUnitsC)
 	defer closer()
 	var doc minUnitsDoc
-	if err := minUnitsCollection.FindId(serviceName).One(&doc); err != nil {
+	if err := minUnitsCollection.FindId(applicationname).One(&doc); err != nil {
 		return 0, err
 	}
 	return doc.Revno, nil
@@ -306,8 +322,8 @@ func GetAllUpgradeInfos(st *State) ([]*UpgradeInfo, error) {
 	return out, nil
 }
 
-func UserEnvNameIndex(username, envName string) string {
-	return userEnvNameIndex(username, envName)
+func UserModelNameIndex(username, modelName string) string {
+	return userModelNameIndex(username, modelName)
 }
 
 func DocID(st *State, id string) string {
@@ -322,8 +338,8 @@ func StrictLocalID(st *State, id string) (string, error) {
 	return st.strictLocalID(id)
 }
 
-func GetUnitEnvUUID(unit *Unit) string {
-	return unit.doc.EnvUUID
+func GetUnitModelUUID(unit *Unit) string {
+	return unit.doc.ModelUUID
 }
 
 func GetCollection(st *State, name string) (mongo.Collection, func()) {
@@ -352,30 +368,17 @@ func Sequence(st *State, name string) (int, error) {
 	return st.sequence(name)
 }
 
-// This is a naive environment destruction function, used to test environment
-// watching after the client calls DestroyEnvironment and the environ doc is removed.
-// It is also used to test annotations.
-func RemoveEnvironment(st *State, uuid string) error {
+func SetModelLifeDead(st *State, modelUUID string) error {
 	ops := []txn.Op{{
-		C:      environmentsC,
-		Id:     uuid,
-		Assert: txn.DocExists,
-		Remove: true,
-	}}
-	return st.runTransaction(ops)
-}
-
-func SetEnvLifeDead(st *State, envUUID string) error {
-	ops := []txn.Op{{
-		C:      environmentsC,
-		Id:     envUUID,
+		C:      modelsC,
+		Id:     modelUUID,
 		Update: bson.D{{"$set", bson.D{{"life", Dead}}}},
 	}}
 	return st.runTransaction(ops)
 }
 
-func HostedEnvironCount(c *gc.C, st *State) int {
-	count, err := hostedEnvironCount(st)
+func HostedModelCount(c *gc.C, st *State) int {
+	count, err := hostedModelCount(st)
 	c.Assert(err, jc.ErrorIsNil)
 	return count
 }
@@ -430,7 +433,7 @@ func AssertHostPortConversion(c *gc.C, netHostPort network.HostPort) {
 
 // MakeLogDoc creates a database document for a single log message.
 func MakeLogDoc(
-	envUUID string,
+	modelUUID string,
 	entity names.Tag,
 	t time.Time,
 	module string,
@@ -439,14 +442,15 @@ func MakeLogDoc(
 	msg string,
 ) *logDoc {
 	return &logDoc{
-		Id:       bson.NewObjectId(),
-		Time:     t,
-		EnvUUID:  envUUID,
-		Entity:   entity.String(),
-		Module:   module,
-		Location: location,
-		Level:    level,
-		Message:  msg,
+		Id:        bson.NewObjectId(),
+		Time:      t.UnixNano(),
+		ModelUUID: modelUUID,
+		Entity:    entity.String(),
+		Version:   version.Current.String(),
+		Module:    module,
+		Location:  location,
+		Level:     int(level),
+		Message:   msg,
 	}
 }
 
@@ -463,3 +467,108 @@ func IsManagerMachineError(err error) bool {
 }
 
 var ActionNotificationIdToActionId = actionNotificationIdToActionId
+
+func UpdateModelUserLastConnection(st *State, e permission.UserAccess, when time.Time) error {
+	return st.updateLastModelConnection(e.UserTag, when)
+}
+
+func RemoveEndpointBindingsForService(c *gc.C, service *Application) {
+	globalKey := service.globalKey()
+	removeOp := removeEndpointBindingsOp(globalKey)
+
+	txnError := service.st.runTransaction([]txn.Op{removeOp})
+	err := onAbort(txnError, nil) // ignore ErrAborted as it asserts DocExists
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func RelationCount(service *Application) int {
+	return service.doc.RelationCount
+}
+
+func AssertEndpointBindingsNotFoundForService(c *gc.C, service *Application) {
+	globalKey := service.globalKey()
+	storedBindings, _, err := readEndpointBindings(service.st, globalKey)
+	c.Assert(storedBindings, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("endpoint bindings for %q not found", globalKey))
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func LeadershipLeases(st *State) (map[string]lease.Info, error) {
+	client, err := st.getLeadershipLeaseClient()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return client.Leases(), nil
+}
+
+func StorageAttachmentCount(instance StorageInstance) int {
+	internal, ok := instance.(*storageInstance)
+	if !ok {
+		return -1
+	}
+	return internal.doc.AttachmentCount
+}
+
+func ResetMigrationMode(c *gc.C, st *State) {
+	ops := []txn.Op{{
+		C:      modelsC,
+		Id:     st.ModelUUID(),
+		Assert: txn.DocExists,
+		Update: bson.M{
+			"$set": bson.M{"migration-mode": MigrationModeNone},
+		},
+	}}
+	err := st.runTransaction(ops)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+// PrimeUnitStatusHistory will add count history elements, advancing the test clock by
+// one second for each entry.
+func PrimeUnitStatusHistory(
+	c *gc.C, clock *testing.Clock,
+	unit *Unit, statusVal status.Status,
+	count, batchSize int,
+	nextData func(int) map[string]interface{},
+) {
+	globalKey := unit.globalKey()
+
+	history, closer := unit.st.getCollection(statusesHistoryC)
+	defer closer()
+	historyW := history.Writeable()
+
+	var data map[string]interface{}
+	for i := 0; i < count; {
+		var docs []interface{}
+		for j := 0; j < batchSize && i < count; j++ {
+			clock.Advance(time.Second)
+			if nextData != nil {
+				data = utils.EscapeKeys(nextData(i))
+			}
+			docs = append(docs, &historicalStatusDoc{
+				Status:     statusVal,
+				StatusData: data,
+				Updated:    clock.Now().UnixNano(),
+				GlobalKey:  globalKey,
+			})
+			// Seems like you can't increment two values in one loop
+			i++
+		}
+		err := historyW.Insert(docs...)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	// Set the status for the unit itself.
+	doc := statusDoc{
+		Status:     statusVal,
+		StatusData: data,
+		Updated:    clock.Now().UnixNano(),
+	}
+	buildTxn := updateStatusSource(unit.st, globalKey, doc)
+	err := unit.st.run(buildTxn)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+// GetInternalWorkers returns the internal workers managed by a State
+// to allow inspection in tests.
+func GetInternalWorkers(st *State) worker.Worker {
+	return st.workers
+}

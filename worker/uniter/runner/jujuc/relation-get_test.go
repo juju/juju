@@ -152,8 +152,8 @@ func (s *RelationGetSuite) TestRelationGet(c *gc.C) {
 		if code == 0 {
 			c.Check(bufferString(ctx.Stderr), gc.Equals, "")
 			expect := t.out
-			if expect != "" {
-				expect = expect + "\n"
+			if len(expect) > 0 {
+				expect += "\n"
 			}
 			c.Check(bufferString(ctx.Stdout), gc.Equals, expect)
 		} else {
@@ -216,17 +216,20 @@ func (s *RelationGetSuite) TestRelationGetFormat(c *gc.C) {
 }
 
 var helpTemplate = `
-usage: %s
-purpose: get relation settings
+Usage: %s
 
-options:
+Summary:
+get relation settings
+
+Options:
 --format  (= smart)
-    specify output format (json|smart|yaml)
+    Specify output format (json|smart|yaml)
 -o, --output (= "")
-    specify an output file
+    Specify an output file
 -r, --relation  (= %s)
     specify a relation by id
 
+Details:
 relation-get prints the value of a unit's relation setting, specified by key.
 If no key is given, or if the key is "-", all keys and values will be printed.
 %s`[1:]

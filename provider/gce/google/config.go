@@ -39,6 +39,9 @@ type Credentials struct {
 	// config used in the OAuth-wrapping network transport.
 	ClientID string
 
+	// ProjectID is the GCE project's ID that these credentials relate to.
+	ProjectID string
+
 	// ClientEmail is the email address associatd with the GCE account.
 	// It is used to generate a new OAuth token to use in the
 	// OAuth-wrapping network transport.
@@ -61,21 +64,22 @@ func NewCredentials(values map[string]string) (*Credentials, error) {
 			creds.ClientID = v
 		case OSEnvClientEmail:
 			creds.ClientEmail = v
+		case OSEnvProjectID:
+			creds.ProjectID = v
 		case OSEnvPrivateKey:
 			creds.PrivateKey = []byte(v)
 		default:
 			return nil, errors.NotSupportedf("key %q", k)
 		}
 	}
-
-	if err := creds.Validate(); err == nil {
-		jk, err := creds.buildJSONKey()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		creds.JSONKey = jk
+	if err := creds.Validate(); err != nil {
+		return nil, errors.Trace(err)
 	}
-
+	jk, err := creds.buildJSONKey()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	creds.JSONKey = jk
 	return &creds, nil
 }
 
@@ -90,8 +94,6 @@ func ParseJSONKey(jsonKeyFile io.Reader) (*Credentials, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	delete(values, "type")
-	delete(values, "private_key_id")
 	creds, err := NewCredentials(values)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -103,34 +105,34 @@ func ParseJSONKey(jsonKeyFile io.Reader) (*Credentials, error) {
 // parseJSONKey extracts the auth information from the JSON file
 // downloaded from the GCE console (under /apiui/credential).
 func parseJSONKey(jsonKey []byte) (map[string]string, error) {
-	data := make(map[string]string)
-	if err := json.Unmarshal(jsonKey, &data); err != nil {
+	in := make(map[string]string)
+	if err := json.Unmarshal(jsonKey, &in); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	keyType, ok := data["type"]
+	keyType, ok := in["type"]
 	if !ok {
 		return nil, errors.New(`missing "type"`)
 	}
 	switch keyType {
 	case jsonKeyTypeServiceAccount:
-		for k, v := range data {
+		out := make(map[string]string)
+		for k, v := range in {
 			switch k {
 			case "private_key":
-				data[OSEnvPrivateKey] = v
-				delete(data, k)
+				out[OSEnvPrivateKey] = v
 			case "client_email":
-				data[OSEnvClientEmail] = v
-				delete(data, k)
+				out[OSEnvClientEmail] = v
 			case "client_id":
-				data[OSEnvClientID] = v
-				delete(data, k)
+				out[OSEnvClientID] = v
+			case "project_id":
+				out[OSEnvProjectID] = v
 			}
 		}
+		return out, nil
 	default:
-		return nil, errors.NotSupportedf("JSON key type %q", data["type"])
+		return nil, errors.NotSupportedf("JSON key type %q", keyType)
 	}
-	return data, nil
 }
 
 // buildJSONKey returns the content of the JSON key file for the
@@ -151,6 +153,7 @@ func (gc Credentials) Values() map[string]string {
 		OSEnvClientID:    gc.ClientID,
 		OSEnvClientEmail: gc.ClientEmail,
 		OSEnvPrivateKey:  string(gc.PrivateKey),
+		OSEnvProjectID:   gc.ProjectID,
 	}
 }
 
@@ -169,7 +172,7 @@ func (gc Credentials) Validate() error {
 		return NewMissingConfigValue(OSEnvClientEmail, "ClientEmail")
 	}
 	if _, err := mail.ParseAddress(gc.ClientEmail); err != nil {
-		return NewInvalidConfigValue(OSEnvClientEmail, gc.ClientEmail, err)
+		return NewInvalidConfigValueError(OSEnvClientEmail, gc.ClientEmail, err)
 	}
 	if len(gc.PrivateKey) == 0 {
 		return NewMissingConfigValue(OSEnvPrivateKey, "PrivateKey")
@@ -189,7 +192,7 @@ type ConnectionConfig struct {
 }
 
 // Validate checks the connection's fields for invalid values.
-// If the values are not valid, it returns a config.InvalidConfigValue
+// If the values are not valid, it returns a config.InvalidConfigValueError
 // error with the key set to the corresponding OS environment variable
 // name.
 //

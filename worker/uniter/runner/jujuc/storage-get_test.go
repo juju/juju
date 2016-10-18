@@ -68,17 +68,20 @@ func (s *storageGetSuite) TestHelp(c *gc.C) {
 	ctx := testing.Context(c)
 	code := cmd.Main(com, ctx, []string{"--help"})
 	c.Assert(code, gc.Equals, 0)
-	c.Assert(bufferString(ctx.Stdout), gc.Equals, `usage: storage-get [options] [<key>]
-purpose: print information for storage instance with specified id
+	c.Assert(bufferString(ctx.Stdout), gc.Equals, `Usage: storage-get [options] [<key>]
 
-options:
+Summary:
+print information for storage instance with specified id
+
+Options:
 --format  (= smart)
-    specify output format (json|smart|yaml)
+    Specify output format (json|smart|yaml)
 -o, --output (= "")
-    specify an output file
+    Specify an output file
 -s  (= data/0)
     specify a storage instance by id
 
+Details:
 When no <key> is supplied, all keys values are printed.
 `)
 	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")

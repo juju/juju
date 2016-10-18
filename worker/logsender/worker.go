@@ -16,8 +16,6 @@ import (
 
 const loggerName = "juju.worker.logsender"
 
-var logger = loggo.GetLogger(loggerName)
-
 // New starts a logsender worker which reads log message structs from
 // a channel and sends them to the JES via the logsink API.
 func New(logs LogRecordCh, logSenderAPI *logsender.API) worker.Worker {
@@ -34,7 +32,7 @@ func New(logs LogRecordCh, logSenderAPI *logsender.API) worker.Worker {
 					Time:     rec.Time,
 					Module:   rec.Module,
 					Location: rec.Location,
-					Level:    rec.Level,
+					Level:    rec.Level.String(),
 					Message:  rec.Message,
 				})
 				if err != nil {
@@ -59,7 +57,7 @@ func New(logs LogRecordCh, logSenderAPI *logsender.API) worker.Worker {
 					err := logWriter.WriteLog(&params.LogRecord{
 						Time:    rec.Time,
 						Module:  loggerName,
-						Level:   loggo.WARNING,
+						Level:   loggo.WARNING.String(),
 						Message: fmt.Sprintf("%d log messages dropped due to lack of API connectivity", rec.DroppedAfter),
 					})
 					if err != nil {

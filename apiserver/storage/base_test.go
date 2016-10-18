@@ -5,9 +5,9 @@ package storage_test
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -40,6 +40,7 @@ type baseStorageSuite struct {
 	filesystemAttachment *mockFilesystemAttachment
 	calls                []string
 
+	registry    jujustorage.StaticProviderRegistry
 	poolManager *mockPoolManager
 	pools       map[string]*jujustorage.Config
 
@@ -49,15 +50,16 @@ type baseStorageSuite struct {
 func (s *baseStorageSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.resources = common.NewResources()
-	s.authorizer = testing.FakeAuthorizer{names.NewUserTag("testuser"), true}
+	s.authorizer = testing.FakeAuthorizer{Tag: names.NewUserTag("admin"), EnvironManager: true}
 	s.calls = []string{}
 	s.state = s.constructState()
 
+	s.registry = jujustorage.StaticProviderRegistry{map[jujustorage.ProviderType]jujustorage.Provider{}}
 	s.pools = make(map[string]*jujustorage.Config)
 	s.poolManager = s.constructPoolManager()
 
 	var err error
-	s.api, err = storage.CreateAPI(s.state, s.poolManager, s.resources, s.authorizer)
+	s.api, err = storage.NewAPI(s.state, s.registry, s.poolManager, s.resources, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -217,7 +219,7 @@ func (s *baseStorageSuite) constructState() *mockState {
 			s.calls = append(s.calls, allFilesystemsCall)
 			return []state.Filesystem{s.filesystem}, nil
 		},
-		envName: "storagetest",
+		modelName: "storagetest",
 		addStorageForUnit: func(u names.UnitTag, name string, cons state.StorageConstraints) error {
 			s.calls = append(s.calls, addStorageForUnitCall)
 			return nil

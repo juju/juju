@@ -7,9 +7,9 @@ import (
 	"errors"
 	"runtime"
 
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/provider"
@@ -48,13 +48,13 @@ func (s *tmpfsSuite) TestFilesystemSource(c *gc.C) {
 	p := s.tmpfsProvider(c)
 	cfg, err := storage.NewConfig("name", provider.TmpfsProviderType, map[string]interface{}{})
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = p.FilesystemSource(nil, cfg)
+	_, err = p.FilesystemSource(cfg)
 	c.Assert(err, gc.ErrorMatches, "storage directory not specified")
 	cfg, err = storage.NewConfig("name", provider.TmpfsProviderType, map[string]interface{}{
 		"storage-dir": c.MkDir(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = p.FilesystemSource(nil, cfg)
+	_, err = p.FilesystemSource(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

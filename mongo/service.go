@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
 )
@@ -19,7 +20,7 @@ const (
 	maxFiles = 65000
 	maxProcs = 20000
 
-	serviceName    = "juju-db"
+	ServiceName    = "juju-db"
 	serviceTimeout = 300 // 5 minutes
 
 	// SharedSecretFile is the name of the Mongo shared secret file
@@ -27,7 +28,7 @@ const (
 	SharedSecretFile = "shared-secret"
 
 	// ReplicaSetName is the name of the replica set that juju uses for its
-	// state servers.
+	// controllers.
 	ReplicaSetName = "juju"
 )
 
@@ -71,8 +72,8 @@ var discoverService = func(name string) (mongoService, error) {
 // configuration is present.
 var IsServiceInstalled = isServiceInstalled
 
-func isServiceInstalled(namespace string) (bool, error) {
-	svc, err := discoverService(ServiceName(namespace))
+func isServiceInstalled() (bool, error) {
+	svc, err := discoverService(ServiceName)
 	if err != nil {
 		return false, errors.Trace(err)
 	}
@@ -80,8 +81,8 @@ func isServiceInstalled(namespace string) (bool, error) {
 }
 
 // RemoveService removes the mongoDB init service from this machine.
-func RemoveService(namespace string) error {
-	svc, err := discoverService(ServiceName(namespace))
+func RemoveService() error {
+	svc, err := discoverService(ServiceName)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -94,18 +95,9 @@ func RemoveService(namespace string) error {
 	return nil
 }
 
-// ServiceName returns the name of the init service config for mongo using
-// the given namespace.
-func ServiceName(namespace string) string {
-	if namespace != "" {
-		return fmt.Sprintf("%s-%s", serviceName, namespace)
-	}
-	return serviceName
-}
-
 // StopService will stop mongodb service.
-func StopService(namespace string) error {
-	svc, err := discoverService(ServiceName(namespace))
+func StopService() error {
+	svc, err := discoverService(ServiceName)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -113,8 +105,8 @@ func StopService(namespace string) error {
 }
 
 // StartService will start mongodb service.
-func StartService(namespace string) error {
-	svc, err := discoverService(ServiceName(namespace))
+func StartService() error {
+	svc, err := discoverService(ServiceName)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -122,8 +114,8 @@ func StartService(namespace string) error {
 }
 
 // ReStartService will stop and then start mongodb service.
-func ReStartService(namespace string) error {
-	svc, err := discoverService(ServiceName(namespace))
+func ReStartService() error {
+	svc, err := discoverService(ServiceName)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -144,25 +136,57 @@ func sharedSecretPath(dataDir string) string {
 	return filepath.Join(dataDir, SharedSecretFile)
 }
 
+// ConfigArgs holds the attributes of a service configuration for mongo.
+type ConfigArgs struct {
+	DataDir, DBDir, MongoPath string
+	Port, OplogSizeMB         int
+	WantNUMACtl               bool
+	Version                   Version
+	Auth                      bool
+	IPv6                      bool
+}
+
 // newConf returns the init system config for the mongo state service.
-func newConf(dataDir, dbDir, mongoPath string, port, oplogSizeMB int, wantNumaCtl bool) common.Conf {
-	mongoCmd := mongoPath +
-		" --auth" +
-		" --dbpath " + utils.ShQuote(dbDir) +
+func newConf(args ConfigArgs) common.Conf {
+	mongoCmd := args.MongoPath +
+
+		" --dbpath " + utils.ShQuote(args.DBDir) +
 		" --sslOnNormalPorts" +
-		" --sslPEMKeyFile " + utils.ShQuote(sslKeyPath(dataDir)) +
-		" --sslPEMKeyPassword ignored" +
-		" --port " + fmt.Sprint(port) +
-		" --noprealloc" +
+		" --sslPEMKeyFile " + utils.ShQuote(sslKeyPath(args.DataDir)) +
+		// --sslPEMKeyPassword has to have its argument passed with = thanks to
+		// https://bugs.launchpad.net/juju-core/+bug/1581284.
+		" --sslPEMKeyPassword=ignored" +
+		" --port " + fmt.Sprint(args.Port) +
 		" --syslog" +
-		" --smallfiles" +
 		" --journal" +
-		" --keyFile " + utils.ShQuote(sharedSecretPath(dataDir)) +
+
 		" --replSet " + ReplicaSetName +
-		" --ipv6" +
-		" --oplogSize " + strconv.Itoa(oplogSizeMB)
+		" --quiet" +
+		" --oplogSize " + strconv.Itoa(args.OplogSizeMB)
+
+	if args.IPv6 {
+		mongoCmd = mongoCmd +
+			" --ipv6"
+	}
+
+	if args.Auth {
+		mongoCmd = mongoCmd +
+			" --auth" +
+			" --keyFile " + utils.ShQuote(sharedSecretPath(args.DataDir))
+	} else {
+		mongoCmd = mongoCmd +
+			" --noauth"
+	}
+	if args.Version.StorageEngine != WiredTiger {
+		mongoCmd = mongoCmd +
+			" --noprealloc" +
+			" --smallfiles"
+	} else {
+		mongoCmd = mongoCmd +
+			" --storageEngine wiredTiger"
+	}
 	extraScript := ""
-	if wantNumaCtl {
+	if args.WantNUMACtl {
 		extraScript = fmt.Sprintf(detectMultiNodeScript, multinodeVarName, multinodeVarName)
 		mongoCmd = fmt.Sprintf(numaCtlWrap, multinodeVarName) + mongoCmd
 	}
@@ -177,4 +201,45 @@ func newConf(dataDir, dbDir, mongoPath string, port, oplogSizeMB int, wantNumaCt
 		ExecStart:   mongoCmd,
 	}
 	return conf
+}
+
+// EnsureServiceInstalled is a convenience method to [re]create
+// the mongo service.
+func EnsureServiceInstalled(dataDir string, statePort, oplogSizeMB int, setNUMAControlPolicy bool, version Version, auth bool) error {
+	mongoPath, err := Path(version)
+	if err != nil {
+		return errors.Annotate(err, "cannot get mongo path")
+	}
+
+	dbDir := filepath.Join(dataDir, "db")
+
+	if oplogSizeMB == 0 {
+		var err error
+		if oplogSizeMB, err = defaultOplogSize(dbDir); err != nil {
+			return err
+		}
+	}
+
+	svcConf := newConf(ConfigArgs{
+		DataDir:     dataDir,
+		DBDir:       dbDir,
+		MongoPath:   mongoPath,
+		Port:        statePort,
+		OplogSizeMB: oplogSizeMB,
+		WantNUMACtl: setNUMAControlPolicy,
+		Version:     version,
+		Auth:        auth,
+		IPv6:        network.SupportsIPv6(),
+	})
+	svc, err := newService(ServiceName, svcConf)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	logger.Debugf("installing mongo service")
+	if err := svc.Install(); err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
 }

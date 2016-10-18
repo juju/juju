@@ -4,23 +4,27 @@
 package commands
 
 import (
+	"time"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cmd/juju/application"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
 )
 
 type ResolvedSuite struct {
 	jujutesting.RepoSuite
-	CmdBlockHelper
+	testing.CmdBlockHelper
 }
 
 func (s *ResolvedSuite) SetUpTest(c *gc.C) {
 	s.RepoSuite.SetUpTest(c)
-	s.CmdBlockHelper = NewCmdBlockHelper(s.APIState)
+	s.CmdBlockHelper = testing.NewCmdBlockHelper(s.APIState)
 	c.Assert(s.CmdBlockHelper, gc.NotNil)
 	s.AddCleanup(func(*gc.C) { s.CmdBlockHelper.Close() })
 }
@@ -29,6 +33,11 @@ var _ = gc.Suite(&ResolvedSuite{})
 
 func runResolved(c *gc.C, args []string) error {
 	_, err := testing.RunCommand(c, newResolvedCommand(), args...)
+	return err
+}
+
+func runDeploy(c *gc.C, args ...string) error {
+	_, err := testing.RunCommand(c, application.NewDefaultDeployCommand(), args...)
 	return err
 }
 
@@ -45,28 +54,28 @@ var resolvedTests = []struct {
 		err:  `invalid unit name "jeremy-fisher"`,
 	}, {
 		args: []string{"jeremy-fisher/99"},
-		err:  `unit "jeremy-fisher/99" not found`,
+		err:  `unit "jeremy-fisher/99" not found \(not found\)`,
 	}, {
 		args: []string{"dummy/0"},
 		err:  `unit "dummy/0" is not in an error state`,
 		unit: "dummy/0",
 		mode: state.ResolvedNone,
 	}, {
-		args: []string{"dummy/1", "--retry"},
+		args: []string{"dummy/1", "--no-retry"},
 		err:  `unit "dummy/1" is not in an error state`,
 		unit: "dummy/1",
 		mode: state.ResolvedNone,
 	}, {
-		args: []string{"dummy/2"},
+		args: []string{"dummy/2", "--no-retry"},
 		unit: "dummy/2",
 		mode: state.ResolvedNoHooks,
 	}, {
-		args: []string{"dummy/2", "--retry"},
+		args: []string{"dummy/2", "--no-retry"},
 		err:  `cannot set resolved mode for unit "dummy/2": already resolved`,
 		unit: "dummy/2",
 		mode: state.ResolvedNoHooks,
 	}, {
-		args: []string{"dummy/3", "--retry"},
+		args: []string{"dummy/3"},
 		unit: "dummy/3",
 		mode: state.ResolvedRetryHooks,
 	}, {
@@ -81,14 +90,21 @@ var resolvedTests = []struct {
 }
 
 func (s *ResolvedSuite) TestResolved(c *gc.C) {
-	testcharms.Repo.CharmArchivePath(s.SeriesPath, "dummy")
-	err := runDeploy(c, "-n", "5", "local:dummy", "dummy")
+	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "dummy")
+	err := runDeploy(c, "-n", "5", ch, "dummy", "--series", "quantal")
 	c.Assert(err, jc.ErrorIsNil)
 
+	// lp:1558657
+	now := time.Now()
 	for _, name := range []string{"dummy/2", "dummy/3", "dummy/4"} {
 		u, err := s.State.Unit(name)
 		c.Assert(err, jc.ErrorIsNil)
-		err = u.SetAgentStatus(state.StatusError, "lol borken", nil)
+		sInfo := status.StatusInfo{
+			Status:  status.Error,
+			Message: "lol borken",
+			Since:   &now,
+		}
+		err = u.SetAgentStatus(sInfo)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
@@ -109,19 +125,26 @@ func (s *ResolvedSuite) TestResolved(c *gc.C) {
 }
 
 func (s *ResolvedSuite) TestBlockResolved(c *gc.C) {
-	testcharms.Repo.CharmArchivePath(s.SeriesPath, "dummy")
-	err := runDeploy(c, "-n", "5", "local:dummy", "dummy")
+	ch := testcharms.Repo.CharmArchivePath(s.CharmsPath, "dummy")
+	err := runDeploy(c, "-n", "5", ch, "dummy", "--series", "quantal")
 	c.Assert(err, jc.ErrorIsNil)
 
+	// lp:1558657
+	now := time.Now()
 	for _, name := range []string{"dummy/2", "dummy/3", "dummy/4"} {
 		u, err := s.State.Unit(name)
 		c.Assert(err, jc.ErrorIsNil)
-		err = u.SetAgentStatus(state.StatusError, "lol borken", nil)
+		sInfo := status.StatusInfo{
+			Status:  status.Error,
+			Message: "lol borken",
+			Since:   &now,
+		}
+		err = u.SetAgentStatus(sInfo)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
 	// Block operation
 	s.BlockAllChanges(c, "TestBlockResolved")
 	err = runResolved(c, []string{"dummy/2"})
-	s.AssertBlocked(c, err, ".*TestBlockResolved.*")
+	testing.AssertOperationWasBlocked(c, err, ".*TestBlockResolved.*")
 }

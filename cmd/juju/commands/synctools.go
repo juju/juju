@@ -8,29 +8,29 @@ import (
 	"io"
 
 	"github.com/juju/cmd"
+	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
-	"launchpad.net/gnuflag"
+	"github.com/juju/version"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/sync"
 	envtools "github.com/juju/juju/environs/tools"
 	coretools "github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
 )
 
 var syncTools = sync.SyncTools
 
 func newSyncToolsCommand() cmd.Command {
-	return envcmd.Wrap(&syncToolsCommand{})
+	return modelcmd.Wrap(&syncToolsCommand{})
 }
 
 // syncToolsCommand copies all the tools from the us-east-1 bucket to the local
 // bucket.
 type syncToolsCommand struct {
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 	allVersions  bool
 	versionStr   string
 	majorVersion int
@@ -46,40 +46,56 @@ type syncToolsCommand struct {
 
 var _ cmd.Command = (*syncToolsCommand)(nil)
 
+const synctoolsDoc = `
+This copies the Juju agent software from the official tools store (located
+at https://streams.canonical.com/juju) into a model. It is generally done
+when the model is without Internet access.
+
+Instead of the above site, a local directory can be specified as source.
+The online store will, of course, need to be contacted at some point to get
+the software.
+
+Examples:
+    # Download the software (version auto-selected) to the model:
+    juju sync-tools --debug
+
+    # Download a specific version of the software locally:
+    juju sync-tools --debug --version 2.0 --local-dir=/home/ubuntu/sync-tools
+
+    # Get locally available software to the model:
+    juju sync-tools --debug --source=/home/ubuntu/sync-tools
+
+See also:
+    upgrade-juju
+
+`
+
 func (c *syncToolsCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "sync-tools",
-		Purpose: "copy tools from the official tool store into a local environment",
-		Doc: `
-This copies the Juju tools tarball from the official tools store (located
-at https://streams.canonical.com/juju) into your environment.
-This is generally done when you want Juju to be able to run without having to
-access the Internet. Alternatively you can specify a local directory as source.
-
-Sometimes this is because the environment does not have public access,
-and sometimes you just want to avoid having to access data outside of
-the local cloud.
-`,
+		Purpose: "Copy tools from the official tool store into a local model.",
+		Doc:     synctoolsDoc,
 	}
 }
 
 func (c *syncToolsCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.BoolVar(&c.allVersions, "all", false, "copy all versions, not just the latest")
-	f.StringVar(&c.versionStr, "version", "", "copy a specific major[.minor] version")
-	f.BoolVar(&c.dryRun, "dry-run", false, "don't copy, just print what would be copied")
-	f.BoolVar(&c.dev, "dev", false, "consider development versions as well as released ones\n    DEPRECATED: use --stream instead")
-	f.BoolVar(&c.public, "public", false, "tools are for a public cloud, so generate mirrors information")
-	f.StringVar(&c.source, "source", "", "local source directory")
-	f.StringVar(&c.stream, "stream", "", "simplestreams stream for which to sync metadata")
-	f.StringVar(&c.localDir, "local-dir", "", "local destination directory")
-	f.StringVar(&c.destination, "destination", "", "local destination directory")
+	c.ModelCommandBase.SetFlags(f)
+	f.BoolVar(&c.allVersions, "all", false, "Copy all versions, not just the latest")
+	f.StringVar(&c.versionStr, "version", "", "Copy a specific major[.minor] version")
+	f.BoolVar(&c.dryRun, "dry-run", false, "Don't copy, just print what would be copied")
+	f.BoolVar(&c.dev, "dev", false, "Consider development versions as well as released ones\n    DEPRECATED: use --stream instead")
+	f.BoolVar(&c.public, "public", false, "Tools are for a public cloud, so generate mirrors information")
+	f.StringVar(&c.source, "source", "", "Local source directory")
+	f.StringVar(&c.stream, "stream", "", "Simplestreams stream for which to sync metadata")
+	f.StringVar(&c.localDir, "local-dir", "", "Local destination directory")
+	f.StringVar(&c.destination, "destination", "", "Local destination directory\n    DEPRECATED: use --local-dir instead")
 }
 
 func (c *syncToolsCommand) Init(args []string) error {
 	if c.destination != "" {
 		// Override localDir with destination as localDir now replaces destination
 		c.localDir = c.destination
-		logger.Warningf("Use of the --destination flag is deprecated in 1.18. Please use --local-dir instead.")
+		logger.Infof("Use of the --destination flag is deprecated in 1.18. Please use --local-dir instead.")
 	}
 	if c.versionStr != "" {
 		var err error
@@ -97,7 +113,7 @@ func (c *syncToolsCommand) Init(args []string) error {
 // api.Client API. This exists to enable mocking.
 type syncToolsAPI interface {
 	FindTools(majorVersion, minorVersion int, series, arch string) (params.FindToolsResult, error)
-	UploadTools(r io.ReadSeeker, v version.Binary, series ...string) (*coretools.Tools, error)
+	UploadTools(r io.ReadSeeker, v version.Binary, series ...string) (coretools.List, error)
 	Close() error
 }
 
@@ -107,7 +123,10 @@ var getSyncToolsAPI = func(c *syncToolsCommand) (syncToolsAPI, error) {
 
 func (c *syncToolsCommand) Run(ctx *cmd.Context) (resultErr error) {
 	// Register writer for output on screen.
-	loggo.RegisterWriter("synctools", cmd.NewCommandLogWriter("juju.environs.sync", ctx.Stdout, ctx.Stderr), loggo.INFO)
+	writer := loggo.NewMinimumLevelWriter(
+		cmd.NewCommandLogWriter("juju.environs.sync", ctx.Stdout, ctx.Stderr),
+		loggo.INFO)
+	loggo.RegisterWriter("synctools", writer)
 	defer loggo.RemoveWriter("synctools")
 
 	sctx := &sync.SyncContext{
@@ -136,7 +155,7 @@ func (c *syncToolsCommand) Run(ctx *cmd.Context) (resultErr error) {
 		}
 	} else {
 		if c.public {
-			logger.Warningf("--public is ignored unless --local-dir is specified")
+			logger.Infof("--public is ignored unless --local-dir is specified")
 		}
 		api, err := getSyncToolsAPI(c)
 		if err != nil {

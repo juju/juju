@@ -7,60 +7,33 @@ package vsphere
 
 import (
 	"github.com/juju/errors"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 )
-
-// AllocateAddress implements environs.Environ.
-func (env *environ) AllocateAddress(instID instance.Id, subnetID network.Id, addr network.Address, _, _ string) error {
-	return env.changeAddress(instID, subnetID, addr, true)
-}
-
-// ReleaseAddress implements environs.Environ.
-func (env *environ) ReleaseAddress(instID instance.Id, netID network.Id, addr network.Address, _, _ string) error {
-	return env.changeAddress(instID, netID, addr, false)
-}
-
-func (env *environ) changeAddress(instID instance.Id, netID network.Id, addr network.Address, add bool) error {
-	instances, err := env.Instances([]instance.Id{instID})
-	if err != nil {
-		return errors.Trace(err)
-	}
-	inst := instances[0].(*environInstance)
-	_, client, err := inst.getInstanceConfigurator()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	interfaceName := "eth0"
-	if string(netID) == env.ecfg.externalNetwork() {
-		interfaceName = "eth1"
-	}
-	if add {
-		err = client.AddIpAddress(interfaceName, addr.Value)
-	} else {
-		err = client.ReleaseIpAddress(addr.Value)
-	}
-
-	return errors.Trace(err)
-}
 
 // SupportsSpaces is specified on environs.Networking.
 func (env *environ) SupportsSpaces() (bool, error) {
 	return false, errors.NotSupportedf("spaces")
 }
 
-// SupportsAddressAllocation is specified on environs.Networking.
-func (env *environ) SupportsAddressAllocation(_ network.Id) (bool, error) {
-	return false, errors.NotSupportedf("address allocation")
+// SupportsSpaceDiscovery implements environs.Networking.
+func (env *environ) SupportsSpaceDiscovery() (bool, error) {
+	return false, errors.NotSupportedf("spaces")
 }
 
-// Subnets implements environs.Environ.
+// Spaces implements environs.Networking.
+func (env *environ) Spaces() ([]network.SpaceInfo, error) {
+	return nil, errors.NotSupportedf("spaces")
+}
+
+// Subnets implements environs.Networking.
 func (env *environ) Subnets(inst instance.Id, ids []network.Id) ([]network.SubnetInfo, error) {
 	return env.client.Subnets(inst, ids)
 }
 
-// NetworkInterfaces implements environs.Environ.
+// NetworkInterfaces implements environs.Networking.
 func (env *environ) NetworkInterfaces(inst instance.Id) ([]network.InterfaceInfo, error) {
 	return env.client.GetNetworkInterfaces(inst, env.ecfg)
 }
@@ -84,4 +57,14 @@ func (env *environ) ClosePorts(ports []network.PortRange) error {
 // FwGlobal firewall mode.
 func (env *environ) Ports() ([]network.PortRange, error) {
 	return nil, errors.Trace(errors.NotSupportedf("Ports"))
+}
+
+// AllocateContainerAddresses implements environs.Networking.
+func (e *environ) AllocateContainerAddresses(hostInstanceID instance.Id, containerTag names.MachineTag, preparedInfo []network.InterfaceInfo) ([]network.InterfaceInfo, error) {
+	return nil, errors.NotSupportedf("container address allocation")
+}
+
+// ReleaseContainerAddresses implements environs.Networking.
+func (e *environ) ReleaseContainerAddresses(interfaces []network.ProviderInterfaceInfo) error {
+	return errors.NotSupportedf("container address allocation")
 }

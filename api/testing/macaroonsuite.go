@@ -9,15 +9,18 @@ import (
 	"net/url"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
 	"gopkg.in/macaroon-bakery.v1/bakerytest"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/controller"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/permission"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -52,8 +55,8 @@ func (s *MacaroonSuite) SetUpTest(c *gc.C) {
 		}
 		return []checkers.Caveat{checkers.DeclaredCaveat("username", username)}, nil
 	})
-	s.JujuConnSuite.ConfigAttrs = map[string]interface{}{
-		config.IdentityURL: s.discharger.Location(),
+	s.JujuConnSuite.ControllerConfigAttrs = map[string]interface{}{
+		controller.IdentityURL: s.discharger.Location(),
 	}
 	s.JujuConnSuite.SetUpTest(c)
 }
@@ -63,16 +66,27 @@ func (s *MacaroonSuite) TearDownTest(c *gc.C) {
 	s.JujuConnSuite.TearDownTest(c)
 }
 
-// AddEnvUser is a convenience function that adds an external
-// user to the current environment. It will panic
+// AddModelUser is a convenience function that adds an external
+// user to the current model. It will panic
 // if the user name is local.
-func (s *MacaroonSuite) AddEnvUser(c *gc.C, username string) {
+func (s *MacaroonSuite) AddModelUser(c *gc.C, username string) {
 	if names.NewUserTag(username).IsLocal() {
-		panic("cannot use MacaroonSuite.AddEnvUser to add a local name")
+		panic("cannot use MacaroonSuite.AddModelUser to add a local name")
 	}
-	s.Factory.MakeEnvUser(c, &factory.EnvUserParams{
+	s.Factory.MakeModelUser(c, &factory.ModelUserParams{
 		User: username,
 	})
+}
+
+// AddControllerUser is a convenience funcation that adds
+// a controller user with the specified access.
+func (s *MacaroonSuite) AddControllerUser(c *gc.C, username string, access permission.Access) {
+	_, err := s.State.AddControllerUser(state.UserAccessSpec{
+		User:      names.NewUserTag(username),
+		CreatedBy: s.AdminUserTag(c),
+		Access:    access,
+	})
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 // OpenAPI opens a connection to the API using the given information.
@@ -100,7 +114,6 @@ func (s *MacaroonSuite) APIInfo(c *gc.C) *api.Info {
 	info := s.JujuConnSuite.APIInfo(c)
 	info.Tag = nil
 	info.Password = ""
-	info.UseMacaroons = true
 	return info
 }
 

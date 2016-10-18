@@ -30,7 +30,7 @@ and optional storage COUNT.
 
 COUNT is a positive integer indicating how many instances
 of the storage to create. If unspecified, COUNT defaults to 1.
-`
+`[1:]
 
 func (s *StorageAddCommand) Info() *cmd.Info {
 	return &cmd.Info{

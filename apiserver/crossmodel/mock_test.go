@@ -6,10 +6,10 @@ package crossmodel_test
 import (
 	"errors"
 
-	"github.com/juju/names"
 	jtesting "github.com/juju/testing"
+	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/model/crossmodel"
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/state"
 )
 
@@ -20,54 +20,54 @@ const (
 	removeOfferCall = "removeOfferCall"
 )
 
-type mockServiceDirectory struct {
+type mockApplicationDirectory struct {
 	jtesting.Stub
 
-	addOffer   func(offer crossmodel.ServiceOffer) error
-	listOffers func(filters ...crossmodel.ServiceOfferFilter) ([]crossmodel.ServiceOffer, error)
+	addOffer   func(offer crossmodel.ApplicationOffer) error
+	listOffers func(filters ...crossmodel.ApplicationOfferFilter) ([]crossmodel.ApplicationOffer, error)
 }
 
-func (m *mockServiceDirectory) AddOffer(offer crossmodel.ServiceOffer) error {
+func (m *mockApplicationDirectory) AddOffer(offer crossmodel.ApplicationOffer) error {
 	m.AddCall(addOfferCall)
 	return m.addOffer(offer)
 }
 
-func (m *mockServiceDirectory) ListOffers(filters ...crossmodel.ServiceOfferFilter) ([]crossmodel.ServiceOffer, error) {
+func (m *mockApplicationDirectory) ListOffers(filters ...crossmodel.ApplicationOfferFilter) ([]crossmodel.ApplicationOffer, error) {
 	m.AddCall(listOffersCall)
 	return m.listOffers(filters...)
 }
 
-func (m *mockServiceDirectory) UpdateOffer(offer crossmodel.ServiceOffer) error {
+func (m *mockApplicationDirectory) UpdateOffer(offer crossmodel.ApplicationOffer) error {
 	m.AddCall(updateOfferCall)
 	panic("not implemented")
 }
 
-func (m *mockServiceDirectory) Remove(url string) error {
+func (m *mockApplicationDirectory) Remove(url string) error {
 	m.AddCall(removeOfferCall)
 	panic("not implemented")
 }
 
 type mockState struct {
-	watchOfferedServices func() state.StringsWatcher
+	watchOfferedApplications func() state.StringsWatcher
 }
 
-func (m *mockState) WatchOfferedServices() state.StringsWatcher {
-	return m.watchOfferedServices()
+func (m *mockState) WatchOfferedApplications() state.StringsWatcher {
+	return m.watchOfferedApplications()
 }
 
-func (m *mockState) Service(name string) (service *state.Service, err error) {
+func (m *mockState) Application(name string) (application *state.Application, err error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *mockState) EnvironUUID() string {
+func (m *mockState) ModelUUID() string {
 	return "uuid"
 }
 
-func (m *mockState) EnvironTag() names.EnvironTag {
-	return names.NewEnvironTag("uuid")
+func (m *mockState) ModelTag() names.ModelTag {
+	return names.NewModelTag("uuid")
 }
 
-func (m *mockState) EnvironName() (string, error) {
+func (m *mockState) ModelName() (string, error) {
 	return "prod", nil
 }
 
@@ -85,9 +85,9 @@ func (m *mockStringsWatcher) Stop() error {
 }
 
 type mockOfferLister struct {
-	listOffers func(filters ...crossmodel.OfferedServiceFilter) ([]crossmodel.OfferedService, error)
+	listOffers func(filters ...crossmodel.OfferedApplicationFilter) ([]crossmodel.OfferedApplication, error)
 }
 
-func (m *mockOfferLister) ListOffers(filters ...crossmodel.OfferedServiceFilter) ([]crossmodel.OfferedService, error) {
+func (m *mockOfferLister) ListOffers(filters ...crossmodel.OfferedApplicationFilter) ([]crossmodel.OfferedApplication, error) {
 	return m.listOffers(filters...)
 }

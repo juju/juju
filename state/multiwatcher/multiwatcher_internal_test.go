@@ -12,13 +12,13 @@ import (
 
 var (
 	_ EntityInfo = (*MachineInfo)(nil)
-	_ EntityInfo = (*ServiceInfo)(nil)
+	_ EntityInfo = (*ApplicationInfo)(nil)
 	_ EntityInfo = (*UnitInfo)(nil)
 	_ EntityInfo = (*RelationInfo)(nil)
 	_ EntityInfo = (*AnnotationInfo)(nil)
 	_ EntityInfo = (*BlockInfo)(nil)
 	_ EntityInfo = (*ActionInfo)(nil)
-	_ EntityInfo = (*EnvironmentInfo)(nil)
+	_ EntityInfo = (*ModelInfo)(nil)
 )
 
 type ConstantsSuite struct{}
@@ -32,8 +32,6 @@ func TestPackage(t *testing.T) {
 func (s *ConstantsSuite) TestAnyJobNeedsState(c *gc.C) {
 	c.Assert(AnyJobNeedsState(), jc.IsFalse)
 	c.Assert(AnyJobNeedsState(JobHostUnits), jc.IsFalse)
-	c.Assert(AnyJobNeedsState(JobManageNetworking), jc.IsFalse)
-	c.Assert(AnyJobNeedsState(JobManageStateDeprecated), jc.IsFalse)
-	c.Assert(AnyJobNeedsState(JobManageEnviron), jc.IsTrue)
-	c.Assert(AnyJobNeedsState(JobHostUnits, JobManageEnviron), jc.IsTrue)
+	c.Assert(AnyJobNeedsState(JobManageModel), jc.IsTrue)
+	c.Assert(AnyJobNeedsState(JobHostUnits, JobManageModel), jc.IsTrue)
 }

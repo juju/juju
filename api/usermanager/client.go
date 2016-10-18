@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
@@ -31,40 +31,46 @@ func NewClient(st base.APICallCloser) *Client {
 	return &Client{ClientFacade: frontend, facade: backend}
 }
 
-// AddUser creates a new local user in the juju server.
-func (c *Client) AddUser(username, displayName, password string) (names.UserTag, error) {
+// AddUser creates a new local user in the controller, sharing with that user any specified models.
+func (c *Client) AddUser(
+	username, displayName, password string,
+) (_ names.UserTag, secretKey []byte, _ error) {
 	if !names.IsValidUser(username) {
-		return names.UserTag{}, fmt.Errorf("invalid user name %q", username)
+		return names.UserTag{}, nil, fmt.Errorf("invalid user name %q", username)
 	}
+
 	userArgs := params.AddUsers{
-		Users: []params.AddUser{{Username: username, DisplayName: displayName, Password: password}},
+		Users: []params.AddUser{{
+			Username:    username,
+			DisplayName: displayName,
+			Password:    password,
+		}},
 	}
 	var results params.AddUserResults
 	err := c.facade.FacadeCall("AddUser", userArgs, &results)
 	if err != nil {
-		return names.UserTag{}, errors.Trace(err)
+		return names.UserTag{}, nil, errors.Trace(err)
 	}
 	if count := len(results.Results); count != 1 {
 		logger.Errorf("expected 1 result, got %#v", results)
-		return names.UserTag{}, errors.Errorf("expected 1 result, got %d", count)
+		return names.UserTag{}, nil, errors.Errorf("expected 1 result, got %d", count)
 	}
 	result := results.Results[0]
 	if result.Error != nil {
-		return names.UserTag{}, errors.Trace(result.Error)
+		return names.UserTag{}, nil, errors.Trace(result.Error)
 	}
 	tag, err := names.ParseUserTag(result.Tag)
 	if err != nil {
-		return names.UserTag{}, errors.Trace(err)
+		return names.UserTag{}, nil, errors.Trace(err)
 	}
-	logger.Infof("created user %s", result.Tag)
-	return tag, nil
+	return tag, result.SecretKey, nil
 }
 
 func (c *Client) userCall(username string, methodCall string) error {
-	if !names.IsValidUserName(username) {
+	if !names.IsValidUser(username) {
 		return errors.Errorf("%q is not a valid username", username)
 	}
-	tag := names.NewLocalUserTag(username)
+	tag := names.NewUserTag(username)
 
 	var results params.ErrorResults
 	args := params.Entities{
@@ -78,15 +84,21 @@ func (c *Client) userCall(username string, methodCall string) error {
 }
 
 // DisableUser disables a user.  If the user is already disabled, the action
-// is consided a success.
+// is considered a success.
 func (c *Client) DisableUser(username string) error {
 	return c.userCall(username, "DisableUser")
 }
 
 // EnableUser enables a users.  If the user is already enabled, the action is
-// consided a success.
+// considered a success.
 func (c *Client) EnableUser(username string) error {
 	return c.userCall(username, "EnableUser")
+}
+
+// RemoveUser deletes a user. That is it permanently removes the user, while
+// retaining the record of the user to maintain provenance.
+func (c *Client) RemoveUser(username string) error {
+	return c.userCall(username, "RemoveUser")
 }
 
 // IncludeDisabled is a type alias to avoid bare true/false values
@@ -108,10 +120,10 @@ func (c *Client) UserInfo(usernames []string, all IncludeDisabled) ([]params.Use
 	var results params.UserInfoResults
 	var entities []params.Entity
 	for _, username := range usernames {
-		if !names.IsValidUserName(username) {
+		if !names.IsValidUser(username) {
 			return nil, errors.Errorf("%q is not a valid username", username)
 		}
-		tag := names.NewLocalUserTag(username)
+		tag := names.NewUserTag(username)
 		entities = append(entities, params.Entity{Tag: tag.String()})
 	}
 	args := params.UserInfoRequest{
@@ -134,6 +146,8 @@ func (c *Client) UserInfo(usernames []string, all IncludeDisabled) ([]params.Use
 				errorStrings = append(errorStrings, annotated.Error())
 			}
 		}
+		// TODO(wallyworld) - we should return these errors to the caller so that any
+		// users which are successfully found can be handled.
 		if len(errorStrings) > 0 {
 			return nil, errors.New(strings.Join(errorStrings, ", "))
 		}
@@ -150,10 +164,10 @@ func (c *Client) UserInfo(usernames []string, all IncludeDisabled) ([]params.Use
 
 // SetPassword changes the password for the specified user.
 func (c *Client) SetPassword(username, password string) error {
-	if !names.IsValidUserName(username) {
+	if !names.IsValidUser(username) {
 		return errors.Errorf("%q is not a valid username", username)
 	}
-	tag := names.NewLocalUserTag(username)
+	tag := names.NewUserTag(username)
 	args := params.EntityPasswords{
 		Changes: []params.EntityPassword{{
 			Tag:      tag.String(),

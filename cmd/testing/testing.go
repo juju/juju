@@ -13,9 +13,9 @@ import (
 	"os/exec"
 
 	"github.com/juju/cmd"
+	"github.com/juju/gnuflag"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/provider/dummy"
@@ -29,7 +29,7 @@ var FlagRunMain = flag.Bool("run-main", false, "Run the application's main funct
 func BadRun(c *gc.C, exit int, args ...string) string {
 	localArgs := append([]string{"-test.run", "TestRunMain", "-run-main", "--"}, args...)
 	ps := exec.Command(os.Args[0], localArgs...)
-	ps.Env = append(os.Environ(), osenv.JujuHomeEnvKey+"="+osenv.JujuHome())
+	ps.Env = append(os.Environ(), osenv.JujuXDGDataHomeEnvKey+"="+osenv.JujuXDGDataHome())
 	output, err := ps.CombinedOutput()
 	c.Logf("command output: %q", output)
 	if exit != 0 {
@@ -69,17 +69,21 @@ func RunCommand(ctx *cmd.Context, com cmd.Command, args ...string) (opc chan dum
 	opc = make(chan dummy.Operation, 200)
 	dummy.Listen(opc)
 	go func() {
-		// signal that we're done with this ops channel.
-		defer dummy.Listen(nil)
+		defer func() {
+			// signal that we're done with this ops channel.
+			dummy.Listen(nil)
+			// now that dummy is no longer going to send ops on
+			// this channel, close it to signal to test cases
+			// that we are done.
+			close(opc)
+		}()
 
-		err := coretesting.InitCommand(com, args)
-		if err != nil {
+		if err := coretesting.InitCommand(com, args); err != nil {
 			errc <- err
 			return
 		}
 
-		err = com.Run(ctx)
-		errc <- err
+		errc <- com.Run(ctx)
 	}()
 	return
 }

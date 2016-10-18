@@ -12,6 +12,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	apimachiner "github.com/juju/juju/api/machiner"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -48,7 +49,8 @@ func (s *apiAddressSetter) SetAPIHostPorts(servers [][]network.HostPort) error {
 
 func (s *APIAddressUpdaterSuite) TestStartStop(c *gc.C) {
 	st, _ := s.OpenAPIAsNewMachine(c, state.JobHostUnits)
-	worker := apiaddressupdater.NewAPIAddressUpdater(st.Machiner(), &apiAddressSetter{})
+	worker, err := apiaddressupdater.NewAPIAddressUpdater(apimachiner.NewState(st), &apiAddressSetter{})
+	c.Assert(err, jc.ErrorIsNil)
 	worker.Kill()
 	c.Assert(worker.Wait(), gc.IsNil)
 }
@@ -62,7 +64,8 @@ func (s *APIAddressUpdaterSuite) TestAddressInitialUpdate(c *gc.C) {
 
 	setter := &apiAddressSetter{servers: make(chan [][]network.HostPort, 1)}
 	st, _ := s.OpenAPIAsNewMachine(c, state.JobHostUnits)
-	worker := apiaddressupdater.NewAPIAddressUpdater(st.Machiner(), setter)
+	worker, err := apiaddressupdater.NewAPIAddressUpdater(apimachiner.NewState(st), setter)
+	c.Assert(err, jc.ErrorIsNil)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
 	defer worker.Kill()
 
@@ -78,7 +81,8 @@ func (s *APIAddressUpdaterSuite) TestAddressInitialUpdate(c *gc.C) {
 func (s *APIAddressUpdaterSuite) TestAddressChange(c *gc.C) {
 	setter := &apiAddressSetter{servers: make(chan [][]network.HostPort, 1)}
 	st, _ := s.OpenAPIAsNewMachine(c, state.JobHostUnits)
-	worker := apiaddressupdater.NewAPIAddressUpdater(st.Machiner(), setter)
+	worker, err := apiaddressupdater.NewAPIAddressUpdater(apimachiner.NewState(st), setter)
+	c.Assert(err, jc.ErrorIsNil)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
 	defer worker.Kill()
 	s.BackingState.StartSync()
@@ -93,7 +97,7 @@ func (s *APIAddressUpdaterSuite) TestAddressChange(c *gc.C) {
 	case servers := <-setter.servers:
 		c.Assert(servers, gc.HasLen, 0)
 	}
-	err := s.State.SetAPIHostPorts(updatedServers)
+	err = s.State.SetAPIHostPorts(updatedServers)
 	c.Assert(err, jc.ErrorIsNil)
 	s.BackingState.StartSync()
 	select {
@@ -104,7 +108,7 @@ func (s *APIAddressUpdaterSuite) TestAddressChange(c *gc.C) {
 	}
 }
 
-func (s *APIAddressUpdaterSuite) TestLXCBridgeAddressesFiltering(c *gc.C) {
+func (s *APIAddressUpdaterSuite) TestBridgeAddressesFiltering(c *gc.C) {
 	lxcFakeNetConfig := filepath.Join(c.MkDir(), "lxc-net")
 	netConf := []byte(`
   # comments ignored
@@ -116,11 +120,21 @@ LXC_BRIDGE="ignored"`[1:])
 	err := ioutil.WriteFile(lxcFakeNetConfig, netConf, 0644)
 	c.Assert(err, jc.ErrorIsNil)
 	s.PatchValue(&network.InterfaceByNameAddrs, func(name string) ([]net.Addr, error) {
-		c.Assert(name, gc.Equals, "foobar")
-		return []net.Addr{
-			&net.IPAddr{IP: net.IPv4(10, 0, 3, 1)},
-			&net.IPAddr{IP: net.IPv4(10, 0, 3, 4)},
-		}, nil
+		if name == "foobar" {
+			// The addresses on the LXC bridge
+			return []net.Addr{
+				&net.IPAddr{IP: net.IPv4(10, 0, 3, 1)},
+				&net.IPAddr{IP: net.IPv4(10, 0, 3, 4)},
+			}, nil
+		} else if name == network.DefaultLXDBridge {
+			// The addresses on the LXD bridge
+			return []net.Addr{
+				&net.IPAddr{IP: net.IPv4(10, 0, 4, 1)},
+				&net.IPAddr{IP: net.IPv4(10, 0, 4, 4)},
+			}, nil
+		}
+		c.Fatalf("unknown bridge in testing: %v", name)
+		return nil, nil
 	})
 	s.PatchValue(&network.LXCNetDefaultConfig, lxcFakeNetConfig)
 
@@ -130,6 +144,8 @@ LXC_BRIDGE="ignored"`[1:])
 			4321,
 			"10.0.3.1", // filtered
 			"10.0.3.3", // not filtered (not a lxc bridge address)
+			"10.0.4.1", // filtered lxd bridge address
+			"10.0.4.2", // not filtered
 		),
 		network.NewHostPorts(4242, "10.0.3.4"), // filtered
 	}
@@ -138,7 +154,8 @@ LXC_BRIDGE="ignored"`[1:])
 
 	setter := &apiAddressSetter{servers: make(chan [][]network.HostPort, 1)}
 	st, _ := s.OpenAPIAsNewMachine(c, state.JobHostUnits)
-	worker := apiaddressupdater.NewAPIAddressUpdater(st.Machiner(), setter)
+	worker, err := apiaddressupdater.NewAPIAddressUpdater(apimachiner.NewState(st), setter)
+	c.Assert(err, jc.ErrorIsNil)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
 	defer worker.Kill()
 	s.BackingState.StartSync()
@@ -150,6 +167,7 @@ LXC_BRIDGE="ignored"`[1:])
 			"10.0.3.3", // not filtered (not a lxc bridge address)
 		),
 		network.NewHostPorts(4200, "10.0.3.4"), // filtered
+		network.NewHostPorts(4200, "10.0.4.1"), // filtered
 	}
 	// SetAPIHostPorts should be called with the initial value, and
 	// then the updated value, but filtering occurs in both cases.
@@ -160,7 +178,7 @@ LXC_BRIDGE="ignored"`[1:])
 		c.Assert(servers, gc.HasLen, 2)
 		c.Assert(servers, jc.DeepEquals, [][]network.HostPort{
 			network.NewHostPorts(1234, "localhost", "127.0.0.1"),
-			network.NewHostPorts(4321, "10.0.3.3"),
+			network.NewHostPorts(4321, "10.0.3.3", "10.0.4.2"),
 		})
 	}
 	err = s.State.SetAPIHostPorts(updatedServers)

@@ -17,41 +17,30 @@ import (
 
 var kvmLogger = loggo.GetLogger("juju.provisioner.kvm")
 
-var _ environs.InstanceBroker = (*kvmBroker)(nil)
-
 func NewKvmBroker(
 	api APICalls,
 	agentConfig agent.Config,
 	managerConfig container.ManagerConfig,
-	enableNAT bool,
 ) (environs.InstanceBroker, error) {
-	namespace := maybeGetManagerConfigNamespaces(managerConfig)
 	manager, err := kvm.NewContainerManager(managerConfig)
 	if err != nil {
 		return nil, err
 	}
 	return &kvmBroker{
 		manager:     manager,
-		namespace:   namespace,
 		api:         api,
 		agentConfig: agentConfig,
-		enableNAT:   enableNAT,
 	}, nil
 }
 
 type kvmBroker struct {
 	manager     container.Manager
-	namespace   string
 	api         APICalls
 	agentConfig agent.Config
-	enableNAT   bool
 }
 
 // StartInstance is specified in the Broker interface.
 func (broker *kvmBroker) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
-	if args.InstanceConfig.HasNetworks() {
-		return nil, errors.New("starting kvm containers with networks is not supported yet")
-	}
 	// TODO: refactor common code out of the container brokers.
 	machineId := args.InstanceConfig.MachineId
 	kvmLogger.Infof("starting kvm container for machineId: %s", machineId)
@@ -61,7 +50,13 @@ func (broker *kvmBroker) StartInstance(args environs.StartInstanceParams) (*envi
 	// container config.
 	bridgeDevice := broker.agentConfig.Value(agent.LxcBridge)
 	if bridgeDevice == "" {
-		bridgeDevice = kvm.DefaultKvmBridge
+		bridgeDevice = container.DefaultKvmBridge
+	}
+
+	config, err := broker.api.ContainerConfig()
+	if err != nil {
+		kvmLogger.Errorf("failed to get container config: %v", err)
+		return nil, err
 	}
 
 	preparedInfo, err := prepareOrGetContainerInterfaceInfo(
@@ -69,7 +64,6 @@ func (broker *kvmBroker) StartInstance(args environs.StartInstanceParams) (*envi
 		machineId,
 		bridgeDevice,
 		true, // allocate if possible, do not maintain existing.
-		broker.enableNAT,
 		args.NetworkInfo,
 		kvmLogger,
 	)
@@ -81,17 +75,29 @@ func (broker *kvmBroker) StartInstance(args environs.StartInstanceParams) (*envi
 		args.NetworkInfo = preparedInfo
 	}
 
-	// Unlike with LXC, we don't override the default MTU to use.
 	network := container.BridgeNetworkConfig(bridgeDevice, 0, args.NetworkInfo)
-
-	series := args.Tools.OneSeries()
-	args.InstanceConfig.MachineContainerType = instance.KVM
-	args.InstanceConfig.Tools = args.Tools[0]
-
-	config, err := broker.api.ContainerConfig()
+	interfaces, err := finishNetworkConfig(bridgeDevice, args.NetworkInfo)
 	if err != nil {
-		kvmLogger.Errorf("failed to get container config: %v", err)
-		return nil, err
+		return nil, errors.Trace(err)
+	}
+	network.Interfaces = interfaces
+
+	// The provisioner worker will provide all tools it knows about
+	// (after applying explicitly specified constraints), which may
+	// include tools for architectures other than the host's.
+	//
+	// container/kvm only allows running container==host arch, so
+	// we constrain the tools to host arch here regardless of the
+	// constraints specified.
+	archTools, err := matchHostArchTools(args.Tools)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	series := archTools.OneSeries()
+	args.InstanceConfig.MachineContainerType = instance.KVM
+	if err := args.InstanceConfig.SetTools(archTools); err != nil {
+		return nil, errors.Trace(err)
 	}
 
 	if err := instancecfg.PopulateInstanceConfig(
@@ -102,7 +108,6 @@ func (broker *kvmBroker) StartInstance(args environs.StartInstanceParams) (*envi
 		config.Proxy,
 		config.AptProxy,
 		config.AptMirror,
-		config.PreferIPv6,
 		config.EnableOSRefreshUpdate,
 		config.EnableOSUpgrade,
 	); err != nil {
@@ -113,7 +118,10 @@ func (broker *kvmBroker) StartInstance(args environs.StartInstanceParams) (*envi
 	storageConfig := &container.StorageConfig{
 		AllowMount: true,
 	}
-	inst, hardware, err := broker.manager.CreateContainer(args.InstanceConfig, series, network, storageConfig)
+	inst, hardware, err := broker.manager.CreateContainer(
+		args.InstanceConfig, args.Constraints,
+		series, network, storageConfig, args.StatusCallback,
+	)
 	if err != nil {
 		kvmLogger.Errorf("failed to start container: %v", err)
 		return nil, err
@@ -122,22 +130,20 @@ func (broker *kvmBroker) StartInstance(args environs.StartInstanceParams) (*envi
 	return &environs.StartInstanceResult{
 		Instance:    inst,
 		Hardware:    hardware,
-		NetworkInfo: network.Interfaces,
+		NetworkInfo: interfaces,
 	}, nil
 }
 
 // MaintainInstance ensures the container's host has the required iptables and
 // routing rules to make the container visible to both the host and other
-// machines on the same subnet. This is important mostly when address allocation
-// feature flag is enabled, as otherwise we don't create additional iptables
-// rules or routes.
+// machines on the same subnet.
 func (broker *kvmBroker) MaintainInstance(args environs.StartInstanceParams) error {
 	machineID := args.InstanceConfig.MachineId
 
 	// Default to using the host network until we can configure.
 	bridgeDevice := broker.agentConfig.Value(agent.LxcBridge)
 	if bridgeDevice == "" {
-		bridgeDevice = kvm.DefaultKvmBridge
+		bridgeDevice = container.DefaultKvmBridge
 	}
 
 	// There's no InterfaceInfo we expect to get below.
@@ -146,7 +152,6 @@ func (broker *kvmBroker) MaintainInstance(args environs.StartInstanceParams) err
 		machineID,
 		bridgeDevice,
 		false, // maintain, do not allocate.
-		broker.enableNAT,
 		args.NetworkInfo,
 		kvmLogger,
 	)
@@ -162,7 +167,7 @@ func (broker *kvmBroker) StopInstances(ids ...instance.Id) error {
 			kvmLogger.Errorf("container did not stop: %v", err)
 			return err
 		}
-		maybeReleaseContainerAddresses(broker.api, id, broker.namespace, kvmLogger)
+		releaseContainerAddresses(broker.api, id, broker.manager.Namespace(), kvmLogger)
 	}
 	return nil
 }

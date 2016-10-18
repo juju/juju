@@ -6,11 +6,11 @@ package crossmodel
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"launchpad.net/gnuflag"
+	"github.com/juju/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
-	"github.com/juju/juju/model/crossmodel"
+	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/crossmodel"
 )
 
 const showCommandDoc = `
@@ -38,13 +38,13 @@ type showCommand struct {
 }
 
 // NewShowOfferedEndpointCommand constructs command that
-// allows to show details of offered service's endpoint.
+// allows to show details of offered application's endpoint.
 func NewShowOfferedEndpointCommand() cmd.Command {
 	showCmd := &showCommand{}
 	showCmd.newAPIFunc = func() (ShowAPI, error) {
 		return showCmd.NewCrossModelAPI()
 	}
-	return envcmd.Wrap(showCmd)
+	return modelcmd.Wrap(showCmd)
 }
 
 // Init implements Command.Init.
@@ -54,7 +54,7 @@ func (c *showCommand) Init(args []string) (err error) {
 	}
 
 	url := args[0]
-	if _, err := crossmodel.ParseServiceURL(url); err != nil {
+	if _, err := crossmodel.ParseApplicationURL(url); err != nil {
 		return err
 	}
 	c.url = url
@@ -65,7 +65,7 @@ func (c *showCommand) Init(args []string) (err error) {
 func (c *showCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "show-endpoints",
-		Purpose: "shows offered services' endpoints details",
+		Purpose: "Shows offered applications' endpoints details",
 		Doc:     showCommandDoc,
 	}
 }
@@ -88,12 +88,12 @@ func (c *showCommand) Run(ctx *cmd.Context) (err error) {
 	}
 	defer api.Close()
 
-	found, err := api.ServiceOffer(c.url)
+	found, err := api.ApplicationOffer(c.url)
 	if err != nil {
 		return err
 	}
 
-	output, err := convertRemoteServices(found)
+	output, err := convertRemoteApplications(found)
 	if err != nil {
 		return err
 	}
@@ -103,32 +103,32 @@ func (c *showCommand) Run(ctx *cmd.Context) (err error) {
 // ShowAPI defines the API methods that cross model show command uses.
 type ShowAPI interface {
 	Close() error
-	ServiceOffer(url string) (params.ServiceOffer, error)
+	ApplicationOffer(url string) (params.ApplicationOffer, error)
 }
 
-// ShowRemoteService defines the serialization behaviour of remote service.
-// This is used in map-style yaml output where remote service name is the key.
-type ShowRemoteService struct {
-	// Endpoints list of offered service endpoints.
+// ShowRemoteApplication defines the serialization behaviour of remote application.
+// This is used in map-style yaml output where remote application name is the key.
+type ShowRemoteApplication struct {
+	// Endpoints list of offered application endpoints.
 	Endpoints map[string]RemoteEndpoint `yaml:"endpoints" json:"endpoints"`
 
 	// Description is the user entered description.
 	Description string `yaml:"description,omitempty" json:"description,omitempty"`
 }
 
-// convertRemoteServices takes any number of api-formatted remote services and
+// convertRemoteApplications takes any number of api-formatted remote applications and
 // creates a collection of ui-formatted services.
-func convertRemoteServices(services ...params.ServiceOffer) (map[string]ShowRemoteService, error) {
+func convertRemoteApplications(services ...params.ApplicationOffer) (map[string]ShowRemoteApplication, error) {
 	if len(services) == 0 {
 		return nil, nil
 	}
-	output := make(map[string]ShowRemoteService, len(services))
+	output := make(map[string]ShowRemoteApplication, len(services))
 	for _, one := range services {
-		service := ShowRemoteService{Endpoints: convertRemoteEndpoints(one.Endpoints...)}
-		if one.ServiceDescription != "" {
-			service.Description = one.ServiceDescription
+		service := ShowRemoteApplication{Endpoints: convertRemoteEndpoints(one.Endpoints...)}
+		if one.ApplicationDescription != "" {
+			service.Description = one.ApplicationDescription
 		}
-		output[one.ServiceName] = service
+		output[one.ApplicationName] = service
 	}
 	return output, nil
 }

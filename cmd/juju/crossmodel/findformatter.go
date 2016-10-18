@@ -4,46 +4,42 @@
 package crossmodel
 
 import (
-	"bytes"
 	"fmt"
+	"io"
 	"sort"
 	"strings"
-	"text/tabwriter"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/cmd/output"
 )
 
-// formatFindTabular returns a tabular summary of remote services or
+// formatFindTabular returns a tabular summary of remote applications or
 // errors out if parameter is not of expected type.
-func formatFindTabular(value interface{}) ([]byte, error) {
-	endpoints, ok := value.(map[string]RemoteServiceResult)
+func formatFindTabular(writer io.Writer, value interface{}) error {
+	endpoints, ok := value.(map[string]RemoteApplicationResult)
 	if !ok {
-		return nil, errors.Errorf("expected value of type %T, got %T", endpoints, value)
+		return errors.Errorf("expected value of type %T, got %T", endpoints, value)
 	}
-	return formatFoundEndpointsTabular(endpoints)
+	return formatFoundEndpointsTabular(writer, endpoints)
 }
 
-// formatFoundEndpointsTabular returns a tabular summary of offered services' endpoints.
-func formatFoundEndpointsTabular(all map[string]RemoteServiceResult) ([]byte, error) {
-	var out bytes.Buffer
-	tw := tabwriter.NewWriter(&out, minwidth, tabwidth, padding, padchar, flags)
-	print := func(values ...string) {
-		fmt.Fprintln(tw, strings.Join(values, "\t"))
-	}
-
-	print("URL", "INTERFACES")
+// formatFoundEndpointsTabular returns a tabular summary of offered applications' endpoints.
+func formatFoundEndpointsTabular(writer io.Writer, all map[string]RemoteApplicationResult) error {
+	tw := output.TabWriter(writer)
+	w := output.Wrapper{tw}
+	w.Println("URL", "Interfaces")
 
 	for url, one := range all {
-		serviceURL := url
+		applicationURL := url
 
 		interfaces := []string{}
 		for name, ep := range one.Endpoints {
 			interfaces = append(interfaces, fmt.Sprintf("%s:%s", ep.Interface, name))
 		}
 		sort.Strings(interfaces)
-		print(serviceURL, strings.Join(interfaces, ", "))
+		w.Println(applicationURL, strings.Join(interfaces, ", "))
 	}
 	tw.Flush()
 
-	return out.Bytes(), nil
+	return nil
 }

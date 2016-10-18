@@ -12,8 +12,13 @@ import (
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/tags"
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/common"
+	"github.com/juju/juju/tools/lxdclient"
 )
+
+const bootstrapMessage = `To configure your system to better support LXD containers, please see: https://github.com/lxc/lxd/blob/master/doc/production-setup.md`
 
 type baseProvider interface {
 	// BootstrapEnv bootstraps a Juju environment.
@@ -24,57 +29,50 @@ type baseProvider interface {
 }
 
 type environ struct {
-	common.SupportsUnitPlacementPolicy
-
 	name string
 	uuid string
 	raw  *rawProvider
 	base baseProvider
 
+	// namespace is used to create the machine and device hostnames.
+	namespace instance.Namespace
+
 	lock sync.Mutex
 	ecfg *environConfig
 }
 
-type newRawProviderFunc func(*environConfig) (*rawProvider, error)
+type newRawProviderFunc func(environs.CloudSpec) (*rawProvider, error)
 
-func newEnviron(cfg *config.Config, newRawProvider newRawProviderFunc) (*environ, error) {
-	ecfg, err := newValidConfig(cfg, configDefaults)
+func newEnviron(spec environs.CloudSpec, cfg *config.Config, newRawProvider newRawProviderFunc) (*environ, error) {
+	ecfg, err := newValidConfig(cfg)
 	if err != nil {
 		return nil, errors.Annotate(err, "invalid config")
 	}
 
-	// Connect and authenticate.
-	raw, err := newRawProvider(ecfg)
+	namespace, err := instance.NewNamespace(cfg.UUID())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	env, err := newEnvironRaw(ecfg, raw)
+	raw, err := newRawProvider(spec)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	env := &environ{
+		name:      ecfg.Name(),
+		uuid:      ecfg.UUID(),
+		raw:       raw,
+		namespace: namespace,
+		ecfg:      ecfg,
+	}
+	env.base = common.DefaultProvider{Env: env}
 
 	//TODO(wwitzel3) make sure we are also cleaning up profiles during destroy
 	if err := env.initProfile(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	return env, nil
-}
-
-func newEnvironRaw(ecfg *environConfig, raw *rawProvider) (*environ, error) {
-	uuid, ok := ecfg.UUID()
-	if !ok {
-		return nil, errors.New("UUID not set")
-	}
-
-	env := &environ{
-		name: ecfg.Name(),
-		uuid: uuid,
-		ecfg: ecfg,
-		raw:  raw,
-	}
-	env.base = common.DefaultProvider{Env: env}
 	return env, nil
 }
 
@@ -114,42 +112,46 @@ func (*environ) Provider() environs.EnvironProvider {
 func (env *environ) SetConfig(cfg *config.Config) error {
 	env.lock.Lock()
 	defer env.lock.Unlock()
-
-	if env.ecfg == nil {
-		return errors.New("cannot set config on uninitialized env")
+	ecfg, err := newValidConfig(cfg)
+	if err != nil {
+		return errors.Trace(err)
 	}
-
-	if err := env.ecfg.update(cfg); err != nil {
-		return errors.Annotate(err, "invalid config change")
-	}
+	env.ecfg = ecfg
 	return nil
-}
-
-// getSnapshot returns a copy of the environment. This is useful for
-// ensuring the env you are using does not get changed by other code
-// while you are using it.
-func (env *environ) getSnapshot() *environ {
-	e := *env
-	return &e
 }
 
 // Config returns the configuration data with which the env was created.
 func (env *environ) Config() *config.Config {
-	return env.getSnapshot().ecfg.Config
+	env.lock.Lock()
+	cfg := env.ecfg.Config
+	env.lock.Unlock()
+	return cfg
 }
 
-// Bootstrap creates a new instance, chosing the series and arch out of
-// available tools. The series and arch are returned along with a func
-// that must be called to finalize the bootstrap process by transferring
-// the tools and installing the initial juju state server.
-func (env *environ) Bootstrap(ctx environs.BootstrapContext, params environs.BootstrapParams) (*environs.BootstrapResult, error) {
-	// TODO(ericsnow) Ensure currently not the root user
-	// if remote is local host?
+// PrepareForBootstrap implements environs.Environ.
+func (env *environ) PrepareForBootstrap(ctx environs.BootstrapContext) error {
+	if err := lxdclient.EnableHTTPSListener(env.raw); err != nil {
+		return errors.Annotate(err, "enabling HTTPS listener")
+	}
+	return nil
+}
 
+// Create implements environs.Environ.
+func (env *environ) Create(environs.CreateParams) error {
+	return nil
+}
+
+// Bootstrap implements environs.Environ.
+func (env *environ) Bootstrap(ctx environs.BootstrapContext, params environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	// Using the Bootstrap func from provider/common should be fine.
 	// Local provider does its own thing because it has to deal directly
 	// with localhost rather than using SSH.
 	return env.base.BootstrapEnv(ctx, params)
+}
+
+// BootstrapMessage is part of the Environ interface.
+func (env *environ) BootstrapMessage() string {
+	return bootstrapMessage
 }
 
 // Destroy shuts down all known machines and destroys the rest of the
@@ -159,20 +161,47 @@ func (env *environ) Destroy() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-
 	if len(ports) > 0 {
 		if err := env.ClosePorts(ports); err != nil {
 			return errors.Trace(err)
 		}
 	}
-
 	if err := env.base.DestroyEnv(); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
 }
 
-func (env *environ) verifyCredentials() error {
-	// TODO(ericsnow) Do something here?
+// DestroyController implements the Environ interface.
+func (env *environ) DestroyController(controllerUUID string) error {
+	if err := env.Destroy(); err != nil {
+		return errors.Trace(err)
+	}
+	return env.destroyHostedModelResources(controllerUUID)
+}
+
+func (env *environ) destroyHostedModelResources(controllerUUID string) error {
+	// Destroy all instances with juju-controller-uuid
+	// matching the specified UUID.
+	const prefix = "juju-"
+	instances, err := env.prefixedInstances(prefix)
+	if err != nil {
+		return errors.Annotate(err, "listing instances")
+	}
+	logger.Debugf("instances: %v", instances)
+	var names []string
+	for _, inst := range instances {
+		metadata := inst.raw.Metadata()
+		if metadata[tags.JujuModel] == env.uuid {
+			continue
+		}
+		if metadata[tags.JujuController] != controllerUUID {
+			continue
+		}
+		names = append(names, string(inst.Id()))
+	}
+	if err := removeInstances(env.raw, prefix, names); err != nil {
+		return errors.Annotate(err, "removing hosted model instances")
+	}
 	return nil
 }

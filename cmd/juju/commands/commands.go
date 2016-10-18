@@ -6,7 +6,7 @@ package commands
 import (
 	"github.com/juju/cmd"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 // TODO(ericsnow) Replace all this with a better registry mechanism,
@@ -14,7 +14,7 @@ import (
 
 var (
 	registeredCommands    []func() cmd.Command
-	registeredEnvCommands []func() envcmd.EnvironCommand
+	registeredEnvCommands []func() modelcmd.ModelCommand
 )
 
 // RegisterCommand adds the provided func to the set of those that will
@@ -24,10 +24,10 @@ func RegisterCommand(newCommand func() cmd.Command) {
 	registeredCommands = append(registeredCommands, newCommand)
 }
 
-// RegisterCommand adds the provided func to the set of those that will
+// RegisterEnvCommand adds the provided func to the set of those that will
 // be called when the juju command runs. Each returned command will be
 // wrapped in envCmdWrapper, which is what gets registered with the
 // "juju" supercommand.
-func RegisterEnvCommand(newCommand func() envcmd.EnvironCommand) {
+func RegisterEnvCommand(newCommand func() modelcmd.ModelCommand) {
 	registeredEnvCommands = append(registeredEnvCommands, newCommand)
 }

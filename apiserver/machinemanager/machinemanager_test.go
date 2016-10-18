@@ -6,9 +6,9 @@ package machinemanager_test
 import (
 	"errors"
 
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/machinemanager"
@@ -135,11 +135,15 @@ func (st *mockState) GetBlockForType(t state.BlockType) (state.Block, bool, erro
 	return &mockBlock{}, false, nil
 }
 
-func (st *mockState) EnvironConfig() (*config.Config, error) {
+func (st *mockState) ModelTag() names.ModelTag {
+	return names.NewModelTag("deadbeef-2f18-4fd2-967d-db9663db7bea")
+}
+
+func (st *mockState) ModelConfig() (*config.Config, error) {
 	panic("not implemented")
 }
 
-func (st *mockState) Environment() (*state.Environment, error) {
+func (st *mockState) Model() (*state.Model, error) {
 	panic("not implemented")
 }
 
@@ -171,6 +175,6 @@ func (st *mockBlock) Message() string {
 	return "not allowed"
 }
 
-func (st *mockBlock) EnvUUID() string {
+func (st *mockBlock) ModelUUID() string {
 	return "uuid"
 }

@@ -1,8 +1,12 @@
+// Copyright 2014 Canonical Ltd.
+// Copyright 2014 Cloudbase Solutions
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package common
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"

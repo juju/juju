@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -20,7 +20,7 @@ import (
 // Annotations/Annotation below.
 // Note also the correspondence with AnnotationInfo in apiserver/params.
 type annotatorDoc struct {
-	EnvUUID     string            `bson:"env-uuid"`
+	ModelUUID   string            `bson:"model-uuid"`
 	GlobalKey   string            `bson:"globalkey"`
 	Tag         string            `bson:"tag"`
 	Annotations map[string]string `bson:"annotations"`
@@ -111,19 +111,18 @@ func insertAnnotationsOps(st *State, entity GlobalEntity, toInsert map[string]st
 	}}
 
 	switch tag := tag.(type) {
-	case names.EnvironTag:
-		env, err := st.GetEnvironment(tag)
+	case names.ModelTag:
+		model, err := st.GetModel(tag)
 		if err != nil {
 			return nil, errors.Annotatef(err, "inserting annotations")
 		}
-		if env.UUID() == env.doc.ServerUUID {
-			// This is a state server environment, and
-			// cannot be removed. Ergo, we can skip the
-			// existence check below.
+		if model.UUID() == model.ControllerUUID() {
+			// This is the controller model, and cannot be removed.
+			// Ergo, we can skip the existence check below.
 			return ops, nil
 		}
 	}
-	// If the entity is not the state server environment, add a DocExists check on the
+	// If the entity is not the controller model, add a DocExists check on the
 	// entity document, in order to avoid possible races between entity
 	// removal and annotation creation.
 	coll, id, err := st.tagToCollectionAndId(tag)

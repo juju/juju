@@ -4,12 +4,12 @@
 package lease_test
 
 import (
-	"time"
+	"time" // Only used for time types.
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/state/lease"
+	"github.com/juju/juju/core/lease"
 )
 
 // ClientOperationSuite verifies behaviour when claiming, extending, and expiring leases.

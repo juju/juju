@@ -9,8 +9,7 @@ A: Read the docs.  They're not complete (feel free to contribute), but
      2. CONTRIBUTING
      3. doc/architectural-overview.txt
      4. doc/how-to-write-tests.txt
-     5. doc/glossary.txt
-     6. the other docs in doc/
+     5. the other docs in doc/
 
    Many of the docs in the doc/ directory become progressively more clear 
    as you begin actually working in the code.  Keep re-reading them

@@ -4,12 +4,17 @@
 package state
 
 import (
-	"github.com/juju/names"
+	"time"
 
+	"github.com/juju/version"
+	"gopkg.in/juju/names.v2"
+
+	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
 )
 
 // EntityFinder is implemented by *State. See State.FindEntity
@@ -24,10 +29,10 @@ type Entity interface {
 	Tag() names.Tag
 }
 
-// EntityWithService is implemented by Units it is intended
-// for anything that can return its Service.
-type EntityWithService interface {
-	Service() (*Service, error)
+// EntityWithApplication is implemented by Units it is intended
+// for anything that can return its Application.
+type EntityWithApplication interface {
+	Application() (*Application, error)
 }
 
 // Lifer represents an entity with a life.
@@ -88,17 +93,31 @@ type AgentEntity interface {
 	Lifer
 	Authenticator
 	AgentTooler
-	StatusSetter
+	status.StatusSetter
 	EnsureDeader
 	Remover
 	NotifyWatcherFactory
 }
 
-// EnvironAccessor defines the methods needed to watch for environment
-// config changes, and read the environment config.
-type EnvironAccessor interface {
-	WatchForEnvironConfigChanges() NotifyWatcher
-	EnvironConfig() (*config.Config, error)
+// CloudAccessor defines the methods needed to obtain information
+// about clouds and credentials.
+type CloudAccessor interface {
+	Cloud(cloud string) (cloud.Cloud, error)
+	Clouds() (map[names.CloudTag]cloud.Cloud, error)
+	CloudCredential(tag names.CloudCredentialTag) (cloud.Credential, error)
+}
+
+// ModelAccessor defines the methods needed to watch for model
+// config changes, and read the model config.
+type ModelAccessor interface {
+	WatchForModelConfigChanges() NotifyWatcher
+	ModelConfig() (*config.Config, error)
+}
+
+// ControllerAccessor defines the methods needed to
+// access controller information.
+type ControllerAccessor interface {
+	ControllerConfig() (controller.Config, error)
 }
 
 // UnitsWatcher defines the methods needed to retrieve an entity (a
@@ -108,10 +127,10 @@ type UnitsWatcher interface {
 	WatchUnits() StringsWatcher
 }
 
-// EnvironMachinesWatcher defines a single method -
-// WatchEnvironMachines.
-type EnvironMachinesWatcher interface {
-	WatchEnvironMachines() StringsWatcher
+// ModelMachinesWatcher defines a single method -
+// WatchModelMachines.
+type ModelMachinesWatcher interface {
+	WatchModelMachines() StringsWatcher
 }
 
 // InstanceIdGetter defines a single method - InstanceId.
@@ -136,11 +155,11 @@ type ActionReceiver interface {
 
 	// AddAction queues an action with the given name and payload for this
 	// ActionReceiver.
-	AddAction(name string, payload map[string]interface{}) (*Action, error)
+	AddAction(name string, payload map[string]interface{}) (Action, error)
 
 	// CancelAction removes a pending Action from the queue for this
 	// ActionReceiver and marks it as cancelled.
-	CancelAction(action *Action) (*Action, error)
+	CancelAction(action Action) (Action, error)
 
 	// WatchActionNotifications returns a StringsWatcher that will notify
 	// on changes to the queued actions for this ActionReceiver.
@@ -148,19 +167,19 @@ type ActionReceiver interface {
 
 	// Actions returns the list of Actions queued and completed for this
 	// ActionReceiver.
-	Actions() ([]*Action, error)
+	Actions() ([]Action, error)
 
 	// CompletedActions returns the list of Actions completed for this
 	// ActionReceiver.
-	CompletedActions() ([]*Action, error)
+	CompletedActions() ([]Action, error)
 
 	// PendingActions returns the list of Actions queued for this
 	// ActionReceiver.
-	PendingActions() ([]*Action, error)
+	PendingActions() ([]Action, error)
 
 	// RunningActions returns the list of Actions currently running for
 	// this ActionReceiver.
-	RunningActions() ([]*Action, error)
+	RunningActions() ([]Action, error)
 }
 
 // GlobalEntity specifies entity.
@@ -169,20 +188,69 @@ type GlobalEntity interface {
 	Tag() names.Tag
 }
 
-// ServiceEntity represents a local or remote service.
-type ServiceEntity interface {
-	// Life returns the life status of the service.
+// Action represents  an instance of an action designated for a unit or machine
+// in the model.
+type Action interface {
+	Entity
+
+	// Id returns the local id of the Action.
+	Id() string
+
+	// Receiver returns the Name of the ActionReceiver for which this action
+	// is enqueued.  Usually this is a Unit Name().
+	Receiver() string
+
+	// Name returns the name of the action, as defined in the charm.
+	Name() string
+
+	// Parameters will contain a structure representing arguments or parameters to
+	// an action, and is expected to be validated by the Unit using the Charm
+	// definition of the Action.
+	Parameters() map[string]interface{}
+
+	// Enqueued returns the time the action was added to state as a pending
+	// Action.
+	Enqueued() time.Time
+
+	// Started returns the time that the Action execution began.
+	Started() time.Time
+
+	// Completed returns the completion time of the Action.
+	Completed() time.Time
+
+	// Status returns the final state of the action.
+	Status() ActionStatus
+
+	// Results returns the structured output of the action and any error.
+	Results() (map[string]interface{}, string)
+
+	// ActionTag returns an ActionTag constructed from this action's
+	// Prefix and Sequence.
+	ActionTag() names.ActionTag
+
+	// Begin marks an action as running, and logs the time it was started.
+	// It asserts that the action is currently pending.
+	Begin() (Action, error)
+
+	// Finish removes action from the pending queue and captures the output
+	// and end state of the action.
+	Finish(results ActionResults) (Action, error)
+}
+
+// ApplicationEntity represents a local or remote application.
+type ApplicationEntity interface {
+	// Life returns the life status of the application.
 	Life() Life
 
-	// IsRemote returns true if the service is remote (hosted in a different environment).
+	// IsRemote returns true if the application is remote (hosted in a different model).
 	IsRemote() bool
 
-	// Endpoints returns the service's currently available relation endpoints.
+	// Endpoints returns the application's currently available relation endpoints.
 	Endpoints() ([]Endpoint, error)
 
 	// Endpoint returns the relation endpoint with the supplied name, if it exists.
 	Endpoint(relationName string) (Endpoint, error)
 
-	// Relations returns a Relation for every relation the service is in.
+	// Relations returns a Relation for every relation the application is in.
 	Relations() (relations []*Relation, err error)
 }

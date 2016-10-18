@@ -6,22 +6,18 @@ package util
 import (
 	"fmt"
 	"io"
-	"path/filepath"
 	"strconv"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/fslock"
 	"github.com/juju/utils/series"
 
 	"github.com/juju/juju/agent"
-	apirsyslog "github.com/juju/juju/api/rsyslog"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/rsyslog"
 	"github.com/juju/juju/worker/upgrader"
 )
 
@@ -31,7 +27,7 @@ var (
 	EnsureMongoServer = mongo.EnsureServer
 )
 
-// requiredError is useful when complaining about missing command-line options.
+// RequiredError is useful when complaining about missing command-line options.
 func RequiredError(name string) error {
 	return fmt.Errorf("--%s option must be set", name)
 }
@@ -98,12 +94,14 @@ func MoreImportantError(err0, err1 error) error {
 	return err1
 }
 
-// AgentDone processes the error returned by
-// an exiting agent.
+// AgentDone processes the error returned by an exiting agent.
 func AgentDone(logger loggo.Logger, err error) error {
 	err = errors.Cause(err)
 	switch err {
 	case worker.ErrTerminateAgent, worker.ErrRebootMachine, worker.ErrShutdownMachine:
+		// These errors are swallowed here because we want to exit
+		// the agent process without error, to avoid the init system
+		// restarting us.
 		err = nil
 	}
 	if ug, ok := err.(*upgrader.UpgradeReadyError); ok {
@@ -117,18 +115,16 @@ func AgentDone(logger loggo.Logger, err error) error {
 	return err
 }
 
-// Pinger provides a type that knows how to ping.
-type Pinger interface {
-
-	// Ping pings something.
-	Ping() error
+// Breakable provides a type that exposes an IsBroken check.
+type Breakable interface {
+	IsBroken() bool
 }
 
 // ConnectionIsFatal returns a function suitable for passing as the
 // isFatal argument to worker.NewRunner, that diagnoses an error as
 // fatal if the connection has failed or if the error is otherwise
 // fatal.
-func ConnectionIsFatal(logger loggo.Logger, conns ...Pinger) func(err error) bool {
+func ConnectionIsFatal(logger loggo.Logger, conns ...Breakable) func(err error) bool {
 	return func(err error) bool {
 		if IsFatal(err) {
 			return true
@@ -142,8 +138,42 @@ func ConnectionIsFatal(logger loggo.Logger, conns ...Pinger) func(err error) boo
 	}
 }
 
-// ConnectionIsDead returns true if the given pinger fails to ping.
-var ConnectionIsDead = func(logger loggo.Logger, conn Pinger) bool {
+// ConnectionIsDead returns true if the given Breakable is broken.
+var ConnectionIsDead = func(logger loggo.Logger, conn Breakable) bool {
+	return conn.IsBroken()
+}
+
+// Pinger provides a type that knows how to ping.
+type Pinger interface {
+	Ping() error
+}
+
+// PingerIsFatal returns a function suitable for passing as the
+// isFatal argument to worker.NewRunner, that diagnoses an error as
+// fatal if the Pinger has failed or if the error is otherwise fatal.
+//
+// TODO(mjs) - this only exists for checking State instances in the
+// machine agent and won't be necessary once either:
+// 1. State grows a Broken() channel like api.Connection (which is
+//    actually quite a nice idea).
+// 2. The dependency engine conversion is completed for the machine
+//    agent.
+func PingerIsFatal(logger loggo.Logger, conns ...Pinger) func(err error) bool {
+	return func(err error) bool {
+		if IsFatal(err) {
+			return true
+		}
+		for _, conn := range conns {
+			if PingerIsDead(logger, conn) {
+				return true
+			}
+		}
+		return false
+	}
+}
+
+// PingerIsDead returns true if the given pinger fails to ping.
+var PingerIsDead = func(logger loggo.Logger, conn Pinger) bool {
 	if err := conn.Ping(); err != nil {
 		logger.Infof("error pinging %T: %v", conn, err)
 		return true
@@ -169,7 +199,7 @@ func NewEnsureServerParams(agentConfig agent.Config) (mongo.EnsureServerParams, 
 	// Otherwise leave the default false value to indicate to EnsureServer
 	// that numactl should not be used.
 	var numaCtlPolicy bool
-	if numaCtlString := agentConfig.Value(agent.NumaCtlPreference); numaCtlString != "" {
+	if numaCtlString := agentConfig.Value(agent.NUMACtlPreference); numaCtlString != "" {
 		var err error
 		if numaCtlPolicy, err = strconv.ParseBool(numaCtlString); err != nil {
 			return mongo.EnsureServerParams{}, fmt.Errorf("invalid numactl preference: %q", numaCtlString)
@@ -191,9 +221,8 @@ func NewEnsureServerParams(agentConfig agent.Config) (mongo.EnsureServerParams, 
 		SystemIdentity: si.SystemIdentity,
 
 		DataDir:              agentConfig.DataDir(),
-		Namespace:            agentConfig.Value(agent.Namespace),
 		OplogSize:            oplogSize,
-		SetNumaControlPolicy: numaCtlPolicy,
+		SetNUMAControlPolicy: numaCtlPolicy,
 	}
 	return params, nil
 }
@@ -226,27 +255,6 @@ func (c *CloseWorker) Wait() error {
 		c.logger.Errorf("closeWorker: close error: %v", err)
 	}
 	return err
-}
-
-// HookExecutionLock returns an *fslock.Lock suitable for use as a
-// unit hook execution lock. Other workers may also use this lock if
-// they require isolation from hook execution.
-func HookExecutionLock(dataDir string) (*fslock.Lock, error) {
-	lockDir := filepath.Join(dataDir, "locks")
-	return fslock.NewLock(lockDir, "uniter-hook-execution", fslock.Defaults())
-}
-
-// NewRsyslogConfigWorker creates and returns a new
-// RsyslogConfigWorker based on the specified configuration
-// parameters.
-var NewRsyslogConfigWorker = func(st *apirsyslog.State, agentConfig agent.Config, mode rsyslog.RsyslogMode) (worker.Worker, error) {
-	tag := agentConfig.Tag()
-	namespace := agentConfig.Value(agent.Namespace)
-	addrs, err := agentConfig.APIAddresses()
-	if err != nil {
-		return nil, err
-	}
-	return rsyslog.NewRsyslogConfigWorker(st, mode, tag, namespace, addrs, agent.DefaultPaths.ConfDir)
 }
 
 // ParamsStateServingInfoToStateStateServingInfo converts a

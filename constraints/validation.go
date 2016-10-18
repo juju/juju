@@ -5,7 +5,6 @@ package constraints
 
 import (
 	"fmt"
-	"math"
 	"reflect"
 
 	"github.com/juju/utils/set"
@@ -40,6 +39,13 @@ type Validator interface {
 	// Merge merges cons into consFallback, with any conflicting attributes from cons
 	// overriding those from consFallback.
 	Merge(consFallback, cons Value) (Value, error)
+
+	// UpdateVocabulary merges new attribute values with existing values.
+	// This method does not overwrite or delete values, i.e.
+	//     if existing values are {a, b}
+	//     and new values are {c, d},
+	//     then the merge result would be {a, b, c, d}.
+	UpdateVocabulary(attributeName string, newValues interface{})
 }
 
 // NewValidator returns a new constraints Validator instance.
@@ -73,17 +79,60 @@ func (v *validator) RegisterUnsupported(unsupported []string) {
 
 // RegisterVocabulary is defined on Validator.
 func (v *validator) RegisterVocabulary(attributeName string, allowedValues interface{}) {
-	k := reflect.TypeOf(allowedValues).Kind()
+	v.vocab[resolveAlias(attributeName)] = convertToSlice(allowedValues)
+}
+
+var checkIsCollection = func(coll interface{}) {
+	k := reflect.TypeOf(coll).Kind()
 	if k != reflect.Slice && k != reflect.Array {
-		panic(fmt.Errorf("invalid vocab: %v of type %T is not a slice", allowedValues, allowedValues))
+		panic(fmt.Errorf("invalid vocab: %v of type %T is not a slice", coll, coll))
 	}
-	// Convert the vocab to a slice of interface{}
-	var allowedSlice []interface{}
-	val := reflect.ValueOf(allowedValues)
+}
+
+var convertToSlice = func(coll interface{}) []interface{} {
+	checkIsCollection(coll)
+	var slice []interface{}
+	val := reflect.ValueOf(coll)
 	for i := 0; i < val.Len(); i++ {
-		allowedSlice = append(allowedSlice, val.Index(i).Interface())
+		slice = append(slice, val.Index(i).Interface())
 	}
-	v.vocab[attributeName] = allowedSlice
+	return slice
+}
+
+// UpdateVocabulary is defined on Validator.
+func (v *validator) UpdateVocabulary(attributeName string, allowedValues interface{}) {
+	attributeName = resolveAlias(attributeName)
+	// If this attribute is not registered, delegate to RegisterVocabulary()
+	currentValues, ok := v.vocab[attributeName]
+	if !ok {
+		v.RegisterVocabulary(attributeName, allowedValues)
+	}
+
+	unique := map[interface{}]bool{}
+	writeUnique := func(all []interface{}) {
+		for _, one := range all {
+			unique[one] = true
+		}
+	}
+
+	// merge existing values with new, ensuring uniqueness
+	writeUnique(currentValues)
+	newValues := convertToSlice(allowedValues)
+	writeUnique(newValues)
+
+	v.updateVocabularyFromMap(attributeName, unique)
+}
+
+func (v *validator) updateVocabularyFromMap(attributeName string, valuesMap map[interface{}]bool) {
+	attributeName = resolveAlias(attributeName)
+	var merged []interface{}
+	for one, _ := range valuesMap {
+		// TODO (anastasiamac) Because it's coming from the map, the order maybe affected
+		// and can be unreliable. Not sure how to fix it yet...
+		// How can we guarantee the order here?
+		merged = append(merged, one)
+	}
+	v.RegisterVocabulary(attributeName, merged)
 }
 
 // checkConflicts returns an error if the constraints Value contains conflicting attributes.
@@ -138,7 +187,7 @@ func (v *validator) checkValidValues(cons Value) error {
 // checkInVocab returns an error if the attribute value is not allowed by the
 // vocab which may have been registered for it.
 func (v *validator) checkInVocab(attributeName string, attributeValue interface{}) error {
-	validValues, ok := v.vocab[attributeName]
+	validValues, ok := v.vocab[resolveAlias(attributeName)]
 	if !ok {
 		return nil
 	}
@@ -151,40 +200,54 @@ func (v *validator) checkInVocab(attributeName string, attributeValue interface{
 		"invalid constraint value: %v=%v\nvalid values are: %v", attributeName, attributeValue, validValues)
 }
 
-// coerce returns v in a format that allows constraint values to be easily compared.
-// Its main purpose is to cast all numeric values to int64 or float64.
+// coerce returns v in a format that allows constraint values to be easily
+// compared. Its main purpose is to cast all numeric values to float64 (since
+// the numbers we compare are generated from json serialization).
 func coerce(v interface{}) interface{} {
-	if v != nil {
-		switch vv := reflect.TypeOf(v); vv.Kind() {
-		case reflect.String:
-			return v
-		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-			return int64(reflect.ValueOf(v).Int())
-		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-			uval := reflect.ValueOf(v).Uint()
-			// Just double check the value is in range.
-			if uval > math.MaxInt64 {
-				panic(fmt.Errorf("constraint value %v is too large", uval))
-			}
-			return int64(uval)
-		case reflect.Float32, reflect.Float64:
-			return float64(reflect.ValueOf(v).Float())
-		}
+	switch val := v.(type) {
+	case string:
+		return v
+	// Yes, these are all the same, however we can't put them into a single
+	// case, or the value becomes interface{}, which can't be converted to a
+	// float64.
+	case int:
+		return float64(val)
+	case int8:
+		return float64(val)
+	case int16:
+		return float64(val)
+	case int32:
+		return float64(val)
+	case int64:
+		return float64(val)
+	case uint:
+		return float64(val)
+	case uint8:
+		return float64(val)
+	case uint16:
+		return float64(val)
+	case uint32:
+		return float64(val)
+	case uint64:
+		return float64(val)
+	case float32:
+		return float64(val)
+	case float64:
+		return val
 	}
 	return v
 }
 
 // withFallbacks returns a copy of v with nil values taken from vFallback.
 func withFallbacks(v Value, vFallback Value) Value {
-	result := vFallback
-	for _, fieldName := range fieldNames {
-		resultVal := reflect.ValueOf(&result).Elem().FieldByName(fieldName)
-		val := reflect.ValueOf(&v).Elem().FieldByName(fieldName)
-		if !val.IsNil() {
-			resultVal.Set(val)
+	vAttr := v.attributesWithValues()
+	fbAttr := vFallback.attributesWithValues()
+	for k, v := range fbAttr {
+		if _, ok := vAttr[k]; !ok {
+			vAttr[k] = v
 		}
 	}
-	return result
+	return fromAttributes(vAttr)
 }
 
 // Validate is defined on Validator.
@@ -218,7 +281,7 @@ func (v *validator) Merge(consFallback, cons Value) (Value, error) {
 	// Null out the conflicting consFallback attribute values because
 	// cons takes priority. We can't error here because we
 	// know that aConflicts contains valid attr names.
-	consFallbackMinusConflicts, _ := consFallback.without(fallbackConflicts...)
+	consFallbackMinusConflicts := consFallback.without(fallbackConflicts...)
 	// The result is cons with fallbacks coming from any
 	// non conflicting consFallback attributes.
 	return withFallbacks(cons, consFallbackMinusConflicts), nil

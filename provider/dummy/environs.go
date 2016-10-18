@@ -5,8 +5,8 @@
 // purposes, registered with environs under the name "dummy".
 //
 // The configuration YAML for the testing environment
-// must specify a "state-server" property with a boolean
-// value. If this is true, a state server will be started
+// must specify a "controller" property with a boolean
+// value. If this is true, a controller will be started
 // when the environment is bootstrapped.
 //
 // The configuration data also accepts a "broken" property
@@ -16,16 +16,13 @@
 //
 // The DNS name of instances is the same as the Id,
 // with ".dns" appended.
-//
-// To avoid enumerating all possible series and architectures,
-// any series or architecture with the prefix "unknown" is
-// treated as bad when starting a new instance.
 package dummy
 
 import (
 	"fmt"
 	"net"
 	"os"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -33,25 +30,36 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
+	"github.com/juju/retry"
 	"github.com/juju/schema"
 	gitjujutesting "github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
+	"github.com/juju/utils/clock"
+	"github.com/juju/utils/series"
+	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/environschema.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver"
+	"github.com/juju/juju/apiserver/observer"
+	"github.com/juju/juju/apiserver/observer/fakeobserver"
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/state/stateenvirons"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
@@ -61,14 +69,24 @@ var logger = loggo.GetLogger("juju.provider.dummy")
 
 var transientErrorInjection chan error
 
-const (
-	BootstrapInstanceId = instance.Id("localhost")
-)
+const BootstrapInstanceId = "localhost"
 
-var (
-	ErrNotPrepared = errors.New("environment is not prepared")
-	ErrDestroyed   = errors.New("environment has been destroyed")
-)
+var errNotPrepared = errors.New("model is not prepared")
+
+// SampleCloudSpec returns an environs.CloudSpec that can be used to
+// open a dummy Environ.
+func SampleCloudSpec() environs.CloudSpec {
+	cred := cloud.NewCredential(cloud.UserPassAuthType, map[string]string{"username": "dummy", "passeord": "secret"})
+	return environs.CloudSpec{
+		Type:             "dummy",
+		Name:             "dummy",
+		Endpoint:         "dummy-endpoint",
+		IdentityEndpoint: "dummy-identity-endpoint",
+		Region:           "dummy-region",
+		StorageEndpoint:  "dummy-storage-endpoint",
+		Credential:       &cred,
+	}
+}
 
 // SampleConfig() returns an environment configuration with all required
 // attributes set.
@@ -76,22 +94,15 @@ func SampleConfig() testing.Attrs {
 	return testing.Attrs{
 		"type":                      "dummy",
 		"name":                      "only",
-		"uuid":                      testing.EnvironmentTag.Id(),
+		"uuid":                      testing.ModelTag.Id(),
 		"authorized-keys":           testing.FakeAuthKeys,
 		"firewall-mode":             config.FwInstance,
-		"admin-secret":              testing.DefaultMongoPassword,
-		"ca-cert":                   testing.CACert,
-		"ca-private-key":            testing.CAKey,
 		"ssl-hostname-verification": true,
 		"development":               false,
-		"state-port":                1234,
-		"api-port":                  4321,
-		"syslog-port":               2345,
-		"default-series":            config.LatestLtsSeries(),
+		"default-series":            series.LatestLts(),
 
-		"secret":       "pork",
-		"state-server": true,
-		"prefer-ipv6":  true,
+		"secret":     "pork",
+		"controller": true,
 	}
 }
 
@@ -105,32 +116,14 @@ func PatchTransientErrorInjectionChannel(c chan error) func() {
 	return gitjujutesting.PatchValue(&transientErrorInjection, c)
 }
 
-// AdminUserTag returns the user tag used to bootstrap the dummy environment.
-// The dummy bootstrapping is handled slightly differently, and the user is
-// created as part of the bootstrap process.  This method is used to provide
-// tests a way to get to the user name that was used to initialise the
-// database, and as such, is the owner of the initial environment.
-func AdminUserTag() names.UserTag {
-	return names.NewLocalUserTag("dummy-admin")
-}
-
 // stateInfo returns a *state.Info which allows clients to connect to the
-// shared dummy state, if it exists. If preferIPv6 is true, an IPv6 endpoint
-// will be added as primary.
-func stateInfo(preferIPv6 bool) *mongo.MongoInfo {
+// shared dummy state, if it exists.
+func stateInfo() *mongo.MongoInfo {
 	if gitjujutesting.MgoServer.Addr() == "" {
 		panic("dummy environ state tests must be run with MgoTestPackage")
 	}
 	mongoPort := strconv.Itoa(gitjujutesting.MgoServer.Port())
-	var addrs []string
-	if preferIPv6 {
-		addrs = []string{
-			net.JoinHostPort("::1", mongoPort),
-			net.JoinHostPort("localhost", mongoPort),
-		}
-	} else {
-		addrs = []string{net.JoinHostPort("localhost", mongoPort)}
-	}
+	addrs := []string{net.JoinHostPort("localhost", mongoPort)}
 	return &mongo.MongoInfo{
 		Info: mongo.Info{
 			Addrs:  addrs,
@@ -155,26 +148,10 @@ type OpFinalizeBootstrap struct {
 }
 
 type OpDestroy struct {
-	Env   string
-	Error error
-}
-
-type OpAllocateAddress struct {
-	Env        string
-	InstanceId instance.Id
-	SubnetId   network.Id
-	Address    network.Address
-	MACAddress string
-	HostName   string
-}
-
-type OpReleaseAddress struct {
-	Env        string
-	InstanceId instance.Id
-	SubnetId   network.Id
-	Address    network.Address
-	MACAddress string
-	HostName   string
+	Env         string
+	Cloud       string
+	CloudRegion string
+	Error       error
 }
 
 type OpNetworkInterfaces struct {
@@ -198,7 +175,6 @@ type OpStartInstance struct {
 	Instance         instance.Instance
 	Constraints      constraints.Value
 	SubnetsToZones   map[network.Id][]string
-	Networks         []string
 	NetworkInfo      []network.InterfaceInfo
 	Volumes          []storage.Volume
 	Info             *mongo.MongoInfo
@@ -233,115 +209,170 @@ type OpPutFile struct {
 }
 
 // environProvider represents the dummy provider.  There is only ever one
-// instance of this type (providerInstance)
+// instance of this type (dummy)
 type environProvider struct {
-	mu             sync.Mutex
-	ops            chan<- Operation
-	statePolicy    state.Policy
-	supportsSpaces bool
-	// We have one state for each environment name.
-	state      map[int]*environState
-	maxStateId int
+	mu                     sync.Mutex
+	ops                    chan<- Operation
+	newStatePolicy         state.NewPolicyFunc
+	supportsSpaces         bool
+	supportsSpaceDiscovery bool
+	apiPort                int
+	controllerState        *environState
+	state                  map[string]*environState
 }
 
-var providerInstance environProvider
-
-const noStateId = 0
+// APIPort returns the randon api port used by the given provider instance.
+func APIPort(p environs.EnvironProvider) int {
+	return p.(*environProvider).apiPort
+}
 
 // environState represents the state of an environment.
 // It can be shared between several environ values,
 // so that a given environment can be opened several times.
 type environState struct {
-	id           int
-	name         string
-	ops          chan<- Operation
-	statePolicy  state.Policy
-	mu           sync.Mutex
-	maxId        int // maximum instance id allocated so far.
-	maxAddr      int // maximum allocated address last byte
-	insts        map[instance.Id]*dummyInstance
-	globalPorts  map[network.PortRange]bool
-	bootstrapped bool
-	apiListener  net.Listener
-	apiServer    *apiserver.Server
-	apiState     *state.State
-	preferIPv6   bool
+	name           string
+	ops            chan<- Operation
+	newStatePolicy state.NewPolicyFunc
+	mu             sync.Mutex
+	maxId          int // maximum instance id allocated so far.
+	maxAddr        int // maximum allocated address last byte
+	insts          map[instance.Id]*dummyInstance
+	globalPorts    map[network.PortRange]bool
+	bootstrapped   bool
+	apiListener    net.Listener
+	apiServer      *apiserver.Server
+	apiState       *state.State
+	apiStatePool   *state.StatePool
+	creator        string
 }
 
 // environ represents a client's connection to a given environment's
 // state.
 type environ struct {
-	common.SupportsUnitPlacementPolicy
-
+	storage.ProviderRegistry
 	name         string
+	modelUUID    string
+	cloud        environs.CloudSpec
 	ecfgMutex    sync.Mutex
 	ecfgUnlocked *environConfig
 	spacesMutex  sync.RWMutex
 }
 
-var _ environs.Environ = (*environ)(nil)
-
 // discardOperations discards all Operations written to it.
-var discardOperations chan<- Operation
+var discardOperations = make(chan Operation)
 
 func init() {
-	environs.RegisterProvider("dummy", &providerInstance)
+	environs.RegisterProvider("dummy", &dummy)
 
 	// Prime the first ops channel, so that naive clients can use
 	// the testing environment by simply importing it.
-	c := make(chan Operation)
 	go func() {
-		for _ = range c {
+		for _ = range discardOperations {
 		}
 	}()
-	discardOperations = c
-	Reset()
+}
 
-	// parse errors are ignored
-	providerDelay, _ = time.ParseDuration(os.Getenv("JUJU_DUMMY_DELAY"))
+// dummy is the dummy environmentProvider singleton.
+var dummy = environProvider{
+	ops:   discardOperations,
+	state: make(map[string]*environState),
+	newStatePolicy: stateenvirons.GetNewPolicyFunc(
+		stateenvirons.GetNewEnvironFunc(environs.New),
+	),
+	supportsSpaces:         true,
+	supportsSpaceDiscovery: false,
 }
 
 // Reset resets the entire dummy environment and forgets any registered
-// operation listener.  All opened environments after Reset will share
+// operation listener. All opened environments after Reset will share
 // the same underlying state.
-func Reset() {
-	logger.Infof("reset environment")
-	p := &providerInstance
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	providerInstance.ops = discardOperations
-	for _, s := range p.state {
+func Reset(c *gc.C) {
+	logger.Infof("reset model")
+	dummy.mu.Lock()
+	dummy.ops = discardOperations
+	oldState := dummy.state
+	dummy.controllerState = nil
+	dummy.state = make(map[string]*environState)
+	dummy.newStatePolicy = stateenvirons.GetNewPolicyFunc(
+		stateenvirons.GetNewEnvironFunc(environs.New),
+	)
+	dummy.supportsSpaces = true
+	dummy.supportsSpaceDiscovery = false
+	dummy.mu.Unlock()
+
+	// NOTE(axw) we must destroy the old states without holding
+	// the provider lock, or we risk deadlocking. Destroying
+	// state involves closing the embedded API server, which
+	// may require waiting on RPC calls that interact with the
+	// EnvironProvider (e.g. EnvironProvider.Open).
+	for _, s := range oldState {
 		if s.apiListener != nil {
 			s.apiListener.Close()
 		}
 		s.destroy()
 	}
-	providerInstance.state = make(map[int]*environState)
 	if mongoAlive() {
-		gitjujutesting.MgoServer.Reset()
+		err := retry.Call(retry.CallArgs{
+			Func: gitjujutesting.MgoServer.Reset,
+			// Only interested in retrying the intermittent
+			// 'unexpected message'.
+			IsFatalError: func(err error) bool {
+				return !strings.HasSuffix(err.Error(), "unexpected message")
+			},
+			Delay:    time.Millisecond,
+			Clock:    clock.WallClock,
+			Attempts: 5,
+		})
+		c.Assert(err, jc.ErrorIsNil)
 	}
-	providerInstance.statePolicy = environs.NewStatePolicy()
-	providerInstance.supportsSpaces = true
 }
 
 func (state *environState) destroy() {
+	state.mu.Lock()
+	defer state.mu.Unlock()
+	state.destroyLocked()
+}
+
+func (state *environState) destroyLocked() {
 	if !state.bootstrapped {
 		return
 	}
-	if state.apiServer != nil {
-		if err := state.apiServer.Stop(); err != nil && mongoAlive() {
+	apiServer := state.apiServer
+	apiStatePool := state.apiStatePool
+	apiState := state.apiState
+	state.apiServer = nil
+	state.apiStatePool = nil
+	state.apiState = nil
+	state.bootstrapped = false
+
+	// Release the lock while we close resources. In particular,
+	// we must not hold the lock while the API server is being
+	// closed, as it may need to interact with the Environ while
+	// shutting down.
+	state.mu.Unlock()
+	defer state.mu.Lock()
+
+	if apiServer != nil {
+		if err := apiServer.Stop(); err != nil && mongoAlive() {
 			panic(err)
 		}
-		state.apiServer = nil
-		if err := state.apiState.Close(); err != nil && mongoAlive() {
-			panic(err)
-		}
-		state.apiState = nil
 	}
+
+	if apiStatePool != nil {
+		if err := apiStatePool.Close(); err != nil && mongoAlive() {
+			panic(err)
+		}
+	}
+
+	if apiState != nil {
+		if err := apiState.Close(); err != nil && mongoAlive() {
+			panic(err)
+		}
+	}
+
 	if mongoAlive() {
 		gitjujutesting.MgoServer.Reset()
 	}
-	state.bootstrapped = false
 }
 
 // mongoAlive reports whether the mongo server is
@@ -363,14 +394,28 @@ func (e *environ) GetStateInAPIServer() *state.State {
 	return st.apiState
 }
 
+// GetStatePoolInAPIServer returns the StatePool used by the API
+// server.  As for GetStatePoolInAPIServer, this is so code in the
+// test suite can trigger Syncs etc.
+func (e *environ) GetStatePoolInAPIServer() *state.StatePool {
+	st, err := e.state()
+	if err != nil {
+		panic(err)
+	}
+	return st.apiStatePool
+}
+
 // newState creates the state for a new environment with the given name.
-func newState(name string, ops chan<- Operation, policy state.Policy) *environState {
+func newState(name string, ops chan<- Operation, newStatePolicy state.NewPolicyFunc) *environState {
+	buf := make([]byte, 8192)
+	buf = buf[:runtime.Stack(buf, false)]
 	s := &environState{
-		name:        name,
-		ops:         ops,
-		statePolicy: policy,
-		insts:       make(map[instance.Id]*dummyInstance),
-		globalPorts: make(map[network.PortRange]bool),
+		name:           name,
+		ops:            ops,
+		newStatePolicy: newStatePolicy,
+		insts:          make(map[instance.Id]*dummyInstance),
+		globalPorts:    make(map[network.PortRange]bool),
+		creator:        string(buf),
 	}
 	return s
 }
@@ -386,40 +431,35 @@ func (s *environState) listenAPI() int {
 	return l.Addr().(*net.TCPAddr).Port
 }
 
-// SetStatePolicy sets the state.Policy to use when a
-// state server is initialised by dummy.
-func SetStatePolicy(policy state.Policy) {
-	p := &providerInstance
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	p.statePolicy = policy
-}
-
 // SetSupportsSpaces allows to enable and disable SupportsSpaces for tests.
 func SetSupportsSpaces(supports bool) bool {
-	p := &providerInstance
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	current := p.supportsSpaces
-	p.supportsSpaces = supports
+	dummy.mu.Lock()
+	defer dummy.mu.Unlock()
+	current := dummy.supportsSpaces
+	dummy.supportsSpaces = supports
 	return current
 }
 
-// Listen closes the previously registered listener (if any).
-// Subsequent operations on any dummy environment can be received on c
-// (if not nil).
+// SetSupportsSpaceDiscovery allows to enable and disable
+// SupportsSpaceDiscovery for tests.
+func SetSupportsSpaceDiscovery(supports bool) bool {
+	dummy.mu.Lock()
+	defer dummy.mu.Unlock()
+	current := dummy.supportsSpaceDiscovery
+	dummy.supportsSpaceDiscovery = supports
+	return current
+}
+
+// Listen directs subsequent operations on any dummy environment
+// to channel c (if not nil).
 func Listen(c chan<- Operation) {
-	p := &providerInstance
-	p.mu.Lock()
-	defer p.mu.Unlock()
+	dummy.mu.Lock()
+	defer dummy.mu.Unlock()
 	if c == nil {
 		c = discardOperations
 	}
-	if p.ops != discardOperations {
-		close(p.ops)
-	}
-	p.ops = c
-	for _, st := range p.state {
+	dummy.ops = c
+	for _, st := range dummy.state {
 		st.mu.Lock()
 		st.ops = c
 		st.mu.Unlock()
@@ -427,8 +467,8 @@ func Listen(c chan<- Operation) {
 }
 
 var configSchema = environschema.Fields{
-	"state-server": {
-		Description: "Whether the environment should start a state server",
+	"controller": {
+		Description: "Whether the model should start a controller",
 		Type:        environschema.Tbool,
 	},
 	"broken": {
@@ -438,11 +478,6 @@ var configSchema = environschema.Fields{
 	"secret": {
 		Description: "A secret",
 		Type:        environschema.Tstring,
-	},
-	"state-id": {
-		Description: "Id of state server",
-		Type:        environschema.Tstring,
-		Group:       environschema.JujuGroup,
 	},
 }
 
@@ -455,9 +490,9 @@ var configFields = func() schema.Fields {
 }()
 
 var configDefaults = schema.Defaults{
-	"broken":   "",
-	"secret":   "pork",
-	"state-id": schema.Omit,
+	"broken":     "",
+	"secret":     "pork",
+	"controller": false,
 }
 
 type environConfig struct {
@@ -465,8 +500,8 @@ type environConfig struct {
 	attrs map[string]interface{}
 }
 
-func (c *environConfig) stateServer() bool {
-	return c.attrs["state-server"].(bool)
+func (c *environConfig) controller() bool {
+	return c.attrs["controller"].(bool)
 }
 
 func (c *environConfig) broken() string {
@@ -475,18 +510,6 @@ func (c *environConfig) broken() string {
 
 func (c *environConfig) secret() string {
 	return c.attrs["secret"].(string)
-}
-
-func (c *environConfig) stateId() int {
-	idStr, ok := c.attrs["state-id"].(string)
-	if !ok {
-		return noStateId
-	}
-	id, err := strconv.Atoi(idStr)
-	if err != nil {
-		panic(fmt.Errorf("unexpected state-id %q (should have pre-checked)", idStr))
-	}
-	return id
 }
 
 func (p *environProvider) newConfig(cfg *config.Config) (*environConfig, error) {
@@ -505,6 +528,48 @@ func (p *environProvider) Schema() environschema.Fields {
 	return fields
 }
 
+var _ config.ConfigSchemaSource = (*environProvider)(nil)
+
+// ConfigSchema returns extra config attributes specific
+// to this provider only.
+func (p environProvider) ConfigSchema() schema.Fields {
+	return configFields
+}
+
+// ConfigDefaults returns the default values for the
+// provider specific config attributes.
+func (p environProvider) ConfigDefaults() schema.Defaults {
+	return configDefaults
+}
+
+func (environProvider) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
+	return map[cloud.AuthType]cloud.CredentialSchema{
+		cloud.EmptyAuthType: {},
+		cloud.UserPassAuthType: {
+			{
+				"username", cloud.CredentialAttr{Description: "The username to authenticate with."},
+			}, {
+				"password", cloud.CredentialAttr{
+					Description: "The password for the specified username.",
+					Hidden:      true,
+				},
+			},
+		},
+	}
+}
+
+func (*environProvider) DetectCredentials() (*cloud.CloudCredential, error) {
+	return cloud.NewEmptyCloudCredential(), nil
+}
+
+func (*environProvider) FinalizeCredential(ctx environs.FinalizeCredentialContext, args environs.FinalizeCredentialParams) (*cloud.Credential, error) {
+	return &args.Credential, nil
+}
+
+func (*environProvider) DetectRegions() ([]cloud.Region, error) {
+	return []cloud.Region{{Name: "dummy"}}, nil
+}
+
 func (p *environProvider) Validate(cfg, old *config.Config) (valid *config.Config, err error) {
 	// Check for valid changes for the base config values.
 	if err := config.Validate(cfg, old); err != nil {
@@ -514,42 +579,33 @@ func (p *environProvider) Validate(cfg, old *config.Config) (valid *config.Confi
 	if err != nil {
 		return nil, err
 	}
-	if idStr, ok := validated["state-id"].(string); ok {
-		if _, err := strconv.Atoi(idStr); err != nil {
-			return nil, fmt.Errorf("invalid state-id %q", idStr)
-		}
-	}
 	// Apply the coerced unknown values back into the config.
 	return cfg.Apply(validated)
 }
 
 func (e *environ) state() (*environState, error) {
-	stateId := e.ecfg().stateId()
-	if stateId == noStateId {
-		return nil, ErrNotPrepared
+	dummy.mu.Lock()
+	defer dummy.mu.Unlock()
+	state, ok := dummy.state[e.modelUUID]
+	if !ok {
+		return nil, errNotPrepared
 	}
-	p := &providerInstance
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	if state := p.state[stateId]; state != nil {
-		return state, nil
-	}
-	return nil, ErrDestroyed
+	return state, nil
 }
 
-func (p *environProvider) Open(cfg *config.Config) (environs.Environ, error) {
+func (p *environProvider) Open(args environs.OpenParams) (environs.Environ, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	ecfg, err := p.newConfig(cfg)
+	ecfg, err := p.newConfig(args.Config)
 	if err != nil {
 		return nil, err
 	}
-	if ecfg.stateId() == noStateId {
-		return nil, ErrNotPrepared
-	}
 	env := &environ{
-		name:         ecfg.Name(),
-		ecfgUnlocked: ecfg,
+		ProviderRegistry: StorageProviders(),
+		name:             ecfg.Name(),
+		modelUUID:        args.Config.UUID(),
+		cloud:            args.Cloud,
+		ecfgUnlocked:     ecfg,
 	}
 	if err := env.checkBroken("Open"); err != nil {
 		return nil, err
@@ -557,76 +613,13 @@ func (p *environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	return env, nil
 }
 
-// RestrictedConfigAttributes is specified in the EnvironProvider interface.
-func (p *environProvider) RestrictedConfigAttributes() []string {
-	return nil
-}
-
-// PrepareForCreateEnvironment is specified in the EnvironProvider interface.
-func (p *environProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
-	return cfg, nil
-}
-
-func (p *environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
-	cfg, err := p.prepare(cfg)
-	if err != nil {
+// PrepareConfig is specified in the EnvironProvider interface.
+func (p *environProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {
+	if _, err := dummy.newConfig(args.Config); err != nil {
 		return nil, err
 	}
-	return p.Open(cfg)
+	return args.Config, nil
 }
-
-// prepare is the internal version of Prepare - it prepares the
-// environment but does not open it.
-func (p *environProvider) prepare(cfg *config.Config) (*config.Config, error) {
-	ecfg, err := p.newConfig(cfg)
-	if err != nil {
-		return nil, err
-	}
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	name := cfg.Name()
-	if ecfg.stateId() != noStateId {
-		return cfg, nil
-	}
-	if ecfg.stateServer() && len(p.state) != 0 {
-		for _, old := range p.state {
-			panic(fmt.Errorf("cannot share a state between two dummy environs; old %q; new %q", old.name, name))
-		}
-	}
-	// The environment has not been prepared,
-	// so create it and set its state identifier accordingly.
-	state := newState(name, p.ops, p.statePolicy)
-	p.maxStateId++
-	state.id = p.maxStateId
-	p.state[state.id] = state
-
-	attrs := map[string]interface{}{"state-id": fmt.Sprint(state.id)}
-	if ecfg.stateServer() {
-		attrs["api-port"] = state.listenAPI()
-	}
-	return cfg.Apply(attrs)
-}
-
-func (*environProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
-	ecfg, err := providerInstance.newConfig(cfg)
-	if err != nil {
-		return nil, err
-	}
-	return map[string]string{
-		"secret": ecfg.secret(),
-	}, nil
-}
-
-func (*environProvider) BoilerplateConfig() string {
-	return `
-# Fake configuration for dummy provider.
-dummy:
-    type: dummy
-
-`[1:]
-}
-
-var errBroken = errors.New("broken environment")
 
 // Override for testing - the data directory with which the state api server is initialised.
 var DataDir = ""
@@ -648,16 +641,45 @@ func (e *environ) checkBroken(method string) error {
 	return nil
 }
 
-// SupportedArchitectures is specified on the EnvironCapability interface.
-func (*environ) SupportedArchitectures() ([]string, error) {
-	return []string{arch.AMD64, arch.I386, arch.PPC64EL, arch.ARM64}, nil
-}
-
 // PrecheckInstance is specified in the state.Prechecker interface.
 func (*environ) PrecheckInstance(series string, cons constraints.Value, placement string) error {
 	if placement != "" && placement != "valid" {
 		return fmt.Errorf("%s placement is invalid", placement)
 	}
+	return nil
+}
+
+// Create is part of the Environ interface.
+func (e *environ) Create(args environs.CreateParams) error {
+	dummy.mu.Lock()
+	defer dummy.mu.Unlock()
+	dummy.state[e.modelUUID] = newState(e.name, dummy.ops, dummy.newStatePolicy)
+	return nil
+}
+
+// PrepareForBootstrap is part of the Environ interface.
+func (e *environ) PrepareForBootstrap(ctx environs.BootstrapContext) error {
+	dummy.mu.Lock()
+	defer dummy.mu.Unlock()
+	ecfg := e.ecfgUnlocked
+
+	if ecfg.controller() && dummy.controllerState != nil {
+		// Because of global variables, we can only have one dummy
+		// controller per process. Panic if there is an attempt to
+		// bootstrap while there is another active controller.
+		old := dummy.controllerState
+		panic(fmt.Errorf("cannot share a state between two dummy environs; old %q; new %q: %s", old.name, e.name, old.creator))
+	}
+
+	// The environment has not been prepared, so create it and record it.
+	// We don't start listening for State or API connections until
+	// Bootstrap has been called.
+	envState := newState(e.name, dummy.ops, dummy.newStatePolicy)
+	if ecfg.controller() {
+		dummy.apiPort = envState.listenAPI()
+		dummy.controllerState = envState
+	}
+	dummy.state[e.modelUUID] = envState
 	return nil
 }
 
@@ -673,20 +695,11 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 	if err := e.checkBroken("Bootstrap"); err != nil {
 		return nil, err
 	}
-	network.SetPreferIPv6(e.Config().PreferIPv6())
-	password := e.Config().AdminSecret()
-	if password == "" {
-		return nil, fmt.Errorf("admin-secret is required for bootstrap")
-	}
-	if _, ok := e.Config().CACert(); !ok {
-		return nil, fmt.Errorf("no CA certificate in environment configuration")
+	if _, ok := args.ControllerConfig.CACert(); !ok {
+		return nil, errors.New("no CA certificate in controller configuration")
 	}
 
 	logger.Infof("would pick tools from %s", availableTools)
-	cfg, err := environs.BootstrapConfig(e.Config())
-	if err != nil {
-		return nil, fmt.Errorf("cannot make bootstrap config: %v", err)
-	}
 
 	estate, err := e.state()
 	if err != nil {
@@ -695,9 +708,8 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 	estate.mu.Lock()
 	defer estate.mu.Unlock()
 	if estate.bootstrapped {
-		return nil, fmt.Errorf("environment is already bootstrapped")
+		return nil, errors.New("model is already bootstrapped")
 	}
-	estate.preferIPv6 = e.Config().PreferIPv6()
 
 	// Create an instance for the bootstrap node.
 	logger.Infof("creating bootstrap instance")
@@ -709,63 +721,104 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 		series:       series,
 		firewallMode: e.Config().FirewallMode(),
 		state:        estate,
-		stateServer:  true,
+		controller:   true,
 	}
 	estate.insts[i.id] = i
-
-	if e.ecfg().stateServer() {
-		// TODO(rog) factor out relevant code from cmd/jujud/bootstrap.go
-		// so that we can call it here.
-
-		info := stateInfo(estate.preferIPv6)
-		// Since the admin user isn't setup until after here,
-		// the password in the info structure is empty, so the admin
-		// user is constructed with an empty password here.
-		// It is set just below.
-		st, err := state.Initialize(
-			AdminUserTag(), info, cfg,
-			mongo.DefaultDialOpts(), estate.statePolicy)
-		if err != nil {
-			panic(err)
-		}
-		if err := st.SetEnvironConstraints(args.Constraints); err != nil {
-			panic(err)
-		}
-		if err := st.SetAdminMongoPassword(password); err != nil {
-			panic(err)
-		}
-		if err := st.MongoSession().DB("admin").Login("admin", password); err != nil {
-			panic(err)
-		}
-		env, err := st.Environment()
-		if err != nil {
-			panic(err)
-		}
-		owner, err := st.User(env.Owner())
-		if err != nil {
-			panic(err)
-		}
-		// We log this out for test purposes only. No one in real life can use
-		// a dummy provider for anything other than testing, so logging the password
-		// here is fine.
-		logger.Debugf("setting password for %q to %q", owner.Name(), password)
-		owner.SetPassword(password)
-
-		estate.apiServer, err = apiserver.NewServer(st, estate.apiListener, apiserver.ServerConfig{
-			Cert:    []byte(testing.ServerCert),
-			Key:     []byte(testing.ServerKey),
-			Tag:     names.NewMachineTag("0"),
-			DataDir: DataDir,
-			LogDir:  LogDir,
-		})
-		if err != nil {
-			panic(err)
-		}
-		estate.apiState = st
-	}
 	estate.bootstrapped = true
 	estate.ops <- OpBootstrap{Context: ctx, Env: e.name, Args: args}
-	finalize := func(ctx environs.BootstrapContext, icfg *instancecfg.InstanceConfig) error {
+
+	finalize := func(ctx environs.BootstrapContext, icfg *instancecfg.InstanceConfig, _ environs.BootstrapDialOpts) error {
+		if e.ecfg().controller() {
+			icfg.Bootstrap.BootstrapMachineInstanceId = BootstrapInstanceId
+			if err := instancecfg.FinishInstanceConfig(icfg, e.Config()); err != nil {
+				return err
+			}
+
+			adminUser := names.NewUserTag("admin@local")
+			var cloudCredentialTag names.CloudCredentialTag
+			if icfg.Bootstrap.ControllerCloudCredentialName != "" {
+				cloudCredentialTag = names.NewCloudCredentialTag(fmt.Sprintf(
+					"%s/%s/%s",
+					icfg.Bootstrap.ControllerCloudName,
+					adminUser.Id(),
+					icfg.Bootstrap.ControllerCloudCredentialName,
+				))
+			}
+
+			cloudCredentials := make(map[names.CloudCredentialTag]cloud.Credential)
+			if icfg.Bootstrap.ControllerCloudCredential != nil && icfg.Bootstrap.ControllerCloudCredentialName != "" {
+				cloudCredentials[cloudCredentialTag] = *icfg.Bootstrap.ControllerCloudCredential
+			}
+
+			info := stateInfo()
+			// Since the admin user isn't setup until after here,
+			// the password in the info structure is empty, so the admin
+			// user is constructed with an empty password here.
+			// It is set just below.
+			st, err := state.Initialize(state.InitializeParams{
+				Clock:            clock.WallClock,
+				ControllerConfig: icfg.Controller.Config,
+				ControllerModelArgs: state.ModelArgs{
+					Owner:                   adminUser,
+					Config:                  icfg.Bootstrap.ControllerModelConfig,
+					Constraints:             icfg.Bootstrap.BootstrapMachineConstraints,
+					CloudName:               icfg.Bootstrap.ControllerCloudName,
+					CloudRegion:             icfg.Bootstrap.ControllerCloudRegion,
+					CloudCredential:         cloudCredentialTag,
+					StorageProviderRegistry: e,
+				},
+				Cloud:            icfg.Bootstrap.ControllerCloud,
+				CloudName:        icfg.Bootstrap.ControllerCloudName,
+				CloudCredentials: cloudCredentials,
+				MongoInfo:        info,
+				MongoDialOpts:    mongotest.DialOpts(),
+				NewPolicy:        estate.newStatePolicy,
+			})
+			if err != nil {
+				return err
+			}
+			if err := st.SetModelConstraints(args.ModelConstraints); err != nil {
+				return err
+			}
+			if err := st.SetAdminMongoPassword(icfg.Controller.MongoInfo.Password); err != nil {
+				return err
+			}
+			if err := st.MongoSession().DB("admin").Login("admin", icfg.Controller.MongoInfo.Password); err != nil {
+				return err
+			}
+			env, err := st.Model()
+			if err != nil {
+				return err
+			}
+			owner, err := st.User(env.Owner())
+			if err != nil {
+				return err
+			}
+			// We log this out for test purposes only. No one in real life can use
+			// a dummy provider for anything other than testing, so logging the password
+			// here is fine.
+			logger.Debugf("setting password for %q to %q", owner.Name(), icfg.Controller.MongoInfo.Password)
+			owner.SetPassword(icfg.Controller.MongoInfo.Password)
+
+			estate.apiStatePool = state.NewStatePool(st)
+
+			estate.apiServer, err = apiserver.NewServer(st, estate.apiListener, apiserver.ServerConfig{
+				Clock:       clock.WallClock,
+				Cert:        testing.ServerCert,
+				Key:         testing.ServerKey,
+				Tag:         names.NewMachineTag("0"),
+				DataDir:     DataDir,
+				LogDir:      LogDir,
+				StatePool:   estate.apiStatePool,
+				NewObserver: func() observer.Observer { return &fakeobserver.Instance{} },
+				// Should never be used but prevent external access just in case.
+				AutocertURL: "https://0.1.2.3/no-autocert-here",
+			})
+			if err != nil {
+				panic(err)
+			}
+			estate.apiState = st
+		}
 		estate.ops <- OpFinalizeBootstrap{Context: ctx, Env: e.name, InstanceConfig: icfg}
 		return nil
 	}
@@ -778,26 +831,31 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 	return bsResult, nil
 }
 
-func (e *environ) StateServerInstances() ([]instance.Id, error) {
+// BootstrapMessage is part of the Environ interface.
+func (e *environ) BootstrapMessage() string {
+	return ""
+}
+
+func (e *environ) ControllerInstances(controllerUUID string) ([]instance.Id, error) {
 	estate, err := e.state()
 	if err != nil {
 		return nil, err
 	}
 	estate.mu.Lock()
 	defer estate.mu.Unlock()
-	if err := e.checkBroken("StateServerInstances"); err != nil {
+	if err := e.checkBroken("ControllerInstances"); err != nil {
 		return nil, err
 	}
 	if !estate.bootstrapped {
 		return nil, environs.ErrNotBootstrapped
 	}
-	var stateServerInstances []instance.Id
+	var controllerInstances []instance.Id
 	for _, v := range estate.insts {
-		if v.stateServer {
-			stateServerInstances = append(stateServerInstances, v.Id())
+		if v.controller {
+			controllerInstances = append(controllerInstances, v.Id())
 		}
 	}
-	return stateServerInstances, nil
+	return controllerInstances, nil
 }
 
 func (e *environ) Config() *config.Config {
@@ -808,7 +866,7 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 	if err := e.checkBroken("SetConfig"); err != nil {
 		return err
 	}
-	ecfg, err := providerInstance.newConfig(cfg)
+	ecfg, err := dummy.newConfig(cfg)
 	if err != nil {
 		return err
 	}
@@ -822,31 +880,54 @@ func (e *environ) Destroy() (res error) {
 	defer delay()
 	estate, err := e.state()
 	if err != nil {
-		if err == ErrDestroyed {
+		if err == errNotPrepared {
 			return nil
 		}
 		return err
 	}
-	defer func() { estate.ops <- OpDestroy{Env: estate.name, Error: res} }()
+	defer func() {
+		// The estate is a pointer to a structure that is stored in the dummy global.
+		// The Listen method can change the ops channel of any state, and will do so
+		// under the covers. What we need to do is use the state mutex to add a memory
+		// barrier such that the ops channel we see here is the latest.
+		estate.mu.Lock()
+		ops := estate.ops
+		name := estate.name
+		delete(dummy.state, e.modelUUID)
+		estate.mu.Unlock()
+		ops <- OpDestroy{
+			Env:         name,
+			Cloud:       e.cloud.Name,
+			CloudRegion: e.cloud.Region,
+			Error:       res,
+		}
+	}()
 	if err := e.checkBroken("Destroy"); err != nil {
 		return err
 	}
-	p := &providerInstance
-	p.mu.Lock()
-	delete(p.state, estate.id)
-	p.mu.Unlock()
-
-	estate.mu.Lock()
-	defer estate.mu.Unlock()
+	if !e.ecfg().controller() {
+		return nil
+	}
 	estate.destroy()
+	return nil
+}
+
+func (e *environ) DestroyController(controllerUUID string) error {
+	if err := e.Destroy(); err != nil {
+		return err
+	}
+	dummy.mu.Lock()
+	dummy.controllerState = nil
+	dummy.mu.Unlock()
 	return nil
 }
 
 // ConstraintsValidator is defined on the Environs interface.
 func (e *environ) ConstraintsValidator() (constraints.Validator, error) {
 	validator := constraints.NewValidator()
-	validator.RegisterUnsupported([]string{constraints.CpuPower})
+	validator.RegisterUnsupported([]string{constraints.CpuPower, constraints.VirtType})
 	validator.RegisterConflicts([]string{constraints.InstanceType}, []string{constraints.Mem})
+	validator.RegisterVocabulary(constraints.Arch, []string{arch.AMD64, arch.ARM64, arch.I386, arch.PPC64EL})
 	return validator, nil
 }
 
@@ -881,11 +962,10 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	if args.InstanceConfig.MachineNonce == "" {
 		return nil, errors.New("cannot start instance: missing machine nonce")
 	}
-	if _, ok := e.Config().CACert(); !ok {
-		return nil, errors.New("no CA certificate in environment configuration")
-	}
-	if args.InstanceConfig.MongoInfo.Tag != names.NewMachineTag(machineId) {
-		return nil, errors.New("entity tag must match started machine")
+	if args.InstanceConfig.Controller != nil {
+		if args.InstanceConfig.Controller.MongoInfo.Tag != names.NewMachineTag(machineId) {
+			return nil, errors.New("entity tag must match started machine")
+		}
 	}
 	if args.InstanceConfig.APIInfo.Tag != names.NewMachineTag(machineId) {
 		return nil, errors.New("entity tag must match started machine")
@@ -895,9 +975,6 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 
 	idString := fmt.Sprintf("%s-%d", e.name, estate.maxId)
 	addrs := network.NewAddresses(idString+".dns", "127.0.0.1")
-	if estate.preferIPv6 {
-		addrs = append(addrs, network.NewAddress(fmt.Sprintf("fc00::%x", estate.maxId+1)))
-	}
 	logger.Debugf("StartInstance addresses: %v", addrs)
 	i := &dummyInstance{
 		id:           instance.Id(idString),
@@ -967,6 +1044,10 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 			},
 		}
 	}
+	var mongoInfo *mongo.MongoInfo
+	if args.InstanceConfig.Controller != nil {
+		mongoInfo = args.InstanceConfig.Controller.MongoInfo
+	}
 	estate.insts[i.id] = i
 	estate.maxId++
 	estate.ops <- OpStartInstance{
@@ -979,7 +1060,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		Volumes:          volumes,
 		Instance:         i,
 		Jobs:             args.InstanceConfig.Jobs,
-		Info:             args.InstanceConfig.MongoInfo,
+		Info:             mongoInfo,
 		APIInfo:          args.InstanceConfig.APIInfo,
 		AgentEnvironment: args.InstanceConfig.AgentEnvironment,
 		Secret:           e.ecfg().secret(),
@@ -1044,92 +1125,60 @@ func (e *environ) Instances(ids []instance.Id) (insts []instance.Instance, err e
 
 // SupportsSpaces is specified on environs.Networking.
 func (env *environ) SupportsSpaces() (bool, error) {
-	p := &providerInstance
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	if !p.supportsSpaces {
+	dummy.mu.Lock()
+	defer dummy.mu.Unlock()
+	if !dummy.supportsSpaces {
 		return false, errors.NotSupportedf("spaces")
 	}
 	return true, nil
 }
 
-// SupportsAddressAllocation is specified on environs.Networking.
-func (env *environ) SupportsAddressAllocation(subnetId network.Id) (bool, error) {
-	if !environs.AddressAllocationEnabled() {
-		return false, errors.NotSupportedf("address allocation")
-	}
-
-	if err := env.checkBroken("SupportsAddressAllocation"); err != nil {
+// SupportsSpaceDiscovery is specified on environs.Networking.
+func (env *environ) SupportsSpaceDiscovery() (bool, error) {
+	if err := env.checkBroken("SupportsSpaceDiscovery"); err != nil {
 		return false, err
 	}
-	// Any subnetId starting with "noalloc-" will cause this to return
-	// false, so it can be used in tests.
-	if strings.HasPrefix(string(subnetId), "noalloc-") {
+	dummy.mu.Lock()
+	defer dummy.mu.Unlock()
+	if !dummy.supportsSpaceDiscovery {
 		return false, nil
 	}
 	return true, nil
 }
 
-// AllocateAddress requests an address to be allocated for the
-// given instance on the given subnet.
-func (env *environ) AllocateAddress(instId instance.Id, subnetId network.Id, addr network.Address, macAddress, hostname string) error {
-	if !environs.AddressAllocationEnabled() {
-		// Any instId starting with "i-alloc-" when the feature flag is off will
-		// still work, in order to be able to test MAAS 1.8+ environment where
-		// we can use devices for containers.
-		if !strings.HasPrefix(string(instId), "i-alloc-") {
-			return errors.NotSupportedf("address allocation")
-		}
+// Spaces is specified on environs.Networking.
+func (env *environ) Spaces() ([]network.SpaceInfo, error) {
+	if err := env.checkBroken("Spaces"); err != nil {
+		return []network.SpaceInfo{}, err
 	}
-
-	if err := env.checkBroken("AllocateAddress"); err != nil {
-		return err
-	}
-
-	estate, err := env.state()
-	if err != nil {
-		return err
-	}
-	estate.mu.Lock()
-	defer estate.mu.Unlock()
-	estate.maxAddr++
-	estate.ops <- OpAllocateAddress{
-		Env:        env.name,
-		InstanceId: instId,
-		SubnetId:   subnetId,
-		Address:    addr,
-		MACAddress: macAddress,
-		HostName:   hostname,
-	}
-	return nil
-}
-
-// ReleaseAddress releases a specific address previously allocated with
-// AllocateAddress.
-func (env *environ) ReleaseAddress(instId instance.Id, subnetId network.Id, addr network.Address, macAddress, hostname string) error {
-	if !environs.AddressAllocationEnabled() {
-		return errors.NotSupportedf("address allocation")
-	}
-
-	if err := env.checkBroken("ReleaseAddress"); err != nil {
-		return err
-	}
-	estate, err := env.state()
-	if err != nil {
-		return err
-	}
-	estate.mu.Lock()
-	defer estate.mu.Unlock()
-	estate.maxAddr--
-	estate.ops <- OpReleaseAddress{
-		Env:        env.name,
-		InstanceId: instId,
-		SubnetId:   subnetId,
-		Address:    addr,
-		MACAddress: macAddress,
-		HostName:   hostname,
-	}
-	return nil
+	return []network.SpaceInfo{{
+		Name:       "foo",
+		ProviderId: network.Id("0"),
+		Subnets: []network.SubnetInfo{{
+			ProviderId:        network.Id("1"),
+			AvailabilityZones: []string{"zone1"},
+		}, {
+			ProviderId:        network.Id("2"),
+			AvailabilityZones: []string{"zone1"},
+		}}}, {
+		Name:       "Another Foo 99!",
+		ProviderId: "1",
+		Subnets: []network.SubnetInfo{{
+			ProviderId:        network.Id("3"),
+			AvailabilityZones: []string{"zone1"},
+		}}}, {
+		Name:       "foo-",
+		ProviderId: "2",
+		Subnets: []network.SubnetInfo{{
+			ProviderId:        network.Id("4"),
+			AvailabilityZones: []string{"zone1"},
+		}}}, {
+		Name:       "---",
+		ProviderId: "3",
+		Subnets: []network.SubnetInfo{{
+			ProviderId:        network.Id("5"),
+			AvailabilityZones: []string{"zone1"},
+		}}}}, nil
 }
 
 // NetworkInterfaces implements Environ.NetworkInterfaces().
@@ -1153,7 +1202,7 @@ func (env *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceIn
 			DeviceIndex:      i,
 			ProviderId:       network.Id(fmt.Sprintf("dummy-eth%d", i)),
 			ProviderSubnetId: network.Id("dummy-" + netName),
-			NetworkName:      "juju-" + netName,
+			InterfaceType:    network.EthernetInterface,
 			CIDR:             fmt.Sprintf("0.%d.0.0/24", (i+1)*10),
 			InterfaceName:    fmt.Sprintf("eth%d", i),
 			VLANTag:          i,
@@ -1169,26 +1218,6 @@ func (env *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceIn
 				fmt.Sprintf("0.%d.0.1", (i+1)*10),
 			),
 		}
-	}
-
-	if strings.HasPrefix(string(instId), "i-no-nics-") {
-		// Simulate no NICs on instances with id prefix "i-no-nics-".
-		info = info[:0]
-	} else if strings.HasPrefix(string(instId), "i-nic-no-subnet-") {
-		// Simulate a nic with no subnet on instances with id prefix
-		// "i-nic-no-subnet-"
-		info = []network.InterfaceInfo{{
-			DeviceIndex:   0,
-			ProviderId:    network.Id("dummy-eth0"),
-			NetworkName:   "juju-public",
-			InterfaceName: "eth0",
-			MACAddress:    "aa:bb:cc:dd:ee:f0",
-			Disabled:      false,
-			NoAutoStart:   false,
-			ConfigType:    network.ConfigDHCP,
-		}}
-	} else if strings.HasPrefix(string(instId), "i-disabled-nic-") {
-		info = info[2:]
 	}
 
 	estate.ops <- OpNetworkInterfaces{
@@ -1244,17 +1273,18 @@ func (env *environ) Subnets(instId instance.Id, subnetIds []network.Id) ([]netwo
 	estate.mu.Lock()
 	defer estate.mu.Unlock()
 
+	if ok, _ := env.SupportsSpaceDiscovery(); ok {
+		// Space discovery needs more subnets to work with.
+		return env.subnetsForSpaceDiscovery(estate)
+	}
+
 	allSubnets := []network.SubnetInfo{{
 		CIDR:              "0.10.0.0/24",
 		ProviderId:        "dummy-private",
-		AllocatableIPLow:  net.ParseIP("0.10.0.0"),
-		AllocatableIPHigh: net.ParseIP("0.10.0.255"),
 		AvailabilityZones: []string{"zone1", "zone2"},
 	}, {
-		CIDR:              "0.20.0.0/24",
-		ProviderId:        "dummy-public",
-		AllocatableIPLow:  net.ParseIP("0.20.0.0"),
-		AllocatableIPHigh: net.ParseIP("0.20.0.255"),
+		CIDR:       "0.20.0.0/24",
+		ProviderId: "dummy-public",
 	}}
 
 	// Filter result by ids, if given.
@@ -1270,14 +1300,6 @@ func (env *environ) Subnets(instId instance.Id, subnetIds []network.Id) ([]netwo
 	if len(subnetIds) == 0 {
 		result = append([]network.SubnetInfo{}, allSubnets...)
 	}
-
-	noSubnets := strings.HasPrefix(string(instId), "i-no-subnets")
-	noNICSubnets := strings.HasPrefix(string(instId), "i-nic-no-subnet-")
-	if noSubnets || noNICSubnets {
-		// Simulate no subnets available if the instance id has prefix
-		// "i-no-subnets-".
-		result = result[:0]
-	}
 	if len(result) == 0 {
 		// No results, so just return them now.
 		estate.ops <- OpSubnets{
@@ -1289,42 +1311,42 @@ func (env *environ) Subnets(instId instance.Id, subnetIds []network.Id) ([]netwo
 		return result, nil
 	}
 
-	makeNoAlloc := func(info network.SubnetInfo) network.SubnetInfo {
-		// Remove the allocatable range and change the provider id
-		// prefix.
-		pid := string(info.ProviderId)
-		pid = strings.TrimPrefix(pid, "dummy-")
-		info.ProviderId = network.Id("noalloc-" + pid)
-		info.AllocatableIPLow = nil
-		info.AllocatableIPHigh = nil
-		return info
-	}
-	if strings.HasPrefix(string(instId), "i-no-alloc-") {
-		iid := strings.TrimPrefix(string(instId), "i-no-alloc-")
-		lastIdx := len(result) - 1
-		if strings.HasPrefix(iid, "all") {
-			// Simulate all subnets have no allocatable ranges set.
-			for i := range result {
-				result[i] = makeNoAlloc(result[i])
-			}
-		} else if idx, err := strconv.Atoi(iid); err == nil {
-			// Simulate only the subnet with index idx in the result
-			// have no allocatable range set.
-			if idx < 0 || idx > lastIdx {
-				err = errors.Errorf("index %d out of range; expected 0..%d", idx, lastIdx)
-				return nil, err
-			}
-			result[idx] = makeNoAlloc(result[idx])
-		} else {
-			err = errors.Errorf("invalid index %q; expected int", iid)
-			return nil, err
-		}
-	}
-
 	estate.ops <- OpSubnets{
 		Env:        env.name,
 		InstanceId: instId,
 		SubnetIds:  subnetIds,
+		Info:       result,
+	}
+	return result, nil
+}
+
+func (env *environ) subnetsForSpaceDiscovery(estate *environState) ([]network.SubnetInfo, error) {
+	result := []network.SubnetInfo{{
+		ProviderId:        network.Id("1"),
+		AvailabilityZones: []string{"zone1"},
+		CIDR:              "192.168.1.0/24",
+	}, {
+		ProviderId:        network.Id("2"),
+		AvailabilityZones: []string{"zone1"},
+		CIDR:              "192.168.2.0/24",
+		VLANTag:           1,
+	}, {
+		ProviderId:        network.Id("3"),
+		AvailabilityZones: []string{"zone1"},
+		CIDR:              "192.168.3.0/24",
+	}, {
+		ProviderId:        network.Id("4"),
+		AvailabilityZones: []string{"zone1"},
+		CIDR:              "192.168.4.0/24",
+	}, {
+		ProviderId:        network.Id("5"),
+		AvailabilityZones: []string{"zone1"},
+		CIDR:              "192.168.5.0/24",
+	}}
+	estate.ops <- OpSubnets{
+		Env:        env.name,
+		InstanceId: instance.UnknownId,
+		SubnetIds:  []network.Id{},
 		Info:       result,
 	}
 	return result, nil
@@ -1350,7 +1372,7 @@ func (e *environ) AllInstances() ([]instance.Instance, error) {
 
 func (e *environ) OpenPorts(ports []network.PortRange) error {
 	if mode := e.ecfg().FirewallMode(); mode != config.FwGlobal {
-		return fmt.Errorf("invalid firewall mode %q for opening ports on environment", mode)
+		return fmt.Errorf("invalid firewall mode %q for opening ports on model", mode)
 	}
 	estate, err := e.state()
 	if err != nil {
@@ -1366,7 +1388,7 @@ func (e *environ) OpenPorts(ports []network.PortRange) error {
 
 func (e *environ) ClosePorts(ports []network.PortRange) error {
 	if mode := e.ecfg().FirewallMode(); mode != config.FwGlobal {
-		return fmt.Errorf("invalid firewall mode %q for closing ports on environment", mode)
+		return fmt.Errorf("invalid firewall mode %q for closing ports on model", mode)
 	}
 	estate, err := e.state()
 	if err != nil {
@@ -1382,7 +1404,7 @@ func (e *environ) ClosePorts(ports []network.PortRange) error {
 
 func (e *environ) Ports() (ports []network.PortRange, err error) {
 	if mode := e.ecfg().FirewallMode(); mode != config.FwGlobal {
-		return nil, fmt.Errorf("invalid firewall mode %q for retrieving ports from environment", mode)
+		return nil, fmt.Errorf("invalid firewall mode %q for retrieving ports from model", mode)
 	}
 	estate, err := e.state()
 	if err != nil {
@@ -1398,7 +1420,7 @@ func (e *environ) Ports() (ports []network.PortRange, err error) {
 }
 
 func (*environ) Provider() environs.EnvironProvider {
-	return &providerInstance
+	return &dummy
 }
 
 type dummyInstance struct {
@@ -1409,20 +1431,34 @@ type dummyInstance struct {
 	machineId    string
 	series       string
 	firewallMode string
-	stateServer  bool
+	controller   bool
 
 	mu        sync.Mutex
 	addresses []network.Address
+	broken    []string
 }
 
 func (inst *dummyInstance) Id() instance.Id {
 	return inst.id
 }
 
-func (inst *dummyInstance) Status() string {
+func (inst *dummyInstance) Status() instance.InstanceStatus {
 	inst.mu.Lock()
 	defer inst.mu.Unlock()
-	return inst.status
+	// TODO(perrito666) add a provider status -> juju status mapping.
+	jujuStatus := status.Pending
+	if inst.status != "" {
+		dummyStatus := status.Status(inst.status)
+		if dummyStatus.KnownInstanceStatus() {
+			jujuStatus = dummyStatus
+		}
+	}
+
+	return instance.InstanceStatus{
+		Status:  jujuStatus,
+		Message: inst.status,
+	}
+
 }
 
 // SetInstanceAddresses sets the addresses associated with the given
@@ -1444,13 +1480,30 @@ func SetInstanceStatus(inst instance.Instance, status string) {
 	inst0.mu.Unlock()
 }
 
-func (*dummyInstance) Refresh() error {
+// SetInstanceBroken marks the named methods of the instance as broken.
+// Any previously broken methods not in the set will no longer be broken.
+func SetInstanceBroken(inst instance.Instance, methods ...string) {
+	inst0 := inst.(*dummyInstance)
+	inst0.mu.Lock()
+	inst0.broken = methods
+	inst0.mu.Unlock()
+}
+
+func (inst *dummyInstance) checkBroken(method string) error {
+	for _, m := range inst.broken {
+		if m == method {
+			return fmt.Errorf("dummyInstance.%s is broken", method)
+		}
+	}
 	return nil
 }
 
 func (inst *dummyInstance) Addresses() ([]network.Address, error) {
 	inst.mu.Lock()
 	defer inst.mu.Unlock()
+	if err := inst.checkBroken("Addresses"); err != nil {
+		return nil, err
+	}
 	return append([]network.Address{}, inst.addresses...), nil
 }
 
@@ -1466,6 +1519,9 @@ func (inst *dummyInstance) OpenPorts(machineId string, ports []network.PortRange
 	}
 	inst.state.mu.Lock()
 	defer inst.state.mu.Unlock()
+	if err := inst.checkBroken("OpenPorts"); err != nil {
+		return err
+	}
 	inst.state.ops <- OpOpenPorts{
 		Env:        inst.state.name,
 		MachineId:  machineId,
@@ -1489,6 +1545,9 @@ func (inst *dummyInstance) ClosePorts(machineId string, ports []network.PortRang
 	}
 	inst.state.mu.Lock()
 	defer inst.state.mu.Unlock()
+	if err := inst.checkBroken("ClosePorts"); err != nil {
+		return err
+	}
 	inst.state.ops <- OpClosePorts{
 		Env:        inst.state.name,
 		MachineId:  machineId,
@@ -1512,6 +1571,9 @@ func (inst *dummyInstance) Ports(machineId string) (ports []network.PortRange, e
 	}
 	inst.state.mu.Lock()
 	defer inst.state.mu.Unlock()
+	if err := inst.checkBroken("Ports"); err != nil {
+		return nil, err
+	}
 	for p := range inst.ports {
 		ports = append(ports, p)
 	}
@@ -1522,7 +1584,7 @@ func (inst *dummyInstance) Ports(machineId string) (ports []network.PortRange, e
 // providerDelay controls the delay before dummy responds.
 // non empty values in JUJU_DUMMY_DELAY will be parsed as
 // time.Durations into this value.
-var providerDelay time.Duration
+var providerDelay, _ = time.ParseDuration(os.Getenv("JUJU_DUMMY_DELAY")) // parse errors are ignored
 
 // pause execution to simulate the latency of a real provider
 func delay() {
@@ -1530,4 +1592,12 @@ func delay() {
 		logger.Infof("pausing for %v", providerDelay)
 		<-time.After(providerDelay)
 	}
+}
+
+func (e *environ) AllocateContainerAddresses(hostInstanceID instance.Id, containerTag names.MachineTag, preparedInfo []network.InterfaceInfo) ([]network.InterfaceInfo, error) {
+	return nil, errors.NotSupportedf("container address allocation")
+}
+
+func (e *environ) ReleaseContainerAddresses(interfaces []network.ProviderInterfaceInfo) error {
+	return errors.NotSupportedf("container address allocation")
 }

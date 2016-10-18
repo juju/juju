@@ -7,12 +7,11 @@ import (
 	"time"
 
 	"github.com/juju/loggo"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api"
 	apilogger "github.com/juju/juju/api/logger"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
@@ -29,8 +28,7 @@ const worstCase = 5 * time.Second
 type LoggerSuite struct {
 	testing.JujuConnSuite
 
-	apiRoot   api.Connection
-	loggerApi *apilogger.State
+	loggerAPI *apilogger.State
 	machine   *state.Machine
 }
 
@@ -38,10 +36,11 @@ var _ = gc.Suite(&LoggerSuite{})
 
 func (s *LoggerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-	s.apiRoot, s.machine = s.OpenAPIAsNewMachine(c)
+	apiConn, machine := s.OpenAPIAsNewMachine(c)
 	// Create the machiner API facade.
-	s.loggerApi = s.apiRoot.Logger()
-	c.Assert(s.loggerApi, gc.NotNil)
+	s.loggerAPI = apilogger.NewState(apiConn)
+	c.Assert(s.loggerAPI, gc.NotNil)
+	s.machine = machine
 }
 
 func (s *LoggerSuite) waitLoggingInfo(c *gc.C, expected string) {
@@ -77,7 +76,9 @@ func agentConfig(c *gc.C, tag names.Tag) *mockConfig {
 
 func (s *LoggerSuite) makeLogger(c *gc.C) (worker.Worker, *mockConfig) {
 	config := agentConfig(c, s.machine.Tag())
-	return logger.NewLogger(s.loggerApi, config), config
+	w, err := logger.NewLogger(s.loggerAPI, config)
+	c.Assert(err, jc.ErrorIsNil)
+	return w, config
 }
 
 func (s *LoggerSuite) TestRunStop(c *gc.C) {
@@ -86,14 +87,14 @@ func (s *LoggerSuite) TestRunStop(c *gc.C) {
 }
 
 func (s *LoggerSuite) TestInitialState(c *gc.C) {
-	config, err := s.State.EnvironConfig()
+	config, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	expected := config.LoggingConfig()
 
 	initial := "<root>=DEBUG;wibble=ERROR"
 	c.Assert(expected, gc.Not(gc.Equals), initial)
 
-	loggo.ResetLoggers()
+	loggo.DefaultContext().ResetLoggerLevels()
 	err = loggo.ConfigureLoggers(initial)
 	c.Assert(err, jc.ErrorIsNil)
 

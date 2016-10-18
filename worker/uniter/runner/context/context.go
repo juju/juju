@@ -13,15 +13,16 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
 	"github.com/juju/utils/clock"
 	"github.com/juju/utils/proxy"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
@@ -298,25 +299,25 @@ func (ctx *HookContext) UnitStatus() (*jujuc.StatusInfo, error) {
 	return ctx.status, nil
 }
 
-// ServiceStatus returns the status for the service and all the units on
+// ApplicationStatus returns the status for the application and all the units on
 // the service to which this context unit belongs, only if this unit is
 // the leader.
-func (ctx *HookContext) ServiceStatus() (jujuc.ServiceStatusInfo, error) {
+func (ctx *HookContext) ApplicationStatus() (jujuc.ApplicationStatusInfo, error) {
 	var err error
 	isLeader, err := ctx.IsLeader()
 	if err != nil {
-		return jujuc.ServiceStatusInfo{}, errors.Annotatef(err, "cannot determine leadership")
+		return jujuc.ApplicationStatusInfo{}, errors.Annotatef(err, "cannot determine leadership")
 	}
 	if !isLeader {
-		return jujuc.ServiceStatusInfo{}, ErrIsNotLeader
+		return jujuc.ApplicationStatusInfo{}, ErrIsNotLeader
 	}
-	service, err := ctx.unit.Service()
+	service, err := ctx.unit.Application()
 	if err != nil {
-		return jujuc.ServiceStatusInfo{}, errors.Trace(err)
+		return jujuc.ApplicationStatusInfo{}, errors.Trace(err)
 	}
 	status, err := service.Status(ctx.unit.Name())
 	if err != nil {
-		return jujuc.ServiceStatusInfo{}, errors.Trace(err)
+		return jujuc.ApplicationStatusInfo{}, errors.Trace(err)
 	}
 	us := make([]jujuc.StatusInfo, len(status.Units))
 	i := 0
@@ -329,32 +330,32 @@ func (ctx *HookContext) ServiceStatus() (jujuc.ServiceStatusInfo, error) {
 		}
 		i++
 	}
-	return jujuc.ServiceStatusInfo{
-		Service: jujuc.StatusInfo{
+	return jujuc.ApplicationStatusInfo{
+		Application: jujuc.StatusInfo{
 			Tag:    service.Tag().String(),
-			Status: string(status.Service.Status),
-			Info:   status.Service.Info,
-			Data:   status.Service.Data,
+			Status: string(status.Application.Status),
+			Info:   status.Application.Info,
+			Data:   status.Application.Data,
 		},
 		Units: us,
 	}, nil
 }
 
 // SetUnitStatus will set the given status for this unit.
-func (ctx *HookContext) SetUnitStatus(status jujuc.StatusInfo) error {
+func (ctx *HookContext) SetUnitStatus(unitStatus jujuc.StatusInfo) error {
 	ctx.hasRunStatusSet = true
-	logger.Tracef("[WORKLOAD-STATUS] %s: %s", status.Status, status.Info)
+	logger.Tracef("[WORKLOAD-STATUS] %s: %s", unitStatus.Status, unitStatus.Info)
 	return ctx.unit.SetUnitStatus(
-		params.Status(status.Status),
-		status.Info,
-		status.Data,
+		status.Status(unitStatus.Status),
+		unitStatus.Info,
+		unitStatus.Data,
 	)
 }
 
-// SetServiceStatus will set the given status to the service to which this
+// SetApplicationStatus will set the given status to the service to which this
 // unit's belong, only if this unit is the leader.
-func (ctx *HookContext) SetServiceStatus(status jujuc.StatusInfo) error {
-	logger.Tracef("[SERVICE-STATUS] %s: %s", status.Status, status.Info)
+func (ctx *HookContext) SetApplicationStatus(serviceStatus jujuc.StatusInfo) error {
+	logger.Tracef("[APPLICATION-STATUS] %s: %s", serviceStatus.Status, serviceStatus.Info)
 	isLeader, err := ctx.IsLeader()
 	if err != nil {
 		return errors.Annotatef(err, "cannot determine leadership")
@@ -363,15 +364,15 @@ func (ctx *HookContext) SetServiceStatus(status jujuc.StatusInfo) error {
 		return ErrIsNotLeader
 	}
 
-	service, err := ctx.unit.Service()
+	service, err := ctx.unit.Application()
 	if err != nil {
 		return errors.Trace(err)
 	}
 	return service.SetStatus(
 		ctx.unit.Name(),
-		params.Status(status.Status),
-		status.Info,
-		status.Data,
+		status.Status(serviceStatus.Status),
+		serviceStatus.Info,
+		serviceStatus.Data,
 	)
 }
 
@@ -509,7 +510,7 @@ func (ctx *HookContext) SetActionFailed() error {
 }
 
 // UpdateActionResults inserts new values for use with action-set and
-// action-fail.  The results struct will be delivered to the state server
+// action-fail.  The results struct will be delivered to the controller
 // upon completion of the Action.  It returns an error if not called on an
 // Action-containing HookContext.
 func (ctx *HookContext) UpdateActionResults(keys []string, value string) error {
@@ -573,8 +574,8 @@ func (context *HookContext) HookVars(paths Paths) ([]string, error) {
 		"JUJU_CONTEXT_ID="+context.id,
 		"JUJU_AGENT_SOCKET="+paths.GetJujucSocket(),
 		"JUJU_UNIT_NAME="+context.unitName,
-		"JUJU_ENV_UUID="+context.uuid,
-		"JUJU_ENV_NAME="+context.envName,
+		"JUJU_MODEL_UUID="+context.uuid,
+		"JUJU_MODEL_NAME="+context.envName,
 		"JUJU_API_ADDRESSES="+strings.Join(context.apiAddrs, " "),
 		"JUJU_METER_STATUS="+context.meterStatus.code,
 		"JUJU_METER_INFO="+context.meterStatus.info,
@@ -615,7 +616,7 @@ func (ctx *HookContext) handleReboot(err *error) {
 	case jujuc.RebootNow:
 		*err = ErrRequeueAndReboot
 	}
-	err2 := ctx.unit.SetUnitStatus(params.StatusRebooting, "", nil)
+	err2 := ctx.unit.SetUnitStatus(status.Rebooting, "", nil)
 	if err2 != nil {
 		logger.Errorf("updating agent status: %v", err2)
 	}
@@ -784,4 +785,46 @@ func (ctx *HookContext) killCharmHook() error {
 		logger.Infof("waiting for context process %v to die", proc.Pid())
 		tick = ctx.clock.After(100 * time.Millisecond)
 	}
+}
+
+// NetworkConfig returns the network config for the given bindingName.
+func (ctx *HookContext) NetworkConfig(bindingName string) ([]params.NetworkConfig, error) {
+	return ctx.unit.NetworkConfig(bindingName)
+}
+
+// UnitWorkloadVersion returns the version of the workload reported by
+// the current unit.
+func (ctx *HookContext) UnitWorkloadVersion() (string, error) {
+	var results params.StringResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: ctx.unit.Tag().String()}},
+	}
+	err := ctx.state.Facade().FacadeCall("WorkloadVersion", args, &results)
+	if err != nil {
+		return "", err
+	}
+	if len(results.Results) != 1 {
+		return "", fmt.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return "", result.Error
+	}
+	return result.Result, nil
+}
+
+// SetUnitWorkloadVersion sets the current unit's workload version to
+// the specified value.
+func (ctx *HookContext) SetUnitWorkloadVersion(version string) error {
+	var result params.ErrorResults
+	args := params.EntityWorkloadVersions{
+		Entities: []params.EntityWorkloadVersion{
+			{Tag: ctx.unit.Tag().String(), WorkloadVersion: version},
+		},
+	}
+	err := ctx.state.Facade().FacadeCall("SetWorkloadVersion", args, &result)
+	if err != nil {
+		return err
+	}
+	return result.OneError()
 }

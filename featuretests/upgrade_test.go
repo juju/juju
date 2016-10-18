@@ -10,18 +10,20 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/names"
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 	pacman "github.com/juju/utils/packaging/manager"
 	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	agentcmd "github.com/juju/juju/cmd/jujud/agent"
-	agenttesting "github.com/juju/juju/cmd/jujud/agent/testing"
+	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/constraints"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -33,20 +35,25 @@ import (
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/upgrades"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/upgrader"
 	"github.com/juju/juju/worker/upgradesteps"
+	"github.com/juju/version"
 )
 
-type exposedAPI bool
-
-var (
-	FullAPIExposed       exposedAPI = true
-	RestrictedAPIExposed exposedAPI = false
+const (
+	FullAPIExposed       = true
+	RestrictedAPIExposed = false
 )
+
+// TODO(katco): 2016-08-09: lp:1611427
+var ShortAttempt = &utils.AttemptStrategy{
+	Total: time.Second * 10,
+	Delay: time.Millisecond * 200,
+}
 
 type upgradeSuite struct {
-	agenttesting.AgentSuite
+	agenttest.AgentSuite
 	oldVersion version.Binary
 }
 
@@ -54,7 +61,7 @@ func (s *upgradeSuite) SetUpTest(c *gc.C) {
 	s.AgentSuite.SetUpTest(c)
 
 	s.oldVersion = version.Binary{
-		Number: version.Current,
+		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
 		Series: series.HostSeries(),
 	}
@@ -140,11 +147,11 @@ func (s *upgradeSuite) TestLoginsDuringUpgrade(c *gc.C) {
 	c.Assert(canLoginToAPIAsMachine(c, machine1Conf, machine0Conf), jc.IsTrue)
 }
 
-func (s *upgradeSuite) TestDowngradeOnMasterWhenOtherStateServerDoesntStartUpgrade(c *gc.C) {
+func (s *upgradeSuite) TestDowngradeOnMasterWhenOtherControllerDoesntStartUpgrade(c *gc.C) {
 	coretesting.SkipIfWindowsBug(c, "lp:1446885")
 
 	// This test checks that the master triggers a downgrade if one of
-	// the other state server fails to signal it is ready for upgrade.
+	// the other controller fails to signal it is ready for upgrade.
 	//
 	// This test is functional, ensuring that the upgrader worker
 	// terminates the machine agent with the UpgradeReadyError which
@@ -157,19 +164,19 @@ func (s *upgradeSuite) TestDowngradeOnMasterWhenOtherStateServerDoesntStartUpgra
 	envtesting.AssertUploadFakeToolsVersions(
 		c, s.DefaultToolsStorage, s.Environ.Config().AgentStream(), s.Environ.Config().AgentStream(), s.oldVersion)
 
-	// Create 3 state servers
+	// Create 3 controllers
 	machineA, _ := s.makeStateAgentVersion(c, s.oldVersion)
-	changes, err := s.State.EnsureAvailability(3, constraints.Value{}, "quantal", nil)
+	changes, err := s.State.EnableHA(3, constraints.Value{}, "quantal", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(changes.Added), gc.Equals, 2)
 	machineB, _, _ := s.configureMachine(c, changes.Added[0], s.oldVersion)
 	s.configureMachine(c, changes.Added[1], s.oldVersion)
 
-	// One of the other state servers is ready for upgrade (but machine C isn't).
-	info, err := s.State.EnsureUpgradeInfo(machineB.Id(), s.oldVersion.Number, version.Current)
+	// One of the other controllers is ready for upgrade (but machine C isn't).
+	info, err := s.State.EnsureUpgradeInfo(machineB.Id(), s.oldVersion.Number, jujuversion.Current)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Ensure the agent will think it's the master state server.
+	// Ensure the agent will think it's the master controller.
 	fakeIsMachineMaster := func(*state.State, string) (bool, error) {
 		return true, nil
 	}
@@ -191,7 +198,7 @@ func (s *upgradeSuite) TestDowngradeOnMasterWhenOtherStateServerDoesntStartUpgra
 		}
 		// Confirm that the downgrade is back to the previous version.
 		current := version.Binary{
-			Number: version.Current,
+			Number: jujuversion.Current,
 			Arch:   arch.HostArch(),
 			Series: series.HostSeries(),
 		}
@@ -211,14 +218,14 @@ func (s *upgradeSuite) TestDowngradeOnMasterWhenOtherStateServerDoesntStartUpgra
 func (s *upgradeSuite) newAgent(c *gc.C, m *state.Machine) *agentcmd.MachineAgent {
 	agentConf := agentcmd.NewAgentConf(s.DataDir())
 	agentConf.ReadConfig(m.Tag().String())
-	machineAgentFactory := agentcmd.MachineAgentFactoryFn(agentConf, nil, nil, c.MkDir())
+	machineAgentFactory := agentcmd.MachineAgentFactoryFn(agentConf, nil, c.MkDir())
 	return machineAgentFactory(m.Id())
 }
 
 // TODO(mjs) - the following should maybe be part of AgentSuite
 func (s *upgradeSuite) makeStateAgentVersion(c *gc.C, vers version.Binary) (*state.Machine, agent.ConfigSetterWriter) {
 	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
-		Jobs:  []state.MachineJob{state.JobManageEnviron},
+		Jobs:  []state.MachineJob{state.JobManageModel},
 		Nonce: agent.BootstrapNonce,
 	})
 	_, config, _ := s.configureMachine(c, machine.Id(), vers)
@@ -236,7 +243,7 @@ func (s *upgradeSuite) configureMachine(c *gc.C, machineId string, vers version.
 
 	// Provision the machine if it isn't already
 	if _, err := m.InstanceId(); err != nil {
-		inst, md := jujutesting.AssertStartInstance(c, s.Environ, machineId)
+		inst, md := jujutesting.AssertStartInstance(c, s.Environ, s.ControllerConfig.ControllerUUID(), machineId)
 		c.Assert(m.SetProvisioned(inst.Id(), agent.BootstrapNonce, md), jc.ErrorIsNil)
 	}
 
@@ -274,14 +281,26 @@ func canLoginToAPIAsMachine(c *gc.C, fromConf, toConf agent.Config) bool {
 	toInfo, ok := toConf.APIInfo()
 	c.Assert(ok, jc.IsTrue)
 	fromInfo.Addrs = toInfo.Addrs
-	apiState, err := api.Open(fromInfo, upgradeTestDialOpts)
-	if apiState != nil {
-		apiState.Close()
+	var err error
+	var apiState api.Connection
+	for a := ShortAttempt.Start(); a.Next(); {
+		apiState, err = api.Open(fromInfo, upgradeTestDialOpts)
+		// If space discovery is still in progress we retry.
+		if err != nil && strings.Contains(err.Error(), "spaces are still being discovered") {
+			if !a.HasNext() {
+				return false
+			}
+			continue
+		}
+		if apiState != nil {
+			apiState.Close()
+		}
+		break
 	}
 	return apiState != nil && err == nil
 }
 
-func (s *upgradeSuite) checkLoginToAPIAsUser(c *gc.C, conf agent.Config, expectFullApi exposedAPI) {
+func (s *upgradeSuite) checkLoginToAPIAsUser(c *gc.C, conf agent.Config, expectFullAPI bool) {
 	var err error
 	// Multiple attempts may be necessary because there is a small gap
 	// between the post-upgrade version being written to the agent's
@@ -291,13 +310,13 @@ func (s *upgradeSuite) checkLoginToAPIAsUser(c *gc.C, conf agent.Config, expectF
 	// can occasionally fail.
 	for a := coretesting.LongAttempt.Start(); a.Next(); {
 		err = s.attemptRestrictedAPIAsUser(c, conf)
-		switch expectFullApi {
+		switch expectFullAPI {
 		case FullAPIExposed:
 			if err == nil {
 				return
 			}
 		case RestrictedAPIExposed:
-			if err != nil && strings.HasPrefix(err.Error(), "upgrade in progress") {
+			if params.IsCodeUpgradeInProgress(err) {
 				return
 			}
 		}
@@ -313,16 +332,24 @@ func (s *upgradeSuite) attemptRestrictedAPIAsUser(c *gc.C, conf agent.Config) er
 	info.Nonce = ""
 
 	apiState, err := api.Open(info, upgradeTestDialOpts)
-	c.Assert(err, jc.ErrorIsNil)
+	if err != nil {
+		// If space discovery is in progress we'll get an error here
+		// and need to retry.
+		return err
+	}
 	defer apiState.Close()
 
-	// this call should always work
-	var result params.FullStatus
-	err = apiState.APICall("Client", 0, "", "FullStatus", nil, &result)
-	c.Assert(err, jc.ErrorIsNil)
+	// This call should always work, but might fail if the apiserver
+	// is restarting. If it fails just return the error so retries
+	// can continue.
+	err = apiState.APICall("Client", 1, "", "FullStatus", nil, new(params.FullStatus))
+	if err != nil {
+		return errors.Annotate(err, "FullStatus call")
+	}
 
 	// this call should only work if API is not restricted
-	return apiState.APICall("Client", 0, "", "WatchAll", nil, nil)
+	err = apiState.APICall("Client", 1, "", "WatchAll", nil, nil)
+	return errors.Annotate(err, "WatchAll call")
 }
 
 var upgradeTestDialOpts = api.DialOpts{
@@ -344,7 +371,7 @@ func waitForUpgradeToFinish(c *gc.C, conf agent.Config) {
 	success := false
 	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
 		diskConf := readConfigFromDisk(c, conf.DataDir(), conf.Tag())
-		success = diskConf.UpgradedToVersion() == version.Current
+		success = diskConf.UpgradedToVersion() == jujuversion.Current
 		if success {
 			break
 		}

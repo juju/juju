@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/status"
 )
 
 type joyentInstance struct {
@@ -21,8 +22,25 @@ func (inst *joyentInstance) Id() instance.Id {
 	return instance.Id(inst.machine.Id)
 }
 
-func (inst *joyentInstance) Status() string {
-	return inst.machine.State
+func (inst *joyentInstance) Status() instance.InstanceStatus {
+	instStatus := inst.machine.State
+	jujuStatus := status.Pending
+	switch instStatus {
+	case "configured", "incomplete", "unavailable", "provisioning":
+		jujuStatus = status.Allocating
+	case "ready", "running":
+		jujuStatus = status.Running
+	case "halting", "stopping", "shutting_down", "off", "down", "installed", "stopped", "destroyed", "unreachable":
+		jujuStatus = status.Empty
+	case "failed":
+		jujuStatus = status.ProvisioningError
+	default:
+		jujuStatus = status.Empty
+	}
+	return instance.InstanceStatus{
+		Status:  jujuStatus,
+		Message: instStatus,
+	}
 }
 
 func (inst *joyentInstance) Addresses() ([]network.Address, error) {

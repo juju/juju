@@ -13,12 +13,13 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/configstore"
+	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/environs/tools"
+	"github.com/juju/juju/juju/keys"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/testing"
 	coretesting "github.com/juju/juju/testing"
@@ -31,7 +32,7 @@ type URLsSuite struct {
 var _ = gc.Suite(&URLsSuite{})
 
 func (s *URLsSuite) TearDownTest(c *gc.C) {
-	dummy.Reset()
+	dummy.Reset(c)
 
 	s.BaseSuite.TearDownTest(c)
 }
@@ -43,9 +44,16 @@ func (s *URLsSuite) env(c *gc.C, toolsMetadataURL string) environs.Environ {
 			"agent-metadata-url": toolsMetadataURL,
 		})
 	}
-	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, jc.ErrorIsNil)
-	env, err := environs.Prepare(cfg, envtesting.BootstrapContext(c), configstore.NewMem())
+	env, err := bootstrap.Prepare(envtesting.BootstrapContext(c),
+		jujuclienttesting.NewMemStore(),
+		bootstrap.PrepareParams{
+			ControllerConfig: coretesting.FakeControllerConfig(),
+			ControllerName:   attrs["name"].(string),
+			ModelConfig:      attrs,
+			Cloud:            dummy.SampleCloudSpec(),
+			AdminSecret:      "admin-secret",
+		},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	return env
 }
@@ -54,23 +62,25 @@ func (s *URLsSuite) TestToolsURLsNoConfigURL(c *gc.C) {
 	env := s.env(c, "")
 	sources, err := tools.GetMetadataSources(env)
 	c.Assert(err, jc.ErrorIsNil)
-	sstesting.AssertExpectedSources(c, sources, []string{"https://streams.canonical.com/juju/tools/"})
+	sstesting.AssertExpectedSources(c, sources, []sstesting.SourceDetails{{"https://streams.canonical.com/juju/tools/", keys.JujuPublicKey}})
 }
 
 func (s *URLsSuite) TestToolsSources(c *gc.C) {
 	env := s.env(c, "config-tools-metadata-url")
 	sources, err := tools.GetMetadataSources(env)
 	c.Assert(err, jc.ErrorIsNil)
-	sstesting.AssertExpectedSources(c, sources, []string{
-		"config-tools-metadata-url/", "https://streams.canonical.com/juju/tools/"})
+	sstesting.AssertExpectedSources(c, sources, []sstesting.SourceDetails{
+		{"config-tools-metadata-url/", keys.JujuPublicKey},
+		{"https://streams.canonical.com/juju/tools/", keys.JujuPublicKey},
+	})
 }
 
 func (s *URLsSuite) TestToolsMetadataURLsRegisteredFuncs(c *gc.C) {
 	tools.RegisterToolsDataSourceFunc("id0", func(environs.Environ) (simplestreams.DataSource, error) {
-		return simplestreams.NewURLDataSource("id0", "betwixt/releases", utils.NoVerifySSLHostnames), nil
+		return simplestreams.NewURLDataSource("id0", "betwixt/releases", utils.NoVerifySSLHostnames, simplestreams.DEFAULT_CLOUD_DATA, false), nil
 	})
 	tools.RegisterToolsDataSourceFunc("id1", func(environs.Environ) (simplestreams.DataSource, error) {
-		return simplestreams.NewURLDataSource("id1", "yoink", utils.NoVerifySSLHostnames), nil
+		return simplestreams.NewURLDataSource("id1", "yoink", utils.NoVerifySSLHostnames, simplestreams.SPECIFIC_CLOUD_DATA, false), nil
 	})
 	// overwrite the one previously registered against id1
 	tools.RegisterToolsDataSourceFunc("id1", func(environs.Environ) (simplestreams.DataSource, error) {
@@ -84,10 +94,10 @@ func (s *URLsSuite) TestToolsMetadataURLsRegisteredFuncs(c *gc.C) {
 	env := s.env(c, "config-tools-metadata-url")
 	sources, err := tools.GetMetadataSources(env)
 	c.Assert(err, jc.ErrorIsNil)
-	sstesting.AssertExpectedSources(c, sources, []string{
-		"config-tools-metadata-url/",
-		"betwixt/releases/",
-		"https://streams.canonical.com/juju/tools/",
+	sstesting.AssertExpectedSources(c, sources, []sstesting.SourceDetails{
+		{"config-tools-metadata-url/", keys.JujuPublicKey},
+		{"betwixt/releases/", ""},
+		{"https://streams.canonical.com/juju/tools/", keys.JujuPublicKey},
 	})
 }
 

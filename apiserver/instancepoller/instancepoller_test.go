@@ -7,7 +7,9 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -17,6 +19,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -33,6 +36,8 @@ type InstancePollerSuite struct {
 
 	mixedEntities     params.Entities
 	mixedErrorResults params.ErrorResults
+
+	clock clock.Clock
 }
 
 var _ = gc.Suite(&InstancePollerSuite{})
@@ -50,7 +55,8 @@ func (s *InstancePollerSuite) SetUpTest(c *gc.C) {
 	instancepoller.PatchState(s, s.st)
 
 	var err error
-	s.api, err = instancepoller.NewInstancePollerAPI(nil, s.resources, s.authoriser)
+	s.clock = jujutesting.NewClock(time.Now())
+	s.api, err = instancepoller.NewInstancePollerAPI(nil, s.resources, s.authoriser, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.machineEntities = params.Entities{
@@ -71,7 +77,7 @@ func (s *InstancePollerSuite) SetUpTest(c *gc.C) {
 			{Tag: "machine-1"},
 			{Tag: "machine-2"},
 			{Tag: "machine-42"},
-			{Tag: "service-unknown"},
+			{Tag: "application-unknown"},
 			{Tag: "invalid-tag"},
 			{Tag: "unit-missing-1"},
 			{Tag: ""},
@@ -82,7 +88,7 @@ func (s *InstancePollerSuite) SetUpTest(c *gc.C) {
 			{Error: nil},
 			{Error: nil},
 			{Error: apiservertesting.NotFoundError("machine 42")},
-			{Error: apiservertesting.ServerError(`"service-unknown" is not a valid machine tag`)},
+			{Error: apiservertesting.ServerError(`"application-unknown" is not a valid machine tag`)},
 			{Error: apiservertesting.ServerError(`"invalid-tag" is not a valid tag`)},
 			{Error: apiservertesting.ServerError(`"unit-missing-1" is not a valid machine tag`)},
 			{Error: apiservertesting.ServerError(`"" is not a valid tag`)},
@@ -93,49 +99,49 @@ func (s *InstancePollerSuite) SetUpTest(c *gc.C) {
 func (s *InstancePollerSuite) TestNewInstancePollerAPIRequiresEnvironManager(c *gc.C) {
 	anAuthoriser := s.authoriser
 	anAuthoriser.EnvironManager = false
-	api, err := instancepoller.NewInstancePollerAPI(nil, s.resources, anAuthoriser)
+	api, err := instancepoller.NewInstancePollerAPI(nil, s.resources, anAuthoriser, s.clock)
 	c.Assert(api, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
-func (s *InstancePollerSuite) TestEnvironConfigFailure(c *gc.C) {
+func (s *InstancePollerSuite) TestModelConfigFailure(c *gc.C) {
 	s.st.SetErrors(errors.New("boom"))
 
-	result, err := s.api.EnvironConfig()
+	result, err := s.api.ModelConfig()
 	c.Assert(err, gc.ErrorMatches, "boom")
-	c.Assert(result, jc.DeepEquals, params.EnvironConfigResult{})
+	c.Assert(result, jc.DeepEquals, params.ModelConfigResult{})
 
-	s.st.CheckCallNames(c, "EnvironConfig")
+	s.st.CheckCallNames(c, "ModelConfig")
 }
 
-func (s *InstancePollerSuite) TestEnvironConfigSuccess(c *gc.C) {
-	envConfig := coretesting.EnvironConfig(c)
+func (s *InstancePollerSuite) TestModelConfigSuccess(c *gc.C) {
+	envConfig := coretesting.ModelConfig(c)
 	s.st.SetConfig(c, envConfig)
 
-	result, err := s.api.EnvironConfig()
+	result, err := s.api.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.EnvironConfigResult{
+	c.Assert(result, jc.DeepEquals, params.ModelConfigResult{
 		Config: envConfig.AllAttrs(),
 	})
 
-	s.st.CheckCallNames(c, "EnvironConfig")
+	s.st.CheckCallNames(c, "ModelConfig")
 }
 
-func (s *InstancePollerSuite) TestWatchForEnvironConfigChangesFailure(c *gc.C) {
+func (s *InstancePollerSuite) TestWatchForModelConfigChangesFailure(c *gc.C) {
 	// Force the Changes() method of the mock watcher to return a
 	// closed channel by setting an error.
 	s.st.SetErrors(errors.New("boom"))
 
-	result, err := s.api.WatchForEnvironConfigChanges()
+	result, err := s.api.WatchForModelConfigChanges()
 	c.Assert(err, gc.ErrorMatches, "boom")
 	c.Assert(result, jc.DeepEquals, params.NotifyWatchResult{})
 
 	c.Assert(s.resources.Count(), gc.Equals, 0) // no watcher registered
-	s.st.CheckCallNames(c, "WatchForEnvironConfigChanges")
+	s.st.CheckCallNames(c, "WatchForModelConfigChanges")
 }
 
-func (s *InstancePollerSuite) TestWatchForEnvironConfigChangesSuccess(c *gc.C) {
-	result, err := s.api.WatchForEnvironConfigChanges()
+func (s *InstancePollerSuite) TestWatchForModelConfigChangesSuccess(c *gc.C) {
+	result, err := s.api.WatchForModelConfigChanges()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.NotifyWatchResult{
 		Error: nil, NotifyWatcherId: "1",
@@ -150,28 +156,28 @@ func (s *InstancePollerSuite) TestWatchForEnvironConfigChangesSuccess(c *gc.C) {
 	wc := statetesting.NewNotifyWatcherC(c, s.st, resource.(state.NotifyWatcher))
 	wc.AssertNoChange()
 
-	s.st.CheckCallNames(c, "WatchForEnvironConfigChanges")
+	s.st.CheckCallNames(c, "WatchForModelConfigChanges")
 
 	// Try changing the config to verify an event is reported.
-	envConfig := coretesting.EnvironConfig(c)
+	envConfig := coretesting.ModelConfig(c)
 	s.st.SetConfig(c, envConfig)
 	wc.AssertOneChange()
 }
 
-func (s *InstancePollerSuite) TestWatchEnvironMachinesFailure(c *gc.C) {
+func (s *InstancePollerSuite) TestWatchModelMachinesFailure(c *gc.C) {
 	// Force the Changes() method of the mock watcher to return a
 	// closed channel by setting an error.
 	s.st.SetErrors(errors.Errorf("boom"))
 
-	result, err := s.api.WatchEnvironMachines()
-	c.Assert(err, gc.ErrorMatches, "cannot obtain initial environment machines: boom")
+	result, err := s.api.WatchModelMachines()
+	c.Assert(err, gc.ErrorMatches, "cannot obtain initial model machines: boom")
 	c.Assert(result, jc.DeepEquals, params.StringsWatchResult{})
 
 	c.Assert(s.resources.Count(), gc.Equals, 0) // no watcher registered
-	s.st.CheckCallNames(c, "WatchEnvironMachines")
+	s.st.CheckCallNames(c, "WatchModelMachines")
 }
 
-func (s *InstancePollerSuite) TestWatchEnvironMachinesSuccess(c *gc.C) {
+func (s *InstancePollerSuite) TestWatchModelMachinesSuccess(c *gc.C) {
 	// Add a couple of machines.
 	s.st.SetMachineInfo(c, machineInfo{id: "2"})
 	s.st.SetMachineInfo(c, machineInfo{id: "1"})
@@ -181,7 +187,7 @@ func (s *InstancePollerSuite) TestWatchEnvironMachinesSuccess(c *gc.C) {
 		StringsWatcherId: "1",
 		Changes:          []string{"1", "2"}, // initial event (sorted ids)
 	}
-	result, err := s.api.WatchEnvironMachines()
+	result, err := s.api.WatchModelMachines()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, expectedResult)
 
@@ -198,14 +204,14 @@ func (s *InstancePollerSuite) TestWatchEnvironMachinesSuccess(c *gc.C) {
 	wc1 := statetesting.NewStringsWatcherC(c, s.st, resource1.(state.StringsWatcher))
 	wc1.AssertNoChange()
 
-	s.st.CheckCallNames(c, "WatchEnvironMachines")
+	s.st.CheckCallNames(c, "WatchModelMachines")
 
 	// Add another watcher to verify events coalescence.
-	result, err = s.api.WatchEnvironMachines()
+	result, err = s.api.WatchModelMachines()
 	c.Assert(err, jc.ErrorIsNil)
 	expectedResult.StringsWatcherId = "2"
 	c.Assert(result, jc.DeepEquals, expectedResult)
-	s.st.CheckCallNames(c, "WatchEnvironMachines", "WatchEnvironMachines")
+	s.st.CheckCallNames(c, "WatchModelMachines", "WatchModelMachines")
 	c.Assert(s.resources.Count(), gc.Equals, 2)
 	resource2 := s.resources.Get("2")
 	defer statetesting.AssertStop(c, resource2)
@@ -336,8 +342,8 @@ func (s *InstancePollerSuite) TestInstanceIdFailure(c *gc.C) {
 
 func (s *InstancePollerSuite) TestStatusSuccess(c *gc.C) {
 	now := time.Now()
-	s1 := state.StatusInfo{
-		Status:  state.StatusError,
+	s1 := status.StatusInfo{
+		Status:  status.Error,
 		Message: "not really",
 		Data: map[string]interface{}{
 			"price": 4.2,
@@ -346,7 +352,7 @@ func (s *InstancePollerSuite) TestStatusSuccess(c *gc.C) {
 		},
 		Since: &now,
 	}
-	s2 := state.StatusInfo{}
+	s2 := status.StatusInfo{}
 	s.st.SetMachineInfo(c, machineInfo{id: "1", status: s1})
 	s.st.SetMachineInfo(c, machineInfo{id: "2", status: s2})
 
@@ -355,7 +361,7 @@ func (s *InstancePollerSuite) TestStatusSuccess(c *gc.C) {
 	c.Assert(result, jc.DeepEquals, params.StatusResults{
 		Results: []params.StatusResult{
 			{
-				Status: params.StatusError,
+				Status: status.Error.String(),
 				Info:   s1.Message,
 				Data:   s1.Data,
 				Since:  s1.Since,
@@ -405,7 +411,7 @@ func (s *InstancePollerSuite) TestStatusFailure(c *gc.C) {
 
 func (s *InstancePollerSuite) TestProviderAddressesSuccess(c *gc.C) {
 	addrs := network.NewAddresses("0.1.2.3", "127.0.0.1", "8.8.8.8")
-	expectedAddresses := params.FromNetworkAddresses(addrs)
+	expectedAddresses := params.FromNetworkAddresses(addrs...)
 	s.st.SetMachineInfo(c, machineInfo{id: "1", providerAddresses: addrs})
 	s.st.SetMachineInfo(c, machineInfo{id: "2", providerAddresses: nil})
 
@@ -416,7 +422,7 @@ func (s *InstancePollerSuite) TestProviderAddressesSuccess(c *gc.C) {
 			{Addresses: expectedAddresses},
 			{Addresses: nil},
 			{Error: apiservertesting.NotFoundError("machine 42")},
-			{Error: apiservertesting.ServerError(`"service-unknown" is not a valid machine tag`)},
+			{Error: apiservertesting.ServerError(`"application-unknown" is not a valid machine tag`)},
 			{Error: apiservertesting.ServerError(`"invalid-tag" is not a valid tag`)},
 			{Error: apiservertesting.ServerError(`"unit-missing-1" is not a valid machine tag`)},
 			{Error: apiservertesting.ServerError(`"" is not a valid tag`)},
@@ -466,9 +472,9 @@ func (s *InstancePollerSuite) TestSetProviderAddressesSuccess(c *gc.C) {
 	result, err := s.api.SetProviderAddresses(params.SetMachinesAddresses{
 		MachineAddresses: []params.MachineAddresses{
 			{Tag: "machine-1", Addresses: nil},
-			{Tag: "machine-2", Addresses: params.FromNetworkAddresses(newAddrs)},
+			{Tag: "machine-2", Addresses: params.FromNetworkAddresses(newAddrs...)},
 			{Tag: "machine-42"},
-			{Tag: "service-unknown"},
+			{Tag: "application-unknown"},
 			{Tag: "invalid-tag"},
 			{Tag: "unit-missing-1"},
 			{Tag: ""},
@@ -508,8 +514,8 @@ func (s *InstancePollerSuite) TestSetProviderAddressesFailure(c *gc.C) {
 
 	result, err := s.api.SetProviderAddresses(params.SetMachinesAddresses{
 		MachineAddresses: []params.MachineAddresses{
-			{Tag: "machine-1", Addresses: nil},
-			{Tag: "machine-2", Addresses: params.FromNetworkAddresses(newAddrs)},
+			{Tag: "machine-1"},
+			{Tag: "machine-2", Addresses: params.FromNetworkAddresses(newAddrs...)},
 			{Tag: "machine-3"},
 		}},
 	)
@@ -528,22 +534,23 @@ func (s *InstancePollerSuite) TestSetProviderAddressesFailure(c *gc.C) {
 }
 
 func (s *InstancePollerSuite) TestInstanceStatusSuccess(c *gc.C) {
-	s.st.SetMachineInfo(c, machineInfo{id: "1", instanceStatus: "foo"})
-	s.st.SetMachineInfo(c, machineInfo{id: "2", instanceStatus: ""})
+	s.st.SetMachineInfo(c, machineInfo{id: "1", instanceStatus: statusInfo("foo")})
+	s.st.SetMachineInfo(c, machineInfo{id: "2", instanceStatus: statusInfo("")})
 
 	result, err := s.api.InstanceStatus(s.mixedEntities)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.StringResults{
-		Results: []params.StringResult{
-			{Result: "foo"},
-			{Result: ""},
+	c.Assert(result, jc.DeepEquals, params.StatusResults{
+		Results: []params.StatusResult{
+			{Status: "foo"},
+			{Status: ""},
 			{Error: apiservertesting.NotFoundError("machine 42")},
-			{Error: apiservertesting.ServerError(`"service-unknown" is not a valid machine tag`)},
+			{Error: apiservertesting.ServerError(`"application-unknown" is not a valid machine tag`)},
 			{Error: apiservertesting.ServerError(`"invalid-tag" is not a valid tag`)},
 			{Error: apiservertesting.ServerError(`"unit-missing-1" is not a valid machine tag`)},
 			{Error: apiservertesting.ServerError(`"" is not a valid tag`)},
 			{Error: apiservertesting.ServerError(`"42" is not a valid tag`)},
-		}},
+		},
+	},
 	)
 
 	s.st.CheckFindEntityCall(c, 0, "1")
@@ -560,13 +567,13 @@ func (s *InstancePollerSuite) TestInstanceStatusFailure(c *gc.C) {
 		errors.New("FAIL"),                   // m2.InstanceStatus()
 		errors.NotProvisionedf("machine 42"), // FindEntity("3") (ensure wrapping is preserved)
 	)
-	s.st.SetMachineInfo(c, machineInfo{id: "1", instanceStatus: "foo"})
-	s.st.SetMachineInfo(c, machineInfo{id: "2", instanceStatus: ""})
+	s.st.SetMachineInfo(c, machineInfo{id: "1", instanceStatus: statusInfo("foo")})
+	s.st.SetMachineInfo(c, machineInfo{id: "2", instanceStatus: statusInfo("")})
 
 	result, err := s.api.InstanceStatus(s.machineEntities)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.StringResults{
-		Results: []params.StringResult{
+	c.Assert(result, jc.DeepEquals, params.StatusResults{
+		Results: []params.StatusResult{
 			{Error: apiservertesting.ServerError("pow!")},
 			{Error: apiservertesting.ServerError("FAIL")},
 			{Error: apiservertesting.NotProvisionedError("42")},
@@ -580,42 +587,47 @@ func (s *InstancePollerSuite) TestInstanceStatusFailure(c *gc.C) {
 }
 
 func (s *InstancePollerSuite) TestSetInstanceStatusSuccess(c *gc.C) {
-	s.st.SetMachineInfo(c, machineInfo{id: "1", instanceStatus: "foo"})
-	s.st.SetMachineInfo(c, machineInfo{id: "2", instanceStatus: ""})
+	s.st.SetMachineInfo(c, machineInfo{id: "1", instanceStatus: statusInfo("foo")})
+	s.st.SetMachineInfo(c, machineInfo{id: "2", instanceStatus: statusInfo("")})
 
-	result, err := s.api.SetInstanceStatus(params.SetInstancesStatus{
-		Entities: []params.InstanceStatus{
+	result, err := s.api.SetInstanceStatus(params.SetStatus{
+		Entities: []params.EntityStatusArgs{
 			{Tag: "machine-1", Status: ""},
 			{Tag: "machine-2", Status: "new status"},
-			{Tag: "machine-42"},
-			{Tag: "service-unknown"},
-			{Tag: "invalid-tag"},
-			{Tag: "unit-missing-1"},
-			{Tag: ""},
-			{Tag: "42"},
+			{Tag: "machine-42", Status: ""},
+			{Tag: "application-unknown", Status: ""},
+			{Tag: "invalid-tag", Status: ""},
+			{Tag: "unit-missing-1", Status: ""},
+			{Tag: "", Status: ""},
+			{Tag: "42", Status: ""},
 		}},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, s.mixedErrorResults)
 
+	now := s.clock.Now()
 	s.st.CheckFindEntityCall(c, 0, "1")
-	s.st.CheckCall(c, 1, "SetInstanceStatus", "")
+	s.st.CheckCall(c, 1, "SetInstanceStatus", status.StatusInfo{Status: status.Status(""), Since: &now})
 	s.st.CheckFindEntityCall(c, 2, "2")
-	s.st.CheckCall(c, 3, "SetInstanceStatus", "new status")
+	s.st.CheckCall(c, 3, "SetInstanceStatus", status.StatusInfo{Status: status.Status("new status"), Since: &now})
 	s.st.CheckFindEntityCall(c, 4, "42")
 
 	// Ensure machines were updated.
 	machine, err := s.st.Machine("1")
 	c.Assert(err, jc.ErrorIsNil)
+	// TODO (perrito666) there should not be an empty StatusInfo here,
+	// this is certainly a smell.
 	setStatus, err := machine.InstanceStatus()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(setStatus, gc.Equals, "")
+	setStatus.Since = nil
+	c.Assert(setStatus, gc.DeepEquals, status.StatusInfo{})
 
 	machine, err = s.st.Machine("2")
 	c.Assert(err, jc.ErrorIsNil)
 	setStatus, err = machine.InstanceStatus()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(setStatus, gc.Equals, "new status")
+	setStatus.Since = nil
+	c.Assert(setStatus, gc.DeepEquals, status.StatusInfo{Status: "new status"})
 }
 
 func (s *InstancePollerSuite) TestSetInstanceStatusFailure(c *gc.C) {
@@ -625,11 +637,11 @@ func (s *InstancePollerSuite) TestSetInstanceStatusFailure(c *gc.C) {
 		errors.New("FAIL"),                   // m2.SetInstanceStatus()
 		errors.NotProvisionedf("machine 42"), // FindEntity("3") (ensure wrapping is preserved)
 	)
-	s.st.SetMachineInfo(c, machineInfo{id: "1", instanceStatus: "foo"})
-	s.st.SetMachineInfo(c, machineInfo{id: "2", instanceStatus: ""})
+	s.st.SetMachineInfo(c, machineInfo{id: "1", instanceStatus: statusInfo("foo")})
+	s.st.SetMachineInfo(c, machineInfo{id: "2", instanceStatus: statusInfo("")})
 
-	result, err := s.api.SetInstanceStatus(params.SetInstancesStatus{
-		Entities: []params.InstanceStatus{
+	result, err := s.api.SetInstanceStatus(params.SetStatus{
+		Entities: []params.EntityStatusArgs{
 			{Tag: "machine-1", Status: "new"},
 			{Tag: "machine-2", Status: "invalid"},
 			{Tag: "machine-3", Status: ""},
@@ -640,7 +652,8 @@ func (s *InstancePollerSuite) TestSetInstanceStatusFailure(c *gc.C) {
 
 	s.st.CheckFindEntityCall(c, 0, "1")
 	s.st.CheckFindEntityCall(c, 1, "2")
-	s.st.CheckCall(c, 2, "SetInstanceStatus", "invalid")
+	now := s.clock.Now()
+	s.st.CheckCall(c, 2, "SetInstanceStatus", status.StatusInfo{Status: "invalid", Since: &now})
 	s.st.CheckFindEntityCall(c, 3, "3")
 }
 
@@ -655,7 +668,7 @@ func (s *InstancePollerSuite) TestAreManuallyProvisionedSuccess(c *gc.C) {
 			{Result: true},
 			{Result: false},
 			{Error: apiservertesting.NotFoundError("machine 42")},
-			{Error: apiservertesting.ServerError(`"service-unknown" is not a valid machine tag`)},
+			{Error: apiservertesting.ServerError(`"application-unknown" is not a valid machine tag`)},
 			{Error: apiservertesting.ServerError(`"invalid-tag" is not a valid tag`)},
 			{Error: apiservertesting.ServerError(`"unit-missing-1" is not a valid machine tag`)},
 			{Error: apiservertesting.ServerError(`"" is not a valid tag`)},
@@ -694,4 +707,8 @@ func (s *InstancePollerSuite) TestAreManuallyProvisionedFailure(c *gc.C) {
 	s.st.CheckFindEntityCall(c, 1, "2")
 	s.st.CheckCall(c, 2, "IsManual")
 	s.st.CheckFindEntityCall(c, 3, "3")
+}
+
+func statusInfo(st string) status.StatusInfo {
+	return status.StatusInfo{Status: status.Status(st)}
 }

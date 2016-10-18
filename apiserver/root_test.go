@@ -9,69 +9,79 @@ import (
 	"sync"
 	"time"
 
-	"github.com/juju/names"
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/rpc/rpcreflect"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 )
 
-type rootSuite struct {
+type pingSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&rootSuite{})
+var _ = gc.Suite(&pingSuite{})
 
-var allowedDiscardedMethods = []string{
-	"AuthClient",
-	"AuthEnvironManager",
-	"AuthMachineAgent",
-	"AuthOwner",
-	"AuthUnitAgent",
-	"FindMethod",
-	"GetAuthEntity",
-	"GetAuthTag",
-}
-
-func (r *rootSuite) TestPingTimeout(c *gc.C) {
-	closedc := make(chan time.Time, 1)
+func (r *pingSuite) TestPingTimeout(c *gc.C) {
+	triggered := make(chan struct{})
 	action := func() {
-		closedc <- time.Now()
+		close(triggered)
 	}
-	timeout := apiserver.NewPingTimeout(action, 50*time.Millisecond)
+	clock := jujutesting.NewClock(time.Now())
+	timeout := apiserver.NewPingTimeout(action, clock, 50*time.Millisecond)
 	for i := 0; i < 2; i++ {
-		time.Sleep(10 * time.Millisecond)
+		waitAlarm(c, clock)
+		clock.Advance(10 * time.Millisecond)
 		timeout.Ping()
 	}
-	// Expect action to be executed about 50ms after last ping.
-	broken := time.Now()
-	var closed time.Time
+
+	waitAlarm(c, clock)
+	clock.Advance(49 * time.Millisecond)
 	select {
-	case closed = <-closedc:
-	case <-time.After(testing.LongWait):
-		c.Fatalf("action never executed")
+	case <-triggered:
+		c.Fatalf("action triggered early")
+	case <-time.After(testing.ShortWait):
 	}
-	closeDiff := closed.Sub(broken) / time.Millisecond
-	c.Assert(50 <= closeDiff && closeDiff <= 100, jc.IsTrue)
+
+	clock.Advance(time.Millisecond)
+	select {
+	case <-triggered:
+	case <-time.After(testing.LongWait):
+		c.Fatalf("action never triggered")
+	}
 }
 
-func (r *rootSuite) TestPingTimeoutStopped(c *gc.C) {
-	closedc := make(chan time.Time, 1)
+func (r *pingSuite) TestPingTimeoutStopped(c *gc.C) {
+	triggered := make(chan struct{})
 	action := func() {
-		closedc <- time.Now()
+		close(triggered)
 	}
-	timeout := apiserver.NewPingTimeout(action, 20*time.Millisecond)
-	timeout.Ping()
+	clock := jujutesting.NewClock(time.Now())
+	timeout := apiserver.NewPingTimeout(action, clock, 20*time.Millisecond)
+
+	waitAlarm(c, clock)
 	timeout.Stop()
+	clock.Advance(time.Hour)
+
 	// The action should never trigger
 	select {
-	case <-closedc:
+	case <-triggered:
 		c.Fatalf("action triggered after Stop()")
 	case <-time.After(testing.ShortWait):
+	}
+}
+
+func waitAlarm(c *gc.C, clock *jujutesting.Clock) {
+	select {
+	case <-time.After(testing.LongWait):
+		c.Fatalf("alarm never set")
+	case <-clock.Alarms():
 	}
 }
 
@@ -84,20 +94,9 @@ var _ = gc.Suite(&errRootSuite{})
 func (s *errRootSuite) TestErrorRoot(c *gc.C) {
 	origErr := fmt.Errorf("my custom error")
 	errRoot := apiserver.NewErrRoot(origErr)
-	st, err := errRoot.Admin("")
+	st, err := errRoot.FindMethod("", 0, "")
 	c.Check(st, gc.IsNil)
 	c.Check(err, gc.Equals, origErr)
-}
-
-func (s *errRootSuite) TestErrorRootViaRPC(c *gc.C) {
-	origErr := fmt.Errorf("my custom error")
-	errRoot := apiserver.NewErrRoot(origErr)
-	val := rpcreflect.ValueOf(reflect.ValueOf(errRoot))
-	caller, err := val.FindMethod("Admin", 0, "Login")
-	c.Assert(err, jc.ErrorIsNil)
-	resp, err := caller.Call("", reflect.Value{})
-	c.Check(err, gc.Equals, origErr)
-	c.Check(resp.IsValid(), jc.IsFalse)
 }
 
 type testingType struct{}
@@ -112,8 +111,14 @@ func (badType) Exposed() error {
 	return fmt.Errorf("badType.Exposed was not to be exposed")
 }
 
+type rootSuite struct {
+	testing.BaseSuite
+}
+
+var _ = gc.Suite(&rootSuite{})
+
 func (r *rootSuite) TestFindMethodUnknownFacade(c *gc.C) {
-	root := apiserver.TestingApiRoot(nil)
+	root := apiserver.TestingAPIRoot(nil)
 	caller, err := root.FindMethod("unknown-testing-facade", 0, "Method")
 	c.Check(caller, gc.IsNil)
 	c.Check(err, gc.FitsTypeOf, (*rpcreflect.CallNotImplementedError)(nil))
@@ -121,10 +126,10 @@ func (r *rootSuite) TestFindMethodUnknownFacade(c *gc.C) {
 }
 
 func (r *rootSuite) TestFindMethodUnknownVersion(c *gc.C) {
-	srvRoot := apiserver.TestingApiRoot(nil)
+	srvRoot := apiserver.TestingAPIRoot(nil)
 	defer common.Facades.Discard("my-testing-facade", 0)
 	myGoodFacade := func(
-		*state.State, *common.Resources, common.Authorizer,
+		*state.State, facade.Resources, facade.Authorizer,
 	) (
 		*testingType, error,
 	) {
@@ -138,29 +143,17 @@ func (r *rootSuite) TestFindMethodUnknownVersion(c *gc.C) {
 }
 
 func (r *rootSuite) TestFindMethodEnsuresTypeMatch(c *gc.C) {
-	srvRoot := apiserver.TestingApiRoot(nil)
+	srvRoot := apiserver.TestingAPIRoot(nil)
 	defer common.Facades.Discard("my-testing-facade", 0)
 	defer common.Facades.Discard("my-testing-facade", 1)
 	defer common.Facades.Discard("my-testing-facade", 2)
-	myBadFacade := func(
-		*state.State, *common.Resources, common.Authorizer, string,
-	) (
-		interface{}, error,
-	) {
+	myBadFacade := func(facade.Context) (facade.Facade, error) {
 		return &badType{}, nil
 	}
-	myGoodFacade := func(
-		*state.State, *common.Resources, common.Authorizer, string,
-	) (
-		interface{}, error,
-	) {
+	myGoodFacade := func(facade.Context) (facade.Facade, error) {
 		return &testingType{}, nil
 	}
-	myErrFacade := func(
-		*state.State, *common.Resources, common.Authorizer, string,
-	) (
-		interface{}, error,
-	) {
+	myErrFacade := func(context facade.Context) (facade.Facade, error) {
 		return nil, fmt.Errorf("you shall not pass")
 	}
 	expectedType := reflect.TypeOf((*testingType)(nil))
@@ -213,12 +206,12 @@ func assertCallResult(c *gc.C, caller rpcreflect.MethodCaller, id string, expect
 }
 
 func (r *rootSuite) TestFindMethodCachesFacades(c *gc.C) {
-	srvRoot := apiserver.TestingApiRoot(nil)
+	srvRoot := apiserver.TestingAPIRoot(nil)
 	defer common.Facades.Discard("my-counting-facade", 0)
 	defer common.Facades.Discard("my-counting-facade", 1)
 	var count int64
 	newCounter := func(
-		*state.State, *common.Resources, common.Authorizer,
+		*state.State, facade.Resources, facade.Authorizer,
 	) (
 		*countingType, error,
 	) {
@@ -249,16 +242,14 @@ func (r *rootSuite) TestFindMethodCachesFacades(c *gc.C) {
 }
 
 func (r *rootSuite) TestFindMethodCachesFacadesWithId(c *gc.C) {
-	srvRoot := apiserver.TestingApiRoot(nil)
+	srvRoot := apiserver.TestingAPIRoot(nil)
 	defer common.Facades.Discard("my-counting-facade", 0)
 	var count int64
 	// like newCounter, but also tracks the "id" that was requested for
 	// this counter
-	newIdCounter := func(
-		_ *state.State, _ *common.Resources, _ common.Authorizer, id string,
-	) (interface{}, error) {
+	newIdCounter := func(context facade.Context) (facade.Facade, error) {
 		count += 1
-		return &countingType{count: count, id: id}, nil
+		return &countingType{count: count, id: context.ID()}, nil
 	}
 	reflectType := reflect.TypeOf((*countingType)(nil))
 	common.RegisterFacade("my-counting-facade", 0, newIdCounter, reflectType)
@@ -283,14 +274,12 @@ func (r *rootSuite) TestFindMethodCachesFacadesWithId(c *gc.C) {
 }
 
 func (r *rootSuite) TestFindMethodCacheRaceSafe(c *gc.C) {
-	srvRoot := apiserver.TestingApiRoot(nil)
+	srvRoot := apiserver.TestingAPIRoot(nil)
 	defer common.Facades.Discard("my-counting-facade", 0)
 	var count int64
-	newIdCounter := func(
-		_ *state.State, _ *common.Resources, _ common.Authorizer, id string,
-	) (interface{}, error) {
+	newIdCounter := func(context facade.Context) (facade.Facade, error) {
 		count += 1
-		return &countingType{count: count, id: id}, nil
+		return &countingType{count: count, id: context.ID()}, nil
 	}
 	reflectType := reflect.TypeOf((*countingType)(nil))
 	common.RegisterFacade("my-counting-facade", 0, newIdCounter, reflectType)
@@ -336,18 +325,18 @@ func (*secondImpl) OneMethod() stringVar {
 }
 
 func (r *rootSuite) TestFindMethodHandlesInterfaceTypes(c *gc.C) {
-	srvRoot := apiserver.TestingApiRoot(nil)
+	srvRoot := apiserver.TestingAPIRoot(nil)
 	defer common.Facades.Discard("my-interface-facade", 0)
 	defer common.Facades.Discard("my-interface-facade", 1)
 	common.RegisterStandardFacade("my-interface-facade", 0, func(
-		*state.State, *common.Resources, common.Authorizer,
+		*state.State, facade.Resources, facade.Authorizer,
 	) (
 		smallInterface, error,
 	) {
 		return &firstImpl{}, nil
 	})
 	common.RegisterStandardFacade("my-interface-facade", 1, func(
-		*state.State, *common.Resources, common.Authorizer,
+		*state.State, facade.Resources, facade.Authorizer,
 	) (
 		smallInterface, error,
 	) {
@@ -382,7 +371,7 @@ func (r *rootSuite) TestDescribeFacades(c *gc.C) {
 	}
 	clientVersions := asMap["Client"]
 	c.Assert(len(clientVersions), jc.GreaterThan, 0)
-	c.Check(clientVersions[0], gc.Equals, 0)
+	c.Check(clientVersions[0], gc.Equals, 1)
 }
 
 type stubStateEntity struct{ tag names.Tag }
@@ -398,7 +387,7 @@ func (r *rootSuite) TestAuthOwner(c *gc.C) {
 
 	entity := &stubStateEntity{tag}
 
-	apiHandler := apiserver.ApiHandlerWithEntity(entity)
+	apiHandler := apiserver.APIHandlerWithEntity(entity)
 	authorized := apiHandler.AuthOwner(tag)
 
 	c.Check(authorized, jc.IsTrue)

@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/tools"
 )
 
@@ -25,10 +24,6 @@ const (
 	DefaultMemMb    = uint64(2000)
 )
 
-func isStateServer(mcfg *instancecfg.InstanceConfig) bool {
-	return multiwatcher.AnyJobNeedsState(mcfg.Jobs...)
-}
-
 // MaintainInstance is specified in the InstanceBroker interface.
 func (*environ) MaintainInstance(args environs.StartInstanceParams) error {
 	return nil
@@ -36,12 +31,6 @@ func (*environ) MaintainInstance(args environs.StartInstanceParams) error {
 
 // StartInstance implements environs.InstanceBroker.
 func (env *environ) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
-	env = env.getSnapshot()
-
-	if args.InstanceConfig.HasNetworks() {
-		return nil, errors.New("starting instances with networks is not supported yet")
-	}
-
 	img, err := findImageMetadata(env, args)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -76,7 +65,9 @@ func (env *environ) finishMachineConfig(args environs.StartInstanceParams, img *
 		return err
 	}
 
-	args.InstanceConfig.Tools = envTools[0]
+	if err := args.InstanceConfig.SetTools(envTools); err != nil {
+		return errors.Trace(err)
+	}
 	return FinishInstanceConfig(args.InstanceConfig, env.Config())
 }
 
@@ -84,7 +75,10 @@ func (env *environ) finishMachineConfig(args environs.StartInstanceParams, img *
 // provisioned, relative to the provided args and spec. Info for that
 // low-level instance is returned.
 func (env *environ) newRawInstance(args environs.StartInstanceParams, img *OvaFileMetadata) (*mo.VirtualMachine, *instance.HardwareCharacteristics, error) {
-	machineID := common.MachineFullName(env, args.InstanceConfig.MachineId)
+	machineID, err := env.namespace.Hostname(args.InstanceConfig.MachineId)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
 
 	cloudcfg, err := cloudinit.New(args.Tools.OneSeries())
 	if err != nil {
@@ -135,18 +129,19 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams, img *OvaFi
 			continue
 		}
 		apiPort := 0
-		if isStateServer(args.InstanceConfig) {
-			apiPort = args.InstanceConfig.StateServingInfo.APIPort
+		if args.InstanceConfig.Controller != nil {
+			apiPort = args.InstanceConfig.Controller.Config.APIPort()
 		}
 		spec := &instanceSpec{
-			machineID: machineID,
-			zone:      availZone,
-			hwc:       hwc,
-			img:       img,
-			userData:  userData,
-			sshKey:    args.InstanceConfig.AuthorizedKeys,
-			isState:   isStateServer(args.InstanceConfig),
-			apiPort:   apiPort,
+			machineID:      machineID,
+			zone:           availZone,
+			hwc:            hwc,
+			img:            img,
+			userData:       userData,
+			sshKey:         args.InstanceConfig.AuthorizedKeys,
+			isController:   args.InstanceConfig.Controller != nil,
+			controllerUUID: args.ControllerUUID,
+			apiPort:        apiPort,
 		}
 		inst, err = env.client.CreateInstance(env.ecfg, spec)
 		if err != nil {
@@ -169,8 +164,6 @@ func (env *environ) AllInstances() ([]instance.Instance, error) {
 
 // StopInstances implements environs.InstanceBroker.
 func (env *environ) StopInstances(instances ...instance.Id) error {
-	env = env.getSnapshot()
-
 	var ids []string
 	for _, id := range instances {
 		ids = append(ids, string(id))

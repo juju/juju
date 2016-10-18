@@ -63,7 +63,7 @@ func (s *ValidateSuite) TestExactVersionMatch(c *gc.C) {
 			Endpoint:      "some-auth-url",
 			Stream:        "released",
 			Sources: []simplestreams.DataSource{
-				simplestreams.NewURLDataSource("test", s.toolsURL(), utils.VerifySSLHostnames)},
+				simplestreams.NewURLDataSource("test", s.toolsURL(), utils.VerifySSLHostnames, simplestreams.DEFAULT_CLOUD_DATA, false)},
 		},
 	}
 	versions, resolveInfo, err := ValidateToolsMetadata(params)
@@ -89,7 +89,7 @@ func (s *ValidateSuite) TestMajorVersionMatch(c *gc.C) {
 			Endpoint:      "some-auth-url",
 			Stream:        "released",
 			Sources: []simplestreams.DataSource{
-				simplestreams.NewURLDataSource("test", s.toolsURL(), utils.VerifySSLHostnames)},
+				simplestreams.NewURLDataSource("test", s.toolsURL(), utils.VerifySSLHostnames, simplestreams.DEFAULT_CLOUD_DATA, false)},
 		},
 	}
 	versions, resolveInfo, err := ValidateToolsMetadata(params)
@@ -115,7 +115,7 @@ func (s *ValidateSuite) TestMajorMinorVersionMatch(c *gc.C) {
 			Endpoint:      "some-auth-url",
 			Stream:        "released",
 			Sources: []simplestreams.DataSource{
-				simplestreams.NewURLDataSource("test", s.toolsURL(), utils.VerifySSLHostnames)},
+				simplestreams.NewURLDataSource("test", s.toolsURL(), utils.VerifySSLHostnames, simplestreams.DEFAULT_CLOUD_DATA, false)},
 		},
 	}
 	versions, resolveInfo, err := ValidateToolsMetadata(params)
@@ -140,7 +140,7 @@ func (s *ValidateSuite) TestNoMatch(c *gc.C) {
 			Endpoint:      "some-auth-url",
 			Stream:        "released",
 			Sources: []simplestreams.DataSource{
-				simplestreams.NewURLDataSource("test", s.toolsURL(), utils.VerifySSLHostnames)},
+				simplestreams.NewURLDataSource("test", s.toolsURL(), utils.VerifySSLHostnames, simplestreams.DEFAULT_CLOUD_DATA, false)},
 		},
 	}
 	_, _, err := ValidateToolsMetadata(params)
@@ -158,7 +158,7 @@ func (s *ValidateSuite) TestStreamsNoMatch(c *gc.C) {
 			Endpoint:      "some-auth-url",
 			Stream:        "testing",
 			Sources: []simplestreams.DataSource{
-				simplestreams.NewURLDataSource("test", s.toolsURL(), utils.VerifySSLHostnames)},
+				simplestreams.NewURLDataSource("test", s.toolsURL(), utils.VerifySSLHostnames, simplestreams.DEFAULT_CLOUD_DATA, false)},
 		},
 	}
 	_, _, err := ValidateToolsMetadata(params)

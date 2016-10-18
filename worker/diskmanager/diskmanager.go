@@ -5,6 +5,7 @@ package diskmanager
 
 import (
 	"reflect"
+	"sort"
 	"time"
 
 	"github.com/juju/loggo"
@@ -41,7 +42,7 @@ var DefaultListBlockDevices ListBlockDevicesFunc
 
 // NewWorker returns a worker that lists block devices
 // attached to the machine, and records them in state.
-func NewWorker(l ListBlockDevicesFunc, b BlockDeviceSetter) worker.Worker {
+var NewWorker = func(l ListBlockDevicesFunc, b BlockDeviceSetter) worker.Worker {
 	var old []storage.BlockDevice
 	f := func(stop <-chan struct{}) error {
 		return doWork(l, b, &old)
@@ -55,6 +56,9 @@ func doWork(listf ListBlockDevicesFunc, b BlockDeviceSetter, old *[]storage.Bloc
 		return err
 	}
 	storage.SortBlockDevices(blockDevices)
+	for _, blockDevice := range blockDevices {
+		sort.Strings(blockDevice.DeviceLinks)
+	}
 	if reflect.DeepEqual(blockDevices, *old) {
 		logger.Tracef("no changes to block devices detected")
 		return nil

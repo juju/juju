@@ -7,13 +7,14 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/juju/names"
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/action"
 	"github.com/juju/juju/apiserver/common"
+	commontesting "github.com/juju/juju/apiserver/common/testing"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -28,6 +29,7 @@ func TestAll(t *testing.T) {
 
 type actionSuite struct {
 	jujutesting.JujuConnSuite
+	commontesting.BlockHelper
 
 	action     *action.ActionAPI
 	authorizer apiservertesting.FakeAuthorizer
@@ -36,9 +38,9 @@ type actionSuite struct {
 	charm         *state.Charm
 	machine0      *state.Machine
 	machine1      *state.Machine
-	dummy         *state.Service
-	wordpress     *state.Service
-	mysql         *state.Service
+	dummy         *state.Application
+	wordpress     *state.Application
+	mysql         *state.Application
 	wordpressUnit *state.Unit
 	mysqlUnit     *state.Unit
 }
@@ -47,6 +49,8 @@ var _ = gc.Suite(&actionSuite{})
 
 func (s *actionSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
+	s.BlockHelper = commontesting.NewBlockHelper(s.APIState)
+	s.AddCleanup(func(*gc.C) { s.BlockHelper.Close() })
 
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: s.AdminUserTag(c),
@@ -61,45 +65,64 @@ func (s *actionSuite) SetUpTest(c *gc.C) {
 		Name: "wordpress",
 	})
 
-	s.dummy = factory.MakeService(c, &jujuFactory.ServiceParams{
+	s.dummy = factory.MakeApplication(c, &jujuFactory.ApplicationParams{
 		Name: "dummy",
 		Charm: factory.MakeCharm(c, &jujuFactory.CharmParams{
 			Name: "dummy",
 		}),
-		Creator: s.AdminUserTag(c),
 	})
-	s.wordpress = factory.MakeService(c, &jujuFactory.ServiceParams{
-		Name:    "wordpress",
-		Charm:   s.charm,
-		Creator: s.AdminUserTag(c),
+	s.wordpress = factory.MakeApplication(c, &jujuFactory.ApplicationParams{
+		Name:  "wordpress",
+		Charm: s.charm,
 	})
 	s.machine0 = factory.MakeMachine(c, &jujuFactory.MachineParams{
 		Series: "quantal",
-		Jobs:   []state.MachineJob{state.JobHostUnits, state.JobManageEnviron},
+		Jobs:   []state.MachineJob{state.JobHostUnits, state.JobManageModel},
 	})
 	s.wordpressUnit = factory.MakeUnit(c, &jujuFactory.UnitParams{
-		Service: s.wordpress,
-		Machine: s.machine0,
+		Application: s.wordpress,
+		Machine:     s.machine0,
 	})
 
 	mysqlCharm := factory.MakeCharm(c, &jujuFactory.CharmParams{
 		Name: "mysql",
 	})
-	s.mysql = factory.MakeService(c, &jujuFactory.ServiceParams{
-		Name:    "mysql",
-		Charm:   mysqlCharm,
-		Creator: s.AdminUserTag(c),
+	s.mysql = factory.MakeApplication(c, &jujuFactory.ApplicationParams{
+		Name:  "mysql",
+		Charm: mysqlCharm,
 	})
 	s.machine1 = factory.MakeMachine(c, &jujuFactory.MachineParams{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	})
 	s.mysqlUnit = factory.MakeUnit(c, &jujuFactory.UnitParams{
-		Service: s.mysql,
-		Machine: s.machine1,
+		Application: s.mysql,
+		Machine:     s.machine1,
 	})
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
+}
+
+func (s *actionSuite) AssertBlocked(c *gc.C, err error, msg string) {
+	c.Assert(params.IsCodeOperationBlocked(err), jc.IsTrue, gc.Commentf("error: %#v", err))
+	c.Assert(errors.Cause(err), gc.DeepEquals, &params.Error{
+		Message: msg,
+		Code:    "operation is blocked",
+	})
+}
+
+func (s *actionSuite) TestBlockEnqueue(c *gc.C) {
+	// block all changes
+	s.BlockAllChanges(c, "Enqueue")
+	_, err := s.action.Enqueue(params.Actions{})
+	s.AssertBlocked(c, err, "Enqueue")
+}
+
+func (s *actionSuite) TestBlockCancel(c *gc.C) {
+	// block all changes
+	s.BlockAllChanges(c, "Cancel")
+	_, err := s.action.Cancel(params.Entities{})
+	s.AssertBlocked(c, err, "Cancel")
 }
 
 func (s *actionSuite) TestActions(c *gc.C) {
@@ -155,6 +178,39 @@ func (s *actionSuite) TestFindActionTagsByPrefix(c *gc.C) {
 	c.Assert(ok, gc.Equals, true)
 	c.Assert(len(entities), gc.Equals, 1)
 	c.Assert(entities[0].Tag, gc.Equals, actionTag.String())
+}
+
+func (s *actionSuite) TestFindActionsByName(c *gc.C) {
+	machine := s.JujuConnSuite.Factory.MakeMachine(c, &jujuFactory.MachineParams{
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+	})
+	dummyUnit := s.JujuConnSuite.Factory.MakeUnit(c, &jujuFactory.UnitParams{
+		Application: s.dummy,
+		Machine:     machine,
+	})
+	// NOTE: full testing with multiple matches has been moved to state package.
+	arg := params.Actions{Actions: []params.Action{
+		{Receiver: s.wordpressUnit.Tag().String(), Name: "fakeaction", Parameters: map[string]interface{}{}},
+		{Receiver: dummyUnit.Tag().String(), Name: "snapshot", Parameters: map[string]interface{}{"outfile": "lol"}},
+		{Receiver: s.wordpressUnit.Tag().String(), Name: "juju-run", Parameters: map[string]interface{}{"command": "boo", "timeout": 5}},
+		{Receiver: s.mysqlUnit.Tag().String(), Name: "juju-run", Parameters: map[string]interface{}{"command": "boo", "timeout": 5}},
+	}}
+	r, err := s.action.Enqueue(arg)
+	c.Assert(err, gc.Equals, nil)
+	c.Assert(r.Results, gc.HasLen, len(arg.Actions))
+
+	actionNames := []string{"snapshot", "juju-run"}
+	actions, err := s.action.FindActionsByNames(params.FindActionsByNames{ActionNames: actionNames})
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(len(actions.Actions), gc.Equals, 2)
+	for i, actions := range actions.Actions {
+		for _, action := range actions.Actions {
+			c.Assert(action.Action.Name, gc.Equals, actionNames[i])
+			c.Assert(action.Action.Name, gc.Matches, actions.Name)
+		}
+	}
 }
 
 func (s *actionSuite) TestEnqueue(c *gc.C) {
@@ -237,7 +293,7 @@ var testCases = []testCase{{
 	Groups: []receiverGroup{
 		{
 			ExpectedError: &params.Error{Message: "id not found", Code: "not found"},
-			Receiver:      names.NewServiceTag("wordpress"),
+			Receiver:      names.NewApplicationTag("wordpress"),
 			Actions:       []testCaseAction{},
 		}, {
 			Receiver: names.NewUnitTag("wordpress/0"),
@@ -574,7 +630,7 @@ func (s *actionSuite) TestCancel(c *gc.C) {
 	c.Assert(myActions[1].Status, gc.Equals, params.ActionCancelled)
 }
 
-func (s *actionSuite) TestServicesCharmActions(c *gc.C) {
+func (s *actionSuite) TestApplicationsCharmsActions(c *gc.C) {
 	actionSchemas := map[string]map[string]interface{}{
 		"snapshot": {
 			"type":        "object",
@@ -597,19 +653,17 @@ func (s *actionSuite) TestServicesCharmActions(c *gc.C) {
 	}
 	tests := []struct {
 		serviceNames    []string
-		expectedResults params.ServicesCharmActionsResults
+		expectedResults params.ApplicationsCharmActionsResults
 	}{{
 		serviceNames: []string{"dummy"},
-		expectedResults: params.ServicesCharmActionsResults{
-			Results: []params.ServiceCharmActionsResult{
+		expectedResults: params.ApplicationsCharmActionsResults{
+			Results: []params.ApplicationCharmActionsResult{
 				{
-					ServiceTag: names.NewServiceTag("dummy").String(),
-					Actions: &charm.Actions{
-						ActionSpecs: map[string]charm.ActionSpec{
-							"snapshot": {
-								Description: "Take a snapshot of the database.",
-								Params:      actionSchemas["snapshot"],
-							},
+					ApplicationTag: names.NewApplicationTag("dummy").String(),
+					Actions: map[string]params.ActionSpec{
+						"snapshot": {
+							Description: "Take a snapshot of the database.",
+							Params:      actionSchemas["snapshot"],
 						},
 					},
 				},
@@ -617,16 +671,14 @@ func (s *actionSuite) TestServicesCharmActions(c *gc.C) {
 		},
 	}, {
 		serviceNames: []string{"wordpress"},
-		expectedResults: params.ServicesCharmActionsResults{
-			Results: []params.ServiceCharmActionsResult{
+		expectedResults: params.ApplicationsCharmActionsResults{
+			Results: []params.ApplicationCharmActionsResult{
 				{
-					ServiceTag: names.NewServiceTag("wordpress").String(),
-					Actions: &charm.Actions{
-						ActionSpecs: map[string]charm.ActionSpec{
-							"fakeaction": {
-								Description: "No description",
-								Params:      actionSchemas["fakeaction"],
-							},
+					ApplicationTag: names.NewApplicationTag("wordpress").String(),
+					Actions: map[string]params.ActionSpec{
+						"fakeaction": {
+							Description: "No description",
+							Params:      actionSchemas["fakeaction"],
 						},
 					},
 				},
@@ -634,12 +686,12 @@ func (s *actionSuite) TestServicesCharmActions(c *gc.C) {
 		},
 	}, {
 		serviceNames: []string{"nonsense"},
-		expectedResults: params.ServicesCharmActionsResults{
-			Results: []params.ServiceCharmActionsResult{
+		expectedResults: params.ApplicationsCharmActionsResults{
+			Results: []params.ApplicationCharmActionsResult{
 				{
-					ServiceTag: names.NewServiceTag("nonsense").String(),
+					ApplicationTag: names.NewApplicationTag("nonsense").String(),
 					Error: &params.Error{
-						Message: `service "nonsense" not found`,
+						Message: `application "nonsense" not found`,
 						Code:    "not found",
 					},
 				},
@@ -655,11 +707,11 @@ func (s *actionSuite) TestServicesCharmActions(c *gc.C) {
 		}
 
 		for j, svc := range t.serviceNames {
-			svcTag := names.NewServiceTag(svc)
+			svcTag := names.NewApplicationTag(svc)
 			svcTags.Entities[j] = params.Entity{Tag: svcTag.String()}
 		}
 
-		results, err := s.action.ServicesCharmActions(svcTags)
+		results, err := s.action.ApplicationsCharmsActions(svcTags)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Check(results.Results, jc.DeepEquals, t.expectedResults.Results)
 	}

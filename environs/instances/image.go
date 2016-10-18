@@ -24,13 +24,14 @@ type InstanceConstraint struct {
 	Arches      []string
 	Constraints constraints.Value
 
-	// Optional filtering criteria not supported by all providers. These attributes are not specified
-	// by the user as a constraint but rather passed in by the provider implementation to restrict the
-	// choice of available images.
+	// Optional filtering criteria not supported by all providers. These
+	// attributes are not specified by the user as a constraint but rather
+	// passed in by the provider implementation to restrict the choice of
+	// available images.
 
 	// Storage specifies a list of storage types, in order of preference.
-	// eg ["ssd", "ebs"] means find images with ssd storage, but if none exist,
-	// find those with ebs instead.
+	// eg ["ssd", "ebs"] means find images with ssd storage, but if none
+	// exist, find those with ebs instead.
 	Storage []string
 }
 
@@ -60,11 +61,13 @@ type InstanceSpec struct {
 // which instances can be run. The InstanceConstraint is used to filter allInstanceTypes and then a suitable image
 // compatible with the matching instance types is returned.
 func FindInstanceSpec(possibleImages []Image, ic *InstanceConstraint, allInstanceTypes []InstanceType) (*InstanceSpec, error) {
+	logger.Debugf("instance constraints %+v", ic)
 	if len(possibleImages) == 0 {
 		return nil, fmt.Errorf("no %q images in %s with arches %s",
 			ic.Series, ic.Region, ic.Arches)
 	}
 
+	logger.Debugf("matching constraints %v against possible image metadata %+v", ic, possibleImages)
 	matchingTypes, err := MatchingInstanceTypes(allInstanceTypes, ic.Region, ic.Constraints)
 	if err != nil {
 		return nil, err
@@ -73,17 +76,30 @@ func FindInstanceSpec(possibleImages []Image, ic *InstanceConstraint, allInstanc
 		return nil, fmt.Errorf("no instance types found matching constraint: %s", ic)
 	}
 
-	specs := []*InstanceSpec{}
+	// We check for exact matches (all attributes matching), and also for
+	// partial matches (instance type specifies attribute, but image does
+	// not). Exact matches always take precedence.
+	var exactSpecs, partialSpecs []*InstanceSpec
 	for _, itype := range matchingTypes {
 		for _, image := range possibleImages {
-			if image.match(itype) {
-				specs = append(specs, &InstanceSpec{
+			specs := &partialSpecs
+			switch image.match(itype) {
+			case exactMatch:
+				specs = &exactSpecs
+				fallthrough
+			case partialMatch:
+				*specs = append(*specs, &InstanceSpec{
 					InstanceType: itype,
 					Image:        image,
-					order:        len(specs),
+					order:        len(*specs),
 				})
 			}
 		}
+	}
+
+	specs := exactSpecs
+	if len(specs) == 0 {
+		specs = partialSpecs
 	}
 	if len(specs) > 0 {
 		sort.Sort(byArch(specs))
@@ -142,13 +158,32 @@ type Image struct {
 	VirtType string
 }
 
+type imageMatch int
+
+const (
+	nonMatch imageMatch = iota
+	exactMatch
+	partialMatch
+)
+
 // match returns true if the image can run on the supplied instance type.
-func (image Image) match(itype InstanceType) bool {
-	// The virtualisation type is optional.
-	if itype.VirtType != nil && image.VirtType != *itype.VirtType {
-		return false
+func (image Image) match(itype InstanceType) imageMatch {
+	if !image.matchArch(itype.Arches) {
+		return nonMatch
 	}
-	for _, arch := range itype.Arches {
+	if itype.VirtType == nil || image.VirtType == *itype.VirtType {
+		return exactMatch
+	}
+	if image.VirtType == "" {
+		// Image doesn't specify virtualisation type. We allow it
+		// to match, but prefer exact matches.
+		return partialMatch
+	}
+	return nonMatch
+}
+
+func (image Image) matchArch(arches []string) bool {
+	for _, arch := range arches {
 		if arch == image.Arch {
 			return true
 		}

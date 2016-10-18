@@ -21,7 +21,7 @@ import (
 // be impossible to reliably tell from outside. So please don't do that.
 func Manifold() dependency.Manifold {
 	return dependency.Manifold{
-		Start: func(_ dependency.GetResourceFunc) (worker.Worker, error) {
+		Start: func(_ dependency.Context) (worker.Worker, error) {
 			return newFortress(), nil
 		},
 		Output: func(in worker.Worker, out interface{}) error {

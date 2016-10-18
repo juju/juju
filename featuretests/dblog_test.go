@@ -4,24 +4,23 @@
 package featuretests
 
 import (
-	"bufio"
 	"time"
 
 	"github.com/juju/loggo"
-	"github.com/juju/names"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	agentcmd "github.com/juju/juju/cmd/jujud/agent"
-	agenttesting "github.com/juju/juju/cmd/jujud/agent/testing"
-	"github.com/juju/juju/feature"
+	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
+	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/logsender"
 	"github.com/juju/juju/worker/peergrouper"
 )
@@ -31,48 +30,21 @@ import (
 // tests with more detailed testing of the individual components
 // being done in unit tests.
 type dblogSuite struct {
-	agenttesting.AgentSuite
+	agenttest.AgentSuite
 }
 
 func (s *dblogSuite) SetUpTest(c *gc.C) {
-	s.SetInitialFeatureFlags("db-log")
 	s.AgentSuite.SetUpTest(c)
 }
 
 func (s *dblogSuite) TestMachineAgentLogsGoToDB(c *gc.C) {
-	s.SetFeatureFlags("db-log")
 	foundLogs := s.runMachineAgentTest(c)
 	c.Assert(foundLogs, jc.IsTrue)
-}
-
-func (s *dblogSuite) TestMachineAgentLogsGoToDBWithJES(c *gc.C) {
-	s.SetFeatureFlags(feature.JES)
-	foundLogs := s.runMachineAgentTest(c)
-	c.Assert(foundLogs, jc.IsTrue)
-}
-
-func (s *dblogSuite) TestMachineAgentWithoutFeatureFlag(c *gc.C) {
-	s.SetFeatureFlags()
-	foundLogs := s.runMachineAgentTest(c)
-	c.Assert(foundLogs, jc.IsFalse)
 }
 
 func (s *dblogSuite) TestUnitAgentLogsGoToDB(c *gc.C) {
-	s.SetFeatureFlags("db-log")
 	foundLogs := s.runUnitAgentTest(c)
 	c.Assert(foundLogs, jc.IsTrue)
-}
-
-func (s *dblogSuite) TestUnitAgentLogsGoToDBWithJES(c *gc.C) {
-	s.SetFeatureFlags(feature.JES)
-	foundLogs := s.runUnitAgentTest(c)
-	c.Assert(foundLogs, jc.IsTrue)
-}
-
-func (s *dblogSuite) TestUnitAgentWithoutFeatureFlag(c *gc.C) {
-	s.SetFeatureFlags()
-	foundLogs := s.runUnitAgentTest(c)
-	c.Assert(foundLogs, jc.IsFalse)
 }
 
 func (s *dblogSuite) runMachineAgentTest(c *gc.C) bool {
@@ -86,7 +58,7 @@ func (s *dblogSuite) runMachineAgentTest(c *gc.C) bool {
 	agentConf.ReadConfig(m.Tag().String())
 	logsCh, err := logsender.InstallBufferedLogWriter(1000)
 	c.Assert(err, jc.ErrorIsNil)
-	machineAgentFactory := agentcmd.MachineAgentFactoryFn(agentConf, logsCh, nil, c.MkDir())
+	machineAgentFactory := agentcmd.MachineAgentFactoryFn(agentConf, logsCh, c.MkDir())
 	a := machineAgentFactory(m.Id())
 
 	// Ensure there's no logs to begin with.
@@ -140,14 +112,12 @@ func (s *dblogSuite) waitForLogs(c *gc.C, entityTag names.Tag) bool {
 // debugLogDbSuite tests that the debuglog API works when logs are
 // being read from the database.
 type debugLogDbSuite struct {
-	agenttesting.AgentSuite
+	agenttest.AgentSuite
 }
 
 var _ = gc.Suite(&debugLogDbSuite{})
 
 func (s *debugLogDbSuite) SetUpSuite(c *gc.C) {
-	s.SetInitialFeatureFlags("db-log")
-
 	// Restart mongod with a the replicaset enabled.
 	mongod := jujutesting.MgoServer
 	mongod.Params = []string{"--replSet", "juju"}
@@ -159,7 +129,7 @@ func (s *debugLogDbSuite) SetUpSuite(c *gc.C) {
 		DialInfo:       info,
 		MemberHostPort: mongod.Addr(),
 	}
-	err := peergrouper.MaybeInitiateMongoServer(args)
+	err := peergrouper.InitiateMongoServer(args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.AgentSuite.SetUpSuite(c)
@@ -177,42 +147,59 @@ func (s *debugLogDbSuite) TearDownSuite(c *gc.C) {
 }
 
 func (s *debugLogDbSuite) TestLogsAPI(c *gc.C) {
-	dbLogger := state.NewDbLogger(s.State, names.NewMachineTag("99"))
+	dbLogger := state.NewDbLogger(s.State, names.NewMachineTag("99"), version.Current)
 	defer dbLogger.Close()
 
 	t := time.Date(2015, 6, 23, 13, 8, 49, 0, time.UTC)
 	dbLogger.Log(t, "juju.foo", "code.go:42", loggo.INFO, "all is well")
 	dbLogger.Log(t.Add(time.Second), "juju.bar", "go.go:99", loggo.ERROR, "no it isn't")
 
-	lines := make(chan string)
-	go func(numLines int) {
+	messages := make(chan api.LogMessage)
+	go func(numMessages int) {
 		client := s.APIState.Client()
-		reader, err := client.WatchDebugLog(api.DebugLogParams{})
+		logMessages, err := client.WatchDebugLog(api.DebugLogParams{})
 		c.Assert(err, jc.ErrorIsNil)
-		defer reader.Close()
 
-		bufReader := bufio.NewReader(reader)
-		for n := 0; n < numLines; n++ {
-			line, err := bufReader.ReadString('\n')
-			c.Assert(err, jc.ErrorIsNil)
-			lines <- line
+		for n := 0; n < numMessages; n++ {
+			messages <- <-logMessages
 		}
 	}(3)
 
-	assertLine := func(expected string) {
+	assertMessage := func(expected api.LogMessage) {
 		select {
-		case actual := <-lines:
-			c.Assert(actual, gc.Equals, expected)
+		case actual := <-messages:
+			c.Assert(actual, jc.DeepEquals, expected)
 		case <-time.After(coretesting.LongWait):
 			c.Fatal("timed out waiting for log line")
 		}
 	}
 
 	// Read the 2 lines that are in the logs collection.
-	assertLine("machine-99: 2015-06-23 13:08:49 INFO juju.foo code.go:42 all is well\n")
-	assertLine("machine-99: 2015-06-23 13:08:50 ERROR juju.bar go.go:99 no it isn't\n")
+	assertMessage(api.LogMessage{
+		Entity:    "machine-99",
+		Timestamp: t,
+		Severity:  "INFO",
+		Module:    "juju.foo",
+		Location:  "code.go:42",
+		Message:   "all is well",
+	})
+	assertMessage(api.LogMessage{
+		Entity:    "machine-99",
+		Timestamp: t.Add(time.Second),
+		Severity:  "ERROR",
+		Module:    "juju.bar",
+		Location:  "go.go:99",
+		Message:   "no it isn't",
+	})
 
 	// Now write and observe another log. This should be read from the oplog.
 	dbLogger.Log(t.Add(2*time.Second), "ju.jitsu", "no.go:3", loggo.WARNING, "beep beep")
-	assertLine("machine-99: 2015-06-23 13:08:51 WARNING ju.jitsu no.go:3 beep beep\n")
+	assertMessage(api.LogMessage{
+		Entity:    "machine-99",
+		Timestamp: t.Add(2 * time.Second),
+		Severity:  "WARNING",
+		Module:    "ju.jitsu",
+		Location:  "no.go:3",
+		Message:   "beep beep",
+	})
 }

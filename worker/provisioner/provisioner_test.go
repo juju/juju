@@ -5,18 +5,18 @@ package provisioner_test
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -24,27 +24,28 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	apiserverprovisioner "github.com/juju/juju/apiserver/provisioner"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environmentserver/authentication"
+	"github.com/juju/juju/controller/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/imagemetadata"
+	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
-	dummystorage "github.com/juju/juju/storage/provider/dummy"
-	"github.com/juju/juju/storage/provider/registry"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
+	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/provisioner"
 )
 
@@ -68,7 +69,7 @@ func (s *CommonProvisionerSuite) assertProvisionerObservesConfigChanges(c *gc.C,
 	attrs := map[string]interface{}{
 		config.ProvisionerHarvestModeKey: config.HarvestAll.String(),
 	}
-	err := s.State.UpdateEnvironConfig(attrs, nil, nil)
+	err := s.State.UpdateModelConfig(attrs, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.BackingState.StartSync()
@@ -77,6 +78,7 @@ func (s *CommonProvisionerSuite) assertProvisionerObservesConfigChanges(c *gc.C,
 	// like this because sometimes we pick up the initial harvest config (destroyed)
 	// rather than the one we change to (all).
 	received := []string{}
+	timeout := time.After(coretesting.LongWait)
 	for {
 		select {
 		case newCfg := <-cfgObserver:
@@ -84,7 +86,9 @@ func (s *CommonProvisionerSuite) assertProvisionerObservesConfigChanges(c *gc.C,
 				return
 			}
 			received = append(received, newCfg.ProvisionerHarvestMode().String())
-		case <-time.After(coretesting.LongWait):
+		case <-time.After(coretesting.ShortWait):
+			s.BackingState.StartSync()
+		case <-timeout:
 			if len(received) == 0 {
 				c.Fatalf("PA did not action config change")
 			} else {
@@ -101,24 +105,31 @@ type ProvisionerSuite struct {
 
 var _ = gc.Suite(&ProvisionerSuite{})
 
-var veryShortAttempt = utils.AttemptStrategy{
-	Total: 1 * time.Second,
-	Delay: 80 * time.Millisecond,
-}
-
 func (s *CommonProvisionerSuite) SetUpSuite(c *gc.C) {
 	s.JujuConnSuite.SetUpSuite(c)
-	s.defaultConstraints = constraints.MustParse("arch=amd64 mem=4G cpu-cores=1 root-disk=8G")
+	s.defaultConstraints = constraints.MustParse("arch=amd64 mem=4G cores=1 root-disk=8G")
 }
 
 func (s *CommonProvisionerSuite) SetUpTest(c *gc.C) {
-	// Disable the default state policy, because the
-	// provisioner needs to be able to test pathological
-	// scenarios where a machine exists in state with
-	// invalid environment config.
-	dummy.SetStatePolicy(nil)
-
 	s.JujuConnSuite.SetUpTest(c)
+
+	// We do not want to pull published image metadata for tests...
+	imagetesting.PatchOfficialDataSources(&s.CleanupSuite, "")
+	// We want an image to start test instances
+	err := s.State.CloudImageMetadataStorage.SaveMetadata([]cloudimagemetadata.Metadata{{
+		MetadataAttributes: cloudimagemetadata.MetadataAttributes{
+			Region:          "region",
+			Series:          "trusty",
+			Arch:            "amd64",
+			VirtType:        "",
+			RootStorageType: "",
+			Source:          "test",
+			Stream:          "released",
+		},
+		Priority: 10,
+		ImageId:  "-999",
+	}})
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Create the operations channel with more than enough space
 	// for those tests that don't listen on it.
@@ -126,7 +137,7 @@ func (s *CommonProvisionerSuite) SetUpTest(c *gc.C) {
 	dummy.Listen(op)
 	s.op = op
 
-	cfg, err := s.State.EnvironConfig()
+	cfg, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	s.cfg = cfg
 
@@ -141,13 +152,13 @@ func (s *CommonProvisionerSuite) SetUpTest(c *gc.C) {
 		Series:     "quantal",
 		Nonce:      agent.BootstrapNonce,
 		InstanceId: dummy.BootstrapInstanceId,
-		Jobs:       []state.MachineJob{state.JobManageEnviron},
+		Jobs:       []state.MachineJob{state.JobManageModel},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machine.Id(), gc.Equals, "0")
 
 	current := version.Binary{
-		Number: version.Current,
+		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
 		Series: series.HostSeries(),
 	}
@@ -162,53 +173,17 @@ func (s *CommonProvisionerSuite) SetUpTest(c *gc.C) {
 	s.st = s.OpenAPIAsMachine(c, machine.Tag(), password, agent.BootstrapNonce)
 	c.Assert(s.st, gc.NotNil)
 	c.Logf("API: login as %q successful", machine.Tag())
-	s.provisioner = s.st.Provisioner()
+	s.provisioner = apiprovisioner.NewState(s.st)
 	c.Assert(s.provisioner, gc.NotNil)
 }
 
-// breakDummyProvider changes the environment config in state in a way
-// that causes the given environMethod of the dummy provider to return
-// an error, which is also returned as a message to be checked.
-func breakDummyProvider(c *gc.C, st *state.State, environMethod string) string {
-	attrs := map[string]interface{}{"broken": environMethod}
-	err := st.UpdateEnvironConfig(attrs, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	return fmt.Sprintf("dummy.%s is broken", environMethod)
-}
-
-// invalidateEnvironment alters the environment configuration
-// so the Settings returned from the watcher will not pass
-// validation.
-func (s *CommonProvisionerSuite) invalidateEnvironment(c *gc.C) {
-	st, err := state.Open(s.State.EnvironTag(), s.MongoInfo(c), mongo.DefaultDialOpts(), state.Policy(nil))
-	c.Assert(err, jc.ErrorIsNil)
-	defer st.Close()
-	attrs := map[string]interface{}{"type": "unknown"}
-	err = st.UpdateEnvironConfig(attrs, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-// fixEnvironment undoes the work of invalidateEnvironment.
-func (s *CommonProvisionerSuite) fixEnvironment(c *gc.C) error {
-	st, err := state.Open(s.State.EnvironTag(), s.MongoInfo(c), mongo.DefaultDialOpts(), state.Policy(nil))
-	c.Assert(err, jc.ErrorIsNil)
-	defer st.Close()
-	attrs := map[string]interface{}{"type": s.cfg.AllAttrs()["type"]}
-	return st.UpdateEnvironConfig(attrs, nil, nil)
-}
-
-// stopper is stoppable.
-type stopper interface {
-	Stop() error
-}
-
-// stop stops a stopper.
-func stop(c *gc.C, s stopper) {
-	c.Assert(s.Stop(), jc.ErrorIsNil)
+// stop stops a Worker.
+func stop(c *gc.C, w worker.Worker) {
+	c.Assert(worker.Stop(w), jc.ErrorIsNil)
 }
 
 func (s *CommonProvisionerSuite) startUnknownInstance(c *gc.C, id string) instance.Instance {
-	instance, _ := testing.AssertStartInstance(c, s.Environ, id)
+	instance, _ := testing.AssertStartInstance(c, s.Environ, s.ControllerConfig.ControllerUUID(), id)
 	select {
 	case o := <-s.op:
 		switch o := o.(type) {
@@ -223,20 +198,15 @@ func (s *CommonProvisionerSuite) startUnknownInstance(c *gc.C, id string) instan
 }
 
 func (s *CommonProvisionerSuite) checkStartInstance(c *gc.C, m *state.Machine) instance.Instance {
-	return s.checkStartInstanceCustom(c, m, "pork", s.defaultConstraints, nil, nil, nil, nil, true, nil, true)
-}
-
-func (s *CommonProvisionerSuite) checkStartInstanceNoSecureConnection(c *gc.C, m *state.Machine) instance.Instance {
-	return s.checkStartInstanceCustom(c, m, "pork", s.defaultConstraints, nil, nil, nil, nil, false, nil, true)
+	return s.checkStartInstanceCustom(c, m, "pork", s.defaultConstraints, nil, nil, nil, nil, true)
 }
 
 func (s *CommonProvisionerSuite) checkStartInstanceCustom(
 	c *gc.C, m *state.Machine,
 	secret string, cons constraints.Value,
-	networks []string, networkInfo []network.InterfaceInfo,
+	networkInfo []network.InterfaceInfo,
 	subnetsToZones map[network.Id][]string,
 	volumes []storage.Volume,
-	secureServerConnection bool,
 	checkPossibleTools coretools.List,
 	waitInstanceId bool,
 ) (
@@ -261,10 +231,8 @@ func (s *CommonProvisionerSuite) checkStartInstanceCustom(
 				c.Assert(nonceParts[1], jc.Satisfies, utils.IsValidUUIDString)
 				c.Assert(o.Secret, gc.Equals, secret)
 				c.Assert(o.SubnetsToZones, jc.DeepEquals, subnetsToZones)
-				c.Assert(o.Networks, jc.DeepEquals, networks)
 				c.Assert(o.NetworkInfo, jc.DeepEquals, networkInfo)
 				c.Assert(o.Volumes, jc.DeepEquals, volumes)
-				c.Assert(o.AgentEnvironment["SECURE_STATESERVER_CONNECTION"], gc.Equals, strconv.FormatBool(secureServerConnection))
 
 				var jobs []multiwatcher.MachineJob
 				for _, job := range m.Jobs() {
@@ -274,8 +242,8 @@ func (s *CommonProvisionerSuite) checkStartInstanceCustom(
 
 				if checkPossibleTools != nil {
 					for _, t := range o.PossibleTools {
-						url := fmt.Sprintf("https://%s/environment/%s/tools/%s",
-							s.st.Addr(), coretesting.EnvironmentTag.Id(), t.Version)
+						url := fmt.Sprintf("https://%s/model/%s/tools/%s",
+							s.st.Addr(), coretesting.ModelTag.Id(), t.Version)
 						c.Check(t.URL, gc.Equals, url)
 						t.URL = ""
 					}
@@ -367,12 +335,11 @@ func (s *CommonProvisionerSuite) checkStopSomeInstances(c *gc.C,
 	}
 }
 
-func (s *CommonProvisionerSuite) waitMachine(c *gc.C, m *state.Machine, check func() bool) {
+func (s *CommonProvisionerSuite) waitForWatcher(c *gc.C, w state.NotifyWatcher, name string, check func() bool) {
 	// TODO(jam): We need to grow a new method on NotifyWatcherC
 	// that calls StartSync while waiting for changes, then
 	// waitMachine and waitHardwareCharacteristics can use that
 	// instead
-	w := m.Watch()
 	defer stop(c, w)
 	timeout := time.After(coretesting.LongWait)
 	resync := time.After(0)
@@ -386,40 +353,29 @@ func (s *CommonProvisionerSuite) waitMachine(c *gc.C, m *state.Machine, check fu
 			resync = time.After(coretesting.ShortWait)
 			s.BackingState.StartSync()
 		case <-timeout:
-			c.Fatalf("machine %v wait timed out", m)
+			c.Fatalf("%v wait timed out", name)
 		}
 	}
 }
 
 func (s *CommonProvisionerSuite) waitHardwareCharacteristics(c *gc.C, m *state.Machine, check func() bool) {
 	w := m.WatchHardwareCharacteristics()
-	defer stop(c, w)
-	timeout := time.After(coretesting.LongWait)
-	resync := time.After(0)
-	for {
-		select {
-		case <-w.Changes():
-			if check() {
-				return
-			}
-		case <-resync:
-			resync = time.After(coretesting.ShortWait)
-			s.BackingState.StartSync()
-		case <-timeout:
-			c.Fatalf("hardware characteristics for machine %v wait timed out", m)
-		}
-	}
+	name := fmt.Sprintf("hardware characteristics for machine %v", m)
+	s.waitForWatcher(c, w, name, check)
 }
 
-// waitRemoved waits for the supplied machine to be removed from state.
-func (s *CommonProvisionerSuite) waitRemoved(c *gc.C, m *state.Machine) {
-	s.waitMachine(c, m, func() bool {
-		err := m.Refresh()
-		if errors.IsNotFound(err) {
-			return true
-		}
+// waitForRemovalMark waits for the supplied machine to be marked for removal.
+func (s *CommonProvisionerSuite) waitForRemovalMark(c *gc.C, m *state.Machine) {
+	w := s.BackingState.WatchMachineRemovals()
+	name := fmt.Sprintf("machine %v marked for removal", m)
+	s.waitForWatcher(c, w, name, func() bool {
+		removals, err := s.BackingState.AllMachineRemovals()
 		c.Assert(err, jc.ErrorIsNil)
-		c.Logf("machine %v is still %s", m, m.Life())
+		for _, removal := range removals {
+			if removal == m.Id() {
+				return true
+			}
+		}
 		return false
 	})
 }
@@ -443,7 +399,10 @@ func (s *CommonProvisionerSuite) waitInstanceId(c *gc.C, m *state.Machine, expec
 func (s *CommonProvisionerSuite) newEnvironProvisioner(c *gc.C) provisioner.Provisioner {
 	machineTag := names.NewMachineTag("0")
 	agentConfig := s.AgentConfigForTag(c, machineTag)
-	return provisioner.NewEnvironProvisioner(s.provisioner, agentConfig)
+	apiState := apiprovisioner.NewState(s.st)
+	w, err := provisioner.NewEnvironProvisioner(apiState, agentConfig, s.Environ)
+	c.Assert(err, jc.ErrorIsNil)
+	return w
 }
 
 func (s *CommonProvisionerSuite) addMachine() (*state.Machine, error) {
@@ -452,14 +411,14 @@ func (s *CommonProvisionerSuite) addMachine() (*state.Machine, error) {
 
 func (s *CommonProvisionerSuite) addMachineWithConstraints(cons constraints.Value) (*state.Machine, error) {
 	return s.BackingState.AddOneMachine(state.MachineTemplate{
-		Series:      coretesting.FakeDefaultSeries,
+		Series:      series.LatestLts(),
 		Jobs:        []state.MachineJob{state.JobHostUnits},
 		Constraints: cons,
 	})
 }
 
-func (s *CommonProvisionerSuite) ensureAvailability(c *gc.C, n int) []*state.Machine {
-	changes, err := s.BackingState.EnsureAvailability(n, s.defaultConstraints, coretesting.FakeDefaultSeries, nil)
+func (s *CommonProvisionerSuite) enableHA(c *gc.C, n int) []*state.Machine {
+	changes, err := s.BackingState.EnableHA(n, s.defaultConstraints, series.LatestLts(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	added := make([]*state.Machine, len(changes.Added))
 	for i, mid := range changes.Added {
@@ -472,7 +431,7 @@ func (s *CommonProvisionerSuite) ensureAvailability(c *gc.C, n int) []*state.Mac
 
 func (s *ProvisionerSuite) TestProvisionerStartStop(c *gc.C) {
 	p := s.newEnvironProvisioner(c)
-	c.Assert(p.Stop(), jc.ErrorIsNil)
+	stop(c, p)
 }
 
 func (s *ProvisionerSuite) TestSimple(c *gc.C) {
@@ -482,26 +441,26 @@ func (s *ProvisionerSuite) TestSimple(c *gc.C) {
 	// Check that an instance is provisioned when the machine is created...
 	m, err := s.addMachine()
 	c.Assert(err, jc.ErrorIsNil)
-	instance := s.checkStartInstanceNoSecureConnection(c, m)
+	instance := s.checkStartInstance(c, m)
 
 	// ...and removed, along with the machine, when the machine is Dead.
 	c.Assert(m.EnsureDead(), gc.IsNil)
 	s.checkStopInstances(c, instance)
-	s.waitRemoved(c, m)
+	s.waitForRemovalMark(c, m)
 }
 
 func (s *ProvisionerSuite) TestConstraints(c *gc.C) {
 	// Create a machine with non-standard constraints.
 	m, err := s.addMachine()
 	c.Assert(err, jc.ErrorIsNil)
-	cons := constraints.MustParse("mem=8G arch=amd64 cpu-cores=2 root-disk=10G")
+	cons := constraints.MustParse("mem=8G arch=amd64 cores=2 root-disk=10G")
 	err = m.SetConstraints(cons)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Start a provisioner and check those constraints are used.
 	p := s.newEnvironProvisioner(c)
 	defer stop(c, p)
-	s.checkStartInstanceCustom(c, m, "pork", cons, nil, nil, nil, nil, false, nil, true)
+	s.checkStartInstanceCustom(c, m, "pork", cons, nil, nil, nil, nil, true)
 }
 
 func (s *ProvisionerSuite) TestPossibleTools(c *gc.C) {
@@ -516,7 +475,7 @@ func (s *ProvisionerSuite) TestPossibleTools(c *gc.C) {
 	currentVersion := version.MustParseBinary("1.2.3-quantal-arm64")
 	s.PatchValue(&arch.HostArch, func() string { return currentVersion.Arch })
 	s.PatchValue(&series.HostSeries, func() string { return currentVersion.Series })
-	s.PatchValue(&version.Current, currentVersion.Number)
+	s.PatchValue(&jujuversion.Current, currentVersion.Number)
 
 	// Upload some plausible matches, and some that should be filtered out.
 	compatibleVersion := version.MustParseBinary("1.2.3-quantal-amd64")
@@ -545,7 +504,7 @@ func (s *ProvisionerSuite) TestPossibleTools(c *gc.C) {
 	defer stop(c, provisioner)
 	s.checkStartInstanceCustom(
 		c, machine, "pork", constraints.Value{},
-		nil, nil, nil, nil, false, expectedList, true,
+		nil, nil, nil, expectedList, true,
 	)
 }
 
@@ -568,49 +527,14 @@ func (s *ProvisionerSuite) TestProvisionerSetsErrorStatusWhenNoToolsAreAvailable
 		// And check the machine status is set to error.
 		statusInfo, err := m.Status()
 		c.Assert(err, jc.ErrorIsNil)
-		if statusInfo.Status == state.StatusPending {
+		if statusInfo.Status == status.Pending {
 			time.Sleep(coretesting.ShortWait)
 			continue
 		}
-		c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
+		c.Assert(statusInfo.Status, gc.Equals, status.Error)
 		c.Assert(statusInfo.Message, gc.Equals, "no matching tools available")
 		break
 	}
-
-	// Restart the PA to make sure the machine is skipped again.
-	stop(c, p)
-	p = s.newEnvironProvisioner(c)
-	defer stop(c, p)
-	s.checkNoOperations(c)
-}
-
-func (s *ProvisionerSuite) TestProvisionerSetsErrorStatusWhenStartInstanceFailed(c *gc.C) {
-	brokenMsg := breakDummyProvider(c, s.State, "StartInstance")
-	p := s.newEnvironProvisioner(c)
-	defer stop(c, p)
-
-	// Check that an instance is not provisioned when the machine is created...
-	m, err := s.addMachine()
-	c.Assert(err, jc.ErrorIsNil)
-	s.checkNoOperations(c)
-
-	t0 := time.Now()
-	for time.Since(t0) < coretesting.LongWait {
-		// And check the machine status is set to error.
-		statusInfo, err := m.Status()
-		c.Assert(err, jc.ErrorIsNil)
-		if statusInfo.Status == state.StatusPending {
-			time.Sleep(coretesting.ShortWait)
-			continue
-		}
-		c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
-		c.Assert(statusInfo.Message, gc.Equals, brokenMsg)
-		break
-	}
-
-	// Unbreak the environ config.
-	err = s.fixEnvironment(c)
-	c.Assert(err, jc.ErrorIsNil)
 
 	// Restart the PA to make sure the machine is skipped again.
 	stop(c, p)
@@ -634,7 +558,7 @@ func (s *ProvisionerSuite) TestProvisionerFailedStartInstanceWithInjectedCreatio
 	cleanup := dummy.PatchTransientErrorInjectionChannel(errorInjectionChannel)
 	defer cleanup()
 
-	retryableError := instance.NewRetryableCreationError("container failed to start and was destroyed")
+	retryableError := errors.New("container failed to start and was destroyed")
 	destroyError := errors.New("container failed to start and failed to destroy: manual cleanup of containers needed")
 	// send the error message three times, because the provisioner will retry twice as patched above.
 	errorInjectionChannel <- retryableError
@@ -650,11 +574,11 @@ func (s *ProvisionerSuite) TestProvisionerFailedStartInstanceWithInjectedCreatio
 		// And check the machine status is set to error.
 		statusInfo, err := m.Status()
 		c.Assert(err, jc.ErrorIsNil)
-		if statusInfo.Status == state.StatusPending {
+		if statusInfo.Status == status.Pending {
 			time.Sleep(coretesting.ShortWait)
 			continue
 		}
-		c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
+		c.Assert(statusInfo.Status, gc.Equals, status.Error)
 		// check that the status matches the error message
 		c.Assert(statusInfo.Message, gc.Equals, destroyError.Error())
 		return
@@ -680,75 +604,12 @@ func (s *ProvisionerSuite) TestProvisionerSucceedStartInstanceWithInjectedRetrya
 
 	// send the error message once
 	// - instance creation should succeed
-	retryableError := instance.NewRetryableCreationError("container failed to start and was destroyed")
+	retryableError := errors.New("container failed to start and was destroyed")
 	errorInjectionChannel <- retryableError
 
 	m, err := s.addMachine()
 	c.Assert(err, jc.ErrorIsNil)
-	s.checkStartInstanceNoSecureConnection(c, m)
-}
-
-func (s *ProvisionerSuite) TestProvisionerSucceedStartInstanceWithInjectedWrappedRetryableCreationError(c *gc.C) {
-	// Set the retry delay to 0, and retry count to 1 to keep tests short
-	s.PatchValue(provisioner.RetryStrategyDelay, 0*time.Second)
-	s.PatchValue(provisioner.RetryStrategyCount, 1)
-
-	// create the error injection channel
-	errorInjectionChannel := make(chan error, 1)
-	c.Assert(errorInjectionChannel, gc.NotNil)
-
-	p := s.newEnvironProvisioner(c)
-	defer stop(c, p)
-
-	// patch the dummy provider error injection channel
-	cleanup := dummy.PatchTransientErrorInjectionChannel(errorInjectionChannel)
-	defer cleanup()
-
-	// send the error message once
-	// - instance creation should succeed
-	retryableError := errors.Wrap(errors.New(""), instance.NewRetryableCreationError("container failed to start and was destroyed"))
-	errorInjectionChannel <- retryableError
-
-	m, err := s.addMachine()
-	c.Assert(err, jc.ErrorIsNil)
-	s.checkStartInstanceNoSecureConnection(c, m)
-}
-
-func (s *ProvisionerSuite) TestProvisionerFailStartInstanceWithInjectedNonRetryableCreationError(c *gc.C) {
-	// create the error injection channel
-	errorInjectionChannel := make(chan error, 1)
-	c.Assert(errorInjectionChannel, gc.NotNil)
-
-	p := s.newEnvironProvisioner(c)
-	defer stop(c, p)
-
-	// patch the dummy provider error injection channel
-	cleanup := dummy.PatchTransientErrorInjectionChannel(errorInjectionChannel)
-	defer cleanup()
-
-	// send the error message once
-	nonRetryableError := errors.New("some nonretryable error")
-	errorInjectionChannel <- nonRetryableError
-
-	m, err := s.addMachine()
-	c.Assert(err, jc.ErrorIsNil)
-	s.checkNoOperations(c)
-
-	t0 := time.Now()
-	for time.Since(t0) < coretesting.LongWait {
-		// And check the machine status is set to error.
-		statusInfo, err := m.Status()
-		c.Assert(err, jc.ErrorIsNil)
-		if statusInfo.Status == state.StatusPending {
-			time.Sleep(coretesting.ShortWait)
-			continue
-		}
-		c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
-		// check that the status matches the error message
-		c.Assert(statusInfo.Message, gc.Equals, nonRetryableError.Error())
-		return
-	}
-	c.Fatal("Test took too long to complete")
+	s.checkStartInstance(c, m)
 }
 
 func (s *ProvisionerSuite) TestProvisionerStopRetryingIfDying(c *gc.C) {
@@ -763,7 +624,7 @@ func (s *ProvisionerSuite) TestProvisionerStopRetryingIfDying(c *gc.C) {
 	cleanup := dummy.PatchTransientErrorInjectionChannel(errorInjectionChannel)
 	defer cleanup()
 
-	retryableError := instance.NewRetryableCreationError("container failed to start and was destroyed")
+	retryableError := errors.New("container failed to start and was destroyed")
 	errorInjectionChannel <- retryableError
 
 	m, err := s.addMachine()
@@ -774,25 +635,25 @@ func (s *ProvisionerSuite) TestProvisionerStopRetryingIfDying(c *gc.C) {
 	stop(c, p)
 	statusInfo, err := m.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Status, gc.Equals, state.StatusPending)
+	c.Assert(statusInfo.Status, gc.Equals, status.Pending)
 	s.checkNoOperations(c)
 }
 
-func (s *ProvisionerSuite) TestProvisioningDoesNotOccurForLXC(c *gc.C) {
+func (s *ProvisionerSuite) TestProvisioningDoesNotOccurForLXD(c *gc.C) {
 	p := s.newEnvironProvisioner(c)
 	defer stop(c, p)
 
 	// create a machine to host the container.
 	m, err := s.addMachine()
 	c.Assert(err, jc.ErrorIsNil)
-	inst := s.checkStartInstanceNoSecureConnection(c, m)
+	inst := s.checkStartInstance(c, m)
 
 	// make a container on the machine we just created
 	template := state.MachineTemplate{
-		Series: coretesting.FakeDefaultSeries,
+		Series: series.LatestLts(),
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
-	container, err := s.State.AddMachineInsideMachine(template, m.Id(), instance.LXC)
+	container, err := s.State.AddMachineInsideMachine(template, m.Id(), instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// the PA should not attempt to create it
@@ -803,7 +664,7 @@ func (s *ProvisionerSuite) TestProvisioningDoesNotOccurForLXC(c *gc.C) {
 	c.Assert(container.Remove(), gc.IsNil)
 	c.Assert(m.EnsureDead(), gc.IsNil)
 	s.checkStopInstances(c, inst)
-	s.waitRemoved(c, m)
+	s.waitForRemovalMark(c, m)
 }
 
 func (s *ProvisionerSuite) TestProvisioningDoesNotOccurForKVM(c *gc.C) {
@@ -813,11 +674,11 @@ func (s *ProvisionerSuite) TestProvisioningDoesNotOccurForKVM(c *gc.C) {
 	// create a machine to host the container.
 	m, err := s.addMachine()
 	c.Assert(err, jc.ErrorIsNil)
-	inst := s.checkStartInstanceNoSecureConnection(c, m)
+	inst := s.checkStartInstance(c, m)
 
 	// make a container on the machine we just created
 	template := state.MachineTemplate{
-		Series: coretesting.FakeDefaultSeries,
+		Series: series.LatestLts(),
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
 	container, err := s.State.AddMachineInsideMachine(template, m.Id(), instance.KVM)
@@ -831,7 +692,7 @@ func (s *ProvisionerSuite) TestProvisioningDoesNotOccurForKVM(c *gc.C) {
 	c.Assert(container.Remove(), gc.IsNil)
 	c.Assert(m.EnsureDead(), gc.IsNil)
 	s.checkStopInstances(c, inst)
-	s.waitRemoved(c, m)
+	s.waitForRemovalMark(c, m)
 }
 
 type MachineClassifySuite struct {
@@ -841,7 +702,7 @@ var _ = gc.Suite(&MachineClassifySuite{})
 
 type MockMachine struct {
 	life          params.Life
-	status        params.Status
+	status        status.Status
 	id            string
 	idErr         error
 	ensureDeadErr error
@@ -860,7 +721,7 @@ func (m *MockMachine) EnsureDead() error {
 	return m.ensureDeadErr
 }
 
-func (m *MockMachine) Status() (params.Status, string, error) {
+func (m *MockMachine) Status() (status.Status, string, error) {
 	return m.status, "", m.statusErr
 }
 
@@ -871,7 +732,7 @@ func (m *MockMachine) Id() string {
 type machineClassificationTest struct {
 	description    string
 	life           params.Life
-	status         params.Status
+	status         status.Status
 	idErr          string
 	ensureDeadErr  string
 	expectErrCode  string
@@ -883,23 +744,23 @@ type machineClassificationTest struct {
 var machineClassificationTests = []machineClassificationTest{{
 	description:    "Dead machine is dead",
 	life:           params.Dead,
-	status:         params.StatusStarted,
+	status:         status.Started,
 	classification: provisioner.Dead,
 }, {
 	description:    "Dying machine can carry on dying",
 	life:           params.Dying,
-	status:         params.StatusStarted,
+	status:         status.Started,
 	classification: provisioner.None,
 }, {
 	description:    "Dying unprovisioned machine is ensured dead",
 	life:           params.Dying,
-	status:         params.StatusStarted,
+	status:         status.Started,
 	classification: provisioner.Dead,
 	idErr:          params.CodeNotProvisioned,
 }, {
 	description:    "Can't load provisioned dying machine",
 	life:           params.Dying,
-	status:         params.StatusStarted,
+	status:         status.Started,
 	classification: provisioner.None,
 	idErr:          params.CodeNotFound,
 	expectErrCode:  params.CodeNotFound,
@@ -907,14 +768,14 @@ var machineClassificationTests = []machineClassificationTest{{
 }, {
 	description:    "Alive machine is not provisioned - pending",
 	life:           params.Alive,
-	status:         params.StatusPending,
+	status:         status.Pending,
 	classification: provisioner.Pending,
 	idErr:          params.CodeNotProvisioned,
 	expectErrFmt:   "found machine pending provisioning id:%s.*",
 }, {
 	description:    "Alive, pending machine not found",
 	life:           params.Alive,
-	status:         params.StatusPending,
+	status:         status.Pending,
 	classification: provisioner.None,
 	idErr:          params.CodeNotFound,
 	expectErrCode:  params.CodeNotFound,
@@ -928,7 +789,7 @@ var machineClassificationTests = []machineClassificationTest{{
 }, {
 	description:    "Dying machine fails to ensure dead",
 	life:           params.Dying,
-	status:         params.StatusStarted,
+	status:         status.Started,
 	classification: provisioner.None,
 	idErr:          params.CodeNotProvisioned,
 	expectErrCode:  params.CodeNotFound,
@@ -939,14 +800,14 @@ var machineClassificationTests = []machineClassificationTest{{
 var machineClassificationTestsRequireMaintenance = machineClassificationTest{
 	description:    "Machine needs maintaining",
 	life:           params.Alive,
-	status:         params.StatusStarted,
+	status:         status.Started,
 	classification: provisioner.Maintain,
 }
 
 var machineClassificationTestsNoMaintenance = machineClassificationTest{
 	description:    "Machine doesn't need maintaining",
 	life:           params.Alive,
-	status:         params.StatusStarted,
+	status:         status.Started,
 	classification: provisioner.None,
 }
 
@@ -972,7 +833,7 @@ func (s *MachineClassifySuite) TestMachineClassification(c *gc.C) {
 		c.Assert(classification, gc.Equals, t.classification)
 	}
 
-	machineIds := []string{"0/lxc/0", "0/kvm/0", "0"}
+	machineIds := []string{"0/kvm/0", "0"}
 	for _, id := range machineIds {
 		tests := machineClassificationTests
 		if id == "0" {
@@ -988,25 +849,22 @@ func (s *MachineClassifySuite) TestMachineClassification(c *gc.C) {
 
 func (s *ProvisionerSuite) TestProvisioningMachinesWithSpacesSuccess(c *gc.C) {
 	p := s.newEnvironProvisioner(c)
-	defer p.Stop()
+	defer stop(c, p)
 
 	// Add the spaces used in constraints.
-	_, err := s.State.AddSpace("space1", nil, false)
+	_, err := s.State.AddSpace("space1", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddSpace("space2", nil, false)
+	_, err = s.State.AddSpace("space2", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add 1 subnet into space1, and 2 into space2.
-	// Only the first subnet of space2 has AllocatableIPLow|High set.
 	// Each subnet is in a matching zone (e.g "subnet-#" in "zone#").
 	testing.AddSubnetsWithTemplate(c, s.State, 3, state.SubnetInfo{
-		CIDR:              "10.10.{{.}}.0/24",
-		ProviderId:        "subnet-{{.}}",
-		AllocatableIPLow:  "{{if (eq . 1)}}10.10.{{.}}.5{{end}}",
-		AllocatableIPHigh: "{{if (eq . 1)}}10.10.{{.}}.254{{end}}",
-		AvailabilityZone:  "zone{{.}}",
-		SpaceName:         "{{if (eq . 0)}}space1{{else}}space2{{end}}",
-		VLANTag:           42,
+		CIDR:             "10.10.{{.}}.0/24",
+		ProviderId:       "subnet-{{.}}",
+		AvailabilityZone: "zone{{.}}",
+		SpaceName:        "{{if (eq . 0)}}space1{{else}}space2{{end}}",
+		VLANTag:          42,
 	})
 
 	// Add and provision a machine with spaces specified.
@@ -1022,15 +880,15 @@ func (s *ProvisionerSuite) TestProvisioningMachinesWithSpacesSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	inst := s.checkStartInstanceCustom(
 		c, m, "pork", cons,
-		nil, nil,
+		nil,
 		expectedSubnetsToZones,
-		nil, false, nil, true,
+		nil, nil, true,
 	)
 
 	// Cleanup.
 	c.Assert(m.EnsureDead(), gc.IsNil)
 	s.checkStopInstances(c, inst)
-	s.waitRemoved(c, m)
+	s.waitForRemovalMark(c, m)
 }
 
 func (s *ProvisionerSuite) testProvisioningFailsAndSetsErrorStatusForConstraints(
@@ -1053,11 +911,11 @@ func (s *ProvisionerSuite) testProvisioningFailsAndSetsErrorStatusForConstraints
 	for time.Since(t0) < coretesting.LongWait {
 		statusInfo, err := machine.Status()
 		c.Assert(err, jc.ErrorIsNil)
-		if statusInfo.Status == state.StatusPending {
+		if statusInfo.Status == status.Pending {
 			time.Sleep(coretesting.ShortWait)
 			continue
 		}
-		c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
+		c.Assert(statusInfo.Status, gc.Equals, status.Error)
 		c.Assert(statusInfo.Message, gc.Equals, expectedErrorStatus)
 		break
 	}
@@ -1090,7 +948,7 @@ func (s *ProvisionerSuite) TestProvisioningMachinesFailsWithUnknownSpaces(c *gc.
 }
 
 func (s *ProvisionerSuite) TestProvisioningMachinesFailsWithEmptySpaces(c *gc.C) {
-	_, err := s.State.AddSpace("empty", nil, false)
+	_, err := s.State.AddSpace("empty", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 	cons := constraints.MustParse(
 		s.defaultConstraints.String(), "spaces=empty",
@@ -1102,7 +960,7 @@ func (s *ProvisionerSuite) TestProvisioningMachinesFailsWithEmptySpaces(c *gc.C)
 
 func (s *CommonProvisionerSuite) addMachineWithRequestedVolumes(volumes []state.MachineVolumeParams, cons constraints.Value) (*state.Machine, error) {
 	return s.BackingState.AddOneMachine(state.MachineTemplate{
-		Series:      coretesting.FakeDefaultSeries,
+		Series:      series.LatestLts(),
 		Jobs:        []state.MachineJob{state.JobHostUnits},
 		Constraints: cons,
 		Volumes:     volumes,
@@ -1111,15 +969,12 @@ func (s *CommonProvisionerSuite) addMachineWithRequestedVolumes(volumes []state.
 
 func (s *ProvisionerSuite) TestProvisioningMachinesWithRequestedVolumes(c *gc.C) {
 	// Set up a persistent pool.
-	registry.RegisterProvider("static", &dummystorage.StorageProvider{IsDynamic: false})
-	registry.RegisterEnvironStorageProviders("dummy", "static")
-	defer registry.RegisterProvider("static", nil)
-	poolManager := poolmanager.New(state.NewStateSettings(s.State))
+	poolManager := poolmanager.New(state.NewStateSettings(s.State), s.Environ)
 	_, err := poolManager.Create("persistent-pool", "static", map[string]interface{}{"persistent": true})
 	c.Assert(err, jc.ErrorIsNil)
 
 	p := s.newEnvironProvisioner(c)
-	defer p.Stop()
+	defer stop(c, p)
 
 	// Add and provision a machine with volumes specified.
 	requestedVolumes := []state.MachineVolumeParams{{
@@ -1145,71 +1000,15 @@ func (s *ProvisionerSuite) TestProvisioningMachinesWithRequestedVolumes(c *gc.C)
 	c.Assert(err, jc.ErrorIsNil)
 	inst := s.checkStartInstanceCustom(
 		c, m, "pork", s.defaultConstraints,
-		nil, nil, nil,
-		expectVolumeInfo, false,
+		nil, nil,
+		expectVolumeInfo,
 		nil, true,
 	)
 
 	// Cleanup.
 	c.Assert(m.EnsureDead(), gc.IsNil)
 	s.checkStopInstances(c, inst)
-	s.waitRemoved(c, m)
-}
-
-func (s *ProvisionerSuite) TestProvisioningDoesNotOccurWithAnInvalidEnvironment(c *gc.C) {
-	s.invalidateEnvironment(c)
-
-	p := s.newEnvironProvisioner(c)
-	defer stop(c, p)
-
-	// try to create a machine
-	_, err := s.addMachine()
-	c.Assert(err, jc.ErrorIsNil)
-
-	// the PA should not create it
-	s.checkNoOperations(c)
-}
-
-func (s *ProvisionerSuite) TestProvisioningOccursWithFixedEnvironment(c *gc.C) {
-	s.invalidateEnvironment(c)
-
-	p := s.newEnvironProvisioner(c)
-	defer stop(c, p)
-
-	// try to create a machine
-	m, err := s.addMachine()
-	c.Assert(err, jc.ErrorIsNil)
-
-	// the PA should not create it
-	s.checkNoOperations(c)
-
-	err = s.fixEnvironment(c)
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.checkStartInstanceNoSecureConnection(c, m)
-}
-
-func (s *ProvisionerSuite) TestProvisioningDoesOccurAfterInvalidEnvironmentPublished(c *gc.C) {
-	s.PatchValue(provisioner.GetToolsFinder, func(*apiprovisioner.State) provisioner.ToolsFinder {
-		return mockToolsFinder{}
-	})
-	p := s.newEnvironProvisioner(c)
-	defer stop(c, p)
-
-	// place a new machine into the state
-	m, err := s.addMachine()
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.checkStartInstanceNoSecureConnection(c, m)
-
-	s.invalidateEnvironment(c)
-
-	// create a second machine
-	m, err = s.addMachine()
-	c.Assert(err, jc.ErrorIsNil)
-
-	// the PA should create it using the old environment
-	s.checkStartInstanceNoSecureConnection(c, m)
+	s.waitForRemovalMark(c, m)
 }
 
 func (s *ProvisionerSuite) TestProvisioningDoesNotProvisionTheSameMachineAfterRestart(c *gc.C) {
@@ -1219,7 +1018,7 @@ func (s *ProvisionerSuite) TestProvisioningDoesNotProvisionTheSameMachineAfterRe
 	// create a machine
 	m, err := s.addMachine()
 	c.Assert(err, jc.ErrorIsNil)
-	s.checkStartInstanceNoSecureConnection(c, m)
+	s.checkStartInstance(c, m)
 
 	// restart the PA
 	stop(c, p)
@@ -1244,7 +1043,7 @@ func (s *ProvisionerSuite) TestDyingMachines(c *gc.C) {
 	// provision a machine
 	m0, err := s.addMachine()
 	c.Assert(err, jc.ErrorIsNil)
-	s.checkStartInstanceNoSecureConnection(c, m0)
+	s.checkStartInstance(c, m0)
 
 	// stop the provisioner and make the machine dying
 	stop(c, p)
@@ -1261,61 +1060,12 @@ func (s *ProvisionerSuite) TestDyingMachines(c *gc.C) {
 	p = s.newEnvironProvisioner(c)
 	defer stop(c, p)
 	s.checkNoOperations(c)
-	s.waitRemoved(c, m1)
+	s.waitForRemovalMark(c, m1)
 
 	// verify the other one's still fine
 	err = m0.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m0.Life(), gc.Equals, state.Dying)
-}
-
-func (s *ProvisionerSuite) TestProvisioningRecoversAfterInvalidEnvironmentPublished(c *gc.C) {
-	s.PatchValue(provisioner.GetToolsFinder, func(*apiprovisioner.State) provisioner.ToolsFinder {
-		return mockToolsFinder{}
-	})
-	p := s.newEnvironProvisioner(c)
-	defer stop(c, p)
-
-	// place a new machine into the state
-	m, err := s.addMachine()
-	c.Assert(err, jc.ErrorIsNil)
-	s.checkStartInstanceNoSecureConnection(c, m)
-
-	s.invalidateEnvironment(c)
-	s.BackingState.StartSync()
-
-	// create a second machine
-	m, err = s.addMachine()
-	c.Assert(err, jc.ErrorIsNil)
-
-	// the PA should create it using the old environment
-	s.checkStartInstanceNoSecureConnection(c, m)
-
-	err = s.fixEnvironment(c)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// insert our observer
-	cfgObserver := make(chan *config.Config, 1)
-	provisioner.SetObserver(p, cfgObserver)
-
-	err = s.State.UpdateEnvironConfig(map[string]interface{}{"secret": "beef"}, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.BackingState.StartSync()
-
-	// wait for the PA to load the new configuration
-	select {
-	case <-cfgObserver:
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("PA did not action config change")
-	}
-
-	// create a third machine
-	m, err = s.addMachine()
-	c.Assert(err, jc.ErrorIsNil)
-
-	// the PA should create it using the new environment
-	s.checkStartInstanceCustom(c, m, "beef", s.defaultConstraints, nil, nil, nil, nil, false, nil, true)
 }
 
 type mockMachineGetter struct{}
@@ -1349,7 +1099,7 @@ func (s *ProvisionerSuite) TestMachineErrorsRetainInstances(c *gc.C) {
 		&mockToolsFinder{},
 	)
 	defer func() {
-		err := task.Stop()
+		err := worker.Stop(task)
 		c.Assert(err, gc.ErrorMatches, ".*failed to get machine.*")
 	}()
 	s.checkNoOperations(c)
@@ -1369,7 +1119,7 @@ func (s *ProvisionerSuite) newProvisionerTask(
 	toolsFinder provisioner.ToolsFinder,
 ) provisioner.ProvisionerTask {
 
-	machineWatcher, err := s.provisioner.WatchEnvironMachines()
+	machineWatcher, err := s.provisioner.WatchModelMachines()
 	c.Assert(err, jc.ErrorIsNil)
 	retryWatcher, err := s.provisioner.WatchMachineErrorRetry()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1378,7 +1128,8 @@ func (s *ProvisionerSuite) newProvisionerTask(
 
 	retryStrategy := provisioner.NewRetryStrategy(0*time.Second, 0)
 
-	return provisioner.NewProvisionerTask(
+	w, err := provisioner.NewProvisionerTask(
+		s.ControllerConfig.ControllerUUID(),
 		names.NewMachineTag("0"),
 		harvestingMethod,
 		machineGetter,
@@ -1388,9 +1139,10 @@ func (s *ProvisionerSuite) newProvisionerTask(
 		broker,
 		auth,
 		imagemetadata.ReleasedStream,
-		true,
 		retryStrategy,
 	)
+	c.Assert(err, jc.ErrorIsNil)
+	return w
 }
 
 func (s *ProvisionerSuite) TestHarvestNoneReapsNothing(c *gc.C) {
@@ -1435,7 +1187,7 @@ func (s *ProvisionerSuite) TestHarvestUnknownReapsOnlyUnknown(c *gc.C) {
 	// When only harvesting unknown machines, only one of the machines
 	// is stopped.
 	s.checkStopSomeInstances(c, []instance.Instance{i1}, []instance.Instance{i0})
-	s.waitRemoved(c, m0)
+	s.waitForRemovalMark(c, m0)
 }
 
 func (s *ProvisionerSuite) TestHarvestDestroyedReapsOnlyDestroyed(c *gc.C) {
@@ -1461,7 +1213,7 @@ func (s *ProvisionerSuite) TestHarvestDestroyedReapsOnlyDestroyed(c *gc.C) {
 	// When only harvesting destroyed machines, only one of the
 	// machines is stopped.
 	s.checkStopSomeInstances(c, []instance.Instance{i0}, []instance.Instance{i1})
-	s.waitRemoved(c, m0)
+	s.waitForRemovalMark(c, m0)
 }
 
 func (s *ProvisionerSuite) TestHarvestAllReapsAllTheThings(c *gc.C) {
@@ -1486,7 +1238,7 @@ func (s *ProvisionerSuite) TestHarvestAllReapsAllTheThings(c *gc.C) {
 
 	// Everything must die!
 	s.checkStopSomeInstances(c, []instance.Instance{i0, i1}, []instance.Instance{})
-	s.waitRemoved(c, m0)
+	s.waitForRemovalMark(c, m0)
 }
 
 func (s *ProvisionerSuite) TestProvisionerRetriesTransientErrors(c *gc.C) {
@@ -1518,7 +1270,14 @@ func (s *ProvisionerSuite) TestProvisionerRetriesTransientErrors(c *gc.C) {
 			case <-thatsAllFolks:
 				return
 			case <-time.After(coretesting.ShortWait):
-				err := m3.SetStatus(state.StatusError, "info", map[string]interface{}{"transient": true})
+				now := time.Now()
+				sInfo := status.StatusInfo{
+					Status:  status.Error,
+					Message: "info",
+					Data:    map[string]interface{}{"transient": true},
+					Since:   &now,
+				}
+				err := m3.SetStatus(sInfo)
 				c.Assert(err, jc.ErrorIsNil)
 			}
 		}
@@ -1529,7 +1288,7 @@ func (s *ProvisionerSuite) TestProvisionerRetriesTransientErrors(c *gc.C) {
 	// Machine 4 is never provisioned.
 	statusInfo, err := m4.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Status, gc.Equals, state.StatusError)
+	c.Assert(statusInfo.Status, gc.Equals, status.Error)
 	_, err = m4.InstanceId()
 	c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
 }
@@ -1540,7 +1299,7 @@ func (s *ProvisionerSuite) TestProvisionerObservesMachineJobs(c *gc.C) {
 	task := s.newProvisionerTask(c, config.HarvestAll, broker, s.provisioner, mockToolsFinder{})
 	defer stop(c, task)
 
-	added := s.ensureAvailability(c, 3)
+	added := s.enableHA(c, 3)
 	c.Assert(added, gc.HasLen, 2)
 	byId := make(map[string]*state.Machine)
 	for _, m := range added {
@@ -1585,4 +1344,13 @@ func (f mockToolsFinder) FindTools(number version.Number, series string, a strin
 		v.Arch = a
 	}
 	return coretools.List{&coretools.Tools{Version: v}}, nil
+}
+
+type mockAgent struct {
+	agent.Agent
+	config agent.Config
+}
+
+func (mock mockAgent) CurrentConfig() agent.Config {
+	return mock.config
 }

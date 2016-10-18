@@ -4,10 +4,52 @@
 package common
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/juju/errors"
 )
+
+// LastConnection turns the *time.Time returned from the API server
+// into a user facing string with either exact time or a user friendly
+// string based on the args.
+func LastConnection(connectionTime *time.Time, now time.Time, exact bool) string {
+	if connectionTime == nil {
+		return "never connected"
+	}
+	if exact {
+		return connectionTime.String()
+	}
+	return UserFriendlyDuration(*connectionTime, now)
+}
+
+// UserFriendlyDuration translates a time in the past into a user
+// friendly string representation relative to the "now" time argument.
+func UserFriendlyDuration(when, now time.Time) string {
+	since := now.Sub(when)
+	// if over 24 hours ago, just say the date.
+	if since.Hours() >= 24 {
+		return when.Format("2006-01-02")
+	}
+	if since.Hours() >= 1 {
+		unit := "hours"
+		if int(since.Hours()) == 1 {
+			unit = "hour"
+		}
+		return fmt.Sprintf("%d %s ago", int(since.Hours()), unit)
+	}
+	if since.Minutes() >= 1 {
+		unit := "minutes"
+		if int(since.Minutes()) == 1 {
+			unit = "minute"
+		}
+		return fmt.Sprintf("%d %s ago", int(since.Minutes()), unit)
+	}
+	if since.Seconds() >= 2 {
+		return fmt.Sprintf("%d seconds ago", int(since.Seconds()))
+	}
+	return "just now"
+}
 
 // FormatTime returns a string with the local time formatted
 // in an arbitrary format used for status or and localized tz

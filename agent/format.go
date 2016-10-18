@@ -7,21 +7,12 @@ import (
 	"bytes"
 	"fmt"
 	"strings"
-
-	"github.com/juju/utils"
 )
 
 // Current agent config format is defined as follows:
 // # format <version>\n   (very first line; <version> is 1.18 or later)
 // <config-encoded-as-yaml>
 // All of this is saved in a single agent.conf file.
-//
-// Historically the format file in the agent config directory was used
-// to identify the method of serialization. This was used by
-// individual legacy (pre 1.18) format readers and writers to be able
-// to translate from the file format to the in-memory structure. From
-// version 1.18, the format is part of the agent configuration file,
-// so there is only a single source of truth.
 //
 // Juju only supports upgrading from single steps, so Juju only needs
 // to know about the current format and the format of the previous
@@ -55,7 +46,7 @@ func registerFormat(format formatter) {
 // - Remove the marshal() method from the old format;
 
 // currentFormat holds the current agent config version's formatter.
-var currentFormat = format_1_18
+var currentFormat = format_2_0
 
 // agentConfigFilename is the default file name of used for the agent
 // config.
@@ -63,15 +54,6 @@ const agentConfigFilename = "agent.conf"
 
 // formatPrefix is prefix of the first line in an agent config file.
 const formatPrefix = "# format "
-
-func writeFileCommands(filename string, contents []byte, permission int) []string {
-	quotedFilename := utils.ShQuote(filename)
-	quotedContents := utils.ShQuote(string(contents))
-	return []string{
-		fmt.Sprintf("install -m %o /dev/null %s", permission, quotedFilename),
-		fmt.Sprintf(`printf '%%s\n' %s > %s`, quotedContents, quotedFilename),
-	}
-}
 
 func getFormatter(version string) (formatter, error) {
 	version = strings.TrimSpace(version)

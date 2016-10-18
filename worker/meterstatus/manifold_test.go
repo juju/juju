@@ -7,17 +7,17 @@ import (
 	"sync"
 	"time"
 
-	"github.com/juju/names"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/fslock"
+	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
 	msapi "github.com/juju/juju/api/meterstatus"
-	"github.com/juju/juju/api/watcher"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
 	dt "github.com/juju/juju/worker/dependency/testing"
@@ -34,8 +34,7 @@ type ManifoldSuite struct {
 
 	manifoldConfig meterstatus.ManifoldConfig
 	manifold       dependency.Manifold
-	dummyResources dt.StubResources
-	getResource    dependency.GetResourceFunc
+	resources      dt.StubResources
 }
 
 var _ = gc.Suite(&ManifoldSuite{})
@@ -48,6 +47,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		AgentName:               "agent-name",
 		APICallerName:           "apicaller-name",
 		MachineLockName:         "machine-lock-name",
+		Clock:                   testing.NewClock(time.Now()),
 		NewHookRunner:           meterstatus.NewHookRunner,
 		NewMeterStatusAPIClient: msapi.NewClient,
 
@@ -57,22 +57,16 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.manifold = meterstatus.Manifold(s.manifoldConfig)
 	s.dataDir = c.MkDir()
 
-	locksDir := c.MkDir()
-	lock, err := fslock.NewLock(locksDir, "machine-lock", fslock.Defaults())
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.dummyResources = dt.StubResources{
-		"agent-name":        dt.StubResource{Output: &dummyAgent{dataDir: s.dataDir}},
-		"apicaller-name":    dt.StubResource{Output: &dummyAPICaller{}},
-		"machine-lock-name": dt.StubResource{Output: lock},
+	s.resources = dt.StubResources{
+		"agent-name":     dt.StubResource{Output: &dummyAgent{dataDir: s.dataDir}},
+		"apicaller-name": dt.StubResource{Output: &dummyAPICaller{}},
 	}
-	s.getResource = dt.StubGetResource(s.dummyResources)
 }
 
 // TestInputs ensures the collect manifold has the expected defined inputs.
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
 	c.Check(s.manifold.Inputs, jc.DeepEquals, []string{
-		"agent-name", "apicaller-name", "machine-lock-name",
+		"agent-name", "apicaller-name",
 	})
 }
 
@@ -80,18 +74,17 @@ func (s *ManifoldSuite) TestInputs(c *gc.C) {
 // resource dependency.
 func (s *ManifoldSuite) TestStartMissingDeps(c *gc.C) {
 	for _, missingDep := range []string{
-		"agent-name", "machine-lock-name",
+		"agent-name",
 	} {
 		testResources := dt.StubResources{}
-		for k, v := range s.dummyResources {
+		for k, v := range s.resources {
 			if k == missingDep {
 				testResources[k] = dt.StubResource{Error: dependency.ErrMissing}
 			} else {
 				testResources[k] = v
 			}
 		}
-		getResource := dt.StubGetResource(testResources)
-		worker, err := s.manifold.Start(getResource)
+		worker, err := s.manifold.Start(testResources.Context())
 		c.Check(worker, gc.IsNil)
 		c.Check(err, gc.Equals, dependency.ErrMissing)
 	}
@@ -102,7 +95,7 @@ type PatchedManifoldSuite struct {
 	msClient       *stubMeterStatusClient
 	manifoldConfig meterstatus.ManifoldConfig
 	stub           *testing.Stub
-	dummyResources dt.StubResources
+	resources      dt.StubResources
 }
 
 func (s *PatchedManifoldSuite) SetUpTest(c *gc.C) {
@@ -113,7 +106,7 @@ func (s *PatchedManifoldSuite) SetUpTest(c *gc.C) {
 	newMSClient := func(_ base.APICaller, _ names.UnitTag) msapi.MeterStatusClient {
 		return s.msClient
 	}
-	newHookRunner := func(_ names.UnitTag, _ *fslock.Lock, _ agent.Config) meterstatus.HookRunner {
+	newHookRunner := func(_ names.UnitTag, _ string, _ agent.Config, _ clock.Clock) meterstatus.HookRunner {
 		return &stubRunner{stub: s.stub}
 	}
 
@@ -134,8 +127,7 @@ func (s *PatchedManifoldSuite) TestStatusWorkerStarts(c *gc.C) {
 		return meterstatus.NewConnectedStatusWorker(cfg)
 	}
 	manifold := meterstatus.Manifold(s.manifoldConfig)
-	getResource := dt.StubGetResource(s.dummyResources)
-	worker, err := manifold.Start(getResource)
+	worker, err := manifold.Start(s.resources.Context())
 	c.Assert(called, jc.IsTrue)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(worker, gc.NotNil)
@@ -147,15 +139,14 @@ func (s *PatchedManifoldSuite) TestStatusWorkerStarts(c *gc.C) {
 
 // TestInactiveWorker ensures that the manifold correctly sets up the isolated worker.
 func (s *PatchedManifoldSuite) TestIsolatedWorker(c *gc.C) {
-	delete(s.dummyResources, "apicaller-name")
+	delete(s.resources, "apicaller-name")
 	var called bool
 	s.manifoldConfig.NewIsolatedStatusWorker = func(cfg meterstatus.IsolatedConfig) (worker.Worker, error) {
 		called = true
 		return meterstatus.NewIsolatedStatusWorker(cfg)
 	}
 	manifold := meterstatus.Manifold(s.manifoldConfig)
-	getResource := dt.StubGetResource(s.dummyResources)
-	worker, err := manifold.Start(getResource)
+	worker, err := manifold.Start(s.resources.Context())
 	c.Assert(called, jc.IsTrue)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(worker, gc.NotNil)
@@ -246,15 +237,14 @@ func (s *stubMeterStatusClient) WatchMeterStatus() (watcher.NotifyWatcher, error
 	return s, nil
 }
 
-func (s *stubMeterStatusClient) Changes() <-chan struct{} {
+func (s *stubMeterStatusClient) Changes() watcher.NotifyChannel {
 	return s.changes
 }
 
-func (s *stubMeterStatusClient) Stop() error {
-	return nil
+func (s *stubMeterStatusClient) Kill() {
 }
 
-func (s *stubMeterStatusClient) Err() error {
+func (s *stubMeterStatusClient) Wait() error {
 	return nil
 }
 

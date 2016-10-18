@@ -3,13 +3,6 @@
 
 package client
 
-import "github.com/juju/juju/state"
-
-var (
-	RemoteParamsForMachine = remoteParamsForMachine
-	GetAllUnitNames        = getAllUnitNames
-)
-
 // Filtering exports
 var (
 	MatchPortRanges = matchPortRanges
@@ -23,20 +16,3 @@ var (
 )
 
 type MachineAndContainers machineAndContainers
-
-var (
-	StartSerialWaitParallel = startSerialWaitParallel
-	GetEnvironment          = &getEnvironment
-)
-
-type StateInterface stateInterface
-
-type Patcher interface {
-	PatchValue(ptr, value interface{})
-}
-
-func PatchState(p Patcher, st StateInterface) {
-	p.PatchValue(&getState, func(*state.State) stateInterface {
-		return st
-	})
-}

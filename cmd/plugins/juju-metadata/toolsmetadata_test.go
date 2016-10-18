@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"sort"
 	"strings"
 	"text/template"
@@ -18,19 +19,22 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/configstore"
+	"github.com/juju/juju/environs/bootstrap"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/tools"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
+	"github.com/juju/juju/juju/keys"
 	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/provider/dummy"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type ToolsMetadataSuite struct {
-	coretesting.FakeJujuHomeSuite
+	coretesting.FakeJujuXDGDataHomeSuite
 	env              environs.Environ
 	publicStorageDir string
 }
@@ -38,13 +42,27 @@ type ToolsMetadataSuite struct {
 var _ = gc.Suite(&ToolsMetadataSuite{})
 
 func (s *ToolsMetadataSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
-	s.AddCleanup(func(*gc.C) {
-		dummy.Reset()
-		loggo.ResetLoggers()
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
+	s.AddCleanup(dummy.Reset)
+	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
+		"name":            "erewhemos",
+		"type":            "dummy",
+		"uuid":            coretesting.ModelTag.Id(),
+		"controller-uuid": coretesting.ControllerTag.Id(),
+		"conroller":       true,
 	})
-	env, err := environs.PrepareFromName(
-		"erewhemos", envcmd.BootstrapContextNoVerify(coretesting.Context(c)), configstore.NewMem())
+	c.Assert(err, jc.ErrorIsNil)
+	env, err := bootstrap.Prepare(
+		modelcmd.BootstrapContextNoVerify(coretesting.Context(c)),
+		jujuclienttesting.NewMemStore(),
+		bootstrap.PrepareParams{
+			ControllerConfig: coretesting.FakeControllerConfig(),
+			ControllerName:   cfg.Name(),
+			ModelConfig:      cfg.AllAttrs(),
+			Cloud:            dummy.SampleCloudSpec(),
+			AdminSecret:      "admin-secret",
+		},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.env = env
 	loggo.GetLogger("").SetLogLevel(loggo.INFO)
@@ -56,17 +74,17 @@ func (s *ToolsMetadataSuite) SetUpTest(c *gc.C) {
 
 var currentVersionStrings = []string{
 	// only these ones will make it into the JSON files.
-	version.Current.String() + "-quantal-amd64",
-	version.Current.String() + "-quantal-armhf",
-	version.Current.String() + "-quantal-i386",
+	jujuversion.Current.String() + "-quantal-amd64",
+	jujuversion.Current.String() + "-quantal-armhf",
+	jujuversion.Current.String() + "-quantal-i386",
 }
 
 var versionStrings = append([]string{
-	fmt.Sprintf("%d.12.0-precise-amd64", version.Current.Major),
-	fmt.Sprintf("%d.12.0-precise-i386", version.Current.Major),
-	fmt.Sprintf("%d.12.0-raring-amd64", version.Current.Major),
-	fmt.Sprintf("%d.12.0-raring-i386", version.Current.Major),
-	fmt.Sprintf("%d.13.0-precise-amd64", version.Current.Major),
+	fmt.Sprintf("%d.12.0-precise-amd64", jujuversion.Current.Major),
+	fmt.Sprintf("%d.12.0-precise-i386", jujuversion.Current.Major),
+	fmt.Sprintf("%d.12.0-raring-amd64", jujuversion.Current.Major),
+	fmt.Sprintf("%d.12.0-raring-i386", jujuversion.Current.Major),
+	fmt.Sprintf("%d.13.0-precise-amd64", jujuversion.Current.Major+1),
 }, currentVersionStrings...)
 
 var expectedOutputCommon = makeExpectedOutputCommon()
@@ -94,63 +112,34 @@ func makeExpectedOutput(templ, stream, toolsDir string) string {
 	return buf.String()
 }
 
-var expectedOutputDirectoryReleasedTemplate = expectedOutputCommon + `
-.*Writing tools/streams/v1/index2\.json
-.*Writing tools/streams/v1/index\.json
-.*Writing tools/streams/v1/com\.ubuntu\.juju-{{.Stream}}-tools\.json
-`
-
 var expectedOutputDirectoryTemplate = expectedOutputCommon + `
 .*Writing tools/streams/v1/index2\.json
 .*Writing tools/streams/v1/com\.ubuntu\.juju-{{.Stream}}-tools\.json
 `
 
-var expectedOutputMirrorsTemplate = expectedOutputCommon + `
+func (s *ToolsMetadataSuite) TestGenerateToDirectory(c *gc.C) {
+	metadataDir := c.MkDir()
+	toolstesting.MakeTools(c, metadataDir, "released", versionStrings)
+	ctx := coretesting.Context(c)
+	code := cmd.Main(newToolsMetadataCommand(), ctx, []string{"-d", metadataDir})
+	c.Check(code, gc.Equals, 0)
+	output := ctx.Stdout.(*bytes.Buffer).String()
+
+	outputDirReleasedTmpl := expectedOutputCommon + `
 .*Writing tools/streams/v1/index2\.json
 .*Writing tools/streams/v1/index\.json
 .*Writing tools/streams/v1/com\.ubuntu\.juju-{{.Stream}}-tools\.json
-.*Writing tools/streams/v1/mirrors\.json
 `
-
-var expectedOutputDirectoryLegacyReleased = "No stream specified, defaulting to released tools in the releases directory.\n" +
-	makeExpectedOutput(expectedOutputDirectoryReleasedTemplate, "released", "releases")
-
-var expectedOutputMirrorsReleased = makeExpectedOutput(expectedOutputMirrorsTemplate, "released", "released")
-
-func (s *ToolsMetadataSuite) TestGenerateLegacyRelease(c *gc.C) {
-	metadataDir := osenv.JujuHome() // default metadata dir
-	toolstesting.MakeTools(c, metadataDir, "releases", versionStrings)
-	ctx := coretesting.Context(c)
-	code := cmd.Main(newToolsMetadataCommand(), ctx, nil)
-	c.Assert(code, gc.Equals, 0)
-	output := ctx.Stdout.(*bytes.Buffer).String()
-	c.Assert(output, gc.Matches, expectedOutputDirectoryLegacyReleased)
+	expectedOutput := makeExpectedOutput(outputDirReleasedTmpl, "released", "released")
+	c.Check(output, gc.Matches, expectedOutput)
 	metadata := toolstesting.ParseMetadataFromDir(c, metadataDir, "released", false)
-	c.Assert(metadata, gc.HasLen, len(versionStrings))
+	c.Check(metadata, gc.HasLen, len(versionStrings))
 	obtainedVersionStrings := make([]string, len(versionStrings))
 	for i, metadata := range metadata {
 		s := fmt.Sprintf("%s-%s-%s", metadata.Version, metadata.Release, metadata.Arch)
 		obtainedVersionStrings[i] = s
 	}
-	c.Assert(obtainedVersionStrings, gc.DeepEquals, versionStrings)
-}
-
-func (s *ToolsMetadataSuite) TestGenerateToDirectory(c *gc.C) {
-	metadataDir := c.MkDir()
-	toolstesting.MakeTools(c, metadataDir, "releases", versionStrings)
-	ctx := coretesting.Context(c)
-	code := cmd.Main(newToolsMetadataCommand(), ctx, []string{"-d", metadataDir})
-	c.Assert(code, gc.Equals, 0)
-	output := ctx.Stdout.(*bytes.Buffer).String()
-	c.Assert(output, gc.Matches, expectedOutputDirectoryLegacyReleased)
-	metadata := toolstesting.ParseMetadataFromDir(c, metadataDir, "released", false)
-	c.Assert(metadata, gc.HasLen, len(versionStrings))
-	obtainedVersionStrings := make([]string, len(versionStrings))
-	for i, metadata := range metadata {
-		s := fmt.Sprintf("%s-%s-%s", metadata.Version, metadata.Release, metadata.Arch)
-		obtainedVersionStrings[i] = s
-	}
-	c.Assert(obtainedVersionStrings, gc.DeepEquals, versionStrings)
+	c.Check(obtainedVersionStrings, gc.DeepEquals, versionStrings)
 }
 
 func (s *ToolsMetadataSuite) TestGenerateStream(c *gc.C) {
@@ -272,15 +261,24 @@ func (s *ToolsMetadataSuite) TestGenerateWithPublicFallback(c *gc.C) {
 }
 
 func (s *ToolsMetadataSuite) TestGenerateWithMirrors(c *gc.C) {
+
 	metadataDir := c.MkDir()
 	toolstesting.MakeTools(c, metadataDir, "released", versionStrings)
 	ctx := coretesting.Context(c)
 	code := cmd.Main(newToolsMetadataCommand(), ctx, []string{"--public", "-d", metadataDir, "--stream", "released"})
 	c.Assert(code, gc.Equals, 0)
 	output := ctx.Stdout.(*bytes.Buffer).String()
-	c.Assert(output, gc.Matches, expectedOutputMirrorsReleased)
+
+	mirrosTmpl := expectedOutputCommon + `
+.*Writing tools/streams/v1/index2\.json
+.*Writing tools/streams/v1/index\.json
+.*Writing tools/streams/v1/com\.ubuntu\.juju-{{.Stream}}-tools\.json
+.*Writing tools/streams/v1/mirrors\.json
+`
+	expectedOutput := makeExpectedOutput(mirrosTmpl, "released", "released")
+	c.Check(output, gc.Matches, expectedOutput)
 	metadata := toolstesting.ParseMetadataFromDir(c, metadataDir, "released", true)
-	c.Assert(metadata, gc.HasLen, len(versionStrings))
+	c.Check(metadata, gc.HasLen, len(versionStrings))
 	obtainedVersionStrings := make([]string, len(versionStrings))
 	for i, metadata := range metadata {
 		s := fmt.Sprintf("%s-%s-%s", metadata.Version, metadata.Release, metadata.Arch)
@@ -290,23 +288,29 @@ func (s *ToolsMetadataSuite) TestGenerateWithMirrors(c *gc.C) {
 }
 
 func (s *ToolsMetadataSuite) TestNoTools(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("Skipping on windows, test only set up for Linux tools")
+	}
 	ctx := coretesting.Context(c)
 	code := cmd.Main(newToolsMetadataCommand(), ctx, nil)
 	c.Assert(code, gc.Equals, 1)
 	stdout := ctx.Stdout.(*bytes.Buffer).String()
-	c.Assert(stdout, gc.Matches, ".*\nFinding tools in .*\n")
+	c.Assert(stdout, gc.Matches, ".*Finding tools in .*\n")
 	stderr := ctx.Stderr.(*bytes.Buffer).String()
 	c.Assert(stderr, gc.Matches, "error: no tools available\n")
 }
 
 func (s *ToolsMetadataSuite) TestPatchLevels(c *gc.C) {
-	currentVersion := version.Current
+	if runtime.GOOS == "windows" {
+		c.Skip("Skipping on windows, test only set up for Linux tools")
+	}
+	currentVersion := jujuversion.Current
 	currentVersion.Build = 0
 	versionStrings := []string{
 		currentVersion.String() + "-precise-amd64",
 		currentVersion.String() + ".1-precise-amd64",
 	}
-	metadataDir := osenv.JujuHome() // default metadata dir
+	metadataDir := osenv.JujuXDGDataHomeDir() // default metadata dir
 	toolstesting.MakeTools(c, metadataDir, "released", versionStrings)
 	ctx := coretesting.Context(c)
 	code := cmd.Main(newToolsMetadataCommand(), ctx, []string{"--stream", "released"})
@@ -347,4 +351,15 @@ Finding tools in .*
 		FileType: "tar.gz",
 		SHA256:   sha256,
 	})
+}
+
+func (s *ToolsMetadataSuite) TestToolsDataSourceHasKey(c *gc.C) {
+	ds := toolsDataSources("test.me")
+	// This data source does not require to contain signed data.
+	// However, it may still contain it.
+	// Since we will always try to read signed data first,
+	// we want to be able to try to read this signed data
+	// with public key with Juju-known public key for tools.
+	// Bugs #1542127, #1542131
+	c.Assert(ds[0].PublicSigningKey(), gc.DeepEquals, keys.JujuPublicKey)
 }

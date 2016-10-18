@@ -4,16 +4,19 @@
 package state_test
 
 import (
+	"fmt"
 	"regexp"
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -46,7 +49,7 @@ func (s *UserSuite) TestAddUser(c *gc.C) {
 	password := "password"
 	creator := "admin"
 
-	now := time.Now().Round(time.Second).UTC()
+	now := testing.NonZeroTime().Round(time.Second).UTC()
 
 	user, err := s.State.AddUser(name, displayName, password, creator)
 	c.Assert(err, jc.ErrorIsNil)
@@ -87,11 +90,11 @@ func (s *UserSuite) TestCheckUserExists(c *gc.C) {
 
 func (s *UserSuite) TestString(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "foo"})
-	c.Assert(user.String(), gc.Equals, "foo@local")
+	c.Assert(user.String(), gc.Equals, "foo")
 }
 
 func (s *UserSuite) TestUpdateLastLogin(c *gc.C) {
-	now := time.Now().Round(time.Second).UTC()
+	now := testing.NonZeroTime().Round(time.Second).UTC()
 	user := s.Factory.MakeUser(c, nil)
 	err := user.UpdateLastLogin()
 	c.Assert(err, jc.ErrorIsNil)
@@ -129,25 +132,169 @@ func (s *UserSuite) TestSetPasswordChangesSalt(c *gc.C) {
 	c.Assert(user.PasswordValid("a-password"), jc.IsTrue)
 }
 
+func (s *UserSuite) TestRemoveUserNonExistent(c *gc.C) {
+	err := s.State.RemoveUser(names.NewUserTag("harvey"))
+	c.Assert(errors.IsNotFound(err), jc.IsTrue)
+}
+
+func isDeletedUserError(err error) bool {
+	_, ok := errors.Cause(err).(state.DeletedUserError)
+	return ok
+}
+
+func (s *UserSuite) TestAllUsersSkipsDeletedUsers(c *gc.C) {
+	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "one"})
+	_ = s.Factory.MakeUser(c, &factory.UserParams{Name: "two"})
+	_ = s.Factory.MakeUser(c, &factory.UserParams{Name: "three"})
+
+	all, err := s.State.AllUsers(true)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(len(all), jc.DeepEquals, 4)
+
+	var got []string
+	for _, u := range all {
+		got = append(got, u.Name())
+	}
+	c.Check(got, jc.SameContents, []string{"test-admin", "one", "two", "three"})
+
+	s.State.RemoveUser(user.UserTag())
+
+	all, err = s.State.AllUsers(true)
+	got = nil
+	for _, u := range all {
+		got = append(got, u.Name())
+	}
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(len(all), jc.DeepEquals, 3)
+	c.Check(got, jc.SameContents, []string{"test-admin", "two", "three"})
+
+}
+
+func (s *UserSuite) TestRemoveUser(c *gc.C) {
+	user := s.Factory.MakeUser(c, &factory.UserParams{Password: "so sekrit"})
+
+	// Assert user exists and can authenticate.
+	c.Assert(user.PasswordValid("so sekrit"), jc.IsTrue)
+
+	// Look for the user.
+	u, err := s.State.User(user.UserTag())
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(u, jc.DeepEquals, user)
+
+	// Remove the user.
+	err = s.State.RemoveUser(user.UserTag())
+	c.Check(err, jc.ErrorIsNil)
+
+	// Check that we cannot update last login.
+	err = u.UpdateLastLogin()
+	c.Check(err, gc.NotNil)
+	c.Check(isDeletedUserError(err), jc.IsTrue)
+	c.Assert(err.Error(), jc.DeepEquals,
+		fmt.Sprintf("cannot update last login: user %q deleted", user.Name()))
+
+	// Check that we cannot set a password.
+	err = u.SetPassword("should fail too")
+	c.Check(err, gc.NotNil)
+	c.Check(isDeletedUserError(err), jc.IsTrue)
+	c.Assert(err.Error(), jc.DeepEquals,
+		fmt.Sprintf("cannot set password: user %q deleted", user.Name()))
+
+	// Check that we cannot set the password hash.
+	err = u.SetPasswordHash("also", "fail")
+	c.Check(err, gc.NotNil)
+	c.Check(isDeletedUserError(err), jc.IsTrue)
+	c.Assert(err.Error(), jc.DeepEquals,
+		fmt.Sprintf("cannot set password hash: user %q deleted", user.Name()))
+
+	// Check that we cannot validate a password.
+	c.Assert(u.PasswordValid("should fail"), jc.IsFalse)
+
+	// Check that we cannot enable the user.
+	err = u.Enable()
+	c.Check(err, gc.NotNil)
+	c.Check(isDeletedUserError(err), jc.IsTrue)
+	c.Assert(err.Error(), jc.DeepEquals,
+		fmt.Sprintf("cannot enable: user %q deleted", user.Name()))
+
+	// Check that we cannot disable the user.
+	err = u.Disable()
+	c.Check(err, gc.NotNil)
+	c.Check(isDeletedUserError(err), jc.IsTrue)
+	c.Assert(err.Error(), jc.DeepEquals,
+		fmt.Sprintf("cannot disable: user %q deleted", user.Name()))
+
+	// Check again to verify the user cannot be retrieved.
+	u, err = s.State.User(user.UserTag())
+	c.Check(err, jc.Satisfies, errors.IsUserNotFound)
+}
+
+func (s *UserSuite) TestRemoveUserRemovesUserAccess(c *gc.C) {
+	user := s.Factory.MakeUser(c, &factory.UserParams{Password: "so sekrit"})
+
+	// Assert user exists and can authenticate.
+	c.Assert(user.PasswordValid("so sekrit"), jc.IsTrue)
+
+	s.State.SetUserAccess(user.UserTag(), s.State.ModelTag(), permission.AdminAccess)
+	s.State.SetUserAccess(user.UserTag(), s.State.ControllerTag(), permission.SuperuserAccess)
+
+	uam, err := s.State.UserAccess(user.UserTag(), s.State.ModelTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(uam.Access, gc.Equals, permission.AdminAccess)
+
+	uac, err := s.State.UserAccess(user.UserTag(), s.State.ControllerTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(uac.Access, gc.Equals, permission.SuperuserAccess)
+
+	// Look for the user.
+	u, err := s.State.User(user.UserTag())
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(u, jc.DeepEquals, user)
+
+	// Remove the user.
+	err = s.State.RemoveUser(user.UserTag())
+	c.Check(err, jc.ErrorIsNil)
+
+	uam, err = s.State.UserAccess(user.UserTag(), s.State.ModelTag())
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("%q user not found", user.UserTag().Name()))
+
+	uac, err = s.State.UserAccess(user.UserTag(), s.State.ControllerTag())
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("%q user not found", user.UserTag().Name()))
+}
+
 func (s *UserSuite) TestDisable(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{Password: "a-password"})
 	c.Assert(user.IsDisabled(), jc.IsFalse)
+	c.Assert(s.activeUsers(c), jc.DeepEquals, []string{"test-admin", user.Name()})
 
 	err := user.Disable()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(user.IsDisabled(), jc.IsTrue)
 	c.Assert(user.PasswordValid("a-password"), jc.IsFalse)
+	c.Assert(s.activeUsers(c), jc.DeepEquals, []string{"test-admin"})
 
 	err = user.Enable()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(user.IsDisabled(), jc.IsFalse)
 	c.Assert(user.PasswordValid("a-password"), jc.IsTrue)
+	c.Assert(s.activeUsers(c), jc.DeepEquals, []string{"test-admin", user.Name()})
+}
+
+func (s *UserSuite) activeUsers(c *gc.C) []string {
+	users, err := s.State.AllUsers(false)
+	c.Assert(err, jc.ErrorIsNil)
+	names := make([]string, len(users))
+	for i, u := range users {
+		names[i] = u.Name()
+	}
+	return names
 }
 
 func (s *UserSuite) TestSetPasswordHash(c *gc.C) {
 	user := s.Factory.MakeUser(c, nil)
 
-	err := user.SetPasswordHash(utils.UserPasswordHash("foo", utils.CompatSalt), utils.CompatSalt)
+	salt, err := utils.RandomSalt()
+	c.Assert(err, jc.ErrorIsNil)
+	err = user.SetPasswordHash(utils.UserPasswordHash("foo", salt), salt)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(user.PasswordValid("foo"), jc.IsTrue)
@@ -169,43 +316,15 @@ func (s *UserSuite) TestSetPasswordHashWithSalt(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(user.PasswordValid("foo"), jc.IsTrue)
-	salt, hash := state.GetUserPasswordSaltAndHash(user)
+	salt, _ := state.GetUserPasswordSaltAndHash(user)
 	c.Assert(salt, gc.Equals, "salted")
-	c.Assert(hash, gc.Not(gc.Equals), utils.UserPasswordHash("foo", utils.CompatSalt))
-}
-
-func (s *UserSuite) TestPasswordValidUpdatesSalt(c *gc.C) {
-	user := s.Factory.MakeUser(c, nil)
-
-	compatHash := utils.UserPasswordHash("foo", utils.CompatSalt)
-	err := user.SetPasswordHash(compatHash, "")
-	c.Assert(err, jc.ErrorIsNil)
-	beforeSalt, beforeHash := state.GetUserPasswordSaltAndHash(user)
-	c.Assert(beforeSalt, gc.Equals, "")
-	c.Assert(beforeHash, gc.Equals, compatHash)
-	c.Assert(user.PasswordValid("bar"), jc.IsFalse)
-	// A bad password doesn't trigger a rewrite
-	afterBadSalt, afterBadHash := state.GetUserPasswordSaltAndHash(user)
-	c.Assert(afterBadSalt, gc.Equals, "")
-	c.Assert(afterBadHash, gc.Equals, compatHash)
-	// When we get a valid check, we then add a salt and rewrite the hash
-	c.Assert(user.PasswordValid("foo"), jc.IsTrue)
-	afterSalt, afterHash := state.GetUserPasswordSaltAndHash(user)
-	c.Assert(afterSalt, gc.Not(gc.Equals), "")
-	c.Assert(afterHash, gc.Not(gc.Equals), compatHash)
-	c.Assert(afterHash, gc.Equals, utils.UserPasswordHash("foo", afterSalt))
-	// running PasswordValid again doesn't trigger another rewrite
-	c.Assert(user.PasswordValid("foo"), jc.IsTrue)
-	lastSalt, lastHash := state.GetUserPasswordSaltAndHash(user)
-	c.Assert(lastSalt, gc.Equals, afterSalt)
-	c.Assert(lastHash, gc.Equals, afterHash)
 }
 
 func (s *UserSuite) TestCantDisableAdmin(c *gc.C) {
 	user, err := s.State.User(s.Owner)
 	c.Assert(err, jc.ErrorIsNil)
 	err = user.Disable()
-	c.Assert(err, gc.ErrorMatches, "cannot disable state server environment owner")
+	c.Assert(err, gc.ErrorMatches, "cannot disable controller model owner")
 }
 
 func (s *UserSuite) TestCaseSensitiveUsersErrors(c *gc.C) {
@@ -241,7 +360,7 @@ func (s *UserSuite) TestAllUsers(c *gc.C) {
 	s.Factory.MakeUser(c, &factory.UserParams{Name: "barbara"})
 	s.Factory.MakeUser(c, &factory.UserParams{Name: "fred", Disabled: true})
 	s.Factory.MakeUser(c, &factory.UserParams{Name: "erica"})
-	// There is the existing state server owner called "test-admin"
+	// There is the existing controller owner called "test-admin"
 
 	includeDeactivated := false
 	users, err := s.State.AllUsers(includeDeactivated)
@@ -264,4 +383,29 @@ func (s *UserSuite) TestAllUsers(c *gc.C) {
 	c.Check(users[4].Name(), gc.Equals, "erica")
 	c.Check(users[5].Name(), gc.Equals, "fred")
 	c.Check(users[6].Name(), gc.Equals, "test-admin")
+}
+
+func (s *UserSuite) TestAddUserNoSecretKey(c *gc.C) {
+	u, err := s.State.AddUser("bob", "display", "pass", "admin")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(u.SecretKey(), gc.IsNil)
+}
+
+func (s *UserSuite) TestAddUserSecretKey(c *gc.C) {
+	u, err := s.State.AddUserWithSecretKey("bob", "display", "admin")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(u.SecretKey(), gc.HasLen, 32)
+	c.Assert(u.PasswordValid(""), jc.IsFalse)
+}
+
+func (s *UserSuite) TestSetPasswordClearsSecretKey(c *gc.C) {
+	u, err := s.State.AddUserWithSecretKey("bob", "display", "admin")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(u.SecretKey(), gc.HasLen, 32)
+	err = u.SetPassword("anything")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(u.SecretKey(), gc.IsNil)
+	err = u.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(u.SecretKey(), gc.IsNil)
 }

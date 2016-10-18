@@ -4,16 +4,14 @@
 package subnet_test
 
 import (
-	"net"
-	"regexp"
 	stdtesting "testing"
 
 	"github.com/juju/cmd"
-	"github.com/juju/names"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/featureflag"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/subnet"
@@ -28,29 +26,31 @@ func TestPackage(t *stdtesting.T) {
 
 // BaseSubnetSuite is used for embedding in other suites.
 type BaseSubnetSuite struct {
-	coretesting.FakeJujuHomeSuite
-	coretesting.BaseSuite
+	coretesting.FakeJujuXDGDataHomeSuite
 
-	superCmd cmd.Command
-	command  cmd.Command
-	api      *StubAPI
+	command cmd.Command
+	api     *StubAPI
 }
 
 var _ = gc.Suite(&BaseSubnetSuite{})
+
+func (s *BaseSubnetSuite) SetUpSuite(c *gc.C) {
+	s.FakeJujuXDGDataHomeSuite.SetUpSuite(c)
+}
+
+func (s *BaseSubnetSuite) TearDownSuite(c *gc.C) {
+	s.FakeJujuXDGDataHomeSuite.TearDownSuite(c)
+}
 
 func (s *BaseSubnetSuite) SetUpTest(c *gc.C) {
 	// If any post-MVP command suite enabled the flag, keep it.
 	hasFeatureFlag := featureflag.Enabled(feature.PostNetCLIMVP)
 
-	s.BaseSuite.SetUpTest(c)
-	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 
 	if hasFeatureFlag {
-		s.BaseSuite.SetFeatureFlags(feature.PostNetCLIMVP)
+		s.FakeJujuXDGDataHomeSuite.SetFeatureFlags(feature.PostNetCLIMVP)
 	}
-
-	s.superCmd = subnet.NewSuperCommand()
-	c.Assert(s.superCmd, gc.NotNil)
 
 	s.api = NewStubAPI()
 	c.Assert(s.api, gc.NotNil)
@@ -59,27 +59,16 @@ func (s *BaseSubnetSuite) SetUpTest(c *gc.C) {
 	// s.command immediately after calling this method!
 }
 
-// RunSuperCommand executes the super command passing any args and
-// returning the stdout and stderr output as strings, as well as any
-// error. If s.command is set, the subcommand's name will be passed as
-// first argument.
-func (s *BaseSubnetSuite) RunSuperCommand(c *gc.C, args ...string) (string, string, error) {
-	if s.command != nil {
-		args = append([]string{s.command.Info().Name}, args...)
-	}
-	ctx, err := coretesting.RunCommand(c, s.superCmd, args...)
-	if ctx != nil {
-		return coretesting.Stdout(ctx), coretesting.Stderr(ctx), err
-	}
-	return "", "", err
+func (s *BaseSubnetSuite) TearDownTest(c *gc.C) {
+	s.FakeJujuXDGDataHomeSuite.TearDownTest(c)
 }
 
-// RunSubCommand executes the s.command subcommand passing any args
+// RunCommand executes the s.command passing any args
 // and returning the stdout and stderr output as strings, as well as
 // any error.
-func (s *BaseSubnetSuite) RunSubCommand(c *gc.C, args ...string) (string, string, error) {
+func (s *BaseSubnetSuite) RunCommand(c *gc.C, args ...string) (string, string, error) {
 	if s.command == nil {
-		panic("subcommand is nil")
+		panic("command is nil")
 	}
 	ctx, err := coretesting.RunCommand(c, s.command, args...)
 	if ctx != nil {
@@ -88,58 +77,26 @@ func (s *BaseSubnetSuite) RunSubCommand(c *gc.C, args ...string) (string, string
 	return "", "", err
 }
 
-// AssertRunFails is a shortcut for calling RunSubCommand with the
+// AssertRunFails is a shortcut for calling RunCommand with the
 // passed args then asserting the output is empty and the error is as
 // expected, finally returning the error.
 func (s *BaseSubnetSuite) AssertRunFails(c *gc.C, expectErr string, args ...string) error {
-	stdout, stderr, err := s.RunSubCommand(c, args...)
+	stdout, stderr, err := s.RunCommand(c, args...)
 	c.Assert(err, gc.ErrorMatches, expectErr)
 	c.Assert(stdout, gc.Equals, "")
 	c.Assert(stderr, gc.Equals, "")
 	return err
 }
 
-// AssertRunSucceeds is a shortcut for calling RunSuperCommand with
+// AssertRunSucceeds is a shortcut for calling RunCommand with
 // the passed args then asserting the stderr output matches
 // expectStderr, stdout is equal to expectStdout, and the error is
 // nil.
 func (s *BaseSubnetSuite) AssertRunSucceeds(c *gc.C, expectStderr, expectStdout string, args ...string) {
-	stdout, stderr, err := s.RunSubCommand(c, args...)
+	stdout, stderr, err := s.RunCommand(c, args...)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(stdout, gc.Equals, expectStdout)
 	c.Assert(stderr, gc.Matches, expectStderr)
-}
-
-// TestHelp runs the command with --help as argument and verifies the
-// output.
-func (s *BaseSubnetSuite) TestHelp(c *gc.C) {
-	stderr, stdout, err := s.RunSuperCommand(c, "--help")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(stdout, gc.Equals, "")
-	c.Check(stderr, gc.Not(gc.Equals), "")
-
-	// If s.command is set, use it instead of s.superCmd.
-	cmdInfo := s.superCmd.Info()
-	var expected string
-	if s.command != nil {
-		// Subcommands embed EnvCommandBase and have an extra
-		// "[options]" prepended before the args.
-		cmdInfo = s.command.Info()
-		expected = "(?sm).*^usage: juju subnet " +
-			regexp.QuoteMeta(cmdInfo.Name) +
-			`( \[options\])? ` + regexp.QuoteMeta(cmdInfo.Args) + ".+"
-	} else {
-		expected = "(?sm).*^usage: juju subnet" +
-			`( \[options\])? ` + regexp.QuoteMeta(cmdInfo.Args) + ".+"
-	}
-	c.Check(cmdInfo, gc.NotNil)
-	c.Check(stderr, gc.Matches, expected)
-
-	expected = "(?sm).*^purpose: " + regexp.QuoteMeta(cmdInfo.Purpose) + "$.*"
-	c.Check(stderr, gc.Matches, expected)
-
-	expected = "(?sm).*^" + regexp.QuoteMeta(cmdInfo.Doc) + "$.*"
-	c.Check(stderr, gc.Matches, expected)
 }
 
 // Strings makes tests taking a slice of strings slightly easier to
@@ -164,13 +121,11 @@ var _ subnet.SubnetAPI = (*StubAPI)(nil)
 func NewStubAPI() *StubAPI {
 	subnets := []params.Subnet{{
 		// IPv4 subnet.
-		CIDR:              "10.20.0.0/24",
-		ProviderId:        "subnet-foo",
-		Life:              params.Alive,
-		SpaceTag:          "space-public",
-		Zones:             []string{"zone1", "zone2"},
-		StaticRangeLowIP:  net.ParseIP("10.20.0.10"),
-		StaticRangeHighIP: net.ParseIP("10.20.0.100"),
+		CIDR:       "10.20.0.0/24",
+		ProviderId: "subnet-foo",
+		Life:       params.Alive,
+		SpaceTag:   "space-public",
+		Zones:      []string{"zone1", "zone2"},
 	}, {
 		// IPv6 subnet.
 		CIDR:       "2001:db8::/32",

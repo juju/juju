@@ -123,7 +123,7 @@ before they hit users.
 We'd maybe also like to implement this story:
 
   * As a developer, I want to add and remove groups of workers atomically, e.g.
-    when starting the set of state-server workers for a hosted environ; or when
+    when starting the set of controller workers for a hosted environ; or when
     starting the set of workers used by a single unit. [NOT DONE]
 
 ...but there's no urgent use case yet, and it's not certain to be superior to an
@@ -169,7 +169,6 @@ In each worker package, write a `manifold.go` containing the following:
 
         // The names of the various dependencies, e.g.
         APICallerName   string
-        MachineLockName string
 
         // Any other required top-level configuration, e.g.
         Period time.Duration
@@ -193,16 +192,12 @@ In each worker package, write a `manifold.go` containing the following:
                 if err := getResource(config.APICallerName, &apicaller); err != nil {
                     return nil, err
                 }
-                var machineLock *fslock.Lock
-                if err := getResource(config.MachineLockName, &machineLock); err != nil {
-                    return nil, err
-                }
-                return newSomethingWorker(apicaller, machineLock, config.Period)
+                return newSomethingWorker(apicaller, config.Period)
             },
 
             // * output func is not obligatory, and should be skipped if you
             //   don't know what you'll be exposing or to whom.
-            // * see `worker/machinelock`, `worker/gate`, `worker/util`, and
+            // * see `worker/gate`, `worker/util`, and
             //   `worker/dependency/testing` for examples of output funcs.
             // * if you do supply an output func, be sure to document it on the
             //   Manifold func; for example:
@@ -219,8 +214,9 @@ your dependencies *must* be declared in your ManifoldConfig, and *must* be
 accessed via those names. Don't hardcode anything, please.
 
 If you find yourself using the same manifold configuration in several places,
-consider adding helpers to worker/util, which includes mechanisms for simple
-definition of manifolds that depend on an API caller; on an agent; or on both.
+consider adding helpers to cmd/jujud/agent/engine, which includes mechanisms
+for simple definition of manifolds that depend on an API caller; on an agent;
+or on both.
 
 
 Testing
@@ -248,7 +244,7 @@ shared dependency C to mediate the information flow. That is, A and B can then
 separately depend upon C; and C itself can start a degenerate worker that never
 errors of its own accord.
 
-For examples of this technique, search for usage of `worker/util.NewValueWorker`
+For examples of this technique, search for `cmd/jujud/agent/engine.NewValueWorker`
 (which is generally used inside other manifolds to pass snippets of agent config
 down to workers that don't have a good reason to see, or write, the full agent
 config); and `worker/gate.Manifold`, which is for one-way coordination between

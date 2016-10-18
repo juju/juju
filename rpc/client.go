@@ -4,11 +4,16 @@
 package rpc
 
 import (
-	"errors"
 	"strings"
+
+	"github.com/juju/errors"
 )
 
 var ErrShutdown = errors.New("connection is shut down")
+
+func IsShutdownErr(err error) bool {
+	return errors.Cause(err) == ErrShutdown
+}
 
 // Call represents an active RPC.
 type Call struct {
@@ -26,11 +31,10 @@ type RequestError struct {
 }
 
 func (e *RequestError) Error() string {
-	m := "request error: " + e.Message
 	if e.Code != "" {
-		m += " (" + e.Code + ")"
+		return e.Message + " (" + e.Code + ")"
 	}
-	return m
+	return e.Message
 }
 
 func (e *RequestError) ErrorCode() string {
@@ -61,14 +65,13 @@ func (conn *Conn) send(call *Call) {
 	hdr := &Header{
 		RequestId: reqId,
 		Request:   call.Request,
+		Version:   1,
 	}
 	params := call.Params
 	if params == nil {
 		params = struct{}{}
 	}
-	if conn.notifier != nil {
-		conn.notifier.ClientRequest(hdr, params)
-	}
+
 	if err := conn.codec.WriteMessage(hdr, params); err != nil {
 		conn.mutex.Lock()
 		call = conn.clientPending[reqId]
@@ -96,14 +99,11 @@ func (conn *Conn) handleResponse(hdr *Header) error {
 		// removed; response is a server telling us about an
 		// error reading request body. We should still attempt
 		// to read error body, but there's no one to give it to.
-		if conn.notifier != nil {
-			conn.notifier.ClientReply(Request{}, hdr, nil)
-		}
 		err = conn.readBody(nil, false)
 	case hdr.Error != "":
 		// Report rpcreflect.NoSuchMethodError with CodeNotImplemented.
 		if strings.HasPrefix(hdr.Error, "no such request ") && hdr.ErrorCode == "" {
-			hdr.ErrorCode = CodeNotImplemented
+			hdr.ErrorCode = codeNotImplemented
 		}
 		// We've got an error response. Give this to the request;
 		// any subsequent requests will get the ReadResponseBody
@@ -113,18 +113,12 @@ func (conn *Conn) handleResponse(hdr *Header) error {
 			Code:    hdr.ErrorCode,
 		}
 		err = conn.readBody(nil, false)
-		if conn.notifier != nil {
-			conn.notifier.ClientReply(call.Request, hdr, nil)
-		}
 		call.done()
 	default:
 		err = conn.readBody(call.Response, false)
-		if conn.notifier != nil {
-			conn.notifier.ClientReply(call.Request, hdr, call.Response)
-		}
 		call.done()
 	}
-	return err
+	return errors.Annotate(err, "error handling response")
 }
 
 func (call *Call) done() {
@@ -138,39 +132,19 @@ func (call *Call) done() {
 	}
 }
 
-// Call invokes the named action on the object of the given type with
-// the given id.  The returned values will be stored in response, which
-// should be a pointer.  If the action fails remotely, the returned
-// error will be of type RequestError.  The params value may be nil if
-// no parameters are provided; the response value may be nil to indicate
-// that any result should be discarded.
+// Call invokes the named action on the object of the given type with the given
+// id. The returned values will be stored in response, which should be a pointer.
+// If the action fails remotely, the error will have a cause of type RequestError.
+// The params value may be nil if no parameters are provided; the response value
+// may be nil to indicate that any result should be discarded.
 func (conn *Conn) Call(req Request, params, response interface{}) error {
-	call := <-conn.Go(req, params, response, make(chan *Call, 1)).Done
-	return call.Error
-}
-
-// Go invokes the request asynchronously.  It returns the Call structure representing
-// the invocation.  The done channel will signal when the call is complete by returning
-// the same Call object.  If done is nil, Go will allocate a new channel.
-// If non-nil, done must be buffered or Go will deliberately panic.
-func (conn *Conn) Go(req Request, args, response interface{}, done chan *Call) *Call {
-	if done == nil {
-		done = make(chan *Call, 1)
-	} else {
-		// If caller passes done != nil, it must arrange that
-		// done has enough buffer for the number of simultaneous
-		// RPCs that will be using that channel.  If the channel
-		// is totally unbuffered, it's best not to run at all.
-		if cap(done) == 0 {
-			panic("github.com/juju/juju/rpc: done channel is unbuffered")
-		}
-	}
 	call := &Call{
 		Request:  req,
-		Params:   args,
+		Params:   params,
 		Response: response,
-		Done:     done,
+		Done:     make(chan *Call, 1),
 	}
 	conn.send(call)
-	return call
+	result := <-call.Done
+	return errors.Trace(result.Error)
 }

@@ -6,16 +6,16 @@ package crossmodel
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 	"gopkg.in/juju/charm.v6-unstable"
-	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
-	"github.com/juju/juju/model/crossmodel"
+	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/crossmodel"
 )
 
 const findCommandDoc = `
-Find which offered service endpoints are available to the current user.
+Find which offered application endpoints are available to the current user.
 
 This command is aimed for a user who wants to discover what endpoints are available to them.
 
@@ -48,13 +48,13 @@ type findCommand struct {
 }
 
 // NewFindEndpointsCommand constructs command that
-// allows to find offered service endpoints.
+// allows to find offered application endpoints.
 func NewFindEndpointsCommand() cmd.Command {
 	findCmd := &findCommand{}
 	findCmd.newAPIFunc = func() (FindAPI, error) {
 		return findCmd.NewCrossModelAPI()
 	}
-	return envcmd.Wrap(findCmd)
+	return modelcmd.Wrap(findCmd)
 }
 
 // Init implements Command.Init.
@@ -71,7 +71,7 @@ func (c *findCommand) Init(args []string) (err error) {
 		c.url = url
 	}
 	if c.url != "" {
-		if _, err := crossmodel.ParseServiceURLParts(c.url); err != nil {
+		if _, err := crossmodel.ParseApplicationURLParts(c.url); err != nil {
 			return err
 		}
 	} else {
@@ -85,7 +85,7 @@ func (c *findCommand) Init(args []string) (err error) {
 func (c *findCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "find-endpoints",
-		Purpose: "find offered service endpoints",
+		Purpose: "Find offered application endpoints",
 		Doc:     findCommandDoc,
 	}
 }
@@ -93,7 +93,7 @@ func (c *findCommand) Info() *cmd.Info {
 // SetFlags implements Command.SetFlags.
 func (c *findCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.CrossModelCommandBase.SetFlags(f)
-	f.StringVar(&c.url, "url", "", "service URL")
+	f.StringVar(&c.url, "url", "", "application URL")
 	f.StringVar(&c.interfaceName, "interface", "", "return results matching the interface name")
 	f.StringVar(&c.endpoint, "endpoint", "", "return results matching the endpoint name")
 	f.StringVar(&c.user, "user", "", "return results with the user in the URL")
@@ -114,9 +114,9 @@ func (c *findCommand) Run(ctx *cmd.Context) (err error) {
 	}
 	defer api.Close()
 
-	filter := crossmodel.ServiceOfferFilter{
-		ServiceOffer: crossmodel.ServiceOffer{
-			ServiceURL: c.url,
+	filter := crossmodel.ApplicationOfferFilter{
+		ApplicationOffer: crossmodel.ApplicationOffer{
+			ApplicationURL: c.url,
 		},
 		// TODO(wallyworld): allowed users
 		// TODO(wallyworld): charm
@@ -129,7 +129,7 @@ func (c *findCommand) Run(ctx *cmd.Context) (err error) {
 			Name:      c.endpoint,
 		}}
 	}
-	found, err := api.FindServiceOffers(filter)
+	found, err := api.FindApplicationOffers(filter)
 	if err != nil {
 		return err
 	}
@@ -139,7 +139,7 @@ func (c *findCommand) Run(ctx *cmd.Context) (err error) {
 		return err
 	}
 	if len(output) == 0 {
-		return errors.New("no matching service offers found")
+		return errors.New("no matching application offers found")
 	}
 	return c.out.Write(ctx, output)
 }
@@ -147,26 +147,26 @@ func (c *findCommand) Run(ctx *cmd.Context) (err error) {
 // FindAPI defines the API methods that cross model find command uses.
 type FindAPI interface {
 	Close() error
-	FindServiceOffers(filters ...crossmodel.ServiceOfferFilter) ([]params.ServiceOffer, error)
+	FindApplicationOffers(filters ...crossmodel.ApplicationOfferFilter) ([]params.ApplicationOffer, error)
 }
 
-// RemoteServiceResult defines the serialization behaviour of remote service.
-// This is used in map-style yaml output where remote service URL is the key.
-type RemoteServiceResult struct {
-	// Endpoints is the list of offered service endpoints.
+// RemoteApplicationResult defines the serialization behaviour of remote application.
+// This is used in map-style yaml output where remote application URL is the key.
+type RemoteApplicationResult struct {
+	// Endpoints is the list of offered application endpoints.
 	Endpoints map[string]RemoteEndpoint `yaml:"endpoints" json:"endpoints"`
 }
 
-// convertFoundServices takes any number of api-formatted remote services and
+// convertFoundServices takes any number of api-formatted remote applications and
 // creates a collection of ui-formatted services.
-func convertFoundServices(services ...params.ServiceOffer) (map[string]RemoteServiceResult, error) {
+func convertFoundServices(services ...params.ApplicationOffer) (map[string]RemoteApplicationResult, error) {
 	if len(services) == 0 {
 		return nil, nil
 	}
-	output := make(map[string]RemoteServiceResult, len(services))
+	output := make(map[string]RemoteApplicationResult, len(services))
 	for _, one := range services {
-		service := RemoteServiceResult{Endpoints: convertRemoteEndpoints(one.Endpoints...)}
-		output[one.ServiceURL] = service
+		service := RemoteApplicationResult{Endpoints: convertRemoteEndpoints(one.Endpoints...)}
+		output[one.ApplicationURL] = service
 	}
 	return output, nil
 }

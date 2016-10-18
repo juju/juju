@@ -5,8 +5,8 @@ package operation
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	corecharm "gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/worker/uniter/charm"
 	"github.com/juju/juju/worker/uniter/hook"
@@ -18,7 +18,6 @@ type FactoryParams struct {
 	Deployer       charm.Deployer
 	RunnerFactory  runner.Factory
 	Callbacks      Callbacks
-	StorageUpdater StorageUpdater
 	Abort          <-chan struct{}
 	MetricSpoolDir string
 }
@@ -106,6 +105,17 @@ func (f *factory) NewAction(actionId string) (Operation, error) {
 	}, nil
 }
 
+// NewFailAction is part of the factory interface.
+func (f *factory) NewFailAction(actionId string) (Operation, error) {
+	if !names.IsValidAction(actionId) {
+		return nil, errors.Errorf("invalid action id %q", actionId)
+	}
+	return &failAction{
+		actionId:  actionId,
+		callbacks: f.config.Callbacks,
+	}, nil
+}
+
 // NewCommands is part of the Factory interface.
 func (f *factory) NewCommands(args CommandArgs, sendResponse CommandResponseFunc) (Operation, error) {
 	if args.Commands == "" {
@@ -125,14 +135,6 @@ func (f *factory) NewCommands(args CommandArgs, sendResponse CommandResponseFunc
 		sendResponse:  sendResponse,
 		callbacks:     f.config.Callbacks,
 		runnerFactory: f.config.RunnerFactory,
-	}, nil
-}
-
-// NewUpdateStorage is part of the Factory interface.
-func (f *factory) NewUpdateStorage(tags []names.StorageTag) (Operation, error) {
-	return &updateStorage{
-		tags:           tags,
-		storageUpdater: f.config.StorageUpdater,
 	}, nil
 }
 

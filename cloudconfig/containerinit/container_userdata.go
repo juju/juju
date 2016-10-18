@@ -8,19 +8,20 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"path/filepath"
 	"strings"
-	"text/template"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/proxy"
+	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/cloudconfig"
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/container"
-	"github.com/juju/juju/environs"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
 )
@@ -38,7 +39,7 @@ func WriteUserData(
 	networkConfig *container.NetworkConfig,
 	directory string,
 ) (string, error) {
-	userData, err := cloudInitUserData(instanceConfig, networkConfig)
+	userData, err := CloudInitUserData(instanceConfig, networkConfig)
 	if err != nil {
 		logger.Errorf("failed to create user data: %v", err)
 		return "", err
@@ -57,54 +58,144 @@ func WriteCloudInitFile(directory string, userData []byte) (string, error) {
 	return userDataFilename, nil
 }
 
-// networkConfigTemplate defines how to render /etc/network/interfaces
-// file for a container with one or more NICs.
-const networkConfigTemplate = `
-# loopback interface
-auto lo
-iface lo inet loopback{{define "static"}}
-{{.InterfaceName | printf "# interface %q"}}{{if not .NoAutoStart}}
-auto {{.InterfaceName}}{{end}}
-iface {{.InterfaceName}} inet manual{{if gt (len .DNSServers) 0}}
-    dns-nameservers{{range $dns := .DNSServers}} {{$dns.Value}}{{end}}{{end}}{{if gt (len .DNSSearch) 0}}
-    dns-search {{.DNSSearch}}{{end}}
-    pre-up ip address add {{.Address.Value}}/32 dev {{.InterfaceName}} &> /dev/null || true
-    up ip route replace {{.GatewayAddress.Value}} dev {{.InterfaceName}}
-    up ip route replace default via {{.GatewayAddress.Value}}
-    down ip route del default via {{.GatewayAddress.Value}} &> /dev/null || true
-    down ip route del {{.GatewayAddress.Value}} dev {{.InterfaceName}} &> /dev/null || true
-    post-down ip address del {{.Address.Value}}/32 dev {{.InterfaceName}} &> /dev/null || true
-{{end}}{{define "dhcp"}}
-{{.InterfaceName | printf "# interface %q"}}{{if not .NoAutoStart}}
-auto {{.InterfaceName}}{{end}}
-iface {{.InterfaceName}} inet dhcp
-{{end}}{{range $nic := . }}{{if eq $nic.ConfigType "static"}}
-{{template "static" $nic}}{{else}}{{template "dhcp" $nic}}{{end}}{{end}}`
+var (
+	systemNetworkInterfacesFile = "/etc/network/interfaces"
+	networkInterfacesFile       = systemNetworkInterfacesFile + "-juju"
+)
 
-var networkInterfacesFile = "/etc/network/interfaces"
-
-// GenerateNetworkConfig renders a network config for one or more
-// network interfaces, using the given non-nil networkConfig
-// containing a non-empty Interfaces field.
+// GenerateNetworkConfig renders a network config for one or more network
+// interfaces, using the given non-nil networkConfig containing a non-empty
+// Interfaces field.
 func GenerateNetworkConfig(networkConfig *container.NetworkConfig) (string, error) {
 	if networkConfig == nil || len(networkConfig.Interfaces) == 0 {
-		// Don't generate networking config.
-		logger.Tracef("no network config to generate")
-		return "", nil
+		return "", errors.Errorf("missing container network config")
+	}
+	logger.Debugf("generating network config from %#v", *networkConfig)
+
+	prepared := PrepareNetworkConfigFromInterfaces(networkConfig.Interfaces)
+
+	var output bytes.Buffer
+	gatewayHandled := false
+	for _, name := range prepared.InterfaceNames {
+		output.WriteString("\n")
+		if name == "lo" {
+			output.WriteString("auto ")
+			autoStarted := strings.Join(prepared.AutoStarted, " ")
+			output.WriteString(autoStarted + "\n\n")
+			output.WriteString("iface lo inet loopback\n")
+
+			dnsServers := strings.Join(prepared.DNSServers, " ")
+			if dnsServers != "" {
+				output.WriteString("  dns-nameservers ")
+				output.WriteString(dnsServers + "\n")
+			}
+
+			dnsSearchDomains := strings.Join(prepared.DNSSearchDomains, " ")
+			if dnsSearchDomains != "" {
+				output.WriteString("  dns-search ")
+				output.WriteString(dnsSearchDomains + "\n")
+			}
+			continue
+		}
+
+		address, hasAddress := prepared.NameToAddress[name]
+		if !hasAddress {
+			output.WriteString("iface " + name + " inet manual\n")
+			continue
+		} else if address == string(network.ConfigDHCP) {
+			output.WriteString("iface " + name + " inet dhcp\n")
+			// We're expecting to get a default gateway
+			// from the DHCP lease.
+			gatewayHandled = true
+			continue
+		}
+
+		output.WriteString("iface " + name + " inet static\n")
+		output.WriteString("  address " + address + "\n")
+		if !gatewayHandled && prepared.GatewayAddress != "" {
+			_, network, err := net.ParseCIDR(address)
+			if err != nil {
+				return "", errors.Annotatef(err, "invalid gateway for interface %q with address %q", name, address)
+			}
+
+			gatewayIP := net.ParseIP(prepared.GatewayAddress)
+			if network.Contains(gatewayIP) {
+				output.WriteString("  gateway " + prepared.GatewayAddress + "\n")
+				gatewayHandled = true // write it only once
+			}
+		}
 	}
 
-	// Render the config first.
-	tmpl, err := template.New("config").Parse(networkConfigTemplate)
-	if err != nil {
-		return "", errors.Annotate(err, "cannot parse network config template")
+	generatedConfig := output.String()
+	logger.Debugf("generated network config:\n%s", generatedConfig)
+
+	if !gatewayHandled {
+		logger.Infof("generated network config has no gateway")
 	}
 
-	var buf bytes.Buffer
-	if err = tmpl.Execute(&buf, networkConfig.Interfaces); err != nil {
-		return "", errors.Annotate(err, "cannot render network config")
+	return generatedConfig, nil
+}
+
+// PreparedConfig holds all the necessary information to render a persistent
+// network config to a file.
+type PreparedConfig struct {
+	InterfaceNames   []string
+	AutoStarted      []string
+	DNSServers       []string
+	DNSSearchDomains []string
+	NameToAddress    map[string]string
+	GatewayAddress   string
+}
+
+// PrepareNetworkConfigFromInterfaces collects the necessary information to
+// render a persistent network config from the given slice of
+// network.InterfaceInfo. The result always includes the loopback interface.
+func PrepareNetworkConfigFromInterfaces(interfaces []network.InterfaceInfo) *PreparedConfig {
+	dnsServers := set.NewStrings()
+	dnsSearchDomains := set.NewStrings()
+	gatewayAddress := ""
+	namesInOrder := make([]string, 1, len(interfaces)+1)
+	nameToAddress := make(map[string]string)
+
+	// Always include the loopback.
+	namesInOrder[0] = "lo"
+	autoStarted := set.NewStrings("lo")
+
+	for _, info := range interfaces {
+		if !info.NoAutoStart {
+			autoStarted.Add(info.InterfaceName)
+		}
+
+		if cidr := info.CIDRAddress(); cidr != "" {
+			nameToAddress[info.InterfaceName] = cidr
+		} else if info.ConfigType == network.ConfigDHCP {
+			nameToAddress[info.InterfaceName] = string(network.ConfigDHCP)
+		}
+
+		for _, dns := range info.DNSServers {
+			dnsServers.Add(dns.Value)
+		}
+
+		dnsSearchDomains = dnsSearchDomains.Union(set.NewStrings(info.DNSSearchDomains...))
+
+		if gatewayAddress == "" && info.GatewayAddress.Value != "" {
+			gatewayAddress = info.GatewayAddress.Value
+		}
+
+		namesInOrder = append(namesInOrder, info.InterfaceName)
 	}
 
-	return buf.String(), nil
+	prepared := &PreparedConfig{
+		InterfaceNames:   namesInOrder,
+		NameToAddress:    nameToAddress,
+		AutoStarted:      autoStarted.SortedValues(),
+		DNSServers:       dnsServers.SortedValues(),
+		DNSSearchDomains: dnsSearchDomains.SortedValues(),
+		GatewayAddress:   gatewayAddress,
+	}
+
+	logger.Debugf("prepared network config for rendering: %+v", prepared)
+	return prepared
 }
 
 // newCloudInitConfigWithNetworks creates a cloud-init config which
@@ -115,40 +206,48 @@ func newCloudInitConfigWithNetworks(series string, networkConfig *container.Netw
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	config, err := GenerateNetworkConfig(networkConfig)
-	if err != nil || len(config) == 0 {
-		return cloudConfig, errors.Trace(err)
+
+	if networkConfig != nil {
+		config, err := GenerateNetworkConfig(networkConfig)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		cloudConfig.AddBootTextFile(networkInterfacesFile, config, 0644)
+		cloudConfig.AddRunCmd(raiseJujuNetworkInterfacesScript(systemNetworkInterfacesFile, networkInterfacesFile))
 	}
 
-	// Now add it to cloud-init as a file created early in the boot process.
-	cloudConfig.AddBootTextFile(networkInterfacesFile, config, 0644)
 	return cloudConfig, nil
 }
 
-func cloudInitUserData(
+func CloudInitUserData(
 	instanceConfig *instancecfg.InstanceConfig,
 	networkConfig *container.NetworkConfig,
 ) ([]byte, error) {
 	cloudConfig, err := newCloudInitConfigWithNetworks(instanceConfig.Series, networkConfig)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	udata, err := cloudconfig.NewUserdataConfig(instanceConfig, cloudConfig)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
-	err = udata.Configure()
-	if err != nil {
-		return nil, err
+	if err = udata.Configure(); err != nil {
+		return nil, errors.Trace(err)
 	}
 	// Run ifconfig to get the addresses of the internal container at least
 	// logged in the host.
 	cloudConfig.AddRunCmd("ifconfig")
 
 	if instanceConfig.MachineContainerHostname != "" {
+		logger.Debugf("Cloud-init configured to set hostname")
 		cloudConfig.SetAttr("hostname", instanceConfig.MachineContainerHostname)
 	}
 
+	cloudConfig.SetAttr("manage_etc_hosts", true)
+
 	data, err := cloudConfig.RenderYAML()
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	return data, nil
 }
@@ -187,7 +286,7 @@ func TemplateUserData(
 	// we need to enable apt-get update regardless of the environ
 	// setting, otherwise provisioning will fail.
 	if series == "precise" && !enablePackageUpdates {
-		logger.Warningf("series %q requires cloud-tools archive: enabling updates", series)
+		logger.Infof("series %q requires cloud-tools archive: enabling updates", series)
 		enablePackageUpdates = true
 	}
 
@@ -213,53 +312,12 @@ func TemplateUserData(
 	return data, nil
 }
 
-// defaultEtcNetworkInterfaces is the contents of
-// /etc/network/interfaces file which is left on the template LXC
-// container on shutdown. This is needed to allow cloned containers to
-// start in case no network config is provided during cloud-init, e.g.
-// when AUFS is used or with the local provider (see bug #1431888).
-const defaultEtcNetworkInterfaces = `
-# loopback interface
-auto lo
-iface lo inet loopback
-
-# primary interface
-auto eth0
-iface eth0 inet dhcp
-`
-
 func shutdownInitCommands(initSystem, series string) ([]string, error) {
-	// These files are removed just before the template shuts down.
-	cleanupOnShutdown := []string{
-		// We remove any dhclient lease files so there's no chance a
-		// clone to reuse a lease from the template it was cloned
-		// from.
-		"/var/lib/dhcp/dhclient*",
-		// Both of these sets of files below are recreated on boot and
-		// if we leave them in the template's rootfs boot logs coming
-		// from cloned containers will be appended. It's better to
-		// keep clean logs for diagnosing issues / debugging.
-		"/var/log/cloud-init*.log",
-	}
-
-	// Using EOC below as the template shutdown script is itself
-	// passed through cat > ... < EOF.
-	replaceNetConfCmd := fmt.Sprintf(
-		"/bin/cat > /etc/network/interfaces << EOC%sEOC\n  ",
-		defaultEtcNetworkInterfaces,
-	)
-	paths := strings.Join(cleanupOnShutdown, " ")
-	removeCmd := fmt.Sprintf("/bin/rm -fr %s\n  ", paths)
 	shutdownCmd := "/sbin/shutdown -h now"
 	name := "juju-template-restart"
 	desc := "juju shutdown job"
 
 	execStart := shutdownCmd
-	if environs.AddressAllocationEnabled() {
-		// Only do the cleanup and replacement of /e/n/i when address
-		// allocation feature flag is enabled.
-		execStart = replaceNetConfCmd + removeCmd + shutdownCmd
-	}
 
 	conf := common.Conf{
 		Desc:         desc,
@@ -289,4 +347,23 @@ func shutdownInitCommands(initSystem, series string) ([]string, error) {
 	cmds = append(cmds, startCommands...)
 
 	return cmds, nil
+}
+
+// raiseJujuNetworkInterfacesScript returns a cloud-init script to
+// raise Juju's network interfaces supplied via cloud-init.
+//
+// Note: we sleep to mitigate against LP #1337873 and LP #1269921.
+func raiseJujuNetworkInterfacesScript(oldInterfacesFile, newInterfacesFile string) string {
+	return fmt.Sprintf(`
+if [ -f %[2]s ]; then
+    ifdown -a
+    sleep 1.5
+    if ifup -a --interfaces=%[2]s; then
+        cp %[1]s %[1]s-orig
+        cp %[2]s %[1]s
+    else
+        ifup -a
+    fi
+fi`[1:],
+		oldInterfacesFile, newInterfacesFile)
 }

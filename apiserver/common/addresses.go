@@ -4,6 +4,7 @@
 package common
 
 import (
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -11,25 +12,25 @@ import (
 )
 
 // AddressAndCertGetter can be used to find out
-// state server addresses and the CA public certificate.
+// controller addresses and the CA public certificate.
 type AddressAndCertGetter interface {
 	Addresses() ([]string, error)
 	APIAddressesFromMachines() ([]string, error)
 	CACert() string
-	EnvironUUID() string
+	ModelUUID() string
 	APIHostPorts() ([][]network.HostPort, error)
 	WatchAPIHostPorts() state.NotifyWatcher
 }
 
 // APIAddresser implements the APIAddresses method
 type APIAddresser struct {
-	resources *Resources
+	resources facade.Resources
 	getter    AddressAndCertGetter
 }
 
 // NewAPIAddresser returns a new APIAddresser that uses the given getter to
 // fetch its addresses.
-func NewAPIAddresser(getter AddressAndCertGetter, resources *Resources) *APIAddresser {
+func NewAPIAddresser(getter AddressAndCertGetter, resources facade.Resources) *APIAddresser {
 	return &APIAddresser{
 		getter:    getter,
 		resources: resources,
@@ -60,20 +61,30 @@ func (api *APIAddresser) WatchAPIHostPorts() (params.NotifyWatchResult, error) {
 
 // APIAddresses returns the list of addresses used to connect to the API.
 func (api *APIAddresser) APIAddresses() (params.StringsResult, error) {
-	apiHostPorts, err := api.getter.APIHostPorts()
+	addrs, err := apiAddresses(api.getter)
 	if err != nil {
 		return params.StringsResult{}, err
-	}
-	var addrs = make([]string, 0, len(apiHostPorts))
-	for _, hostPorts := range apiHostPorts {
-		addr := network.SelectInternalHostPort(hostPorts, false)
-		if addr != "" {
-			addrs = append(addrs, addr)
-		}
 	}
 	return params.StringsResult{
 		Result: addrs,
 	}, nil
+}
+
+func apiAddresses(getter APIHostPortsGetter) ([]string, error) {
+	apiHostPorts, err := getter.APIHostPorts()
+	if err != nil {
+		return nil, err
+	}
+	var addrs = make([]string, 0, len(apiHostPorts))
+	for _, hostPorts := range apiHostPorts {
+		ordered := network.PrioritizeInternalHostPorts(hostPorts, false)
+		for _, addr := range ordered {
+			if addr != "" {
+				addrs = append(addrs, addr)
+			}
+		}
+	}
+	return addrs, nil
 }
 
 // CACert returns the certificate used to validate the state connection.
@@ -83,10 +94,10 @@ func (a *APIAddresser) CACert() params.BytesResult {
 	}
 }
 
-// EnvironUUID returns the environment UUID to connect to the environment
+// ModelUUID returns the model UUID to connect to the environment
 // that the current connection is for.
-func (a *APIAddresser) EnvironUUID() params.StringResult {
-	return params.StringResult{Result: a.getter.EnvironUUID()}
+func (a *APIAddresser) ModelUUID() params.StringResult {
+	return params.StringResult{Result: a.getter.ModelUUID()}
 }
 
 // StateAddresser implements a common set of methods for getting state

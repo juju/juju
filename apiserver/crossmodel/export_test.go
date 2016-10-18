@@ -4,9 +4,9 @@
 package crossmodel
 
 var (
-	CreateAPI               = createAPI
-	CreateServiceOffersAPI  = createServiceOffersAPI
-	CreateOfferedServiceAPI = createOfferedServiceAPI
-	NewServiceAPIFactory    = newServiceAPIFactory
-	GetStateAccess          = getStateAccess
+	CreateAPI                   = createAPI
+	CreateApplicationOffersAPI  = createApplicationOffersAPI
+	CreateOfferedApplicationAPI = createOfferedApplicationAPI
+	NewServiceAPIFactory        = newServiceAPIFactory
+	GetStateAccess              = getStateAccess
 )

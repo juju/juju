@@ -34,10 +34,8 @@ functionality to get all the registered commands, with the addition of also
 being able to provide non-command help topics which can be added.
 
 Help topics have a `name` which is what is matched from the command line, a
-`short` one line description that is shown when `<cmd> help topics` is called,
+`short` one line description that is shown when `<cmd> help` is called,
 and a `long` text that is output when the topic is requested.
-
-Topics are added using the `AddHelpTopic` method.
 
 
 Execution

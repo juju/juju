@@ -12,7 +12,7 @@ import (
 )
 
 // AllWatcher holds information allowing us to get Deltas describing
-// changes to the entire environment or all environments (depending on
+// changes to the entire model or all models (depending on
 // the watcher type).
 type AllWatcher struct {
 	objType string
@@ -29,14 +29,14 @@ func NewAllWatcher(caller base.APICaller, id *string) *AllWatcher {
 	return newAllWatcher("AllWatcher", caller, id)
 }
 
-// NewAllEnvWatcher returns an AllWatcher instance which interacts
-// with a watcher created by the WatchAllEnvs API call.
+// NewAllModelWatcher returns an AllWatcher instance which interacts
+// with a watcher created by the WatchAllModels API call.
 //
 // There should be no need to call this from outside of the api
-// package. It is only used by Client.WatchAllEnvs in
-// api/systemmanager.
-func NewAllEnvWatcher(caller base.APICaller, id *string) *AllWatcher {
-	return newAllWatcher("AllEnvWatcher", caller, id)
+// package. It is only used by Client.WatchAllModels in
+// api/controller.
+func NewAllModelWatcher(caller base.APICaller, id *string) *AllWatcher {
+	return newAllWatcher("AllModelWatcher", caller, id)
 }
 
 func newAllWatcher(objType string, caller base.APICaller, id *string) *AllWatcher {
@@ -48,7 +48,7 @@ func newAllWatcher(objType string, caller base.APICaller, id *string) *AllWatche
 }
 
 // Next returns a new set of deltas from a watcher previously created
-// by the WatchAll or WatchAllEnvs API calls. It will block until
+// by the WatchAll or WatchAllModels API calls. It will block until
 // there are deltas to return.
 func (watcher *AllWatcher) Next() ([]multiwatcher.Delta, error) {
 	var info params.AllWatcherNextResults
@@ -100,7 +100,7 @@ func (o orderedDeltas) Swap(i, j int) {
 }
 
 // Stop shutdowns down a watcher previously created by the WatchAll or
-// WatchAllEnvs API calls
+// WatchAllModels API calls
 func (watcher *AllWatcher) Stop() error {
 	return watcher.caller.APICall(
 		watcher.objType,

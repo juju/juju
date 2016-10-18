@@ -5,38 +5,37 @@ package client
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/api"
+	"github.com/juju/juju/apiserver/application"
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/highavailability"
+	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/modelconfig"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/apiserver/service"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/manual"
 	"github.com/juju/juju/instance"
-	jjj "github.com/juju/juju/juju"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/version"
+	"github.com/juju/juju/state/stateenvirons"
+	jujuversion "github.com/juju/juju/version"
 )
 
 func init() {
-	common.RegisterStandardFacade("Client", 0, NewClient)
+	common.RegisterStandardFacade("Client", 1, newClient)
 }
 
 var logger = loggo.GetLogger("juju.apiserver.client")
 
 type API struct {
-	stateAccessor stateInterface
-	auth          common.Authorizer
-	resources     *common.Resources
+	stateAccessor Backend
+	auth          facade.Authorizer
+	resources     facade.Resources
 	client        *Client
 	// statusSetter provides common methods for updating an entity's provisioning status.
 	statusSetter *common.StatusSetter
@@ -48,118 +47,111 @@ type API struct {
 // Until all code is refactored to use interfaces, we
 // need this helper to keep older code happy.
 func (api *API) state() *state.State {
-	return api.stateAccessor.(*stateShim).State
+	return api.stateAccessor.(stateShim).State
 }
 
 // Client serves client-specific API methods.
 type Client struct {
-	compat
-	api   *API
-	check *common.BlockChecker
+	// TODO(wallyworld) - we'll retain model config facade methods
+	// on the client facade until GUI and Python client library are updated.
+	*modelconfig.ModelConfigAPI
+
+	api        *API
+	newEnviron func() (environs.Environ, error)
+	check      *common.BlockChecker
 }
 
-var getState = func(st *state.State) stateInterface {
-	return &stateShim{st}
+func (c *Client) checkCanRead() error {
+	canRead, err := c.api.auth.HasPermission(permission.ReadAccess, c.api.stateAccessor.ModelTag())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if !canRead {
+		return common.ErrPerm
+	}
+	return nil
+}
+
+func (c *Client) checkCanWrite() error {
+	canWrite, err := c.api.auth.HasPermission(permission.WriteAccess, c.api.stateAccessor.ModelTag())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if !canWrite {
+		return common.ErrPerm
+	}
+	return nil
+}
+
+func newClient(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*Client, error) {
+	urlGetter := common.NewToolsURLGetter(st.ModelUUID(), st)
+	configGetter := stateenvirons.EnvironConfigGetter{st}
+	statusSetter := common.NewStatusSetter(st, common.AuthAlways())
+	toolsFinder := common.NewToolsFinder(configGetter, st, urlGetter)
+	newEnviron := func() (environs.Environ, error) {
+		return environs.GetEnviron(configGetter, environs.New)
+	}
+	blockChecker := common.NewBlockChecker(st)
+	modelConfigAPI, err := modelconfig.NewModelConfigAPI(st, authorizer)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return NewClient(
+		NewStateBackend(st),
+		modelConfigAPI,
+		resources,
+		authorizer,
+		statusSetter,
+		toolsFinder,
+		newEnviron,
+		blockChecker,
+	)
 }
 
 // NewClient creates a new instance of the Client Facade.
-func NewClient(st *state.State, resources *common.Resources, authorizer common.Authorizer) (*Client, error) {
+func NewClient(
+	st Backend,
+	modelConfigAPI *modelconfig.ModelConfigAPI,
+	resources facade.Resources,
+	authorizer facade.Authorizer,
+	statusSetter *common.StatusSetter,
+	toolsFinder *common.ToolsFinder,
+	newEnviron func() (environs.Environ, error),
+	blockChecker *common.BlockChecker,
+) (*Client, error) {
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
 	}
-	apiState := getState(st)
-	urlGetter := common.NewToolsURLGetter(apiState.EnvironUUID(), apiState)
 	client := &Client{
-		api: &API{
-			stateAccessor: apiState,
+		modelConfigAPI,
+		&API{
+			stateAccessor: st,
 			auth:          authorizer,
 			resources:     resources,
-			statusSetter:  common.NewStatusSetter(st, common.AuthAlways()),
-			toolsFinder:   common.NewToolsFinder(st, st, urlGetter),
+			statusSetter:  statusSetter,
+			toolsFinder:   toolsFinder,
 		},
-		check: common.NewBlockChecker(st)}
-	// Plug in compatibility shims.
-	client.compat = compat{client}
+		newEnviron,
+		blockChecker,
+	}
 	return client, nil
 }
 
 func (c *Client) WatchAll() (params.AllWatcherId, error) {
+	if err := c.checkCanRead(); err != nil {
+		return params.AllWatcherId{}, err
+	}
 	w := c.api.stateAccessor.Watch()
 	return params.AllWatcherId{
 		AllWatcherId: c.api.resources.Register(w),
 	}, nil
 }
 
-// ServiceSet implements the server side of Client.ServiceSet. Values set to an
-// empty string will be unset.
-//
-// (Deprecated) Use NewServiceSetForClientAPI instead, to preserve values set to
-// an empty string, and use ServiceUnset to unset values.
-func (c *Client) ServiceSet(p params.ServiceSet) error {
-	if err := c.check.ChangeAllowed(); err != nil {
-		return errors.Trace(err)
-	}
-	svc, err := c.api.stateAccessor.Service(p.ServiceName)
-	if err != nil {
-		return err
-	}
-	return service.ServiceSetSettingsStrings(svc, p.Options)
-}
-
-// NewServiceSetForClientAPI implements the server side of
-// Client.NewServiceSetForClientAPI. This is exactly like ServiceSet except that
-// it does not unset values that are set to an empty string.  ServiceUnset
-// should be used for that.
-//
-// TODO(Nate): rename this to ServiceSet (and remove the deprecated ServiceSet)
-// when the GUI handles the new behavior.
-// TODO(mattyw, all): This api call should be move to the new service facade. The client api version will then need bumping.
-func (c *Client) NewServiceSetForClientAPI(p params.ServiceSet) error {
-	svc, err := c.api.stateAccessor.Service(p.ServiceName)
-	if err != nil {
-		return err
-	}
-	return newServiceSetSettingsStringsForClientAPI(svc, p.Options)
-}
-
-// ServiceUnset implements the server side of Client.ServiceUnset.
-// TODO(mattyw, all): This api call should be move to the new service facade. The client api version will then need bumping.
-func (c *Client) ServiceUnset(p params.ServiceUnset) error {
-	if err := c.check.ChangeAllowed(); err != nil {
-		return errors.Trace(err)
-	}
-	svc, err := c.api.stateAccessor.Service(p.ServiceName)
-	if err != nil {
-		return err
-	}
-	settings := make(charm.Settings)
-	for _, option := range p.Options {
-		settings[option] = nil
-	}
-	return svc.UpdateConfigSettings(settings)
-}
-
-// ServiceCharmRelations implements the server side of Client.ServiceCharmRelations.
-// TODO(mattyw, all): This api call should be move to the new service facade. The client api version will then need bumping.
-func (c *Client) ServiceCharmRelations(p params.ServiceCharmRelations) (params.ServiceCharmRelationsResults, error) {
-	var results params.ServiceCharmRelationsResults
-	service, err := c.api.stateAccessor.Service(p.ServiceName)
-	if err != nil {
-		return results, err
-	}
-	endpoints, err := service.Endpoints()
-	if err != nil {
-		return results, err
-	}
-	results.CharmRelations = make([]string, len(endpoints))
-	for i, endpoint := range endpoints {
-		results.CharmRelations[i] = endpoint.Relation.Name
-	}
-	return results, nil
-}
-
 // Resolved implements the server side of Client.Resolved.
 func (c *Client) Resolved(p params.Resolved) error {
+	if err := c.checkCanWrite(); err != nil {
+		return err
+	}
 	if err := c.check.ChangeAllowed(); err != nil {
 		return errors.Trace(err)
 	}
@@ -172,6 +164,10 @@ func (c *Client) Resolved(p params.Resolved) error {
 
 // PublicAddress implements the server side of Client.PublicAddress.
 func (c *Client) PublicAddress(p params.PublicAddress) (results params.PublicAddressResults, err error) {
+	if err := c.checkCanRead(); err != nil {
+		return params.PublicAddressResults{}, err
+	}
+
 	switch {
 	case names.IsValidMachine(p.Target):
 		machine, err := c.api.stateAccessor.Machine(p.Target)
@@ -200,6 +196,10 @@ func (c *Client) PublicAddress(p params.PublicAddress) (results params.PublicAdd
 
 // PrivateAddress implements the server side of Client.PrivateAddress.
 func (c *Client) PrivateAddress(p params.PrivateAddress) (results params.PrivateAddressResults, err error) {
+	if err := c.checkCanRead(); err != nil {
+		return params.PrivateAddressResults{}, err
+	}
+
 	switch {
 	case names.IsValidMachine(p.Target):
 		machine, err := c.api.stateAccessor.Machine(p.Target)
@@ -227,208 +227,37 @@ func (c *Client) PrivateAddress(p params.PrivateAddress) (results params.Private
 
 }
 
-// ServiceExpose changes the juju-managed firewall to expose any ports that
-// were also explicitly marked by units as open.
-// TODO(mattyw, all): This api call should be move to the new service facade. The client api version will then need bumping.
-func (c *Client) ServiceExpose(args params.ServiceExpose) error {
-	if err := c.check.ChangeAllowed(); err != nil {
-		return errors.Trace(err)
-	}
-	svc, err := c.api.stateAccessor.Service(args.ServiceName)
-	if err != nil {
-		return err
-	}
-	return svc.SetExposed()
-}
-
-// ServiceUnexpose changes the juju-managed firewall to unexpose any ports that
-// were also explicitly marked by units as open.
-// TODO(mattyw, all): This api call should be move to the new service facade. The client api version will then need bumping.
-func (c *Client) ServiceUnexpose(args params.ServiceUnexpose) error {
-	if err := c.check.ChangeAllowed(); err != nil {
-		return errors.Trace(err)
-	}
-	svc, err := c.api.stateAccessor.Service(args.ServiceName)
-	if err != nil {
-		return err
-	}
-	return svc.ClearExposed()
-}
-
-// ServiceDeploy fetches the charm from the charm store and deploys it.
-// AddCharm or AddLocalCharm should be called to add the charm
-// before calling ServiceDeploy, although for backward compatibility
-// this is not necessary until 1.16 support is removed.
-func (c *Client) ServiceDeploy(args params.ServiceDeploy) error {
-	if err := c.check.ChangeAllowed(); err != nil {
-		return errors.Trace(err)
-	}
-	return service.DeployService(c.api.state(), c.api.auth.GetAuthTag().String(), args)
-}
-
-// ServiceDeployWithNetworks works exactly like ServiceDeploy, but
-// allows specifying networks to include or exclude on the machine
-// where the charm gets deployed (either with args.Network or with
-// constraints).
-//
-// TODO(dimitern): Drop the special handling of networks in favor of
-// spaces constraints, once possible.
-func (c *Client) ServiceDeployWithNetworks(args params.ServiceDeploy) error {
-	return c.ServiceDeploy(args)
-}
-
-// newServiceSetSettingsStringsForClientAPI updates the settings for the given
-// service, taking the configuration from a map of strings.
-//
-// TODO(Nate): replace serviceSetSettingsStrings with this onces the GUI no
-// longer expects to be able to unset values by sending an empty string.
-func newServiceSetSettingsStringsForClientAPI(service *state.Service, settings map[string]string) error {
-	ch, _, err := service.Charm()
-	if err != nil {
-		return err
-	}
-
-	// Validate the settings.
-	changes, err := ch.Config().ParseSettingsStrings(settings)
-	if err != nil {
-		return err
-	}
-
-	return service.UpdateConfigSettings(changes)
-}
-
-// addServiceUnits adds a given number of units to a service.
-func addServiceUnits(st *state.State, args params.AddServiceUnits) ([]*state.Unit, error) {
-	service, err := st.Service(args.ServiceName)
-	if err != nil {
-		return nil, err
-	}
-	if args.NumUnits < 1 {
-		return nil, fmt.Errorf("must add at least one unit")
-	}
-
-	// New API uses placement directives.
-	if len(args.Placement) > 0 {
-		return jjj.AddUnitsWithPlacement(st, service, args.NumUnits, args.Placement)
-	}
-
-	// Otherwise we use the older machine spec.
-	if args.NumUnits > 1 && args.ToMachineSpec != "" {
-		return nil, fmt.Errorf("cannot use NumUnits with ToMachineSpec")
-	}
-
-	if args.ToMachineSpec != "" && names.IsValidMachine(args.ToMachineSpec) {
-		_, err = st.Machine(args.ToMachineSpec)
-		if err != nil {
-			return nil, errors.Annotatef(err, `cannot add units for service "%v" to machine %v`, args.ServiceName, args.ToMachineSpec)
-		}
-	}
-	return jjj.AddUnits(st, service, args.NumUnits, args.ToMachineSpec)
-}
-
-// AddServiceUnits adds a given number of units to a service.
-func (c *Client) AddServiceUnits(args params.AddServiceUnits) (params.AddServiceUnitsResults, error) {
-	return c.AddServiceUnitsWithPlacement(args)
-}
-
-// AddServiceUnits adds a given number of units to a service.
-func (c *Client) AddServiceUnitsWithPlacement(args params.AddServiceUnits) (params.AddServiceUnitsResults, error) {
-	if err := c.check.ChangeAllowed(); err != nil {
-		return params.AddServiceUnitsResults{}, errors.Trace(err)
-	}
-	units, err := addServiceUnits(c.api.state(), args)
-	if err != nil {
-		return params.AddServiceUnitsResults{}, err
-	}
-	unitNames := make([]string, len(units))
-	for i, unit := range units {
-		unitNames[i] = unit.String()
-	}
-	return params.AddServiceUnitsResults{Units: unitNames}, nil
-}
-
-// DestroyServiceUnits removes a given set of service units.
-func (c *Client) DestroyServiceUnits(args params.DestroyServiceUnits) error {
-	if err := c.check.RemoveAllowed(); err != nil {
-		return errors.Trace(err)
-	}
-	var errs []string
-	for _, name := range args.UnitNames {
-		unit, err := c.api.stateAccessor.Unit(name)
-		switch {
-		case errors.IsNotFound(err):
-			err = fmt.Errorf("unit %q does not exist", name)
-		case err != nil:
-		case unit.Life() != state.Alive:
-			continue
-		case unit.IsPrincipal():
-			err = unit.Destroy()
-		default:
-			err = fmt.Errorf("unit %q is a subordinate", name)
-		}
-		if err != nil {
-			errs = append(errs, err.Error())
-		}
-	}
-	return common.DestroyErr("units", args.UnitNames, errs)
-}
-
-// ServiceDestroy destroys a given service.
-// TODO(mattyw, all): This api call should be move to the new service facade. The client api version will then need bumping.
-func (c *Client) ServiceDestroy(args params.ServiceDestroy) error {
-	if err := c.check.RemoveAllowed(); err != nil {
-		return errors.Trace(err)
-	}
-	svc, err := c.api.stateAccessor.Service(args.ServiceName)
-	if err != nil {
-		return err
-	}
-	return svc.Destroy()
-}
-
-// GetServiceConstraints returns the constraints for a given service.
-// TODO(mattyw, all): This api call should be move to the new service facade. The client api version will then need bumping.
-func (c *Client) GetServiceConstraints(args params.GetServiceConstraints) (params.GetConstraintsResults, error) {
-	svc, err := c.api.stateAccessor.Service(args.ServiceName)
-	if err != nil {
+// GetModelConstraints returns the constraints for the model.
+func (c *Client) GetModelConstraints() (params.GetConstraintsResults, error) {
+	if err := c.checkCanRead(); err != nil {
 		return params.GetConstraintsResults{}, err
 	}
-	cons, err := svc.Constraints()
-	return params.GetConstraintsResults{cons}, err
-}
 
-// GetEnvironmentConstraints returns the constraints for the environment.
-func (c *Client) GetEnvironmentConstraints() (params.GetConstraintsResults, error) {
-	cons, err := c.api.stateAccessor.EnvironConstraints()
+	cons, err := c.api.stateAccessor.ModelConstraints()
 	if err != nil {
 		return params.GetConstraintsResults{}, err
 	}
 	return params.GetConstraintsResults{cons}, nil
 }
 
-// SetServiceConstraints sets the constraints for a given service.
-// TODO(mattyw, all): This api call should be move to the new service facade. The client api version will then need bumping.
-func (c *Client) SetServiceConstraints(args params.SetConstraints) error {
-	if err := c.check.ChangeAllowed(); err != nil {
-		return errors.Trace(err)
-	}
-	svc, err := c.api.stateAccessor.Service(args.ServiceName)
-	if err != nil {
+// SetModelConstraints sets the constraints for the model.
+func (c *Client) SetModelConstraints(args params.SetConstraints) error {
+	if err := c.checkCanWrite(); err != nil {
 		return err
 	}
-	return svc.SetConstraints(args.Constraints)
-}
 
-// SetEnvironmentConstraints sets the constraints for the environment.
-func (c *Client) SetEnvironmentConstraints(args params.SetConstraints) error {
 	if err := c.check.ChangeAllowed(); err != nil {
 		return errors.Trace(err)
 	}
-	return c.api.stateAccessor.SetEnvironConstraints(args.Constraints)
+	return c.api.stateAccessor.SetModelConstraints(args.Constraints)
 }
 
 // AddMachines adds new machines with the supplied parameters.
 func (c *Client) AddMachines(args params.AddMachines) (params.AddMachinesResults, error) {
+	if err := c.checkCanWrite(); err != nil {
+		return params.AddMachinesResults{}, err
+	}
+
 	return c.AddMachinesV2(args)
 }
 
@@ -452,6 +281,10 @@ func (c *Client) AddMachinesV2(args params.AddMachines) (params.AddMachinesResul
 
 // InjectMachines injects a machine into state with provisioned status.
 func (c *Client) InjectMachines(args params.AddMachines) (params.AddMachinesResults, error) {
+	if err := c.checkCanWrite(); err != nil {
+		return params.AddMachinesResults{}, err
+	}
+
 	return c.AddMachines(args)
 }
 
@@ -483,7 +316,7 @@ func (c *Client) addOneMachine(p params.AddMachineParams) (*state.Machine, error
 	}
 
 	if p.Series == "" {
-		conf, err := c.api.stateAccessor.EnvironConfig()
+		conf, err := c.api.stateAccessor.ModelConfig()
 		if err != nil {
 			return nil, err
 		}
@@ -492,14 +325,14 @@ func (c *Client) addOneMachine(p params.AddMachineParams) (*state.Machine, error
 
 	var placementDirective string
 	if p.Placement != nil {
-		env, err := c.api.stateAccessor.Environment()
+		env, err := c.api.stateAccessor.Model()
 		if err != nil {
 			return nil, err
 		}
 		// For 1.21 we should support both UUID and name, and with 1.22
 		// just support UUID
 		if p.Placement.Scope != env.Name() && p.Placement.Scope != env.UUID() {
-			return nil, fmt.Errorf("invalid environment name %q", p.Placement.Scope)
+			return nil, fmt.Errorf("invalid model name %q", p.Placement.Scope)
 		}
 		placementDirective = p.Placement.Directive
 	}
@@ -515,7 +348,7 @@ func (c *Client) addOneMachine(p params.AddMachineParams) (*state.Machine, error
 		Jobs:        jobs,
 		Nonce:       p.Nonce,
 		HardwareCharacteristics: p.HardwareCharacteristics,
-		Addresses:               params.NetworkAddresses(p.Addrs),
+		Addresses:               params.NetworkAddresses(p.Addrs...),
 		Placement:               placementDirective,
 	}
 	if p.ContainerType == "" {
@@ -530,34 +363,51 @@ func (c *Client) addOneMachine(p params.AddMachineParams) (*state.Machine, error
 // ProvisioningScript returns a shell script that, when run,
 // provisions a machine agent on the machine executing the script.
 func (c *Client) ProvisioningScript(args params.ProvisioningScriptParams) (params.ProvisioningScriptResult, error) {
+	if err := c.checkCanWrite(); err != nil {
+		return params.ProvisioningScriptResult{}, err
+	}
+
 	var result params.ProvisioningScriptResult
 	icfg, err := InstanceConfig(c.api.state(), args.MachineId, args.Nonce, args.DataDir)
 	if err != nil {
-		return result, err
+		return result, common.ServerError(errors.Annotate(
+			err, "getting instance config",
+		))
 	}
 
 	// Until DisablePackageCommands is retired, for backwards
 	// compatibility, we must respect the client's request and
-	// override any environment settings the user may have specified.
+	// override any model settings the user may have specified.
 	// If the client does specify this setting, it will only ever be
 	// true. False indicates the client doesn't care and we should use
-	// what's specified in the environments.yaml file.
+	// what's specified in the environment config.
 	if args.DisablePackageCommands {
 		icfg.EnableOSRefreshUpdate = false
 		icfg.EnableOSUpgrade = false
-	} else if cfg, err := c.api.stateAccessor.EnvironConfig(); err != nil {
-		return result, err
+	} else if cfg, err := c.api.stateAccessor.ModelConfig(); err != nil {
+		return result, common.ServerError(errors.Annotate(
+			err, "getting model config",
+		))
 	} else {
 		icfg.EnableOSUpgrade = cfg.EnableOSUpgrade()
 		icfg.EnableOSRefreshUpdate = cfg.EnableOSRefreshUpdate()
 	}
 
 	result.Script, err = manual.ProvisioningScript(icfg)
-	return result, err
+	if err != nil {
+		return result, common.ServerError(errors.Annotate(
+			err, "getting provisioning script",
+		))
+	}
+	return result, nil
 }
 
 // DestroyMachines removes a given set of machines.
 func (c *Client) DestroyMachines(args params.DestroyMachines) error {
+	if err := c.checkCanWrite(); err != nil {
+		return err
+	}
+
 	if err := c.check.RemoveAllowed(); !args.Force && err != nil {
 		return errors.Trace(err)
 	}
@@ -565,96 +415,48 @@ func (c *Client) DestroyMachines(args params.DestroyMachines) error {
 	return common.DestroyMachines(c.api.stateAccessor, args.Force, args.MachineNames...)
 }
 
-// CharmInfo returns information about the requested charm.
-func (c *Client) CharmInfo(args params.CharmInfo) (api.CharmInfo, error) {
-	curl, err := charm.ParseURL(args.CharmURL)
-	if err != nil {
-		return api.CharmInfo{}, err
+// ModelInfo returns information about the current model.
+func (c *Client) ModelInfo() (params.ModelInfo, error) {
+	if err := c.checkCanWrite(); err != nil {
+		return params.ModelInfo{}, err
 	}
-	charm, err := c.api.stateAccessor.Charm(curl)
-	if err != nil {
-		return api.CharmInfo{}, err
-	}
-	info := api.CharmInfo{
-		Revision: charm.Revision(),
-		URL:      curl.String(),
-		Config:   charm.Config(),
-		Meta:     charm.Meta(),
-		Actions:  charm.Actions(),
-	}
-	return info, nil
-}
-
-// EnvironmentInfo returns information about the current environment (default
-// series and type).
-func (c *Client) EnvironmentInfo() (api.EnvironmentInfo, error) {
 	state := c.api.stateAccessor
-	conf, err := state.EnvironConfig()
+	conf, err := state.ModelConfig()
 	if err != nil {
-		return api.EnvironmentInfo{}, err
+		return params.ModelInfo{}, err
 	}
-	env, err := state.Environment()
+	model, err := state.Model()
 	if err != nil {
-		return api.EnvironmentInfo{}, err
+		return params.ModelInfo{}, err
 	}
-
-	info := api.EnvironmentInfo{
+	info := params.ModelInfo{
 		DefaultSeries: config.PreferredSeries(conf),
+		CloudTag:      names.NewCloudTag(model.Cloud()).String(),
+		CloudRegion:   model.CloudRegion(),
 		ProviderType:  conf.Type(),
 		Name:          conf.Name(),
-		UUID:          env.UUID(),
-		ServerUUID:    env.ServerUUID(),
+		UUID:          model.UUID(),
+		OwnerTag:      model.Owner().String(),
+		Life:          params.Life(model.Life().String()),
+	}
+	if tag, ok := model.CloudCredential(); ok {
+		info.CloudCredentialTag = tag.String()
 	}
 	return info, nil
 }
 
-// ShareEnvironment manages allowing and denying the given user(s) access to the environment.
-func (c *Client) ShareEnvironment(args params.ModifyEnvironUsers) (result params.ErrorResults, err error) {
-	var createdBy names.UserTag
-	var ok bool
-	if createdBy, ok = c.api.auth.GetAuthTag().(names.UserTag); !ok {
-		return result, errors.Errorf("api connection is not through a user")
-	}
-
-	result = params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.Changes)),
-	}
-	if len(args.Changes) == 0 {
-		return result, nil
-	}
-
-	for i, arg := range args.Changes {
-		userTagString := arg.UserTag
-		user, err := names.ParseUserTag(userTagString)
-		if err != nil {
-			result.Results[i].Error = common.ServerError(errors.Annotate(err, "could not share environment"))
-			continue
-		}
-		switch arg.Action {
-		case params.AddEnvUser:
-			_, err := c.api.stateAccessor.AddEnvironmentUser(
-				state.EnvUserSpec{User: user, CreatedBy: createdBy})
-			if err != nil {
-				err = errors.Annotate(err, "could not share environment")
-				result.Results[i].Error = common.ServerError(err)
-			}
-		case params.RemoveEnvUser:
-			err := c.api.stateAccessor.RemoveEnvironmentUser(user)
-			if err != nil {
-				err = errors.Annotate(err, "could not unshare environment")
-				result.Results[i].Error = common.ServerError(err)
-			}
-		default:
-			result.Results[i].Error = common.ServerError(errors.Errorf("unknown action %q", arg.Action))
-		}
-	}
-	return result, nil
+func modelInfo(st *state.State, user permission.UserAccess) (params.ModelUserInfo, error) {
+	return common.ModelUserInfo(user, st)
 }
 
-// EnvUserInfo returns information on all users in the environment.
-func (c *Client) EnvUserInfo() (params.EnvUserInfoResults, error) {
-	var results params.EnvUserInfoResults
-	env, err := c.api.stateAccessor.Environment()
+// ModelUserInfo returns information on all users in the model.
+func (c *Client) ModelUserInfo() (params.ModelUserInfoResults, error) {
+	var results params.ModelUserInfoResults
+	if err := c.checkCanRead(); err != nil {
+		return results, err
+	}
+
+	env, err := c.api.stateAccessor.Model()
 	if err != nil {
 		return results, errors.Trace(err)
 	}
@@ -664,172 +466,55 @@ func (c *Client) EnvUserInfo() (params.EnvUserInfoResults, error) {
 	}
 
 	for _, user := range users {
-		var lastConn *time.Time
-		userLastConn, err := user.LastConnection()
+		var result params.ModelUserInfoResult
+		userInfo, err := modelInfo(c.api.state(), user)
 		if err != nil {
-			if !state.IsNeverConnectedError(err) {
-				return results, errors.Trace(err)
-			}
+			result.Error = common.ServerError(err)
 		} else {
-			lastConn = &userLastConn
+			result.Result = &userInfo
 		}
-		results.Results = append(results.Results, params.EnvUserInfoResult{
-			Result: &params.EnvUserInfo{
-				UserName:       user.UserName(),
-				DisplayName:    user.DisplayName(),
-				CreatedBy:      user.CreatedBy(),
-				DateCreated:    user.DateCreated(),
-				LastConnection: lastConn,
-			},
-		})
+		results.Results = append(results.Results, result)
 	}
 	return results, nil
 }
 
-// GetAnnotations returns annotations about a given entity.
-// This API is now deprecated - "Annotations" client should be used instead.
-// TODO(anastasiamac) remove for Juju 2.x
-func (c *Client) GetAnnotations(args params.GetAnnotations) (params.GetAnnotationsResults, error) {
-	nothing := params.GetAnnotationsResults{}
-	tag, err := c.parseEntityTag(args.Tag)
-	if err != nil {
-		return nothing, errors.Trace(err)
-	}
-	entity, err := c.findEntity(tag)
-	if err != nil {
-		return nothing, errors.Trace(err)
-	}
-	ann, err := c.api.stateAccessor.Annotations(entity)
-	if err != nil {
-		return nothing, errors.Trace(err)
-	}
-	return params.GetAnnotationsResults{Annotations: ann}, nil
-}
-
-func (c *Client) parseEntityTag(tag0 string) (names.Tag, error) {
-	tag, err := names.ParseTag(tag0)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if tag.Kind() == names.CharmTagKind {
-		return nil, common.NotSupportedError(tag, "client.annotations")
-	}
-	return tag, nil
-}
-
-func (c *Client) findEntity(tag names.Tag) (state.GlobalEntity, error) {
-	entity0, err := c.api.stateAccessor.FindEntity(tag)
-	if err != nil {
-		return nil, err
-	}
-	entity, ok := entity0.(state.GlobalEntity)
-	if !ok {
-		return nil, common.NotSupportedError(tag, "annotations")
-	}
-	return entity, nil
-}
-
-// SetAnnotations stores annotations about a given entity.
-// This API is now deprecated - "Annotations" client should be used instead.
-// TODO(anastasiamac) remove for Juju 2.x
-func (c *Client) SetAnnotations(args params.SetAnnotations) error {
-	tag, err := c.parseEntityTag(args.Tag)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	entity, err := c.findEntity(tag)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return c.api.stateAccessor.SetAnnotations(entity, args.Pairs)
-}
-
 // AgentVersion returns the current version that the API server is running.
 func (c *Client) AgentVersion() (params.AgentVersionResult, error) {
-	return params.AgentVersionResult{Version: version.Current}, nil
+	if err := c.checkCanRead(); err != nil {
+		return params.AgentVersionResult{}, err
+	}
+
+	return params.AgentVersionResult{Version: jujuversion.Current}, nil
 }
 
-// EnvironmentGet implements the server-side part of the
-// get-environment CLI command.
-func (c *Client) EnvironmentGet() (params.EnvironmentConfigResults, error) {
-	result := params.EnvironmentConfigResults{}
-	// Get the existing environment config from the state.
-	config, err := c.api.stateAccessor.EnvironConfig()
-	if err != nil {
-		return result, err
+// SetModelAgentVersion sets the model agent version.
+func (c *Client) SetModelAgentVersion(args params.SetModelAgentVersion) error {
+	if err := c.checkCanWrite(); err != nil {
+		return err
 	}
-	result.Config = config.AllAttrs()
-	return result, nil
-}
 
-// EnvironmentSet implements the server-side part of the
-// set-environment CLI command.
-func (c *Client) EnvironmentSet(args params.EnvironmentSet) error {
-	if err := c.check.ChangeAllowed(); err != nil {
-		return errors.Trace(err)
-	}
-	// Make sure we don't allow changing agent-version.
-	checkAgentVersion := func(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) error {
-		if v, found := updateAttrs["agent-version"]; found {
-			oldVersion, _ := oldConfig.AgentVersion()
-			if v != oldVersion.String() {
-				return fmt.Errorf("agent-version cannot be changed")
-			}
-		}
-		return nil
-	}
-	// Replace any deprecated attributes with their new values.
-	attrs := config.ProcessDeprecatedAttributes(args.Config)
-	// TODO(waigani) 2014-3-11 #1167616
-	// Add a txn retry loop to ensure that the settings on disk have not
-	// changed underneath us.
-	return c.api.stateAccessor.UpdateEnvironConfig(attrs, nil, checkAgentVersion)
-}
-
-// EnvironmentUnset implements the server-side part of the
-// set-environment CLI command.
-func (c *Client) EnvironmentUnset(args params.EnvironmentUnset) error {
-	if err := c.check.ChangeAllowed(); err != nil {
-		return errors.Trace(err)
-	}
-	// TODO(waigani) 2014-3-11 #1167616
-	// Add a txn retry loop to ensure that the settings on disk have not
-	// changed underneath us.
-	return c.api.stateAccessor.UpdateEnvironConfig(nil, args.Keys, nil)
-}
-
-// SetEnvironAgentVersion sets the environment agent version.
-func (c *Client) SetEnvironAgentVersion(args params.SetEnvironAgentVersion) error {
 	if err := c.check.ChangeAllowed(); err != nil {
 		return errors.Trace(err)
 	}
 	// Before changing the agent version to trigger an upgrade or downgrade,
-	// we'll do a very basic check to ensure the
-	cfg, err := c.api.stateAccessor.EnvironConfig()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	env, err := getEnvironment(cfg)
+	// we'll do a very basic check to ensure the environment is accessible.
+	env, err := c.newEnviron()
 	if err != nil {
 		return errors.Trace(err)
 	}
 	if err := environs.CheckProviderAPI(env); err != nil {
 		return err
 	}
-	return c.api.stateAccessor.SetEnvironAgentVersion(args.Version)
-}
-
-var getEnvironment = func(cfg *config.Config) (environs.Environ, error) {
-	env, err := environs.New(cfg)
-	if err != nil {
-		return nil, err
-	}
-	return env, nil
+	return c.api.stateAccessor.SetModelAgentVersion(args.Version)
 }
 
 // AbortCurrentUpgrade aborts and archives the current upgrade
 // synchronisation record, if any.
 func (c *Client) AbortCurrentUpgrade() error {
+	if err := c.checkCanWrite(); err != nil {
+		return err
+	}
+
 	if err := c.check.ChangeAllowed(); err != nil {
 		return errors.Trace(err)
 	}
@@ -838,33 +523,54 @@ func (c *Client) AbortCurrentUpgrade() error {
 
 // FindTools returns a List containing all tools matching the given parameters.
 func (c *Client) FindTools(args params.FindToolsParams) (params.FindToolsResult, error) {
+	if err := c.checkCanWrite(); err != nil {
+		return params.FindToolsResult{}, err
+	}
+
 	return c.api.toolsFinder.FindTools(args)
 }
 
-func (c *Client) AddCharm(args params.CharmURL) error {
-	return service.AddCharmWithAuthorization(c.api.state(), params.AddCharmWithAuthorization{
-		URL: args.URL,
+func (c *Client) AddCharm(args params.AddCharm) error {
+	if err := c.checkCanWrite(); err != nil {
+		return err
+	}
+
+	return application.AddCharmWithAuthorization(c.api.state(), params.AddCharmWithAuthorization{
+		URL:     args.URL,
+		Channel: args.Channel,
 	})
 }
 
 // AddCharmWithAuthorization adds the given charm URL (which must include revision) to
-// the environment, if it does not exist yet. Local charms are not
+// the model, if it does not exist yet. Local charms are not
 // supported, only charm store URLs. See also AddLocalCharm().
 //
 // The authorization macaroon, args.CharmStoreMacaroon, may be
 // omitted, in which case this call is equivalent to AddCharm.
 func (c *Client) AddCharmWithAuthorization(args params.AddCharmWithAuthorization) error {
-	return service.AddCharmWithAuthorization(c.api.state(), args)
+	if err := c.checkCanWrite(); err != nil {
+		return err
+	}
+
+	return application.AddCharmWithAuthorization(c.api.state(), args)
 }
 
 // ResolveCharm resolves the best available charm URLs with series, for charm
 // locations without a series specified.
 func (c *Client) ResolveCharms(args params.ResolveCharms) (params.ResolveCharmResults, error) {
-	return service.ResolveCharms(c.api.state(), args)
+	if err := c.checkCanWrite(); err != nil {
+		return params.ResolveCharmResults{}, err
+	}
+
+	return application.ResolveCharms(c.api.state(), args)
 }
 
 // RetryProvisioning marks a provisioning error as transient on the machines.
 func (c *Client) RetryProvisioning(p params.Entities) (params.ErrorResults, error) {
+	if err := c.checkCanWrite(); err != nil {
+		return params.ErrorResults{}, err
+	}
+
 	if err := c.check.ChangeAllowed(); err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
@@ -879,37 +585,14 @@ func (c *Client) RetryProvisioning(p params.Entities) (params.ErrorResults, erro
 
 // APIHostPorts returns the API host/port addresses stored in state.
 func (c *Client) APIHostPorts() (result params.APIHostPortsResult, err error) {
+	if err := c.checkCanWrite(); err != nil {
+		return result, err
+	}
+
 	var servers [][]network.HostPort
 	if servers, err = c.api.stateAccessor.APIHostPorts(); err != nil {
 		return params.APIHostPortsResult{}, err
 	}
 	result.Servers = params.FromNetworkHostsPorts(servers)
 	return result, nil
-}
-
-// EnsureAvailability ensures the availability of Juju state servers.
-// DEPRECATED: remove when we stop supporting 1.20 and earlier clients.
-// This API is now on the HighAvailability facade.
-func (c *Client) EnsureAvailability(args params.StateServersSpecs) (params.StateServersChangeResults, error) {
-	if err := c.check.ChangeAllowed(); err != nil {
-		return params.StateServersChangeResults{}, errors.Trace(err)
-	}
-	results := params.StateServersChangeResults{Results: make([]params.StateServersChangeResult, len(args.Specs))}
-	for i, stateServersSpec := range args.Specs {
-		result, err := highavailability.EnsureAvailabilitySingle(c.api.state(), stateServersSpec)
-		results.Results[i].Result = result
-		results.Results[i].Error = common.ServerError(err)
-	}
-	return results, nil
-}
-
-// DestroyEnvironment will try to destroy the current environment.
-// If there is a block on destruction, this method will return an error.
-func (c *Client) DestroyEnvironment() (err error) {
-	if err := c.check.DestroyAllowed(); err != nil {
-		return errors.Trace(err)
-	}
-
-	environTag := c.api.stateAccessor.EnvironTag()
-	return errors.Trace(common.DestroyEnvironment(c.api.state(), environTag))
 }

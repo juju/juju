@@ -4,85 +4,112 @@
 package undertaker_test
 
 import (
-	"sync"
-	"time"
+	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
 
-	"github.com/juju/errors"
-
-	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/status"
+	"github.com/juju/juju/watcher"
+	"github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/undertaker"
+	"github.com/juju/juju/worker/workertest"
 )
 
-type clientEnviron struct {
-	Life                   state.Life
-	TimeOfDeath            *time.Time
-	UUID                   string
-	IsSystem               bool
-	HasMachinesAndServices bool
-	Removed                bool
+type mockFacade struct {
+	stub *testing.Stub
+	info params.UndertakerModelInfoResult
 }
 
-type mockClient struct {
-	calls       chan string
-	lock        sync.RWMutex
-	mockEnviron clientEnviron
-	watcher     watcher.NotifyWatcher
-}
-
-func (m *mockClient) mockCall(call string) {
-	m.calls <- call
-}
-
-func (m *mockClient) ProcessDyingEnviron() error {
-	defer m.mockCall("ProcessDyingEnviron")
-	if m.mockEnviron.HasMachinesAndServices {
-		return errors.Errorf("found documents for environment with uuid %s: 1 cleanups doc, 1 constraints doc, 1 envusers doc, 1 leases doc, 1 settings doc", m.mockEnviron.UUID)
+func (mock *mockFacade) ModelInfo() (params.UndertakerModelInfoResult, error) {
+	mock.stub.AddCall("ModelInfo")
+	if err := mock.stub.NextErr(); err != nil {
+		return params.UndertakerModelInfoResult{}, err
 	}
-	m.mockEnviron.Life = state.Dead
-	t := time.Now()
-	m.mockEnviron.TimeOfDeath = &t
-
-	return nil
+	return mock.info, nil
 }
 
-func (m *mockClient) RemoveEnviron() error {
-	defer m.mockCall("RemoveEnviron")
-	m.mockEnviron.Removed = true
-	return nil
-}
-
-func (m *mockClient) EnvironInfo() (params.UndertakerEnvironInfoResult, error) {
-	defer m.mockCall("EnvironInfo")
-	result := params.UndertakerEnvironInfo{
-		Life:        params.Life(m.mockEnviron.Life.String()),
-		UUID:        m.mockEnviron.UUID,
-		Name:        "dummy",
-		GlobalName:  "bob/dummy",
-		IsSystem:    m.mockEnviron.IsSystem,
-		TimeOfDeath: m.mockEnviron.TimeOfDeath,
+func (mock *mockFacade) WatchModelResources() (watcher.NotifyWatcher, error) {
+	mock.stub.AddCall("WatchModelResources")
+	if err := mock.stub.NextErr(); err != nil {
+		return nil, err
 	}
-	return params.UndertakerEnvironInfoResult{Result: result}, nil
+	const count = 5
+	changes := make(chan struct{}, count)
+	for i := 0; i < count; i++ {
+		changes <- struct{}{}
+	}
+	return &mockWatcher{
+		Worker:  workertest.NewErrorWorker(nil),
+		changes: changes,
+	}, nil
 }
 
-func (m *mockClient) WatchEnvironResources() (watcher.NotifyWatcher, error) {
-	return m.watcher, nil
+func (mock *mockFacade) ProcessDyingModel() error {
+	mock.stub.AddCall("ProcessDyingModel")
+	return mock.stub.NextErr()
 }
 
-type mockEnvironResourceWatcher struct {
-	events chan struct{}
-	err    error
+func (mock *mockFacade) SetStatus(status status.Status, info string, data map[string]interface{}) error {
+	mock.stub.MethodCall(mock, "SetStatus", status, info, data)
+	return mock.stub.NextErr()
 }
 
-func (w *mockEnvironResourceWatcher) Changes() <-chan struct{} {
-	return w.events
+func (mock *mockFacade) RemoveModel() error {
+	mock.stub.AddCall("RemoveModel")
+	return mock.stub.NextErr()
 }
 
-func (w *mockEnvironResourceWatcher) Err() error {
-	return w.err
+type mockEnviron struct {
+	environs.Environ
+	stub *testing.Stub
 }
 
-func (w *mockEnvironResourceWatcher) Stop() error {
-	close(w.events)
-	return nil
+func (mock *mockEnviron) Destroy() error {
+	mock.stub.AddCall("Destroy")
+	return mock.stub.NextErr()
+}
+
+type mockWatcher struct {
+	worker.Worker
+	changes chan struct{}
+}
+
+func (mock *mockWatcher) Changes() watcher.NotifyChannel {
+	return mock.changes
+}
+
+type fixture struct {
+	info   params.UndertakerModelInfoResult
+	errors []error
+	dirty  bool
+}
+
+func (fix fixture) cleanup(c *gc.C, w worker.Worker) {
+	if fix.dirty {
+		workertest.DirtyKill(c, w)
+	} else {
+		workertest.CleanKill(c, w)
+	}
+}
+
+func (fix fixture) run(c *gc.C, test func(worker.Worker)) *testing.Stub {
+	stub := &testing.Stub{}
+	environ := &mockEnviron{
+		stub: stub,
+	}
+	facade := &mockFacade{
+		stub: stub,
+		info: fix.info,
+	}
+	stub.SetErrors(fix.errors...)
+	w, err := undertaker.NewUndertaker(undertaker.Config{
+		Facade:  facade,
+		Environ: environ,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	defer fix.cleanup(c, w)
+	test(w)
+	return stub
 }

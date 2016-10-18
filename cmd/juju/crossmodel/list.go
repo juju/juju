@@ -8,11 +8,11 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 	"gopkg.in/juju/charm.v6-unstable"
-	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/cmd/envcmd"
-	"github.com/juju/juju/model/crossmodel"
+	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/crossmodel"
 )
 
 const listCommandDoc = `
@@ -59,7 +59,7 @@ type listCommand struct {
 
 	newAPIFunc func() (ListAPI, error)
 
-	filters []crossmodel.OfferedServiceFilter
+	filters []crossmodel.OfferedApplicationFilter
 }
 
 // NewListEndpointsCommand constructs new list endpoint command.
@@ -68,7 +68,7 @@ func NewListEndpointsCommand() cmd.Command {
 	listCmd.newAPIFunc = func() (ListAPI, error) {
 		return listCmd.NewCrossModelAPI()
 	}
-	return envcmd.Wrap(listCmd)
+	return modelcmd.Wrap(listCmd)
 }
 
 // Init implements Command.Init.
@@ -81,7 +81,7 @@ func (c *listCommand) Init(args []string) (err error) {
 func (c *listCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "list-offers",
-		Purpose: "lists shared endpoints",
+		Purpose: "Lists shared endpoints",
 		Doc:     listCommandDoc,
 	}
 }
@@ -107,14 +107,14 @@ func (c *listCommand) Run(ctx *cmd.Context) (err error) {
 	defer api.Close()
 
 	// TODO (anastasiamac 2015-11-17) add input filters
-	offeredServices, err := api.ListOffers(c.filters...)
+	offeredApplications, err := api.ListOffers(c.filters...)
 	if err != nil {
 		return err
 	}
 
 	// Filter out valid output, if any...
-	valid := []crossmodel.OfferedServiceDetails{}
-	for _, service := range offeredServices {
+	valid := []crossmodel.OfferedApplicationDetails{}
+	for _, service := range offeredApplications {
 		if service.Error != nil {
 			fmt.Fprintf(ctx.Stderr, "%v\n", service.Error)
 			continue
@@ -127,7 +127,7 @@ func (c *listCommand) Run(ctx *cmd.Context) (err error) {
 		return nil
 	}
 
-	data, err := formatOfferedServiceDetails(valid)
+	data, err := formatOfferedApplicationDetails(valid)
 	if err != nil {
 		return errors.Annotate(err, "failed to format found services")
 	}
@@ -138,7 +138,7 @@ func (c *listCommand) Run(ctx *cmd.Context) (err error) {
 // ListAPI defines the API methods that list endpoints command use.
 type ListAPI interface {
 	Close() error
-	ListOffers(filters ...crossmodel.OfferedServiceFilter) ([]crossmodel.OfferedServiceDetailsResult, error)
+	ListOffers(filters ...crossmodel.OfferedApplicationFilter) ([]crossmodel.OfferedApplicationDetailsResult, error)
 }
 
 // ListServiceItem defines the serialization behaviour of a service item in endpoints list.
@@ -159,12 +159,12 @@ type ListServiceItem struct {
 	Endpoints map[string]RemoteEndpoint `yaml:"endpoints" json:"endpoints"`
 }
 
-type directoryServices map[string]ListServiceItem
+type directoryApplications map[string]ListServiceItem
 
-func formatOfferedServiceDetails(all []crossmodel.OfferedServiceDetails) (map[string]directoryServices, error) {
-	directories := make(map[string]directoryServices)
+func formatOfferedApplicationDetails(all []crossmodel.OfferedApplicationDetails) (map[string]directoryApplications, error) {
+	directories := make(map[string]directoryApplications)
 	for _, one := range all {
-		url, err := crossmodel.ParseServiceURL(one.ServiceURL)
+		url, err := crossmodel.ParseApplicationURL(one.ApplicationURL)
 		if err != nil {
 			return nil, err
 		}
@@ -172,24 +172,24 @@ func formatOfferedServiceDetails(all []crossmodel.OfferedServiceDetails) (map[st
 		// Get services for this directory.
 		servicesMap, ok := directories[url.Directory]
 		if !ok {
-			servicesMap = make(directoryServices)
+			servicesMap = make(directoryApplications)
 			directories[url.Directory] = servicesMap
 		}
 
 		// Store services by name.
-		servicesMap[url.ServiceName] = convertServiceToListItem(url, one)
+		servicesMap[url.ApplicationName] = convertServiceToListItem(url, one)
 	}
 	return directories, nil
 }
 
-func convertServiceToListItem(url *crossmodel.ServiceURL, service crossmodel.OfferedServiceDetails) ListServiceItem {
+func convertServiceToListItem(url *crossmodel.ApplicationURL, service crossmodel.OfferedApplicationDetails) ListServiceItem {
 	item := ListServiceItem{
 		CharmName: service.CharmName,
 		// TODO (anastasiamac 2-15-11-20) what is the difference between store and directory.
 		// At this stage, the distinction is unclear apart from strong desire to call "directory" "store".
 		Store: url.Directory,
 		// Location is the suffix of the service's url, the part after "<directory name>:".
-		Location:   service.ServiceURL[len(url.Directory)+1:],
+		Location:   service.ApplicationURL[len(url.Directory)+1:],
 		UsersCount: service.ConnectedCount,
 		Endpoints:  convertCharmEndpoints(service.Endpoints...),
 	}

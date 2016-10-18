@@ -5,7 +5,6 @@ package ec2_test
 
 import (
 	"fmt"
-	"net"
 	"regexp"
 	"sort"
 	"strconv"
@@ -15,51 +14,45 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
+	"github.com/juju/utils/clock"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
 	"github.com/juju/utils/ssh"
 	"gopkg.in/amz.v3/aws"
 	amzec2 "gopkg.in/amz.v3/ec2"
 	"gopkg.in/amz.v3/ec2/ec2test"
-	"gopkg.in/amz.v3/s3/s3test"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 	goyaml "gopkg.in/yaml.v2"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/environs/imagemetadata"
 	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
 	"github.com/juju/juju/environs/jujutest"
 	"github.com/juju/juju/environs/simplestreams"
+	sstesting "github.com/juju/juju/environs/simplestreams/testing"
+	"github.com/juju/juju/environs/tags"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/environs/tools"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju/keys"
 	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/ec2"
+	"github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
-type ProviderSuite struct {
-	coretesting.BaseSuite
-}
-
-var _ = gc.Suite(&ProviderSuite{})
-
 var localConfigAttrs = coretesting.FakeConfig().Merge(coretesting.Attrs{
-	"name":           "sample",
-	"type":           "ec2",
-	"region":         "test",
-	"control-bucket": "test-bucket",
-	"access-key":     "x",
-	"secret-key":     "x",
-	"agent-version":  coretesting.FakeVersionNumber.String(),
+	"name":          "sample",
+	"type":          "ec2",
+	"agent-version": coretesting.FakeVersionNumber.String(),
 })
 
 func registerLocalTests() {
@@ -78,26 +71,40 @@ func registerLocalTests() {
 // EC2 server that runs within the test process itself.
 type localLiveSuite struct {
 	LiveTests
-	srv                localServer
-	restoreEC2Patching func()
+	srv localServer
 }
 
 func (t *localLiveSuite) SetUpSuite(c *gc.C) {
+	t.LiveTests.SetUpSuite(c)
+	t.Credential = cloud.NewCredential(
+		cloud.AccessKeyAuthType,
+		map[string]string{
+			"access-key": "x",
+			"secret-key": "x",
+		},
+	)
+
 	// Upload arches that ec2 supports; add to this
 	// as ec2 coverage expands.
 	t.UploadArches = []string{arch.AMD64, arch.I386}
 	t.TestConfig = localConfigAttrs
-	t.restoreEC2Patching = patchEC2ForTesting()
 	imagetesting.PatchOfficialDataSources(&t.BaseSuite.CleanupSuite, "test:")
+	t.BaseSuite.PatchValue(&imagemetadata.SimplestreamsImagesPublicKey, sstesting.SignedMetadataPublicKey)
+	t.BaseSuite.PatchValue(&keys.JujuPublicKey, sstesting.SignedMetadataPublicKey)
+	t.BaseSuite.PatchValue(ec2.DeleteSecurityGroupInsistently, deleteSecurityGroupForTestFunc)
 	t.srv.createRootDisks = true
 	t.srv.startServer(c)
-	t.LiveTests.SetUpSuite(c)
+
+	region := t.srv.region()
+	t.CloudRegion = region.Name
+	t.CloudEndpoint = region.EC2Endpoint
+	restoreEC2Patching := patchEC2ForTesting(c, region)
+	t.BaseSuite.AddCleanup(func(c *gc.C) { restoreEC2Patching() })
 }
 
 func (t *localLiveSuite) TearDownSuite(c *gc.C) {
 	t.LiveTests.TearDownSuite(c)
 	t.srv.stopServer(c)
-	t.restoreEC2Patching()
 }
 
 // localServer represents a fake EC2 server running within
@@ -109,8 +116,9 @@ type localServer struct {
 	createRootDisks bool
 
 	ec2srv *ec2test.Server
-	s3srv  *s3test.Server
-	config *s3test.Config
+
+	defaultVPC *amzec2.VPC
+	zones      []amzec2.AvailabilityZoneInfo
 }
 
 func (srv *localServer) startServer(c *gc.C) {
@@ -120,30 +128,39 @@ func (srv *localServer) startServer(c *gc.C) {
 		c.Fatalf("cannot start ec2 test server: %v", err)
 	}
 	srv.ec2srv.SetCreateRootDisks(srv.createRootDisks)
-	srv.s3srv, err = s3test.NewServer(srv.config)
-	if err != nil {
-		c.Fatalf("cannot start s3 test server: %v", err)
-	}
-	aws.Regions["test"] = aws.Region{
-		Name:                 "test",
-		EC2Endpoint:          srv.ec2srv.URL(),
-		S3Endpoint:           srv.s3srv.URL(),
-		S3LocationConstraint: true,
-	}
 	srv.addSpice(c)
 
+	region := srv.region()
+
 	zones := make([]amzec2.AvailabilityZoneInfo, 3)
-	zones[0].Region = "test"
-	zones[0].Name = "test-available"
+	zones[0].Region = region.Name
+	zones[0].Name = region.Name + "-available"
 	zones[0].State = "available"
-	zones[1].Region = "test"
-	zones[1].Name = "test-impaired"
+	zones[1].Region = region.Name
+	zones[1].Name = region.Name + "-impaired"
 	zones[1].State = "impaired"
-	zones[2].Region = "test"
-	zones[2].Name = "test-unavailable"
+	zones[2].Region = region.Name
+	zones[2].Name = region.Name + "-unavailable"
 	zones[2].State = "unavailable"
 	srv.ec2srv.SetAvailabilityZones(zones)
 	srv.ec2srv.SetInitialInstanceState(ec2test.Pending)
+	srv.zones = zones
+
+	defaultVPC, err := srv.ec2srv.AddDefaultVPCAndSubnets()
+	c.Assert(err, jc.ErrorIsNil)
+	srv.defaultVPC = &defaultVPC
+}
+
+func (srv *localServer) client() *amzec2.EC2 {
+	region := srv.region()
+	return amzec2.New(aws.Auth{}, region, aws.SignV4Factory(region.Name, "ec2"))
+}
+
+func (srv *localServer) region() aws.Region {
+	return aws.Region{
+		Name:        "test",
+		EC2Endpoint: srv.ec2srv.URL(),
+	}
 }
 
 // addSpice adds some "spice" to the local server
@@ -160,11 +177,9 @@ func (srv *localServer) addSpice(c *gc.C) {
 }
 
 func (srv *localServer) stopServer(c *gc.C) {
+	srv.ec2srv.Reset(false)
 	srv.ec2srv.Quit()
-	srv.s3srv.Quit()
-	// Clear out the region because the server address is
-	// no longer valid.
-	delete(aws.Regions, "test")
+	srv.defaultVPC = nil
 }
 
 // localServerSuite contains tests that run against a fake EC2 server
@@ -176,32 +191,54 @@ func (srv *localServer) stopServer(c *gc.C) {
 type localServerSuite struct {
 	coretesting.BaseSuite
 	jujutest.Tests
-	srv                localServer
-	restoreEC2Patching func()
+	srv    localServer
+	client *amzec2.EC2
 }
 
 func (t *localServerSuite) SetUpSuite(c *gc.C) {
+	t.BaseSuite.SetUpSuite(c)
+	t.Credential = cloud.NewCredential(
+		cloud.AccessKeyAuthType,
+		map[string]string{
+			"access-key": "x",
+			"secret-key": "x",
+		},
+	)
+
 	// Upload arches that ec2 supports; add to this
 	// as ec2 coverage expands.
 	t.UploadArches = []string{arch.AMD64, arch.I386}
 	t.TestConfig = localConfigAttrs
-	t.restoreEC2Patching = patchEC2ForTesting()
-	t.BaseSuite.SetUpSuite(c)
+	imagetesting.PatchOfficialDataSources(&t.BaseSuite.CleanupSuite, "test:")
+	t.BaseSuite.PatchValue(&imagemetadata.SimplestreamsImagesPublicKey, sstesting.SignedMetadataPublicKey)
+	t.BaseSuite.PatchValue(&keys.JujuPublicKey, sstesting.SignedMetadataPublicKey)
+	t.BaseSuite.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
+	t.BaseSuite.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
+	t.BaseSuite.PatchValue(&series.HostSeries, func() string { return series.LatestLts() })
+	t.BaseSuite.PatchValue(ec2.DeleteSecurityGroupInsistently, deleteSecurityGroupForTestFunc)
 	t.srv.createRootDisks = true
+	t.srv.startServer(c)
+	// TODO(jam) I don't understand why we shouldn't do this.
+	// t.Tests embeds the sstesting.TestDataSuite, but if we call this
+	// SetUpSuite, then all of the tests fail because they go to access
+	// "test:/streams/..." and it isn't found
+	// t.Tests.SetUpSuite(c)
 }
 
 func (t *localServerSuite) TearDownSuite(c *gc.C) {
+	t.Tests.TearDownSuite(c)
 	t.BaseSuite.TearDownSuite(c)
-	t.restoreEC2Patching()
 }
 
 func (t *localServerSuite) SetUpTest(c *gc.C) {
-	t.BaseSuite.PatchValue(&version.Current, coretesting.FakeVersionNumber)
-	t.BaseSuite.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
-	t.BaseSuite.PatchValue(&series.HostSeries, func() string { return coretesting.FakeDefaultSeries })
 	t.BaseSuite.SetUpTest(c)
-	t.SetFeatureFlags(feature.AddressAllocation)
 	t.srv.startServer(c)
+	region := t.srv.region()
+	t.CloudRegion = region.Name
+	t.CloudEndpoint = region.EC2Endpoint
+	t.client = t.srv.client()
+	restoreEC2Patching := patchEC2ForTesting(c, region)
+	t.AddCleanup(func(c *gc.C) { restoreEC2Patching() })
 	t.Tests.SetUpTest(c)
 }
 
@@ -218,13 +255,99 @@ func (t *localServerSuite) prepareEnviron(c *gc.C) environs.NetworkingEnviron {
 	return netenv
 }
 
-func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
+func (t *localServerSuite) TestPrepareForBootstrapWithInvalidVPCID(c *gc.C) {
+	badVPCIDConfig := coretesting.Attrs{"vpc-id": "bad"}
+
+	expectedError := `invalid EC2 provider config: vpc-id: "bad" is not a valid AWS VPC ID`
+	t.AssertPrepareFailsWithConfig(c, badVPCIDConfig, expectedError)
+}
+
+func (t *localServerSuite) TestPrepareForBootstrapWithUnknownVPCID(c *gc.C) {
+	unknownVPCIDConfig := coretesting.Attrs{"vpc-id": "vpc-unknown"}
+
+	expectedError := `Juju cannot use the given vpc-id for bootstrapping(.|\n)*Error details: VPC "vpc-unknown" not found`
+	err := t.AssertPrepareFailsWithConfig(c, unknownVPCIDConfig, expectedError)
+	c.Check(err, jc.Satisfies, ec2.IsVPCNotUsableError)
+}
+
+func (t *localServerSuite) TestPrepareForBootstrapWithNotRecommendedVPCID(c *gc.C) {
+	t.makeTestingDefaultVPCUnavailable(c)
+	notRecommendedVPCIDConfig := coretesting.Attrs{"vpc-id": t.srv.defaultVPC.Id}
+
+	expectedError := `The given vpc-id does not meet one or more(.|\n)*Error details: VPC has unexpected state "unavailable"`
+	err := t.AssertPrepareFailsWithConfig(c, notRecommendedVPCIDConfig, expectedError)
+	c.Check(err, jc.Satisfies, ec2.IsVPCNotRecommendedError)
+}
+
+func (t *localServerSuite) makeTestingDefaultVPCUnavailable(c *gc.C) {
+	// For simplicity, here the test server's default VPC is updated to change
+	// its state to unavailable, we just verify the behavior of a "not
+	// recommended VPC".
+	t.srv.defaultVPC.State = "unavailable"
+	err := t.srv.ec2srv.UpdateVPC(*t.srv.defaultVPC)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (t *localServerSuite) TestPrepareForBootstrapWithNotRecommendedButForcedVPCID(c *gc.C) {
+	t.makeTestingDefaultVPCUnavailable(c)
+	params := t.PrepareParams(c)
+	params.ModelConfig["vpc-id"] = t.srv.defaultVPC.Id
+	params.ModelConfig["vpc-id-force"] = true
+
+	t.prepareWithParamsAndBootstrapWithVPCID(c, params, t.srv.defaultVPC.Id)
+}
+
+func (t *localServerSuite) TestPrepareForBootstrapWithEmptyVPCID(c *gc.C) {
+	const emptyVPCID = ""
+
+	params := t.PrepareParams(c)
+	params.ModelConfig["vpc-id"] = emptyVPCID
+
+	t.prepareWithParamsAndBootstrapWithVPCID(c, params, emptyVPCID)
+}
+
+func (t *localServerSuite) prepareWithParamsAndBootstrapWithVPCID(c *gc.C, params bootstrap.PrepareParams, expectedVPCID string) {
+	env := t.PrepareWithParams(c, params)
+	unknownAttrs := env.Config().UnknownAttrs()
+	vpcID, ok := unknownAttrs["vpc-id"]
+	c.Check(vpcID, gc.Equals, expectedVPCID)
+	c.Check(ok, jc.IsTrue)
+
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		AdminSecret:      testing.AdminSecret,
+		CAPrivateKey:     coretesting.CAKey,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (t *localServerSuite) TestPrepareForBootstrapWithVPCIDNone(c *gc.C) {
+	params := t.PrepareParams(c)
+	params.ModelConfig["vpc-id"] = "none"
+
+	t.prepareWithParamsAndBootstrapWithVPCID(c, params, ec2.VPCIDNone)
+}
+
+func (t *localServerSuite) TestPrepareForBootstrapWithDefaultVPCID(c *gc.C) {
+	params := t.PrepareParams(c)
+	params.ModelConfig["vpc-id"] = t.srv.defaultVPC.Id
+
+	t.prepareWithParamsAndBootstrapWithVPCID(c, params, t.srv.defaultVPC.Id)
+}
+
+func (t *localServerSuite) TestSystemdBootstrapInstanceUserDataAndState(c *gc.C) {
 	env := t.Prepare(c)
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		// TODO(redir): BBB: When we no longer support upstart based systems this can change to series.LatestLts()
+		BootstrapSeries: "xenial",
+		AdminSecret:     testing.AdminSecret,
+		CAPrivateKey:    coretesting.CAKey,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	// check that StateServerInstances returns the id of the bootstrap machine.
-	instanceIds, err := env.StateServerInstances()
+	// check that ControllerInstances returns the id of the bootstrap machine.
+	instanceIds, err := env.ControllerInstances(t.ControllerUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(instanceIds, gc.HasLen, 1)
 
@@ -233,11 +356,95 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	c.Assert(insts, gc.HasLen, 1)
 	c.Check(insts[0].Id(), gc.Equals, instanceIds[0])
 
-	// check that the user data is configured to start zookeeper
-	// and the machine and provisioning agents.
-	// check that the user data is configured to only configure
-	// authorized SSH keys and set the log output; everything
-	// else happens after the machine is brought up.
+	// check that the user data is configured to and the machine and
+	// provisioning agents.  check that the user data is configured to only
+	// configure authorized SSH keys and set the log output; everything else
+	// happens after the machine is brought up.
+	inst := t.srv.ec2srv.Instance(string(insts[0].Id()))
+	c.Assert(inst, gc.NotNil)
+	addresses, err := insts[0].Addresses()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(addresses, gc.Not(gc.HasLen), 0)
+	userData, err := utils.Gunzip(inst.UserData)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(string(userData), jc.YAMLEquals, map[interface{}]interface{}{
+		"output": map[interface{}]interface{}{
+			"all": "| tee -a /var/log/cloud-init-output.log",
+		},
+		"users": []interface{}{
+			map[interface{}]interface{}{
+				"name":        "ubuntu",
+				"lock_passwd": true,
+				"groups": []interface{}{"adm", "audio",
+					"cdrom", "dialout", "dip", "floppy",
+					"netdev", "plugdev", "sudo", "video"},
+				"shell":               "/bin/bash",
+				"sudo":                []interface{}{"ALL=(ALL) NOPASSWD:ALL"},
+				"ssh-authorized-keys": splitAuthKeys(env.Config().AuthorizedKeys()),
+			},
+		},
+		"runcmd": []interface{}{
+			"set -xe",
+			"install -D -m 644 /dev/null '/etc/systemd/system/juju-clean-shutdown.service'",
+			"printf '%s\\n' '\n[Unit]\nDescription=Stop all network interfaces on shutdown\nDefaultDependencies=false\nAfter=final.target\n\n[Service]\nType=oneshot\nExecStart=/sbin/ifdown -a -v --force\nStandardOutput=tty\nStandardError=tty\n\n[Install]\nWantedBy=final.target\n' > '/etc/systemd/system/juju-clean-shutdown.service'", "/bin/systemctl enable '/etc/systemd/system/juju-clean-shutdown.service'",
+			"install -D -m 644 /dev/null '/var/lib/juju/nonce.txt'",
+			"printf '%s\\n' 'user-admin:bootstrap' > '/var/lib/juju/nonce.txt'",
+		},
+	})
+
+	// check that a new instance will be started with a machine agent
+	inst1, hc := testing.AssertStartInstance(c, env, t.ControllerUUID, "1")
+	c.Check(*hc.Arch, gc.Equals, "amd64")
+	c.Check(*hc.Mem, gc.Equals, uint64(3.75*1024))
+	c.Check(*hc.CpuCores, gc.Equals, uint64(1))
+	inst = t.srv.ec2srv.Instance(string(inst1.Id()))
+	c.Assert(inst, gc.NotNil)
+	userData, err = utils.Gunzip(inst.UserData)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Logf("second instance: UserData: %q", userData)
+	var userDataMap map[interface{}]interface{}
+	err = goyaml.Unmarshal(userData, &userDataMap)
+	c.Assert(err, jc.ErrorIsNil)
+	CheckPackage(c, userDataMap, "curl", true)
+	CheckPackage(c, userDataMap, "mongodb-server", false)
+	CheckScripts(c, userDataMap, "jujud bootstrap-state", false)
+	CheckScripts(c, userDataMap, "/var/lib/juju/agents/machine-1/agent.conf", true)
+	// TODO check for provisioning agent
+
+	err = env.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = env.ControllerInstances(t.ControllerUUID)
+	c.Assert(err, gc.Equals, environs.ErrNotBootstrapped)
+}
+
+// TestUpstartBoostrapInstanceUserDataAndState is a test for legacy systems
+// using upstart which will be around until trusty is no longer supported.
+// TODO(redir): BBB: remove when trusty is no longer supported
+func (t *localServerSuite) TestUpstartBootstrapInstanceUserDataAndState(c *gc.C) {
+	env := t.Prepare(c)
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		BootstrapSeries:  "trusty",
+		AdminSecret:      testing.AdminSecret,
+		CAPrivateKey:     coretesting.CAKey,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// check that ControllerInstances returns the id of the bootstrap machine.
+	instanceIds, err := env.ControllerInstances(t.ControllerUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(instanceIds, gc.HasLen, 1)
+
+	insts, err := env.AllInstances()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(insts, gc.HasLen, 1)
+	c.Check(insts[0].Id(), gc.Equals, instanceIds[0])
+
+	// check that the user data is configured to and the machine and
+	// provisioning agents.  check that the user data is configured to only
+	// configure authorized SSH keys and set the log output; everything else
+	// happens after the machine is brought up.
 	inst := t.srv.ec2srv.Instance(string(insts[0].Id()))
 	c.Assert(inst, gc.NotNil)
 	addresses, err := insts[0].Addresses()
@@ -271,11 +478,10 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	})
 
 	// check that a new instance will be started with a machine agent
-	inst1, hc := testing.AssertStartInstance(c, env, "1")
+	inst1, hc := testing.AssertStartInstance(c, env, t.ControllerUUID, "1")
 	c.Check(*hc.Arch, gc.Equals, "amd64")
-	c.Check(*hc.Mem, gc.Equals, uint64(3840))
+	c.Check(*hc.Mem, gc.Equals, uint64(3.75*1024))
 	c.Check(*hc.CpuCores, gc.Equals, uint64(1))
-	c.Assert(*hc.CpuPower, gc.Equals, uint64(300))
 	inst = t.srv.ec2srv.Instance(string(inst1.Id()))
 	c.Assert(inst, gc.NotNil)
 	userData, err = utils.Gunzip(inst.UserData)
@@ -293,8 +499,207 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	err = env.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = env.StateServerInstances()
+	_, err = env.ControllerInstances(t.ControllerUUID)
 	c.Assert(err, gc.Equals, environs.ErrNotBootstrapped)
+}
+
+func (t *localServerSuite) TestTerminateInstancesIgnoresNotFound(c *gc.C) {
+	env := t.Prepare(c)
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		AdminSecret:      testing.AdminSecret,
+		CAPrivateKey:     coretesting.CAKey,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	t.BaseSuite.PatchValue(ec2.DeleteSecurityGroupInsistently, deleteSecurityGroupForTestFunc)
+	insts, err := env.AllInstances()
+	c.Assert(err, jc.ErrorIsNil)
+	idsToStop := make([]instance.Id, len(insts)+1)
+	for i, one := range insts {
+		idsToStop[i] = one.Id()
+	}
+	idsToStop[len(insts)] = instance.Id("i-am-not-found")
+
+	err = env.StopInstances(idsToStop...)
+	// NotFound should be ignored
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (t *localServerSuite) TestDestroyErr(c *gc.C) {
+	env := t.prepareAndBootstrap(c)
+
+	msg := "terminate instances error"
+	t.BaseSuite.PatchValue(ec2.TerminateInstancesById, func(ec2inst *amzec2.EC2, ids ...instance.Id) (*amzec2.TerminateInstancesResp, error) {
+		return nil, errors.New(msg)
+	})
+
+	err := env.Destroy()
+	c.Assert(errors.Cause(err).Error(), jc.Contains, msg)
+}
+
+func (t *localServerSuite) TestGetTerminatedInstances(c *gc.C) {
+	env := t.Prepare(c)
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		AdminSecret:      testing.AdminSecret,
+		CAPrivateKey:     coretesting.CAKey,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// create another instance to terminate
+	inst1, _ := testing.AssertStartInstance(c, env, t.ControllerUUID, "1")
+	inst := t.srv.ec2srv.Instance(string(inst1.Id()))
+	c.Assert(inst, gc.NotNil)
+	t.BaseSuite.PatchValue(ec2.TerminateInstancesById, func(ec2inst *amzec2.EC2, ids ...instance.Id) (*amzec2.TerminateInstancesResp, error) {
+		// Terminate the one destined for termination and
+		// err out to ensure that one instance will be terminated, the other - not.
+		_, err = ec2inst.TerminateInstances([]string{string(inst1.Id())})
+		c.Assert(err, jc.ErrorIsNil)
+		return nil, errors.New("terminate instances error")
+	})
+	err = env.Destroy()
+	c.Assert(err, gc.NotNil)
+
+	terminated, err := ec2.TerminatedInstances(env)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(terminated, gc.HasLen, 1)
+	c.Assert(terminated[0].Id(), jc.DeepEquals, inst1.Id())
+}
+
+func (t *localServerSuite) TestInstanceSecurityGroupsWitheInstanceStatusFilter(c *gc.C) {
+	env := t.prepareAndBootstrap(c)
+
+	insts, err := env.AllInstances()
+	c.Assert(err, jc.ErrorIsNil)
+	ids := make([]instance.Id, len(insts))
+	for i, one := range insts {
+		ids[i] = one.Id()
+	}
+
+	groupsNoInstanceFilter, err := ec2.InstanceSecurityGroups(env, ids)
+	c.Assert(err, jc.ErrorIsNil)
+	// get all security groups for test instances
+	c.Assert(groupsNoInstanceFilter, gc.HasLen, 2)
+
+	groupsFilteredForTerminatedInstances, err := ec2.InstanceSecurityGroups(env, ids, "shutting-down", "terminated")
+	c.Assert(err, jc.ErrorIsNil)
+	// get all security groups for terminated test instances
+	c.Assert(groupsFilteredForTerminatedInstances, gc.HasLen, 0)
+}
+
+func (t *localServerSuite) TestDestroyControllerModelDeleteSecurityGroupInsistentlyError(c *gc.C) {
+	env := t.prepareAndBootstrap(c)
+	msg := "destroy security group error"
+	t.BaseSuite.PatchValue(ec2.DeleteSecurityGroupInsistently, func(
+		ec2.SecurityGroupCleaner, amzec2.SecurityGroup, clock.Clock,
+	) error {
+		return errors.New(msg)
+	})
+	err := env.DestroyController(t.ControllerUUID)
+	c.Assert(err, gc.ErrorMatches, "destroying managed environs: cannot delete security group .*: "+msg)
+}
+
+func (t *localServerSuite) TestDestroyHostedModelDeleteSecurityGroupInsistentlyError(c *gc.C) {
+	env := t.prepareAndBootstrap(c)
+	hostedEnv, err := environs.New(environs.OpenParams{
+		Cloud:  t.CloudSpec(),
+		Config: env.Config(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	msg := "destroy security group error"
+	t.BaseSuite.PatchValue(ec2.DeleteSecurityGroupInsistently, func(
+		ec2.SecurityGroupCleaner, amzec2.SecurityGroup, clock.Clock,
+	) error {
+		return errors.New(msg)
+	})
+	err = hostedEnv.Destroy()
+	c.Assert(err, gc.ErrorMatches, "cannot delete environment security groups: cannot delete default security group: "+msg)
+}
+
+func (t *localServerSuite) TestDestroyControllerDestroysHostedModelResources(c *gc.C) {
+	controllerEnv := t.prepareAndBootstrap(c)
+
+	// Create a hosted model environment with an instance and a volume.
+	hostedModelUUID := "7e386e08-cba7-44a4-a76e-7c1633584210"
+	t.srv.ec2srv.SetInitialInstanceState(ec2test.Running)
+	cfg, err := controllerEnv.Config().Apply(map[string]interface{}{
+		"uuid":          hostedModelUUID,
+		"firewall-mode": "global",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	env, err := environs.New(environs.OpenParams{
+		Cloud:  t.CloudSpec(),
+		Config: cfg,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	inst, _ := testing.AssertStartInstance(c, env, t.ControllerUUID, "0")
+	c.Assert(err, jc.ErrorIsNil)
+	ebsProvider, err := env.StorageProvider(ec2.EBS_ProviderType)
+	c.Assert(err, jc.ErrorIsNil)
+	vs, err := ebsProvider.VolumeSource(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	volumeResults, err := vs.CreateVolumes([]storage.VolumeParams{{
+		Tag:      names.NewVolumeTag("0"),
+		Size:     1024,
+		Provider: ec2.EBS_ProviderType,
+		ResourceTags: map[string]string{
+			tags.JujuController: t.ControllerUUID,
+			tags.JujuModel:      hostedModelUUID,
+		},
+		Attachment: &storage.VolumeAttachmentParams{
+			AttachmentParams: storage.AttachmentParams{
+				InstanceId: inst.Id(),
+			},
+		},
+	}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(volumeResults, gc.HasLen, 1)
+	c.Assert(volumeResults[0].Error, jc.ErrorIsNil)
+
+	assertInstances := func(expect ...instance.Id) {
+		insts, err := env.AllInstances()
+		c.Assert(err, jc.ErrorIsNil)
+		ids := make([]instance.Id, len(insts))
+		for i, inst := range insts {
+			ids[i] = inst.Id()
+		}
+		c.Assert(ids, jc.SameContents, expect)
+	}
+	assertVolumes := func(expect ...string) {
+		volIds, err := vs.ListVolumes()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(volIds, jc.SameContents, expect)
+	}
+	assertGroups := func(expect ...string) {
+		groupsResp, err := t.client.SecurityGroups(nil, nil)
+		c.Assert(err, jc.ErrorIsNil)
+		names := make([]string, len(groupsResp.Groups))
+		for i, group := range groupsResp.Groups {
+			names[i] = group.Name
+		}
+		c.Assert(names, jc.SameContents, expect)
+	}
+
+	assertInstances(inst.Id())
+	assertVolumes(volumeResults[0].Volume.VolumeId)
+	assertGroups(
+		"default",
+		"juju-"+controllerEnv.Config().UUID(),
+		"juju-"+controllerEnv.Config().UUID()+"-0",
+		"juju-"+hostedModelUUID,
+		"juju-"+hostedModelUUID+"-global",
+	)
+
+	// Destroy the controller resources. This should destroy the hosted
+	// environment too.
+	err = controllerEnv.DestroyController(t.ControllerUUID)
+	c.Assert(err, jc.ErrorIsNil)
+
+	assertInstances()
+	assertVolumes()
+	assertGroups("default")
 }
 
 // splitAuthKeys splits the given authorized keys
@@ -313,23 +718,24 @@ func splitAuthKeys(keys string) []interface{} {
 
 func (t *localServerSuite) TestInstanceStatus(c *gc.C) {
 	env := t.Prepare(c)
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		AdminSecret:      testing.AdminSecret,
+		CAPrivateKey:     coretesting.CAKey,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	t.srv.ec2srv.SetInitialInstanceState(ec2test.Terminated)
-	inst, _ := testing.AssertStartInstance(c, env, "1")
+	inst, _ := testing.AssertStartInstance(c, env, t.ControllerUUID, "1")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(inst.Status(), gc.Equals, "terminated")
+	c.Assert(inst.Status().Message, gc.Equals, "terminated")
 }
 
 func (t *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
-	env := t.Prepare(c)
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
-	c.Assert(err, jc.ErrorIsNil)
-	_, hc := testing.AssertStartInstance(c, env, "1")
+	env := t.prepareAndBootstrap(c)
+	_, hc := testing.AssertStartInstance(c, env, t.ControllerUUID, "1")
 	c.Check(*hc.Arch, gc.Equals, "amd64")
-	c.Check(*hc.Mem, gc.Equals, uint64(3840))
+	c.Check(*hc.Mem, gc.Equals, uint64(3.75*1024))
 	c.Check(*hc.CpuCores, gc.Equals, uint64(1))
-	c.Assert(*hc.CpuPower, gc.Equals, uint64(300))
 }
 
 func (t *localServerSuite) TestStartInstanceAvailZone(c *gc.C) {
@@ -349,12 +755,10 @@ func (t *localServerSuite) TestStartInstanceAvailZoneUnknown(c *gc.C) {
 }
 
 func (t *localServerSuite) testStartInstanceAvailZone(c *gc.C, zone string) (instance.Instance, error) {
-	env := t.Prepare(c)
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
-	c.Assert(err, jc.ErrorIsNil)
+	env := t.prepareAndBootstrap(c)
 
-	params := environs.StartInstanceParams{Placement: "zone=" + zone}
-	result, err := testing.StartInstanceWithParams(env, "1", params, nil)
+	params := environs.StartInstanceParams{ControllerUUID: t.ControllerUUID, Placement: "zone=" + zone}
+	result, err := testing.StartInstanceWithParams(env, "1", params)
 	if err != nil {
 		return nil, err
 	}
@@ -433,9 +837,7 @@ func (t *mockAvailabilityZoneAllocations) AvailabilityZoneAllocations(
 }
 
 func (t *localServerSuite) TestStartInstanceDistributionParams(c *gc.C) {
-	env := t.Prepare(c)
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
-	c.Assert(err, jc.ErrorIsNil)
+	env := t.prepareAndBootstrap(c)
 
 	mock := mockAvailabilityZoneAllocations{
 		result: []common.AvailabilityZoneInstances{{ZoneName: "az1"}},
@@ -443,52 +845,50 @@ func (t *localServerSuite) TestStartInstanceDistributionParams(c *gc.C) {
 	t.PatchValue(ec2.AvailabilityZoneAllocations, mock.AvailabilityZoneAllocations)
 
 	// no distribution group specified
-	testing.AssertStartInstance(c, env, "1")
+	testing.AssertStartInstance(c, env, t.ControllerUUID, "1")
 	c.Assert(mock.group, gc.HasLen, 0)
 
 	// distribution group specified: ensure it's passed through to AvailabilityZone.
 	expectedInstances := []instance.Id{"i-0", "i-1"}
 	params := environs.StartInstanceParams{
+		ControllerUUID: t.ControllerUUID,
 		DistributionGroup: func() ([]instance.Id, error) {
 			return expectedInstances, nil
 		},
 	}
-	_, err = testing.StartInstanceWithParams(env, "1", params, nil)
+	_, err := testing.StartInstanceWithParams(env, "1", params)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mock.group, gc.DeepEquals, expectedInstances)
 }
 
 func (t *localServerSuite) TestStartInstanceDistributionErrors(c *gc.C) {
-	env := t.Prepare(c)
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
-	c.Assert(err, jc.ErrorIsNil)
+	env := t.prepareAndBootstrap(c)
 
 	mock := mockAvailabilityZoneAllocations{
 		err: fmt.Errorf("AvailabilityZoneAllocations failed"),
 	}
 	t.PatchValue(ec2.AvailabilityZoneAllocations, mock.AvailabilityZoneAllocations)
-	_, _, _, err = testing.StartInstance(env, "1")
+	_, _, _, err := testing.StartInstance(env, t.ControllerUUID, "1")
 	c.Assert(errors.Cause(err), gc.Equals, mock.err)
 
 	mock.err = nil
 	dgErr := fmt.Errorf("DistributionGroup failed")
 	params := environs.StartInstanceParams{
+		ControllerUUID: t.ControllerUUID,
 		DistributionGroup: func() ([]instance.Id, error) {
 			return nil, dgErr
 		},
 	}
-	_, err = testing.StartInstanceWithParams(env, "1", params, nil)
+	_, err = testing.StartInstanceWithParams(env, "1", params)
 	c.Assert(errors.Cause(err), gc.Equals, dgErr)
 }
 
 func (t *localServerSuite) TestStartInstanceDistribution(c *gc.C) {
-	env := t.Prepare(c)
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
-	c.Assert(err, jc.ErrorIsNil)
+	env := t.prepareAndBootstrap(c)
 
 	// test-available is the only available AZ, so AvailabilityZoneAllocations
 	// is guaranteed to return that.
-	inst, _ := testing.AssertStartInstance(c, env, "1")
+	inst, _ := testing.AssertStartInstance(c, env, t.ControllerUUID, "1")
 	c.Assert(ec2.InstanceEC2(inst).AvailZone, gc.Equals, "test-available")
 }
 
@@ -533,9 +933,7 @@ func (t *localServerSuite) TestStartInstanceAvailZoneAllNoDefaultSubnet(c *gc.C)
 }
 
 func (t *localServerSuite) testStartInstanceAvailZoneAllConstrained(c *gc.C, runInstancesError *amzec2.Error) {
-	env := t.Prepare(c)
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
-	c.Assert(err, jc.ErrorIsNil)
+	env := t.prepareAndBootstrap(c)
 
 	mock := mockAvailabilityZoneAllocations{
 		result: []common.AvailabilityZoneInstances{
@@ -549,7 +947,7 @@ func (t *localServerSuite) testStartInstanceAvailZoneAllConstrained(c *gc.C, run
 		azArgs = append(azArgs, ri.AvailZone)
 		return nil, runInstancesError
 	})
-	_, _, _, err = testing.StartInstance(env, "1")
+	_, _, _, err := testing.StartInstance(env, t.ControllerUUID, "1")
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(
 		"cannot run instances: %s \\(%s\\)",
 		regexp.QuoteMeta(runInstancesError.Message),
@@ -595,7 +993,11 @@ func (t *localServerSuite) addTestingSubnets(c *gc.C) []network.Id {
 
 func (t *localServerSuite) prepareAndBootstrap(c *gc.C) environs.Environ {
 	env := t.Prepare(c)
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		AdminSecret:      testing.AdminSecret,
+		CAPrivateKey:     coretesting.CAKey,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	return env
 }
@@ -607,15 +1009,16 @@ func (t *localServerSuite) TestSpaceConstraintsSpaceNotInPlacementZone(c *gc.C) 
 
 	// Expect an error because zone test-available isn't in SubnetsToZones
 	params := environs.StartInstanceParams{
-		Placement:   "zone=test-available",
-		Constraints: constraints.MustParse("spaces=aaaaaaaaaa"),
+		ControllerUUID: t.ControllerUUID,
+		Placement:      "zone=test-available",
+		Constraints:    constraints.MustParse("spaces=aaaaaaaaaa"),
 		SubnetsToZones: map[network.Id][]string{
 			subIDs[0]: []string{"zone2"},
 			subIDs[1]: []string{"zone3"},
 			subIDs[2]: []string{"zone4"},
 		},
 	}
-	_, err := testing.StartInstanceWithParams(env, "1", params, nil)
+	_, err := testing.StartInstanceWithParams(env, "1", params)
 	c.Assert(err, gc.ErrorMatches, `unable to resolve constraints: space and/or subnet unavailable in zones \[test-available\]`)
 }
 
@@ -625,14 +1028,15 @@ func (t *localServerSuite) TestSpaceConstraintsSpaceInPlacementZone(c *gc.C) {
 
 	// Should work - test-available is in SubnetsToZones and in myspace.
 	params := environs.StartInstanceParams{
-		Placement:   "zone=test-available",
-		Constraints: constraints.MustParse("spaces=aaaaaaaaaa"),
+		ControllerUUID: t.ControllerUUID,
+		Placement:      "zone=test-available",
+		Constraints:    constraints.MustParse("spaces=aaaaaaaaaa"),
 		SubnetsToZones: map[network.Id][]string{
 			subIDs[0]: []string{"test-available"},
 			subIDs[1]: []string{"zone3"},
 		},
 	}
-	_, err := testing.StartInstanceWithParams(env, "1", params, nil)
+	_, err := testing.StartInstanceWithParams(env, "1", params)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -642,13 +1046,14 @@ func (t *localServerSuite) TestSpaceConstraintsNoPlacement(c *gc.C) {
 
 	// Shoule work because zone is not specified so we can resolve the constraints
 	params := environs.StartInstanceParams{
-		Constraints: constraints.MustParse("spaces=aaaaaaaaaa"),
+		ControllerUUID: t.ControllerUUID,
+		Constraints:    constraints.MustParse("spaces=aaaaaaaaaa"),
 		SubnetsToZones: map[network.Id][]string{
 			subIDs[0]: []string{"test-available"},
 			subIDs[1]: []string{"zone3"},
 		},
 	}
-	_, err := testing.StartInstanceWithParams(env, "1", params, nil)
+	_, err := testing.StartInstanceWithParams(env, "1", params)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -661,12 +1066,13 @@ func (t *localServerSuite) TestSpaceConstraintsNoAvailableSubnets(c *gc.C) {
 	// We requested a space, but there are no subnets in SubnetsToZones, so we can't resolve
 	// the constraints
 	params := environs.StartInstanceParams{
-		Constraints: constraints.MustParse("spaces=aaaaaaaaaa"),
+		ControllerUUID: t.ControllerUUID,
+		Constraints:    constraints.MustParse("spaces=aaaaaaaaaa"),
 		SubnetsToZones: map[network.Id][]string{
 			subIDs[0]: []string{""},
 		},
 	}
-	_, err := testing.StartInstanceWithParams(env, "1", params, nil)
+	_, err := testing.StartInstanceWithParams(env, "1", params)
 	c.Assert(err, gc.ErrorMatches, `unable to resolve constraints: space and/or subnet unavailable in zones \[test-available\]`)
 }
 
@@ -683,9 +1089,7 @@ func (t *localServerSuite) TestStartInstanceAvailZoneOneNoDefaultSubnetErr(c *gc
 }
 
 func (t *localServerSuite) testStartInstanceAvailZoneOneConstrained(c *gc.C, runInstancesError *amzec2.Error) {
-	env := t.Prepare(c)
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
-	c.Assert(err, jc.ErrorIsNil)
+	env := t.prepareAndBootstrap(c)
 
 	mock := mockAvailabilityZoneAllocations{
 		result: []common.AvailabilityZoneInstances{
@@ -705,18 +1109,15 @@ func (t *localServerSuite) testStartInstanceAvailZoneOneConstrained(c *gc.C, run
 		}
 		return realRunInstances(e, ri)
 	})
-	inst, hwc := testing.AssertStartInstance(c, env, "1")
+	inst, hwc := testing.AssertStartInstance(c, env, t.ControllerUUID, "1")
 	c.Assert(azArgs, gc.DeepEquals, []string{"az1", "az2"})
 	c.Assert(ec2.InstanceEC2(inst).AvailZone, gc.Equals, "az2")
 	c.Check(*hwc.AvailabilityZone, gc.Equals, "az2")
 }
 
 func (t *localServerSuite) TestAddresses(c *gc.C) {
-	env := t.Prepare(c)
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
-	c.Assert(err, jc.ErrorIsNil)
-	inst, _ := testing.AssertStartInstance(c, env, "1")
-	c.Assert(err, jc.ErrorIsNil)
+	env := t.prepareAndBootstrap(c)
+	inst, _ := testing.AssertStartInstance(c, env, t.ControllerUUID, "1")
 	addrs, err := inst.Addresses()
 	c.Assert(err, jc.ErrorIsNil)
 	// Expected values use Address type but really contain a regexp for
@@ -742,29 +1143,66 @@ func (t *localServerSuite) TestConstraintsValidatorUnsupported(c *gc.C) {
 	env := t.Prepare(c)
 	validator, err := env.ConstraintsValidator()
 	c.Assert(err, jc.ErrorIsNil)
-	cons := constraints.MustParse("arch=amd64 tags=foo")
+	cons := constraints.MustParse("arch=amd64 tags=foo virt-type=kvm")
 	unsupported, err := validator.Validate(cons)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unsupported, gc.DeepEquals, []string{"tags"})
+	c.Assert(unsupported, jc.SameContents, []string{"tags", "virt-type"})
 }
 
 func (t *localServerSuite) TestConstraintsValidatorVocab(c *gc.C) {
 	env := t.Prepare(c)
 	validator, err := env.ConstraintsValidator()
 	c.Assert(err, jc.ErrorIsNil)
-	cons := constraints.MustParse("arch=ppc64el")
-	_, err = validator.Validate(cons)
-	c.Assert(err, gc.ErrorMatches, "invalid constraint value: arch=ppc64el\nvalid values are:.*")
-	cons = constraints.MustParse("instance-type=foo")
+	cons := constraints.MustParse("instance-type=foo")
 	_, err = validator.Validate(cons)
 	c.Assert(err, gc.ErrorMatches, "invalid constraint value: instance-type=foo\nvalid values are:.*")
+}
+
+func (t *localServerSuite) TestConstraintsValidatorVocabNoDefaultOrSpecifiedVPC(c *gc.C) {
+	t.srv.defaultVPC.IsDefault = false
+	err := t.srv.ec2srv.UpdateVPC(*t.srv.defaultVPC)
+	c.Assert(err, jc.ErrorIsNil)
+
+	env := t.Prepare(c)
+	assertVPCInstanceTypeNotAvailable(c, env)
+}
+
+func (t *localServerSuite) TestConstraintsValidatorVocabDefaultVPC(c *gc.C) {
+	env := t.Prepare(c)
+	assertVPCInstanceTypeAvailable(c, env)
+}
+
+func (t *localServerSuite) TestConstraintsValidatorVocabSpecifiedVPC(c *gc.C) {
+	t.srv.defaultVPC.IsDefault = false
+	err := t.srv.ec2srv.UpdateVPC(*t.srv.defaultVPC)
+	c.Assert(err, jc.ErrorIsNil)
+
+	t.TestConfig["vpc-id"] = t.srv.defaultVPC.Id
+	defer delete(t.TestConfig, "vpc-id")
+
+	env := t.Prepare(c)
+	assertVPCInstanceTypeAvailable(c, env)
+}
+
+func assertVPCInstanceTypeAvailable(c *gc.C, env environs.Environ) {
+	validator, err := env.ConstraintsValidator()
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = validator.Validate(constraints.MustParse("instance-type=t2.medium"))
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func assertVPCInstanceTypeNotAvailable(c *gc.C, env environs.Environ) {
+	validator, err := env.ConstraintsValidator()
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = validator.Validate(constraints.MustParse("instance-type=t2.medium"))
+	c.Assert(err, gc.ErrorMatches, "invalid constraint value: instance-type=t2.medium\n.*")
 }
 
 func (t *localServerSuite) TestConstraintsMerge(c *gc.C) {
 	env := t.Prepare(c)
 	validator, err := env.ConstraintsValidator()
 	c.Assert(err, jc.ErrorIsNil)
-	consA := constraints.MustParse("arch=amd64 mem=1G cpu-power=10 cpu-cores=2 tags=bar")
+	consA := constraints.MustParse("arch=amd64 mem=1G cpu-power=10 cores=2 tags=bar")
 	consB := constraints.MustParse("arch=i386 instance-type=m1.small")
 	cons, err := validator.Merge(consA, consB)
 	c.Assert(err, jc.ErrorIsNil)
@@ -775,7 +1213,7 @@ func (t *localServerSuite) TestPrecheckInstanceValidInstanceType(c *gc.C) {
 	env := t.Prepare(c)
 	cons := constraints.MustParse("instance-type=m1.small root-disk=1G")
 	placement := ""
-	err := env.PrecheckInstance(coretesting.FakeDefaultSeries, cons, placement)
+	err := env.PrecheckInstance(series.LatestLts(), cons, placement)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -783,7 +1221,7 @@ func (t *localServerSuite) TestPrecheckInstanceInvalidInstanceType(c *gc.C) {
 	env := t.Prepare(c)
 	cons := constraints.MustParse("instance-type=m1.invalid")
 	placement := ""
-	err := env.PrecheckInstance(coretesting.FakeDefaultSeries, cons, placement)
+	err := env.PrecheckInstance(series.LatestLts(), cons, placement)
 	c.Assert(err, gc.ErrorMatches, `invalid AWS instance type "m1.invalid" specified`)
 }
 
@@ -791,43 +1229,47 @@ func (t *localServerSuite) TestPrecheckInstanceUnsupportedArch(c *gc.C) {
 	env := t.Prepare(c)
 	cons := constraints.MustParse("instance-type=cc1.4xlarge arch=i386")
 	placement := ""
-	err := env.PrecheckInstance(coretesting.FakeDefaultSeries, cons, placement)
+	err := env.PrecheckInstance(series.LatestLts(), cons, placement)
 	c.Assert(err, gc.ErrorMatches, `invalid AWS instance type "cc1.4xlarge" and arch "i386" specified`)
 }
 
 func (t *localServerSuite) TestPrecheckInstanceAvailZone(c *gc.C) {
 	env := t.Prepare(c)
 	placement := "zone=test-available"
-	err := env.PrecheckInstance(coretesting.FakeDefaultSeries, constraints.Value{}, placement)
+	err := env.PrecheckInstance(series.LatestLts(), constraints.Value{}, placement)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (t *localServerSuite) TestPrecheckInstanceAvailZoneUnavailable(c *gc.C) {
 	env := t.Prepare(c)
 	placement := "zone=test-unavailable"
-	err := env.PrecheckInstance(coretesting.FakeDefaultSeries, constraints.Value{}, placement)
+	err := env.PrecheckInstance(series.LatestLts(), constraints.Value{}, placement)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (t *localServerSuite) TestPrecheckInstanceAvailZoneUnknown(c *gc.C) {
 	env := t.Prepare(c)
 	placement := "zone=test-unknown"
-	err := env.PrecheckInstance(coretesting.FakeDefaultSeries, constraints.Value{}, placement)
+	err := env.PrecheckInstance(series.LatestLts(), constraints.Value{}, placement)
 	c.Assert(err, gc.ErrorMatches, `invalid availability zone "test-unknown"`)
 }
 
 func (t *localServerSuite) TestValidateImageMetadata(c *gc.C) {
+	region := t.srv.region()
+	aws.Regions[region.Name] = t.srv.region()
+	defer delete(aws.Regions, region.Name)
+
 	env := t.Prepare(c)
 	params, err := env.(simplestreams.MetadataValidator).MetadataLookupParams("test")
 	c.Assert(err, jc.ErrorIsNil)
-	params.Series = coretesting.FakeDefaultSeries
-	params.Endpoint = "https://ec2.endpoint.com"
+	params.Series = series.LatestLts()
+	params.Endpoint = region.EC2Endpoint
 	params.Sources, err = environs.ImageMetadataSources(env)
 	c.Assert(err, jc.ErrorIsNil)
 	image_ids, _, err := imagemetadata.ValidateImageMetadata(params)
 	c.Assert(err, jc.ErrorIsNil)
 	sort.Strings(image_ids)
-	c.Assert(image_ids, gc.DeepEquals, []string{"ami-00000033", "ami-00000034", "ami-00000035", "ami-00000039"})
+	c.Assert(image_ids, gc.DeepEquals, []string{"ami-00000133", "ami-00000135", "ami-00000139"})
 }
 
 func (t *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
@@ -839,122 +1281,24 @@ func (t *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
 	c.Assert(sources, gc.HasLen, 0)
 }
 
-func (t *localServerSuite) TestSupportedArchitectures(c *gc.C) {
-	env := t.Prepare(c)
-	a, err := env.SupportedArchitectures()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(a, jc.SameContents, []string{"amd64", "i386"})
-}
-
 func (t *localServerSuite) TestSupportsNetworking(c *gc.C) {
 	env := t.Prepare(c)
 	_, supported := environs.SupportsNetworking(env)
 	c.Assert(supported, jc.IsTrue)
 }
 
-func (t *localServerSuite) TestAllocateAddressFailureToFindNetworkInterface(c *gc.C) {
-	env := t.prepareEnviron(c)
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
-	c.Assert(err, jc.ErrorIsNil)
-
-	instanceIds, err := env.StateServerInstances()
-	c.Assert(err, jc.ErrorIsNil)
-
-	instId := instanceIds[0]
-	addr := network.Address{Value: "8.0.0.4"}
-
-	// Invalid instance found
-	err = env.AllocateAddress(instId+"foo", "", addr, "foo", "bar")
-	c.Assert(err, gc.ErrorMatches, ".*InvalidInstanceID.NotFound.*")
-
-	// No network interface
-	err = env.AllocateAddress(instId, "", addr, "foo", "bar")
-	c.Assert(errors.Cause(err), gc.ErrorMatches, "unexpected AWS response: network interface not found")
-}
-
 func (t *localServerSuite) setUpInstanceWithDefaultVpc(c *gc.C) (environs.NetworkingEnviron, instance.Id) {
-	// Simulate a default VPC exists.
-	t.srv.ec2srv.AddDefaultVPCAndSubnets()
-
 	env := t.prepareEnviron(c)
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		AdminSecret:      testing.AdminSecret,
+		CAPrivateKey:     coretesting.CAKey,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	instanceIds, err := env.StateServerInstances()
+	instanceIds, err := env.ControllerInstances(t.ControllerUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	return env, instanceIds[0]
-}
-
-func (t *localServerSuite) TestAllocateAddress(c *gc.C) {
-	env, instId := t.setUpInstanceWithDefaultVpc(c)
-
-	addr := network.Address{Value: "8.0.0.4"}
-	var actualAddr network.Address
-	mockAssign := func(ec2Inst *amzec2.EC2, netId string, addr network.Address) error {
-		actualAddr = addr
-		return nil
-	}
-	t.PatchValue(&ec2.AssignPrivateIPAddress, mockAssign)
-
-	err := env.AllocateAddress(instId, "", addr, "foo", "bar")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(actualAddr, gc.Equals, addr)
-}
-
-func (t *localServerSuite) TestAllocateAddressIPAddressInUseOrEmpty(c *gc.C) {
-	env, instId := t.setUpInstanceWithDefaultVpc(c)
-
-	addr := network.Address{Value: "8.0.0.4"}
-	mockAssign := func(ec2Inst *amzec2.EC2, netId string, addr network.Address) error {
-		return &amzec2.Error{Code: "InvalidParameterValue"}
-	}
-	t.PatchValue(&ec2.AssignPrivateIPAddress, mockAssign)
-
-	err := env.AllocateAddress(instId, "", addr, "foo", "bar")
-	c.Assert(errors.Cause(err), gc.Equals, environs.ErrIPAddressUnavailable)
-
-	err = env.AllocateAddress(instId, "", network.Address{}, "foo", "bar")
-	c.Assert(errors.Cause(err), gc.Equals, environs.ErrIPAddressUnavailable)
-}
-
-func (t *localServerSuite) TestAllocateAddressNetworkInterfaceFull(c *gc.C) {
-	env, instId := t.setUpInstanceWithDefaultVpc(c)
-
-	addr := network.Address{Value: "8.0.0.4"}
-	mockAssign := func(ec2Inst *amzec2.EC2, netId string, addr network.Address) error {
-		return &amzec2.Error{Code: "PrivateIpAddressLimitExceeded"}
-	}
-	t.PatchValue(&ec2.AssignPrivateIPAddress, mockAssign)
-
-	err := env.AllocateAddress(instId, "", addr, "foo", "bar")
-	c.Assert(errors.Cause(err), gc.Equals, environs.ErrIPAddressesExhausted)
-}
-
-func (t *localServerSuite) TestReleaseAddress(c *gc.C) {
-	env, instId := t.setUpInstanceWithDefaultVpc(c)
-	addr := network.Address{Value: "8.0.0.4"}
-	// Allocate the address first so we can release it
-	err := env.AllocateAddress(instId, "", addr, "foo", "bar")
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = env.ReleaseAddress(instId, "", addr, "", "")
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Releasing a second time tests that the first call actually released
-	// it plus tests the error handling of ReleaseAddress
-	err = env.ReleaseAddress(instId, "", addr, "", "")
-	msg := fmt.Sprintf(`failed to release address "8\.0\.0\.4" from instance %q.*`, instId)
-	c.Assert(err, gc.ErrorMatches, msg)
-}
-
-func (t *localServerSuite) TestReleaseAddressUnknownInstance(c *gc.C) {
-	env, _ := t.setUpInstanceWithDefaultVpc(c)
-
-	// We should be able to release an address with an unknown instance id
-	// without it being allocated.
-	addr := network.Address{Value: "8.0.0.4"}
-	err := env.ReleaseAddress(instance.UnknownId, "", addr, "", "")
-	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (t *localServerSuite) TestNetworkInterfaces(c *gc.C) {
@@ -994,6 +1338,7 @@ func (t *localServerSuite) TestNetworkInterfaces(c *gc.C) {
 		Disabled:          false,
 		NoAutoStart:       false,
 		ConfigType:        network.ConfigDHCP,
+		InterfaceType:     network.EthernetInterface,
 		Address:           network.NewScopedAddress(addr, network.ScopeCloudLocal),
 		AvailabilityZones: zones,
 	}}
@@ -1040,22 +1385,16 @@ func validateSubnets(c *gc.C, subnets []network.SubnetInfo) {
 		CIDR:              "10.10.0.0/24",
 		ProviderId:        "subnet-0",
 		VLANTag:           0,
-		AllocatableIPLow:  net.ParseIP("10.10.0.4").To4(),
-		AllocatableIPHigh: net.ParseIP("10.10.0.254").To4(),
 		AvailabilityZones: []string{"test-available"},
 	}, {
 		CIDR:              "10.10.1.0/24",
 		ProviderId:        "subnet-1",
 		VLANTag:           0,
-		AllocatableIPLow:  net.ParseIP("10.10.1.4").To4(),
-		AllocatableIPHigh: net.ParseIP("10.10.1.254").To4(),
 		AvailabilityZones: []string{"test-impaired"},
 	}, {
 		CIDR:              "10.10.2.0/24",
 		ProviderId:        "subnet-2",
 		VLANTag:           0,
-		AllocatableIPLow:  net.ParseIP("10.10.2.4").To4(),
-		AllocatableIPHigh: net.ParseIP("10.10.2.254").To4(),
 		AvailabilityZones: []string{"test-unavailable"},
 	}}
 
@@ -1093,72 +1432,8 @@ func (t *localServerSuite) TestSubnetsMissingSubnet(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `failed to find the following subnet ids: \[Missing\]`)
 }
 
-func (t *localServerSuite) TestSupportsAddressAllocationTrue(c *gc.C) {
-	t.srv.ec2srv.AddDefaultVPCAndSubnets()
-	env := t.prepareEnviron(c)
-	result, err := env.SupportsAddressAllocation("")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.IsTrue)
-}
-
-func (t *localServerSuite) TestSupportsAddressAllocationWithNoFeatureFlag(c *gc.C) {
-	t.SetFeatureFlags() // clear the flags.
-	env := t.prepareEnviron(c)
-	result, err := env.SupportsAddressAllocation("")
-	c.Assert(err, gc.ErrorMatches, "address allocation not supported")
-	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
-	c.Assert(result, jc.IsFalse)
-}
-
-func (t *localServerSuite) TestAllocateAddressWithNoFeatureFlag(c *gc.C) {
-	t.SetFeatureFlags() // clear the flags.
-	env := t.prepareEnviron(c)
-	err := env.AllocateAddress("i-foo", "net1", network.NewAddresses("1.2.3.4")[0], "foo", "bar")
-	c.Assert(err, gc.ErrorMatches, "address allocation not supported")
-	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
-}
-
-func (t *localServerSuite) TestReleaseAddressWithNoFeatureFlag(c *gc.C) {
-	t.SetFeatureFlags() // clear the flags.
-	env := t.prepareEnviron(c)
-	err := env.ReleaseAddress("i-foo", "net1", network.NewAddress("1.2.3.4"), "", "")
-	c.Assert(err, gc.ErrorMatches, "address allocation not supported")
-	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
-}
-
-func (t *localServerSuite) TestSupportsAddressAllocationCaches(c *gc.C) {
-	t.srv.ec2srv.SetAccountAttributes(map[string][]string{
-		"default-vpc": {"none"},
-	})
-	env := t.prepareEnviron(c)
-	result, err := env.SupportsAddressAllocation("")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.IsFalse)
-
-	// this value won't change normally, the change here is to
-	// ensure that subsequent calls use the cached value
-	t.srv.ec2srv.SetAccountAttributes(map[string][]string{
-		"default-vpc": {"vpc-xxxxxxx"},
-	})
-	result, err = env.SupportsAddressAllocation("")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.IsFalse)
-}
-
-func (t *localServerSuite) TestSupportsAddressAllocationFalse(c *gc.C) {
-	t.srv.ec2srv.SetAccountAttributes(map[string][]string{
-		"default-vpc": {"none"},
-	})
-	env := t.prepareEnviron(c)
-	result, err := env.SupportsAddressAllocation("")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.IsFalse)
-}
-
 func (t *localServerSuite) TestInstanceTags(c *gc.C) {
-	env := t.Prepare(c)
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
-	c.Assert(err, jc.ErrorIsNil)
+	env := t.prepareAndBootstrap(c)
 
 	instances, err := env.AllInstances()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1167,15 +1442,14 @@ func (t *localServerSuite) TestInstanceTags(c *gc.C) {
 	ec2Inst := ec2.InstanceEC2(instances[0])
 	c.Assert(ec2Inst.Tags, jc.SameContents, []amzec2.Tag{
 		{"Name", "juju-sample-machine-0"},
-		{"juju-env-uuid", coretesting.EnvironmentTag.Id()},
-		{"juju-is-state", "true"},
+		{"juju-model-uuid", coretesting.ModelTag.Id()},
+		{"juju-controller-uuid", t.ControllerUUID},
+		{"juju-is-controller", "true"},
 	})
 }
 
 func (t *localServerSuite) TestRootDiskTags(c *gc.C) {
-	env := t.Prepare(c)
-	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
-	c.Assert(err, jc.ErrorIsNil)
+	env := t.prepareAndBootstrap(c)
 
 	instances, err := env.AllInstances()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1196,39 +1470,80 @@ func (t *localServerSuite) TestRootDiskTags(c *gc.C) {
 	c.Assert(found, gc.NotNil)
 	c.Assert(found.Tags, jc.SameContents, []amzec2.Tag{
 		{"Name", "juju-sample-machine-0-root"},
-		{"juju-env-uuid", coretesting.EnvironmentTag.Id()},
+		{"juju-model-uuid", coretesting.ModelTag.Id()},
+		{"juju-controller-uuid", t.ControllerUUID},
 	})
+}
+
+func (s *localServerSuite) TestBootstrapInstanceConstraints(c *gc.C) {
+	env := s.prepareAndBootstrap(c)
+	inst, hc := testing.AssertStartControllerInstance(c, env, s.ControllerUUID, "1")
+	ec2inst := ec2.InstanceEC2(inst)
+
+	// Controllers should be started with a burstable
+	// instance if possible, and a 32 GiB disk.
+	c.Assert(ec2inst.InstanceType, gc.Equals, "t2.medium")
+	c.Assert(*hc.Arch, gc.Equals, "amd64")
+	c.Assert(*hc.Mem, gc.Equals, uint64(4*1024))
+	c.Assert(*hc.RootDisk, gc.Equals, uint64(32*1024))
+	c.Assert(*hc.CpuCores, gc.Equals, uint64(2))
 }
 
 // localNonUSEastSuite is similar to localServerSuite but the S3 mock server
 // behaves as if it is not in the us-east region.
 type localNonUSEastSuite struct {
 	coretesting.BaseSuite
-	restoreEC2Patching func()
-	srv                localServer
-	env                environs.Environ
+	sstesting.TestDataSuite
+
+	srv localServer
+	env environs.Environ
 }
 
 func (t *localNonUSEastSuite) SetUpSuite(c *gc.C) {
 	t.BaseSuite.SetUpSuite(c)
-	t.restoreEC2Patching = patchEC2ForTesting()
+	t.TestDataSuite.SetUpSuite(c)
+
+	t.PatchValue(&imagemetadata.SimplestreamsImagesPublicKey, sstesting.SignedMetadataPublicKey)
+	t.PatchValue(&keys.JujuPublicKey, sstesting.SignedMetadataPublicKey)
+	t.BaseSuite.PatchValue(ec2.DeleteSecurityGroupInsistently, deleteSecurityGroupForTestFunc)
 }
 
 func (t *localNonUSEastSuite) TearDownSuite(c *gc.C) {
-	t.restoreEC2Patching()
+	t.TestDataSuite.TearDownSuite(c)
 	t.BaseSuite.TearDownSuite(c)
 }
 
 func (t *localNonUSEastSuite) SetUpTest(c *gc.C) {
 	t.BaseSuite.SetUpTest(c)
-	t.srv.config = &s3test.Config{
-		Send409Conflict: true,
-	}
 	t.srv.startServer(c)
 
-	cfg, err := config.New(config.NoDefaults, localConfigAttrs)
-	c.Assert(err, jc.ErrorIsNil)
-	env, err := environs.Prepare(cfg, envtesting.BootstrapContext(c), configstore.NewMem())
+	region := t.srv.region()
+	credential := cloud.NewCredential(
+		cloud.AccessKeyAuthType,
+		map[string]string{
+			"access-key": "x",
+			"secret-key": "x",
+		},
+	)
+	restoreEC2Patching := patchEC2ForTesting(c, region)
+	t.AddCleanup(func(c *gc.C) { restoreEC2Patching() })
+
+	env, err := bootstrap.Prepare(
+		envtesting.BootstrapContext(c),
+		jujuclienttesting.NewMemStore(),
+		bootstrap.PrepareParams{
+			ControllerConfig: coretesting.FakeControllerConfig(),
+			ModelConfig:      localConfigAttrs,
+			ControllerName:   localConfigAttrs["name"].(string),
+			Cloud: environs.CloudSpec{
+				Type:       "ec2",
+				Region:     region.Name,
+				Endpoint:   region.EC2Endpoint,
+				Credential: &credential,
+			},
+			AdminSecret: testing.AdminSecret,
+		},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	t.env = env
 }
@@ -1238,18 +1553,14 @@ func (t *localNonUSEastSuite) TearDownTest(c *gc.C) {
 	t.BaseSuite.TearDownTest(c)
 }
 
-func patchEC2ForTesting() func() {
-	ec2.UseTestImageData(ec2.TestImagesData)
-	ec2.UseTestInstanceTypeData(ec2.TestInstanceTypeCosts)
-	ec2.UseTestRegionData(ec2.TestRegions)
-	restoreTimeouts := envtesting.PatchAttemptStrategies(ec2.ShortAttempt, ec2.StorageAttempt)
+func patchEC2ForTesting(c *gc.C, region aws.Region) func() {
+	ec2.UseTestImageData(c, ec2.MakeTestImageStreamsData(region))
+	restoreTimeouts := envtesting.PatchAttemptStrategies(ec2.ShortAttempt)
 	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
 	return func() {
 		restoreFinishBootstrap()
 		restoreTimeouts()
-		ec2.UseTestImageData(nil)
-		ec2.UseTestInstanceTypeData(nil)
-		ec2.UseTestRegionData(nil)
+		ec2.UseTestImageData(c, nil)
 	}
 }
 

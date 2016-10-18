@@ -9,13 +9,13 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
-	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
-func newUpdateCommand() cmd.Command {
-	return envcmd.Wrap(&updateCommand{})
+// NewUpdateCommand returns a command used to update subnets in a space.
+func NewUpdateCommand() cmd.Command {
+	return modelcmd.Wrap(&updateCommand{})
 }
 
 // updateCommand calls the API to update an existing network space.
@@ -31,16 +31,12 @@ can only be part of a single space, all specified subnets (using their
 CIDRs) "leave" their current space and "enter" the one we're updating.
 `
 
-func (c *updateCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.SpaceCommandBase.SetFlags(f)
-}
-
 // Info is defined on the cmd.Command interface.
 func (c *updateCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "update",
+		Name:    "update-space",
 		Args:    "<name> <CIDR1> [ <CIDR2> ...]",
-		Purpose: "update a network space's CIDRs",
+		Purpose: "Update a network space's CIDRs",
 		Doc:     strings.TrimSpace(updateCommandDoc),
 	}
 }

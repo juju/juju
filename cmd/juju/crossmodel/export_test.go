@@ -6,7 +6,8 @@ package crossmodel
 import (
 	"github.com/juju/cmd"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/jujuclient"
 )
 
 var (
@@ -17,30 +18,31 @@ var (
 	BreakOneWord = breakOneWord
 )
 
-func NewOfferCommandForTest(api OfferAPI) cmd.Command {
+func NewOfferCommandForTest(store jujuclient.ClientStore, api OfferAPI) cmd.Command {
 	aCmd := &offerCommand{newAPIFunc: func() (OfferAPI, error) {
 		return api, nil
 	}}
-	return envcmd.Wrap(aCmd)
+	aCmd.SetClientStore(store)
+	return modelcmd.Wrap(aCmd)
 }
 
 func NewShowEndpointsCommandForTest(api ShowAPI) cmd.Command {
 	aCmd := &showCommand{newAPIFunc: func() (ShowAPI, error) {
 		return api, nil
 	}}
-	return envcmd.Wrap(aCmd)
+	return modelcmd.Wrap(aCmd)
 }
 
 func NewListEndpointsCommandForTest(api ListAPI) cmd.Command {
 	aCmd := &listCommand{newAPIFunc: func() (ListAPI, error) {
 		return api, nil
 	}}
-	return envcmd.Wrap(aCmd)
+	return modelcmd.Wrap(aCmd)
 }
 
 func NewFindEndpointsCommandForTest(api FindAPI) cmd.Command {
 	aCmd := &findCommand{newAPIFunc: func() (FindAPI, error) {
 		return api, nil
 	}}
-	return envcmd.Wrap(aCmd)
+	return modelcmd.Wrap(aCmd)
 }

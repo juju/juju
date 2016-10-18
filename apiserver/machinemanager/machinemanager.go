@@ -9,20 +9,22 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 )
 
 func init() {
-	common.RegisterStandardFacade("MachineManager", 1, NewMachineManagerAPI)
+	common.RegisterStandardFacade("MachineManager", 2, NewMachineManagerAPI)
 }
 
 // MachineManagerAPI provides access to the MachineManager API facade.
 type MachineManagerAPI struct {
 	st         stateInterface
-	authorizer common.Authorizer
+	authorizer facade.Authorizer
 	check      *common.BlockChecker
 }
 
@@ -33,8 +35,8 @@ var getState = func(st *state.State) stateInterface {
 // NewMachineManagerAPI creates a new server-side MachineManager API facade.
 func NewMachineManagerAPI(
 	st *state.State,
-	resources *common.Resources,
-	authorizer common.Authorizer,
+	resources facade.Resources,
+	authorizer facade.Authorizer,
 ) (*MachineManagerAPI, error) {
 
 	if !authorizer.AuthClient() {
@@ -54,6 +56,15 @@ func (mm *MachineManagerAPI) AddMachines(args params.AddMachines) (params.AddMac
 	results := params.AddMachinesResults{
 		Machines: make([]params.AddMachinesResult, len(args.MachineParams)),
 	}
+
+	canWrite, err := mm.authorizer.HasPermission(permission.WriteAccess, mm.st.ModelTag())
+	if err != nil {
+		return results, errors.Trace(err)
+	}
+	if !canWrite {
+		return results, common.ErrPerm
+	}
+
 	if err := mm.check.ChangeAllowed(); err != nil {
 		return results, errors.Trace(err)
 	}
@@ -95,23 +106,23 @@ func (mm *MachineManagerAPI) addOneMachine(p params.AddMachineParams) (*state.Ma
 	}
 
 	if p.Series == "" {
-		conf, err := mm.st.EnvironConfig()
+		conf, err := mm.st.ModelConfig()
 		if err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		}
 		p.Series = config.PreferredSeries(conf)
 	}
 
 	var placementDirective string
 	if p.Placement != nil {
-		env, err := mm.st.Environment()
+		env, err := mm.st.Model()
 		if err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		}
 		// For 1.21 we should support both UUID and name, and with 1.22
 		// just support UUID
 		if p.Placement.Scope != env.Name() && p.Placement.Scope != env.UUID() {
-			return nil, fmt.Errorf("invalid environment name %q", p.Placement.Scope)
+			return nil, fmt.Errorf("invalid model name %q", p.Placement.Scope)
 		}
 		placementDirective = p.Placement.Directive
 	}
@@ -136,7 +147,7 @@ func (mm *MachineManagerAPI) addOneMachine(p params.AddMachineParams) (*state.Ma
 
 	jobs, err := common.StateJobs(p.Jobs)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	template := state.MachineTemplate{
 		Series:      p.Series,
@@ -146,7 +157,7 @@ func (mm *MachineManagerAPI) addOneMachine(p params.AddMachineParams) (*state.Ma
 		Jobs:        jobs,
 		Nonce:       p.Nonce,
 		HardwareCharacteristics: p.HardwareCharacteristics,
-		Addresses:               params.NetworkAddresses(p.Addrs),
+		Addresses:               params.NetworkAddresses(p.Addrs...),
 		Placement:               placementDirective,
 	}
 	if p.ContainerType == "" {

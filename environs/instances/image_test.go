@@ -357,7 +357,7 @@ func (s *imageSuite) TestFindInstanceSpec(c *gc.C) {
 		})
 		imageMeta, err := imagemetadata.GetLatestImageIdMetadata(
 			[]byte(jsonImagesContent),
-			simplestreams.NewURLDataSource("test", "some-url", utils.VerifySSLHostnames), cons)
+			simplestreams.NewURLDataSource("test", "some-url", utils.VerifySSLHostnames, simplestreams.DEFAULT_CLOUD_DATA, false), cons)
 		c.Assert(err, jc.ErrorIsNil)
 		var images []Image
 		for _, imageMetadata := range imageMeta {
@@ -396,30 +396,35 @@ func (s *imageSuite) TestFindInstanceSpec(c *gc.C) {
 var imageMatchtests = []struct {
 	image Image
 	itype InstanceType
-	match bool
+	match imageMatch
 }{
 	{
 		image: Image{Arch: "amd64"},
 		itype: InstanceType{Arches: []string{"amd64"}},
-		match: true,
+		match: exactMatch,
 	}, {
 		image: Image{Arch: "amd64"},
 		itype: InstanceType{Arches: []string{"amd64", "armhf"}},
-		match: true,
+		match: exactMatch,
 	}, {
 		image: Image{Arch: "amd64", VirtType: hvm},
 		itype: InstanceType{Arches: []string{"amd64"}, VirtType: &hvm},
-		match: true,
+		match: exactMatch,
 	}, {
 		image: Image{Arch: "armhf"},
 		itype: InstanceType{Arches: []string{"amd64"}},
 	}, {
 		image: Image{Arch: "amd64", VirtType: hvm},
 		itype: InstanceType{Arches: []string{"amd64"}},
-		match: true,
+		match: exactMatch,
+	}, {
+		image: Image{Arch: "amd64"}, // no known virt type
+		itype: InstanceType{Arches: []string{"amd64"}, VirtType: &hvm},
+		match: partialMatch,
 	}, {
 		image: Image{Arch: "amd64", VirtType: "pv"},
 		itype: InstanceType{Arches: []string{"amd64"}, VirtType: &hvm},
+		match: nonMatch,
 	},
 }
 

@@ -7,10 +7,10 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/metricsadder"
@@ -33,10 +33,10 @@ type metricsAdderSuite struct {
 
 	machine0       *state.Machine
 	machine1       *state.Machine
-	mysqlService   *state.Service
-	mysql          *state.Service
+	mysqlService   *state.Application
+	mysql          *state.Application
 	mysqlUnit      *state.Unit
-	meteredService *state.Service
+	meteredService *state.Application
 	meteredCharm   *state.Charm
 	meteredUnit    *state.Unit
 
@@ -49,7 +49,7 @@ func (s *metricsAdderSuite) SetUpTest(c *gc.C) {
 	s.factory = jujuFactory.NewFactory(s.State)
 	s.machine0 = s.factory.MakeMachine(c, &jujuFactory.MachineParams{
 		Series: "quantal",
-		Jobs:   []state.MachineJob{state.JobHostUnits, state.JobManageEnviron},
+		Jobs:   []state.MachineJob{state.JobHostUnits, state.JobManageModel},
 	})
 	s.machine1 = s.factory.MakeMachine(c, &jujuFactory.MachineParams{
 		Series: "quantal",
@@ -58,25 +58,24 @@ func (s *metricsAdderSuite) SetUpTest(c *gc.C) {
 	mysqlCharm := s.factory.MakeCharm(c, &jujuFactory.CharmParams{
 		Name: "mysql",
 	})
-	s.mysql = s.factory.MakeService(c, &jujuFactory.ServiceParams{
-		Name:    "mysql",
-		Charm:   mysqlCharm,
-		Creator: s.AdminUserTag(c),
+	s.mysql = s.factory.MakeApplication(c, &jujuFactory.ApplicationParams{
+		Name:  "mysql",
+		Charm: mysqlCharm,
 	})
 	s.mysqlUnit = s.factory.MakeUnit(c, &jujuFactory.UnitParams{
-		Service: s.mysql,
-		Machine: s.machine0,
+		Application: s.mysql,
+		Machine:     s.machine0,
 	})
 
 	s.meteredCharm = s.factory.MakeCharm(c, &jujuFactory.CharmParams{
 		Name: "metered",
 		URL:  "cs:quantal/metered",
 	})
-	s.meteredService = s.factory.MakeService(c, &jujuFactory.ServiceParams{
+	s.meteredService = s.factory.MakeApplication(c, &jujuFactory.ApplicationParams{
 		Charm: s.meteredCharm,
 	})
 	s.meteredUnit = s.factory.MakeUnit(c, &jujuFactory.UnitParams{
-		Service:     s.meteredService,
+		Application: s.meteredService,
 		SetCharmURL: true,
 		Machine:     s.machine1,
 	})
@@ -116,7 +115,7 @@ func (s *metricsAdderSuite) TestAddMetricsBatch(c *gc.C) {
 		Results: []params.ErrorResult{{nil}},
 	})
 
-	batches, err := s.State.MetricBatches()
+	batches, err := s.State.AllMetricBatches()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(batches, gc.HasLen, 1)
 	batch := batches[0]
@@ -147,7 +146,7 @@ func (s *metricsAdderSuite) TestAddMetricsBatchNoCharmURL(c *gc.C) {
 		Results: []params.ErrorResult{{nil}},
 	})
 
-	batches, err := s.State.MetricBatches()
+	batches, err := s.State.AllMetricBatches()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(batches, gc.HasLen, 1)
 	batch := batches[0]
@@ -175,7 +174,7 @@ func (s *metricsAdderSuite) TestAddMetricsBatchDiffTag(c *gc.C) {
 	}, {
 		about:  "user tag",
 		tag:    names.NewLocalUserTag("admin").String(),
-		expect: `"user-admin@local" is not a valid unit tag`,
+		expect: `"user-admin" is not a valid unit tag`,
 	}, {
 		about:  "machine tag",
 		tag:    names.NewMachineTag("0").String(),
@@ -200,7 +199,7 @@ func (s *metricsAdderSuite) TestAddMetricsBatchDiffTag(c *gc.C) {
 			c.Assert(result.OneError(), gc.ErrorMatches, test.expect)
 		}
 
-		batches, err := s.State.MetricBatches()
+		batches, err := s.State.AllMetricBatches()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(batches, gc.HasLen, 0)
 

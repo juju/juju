@@ -4,22 +4,10 @@
 package ec2
 
 import (
-	"fmt"
-
+	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/environs/simplestreams"
 )
-
-// signedImageDataOnly is defined here to allow tests to override the content.
-// If true, only inline PGP signed image metadata will be used.
-var signedImageDataOnly = true
-
-// defaultCpuPower is larger the smallest instance's cpuPower, and no larger than
-// any other instance type's cpuPower. It is used when no explicit CpuPower
-// constraint exists, preventing the smallest instance from being chosen unless
-// the user has clearly indicated that they are willing to accept poor performance.
-const defaultCpuPower = 100
 
 // filterImages returns only that subset of the input (in the same order) that
 // this provider finds suitable.
@@ -29,62 +17,73 @@ func filterImages(images []*imagemetadata.ImageMetadata, ic *instances.InstanceC
 	for _, image := range images {
 		imagesByStorage[image.Storage] = append(imagesByStorage[image.Storage], image)
 	}
+	logger.Debugf("images by storage type %+v", imagesByStorage)
 	// If a storage constraint has been specified, use that or else default to ssd.
 	storageTypes := []string{ssdStorage}
 	if ic != nil && len(ic.Storage) > 0 {
 		storageTypes = ic.Storage
 	}
+	logger.Debugf("filtering storage types %+v", storageTypes)
 	// Return the first set of images for which we have a storage type match.
 	for _, storageType := range storageTypes {
 		if len(imagesByStorage[storageType]) > 0 {
 			return imagesByStorage[storageType]
 		}
 	}
-	return nil
+	// If the user specifies an image ID during bootstrap, then it will not
+	// have a storage type.
+	return imagesByStorage[""]
 }
 
 // findInstanceSpec returns an InstanceSpec satisfying the supplied instanceConstraint.
 func findInstanceSpec(
-	sources []simplestreams.DataSource, stream string, ic *instances.InstanceConstraint) (*instances.InstanceSpec, error) {
-
-	// If the instance type is set, don't also set a default CPU power
-	// as this is implied.
-	cons := ic.Constraints
-	if cons.CpuPower == nil && (cons.InstanceType == nil || *cons.InstanceType == "") {
-		ic.Constraints.CpuPower = instances.CpuPower(defaultCpuPower)
+	controller bool,
+	allImageMetadata []*imagemetadata.ImageMetadata,
+	instanceTypes []instances.InstanceType,
+	ic *instances.InstanceConstraint,
+) (*instances.InstanceSpec, error) {
+	logger.Debugf("received %d image(s)", len(allImageMetadata))
+	if controller {
+		ic.Constraints = withDefaultControllerConstraints(ic.Constraints)
+	} else {
+		ic.Constraints = withDefaultNonControllerConstraints(ic.Constraints)
 	}
-	ec2Region := allRegions[ic.Region]
-	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
-		CloudSpec: simplestreams.CloudSpec{ic.Region, ec2Region.EC2Endpoint},
-		Series:    []string{ic.Series},
-		Arches:    ic.Arches,
-		Stream:    stream,
-	})
-	matchingImages, _, err := imagemetadata.Fetch(sources, imageConstraint, signedImageDataOnly)
-	if err != nil {
-		return nil, err
-	}
-	if len(matchingImages) == 0 {
-		logger.Warningf("no matching image meta data for constraints: %v", ic)
-	}
-	suitableImages := filterImages(matchingImages, ic)
+	suitableImages := filterImages(allImageMetadata, ic)
+	logger.Debugf("found %d suitable image(s)", len(suitableImages))
 	images := instances.ImageMetadataToImages(suitableImages)
+	return instances.FindInstanceSpec(images, ic, instanceTypes)
+}
 
-	// Make a copy of the known EC2 instance types, filling in the cost for the specified region.
-	regionCosts := allRegionCosts[ic.Region]
-	if len(regionCosts) == 0 && len(allRegionCosts) > 0 {
-		return nil, fmt.Errorf("no instance types found in %s", ic.Region)
+// withDefaultControllerConstraints returns the given constraints,
+// updated to choose a default instance type appropriate for a
+// controller machine. We use this only if the user does not specify
+// any constraints that would otherwise control the instance type
+// selection.
+//
+// At the time of writing, this will choose
+//   - t2.medium, for VPC
+//   - m3.medium, for EC2-Classic
+func withDefaultControllerConstraints(cons constraints.Value) constraints.Value {
+	if !cons.HasInstanceType() && !cons.HasCpuCores() && !cons.HasCpuPower() && !cons.HasMem() {
+		var mem uint64 = 3.75 * 1024
+		cons.Mem = &mem
 	}
+	return cons
+}
 
-	var itypesWithCosts []instances.InstanceType
-	for _, itype := range allInstanceTypes {
-		cost, ok := regionCosts[itype.Name]
-		if !ok {
-			continue
-		}
-		itWithCost := itype
-		itWithCost.Cost = cost
-		itypesWithCosts = append(itypesWithCosts, itWithCost)
+// withDefaultNonControllerConstraints returns the given constraints,
+// updated to choose a default instance type appropriate for a
+// non-controller machine. We use this only if the user does not
+// specify an instance-type, or cpu-power.
+//
+// At the time of writing, this will choose the cheapest non-burstable
+// instance available in the account/region. At the time of writing, that
+// is, for example:
+//   - m3.medium (for EC2-Classic)
+//   - c4.large (e.g. in ap-south-1)
+func withDefaultNonControllerConstraints(cons constraints.Value) constraints.Value {
+	if !cons.HasInstanceType() && !cons.HasCpuPower() {
+		cons.CpuPower = instances.CpuPower(100)
 	}
-	return instances.FindInstanceSpec(images, ic, itypesWithCosts)
+	return cons
 }

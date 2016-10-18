@@ -123,7 +123,7 @@ func newService(name string, conf common.Conf, initSystem, series string) (Servi
 	case InitSystemSystemd:
 		dataDir, err := paths.DataDir(series)
 		if err != nil {
-			return nil, errors.Annotatef(err, "failed to find juju data dir for service %q", name)
+			return nil, errors.Annotatef(err, "failed to find juju data dir for application %q", name)
 		}
 
 		svc, err := systemd.NewService(name, conf, dataDir)
@@ -195,6 +195,8 @@ func listServicesCommand(initSystem string) (string, bool) {
 
 // installStartRetryAttempts defines how much InstallAndStart retries
 // upon Start failures.
+//
+// TODO(katco): 2016-08-09: lp:1611427
 var installStartRetryAttempts = utils.AttemptStrategy{
 	Total: 1 * time.Second,
 	Delay: 250 * time.Millisecond,
@@ -203,6 +205,7 @@ var installStartRetryAttempts = utils.AttemptStrategy{
 // InstallAndStart installs the provided service and tries starting it.
 // The first few Start failures are ignored.
 func InstallAndStart(svc ServiceActions) error {
+	logger.Infof("Installing and starting service %+v", svc)
 	if err := svc.Install(); err != nil {
 		return errors.Trace(err)
 	}

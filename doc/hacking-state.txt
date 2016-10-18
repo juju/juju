@@ -137,7 +137,7 @@ to be reflected as a constant stream of events. We didn't figure this
 out until recently, though, so relationDoc has a UnitCount, and
 serviceDoc has both a UnitCount and a RelationCount. This doesn't
 matter for the relation -- nothing watches relation docs directly --
-but I fear it matters quite hard for service, because every added or
+but I fear it matters quite hard for application, because every added or
 removed unit or relation will be an unnecessary event sent to every
 unit agent.
 

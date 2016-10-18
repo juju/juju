@@ -4,7 +4,7 @@
 package context
 
 import (
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 )
 
 // ActionData contains the tag, parameters, and results of an Action.
@@ -27,12 +27,6 @@ func NewActionData(name string, tag *names.ActionTag, params map[string]interfac
 		ResultsMap: map[string]interface{}{},
 	}
 }
-
-// actionStatus messages define the possible states of a completed Action.
-const (
-	actionStatusInit   = "init"
-	actionStatusFailed = "fail"
-)
 
 // addValueToMap adds the given value to the map on which the method is run.
 // This allows us to merge maps such as {foo: {bar: baz}} and {foo: {baz: faz}}

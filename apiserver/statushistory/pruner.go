@@ -5,26 +5,23 @@ package statushistory
 
 import (
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
-
-	"github.com/juju/loggo"
 )
 
 func init() {
-	common.RegisterStandardFacade("StatusHistory", 1, NewAPI)
+	common.RegisterStandardFacade("StatusHistory", 2, NewAPI)
 }
-
-var logger = loggo.GetLogger("juju.apiserver.statushistory")
 
 // API is the concrete implementation of the Pruner endpoint..
 type API struct {
 	st         *state.State
-	authorizer common.Authorizer
+	authorizer facade.Authorizer
 }
 
 // NewAPI returns an API Instance.
-func NewAPI(st *state.State, _ *common.Resources, auth common.Authorizer) (*API, error) {
+func NewAPI(st *state.State, _ facade.Resources, auth facade.Authorizer) (*API, error) {
 	return &API{
 		st:         st,
 		authorizer: auth,
@@ -32,10 +29,11 @@ func NewAPI(st *state.State, _ *common.Resources, auth common.Authorizer) (*API,
 }
 
 // Prune endpoint removes status history entries until
-// only the N newest records per unit remain.
+// only the ones newer than now - p.MaxHistoryTime remain and
+// the history is smaller than p.MaxHistoryMB.
 func (api *API) Prune(p params.StatusHistoryPruneArgs) error {
-	if !api.authorizer.AuthEnvironManager() {
+	if !api.authorizer.AuthModelManager() {
 		return common.ErrPerm
 	}
-	return state.PruneStatusHistory(api.st, p.MaxLogsPerEntity)
+	return state.PruneStatusHistory(api.st, p.MaxHistoryTime, p.MaxHistoryMB)
 }

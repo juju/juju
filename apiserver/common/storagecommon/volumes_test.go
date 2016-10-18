@@ -4,14 +4,15 @@
 package storagecommon_test
 
 import (
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/testing"
 )
 
@@ -38,10 +39,13 @@ func (*volumesSuite) testVolumeParams(c *gc.C, volumeParams *state.VolumeParams,
 	p, err := storagecommon.VolumeParams(
 		&fakeVolume{tag: tag, params: volumeParams, info: info},
 		nil, // StorageInstance
-		testing.CustomEnvironConfig(c, testing.Attrs{
+		testing.ModelTag.Id(),
+		testing.ControllerTag.Id(),
+		testing.CustomModelConfig(c, testing.Attrs{
 			"resource-tags": "a=b c=",
 		}),
 		&fakePoolManager{},
+		provider.CommonStorageProviders(),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(p, jc.DeepEquals, params.VolumeParams{
@@ -49,9 +53,10 @@ func (*volumesSuite) testVolumeParams(c *gc.C, volumeParams *state.VolumeParams,
 		Provider:  "loop",
 		Size:      1024,
 		Tags: map[string]string{
-			tags.JujuEnv: testing.EnvironmentTag.Id(),
-			"a":          "b",
-			"c":          "",
+			tags.JujuController: testing.ControllerTag.Id(),
+			tags.JujuModel:      testing.ModelTag.Id(),
+			"a":                 "b",
+			"c":                 "",
 		},
 	})
 }
@@ -65,8 +70,11 @@ func (*volumesSuite) TestVolumeParamsStorageTags(c *gc.C) {
 			Pool: "loop", Size: 1024,
 		}},
 		&fakeStorageInstance{tag: storageTag, owner: unitTag},
-		testing.CustomEnvironConfig(c, nil),
+		testing.ModelTag.Id(),
+		testing.ControllerTag.Id(),
+		testing.CustomModelConfig(c, nil),
 		&fakePoolManager{},
+		provider.CommonStorageProviders(),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(p, jc.DeepEquals, params.VolumeParams{
@@ -74,7 +82,8 @@ func (*volumesSuite) TestVolumeParamsStorageTags(c *gc.C) {
 		Provider:  "loop",
 		Size:      1024,
 		Tags: map[string]string{
-			tags.JujuEnv:             testing.EnvironmentTag.Id(),
+			tags.JujuController:      testing.ControllerTag.Id(),
+			tags.JujuModel:           testing.ModelTag.Id(),
 			tags.JujuStorageInstance: "mystore/0",
 			tags.JujuStorageOwner:    "mysql/123",
 		},

@@ -74,32 +74,6 @@ func (s *instanceSuite) TestInstanceMetadata(c *gc.C) {
 	c.Check(metadata, jc.DeepEquals, map[string]string{"eggs": "steak"})
 }
 
-func (s *instanceSuite) TestFormatAuthorizedKeys(c *gc.C) {
-	formatted, err := google.FormatAuthorizedKeys("abcd", "john")
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(formatted, gc.Equals, "john:abcd\n")
-}
-
-func (s *instanceSuite) TestFormatAuthorizedKeysEmpty(c *gc.C) {
-	_, err := google.FormatAuthorizedKeys("", "john")
-
-	c.Check(err, gc.ErrorMatches, "empty rawAuthorizedKeys")
-}
-
-func (s *instanceSuite) TestFormatAuthorizedKeysNoUser(c *gc.C) {
-	_, err := google.FormatAuthorizedKeys("abcd", "")
-
-	c.Check(err, gc.ErrorMatches, "empty user")
-}
-
-func (s *instanceSuite) TestFormatAuthorizedKeysMultiple(c *gc.C) {
-	formatted, err := google.FormatAuthorizedKeys("abcd\ndcba\nqwer", "john")
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(formatted, gc.Equals, "john:abcd\njohn:dcba\njohn:qwer\n")
-}
-
 func (s *instanceSuite) TestPackMetadata(c *gc.C) {
 	expected := compute.Metadata{Items: []*compute.MetadataItems{{
 		Key:   "spam",

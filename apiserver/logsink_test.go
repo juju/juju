@@ -14,25 +14,30 @@ import (
 	"time"
 
 	"github.com/juju/loggo"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"golang.org/x/net/websocket"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/apiserver/params"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
+	"github.com/juju/juju/version"
 )
 
 // logsinkBaseSuite has functionality that's shared between the the 2 logsink related suites
 type logsinkBaseSuite struct {
-	authHttpSuite
+	authHTTPSuite
 }
 
 func (s *logsinkBaseSuite) logsinkURL(c *gc.C, scheme string) *url.URL {
-	return s.makeURL(c, scheme, "/environment/"+s.State.EnvironUUID()+"/logsink", nil)
+	server := s.makeURL(c, scheme, "/model/"+s.State.ModelUUID()+"/logsink", nil)
+	query := server.Query()
+	query.Set("jujuclientversion", version.Current.String())
+	server.RawQuery = query.Encode()
+	return server
 }
 
 type logsinkSuite struct {
@@ -46,7 +51,6 @@ type logsinkSuite struct {
 var _ = gc.Suite(&logsinkSuite{})
 
 func (s *logsinkSuite) SetUpTest(c *gc.C) {
-	s.SetInitialFeatureFlags("db-log")
 	s.logsinkBaseSuite.SetUpTest(c)
 	s.nonce = "nonce"
 	m, password := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
@@ -56,13 +60,14 @@ func (s *logsinkSuite) SetUpTest(c *gc.C) {
 	s.password = password
 
 	s.logs.Clear()
-	c.Assert(loggo.RegisterWriter("logsink-tests", &s.logs, loggo.INFO), jc.ErrorIsNil)
+	writer := loggo.NewMinimumLevelWriter(&s.logs, loggo.INFO)
+	c.Assert(loggo.RegisterWriter("logsink-tests", writer), jc.ErrorIsNil)
 }
 
-func (s *logsinkSuite) TestRejectsBadEnvironUUID(c *gc.C) {
-	reader := s.openWebsocketCustomPath(c, "/environment/does-not-exist/logsink")
-	assertJSONError(c, reader, `unknown environment: "does-not-exist"`)
-	s.assertWebsocketClosed(c, reader)
+func (s *logsinkSuite) TestRejectsBadModelUUID(c *gc.C) {
+	reader := s.openWebsocketCustomPath(c, "/model/does-not-exist/logsink")
+	assertJSONError(c, reader, `unknown model: "does-not-exist"`)
+	assertWebsocketClosed(c, reader)
 }
 
 func (s *logsinkSuite) TestNoAuth(c *gc.C) {
@@ -72,13 +77,13 @@ func (s *logsinkSuite) TestNoAuth(c *gc.C) {
 func (s *logsinkSuite) TestRejectsUserLogins(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{Password: "sekrit"})
 	header := utils.BasicAuthHeader(user.Tag().String(), "sekrit")
-	s.checkAuthFailsWithEntityError(c, header)
+	s.checkAuthFailsWithEntityError(c, header, "tag kind user not valid")
 }
 
 func (s *logsinkSuite) TestRejectsBadPassword(c *gc.C) {
 	header := utils.BasicAuthHeader(s.machineTag.String(), "wrong")
 	header.Add(params.MachineNonceHeader, s.nonce)
-	s.checkAuthFailsWithEntityError(c, header)
+	s.checkAuthFailsWithEntityError(c, header, "invalid entity name or password")
 }
 
 func (s *logsinkSuite) TestRejectsIncorrectNonce(c *gc.C) {
@@ -87,8 +92,8 @@ func (s *logsinkSuite) TestRejectsIncorrectNonce(c *gc.C) {
 	s.checkAuthFails(c, header, "machine 0 not provisioned")
 }
 
-func (s *logsinkSuite) checkAuthFailsWithEntityError(c *gc.C, header http.Header) {
-	s.checkAuthFails(c, header, "invalid entity name or password")
+func (s *logsinkSuite) checkAuthFailsWithEntityError(c *gc.C, header http.Header, msg string) {
+	s.checkAuthFails(c, header, msg)
 }
 
 func (s *logsinkSuite) checkAuthFails(c *gc.C, header http.Header, message string) {
@@ -96,7 +101,7 @@ func (s *logsinkSuite) checkAuthFails(c *gc.C, header http.Header, message strin
 	defer conn.Close()
 	reader := bufio.NewReader(conn)
 	assertJSONError(c, reader, message)
-	s.assertWebsocketClosed(c, reader)
+	assertWebsocketClosed(c, reader)
 }
 
 func (s *logsinkSuite) TestLogging(c *gc.C) {
@@ -113,7 +118,7 @@ func (s *logsinkSuite) TestLogging(c *gc.C) {
 		Time:     t0,
 		Module:   "some.where",
 		Location: "foo.go:42",
-		Level:    loggo.INFO,
+		Level:    loggo.INFO.String(),
 		Message:  "all is well",
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -123,7 +128,7 @@ func (s *logsinkSuite) TestLogging(c *gc.C) {
 		Time:     t1,
 		Module:   "else.where",
 		Location: "bar.go:99",
-		Level:    loggo.ERROR,
+		Level:    loggo.ERROR.String(),
 		Message:  "oh noes",
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -146,17 +151,17 @@ func (s *logsinkSuite) TestLogging(c *gc.C) {
 	}
 
 	// Check the recorded logs are correct.
-	envUUID := s.State.EnvironUUID()
-	c.Assert(docs[0]["t"].(time.Time).Sub(t0), gc.Equals, time.Duration(0))
-	c.Assert(docs[0]["e"], gc.Equals, envUUID)
+	modelUUID := s.State.ModelUUID()
+	c.Assert(docs[0]["t"], gc.Equals, t0.UnixNano())
+	c.Assert(docs[0]["e"], gc.Equals, modelUUID)
 	c.Assert(docs[0]["n"], gc.Equals, s.machineTag.String())
 	c.Assert(docs[0]["m"], gc.Equals, "some.where")
 	c.Assert(docs[0]["l"], gc.Equals, "foo.go:42")
 	c.Assert(docs[0]["v"], gc.Equals, int(loggo.INFO))
 	c.Assert(docs[0]["x"], gc.Equals, "all is well")
 
-	c.Assert(docs[1]["t"].(time.Time).Sub(t1), gc.Equals, time.Duration(0))
-	c.Assert(docs[1]["e"], gc.Equals, envUUID)
+	c.Assert(docs[1]["t"], gc.Equals, t1.UnixNano())
+	c.Assert(docs[1]["e"], gc.Equals, modelUUID)
 	c.Assert(docs[1]["n"], gc.Equals, s.machineTag.String())
 	c.Assert(docs[1]["m"], gc.Equals, "else.where")
 	c.Assert(docs[1]["l"], gc.Equals, "bar.go:99")
@@ -183,8 +188,8 @@ func (s *logsinkSuite) TestLogging(c *gc.C) {
 	logPath := filepath.Join(s.LogDir, "logsink.log")
 	logContents, err := ioutil.ReadFile(logPath)
 	c.Assert(err, jc.ErrorIsNil)
-	line0 := envUUID + " machine-0: 2015-06-01 23:02:01 INFO some.where foo.go:42 all is well\n"
-	line1 := envUUID + " machine-0: 2015-06-01 23:02:02 ERROR else.where bar.go:99 oh noes\n"
+	line0 := modelUUID + " machine-0: 2015-06-01 23:02:01 INFO some.where foo.go:42 all is well\n"
+	line1 := modelUUID + " machine-0: 2015-06-01 23:02:02 ERROR else.where bar.go:99 oh noes\n"
 	c.Assert(string(logContents), gc.Equals, line0+line1)
 
 	// Check the file mode is as expected. This doesn't work on
@@ -203,13 +208,13 @@ func (s *logsinkSuite) dialWebsocket(c *gc.C) *websocket.Conn {
 
 func (s *logsinkSuite) dialWebsocketInternal(c *gc.C, header http.Header) *websocket.Conn {
 	server := s.logsinkURL(c, "wss").String()
-	return s.dialWebsocketFromURL(c, server, header)
+	return dialWebsocketFromURL(c, server, header)
 }
 
 func (s *logsinkSuite) openWebsocketCustomPath(c *gc.C, path string) *bufio.Reader {
 	server := s.logsinkURL(c, "wss")
 	server.Path = path
-	conn := s.dialWebsocketFromURL(c, server.String(), s.makeAuthHeader())
+	conn := dialWebsocketFromURL(c, server.String(), s.makeAuthHeader())
 	s.AddCleanup(func(_ *gc.C) { conn.Close() })
 	return bufio.NewReader(conn)
 }
@@ -218,17 +223,4 @@ func (s *logsinkSuite) makeAuthHeader() http.Header {
 	header := utils.BasicAuthHeader(s.machineTag.String(), s.password)
 	header.Add(params.MachineNonceHeader, s.nonce)
 	return header
-}
-
-type logsinkNoFeatureSuite struct {
-	logsinkBaseSuite
-}
-
-var _ = gc.Suite(&logsinkNoFeatureSuite{})
-
-func (s *logsinkNoFeatureSuite) TestNoApiWithoutFeatureFlag(c *gc.C) {
-	server := s.logsinkURL(c, "wss").String()
-	config := s.makeWebsocketConfigFromURL(c, server, nil)
-	_, err := websocket.DialConfig(config)
-	c.Assert(err, gc.ErrorMatches, ".+/logsink: bad status$")
 }

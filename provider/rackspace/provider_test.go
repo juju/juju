@@ -4,11 +4,15 @@
 package rackspace_test
 
 import (
+	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/errors"
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/provider/rackspace"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type providerSuite struct {
@@ -27,59 +31,71 @@ func (s *providerSuite) TestValidate(c *gc.C) {
 	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
 		"name":            "some-name",
 		"type":            "some-type",
+		"uuid":            coretesting.ModelTag.Id(),
+		"controller-uuid": coretesting.ControllerTag.Id(),
 		"authorized-keys": "key",
 	})
 	c.Check(err, gc.IsNil)
 	_, err = s.provider.Validate(cfg, nil)
 	c.Check(err, gc.IsNil)
-	c.Check(s.innerProvider.Pop().name, gc.Equals, "Validate")
+	s.innerProvider.CheckCallNames(c, "Validate")
+}
+
+func (s *providerSuite) TestPrepareConfig(c *gc.C) {
+	args := environs.PrepareConfigParams{
+		Cloud: environs.CloudSpec{
+			Region: "dfw",
+		},
+	}
+	s.provider.PrepareConfig(args)
+
+	expect := args
+	expect.Cloud.Region = "DFW"
+	s.innerProvider.CheckCalls(c, []testing.StubCall{
+		{"PrepareConfig", []interface{}{expect}},
+	})
 }
 
 type fakeProvider struct {
-	methodCalls []methodCall
+	testing.Stub
 }
 
-func (p *fakeProvider) Push(name string, params ...interface{}) {
-	p.methodCalls = append(p.methodCalls, methodCall{name, params})
-}
-
-func (p *fakeProvider) Pop() methodCall {
-	m := p.methodCalls[0]
-	p.methodCalls = p.methodCalls[1:]
-	return m
-}
-
-func (p *fakeProvider) Open(cfg *config.Config) (environs.Environ, error) {
-	p.Push("Open", cfg)
+func (p *fakeProvider) Open(args environs.OpenParams) (environs.Environ, error) {
+	p.MethodCall(p, "Open", args)
 	return nil, nil
 }
 
-func (p *fakeProvider) RestrictedConfigAttributes() []string {
-	p.Push("RestrictedConfigAttributes")
-	return nil
+func (p *fakeProvider) PrepareForCreateEnvironment(controllerUUID string, cfg *config.Config) (*config.Config, error) {
+	p.MethodCall(p, "PrepareForCreateEnvironment", controllerUUID, cfg)
+	return nil, nil
 }
 
-func (p *fakeProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
-	p.Push("PrepareForCreateEnvironment", cfg)
+func (p *fakeProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {
+	p.MethodCall(p, "PrepareConfig", args)
 	return nil, nil
 }
 
 func (p *fakeProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
-	p.Push("PrepareForBootstrap", ctx, cfg)
+	p.MethodCall(p, "PrepareForBootstrap", ctx, cfg)
 	return nil, nil
 }
 
 func (p *fakeProvider) Validate(cfg, old *config.Config) (valid *config.Config, err error) {
-	p.Push("Validate", cfg, old)
+	p.MethodCall(p, "Validate", cfg, old)
 	return cfg, nil
 }
 
-func (p *fakeProvider) BoilerplateConfig() string {
-	p.Push("BoilerplateConfig")
-	return ""
+func (p *fakeProvider) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
+	p.MethodCall(p, "CredentialSchemas")
+	return nil
 }
 
-func (p *fakeProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
-	p.Push("SecretAttrs", cfg)
-	return nil, nil
+func (p *fakeProvider) DetectCredentials() (*cloud.CloudCredential, error) {
+	p.MethodCall(p, "DetectCredentials")
+	return nil, errors.NotFoundf("credentials")
+}
+
+func (p *fakeProvider) FinalizeCredential(ctx environs.FinalizeCredentialContext, args environs.FinalizeCredentialParams) (*cloud.Credential, error) {
+	p.MethodCall(p, "FinalizeCredential", ctx, args)
+	return &args.Credential, nil
 }

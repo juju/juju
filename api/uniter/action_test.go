@@ -4,9 +4,9 @@
 package uniter_test
 
 import (
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
@@ -82,7 +82,7 @@ func (s *actionSuite) TestNewActionAndAccessors(c *gc.C) {
 func (s *actionSuite) TestActionComplete(c *gc.C) {
 	completed, err := s.uniterSuite.wordpressUnit.CompletedActions()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(completed, gc.DeepEquals, ([]*state.Action)(nil))
+	c.Assert(completed, gc.DeepEquals, ([]state.Action)(nil))
 
 	action, err := s.uniterSuite.wordpressUnit.AddAction("fakeaction", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -104,7 +104,7 @@ func (s *actionSuite) TestActionComplete(c *gc.C) {
 func (s *actionSuite) TestActionFail(c *gc.C) {
 	completed, err := s.uniterSuite.wordpressUnit.CompletedActions()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(completed, gc.DeepEquals, ([]*state.Action)(nil))
+	c.Assert(completed, gc.DeepEquals, ([]state.Action)(nil))
 
 	action, err := s.uniterSuite.wordpressUnit.AddAction("fakeaction", nil)
 	c.Assert(err, jc.ErrorIsNil)

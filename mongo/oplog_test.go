@@ -4,6 +4,8 @@
 package mongo_test
 
 import (
+	"errors"
+	"reflect"
 	"time"
 
 	jujutesting "github.com/juju/testing"
@@ -30,8 +32,10 @@ func (s *oplogSuite) TestWithRealOplog(c *gc.C) {
 	// DB.
 	oplog := mongo.GetOplog(session)
 	tailer := mongo.NewOplogTailer(
-		oplog,
-		bson.D{{"ns", "foo.bar"}},
+		mongo.NewOplogSession(
+			oplog,
+			bson.D{{"ns", "foo.bar"}},
+		),
 		time.Now().Add(-time.Minute),
 	)
 	defer tailer.Stop()
@@ -80,7 +84,7 @@ func (s *oplogSuite) TestHonoursInitialTs(c *gc.C) {
 		)
 	}
 
-	tailer := mongo.NewOplogTailer(oplog, nil, t)
+	tailer := mongo.NewOplogTailer(mongo.NewOplogSession(oplog, nil), t)
 	defer tailer.Stop()
 
 	for offset := 0; offset <= 1; offset++ {
@@ -94,7 +98,7 @@ func (s *oplogSuite) TestStops(c *gc.C) {
 	_, session := s.startMongo(c)
 
 	oplog := s.makeFakeOplog(c, session)
-	tailer := mongo.NewOplogTailer(oplog, nil, time.Time{})
+	tailer := mongo.NewOplogTailer(mongo.NewOplogSession(oplog, nil), time.Time{})
 	defer tailer.Stop()
 
 	s.insertDoc(c, session, oplog, &mongo.OplogDoc{Timestamp: 1})
@@ -107,69 +111,62 @@ func (s *oplogSuite) TestStops(c *gc.C) {
 	c.Assert(tailer.Err(), jc.ErrorIsNil)
 }
 
-func (s *oplogSuite) TestRestartsOnError(c *gc.C) {
-	_, session := s.startMongo(c)
-
-	oplog := s.makeFakeOplog(c, session)
-	tailer := mongo.NewOplogTailer(oplog, nil, time.Time{})
+func (s *oplogSuite) TestRestartsOnErrCursor(c *gc.C) {
+	session := newFakeSession(
+		// First iterator terminates with an ErrCursor
+		newFakeIterator(mgo.ErrCursor, &mongo.OplogDoc{Timestamp: 1, OperationId: 99}),
+		newFakeIterator(nil, &mongo.OplogDoc{Timestamp: 2, OperationId: 42}),
+	)
+	tailer := mongo.NewOplogTailer(session, time.Time{})
 	defer tailer.Stop()
 
-	// First, ensure that the tailer is seeing oplog inserts.
-	s.insertDoc(c, session, oplog, &mongo.OplogDoc{
-		Timestamp:   1,
-		OperationId: 99,
-	})
+	// First, ensure that the tailer is seeing oplog rows and handles
+	// the ErrCursor that occurs at the end.
 	doc := s.getNextOplog(c, tailer)
-	c.Assert(doc.Timestamp, gc.Equals, bson.MongoTimestamp(1))
+	c.Check(doc.Timestamp, gc.Equals, bson.MongoTimestamp(1))
+	session.checkLastArgs(c, mongo.NewMongoTimestamp(time.Time{}), nil)
 
-	s.emptyCapped(c, oplog)
-
-	// Ensure that the tailer still works.
-	s.insertDoc(c, session, oplog, &mongo.OplogDoc{
-		Timestamp:   2,
-		OperationId: 42,
-	})
+	// Ensure that the tailer continues after getting a new iterator.
 	doc = s.getNextOplog(c, tailer)
-	c.Assert(doc.Timestamp, gc.Equals, bson.MongoTimestamp(2))
+	c.Check(doc.Timestamp, gc.Equals, bson.MongoTimestamp(2))
+	session.checkLastArgs(c, bson.MongoTimestamp(1), []int64{99})
 }
 
 func (s *oplogSuite) TestNoRepeatsAfterIterRestart(c *gc.C) {
-	_, session := s.startMongo(c)
-
-	oplog := s.makeFakeOplog(c, session)
-	tailer := mongo.NewOplogTailer(oplog, nil, time.Time{})
-	defer tailer.Stop()
-
-	// Insert a bunch of oplog entries with the same timestamp (but
-	// with different ids) and see them reported.
-	for id := int64(10); id < 15; id++ {
-		s.insertDoc(c, session, oplog, &mongo.OplogDoc{
+	// A bunch of documents with the same timestamp but different ids.
+	// These will be split across 2 iterators.
+	docs := make([]*mongo.OplogDoc, 11)
+	for i := 0; i < 10; i++ {
+		id := int64(i + 10)
+		docs[i] = &mongo.OplogDoc{
 			Timestamp:   1,
 			OperationId: id,
-		})
+		}
+	}
+	// Add one more with a different timestamp.
+	docs[10] = &mongo.OplogDoc{
+		Timestamp:   2,
+		OperationId: 42,
+	}
+	session := newFakeSession(
+		// First block of documents, all time 1
+		newFakeIterator(nil, docs[:5]...),
+		// Second block, some time 1, one time 2
+		newFakeIterator(nil, docs[5:]...),
+	)
+	tailer := mongo.NewOplogTailer(session, time.Time{})
+	defer tailer.Stop()
 
+	for id := int64(10); id < 15; id++ {
 		doc := s.getNextOplog(c, tailer)
 		c.Assert(doc.Timestamp, gc.Equals, bson.MongoTimestamp(1))
 		c.Assert(doc.OperationId, gc.Equals, id)
 	}
 
-	// Force the OplogTailer's iterator to be recreated.
-	s.emptyCapped(c, oplog)
+	// Check the query doesn't exclude any in the first request.
+	session.checkLastArgs(c, mongo.NewMongoTimestamp(time.Time{}), nil)
 
-	// Reinsert the oplog entries that were already there before and a
-	// few more.
-	for id := int64(10); id < 20; id++ {
-		s.insertDoc(c, session, oplog, &mongo.OplogDoc{
-			Timestamp:   1,
-			OperationId: id,
-		})
-	}
-
-	// Insert an entry for a later timestamp.
-	s.insertDoc(c, session, oplog, &mongo.OplogDoc{
-		Timestamp:   2,
-		OperationId: 42,
-	})
+	// The OplogTailer will fall off the end of the iterator and get a new one.
 
 	// Ensure that only previously unreported entries are now reported.
 	for id := int64(15); id < 20; id++ {
@@ -178,30 +175,27 @@ func (s *oplogSuite) TestNoRepeatsAfterIterRestart(c *gc.C) {
 		c.Assert(doc.OperationId, gc.Equals, id)
 	}
 
+	// Check we got the next block correctly
+	session.checkLastArgs(c, bson.MongoTimestamp(1), []int64{10, 11, 12, 13, 14})
+
 	doc := s.getNextOplog(c, tailer)
 	c.Assert(doc.Timestamp, gc.Equals, bson.MongoTimestamp(2))
 	c.Assert(doc.OperationId, gc.Equals, int64(42))
 }
 
 func (s *oplogSuite) TestDiesOnFatalError(c *gc.C) {
-	_, session := s.startMongo(c)
-	oplog := s.makeFakeOplog(c, session)
-	s.insertDoc(c, session, oplog, &mongo.OplogDoc{Timestamp: 1})
+	expectedErr := errors.New("oh no, the collection went away!")
+	session := newFakeSession(
+		newFakeIterator(expectedErr, &mongo.OplogDoc{Timestamp: 1}),
+	)
 
-	tailer := mongo.NewOplogTailer(oplog, nil, time.Time{})
+	tailer := mongo.NewOplogTailer(session, time.Time{})
 	defer tailer.Stop()
 
 	doc := s.getNextOplog(c, tailer)
 	c.Assert(doc.Timestamp, gc.Equals, bson.MongoTimestamp(1))
-
-	// Induce a fatal error by removing the oplog collection.
-	err := oplog.DropCollection()
-	c.Assert(err, jc.ErrorIsNil)
-
 	s.assertStopped(c, tailer)
-	// The actual error varies by MongoDB version so just check that
-	// there is one.
-	c.Assert(tailer.Err(), gc.Not(jc.ErrorIsNil))
+	c.Assert(tailer.Err(), gc.Equals, expectedErr)
 }
 
 func (s *oplogSuite) TestNewMongoTimestamp(c *gc.C) {
@@ -232,22 +226,18 @@ func (s *oplogSuite) startMongoWithReplicaset(c *gc.C) (*jujutesting.MgoInstance
 		DialInfo:       info,
 		MemberHostPort: inst.Addr(),
 	}
-	err = peergrouper.MaybeInitiateMongoServer(args)
+	err = peergrouper.InitiateMongoServer(args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	return inst, s.dialMongo(c, inst)
 }
 
 func (s *oplogSuite) startMongo(c *gc.C) (*jujutesting.MgoInstance, *mgo.Session) {
-	inst := &jujutesting.MgoInstance{
-		Params: []string{
-			"--setParameter", "enableTestCommands=1", // allows "emptycapped" command
-		},
-	}
+	var inst jujutesting.MgoInstance
 	err := inst.Start(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(*gc.C) { inst.Destroy() })
-	return inst, s.dialMongo(c, inst)
+	return &inst, s.dialMongo(c, &inst)
 }
 
 func (s *oplogSuite) emptyCapped(c *gc.C, coll *mgo.Collection) {
@@ -322,5 +312,89 @@ func (s *oplogSuite) assertStopped(c *gc.C, tailer *mongo.OplogTailer) {
 		// Success.
 	case <-time.After(coretesting.LongWait):
 		c.Fatal("tailer should have died")
+	}
+}
+
+type fakeIterator struct {
+	docs    []*mongo.OplogDoc
+	pos     int
+	err     error
+	timeout bool
+}
+
+func (i *fakeIterator) Next(result interface{}) bool {
+	if i.pos >= len(i.docs) {
+		return false
+	}
+	target := reflect.ValueOf(result).Elem()
+	target.Set(reflect.ValueOf(*i.docs[i.pos]))
+	i.pos++
+	return true
+}
+
+func (i *fakeIterator) Err() error {
+	if i.pos < len(i.docs) {
+		return nil
+	}
+	return i.err
+}
+
+func (i *fakeIterator) Timeout() bool {
+	if i.pos < len(i.docs) {
+		return false
+	}
+	return i.timeout
+}
+
+func newFakeIterator(err error, docs ...*mongo.OplogDoc) *fakeIterator {
+	return &fakeIterator{docs: docs, err: err}
+}
+
+type iterArgs struct {
+	timestamp  bson.MongoTimestamp
+	excludeIds []int64
+}
+
+type fakeSession struct {
+	iterators []*fakeIterator
+	pos       int
+	args      chan iterArgs
+}
+
+var timeoutIterator = fakeIterator{timeout: true}
+
+func (s *fakeSession) NewIter(ts bson.MongoTimestamp, ids []int64) mongo.OplogIterator {
+	if s.pos >= len(s.iterators) {
+		// We've run out of results - at this point the calls to get
+		// more data would just keep timing out.
+		return &timeoutIterator
+	}
+	select {
+	case <-time.After(coretesting.LongWait):
+		panic("took too long to save args")
+	case s.args <- iterArgs{ts, ids}:
+	}
+	result := s.iterators[s.pos]
+	s.pos++
+	return result
+}
+
+func (s *fakeSession) Close() {}
+
+func (s *fakeSession) checkLastArgs(c *gc.C, ts bson.MongoTimestamp, ids []int64) {
+	select {
+	case <-time.After(coretesting.LongWait):
+		c.Logf("timeout getting iter args - test problem")
+		c.FailNow()
+	case res := <-s.args:
+		c.Check(res.timestamp, gc.Equals, ts)
+		c.Check(res.excludeIds, gc.DeepEquals, ids)
+	}
+}
+
+func newFakeSession(iterators ...*fakeIterator) *fakeSession {
+	return &fakeSession{
+		iterators: iterators,
+		args:      make(chan iterArgs, 5),
 	}
 }

@@ -4,25 +4,28 @@
 package client
 
 import (
-	"errors"
 	"fmt"
 
+	"github.com/juju/errors"
+	"github.com/juju/utils/set"
+
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloudconfig/instancecfg"
-	"github.com/juju/juju/environmentserver/authentication"
-	"github.com/juju/juju/environs"
+	"github.com/juju/juju/controller/authentication"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/stateenvirons"
 )
 
 // InstanceConfig returns information from the environment config that
-// is needed for machine cloud-init (for non-state servers only). It
+// is needed for machine cloud-init (for non-controllers only). It
 // is exposed for testing purposes.
 // TODO(rog) fix environs/manual tests so they do not need to call this, or move this elsewhere.
 func InstanceConfig(st *state.State, machineId, nonce, dataDir string) (*instancecfg.InstanceConfig, error) {
-	environConfig, err := st.EnvironConfig()
+	modelConfig, err := st.ModelConfig()
 	if err != nil {
-		return nil, err
+		return nil, errors.Annotate(err, "getting model config")
 	}
 
 	// Get the machine so we can get its series and arch.
@@ -30,27 +33,28 @@ func InstanceConfig(st *state.State, machineId, nonce, dataDir string) (*instanc
 	// an error is returned.
 	machine, err := st.Machine(machineId)
 	if err != nil {
-		return nil, err
+		return nil, errors.Annotate(err, "getting machine")
 	}
 	hc, err := machine.HardwareCharacteristics()
 	if err != nil {
-		return nil, err
+		return nil, errors.Annotate(err, "getting machine hardware characteristics")
 	}
 	if hc.Arch == nil {
 		return nil, fmt.Errorf("arch is not set for %q", machine.Tag())
 	}
 
 	// Find the appropriate tools information.
-	agentVersion, ok := environConfig.AgentVersion()
+	agentVersion, ok := modelConfig.AgentVersion()
 	if !ok {
-		return nil, errors.New("no agent version set in environment configuration")
+		return nil, errors.New("no agent version set in model configuration")
 	}
-	environment, err := st.Environment()
+	environment, err := st.Model()
 	if err != nil {
-		return nil, err
+		return nil, errors.Annotate(err, "getting state model")
 	}
 	urlGetter := common.NewToolsURLGetter(environment.UUID(), st)
-	toolsFinder := common.NewToolsFinder(st, st, urlGetter)
+	configGetter := stateenvirons.EnvironConfigGetter{st}
+	toolsFinder := common.NewToolsFinder(configGetter, st, urlGetter)
 	findToolsResult, err := toolsFinder.FindTools(params.FindToolsParams{
 		Number:       agentVersion,
 		MajorVersion: -1,
@@ -59,54 +63,51 @@ func InstanceConfig(st *state.State, machineId, nonce, dataDir string) (*instanc
 		Arch:         *hc.Arch,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errors.Annotate(err, "finding tools")
 	}
 	if findToolsResult.Error != nil {
-		return nil, findToolsResult.Error
+		return nil, errors.Annotate(findToolsResult.Error, "finding tools")
 	}
-	tools := findToolsResult.List[0]
+	toolsList := findToolsResult.List
 
-	// Find the API endpoints.
-	env, err := environs.New(environConfig)
+	// Get the API connection info; attempt all API addresses.
+	apiHostPorts, err := st.APIHostPorts()
 	if err != nil {
-		return nil, err
+		return nil, errors.Annotate(err, "getting API addresses")
 	}
-	apiInfo, err := environs.APIInfo(env)
-	if err != nil {
-		return nil, err
+	apiAddrs := make(set.Strings)
+	for _, hostPorts := range apiHostPorts {
+		for _, hp := range hostPorts {
+			apiAddrs.Add(hp.NetAddr())
+		}
+	}
+	apiInfo := &api.Info{
+		Addrs:    apiAddrs.SortedValues(),
+		CACert:   st.CACert(),
+		ModelTag: st.ModelTag(),
 	}
 
 	auth := authentication.NewAuthenticator(st.MongoConnectionInfo(), apiInfo)
-	mongoInfo, apiInfo, err := auth.SetupAuthentication(machine)
+	_, apiInfo, err = auth.SetupAuthentication(machine)
 	if err != nil {
-		return nil, err
+		return nil, errors.Annotate(err, "setting up machine authentication")
 	}
 
-	// Find requested networks.
-	networks, err := machine.RequestedNetworks()
-	if err != nil {
-		return nil, err
-	}
-
-	// Figure out if secure connections are supported.
-	info, err := st.StateServingInfo()
-	if err != nil {
-		return nil, err
-	}
-	secureServerConnection := info.CAPrivateKey != ""
-	icfg, err := instancecfg.NewInstanceConfig(machineId, nonce, env.Config().ImageStream(), machine.Series(), "",
-		secureServerConnection, networks, mongoInfo, apiInfo,
+	icfg, err := instancecfg.NewInstanceConfig(st.ControllerTag(), machineId, nonce, modelConfig.ImageStream(),
+		machine.Series(), apiInfo,
 	)
 	if err != nil {
-		return nil, err
+		return nil, errors.Annotate(err, "initializing instance config")
 	}
 	if dataDir != "" {
 		icfg.DataDir = dataDir
 	}
-	icfg.Tools = tools
-	err = instancecfg.FinishInstanceConfig(icfg, environConfig)
+	if err := icfg.SetTools(toolsList); err != nil {
+		return nil, errors.Trace(err)
+	}
+	err = instancecfg.FinishInstanceConfig(icfg, modelConfig)
 	if err != nil {
-		return nil, err
+		return nil, errors.Annotate(err, "finishing instance config")
 	}
 	return icfg, nil
 }

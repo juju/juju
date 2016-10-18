@@ -11,9 +11,11 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 )
 
 var InvalidFormatErr = errors.Errorf("the given filter did not match any known patterns.")
@@ -97,7 +99,7 @@ func BuildPredicateFor(patterns []string) Predicate {
 	return func(i interface{}) (bool, error) {
 		switch i.(type) {
 		default:
-			panic(errors.Errorf("Programming error. We should only ever pass in machines, services, or units. Received %T.", i))
+			panic(errors.Errorf("Programming error. We should only ever pass in machines, applications, or units. Received %T.", i))
 		case *state.Machine:
 			shims, err := buildMachineMatcherShims(i.(*state.Machine), patterns)
 			if err != nil {
@@ -106,8 +108,8 @@ func BuildPredicateFor(patterns []string) Predicate {
 			return or(shims...)
 		case *state.Unit:
 			return or(buildUnitMatcherShims(i.(*state.Unit), patterns)...)
-		case *state.Service:
-			shims, err := buildServiceMatcherShims(i.(*state.Service), patterns...)
+		case *state.Application:
+			shims, err := buildServiceMatcherShims(i.(*state.Application), patterns...)
 			if err != nil {
 				return false, err
 			}
@@ -124,6 +126,22 @@ type Predicate func(interface{}) (matches bool, _ error)
 // around an element so that it can examine whether this element
 // matches some criteria.
 type closurePredicate func() (matches bool, formatOK bool, _ error)
+
+func matchMachineId(m *state.Machine, patterns []string) (bool, bool, error) {
+	var anyValid bool
+	for _, p := range patterns {
+		if !names.IsValidMachine(p) {
+			continue
+		}
+		anyValid = true
+		if m.Id() == p || strings.HasPrefix(m.Id(), p+"/") {
+			// Pattern matches the machine, or container's
+			// host machine.
+			return true, true, nil
+		}
+	}
+	return false, anyValid, nil
+}
 
 func unitMatchUnitName(u *state.Unit, patterns []string) (bool, bool, error) {
 	um, err := NewUnitMatcher(patterns)
@@ -158,26 +176,11 @@ func unitMatchWorkloadStatus(u *state.Unit, patterns []string) (bool, bool, erro
 }
 
 func unitMatchExposure(u *state.Unit, patterns []string) (bool, bool, error) {
-	s, err := u.Service()
+	s, err := u.Application()
 	if err != nil {
 		return false, false, err
 	}
 	return matchExposure(patterns, s)
-}
-
-func unitMatchSubnet(u *state.Unit, patterns []string) (bool, bool, error) {
-	pub, pubErr := u.PublicAddress()
-	if pubErr != nil && !network.IsNoAddress(pubErr) {
-		return true, false, errors.Trace(pubErr)
-	}
-	priv, privErr := u.PrivateAddress()
-	if privErr != nil && !network.IsNoAddress(privErr) {
-		return true, false, errors.Trace(privErr)
-	}
-	if pubErr != nil && privErr != nil {
-		return true, false, nil
-	}
-	return matchSubnet(patterns, pub.Value, priv.Value)
 }
 
 func unitMatchPort(u *state.Unit, patterns []string) (bool, bool, error) {
@@ -188,7 +191,7 @@ func unitMatchPort(u *state.Unit, patterns []string) (bool, bool, error) {
 	return matchPortRanges(patterns, portRanges...)
 }
 
-func buildServiceMatcherShims(s *state.Service, patterns ...string) (shims []closurePredicate, _ error) {
+func buildServiceMatcherShims(s *state.Application, patterns ...string) (shims []closurePredicate, _ error) {
 	// Match on name.
 	shims = append(shims, func() (bool, bool, error) {
 		for _, p := range patterns {
@@ -201,13 +204,6 @@ func buildServiceMatcherShims(s *state.Service, patterns ...string) (shims []clo
 
 	// Match on exposure.
 	shims = append(shims, func() (bool, bool, error) { return matchExposure(patterns, s) })
-
-	// Match on network addresses.
-	networks, err := s.Networks()
-	if err != nil {
-		return nil, err
-	}
-	shims = append(shims, func() (bool, bool, error) { return matchSubnet(patterns, networks...) })
 
 	// If the service has an unit instance that matches any of the
 	// given criteria, consider the service a match as well.
@@ -238,6 +234,9 @@ func buildShimsForUnit(unitsFn func() ([]*state.Unit, error), patterns ...string
 }
 
 func buildMachineMatcherShims(m *state.Machine, patterns []string) (shims []closurePredicate, _ error) {
+	// Look at machine ID.
+	shims = append(shims, func() (bool, bool, error) { return matchMachineId(m, patterns) })
+
 	// Look at machine status.
 	statusInfo, err := m.Status()
 	if err != nil {
@@ -255,19 +254,9 @@ func buildMachineMatcherShims(m *state.Machine, patterns []string) (shims []clos
 	}
 	shims = append(shims, func() (bool, bool, error) { return matchSubnet(patterns, addrs...) })
 
-	// If the machine hosts a unit that matches any of the given
-	// criteria, consider the machine a match as well.
-	unitShims, err := buildShimsForUnit(m.Units, patterns...)
-	if err != nil {
-		return nil, err
-	}
-	shims = append(shims, unitShims...)
-
 	// Units may be able to match the pattern. Ultimately defer to
 	// that logic, and guard against breaking the predicate-chain.
-	if len(unitShims) <= 0 {
-		shims = append(shims, func() (bool, bool, error) { return false, true, nil })
-	}
+	shims = append(shims, func() (bool, bool, error) { return false, true, nil })
 
 	return
 }
@@ -281,7 +270,6 @@ func buildUnitMatcherShims(u *state.Unit, patterns []string) []closurePredicate 
 		closeOver(unitMatchAgentStatus),
 		closeOver(unitMatchWorkloadStatus),
 		closeOver(unitMatchExposure),
-		closeOver(unitMatchSubnet),
 		closeOver(unitMatchPort),
 	}
 }
@@ -301,24 +289,17 @@ func matchSubnet(patterns []string, addresses ...string) (bool, bool, error) {
 	oneValidPattern := false
 	for _, p := range patterns {
 		for _, a := range addresses {
-			ip, err := net.ResolveIPAddr("ip", a)
-			if err != nil {
-				errors.Trace(errors.Annotate(err, "could not parse machine's address"))
-				continue
-			} else if pip, err := net.ResolveIPAddr("ip", p); err == nil {
-				oneValidPattern = true
-				if ip.IP.Equal(pip.IP) {
-					return true, true, nil
-				}
-			} else if pip := net.ParseIP(p); pip != nil {
-				oneValidPattern = true
-				if ip.IP.Equal(pip) {
-					return true, true, nil
-				}
-			} else if _, ipNet, err := net.ParseCIDR(p); err == nil {
-				oneValidPattern = true
-				if ipNet.Contains(ip.IP) {
-					return true, true, nil
+			if p == a {
+				return true, true, nil
+			}
+		}
+		if _, ipNet, err := net.ParseCIDR(p); err == nil {
+			oneValidPattern = true
+			for _, a := range addresses {
+				if ip := net.ParseIP(a); ip != nil {
+					if ipNet.Contains(ip) {
+						return true, true, nil
+					}
 				}
 			}
 		}
@@ -326,7 +307,7 @@ func matchSubnet(patterns []string, addresses ...string) (bool, bool, error) {
 	return false, oneValidPattern, nil
 }
 
-func matchExposure(patterns []string, s *state.Service) (bool, bool, error) {
+func matchExposure(patterns []string, s *state.Application) (bool, bool, error) {
 	if len(patterns) >= 1 && patterns[0] == "exposed" {
 		return s.IsExposed(), true, nil
 	} else if len(patterns) >= 2 && patterns[0] == "not" && patterns[1] == "exposed" {
@@ -335,11 +316,11 @@ func matchExposure(patterns []string, s *state.Service) (bool, bool, error) {
 	return false, false, nil
 }
 
-func matchWorkloadStatus(patterns []string, workloadStatus state.Status, agentStatus state.Status) (bool, bool, error) {
+func matchWorkloadStatus(patterns []string, workloadStatus status.Status, agentStatus status.Status) (bool, bool, error) {
 	oneValidStatus := false
 	for _, p := range patterns {
 		// If the pattern isn't a known status, ignore it.
-		ps := state.Status(p)
+		ps := status.Status(p)
 		if !ps.KnownWorkloadStatus() {
 			continue
 		}
@@ -347,24 +328,24 @@ func matchWorkloadStatus(patterns []string, workloadStatus state.Status, agentSt
 		oneValidStatus = true
 		// To preserve current expected behaviour, we only report on workload status
 		// if the agent itself is not in error.
-		if agentStatus != state.StatusError && workloadStatus.WorkloadMatches(ps) {
+		if agentStatus != status.Error && workloadStatus.WorkloadMatches(ps) {
 			return true, true, nil
 		}
 	}
 	return false, oneValidStatus, nil
 }
 
-func matchAgentStatus(patterns []string, status state.Status) (bool, bool, error) {
+func matchAgentStatus(patterns []string, agentStatus status.Status) (bool, bool, error) {
 	oneValidStatus := false
 	for _, p := range patterns {
 		// If the pattern isn't a known status, ignore it.
-		ps := state.Status(p)
+		ps := status.Status(p)
 		if !ps.KnownAgentStatus() {
 			continue
 		}
 
 		oneValidStatus = true
-		if status.Matches(ps) {
+		if agentStatus.Matches(ps) {
 			return true, true, nil
 		}
 	}
@@ -430,7 +411,7 @@ func (m unitMatcher) matchString(s string) bool {
 	return false
 }
 
-// validPattern must match the parts of a unit or service name
+// validPattern must match the parts of a unit or application name
 // pattern either side of the '/' for it to be valid.
 var validPattern = regexp.MustCompile("^[a-z0-9-*]+$")
 

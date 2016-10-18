@@ -5,13 +5,14 @@ package instancepoller
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/status"
 )
 
 // Machine represents a juju machine as seen by an instancepoller
@@ -117,31 +118,31 @@ func (m *Machine) InstanceId() (instance.Id, error) {
 }
 
 // InstanceStatus returns the machine's instance status.
-func (m *Machine) InstanceStatus() (string, error) {
-	var results params.StringResults
+func (m *Machine) InstanceStatus() (params.StatusResult, error) {
+	var results params.StatusResults
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: m.tag.String()},
 	}}
 	err := m.facade.FacadeCall("InstanceStatus", args, &results)
 	if err != nil {
-		return "", errors.Trace(err)
+		return params.StatusResult{}, errors.Trace(err)
 	}
 	if len(results.Results) != 1 {
 		err := errors.Errorf("expected 1 result, got %d", len(results.Results))
-		return "", err
+		return params.StatusResult{}, err
 	}
 	result := results.Results[0]
 	if result.Error != nil {
-		return "", result.Error
+		return params.StatusResult{}, result.Error
 	}
-	return result.Result, nil
+	return result, nil
 }
 
 // SetInstanceStatus sets the instance status of the machine.
-func (m *Machine) SetInstanceStatus(status string) error {
+func (m *Machine) SetInstanceStatus(status status.Status, message string, data map[string]interface{}) error {
 	var result params.ErrorResults
-	args := params.SetInstancesStatus{Entities: []params.InstanceStatus{
-		{Tag: m.tag.String(), Status: status},
+	args := params.SetStatus{Entities: []params.EntityStatusArgs{
+		{Tag: m.tag.String(), Status: status.String(), Info: message, Data: data},
 	}}
 	err := m.facade.FacadeCall("SetInstanceStatus", args, &result)
 	if err != nil {
@@ -169,7 +170,7 @@ func (m *Machine) ProviderAddresses() ([]network.Address, error) {
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	return params.NetworkAddresses(result.Addresses), nil
+	return params.NetworkAddresses(result.Addresses...), nil
 }
 
 // SetProviderAddresses sets the cached provider addresses for the
@@ -179,7 +180,7 @@ func (m *Machine) SetProviderAddresses(addrs ...network.Address) error {
 	args := params.SetMachinesAddresses{
 		MachineAddresses: []params.MachineAddresses{{
 			Tag:       m.tag.String(),
-			Addresses: params.FromNetworkAddresses(addrs),
+			Addresses: params.FromNetworkAddresses(addrs...),
 		}}}
 	err := m.facade.FacadeCall("SetProviderAddresses", args, &result)
 	if err != nil {

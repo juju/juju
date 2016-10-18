@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -21,8 +21,8 @@ type Block interface {
 	// Id returns this block's id.
 	Id() string
 
-	// EnvUUID returns the environment UUID associated with this block.
-	EnvUUID() string
+	// ModelUUID returns the model UUID associated with this block.
+	ModelUUID() string
 
 	// Tag returns tag for the entity that is being blocked
 	Tag() (names.Tag, error)
@@ -32,29 +32,38 @@ type Block interface {
 
 	// Message returns explanation that accompanies this block.
 	Message() string
+
+	updateMessageOp(string) ([]txn.Op, error)
 }
 
 // BlockType specifies block type for enum benefit.
 type BlockType int8
 
 const (
-	// DestroyBlock type identifies block that prevents environment destruction.
+	// DestroyBlock type identifies block that prevents model destruction.
 	DestroyBlock BlockType = iota
 
 	// RemoveBlock type identifies block that prevents
 	// removal of machines, services, units or relations.
 	RemoveBlock
 
-	// ChangeBlock type identifies block that prevents environment changes such
-	// as additions, modifications, removals of environment entities.
+	// ChangeBlock type identifies block that prevents model changes such
+	// as additions, modifications, removals of model entities.
 	ChangeBlock
 )
 
-var typeNames = map[BlockType]multiwatcher.BlockType{
-	DestroyBlock: multiwatcher.BlockDestroy,
-	RemoveBlock:  multiwatcher.BlockRemove,
-	ChangeBlock:  multiwatcher.BlockChange,
-}
+var (
+	typeNames = map[BlockType]multiwatcher.BlockType{
+		DestroyBlock: multiwatcher.BlockDestroy,
+		RemoveBlock:  multiwatcher.BlockRemove,
+		ChangeBlock:  multiwatcher.BlockChange,
+	}
+	blockMigrationValue = map[BlockType]string{
+		DestroyBlock: "destroy-model",
+		RemoveBlock:  "remove-object",
+		ChangeBlock:  "all-changes",
+	}
+)
 
 // AllTypes returns all supported block types.
 func AllTypes() []BlockType {
@@ -78,6 +87,15 @@ func (t BlockType) String() string {
 	return string(t.ToParams())
 }
 
+// MigrationValue converts the block type value into a useful human readable
+// string for model migration.
+func (t BlockType) MigrationValue() string {
+	if value, ok := blockMigrationValue[t]; ok {
+		return value
+	}
+	return "unknown"
+}
+
 // ParseBlockType returns BlockType from humanly readable type representation.
 func ParseBlockType(str string) BlockType {
 	for _, one := range AllTypes() {
@@ -92,13 +110,22 @@ type block struct {
 	doc blockDoc
 }
 
-// blockDoc records information about an environment block.
+// blockDoc records information about an model block.
 type blockDoc struct {
-	DocID   string    `bson:"_id"`
-	EnvUUID string    `bson:"env-uuid"`
-	Tag     string    `bson:"tag"`
-	Type    BlockType `bson:"type"`
-	Message string    `bson:"message,omitempty"`
+	DocID     string    `bson:"_id"`
+	ModelUUID string    `bson:"model-uuid"`
+	Tag       string    `bson:"tag"`
+	Type      BlockType `bson:"type"`
+	Message   string    `bson:"message,omitempty"`
+}
+
+func (b *block) updateMessageOp(message string) ([]txn.Op, error) {
+	return []txn.Op{{
+		C:      blocksC,
+		Id:     b.doc.DocID,
+		Assert: txn.DocExists,
+		Update: bson.D{{"$set", bson.D{{"message", message}}}},
+	}}, nil
 }
 
 // Id is part of the state.Block interface.
@@ -106,9 +133,9 @@ func (b *block) Id() string {
 	return b.doc.DocID
 }
 
-// EnvUUID is part of the state.Block interface.
-func (b *block) EnvUUID() string {
-	return b.doc.EnvUUID
+// ModelUUID is part of the state.Block interface.
+func (b *block) ModelUUID() string {
+	return b.doc.ModelUUID
 }
 
 // Message is part of the state.Block interface.
@@ -131,18 +158,18 @@ func (b *block) Type() BlockType {
 }
 
 // SwitchBlockOn enables block of specified type for the
-// current environment.
+// current model.
 func (st *State) SwitchBlockOn(t BlockType, msg string) error {
-	return setEnvironmentBlock(st, t, msg)
+	return setModelBlock(st, t, msg)
 }
 
 // SwitchBlockOff disables block of specified type for the
-// current environment.
+// current model.
 func (st *State) SwitchBlockOff(t BlockType) error {
-	return removeEnvironmentBlock(st, t)
+	return RemoveModelBlock(st, t)
 }
 
-// GetBlockForType returns the Block of the specified type for the current environment
+// GetBlockForType returns the Block of the specified type for the current model
 // where
 //     not found -> nil, false, nil
 //     found -> block, true, nil
@@ -164,7 +191,7 @@ func (st *State) GetBlockForType(t BlockType) (Block, bool, error) {
 	}
 }
 
-// AllBlocks returns all blocks in the environment.
+// AllBlocks returns all blocks in the model.
 func (st *State) AllBlocks() ([]Block, error) {
 	blocksCollection, closer := st.getCollection(blocksC)
 	defer closer()
@@ -181,9 +208,9 @@ func (st *State) AllBlocks() ([]Block, error) {
 	return blocks, nil
 }
 
-// AllBlocksForSystem returns all blocks in any environments on
-// the system.
-func (st *State) AllBlocksForSystem() ([]Block, error) {
+// AllBlocksForController returns all blocks in any models on
+// the controller.
+func (st *State) AllBlocksForController() ([]Block, error) {
 	blocksCollection, closer := st.getRawCollection(blocksC)
 	defer closer()
 
@@ -200,11 +227,11 @@ func (st *State) AllBlocksForSystem() ([]Block, error) {
 	return blocks, nil
 }
 
-// RemoveAllBlocksForSystem removes all the blocks for the system.
+// RemoveAllBlocksForController removes all the blocks for the controller.
 // It does not prevent new blocks from being added during / after
 // removal.
-func (st *State) RemoveAllBlocksForSystem() error {
-	blocks, err := st.AllBlocksForSystem()
+func (st *State) RemoveAllBlocksForController() error {
+	blocks, err := st.AllBlocksForController()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -219,30 +246,30 @@ func (st *State) RemoveAllBlocksForSystem() error {
 	}
 
 	// Use runRawTransaction as we might be removing docs across
-	// multiple environments.
+	// multiple models.
 	return st.runRawTransaction(ops)
 }
 
-// setEnvironmentBlock updates the blocks collection with the
+// setModelBlock updates the blocks collection with the
 // specified block.
-// Only one instance of each block type can exist in environment.
-func setEnvironmentBlock(st *State, t BlockType, msg string) error {
+// Only one instance of each block type can exist in model.
+func setModelBlock(st *State, t BlockType, msg string) error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		_, exists, err := st.GetBlockForType(t)
+		block, exists, err := st.GetBlockForType(t)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		// Cannot create blocks of the same type more than once per environment.
+		// Cannot create blocks of the same type more than once per model.
 		// Cannot update current blocks.
 		if exists {
-			return nil, errors.Errorf("block %v is already ON", t.String())
+			return block.updateMessageOp(msg)
 		}
-		return createEnvironmentBlockOps(st, t, msg)
+		return createModelBlockOps(st, t, msg)
 	}
 	return st.run(buildTxn)
 }
 
-// newBlockId returns a sequential block id for this environment.
+// newBlockId returns a sequential block id for this model.
 func newBlockId(st *State) (string, error) {
 	seq, err := st.sequence("block")
 	if err != nil {
@@ -251,17 +278,20 @@ func newBlockId(st *State) (string, error) {
 	return fmt.Sprint(seq), nil
 }
 
-func createEnvironmentBlockOps(st *State, t BlockType, msg string) ([]txn.Op, error) {
+func createModelBlockOps(st *State, t BlockType, msg string) ([]txn.Op, error) {
 	id, err := newBlockId(st)
 	if err != nil {
 		return nil, errors.Annotatef(err, "getting new block id")
 	}
+	// NOTE: if at any time in the future, we change blocks so that the
+	// Tag is different from the model, then the migration of blocks will
+	// need to change format.
 	newDoc := blockDoc{
-		DocID:   st.docID(id),
-		EnvUUID: st.EnvironUUID(),
-		Tag:     st.EnvironTag().String(),
-		Type:    t,
-		Message: msg,
+		DocID:     st.docID(id),
+		ModelUUID: st.ModelUUID(),
+		Tag:       st.ModelTag().String(),
+		Type:      t,
+		Message:   msg,
 	}
 	insertOp := txn.Op{
 		C:      blocksC,
@@ -272,14 +302,14 @@ func createEnvironmentBlockOps(st *State, t BlockType, msg string) ([]txn.Op, er
 	return []txn.Op{insertOp}, nil
 }
 
-func removeEnvironmentBlock(st *State, t BlockType) error {
+func RemoveModelBlock(st *State, t BlockType) error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		return removeEnvironmentBlockOps(st, t)
+		return RemoveModelBlockOps(st, t)
 	}
 	return st.run(buildTxn)
 }
 
-func removeEnvironmentBlockOps(st *State, t BlockType) ([]txn.Op, error) {
+func RemoveModelBlockOps(st *State, t BlockType) ([]txn.Op, error) {
 	tBlock, exists, err := st.GetBlockForType(t)
 	if err != nil {
 		return nil, errors.Annotatef(err, "removing block %v", t.String())
@@ -291,5 +321,6 @@ func removeEnvironmentBlockOps(st *State, t BlockType) ([]txn.Op, error) {
 			Remove: true,
 		}}, nil
 	}
-	return nil, errors.Errorf("block %v is already OFF", t.String())
+	// If the block doesn't exist, we're all good.
+	return nil, nil
 }

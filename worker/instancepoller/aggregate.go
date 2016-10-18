@@ -7,33 +7,59 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/ratelimit"
-	"launchpad.net/tomb"
+	"github.com/juju/utils/clock"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/worker/catacomb"
 )
 
-type instanceGetter interface {
+type InstanceGetter interface {
 	Instances(ids []instance.Id) ([]instance.Instance, error)
 }
 
-type aggregator struct {
-	environ instanceGetter
-	reqc    chan instanceInfoReq
-	tomb    tomb.Tomb
+type aggregatorConfig struct {
+	Clock   clock.Clock
+	Delay   time.Duration
+	Environ InstanceGetter
 }
 
-func newAggregator(env instanceGetter) *aggregator {
-	a := &aggregator{
-		environ: env,
-		reqc:    make(chan instanceInfoReq),
+func (c aggregatorConfig) validate() error {
+	if c.Clock == nil {
+		return errors.NotValidf("nil clock.Clock")
 	}
-	go func() {
-		defer a.tomb.Done()
-		a.tomb.Kill(a.loop())
-	}()
-	return a
+	if c.Delay == 0 {
+		return errors.NotValidf("zero Delay")
+	}
+	if c.Environ == nil {
+		return errors.NotValidf("nil Environ")
+	}
+	return nil
+
+}
+
+type aggregator struct {
+	config   aggregatorConfig
+	catacomb catacomb.Catacomb
+	reqc     chan instanceInfoReq
+}
+
+func newAggregator(config aggregatorConfig) (*aggregator, error) {
+	if err := config.validate(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	a := &aggregator{
+		config: config,
+		reqc:   make(chan instanceInfoReq),
+	}
+	err := catacomb.Invoke(catacomb.Plan{
+		Site: &a.catacomb,
+		Work: a.loop,
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return a, nil
 }
 
 type instanceInfoReq struct {
@@ -48,51 +74,74 @@ type instanceInfoReply struct {
 
 func (a *aggregator) instanceInfo(id instance.Id) (instanceInfo, error) {
 	reply := make(chan instanceInfoReply)
-	a.reqc <- instanceInfoReq{
-		instId: id,
-		reply:  reply,
-	}
-	r := <-reply
-	return r.info, r.err
-}
-
-var gatherTime = 3 * time.Second
-
-func (a *aggregator) loop() error {
-	timer := time.NewTimer(0)
-	timer.Stop()
-	var reqs []instanceInfoReq
-	// We use a capacity of 1 so that sporadic requests will
-	// be serviced immediately without having to wait.
-	bucket := ratelimit.NewBucket(gatherTime, 1)
+	reqc := a.reqc
 	for {
 		select {
-		case <-a.tomb.Dying():
-			return tomb.ErrDying
+		case <-a.catacomb.Dying():
+			return instanceInfo{}, errors.New("instanceInfo call aborted")
+		case reqc <- instanceInfoReq{id, reply}:
+			reqc = nil
+		case r := <-reply:
+			return r.info, r.err
+		}
+	}
+}
+
+func (a *aggregator) loop() error {
+	var (
+		next time.Time
+		reqs []instanceInfoReq
+	)
+
+	for {
+		var ready <-chan time.Time
+		if !next.IsZero() {
+			when := next.Add(a.config.Delay)
+			ready = clock.Alarm(a.config.Clock, when)
+		}
+		select {
+		case <-a.catacomb.Dying():
+			return a.catacomb.ErrDying()
+
 		case req := <-a.reqc:
-			if len(reqs) == 0 {
-				waitTime := bucket.Take(1)
-				timer.Reset(waitTime)
-			}
 			reqs = append(reqs, req)
-		case <-timer.C:
-			ids := make([]instance.Id, len(reqs))
-			for i, req := range reqs {
-				ids[i] = req.instId
+
+			if next.IsZero() {
+				next = a.config.Clock.Now()
 			}
-			insts, err := a.environ.Instances(ids)
-			for i, req := range reqs {
-				var reply instanceInfoReply
-				if err != nil && err != environs.ErrPartialInstances {
-					reply.err = err
-				} else {
-					reply.info, reply.err = a.instInfo(req.instId, insts[i])
-				}
-				req.reply <- reply
+
+		case <-ready:
+			if err := a.doRequests(reqs); err != nil {
+				return errors.Trace(err)
 			}
+			next = time.Time{}
 			reqs = nil
 		}
 	}
+}
+
+func (a *aggregator) doRequests(reqs []instanceInfoReq) error {
+	ids := make([]instance.Id, len(reqs))
+	for i, req := range reqs {
+		ids[i] = req.instId
+	}
+	insts, err := a.config.Environ.Instances(ids)
+	for i, req := range reqs {
+		var reply instanceInfoReply
+		if err != nil && err != environs.ErrPartialInstances {
+			reply.err = err
+		} else {
+			reply.info, reply.err = a.instInfo(req.instId, insts[i])
+		}
+		select {
+		// Per review http://reviews.vapour.ws/r/4885/ it's dumb to block
+		// the main goroutine on these responses.
+		case <-a.catacomb.Dying():
+			return a.catacomb.ErrDying()
+		case req.reply <- reply:
+		}
+	}
+	return nil
 }
 
 // instInfo returns the instance info for the given id
@@ -112,9 +161,9 @@ func (*aggregator) instInfo(id instance.Id, inst instance.Instance) (instanceInf
 }
 
 func (a *aggregator) Kill() {
-	a.tomb.Kill(nil)
+	a.catacomb.Kill(nil)
 }
 
 func (a *aggregator) Wait() error {
-	return a.tomb.Wait()
+	return a.catacomb.Wait()
 }

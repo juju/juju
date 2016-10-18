@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 
-	gitjujutesting "github.com/juju/testing"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
@@ -19,12 +19,11 @@ import (
 	"gopkg.in/macaroon-bakery.v1/bakerytest"
 	"gopkg.in/mgo.v2"
 
-	"github.com/juju/juju/apiserver/service"
 	"github.com/juju/juju/testcharms"
 )
 
 type CharmStoreSuite struct {
-	gitjujutesting.CleanupSuite
+	testing.CleanupSuite
 
 	Session *mgo.Session
 	// DischargeUser holds the identity of the user
@@ -56,7 +55,7 @@ func (s *CharmStoreSuite) SetUpTest(c *gc.C) {
 		IdentityLocation: s.discharger.Location(),
 		PublicKeyLocator: s.discharger,
 	}
-	handler, err := charmstore.NewServer(db, nil, "", params, charmstore.V4)
+	handler, err := charmstore.NewServer(db, nil, "", params, charmstore.V5)
 	c.Assert(err, jc.ErrorIsNil)
 	s.handler = handler
 	s.Srv = httptest.NewServer(handler)
@@ -67,10 +66,7 @@ func (s *CharmStoreSuite) SetUpTest(c *gc.C) {
 	})
 
 	s.PatchValue(&charmrepo.CacheDir, c.MkDir())
-	s.PatchValue(&service.NewCharmStore, func(p charmrepo.NewCharmStoreParams) charmrepo.Interface {
-		p.URL = s.Srv.URL
-		return charmrepo.NewCharmStore(p)
-	})
+	s.PatchValue(&csclient.ServerURL, s.Srv.URL)
 }
 
 func (s *CharmStoreSuite) TearDownTest(c *gc.C) {

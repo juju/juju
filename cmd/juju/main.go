@@ -24,5 +24,5 @@ func init() {
 }
 
 func main() {
-	commands.Main(os.Args)
+	os.Exit(commands.Main(os.Args))
 }

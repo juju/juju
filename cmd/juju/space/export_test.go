@@ -6,14 +6,14 @@ package space
 import (
 	"github.com/juju/cmd"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
-func NewCreateCommand(api SpaceAPI) cmd.Command {
-	createCmd := &createCommand{
+func NewAddCommandForTest(api SpaceAPI) cmd.Command {
+	addCmd := &addCommand{
 		SpaceCommandBase: SpaceCommandBase{api: api},
 	}
-	return envcmd.Wrap(createCmd)
+	return modelcmd.Wrap(addCmd)
 }
 
 type RemoveCommand struct {
@@ -24,29 +24,29 @@ func (c *RemoveCommand) Name() string {
 	return c.name
 }
 
-func NewRemoveCommand(api SpaceAPI) (cmd.Command, *RemoveCommand) {
+func NewRemoveCommandForTest(api SpaceAPI) (cmd.Command, *RemoveCommand) {
 	removeCmd := &removeCommand{
 		SpaceCommandBase: SpaceCommandBase{api: api},
 	}
-	return envcmd.Wrap(removeCmd), &RemoveCommand{removeCmd}
+	return modelcmd.Wrap(removeCmd), &RemoveCommand{removeCmd}
 }
 
-func NewUpdateCommand(api SpaceAPI) cmd.Command {
+func NewUpdateCommandForTest(api SpaceAPI) cmd.Command {
 	updateCmd := &updateCommand{
 		SpaceCommandBase: SpaceCommandBase{api: api},
 	}
-	return envcmd.Wrap(updateCmd)
+	return modelcmd.Wrap(updateCmd)
 }
 
 type RenameCommand struct {
 	*renameCommand
 }
 
-func NewRenameCommand(api SpaceAPI) (cmd.Command, *RenameCommand) {
+func NewRenameCommandForTest(api SpaceAPI) (cmd.Command, *RenameCommand) {
 	renameCmd := &renameCommand{
 		SpaceCommandBase: SpaceCommandBase{api: api},
 	}
-	return envcmd.Wrap(renameCmd), &RenameCommand{renameCmd}
+	return modelcmd.Wrap(renameCmd), &RenameCommand{renameCmd}
 }
 
 type ListCommand struct {
@@ -57,9 +57,9 @@ func (c *ListCommand) ListFormat() string {
 	return c.out.Name()
 }
 
-func NewListCommand(api SpaceAPI) (cmd.Command, *ListCommand) {
+func NewListCommandForTest(api SpaceAPI) (cmd.Command, *ListCommand) {
 	listCmd := &listCommand{
 		SpaceCommandBase: SpaceCommandBase{api: api},
 	}
-	return envcmd.Wrap(listCmd), &ListCommand{listCmd}
+	return modelcmd.Wrap(listCmd), &ListCommand{listCmd}
 }

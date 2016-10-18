@@ -8,15 +8,16 @@ import (
 	"sync"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/instancepoller"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 )
 
 // mockState implements StateInterface and allows inspection of called
@@ -58,24 +59,24 @@ func (m *mockState) CheckSetProviderAddressesCall(c *gc.C, index int, addrs []ne
 	m.CheckCall(c, index, "SetProviderAddresses", args...)
 }
 
-// WatchForEnvironConfigChanges implements StateInterface.
-func (m *mockState) WatchForEnvironConfigChanges() state.NotifyWatcher {
+// WatchForModelConfigChanges implements StateInterface.
+func (m *mockState) WatchForModelConfigChanges() state.NotifyWatcher {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	m.MethodCall(m, "WatchForEnvironConfigChanges")
+	m.MethodCall(m, "WatchForModelConfigChanges")
 
 	w := NewMockConfigWatcher(m.NextErr())
 	m.configWatchers = append(m.configWatchers, w)
 	return w
 }
 
-// EnvironConfig implements StateInterface.
-func (m *mockState) EnvironConfig() (*config.Config, error) {
+// ModelConfig implements StateInterface.
+func (m *mockState) ModelConfig() (*config.Config, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	m.MethodCall(m, "EnvironConfig")
+	m.MethodCall(m, "ModelConfig")
 
 	if err := m.NextErr(); err != nil {
 		return nil, err
@@ -97,12 +98,12 @@ func (m *mockState) SetConfig(c *gc.C, newConfig *config.Config) {
 	}
 }
 
-// WatchEnvironMachines implements StateInterface.
-func (m *mockState) WatchEnvironMachines() state.StringsWatcher {
+// WatchModelMachines implements StateInterface.
+func (m *mockState) WatchModelMachines() state.StringsWatcher {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	m.MethodCall(m, "WatchEnvironMachines")
+	m.MethodCall(m, "WatchModelMachines")
 
 	ids := make([]string, 0, len(m.machines))
 	// Initial event - all machine ids, sorted.
@@ -206,8 +207,8 @@ func (m *mockState) StartSync() {}
 type machineInfo struct {
 	id                string
 	instanceId        instance.Id
-	status            state.StatusInfo
-	instanceStatus    string
+	status            status.StatusInfo
+	instanceStatus    status.StatusInfo
 	providerAddresses []network.Address
 	life              state.Life
 	isManual          bool
@@ -264,27 +265,27 @@ func (m *mockMachine) SetProviderAddresses(addrs ...network.Address) error {
 }
 
 // InstanceStatus implements StateMachine.
-func (m *mockMachine) InstanceStatus() (string, error) {
+func (m *mockMachine) InstanceStatus() (status.StatusInfo, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	m.MethodCall(m, "InstanceStatus")
 	if err := m.NextErr(); err != nil {
-		return "", err
+		return status.StatusInfo{}, err
 	}
 	return m.instanceStatus, nil
 }
 
 // SetInstanceStatus implements StateMachine.
-func (m *mockMachine) SetInstanceStatus(status string) error {
+func (m *mockMachine) SetInstanceStatus(instanceStatus status.StatusInfo) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	m.MethodCall(m, "SetInstanceStatus", status)
+	m.MethodCall(m, "SetInstanceStatus", instanceStatus)
 	if err := m.NextErr(); err != nil {
 		return err
 	}
-	m.instanceStatus = status
+	m.instanceStatus = instanceStatus
 	return nil
 }
 
@@ -308,7 +309,7 @@ func (m *mockMachine) IsManual() (bool, error) {
 }
 
 // Status implements StateMachine.
-func (m *mockMachine) Status() (state.StatusInfo, error) {
+func (m *mockMachine) Status() (status.StatusInfo, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 

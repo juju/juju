@@ -19,9 +19,7 @@ import (
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/sshinit"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/multiwatcher"
 )
 
@@ -59,6 +57,10 @@ type ProvisionMachineArgs struct {
 	// Stderr is required to present machine provisioning progress to the user.
 	Stderr io.Writer
 
+	// AuthorizedKeys contains the concatenated authorized-keys to add to the
+	// ubuntu user's ~/.ssh/authorized_keys.
+	AuthorizedKeys string
+
 	*params.UpdateBehavior
 }
 
@@ -77,7 +79,7 @@ func ProvisionMachine(args ProvisionMachineArgs) (machineId string, err error) {
 		if machineId != "" && err != nil {
 			logger.Errorf("provisioning failed, removing machine %v: %v", machineId, err)
 			if cleanupErr := args.Client.ForceDestroyMachines(machineId); cleanupErr != nil {
-				logger.Warningf("error cleaning up machine: %s", cleanupErr)
+				logger.Errorf("error cleaning up machine: %s", cleanupErr)
 			}
 			machineId = ""
 		}
@@ -88,8 +90,7 @@ func ProvisionMachine(args ProvisionMachineArgs) (machineId string, err error) {
 	// user's ~/.ssh directory. The authenticationworker will later update the
 	// ubuntu user's authorized_keys.
 	user, hostname := splitUserHost(args.Host)
-	authorizedKeys, err := config.ReadAuthorizedKeys("")
-	if err := InitUbuntuUser(hostname, user, authorizedKeys, args.Stdin, args.Stdout); err != nil {
+	if err := InitUbuntuUser(hostname, user, args.AuthorizedKeys, args.Stdin, args.Stdout); err != nil {
 		return "", err
 	}
 
@@ -158,11 +159,9 @@ func gatherMachineParams(hostname string) (*params.AddMachineParams, error) {
 		return nil, err
 	}
 
-	var addrs []network.Address
-	if addr, err := HostAddress(hostname); err != nil {
-		logger.Warningf("failed to compute public address for %q: %v", hostname, err)
-	} else {
-		addrs = append(addrs, addr)
+	addr, err := HostAddress(hostname)
+	if err != nil {
+		return nil, errors.Annotatef(err, "failed to compute public address for %q", hostname)
 	}
 
 	provisioned, err := checkProvisioned(hostname)
@@ -185,10 +184,6 @@ func gatherMachineParams(hostname string) (*params.AddMachineParams, error) {
 	// task. The provisioner task will happily remove any and all dead
 	// machines from state, but will ignore the associated instance ID
 	// if it isn't one that the environment provider knows about.
-	// Also, manually provisioned machines don't have the JobManageNetworking.
-	// This ensures that the networker is running in non-intrusive mode
-	// and never touches the network configuration files.
-	// No JobManageNetworking here due to manual provisioning.
 
 	instanceId := instance.Id(manualInstancePrefix + hostname)
 	nonce := fmt.Sprintf("%s:%s", instanceId, uuid.String())
@@ -197,7 +192,7 @@ func gatherMachineParams(hostname string) (*params.AddMachineParams, error) {
 		HardwareCharacteristics: hc,
 		InstanceId:              instanceId,
 		Nonce:                   nonce,
-		Addrs:                   params.FromNetworkAddresses(addrs),
+		Addrs:                   params.FromNetworkAddresses(addr),
 		Jobs:                    []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 	}
 	return machineParams, nil

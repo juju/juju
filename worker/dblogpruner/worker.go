@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"launchpad.net/tomb"
+	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker"
@@ -57,6 +57,7 @@ func (w *pruneWorker) loop(stopCh <-chan struct{}) error {
 		case <-stopCh:
 			return tomb.ErrDying
 		case <-time.After(p.PruneInterval):
+			// TODO(fwereade): 2016-03-17 lp:1558657
 			minLogTime := time.Now().Add(-p.MaxLogAge)
 			err := state.PruneLogs(w.st, minLogTime, p.MaxCollectionMB)
 			if err != nil {

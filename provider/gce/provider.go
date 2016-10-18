@@ -5,46 +5,74 @@ package gce
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/schema"
+	"gopkg.in/juju/environschema.v1"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 )
 
-type environProvider struct{}
+type environProvider struct {
+	environProviderCredentials
+}
 
 var providerInstance environProvider
 
 // Open implements environs.EnvironProvider.
-func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
-	env, err := newEnviron(cfg)
+func (environProvider) Open(args environs.OpenParams) (environs.Environ, error) {
+	if err := validateCloudSpec(args.Cloud); err != nil {
+		return nil, errors.Annotate(err, "validating cloud spec")
+	}
+	env, err := newEnviron(args.Cloud, args.Config)
 	return env, errors.Trace(err)
 }
 
-// PrepareForBootstrap implements environs.EnvironProvider.
-func (p environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
-	cfg, err := p.PrepareForCreateEnvironment(cfg)
-	if err != nil {
-		return nil, errors.Trace(err)
+// PrepareConfig implements environs.EnvironProvider.
+func (p environProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {
+	if err := validateCloudSpec(args.Cloud); err != nil {
+		return nil, errors.Annotate(err, "validating cloud spec")
 	}
-	env, err := newEnviron(cfg)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	if ctx.ShouldVerifyCredentials() {
-		if err := env.gce.VerifyCredentials(); err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
-	return env, nil
+	return configWithDefaults(args.Config)
 }
 
-// PrepareForCreateEnvironment is specified in the EnvironProvider interface.
-func (p environProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
-	return configWithDefaults(cfg)
+func validateCloudSpec(spec environs.CloudSpec) error {
+	if err := spec.Validate(); err != nil {
+		return errors.Trace(err)
+	}
+	if spec.Credential == nil {
+		return errors.NotValidf("missing credential")
+	}
+	switch authType := spec.Credential.AuthType(); authType {
+	case cloud.OAuth2AuthType, cloud.JSONFileAuthType:
+	default:
+		return errors.NotSupportedf("%q auth-type", authType)
+	}
+	return nil
 }
 
-// UpgradeEnvironConfig is specified in the EnvironConfigUpgrader interface.
+// Schema returns the configuration schema for an environment.
+func (environProvider) Schema() environschema.Fields {
+	fields, err := config.Schema(configSchema)
+	if err != nil {
+		panic(err)
+	}
+	return fields
+}
+
+// ConfigSchema returns extra config attributes specific
+// to this provider only.
+func (p environProvider) ConfigSchema() schema.Fields {
+	return configFields
+}
+
+// ConfigDefaults returns the default values for the
+// provider specific config attributes.
+func (p environProvider) ConfigDefaults() schema.Defaults {
+	return configDefaults
+}
+
+// UpgradeModelConfig is specified in the ModelConfigUpgrader interface.
 func (environProvider) UpgradeConfig(cfg *config.Config) (*config.Config, error) {
 	return configWithDefaults(cfg)
 }
@@ -61,54 +89,11 @@ func configWithDefaults(cfg *config.Config) (*config.Config, error) {
 	return cfg.Apply(defaults)
 }
 
-// RestrictedConfigAttributes is specified in the EnvironProvider interface.
-func (environProvider) RestrictedConfigAttributes() []string {
-	return []string{
-		cfgPrivateKey,
-		cfgClientID,
-		cfgClientEmail,
-		cfgRegion,
-		cfgProjectID,
-		cfgImageEndpoint,
-	}
-}
-
-// Validate implements environs.EnvironProvider.
-func (environProvider) Validate(cfg, old *config.Config) (valid *config.Config, err error) {
-	if old == nil {
-		ecfg, err := newValidConfig(cfg, configDefaults)
-		if err != nil {
-			return nil, errors.Annotate(err, "invalid config")
-		}
-		return ecfg.Config, nil
-	}
-
-	// The defaults should be set already, so we pass nil.
-	ecfg, err := newValidConfig(old, nil)
+// Validate implements environs.EnvironProvider.Validate.
+func (environProvider) Validate(cfg, old *config.Config) (*config.Config, error) {
+	newCfg, err := newConfig(cfg, old)
 	if err != nil {
-		return nil, errors.Annotate(err, "invalid base config")
+		return nil, errors.Annotate(err, "invalid config")
 	}
-
-	if err := ecfg.update(cfg); err != nil {
-		return nil, errors.Annotate(err, "invalid config change")
-	}
-
-	return ecfg.Config, nil
-}
-
-// SecretAttrs implements environs.EnvironProvider.
-func (environProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
-	// The defaults should be set already, so we pass nil.
-	ecfg, err := newValidConfig(cfg, nil)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return ecfg.secret(), nil
-}
-
-// BoilerplateConfig implements environs.EnvironProvider.
-func (environProvider) BoilerplateConfig() string {
-	// boilerplateConfig is kept in config.go, in the hope that people editing
-	// config will keep it up to date.
-	return boilerplateConfig
+	return newCfg.config, nil
 }

@@ -70,6 +70,17 @@ func (s *ManifoldSuite) TestSameManifoldWorkersConnected(c *gc.C) {
 	assertUnlocked(c, w)
 }
 
+func (s *ManifoldSuite) TestLockOutput(c *gc.C) {
+	var lock gate.Lock
+	err := s.manifold.Output(s.worker, &lock)
+	c.Assert(err, jc.ErrorIsNil)
+
+	w := waiter(c, s.manifold, s.worker)
+	assertLocked(c, w)
+	lock.Unlock()
+	assertUnlocked(c, w)
+}
+
 func (s *ManifoldSuite) TestDifferentManifoldWorkersUnconnected(c *gc.C) {
 	manifold2 := gate.Manifold()
 	worker2, err := manifold2.Start(nil)
@@ -86,6 +97,26 @@ func (s *ManifoldSuite) TestDifferentManifoldWorkersUnconnected(c *gc.C) {
 func (s *ManifoldSuite) TestAlreadyUnlockedIsUnlocked(c *gc.C) {
 	w := gate.AlreadyUnlocked{}
 	assertUnlocked(c, w)
+}
+
+func (s *ManifoldSuite) TestManifoldEx(c *gc.C) {
+	lock := gate.NewLock()
+
+	manifold := gate.ManifoldEx(lock)
+	var waiter1 gate.Waiter = lock
+	var unlocker1 gate.Unlocker = lock
+
+	worker, err := manifold.Start(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	defer checkStop(c, worker)
+	waiter2 := waiter(c, manifold, worker)
+
+	assertLocked(c, waiter1)
+	assertLocked(c, waiter2)
+
+	unlocker1.Unlock()
+	assertUnlocked(c, waiter1)
+	assertUnlocked(c, waiter2)
 }
 
 func unlocker(c *gc.C, m dependency.Manifold, w worker.Worker) gate.Unlocker {
@@ -105,6 +136,7 @@ func waiter(c *gc.C, m dependency.Manifold, w worker.Worker) gate.Waiter {
 }
 
 func assertLocked(c *gc.C, waiter gate.Waiter) {
+	c.Assert(waiter.IsUnlocked(), jc.IsFalse)
 	select {
 	case <-waiter.Unlocked():
 		c.Fatalf("expected gate to be locked")
@@ -113,6 +145,7 @@ func assertLocked(c *gc.C, waiter gate.Waiter) {
 }
 
 func assertUnlocked(c *gc.C, waiter gate.Waiter) {
+	c.Assert(waiter.IsUnlocked(), jc.IsTrue)
 	select {
 	case <-waiter.Unlocked():
 	default:

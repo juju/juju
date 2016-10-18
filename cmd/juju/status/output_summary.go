@@ -6,18 +6,21 @@ package status
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"net"
 	"strings"
-	"text/tabwriter"
 
+	"github.com/juju/ansiterm"
+	"github.com/juju/ansiterm/tabwriter"
 	"github.com/juju/errors"
+	"github.com/juju/utils"
 	"github.com/juju/utils/set"
 
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/juju/common"
+	"github.com/juju/juju/cmd/output"
+	"github.com/juju/juju/status"
 )
 
-// FormatSummary returns a summary of the current environment
+// FormatSummary writes a summary of the current environment
 // including the following information:
 // - Headers:
 //   - All subnets the environment occupies.
@@ -25,60 +28,60 @@ import (
 // - Sections:
 //   - Machines: Displays total #, and then the # in each state.
 //   - Units: Displays total #, and then # in each state.
-//   - Services: Displays total #, their names, and how many of each
+//   - Applications: Displays total #, their names, and how many of each
 //     are exposed.
-//   - RemoteServices: Displays total #, their names and URLs.
-func FormatSummary(value interface{}) ([]byte, error) {
+//   - RemoteApplications: Displays total #, their names and URLs.
+func FormatSummary(writer io.Writer, value interface{}) error {
 	fs, valueConverted := value.(formattedStatus)
 	if !valueConverted {
-		return nil, errors.Errorf("expected value of type %T, got %T", fs, value)
+		return errors.Errorf("expected value of type %T, got %T", fs, value)
 	}
 
-	f := newSummaryFormatter()
+	f := newSummaryFormatter(writer)
 	stateToMachine := f.aggregateMachineStates(fs.Machines)
-	svcExposure := f.aggregateServiceAndUnitStates(fs.Services)
+	svcExposure := f.aggregateServiceAndUnitStates(fs.Applications)
 	p := f.delimitValuesWithTabs
 
 	// Print everything out
 	p("Running on subnets:", strings.Join(f.netStrings, ", "))
-	p("Utilizing ports:", f.portsInColumnsOf(3))
+	p(" Utilizing ports:", f.portsInColumnsOf(3))
 	f.tw.Flush()
 
 	// Right align summary information
-	f.tw.Init(&f.out, 0, 2, 1, ' ', tabwriter.AlignRight)
-	p("# MACHINES:", fmt.Sprintf("(%d)", len(fs.Machines)))
+	f.tw.Init(writer, 0, 1, 2, ' ', tabwriter.AlignRight)
+	p("# Machines:", fmt.Sprintf("(%d)", len(fs.Machines)))
 	f.printStateToCount(stateToMachine)
 	p(" ")
 
-	p("# UNITS:", fmt.Sprintf("(%d)", f.numUnits))
+	p("# Units:", fmt.Sprintf("(%d)", f.numUnits))
 	f.printStateToCount(f.stateToUnit)
 	p(" ")
 
-	p("# SERVICES:", fmt.Sprintf(" (%d)", len(fs.Services)))
-	for _, svcName := range common.SortStringsNaturally(stringKeysFromMap(svcExposure)) {
+	p("# Applications:", fmt.Sprintf("(%d)", len(fs.Applications)))
+	for _, svcName := range utils.SortStringsNaturally(stringKeysFromMap(svcExposure)) {
 		s := svcExposure[svcName]
 		p(svcName, fmt.Sprintf("%d/%d\texposed", s[true], s[true]+s[false]))
 	}
 	p(" ")
 
-	p("# REMOTE:", fmt.Sprintf(" (%d)", len(fs.RemoteServices)))
-	for _, svcName := range common.SortStringsNaturally(stringKeysFromMap(fs.RemoteServices)) {
-		s := fs.RemoteServices[svcName]
-		p(svcName, "", s.ServiceURL)
+	p("# Remote:", fmt.Sprintf("(%d)", len(fs.RemoteApplications)))
+	for _, svcName := range utils.SortStringsNaturally(stringKeysFromMap(fs.RemoteApplications)) {
+		s := fs.RemoteApplications[svcName]
+		p(svcName, "", s.ApplicationURL)
 	}
 	f.tw.Flush()
 
-	return f.out.Bytes(), nil
+	return nil
 }
 
-func newSummaryFormatter() *summaryFormatter {
+func newSummaryFormatter(writer io.Writer) *summaryFormatter {
 	f := &summaryFormatter{
 		ipAddrs:     make([]net.IPNet, 0),
 		netStrings:  make([]string, 0),
 		openPorts:   set.NewStrings(),
-		stateToUnit: make(map[params.Status]int),
+		stateToUnit: make(map[status.Status]int),
 	}
-	f.tw = tabwriter.NewWriter(&f.out, 0, 1, 1, ' ', 0)
+	f.tw = output.TabWriter(writer)
 	return f
 }
 
@@ -88,9 +91,8 @@ type summaryFormatter struct {
 	numUnits   int
 	openPorts  set.Strings
 	// status -> count
-	stateToUnit map[params.Status]int
-	tw          *tabwriter.Writer
-	out         bytes.Buffer
+	stateToUnit map[status.Status]int
+	tw          *ansiterm.TabWriter
 }
 
 func (f *summaryFormatter) delimitValuesWithTabs(values ...string) {
@@ -126,13 +128,13 @@ func (f *summaryFormatter) trackUnit(name string, status unitStatus, indentLevel
 		}
 	}
 	f.numUnits++
-	f.stateToUnit[status.AgentState]++
+	f.stateToUnit[status.WorkloadStatusInfo.Current]++
 }
 
-func (f *summaryFormatter) printStateToCount(m map[params.Status]int) {
-	for _, status := range common.SortStringsNaturally(stringKeysFromMap(m)) {
-		numInStatus := m[params.Status(status)]
-		f.delimitValuesWithTabs(status+":", fmt.Sprintf(" %d ", numInStatus))
+func (f *summaryFormatter) printStateToCount(m map[status.Status]int) {
+	for _, stateToCount := range utils.SortStringsNaturally(stringKeysFromMap(m)) {
+		numInStatus := m[status.Status(stateToCount)]
+		f.delimitValuesWithTabs(stateToCount+":", fmt.Sprintf(" %d ", numInStatus))
 	}
 }
 
@@ -143,7 +145,7 @@ func (f *summaryFormatter) trackIp(ip net.IP) {
 		}
 	}
 
-	ipNet := net.IPNet{ip, ip.DefaultMask()}
+	ipNet := net.IPNet{IP: ip, Mask: ip.DefaultMask()}
 	f.ipAddrs = append(f.ipAddrs, ipNet)
 	f.netStrings = append(f.netStrings, ipNet.String())
 }
@@ -162,14 +164,14 @@ func (f *summaryFormatter) resolveAndTrackIp(publicDns string) {
 	f.trackIp(ip.IP)
 }
 
-func (f *summaryFormatter) aggregateMachineStates(machines map[string]machineStatus) map[params.Status]int {
-	stateToMachine := make(map[params.Status]int)
-	for _, name := range common.SortStringsNaturally(stringKeysFromMap(machines)) {
+func (f *summaryFormatter) aggregateMachineStates(machines map[string]machineStatus) map[status.Status]int {
+	stateToMachine := make(map[status.Status]int)
+	for _, name := range utils.SortStringsNaturally(stringKeysFromMap(machines)) {
 		m := machines[name]
 		f.resolveAndTrackIp(m.DNSName)
 
-		if agentState := m.AgentState; agentState == "" {
-			agentState = params.StatusPending
+		if agentState := m.JujuStatus.Current; agentState == "" {
+			agentState = status.Pending
 		} else {
 			stateToMachine[agentState]++
 		}
@@ -177,12 +179,12 @@ func (f *summaryFormatter) aggregateMachineStates(machines map[string]machineSta
 	return stateToMachine
 }
 
-func (f *summaryFormatter) aggregateServiceAndUnitStates(services map[string]serviceStatus) map[string]map[bool]int {
+func (f *summaryFormatter) aggregateServiceAndUnitStates(services map[string]applicationStatus) map[string]map[bool]int {
 	svcExposure := make(map[string]map[bool]int)
-	for _, name := range common.SortStringsNaturally(stringKeysFromMap(services)) {
+	for _, name := range utils.SortStringsNaturally(stringKeysFromMap(services)) {
 		s := services[name]
 		// Grab unit states
-		for _, un := range common.SortStringsNaturally(stringKeysFromMap(s.Units)) {
+		for _, un := range utils.SortStringsNaturally(stringKeysFromMap(s.Units)) {
 			u := s.Units[un]
 			f.trackUnit(un, u, 0)
 			recurseUnits(u, 1, f.trackUnit)

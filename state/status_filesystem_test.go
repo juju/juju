@@ -8,6 +8,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
+	"github.com/juju/juju/testing"
 )
 
 type FilesystemStatusSuite struct {
@@ -50,30 +52,49 @@ func (s *FilesystemStatusSuite) TestInitialStatus(c *gc.C) {
 func (s *FilesystemStatusSuite) checkInitialStatus(c *gc.C) {
 	statusInfo, err := s.filesystem.Status()
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(statusInfo.Status, gc.Equals, state.StatusPending)
+	c.Check(statusInfo.Status, gc.Equals, status.Pending)
 	c.Check(statusInfo.Message, gc.Equals, "")
 	c.Check(statusInfo.Data, gc.HasLen, 0)
 	c.Check(statusInfo.Since, gc.NotNil)
 }
 
 func (s *FilesystemStatusSuite) TestSetErrorStatusWithoutInfo(c *gc.C) {
-	err := s.filesystem.SetStatus(state.StatusError, "", nil)
+	now := testing.ZeroTime()
+	sInfo := status.StatusInfo{
+		Status:  status.Error,
+		Message: "",
+		Since:   &now,
+	}
+	err := s.filesystem.SetStatus(sInfo)
 	c.Check(err, gc.ErrorMatches, `cannot set status "error" without info`)
 
 	s.checkInitialStatus(c)
 }
 
 func (s *FilesystemStatusSuite) TestSetUnknownStatus(c *gc.C) {
-	err := s.filesystem.SetStatus(state.Status("vliegkat"), "orville", nil)
+	now := testing.ZeroTime()
+	sInfo := status.StatusInfo{
+		Status:  status.Status("vliegkat"),
+		Message: "orville",
+		Since:   &now,
+	}
+	err := s.filesystem.SetStatus(sInfo)
 	c.Assert(err, gc.ErrorMatches, `cannot set invalid status "vliegkat"`)
 
 	s.checkInitialStatus(c)
 }
 
 func (s *FilesystemStatusSuite) TestSetOverwritesData(c *gc.C) {
-	err := s.filesystem.SetStatus(state.StatusAttaching, "blah", map[string]interface{}{
-		"pew.pew": "zap",
-	})
+	now := testing.ZeroTime()
+	sInfo := status.StatusInfo{
+		Status:  status.Attaching,
+		Message: "blah",
+		Data: map[string]interface{}{
+			"pew.pew": "zap",
+		},
+		Since: &now,
+	}
+	err := s.filesystem.SetStatus(sInfo)
 	c.Check(err, jc.ErrorIsNil)
 
 	s.checkGetSetStatus(c)
@@ -84,11 +105,18 @@ func (s *FilesystemStatusSuite) TestGetSetStatusAlive(c *gc.C) {
 }
 
 func (s *FilesystemStatusSuite) checkGetSetStatus(c *gc.C) {
-	err := s.filesystem.SetStatus(state.StatusAttaching, "blah", map[string]interface{}{
-		"$foo.bar.baz": map[string]interface{}{
-			"pew.pew": "zap",
+	now := testing.ZeroTime()
+	sInfo := status.StatusInfo{
+		Status:  status.Attaching,
+		Message: "blah",
+		Data: map[string]interface{}{
+			"$foo.bar.baz": map[string]interface{}{
+				"pew.pew": "zap",
+			},
 		},
-	})
+		Since: &now,
+	}
+	err := s.filesystem.SetStatus(sInfo)
 	c.Check(err, jc.ErrorIsNil)
 
 	filesystem, err := s.State.Filesystem(s.filesystem.FilesystemTag())
@@ -96,7 +124,7 @@ func (s *FilesystemStatusSuite) checkGetSetStatus(c *gc.C) {
 
 	statusInfo, err := filesystem.Status()
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(statusInfo.Status, gc.Equals, state.StatusAttaching)
+	c.Check(statusInfo.Status, gc.Equals, status.Attaching)
 	c.Check(statusInfo.Message, gc.Equals, "blah")
 	c.Check(statusInfo.Data, jc.DeepEquals, map[string]interface{}{
 		"$foo.bar.baz": map[string]interface{}{
@@ -134,16 +162,28 @@ func (s *FilesystemStatusSuite) TestGetSetStatusDead(c *gc.C) {
 func (s *FilesystemStatusSuite) TestGetSetStatusNotFound(c *gc.C) {
 	s.obliterateFilesystem(c, s.filesystem.FilesystemTag())
 
-	err := s.filesystem.SetStatus(state.StatusAttaching, "not really", nil)
+	now := testing.ZeroTime()
+	sInfo := status.StatusInfo{
+		Status:  status.Attaching,
+		Message: "not really",
+		Since:   &now,
+	}
+	err := s.filesystem.SetStatus(sInfo)
 	c.Check(err, gc.ErrorMatches, `cannot set status: filesystem not found`)
 
 	statusInfo, err := s.filesystem.Status()
 	c.Check(err, gc.ErrorMatches, `cannot get status: filesystem not found`)
-	c.Check(statusInfo, gc.DeepEquals, state.StatusInfo{})
+	c.Check(statusInfo, gc.DeepEquals, status.StatusInfo{})
 }
 
 func (s *FilesystemStatusSuite) TestSetStatusPendingUnprovisioned(c *gc.C) {
-	err := s.filesystem.SetStatus(state.StatusPending, "still", nil)
+	now := testing.ZeroTime()
+	sInfo := status.StatusInfo{
+		Status:  status.Pending,
+		Message: "still",
+		Since:   &now,
+	}
+	err := s.filesystem.SetStatus(sInfo)
 	c.Check(err, jc.ErrorIsNil)
 }
 
@@ -152,6 +192,12 @@ func (s *FilesystemStatusSuite) TestSetStatusPendingProvisioned(c *gc.C) {
 		FilesystemId: "fs-id",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.filesystem.SetStatus(state.StatusPending, "", nil)
+	now := testing.ZeroTime()
+	sInfo := status.StatusInfo{
+		Status:  status.Pending,
+		Message: "",
+		Since:   &now,
+	}
+	err = s.filesystem.SetStatus(sInfo)
 	c.Check(err, gc.ErrorMatches, `cannot set status "pending"`)
 }

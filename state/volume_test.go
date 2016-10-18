@@ -5,13 +5,14 @@ package state_test
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
 	"github.com/juju/juju/storage/poolmanager"
@@ -83,7 +84,7 @@ func (s *VolumeStateSuite) TestAddServiceInvalidPool(c *gc.C) {
 	storage := map[string]state.StorageConstraints{
 		"data": makeStorageCons("invalid-pool", 1024, 1),
 	}
-	_, err := s.State.AddService(state.AddServiceArgs{Name: "storage-block", Owner: s.Owner.String(), Charm: ch, Storage: storage})
+	_, err := s.State.AddApplication(state.AddApplicationArgs{Name: "storage-block", Charm: ch, Storage: storage})
 	c.Assert(err, gc.ErrorMatches, `.* pool "invalid-pool" not found`)
 }
 
@@ -92,7 +93,7 @@ func (s *VolumeStateSuite) TestAddServiceNoUserDefaultPool(c *gc.C) {
 	storage := map[string]state.StorageConstraints{
 		"data": makeStorageCons("", 1024, 1),
 	}
-	service, err := s.State.AddService(state.AddServiceArgs{Name: "storage-block", Owner: s.Owner.String(), Charm: ch, Storage: storage})
+	service, err := s.State.AddApplication(state.AddApplicationArgs{Name: "storage-block", Charm: ch, Storage: storage})
 	c.Assert(err, jc.ErrorIsNil)
 	cons, err := service.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
@@ -112,10 +113,10 @@ func (s *VolumeStateSuite) TestAddServiceNoUserDefaultPool(c *gc.C) {
 
 func (s *VolumeStateSuite) TestAddServiceDefaultPool(c *gc.C) {
 	// Register a default pool.
-	pm := poolmanager.New(state.NewStateSettings(s.State))
+	pm := poolmanager.New(state.NewStateSettings(s.State), dummy.StorageProviders())
 	_, err := pm.Create("default-block", provider.LoopProviderType, map[string]interface{}{})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.UpdateEnvironConfig(map[string]interface{}{
+	err = s.State.UpdateModelConfig(map[string]interface{}{
 		"storage-default-block-source": "default-block",
 	}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -271,7 +272,7 @@ func (s *VolumeStateSuite) TestWatchVolumeAttachment(c *gc.C) {
 	wc.AssertOneChange()
 }
 
-func (s *VolumeStateSuite) TestWatchEnvironVolumes(c *gc.C) {
+func (s *VolumeStateSuite) TestWatchModelVolumes(c *gc.C) {
 	service := s.setupMixedScopeStorageService(c, "block")
 	addUnit := func() {
 		u, err := service.AddUnit()
@@ -281,7 +282,7 @@ func (s *VolumeStateSuite) TestWatchEnvironVolumes(c *gc.C) {
 	}
 	addUnit()
 
-	w := s.State.WatchEnvironVolumes()
+	w := s.State.WatchModelVolumes()
 	defer testing.AssertStop(c, w)
 	wc := testing.NewStringsWatcherC(c, s.State, w)
 	wc.AssertChangeInSingleEvent("0") // initial
@@ -434,7 +435,7 @@ func (s *VolumeStateSuite) TestParseVolumeAttachmentId(c *gc.C) {
 	}
 	assertValid("0:0", names.NewMachineTag("0"), names.NewVolumeTag("0"))
 	assertValid("0:0/1", names.NewMachineTag("0"), names.NewVolumeTag("0/1"))
-	assertValid("0/lxc/0:1", names.NewMachineTag("0/lxc/0"), names.NewVolumeTag("1"))
+	assertValid("0/lxd/0:1", names.NewMachineTag("0/lxd/0"), names.NewVolumeTag("1"))
 }
 
 func (s *VolumeStateSuite) TestParseVolumeAttachmentIdError(c *gc.C) {
@@ -739,13 +740,12 @@ func (s *VolumeStateSuite) TestRemoveMachineRemovesVolumes(c *gc.C) {
 	c.Assert(machine.Destroy(), jc.ErrorIsNil)
 
 	// Cannot advance to Dead while there are persistent, or
-	// unprovisioned dynamic volumes (regardless of scope).
+	// unprovisioned environ-scoped dynamic volumes.
 	err = machine.EnsureDead()
 	c.Assert(err, jc.Satisfies, state.IsHasAttachmentsError)
-	c.Assert(err, gc.ErrorMatches, "machine 0 has attachments \\[volume-0 volume-0-1 volume-0-2\\]")
+	c.Assert(err, gc.ErrorMatches, "machine 0 has attachments \\[volume-0 volume-0-1\\]")
 	s.obliterateVolumeAttachment(c, machine.MachineTag(), names.NewVolumeTag("0"))
 	s.obliterateVolumeAttachment(c, machine.MachineTag(), names.NewVolumeTag("0/1"))
-	s.obliterateVolumeAttachment(c, machine.MachineTag(), names.NewVolumeTag("0/2"))
 	c.Assert(machine.EnsureDead(), jc.ErrorIsNil)
 	c.Assert(machine.Remove(), jc.ErrorIsNil)
 
@@ -758,9 +758,7 @@ func (s *VolumeStateSuite) TestRemoveMachineRemovesVolumes(c *gc.C) {
 	for _, v := range allVolumes {
 		remaining.Add(v.Tag().String())
 	}
-	c.Assert(remaining.SortedValues(), jc.DeepEquals, []string{
-		"volume-0", "volume-0-1", "volume-0-2",
-	})
+	c.Assert(remaining.SortedValues(), jc.DeepEquals, []string{"volume-0", "volume-0-1"})
 
 	attachments, err := s.State.MachineVolumeAttachments(machine.MachineTag())
 	c.Assert(err, jc.ErrorIsNil)

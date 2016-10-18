@@ -15,12 +15,10 @@ import (
 	"gopkg.in/amz.v3/ec2"
 
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/storage"
-	"github.com/juju/juju/storage/poolmanager"
 )
 
 const (
@@ -43,19 +41,25 @@ const (
 	EBS_Encrypted = "encrypted"
 
 	volumeTypeMagnetic        = "magnetic"         // standard
-	volumeTypeSsd             = "ssd"              // gp2
+	volumeTypeSSD             = "ssd"              // gp2
 	volumeTypeProvisionedIops = "provisioned-iops" // io1
 	volumeTypeStandard        = "standard"
-	volumeTypeGp2             = "gp2"
-	volumeTypeIo1             = "io1"
+	volumeTypeGP2             = "gp2"
+	volumeTypeIO1             = "io1"
+
+	rootDiskDeviceName = "/dev/sda1"
+
+	// defaultControllerDiskSizeMiB is the default size for the
+	// root disk of controller machines, if no root-disk constraint
+	// is specified.
+	defaultControllerDiskSizeMiB = 32 * 1024
 )
 
 // AWS error codes
 const (
 	deviceInUse        = "InvalidDevice.InUse"
-	volumeInUse        = "VolumeInUse"
 	attachmentNotFound = "InvalidAttachment.NotFound"
-	incorrectState     = "IncorrectState"
+	volumeNotFound     = "InvalidVolume.NotFound"
 )
 
 const (
@@ -65,8 +69,6 @@ const (
 
 	attachmentStatusAttaching = "attaching"
 	attachmentStatusAttached  = "attached"
-	attachmentStatusDetaching = "detaching"
-	attachmentStatusDetached  = "detached"
 
 	instanceStateShuttingDown = "shutting-down"
 	instanceStateTerminated   = "terminated"
@@ -81,11 +83,11 @@ const (
 	// maxMagneticVolumeSizeGiB is the maximum size for magnetic volumes in GiB.
 	maxMagneticVolumeSizeGiB = 1024
 
-	// minSsdVolumeSizeGiB is the minimum size for SSD volumes in GiB.
-	minSsdVolumeSizeGiB = 1
+	// minSSDVolumeSizeGiB is the minimum size for SSD volumes in GiB.
+	minSSDVolumeSizeGiB = 1
 
-	// maxSsdVolumeSizeGiB is the maximum size for SSD volumes in GiB.
-	maxSsdVolumeSizeGiB = 16 * 1024
+	// maxSSDVolumeSizeGiB is the maximum size for SSD volumes in GiB.
+	maxSSDVolumeSizeGiB = 16 * 1024
 
 	// minProvisionedIopsVolumeSizeGiB is the minimum size of provisioned IOPS
 	// volumes in GiB.
@@ -117,29 +119,34 @@ const (
 
 var deviceInUseRegexp = regexp.MustCompile(".*Attachment point .* is already in use")
 
-func init() {
-	ebsssdPool, _ := storage.NewConfig("ebs-ssd", EBS_ProviderType, map[string]interface{}{
-		EBS_VolumeType: volumeTypeSsd,
-	})
-	defaultPools := []*storage.Config{
-		ebsssdPool,
+// StorageProviderTypes implements storage.ProviderRegistry.
+func (env *environ) StorageProviderTypes() ([]storage.ProviderType, error) {
+	return []storage.ProviderType{EBS_ProviderType}, nil
+}
+
+// StorageProvider implements storage.ProviderRegistry.
+func (env *environ) StorageProvider(t storage.ProviderType) (storage.Provider, error) {
+	if t == EBS_ProviderType {
+		return &ebsProvider{env}, nil
 	}
-	poolmanager.RegisterDefaultStoragePools(defaultPools)
+	return nil, errors.NotFoundf("storage provider %q", t)
 }
 
 // ebsProvider creates volume sources which use AWS EBS volumes.
-type ebsProvider struct{}
+type ebsProvider struct {
+	env *environ
+}
 
 var _ storage.Provider = (*ebsProvider)(nil)
 
 var ebsConfigFields = schema.Fields{
 	EBS_VolumeType: schema.OneOf(
 		schema.Const(volumeTypeMagnetic),
-		schema.Const(volumeTypeSsd),
+		schema.Const(volumeTypeSSD),
 		schema.Const(volumeTypeProvisionedIops),
 		schema.Const(volumeTypeStandard),
-		schema.Const(volumeTypeGp2),
-		schema.Const(volumeTypeIo1),
+		schema.Const(volumeTypeGP2),
+		schema.Const(volumeTypeIO1),
 	),
 	EBS_IOPS:      schema.ForceInt(),
 	EBS_Encrypted: schema.Bool(),
@@ -176,15 +183,15 @@ func newEbsConfig(attrs map[string]interface{}) (*ebsConfig, error) {
 	switch ebsConfig.volumeType {
 	case volumeTypeMagnetic:
 		ebsConfig.volumeType = volumeTypeStandard
-	case volumeTypeSsd:
-		ebsConfig.volumeType = volumeTypeGp2
+	case volumeTypeSSD:
+		ebsConfig.volumeType = volumeTypeGP2
 	case volumeTypeProvisionedIops:
-		ebsConfig.volumeType = volumeTypeIo1
+		ebsConfig.volumeType = volumeTypeIO1
 	}
-	if ebsConfig.iops > 0 && ebsConfig.volumeType != volumeTypeIo1 {
+	if ebsConfig.iops > 0 && ebsConfig.volumeType != volumeTypeIO1 {
 		return nil, errors.Errorf("IOPS specified, but volume type is %q", volumeType)
-	} else if ebsConfig.iops == 0 && ebsConfig.volumeType == volumeTypeIo1 {
-		return nil, errors.Errorf("volume type is %q, IOPS unspecified or zero", volumeTypeIo1)
+	} else if ebsConfig.iops == 0 && ebsConfig.volumeType == volumeTypeIO1 {
+		return nil, errors.Errorf("volume type is %q, IOPS unspecified or zero", volumeTypeIO1)
 	}
 	return ebsConfig, nil
 }
@@ -210,33 +217,34 @@ func (e *ebsProvider) Dynamic() bool {
 	return true
 }
 
+// DefaultPools is defined on the Provider interface.
+func (e *ebsProvider) DefaultPools() []*storage.Config {
+	ssdPool, _ := storage.NewConfig("ebs-ssd", EBS_ProviderType, map[string]interface{}{
+		EBS_VolumeType: volumeTypeSSD,
+	})
+	return []*storage.Config{ssdPool}
+}
+
 // VolumeSource is defined on the Provider interface.
-func (e *ebsProvider) VolumeSource(environConfig *config.Config, cfg *storage.Config) (storage.VolumeSource, error) {
-	ec2, _, _, err := awsClients(environConfig)
-	if err != nil {
-		return nil, errors.Annotate(err, "creating AWS clients")
-	}
-	uuid, ok := environConfig.UUID()
-	if !ok {
-		return nil, errors.NotFoundf("environment UUID")
-	}
+func (e *ebsProvider) VolumeSource(cfg *storage.Config) (storage.VolumeSource, error) {
+	environConfig := e.env.Config()
 	source := &ebsVolumeSource{
-		ec2:     ec2,
-		envName: environConfig.Name(),
-		envUUID: uuid,
+		env:       e.env,
+		envName:   environConfig.Name(),
+		modelUUID: environConfig.UUID(),
 	}
 	return source, nil
 }
 
 // FilesystemSource is defined on the Provider interface.
-func (e *ebsProvider) FilesystemSource(environConfig *config.Config, providerConfig *storage.Config) (storage.FilesystemSource, error) {
+func (e *ebsProvider) FilesystemSource(providerConfig *storage.Config) (storage.FilesystemSource, error) {
 	return nil, errors.NotSupportedf("filesystems")
 }
 
 type ebsVolumeSource struct {
-	ec2     *ec2.EC2
-	envName string // non-unique, informational only
-	envUUID string
+	env       *environ
+	envName   string // non-unique, informational only
+	modelUUID string
 }
 
 var _ storage.VolumeSource = (*ebsVolumeSource)(nil)
@@ -285,7 +293,7 @@ func (v *ebsVolumeSource) CreateVolumes(params []storage.VolumeParams) (_ []stor
 
 	instances := make(instanceCache)
 	if instanceIds.Size() > 1 {
-		if err := instances.update(v.ec2, instanceIds.Values()...); err != nil {
+		if err := instances.update(v.env.ec2, instanceIds.Values()...); err != nil {
 			logger.Debugf("querying running instances: %v", err)
 			// We ignore the error, because we don't want an invalid
 			// InstanceId reference from one VolumeParams to prevent
@@ -314,8 +322,8 @@ func (v *ebsVolumeSource) createVolume(p storage.VolumeParams, instances instanc
 		if err == nil || volumeId == "" {
 			return
 		}
-		if _, err := v.ec2.DeleteVolume(volumeId); err != nil {
-			logger.Warningf("error cleaning up volume %v: %v", volumeId, err)
+		if _, err := v.env.ec2.DeleteVolume(volumeId); err != nil {
+			logger.Errorf("error cleaning up volume %v: %v", volumeId, err)
 		}
 	}()
 
@@ -326,7 +334,7 @@ func (v *ebsVolumeSource) createVolume(p storage.VolumeParams, instances instanc
 
 	// Create.
 	instId := string(p.Attachment.InstanceId)
-	if err := instances.update(v.ec2, instId); err != nil {
+	if err := instances.update(v.env.ec2, instId); err != nil {
 		return nil, nil, errors.Trace(err)
 	}
 	inst, err := instances.get(instId)
@@ -337,7 +345,7 @@ func (v *ebsVolumeSource) createVolume(p storage.VolumeParams, instances instanc
 	}
 	vol, _ := parseVolumeOptions(p.Size, p.Attributes)
 	vol.AvailZone = inst.AvailZone
-	resp, err := v.ec2.CreateVolume(vol)
+	resp, err := v.env.ec2.CreateVolume(vol)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
@@ -349,7 +357,7 @@ func (v *ebsVolumeSource) createVolume(p storage.VolumeParams, instances instanc
 		resourceTags[k] = v
 	}
 	resourceTags[tagName] = resourceName(p.Tag, v.envName)
-	if err := tagResources(v.ec2, resourceTags, volumeId); err != nil {
+	if err := tagResources(v.env.ec2, resourceTags, volumeId); err != nil {
 		return nil, nil, errors.Annotate(err, "tagging volume")
 	}
 
@@ -367,14 +375,32 @@ func (v *ebsVolumeSource) createVolume(p storage.VolumeParams, instances instanc
 // ListVolumes is specified on the storage.VolumeSource interface.
 func (v *ebsVolumeSource) ListVolumes() ([]string, error) {
 	filter := ec2.NewFilter()
-	filter.Add("tag:"+tags.JujuEnv, v.envUUID)
-	resp, err := v.ec2.Volumes(nil, filter)
+	filter.Add("tag:"+tags.JujuModel, v.modelUUID)
+	return listVolumes(v.env.ec2, filter)
+}
+
+func listVolumes(client *ec2.EC2, filter *ec2.Filter) ([]string, error) {
+	resp, err := client.Volumes(nil, filter)
 	if err != nil {
 		return nil, err
 	}
-	volumeIds := make([]string, len(resp.Volumes))
-	for i, vol := range resp.Volumes {
-		volumeIds[i] = vol.Id
+	volumeIds := make([]string, 0, len(resp.Volumes))
+	for _, vol := range resp.Volumes {
+		var isRootDisk bool
+		for _, att := range vol.Attachments {
+			if att.Device == rootDiskDeviceName {
+				isRootDisk = true
+				break
+			}
+		}
+		if isRootDisk {
+			// We don't want to list root disks in the output.
+			// These are managed by the instance provisioning
+			// code; they will be created and destroyed with
+			// instances.
+			continue
+		}
+		volumeIds = append(volumeIds, vol.Id)
 	}
 	return volumeIds, nil
 }
@@ -385,7 +411,7 @@ func (v *ebsVolumeSource) DescribeVolumes(volIds []string) ([]storage.DescribeVo
 	// operation to fail. If we get an invalid volume ID response,
 	// fall back to querying each volume individually. That should
 	// be rare.
-	resp, err := v.ec2.Volumes(volIds, nil)
+	resp, err := v.env.ec2.Volumes(volIds, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -417,17 +443,21 @@ func (v *ebsVolumeSource) DescribeVolumes(volIds []string) ([]storage.DescribeVo
 
 // DestroyVolumes is specified on the storage.VolumeSource interface.
 func (v *ebsVolumeSource) DestroyVolumes(volIds []string) ([]error, error) {
+	return destroyVolumes(v.env.ec2, volIds), nil
+}
+
+func destroyVolumes(client *ec2.EC2, volIds []string) []error {
 	var wg sync.WaitGroup
 	wg.Add(len(volIds))
 	results := make([]error, len(volIds))
 	for i, volumeId := range volIds {
 		go func(i int, volumeId string) {
 			defer wg.Done()
-			results[i] = v.destroyVolume(volumeId)
+			results[i] = destroyVolume(client, volumeId)
 		}(i, volumeId)
 	}
 	wg.Wait()
-	return results, nil
+	return results
 }
 
 var destroyVolumeAttempt = utils.AttemptStrategy{
@@ -435,12 +465,25 @@ var destroyVolumeAttempt = utils.AttemptStrategy{
 	Delay: 5 * time.Second,
 }
 
-func (v *ebsVolumeSource) destroyVolume(volumeId string) error {
+func destroyVolume(client *ec2.EC2, volumeId string) (err error) {
+	defer func() {
+		if err != nil {
+			if ec2ErrCode(err) == volumeNotFound || errors.IsNotFound(err) {
+				// Either the volume isn't found, or we queried the
+				// instance corresponding to a DeleteOnTermination
+				// attachment; in either case, the volume is or will
+				// be destroyed.
+				logger.Tracef("Ignoring error destroying volume %q: %v", volumeId, err)
+				err = nil
+			}
+		}
+	}()
+
 	logger.Debugf("destroying %q", volumeId)
 	// Volumes must not be in-use when destroying. A volume may
 	// still be in-use when the instance it is attached to is
 	// in the process of being terminated.
-	volume, err := v.waitVolume(volumeId, destroyVolumeAttempt, func(volume *ec2.Volume) (bool, error) {
+	volume, err := waitVolume(client, volumeId, destroyVolumeAttempt, func(volume *ec2.Volume) (bool, error) {
 		if volume.Status != volumeStatusInUse {
 			// Volume is not in use, it should be OK to destroy now.
 			return true, nil
@@ -482,7 +525,7 @@ func (v *ebsVolumeSource) destroyVolume(volumeId string) error {
 			}
 		}
 		if len(deleteOnTermination) > 0 {
-			result, err := v.ec2.Instances(deleteOnTermination, nil)
+			result, err := client.Instances(deleteOnTermination, nil)
 			if err != nil {
 				return false, errors.Trace(err)
 			}
@@ -501,7 +544,7 @@ func (v *ebsVolumeSource) destroyVolume(volumeId string) error {
 		if len(args) == 0 {
 			return false, nil
 		}
-		results, err := v.DetachVolumes(args)
+		results, err := detachVolumes(client, args)
 		if err != nil {
 			return false, errors.Trace(err)
 		}
@@ -513,13 +556,7 @@ func (v *ebsVolumeSource) destroyVolume(volumeId string) error {
 		return false, nil
 	})
 	if err != nil {
-		if errors.IsNotFound(err) {
-			// Either the volume isn't found, or we queried the
-			// instance corresponding to a DeleteOnTermination
-			// attachment; in either case, the volume is or will
-			// be destroyed.
-			return nil
-		} else if err == errWaitVolumeTimeout {
+		if err == errWaitVolumeTimeout {
 			return errors.Errorf("timed out waiting for volume %v to not be in-use", volumeId)
 		}
 		return errors.Trace(err)
@@ -530,7 +567,7 @@ func (v *ebsVolumeSource) destroyVolume(volumeId string) error {
 		// nothing more to do.
 		return nil
 	}
-	if _, err := v.ec2.DeleteVolume(volumeId); err != nil {
+	if _, err := client.DeleteVolume(volumeId); err != nil {
 		return errors.Annotatef(err, "destroying %q", volumeId)
 	}
 	return nil
@@ -547,10 +584,10 @@ func (v *ebsVolumeSource) ValidateVolumeParams(params storage.VolumeParams) erro
 	case volumeTypeStandard:
 		minVolumeSize = minMagneticVolumeSizeGiB
 		maxVolumeSize = maxMagneticVolumeSizeGiB
-	case volumeTypeGp2:
-		minVolumeSize = minSsdVolumeSizeGiB
-		maxVolumeSize = maxSsdVolumeSizeGiB
-	case volumeTypeIo1:
+	case volumeTypeGP2:
+		minVolumeSize = minSSDVolumeSizeGiB
+		maxVolumeSize = maxSSDVolumeSizeGiB
+	case volumeTypeIO1:
 		minVolumeSize = minProvisionedIopsVolumeSizeGiB
 		maxVolumeSize = maxProvisionedIopsVolumeSizeGiB
 	}
@@ -579,7 +616,7 @@ func (v *ebsVolumeSource) AttachVolumes(attachParams []storage.VolumeAttachmentP
 	}
 	instances := make(instanceCache)
 	if instIds.Size() > 1 {
-		if err := instances.update(v.ec2, instIds.Values()...); err != nil {
+		if err := instances.update(v.env.ec2, instIds.Values()...); err != nil {
 			logger.Debugf("querying running instances: %v", err)
 			// We ignore the error, because we don't want an invalid
 			// InstanceId reference from one VolumeParams to prevent
@@ -657,7 +694,7 @@ func (v *ebsVolumeSource) attachOneVolume(
 			// Can't attach any more volumes.
 			return "", "", err
 		}
-		_, err = v.ec2.AttachVolume(volumeId, instId, requestDeviceName)
+		_, err = v.env.ec2.AttachVolume(volumeId, instId, requestDeviceName)
 		if ec2Err, ok := err.(*ec2.Error); ok {
 			switch ec2Err.Code {
 			case invalidParameterValue:
@@ -688,7 +725,7 @@ func (v *ebsVolumeSource) waitVolumeCreated(volumeId string) (*ec2.Volume, error
 		Delay: 200 * time.Millisecond,
 	}
 	var lastStatus string
-	volume, err := v.waitVolume(volumeId, attempt, func(volume *ec2.Volume) (bool, error) {
+	volume, err := waitVolume(v.env.ec2, volumeId, attempt, func(volume *ec2.Volume) (bool, error) {
 		lastStatus = volume.Status
 		return volume.Status != volumeStatusCreating, nil
 	})
@@ -705,13 +742,14 @@ func (v *ebsVolumeSource) waitVolumeCreated(volumeId string) (*ec2.Volume, error
 
 var errWaitVolumeTimeout = errors.New("timed out")
 
-func (v *ebsVolumeSource) waitVolume(
+func waitVolume(
+	client *ec2.EC2,
 	volumeId string,
 	attempt utils.AttemptStrategy,
 	pred func(v *ec2.Volume) (bool, error),
 ) (*ec2.Volume, error) {
 	for a := attempt.Start(); a.Next(); {
-		volume, err := v.describeVolume(volumeId)
+		volume, err := describeVolume(client, volumeId)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -726,8 +764,8 @@ func (v *ebsVolumeSource) waitVolume(
 	return nil, errWaitVolumeTimeout
 }
 
-func (v *ebsVolumeSource) describeVolume(volumeId string) (*ec2.Volume, error) {
-	resp, err := v.ec2.Volumes([]string{volumeId}, nil)
+func describeVolume(client *ec2.EC2, volumeId string) (*ec2.Volume, error) {
+	resp, err := client.Volumes([]string{volumeId}, nil)
 	if err != nil {
 		return nil, errors.Annotate(err, "querying volume")
 	}
@@ -772,9 +810,13 @@ func (c instanceCache) get(id string) (ec2.Instance, error) {
 
 // DetachVolumes is specified on the storage.VolumeSource interface.
 func (v *ebsVolumeSource) DetachVolumes(attachParams []storage.VolumeAttachmentParams) ([]error, error) {
+	return detachVolumes(v.env.ec2, attachParams)
+}
+
+func detachVolumes(client *ec2.EC2, attachParams []storage.VolumeAttachmentParams) ([]error, error) {
 	results := make([]error, len(attachParams))
 	for i, params := range attachParams {
-		_, err := v.ec2.DetachVolume(params.VolumeId, string(params.InstanceId), "", false)
+		_, err := client.DetachVolume(params.VolumeId, string(params.InstanceId), "", false)
 		// Process aws specific error information.
 		if err != nil {
 			if ec2Err, ok := err.(*ec2.Error); ok {
@@ -832,30 +874,38 @@ func blockDeviceNamer(numbers bool) func() (requestName, actualName string, err 
 	}
 }
 
-func minRootDiskSizeMiB(ser string) uint64 {
-	return gibToMib(common.MinRootDiskSizeGiB(ser))
+func minRootDiskSizeMiB(series string) uint64 {
+	return gibToMib(common.MinRootDiskSizeGiB(series))
 }
 
 // getBlockDeviceMappings translates constraints into BlockDeviceMappings.
 //
 // The first entry is always the root disk mapping, followed by instance
 // stores (ephemeral disks).
-func getBlockDeviceMappings(cons constraints.Value, ser string) []ec2.BlockDeviceMapping {
-	rootDiskSizeMiB := minRootDiskSizeMiB(ser)
+func getBlockDeviceMappings(
+	cons constraints.Value,
+	series string,
+	controller bool,
+) []ec2.BlockDeviceMapping {
+	minRootDiskSizeMiB := minRootDiskSizeMiB(series)
+	rootDiskSizeMiB := minRootDiskSizeMiB
+	if controller {
+		rootDiskSizeMiB = defaultControllerDiskSizeMiB
+	}
 	if cons.RootDisk != nil {
-		if *cons.RootDisk >= minRootDiskSizeMiB(ser) {
+		if *cons.RootDisk >= minRootDiskSizeMiB {
 			rootDiskSizeMiB = *cons.RootDisk
 		} else {
 			logger.Infof(
-				"Ignoring root-disk constraint of %dM because it is smaller than the EC2 image size of %dM",
+				"Ignoring root-disk constraint of %dM because it is smaller than the minimum size %dM",
 				*cons.RootDisk,
-				minRootDiskSizeMiB(ser),
+				minRootDiskSizeMiB,
 			)
 		}
 	}
 	// The first block device is for the root disk.
 	blockDeviceMappings := []ec2.BlockDeviceMapping{{
-		DeviceName: "/dev/sda1",
+		DeviceName: rootDiskDeviceName,
 		VolumeSize: int64(mibToGib(rootDiskSizeMiB)),
 	}}
 

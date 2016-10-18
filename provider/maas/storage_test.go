@@ -10,7 +10,6 @@ import (
 	"math/rand"
 	"net/http"
 	"net/url"
-	"sync"
 
 	"github.com/juju/errors"
 	"github.com/juju/gomaasapi"
@@ -20,6 +19,8 @@ import (
 	"github.com/juju/juju/environs/storage"
 )
 
+var _ storage.Storage = (*maas1Storage)(nil)
+
 type storageSuite struct {
 	providerSuite
 }
@@ -27,12 +28,12 @@ type storageSuite struct {
 var _ = gc.Suite(&storageSuite{})
 
 // makeStorage creates a MAAS storage object for the running test.
-func (s *storageSuite) makeStorage(name string) *maasStorage {
+func (s *storageSuite) makeStorage(name string) *maas1Storage {
 	maasobj := s.testMAASObject.MAASObject
 	env := s.makeEnviron()
 	env.name = name
 	env.maasClientUnlocked = &maasobj
-	return NewStorage(env).(*maasStorage)
+	return NewStorage(env).(*maas1Storage)
 }
 
 // makeRandomBytes returns an array of arbitrary byte values.
@@ -54,20 +55,8 @@ func (s *storageSuite) fakeStoredFile(stor storage.Storage, name string) gomaasa
 	data := makeRandomBytes(rand.Intn(10))
 	// The filename must be prefixed with the private namespace as we're
 	// bypassing the Put() method that would normally do that.
-	prefixFilename := stor.(*maasStorage).prefixWithPrivateNamespace("") + name
+	prefixFilename := stor.(*maas1Storage).prefixWithPrivateNamespace("") + name
 	return s.testMAASObject.TestServer.NewFile(prefixFilename, data)
-}
-
-func (s *storageSuite) TestGetSnapshotCreatesClone(c *gc.C) {
-	original := s.makeStorage("storage-name")
-	snapshot := original.getSnapshot()
-	c.Check(snapshot.environUnlocked, gc.Equals, original.environUnlocked)
-	c.Check(snapshot.maasClientUnlocked.URL().String(), gc.Equals, original.maasClientUnlocked.URL().String())
-	// Snapshotting locks the original internally, but does not leave
-	// either the original or the snapshot locked.
-	unlockedMutexValue := sync.Mutex{}
-	c.Check(original.Mutex, gc.Equals, unlockedMutexValue)
-	c.Check(snapshot.Mutex, gc.Equals, unlockedMutexValue)
 }
 
 func (s *storageSuite) TestGetRetrievesFile(c *gc.C) {
@@ -240,7 +229,7 @@ func getFileAtURL(fileURL string) ([]byte, error) {
 
 func (s *storageSuite) TestURLReturnsURLCorrespondingToFile(c *gc.C) {
 	const filename = "my-file.txt"
-	stor := NewStorage(s.makeEnviron()).(*maasStorage)
+	stor := NewStorage(s.makeEnviron()).(*maas1Storage)
 	file := s.fakeStoredFile(stor, filename)
 	// The file contains an anon_resource_uri, which lacks a network part
 	// (but will probably contain a query part).  anonURL will be the
@@ -249,7 +238,7 @@ func (s *storageSuite) TestURLReturnsURLCorrespondingToFile(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	parsedURI, err := url.Parse(anonURI)
 	c.Assert(err, jc.ErrorIsNil)
-	anonURL := stor.maasClientUnlocked.URL().ResolveReference(parsedURI)
+	anonURL := stor.maasClient.URL().ResolveReference(parsedURI)
 	c.Assert(err, jc.ErrorIsNil)
 
 	fileURL, err := stor.URL(filename)
@@ -399,22 +388,11 @@ func (s *storageSuite) TestRemoveAllDeletesAllFiles(c *gc.C) {
 }
 
 func (s *storageSuite) TestprefixWithPrivateNamespacePrefixesWithAgentName(c *gc.C) {
-	sstor := NewStorage(s.makeEnviron())
-	stor := sstor.(*maasStorage)
-	agentName := stor.environUnlocked.ecfg().maasAgentName()
-	c.Assert(agentName, gc.Not(gc.Equals), "")
-	expectedPrefix := agentName + "-"
+	env := s.makeEnviron()
+	sstor := NewStorage(env)
+	stor := sstor.(*maas1Storage)
+	expectedPrefix := env.Config().UUID() + "-"
 	const name = "myname"
 	expectedResult := expectedPrefix + name
 	c.Assert(stor.prefixWithPrivateNamespace(name), gc.Equals, expectedResult)
-}
-
-func (s *storageSuite) TesttprefixWithPrivateNamespaceIgnoresAgentName(c *gc.C) {
-	sstor := NewStorage(s.makeEnviron())
-	stor := sstor.(*maasStorage)
-	ecfg := stor.environUnlocked.ecfg()
-	ecfg.attrs["maas-agent-name"] = ""
-
-	const name = "myname"
-	c.Assert(stor.prefixWithPrivateNamespace(name), gc.Equals, name)
 }

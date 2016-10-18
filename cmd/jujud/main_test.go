@@ -18,9 +18,9 @@ import (
 	stdtesting "testing"
 
 	"github.com/juju/cmd"
+	"github.com/juju/gnuflag"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/juju/names"
@@ -101,8 +101,7 @@ func (s *MainSuite) TestParseErrors(c *gc.C) {
 	msga := `unrecognized args: ["toastie"]`
 	checkMessage(c, msga,
 		"bootstrap-state",
-		"--env-config", b64yaml{"blah": "blah"}.encode(),
-		"--instance-id", "inst",
+		"bootstrap-params-file",
 		"toastie")
 	checkMessage(c, msga, "unit",
 		"--unit-name", "un/0",
@@ -131,13 +130,16 @@ type RemoteCommand struct {
 	msg string
 }
 
-var expectUsage = `usage: remote [options]
-purpose: test jujuc
+var expectUsage = `Usage: remote [options]
 
-options:
+Summary:
+test jujuc
+
+Options:
 --error (= "")
     if set, fail
 
+Details:
 here is some documentation
 `
 

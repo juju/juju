@@ -6,11 +6,13 @@ package upgrader
 import (
 	"fmt"
 
+	"github.com/juju/version"
+
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/watcher"
+	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
+	"github.com/juju/juju/watcher"
 )
 
 // State provides access to an upgrader worker's view of the state.
@@ -70,7 +72,7 @@ func (st *State) DesiredVersion(tag string) (version.Number, error) {
 
 // Tools returns the agent tools that should run on the given entity,
 // along with a flag whether to disable SSL hostname verification.
-func (st *State) Tools(tag string) (*tools.Tools, error) {
+func (st *State) Tools(tag string) (tools.List, error) {
 	var results params.ToolsResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: tag}},
@@ -88,7 +90,7 @@ func (st *State) Tools(tag string) (*tools.Tools, error) {
 	if err := result.Error; err != nil {
 		return nil, err
 	}
-	return result.Tools, nil
+	return result.ToolsList, nil
 }
 
 func (st *State) WatchAPIVersion(agentTag string) (watcher.NotifyWatcher, error) {
@@ -110,6 +112,6 @@ func (st *State) WatchAPIVersion(agentTag string) (watcher.NotifyWatcher, error)
 		//  TODO: Not directly tested
 		return nil, result.Error
 	}
-	w := watcher.NewNotifyWatcher(st.facade.RawAPICaller(), result)
+	w := apiwatcher.NewNotifyWatcher(st.facade.RawAPICaller(), result)
 	return w, nil
 }

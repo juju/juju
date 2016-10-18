@@ -6,20 +6,23 @@ package testing
 import (
 	"fmt"
 	"os"
+	"reflect"
 	"runtime"
 	"strings"
 	"time"
 
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/featureflag"
 	jujuos "github.com/juju/utils/os"
+	"github.com/juju/utils/series"
+	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/wrench"
 )
 
@@ -27,12 +30,11 @@ var logger = loggo.GetLogger("juju.testing")
 
 // JujuOSEnvSuite isolates the tests from Juju environment variables.
 // This is intended to be only used by existing suites, usually embedded in
-// BaseSuite and in FakeJujuHomeSuite. Eventually the tests relying on
+// BaseSuite and in FakeJujuXDGDataHomeSuite. Eventually the tests relying on
 // JujuOSEnvSuite will be converted to use the IsolationSuite in
 // github.com/juju/testing, and this suite will be removed.
 // Do not use JujuOSEnvSuite when writing new tests.
 type JujuOSEnvSuite struct {
-	oldJujuHome         string
 	oldHomeEnv          string
 	oldEnvironment      map[string]string
 	initialFeatureFlags string
@@ -44,17 +46,19 @@ type JujuOSEnvSuite struct {
 func (s *JujuOSEnvSuite) SetUpTest(c *gc.C) {
 	s.oldEnvironment = make(map[string]string)
 	for _, name := range []string{
-		osenv.JujuHomeEnvKey,
-		osenv.JujuEnvEnvKey,
+		osenv.JujuXDGDataHomeEnvKey,
+		osenv.JujuModelEnvKey,
 		osenv.JujuLoggingConfigEnvKey,
 		osenv.JujuFeatureFlagEnvKey,
+		osenv.XDGDataHome,
 	} {
 		s.oldEnvironment[name] = os.Getenv(name)
 		os.Setenv(name, "")
 	}
 	s.oldHomeEnv = utils.Home()
-	s.oldJujuHome = osenv.SetJujuHome("")
-	utils.SetHome("")
+	os.Setenv(osenv.JujuXDGDataHomeEnvKey, c.MkDir())
+	err := utils.SetHome("")
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Update the feature flag set to be the requested initial set.
 	// This works for both windows and unix, even though normally
@@ -70,8 +74,8 @@ func (s *JujuOSEnvSuite) TearDownTest(c *gc.C) {
 	for name, value := range s.oldEnvironment {
 		os.Setenv(name, value)
 	}
-	utils.SetHome(s.oldHomeEnv)
-	osenv.SetJujuHome(s.oldJujuHome)
+	err := utils.SetHome(s.oldHomeEnv)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 // SkipIfPPC64EL skips the test if the arch is PPC64EL and the
@@ -122,6 +126,7 @@ func (s *JujuOSEnvSuite) SetFeatureFlags(flag ...string) {
 // NOTE: there will be many tests that fail when you try to change
 // to the IsolationSuite that rely on external things in PATH.
 type BaseSuite struct {
+	oldLtsForTesting string
 	testing.CleanupSuite
 	testing.LoggingSuite
 	JujuOSEnvSuite
@@ -133,10 +138,13 @@ func (s *BaseSuite) SetUpSuite(c *gc.C) {
 	s.LoggingSuite.SetUpSuite(c)
 	// JujuOSEnvSuite does not have a suite setup.
 	s.PatchValue(&utils.OutgoingAccessAllowed, false)
+	// LTS-dependent requires new entry upon new LTS release.
+	s.oldLtsForTesting = series.SetLatestLtsForTesting("xenial")
 }
 
 func (s *BaseSuite) TearDownSuite(c *gc.C) {
 	// JujuOSEnvSuite does not have a suite teardown.
+	_ = series.SetLatestLtsForTesting(s.oldLtsForTesting)
 	s.LoggingSuite.TearDownSuite(c)
 	s.CleanupSuite.TearDownSuite(c)
 }
@@ -145,13 +153,13 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.CleanupSuite.SetUpTest(c)
 	s.LoggingSuite.SetUpTest(c)
 	s.JujuOSEnvSuite.SetUpTest(c)
+	c.Assert(utils.OutgoingAccessAllowed, gc.Equals, false)
 
 	// We do this to isolate invocations of bash from pulling in the
 	// ambient user environment, and potentially affecting the tests.
 	// We can't always just use IsolationSuite because we still need
 	// PATH and possibly a couple other envars.
 	s.PatchEnvironment("BASH_ENV", "")
-	network.SetPreferIPv6(false)
 }
 
 func (s *BaseSuite) TearDownTest(c *gc.C) {
@@ -199,7 +207,7 @@ func diffStrings(c *gc.C, value, expected string) {
 // TestCleanup is used to allow DumpTestLogsAfter to take any test suite
 // that supports the standard cleanup function.
 type TestCleanup interface {
-	AddCleanup(testing.CleanupFunc)
+	AddCleanup(func(*gc.C))
 }
 
 // DumpTestLogsAfter will write the test logs to stdout if the timeout
@@ -240,4 +248,22 @@ func GetPackageManager() (s PackageManagerStruct, err error) {
 		s.RepositoryManager = "add-apt-repository"
 	}
 	return s, nil
+}
+
+// GetExportedFields return the exported fields of a struct.
+func GetExportedFields(arg interface{}) set.Strings {
+	t := reflect.TypeOf(arg)
+	result := set.NewStrings()
+
+	count := t.NumField()
+	for i := 0; i < count; i++ {
+		f := t.Field(i)
+		// empty PkgPath means exported field.
+		// see https://golang.org/pkg/reflect/#StructField
+		if f.PkgPath == "" {
+			result.Add(f.Name)
+		}
+	}
+
+	return result
 }

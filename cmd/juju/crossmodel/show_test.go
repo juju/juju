@@ -72,9 +72,9 @@ func (s *showSuite) TestShowTabular(c *gc.C) {
 		c,
 		[]string{"local:/u/fred/db2", "--format", "tabular"},
 		`
-SERVICE     DESCRIPTION                                 ENDPOINT  INTERFACE  ROLE
-hosted-db2  IBM DB2 Express Server Edition is an entry  db2       http       requirer
-            level database system                       log       http       provider
+Application  Description                                 Endpoint  Interface  Role
+hosted-db2   IBM DB2 Express Server Edition is an entry  db2       http       requirer
+             level database system                       log       http       provider
 
 `[1:],
 	)
@@ -86,12 +86,12 @@ func (s *showSuite) TestShowTabularExactly180Desc(c *gc.C) {
 		c,
 		[]string{"local:/u/fred/db2", "--format", "tabular"},
 		`
-SERVICE     DESCRIPTION                                   ENDPOINT  INTERFACE  ROLE
-hosted-db2  IBM DB2 Express Server Edition is an entry    db2       http       requirer
-            level database systemIBM DB2 Express Server   log       http       provider
-            Edition is an entry level database systemIBM                       
-            DB2 Express Server Edition is an entry level                       
-            dat                                                                
+Application  Description                                   Endpoint  Interface  Role
+hosted-db2   IBM DB2 Express Server Edition is an entry    db2       http       requirer
+             level database systemIBM DB2 Express Server   log       http       provider
+             Edition is an entry level database systemIBM                       
+             DB2 Express Server Edition is an entry level                       
+             dat                                                                
 
 `[1:],
 	)
@@ -103,12 +103,12 @@ func (s *showSuite) TestShowTabularMoreThan180Desc(c *gc.C) {
 		c,
 		[]string{"local:/u/fred/db2", "--format", "tabular"},
 		`
-SERVICE     DESCRIPTION                                   ENDPOINT  INTERFACE  ROLE
-hosted-db2  IBM DB2 Express Server Edition is an entry    db2       http       requirer
-            level database systemIBM DB2 Express Server   log       http       provider
-            Edition is an entry level database systemIBM                       
-            DB2 Express Server Edition is an entry level                       
-            ...                                                                
+Application  Description                                   Endpoint  Interface  Role
+hosted-db2   IBM DB2 Express Server Edition is an entry    db2       http       requirer
+             level database systemIBM DB2 Express Server   log       http       provider
+             Edition is an entry level database systemIBM                       
+             DB2 Express Server Edition is an entry level                       
+             ...                                                                
 
 `[1:],
 	)
@@ -135,17 +135,17 @@ func (s mockShowAPI) Close() error {
 	return nil
 }
 
-func (s mockShowAPI) ServiceOffer(url string) (params.ServiceOffer, error) {
+func (s mockShowAPI) ApplicationOffer(url string) (params.ApplicationOffer, error) {
 	if s.msg != "" {
-		return params.ServiceOffer{}, errors.New(s.msg)
+		return params.ApplicationOffer{}, errors.New(s.msg)
 	}
 
-	return params.ServiceOffer{
-		ServiceName:        s.serviceTag,
-		ServiceDescription: s.desc,
+	return params.ApplicationOffer{
+		ApplicationName:        s.serviceTag,
+		ApplicationDescription: s.desc,
 		Endpoints: []params.RemoteEndpoint{
-			params.RemoteEndpoint{Name: "log", Interface: "http", Role: charm.RoleProvider},
-			params.RemoteEndpoint{Name: "db2", Interface: "http", Role: charm.RoleRequirer},
+			{Name: "log", Interface: "http", Role: charm.RoleProvider},
+			{Name: "db2", Interface: "http", Role: charm.RoleRequirer},
 		},
 	}, nil
 }

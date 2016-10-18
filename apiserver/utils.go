@@ -5,7 +5,7 @@ package apiserver
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/state"
@@ -26,60 +26,46 @@ func isMachineWithJob(e state.Entity, j state.MachineJob) bool {
 	return false
 }
 
-func setPassword(e state.Authenticator, password string) error {
-	// Catch expected common case of misspelled
-	// or missing Password parameter.
-	if password == "" {
-		return errors.New("password is empty")
-	}
-	return e.SetPassword(password)
-}
-
 type validateArgs struct {
 	statePool *state.StatePool
-	envUUID   string
+	modelUUID string
 	// strict validation does not allow empty UUID values
 	strict bool
-	// stateServerEnvOnly only validates the state server environment
-	stateServerEnvOnly bool
+	// controllerModelOnly only validates the controller model
+	controllerModelOnly bool
 }
 
-// validateEnvironUUID is the common validator for the various
-// apiserver components that need to check for a valid environment
-// UUID.  An empty envUUID means that the connection has come in at
-// the root of the URL space and refers to the state server
-// environment.
+// validateModelUUID is the common validator for the various
+// apiserver components that need to check for a valid model
+// UUID.  An empty modelUUID means that the connection has come in at
+// the root of the URL space and refers to the controller
+// model.
 //
-// It returns the validated environment UUID.
-func validateEnvironUUID(args validateArgs) (string, error) {
+// It returns the validated model UUID.
+func validateModelUUID(args validateArgs) (string, error) {
 	ssState := args.statePool.SystemState()
-	if args.envUUID == "" {
-		// We allow the environUUID to be empty for 2 cases
-		// 1) Compatibility with older clients
-		// 2) TODO: server a limited API at the root (empty envUUID)
-		//    with just the user manager and environment manager
-		//    if the connection comes over a sufficiently up to date
-		//    login command.
+	if args.modelUUID == "" {
+		// We allow the modelUUID to be empty so that:
+		//    TODO: server a limited API at the root (empty modelUUID)
+		//    just the user manager and model manager are able to accept
+		//    requests that don't require a modelUUID, like add-model.
 		if args.strict {
-			return "", errors.Trace(common.UnknownEnvironmentError(args.envUUID))
+			return "", errors.Trace(common.UnknownModelError(args.modelUUID))
 		}
-		logger.Debugf("validate env uuid: empty envUUID")
-		return ssState.EnvironUUID(), nil
+		return ssState.ModelUUID(), nil
 	}
-	if args.envUUID == ssState.EnvironUUID() {
-		logger.Debugf("validate env uuid: state server environment - %s", args.envUUID)
-		return args.envUUID, nil
+	if args.modelUUID == ssState.ModelUUID() {
+		return args.modelUUID, nil
 	}
-	if args.stateServerEnvOnly {
-		return "", errors.Unauthorizedf("requested environment %q is not the state server environment", args.envUUID)
+	if args.controllerModelOnly {
+		return "", errors.Unauthorizedf("requested model %q is not the controller model", args.modelUUID)
 	}
-	if !names.IsValidEnvironment(args.envUUID) {
-		return "", errors.Trace(common.UnknownEnvironmentError(args.envUUID))
+	if !names.IsValidModel(args.modelUUID) {
+		return "", errors.Trace(common.UnknownModelError(args.modelUUID))
 	}
-	envTag := names.NewEnvironTag(args.envUUID)
-	if _, err := ssState.GetEnvironment(envTag); err != nil {
-		return "", errors.Wrap(err, common.UnknownEnvironmentError(args.envUUID))
+	modelTag := names.NewModelTag(args.modelUUID)
+	if _, err := ssState.GetModel(modelTag); err != nil {
+		return "", errors.Wrap(err, common.UnknownModelError(args.modelUUID))
 	}
-	logger.Debugf("validate env uuid: %s", args.envUUID)
-	return args.envUUID, nil
+	return args.modelUUID, nil
 }

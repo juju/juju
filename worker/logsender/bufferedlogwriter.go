@@ -11,8 +11,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/deque"
-
-	"github.com/juju/juju/feature"
 )
 
 // LogRecord represents a log message in an agent which is to be
@@ -37,12 +35,8 @@ const writerName = "buffered-logs"
 // InstallBufferedLogWriter creates a new BufferedLogWriter, registers
 // it with Loggo and returns its output channel.
 func InstallBufferedLogWriter(maxLen int) (LogRecordCh, error) {
-	if !feature.IsDbLogEnabled() {
-		return nil, nil
-	}
-
 	writer := NewBufferedLogWriter(maxLen)
-	err := loggo.RegisterWriter(writerName, writer, loggo.TRACE)
+	err := loggo.RegisterWriter(writerName, writer)
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to set up log buffering")
 	}
@@ -52,11 +46,7 @@ func InstallBufferedLogWriter(maxLen int) (LogRecordCh, error) {
 // UninstallBufferedLogWriter removes the BufferedLogWriter previously
 // installed by InstallBufferedLogWriter and closes it.
 func UninstallBufferedLogWriter() error {
-	if !feature.IsDbLogEnabled() {
-		return nil
-	}
-
-	writer, _, err := loggo.RemoveWriter(writerName)
+	writer, err := loggo.RemoveWriter(writerName)
 	if err != nil {
 		return errors.Annotate(err, "failed to uninstall log buffering")
 	}
@@ -132,13 +122,13 @@ func (w *BufferedLogWriter) loop() {
 }
 
 // Write sends a new log message to the writer. This implements the loggo.Writer interface.
-func (w *BufferedLogWriter) Write(level loggo.Level, module, filename string, line int, ts time.Time, message string) {
+func (w *BufferedLogWriter) Write(entry loggo.Entry) {
 	w.in <- &LogRecord{
-		Time:     ts,
-		Module:   module,
-		Location: fmt.Sprintf("%s:%d", filepath.Base(filename), line),
-		Level:    level,
-		Message:  message,
+		Time:     entry.Timestamp,
+		Module:   entry.Module,
+		Location: fmt.Sprintf("%s:%d", filepath.Base(entry.Filename), entry.Line),
+		Level:    entry.Level,
+		Message:  entry.Message,
 	}
 }
 

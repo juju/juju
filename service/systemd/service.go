@@ -50,30 +50,6 @@ func ListServices() ([]string, error) {
 	return names, nil
 }
 
-func listServices() ([]string, error) {
-	conn, err := newConn()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	defer conn.Close()
-
-	units, err := conn.ListUnits()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	var services []string
-	for _, unit := range units {
-		name := unit.Name
-		if !strings.HasSuffix(name, ".service") {
-			continue
-		}
-		name = strings.TrimSuffix(name, ".service")
-		services = append(services, name)
-	}
-	return services, nil
-}
-
 // ListCommand returns a command that will list the services on a host.
 func ListCommand() string {
 	return cmds.listAll()
@@ -138,7 +114,7 @@ var newChan = func() chan string {
 }
 
 func (s *Service) errorf(err error, msg string, args ...interface{}) error {
-	msg += " for service %q"
+	msg += " for application %q"
 	args = append(args, s.Service.Name)
 	if err == nil {
 		err = errors.Errorf(msg, args...)
@@ -259,7 +235,7 @@ func (s *Service) readConf() (common.Conf, error) {
 func (s Service) newConn() (dbusAPI, error) {
 	conn, err := newConn()
 	if err != nil {
-		logger.Errorf("failed to connect to dbus for service %q: %v", s.Service.Name, err)
+		logger.Errorf("failed to connect to dbus for application %q: %v", s.Service.Name, err)
 	}
 	return conn, err
 }
@@ -306,7 +282,7 @@ func (s *Service) start() error {
 		return errors.Trace(err)
 	}
 	if !installed {
-		return errors.NotFoundf("service " + s.Service.Name)
+		return errors.NotFoundf("application " + s.Service.Name)
 	}
 	running, err := s.Running()
 	if err != nil {

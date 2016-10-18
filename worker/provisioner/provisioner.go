@@ -9,18 +9,17 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
-	"launchpad.net/tomb"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/agent"
 	apiprovisioner "github.com/juju/juju/api/provisioner"
-	apiwatcher "github.com/juju/juju/api/watcher"
-	"github.com/juju/juju/environmentserver/authentication"
+	"github.com/juju/juju/controller/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/state/watcher"
+	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/catacomb"
 )
 
 var logger = loggo.GetLogger("juju.provisioner")
@@ -37,9 +36,8 @@ var (
 // Provisioner represents a running provisioner worker.
 type Provisioner interface {
 	worker.Worker
-	Stop() error
-	getMachineWatcher() (apiwatcher.StringsWatcher, error)
-	getRetryWatcher() (apiwatcher.NotifyWatcher, error)
+	getMachineWatcher() (watcher.StringsWatcher, error)
+	getRetryWatcher() (watcher.NotifyWatcher, error)
 }
 
 // environProvisioner represents a running provisioning worker for machine nodes
@@ -66,11 +64,13 @@ type provisioner struct {
 	agentConfig agent.Config
 	broker      environs.InstanceBroker
 	toolsFinder ToolsFinder
-	tomb        tomb.Tomb
+	catacomb    catacomb.Catacomb
 }
 
 // RetryStrategy defines the retry behavior when encountering a retryable
 // error during provisioning.
+//
+// TODO(katco): 2016-08-09: lp:1611427
 type RetryStrategy struct {
 	retryDelay time.Duration
 	retryCount int
@@ -101,27 +101,14 @@ func (o *configObserver) notify(cfg *config.Config) {
 	o.Unlock()
 }
 
-// Err returns the reason why the provisioner has stopped or tomb.ErrStillAlive
-// when it is still alive.
-func (p *provisioner) Err() (reason error) {
-	return p.tomb.Err()
-}
-
 // Kill implements worker.Worker.Kill.
 func (p *provisioner) Kill() {
-	p.tomb.Kill(nil)
+	p.catacomb.Kill(nil)
 }
 
 // Wait implements worker.Worker.Wait.
 func (p *provisioner) Wait() error {
-	return p.tomb.Wait()
-}
-
-// Stop stops the provisioner and returns any error encountered while
-// provisioning.
-func (p *provisioner) Stop() error {
-	p.tomb.Kill(nil)
-	return p.tomb.Wait()
+	return p.catacomb.Wait()
 }
 
 // getToolsFinder returns a ToolsFinder for the provided State.
@@ -149,19 +136,21 @@ func (p *provisioner) getStartTask(harvestMode config.HarvestMode) (ProvisionerT
 	tag := p.agentConfig.Tag()
 	machineTag, ok := tag.(names.MachineTag)
 	if !ok {
-		errors.Errorf("expacted names.MachineTag, got %T", tag)
+		errors.Errorf("expected names.MachineTag, got %T", tag)
 	}
 
-	envCfg, err := p.st.EnvironConfig()
+	modelCfg, err := p.st.ModelConfig()
 	if err != nil {
-		return nil, errors.Annotate(err, "could not retrieve the environment config.")
+		return nil, errors.Annotate(err, "could not retrieve the model config.")
 	}
 
-	secureServerConnection := false
-	if info, ok := p.agentConfig.StateServingInfo(); ok {
-		secureServerConnection = info.CAPrivateKey != ""
+	controllerCfg, err := p.st.ControllerConfig()
+	if err != nil {
+		return nil, errors.Annotate(err, "could not retrieve the controller config.")
 	}
-	task := NewProvisionerTask(
+
+	task, err := NewProvisionerTask(
+		controllerCfg.ControllerUUID(),
 		machineTag,
 		harvestMode,
 		p.st,
@@ -170,95 +159,102 @@ func (p *provisioner) getStartTask(harvestMode config.HarvestMode) (ProvisionerT
 		retryWatcher,
 		p.broker,
 		auth,
-		envCfg.ImageStream(),
-		secureServerConnection,
+		modelCfg.ImageStream(),
 		RetryStrategy{retryDelay: retryStrategyDelay, retryCount: retryStrategyCount},
 	)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return task, nil
 }
 
 // NewEnvironProvisioner returns a new Provisioner for an environment.
 // When new machines are added to the state, it allocates instances
 // from the environment and allocates them to the new machines.
-func NewEnvironProvisioner(st *apiprovisioner.State, agentConfig agent.Config) Provisioner {
+func NewEnvironProvisioner(st *apiprovisioner.State, agentConfig agent.Config, environ environs.Environ) (Provisioner, error) {
 	p := &environProvisioner{
 		provisioner: provisioner{
 			st:          st,
 			agentConfig: agentConfig,
 			toolsFinder: getToolsFinder(st),
 		},
+		environ: environ,
 	}
 	p.Provisioner = p
+	p.broker = environ
 	logger.Tracef("Starting environ provisioner for %q", p.agentConfig.Tag())
-	go func() {
-		defer p.tomb.Done()
-		p.tomb.Kill(errors.Cause(p.loop()))
-	}()
-	return p
+
+	err := catacomb.Invoke(catacomb.Plan{
+		Site: &p.catacomb,
+		Work: p.loop,
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return p, nil
 }
 
 func (p *environProvisioner) loop() error {
-	var environConfigChanges <-chan struct{}
-	environWatcher, err := p.st.WatchForEnvironConfigChanges()
+	// TODO(mjs channeling axw) - It would be better if there were
+	// APIs to watch and fetch provisioner specific config instead of
+	// watcher for all changes to model config. This would avoid the
+	// need for a full model config.
+	var modelConfigChanges <-chan struct{}
+	modelWatcher, err := p.st.WatchForModelConfigChanges()
 	if err != nil {
 		return loggedErrorStack(errors.Trace(err))
 	}
-	environConfigChanges = environWatcher.Changes()
-	defer watcher.Stop(environWatcher, &p.tomb)
-
-	p.environ, err = worker.WaitForEnviron(environWatcher, p.st, p.tomb.Dying())
-	if err != nil {
-		return loggedErrorStack(errors.Trace(err))
+	if err := p.catacomb.Add(modelWatcher); err != nil {
+		return errors.Trace(err)
 	}
-	p.broker = p.environ
+	modelConfigChanges = modelWatcher.Changes()
 
-	harvestMode := p.environ.Config().ProvisionerHarvestMode()
+	modelConfig := p.environ.Config()
+	p.configObserver.notify(modelConfig)
+	harvestMode := modelConfig.ProvisionerHarvestMode()
 	task, err := p.getStartTask(harvestMode)
 	if err != nil {
 		return loggedErrorStack(errors.Trace(err))
 	}
-	defer watcher.Stop(task, &p.tomb)
+	if err := p.catacomb.Add(task); err != nil {
+		return errors.Trace(err)
+	}
 
 	for {
 		select {
-		case <-p.tomb.Dying():
-			return tomb.ErrDying
-		case <-task.Dying():
-			err := task.Err()
-			logger.Errorf("environ provisioner died: %v", err)
-			return err
-		case _, ok := <-environConfigChanges:
+		case <-p.catacomb.Dying():
+			return p.catacomb.ErrDying()
+		case _, ok := <-modelConfigChanges:
 			if !ok {
-				return watcher.EnsureErr(environWatcher)
+				return errors.New("model configuration watcher closed")
 			}
-			environConfig, err := p.st.EnvironConfig()
+			modelConfig, err := p.st.ModelConfig()
 			if err != nil {
-				logger.Errorf("cannot load environment configuration: %v", err)
-				return err
+				return errors.Annotate(err, "cannot load model configuration")
 			}
-			if err := p.setConfig(environConfig); err != nil {
-				logger.Errorf("loaded invalid environment configuration: %v", err)
+			if err := p.setConfig(modelConfig); err != nil {
+				return errors.Annotate(err, "loaded invalid model configuration")
 			}
-			task.SetHarvestMode(environConfig.ProvisionerHarvestMode())
+			task.SetHarvestMode(modelConfig.ProvisionerHarvestMode())
 		}
 	}
 }
 
-func (p *environProvisioner) getMachineWatcher() (apiwatcher.StringsWatcher, error) {
-	return p.st.WatchEnvironMachines()
+func (p *environProvisioner) getMachineWatcher() (watcher.StringsWatcher, error) {
+	return p.st.WatchModelMachines()
 }
 
-func (p *environProvisioner) getRetryWatcher() (apiwatcher.NotifyWatcher, error) {
+func (p *environProvisioner) getRetryWatcher() (watcher.NotifyWatcher, error) {
 	return p.st.WatchMachineErrorRetry()
 }
 
 // setConfig updates the environment configuration and notifies
 // the config observer.
-func (p *environProvisioner) setConfig(environConfig *config.Config) error {
-	if err := p.environ.SetConfig(environConfig); err != nil {
+func (p *environProvisioner) setConfig(modelConfig *config.Config) error {
+	if err := p.environ.SetConfig(modelConfig); err != nil {
 		return err
 	}
-	p.configObserver.notify(environConfig)
+	p.configObserver.notify(modelConfig)
 	return nil
 }
 
@@ -271,7 +267,7 @@ func NewContainerProvisioner(
 	agentConfig agent.Config,
 	broker environs.InstanceBroker,
 	toolsFinder ToolsFinder,
-) Provisioner {
+) (Provisioner, error) {
 
 	p := &containerProvisioner{
 		provisioner: provisioner{
@@ -284,53 +280,55 @@ func NewContainerProvisioner(
 	}
 	p.Provisioner = p
 	logger.Tracef("Starting %s provisioner for %q", p.containerType, p.agentConfig.Tag())
-	go func() {
-		defer p.tomb.Done()
-		p.tomb.Kill(p.loop())
-	}()
-	return p
+
+	err := catacomb.Invoke(catacomb.Plan{
+		Site: &p.catacomb,
+		Work: p.loop,
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return p, nil
 }
 
 func (p *containerProvisioner) loop() error {
-	var environConfigChanges <-chan struct{}
-	environWatcher, err := p.st.WatchForEnvironConfigChanges()
+	modelWatcher, err := p.st.WatchForModelConfigChanges()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
-	environConfigChanges = environWatcher.Changes()
-	defer watcher.Stop(environWatcher, &p.tomb)
+	if err := p.catacomb.Add(modelWatcher); err != nil {
+		return errors.Trace(err)
+	}
 
-	config, err := p.st.EnvironConfig()
+	modelConfig, err := p.st.ModelConfig()
 	if err != nil {
 		return err
 	}
-	harvestMode := config.ProvisionerHarvestMode()
+	p.configObserver.notify(modelConfig)
+	harvestMode := modelConfig.ProvisionerHarvestMode()
 
 	task, err := p.getStartTask(harvestMode)
 	if err != nil {
 		return err
 	}
-	defer watcher.Stop(task, &p.tomb)
+	if err := p.catacomb.Add(task); err != nil {
+		return errors.Trace(err)
+	}
 
 	for {
 		select {
-		case <-p.tomb.Dying():
-			return tomb.ErrDying
-		case <-task.Dying():
-			err := task.Err()
-			logger.Errorf("%s provisioner died: %v", p.containerType, err)
-			return err
-		case _, ok := <-environConfigChanges:
+		case <-p.catacomb.Dying():
+			return p.catacomb.ErrDying()
+		case _, ok := <-modelWatcher.Changes():
 			if !ok {
-				return watcher.EnsureErr(environWatcher)
+				return errors.New("model configuration watch closed")
 			}
-			environConfig, err := p.st.EnvironConfig()
+			modelConfig, err := p.st.ModelConfig()
 			if err != nil {
-				logger.Errorf("cannot load environment configuration: %v", err)
-				return err
+				return errors.Annotate(err, "cannot load model configuration")
 			}
-			p.configObserver.notify(environConfig)
-			task.SetHarvestMode(environConfig.ProvisionerHarvestMode())
+			p.configObserver.notify(modelConfig)
+			task.SetHarvestMode(modelConfig.ProvisionerHarvestMode())
 		}
 	}
 }
@@ -351,7 +349,7 @@ func (p *containerProvisioner) getMachine() (*apiprovisioner.Machine, error) {
 	return p.machine, nil
 }
 
-func (p *containerProvisioner) getMachineWatcher() (apiwatcher.StringsWatcher, error) {
+func (p *containerProvisioner) getMachineWatcher() (watcher.StringsWatcher, error) {
 	machine, err := p.getMachine()
 	if err != nil {
 		return nil, err
@@ -359,6 +357,6 @@ func (p *containerProvisioner) getMachineWatcher() (apiwatcher.StringsWatcher, e
 	return machine.WatchContainers(p.containerType)
 }
 
-func (p *containerProvisioner) getRetryWatcher() (apiwatcher.NotifyWatcher, error) {
+func (p *containerProvisioner) getRetryWatcher() (watcher.NotifyWatcher, error) {
 	return nil, errors.NotImplementedf("getRetryWatcher")
 }

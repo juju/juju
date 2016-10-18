@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 )
 
 const (
@@ -22,17 +22,17 @@ var ErrPlacementScopeMissing = fmt.Errorf("placement scope missing")
 // and a value that is scope-specific.
 type Placement struct {
 	// Scope is the scope of the placement directive. Scope may
-	// be a container type (lxc, kvm), instance.MachineScope, or
+	// be a container type (lxd, kvm), instance.MachineScope, or
 	// an environment name.
 	//
 	// If Scope is empty, then it must be inferred from the context.
-	Scope string
+	Scope string `json:"scope"`
 
 	// Directive is a scope-specific placement directive.
 	//
 	// For MachineScope or a container scope, this may be empty or
 	// the ID of an existing machine.
-	Directive string
+	Directive string `json:"directive"`
 }
 
 func (p *Placement) String() string {

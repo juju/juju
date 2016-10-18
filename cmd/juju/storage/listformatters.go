@@ -4,25 +4,18 @@
 package storage
 
 import (
-	"bytes"
 	"fmt"
+	"io"
 	"sort"
 	"strconv"
 	"strings"
-	"text/tabwriter"
 
-	"github.com/juju/errors"
+	"github.com/juju/juju/cmd/output"
 )
 
-// formatListTabular returns a tabular summary of storage instances.
-func formatListTabular(value interface{}) ([]byte, error) {
-	storageInfo, ok := value.(map[string]StorageInfo)
-	if !ok {
-		return nil, errors.Errorf("expected value of type %T, got %T", storageInfo, value)
-	}
-	var out bytes.Buffer
-	// To format things into columns.
-	tw := tabwriter.NewWriter(&out, 0, 1, 1, ' ', 0)
+// formatListTabular writes a tabular summary of storage instances.
+func formatStorageListTabular(writer io.Writer, storageInfo map[string]StorageInfo) error {
+	tw := output.TabWriter(writer)
 	p := func(values ...interface{}) {
 		for _, v := range values {
 			fmt.Fprintf(tw, "%v\t", v)
@@ -30,7 +23,7 @@ func formatListTabular(value interface{}) ([]byte, error) {
 		fmt.Fprintln(tw)
 	}
 	p("[Storage]")
-	p("UNIT\tID\tLOCATION\tSTATUS\tMESSAGE")
+	p("Unit\tId\tLocation\tStatus\tMessage")
 
 	byUnit := make(map[string]map[string]storageAttachmentInfo)
 	for storageId, storageInfo := range storageInfo {
@@ -88,7 +81,7 @@ func formatListTabular(value interface{}) ([]byte, error) {
 	}
 	tw.Flush()
 
-	return out.Bytes(), nil
+	return nil
 }
 
 type storageAttachmentInfo struct {

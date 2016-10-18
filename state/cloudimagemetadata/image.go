@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jujutxn "github.com/juju/txn"
+	"github.com/juju/utils/series"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -18,7 +19,6 @@ import (
 var logger = loggo.GetLogger("juju.state.cloudimagemetadata")
 
 type storage struct {
-	envuuid    string
 	collection string
 	store      DataStore
 }
@@ -27,49 +27,120 @@ var _ Storage = (*storage)(nil)
 
 // NewStorage constructs a new Storage that stores image metadata
 // in the provided data store.
-func NewStorage(envuuid, collectionName string, store DataStore) Storage {
-	return &storage{envuuid, collectionName, store}
+func NewStorage(collectionName string, store DataStore) Storage {
+	return &storage{collectionName, store}
 }
 
 var emptyMetadata = Metadata{}
 
 // SaveMetadata implements Storage.SaveMetadata and behaves as save-or-update.
-func (s *storage) SaveMetadata(metadata Metadata) error {
-	newDoc := s.mongoDoc(metadata)
+func (s *storage) SaveMetadata(metadata []Metadata) error {
+	if len(metadata) == 0 {
+		return nil
+	}
+
+	newDocs := make([]imagesMetadataDoc, len(metadata))
+	for i, m := range metadata {
+		newDoc := s.mongoDoc(m)
+		if err := validateMetadata(&newDoc); err != nil {
+			return err
+		}
+		newDocs[i] = newDoc
+	}
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		op := txn.Op{
-			C:  s.collection,
-			Id: newDoc.Id,
-		}
-
-		// Check if this image metadata is already known.
-		existing, err := s.getMetadata(newDoc.Id)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if existing.MetadataAttributes == metadata.MetadataAttributes {
-			// may need to updated imageId
-			if existing.ImageId != metadata.ImageId {
-				op.Assert = txn.DocExists
-				op.Update = bson.D{{"$set", bson.D{{"image_id", metadata.ImageId}}}}
-				logger.Debugf("updating cloud image id for metadata %v", newDoc.Id)
-			} else {
-				return nil, jujutxn.ErrNoOperations
+		var ops []txn.Op
+		for _, newDoc := range newDocs {
+			newDocCopy := newDoc
+			op := txn.Op{
+				C:  s.collection,
+				Id: newDocCopy.Id,
 			}
-		} else {
-			op.Assert = txn.DocMissing
-			op.Insert = &newDoc
-			logger.Debugf("inserting cloud image metadata for %v", newDoc.Id)
+
+			// Check if this image metadata is already known.
+			existing, err := s.getMetadata(newDocCopy.Id)
+			if errors.IsNotFound(err) {
+				op.Assert = txn.DocMissing
+				op.Insert = &newDocCopy
+				ops = append(ops, op)
+				logger.Debugf("inserting cloud image metadata for %v", newDocCopy.Id)
+			} else if err != nil {
+				return nil, errors.Trace(err)
+			} else if existing.ImageId != newDocCopy.ImageId {
+				// need to update imageId
+				op.Assert = txn.DocExists
+				op.Update = bson.D{{"$set", bson.D{{"image_id", newDocCopy.ImageId}}}}
+				ops = append(ops, op)
+				logger.Debugf("updating cloud image id for metadata %v", newDocCopy.Id)
+			}
 		}
-		return []txn.Op{op}, nil
+		if len(ops) == 0 {
+			return nil, jujutxn.ErrNoOperations
+		}
+		return ops, nil
 	}
 
 	err := s.store.RunTransaction(buildTxn)
 	if err != nil {
-		return errors.Annotatef(err, "cannot save metadata for cloud image %v", newDoc.ImageId)
+		return errors.Annotate(err, "cannot save cloud image metadata")
 	}
 	return nil
+}
+
+// DeleteMetadata implements Storage.DeleteMetadata.
+func (s *storage) DeleteMetadata(imageId string) error {
+	deleteOperation := func(docId string) txn.Op {
+		logger.Debugf("deleting metadata (ID=%v) for image (ID=%v)", docId, imageId)
+		return txn.Op{
+			C:      s.collection,
+			Id:     docId,
+			Assert: txn.DocExists,
+			Remove: true,
+		}
+	}
+
+	noOp := func() ([]txn.Op, error) {
+		logger.Debugf("no metadata for image ID %v to delete", imageId)
+		return nil, jujutxn.ErrNoOperations
+	}
+
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		// find all metadata docs with given image id
+		imageMetadata, err := s.metadataForImageId(imageId)
+		if err != nil {
+			if err == mgo.ErrNotFound {
+				return noOp()
+			}
+			return nil, err
+		}
+		if len(imageMetadata) == 0 {
+			return noOp()
+		}
+
+		allTxn := make([]txn.Op, len(imageMetadata))
+		for i, doc := range imageMetadata {
+			allTxn[i] = deleteOperation(doc.Id)
+		}
+		return allTxn, nil
+	}
+
+	err := s.store.RunTransaction(buildTxn)
+	if err != nil {
+		return errors.Annotatef(err, "cannot delete metadata for cloud image %v", imageId)
+	}
+	return nil
+}
+
+func (s *storage) metadataForImageId(imageId string) ([]imagesMetadataDoc, error) {
+	coll, closer := s.store.GetCollection(s.collection)
+	defer closer()
+
+	var docs []imagesMetadataDoc
+	query := bson.D{{"image_id", imageId}}
+	if err := coll.Find(query).All(&docs); err != nil {
+		return nil, err
+	}
+	return docs, nil
 }
 
 func (s *storage) getMetadata(id string) (Metadata, error) {
@@ -77,22 +148,35 @@ func (s *storage) getMetadata(id string) (Metadata, error) {
 	defer closer()
 
 	var old imagesMetadataDoc
-	err := coll.Find(bson.D{{"_id", id}}).One(&old)
-	if err != nil {
+	if err := coll.Find(bson.D{{"_id", id}}).One(&old); err != nil {
 		if err == mgo.ErrNotFound {
-			return emptyMetadata, nil
+			return Metadata{}, errors.NotFoundf("image metadata with ID %q", id)
 		}
 		return emptyMetadata, errors.Trace(err)
 	}
 	return old.metadata(), nil
 }
 
+// AllCloudImageMetadata returns all cloud image metadata in the model.
+func (s *storage) AllCloudImageMetadata() ([]Metadata, error) {
+	coll, closer := s.store.GetCollection(s.collection)
+	defer closer()
+
+	results := []Metadata{}
+	docs := []imagesMetadataDoc{}
+	err := coll.Find(nil).All(&docs)
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot get all image metadata")
+	}
+	for _, doc := range docs {
+		results = append(results, doc.metadata())
+	}
+	return results, nil
+}
+
 // imagesMetadataDoc results in immutable records. Updates are effectively
 // a delate and an insert.
 type imagesMetadataDoc struct {
-	// EnvUUID is the environment identifier.
-	EnvUUID string `bson:"env-uuid"`
-
 	// Id contains unique key for cloud image metadata.
 	// This is an amalgamation of all deterministic metadata attributes to ensure
 	// that there can be a public and custom image for the same attributes set.
@@ -108,7 +192,10 @@ type imagesMetadataDoc struct {
 	// Region is the name of cloud region associated with the image.
 	Region string `bson:"region"`
 
-	// Series is Os version, for e.g. "quantal".
+	// Version is OS version, for e.g. "12.04".
+	Version string `bson:"version"`
+
+	// Series is OS series, for e.g. "trusty".
 	Series string `bson:"series"`
 
 	// Arch is the architecture for this cloud image, for e.g. "amd64"
@@ -127,19 +214,13 @@ type imagesMetadataDoc struct {
 	DateCreated int64 `bson:"date_created"`
 
 	// Source describes where this image is coming from: is it public? custom?
-	Source SourceType `bson:"source"`
+	Source string `bson:"source"`
+
+	// Priority is an importance factor for image metadata.
+	// Higher number means higher priority.
+	// This will allow to sort metadata by importance.
+	Priority int `bson:"priority"`
 }
-
-// SourceType values define source type.
-type SourceType string
-
-const (
-	// Public type identifies image as public.
-	Public SourceType = "public"
-
-	// Custom type identifies image as custom.
-	Custom SourceType = "custom"
-)
 
 func (m imagesMetadataDoc) metadata() Metadata {
 	r := Metadata{
@@ -147,12 +228,15 @@ func (m imagesMetadataDoc) metadata() Metadata {
 			Source:          m.Source,
 			Stream:          m.Stream,
 			Region:          m.Region,
+			Version:         m.Version,
 			Series:          m.Series,
 			Arch:            m.Arch,
 			RootStorageType: m.RootStorageType,
 			VirtType:        m.VirtType,
 		},
+		m.Priority,
 		m.ImageId,
+		m.DateCreated,
 	}
 	if m.RootStorageSize != 0 {
 		r.RootStorageSize = &m.RootStorageSize
@@ -161,18 +245,24 @@ func (m imagesMetadataDoc) metadata() Metadata {
 }
 
 func (s *storage) mongoDoc(m Metadata) imagesMetadataDoc {
+	dateCreated := m.DateCreated
+	if dateCreated == 0 {
+		// TODO(fwereade): 2016-03-17 lp:1558657
+		dateCreated = time.Now().UnixNano()
+	}
 	r := imagesMetadataDoc{
-		EnvUUID:         s.envuuid,
 		Id:              buildKey(m),
 		Stream:          m.Stream,
 		Region:          m.Region,
+		Version:         m.Version,
 		Series:          m.Series,
 		Arch:            m.Arch,
 		VirtType:        m.VirtType,
 		RootStorageType: m.RootStorageType,
 		ImageId:         m.ImageId,
-		DateCreated:     time.Now().UnixNano(),
+		DateCreated:     dateCreated,
 		Source:          m.Source,
+		Priority:        m.Priority,
 	}
 	if m.RootStorageSize != nil {
 		r.RootStorageSize = *m.RootStorageSize
@@ -191,12 +281,39 @@ func buildKey(m Metadata) string {
 		m.Source)
 }
 
+func validateMetadata(m *imagesMetadataDoc) error {
+	// series must be supplied.
+	if m.Series == "" {
+		return errors.NotValidf("missing series: metadata for image %v", m.ImageId)
+	}
+	v, err := series.SeriesVersion(m.Series)
+	if err != nil {
+		return err
+	}
+	m.Version = v
+
+	if m.Stream == "" {
+		return errors.NotValidf("missing stream: metadata for image %v", m.ImageId)
+	}
+	if m.Source == "" {
+		return errors.NotValidf("missing source: metadata for image %v", m.ImageId)
+	}
+	if m.Arch == "" {
+		return errors.NotValidf("missing architecture: metadata for image %v", m.ImageId)
+	}
+	if m.Region == "" {
+		return errors.NotValidf("missing region: metadata for image %v", m.ImageId)
+	}
+	return nil
+}
+
 // FindMetadata implements Storage.FindMetadata.
 // Results are sorted by date created and grouped by source.
-func (s *storage) FindMetadata(criteria MetadataFilter) (map[SourceType][]Metadata, error) {
+func (s *storage) FindMetadata(criteria MetadataFilter) (map[string][]Metadata, error) {
 	coll, closer := s.store.GetCollection(s.collection)
 	defer closer()
 
+	logger.Debugf("searching for image metadata %#v", criteria)
 	searchCriteria := buildSearchClauses(criteria)
 	var docs []imagesMetadataDoc
 	if err := coll.Find(searchCriteria).Sort("date_created").All(&docs); err != nil {
@@ -206,7 +323,7 @@ func (s *storage) FindMetadata(criteria MetadataFilter) (map[SourceType][]Metada
 		return nil, errors.NotFoundf("matching cloud image metadata")
 	}
 
-	metadata := make(map[SourceType][]Metadata)
+	metadata := make(map[string][]Metadata)
 	for _, doc := range docs {
 		one := doc.metadata()
 		metadata[one.Source] = append(metadata[one.Source], one)
@@ -270,4 +387,16 @@ type MetadataFilter struct {
 
 	// RootStorageType stores storage type.
 	RootStorageType string `json:"root-storage-type,omitempty"`
+}
+
+// SupportedArchitectures implements Storage.SupportedArchitectures.
+func (s *storage) SupportedArchitectures(criteria MetadataFilter) ([]string, error) {
+	coll, closer := s.store.GetCollection(s.collection)
+	defer closer()
+
+	var arches []string
+	if err := coll.Find(buildSearchClauses(criteria)).Distinct("arch", &arches); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return arches, nil
 }

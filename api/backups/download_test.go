@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state/backups"
+	"github.com/juju/juju/testing"
 )
 
 type downloadSuite struct {
@@ -26,8 +27,10 @@ func (s *downloadSuite) TestSuccessfulRequest(c *gc.C) {
 	backupsState := backups.NewBackups(store)
 
 	r := strings.NewReader("<compressed archive data>")
-	meta, err := backups.NewMetadataState(s.State, "0")
+	meta, err := backups.NewMetadataState(s.State, "0", "xenial")
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(meta.CACert, gc.Equals, testing.CACert)
+	c.Assert(meta.CAPrivateKey, gc.Equals, testing.CAKey)
 	// The Add method requires the length to be set
 	// otherwise the content is assumed to have length 0.
 	meta.Raw.Size = int64(r.Len())
@@ -43,7 +46,7 @@ func (s *downloadSuite) TestSuccessfulRequest(c *gc.C) {
 
 func (s *downloadSuite) TestFailedRequest(c *gc.C) {
 	resultArchive, err := s.client.Download("unknown")
-	c.Assert(err, gc.ErrorMatches, `GET https://.*/environment/.*/backups: backup metadata "unknown" not found`)
+	c.Assert(err, gc.ErrorMatches, `.*backup metadata "unknown" not found$`)
 	c.Assert(err, jc.Satisfies, params.IsCodeNotFound)
 	c.Assert(resultArchive, gc.Equals, nil)
 }

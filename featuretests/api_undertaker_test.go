@@ -4,20 +4,26 @@
 package featuretests
 
 import (
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/undertaker"
+	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
+	"github.com/juju/juju/watcher/watchertest"
 )
 
+// TODO(fwereade) 2016-03-17 lp:1558668
+// this is not a feature test; much of it is redundant, and other
+// bits should be tested elsewhere.
 type undertakerSuite struct {
 	jujutesting.JujuConnSuite
 }
@@ -28,113 +34,111 @@ func (s *undertakerSuite) TestPermDenied(c *gc.C) {
 		nonManagerMachine,
 		s.APIState,
 	} {
-		undertakerClient := undertaker.NewClient(conn)
+		undertakerClient, err := undertaker.NewClient(conn, apiwatcher.NewNotifyWatcher)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(undertakerClient, gc.NotNil)
 
-		_, err := undertakerClient.EnvironInfo()
-		c.Assert(err, gc.ErrorMatches, "permission denied")
+		_, err = undertakerClient.ModelInfo()
+		c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
+			Message: "permission denied",
+			Code:    "unauthorized access",
+		})
 	}
 }
 
-func (s *undertakerSuite) TestStateEnvionInfo(c *gc.C) {
-	st, _ := s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
-	undertakerClient := undertaker.NewClient(st)
+func (s *undertakerSuite) TestStateEnvironInfo(c *gc.C) {
+	st, _ := s.OpenAPIAsNewMachine(c, state.JobManageModel)
+	undertakerClient, err := undertaker.NewClient(st, apiwatcher.NewNotifyWatcher)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(undertakerClient, gc.NotNil)
 
-	result, err := undertakerClient.EnvironInfo()
+	result, err := undertakerClient.ModelInfo()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.NotNil)
 	c.Assert(result.Error, gc.IsNil)
 	info := result.Result
-	c.Assert(info.UUID, gc.Equals, coretesting.EnvironmentTag.Id())
-	c.Assert(info.Name, gc.Equals, "dummyenv")
-	c.Assert(info.GlobalName, gc.Equals, "user-dummy-admin@local/dummyenv")
+	c.Assert(info.UUID, gc.Equals, coretesting.ModelTag.Id())
+	c.Assert(info.Name, gc.Equals, "controller")
+	c.Assert(info.GlobalName, gc.Equals, "user-admin/controller")
 	c.Assert(info.IsSystem, jc.IsTrue)
 	c.Assert(info.Life, gc.Equals, params.Alive)
-	c.Assert(info.TimeOfDeath, gc.IsNil)
 }
 
 func (s *undertakerSuite) TestStateProcessDyingEnviron(c *gc.C) {
-	st, _ := s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
-	undertakerClient := undertaker.NewClient(st)
+	st, _ := s.OpenAPIAsNewMachine(c, state.JobManageModel)
+	undertakerClient, err := undertaker.NewClient(st, apiwatcher.NewNotifyWatcher)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(undertakerClient, gc.NotNil)
 
-	err := undertakerClient.ProcessDyingEnviron()
-	c.Assert(err, gc.ErrorMatches, "environment is not dying")
+	err = undertakerClient.ProcessDyingModel()
+	c.Assert(err, gc.ErrorMatches, "model is not dying")
 
-	env, err := s.State.Environment()
+	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.Destroy(), jc.ErrorIsNil)
 	c.Assert(env.Refresh(), jc.ErrorIsNil)
 	c.Assert(env.Life(), gc.Equals, state.Dying)
 
-	err = undertakerClient.ProcessDyingEnviron()
-	c.Assert(err, gc.ErrorMatches, `environment not empty, found 1 machine\(s\)`)
+	err = undertakerClient.ProcessDyingModel()
+	c.Assert(err, gc.ErrorMatches, `model not empty, found 1 machine\(s\)`)
 }
 
 func (s *undertakerSuite) TestStateRemoveEnvironFails(c *gc.C) {
-	st, _ := s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
-	undertakerClient := undertaker.NewClient(st)
+	st, _ := s.OpenAPIAsNewMachine(c, state.JobManageModel)
+	undertakerClient, err := undertaker.NewClient(st, apiwatcher.NewNotifyWatcher)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(undertakerClient, gc.NotNil)
-	c.Assert(undertakerClient.RemoveEnviron(), gc.ErrorMatches, "an error occurred, unable to remove environment")
+	c.Assert(undertakerClient.RemoveModel(), gc.ErrorMatches, "can't remove model: model not dead")
 }
 
 func (s *undertakerSuite) TestHostedEnvironInfo(c *gc.C) {
 	undertakerClient, otherSt := s.hostedAPI(c)
 	defer otherSt.Close()
 
-	result, err := undertakerClient.EnvironInfo()
+	result, err := undertakerClient.ModelInfo()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.NotNil)
 	c.Assert(result.Error, gc.IsNil)
 	envInfo := result.Result
-	c.Assert(envInfo.UUID, gc.Equals, otherSt.EnvironUUID())
-	c.Assert(envInfo.Name, gc.Equals, "hosted_env")
-	c.Assert(envInfo.GlobalName, gc.Equals, "user-dummy-admin@local/hosted_env")
+	c.Assert(envInfo.UUID, gc.Equals, otherSt.ModelUUID())
+	c.Assert(envInfo.Name, gc.Equals, "hosted-env")
+	c.Assert(envInfo.GlobalName, gc.Equals, "user-admin/hosted-env")
 	c.Assert(envInfo.IsSystem, jc.IsFalse)
 	c.Assert(envInfo.Life, gc.Equals, params.Alive)
-	c.Assert(envInfo.TimeOfDeath, gc.IsNil)
 }
 
 func (s *undertakerSuite) TestHostedProcessDyingEnviron(c *gc.C) {
 	undertakerClient, otherSt := s.hostedAPI(c)
 	defer otherSt.Close()
 
-	err := undertakerClient.ProcessDyingEnviron()
-	c.Assert(err, gc.ErrorMatches, "environment is not dying")
+	err := undertakerClient.ProcessDyingModel()
+	c.Assert(err, gc.ErrorMatches, "model is not dying")
 
-	env, err := otherSt.Environment()
+	factory.NewFactory(otherSt).MakeApplication(c, nil)
+	env, err := otherSt.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.Destroy(), jc.ErrorIsNil)
 	c.Assert(env.Refresh(), jc.ErrorIsNil)
 	c.Assert(env.Life(), gc.Equals, state.Dying)
 
-	c.Assert(undertakerClient.ProcessDyingEnviron(), jc.ErrorIsNil)
+	err = otherSt.Cleanup()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(undertakerClient.ProcessDyingModel(), jc.ErrorIsNil)
 
 	c.Assert(env.Refresh(), jc.ErrorIsNil)
 	c.Assert(env.Life(), gc.Equals, state.Dead)
-
-	result, err := undertakerClient.EnvironInfo()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.NotNil)
-	c.Assert(result.Error, gc.IsNil)
-	info := result.Result
-	c.Assert(info.TimeOfDeath.IsZero(), jc.IsFalse)
 }
 
-func (s *undertakerSuite) TestWatchEnvironResources(c *gc.C) {
+func (s *undertakerSuite) TestWatchModelResources(c *gc.C) {
 	undertakerClient, otherSt := s.hostedAPI(c)
 	defer otherSt.Close()
 
-	w, err := undertakerClient.WatchEnvironResources()
+	w, err := undertakerClient.WatchModelResources()
 	c.Assert(err, jc.ErrorIsNil)
-	defer statetesting.AssertStop(c, w)
-	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
-
+	defer w.Kill()
+	wc := watchertest.NewNotifyWatcherC(c, w, nil)
 	wc.AssertOneChange()
-
-	statetesting.AssertStop(c, w)
-	wc.AssertClosed()
+	wc.AssertStops()
 }
 
 func (s *undertakerSuite) TestHostedRemoveEnviron(c *gc.C) {
@@ -142,46 +146,50 @@ func (s *undertakerSuite) TestHostedRemoveEnviron(c *gc.C) {
 	defer otherSt.Close()
 
 	// Aborts on alive environ.
-	err := undertakerClient.RemoveEnviron()
-	c.Assert(err, gc.ErrorMatches, "an error occurred, unable to remove environment")
+	err := undertakerClient.RemoveModel()
+	c.Assert(err, gc.ErrorMatches, "can't remove model: model not dead")
 
-	env, err := otherSt.Environment()
+	factory.NewFactory(otherSt).MakeApplication(c, nil)
+	env, err := otherSt.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.Destroy(), jc.ErrorIsNil)
 
 	// Aborts on dying environ.
-	err = undertakerClient.RemoveEnviron()
-	c.Assert(err, gc.ErrorMatches, "an error occurred, unable to remove environment")
+	err = undertakerClient.RemoveModel()
+	c.Assert(err, gc.ErrorMatches, "can't remove model: model not dead")
 
-	c.Assert(undertakerClient.ProcessDyingEnviron(), jc.ErrorIsNil)
+	err = otherSt.Cleanup()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(undertakerClient.ProcessDyingModel(), jc.ErrorIsNil)
 
-	c.Assert(undertakerClient.RemoveEnviron(), jc.ErrorIsNil)
-	c.Assert(otherSt.EnsureEnvironmentRemoved(), jc.ErrorIsNil)
+	c.Assert(undertakerClient.RemoveModel(), jc.ErrorIsNil)
+	c.Assert(otherSt.EnsureModelRemoved(), jc.ErrorIsNil)
 }
 
 func (s *undertakerSuite) hostedAPI(c *gc.C) (*undertaker.Client, *state.State) {
-	otherState := s.Factory.MakeEnvironment(c, &factory.EnvParams{Name: "hosted_env"})
+	otherState := s.Factory.MakeModel(c, &factory.ModelParams{Name: "hosted-env"})
 
 	password, err := utils.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
 
 	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
-		Jobs:     []state.MachineJob{state.JobManageEnviron},
+		Jobs:     []state.MachineJob{state.JobManageModel},
 		Password: password,
 		Nonce:    "fake_nonce",
 	})
 
-	// Connect to hosted environ from state server.
+	// Connect to hosted environ from controller.
 	info := s.APIInfo(c)
 	info.Tag = machine.Tag()
 	info.Password = password
 	info.Nonce = "fake_nonce"
-	info.EnvironTag = otherState.EnvironTag()
+	info.ModelTag = otherState.ModelTag()
 
 	otherAPIState, err := api.Open(info, api.DefaultDialOpts())
 	c.Assert(err, jc.ErrorIsNil)
 
-	undertakerClient := undertaker.NewClient(otherAPIState)
+	undertakerClient, err := undertaker.NewClient(otherAPIState, apiwatcher.NewNotifyWatcher)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(undertakerClient, gc.NotNil)
 
 	return undertakerClient, otherState

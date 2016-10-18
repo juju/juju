@@ -4,7 +4,6 @@
 package apiserver
 
 import (
-	"io"
 	"net"
 	"net/http"
 	"net/url"
@@ -27,12 +26,11 @@ import (
 // requests.
 type debugLogHandler struct {
 	ctxt   httpContext
-	stop   <-chan struct{}
 	handle debugLogHandlerFunc
 }
 
 type debugLogHandlerFunc func(
-	state.LoggingState,
+	state.LogTailerState,
 	*debugLogParams,
 	debugLogSocket,
 	<-chan struct{},
@@ -40,12 +38,10 @@ type debugLogHandlerFunc func(
 
 func newDebugLogHandler(
 	ctxt httpContext,
-	stop <-chan struct{},
 	handle debugLogHandlerFunc,
 ) *debugLogHandler {
 	return &debugLogHandler{
 		ctxt:   ctxt,
-		stop:   stop,
 		handle: handle,
 	}
 }
@@ -68,13 +64,14 @@ func newDebugLogHandler(
 //      - has no meaning if 'replay' is true
 //   level -> string one of [TRACE, DEBUG, INFO, WARNING, ERROR]
 //   replay -> string - one of [true, false], if true, start the file from the start
+//   noTail -> string - one of [true, false], if true, existing logs are sent back,
+//      - but the command does not wait for new ones.
 func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	server := websocket.Server{
 		Handler: func(conn *websocket.Conn) {
 			socket := &debugLogSocketImpl{conn}
-			defer socket.Close()
+			defer conn.Close()
 
-			logger.Infof("debug log handler starting")
 			// Validate before authenticate because the authentication is
 			// dependent on the state connection that is determined during the
 			// validation.
@@ -89,7 +86,7 @@ func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 				return
 			}
 
-			if err := h.handle(st, params, socket, h.stop); err != nil {
+			if err := h.handle(st, params, socket, h.ctxt.stop()); err != nil {
 				if isBrokenPipe(err) {
 					logger.Tracef("debug-log handler stopped (client disconnected)")
 				} else {
@@ -112,20 +109,21 @@ func isBrokenPipe(err error) bool {
 // debugLogSocket describes the functionality required for the
 // debuglog handlers to send logs to the client.
 type debugLogSocket interface {
-	io.Writer
-
 	// sendOk sends a nil error response, indicating there were no errors.
 	sendOk()
 
 	// sendError sends a JSON-encoded error response.
 	sendError(err error)
+
+	// sendLogRecord sends record JSON encoded.
+	sendLogRecord(record *params.LogMessage) error
 }
 
 // debugLogSocketImpl implements the debugLogSocket interface. It
 // wraps a websocket.Conn and provides a few debug-log specific helper
 // methods.
 type debugLogSocketImpl struct {
-	*websocket.Conn
+	conn *websocket.Conn
 }
 
 // sendOk implements debugLogSocket.
@@ -135,15 +133,20 @@ func (s *debugLogSocketImpl) sendOk() {
 
 // sendError implements debugLogSocket.
 func (s *debugLogSocketImpl) sendError(err error) {
-	sendJSON(s.Conn, &params.ErrorResult{
+	sendJSON(s.conn, &params.ErrorResult{
 		Error: common.ServerError(err),
 	})
+}
+
+func (s *debugLogSocketImpl) sendLogRecord(record *params.LogMessage) error {
+	return sendJSON(s.conn, record)
 }
 
 // debugLogParams contains the parsed debuglog API request parameters.
 type debugLogParams struct {
 	maxLines      uint
 	fromTheStart  bool
+	noTail        bool
 	backlog       uint
 	filterLevel   loggo.Level
 	includeEntity []string
@@ -169,6 +172,14 @@ func readDebugLogParams(queryMap url.Values) (*debugLogParams, error) {
 			return nil, errors.Errorf("replay value %q is not a valid boolean", value)
 		}
 		params.fromTheStart = replay
+	}
+
+	if value := queryMap.Get("noTail"); value != "" {
+		noTail, err := strconv.ParseBool(value)
+		if err != nil {
+			return nil, errors.Errorf("noTail value %q is not a valid boolean", value)
+		}
+		params.noTail = noTail
 	}
 
 	if value := queryMap.Get("backlog"); value != "" {

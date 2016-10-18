@@ -6,7 +6,6 @@ package action_test
 import (
 	"errors"
 	"io/ioutil"
-	"regexp"
 	"testing"
 	"time"
 
@@ -14,10 +13,11 @@ import (
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/action"
+	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -37,14 +37,23 @@ func TestPackage(t *testing.T) {
 }
 
 type BaseActionSuite struct {
-	jujutesting.IsolationSuite
+	coretesting.FakeJujuXDGDataHomeSuite
 	command cmd.Command
+
+	modelFlags []string
+	store      *jujuclienttesting.MemStore
 }
 
-var _ = gc.Suite(&FetchSuite{})
-
 func (s *BaseActionSuite) SetUpTest(c *gc.C) {
-	s.command = action.NewSuperCommand()
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
+
+	s.modelFlags = []string{"-m", "--model"}
+
+	s.store = jujuclienttesting.NewMemStore()
+	s.store.CurrentControllerName = "ctrl"
+	s.store.Accounts["ctrl"] = jujuclient.AccountDetails{
+		User: "admin",
+	}
 }
 
 func (s *BaseActionSuite) patchAPIClient(client *fakeAPIClient) func() {
@@ -55,53 +64,35 @@ func (s *BaseActionSuite) patchAPIClient(client *fakeAPIClient) func() {
 	)
 }
 
-func (s *BaseActionSuite) checkHelp(c *gc.C, subcmd cmd.Command) {
-	ctx, err := coretesting.RunCommand(c, s.command, subcmd.Info().Name, "--help")
-	c.Assert(err, gc.IsNil)
-
-	expected := "(?sm).*^usage: juju action " +
-		regexp.QuoteMeta(subcmd.Info().Name) +
-		` \[options\] ` + regexp.QuoteMeta(subcmd.Info().Args) + ".+"
-	c.Check(coretesting.Stdout(ctx), gc.Matches, expected)
-
-	expected = "(?sm).*^purpose: " + regexp.QuoteMeta(subcmd.Info().Purpose) + "$.*"
-	c.Check(coretesting.Stdout(ctx), gc.Matches, expected)
-
-	expected = "(?sm).*^" + regexp.QuoteMeta(subcmd.Info().Doc) + "$.*"
-	c.Check(coretesting.Stdout(ctx), gc.Matches, expected)
-}
-
-var someCharmActions = &charm.Actions{
-	ActionSpecs: map[string]charm.ActionSpec{
-		"snapshot": {
-			Description: "Take a snapshot of the database.",
-			Params: map[string]interface{}{
-				"foo": map[string]interface{}{
-					"bar": "baz",
-				},
-				"baz": "bar",
+var someCharmActions = map[string]params.ActionSpec{
+	"snapshot": {
+		Description: "Take a snapshot of the database.",
+		Params: map[string]interface{}{
+			"foo": map[string]interface{}{
+				"bar": "baz",
 			},
+			"baz": "bar",
 		},
-		"kill": {
-			Description: "Kill the database.",
-			Params: map[string]interface{}{
-				"bar": map[string]interface{}{
-					"baz": "foo",
-				},
-				"foo": "baz",
+	},
+	"kill": {
+		Description: "Kill the database.",
+		Params: map[string]interface{}{
+			"bar": map[string]interface{}{
+				"baz": "foo",
 			},
+			"foo": "baz",
 		},
-		"no-description": {
-			Params: map[string]interface{}{
-				"bar": map[string]interface{}{
-					"baz": "foo",
-				},
-				"foo": "baz",
+	},
+	"no-description": {
+		Params: map[string]interface{}{
+			"bar": map[string]interface{}{
+				"baz": "foo",
 			},
+			"foo": "baz",
 		},
-		"no-params": {
-			Description: "An action with no parameters.",
-		},
+	},
+	"no-params": {
+		Description: "An action with no parameters.\n",
 	},
 }
 
@@ -134,7 +125,8 @@ type fakeAPIClient struct {
 	enqueuedActions    params.Actions
 	actionsByReceivers []params.ActionsByReceiver
 	actionTagMatches   params.FindTagsResults
-	charmActions       *charm.Actions
+	actionsByNames     params.ActionsByNames
+	charmActions       map[string]params.ActionSpec
 	apiErr             error
 }
 
@@ -179,7 +171,7 @@ func (c *fakeAPIClient) Cancel(args params.Actions) (params.ActionResults, error
 	}, c.apiErr
 }
 
-func (c *fakeAPIClient) ServiceCharmActions(params.Entity) (*charm.Actions, error) {
+func (c *fakeAPIClient) ApplicationCharmActions(params.Entity) (map[string]params.ActionSpec, error) {
 	return c.charmActions, c.apiErr
 }
 
@@ -212,4 +204,8 @@ func (c *fakeAPIClient) Actions(args params.Entities) (params.ActionResults, err
 
 func (c *fakeAPIClient) FindActionTagsByPrefix(arg params.FindTags) (params.FindTagsResults, error) {
 	return c.actionTagMatches, c.apiErr
+}
+
+func (c *fakeAPIClient) FindActionsByNames(args params.FindActionsByNames) (params.ActionsByNames, error) {
+	return c.actionsByNames, c.apiErr
 }

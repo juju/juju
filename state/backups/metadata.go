@@ -13,9 +13,9 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/utils/filestorage"
-
-	"github.com/juju/juju/version"
+	"github.com/juju/version"
 )
 
 // checksumFormat identifies how to interpret the checksum for a backup
@@ -28,10 +28,11 @@ const checksumFormat = "SHA-1, base64 encoded"
 // separately from Metadata due to its use as an argument when
 // requesting the creation of a new backup.
 type Origin struct {
-	Environment string
-	Machine     string
-	Hostname    string
-	Version     version.Number
+	Model    string
+	Machine  string
+	Hostname string
+	Version  version.Number
+	Series   string
 }
 
 // UnknownString is a marker value for string fields with unknown values.
@@ -43,10 +44,10 @@ var UnknownVersion = version.MustParse("9999.9999.9999")
 // UnknownOrigin returns a new backups origin with unknown values.
 func UnknownOrigin() Origin {
 	return Origin{
-		Environment: UnknownString,
-		Machine:     UnknownString,
-		Hostname:    UnknownString,
-		Version:     UnknownVersion,
+		Model:    UnknownString,
+		Machine:  UnknownString,
+		Hostname: UnknownString,
+		Version:  UnknownVersion,
 	}
 }
 
@@ -56,12 +57,28 @@ type Metadata struct {
 
 	// Started records when the backup was started.
 	Started time.Time
+
 	// Finished records when the backup was complete.
 	Finished *time.Time
+
 	// Origin identifies where the backup was created.
 	Origin Origin
+
 	// Notes is an optional user-supplied annotation.
 	Notes string
+
+	// TODO(wallyworld) - remove these ASAP
+	// These are only used by the restore CLI when re-bootstrapping.
+	// We will use a better solution but the way restore currently
+	// works, we need them and they are no longer available via
+	// bootstrap config. We will need to ifx how re-bootstrap deals
+	// with these keys to address the issue.
+
+	// CACert is the controller CA certificate.
+	CACert string
+
+	// CAPrivateKey is the controller CA private key.
+	CAPrivateKey string
 }
 
 // NewMetadata returns a new Metadata for a state backup archive.  Only
@@ -69,18 +86,19 @@ type Metadata struct {
 func NewMetadata() *Metadata {
 	return &Metadata{
 		FileMetadata: filestorage.NewMetadata(),
-		Started:      time.Now().UTC(),
+		// TODO(fwereade): 2016-03-17 lp:1558657
+		Started: time.Now().UTC(),
 		Origin: Origin{
-			Version: version.Current,
+			Version: jujuversion.Current,
 		},
 	}
 }
 
 // NewMetadataState composes a new backup metadata with its origin
-// values set.  The environment UUID comes from state.  The hostname is
+// values set.  The model UUID comes from state.  The hostname is
 // retrieved from the OS.
-func NewMetadataState(db DB, machine string) (*Metadata, error) {
-	// hostname could be derived from the environment...
+func NewMetadataState(db DB, machine, series string) (*Metadata, error) {
+	// hostname could be derived from the model...
 	hostname, err := os.Hostname()
 	if err != nil {
 		// If os.Hostname() is not working, something is woefully wrong.
@@ -89,9 +107,21 @@ func NewMetadataState(db DB, machine string) (*Metadata, error) {
 	}
 
 	meta := NewMetadata()
-	meta.Origin.Environment = db.EnvironTag().Id()
+	meta.Origin.Model = db.ModelTag().Id()
 	meta.Origin.Machine = machine
 	meta.Origin.Hostname = hostname
+	meta.Origin.Series = series
+
+	si, err := db.StateServingInfo()
+	if err != nil {
+		return nil, errors.Annotate(err, "could not get server secrets")
+	}
+	controllerCfg, err := db.ControllerConfig()
+	if err != nil {
+		return nil, errors.Annotate(err, "could not get controller config")
+	}
+	meta.CACert, _ = controllerCfg.CACert()
+	meta.CAPrivateKey = si.CAPrivateKey
 	return meta, nil
 }
 
@@ -105,6 +135,7 @@ func (m *Metadata) MarkComplete(size int64, checksum string) error {
 		return errors.New("missing checksum")
 	}
 	format := checksumFormat
+	// TODO(fwereade): 2016-03-17 lp:1558657
 	finished := time.Now().UTC()
 
 	if err := m.SetFileInfo(size, checksum, format); err != nil {
@@ -134,6 +165,10 @@ type flatMetadata struct {
 	Machine     string
 	Hostname    string
 	Version     version.Number
+	Series      string
+
+	CACert       string
+	CAPrivateKey string
 }
 
 // TODO(ericsnow) Move AsJSONBuffer to filestorage.Metadata.
@@ -147,12 +182,15 @@ func (m *Metadata) AsJSONBuffer() (io.Reader, error) {
 		ChecksumFormat: m.ChecksumFormat(),
 		Size:           m.Size(),
 
-		Started:     m.Started,
-		Notes:       m.Notes,
-		Environment: m.Origin.Environment,
-		Machine:     m.Origin.Machine,
-		Hostname:    m.Origin.Hostname,
-		Version:     m.Origin.Version,
+		Started:      m.Started,
+		Notes:        m.Notes,
+		Environment:  m.Origin.Model,
+		Machine:      m.Origin.Machine,
+		Hostname:     m.Origin.Hostname,
+		Version:      m.Origin.Version,
+		Series:       m.Origin.Series,
+		CACert:       m.CACert,
+		CAPrivateKey: m.CAPrivateKey,
 	}
 
 	stored := m.Stored()
@@ -196,11 +234,16 @@ func NewMetadataJSONReader(in io.Reader) (*Metadata, error) {
 	}
 	meta.Notes = flat.Notes
 	meta.Origin = Origin{
-		Environment: flat.Environment,
-		Machine:     flat.Machine,
-		Hostname:    flat.Hostname,
-		Version:     flat.Version,
+		Model:    flat.Environment,
+		Machine:  flat.Machine,
+		Hostname: flat.Hostname,
+		Version:  flat.Version,
+		Series:   flat.Series,
 	}
+
+	// TODO(wallyworld) - put these in a separate file.
+	meta.CACert = flat.CACert
+	meta.CAPrivateKey = flat.CAPrivateKey
 
 	return meta, nil
 }

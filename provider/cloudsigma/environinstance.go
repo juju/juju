@@ -11,7 +11,6 @@ import (
 	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/imagemetadata"
-	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/tools"
 )
@@ -20,21 +19,12 @@ import (
 // Imlementation of InstanceBroker: methods for starting and stopping instances.
 //
 
-var findInstanceImage = func(env *environ, ic *imagemetadata.ImageConstraint) (*imagemetadata.ImageMetadata, error) {
-
-	sources, err := environs.ImageMetadataSources(env)
-	if err != nil {
-		return nil, err
-	}
-
-	matchingImages, _, err := imagemetadata.Fetch(sources, ic, false)
-	if err != nil {
-		return nil, err
-	}
+var findInstanceImage = func(
+	matchingImages []*imagemetadata.ImageMetadata,
+) (*imagemetadata.ImageMetadata, error) {
 	if len(matchingImages) == 0 {
 		return nil, errors.New("no matching image meta data")
 	}
-
 	return matchingImages[0], nil
 }
 
@@ -55,21 +45,11 @@ func (env *environ) StartInstance(args environs.StartInstanceParams) (*environs.
 		return nil, errors.New("instance configuration is nil")
 	}
 
-	if args.InstanceConfig.HasNetworks() {
-		return nil, errors.New("starting instances with networks is not supported yet")
-	}
-
 	if len(args.Tools) == 0 {
 		return nil, errors.New("tools not found")
 	}
 
-	region, _ := env.Region()
-	img, err := findInstanceImage(env, imagemetadata.NewImageConstraint(simplestreams.LookupParams{
-		CloudSpec: region,
-		Series:    args.Tools.AllSeries(),
-		Arches:    args.Tools.Arches(),
-		Stream:    env.Config().ImageStream(),
-	}))
+	img, err := findInstanceImage(args.ImageMetadata)
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +59,9 @@ func (env *environ) StartInstance(args environs.StartInstanceParams) (*environs.
 		return nil, errors.Errorf("chosen architecture %v not present in %v", img.Arch, args.Tools.Arches())
 	}
 
-	args.InstanceConfig.Tools = tools[0]
+	if err := args.InstanceConfig.SetTools(tools); err != nil {
+		return nil, errors.Trace(err)
+	}
 	if err := instancecfg.FinishInstanceConfig(args.InstanceConfig, env.Config()); err != nil {
 		return nil, err
 	}
@@ -91,7 +73,8 @@ func (env *environ) StartInstance(args environs.StartInstanceParams) (*environs.
 	logger.Debugf("cloudsigma user data; %d bytes", len(userData))
 
 	client := env.client
-	server, rootdrive, arch, err := client.newInstance(args, img, userData)
+	cfg := env.Config()
+	server, rootdrive, arch, err := client.newInstance(args, img, userData, cfg.AuthorizedKeys())
 	if err != nil {
 		return nil, errors.Errorf("failed start instance: %v", err)
 	}
@@ -158,8 +141,7 @@ func (env *environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
 
 	m, err := env.client.instanceMap()
 	if err != nil {
-		logger.Warningf("environ.Instances failed: %v", err)
-		return nil, err
+		return nil, errors.Annotate(err, "environ.Instances failed")
 	}
 
 	var found int
@@ -177,7 +159,7 @@ func (env *environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
 		err = environs.ErrPartialInstances
 	}
 
-	return r, err
+	return r, errors.Trace(err)
 }
 
 // StopInstances shuts down the given instances.

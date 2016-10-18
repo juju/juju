@@ -30,7 +30,7 @@ func (s *certPoolSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.logs = &certLogs{}
 	loggo.GetLogger("juju.api").SetLogLevel(loggo.TRACE)
-	loggo.RegisterWriter("api-certs", s.logs, loggo.TRACE)
+	loggo.RegisterWriter("api-certs", s.logs)
 }
 
 func (*certPoolSuite) TestCreateCertPoolNoCert(c *gc.C) {
@@ -127,7 +127,7 @@ func (s *certPoolSuite) TestCreateCertPoolLogsBadCerts(c *gc.C) {
 
 func (s *certPoolSuite) addCert(c *gc.C, filename string) {
 	expiry := time.Now().UTC().AddDate(10, 0, 0)
-	pem, _, err := cert.NewCA("random env name", expiry)
+	pem, _, err := cert.NewCA("random env name", "1", expiry)
 	c.Assert(err, jc.ErrorIsNil)
 	err = ioutil.WriteFile(filename, []byte(pem), 0644)
 	c.Assert(err, jc.ErrorIsNil)
@@ -137,8 +137,8 @@ type certLogs struct {
 	messages []string
 }
 
-func (c *certLogs) Write(level loggo.Level, name, filename string, line int, timestamp time.Time, message string) {
-	if strings.HasSuffix(filename, "certpool.go") {
-		c.messages = append(c.messages, fmt.Sprintf("%s %s", level, message))
+func (c *certLogs) Write(entry loggo.Entry) {
+	if strings.HasSuffix(entry.Filename, "certpool.go") {
+		c.messages = append(c.messages, fmt.Sprintf("%s %s", entry.Level, entry.Message))
 	}
 }

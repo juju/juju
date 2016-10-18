@@ -12,7 +12,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
 	"github.com/juju/juju/apiserver/common"
@@ -22,34 +22,28 @@ import (
 
 // httpContext provides context for HTTP handlers.
 type httpContext struct {
-	// strictValidation means that empty envUUID values are not valid.
+	// strictValidation means that empty modelUUID values are not valid.
 	strictValidation bool
-	// stateServerEnvOnly only validates the state server environment
-	stateServerEnvOnly bool
+	// controllerModelOnly only validates the controller model.
+	controllerModelOnly bool
 	// srv holds the API server instance.
 	srv *Server
 }
 
-type errorSender interface {
-	sendError(w http.ResponseWriter, code int, err error)
-}
-
-var errUnauthorized = errors.NewUnauthorized(nil, "unauthorized")
-
 // stateForRequestUnauthenticated returns a state instance appropriate for
-// using for the environment implicit in the given request
+// using for the model implicit in the given request
 // without checking any authentication information.
 func (ctxt *httpContext) stateForRequestUnauthenticated(r *http.Request) (*state.State, error) {
-	envUUID, err := validateEnvironUUID(validateArgs{
-		statePool:          ctxt.srv.statePool,
-		envUUID:            r.URL.Query().Get(":envuuid"),
-		strict:             ctxt.strictValidation,
-		stateServerEnvOnly: ctxt.stateServerEnvOnly,
+	modelUUID, err := validateModelUUID(validateArgs{
+		statePool:           ctxt.srv.statePool,
+		modelUUID:           r.URL.Query().Get(":modeluuid"),
+		strict:              ctxt.strictValidation,
+		controllerModelOnly: ctxt.controllerModelOnly,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	st, err := ctxt.srv.statePool.Get(envUUID)
+	st, err := ctxt.srv.statePool.Get(modelUUID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -57,7 +51,7 @@ func (ctxt *httpContext) stateForRequestUnauthenticated(r *http.Request) (*state
 }
 
 // stateForRequestAuthenticated returns a state instance appropriate for
-// using for the environment implicit in the given request.
+// using for the model implicit in the given request.
 // It also returns the authenticated entity.
 func (ctxt *httpContext) stateForRequestAuthenticated(r *http.Request) (*state.State, state.Entity, error) {
 	st, err := ctxt.stateForRequestUnauthenticated(r)
@@ -68,16 +62,46 @@ func (ctxt *httpContext) stateForRequestAuthenticated(r *http.Request) (*state.S
 	if err != nil {
 		return nil, nil, errors.NewUnauthorized(err, "")
 	}
-	entity, _, err := checkCreds(st, req, true, ctxt.srv.authCtxt)
+	authenticator := ctxt.srv.authCtxt.authenticator(r.Host)
+	entity, _, err := checkCreds(st, req, true, authenticator)
 	if err != nil {
-		// All errors other than a macaroon-discharge error count as
-		// unauthorized at this point.
-		if !common.IsDischargeRequiredError(err) {
-			err = errors.NewUnauthorized(err, "")
+		if common.IsDischargeRequiredError(err) {
+			return nil, nil, errors.Trace(err)
 		}
-		return nil, nil, errors.Trace(err)
+
+		// Handle the special case of a worker on a controller machine
+		// acting on behalf of a hosted model.
+		if isMachineTag(req.AuthTag) {
+			entity, err := checkControllerMachineCreds(ctxt.srv.state, req, authenticator)
+			if err != nil {
+				return nil, nil, errors.NewUnauthorized(err, "")
+			}
+			return st, entity, nil
+		}
+
+		// Any other error at this point should be treated as
+		// "unauthorized".
+		return nil, nil, errors.Trace(errors.NewUnauthorized(err, ""))
 	}
 	return st, entity, nil
+}
+
+func isMachineTag(tag string) bool {
+	kind, err := names.TagKind(tag)
+	return err == nil && kind == names.MachineTagKind
+}
+
+// checkPermissions verifies that given tag passes authentication check.
+// For example, if only user tags are accepted, all other tags will be denied access.
+func checkPermissions(tag names.Tag, acceptFunc common.GetAuthFunc) (bool, error) {
+	accept, err := acceptFunc()
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	if accept(tag) {
+		return true, nil
+	}
+	return false, errors.NotValidf("tag kind %v", tag.Kind())
 }
 
 // stateForRequestAuthenticatedUser is like stateForRequestAuthenticated
@@ -87,28 +111,27 @@ func (ctxt *httpContext) stateForRequestAuthenticatedUser(r *http.Request) (*sta
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	switch entity.Tag().(type) {
-	case names.UserTag:
-		return st, entity, nil
-	default:
-		return nil, nil, errors.Trace(common.ErrBadCreds)
+	if ok, err := checkPermissions(entity.Tag(), common.AuthFuncForTagKind(names.UserTagKind)); !ok {
+		return nil, nil, err
 	}
+	return st, entity, nil
 }
 
-// stateForRequestAuthenticatedUser is like stateForRequestAuthenticated
-// except that it also verifies that the authenticated entity is a user.
+// stateForRequestAuthenticatedAgent is like stateForRequestAuthenticated
+// except that it also verifies that the authenticated entity is an agent.
 func (ctxt *httpContext) stateForRequestAuthenticatedAgent(r *http.Request) (*state.State, state.Entity, error) {
+	authFunc := common.AuthEither(
+		common.AuthFuncForTagKind(names.MachineTagKind),
+		common.AuthFuncForTagKind(names.UnitTagKind),
+	)
 	st, entity, err := ctxt.stateForRequestAuthenticated(r)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	switch entity.Tag().(type) {
-	case names.MachineTag, names.UnitTag:
-		return st, entity, nil
-	default:
-		logger.Errorf("attempt to log in as an agent by %v", entity.Tag())
-		return nil, nil, errors.Trace(common.ErrBadCreds)
+	if ok, err := checkPermissions(entity.Tag(), authFunc); !ok {
+		return nil, nil, err
 	}
+	return st, entity, nil
 }
 
 // loginRequest forms a LoginRequest from the information
@@ -117,7 +140,7 @@ func (ctxt *httpContext) loginRequest(r *http.Request) (params.LoginRequest, err
 	authHeader := r.Header.Get("Authorization")
 	if authHeader == "" {
 		// No authorization header implies an attempt
-		// to login with macaroon authentication.
+		// to login with external user macaroon authentication.
 		return params.LoginRequest{
 			Macaroons: httpbakery.RequestMacaroons(r),
 		}, nil
@@ -125,49 +148,56 @@ func (ctxt *httpContext) loginRequest(r *http.Request) (params.LoginRequest, err
 	parts := strings.Fields(authHeader)
 	if len(parts) != 2 || parts[0] != "Basic" {
 		// Invalid header format or no header provided.
-		return params.LoginRequest{}, errors.New("invalid request format")
+		return params.LoginRequest{}, errors.NotValidf("request format")
 	}
 	// Challenge is a base64-encoded "tag:pass" string.
 	// See RFC 2617, Section 2.
 	challenge, err := base64.StdEncoding.DecodeString(parts[1])
 	if err != nil {
-		return params.LoginRequest{}, errors.New("invalid request format")
+		return params.LoginRequest{}, errors.NotValidf("request format")
 	}
 	tagPass := strings.SplitN(string(challenge), ":", 2)
 	if len(tagPass) != 2 {
-		return params.LoginRequest{}, errors.New("invalid request format")
+		return params.LoginRequest{}, errors.NotValidf("request format")
 	}
 	// Ensure that a sensible tag was passed.
 	_, err = names.ParseTag(tagPass[0])
 	if err != nil {
-		return params.LoginRequest{}, errors.Trace(common.ErrBadCreds)
+		return params.LoginRequest{}, errors.Trace(err)
 	}
 	return params.LoginRequest{
 		AuthTag:     tagPass[0],
 		Credentials: tagPass[1],
+		Macaroons:   httpbakery.RequestMacaroons(r),
 		Nonce:       r.Header.Get(params.MachineNonceHeader),
 	}, nil
 }
 
+// stop returns a channel which will be closed when a handler should
+// exit.
+func (ctxt *httpContext) stop() <-chan struct{} {
+	return ctxt.srv.tomb.Dying()
+}
+
 // sendJSON writes a JSON-encoded response value
 // to the given writer along with a trailing newline.
-func sendJSON(w io.Writer, response interface{}) {
+func sendJSON(w io.Writer, response interface{}) error {
 	body, err := json.Marshal(response)
 	if err != nil {
 		logger.Errorf("cannot marshal JSON result %#v: %v", response, err)
-		return
+		return err
 	}
 	body = append(body, '\n')
-	w.Write(body)
+	_, err = w.Write(body)
+	return err
 }
 
 // sendStatusAndJSON sends an HTTP status code and
 // a JSON-encoded response to a client.
-func sendStatusAndJSON(w http.ResponseWriter, statusCode int, response interface{}) {
+func sendStatusAndJSON(w http.ResponseWriter, statusCode int, response interface{}) error {
 	body, err := json.Marshal(response)
 	if err != nil {
-		logger.Errorf("cannot marshal JSON result %#v: %v", response, err)
-		return
+		return errors.Errorf("cannot marshal JSON result %#v: %v", response, err)
 	}
 
 	if statusCode == http.StatusUnauthorized {
@@ -176,15 +206,18 @@ func sendStatusAndJSON(w http.ResponseWriter, statusCode int, response interface
 	w.Header().Set("Content-Type", params.ContentTypeJSON)
 	w.Header().Set("Content-Length", fmt.Sprint(len(body)))
 	w.WriteHeader(statusCode)
-	w.Write(body)
+	if _, err := w.Write(body); err != nil {
+		return errors.Annotate(err, "cannot write response")
+	}
+	return nil
 }
 
 // sendError sends a JSON-encoded error response
 // for errors encountered during processing.
-func sendError(w http.ResponseWriter, err error) {
-	err1, statusCode := common.ServerErrorAndStatus(err)
-	logger.Debugf("sending error: %d %v", statusCode, err1)
-	sendStatusAndJSON(w, statusCode, &params.ErrorResult{
-		Error: err1,
-	})
+func sendError(w http.ResponseWriter, errToSend error) error {
+	paramsErr, statusCode := common.ServerErrorAndStatus(errToSend)
+	logger.Debugf("sending error: %d %v", statusCode, paramsErr)
+	return errors.Trace(sendStatusAndJSON(w, statusCode, &params.ErrorResult{
+		Error: paramsErr,
+	}))
 }

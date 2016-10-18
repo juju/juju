@@ -34,6 +34,7 @@ func NewSchedule(clock clock.Clock) *Schedule {
 // has been reached. If there are no scheduled items, nil is returned.
 func (s *Schedule) Next() <-chan time.Time {
 	if len(s.items) > 0 {
+		// TODO(fwereade): 2016-03-17 lp:1558657
 		return s.time.After(s.items[0].t.Sub(s.time.Now()))
 	}
 	return nil

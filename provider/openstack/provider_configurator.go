@@ -40,14 +40,6 @@ func (c *defaultConfigurator) GetCloudConfig(args environs.StartInstanceParams) 
 // GetConfigDefaults implements ProviderConfigurator interface.
 func (c *defaultConfigurator) GetConfigDefaults() schema.Defaults {
 	return schema.Defaults{
-		"username":             "",
-		"password":             "",
-		"tenant-name":          "",
-		"auth-url":             "",
-		"auth-mode":            string(AuthUserPass),
-		"access-key":           "",
-		"secret-key":           "",
-		"region":               "",
 		"use-floating-ip":      false,
 		"use-default-secgroup": false,
 		"network":              "",

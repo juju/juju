@@ -4,18 +4,18 @@
 package state_test
 
 import (
-	"fmt"
+	"bytes"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/storage/provider"
-	"github.com/juju/juju/storage/provider/registry"
+	"github.com/juju/juju/state/storage"
+	"github.com/juju/juju/testing/factory"
 )
 
 type CleanupSuite struct {
@@ -23,11 +23,6 @@ type CleanupSuite struct {
 }
 
 var _ = gc.Suite(&CleanupSuite{})
-
-func (s *CleanupSuite) SetUpSuite(c *gc.C) {
-	s.ConnSuite.SetUpSuite(c)
-	registry.RegisterEnvironStorageProviders("someprovider", provider.LoopProviderType)
-}
 
 func (s *CleanupSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
@@ -71,26 +66,49 @@ func (s *CleanupSuite) TestCleanupDyingServiceUnits(c *gc.C) {
 	s.assertCleanupCount(c, 1)
 }
 
-func (s *CleanupSuite) TestCleanupControllerEnvironments(c *gc.C) {
+func (s *CleanupSuite) TestCleanupDyingServiceCharm(c *gc.C) {
+	// Create a service and  a charm.
+	ch := s.AddTestingCharm(c, "mysql")
+	mysql := s.AddTestingService(c, "mysql", ch)
+
+	// Create a dummy archive blob.
+	stor := storage.NewStorage(s.State.ModelUUID(), s.State.MongoSession())
+	storagePath := "dummy-path"
+	err := stor.Put(storagePath, bytes.NewReader([]byte("data")), 4)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Destroy the service and check that a cleanup has been scheduled.
+	err = mysql.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertNeedsCleanup(c)
+
+	// Run the cleanup, and check that the charm is removed.
+	s.assertCleanupRuns(c)
+	_, _, err = stor.Get(storagePath)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *CleanupSuite) TestCleanupControllerModels(c *gc.C) {
 	s.assertDoesNotNeedCleanup(c)
 
-	// Create an environment.
-	otherSt := s.Factory.MakeEnvironment(c, nil)
+	// Create a non-empty hosted model.
+	otherSt := s.Factory.MakeModel(c, nil)
 	defer otherSt.Close()
-	otherEnv, err := otherSt.Environment()
+	factory.NewFactory(otherSt).MakeApplication(c, nil)
+	otherEnv, err := otherSt.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.assertDoesNotNeedCleanup(c)
 
-	// Destroy the controller and check the environment is unaffected, but a
-	// cleanup for the environment and services has been scheduled.
-	controllerEnv, err := s.State.Environment()
+	// Destroy the controller and check the model is unaffected, but a
+	// cleanup for the model and services has been scheduled.
+	controllerEnv, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	err = controllerEnv.DestroyIncludingHosted()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Two cleanups should be scheduled. One to destroy the hosted
-	// environments, the other to destroy the controller environment's
+	// models, the other to destroy the controller model's
 	// services.
 	s.assertCleanupCount(c, 1)
 	err = otherEnv.Refresh()
@@ -100,23 +118,31 @@ func (s *CleanupSuite) TestCleanupControllerEnvironments(c *gc.C) {
 	s.assertDoesNotNeedCleanup(c)
 }
 
-func (s *CleanupSuite) TestCleanupEnvironmentMachines(c *gc.C) {
-	// Create a state and hosted machine.
-	stateMachine, err := s.State.AddMachine("quantal", state.JobManageEnviron)
+func (s *CleanupSuite) TestCleanupModelMachines(c *gc.C) {
+	// Create a controller machine, and manual and non-manual
+	// workload machine.
+	stateMachine, err := s.State.AddMachine("quantal", state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
+	manualMachine, err := s.State.AddOneMachine(state.MachineTemplate{
+		Series:     "quantal",
+		Jobs:       []state.MachineJob{state.JobHostUnits},
+		InstanceId: "inst-ance",
+		Nonce:      "manual:foo",
+	})
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Create a relation with a unit in scope and assigned to the hosted machine.
-	pr := NewPeerRelation(c, s.State, s.Owner)
+	pr := NewPeerRelation(c, s.State)
 	err = pr.u0.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
 	err = pr.ru0.EnterScope(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertDoesNotNeedCleanup(c)
 
-	// Destroy environment, check cleanup queued.
-	env, err := s.State.Environment()
+	// Destroy model, check cleanup queued.
+	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	err = env.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
@@ -132,10 +158,11 @@ func (s *CleanupSuite) TestCleanupEnvironmentMachines(c *gc.C) {
 	// ...but that the machine remains, and is Dead, ready for removal by the
 	// provisioner.
 	assertLife(c, machine, state.Dead)
+	assertLife(c, manualMachine, state.Dying)
 	assertLife(c, stateMachine, state.Alive)
 }
 
-func (s *CleanupSuite) TestCleanupEnvironmentServices(c *gc.C) {
+func (s *CleanupSuite) TestCleanupModelServices(c *gc.C) {
 	s.assertDoesNotNeedCleanup(c)
 
 	// Create a service with some units.
@@ -148,9 +175,9 @@ func (s *CleanupSuite) TestCleanupEnvironmentServices(c *gc.C) {
 	}
 	s.assertDoesNotNeedCleanup(c)
 
-	// Destroy the environment and check the service and units are
-	// unaffected, but a cleanup for the service has been scheduled.
-	env, err := s.State.Environment()
+	// Destroy the model and check the service and units are
+	// unaffected, but a cleanup for the application has been scheduled.
+	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	err = env.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
@@ -181,7 +208,7 @@ func (s *CleanupSuite) TestCleanupEnvironmentServices(c *gc.C) {
 
 func (s *CleanupSuite) TestCleanupRelationSettings(c *gc.C) {
 	// Create a relation with a unit in scope.
-	pr := NewPeerRelation(c, s.State, s.Owner)
+	pr := NewPeerRelation(c, s.State)
 	rel := pr.ru0.Relation()
 	err := pr.ru0.EnterScope(map[string]interface{}{"some": "settings"})
 	c.Assert(err, jc.ErrorIsNil)
@@ -212,12 +239,11 @@ func (s *CleanupSuite) TestCleanupRelationSettings(c *gc.C) {
 }
 
 func (s *CleanupSuite) TestForceDestroyMachineErrors(c *gc.C) {
-	manager, err := s.State.AddMachine("quantal", state.JobManageEnviron)
+	manager, err := s.State.AddMachine("quantal", state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertDoesNotNeedCleanup(c)
 	err = manager.ForceDestroy()
-	expect := fmt.Sprintf("machine is required by the environment")
-	c.Assert(err, gc.ErrorMatches, expect)
+	c.Assert(err, gc.ErrorMatches, "machine is required by the model")
 	s.assertDoesNotNeedCleanup(c)
 	assertLife(c, manager, state.Alive)
 }
@@ -228,7 +254,7 @@ func (s *CleanupSuite) TestCleanupForceDestroyedMachineUnit(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Create a relation with a unit in scope and assigned to the machine.
-	pr := NewPeerRelation(c, s.State, s.Owner)
+	pr := NewPeerRelation(c, s.State)
 	err = pr.u0.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
 	err = pr.ru0.EnterScope(nil)
@@ -252,6 +278,50 @@ func (s *CleanupSuite) TestCleanupForceDestroyedMachineUnit(c *gc.C) {
 	assertLife(c, machine, state.Dead)
 }
 
+func (s *CleanupSuite) TestCleanupForceDestroyMachineCleansStorageAttachments(c *gc.C) {
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertDoesNotNeedCleanup(c)
+
+	ch := s.AddTestingCharm(c, "storage-block")
+	storage := map[string]state.StorageConstraints{
+		"data": makeStorageCons("loop", 1024, 1),
+	}
+	service := s.AddTestingServiceWithStorage(c, "storage-block", ch, storage)
+	u, err := service.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+	err = u.AssignToMachine(machine)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// check no cleanups
+	s.assertDoesNotNeedCleanup(c)
+
+	// this tag matches the storage instance created for the unit above.
+	storageTag := names.NewStorageTag("data/0")
+
+	sa, err := s.State.StorageAttachment(storageTag, u.UnitTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(sa.Life(), gc.Equals, state.Alive)
+
+	// destroy machine and run cleanups
+	err = machine.ForceDestroy()
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertCleanupCount(c, 2)
+
+	// After running the cleanup, the storage attachment and instance
+	// should both be removed.
+	_, err = s.State.StorageAttachment(storageTag, u.UnitTag())
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	_, err = s.State.StorageInstance(storageTag)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+
+	// Check that the unit has been removed.
+	assertRemoved(c, u)
+
+	// check no cleanups
+	s.assertDoesNotNeedCleanup(c)
+}
+
 func (s *CleanupSuite) TestCleanupForceDestroyedMachineWithContainer(c *gc.C) {
 	// Create a machine with a container.
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
@@ -259,7 +329,7 @@ func (s *CleanupSuite) TestCleanupForceDestroyedMachineWithContainer(c *gc.C) {
 	container, err := s.State.AddMachineInsideMachine(state.MachineTemplate{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
-	}, machine.Id(), instance.LXC)
+	}, machine.Id(), instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Create active units (in relation scope, with subordinates).
@@ -453,7 +523,6 @@ func (s *CleanupSuite) TestCleanupStorageAttachments(c *gc.C) {
 
 func (s *CleanupSuite) TestCleanupStorageInstances(c *gc.C) {
 	ch := s.AddTestingCharm(c, "storage-block")
-	registry.RegisterEnvironStorageProviders("someprovider", provider.LoopProviderType)
 	storage := map[string]state.StorageConstraints{
 		"data": makeStorageCons("loop", 1024, 1),
 	}

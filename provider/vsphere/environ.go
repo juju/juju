@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/common"
 )
 
@@ -21,33 +22,42 @@ import (
 // Note: This provider/environment does *not* implement storage.
 
 type environ struct {
-	common.SupportsUnitPlacementPolicy
-
 	name   string
-	ecfg   *environConfig
+	cloud  environs.CloudSpec
 	client *client
 
-	lock     sync.Mutex
-	archLock sync.Mutex
+	// namespace is used to create the machine and device hostnames.
+	namespace instance.Namespace
 
+	lock sync.Mutex // lock protects access the following fields.
+	ecfg *environConfig
+
+	archLock               sync.Mutex
 	supportedArchitectures []string
 }
 
-func newEnviron(cfg *config.Config) (*environ, error) {
+func newEnviron(cloud environs.CloudSpec, cfg *config.Config) (*environ, error) {
 	ecfg, err := newValidConfig(cfg, configDefaults)
 	if err != nil {
 		return nil, errors.Annotate(err, "invalid config")
 	}
 
-	client, err := newClient(ecfg)
+	client, err := newClient(cloud)
 	if err != nil {
 		return nil, errors.Annotatef(err, "failed to create new client")
 	}
 
+	namespace, err := instance.NewNamespace(cfg.UUID())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	env := &environ{
-		name:   ecfg.Name(),
-		ecfg:   ecfg,
-		client: client,
+		name:      ecfg.Name(),
+		cloud:     cloud,
+		ecfg:      ecfg,
+		client:    client,
+		namespace: namespace,
 	}
 	return env, nil
 }
@@ -77,17 +87,22 @@ func (env *environ) SetConfig(cfg *config.Config) error {
 	return nil
 }
 
-// getSnapshot returns a copy of the environment. This is useful for
-// ensuring the env you are using does not get changed by other code
-// while you are using it.
-func (env *environ) getSnapshot() *environ {
-	e := *env
-	return &e
-}
-
 // Config returns the configuration data with which the env was created.
 func (env *environ) Config() *config.Config {
-	return env.getSnapshot().ecfg.Config
+	env.lock.Lock()
+	cfg := env.ecfg.Config
+	env.lock.Unlock()
+	return cfg
+}
+
+// PrepareForBootstrap implements environs.Environ.
+func (env *environ) PrepareForBootstrap(ctx environs.BootstrapContext) error {
+	return nil
+}
+
+// Create implements environs.Environ.
+func (env *environ) Create(environs.CreateParams) error {
+	return nil
 }
 
 //this variable is exported, because it has to be rewritten in external unit tests
@@ -96,9 +111,14 @@ var Bootstrap = common.Bootstrap
 // Bootstrap creates a new instance, chosing the series and arch out of
 // available tools. The series and arch are returned along with a func
 // that must be called to finalize the bootstrap process by transferring
-// the tools and installing the initial juju state server.
+// the tools and installing the initial juju controller.
 func (env *environ) Bootstrap(ctx environs.BootstrapContext, params environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	return Bootstrap(ctx, env, params)
+}
+
+// BootstrapMessage is part of the Environ interface.
+func (env *environ) BootstrapMessage() string {
+	return ""
 }
 
 //this variable is exported, because it has to be rewritten in external unit tests
@@ -108,4 +128,9 @@ var DestroyEnv = common.Destroy
 // known environment.
 func (env *environ) Destroy() error {
 	return DestroyEnv(env)
+}
+
+// DestroyController implements the Environ interface.
+func (env *environ) DestroyController(controllerUUID string) error {
+	return env.Destroy()
 }

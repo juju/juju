@@ -5,6 +5,7 @@
 package containerinit_test
 
 import (
+	"fmt"
 	"path/filepath"
 	"strings"
 	stdtesting "testing"
@@ -17,10 +18,7 @@ import (
 	"github.com/juju/juju/cloudconfig/containerinit"
 	"github.com/juju/juju/container"
 	containertesting "github.com/juju/juju/container/testing"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/service"
-	systemdtesting "github.com/juju/juju/service/systemd/testing"
 	"github.com/juju/juju/testing"
 )
 
@@ -31,113 +29,295 @@ func Test(t *stdtesting.T) {
 type UserDataSuite struct {
 	testing.BaseSuite
 
-	networkInterfacesFile string
-	fakeInterfaces        []network.InterfaceInfo
-	expectedNetConfig     string
+	networkInterfacesFile       string
+	systemNetworkInterfacesFile string
+
+	fakeInterfaces []network.InterfaceInfo
+
+	expectedSampleConfig     string
+	expectedSampleUserData   string
+	expectedFallbackConfig   string
+	expectedFallbackUserData string
 }
 
 var _ = gc.Suite(&UserDataSuite{})
 
 func (s *UserDataSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.networkInterfacesFile = filepath.Join(c.MkDir(), "interfaces")
+	s.networkInterfacesFile = filepath.Join(c.MkDir(), "juju-interfaces")
+	s.systemNetworkInterfacesFile = filepath.Join(c.MkDir(), "system-interfaces")
 	s.fakeInterfaces = []network.InterfaceInfo{{
-		InterfaceName:  "eth0",
-		CIDR:           "0.1.2.0/24",
-		ConfigType:     network.ConfigStatic,
-		NoAutoStart:    false,
-		Address:        network.NewAddress("0.1.2.3"),
-		DNSServers:     network.NewAddresses("ns1.invalid", "ns2.invalid"),
-		DNSSearch:      "foo.bar",
-		GatewayAddress: network.NewAddress("0.1.2.1"),
+		InterfaceName:    "any0",
+		CIDR:             "0.1.2.0/24",
+		ConfigType:       network.ConfigStatic,
+		NoAutoStart:      false,
+		Address:          network.NewAddress("0.1.2.3"),
+		DNSServers:       network.NewAddresses("ns1.invalid", "ns2.invalid"),
+		DNSSearchDomains: []string{"foo", "bar"},
+		GatewayAddress:   network.NewAddress("0.1.2.1"),
+		MACAddress:       "aa:bb:cc:dd:ee:f0",
 	}, {
-		InterfaceName: "eth1",
+		InterfaceName:    "any1",
+		CIDR:             "0.2.2.0/24",
+		ConfigType:       network.ConfigStatic,
+		NoAutoStart:      false,
+		Address:          network.NewAddress("0.2.2.4"),
+		DNSServers:       network.NewAddresses("ns1.invalid", "ns2.invalid"),
+		DNSSearchDomains: []string{"foo", "bar"},
+		GatewayAddress:   network.NewAddress("0.2.2.1"),
+		MACAddress:       "aa:bb:cc:dd:ee:f1",
+	}, {
+		InterfaceName: "any2",
 		ConfigType:    network.ConfigDHCP,
 		NoAutoStart:   true,
+	}, {
+		InterfaceName: "any3",
+		ConfigType:    network.ConfigDHCP,
+		NoAutoStart:   false,
+	}, {
+		InterfaceName: "any4",
+		ConfigType:    network.ConfigManual,
+		NoAutoStart:   true,
 	}}
-	s.expectedNetConfig = `
-# loopback interface
-auto lo
+	s.expectedSampleConfig = `
+auto any0 any1 any3 lo
+
+iface lo inet loopback
+  dns-nameservers ns1.invalid ns2.invalid
+  dns-search bar foo
+
+iface any0 inet static
+  address 0.1.2.3/24
+  gateway 0.1.2.1
+
+iface any1 inet static
+  address 0.2.2.4/24
+
+iface any2 inet dhcp
+
+iface any3 inet dhcp
+
+iface any4 inet manual
+`
+	s.expectedSampleUserData = `
+#cloud-config
+bootcmd:
+- install -D -m 644 /dev/null '%[1]s'
+- |-
+  printf '%%s\n' '
+  auto any0 any1 any3 lo
+
+  iface lo inet loopback
+    dns-nameservers ns1.invalid ns2.invalid
+    dns-search bar foo
+
+  iface any0 inet static
+    address 0.1.2.3/24
+    gateway 0.1.2.1
+
+  iface any1 inet static
+    address 0.2.2.4/24
+
+  iface any2 inet dhcp
+
+  iface any3 inet dhcp
+
+  iface any4 inet manual
+  ' > '%[1]s'
+runcmd:
+- |-
+  if [ -f %[1]s ]; then
+      ifdown -a
+      sleep 1.5
+      if ifup -a --interfaces=%[1]s; then
+          cp %[2]s %[2]s-orig
+          cp %[1]s %[2]s
+      else
+          ifup -a
+      fi
+  fi
+`[1:]
+
+	s.expectedFallbackConfig = `
+auto eth0 lo
+
 iface lo inet loopback
 
-# interface "eth0"
-auto eth0
-iface eth0 inet manual
-    dns-nameservers ns1.invalid ns2.invalid
-    dns-search foo.bar
-    pre-up ip address add 0.1.2.3/32 dev eth0 &> /dev/null || true
-    up ip route replace 0.1.2.1 dev eth0
-    up ip route replace default via 0.1.2.1
-    down ip route del default via 0.1.2.1 &> /dev/null || true
-    down ip route del 0.1.2.1 dev eth0 &> /dev/null || true
-    post-down ip address del 0.1.2.3/32 dev eth0 &> /dev/null || true
-
-# interface "eth1"
-iface eth1 inet dhcp
+iface eth0 inet dhcp
 `
+	s.expectedFallbackUserData = `
+#cloud-config
+bootcmd:
+- install -D -m 644 /dev/null '%[1]s'
+- |-
+  printf '%%s\n' '
+  auto eth0 lo
+
+  iface lo inet loopback
+
+  iface eth0 inet dhcp
+  ' > '%[1]s'
+runcmd:
+- |-
+  if [ -f %[1]s ]; then
+      ifdown -a
+      sleep 1.5
+      if ifup -a --interfaces=%[1]s; then
+          cp %[2]s %[2]s-orig
+          cp %[1]s %[2]s
+      else
+          ifup -a
+      fi
+  fi
+`[1:]
+
 	s.PatchValue(containerinit.NetworkInterfacesFile, s.networkInterfacesFile)
+	s.PatchValue(containerinit.SystemNetworkInterfacesFile, s.systemNetworkInterfacesFile)
 }
 
 func (s *UserDataSuite) TestGenerateNetworkConfig(c *gc.C) {
-	// No config or no interfaces - no error, but also noting to generate.
 	data, err := containerinit.GenerateNetworkConfig(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(data, gc.HasLen, 0)
+	c.Assert(err, gc.ErrorMatches, "missing container network config")
+	c.Assert(data, gc.Equals, "")
+
 	netConfig := container.BridgeNetworkConfig("foo", 0, nil)
 	data, err = containerinit.GenerateNetworkConfig(netConfig)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(data, gc.HasLen, 0)
+	c.Assert(data, gc.Equals, s.expectedFallbackConfig)
 
 	// Test with all interface types.
 	netConfig = container.BridgeNetworkConfig("foo", 0, s.fakeInterfaces)
 	data, err = containerinit.GenerateNetworkConfig(netConfig)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(data, gc.Equals, s.expectedNetConfig)
+	c.Assert(data, gc.Equals, s.expectedSampleConfig)
 }
 
-func (s *UserDataSuite) TestNewCloudInitConfigWithNetworks(c *gc.C) {
+func (s *UserDataSuite) TestNewCloudInitConfigWithNetworksSampleConfig(c *gc.C) {
 	netConfig := container.BridgeNetworkConfig("foo", 0, s.fakeInterfaces)
 	cloudConf, err := containerinit.NewCloudInitConfigWithNetworks("quantal", netConfig)
 	c.Assert(err, jc.ErrorIsNil)
-	// We need to indent expectNetConfig to make it valid YAML,
-	// dropping the last new line and using unindented blank lines.
-	lines := strings.Split(s.expectedNetConfig, "\n")
-	indentedNetConfig := strings.Join(lines[:len(lines)-1], "\n  ")
-	indentedNetConfig = strings.Replace(indentedNetConfig, "\n  \n", "\n\n", -1)
-	expected := `
-#cloud-config
-bootcmd:
-- install -D -m 644 /dev/null '`[1:] + s.networkInterfacesFile + `'
-- |-
-  printf '%s\n' '` + indentedNetConfig + `
-  ' > '` + s.networkInterfacesFile + `'
-`
+	c.Assert(cloudConf, gc.NotNil)
+
+	expected := fmt.Sprintf(s.expectedSampleUserData, s.networkInterfacesFile, s.systemNetworkInterfacesFile)
 	assertUserData(c, cloudConf, expected)
 }
 
-func (s *UserDataSuite) TestNewCloudInitConfigWithNetworksNoConfig(c *gc.C) {
+func (s *UserDataSuite) TestNewCloudInitConfigWithNetworksFallbackConfig(c *gc.C) {
 	netConfig := container.BridgeNetworkConfig("foo", 0, nil)
 	cloudConf, err := containerinit.NewCloudInitConfigWithNetworks("quantal", netConfig)
 	c.Assert(err, jc.ErrorIsNil)
-	expected := "#cloud-config\n{}\n"
+	c.Assert(cloudConf, gc.NotNil)
+	expected := fmt.Sprintf(s.expectedFallbackUserData, s.networkInterfacesFile, s.systemNetworkInterfacesFile)
 	assertUserData(c, cloudConf, expected)
 }
 
-func (s *UserDataSuite) TestCloudInitUserData(c *gc.C) {
-	instanceConfig, err := containertesting.MockMachineConfig("1/lxc/0")
+func CloudInitDataExcludingOutputSection(data string) []string {
+	// Extract the "#cloud-config" header and all lines between
+	// from the "bootcmd" section up to (but not including) the
+	// "output" sections to match against expected. But we cannot
+	// possibly handle all the /other/ output that may be added by
+	// CloudInitUserData() in the future, so we also truncate at
+	// the first runcmd which now happens to include the runcmd's
+	// added for raising the network interfaces captured in
+	// expectedFallbackUserData. However, the other tests above do
+	// check for that output.
+
+	var linesToMatch []string
+	seenBootcmd := false
+	for _, line := range strings.Split(string(data), "\n") {
+		if strings.HasPrefix(line, "#cloud-config") {
+			linesToMatch = append(linesToMatch, line)
+			continue
+		}
+
+		if strings.HasPrefix(line, "bootcmd:") {
+			seenBootcmd = true
+		}
+
+		if strings.HasPrefix(line, "output:") && seenBootcmd {
+			break
+		}
+
+		if seenBootcmd {
+			linesToMatch = append(linesToMatch, line)
+		}
+	}
+
+	return linesToMatch
+}
+
+// TestCloudInitUserDataNoNetworkConfig tests that no network-interfaces, or
+// related data, appear in user-data when no networkConfig is passed to
+// CloudInitUserData.
+func (s *UserDataSuite) TestCloudInitUserDataNoNetworkConfig(c *gc.C) {
+	instanceConfig, err := containertesting.MockMachineConfig("1/lxd/0")
+	c.Assert(err, jc.ErrorIsNil)
+	data, err := containerinit.CloudInitUserData(instanceConfig, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(data, gc.NotNil)
+
+	linesToMatch := CloudInitDataExcludingOutputSection(string(data))
+
+	c.Assert(strings.Join(linesToMatch, "\n"), gc.Equals, "#cloud-config")
+}
+
+func (s *UserDataSuite) TestCloudInitUserDataFallbackConfig(c *gc.C) {
+	instanceConfig, err := containertesting.MockMachineConfig("1/lxd/0")
 	c.Assert(err, jc.ErrorIsNil)
 	networkConfig := container.BridgeNetworkConfig("foo", 0, nil)
 	data, err := containerinit.CloudInitUserData(instanceConfig, networkConfig)
 	c.Assert(err, jc.ErrorIsNil)
-	// No need to test the exact contents here, as they are already
-	// tested separately.
-	c.Assert(string(data), jc.HasPrefix, "#cloud-config\n")
+	c.Assert(data, gc.NotNil)
+
+	linesToMatch := CloudInitDataExcludingOutputSection(string(data))
+
+	expected := fmt.Sprintf(s.expectedFallbackUserData, s.networkInterfacesFile, s.systemNetworkInterfacesFile)
+	var expectedLinesToMatch []string
+
+	for _, line := range strings.Split(expected, "\n") {
+		if strings.HasPrefix(line, "runcmd:") {
+			break
+		}
+		expectedLinesToMatch = append(expectedLinesToMatch, line)
+	}
+
+	expectedLinesToMatch = append(expectedLinesToMatch, "manage_etc_hosts: true")
+
+	c.Assert(strings.Join(linesToMatch, "\n")+"\n", gc.Equals, strings.Join(expectedLinesToMatch, "\n")+"\n")
+}
+
+func (s *UserDataSuite) TestCloudInitUserDataFallbackConfigWithContainerHostname(c *gc.C) {
+	instanceConfig, err := containertesting.MockMachineConfig("1/lxd/0")
+	instanceConfig.MachineContainerHostname = "lxdhostname"
+	c.Assert(err, jc.ErrorIsNil)
+	networkConfig := container.BridgeNetworkConfig("foo", 0, nil)
+	data, err := containerinit.CloudInitUserData(instanceConfig, networkConfig)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(data, gc.NotNil)
+
+	linesToMatch := CloudInitDataExcludingOutputSection(string(data))
+
+	expected := fmt.Sprintf(s.expectedFallbackUserData, s.networkInterfacesFile, s.systemNetworkInterfacesFile)
+	var expectedLinesToMatch []string
+
+	for _, line := range strings.Split(expected, "\n") {
+		if strings.HasPrefix(line, "runcmd:") {
+			break
+		}
+		expectedLinesToMatch = append(expectedLinesToMatch, line)
+	}
+
+	expectedLinesToMatch = append(expectedLinesToMatch, "hostname: lxdhostname")
+	expectedLinesToMatch = append(expectedLinesToMatch, "manage_etc_hosts: true")
+
+	c.Assert(strings.Join(linesToMatch, "\n")+"\n", gc.Equals, strings.Join(expectedLinesToMatch, "\n")+"\n")
 }
 
 func assertUserData(c *gc.C, cloudConf cloudinit.CloudConfig, expected string) {
 	data, err := cloudConf.RenderYAML()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(data), gc.Equals, expected)
+
 	// Make sure it's valid YAML as well.
 	out := make(map[string]interface{})
 	err = yaml.Unmarshal(data, &out)
@@ -152,76 +332,4 @@ func assertUserData(c *gc.C, cloudConf cloudinit.CloudConfig, expected string) {
 	} else {
 		c.Assert(out["bootcmd"], gc.IsNil)
 	}
-}
-
-func (s *UserDataSuite) TestShutdownInitCommandsUpstart(c *gc.C) {
-	s.SetFeatureFlags(feature.AddressAllocation)
-	cmds, err := containerinit.ShutdownInitCommands(service.InitSystemUpstart, "trusty")
-	c.Assert(err, jc.ErrorIsNil)
-
-	filename := "/etc/init/juju-template-restart.conf"
-	script := `
-description "juju shutdown job"
-author "Juju Team <juju@lists.ubuntu.com>"
-start on stopped cloud-final
-
-script
-  /bin/cat > /etc/network/interfaces << EOC
-# loopback interface
-auto lo
-iface lo inet loopback
-
-# primary interface
-auto eth0
-iface eth0 inet dhcp
-EOC
-  /bin/rm -fr /var/lib/dhcp/dhclient* /var/log/cloud-init*.log
-  /sbin/shutdown -h now
-end script
-
-post-stop script
-  rm /etc/init/juju-template-restart.conf
-end script
-`[1:]
-	c.Check(cmds, gc.HasLen, 1)
-	testing.CheckWriteFileCommand(c, cmds[0], filename, script, nil)
-}
-
-func (s *UserDataSuite) TestShutdownInitCommandsSystemd(c *gc.C) {
-	s.SetFeatureFlags(feature.AddressAllocation)
-	commands, err := containerinit.ShutdownInitCommands(service.InitSystemSystemd, "vivid")
-	c.Assert(err, jc.ErrorIsNil)
-
-	test := systemdtesting.WriteConfTest{
-		Service: "juju-template-restart",
-		DataDir: "/var/lib/juju",
-		Expected: `
-[Unit]
-Description=juju shutdown job
-After=syslog.target
-After=network.target
-After=systemd-user-sessions.service
-After=cloud-config.target
-
-[Service]
-ExecStart=/var/lib/juju/init/juju-template-restart/exec-start.sh
-ExecStopPost=/bin/systemctl disable juju-template-restart.service
-
-[Install]
-WantedBy=multi-user.target
-`[1:],
-		Script: `
-/bin/cat > /etc/network/interfaces << EOC
-# loopback interface
-auto lo
-iface lo inet loopback
-
-# primary interface
-auto eth0
-iface eth0 inet dhcp
-EOC
-  /bin/rm -fr /var/lib/dhcp/dhclient* /var/log/cloud-init*.log
-  /sbin/shutdown -h now`[1:],
-	}
-	test.CheckInstallAndStartCommands(c, commands)
 }

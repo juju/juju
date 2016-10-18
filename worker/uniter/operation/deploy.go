@@ -43,23 +43,13 @@ func (d *deploy) String() string {
 	return fmt.Sprintf("%s%s %s", prefix, verb, d.charmURL)
 }
 
-// Prepare downloads and verifies the charm, and informs the state server
+// Prepare downloads and verifies the charm, and informs the controller
 // that the unit will be using it. If the supplied state indicates that a
 // hook was pending, that hook is recorded in the returned state.
 // Prepare is part of the Operation interface.
 func (d *deploy) Prepare(state State) (*State, error) {
 	if err := d.checkAlreadyDone(state); err != nil {
 		return nil, errors.Trace(err)
-	}
-	if d.revert {
-		if err := d.deployer.NotifyRevert(); err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
-	if d.resolved {
-		if err := d.deployer.NotifyResolved(); err != nil {
-			return nil, errors.Trace(err)
-		}
 	}
 	info, err := d.callbacks.GetArchiveInfo(d.charmURL)
 	if err != nil {
@@ -71,10 +61,10 @@ func (d *deploy) Prepare(state State) (*State, error) {
 	// note: yes, this *should* be in Prepare, not Execute. Before we can safely
 	// write out local state referencing the charm url (by returning the new
 	// State to the Executor, below), we have to register our interest in that
-	// charm on the state server. If we neglected to do so, the operation could
-	// race with a new service-charm-url change on the state server, and lead to
+	// charm on the controller. If we neglected to do so, the operation could
+	// race with a new application-charm-url change on the controller, and lead to
 	// failures on resume in which we try to obtain archive info for a charm that
-	// has already been removed from the state server.
+	// has already been removed from the controller.
 	if err := d.callbacks.SetCurrentCharm(d.charmURL); err != nil {
 		return nil, errors.Trace(err)
 	}

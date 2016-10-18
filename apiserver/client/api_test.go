@@ -8,25 +8,25 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
-	"github.com/juju/juju/storage/poolmanager"
-	"github.com/juju/juju/storage/provider"
+	"github.com/juju/juju/state/presence"
+	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
+	"github.com/juju/juju/worker"
 )
 
 type baseSuite struct {
@@ -72,8 +72,8 @@ func chanReadConfig(c *gc.C, ch <-chan *config.Config, what string) (*config.Con
 	panic("unreachable")
 }
 
-func removeServiceAndUnits(c *gc.C, service *state.Service) {
-	// Destroy all units for the service.
+func removeServiceAndUnits(c *gc.C, service *state.Application) {
+	// Destroy all units for the application.
 	units, err := service.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
 	for _, unit := range units {
@@ -107,11 +107,17 @@ func defaultPassword(e apiAuthenticator) string {
 }
 
 type setStatuser interface {
-	SetStatus(status state.Status, info string, data map[string]interface{}) error
+	SetStatus(status.StatusInfo) error
 }
 
 func setDefaultStatus(c *gc.C, entity setStatuser) {
-	err := entity.SetStatus(state.StatusStarted, "", nil)
+	now := time.Now()
+	s := status.StatusInfo{
+		Status:  status.Started,
+		Message: "",
+		Since:   &now,
+	}
+	err := entity.SetStatus(s)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -119,9 +125,9 @@ func (s *baseSuite) tryOpenState(c *gc.C, e apiAuthenticator, password string) e
 	stateInfo := s.MongoInfo(c)
 	stateInfo.Tag = e.Tag()
 	stateInfo.Password = password
-	st, err := state.Open(s.State.EnvironTag(), stateInfo, mongo.DialOpts{
+	st, err := state.Open(s.State.ModelTag(), s.State.ControllerTag(), stateInfo, mongo.DialOpts{
 		Timeout: 25 * time.Millisecond,
-	}, environs.NewStatePolicy())
+	}, nil)
 	if err == nil {
 		st.Close()
 	}
@@ -153,109 +159,124 @@ func (s *baseSuite) openAs(c *gc.C, tag names.Tag) api.Connection {
 // but this behavior is already tested in cmd/juju/status_test.go and
 // also tested live and it works.
 var scenarioStatus = &params.FullStatus{
-	EnvironmentName: "dummyenv",
+	Model: params.ModelStatusInfo{
+		Name:        "controller",
+		CloudTag:    "cloud-dummy",
+		CloudRegion: "dummy-region",
+		Version:     "1.2.3",
+	},
 	Machines: map[string]params.MachineStatus{
 		"0": {
 			Id:         "0",
 			InstanceId: instance.Id("i-machine-0"),
-			Agent: params.AgentStatus{
+			AgentStatus: params.DetailedStatus{
 				Status: "started",
 				Data:   make(map[string]interface{}),
 			},
-			AgentState:     "down",
-			AgentStateInfo: "(started)",
-			Series:         "quantal",
-			Containers:     map[string]params.MachineStatus{},
-			Jobs:           []multiwatcher.MachineJob{multiwatcher.JobManageEnviron},
-			HasVote:        false,
-			WantsVote:      true,
+			InstanceStatus: params.DetailedStatus{
+				Status: status.Pending.String(),
+				Data:   make(map[string]interface{}),
+			},
+			Series:     "quantal",
+			Containers: map[string]params.MachineStatus{},
+			Jobs:       []multiwatcher.MachineJob{multiwatcher.JobManageModel},
+			HasVote:    false,
+			WantsVote:  true,
 		},
 		"1": {
 			Id:         "1",
 			InstanceId: instance.Id("i-machine-1"),
-			Agent: params.AgentStatus{
+			AgentStatus: params.DetailedStatus{
 				Status: "started",
 				Data:   make(map[string]interface{}),
 			},
-			AgentState:     "down",
-			AgentStateInfo: "(started)",
-			Series:         "quantal",
-			Containers:     map[string]params.MachineStatus{},
-			Jobs:           []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
-			HasVote:        false,
-			WantsVote:      false,
+			InstanceStatus: params.DetailedStatus{
+				Status: status.Pending.String(),
+				Data:   make(map[string]interface{}),
+			},
+			Series:     "quantal",
+			Containers: map[string]params.MachineStatus{},
+			Jobs:       []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+			HasVote:    false,
+			WantsVote:  false,
 		},
 		"2": {
 			Id:         "2",
 			InstanceId: instance.Id("i-machine-2"),
-			Agent: params.AgentStatus{
+			AgentStatus: params.DetailedStatus{
 				Status: "started",
 				Data:   make(map[string]interface{}),
 			},
-			AgentState:     "down",
-			AgentStateInfo: "(started)",
-			Series:         "quantal",
-			Containers:     map[string]params.MachineStatus{},
-			Jobs:           []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
-			HasVote:        false,
-			WantsVote:      false,
+			InstanceStatus: params.DetailedStatus{
+				Status: status.Pending.String(),
+				Data:   make(map[string]interface{}),
+			},
+			Series:     "quantal",
+			Containers: map[string]params.MachineStatus{},
+			Jobs:       []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+			HasVote:    false,
+			WantsVote:  false,
 		},
 	},
-	RemoteServices: map[string]params.RemoteServiceStatus{},
-	Services: map[string]params.ServiceStatus{
+	RemoteApplications: map[string]params.RemoteApplicationStatus{},
+	Applications: map[string]params.ApplicationStatus{
 		"logging": {
-			Charm: "local:quantal/logging-1",
+			Charm:  "local:quantal/logging-1",
+			Series: "quantal",
 			Relations: map[string][]string{
 				"logging-directory": {"wordpress"},
 			},
 			SubordinateTo: []string{"wordpress"},
-			// TODO(fwereade): why does the subordinate have no service status?
+			Status: params.DetailedStatus{
+				Status: "waiting",
+				Info:   "waiting for machine",
+				Data:   map[string]interface{}{},
+			},
 		},
 		"mysql": {
 			Charm:         "local:quantal/mysql-1",
+			Series:        "quantal",
 			Relations:     map[string][]string{},
 			SubordinateTo: []string{},
 			Units:         map[string]params.UnitStatus{},
-			Status: params.AgentStatus{
-				Status: "unknown",
-				Info:   "Waiting for agent initialization to finish",
+			Status: params.DetailedStatus{
+				Status: "waiting",
+				Info:   "waiting for machine",
 				Data:   map[string]interface{}{},
 			},
 		},
 		"wordpress": {
-			Charm: "local:quantal/wordpress-3",
+			Charm:  "local:quantal/wordpress-3",
+			Series: "quantal",
 			Relations: map[string][]string{
 				"logging-dir": {"logging"},
 			},
 			SubordinateTo: []string{},
-			Status: params.AgentStatus{
+			Status: params.DetailedStatus{
 				Status: "error",
 				Info:   "blam",
 				Data:   map[string]interface{}{"remote-unit": "logging/0", "foo": "bar", "relation-id": "0"},
 			},
 			Units: map[string]params.UnitStatus{
 				"wordpress/0": {
-					Workload: params.AgentStatus{
+					WorkloadStatus: params.DetailedStatus{
 						Status: "error",
 						Info:   "blam",
 						Data:   map[string]interface{}{"relation-id": "0"},
 					},
-					UnitAgent: params.AgentStatus{
+					AgentStatus: params.DetailedStatus{
 						Status: "idle",
 						Data:   make(map[string]interface{}),
 					},
-					AgentState:     "error",
-					AgentStateInfo: "blam",
-					Machine:        "1",
+					Machine: "1",
 					Subordinates: map[string]params.UnitStatus{
 						"logging/0": {
-							AgentState: "pending",
-							Workload: params.AgentStatus{
-								Status: "unknown",
-								Info:   "Waiting for agent initialization to finish",
+							WorkloadStatus: params.DetailedStatus{
+								Status: "waiting",
+								Info:   "waiting for machine",
 								Data:   make(map[string]interface{}),
 							},
-							UnitAgent: params.AgentStatus{
+							AgentStatus: params.DetailedStatus{
 								Status: "allocating",
 								Data:   map[string]interface{}{},
 							},
@@ -263,13 +284,12 @@ var scenarioStatus = &params.FullStatus{
 					},
 				},
 				"wordpress/1": {
-					AgentState: "pending",
-					Workload: params.AgentStatus{
-						Status: "unknown",
-						Info:   "Waiting for agent initialization to finish",
+					WorkloadStatus: params.DetailedStatus{
+						Status: "waiting",
+						Info:   "waiting for machine",
 						Data:   make(map[string]interface{}),
 					},
-					UnitAgent: params.AgentStatus{
+					AgentStatus: params.DetailedStatus{
 						Status: "allocating",
 						Info:   "",
 						Data:   make(map[string]interface{}),
@@ -278,13 +298,12 @@ var scenarioStatus = &params.FullStatus{
 					Machine: "2",
 					Subordinates: map[string]params.UnitStatus{
 						"logging/1": {
-							AgentState: "pending",
-							Workload: params.AgentStatus{
-								Status: "unknown",
-								Info:   "Waiting for agent initialization to finish",
+							WorkloadStatus: params.DetailedStatus{
+								Status: "waiting",
+								Info:   "waiting for machine",
 								Data:   make(map[string]interface{}),
 							},
-							UnitAgent: params.AgentStatus{
+							AgentStatus: params.DetailedStatus{
 								Status: "allocating",
 								Info:   "",
 								Data:   make(map[string]interface{}),
@@ -301,23 +320,22 @@ var scenarioStatus = &params.FullStatus{
 			Key: "logging:logging-directory wordpress:logging-dir",
 			Endpoints: []params.EndpointStatus{
 				{
-					ServiceName: "logging",
-					Name:        "logging-directory",
-					Role:        "requirer",
-					Subordinate: true,
+					ApplicationName: "logging",
+					Name:            "logging-directory",
+					Role:            "requirer",
+					Subordinate:     true,
 				},
 				{
-					ServiceName: "wordpress",
-					Name:        "logging-dir",
-					Role:        "provider",
-					Subordinate: false,
+					ApplicationName: "wordpress",
+					Name:            "logging-dir",
+					Role:            "provider",
+					Subordinate:     false,
 				},
 			},
 			Interface: "logging",
 			Scope:     "container",
 		},
 	},
-	Networks: map[string]params.NetworkStatus{},
 }
 
 // setUpScenario makes an environment scenario suitable for
@@ -343,8 +361,8 @@ var scenarioStatus = &params.FullStatus{
 //  nonce="fake_nonce"
 //  jobs=host-units
 //  status=started, info=""
-// service-wordpress
-// service-logging
+// application-wordpress
+// application-logging
 // unit-wordpress-0
 //  deployer-name=machine-1
 //  status=down with error and status data attached
@@ -371,12 +389,15 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 	c.Assert(err, jc.ErrorIsNil)
 	setDefaultPassword(c, u)
 	add(u)
+	err = s.State.UpdateModelConfig(map[string]interface{}{
+		config.AgentVersionKey: "1.2.3"}, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	u = s.Factory.MakeUser(c, &factory.UserParams{Name: "other"})
 	setDefaultPassword(c, u)
 	add(u)
 
-	m, err := s.State.AddMachine("quantal", state.JobManageEnviron)
+	m, err := s.State.AddMachine("quantal", state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Tag(), gc.Equals, names.NewMachineTag("0"))
 	err = m.SetProvisioned(instance.Id("i-"+m.Tag().String()), "fake_nonce", nil)
@@ -431,7 +452,14 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 				"remote-unit": "logging/0",
 				"foo":         "bar",
 			}
-			err := wu.SetAgentStatus(state.StatusError, "blam", sd)
+			now := time.Now()
+			sInfo := status.StatusInfo{
+				Status:  status.Error,
+				Message: "blam",
+				Data:    sd,
+				Since:   &now,
+			}
+			err := wu.SetAgentStatus(sInfo)
 			c.Assert(err, jc.ErrorIsNil)
 		}
 
@@ -450,24 +478,28 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 		s.setAgentPresence(c, wu)
 		add(lu)
 	}
+	allMachines, err := s.State.AllMachines()
+	c.Assert(err, jc.ErrorIsNil)
+	for _, m := range allMachines {
+		s.setAgentPresence(c, m)
+	}
 	return
 }
 
-func (s *baseSuite) setupStoragePool(c *gc.C) {
-	pm := poolmanager.New(state.NewStateSettings(s.State))
-	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{})
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.UpdateEnvironConfig(map[string]interface{}{
-		"storage-default-block-source": "loop-pool",
-	}, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
+type presenceEntity interface {
+	SetAgentPresence() (*presence.Pinger, error)
+	WaitAgentPresence(timeout time.Duration) (err error)
 }
 
-func (s *baseSuite) setAgentPresence(c *gc.C, u *state.Unit) {
-	_, err := u.SetAgentPresence()
+func (s *baseSuite) setAgentPresence(c *gc.C, e presenceEntity) {
+	pinger, err := e.SetAgentPresence()
 	c.Assert(err, jc.ErrorIsNil)
+	s.AddCleanup(func(c *gc.C) {
+		c.Assert(worker.Stop(pinger), jc.ErrorIsNil)
+	})
+
 	s.State.StartSync()
 	s.BackingState.StartSync()
-	err = u.WaitAgentPresence(coretesting.LongWait)
+	err = e.WaitAgentPresence(coretesting.LongWait)
 	c.Assert(err, jc.ErrorIsNil)
 }

@@ -8,6 +8,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
+	"github.com/juju/juju/testing"
 )
 
 type VolumeStatusSuite struct {
@@ -50,51 +52,77 @@ func (s *VolumeStatusSuite) TestInitialStatus(c *gc.C) {
 func (s *VolumeStatusSuite) checkInitialStatus(c *gc.C) {
 	statusInfo, err := s.volume.Status()
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(statusInfo.Status, gc.Equals, state.StatusPending)
+	c.Check(statusInfo.Status, gc.Equals, status.Pending)
 	c.Check(statusInfo.Message, gc.Equals, "")
 	c.Check(statusInfo.Data, gc.HasLen, 0)
 	c.Check(statusInfo.Since, gc.NotNil)
 }
 
 func (s *VolumeStatusSuite) TestSetErrorStatusWithoutInfo(c *gc.C) {
-	err := s.volume.SetStatus(state.StatusError, "", nil)
+	now := testing.ZeroTime()
+	sInfo := status.StatusInfo{
+		Status:  status.Error,
+		Message: "",
+		Since:   &now,
+	}
+	err := s.volume.SetStatus(sInfo)
 	c.Check(err, gc.ErrorMatches, `cannot set status "error" without info`)
 
 	s.checkInitialStatus(c)
 }
 
 func (s *VolumeStatusSuite) TestSetUnknownStatus(c *gc.C) {
-	err := s.volume.SetStatus(state.Status("vliegkat"), "orville", nil)
+	now := testing.ZeroTime()
+	sInfo := status.StatusInfo{
+		Status:  status.Status("vliegkat"),
+		Message: "orville",
+		Since:   &now,
+	}
+	err := s.volume.SetStatus(sInfo)
 	c.Assert(err, gc.ErrorMatches, `cannot set invalid status "vliegkat"`)
 
 	s.checkInitialStatus(c)
 }
 
 func (s *VolumeStatusSuite) TestSetOverwritesData(c *gc.C) {
-	err := s.volume.SetStatus(state.StatusAttaching, "blah", map[string]interface{}{
-		"pew.pew": "zap",
-	})
+	now := testing.ZeroTime()
+	sInfo := status.StatusInfo{
+		Status:  status.Attaching,
+		Message: "blah",
+		Data: map[string]interface{}{
+			"pew.pew": "zap",
+		},
+		Since: &now,
+	}
+	err := s.volume.SetStatus(sInfo)
 	c.Check(err, jc.ErrorIsNil)
 
-	s.checkGetSetStatus(c, state.StatusAttaching)
+	s.checkGetSetStatus(c, status.Attaching)
 }
 
 func (s *VolumeStatusSuite) TestGetSetStatusAlive(c *gc.C) {
-	validStatuses := []state.Status{
-		state.StatusAttaching, state.StatusAttached, state.StatusDetaching,
-		state.StatusDetached, state.StatusDestroying,
+	validStatuses := []status.Status{
+		status.Attaching, status.Attached, status.Detaching,
+		status.Detached, status.Destroying,
 	}
 	for _, status := range validStatuses {
 		s.checkGetSetStatus(c, status)
 	}
 }
 
-func (s *VolumeStatusSuite) checkGetSetStatus(c *gc.C, status state.Status) {
-	err := s.volume.SetStatus(status, "blah", map[string]interface{}{
-		"$foo.bar.baz": map[string]interface{}{
-			"pew.pew": "zap",
+func (s *VolumeStatusSuite) checkGetSetStatus(c *gc.C, volumeStatus status.Status) {
+	now := testing.ZeroTime()
+	sInfo := status.StatusInfo{
+		Status:  volumeStatus,
+		Message: "blah",
+		Data: map[string]interface{}{
+			"$foo.bar.baz": map[string]interface{}{
+				"pew.pew": "zap",
+			},
 		},
-	})
+		Since: &now,
+	}
+	err := s.volume.SetStatus(sInfo)
 	c.Check(err, jc.ErrorIsNil)
 
 	volume, err := s.State.Volume(s.volume.VolumeTag())
@@ -102,7 +130,7 @@ func (s *VolumeStatusSuite) checkGetSetStatus(c *gc.C, status state.Status) {
 
 	statusInfo, err := volume.Status()
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(statusInfo.Status, gc.Equals, status)
+	c.Check(statusInfo.Status, gc.Equals, volumeStatus)
 	c.Check(statusInfo.Message, gc.Equals, "blah")
 	c.Check(statusInfo.Data, jc.DeepEquals, map[string]interface{}{
 		"$foo.bar.baz": map[string]interface{}{
@@ -116,7 +144,7 @@ func (s *VolumeStatusSuite) TestGetSetStatusDying(c *gc.C) {
 	err := s.State.DestroyVolume(s.volume.VolumeTag())
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.checkGetSetStatus(c, state.StatusAttaching)
+	s.checkGetSetStatus(c, status.Attaching)
 }
 
 func (s *VolumeStatusSuite) TestGetSetStatusDead(c *gc.C) {
@@ -134,22 +162,34 @@ func (s *VolumeStatusSuite) TestGetSetStatusDead(c *gc.C) {
 	// NOTE: it would be more technically correct to reject status updates
 	// while Dead, but it's easier and clearer, not to mention more efficient,
 	// to just depend on status doc existence.
-	s.checkGetSetStatus(c, state.StatusAttaching)
+	s.checkGetSetStatus(c, status.Attaching)
 }
 
-func (s *VolumeStatusSuite) TestGetSetStatusNotFound(c *gc.C) {
+func (s *VolumeStatusSuite) TestGetSetStatusGone(c *gc.C) {
 	s.obliterateVolume(c, s.volume.VolumeTag())
 
-	err := s.volume.SetStatus(state.StatusAttaching, "not really", nil)
+	now := testing.ZeroTime()
+	sInfo := status.StatusInfo{
+		Status:  status.Attaching,
+		Message: "not really",
+		Since:   &now,
+	}
+	err := s.volume.SetStatus(sInfo)
 	c.Check(err, gc.ErrorMatches, `cannot set status: volume not found`)
 
 	statusInfo, err := s.volume.Status()
 	c.Check(err, gc.ErrorMatches, `cannot get status: volume not found`)
-	c.Check(statusInfo, gc.DeepEquals, state.StatusInfo{})
+	c.Check(statusInfo, gc.DeepEquals, status.StatusInfo{})
 }
 
 func (s *VolumeStatusSuite) TestSetStatusPendingUnprovisioned(c *gc.C) {
-	err := s.volume.SetStatus(state.StatusPending, "still", nil)
+	now := testing.ZeroTime()
+	sInfo := status.StatusInfo{
+		Status:  status.Pending,
+		Message: "still",
+		Since:   &now,
+	}
+	err := s.volume.SetStatus(sInfo)
 	c.Check(err, jc.ErrorIsNil)
 }
 
@@ -158,6 +198,12 @@ func (s *VolumeStatusSuite) TestSetStatusPendingProvisioned(c *gc.C) {
 		VolumeId: "vol-ume",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.volume.SetStatus(state.StatusPending, "", nil)
+	now := testing.ZeroTime()
+	sInfo := status.StatusInfo{
+		Status:  status.Pending,
+		Message: "",
+		Since:   &now,
+	}
+	err = s.volume.SetStatus(sInfo)
 	c.Check(err, gc.ErrorMatches, `cannot set status "pending"`)
 }

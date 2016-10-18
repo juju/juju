@@ -64,7 +64,7 @@ func (m *ovaImportManager) importOva(ecfg *environConfig, instSpec *instanceSpec
 			logger.Errorf("can't remove temp directory, error: %s", err.Error())
 		}
 	}()
-	ovf, err := m.downloadOva(basePath, instSpec.img.Url)
+	ovf, err := m.downloadOva(basePath, instSpec.img.URL)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -95,8 +95,13 @@ func (m *ovaImportManager) importOva(ecfg *environConfig, instSpec *instanceSpec
 		Limit:       int64(*instSpec.hwc.CpuPower),
 		Reservation: int64(*instSpec.hwc.CpuPower),
 	}
-	if instSpec.isState {
-		s.ExtraConfig = append(s.ExtraConfig, &types.OptionValue{Key: metadataKeyIsState, Value: metadataValueIsState})
+	s.ExtraConfig = append(s.ExtraConfig, &types.OptionValue{
+		Key: metadataKeyControllerUUID, Value: instSpec.controllerUUID,
+	})
+	if instSpec.isController {
+		s.ExtraConfig = append(s.ExtraConfig, &types.OptionValue{
+			Key: metadataKeyIsController, Value: metadataValueIsController,
+		})
 	}
 	for _, d := range s.DeviceChange {
 		if disk, ok := d.GetVirtualDeviceConfigSpec().Device.(*types.VirtualDisk); ok {

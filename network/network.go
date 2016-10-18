@@ -8,42 +8,37 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"regexp"
 	"sort"
 	"strings"
-	"sync/atomic"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils/set"
 )
 
 var logger = loggo.GetLogger("juju.network")
 
-// TODO(dimitern): Remove this once we use spaces as per the model.
-const (
-	// Id of the default public juju network
-	DefaultPublic = "juju-public"
-
-	// Id of the default private juju network
-	DefaultPrivate = "juju-private"
-
-	// Provider Id for the default network
-	DefaultProviderId = "juju-unknown"
-)
+// SpaceInvalidChars is a regexp for validating that space names contain no
+// invalid characters.
+var SpaceInvalidChars = regexp.MustCompile("[^0-9a-z-]")
 
 // noAddress represents an error when an address is requested but not available.
 type noAddress struct {
 	errors.Err
 }
 
-// NoAddressf returns an error which satisfies IsNoAddress().
-func NoAddressf(format string, args ...interface{}) error {
-	newErr := errors.NewErr(format+" no address", args...)
+// NoAddressError returns an error which satisfies IsNoAddressError(). The given
+// addressKind specifies what kind of address is missing, usually "private" or
+// "public".
+func NoAddressError(addressKind string) error {
+	newErr := errors.NewErr("no %s address", addressKind)
 	newErr.SetLocation(1)
 	return &noAddress{newErr}
 }
 
-// IsNoAddress reports whether err was created with NoAddressf().
-func IsNoAddress(err error) bool {
+// IsNoAddressError reports whether err was created with NoAddressError().
+func IsNoAddressError(err error) bool {
 	err = errors.Cause(err)
 	_, ok := err.(*noAddress)
 	return ok
@@ -56,6 +51,48 @@ type Id string
 // providers as "the subnet id does not matter". It's up to the
 // provider how to handle this case - it might return an error.
 const AnySubnet Id = ""
+
+// UnknownId can be used whenever an Id is needed but not known.
+const UnknownId = ""
+
+// DefaultLXDBridge is the bridge that gets used for LXD containers
+const DefaultLXDBridge = "lxdbr0"
+
+var dashPrefix = regexp.MustCompile("^-*")
+var dashSuffix = regexp.MustCompile("-*$")
+var multipleDashes = regexp.MustCompile("--+")
+
+// ConvertSpaceName converts names between provider space names and valid juju
+// space names.
+// TODO(mfoord): once MAAS space name rules are in sync with juju space name
+// rules this can go away.
+func ConvertSpaceName(name string, existing set.Strings) string {
+	// First lower case and replace spaces with dashes.
+	name = strings.Replace(name, " ", "-", -1)
+	name = strings.ToLower(name)
+	// Replace any character that isn't in the set "-", "a-z", "0-9".
+	name = SpaceInvalidChars.ReplaceAllString(name, "")
+	// Get rid of any dashes at the start as that isn't valid.
+	name = dashPrefix.ReplaceAllString(name, "")
+	// And any at the end.
+	name = dashSuffix.ReplaceAllString(name, "")
+	// Repleace multiple dashes with a single dash.
+	name = multipleDashes.ReplaceAllString(name, "-")
+	// Special case of when the space name was only dashes or invalid
+	// characters!
+	if name == "" {
+		name = "empty"
+	}
+	// If this name is in use add a numerical suffix.
+	if existing.Contains(name) {
+		counter := 2
+		for existing.Contains(name + fmt.Sprintf("-%d", counter)) {
+			counter += 1
+		}
+		name = name + fmt.Sprintf("-%d", counter)
+	}
+	return name
+}
 
 // SubnetInfo describes the bare minimum information for a subnet,
 // which the provider knows about but juju might not yet.
@@ -74,26 +111,20 @@ type SubnetInfo struct {
 	// http://en.wikipedia.org/wiki/IEEE_802.1Q.
 	VLANTag int
 
-	// AllocatableIPLow and AllocatableIPHigh describe the allocatable
-	// portion of the subnet. The provider will only permit allocation
-	// between these limits. If they are empty then none of the subnet is
-	// allocatable.
-	AllocatableIPLow  net.IP
-	AllocatableIPHigh net.IP
-
 	// AvailabilityZones describes which availability zone(s) this
 	// subnet is in. It can be empty if the provider does not support
 	// availability zones.
 	AvailabilityZones []string
 
-	// SpaceName holds the juju network space associated with this
-	// subnet. Can be empty if not supported.
-	SpaceName string
+	// SpaceProviderId holds the provider Id of the space associated with
+	// this subnet. Can be empty if not supported.
+	SpaceProviderId Id
 }
 
 type SpaceInfo struct {
-	Name  string
-	CIDRs []string
+	Name       string
+	ProviderId Id
+	Subnets    []SubnetInfo
 }
 type BySpaceName []SpaceInfo
 
@@ -108,11 +139,23 @@ func (s BySpaceName) Less(i, j int) bool {
 type InterfaceConfigType string
 
 const (
-	ConfigUnknown InterfaceConfigType = ""
-	ConfigDHCP    InterfaceConfigType = "dhcp"
-	ConfigStatic  InterfaceConfigType = "static"
-	ConfigManual  InterfaceConfigType = "manual"
-	// add others when needed
+	ConfigUnknown  InterfaceConfigType = ""
+	ConfigDHCP     InterfaceConfigType = "dhcp"
+	ConfigStatic   InterfaceConfigType = "static"
+	ConfigManual   InterfaceConfigType = "manual"
+	ConfigLoopback InterfaceConfigType = "loopback"
+)
+
+// InterfaceType defines valid network interface types.
+type InterfaceType string
+
+const (
+	UnknownInterface    InterfaceType = ""
+	LoopbackInterface   InterfaceType = "loopback"
+	EthernetInterface   InterfaceType = "ethernet"
+	VLAN_8021QInterface InterfaceType = "802.1q"
+	BondInterface       InterfaceType = "bond"
+	BridgeInterface     InterfaceType = "bridge"
 )
 
 // InterfaceInfo describes a single network interface available on an
@@ -131,15 +174,23 @@ type InterfaceInfo struct {
 	// CIDR of the network, in 123.45.67.89/24 format.
 	CIDR string
 
-	// NetworkName is juju-internal name of the network.
-	NetworkName string
-
 	// ProviderId is a provider-specific NIC id.
 	ProviderId Id
 
 	// ProviderSubnetId is the provider-specific id for the associated
 	// subnet.
 	ProviderSubnetId Id
+
+	// ProviderSpaceId is the provider-specific id for the associated space, if
+	// known and supported.
+	ProviderSpaceId Id
+
+	// ProviderVLANId is the provider-specific id of the VLAN for this
+	// interface.
+	ProviderVLANId Id
+
+	// ProviderAddressId is the provider-specific id of the assigned address.
+	ProviderAddressId Id
 
 	// AvailabilityZones describes the availability zones the associated
 	// subnet is in.
@@ -152,6 +203,12 @@ type InterfaceInfo struct {
 	// InterfaceName is the raw OS-specific network device name (e.g.
 	// "eth1", even for a VLAN eth1.42 virtual interface).
 	InterfaceName string
+
+	// ParentInterfaceName is the name of the parent interface to use, if known.
+	ParentInterfaceName string
+
+	// InterfaceType is the type of the interface.
+	InterfaceType InterfaceType
 
 	// Disabled is true when the interface needs to be disabled on the
 	// machine, e.g. not to configure it.
@@ -178,19 +235,19 @@ type InterfaceInfo struct {
 	// interface.
 	DNSServers []Address
 
-	// DNSSearch contains the default DNS domain to use for
-	// non-FQDN lookups.
-	DNSSearch string
+	// MTU is the Maximum Transmission Unit controlling the maximum size of the
+	// protocol packats that the interface can pass through. It is only used
+	// when > 0.
+	MTU int
+
+	// DNSSearchDomains contains the default DNS domain to use for non-FQDN
+	// lookups.
+	DNSSearchDomains []string
 
 	// Gateway address, if set, defines the default gateway to
 	// configure for this network interface. For containers this
 	// usually is (one of) the host address(es).
 	GatewayAddress Address
-
-	// ExtraConfig can contain any valid setting and its value allowed
-	// inside an "iface" section of a interfaces(5) config file, e.g.
-	// "up", "down", "mtu", etc.
-	ExtraConfig map[string]string
 }
 
 type interfaceInfoSlice []InterfaceInfo
@@ -229,23 +286,38 @@ func (i *InterfaceInfo) IsVLAN() bool {
 	return i.VLANTag > 0
 }
 
-var preferIPv6 uint32
-
-// PreferIPV6 returns true if this process prefers IPv6.
-func PreferIPv6() bool { return atomic.LoadUint32(&preferIPv6) > 0 }
-
-// SetPreferIPv6 determines whether IPv6 addresses will be preferred when
-// selecting a public or internal addresses, using the Select*() methods.
-// SetPreferIPV6 needs to be called to set this flag globally at the
-// earliest time possible (e.g. at bootstrap, agent startup, before any
-// CLI command).
-func SetPreferIPv6(prefer bool) {
-	var b uint32
-	if prefer {
-		b = 1
+// CIDRAddress returns Address.Value combined with CIDR mask.
+func (i *InterfaceInfo) CIDRAddress() string {
+	if i.CIDR == "" || i.Address.Value == "" {
+		return ""
 	}
-	atomic.StoreUint32(&preferIPv6, b)
-	logger.Infof("setting prefer-ipv6 to %v", prefer)
+	_, ipNet, err := net.ParseCIDR(i.CIDR)
+	if err != nil {
+		return errors.Trace(err).Error()
+	}
+	ip := net.ParseIP(i.Address.Value)
+	if ip == nil {
+		return errors.Errorf("cannot parse IP address %q", i.Address.Value).Error()
+	}
+	ipNet.IP = ip
+	return ipNet.String()
+}
+
+// ProviderInterfaceInfo holds enough information to identify an
+// interface or link layer device to a provider so that it can be
+// queried or manipulated. Its initial purpose is to pass to
+// provider.ReleaseContainerAddresses.
+type ProviderInterfaceInfo struct {
+	// InterfaceName is the raw OS-specific network device name (e.g.
+	// "eth1", even for a VLAN eth1.42 virtual interface).
+	InterfaceName string
+
+	// ProviderId is a provider-specific NIC id.
+	ProviderId Id
+
+	// MACAddress is the network interface's hardware MAC address
+	// (e.g. "aa:bb:cc:dd:ee:ff").
+	MACAddress string
 }
 
 // LXCNetDefaultConfig is the location of the default network config
@@ -262,12 +334,68 @@ var InterfaceByNameAddrs = func(name string) ([]net.Addr, error) {
 	return iface.Addrs()
 }
 
-// FilterLXCAddresses tries to discover the default lxc bridge name
+// filterAddrs looks at all of the addresses in allAddresses and removes ones
+// that line up with removeAddresses. Note that net.Addr may be just an IP or
+// may be a CIDR.
+func filterAddrs(bridgeName string, allAddresses []Address, removeAddresses []net.Addr) []Address {
+	filtered := make([]Address, 0, len(allAddresses))
+	// TODO(jam) ips could be turned into a map[string]bool rather than
+	// iterating over all of them, as we only compare against ip.String()
+	ips := make([]net.IP, 0, len(removeAddresses))
+	ipNets := make([]*net.IPNet, 0, len(removeAddresses))
+	for _, ifaceAddr := range removeAddresses {
+		// First check if this is a CIDR, as
+		// net.InterfaceAddrs might return this instead of
+		// a plain IP.
+		ip, ipNet, err := net.ParseCIDR(ifaceAddr.String())
+		if err != nil {
+			// It's not a CIDR, try parsing as IP.
+			ip = net.ParseIP(ifaceAddr.String())
+		}
+		if ip == nil {
+			logger.Debugf("cannot parse %q as IP, ignoring", ifaceAddr)
+			continue
+		}
+		ips = append(ips, ip)
+		if ipNet != nil {
+			ipNets = append(ipNets, ipNet)
+		}
+	}
+	for _, addr := range allAddresses {
+		found := false
+		// Filter all known IPs
+		for _, ip := range ips {
+			if ip.String() == addr.Value {
+				found = true
+				break
+			}
+		}
+		if !found {
+			// Then check if it is in one of the CIDRs
+			for _, ipNet := range ipNets {
+				if ipNet.Contains(net.ParseIP(addr.Value)) {
+					found = true
+					break
+				}
+			}
+		}
+		if found {
+			logger.Debugf("filtering %q address %s for machine", bridgeName, addr.String())
+		} else {
+			logger.Debugf("not filtering address %s for machine", addr)
+			filtered = append(filtered, addr)
+		}
+	}
+	logger.Debugf("addresses after filtering: %v", filtered)
+	return filtered
+}
+
+// filterLXCAddresses tries to discover the default lxc bridge name
 // and all of its addresses, then filters those addresses out of the
 // given ones and returns the result. Any errors encountered during
 // this process are logged, but not considered fatal. See LP bug
 // #1416928.
-func FilterLXCAddresses(addresses []Address) []Address {
+func filterLXCAddresses(addresses []Address) []Address {
 	file, err := os.Open(LXCNetDefaultConfig)
 	if os.IsNotExist(err) {
 		// No lxc-net config found, nothing to do.
@@ -275,44 +403,10 @@ func FilterLXCAddresses(addresses []Address) []Address {
 		return addresses
 	} else if err != nil {
 		// Just log it, as it's not fatal.
-		logger.Warningf("cannot open %q: %v", LXCNetDefaultConfig, err)
+		logger.Errorf("cannot open %q: %v", LXCNetDefaultConfig, err)
 		return addresses
 	}
 	defer file.Close()
-
-	filterAddrs := func(bridgeName string, addrs []net.Addr) []Address {
-		// Filter out any bridge addresses.
-		filtered := make([]Address, 0, len(addresses))
-		for _, addr := range addresses {
-			found := false
-			for _, ifaceAddr := range addrs {
-				// First check if this is a CIDR, as
-				// net.InterfaceAddrs might return this instead of
-				// a plain IP.
-				ip, ipNet, err := net.ParseCIDR(ifaceAddr.String())
-				if err != nil {
-					// It's not a CIDR, try parsing as IP.
-					ip = net.ParseIP(ifaceAddr.String())
-				}
-				if ip == nil {
-					logger.Debugf("cannot parse %q as IP, ignoring", ifaceAddr)
-					continue
-				}
-				// Filter by CIDR if known or single IP otherwise.
-				if ipNet != nil && ipNet.Contains(net.ParseIP(addr.Value)) ||
-					ip.String() == addr.Value {
-					found = true
-					logger.Debugf("filtering %q address %s for machine", bridgeName, ifaceAddr.String())
-				}
-			}
-			if !found {
-				logger.Debugf("not filtering address %s for machine", addr)
-				filtered = append(filtered, addr)
-			}
-		}
-		logger.Debugf("addresses after filtering: %v", filtered)
-		return filtered
-	}
 
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
@@ -331,15 +425,38 @@ func FilterLXCAddresses(addresses []Address) []Address {
 			// Discover all addresses of bridgeName interface.
 			addrs, err := InterfaceByNameAddrs(bridgeName)
 			if err != nil {
-				logger.Warningf("cannot get %q addresses: %v (ignoring)", bridgeName, err)
+				logger.Debugf("cannot get %q addresses: %v (ignoring)", bridgeName, err)
 				continue
 			}
 			logger.Debugf("%q has addresses %v", bridgeName, addrs)
-			return filterAddrs(bridgeName, addrs)
+			return filterAddrs(bridgeName, addresses, addrs)
 		}
 	}
 	if err := scanner.Err(); err != nil {
-		logger.Warningf("failed to read %q: %v (ignoring)", LXCNetDefaultConfig, err)
+		logger.Debugf("failed to read %q: %v (ignoring)", LXCNetDefaultConfig, err)
 	}
+	return addresses
+}
+
+// filterLXDAddresses removes addresses on the LXD bridge from the list to be
+// considered.
+func filterLXDAddresses(addresses []Address) []Address {
+	// Should we be getting this from LXD instead?
+	addrs, err := InterfaceByNameAddrs(DefaultLXDBridge)
+	if err != nil {
+		logger.Warningf("cannot get %q addresses: %v (ignoring)", DefaultLXDBridge, err)
+		return addresses
+	}
+	logger.Debugf("%q has addresses %v", DefaultLXDBridge, addrs)
+	return filterAddrs(DefaultLXDBridge, addresses, addrs)
+
+}
+
+// FilterBridgeAddresses removes addresses seen as a Bridge address (the IP
+// address used only to connect to local containers), rather than a remote
+// accessible address.
+func FilterBridgeAddresses(addresses []Address) []Address {
+	addresses = filterLXCAddresses(addresses)
+	addresses = filterLXDAddresses(addresses)
 	return addresses
 }

@@ -5,10 +5,12 @@ package remoterelations
 
 import (
 	"github.com/juju/errors"
+	"gopkg.in/juju/names.v2"
+
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/watcher"
+	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/names"
+	"github.com/juju/juju/watcher"
 )
 
 const remoteRelationsFacade = "RemoteRelations"
@@ -24,37 +26,37 @@ func NewState(caller base.APICaller) *State {
 	return &State{facadeCaller}
 }
 
-// WatchRemoteServices returns a strings watcher that notifies of the addition,
-// removal, and lifecycle changes of remote services in the environment.
-func (st *State) WatchRemoteServices() (watcher.StringsWatcher, error) {
+// WatchRemoteApplications returns a strings watcher that notifies of the addition,
+// removal, and lifecycle changes of remote applications in the model.
+func (st *State) WatchRemoteApplications() (watcher.StringsWatcher, error) {
 	var result params.StringsWatchResult
-	err := st.facade.FacadeCall("WatchRemoteServices", nil, &result)
+	err := st.facade.FacadeCall("WatchRemoteApplications", nil, &result)
 	if err != nil {
 		return nil, err
 	}
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	w := watcher.NewStringsWatcher(st.facade.RawAPICaller(), result)
+	w := apiwatcher.NewStringsWatcher(st.facade.RawAPICaller(), result)
 	return w, nil
 }
 
-// WatchRemoteService returns service relations watchers that delivers
+// WatchRemoteApplication returns application relations watchers that delivers
 // changes according to the addition, removal, and lifecycle changes of
-// relations that the specified remote service is involved in; and also
+// relations that the specified remote application is involved in; and also
 // according to the entering, departing, and change of unit settings in
 // those relations.
-func (st *State) WatchRemoteService(service string) (watcher.ServiceRelationsWatcher, error) {
-	if !names.IsValidService(service) {
-		return nil, errors.NotValidf("service name %q", service)
+func (st *State) WatchRemoteApplication(service string) (watcher.ApplicationRelationsWatcher, error) {
+	if !names.IsValidApplication(service) {
+		return nil, errors.NotValidf("application name %q", service)
 	}
-	serviceTag := names.NewServiceTag(service)
+	serviceTag := names.NewApplicationTag(service)
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: serviceTag.String()}},
 	}
 
-	var results params.ServiceRelationsWatchResults
-	err := st.facade.FacadeCall("WatchRemoteService", args, &results)
+	var results params.ApplicationRelationsWatchResults
+	err := st.facade.FacadeCall("WatchRemoteApplication", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -65,6 +67,6 @@ func (st *State) WatchRemoteService(service string) (watcher.ServiceRelationsWat
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	w := watcher.NewServiceRelationsWatcher(st.facade.RawAPICaller(), result)
+	w := apiwatcher.NewApplicationRelationsWatcher(st.facade.RawAPICaller(), result)
 	return w, nil
 }

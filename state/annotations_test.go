@@ -5,12 +5,13 @@ package state_test
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
 )
 
@@ -159,27 +160,30 @@ func (s *AnnotationsEnvSuite) TestSetAnnotationsDestroyedEnvironment(c *gc.C) {
 
 	err = env.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.Close()
+	err = st.RemoveAllModelDocs()
 	c.Assert(err, jc.ErrorIsNil)
-	err = state.RemoveEnvironment(s.State, st.EnvironUUID())
+	err = st.Close()
 	c.Assert(err, jc.ErrorIsNil)
 
 	expected = "fail"
 	annts[key] = expected
 	err = s.State.SetAnnotations(env, annts)
-	c.Assert(errors.Cause(err), gc.ErrorMatches, ".*environment not found.*")
+	c.Assert(errors.Cause(err), gc.ErrorMatches, ".*model not found.*")
 	c.Assert(err, gc.ErrorMatches, ".*cannot update annotations.*")
 }
 
-func (s *AnnotationsEnvSuite) createTestEnv(c *gc.C) (*state.Environment, *state.State) {
+func (s *AnnotationsEnvSuite) createTestEnv(c *gc.C) (*state.Model, *state.State) {
 	uuid, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
-	cfg := testing.CustomEnvironConfig(c, testing.Attrs{
+	cfg := testing.CustomModelConfig(c, testing.Attrs{
 		"name": "testing",
 		"uuid": uuid.String(),
 	})
 	owner := names.NewUserTag("test@remote")
-	env, st, err := s.State.NewEnvironment(cfg, owner)
+	env, st, err := s.State.NewModel(state.ModelArgs{
+		CloudName: "dummy", CloudRegion: "dummy-region", Config: cfg, Owner: owner,
+		StorageProviderRegistry: storage.StaticProviderRegistry{},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	return env, st
 }

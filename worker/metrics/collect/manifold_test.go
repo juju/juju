@@ -8,14 +8,14 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/juju/names"
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	corecharm "gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api/base"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/dependency"
 	dt "github.com/juju/juju/worker/dependency/testing"
@@ -34,8 +34,7 @@ type ManifoldSuite struct {
 
 	manifoldConfig collect.ManifoldConfig
 	manifold       dependency.Manifold
-	dummyResources dt.StubResources
-	getResource    dependency.GetResourceFunc
+	resources      dt.StubResources
 }
 
 var _ = gc.Suite(&ManifoldSuite{})
@@ -44,7 +43,6 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.manifoldConfig = collect.ManifoldConfig{
 		AgentName:       "agent-name",
-		APICallerName:   "apicaller-name",
 		MetricSpoolName: "metric-spool-name",
 		CharmDirName:    "charmdir-name",
 	}
@@ -55,19 +53,17 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	err := os.MkdirAll(filepath.Join(s.dataDir, "agents", "unit-u-0"), 0777)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.dummyResources = dt.StubResources{
+	s.resources = dt.StubResources{
 		"agent-name":        dt.StubResource{Output: &dummyAgent{dataDir: s.dataDir}},
-		"apicaller-name":    dt.StubResource{Output: &dummyAPICaller{}},
 		"metric-spool-name": dt.StubResource{Output: &dummyMetricFactory{}},
 		"charmdir-name":     dt.StubResource{Output: &dummyCharmdir{aborted: false}},
 	}
-	s.getResource = dt.StubGetResource(s.dummyResources)
 }
 
 // TestInputs ensures the collect manifold has the expected defined inputs.
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
 	c.Check(s.manifold.Inputs, jc.DeepEquals, []string{
-		"agent-name", "apicaller-name", "metric-spool-name", "charmdir-name",
+		"agent-name", "metric-spool-name", "charmdir-name",
 	})
 }
 
@@ -75,18 +71,17 @@ func (s *ManifoldSuite) TestInputs(c *gc.C) {
 // resource dependency.
 func (s *ManifoldSuite) TestStartMissingDeps(c *gc.C) {
 	for _, missingDep := range []string{
-		"agent-name", "apicaller-name", "metric-spool-name", "charmdir-name",
+		"agent-name", "metric-spool-name", "charmdir-name",
 	} {
 		testResources := dt.StubResources{}
-		for k, v := range s.dummyResources {
+		for k, v := range s.resources {
 			if k == missingDep {
 				testResources[k] = dt.StubResource{Error: dependency.ErrMissing}
 			} else {
 				testResources[k] = v
 			}
 		}
-		getResource := dt.StubGetResource(testResources)
-		worker, err := s.manifold.Start(getResource)
+		worker, err := s.manifold.Start(testResources.Context())
 		c.Check(worker, gc.IsNil)
 		c.Check(err, gc.Equals, dependency.ErrMissing)
 	}
@@ -95,7 +90,7 @@ func (s *ManifoldSuite) TestStartMissingDeps(c *gc.C) {
 // TestCollectWorkerStarts ensures that the manifold correctly sets up the worker.
 func (s *ManifoldSuite) TestCollectWorkerStarts(c *gc.C) {
 	s.PatchValue(collect.NewRecorder,
-		func(_ names.UnitTag, _ context.Paths, _ collect.UnitCharmLookup, _ spool.MetricFactory) (spool.MetricRecorder, error) {
+		func(_ names.UnitTag, _ context.Paths, _ spool.MetricFactory) (spool.MetricRecorder, error) {
 			// Return a dummyRecorder here, because otherwise a real one
 			// *might* get instantiated and error out, if the periodic worker
 			// happens to fire before the worker shuts down (as seen in
@@ -105,8 +100,11 @@ func (s *ManifoldSuite) TestCollectWorkerStarts(c *gc.C) {
 				unitTag:  "ubuntu/0",
 			}, nil
 		})
-	getResource := dt.StubGetResource(s.dummyResources)
-	worker, err := s.manifold.Start(getResource)
+	s.PatchValue(collect.ReadCharm,
+		func(_ names.UnitTag, _ context.Paths) (*corecharm.URL, map[string]corecharm.Metric, error) {
+			return corecharm.MustParseURL("cs:ubuntu-1"), map[string]corecharm.Metric{"pings": corecharm.Metric{Description: "test metric", Type: corecharm.MetricTypeAbsolute}}, nil
+		})
+	worker, err := s.manifold.Start(s.resources.Context())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(worker, gc.NotNil)
 	worker.Kill()
@@ -123,10 +121,14 @@ func (s *ManifoldSuite) TestJujuUnitsBuiltinMetric(c *gc.C) {
 		isDeclaredMetric: true,
 	}
 	s.PatchValue(collect.NewRecorder,
-		func(_ names.UnitTag, _ context.Paths, _ collect.UnitCharmLookup, _ spool.MetricFactory) (spool.MetricRecorder, error) {
+		func(_ names.UnitTag, _ context.Paths, _ spool.MetricFactory) (spool.MetricRecorder, error) {
 			return recorder, nil
 		})
-	collectEntity, err := (*collect.NewCollect)(s.manifoldConfig, s.getResource)
+	s.PatchValue(collect.ReadCharm,
+		func(_ names.UnitTag, _ context.Paths) (*corecharm.URL, map[string]corecharm.Metric, error) {
+			return corecharm.MustParseURL("cs:wordpress-37"), map[string]corecharm.Metric{"pings": corecharm.Metric{Description: "test metric", Type: corecharm.MetricTypeAbsolute}}, nil
+		})
+	collectEntity, err := collect.NewCollect(s.manifoldConfig, s.resources.Context())
 	c.Assert(err, jc.ErrorIsNil)
 	err = collectEntity.Do(nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -147,22 +149,24 @@ func (s *ManifoldSuite) TestAvailability(c *gc.C) {
 		isDeclaredMetric: true,
 	}
 	s.PatchValue(collect.NewRecorder,
-		func(_ names.UnitTag, _ context.Paths, _ collect.UnitCharmLookup, _ spool.MetricFactory) (spool.MetricRecorder, error) {
+		func(_ names.UnitTag, _ context.Paths, _ spool.MetricFactory) (spool.MetricRecorder, error) {
 			return recorder, nil
 		})
+	s.PatchValue(collect.ReadCharm,
+		func(_ names.UnitTag, _ context.Paths) (*corecharm.URL, map[string]corecharm.Metric, error) {
+			return corecharm.MustParseURL("cs:wordpress-37"), map[string]corecharm.Metric{"pings": corecharm.Metric{Description: "test metric", Type: corecharm.MetricTypeAbsolute}}, nil
+		})
 	charmdir := &dummyCharmdir{aborted: true}
-	s.dummyResources["charmdir-name"] = dt.StubResource{Output: charmdir}
-	getResource := dt.StubGetResource(s.dummyResources)
-	collectEntity, err := (*collect.NewCollect)(s.manifoldConfig, getResource)
+	s.resources["charmdir-name"] = dt.StubResource{Output: charmdir}
+	collectEntity, err := collect.NewCollect(s.manifoldConfig, s.resources.Context())
 	c.Assert(err, jc.ErrorIsNil)
 	err = collectEntity.Do(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(recorder.batches, gc.HasLen, 0)
 
 	charmdir = &dummyCharmdir{aborted: false}
-	s.dummyResources["charmdir-name"] = dt.StubResource{Output: charmdir}
-	getResource = dt.StubGetResource(s.dummyResources)
-	collectEntity, err = (*collect.NewCollect)(s.manifoldConfig, getResource)
+	s.resources["charmdir-name"] = dt.StubResource{Output: charmdir}
+	collectEntity, err = collect.NewCollect(s.manifoldConfig, s.resources.Context())
 	c.Assert(err, jc.ErrorIsNil)
 	err = collectEntity.Do(nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -179,10 +183,14 @@ func (s *ManifoldSuite) TestNoMetricsDeclared(c *gc.C) {
 		isDeclaredMetric: false,
 	}
 	s.PatchValue(collect.NewRecorder,
-		func(_ names.UnitTag, _ context.Paths, _ collect.UnitCharmLookup, _ spool.MetricFactory) (spool.MetricRecorder, error) {
+		func(_ names.UnitTag, _ context.Paths, _ spool.MetricFactory) (spool.MetricRecorder, error) {
 			return recorder, nil
 		})
-	collectEntity, err := (*collect.NewCollect)(s.manifoldConfig, s.getResource)
+	s.PatchValue(collect.ReadCharm,
+		func(_ names.UnitTag, _ context.Paths) (*corecharm.URL, map[string]corecharm.Metric, error) {
+			return corecharm.MustParseURL("cs:wordpress-37"), map[string]corecharm.Metric{}, nil
+		})
+	collectEntity, err := collect.NewCollect(s.manifoldConfig, s.resources.Context())
 	c.Assert(err, jc.ErrorIsNil)
 	err = collectEntity.Do(nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -214,10 +222,6 @@ func (ac dummyAgentConfig) DataDir() string {
 	return ac.dataDir
 }
 
-type dummyAPICaller struct {
-	base.APICaller
-}
-
 type dummyCharmdir struct {
 	fortress.Guest
 
@@ -242,6 +246,7 @@ type dummyRecorder struct {
 	charmURL, unitTag string
 	metrics           map[string]corecharm.Metric
 	isDeclaredMetric  bool
+	err               string
 
 	// outputs
 	closed  bool
@@ -249,6 +254,9 @@ type dummyRecorder struct {
 }
 
 func (r *dummyRecorder) AddMetric(key, value string, created time.Time) error {
+	if r.err != "" {
+		return errors.New(r.err)
+	}
 	then := time.Date(2015, 8, 20, 15, 48, 0, 0, time.UTC)
 	r.batches = append(r.batches, spool.MetricBatch{
 		CharmURL: r.charmURL,

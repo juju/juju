@@ -6,7 +6,6 @@ package jujuc_test
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -15,7 +14,7 @@ import (
 )
 
 type isLeaderSuite struct {
-	jujutesting.IsolationSuite
+	testing.BaseSuite
 }
 
 var _ = gc.Suite(&isLeaderSuite{})

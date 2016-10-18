@@ -4,16 +4,11 @@
 package apiserver_test
 
 import (
-	stdtesting "testing"
-
-	"github.com/juju/testing"
+	"testing"
 
 	coretesting "github.com/juju/juju/testing"
 )
 
-func TestPackage(t *stdtesting.T) {
-	if testing.RaceEnabled {
-		t.Skip("skipping package under -race, see LP 1518806")
-	}
+func TestPackage(t *testing.T) {
 	coretesting.MgoTestPackage(t)
 }

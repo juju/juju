@@ -9,7 +9,7 @@ import (
 	"reflect"
 
 	"github.com/juju/errors"
-	"launchpad.net/tomb"
+	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/watcher"
@@ -18,6 +18,9 @@ import (
 // Multiwatcher watches any changes to the state.
 type Multiwatcher struct {
 	all *storeManager
+
+	// used indicates that the watcher was used (i.e. Next() called).
+	used bool
 
 	// The following fields are maintained by the storeManager
 	// goroutine.
@@ -28,8 +31,18 @@ type Multiwatcher struct {
 // NewMultiwatcher creates a new watcher that can observe
 // changes to an underlying store manager.
 func NewMultiwatcher(all *storeManager) *Multiwatcher {
+	// Note that we want to be clear about the defaults. So we set zero
+	// values explicitly.
+	//  used:    false means that the watcher has not been used yet
+	//  revno:   0 means that *all* transactions prior to the first
+	//           Next() call will be reflected in the deltas.
+	//  stopped: false means that the watcher immediately starts off
+	//           handling changes.
 	return &Multiwatcher{
-		all: all,
+		all:     all,
+		used:    false,
+		revno:   0,
+		stopped: false,
 	}
 }
 
@@ -47,22 +60,42 @@ var ErrStopped = stderrors.New("watcher was stopped")
 
 // Next retrieves all changes that have happened since the last
 // time it was called, blocking until there are some changes available.
+//
+// The result from the initial call to Next() is different from
+// subsequent calls. The latter will reflect changes that have happened
+// since the last Next() call. In contrast, the initial Next() call will
+// return the deltas that represent the model's complete state at that
+// moment, even when the model is empty. In that empty model case an
+// empty set of deltas is returned.
 func (w *Multiwatcher) Next() ([]multiwatcher.Delta, error) {
 	req := &request{
 		w:     w,
 		reply: make(chan bool),
 	}
-	select {
-	case w.all.request <- req:
-	case <-w.all.tomb.Dead():
-		err := w.all.tomb.Err()
-		if err == nil {
-			err = errors.Errorf("shared state watcher was stopped")
-		}
-		return nil, err
+	if !w.used {
+		req.noChanges = make(chan struct{})
+		w.used = true
 	}
-	if ok := <-req.reply; !ok {
-		return nil, errors.Trace(ErrStopped)
+
+	select {
+	case <-w.all.tomb.Dying():
+		return nil, errors.Errorf("shared state watcher was stopped")
+	case w.all.request <- req:
+	}
+
+	// TODO(ericsnow) Clean up Multiwatcher/storeManager interaction.
+	// Relying on req.reply and req.noChanges here is not an ideal
+	// solution. It reflects the level of coupling we have between
+	// the Multiwatcher, request, and storeManager types.
+	select {
+	case <-w.all.tomb.Dying():
+		return nil, errors.Errorf("shared state watcher was stopped")
+	case ok := <-req.reply:
+		if !ok {
+			return nil, errors.Trace(ErrStopped)
+		}
+	case <-req.noChanges:
+		return []multiwatcher.Delta{}, nil
 	}
 	return req.changes, nil
 }
@@ -124,6 +157,10 @@ type request struct {
 	// the request has been processed; if false, the Multiwatcher
 	// has been stopped,
 	reply chan bool
+
+	// noChanges receives a message when the manager checks for changes
+	// and there are none.
+	noChanges chan struct{}
 
 	// On reply, changes will hold changes that have occurred since
 	// the last replied-to Next request.
@@ -210,14 +247,20 @@ func (sm *storeManager) handle(req *request) {
 	if req.w.stopped {
 		// The watcher has previously been stopped.
 		if req.reply != nil {
-			req.reply <- false
+			select {
+			case req.reply <- false:
+			case <-sm.tomb.Dying():
+			}
 		}
 		return
 	}
 	if req.reply == nil {
 		// This is a request to stop the watcher.
 		for req := sm.waiting[req.w]; req != nil; req = req.next {
-			req.reply <- false
+			select {
+			case req.reply <- false:
+			case <-sm.tomb.Dying():
+			}
 		}
 		delete(sm.waiting, req.w)
 		req.w.stopped = true
@@ -235,18 +278,27 @@ func (sm *storeManager) respond() {
 		revno := w.revno
 		changes := sm.all.ChangesSince(revno)
 		if len(changes) == 0 {
+			if req.noChanges != nil {
+				req.noChanges <- struct{}{}
+				sm.removeWaitingReq(w, req)
+			}
 			continue
 		}
+
 		req.changes = changes
 		w.revno = sm.all.latestRevno
 		req.reply <- true
-		if req := req.next; req == nil {
-			// Last request for this watcher.
-			delete(sm.waiting, w)
-		} else {
-			sm.waiting[w] = req
-		}
+		sm.removeWaitingReq(w, req)
 		sm.seen(revno)
+	}
+}
+
+func (sm *storeManager) removeWaitingReq(w *Multiwatcher, req *request) {
+	if req := req.next; req == nil {
+		// Last request for this watcher.
+		delete(sm.waiting, w)
+	} else {
+		sm.waiting[w] = req
 	}
 }
 
@@ -336,7 +388,7 @@ type multiwatcherStore struct {
 }
 
 // newStore returns an Store instance holding information about the
-// current state of all entities in the environment.
+// current state of all entities in the model.
 // It is only exposed here for testing purposes.
 func newStore() *multiwatcherStore {
 	return &multiwatcherStore{
@@ -362,7 +414,7 @@ func (a *multiwatcherStore) All() []multiwatcher.EntityInfo {
 // add adds a new entity with the given id and associated
 // information to the list.
 func (a *multiwatcherStore) add(id interface{}, info multiwatcher.EntityInfo) {
-	if a.entities[id] != nil {
+	if _, ok := a.entities[id]; ok {
 		panic("adding new entry with duplicate id")
 	}
 	a.latestRevno++
@@ -387,8 +439,8 @@ func (a *multiwatcherStore) decRef(entry *entityEntry) {
 		return
 	}
 	id := entry.info.EntityId()
-	elem := a.entities[id]
-	if elem == nil {
+	elem, ok := a.entities[id]
+	if !ok {
 		panic("delete of non-existent entry")
 	}
 	delete(a.entities, id)
@@ -397,8 +449,8 @@ func (a *multiwatcherStore) decRef(entry *entityEntry) {
 
 // delete deletes the entry with the given info id.
 func (a *multiwatcherStore) delete(id multiwatcher.EntityId) {
-	elem := a.entities[id]
-	if elem == nil {
+	elem, ok := a.entities[id]
+	if !ok {
 		return
 	}
 	delete(a.entities, id)
@@ -428,8 +480,8 @@ func (a *multiwatcherStore) Remove(id multiwatcher.EntityId) {
 // Update updates the information for the given entity.
 func (a *multiwatcherStore) Update(info multiwatcher.EntityInfo) {
 	id := info.EntityId()
-	elem := a.entities[id]
-	if elem == nil {
+	elem, ok := a.entities[id]
+	if !ok {
 		a.add(id, info)
 		return
 	}
@@ -443,17 +495,19 @@ func (a *multiwatcherStore) Update(info multiwatcher.EntityInfo) {
 	a.latestRevno++
 	entry.revno = a.latestRevno
 	entry.info = info
+	// The app might have been removed and re-added.
+	entry.removed = false
 	a.list.MoveToFront(elem)
 }
 
-// Get returns the stored entity with the given
-// id, or nil if none was found. The contents of the returned entity
-// should not be changed.
+// Get returns the stored entity with the given id, or nil if none was found.
+// The contents of the returned entity MUST not be changed.
 func (a *multiwatcherStore) Get(id multiwatcher.EntityId) multiwatcher.EntityInfo {
-	if e := a.entities[id]; e != nil {
-		return e.Value.(*entityEntry).info
+	e, ok := a.entities[id]
+	if !ok {
+		return nil
 	}
-	return nil
+	return e.Value.(*entityEntry).info
 }
 
 // ChangesSince returns any changes that have occurred since

@@ -55,8 +55,13 @@ func (c *rackspaceFirewaller) Ports() ([]network.PortRange, error) {
 	return nil, errors.NotSupportedf("Ports")
 }
 
-// DeleteGlobalGroups implements OpenstackFirewaller interface.
-func (c *rackspaceFirewaller) DeleteGlobalGroups() error {
+// DeleteAllModelGroups implements OpenstackFirewaller interface.
+func (c *rackspaceFirewaller) DeleteAllModelGroups() error {
+	return nil
+}
+
+// DeleteAllControllerGroups implements OpenstackFirewaller interface.
+func (c *rackspaceFirewaller) DeleteAllControllerGroups(controllerUUID string) error {
 	return nil
 }
 
@@ -66,7 +71,7 @@ func (c *rackspaceFirewaller) GetSecurityGroups(ids ...instance.Id) ([]string, e
 }
 
 // SetUpGroups implements OpenstackFirewaller interface.
-func (c *rackspaceFirewaller) SetUpGroups(machineId string, apiPort int) ([]nova.SecurityGroup, error) {
+func (c *rackspaceFirewaller) SetUpGroups(controllerUUID, machineId string, apiPort int) ([]nova.SecurityGroup, error) {
 	return nil, nil
 }
 

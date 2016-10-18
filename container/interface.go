@@ -5,36 +5,21 @@ package container
 
 import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
+	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/status"
 )
 
 const (
-	ConfigName   = "name"
-	ConfigLogDir = "log-dir"
-
-	// ConfigIPForwarding, if set to a non-empty value, instructs the
-	// container manager to enable IP forwarding as part of the
-	// container initialization. Will be enabled if the enviroment
-	// supports networking.
-	ConfigIPForwarding = "ip-forwarding"
-
-	// ConfigEnableNAT, if set to a non-empty value, instructs the
-	// container manager to enable NAT for hosted containers. NAT is
-	// required for AWS, but should be disabled for MAAS.
-	ConfigEnableNAT = "enable-nat"
-
-	// ConfigLXCDefaultMTU, if set to a positive integer (serialized
-	// as a string), will cause all network interfaces on all created
-	// LXC containers (not KVM instances) to use the given MTU
-	// setting.
-	ConfigLXCDefaultMTU = "lxc-default-mtu"
-
-	DefaultNamespace = "juju"
+	ConfigModelUUID = "model-uuid"
+	ConfigLogDir    = "log-dir"
 )
 
 // ManagerConfig contains the initialization parameters for the ContainerManager.
 // The name of the manager is used to namespace the containers on the machine.
 type ManagerConfig map[string]string
+
+type StatusCallback func(settableStatus status.Status, info string, data map[string]interface{}) error
 
 // Manager is responsible for starting containers, and stopping and listing
 // containers that it has started.
@@ -43,9 +28,11 @@ type Manager interface {
 	// machine.
 	CreateContainer(
 		instanceConfig *instancecfg.InstanceConfig,
+		cons constraints.Value,
 		series string,
 		network *NetworkConfig,
-		storage *StorageConfig) (instance.Instance, *instance.HardwareCharacteristics, error)
+		storage *StorageConfig,
+		callback StatusCallback) (instance.Instance, *instance.HardwareCharacteristics, error)
 
 	// DestroyContainer stops and destroyes the container identified by
 	// instance id.
@@ -58,6 +45,10 @@ type Manager interface {
 	// IsInitialized check whether or not required packages have been installed
 	// to support this manager.
 	IsInitialized() bool
+
+	// Namespace returns the namespace of the manager. This namespace defines the
+	// prefix of all the hostnames.
+	Namespace() instance.Namespace
 }
 
 // Initialiser is responsible for performing the steps required to initialise
@@ -80,6 +71,6 @@ func (m ManagerConfig) PopValue(key string) string {
 // WarnAboutUnused emits a warning about each value in the map.
 func (m ManagerConfig) WarnAboutUnused() {
 	for key, value := range m {
-		logger.Warningf("unused config option: %q -> %q", key, value)
+		logger.Infof("unused config option: %q -> %q", key, value)
 	}
 }

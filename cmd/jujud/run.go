@@ -8,12 +8,15 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/names"
+	"github.com/juju/gnuflag"
+	"github.com/juju/mutex"
+	"github.com/juju/utils/clock"
 	"github.com/juju/utils/exec"
-	"launchpad.net/gnuflag"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/agent"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
@@ -24,6 +27,7 @@ import (
 
 type RunCommand struct {
 	cmd.CommandBase
+	MachineLockName string
 	unit            names.UnitTag
 	commands        string
 	showHelp        bool
@@ -78,7 +82,7 @@ func (c *RunCommand) Init(args []string) error {
 		unitName, args = args[0], args[1:]
 		// If the command line param is a unit id (like service/2) we need to
 		// change it to the unit tag as that is the format of the agent directory
-		// on disk (unit-service-2).
+		// on disk (unit-application-2).
 		if names.IsValidUnit(unitName) {
 			c.unit = names.NewUnitTag(unitName)
 		} else {
@@ -172,15 +176,21 @@ func (c *RunCommand) appendProxyToCommands() string {
 func (c *RunCommand) executeNoContext() (*exec.ExecResponse, error) {
 	// Acquire the uniter hook execution lock to make sure we don't
 	// stomp on each other.
-	lock, err := cmdutil.HookExecutionLock(cmdutil.DataDir)
+	spec := mutex.Spec{
+		Name:  c.MachineLockName,
+		Clock: clock.WallClock,
+		Delay: 250 * time.Millisecond,
+	}
+	logger.Debugf("acquire lock %q for juju-run", c.MachineLockName)
+	releaser, err := mutex.Acquire(spec)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	err = lock.Lock("juju-run")
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	defer lock.Unlock()
+	logger.Debugf("lock %q acquired", c.MachineLockName)
+
+	// Defer the logging first so it is executed after the Release. LIFO.
+	defer logger.Debugf("release lock %q for juju-run", c.MachineLockName)
+	defer releaser.Release()
 
 	runCmd := c.appendProxyToCommands()
 

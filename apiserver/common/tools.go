@@ -5,34 +5,28 @@ package common
 
 import (
 	"fmt"
-	"math/rand"
 	"sort"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
+	"github.com/juju/version"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/toolstorage"
+	"github.com/juju/juju/state/binarystorage"
 	coretools "github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
 )
 
 var envtoolsFindTools = envtools.FindTools
 
 // ToolsURLGetter is an interface providing the ToolsURL method.
 type ToolsURLGetter interface {
-	// ToolsURL returns a URL for the tools with
+	// ToolsURLs returns URLs for the tools with
 	// the specified binary version.
-	ToolsURL(v version.Binary) (string, error)
-}
-
-type EnvironConfigGetter interface {
-	EnvironConfig() (*config.Config, error)
+	ToolsURLs(v version.Binary) ([]string, error)
 }
 
 // APIHostPortsGetter is an interface providing the APIHostPorts method.
@@ -43,15 +37,15 @@ type APIHostPortsGetter interface {
 
 // ToolsStorageGetter is an interface providing the ToolsStorage method.
 type ToolsStorageGetter interface {
-	// ToolsStorage returns a toolstorage.StorageCloser.
-	ToolsStorage() (toolstorage.StorageCloser, error)
+	// ToolsStorage returns a binarystorage.StorageCloser.
+	ToolsStorage() (binarystorage.StorageCloser, error)
 }
 
 // ToolsGetter implements a common Tools method for use by various
 // facades.
 type ToolsGetter struct {
 	entityFinder       state.EntityFinder
-	configGetter       EnvironConfigGetter
+	configGetter       environs.EnvironConfigGetter
 	toolsStorageGetter ToolsStorageGetter
 	urlGetter          ToolsURLGetter
 	getCanRead         GetAuthFunc
@@ -59,7 +53,7 @@ type ToolsGetter struct {
 
 // NewToolsGetter returns a new ToolsGetter. The GetAuthFunc will be
 // used on each invocation of Tools to determine current permissions.
-func NewToolsGetter(f state.EntityFinder, c EnvironConfigGetter, s ToolsStorageGetter, t ToolsURLGetter, getCanRead GetAuthFunc) *ToolsGetter {
+func NewToolsGetter(f state.EntityFinder, c environs.EnvironConfigGetter, s ToolsStorageGetter, t ToolsURLGetter, getCanRead GetAuthFunc) *ToolsGetter {
 	return &ToolsGetter{f, c, s, t, getCanRead}
 }
 
@@ -88,9 +82,9 @@ func (t *ToolsGetter) Tools(args params.Entities) (params.ToolsResults, error) {
 			result.Results[i].Error = ServerError(ErrPerm)
 			continue
 		}
-		agentTools, err := t.oneAgentTools(canRead, tag, agentVersion, toolsStorage)
+		agentToolsList, err := t.oneAgentTools(canRead, tag, agentVersion, toolsStorage)
 		if err == nil {
-			result.Results[i].Tools = agentTools
+			result.Results[i].ToolsList = agentToolsList
 			// TODO(axw) Get rid of this in 1.22, when all upgraders
 			// are known to ignore the flag.
 			result.Results[i].DisableSSLHostnameVerification = true
@@ -103,18 +97,18 @@ func (t *ToolsGetter) Tools(args params.Entities) (params.ToolsResults, error) {
 func (t *ToolsGetter) getGlobalAgentVersion() (version.Number, error) {
 	// Get the Agent Version requested in the Environment Config
 	nothing := version.Number{}
-	cfg, err := t.configGetter.EnvironConfig()
+	cfg, err := t.configGetter.ModelConfig()
 	if err != nil {
 		return nothing, err
 	}
 	agentVersion, ok := cfg.AgentVersion()
 	if !ok {
-		return nothing, errors.New("agent version not set in environment config")
+		return nothing, errors.New("agent version not set in model config")
 	}
 	return agentVersion, nil
 }
 
-func (t *ToolsGetter) oneAgentTools(canRead AuthFunc, tag names.Tag, agentVersion version.Number, storage toolstorage.Storage) (*coretools.Tools, error) {
+func (t *ToolsGetter) oneAgentTools(canRead AuthFunc, tag names.Tag, agentVersion version.Number, storage binarystorage.Storage) (coretools.List, error) {
 	if !canRead(tag) {
 		return nil, ErrPerm
 	}
@@ -141,7 +135,7 @@ func (t *ToolsGetter) oneAgentTools(canRead AuthFunc, tag names.Tag, agentVersio
 	if err != nil {
 		return nil, err
 	}
-	return list[0], nil
+	return list, nil
 }
 
 // ToolsSetter implements a common Tools method for use by various
@@ -197,14 +191,14 @@ func (t *ToolsSetter) setOneAgentVersion(tag names.Tag, vers version.Binary, can
 }
 
 type ToolsFinder struct {
-	configGetter       EnvironConfigGetter
+	configGetter       environs.EnvironConfigGetter
 	toolsStorageGetter ToolsStorageGetter
 	urlGetter          ToolsURLGetter
 }
 
 // NewToolsFinder returns a new ToolsFinder, returning tools
 // with their URLs pointing at the API server.
-func NewToolsFinder(c EnvironConfigGetter, s ToolsStorageGetter, t ToolsURLGetter) *ToolsFinder {
+func NewToolsFinder(c environs.EnvironConfigGetter, s ToolsStorageGetter, t ToolsURLGetter) *ToolsFinder {
 	return &ToolsFinder{c, s, t}
 }
 
@@ -227,22 +221,27 @@ func (f *ToolsFinder) findTools(args params.FindToolsParams) (coretools.List, er
 	if err != nil {
 		return nil, err
 	}
-	// Rewrite the URLs so they point at the API server. If the
-	// tools are not in toolstorage, then the API server will
+	// Rewrite the URLs so they point at the API servers. If the
+	// tools are not in tools storage, then the API server will
 	// download and cache them if the client requests that version.
-	for _, tools := range list {
-		url, err := f.urlGetter.ToolsURL(tools.Version)
+	var fullList coretools.List
+	for _, baseTools := range list {
+		urls, err := f.urlGetter.ToolsURLs(baseTools.Version)
 		if err != nil {
 			return nil, err
 		}
-		tools.URL = url
+		for _, url := range urls {
+			tools := *baseTools
+			tools.URL = url
+			fullList = append(fullList, &tools)
+		}
 	}
-	return list, nil
+	return fullList, nil
 }
 
-// findMatchingTools searches toolstorage and simplestreams for tools matching the
+// findMatchingTools searches tools storage and simplestreams for tools matching the
 // given parameters. If an exact match is specified (number, series and arch)
-// and is found in toolstorage, then simplestreams will not be searched.
+// and is found in tools storage, then simplestreams will not be searched.
 func (f *ToolsFinder) findMatchingTools(args params.FindToolsParams) (coretools.List, error) {
 	exactMatch := args.Number != version.Zero && args.Series != "" && args.Arch != ""
 	storageList, err := f.matchingStorageTools(args)
@@ -254,15 +253,12 @@ func (f *ToolsFinder) findMatchingTools(args params.FindToolsParams) (coretools.
 
 	// Look for tools in simplestreams too, but don't replace
 	// any versions found in storage.
-	cfg, err := f.configGetter.EnvironConfig()
-	if err != nil {
-		return nil, err
-	}
-	env, err := environs.New(cfg)
+	env, err := environs.GetEnviron(f.configGetter, environs.New)
 	if err != nil {
 		return nil, err
 	}
 	filter := toolsFilter(args)
+	cfg := env.Config()
 	stream := envtools.PreferredStream(&args.Number, cfg.Development(), cfg.AgentStream())
 	simplestreamsList, err := envtoolsFindTools(
 		env, args.MajorVersion, args.MinorVersion, stream, filter,
@@ -286,7 +282,7 @@ func (f *ToolsFinder) findMatchingTools(args params.FindToolsParams) (coretools.
 }
 
 // matchingStorageTools returns a coretools.List, with an entry for each
-// metadata entry in the toolstorage that matches the given parameters.
+// metadata entry in the tools storage that matches the given parameters.
 func (f *ToolsFinder) matchingStorageTools(args params.FindToolsParams) (coretools.List, error) {
 	storage, err := f.toolsStorageGetter.ToolsStorage()
 	if err != nil {
@@ -299,8 +295,12 @@ func (f *ToolsFinder) matchingStorageTools(args params.FindToolsParams) (coretoo
 	}
 	list := make(coretools.List, len(allMetadata))
 	for i, m := range allMetadata {
+		vers, err := version.ParseBinary(m.Version)
+		if err != nil {
+			return nil, errors.Annotatef(err, "unexpectedly bad version %q in tools storage", m.Version)
+		}
 		list[i] = &coretools.Tools{
-			Version: m.Version,
+			Version: vers,
 			Size:    m.Size,
 			SHA256:  m.SHA256,
 		}
@@ -334,40 +334,31 @@ func toolsFilter(args params.FindToolsParams) coretools.Filter {
 }
 
 type toolsURLGetter struct {
-	envUUID            string
+	modelUUID          string
 	apiHostPortsGetter APIHostPortsGetter
 }
 
 // NewToolsURLGetter creates a new ToolsURLGetter that
 // returns tools URLs pointing at an API server.
-func NewToolsURLGetter(envUUID string, a APIHostPortsGetter) *toolsURLGetter {
-	return &toolsURLGetter{envUUID, a}
+func NewToolsURLGetter(modelUUID string, a APIHostPortsGetter) *toolsURLGetter {
+	return &toolsURLGetter{modelUUID, a}
 }
 
-func (t *toolsURLGetter) ToolsURL(v version.Binary) (string, error) {
-	apiHostPorts, err := t.apiHostPortsGetter.APIHostPorts()
+func (t *toolsURLGetter) ToolsURLs(v version.Binary) ([]string, error) {
+	addrs, err := apiAddresses(t.apiHostPortsGetter)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	if len(apiHostPorts) == 0 {
-		return "", errors.New("no API host ports")
+	if len(addrs) == 0 {
+		return nil, errors.Errorf("no suitable API server address to pick from")
 	}
-	// TODO(axw) return all known URLs, so clients can try each one.
-	//
-	// The clients currently accept a single URL; we should change
-	// the clients to disregard the URL, and have them download
-	// straight from the API server.
-	//
-	// For now we choose a API server at random, and then select its
-	// cloud-local address. The only user that will care about the URL
-	// is the upgrader, and that is cloud-local.
-	hostPorts := apiHostPorts[rand.Int()%len(apiHostPorts)]
-	apiAddress := network.SelectInternalHostPort(hostPorts, false)
-	if apiAddress == "" {
-		return "", errors.Errorf("no suitable API server address to pick from %v", hostPorts)
+	var urls []string
+	for _, addr := range addrs {
+		serverRoot := fmt.Sprintf("https://%s/model/%s", addr, t.modelUUID)
+		url := ToolsURL(serverRoot, v)
+		urls = append(urls, url)
 	}
-	serverRoot := fmt.Sprintf("https://%s/environment/%s", apiAddress, t.envUUID)
-	return ToolsURL(serverRoot, v), nil
+	return urls, nil
 }
 
 // ToolsURL returns a tools URL pointing the API server

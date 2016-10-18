@@ -4,46 +4,36 @@
 package apiserver
 
 import (
-	"github.com/juju/errors"
-	"github.com/juju/utils/set"
-
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/rpcreflect"
 )
 
-// restrictedRoot restricts API calls to the environment manager and
-// user manager when accessed through the root path on the API server.
+// restrictRoot wraps the provided root so that the check function is
+// called on all method lookups. If the check returns an error the API
+// call is blocked.
+func restrictRoot(root rpc.Root, check func(string, string) error) *restrictedRoot {
+	return &restrictedRoot{
+		Root:  root,
+		check: check,
+	}
+}
+
 type restrictedRoot struct {
-	rpc.MethodFinder
+	rpc.Root
+	check func(facadeName, methodName string) error
 }
 
-// newRestrictedRoot returns a new restrictedRoot.
-func newRestrictedRoot(finder rpc.MethodFinder) *restrictedRoot {
-	return &restrictedRoot{finder}
-}
-
-// The restrictedRootNames are the root names that can be accessed at the root
-// of the API server. Any facade added here needs to work across environment
-// boundaries.
-var restrictedRootNames = set.NewStrings(
-	"AllEnvWatcher",
-	"EnvironmentManager",
-	"SystemManager",
-	"UserManager",
-)
-
-// FindMethod returns a not supported error if the rootName is not one
-// of the facades available at the server root when there is no active
-// environment.
-func (r *restrictedRoot) FindMethod(rootName string, version int, methodName string) (rpcreflect.MethodCaller, error) {
-	// The lookup of the name is done first to return a not found error if the
-	// user is looking for a method that we just don't have.
-	caller, err := r.MethodFinder.FindMethod(rootName, version, methodName)
-	if err != nil {
+// FindMethod implements rpc.Root.
+func (r *restrictedRoot) FindMethod(facadeName string, version int, methodName string) (rpcreflect.MethodCaller, error) {
+	if err := r.check(facadeName, methodName); err != nil {
 		return nil, err
 	}
-	if !restrictedRootNames.Contains(rootName) {
-		return nil, errors.NotSupportedf("logged in to server, no environment, %q", rootName)
-	}
-	return caller, nil
+	return r.Root.FindMethod(facadeName, version, methodName)
+}
+
+// restrictAll blocks all API requests, returned a fixed error.
+func restrictAll(root rpc.Root, err error) *restrictedRoot {
+	return restrictRoot(root, func(string, string) error {
+		return err
+	})
 }

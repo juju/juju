@@ -19,13 +19,13 @@ import (
 // debugLogBaseSuite has tests that should be run for both the file
 // and DB based variants of debuglog, as well as some test helpers.
 type debugLogBaseSuite struct {
-	authHttpSuite
+	authHTTPSuite
 }
 
 func (s *debugLogBaseSuite) TestBadParams(c *gc.C) {
 	reader := s.openWebsocket(c, url.Values{"maxLines": {"foo"}})
 	assertJSONError(c, reader, `maxLines value "foo" is not a valid unsigned number`)
-	s.assertWebsocketClosed(c, reader)
+	assertWebsocketClosed(c, reader)
 }
 
 func (s *debugLogBaseSuite) TestWithHTTP(c *gc.C) {
@@ -49,7 +49,7 @@ func (s *debugLogBaseSuite) TestNoAuth(c *gc.C) {
 	reader := bufio.NewReader(conn)
 
 	assertJSONError(c, reader, "no credentials provided")
-	s.assertWebsocketClosed(c, reader)
+	assertWebsocketClosed(c, reader)
 }
 
 func (s *debugLogBaseSuite) TestAgentLoginsRejected(c *gc.C) {
@@ -62,8 +62,8 @@ func (s *debugLogBaseSuite) TestAgentLoginsRejected(c *gc.C) {
 	defer conn.Close()
 	reader := bufio.NewReader(conn)
 
-	assertJSONError(c, reader, "invalid entity name or password")
-	s.assertWebsocketClosed(c, reader)
+	assertJSONError(c, reader, "tag kind machine not valid")
+	assertWebsocketClosed(c, reader)
 }
 
 func (s *debugLogBaseSuite) openWebsocket(c *gc.C, values url.Values) *bufio.Reader {
@@ -76,7 +76,7 @@ func (s *debugLogBaseSuite) openWebsocketCustomPath(c *gc.C, path string) *bufio
 	server := s.logURL(c, "wss", nil)
 	server.Path = path
 	header := utils.BasicAuthHeader(s.userTag.String(), s.password)
-	conn := s.dialWebsocketFromURL(c, server.String(), header)
+	conn := dialWebsocketFromURL(c, server.String(), header)
 	s.AddCleanup(func(_ *gc.C) { conn.Close() })
 	return bufio.NewReader(conn)
 }
@@ -92,5 +92,5 @@ func (s *debugLogBaseSuite) dialWebsocket(c *gc.C, queryParams url.Values) *webs
 
 func (s *debugLogBaseSuite) dialWebsocketInternal(c *gc.C, queryParams url.Values, header http.Header) *websocket.Conn {
 	server := s.logURL(c, "wss", queryParams).String()
-	return s.dialWebsocketFromURL(c, server, header)
+	return dialWebsocketFromURL(c, server, header)
 }

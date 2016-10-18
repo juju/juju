@@ -4,8 +4,7 @@
 package space_test
 
 import (
-	"net"
-	"regexp"
+	"strings"
 	stdtesting "testing"
 
 	"github.com/juju/cmd"
@@ -26,29 +25,35 @@ func TestPackage(t *stdtesting.T) {
 
 // BaseSpaceSuite is used for embedding in other suites.
 type BaseSpaceSuite struct {
-	coretesting.FakeJujuHomeSuite
+	coretesting.FakeJujuXDGDataHomeSuite
 	coretesting.BaseSuite
 
-	superCmd cmd.Command
-	command  cmd.Command
-	api      *StubAPI
+	command cmd.Command
+	api     *StubAPI
 }
 
 var _ = gc.Suite(&BaseSpaceSuite{})
+
+func (s *BaseSpaceSuite) SetUpSuite(c *gc.C) {
+	s.FakeJujuXDGDataHomeSuite.SetUpSuite(c)
+	s.BaseSuite.SetUpSuite(c)
+}
+
+func (s *BaseSpaceSuite) TearDownSuite(c *gc.C) {
+	s.BaseSuite.TearDownSuite(c)
+	s.FakeJujuXDGDataHomeSuite.TearDownSuite(c)
+}
 
 func (s *BaseSpaceSuite) SetUpTest(c *gc.C) {
 	// If any post-MVP command suite enabled the flag, keep it.
 	hasFeatureFlag := featureflag.Enabled(feature.PostNetCLIMVP)
 
 	s.BaseSuite.SetUpTest(c)
-	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 
 	if hasFeatureFlag {
 		s.BaseSuite.SetFeatureFlags(feature.PostNetCLIMVP)
 	}
-
-	s.superCmd = space.NewSuperCommand()
-	c.Assert(s.superCmd, gc.NotNil)
 
 	s.api = NewStubAPI()
 	c.Assert(s.api, gc.NotNil)
@@ -57,25 +62,15 @@ func (s *BaseSpaceSuite) SetUpTest(c *gc.C) {
 	// s.command immediately after calling this method!
 }
 
-// RunSuperCommand executes the super command passing any args and
-// returning the stdout and stderr output as strings, as well as any
-// error. If s.command is set, the subcommand's name will be passed as
-// first argument.
-func (s *BaseSpaceSuite) RunSuperCommand(c *gc.C, args ...string) (string, string, error) {
-	if s.command != nil {
-		args = append([]string{s.command.Info().Name}, args...)
-	}
-	ctx, err := coretesting.RunCommand(c, s.superCmd, args...)
-	if ctx != nil {
-		return coretesting.Stdout(ctx), coretesting.Stderr(ctx), err
-	}
-	return "", "", err
+func (s *BaseSpaceSuite) TearDownTest(c *gc.C) {
+	s.FakeJujuXDGDataHomeSuite.TearDownTest(c)
+	s.BaseSuite.TearDownTest(c)
 }
 
-// RunSubCommand executes the s.command subcommand passing any args
+// RunCommand executes the s.command subcommand passing any args
 // and returning the stdout and stderr output as strings, as well as
 // any error.
-func (s *BaseSpaceSuite) RunSubCommand(c *gc.C, args ...string) (string, string, error) {
+func (s *BaseSpaceSuite) RunCommand(c *gc.C, args ...string) (string, string, error) {
 	if s.command == nil {
 		panic("subcommand is nil")
 	}
@@ -86,22 +81,31 @@ func (s *BaseSpaceSuite) RunSubCommand(c *gc.C, args ...string) (string, string,
 	return "", "", err
 }
 
-// AssertRunSpacesNotSupported is a shortcut for calling RunSubCommand with the
+// AssertRunSpacesNotSupported is a shortcut for calling RunCommand with the
 // passed args then asserting the output is empty and the error is the
 // spaces not supported, finally returning the error.
 func (s *BaseSpaceSuite) AssertRunSpacesNotSupported(c *gc.C, expectErr string, args ...string) error {
-	stdout, stderr, err := s.RunSubCommand(c, args...)
+	stdout, stderr, err := s.RunCommand(c, args...)
 	c.Assert(err, gc.ErrorMatches, expectErr)
 	c.Assert(stdout, gc.Equals, "")
 	c.Assert(stderr, gc.Equals, expectErr+"\n")
 	return err
 }
 
-// AssertRunFails is a shortcut for calling RunSubCommand with the
+// AssertRunFailsUnauthoirzed is a shortcut for calling RunCommand with the
+// passed args then asserting the error is as expected, finally returning the
+// error.
+func (s *BaseSpaceSuite) AssertRunFailsUnauthorized(c *gc.C, expectErr string, args ...string) error {
+	_, stderr, err := s.RunCommand(c, args...)
+	c.Assert(strings.Replace(stderr, "\n", " ", -1), gc.Matches, `.*juju grant.*`)
+	return err
+}
+
+// AssertRunFails is a shortcut for calling RunCommand with the
 // passed args then asserting the output is empty and the error is as
 // expected, finally returning the error.
 func (s *BaseSpaceSuite) AssertRunFails(c *gc.C, expectErr string, args ...string) error {
-	stdout, stderr, err := s.RunSubCommand(c, args...)
+	stdout, stderr, err := s.RunCommand(c, args...)
 	c.Assert(err, gc.ErrorMatches, expectErr)
 	c.Assert(stdout, gc.Equals, "")
 	c.Assert(stderr, gc.Equals, "")
@@ -113,41 +117,10 @@ func (s *BaseSpaceSuite) AssertRunFails(c *gc.C, expectErr string, args ...strin
 // expectStderr, stdout is equal to expectStdout, and the error is
 // nil.
 func (s *BaseSpaceSuite) AssertRunSucceeds(c *gc.C, expectStderr, expectStdout string, args ...string) {
-	stdout, stderr, err := s.RunSubCommand(c, args...)
+	stdout, stderr, err := s.RunCommand(c, args...)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(stdout, gc.Equals, expectStdout)
 	c.Assert(stderr, gc.Matches, expectStderr)
-}
-
-// TestHelp runs the command with --help as argument and verifies the
-// output.
-func (s *BaseSpaceSuite) TestHelp(c *gc.C) {
-	stderr, stdout, err := s.RunSuperCommand(c, "--help")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(stdout, gc.Equals, "")
-	c.Check(stderr, gc.Not(gc.Equals), "")
-
-	// If s.command is set, use it instead of s.superCmd.
-	cmdInfo := s.superCmd.Info()
-	var expected string
-	if s.command != nil {
-		// Subcommands embed EnvCommandBase
-		cmdInfo = s.command.Info()
-		expected = "(?sm).*^usage: juju space " +
-			regexp.QuoteMeta(cmdInfo.Name) +
-			`( \[options\])? ` + regexp.QuoteMeta(cmdInfo.Args) + ".+"
-	} else {
-		expected = "(?sm).*^usage: juju space" +
-			`( \[options\])? ` + regexp.QuoteMeta(cmdInfo.Args) + ".+"
-	}
-	c.Check(cmdInfo, gc.NotNil)
-	c.Check(stderr, gc.Matches, expected)
-
-	expected = "(?sm).*^purpose: " + regexp.QuoteMeta(cmdInfo.Purpose) + "$.*"
-	c.Check(stderr, gc.Matches, expected)
-
-	expected = "(?sm).*^" + regexp.QuoteMeta(cmdInfo.Doc) + "$.*"
-	c.Check(stderr, gc.Matches, expected)
 }
 
 // Strings is makes tests taking a slice of strings slightly easier to
@@ -184,23 +157,19 @@ func NewStubAPI() *StubAPI {
 		Zones:      []string{"zone1"},
 	}, {
 		// IPv4 subnet.
-		CIDR:              "10.1.2.0/24",
-		ProviderId:        "subnet-private",
-		Life:              params.Alive,
-		SpaceTag:          "space-space2",
-		Zones:             []string{"zone1", "zone2"},
-		StaticRangeLowIP:  net.ParseIP("10.1.2.10"),
-		StaticRangeHighIP: net.ParseIP("10.1.2.200"),
+		CIDR:       "10.1.2.0/24",
+		ProviderId: "subnet-private",
+		Life:       params.Alive,
+		SpaceTag:   "space-space2",
+		Zones:      []string{"zone1", "zone2"},
 	}, {
 		// IPv4 VLAN subnet.
-		CIDR:              "4.3.2.0/28",
-		Life:              params.Dead,
-		ProviderId:        "vlan-42",
-		SpaceTag:          "space-space2",
-		Zones:             []string{"zone1"},
-		VLANTag:           42,
-		StaticRangeLowIP:  net.ParseIP("4.3.2.2"),
-		StaticRangeHighIP: net.ParseIP("4.3.2.4"),
+		CIDR:       "4.3.2.0/28",
+		Life:       params.Dead,
+		ProviderId: "vlan-42",
+		SpaceTag:   "space-space2",
+		Zones:      []string{"zone1"},
+		VLANTag:    42,
 	}}
 	spaces := []params.Space{{
 		Name:    "space1",
@@ -229,8 +198,8 @@ func (sa *StubAPI) ListSpaces() ([]params.Space, error) {
 	return sa.Spaces, nil
 }
 
-func (sa *StubAPI) CreateSpace(name string, subnetIds []string, public bool) error {
-	sa.MethodCall(sa, "CreateSpace", name, subnetIds, public)
+func (sa *StubAPI) AddSpace(name string, subnetIds []string, public bool) error {
+	sa.MethodCall(sa, "AddSpace", name, subnetIds, public)
 	return sa.NextErr()
 }
 

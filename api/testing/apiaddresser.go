@@ -7,10 +7,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/watcher"
+	"github.com/juju/juju/watcher/watchertest"
 )
 
 type APIAddresserTests struct {
@@ -49,7 +49,6 @@ func (s *APIAddresserTests) TestAPIHostPorts(c *gc.C) {
 	ipv6Addr := network.NewScopedAddress(
 		"2001:DB8::1", network.ScopeCloudLocal,
 	)
-	ipv6Addr.NetworkName = "someNetwork"
 	expectServerAddrs := [][]network.HostPort{
 		network.NewHostPorts(999, "0.1.2.24"),
 		network.NewHostPorts(1234, "example.com"),
@@ -79,9 +78,8 @@ func (s *APIAddresserTests) TestWatchAPIHostPorts(c *gc.C) {
 
 	w, err := s.facade.WatchAPIHostPorts()
 	c.Assert(err, jc.ErrorIsNil)
-	defer statetesting.AssertStop(c, w)
-
-	wc := statetesting.NewNotifyWatcherC(c, s.state, w)
+	wc := watchertest.NewNotifyWatcherC(c, w, s.state.StartSync)
+	defer wc.AssertStops()
 
 	// Initial event.
 	wc.AssertOneChange()
@@ -93,7 +91,4 @@ func (s *APIAddresserTests) TestWatchAPIHostPorts(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	wc.AssertOneChange()
-
-	statetesting.AssertStop(c, w)
-	wc.AssertClosed()
 }

@@ -5,17 +5,13 @@
 package meterstatus
 
 import (
-	"github.com/juju/loggo"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
-)
-
-var (
-	logger = loggo.GetLogger("juju.apiserver.meterstatus")
 )
 
 func init() {
@@ -33,16 +29,14 @@ type MeterStatus interface {
 type MeterStatusAPI struct {
 	state      *state.State
 	accessUnit common.GetAuthFunc
-	resources  *common.Resources
+	resources  facade.Resources
 }
-
-var _ MeterStatus = (*MeterStatusAPI)(nil)
 
 // NewMeterStatusAPI creates a new API endpoint for dealing with unit meter status.
 func NewMeterStatusAPI(
 	st *state.State,
-	resources *common.Resources,
-	authorizer common.Authorizer,
+	resources facade.Resources,
+	authorizer facade.Authorizer,
 ) (*MeterStatusAPI, error) {
 	if !authorizer.AuthUnitAgent() {
 		return nil, common.ErrPerm

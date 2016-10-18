@@ -5,7 +5,6 @@ package apiserver_test
 
 import (
 	"bufio"
-	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
 	"io"
@@ -15,23 +14,24 @@ import (
 	"os"
 
 	"github.com/juju/errors"
-	apitesting "github.com/juju/juju/api/testing"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/testing/httptesting"
 	"github.com/juju/utils"
 	"golang.org/x/net/websocket"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
+	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
 
-// authHttpSuite provides helpers for testing HTTP "streaming" style APIs.
-type authHttpSuite struct {
+// authHTTPSuite provides helpers for testing HTTP "streaming" style APIs.
+type authHTTPSuite struct {
 	// macaroonAuthEnabled may be set by a test suite
 	// before SetUpTest is called. If it is true, macaroon
 	// authentication will be enabled for the duration
@@ -45,7 +45,7 @@ type authHttpSuite struct {
 	// all other fields will be zero.
 	apitesting.MacaroonSuite
 
-	envUUID string
+	modelUUID string
 
 	// userTag and password hold the user tag and password
 	// to use in authRequest. When macaroonAuthEnabled
@@ -54,7 +54,7 @@ type authHttpSuite struct {
 	password string
 }
 
-func (s *authHttpSuite) SetUpTest(c *gc.C) {
+func (s *authHTTPSuite) SetUpTest(c *gc.C) {
 	if s.macaroonAuthEnabled {
 		s.MacaroonSuite.SetUpTest(c)
 	} else {
@@ -62,13 +62,13 @@ func (s *authHttpSuite) SetUpTest(c *gc.C) {
 		s.JujuConnSuite.SetUpTest(c)
 	}
 
-	s.envUUID = s.State.EnvironUUID()
+	s.modelUUID = s.State.ModelUUID()
 
 	if s.macaroonAuthEnabled {
 		// When macaroon authentication is enabled, we must use
 		// an external user.
 		s.userTag = names.NewUserTag("bob@authhttpsuite")
-		s.AddEnvUser(c, s.userTag.Id())
+		s.AddModelUser(c, s.userTag.Id())
 	} else {
 		// Make a user in the state.
 		s.password = "password"
@@ -77,7 +77,7 @@ func (s *authHttpSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *authHttpSuite) TearDownTest(c *gc.C) {
+func (s *authHTTPSuite) TearDownTest(c *gc.C) {
 	if s.macaroonAuthEnabled {
 		s.MacaroonSuite.TearDownTest(c)
 	} else {
@@ -85,7 +85,7 @@ func (s *authHttpSuite) TearDownTest(c *gc.C) {
 	}
 }
 
-func (s *authHttpSuite) baseURL(c *gc.C) *url.URL {
+func (s *authHTTPSuite) baseURL(c *gc.C) *url.URL {
 	info := s.APIInfo(c)
 	return &url.URL{
 		Scheme: "https",
@@ -94,30 +94,32 @@ func (s *authHttpSuite) baseURL(c *gc.C) *url.URL {
 	}
 }
 
-func (s *authHttpSuite) dialWebsocketFromURL(c *gc.C, server string, header http.Header) *websocket.Conn {
-	config := s.makeWebsocketConfigFromURL(c, server, header)
+func dialWebsocketFromURL(c *gc.C, server string, header http.Header) *websocket.Conn {
+	config := makeWebsocketConfigFromURL(c, server, header)
 	c.Logf("dialing %v", server)
 	conn, err := websocket.DialConfig(config)
 	c.Assert(err, jc.ErrorIsNil)
 	return conn
 }
 
-func (s *authHttpSuite) makeWebsocketConfigFromURL(c *gc.C, server string, header http.Header) *websocket.Config {
+func makeWebsocketConfigFromURL(c *gc.C, server string, header http.Header) *websocket.Config {
 	config, err := websocket.NewConfig(server, "http://localhost/")
 	c.Assert(err, jc.ErrorIsNil)
 	config.Header = header
 	caCerts := x509.NewCertPool()
 	c.Assert(caCerts.AppendCertsFromPEM([]byte(testing.CACert)), jc.IsTrue)
-	config.TlsConfig = &tls.Config{RootCAs: caCerts, ServerName: "anything"}
+	config.TlsConfig = utils.SecureTLSConfig()
+	config.TlsConfig.RootCAs = caCerts
+	config.TlsConfig.ServerName = "anything"
 	return config
 }
 
-func (s *authHttpSuite) assertWebsocketClosed(c *gc.C, reader *bufio.Reader) {
+func assertWebsocketClosed(c *gc.C, reader *bufio.Reader) {
 	_, err := reader.ReadByte()
 	c.Assert(err, gc.Equals, io.EOF)
 }
 
-func (s *authHttpSuite) makeURL(c *gc.C, scheme, path string, queryParams url.Values) *url.URL {
+func (s *authHTTPSuite) makeURL(c *gc.C, scheme, path string, queryParams url.Values) *url.URL {
 	url := s.baseURL(c)
 	query := ""
 	if queryParams != nil {
@@ -172,7 +174,7 @@ type httpRequestParams struct {
 	nonce string
 }
 
-func (s *authHttpSuite) sendRequest(c *gc.C, p httpRequestParams) *http.Response {
+func (s *authHTTPSuite) sendRequest(c *gc.C, p httpRequestParams) *http.Response {
 	c.Logf("sendRequest: %s", p.url)
 	hp := httptesting.DoRequestParams{
 		Do:          p.do,
@@ -207,9 +209,9 @@ func bakeryDo(client *http.Client, getBakeryError func(*http.Response) error) fu
 		bclient.Client = client
 	} else {
 		// Configure the default client to skip verification/
-		bclient.Client.Transport = utils.NewHttpTLSTransport(&tls.Config{
-			InsecureSkipVerify: true,
-		})
+		tlsConfig := utils.SecureTLSConfig()
+		tlsConfig.InsecureSkipVerify = true
+		bclient.Client.Transport = utils.NewHttpTLSTransport(tlsConfig)
 	}
 	return func(req *http.Request) (*http.Response, error) {
 		var body io.ReadSeeker
@@ -223,27 +225,29 @@ func bakeryDo(client *http.Client, getBakeryError func(*http.Response) error) fu
 
 // authRequest is like sendRequest but fills out p.tag and p.password
 // from the userTag and password fields in the suite.
-func (s *authHttpSuite) authRequest(c *gc.C, p httpRequestParams) *http.Response {
+func (s *authHTTPSuite) authRequest(c *gc.C, p httpRequestParams) *http.Response {
 	p.tag = s.userTag.String()
 	p.password = s.password
 	return s.sendRequest(c, p)
 }
 
-func (s *authHttpSuite) setupOtherEnvironment(c *gc.C) *state.State {
-	envState := s.Factory.MakeEnvironment(c, nil)
+func (s *authHTTPSuite) setupOtherModel(c *gc.C) *state.State {
+	envState := s.Factory.MakeModel(c, nil)
 	s.AddCleanup(func(*gc.C) { envState.Close() })
 	user := s.Factory.MakeUser(c, nil)
-	_, err := envState.AddEnvironmentUser(state.EnvUserSpec{
-		User:      user.UserTag(),
-		CreatedBy: s.userTag})
+	_, err := envState.AddModelUser(envState.ModelUUID(),
+		state.UserAccessSpec{
+			User:      user.UserTag(),
+			CreatedBy: s.userTag,
+			Access:    permission.ReadAccess})
 	c.Assert(err, jc.ErrorIsNil)
 	s.userTag = user.UserTag()
 	s.password = "password"
-	s.envUUID = envState.EnvironUUID()
+	s.modelUUID = envState.ModelUUID()
 	return envState
 }
 
-func (s *authHttpSuite) uploadRequest(c *gc.C, uri string, contentType, path string) *http.Response {
+func (s *authHTTPSuite) uploadRequest(c *gc.C, uri string, contentType, path string) *http.Response {
 	if path == "" {
 		return s.authRequest(c, httpRequestParams{
 			method:      "POST",

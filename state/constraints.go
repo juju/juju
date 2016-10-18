@@ -17,7 +17,7 @@ import (
 
 // constraintsDoc is the mongodb representation of a constraints.Value.
 type constraintsDoc struct {
-	EnvUUID      string `bson:"env-uuid"`
+	ModelUUID    string `bson:"model-uuid"`
 	Arch         *string
 	CpuCores     *uint64
 	CpuPower     *uint64
@@ -27,13 +27,11 @@ type constraintsDoc struct {
 	Container    *instance.ContainerType
 	Tags         *[]string
 	Spaces       *[]string
-	// TODO(dimitern): Drop this once it's not possible to specify
-	// networks= in constraints.
-	Networks *[]string
+	VirtType     *string
 }
 
 func (doc constraintsDoc) value() constraints.Value {
-	return constraints.Value{
+	result := constraints.Value{
 		Arch:         doc.Arch,
 		CpuCores:     doc.CpuCores,
 		CpuPower:     doc.CpuPower,
@@ -43,13 +41,13 @@ func (doc constraintsDoc) value() constraints.Value {
 		Container:    doc.Container,
 		Tags:         doc.Tags,
 		Spaces:       doc.Spaces,
-		Networks:     doc.Networks,
+		VirtType:     doc.VirtType,
 	}
+	return result
 }
 
 func newConstraintsDoc(st *State, cons constraints.Value) constraintsDoc {
-	return constraintsDoc{
-		EnvUUID:      st.EnvironUUID(),
+	result := constraintsDoc{
 		Arch:         cons.Arch,
 		CpuCores:     cons.CpuCores,
 		CpuPower:     cons.CpuPower,
@@ -59,14 +57,15 @@ func newConstraintsDoc(st *State, cons constraints.Value) constraintsDoc {
 		Container:    cons.Container,
 		Tags:         cons.Tags,
 		Spaces:       cons.Spaces,
-		Networks:     cons.Networks,
+		VirtType:     cons.VirtType,
 	}
+	return result
 }
 
 func createConstraintsOp(st *State, id string, cons constraints.Value) txn.Op {
 	return txn.Op{
 		C:      constraintsC,
-		Id:     st.docID(id),
+		Id:     id,
 		Assert: txn.DocMissing,
 		Insert: newConstraintsDoc(st, cons),
 	}
@@ -75,7 +74,7 @@ func createConstraintsOp(st *State, id string, cons constraints.Value) txn.Op {
 func setConstraintsOp(st *State, id string, cons constraints.Value) txn.Op {
 	return txn.Op{
 		C:      constraintsC,
-		Id:     st.docID(id),
+		Id:     id,
 		Assert: txn.DocExists,
 		Update: bson.D{{"$set", newConstraintsDoc(st, cons)}},
 	}
@@ -84,7 +83,7 @@ func setConstraintsOp(st *State, id string, cons constraints.Value) txn.Op {
 func removeConstraintsOp(st *State, id string) txn.Op {
 	return txn.Op{
 		C:      constraintsC,
-		Id:     st.docID(id),
+		Id:     id,
 		Remove: true,
 	}
 }

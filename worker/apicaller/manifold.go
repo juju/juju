@@ -7,73 +7,101 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
 )
 
-// ManifoldConfig defines the names of the manifolds on which a Manifold will depend.
+// ConnectFunc is responsible for making and validating an API connection
+// on behalf of an agent.
+type ConnectFunc func(agent.Agent, api.OpenFunc) (api.Connection, error)
+
+// ManifoldConfig defines a Manifold's dependencies.
 type ManifoldConfig struct {
+
+	// AgentName is the name of the Agent resource that supplies
+	// connection information.
 	AgentName string
+
+	// APIConfigWatcherName identifies a resource that will be
+	// invalidated when api configuration changes. It's not really
+	// fundamental, because it's not used directly, except to create
+	// Inputs; it would be perfectly reasonable to wrap a Manifold
+	// to report an extra Input instead.
+	APIConfigWatcherName string
+
+	// APIOpen is passed into NewConnection, and should be used to
+	// create an API connection. You should probably just set it to
+	// the local APIOpen func.
+	APIOpen api.OpenFunc
+
+	// NewConnection is responsible for getting a connection from an
+	// agent, and may be responsible for other things that need to be
+	// done before anyone else gets to see the connection.
+	//
+	// You should probably set it to ScaryConnect when running a
+	// machine agent, and to OnlyConnect when running a model agent
+	// (which doesn't have its own process). Unit agents should use
+	// ScaryConnect at the moment; and probably switch to OnlyConnect
+	// when they move into machine agent processes.
+	NewConnection ConnectFunc
+
+	// Filter is used to specialize responses to connection errors
+	// made on behalf of different kinds of agent.
+	Filter dependency.FilterFunc
 }
 
-// Manifold returns a manifold whose worker wraps an API connection made on behalf of
-// the dependency identified by AgentName.
+// Manifold returns a manifold whose worker wraps an API connection
+// made as configured.
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
 			config.AgentName,
+			config.APIConfigWatcherName,
 		},
 		Output: outputFunc,
-		Start:  startFunc(config),
+		Start:  config.startFunc(),
+		Filter: config.Filter,
 	}
 }
 
-// startFunc returns a StartFunc that creates a worker based on the manifolds
-// named in the supplied config.
-func startFunc(config ManifoldConfig) dependency.StartFunc {
-	return func(getResource dependency.GetResourceFunc) (worker.Worker, error) {
-
-		// Get dependencies and open a connection.
-		var a agent.Agent
-		if err := getResource(config.AgentName, &a); err != nil {
+// startFunc returns a StartFunc that creates a connection based on the
+// supplied manifold config and wraps it in a worker.
+func (config ManifoldConfig) startFunc() dependency.StartFunc {
+	return func(context dependency.Context) (worker.Worker, error) {
+		var agent agent.Agent
+		if err := context.Get(config.AgentName, &agent); err != nil {
 			return nil, err
 		}
-		conn, err := openConnection(a)
-		if err != nil {
+
+		conn, err := config.NewConnection(agent, config.APIOpen)
+		if errors.Cause(err) == ErrChangedPassword {
+			return nil, dependency.ErrBounce
+		} else if err != nil {
 			return nil, errors.Annotate(err, "cannot open api")
 		}
-
-		// Add the environment uuid to agent config if not present.
-		currentConfig := a.CurrentConfig()
-		if currentConfig.Environment().Id() == "" {
-			err := a.ChangeConfig(func(setter agent.ConfigSetter) error {
-				environTag, err := conn.EnvironTag()
-				if err != nil {
-					return errors.Annotate(err, "no environment uuid set on api")
-				}
-				return setter.Migrate(agent.MigrateParams{
-					Environment: environTag,
-				})
-			})
-			if err != nil {
-				logger.Warningf("unable to save environment uuid: %v", err)
-				// Not really fatal, just annoying.
-			}
-		}
-
-		// Return the worker.
-		return newApiConnWorker(conn)
+		return newAPIConnWorker(conn), nil
 	}
 }
 
-// outputFunc extracts a base.APICaller from a *apiConnWorker.
+// outputFunc extracts an API connection from a *apiConnWorker.
 func outputFunc(in worker.Worker, out interface{}) error {
 	inWorker, _ := in.(*apiConnWorker)
-	outPointer, _ := out.(*base.APICaller)
-	if inWorker == nil || outPointer == nil {
-		return errors.Errorf("expected %T->%T; got %T->%T", inWorker, outPointer, in, out)
+	if inWorker == nil {
+		return errors.Errorf("in should be a %T; got %T", inWorker, in)
 	}
-	*outPointer = inWorker.conn
+
+	switch outPointer := out.(type) {
+	case *base.APICaller:
+		*outPointer = inWorker.conn
+	case *api.Connection:
+		// Using api.Connection is strongly discouraged as consumers
+		// of this API connection should not be able to close it. This
+		// option is only available to support legacy upgrade steps.
+		*outPointer = inWorker.conn
+	default:
+		return errors.Errorf("out should be *base.APICaller or *api.Connection; got %T", out)
+	}
 	return nil
 }

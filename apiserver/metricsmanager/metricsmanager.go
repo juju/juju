@@ -8,9 +8,11 @@ package metricsmanager
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
+	"github.com/juju/utils/clock"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/metricsender"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
@@ -24,7 +26,7 @@ var (
 )
 
 func init() {
-	common.RegisterStandardFacade("MetricsManager", 0, NewMetricsManagerAPI)
+	common.RegisterStandardFacade("MetricsManager", 1, newMetricsManagerAPI)
 }
 
 // MetricsManager defines the methods on the metricsmanager API end point.
@@ -39,17 +41,28 @@ type MetricsManagerAPI struct {
 	state *state.State
 
 	accessEnviron common.GetAuthFunc
+	clock         clock.Clock
 }
 
 var _ MetricsManager = (*MetricsManagerAPI)(nil)
 
+// newMetricsManagerAPI wraps NewMetricsManagerAPI for RegisterStandardFacade.
+func newMetricsManagerAPI(
+	st *state.State,
+	resources facade.Resources,
+	authorizer facade.Authorizer,
+) (*MetricsManagerAPI, error) {
+	return NewMetricsManagerAPI(st, resources, authorizer, clock.WallClock)
+}
+
 // NewMetricsManagerAPI creates a new API endpoint for calling metrics manager functions.
 func NewMetricsManagerAPI(
 	st *state.State,
-	resources *common.Resources,
-	authorizer common.Authorizer,
+	resources facade.Resources,
+	authorizer facade.Authorizer,
+	clock clock.Clock,
 ) (*MetricsManagerAPI, error) {
-	if !(authorizer.AuthMachineAgent() && authorizer.AuthEnvironManager()) {
+	if !(authorizer.AuthMachineAgent() && authorizer.AuthModelManager()) {
 		return nil, common.ErrPerm
 	}
 
@@ -59,13 +72,14 @@ func NewMetricsManagerAPI(
 			if tag == nil {
 				return false
 			}
-			return tag == st.EnvironTag()
+			return tag == st.ModelTag()
 		}, nil
 	}
 
 	return &MetricsManagerAPI{
 		state:         st,
 		accessEnviron: accessEnviron,
+		clock:         clock,
 	}, nil
 }
 
@@ -85,7 +99,7 @@ func (api *MetricsManagerAPI) CleanupOldMetrics(args params.Entities) (params.Er
 		return result, err
 	}
 	for i, arg := range args.Entities {
-		tag, err := names.ParseEnvironTag(arg.Tag)
+		tag, err := names.ParseModelTag(arg.Tag)
 		if err != nil {
 			result.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
@@ -94,9 +108,19 @@ func (api *MetricsManagerAPI) CleanupOldMetrics(args params.Entities) (params.Er
 			result.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
-		err = api.state.CleanupOldMetrics()
+		modelState := api.state
+		if tag != api.state.ModelTag() {
+			modelState, err = api.state.ForModel(tag)
+			if err != nil {
+				err = errors.Annotatef(err, "failed to access state for %s", tag)
+				result.Results[i].Error = common.ServerError(err)
+				continue
+			}
+		}
+
+		err = modelState.CleanupOldMetrics()
 		if err != nil {
-			err = errors.Annotate(err, "failed to cleanup old metrics")
+			err = errors.Annotatef(err, "failed to cleanup old metrics for %s", tag)
 			result.Results[i].Error = common.ServerError(err)
 		}
 	}
@@ -116,7 +140,7 @@ func (api *MetricsManagerAPI) SendMetrics(args params.Entities) (params.ErrorRes
 		return result, err
 	}
 	for i, arg := range args.Entities {
-		tag, err := names.ParseEnvironTag(arg.Tag)
+		tag, err := names.ParseModelTag(arg.Tag)
 		if err != nil {
 			result.Results[i].Error = common.ServerError(err)
 			continue
@@ -125,13 +149,35 @@ func (api *MetricsManagerAPI) SendMetrics(args params.Entities) (params.ErrorRes
 			result.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
-		err = metricsender.SendMetrics(api.state, sender, maxBatchesPerSend)
+		modelState := api.state
+		if tag != api.state.ModelTag() {
+			modelState, err = api.state.ForModel(tag)
+			if err != nil {
+				err = errors.Annotatef(err, "failed to access state for %s", tag)
+				result.Results[i].Error = common.ServerError(err)
+				continue
+			}
+		}
+		txVendorMetrics, err := transmitVendorMetrics(modelState)
 		if err != nil {
-			err = errors.Annotate(err, "failed to send metrics")
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		err = metricsender.SendMetrics(modelState, sender, api.clock, maxBatchesPerSend, txVendorMetrics)
+		if err != nil {
+			err = errors.Annotatef(err, "failed to send metrics for %s", tag)
 			logger.Warningf("%v", err)
 			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
 	}
 	return result, nil
+}
+
+func transmitVendorMetrics(st *state.State) (bool, error) {
+	cfg, err := st.ModelConfig()
+	if err != nil {
+		return false, errors.Annotatef(err, "failed to get model config for %s", st.ModelTag())
+	}
+	return cfg.TransmitVendorMetrics(), nil
 }

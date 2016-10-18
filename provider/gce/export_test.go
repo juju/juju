@@ -5,21 +5,21 @@ package gce
 
 import (
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/gce/google"
-	"github.com/juju/juju/storage"
 )
 
 var (
-	Provider             environs.EnvironProvider = providerInstance
-	NewInstance                                   = newInstance
-	CheckInstanceType                             = checkInstanceType
-	GetMetadata                                   = getMetadata
-	GetDisks                                      = getDisks
-	ConfigImmutable                               = configImmutableFields
-	UbuntuImageBasePath                           = ubuntuImageBasePath
-	WindowsImageBasePath                          = windowsImageBasePath
+	Provider                 environs.EnvironProvider = providerInstance
+	NewInstance                                       = newInstance
+	CheckInstanceType                                 = checkInstanceType
+	GetMetadata                                       = getMetadata
+	GetDisks                                          = getDisks
+	UbuntuImageBasePath                               = ubuntuImageBasePath
+	UbuntuDailyImageBasePath                          = ubuntuDailyImageBasePath
+	WindowsImageBasePath                              = windowsImageBasePath
 )
 
 func ExposeInstBase(inst *environInstance) *google.Instance {
@@ -32,10 +32,6 @@ func ExposeInstEnv(inst *environInstance) *environ {
 
 func ParseAvailabilityZones(env *environ, args environs.StartInstanceParams) ([]string, error) {
 	return env.parseAvailabilityZones(args)
-}
-
-func UnsetEnvConfig(env *environ) {
-	env.ecfg = nil
 }
 
 func ExposeEnvConfig(env *environ) *environConfig {
@@ -58,8 +54,12 @@ func FinishInstanceConfig(env *environ, args environs.StartInstanceParams, spec 
 	return env.finishInstanceConfig(args, spec)
 }
 
-func FindInstanceSpec(env *environ, stream string, ic *instances.InstanceConstraint) (*instances.InstanceSpec, error) {
-	return env.findInstanceSpec(stream, ic)
+func FindInstanceSpec(
+	env *environ,
+	ic *instances.InstanceConstraint,
+	imageMetadata []*imagemetadata.ImageMetadata,
+) (*instances.InstanceSpec, error) {
+	return env.findInstanceSpec(ic, imageMetadata)
 }
 
 func BuildInstanceSpec(env *environ, args environs.StartInstanceParams) (*instances.InstanceSpec, error) {
@@ -76,9 +76,4 @@ func GetHardwareCharacteristics(env *environ, spec *instances.InstanceSpec, inst
 
 func GetInstances(env *environ) ([]instance.Instance, error) {
 	return env.instances()
-}
-
-// Storage
-func GCEStorageProvider() storage.Provider {
-	return &storageProvider{}
 }

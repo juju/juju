@@ -4,8 +4,6 @@
 package machine_test
 
 import (
-	"strings"
-
 	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -16,19 +14,19 @@ import (
 )
 
 type RemoveMachineSuite struct {
-	testing.FakeJujuHomeSuite
+	testing.FakeJujuXDGDataHomeSuite
 	fake *fakeRemoveMachineAPI
 }
 
 var _ = gc.Suite(&RemoveMachineSuite{})
 
 func (s *RemoveMachineSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.fake = &fakeRemoveMachineAPI{}
 }
 
 func (s *RemoveMachineSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
-	remove, _ := machine.NewRemoveCommand(s.fake)
+	remove, _ := machine.NewRemoveCommandForTest(s.fake)
 	return testing.RunCommand(c, remove, args...)
 }
 
@@ -56,15 +54,15 @@ func (s *RemoveMachineSuite) TestInit(c *gc.C) {
 			machines: []string{"1", "2"},
 			force:    true,
 		}, {
-			args:        []string{"lxc"},
-			errorString: `invalid machine id "lxc"`,
+			args:        []string{"lxd"},
+			errorString: `invalid machine id "lxd"`,
 		}, {
-			args:     []string{"1/lxc/2"},
-			machines: []string{"1/lxc/2"},
+			args:     []string{"1/lxd/2"},
+			machines: []string{"1/lxd/2"},
 		},
 	} {
 		c.Logf("test %d", i)
-		wrappedCommand, removeCmd := machine.NewRemoveCommand(s.fake)
+		wrappedCommand, removeCmd := machine.NewRemoveCommandForTest(s.fake)
 		err := testing.InitCommand(wrappedCommand, test.args)
 		if test.errorString == "" {
 			c.Check(err, jc.ErrorIsNil)
@@ -77,37 +75,31 @@ func (s *RemoveMachineSuite) TestInit(c *gc.C) {
 }
 
 func (s *RemoveMachineSuite) TestRemove(c *gc.C) {
-	_, err := s.run(c, "1", "2/lxc/1")
+	_, err := s.run(c, "1", "2/lxd/1")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.fake.forced, jc.IsFalse)
-	c.Assert(s.fake.machines, jc.DeepEquals, []string{"1", "2/lxc/1"})
+	c.Assert(s.fake.machines, jc.DeepEquals, []string{"1", "2/lxd/1"})
 }
 
 func (s *RemoveMachineSuite) TestRemoveForce(c *gc.C) {
-	_, err := s.run(c, "--force", "1", "2/lxc/1")
+	_, err := s.run(c, "--force", "1", "2/lxd/1")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.fake.forced, jc.IsTrue)
-	c.Assert(s.fake.machines, jc.DeepEquals, []string{"1", "2/lxc/1"})
+	c.Assert(s.fake.machines, jc.DeepEquals, []string{"1", "2/lxd/1"})
 }
 
 func (s *RemoveMachineSuite) TestBlockedError(c *gc.C) {
 	s.fake.removeError = common.OperationBlockedError("TestBlockedError")
 	_, err := s.run(c, "1")
-	c.Assert(err, gc.Equals, cmd.ErrSilent)
 	c.Assert(s.fake.forced, jc.IsFalse)
-	// msg is logged
-	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
-	c.Assert(stripped, gc.Matches, ".*TestBlockedError.*")
+	testing.AssertOperationWasBlocked(c, err, ".*TestBlockedError.*")
 }
 
 func (s *RemoveMachineSuite) TestForceBlockedError(c *gc.C) {
 	s.fake.removeError = common.OperationBlockedError("TestForceBlockedError")
 	_, err := s.run(c, "--force", "1")
-	c.Assert(err, gc.Equals, cmd.ErrSilent)
 	c.Assert(s.fake.forced, jc.IsTrue)
-	// msg is logged
-	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
-	c.Assert(stripped, gc.Matches, ".*TestForceBlockedError.*")
+	testing.AssertOperationWasBlocked(c, err, ".*TestForceBlockedError.*")
 }
 
 type fakeRemoveMachineAPI struct {

@@ -11,11 +11,11 @@ to run commands successfully.
 
 There are currently three types of blocks developed.
 
- 1. DESTROY_BLOCK blocks destroy-environment command.
- 2. REMOVE_BLOCK blocks destroy-environment as well as all object removal - 
+ 1. DESTROY_BLOCK blocks destroy-model command.
+ 2. REMOVE_BLOCK blocks destroy-model as well as all object removal -
     machines, services, units, relations.
  3. CHANGE_BLOCK blocks all commands from DESTROY and REMOVE blocks 
-    as well as all environment modifications.
+    as well as all model modifications.
 
 For more information and the list of all commands that are blocked, run
     `juju help block`

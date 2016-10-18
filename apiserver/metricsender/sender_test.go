@@ -11,28 +11,31 @@ import (
 	"net/http/httptest"
 	"time"
 
+	wireformat "github.com/juju/romulus/wireformat/metrics"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/metricsender"
-	"github.com/juju/juju/apiserver/metricsender/wireformat"
 	"github.com/juju/juju/cert"
-	jujutesting "github.com/juju/juju/juju/testing"
+	jujujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing/factory"
+	jujutesting "github.com/juju/testing"
 )
 
 type SenderSuite struct {
-	jujutesting.JujuConnSuite
+	jujujutesting.JujuConnSuite
 	unit           *state.Unit
-	meteredService *state.Service
+	meteredService *state.Application
+	clock          clock.Clock
 }
 
 var _ = gc.Suite(&SenderSuite{})
 
 func createCerts(c *gc.C, serverName string) (*x509.CertPool, tls.Certificate) {
-	certCaPem, keyCaPem, err := cert.NewCA("sender-test", time.Now().Add(time.Minute))
+	certCaPem, keyCaPem, err := cert.NewCA("sender-test", "1", time.Now().Add(time.Minute))
 	c.Assert(err, jc.ErrorIsNil)
 	certPem, keyPem, err := cert.NewServer(certCaPem, keyCaPem, time.Now().Add(time.Minute), []string{serverName})
 	c.Assert(err, jc.ErrorIsNil)
@@ -46,33 +49,29 @@ func createCerts(c *gc.C, serverName string) (*x509.CertPool, tls.Certificate) {
 func (s *SenderSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered"})
-	s.meteredService = s.Factory.MakeService(c, &factory.ServiceParams{Charm: meteredCharm})
-	s.unit = s.Factory.MakeUnit(c, &factory.UnitParams{Service: s.meteredService, SetCharmURL: true})
+	s.meteredService = s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm})
+	s.unit = s.Factory.MakeUnit(c, &factory.UnitParams{Application: s.meteredService, SetCharmURL: true})
+	s.clock = jujutesting.NewClock(time.Now())
 }
 
-// startServer starts a server with TLS and the specified handler, returning a
-// function that should be run at the end of the test to clean up.
+// startServer starts a test HTTP server, returning a function that should be
+// run at the end of the test to clean up.
 func (s *SenderSuite) startServer(c *gc.C, handler http.Handler) func() {
-	ts := httptest.NewUnstartedServer(handler)
-	certPool, cert := createCerts(c, "127.0.0.1")
-	ts.TLS = &tls.Config{
-		Certificates: []tls.Certificate{cert},
-	}
-	ts.StartTLS()
-	cleanup := metricsender.PatchHostAndCertPool(ts.URL, certPool)
+	ts := httptest.NewServer(handler)
+	cleanup := metricsender.PatchHost(ts.URL)
 	return func() {
 		ts.Close()
 		cleanup()
 	}
 }
 
-var _ metricsender.MetricSender = (*metricsender.HttpSender)(nil)
+var _ metricsender.MetricSender = (*metricsender.HTTPSender)(nil)
 
-// TestHttpSender checks that if the default sender
+// TestHTTPSender checks that if the default sender
 // is in use metrics get sent
-func (s *SenderSuite) TestHttpSender(c *gc.C) {
+func (s *SenderSuite) TestHTTPSender(c *gc.C) {
 	metricCount := 3
-	expectedCharmUrl, _ := s.unit.CharmURL()
+	expectedCharmURL, _ := s.unit.CharmURL()
 
 	receiverChan := make(chan wireformat.MetricBatch, metricCount)
 	cleanup := s.startServer(c, testHandler(c, receiverChan, nil, 0))
@@ -83,14 +82,14 @@ func (s *SenderSuite) TestHttpSender(c *gc.C) {
 	for i := range metrics {
 		metrics[i] = s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: false, Time: &now})
 	}
-	var sender metricsender.HttpSender
-	err := metricsender.SendMetrics(s.State, &sender, 10)
+	var sender metricsender.HTTPSender
+	err := metricsender.SendMetrics(s.State, &sender, s.clock, 10, true)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(receiverChan, gc.HasLen, metricCount)
 	close(receiverChan)
 	for batch := range receiverChan {
-		c.Assert(batch.CharmUrl, gc.Equals, expectedCharmUrl.String())
+		c.Assert(batch.CharmUrl, gc.Equals, expectedCharmURL.String())
 	}
 
 	for _, metric := range metrics {
@@ -122,11 +121,11 @@ func testHandler(c *gc.C, batches chan<- wireformat.MetricBatch, statusMap Statu
 		for _, batch := range incoming {
 			c.Logf("received metrics batch: %+v", batch)
 
-			resp.Ack(batch.EnvUUID, batch.UUID)
+			resp.Ack(batch.ModelUUID, batch.UUID)
 
 			if statusMap != nil {
 				unitName, status, info := statusMap(batch.UnitName)
-				resp.SetStatus(batch.EnvUUID, unitName, status, info)
+				resp.SetStatus(batch.ModelUUID, unitName, status, info)
 			}
 
 			select {
@@ -165,8 +164,8 @@ func (s *SenderSuite) TestErrorCodes(c *gc.C) {
 		for i := range batches {
 			batches[i] = s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: false, Time: &now})
 		}
-		var sender metricsender.HttpSender
-		err := metricsender.SendMetrics(s.State, &sender, 10)
+		var sender metricsender.HTTPSender
+		err := metricsender.SendMetrics(s.State, &sender, s.clock, 10, true)
 		c.Assert(err, gc.ErrorMatches, test.expectedErr)
 		for _, batch := range batches {
 			m, err := s.State.MetricBatch(batch.UUID())
@@ -194,8 +193,8 @@ func (s *SenderSuite) TestMeterStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status.Code, gc.Equals, state.MeterNotSet)
 
-	var sender metricsender.HttpSender
-	err = metricsender.SendMetrics(s.State, &sender, 10)
+	var sender metricsender.HTTPSender
+	err = metricsender.SendMetrics(s.State, &sender, s.clock, 10, true)
 	c.Assert(err, jc.ErrorIsNil)
 
 	status, err = s.unit.GetMeterStatus()
@@ -206,9 +205,9 @@ func (s *SenderSuite) TestMeterStatus(c *gc.C) {
 // TestMeterStatusInvalid checks that the metric sender deals with invalid
 // meter status data properly.
 func (s *SenderSuite) TestMeterStatusInvalid(c *gc.C) {
-	unit1 := s.Factory.MakeUnit(c, &factory.UnitParams{Service: s.meteredService, SetCharmURL: true})
-	unit2 := s.Factory.MakeUnit(c, &factory.UnitParams{Service: s.meteredService, SetCharmURL: true})
-	unit3 := s.Factory.MakeUnit(c, &factory.UnitParams{Service: s.meteredService, SetCharmURL: true})
+	unit1 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: s.meteredService, SetCharmURL: true})
+	unit2 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: s.meteredService, SetCharmURL: true})
+	unit3 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: s.meteredService, SetCharmURL: true})
 
 	statusFunc := func(unitName string) (string, string, string) {
 		switch unitName {
@@ -239,8 +238,8 @@ func (s *SenderSuite) TestMeterStatusInvalid(c *gc.C) {
 		c.Assert(status.Code, gc.Equals, state.MeterNotSet)
 	}
 
-	var sender metricsender.HttpSender
-	err := metricsender.SendMetrics(s.State, &sender, 10)
+	var sender metricsender.HTTPSender
+	err := metricsender.SendMetrics(s.State, &sender, s.clock, 10, true)
 	c.Assert(err, jc.ErrorIsNil)
 
 	status, err := unit1.GetMeterStatus()
@@ -261,8 +260,8 @@ func (s *SenderSuite) TestGracePeriodResponse(c *gc.C) {
 	_ = s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: false})
 	cleanup := s.startServer(c, testHandler(c, nil, nil, 47*time.Hour))
 	defer cleanup()
-	var sender metricsender.HttpSender
-	err := metricsender.SendMetrics(s.State, &sender, 10)
+	var sender metricsender.HTTPSender
+	err := metricsender.SendMetrics(s.State, &sender, s.clock, 10, true)
 	c.Assert(err, jc.ErrorIsNil)
 	mm, err := s.State.MetricsManager()
 	c.Assert(err, jc.ErrorIsNil)
@@ -274,8 +273,8 @@ func (s *SenderSuite) TestNegativeGracePeriodResponse(c *gc.C) {
 
 	cleanup := s.startServer(c, testHandler(c, nil, nil, -47*time.Hour))
 	defer cleanup()
-	var sender metricsender.HttpSender
-	err := metricsender.SendMetrics(s.State, &sender, 10)
+	var sender metricsender.HTTPSender
+	err := metricsender.SendMetrics(s.State, &sender, s.clock, 10, true)
 	c.Assert(err, jc.ErrorIsNil)
 	mm, err := s.State.MetricsManager()
 	c.Assert(err, jc.ErrorIsNil)
@@ -287,8 +286,8 @@ func (s *SenderSuite) TestZeroGracePeriodResponse(c *gc.C) {
 
 	cleanup := s.startServer(c, testHandler(c, nil, nil, 0))
 	defer cleanup()
-	var sender metricsender.HttpSender
-	err := metricsender.SendMetrics(s.State, &sender, 10)
+	var sender metricsender.HTTPSender
+	err := metricsender.SendMetrics(s.State, &sender, s.clock, 10, true)
 	c.Assert(err, jc.ErrorIsNil)
 	mm, err := s.State.MetricsManager()
 	c.Assert(err, jc.ErrorIsNil)

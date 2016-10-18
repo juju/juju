@@ -10,8 +10,10 @@ import (
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/constraints"
@@ -20,13 +22,18 @@ import (
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
+	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/gce/google"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
+	coretools "github.com/juju/juju/tools"
+)
+
+// Ensure GCE provider supports the expected interfaces.
+var (
+	_ config.ConfigSchemaSource = (*environProvider)(nil)
 )
 
 // These values are fake GCE auth credentials for use in tests.
@@ -34,6 +41,7 @@ const (
 	ClientName  = "ba9876543210-0123456789abcdefghijklmnopqrstuv"
 	ClientID    = ClientName + ".apps.googleusercontent.com"
 	ClientEmail = ClientName + "@developer.gserviceaccount.com"
+	ProjectID   = "my-juju"
 	PrivateKey  = `-----BEGIN PRIVATE KEY-----
 ...
 ...
@@ -64,25 +72,42 @@ var (
 }`, strings.Replace(PrivateKey, "\n", "\\n", -1), ClientEmail, ClientID)
 
 	ConfigAttrs = testing.FakeConfig().Merge(testing.Attrs{
-		"type":           "gce",
-		"auth-file":      "",
-		"private-key":    PrivateKey,
-		"client-id":      ClientID,
-		"client-email":   ClientEmail,
-		"region":         "home",
-		"project-id":     "my-juju",
-		"image-endpoint": "https://www.googleapis.com",
-		"uuid":           "2d02eeac-9dbb-11e4-89d3-123b93f75cba",
+		"type":            "gce",
+		"uuid":            "2d02eeac-9dbb-11e4-89d3-123b93f75cba",
+		"controller-uuid": "bfef02f1-932a-425a-a102-62175dcabd1d",
 	})
 )
+
+func MakeTestCloudSpec() environs.CloudSpec {
+	cred := MakeTestCredential()
+	return environs.CloudSpec{
+		Type:       "gce",
+		Name:       "google",
+		Region:     "us-east1",
+		Endpoint:   "https://www.googleapis.com",
+		Credential: &cred,
+	}
+}
+
+func MakeTestCredential() cloud.Credential {
+	return cloud.NewCredential(
+		cloud.OAuth2AuthType,
+		map[string]string{
+			"project-id":   ProjectID,
+			"client-id":    ClientID,
+			"client-email": ClientEmail,
+			"private-key":  PrivateKey,
+		},
+	)
+}
 
 type BaseSuiteUnpatched struct {
 	gitjujutesting.IsolationSuite
 
-	Config    *config.Config
-	EnvConfig *environConfig
-	Env       *environ
-	Prefix    string
+	ControllerUUID string
+	Config         *config.Config
+	EnvConfig      *environConfig
+	Env            *environ
 
 	Addresses       []network.Address
 	BaseInstance    *google.Instance
@@ -104,44 +129,52 @@ var _ instance.Instance = (*environInstance)(nil)
 func (s *BaseSuiteUnpatched) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
+	s.ControllerUUID = testing.FakeControllerConfig().ControllerUUID()
 	s.initEnv(c)
 	s.initInst(c)
 	s.initNet(c)
 }
 
+func (s *BaseSuiteUnpatched) Prefix() string {
+	return s.Env.namespace.Prefix()
+}
+
 func (s *BaseSuiteUnpatched) initEnv(c *gc.C) {
 	s.Env = &environ{
-		name: "google",
+		name:  "google",
+		cloud: MakeTestCloudSpec(),
 	}
 	cfg := s.NewConfig(c, nil)
 	s.setConfig(c, cfg)
 }
 
 func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
-	tools := []*tools.Tools{{
+	tools := []*coretools.Tools{{
 		Version: version.Binary{Arch: arch.AMD64, Series: "trusty"},
 		URL:     "https://example.org",
 	}}
 
 	cons := constraints.Value{InstanceType: &allInstanceTypes[0].Name}
 
-	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(cons, "trusty", "")
+	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(testing.FakeControllerConfig(), cons, cons, "trusty", "")
 	c.Assert(err, jc.ErrorIsNil)
 
-	instanceConfig.Tools = tools[0]
+	err = instanceConfig.SetTools(coretools.List(tools))
+	c.Assert(err, jc.ErrorIsNil)
 	instanceConfig.AuthorizedKeys = s.Config.AuthorizedKeys()
 
 	userData, err := providerinit.ComposeUserData(instanceConfig, nil, GCERenderer{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	authKeys, err := google.FormatAuthorizedKeys(instanceConfig.AuthorizedKeys, "ubuntu")
-	c.Assert(err, jc.ErrorIsNil)
-
 	s.UbuntuMetadata = map[string]string{
-		metadataKeyIsState:   metadataValueTrue,
-		metadataKeyCloudInit: string(userData),
-		metadataKeyEncoding:  "base64",
-		metadataKeySSHKeys:   authKeys,
+		tags.JujuIsController: "true",
+		tags.JujuController:   s.ControllerUUID,
+		metadataKeyCloudInit:  string(userData),
+		metadataKeyEncoding:   "base64",
+	}
+	instanceConfig.Tags = map[string]string{
+		tags.JujuIsController: "true",
+		tags.JujuController:   s.ControllerUUID,
 	}
 	s.WindowsMetadata = map[string]string{
 		metadataKeyWindowsUserdata: string(userData),
@@ -154,9 +187,11 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 	}}
 	s.Instance = s.NewInstance(c, "spam")
 	s.BaseInstance = s.Instance.base
-	s.InstName = s.Prefix + "machine-spam"
+	s.InstName, err = s.Env.namespace.Hostname("42")
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.StartInstArgs = environs.StartInstanceParams{
+		ControllerUUID: s.ControllerUUID,
 		InstanceConfig: instanceConfig,
 		Tools:          tools,
 		Constraints:    cons,
@@ -165,13 +200,16 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 	}
 
 	s.InstanceType = allInstanceTypes[0]
+
 	// Storage
+	eUUID := s.Env.Config().UUID()
 	s.BaseDisk = &google.Disk{
-		Id:     1234567,
-		Name:   "home-zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4",
-		Zone:   "home-zone",
-		Status: google.StatusReady,
-		Size:   1024,
+		Id:          1234567,
+		Name:        "home-zone--c930380d-8337-4bf5-b07a-9dbb5ae771e4",
+		Zone:        "home-zone",
+		Status:      google.StatusReady,
+		Size:        1024,
+		Description: eUUID,
 	}
 }
 
@@ -185,18 +223,20 @@ func (s *BaseSuiteUnpatched) initNet(c *gc.C) {
 
 func (s *BaseSuiteUnpatched) setConfig(c *gc.C, cfg *config.Config) {
 	s.Config = cfg
-	ecfg, err := newValidConfig(cfg, configDefaults)
+	ecfg, err := newConfig(cfg, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.EnvConfig = ecfg
-	uuid, _ := cfg.UUID()
+	uuid := cfg.UUID()
 	s.Env.uuid = uuid
 	s.Env.ecfg = s.EnvConfig
-	s.Prefix = "juju-" + uuid + "-"
+	namespace, err := instance.NewNamespace(uuid)
+	c.Assert(err, jc.ErrorIsNil)
+	s.Env.namespace = namespace
 }
 
 func (s *BaseSuiteUnpatched) NewConfig(c *gc.C, updates testing.Attrs) *config.Config {
 	var err error
-	cfg := testing.EnvironConfig(c)
+	cfg := testing.ModelConfig(c)
 	cfg, err = cfg.Apply(ConfigAttrs)
 	c.Assert(err, jc.ErrorIsNil)
 	cfg, err = cfg.Apply(updates)
@@ -250,7 +290,6 @@ type BaseSuite struct {
 	FakeConn    *fakeConn
 	FakeCommon  *fakeCommon
 	FakeEnviron *fakeEnviron
-	FakeImages  *fakeImages
 }
 
 func (s *BaseSuite) SetUpTest(c *gc.C) {
@@ -259,14 +298,12 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.FakeConn = &fakeConn{}
 	s.FakeCommon = &fakeCommon{}
 	s.FakeEnviron = &fakeEnviron{}
-	s.FakeImages = &fakeImages{}
 
 	// Patch out all expensive external deps.
 	s.Env.gce = s.FakeConn
-	s.PatchValue(&newConnection, func(*environConfig) (gceConnection, error) {
+	s.PatchValue(&newConnection, func(google.ConnectionConfig, *google.Credentials) (gceConnection, error) {
 		return s.FakeConn, nil
 	})
-	s.PatchValue(&supportedArchitectures, s.FakeCommon.SupportedArchitectures)
 	s.PatchValue(&bootstrap, s.FakeCommon.Bootstrap)
 	s.PatchValue(&destroyEnv, s.FakeCommon.Destroy)
 	s.PatchValue(&availabilityZoneAllocations, s.FakeCommon.AvailabilityZoneAllocations)
@@ -275,7 +312,6 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&newRawInstance, s.FakeEnviron.NewRawInstance)
 	s.PatchValue(&findInstanceSpec, s.FakeEnviron.FindInstanceSpec)
 	s.PatchValue(&getInstances, s.FakeEnviron.GetInstances)
-	s.PatchValue(&imageMetadataFetch, s.FakeImages.ImageMetadataFetch)
 }
 
 func (s *BaseSuite) CheckNoAPI(c *gc.C) {
@@ -319,25 +355,16 @@ func (f *fake) CheckCalls(c *gc.C, expected []FakeCall) {
 type fakeCommon struct {
 	fake
 
-	Arches      []string
 	Arch        string
 	Series      string
 	BSFinalizer environs.BootstrapFinalizer
 	AZInstances []common.AvailabilityZoneInstances
 }
 
-func (fc *fakeCommon) SupportedArchitectures(env environs.Environ, cons *imagemetadata.ImageConstraint) ([]string, error) {
-	fc.addCall("SupportedArchitectures", FakeCallArgs{
-		"env":  env,
-		"cons": cons,
-	})
-	return fc.Arches, fc.err()
-}
-
 func (fc *fakeCommon) Bootstrap(ctx environs.BootstrapContext, env environs.Environ, params environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	fc.addCall("Bootstrap", FakeCallArgs{
 		"ctx":    ctx,
-		"env":    env,
+		"switch": env,
 		"params": params,
 	})
 
@@ -351,15 +378,15 @@ func (fc *fakeCommon) Bootstrap(ctx environs.BootstrapContext, env environs.Envi
 
 func (fc *fakeCommon) Destroy(env environs.Environ) error {
 	fc.addCall("Destroy", FakeCallArgs{
-		"env": env,
+		"switch": env,
 	})
 	return fc.err()
 }
 
 func (fc *fakeCommon) AvailabilityZoneAllocations(env common.ZonedEnviron, group []instance.Id) ([]common.AvailabilityZoneInstances, error) {
 	fc.addCall("AvailabilityZoneAllocations", FakeCallArgs{
-		"env":   env,
-		"group": group,
+		"switch": env,
+		"group":  group,
 	})
 	return fc.AZInstances, fc.err()
 }
@@ -375,55 +402,48 @@ type fakeEnviron struct {
 
 func (fe *fakeEnviron) GetInstances(env *environ) ([]instance.Instance, error) {
 	fe.addCall("GetInstances", FakeCallArgs{
-		"env": env,
+		"switch": env,
 	})
 	return fe.Insts, fe.err()
 }
 
 func (fe *fakeEnviron) BuildInstanceSpec(env *environ, args environs.StartInstanceParams) (*instances.InstanceSpec, error) {
 	fe.addCall("BuildInstanceSpec", FakeCallArgs{
-		"env":  env,
-		"args": args,
+		"switch": env,
+		"args":   args,
 	})
 	return fe.Spec, fe.err()
 }
 
 func (fe *fakeEnviron) GetHardwareCharacteristics(env *environ, spec *instances.InstanceSpec, inst *environInstance) *instance.HardwareCharacteristics {
 	fe.addCall("GetHardwareCharacteristics", FakeCallArgs{
-		"env":  env,
-		"spec": spec,
-		"inst": inst,
+		"switch": env,
+		"spec":   spec,
+		"inst":   inst,
 	})
 	return fe.Hwc
 }
 
 func (fe *fakeEnviron) NewRawInstance(env *environ, args environs.StartInstanceParams, spec *instances.InstanceSpec) (*google.Instance, error) {
 	fe.addCall("NewRawInstance", FakeCallArgs{
-		"env":  env,
-		"args": args,
-		"spec": spec,
+		"switch": env,
+		"args":   args,
+		"spec":   spec,
 	})
 	return fe.Inst, fe.err()
 }
 
-func (fe *fakeEnviron) FindInstanceSpec(env *environ, stream string, ic *instances.InstanceConstraint) (*instances.InstanceSpec, error) {
+func (fe *fakeEnviron) FindInstanceSpec(
+	env *environ,
+	ic *instances.InstanceConstraint,
+	imageMetadata []*imagemetadata.ImageMetadata,
+) (*instances.InstanceSpec, error) {
 	fe.addCall("FindInstanceSpec", FakeCallArgs{
-		"env":    env,
-		"stream": stream,
-		"ic":     ic,
+		"switch":        env,
+		"ic":            ic,
+		"imageMetadata": imageMetadata,
 	})
 	return fe.Spec, fe.err()
-}
-
-type fakeImages struct {
-	fake
-
-	Metadata    []*imagemetadata.ImageMetadata
-	ResolveInfo *simplestreams.ResolveInfo
-}
-
-func (fi *fakeImages) ImageMetadataFetch(sources []simplestreams.DataSource, cons *imagemetadata.ImageConstraint, onlySigned bool) ([]*imagemetadata.ImageMetadata, *simplestreams.ResolveInfo, error) {
-	return fi.Metadata, fi.ResolveInfo, fi.err()
 }
 
 // TODO(ericsnow) Refactor fakeConnCall and fakeConn to embed fakeCall and fake.

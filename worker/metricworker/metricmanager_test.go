@@ -19,10 +19,8 @@ var _ = gc.Suite(&MetricManagerSuite{})
 
 func (s *MetricManagerSuite) TestRunner(c *gc.C) {
 	notify := make(chan string, 2)
-	cleanup := metricworker.PatchNotificationChannel(notify)
-	defer cleanup()
-	client := &mockClient{}
-	_, err := metricworker.NewMetricsManager(client)
+	var client mockClient
+	_, err := metricworker.NewMetricsManager(&client, notify)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedCalls := map[string]bool{}
 	for i := 0; i < 2; i++ {

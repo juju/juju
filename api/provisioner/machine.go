@@ -6,11 +6,13 @@ package provisioner
 import (
 	"fmt"
 
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/api/watcher"
+	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/status"
+	"github.com/juju/juju/watcher"
 )
 
 // Machine represents a juju machine as seen by the provisioner worker.
@@ -68,12 +70,46 @@ func (m *Machine) ProvisioningInfo() (*params.ProvisioningInfo, error) {
 	return result.Result, nil
 }
 
+// SetInstanceStatus sets the status for the provider instance.
+func (m *Machine) SetInstanceStatus(status status.Status, message string, data map[string]interface{}) error {
+	var result params.ErrorResults
+	args := params.SetStatus{Entities: []params.EntityStatusArgs{
+		{Tag: m.tag.String(), Status: status.String(), Info: message, Data: data},
+	}}
+	err := m.st.facade.FacadeCall("SetInstanceStatus", args, &result)
+	if err != nil {
+		return err
+	}
+	return result.OneError()
+}
+
+// InstanceStatus returns the status of the provider instance.
+func (m *Machine) InstanceStatus() (status.Status, string, error) {
+	var results params.StatusResults
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: m.tag.String()},
+	}}
+	err := m.st.facade.FacadeCall("InstanceStatus", args, &results)
+	if err != nil {
+		return "", "", err
+	}
+	if len(results.Results) != 1 {
+		return "", "", fmt.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return "", "", result.Error
+	}
+	// TODO(perrito666) add status validation.
+	return status.Status(result.Status), result.Info, nil
+}
+
 // SetStatus sets the status of the machine.
-func (m *Machine) SetStatus(status params.Status, info string, data map[string]interface{}) error {
+func (m *Machine) SetStatus(status status.Status, info string, data map[string]interface{}) error {
 	var result params.ErrorResults
 	args := params.SetStatus{
 		Entities: []params.EntityStatusArgs{
-			{Tag: m.tag.String(), Status: status, Info: info, Data: data},
+			{Tag: m.tag.String(), Status: status.String(), Info: info, Data: data},
 		},
 	}
 	err := m.st.facade.FacadeCall("SetStatus", args, &result)
@@ -84,7 +120,7 @@ func (m *Machine) SetStatus(status params.Status, info string, data map[string]i
 }
 
 // Status returns the status of the machine.
-func (m *Machine) Status() (params.Status, string, error) {
+func (m *Machine) Status() (status.Status, string, error) {
 	var results params.StatusResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag.String()}},
@@ -100,7 +136,8 @@ func (m *Machine) Status() (params.Status, string, error) {
 	if result.Error != nil {
 		return "", "", result.Error
 	}
-	return result.Status, result.Info, nil
+	// TODO(perrito666) add status validation.
+	return status.Status(result.Status), result.Info, nil
 }
 
 // EnsureDead sets the machine lifecycle to Dead if it is Alive or
@@ -125,6 +162,20 @@ func (m *Machine) Remove() error {
 		Entities: []params.Entity{{Tag: m.tag.String()}},
 	}
 	err := m.st.facade.FacadeCall("Remove", args, &result)
+	if err != nil {
+		return err
+	}
+	return result.OneError()
+}
+
+// MarkForRemoval indicates that the machine is ready to have any
+// provider-level resources cleaned up and be removed.
+func (m *Machine) MarkForRemoval() error {
+	var result params.ErrorResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: m.tag.String()}},
+	}
+	err := m.st.facade.FacadeCall("MarkMachinesForRemoval", args, &result)
 	if err != nil {
 		return err
 	}
@@ -177,12 +228,11 @@ func (m *Machine) DistributionGroup() ([]instance.Id, error) {
 	return result.Result, nil
 }
 
-// SetInstanceInfo sets the provider specific instance id, nonce,
-// metadata, networks and interfaces for this machine. Once set, the
-// instance id cannot be changed.
+// SetInstanceInfo sets the provider specific instance id, nonce, metadata,
+// network config for this machine. Once set, the instance id cannot be changed.
 func (m *Machine) SetInstanceInfo(
 	id instance.Id, nonce string, characteristics *instance.HardwareCharacteristics,
-	networks []params.Network, interfaces []params.NetworkInterface, volumes []params.Volume,
+	networkConfig []params.NetworkConfig, volumes []params.Volume,
 	volumeAttachments map[string]params.VolumeAttachmentInfo,
 ) error {
 	var result params.ErrorResults
@@ -192,10 +242,9 @@ func (m *Machine) SetInstanceInfo(
 			InstanceId:        id,
 			Nonce:             nonce,
 			Characteristics:   characteristics,
-			Networks:          networks,
-			Interfaces:        interfaces,
 			Volumes:           volumes,
 			VolumeAttachments: volumeAttachments,
+			NetworkConfig:     networkConfig,
 		}},
 	}
 	err := m.st.facade.FacadeCall("SetInstanceInfo", args, &result)
@@ -274,7 +323,7 @@ func (m *Machine) WatchContainers(ctype instance.ContainerType) (watcher.Strings
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	w := watcher.NewStringsWatcher(m.st.facade.RawAPICaller(), result)
+	w := apiwatcher.NewStringsWatcher(m.st.facade.RawAPICaller(), result)
 	return w, nil
 }
 
@@ -298,7 +347,7 @@ func (m *Machine) WatchAllContainers() (watcher.StringsWatcher, error) {
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	w := watcher.NewStringsWatcher(m.st.facade.RawAPICaller(), result)
+	w := apiwatcher.NewStringsWatcher(m.st.facade.RawAPICaller(), result)
 	return w, nil
 }
 

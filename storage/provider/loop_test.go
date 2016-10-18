@@ -9,9 +9,9 @@ import (
 	"path/filepath"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/provider"
@@ -47,13 +47,13 @@ func (s *loopSuite) TestVolumeSource(c *gc.C) {
 	p := s.loopProvider(c)
 	cfg, err := storage.NewConfig("name", provider.LoopProviderType, map[string]interface{}{})
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = p.VolumeSource(nil, cfg)
+	_, err = p.VolumeSource(cfg)
 	c.Assert(err, gc.ErrorMatches, "storage directory not specified")
 	cfg, err = storage.NewConfig("name", provider.LoopProviderType, map[string]interface{}{
 		"storage-dir": c.MkDir(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = p.VolumeSource(nil, cfg)
+	_, err = p.VolumeSource(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

@@ -12,7 +12,7 @@ import (
 
 // globalFirewallName returns the name to use for the global firewall.
 func (env *environ) globalFirewallName() string {
-	return common.EnvFullName(env)
+	return common.EnvFullName(env.uuid)
 }
 
 // OpenPorts opens the given port ranges for the whole environment.

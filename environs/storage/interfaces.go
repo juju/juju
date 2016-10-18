@@ -32,6 +32,8 @@ type StorageReader interface {
 	// If the storage implementation has immediate consistency, the
 	// strategy won't need to wait at all.  But for eventually-consistent
 	// storage backends a few seconds of polling may be needed.
+	//
+	// TODO(katco): 2016-08-09: lp:1611427
 	DefaultConsistencyStrategy() utils.AttemptStrategy
 
 	// ShouldRetry returns true is the specified error is such that an

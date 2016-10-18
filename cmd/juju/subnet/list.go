@@ -7,18 +7,21 @@ import (
 	"net"
 	"strings"
 
-	"launchpad.net/gnuflag"
+	"github.com/juju/gnuflag"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/cmd/output"
 )
 
-func newListCommand() cmd.Command {
-	return envcmd.Wrap(&listCommand{})
+// NewListCommand returns a cammin used to list all subnets
+// known to Juju.
+func NewListCommand() cmd.Command {
+	return modelcmd.Wrap(&listCommand{})
 }
 
 // listCommand displays a list of all subnets known to Juju
@@ -47,23 +50,21 @@ output to a file, use --output.
 // Info is defined on the cmd.Command interface.
 func (c *listCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "list",
+		Name:    "subnets",
 		Args:    "[--space <name>] [--zone <name>] [--format yaml|json] [--output <path>]",
-		Purpose: "list subnets known to Juju",
+		Purpose: "List subnets known to Juju.",
 		Doc:     strings.TrimSpace(listCommandDoc),
+		Aliases: []string{"list-subnets"},
 	}
 }
 
 // SetFlags is defined on the cmd.Command interface.
 func (c *listCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.SubnetCommandBase.SetFlags(f)
-	c.Out.AddFlags(f, "yaml", map[string]cmd.Formatter{
-		"yaml": cmd.FormatYaml,
-		"json": cmd.FormatJson,
-	})
+	c.Out.AddFlags(f, "yaml", output.DefaultFormatters)
 
-	f.StringVar(&c.SpaceName, "space", "", "filter results by space name")
-	f.StringVar(&c.ZoneName, "zone", "", "filter results by zone name")
+	f.StringVar(&c.SpaceName, "space", "", "Filter results by space name")
+	f.StringVar(&c.ZoneName, "zone", "", "Filter results by zone name")
 }
 
 // Init is defined on the cmd.Command interface. It checks the
@@ -102,9 +103,9 @@ func (c *listCommand) Run(ctx *cmd.Context) error {
 		// Display a nicer message in case no subnets were found.
 		if len(subnets) == 0 {
 			if c.SpaceName != "" || c.ZoneName != "" {
-				ctx.Infof("no subnets found matching requested criteria")
+				ctx.Infof("No subnets found matching requested criteria.")
 			} else {
-				ctx.Infof("no subnets to display")
+				ctx.Infof("No subnets to display.")
 			}
 			return nil
 		}

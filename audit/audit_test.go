@@ -1,58 +1,116 @@
-// Copyright 2013, 2014 Canonical Ltd.
+// Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package audit
+package audit_test
 
 import (
-	"testing"
+	"time"
 
-	"github.com/juju/loggo"
+	"github.com/juju/errors"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/audit"
 )
 
-func Test(t *testing.T) {
-	gc.TestingT(t)
+type auditSuite struct {
+	testing.IsolationSuite
 }
-
-type auditSuite struct{}
 
 var _ = gc.Suite(&auditSuite{})
 
-func (*auditSuite) SetUpTest(c *gc.C) {
-	loggo.ResetLoggers()
-	loggo.ResetWriters()
-	err := loggo.ConfigureLoggers(`<root>=ERROR; audit=INFO`)
-	c.Assert(err, jc.ErrorIsNil)
+func (s *auditSuite) TestValidate_EmptyModelUUIDErrors(c *gc.C) {
+	invalidEntry := validEntry()
+	invalidEntry.ModelUUID = ""
+
+	validationErr := invalidEntry.Validate()
+	c.Check(validationErr, jc.Satisfies, errors.IsNotValid)
+	c.Check(validationErr, gc.ErrorMatches, "ModelUUID not assigned")
 }
 
-type mockUser struct {
-	tag string
+func (s *auditSuite) TestValidate_InvalidModelUUIDErrors(c *gc.C) {
+	invalidEntry := validEntry()
+	invalidEntry.ModelUUID = "."
+
+	validationErr := invalidEntry.Validate()
+	c.Check(validationErr, jc.Satisfies, errors.IsNotValid)
+	c.Check(validationErr, gc.ErrorMatches, "ModelUUID not valid")
 }
 
-func (u *mockUser) Tag() string { return u.tag }
+func (s *auditSuite) TestValidate_EmptyTimestampErrors(c *gc.C) {
+	invalidEntry := validEntry()
+	invalidEntry.Timestamp = time.Time{}
 
-func (*auditSuite) TestAuditEventWrittenToAuditLogger(c *gc.C) {
-	var tw loggo.TestWriter
-	c.Assert(loggo.RegisterWriter("audit-log", &tw, loggo.DEBUG), gc.IsNil)
+	validationErr := invalidEntry.Validate()
+	c.Check(validationErr, jc.Satisfies, errors.IsNotValid)
+	c.Check(validationErr, gc.ErrorMatches, "Timestamp not assigned")
+}
 
-	u := &mockUser{tag: "user-agnus"}
-	Audit(u, "donut eaten, %v donut(s) remain", 7)
+func (s *auditSuite) TestValidate_NonUTCTimestampInvalid(c *gc.C) {
+	invalidEntry := validEntry()
+	invalidEntry.Timestamp = invalidEntry.Timestamp.In(time.FixedZone("x", 3600))
 
-	// Add deprecated message to be checked.
-	messages := []jc.SimpleMessage{
-		{loggo.INFO, `user-agnus: donut eaten, 7 donut\(s\) remain`},
+	validationErr := invalidEntry.Validate()
+	c.Check(validationErr, jc.Satisfies, errors.IsNotValid)
+	c.Check(validationErr, gc.ErrorMatches, "must be set to UTC: Timestamp not valid")
+}
+
+func (s *auditSuite) TestValidate_NilOriginIPErrors(c *gc.C) {
+	invalidEntry := validEntry()
+	invalidEntry.RemoteAddress = ""
+
+	validationErr := invalidEntry.Validate()
+	c.Check(validationErr, jc.Satisfies, errors.IsNotValid)
+	c.Check(validationErr, gc.ErrorMatches, "RemoteAddress not assigned")
+}
+
+func (s *auditSuite) TestValidate_EmptyOriginTypeErrors(c *gc.C) {
+	invalidEntry := validEntry()
+	invalidEntry.OriginType = ""
+
+	validationErr := invalidEntry.Validate()
+	c.Check(validationErr, jc.Satisfies, errors.IsNotValid)
+	c.Check(validationErr, gc.ErrorMatches, "OriginType not assigned")
+}
+
+func (s *auditSuite) TestValidate_EmptyOriginNameErrors(c *gc.C) {
+	invalidEntry := validEntry()
+	invalidEntry.OriginName = ""
+
+	validationErr := invalidEntry.Validate()
+	c.Check(validationErr, jc.Satisfies, errors.IsNotValid)
+	c.Check(validationErr, gc.ErrorMatches, "OriginName not assigned")
+}
+
+func (s *auditSuite) TestValidate_EmptyOperationErrors(c *gc.C) {
+	invalidEntry := validEntry()
+	invalidEntry.Operation = ""
+
+	validationErr := invalidEntry.Validate()
+	c.Check(validationErr, jc.Satisfies, errors.IsNotValid)
+	c.Check(validationErr, gc.ErrorMatches, "Operation not assigned")
+}
+
+func (s *auditSuite) TestValidate_EmptyJujuServerVersionErrors(c *gc.C) {
+	invalidEntry := validEntry()
+	invalidEntry.JujuServerVersion = version.Zero
+
+	validationErr := invalidEntry.Validate()
+	c.Check(validationErr, jc.Satisfies, errors.IsNotValid)
+	c.Check(validationErr, gc.ErrorMatches, "JujuServerVersion not assigned")
+}
+
+func validEntry() audit.AuditEntry {
+	return audit.AuditEntry{
+		JujuServerVersion: version.MustParse("1.0.0"),
+		ModelUUID:         utils.MustNewUUID().String(),
+		Timestamp:         time.Now().UTC(),
+		RemoteAddress:     "8.8.8.8",
+		OriginType:        ".",
+		OriginName:        ".",
+		Operation:         ".",
 	}
-
-	c.Check(tw.Log(), jc.LogMatches, messages)
-}
-
-func (*auditSuite) TestAuditWithNilUserWillPanic(c *gc.C) {
-	f := func() { Audit(nil, "should never be written") }
-	c.Assert(f, gc.PanicMatches, "user cannot be nil")
-}
-
-func (*auditSuite) TestAuditWithEmptyTagWillPanic(c *gc.C) {
-	f := func() { Audit(&mockUser{}, "should never be written") }
-	c.Assert(f, gc.PanicMatches, "user tag cannot be blank")
 }

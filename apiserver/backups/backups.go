@@ -8,37 +8,61 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"gopkg.in/juju/names.v2"
+	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/controller"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/backups"
 )
 
-func init() {
-	common.RegisterStandardFacade("Backups", 0, NewAPI)
-}
-
 var logger = loggo.GetLogger("juju.apiserver.backups")
+
+// Backend exposes state.State functionality needed by the backups Facade.
+type Backend interface {
+	IsController() bool
+	Machine(id string) (*state.Machine, error)
+	MachineSeries(id string) (string, error)
+	MongoConnectionInfo() *mongo.MongoInfo
+	MongoSession() *mgo.Session
+	MongoVersion() (string, error)
+	ModelTag() names.ModelTag
+	ControllerTag() names.ControllerTag
+	ModelConfig() (*config.Config, error)
+	ControllerConfig() (controller.Config, error)
+	StateServingInfo() (state.StateServingInfo, error)
+	RestoreInfo() *state.RestoreInfo
+}
 
 // API serves backup-specific API methods.
 type API struct {
-	st    *state.State
-	paths *backups.Paths
+	backend Backend
+	paths   *backups.Paths
 
 	// machineID is the ID of the machine where the API server is running.
 	machineID string
 }
 
 // NewAPI creates a new instance of the Backups API facade.
-func NewAPI(st *state.State, resources *common.Resources, authorizer common.Authorizer) (*API, error) {
-	if !authorizer.AuthClient() {
-		return nil, errors.Trace(common.ErrPerm)
+func NewAPI(backend Backend, resources facade.Resources, authorizer facade.Authorizer) (*API, error) {
+	isControllerAdmin, err := authorizer.HasPermission(permission.SuperuserAccess, backend.ControllerTag())
+	if err != nil && !errors.IsNotFound(err) {
+		return nil, errors.Trace(err)
 	}
 
-	// For now, backup operations are only permitted on the system environment.
-	if !st.IsStateServer() {
-		return nil, errors.New("backups are not supported for hosted environments")
+	if !authorizer.AuthClient() || !isControllerAdmin {
+		return nil, common.ErrPerm
+	}
+
+	// For now, backup operations are only permitted on the controller environment.
+	if !backend.IsController() {
+		return nil, errors.New("backups are not supported for hosted models")
 	}
 
 	// Get the backup paths.
@@ -61,14 +85,14 @@ func NewAPI(st *state.State, resources *common.Resources, authorizer common.Auth
 		return nil, errors.Trace(err)
 	}
 	b := API{
-		st:        st,
+		backend:   backend,
 		paths:     &paths,
 		machineID: machineID,
 	}
 	return &b, nil
 }
 
-func extractResourceValue(resources *common.Resources, key string) (string, error) {
+func extractResourceValue(resources facade.Resources, key string) (string, error) {
 	res := resources.Get(key)
 	strRes, ok := res.(common.StringResource)
 	if !ok {
@@ -81,8 +105,8 @@ func extractResourceValue(resources *common.Resources, key string) (string, erro
 	return strRes.String(), nil
 }
 
-var newBackups = func(st *state.State) (backups.Backups, io.Closer) {
-	stor := backups.NewStorage(st)
+var newBackups = func(backend Backend) (backups.Backups, io.Closer) {
+	stor := backups.NewStorage(backend)
 	return backups.NewBackups(stor), stor
 }
 
@@ -106,10 +130,20 @@ func ResultFromMetadata(meta *backups.Metadata) params.BackupsMetadataResult {
 	}
 	result.Notes = meta.Notes
 
-	result.Environment = meta.Origin.Environment
+	result.Model = meta.Origin.Model
 	result.Machine = meta.Origin.Machine
 	result.Hostname = meta.Origin.Hostname
 	result.Version = meta.Origin.Version
+	result.Series = meta.Origin.Series
+
+	// TODO(wallyworld) - remove these ASAP
+	// These are only used by the restore CLI when re-bootstrapping.
+	// We will use a better solution but the way restore currently
+	// works, we need them and they are no longer available via
+	// bootstrap config. We will need to ifx how re-bootstrap deals
+	// with these keys to address the issue.
+	result.CACert = meta.CACert
+	result.CAPrivateKey = meta.CAPrivateKey
 
 	return result
 }
@@ -123,10 +157,11 @@ func MetadataFromResult(result params.BackupsMetadataResult) *backups.Metadata {
 	if !result.Finished.IsZero() {
 		meta.Finished = &result.Finished
 	}
-	meta.Origin.Environment = result.Environment
+	meta.Origin.Model = result.Model
 	meta.Origin.Machine = result.Machine
 	meta.Origin.Hostname = result.Hostname
 	meta.Origin.Version = result.Version
+	meta.Origin.Series = result.Series
 	meta.Notes = result.Notes
 	meta.SetFileInfo(result.Size, result.Checksum, result.ChecksumFormat)
 	return meta

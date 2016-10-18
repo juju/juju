@@ -7,11 +7,11 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/ssh"
 	sshtesting "github.com/juju/utils/ssh/testing"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
@@ -83,9 +83,9 @@ func (s *keyManagerSuite) TestNewKeyManagerAPIRefusesNonEnvironManager(c *gc.C) 
 }
 
 func (s *keyManagerSuite) setAuthorisedKeys(c *gc.C, keys string) {
-	err := s.State.UpdateEnvironConfig(map[string]interface{}{"authorized-keys": keys}, nil, nil)
+	err := s.State.UpdateModelConfig(map[string]interface{}{"authorized-keys": keys}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	envConfig, err := s.State.EnvironConfig()
+	envConfig, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(envConfig.AuthorizedKeys(), gc.Equals, keys)
 }
@@ -112,8 +112,28 @@ func (s *keyManagerSuite) TestListKeys(c *gc.C) {
 	})
 }
 
+func (s *keyManagerSuite) TestListKeysHidesJujuInternal(c *gc.C) {
+	key1 := sshtesting.ValidKeyOne.Key + " juju-client-key"
+	key2 := sshtesting.ValidKeyTwo.Key + " juju-system-key"
+	s.setAuthorisedKeys(c, strings.Join([]string{key1, key2}, "\n"))
+
+	args := params.ListSSHKeys{
+		Entities: params.Entities{[]params.Entity{
+			{Tag: s.AdminUserTag(c).Name()},
+		}},
+		Mode: ssh.FullKeys,
+	}
+	results, err := s.keymanager.ListKeys(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.DeepEquals, params.StringsResults{
+		Results: []params.StringsResult{
+			{Result: nil},
+		},
+	})
+}
+
 func (s *keyManagerSuite) assertEnvironKeys(c *gc.C, expected []string) {
-	envConfig, err := s.State.EnvironConfig()
+	envConfig, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	keys := envConfig.AuthorizedKeys()
 	c.Assert(keys, gc.Equals, strings.Join(expected, "\n"))
@@ -205,6 +225,7 @@ func (s *keyManagerSuite) TestAddJujuSystemKeyNotMachine(c *gc.C) {
 	}
 	_, err = s.keymanager.AddKeys(args)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(params.ErrCode(err), gc.Equals, params.CodeUnauthorized)
 	s.assertEnvironKeys(c, []string{key1})
 }
 
@@ -227,7 +248,29 @@ func (s *keyManagerSuite) TestDeleteKeys(c *gc.C) {
 			{Error: apiservertesting.ServerError("invalid ssh key: invalid-key")},
 		},
 	})
-	s.assertEnvironKeys(c, []string{"bad key", key1})
+	s.assertEnvironKeys(c, []string{key1, "bad key"})
+}
+
+func (s *keyManagerSuite) TestDeleteKeysNotJujuInternal(c *gc.C) {
+	key1 := sshtesting.ValidKeyOne.Key + " juju-client-key"
+	key2 := sshtesting.ValidKeyTwo.Key + " juju-system-key"
+	key3 := sshtesting.ValidKeyThree.Key + " a user key"
+	initialKeys := []string{key1, key2, key3}
+	s.setAuthorisedKeys(c, strings.Join(initialKeys, "\n"))
+
+	args := params.ModifyUserSSHKeys{
+		User: s.AdminUserTag(c).Name(),
+		Keys: []string{"juju-client-key", "juju-system-key"},
+	}
+	results, err := s.keymanager.DeleteKeys(args)
+	c.Check(results, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{Error: apiservertesting.ServerError("may not delete internal key: juju-client-key")},
+			{Error: apiservertesting.ServerError("may not delete internal key: juju-system-key")},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertEnvironKeys(c, initialKeys)
 }
 
 func (s *keyManagerSuite) TestBlockDeleteKeys(c *gc.C) {

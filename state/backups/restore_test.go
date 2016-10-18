@@ -14,22 +14,22 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/juju/names"
 	"github.com/juju/replicaset"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/ssh"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/mgo.v2"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 var _ = gc.Suite(&RestoreSuite{})
@@ -82,19 +82,6 @@ func (r *RestoreSuite) createTestFiles(c *gc.C) {
 	r.testFiles = []string{tarDirE, tarDirP, tarFile1, tarFile2}
 }
 
-func (r *RestoreSuite) ensureAdminUser(c *gc.C, dialInfo *mgo.DialInfo, user, password string) (added bool, err error) {
-	_, portString, err := net.SplitHostPort(dialInfo.Addrs[0])
-	c.Assert(err, jc.ErrorIsNil)
-	port, err := strconv.Atoi(portString)
-	c.Assert(err, jc.ErrorIsNil)
-	return mongo.EnsureAdminUser(mongo.EnsureAdminUserParams{
-		DialInfo: dialInfo,
-		Port:     port,
-		User:     user,
-		Password: password,
-	})
-}
-
 func (r *RestoreSuite) TestReplicasetIsReset(c *gc.C) {
 	server := &gitjujutesting.MgoInstance{Params: []string{"--replSet", "juju"}}
 	err := server.Start(coretesting.Certs)
@@ -108,7 +95,8 @@ func (r *RestoreSuite) TestReplicasetIsReset(c *gc.C) {
 	dialInfo.Addrs = []string{mgoAddr}
 	err = resetReplicaSet(dialInfo, mgoAddr)
 
-	session := server.MustDial()
+	session, err := server.Dial()
+	c.Assert(err, jc.ErrorIsNil)
 	defer session.Close()
 	cfg, err = replicaset.CurrentConfig(session)
 	c.Assert(err, jc.ErrorIsNil)
@@ -122,47 +110,22 @@ type backupConfigTests struct {
 	message       string
 }
 
-var yamlLines = []string{
-	"# format 1.18",
-	"bogus: aBogusValue",
-	"tag: aTag",
-	"statepassword: aStatePassword",
-	"oldpassword: anOldPassword",
-	"stateport: 1",
-	"apiport: 2",
-	"cacert: aLengthyCACert",
-}
-
 func (r *RestoreSuite) TestSetAgentAddressScript(c *gc.C) {
 	testServerAddresses := []string{
-		"FirstNewStateServerAddress:30303",
-		"SecondNewStateServerAddress:30304",
-		"ThirdNewStateServerAddress:30305",
-		"FourthNewStateServerAddress:30306",
-		"FiftNewStateServerAddress:30307",
-		"SixtNewStateServerAddress:30308",
+		"FirstNewControllerAddress:30303",
+		"SecondNewControllerAddress:30304",
+		"ThirdNewControllerAddress:30305",
+		"FourthNewControllerAddress:30306",
+		"FiftNewControllerAddress:30307",
+		"SixtNewControllerAddress:30308",
 	}
 	for _, address := range testServerAddresses {
-		template := setAgentAddressScript(address)
+		template := setAgentAddressScript(address, address)
 		expectedString := fmt.Sprintf("\t\ts/- .*(:[0-9]+)/- %s\\1/\n", address)
 		logger.Infof(fmt.Sprintf("Testing with address %q", address))
 		c.Assert(strings.Contains(template, expectedString), gc.Equals, true)
 	}
 }
-
-var caCertPEM = `
------BEGIN CERTIFICATE-----
-MIIBnTCCAUmgAwIBAgIBADALBgkqhkiG9w0BAQUwJjENMAsGA1UEChMEanVqdTEV
-MBMGA1UEAxMManVqdSB0ZXN0aW5nMB4XDTEyMTExNDE0Mzg1NFoXDTIyMTExNDE0
-NDM1NFowJjENMAsGA1UEChMEanVqdTEVMBMGA1UEAxMManVqdSB0ZXN0aW5nMFow
-CwYJKoZIhvcNAQEBA0sAMEgCQQCCOOpn9aWKcKr2GQGtygwD7PdfNe1I9BYiPAqa
-2I33F5+6PqFdfujUKvoyTJI6XG4Qo/CECaaN9smhyq9DxzMhAgMBAAGjZjBkMA4G
-A1UdDwEB/wQEAwIABDASBgNVHRMBAf8ECDAGAQH/AgEBMB0GA1UdDgQWBBQQDswP
-FQGeGMeTzPbHW62EZbbTJzAfBgNVHSMEGDAWgBQQDswPFQGeGMeTzPbHW62EZbbT
-JzALBgkqhkiG9w0BAQUDQQAqZzN0DqUyEfR8zIanozyD2pp10m9le+ODaKZDDNfH
-8cB2x26F1iZ8ccq5IC2LtQf1IKJnpTcYlLuDvW6yB96g
------END CERTIFICATE-----
-`
 
 func (r *RestoreSuite) TestNewDialInfo(c *gc.C) {
 
@@ -206,21 +169,22 @@ func (r *RestoreSuite) TestNewDialInfo(c *gc.C) {
 				DataDir: dataDir,
 				LogDir:  logDir,
 			},
-			UpgradedToVersion: version.Current,
+			UpgradedToVersion: jujuversion.Current,
 			Tag:               machineTag,
-			Environment:       coretesting.EnvironmentTag,
+			Controller:        coretesting.ControllerTag,
+			Model:             coretesting.ModelTag,
 			Password:          "placeholder",
 			Nonce:             "dummyNonce",
 			StateAddresses:    []string{"fakeStateAddress:1234"},
 			APIAddresses:      []string{"fakeAPIAddress:12345"},
-			CACert:            caCertPEM,
+			CACert:            coretesting.CACert,
 		}
 		statePort := 12345
 		privateAddress := "dummyPrivateAddress"
 		servingInfo := params.StateServingInfo{
 			APIPort:        1234,
 			StatePort:      statePort,
-			Cert:           caCertPEM,
+			Cert:           coretesting.CACert,
 			CAPrivateKey:   "a ca key",
 			PrivateKey:     "a key",
 			SharedSecret:   "a secret",
@@ -258,7 +222,8 @@ func (r *RestoreSuite) TestUpdateMongoEntries(c *gc.C) {
 	err = updateMongoEntries("1234", "0", "0", dialInfo)
 	c.Assert(err, gc.ErrorMatches, "cannot update machine 0 instance information: not found")
 
-	session := server.MustDial()
+	session, err := server.Dial()
+	c.Assert(err, jc.ErrorIsNil)
 	defer session.Close()
 
 	err = session.DB("juju").C("machines").Insert(bson.M{"machineid": "0", "instanceid": "0"})
@@ -284,12 +249,20 @@ func (r *RestoreSuite) TestNewConnection(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer server.DestroyWithLog()
 
-	st := statetesting.Initialize(c, names.NewLocalUserTag("test-admin"), nil, nil)
+	st := statetesting.InitializeWithArgs(c,
+		statetesting.InitializeArgs{
+			Owner: names.NewLocalUserTag("test-admin"),
+			Clock: gitjujutesting.NewClock(coretesting.NonZeroTime()),
+		})
 	c.Assert(st.Close(), jc.ErrorIsNil)
 
-	r.PatchValue(&mongoDefaultDialOpts, statetesting.NewDialOpts)
-	r.PatchValue(&environsNewStatePolicy, func() state.Policy { return nil })
-	st, err = newStateConnection(st.EnvironTag(), statetesting.NewMongoInfo())
+	r.PatchValue(&mongoDefaultDialOpts, mongotest.DialOpts)
+	r.PatchValue(&environsGetNewPolicyFunc, func(
+		func(*state.State) (environs.Environ, error),
+	) state.NewPolicyFunc {
+		return nil
+	})
+	st, err = newStateConnection(st.ControllerTag(), st.ModelTag(), statetesting.NewMongoInfo())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st.Close(), jc.ErrorIsNil)
 }

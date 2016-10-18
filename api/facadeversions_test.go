@@ -4,15 +4,13 @@
 package api_test
 
 import (
-	"strings"
-
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/feature"
+	"github.com/juju/juju/component/all"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -23,16 +21,17 @@ type facadeVersionSuite struct {
 var _ = gc.Suite(&facadeVersionSuite{})
 
 func (s *facadeVersionSuite) TestFacadeVersionsMatchServerVersions(c *gc.C) {
-	// Enable feature flags so we can see them all.
-	devFeatures := []string{feature.JES}
-	s.SetFeatureFlags(strings.Join(devFeatures, ","))
 	// The client side code doesn't want to directly import the server side
 	// code just to list out what versions are available. However, we do
 	// want to make sure that the two sides are kept in sync.
 	clientFacadeNames := set.NewStrings()
-	for name := range *api.FacadeVersions {
+	for name, version := range *api.FacadeVersions {
 		clientFacadeNames.Add(name)
+		// All versions should now be non-zero.
+		c.Check(version, jc.GreaterThan, 0)
 	}
+	// Register the components.
+	all.RegisterForServer()
 	allServerFacades := common.Facades.List()
 	serverFacadeNames := set.NewStrings()
 	serverFacadeBestVersions := make(map[string]int, len(allServerFacades))

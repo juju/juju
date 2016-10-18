@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
 	envutils "github.com/juju/juju/environs/utils"
+	"github.com/juju/juju/juju/keys"
 )
 
 type toolsDatasourceFuncId struct {
@@ -76,7 +77,7 @@ func GetMetadataSources(env environs.Environ) ([]simplestreams.DataSource, error
 		if !config.SSLHostnameVerification() {
 			verify = utils.NoVerifySSLHostnames
 		}
-		sources = append(sources, simplestreams.NewURLDataSource(conf.AgentMetadataURLKey, userURL, verify))
+		sources = append(sources, simplestreams.NewURLSignedDataSource(conf.AgentMetadataURLKey, userURL, keys.JujuPublicKey, verify, simplestreams.SPECIFIC_CLOUD_DATA, false))
 	}
 
 	envDataSources, err := environmentDataSources(env)
@@ -92,8 +93,7 @@ func GetMetadataSources(env environs.Environ) ([]simplestreams.DataSource, error
 	}
 	if defaultURL != "" {
 		sources = append(sources,
-			simplestreams.NewURLSignedDataSource(
-				"default simplestreams", defaultURL, simplestreams.SimplestreamsJujuPublicKey, utils.VerifySSLHostnames))
+			simplestreams.NewURLSignedDataSource("default simplestreams", defaultURL, keys.JujuPublicKey, utils.VerifySSLHostnames, simplestreams.DEFAULT_CLOUD_DATA, true))
 	}
 	return sources, nil
 }

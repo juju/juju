@@ -7,12 +7,9 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 
 	"github.com/juju/juju/worker"
 )
-
-var logger = loggo.GetLogger("juju.worker.networktoolsversionchecker")
 
 // VersionCheckerParams holds params for the version checker worker..
 type VersionCheckerParams struct {
@@ -26,7 +23,7 @@ type Facade interface {
 // New returns a worker that periodically wakes up to try to find out and
 // record the latest version of the tools so the update possibility can be
 // displayed to the users on status.
-func New(api Facade, params *VersionCheckerParams) worker.Worker {
+var New = func(api Facade, params *VersionCheckerParams) worker.Worker {
 	w := &toolsVersionWorker{
 		api:    api,
 		params: params,

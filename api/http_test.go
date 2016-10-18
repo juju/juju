@@ -13,8 +13,11 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/testing/factory"
 )
 
 type httpSuite struct {
@@ -73,8 +76,8 @@ var httpClientTests = []struct {
 	about: "bad charms error response",
 	handler: func(w http.ResponseWriter, req *http.Request) {
 		type badResponse struct {
-			Error    string
-			CharmURL map[string]int
+			Error    string         `json:"error"`
+			CharmURL map[string]int `json:"charm-url"`
 		}
 		httprequest.WriteJSON(w, http.StatusUnauthorized, badResponse{
 			Error:    "something",
@@ -107,7 +110,7 @@ var httpClientTests = []struct {
 			},
 		})
 	},
-	expectError:     `GET http://.*/: some error`,
+	expectError:     `.*some error$`,
 	expectErrorCode: params.CodeBadRequest,
 	expectErrorInfo: &params.ErrorInfo{
 		MacaroonPath: "foo",
@@ -150,18 +153,66 @@ func (s *httpSuite) TestHTTPClient(c *gc.C) {
 		}
 		err := s.client.Get("/", resp)
 		if test.expectError != "" {
-			c.Assert(err, gc.ErrorMatches, test.expectError)
-			c.Assert(params.ErrCode(err), gc.Equals, test.expectErrorCode)
+			c.Check(err, gc.ErrorMatches, test.expectError)
+			c.Check(params.ErrCode(err), gc.Equals, test.expectErrorCode)
 			if err, ok := errors.Cause(err).(*params.Error); ok {
-				c.Assert(err.Info, jc.DeepEquals, test.expectErrorInfo)
+				c.Check(err.Info, jc.DeepEquals, test.expectErrorInfo)
 			} else if test.expectErrorInfo != nil {
 				c.Fatalf("no error info found in error")
 			}
 			continue
 		}
-		c.Assert(err, gc.IsNil)
-		c.Assert(resp, jc.DeepEquals, test.expectResponse)
+		c.Check(err, gc.IsNil)
+		c.Check(resp, jc.DeepEquals, test.expectResponse)
 	}
+}
+
+func (s *httpSuite) TestControllerMachineAuthForHostedModel(c *gc.C) {
+	// Create a controller machine & hosted model.
+	const nonce = "gary"
+	m, password := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
+		Jobs:  []state.MachineJob{state.JobManageModel},
+		Nonce: nonce,
+	})
+	hostedState := s.Factory.MakeModel(c, nil)
+	defer hostedState.Close()
+
+	// Connect to the hosted model using the credentials of the
+	// controller machine.
+	apiInfo := s.APIInfo(c)
+	apiInfo.Tag = m.Tag()
+	apiInfo.Password = password
+	apiInfo.ModelTag = hostedState.ModelTag()
+	apiInfo.Nonce = nonce
+	conn, err := api.Open(apiInfo, api.DialOpts{})
+	c.Assert(err, jc.ErrorIsNil)
+	httpClient, err := conn.HTTPClient()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Test with a dummy HTTP server returns the auth related headers used.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		username, password, ok := req.BasicAuth()
+		if ok {
+			httprequest.WriteJSON(w, http.StatusOK, map[string]string{
+				"username": username,
+				"password": password,
+				"nonce":    req.Header.Get(params.MachineNonceHeader),
+			})
+		} else {
+			httprequest.WriteJSON(w, http.StatusUnauthorized, params.Error{
+				Message: "no auth header",
+			})
+		}
+	}))
+	defer srv.Close()
+	httpClient.BaseURL = srv.URL
+	var out map[string]string
+	c.Assert(httpClient.Get("/", &out), jc.ErrorIsNil)
+	c.Assert(out, gc.DeepEquals, map[string]string{
+		"username": m.Tag().String(),
+		"password": password,
+		"nonce":    nonce,
+	})
 }
 
 // Note: the fact that the code works against the actual API server is

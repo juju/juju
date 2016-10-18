@@ -5,11 +5,11 @@ package server
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/payload"
 	"github.com/juju/juju/payload/api"
@@ -35,7 +35,7 @@ func (publicSuite) newPayload(name string) (payload.FullPayloadInfo, api.Payload
 	ptype := "docker"
 	id := "id" + name
 	tags := []string{"a-tag"}
-	unit := "a-service/0"
+	unit := "a-application/0"
 	machine := "1"
 
 	pl := payload.FullPayloadInfo{
@@ -91,7 +91,7 @@ func (s *publicSuite) TestListAllMatch(c *gc.C) {
 	facade := PublicAPI{s.state}
 	args := api.EnvListArgs{
 		Patterns: []string{
-			"a-service/0",
+			"a-application/0",
 		},
 	}
 	results, err := facade.List(args)
@@ -113,7 +113,7 @@ func (s *publicSuite) TestListNoMatch(c *gc.C) {
 	facade := PublicAPI{s.state}
 	args := api.EnvListArgs{
 		Patterns: []string{
-			"a-service/1",
+			"a-application/1",
 		},
 	}
 	results, err := facade.List(args)
@@ -211,7 +211,7 @@ func (s *publicSuite) TestListAllFilters(c *gc.C) {
 			ID:     "idspam",
 			Status: payload.StateRunning,
 			Labels: []string{"a-tag"},
-			Unit:   "a-service/0",
+			Unit:   "a-application/0",
 		},
 		Machine: "1",
 	}
@@ -224,7 +224,7 @@ func (s *publicSuite) TestListAllFilters(c *gc.C) {
 		"docker",             // type
 		"idspam",             // ID
 		payload.StateRunning, // status
-		"a-service/0",        // unit
+		"a-application/0",    // unit
 		"1",                  // machine
 		"a-tag",              // tags
 	}

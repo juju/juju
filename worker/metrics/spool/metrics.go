@@ -80,7 +80,7 @@ type MetricBatch struct {
 }
 
 // APIMetricBatch converts the specified MetricBatch to a params.MetricBatch,
-// which can then be sent to the state server.
+// which can then be sent to the controller.
 func APIMetricBatch(batch MetricBatch) params.MetricBatchParam {
 	metrics := make([]params.Metric, len(batch.Metrics))
 	for i, metric := range batch.Metrics {
@@ -137,9 +137,10 @@ func NewJSONMetricRecorder(config MetricRecorderConfig) (rec *JSONMetricRecorder
 	}
 
 	recorder := &JSONMetricRecorder{
-		spoolDir:     config.SpoolDir,
-		uuid:         mbUUID,
-		charmURL:     config.CharmURL,
+		spoolDir: config.SpoolDir,
+		uuid:     mbUUID,
+		charmURL: config.CharmURL,
+		// TODO(fwereade): 2016-03-17 lp:1558657
 		created:      time.Now().UTC(),
 		validMetrics: config.Metrics,
 		unitTag:      config.UnitTag,

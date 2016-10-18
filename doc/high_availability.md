@@ -20,7 +20,7 @@ A voting member of the replicaset is a one that has a say in which member is mas
 A non-voting member is just a storage backup.
 
 Currently we don't support non-voting members; instead when a member is non-voting it
-means that said State Server is going to be removed entirely.
+means that said controller is going to be removed entirely.
 
 ### Ensure availability
 
@@ -42,11 +42,11 @@ _"at least that many"_
  At present there is no way to reduce the number of machines, you can kill by 
 hand enough machines to reduce to a number you need, but this is risky and 
 **not recommended**. If you kill less than half of the machines (half+1
-remaining) running `ensure-availability` again will add more machines to 
+remaining) running `enable-ha` again will add more machines to 
 replace the dead ones. If you kill more there is no way to recover as there 
 are not enough voting machines.
  
- The EnsureAvailability API call will report will report the changes that it 
+ The EnableHA API call will report will report the changes that it 
 made to the model, which will shortly be reflected in reality
 ### The API 
 
@@ -65,12 +65,12 @@ look like and continually tries to maintain those members.
 
  The reason for its existence is that it can often take a while for mongo to 
 allow a peer group change, so we can't change it directly in the 
-EnsureAvailability API call
+EnableHA API call
 
  Its worker loop continally watches 
 
- 1. The current set of state servers 
- 2. The addresses of the current state servers 
+ 1. The current set of controllers 
+ 2. The addresses of the current controllers 
  3. The status of the current mongo peergroup
  
 It feeds all that information into `desiredPeerGroup`, which provides the peer 
@@ -78,7 +78,7 @@ group that we want to be and continually tries to set that peer group in mongo
 until it succeeds.
  
 **NOTE:** There is one situation which currently doesn't work which is 
-that if you've only got one state server, you can't switch to another one.
+that if you've only got one controller, you can't switch to another one.
 
 ### The Singleton Workers
 

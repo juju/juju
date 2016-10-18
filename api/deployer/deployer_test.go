@@ -6,9 +6,9 @@ package deployer_test
 import (
 	stdtesting "testing"
 
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/deployer"
@@ -17,8 +17,9 @@ import (
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/watcher/watchertest"
 )
 
 func TestAll(t *stdtesting.T) {
@@ -34,8 +35,8 @@ type deployerSuite struct {
 	// These are raw State objects. Use them for setup and assertions, but
 	// should never be touched by the API calls themselves
 	machine     *state.Machine
-	service0    *state.Service
-	service1    *state.Service
+	service0    *state.Application
+	service1    *state.Application
 	principal   *state.Unit
 	subordinate *state.Unit
 
@@ -46,7 +47,7 @@ var _ = gc.Suite(&deployerSuite{})
 
 func (s *deployerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-	s.stateAPI, s.machine = s.OpenAPIAsNewMachine(c, state.JobManageEnviron, state.JobHostUnits)
+	s.stateAPI, s.machine = s.OpenAPIAsNewMachine(c, state.JobManageModel, state.JobHostUnits)
 	err := s.machine.SetProviderAddresses(network.NewAddress("0.1.2.3"))
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -71,7 +72,7 @@ func (s *deployerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Create the deployer facade.
-	s.st = s.stateAPI.Deployer()
+	s.st = deployer.NewState(s.stateAPI)
 	c.Assert(s.st, gc.NotNil)
 
 	s.APIAddresserTests = apitesting.NewAPIAddresserTests(s.st, s.BackingState)
@@ -104,8 +105,8 @@ func (s *deployerSuite) TestWatchUnits(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	w, err := machine.WatchUnits()
 	c.Assert(err, jc.ErrorIsNil)
-	defer statetesting.AssertStop(c, w)
-	wc := statetesting.NewStringsWatcherC(c, s.BackingState, w)
+	wc := watchertest.NewStringsWatcherC(c, w, s.BackingState.StartSync)
+	defer wc.AssertStops()
 
 	// Initial event.
 	wc.AssertChange("mysql/0", "logging/0")
@@ -126,9 +127,6 @@ func (s *deployerSuite) TestWatchUnits(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange("logging/0")
 	wc.AssertNoChange()
-
-	statetesting.AssertStop(c, w)
-	wc.AssertClosed()
 }
 
 func (s *deployerSuite) TestUnit(c *gc.C) {
@@ -239,4 +237,22 @@ func (s *deployerSuite) TestStateAddresses(c *gc.C) {
 	addresses, err := s.st.StateAddresses()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addresses, gc.DeepEquals, stateAddresses)
+}
+
+func (s *deployerSuite) TestUnitSetStatus(c *gc.C) {
+	unit, err := s.st.Unit(s.principal.Tag().(names.UnitTag))
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit.SetStatus(status.Blocked, "waiting", map[string]interface{}{"foo": "bar"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	stateUnit, err := s.BackingState.Unit(unit.Name())
+	c.Assert(err, jc.ErrorIsNil)
+	sInfo, err := stateUnit.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	sInfo.Since = nil
+	c.Assert(sInfo, jc.DeepEquals, status.StatusInfo{
+		Status:  status.Blocked,
+		Message: "waiting",
+		Data:    map[string]interface{}{"foo": "bar"},
+	})
 }

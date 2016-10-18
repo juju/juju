@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -31,8 +32,8 @@ type deployerSuite struct {
 
 	authorizer apiservertesting.FakeAuthorizer
 
-	service0     *state.Service
-	service1     *state.Service
+	service0     *state.Application
+	service1     *state.Application
 	machine0     *state.Machine
 	machine1     *state.Machine
 	principal0   *state.Unit
@@ -53,7 +54,7 @@ func (s *deployerSuite) SetUpTest(c *gc.C) {
 	// machine 1 (authorized): mysql/0 (principal0), logging/0 (subordinate0)
 
 	var err error
-	s.machine0, err = s.State.AddMachine("quantal", state.JobManageEnviron, state.JobHostUnits)
+	s.machine0, err = s.State.AddMachine("quantal", state.JobManageModel, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.machine1, err = s.State.AddMachine("quantal", state.JobHostUnits)
@@ -330,5 +331,54 @@ func (s *deployerSuite) TestCACert(c *gc.C) {
 	result := s.deployer.CACert()
 	c.Assert(result, gc.DeepEquals, params.BytesResult{
 		Result: []byte(s.State.CACert()),
+	})
+}
+
+func (s *deployerSuite) TestConnectionInfo(c *gc.C) {
+	err := s.machine0.SetProviderAddresses(network.NewScopedAddress("0.1.2.3", network.ScopePublic),
+		network.NewScopedAddress("1.2.3.4", network.ScopeCloudLocal))
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Default host port scope is public, so change the cloud-local one
+	hostPorts := network.NewHostPorts(1234, "0.1.2.3", "1.2.3.4")
+	hostPorts[1].Scope = network.ScopeCloudLocal
+
+	err = s.State.SetAPIHostPorts([][]network.HostPort{hostPorts})
+	c.Assert(err, jc.ErrorIsNil)
+
+	expected := params.DeployerConnectionValues{
+		StateAddresses: []string{"1.2.3.4:1234"},
+		APIAddresses:   []string{"1.2.3.4:1234", "0.1.2.3:1234"},
+	}
+
+	result, err := s.deployer.ConnectionInfo()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, expected)
+}
+
+func (s *deployerSuite) TestSetStatus(c *gc.C) {
+	args := params.SetStatus{
+		Entities: []params.EntityStatusArgs{
+			{Tag: "unit-mysql-0", Status: "blocked", Info: "waiting", Data: map[string]interface{}{"foo": "bar"}},
+			{Tag: "unit-mysql-1", Status: "blocked", Info: "waiting", Data: map[string]interface{}{"foo": "bar"}},
+			{Tag: "unit-fake-42", Status: "blocked", Info: "waiting", Data: map[string]interface{}{"foo": "bar"}},
+		},
+	}
+	results, err := s.deployer.SetStatus(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{nil},
+			{apiservertesting.ErrUnauthorized},
+			{apiservertesting.ErrUnauthorized},
+		},
+	})
+	sInfo, err := s.principal0.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	sInfo.Since = nil
+	c.Assert(sInfo, jc.DeepEquals, status.StatusInfo{
+		Status:  status.Blocked,
+		Message: "waiting",
+		Data:    map[string]interface{}{"foo": "bar"},
 	})
 }

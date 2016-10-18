@@ -1,24 +1,10 @@
-package juju
+// Copyright 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
 
-import (
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/environs/configstore"
-)
+package juju
 
 var (
 	ProviderConnectDelay   = &providerConnectDelay
-	GetConfig              = getConfig
-	CacheChangedAPIInfo    = cacheChangedAPIInfo
-	CacheAPIInfo           = cacheAPIInfo
-	EnvironInfoUserTag     = environInfoUserTag
-	MaybePreferIPv6        = &maybePreferIPv6
 	ResolveOrDropHostnames = &resolveOrDropHostnames
 	ServerAddress          = &serverAddress
 )
-
-func NewAPIFromStore(envName string, store configstore.Storage, f api.OpenFunc) (api.Connection, error) {
-	apiOpen := func(info *api.Info, opts api.DialOpts) (api.Connection, error) {
-		return f(info, opts)
-	}
-	return newAPIFromStore(envName, store, apiOpen, nil)
-}

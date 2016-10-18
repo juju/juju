@@ -6,8 +6,8 @@ package jujuc
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/names"
-	"launchpad.net/gnuflag"
+	"github.com/juju/gnuflag"
+	"gopkg.in/juju/names.v2"
 )
 
 // StorageListCommand implements the storage-list command.

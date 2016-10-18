@@ -6,24 +6,37 @@ package agent
 import (
 	"fmt"
 
-	"github.com/juju/names"
+	"github.com/juju/errors"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/common"
+	"github.com/juju/juju/api/common/cloudspec"
+	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/watcher"
 )
 
 // State provides access to an agent's view of the state.
 type State struct {
 	facade base.FacadeCaller
+	*common.ModelWatcher
+	*cloudspec.CloudSpecAPI
+	*common.ControllerConfigAPI
 }
 
 // NewState returns a version of the state that provides functionality
 // required by agent code.
 func NewState(caller base.APICaller) *State {
 	facadeCaller := base.NewFacadeCaller(caller, "Agent")
-	return &State{facadeCaller}
+	return &State{
+		facade:              facadeCaller,
+		ModelWatcher:        common.NewModelWatcher(facadeCaller),
+		CloudSpecAPI:        cloudspec.NewCloudSpecAPI(facadeCaller),
+		ControllerConfigAPI: common.NewControllerConfig(facadeCaller),
+	}
 }
 
 func (st *State) getEntity(tag names.Tag) (*params.AgentGetEntitiesResult, error) {
@@ -54,12 +67,26 @@ func (st *State) StateServingInfo() (params.StateServingInfo, error) {
 // agent lives at the same network address as the primary
 // mongo server for the replica set.
 // This call will return an error if the connected
-// agent is not a machine agent with environment-manager
+// agent is not a machine agent with model-manager
 // privileges.
 func (st *State) IsMaster() (bool, error) {
 	var results params.IsMasterResult
 	err := st.facade.FacadeCall("IsMaster", nil, &results)
 	return results.Master, err
+}
+
+// WatchCredential returns a watcher which reports when the specified
+// credential has changed.
+func (c *State) WatchCredential(tag names.CloudCredentialTag) (watcher.NotifyWatcher, error) {
+	var result params.NotifyWatchResult
+	err := c.facade.FacadeCall("WatchCredential", nil, &result)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return apiwatcher.NewNotifyWatcher(c.facade.RawAPICaller(), result), nil
 }
 
 type Entity struct {

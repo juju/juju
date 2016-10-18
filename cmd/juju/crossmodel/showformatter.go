@@ -4,13 +4,13 @@
 package crossmodel
 
 import (
-	"bytes"
 	"fmt"
+	"io"
 	"sort"
 	"strings"
-	"text/tabwriter"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/cmd/output"
 )
 
 const (
@@ -19,44 +19,34 @@ const (
 	truncatedSuffix = "..."
 	maxFieldLength  = maxColumnLength - len(truncatedSuffix)
 	columnWidth     = 45
-
-	// To format things into columns.
-	minwidth = 0
-	tabwidth = 1
-	padding  = 2
-	padchar  = ' '
-	flags    = 0
 )
 
-// formatShowTabular returns a tabular summary of remote services or
+// formatShowTabular returns a tabular summary of remote applications or
 // errors out if parameter is not of expected type.
-func formatShowTabular(value interface{}) ([]byte, error) {
-	endpoints, ok := value.(map[string]ShowRemoteService)
+func formatShowTabular(writer io.Writer, value interface{}) error {
+	endpoints, ok := value.(map[string]ShowRemoteApplication)
 	if !ok {
-		return nil, errors.Errorf("expected value of type %T, got %T", endpoints, value)
+		return errors.Errorf("expected value of type %T, got %T", endpoints, value)
 	}
-	return formatOfferedEndpointsTabular(endpoints)
+	return formatOfferedEndpointsTabular(writer, endpoints)
 }
 
-// formatOfferedEndpointsTabular returns a tabular summary of offered services' endpoints.
-func formatOfferedEndpointsTabular(all map[string]ShowRemoteService) ([]byte, error) {
-	var out bytes.Buffer
-	tw := tabwriter.NewWriter(&out, minwidth, tabwidth, padding, padchar, flags)
-	print := func(values ...string) {
-		fmt.Fprintln(tw, strings.Join(values, "\t"))
-	}
+// formatOfferedEndpointsTabular returns a tabular summary of offered applications' endpoints.
+func formatOfferedEndpointsTabular(writer io.Writer, all map[string]ShowRemoteApplication) error {
+	tw := output.TabWriter(writer)
+	w := output.Wrapper{tw}
 
-	print("SERVICE", "DESCRIPTION", "ENDPOINT", "INTERFACE", "ROLE")
+	w.Println("Application", "Description", "Endpoint", "Interface", "Role")
 
 	for name, one := range all {
-		serviceName := name
-		serviceDesc := one.Description
+		applicationName := name
+		applicationDesc := one.Description
 
 		// truncate long description for now.
-		if len(serviceDesc) > maxColumnLength {
-			serviceDesc = fmt.Sprintf("%v%v", serviceDesc[:maxFieldLength], truncatedSuffix)
+		if len(applicationDesc) > maxColumnLength {
+			applicationDesc = fmt.Sprintf("%v%v", applicationDesc[:maxFieldLength], truncatedSuffix)
 		}
-		descLines := breakLines(serviceDesc)
+		descLines := breakLines(applicationDesc)
 
 		// Find the maximum amount of iterations required:
 		// it will be either endpoints or description lines length
@@ -71,14 +61,13 @@ func formatOfferedEndpointsTabular(all map[string]ShowRemoteService) ([]byte, er
 		for i := 0; i < maxIterations; i++ {
 			descLine := descAt(descLines, i)
 			name, endpoint := endpointAt(one.Endpoints, names, i)
-			print(serviceName, descLine, name, endpoint.Interface, endpoint.Role)
+			w.Println(applicationName, descLine, name, endpoint.Interface, endpoint.Role)
 			// Only print once.
-			serviceName = ""
+			applicationName = ""
 		}
 	}
 	tw.Flush()
-
-	return out.Bytes(), nil
+	return nil
 }
 
 func descAt(lines []string, i int) string {

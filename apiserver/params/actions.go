@@ -3,12 +3,7 @@
 
 package params
 
-import (
-	"time"
-
-	// TODO(jcw4) per fwereade 2014-11-21 remove this dependency
-	"gopkg.in/juju/charm.v6-unstable"
-)
+import "time"
 
 const (
 	// ActionCancelled is the status for an Action that has been
@@ -88,6 +83,24 @@ type ActionsQueryResult struct {
 	Error    *Error       `json:"error,omitempty"`
 }
 
+// ActionsByNames wrap a slice of Actions for API calls.
+type ActionsByNames struct {
+	Actions []ActionsByName `json:"actions,omitempty"`
+}
+
+// ActionsByName is a bulk API call wrapper containing actions
+// as results.
+type ActionsByName struct {
+	Name    string         `json:"name,omitempty"`
+	Actions []ActionResult `json:"actions,omitempty"`
+	Error   *Error         `json:"error,omitempty"`
+}
+
+// FindActionsByName finds actions given an action name.
+type FindActionsByNames struct {
+	ActionNames []string `json:"names,omitempty"`
+}
+
 // ActionExecutionResults holds a slice of ActionExecutionResult for a
 // bulk action API call
 type ActionExecutionResults struct {
@@ -97,23 +110,31 @@ type ActionExecutionResults struct {
 // ActionExecutionResult holds the action tag and output used when
 // recording the result of an action.
 type ActionExecutionResult struct {
-	ActionTag string                 `json:"actiontag"`
+	ActionTag string                 `json:"action-tag"`
 	Status    string                 `json:"status"`
 	Results   map[string]interface{} `json:"results,omitempty"`
 	Message   string                 `json:"message,omitempty"`
 }
 
-// ServicesCharmActionsResults holds a slice of ServiceCharmActionsResult for
-// a bulk result of charm Actions for Services.
-type ServicesCharmActionsResults struct {
-	Results []ServiceCharmActionsResult `json:"results,omitempty"`
+// ApplicationsCharmActionsResults holds a slice of ApplicationCharmActionsResult for
+// a bulk result of charm Actions for Applications.
+type ApplicationsCharmActionsResults struct {
+	Results []ApplicationCharmActionsResult `json:"results,omitempty"`
 }
 
-// ServiceCharmActionsResult holds service name and charm.Actions for the service.
-// If an error such as a missing charm or malformed service name occurs, it
+// ApplicationCharmActionsResult holds application name and charm.Actions for the application.
+// If an error such as a missing charm or malformed application name occurs, it
 // is encapsulated in this type.
-type ServiceCharmActionsResult struct {
-	ServiceTag string         `json:"servicetag,omitempty"`
-	Actions    *charm.Actions `json:"actions,omitempty"`
-	Error      *Error         `json:"error,omitempty"`
+type ApplicationCharmActionsResult struct {
+	ApplicationTag string                `json:"application-tag,omitempty"`
+	Actions        map[string]ActionSpec `json:"actions,omitempty"`
+	Error          *Error                `json:"error,omitempty"`
+}
+
+// ActionSpec is a definition of the parameters and traits of an Action.
+// The Params map is expected to conform to JSON-Schema Draft 4 as defined at
+// http://json-schema.org/draft-04/schema# (see http://json-schema.org/latest/json-schema-core.html)
+type ActionSpec struct {
+	Description string                 `json:"description"`
+	Params      map[string]interface{} `json:"params"`
 }

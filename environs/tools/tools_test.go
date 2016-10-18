@@ -12,18 +12,21 @@ import (
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/configstore"
+	"github.com/juju/juju/environs/bootstrap"
+	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
+	"github.com/juju/juju/juju/keys"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/provider/dummy"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type SimpleStreamsToolsSuite struct {
@@ -43,19 +46,20 @@ func (s *SimpleStreamsToolsSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
 	s.customToolsDir = c.MkDir()
 	s.publicToolsDir = c.MkDir()
+	s.PatchValue(&keys.JujuPublicKey, sstesting.SignedMetadataPublicKey)
 }
 
 func (s *SimpleStreamsToolsSuite) SetUpTest(c *gc.C) {
 	s.ToolsFixture.DefaultBaseURL = utils.MakeFileURL(s.publicToolsDir)
 	s.BaseSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
-	s.origCurrentVersion = version.Current
+	s.origCurrentVersion = jujuversion.Current
 	s.reset(c, nil)
 }
 
 func (s *SimpleStreamsToolsSuite) TearDownTest(c *gc.C) {
-	dummy.Reset()
-	version.Current = s.origCurrentVersion
+	dummy.Reset(c)
+	jujuversion.Current = s.origCurrentVersion
 	s.ToolsFixture.TearDownTest(c)
 	s.BaseSuite.TearDownTest(c)
 }
@@ -91,11 +95,19 @@ func (s *SimpleStreamsToolsSuite) uploadPublic(c *gc.C, verses ...version.Binary
 }
 
 func (s *SimpleStreamsToolsSuite) resetEnv(c *gc.C, attrs map[string]interface{}) {
-	version.Current = s.origCurrentVersion
-	dummy.Reset()
-	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig().Merge(attrs))
-	c.Assert(err, jc.ErrorIsNil)
-	env, err := environs.Prepare(cfg, envtesting.BootstrapContext(c), configstore.NewMem())
+	jujuversion.Current = s.origCurrentVersion
+	dummy.Reset(c)
+	attrs = dummy.SampleConfig().Merge(attrs)
+	env, err := bootstrap.Prepare(envtesting.BootstrapContext(c),
+		jujuclienttesting.NewMemStore(),
+		bootstrap.PrepareParams{
+			ControllerConfig: coretesting.FakeControllerConfig(),
+			ControllerName:   attrs["name"].(string),
+			ModelConfig:      attrs,
+			Cloud:            dummy.SampleCloudSpec(),
+			AdminSecret:      "admin-secret",
+		},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.env = env
 	s.removeTools(c)
@@ -159,7 +171,7 @@ func (s *SimpleStreamsToolsSuite) TestFindTools(c *gc.C) {
 		s.reset(c, nil)
 		custom := s.uploadCustom(c, test.custom...)
 		public := s.uploadPublic(c, test.public...)
-		stream := envtools.PreferredStream(&version.Current, s.env.Config().Development(), s.env.Config().AgentStream())
+		stream := envtools.PreferredStream(&jujuversion.Current, s.env.Config().Development(), s.env.Config().AgentStream())
 		actual, err := envtools.FindTools(s.env, test.major, test.minor, stream, coretools.Filter{})
 		if test.err != nil {
 			if len(actual) > 0 {
@@ -168,13 +180,14 @@ func (s *SimpleStreamsToolsSuite) TestFindTools(c *gc.C) {
 			c.Check(err, jc.Satisfies, errors.IsNotFound)
 			continue
 		}
-		expect := map[version.Binary]string{}
+		expect := map[version.Binary][]string{}
 		for _, expected := range test.expect {
 			// If the tools exist in custom, that's preferred.
-			var ok bool
-			if expect[expected], ok = custom[expected]; !ok {
-				expect[expected] = public[expected]
+			url, ok := custom[expected]
+			if !ok {
+				url = public[expected]
 			}
+			expect[expected] = append(expect[expected], url)
 		}
 		c.Check(actual.URLs(), gc.DeepEquals, expect)
 	}
@@ -182,7 +195,7 @@ func (s *SimpleStreamsToolsSuite) TestFindTools(c *gc.C) {
 
 func (s *SimpleStreamsToolsSuite) TestFindToolsFiltering(c *gc.C) {
 	var tw loggo.TestWriter
-	c.Assert(loggo.RegisterWriter("filter-tester", &tw, loggo.TRACE), gc.IsNil)
+	c.Assert(loggo.RegisterWriter("filter-tester", &tw), gc.IsNil)
 	defer loggo.RemoveWriter("filter-tester")
 	logger := loggo.GetLogger("juju.environs")
 	defer logger.SetLogLevel(logger.LogLevel())
@@ -195,14 +208,14 @@ func (s *SimpleStreamsToolsSuite) TestFindToolsFiltering(c *gc.C) {
 	// messages. This still helps to ensure that all log messages are
 	// properly formed.
 	messages := []jc.SimpleMessage{
-		{loggo.INFO, "reading tools with major version 1"},
-		{loggo.INFO, "filtering tools by version: \\d+\\.\\d+\\.\\d+"},
-		{loggo.TRACE, "no architecture specified when finding tools, looking for "},
-		{loggo.TRACE, "no series specified when finding tools, looking for \\[.*\\]"},
+		{loggo.INFO, "reading agent binaries with major version 1"},
+		{loggo.INFO, "filtering agent binaries by version: \\d+\\.\\d+\\.\\d+"},
+		{loggo.TRACE, "no architecture specified when finding agent binaries, looking for "},
+		{loggo.TRACE, "no series specified when finding agent binaries, looking for \\[.*\\]"},
 	}
 	sources, err := envtools.GetMetadataSources(s.env)
 	c.Assert(err, jc.ErrorIsNil)
-	for i := 0; i < 2*len(sources); i++ {
+	for i := 0; i < len(sources); i++ {
 		messages = append(messages,
 			jc.SimpleMessage{loggo.TRACE, `fetchData failed for .*`},
 			jc.SimpleMessage{loggo.TRACE, `cannot load index .*`})
@@ -313,7 +326,7 @@ var preferredStreamTests = []struct {
 func (s *SimpleStreamsToolsSuite) TestPreferredStream(c *gc.C) {
 	for i, test := range preferredStreamTests {
 		c.Logf("\ntest %d", i)
-		s.PatchValue(&version.Current, version.MustParse(test.currentVers))
+		s.PatchValue(&jujuversion.Current, version.MustParse(test.currentVers))
 		var vers *version.Number
 		if test.explicitVers != "" {
 			v := version.MustParse(test.explicitVers)

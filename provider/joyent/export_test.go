@@ -14,24 +14,23 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/configstore"
+	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/environs/storage"
-	envtesting "github.com/juju/juju/environs/testing"
-	"github.com/juju/juju/testing"
+	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 )
 
 // Use ShortAttempt to poll for short-term events.
+//
+// TODO(katco): 2016-08-09: lp:1611427
 var ShortAttempt = utils.AttemptStrategy{
 	Total: 5 * time.Second,
 	Delay: 200 * time.Millisecond,
 }
 
 var Provider environs.EnvironProvider = GetProviderInstance()
-var EnvironmentVariables = environmentVariables
 
 var indexData = `
 		{
@@ -48,6 +47,7 @@ var indexData = `
 		   "datatype": "image-ids",
 		   "format": "products:1.0",
 		   "products": [
+			"com.ubuntu.cloud:server:16.04:amd64",
 			"com.ubuntu.cloud:server:14.04:amd64",
 			"com.ubuntu.cloud:server:12.10:amd64",
 			"com.ubuntu.cloud:server:13.04:amd64"
@@ -67,7 +67,25 @@ var imagesData = `
   "updated": "Fri, 14 Feb 2014 13:39:35 +0000",
   "datatype": "image-ids",
   "products": {
-    "com.ubuntu.cloud:server:14.04:amd64": {
+    "com.ubuntu.cloud:server:16.04:amd64": {
+      "release": "trusty",
+      "version": "16.04",
+      "arch": "amd64",
+      "versions": {
+        "20160216": {
+          "items": {
+            "11223344-0a0a-ff99-11bb-0a1b2c3d4e5f": {
+              "region": "some-region",
+              "id": "11223344-0a0a-ff99-11bb-0a1b2c3d4e5f",
+              "virt": "kvm"
+            }
+          },
+          "pubname": "ubuntu-trusty-16.04-amd64-server-20160216",
+          "label": "release"
+        }
+      }
+    },
+	"com.ubuntu.cloud:server:14.04:amd64": {
       "release": "trusty",
       "version": "14.04",
       "arch": "amd64",
@@ -136,27 +154,18 @@ func parseIndexData(creds *auth.Credentials) bytes.Buffer {
 	return metadata
 }
 
-// This provides the content for code accessing test://host/... URLs. This allows
-// us to set the responses for things like the Metadata server, by pointing
-// metadata requests at test://host/...
-var testRoundTripper = &testing.ProxyRoundTripper{}
-
-func init() {
-	testRoundTripper.RegisterForScheme("test")
-}
-
 // Set Metadata requests to be served by the filecontent supplied.
-func UseExternalTestImageMetadata(creds *auth.Credentials) {
+func UseExternalTestImageMetadata(c *gc.C, creds *auth.Credentials) {
 	metadata := parseIndexData(creds)
 	files := map[string]string{
 		"/streams/v1/index.json":                            metadata.String(),
 		"/streams/v1/com.ubuntu.cloud:released:joyent.json": imagesData,
 	}
-	testRoundTripper.Sub = testing.NewCannedRoundTripper(files, nil)
+	sstesting.SetRoundTripperFiles(sstesting.AddSignedFiles(c, files), nil)
 }
 
 func UnregisterExternalTestImageMetadata() {
-	testRoundTripper.Sub = nil
+	sstesting.SetRoundTripperFiles(nil, nil)
 }
 
 // RegisterMachinesEndpoint creates a fake endpoint so that
@@ -165,55 +174,36 @@ func RegisterMachinesEndpoint() {
 	files := map[string]string{
 		"/test/machines": "",
 	}
-	testRoundTripper.Sub = testing.NewCannedRoundTripper(files, nil)
+	sstesting.SetRoundTripperFiles(files, nil)
 }
 
 // UnregisterMachinesEndpoint resets the machines endpoint.
 func UnregisterMachinesEndpoint() {
-	testRoundTripper.Sub = nil
+	sstesting.SetRoundTripperFiles(nil, nil)
 }
 
-func FindInstanceSpec(e environs.Environ, series, arch, cons string) (spec *instances.InstanceSpec, err error) {
+func FindInstanceSpec(
+	e environs.Environ, series, arch, cons string,
+	imageMetadata []*imagemetadata.ImageMetadata,
+) (spec *instances.InstanceSpec, err error) {
 	env := e.(*joyentEnviron)
 	spec, err = env.FindInstanceSpec(&instances.InstanceConstraint{
 		Series:      series,
 		Arches:      []string{arch},
-		Region:      env.Ecfg().Region(),
+		Region:      env.cloud.Region,
 		Constraints: constraints.MustParse(cons),
-	})
+	}, imageMetadata)
 	return
 }
 
-func ControlBucketName(e environs.Environ) string {
-	env := e.(*joyentEnviron)
-	return env.Storage().(*JoyentStorage).GetContainerName()
-}
-
-func CreateContainer(s *JoyentStorage) error {
-	return s.createContainer()
-}
-
-// MakeConfig creates a functional environConfig for a test.
-func MakeConfig(c *gc.C, attrs testing.Attrs) *environConfig {
-	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, jc.ErrorIsNil)
-	env, err := environs.Prepare(cfg, envtesting.BootstrapContext(c), configstore.NewMem())
-	c.Assert(err, jc.ErrorIsNil)
-	return env.(*joyentEnviron).Ecfg()
-}
-
 // MakeCredentials creates credentials for a test.
-func MakeCredentials(c *gc.C, attrs testing.Attrs) *auth.Credentials {
-	creds, err := credentials(MakeConfig(c, attrs))
+func MakeCredentials(c *gc.C, endpoint string, cloudCredential cloud.Credential) *auth.Credentials {
+	creds, err := credentials(environs.CloudSpec{
+		Endpoint:   endpoint,
+		Credential: &cloudCredential,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	return creds
-}
-
-// MakeStorage creates an env storage for a test.
-func MakeStorage(c *gc.C, attrs testing.Attrs) storage.Storage {
-	stor, err := newStorage(MakeConfig(c, attrs), "")
-	c.Assert(err, jc.ErrorIsNil)
-	return stor
 }
 
 var GetPorts = getPorts

@@ -1,9 +1,13 @@
+// Copyright 2014 Canonical Ltd.
+// Copyright 2014 Cloudbase Solutions SRL
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package jujuc
 
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"launchpad.net/gnuflag"
+	"github.com/juju/gnuflag"
 )
 
 // JujuRebootCommand implements the juju-reboot command.

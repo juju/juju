@@ -5,64 +5,86 @@ package action
 
 import (
 	"github.com/juju/cmd"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/jujuclient"
 )
 
 var (
 	NewActionAPIClient = &newAPIClient
 	AddValueToMap      = addValueToMap
-	NewFetchCommand    = newFetchCommand
-	NewStatusCommand   = newStatusCommand
 )
 
-type DoCommand struct {
-	*doCommand
+type ShowOutputCommand struct {
+	*showOutputCommand
 }
 
-func (c *DoCommand) UnitTag() names.UnitTag {
+type StatusCommand struct {
+	*statusCommand
+}
+
+type RunCommand struct {
+	*runCommand
+}
+
+func (c *RunCommand) UnitTag() names.UnitTag {
 	return c.unitTag
 }
 
-func (c *DoCommand) ActionName() string {
+func (c *RunCommand) ActionName() string {
 	return c.actionName
 }
 
-func (c *DoCommand) ParseStrings() bool {
+func (c *RunCommand) ParseStrings() bool {
 	return c.parseStrings
 }
 
-func (c *DoCommand) ParamsYAML() cmd.FileVar {
+func (c *RunCommand) ParamsYAML() cmd.FileVar {
 	return c.paramsYAML
 }
 
-func (c *DoCommand) Args() [][]string {
+func (c *RunCommand) Args() [][]string {
 	return c.args
 }
 
-type DefinedCommand struct {
-	*definedCommand
+type ListCommand struct {
+	*listCommand
 }
 
-func (c *DefinedCommand) ServiceTag() names.ServiceTag {
-	return c.serviceTag
+func (c *ListCommand) ApplicationTag() names.ApplicationTag {
+	return c.applicationTag
 }
 
-func (c *DefinedCommand) FullSchema() bool {
+func (c *ListCommand) FullSchema() bool {
 	return c.fullSchema
 }
 
-func NewDefinedCommand() (cmd.Command, *DefinedCommand) {
-	c := &definedCommand{}
-	return envcmd.Wrap(c, envcmd.EnvSkipDefault), &DefinedCommand{c}
+func NewShowOutputCommandForTest(store jujuclient.ClientStore) (cmd.Command, *ShowOutputCommand) {
+	c := &showOutputCommand{}
+	c.SetClientStore(store)
+	return modelcmd.Wrap(c), &ShowOutputCommand{c}
 }
 
-func NewDoCommand() (cmd.Command, *DoCommand) {
-	c := &doCommand{}
-	return envcmd.Wrap(c, envcmd.EnvSkipDefault), &DoCommand{c}
+func NewStatusCommandForTest(store jujuclient.ClientStore) (cmd.Command, *StatusCommand) {
+	c := &statusCommand{}
+	c.SetClientStore(store)
+	return modelcmd.Wrap(c), &StatusCommand{c}
 }
+
+func NewListCommandForTest(store jujuclient.ClientStore) (cmd.Command, *ListCommand) {
+	c := &listCommand{}
+	c.SetClientStore(store)
+	return modelcmd.Wrap(c, modelcmd.WrapSkipDefaultModel), &ListCommand{c}
+}
+
+func NewRunCommandForTest(store jujuclient.ClientStore) (cmd.Command, *RunCommand) {
+	c := &runCommand{}
+	c.SetClientStore(store)
+	return modelcmd.Wrap(c, modelcmd.WrapSkipDefaultModel), &RunCommand{c}
+}
+
 func ActionResultsToMap(results []params.ActionResult) map[string]interface{} {
 	return resultsToMap(results)
 }

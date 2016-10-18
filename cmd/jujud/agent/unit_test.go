@@ -12,33 +12,32 @@ import (
 	"time"
 
 	"github.com/juju/cmd"
-	"github.com/juju/names"
+	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
+	"github.com/juju/utils/voyeur"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/natefinch/lumberjack.v2"
 
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
-	apirsyslog "github.com/juju/juju/api/rsyslog"
-	agenttesting "github.com/juju/juju/cmd/jujud/agent/testing"
+	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	envtesting "github.com/juju/juju/environs/testing"
-	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
-	"github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/apicaller"
-	"github.com/juju/juju/worker/rsyslog"
+	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/upgrader"
 )
 
 type UnitSuite struct {
 	coretesting.GitSuite
-	agenttesting.AgentSuite
+	agenttest.AgentSuite
 }
 
 var _ = gc.Suite(&UnitSuite{})
@@ -63,27 +62,16 @@ func (s *UnitSuite) TearDownTest(c *gc.C) {
 	s.GitSuite.TearDownTest(c)
 }
 
-const initialUnitPassword = "unit-password-1234567890"
-
 // primeAgent creates a unit, and sets up the unit agent's directory.
 // It returns the assigned machine, new unit and the agent's configuration.
 func (s *UnitSuite) primeAgent(c *gc.C) (*state.Machine, *state.Unit, agent.Config, *tools.Tools) {
-	jujutesting.AddStateServerMachine(c, s.State)
-	svc := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	unit, err := svc.AddUnit()
-	c.Assert(err, jc.ErrorIsNil)
-	err = unit.SetPassword(initialUnitPassword)
-	c.Assert(err, jc.ErrorIsNil)
-	// Assign the unit to a machine.
-	err = unit.AssignToNewMachine()
-	c.Assert(err, jc.ErrorIsNil)
-	id, err := unit.AssignedMachineId()
-	c.Assert(err, jc.ErrorIsNil)
-	machine, err := s.State.Machine(id)
-	c.Assert(err, jc.ErrorIsNil)
-	inst, md := jujutesting.AssertStartInstance(c, s.Environ, id)
-	err = machine.SetProvisioned(inst.Id(), agent.BootstrapNonce, md)
-	c.Assert(err, jc.ErrorIsNil)
+	machine := s.Factory.MakeMachine(c, nil)
+	app := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{
+		Application: app,
+		Machine:     machine,
+		Password:    initialUnitPassword,
+	})
 	conf, tools := s.PrimeAgent(c, unit.Tag(), initialUnitPassword)
 	return machine, unit, conf, tools
 }
@@ -140,7 +128,7 @@ func (s *UnitSuite) TestParseUnknown(c *gc.C) {
 }
 
 func waitForUnitActive(stateConn *state.State, unit *state.Unit, c *gc.C) {
-	timeout := time.After(5 * time.Second)
+	timeout := time.After(coretesting.LongWait)
 
 	for {
 		select {
@@ -152,13 +140,13 @@ func waitForUnitActive(stateConn *state.State, unit *state.Unit, c *gc.C) {
 			statusInfo, err := unit.Status()
 			c.Assert(err, jc.ErrorIsNil)
 			switch statusInfo.Status {
-			case state.StatusMaintenance, state.StatusWaiting, state.StatusBlocked:
+			case status.Maintenance, status.Waiting, status.Blocked:
 				c.Logf("waiting...")
 				continue
-			case state.StatusActive:
+			case status.Active:
 				c.Logf("active!")
 				return
-			case state.StatusUnknown:
+			case status.Unknown:
 				// Active units may have a status of unknown if they have
 				// started but not run status-set.
 				c.Logf("unknown but active!")
@@ -169,10 +157,10 @@ func waitForUnitActive(stateConn *state.State, unit *state.Unit, c *gc.C) {
 			statusInfo, err = unit.AgentStatus()
 			c.Assert(err, jc.ErrorIsNil)
 			switch statusInfo.Status {
-			case state.StatusAllocating, state.StatusExecuting, state.StatusRebooting, state.StatusIdle:
+			case status.Allocating, status.Executing, status.Rebooting, status.Idle:
 				c.Logf("waiting...")
 				continue
-			case state.StatusError:
+			case status.Error:
 				stateConn.StartSync()
 				c.Logf("unit is still down")
 			default:
@@ -194,7 +182,7 @@ func (s *UnitSuite) TestUpgrade(c *gc.C) {
 	machine, unit, _, currentTools := s.primeAgent(c)
 	agent := s.newAgent(c, unit)
 	newVers := version.Binary{
-		Number: version.Current,
+		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
 		Series: series.HostSeries(),
 	}
@@ -230,7 +218,7 @@ func (s *UnitSuite) TestUpgradeFailsWithoutTools(c *gc.C) {
 	machine, unit, _, _ := s.primeAgent(c)
 	agent := s.newAgent(c, unit)
 	newVers := version.Binary{
-		Number: version.Current,
+		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
 		Series: series.HostSeries(),
 	}
@@ -257,70 +245,6 @@ func (s *UnitSuite) TestWithDeadUnit(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *UnitSuite) TestOpenAPIState(c *gc.C) {
-	_, unit, conf, _ := s.primeAgent(c)
-	configPath := agent.ConfigPath(conf.DataDir(), conf.Tag())
-
-	// Set an invalid password (but the old initial password will still work).
-	// This test is a sort of unsophisticated simulation of what might happen
-	// if a previous cycle had picked, and locally recorded, a new password;
-	// but failed to set it on the state server. Would be better to test that
-	// code path explicitly in future, but this suffices for now.
-	confW, err := agent.ReadConfig(configPath)
-	c.Assert(err, gc.IsNil)
-	confW.SetPassword("nonsense-borken")
-	err = confW.Write()
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Check that it successfully connects (with the conf's old password).
-	assertOpen := func() {
-		agent := NewAgentConf(conf.DataDir())
-		err := agent.ReadConfig(conf.Tag().String())
-		c.Assert(err, jc.ErrorIsNil)
-		st, err := apicaller.OpenAPIState(agent)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(st, gc.NotNil)
-		st.Close()
-	}
-	assertOpen()
-
-	// Check that the old password has been invalidated.
-	assertPassword := func(password string, valid bool) {
-		err := unit.Refresh()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(unit.PasswordValid(password), gc.Equals, valid)
-	}
-	assertPassword(initialUnitPassword, false)
-
-	// Read the stored password and check it's valid.
-	confR, err := agent.ReadConfig(configPath)
-	c.Assert(err, gc.IsNil)
-	apiInfo, ok := confR.APIInfo()
-	c.Assert(ok, jc.IsTrue)
-	newPassword := apiInfo.Password
-	assertPassword(newPassword, true)
-
-	// Double-check that we can open a fresh connection with the stored
-	// conf ... and that the password hasn't been changed again.
-	assertOpen()
-	assertPassword(newPassword, true)
-}
-
-func (s *UnitSuite) TestOpenAPIStateWithBadCredsTerminates(c *gc.C) {
-	conf, _ := s.PrimeAgent(c, names.NewUnitTag("missing/0"), "no-password")
-	_, err := apicaller.OpenAPIState(fakeConfAgent{conf: conf})
-	c.Assert(err, gc.Equals, worker.ErrTerminateAgent)
-}
-
-type fakeConfAgent struct {
-	agent.Agent
-	conf agent.Config
-}
-
-func (f fakeConfAgent) CurrentConfig() agent.Config {
-	return f.conf
-}
-
 func (s *UnitSuite) TestOpenStateFails(c *gc.C) {
 	// Start a unit agent and make sure it doesn't set a mongo password
 	// we can use to connect to state with.
@@ -333,30 +257,10 @@ func (s *UnitSuite) TestOpenStateFails(c *gc.C) {
 	s.AssertCannotOpenState(c, conf.Tag(), conf.DataDir())
 }
 
-func (s *UnitSuite) TestRsyslogConfigWorker(c *gc.C) {
-	created := make(chan rsyslog.RsyslogMode, 1)
-	s.PatchValue(&rsyslog.NewRsyslogConfigWorker, func(_ *apirsyslog.State, mode rsyslog.RsyslogMode, _ names.Tag, _ string, _ []string, _ string) (worker.Worker, error) {
-		created <- mode
-		return newDummyWorker(), nil
-	})
-
-	_, unit, _, _ := s.primeAgent(c)
-	a := s.newAgent(c, unit)
-	go func() { c.Check(a.Run(nil), gc.IsNil) }()
-	defer func() { c.Check(a.Stop(), gc.IsNil) }()
-
-	select {
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timeout while waiting for rsyslog worker to be created")
-	case mode := <-created:
-		c.Assert(mode, gc.Equals, rsyslog.RsyslogModeForwarding)
-	}
-}
-
 func (s *UnitSuite) TestAgentSetsToolsVersion(c *gc.C) {
 	_, unit, _, _ := s.primeAgent(c)
 	vers := version.Binary{
-		Number: version.Current,
+		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
 		Series: series.HostSeries(),
 	}
@@ -378,11 +282,11 @@ func (s *UnitSuite) TestAgentSetsToolsVersion(c *gc.C) {
 			c.Assert(err, jc.ErrorIsNil)
 			agentTools, err := unit.AgentTools()
 			c.Assert(err, jc.ErrorIsNil)
-			if agentTools.Version.Minor != version.Current.Minor {
+			if agentTools.Version.Minor != jujuversion.Current.Minor {
 				continue
 			}
 			current := version.Binary{
-				Number: version.Current,
+				Number: jujuversion.Current,
 				Arch:   arch.HostArch(),
 				Series: series.HostSeries(),
 			}
@@ -457,4 +361,55 @@ func (s *UnitSuite) TestDontUseLumberjack(c *gc.C) {
 
 	_, ok := ctx.Stderr.(*lumberjack.Logger)
 	c.Assert(ok, jc.IsFalse)
+}
+
+func (s *UnitSuite) TestChangeConfig(c *gc.C) {
+	config := FakeAgentConfig{}
+	configChanged := voyeur.NewValue(true)
+	a := UnitAgent{
+		AgentConf:        config,
+		configChangedVal: configChanged,
+	}
+
+	var mutateCalled bool
+	mutate := func(config agent.ConfigSetter) error {
+		mutateCalled = true
+		return nil
+	}
+
+	configChangedCh := make(chan bool)
+	watcher := configChanged.Watch()
+	watcher.Next() // consume initial event
+	go func() {
+		configChangedCh <- watcher.Next()
+	}()
+
+	err := a.ChangeConfig(mutate)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(mutateCalled, jc.IsTrue)
+	select {
+	case result := <-configChangedCh:
+		c.Check(result, jc.IsTrue)
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out waiting for config changed signal")
+	}
+}
+
+func (s *UnitSuite) TestWorkers(c *gc.C) {
+	tracker := NewEngineTracker()
+	instrumented := TrackUnits(c, tracker, unitManifolds)
+	s.PatchValue(&unitManifolds, instrumented)
+
+	_, unit, _, _ := s.primeAgent(c)
+	ctx := cmdtesting.Context(c)
+	a := NewUnitAgent(ctx, nil)
+	s.InitAgent(c, a, "--unit-name", unit.Name())
+
+	go func() { c.Check(a.Run(nil), gc.IsNil) }()
+	defer func() { c.Check(a.Stop(), gc.IsNil) }()
+
+	matcher := NewWorkerMatcher(c, tracker, a.Tag().String(),
+		append(alwaysUnitWorkers, notMigratingUnitWorkers...))
+	WaitMatch(c, matcher.Check, coretesting.LongWait, s.BackingState.StartSync)
 }

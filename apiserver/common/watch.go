@@ -8,9 +8,10 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
-	"launchpad.net/tomb"
+	"gopkg.in/juju/names.v2"
+	"gopkg.in/tomb.v1"
 
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
@@ -20,14 +21,14 @@ import (
 // various facades.
 type AgentEntityWatcher struct {
 	st          state.EntityFinder
-	resources   *Resources
+	resources   facade.Resources
 	getCanWatch GetAuthFunc
 }
 
 // NewAgentEntityWatcher returns a new AgentEntityWatcher. The
 // GetAuthFunc will be used on each invocation of Watch to determine
 // current permissions.
-func NewAgentEntityWatcher(st state.EntityFinder, resources *Resources, getCanWatch GetAuthFunc) *AgentEntityWatcher {
+func NewAgentEntityWatcher(st state.EntityFinder, resources facade.Resources, getCanWatch GetAuthFunc) *AgentEntityWatcher {
 	return &AgentEntityWatcher{
 		st:          st,
 		resources:   resources,
@@ -136,6 +137,7 @@ func (w *MultiNotifyWatcher) loop(in <-chan struct{}) {
 			return
 		case <-in:
 			if timer == nil {
+				// TODO(fwereade): 2016-03-17 lp:1558657
 				timer = time.After(10 * time.Millisecond)
 			}
 		case <-timer:

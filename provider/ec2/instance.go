@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/status"
 )
 
 type ec2Instance struct {
@@ -29,8 +30,24 @@ func (inst *ec2Instance) Id() instance.Id {
 	return instance.Id(inst.InstanceId)
 }
 
-func (inst *ec2Instance) Status() string {
-	return inst.State.Name
+func (inst *ec2Instance) Status() instance.InstanceStatus {
+	// pending | running | shutting-down | terminated | stopping | stopped
+	jujuStatus := status.Pending
+	switch inst.State.Name {
+	case "pending":
+		jujuStatus = status.Pending
+	case "running":
+		jujuStatus = status.Running
+	case "shutting-down", "terminated", "stopping", "stopped":
+		jujuStatus = status.Empty
+	default:
+		jujuStatus = status.Empty
+	}
+	return instance.InstanceStatus{
+		Status:  jujuStatus,
+		Message: inst.State.Name,
+	}
+
 }
 
 // Addresses implements network.Addresses() returning generic address

@@ -10,8 +10,8 @@ import (
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/provider/lxd/lxdclient"
+	"github.com/juju/juju/status"
+	"github.com/juju/juju/tools/lxdclient"
 )
 
 type environInstance struct {
@@ -34,23 +34,29 @@ func (inst *environInstance) Id() instance.Id {
 }
 
 // Status implements instance.Instance.
-func (inst *environInstance) Status() string {
-	return inst.raw.Status()
+func (inst *environInstance) Status() instance.InstanceStatus {
+	jujuStatus := status.Pending
+	instStatus := inst.raw.Status()
+	switch instStatus {
+	case lxdclient.StatusStarting, lxdclient.StatusStarted:
+		jujuStatus = status.Allocating
+	case lxdclient.StatusRunning:
+		jujuStatus = status.Running
+	case lxdclient.StatusFreezing, lxdclient.StatusFrozen, lxdclient.StatusThawed, lxdclient.StatusStopping, lxdclient.StatusStopped:
+		jujuStatus = status.Empty
+	default:
+		jujuStatus = status.Empty
+	}
+	return instance.InstanceStatus{
+		Status:  jujuStatus,
+		Message: instStatus,
+	}
+
 }
 
 // Addresses implements instance.Instance.
 func (inst *environInstance) Addresses() ([]network.Address, error) {
-	// TODO(ericsnow) This may need to be more dynamic.
-	return inst.raw.Addresses, nil
-}
-
-func findInst(id instance.Id, instances []instance.Instance) instance.Instance {
-	for _, inst := range instances {
-		if id == inst.Id() {
-			return inst
-		}
-	}
-	return nil
+	return inst.env.raw.Addresses(inst.raw.Name)
 }
 
 // firewall stuff
@@ -59,9 +65,11 @@ func findInst(id instance.Id, instances []instance.Instance) instance.Instance {
 // should have been started with the given machine id.
 func (inst *environInstance) OpenPorts(machineID string, ports []network.PortRange) error {
 	// TODO(ericsnow) Make sure machineId matches inst.Id()?
-	name := common.MachineFullName(inst.env, machineID)
-	env := inst.env.getSnapshot()
-	err := env.raw.OpenPorts(name, ports...)
+	name, err := inst.env.namespace.Hostname(machineID)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	err = inst.env.raw.OpenPorts(name, ports...)
 	if errors.IsNotImplemented(err) {
 		// TODO(ericsnow) for now...
 		return nil
@@ -72,9 +80,11 @@ func (inst *environInstance) OpenPorts(machineID string, ports []network.PortRan
 // ClosePorts closes the given ports on the instance, which
 // should have been started with the given machine id.
 func (inst *environInstance) ClosePorts(machineID string, ports []network.PortRange) error {
-	name := common.MachineFullName(inst.env, machineID)
-	env := inst.env.getSnapshot()
-	err := env.raw.ClosePorts(name, ports...)
+	name, err := inst.env.namespace.Hostname(machineID)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	err = inst.env.raw.ClosePorts(name, ports...)
 	if errors.IsNotImplemented(err) {
 		// TODO(ericsnow) for now...
 		return nil
@@ -86,9 +96,11 @@ func (inst *environInstance) ClosePorts(machineID string, ports []network.PortRa
 // should have been started with the given machine id.
 // The ports are returned as sorted by SortPorts.
 func (inst *environInstance) Ports(machineID string) ([]network.PortRange, error) {
-	name := common.MachineFullName(inst.env, machineID)
-	env := inst.env.getSnapshot()
-	ports, err := env.raw.Ports(name)
+	name, err := inst.env.namespace.Hostname(machineID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	ports, err := inst.env.raw.Ports(name)
 	if errors.IsNotImplemented(err) {
 		// TODO(ericsnow) for now...
 		return nil, nil

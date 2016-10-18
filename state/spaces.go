@@ -5,37 +5,30 @@ package state
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
+
+	"github.com/juju/juju/network"
 )
 
-// Space represents the state of a space.
-// A space is a security subdivision of a network. In practice, a space
-// is a collection of related subnets that have no firewalls between
-// each other, and that have the same ingress and egress policies.
+// Space represents the state of a juju network space.
 type Space struct {
 	st  *State
 	doc spaceDoc
 }
 
 type spaceDoc struct {
-	DocID    string `bson:"_id"`
-	EnvUUID  string `bson:"env-uuid"`
-	Life     Life   `bson:"life"`
-	Name     string `bson:"name"`
-	IsPublic bool   `bson:"is-public"`
+	Life       Life   `bson:"life"`
+	Name       string `bson:"name"`
+	IsPublic   bool   `bson:"is-public"`
+	ProviderId string `bson:"providerid,omitempty"`
 }
 
 // Life returns whether the space is Alive, Dying or Dead.
 func (s *Space) Life() Life {
 	return s.doc.Life
-}
-
-// ID returns the unique id for the space, for other entities to reference it
-func (s *Space) ID() string {
-	return s.doc.DocID
 }
 
 // String implements fmt.Stringer.
@@ -46,6 +39,17 @@ func (s *Space) String() string {
 // Name returns the name of the Space.
 func (s *Space) Name() string {
 	return s.doc.Name
+}
+
+// IsPublic returns whether the space is public or not.
+func (s *Space) IsPublic() bool {
+	return s.doc.IsPublic
+}
+
+// ProviderId returns the provider id of the space. This will be the empty
+// string except on substrates that directly support spaces.
+func (s *Space) ProviderId() network.Id {
+	return network.Id(s.doc.ProviderId)
 }
 
 // Subnets returns all the subnets associated with the Space.
@@ -70,28 +74,30 @@ func (s *Space) Subnets() (results []*Subnet, err error) {
 }
 
 // AddSpace creates and returns a new space.
-func (st *State) AddSpace(name string, subnets []string, isPublic bool) (newSpace *Space, err error) {
+func (st *State) AddSpace(name string, providerId network.Id, subnets []string, isPublic bool) (newSpace *Space, err error) {
 	defer errors.DeferredAnnotatef(&err, "adding space %q", name)
 	if !names.IsValidSpace(name) {
 		return nil, errors.NewNotValid(nil, "invalid space name")
 	}
 
-	spaceID := st.docID(name)
 	spaceDoc := spaceDoc{
-		DocID:    spaceID,
-		EnvUUID:  st.EnvironUUID(),
-		Life:     Alive,
-		Name:     name,
-		IsPublic: isPublic,
+		Life:       Alive,
+		Name:       name,
+		IsPublic:   isPublic,
+		ProviderId: string(providerId),
 	}
 	newSpace = &Space{doc: spaceDoc, st: st}
 
 	ops := []txn.Op{{
 		C:      spacesC,
-		Id:     spaceID,
+		Id:     name,
 		Assert: txn.DocMissing,
 		Insert: spaceDoc,
 	}}
+
+	if providerId != "" {
+		ops = append(ops, st.networkEntityGlobalKeyOp("space", providerId))
+	}
 
 	for _, subnetId := range subnets {
 		// TODO:(mfoord) once we have refcounting for subnets we should
@@ -99,7 +105,7 @@ func (st *State) AddSpace(name string, subnets []string, isPublic bool) (newSpac
 		// subnet in use is not permitted.
 		ops = append(ops, txn.Op{
 			C:      subnetsC,
-			Id:     st.docID(subnetId),
+			Id:     subnetId,
 			Assert: txn.DocExists,
 			Update: bson.D{{"$set", bson.D{{"space-name", name}}}},
 		})
@@ -114,6 +120,13 @@ func (st *State) AddSpace(name string, subnets []string, isPublic bool) (newSpac
 				return nil, err
 			}
 		}
+		if err := newSpace.Refresh(); err != nil {
+			if errors.IsNotFound(err) {
+				return nil, errors.Errorf("ProviderId %q not unique", providerId)
+			}
+			return nil, errors.Trace(err)
+		}
+		return nil, errors.Trace(err)
 	} else if err != nil {
 		return nil, err
 	}
@@ -138,7 +151,7 @@ func (st *State) Space(name string) (*Space, error) {
 	return &Space{st, doc}, nil
 }
 
-// AllSpaces returns all spaces for the environment.
+// AllSpaces returns all spaces for the model.
 func (st *State) AllSpaces() ([]*Space, error) {
 	spacesCollection, closer := st.getCollection(spacesC)
 	defer closer()
@@ -155,8 +168,9 @@ func (st *State) AllSpaces() ([]*Space, error) {
 	return spaces, nil
 }
 
-// EnsureDead sets the Life of the space to Dead, if it's Alive. It
-// does nothing otherwise.
+// EnsureDead sets the Life of the space to Dead, if it's Alive. If the space is
+// already Dead, no error is returned. When the space is no longer Alive or
+// already removed, errNotAlive is returned.
 func (s *Space) EnsureDead() (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot set space %q to dead", s)
 
@@ -166,19 +180,21 @@ func (s *Space) EnsureDead() (err error) {
 
 	ops := []txn.Op{{
 		C:      spacesC,
-		Id:     s.doc.DocID,
+		Id:     s.doc.Name,
 		Update: bson.D{{"$set", bson.D{{"life", Dead}}}},
 		Assert: isAliveDoc,
 	}}
-	if err = s.st.runTransaction(ops); err != nil {
-		// Ignore ErrAborted if it happens, otherwise return err.
-		return onAbort(err, nil)
+
+	txnErr := s.st.runTransaction(ops)
+	if txnErr == nil {
+		s.doc.Life = Dead
+		return nil
 	}
-	s.doc.Life = Dead
-	return nil
+	return onAbort(txnErr, errNotAlive)
 }
 
-// Remove removes a dead space. If the space is not dead it returns an error.
+// Remove removes a Dead space. If the space is not Dead or it is already
+// removed, an error is returned.
 func (s *Space) Remove() (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot remove space %q", s)
 
@@ -188,31 +204,35 @@ func (s *Space) Remove() (err error) {
 
 	ops := []txn.Op{{
 		C:      spacesC,
-		Id:     s.doc.DocID,
+		Id:     s.doc.Name,
 		Remove: true,
-		Assert: notDeadDoc,
+		Assert: isDeadDoc,
 	}}
+	if s.ProviderId() != "" {
+		ops = append(ops, s.st.networkEntityGlobalKeyRemoveOp("space", s.ProviderId()))
+	}
 
-	err = s.st.runTransaction(ops)
-	if err == mgo.ErrNotFound {
+	txnErr := s.st.runTransaction(ops)
+	if txnErr == nil {
 		return nil
 	}
-	return err
+	return onAbort(txnErr, errors.New("not found or not dead"))
 }
 
-// Refresh: refreshes the contents of the Space from the underlying
-// state. It returns an error that satisfies errors.IsNotFound if the Space has
-// been removed.
+// Refresh: refreshes the contents of the Space from the underlying state. It
+// returns an error that satisfies errors.IsNotFound if the Space has been
+// removed.
 func (s *Space) Refresh() error {
 	spaces, closer := s.st.getCollection(spacesC)
 	defer closer()
 
-	err := spaces.FindId(s.doc.DocID).One(&s.doc)
+	var doc spaceDoc
+	err := spaces.FindId(s.doc.Name).One(&doc)
 	if err == mgo.ErrNotFound {
 		return errors.NotFoundf("space %q", s)
-	}
-	if err != nil {
+	} else if err != nil {
 		return errors.Errorf("cannot refresh space %q: %v", s, err)
 	}
+	s.doc = doc
 	return nil
 }

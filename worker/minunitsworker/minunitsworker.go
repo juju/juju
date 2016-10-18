@@ -6,14 +6,14 @@ package minunitsworker
 import (
 	"github.com/juju/loggo"
 
-	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/watcher/legacy"
 	"github.com/juju/juju/worker"
 )
 
 var logger = loggo.GetLogger("juju.worker.minunitsworker")
 
-// MinUnitsWorker ensures the minimum number of units for services is respected.
+// MinUnitsWorker ensures the minimum number of units for applications is respected.
 type MinUnitsWorker struct {
 	st *state.State
 }
@@ -23,15 +23,15 @@ type MinUnitsWorker struct {
 // minimum required number of units for a service is increased.
 func NewMinUnitsWorker(st *state.State) worker.Worker {
 	mu := &MinUnitsWorker{st: st}
-	return worker.NewStringsWorker(mu)
+	return legacy.NewStringsWorker(mu)
 }
 
-func (mu *MinUnitsWorker) SetUp() (watcher.StringsWatcher, error) {
+func (mu *MinUnitsWorker) SetUp() (state.StringsWatcher, error) {
 	return mu.st.WatchMinUnits(), nil
 }
 
 func (mu *MinUnitsWorker) handleOneService(serviceName string) error {
-	service, err := mu.st.Service(serviceName)
+	service, err := mu.st.Application(serviceName)
 	if err != nil {
 		return err
 	}

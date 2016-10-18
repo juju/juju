@@ -18,17 +18,17 @@ type RemoteRelationsState interface {
 	// Relation returns the existing relation with the given id.
 	Relation(int) (Relation, error)
 
-	// RemoteService returns a remote service by name.
-	RemoteService(string) (RemoteService, error)
+	// RemoteApplication returns a remote application by name.
+	RemoteApplication(string) (RemoteApplication, error)
 
-	// WatchRemoteServices returns a StringsWatcher that notifies of changes to
-	// the lifecycles of the remote services in the environment.
-	WatchRemoteServices() state.StringsWatcher
+	// WatchRemoteApplications returns a StringsWatcher that notifies of changes to
+	// the lifecycles of the remote applications in the environment.
+	WatchRemoteApplications() state.StringsWatcher
 
-	// WatchRemoteServiceRelations returns a StringsWatcher that notifies of
+	// WatchRemoteApplicationRelations returns a StringsWatcher that notifies of
 	// changes to the lifecycles of relations involving the specified remote
 	// service.
-	WatchRemoteServiceRelations(serviceName string) (state.StringsWatcher, error)
+	WatchRemoteApplicationRelations(serviceName string) (state.StringsWatcher, error)
 }
 
 // Relation provides access a relation in global state.
@@ -43,7 +43,7 @@ type Relation interface {
 	// Life returns the relation's current life state.
 	Life() state.Life
 
-	// RemoteUnit returns a RelationUnit for the remote service unit
+	// RemoteUnit returns a RelationUnit for the remote application unit
 	// with the supplied ID.
 	RemoteUnit(unitId string) (RelationUnit, error)
 
@@ -83,13 +83,13 @@ type RelationUnit interface {
 	Settings() (map[string]interface{}, error)
 }
 
-// RemoteService represents the state of a service hosted in an external
+// RemoteApplication represents the state of a service hosted in an external
 // (remote) environment.
-type RemoteService interface {
-	// Name returns the name of the remote service.
+type RemoteApplication interface {
+	// Name returns the name of the remote application.
 	Name() string
 
-	// URL returns the remote service URL, at which it is offered.
+	// URL returns the remote application URL, at which it is offered.
 	URL() string
 }
 
@@ -113,16 +113,16 @@ func (st stateShim) Relation(id int) (Relation, error) {
 	return relationShim{r, st.State}, nil
 }
 
-func (st stateShim) RemoteService(name string) (RemoteService, error) {
-	s, err := st.State.RemoteService(name)
+func (st stateShim) RemoteApplication(name string) (RemoteApplication, error) {
+	s, err := st.State.RemoteApplication(name)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return remoteServiceShim{s}, nil
+	return remoteApplicationShim{s}, nil
 }
 
-func (st stateShim) WatchRemoteServiceRelations(serviceName string) (state.StringsWatcher, error) {
-	s, err := st.State.RemoteService(serviceName)
+func (st stateShim) WatchRemoteApplicationRelations(applicationName string) (state.StringsWatcher, error) {
+	s, err := st.State.RemoteApplication(applicationName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -182,6 +182,6 @@ func (r relationUnitShim) Settings() (map[string]interface{}, error) {
 	return settings.Map(), nil
 }
 
-type remoteServiceShim struct {
-	*state.RemoteService
+type remoteApplicationShim struct {
+	*state.RemoteApplication
 }

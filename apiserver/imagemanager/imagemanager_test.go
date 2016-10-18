@@ -8,9 +8,9 @@ import (
 	"io"
 	"time"
 
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
@@ -67,7 +67,7 @@ func (s *imageManagerSuite) TestNewImageManagerAPIRefusesNonClient(c *gc.C) {
 func (s *imageManagerSuite) addImage(c *gc.C, content string) {
 	var r io.Reader = bytes.NewReader([]byte(content))
 	addedMetadata := &imagestorage.Metadata{
-		EnvUUID:   s.State.EnvironUUID(),
+		ModelUUID: s.State.ModelUUID(),
 		Kind:      "lxc",
 		Series:    "trusty",
 		Arch:      "amd64",

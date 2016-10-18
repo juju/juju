@@ -4,13 +4,15 @@
 package upgrader
 
 import (
-	"github.com/juju/names"
+	"github.com/juju/version"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
-	"github.com/juju/juju/version"
+	"github.com/juju/juju/tools"
 )
 
 // UnitUpgraderAPI provides access to the UnitUpgrader API facade.
@@ -18,15 +20,15 @@ type UnitUpgraderAPI struct {
 	*common.ToolsSetter
 
 	st         *state.State
-	resources  *common.Resources
-	authorizer common.Authorizer
+	resources  facade.Resources
+	authorizer facade.Authorizer
 }
 
 // NewUnitUpgraderAPI creates a new server-side UnitUpgraderAPI facade.
 func NewUnitUpgraderAPI(
 	st *state.State,
-	resources *common.Resources,
-	authorizer common.Authorizer,
+	resources facade.Resources,
+	authorizer facade.Authorizer,
 ) (*UnitUpgraderAPI, error) {
 	if !authorizer.AuthUnitAgent() {
 		return nil, common.ErrPerm
@@ -152,7 +154,10 @@ func (u *UnitUpgraderAPI) getMachineTools(tag names.Tag) params.ToolsResult {
 		result.Error = common.ServerError(err)
 		return result
 	}
-	result.Tools = machineTools
+	// We are okay returning the tools for just the one API server
+	// address since the unit agent won't try to download tools that
+	// are already present on the machine.
+	result.ToolsList = tools.List{machineTools}
 	return result
 }
 

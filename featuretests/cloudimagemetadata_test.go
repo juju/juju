@@ -4,6 +4,7 @@
 package featuretests
 
 import (
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -11,29 +12,29 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/rpc"
 )
 
 type cloudImageMetadataSuite struct {
 	testing.JujuConnSuite
-
 	client *imagemetadata.Client
 }
 
 func (s *cloudImageMetadataSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-
 	s.client = imagemetadata.NewClient(s.APIState)
 	c.Assert(s.client, gc.NotNil)
+	s.AddCleanup(func(*gc.C) {
+		s.client.ClientFacade.Close()
+	})
 }
 
-func (s *cloudImageMetadataSuite) TearDownTest(c *gc.C) {
-	s.client.ClientFacade.Close()
-	s.JujuConnSuite.TearDownTest(c)
-}
-
-func (s *cloudImageMetadataSuite) TestSaveAndFindMetadata(c *gc.C) {
+func (s *cloudImageMetadataSuite) TestSaveAndFindAndDeleteMetadata(c *gc.C) {
 	metadata, err := s.client.List("", "", nil, nil, "", "")
-	c.Assert(err, gc.ErrorMatches, "matching cloud image metadata not found")
+	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
+		Message: "matching cloud image metadata not found",
+		Code:    "not found",
+	})
 	c.Assert(metadata, gc.HasLen, 0)
 
 	//	check db too
@@ -45,28 +46,37 @@ func (s *cloudImageMetadataSuite) TestSaveAndFindMetadata(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(before == 0, jc.IsTrue)
 
+	imageId := "1"
 	m := params.CloudImageMetadata{
 		Source:          "custom",
 		Stream:          "stream",
 		Region:          "region",
-		Series:          "series",
+		Series:          "trusty",
 		Arch:            "arch",
 		VirtType:        "virtType",
 		RootStorageType: "rootStorageType",
-		ImageId:         "1",
+		ImageId:         imageId,
 	}
 
-	errs, err := s.client.Save([]params.CloudImageMetadata{m})
+	err = s.client.Save([]params.CloudImageMetadata{m})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(errs, gc.HasLen, 1)
-	c.Assert(errs[0].Error, gc.IsNil)
 
 	added, err := s.client.List("", "", nil, nil, "", "")
 	c.Assert(err, jc.ErrorIsNil)
+
+	// m.Version would be deduced from m.Series
+	m.Version = "14.04"
 	c.Assert(added, jc.DeepEquals, []params.CloudImageMetadata{m})
 
 	// make sure it's in db too
 	after, err := coll.Count()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(after == 1, jc.IsTrue)
+
+	err = s.client.Delete(imageId)
+	c.Assert(err, jc.ErrorIsNil)
+	// make sure it's no longer in db too
+	afterDelete, err := coll.Count()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(afterDelete, gc.Equals, 0)
 }

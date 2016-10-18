@@ -12,6 +12,7 @@ import (
 	"github.com/juju/govmomi/vim25/types"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -22,8 +23,8 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/vsphere"
-	"github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
+	coretesting "github.com/juju/juju/testing"
+	coretools "github.com/juju/juju/tools"
 )
 
 type environBrokerSuite struct {
@@ -45,24 +46,28 @@ func (s *environBrokerSuite) PrepareStartInstanceFakes(c *gc.C) {
 	s.FakeAvailabilityZones(client, "z1")
 	s.FakeAvailabilityZones(client, "z1")
 	s.FakeAvailabilityZones(client, "z1")
-	s.FakeCreateInstance(client, s.ServerUrl, c)
+	s.FakeCreateInstance(client, s.ServerURL, c)
 }
 
 func (s *environBrokerSuite) CreateStartInstanceArgs(c *gc.C) environs.StartInstanceParams {
-	tools := []*tools.Tools{{
+	tools := []*coretools.Tools{{
 		Version: version.Binary{Arch: arch.AMD64, Series: "trusty"},
 		URL:     "https://example.org",
 	}}
 
 	cons := constraints.Value{}
 
-	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(cons, "trusty", "")
+	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(coretesting.FakeControllerConfig(), cons, cons, "trusty", "")
 	c.Assert(err, jc.ErrorIsNil)
 
-	instanceConfig.Tools = tools[0]
+	err = instanceConfig.SetTools(coretools.List{
+		tools[0],
+	})
+	c.Assert(err, jc.ErrorIsNil)
 	instanceConfig.AuthorizedKeys = s.Config.AuthorizedKeys()
 
 	return environs.StartInstanceParams{
+		ControllerUUID: instanceConfig.Controller.Config.ControllerUUID(),
 		InstanceConfig: instanceConfig,
 		Tools:          tools,
 		Constraints:    cons,
@@ -75,15 +80,6 @@ func (s *environBrokerSuite) TestStartInstance(c *gc.C) {
 	_, err := s.Env.StartInstance(startInstArgs)
 
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *environBrokerSuite) TestStartInstanceWithNetworks(c *gc.C) {
-	s.PrepareStartInstanceFakes(c)
-	startInstArgs := s.CreateStartInstanceArgs(c)
-	startInstArgs.InstanceConfig.Networks = []string{"someNetwork"}
-	_, err := s.Env.StartInstance(startInstArgs)
-
-	c.Assert(err, gc.ErrorMatches, "starting instances with networks is not supported yet")
 }
 
 func (s *environBrokerSuite) TestStartInstanceWithUnsupportedConstraints(c *gc.C) {
@@ -99,7 +95,7 @@ func (s *environBrokerSuite) TestStartInstanceWithUnsupportedConstraints(c *gc.C
 func (s *environBrokerSuite) TestStartInstanceFilterToolByArch(c *gc.C) {
 	s.PrepareStartInstanceFakes(c)
 	startInstArgs := s.CreateStartInstanceArgs(c)
-	tools := []*tools.Tools{{
+	tools := []*coretools.Tools{{
 		Version: version.Binary{Arch: arch.I386, Series: "trusty"},
 		URL:     "https://example.org",
 	}, {
@@ -108,12 +104,15 @@ func (s *environBrokerSuite) TestStartInstanceFilterToolByArch(c *gc.C) {
 	}}
 	//setting tools to I386, but provider should update them to AMD64, because our fake simplestream server return only AMD 64 image
 	startInstArgs.Tools = tools
-	startInstArgs.InstanceConfig.Tools = tools[0]
+	err := startInstArgs.InstanceConfig.SetTools(coretools.List{
+		tools[0],
+	})
+	c.Assert(err, jc.ErrorIsNil)
 	res, err := s.Env.StartInstance(startInstArgs)
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(*res.Hardware.Arch, gc.Equals, arch.AMD64)
-	c.Assert(startInstArgs.InstanceConfig.Tools.Version.Arch, gc.Equals, arch.AMD64)
+	c.Assert(startInstArgs.InstanceConfig.AgentVersion().Arch, gc.Equals, arch.AMD64)
 }
 
 func (s *environBrokerSuite) TestStartInstanceDefaultConstraintsApplied(c *gc.C) {
@@ -181,7 +180,7 @@ func (s *environBrokerSuite) TestStartInstanceSelectZone(c *gc.C) {
 	client := vsphere.ExposeEnvFakeClient(s.Env)
 	s.FakeAvailabilityZones(client, "z1", "z2")
 	s.FakeAvailabilityZones(client, "z1", "z2")
-	s.FakeCreateInstance(client, s.ServerUrl, c)
+	s.FakeCreateInstance(client, s.ServerURL, c)
 	startInstArgs := s.CreateStartInstanceArgs(c)
 	startInstArgs.Placement = "zone=z2"
 	_, err := s.Env.StartInstance(startInstArgs)

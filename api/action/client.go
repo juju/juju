@@ -5,7 +5,6 @@ package action
 
 import (
 	"github.com/juju/errors"
-	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
@@ -49,6 +48,14 @@ func (c *Client) Enqueue(arg params.Actions) (params.ActionResults, error) {
 	return results, err
 }
 
+// FindActionsByNames takes a list of action names and returns actions for
+// every name.
+func (c *Client) FindActionsByNames(arg params.FindActionsByNames) (params.ActionsByNames, error) {
+	results := params.ActionsByNames{}
+	err := c.facade.FacadeCall("FindActionsByNames", arg, &results)
+	return results, err
+}
+
 // ListAll takes a list of Entities representing ActionReceivers and returns
 // all of the Actions that have been queued or run by each of those
 // Entities.
@@ -83,32 +90,31 @@ func (c *Client) Cancel(arg params.Actions) (params.ActionResults, error) {
 	return results, err
 }
 
-// servicesCharmActions is a batched query for the charm.Actions for a slice
+// applicationsCharmActions is a batched query for the charm.Actions for a slice
 // of services by Entity.
-func (c *Client) servicesCharmActions(arg params.Entities) (params.ServicesCharmActionsResults, error) {
-	results := params.ServicesCharmActionsResults{}
-	err := c.facade.FacadeCall("ServicesCharmActions", arg, &results)
+func (c *Client) applicationsCharmActions(arg params.Entities) (params.ApplicationsCharmActionsResults, error) {
+	results := params.ApplicationsCharmActionsResults{}
+	err := c.facade.FacadeCall("ApplicationsCharmsActions", arg, &results)
 	return results, err
 }
 
-// ServiceCharmActions is a single query which uses ServicesCharmActions to
+// ApplicationCharmActions is a single query which uses ApplicationsCharmsActions to
 // get the charm.Actions for a single Service by tag.
-func (c *Client) ServiceCharmActions(arg params.Entity) (*charm.Actions, error) {
-	none := &charm.Actions{}
+func (c *Client) ApplicationCharmActions(arg params.Entity) (map[string]params.ActionSpec, error) {
 	tags := params.Entities{Entities: []params.Entity{{Tag: arg.Tag}}}
-	results, err := c.servicesCharmActions(tags)
+	results, err := c.applicationsCharmActions(tags)
 	if err != nil {
-		return none, err
+		return nil, errors.Trace(err)
 	}
 	if len(results.Results) != 1 {
-		return none, errors.Errorf("%d results, expected 1", len(results.Results))
+		return nil, errors.Errorf("%d results, expected 1", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
-		return none, result.Error
+		return nil, result.Error
 	}
-	if result.ServiceTag != arg.Tag {
-		return none, errors.Errorf("action results received for wrong service %q", result.ServiceTag)
+	if result.ApplicationTag != arg.Tag {
+		return nil, errors.Errorf("action results received for wrong application %q", result.ApplicationTag)
 	}
 	return result.Actions, nil
 }

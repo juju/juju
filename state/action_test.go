@@ -9,11 +9,11 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/txn"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
@@ -24,8 +24,8 @@ type ActionSuite struct {
 	ConnSuite
 	charm             *state.Charm
 	actionlessCharm   *state.Charm
-	service           *state.Service
-	actionlessService *state.Service
+	service           *state.Application
+	actionlessService *state.Application
 	unit              *state.Unit
 	unit2             *state.Unit
 	charmlessUnit     *state.Unit
@@ -47,23 +47,23 @@ func (s *ActionSuite) SetUpTest(c *gc.C) {
 	s.actionlessService = s.AddTestingService(c, "actionless", s.actionlessCharm)
 	c.Assert(err, jc.ErrorIsNil)
 
-	sUrl, _ := s.service.CharmURL()
-	c.Assert(sUrl, gc.NotNil)
-	actionlessSUrl, _ := s.actionlessService.CharmURL()
-	c.Assert(actionlessSUrl, gc.NotNil)
+	sURL, _ := s.service.CharmURL()
+	c.Assert(sURL, gc.NotNil)
+	actionlessSURL, _ := s.actionlessService.CharmURL()
+	c.Assert(actionlessSURL, gc.NotNil)
 
 	s.unit, err = s.service.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.unit.Series(), gc.Equals, "quantal")
 
-	err = s.unit.SetCharmURL(sUrl)
+	err = s.unit.SetCharmURL(sURL)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.unit2, err = s.service.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.unit2.Series(), gc.Equals, "quantal")
 
-	err = s.unit2.SetCharmURL(sUrl)
+	err = s.unit2.SetCharmURL(sURL)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.charmlessUnit, err = s.service.AddUnit()
@@ -74,7 +74,7 @@ func (s *ActionSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.actionlessUnit.Series(), gc.Equals, "quantal")
 
-	err = s.actionlessUnit.SetCharmURL(actionlessSUrl)
+	err = s.actionlessUnit.SetCharmURL(actionlessSURL)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -131,7 +131,7 @@ func (s *ActionSuite) TestAddAction(c *gc.C) {
 		expectedErr: "validation failed: \\(root\\)\\.outfile : must be of type string, given 5",
 	}} {
 		c.Logf("Test %d: should %s", i, t.should)
-		before := state.NowToTheSecond()
+		before := s.State.NowToTheSecond()
 		later := before.Add(testing.LongWait)
 
 		// Copy params over into empty premade map for comparison later
@@ -161,7 +161,7 @@ func (s *ActionSuite) TestAddAction(c *gc.C) {
 
 			// Enqueued time should be within a reasonable time of the beginning
 			// of the test
-			now := state.NowToTheSecond()
+			now := s.State.NowToTheSecond()
 			c.Check(action.Enqueued(), jc.TimeBetween(before, now))
 			c.Check(action.Enqueued(), jc.TimeBetween(before, later))
 			continue
@@ -278,15 +278,15 @@ func makeUnits(c *gc.C, s *ActionSuite, units map[string]*state.Unit, schemas ma
 		svc := s.AddTestingService(c, svcName, ch)
 
 		// Get its charm URL
-		sUrl, _ := svc.CharmURL()
-		c.Assert(sUrl, gc.NotNil)
+		sURL, _ := svc.CharmURL()
+		c.Assert(sURL, gc.NotNil)
 
 		// Add a unit
 		var err error
 		u, err := svc.AddUnit()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(u.Series(), gc.Equals, "quantal")
-		err = u.SetCharmURL(sUrl)
+		err = u.SetCharmURL(sURL)
 		c.Assert(err, jc.ErrorIsNil)
 
 		units[name] = u
@@ -490,6 +490,32 @@ func (s *ActionSuite) TestFindActionTagsByPrefix(c *gc.C) {
 	for i, tag := range tags {
 		c.Logf("check %q against %d:%q", prefix, i, tag)
 		c.Check(tag.Id()[:len(prefix)], gc.Equals, prefix)
+	}
+}
+
+func (s *ActionSuite) TestFindActionsByName(c *gc.C) {
+	actions := []struct {
+		Name       string
+		Parameters map[string]interface{}
+	}{
+		{Name: "action-1", Parameters: map[string]interface{}{}},
+		{Name: "fake", Parameters: map[string]interface{}{"yeah": true, "take": nil}},
+		{Name: "action-1", Parameters: map[string]interface{}{"yeah": true, "take": nil}},
+		{Name: "action-9", Parameters: map[string]interface{}{"district": 9}},
+		{Name: "blarney", Parameters: map[string]interface{}{"conversation": []string{"what", "now"}}},
+	}
+
+	for _, action := range actions {
+		_, err := s.State.EnqueueAction(s.unit.Tag(), action.Name, action.Parameters)
+		c.Assert(err, gc.Equals, nil)
+	}
+
+	results, err := s.State.FindActionsByName("action-1")
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(len(results), gc.Equals, 2)
+	for _, result := range results {
+		c.Check(result.Name(), gc.Equals, "action-1")
 	}
 }
 
@@ -772,8 +798,8 @@ func (s *ActionSuite) TestActionStatusWatcher(c *gc.C) {
 	watchCancelledOrCompleted.AssertChange()
 	watchCancelledOrCompleted.AssertNoChange()
 
-	expect := map[state.ActionStatus][]*state.Action{}
-	all := []*state.Action{}
+	expect := map[state.ActionStatus][]state.Action{}
+	all := []state.Action{}
 	for _, tcase := range testCase {
 		a, err := tcase.receiver.AddAction(tcase.name, nil)
 		c.Assert(err, jc.ErrorIsNil)
@@ -801,7 +827,7 @@ func (s *ActionSuite) TestActionStatusWatcher(c *gc.C) {
 	watchCancelledOrCompleted.AssertNoChange()
 }
 
-func expectActionIds(actions ...*state.Action) []string {
+func expectActionIds(actions ...state.Action) []string {
 	ids := make([]string, len(actions))
 	for i, action := range actions {
 		ids[i] = action.Id()
@@ -849,16 +875,16 @@ type mockAR struct {
 
 var _ state.ActionReceiver = (*mockAR)(nil)
 
-func (r mockAR) AddAction(name string, payload map[string]interface{}) (*state.Action, error) {
+func (r mockAR) AddAction(name string, payload map[string]interface{}) (state.Action, error) {
 	return nil, nil
 }
-func (r mockAR) CancelAction(*state.Action) (*state.Action, error) { return nil, nil }
-func (r mockAR) WatchActionNotifications() state.StringsWatcher    { return nil }
-func (r mockAR) Actions() ([]*state.Action, error)                 { return nil, nil }
-func (r mockAR) CompletedActions() ([]*state.Action, error)        { return nil, nil }
-func (r mockAR) PendingActions() ([]*state.Action, error)          { return nil, nil }
-func (r mockAR) RunningActions() ([]*state.Action, error)          { return nil, nil }
-func (r mockAR) Tag() names.Tag                                    { return names.NewUnitTag(r.id) }
+func (r mockAR) CancelAction(state.Action) (state.Action, error) { return nil, nil }
+func (r mockAR) WatchActionNotifications() state.StringsWatcher  { return nil }
+func (r mockAR) Actions() ([]state.Action, error)                { return nil, nil }
+func (r mockAR) CompletedActions() ([]state.Action, error)       { return nil, nil }
+func (r mockAR) PendingActions() ([]state.Action, error)         { return nil, nil }
+func (r mockAR) RunningActions() ([]state.Action, error)         { return nil, nil }
+func (r mockAR) Tag() names.Tag                                  { return names.NewUnitTag(r.id) }
 
 // TestMock verifies the mock UUID generator works as expected.
 func (s *ActionSuite) TestMock(c *gc.C) {

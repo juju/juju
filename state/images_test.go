@@ -39,16 +39,16 @@ func (s *ImageSuite) TestStorage(c *gc.C) {
 }
 
 func (s *ImageSuite) TestStorageParams(c *gc.C) {
-	env, err := s.State.Environment()
+	env, err := s.State.Model()
 	c.Assert(err, gc.IsNil)
 
 	var called bool
 	s.PatchValue(state.ImageStorageNewStorage, func(
 		session *mgo.Session,
-		envUUID string,
+		modelUUID string,
 	) imagestorage.Storage {
 		called = true
-		c.Assert(envUUID, gc.Equals, env.UUID())
+		c.Assert(modelUUID, gc.Equals, env.UUID())
 		c.Assert(session, gc.NotNil)
 		return nil
 	})

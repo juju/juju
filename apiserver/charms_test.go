@@ -4,10 +4,10 @@
 package apiserver_test
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"mime"
 	"net/http"
 	"net/url"
 	"os"
@@ -21,25 +21,27 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
+	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/storage"
 	"github.com/juju/juju/testcharms"
+	"github.com/juju/juju/testing/factory"
 )
 
-// charmsCommonSuite wraps authHttpSuite and adds
+// charmsCommonSuite wraps authHTTPSuite and adds
 // some helper methods suitable for working with the
 // charms endpoint.
 type charmsCommonSuite struct {
-	authHttpSuite
+	authHTTPSuite
 }
 
 func (s *charmsCommonSuite) charmsURL(c *gc.C, query string) *url.URL {
 	uri := s.baseURL(c)
-	if s.envUUID == "" {
+	if s.modelUUID == "" {
 		uri.Path = "/charms"
 	} else {
-		uri.Path = fmt.Sprintf("/environment/%s/charms", s.envUUID)
+		uri.Path = fmt.Sprintf("/model/%s/charms", s.modelUUID)
 	}
 	uri.RawQuery = query
 	return uri
@@ -82,6 +84,13 @@ func (s *charmsCommonSuite) assertResponse(c *gc.C, resp *http.Response, expStat
 	return charmResponse
 }
 
+func (s *charmsCommonSuite) setModelImporting(c *gc.C) {
+	model, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	err = model.SetMigrationMode(state.MigrationModeImporting)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 type charmsSuite struct {
 	charmsCommonSuite
 }
@@ -108,12 +117,12 @@ func (s *charmsSuite) TestCharmsServedSecurely(c *gc.C) {
 
 func (s *charmsSuite) TestPOSTRequiresAuth(c *gc.C) {
 	resp := s.sendRequest(c, httpRequestParams{method: "POST", url: s.charmsURI(c, "")})
-	s.assertErrorResponse(c, resp, http.StatusUnauthorized, "no credentials provided")
+	s.assertErrorResponse(c, resp, http.StatusUnauthorized, ".*no credentials provided$")
 }
 
-func (s *charmsSuite) TestGETDoesNotRequireAuth(c *gc.C) {
+func (s *charmsSuite) TestGETRequiresAuth(c *gc.C) {
 	resp := s.sendRequest(c, httpRequestParams{method: "GET", url: s.charmsURI(c, "")})
-	s.assertErrorResponse(c, resp, http.StatusBadRequest, "expected url=CharmURL query argument")
+	s.assertErrorResponse(c, resp, http.StatusUnauthorized, ".*no credentials provided$")
 }
 
 func (s *charmsSuite) TestRequiresPOSTorGET(c *gc.C) {
@@ -121,34 +130,24 @@ func (s *charmsSuite) TestRequiresPOSTorGET(c *gc.C) {
 	s.assertErrorResponse(c, resp, http.StatusMethodNotAllowed, `unsupported method: "PUT"`)
 }
 
-func (s *charmsSuite) TestAuthRequiresUser(c *gc.C) {
+func (s *charmsSuite) TestPOSTRequiresUserAuth(c *gc.C) {
 	// Add a machine and try to login.
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetProvisioned("foo", "fake_nonce", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	password, err := utils.RandomPassword()
-	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetPassword(password)
-	c.Assert(err, jc.ErrorIsNil)
-
-	resp := s.sendRequest(c, httpRequestParams{
-		tag:      machine.Tag().String(),
-		password: password,
-		method:   "POST",
-		url:      s.charmsURI(c, ""),
-		nonce:    "fake_nonce",
+	machine, password := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
+		Nonce: "noncy",
 	})
-	s.assertErrorResponse(c, resp, http.StatusUnauthorized, "invalid entity name or password")
+	resp := s.sendRequest(c, httpRequestParams{
+		tag:         machine.Tag().String(),
+		password:    password,
+		method:      "POST",
+		url:         s.charmsURI(c, ""),
+		nonce:       "noncy",
+		contentType: "foo/bar",
+	})
+	s.assertErrorResponse(c, resp, http.StatusInternalServerError, ".*tag kind machine not valid$")
 
 	// Now try a user login.
 	resp = s.authRequest(c, httpRequestParams{method: "POST", url: s.charmsURI(c, "")})
-	s.assertErrorResponse(c, resp, http.StatusBadRequest, "expected series=URL argument")
-}
-
-func (s *charmsSuite) TestUploadRequiresSeries(c *gc.C) {
-	resp := s.authRequest(c, httpRequestParams{method: "POST", url: s.charmsURI(c, "")})
-	s.assertErrorResponse(c, resp, http.StatusBadRequest, "expected series=URL argument")
+	s.assertErrorResponse(c, resp, http.StatusBadRequest, ".*expected Content-Type: application/zip.+")
 }
 
 func (s *charmsSuite) TestUploadFailsWithInvalidZip(c *gc.C) {
@@ -159,11 +158,11 @@ func (s *charmsSuite) TestUploadFailsWithInvalidZip(c *gc.C) {
 	// Pretend we upload a zip by setting the Content-Type, so we can
 	// check the error at extraction time later.
 	resp := s.uploadRequest(c, s.charmsURI(c, "?series=quantal"), "application/zip", tempFile.Name())
-	s.assertErrorResponse(c, resp, http.StatusBadRequest, "cannot open charm archive: zip: not a valid zip file")
+	s.assertErrorResponse(c, resp, http.StatusBadRequest, ".*cannot open charm archive: zip: not a valid zip file$")
 
 	// Now try with the default Content-Type.
 	resp = s.uploadRequest(c, s.charmsURI(c, "?series=quantal"), "application/octet-stream", tempFile.Name())
-	s.assertErrorResponse(c, resp, http.StatusBadRequest, "expected Content-Type: application/zip, got: application/octet-stream")
+	s.assertErrorResponse(c, resp, http.StatusBadRequest, ".*expected Content-Type: application/zip, got: application/octet-stream$")
 }
 
 func (s *charmsSuite) TestUploadBumpsRevision(c *gc.C) {
@@ -172,7 +171,13 @@ func (s *charmsSuite) TestUploadBumpsRevision(c *gc.C) {
 	curl := charm.MustParseURL(
 		fmt.Sprintf("local:quantal/%s-%d", ch.Meta().Name, ch.Revision()),
 	)
-	_, err := s.State.AddCharm(ch, curl, "dummy-storage-path", "dummy-1-sha256")
+	info := state.CharmInfo{
+		Charm:       ch,
+		ID:          curl,
+		StoragePath: "dummy-storage-path",
+		SHA256:      "dummy-1-sha256",
+	}
+	_, err := s.State.AddCharm(info)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Now try uploading the same revision and verify it gets bumped,
@@ -222,13 +227,20 @@ func (s *charmsSuite) TestUploadRespectsLocalRevision(c *gc.C) {
 
 	c.Assert(sch.BundleSha256(), gc.Equals, expectedSHA256)
 
-	storage := storage.NewStorage(s.State.EnvironUUID(), s.State.MongoSession())
+	storage := storage.NewStorage(s.State.ModelUUID(), s.State.MongoSession())
 	reader, _, err := storage.Get(sch.StoragePath())
 	c.Assert(err, jc.ErrorIsNil)
 	defer reader.Close()
 	downloadedSHA256, _, err := utils.ReadSHA256(reader)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(downloadedSHA256, gc.Equals, expectedSHA256)
+}
+
+func (s *charmsSuite) TestUploadWithMultiSeriesCharm(c *gc.C) {
+	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
+	resp := s.uploadRequest(c, s.charmsURL(c, "").String(), "application/zip", ch.Path)
+	expectedURL := charm.MustParseURL("local:dummy-1")
+	s.assertUploadResponse(c, resp, expectedURL.String())
 }
 
 func (s *charmsSuite) TestUploadAllowsTopLevelPath(c *gc.C) {
@@ -242,33 +254,33 @@ func (s *charmsSuite) TestUploadAllowsTopLevelPath(c *gc.C) {
 	s.assertUploadResponse(c, resp, expectedURL.String())
 }
 
-func (s *charmsSuite) TestUploadAllowsEnvUUIDPath(c *gc.C) {
-	// Check that we can upload charms to https://host:port/ENVUUID/charms
+func (s *charmsSuite) TestUploadAllowsModelUUIDPath(c *gc.C) {
+	// Check that we can upload charms to https://host:port/ModelUUID/charms
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 	url := s.charmsURL(c, "series=quantal")
-	url.Path = fmt.Sprintf("/environment/%s/charms", s.envUUID)
+	url.Path = fmt.Sprintf("/model/%s/charms", s.modelUUID)
 	resp := s.uploadRequest(c, url.String(), "application/zip", ch.Path)
 	expectedURL := charm.MustParseURL("local:quantal/dummy-1")
 	s.assertUploadResponse(c, resp, expectedURL.String())
 }
 
-func (s *charmsSuite) TestUploadAllowsOtherEnvUUIDPath(c *gc.C) {
-	envState := s.setupOtherEnvironment(c)
-	// Check that we can upload charms to https://host:port/ENVUUID/charms
+func (s *charmsSuite) TestUploadAllowsOtherModelUUIDPath(c *gc.C) {
+	envState := s.setupOtherModel(c)
+	// Check that we can upload charms to https://host:port/ModelUUID/charms
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 	url := s.charmsURL(c, "series=quantal")
-	url.Path = fmt.Sprintf("/environment/%s/charms", envState.EnvironUUID())
+	url.Path = fmt.Sprintf("/model/%s/charms", envState.ModelUUID())
 	resp := s.uploadRequest(c, url.String(), "application/zip", ch.Path)
 	expectedURL := charm.MustParseURL("local:quantal/dummy-1")
 	s.assertUploadResponse(c, resp, expectedURL.String())
 }
 
-func (s *charmsSuite) TestUploadRejectsWrongEnvUUIDPath(c *gc.C) {
-	// Check that we cannot upload charms to https://host:port/BADENVUUID/charms
+func (s *charmsSuite) TestUploadRejectsWrongModelUUIDPath(c *gc.C) {
+	// Check that we cannot upload charms to https://host:port/BADModelUUID/charms
 	url := s.charmsURL(c, "series=quantal")
-	url.Path = "/environment/dead-beef-123456/charms"
+	url.Path = "/model/dead-beef-123456/charms"
 	resp := s.authRequest(c, httpRequestParams{method: "POST", url: url.String()})
-	s.assertErrorResponse(c, resp, http.StatusNotFound, `unknown environment: "dead-beef-123456"`)
+	s.assertErrorResponse(c, resp, http.StatusNotFound, `.*unknown model: "dead-beef-123456"$`)
 }
 
 func (s *charmsSuite) TestUploadRepackagesNestedArchives(c *gc.C) {
@@ -304,7 +316,7 @@ func (s *charmsSuite) TestUploadRepackagesNestedArchives(c *gc.C) {
 	// Get it from the storage and try to read it as a bundle - it
 	// should succeed, because it was repackaged during upload to
 	// strip nested dirs.
-	storage := storage.NewStorage(s.State.EnvironUUID(), s.State.MongoSession())
+	storage := storage.NewStorage(s.State.ModelUUID(), s.State.MongoSession())
 	reader, _, err := storage.Get(sch.StoragePath())
 	c.Assert(err, jc.ErrorIsNil)
 	defer reader.Close()
@@ -325,12 +337,62 @@ func (s *charmsSuite) TestUploadRepackagesNestedArchives(c *gc.C) {
 	c.Assert(bundle.Config(), jc.DeepEquals, sch.Config())
 }
 
+func (s *charmsSuite) TestNonLocalCharmUploadFailsIfNotMigrating(c *gc.C) {
+	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
+	curl := charm.MustParseURL(
+		fmt.Sprintf("cs:quantal/%s-%d", ch.Meta().Name, ch.Revision()),
+	)
+	info := state.CharmInfo{
+		Charm:       ch,
+		ID:          curl,
+		StoragePath: "dummy-storage-path",
+		SHA256:      "dummy-1-sha256",
+	}
+	_, err := s.State.AddCharm(info)
+	c.Assert(err, jc.ErrorIsNil)
+
+	resp := s.uploadRequest(c, s.charmsURI(c, "?schema=cs&series=quantal"), "application/zip", ch.Path)
+	s.assertErrorResponse(c, resp, 400, ".*cs charms may only be uploaded during model migration import$")
+}
+
+func (s *charmsSuite) TestNonLocalCharmUpload(c *gc.C) {
+	// Check that upload of charms with the "cs:" schema works (for
+	// model migrations).
+	s.setModelImporting(c)
+	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
+
+	resp := s.uploadRequest(c, s.charmsURI(c, "?schema=cs&series=quantal"), "application/zip", ch.Path)
+
+	expectedURL := charm.MustParseURL("cs:quantal/dummy-1")
+	s.assertUploadResponse(c, resp, expectedURL.String())
+	sch, err := s.State.Charm(expectedURL)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(sch.URL(), gc.DeepEquals, expectedURL)
+	c.Assert(sch.Revision(), gc.Equals, 1)
+	c.Assert(sch.IsUploaded(), jc.IsTrue)
+}
+
+func (s *charmsSuite) TestNonLocalCharmUploadWithRevisionOverride(c *gc.C) {
+	s.setModelImporting(c)
+	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
+
+	resp := s.uploadRequest(c, s.charmsURI(c, "?schema=cs&name=dummy&revision=99"), "application/zip", ch.Path)
+
+	expectedURL := charm.MustParseURL("cs:dummy-99")
+	s.assertUploadResponse(c, resp, expectedURL.String())
+	sch, err := s.State.Charm(expectedURL)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(sch.URL(), gc.DeepEquals, expectedURL)
+	c.Assert(sch.Revision(), gc.Equals, 99)
+	c.Assert(sch.IsUploaded(), jc.IsTrue)
+}
+
 func (s *charmsSuite) TestGetRequiresCharmURL(c *gc.C) {
 	uri := s.charmsURI(c, "?file=hooks/install")
 	resp := s.authRequest(c, httpRequestParams{method: "GET", url: uri})
 	s.assertErrorResponse(
 		c, resp, http.StatusBadRequest,
-		"expected url=CharmURL query argument",
+		".*expected url=CharmURL query argument$",
 	)
 }
 
@@ -339,7 +401,7 @@ func (s *charmsSuite) TestGetFailsWithInvalidCharmURL(c *gc.C) {
 	resp := s.authRequest(c, httpRequestParams{method: "GET", url: uri})
 	s.assertErrorResponse(
 		c, resp, http.StatusNotFound,
-		`unable to retrieve and save the charm: cannot get charm from state: charm "local:precise/no-such" not found`,
+		`.*cannot get charm from state: charm "local:precise/no-such" not found$`,
 	)
 }
 
@@ -401,6 +463,89 @@ func (s *charmsSuite) TestGetReturnsFileContents(c *gc.C) {
 	}
 }
 
+func (s *charmsSuite) TestGetCharmIcon(c *gc.C) {
+	// Upload the local charms.
+	ch := testcharms.Repo.CharmArchive(c.MkDir(), "mysql")
+	s.uploadRequest(c, s.charmsURI(c, "?series=quantal"), "application/zip", ch.Path)
+	ch = testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
+	s.uploadRequest(c, s.charmsURI(c, "?series=quantal"), "application/zip", ch.Path)
+
+	// Prepare the tests.
+	svgMimeType := mime.TypeByExtension(".svg")
+	iconPath := filepath.Join(testcharms.Repo.CharmDirPath("mysql"), "icon.svg")
+	icon, err := ioutil.ReadFile(iconPath)
+	c.Assert(err, jc.ErrorIsNil)
+	tests := []struct {
+		about      string
+		query      string
+		expectType string
+		expectBody string
+	}{{
+		about:      "icon found",
+		query:      "?url=local:quantal/mysql-1&file=icon.svg",
+		expectBody: string(icon),
+	}, {
+		about: "icon not found",
+		query: "?url=local:quantal/dummy-1&file=icon.svg",
+	}, {
+		about:      "default icon requested: icon found",
+		query:      "?url=local:quantal/mysql-1&icon=1",
+		expectBody: string(icon),
+	}, {
+		about:      "default icon requested: icon not found",
+		query:      "?url=local:quantal/dummy-1&icon=1",
+		expectBody: apiserver.DefaultIcon,
+	}, {
+		about:      "default icon request ignored",
+		query:      "?url=local:quantal/mysql-1&file=revision&icon=1",
+		expectType: "text/plain; charset=utf-8",
+		expectBody: "1",
+	}}
+
+	for i, test := range tests {
+		c.Logf("\ntest %d: %s", i, test.about)
+		uri := s.charmsURI(c, test.query)
+		resp := s.authRequest(c, httpRequestParams{method: "GET", url: uri})
+		if test.expectBody == "" {
+			s.assertErrorResponse(c, resp, http.StatusNotFound, ".*charm file not found$")
+			continue
+		}
+		if test.expectType == "" {
+			test.expectType = svgMimeType
+		}
+		s.assertGetFileResponse(c, resp, test.expectBody, test.expectType)
+	}
+}
+
+func (s *charmsSuite) TestGetWorksForControllerMachines(c *gc.C) {
+	// Make a controller machine.
+	const nonce = "noncey"
+	m, password := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
+		Jobs:  []state.MachineJob{state.JobManageModel},
+		Nonce: nonce,
+	})
+
+	// Create a hosted model and upload a charm for it.
+	envState := s.setupOtherModel(c)
+	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
+	s.uploadRequest(c, s.charmsURI(c, "?series=quantal"), "application/zip", ch.Path)
+
+	// Controller machine should be able to download the charm from
+	// the hosted model. This is required for controller workers which
+	// are acting on behalf of a particular hosted model.
+	url := s.charmsURL(c, "url=local:quantal/dummy-1&file=revision")
+	url.Path = fmt.Sprintf("/model/%s/charms", envState.ModelUUID())
+	params := httpRequestParams{
+		method:   "GET",
+		url:      url.String(),
+		tag:      m.Tag().String(),
+		password: password,
+		nonce:    nonce,
+	}
+	resp := s.sendRequest(c, params)
+	s.assertGetFileResponse(c, resp, "1", "text/plain; charset=utf-8")
+}
+
 func (s *charmsSuite) TestGetStarReturnsArchiveBytes(c *gc.C) {
 	// Add the dummy charm.
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
@@ -425,31 +570,31 @@ func (s *charmsSuite) TestGetAllowsTopLevelPath(c *gc.C) {
 	s.assertGetFileResponse(c, resp, "1", "text/plain; charset=utf-8")
 }
 
-func (s *charmsSuite) TestGetAllowsEnvUUIDPath(c *gc.C) {
+func (s *charmsSuite) TestGetAllowsModelUUIDPath(c *gc.C) {
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 	s.uploadRequest(c, s.charmsURI(c, "?series=quantal"), "application/zip", ch.Path)
 	url := s.charmsURL(c, "url=local:quantal/dummy-1&file=revision")
-	url.Path = fmt.Sprintf("/environment/%s/charms", s.envUUID)
+	url.Path = fmt.Sprintf("/model/%s/charms", s.modelUUID)
 	resp := s.authRequest(c, httpRequestParams{method: "GET", url: url.String()})
 	s.assertGetFileResponse(c, resp, "1", "text/plain; charset=utf-8")
 }
 
 func (s *charmsSuite) TestGetAllowsOtherEnvironment(c *gc.C) {
-	envState := s.setupOtherEnvironment(c)
+	envState := s.setupOtherModel(c)
 
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 	s.uploadRequest(c, s.charmsURI(c, "?series=quantal"), "application/zip", ch.Path)
 	url := s.charmsURL(c, "url=local:quantal/dummy-1&file=revision")
-	url.Path = fmt.Sprintf("/environment/%s/charms", envState.EnvironUUID())
+	url.Path = fmt.Sprintf("/model/%s/charms", envState.ModelUUID())
 	resp := s.authRequest(c, httpRequestParams{method: "GET", url: url.String()})
 	s.assertGetFileResponse(c, resp, "1", "text/plain; charset=utf-8")
 }
 
-func (s *charmsSuite) TestGetRejectsWrongEnvUUIDPath(c *gc.C) {
+func (s *charmsSuite) TestGetRejectsWrongModelUUIDPath(c *gc.C) {
 	url := s.charmsURL(c, "url=local:quantal/dummy-1&file=revision")
-	url.Path = "/environment/dead-beef-123456/charms"
+	url.Path = "/model/dead-beef-123456/charms"
 	resp := s.authRequest(c, httpRequestParams{method: "GET", url: url.String()})
-	s.assertErrorResponse(c, resp, http.StatusNotFound, `unknown environment: "dead-beef-123456"`)
+	s.assertErrorResponse(c, resp, http.StatusNotFound, `.*unknown model: "dead-beef-123456"$`)
 }
 
 func (s *charmsSuite) TestGetReturnsManifest(c *gc.C) {
@@ -468,30 +613,27 @@ func (s *charmsSuite) TestGetReturnsManifest(c *gc.C) {
 	c.Assert(ctype, gc.Equals, params.ContentTypeJSON)
 }
 
-func (s *charmsSuite) TestGetUsesCache(c *gc.C) {
-	// Add a fake charm archive in the cache directory.
-	cacheDir := filepath.Join(s.DataDir(), "charm-get-cache")
-	err := os.MkdirAll(cacheDir, 0755)
-	c.Assert(err, jc.ErrorIsNil)
+func (s *charmsSuite) TestNoTempFilesLeftBehind(c *gc.C) {
+	// Add the dummy charm.
+	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
+	s.uploadRequest(c, s.charmsURI(c, "?series=quantal"), "application/zip", ch.Path)
 
-	// Create and save a bundle in it.
-	charmDir := testcharms.Repo.ClonedDir(c.MkDir(), "dummy")
-	testPath := filepath.Join(charmDir.Path, "utils.js")
-	contents := "// blah blah"
-	err = ioutil.WriteFile(testPath, []byte(contents), 0755)
-	c.Assert(err, jc.ErrorIsNil)
-	var buffer bytes.Buffer
-	err = charmDir.ArchiveTo(&buffer)
-	c.Assert(err, jc.ErrorIsNil)
-	charmArchivePath := filepath.Join(
-		cacheDir, charm.Quote("local:trusty/django-42")+".zip")
-	err = ioutil.WriteFile(charmArchivePath, buffer.Bytes(), 0644)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Ensure the cached contents are properly retrieved.
-	uri := s.charmsURI(c, "?url=local:trusty/django-42&file=utils.js")
+	// Download it.
+	uri := s.charmsURI(c, "?url=local:quantal/dummy-1&file=*")
 	resp := s.authRequest(c, httpRequestParams{method: "GET", url: uri})
-	s.assertGetFileResponse(c, resp, contents, "application/javascript")
+	assertResponse(c, resp, http.StatusOK, "application/zip")
+
+	// Ensure the tmp directory exists but nothing is in it.
+	files, err := ioutil.ReadDir(filepath.Join(s.DataDir(), "charm-get-tmp"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(files, gc.HasLen, 0)
+}
+
+func (s *charmsSuite) TestPOST_BadCharmNameErrorMessage(c *gc.C) {
+	url := s.charmsURL(c, "url=local:quantal/bad-name-1&file=revision")
+	url.Path = "/model/dead-beef-123456/charms"
+	resp := s.authRequest(c, httpRequestParams{method: "POST", url: url.String()})
+	s.assertErrorResponse(c, resp, http.StatusNotFound, `.*unknown model: "dead-beef-123456"$`)
 }
 
 type charmsWithMacaroonsSuite struct {
@@ -502,7 +644,7 @@ var _ = gc.Suite(&charmsWithMacaroonsSuite{})
 
 func (s *charmsWithMacaroonsSuite) SetUpTest(c *gc.C) {
 	s.macaroonAuthEnabled = true
-	s.authHttpSuite.SetUpTest(c)
+	s.authHTTPSuite.SetUpTest(c)
 }
 
 func (s *charmsWithMacaroonsSuite) TestWithNoBasicAuthReturnsDischargeRequiredError(c *gc.C) {
@@ -512,7 +654,7 @@ func (s *charmsWithMacaroonsSuite) TestWithNoBasicAuthReturnsDischargeRequiredEr
 	})
 
 	charmResponse := s.assertResponse(c, resp, http.StatusUnauthorized)
-	c.Assert(charmResponse.Error, gc.Equals, "verification failed: no macaroons")
+	c.Assert(charmResponse.Error, gc.Matches, ".*verification failed: no macaroons$")
 	c.Assert(charmResponse.ErrorCode, gc.Equals, params.CodeDischargeRequired)
 	c.Assert(charmResponse.ErrorInfo, gc.NotNil)
 	c.Assert(charmResponse.ErrorInfo.Macaroon, gc.NotNil)
@@ -525,11 +667,12 @@ func (s *charmsWithMacaroonsSuite) TestCanPostWithDischargedMacaroon(c *gc.C) {
 		return s.userTag.Id()
 	}
 	resp := s.sendRequest(c, httpRequestParams{
-		do:     s.doer(),
-		method: "POST",
-		url:    s.charmsURI(c, ""),
+		do:          s.doer(),
+		method:      "POST",
+		url:         s.charmsURI(c, ""),
+		contentType: "foo/bar",
 	})
-	s.assertErrorResponse(c, resp, http.StatusBadRequest, "expected series=URL argument")
+	s.assertErrorResponse(c, resp, http.StatusBadRequest, ".*expected Content-Type: application/zip.+")
 	c.Assert(checkCount, gc.Equals, 1)
 }
 

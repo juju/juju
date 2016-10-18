@@ -4,12 +4,12 @@
 package remotestate
 
 import (
-	"github.com/juju/names"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/uniter"
-	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/watcher"
 )
 
 type State interface {
@@ -25,7 +25,7 @@ type Unit interface {
 	Life() params.Life
 	Refresh() error
 	Resolved() (params.ResolvedMode, error)
-	Service() (Service, error)
+	Application() (Application, error)
 	Tag() names.UnitTag
 	Watch() (watcher.NotifyWatcher, error)
 	WatchAddresses() (watcher.NotifyWatcher, error)
@@ -34,13 +34,25 @@ type Unit interface {
 	WatchActionNotifications() (watcher.StringsWatcher, error)
 }
 
-type Service interface {
+type Application interface {
+	// CharmModifiedVersion returns a revision number for the charm that
+	// increments whenever the charm or a resource for the charm changes.
+	CharmModifiedVersion() (int, error)
+	// CharmURL returns the url for the charm for this service.
 	CharmURL() (*charm.URL, bool, error)
+	// Life returns whether the service is alive.
 	Life() params.Life
+	// Refresh syncs this value with the api server.
 	Refresh() error
-	Tag() names.ServiceTag
+	// Tag returns the tag for this service.
+	Tag() names.ApplicationTag
+	// Watch returns a watcher that fires when this service changes.
 	Watch() (watcher.NotifyWatcher, error)
+	// WatchLeadershipSettings returns a watcher that fires when the leadership
+	// settings for this service change.
 	WatchLeadershipSettings() (watcher.NotifyWatcher, error)
+	// WatchRelation returns a watcher that fires when the relations on this
+	// service change.
 	WatchRelations() (watcher.StringsWatcher, error)
 }
 
@@ -62,7 +74,7 @@ type apiUnit struct {
 }
 
 type apiService struct {
-	*uniter.Service
+	*uniter.Application
 }
 
 type apiRelation struct {
@@ -79,7 +91,7 @@ func (st apiState) Unit(tag names.UnitTag) (Unit, error) {
 	return apiUnit{u}, err
 }
 
-func (u apiUnit) Service() (Service, error) {
-	s, err := u.Unit.Service()
+func (u apiUnit) Application() (Application, error) {
+	s, err := u.Unit.Application()
 	return apiService{s}, err
 }

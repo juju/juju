@@ -8,9 +8,9 @@ import (
 	"testing"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state/multiwatcher"
@@ -62,7 +62,7 @@ func (Suite) TestSetupWatchErr(c *gc.C) {
 
 func (s Suite) TestHandle(c *gc.C) {
 	a := &fakeAgent{tag: names.NewMachineTag("1")}
-	jobs := []multiwatcher.MachineJob{multiwatcher.JobHostUnits, multiwatcher.JobManageEnviron}
+	jobs := []multiwatcher.MachineJob{multiwatcher.JobHostUnits, multiwatcher.JobManageModel}
 	m := &fakeMachine{
 		jobs: &params.JobsResult{Jobs: jobs},
 	}
@@ -92,7 +92,7 @@ func (s Suite) TestHandleNoManageEnviron(c *gc.C) {
 
 func (Suite) TestHandleJobsError(c *gc.C) {
 	a := &fakeAgent{tag: names.NewMachineTag("1")}
-	jobs := []multiwatcher.MachineJob{multiwatcher.JobHostUnits, multiwatcher.JobManageEnviron}
+	jobs := []multiwatcher.MachineJob{multiwatcher.JobHostUnits, multiwatcher.JobManageModel}
 	m := &fakeMachine{
 		jobs:    &params.JobsResult{Jobs: jobs},
 		jobsErr: errors.New("foo"),
@@ -111,7 +111,7 @@ func (s Suite) TestHandleRestartError(c *gc.C) {
 		tag:        names.NewMachineTag("1"),
 		restartErr: errors.New("foo"),
 	}
-	jobs := []multiwatcher.MachineJob{multiwatcher.JobHostUnits, multiwatcher.JobManageEnviron}
+	jobs := []multiwatcher.MachineJob{multiwatcher.JobHostUnits, multiwatcher.JobManageModel}
 	m := &fakeMachine{
 		jobs: &params.JobsResult{Jobs: jobs},
 	}

@@ -10,12 +10,11 @@ import (
 
 	"github.com/dustin/go-humanize"
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"github.com/juju/schema"
 	"github.com/juju/utils/set"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/storage"
 )
@@ -34,14 +33,21 @@ const (
 	tagsAttribute = "tags"
 )
 
+// StorageProviderTypes implements storage.ProviderRegistry.
+func (*maasEnviron) StorageProviderTypes() ([]storage.ProviderType, error) {
+	return []storage.ProviderType{maasStorageProviderType}, nil
+}
+
+// StorageProvider implements storage.ProviderRegistry.
+func (*maasEnviron) StorageProvider(t storage.ProviderType) (storage.Provider, error) {
+	if t == maasStorageProviderType {
+		return maasStorageProvider{}, nil
+	}
+	return nil, errors.NotFoundf("storage provider %q", t)
+}
+
 // maasStorageProvider allows volumes to be specified when a node is acquired.
 type maasStorageProvider struct{}
-
-var _ storage.Provider = (*maasStorageProvider)(nil)
-
-var validConfigOptions = set.NewStrings(
-	tagsAttribute,
-)
 
 var storageConfigFields = schema.Fields{
 	tagsAttribute: schema.OneOf(
@@ -88,34 +94,39 @@ func newStorageConfig(attrs map[string]interface{}) (*storageConfig, error) {
 }
 
 // ValidateConfig is defined on the Provider interface.
-func (e *maasStorageProvider) ValidateConfig(cfg *storage.Config) error {
+func (maasStorageProvider) ValidateConfig(cfg *storage.Config) error {
 	_, err := newStorageConfig(cfg.Attrs())
 	return errors.Trace(err)
 }
 
 // Supports is defined on the Provider interface.
-func (e *maasStorageProvider) Supports(k storage.StorageKind) bool {
+func (maasStorageProvider) Supports(k storage.StorageKind) bool {
 	return k == storage.StorageKindBlock
 }
 
 // Scope is defined on the Provider interface.
-func (e *maasStorageProvider) Scope() storage.Scope {
+func (maasStorageProvider) Scope() storage.Scope {
 	return storage.ScopeEnviron
 }
 
 // Dynamic is defined on the Provider interface.
-func (e *maasStorageProvider) Dynamic() bool {
+func (maasStorageProvider) Dynamic() bool {
 	return false
 }
 
+// DefaultPools is defined on the Provider interface.
+func (maasStorageProvider) DefaultPools() []*storage.Config {
+	return nil
+}
+
 // VolumeSource is defined on the Provider interface.
-func (e *maasStorageProvider) VolumeSource(environConfig *config.Config, providerConfig *storage.Config) (storage.VolumeSource, error) {
+func (maasStorageProvider) VolumeSource(providerConfig *storage.Config) (storage.VolumeSource, error) {
 	// Dynamic volumes not supported.
 	return nil, errors.NotSupportedf("volumes")
 }
 
 // FilesystemSource is defined on the Provider interface.
-func (e *maasStorageProvider) FilesystemSource(environConfig *config.Config, providerConfig *storage.Config) (storage.FilesystemSource, error) {
+func (maasStorageProvider) FilesystemSource(providerConfig *storage.Config) (storage.FilesystemSource, error) {
 	return nil, errors.NotSupportedf("filesystems")
 }
 
@@ -160,7 +171,7 @@ func buildMAASVolumeParameters(args []storage.VolumeParams, cons constraints.Val
 
 // volumes creates the storage volumes and attachments
 // corresponding to the volume info associated with a MAAS node.
-func (mi *maasInstance) volumes(
+func (mi *maas1Instance) volumes(
 	mTag names.MachineTag, requestedVolumes []names.VolumeTag,
 ) (
 	[]storage.Volume, []storage.VolumeAttachment, error,
@@ -275,6 +286,61 @@ func (mi *maasInstance) volumes(
 			},
 		}
 		attachments = append(attachments, attachment)
+	}
+	return volumes, attachments, nil
+}
+
+func (mi *maas2Instance) volumes(
+	mTag names.MachineTag, requestedVolumes []names.VolumeTag,
+) (
+	[]storage.Volume, []storage.VolumeAttachment, error,
+) {
+	if mi.constraintMatches.Storage == nil {
+		return nil, nil, errors.NotFoundf("constraint storage mapping")
+	}
+
+	var volumes []storage.Volume
+	var attachments []storage.VolumeAttachment
+
+	// Set up a collection of volumes tags which
+	// we specifically asked for when the node was acquired.
+	validVolumes := set.NewStrings()
+	for _, v := range requestedVolumes {
+		validVolumes.Add(v.Id())
+	}
+
+	for label, devices := range mi.constraintMatches.Storage {
+		// We don't explicitly allow the root volume to be specified yet.
+		if label == rootDiskLabel {
+			continue
+		}
+		// We only care about the volumes we specifically asked for.
+		if !validVolumes.Contains(label) {
+			continue
+		}
+
+		for _, device := range devices {
+			volumeTag := names.NewVolumeTag(label)
+			vol := storage.Volume{
+				volumeTag,
+				storage.VolumeInfo{
+					VolumeId:   volumeTag.String(),
+					Size:       uint64(device.Size() / humanize.MiByte),
+					Persistent: false,
+				},
+			}
+			volumes = append(volumes, vol)
+
+			attachment := storage.VolumeAttachment{
+				volumeTag,
+				mTag,
+				storage.VolumeAttachmentInfo{
+					DeviceLink: device.Path(),
+					ReadOnly:   false,
+				},
+			}
+			attachments = append(attachments, attachment)
+		}
 	}
 	return volumes, attachments, nil
 }

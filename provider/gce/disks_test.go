@@ -4,11 +4,10 @@
 package gce_test
 
 import (
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/gce"
 	"github.com/juju/juju/provider/gce/google"
@@ -24,7 +23,10 @@ var _ = gc.Suite(&storageProviderSuite{})
 
 func (s *storageProviderSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.provider = gce.GCEStorageProvider()
+
+	var err error
+	s.provider, err = s.Env.StorageProvider("gce")
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *storageProviderSuite) TestValidateConfig(c *gc.C) {
@@ -47,22 +49,19 @@ func (s *storageProviderSuite) TestFSStorageSupport(c *gc.C) {
 }
 
 func (s *storageProviderSuite) TestFSSource(c *gc.C) {
-	eConfig := &config.Config{}
 	sConfig := &storage.Config{}
-	_, err := s.provider.FilesystemSource(eConfig, sConfig)
+	_, err := s.provider.FilesystemSource(sConfig)
 	c.Check(err, gc.ErrorMatches, "filesystems not supported")
 }
 
 func (s *storageProviderSuite) TestVolumeSource(c *gc.C) {
-	connCfg := s.BaseSuite.Config
 	storageCfg := &storage.Config{}
-	_, err := s.provider.VolumeSource(connCfg, storageCfg)
+	_, err := s.provider.VolumeSource(storageCfg)
 	c.Check(err, jc.ErrorIsNil)
 }
 
 type volumeSourceSuite struct {
 	gce.BaseSuite
-	provider         storage.Provider
 	source           storage.VolumeSource
 	params           []storage.VolumeParams
 	instId           instance.Id
@@ -73,9 +72,10 @@ var _ = gc.Suite(&volumeSourceSuite{})
 
 func (s *volumeSourceSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.provider = gce.GCEStorageProvider()
-	var err error
-	s.source, err = s.provider.VolumeSource(s.BaseSuite.Config, &storage.Config{})
+
+	provider, err := s.Env.StorageProvider("gce")
+	c.Assert(err, jc.ErrorIsNil)
+	s.source, err = provider.VolumeSource(&storage.Config{})
 	c.Check(err, jc.ErrorIsNil)
 
 	inst := gce.NewInstance(s.BaseInstance, s.Env)
@@ -195,6 +195,54 @@ func (s *volumeSourceSuite) TestListVolumes(c *gc.C) {
 	c.Check(call, gc.HasLen, 1)
 	c.Assert(disksCalled, jc.IsTrue)
 	c.Assert(call[0].ZoneName, gc.Equals, "home-zone")
+}
+
+func (s *volumeSourceSuite) TestListVolumesOnlyListsCurrentModelUUID(c *gc.C) {
+	otherDisk := &google.Disk{
+		Id:          1234568,
+		Name:        "home-zone--566fe7b2-c026-4a86-a2cc-84cb7f9a4868",
+		Zone:        "home-zone",
+		Status:      google.StatusReady,
+		Size:        1024,
+		Description: "a-different-model-uuid",
+	}
+	s.FakeConn.GoogleDisks = []*google.Disk{s.BaseDisk, otherDisk}
+	s.FakeConn.Zones = []google.AvailabilityZone{google.NewZone("home-zone", "Ready", "", "")}
+	vols, err := s.source.ListVolumes()
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(vols, gc.HasLen, 1)
+}
+
+func (s *volumeSourceSuite) TestListVolumesListsEmptyUUIDVolumes(c *gc.C) {
+	otherDisk := &google.Disk{
+		Id:          1234568,
+		Name:        "home-zone--566fe7b2-c026-4a86-a2cc-84cb7f9a4868",
+		Zone:        "home-zone",
+		Status:      google.StatusReady,
+		Size:        1024,
+		Description: "",
+	}
+	s.FakeConn.GoogleDisks = []*google.Disk{s.BaseDisk, otherDisk}
+	s.FakeConn.Zones = []google.AvailabilityZone{google.NewZone("home-zone", "Ready", "", "")}
+	vols, err := s.source.ListVolumes()
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(vols, gc.HasLen, 2)
+}
+
+func (s *volumeSourceSuite) TestListVolumesIgnoresNamesFormatteDifferently(c *gc.C) {
+	otherDisk := &google.Disk{
+		Id:          1234568,
+		Name:        "juju-566fe7b2-c026-4a86-a2cc-84cb7f9a4868",
+		Zone:        "home-zone",
+		Status:      google.StatusReady,
+		Size:        1024,
+		Description: "",
+	}
+	s.FakeConn.GoogleDisks = []*google.Disk{s.BaseDisk, otherDisk}
+	s.FakeConn.Zones = []google.AvailabilityZone{google.NewZone("home-zone", "Ready", "", "")}
+	vols, err := s.source.ListVolumes()
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(vols, gc.HasLen, 1)
 }
 
 func (s *volumeSourceSuite) TestDescribeVolumes(c *gc.C) {

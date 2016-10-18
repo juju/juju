@@ -9,15 +9,17 @@ import (
 	"sort"
 
 	"github.com/juju/cmd"
-	"github.com/juju/names"
+	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6-unstable/hooks"
+	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/api/application"
+	"github.com/juju/juju/cmd/modelcmd"
 	unitdebug "github.com/juju/juju/worker/uniter/runner/debug"
 )
 
 func newDebugHooksCommand() cmd.Command {
-	return envcmd.Wrap(&debugHooksCommand{})
+	return modelcmd.Wrap(&debugHooksCommand{})
 }
 
 // debugHooksCommand is responsible for launching a ssh shell on a given unit or machine.
@@ -27,25 +29,28 @@ type debugHooksCommand struct {
 }
 
 const debugHooksDoc = `
-Interactively debug a hook remotely on a service unit.
+Interactively debug a hook remotely on an application unit.
+
+See the "juju help ssh" for information about SSH related options
+accepted by the debug-hooks command.
 `
 
 func (c *debugHooksCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "debug-hooks",
 		Args:    "<unit name> [hook names]",
-		Purpose: "launch a tmux session to debug a hook",
+		Purpose: "Launch a tmux session to debug a hook.",
 		Doc:     debugHooksDoc,
 	}
 }
 
 func (c *debugHooksCommand) Init(args []string) error {
 	if len(args) < 1 {
-		return fmt.Errorf("no unit name specified")
+		return errors.Errorf("no unit name specified")
 	}
 	c.Target = args[0]
 	if !names.IsValidUnit(c.Target) {
-		return fmt.Errorf("%q is not a valid unit name", c.Target)
+		return errors.Errorf("%q is not a valid unit name", c.Target)
 	}
 
 	// If any of the hooks is "*", then debug all hooks.
@@ -59,15 +64,31 @@ func (c *debugHooksCommand) Init(args []string) error {
 	return nil
 }
 
+type charmRelationsAPI interface {
+	CharmRelations(serviceName string) ([]string, error)
+}
+
+func (c *debugHooksCommand) getServiceAPI() (charmRelationsAPI, error) {
+	root, err := c.NewAPIRoot()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return application.NewClient(root), nil
+}
+
 func (c *debugHooksCommand) validateHooks() error {
 	if len(c.hooks) == 0 {
 		return nil
 	}
-	service, err := names.UnitService(c.Target)
+	service, err := names.UnitApplication(c.Target)
 	if err != nil {
 		return err
 	}
-	relations, err := c.apiClient.ServiceCharmRelations(service)
+	serviceAPI, err := c.getServiceAPI()
+	if err != nil {
+		return err
+	}
+	relations, err := serviceAPI.CharmRelations(service)
 	if err != nil {
 		return err
 	}
@@ -90,7 +111,7 @@ func (c *debugHooksCommand) validateHooks() error {
 			}
 			sort.Strings(names)
 			logger.Infof("unknown hook %s, valid hook names: %v", hook, names)
-			return fmt.Errorf("unit %q does not contain hook %q", c.Target, hook)
+			return errors.Errorf("unit %q does not contain hook %q", c.Target, hook)
 		}
 	}
 	return nil
@@ -100,12 +121,11 @@ func (c *debugHooksCommand) validateHooks() error {
 // and connects to it via SSH to execute the debug-hooks
 // script.
 func (c *debugHooksCommand) Run(ctx *cmd.Context) error {
-	var err error
-	c.apiClient, err = c.initAPIClient()
+	err := c.initRun()
 	if err != nil {
 		return err
 	}
-	defer c.apiClient.Close()
+	defer c.cleanupRun()
 	err = c.validateHooks()
 	if err != nil {
 		return err

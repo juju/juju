@@ -15,10 +15,10 @@ import (
 // machineContainers holds the machine ids of all the containers belonging to a parent machine.
 // All machines have an associated container ref doc, regardless of whether they host any containers.
 type machineContainers struct {
-	DocID    string   `bson:"_id"`
-	Id       string   `bson:"machineid"`
-	EnvUUID  string   `bson:"env-uuid"`
-	Children []string `bson:",omitempty"`
+	DocID     string   `bson:"_id"`
+	Id        string   `bson:"machineid"`
+	ModelUUID string   `bson:"model-uuid"`
+	Children  []string `bson:",omitempty"`
 }
 
 func (st *State) addChildToContainerRefOp(parentId string, childId string) txn.Op {

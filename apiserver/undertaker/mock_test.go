@@ -7,16 +7,18 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/undertaker"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 )
 
 // mockState implements State interface and allows inspection of called
 // methods.
 type mockState struct {
-	env      *mockEnvironment
+	env      *mockModel
 	removed  bool
 	isSystem bool
 	machines []undertaker.Machine
@@ -37,9 +39,10 @@ func newMockState(envOwner names.UserTag, envName string, isSystem bool) *mockSt
 		},
 	}
 
-	env := mockEnvironment{
+	env := mockModel{
 		owner: envOwner,
 		name:  envName,
+		uuid:  "9d3d3b19-2b0c-4a3f-acde-0b1645586a72",
 		life:  state.Alive,
 	}
 
@@ -52,24 +55,24 @@ func newMockState(envOwner names.UserTag, envName string, isSystem bool) *mockSt
 	return m
 }
 
-func (m *mockState) EnsureEnvironmentRemoved() error {
+func (m *mockState) EnsureModelRemoved() error {
 	if !m.removed {
-		return errors.New("found documents for environment")
+		return errors.New("found documents for model")
 	}
 	return nil
 }
 
-func (m *mockState) RemoveAllEnvironDocs() error {
+func (m *mockState) RemoveAllModelDocs() error {
 	if m.env.life != state.Dead {
-		return errors.New("transaction aborted")
+		return errors.New("model not dead")
 	}
 	m.removed = true
 	return nil
 }
 
-func (m *mockState) ProcessDyingEnviron() error {
+func (m *mockState) ProcessDyingModel() error {
 	if m.env.life != state.Dying {
-		return errors.New("environment is not dying")
+		return errors.New("model is not dying")
 	}
 	m.env.life = state.Dead
 	return nil
@@ -79,52 +82,74 @@ func (m *mockState) AllMachines() ([]undertaker.Machine, error) {
 	return m.machines, nil
 }
 
-func (m *mockState) AllServices() ([]undertaker.Service, error) {
+func (m *mockState) AllApplications() ([]undertaker.Service, error) {
 	return m.services, nil
 }
 
-func (m *mockState) IsStateServer() bool {
+func (m *mockState) IsController() bool {
 	return m.isSystem
 }
 
-func (m *mockState) Environment() (undertaker.Environment, error) {
+func (m *mockState) Model() (undertaker.Model, error) {
 	return m.env, nil
 }
 
-// mockEnvironment implements Environment interface and allows inspection of called
+func (m *mockState) ModelConfig() (*config.Config, error) {
+	return &config.Config{}, nil
+}
+
+func (m *mockState) FindEntity(tag names.Tag) (state.Entity, error) {
+	if tag.Kind() == names.ModelTagKind && tag.Id() == m.env.UUID() {
+		return m.env, nil
+	}
+	return nil, errors.NotFoundf("entity with tag %q", tag.String())
+}
+
+// mockModel implements Model interface and allows inspection of called
 // methods.
-type mockEnvironment struct {
+type mockModel struct {
 	tod   time.Time
 	owner names.UserTag
 	life  state.Life
 	name  string
 	uuid  string
+
+	status     status.Status
+	statusInfo string
+	statusData map[string]interface{}
 }
 
-var _ undertaker.Environment = (*mockEnvironment)(nil)
+var _ undertaker.Model = (*mockModel)(nil)
 
-func (m *mockEnvironment) TimeOfDeath() time.Time {
-	return m.tod
-}
-
-func (m *mockEnvironment) Owner() names.UserTag {
+func (m *mockModel) Owner() names.UserTag {
 	return m.owner
 }
 
-func (m *mockEnvironment) Life() state.Life {
+func (m *mockModel) Life() state.Life {
 	return m.life
 }
 
-func (m *mockEnvironment) Name() string {
+func (m *mockModel) Tag() names.Tag {
+	return names.NewModelTag(m.uuid)
+}
+
+func (m *mockModel) Name() string {
 	return m.name
 }
 
-func (m *mockEnvironment) UUID() string {
+func (m *mockModel) UUID() string {
 	return m.uuid
 }
 
-func (m *mockEnvironment) Destroy() error {
+func (m *mockModel) Destroy() error {
 	m.life = state.Dying
+	return nil
+}
+
+func (m *mockModel) SetStatus(sInfo status.StatusInfo) error {
+	m.status = sInfo.Status
+	m.statusInfo = sInfo.Message
+	m.statusData = sInfo.Data
 	return nil
 }
 
