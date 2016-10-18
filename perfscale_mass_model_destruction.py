@@ -62,6 +62,7 @@ def parse_args(argv):
     add_basic_testing_arguments(parser)
     parser.add_argument(
         '--model-count',
+        type=int,
         help='Number of models to create.',
         default=100)
     return parser.parse_args(argv)
