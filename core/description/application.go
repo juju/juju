@@ -41,6 +41,9 @@ type Application interface {
 	MetricsCredentials() []byte
 	StorageConstraints() map[string]StorageConstraint
 
+	Resources() []Resource
+	AddResource(ResourceArgs) Resource
+
 	Units() []Unit
 	AddUnit(UnitArgs) Unit
 
@@ -80,6 +83,8 @@ type application struct {
 
 	// unit count will be assumed by the number of units associated.
 	Units_ units `yaml:"units"`
+
+	Resources_ resources `yaml:"resources,omitempty"`
 
 	Annotations_ `yaml:"annotations,omitempty"`
 
@@ -126,6 +131,7 @@ func newApplication(args ApplicationArgs) *application {
 		StatusHistory_:        newStatusHistory(),
 	}
 	app.setUnits(nil)
+	app.setResources(nil)
 	if len(args.StorageConstraints) > 0 {
 		app.StorageConstraints_ = make(map[string]*storageconstraint)
 		for key, value := range args.StorageConstraints {
@@ -280,6 +286,30 @@ func (a *application) Constraints() Constraints {
 // SetConstraints implements HasConstraints.
 func (a *application) SetConstraints(args ConstraintsArgs) {
 	a.Constraints_ = newConstraints(args)
+}
+
+// Resources implements Application.
+func (s *application) Resources() []Resource {
+	rs := s.Resources_.Resources_
+	result := make([]Resource, len(rs))
+	for i, r := range rs {
+		result[i] = r
+	}
+	return result
+}
+
+// AddResource implements Application.
+func (s *application) AddResource(args ResourceArgs) Resource {
+	r := newResource(args)
+	s.Resources_.Resources_ = append(s.Resources_.Resources_, r)
+	return r
+}
+
+func (s *application) setResources(resourceList []*resource) {
+	s.Resources_ = resources{
+		Version:    1,
+		Resources_: resourceList,
+	}
 }
 
 // Validate implements Application.

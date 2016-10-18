@@ -4,6 +4,7 @@
 package state_test
 
 import (
+	"bytes"
 	"math/rand"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
+	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/constraints"
@@ -19,6 +21,8 @@ import (
 	"github.com/juju/juju/payload"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/provider/dummy"
+	"github.com/juju/juju/resource"
+	"github.com/juju/juju/resource/resourcetesting"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/status"
@@ -1009,4 +1013,85 @@ func (s *MigrationExportSuite) TestPayloads(c *gc.C) {
 	c.Check(payload.RawID(), gc.Equals, original.ID)
 	c.Check(payload.State(), gc.Equals, original.Status)
 	c.Check(payload.Labels(), jc.DeepEquals, original.Labels)
+}
+
+func (s *MigrationExportSuite) TestResources(c *gc.C) {
+	unit := s.Factory.MakeUnit(c, nil)
+	app, err := unit.Application()
+	c.Assert(err, jc.ErrorIsNil)
+	st, err := s.State.Resources()
+	c.Assert(err, jc.ErrorIsNil)
+
+	data := "ham"
+
+	/* XXX save rev 1 for units
+	ts1 := time.Date(2016, 10, 1, 0, 0, 0, 0, time.UTC)
+	res1 := s.newResource(c, app.Name(), "spam", 1, ts1, data)
+	res1, err = st.SetResource(app.Name(), res1.Username, res1.Resource, bytes.NewBufferString(data))
+	c.Assert(err, jc.ErrorIsNil)
+	*/
+
+	// Revision 2 is set for the application.
+	ts2 := time.Date(2016, 10, 2, 0, 0, 0, 0, time.UTC)
+	res2 := s.newResource(c, app.Name(), "spam", 2, ts2, data)
+	res2, err = st.SetResource(app.Name(), res2.Username, res2.Resource, bytes.NewBufferString(data))
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Revision 3 is in the charmstore.
+	res3 := resourcetesting.NewCharmResource(c, "spam", data)
+	res3.Revision = 3
+	err = st.SetCharmStoreResources(app.Name(), []charmresource.Resource{res3}, time.Now())
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+
+	applications := model.Applications()
+	c.Assert(applications, gc.HasLen, 1)
+	exApp := applications[0]
+
+	exResources := exApp.Resources()
+	c.Assert(exResources, gc.HasLen, 1)
+
+	exResource := exResources[0]
+	c.Check(exResource.Name(), gc.Equals, "spam")
+	c.Check(exResource.Revision(), gc.Equals, 2)
+	c.Check(exResource.CharmStoreRevision(), gc.Equals, 3)
+	exRevs := exResource.Revisions()
+	c.Assert(exRevs, gc.HasLen, 2)
+
+	// Application revision.
+	exRev2 := exRevs[2]
+	c.Check(exRev2.Revision(), gc.Equals, 2)
+	c.Check(exRev2.Type(), gc.Equals, res2.Type.String())
+	c.Check(exRev2.Path(), gc.Equals, res2.Path)
+	c.Check(exRev2.Description(), gc.Equals, res2.Description)
+	c.Check(exRev2.Origin(), gc.Equals, res2.Origin.String())
+	c.Check(exRev2.Fingerprint(), gc.Equals, res2.Fingerprint.Hex())
+	c.Check(exRev2.Size(), gc.Equals, res2.Size)
+	c.Check(exRev2.AddTimestamp().UTC(), gc.Equals, truncateDBTime(res2.Timestamp))
+	c.Check(exRev2.Username(), gc.Equals, res2.Username)
+
+	// Charmstore revision.
+	exRev3 := exRevs[3]
+	c.Check(exRev3.Revision(), gc.Equals, 3)
+	c.Check(exRev3.Type(), gc.Equals, res3.Type.String())
+	c.Check(exRev3.Path(), gc.Equals, res3.Path)
+	c.Check(exRev3.Description(), gc.Equals, res3.Description)
+	c.Check(exRev3.Origin(), gc.Equals, res3.Origin.String())
+	c.Check(exRev3.Fingerprint(), gc.Equals, res3.Fingerprint.Hex())
+	c.Check(exRev3.Size(), gc.Equals, res3.Size)
+	// These shouldn't be set for charmstore only revisions.
+	c.Check(exRev3.AddTimestamp(), gc.Equals, time.Time{})
+	c.Check(exRev3.Username(), gc.Equals, "")
+
+	c.Fatal("unit revisions")
+}
+
+func (s *MigrationExportSuite) newResource(c *gc.C, appName, name string, revision int, ts time.Time, data string) resource.Resource {
+	opened := resourcetesting.NewResource(c, nil, name, appName, data)
+	res := opened.Resource
+	res.Revision = revision
+	res.Timestamp = ts
+	return res
 }

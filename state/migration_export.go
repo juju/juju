@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/payload"
+	"github.com/juju/juju/resource"
 	"github.com/juju/juju/storage/poolmanager"
 )
 
@@ -490,15 +491,25 @@ func (e *exporter) applications() error {
 		return errors.Trace(err)
 	}
 
+	resourcesSt, err := e.st.Resources()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	for _, application := range applications {
 		applicationUnits := e.units[application.Name()]
 		leader := leaders[application.Name()]
+		resources, err := resourcesSt.ListResources(application.Name())
+		if err != nil {
+			return errors.Trace(err)
+		}
 		if err := e.addApplication(addApplicationContext{
 			application:      application,
 			units:            applicationUnits,
 			meterStatus:      meterStatus,
 			leader:           leader,
 			payloads:         payloads,
+			resources:        resources,
 			endpoingBindings: bindings,
 		}); err != nil {
 			return errors.Trace(err)
@@ -556,6 +567,7 @@ type addApplicationContext struct {
 	meterStatus      map[string]*meterStatusDoc
 	leader           string
 	payloads         map[string][]payload.FullPayloadInfo
+	resources        resource.ServiceResources
 	endpoingBindings map[string]bindingsMap
 }
 
@@ -610,6 +622,10 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 		return errors.Trace(err)
 	}
 	exApplication.SetConstraints(constraintsArgs)
+
+	if err := e.setResources(exApplication, ctx.resources); err != nil {
+		return errors.Trace(err)
+	}
 
 	for _, unit := range ctx.units {
 		agentKey := unit.globalAgentKey()
@@ -682,6 +698,47 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 			return errors.Trace(err)
 		}
 		exUnit.SetConstraints(constraintsArgs)
+	}
+
+	return nil
+}
+
+func (e *exporter) setResources(exApp description.Application, resources resource.ServiceResources) error {
+	if len(resources.Resources) != len(resources.CharmStoreResources) {
+		return errors.New("number of resources don't match charm store resources")
+	}
+
+	for i, resource := range resources.Resources {
+		csResource := resources.CharmStoreResources[i]
+		exResource := exApp.AddResource(description.ResourceArgs{
+			Name:               resource.Name,
+			Revision:           resource.Revision,
+			CharmStoreRevision: csResource.Revision,
+		})
+
+		exResource.AddRevision(description.ResourceRevisionArgs{
+			Revision:     resource.Revision,
+			Type:         resource.Type.String(),
+			Path:         resource.Path,
+			Description:  resource.Description,
+			Origin:       resource.Origin.String(),
+			Fingerprint:  resource.Fingerprint.Hex(),
+			Size:         resource.Size,
+			AddTimestamp: resource.Timestamp,
+			Username:     resource.Username,
+		})
+
+		if csResource.Revision != resource.Revision {
+			exResource.AddRevision(description.ResourceRevisionArgs{
+				Revision:    csResource.Revision,
+				Type:        csResource.Type.String(),
+				Path:        csResource.Path,
+				Description: csResource.Description,
+				Origin:      csResource.Origin.String(),
+				Size:        csResource.Size,
+				Fingerprint: csResource.Fingerprint.Hex(),
+			})
+		}
 	}
 
 	return nil
