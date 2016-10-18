@@ -93,9 +93,12 @@ def main():
         if len(failures) == 0:
             print('No failures!')
         else:
-            failure_str = ', '.join(
-                '{} {} {}'.format(c, r, e) for c, r, e in failures)
-            print('Failed: {}'.format(failure_str))
+            failure_str = [
+                '{} {} {}'.format(c, r, e) for c, r, e in failures]
+            print('Failed:')
+            for config, region, e in failures:
+                print(' * {} {} {}'.format(config, region, e))
+
 
 if __name__ == '__main__':
     sys.exit(main())
