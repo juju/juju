@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/version"
+	"golang.org/x/net/websocket"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 	"gopkg.in/macaroon.v1"
@@ -35,6 +36,12 @@ type Info struct {
 
 	// Addrs holds the addresses of the controllers.
 	Addrs []string
+
+	// SNIHostName optionally holds the host name to use for
+	// server name indication (SNI) when connecting
+	// to the addresses in Addrs above. If CACert is non-empty,
+	// this field is ignored.
+	SNIHostName string
 
 	// CACert holds the CA certificate that will be used
 	// to validate the controller's certificate, in PEM format.
@@ -134,6 +141,15 @@ type DialOpts struct {
 	// be used in tests, or when verification cannot be
 	// performed and the communication need not be secure.
 	InsecureSkipVerify bool
+
+	// DialWebsocket is used to make connections to API servers.
+	// It will be called with a websocket URL to connect to,
+	// and the TLS configuration to use to secure the connection.
+	//
+	// If DialWebsocket is nil, webaocket.DialConfig will be used.
+	//
+	// This field is provided for testing purposes only.
+	DialWebsocket func(cfg *websocket.Config) (*websocket.Conn, error)
 }
 
 // DefaultDialOpts returns a DialOpts representing the default
