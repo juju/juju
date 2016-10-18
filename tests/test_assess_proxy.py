@@ -7,6 +7,7 @@ from mock import (
     Mock,
     patch,
 )
+import os
 import StringIO
 import subprocess
 
@@ -112,6 +113,47 @@ class TestAssess(TestCase):
             1, fake_client.get_status().get_service_unit_count('ubuntu'))
         self.assertNotIn("TODO", self.log_stream.getvalue())
 
+    def test_check_environment(self):
+        proxy_data = "http_proxy=http\nhttps_proxy=https"
+        proxy_env = {'http_proxy': 'http', 'https_proxy': 'https'}
+        with temp_dir() as base:
+            env_file = os.path.join(base, 'environment')
+            with open(env_file, 'w') as _file:
+                _file.write(proxy_data)
+            with patch('assess_proxy.get_environment_file_path',
+                       return_value=env_file):
+                with patch.dict(os.environ, proxy_env):
+                    http_proxy, https_proxy = assess_proxy.check_environment()
+        self.assertEqual('http', http_proxy)
+        self.assertEqual('https', https_proxy)
+
+    def test_check_environment_missing_env(self):
+        proxy_env = {'http_proxy': 'http'}
+        with patch.dict(os.environ, proxy_env, clear=True):
+            with self.assertRaises(assess_proxy.UndefinedProxyError):
+                assess_proxy.check_environment()
+
+    def test_check_environment_mising_environment_file(self):
+        proxy_env = {'http_proxy': 'http', 'https_proxy': 'https'}
+        with patch.dict(os.environ, proxy_env):
+            with patch('assess_proxy.get_environment_file_path',
+                       return_value='/tmp/etc/evironment.missing'):
+                with self.assertRaises(assess_proxy.UndefinedProxyError):
+                    assess_proxy.check_environment()
+
+    def test_check_environment_environment_file_proxy_undefined(self):
+        proxy_data = "# no proxy info"
+        proxy_env = {'http_proxy': 'http', 'https_proxy': 'https'}
+        with temp_dir() as base:
+            env_file = os.path.join(base, 'environment')
+            with open(env_file, 'w') as _file:
+                _file.write(proxy_data)
+            with patch('assess_proxy.get_environment_file_path',
+                       return_value=env_file):
+                with patch.dict(os.environ, proxy_env):
+                    with self.assertRaises(assess_proxy.UndefinedProxyError):
+                        assess_proxy.check_environment()
+
     def test_check_network(self):
         iptables_rule = (
             '-A INPUT -i lxdbr0 -p tcp -m tcp --dport 53 -j ACCEPT\n'
@@ -121,7 +163,9 @@ class TestAssess(TestCase):
                    return_value=iptables_rule) as mock_scc:
             with patch('subprocess.call', autospec=True,
                        side_effect=[0, 0]) as mock_sc:
-                forward_rule = assess_proxy.check_network('eth0', 'lxdbr0')
+                with patch('assess_proxy.check_environment',
+                           autospec=True) as mock_ce:
+                    forward_rule = assess_proxy.check_network('eth0', 'lxdbr0')
         self.assertEqual(
             '-A FORWARD -i lxdbr0 -m comment --comment "by lxd" -j ACCEPT',
             forward_rule)
@@ -130,6 +174,7 @@ class TestAssess(TestCase):
         self.assertEqual(
             [call(['ifconfig', 'eth0']), call(['ifconfig', 'lxdbr0'])],
             mock_sc.mock_calls)
+        mock_ce.assert_called_once_with()
 
     def test_check_network_forward_rule_no_match_error(self):
         iptables_rule = '-A FORWARD -i lxdbr1 -j ACCEPT'
@@ -137,8 +182,9 @@ class TestAssess(TestCase):
                    return_value=iptables_rule):
             with patch('subprocess.call', autospec=True,
                        side_effect=[0, 0]):
-                with self.assertRaises(ValueError):
-                    assess_proxy.check_network('eth0', 'lxdbr0')
+                with patch('assess_proxy.check_environment', autospec=True):
+                    with self.assertRaises(ValueError):
+                        assess_proxy.check_network('eth0', 'lxdbr0')
 
     def test_check_network_forward_rule_many_match_error(self):
         iptables_rule = (
@@ -149,8 +195,9 @@ class TestAssess(TestCase):
                    return_value=iptables_rule):
             with patch('subprocess.call', autospec=True,
                        side_effect=[0, 0]):
-                with self.assertRaises(ValueError):
-                    assess_proxy.check_network('eth0', 'lxdbr0')
+                with patch('assess_proxy.check_environment', autospec=True):
+                    with self.assertRaises(ValueError):
+                        assess_proxy.check_network('eth0', 'lxdbr0')
 
     def test_check_network_client_interface_error(self):
             with patch('subprocess.call', autospec=True,
