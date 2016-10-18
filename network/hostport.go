@@ -247,7 +247,7 @@ type Dialer interface {
 	Dial(network, address string) (net.Conn, error)
 }
 
-// FastestHostPort dials the unique entries in the given hostPorts, in parallel,
+// ReachableHostPort dials the entries in the given hostPorts, in parallel,
 // using the given dialer, closing successfully established connections
 // immediately. Individual connection errors are discarded, and an error is
 // returned only if none of the hostPorts can be reached when the given timeout
@@ -255,7 +255,7 @@ type Dialer interface {
 //
 // Usually, a net.Dialer initialized with a non-empty Timeout field is passed
 // for dialer.
-func FastestHostPort(hostPorts []HostPort, dialer Dialer, timeout time.Duration) (HostPort, error) {
+func ReachableHostPort(hostPorts []HostPort, dialer Dialer, timeout time.Duration) (HostPort, error) {
 	uniqueHPs := UniqueHostPorts(hostPorts)
 	successful := make(chan HostPort, 1)
 
