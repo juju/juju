@@ -7,6 +7,7 @@ from mock import (
     Mock,
     patch,
 )
+import os
 import StringIO
 import subprocess
 
@@ -110,6 +111,47 @@ class TestAssess(TestCase):
         self.assertEqual(
             1, fake_client.get_status().get_service_unit_count('ubuntu'))
         self.assertNotIn("TODO", self.log_stream.getvalue())
+
+    def test_check_environment(self):
+        proxy_data = "http_proxy=http\nhttps_proxy=https"
+        proxy_env = {'http_proxy': 'http', 'https_proxy': 'https'}
+        with temp_dir() as base:
+            env_file = os.path.join(base, 'environment')
+            with open(env_file, 'w') as _file:
+                _file.write(proxy_data)
+            with patch('assess_proxy.get_environment_file_path',
+                       return_value=env_file):
+                with patch.dict(os.environ, proxy_env):
+                    http_proxy, https_proxy = assess_proxy.check_environment()
+        self.assertEqual('http', http_proxy)
+        self.assertEqual('https', https_proxy)
+
+    def test_check_environment_missing_env(self):
+        proxy_env = {'http_proxy': 'http'}
+        with patch.dict(os.environ, proxy_env, clear=True):
+            with self.assertRaises(ValueError):
+                assess_proxy.check_environment()
+
+    def test_check_environment_mising_environment_file(self):
+        proxy_env = {'http_proxy': 'http', 'https_proxy': 'https'}
+        with patch.dict(os.environ, proxy_env):
+            with patch('assess_proxy.get_environment_file_path',
+                       return_value='/tmp/etc/evironment.missing'):
+                with self.assertRaises(ValueError):
+                    assess_proxy.check_environment()
+
+    def test_check_environment_environment_file_proxy_undefined(self):
+        proxy_data = "# no proxy info"
+        proxy_env = {'http_proxy': 'http', 'https_proxy': 'https'}
+        with temp_dir() as base:
+            env_file = os.path.join(base, 'environment')
+            with open(env_file, 'w') as _file:
+                _file.write(proxy_data)
+            with patch('assess_proxy.get_environment_file_path',
+                       return_value=env_file):
+                with patch.dict(os.environ, proxy_env):
+                    with self.assertRaises(ValueError):
+                        assess_proxy.check_environment()
 
     def test_check_network(self):
         iptables_rule = (
