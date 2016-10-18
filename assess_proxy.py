@@ -11,6 +11,7 @@ from __future__ import print_function
 
 import argparse
 import logging
+import os
 import re
 import subprocess
 import sys
@@ -29,6 +30,8 @@ __metaclass__ = type
 
 log = logging.getLogger("assess_proxy")
 
+ENVIRONMENT_FILE = '/etc/environment'
+
 SCENARIO_BOTH = 'both-proxied'
 SCENARIO_CLIENT = 'client-proxied'
 SCENARIO_CONTROLLER = 'controller-proxied'
@@ -43,9 +46,57 @@ UFW_RESET_COMMANDS = [
 ]
 
 
+class UndefinedProxyError(Exception):
+    """The current env or /etc/environment does not define proxy info."""
+
+
+def get_environment_file_path():
+    return ENVIRONMENT_FILE
+
+
+def check_environment():
+    """Verify the current env and etc/environment' define a proxy.
+
+    Check for lowercase names because Juju uses them, some charms/apps might
+    want uppercase names. This check assumes the env has both upper and lower
+    case forms.
+    """
+    http_proxy = os.environ.get('http_proxy', None)
+    https_proxy = os.environ.get('https_proxy', None)
+    if http_proxy is None or https_proxy is None:
+        message = 'http_proxy and https_proxy not defined in env'
+        log.error(message)
+        raise UndefinedProxyError(message)
+    try:
+        with open(get_environment_file_path(), 'r') as env_file:
+            env_data = env_file.read()
+    except IOError:
+        env_data = ''
+    found_http_proxy = False
+    found_https_proxy = False
+    for line in env_data.splitlines():
+        if '=' in line:
+            key, value = line.split('=', 1)
+            if key == 'http_proxy' and value == http_proxy:
+                found_http_proxy = True
+            elif key == 'https_proxy' and value == https_proxy:
+                found_https_proxy = True
+    if not found_http_proxy or not found_https_proxy:
+        message = (
+            'http_proxy and https_proxy not defined in /etc/environment')
+        log.error(message)
+        raise UndefinedProxyError(message)
+    return http_proxy, https_proxy
+
+
 def check_network(client_interface, controller_interface):
     """Verify the interfaces are usable and return the FORWARD IN rule.
 
+    The environment is also checked that it defines proxy information needed
+    to work on a restricted network.
+
+    :raises UndefinedProxyError: when the current env or /etc/environment does
+        not define proxy info.
     :raises ValueError: when the interfaces are not present or the FORWARD IN
         rule cannot be identified.
     :return: the FORWARD IN rule that must be restored before the test exits.
@@ -59,6 +110,7 @@ def check_network(client_interface, controller_interface):
             controller_interface)
         log.error(message)
         raise ValueError(message)
+    check_environment()
     # We need to match a single rule from iptables:
     # sudo iptables -S lxdbr0
     # -A FORWARD -i lxdbr0 -m comment --comment "managed by lxd" -j ACCEPT
