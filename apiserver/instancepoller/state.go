@@ -7,8 +7,10 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 )
 
+// StateMachine represents a machine from state package.
 type StateMachine interface {
 	state.Entity
 
@@ -16,18 +18,19 @@ type StateMachine interface {
 	InstanceId() (instance.Id, error)
 	ProviderAddresses() []network.Address
 	SetProviderAddresses(...network.Address) error
-	InstanceStatus() (string, error)
-	SetInstanceStatus(status string) error
+	InstanceStatus() (status.StatusInfo, error)
+	SetInstanceStatus(status.StatusInfo) error
+	SetStatus(status.StatusInfo) error
 	String() string
 	Refresh() error
 	Life() state.Life
-	Status() (state.StatusInfo, error)
+	Status() (status.StatusInfo, error)
 	IsManual() (bool, error)
 }
 
 type StateInterface interface {
-	state.EnvironAccessor
-	state.EnvironMachinesWatcher
+	state.ModelAccessor
+	state.ModelMachinesWatcher
 	state.EntityFinder
 
 	Machine(id string) (StateMachine, error)

@@ -8,12 +8,13 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/httprequest"
-	"github.com/juju/names"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/base"
+	coretesting "github.com/juju/juju/testing"
 )
 
 // APICallerFunc is a function type that implements APICaller.
@@ -26,11 +27,13 @@ func (f APICallerFunc) APICall(objType string, version int, id, request string, 
 }
 
 func (APICallerFunc) BestFacadeVersion(facade string) int {
+	// TODO(fwereade): this should return something arbitrary (e.g. 37)
+	// so that it can't be confused with mere uninitialized data.
 	return 0
 }
 
-func (APICallerFunc) EnvironTag() (names.EnvironTag, error) {
-	return names.NewEnvironTag(""), nil
+func (APICallerFunc) ModelTag() (names.ModelTag, bool) {
+	return coretesting.ModelTag, true
 }
 
 func (APICallerFunc) Close() error {
@@ -128,4 +131,70 @@ func NotifyingCheckingAPICaller(c *gc.C, args *CheckArgs, called chan struct{}, 
 			return err
 		},
 	)
+}
+
+// CheckingAPICallerMultiArgs checks each call against the indexed expected argument. Once expected
+// arguments run out it doesn't check them. This is useful if your test continues to make calls after
+// you have checked the ones you care about.
+func CheckingAPICallerMultiArgs(c *gc.C, args []CheckArgs, numCalls *int, err error) base.APICallCloser {
+	if numCalls == nil {
+		panic("numCalls must be non-nill")
+	}
+	return APICallerFunc(
+		func(facade string, version int, id, method string, inArgs, outResults interface{}) error {
+			if len(args) > *numCalls {
+				checkArgs(c, &args[*numCalls], facade, version, id, method, inArgs, outResults)
+			}
+			*numCalls++
+			return err
+		},
+	)
+}
+
+// StubFacadeCaller is a testing stub implementation of api/base.FacadeCaller.
+type StubFacadeCaller struct {
+	// Stub is the raw stub used to track calls and errors.
+	Stub *testing.Stub
+	// These control the values returned by the stub's methods.
+	FacadeCallFn         func(name string, params, response interface{}) error
+	ReturnName           string
+	ReturnBestAPIVersion int
+	ReturnRawAPICaller   base.APICaller
+}
+
+// FacadeCall implements api/base.FacadeCaller.
+func (s *StubFacadeCaller) FacadeCall(request string, params, response interface{}) error {
+	s.Stub.AddCall("FacadeCall", request, params, response)
+	if err := s.Stub.NextErr(); err != nil {
+		return errors.Trace(err)
+	}
+
+	if s.FacadeCallFn != nil {
+		return s.FacadeCallFn(request, params, response)
+	}
+	return nil
+}
+
+// Name implements api/base.FacadeCaller.
+func (s *StubFacadeCaller) Name() string {
+	s.Stub.AddCall("Name")
+	s.Stub.PopNoErr()
+
+	return s.ReturnName
+}
+
+// BestAPIVersion implements api/base.FacadeCaller.
+func (s *StubFacadeCaller) BestAPIVersion() int {
+	s.Stub.AddCall("BestAPIVersion")
+	s.Stub.PopNoErr()
+
+	return s.ReturnBestAPIVersion
+}
+
+// RawAPICaller implements api/base.FacadeCaller.
+func (s *StubFacadeCaller) RawAPICaller() base.APICaller {
+	s.Stub.AddCall("RawAPICaller")
+	s.Stub.PopNoErr()
+
+	return s.ReturnRawAPICaller
 }

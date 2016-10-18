@@ -8,15 +8,15 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
 	"github.com/juju/utils/os"
 	"github.com/juju/utils/set"
 	"github.com/juju/utils/ssh"
-	"launchpad.net/tomb"
+	"gopkg.in/juju/names.v2"
+	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/keyupdater"
-	"github.com/juju/juju/api/watcher"
+	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker"
 )
 
@@ -37,17 +37,27 @@ type keyupdaterWorker struct {
 	nonJujuKeys []string
 }
 
-var _ worker.NotifyWatchHandler = (*keyupdaterWorker)(nil)
-
 // NewWorker returns a worker that keeps track of
 // the machine's authorised ssh keys and ensures the
 // ~/.ssh/authorized_keys file is up to date.
-func NewWorker(st *keyupdater.State, agentConfig agent.Config) worker.Worker {
-	if os.HostOS() == os.Windows {
-		return worker.NewNoOpWorker()
+func NewWorker(st *keyupdater.State, agentConfig agent.Config) (worker.Worker, error) {
+	machineTag, ok := agentConfig.Tag().(names.MachineTag)
+	if !ok {
+		return nil, errors.NotValidf("machine tag %v", agentConfig.Tag())
 	}
-	kw := &keyupdaterWorker{st: st, tag: agentConfig.Tag().(names.MachineTag)}
-	return worker.NewNotifyWorker(kw)
+	if os.HostOS() == os.Windows {
+		return worker.NewNoOpWorker(), nil
+	}
+	w, err := watcher.NewNotifyWorker(watcher.NotifyConfig{
+		Handler: &keyupdaterWorker{
+			st:  st,
+			tag: machineTag,
+		},
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return w, nil
 }
 
 // SetUp is defined on the worker.NotifyWatchHandler interface.

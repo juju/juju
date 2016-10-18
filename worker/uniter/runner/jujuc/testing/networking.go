@@ -8,14 +8,16 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
 )
 
 // NetworkInterface holds the values for the hook context.
 type NetworkInterface struct {
-	PublicAddress  string
-	PrivateAddress string
-	Ports          []network.PortRange
+	PublicAddress            string
+	PrivateAddress           string
+	Ports                    []network.PortRange
+	BindingsToNetworkConfigs map[string][]params.NetworkConfig
 }
 
 // CheckPorts checks the current ports.
@@ -99,4 +101,18 @@ func (c *ContextNetworking) OpenedPorts() []network.PortRange {
 	c.stub.NextErr()
 
 	return c.info.Ports
+}
+
+// NetworkConfig implements jujuc.ContextNetworking.
+func (c *ContextNetworking) NetworkConfig(bindingName string) ([]params.NetworkConfig, error) {
+	c.stub.AddCall("NetworkConfig", bindingName)
+	if err := c.stub.NextErr(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	netConfig, isBindingKnown := c.info.BindingsToNetworkConfigs[bindingName]
+	if !isBindingKnown {
+		return nil, errors.Errorf("insert server error for unknown binding here")
+	}
+	return netConfig, nil
 }

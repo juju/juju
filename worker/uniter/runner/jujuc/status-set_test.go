@@ -52,13 +52,16 @@ func (s *statusSetSuite) TestHelp(c *gc.C) {
 	code := cmd.Main(com, ctx, []string{"--help"})
 	c.Assert(code, gc.Equals, 0)
 	expectedHelp := "" +
-		"usage: status-set [options] <maintenance | blocked | waiting | active> [message]\n" +
-		"purpose: set status information\n" +
+		"Usage: status-set [options] <maintenance | blocked | waiting | active> [message]\n" +
 		"\n" +
-		"options:\n" +
-		"--service  (= false)\n" +
-		"    set this status for the service to which the unit belongs if the unit is the leader\n" +
+		"Summary:\n" +
+		"set status information\n" +
 		"\n" +
+		"Options:\n" +
+		"--service, --application  (= false)\n" +
+		"    set this status for the application to which the unit belongs if the unit is the leader\n" +
+		"\n" +
+		"Details:\n" +
 		"Sets the workload status of the charm. Message is optional.\n" +
 		"The \"last updated\" attribute of the status is set, even if the\n" +
 		"status and message are the same as what's already set.\n"
@@ -90,8 +93,9 @@ func (s *statusSetSuite) TestStatus(c *gc.C) {
 
 func (s *statusSetSuite) TestServiceStatus(c *gc.C) {
 	for i, args := range [][]string{
+		[]string{"--application", "maintenance", "doing some work"},
+		[]string{"--application", "active", ""},
 		[]string{"--service", "maintenance", "doing some work"},
-		[]string{"--service", "active", ""},
 	} {
 		c.Logf("test %d: %#v", i, args)
 		hctx := s.GetStatusHookContext(c)
@@ -102,10 +106,10 @@ func (s *statusSetSuite) TestServiceStatus(c *gc.C) {
 		c.Assert(code, gc.Equals, 0)
 		c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
 		c.Assert(bufferString(ctx.Stdout), gc.Equals, "")
-		status, err := hctx.ServiceStatus()
+		status, err := hctx.ApplicationStatus()
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(status.Service.Status, gc.Equals, args[1])
-		c.Assert(status.Service.Info, gc.Equals, args[2])
+		c.Assert(status.Application.Status, gc.Equals, args[1])
+		c.Assert(status.Application.Info, gc.Equals, args[2])
 		c.Assert(status.Units, jc.DeepEquals, []jujuc.StatusInfo{})
 
 	}

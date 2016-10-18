@@ -14,8 +14,8 @@ import (
 	apicrossmodel "github.com/juju/juju/api/crossmodel"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/crossmodel"
+	jujucrossmodel "github.com/juju/juju/core/crossmodel"
 	jujutesting "github.com/juju/juju/juju/testing"
-	jujucrossmodel "github.com/juju/juju/model/crossmodel"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -32,17 +32,17 @@ func (s *crossmodelSuite) TestOfferDefaultURL(c *gc.C) {
 	_, err := testing.RunCommand(c, crossmodel.NewOfferCommand(),
 		"riakservice:endpoint")
 	c.Assert(err, jc.ErrorIsNil)
-	offersApi := state.NewOfferedServices(s.State)
+	offersApi := state.NewOfferedApplications(s.State)
 	offers, err := offersApi.ListOffers()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(offers, gc.HasLen, 1)
-	c.Assert(offers[0], jc.DeepEquals, jujucrossmodel.OfferedService{
-		ServiceName: "riakservice",
-		ServiceURL:  "local:/u/dummy-admin/dummyenv/riakservice",
-		CharmName:   "riak",
-		Endpoints:   map[string]string{"endpoint": "endpoint"},
-		Description: "Scalable K/V Store in Erlang with Clocks :-)",
-		Registered:  true,
+	c.Assert(offers[0], jc.DeepEquals, jujucrossmodel.OfferedApplication{
+		ApplicationName: "riakservice",
+		ApplicationURL:  "local:/u/admin/controller/riakservice",
+		CharmName:       "riak",
+		Endpoints:       map[string]string{"endpoint": "endpoint"},
+		Description:     "Scalable K/V Store in Erlang with Clocks :-)",
+		Registered:      true,
 	})
 }
 
@@ -53,17 +53,17 @@ func (s *crossmodelSuite) TestOffer(c *gc.C) {
 	_, err := testing.RunCommand(c, crossmodel.NewOfferCommand(),
 		"riakservice:endpoint,admin", "local:/u/me/service")
 	c.Assert(err, jc.ErrorIsNil)
-	offersApi := state.NewOfferedServices(s.State)
+	offersApi := state.NewOfferedApplications(s.State)
 	offers, err := offersApi.ListOffers()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(offers, gc.HasLen, 1)
-	c.Assert(offers[0], jc.DeepEquals, jujucrossmodel.OfferedService{
-		ServiceName: "riakservice",
-		ServiceURL:  "local:/u/me/service",
-		CharmName:   "riak",
-		Endpoints:   map[string]string{"admin": "admin", "endpoint": "endpoint"},
-		Description: "Scalable K/V Store in Erlang with Clocks :-)",
-		Registered:  true,
+	c.Assert(offers[0], jc.DeepEquals, jujucrossmodel.OfferedApplication{
+		ApplicationName: "riakservice",
+		ApplicationURL:  "local:/u/me/service",
+		CharmName:       "riak",
+		Endpoints:       map[string]string{"admin": "admin", "endpoint": "endpoint"},
+		Description:     "Scalable K/V Store in Erlang with Clocks :-)",
+		Registered:      true,
 	})
 }
 
@@ -115,15 +115,15 @@ func (s *crossmodelSuite) TestLocalURLOtherEnvironment(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	user := s.Factory.MakeUser(c, &factory.UserParams{
-		NoEnvUser: true,
-		Password:  "super-secret",
+		NoModelUser: true,
+		Password:    "super-secret",
 	})
-	otherState := s.Factory.MakeEnvironment(c, &factory.EnvParams{
+	otherState := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "first", Owner: user.Tag()})
 	defer otherState.Close()
 
 	info := s.APIInfo(c)
-	info.EnvironTag = otherState.EnvironTag()
+	info.ModelTag = otherState.ModelTag()
 	info.Tag = user.Tag()
 	info.Password = "super-secret"
 	otherAPIState, err := api.Open(info, api.DefaultDialOpts())
@@ -131,17 +131,16 @@ func (s *crossmodelSuite) TestLocalURLOtherEnvironment(c *gc.C) {
 	defer otherAPIState.Close()
 
 	apiClient := apicrossmodel.NewClient(otherAPIState)
-	offer, err := apiClient.ServiceOffer("local:/u/me/riak")
+	offer, err := apiClient.ApplicationOffer("local:/u/me/riak")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(offer, jc.DeepEquals, params.ServiceOffer{
-		ServiceURL:         "local:/u/me/riak",
-		SourceEnvironTag:   "environment-deadbeef-0bad-400d-8000-4b1d0d06f00d",
-		SourceLabel:        "dummyenv",
-		ServiceName:        "riakservice",
-		ServiceDescription: "Scalable K/V Store in Erlang with Clocks :-)",
+	c.Assert(offer, jc.DeepEquals, params.ApplicationOffer{
+		ApplicationURL:         "local:/u/me/riak",
+		SourceModelTag:         "model-deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		SourceLabel:            "controller",
+		ApplicationName:        "riakservice",
+		ApplicationDescription: "Scalable K/V Store in Erlang with Clocks :-)",
 		Endpoints: []params.RemoteEndpoint{
-			params.RemoteEndpoint{
-				Name: "endpoint", Role: "provider", Interface: "http", Scope: "global"},
+			{Name: "endpoint", Role: "provider", Interface: "http", Scope: "global"},
 		},
 	})
 }
@@ -210,14 +209,14 @@ func (s *crossmodelSuite) TestAddRelation(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = runJujuCommand(c, "add-relation", "wordpress", "local:/u/me/hosted-mysql")
 	c.Assert(err, jc.ErrorIsNil)
-	svc, err := s.State.RemoteService("hosted-mysql")
+	svc, err := s.State.RemoteApplication("hosted-mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := svc.Relations()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rel, gc.HasLen, 1)
 	c.Assert(rel[0].Endpoints(), jc.SameContents, []state.Endpoint{
 		{
-			ServiceName: "wordpress",
+			ApplicationName: "wordpress",
 			Relation: charm.Relation{
 				Name:      "db",
 				Role:      "requirer",
@@ -226,7 +225,7 @@ func (s *crossmodelSuite) TestAddRelation(c *gc.C) {
 				Scope:     "global",
 			},
 		}, {
-			ServiceName: "hosted-mysql",
+			ApplicationName: "hosted-mysql",
 			Relation: charm.Relation{Name: "server",
 				Role:      "provider",
 				Interface: "mysql",

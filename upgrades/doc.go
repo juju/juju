@@ -9,6 +9,6 @@
 //   PerformUpgrade, which is invoked on each node by the machine agent with:
 //     fromVersion - the Juju version from which the upgrade is occurring
 //     target      - the type of Juju node being upgraded
-//     context     - provides API access to Juju state servers
+//     context     - provides API access to Juju controllers
 //
 package upgrades

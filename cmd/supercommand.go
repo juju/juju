@@ -1,16 +1,21 @@
+// Copyright 2012 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package cmd
 
 import (
 	"fmt"
 	"os"
+	"runtime"
 
 	"github.com/juju/cmd"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
+	"github.com/juju/version"
 
 	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 func init() {
@@ -34,7 +39,7 @@ func NewSuperCommand(p cmd.SuperCommandParams) *cmd.SuperCommand {
 		DefaultConfig: os.Getenv(osenv.JujuLoggingConfigEnvKey),
 	}
 	current := version.Binary{
-		Number: version.Current,
+		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
 		Series: series.HostSeries(),
 	}
@@ -55,5 +60,6 @@ func NewSubSuperCommand(p cmd.SuperCommandParams) *cmd.SuperCommand {
 }
 
 func runNotifier(name string) {
-	logger.Infof("running %s [%s %s]", name, version.Current, version.Compiler)
+	logger.Infof("running %s [%s %s %s]", name, jujuversion.Current, runtime.Compiler, runtime.Version())
+	logger.Debugf("  args: %#v", os.Args)
 }

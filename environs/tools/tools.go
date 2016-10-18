@@ -10,11 +10,12 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
+	"github.com/juju/version"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/simplestreams"
 	coretools "github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 var logger = loggo.GetLogger("juju.environs.tools")
@@ -43,7 +44,7 @@ func makeToolsConstraint(cloudSpec simplestreams.CloudSpec, stream string, major
 	if filter.Arch != "" {
 		toolsConstraint.Arches = []string{filter.Arch}
 	} else {
-		logger.Tracef("no architecture specified when finding tools, looking for any")
+		logger.Tracef("no architecture specified when finding agent binaries, looking for any")
 		toolsConstraint.Arches = arch.AllSupportedArches
 	}
 	// The old tools search allowed finding tools without needing to specify a series.
@@ -55,51 +56,65 @@ func makeToolsConstraint(cloudSpec simplestreams.CloudSpec, stream string, major
 		seriesToSearch = []string{filter.Series}
 	} else {
 		seriesToSearch = series.SupportedSeries()
-		logger.Tracef("no series specified when finding tools, looking for %v", seriesToSearch)
+		logger.Tracef("no series specified when finding agent binaries, looking for %v", seriesToSearch)
 	}
 	toolsConstraint.Series = seriesToSearch
 	return toolsConstraint, nil
 }
 
-// Define some boolean parameter values.
-const DoNotAllowRetry = false
+// HasAgentMirror is an optional interface that an Environ may
+// implement to support agent/tools mirror lookup.
+//
+// TODO(axw) 2016-04-11 #1568715
+// This exists only because we currently lack
+// image simplestreams usable by the new Azure
+// Resource Manager provider. When we have that,
+// we can use "HasRegion" everywhere.
+type HasAgentMirror interface {
+	// AgentMirror returns the CloudSpec to use for looking up agent
+	// binaries.
+	AgentMirror() (simplestreams.CloudSpec, error)
+}
 
 // FindTools returns a List containing all tools in the given stream, with a given
 // major.minor version number available in the cloud instance, filtered by filter.
 // If minorVersion = -1, then only majorVersion is considered.
 // If no *available* tools have the supplied major.minor version number, or match the
 // supplied filter, the function returns a *NotFoundError.
-func FindTools(env environs.Environ, majorVersion, minorVersion int, stream string,
-	filter coretools.Filter) (list coretools.List, err error) {
-
+func FindTools(env environs.Environ, majorVersion, minorVersion int, stream string, filter coretools.Filter) (_ coretools.List, err error) {
 	var cloudSpec simplestreams.CloudSpec
-	if inst, ok := env.(simplestreams.HasRegion); ok {
-		if cloudSpec, err = inst.Region(); err != nil {
+	switch env := env.(type) {
+	case simplestreams.HasRegion:
+		if cloudSpec, err = env.Region(); err != nil {
+			return nil, err
+		}
+	case HasAgentMirror:
+		if cloudSpec, err = env.AgentMirror(); err != nil {
 			return nil, err
 		}
 	}
 	// If only one of region or endpoint is provided, that is a problem.
 	if cloudSpec.Region != cloudSpec.Endpoint && (cloudSpec.Region == "" || cloudSpec.Endpoint == "") {
-		return nil, fmt.Errorf("cannot find tools without a complete cloud configuration")
+		return nil, errors.New("cannot find agent binaries without a complete cloud configuration")
 	}
 
-	logger.Infof("finding tools in stream %q", stream)
+	logger.Infof("finding agent binaries in stream %q", stream)
 	if minorVersion >= 0 {
-		logger.Infof("reading tools with major.minor version %d.%d", majorVersion, minorVersion)
+		logger.Infof("reading agent binaries with major.minor version %d.%d", majorVersion, minorVersion)
 	} else {
-		logger.Infof("reading tools with major version %d", majorVersion)
+		logger.Infof("reading agent binaries with major version %d", majorVersion)
 	}
 	defer convertToolsError(&err)
 	// Construct a tools filter.
 	// Discard all that are known to be irrelevant.
 	if filter.Number != version.Zero {
-		logger.Infof("filtering tools by version: %s", filter.Number)
+		logger.Infof("filtering agent binaries by version: %s", filter.Number)
 	}
 	if filter.Series != "" {
-		logger.Infof("filtering tools by series: %s", filter.Series)
+		logger.Infof("filtering agent binaries by series: %s", filter.Series)
 	}
 	if filter.Arch != "" {
-		logger.Infof("filtering tools by architecture: %s", filter.Arch)
+		logger.Infof("filtering agent binaries by architecture: %s", filter.Arch)
 	}
 	sources, err := GetMetadataSources(env)
 	if err != nil {
@@ -120,7 +135,7 @@ func FindToolsForCloud(sources []simplestreams.DataSource, cloudSpec simplestrea
 	if err != nil {
 		return nil, err
 	}
-	toolsMetadata, _, err := Fetch(sources, toolsConstraint, false)
+	toolsMetadata, _, err := Fetch(sources, toolsConstraint)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			err = ErrNoTools
@@ -151,15 +166,8 @@ func FindToolsForCloud(sources []simplestreams.DataSource, cloudSpec simplestrea
 	return list, err
 }
 
-func stringOrEmpty(pstr *string) string {
-	if pstr == nil {
-		return ""
-	}
-	return *pstr
-}
-
 // FindExactTools returns only the tools that match the supplied version.
-func FindExactTools(env environs.Environ, vers version.Number, series string, arch string) (t *coretools.Tools, err error) {
+func FindExactTools(env environs.Environ, vers version.Number, series string, arch string) (_ *coretools.Tools, err error) {
 	logger.Infof("finding exact version %s", vers)
 	// Construct a tools filter.
 	// Discard all that are known to be irrelevant.
@@ -217,11 +225,11 @@ func PreferredStream(vers *version.Number, forceDevel bool, stream string) strin
 	// If we're not upgrading from a known version, we use the
 	// currently running version.
 	if vers == nil {
-		vers = &version.Current
+		vers = &jujuversion.Current
 	}
 	// Devel versions are alpha or beta etc as defined by the version tag.
 	// The user can also force the use of devel streams via config.
-	if forceDevel || vers.IsDev() {
+	if forceDevel || jujuversion.IsDev(*vers) {
 		return DevelStream
 	}
 	return ReleasedStream

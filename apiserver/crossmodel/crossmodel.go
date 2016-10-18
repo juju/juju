@@ -11,8 +11,9 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
-	jujucrossmodel "github.com/juju/juju/model/crossmodel"
+	jujucrossmodel "github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/state"
 )
 
@@ -25,7 +26,7 @@ func init() {
 // API implements the cross model interface and is the concrete
 // implementation of the api end point.
 type API struct {
-	authorizer common.Authorizer
+	authorizer facade.Authorizer
 	backend    ServicesBackend
 	access     stateAccess
 }
@@ -34,8 +35,8 @@ type API struct {
 func createAPI(
 	backend ServicesBackend,
 	access stateAccess,
-	resources *common.Resources,
-	authorizer common.Authorizer,
+	resources facade.Resources,
+	authorizer facade.Authorizer,
 ) (*API, error) {
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
@@ -51,33 +52,33 @@ func createAPI(
 // NewAPI returns a new cross model API facade.
 func NewAPI(
 	st *state.State,
-	resources *common.Resources,
-	authorizer common.Authorizer,
+	resources facade.Resources,
+	authorizer facade.Authorizer,
 ) (*API, error) {
-	serviceOffers, err := newServiceOffersAPI(st, resources, authorizer)
+	applicationOffers, err := newApplicationOffersAPI(st, resources, authorizer)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	offeredServices := state.NewOfferedServices(st)
+	offeredApplications := state.NewOfferedApplications(st)
 	backend := &servicesBackend{
-		offeredServices,
-		serviceOffers,
+		offeredApplications,
+		applicationOffers,
 	}
 	return createAPI(backend, getStateAccess(st), resources, authorizer)
 }
 
 // Offer makes service endpoints available for consumption.
-func (api *API) Offer(all params.ServiceOffersParams) (params.ErrorResults, error) {
+func (api *API) Offer(all params.ApplicationOffersParams) (params.ErrorResults, error) {
 	result := make([]params.ErrorResult, len(all.Offers))
 	for i, one := range all.Offers {
-		offer, serviceOfferParams, err := api.makeOfferedServiceParams(one)
+		offer, applicationOfferParams, err := api.makeOfferedApplicationParams(one)
 		if err != nil {
 			result[i].Error = common.ServerError(err)
 			continue
 		}
-		if err := api.backend.AddOffer(offer, params.AddServiceOffer{
-			ServiceOffer: serviceOfferParams,
-			UserTags:     one.AllowedUserTags,
+		if err := api.backend.AddOffer(offer, params.AddApplicationOffer{
+			ApplicationOffer: applicationOfferParams,
+			UserTags:         one.AllowedUserTags,
 		}); err != nil {
 			result[i].Error = common.ServerError(err)
 		}
@@ -85,19 +86,19 @@ func (api *API) Offer(all params.ServiceOffersParams) (params.ErrorResults, erro
 	return params.ErrorResults{Results: result}, nil
 }
 
-// makeOfferedServiceParams is a helper function that translates from a params
+// makeOfferedApplicationParams is a helper function that translates from a params
 // structure into data structures needed for subsequent processing.
-func (api *API) makeOfferedServiceParams(p params.ServiceOfferParams) (jujucrossmodel.OfferedService, params.ServiceOffer, error) {
-	service, err := api.access.Service(p.ServiceName)
+func (api *API) makeOfferedApplicationParams(p params.ApplicationOfferParams) (jujucrossmodel.OfferedApplication, params.ApplicationOffer, error) {
+	application, err := api.access.Application(p.ApplicationName)
 	if err != nil {
-		return jujucrossmodel.OfferedService{}, params.ServiceOffer{}, errors.Annotatef(err, "getting offered service %v", p.ServiceName)
+		return jujucrossmodel.OfferedApplication{}, params.ApplicationOffer{}, errors.Annotatef(err, "getting offered application %v", p.ApplicationName)
 	}
 
-	endpoints, err := getServiceEndpoints(service, p.Endpoints)
+	endpoints, err := getApplicationEndpoints(application, p.Endpoints)
 	if err != nil {
-		return jujucrossmodel.OfferedService{}, params.ServiceOffer{}, errors.Trace(err)
+		return jujucrossmodel.OfferedApplication{}, params.ApplicationOffer{}, errors.Trace(err)
 	}
-	curl, _ := service.CharmURL()
+	curl, _ := application.CharmURL()
 	epNames := make(map[string]string)
 	remoteEndpoints := make([]params.RemoteEndpoint, len(endpoints))
 	for i, ep := range endpoints {
@@ -112,19 +113,19 @@ func (api *API) makeOfferedServiceParams(p params.ServiceOfferParams) (jujucross
 		}
 	}
 
-	// offer is used to record the offered service in the host environment.
-	offer := jujucrossmodel.OfferedService{
-		ServiceURL:  p.ServiceURL,
-		ServiceName: service.Name(),
-		CharmName:   curl.Name,
-		Endpoints:   epNames,
-		Description: p.ServiceDescription,
+	// offer is used to record the offered application in the host environment.
+	offer := jujucrossmodel.OfferedApplication{
+		ApplicationURL:  p.ApplicationURL,
+		ApplicationName: application.Name(),
+		CharmName:       curl.Name,
+		Endpoints:       epNames,
+		Description:     p.ApplicationDescription,
 	}
 
 	if offer.Description == "" || offer.Icon == nil {
-		ch, _, err := service.Charm()
+		ch, _, err := application.Charm()
 		if err != nil {
-			return jujucrossmodel.OfferedService{}, params.ServiceOffer{}, errors.Annotatef(err, "getting charm for service %v", p.ServiceName)
+			return jujucrossmodel.OfferedApplication{}, params.ApplicationOffer{}, errors.Annotatef(err, "getting charm for service %v", p.ApplicationName)
 		}
 		if offer.Description == "" {
 			offer.Description = ch.Meta().Description
@@ -134,39 +135,39 @@ func (api *API) makeOfferedServiceParams(p params.ServiceOfferParams) (jujucross
 		}
 	}
 
-	// TODO(wallyworld) - allow source env name to be aliased
-	envName, err := api.access.EnvironName()
+	// TODO(wallyworld) - allow source model name to be aliased
+	modelName, err := api.access.ModelName()
 	if err != nil {
-		return jujucrossmodel.OfferedService{}, params.ServiceOffer{}, errors.Trace(err)
+		return jujucrossmodel.OfferedApplication{}, params.ApplicationOffer{}, errors.Trace(err)
 	}
 
-	// offerParams is used to make the API call to record the service offer
-	// in a service directory.
-	offerParams := params.ServiceOffer{
-		ServiceURL:         offer.ServiceURL,
-		ServiceName:        offer.ServiceName,
-		ServiceDescription: offer.Description,
-		Endpoints:          remoteEndpoints,
-		SourceEnvironTag:   api.access.EnvironTag().String(),
-		SourceLabel:        envName,
+	// offerParams is used to make the API call to record the application offer
+	// in a application directory.
+	offerParams := params.ApplicationOffer{
+		ApplicationURL:         offer.ApplicationURL,
+		ApplicationName:        offer.ApplicationName,
+		ApplicationDescription: offer.Description,
+		Endpoints:              remoteEndpoints,
+		SourceModelTag:         api.access.ModelTag().String(),
+		SourceLabel:            modelName,
 	}
 
 	return offer, offerParams, nil
 }
 
-// ServiceOffers gets details about remote services that match given URLs.
-func (api *API) ServiceOffers(filter params.ServiceURLs) (params.ServiceOffersResults, error) {
-	urls := filter.ServiceUrls
-	results := make([]params.ServiceOfferResult, len(urls))
+// ApplicationOffers gets details about remote applications that match given URLs.
+func (api *API) ApplicationOffers(filter params.ApplicationURLs) (params.ApplicationOffersResults, error) {
+	urls := filter.ApplicationURLs
+	results := make([]params.ApplicationOfferResult, len(urls))
 	// Record errors for each URL for later.
 	errorsByURL := make(map[string]error)
 
 	// Group the filter URL terms by directory name so that the
-	// service directory API for each named directory can be used
+	// application directory API for each named directory can be used
 	// via a bulk call.
 	urlsByDirectory := make(map[string][]string)
-	for _, urlstr := range filter.ServiceUrls {
-		url, err := jujucrossmodel.ParseServiceURL(urlstr)
+	for _, urlstr := range filter.ApplicationURLs {
+		url, err := jujucrossmodel.ParseApplicationURL(urlstr)
 		if err != nil {
 			errorsByURL[urlstr] = err
 			continue
@@ -174,14 +175,14 @@ func (api *API) ServiceOffers(filter params.ServiceURLs) (params.ServiceOffersRe
 		urlsByDirectory[url.Directory] = append(urlsByDirectory[url.Directory], urlstr)
 	}
 
-	foundOffers := make(map[string]params.ServiceOffer)
+	foundOffers := make(map[string]params.ApplicationOffer)
 	for directory, urls := range urlsByDirectory {
 		// Make the filter terms for the current directory and then
 		// list the offers for that directory.
 		filters := params.OfferFilters{Directory: directory}
 		filters.Filters = make([]params.OfferFilter, len(urls))
 		for i, url := range urls {
-			filters.Filters[i] = params.OfferFilter{ServiceURL: url}
+			filters.Filters[i] = params.OfferFilter{ApplicationURL: url}
 		}
 		offers, err := api.backend.ListDirectoryOffers(filters)
 		if err == nil && offers.Error != nil {
@@ -194,7 +195,7 @@ func (api *API) ServiceOffers(filter params.ServiceURLs) (params.ServiceOffersRe
 			continue
 		}
 		for _, offer := range offers.Offers {
-			foundOffers[offer.ServiceURL] = offer
+			foundOffers[offer.ApplicationURL] = offer
 		}
 	}
 
@@ -207,18 +208,18 @@ func (api *API) ServiceOffers(filter params.ServiceURLs) (params.ServiceOffersRe
 		}
 		foundOffer, ok := foundOffers[one]
 		if !ok {
-			results[i].Error = common.ServerError(errors.NotFoundf("offer for remote service url %v", one))
+			results[i].Error = common.ServerError(errors.NotFoundf("offer for remote application url %v", one))
 			continue
 		}
 		results[i].Result = foundOffer
 	}
-	return params.ServiceOffersResults{results}, nil
+	return params.ApplicationOffersResults{results}, nil
 }
 
-// FindServiceOffers gets details about remote services that match given filter.
-func (api *API) FindServiceOffers(filters params.OfferFilterParams) (params.FindServiceOffersResults, error) {
-	var result params.FindServiceOffersResults
-	result.Results = make([]params.ServiceOfferResults, len(filters.Filters))
+// FindApplicationOffers gets details about remote applications that match given filter.
+func (api *API) FindApplicationOffers(filters params.OfferFilterParams) (params.FindApplicationOffersResults, error) {
+	var result params.FindApplicationOffersResults
+	result.Results = make([]params.ApplicationOfferResults, len(filters.Filters))
 
 	for i, filter := range filters.Filters {
 		offers, err := api.backend.ListDirectoryOffers(filter)
@@ -234,31 +235,31 @@ func (api *API) FindServiceOffers(filters params.OfferFilterParams) (params.Find
 	return result, nil
 }
 
-// ListOffers gets all remote services that have been offered from this Juju model.
+// ListOffers gets all remote applications that have been offered from this Juju model.
 // Each returned service satisfies at least one of the the specified filters.
-func (api *API) ListOffers(args params.OfferedServiceFilters) (params.ListOffersResults, error) {
+func (api *API) ListOffers(args params.OfferedApplicationFilters) (params.ListOffersResults, error) {
 
 	// This func constructs individual set of filters.
-	filters := func(aSet params.OfferedServiceFilter) []jujucrossmodel.OfferedServiceFilter {
-		result := make([]jujucrossmodel.OfferedServiceFilter, len(aSet.FilterTerms))
+	filters := func(aSet params.OfferedApplicationFilter) []jujucrossmodel.OfferedApplicationFilter {
+		result := make([]jujucrossmodel.OfferedApplicationFilter, len(aSet.FilterTerms))
 		for i, filter := range aSet.FilterTerms {
-			result[i] = constructOfferedServiceFilter(filter)
+			result[i] = constructOfferedApplicationFilter(filter)
 		}
 		return result
 	}
 
 	// This func converts results for a filters set to params.
-	convertToParams := func(offered []jujucrossmodel.OfferedService) []params.OfferedServiceDetailsResult {
-		results := make([]params.OfferedServiceDetailsResult, len(offered))
+	convertToParams := func(offered []jujucrossmodel.OfferedApplication) []params.OfferedApplicationDetailsResult {
+		results := make([]params.OfferedApplicationDetailsResult, len(offered))
 		for i, one := range offered {
-			results[i] = api.getOfferedService(one)
+			results[i] = api.getOfferedApplication(one)
 		}
 		return results
 	}
 
 	found := make([]params.ListOffersFilterResults, len(args.Filters))
 	for i, set := range args.Filters {
-		setResult, err := api.backend.ListOfferedServices(filters(set)...)
+		setResult, err := api.backend.ListOfferedApplications(filters(set)...)
 		if err != nil {
 			found[i].Error = common.ServerError(err)
 			continue
@@ -269,23 +270,23 @@ func (api *API) ListOffers(args params.OfferedServiceFilters) (params.ListOffers
 	return params.ListOffersResults{found}, nil
 }
 
-func (api *API) getOfferedService(remote jujucrossmodel.OfferedService) params.OfferedServiceDetailsResult {
-	service, err := api.access.Service(remote.ServiceName)
+func (api *API) getOfferedApplication(remote jujucrossmodel.OfferedApplication) params.OfferedApplicationDetailsResult {
+	application, err := api.access.Application(remote.ApplicationName)
 	if err != nil {
-		return params.OfferedServiceDetailsResult{Error: common.ServerError(err)}
+		return params.OfferedApplicationDetailsResult{Error: common.ServerError(err)}
 	}
 
-	ch, _, err := service.Charm()
+	ch, _, err := application.Charm()
 	if err != nil {
-		return params.OfferedServiceDetailsResult{Error: common.ServerError(err)}
+		return params.OfferedApplicationDetailsResult{Error: common.ServerError(err)}
 	}
 	var epNames []string
 	for name, _ := range remote.Endpoints {
 		epNames = append(epNames, name)
 	}
-	charmEps, err := getServiceEndpoints(service, epNames)
+	charmEps, err := getApplicationEndpoints(application, epNames)
 	if err != nil {
-		return params.OfferedServiceDetailsResult{Error: common.ServerError(err)}
+		return params.OfferedApplicationDetailsResult{Error: common.ServerError(err)}
 	}
 
 	eps := make([]params.RemoteEndpoint, len(charmEps))
@@ -298,22 +299,22 @@ func (api *API) getOfferedService(remote jujucrossmodel.OfferedService) params.O
 			Scope:     ep.Scope,
 		}
 	}
-	result := params.OfferedServiceDetails{
-		Endpoints:   eps,
-		CharmName:   ch.Meta().Name,
-		ServiceName: remote.ServiceName,
-		ServiceURL:  remote.ServiceURL,
+	result := params.OfferedApplicationDetails{
+		Endpoints:       eps,
+		CharmName:       ch.Meta().Name,
+		ApplicationName: remote.ApplicationName,
+		ApplicationURL:  remote.ApplicationURL,
 		// TODO (wallyworld) - find connected users count
 		//UsersCount: 0,
 	}
-	return params.OfferedServiceDetailsResult{Result: &result}
+	return params.OfferedApplicationDetailsResult{Result: &result}
 }
 
-func constructOfferedServiceFilter(filter params.OfferedServiceFilterTerm) jujucrossmodel.OfferedServiceFilter {
-	return jujucrossmodel.OfferedServiceFilter{
-		ServiceURL: filter.ServiceURL,
-		CharmName:  filter.CharmName,
-		// TODO (wallyworld) - support filtering offered service by endpoint
+func constructOfferedApplicationFilter(filter params.OfferedApplicationFilterTerm) jujucrossmodel.OfferedApplicationFilter {
+	return jujucrossmodel.OfferedApplicationFilter{
+		ApplicationURL: filter.ApplicationURL,
+		CharmName:      filter.CharmName,
+		// TODO (wallyworld) - support filtering offered application by endpoint
 		//		Endpoint: jujucrossmodel.EndpointFilterTerm{
 		//			Name:      filter.Endpoint.Name,
 		//			Interface: filter.Endpoint.Interface,
@@ -322,7 +323,7 @@ func constructOfferedServiceFilter(filter params.OfferedServiceFilterTerm) jujuc
 	}
 }
 
-func getServiceEndpoints(service *state.Service, endpointNames []string) ([]charm.Relation, error) {
+func getApplicationEndpoints(service *state.Application, endpointNames []string) ([]charm.Relation, error) {
 	result := make([]charm.Relation, len(endpointNames))
 	for i, endpointName := range endpointNames {
 		endpoint, err := service.Endpoint(endpointName)
@@ -337,33 +338,33 @@ func getServiceEndpoints(service *state.Service, endpointNames []string) ([]char
 // A ServicesBackend holds interface that this api requires.
 type ServicesBackend interface {
 
-	// AddOffer adds a new service offer to the directory.
-	AddOffer(offer jujucrossmodel.OfferedService, offerParams params.AddServiceOffer) error
+	// AddOffer adds a new application offer to the directory.
+	AddOffer(offer jujucrossmodel.OfferedApplication, offerParams params.AddApplicationOffer) error
 
-	// ListOfferedServices returns offered services satisfying specified filters.
-	ListOfferedServices(filter ...jujucrossmodel.OfferedServiceFilter) ([]jujucrossmodel.OfferedService, error)
+	// ListOfferedApplications returns offered applications satisfying specified filters.
+	ListOfferedApplications(filter ...jujucrossmodel.OfferedApplicationFilter) ([]jujucrossmodel.OfferedApplication, error)
 
-	// ListDirectoryOffers returns service directory offers satisfying the specified filter.
-	ListDirectoryOffers(filter params.OfferFilters) (params.ServiceOfferResults, error)
+	// ListDirectoryOffers returns application directory offers satisfying the specified filter.
+	ListDirectoryOffers(filter params.OfferFilters) (params.ApplicationOfferResults, error)
 }
 
 var _ ServicesBackend = (*servicesBackend)(nil)
 
 type servicesBackend struct {
-	offeredServices jujucrossmodel.OfferedServices
-	serviceOffers   ServiceOffersAPI
+	offeredApplications jujucrossmodel.OfferedApplications
+	applicationOffers   ApplicationOffersAPI
 }
 
-func (s *servicesBackend) AddOffer(offer jujucrossmodel.OfferedService, offerParams params.AddServiceOffer) error {
-	// Add the offer to the offered services collection for the host environment.
-	err := s.offeredServices.AddOffer(offer)
+func (s *servicesBackend) AddOffer(offer jujucrossmodel.OfferedApplication, offerParams params.AddApplicationOffer) error {
+	// Add the offer to the offered applications collection for the host environment.
+	err := s.offeredApplications.AddOffer(offer)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	// Record the offer in a directory of service offers.
-	errResult, err := s.serviceOffers.AddOffers(params.AddServiceOffers{
-		Offers: []params.AddServiceOffer{offerParams},
+	// Record the offer in a directory of application offers.
+	errResult, err := s.applicationOffers.AddOffers(params.AddApplicationOffers{
+		Offers: []params.AddApplicationOffer{offerParams},
 	})
 	if err != nil {
 		return err
@@ -371,10 +372,10 @@ func (s *servicesBackend) AddOffer(offer jujucrossmodel.OfferedService, offerPar
 	return errResult.OneError()
 }
 
-func (s *servicesBackend) ListOfferedServices(filter ...jujucrossmodel.OfferedServiceFilter) ([]jujucrossmodel.OfferedService, error) {
-	return s.offeredServices.ListOffers(filter...)
+func (s *servicesBackend) ListOfferedApplications(filter ...jujucrossmodel.OfferedApplicationFilter) ([]jujucrossmodel.OfferedApplication, error) {
+	return s.offeredApplications.ListOffers(filter...)
 }
 
-func (s *servicesBackend) ListDirectoryOffers(filter params.OfferFilters) (params.ServiceOfferResults, error) {
-	return s.serviceOffers.ListOffers(filter)
+func (s *servicesBackend) ListDirectoryOffers(filter params.OfferFilters) (params.ApplicationOfferResults, error) {
+	return s.applicationOffers.ListOffers(filter)
 }

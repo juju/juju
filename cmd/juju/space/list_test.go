@@ -27,7 +27,7 @@ var _ = gc.Suite(&ListSuite{})
 
 func (s *ListSuite) SetUpTest(c *gc.C) {
 	s.BaseSpaceSuite.SetUpTest(c)
-	s.command, _ = space.NewListCommand(s.api)
+	s.command, _ = space.NewListCommandForTest(s.api)
 	c.Assert(s.command, gc.NotNil)
 }
 
@@ -42,17 +42,17 @@ func (s *ListSuite) TestInit(c *gc.C) {
 		about:        "unrecognized arguments",
 		args:         s.Strings("foo"),
 		expectErr:    `unrecognized args: \["foo"\]`,
-		expectFormat: "yaml",
+		expectFormat: "tabular",
 	}, {
 		about:        "invalid format",
 		args:         s.Strings("--format", "foo"),
 		expectErr:    `invalid value "foo" for flag --format: unknown format "foo"`,
-		expectFormat: "yaml",
+		expectFormat: "tabular",
 	}, {
 		about:        "invalid format (value is case-sensitive)",
 		args:         s.Strings("--format", "JSON"),
 		expectErr:    `invalid value "JSON" for flag --format: unknown format "JSON"`,
-		expectFormat: "yaml",
+		expectFormat: "tabular",
 	}, {
 		about:        "json format",
 		args:         s.Strings("--format", "json"),
@@ -62,16 +62,20 @@ func (s *ListSuite) TestInit(c *gc.C) {
 		args:         s.Strings("--format", "yaml"),
 		expectFormat: "yaml",
 	}, {
+		about:        "tabular format",
+		args:         s.Strings("--format", "tabular"),
+		expectFormat: "tabular",
+	}, {
 		// --output and -o are tested separately in TestOutputFormats.
 		about:        "both --output and -o specified (latter overrides former)",
 		args:         s.Strings("--output", "foo", "-o", "bar"),
-		expectFormat: "yaml",
+		expectFormat: "tabular",
 	}} {
 		c.Logf("test #%d: %s", i, test.about)
 		// Create a new instance of the subcommand for each test, but
 		// since we're not running the command no need to use
-		// envcmd.Wrap().
-		wrappedCommand, command := space.NewListCommand(s.api)
+		// modelcmd.Wrap().
+		wrappedCommand, command := space.NewListCommandForTest(s.api)
 		err := coretesting.InitCommand(wrappedCommand, test.args)
 		if test.expectErr != "" {
 			c.Check(err, gc.ErrorMatches, test.expectErr)
@@ -175,6 +179,19 @@ spaces:
 }
 `, "") + "\n"
 
+	expectedTabular := `Space   Subnets
+space1  2001:db8::/32
+        invalid
+space2  10.1.2.0/24
+        4.3.2.0/28
+
+`
+	expectedShortTabular := `Space
+space1
+space2
+
+`
+
 	assertAPICalls := func() {
 		// Verify the API calls and reset the recorded calls.
 		s.api.CheckCallNames(c, "ListSpaces", "Close")
@@ -239,10 +256,12 @@ spaces:
 		expected string
 		short    bool
 	}{
-		{"", expectedYAML, false}, // default format is YAML
+		{"", expectedTabular, false}, // default format is tabular
+		{"tabular", expectedTabular, false},
 		{"yaml", expectedYAML, false},
 		{"json", expectedJSON, false},
-		{"", expectedShortYAML, true}, // default format is YAML
+		{"", expectedShortTabular, true}, // default format is tabular
+		{"tabular", expectedShortTabular, true},
 		{"yaml", expectedShortYAML, true},
 		{"json", expectedShortJSON, true},
 	} {

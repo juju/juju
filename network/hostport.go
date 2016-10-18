@@ -66,20 +66,30 @@ func NewHostPorts(port int, addresses ...string) []HostPort {
 func ParseHostPorts(hostPorts ...string) ([]HostPort, error) {
 	hps := make([]HostPort, len(hostPorts))
 	for i, hp := range hostPorts {
-		host, port, err := net.SplitHostPort(hp)
+		hostport, err := ParseHostPort(hp)
 		if err != nil {
-			return nil, errors.Annotatef(err, "cannot parse %q as address:port", hp)
+			return nil, errors.Trace(err)
 		}
-		numPort, err := strconv.Atoi(port)
-		if err != nil {
-			return nil, errors.Annotatef(err, "cannot parse %q port", hp)
-		}
-		hps[i] = HostPort{
-			Address: NewAddress(host),
-			Port:    numPort,
-		}
+		hps[i] = *hostport
 	}
 	return hps, nil
+}
+
+// ParseHostPort converts a string containing a single host and port
+// value to a HostPort.
+func ParseHostPort(hp string) (*HostPort, error) {
+	host, port, err := net.SplitHostPort(hp)
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot parse %q as address:port", hp)
+	}
+	numPort, err := strconv.Atoi(port)
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot parse %q port", hp)
+	}
+	return &HostPort{
+		Address: NewAddress(host),
+		Port:    numPort,
+	}, nil
 }
 
 // HostsWithoutPort strips the port from each HostPort, returning just
@@ -99,8 +109,8 @@ func (hp hostPortsPreferringIPv4Slice) Swap(i, j int) { hp[i], hp[j] = hp[j], hp
 func (hp hostPortsPreferringIPv4Slice) Less(i, j int) bool {
 	hp1 := hp[i]
 	hp2 := hp[j]
-	order1 := hp1.sortOrder(false)
-	order2 := hp2.sortOrder(false)
+	order1 := hp1.sortOrder()
+	order2 := hp2.sortOrder()
 	if order1 == order2 {
 		if hp1.Address.Value == hp2.Address.Value {
 			return hp1.Port < hp2.Port
@@ -110,33 +120,10 @@ func (hp hostPortsPreferringIPv4Slice) Less(i, j int) bool {
 	return order1 < order2
 }
 
-type hostPortsPreferringIPv6Slice struct {
-	hostPortsPreferringIPv4Slice
-}
-
-func (hp hostPortsPreferringIPv6Slice) Less(i, j int) bool {
-	hp1 := hp.hostPortsPreferringIPv4Slice[i]
-	hp2 := hp.hostPortsPreferringIPv4Slice[j]
-	order1 := hp1.sortOrder(true)
-	order2 := hp2.sortOrder(true)
-	if order1 == order2 {
-		if hp1.Address.Value == hp2.Address.Value {
-			return hp1.Port < hp2.Port
-		}
-		return hp1.Address.Value < hp2.Address.Value
-	}
-	return order1 < order2
-}
-
-// SortHostPorts sorts the given HostPort slice according to the
-// sortOrder of each HostPort's embedded Address and the preferIpv6
-// flag. See Address.sortOrder() for more info.
-func SortHostPorts(hps []HostPort, preferIPv6 bool) {
-	if preferIPv6 {
-		sort.Sort(hostPortsPreferringIPv6Slice{hostPortsPreferringIPv4Slice(hps)})
-	} else {
-		sort.Sort(hostPortsPreferringIPv4Slice(hps))
-	}
+// SortHostPorts sorts the given HostPort slice according to the sortOrder of
+// each HostPort's embedded Address. See Address.sortOrder() for more info.
+func SortHostPorts(hps []HostPort) {
+	sort.Sort(hostPortsPreferringIPv4Slice(hps))
 }
 
 var netLookupIP = net.LookupIP

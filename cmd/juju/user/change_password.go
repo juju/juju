@@ -4,83 +4,74 @@
 package user
 
 import (
+	"bufio"
 	"fmt"
+	"io"
+	"os"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/utils"
-	"github.com/juju/utils/readpass"
-	"launchpad.net/gnuflag"
+	"golang.org/x/crypto/ssh/terminal"
+	"gopkg.in/juju/names.v2"
+	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/authentication"
 	"github.com/juju/juju/cmd/juju/block"
-	"github.com/juju/juju/environs/configstore"
+	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/juju"
+	"github.com/juju/juju/jujuclient"
 )
 
-// randomPasswordNotify is called when a random password is generated.
-var randomPasswordNotify = func(string) {}
-
 const userChangePasswordDoc = `
-Change the password for the user you are currently logged in as,
-or as an admin, change the password for another user.
+The user is, by default, the current user. The latter can be confirmed with
+the ` + "`juju show-user`" + ` command.
+
+A controller administrator can change the password for another user (on
+that controller).
 
 Examples:
-  # You will be prompted to enter a password.
-  juju user change-password
 
-  # Change the password to a random strong password.
-  juju user change-password --generate
+    juju change-user-password
+    juju change-user-password bob
 
-  # Change the password for bob, this always uses a random password
-  juju user change-password bob
+See also:
+    add-user
 
 `
 
-func newChangePasswordCommand() cmd.Command {
-	return envcmd.WrapSystem(&changePasswordCommand{})
+func NewChangePasswordCommand() cmd.Command {
+	var cmd changePasswordCommand
+	cmd.newAPIConnection = juju.NewAPIConnection
+	return modelcmd.WrapController(&cmd)
 }
 
 // changePasswordCommand changes the password for a user.
 type changePasswordCommand struct {
-	UserCommandBase
-	api      ChangePasswordAPI
-	writer   EnvironInfoCredsWriter
-	Generate bool
-	OutPath  string
-	User     string
+	modelcmd.ControllerCommandBase
+	newAPIConnection func(juju.NewAPIConnectionParams) (api.Connection, error)
+	api              ChangePasswordAPI
+	User             string
 }
 
 // Info implements Command.Info.
 func (c *changePasswordCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "change-password",
+		Name:    "change-user-password",
 		Args:    "[username]",
-		Purpose: "changes the password for a user",
+		Purpose: "Changes the password for the current or specified Juju user",
 		Doc:     userChangePasswordDoc,
 	}
-}
-
-// SetFlags implements Command.SetFlags.
-func (c *changePasswordCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.BoolVar(&c.Generate, "generate", false, "generate a new strong password")
-	f.StringVar(&c.OutPath, "o", "", "specifies the path of the generated user environment file")
-	f.StringVar(&c.OutPath, "output", "", "")
 }
 
 // Init implements Command.Init.
 func (c *changePasswordCommand) Init(args []string) error {
 	var err error
 	c.User, err = cmd.ZeroOrOneArgs(args)
-	if c.User == "" && c.OutPath != "" {
-		return errors.New("output is only a valid option when changing another user's password")
+	if err != nil {
+		return errors.Trace(err)
 	}
-	if c.User != "" {
-		c.Generate = true
-		if c.OutPath == "" {
-			c.OutPath = c.User + ".server"
-		}
-	}
-	return err
+	return nil
 }
 
 // ChangePasswordAPI defines the usermanager API methods that the change
@@ -88,14 +79,6 @@ func (c *changePasswordCommand) Init(args []string) error {
 type ChangePasswordAPI interface {
 	SetPassword(username, password string) error
 	Close() error
-}
-
-// EnvironInfoCredsWriter defines methods of the configstore API info that
-// are used to change the password.
-type EnvironInfoCredsWriter interface {
-	Write() error
-	APICredentials() configstore.APICredentials
-	SetAPICredentials(creds configstore.APICredentials)
 }
 
 // Run implements Command.Run.
@@ -109,81 +92,107 @@ func (c *changePasswordCommand) Run(ctx *cmd.Context) error {
 		defer c.api.Close()
 	}
 
-	password, err := c.generateOrReadPassword(ctx, c.Generate)
+	newPassword, err := readAndConfirmPassword(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	var writer EnvironInfoCredsWriter
-
-	var creds configstore.APICredentials
-
-	if c.User == "" {
-		// We get the creds writer before changing the password just to
-		// minimise the things that could go wrong after changing the password
-		// in the server.
-		if c.writer == nil {
-			writer, err = c.ConnectionInfo()
-			if err != nil {
-				return errors.Trace(err)
-			}
-		} else {
-			writer = c.writer
-		}
-
-		creds = writer.APICredentials()
-	} else {
-		creds.User = c.User
+	controllerName := c.ControllerName()
+	store := c.ClientStore()
+	accountDetails, err := store.AccountDetails(controllerName)
+	if err != nil {
+		return errors.Trace(err)
 	}
 
-	oldPassword := creds.Password
-	creds.Password = password
-	if err = c.api.SetPassword(creds.User, password); err != nil {
+	var userTag names.UserTag
+	if c.User != "" {
+		if !names.IsValidUserName(c.User) {
+			return errors.NotValidf("user name %q", c.User)
+		}
+		userTag = names.NewUserTag(c.User)
+		if userTag.Id() != accountDetails.User {
+			// The account details don't correspond to the username
+			// being changed, so we don't need to update the account
+			// locally.
+			accountDetails = nil
+		}
+	} else {
+		if !names.IsValidUser(accountDetails.User) {
+			return errors.Errorf("invalid user in account %q", accountDetails.User)
+		}
+		userTag = names.NewUserTag(accountDetails.User)
+		if !userTag.IsLocal() {
+			return errors.Errorf("cannot change password for external user %q", userTag)
+		}
+	}
+	if err := c.api.SetPassword(userTag.Id(), newPassword); err != nil {
 		return block.ProcessBlockedError(err, block.BlockChange)
 	}
 
-	if c.User != "" {
-		return writeServerFile(c, ctx, c.User, password, c.OutPath)
-	}
-
-	writer.SetAPICredentials(creds)
-	if err := writer.Write(); err != nil {
-		logger.Errorf("updating the cached credentials failed, reverting to original password")
-		setErr := c.api.SetPassword(creds.User, oldPassword)
-		if setErr != nil {
-			logger.Errorf("failed to set password back, you will need to edit your environments file by hand to specify the password: %q", password)
-			return errors.Annotate(setErr, "failed to set password back")
+	if accountDetails == nil {
+		ctx.Infof("Password for %q has been updated.", c.User)
+	} else {
+		if accountDetails.Password != "" {
+			// Log back in with macaroon authentication, so we can
+			// discard the password without having to log back in
+			// immediately.
+			if err := c.recordMacaroon(accountDetails.User, newPassword); err != nil {
+				return errors.Annotate(err, "recording macaroon")
+			}
+			// Wipe the password from disk. In the event of an
+			// error occurring after SetPassword and before the
+			// account details being updated, the user will be
+			// able to recover by running "juju login".
+			accountDetails.Password = ""
+			if err := store.UpdateAccount(controllerName, *accountDetails); err != nil {
+				return errors.Annotate(err, "failed to update client credentials")
+			}
 		}
-		return errors.Annotate(err, "failed to write new password to environments file")
+		ctx.Infof("Your password has been updated.")
 	}
-	ctx.Infof("Your password has been updated.")
 	return nil
 }
 
-var readPassword = readpass.ReadPassword
-
-func (*changePasswordCommand) generateOrReadPassword(ctx *cmd.Context, generate bool) (string, error) {
-	if generate {
-		password, err := utils.RandomPassword()
-		if err != nil {
-			return "", errors.Annotate(err, "failed to generate random password")
-		}
-		randomPasswordNotify(password)
-		return password, nil
+func (c *changePasswordCommand) recordMacaroon(user, password string) error {
+	accountDetails := &jujuclient.AccountDetails{User: user}
+	args, err := c.NewAPIConnectionParams(
+		c.ClientStore(), c.ControllerName(), "", accountDetails,
+	)
+	if err != nil {
+		return errors.Trace(err)
 	}
+	args.DialOpts.BakeryClient.WebPageVisitor = httpbakery.NewMultiVisitor(
+		authentication.NewVisitor(accountDetails.User, func(string) (string, error) {
+			return password, nil
+		}),
+		args.DialOpts.BakeryClient.WebPageVisitor,
+	)
+	api, err := c.newAPIConnection(args)
+	if err != nil {
+		return errors.Annotate(err, "connecting to API")
+	}
+	return api.Close()
+}
 
+func readAndConfirmPassword(ctx *cmd.Context) (string, error) {
 	// Don't add the carriage returns before readPassword, but add
 	// them directly after the readPassword so any errors are output
 	// on their own lines.
-	fmt.Fprint(ctx.Stdout, "password: ")
-	password, err := readPassword()
-	fmt.Fprint(ctx.Stdout, "\n")
+	//
+	// TODO(axw) retry/loop on failure
+	fmt.Fprint(ctx.Stderr, "new password: ")
+	password, err := readPassword(ctx.Stdin)
+	fmt.Fprint(ctx.Stderr, "\n")
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	fmt.Fprint(ctx.Stdout, "type password again: ")
-	verify, err := readPassword()
-	fmt.Fprint(ctx.Stdout, "\n")
+	if password == "" {
+		return "", errors.Errorf("you must enter a password")
+	}
+
+	fmt.Fprint(ctx.Stderr, "type new password again: ")
+	verify, err := readPassword(ctx.Stdin)
+	fmt.Fprint(ctx.Stderr, "\n")
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -191,4 +200,32 @@ func (*changePasswordCommand) generateOrReadPassword(ctx *cmd.Context, generate 
 		return "", errors.New("Passwords do not match")
 	}
 	return password, nil
+}
+
+func readPassword(stdin io.Reader) (string, error) {
+	if f, ok := stdin.(*os.File); ok && terminal.IsTerminal(int(f.Fd())) {
+		password, err := terminal.ReadPassword(int(f.Fd()))
+		if err != nil {
+			return "", errors.Trace(err)
+		}
+		return string(password), nil
+	}
+	return readLine(stdin)
+}
+
+func readLine(stdin io.Reader) (string, error) {
+	// Read one byte at a time to avoid reading beyond the delimiter.
+	line, err := bufio.NewReader(byteAtATimeReader{stdin}).ReadString('\n')
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return line[:len(line)-1], nil
+}
+
+type byteAtATimeReader struct {
+	io.Reader
+}
+
+func (r byteAtATimeReader) Read(out []byte) (int, error) {
+	return r.Reader.Read(out[:1])
 }

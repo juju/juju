@@ -9,6 +9,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/instance"
@@ -24,7 +25,7 @@ type firewallerBaseSuite struct {
 	testing.JujuConnSuite
 
 	machines []*state.Machine
-	service  *state.Service
+	service  *state.Application
 	charm    *state.Charm
 	units    []*state.Unit
 
@@ -71,7 +72,7 @@ func (s *firewallerBaseSuite) setUpTest(c *gc.C) {
 
 func (s *firewallerBaseSuite) testFirewallerFailsWithNonEnvironManagerUser(
 	c *gc.C,
-	factory func(_ *state.State, _ *common.Resources, _ common.Authorizer) error,
+	factory func(_ *state.State, _ facade.Resources, _ facade.Authorizer) error,
 ) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.EnvironManager = false
@@ -110,7 +111,7 @@ func (s *firewallerBaseSuite) testLife(
 			{Life: "alive"},
 			{Error: apiservertesting.NotFoundError("machine 42")},
 			{Error: apiservertesting.NotFoundError(`unit "foo/0"`)},
-			{Error: apiservertesting.NotFoundError(`service "bar"`)},
+			{Error: apiservertesting.NotFoundError(`application "bar"`)},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -176,15 +177,15 @@ func (s *firewallerBaseSuite) testInstanceId(
 	})
 }
 
-func (s *firewallerBaseSuite) testWatchEnvironMachines(
+func (s *firewallerBaseSuite) testWatchModelMachines(
 	c *gc.C,
 	facade interface {
-		WatchEnvironMachines() (params.StringsWatchResult, error)
+		WatchModelMachines() (params.StringsWatchResult, error)
 	},
 ) {
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 
-	got, err := facade.WatchEnvironMachines()
+	got, err := facade.WatchModelMachines()
 	c.Assert(err, jc.ErrorIsNil)
 	want := params.StringsWatchResult{
 		StringsWatcherId: "1",
@@ -211,7 +212,7 @@ const (
 
 func (s *firewallerBaseSuite) testWatch(
 	c *gc.C,
-	facade interface {
+	watcher interface {
 		Watch(args params.Entities) (params.NotifyWatchResults, error)
 	},
 	allowUnits bool,
@@ -223,7 +224,7 @@ func (s *firewallerBaseSuite) testWatch(
 		{Tag: s.service.Tag().String()},
 		{Tag: s.units[0].Tag().String()},
 	}})
-	result, err := facade.Watch(args)
+	result, err := watcher.Watch(args)
 	c.Assert(err, jc.ErrorIsNil)
 	if allowUnits {
 		c.Assert(result, jc.DeepEquals, params.NotifyWatchResults{
@@ -233,7 +234,7 @@ func (s *firewallerBaseSuite) testWatch(
 				{NotifyWatcherId: "2"},
 				{Error: apiservertesting.ErrUnauthorized},
 				{Error: apiservertesting.NotFoundError(`unit "foo/0"`)},
-				{Error: apiservertesting.NotFoundError(`service "bar"`)},
+				{Error: apiservertesting.NotFoundError(`application "bar"`)},
 				{Error: apiservertesting.ErrUnauthorized},
 				{Error: apiservertesting.ErrUnauthorized},
 				{Error: apiservertesting.ErrUnauthorized},
@@ -247,7 +248,7 @@ func (s *firewallerBaseSuite) testWatch(
 				{Error: apiservertesting.ErrUnauthorized},
 				{Error: apiservertesting.ErrUnauthorized},
 				{Error: apiservertesting.ErrUnauthorized},
-				{Error: apiservertesting.NotFoundError(`service "bar"`)},
+				{Error: apiservertesting.NotFoundError(`application "bar"`)},
 				{Error: apiservertesting.ErrUnauthorized},
 				{Error: apiservertesting.ErrUnauthorized},
 				{Error: apiservertesting.ErrUnauthorized},
@@ -264,7 +265,7 @@ func (s *firewallerBaseSuite) testWatch(
 	c.Assert(result.Results[1].NotifyWatcherId, gc.Equals, "1")
 	watcher1 := s.resources.Get("1")
 	defer statetesting.AssertStop(c, watcher1)
-	var watcher2 common.Resource
+	var watcher2 facade.Resource
 	if allowUnits {
 		c.Assert(result.Results[2].NotifyWatcherId, gc.Equals, "2")
 		watcher2 = s.resources.Get("2")
@@ -342,14 +343,14 @@ func (s *firewallerBaseSuite) testGetExposed(
 			{Result: true},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.NotFoundError(`service "bar"`)},
+			{Error: apiservertesting.NotFoundError(`application "bar"`)},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
 
-	// Now reset the exposed flag for the service and check again.
+	// Now reset the exposed flag for the application and check again.
 	err = s.service.ClearExposed()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -421,7 +422,7 @@ func (s *firewallerBaseSuite) assertLife(c *gc.C, index int, expectLife state.Li
 var commonFakeEntities = []params.Entity{
 	{Tag: "machine-42"},
 	{Tag: "unit-foo-0"},
-	{Tag: "service-bar"},
+	{Tag: "application-bar"},
 	{Tag: "user-foo"},
 	{Tag: "foo-bar"},
 	{Tag: ""},

@@ -106,6 +106,14 @@ type DiskSpec struct {
 	// characters must be a dash, lowercase letter, or digit, except the
 	// last character, which cannot be a dash.
 	Name string
+	// Description holds a description of the disk, it currently holds
+	// modelUUID.
+	// This field is used instead of a tag or metadata because, at the moment of writing
+	// this feature, compute (v1) API does not support any way to add extra data
+	// to disks.
+	// Description was picked because it is not mutable (actually no field is) for disks.
+	// There is a metadata API but it is not supported for disks for the moment.
+	Description string
 }
 
 // TooSmall checks the spec's size hint and indicates whether or not
@@ -172,6 +180,7 @@ func (ds *DiskSpec) newDetached() (*compute.Disk, error) {
 		SizeGb:      int64(ds.SizeGB()),
 		SourceImage: ds.ImageURL,
 		Type:        string(ds.PersistentDiskType),
+		Description: ds.Description,
 	}, nil
 }
 
@@ -194,6 +203,8 @@ type Disk struct {
 	Id uint64
 	// Name is a unique identifier string for each disk.
 	Name string
+	// Description holds the description field for a disk, we store env UUID here.
+	Description string
 	// Size is the size in mbit.
 	Size uint64
 	// Type is one of the available disk types supported by
@@ -207,12 +218,13 @@ type Disk struct {
 
 func NewDisk(cd *compute.Disk) *Disk {
 	d := &Disk{
-		Id:     cd.Id,
-		Name:   cd.Name,
-		Size:   gibToMib(cd.SizeGb),
-		Type:   DiskType(cd.Type),
-		Zone:   cd.Zone,
-		Status: DiskStatus(cd.Status),
+		Id:          cd.Id,
+		Name:        cd.Name,
+		Description: cd.Description,
+		Size:        gibToMib(cd.SizeGb),
+		Type:        DiskType(cd.Type),
+		Zone:        cd.Zone,
+		Status:      DiskStatus(cd.Status),
 	}
 	return d
 }

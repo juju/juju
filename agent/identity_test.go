@@ -9,13 +9,13 @@ import (
 	"os"
 	"runtime"
 
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type identitySuite struct {
@@ -28,13 +28,14 @@ var _ = gc.Suite(&identitySuite{})
 
 var attributeParams = AgentConfigParams{
 	Tag:               names.NewMachineTag("1"),
-	UpgradedToVersion: version.Current,
+	UpgradedToVersion: jujuversion.Current,
 	Password:          "sekrit",
 	CACert:            "ca cert",
 	StateAddresses:    []string{"localhost:1234"},
 	APIAddresses:      []string{"localhost:1235"},
 	Nonce:             "a nonce",
-	Environment:       testing.EnvironmentTag,
+	Controller:        testing.ControllerTag,
+	Model:             testing.ModelTag,
 }
 
 var servingInfo = params.StateServingInfo{

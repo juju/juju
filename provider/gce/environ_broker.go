@@ -17,16 +17,14 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/gce/google"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/tools"
 )
 
-func isStateServer(icfg *instancecfg.InstanceConfig) bool {
+func isController(icfg *instancecfg.InstanceConfig) bool {
 	return multiwatcher.AnyJobNeedsState(icfg.Jobs...)
 }
 
@@ -37,16 +35,7 @@ func (*environ) MaintainInstance(args environs.StartInstanceParams) error {
 
 // StartInstance implements environs.InstanceBroker.
 func (env *environ) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
-	// Please note that in order to fulfil the demands made of Instances and
-	// AllInstances, it is imperative that some environment feature be used to
-	// keep track of which instances were actually started by juju.
-	env = env.getSnapshot()
-
 	// Start a new instance.
-
-	if args.InstanceConfig.HasNetworks() {
-		return nil, errors.New("starting instances with networks is not supported yet")
-	}
 
 	spec, err := buildInstanceSpec(env, args)
 	if err != nil {
@@ -63,20 +52,6 @@ func (env *environ) StartInstance(args environs.StartInstanceParams) (*environs.
 	}
 	logger.Infof("started instance %q in zone %q", raw.ID, raw.ZoneName)
 	inst := newInstance(raw, env)
-
-	// Ensure the API server port is open (globally for all instances
-	// on the network, not just for the specific node of the state
-	// server). See LP bug #1436191 for details.
-	if isStateServer(args.InstanceConfig) {
-		ports := network.PortRange{
-			FromPort: args.InstanceConfig.StateServingInfo.APIPort,
-			ToPort:   args.InstanceConfig.StateServingInfo.APIPort,
-			Protocol: "tcp",
-		}
-		if err := env.gce.OpenPorts(env.globalFirewallName(), ports); err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
 
 	// Build the result.
 	hwc := getHardwareCharacteristics(env, spec, inst)
@@ -107,7 +82,9 @@ func (env *environ) finishInstanceConfig(args environs.StartInstanceParams, spec
 		return errors.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, arches)
 	}
 
-	args.InstanceConfig.Tools = envTools[0]
+	if err := args.InstanceConfig.SetTools(envTools); err != nil {
+		return errors.Trace(err)
+	}
 	return instancecfg.FinishInstanceConfig(args.InstanceConfig, env.Config())
 }
 
@@ -117,54 +94,46 @@ func (env *environ) finishInstanceConfig(args environs.StartInstanceParams, spec
 func (env *environ) buildInstanceSpec(args environs.StartInstanceParams) (*instances.InstanceSpec, error) {
 	arches := args.Tools.Arches()
 	series := args.Tools.OneSeries()
-	spec, err := findInstanceSpec(env, env.Config().ImageStream(), &instances.InstanceConstraint{
-		Region:      env.ecfg.region(),
-		Series:      series,
-		Arches:      arches,
-		Constraints: args.Constraints,
-	})
+	spec, err := findInstanceSpec(
+		env, &instances.InstanceConstraint{
+			Region:      env.cloud.Region,
+			Series:      series,
+			Arches:      arches,
+			Constraints: args.Constraints,
+		},
+		args.ImageMetadata,
+	)
 	return spec, errors.Trace(err)
 }
 
-var findInstanceSpec = func(env *environ, stream string, ic *instances.InstanceConstraint) (*instances.InstanceSpec, error) {
-	return env.findInstanceSpec(stream, ic)
+var findInstanceSpec = func(
+	env *environ,
+	ic *instances.InstanceConstraint,
+	imageMetadata []*imagemetadata.ImageMetadata,
+) (*instances.InstanceSpec, error) {
+	return env.findInstanceSpec(ic, imageMetadata)
 }
 
-// findInstanceSpec initializes a new instance spec for the given stream
-// (and constraints) and returns it. This only covers populating the
-// initial data for the spec. However, it does include fetching the
-// correct simplestreams image data.
-func (env *environ) findInstanceSpec(stream string, ic *instances.InstanceConstraint) (*instances.InstanceSpec, error) {
-	sources, err := environs.ImageMetadataSources(env)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
-		CloudSpec: env.cloudSpec(ic.Region),
-		Series:    []string{ic.Series},
-		Arches:    ic.Arches,
-		Stream:    stream,
-	})
-
-	signedImageDataOnly := false
-	matchingImages, _, err := imageMetadataFetch(sources, imageConstraint, signedImageDataOnly)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	images := instances.ImageMetadataToImages(matchingImages)
+// findInstanceSpec initializes a new instance spec for the given
+// constraints and returns it. This only covers populating the
+// initial data for the spec.
+func (env *environ) findInstanceSpec(
+	ic *instances.InstanceConstraint,
+	imageMetadata []*imagemetadata.ImageMetadata,
+) (*instances.InstanceSpec, error) {
+	images := instances.ImageMetadataToImages(imageMetadata)
 	spec, err := instances.FindInstanceSpec(images, ic, allInstanceTypes)
 	return spec, errors.Trace(err)
 }
-
-var imageMetadataFetch = imagemetadata.Fetch
 
 // newRawInstance is where the new physical instance is actually
 // provisioned, relative to the provided args and spec. Info for that
 // low-level instance is returned.
 func (env *environ) newRawInstance(args environs.StartInstanceParams, spec *instances.InstanceSpec) (*google.Instance, error) {
-	machineID := common.MachineFullName(env, args.InstanceConfig.MachineId)
+	hostname, err := env.namespace.Hostname(args.InstanceConfig.MachineId)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	os, err := series.GetOSFromSeries(args.InstanceConfig.Series)
 	if err != nil {
@@ -177,9 +146,12 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams, spec *inst
 	}
 	tags := []string{
 		env.globalFirewallName(),
-		machineID,
+		hostname,
 	}
-	disks, err := getDisks(spec, args.Constraints, args.InstanceConfig.Series)
+
+	disks, err := getDisks(
+		spec, args.Constraints, args.InstanceConfig.Series, env.Config().UUID(), env.Config().ImageStream() == "daily",
+	)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -189,7 +161,7 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams, spec *inst
 	// TODO(ericsnow) Support multiple networks?
 	// TODO(ericsnow) Use a different net interface name? Configurable?
 	instSpec := google.InstanceSpec{
-		ID:                machineID,
+		ID:                hostname,
 		Type:              spec.InstanceType.Name,
 		Disks:             disks,
 		NetworkInterfaces: []string{"ExternalNAT"},
@@ -217,10 +189,8 @@ func getMetadata(args environs.StartInstanceParams, os jujuos.OSType) (map[strin
 	logger.Debugf("GCE user data; %d bytes", len(userData))
 
 	metadata := make(map[string]string)
-	if isStateServer(args.InstanceConfig) {
-		metadata[metadataKeyIsState] = metadataValueTrue
-	} else {
-		metadata[metadataKeyIsState] = metadataValueFalse
+	for tag, value := range args.InstanceConfig.Tags {
+		metadata[tag] = value
 	}
 	switch os {
 	case jujuos.Ubuntu:
@@ -233,12 +203,6 @@ func getMetadata(args environs.StartInstanceParams, os jujuos.OSType) (map[strin
 		// See: http://cloudinit.readthedocs.org
 		metadata[metadataKeyEncoding] = "base64"
 
-		authKeys, err := google.FormatAuthorizedKeys(args.InstanceConfig.AuthorizedKeys, "ubuntu")
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
-		metadata[metadataKeySSHKeys] = authKeys
 	case jujuos.Windows:
 		metadata[metadataKeyWindowsUserdata] = string(userData)
 
@@ -258,7 +222,7 @@ func getMetadata(args environs.StartInstanceParams, os jujuos.OSType) (map[strin
 // the new instances and returns it. This will always include a root
 // disk with characteristics determined by the provides args and
 // constraints.
-func getDisks(spec *instances.InstanceSpec, cons constraints.Value, ser string) ([]google.DiskSpec, error) {
+func getDisks(spec *instances.InstanceSpec, cons constraints.Value, ser, eUUID string, daily bool) ([]google.DiskSpec, error) {
 	size := common.MinRootDiskSizeGiB(ser)
 	if cons.RootDisk != nil && *cons.RootDisk > size {
 		size = common.MiBToGiB(*cons.RootDisk)
@@ -270,18 +234,23 @@ func getDisks(spec *instances.InstanceSpec, cons constraints.Value, ser string) 
 	}
 	switch os {
 	case jujuos.Ubuntu:
-		imageURL = ubuntuImageBasePath
+		if daily {
+			imageURL = ubuntuDailyImageBasePath
+		} else {
+			imageURL = ubuntuImageBasePath
+		}
 	case jujuos.Windows:
 		imageURL = windowsImageBasePath
 	default:
 		return nil, errors.Errorf("os %s is not supported on the gce provider", os.String())
 	}
 	dSpec := google.DiskSpec{
-		Series:     ser,
-		SizeHintGB: size,
-		ImageURL:   imageURL + spec.Image.Id,
-		Boot:       true,
-		AutoDelete: true,
+		Series:      ser,
+		SizeHintGB:  size,
+		ImageURL:    imageURL + spec.Image.Id,
+		Boot:        true,
+		AutoDelete:  true,
+		Description: eUUID,
 	}
 	if cons.RootDisk != nil && dSpec.TooSmall() {
 		msg := "Ignoring root-disk constraint of %dM because it is smaller than the GCE image size of %dG"
@@ -314,14 +283,12 @@ func (env *environ) AllInstances() ([]instance.Instance, error) {
 
 // StopInstances implements environs.InstanceBroker.
 func (env *environ) StopInstances(instances ...instance.Id) error {
-	env = env.getSnapshot()
-
 	var ids []string
 	for _, id := range instances {
 		ids = append(ids, string(id))
 	}
 
-	prefix := common.MachineFullName(env, "")
+	prefix := env.namespace.Prefix()
 	err := env.gce.RemoveInstances(prefix, ids...)
 	return errors.Trace(err)
 }

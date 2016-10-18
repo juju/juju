@@ -30,7 +30,7 @@ func NewMetadata() *backups.Metadata {
 func NewMetadataStarted() *backups.Metadata {
 	meta := backups.NewMetadata()
 	meta.Started = meta.Started.Truncate(time.Second)
-	meta.Origin.Environment = envID
+	meta.Origin.Model = envID
 	meta.Origin.Machine = "0"
 	meta.Origin.Hostname = "main-host"
 	return meta
@@ -53,8 +53,8 @@ func UpdateNotes(meta *backups.Metadata, notes string) *backups.Metadata {
 }
 
 // SetOrigin updates the metadata's origin with the privided information.
-func SetOrigin(meta *backups.Metadata, envUUID, machine, hostname string) {
-	meta.Origin.Environment = envUUID
+func SetOrigin(meta *backups.Metadata, modelUUID, machine, hostname string) {
+	meta.Origin.Model = modelUUID
 	meta.Origin.Machine = machine
 	meta.Origin.Hostname = hostname
 }

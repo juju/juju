@@ -17,18 +17,14 @@ type apiHostPortsSetter interface {
 }
 
 type publisher struct {
-	st         apiHostPortsSetter
-	preferIPv6 bool
+	st apiHostPortsSetter
 
 	mu             sync.Mutex
 	lastAPIServers [][]network.HostPort
 }
 
-func newPublisher(st apiHostPortsSetter, preferIPv6 bool) *publisher {
-	return &publisher{
-		st:         st,
-		preferIPv6: preferIPv6,
-	}
+func newPublisher(st apiHostPortsSetter) *publisher {
+	return &publisher{st: st}
 }
 
 func (pub *publisher) publishAPIServers(apiServers [][]network.HostPort, instanceIds []instance.Id) error {
@@ -41,7 +37,7 @@ func (pub *publisher) publishAPIServers(apiServers [][]network.HostPort, instanc
 	sortedAPIServers := make([][]network.HostPort, len(apiServers))
 	for i, hostPorts := range apiServers {
 		sortedAPIServers[i] = append([]network.HostPort{}, hostPorts...)
-		network.SortHostPorts(sortedAPIServers[i], pub.preferIPv6)
+		network.SortHostPorts(sortedAPIServers[i])
 	}
 	if apiServersEqual(sortedAPIServers, pub.lastAPIServers) {
 		logger.Debugf("API host ports have not changed")

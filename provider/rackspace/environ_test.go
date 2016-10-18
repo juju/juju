@@ -9,6 +9,7 @@ import (
 
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/errors"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -17,10 +18,12 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/rackspace"
+	"github.com/juju/juju/status"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
 	"github.com/juju/utils/ssh"
+	"github.com/juju/version"
 )
 
 type environSuite struct {
@@ -40,13 +43,15 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 	s.PatchValue(rackspace.Bootstrap, func(ctx environs.BootstrapContext, env environs.Environ, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
 		return s.innerEnviron.Bootstrap(ctx, args)
 	})
-	s.environ.Bootstrap(nil, environs.BootstrapParams{})
+	s.environ.Bootstrap(nil, environs.BootstrapParams{
+		ControllerConfig: testing.FakeControllerConfig(),
+	})
 	c.Check(s.innerEnviron.Pop().name, gc.Equals, "Bootstrap")
 }
 
 func (s *environSuite) TestStartInstance(c *gc.C) {
 	configurator := &fakeConfigurator{}
-	s.PatchValue(rackspace.WaitSSH, func(stdErr io.Writer, interrupted <-chan os.Signal, client ssh.Client, checkHostScript string, inst common.Addresser, timeout config.SSHTimeoutOpts) (addr string, err error) {
+	s.PatchValue(rackspace.WaitSSH, func(stdErr io.Writer, interrupted <-chan os.Signal, client ssh.Client, checkHostScript string, inst common.InstanceRefresher, timeout environs.BootstrapDialOpts) (addr string, err error) {
 		addresses, err := inst.Addresses()
 		if err != nil {
 			return "", err
@@ -59,15 +64,15 @@ func (s *environSuite) TestStartInstance(c *gc.C) {
 	config, err := config.New(config.UseDefaults, map[string]interface{}{
 		"name":            "some-name",
 		"type":            "some-type",
+		"uuid":            testing.ModelTag.Id(),
+		"controller-uuid": testing.ControllerTag.Id(),
 		"authorized-keys": "key",
 	})
 	c.Assert(err, gc.IsNil)
 	err = s.environ.SetConfig(config)
 	c.Assert(err, gc.IsNil)
 	_, err = s.environ.StartInstance(environs.StartInstanceParams{
-		InstanceConfig: &instancecfg.InstanceConfig{
-			Config: config,
-		},
+		InstanceConfig: &instancecfg.InstanceConfig{},
 		Tools: tools.List{&tools.Tools{
 			Version: version.Binary{Series: "trusty"},
 		}},
@@ -104,9 +109,23 @@ func (p *fakeEnviron) Open(cfg *config.Config) (environs.Environ, error) {
 	return nil, nil
 }
 
+func (e *fakeEnviron) Create(args environs.CreateParams) error {
+	e.Push("Create", args)
+	return nil
+}
+
+func (e *fakeEnviron) PrepareForBootstrap(ctx environs.BootstrapContext) error {
+	e.Push("PrepareForBootstrap", ctx)
+	return nil
+}
+
 func (e *fakeEnviron) Bootstrap(ctx environs.BootstrapContext, params environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	e.Push("Bootstrap", ctx, params)
 	return nil, nil
+}
+
+func (e *fakeEnviron) BootstrapMessage() string {
+	return ""
 }
 
 func (e *fakeEnviron) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
@@ -135,16 +154,6 @@ func (e *fakeEnviron) Config() *config.Config {
 	return e.config
 }
 
-func (e *fakeEnviron) SupportedArchitectures() ([]string, error) {
-	e.Push("SupportedArchitectures")
-	return nil, nil
-}
-
-func (e *fakeEnviron) SupportsUnitPlacement() error {
-	e.Push("SupportsUnitPlacement")
-	return nil
-}
-
 func (e *fakeEnviron) ConstraintsValidator() (constraints.Validator, error) {
 	e.Push("ConstraintsValidator")
 	return nil, nil
@@ -160,12 +169,17 @@ func (e *fakeEnviron) Instances(ids []instance.Id) ([]instance.Instance, error) 
 	return []instance.Instance{&fakeInstance{}}, nil
 }
 
-func (e *fakeEnviron) StateServerInstances() ([]instance.Id, error) {
-	e.Push("StateServerInstances")
+func (e *fakeEnviron) ControllerInstances(_ string) ([]instance.Id, error) {
+	e.Push("ControllerInstances")
 	return nil, nil
 }
 
 func (e *fakeEnviron) Destroy() error {
+	e.Push("Destroy")
+	return nil
+}
+
+func (e *fakeEnviron) DestroyController(controllerUUID string) error {
 	e.Push("Destroy")
 	return nil
 }
@@ -193,6 +207,16 @@ func (e *fakeEnviron) Provider() environs.EnvironProvider {
 func (e *fakeEnviron) PrecheckInstance(series string, cons constraints.Value, placement string) error {
 	e.Push("PrecheckInstance", series, cons, placement)
 	return nil
+}
+
+func (e *fakeEnviron) StorageProviderTypes() ([]storage.ProviderType, error) {
+	e.Push("StorageProviderTypes")
+	return nil, nil
+}
+
+func (e *fakeEnviron) StorageProvider(t storage.ProviderType) (storage.Provider, error) {
+	e.Push("StorageProvider", t)
+	return nil, errors.NotImplementedf("StorageProvider")
 }
 
 type fakeConfigurator struct {
@@ -258,9 +282,12 @@ func (e *fakeInstance) Id() instance.Id {
 	return instance.Id("")
 }
 
-func (e *fakeInstance) Status() string {
+func (e *fakeInstance) Status() instance.InstanceStatus {
 	e.Push("Status")
-	return ""
+	return instance.InstanceStatus{
+		Status:  status.Provisioning,
+		Message: "a message",
+	}
 }
 
 func (e *fakeInstance) Refresh() error {

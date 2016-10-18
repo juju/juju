@@ -4,53 +4,53 @@
 package storage
 
 import (
-	"fmt"
+	"io"
 
 	"github.com/juju/cmd"
-	"launchpad.net/gnuflag"
+	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
-func newListCommand() cmd.Command {
+// NewListCommand returns a command for listing storage instances.
+func NewListCommand() cmd.Command {
 	cmd := &listCommand{}
 	cmd.newAPIFunc = func() (StorageListAPI, error) {
 		return cmd.NewStorageAPI()
 	}
-	return envcmd.Wrap(cmd)
+	return modelcmd.Wrap(cmd)
 }
 
 const listCommandDoc = `
 List information about storage instances.
-
-options:
--e, --environment (= "")
-   juju environment to operate in
--o, --output (= "")
-   specify an output file
---format (= tabular)
-   specify output format (json|tabular|yaml)
 `
 
 // listCommand returns storage instances.
 type listCommand struct {
 	StorageCommandBase
 	out        cmd.Output
+	ids        []string
+	filesystem bool
+	volume     bool
 	newAPIFunc func() (StorageListAPI, error)
 }
 
 // Init implements Command.Init.
 func (c *listCommand) Init(args []string) (err error) {
-	return cmd.CheckEmpty(args)
+	c.ids = args
+	return nil
 }
 
 // Info implements Command.Info.
 func (c *listCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "list",
-		Purpose: "lists storage",
+		Name:    "storage",
+		Args:    "<machineID> ...",
+		Purpose: "Lists storage details.",
 		Doc:     listCommandDoc,
+		Aliases: []string{"list-storage"},
 	}
 }
 
@@ -62,6 +62,8 @@ func (c *listCommand) SetFlags(f *gnuflag.FlagSet) {
 		"json":    cmd.FormatJson,
 		"tabular": formatListTabular,
 	})
+	f.BoolVar(&c.filesystem, "filesystem", false, "List filesystem storage")
+	f.BoolVar(&c.volume, "volume", false, "List volume storage")
 }
 
 // Run implements Command.Run.
@@ -72,37 +74,20 @@ func (c *listCommand) Run(ctx *cmd.Context) (err error) {
 	}
 	defer api.Close()
 
-	found, err := api.List()
-	if err != nil {
-		return err
-	}
-	// filter out valid output, if any
-	var valid []params.StorageDetails
-	for _, one := range found {
-		if one.Error != nil {
-			fmt.Fprintf(ctx.Stderr, "%v\n", one.Error)
-			continue
-		}
-		if one.Result != nil {
-			valid = append(valid, *one.Result)
-		} else {
-			details := storageDetailsFromLegacy(one.Legacy)
-			valid = append(valid, details)
-		}
-	}
-	if len(valid) == 0 {
-		return nil
-	}
-	details, err := formatStorageDetails(valid)
-	if err != nil {
-		return err
-	}
 	var output interface{}
-	switch c.out.Name() {
-	case "yaml", "json":
-		output = map[string]map[string]StorageInfo{"storage": details}
-	default:
-		output = details
+	if c.filesystem {
+		output, err = c.generateListFilesystemsOutput(ctx, api)
+	} else if c.volume {
+		output, err = c.generateListVolumeOutput(ctx, api)
+	} else {
+		output, err = c.generateListOutput(ctx, api)
+	}
+	if err != nil {
+		return err
+	}
+	if output == nil && c.out.Name() == "tabular" {
+		ctx.Infof("No storage to display.")
+		return nil
 	}
 	return c.out.Write(ctx, output)
 }
@@ -110,5 +95,46 @@ func (c *listCommand) Run(ctx *cmd.Context) (err error) {
 // StorageAPI defines the API methods that the storage commands use.
 type StorageListAPI interface {
 	Close() error
-	List() ([]params.StorageDetailsResult, error)
+	ListStorageDetails() ([]params.StorageDetails, error)
+	ListFilesystems(machines []string) ([]params.FilesystemDetailsListResult, error)
+	ListVolumes(machines []string) ([]params.VolumeDetailsListResult, error)
+}
+
+// generateListOutput returns a map of storage details
+func (c *listCommand) generateListOutput(ctx *cmd.Context, api StorageListAPI) (output interface{}, err error) {
+
+	results, err := api.ListStorageDetails()
+	if err != nil {
+		return nil, err
+	}
+	if len(results) == 0 {
+		return nil, nil
+	}
+	details, err := formatStorageDetails(results)
+	if err != nil {
+		return nil, err
+	}
+	switch c.out.Name() {
+	case "yaml", "json":
+		output = map[string]map[string]StorageInfo{"storage": details}
+	default:
+		output = details
+	}
+	return output, nil
+}
+
+func formatListTabular(writer io.Writer, value interface{}) error {
+	switch value := value.(type) {
+	case map[string]StorageInfo:
+		return formatStorageListTabular(writer, value)
+
+	case map[string]FilesystemInfo:
+		return formatFilesystemListTabular(writer, value)
+
+	case map[string]VolumeInfo:
+		return formatVolumeListTabular(writer, value)
+
+	default:
+		return errors.Errorf("unexpected value of type %T", value)
+	}
 }

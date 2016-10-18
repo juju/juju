@@ -8,7 +8,7 @@ import (
 )
 
 func NewProvider(innerProvider environs.EnvironProvider) environs.EnvironProvider {
-	return environProvider{innerProvider}
+	return &environProvider{innerProvider}
 }
 
 func NewEnviron(innerEnviron environs.Environ) environs.Environ {

@@ -9,6 +9,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
@@ -16,9 +17,9 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
+	"github.com/juju/juju/watcher/watchertest"
 )
 
 type unitUpgraderSuite struct {
@@ -37,7 +38,7 @@ type unitUpgraderSuite struct {
 var _ = gc.Suite(&unitUpgraderSuite{})
 
 var current = version.Binary{
-	Number: version.Current,
+	Number: jujuversion.Current,
 	Arch:   arch.HostArch(),
 	Series: series.HostSeries(),
 }
@@ -57,7 +58,7 @@ func (s *unitUpgraderSuite) SetUpTest(c *gc.C) {
 	c.Assert(s.st, gc.NotNil)
 }
 
-func (s *unitUpgraderSuite) addMachineServiceCharmAndUnit(c *gc.C, serviceName string) (*state.Machine, *state.Service, *state.Charm, *state.Unit) {
+func (s *unitUpgraderSuite) addMachineServiceCharmAndUnit(c *gc.C, serviceName string) (*state.Machine, *state.Application, *state.Charm, *state.Unit) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	charm := s.AddTestingCharm(c, serviceName)
@@ -113,8 +114,10 @@ func (s *unitUpgraderSuite) TestTools(c *gc.C) {
 	s.rawMachine.SetAgentVersion(current)
 	// UnitUpgrader.Tools returns the *desired* set of tools, not the currently
 	// running set. We want to be upgraded to cur.Version
-	stateTools, err := s.st.Tools(s.rawUnit.Tag().String())
+	stateToolsList, err := s.st.Tools(s.rawUnit.Tag().String())
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(stateToolsList, gc.HasLen, 1)
+	stateTools := stateToolsList[0]
 	c.Check(stateTools.Version.Number, gc.DeepEquals, current.Number)
 	c.Assert(stateTools.URL, gc.NotNil)
 }
@@ -122,21 +125,21 @@ func (s *unitUpgraderSuite) TestTools(c *gc.C) {
 func (s *unitUpgraderSuite) TestWatchAPIVersion(c *gc.C) {
 	w, err := s.st.WatchAPIVersion(s.rawUnit.Tag().String())
 	c.Assert(err, jc.ErrorIsNil)
-	defer statetesting.AssertStop(c, w)
-	wc := statetesting.NewNotifyWatcherC(c, s.BackingState, w)
+	wc := watchertest.NewNotifyWatcherC(c, w, s.BackingState.StartSync)
+	defer wc.AssertStops()
+
 	// Initial event
 	wc.AssertOneChange()
 	vers := version.MustParseBinary("10.20.34-quantal-amd64")
 	err = s.rawMachine.SetAgentVersion(vers)
 	c.Assert(err, jc.ErrorIsNil)
+
 	// One change noticing the new version
 	wc.AssertOneChange()
 	vers = version.MustParseBinary("10.20.35-quantal-amd64")
 	err = s.rawMachine.SetAgentVersion(vers)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
-	statetesting.AssertStop(c, w)
-	wc.AssertClosed()
 }
 
 func (s *unitUpgraderSuite) TestWatchAPIVersionWrongUnit(c *gc.C) {

@@ -5,7 +5,6 @@ package charm
 
 import (
 	"errors"
-	"net/url"
 
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
@@ -15,9 +14,9 @@ import (
 
 var logger = loggo.GetLogger("juju.worker.uniter.charm")
 
-// charmURLPath is the path within a charm directory to which Deployers
+// CharmURLPath is the path within a charm directory to which Deployers
 // commonly write the charm URL of the latest deployed charm.
-const charmURLPath = ".juju-charm"
+const CharmURLPath = ".juju-charm"
 
 // Bundle allows access to a charm's files.
 type Bundle interface {
@@ -38,10 +37,6 @@ type BundleInfo interface {
 
 	// URL returns the charm URL identifying the bundle.
 	URL() *charm.URL
-
-	// ArchiveURLs returns the location(s) of the bundle data. ArchiveURLs
-	// may return multiple URLs; each should be tried until one succeeds.
-	ArchiveURLs() ([]*url.URL, error)
 
 	// ArchiveSha256 returns the hex-encoded SHA-256 digest of the bundle data.
 	ArchiveSha256() (string, error)
@@ -71,14 +66,6 @@ type Deployer interface {
 	// can be resolved by user intervention will be signalled by returning
 	// ErrConflict.
 	Deploy() error
-
-	// NotifyRevert must be called when a conflicted deploy is abandoned, in
-	// preparation for a new upgrade.
-	NotifyRevert() error
-
-	// NotifyResolved must be called when the cause of a deploy conflict has
-	// been resolved, and a new deploy attempt will be made.
-	NotifyResolved() error
 }
 
 // ErrConflict indicates that an upgrade failed and cannot be resolved

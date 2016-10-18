@@ -4,25 +4,27 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"strings"
 
 	"github.com/juju/cmd"
-	"github.com/juju/utils"
+	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 	"github.com/juju/utils/arch"
-	"launchpad.net/gnuflag"
+	"github.com/juju/version"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/cmd/output"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/tools"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 func newValidateToolsMetadataCommand() cmd.Command {
-	return envcmd.Wrap(&validateToolsMetadataCommand{})
+	return modelcmd.Wrap(&validateToolsMetadataCommand{})
 }
 
 // validateToolsMetadataCommand
@@ -48,35 +50,35 @@ specified cloud. If version is specified, tools matching the exact specified
 version are found. It is also possible to just specify the major (and optionally
 minor) version numbers to search for.
 
-The cloud specification comes from the current Juju environment, as specified in
-the usual way from either ~/.juju/environments.yaml, the -e option, or JUJU_ENV.
-Series, Region, and Endpoint are the key attributes.
+The cloud specification comes from the current Juju model, as specified in
+the usual way from either the -m option, or JUJU_MODEL. Series, Region, and
+Endpoint are the key attributes.
 
 It is possible to specify a local directory containing tools metadata, in which
 case cloud attributes like provider type, region etc are optional.
 
-The key environment attributes may be overridden using command arguments, so
+The key model attributes may be overridden using command arguments, so
 that the validation may be peformed on arbitary metadata.
 
 Examples:
 
- - validate using the current environment settings but with series raring
+ - validate using the current model settings but with series raring
   
   juju metadata validate-tools -s raring
 
- - validate using the current environment settings but with Juju version 1.11.4
+ - validate using the current model settings but with Juju version 1.11.4
   
   juju metadata validate-tools -j 1.11.4
 
- - validate using the current environment settings but with Juju major version 2
+ - validate using the current model settings but with Juju major version 2
   
   juju metadata validate-tools -m 2
 
- - validate using the current environment settings but with Juju major.minor version 2.1
+ - validate using the current model settings but with Juju major.minor version 2.1
  
   juju metadata validate-tools -m 2.1
 
- - validate using the current environment settings and list all tools found for any series
+ - validate using the current model settings and list all tools found for any series
  
   juju metadata validate-tools --series=
 
@@ -112,7 +114,7 @@ func (c *validateToolsMetadataCommand) Info() *cmd.Info {
 }
 
 func (c *validateToolsMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
+	c.out.AddFlags(f, "yaml", output.DefaultFormatters)
 	f.StringVar(&c.providerType, "p", "", "the provider type eg ec2, openstack")
 	f.StringVar(&c.metadataDir, "d", "", "directory where metadata files are found")
 	f.StringVar(&c.series, "s", "", "the series for which to validate (overrides env config series)")
@@ -121,7 +123,6 @@ func (c *validateToolsMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.endpoint, "u", "", "the cloud endpoint URL for which to validate (overrides env config endpoint)")
 	f.StringVar(&c.exactVersion, "j", "current", "the Juju version (use 'current' for current version)")
 	f.StringVar(&c.exactVersion, "juju-version", "", "")
-	f.StringVar(&c.partVersion, "m", "", "the Juju major[.minor] version")
 	f.StringVar(&c.partVersion, "majorminor-version", "", "")
 	f.StringVar(&c.stream, "stream", tools.ReleasedStream, "simplestreams stream for which to generate the metadata")
 }
@@ -129,14 +130,14 @@ func (c *validateToolsMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 func (c *validateToolsMetadataCommand) Init(args []string) error {
 	if c.providerType != "" {
 		if c.region == "" {
-			return fmt.Errorf("region required if provider type is specified")
+			return errors.Errorf("region required if provider type is specified")
 		}
 		if c.metadataDir == "" {
-			return fmt.Errorf("metadata directory required if provider type is specified")
+			return errors.Errorf("metadata directory required if provider type is specified")
 		}
 	}
 	if c.exactVersion == "current" {
-		c.exactVersion = version.Current.String()
+		c.exactVersion = jujuversion.Current.String()
 	}
 	if c.partVersion != "" {
 		var err error
@@ -151,15 +152,11 @@ func (c *validateToolsMetadataCommand) Run(context *cmd.Context) error {
 	var params *simplestreams.MetadataLookupParams
 
 	if c.providerType == "" {
-		store, err := configstore.Default()
-		if err != nil {
-			return err
-		}
-		environ, err := c.prepare(context, store)
+		environ, err := c.prepare(context)
 		if err == nil {
 			mdLookup, ok := environ.(simplestreams.MetadataValidator)
 			if !ok {
-				return fmt.Errorf("%s provider does not support tools metadata validation", environ.Config().Type())
+				return errors.Errorf("%s provider does not support tools metadata validation", environ.Config().Type())
 			}
 			params, err = mdLookup.MetadataLookupParams(c.region)
 			if err != nil {
@@ -173,9 +170,7 @@ func (c *validateToolsMetadataCommand) Run(context *cmd.Context) error {
 			if c.metadataDir == "" {
 				return err
 			}
-			params = &simplestreams.MetadataLookupParams{
-				Architectures: arch.AllSupportedArches,
-			}
+			params = &simplestreams.MetadataLookupParams{}
 		}
 	} else {
 		prov, err := environs.Provider(c.providerType)
@@ -184,12 +179,16 @@ func (c *validateToolsMetadataCommand) Run(context *cmd.Context) error {
 		}
 		mdLookup, ok := prov.(simplestreams.MetadataValidator)
 		if !ok {
-			return fmt.Errorf("%s provider does not support tools metadata validation", c.providerType)
+			return errors.Errorf("%s provider does not support tools metadata validation", c.providerType)
 		}
 		params, err = mdLookup.MetadataLookupParams(c.region)
 		if err != nil {
 			return err
 		}
+	}
+
+	if len(params.Architectures) == 0 {
+		params.Architectures = arch.AllSupportedArches
 	}
 
 	if c.series != "" {
@@ -209,9 +208,7 @@ func (c *validateToolsMetadataCommand) Run(context *cmd.Context) error {
 		if err != nil {
 			return err
 		}
-		params.Sources = []simplestreams.DataSource{simplestreams.NewURLDataSource(
-			"local metadata directory", toolsURL, utils.VerifySSLHostnames),
-		}
+		params.Sources = toolsDataSources(toolsURL)
 	}
 	params.Stream = c.stream
 
@@ -226,8 +223,9 @@ func (c *validateToolsMetadataCommand) Run(context *cmd.Context) error {
 			metadata := map[string]interface{}{
 				"Resolve Metadata": *resolveInfo,
 			}
-			if metadataYaml, yamlErr := cmd.FormatYaml(metadata); yamlErr == nil {
-				err = fmt.Errorf("%v\n%v", err, string(metadataYaml))
+			buff := &bytes.Buffer{}
+			if yamlErr := cmd.FormatYaml(buff, metadata); yamlErr == nil {
+				err = errors.Errorf("%v\n%v", err, buff.String())
 			}
 		}
 		return err
@@ -247,7 +245,7 @@ func (c *validateToolsMetadataCommand) Run(context *cmd.Context) error {
 				sources = append(sources, fmt.Sprintf("- %s (%s)", s.Description(), url))
 			}
 		}
-		return fmt.Errorf("no matching tools using sources:\n%s", strings.Join(sources, "\n"))
+		return errors.Errorf("no matching tools using sources:\n%s", strings.Join(sources, "\n"))
 	}
 	return nil
 }

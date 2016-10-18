@@ -1,5 +1,8 @@
 #!/usr/bin/python
 
+# Copyright 2014 Canonical Ltd.
+# Licensed under the AGPLv3, see LICENCE file for details.
+
 """
 This quick-and-dirty tool locates Go doc comments in a source tree
 that don't follow the convention of the first word of the comment

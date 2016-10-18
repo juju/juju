@@ -14,11 +14,12 @@ import (
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/symlink"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/juju/names"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
@@ -31,7 +32,7 @@ var _ = gc.Suite(&ToolsSuite{})
 func (s *ToolsSuite) SetUpTest(c *gc.C) {
 	s.dataDir = c.MkDir()
 	s.toolsDir = tools.SharedToolsDir(s.dataDir, version.Binary{
-		Number: version.Current,
+		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
 		Series: series.HostSeries(),
 	})

@@ -11,17 +11,19 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
 	apimachiner "github.com/juju/juju/api/machiner"
+	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/machiner"
@@ -53,6 +55,9 @@ func (s *MachinerSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(machiner.InterfaceAddrs, func() ([]net.Addr, error) {
 		return s.addresses, nil
 	})
+	s.PatchValue(machiner.GetObservedNetworkConfig, func(_ networkingcommon.NetworkConfigSource) ([]params.NetworkConfig, error) {
+		return nil, nil
+	})
 }
 
 func (s *MachinerSuite) TestMachinerConfigValidate(c *gc.C) {
@@ -62,6 +67,7 @@ func (s *MachinerSuite) TestMachinerConfigValidate(c *gc.C) {
 		MachineAccessor: &mockMachineAccessor{},
 	})
 	c.Assert(err, gc.ErrorMatches, "validating config: unspecified Tag not valid")
+
 	w, err := machiner.NewMachiner(machiner.Config{
 		MachineAccessor: &mockMachineAccessor{},
 		Tag:             names.NewMachineTag("123"),
@@ -77,18 +83,18 @@ func (s *MachinerSuite) TestMachinerConfigValidate(c *gc.C) {
 func (s *MachinerSuite) TestMachinerMachineNotFound(c *gc.C) {
 	// Accessing the machine initially yields "not found or unauthorized".
 	// We don't know which, so we don't report that the machine is dead.
-	var machineDead machineDeathTracker
-	w, err := machiner.NewMachiner(machiner.Config{
-		s.accessor, s.machineTag, false,
-		machineDead.machineDead,
-	})
-	c.Assert(err, jc.ErrorIsNil)
 	s.accessor.machine.SetErrors(
 		nil, // SetMachineAddresses
 		nil, // SetStatus
 		nil, // Watch
 		&params.Error{Code: params.CodeNotFound}, // Refresh
 	)
+	var machineDead machineDeathTracker
+	w, err := machiner.NewMachiner(machiner.Config{
+		s.accessor, s.machineTag, false,
+		machineDead.machineDead,
+	})
+	c.Assert(err, jc.ErrorIsNil)
 	s.accessor.machine.watcher.changes <- struct{}{}
 	err = stopWorker(w)
 	c.Assert(errors.Cause(err), gc.Equals, worker.ErrTerminateAgent)
@@ -96,11 +102,6 @@ func (s *MachinerSuite) TestMachinerMachineNotFound(c *gc.C) {
 }
 
 func (s *MachinerSuite) TestMachinerSetStatusStopped(c *gc.C) {
-	w, err := machiner.NewMachiner(machiner.Config{
-		MachineAccessor: s.accessor,
-		Tag:             s.machineTag,
-	})
-	c.Assert(err, jc.ErrorIsNil)
 	s.accessor.machine.life = params.Dying
 	s.accessor.machine.SetErrors(
 		nil, // SetMachineAddresses
@@ -109,6 +110,11 @@ func (s *MachinerSuite) TestMachinerSetStatusStopped(c *gc.C) {
 		nil, // Refresh
 		errors.New("cannot set status"), // SetStatus (stopped)
 	)
+	w, err := machiner.NewMachiner(machiner.Config{
+		MachineAccessor: s.accessor,
+		Tag:             s.machineTag,
+	})
+	c.Assert(err, jc.ErrorIsNil)
 	s.accessor.machine.watcher.changes <- struct{}{}
 	err = stopWorker(w)
 	c.Assert(
@@ -125,18 +131,13 @@ func (s *MachinerSuite) TestMachinerSetStatusStopped(c *gc.C) {
 	)
 	s.accessor.machine.CheckCall(
 		c, 5, "SetStatus",
-		params.StatusStopped,
+		status.Stopped,
 		"",
 		map[string]interface{}(nil),
 	)
 }
 
 func (s *MachinerSuite) TestMachinerMachineEnsureDeadError(c *gc.C) {
-	w, err := machiner.NewMachiner(machiner.Config{
-		MachineAccessor: s.accessor,
-		Tag:             s.machineTag,
-	})
-	c.Assert(err, jc.ErrorIsNil)
 	s.accessor.machine.life = params.Dying
 	s.accessor.machine.SetErrors(
 		nil, // SetMachineAddresses
@@ -146,6 +147,11 @@ func (s *MachinerSuite) TestMachinerMachineEnsureDeadError(c *gc.C) {
 		nil, // SetStatus
 		errors.New("cannot ensure machine is dead"), // EnsureDead
 	)
+	w, err := machiner.NewMachiner(machiner.Config{
+		MachineAccessor: s.accessor,
+		Tag:             s.machineTag,
+	})
+	c.Assert(err, jc.ErrorIsNil)
 	s.accessor.machine.watcher.changes <- struct{}{}
 	err = stopWorker(w)
 	c.Check(
@@ -155,11 +161,6 @@ func (s *MachinerSuite) TestMachinerMachineEnsureDeadError(c *gc.C) {
 }
 
 func (s *MachinerSuite) TestMachinerMachineAssignedUnits(c *gc.C) {
-	w, err := machiner.NewMachiner(machiner.Config{
-		MachineAccessor: s.accessor,
-		Tag:             s.machineTag,
-	})
-	c.Assert(err, jc.ErrorIsNil)
 	s.accessor.machine.life = params.Dying
 	s.accessor.machine.SetErrors(
 		nil, // SetMachineAddresses
@@ -169,6 +170,11 @@ func (s *MachinerSuite) TestMachinerMachineAssignedUnits(c *gc.C) {
 		nil, // SetStatus
 		&params.Error{Code: params.CodeHasAssignedUnits}, // EnsureDead
 	)
+	w, err := machiner.NewMachiner(machiner.Config{
+		MachineAccessor: s.accessor,
+		Tag:             s.machineTag,
+	})
+	c.Assert(err, jc.ErrorIsNil)
 	s.accessor.machine.watcher.changes <- struct{}{}
 	err = stopWorker(w)
 
@@ -215,10 +221,6 @@ func (s *MachinerSuite) TestMachinerStorageAttached(c *gc.C) {
 		Args:     []interface{}{s.machineTag},
 	}})
 
-	s.accessor.machine.watcher.CheckCalls(c, []gitjujutesting.StubCall{
-		{FuncName: "Changes"}, {FuncName: "Changes"}, {FuncName: "Stop"},
-	})
-
 	s.accessor.machine.CheckCalls(c, []gitjujutesting.StubCall{{
 		FuncName: "SetMachineAddresses",
 		Args: []interface{}{
@@ -230,7 +232,7 @@ func (s *MachinerSuite) TestMachinerStorageAttached(c *gc.C) {
 	}, {
 		FuncName: "SetStatus",
 		Args: []interface{}{
-			params.StatusStarted,
+			status.Started,
 			"",
 			map[string]interface{}(nil),
 		},
@@ -243,7 +245,7 @@ func (s *MachinerSuite) TestMachinerStorageAttached(c *gc.C) {
 	}, {
 		FuncName: "SetStatus",
 		Args: []interface{}{
-			params.StatusStopped,
+			status.Stopped,
 			"",
 			map[string]interface{}(nil),
 		},
@@ -265,6 +267,8 @@ type MachinerStateSuite struct {
 	machinerState *apimachiner.State
 	machine       *state.Machine
 	apiMachine    *apimachiner.Machine
+
+	getObservedNetworkConfigError error
 }
 
 var _ = gc.Suite(&MachinerStateSuite{})
@@ -274,7 +278,7 @@ func (s *MachinerStateSuite) SetUpTest(c *gc.C) {
 	s.st, s.machine = s.OpenAPIAsNewMachine(c)
 
 	// Create the machiner API facade.
-	s.machinerState = s.st.Machiner()
+	s.machinerState = apimachiner.NewState(s.st)
 	c.Assert(s.machinerState, gc.NotNil)
 
 	// Get the machine through the facade.
@@ -290,10 +294,13 @@ func (s *MachinerStateSuite) SetUpTest(c *gc.C) {
 		return nil, nil
 	})
 	s.PatchValue(&network.LXCNetDefaultConfig, "")
-
+	s.getObservedNetworkConfigError = nil
+	s.PatchValue(machiner.GetObservedNetworkConfig, func(_ networkingcommon.NetworkConfigSource) ([]params.NetworkConfig, error) {
+		return nil, s.getObservedNetworkConfigError
+	})
 }
 
-func (s *MachinerStateSuite) waitMachineStatus(c *gc.C, m *state.Machine, expectStatus state.Status) {
+func (s *MachinerStateSuite) waitMachineStatus(c *gc.C, m *state.Machine, expectStatus status.Status) {
 	timeout := time.After(worstCase)
 	for {
 		select {
@@ -310,8 +317,6 @@ func (s *MachinerStateSuite) waitMachineStatus(c *gc.C, m *state.Machine, expect
 		}
 	}
 }
-
-var _ worker.NotifyWatchHandler = (*machiner.Machiner)(nil)
 
 func (s *MachinerStateSuite) TestNotFoundOrUnauthorized(c *gc.C) {
 	mr, err := machiner.NewMachiner(machiner.Config{
@@ -366,20 +371,20 @@ func (s *MachinerStateSuite) TestRunStop(c *gc.C) {
 func (s *MachinerStateSuite) TestStartSetsStatus(c *gc.C) {
 	statusInfo, err := s.machine.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Status, gc.Equals, state.StatusPending)
+	c.Assert(statusInfo.Status, gc.Equals, status.Pending)
 	c.Assert(statusInfo.Message, gc.Equals, "")
 
 	mr := s.makeMachiner(c, false, nil)
 	defer worker.Stop(mr)
 
-	s.waitMachineStatus(c, s.machine, state.StatusStarted)
+	s.waitMachineStatus(c, s.machine, status.Started)
 }
 
 func (s *MachinerStateSuite) TestSetsStatusWhenDying(c *gc.C) {
 	mr := s.makeMachiner(c, false, nil)
 	defer worker.Stop(mr)
 	c.Assert(s.machine.Destroy(), jc.ErrorIsNil)
-	s.waitMachineStatus(c, s.machine, state.StatusStopped)
+	s.waitMachineStatus(c, s.machine, status.Stopped)
 }
 
 func (s *MachinerStateSuite) TestSetDead(c *gc.C) {
@@ -426,7 +431,19 @@ func (s *MachinerStateSuite) TestSetDeadWithDyingUnit(c *gc.C) {
 	s.State.StartSync()
 	c.Assert(mr.Wait(), gc.Equals, worker.ErrTerminateAgent)
 	c.Assert(bool(machineDead), jc.IsTrue)
+}
 
+func (s *MachinerStateSuite) TestAliveErrorGetObservedNetworkConfig(c *gc.C) {
+	s.getObservedNetworkConfigError = errors.New("no config!")
+	var machineDead machineDeathTracker
+	mr := s.makeMachiner(c, false, machineDead.machineDead)
+	defer worker.Stop(mr)
+	s.State.StartSync()
+
+	c.Assert(mr.Wait(), gc.ErrorMatches, "cannot discover observed network config: no config!")
+	c.Assert(s.machine.Refresh(), jc.ErrorIsNil)
+	c.Assert(s.machine.Life(), gc.Equals, state.Alive)
+	c.Assert(bool(machineDead), jc.IsFalse)
 }
 
 func (s *MachinerStateSuite) setupSetMachineAddresses(c *gc.C, ignore bool) {
@@ -455,11 +472,21 @@ LXC_BRIDGE="ignored"`[1:])
 		return addrs, nil
 	})
 	s.PatchValue(&network.InterfaceByNameAddrs, func(name string) ([]net.Addr, error) {
-		c.Assert(name, gc.Equals, "foobar")
-		return []net.Addr{
-			&net.IPAddr{IP: net.IPv4(10, 0, 3, 1)},
-			&net.IPAddr{IP: net.IPv4(10, 0, 3, 4)},
-		}, nil
+		if name == "foobar" {
+			// The addresses on the LXC bridge
+			return []net.Addr{
+				&net.IPAddr{IP: net.IPv4(10, 0, 3, 1)},
+				&net.IPAddr{IP: net.IPv4(10, 0, 3, 4)},
+			}, nil
+		} else if name == network.DefaultLXDBridge {
+			// The addresses on the LXD bridge
+			return []net.Addr{
+				&net.IPAddr{IP: net.IPv4(10, 0, 4, 1)},
+				&net.IPAddr{IP: net.IPv4(10, 0, 4, 4)},
+			}, nil
+		}
+		c.Fatalf("unknown bridge in testing: %v", name)
+		return nil, nil
 	})
 	s.PatchValue(&network.LXCNetDefaultConfig, lxcFakeNetConfig)
 
@@ -473,7 +500,7 @@ LXC_BRIDGE="ignored"`[1:])
 
 func (s *MachinerStateSuite) TestMachineAddresses(c *gc.C) {
 	s.setupSetMachineAddresses(c, false)
-	c.Assert(s.machine.MachineAddresses(), jc.DeepEquals, []network.Address{
+	c.Assert(s.machine.MachineAddresses(), jc.SameContents, []network.Address{
 		network.NewAddress("2001:db8::1"),
 		network.NewScopedAddress("10.0.0.1", network.ScopeCloudLocal),
 		network.NewScopedAddress("::1", network.ScopeMachineLocal),

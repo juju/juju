@@ -32,10 +32,11 @@ func (s *statusHistoryPrunerSuite) TestWorkerCallsPrune(c *gc.C) {
 	}
 	facade := newFakeFacade()
 	conf := statushistorypruner.Config{
-		Facade:           facade,
-		MaxLogsPerEntity: 3,
-		PruneInterval:    coretesting.ShortWait,
-		NewTimer:         fakeTimerFunc,
+		Facade:         facade,
+		MaxHistoryTime: 1 * time.Second,
+		MaxHistoryMB:   3,
+		PruneInterval:  coretesting.ShortWait,
+		NewTimer:       fakeTimerFunc,
 	}
 
 	pruner, err := statushistorypruner.New(conf)
@@ -47,13 +48,13 @@ func (s *statusHistoryPrunerSuite) TestWorkerCallsPrune(c *gc.C) {
 	err = fakeTimer.fire()
 	c.Check(err, jc.ErrorIsNil)
 
-	var passedLogs int
+	var passedMB int
 	select {
-	case passedLogs = <-facade.passedMaxLogs:
+	case passedMB = <-facade.passedMaxHistoryMB:
 	case <-time.After(coretesting.LongWait):
 		c.Fatal("timed out waiting for passed logs to pruner")
 	}
-	c.Assert(passedLogs, gc.Equals, 3)
+	c.Assert(passedMB, gc.Equals, 3)
 
 	// Reset will have been called with the actual PruneInterval
 	var period time.Duration
@@ -76,10 +77,11 @@ func (s *statusHistoryPrunerSuite) TestWorkerWontCallPruneBeforeFiringTimer(c *g
 	}
 	facade := newFakeFacade()
 	conf := statushistorypruner.Config{
-		Facade:           facade,
-		MaxLogsPerEntity: 3,
-		PruneInterval:    coretesting.ShortWait,
-		NewTimer:         fakeTimerFunc,
+		Facade:         facade,
+		MaxHistoryTime: 1 * time.Second,
+		MaxHistoryMB:   3,
+		PruneInterval:  coretesting.ShortWait,
+		NewTimer:       fakeTimerFunc,
 	}
 
 	pruner, err := statushistorypruner.New(conf)
@@ -89,7 +91,7 @@ func (s *statusHistoryPrunerSuite) TestWorkerWontCallPruneBeforeFiringTimer(c *g
 	})
 
 	select {
-	case <-facade.passedMaxLogs:
+	case <-facade.passedMaxHistoryMB:
 		c.Fatal("called before firing timer.")
 	case <-time.After(coretesting.LongWait):
 	}
@@ -129,19 +131,21 @@ func newMockTimer(d time.Duration) *mockTimer {
 }
 
 type fakeFacade struct {
-	passedMaxLogs chan int
+	passedMaxHistoryMB chan int
 }
 
 func newFakeFacade() *fakeFacade {
 	return &fakeFacade{
-		passedMaxLogs: make(chan int, 1),
+		passedMaxHistoryMB: make(chan int, 1),
 	}
 }
 
 // Prune implements Facade
-func (f *fakeFacade) Prune(maxLogs int) error {
+func (f *fakeFacade) Prune(_ time.Duration, maxHistoryMB int) error {
+	// TODO(perrito666) either make this send its actual args, or just use
+	// a stub and drop the unnecessary channel malarkey entirely
 	select {
-	case f.passedMaxLogs <- maxLogs:
+	case f.passedMaxHistoryMB <- maxHistoryMB:
 	case <-time.After(coretesting.LongWait):
 		return errors.New("timed out waiting for facade call Prune to run")
 	}

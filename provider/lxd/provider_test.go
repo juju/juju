@@ -6,15 +6,35 @@
 package lxd_test
 
 import (
-	"strings"
+	"fmt"
 
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
-	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/provider/lxd"
+	"github.com/juju/juju/provider/lxd/lxdnames"
+	"github.com/juju/juju/tools/lxdclient"
 )
+
+// This is a quick hack to make wily pass with it's default, but unsupported,
+// version of LXD. Wily is supported until 2016-7-??. AFAIU LXD will not be
+// backported to wily... so we have this:|
+// TODO(redir): Remove after wiley or in yakkety.
+func skipIfWily(c *gc.C) {
+	if series.HostSeries() == "wily" {
+		cfg, _ := lxdclient.Config{}.WithDefaults()
+		_, err := lxdclient.Connect(cfg, false)
+		// We try to create a client here. On wily this should fail, because
+		// the default 0.20 lxd version should make juju/tools/lxdclient return
+		// an error.
+		if err != nil {
+			c.Skip(fmt.Sprintf("Skipping LXD tests because %s", err))
+		}
+	}
+}
 
 var (
 	_ = gc.Suite(&providerSuite{})
@@ -35,6 +55,13 @@ func (s *providerSuite) SetUpTest(c *gc.C) {
 	s.provider = provider
 }
 
+func (s *providerSuite) TestDetectRegions(c *gc.C) {
+	c.Assert(s.provider, gc.Implements, new(environs.CloudRegionDetector))
+	regions, err := s.provider.(environs.CloudRegionDetector).DetectRegions()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(regions, jc.DeepEquals, []cloud.Region{{Name: lxdnames.DefaultRegion}})
+}
+
 func (s *providerSuite) TestRegistered(c *gc.C) {
 	c.Check(s.provider, gc.Equals, lxd.Provider)
 }
@@ -45,81 +72,6 @@ func (s *providerSuite) TestValidate(c *gc.C) {
 	validAttrs := validCfg.AllAttrs()
 
 	c.Check(s.Config.AllAttrs(), gc.DeepEquals, validAttrs)
-}
-
-func (s *providerSuite) TestSecretAttrs(c *gc.C) {
-	obtainedAttrs, err := s.provider.SecretAttrs(s.Config)
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(obtainedAttrs, gc.HasLen, 0)
-}
-
-func (s *providerSuite) TestBoilerplateConfig(c *gc.C) {
-	// (wwitzel3) purposefully duplicated here so that this test will
-	// fail if someone updates lxd/config.go without updating this test.
-	var expected = `
-lxd:
-    type: lxd
-
-    # namespace identifies the namespace to associate with containers
-    # created by the provider.  It is prepended to the container names.
-    # By default the environment's name is used as the namespace.
-    #
-    # Setting the namespace is useful when more than one environment
-    # is using the same remote (e.g. the local LXD socket).
-    #
-    # namespace: lxd
-
-    # remote-url is the URL to the LXD API server to use for managing
-    # containers, if any. If not specified then the locally running LXD
-    # server is used.
-    #
-    # Note: Juju does not set up remotes for you. Run the following
-    # commands on an LXD remote's host to install LXD:
-    #
-    #   add-apt-repository ppa:ubuntu-lxc/lxd-stable
-    #   apt-get update
-    #   apt-get install lxd
-    #
-    # Before using a locally running LXD (the default for this provider)
-    # after installing it, either through Juju or the LXD CLI ("lxc"),
-    # you must either log out and back in or run this command:
-    #
-    #   newgrp lxd
-    #
-    # You will also need to prepare the "ubuntu" images that Juju uses:
-    #
-    #   lxc remote add images images.linuxcontainers.org
-    #   lxd-images import ubuntu --alias ubuntu-wily wily
-    #
-    # (Also consider the --stream and --sync options.)
-    #
-    # You will need to prepare an image for each Ubuntu series for which
-    # you want to create instances.  The alias must match the series:
-    #
-    #   lxd-images import ubuntu --alias ubuntu-trusty trusty
-    #   lxd-images import ubuntu --alias ubuntu-wily wily
-    #   lxd-images import ubuntu --alias ubuntu-xenial xenial
-    #
-    # See: https://linuxcontainers.org/lxd/getting-started-cli/
-    #
-    # Note: the LXD provider does not support using any series older
-    # than wily for a controller instance.  However, non-controller
-    # instances may be provisioned on earler series (e.g. trusty).
-    #
-    # remote-url:
-
-    # The cert and key the client should use to connect to the remote
-    # may also be provided. If not then they are auto-generated.
-    #
-    # client-cert:
-    # client-key:
-
-`[1:]
-	boilerplateConfig := s.provider.BoilerplateConfig()
-
-	c.Check(boilerplateConfig, gc.Equals, expected)
-	c.Check(strings.Split(boilerplateConfig, "\n"), jc.DeepEquals, strings.Split(expected, "\n"))
 }
 
 type ProviderFunctionalSuite struct {
@@ -133,6 +85,9 @@ func (s *ProviderFunctionalSuite) SetUpTest(c *gc.C) {
 		c.Skip("LXD not running locally")
 	}
 
+	// TODO(redir): Remove after wily or in yakkety.
+	skipIfWily(c)
+
 	s.BaseSuite.SetUpTest(c)
 
 	provider, err := environs.Provider("lxd")
@@ -142,16 +97,44 @@ func (s *ProviderFunctionalSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ProviderFunctionalSuite) TestOpen(c *gc.C) {
-	env, err := s.provider.Open(s.Config)
+	env, err := s.provider.Open(environs.OpenParams{
+		Cloud:  lxdCloudSpec(),
+		Config: s.Config,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	envConfig := env.Config()
 
 	c.Check(envConfig.Name(), gc.Equals, "testenv")
 }
 
-func (s *ProviderFunctionalSuite) TestPrepareForBootstrap(c *gc.C) {
-	env, err := s.provider.PrepareForBootstrap(envtesting.BootstrapContext(c), s.Config)
+func (s *ProviderFunctionalSuite) TestPrepareConfig(c *gc.C) {
+	cfg, err := s.provider.PrepareConfig(environs.PrepareConfigParams{
+		Cloud:  lxdCloudSpec(),
+		Config: s.Config,
+	})
 	c.Assert(err, jc.ErrorIsNil)
+	c.Check(cfg, gc.NotNil)
+}
 
-	c.Check(env, gc.NotNil)
+func (s *ProviderFunctionalSuite) TestPrepareConfigUnsupportedAuthType(c *gc.C) {
+	cred := cloud.NewCredential(cloud.CertificateAuthType, nil)
+	_, err := s.provider.PrepareConfig(environs.PrepareConfigParams{
+		Cloud: environs.CloudSpec{
+			Type:       "lxd",
+			Name:       "remotehost",
+			Credential: &cred,
+		},
+	})
+	c.Assert(err, gc.ErrorMatches, `validating cloud spec: "certificate" auth-type not supported`)
+}
+
+func (s *ProviderFunctionalSuite) TestPrepareConfigNonEmptyEndpoint(c *gc.C) {
+	_, err := s.provider.PrepareConfig(environs.PrepareConfigParams{
+		Cloud: environs.CloudSpec{
+			Type:     "lxd",
+			Name:     "remotehost",
+			Endpoint: "1.2.3.4",
+		},
+	})
+	c.Assert(err, gc.ErrorMatches, `validating cloud spec: non-empty endpoint "1.2.3.4" not valid`)
 }

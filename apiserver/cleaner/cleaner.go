@@ -7,33 +7,30 @@
 package cleaner
 
 import (
-	"github.com/juju/loggo"
-
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 )
 
 func init() {
-	common.RegisterStandardFacade("Cleaner", 1, NewCleanerAPI)
+	common.RegisterStandardFacade("Cleaner", 2, NewCleanerAPI)
 }
-
-var logger = loggo.GetLogger("juju.apiserver.cleaner")
 
 // CleanerAPI implements the API used by the cleaner worker.
 type CleanerAPI struct {
 	st        StateInterface
-	resources *common.Resources
+	resources facade.Resources
 }
 
 // NewCleanerAPI creates a new instance of the Cleaner API.
 func NewCleanerAPI(
 	st *state.State,
-	res *common.Resources,
-	authorizer common.Authorizer,
+	res facade.Resources,
+	authorizer facade.Authorizer,
 ) (*CleanerAPI, error) {
-	if !authorizer.AuthEnvironManager() {
+	if !authorizer.AuthModelManager() {
 		return nil, common.ErrPerm
 	}
 	return &CleanerAPI{

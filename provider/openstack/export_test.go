@@ -16,24 +16,16 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
 	envstorage "github.com/juju/juju/environs/storage"
+	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
 )
-
-// This provides the content for code accessing test:///... URLs. This allows
-// us to set the responses for things like the Metadata server, by pointing
-// metadata requests at test:///... rather than http://169.254.169.254
-var testRoundTripper = &testing.ProxyRoundTripper{}
-
-func init() {
-	testRoundTripper.RegisterForScheme("test")
-}
 
 var (
 	ShortAttempt   = &shortAttempt
@@ -43,15 +35,20 @@ var (
 
 // MetadataStorage returns a Storage instance which is used to store simplestreams metadata for tests.
 func MetadataStorage(e environs.Environ) envstorage.Storage {
-	ecfg := e.(*Environ).ecfg()
+	env := e.(*Environ)
+	ecfg := env.ecfg()
 	container := "juju-dist-test"
+	client, err := authClient(env.cloud, ecfg)
+	if err != nil {
+		panic(fmt.Errorf("cannot create %s container: %v", container, err))
+	}
 	metadataStorage := &openstackstorage{
 		containerName: container,
-		swift:         swift.New(authClient(ecfg)),
+		swift:         swift.New(client),
 	}
 
 	// Ensure the container exists.
-	err := metadataStorage.makeContainer(container, swift.PublicRead)
+	err = metadataStorage.makeContainer(container, swift.PublicRead)
 	if err != nil {
 		panic(fmt.Errorf("cannot create %s container: %v", container, err))
 	}
@@ -74,24 +71,30 @@ func InstanceFloatingIP(inst instance.Instance) *nova.FloatingIP {
 var (
 	NovaListAvailabilityZones   = &novaListAvailabilityZones
 	AvailabilityZoneAllocations = &availabilityZoneAllocations
+	NewOpenstackStorage         = &newOpenstackStorage
 )
-
-type OpenstackStorage openstackStorage
-
-func NewCinderProvider(s OpenstackStorage) storage.Provider {
-	return &cinderProvider{
-		func(*config.Config) (openstackStorage, error) {
-			return openstackStorage(s), nil
-		},
-	}
-}
 
 func NewCinderVolumeSource(s OpenstackStorage) storage.VolumeSource {
 	const envName = "testenv"
-	envUUID := testing.EnvironmentTag.Id()
-	return &cinderVolumeSource{openstackStorage(s), envName, envUUID}
+	modelUUID := testing.ModelTag.Id()
+	return &cinderVolumeSource{
+		storageAdapter: s,
+		envName:        envName,
+		modelUUID:      modelUUID,
+		namespace:      fakeNamespace{},
+	}
 }
 
+type fakeNamespace struct {
+	instance.Namespace
+}
+
+func (fakeNamespace) Value(s string) string {
+	return "juju-" + s
+}
+
+// Include images for arches currently supported.  i386 is no longer
+// supported, so it can be excluded.
 var indexData = `
 		{
 		 "index": {
@@ -107,8 +110,13 @@ var indexData = `
 		   "datatype": "image-ids",
 		   "format": "products:1.0",
 		   "products": [
+			"com.ubuntu.cloud:server:16.04:s390x",
+			"com.ubuntu.cloud:server:16.04:amd64",
+			"com.ubuntu.cloud:server:16.04:arm64",
+			"com.ubuntu.cloud:server:16.04:ppc64el",
+			"com.ubuntu.cloud:server:14.04:s390x",
 			"com.ubuntu.cloud:server:14.04:amd64",
-			"com.ubuntu.cloud:server:14.04:i386",
+			"com.ubuntu.cloud:server:14.04:arm64",
 			"com.ubuntu.cloud:server:14.04:ppc64el",
 			"com.ubuntu.cloud:server:12.10:amd64",
 			"com.ubuntu.cloud:server:13.04:amd64"
@@ -125,6 +133,81 @@ var imagesData = `
 {
  "content_id": "com.ubuntu.cloud:released:openstack",
  "products": {
+   "com.ubuntu.cloud:server:16.04:amd64": {
+     "release": "trusty",
+     "version": "16.04",
+     "arch": "amd64",
+     "versions": {
+       "20121218": {
+         "items": {
+           "inst1": {
+             "root_store": "ebs",
+             "virt": "pv",
+             "region": "some-region",
+             "id": "1"
+           },
+           "inst2": {
+             "root_store": "ebs",
+             "virt": "pv",
+             "region": "another-region",
+             "id": "2"
+           }
+         },
+         "pubname": "ubuntu-trusty-16.04-amd64-server-20121218",
+         "label": "release"
+       },
+       "20121111": {
+         "items": {
+           "inst3": {
+             "root_store": "ebs",
+             "virt": "pv",
+             "region": "some-region",
+             "id": "3"
+           }
+         },
+         "pubname": "ubuntu-trusty-16.04-amd64-server-20121111",
+         "label": "release"
+       }
+     }
+   },
+   "com.ubuntu.cloud:server:16.04:arm64": {
+     "release": "xenial",
+     "version": "16.04",
+     "arch": "arm64",
+     "versions": {
+       "20121111": {
+         "items": {
+           "inst1604arm64": {
+             "root_store": "ebs",
+             "virt": "pv",
+             "region": "some-region",
+             "id": "id-1604arm64"
+           }
+         },
+         "pubname": "ubuntu-xenial-16.04-arm64-server-20121111",
+         "label": "release"
+       }
+     }
+   },
+   "com.ubuntu.cloud:server:16.04:ppc64el": {
+     "release": "xenial",
+     "version": "16.04",
+     "arch": "ppc64el",
+     "versions": {
+       "20121111": {
+         "items": {
+           "inst1604ppc64el": {
+             "root_store": "ebs",
+             "virt": "pv",
+             "region": "some-region",
+             "id": "id-1604ppc64el"
+           }
+         },
+         "pubname": "ubuntu-xenial-16.04-ppc64el-server-20121111",
+         "label": "release"
+       }
+     }
+   },
    "com.ubuntu.cloud:server:14.04:amd64": {
      "release": "trusty",
      "version": "14.04",
@@ -162,10 +245,10 @@ var imagesData = `
        }
      }
    },
-   "com.ubuntu.cloud:server:14.04:i386": {
+   "com.ubuntu.cloud:server:14.04:arm64": {
      "release": "trusty",
      "version": "14.04",
-     "arch": "i386",
+     "arch": "arm64",
      "versions": {
        "20121111": {
          "items": {
@@ -176,7 +259,7 @@ var imagesData = `
              "id": "33"
            }
          },
-         "pubname": "ubuntu-trusty-14.04-i386-server-20121111",
+         "pubname": "ubuntu-trusty-14.04-arm64-server-20121111",
          "label": "release"
        }
      }
@@ -249,6 +332,56 @@ var imagesData = `
          "label": "release"
        }
      }
+   },
+   "com.ubuntu.cloud:server:14.04:s390x": {
+     "release": "trusty",
+     "version": "14.04",
+     "arch": "s390x",
+     "versions": {
+       "20121218": {
+         "items": {
+           "inst5": {
+             "root_store": "ebs",
+             "virt": "pv",
+             "region": "some-region",
+             "id": "id-y"
+           },
+           "inst6": {
+             "root_store": "ebs",
+             "virt": "pv",
+             "region": "another-region",
+             "id": "id-z"
+           }
+         },
+         "pubname": "ubuntu-trusty-14.04-s390x-server-20121218",
+         "label": "release"
+       }
+     }
+   },
+   "com.ubuntu.cloud:server:16.04:s390x": {
+     "release": "xenial",
+     "version": "16.04",
+     "arch": "s390x",
+     "versions": {
+       "20121218": {
+         "items": {
+           "inst5": {
+             "root_store": "ebs",
+             "virt": "pv",
+             "region": "some-region",
+             "id": "id-y"
+           },
+           "inst6": {
+             "root_store": "ebs",
+             "virt": "pv",
+             "region": "another-region",
+             "id": "id-z"
+           }
+         },
+         "pubname": "ubuntu-xenial-16.04-s390x-server-20121218",
+         "label": "release"
+       }
+     }
    }
  },
  "format": "products:1.0"
@@ -268,11 +401,12 @@ func UseTestImageData(stor envstorage.Storage, cred *identity.Credentials) {
 	stor.Put(simplestreams.UnsignedIndex("v1", 1), bytes.NewReader(data), int64(len(data)))
 	stor.Put(
 		productMetadatafile, strings.NewReader(imagesData), int64(len(imagesData)))
+
+	envtesting.SignTestTools(stor)
 }
 
 func RemoveTestImageData(stor envstorage.Storage) {
-	stor.Remove(simplestreams.UnsignedIndex("v1", 1))
-	stor.Remove(productMetadatafile)
+	stor.RemoveAll()
 }
 
 // DiscardSecurityGroup cleans up a security group, it is not an error to
@@ -294,15 +428,18 @@ func DiscardSecurityGroup(e environs.Environ, name string) error {
 	return nil
 }
 
-func FindInstanceSpec(e environs.Environ, series, arch, cons string) (spec *instances.InstanceSpec, err error) {
+func FindInstanceSpec(
+	e environs.Environ,
+	series, arch, cons string,
+	imageMetadata []*imagemetadata.ImageMetadata,
+) (spec *instances.InstanceSpec, err error) {
 	env := e.(*Environ)
-	spec, err = findInstanceSpec(env, &instances.InstanceConstraint{
+	return findInstanceSpec(env, &instances.InstanceConstraint{
 		Series:      series,
 		Arches:      []string{arch},
-		Region:      env.ecfg().region(),
+		Region:      env.cloud.Region,
 		Constraints: constraints.MustParse(cons),
-	})
-	return
+	}, imageMetadata)
 }
 
 func GetSwiftURL(e environs.Environ) (string, error) {
@@ -364,6 +501,5 @@ var PortsToRuleInfo = portsToRuleInfo
 var RuleMatchesPortRange = ruleMatchesPortRange
 
 var MakeServiceURL = &makeServiceURL
-var ProviderInstance = providerInstance
 
 var GetVolumeEndpointURL = getVolumeEndpointURL

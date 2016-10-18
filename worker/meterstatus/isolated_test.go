@@ -11,7 +11,6 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/clock"
-	"github.com/juju/utils/fslock"
 	gc "gopkg.in/check.v1"
 
 	coretesting "github.com/juju/juju/testing"
@@ -31,9 +30,7 @@ type IsolatedWorkerSuite struct {
 	stub *testing.Stub
 
 	dataDir string
-	lock    *fslock.Lock
-
-	clk *coretesting.Clock
+	clk     *testing.Clock
 
 	hookRan         chan struct{}
 	triggersCreated chan struct{}
@@ -61,7 +58,7 @@ func (s *IsolatedWorkerSuite) SetUpTest(c *gc.C) {
 		return meterstatus.GetTriggers(state, status, disconectedAt, clk, amber, red)
 	}
 
-	s.clk = coretesting.NewClock(time.Now())
+	s.clk = testing.NewClock(time.Now())
 	wrk, err := meterstatus.NewIsolatedStatusWorker(
 		meterstatus.IsolatedConfig{
 			Runner:           &stubRunner{stub: s.stub, ran: s.hookRan},
@@ -94,13 +91,13 @@ func (s *IsolatedWorkerSuite) TestConfigValidation(c *gc.C) {
 		expected: "clock not provided",
 	}, {
 		cfg: meterstatus.IsolatedConfig{
-			Clock:     coretesting.NewClock(time.Now()),
+			Clock:     testing.NewClock(time.Now()),
 			StateFile: meterstatus.NewStateFile(path.Join(s.dataDir, "meter-status.yaml")),
 		},
 		expected: "hook runner not provided",
 	}, {
 		cfg: meterstatus.IsolatedConfig{
-			Clock:  coretesting.NewClock(time.Now()),
+			Clock:  testing.NewClock(time.Now()),
 			Runner: &stubRunner{stub: s.stub},
 		},
 		expected: "state file not provided",

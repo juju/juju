@@ -10,8 +10,8 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/gce/google"
 )
 
@@ -74,9 +74,7 @@ var getInstances = func(env *environ) ([]instance.Instance, error) {
 // will see they are not tracked in state, assume they're stale/rogue,
 // and shut them down.
 func (env *environ) instances() ([]instance.Instance, error) {
-	env = env.getSnapshot()
-
-	prefix := common.MachineFullName(env, "")
+	prefix := env.namespace.Prefix()
 	instances, err := env.gce.Instances(prefix, instStatuses...)
 	err = errors.Trace(err)
 
@@ -94,12 +92,10 @@ func (env *environ) instances() ([]instance.Instance, error) {
 	return results, err
 }
 
-// StateServerInstances returns the IDs of the instances corresponding
-// to juju state servers.
-func (env *environ) StateServerInstances() ([]instance.Id, error) {
-	env = env.getSnapshot()
-
-	prefix := common.MachineFullName(env, "")
+// ControllerInstances returns the IDs of the instances corresponding
+// to juju controllers.
+func (env *environ) ControllerInstances(controllerUUID string) ([]instance.Id, error) {
+	prefix := env.namespace.Prefix()
 	instances, err := env.gce.Instances(prefix, instStatuses...)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -108,8 +104,11 @@ func (env *environ) StateServerInstances() ([]instance.Id, error) {
 	var results []instance.Id
 	for _, inst := range instances {
 		metadata := inst.Metadata()
-		isState, ok := metadata[metadataKeyIsState]
-		if ok && isState == metadataValueTrue {
+		if uuid, ok := metadata[tags.JujuController]; !ok || uuid != controllerUUID {
+			continue
+		}
+		isController, ok := metadata[tags.JujuIsController]
+		if ok && isController == "true" {
 			results = append(results, instance.Id(inst.ID))
 		}
 	}

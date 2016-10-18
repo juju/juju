@@ -4,37 +4,30 @@
 package crossmodel
 
 import (
-	"bytes"
 	"fmt"
+	"io"
 	"sort"
-	"strings"
-	"text/tabwriter"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/cmd/output"
 )
 
-// formatListTabular returns a tabular summary of remote services or
+// formatListTabular returns a tabular summary of remote applications or
 // errors out if parameter is not of expected type.
-func formatListTabular(value interface{}) ([]byte, error) {
-	endpoints, ok := value.(map[string]directoryServices)
+func formatListTabular(writer io.Writer, value interface{}) error {
+	endpoints, ok := value.(map[string]directoryApplications)
 	if !ok {
-		return nil, errors.Errorf("expected value of type %T, got %T", endpoints, value)
+		return errors.Errorf("expected value of type %T, got %T", endpoints, value)
 	}
-	return formatListEndpointsTabular(endpoints)
+	return formatListEndpointsTabular(writer, endpoints)
 }
 
-// formatListEndpointsTabular returns a tabular summary of listed services' endpoints.
-func formatListEndpointsTabular(all map[string]directoryServices) ([]byte, error) {
-	var out bytes.Buffer
-	tw := tabwriter.NewWriter(&out, minwidth, tabwidth, padding, padchar, flags)
-	print := func(values ...string) {
-		fmt.Fprintln(tw, strings.Join(values, "\t"))
-	}
-
-	headers := []string{"SERVICE", "CHARM", "CONNECTED", "STORE", "URL", "ENDPOINT", "INTERFACE", "ROLE"}
+// formatListEndpointsTabular returns a tabular summary of listed applications' endpoints.
+func formatListEndpointsTabular(writer io.Writer, all map[string]directoryApplications) error {
+	tw := output.TabWriter(writer)
+	w := output.Wrapper{tw}
 
 	// Ensure directories are sorted alphabetically.
-	//	directories := sortMapKeys(all)
 	directories := []string{}
 	for name, _ := range all {
 		directories = append(directories, name)
@@ -42,44 +35,43 @@ func formatListEndpointsTabular(all map[string]directoryServices) ([]byte, error
 	sort.Strings(directories)
 
 	for _, directory := range directories {
-		print(directory)
-		print(headers...)
+		w.Println(directory)
+		w.Println("Application", "Charm", "Connected", "Store", "URL", "Endpoint", "Interface", "Role")
 
-		// Sort service names alphabetically.
-		services := all[directory]
-		serviceNames := []string{}
-		for name, _ := range services {
-			serviceNames = append(serviceNames, name)
+		// Sort application names alphabetically.
+		applications := all[directory]
+		applicationNames := []string{}
+		for name, _ := range applications {
+			applicationNames = append(applicationNames, name)
 		}
-		sort.Strings(serviceNames)
+		sort.Strings(applicationNames)
 
-		for _, name := range serviceNames {
-			service := services[name]
+		for _, name := range applicationNames {
+			application := applications[name]
 
 			// Sort endpoints alphabetically.
 			endpoints := []string{}
-			for endpoint, _ := range service.Endpoints {
+			for endpoint, _ := range application.Endpoints {
 				endpoints = append(endpoints, endpoint)
 			}
 			sort.Strings(endpoints)
 
 			for i, endpointName := range endpoints {
 
-				endpoint := service.Endpoints[endpointName]
+				endpoint := application.Endpoints[endpointName]
 				if i == 0 {
-					// As there is some information about service and its endpoints,
-					// only display service information once
+					// As there is some information about application and its endpoints,
+					// only display application information once
 					// when the first endpoint is  displayed.
-					print(name, service.CharmName, fmt.Sprint(service.UsersCount), service.Store, service.Location, endpointName, endpoint.Interface, endpoint.Role)
+					w.Println(name, application.CharmName, fmt.Sprint(application.UsersCount), application.Store, application.Location, endpointName, endpoint.Interface, endpoint.Role)
 					continue
 				}
 				// Subsequent lines only need to display endpoint information.
 				// This will display less noise.
-				print("", "", "", "", "", endpointName, endpoint.Interface, endpoint.Role)
+				w.Println("", "", "", "", "", endpointName, endpoint.Interface, endpoint.Role)
 			}
 		}
 	}
 	tw.Flush()
-
-	return out.Bytes(), nil
+	return nil
 }

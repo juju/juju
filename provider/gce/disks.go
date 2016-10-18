@@ -12,7 +12,6 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
 
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/provider/gce/google"
 	"github.com/juju/juju/storage"
 )
@@ -21,11 +20,22 @@ const (
 	storageProviderType = storage.ProviderType("gce")
 )
 
-func init() {
-	//TODO(perrito666) Add explicit pools.
+// StorageProviderTypes implements storage.ProviderRegistry.
+func (env *environ) StorageProviderTypes() ([]storage.ProviderType, error) {
+	return []storage.ProviderType{storageProviderType}, nil
 }
 
-type storageProvider struct{}
+// StorageProvider implements storage.ProviderRegistry.
+func (env *environ) StorageProvider(t storage.ProviderType) (storage.Provider, error) {
+	if t == storageProviderType {
+		return &storageProvider{env}, nil
+	}
+	return nil, errors.NotFoundf("storage provider %q", t)
+}
+
+type storageProvider struct {
+	env *environ
+}
 
 var _ storage.Provider = (*storageProvider)(nil)
 
@@ -45,32 +55,27 @@ func (g *storageProvider) Dynamic() bool {
 	return true
 }
 
-func (g *storageProvider) FilesystemSource(environConfig *config.Config, providerConfig *storage.Config) (storage.FilesystemSource, error) {
+func (g *storageProvider) DefaultPools() []*storage.Config {
+	// TODO(perrito666) Add explicit pools.
+	return nil
+}
+
+func (g *storageProvider) FilesystemSource(providerConfig *storage.Config) (storage.FilesystemSource, error) {
 	return nil, errors.NotSupportedf("filesystems")
 }
 
 type volumeSource struct {
-	gce     gceConnection
-	envName string // non-unique, informational only
-	envUUID string
+	gce       gceConnection
+	envName   string // non-unique, informational only
+	modelUUID string
 }
 
-func (g *storageProvider) VolumeSource(environConfig *config.Config, cfg *storage.Config) (storage.VolumeSource, error) {
-	uuid, ok := environConfig.UUID()
-	if !ok {
-		return nil, errors.NotFoundf("environment UUID")
-	}
-
-	// Connect and authenticate.
-	env, err := newEnviron(environConfig)
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot create an environ with this config")
-	}
-
+func (g *storageProvider) VolumeSource(cfg *storage.Config) (storage.VolumeSource, error) {
+	environConfig := g.env.Config()
 	source := &volumeSource{
-		gce:     env.gce,
-		envName: environConfig.Name(),
-		envUUID: uuid,
+		gce:       g.env.gce,
+		envName:   environConfig.Name(),
+		modelUUID: environConfig.UUID(),
 	}
 	return source, nil
 }
@@ -169,7 +174,7 @@ func (v *volumeSource) createOneVolume(p storage.VolumeParams, instances instanc
 			return
 		}
 		if err := v.gce.RemoveDisk(zone, volumeName); err != nil {
-			logger.Warningf("error cleaning up volume %v: %v", volumeName, err)
+			logger.Errorf("error cleaning up volume %v: %v", volumeName, err)
 		}
 	}()
 
@@ -199,6 +204,7 @@ func (v *volumeSource) createOneVolume(p storage.VolumeParams, instances instanc
 		SizeHintGB:         mibToGib(p.Size),
 		Name:               volumeName,
 		PersistentDiskType: persistentType,
+		Description:        v.modelUUID,
 	}
 
 	gceDisks, err := v.gce.CreateDisks(zone, []google.DiskSpec{disk})
@@ -263,6 +269,12 @@ func parseVolumeId(volName string) (string, string, error) {
 	return zone, volumeUUID, nil
 
 }
+
+func isValidVolume(volumeName string) bool {
+	_, _, err := parseVolumeId(volumeName)
+	return err == nil
+}
+
 func (v *volumeSource) destroyOneVolume(volName string) error {
 	zone, _, err := parseVolumeId(volName)
 	if err != nil {
@@ -272,7 +284,6 @@ func (v *volumeSource) destroyOneVolume(volName string) error {
 		return errors.Annotatef(err, "cannot destroy volume %q", volName)
 	}
 	return nil
-
 }
 
 func (v *volumeSource) ListVolumes() ([]string, error) {
@@ -289,7 +300,15 @@ func (v *volumeSource) ListVolumes() ([]string, error) {
 			continue
 		}
 		for _, disk := range disks {
-			volumes = append(volumes, disk.Name)
+			// Blank disk description means an older disk or a disk
+			// not created by storage, we should not touch it.
+			if disk.Description != v.modelUUID && disk.Description != "" {
+				continue
+			}
+			// We don't want to lay hands on disks we did not create.
+			if isValidVolume(disk.Name) {
+				volumes = append(volumes, disk.Name)
+			}
 		}
 	}
 	return volumes, nil

@@ -23,11 +23,11 @@ import (
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
+	"github.com/juju/version"
 
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
 	coretools "github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
 )
 
 func init() {
@@ -51,9 +51,6 @@ var currentStreamsVersion = StreamsVersionV1
 var DefaultBaseURL = "https://streams.canonical.com/juju/tools"
 
 const (
-	// Legacy release directory for Juju < 1.21.
-	LegacyReleaseDirectory = "releases"
-
 	// Used to specify the released tools metadata.
 	ReleasedStream = "released"
 
@@ -164,11 +161,10 @@ func (t *ToolsMetadata) productId() (string, error) {
 // then unsigned data is used.
 func Fetch(
 	sources []simplestreams.DataSource, cons *ToolsConstraint,
-	onlySigned bool) ([]*ToolsMetadata, *simplestreams.ResolveInfo, error) {
+) ([]*ToolsMetadata, *simplestreams.ResolveInfo, error) {
 
 	params := simplestreams.GetMetadataParams{
 		StreamsVersion:   currentStreamsVersion,
-		OnlySigned:       onlySigned,
 		LookupConstraint: cons,
 		ValueParams: simplestreams.ValueParams{
 			DataType:        ContentDownload,
@@ -351,13 +347,12 @@ func MergeMetadata(tmlist1, tmlist2 []*ToolsMetadata) ([]*ToolsMetadata, error) 
 
 // ReadMetadata returns the tools metadata from the given storage for the specified stream.
 func ReadMetadata(store storage.StorageReader, stream string) ([]*ToolsMetadata, error) {
-	dataSource := storage.NewStorageSimpleStreamsDataSource("existing metadata", store, storage.BaseToolsPath)
+	dataSource := storage.NewStorageSimpleStreamsDataSource("existing metadata", store, storage.BaseToolsPath, simplestreams.EXISTING_CLOUD_DATA, false)
 	toolsConstraint, err := makeToolsConstraint(simplestreams.CloudSpec{}, stream, -1, -1, coretools.Filter{})
 	if err != nil {
 		return nil, err
 	}
-	metadata, _, err := Fetch(
-		[]simplestreams.DataSource{dataSource}, toolsConstraint, false)
+	metadata, _, err := Fetch([]simplestreams.DataSource{dataSource}, toolsConstraint)
 	if err != nil && !errors.IsNotFound(err) {
 		return nil, err
 	}
@@ -434,6 +429,7 @@ func metadataUnchanged(stor storage.Storage, stream string, generatedMetadata []
 // streamMetadata contains all known metadata so that the correct index files can be written.
 // Only product files for the specified streams are written.
 func WriteMetadata(stor storage.Storage, streamMetadata map[string][]*ToolsMetadata, streams []string, writeMirrors ShouldWriteMirrors) error {
+	// TODO(perrito666) 2016-05-02 lp:1558657
 	updated := time.Now()
 	index, legacyIndex, products, err := MarshalToolsMetadataJSON(streamMetadata, updated)
 	if err != nil {

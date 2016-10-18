@@ -5,23 +5,27 @@ package storage
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/names"
+	"github.com/juju/utils/set"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/juju/common"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/storage"
 )
 
-func newAddCommand() cmd.Command {
+// NewAddCommand returns a command used to add unit storage.
+func NewAddCommand() cmd.Command {
 	cmd := &addCommand{}
 	cmd.newAPIFunc = func() (StorageAddAPI, error) {
 		return cmd.NewStorageAPI()
 	}
-	return envcmd.Wrap(cmd)
+	return modelcmd.Wrap(cmd)
 }
 
 const (
@@ -50,25 +54,25 @@ sequence of: POOL, COUNT, and SIZE, where
     powers of 1024.
 
 Storage constraints can be optionally ommitted.
-Environment default values will be used for all ommitted constraint values.
+Model default values will be used for all ommitted constraint values.
 There is no need to comma-separate ommitted constraints. 
 
-Example:
-    Add 3 ebs storage instances for "data" storage to unit u/0:     
+Examples:
+    # Add 3 ebs storage instances for "data" storage to unit u/0:
 
-      juju storage add u/0 data=ebs,1024,3 
+      juju add-storage u/0 data=ebs,1024,3 
     or
-      juju storage add u/0 data=ebs,3
+      juju add-storage u/0 data=ebs,3
     or
-      juju storage add u/0 data=ebs,,3 
+      juju add-storage u/0 data=ebs,,3 
     
     
-    Add 1 storage instances for "data" storage to unit u/0 
-    using default environment provider pool: 
+    # Add 1 storage instances for "data" storage to unit u/0
+    # using default model provider pool:
 
-      juju storage add u/0 data=1 
+      juju add-storage u/0 data=1 
     or
-      juju storage add u/0 data 
+      juju add-storage u/0 data 
 `
 	addCommandAgs = `
 <unit name> <storage directive> ...
@@ -93,7 +97,7 @@ type addCommand struct {
 // Init implements Command.Init.
 func (c *addCommand) Init(args []string) (err error) {
 	if len(args) < 2 {
-		return errors.New("storage add requires a unit and a storage directive")
+		return errors.New("add-storage requires a unit and a storage directive")
 	}
 
 	u := args[0]
@@ -109,8 +113,8 @@ func (c *addCommand) Init(args []string) (err error) {
 // Info implements Command.Info.
 func (c *addCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "add",
-		Purpose: "adds unit storage dynamically",
+		Name:    "add-storage",
+		Purpose: "Adds unit storage dynamically.",
 		Doc:     addCommandDoc,
 		Args:    addCommandAgs,
 	}
@@ -127,31 +131,51 @@ func (c *addCommand) Run(ctx *cmd.Context) (err error) {
 	storages := c.createStorageAddParams()
 	results, err := api.AddToUnit(storages)
 	if err != nil {
+		if params.IsCodeUnauthorized(err) {
+			common.PermissionsMessage(ctx.Stderr, "add storage")
+		}
 		return err
 	}
-	// If there are any failures, display them first.
-	// Then display all added storage.
-	// If there are no failures, then there is no need to display all successes.
-	var added []string
 
+	var added []string
+	var failures []string
+	// If there was a unit-related error, then all storages will get the same error.
+	// We want to collapse these - no need to repeat the same things ad nauseam.
+	collapsedFailures := set.NewStrings()
 	for i, one := range results {
 		us := storages[i]
 		if one.Error != nil {
-			fmt.Fprintf(ctx.Stderr, fail+": %v\n", us.StorageName, one.Error)
+			failures = append(failures, fmt.Sprintf(fail, us.StorageName, one.Error))
+			collapsedFailures.Add(one.Error.Error())
 			continue
 		}
 		added = append(added, fmt.Sprintf(success, us.StorageName))
 	}
-	if len(added) < len(storages) {
-		fmt.Fprintf(ctx.Stderr, strings.Join(added, "\n"))
+
+	if len(added) > 0 {
+		fmt.Fprintln(ctx.Stdout, strings.Join(added, newline))
+	}
+
+	if len(failures) == len(storages) {
+		// If we managed to collapse, then display these instead of the whole list.
+		if len(collapsedFailures) < len(failures) {
+			for _, one := range collapsedFailures.SortedValues() {
+				fmt.Fprintln(ctx.Stderr, one)
+			}
+			return cmd.ErrSilent
+		}
+	}
+	if len(failures) > 0 {
+		fmt.Fprintln(ctx.Stderr, strings.Join(failures, newline))
+		return cmd.ErrSilent
 	}
 	return nil
 }
 
 var (
-	storageName = "storage %q"
-	success     = "success: " + storageName
-	fail        = "fail: " + storageName
+	newline = "\n"
+	success = "added %q"
+	fail    = "failed to add %q: %v"
 )
 
 // StorageAddAPI defines the API methods that the storage commands use.
@@ -174,5 +198,23 @@ func (c *addCommand) createStorageAddParams() []params.StorageAddParams {
 				},
 			})
 	}
+
+	// For consistency and because we are coming from a map,
+	// ensure that collection is sorted by storage name for deterministic results.
+	sort.Sort(storageParams(all))
 	return all
+}
+
+type storageParams []params.StorageAddParams
+
+func (v storageParams) Len() int {
+	return len(v)
+}
+
+func (v storageParams) Swap(i, j int) {
+	v[i], v[j] = v[j], v[i]
+}
+
+func (v storageParams) Less(i, j int) bool {
+	return v[i].StorageName < v[j].StorageName
 }

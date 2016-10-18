@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"reflect"
 	"runtime"
@@ -18,34 +17,35 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
+	"github.com/juju/mutex"
 	gt "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	ft "github.com/juju/testing/filetesting"
 	"github.com/juju/utils"
 	"github.com/juju/utils/clock"
 	utilexec "github.com/juju/utils/exec"
-	"github.com/juju/utils/fslock"
 	"github.com/juju/utils/proxy"
 	gc "gopkg.in/check.v1"
 	corecharm "gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 	goyaml "gopkg.in/yaml.v2"
 
+	"github.com/juju/juju/api"
 	apiuniter "github.com/juju/juju/api/uniter"
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/leadership"
+	coreleadership "github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/juju/testing"
-	coreleadership "github.com/juju/juju/leadership"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/resource/resourcetesting"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/storage"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/fortress"
-	"github.com/juju/juju/worker/leadership"
 	"github.com/juju/juju/worker/uniter"
-	"github.com/juju/juju/worker/uniter/charm"
 	"github.com/juju/juju/worker/uniter/operation"
 )
 
@@ -84,16 +84,17 @@ type context struct {
 	s                      *UniterSuite
 	st                     *state.State
 	api                    *apiuniter.State
+	apiConn                api.Connection
 	leaderClaimer          coreleadership.Claimer
 	leaderTracker          *mockLeaderTracker
 	charmDirGuard          *mockCharmDirGuard
 	charms                 map[string][]byte
 	hooks                  []string
 	sch                    *state.Charm
-	svc                    *state.Service
+	svc                    *state.Application
 	unit                   *state.Unit
 	uniter                 *uniter.Uniter
-	relatedSvc             *state.Service
+	relatedSvc             *state.Application
 	relation               *state.Relation
 	relationUnits          map[string]*state.RelationUnit
 	subordinate            *state.Unit
@@ -130,7 +131,7 @@ func (ctx *context) setExpectedError(err string) {
 func (ctx *context) run(c *gc.C, steps []stepper) {
 	defer func() {
 		if ctx.uniter != nil {
-			err := ctx.uniter.Stop()
+			err := worker.Stop(ctx.uniter)
 			if ctx.err == "" {
 				c.Assert(err, jc.ErrorIsNil)
 			} else {
@@ -149,12 +150,14 @@ func (ctx *context) apiLogin(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = ctx.unit.SetPassword(password)
 	c.Assert(err, jc.ErrorIsNil)
-	st := ctx.s.OpenAPIAs(c, ctx.unit.Tag(), password)
-	c.Assert(st, gc.NotNil)
+	apiConn := ctx.s.OpenAPIAs(c, ctx.unit.Tag(), password)
+	c.Assert(apiConn, gc.NotNil)
 	c.Logf("API: login as %q successful", ctx.unit.Tag())
-	ctx.api, err = st.Uniter()
+	api, err := apiConn.Uniter()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ctx.api, gc.NotNil)
+	c.Assert(api, gc.NotNil)
+	ctx.api = api
+	ctx.apiConn = apiConn
 	ctx.leaderClaimer = ctx.st.LeadershipClaimer()
 	ctx.leaderTracker = newMockLeaderTracker(ctx)
 	ctx.leaderTracker.setLeader(c, true)
@@ -241,8 +244,8 @@ action-reboot:
 func (ctx *context) matchHooks(c *gc.C) (match bool, overshoot bool) {
 	ctx.mu.Lock()
 	defer ctx.mu.Unlock()
-	c.Logf("ctx.hooksCompleted: %#v", ctx.hooksCompleted)
-	c.Logf("ctx.hooks: %#v", ctx.hooks)
+	c.Logf("  actual hooks: %#v", ctx.hooksCompleted)
+	c.Logf("expected hooks: %#v", ctx.hooks)
 	if len(ctx.hooksCompleted) < len(ctx.hooks) {
 		return false, false
 	}
@@ -277,20 +280,20 @@ type ensureStateWorker struct{}
 func (s ensureStateWorker) step(c *gc.C, ctx *context) {
 	addresses, err := ctx.st.Addresses()
 	if err != nil || len(addresses) == 0 {
-		addStateServerMachine(c, ctx.st)
+		addControllerMachine(c, ctx.st)
 	}
 	addresses, err = ctx.st.APIAddressesFromMachines()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addresses, gc.HasLen, 1)
 }
 
-func addStateServerMachine(c *gc.C, st *state.State) {
-	// The AddStateServerMachine call will update the API host ports
+func addControllerMachine(c *gc.C, st *state.State) {
+	// The AddControllerMachine call will update the API host ports
 	// to made-up addresses. We need valid addresses so that the uniter
 	// can download charms from the API server.
 	apiHostPorts, err := st.APIHostPorts()
 	c.Assert(err, gc.IsNil)
-	testing.AddStateServerMachine(c, st)
+	testing.AddControllerMachine(c, st)
 	err = st.SetAPIHostPorts(apiHostPorts)
 	c.Assert(err, gc.IsNil)
 }
@@ -369,14 +372,21 @@ func (s addCharm) step(c *gc.C, ctx *context) {
 
 	storagePath := fmt.Sprintf("/charms/%s/%d", s.dir.Meta().Name, s.dir.Revision())
 	ctx.charms[storagePath] = body
-	ctx.sch, err = ctx.st.AddCharm(s.dir, s.curl, storagePath, hash)
+	info := state.CharmInfo{
+		Charm:       s.dir,
+		ID:          s.curl,
+		StoragePath: storagePath,
+		SHA256:      hash,
+	}
+
+	ctx.sch, err = ctx.st.AddCharm(info)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 type serveCharm struct{}
 
 func (s serveCharm) step(c *gc.C, ctx *context) {
-	storage := storage.NewStorage(ctx.st.EnvironUUID(), ctx.st.MongoSession())
+	storage := storage.NewStorage(ctx.st.ModelUUID(), ctx.st.MongoSession())
 	for storagePath, data := range ctx.charms {
 		err := storage.Put(storagePath, bytes.NewReader(data), int64(len(data)))
 		c.Assert(err, jc.ErrorIsNil)
@@ -449,6 +459,10 @@ func (waitAddresses) step(c *gc.C, ctx *context) {
 	}
 }
 
+func hookExecutionLockName() string {
+	return "uniter-hook-execution-test"
+}
+
 type startUniter struct {
 	unitTag         string
 	newExecutorFunc uniter.NewExecutorFunc
@@ -468,9 +482,7 @@ func (s startUniter) step(c *gc.C, ctx *context) {
 	if err != nil {
 		panic(err.Error())
 	}
-	locksDir := filepath.Join(ctx.dataDir, "locks")
-	lock, err := fslock.NewLock(locksDir, "uniter-hook-execution", fslock.Defaults())
-	c.Assert(err, jc.ErrorIsNil)
+	downloader := api.NewCharmDownloader(ctx.apiConn.Client())
 	operationExecutor := operation.NewExecutor
 	if s.newExecutorFunc != nil {
 		operationExecutor = s.newExecutorFunc
@@ -482,7 +494,8 @@ func (s startUniter) step(c *gc.C, ctx *context) {
 		LeadershipTracker:    ctx.leaderTracker,
 		CharmDirGuard:        ctx.charmDirGuard,
 		DataDir:              ctx.dataDir,
-		MachineLock:          lock,
+		Downloader:           downloader,
+		MachineLockName:      hookExecutionLockName(),
 		UpdateStatusSignal:   ctx.updateStatusHookTicker.ReturnTimer,
 		NewOperationExecutor: operationExecutor,
 		Observer:             ctx,
@@ -491,7 +504,8 @@ func (s startUniter) step(c *gc.C, ctx *context) {
 		// appropriately.
 		Clock: clock.WallClock,
 	}
-	ctx.uniter = uniter.NewUniter(&uniterParams)
+	ctx.uniter, err = uniter.NewUniter(&uniterParams)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type waitUniterDead struct {
@@ -526,25 +540,21 @@ func (s waitUniterDead) step(c *gc.C, ctx *context) {
 func (s waitUniterDead) waitDead(c *gc.C, ctx *context) error {
 	u := ctx.uniter
 	ctx.uniter = nil
-	timeout := time.After(worstCase)
-	for {
-		// The repeated StartSync is to ensure timely completion of this method
-		// in the case(s) where a state change causes a uniter action which
-		// causes a state change which causes a uniter action, in which case we
-		// need more than one sync. At the moment there's only one situation
-		// that causes this -- setting the unit's service to Dying -- but it's
-		// not an intrinsically insane pattern of action (and helps to simplify
-		// the filter code) so this test seems like a small price to pay.
-		ctx.s.BackingState.StartSync()
-		select {
-		case <-u.Dead():
-			return u.Wait()
-		case <-time.After(coretesting.ShortWait):
-			continue
-		case <-timeout:
-			c.Fatalf("uniter still alive")
-		}
+
+	wait := make(chan error, 1)
+	go func() {
+		wait <- u.Wait()
+	}()
+
+	ctx.s.BackingState.StartSync()
+	select {
+	case err := <-wait:
+		return err
+	case <-time.After(worstCase):
+		u.Kill()
+		c.Fatalf("uniter still alive")
 	}
+	panic("unreachable")
 }
 
 type stopUniter struct {
@@ -558,7 +568,7 @@ func (s stopUniter) step(c *gc.C, ctx *context) {
 		return
 	}
 	ctx.uniter = nil
-	err := u.Stop()
+	err := worker.Stop(u)
 	if s.err == "" {
 		c.Assert(err, jc.ErrorIsNil)
 	} else {
@@ -603,7 +613,7 @@ func (s startupErrorWithCustomCharm) step(c *gc.C, ctx *context) {
 	step(c, ctx, createUniter{})
 	step(c, ctx, waitUnitAgent{
 		statusGetter: unitStatusGetter,
-		status:       params.StatusError,
+		status:       status.Error,
 		info:         fmt.Sprintf(`hook failed: %q`, s.badHook),
 	})
 	for _, hook := range startupHooks(false) {
@@ -626,7 +636,7 @@ func (s startupError) step(c *gc.C, ctx *context) {
 	step(c, ctx, createUniter{})
 	step(c, ctx, waitUnitAgent{
 		statusGetter: unitStatusGetter,
-		status:       params.StatusError,
+		status:       status.Error,
 		info:         fmt.Sprintf(`hook failed: %q`, s.badHook),
 	})
 	for _, hook := range startupHooks(false) {
@@ -639,6 +649,30 @@ func (s startupError) step(c *gc.C, ctx *context) {
 	step(c, ctx, verifyCharm{})
 }
 
+type createDownloads struct{}
+
+func (s createDownloads) step(c *gc.C, ctx *context) {
+	dir := downloadDir(ctx)
+	c.Assert(os.MkdirAll(dir, 0775), jc.ErrorIsNil)
+	c.Assert(
+		ioutil.WriteFile(filepath.Join(dir, "foo"), []byte("bar"), 0775),
+		jc.ErrorIsNil,
+	)
+}
+
+type verifyDownloadsCleared struct{}
+
+func (s verifyDownloadsCleared) step(c *gc.C, ctx *context) {
+	files, err := ioutil.ReadDir(downloadDir(ctx))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(files, gc.HasLen, 0)
+}
+
+func downloadDir(ctx *context) string {
+	paths := uniter.NewPaths(ctx.dataDir, ctx.unit.UnitTag())
+	return filepath.Join(paths.State.BundlesDir, "downloads")
+}
+
 type quickStart struct {
 	minion bool
 }
@@ -647,7 +681,7 @@ func (s quickStart) step(c *gc.C, ctx *context) {
 	step(c, ctx, createCharm{})
 	step(c, ctx, serveCharm{})
 	step(c, ctx, createUniter{minion: s.minion})
-	step(c, ctx, waitUnitAgent{status: params.StatusIdle})
+	step(c, ctx, waitUnitAgent{status: status.Idle})
 	step(c, ctx, waitHooks(startupHooks(s.minion)))
 	step(c, ctx, verifyCharm{})
 }
@@ -670,7 +704,7 @@ func (s startupRelationError) step(c *gc.C, ctx *context) {
 	step(c, ctx, createCharm{badHooks: []string{s.badHook}})
 	step(c, ctx, serveCharm{})
 	step(c, ctx, createUniter{})
-	step(c, ctx, waitUnitAgent{status: params.StatusIdle})
+	step(c, ctx, waitUnitAgent{status: status.Idle})
 	step(c, ctx, waitHooks(startupHooks(false)))
 	step(c, ctx, verifyCharm{})
 	step(c, ctx, addRelation{})
@@ -686,25 +720,25 @@ func (s resolveError) step(c *gc.C, ctx *context) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-type statusfunc func() (state.StatusInfo, error)
+type statusfunc func() (status.StatusInfo, error)
 
 type statusfuncGetter func(ctx *context) statusfunc
 
 var unitStatusGetter = func(ctx *context) statusfunc {
-	return func() (state.StatusInfo, error) {
+	return func() (status.StatusInfo, error) {
 		return ctx.unit.Status()
 	}
 }
 
 var agentStatusGetter = func(ctx *context) statusfunc {
-	return func() (state.StatusInfo, error) {
+	return func() (status.StatusInfo, error) {
 		return ctx.unit.AgentStatus()
 	}
 }
 
 type waitUnitAgent struct {
 	statusGetter func(ctx *context) statusfunc
-	status       params.Status
+	status       status.Status
 	info         string
 	data         map[string]interface{}
 	charm        int
@@ -783,13 +817,13 @@ func (s waitHooks) step(c *gc.C, ctx *context) {
 		c.Fatalf("ran more hooks than expected")
 	}
 	waitExecutionLockReleased := func() {
-		lock := createHookLock(c, ctx.dataDir)
-		if err := lock.LockWithTimeout(worstCase, "waiting for lock"); err != nil {
+		spec := hookLockSpec()
+		spec.Timeout = worstCase
+		releaser, err := mutex.Acquire(spec)
+		if err != nil {
 			c.Fatalf("failed to acquire execution lock: %v", err)
 		}
-		if err := lock.Unlock(); err != nil {
-			c.Fatalf("failed to release execution lock: %v", err)
-		}
+		releaser.Release()
 	}
 	if match {
 		if len(s) > 0 {
@@ -947,7 +981,11 @@ func (s upgradeCharm) step(c *gc.C, ctx *context) {
 	curl := curl(s.revision)
 	sch, err := ctx.st.Charm(curl)
 	c.Assert(err, jc.ErrorIsNil)
-	err = ctx.svc.SetCharm(sch, false, s.forced)
+	cfg := state.SetCharmConfig{
+		Charm:      sch,
+		ForceUnits: s.forced,
+	}
+	err = ctx.svc.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	serveCharm{}.step(c, ctx)
 }
@@ -975,6 +1013,22 @@ func (s verifyCharm) step(c *gc.C, ctx *context) {
 	c.Assert(url, gc.DeepEquals, curl(checkRevision))
 }
 
+type pushResource struct{}
+
+func (s pushResource) step(c *gc.C, ctx *context) {
+	opened := resourcetesting.NewResource(c, &gt.Stub{}, "data", ctx.unit.ApplicationName(), "the bytes")
+
+	res, err := ctx.st.Resources()
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = res.SetResource(
+		ctx.unit.ApplicationName(),
+		opened.Username,
+		opened.Resource.Resource,
+		opened.ReadCloser,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 type startUpgradeError struct{}
 
 func (s startUpgradeError) step(c *gc.C, ctx *context) {
@@ -987,7 +1041,7 @@ func (s startUpgradeError) step(c *gc.C, ctx *context) {
 		serveCharm{},
 		createUniter{},
 		waitUnitAgent{
-			status: params.StatusIdle,
+			status: status.Idle,
 		},
 		waitHooks(startupHooks(false)),
 		verifyCharm{},
@@ -997,7 +1051,7 @@ func (s startUpgradeError) step(c *gc.C, ctx *context) {
 		upgradeCharm{revision: 1},
 		waitUnitAgent{
 			statusGetter: unitStatusGetter,
-			status:       params.StatusError,
+			status:       status.Error,
 			info:         "upgrade failed",
 			charm:        1,
 		},
@@ -1017,7 +1071,7 @@ func (s verifyWaitingUpgradeError) step(c *gc.C, ctx *context) {
 	verifyCharmSteps := []stepper{
 		waitUnitAgent{
 			statusGetter: unitStatusGetter,
-			status:       params.StatusError,
+			status:       status.Error,
 			info:         "upgrade failed",
 			charm:        s.revision,
 		},
@@ -1030,7 +1084,13 @@ func (s verifyWaitingUpgradeError) step(c *gc.C, ctx *context) {
 			// to reset the error status, we can avoid a race in which a subsequent
 			// fixUpgradeError lands just before the restarting uniter retries the
 			// upgrade; and thus puts us in an unexpected state for future steps.
-			err := ctx.unit.SetAgentStatus(state.StatusIdle, "", nil)
+			now := time.Now()
+			sInfo := status.StatusInfo{
+				Status:  status.Idle,
+				Message: "",
+				Since:   &now,
+			}
+			err := ctx.unit.SetAgentStatus(sInfo)
 			c.Check(err, jc.ErrorIsNil)
 		}},
 		startUniter{},
@@ -1152,7 +1212,7 @@ type addSubordinateRelation struct {
 }
 
 func (s addSubordinateRelation) step(c *gc.C, ctx *context) {
-	if _, err := ctx.st.Service("logging"); errors.IsNotFound(err) {
+	if _, err := ctx.st.Application("logging"); errors.IsNotFound(err) {
 		ctx.s.AddTestingService(c, "logging", ctx.s.AddTestingCharm(c, "logging"))
 	}
 	eps, err := ctx.st.InferEndpoints("logging", "u:"+s.ifce)
@@ -1335,40 +1395,41 @@ func renameRelation(c *gc.C, charmPath, oldName, newName string) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func createHookLock(c *gc.C, dataDir string) *fslock.Lock {
-	lockDir := filepath.Join(dataDir, "locks")
-	lock, err := fslock.NewLock(lockDir, "uniter-hook-execution", fslock.Defaults())
-	c.Assert(err, jc.ErrorIsNil)
-	return lock
+type hookLock struct {
+	releaser mutex.Releaser
 }
 
-type acquireHookSyncLock struct {
-	message string
+type hookStep struct {
+	stepFunc func(*gc.C, *context)
 }
 
-func (s acquireHookSyncLock) step(c *gc.C, ctx *context) {
-	lock := createHookLock(c, ctx.dataDir)
-	c.Assert(lock.IsLocked(), jc.IsFalse)
-	err := lock.Lock(s.message)
-	c.Assert(err, jc.ErrorIsNil)
+func (h *hookStep) step(c *gc.C, ctx *context) {
+	h.stepFunc(c, ctx)
 }
 
-var releaseHookSyncLock = custom{func(c *gc.C, ctx *context) {
-	lock := createHookLock(c, ctx.dataDir)
-	// Force the release.
-	err := lock.BreakLock()
-	c.Assert(err, jc.ErrorIsNil)
-}}
+func hookLockSpec() mutex.Spec {
+	return mutex.Spec{
+		Name:  hookExecutionLockName(),
+		Clock: clock.WallClock,
+		Delay: coretesting.ShortWait,
+	}
+}
 
-var verifyHookSyncLockUnlocked = custom{func(c *gc.C, ctx *context) {
-	lock := createHookLock(c, ctx.dataDir)
-	c.Assert(lock.IsLocked(), jc.IsFalse)
-}}
+func (h *hookLock) acquire() *hookStep {
+	return &hookStep{stepFunc: func(c *gc.C, ctx *context) {
+		releaser, err := mutex.Acquire(hookLockSpec())
+		c.Assert(err, jc.ErrorIsNil)
+		h.releaser = releaser
+	}}
+}
 
-var verifyHookSyncLockLocked = custom{func(c *gc.C, ctx *context) {
-	lock := createHookLock(c, ctx.dataDir)
-	c.Assert(lock.IsLocked(), jc.IsTrue)
-}}
+func (h *hookLock) release() *hookStep {
+	return &hookStep{stepFunc: func(c *gc.C, ctx *context) {
+		c.Assert(h.releaser, gc.NotNil)
+		h.releaser.Release()
+		h.releaser = nil
+	}}
+}
 
 type setProxySettings proxy.Settings
 
@@ -1379,7 +1440,7 @@ func (s setProxySettings) step(c *gc.C, ctx *context) {
 		"ftp-proxy":   s.Ftp,
 		"no-proxy":    s.NoProxy,
 	}
-	err := ctx.st.UpdateEnvironConfig(attrs, nil, nil)
+	err := ctx.st.UpdateModelConfig(attrs, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1484,7 +1545,7 @@ type mockLeaderTracker struct {
 	waiting  []chan struct{}
 }
 
-func (mock *mockLeaderTracker) ServiceName() string {
+func (mock *mockLeaderTracker) ApplicationName() string {
 	return mock.ctx.svc.Name()
 }
 
@@ -1653,117 +1714,6 @@ func (*mockCharmDirGuard) Unlock() error { return nil }
 
 // Lockdown implements fortress.Guard.
 func (*mockCharmDirGuard) Lockdown(_ fortress.Abort) error { return nil }
-
-// prepareGitUniter runs a sequence of uniter tests with the manifest deployer
-// replacement logic patched out, simulating the effect of running an older
-// version of juju that exclusively used a git deployer. This is useful both
-// for testing the new deployer-replacement code *and* for running the old
-// tests against the new, patched code to check that the tweaks made to
-// accommodate the manifest deployer do not change the original behaviour as
-// simulated by the patched-out code.
-type prepareGitUniter struct {
-	prepSteps []stepper
-}
-
-func (s prepareGitUniter) step(c *gc.C, ctx *context) {
-	c.Assert(ctx.uniter, gc.IsNil, gc.Commentf("please don't try to patch stuff while the uniter's running"))
-	newDeployer := func(charmPath, dataPath string, bundles charm.BundleReader) (charm.Deployer, error) {
-		return charm.NewGitDeployer(charmPath, dataPath, bundles), nil
-	}
-	restoreNewDeployer := gt.PatchValue(&charm.NewDeployer, newDeployer)
-	defer restoreNewDeployer()
-
-	fixDeployer := func(deployer *charm.Deployer) error {
-		return nil
-	}
-	restoreFixDeployer := gt.PatchValue(&charm.FixDeployer, fixDeployer)
-	defer restoreFixDeployer()
-
-	for _, prepStep := range s.prepSteps {
-		step(c, ctx, prepStep)
-	}
-	if ctx.uniter != nil {
-		step(c, ctx, stopUniter{})
-	}
-}
-
-func ugt(summary string, steps ...stepper) uniterTest {
-	return ut(summary, prepareGitUniter{steps})
-}
-
-type verifyGitCharm struct {
-	revision int
-	dirty    bool
-}
-
-func (s verifyGitCharm) step(c *gc.C, ctx *context) {
-	charmPath := filepath.Join(ctx.path, "charm")
-	if !s.dirty {
-		revisionPath := filepath.Join(charmPath, "revision")
-		content, err := ioutil.ReadFile(revisionPath)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(string(content), gc.Equals, strconv.Itoa(s.revision))
-		err = ctx.unit.Refresh()
-		c.Assert(err, jc.ErrorIsNil)
-		url, ok := ctx.unit.CharmURL()
-		c.Assert(ok, jc.IsTrue)
-		c.Assert(url, gc.DeepEquals, curl(s.revision))
-	}
-
-	// Before we try to check the git status, make sure expected hooks are all
-	// complete, to prevent the test and the uniter interfering with each other.
-	step(c, ctx, waitHooks{})
-	step(c, ctx, waitHooks{})
-	cmd := exec.Command("git", "status")
-	cmd.Dir = filepath.Join(ctx.path, "charm")
-	out, err := cmd.CombinedOutput()
-	c.Assert(err, jc.ErrorIsNil)
-	cmp := gc.Matches
-	if s.dirty {
-		cmp = gc.Not(gc.Matches)
-	}
-	c.Assert(string(out), cmp, "(# )?On branch master\nnothing to commit.*\n")
-}
-
-type startGitUpgradeError struct{}
-
-func (s startGitUpgradeError) step(c *gc.C, ctx *context) {
-	steps := []stepper{
-		createCharm{
-			customize: func(c *gc.C, ctx *context, path string) {
-				appendHook(c, path, "start", "echo STARTDATA > data")
-			},
-		},
-		serveCharm{},
-		createUniter{},
-		waitUnitAgent{
-			status: params.StatusIdle,
-		},
-		waitHooks(startupHooks(false)),
-		verifyGitCharm{dirty: true},
-
-		createCharm{
-			revision: 1,
-			customize: func(c *gc.C, ctx *context, path string) {
-				ft.File{"data", "<nelson>ha ha</nelson>", 0644}.Create(c, path)
-				ft.File{"ignore", "anything", 0644}.Create(c, path)
-			},
-		},
-		serveCharm{},
-		upgradeCharm{revision: 1},
-		waitUnitAgent{
-			statusGetter: unitStatusGetter,
-			status:       params.StatusError,
-			info:         "upgrade failed",
-			charm:        1,
-		},
-		verifyWaiting{},
-		verifyGitCharm{dirty: true},
-	}
-	for _, s_ := range steps {
-		step(c, ctx, s_)
-	}
-}
 
 type provisionStorage struct{}
 

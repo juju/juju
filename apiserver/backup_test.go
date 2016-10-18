@@ -5,6 +5,7 @@ package apiserver_test
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -28,12 +29,12 @@ import (
 )
 
 type backupsCommonSuite struct {
-	authHttpSuite
+	authHTTPSuite
 	fake *backupstesting.FakeBackups
 }
 
 func (s *backupsCommonSuite) SetUpTest(c *gc.C) {
-	s.authHttpSuite.SetUpTest(c)
+	s.authHTTPSuite.SetUpTest(c)
 
 	s.fake = &backupstesting.FakeBackups{}
 	s.PatchValue(apiserver.NewBackups,
@@ -44,10 +45,10 @@ func (s *backupsCommonSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *backupsCommonSuite) backupURL(c *gc.C) string {
-	environ, err := s.State.Environment()
+	environ, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	uri := s.baseURL(c)
-	uri.Path = fmt.Sprintf("/environment/%s/backups", environ.UUID())
+	uri.Path = fmt.Sprintf("/model/%s/backups", environ.UUID())
 	return uri.String()
 }
 
@@ -56,7 +57,7 @@ func (s *backupsCommonSuite) assertErrorResponse(c *gc.C, resp *http.Response, s
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(resp.StatusCode, gc.Equals, statusCode, gc.Commentf("body: %s", body))
-	c.Assert(resp.Header.Get("Content-Type"), gc.Equals, params.ContentTypeJSON)
+	c.Assert(resp.Header.Get("Content-Type"), gc.Equals, params.ContentTypeJSON, gc.Commentf("body: %q", body))
 
 	var failure params.Error
 	err = json.Unmarshal(body, &failure)
@@ -107,7 +108,7 @@ func (s *backupsSuite) TestAuthRequiresClientNotMachine(c *gc.C) {
 		url:      s.backupURL(c),
 		nonce:    "fake_nonce",
 	})
-	s.assertErrorResponse(c, resp, http.StatusUnauthorized, "invalid entity name or password")
+	s.assertErrorResponse(c, resp, http.StatusInternalServerError, "tag kind machine not valid")
 
 	// Now try a user login.
 	resp = s.authRequest(c, httpRequestParams{method: "POST", url: s.backupURL(c)})
@@ -235,7 +236,8 @@ func (s *backupsDownloadSuite) TestResponse(c *gc.C) {
 	meta := s.fake.Meta
 
 	c.Check(resp.StatusCode, gc.Equals, http.StatusOK)
-	c.Check(resp.Header.Get("Digest"), gc.Equals, string(params.DigestSHA)+"="+meta.Checksum())
+	expectedChecksum := base64.StdEncoding.EncodeToString([]byte(meta.Checksum()))
+	c.Check(resp.Header.Get("Digest"), gc.Equals, string(params.DigestSHA256)+"="+expectedChecksum)
 	c.Check(resp.Header.Get("Content-Type"), gc.Equals, params.ContentTypeRaw)
 }
 

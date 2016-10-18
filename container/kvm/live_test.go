@@ -11,18 +11,21 @@ import (
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
+	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/kvm"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type LiveSuite struct {
@@ -53,8 +56,8 @@ func (s *LiveSuite) SetUpTest(c *gc.C) {
 func (s *LiveSuite) newManager(c *gc.C, name string) container.Manager {
 	manager, err := kvm.NewContainerManager(
 		container.ManagerConfig{
-			container.ConfigName:   name,
-			container.ConfigLogDir: c.MkDir(),
+			container.ConfigModelUUID: coretesting.ModelTag.Id(),
+			container.ConfigLogDir:    c.MkDir(),
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	return manager
@@ -84,24 +87,26 @@ func shutdownMachines(manager container.Manager) func(*gc.C) {
 
 func createContainer(c *gc.C, manager container.Manager, machineId string) instance.Instance {
 	machineNonce := "fake-nonce"
-	stateInfo := jujutesting.FakeStateInfo(machineId)
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
-	instanceConfig, err := instancecfg.NewInstanceConfig(machineId, machineNonce, imagemetadata.ReleasedStream, "quantal", "", true, nil, stateInfo, apiInfo)
+	instanceConfig, err := instancecfg.NewInstanceConfig(coretesting.ControllerTag, machineId, machineNonce, imagemetadata.ReleasedStream, "quantal", apiInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	network := container.BridgeNetworkConfig("virbr0", 0, nil)
 
-	instanceConfig.Tools = &tools.Tools{
-		Version: version.MustParseBinary("2.3.4-foo-bar"),
-		URL:     "http://tools.testing.invalid/2.3.4-foo-bar.tgz",
-	}
+	err = instanceConfig.SetTools(tools.List{
+		&tools.Tools{
+			Version: version.MustParseBinary("2.3.4-foo-bar"),
+			URL:     "http://tools.testing.invalid/2.3.4-foo-bar.tgz",
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
 	environConfig := dummyConfig(c)
 	err = instancecfg.FinishInstanceConfig(instanceConfig, environConfig)
 	c.Assert(err, jc.ErrorIsNil)
-
-	inst, hardware, err := manager.CreateContainer(instanceConfig, "precise", network, nil)
+	callback := func(settableStatus status.Status, info string, data map[string]interface{}) error { return nil }
+	inst, hardware, err := manager.CreateContainer(instanceConfig, constraints.Value{}, "precise", network, nil, callback)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hardware, gc.NotNil)
-	expected := fmt.Sprintf("arch=%s cpu-cores=1 mem=512M root-disk=8192M", arch.HostArch())
+	expected := fmt.Sprintf("arch=%s cores=1 mem=512M root-disk=8192M", arch.HostArch())
 	c.Assert(hardware.String(), gc.Equals, expected)
 	return inst
 }
@@ -137,8 +142,8 @@ func dummyConfig(c *gc.C) *config.Config {
 	c.Assert(err, jc.ErrorIsNil)
 	testConfig, err = testConfig.Apply(map[string]interface{}{
 		"type":          "dummy",
-		"state-server":  false,
-		"agent-version": version.Current.String(),
+		"controller":    false,
+		"agent-version": jujuversion.Current.String(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return testConfig

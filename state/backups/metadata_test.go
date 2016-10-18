@@ -7,14 +7,14 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
-	"time"
+	"time" // Only used for time types and funcs, not Now().
 
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/state/backups"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
 )
 
 type metadataSuite struct {
@@ -26,10 +26,11 @@ var _ = gc.Suite(&metadataSuite{}) // Register the suite.
 func (s *metadataSuite) TestAsJSONBuffer(c *gc.C) {
 	meta := backups.NewMetadata()
 	meta.Origin = backups.Origin{
-		Environment: "asdf-zxcv-qwe",
-		Machine:     "0",
-		Hostname:    "myhost",
-		Version:     version.MustParse("1.21-alpha3"),
+		Model:    "asdf-zxcv-qwe",
+		Machine:  "0",
+		Hostname: "myhost",
+		Version:  version.MustParse("1.21-alpha3"),
+		Series:   "trusty",
 	}
 	meta.Started = time.Date(2014, time.Month(9), 9, 11, 59, 34, 0, time.UTC)
 
@@ -39,6 +40,9 @@ func (s *metadataSuite) TestAsJSONBuffer(c *gc.C) {
 
 	finished := meta.Started.Add(time.Minute)
 	meta.Finished = &finished
+
+	meta.CACert = "ca-cert"
+	meta.CAPrivateKey = "ca-private-key"
 
 	buf, err := meta.AsJSONBuffer()
 	c.Assert(err, jc.ErrorIsNil)
@@ -55,7 +59,10 @@ func (s *metadataSuite) TestAsJSONBuffer(c *gc.C) {
 		`"Environment":"asdf-zxcv-qwe",`+
 		`"Machine":"0",`+
 		`"Hostname":"myhost",`+
-		`"Version":"1.21-alpha3"`+
+		`"Version":"1.21-alpha3",`+
+		`"Series":"trusty",`+
+		`"CACert":"ca-cert",`+
+		`"CAPrivateKey":"ca-private-key"`+
 		`}`+"\n")
 }
 
@@ -85,7 +92,7 @@ func (s *metadataSuite) TestNewMetadataJSONReader(c *gc.C) {
 	c.Check(meta.Started.Unix(), gc.Equals, int64(1410263974))
 	c.Check(meta.Finished.Unix(), gc.Equals, int64(1410264034))
 	c.Check(meta.Notes, gc.Equals, "")
-	c.Check(meta.Origin.Environment, gc.Equals, "asdf-zxcv-qwe")
+	c.Check(meta.Origin.Model, gc.Equals, "asdf-zxcv-qwe")
 	c.Check(meta.Origin.Machine, gc.Equals, "0")
 	c.Check(meta.Origin.Hostname, gc.Equals, "myhost")
 	c.Check(meta.Origin.Version.String(), gc.Equals, "1.21-alpha3")
@@ -109,10 +116,10 @@ func (s *metadataSuite) TestBuildMetadata(c *gc.C) {
 	c.Check(meta.ChecksumFormat(), gc.Equals, "SHA-1, base64 encoded")
 	c.Check(meta.Size(), gc.Equals, int64(17))
 	c.Check(meta.Stored(), gc.IsNil)
-	c.Check(meta.Started.Unix(), gc.Equals, int64(time.Time{}.Unix()))
+	c.Check(meta.Started.Unix(), gc.Equals, int64(testing.ZeroTime().Unix()))
 	c.Check(meta.Finished.Unix(), gc.Equals, finished)
 	c.Check(meta.Notes, gc.Equals, "")
-	c.Check(meta.Origin.Environment, gc.Equals, backups.UnknownString)
+	c.Check(meta.Origin.Model, gc.Equals, backups.UnknownString)
 	c.Check(meta.Origin.Machine, gc.Equals, backups.UnknownString)
 	c.Check(meta.Origin.Hostname, gc.Equals, backups.UnknownString)
 	c.Check(meta.Origin.Version.String(), gc.Equals, backups.UnknownVersion.String())

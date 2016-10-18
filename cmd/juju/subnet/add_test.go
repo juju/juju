@@ -8,10 +8,11 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/subnet"
 	"github.com/juju/juju/network"
 	coretesting "github.com/juju/juju/testing"
@@ -25,7 +26,7 @@ var _ = gc.Suite(&AddSuite{})
 
 func (s *AddSuite) SetUpTest(c *gc.C) {
 	s.BaseSubnetSuite.SetUpTest(c)
-	s.command, _ = subnet.NewAddCommand(s.api)
+	s.command, _ = subnet.NewAddCommandForTest(s.api)
 	c.Assert(s.command, gc.NotNil)
 }
 
@@ -93,8 +94,8 @@ func (s *AddSuite) TestInit(c *gc.C) {
 		c.Logf("test #%d: %s", i, test.about)
 		// Create a new instance of the subcommand for each test, but
 		// since we're not running the command no need to use
-		// envcmd.Wrap().
-		wrappedCommand, command := subnet.NewAddCommand(s.api)
+		// modelcmd.Wrap().
+		wrappedCommand, command := subnet.NewAddCommandForTest(s.api)
 		err := coretesting.InitCommand(wrappedCommand, test.args)
 		if test.expectErr != "" {
 			prefixedErr := "invalid arguments specified: " + test.expectErr
@@ -217,6 +218,15 @@ func (s *AddSuite) TestRunWithNonExistingSpaceFails(c *gc.C) {
 		names.NewSpaceTag("space"),
 		s.Strings("zone1", "zone2"),
 	)
+}
+
+func (s *AddSuite) TestRunUnauthorizedMentionsJujuGrant(c *gc.C) {
+	s.api.SetErrors(&params.Error{
+		Message: "permission denied",
+		Code:    params.CodeUnauthorized,
+	})
+	_, stderr, _ := s.RunCommand(c, "10.10.0.0/24", "myspace")
+	c.Assert(strings.Replace(stderr, "\n", " ", -1), gc.Matches, `.*juju grant.*`)
 }
 
 func (s *AddSuite) TestRunWithAmbiguousCIDRDisplaysError(c *gc.C) {

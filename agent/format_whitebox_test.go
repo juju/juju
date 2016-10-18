@@ -9,15 +9,15 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type formatSuite struct {
@@ -30,15 +30,15 @@ var _ = gc.Suite(&formatSuite{})
 // located here for easy reuse.
 var agentParams = AgentConfigParams{
 	Tag:               names.NewMachineTag("1"),
-	UpgradedToVersion: version.Current,
+	UpgradedToVersion: jujuversion.Current,
 	Jobs:              []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 	Password:          "sekrit",
 	CACert:            "ca cert",
 	StateAddresses:    []string{"localhost:1234"},
 	APIAddresses:      []string{"localhost:1235"},
 	Nonce:             "a nonce",
-	PreferIPv6:        false,
-	Environment:       testing.EnvironmentTag,
+	Model:             testing.ModelTag,
+	Controller:        testing.ControllerTag,
 }
 
 func newTestConfig(c *gc.C) *configInternal {
@@ -81,7 +81,7 @@ func (*formatSuite) TestWriteAgentConfig(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	configPath := ConfigPath(config.DataDir(), config.Tag())
-	formatPath := filepath.Join(config.Dir(), legacyFormatFilename)
+	formatPath := filepath.Join(config.Dir(), "format")
 	assertFileExists(c, configPath)
 	assertFileNotExist(c, formatPath)
 }

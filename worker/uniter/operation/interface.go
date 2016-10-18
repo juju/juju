@@ -5,9 +5,9 @@ package operation
 
 import (
 	"github.com/juju/loggo"
-	"github.com/juju/names"
 	utilexec "github.com/juju/utils/exec"
 	corecharm "gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/worker/uniter/charm"
 	"github.com/juju/juju/worker/uniter/hook"
@@ -90,14 +90,13 @@ type Factory interface {
 	// NewAction creates an operation to execute the supplied action.
 	NewAction(actionId string) (Operation, error)
 
+	// NewFailAction creates an operation that marks an action as failed.
+	NewFailAction(actionId string) (Operation, error)
+
 	// NewCommands creates an operation to execute the supplied script in the
 	// indicated relation context, and pass the results back over the supplied
 	// func.
 	NewCommands(args CommandArgs, sendResponse CommandResponseFunc) (Operation, error)
-
-	// NewUpdateStorage creates an operation to ensure the supplied storage
-	// tags are known and tracked.
-	NewUpdateStorage(tags []names.StorageTag) (Operation, error)
 
 	// NewAcceptLeadership creates an operation to ensure the uniter acts as
 	// service leader.
@@ -155,7 +154,7 @@ type Callbacks interface {
 
 	// SetCurrentCharm records intent to deploy a given charm. It must be called
 	// *before* recording local state referencing that charm, to ensure there's
-	// no path by which the state server can legitimately garbage collect that
+	// no path by which the controller can legitimately garbage collect that
 	// charm or the service's settings for it. It's only used by Deploy operations.
 	SetCurrentCharm(charmURL *corecharm.URL) error
 }

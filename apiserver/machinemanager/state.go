@@ -7,11 +7,13 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
+	names "gopkg.in/juju/names.v2"
 )
 
 type stateInterface interface {
-	EnvironConfig() (*config.Config, error)
-	Environment() (*state.Environment, error)
+	ModelConfig() (*config.Config, error)
+	Model() (*state.Model, error)
+	ModelTag() names.ModelTag
 	GetBlockForType(t state.BlockType) (state.Block, bool, error)
 	AddOneMachine(template state.MachineTemplate) (*state.Machine, error)
 	AddMachineInsideNewMachine(template, parentTemplate state.MachineTemplate, containerType instance.ContainerType) (*state.Machine, error)
@@ -22,12 +24,15 @@ type stateShim struct {
 	*state.State
 }
 
-func (s stateShim) EnvironConfig() (*config.Config, error) {
-	return s.State.EnvironConfig()
+func (s stateShim) ModelConfig() (*config.Config, error) {
+	return s.State.ModelConfig()
 }
 
-func (s stateShim) Environment() (*state.Environment, error) {
-	return s.State.Environment()
+func (s stateShim) Model() (*state.Model, error) {
+	return s.State.Model()
+}
+func (s stateShim) ModelTag() names.ModelTag {
+	return s.State.ModelTag()
 }
 
 func (s stateShim) GetBlockForType(t state.BlockType) (state.Block, bool, error) {

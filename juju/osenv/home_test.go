@@ -4,44 +4,31 @@
 package osenv_test
 
 import (
-	"path/filepath"
-
-	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/testing"
 )
 
-type JujuHomeSuite struct {
+type JujuXDGDataHomeSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&JujuHomeSuite{})
+var _ = gc.Suite(&JujuXDGDataHomeSuite{})
 
-func (s *JujuHomeSuite) TestStandardHome(c *gc.C) {
+func (s *JujuXDGDataHomeSuite) TearDownTest(c *gc.C) {
+	osenv.SetJujuXDGDataHome("")
+}
+
+func (s *JujuXDGDataHomeSuite) TestStandardHome(c *gc.C) {
+	testJujuXDGDataHome := c.MkDir()
+	osenv.SetJujuXDGDataHome(testJujuXDGDataHome)
+	c.Assert(osenv.JujuXDGDataHome(), gc.Equals, testJujuXDGDataHome)
+}
+
+func (s *JujuXDGDataHomeSuite) TestHomePath(c *gc.C) {
 	testJujuHome := c.MkDir()
-	osenv.SetJujuHome(testJujuHome)
-	c.Assert(osenv.JujuHome(), gc.Equals, testJujuHome)
-}
-
-func (s *JujuHomeSuite) TestErrorHome(c *gc.C) {
-	// Invalid juju home leads to panic when retrieving.
-	f := func() { _ = osenv.JujuHome() }
-	c.Assert(f, gc.PanicMatches, "juju home hasn't been initialized")
-	f = func() { _ = osenv.JujuHomePath("environments.yaml") }
-	c.Assert(f, gc.PanicMatches, "juju home hasn't been initialized")
-}
-
-func (s *JujuHomeSuite) TestHomePath(c *gc.C) {
-	testJujuHome := c.MkDir()
-	osenv.SetJujuHome(testJujuHome)
-	envPath := osenv.JujuHomePath("environments.yaml")
-	c.Assert(envPath, gc.Equals, filepath.Join(testJujuHome, "environments.yaml"))
-}
-
-func (s *JujuHomeSuite) TestIsHomeSet(c *gc.C) {
-	c.Assert(osenv.IsJujuHomeSet(), jc.IsFalse)
-	osenv.SetJujuHome(c.MkDir())
-	c.Assert(osenv.IsJujuHomeSet(), jc.IsTrue)
+	osenv.SetJujuXDGDataHome(testJujuHome)
+	envPath := osenv.JujuXDGDataHomeDir()
+	c.Assert(envPath, gc.Equals, testJujuHome)
 }

@@ -8,13 +8,14 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
-func newRemoveCommand() cmd.Command {
-	return envcmd.Wrap(&removeCommand{})
+// NewRemoveCommand returns a command used to remove a space.
+func NewRemoveCommand() cmd.Command {
+	return modelcmd.Wrap(&removeCommand{})
 }
 
 // removeCommand calls the API to remove an existing network space.
@@ -31,9 +32,9 @@ associated with the space will be transfered to the default space.
 // Info is defined on the cmd.Command interface.
 func (c *removeCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "remove",
+		Name:    "remove-space",
 		Args:    "<name>",
-		Purpose: "remove a network space",
+		Purpose: "Remove a network space",
 		Doc:     strings.TrimSpace(removeCommandDoc),
 	}
 }

@@ -12,8 +12,8 @@ import (
 	"github.com/joyent/gocommon/client"
 	"github.com/joyent/gosdc/cloudapi"
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"github.com/juju/utils/arch"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -22,56 +22,44 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/environs/simplestreams"
+	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/tools"
 )
 
 var (
 	vTypeSmartmachine   = "smartmachine"
 	vTypeVirtualmachine = "kvm"
-	signedImageDataOnly = false
 	defaultCpuCores     = uint64(1)
 )
 
 type joyentCompute struct {
-	sync.Mutex
-	ecfg     *environConfig
 	cloudapi *cloudapi.Client
 }
 
-func newCompute(cfg *environConfig) (*joyentCompute, error) {
-	creds, err := credentials(cfg)
+func newCompute(cloud environs.CloudSpec) (*joyentCompute, error) {
+	creds, err := credentials(cloud)
 	if err != nil {
 		return nil, err
 	}
-	client := client.NewClient(cfg.sdcUrl(), cloudapi.DefaultAPIVersion, creds, &logger)
-
-	return &joyentCompute{
-		ecfg:     cfg,
-		cloudapi: cloudapi.New(client)}, nil
+	client := client.NewClient(cloud.Endpoint, cloudapi.DefaultAPIVersion, creds, newGoLogger())
+	return &joyentCompute{cloudapi: cloudapi.New(client)}, nil
 }
 
 func (env *joyentEnviron) machineFullName(machineId string) string {
-	return fmt.Sprintf("juju-%s-%s", env.Config().Name(), names.NewMachineTag(machineId))
+	return fmt.Sprintf("juju-%s-%s", env.name, names.NewMachineTag(machineId))
 }
 
 var unsupportedConstraints = []string{
 	constraints.CpuPower,
 	constraints.Tags,
+	constraints.VirtType,
 }
 
 // ConstraintsValidator is defined on the Environs interface.
 func (env *joyentEnviron) ConstraintsValidator() (constraints.Validator, error) {
 	validator := constraints.NewValidator()
 	validator.RegisterUnsupported(unsupportedConstraints)
-	supportedArches, err := env.SupportedArchitectures()
-	if err != nil {
-		return nil, err
-	}
-	validator.RegisterVocabulary(constraints.Arch, supportedArches)
 	packages, err := env.compute.cloudapi.ListPackages(nil)
 	if err != nil {
 		return nil, err
@@ -90,19 +78,14 @@ func (*joyentEnviron) MaintainInstance(args environs.StartInstanceParams) error 
 }
 
 func (env *joyentEnviron) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
-
-	if args.InstanceConfig.HasNetworks() {
-		return nil, errors.New("starting instances with networks is not supported yet")
-	}
-
 	series := args.Tools.OneSeries()
 	arches := args.Tools.Arches()
 	spec, err := env.FindInstanceSpec(&instances.InstanceConstraint{
-		Region:      env.Ecfg().Region(),
+		Region:      env.cloud.Region,
 		Series:      series,
 		Arches:      arches,
 		Constraints: args.Constraints,
-	})
+	}, args.ImageMetadata)
 	if err != nil {
 		return nil, err
 	}
@@ -111,7 +94,9 @@ func (env *joyentEnviron) StartInstance(args environs.StartInstanceParams) (*env
 		return nil, errors.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, arches)
 	}
 
-	args.InstanceConfig.Tools = tools[0]
+	if err := args.InstanceConfig.SetTools(tools); err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	if err := instancecfg.FinishInstanceConfig(args.InstanceConfig, env.Config()); err != nil {
 		return nil, err
@@ -144,13 +129,22 @@ func (env *joyentEnviron) StartInstance(args environs.StartInstanceParams) (*env
 	}
 	logger.Debugf("joyent user data: %d bytes", len(userData))
 
+	instanceTags := make(map[string]string)
+	for tag, value := range args.InstanceConfig.Tags {
+		instanceTags[tagKey(tag)] = value
+	}
+	instanceTags[tagKey("group")] = "juju"
+	instanceTags[tagKey("model")] = env.Config().Name()
+
+	args.InstanceConfig.Tags = instanceTags
+	logger.Debugf("Now tags are:  %+v", args.InstanceConfig.Tags)
+
 	var machine *cloudapi.Machine
 	machine, err = env.compute.cloudapi.CreateMachine(cloudapi.CreateMachineOpts{
-		//Name:	 env.machineFullName(machineConf.MachineId),
 		Package:  spec.InstanceType.Name,
 		Image:    spec.Image.Id,
 		Metadata: map[string]string{"metadata.cloud-init:user-data": string(userData)},
-		Tags:     map[string]string{"tag.group": "juju", "tag.env": env.Config().Name()},
+		Tags:     args.InstanceConfig.Tags,
 	})
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot create instances")
@@ -158,6 +152,7 @@ func (env *joyentEnviron) StartInstance(args environs.StartInstanceParams) (*env
 	machineId := machine.Id
 
 	logger.Infof("provisioning instance %q", machineId)
+	logger.Infof("machine created with tags %+v", machine.Tags)
 
 	machine, err = env.compute.cloudapi.GetMachine(machineId)
 	if err != nil {
@@ -181,12 +176,6 @@ func (env *joyentEnviron) StartInstance(args environs.StartInstanceParams) (*env
 		env:     env,
 	}
 
-	if multiwatcher.AnyJobNeedsState(args.InstanceConfig.Jobs...) {
-		if err := common.AddStateInstance(env.Storage(), inst.Id()); err != nil {
-			logger.Errorf("could not record instance in provider-state: %v", err)
-		}
-	}
-
 	disk64 := uint64(machine.Disk)
 	hc := instance.HardwareCharacteristics{
 		Arch:     &spec.Image.Arch,
@@ -202,12 +191,17 @@ func (env *joyentEnviron) StartInstance(args environs.StartInstanceParams) (*env
 	}, nil
 }
 
+// Joyent tag must be prefixed with "tag."
+func tagKey(aKey string) string {
+	return "tag." + aKey
+}
+
 func (env *joyentEnviron) AllInstances() ([]instance.Instance, error) {
 	instances := []instance.Instance{}
 
 	filter := cloudapi.NewFilter()
-	filter.Set("tag.group", "juju")
-	filter.Set("tag.env", env.Config().Name())
+	filter.Set(tagKey("group"), "juju")
+	filter.Set(tagKey(tags.JujuModel), env.Config().UUID())
 
 	machines, err := env.compute.cloudapi.ListMachines(filter)
 	if err != nil {
@@ -280,7 +274,7 @@ func (env *joyentEnviron) StopInstances(ids ...instance.Id) error {
 		return errors.Annotate(err, "cannot stop all instances")
 	default:
 	}
-	return common.RemoveStateInstances(env.Storage(), ids...)
+	return nil
 }
 
 func (env *joyentEnviron) stopInstance(id string) error {
@@ -346,7 +340,10 @@ func (env *joyentEnviron) listInstanceTypes() ([]instances.InstanceType, error) 
 }
 
 // FindInstanceSpec returns an InstanceSpec satisfying the supplied instanceConstraint.
-func (env *joyentEnviron) FindInstanceSpec(ic *instances.InstanceConstraint) (*instances.InstanceSpec, error) {
+func (env *joyentEnviron) FindInstanceSpec(
+	ic *instances.InstanceConstraint,
+	imageMetadata []*imagemetadata.ImageMetadata,
+) (*instances.InstanceSpec, error) {
 	// Require at least one VCPU so we get KVM rather than smart package.
 	if ic.Constraints.CpuCores == nil {
 		ic.Constraints.CpuCores = &defaultCpuCores
@@ -355,21 +352,7 @@ func (env *joyentEnviron) FindInstanceSpec(ic *instances.InstanceConstraint) (*i
 	if err != nil {
 		return nil, err
 	}
-	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
-		CloudSpec: simplestreams.CloudSpec{ic.Region, env.Ecfg().SdcUrl()},
-		Series:    []string{ic.Series},
-		Arches:    ic.Arches,
-	})
-	sources, err := environs.ImageMetadataSources(env)
-	if err != nil {
-		return nil, err
-	}
-
-	matchingImages, _, err := imagemetadata.Fetch(sources, imageConstraint, signedImageDataOnly)
-	if err != nil {
-		return nil, err
-	}
-	images := instances.ImageMetadataToImages(matchingImages)
+	images := instances.ImageMetadataToImages(imageMetadata)
 	spec, err := instances.FindInstanceSpec(images, ic, allInstanceTypes)
 	if err != nil {
 		return nil, err

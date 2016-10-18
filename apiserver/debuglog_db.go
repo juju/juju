@@ -4,27 +4,29 @@
 package apiserver
 
 import (
-	"fmt"
 	"net/http"
-	"time"
 
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 )
 
-func newDebugLogDBHandler(ctxt httpContext, stop <-chan struct{}) http.Handler {
-	return newDebugLogHandler(ctxt, stop, handleDebugLogDBRequest)
+func newDebugLogDBHandler(ctxt httpContext) http.Handler {
+	return newDebugLogHandler(ctxt, handleDebugLogDBRequest)
 }
 
 func handleDebugLogDBRequest(
-	st state.LoggingState,
+	st state.LogTailerState,
 	reqParams *debugLogParams,
 	socket debugLogSocket,
 	stop <-chan struct{},
 ) error {
 	params := makeLogTailerParams(reqParams)
-	tailer := newLogTailer(st, params)
+	tailer, err := newLogTailer(st, params)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer tailer.Stop()
 
 	// Indicate that all is well.
@@ -40,9 +42,7 @@ func handleDebugLogDBRequest(
 				return errors.Annotate(tailer.Err(), "tailer stopped")
 			}
 
-			line := formatLogRecord(rec)
-			_, err := socket.Write([]byte(line))
-			if err != nil {
+			if err := socket.sendLogRecord(formatLogRecord(rec)); err != nil {
 				return errors.Annotate(err, "sending failed")
 			}
 
@@ -57,6 +57,7 @@ func handleDebugLogDBRequest(
 func makeLogTailerParams(reqParams *debugLogParams) *state.LogTailerParams {
 	params := &state.LogTailerParams{
 		MinLevel:      reqParams.filterLevel,
+		NoTail:        reqParams.noTail,
 		InitialLines:  int(reqParams.backlog),
 		IncludeEntity: reqParams.includeEntity,
 		ExcludeEntity: reqParams.excludeEntity,
@@ -69,23 +70,19 @@ func makeLogTailerParams(reqParams *debugLogParams) *state.LogTailerParams {
 	return params
 }
 
-func formatLogRecord(r *state.LogRecord) string {
-	return fmt.Sprintf("%s: %s %s %s %s %s\n",
-		r.Entity,
-		formatTime(r.Time),
-		r.Level.String(),
-		r.Module,
-		r.Location,
-		r.Message,
-	)
-}
-
-func formatTime(t time.Time) string {
-	return t.In(time.UTC).Format("2006-01-02 15:04:05")
+func formatLogRecord(r *state.LogRecord) *params.LogMessage {
+	return &params.LogMessage{
+		Entity:    r.Entity.String(),
+		Timestamp: r.Time,
+		Severity:  r.Level.String(),
+		Module:    r.Module,
+		Location:  r.Location,
+		Message:   r.Message,
+	}
 }
 
 var newLogTailer = _newLogTailer // For replacing in tests
 
-func _newLogTailer(st state.LoggingState, params *state.LogTailerParams) state.LogTailer {
+func _newLogTailer(st state.LogTailerState, params *state.LogTailerParams) (state.LogTailer, error) {
 	return state.NewLogTailer(st, params)
 }

@@ -5,20 +5,21 @@ package uniter
 
 import (
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/meterstatus"
 )
 
 var (
 	GetZone = &getZone
 
-	_ meterstatus.MeterStatus = (*uniterBaseAPI)(nil)
+	_ meterstatus.MeterStatus = (*UniterAPIV3)(nil)
 )
 
 type StorageStateInterface storageStateInterface
 
 func NewStorageAPI(
 	st StorageStateInterface,
-	resources *common.Resources,
+	resources facade.Resources,
 	accessUnit common.GetAuthFunc,
 ) (*StorageAPI, error) {
 	return newStorageAPI(storageStateInterface(st), resources, accessUnit)

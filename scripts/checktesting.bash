@@ -1,4 +1,6 @@
 #!/bin/bash
+# Copyright 2013 Canonical Ltd.
+# Licensed under the AGPLv3, see LICENCE file for details.
 exitstatus=0
 for i in $(go list -f '{{.Dir}}' github.com/juju/juju/...)
 do

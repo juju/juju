@@ -16,9 +16,9 @@ import (
 	"gopkg.in/amz.v3/aws"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/testing"
 )
 
@@ -31,12 +31,10 @@ type ConfigSuite struct {
 
 var _ = gc.Suite(&ConfigSuite{})
 
-var configTestRegion = aws.Region{
-	Name:        "configtest",
-	EC2Endpoint: "testregion.nowhere:1234",
+var testAuth = aws.Auth{
+	AccessKey: "gopher",
+	SecretKey: "long teeth",
 }
-
-var testAuth = aws.Auth{"gopher", "long teeth"}
 
 // configTest specifies a config parsing test, checking that env when
 // parsed as the ec2 section of a config file matches baseConfigResult
@@ -46,12 +44,8 @@ type configTest struct {
 	config             map[string]interface{}
 	change             map[string]interface{}
 	expect             map[string]interface{}
-	region             string
-	cbucket            string
-	pbucket            string
-	pbucketRegion      string
-	accessKey          string
-	secretKey          string
+	vpcID              string
+	forceVPCID         bool
 	firewallMode       string
 	blockStorageSource string
 	err                string
@@ -60,13 +54,28 @@ type configTest struct {
 type attrs map[string]interface{}
 
 func (t configTest) check(c *gc.C) {
+	credential := cloud.NewCredential(
+		cloud.AccessKeyAuthType,
+		map[string]string{
+			"access-key": "x",
+			"secret-key": "y",
+		},
+	)
+	cloudSpec := environs.CloudSpec{
+		Type:       "ec2",
+		Name:       "ec2test",
+		Region:     "us-east-1",
+		Credential: &credential,
+	}
 	attrs := testing.FakeConfig().Merge(testing.Attrs{
-		"type":           "ec2",
-		"control-bucket": "x",
+		"type": "ec2",
 	}).Merge(t.config)
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
-	e, err := environs.New(cfg)
+	e, err := environs.New(environs.OpenParams{
+		Cloud:  cloudSpec,
+		Config: cfg,
+	})
 	if t.change != nil {
 		c.Assert(err, jc.ErrorIsNil)
 
@@ -91,25 +100,9 @@ func (t configTest) check(c *gc.C) {
 
 	ecfg := e.(*environ).ecfg()
 	c.Assert(ecfg.Name(), gc.Equals, "testenv")
-	c.Assert(ecfg.controlBucket(), gc.Equals, "x")
-	if t.region != "" {
-		c.Assert(ecfg.region(), gc.Equals, t.region)
-	}
-	if t.accessKey != "" {
-		c.Assert(ecfg.accessKey(), gc.Equals, t.accessKey)
-		c.Assert(ecfg.secretKey(), gc.Equals, t.secretKey)
-		expected := map[string]string{
-			"access-key": t.accessKey,
-			"secret-key": t.secretKey,
-		}
-		c.Assert(err, jc.ErrorIsNil)
-		actual, err := e.Provider().SecretAttrs(ecfg.Config)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(expected, gc.DeepEquals, actual)
-	} else {
-		c.Assert(ecfg.accessKey(), gc.DeepEquals, testAuth.AccessKey)
-		c.Assert(ecfg.secretKey(), gc.DeepEquals, testAuth.SecretKey)
-	}
+	c.Assert(ecfg.vpcID(), gc.Equals, t.vpcID)
+	c.Assert(ecfg.forceVPCID(), gc.Equals, t.forceVPCID)
+
 	if t.firewallMode != "" {
 		c.Assert(ecfg.FirewallMode(), gc.Equals, t.firewallMode)
 	}
@@ -118,96 +111,138 @@ func (t configTest) check(c *gc.C) {
 		c.Check(found, jc.IsTrue)
 		c.Check(actual, gc.Equals, expect)
 	}
-
-	// check storage bucket is configured correctly
-	env := e.(*environ)
-	c.Assert(env.Storage().(*ec2storage).bucket.Region.Name, gc.Equals, ecfg.region())
-
-	expectedStorage := "ebs"
-	if t.blockStorageSource != "" {
-		expectedStorage = t.blockStorageSource
-	}
-	storage, ok := ecfg.StorageDefaultBlockSource()
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(storage, gc.Equals, expectedStorage)
 }
 
 var configTests = []configTest{
 	{
 		config: attrs{},
 	}, {
-		// check that region defaults to us-east-1
-		config: attrs{},
-		region: "us-east-1",
+		config:     attrs{},
+		vpcID:      "",
+		forceVPCID: false,
 	}, {
 		config: attrs{
-			"region": "eu-west-1",
+			"vpc-id": "invalid",
 		},
-		region: "eu-west-1",
+		err:        `.*vpc-id: "invalid" is not a valid AWS VPC ID`,
+		vpcID:      "",
+		forceVPCID: false,
 	}, {
 		config: attrs{
-			"region": "unknown",
+			"vpc-id": vpcIDNone,
 		},
-		err: ".*invalid region name.*",
+		vpcID:      "none",
+		forceVPCID: false,
 	}, {
 		config: attrs{
-			"region": "configtest",
+			"vpc-id": 42,
 		},
-		region: "configtest",
+		err:        `.*expected string, got int\(42\)`,
+		vpcID:      "",
+		forceVPCID: false,
 	}, {
 		config: attrs{
-			"region": "configtest",
+			"vpc-id-force": "nonsense",
+		},
+		err:        `.*expected bool, got string\("nonsense"\)`,
+		vpcID:      "",
+		forceVPCID: false,
+	}, {
+		config: attrs{
+			"vpc-id":       "vpc-anything",
+			"vpc-id-force": 999,
+		},
+		err:        `.*expected bool, got int\(999\)`,
+		vpcID:      "",
+		forceVPCID: false,
+	}, {
+		config: attrs{
+			"vpc-id":       "",
+			"vpc-id-force": true,
+		},
+		err:        `.*cannot use vpc-id-force without specifying vpc-id as well`,
+		vpcID:      "",
+		forceVPCID: true,
+	}, {
+		config: attrs{
+			"vpc-id": "vpc-a1b2c3d4",
+		},
+		vpcID:      "vpc-a1b2c3d4",
+		forceVPCID: false,
+	}, {
+		config: attrs{
+			"vpc-id":       "vpc-some-id",
+			"vpc-id-force": true,
+		},
+		vpcID:      "vpc-some-id",
+		forceVPCID: true,
+	}, {
+		config: attrs{
+			"vpc-id":       "vpc-abcd",
+			"vpc-id-force": false,
+		},
+		vpcID:      "vpc-abcd",
+		forceVPCID: false,
+	}, {
+		config: attrs{
+			"vpc-id":       "vpc-unchanged",
+			"vpc-id-force": true,
 		},
 		change: attrs{
-			"region": "us-east-1",
+			"vpc-id":       "vpc-unchanged",
+			"vpc-id-force": false,
 		},
-		err: `.*cannot change region from "configtest" to "us-east-1"`,
+		err:        `.*cannot change vpc-id-force from true to false`,
+		vpcID:      "vpc-unchanged",
+		forceVPCID: true,
 	}, {
 		config: attrs{
-			"region": 666,
+			"vpc-id": "",
 		},
-		err: `.*expected string, got int\(666\)`,
-	}, {
-		config: attrs{
-			"access-key": 666,
-		},
-		err: `.*expected string, got int\(666\)`,
-	}, {
-		config: attrs{
-			"secret-key": 666,
-		},
-		err: `.*expected string, got int\(666\)`,
-	}, {
-		config: attrs{
-			"control-bucket": 666,
-		},
-		err: `.*expected string, got int\(666\)`,
-	}, {
 		change: attrs{
-			"control-bucket": "new-x",
+			"vpc-id": "none",
 		},
-		err: `.*cannot change control-bucket from "x" to "new-x"`,
+		err:        `.*cannot change vpc-id from "" to "none"`,
+		vpcID:      "",
+		forceVPCID: false,
 	}, {
 		config: attrs{
-			"access-key": "jujuer",
-			"secret-key": "open sesame",
+			"vpc-id": "",
 		},
-		accessKey: "jujuer",
-		secretKey: "open sesame",
+		change: attrs{
+			"vpc-id": "vpc-changed",
+		},
+		err:        `.*cannot change vpc-id from "" to "vpc-changed"`,
+		vpcID:      "",
+		forceVPCID: false,
 	}, {
 		config: attrs{
-			"access-key": "jujuer",
+			"vpc-id": "vpc-initial",
 		},
-		err: ".*environment has no access-key or secret-key",
+		change: attrs{
+			"vpc-id": "",
+		},
+		err:        `.*cannot change vpc-id from "vpc-initial" to ""`,
+		vpcID:      "vpc-initial",
+		forceVPCID: false,
 	}, {
 		config: attrs{
-			"secret-key": "badness",
+			"vpc-id": "vpc-old",
 		},
-		err: ".*environment has no access-key or secret-key",
+		change: attrs{
+			"vpc-id": "vpc-new",
+		},
+		err:        `.*cannot change vpc-id from "vpc-old" to "vpc-new"`,
+		vpcID:      "vpc-old",
+		forceVPCID: false,
 	}, {
 		config: attrs{
-			"admin-secret": "Futumpsh",
+			"vpc-id":       "vpc-foo",
+			"vpc-id-force": true,
 		},
+		change:     attrs{},
+		vpcID:      "vpc-foo",
+		forceVPCID: true,
 	}, {
 		config:       attrs{},
 		firewallMode: config.FwInstance,
@@ -268,8 +303,6 @@ func indent(s string, with string) string {
 func (s *ConfigSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.savedHome = utils.Home()
-	s.savedAccessKey = os.Getenv("AWS_ACCESS_KEY_ID")
-	s.savedSecretKey = os.Getenv("AWS_SECRET_ACCESS_KEY")
 
 	home := c.MkDir()
 	sshDir := filepath.Join(home, ".ssh")
@@ -278,17 +311,13 @@ func (s *ConfigSuite) SetUpTest(c *gc.C) {
 	err = ioutil.WriteFile(filepath.Join(sshDir, "id_rsa.pub"), []byte("sshkey\n"), 0666)
 	c.Assert(err, jc.ErrorIsNil)
 
-	utils.SetHome(home)
-	os.Setenv("AWS_ACCESS_KEY_ID", testAuth.AccessKey)
-	os.Setenv("AWS_SECRET_ACCESS_KEY", testAuth.SecretKey)
-	aws.Regions["configtest"] = configTestRegion
+	err = utils.SetHome(home)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *ConfigSuite) TearDownTest(c *gc.C) {
-	utils.SetHome(s.savedHome)
-	os.Setenv("AWS_ACCESS_KEY_ID", s.savedAccessKey)
-	os.Setenv("AWS_SECRET_ACCESS_KEY", s.savedSecretKey)
-	delete(aws.Regions, "configtest")
+	err := utils.SetHome(s.savedHome)
+	c.Assert(err, jc.ErrorIsNil)
 	s.BaseSuite.TearDownTest(c)
 }
 
@@ -299,23 +328,7 @@ func (s *ConfigSuite) TestConfig(c *gc.C) {
 	}
 }
 
-func (s *ConfigSuite) TestMissingAuth(c *gc.C) {
-	os.Setenv("AWS_ACCESS_KEY_ID", "")
-	os.Setenv("AWS_SECRET_ACCESS_KEY", "")
-
-	// Since PR #52 amz.v3 uses these AWS_ vars as fallbacks, if set.
-	os.Setenv("AWS_ACCESS_KEY", "")
-	os.Setenv("AWS_SECRET_KEY", "")
-
-	// Since LP r37 goamz uses also these EC2_ as fallbacks, so unset them too.
-	os.Setenv("EC2_ACCESS_KEY", "")
-	os.Setenv("EC2_SECRET_KEY", "")
-	test := configTests[0]
-	test.err = ".*environment has no access-key or secret-key"
-	test.check(c)
-}
-
-func (s *ConfigSuite) TestPrepareForCreateInsertsUniqueControlBucket(c *gc.C) {
+func (s *ConfigSuite) TestPrepareConfigSetsDefaultBlockSource(c *gc.C) {
 	s.PatchValue(&verifyCredentials, func(*environ) error { return nil })
 	attrs := testing.FakeConfig().Merge(testing.Attrs{
 		"type": "ec2",
@@ -323,55 +336,26 @@ func (s *ConfigSuite) TestPrepareForCreateInsertsUniqueControlBucket(c *gc.C) {
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
 
-	cfg1, err := providerInstance.PrepareForCreateEnvironment(cfg)
-	c.Assert(err, jc.ErrorIsNil)
-
-	bucket1 := cfg1.UnknownAttrs()["control-bucket"]
-	c.Assert(bucket1, gc.Matches, "[a-f0-9]{32}")
-
-	cfg2, err := providerInstance.PrepareForCreateEnvironment(cfg)
-	c.Assert(err, jc.ErrorIsNil)
-	bucket2 := cfg2.UnknownAttrs()["control-bucket"]
-	c.Assert(bucket2, gc.Matches, "[a-f0-9]{32}")
-
-	c.Assert(bucket1, gc.Not(gc.Equals), bucket2)
-}
-
-func (s *ConfigSuite) TestPrepareInsertsUniqueControlBucket(c *gc.C) {
-	s.PatchValue(&verifyCredentials, func(*environ) error { return nil })
-	attrs := testing.FakeConfig().Merge(testing.Attrs{
-		"type": "ec2",
+	credential := cloud.NewCredential(
+		cloud.AccessKeyAuthType,
+		map[string]string{
+			"access-key": "x",
+			"secret-key": "y",
+		},
+	)
+	cfg, err = providerInstance.PrepareConfig(environs.PrepareConfigParams{
+		Config: cfg,
+		Cloud: environs.CloudSpec{
+			Type:       "ec2",
+			Name:       "aws",
+			Region:     "test",
+			Credential: &credential,
+		},
 	})
-	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
-
-	ctx := envtesting.BootstrapContext(c)
-	env0, err := providerInstance.PrepareForBootstrap(ctx, cfg)
-	c.Assert(err, jc.ErrorIsNil)
-	bucket0 := env0.(*environ).ecfg().controlBucket()
-	c.Assert(bucket0, gc.Matches, "[a-f0-9]{32}")
-
-	env1, err := providerInstance.PrepareForBootstrap(ctx, cfg)
-	c.Assert(err, jc.ErrorIsNil)
-	bucket1 := env1.(*environ).ecfg().controlBucket()
-	c.Assert(bucket1, gc.Matches, "[a-f0-9]{32}")
-
-	c.Assert(bucket1, gc.Not(gc.Equals), bucket0)
-}
-
-func (s *ConfigSuite) TestPrepareDoesNotTouchExistingControlBucket(c *gc.C) {
-	s.PatchValue(&verifyCredentials, func(*environ) error { return nil })
-	attrs := testing.FakeConfig().Merge(testing.Attrs{
-		"type":           "ec2",
-		"control-bucket": "burblefoo",
-	})
-	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, jc.ErrorIsNil)
-
-	env, err := providerInstance.PrepareForBootstrap(envtesting.BootstrapContext(c), cfg)
-	c.Assert(err, jc.ErrorIsNil)
-	bucket := env.(*environ).ecfg().controlBucket()
-	c.Assert(bucket, gc.Equals, "burblefoo")
+	source, ok := cfg.StorageDefaultBlockSource()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(source, gc.Equals, "ebs")
 }
 
 func (s *ConfigSuite) TestPrepareSetsDefaultBlockSource(c *gc.C) {
@@ -379,12 +363,28 @@ func (s *ConfigSuite) TestPrepareSetsDefaultBlockSource(c *gc.C) {
 	attrs := testing.FakeConfig().Merge(testing.Attrs{
 		"type": "ec2",
 	})
-	cfg, err := config.New(config.NoDefaults, attrs)
+	config, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
 
-	env, err := providerInstance.PrepareForBootstrap(envtesting.BootstrapContext(c), cfg)
+	credential := cloud.NewCredential(
+		cloud.AccessKeyAuthType,
+		map[string]string{
+			"access-key": "x",
+			"secret-key": "y",
+		},
+	)
+	cfg, err := providerInstance.PrepareConfig(environs.PrepareConfigParams{
+		Config: config,
+		Cloud: environs.CloudSpec{
+			Type:       "ec2",
+			Name:       "aws",
+			Region:     "test",
+			Credential: &credential,
+		},
+	})
 	c.Assert(err, jc.ErrorIsNil)
-	source, ok := env.(*environ).ecfg().StorageDefaultBlockSource()
+
+	source, ok := cfg.StorageDefaultBlockSource()
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(source, gc.Equals, "ebs")
 }

@@ -4,8 +4,7 @@
 package factory
 
 import (
-	"github.com/juju/juju/container/kvm"
-	"github.com/juju/juju/container/lxc"
+	"github.com/juju/juju/container"
 	"github.com/juju/juju/instance"
 )
 
@@ -14,10 +13,10 @@ import (
 // unknown then an empty string is returned.
 func DefaultNetworkBridge(cType instance.ContainerType) string {
 	switch cType {
-	case instance.LXC:
-		return lxc.DefaultLxcBridge
+	case instance.LXD:
+		return container.DefaultLxcBridge
 	case instance.KVM:
-		return kvm.DefaultKvmBridge
+		return container.DefaultKvmBridge
 	default:
 		return ""
 	}

@@ -7,9 +7,9 @@ import (
 	stdtesting "testing"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/machiner"
@@ -18,8 +18,9 @@ import (
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/watcher/watchertest"
 )
 
 func TestAll(t *stdtesting.T) {
@@ -40,14 +41,14 @@ var _ = gc.Suite(&machinerSuite{})
 
 func (s *machinerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-	m, err := s.State.AddMachine("quantal", state.JobManageEnviron)
+	m, err := s.State.AddMachine("quantal", state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 	err = m.SetProviderAddresses(network.NewAddress("10.0.0.1"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.st, s.machine = s.OpenAPIAsNewMachine(c)
 	// Create the machiner API facade.
-	s.machiner = s.st.Machiner()
+	s.machiner = machiner.NewState(s.st)
 	c.Assert(s.machiner, gc.NotNil)
 	s.APIAddresserTests = apitesting.NewAPIAddresserTests(s.machiner, s.BackingState)
 }
@@ -70,16 +71,16 @@ func (s *machinerSuite) TestSetStatus(c *gc.C) {
 
 	statusInfo, err := s.machine.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Status, gc.Equals, state.StatusPending)
+	c.Assert(statusInfo.Status, gc.Equals, status.Pending)
 	c.Assert(statusInfo.Message, gc.Equals, "")
 	c.Assert(statusInfo.Data, gc.HasLen, 0)
 
-	err = machine.SetStatus(params.StatusStarted, "blah", nil)
+	err = machine.SetStatus(status.Started, "blah", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	statusInfo, err = s.machine.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(statusInfo.Status, gc.Equals, state.StatusStarted)
+	c.Assert(statusInfo.Status, gc.Equals, status.Started)
 	c.Assert(statusInfo.Message, gc.Equals, "blah")
 	c.Assert(statusInfo.Data, gc.HasLen, 0)
 	c.Assert(statusInfo.Since, gc.NotNil)
@@ -184,15 +185,15 @@ func (s *machinerSuite) TestWatch(c *gc.C) {
 
 	w, err := machine.Watch()
 	c.Assert(err, jc.ErrorIsNil)
-	defer statetesting.AssertStop(c, w)
-	wc := statetesting.NewNotifyWatcherC(c, s.BackingState, w)
+	wc := watchertest.NewNotifyWatcherC(c, w, s.BackingState.StartSync)
+	defer wc.AssertStops()
 
 	// Initial event.
 	wc.AssertOneChange()
 
 	// Change something other than the lifecycle and make sure it's
 	// not detected.
-	err = machine.SetStatus(params.StatusStarted, "not really", nil)
+	err = machine.SetStatus(status.Started, "not really", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
@@ -200,7 +201,4 @@ func (s *machinerSuite) TestWatch(c *gc.C) {
 	err = machine.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
-
-	statetesting.AssertStop(c, w)
-	wc.AssertClosed()
 }

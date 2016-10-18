@@ -5,10 +5,11 @@ package storage_test
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 	jujustorage "github.com/juju/juju/storage"
 )
 
@@ -48,7 +49,8 @@ type mockState struct {
 	watchFilesystemAttachment           func(names.MachineTag, names.FilesystemTag) state.NotifyWatcher
 	watchVolumeAttachment               func(names.MachineTag, names.VolumeTag) state.NotifyWatcher
 	watchBlockDevices                   func(names.MachineTag) state.NotifyWatcher
-	envName                             string
+	modelName                           string
+	modelTag                            names.ModelTag
 	volume                              func(tag names.VolumeTag) (state.Volume, error)
 	machineVolumeAttachments            func(machine names.MachineTag) ([]state.VolumeAttachment, error)
 	volumeAttachments                   func(volume names.VolumeTag) ([]state.VolumeAttachment, error)
@@ -110,8 +112,12 @@ func (st *mockState) WatchBlockDevices(mtag names.MachineTag) state.NotifyWatche
 	return st.watchBlockDevices(mtag)
 }
 
-func (st *mockState) EnvName() (string, error) {
-	return st.envName, nil
+func (st *mockState) ModelName() (string, error) {
+	return st.modelName, nil
+}
+
+func (st *mockState) ModelTag() names.ModelTag {
+	return st.modelTag
 }
 
 func (st *mockState) AllVolumes() ([]state.Volume, error) {
@@ -202,8 +208,8 @@ func (m *mockVolume) Info() (state.VolumeInfo, error) {
 	return state.VolumeInfo{}, errors.NotProvisionedf("%v", m.tag)
 }
 
-func (m *mockVolume) Status() (state.StatusInfo, error) {
-	return state.StatusInfo{Status: state.StatusAttached}, nil
+func (m *mockVolume) Status() (status.StatusInfo, error) {
+	return status.StatusInfo{Status: status.Attached}, nil
 }
 
 type mockFilesystem struct {
@@ -239,8 +245,8 @@ func (m *mockFilesystem) Info() (state.FilesystemInfo, error) {
 	return state.FilesystemInfo{}, errors.NotProvisionedf("filesystem")
 }
 
-func (m *mockFilesystem) Status() (state.StatusInfo, error) {
-	return state.StatusInfo{Status: state.StatusAttached}, nil
+func (m *mockFilesystem) Status() (status.StatusInfo, error) {
+	return status.StatusInfo{Status: status.Attached}, nil
 }
 
 type mockFilesystemAttachment struct {

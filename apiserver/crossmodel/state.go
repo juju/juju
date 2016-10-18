@@ -4,7 +4,7 @@
 package crossmodel
 
 import (
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/state"
 )
@@ -12,11 +12,11 @@ import (
 // stateAccess provides selected methods off the state.State struct
 // plus additional helpers.
 type stateAccess interface {
-	Service(name string) (service *state.Service, err error)
-	EnvironTag() names.EnvironTag
-	EnvironUUID() string
-	WatchOfferedServices() state.StringsWatcher
-	EnvironName() (string, error)
+	Application(name string) (service *state.Application, err error)
+	ModelTag() names.ModelTag
+	ModelUUID() string
+	WatchOfferedApplications() state.StringsWatcher
+	ModelName() (string, error)
 }
 
 var getStateAccess = func(st *state.State) stateAccess {
@@ -28,8 +28,8 @@ type stateShim struct {
 }
 
 // EnvironName returns the name of the environment.
-func (s *stateShim) EnvironName() (string, error) {
-	cfg, err := s.EnvironConfig()
+func (s *stateShim) ModelName() (string, error) {
+	cfg, err := s.ModelConfig()
 	if err != nil {
 		return "", err
 	}

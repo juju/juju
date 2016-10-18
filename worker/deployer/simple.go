@@ -10,17 +10,18 @@ import (
 	"regexp"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/shell"
+	"github.com/juju/version"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 // TODO(ericsnow) Use errors.Trace, etc. in this file.
@@ -33,7 +34,7 @@ type APICalls interface {
 // SimpleContext is a Context that manages unit deployments on the local system.
 type SimpleContext struct {
 
-	// api is used to get the current state server addresses at the time the
+	// api is used to get the current controller addresses at the time the
 	// given unit is deployed.
 	api APICalls
 
@@ -111,17 +112,20 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 	dataDir := ctx.agentConfig.DataDir()
 	logDir := ctx.agentConfig.LogDir()
 	current := version.Binary{
-		Number: version.Current,
+		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
 		Series: series.HostSeries(),
 	}
-	_, err = tools.ChangeAgentTools(dataDir, tag.String(), current)
 	toolsDir := tools.ToolsDir(dataDir, tag.String())
 	defer removeOnErr(&err, toolsDir)
+	_, err = tools.ChangeAgentTools(dataDir, tag.String(), current)
+	if err != nil {
+		return errors.Trace(err)
+	}
 
 	result, err := ctx.api.ConnectionInfo()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	logger.Debugf("state addresses: %q", result.StateAddresses)
 	logger.Debugf("API addresses: %q", result.APIAddresses)
@@ -134,11 +138,12 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 				LogDir:          logDir,
 				MetricsSpoolDir: agent.DefaultPaths.MetricsSpoolDir,
 			},
-			UpgradedToVersion: version.Current,
+			UpgradedToVersion: jujuversion.Current,
 			Tag:               tag,
 			Password:          initialPassword,
 			Nonce:             "unused",
-			Environment:       ctx.agentConfig.Environment(),
+			Controller:        ctx.agentConfig.Controller(),
+			Model:             ctx.agentConfig.Model(),
 			// TODO: remove the state addresses here and test when api only.
 			StateAddresses: result.StateAddresses,
 			APIAddresses:   result.APIAddresses,
@@ -149,7 +154,7 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 			},
 		})
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	if err := conf.Write(); err != nil {
 		return err
@@ -282,7 +287,7 @@ func (ctx *SimpleContext) service(unitName string, renderer shell.Renderer) (dep
 func removeOnErr(err *error, path string) {
 	if *err != nil {
 		if err := os.RemoveAll(path); err != nil {
-			logger.Warningf("installer: cannot remove %q: %v", path, err)
+			logger.Errorf("installer: cannot remove %q: %v", path, err)
 		}
 	}
 }

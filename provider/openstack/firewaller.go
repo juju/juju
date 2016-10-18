@@ -38,14 +38,19 @@ type Firewaller interface {
 	// Ports returns the port ranges opened for the whole environment.
 	Ports() ([]network.PortRange, error)
 
-	// Implementations shoud delete all global security groups.
-	DeleteGlobalGroups() error
+	// Implementations are expected to delete all security groups for the
+	// environment.
+	DeleteAllModelGroups() error
+
+	// Implementations are expected to delete all security groups for the
+	// controller, ie those for all hosted models.
+	DeleteAllControllerGroups(controllerUUID string) error
 
 	// Implementations should return list of security groups, that belong to given instances.
 	GetSecurityGroups(ids ...instance.Id) ([]string, error)
 
 	// Implementations should set up initial security groups, if any.
-	SetUpGroups(machineId string, apiPort int) ([]nova.SecurityGroup, error)
+	SetUpGroups(controllerUUID, machineId string, apiPort int) ([]nova.SecurityGroup, error)
 
 	// Set of initial networks, that should be added by default to all new instances.
 	InitialNetworks() []nova.ServerNetworks
@@ -88,17 +93,17 @@ func (c *defaultFirewaller) InitialNetworks() []nova.ServerNetworks {
 // Note: ideally we'd have a better way to determine group membership so that 2
 // people that happen to share an openstack account and name their environment
 // "openstack" don't end up destroying each other's machines.
-func (c *defaultFirewaller) SetUpGroups(machineId string, apiPort int) ([]nova.SecurityGroup, error) {
-	jujuGroup, err := c.setUpGlobalGroup(c.jujuGroupName(), apiPort)
+func (c *defaultFirewaller) SetUpGroups(controllerUUID, machineId string, apiPort int) ([]nova.SecurityGroup, error) {
+	jujuGroup, err := c.setUpGlobalGroup(c.jujuGroupName(controllerUUID), apiPort)
 	if err != nil {
 		return nil, err
 	}
 	var machineGroup nova.SecurityGroup
 	switch c.environ.Config().FirewallMode() {
 	case config.FwInstance:
-		machineGroup, err = c.ensureGroup(c.machineGroupName(machineId), nil)
+		machineGroup, err = c.ensureGroup(c.machineGroupName(controllerUUID, machineId), nil)
 	case config.FwGlobal:
-		machineGroup, err = c.ensureGroup(c.globalGroupName(), nil)
+		machineGroup, err = c.ensureGroup(c.globalGroupName(controllerUUID), nil)
 	}
 	if err != nil {
 		return nil, err
@@ -207,6 +212,7 @@ func (c *defaultFirewaller) GetSecurityGroups(ids ...instance.Id) ([]string, err
 		if err != nil {
 			return nil, err
 		}
+		novaClient := c.environ.nova()
 		securityGroupNames = make([]string, 0, len(ids))
 		for _, inst := range instances {
 			if inst == nil {
@@ -217,31 +223,50 @@ func (c *defaultFirewaller) GetSecurityGroups(ids ...instance.Id) ([]string, err
 			if lastDashPos == -1 {
 				return nil, fmt.Errorf("cannot identify machine ID in openstack server name %q", openstackName)
 			}
-			securityGroupName := c.machineGroupName(openstackName[lastDashPos+1:])
-			securityGroupNames = append(securityGroupNames, securityGroupName)
+			serverId := openstackName[lastDashPos+1:]
+			groups, err := novaClient.GetServerSecurityGroups(string(inst.Id()))
+			if err != nil {
+				return nil, err
+			}
+			for _, group := range groups {
+				// We only include the group specifically tied to the instance, not
+				// any group global to the model itself.
+				if strings.HasSuffix(group.Name, fmt.Sprintf("%s-%s", c.environ.Config().UUID(), serverId)) {
+					securityGroupNames = append(securityGroupNames, group.Name)
+				}
+			}
 		}
 	}
 	return securityGroupNames, nil
 }
 
-// DeleteGlobalGroups implements Firewaller interface.
-func (c *defaultFirewaller) DeleteGlobalGroups() error {
+func (c *defaultFirewaller) deleteSecurityGroups(prefix string) error {
 	novaClient := c.environ.nova()
 	securityGroups, err := novaClient.ListSecurityGroups()
 	if err != nil {
 		return errors.Annotate(err, "cannot list security groups")
 	}
-	re, err := regexp.Compile(fmt.Sprintf("^%s(-\\d+)?$", c.jujuGroupName()))
+
+	re, err := regexp.Compile("^" + prefix)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	globalGroupName := c.globalGroupName()
 	for _, group := range securityGroups {
-		if re.MatchString(group.Name) || group.Name == globalGroupName {
+		if re.MatchString(group.Name) {
 			deleteSecurityGroup(novaClient, group.Name, group.Id)
 		}
 	}
 	return nil
+}
+
+// DeleteAllControllerGroups implements Firewaller interface.
+func (c *defaultFirewaller) DeleteAllControllerGroups(controllerUUID string) error {
+	return c.deleteSecurityGroups(c.jujuControllerGroupPrefix(controllerUUID))
+}
+
+// DeleteAllModelGroups implements Firewaller interface.
+func (c *defaultFirewaller) DeleteAllModelGroups() error {
+	return c.deleteSecurityGroups(c.jujuGroupRegexp())
 }
 
 // deleteSecurityGroup attempts to delete the security group. Should it fail,
@@ -270,20 +295,24 @@ func deleteSecurityGroup(novaclient *nova.Client, name, id string) {
 		},
 		Attempts: 30,
 		Delay:    time.Second,
-		Clock:    clock.WallClock,
+		// TODO(dimitern): This should be fixed to take a clock.Clock arg, not
+		// hard-coded WallClock, like in provider/ec2/securitygroups_test.go!
+		// See PR juju:#5197, especially the code around autoAdvancingClock.
+		// LP Bug: http://pad.lv/1580626.
+		Clock: clock.WallClock,
 	})
 	if err != nil {
-		logger.Warningf("cannot delete security group %q. Used by another environment?", name)
+		logger.Warningf("cannot delete security group %q. Used by another model?", name)
 	}
 }
 
 // OpenPorts implements Firewaller interface.
 func (c *defaultFirewaller) OpenPorts(ports []network.PortRange) error {
 	if c.environ.Config().FirewallMode() != config.FwGlobal {
-		return fmt.Errorf("invalid firewall mode %q for opening ports on environment",
+		return fmt.Errorf("invalid firewall mode %q for opening ports on model",
 			c.environ.Config().FirewallMode())
 	}
-	if err := c.openPortsInGroup(c.globalGroupName(), ports); err != nil {
+	if err := c.openPortsInGroup(c.globalGroupRegexp(), ports); err != nil {
 		return err
 	}
 	logger.Infof("opened ports in global group: %v", ports)
@@ -293,10 +322,10 @@ func (c *defaultFirewaller) OpenPorts(ports []network.PortRange) error {
 // ClosePorts implements Firewaller interface.
 func (c *defaultFirewaller) ClosePorts(ports []network.PortRange) error {
 	if c.environ.Config().FirewallMode() != config.FwGlobal {
-		return fmt.Errorf("invalid firewall mode %q for closing ports on environment",
+		return fmt.Errorf("invalid firewall mode %q for closing ports on model",
 			c.environ.Config().FirewallMode())
 	}
-	if err := c.closePortsInGroup(c.globalGroupName(), ports); err != nil {
+	if err := c.closePortsInGroup(c.globalGroupRegexp(), ports); err != nil {
 		return err
 	}
 	logger.Infof("closed ports in global group: %v", ports)
@@ -306,10 +335,10 @@ func (c *defaultFirewaller) ClosePorts(ports []network.PortRange) error {
 // Ports implements Firewaller interface.
 func (c *defaultFirewaller) Ports() ([]network.PortRange, error) {
 	if c.environ.Config().FirewallMode() != config.FwGlobal {
-		return nil, fmt.Errorf("invalid firewall mode %q for retrieving ports from environment",
+		return nil, fmt.Errorf("invalid firewall mode %q for retrieving ports from model",
 			c.environ.Config().FirewallMode())
 	}
-	return c.portsInGroup(c.globalGroupName())
+	return c.portsInGroup(c.globalGroupRegexp())
 }
 
 // OpenInstancePorts implements Firewaller interface.
@@ -318,11 +347,11 @@ func (c *defaultFirewaller) OpenInstancePorts(inst instance.Instance, machineId 
 		return fmt.Errorf("invalid firewall mode %q for opening ports on instance",
 			c.environ.Config().FirewallMode())
 	}
-	name := c.machineGroupName(machineId)
-	if err := c.openPortsInGroup(name, ports); err != nil {
+	nameRegexp := c.machineGroupRegexp(machineId)
+	if err := c.openPortsInGroup(nameRegexp, ports); err != nil {
 		return err
 	}
-	logger.Infof("opened ports in security group %s: %v", name, ports)
+	logger.Infof("opened ports in security group %s-%s: %v", c.environ.Config().UUID(), machineId, ports)
 	return nil
 }
 
@@ -332,11 +361,11 @@ func (c *defaultFirewaller) CloseInstancePorts(inst instance.Instance, machineId
 		return fmt.Errorf("invalid firewall mode %q for closing ports on instance",
 			c.environ.Config().FirewallMode())
 	}
-	name := c.machineGroupName(machineId)
-	if err := c.closePortsInGroup(name, ports); err != nil {
+	nameRegexp := c.machineGroupRegexp(machineId)
+	if err := c.closePortsInGroup(nameRegexp, ports); err != nil {
 		return err
 	}
-	logger.Infof("closed ports in security group %s: %v", name, ports)
+	logger.Infof("closed ports in security group %s-%s: %v", c.environ.Config().UUID(), machineId, ports)
 	return nil
 }
 
@@ -346,20 +375,42 @@ func (c *defaultFirewaller) InstancePorts(inst instance.Instance, machineId stri
 		return nil, fmt.Errorf("invalid firewall mode %q for retrieving ports from instance",
 			c.environ.Config().FirewallMode())
 	}
-	name := c.machineGroupName(machineId)
-	portRanges, err := c.portsInGroup(name)
+	nameRegexp := c.machineGroupRegexp(machineId)
+	portRanges, err := c.portsInGroup(nameRegexp)
 	if err != nil {
 		return nil, err
 	}
 	return portRanges, nil
 }
 
-func (c *defaultFirewaller) openPortsInGroup(name string, portRanges []network.PortRange) error {
+func (c *defaultFirewaller) matchingGroup(nameRegExp string) (nova.SecurityGroup, error) {
+	re, err := regexp.Compile(nameRegExp)
+	if err != nil {
+		return nova.SecurityGroup{}, err
+	}
 	novaclient := c.environ.nova()
-	group, err := novaclient.SecurityGroupByName(name)
+	allGroups, err := novaclient.ListSecurityGroups()
+	if err != nil {
+		return nova.SecurityGroup{}, err
+	}
+	var matchingGroups []nova.SecurityGroup
+	for _, group := range allGroups {
+		if re.MatchString(group.Name) {
+			matchingGroups = append(matchingGroups, group)
+		}
+	}
+	if len(matchingGroups) != 1 {
+		return nova.SecurityGroup{}, errors.NotFoundf("security groups matching %q", nameRegExp)
+	}
+	return matchingGroups[0], nil
+}
+
+func (c *defaultFirewaller) openPortsInGroup(nameRegExp string, portRanges []network.PortRange) error {
+	group, err := c.matchingGroup(nameRegExp)
 	if err != nil {
 		return err
 	}
+	novaclient := c.environ.nova()
 	rules := portsToRuleInfo(group.Id, portRanges)
 	for _, rule := range rules {
 		_, err := novaclient.CreateSecurityGroupRule(rule)
@@ -381,18 +432,18 @@ func ruleMatchesPortRange(rule nova.SecurityGroupRule, portRange network.PortRan
 		*rule.ToPort == portRange.ToPort
 }
 
-func (c *defaultFirewaller) closePortsInGroup(name string, portRanges []network.PortRange) error {
+func (c *defaultFirewaller) closePortsInGroup(nameRegExp string, portRanges []network.PortRange) error {
 	if len(portRanges) == 0 {
 		return nil
 	}
-	novaclient := c.environ.nova()
-	group, err := novaclient.SecurityGroupByName(name)
+	group, err := c.matchingGroup(nameRegExp)
 	if err != nil {
 		return err
 	}
+	novaclient := c.environ.nova()
 	// TODO: Hey look ma, it's quadratic
 	for _, portRange := range portRanges {
-		for _, p := range (*group).Rules {
+		for _, p := range group.Rules {
 			if !ruleMatchesPortRange(p, portRange) {
 				continue
 			}
@@ -406,12 +457,12 @@ func (c *defaultFirewaller) closePortsInGroup(name string, portRanges []network.
 	return nil
 }
 
-func (c *defaultFirewaller) portsInGroup(name string) (portRanges []network.PortRange, err error) {
-	group, err := c.environ.nova().SecurityGroupByName(name)
+func (c *defaultFirewaller) portsInGroup(nameRegexp string) (portRanges []network.PortRange, err error) {
+	group, err := c.matchingGroup(nameRegexp)
 	if err != nil {
 		return nil, err
 	}
-	for _, p := range (*group).Rules {
+	for _, p := range group.Rules {
 		portRanges = append(portRanges, network.PortRange{
 			Protocol: *p.IPProtocol,
 			FromPort: *p.FromPort,
@@ -421,14 +472,33 @@ func (c *defaultFirewaller) portsInGroup(name string) (portRanges []network.Port
 	network.SortPortRanges(portRanges)
 	return portRanges, nil
 }
-func (c *defaultFirewaller) globalGroupName() string {
-	return fmt.Sprintf("%s-global", c.jujuGroupName())
+
+func (c *defaultFirewaller) globalGroupName(controllerUUID string) string {
+	return fmt.Sprintf("%s-global", c.jujuGroupName(controllerUUID))
 }
 
-func (c *defaultFirewaller) machineGroupName(machineId string) string {
-	return fmt.Sprintf("%s-%s", c.jujuGroupName(), machineId)
+func (c *defaultFirewaller) machineGroupName(controllerUUID, machineId string) string {
+	return fmt.Sprintf("%s-%s", c.jujuGroupName(controllerUUID), machineId)
 }
 
-func (c *defaultFirewaller) jujuGroupName() string {
-	return fmt.Sprintf("juju-%s", c.environ.name)
+func (c *defaultFirewaller) jujuGroupName(controllerUUID string) string {
+	cfg := c.environ.Config()
+	return fmt.Sprintf("juju-%v-%v", controllerUUID, cfg.UUID())
+}
+
+func (c *defaultFirewaller) jujuControllerGroupPrefix(controllerUUID string) string {
+	return fmt.Sprintf("juju-%v-", controllerUUID)
+}
+
+func (c *defaultFirewaller) jujuGroupRegexp() string {
+	cfg := c.environ.Config()
+	return fmt.Sprintf("juju-.*-%v", cfg.UUID())
+}
+
+func (c *defaultFirewaller) globalGroupRegexp() string {
+	return fmt.Sprintf("%s-global", c.jujuGroupRegexp())
+}
+
+func (c *defaultFirewaller) machineGroupRegexp(machineId string) string {
+	return fmt.Sprintf("%s-%s", c.jujuGroupRegexp(), machineId)
 }

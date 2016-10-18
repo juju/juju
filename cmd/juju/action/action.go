@@ -6,38 +6,12 @@ package action
 import (
 	"io"
 
-	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/api/action"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
-
-var actionDoc = `
-"juju action" executes and manages actions on units; it queues up new actions,
-monitors the status of running actions, and retrieves the results of completed
-actions.
-`
-
-var actionPurpose = "execute, manage, monitor, and retrieve results of actions"
-
-// NewSuperCommand returns a new action super-command.
-func NewSuperCommand() cmd.Command {
-	actionCmd := cmd.NewSuperCommand(
-		cmd.SuperCommandParams{
-			Name:        "action",
-			Doc:         actionDoc,
-			UsagePrefix: "juju",
-			Purpose:     actionPurpose,
-		})
-	actionCmd.Register(newDefinedCommand())
-	actionCmd.Register(newDoCommand())
-	actionCmd.Register(newFetchCommand())
-	actionCmd.Register(newStatusCommand())
-	return actionCmd
-}
 
 // type APIClient represents the action API functionality.
 type APIClient interface {
@@ -67,9 +41,9 @@ type APIClient interface {
 	// Cancel attempts to cancel a queued up Action from running.
 	Cancel(params.Actions) (params.ActionResults, error)
 
-	// ServiceCharmActions is a single query which uses ServicesCharmActions to
+	// ApplicationCharmActions is a single query which uses ApplicationsCharmsActions to
 	// get the charm.Actions for a single Service by tag.
-	ServiceCharmActions(params.Entity) (*charm.Actions, error)
+	ApplicationCharmActions(params.Entity) (map[string]params.ActionSpec, error)
 
 	// Actions fetches actions by tag.  These Actions can be used to get
 	// the ActionReceiver if necessary.
@@ -78,11 +52,15 @@ type APIClient interface {
 	// FindActionTagsByPrefix takes a list of string prefixes and finds
 	// corresponding ActionTags that match that prefix.
 	FindActionTagsByPrefix(params.FindTags) (params.FindTagsResults, error)
+
+	// FindActionsByNames takes a list of names and finds a corresponding list of
+	// Actions for every name.
+	FindActionsByNames(params.FindActionsByNames) (params.ActionsByNames, error)
 }
 
 // ActionCommandBase is the base type for action sub-commands.
 type ActionCommandBase struct {
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 }
 
 // NewActionAPIClient returns a client for the action api endpoint.

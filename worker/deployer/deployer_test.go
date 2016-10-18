@@ -4,10 +4,8 @@
 package deployer_test
 
 import (
-	"runtime"
 	"sort"
 	"strings"
-	stdtesting "testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -18,18 +16,11 @@ import (
 	apideployer "github.com/juju/juju/api/deployer"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/deployer"
 )
-
-func TestPackage(t *stdtesting.T) {
-	//TODO(bogdanteleaga): Fix this on windows
-	if runtime.GOOS == "windows" {
-		t.Skip("bug 1403084: Currently does not work under windows")
-	}
-	coretesting.MgoTestPackage(t)
-}
 
 type deployerSuite struct {
 	jujutesting.JujuConnSuite
@@ -42,14 +33,12 @@ type deployerSuite struct {
 
 var _ = gc.Suite(&deployerSuite{})
 
-var _ worker.StringsWatchHandler = (*deployer.Deployer)(nil)
-
 func (s *deployerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.SimpleToolsFixture.SetUp(c, s.DataDir())
 	s.stateAPI, s.machine = s.OpenAPIAsNewMachine(c)
 	// Create the deployer facade.
-	s.deployerState = s.stateAPI.Deployer()
+	s.deployerState = apideployer.NewState(s.stateAPI)
 	c.Assert(s.deployerState, gc.NotNil)
 }
 
@@ -61,7 +50,9 @@ func (s *deployerSuite) TearDownTest(c *gc.C) {
 func (s *deployerSuite) makeDeployerAndContext(c *gc.C) (worker.Worker, deployer.Context) {
 	// Create a deployer acting on behalf of the machine.
 	ctx := s.getContextForMachine(c, s.machine.Tag())
-	return deployer.NewDeployer(s.deployerState, ctx), ctx
+	deployer, err := deployer.NewDeployer(s.deployerState, ctx)
+	c.Assert(err, jc.ErrorIsNil)
+	return deployer, ctx
 }
 
 func (s *deployerSuite) TestDeployRecallRemovePrincipals(c *gc.C) {
@@ -86,7 +77,13 @@ func (s *deployerSuite) TestDeployRecallRemovePrincipals(c *gc.C) {
 	s.waitFor(c, isDeployed(ctx, u0.Name(), u1.Name()))
 
 	// Cause a unit to become Dying, and check no change.
-	err = u1.SetAgentStatus(state.StatusIdle, "", nil)
+	now := time.Now()
+	sInfo := status.StatusInfo{
+		Status:  status.Idle,
+		Message: "",
+		Since:   &now,
+	}
+	err = u1.SetAgentStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	err = u1.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
@@ -111,6 +108,21 @@ func (s *deployerSuite) TestDeployRecallRemovePrincipals(c *gc.C) {
 	c.Assert(u1.Life(), gc.Equals, state.Dying)
 }
 
+func (s *deployerSuite) TestInitialStatusMessages(c *gc.C) {
+	svc := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	u0, err := svc.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+
+	dep, _ := s.makeDeployerAndContext(c)
+	defer stop(c, dep)
+	err = u0.AssignToMachine(s.machine)
+	c.Assert(err, jc.ErrorIsNil)
+	s.waitFor(c, unitStatus(u0, status.StatusInfo{
+		Status:  status.Waiting,
+		Message: "installing agent",
+	}))
+}
+
 func (s *deployerSuite) TestRemoveNonAlivePrincipals(c *gc.C) {
 	// Create a service, and a couple of units.
 	svc := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
@@ -129,7 +141,13 @@ func (s *deployerSuite) TestRemoveNonAlivePrincipals(c *gc.C) {
 	// note: this is not a sane state; for the unit to have a status it must
 	// have been deployed. But it's instructive to check that the right thing
 	// would happen if it were possible to have a dying unit in this situation.
-	err = u1.SetAgentStatus(state.StatusIdle, "", nil)
+	now := time.Now()
+	sInfo := status.StatusInfo{
+		Status:  status.Idle,
+		Message: "",
+		Since:   &now,
+	}
+	err = u1.SetAgentStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	err = u1.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
@@ -259,6 +277,14 @@ func isRemoved(st *state.State, name string) func(*gc.C) bool {
 		}
 		c.Assert(err, jc.ErrorIsNil)
 		return false
+	}
+}
+
+func unitStatus(u *state.Unit, statusInfo status.StatusInfo) func(*gc.C) bool {
+	return func(c *gc.C) bool {
+		sInfo, err := u.Status()
+		c.Assert(err, jc.ErrorIsNil)
+		return sInfo.Status == statusInfo.Status && sInfo.Message == statusInfo.Message
 	}
 }
 

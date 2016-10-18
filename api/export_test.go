@@ -4,20 +4,25 @@
 package api
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/network"
+	"github.com/juju/utils/clock"
+	"gopkg.in/juju/names.v2"
 )
 
 var (
-	CertDir               = &certDir
-	NewWebsocketDialer    = newWebsocketDialer
-	NewWebsocketDialerPtr = &newWebsocketDialer
-	WebsocketDialConfig   = &websocketDialConfig
-	SlideAddressToFront   = slideAddressToFront
-	BestVersion           = bestVersion
-	FacadeVersions        = &facadeVersions
-	ConnectWebsocket      = connectWebsocket
+	CertDir             = &certDir
+	NewWebsocketDialer  = newWebsocketDialer
+	WebsocketDialConfig = &websocketDialConfig
+	SlideAddressToFront = slideAddressToFront
+	BestVersion         = bestVersion
+	FacadeVersions      = &facadeVersions
+	DialAPI             = dialAPI
 )
+
+// RPCConnection defines the methods that are called on the rpc.Conn instance.
+type RPCConnection rpcConnection
 
 // SetServerAddress allows changing the URL to the internal API server
 // that AddLocalCharm uses in order to test NotImplementedError.
@@ -35,24 +40,38 @@ func ServerRoot(c *Client) string {
 // only set the bits that you acutally want to test.
 type TestingStateParams struct {
 	Address        string
-	EnvironTag     string
+	ModelTag       string
 	APIHostPorts   [][]network.HostPort
 	FacadeVersions map[string][]int
 	ServerScheme   string
 	ServerRoot     string
+	RPCConnection  RPCConnection
+	Clock          clock.Clock
+	Broken         chan struct{}
 }
 
 // NewTestingState creates an api.State object that can be used for testing. It
 // isn't backed onto an actual API server, so actual RPC methods can't be
-// called on it. But it can be used for testing general behavior.
+// called on it. But it can be used for testing general behaviour.
 func NewTestingState(params TestingStateParams) Connection {
+	var modelTag names.ModelTag
+	if params.ModelTag != "" {
+		t, err := names.ParseModelTag(params.ModelTag)
+		if err != nil {
+			panic("invalid model tag")
+		}
+		modelTag = t
+	}
 	st := &state{
+		client:            params.RPCConnection,
+		clock:             params.Clock,
 		addr:              params.Address,
-		environTag:        params.EnvironTag,
+		modelTag:          modelTag,
 		hostPorts:         params.APIHostPorts,
 		facadeVersions:    params.FacadeVersions,
 		serverScheme:      params.ServerScheme,
 		serverRootAddress: params.ServerRoot,
+		broken:            params.Broken,
 	}
 	return st
 }
@@ -87,4 +106,11 @@ func (f *resultCaller) BestAPIVersion() int {
 
 func (f *resultCaller) RawAPICaller() base.APICaller {
 	return nil
+}
+
+// IsMinVersionError returns true if the given error was caused by the charm
+// having a minjujuversion higher than the juju environment's version.
+func IsMinVersionError(err error) bool {
+	_, ok := errors.Cause(err).(minJujuVersionErr)
+	return ok
 }

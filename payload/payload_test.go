@@ -27,7 +27,7 @@ func (s *payloadSuite) newPayload(name, pType string) payload.Payload {
 		ID:     "id" + name,
 		Status: payload.StateRunning,
 		Labels: []string{"a-tag"},
-		Unit:   "a-service/0",
+		Unit:   "a-application/0",
 	}
 }
 

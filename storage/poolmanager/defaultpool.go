@@ -9,19 +9,11 @@ import (
 	"github.com/juju/juju/storage"
 )
 
-var defaultPools []*storage.Config
-
-// RegisterDefaultStoragePools registers pool information to be saved to
-// state when AddDefaultStoragePools is called.
-func RegisterDefaultStoragePools(pools []*storage.Config) {
-	defaultPools = append(defaultPools, pools...)
-}
-
-// AddDefaultStoragePools is run at bootstrap and on upgrade to ensure that
-// out of the box storage pools are created.
-func AddDefaultStoragePools(settings SettingsManager) error {
-	pm := New(settings)
-	for _, pool := range defaultPools {
+// AddDefaultStoragePools adds the default storage pools for the given
+// provider to the given pool manager. This is called whenever a new
+// model is created.
+func AddDefaultStoragePools(p storage.Provider, pm PoolManager) error {
+	for _, pool := range p.DefaultPools() {
 		if err := addDefaultPool(pm, pool); err != nil {
 			return err
 		}

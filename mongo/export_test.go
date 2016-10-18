@@ -11,8 +11,6 @@ import (
 var (
 	MakeJournalDirs = makeJournalDirs
 	MongoConfigPath = &mongoConfigPath
-	NoauthCommand   = noauthCommand
-	ProcessSignal   = &processSignal
 
 	SharedSecretPath = sharedSecretPath
 	SSLKeyPath       = sslKeyPath
@@ -23,7 +21,6 @@ var (
 	RuntimeGOOS    = &runtimeGOOS
 	AvailSpace     = &availSpace
 	MinOplogSizeMB = &minOplogSizeMB
-	MaxOplogSizeMB = &maxOplogSizeMB
 	PreallocFile   = &preallocFile
 
 	DefaultOplogSize  = defaultOplogSize

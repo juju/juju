@@ -8,10 +8,10 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"github.com/juju/utils"
 	"github.com/juju/utils/os"
 	"github.com/juju/utils/series"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cloudconfig/cloudinit"
@@ -43,7 +43,7 @@ type UserdataConfig interface {
 	ConfigureJuju() error
 }
 
-// UserdataConfig is supposed to take in an instanceConfig as well as a
+// NewUserdataConfig is supposed to take in an instanceConfig as well as a
 // cloudinit.cloudConfig and add attributes in the cloudinit structure based on
 // the values inside instanceConfig and on the series
 func NewUserdataConfig(icfg *instancecfg.InstanceConfig, conf cloudinit.CloudConfig) (UserdataConfig, error) {
@@ -83,7 +83,7 @@ type baseConfigure struct {
 // addAgentInfo adds agent-required information to the agent's directory
 // and returns the agent directory name.
 func (c *baseConfigure) addAgentInfo(tag names.Tag) (agent.Config, error) {
-	acfg, err := c.icfg.AgentConfig(tag, c.icfg.Tools.Version.Number)
+	acfg, err := c.icfg.AgentConfig(tag, c.icfg.AgentVersion().Number)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -127,7 +127,7 @@ func (c *baseConfigure) addMachineAgentToBoot() error {
 		return err
 	}
 	if targetOS != os.Windows {
-		c.conf.AddRunCmd(cloudinit.LogProgressCmd("Starting Juju machine agent (%s)", svcName))
+		c.conf.AddRunCmd(cloudinit.LogProgressCmd("Starting Juju machine agent (service %s)", svcName))
 	}
 	c.conf.AddScripts(cmds...)
 	return nil
@@ -171,14 +171,14 @@ func (c *baseConfigure) toolsSymlinkCommand(toolsDir string) string {
 		return fmt.Sprintf(
 			`cmd.exe /C mklink /D %s %v`,
 			c.conf.ShellRenderer().FromSlash(toolsDir),
-			c.icfg.Tools.Version,
+			c.icfg.AgentVersion(),
 		)
 	default:
 		// TODO(dfc) ln -nfs, so it doesn't fail if for some reason that
 		// the target already exists.
 		return fmt.Sprintf(
 			"ln -s %v %s",
-			c.icfg.Tools.Version,
+			c.icfg.AgentVersion(),
 			shquote(toolsDir),
 		)
 	}

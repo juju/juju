@@ -5,30 +5,37 @@ package peergrouper
 
 import (
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/replicaset"
-	"launchpad.net/tomb"
 
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/catacomb"
 )
+
+var logger = loggo.GetLogger("juju.worker.peergrouper")
 
 type stateInterface interface {
 	Machine(id string) (stateMachine, error)
-	WatchStateServerInfo() state.NotifyWatcher
-	StateServerInfo() (*state.StateServerInfo, error)
+	WatchControllerInfo() state.NotifyWatcher
+	WatchControllerStatusChanges() state.StringsWatcher
+	ControllerInfo() (*state.ControllerInfo, error)
 	MongoSession() mongoSession
+	Space(id string) (SpaceReader, error)
+	SetOrGetMongoSpaceName(spaceName network.SpaceName) (network.SpaceName, error)
+	SetMongoSpaceState(mongoSpaceState state.MongoSpaceStates) error
 }
 
 type stateMachine interface {
 	Id() string
 	InstanceId() (instance.Id, error)
+	Status() (status.StatusInfo, error)
 	Refresh() error
 	Watch() state.NotifyWatcher
 	WantsVote() bool
@@ -45,18 +52,11 @@ type mongoSession interface {
 }
 
 type publisherInterface interface {
-	// publish publishes information about the given state servers
+	// publish publishes information about the given controllers
 	// to whomsoever it may concern. When it is called there
 	// is no guarantee that any of the information has actually changed.
 	publishAPIServers(apiServers [][]network.HostPort, instanceIds []instance.Id) error
 }
-
-// notifyFunc holds a function that is sent
-// to the main worker loop to fetch new information
-// when something changes. It reports whether
-// the information has actually changed (and by implication
-// whether the replica set may need to be changed).
-type notifyFunc func() (changed bool, err error)
 
 var (
 	// If we fail to set the mongo replica set members,
@@ -76,103 +76,103 @@ var (
 	pollInterval = 1 * time.Minute
 )
 
-// pgWorker holds all the mutable state that we are watching.
-// The only goroutine that is allowed to modify this
-// is worker.loop - other watchers modify the
-// current state by calling worker.notify instead of
-// modifying it directly.
+// pgWorker is a worker which watches the controller machines in state
+// as well as the MongoDB replicaset configuration, adding and
+// removing controller machines as they change or are added and
+// removed.
 type pgWorker struct {
-	tomb tomb.Tomb
-
-	// wg represents all the currently running goroutines.
-	// The worker main loop waits for all of these to exit
-	// before finishing.
-	wg sync.WaitGroup
+	catacomb catacomb.Catacomb
 
 	// st represents the State. It is an interface so we can swap
 	// out the implementation during testing.
 	st stateInterface
 
-	// When something changes that might affect
-	// the peer group membership, it sends a function
-	// on notifyCh that is run inside the main worker
-	// goroutine to mutate the state. It reports whether
-	// the state has actually changed.
-	notifyCh chan notifyFunc
+	// machineChanges receives events from the machineTrackers when
+	// controller machines change in ways that are relevant to the
+	// peergrouper.
+	machineChanges chan struct{}
 
-	// machines holds the set of machines we are currently
-	// watching (all the state server machines). Each one has an
-	// associated goroutine that
-	// watches attributes of that machine.
-	machines map[string]*machine
+	// machineTrackers holds the workers which track the machines we
+	// are currently watching (all the controller machines).
+	machineTrackers map[string]*machineTracker
 
 	// publisher holds the implementation of the API
 	// address publisher.
 	publisher publisherInterface
+
+	providerSupportsSpaces bool
 }
 
 // New returns a new worker that maintains the mongo replica set
 // with respect to the given state.
-func New(st *state.State) (worker.Worker, error) {
-	cfg, err := st.EnvironConfig()
+func New(st *state.State, supportsSpaces bool) (worker.Worker, error) {
+	cfg, err := st.ControllerConfig()
 	if err != nil {
 		return nil, err
 	}
-	return newWorker(&stateShim{
+	shim := &stateShim{
 		State:     st,
 		mongoPort: cfg.StatePort(),
 		apiPort:   cfg.APIPort(),
-	}, newPublisher(st, cfg.PreferIPv6())), nil
+	}
+	return newWorker(shim, newPublisher(st), supportsSpaces)
 }
 
-func newWorker(st stateInterface, pub publisherInterface) worker.Worker {
+func newWorker(st stateInterface, pub publisherInterface, supportsSpaces bool) (worker.Worker, error) {
 	w := &pgWorker{
-		st:        st,
-		notifyCh:  make(chan notifyFunc),
-		machines:  make(map[string]*machine),
-		publisher: pub,
+		st:                     st,
+		machineChanges:         make(chan struct{}),
+		machineTrackers:        make(map[string]*machineTracker),
+		publisher:              pub,
+		providerSupportsSpaces: supportsSpaces,
 	}
-	go func() {
-		defer w.tomb.Done()
-		if err := w.loop(); err != nil {
-			logger.Errorf("peergrouper loop terminated: %v", err)
-			w.tomb.Kill(err)
-		}
-		// Wait for the various goroutines to be killed.
-		// N.B. we don't defer this call because
-		// if we do and a bug causes a panic, Wait will deadlock
-		// waiting for the unkilled goroutines to exit.
-		w.wg.Wait()
-	}()
-	return w
+	err := catacomb.Invoke(catacomb.Plan{
+		Site: &w.catacomb,
+		Work: w.loop,
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return w, nil
 }
 
 func (w *pgWorker) Kill() {
-	w.tomb.Kill(nil)
+	w.catacomb.Kill(nil)
 }
 
 func (w *pgWorker) Wait() error {
-	return w.tomb.Wait()
+	return w.catacomb.Wait()
 }
 
 func (w *pgWorker) loop() error {
-	infow := w.watchStateServerInfo()
-	defer infow.stop()
+	controllerChanges, err := w.watchForControllerChanges()
+	if err != nil {
+		return errors.Trace(err)
+	}
 
 	var updateChan <-chan time.Time
 	retryInterval := initialRetryInterval
+
 	for {
 		select {
-		case f := <-w.notifyCh:
-			// Update our current view of the state of affairs.
-			changed, err := f()
+		case <-w.catacomb.Dying():
+			return w.catacomb.ErrDying()
+		case <-controllerChanges:
+			changed, err := w.updateControllerMachines()
 			if err != nil {
-				return err
+				return errors.Trace(err)
 			}
-			if !changed {
-				break
+			if changed {
+				// A controller machine was added or removed, update
+				// the replica set immediately.
+				// TODO(fwereade): 2016-03-17 lp:1558657
+				updateChan = time.After(0)
 			}
-			// Try to update the replica set immediately.
+
+		case <-w.machineChanges:
+			// One of the controller machines changed, update the
+			// replica set immediately.
+			// TODO(fwereade): 2016-03-17 lp:1558657
 			updateChan = time.After(0)
 
 		case <-updateChan:
@@ -196,9 +196,11 @@ func (w *pgWorker) loop() error {
 				// Update the replica set members occasionally
 				// to keep them up to date with the current
 				// replica set member statuses.
+				// TODO(fwereade): 2016-03-17 lp:1558657
 				updateChan = time.After(pollInterval)
 				retryInterval = initialRetryInterval
 			} else {
+				// TODO(fwereade): 2016-03-17 lp:1558657
 				updateChan = time.After(retryInterval)
 				retryInterval *= 2
 				if retryInterval > maxRetryInterval {
@@ -206,17 +208,119 @@ func (w *pgWorker) loop() error {
 				}
 			}
 
-		case <-w.tomb.Dying():
-			return tomb.ErrDying
 		}
 	}
 }
 
+// watchForControllerChanges starts two watchers pertaining to changes
+// to the controllers, returning a channel which will receive events
+// if either watcher fires.
+func (w *pgWorker) watchForControllerChanges() (<-chan struct{}, error) {
+	controllerInfoWatcher := w.st.WatchControllerInfo()
+	if err := w.catacomb.Add(controllerInfoWatcher); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	controllerStatusWatcher := w.st.WatchControllerStatusChanges()
+	if err := w.catacomb.Add(controllerStatusWatcher); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	out := make(chan struct{})
+	go func() {
+		for {
+			select {
+			case <-w.catacomb.Dying():
+				return
+			case <-controllerInfoWatcher.Changes():
+				out <- struct{}{}
+			case <-controllerStatusWatcher.Changes():
+				out <- struct{}{}
+			}
+		}
+	}()
+	return out, nil
+}
+
+// updateControllerMachines updates the peergrouper's current list of
+// controller machines, as well as starting and stopping trackers for
+// them as they are added and removed.
+func (w *pgWorker) updateControllerMachines() (bool, error) {
+	info, err := w.st.ControllerInfo()
+	if err != nil {
+		return false, fmt.Errorf("cannot get controller info: %v", err)
+	}
+
+	logger.Debugf("controller machines in state: %#v", info.MachineIds)
+	changed := false
+
+	// Stop machine goroutines that no longer correspond to controller
+	// machines.
+	for _, m := range w.machineTrackers {
+		if !inStrings(m.Id(), info.MachineIds) {
+			worker.Stop(m)
+			delete(w.machineTrackers, m.Id())
+			changed = true
+		}
+	}
+
+	// Start machines with no watcher
+	for _, id := range info.MachineIds {
+		if _, ok := w.machineTrackers[id]; ok {
+			continue
+		}
+		logger.Debugf("found new machine %q", id)
+		stm, err := w.st.Machine(id)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				// If the machine isn't found, it must have been
+				// removed and will soon enough be removed
+				// from the controller list. This will probably
+				// never happen, but we'll code defensively anyway.
+				logger.Warningf("machine %q from controller list not found", id)
+				continue
+			}
+			return false, fmt.Errorf("cannot get machine %q: %v", id, err)
+		}
+
+		// Don't add the machine unless it is "Started"
+		machineStatus, err := stm.Status()
+		if err != nil {
+			return false, errors.Annotatef(err, "cannot get status for machine %q", id)
+		}
+		if machineStatus.Status == status.Started {
+			logger.Debugf("machine %q has started, adding it to peergrouper list", id)
+			tracker, err := newMachineTracker(stm, w.machineChanges)
+			if err != nil {
+				return false, errors.Trace(err)
+			}
+			if err := w.catacomb.Add(tracker); err != nil {
+				return false, errors.Trace(err)
+			}
+			w.machineTrackers[id] = tracker
+			changed = true
+		} else {
+			logger.Debugf("machine %q not ready: %v", id, machineStatus.Status)
+		}
+
+	}
+	return changed, nil
+}
+
+func inStrings(t string, ss []string) bool {
+	for _, s := range ss {
+		if s == t {
+			return true
+		}
+	}
+	return false
+}
+
 func (w *pgWorker) apiPublishInfo() ([][]network.HostPort, []instance.Id, error) {
-	servers := make([][]network.HostPort, 0, len(w.machines))
-	instanceIds := make([]instance.Id, 0, len(w.machines))
-	for _, m := range w.machines {
-		if len(m.apiHostPorts) == 0 {
+	servers := make([][]network.HostPort, 0, len(w.machineTrackers))
+	instanceIds := make([]instance.Id, 0, len(w.machineTrackers))
+	for _, m := range w.machineTrackers {
+		if len(m.APIHostPorts()) == 0 {
 			continue
 		}
 		instanceId, err := m.stm.InstanceId()
@@ -224,21 +328,10 @@ func (w *pgWorker) apiPublishInfo() ([][]network.HostPort, []instance.Id, error)
 			return nil, nil, err
 		}
 		instanceIds = append(instanceIds, instanceId)
-		servers = append(servers, m.apiHostPorts)
+		servers = append(servers, m.APIHostPorts())
 
 	}
 	return servers, instanceIds, nil
-}
-
-// notify sends the given notification function to
-// the worker main loop to be executed.
-func (w *pgWorker) notify(f notifyFunc) bool {
-	select {
-	case w.notifyCh <- f:
-		return true
-	case <-w.tomb.Dying():
-		return false
-	}
 }
 
 // peerGroupInfo collates current session information about the
@@ -256,8 +349,76 @@ func (w *pgWorker) peerGroupInfo() (*peerGroupInfo, error) {
 	if err != nil {
 		return nil, fmt.Errorf("cannot get replica set members: %v", err)
 	}
-	info.machines = w.machines
+	info.machineTrackers = w.machineTrackers
+
+	spaceName, err := w.getMongoSpace(mongoAddresses(info.machineTrackers))
+	if err != nil {
+		return nil, err
+	}
+	info.mongoSpace = spaceName
+
 	return info, nil
+}
+
+func mongoAddresses(machines map[string]*machineTracker) [][]network.Address {
+	addresses := make([][]network.Address, len(machines))
+	i := 0
+	for _, m := range machines {
+		for _, hp := range m.MongoHostPorts() {
+			addresses[i] = append(addresses[i], hp.Address)
+		}
+		i++
+	}
+	return addresses
+}
+
+// getMongoSpace updates info with the space that Mongo servers should exist in.
+func (w *pgWorker) getMongoSpace(addrs [][]network.Address) (network.SpaceName, error) {
+	unset := network.SpaceName("")
+
+	stateInfo, err := w.st.ControllerInfo()
+	if err != nil {
+		return unset, errors.Annotate(err, "cannot get state server info")
+	}
+
+	switch stateInfo.MongoSpaceState {
+	case state.MongoSpaceUnknown:
+		if !w.providerSupportsSpaces {
+			err := w.st.SetMongoSpaceState(state.MongoSpaceUnsupported)
+			if err != nil {
+				return unset, errors.Annotate(err, "cannot set Mongo space state")
+			}
+			return unset, nil
+		}
+
+		// We want to find a space that contains all Mongo servers so we can
+		// use it to look up the IP address of each Mongo server to be used
+		// to set up the peer group.
+		spaceStats := generateSpaceStats(addrs)
+		if spaceStats.LargestSpaceContainsAll == false {
+			err := w.st.SetMongoSpaceState(state.MongoSpaceInvalid)
+			if err != nil {
+				return unset, errors.Annotate(err, "cannot set Mongo space state")
+			}
+			logger.Warningf("couldn't find a space containing all peer group machines")
+			return unset, nil
+		} else {
+			spaceName, err := w.st.SetOrGetMongoSpaceName(spaceStats.LargestSpace)
+			if err != nil {
+				return unset, errors.Annotate(err, "error setting/getting Mongo space")
+			}
+			return spaceName, nil
+		}
+
+	case state.MongoSpaceValid:
+		space, err := w.st.Space(stateInfo.MongoSpaceName)
+		if err != nil {
+			return unset, errors.Annotate(err, "looking up space")
+		}
+		return network.SpaceName(space.Name()), nil
+	}
+
+	return unset, nil
 }
 
 // replicaSetError holds an error returned as a result
@@ -272,7 +433,7 @@ type replicaSetError struct {
 func (w *pgWorker) updateReplicaset() error {
 	info, err := w.peerGroupInfo()
 	if err != nil {
-		return err
+		return errors.Annotate(err, "cannot get peergrouper info")
 	}
 	members, voting, err := desiredPeerGroup(info)
 	if err != nil {
@@ -306,7 +467,7 @@ func (w *pgWorker) updateReplicaset() error {
 	//
 	// Note that we potentially update the HasVote status of the machines even
 	// if the members have not changed.
-	var added, removed []*machine
+	var added, removed []*machineTracker
 	for m, hasVote := range voting {
 		switch {
 		case hasVote && !m.stm.HasVote():
@@ -316,7 +477,7 @@ func (w *pgWorker) updateReplicaset() error {
 		}
 	}
 	if err := setHasVote(added, true); err != nil {
-		return err
+		return errors.Annotate(err, "cannot set HasVote added")
 	}
 	if members != nil {
 		if err := w.st.MongoSession().Set(members); err != nil {
@@ -330,216 +491,61 @@ func (w *pgWorker) updateReplicaset() error {
 		logger.Infof("successfully changed replica set to %#v", members)
 	}
 	if err := setHasVote(removed, false); err != nil {
-		return err
+		return errors.Annotate(err, "cannot set HasVote removed")
 	}
 	return nil
 }
 
-// start runs the given loop function until it returns.
-// When it returns, the receiving pgWorker is killed with
-// the returned error.
-func (w *pgWorker) start(loop func() error) {
-	w.wg.Add(1)
-	go func() {
-		defer w.wg.Done()
-		if err := loop(); err != nil {
-			w.tomb.Kill(err)
-		}
-	}()
-}
-
 // setHasVote sets the HasVote status of all the given
 // machines to hasVote.
-func setHasVote(ms []*machine, hasVote bool) error {
+func setHasVote(ms []*machineTracker, hasVote bool) error {
 	if len(ms) == 0 {
 		return nil
 	}
 	logger.Infof("setting HasVote=%v on machines %v", hasVote, ms)
 	for _, m := range ms {
 		if err := m.stm.SetHasVote(hasVote); err != nil {
-			return fmt.Errorf("cannot set voting status of %q to %v: %v", m.id, hasVote, err)
+			return fmt.Errorf("cannot set voting status of %q to %v: %v", m.Id(), hasVote, err)
 		}
 	}
 	return nil
 }
 
-// serverInfoWatcher watches the state server info and
-// notifies the worker when it changes.
-type serverInfoWatcher struct {
-	worker  *pgWorker
-	watcher state.NotifyWatcher
+// allSpaceStats holds a SpaceStats for both API and Mongo machines
+type allSpaceStats struct {
+	APIMachines   spaceStats
+	MongoMachines spaceStats
 }
 
-func (w *pgWorker) watchStateServerInfo() *serverInfoWatcher {
-	infow := &serverInfoWatcher{
-		worker:  w,
-		watcher: w.st.WatchStateServerInfo(),
-	}
-	w.start(infow.loop)
-	return infow
+// SpaceStats holds information useful when choosing which space to pick an
+// address from.
+type spaceStats struct {
+	SpaceRefCount           map[network.SpaceName]int
+	LargestSpace            network.SpaceName
+	LargestSpaceSize        int
+	LargestSpaceContainsAll bool
 }
 
-func (infow *serverInfoWatcher) loop() error {
-	for {
-		select {
-		case _, ok := <-infow.watcher.Changes():
-			if !ok {
-				return infow.watcher.Err()
+// generateSpaceStats takes a list of machine addresses and returns information
+// about what spaces are referenced by those machines.
+func generateSpaceStats(addresses [][]network.Address) spaceStats {
+	var stats spaceStats
+	stats.SpaceRefCount = make(map[network.SpaceName]int)
+
+	for i := range addresses {
+		for _, addr := range addresses[i] {
+			v := stats.SpaceRefCount[addr.SpaceName]
+			v++
+			stats.SpaceRefCount[addr.SpaceName] = v
+
+			if v > stats.LargestSpaceSize {
+				stats.LargestSpace = addr.SpaceName
+				stats.LargestSpaceSize = v
 			}
-			infow.worker.notify(infow.updateMachines)
-		case <-infow.worker.tomb.Dying():
-			return tomb.ErrDying
 		}
 	}
-}
 
-func (infow *serverInfoWatcher) stop() {
-	infow.watcher.Stop()
-}
+	stats.LargestSpaceContainsAll = stats.LargestSpaceSize == len(addresses)
 
-// updateMachines is a notifyFunc that updates the current
-// machines when the state server info has changed.
-func (infow *serverInfoWatcher) updateMachines() (bool, error) {
-	info, err := infow.worker.st.StateServerInfo()
-	if err != nil {
-		return false, fmt.Errorf("cannot get state server info: %v", err)
-	}
-	changed := false
-	// Stop machine goroutines that no longer correspond to state server
-	// machines.
-	for _, m := range infow.worker.machines {
-		if !inStrings(m.id, info.MachineIds) {
-			m.stop()
-			delete(infow.worker.machines, m.id)
-			changed = true
-		}
-	}
-	// Start machines with no watcher
-	for _, id := range info.MachineIds {
-		if _, ok := infow.worker.machines[id]; ok {
-			continue
-		}
-		logger.Debugf("found new machine %q", id)
-		stm, err := infow.worker.st.Machine(id)
-		if err != nil {
-			if errors.IsNotFound(err) {
-				// If the machine isn't found, it must have been
-				// removed and will soon enough be removed
-				// from the state server list. This will probably
-				// never happen, but we'll code defensively anyway.
-				logger.Warningf("machine %q from state server list not found", id)
-				continue
-			}
-			return false, fmt.Errorf("cannot get machine %q: %v", id, err)
-		}
-		infow.worker.machines[id] = infow.worker.newMachine(stm)
-		changed = true
-	}
-	return changed, nil
-}
-
-// machine represents a machine in State.
-type machine struct {
-	id             string
-	wantsVote      bool
-	apiHostPorts   []network.HostPort
-	mongoHostPorts []network.HostPort
-
-	worker         *pgWorker
-	stm            stateMachine
-	machineWatcher state.NotifyWatcher
-}
-
-func (m *machine) mongoHostPort() string {
-	return mongo.SelectPeerHostPort(m.mongoHostPorts)
-}
-
-func (m *machine) String() string {
-	return m.id
-}
-
-func (m *machine) GoString() string {
-	return fmt.Sprintf("&peergrouper.machine{id: %q, wantsVote: %v, hostPort: %q}", m.id, m.wantsVote, m.mongoHostPort())
-}
-
-func (w *pgWorker) newMachine(stm stateMachine) *machine {
-	m := &machine{
-		worker:         w,
-		id:             stm.Id(),
-		stm:            stm,
-		apiHostPorts:   stm.APIHostPorts(),
-		mongoHostPorts: stm.MongoHostPorts(),
-		wantsVote:      stm.WantsVote(),
-		machineWatcher: stm.Watch(),
-	}
-	w.start(m.loop)
-	return m
-}
-
-func (m *machine) loop() error {
-	for {
-		select {
-		case _, ok := <-m.machineWatcher.Changes():
-			if !ok {
-				return m.machineWatcher.Err()
-			}
-			m.worker.notify(m.refresh)
-		case <-m.worker.tomb.Dying():
-			return nil
-		}
-	}
-}
-
-func (m *machine) stop() {
-	m.machineWatcher.Stop()
-}
-
-func (m *machine) refresh() (bool, error) {
-	if err := m.stm.Refresh(); err != nil {
-		if errors.IsNotFound(err) {
-			// We want to be robust when the machine
-			// state is out of date with respect to the
-			// state server info, so if the machine
-			// has been removed, just assume that
-			// no change has happened - the machine
-			// loop will be stopped very soon anyway.
-			return false, nil
-		}
-		return false, err
-	}
-	changed := false
-	if wantsVote := m.stm.WantsVote(); wantsVote != m.wantsVote {
-		m.wantsVote = wantsVote
-		changed = true
-	}
-	if hps := m.stm.MongoHostPorts(); !hostPortsEqual(hps, m.mongoHostPorts) {
-		m.mongoHostPorts = hps
-		changed = true
-	}
-	if hps := m.stm.APIHostPorts(); !hostPortsEqual(hps, m.apiHostPorts) {
-		m.apiHostPorts = hps
-		changed = true
-	}
-	return changed, nil
-}
-
-func hostPortsEqual(hps1, hps2 []network.HostPort) bool {
-	if len(hps1) != len(hps2) {
-		return false
-	}
-	for i := range hps1 {
-		if hps1[i] != hps2[i] {
-			return false
-		}
-	}
-	return true
-}
-
-func inStrings(t string, ss []string) bool {
-	for _, s := range ss {
-		if s == t {
-			return true
-		}
-	}
-	return false
+	return stats
 }

@@ -4,64 +4,17 @@
 package cloudsigma
 
 import (
-	"github.com/altoros/gosigma"
 	"github.com/juju/errors"
 	"github.com/juju/schema"
-	"github.com/juju/utils"
 
 	"github.com/juju/juju/environs/config"
 )
 
-// boilerplateConfig will be shown in help output, so please keep it up to
-// date when you change environment configuration below.
-var boilerplateConfig = `# https://juju.ubuntu.com/docs/config-cloudsigma.html
-cloudsigma:
-    type: cloudsigma
+var configFields = schema.Fields{}
 
-    # region holds the cloudsigma region (zrh, lvs, ...).
-    #
-    # region: <your region>
+var configDefaultFields = schema.Defaults{}
 
-    # credentials for CloudSigma account
-    #
-    # username: <your username>
-    # password: <secret>
-`
-
-var configFields = schema.Fields{
-	"username": schema.String(),
-	"password": schema.String(),
-	"region":   schema.String(),
-}
-
-var configDefaultFields = schema.Defaults{
-	"username": "",
-	"password": "",
-	"region":   gosigma.DefaultRegion,
-}
-
-var configSecretFields = []string{
-	"password",
-}
-
-var configImmutableFields = []string{
-	"region",
-}
-
-func prepareConfig(cfg *config.Config) (*config.Config, error) {
-	// Turn an incomplete config into a valid one, if possible.
-	attrs := cfg.AllAttrs()
-
-	if _, ok := attrs["uuid"]; !ok {
-		uuid, err := utils.NewUUID()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		attrs["uuid"] = uuid.String()
-	}
-
-	return cfg.Apply(attrs)
-}
+var configImmutableFields = []string{}
 
 func validateConfig(cfg *config.Config, old *environConfig) (*environConfig, error) {
 	// Check sanity of juju-level fields.
@@ -120,30 +73,7 @@ func validateConfig(cfg *config.Config, old *environConfig) (*environConfig, err
 	return ecfg, nil
 }
 
-// configChanged checks if CloudSigma client environment configuration is changed
-func (c environConfig) clientConfigChanged(newConfig *environConfig) bool {
-	// compare
-	if newConfig.region() != c.region() || newConfig.username() != c.username() ||
-		newConfig.password() != c.password() {
-		return true
-	}
-
-	return false
-}
-
 type environConfig struct {
 	*config.Config
 	attrs map[string]interface{}
-}
-
-func (c environConfig) region() string {
-	return c.attrs["region"].(string)
-}
-
-func (c environConfig) username() string {
-	return c.attrs["username"].(string)
-}
-
-func (c environConfig) password() string {
-	return c.attrs["password"].(string)
 }

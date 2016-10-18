@@ -6,30 +6,34 @@ package testing
 import (
 	"bytes"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/environs/filestorage"
+	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/environs/storage"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/juju/names"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/upgrader"
 )
 
-// toolsLtsSeries records the known Ubuntu LTS series.
-var toolsLtsSeries = []string{"precise", "trusty"}
+// toolsltsseries records the known ubuntu lts series.
+var toolsLtsSeries = series.SupportedLts()
 
 // ToolsFixture is used as a fixture to stub out the default tools URL so we
 // don't hit the real internet during tests.
@@ -70,7 +74,7 @@ func (s *ToolsFixture) UploadFakeTools(c *gc.C, stor storage.Storage, toolsDir, 
 	var versions []version.Binary
 	for _, arch := range arches {
 		v := version.Binary{
-			Number: version.Current,
+			Number: jujuversion.Current,
 			Arch:   arch,
 		}
 		for _, series := range toolsLtsSeries {
@@ -78,6 +82,7 @@ func (s *ToolsFixture) UploadFakeTools(c *gc.C, stor storage.Storage, toolsDir, 
 			versions = append(versions, v)
 		}
 	}
+	c.Logf("uploading fake tool versions: %v", versions)
 	_, err := UploadFakeToolsVersions(stor, toolsDir, stream, versions...)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -189,7 +194,51 @@ func UploadFakeToolsVersions(stor storage.Storage, toolsDir, stream string, vers
 	if err := envtools.MergeAndWriteMetadata(stor, toolsDir, stream, agentTools, envtools.DoNotWriteMirrors); err != nil {
 		return nil, err
 	}
+	err := SignTestTools(stor)
+	if err != nil {
+		return nil, err
+	}
 	return agentTools, nil
+}
+
+func SignTestTools(stor storage.Storage) error {
+	files, err := stor.List("")
+	if err != nil {
+		return err
+	}
+	for _, file := range files {
+		if strings.HasSuffix(file, sstesting.UnsignedJsonSuffix) {
+			// only sign .json files and data
+			if err := SignFileData(stor, file); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func SignFileData(stor storage.Storage, fileName string) error {
+	r, err := stor.Get(fileName)
+	if err != nil {
+		return err
+	}
+	defer r.Close()
+
+	fileData, err := ioutil.ReadAll(r)
+	if err != nil {
+		return err
+	}
+
+	signedName, signedContent, err := sstesting.SignMetadata(fileName, fileData)
+	if err != nil {
+		return err
+	}
+
+	err = stor.Put(signedName, strings.NewReader(string(signedContent)), int64(len(string(signedContent))))
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // AssertUploadFakeToolsVersions puts fake tools in the supplied storage for the supplied versions.
@@ -224,7 +273,7 @@ func uploadFakeTools(stor storage.Storage, toolsDir, stream string) error {
 	var versions []version.Binary
 	for _, series := range toolsSeries.Values() {
 		vers := version.Binary{
-			Number: version.Current,
+			Number: jujuversion.Current,
 			Arch:   arch.HostArch(),
 			Series: series,
 		}
@@ -237,8 +286,8 @@ func uploadFakeTools(stor storage.Storage, toolsDir, stream string) error {
 }
 
 // UploadFakeTools puts fake tools into the supplied storage with a binary
-// version matching version.Current; if version.Current's series is different
-// to coretesting.FakeDefaultSeries, matching fake tools will be uploaded for that
+// version matching jujuversion.Current; if jujuversion.Current's series is different
+// to series.LatestLts(), matching fake tools will be uploaded for that
 // series.  This is useful for tests that are kinda casual about specifying
 // their environment.
 func UploadFakeTools(c *gc.C, stor storage.Storage, toolsDir, stream string) {
@@ -256,14 +305,14 @@ func MustUploadFakeTools(stor storage.Storage, toolsDir, stream string) {
 func RemoveFakeTools(c *gc.C, stor storage.Storage, toolsDir string) {
 	c.Logf("removing fake tools")
 	toolsVersion := version.Binary{
-		Number: version.Current,
+		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
 		Series: series.HostSeries(),
 	}
 	name := envtools.StorageName(toolsVersion, toolsDir)
 	err := stor.Remove(name)
 	c.Check(err, jc.ErrorIsNil)
-	defaultSeries := coretesting.FakeDefaultSeries
+	defaultSeries := series.LatestLts()
 	if series.HostSeries() != defaultSeries {
 		toolsVersion.Series = defaultSeries
 		name := envtools.StorageName(toolsVersion, toolsDir)
@@ -353,7 +402,7 @@ type BootstrapToolsTest struct {
 	Err           string
 }
 
-var noToolsMessage = "Juju cannot bootstrap because no tools are available for your environment.*"
+var noToolsMessage = "Juju cannot bootstrap because no agent binaries are available for your model.*"
 
 var BootstrapToolsTests = []BootstrapToolsTest{
 	{
@@ -514,6 +563,6 @@ var BootstrapToolsTests = []BootstrapToolsTest{
 	}}
 
 func SetSSLHostnameVerification(c *gc.C, st *state.State, SSLHostnameVerification bool) {
-	err := st.UpdateEnvironConfig(map[string]interface{}{"ssl-hostname-verification": SSLHostnameVerification}, nil, nil)
+	err := st.UpdateModelConfig(map[string]interface{}{"ssl-hostname-verification": SSLHostnameVerification}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }

@@ -24,7 +24,7 @@ import (
 	"github.com/juju/utils/series"
 	"gopkg.in/mgo.v2"
 
-	environs "github.com/juju/juju/environs/config"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/service"
 )
@@ -33,13 +33,202 @@ var (
 	logger          = loggo.GetLogger("juju.mongo")
 	mongoConfigPath = "/etc/default/mongodb"
 
-	// JujuMongodPath holds the default path to the juju-specific
+	// JujuMongod24Path holds the default path to the legacy Juju
 	// mongod.
-	JujuMongodPath = "/usr/lib/juju/bin/mongod"
+	JujuMongod24Path = "/usr/lib/juju/bin/mongod"
 
 	// This is NUMACTL package name for apt-get
 	numaCtlPkg = "numactl"
 )
+
+// StorageEngine represents the storage used by mongo.
+type StorageEngine string
+
+const (
+	// JujuMongoPackage is the mongo package Juju uses when
+	// installing mongo.
+	JujuMongoPackage = "juju-mongodb3.2"
+
+	// JujuMongoTooldPackage is the mongo package Juju uses when
+	// installing mongo tools to get mongodump etc.
+	JujuMongoToolsPackage = "juju-mongo-tools3.2"
+
+	// MMAPV1 is the default storage engine in mongo db up to 3.x
+	MMAPV1 StorageEngine = "mmapv1"
+
+	// WiredTiger is a storage type introduced in 3
+	WiredTiger StorageEngine = "wiredTiger"
+
+	// Upgrading is a special case where mongo is being upgraded.
+	Upgrading StorageEngine = "Upgrading"
+)
+
+// Version represents the major.minor version of the runnig mongo.
+type Version struct {
+	Major         int
+	Minor         int
+	Patch         string // supports variants like 1-alpha
+	StorageEngine StorageEngine
+}
+
+// NewerThan will return 1 if the passed version is older than
+// v, 0 if they are equal (or ver is a special case such as
+// Upgrading and -1 if ver is newer.
+func (v Version) NewerThan(ver Version) int {
+	if v == MongoUpgrade || ver == MongoUpgrade {
+		return 0
+	}
+	if v.Major > ver.Major {
+		return 1
+	}
+	if v.Major < ver.Major {
+		return -1
+	}
+	if v.Minor > ver.Minor {
+		return 1
+	}
+	if v.Minor < ver.Minor {
+		return -1
+	}
+	return 0
+}
+
+// NewVersion returns a mongo Version parsing the passed version string
+// or error if not possible.
+// A valid version string is of the form:
+// 1.2.patch/storage
+// major and minor are positive integers, patch is a string containing
+// any ascii character except / and storage is one of the above defined
+// StorageEngine. Only major is mandatory.
+// An alternative valid string is 0.0/Upgrading which represents that
+// mongo is being upgraded.
+func NewVersion(v string) (Version, error) {
+	version := Version{}
+	if v == "" {
+		return Mongo24, nil
+	}
+
+	parts := strings.SplitN(v, "/", 2)
+	switch len(parts) {
+	case 0:
+		return Version{}, errors.New("invalid version string")
+	case 1:
+		version.StorageEngine = MMAPV1
+	case 2:
+		switch StorageEngine(parts[1]) {
+		case MMAPV1:
+			version.StorageEngine = MMAPV1
+		case WiredTiger:
+			version.StorageEngine = WiredTiger
+		case Upgrading:
+			version.StorageEngine = Upgrading
+		}
+	}
+	vParts := strings.SplitN(parts[0], ".", 3)
+
+	if len(vParts) >= 1 {
+		i, err := strconv.Atoi(vParts[0])
+		if err != nil {
+			return Version{}, errors.Annotate(err, "Invalid version string, major is not an int")
+		}
+		version.Major = i
+	}
+	if len(vParts) >= 2 {
+		i, err := strconv.Atoi(vParts[1])
+		if err != nil {
+			return Version{}, errors.Annotate(err, "Invalid version string, minor is not an int")
+		}
+		version.Minor = i
+	}
+	if len(vParts) == 3 {
+		version.Patch = vParts[2]
+	}
+
+	if version.Major == 2 && version.StorageEngine == WiredTiger {
+		return Version{}, errors.Errorf("Version 2.x does not support Wired Tiger storage engine")
+	}
+
+	// This deserialises the special "Mongo Upgrading" version
+	if version.Major == 0 && version.Minor == 0 {
+		return Version{StorageEngine: Upgrading}, nil
+	}
+
+	return version, nil
+}
+
+// String serializes the version into a string.
+func (v Version) String() string {
+	s := fmt.Sprintf("%d.%d", v.Major, v.Minor)
+	if v.Patch != "" {
+		s = fmt.Sprintf("%s.%s", s, v.Patch)
+	}
+	if v.StorageEngine != "" {
+		s = fmt.Sprintf("%s/%s", s, v.StorageEngine)
+	}
+	return s
+}
+
+// JujuMongodPath returns the path for the mongod binary
+// with the specified version.
+func JujuMongodPath(v Version) string {
+	return fmt.Sprintf("/usr/lib/juju/mongo%d.%d/bin/mongod", v.Major, v.Minor)
+}
+
+var (
+	// Mongo24 represents juju-mongodb 2.4.x
+	Mongo24 = Version{Major: 2,
+		Minor:         4,
+		Patch:         "",
+		StorageEngine: MMAPV1,
+	}
+	// Mongo26 represents juju-mongodb26 2.6.x
+	Mongo26 = Version{Major: 2,
+		Minor:         6,
+		Patch:         "",
+		StorageEngine: MMAPV1,
+	}
+	// Mongo32wt represents juju-mongodb3 3.2.x with wiredTiger storage.
+	Mongo32wt = Version{Major: 3,
+		Minor:         2,
+		Patch:         "",
+		StorageEngine: WiredTiger,
+	}
+	// MongoUpgrade represents a sepacial case where an upgrade is in
+	// progress.
+	MongoUpgrade = Version{Major: 0,
+		Minor:         0,
+		Patch:         "Upgrading",
+		StorageEngine: Upgrading,
+	}
+)
+
+// InstalledVersion returns the version of mongo installed.
+// We look for a specific, known version supported by this Juju,
+// and fall back to the original mongo 2.4.
+func InstalledVersion() Version {
+	mgoVersion := Mongo24
+	if binariesAvailable(Mongo32wt, os.Stat) {
+		mgoVersion = Mongo32wt
+	}
+	return mgoVersion
+}
+
+// binariesAvailable returns true if the binaries for the
+// given Version of mongo are available.
+func binariesAvailable(v Version, statFunc func(string) (os.FileInfo, error)) bool {
+	var path string
+	switch v {
+	case Mongo24:
+		// 2.4 has a fixed path.
+		path = JujuMongod24Path
+	default:
+		path = JujuMongodPath(v)
+	}
+	if _, err := statFunc(path); err == nil {
+		return true
+	}
+	return false
+}
 
 // WithAddresses represents an entity that has a set of
 // addresses. e.g. a state Machine object
@@ -77,18 +266,36 @@ func IsMaster(session *mgo.Session, obj WithAddresses) (bool, error) {
 	return false, nil
 }
 
-// SelectPeerAddress returns the address to use as the
-// mongo replica set peer address by selecting it from the given addresses. If
-// no addresses are available an empty string is returned.
+// SelectPeerAddress returns the address to use as the mongo replica set peer
+// address by selecting it from the given addresses. If no addresses are
+// available an empty string is returned.
 func SelectPeerAddress(addrs []network.Address) string {
-	addr, _ := network.SelectInternalAddress(addrs, true)
+	logger.Debugf("selecting mongo peer address from %+v", addrs)
+	// ScopeMachineLocal addresses are OK if we can't pick by space, also the
+	// second bool return is ignored intentionally.
+	addr, _ := network.SelectControllerAddress(addrs, true)
 	return addr.Value
 }
 
-// SelectPeerHostPort returns the HostPort to use as the
-// mongo replica set peer by selecting it from the given hostPorts.
+// SelectPeerHostPort returns the HostPort to use as the mongo replica set peer
+// by selecting it from the given hostPorts.
 func SelectPeerHostPort(hostPorts []network.HostPort) string {
-	return network.SelectInternalHostPort(hostPorts, true)
+	logger.Debugf("selecting mongo peer hostPort by scope from %+v", hostPorts)
+	return network.SelectMongoHostPortsByScope(hostPorts, true)[0]
+}
+
+// SelectPeerHostPortBySpace returns the HostPort to use as the mongo replica set peer
+// by selecting it from the given hostPorts.
+func SelectPeerHostPortBySpace(hostPorts []network.HostPort, space network.SpaceName) string {
+	logger.Debugf("selecting mongo peer hostPort in space %s from %+v", space, hostPorts)
+	// ScopeMachineLocal addresses are OK if we can't pick by space.
+	suitableHostPorts, foundHostPortsInSpaces := network.SelectMongoHostPortsBySpaces(hostPorts, []network.SpaceName{space})
+
+	if !foundHostPortsInSpaces {
+		logger.Debugf("Failed to select hostPort by space - trying by scope from %+v", hostPorts)
+		suitableHostPorts = network.SelectMongoHostPortsByScope(hostPorts, true)
+	}
+	return suitableHostPorts[0]
 }
 
 // GenerateSharedSecret generates a pseudo-random shared secret (keyfile)
@@ -107,17 +314,35 @@ func GenerateSharedSecret() (string, error) {
 // Path returns the executable path to be used to run mongod on this
 // machine. If the juju-bundled version of mongo exists, it will return that
 // path, otherwise it will return the command to run mongod from the path.
-func Path() (string, error) {
-	if _, err := os.Stat(JujuMongodPath); err == nil {
-		return JujuMongodPath, nil
+func Path(version Version) (string, error) {
+	return mongoPath(version, os.Stat, exec.LookPath)
+}
+
+func mongoPath(version Version, stat func(string) (os.FileInfo, error), lookPath func(string) (string, error)) (string, error) {
+	switch version {
+	case Mongo24:
+		if _, err := stat(JujuMongod24Path); err == nil {
+			return JujuMongod24Path, nil
+		}
+
+		path, err := lookPath("mongod")
+		if err != nil {
+			logger.Infof("could not find %v or mongod in $PATH", JujuMongod24Path)
+			return "", err
+		}
+		return path, nil
+	default:
+		path := JujuMongodPath(version)
+		var err error
+		if _, err = stat(path); err == nil {
+			return path, nil
+		}
 	}
 
-	path, err := exec.LookPath("mongod")
-	if err != nil {
-		logger.Infof("could not find %v or mongod in $PATH", JujuMongodPath)
-		return "", err
-	}
-	return path, nil
+	logger.Infof("could not find a suitable binary for %q", version)
+	errMsg := fmt.Sprintf("no suitable binary for %q", version)
+	return "", errors.New(errMsg)
+
 }
 
 // EnsureServerParams is a parameter struct for EnsureServer.
@@ -156,42 +381,9 @@ type EnsureServerParams struct {
 	// algorithm defined in Mongo.
 	OplogSize int
 
-	// SetNumaControlPolicy preference - whether the user
+	// SetNUMAControlPolicy preference - whether the user
 	// wants to set the numa control policy when starting mongo.
-	SetNumaControlPolicy bool
-}
-
-// EnsureServiceInstalled is a convenience method to [re]create
-// the mongo service.
-func EnsureServiceInstalled(dataDir, namespace string, statePort, oplogSizeMB int, setNumaControlPolicy bool) error {
-	mongoPath, err := Path()
-	if err != nil {
-		return errors.Annotate(err, "cannot get mongo path")
-	}
-
-	dbDir := filepath.Join(dataDir, "db")
-
-	if oplogSizeMB == 0 {
-		var err error
-		if oplogSizeMB, err = defaultOplogSize(dbDir); err != nil {
-			return err
-		}
-	}
-
-	svcConf := newConf(dataDir, dbDir, mongoPath, statePort, oplogSizeMB, setNumaControlPolicy)
-	svc, err := newService(ServiceName(namespace), svcConf)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if err := svc.Remove(); err != nil {
-		return errors.Trace(err)
-	}
-
-	if err := svc.Install(); err != nil {
-		return errors.Trace(err)
-	}
-
-	return nil
+	SetNUMAControlPolicy bool
 }
 
 // EnsureServer ensures that the MongoDB server is installed,
@@ -199,10 +391,6 @@ func EnsureServiceInstalled(dataDir, namespace string, statePort, oplogSizeMB in
 //
 // This method will remove old versions of the mongo init service as necessary
 // before installing the new version.
-//
-// The namespace is a unique identifier to prevent multiple instances of mongo
-// on this machine from colliding. This should be empty unless using
-// the local provider.
 func EnsureServer(args EnsureServerParams) error {
 	logger.Infof(
 		"Ensuring mongo server is running; data directory %s; port %d",
@@ -223,7 +411,7 @@ func EnsureServer(args EnsureServerParams) error {
 	}
 
 	operatingsystem := series.HostSeries()
-	if err := installMongod(operatingsystem, args.SetNumaControlPolicy); err != nil {
+	if err := installMongod(operatingsystem, args.SetNUMAControlPolicy); err != nil {
 		// This isn't treated as fatal because the Juju MongoDB
 		// package is likely to be already installed anyway. There
 		// could just be a temporary issue with apt-get/yum/whatever
@@ -231,7 +419,8 @@ func EnsureServer(args EnsureServerParams) error {
 		// (LP #1441904)
 		logger.Errorf("cannot install/upgrade mongod (will proceed anyway): %v", err)
 	}
-	mongoPath, err := Path()
+	mgoVersion := InstalledVersion()
+	mongoPath, err := Path(mgoVersion)
 	if err != nil {
 		return err
 	}
@@ -260,8 +449,18 @@ func EnsureServer(args EnsureServerParams) error {
 		}
 	}
 
-	svcConf := newConf(args.DataDir, dbDir, mongoPath, args.StatePort, oplogSizeMB, args.SetNumaControlPolicy)
-	svc, err := newService(ServiceName(args.Namespace), svcConf)
+	svcConf := newConf(ConfigArgs{
+		DataDir:     args.DataDir,
+		DBDir:       dbDir,
+		MongoPath:   mongoPath,
+		Port:        args.StatePort,
+		OplogSizeMB: oplogSizeMB,
+		WantNUMACtl: args.SetNUMAControlPolicy,
+		Version:     mgoVersion,
+		Auth:        true,
+		IPv6:        network.SupportsIPv6(),
+	})
+	svc, err := newService(ServiceName, svcConf)
 	if err != nil {
 		return err
 	}
@@ -302,7 +501,7 @@ func EnsureServer(args EnsureServerParams) error {
 	return nil
 }
 
-// UpdateSSLKey writes a new SSL key used by mongo to validate connections from Juju state server(s)
+// UpdateSSLKey writes a new SSL key used by mongo to validate connections from Juju controller(s)
 func UpdateSSLKey(dataDir, cert, privateKey string) error {
 	certKey := cert + "\n" + privateKey
 	err := utils.AtomicWriteFile(sslKeyPath(dataDir), []byte(certKey), 0600)
@@ -333,6 +532,15 @@ func logVersion(mongoPath string) {
 	logger.Debugf("using mongod: %s --version: %q", mongoPath, output)
 }
 
+func installPackage(pkg string, pacconfer config.PackagingConfigurer, pacman manager.PackageManager) error {
+	// apply release targeting if needed.
+	if pacconfer.IsCloudArchivePackage(pkg) {
+		pkg = strings.Join(pacconfer.ApplyCloudArchiveTarget(pkg), " ")
+	}
+
+	return pacman.Install(pkg)
+}
+
 func installMongod(operatingsystem string, numaCtl bool) error {
 	// fetch the packaging configuration manager for the current operating system.
 	pacconfer, err := config.NewPackagingConfigurer(operatingsystem)
@@ -346,16 +554,6 @@ func installMongod(operatingsystem string, numaCtl bool) error {
 		return err
 	}
 
-	// Only Quantal requires the PPA.
-	if operatingsystem == "quantal" {
-		// install python-software-properties:
-		if err := pacman.InstallPrerequisite(); err != nil {
-			return err
-		}
-		if err := pacman.AddRepository("ppa:juju/stable"); err != nil {
-			return err
-		}
-	}
 	// CentOS requires "epel-release" for the epel repo mongodb-server is in.
 	if operatingsystem == "centos7" {
 		// install epel-release
@@ -364,24 +562,32 @@ func installMongod(operatingsystem string, numaCtl bool) error {
 		}
 	}
 
-	mongoPkg := packageForSeries(operatingsystem)
+	mongoPkgs, fallbackPkgs := packagesForSeries(operatingsystem)
 
-	pkgs := []string{mongoPkg}
 	if numaCtl {
-		pkgs = []string{mongoPkg, numaCtlPkg}
-		logger.Infof("installing %s and %s", mongoPkg, numaCtlPkg)
+		logger.Infof("installing %v and %s", mongoPkgs, numaCtlPkg)
+		if err = installPackage(numaCtlPkg, pacconfer, pacman); err != nil {
+			return errors.Trace(err)
+		}
 	} else {
-		logger.Infof("installing %s", mongoPkg)
+		logger.Infof("installing %v", mongoPkgs)
 	}
 
-	for i, _ := range pkgs {
-		// apply release targeting if needed.
-		if pacconfer.IsCloudArchivePackage(pkgs[i]) {
-			pkgs[i] = strings.Join(pacconfer.ApplyCloudArchiveTarget(pkgs[i]), " ")
+	for i := range mongoPkgs {
+		if err = installPackage(mongoPkgs[i], pacconfer, pacman); err != nil {
+			break
 		}
-
-		if err := pacman.Install(pkgs[i]); err != nil {
-			return err
+	}
+	if err != nil && len(fallbackPkgs) == 0 {
+		return errors.Trace(err)
+	}
+	if err != nil {
+		logger.Errorf("installing mongo failed: %v", err)
+		logger.Infof("will try fallback packages %v", fallbackPkgs)
+		for i := range fallbackPkgs {
+			if err = installPackage(fallbackPkgs[i], pacconfer, pacman); err != nil {
+				return errors.Trace(err)
+			}
 		}
 	}
 
@@ -395,12 +601,12 @@ func installMongod(operatingsystem string, numaCtl bool) error {
 			return err
 		}
 
-		cmd = []string{"semanage", "port", "-a", "-t", "mongod_port_t", "-p", "tcp", strconv.Itoa(environs.DefaultStatePort)}
+		cmd = []string{"semanage", "port", "-a", "-t", "mongod_port_t", "-p", "tcp", strconv.Itoa(controller.DefaultStatePort)}
 		logger.Infof("running %s %v", cmd[0], cmd[1:])
 		_, err = utils.RunCommand(cmd[0], cmd[1:]...)
 		if err != nil {
 			if !strings.Contains(err.Error(), "exit status 1") {
-				logger.Errorf("semanage failed to provide access on port %d error %s", environs.DefaultStatePort, err)
+				logger.Errorf("semanage failed to provide access on port %d error %s", controller.DefaultStatePort, err)
 				return err
 			}
 		}
@@ -409,39 +615,23 @@ func installMongod(operatingsystem string, numaCtl bool) error {
 	return nil
 }
 
-// packageForSeries returns the name of the mongo package for the series
-// of the machine that it is going to be running on.
-func packageForSeries(series string) string {
+// packagesForSeries returns the name of the mongo package for the series
+// of the machine that it is going to be running on plus a fallback for
+// options where the package is going to be ready eventually but might not
+// yet be.
+func packagesForSeries(series string) ([]string, []string) {
 	switch series {
 	case "precise", "quantal", "raring", "saucy", "centos7":
-		return "mongodb-server"
+		return []string{"mongodb-server"}, []string{}
+	case "trusty", "wily", "xenial":
+		return []string{JujuMongoPackage, JujuMongoToolsPackage}, []string{"juju-mongodb"}
 	default:
-		// trusty and onwards
-		return "juju-mongodb"
+		// y and onwards
+		return []string{JujuMongoPackage, JujuMongoToolsPackage}, []string{}
 	}
 }
 
-// noauthCommand returns an os/exec.Cmd that may be executed to
-// run mongod without security.
-func noauthCommand(dataDir string, port int) (*exec.Cmd, error) {
-	sslKeyFile := path.Join(dataDir, "server.pem")
-	dbDir := filepath.Join(dataDir, "db")
-	mongoPath, err := Path()
-	if err != nil {
-		return nil, err
-	}
-	cmd := exec.Command(mongoPath,
-		"--noauth",
-		"--dbpath", dbDir,
-		"--sslOnNormalPorts",
-		"--sslPEMKeyFile", sslKeyFile,
-		"--sslPEMKeyPassword", "ignored",
-		"--bind_ip", "127.0.0.1",
-		"--port", fmt.Sprint(port),
-		"--noprealloc",
-		"--syslog",
-		"--smallfiles",
-		"--journal",
-	)
-	return cmd, nil
+// DbDir returns the dir where mongo storage is.
+func DbDir(dataDir string) string {
+	return filepath.Join(dataDir, "db")
 }

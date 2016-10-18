@@ -6,15 +6,16 @@ package deployer
 import (
 	"fmt"
 
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 )
 
 func init() {
-	common.RegisterStandardFacade("Deployer", 0, NewDeployerAPI)
+	common.RegisterStandardFacade("Deployer", 1, NewDeployerAPI)
 }
 
 // DeployerAPI provides access to the Deployer API facade.
@@ -25,17 +26,18 @@ type DeployerAPI struct {
 	*common.StateAddresser
 	*common.APIAddresser
 	*common.UnitsWatcher
+	*common.StatusSetter
 
 	st         *state.State
-	resources  *common.Resources
-	authorizer common.Authorizer
+	resources  facade.Resources
+	authorizer facade.Authorizer
 }
 
 // NewDeployerAPI creates a new server-side DeployerAPI facade.
 func NewDeployerAPI(
 	st *state.State,
-	resources *common.Resources,
-	authorizer common.Authorizer,
+	resources facade.Resources,
+	authorizer facade.Authorizer,
 ) (*DeployerAPI, error) {
 	if !authorizer.AuthMachineAgent() {
 		return nil, common.ErrPerm
@@ -69,6 +71,7 @@ func NewDeployerAPI(
 		StateAddresser:  common.NewStateAddresser(st),
 		APIAddresser:    common.NewAPIAddresser(st, resources),
 		UnitsWatcher:    common.NewUnitsWatcher(st, resources, getCanWatch),
+		StatusSetter:    common.NewStatusSetter(st, getAuthFunc),
 		st:              st,
 		resources:       resources,
 		authorizer:      authorizer,
@@ -78,14 +81,27 @@ func NewDeployerAPI(
 // ConnectionInfo returns all the address information that the
 // deployer task needs in one call.
 func (d *DeployerAPI) ConnectionInfo() (result params.DeployerConnectionValues, err error) {
-	info, err := d.st.DeployerConnectionInfo()
-	if info != nil {
-		result = params.DeployerConnectionValues{
-			StateAddresses: info.StateAddresses,
-			APIAddresses:   info.APIAddresses,
-		}
+	stateAddrs, err := d.StateAddresses()
+	if err != nil {
+		return result, err
 	}
+
+	apiAddrs, err := d.APIAddresses()
+	if err != nil {
+		return result, err
+	}
+
+	result = params.DeployerConnectionValues{
+		StateAddresses: stateAddrs.Result,
+		APIAddresses:   apiAddrs.Result,
+	}
+
 	return result, err
+}
+
+// SetStatus sets the status of the specified entities.
+func (d *DeployerAPI) SetStatus(args params.SetStatus) (params.ErrorResults, error) {
+	return d.StatusSetter.SetStatus(args)
 }
 
 // getAllUnits returns a list of all principal and subordinate units

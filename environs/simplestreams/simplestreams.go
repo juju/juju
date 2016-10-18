@@ -44,8 +44,14 @@ type CloudSpec struct {
 
 // equals returns true if spec == other, allowing for endpoints
 // with or without a trailing "/".
-func (spec *CloudSpec) equals(other *CloudSpec) bool {
-	if spec.Region != other.Region {
+func (spec *CloudSpec) equals(other *CloudSpec) (res bool) {
+	// TODO(axw) 2016-04-11 #1568715
+	// This is a hack to enable the new Azure provider to
+	// work with the old simplestreams format. We should
+	// update how the publishing is done so that we generate
+	// with both the old Title Case style, and the new
+	// lowercasewithoutwhitespace style.
+	if canonicalRegionName(spec.Region) != canonicalRegionName(other.Region) {
 		return false
 	}
 	specEndpoint := spec.Endpoint
@@ -57,6 +63,11 @@ func (spec *CloudSpec) equals(other *CloudSpec) bool {
 		otherEndpoint += "/"
 	}
 	return specEndpoint == otherEndpoint
+}
+
+func canonicalRegionName(region string) string {
+	region = strings.Replace(region, " ", "", -1)
+	return strings.ToLower(region)
 }
 
 // EmptyCloudSpec is used when we want all records regardless of cloud to be loaded.
@@ -112,6 +123,8 @@ type CloudMetadata struct {
 	ContentId  string                        `json:"content_id"`
 	RegionName string                        `json:"region,omitempty"`
 	Endpoint   string                        `json:"endpoint,omitempty"`
+	Storage    string                        `json:"root_store,omitempty"`
+	VirtType   string                        `json:"virt,omitempty"`
 }
 
 type MetadataCatalog struct {
@@ -120,6 +133,8 @@ type MetadataCatalog struct {
 	Arch       string `json:"arch,omitempty"`
 	RegionName string `json:"region,omitempty"`
 	Endpoint   string `json:"endpoint,omitempty"`
+	Storage    string `json:"root_store,omitempty"`
+	VirtType   string `json:"virt,omitempty"`
 
 	// Items is a mapping from version to an ItemCollection,
 	// where the version is the date the items were produced,
@@ -135,6 +150,8 @@ type ItemCollection struct {
 	Version    string                 `json:"version,omitempty"`
 	RegionName string                 `json:"region,omitempty"`
 	Endpoint   string                 `json:"endpoint,omitempty"`
+	Storage    string                 `json:"root_store,omitempty"`
+	VirtType   string                 `json:"virt,omitempty"`
 }
 
 // These structs define the model used for metadata indices.
@@ -363,7 +380,6 @@ func UnsignedMirror(streamsVersion string) string {
 type GetMetadataParams struct {
 	StreamsVersion   string
 	LookupConstraint LookupConstraint
-	OnlySigned       bool
 	ValueParams      ValueParams
 }
 
@@ -371,12 +387,12 @@ type GetMetadataParams struct {
 // If onlySigned is false and no signed metadata is found in a source, the source is used to look for unsigned metadata.
 // Each source is tried in turn until at least one signed (or unsigned) match is found.
 func GetMetadata(sources []DataSource, params GetMetadataParams) (items []interface{}, resolveInfo *ResolveInfo, err error) {
-
 	for _, source := range sources {
-		logger.Tracef("searching for metadata in datasource %q", source.Description())
+		logger.Tracef("searching for signed metadata in datasource %q", source.Description())
 		items, resolveInfo, err = getMaybeSignedMetadata(source, params, true)
 		// If no items are found using signed metadata, check unsigned.
-		if err != nil && len(items) == 0 && !params.OnlySigned {
+		if err != nil && len(items) == 0 && !source.RequireSigned() {
+			logger.Tracef("falling back to search for unsigned metadata in datasource %q", source.Description())
 			items, resolveInfo, err = getMaybeSignedMetadata(source, params, false)
 		}
 		if err == nil {
@@ -407,15 +423,18 @@ func getMaybeSignedMetadata(source DataSource, params GetMetadataParams, signed 
 	resolveInfo.Signed = signed
 	indexPath := makeIndexPath(defaultIndexPath)
 
+	logger.Tracef("looking for data index using path %s", indexPath)
 	mirrorsPath := fmt.Sprintf(defaultMirrorsPath, params.StreamsVersion)
 	cons := params.LookupConstraint
 
 	indexRef, indexURL, err := fetchIndex(
 		source, indexPath, mirrorsPath, cons.Params().CloudSpec, signed, params.ValueParams,
 	)
+	logger.Tracef("looking for data index using URL %s", indexURL)
 	if errors.IsNotFound(err) || errors.IsUnauthorized(err) {
 		legacyIndexPath := makeIndexPath(defaultLegacyIndexPath)
-		logger.Tracef("%s not found, trying legacy index path: %s", indexPath, legacyIndexPath)
+		logger.Tracef("%s not accessed, actual error: %v", indexPath, err)
+		logger.Tracef("%s not accessed, trying legacy index path: %s", indexPath, legacyIndexPath)
 		indexPath = legacyIndexPath
 		indexRef, indexURL, err = fetchIndex(
 			source, indexPath, mirrorsPath, cons.Params().CloudSpec, signed, params.ValueParams,
@@ -428,14 +447,14 @@ func getMaybeSignedMetadata(source DataSource, params GetMetadataParams, signed 
 		}
 		return nil, resolveInfo, err
 	}
-	logger.Debugf("read metadata index at %q", indexURL)
+	logger.Tracef("read metadata index at %q", indexURL)
 	items, err := indexRef.getLatestMetadataWithFormat(cons, ProductFormat, signed)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			logger.Debugf("skipping index %q because of missing information: %v", indexURL, err)
 			return nil, resolveInfo, err
 		}
-		if _, ok := err.(*noMatchingProductsError); ok {
+		if _, ok := err.(*noMatchingProductsError); !ok {
 			logger.Debugf("%v", err)
 		}
 	}
@@ -475,7 +494,7 @@ func fetchData(source DataSource, path string, requireSigned bool) (data []byte,
 		data, err = ioutil.ReadAll(rc)
 	}
 	if err != nil {
-		return nil, dataURL, fmt.Errorf("cannot read URL data, %v", err)
+		return nil, dataURL, errors.Annotatef(err, "cannot read data for source %q at URL %v", source.Description(), dataURL)
 	}
 	return data, dataURL, nil
 }
@@ -520,7 +539,7 @@ func GetIndexWithFormat(source DataSource, indexPath, indexFormat, mirrorsPath s
 			source, mirrors, params.DataType, params.MirrorContentId, cloudSpec, requireSigned)
 		if err == nil {
 			logger.Debugf("using mirrored products path: %s", path.Join(mirrorInfo.MirrorURL, mirrorInfo.Path))
-			indexRef.Source = NewURLDataSource("mirror", mirrorInfo.MirrorURL, utils.VerifySSLHostnames)
+			indexRef.Source = NewURLSignedDataSource("mirror", mirrorInfo.MirrorURL, source.PublicSigningKey(), utils.VerifySSLHostnames, source.Priority(), requireSigned)
 			indexRef.MirroredProductsPath = mirrorInfo.Path
 		} else {
 			logger.Tracef("no mirror information available for %s: %v", cloudSpec, err)
@@ -932,6 +951,7 @@ func (indexRef *IndexReference) GetCloudMetadataWithFormat(cons LookupConstraint
 	logger.Tracef("finding products at path %q", productFilesPath)
 	data, url, err := fetchData(indexRef.Source, productFilesPath, requireSigned)
 	if err != nil {
+		logger.Tracef("can't read product data: %v", err)
 		return nil, fmt.Errorf("cannot read product data, %v", err)
 	}
 	return ParseCloudMetadata(data, format, url, indexRef.valueParams.ValueTemplate)
@@ -967,7 +987,7 @@ func (indexRef *IndexReference) getLatestMetadataWithFormat(cons LookupConstrain
 	if err != nil {
 		return nil, err
 	}
-	logger.Debugf("metadata: %v", metadata)
+	logger.Tracef("metadata: %v", metadata)
 	matches, err := GetLatestMetadata(metadata, cons, indexRef.Source, indexRef.valueParams.FilterFunc)
 	if err != nil {
 		return nil, err
@@ -1038,6 +1058,10 @@ func UserPublicSigningKey() (string, error) {
 	signingKeyFile := filepath.Join(agent.DefaultPaths.ConfDir, SimplestreamsPublicKeyFile)
 	b, err := ioutil.ReadFile(signingKeyFile)
 	if os.IsNotExist(err) {
+		// TODO (anastasiamac 2016-05-07)
+		// We should not swallow this error
+		// but propagate it up to the caller.
+		// Bug #1579279
 		return "", nil
 	}
 	if err != nil {
@@ -1045,60 +1069,3 @@ func UserPublicSigningKey() (string, error) {
 	}
 	return string(b), nil
 }
-
-// SimplestreamsJujuPublicKey is the public key required to
-// authenticate the simple streams data on http://streams.canonical.com.
-// Declared as a var so it can be overidden for testing.
-var SimplestreamsJujuPublicKey = `-----BEGIN PGP PUBLIC KEY BLOCK-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-mQINBFJN1n8BEAC1vt2w08Y4ztJrv3maOycMezBb7iUs6DLH8hOZoqRO9EW9558W
-8CN6G4sVbC/nIhivvn/paw0gSicfYXGs5teCJL3ShrcsGkhTs+5q7UO2TVGAUPwb
-CFWCqPkCB/+CiQ/fnEAWV5c11KzMTBtQ2nfJFS8rEQfc2PJMKqd/Y+LDItOc5E5Y
-SseGT/60coyTZO0iE3mKv1osFjSJlUv/6f/ziHGgV+IowOtEeeaEz8H/oU4vHhyA
-THL/k9DSNb0I/+aI8R84OB7EqrQ/ck6B6+CTbwGwkQUBK6z/Isl3uq9MhGjsiPjy
-EfOJNTfa+knlQcedc3/2S/jTUBDxU+myga9gQ2jF4oEzb74LarpV4y1KXpsqyLwd
-8/vpNG5rTLtjZ3ZTJu7EkAra6pNK/Uxj9guIkCIGIVS1SWtsR0mCY+6TOdfJu7bt
-qOcSWkp3gaYcnCid8ecZuD8KDcxJscdYBetxCV4TLVV5CwO4MMVkxcI3zL1ORzHS
-j0W+aYzdtycHu2w8ZQwQRuFB2y5zsxE69MOoS857FzwhRctPSiwIPWH+Qo2BkNAM
-K5fVc19z9kzgtRP1+rHgBox2w+hOSZiYf0vluaG7NPUsMfVOGBFTxn1W+rb3NL/m
-hUoDPl2e2zoViEsaT2p+ATwFDN0DlQLLQxsVIbxdL6cfMQASHmADOHA6dwARAQAB
-tEtKdWp1IFRvb2xzIChDYW5vbmljYWwgSnVqdSBUb29sIEJ1aWxkZXIpIDxqdWp1
-LXRvb2xzLW5vcmVwbHlAY2Fub25pY2FsLmNvbT6JAjkEEwEKACMFAlJN1n8CGwMH
-CwkNCAwHAwUVCgkICwUWAgMBAAIeAQIXgAAKCRA3j2KvahV9szBED/wOlDTMpevL
-bYyh+mFaeNBw/mwCdWqpwQkpIRLwxt0al1eV9KIVhu6CK1g1UMZ24H3gy5Btj5N5
-ga02xgqfQRrP4Mqv2dYZOL5p8WFuZjbow9a+e89mqqFuW6/os57cFwZ7Z3imbBDa
-aWzuzdeWLEK7PfT6rpik6ZMIpI1LGywI93abaZX8v6ouwFeQovXcS0HKt906+ElI
-oWgSh8dL2hqZ71SR/74sehkEZSYfQRLa7RJCDvA/iInXeGRuyaheQ1iTrY606aBh
-+NyOgr4cG+7Sy3FIbqgBx0hxkY8LZv4L7l2IDDjgbTEGILpQ2tkykDnFY7QgEdE4
-5TzPONg9zyk91NRHqjLIm9CFt8P3rcs+MBjaxv+S45RIHQEu+ewkr6BihnPPldkN
-eSIi4Z0OTTQfAI0oDkREVFnnOHfzZ8uafHXOnhUYsovZ3YrowoiNXOWRxeOvt5cL
-XE0Gyq7n8ESe9JOCg3AZcrDX12xWX+gaSgDaD66fI5xr+A3128BLpYQTMXOpe1n9
-rfsiA8XBEFsB6+xMJBtSSPUsaWjes/aziI87fBv7FpEMagnWLqJ7xk2E2RR06B9t
-F+SoiLF3aQ0ZJFqKpDDYBO5kZkHIql0jVkuPEz5fxTOZjZE4irTZiSMdJ6xsm9AU
-axxW8e4pax116l4D2toMJPvXkA9lCZ3RIrkCDQRSTdZ/ARAA7SonLFZQrrLD93Jp
-GpgJnYha6rr3pdIm9wH5PnV9Ysgyt/aM9RVrMXzSjMRpxdV6qxK7Lbzh/V9QxpoI
-YvFIi4Yu5k0wDPSm/sowBtVI/X2WMSSvd3DUaigTFBQ1giIY3R46wqcY99RfUPJ1
-VsHFZ0mZq5GuAPSv/Ky7r9SByMDtQk+Pt8jiOIiJ8eGgKy/W0Wau8ImNqSUyj+67
-QeOCpEKTjS2gQypi6vgCtUCDfy4yHPxppARary/GDjVIAvwjdu/+0rshWcWUOwq8
-ex2ddPYQf9dGmF9CesaFknpVnkXb9pbw+qBF/CSdk6Z/ApgtXFGwWszP5/Wqq2Pd
-ilM1C80WcZVhuwk+acYztk5P5hGw0XL2nDeNg08hcDy2NEL/hA9PM2DSFpoWy1aA
-Gjt/8ICPY3SNJlfJUhMIBOK0nmHIoHGU/tX7AiuwEKyP8Qh5kp8fYoO4c59WfeKq
-e6rbttt7IEywAlY6HiLMymqC/d0nPk0Cy5bujacH2y3ahAgCwNVvo+E77J7m7Ui2
-vqzvpcW6Fla2EzbXus4nIgqEV/qX6fQXqItptKZFvZeznj0epRswkmFm7KLXD5p1
-SzkmfAujy5xQJktZKvtTKRROnX5JdBB8RT83MIJr+U4FOT3UPQYc2V1O2k4PYF9G
-g5YZtNPTvdx8dvN7qwiO7R7xenkAEQEAAYkCHwQYAQoACQUCUk3WfwIbDAAKCRA3
-j2KvahV9s4+SD/sEKOBs6YE2dhax0y/wx1AKJbkneVhxTjgCggY/rbnLm6w85xQl
-EgGycmdRq4JkBDhmzsevx+THNJicBwN9qP12Z14kM1pr7WWw9fOmshPQx5kJXYs+
-FiK6f5vHXcNiTyvC8oOGquGrDoB7SACgTr+Lkm/dNfpRn0XsApUy6vQSqChAzqkJ
-qYZCIIbHTea1DIoNhVI+VTaJ1Z5IqMM9mi43RVYeq7yyBNLwhdjEIOX9qBK4Secn
-mFz94SCz+b5titGyFiBAJzPBP/NSwM6DP2OfRhsBC6K4xDELn8Dpucb9FHqaLG75
-K3oDhTEUfTBiG3PRfc57974+V3KrkK71rMzWpQJ2IyMtxzl8qO4JYhLRSL0kMq8/
-hYlXGcNwyUUtiDPOwvG44KDVgXbrnFTVqLU6nc9k/yPD1pfommaTAWrb2tTitkGf
-zOxHnpWTP48l+6qzfEM1PUKvx3U04BZe8JCaU+JVdy6O/rLjEVjYq/vBY6EGOxa2
-C4Vs43YdFOXSa38ze0J4nFRGO8gOBP/EJyE8Nwqg7i+6VvkD+H2KbZVUXiWld+v/
-vwtaXhWd7JS+v38YZ4CijEBe69VYHpSNIz87uhVKgdkFBhoOGtf9/NEO7NYwk7/N
-qsH+JQgcphKkC+JH0Dw7Q/0e16LClkPPa21NseVGUWzS0WmS+0egtDDutg==
-=hQAI
------END PGP PUBLIC KEY BLOCK-----
-`

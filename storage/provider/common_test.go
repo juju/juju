@@ -6,9 +6,9 @@ package provider_test
 import (
 	"path/filepath"
 
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/provider"
@@ -19,11 +19,15 @@ type providerCommonSuite struct{}
 var _ = gc.Suite(&providerCommonSuite{})
 
 func (s *providerCommonSuite) TestCommonProvidersExported(c *gc.C) {
+	registry := provider.CommonStorageProviders()
 	var common []storage.ProviderType
-	for pType, p := range provider.CommonProviders() {
+	pTypes, err := registry.StorageProviderTypes()
+	c.Assert(err, jc.ErrorIsNil)
+	for _, pType := range pTypes {
 		common = append(common, pType)
-		_, ok := p.(storage.Provider)
-		c.Check(ok, jc.IsTrue)
+		p, err := registry.StorageProvider(pType)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(p, gc.NotNil)
 	}
 	c.Assert(common, jc.SameContents, []storage.ProviderType{
 		provider.LoopProviderType,

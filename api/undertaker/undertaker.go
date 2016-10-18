@@ -5,84 +5,91 @@ package undertaker
 
 import (
 	"github.com/juju/errors"
+	"gopkg.in/juju/names.v2"
+
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/status"
+	"github.com/juju/juju/watcher"
 )
+
+// NewWatcherFunc exists to let us test Watch properly.
+type NewWatcherFunc func(base.APICaller, params.NotifyWatchResult) watcher.NotifyWatcher
 
 // Client provides access to the undertaker API
 type Client struct {
-	base.ClientFacade
-	st     base.APICallCloser
-	facade base.FacadeCaller
-}
-
-// UndertakerClient defines the methods on the undertaker API end point.
-type UndertakerClient interface {
-	EnvironInfo() (params.UndertakerEnvironInfoResult, error)
-	ProcessDyingEnviron() error
-	RemoveEnviron() error
-	WatchEnvironResources() (watcher.NotifyWatcher, error)
+	modelTag   names.ModelTag
+	caller     base.FacadeCaller
+	newWatcher NewWatcherFunc
 }
 
 // NewClient creates a new client for accessing the undertaker API.
-func NewClient(st base.APICallCloser) *Client {
-	frontend, backend := base.NewClientFacade(st, "Undertaker")
-	return &Client{ClientFacade: frontend, st: st, facade: backend}
+func NewClient(caller base.APICaller, newWatcher NewWatcherFunc) (*Client, error) {
+	modelTag, ok := caller.ModelTag()
+	if !ok {
+		return nil, errors.New("undertaker client is not appropriate for controller-only API")
+	}
+	return &Client{
+		modelTag:   modelTag,
+		caller:     base.NewFacadeCaller(caller, "Undertaker"),
+		newWatcher: newWatcher,
+	}, nil
 }
 
-// EnvironInfo returns information on the environment needed by the undertaker worker.
-func (c *Client) EnvironInfo() (params.UndertakerEnvironInfoResult, error) {
-	result := params.UndertakerEnvironInfoResult{}
-	p, err := c.params()
-	if err != nil {
-		return params.UndertakerEnvironInfoResult{}, errors.Trace(err)
-	}
-	err = c.facade.FacadeCall("EnvironInfo", p, &result)
+// ModelInfo returns information on the model needed by the undertaker worker.
+func (c *Client) ModelInfo() (params.UndertakerModelInfoResult, error) {
+	result := params.UndertakerModelInfoResult{}
+	err := c.entityFacadeCall("ModelInfo", &result)
 	return result, errors.Trace(err)
 }
 
-// ProcessDyingEnviron checks if a dying environment has any machines or services.
-// If there are none, the environment's life is changed from dying to dead.
-func (c *Client) ProcessDyingEnviron() error {
-	p, err := c.params()
-	if err != nil {
+// ProcessDyingModel checks if a dying model has any machines or services.
+// If there are none, the model's life is changed from dying to dead.
+func (c *Client) ProcessDyingModel() error {
+	return c.entityFacadeCall("ProcessDyingModel", nil)
+}
+
+// RemoveModel removes any records of this model from Juju.
+func (c *Client) RemoveModel() error {
+	return c.entityFacadeCall("RemoveModel", nil)
+}
+
+// SetStatus sets the status of the model.
+func (c *Client) SetStatus(status status.Status, message string, data map[string]interface{}) error {
+	args := params.SetStatus{
+		Entities: []params.EntityStatusArgs{
+			{c.modelTag.String(), status.String(), message, data},
+		},
+	}
+	var results params.ErrorResults
+	if err := c.caller.FacadeCall("SetStatus", args, &results); err != nil {
 		return errors.Trace(err)
 	}
-
-	return c.facade.FacadeCall("ProcessDyingEnviron", p, nil)
-}
-
-// RemoveEnviron removes any records of this environment from Juju.
-func (c *Client) RemoveEnviron() error {
-	p, err := c.params()
-	if err != nil {
-		return errors.Trace(err)
+	if len(results.Results) != 1 {
+		return errors.Errorf("expected 1 result, got %d", len(results.Results))
 	}
-	return c.facade.FacadeCall("RemoveEnviron", p, nil)
-}
-
-func (c *Client) params() (params.Entities, error) {
-	envTag, err := c.st.EnvironTag()
-	if err != nil {
-		return params.Entities{}, errors.Trace(err)
+	if results.Results[0].Error != nil {
+		return errors.Trace(results.Results[0].Error)
 	}
-	return params.Entities{Entities: []params.Entity{{envTag.String()}}}, nil
+	return nil
 }
 
-// WatchEnvironResources starts a watcher for changes to the environment's
+func (c *Client) entityFacadeCall(name string, results interface{}) error {
+	args := params.Entities{
+		Entities: []params.Entity{{c.modelTag.String()}},
+	}
+	return c.caller.FacadeCall(name, args, results)
+}
+
+// WatchModelResources starts a watcher for changes to the model's
 // machines and services.
-func (c *Client) WatchEnvironResources() (watcher.NotifyWatcher, error) {
+func (c *Client) WatchModelResources() (watcher.NotifyWatcher, error) {
 	var results params.NotifyWatchResults
-
-	p, err := c.params()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	err = c.facade.FacadeCall("WatchEnvironResources", p, &results)
+	err := c.entityFacadeCall("WatchModelResources", &results)
 	if err != nil {
 		return nil, err
 	}
+
 	if len(results.Results) != 1 {
 		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
 	}
@@ -90,6 +97,6 @@ func (c *Client) WatchEnvironResources() (watcher.NotifyWatcher, error) {
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	w := watcher.NewNotifyWatcher(c.facade.RawAPICaller(), result)
+	w := c.newWatcher(c.caller.RawAPICaller(), result)
 	return w, nil
 }

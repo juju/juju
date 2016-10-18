@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/testing"
 
-	"github.com/juju/juju/leadership"
+	"github.com/juju/juju/core/leadership"
 )
 
 type StubClaimer struct {

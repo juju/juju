@@ -4,20 +4,19 @@
 package storageprovisioner_test
 
 import (
-	"errors"
 	"time"
 
-	"github.com/juju/names"
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/storage"
-	"github.com/juju/juju/storage/provider/registry"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/storageprovisioner"
 )
@@ -25,6 +24,7 @@ import (
 type storageProvisionerSuite struct {
 	coretesting.BaseSuite
 	provider                *dummyProvider
+	registry                storage.ProviderRegistry
 	managedFilesystemSource *mockManagedFilesystemSource
 }
 
@@ -33,10 +33,11 @@ var _ = gc.Suite(&storageProvisionerSuite{})
 func (s *storageProvisionerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.provider = &dummyProvider{dynamic: true}
-	registry.RegisterProvider("dummy", s.provider)
-	s.AddCleanup(func(*gc.C) {
-		registry.RegisterProvider("dummy", nil)
-	})
+	s.registry = storage.StaticProviderRegistry{
+		map[storage.ProviderType]storage.Provider{
+			"dummy": s.provider,
+		},
+	}
 
 	s.managedFilesystemSource = nil
 	s.PatchValue(
@@ -55,19 +56,25 @@ func (s *storageProvisionerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *storageProvisionerSuite) TestStartStop(c *gc.C) {
-	worker := storageprovisioner.NewStorageProvisioner(
-		coretesting.EnvironmentTag,
-		"dir",
-		newMockVolumeAccessor(),
-		newMockFilesystemAccessor(),
-		&mockLifecycleManager{},
-		newMockEnvironAccessor(c),
-		newMockMachineAccessor(c),
-		&mockStatusSetter{},
-		&mockClock{},
-	)
+	worker, err := storageprovisioner.NewStorageProvisioner(storageprovisioner.Config{
+		Scope:       coretesting.ModelTag,
+		Volumes:     newMockVolumeAccessor(),
+		Filesystems: newMockFilesystemAccessor(),
+		Life:        &mockLifecycleManager{},
+		Registry:    s.registry,
+		Machines:    newMockMachineAccessor(c),
+		Status:      &mockStatusSetter{},
+		Clock:       &mockClock{},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
 	worker.Kill()
 	c.Assert(worker.Wait(), gc.IsNil)
+}
+
+func (s *storageProvisionerSuite) TestInvalidConfig(c *gc.C) {
+	_, err := storageprovisioner.NewStorageProvisioner(almostValidConfig())
+	c.Check(err, jc.Satisfies, errors.IsNotValid)
 }
 
 func (s *storageProvisionerSuite) TestVolumeAdded(c *gc.C) {
@@ -118,12 +125,12 @@ func (s *storageProvisionerSuite) TestVolumeAdded(c *gc.C) {
 		return nil, nil
 	}
 
-	args := &workerArgs{volumes: volumeAccessor}
+	args := &workerArgs{volumes: volumeAccessor, registry: s.registry}
 	worker := newStorageProvisioner(c, args)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
 	defer worker.Kill()
 
-	volumeAccessor.attachmentsWatcher.changes <- []params.MachineStorageId{{
+	volumeAccessor.attachmentsWatcher.changes <- []watcher.MachineStorageId{{
 		MachineTag: "machine-1", AttachmentTag: "volume-1",
 	}, {
 		MachineTag: "machine-1", AttachmentTag: "volume-2",
@@ -132,10 +139,6 @@ func (s *storageProvisionerSuite) TestVolumeAdded(c *gc.C) {
 
 	// The worker should create volumes according to ids "1" and "2".
 	volumeAccessor.volumesWatcher.changes <- []string{"1", "2"}
-	// ... but not until the environment config is available.
-	assertNoEvent(c, volumeInfoSet, "volume info set")
-	assertNoEvent(c, volumeAttachmentInfoSet, "volume attachment info set")
-	args.environ.watcher.changes <- struct{}{}
 	waitChannel(c, volumeInfoSet, "waiting for volume info to be set")
 	waitChannel(c, volumeAttachmentInfoSet, "waiting for volume attachments to be set")
 }
@@ -178,19 +181,18 @@ func (s *storageProvisionerSuite) TestCreateVolumeCreatesAttachment(c *gc.C) {
 		return nil, errors.New("should not be called")
 	}
 
-	args := &workerArgs{volumes: volumeAccessor}
+	args := &workerArgs{volumes: volumeAccessor, registry: s.registry}
 	worker := newStorageProvisioner(c, args)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
 	defer worker.Kill()
 
-	volumeAccessor.attachmentsWatcher.changes <- []params.MachineStorageId{{
+	volumeAccessor.attachmentsWatcher.changes <- []watcher.MachineStorageId{{
 		MachineTag: "machine-1", AttachmentTag: "volume-1",
 	}}
 	assertNoEvent(c, volumeAttachmentInfoSet, "volume attachment set")
 
 	// The worker should create volumes according to ids "1".
 	volumeAccessor.volumesWatcher.changes <- []string{"1"}
-	args.environ.watcher.changes <- struct{}{}
 	waitChannel(c, volumeAttachmentInfoSet, "waiting for volume attachments to be set")
 	assertNoEvent(c, attachVolumesCalled, "AttachVolumes called")
 }
@@ -219,16 +221,15 @@ func (s *storageProvisionerSuite) TestCreateVolumeRetry(c *gc.C) {
 		}}, nil
 	}
 
-	args := &workerArgs{volumes: volumeAccessor, clock: clock}
+	args := &workerArgs{volumes: volumeAccessor, clock: clock, registry: s.registry}
 	worker := newStorageProvisioner(c, args)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
 	defer worker.Kill()
 
-	volumeAccessor.attachmentsWatcher.changes <- []params.MachineStorageId{{
+	volumeAccessor.attachmentsWatcher.changes <- []watcher.MachineStorageId{{
 		MachineTag: "machine-1", AttachmentTag: "volume-1",
 	}}
 	volumeAccessor.volumesWatcher.changes <- []string{"1"}
-	args.environ.watcher.changes <- struct{}{}
 	waitChannel(c, volumeInfoSet, "waiting for volume info to be set")
 	c.Assert(createVolumeTimes, gc.HasLen, 10)
 
@@ -289,16 +290,15 @@ func (s *storageProvisionerSuite) TestCreateFilesystemRetry(c *gc.C) {
 		}}, nil
 	}
 
-	args := &workerArgs{filesystems: filesystemAccessor, clock: clock}
+	args := &workerArgs{filesystems: filesystemAccessor, clock: clock, registry: s.registry}
 	worker := newStorageProvisioner(c, args)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
 	defer worker.Kill()
 
-	filesystemAccessor.attachmentsWatcher.changes <- []params.MachineStorageId{{
+	filesystemAccessor.attachmentsWatcher.changes <- []watcher.MachineStorageId{{
 		MachineTag: "machine-1", AttachmentTag: "filesystem-1",
 	}}
 	filesystemAccessor.filesystemsWatcher.changes <- []string{"1"}
-	args.environ.watcher.changes <- struct{}{}
 	waitChannel(c, filesystemInfoSet, "waiting for filesystem info to be set")
 	c.Assert(createFilesystemTimes, gc.HasLen, 10)
 
@@ -370,16 +370,15 @@ func (s *storageProvisionerSuite) TestAttachVolumeRetry(c *gc.C) {
 		}}, nil
 	}
 
-	args := &workerArgs{volumes: volumeAccessor, clock: clock}
+	args := &workerArgs{volumes: volumeAccessor, clock: clock, registry: s.registry}
 	worker := newStorageProvisioner(c, args)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
 	defer worker.Kill()
 
-	volumeAccessor.attachmentsWatcher.changes <- []params.MachineStorageId{{
+	volumeAccessor.attachmentsWatcher.changes <- []watcher.MachineStorageId{{
 		MachineTag: "machine-1", AttachmentTag: "volume-1",
 	}}
 	volumeAccessor.volumesWatcher.changes <- []string{"1"}
-	args.environ.watcher.changes <- struct{}{}
 	waitChannel(c, volumeInfoSet, "waiting for volume info to be set")
 	waitChannel(c, volumeAttachmentInfoSet, "waiting for volume attachments to be set")
 	c.Assert(attachVolumeTimes, gc.HasLen, 10)
@@ -453,16 +452,15 @@ func (s *storageProvisionerSuite) TestAttachFilesystemRetry(c *gc.C) {
 		}}, nil
 	}
 
-	args := &workerArgs{filesystems: filesystemAccessor, clock: clock}
+	args := &workerArgs{filesystems: filesystemAccessor, clock: clock, registry: s.registry}
 	worker := newStorageProvisioner(c, args)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
 	defer worker.Kill()
 
-	filesystemAccessor.attachmentsWatcher.changes <- []params.MachineStorageId{{
+	filesystemAccessor.attachmentsWatcher.changes <- []watcher.MachineStorageId{{
 		MachineTag: "machine-1", AttachmentTag: "filesystem-1",
 	}}
 	filesystemAccessor.filesystemsWatcher.changes <- []string{"1"}
-	args.environ.watcher.changes <- struct{}{}
 	waitChannel(c, filesystemInfoSet, "waiting for filesystem info to be set")
 	waitChannel(c, filesystemAttachmentInfoSet, "waiting for filesystem attachments to be set")
 	c.Assert(attachFilesystemTimes, gc.HasLen, 10)
@@ -557,18 +555,18 @@ func (s *storageProvisionerSuite) TestValidateVolumeParams(c *gc.C) {
 		life: &mockLifecycleManager{
 			life: life,
 		},
+		registry: s.registry,
 	}
 	worker := newStorageProvisioner(c, args)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
 	defer worker.Kill()
 
-	volumeAccessor.attachmentsWatcher.changes <- []params.MachineStorageId{{
+	volumeAccessor.attachmentsWatcher.changes <- []watcher.MachineStorageId{{
 		MachineTag: "machine-1", AttachmentTag: "volume-1",
 	}, {
 		MachineTag: "machine-1", AttachmentTag: "volume-2",
 	}}
 	volumeAccessor.volumesWatcher.changes <- []string{"1"}
-	args.environ.watcher.changes <- struct{}{}
 	waitChannel(c, validated, "waiting for volume parameter validation")
 	assertNoEvent(c, createdVolumes, "volume created")
 	c.Assert(validateCalls, gc.Equals, 1)
@@ -658,18 +656,18 @@ func (s *storageProvisionerSuite) TestValidateFilesystemParams(c *gc.C) {
 		life: &mockLifecycleManager{
 			life: life,
 		},
+		registry: s.registry,
 	}
 	worker := newStorageProvisioner(c, args)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
 	defer worker.Kill()
 
-	filesystemAccessor.attachmentsWatcher.changes <- []params.MachineStorageId{{
+	filesystemAccessor.attachmentsWatcher.changes <- []watcher.MachineStorageId{{
 		MachineTag: "machine-1", AttachmentTag: "filesystem-1",
 	}, {
 		MachineTag: "machine-1", AttachmentTag: "filesystem-2",
 	}}
 	filesystemAccessor.filesystemsWatcher.changes <- []string{"1"}
-	args.environ.watcher.changes <- struct{}{}
 	waitChannel(c, validated, "waiting for filesystem parameter validation")
 	assertNoEvent(c, createdFilesystems, "filesystem created")
 	c.Assert(validateCalls, gc.Equals, 1)
@@ -726,16 +724,13 @@ func (s *storageProvisionerSuite) TestFilesystemAdded(c *gc.C) {
 		return nil, nil
 	}
 
-	args := &workerArgs{filesystems: filesystemAccessor}
+	args := &workerArgs{filesystems: filesystemAccessor, registry: s.registry}
 	worker := newStorageProvisioner(c, args)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
 	defer worker.Kill()
 
 	// The worker should create filesystems according to ids "1" and "2".
 	filesystemAccessor.filesystemsWatcher.changes <- []string{"1", "2"}
-	// ... but not until the environment config is available.
-	assertNoEvent(c, filesystemInfoSet, "filesystem info set")
-	args.environ.watcher.changes <- struct{}{}
 	waitChannel(c, filesystemInfoSet, "waiting for filesystem info to be set")
 }
 
@@ -750,13 +745,12 @@ func (s *storageProvisionerSuite) TestVolumeNeedsInstance(c *gc.C) {
 		return nil, nil
 	}
 
-	args := &workerArgs{volumes: volumeAccessor}
+	args := &workerArgs{volumes: volumeAccessor, registry: s.registry}
 	worker := newStorageProvisioner(c, args)
 	defer worker.Wait()
 	defer worker.Kill()
 
 	volumeAccessor.volumesWatcher.changes <- []string{needsInstanceVolumeId}
-	args.environ.watcher.changes <- struct{}{}
 	assertNoEvent(c, volumeInfoSet, "volume info set")
 	args.machines.instanceIds[names.NewMachineTag("1")] = "inst-id"
 	args.machines.watcher.changes <- struct{}{}
@@ -771,14 +765,13 @@ func (s *storageProvisionerSuite) TestVolumeNonDynamic(c *gc.C) {
 		return nil, nil
 	}
 
-	args := &workerArgs{volumes: volumeAccessor}
+	args := &workerArgs{volumes: volumeAccessor, registry: s.registry}
 	worker := newStorageProvisioner(c, args)
 	defer worker.Wait()
 	defer worker.Kill()
 
 	// Volumes for non-dynamic providers should not be created.
 	s.provider.dynamic = false
-	args.environ.watcher.changes <- struct{}{}
 	volumeAccessor.volumesWatcher.changes <- []string{"1"}
 	assertNoEvent(c, volumeInfoSet, "volume info set")
 }
@@ -837,12 +830,12 @@ func (s *storageProvisionerSuite) TestVolumeAttachmentAdded(c *gc.C) {
 		VolumeTag:  "volume-1",
 	}
 
-	args := &workerArgs{volumes: volumeAccessor}
+	args := &workerArgs{volumes: volumeAccessor, registry: s.registry}
 	worker := newStorageProvisioner(c, args)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
 	defer worker.Kill()
 
-	volumeAccessor.attachmentsWatcher.changes <- []params.MachineStorageId{{
+	volumeAccessor.attachmentsWatcher.changes <- []watcher.MachineStorageId{{
 		MachineTag: "machine-1", AttachmentTag: "volume-1",
 	}, {
 		MachineTag: "machine-1", AttachmentTag: "volume-2",
@@ -853,12 +846,14 @@ func (s *storageProvisionerSuite) TestVolumeAttachmentAdded(c *gc.C) {
 	}}
 	assertNoEvent(c, volumeAttachmentInfoSet, "volume attachment info set")
 	volumeAccessor.volumesWatcher.changes <- []string{"1"}
-	args.environ.watcher.changes <- struct{}{}
 	waitChannel(c, volumeAttachmentInfoSet, "waiting for volume attachments to be set")
 	c.Assert(allVolumeAttachments, jc.SameContents, expectedVolumeAttachments)
 
 	// Reattachment should only happen once per session.
-	volumeAccessor.attachmentsWatcher.changes <- []params.MachineStorageId{alreadyAttached}
+	volumeAccessor.attachmentsWatcher.changes <- []watcher.MachineStorageId{{
+		MachineTag:    "machine-0",
+		AttachmentTag: "volume-1",
+	}}
 	assertNoEvent(c, volumeAttachmentInfoSet, "volume attachment info set")
 }
 
@@ -916,12 +911,12 @@ func (s *storageProvisionerSuite) TestFilesystemAttachmentAdded(c *gc.C) {
 		FilesystemTag: "filesystem-1",
 	}
 
-	args := &workerArgs{filesystems: filesystemAccessor}
+	args := &workerArgs{filesystems: filesystemAccessor, registry: s.registry}
 	worker := newStorageProvisioner(c, args)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
 	defer worker.Kill()
 
-	filesystemAccessor.attachmentsWatcher.changes <- []params.MachineStorageId{{
+	filesystemAccessor.attachmentsWatcher.changes <- []watcher.MachineStorageId{{
 		MachineTag: "machine-1", AttachmentTag: "filesystem-1",
 	}, {
 		MachineTag: "machine-1", AttachmentTag: "filesystem-2",
@@ -930,15 +925,16 @@ func (s *storageProvisionerSuite) TestFilesystemAttachmentAdded(c *gc.C) {
 	}, {
 		MachineTag: "machine-0", AttachmentTag: "filesystem-1",
 	}}
-	// ... but not until the environment config is available.
 	assertNoEvent(c, filesystemAttachmentInfoSet, "filesystem attachment info set")
 	filesystemAccessor.filesystemsWatcher.changes <- []string{"1"}
-	args.environ.watcher.changes <- struct{}{}
 	waitChannel(c, filesystemAttachmentInfoSet, "waiting for filesystem attachments to be set")
 	c.Assert(allFilesystemAttachments, jc.SameContents, expectedFilesystemAttachments)
 
 	// Reattachment should only happen once per session.
-	filesystemAccessor.attachmentsWatcher.changes <- []params.MachineStorageId{alreadyAttached}
+	filesystemAccessor.attachmentsWatcher.changes <- []watcher.MachineStorageId{{
+		MachineTag:    "machine-0",
+		AttachmentTag: "filesystem-1",
+	}}
 	assertNoEvent(c, filesystemAttachmentInfoSet, "filesystem attachment info set")
 }
 
@@ -953,6 +949,7 @@ func (s *storageProvisionerSuite) TestCreateVolumeBackedFilesystem(c *gc.C) {
 	args := &workerArgs{
 		scope:       names.NewMachineTag("0"),
 		filesystems: filesystemAccessor,
+		registry:    s.registry,
 	}
 	worker := newStorageProvisioner(c, args)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
@@ -966,8 +963,6 @@ func (s *storageProvisionerSuite) TestCreateVolumeBackedFilesystem(c *gc.C) {
 		Size:       123,
 	}
 	filesystemAccessor.filesystemsWatcher.changes <- []string{"0/0", "0/1"}
-	assertNoEvent(c, filesystemInfoSet, "filesystem info set")
-	args.environ.watcher.changes <- struct{}{}
 
 	// Only the block device for volume 0/0 is attached at the moment,
 	// so only the corresponding filesystem will be created.
@@ -1018,6 +1013,7 @@ func (s *storageProvisionerSuite) TestAttachVolumeBackedFilesystem(c *gc.C) {
 	args := &workerArgs{
 		scope:       names.NewMachineTag("0"),
 		filesystems: filesystemAccessor,
+		registry:    s.registry,
 	}
 	worker := newStorageProvisioner(c, args)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
@@ -1040,12 +1036,10 @@ func (s *storageProvisionerSuite) TestAttachVolumeBackedFilesystem(c *gc.C) {
 		DeviceName: "xvdf1",
 		Size:       123,
 	}
-	filesystemAccessor.attachmentsWatcher.changes <- []params.MachineStorageId{{
+	filesystemAccessor.attachmentsWatcher.changes <- []watcher.MachineStorageId{{
 		MachineTag:    "machine-0",
 		AttachmentTag: "filesystem-0-0",
 	}}
-	assertNoEvent(c, infoSet, "filesystem attachment info set")
-	args.environ.watcher.changes <- struct{}{}
 	filesystemAccessor.filesystemsWatcher.changes <- []string{"0/0"}
 
 	info := waitChannel(
@@ -1059,33 +1053,6 @@ func (s *storageProvisionerSuite) TestAttachVolumeBackedFilesystem(c *gc.C) {
 			ReadOnly:   true,
 		},
 	}})
-}
-
-func (s *storageProvisionerSuite) TestUpdateEnvironConfig(c *gc.C) {
-	volumeAccessor := newMockVolumeAccessor()
-	volumeAccessor.provisionedMachines["machine-1"] = instance.Id("already-provisioned-1")
-	s.provider.volumeSourceFunc = func(envConfig *config.Config, sourceConfig *storage.Config) (storage.VolumeSource, error) {
-		c.Assert(envConfig, gc.NotNil)
-		c.Assert(sourceConfig, gc.NotNil)
-		c.Assert(envConfig.AllAttrs()["foo"], gc.Equals, "bar")
-		return nil, errors.New("zinga")
-	}
-
-	args := &workerArgs{volumes: volumeAccessor}
-	worker := newStorageProvisioner(c, args)
-	defer worker.Wait()
-	defer worker.Kill()
-
-	newConfig, err := args.environ.cfg.Apply(map[string]interface{}{"foo": "bar"})
-	c.Assert(err, jc.ErrorIsNil)
-
-	args.environ.watcher.changes <- struct{}{}
-	args.environ.setConfig(newConfig)
-	args.environ.watcher.changes <- struct{}{}
-	args.volumes.volumesWatcher.changes <- []string{"1", "2"}
-
-	err = worker.Wait()
-	c.Assert(err, gc.ErrorMatches, `creating volumes: getting volume source: getting storage source "dummy": zinga`)
 }
 
 func (s *storageProvisionerSuite) TestResourceTags(c *gc.C) {
@@ -1106,18 +1073,19 @@ func (s *storageProvisionerSuite) TestResourceTags(c *gc.C) {
 	}
 
 	var volumeSource dummyVolumeSource
-	s.provider.volumeSourceFunc = func(envConfig *config.Config, sourceConfig *storage.Config) (storage.VolumeSource, error) {
+	s.provider.volumeSourceFunc = func(sourceConfig *storage.Config) (storage.VolumeSource, error) {
 		return &volumeSource, nil
 	}
 
 	var filesystemSource dummyFilesystemSource
-	s.provider.filesystemSourceFunc = func(envConfig *config.Config, sourceConfig *storage.Config) (storage.FilesystemSource, error) {
+	s.provider.filesystemSourceFunc = func(sourceConfig *storage.Config) (storage.FilesystemSource, error) {
 		return &filesystemSource, nil
 	}
 
 	args := &workerArgs{
 		volumes:     volumeAccessor,
 		filesystems: filesystemAccessor,
+		registry:    s.registry,
 	}
 	worker := newStorageProvisioner(c, args)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
@@ -1125,7 +1093,6 @@ func (s *storageProvisionerSuite) TestResourceTags(c *gc.C) {
 
 	volumeAccessor.volumesWatcher.changes <- []string{"1"}
 	filesystemAccessor.filesystemsWatcher.changes <- []string{"1"}
-	args.environ.watcher.changes <- struct{}{}
 	waitChannel(c, volumeInfoSet, "waiting for volume info to be set")
 	waitChannel(c, filesystemInfoSet, "waiting for filesystem info to be set")
 	c.Assert(volumeSource.createVolumesArgs, jc.DeepEquals, [][]storage.VolumeParams{{{
@@ -1159,7 +1126,7 @@ func (s *storageProvisionerSuite) TestSetVolumeInfoErrorStopsWorker(c *gc.C) {
 		return nil, errors.New("belly up")
 	}
 
-	args := &workerArgs{volumes: volumeAccessor}
+	args := &workerArgs{volumes: volumeAccessor, registry: s.registry}
 	worker := newStorageProvisioner(c, args)
 	defer worker.Wait()
 	defer worker.Kill()
@@ -1172,7 +1139,6 @@ func (s *storageProvisionerSuite) TestSetVolumeInfoErrorStopsWorker(c *gc.C) {
 	}()
 
 	args.volumes.volumesWatcher.changes <- []string{"1"}
-	args.environ.watcher.changes <- struct{}{}
 	waitChannel(c, done, "waiting for worker to exit")
 }
 
@@ -1183,7 +1149,7 @@ func (s *storageProvisionerSuite) TestSetVolumeInfoErrorResultDoesNotStopWorker(
 		return []params.ErrorResult{{Error: &params.Error{Message: "message", Code: "code"}}}, nil
 	}
 
-	args := &workerArgs{volumes: volumeAccessor}
+	args := &workerArgs{volumes: volumeAccessor, registry: s.registry}
 	worker := newStorageProvisioner(c, args)
 	defer func() {
 		err := worker.Wait()
@@ -1198,7 +1164,6 @@ func (s *storageProvisionerSuite) TestSetVolumeInfoErrorResultDoesNotStopWorker(
 	}()
 
 	args.volumes.volumesWatcher.changes <- []string{"1"}
-	args.environ.watcher.changes <- struct{}{}
 	assertNoEvent(c, done, "worker exited")
 }
 
@@ -1214,16 +1179,16 @@ func (s *storageProvisionerSuite) TestDetachVolumesUnattached(c *gc.C) {
 	}
 
 	args := &workerArgs{
-		life: &mockLifecycleManager{removeAttachments: removeAttachments},
+		life:     &mockLifecycleManager{removeAttachments: removeAttachments},
+		registry: s.registry,
 	}
 	worker := newStorageProvisioner(c, args)
 	defer worker.Wait()
 	defer worker.Kill()
 
-	args.volumes.attachmentsWatcher.changes <- []params.MachineStorageId{{
+	args.volumes.attachmentsWatcher.changes <- []watcher.MachineStorageId{{
 		MachineTag: "machine-0", AttachmentTag: "volume-0",
 	}}
-	args.environ.watcher.changes <- struct{}{}
 	waitChannel(c, removed, "waiting for attachment to be removed")
 }
 
@@ -1288,18 +1253,18 @@ func (s *storageProvisionerSuite) TestDetachVolumes(c *gc.C) {
 			attachmentLife:    attachmentLife,
 			removeAttachments: removeAttachments,
 		},
+		registry: s.registry,
 	}
 	worker := newStorageProvisioner(c, args)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
 	defer worker.Kill()
 
-	volumeAccessor.attachmentsWatcher.changes <- []params.MachineStorageId{{
+	volumeAccessor.attachmentsWatcher.changes <- []watcher.MachineStorageId{{
 		MachineTag: "machine-1", AttachmentTag: "volume-1",
 	}}
 	volumeAccessor.volumesWatcher.changes <- []string{"1"}
-	args.environ.watcher.changes <- struct{}{}
 	waitChannel(c, volumeAttachmentInfoSet, "waiting for volume attachments to be set")
-	volumeAccessor.attachmentsWatcher.changes <- []params.MachineStorageId{{
+	volumeAccessor.attachmentsWatcher.changes <- []watcher.MachineStorageId{{
 		MachineTag: "machine-1", AttachmentTag: "volume-1",
 	}}
 	waitChannel(c, detached, "waiting for volume to be detached")
@@ -1310,7 +1275,8 @@ func (s *storageProvisionerSuite) TestDetachVolumesRetry(c *gc.C) {
 	machine := names.NewMachineTag("1")
 	volume := names.NewVolumeTag("1")
 	attachmentId := params.MachineStorageId{
-		MachineTag: machine.String(), AttachmentTag: volume.String(),
+		MachineTag:    machine.String(),
+		AttachmentTag: volume.String(),
 	}
 	volumeAccessor := newMockVolumeAccessor()
 	volumeAccessor.provisionedAttachments[attachmentId] = params.VolumeAttachment{
@@ -1355,14 +1321,17 @@ func (s *storageProvisionerSuite) TestDetachVolumesRetry(c *gc.C) {
 			attachmentLife:    attachmentLife,
 			removeAttachments: removeAttachments,
 		},
+		registry: s.registry,
 	}
 	worker := newStorageProvisioner(c, args)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
 	defer worker.Kill()
 
 	volumeAccessor.volumesWatcher.changes <- []string{volume.Id()}
-	args.environ.watcher.changes <- struct{}{}
-	volumeAccessor.attachmentsWatcher.changes <- []params.MachineStorageId{attachmentId}
+	volumeAccessor.attachmentsWatcher.changes <- []watcher.MachineStorageId{{
+		MachineTag:    machine.String(),
+		AttachmentTag: volume.String(),
+	}}
 	waitChannel(c, removed, "waiting for attachment to be removed")
 	c.Assert(detachVolumeTimes, gc.HasLen, 10)
 
@@ -1411,16 +1380,16 @@ func (s *storageProvisionerSuite) TestDetachFilesystemsUnattached(c *gc.C) {
 	}
 
 	args := &workerArgs{
-		life: &mockLifecycleManager{removeAttachments: removeAttachments},
+		life:     &mockLifecycleManager{removeAttachments: removeAttachments},
+		registry: s.registry,
 	}
 	worker := newStorageProvisioner(c, args)
 	defer worker.Wait()
 	defer worker.Kill()
 
-	args.filesystems.attachmentsWatcher.changes <- []params.MachineStorageId{{
+	args.filesystems.attachmentsWatcher.changes <- []watcher.MachineStorageId{{
 		MachineTag: "machine-0", AttachmentTag: "filesystem-0",
 	}}
-	args.environ.watcher.changes <- struct{}{}
 	waitChannel(c, removed, "waiting for attachment to be removed")
 }
 
@@ -1485,18 +1454,18 @@ func (s *storageProvisionerSuite) TestDetachFilesystems(c *gc.C) {
 			attachmentLife:    attachmentLife,
 			removeAttachments: removeAttachments,
 		},
+		registry: s.registry,
 	}
 	worker := newStorageProvisioner(c, args)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
 	defer worker.Kill()
 
-	filesystemAccessor.attachmentsWatcher.changes <- []params.MachineStorageId{{
+	filesystemAccessor.attachmentsWatcher.changes <- []watcher.MachineStorageId{{
 		MachineTag: "machine-1", AttachmentTag: "filesystem-1",
 	}}
 	filesystemAccessor.filesystemsWatcher.changes <- []string{"1"}
-	args.environ.watcher.changes <- struct{}{}
 	waitChannel(c, filesystemAttachmentInfoSet, "waiting for filesystem attachments to be set")
-	filesystemAccessor.attachmentsWatcher.changes <- []params.MachineStorageId{{
+	filesystemAccessor.attachmentsWatcher.changes <- []watcher.MachineStorageId{{
 		MachineTag: "machine-1", AttachmentTag: "filesystem-1",
 	}}
 	waitChannel(c, detached, "waiting for filesystem to be detached")
@@ -1536,6 +1505,7 @@ func (s *storageProvisionerSuite) TestDestroyVolumes(c *gc.C) {
 			life:   life,
 			remove: remove,
 		},
+		registry: s.registry,
 	}
 	worker := newStorageProvisioner(c, args)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
@@ -1545,7 +1515,6 @@ func (s *storageProvisionerSuite) TestDestroyVolumes(c *gc.C) {
 		provisionedVolume.Id(),
 		unprovisionedVolume.Id(),
 	}
-	args.environ.watcher.changes <- struct{}{}
 
 	// Both volumes should be removed; the provisioned one
 	// should be deprovisioned first.
@@ -1598,13 +1567,13 @@ func (s *storageProvisionerSuite) TestDestroyVolumesRetry(c *gc.C) {
 			life:   life,
 			remove: remove,
 		},
+		registry: s.registry,
 	}
 	worker := newStorageProvisioner(c, args)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
 	defer worker.Kill()
 
 	volumeAccessor.volumesWatcher.changes <- []string{volume.Id()}
-	args.environ.watcher.changes <- struct{}{}
 	waitChannel(c, removedChan, "waiting for volume to be removed")
 	c.Assert(destroyVolumeTimes, gc.HasLen, 10)
 
@@ -1667,6 +1636,7 @@ func (s *storageProvisionerSuite) TestDestroyFilesystems(c *gc.C) {
 			life:   life,
 			remove: remove,
 		},
+		registry: s.registry,
 	}
 	worker := newStorageProvisioner(c, args)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
@@ -1676,7 +1646,6 @@ func (s *storageProvisionerSuite) TestDestroyFilesystems(c *gc.C) {
 		provisionedFilesystem.Id(),
 		unprovisionedFilesystem.Id(),
 	}
-	args.environ.watcher.changes <- struct{}{}
 
 	// Both filesystems should be removed; the provisioned one
 	// *should* be deprovisioned first, but we don't currently
@@ -1695,8 +1664,13 @@ func newStorageProvisioner(c *gc.C, args *workerArgs) worker.Worker {
 	if args == nil {
 		args = &workerArgs{}
 	}
-	if args.scope == nil {
-		args.scope = coretesting.EnvironmentTag
+	var storageDir string
+	switch args.scope.(type) {
+	case names.MachineTag:
+		storageDir = "storage-dir"
+	case names.ModelTag:
+	case nil:
+		args.scope = coretesting.ModelTag
 	}
 	if args.volumes == nil {
 		args.volumes = newMockVolumeAccessor()
@@ -1707,9 +1681,6 @@ func newStorageProvisioner(c *gc.C, args *workerArgs) worker.Worker {
 	if args.life == nil {
 		args.life = &mockLifecycleManager{}
 	}
-	if args.environ == nil {
-		args.environ = newMockEnvironAccessor(c)
-	}
 	if args.machines == nil {
 		args.machines = newMockMachineAccessor(c)
 	}
@@ -1719,17 +1690,19 @@ func newStorageProvisioner(c *gc.C, args *workerArgs) worker.Worker {
 	if args.statusSetter == nil {
 		args.statusSetter = &mockStatusSetter{}
 	}
-	return storageprovisioner.NewStorageProvisioner(
-		args.scope,
-		"storage-dir",
-		args.volumes,
-		args.filesystems,
-		args.life,
-		args.environ,
-		args.machines,
-		args.statusSetter,
-		args.clock,
-	)
+	worker, err := storageprovisioner.NewStorageProvisioner(storageprovisioner.Config{
+		Scope:       args.scope,
+		StorageDir:  storageDir,
+		Volumes:     args.volumes,
+		Filesystems: args.filesystems,
+		Life:        args.life,
+		Registry:    args.registry,
+		Machines:    args.machines,
+		Status:      args.statusSetter,
+		Clock:       args.clock,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	return worker
 }
 
 type workerArgs struct {
@@ -1737,7 +1710,7 @@ type workerArgs struct {
 	volumes      *mockVolumeAccessor
 	filesystems  *mockFilesystemAccessor
 	life         *mockLifecycleManager
-	environ      *mockEnvironAccessor
+	registry     storage.ProviderRegistry
 	machines     *mockMachineAccessor
 	clock        clock.Clock
 	statusSetter *mockStatusSetter

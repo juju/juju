@@ -18,54 +18,69 @@ import (
 	"github.com/juju/govmomi/vim25/methods"
 	"github.com/juju/govmomi/vim25/soap"
 	"github.com/juju/govmomi/vim25/types"
-	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"golang.org/x/net/context"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/testing"
 )
 
-var (
-	ConfigAttrs = testing.FakeConfig().Merge(testing.Attrs{
+func ConfigAttrs() testing.Attrs {
+	return testing.FakeConfig().Merge(testing.Attrs{
 		"type":             "vsphere",
 		"uuid":             "2d02eeac-9dbb-11e4-89d3-123b93f75cba",
-		"datacenter":       "/datacenter1",
-		"host":             "host1",
-		"user":             "user1",
-		"password":         "password1",
 		"external-network": "",
 	})
-)
+}
+
+func FakeCloudSpec() environs.CloudSpec {
+	cred := FakeCredential()
+	return environs.CloudSpec{
+		Type:       "vsphere",
+		Name:       "vsphere",
+		Region:     "/datacenter1",
+		Endpoint:   "host1",
+		Credential: &cred,
+	}
+}
+
+func FakeCredential() cloud.Credential {
+	return cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
+		"user":     "user1",
+		"password": "password1",
+	})
+}
 
 type BaseSuite struct {
-	gitjujutesting.IsolationSuite
+	testing.FakeJujuXDGDataHomeSuite
 
 	Config    *config.Config
 	EnvConfig *environConfig
 	Env       *environ
 
 	ServeMux  *http.ServeMux
-	ServerUrl string
+	ServerURL string
 }
 
 func (s *BaseSuite) SetUpTest(c *gc.C) {
-	s.IsolationSuite.SetUpTest(c)
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 
 	s.PatchValue(&newConnection, newFakeConnection)
 	s.initEnv(c)
-	s.setUpHttpProxy(c)
+	s.setUpHTTPProxy(c)
 	s.FakeMetadataServer()
-	osenv.SetJujuHome(c.MkDir())
 }
 
 func (s *BaseSuite) initEnv(c *gc.C) {
-	cfg, err := testing.EnvironConfig(c).Apply(ConfigAttrs)
+	cfg, err := testing.ModelConfig(c).Apply(ConfigAttrs())
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := environs.New(cfg)
+	env, err := environs.New(environs.OpenParams{
+		Cloud:  FakeCloudSpec(),
+		Config: cfg,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.Env = env.(*environ)
 	s.setConfig(c, cfg)
@@ -85,19 +100,19 @@ func (s *BaseSuite) UpdateConfig(c *gc.C, attrs map[string]interface{}) {
 	s.setConfig(c, cfg)
 }
 
-func (s *BaseSuite) setUpHttpProxy(c *gc.C) {
+func (s *BaseSuite) setUpHTTPProxy(c *gc.C) {
 	s.ServeMux = http.NewServeMux()
 	server := httptest.NewServer(s.ServeMux)
-	s.ServerUrl = server.URL
+	s.ServerURL = server.URL
 	cfg, _ := s.Config.Apply(map[string]interface{}{"image-metadata-url": server.URL})
 	s.setConfig(c, cfg)
 }
 
-type fakeApiHandler func(req, res soap.HasFault)
+type fakeAPIHandler func(req, res soap.HasFault)
 type fakePropertiesHandler func(req, res *methods.RetrievePropertiesBody)
 
-type fakeApiCall struct {
-	handler fakeApiHandler
+type fakeAPICall struct {
+	handler fakeAPIHandler
 	method  string
 }
 
@@ -107,7 +122,7 @@ type fakePropertiesCall struct {
 }
 
 type fakeClient struct {
-	handlers         []fakeApiCall
+	handlers         []fakeAPICall
 	propertyHandlers []fakePropertiesCall
 }
 
@@ -137,8 +152,8 @@ func (c *fakeClient) RoundTrip(ctx context.Context, req, res soap.HasFault) erro
 	return nil
 }
 
-func (c *fakeClient) SetProxyHandler(method string, handler fakeApiHandler) {
-	c.handlers = append(c.handlers, fakeApiCall{method: method, handler: handler})
+func (c *fakeClient) SetProxyHandler(method string, handler fakeAPIHandler) {
+	c.handlers = append(c.handlers, fakeAPICall{method: method, handler: handler})
 }
 
 func (c *fakeClient) SetPropertyProxyHandler(obj string, handler fakePropertiesHandler) {
@@ -147,7 +162,7 @@ func (c *fakeClient) SetPropertyProxyHandler(obj string, handler fakePropertiesH
 
 var newFakeConnection = func(url *url.URL) (*govmomi.Client, error) {
 	fakeClient := &fakeClient{
-		handlers:         make([]fakeApiCall, 0, 100),
+		handlers:         make([]fakeAPICall, 0, 100),
 		propertyHandlers: make([]fakePropertiesCall, 0, 100),
 	}
 

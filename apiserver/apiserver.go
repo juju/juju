@@ -11,19 +11,24 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
-	"time"
 
 	"github.com/bmizerany/pat"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
 	"github.com/juju/utils"
+	"github.com/juju/utils/clock"
+	"golang.org/x/crypto/acme"
+	"golang.org/x/crypto/acme/autocert"
 	"golang.org/x/net/websocket"
-	"launchpad.net/tomb"
+	"gopkg.in/juju/names.v2"
+	"gopkg.in/macaroon-bakery.v1/httpbakery"
+	"gopkg.in/tomb.v1"
 
+	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/apihttp"
+	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
 	"github.com/juju/juju/state"
@@ -38,19 +43,35 @@ const loginRateLimit = 10
 // Server holds the server side of the API.
 type Server struct {
 	tomb              tomb.Tomb
+	clock             clock.Clock
+	pingClock         clock.Clock
 	wg                sync.WaitGroup
 	state             *state.State
 	statePool         *state.StatePool
-	addr              *net.TCPAddr
+	lis               net.Listener
 	tag               names.Tag
 	dataDir           string
 	logDir            string
 	limiter           utils.Limiter
 	validator         LoginValidator
-	adminApiFactories map[int]adminApiFactory
-	mongoUnavailable  uint32 // non zero if mongoUnavailable
-	environUUID       string
+	adminAPIFactories map[int]adminAPIFactory
+	modelUUID         string
 	authCtxt          *authContext
+	lastConnectionID  uint64
+	newObserver       observer.ObserverFactory
+	connCount         int64
+	certChanged       <-chan params.StateServingInfo
+	tlsConfig         *tls.Config
+	allowModelAccess  bool
+
+	// mu guards the fields below it.
+	mu sync.Mutex
+
+	// cert holds the current certificate used for tls.Config.
+	cert *tls.Certificate
+
+	// certDNSNames holds the DNS names associated with cert.
+	certDNSNames []string
 }
 
 // LoginValidator functions are used to decide whether login requests
@@ -60,97 +81,56 @@ type LoginValidator func(params.LoginRequest) error
 
 // ServerConfig holds parameters required to set up an API server.
 type ServerConfig struct {
-	Cert        []byte
-	Key         []byte
+	Clock       clock.Clock
+	PingClock   clock.Clock
+	Cert        string
+	Key         string
 	Tag         names.Tag
 	DataDir     string
 	LogDir      string
 	Validator   LoginValidator
-	CertChanged chan params.StateServingInfo
+	CertChanged <-chan params.StateServingInfo
+
+	// AutocertDNSName holds the DNS name for which
+	// official TLS certificates will be obtained. If this is
+	// empty, no certificates will be requested.
+	AutocertDNSName string
+
+	// AutocertURL holds the URL from which official
+	// TLS certificates will be obtained. By default,
+	// acme.LetsEncryptURL will be used.
+	AutocertURL string
+
+	// AllowModelAccess holds whether users will be allowed to
+	// access models that they have access rights to even when
+	// they don't have access to the controller.
+	AllowModelAccess bool
+
+	// NewObserver is a function which will return an observer. This
+	// is used per-connection to instantiate a new observer to be
+	// notified of key events during API requests.
+	NewObserver observer.ObserverFactory
+
+	// StatePool only exists to support testing.
+	StatePool *state.StatePool
 }
 
-// changeCertListener wraps a TLS net.Listener.
-// It allows connection handshakes to be
-// blocked while the TLS certificate is updated.
-type changeCertListener struct {
-	net.Listener
-	tomb tomb.Tomb
-
-	// A mutex used to block accept operations.
-	m sync.Mutex
-
-	// A channel used to pass in new certificate information.
-	certChanged <-chan params.StateServingInfo
-
-	// The config to update with any new certificate.
-	config *tls.Config
-}
-
-func newChangeCertListener(lis net.Listener, certChanged <-chan params.StateServingInfo, config *tls.Config) *changeCertListener {
-	cl := &changeCertListener{
-		Listener:    lis,
-		certChanged: certChanged,
-		config:      config,
+func (c *ServerConfig) Validate() error {
+	if c.Clock == nil {
+		return errors.NotValidf("missing Clock")
 	}
-	go func() {
-		defer cl.tomb.Done()
-		cl.tomb.Kill(cl.processCertChanges())
-	}()
-	return cl
-}
-
-// Accept waits for and returns the next connection to the listener.
-func (cl *changeCertListener) Accept() (net.Conn, error) {
-	conn, err := cl.Listener.Accept()
-	if err != nil {
-		return nil, err
+	if c.NewObserver == nil {
+		return errors.NotValidf("missing NewObserver")
 	}
-	cl.m.Lock()
-	defer cl.m.Unlock()
-	config := cl.config
-	return tls.Server(conn, config), nil
+
+	return nil
 }
 
-// Close closes the listener.
-func (cl *changeCertListener) Close() error {
-	cl.tomb.Kill(nil)
-	return cl.Listener.Close()
-}
-
-// processCertChanges receives new certificate information and
-// calls a method to update the listener's certificate.
-func (cl *changeCertListener) processCertChanges() error {
-	for {
-		select {
-		case info := <-cl.certChanged:
-			if info.Cert != "" {
-				cl.updateCertificate([]byte(info.Cert), []byte(info.PrivateKey))
-			}
-		case <-cl.tomb.Dying():
-			return tomb.ErrDying
-		}
+func (c *ServerConfig) pingClock() clock.Clock {
+	if c.PingClock == nil {
+		return c.Clock
 	}
-}
-
-// updateCertificate generates a new TLS certificate and assigns it
-// to the TLS listener.
-func (cl *changeCertListener) updateCertificate(cert, key []byte) {
-	cl.m.Lock()
-	defer cl.m.Unlock()
-	if tlsCert, err := tls.X509KeyPair(cert, key); err != nil {
-		logger.Errorf("cannot create new TLS certificate: %v", err)
-	} else {
-		logger.Infof("updating api server certificate")
-		x509Cert, err := x509.ParseCertificate(tlsCert.Certificate[0])
-		if err == nil {
-			var addr []string
-			for _, ip := range x509Cert.IPAddresses {
-				addr = append(addr, ip.String())
-			}
-			logger.Infof("new certificate addresses: %v", strings.Join(addr, ", "))
-		}
-		cl.config.Certificates = []tls.Certificate{tlsCert}
-	}
+	return c.PingClock
 }
 
 // NewServer serves the given state by accepting requests on the given
@@ -159,16 +139,16 @@ func (cl *changeCertListener) updateCertificate(cert, key []byte) {
 //
 // The Server will close the listener when it exits, even if returns an error.
 func NewServer(s *state.State, lis net.Listener, cfg ServerConfig) (*Server, error) {
+	if err := cfg.Validate(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	// Important note:
 	// Do not manipulate the state within NewServer as the API
 	// server needs to run before mongo upgrades have happened and
 	// any state manipulation may be be relying on features of the
 	// database added by upgrades. Here be dragons.
-	l, ok := lis.(*net.TCPListener)
-	if !ok {
-		return nil, errors.Errorf("listener is not of type *net.TCPListener: %T", lis)
-	}
-	srv, err := newServer(s, l, cfg)
+	srv, err := newServer(s, lis, cfg)
 	if err != nil {
 		// There is no running server around to close the listener.
 		lis.Close()
@@ -177,36 +157,86 @@ func NewServer(s *state.State, lis net.Listener, cfg ServerConfig) (*Server, err
 	return srv, nil
 }
 
-func newServer(s *state.State, lis *net.TCPListener, cfg ServerConfig) (_ *Server, err error) {
-	logger.Infof("listening on %q", lis.Addr())
+func newServer(s *state.State, lis net.Listener, cfg ServerConfig) (_ *Server, err error) {
+	stPool := cfg.StatePool
+	if stPool == nil {
+		stPool = state.NewStatePool(s)
+	}
+
 	srv := &Server{
-		state:     s,
-		statePool: state.NewStatePool(s),
-		addr:      lis.Addr().(*net.TCPAddr), // cannot fail
-		tag:       cfg.Tag,
-		dataDir:   cfg.DataDir,
-		logDir:    cfg.LogDir,
-		limiter:   utils.NewLimiter(loginRateLimit),
-		validator: cfg.Validator,
-		adminApiFactories: map[int]adminApiFactory{
-			0: newAdminApiV0,
-			1: newAdminApiV1,
-			2: newAdminApiV2,
+		clock:       cfg.Clock,
+		pingClock:   cfg.pingClock(),
+		lis:         lis,
+		newObserver: cfg.NewObserver,
+		state:       s,
+		statePool:   stPool,
+		tag:         cfg.Tag,
+		dataDir:     cfg.DataDir,
+		logDir:      cfg.LogDir,
+		limiter:     utils.NewLimiter(loginRateLimit),
+		validator:   cfg.Validator,
+		adminAPIFactories: map[int]adminAPIFactory{
+			3: newAdminAPIV3,
 		},
+		certChanged:      cfg.CertChanged,
+		allowModelAccess: cfg.AllowModelAccess,
 	}
-	srv.authCtxt = newAuthContext(srv)
-	tlsCert, err := tls.X509KeyPair(cfg.Cert, cfg.Key)
+
+	srv.tlsConfig = srv.newTLSConfig(cfg)
+	srv.lis = tls.NewListener(lis, srv.tlsConfig)
+
+	srv.authCtxt, err = newAuthContext(s)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
-	// TODO(rog) check that *srvRoot is a valid type for using
-	// as an RPC server.
-	tlsConfig := &tls.Config{
-		Certificates: []tls.Certificate{tlsCert},
+	if err := srv.updateCertificate(cfg.Cert, cfg.Key); err != nil {
+		return nil, errors.Annotatef(err, "cannot set initial certificate")
 	}
-	changeCertListener := newChangeCertListener(lis, cfg.CertChanged, tlsConfig)
-	go srv.run(changeCertListener)
+	go srv.run()
 	return srv, nil
+}
+
+func (srv *Server) newTLSConfig(cfg ServerConfig) *tls.Config {
+	tlsConfig := utils.SecureTLSConfig()
+	if cfg.AutocertDNSName == "" {
+		// No official DNS name, no certificate.
+		tlsConfig.GetCertificate = func(clientHello *tls.ClientHelloInfo) (*tls.Certificate, error) {
+			cert, _ := srv.localCertificate(clientHello.ServerName)
+			return cert, nil
+		}
+		return tlsConfig
+	}
+	m := autocert.Manager{
+		Prompt:     autocert.AcceptTOS,
+		Cache:      srv.state.AutocertCache(),
+		HostPolicy: autocert.HostWhitelist(cfg.AutocertDNSName),
+	}
+	if cfg.AutocertURL != "" {
+		m.Client = &acme.Client{
+			DirectoryURL: cfg.AutocertURL,
+		}
+	}
+	tlsConfig.GetCertificate = func(clientHello *tls.ClientHelloInfo) (*tls.Certificate, error) {
+		logger.Infof("getting certificate for server name %q", clientHello.ServerName)
+		// Get the locally created certificate and whether it's appropriate
+		// for the SNI name. If not, we'll try to get an acme cert and
+		// fall back to the local certificate if that fails.
+		cert, shouldUse := srv.localCertificate(clientHello.ServerName)
+		if shouldUse {
+			return cert, nil
+		}
+		acmeCert, err := m.GetCertificate(clientHello)
+		if err == nil {
+			return acmeCert, nil
+		}
+		logger.Errorf("cannot get autocert certificate for %q: %v", clientHello.ServerName, err)
+		return cert, nil
+	}
+	return tlsConfig
+}
+
+func (srv *Server) ConnectionCount() int64 {
+	return atomic.LoadInt64(&srv.connCount)
 }
 
 // Dead returns a channel that signals when the server has exited.
@@ -231,215 +261,294 @@ func (srv *Server) Wait() error {
 	return srv.tomb.Wait()
 }
 
-type requestNotifier struct {
-	id    int64
-	start time.Time
+func (srv *Server) run() {
+	logger.Infof("listening on %q", srv.lis.Addr())
 
-	mu   sync.Mutex
-	tag_ string
-}
-
-var globalCounter int64
-
-func newRequestNotifier() *requestNotifier {
-	return &requestNotifier{
-		id:    atomic.AddInt64(&globalCounter, 1),
-		tag_:  "<unknown>",
-		start: time.Now(),
-	}
-}
-
-func (n *requestNotifier) login(tag string) {
-	n.mu.Lock()
-	n.tag_ = tag
-	n.mu.Unlock()
-}
-
-func (n *requestNotifier) tag() (tag string) {
-	n.mu.Lock()
-	tag = n.tag_
-	n.mu.Unlock()
-	return
-}
-
-func (n *requestNotifier) ServerRequest(hdr *rpc.Header, body interface{}) {
-	if hdr.Request.Type == "Pinger" && hdr.Request.Action == "Ping" {
-		return
-	}
-	// TODO(rog) 2013-10-11 remove secrets from some requests.
-	// Until secrets are removed, we only log the body of the requests at trace level
-	// which is below the default level of debug.
-	if logger.IsTraceEnabled() {
-		logger.Tracef("<- [%X] %s %s", n.id, n.tag(), jsoncodec.DumpRequest(hdr, body))
-	} else {
-		logger.Debugf("<- [%X] %s %s", n.id, n.tag(), jsoncodec.DumpRequest(hdr, "'params redacted'"))
-	}
-}
-
-func (n *requestNotifier) ServerReply(req rpc.Request, hdr *rpc.Header, body interface{}, timeSpent time.Duration) {
-	if req.Type == "Pinger" && req.Action == "Ping" {
-		return
-	}
-	// TODO(rog) 2013-10-11 remove secrets from some responses.
-	// Until secrets are removed, we only log the body of the requests at trace level
-	// which is below the default level of debug.
-	if logger.IsTraceEnabled() {
-		logger.Tracef("-> [%X] %s %s", n.id, n.tag(), jsoncodec.DumpRequest(hdr, body))
-	} else {
-		logger.Debugf("-> [%X] %s %s %s %s[%q].%s", n.id, n.tag(), timeSpent, jsoncodec.DumpRequest(hdr, "'body redacted'"), req.Type, req.Id, req.Action)
-	}
-}
-
-func (n *requestNotifier) join(req *http.Request) {
-	logger.Infof("[%X] API connection from %s", n.id, req.RemoteAddr)
-}
-
-func (n *requestNotifier) leave() {
-	logger.Infof("[%X] %s API connection terminated after %v", n.id, n.tag(), time.Since(n.start))
-}
-
-func (n *requestNotifier) ClientRequest(hdr *rpc.Header, body interface{}) {
-}
-
-func (n *requestNotifier) ClientReply(req rpc.Request, hdr *rpc.Header, body interface{}) {
-}
-
-func handleAll(mux *pat.PatternServeMux, pattern string, handler http.Handler) {
-	mux.Get(pattern, handler)
-	mux.Post(pattern, handler)
-	mux.Head(pattern, handler)
-	mux.Put(pattern, handler)
-	mux.Del(pattern, handler)
-	mux.Options(pattern, handler)
-}
-
-func (srv *Server) run(lis net.Listener) {
 	defer func() {
-		srv.state.HackLeadership() // Break deadlocks caused by BlockUntil... calls.
-		srv.wg.Wait()              // wait for any outstanding requests to complete.
+		addr := srv.lis.Addr().String() // Addr not valid after close
+		err := srv.lis.Close()
+		logger.Infof("closed listening socket %q with final error: %v", addr, err)
+
+		// Break deadlocks caused by leadership BlockUntil... calls.
+		srv.statePool.KillWorkers()
+		srv.state.KillWorkers()
+
+		srv.wg.Wait() // wait for any outstanding requests to complete.
 		srv.tomb.Done()
 		srv.statePool.Close()
+		srv.state.Close()
 	}()
 
 	srv.wg.Add(1)
 	go func() {
-		err := srv.mongoPinger()
-		// Before killing the tomb, inform the API handlers that
-		// Mongo is unavailable. API handlers can use this to decide
-		// not to perform non-critical Mongo-related operations when
-		// tearing down.
-		atomic.AddUint32(&srv.mongoUnavailable, 1)
-		srv.tomb.Kill(err)
-		srv.wg.Done()
+		defer srv.wg.Done()
+		srv.tomb.Kill(srv.mongoPinger())
+	}()
+
+	srv.wg.Add(1)
+	go func() {
+		defer srv.wg.Done()
+		srv.tomb.Kill(srv.expireLocalLoginInteractions())
+	}()
+
+	srv.wg.Add(1)
+	go func() {
+		defer srv.wg.Done()
+		srv.tomb.Kill(srv.processCertChanges())
+	}()
+
+	srv.wg.Add(1)
+	go func() {
+		defer srv.wg.Done()
+		srv.tomb.Kill(srv.processModelRemovals())
 	}()
 
 	// for pat based handlers, they are matched in-order of being
 	// registered, first match wins. So more specific ones have to be
 	// registered first.
 	mux := pat.New()
+	for _, endpoint := range srv.endpoints() {
+		registerEndpoint(endpoint, mux)
+	}
 
-	srvDying := srv.tomb.Dying()
+	go func() {
+		logger.Debugf("Starting API http server on address %q", srv.lis.Addr())
+		httpSrv := &http.Server{
+			Handler:   mux,
+			TLSConfig: srv.tlsConfig,
+		}
+		err := httpSrv.Serve(srv.lis)
+		// Normally logging an error at debug level would be grounds for a beating,
+		// however in this case the error is *expected* to be non nil, and does not
+		// affect the operation of the apiserver, but for completeness log it anyway.
+		logger.Debugf("API http server exited, final error was: %v", err)
+	}()
+
+	<-srv.tomb.Dying()
+}
+
+func (srv *Server) endpoints() []apihttp.Endpoint {
 	httpCtxt := httpContext{
 		srv: srv,
 	}
-	if feature.IsDbLogEnabled() {
-		handleAll(mux, "/environment/:envuuid/logsink",
-			newLogSinkHandler(httpCtxt, srv.logDir))
-		handleAll(mux, "/environment/:envuuid/log",
-			newDebugLogDBHandler(httpCtxt, srvDying))
-	} else {
-		handleAll(mux, "/environment/:envuuid/log",
-			newDebugLogFileHandler(httpCtxt, srvDying, srv.logDir))
+
+	endpoints := common.ResolveAPIEndpoints(srv.newHandlerArgs)
+
+	// TODO(ericsnow) Add the following to the registry instead.
+
+	add := func(pattern string, handler http.Handler) {
+		// TODO: We can switch from all methods to specific ones for entries
+		// where we only want to support specific request methods. However, our
+		// tests currently assert that errors come back as application/json and
+		// pat only does "text/plain" responses.
+		for _, method := range common.DefaultHTTPMethods {
+			endpoints = append(endpoints, apihttp.Endpoint{
+				Pattern: pattern,
+				Method:  method,
+				Handler: handler,
+			})
+		}
 	}
-	handleAll(mux, "/environment/:envuuid/charms",
-		&charmsHandler{
-			ctxt:    httpCtxt,
-			dataDir: srv.dataDir},
-	)
-	// TODO: We can switch from handleAll to mux.Post/Get/etc for entries
-	// where we only want to support specific request methods. However, our
-	// tests currently assert that errors come back as application/json and
-	// pat only does "text/plain" responses.
-	handleAll(mux, "/environment/:envuuid/tools",
+
+	strictCtxt := httpCtxt
+	strictCtxt.strictValidation = true
+	strictCtxt.controllerModelOnly = true
+
+	mainAPIHandler := srv.trackRequests(http.HandlerFunc(srv.apiHandler))
+	logSinkHandler := srv.trackRequests(newLogSinkHandler(httpCtxt, srv.logDir))
+	logStreamHandler := srv.trackRequests(newLogStreamEndpointHandler(strictCtxt))
+	debugLogHandler := srv.trackRequests(newDebugLogDBHandler(httpCtxt))
+
+	add("/model/:modeluuid/logsink", logSinkHandler)
+	add("/model/:modeluuid/logstream", logStreamHandler)
+	add("/model/:modeluuid/log", debugLogHandler)
+
+	charmsHandler := &charmsHandler{
+		ctxt:    httpCtxt,
+		dataDir: srv.dataDir,
+	}
+	charmsServer := &CharmsHTTPHandler{
+		PostHandler: charmsHandler.ServePost,
+		GetHandler:  charmsHandler.ServeGet,
+	}
+	add("/model/:modeluuid/charms", charmsServer)
+	add("/model/:modeluuid/tools",
 		&toolsUploadHandler{
 			ctxt: httpCtxt,
 		},
 	)
-	handleAll(mux, "/environment/:envuuid/tools/:version",
+	add("/model/:modeluuid/tools/:version",
 		&toolsDownloadHandler{
 			ctxt: httpCtxt,
 		},
 	)
-	strictCtxt := httpCtxt
-	strictCtxt.strictValidation = true
-	strictCtxt.stateServerEnvOnly = true
-	handleAll(mux, "/environment/:envuuid/backups",
+	add("/model/:modeluuid/backups",
 		&backupHandler{
 			ctxt: strictCtxt,
 		},
 	)
-	handleAll(mux, "/environment/:envuuid/api", http.HandlerFunc(srv.apiHandler))
+	add("/model/:modeluuid/api", mainAPIHandler)
 
-	handleAll(mux, "/environment/:envuuid/images/:kind/:series/:arch/:filename",
-		&imagesDownloadHandler{
-			ctxt:    httpCtxt,
-			dataDir: srv.dataDir,
-			state:   srv.state,
-		},
-	)
+	endpoints = append(endpoints, guiEndpoints("/gui/:modeluuid/", srv.dataDir, httpCtxt)...)
+	add("/gui-archive", &guiArchiveHandler{
+		ctxt: httpCtxt,
+	})
+	add("/gui-version", &guiVersionHandler{
+		ctxt: httpCtxt,
+	})
+
 	// For backwards compatibility we register all the old paths
+	add("/log", debugLogHandler)
 
-	if feature.IsDbLogEnabled() {
-		handleAll(mux, "/log", newDebugLogDBHandler(httpCtxt, srvDying))
-	} else {
-		handleAll(mux, "/log", newDebugLogFileHandler(httpCtxt, srvDying, srv.logDir))
-	}
-
-	handleAll(mux, "/charms",
-		&charmsHandler{
-			ctxt:    httpCtxt,
-			dataDir: srv.dataDir,
-		},
-	)
-	handleAll(mux, "/tools",
+	add("/charms", charmsServer)
+	add("/tools",
 		&toolsUploadHandler{
 			ctxt: httpCtxt,
 		},
 	)
-	handleAll(mux, "/tools/:version",
+	add("/tools/:version",
 		&toolsDownloadHandler{
 			ctxt: httpCtxt,
 		},
 	)
-	handleAll(mux, "/", http.HandlerFunc(srv.apiHandler))
+	add("/register",
+		&registerUserHandler{
+			ctxt: httpCtxt,
+		},
+	)
+	add("/api", mainAPIHandler)
+	// Serve the API at / (only) for backward compatiblity. Note that the
+	// pat muxer special-cases / so that it does not serve all
+	// possible endpoints, but only / itself.
+	add("/", mainAPIHandler)
 
-	go func() {
-		// The error from http.Serve is not interesting.
-		http.Serve(lis, mux)
-	}()
+	// Add HTTP handlers for local-user macaroon authentication.
+	localLoginHandlers := &localLoginHandlers{srv.authCtxt, srv.state}
+	dischargeMux := http.NewServeMux()
+	httpbakery.AddDischargeHandler(
+		dischargeMux,
+		localUserIdentityLocationPath,
+		localLoginHandlers.authCtxt.localUserThirdPartyBakeryService,
+		localLoginHandlers.checkThirdPartyCaveat,
+	)
+	dischargeMux.Handle(
+		localUserIdentityLocationPath+"/login",
+		makeHandler(handleJSON(localLoginHandlers.serveLogin)),
+	)
+	dischargeMux.Handle(
+		localUserIdentityLocationPath+"/wait",
+		makeHandler(handleJSON(localLoginHandlers.serveWait)),
+	)
+	add(localUserIdentityLocationPath+"/discharge", dischargeMux)
+	add(localUserIdentityLocationPath+"/publickey", dischargeMux)
+	add(localUserIdentityLocationPath+"/login", dischargeMux)
+	add(localUserIdentityLocationPath+"/wait", dischargeMux)
 
-	<-srv.tomb.Dying()
-	lis.Close()
+	return endpoints
+}
+
+func (srv *Server) expireLocalLoginInteractions() error {
+	for {
+		select {
+		case <-srv.tomb.Dying():
+			return tomb.ErrDying
+		case <-srv.clock.After(authentication.LocalLoginInteractionTimeout):
+			now := srv.authCtxt.clock.Now()
+			srv.authCtxt.localUserInteractions.Expire(now)
+		}
+	}
+}
+
+func (srv *Server) newHandlerArgs(spec apihttp.HandlerConstraints) apihttp.NewHandlerArgs {
+	ctxt := httpContext{
+		srv:                 srv,
+		strictValidation:    spec.StrictValidation,
+		controllerModelOnly: spec.ControllerModelOnly,
+	}
+
+	var args apihttp.NewHandlerArgs
+	switch spec.AuthKind {
+	case names.UserTagKind:
+		args.Connect = ctxt.stateForRequestAuthenticatedUser
+	case names.UnitTagKind:
+		args.Connect = ctxt.stateForRequestAuthenticatedAgent
+	case "":
+		logger.Tracef(`no access level specified; proceeding with "unauthenticated"`)
+		args.Connect = func(req *http.Request) (*state.State, state.Entity, error) {
+			st, err := ctxt.stateForRequestUnauthenticated(req)
+			return st, nil, err
+		}
+	default:
+		logger.Infof(`unrecognized access level %q; proceeding with "unauthenticated"`, spec.AuthKind)
+		args.Connect = func(req *http.Request) (*state.State, state.Entity, error) {
+			st, err := ctxt.stateForRequestUnauthenticated(req)
+			return st, nil, err
+		}
+	}
+	return args
+}
+
+// trackRequests wraps a http.Handler, incrementing and decrementing
+// the apiserver's WaitGroup and blocking request when the apiserver
+// is shutting down.
+//
+// Note: It is only safe to use trackRequests with API handlers which
+// are interruptible (i.e. they pay attention to the apiserver tomb)
+// or are guaranteed to be short-lived. If it's used with long running
+// API handlers which don't watch the apiserver's tomb, apiserver
+// shutdown will be blocked until the API handler returns.
+func (srv *Server) trackRequests(handler http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Care must be taken to not increment the waitgroup count
+		// after the listener has closed.
+		//
+		// First we check to see if the tomb has not yet been killed
+		// because the closure of the listener depends on the tomb being
+		// killed to trigger the defer block in srv.run.
+		select {
+		case <-srv.tomb.Dying():
+			// This request was accepted before the listener was closed
+			// but after the tomb was killed. As we're in the process of
+			// shutting down, do not consider this request as in progress,
+			// just send a 503 and return.
+			http.Error(w, "apiserver shutdown in progress", 503)
+		default:
+			// If we get here then the tomb was not killed therefore the
+			// listener is still open. It is safe to increment the
+			// wg counter as wg.Wait in srv.run has not yet been called.
+			srv.wg.Add(1)
+			defer srv.wg.Done()
+			handler.ServeHTTP(w, r)
+		}
+	})
+}
+
+func registerEndpoint(ep apihttp.Endpoint, mux *pat.PatternServeMux) {
+	mux.Add(ep.Method, ep.Pattern, ep.Handler)
+	if ep.Method == "GET" {
+		mux.Add("HEAD", ep.Pattern, ep.Handler)
+	}
 }
 
 func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
-	reqNotifier := newRequestNotifier()
-	reqNotifier.join(req)
-	defer reqNotifier.leave()
+	addCount := func(delta int64) {
+		atomic.AddInt64(&srv.connCount, delta)
+	}
+
+	addCount(1)
+	defer addCount(-1)
+
+	connectionID := atomic.AddUint64(&srv.lastConnectionID, 1)
+
+	apiObserver := srv.newObserver()
+	apiObserver.Join(req, connectionID)
+	defer apiObserver.Leave()
+
 	wsServer := websocket.Server{
 		Handler: func(conn *websocket.Conn) {
-			srv.wg.Add(1)
-			defer srv.wg.Done()
-			// If we've got to this stage and the tomb is still
-			// alive, we know that any tomb.Kill must occur after we
-			// have called wg.Add, so we avoid the possibility of a
-			// handler goroutine running after Stop has returned.
-			if srv.tomb.Err() != tomb.ErrStillAlive {
-				return
-			}
-			envUUID := req.URL.Query().Get(":envuuid")
-			logger.Tracef("got a request for env %q", envUUID)
-			if err := srv.serveConn(conn, reqNotifier, envUUID); err != nil {
+			modelUUID := req.URL.Query().Get(":modeluuid")
+			logger.Tracef("got a request for model %q", modelUUID)
+			if err := srv.serveConn(conn, modelUUID, apiObserver, req.Host); err != nil {
 				logger.Errorf("error serving RPCs: %v", err)
 			}
 		},
@@ -447,33 +556,44 @@ func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
 	wsServer.ServeHTTP(w, req)
 }
 
-// Addr returns the address that the server is listening on.
-func (srv *Server) Addr() *net.TCPAddr {
-	return srv.addr
-}
-
-func (srv *Server) serveConn(wsConn *websocket.Conn, reqNotifier *requestNotifier, envUUID string) error {
+func (srv *Server) serveConn(wsConn *websocket.Conn, modelUUID string, apiObserver observer.Observer, host string) error {
 	codec := jsoncodec.NewWebsocket(wsConn)
-	if loggo.GetLogger("juju.rpc.jsoncodec").EffectiveLogLevel() <= loggo.TRACE {
-		codec.SetLogging(true)
-	}
-	var notifier rpc.RequestNotifier
-	if logger.EffectiveLogLevel() <= loggo.DEBUG {
-		// Incur request monitoring overhead only if we
-		// know we'll need it.
-		notifier = reqNotifier
-	}
-	conn := rpc.NewConn(codec, notifier)
 
-	h, err := srv.newAPIHandler(conn, reqNotifier, envUUID)
+	conn := rpc.NewConn(codec, apiObserver)
+
+	// Note that we don't overwrite modelUUID here because
+	// newAPIHandler treats an empty modelUUID as signifying
+	// the API version used.
+	resolvedModelUUID, err := validateModelUUID(validateArgs{
+		statePool: srv.statePool,
+		modelUUID: modelUUID,
+	})
+	var (
+		st *state.State
+		h  *apiHandler
+	)
+	if err == nil {
+		st, err = srv.statePool.Get(resolvedModelUUID)
+	}
+
+	if err == nil {
+		defer func() {
+			err := srv.statePool.Release(resolvedModelUUID)
+			if err != nil {
+				logger.Errorf("error releasing %v back into the state pool:", err)
+			}
+		}()
+		h, err = newAPIHandler(srv, st, conn, modelUUID, host)
+	}
+
 	if err != nil {
-		conn.Serve(&errRoot{err}, serverError)
+		conn.ServeRoot(&errRoot{errors.Trace(err)}, serverError)
 	} else {
-		adminApis := make(map[int]interface{})
-		for apiVersion, factory := range srv.adminApiFactories {
-			adminApis[apiVersion] = factory(srv, h, reqNotifier)
+		adminAPIs := make(map[int]interface{})
+		for apiVersion, factory := range srv.adminAPIFactories {
+			adminAPIs[apiVersion] = factory(srv, h, apiObserver)
 		}
-		conn.ServeFinder(newAnonRoot(h, adminApis), serverError)
+		conn.ServeRoot(newAnonRoot(h, adminAPIs), serverError)
 	}
 	conn.Start()
 	select {
@@ -483,39 +603,88 @@ func (srv *Server) serveConn(wsConn *websocket.Conn, reqNotifier *requestNotifie
 	return conn.Close()
 }
 
-func (srv *Server) newAPIHandler(conn *rpc.Conn, reqNotifier *requestNotifier, envUUID string) (*apiHandler, error) {
-	// Note that we don't overwrite envUUID here because
-	// newAPIHandler treats an empty envUUID as signifying
-	// the API version used.
-	resolvedEnvUUID, err := validateEnvironUUID(validateArgs{
-		statePool: srv.statePool,
-		envUUID:   envUUID,
-	})
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	st, err := srv.statePool.Get(resolvedEnvUUID)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return newApiHandler(srv, st, conn, reqNotifier, envUUID)
-}
-
 func (srv *Server) mongoPinger() error {
-	timer := time.NewTimer(0)
-	session := srv.state.MongoSession()
+	session := srv.state.MongoSession().Copy()
+	defer session.Close()
 	for {
-		select {
-		case <-timer.C:
-		case <-srv.tomb.Dying():
-			return tomb.ErrDying
-		}
 		if err := session.Ping(); err != nil {
 			logger.Infof("got error pinging mongo: %v", err)
 			return errors.Annotate(err, "error pinging mongo")
 		}
-		timer.Reset(mongoPingInterval)
+		select {
+		case <-srv.clock.After(mongoPingInterval):
+		case <-srv.tomb.Dying():
+			return tomb.ErrDying
+		}
 	}
+}
+
+// localCertificate returns the local server certificate and reports
+// whether it should be used to serve a connection addressed to the
+// given server name.
+func (srv *Server) localCertificate(serverName string) (*tls.Certificate, bool) {
+	srv.mu.Lock()
+	defer srv.mu.Unlock()
+	if net.ParseIP(serverName) != nil {
+		// IP address connections always use the local certificate.
+		return srv.cert, true
+	}
+	if !strings.Contains(serverName, ".") {
+		// If the server name doesn't contain a period there's no
+		// way we can obtain a certificate for it.
+		// This applies to the common case where "juju-apiserver" is
+		// used as the server name.
+		return srv.cert, true
+	}
+	// Perhaps the server name is explicitly mentioned by the server certificate.
+	for _, name := range srv.certDNSNames {
+		if name == serverName {
+			return srv.cert, true
+		}
+	}
+	return srv.cert, false
+}
+
+// processCertChanges receives new certificate information and
+// calls a method to update the listener's certificate.
+func (srv *Server) processCertChanges() error {
+	for {
+		select {
+		case info := <-srv.certChanged:
+			if info.Cert == "" {
+				break
+			}
+			logger.Infof("received API server certificate")
+			if err := srv.updateCertificate(info.Cert, info.PrivateKey); err != nil {
+				logger.Errorf("cannot update certificate: %v", err)
+			}
+		case <-srv.tomb.Dying():
+			return tomb.ErrDying
+		}
+	}
+}
+
+// updateCertificate updates the current CA certificate and key
+// from the given cert and key.
+func (srv *Server) updateCertificate(cert, key string) error {
+	srv.mu.Lock()
+	defer srv.mu.Unlock()
+	tlsCert, err := tls.X509KeyPair([]byte(cert), []byte(key))
+	if err != nil {
+		return errors.Annotatef(err, "cannot create new TLS certificate")
+	}
+	x509Cert, err := x509.ParseCertificate(tlsCert.Certificate[0])
+	if err != nil {
+		return errors.Annotatef(err, "parsing x509 cert")
+	}
+	var addr []string
+	for _, ip := range x509Cert.IPAddresses {
+		addr = append(addr, ip.String())
+	}
+	logger.Infof("new certificate addresses: %v", strings.Join(addr, ", "))
+	srv.cert = &tlsCert
+	srv.certDNSNames = x509Cert.DNSNames
+	return nil
 }
 
 func serverError(err error) error {
@@ -523,4 +692,36 @@ func serverError(err error) error {
 		return err
 	}
 	return nil
+}
+
+func (srv *Server) processModelRemovals() error {
+	w := srv.state.WatchModels()
+	defer w.Stop()
+	for {
+		select {
+		case <-srv.tomb.Dying():
+			return tomb.ErrDying
+		case modelUUIDs := <-w.Changes():
+			for _, modelUUID := range modelUUIDs {
+				model, err := srv.state.GetModel(names.NewModelTag(modelUUID))
+				gone := errors.IsNotFound(err)
+				dead := err == nil && model.Life() == state.Dead
+				if err != nil && !gone {
+					return errors.Trace(err)
+				}
+				if !dead && !gone {
+					continue
+				}
+
+				logger.Debugf("removing model %v from the state pool", modelUUID)
+				// Model's gone away - ensure that it gets removed
+				// from from the state pool once people are finished
+				// with it.
+				err = srv.statePool.Remove(modelUUID)
+				if err != nil {
+					return errors.Trace(err)
+				}
+			}
+		}
+	}
 }

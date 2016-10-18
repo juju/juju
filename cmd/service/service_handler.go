@@ -12,7 +12,7 @@ import (
 
 // SystemService type that is responsible for managing the life-cycle of the service
 type SystemService struct {
-	// Name the label for the service. It is not used for any useful operation
+	// Name the label for the application. It is not used for any useful operation
 	// by the service handler.
 	Name string
 	// Cmd is the function the service handler will run as a service.

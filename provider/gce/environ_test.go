@@ -10,7 +10,10 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/environs"
 	envtesting "github.com/juju/juju/environs/testing"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/gce"
+	"github.com/juju/juju/testing"
 )
 
 type environSuite struct {
@@ -35,7 +38,7 @@ func (s *environSuite) TestRegion(c *gc.C) {
 	cloudSpec, err := s.Env.Region()
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(cloudSpec.Region, gc.Equals, "home")
+	c.Check(cloudSpec.Region, gc.Equals, "us-east1")
 	c.Check(cloudSpec.Endpoint, gc.Equals, "https://www.googleapis.com")
 }
 
@@ -54,14 +57,6 @@ func (s *environSuite) TestSetConfigFake(c *gc.C) {
 	c.Check(s.FakeConn.Calls, gc.HasLen, 0)
 }
 
-func (s *environSuite) TestSetConfigMissing(c *gc.C) {
-	gce.UnsetEnvConfig(s.Env)
-
-	err := s.Env.SetConfig(s.Config)
-
-	c.Check(err, gc.ErrorMatches, "cannot set config on uninitialized env")
-}
-
 func (s *environSuite) TestConfig(c *gc.C) {
 	cfg := s.Env.Config()
 
@@ -71,13 +66,15 @@ func (s *environSuite) TestConfig(c *gc.C) {
 func (s *environSuite) TestBootstrap(c *gc.C) {
 	s.FakeCommon.Arch = "amd64"
 	s.FakeCommon.Series = "trusty"
-	finalizer := func(environs.BootstrapContext, *instancecfg.InstanceConfig) error {
+	finalizer := func(environs.BootstrapContext, *instancecfg.InstanceConfig, environs.BootstrapDialOpts) error {
 		return nil
 	}
 	s.FakeCommon.BSFinalizer = finalizer
 
 	ctx := envtesting.BootstrapContext(c)
-	params := environs.BootstrapParams{}
+	params := environs.BootstrapParams{
+		ControllerConfig: testing.FakeControllerConfig(),
+	}
 	result, err := s.Env.Bootstrap(ctx, params)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -87,9 +84,37 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 	c.Check(result.Finalize, gc.NotNil)
 }
 
+func (s *environSuite) TestBootstrapOpensAPIPort(c *gc.C) {
+	finalizer := func(environs.BootstrapContext, *instancecfg.InstanceConfig, environs.BootstrapDialOpts) error {
+		return nil
+	}
+	s.FakeCommon.BSFinalizer = finalizer
+
+	ctx := envtesting.BootstrapContext(c)
+	params := environs.BootstrapParams{
+		ControllerConfig: testing.FakeControllerConfig(),
+	}
+	_, err := s.Env.Bootstrap(ctx, params)
+	c.Assert(err, jc.ErrorIsNil)
+	apiPort := params.ControllerConfig.APIPort()
+
+	called, calls := s.FakeConn.WasCalled("OpenPorts")
+	c.Check(called, gc.Equals, true)
+	c.Check(calls, gc.HasLen, 1)
+	c.Check(calls[0].FirewallName, gc.Equals, gce.GlobalFirewallName(s.Env))
+	expectPorts := []network.PortRange{{
+		FromPort: apiPort,
+		ToPort:   apiPort,
+		Protocol: "tcp",
+	}}
+	c.Check(calls[0].PortRanges, jc.DeepEquals, expectPorts)
+}
+
 func (s *environSuite) TestBootstrapCommon(c *gc.C) {
 	ctx := envtesting.BootstrapContext(c)
-	params := environs.BootstrapParams{}
+	params := environs.BootstrapParams{
+		ControllerConfig: testing.FakeControllerConfig(),
+	}
 	_, err := s.Env.Bootstrap(ctx, params)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -97,7 +122,7 @@ func (s *environSuite) TestBootstrapCommon(c *gc.C) {
 		FuncName: "Bootstrap",
 		Args: gce.FakeCallArgs{
 			"ctx":    ctx,
-			"env":    s.Env,
+			"switch": s.Env,
 			"params": params,
 		},
 	}})
@@ -115,12 +140,12 @@ func (s *environSuite) TestDestroyAPI(c *gc.C) {
 
 	c.Check(s.FakeConn.Calls, gc.HasLen, 1)
 	c.Check(s.FakeConn.Calls[0].FuncName, gc.Equals, "Ports")
-	fwname := s.Prefix[:len(s.Prefix)-1]
+	fwname := common.EnvFullName(s.Env.Config().UUID())
 	c.Check(s.FakeConn.Calls[0].FirewallName, gc.Equals, fwname)
 	s.FakeCommon.CheckCalls(c, []gce.FakeCall{{
 		FuncName: "Destroy",
 		Args: gce.FakeCallArgs{
-			"env": s.Env,
+			"switch": s.Env,
 		},
 	}})
 }

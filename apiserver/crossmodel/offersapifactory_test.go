@@ -9,34 +9,34 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/crossmodel"
-	jujucrossmodel "github.com/juju/juju/model/crossmodel"
+	jujucrossmodel "github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 )
 
-type serviceURLSuite struct {
+type applicationURLSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&serviceURLSuite{})
+var _ = gc.Suite(&applicationURLSuite{})
 
-func (s *serviceURLSuite) TestUnsupportedURL(c *gc.C) {
+func (s *applicationURLSuite) TestUnsupportedURL(c *gc.C) {
 	f, err := crossmodel.NewServiceAPIFactory(nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = f.ServiceOffers("unsupported")
+	_, err = f.ApplicationOffers("unsupported")
 	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
 }
 
-func (s *serviceURLSuite) TestLocalURL(c *gc.C) {
+func (s *applicationURLSuite) TestLocalURL(c *gc.C) {
 	var st *state.State
 	f, err := crossmodel.NewServiceAPIFactory(
-		func() jujucrossmodel.ServiceDirectory { return state.NewServiceDirectory(st) },
+		func() jujucrossmodel.ApplicationDirectory { return state.NewApplicationDirectory(st) },
 		nil,
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	api, err := f.ServiceOffers("local")
+	api, err := f.ApplicationOffers("local")
 	c.Assert(err, jc.ErrorIsNil)
-	_, ok := api.(crossmodel.ServiceOffersAPI)
+	_, ok := api.(crossmodel.ApplicationOffersAPI)
 	c.Assert(ok, jc.IsTrue)
 }
 
@@ -49,11 +49,11 @@ func (c *closer) Close() error {
 	return nil
 }
 
-func (s *serviceURLSuite) TestStop(c *gc.C) {
+func (s *applicationURLSuite) TestStop(c *gc.C) {
 	var st *state.State
 	closer := &closer{}
 	f, err := crossmodel.NewServiceAPIFactory(
-		func() jujucrossmodel.ServiceDirectory { return state.NewServiceDirectory(st) },
+		func() jujucrossmodel.ApplicationDirectory { return state.NewApplicationDirectory(st) },
 		closer,
 	)
 	c.Assert(err, jc.ErrorIsNil)

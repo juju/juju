@@ -8,15 +8,16 @@ import (
 	"net/http"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/txn"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/leadership"
+	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 )
@@ -37,6 +38,11 @@ var errorTransformTests = []struct {
 	code:       params.CodeNotFound,
 	status:     http.StatusNotFound,
 	helperFunc: params.IsCodeNotFound,
+}, {
+	err:        errors.UserNotFoundf("xxxx"),
+	code:       params.CodeUserNotFound,
+	status:     http.StatusNotFound,
+	helperFunc: params.IsCodeUserNotFound,
 }, {
 	err:        errors.Unauthorizedf("hello"),
 	code:       params.CodeUnauthorized,
@@ -128,15 +134,15 @@ var errorTransformTests = []struct {
 	status:     http.StatusInternalServerError,
 	helperFunc: params.IsCodeTryAgain,
 }, {
-	err:        state.UpgradeInProgressError,
-	code:       params.CodeUpgradeInProgress,
-	status:     http.StatusInternalServerError,
-	helperFunc: params.IsCodeUpgradeInProgress,
-}, {
 	err:        leadership.ErrClaimDenied,
 	code:       params.CodeLeadershipClaimDenied,
 	status:     http.StatusInternalServerError,
 	helperFunc: params.IsCodeLeadershipClaimDenied,
+}, {
+	err:        lease.ErrClaimDenied,
+	code:       params.CodeLeaseClaimDenied,
+	status:     http.StatusInternalServerError,
+	helperFunc: params.IsCodeLeaseClaimDenied,
 }, {
 	err:        common.OperationBlockedError("test"),
 	code:       params.CodeOperationBlocked,
@@ -180,10 +186,10 @@ var errorTransformTests = []struct {
 	status: http.StatusInternalServerError,
 	code:   "",
 }, {
-	err:        common.UnknownEnvironmentError("dead-beef-123456"),
-	code:       params.CodeNotFound,
+	err:        common.UnknownModelError("dead-beef-123456"),
+	code:       params.CodeModelNotFound,
 	status:     http.StatusNotFound,
-	helperFunc: params.IsCodeNotFound,
+	helperFunc: params.IsCodeModelNotFound,
 }, {
 	err:    nil,
 	code:   "",
@@ -231,27 +237,22 @@ func (s *errorsSuite) TestErrorTransform(c *gc.C) {
 			params.CodeNoAddressSet,
 			params.CodeUpgradeInProgress,
 			params.CodeMachineHasAttachedStorage,
-			params.CodeDischargeRequired:
+			params.CodeDischargeRequired,
+			params.CodeModelNotFound,
+			params.CodeRetry:
 			continue
-		case params.CodeNotFound:
-			if common.IsUnknownEnviromentError(t.err) {
-				continue
-			}
 		case params.CodeOperationBlocked:
 			// ServerError doesn't actually have a case for this code.
 			continue
 		}
 
 		c.Logf("  checking restore (%#v)", err1)
-		restored, ok := common.RestoreError(err1)
+		restored := common.RestoreError(err1)
 		if t.err == nil {
-			c.Check(ok, jc.IsTrue)
 			c.Check(restored, jc.ErrorIsNil)
 		} else if t.code == "" {
-			c.Check(ok, jc.IsFalse)
 			c.Check(restored.Error(), gc.Equals, t.err.Error())
 		} else {
-			c.Check(ok, jc.IsTrue)
 			// TODO(ericsnow) Use a stricter DeepEquals check.
 			c.Check(errors.Cause(restored), gc.FitsTypeOf, t.err)
 			c.Check(restored.Error(), gc.Equals, t.err.Error())
@@ -259,9 +260,9 @@ func (s *errorsSuite) TestErrorTransform(c *gc.C) {
 	}
 }
 
-func (s *errorsSuite) TestUnknownEnvironment(c *gc.C) {
-	err := common.UnknownEnvironmentError("dead-beef")
-	c.Check(err, gc.ErrorMatches, `unknown environment: "dead-beef"`)
+func (s *errorsSuite) TestUnknownModel(c *gc.C) {
+	err := common.UnknownModelError("dead-beef")
+	c.Check(err, gc.ErrorMatches, `unknown model: "dead-beef"`)
 }
 
 func (s *errorsSuite) TestDestroyErr(c *gc.C) {

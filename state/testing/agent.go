@@ -4,14 +4,15 @@
 package testing
 
 import (
+	"github.com/juju/version"
+
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/version"
 )
 
 // SetAgentVersion sets the current agent version in the state's
-// environment configuration.
-// This is similar to state.SetEnvironAgentVersion but it doesn't require that
-// the environment have all agents at the same version already.
+// model configuration.
+// This is similar to state.SetModelAgentVersion but it doesn't require that
+// the model have all agents at the same version already.
 func SetAgentVersion(st *state.State, vers version.Number) error {
-	return st.UpdateEnvironConfig(map[string]interface{}{"agent-version": vers.String()}, nil, nil)
+	return st.UpdateModelConfig(map[string]interface{}{"agent-version": vers.String()}, nil, nil)
 }

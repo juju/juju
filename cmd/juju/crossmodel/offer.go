@@ -9,17 +9,17 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/names"
-	"launchpad.net/gnuflag"
+	"github.com/juju/gnuflag"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
-	"github.com/juju/juju/model/crossmodel"
+	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/crossmodel"
 )
 
 const (
 	offerCommandDoc = `
-A vendor offers deployed service endpoints for use by consumers in their own models.
+A vendor offers deployed application endpoints for use by consumers in their own models.
 
 Examples:
 $ juju offer db2:db 
@@ -28,18 +28,18 @@ $ juju offer -e prod db2:db,log vendor:/u/ibm/hosted-db2
 $ juju offer hosted-db2:db,log vendor:/u/ibm/hosted-db2 --to public
 `
 	offerCommandAgs = `
-<service-name>:<endpoint-name>[,...] [<endpoint-url>] [--to <user-ident>,...]
+<application-name>:<endpoint-name>[,...] [<endpoint-url>] [--to <user-ident>,...]
 where 
 
 endpoint-url    For local endpoints:
-                local:/u/<username>/<envname>/<servicename>
+                local:/u/<username>/<model-name>/<application-name>
 
                     $ juju offer db2:db 
                     
-                endpoint “db” available at local:/u/user-name/env-name/hosted-db2
+                endpoint “db” available at local:/u/user-name/model-name/hosted-db2
                     
                 For vendor endpoints:
-                vendor:/u/<username>/<servicename>
+                vendor:/u/<username>/<application-name>
                     
                     $ juju offer db2:db vendor:/u/ibm/hosted-db2
 
@@ -53,15 +53,15 @@ func NewOfferCommand() cmd.Command {
 	offerCmd.newAPIFunc = func() (OfferAPI, error) {
 		return offerCmd.NewCrossModelAPI()
 	}
-	return envcmd.Wrap(offerCmd)
+	return modelcmd.Wrap(offerCmd)
 }
 
 type offerCommand struct {
 	CrossModelCommandBase
 	newAPIFunc func() (OfferAPI, error)
 
-	// Service stores service name to be offered.
-	Service string
+	// Application stores application name to be offered.
+	Application string
 
 	// Endpoints stores a list of endpoints that are being offered.
 	Endpoints []string
@@ -77,7 +77,7 @@ type offerCommand struct {
 func (c *offerCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "offer",
-		Purpose: "offer service endpoints for use in other models",
+		Purpose: "Offer application endpoints for use in other models",
 		Args:    offerCommandAgs,
 		Doc:     offerCommandDoc,
 	}
@@ -86,10 +86,10 @@ func (c *offerCommand) Info() *cmd.Info {
 // Init implements Command.Init.
 func (c *offerCommand) Init(args []string) error {
 	if len(args) < 1 {
-		return fmt.Errorf("an offer must at least specify service endpoint")
+		return errors.New("an offer must at least specify application endpoint")
 	}
 	if len(args) > 2 {
-		return fmt.Errorf("an offer can only specify service endpoints and url")
+		return errors.New("an offer can only specify application endpoints and url")
 	}
 
 	if err := c.parseEndpoints(args[0]); err != nil {
@@ -98,7 +98,7 @@ func (c *offerCommand) Init(args []string) error {
 
 	if len(args) == 2 {
 		hostedURL := args[1]
-		if _, err := crossmodel.ParseServiceURL(hostedURL); err != nil {
+		if _, err := crossmodel.ParseApplicationURL(hostedURL); err != nil {
 			return errors.Errorf(`hosted url %q is not valid" `, hostedURL)
 		}
 		c.URL = hostedURL
@@ -130,7 +130,7 @@ func (c *offerCommand) Run(_ *cmd.Context) error {
 	}
 
 	// TODO (anastasiamac 2015-11-16) Add a sensible way for user to specify long-ish (at times) description when offering
-	results, err := api.Offer(c.Service, c.Endpoints, c.URL, userTags, "")
+	results, err := api.Offer(c.Application, c.Endpoints, c.URL, userTags, "")
 	if err != nil {
 		return err
 	}
@@ -140,35 +140,35 @@ func (c *offerCommand) Run(_ *cmd.Context) error {
 // OfferAPI defines the API methods that the offer command uses.
 type OfferAPI interface {
 	Close() error
-	Offer(service string, endpoints []string, url string, users []string, desc string) ([]params.ErrorResult, error)
+	Offer(application string, endpoints []string, url string, users []string, desc string) ([]params.ErrorResult, error)
 }
 
 func (c *offerCommand) parseEndpoints(arg string) error {
 	parts := strings.SplitN(arg, ":", -1)
 
 	if len(parts) != 2 {
-		return errors.New(`endpoints must conform to format "<service-name>:<endpoint-name>[,...]" `)
+		return errors.New(`endpoints must conform to format "<application-name>:<endpoint-name>[,...]" `)
 	}
 
-	serviceName := parts[0]
-	if !names.IsValidService(serviceName) {
-		return errors.NotValidf(`service name %q`, serviceName)
+	ApplicationName := parts[0]
+	if !names.IsValidApplication(ApplicationName) {
+		return errors.NotValidf(`application name %q`, ApplicationName)
 	}
-	c.Service = serviceName
+	c.Application = ApplicationName
 
 	endpoints := strings.SplitN(parts[1], ",", -1)
 	if len(endpoints) < 1 || endpoints[0] == "" {
-		return errors.Errorf(`specify endpoints for %v" `, serviceName)
+		return errors.Errorf(`specify endpoints for %v" `, ApplicationName)
 	}
 
 	c.Endpoints = endpoints
 	if c.URL == "" {
 		// TODO (wallyworld) - do this serverside after results struct is changed
-		cred, err := c.ConnectionCredentials()
+		account, err := c.ClientStore().AccountDetails(c.ControllerName())
 		if err != nil {
 			return err
 		}
-		c.URL = fmt.Sprintf("local:/u/%s/%s/%s", cred.User, c.EnvName(), serviceName)
+		c.URL = fmt.Sprintf("local:/u/%s/%s/%s", account.User, c.ModelName(), ApplicationName)
 	}
 	return nil
 }

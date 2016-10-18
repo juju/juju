@@ -1,8 +1,11 @@
+// Copyright 2015 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package azure
 
 import (
-	"github.com/Azure/azure-sdk-for-go/Godeps/_workspace/src/github.com/Azure/go-autorest/autorest/to"
 	"github.com/Azure/azure-sdk-for-go/arm/compute"
+	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/juju/errors"
 	jujuos "github.com/juju/utils/os"
 )
@@ -28,12 +31,9 @@ const (
 	linuxCustomScriptVersion        = "1.4"
 )
 
-// createVMExtension creates a CustomScript VM extension for the given VM
+// vmExtension creates a CustomScript VM extension for the given VM
 // which will execute the CustomData on the machine as a script.
-func createVMExtension(
-	vmExtensionClient compute.VirtualMachineExtensionsClient,
-	os jujuos.OSType, resourceGroup, vmName, location string, vmTags map[string]string,
-) error {
+func vmExtensionProperties(os jujuos.OSType) (*compute.VirtualMachineExtensionProperties, error) {
 	var commandToExecute, extensionPublisher, extensionType, extensionVersion string
 
 	switch os {
@@ -51,25 +51,17 @@ func createVMExtension(
 		// Ubuntu renders CustomData as cloud-config, and interprets
 		// it with cloud-init. Windows and CentOS do not use cloud-init
 		// on Azure.
-		return errors.NotSupportedf("CustomScript extension for OS %q", os)
+		return nil, errors.NotSupportedf("CustomScript extension for OS %q", os)
 	}
 
-	extensionSettings := map[string]*string{
-		"commandToExecute": to.StringPtr(commandToExecute),
+	extensionSettings := map[string]interface{}{
+		"commandToExecute": commandToExecute,
 	}
-	extension := compute.VirtualMachineExtension{
-		Location: to.StringPtr(location),
-		Tags:     toTagsPtr(vmTags),
-		Properties: &compute.VirtualMachineExtensionProperties{
-			Publisher:               to.StringPtr(extensionPublisher),
-			Type:                    to.StringPtr(extensionType),
-			TypeHandlerVersion:      to.StringPtr(extensionVersion),
-			AutoUpgradeMinorVersion: to.BoolPtr(true),
-			Settings:                &extensionSettings,
-		},
-	}
-	_, err := vmExtensionClient.CreateOrUpdate(
-		resourceGroup, vmName, extensionName, extension,
-	)
-	return err
+	return &compute.VirtualMachineExtensionProperties{
+		Publisher:               to.StringPtr(extensionPublisher),
+		Type:                    to.StringPtr(extensionType),
+		TypeHandlerVersion:      to.StringPtr(extensionVersion),
+		AutoUpgradeMinorVersion: to.BoolPtr(true),
+		Settings:                &extensionSettings,
+	}, nil
 }

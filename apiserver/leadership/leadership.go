@@ -7,12 +7,12 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/leadership"
+	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/state"
 )
 
@@ -31,14 +31,10 @@ const (
 	MaxLeaseRequest = 5 * time.Minute
 )
 
-var (
-	logger = loggo.GetLogger("juju.apiserver.leadership")
-)
-
 func init() {
 	common.RegisterStandardFacade(
 		FacadeName,
-		1,
+		2,
 		NewLeadershipServiceFacade,
 	)
 }
@@ -46,14 +42,14 @@ func init() {
 // NewLeadershipServiceFacade constructs a new LeadershipService and presents
 // a signature that can be used with RegisterStandardFacade.
 func NewLeadershipServiceFacade(
-	state *state.State, resources *common.Resources, authorizer common.Authorizer,
+	state *state.State, resources facade.Resources, authorizer facade.Authorizer,
 ) (LeadershipService, error) {
 	return NewLeadershipService(state.LeadershipClaimer(), authorizer)
 }
 
 // NewLeadershipService constructs a new LeadershipService.
 func NewLeadershipService(
-	claimer leadership.Claimer, authorizer common.Authorizer,
+	claimer leadership.Claimer, authorizer facade.Authorizer,
 ) (LeadershipService, error) {
 
 	if !authorizer.AuthUnitAgent() {
@@ -70,7 +66,7 @@ func NewLeadershipService(
 // is the concrete implementation of the API endpoint.
 type leadershipService struct {
 	claimer    leadership.Claimer
-	authorizer common.Authorizer
+	authorizer facade.Authorizer
 }
 
 // ClaimLeadership is part of the LeadershipService interface.
@@ -80,7 +76,7 @@ func (m *leadershipService) ClaimLeadership(args params.ClaimLeadershipBulkParam
 	for pIdx, p := range args.Params {
 
 		result := &results[pIdx]
-		serviceTag, unitTag, err := parseServiceAndUnitTags(p.ServiceTag, p.UnitTag)
+		ApplicationTag, unitTag, err := parseServiceAndUnitTags(p.ApplicationTag, p.UnitTag)
 		if err != nil {
 			result.Error = common.ServerError(err)
 			continue
@@ -94,12 +90,12 @@ func (m *leadershipService) ClaimLeadership(args params.ClaimLeadershipBulkParam
 		// In the future, situations may arise wherein units will make
 		// leadership claims for other units. For now, units can only
 		// claim leadership for themselves, for their own service.
-		if !m.authorizer.AuthOwner(unitTag) || !m.authMember(serviceTag) {
+		if !m.authorizer.AuthOwner(unitTag) || !m.authMember(ApplicationTag) {
 			result.Error = common.ServerError(common.ErrPerm)
 			continue
 		}
 
-		err = m.claimer.ClaimLeadership(serviceTag.Id(), unitTag.Id(), duration)
+		err = m.claimer.ClaimLeadership(ApplicationTag.Id(), unitTag.Id(), duration)
 		if err != nil {
 			result.Error = common.ServerError(err)
 		}
@@ -109,51 +105,51 @@ func (m *leadershipService) ClaimLeadership(args params.ClaimLeadershipBulkParam
 }
 
 // BlockUntilLeadershipReleased implements the LeadershipService interface.
-func (m *leadershipService) BlockUntilLeadershipReleased(serviceTag names.ServiceTag) (params.ErrorResult, error) {
-	if !m.authMember(serviceTag) {
+func (m *leadershipService) BlockUntilLeadershipReleased(ApplicationTag names.ApplicationTag) (params.ErrorResult, error) {
+	if !m.authMember(ApplicationTag) {
 		return params.ErrorResult{Error: common.ServerError(common.ErrPerm)}, nil
 	}
 
-	if err := m.claimer.BlockUntilLeadershipReleased(serviceTag.Id()); err != nil {
+	if err := m.claimer.BlockUntilLeadershipReleased(ApplicationTag.Id()); err != nil {
 		return params.ErrorResult{Error: common.ServerError(err)}, nil
 	}
 	return params.ErrorResult{}, nil
 }
 
-func (m *leadershipService) authMember(serviceTag names.ServiceTag) bool {
+func (m *leadershipService) authMember(ApplicationTag names.ApplicationTag) bool {
 	ownerTag := m.authorizer.GetAuthTag()
 	unitTag, ok := ownerTag.(names.UnitTag)
 	if !ok {
 		return false
 	}
 	unitId := unitTag.Id()
-	requireServiceId, err := names.UnitService(unitId)
+	requireServiceId, err := names.UnitApplication(unitId)
 	if err != nil {
 		return false
 	}
-	return serviceTag.Id() == requireServiceId
+	return ApplicationTag.Id() == requireServiceId
 }
 
 // parseServiceAndUnitTags takes in string representations of service
 // and unit tags and returns their corresponding tags.
 func parseServiceAndUnitTags(
-	serviceTagString, unitTagString string,
+	ApplicationTagString, unitTagString string,
 ) (
-	names.ServiceTag, names.UnitTag, error,
+	names.ApplicationTag, names.UnitTag, error,
 ) {
 	// TODO(fwereade) 2015-02-25 bug #1425506
 	// These permissions errors are not appropriate -- there's no permission or
 	// security issue in play here, because our tag format is public, and the
 	// error only triggers when the strings fail to match that format.
-	serviceTag, err := names.ParseServiceTag(serviceTagString)
+	ApplicationTag, err := names.ParseApplicationTag(ApplicationTagString)
 	if err != nil {
-		return names.ServiceTag{}, names.UnitTag{}, common.ErrPerm
+		return names.ApplicationTag{}, names.UnitTag{}, common.ErrPerm
 	}
 
 	unitTag, err := names.ParseUnitTag(unitTagString)
 	if err != nil {
-		return names.ServiceTag{}, names.UnitTag{}, common.ErrPerm
+		return names.ApplicationTag{}, names.UnitTag{}, common.ErrPerm
 	}
 
-	return serviceTag, unitTag, nil
+	return ApplicationTag, unitTag, nil
 }

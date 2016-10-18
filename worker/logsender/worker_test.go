@@ -8,9 +8,9 @@ import (
 	"time"
 
 	"github.com/juju/loggo"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/api"
@@ -18,6 +18,7 @@ import (
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
+	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/logsender"
 )
 
@@ -36,7 +37,6 @@ type workerSuite struct {
 var _ = gc.Suite(&workerSuite{})
 
 func (s *workerSuite) SetUpTest(c *gc.C) {
-	s.SetInitialFeatureFlags("db-log")
 	s.JujuConnSuite.SetUpTest(c)
 
 	// Create a machine for the client to log in as.
@@ -77,7 +77,7 @@ func (s *workerSuite) TestLogSending(c *gc.C) {
 	// database.
 	var expectedDocs []bson.M
 	for i := 0; i < logCount; i++ {
-		ts := time.Now().Truncate(time.Millisecond)
+		ts := time.Now()
 		location := fmt.Sprintf("loc%d", i)
 		message := fmt.Sprintf("%d", i)
 
@@ -90,8 +90,9 @@ func (s *workerSuite) TestLogSending(c *gc.C) {
 		}
 
 		expectedDocs = append(expectedDocs, bson.M{
-			"t": ts,
-			"e": s.State.EnvironUUID(),
+			"t": ts.UnixNano(),
+			"e": s.State.ModelUUID(),
+			"r": version.Current.String(),
 			"n": s.machineTag.String(),
 			"m": "logsender-test",
 			"l": location,
@@ -132,7 +133,7 @@ func (s *workerSuite) TestDroppedLogs(c *gc.C) {
 
 	// Send a log record which indicates some messages after it were
 	// dropped.
-	ts := time.Now().Truncate(time.Millisecond)
+	ts := time.Now()
 	logsCh <- &logsender.LogRecord{
 		Time:         ts,
 		Module:       "aaa",
@@ -172,8 +173,9 @@ func (s *workerSuite) TestDroppedLogs(c *gc.C) {
 	c.Assert(docs[0]["x"], gc.Equals, "message0")
 	delete(docs[1], "_id")
 	c.Assert(docs[1], gc.DeepEquals, bson.M{
-		"t": ts, // Should share timestamp with previous message.
-		"e": s.State.EnvironUUID(),
+		"t": ts.UnixNano(), // Should share timestamp with previous message.
+		"e": s.State.ModelUUID(),
+		"r": version.Current.String(),
 		"n": s.machineTag.String(),
 		"m": "juju.worker.logsender",
 		"l": "",

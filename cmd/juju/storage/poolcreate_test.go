@@ -27,7 +27,7 @@ func (s *PoolCreateSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *PoolCreateSuite) runPoolCreate(c *gc.C, args []string) (*cmd.Context, error) {
-	return testing.RunCommand(c, storage.NewPoolCreateCommand(s.mockAPI), args...)
+	return testing.RunCommand(c, storage.NewPoolCreateCommandForTest(s.mockAPI, s.store), args...)
 }
 
 func (s *PoolCreateSuite) TestPoolCreateOneArg(c *gc.C) {

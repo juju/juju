@@ -6,10 +6,11 @@ package storageprovisioner
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/storagecommon"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
@@ -19,22 +20,18 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.storageprovisioner")
 
-func init() {
-	common.RegisterStandardFacade("StorageProvisioner", 1, NewStorageProvisionerAPI)
-}
-
 // StorageProvisionerAPI provides access to the Provisioner API facade.
 type StorageProvisionerAPI struct {
 	*common.LifeGetter
 	*common.DeadEnsurer
-	*common.EnvironWatcher
 	*common.InstanceIdGetter
 	*common.StatusSetter
 
-	st                       provisionerState
-	settings                 poolmanager.SettingsManager
-	resources                *common.Resources
-	authorizer               common.Authorizer
+	st                       Backend
+	resources                facade.Resources
+	authorizer               facade.Authorizer
+	registry                 storage.ProviderRegistry
+	poolManager              poolmanager.PoolManager
 	getScopeAuthFunc         common.GetAuthFunc
 	getStorageEntityAuthFunc common.GetAuthFunc
 	getMachineAuthFunc       common.GetAuthFunc
@@ -42,16 +39,14 @@ type StorageProvisionerAPI struct {
 	getAttachmentAuthFunc    func() (func(names.MachineTag, names.Tag) bool, error)
 }
 
-var getState = func(st *state.State) provisionerState {
-	return stateShim{st}
-}
-
-var getSettingsManager = func(st *state.State) poolmanager.SettingsManager {
-	return state.NewStateSettings(st)
-}
-
 // NewStorageProvisionerAPI creates a new server-side StorageProvisionerAPI facade.
-func NewStorageProvisionerAPI(st *state.State, resources *common.Resources, authorizer common.Authorizer) (*StorageProvisionerAPI, error) {
+func NewStorageProvisionerAPI(
+	st Backend,
+	resources facade.Resources,
+	authorizer facade.Authorizer,
+	registry storage.ProviderRegistry,
+	poolManager poolmanager.PoolManager,
+) (*StorageProvisionerAPI, error) {
 	if !authorizer.AuthMachineAgent() {
 		return nil, common.ErrPerm
 	}
@@ -64,7 +59,7 @@ func NewStorageProvisionerAPI(st *state.State, resources *common.Resources, auth
 		}
 		parentId := state.ParentId(tag.Id())
 		if parentId == "" {
-			return allowEnvironManager && authorizer.AuthEnvironManager()
+			return allowEnvironManager && authorizer.AuthModelManager()
 		}
 		// All containers with the authenticated
 		// machine as a parent are accessible by it.
@@ -73,11 +68,11 @@ func NewStorageProvisionerAPI(st *state.State, resources *common.Resources, auth
 	getScopeAuthFunc := func() (common.AuthFunc, error) {
 		return func(tag names.Tag) bool {
 			switch tag := tag.(type) {
-			case names.EnvironTag:
+			case names.ModelTag:
 				// Environment managers can access all volumes
 				// and filesystems scoped to the environment.
-				isEnvironManager := authorizer.AuthEnvironManager()
-				return isEnvironManager && tag == st.EnvironTag()
+				isModelManager := authorizer.AuthModelManager()
+				return isModelManager && tag == st.ModelTag()
 			case names.MachineTag:
 				return canAccessStorageMachine(tag, false)
 			default:
@@ -92,13 +87,13 @@ func NewStorageProvisionerAPI(st *state.State, resources *common.Resources, auth
 			if ok {
 				return canAccessStorageMachine(machineTag, false)
 			}
-			return authorizer.AuthEnvironManager()
+			return authorizer.AuthModelManager()
 		case names.FilesystemTag:
 			machineTag, ok := names.FilesystemMachine(tag)
 			if ok {
 				return canAccessStorageMachine(machineTag, false)
 			}
-			return authorizer.AuthEnvironManager()
+			return authorizer.AuthModelManager()
 		case names.MachineTag:
 			return allowMachines && canAccessStorageMachine(tag, true)
 		default:
@@ -125,11 +120,11 @@ func NewStorageProvisionerAPI(st *state.State, resources *common.Resources, auth
 			if !canAccessStorageMachine(machineTag, true) {
 				return false
 			}
-			// Environment managers can access environment-scoped
+			// Environment managers can access model-scoped
 			// volumes and volumes scoped to their own machines.
 			// Other machine agents can access volumes regardless
 			// of their scope.
-			if !authorizer.AuthEnvironManager() {
+			if !authorizer.AuthModelManager() {
 				return true
 			}
 			var machineScope names.MachineTag
@@ -159,19 +154,17 @@ func NewStorageProvisionerAPI(st *state.State, resources *common.Resources, auth
 			return false
 		}, nil
 	}
-	stateInterface := getState(st)
-	settings := getSettingsManager(st)
 	return &StorageProvisionerAPI{
-		LifeGetter:       common.NewLifeGetter(stateInterface, getLifeAuthFunc),
-		DeadEnsurer:      common.NewDeadEnsurer(stateInterface, getStorageEntityAuthFunc),
-		EnvironWatcher:   common.NewEnvironWatcher(stateInterface, resources, authorizer),
+		LifeGetter:       common.NewLifeGetter(st, getLifeAuthFunc),
+		DeadEnsurer:      common.NewDeadEnsurer(st, getStorageEntityAuthFunc),
 		InstanceIdGetter: common.NewInstanceIdGetter(st, getMachineAuthFunc),
 		StatusSetter:     common.NewStatusSetter(st, getStorageEntityAuthFunc),
 
-		st:                       stateInterface,
-		settings:                 settings,
+		st:                       st,
 		resources:                resources,
 		authorizer:               authorizer,
+		registry:                 registry,
+		poolManager:              poolManager,
 		getScopeAuthFunc:         getScopeAuthFunc,
 		getStorageEntityAuthFunc: getStorageEntityAuthFunc,
 		getAttachmentAuthFunc:    getAttachmentAuthFunc,
@@ -258,13 +251,13 @@ func (s *StorageProvisionerAPI) WatchMachines(args params.Entities) (params.Noti
 // WatchVolumes watches for changes to volumes scoped to the
 // entity with the tag passed to NewState.
 func (s *StorageProvisionerAPI) WatchVolumes(args params.Entities) (params.StringsWatchResults, error) {
-	return s.watchStorageEntities(args, s.st.WatchEnvironVolumes, s.st.WatchMachineVolumes)
+	return s.watchStorageEntities(args, s.st.WatchModelVolumes, s.st.WatchMachineVolumes)
 }
 
 // WatchFilesystems watches for changes to filesystems scoped
 // to the entity with the tag passed to NewState.
 func (s *StorageProvisionerAPI) WatchFilesystems(args params.Entities) (params.StringsWatchResults, error) {
-	return s.watchStorageEntities(args, s.st.WatchEnvironFilesystems, s.st.WatchMachineFilesystems)
+	return s.watchStorageEntities(args, s.st.WatchModelFilesystems, s.st.WatchMachineFilesystems)
 }
 
 func (s *StorageProvisionerAPI) watchStorageEntities(
@@ -544,14 +537,17 @@ func (s *StorageProvisionerAPI) VolumeParams(args params.Entities) (params.Volum
 	if err != nil {
 		return params.VolumeParamsResults{}, err
 	}
-	envConfig, err := s.st.EnvironConfig()
+	modelCfg, err := s.st.ModelConfig()
+	if err != nil {
+		return params.VolumeParamsResults{}, err
+	}
+	controllerCfg, err := s.st.ControllerConfig()
 	if err != nil {
 		return params.VolumeParamsResults{}, err
 	}
 	results := params.VolumeParamsResults{
 		Results: make([]params.VolumeParamsResult, len(args.Entities)),
 	}
-	poolManager := poolmanager.New(s.settings)
 	one := func(arg params.Entity) (params.VolumeParams, error) {
 		tag, err := names.ParseVolumeTag(arg.Tag)
 		if err != nil || !canAccess(tag) {
@@ -574,7 +570,10 @@ func (s *StorageProvisionerAPI) VolumeParams(args params.Entities) (params.Volum
 		if err != nil {
 			return params.VolumeParams{}, err
 		}
-		volumeParams, err := storagecommon.VolumeParams(volume, storageInstance, envConfig, poolManager)
+		volumeParams, err := storagecommon.VolumeParams(
+			volume, storageInstance, modelCfg.UUID(), controllerCfg.ControllerUUID(),
+			modelCfg, s.poolManager, s.registry,
+		)
 		if err != nil {
 			return params.VolumeParams{}, err
 		}
@@ -630,14 +629,17 @@ func (s *StorageProvisionerAPI) FilesystemParams(args params.Entities) (params.F
 	if err != nil {
 		return params.FilesystemParamsResults{}, err
 	}
-	envConfig, err := s.st.EnvironConfig()
+	modelConfig, err := s.st.ModelConfig()
+	if err != nil {
+		return params.FilesystemParamsResults{}, err
+	}
+	controllerCfg, err := s.st.ControllerConfig()
 	if err != nil {
 		return params.FilesystemParamsResults{}, err
 	}
 	results := params.FilesystemParamsResults{
 		Results: make([]params.FilesystemParamsResult, len(args.Entities)),
 	}
-	poolManager := poolmanager.New(s.settings)
 	one := func(arg params.Entity) (params.FilesystemParams, error) {
 		tag, err := names.ParseFilesystemTag(arg.Tag)
 		if err != nil || !canAccess(tag) {
@@ -657,7 +659,8 @@ func (s *StorageProvisionerAPI) FilesystemParams(args params.Entities) (params.F
 			return params.FilesystemParams{}, err
 		}
 		filesystemParams, err := storagecommon.FilesystemParams(
-			filesystem, storageInstance, envConfig, poolManager,
+			filesystem, storageInstance, modelConfig.UUID(), controllerCfg.ControllerUUID(),
+			modelConfig, s.poolManager, s.registry,
 		)
 		if err != nil {
 			return params.FilesystemParams{}, err
@@ -689,7 +692,6 @@ func (s *StorageProvisionerAPI) VolumeAttachmentParams(
 	results := params.VolumeAttachmentParamsResults{
 		Results: make([]params.VolumeAttachmentParamsResult, len(args.Ids)),
 	}
-	poolManager := poolmanager.New(s.settings)
 	one := func(arg params.MachineStorageId) (params.VolumeAttachmentParams, error) {
 		volumeAttachment, err := s.oneVolumeAttachment(arg, canAccess)
 		if err != nil {
@@ -718,7 +720,7 @@ func (s *StorageProvisionerAPI) VolumeAttachmentParams(
 			volumeId = volumeInfo.VolumeId
 			pool = volumeInfo.Pool
 		}
-		providerType, _, err := storagecommon.StoragePoolConfig(pool, poolManager)
+		providerType, _, err := storagecommon.StoragePoolConfig(pool, s.poolManager, s.registry)
 		if err != nil {
 			return params.VolumeAttachmentParams{}, errors.Trace(err)
 		}
@@ -768,7 +770,6 @@ func (s *StorageProvisionerAPI) FilesystemAttachmentParams(
 	results := params.FilesystemAttachmentParamsResults{
 		Results: make([]params.FilesystemAttachmentParamsResult, len(args.Ids)),
 	}
-	poolManager := poolmanager.New(s.settings)
 	one := func(arg params.MachineStorageId) (params.FilesystemAttachmentParams, error) {
 		filesystemAttachment, err := s.oneFilesystemAttachment(arg, canAccess)
 		if err != nil {
@@ -797,7 +798,7 @@ func (s *StorageProvisionerAPI) FilesystemAttachmentParams(
 			filesystemId = filesystemInfo.FilesystemId
 			pool = filesystemInfo.Pool
 		}
-		providerType, _, err := storagecommon.StoragePoolConfig(pool, poolManager)
+		providerType, _, err := storagecommon.StoragePoolConfig(pool, s.poolManager, s.registry)
 		if err != nil {
 			return params.FilesystemAttachmentParams{}, errors.Trace(err)
 		}

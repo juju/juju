@@ -8,13 +8,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/names"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/proxy"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/block"
@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/storage"
-	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/runner/context"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 	runnertesting "github.com/juju/juju/worker/uniter/runner/testing"
@@ -33,24 +32,24 @@ import (
 
 var noProxies = proxy.Settings{}
 var apiAddrs = []string{"a1:123", "a2:123"}
-var expectedApiAddrs = strings.Join(apiAddrs, " ")
+var expectedAPIAddrs = strings.Join(apiAddrs, " ")
 
 // HookContextSuite contains shared setup for various other test suites. Test
 // methods should not be added to this type, because they'll get run repeatedly.
 type HookContextSuite struct {
 	testing.JujuConnSuite
-	service  *state.Service
+	service  *state.Application
 	unit     *state.Unit
 	machine  *state.Machine
 	relch    *state.Charm
 	relunits map[int]*state.RelationUnit
 	storage  *runnertesting.StorageContextAccessor
-	clock    *coretesting.Clock
+	clock    *jujutesting.Clock
 
 	st             api.Connection
 	uniter         *uniter.State
 	apiUnit        *uniter.Unit
-	meteredApiUnit *uniter.Unit
+	meteredAPIUnit *uniter.Unit
 	meteredCharm   *state.Charm
 	apiRelunits    map[int]*uniter.RelationUnit
 	BlockHelper
@@ -90,7 +89,7 @@ func (s *HookContextSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	meteredState := s.OpenAPIAs(c, meteredUnit.Tag(), password)
 	meteredUniter, err := meteredState.Uniter()
-	s.meteredApiUnit, err = meteredUniter.Unit(meteredUnit.Tag().(names.UnitTag))
+	s.meteredAPIUnit, err = meteredUniter.Unit(meteredUnit.Tag().(names.UnitTag))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Note: The unit must always have a charm URL set, because this
@@ -115,7 +114,7 @@ func (s *HookContextSuite) SetUpTest(c *gc.C) {
 		},
 	}
 
-	s.clock = coretesting.NewClock(time.Time{})
+	s.clock = jujutesting.NewClock(time.Time{})
 }
 
 func (s *HookContextSuite) GetContext(
@@ -128,7 +127,7 @@ func (s *HookContextSuite) GetContext(
 	)
 }
 
-func (s *HookContextSuite) addUnit(c *gc.C, svc *state.Service) *state.Unit {
+func (s *HookContextSuite) addUnit(c *gc.C, svc *state.Application) *state.Unit {
 	unit, err := svc.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
 	if s.machine != nil {
@@ -152,7 +151,7 @@ func (s *HookContextSuite) addUnit(c *gc.C, svc *state.Service) *state.Unit {
 	return unit
 }
 
-func (s *HookContextSuite) AddUnit(c *gc.C, svc *state.Service) *state.Unit {
+func (s *HookContextSuite) AddUnit(c *gc.C, svc *state.Application) *state.Unit {
 	unit := s.addUnit(c, svc)
 	name := strings.Replace(unit.Name(), "/", "-", 1)
 	privateAddr := network.NewScopedAddress(name+".testing.invalid", network.ScopeCloudLocal)
@@ -194,7 +193,7 @@ func (s *HookContextSuite) getHookContext(c *gc.C, uuid string, relid int,
 		relctxs[relId] = context.NewContextRelation(relUnit, cache)
 	}
 
-	env, err := s.State.Environment()
+	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
 	context, err := context.NewHookContext(s.apiUnit, facade, "TestCtx", uuid,
@@ -220,8 +219,8 @@ func (s *HookContextSuite) getMeteredHookContext(c *gc.C, uuid string, relid int
 		relctxs[relId] = context.NewContextRelation(relUnit, cache)
 	}
 
-	context, err := context.NewHookContext(s.meteredApiUnit, facade, "TestCtx", uuid,
-		"test-env-name", relid, remote, relctxs, apiAddrs,
+	context, err := context.NewHookContext(s.meteredAPIUnit, facade, "TestCtx", uuid,
+		"test-model-name", relid, remote, relctxs, apiAddrs,
 		proxies, canAddMetrics, metrics, nil, s.machine.Tag().(names.MachineTag),
 		paths, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
@@ -246,7 +245,7 @@ func (s *HookContextSuite) AssertCoreContext(c *gc.C, ctx *context.HookContext) 
 	c.Assert(actual, gc.Equals, expect.Value)
 	c.Assert(actualErr, jc.DeepEquals, expectErr)
 
-	env, err := s.State.Environment()
+	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	name, uuid := context.ContextEnvInfo(ctx)
 	c.Assert(name, gc.Equals, env.Name())
@@ -265,6 +264,10 @@ func (s *HookContextSuite) AssertCoreContext(c *gc.C, ctx *context.HookContext) 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(r.Name(), gc.Equals, "db")
 	c.Assert(r.FakeId(), gc.Equals, "db:1")
+
+	az, err := ctx.AvailabilityZone()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(az, gc.Equals, "a-zone")
 }
 
 func (s *HookContextSuite) AssertNotActionContext(c *gc.C, ctx *context.HookContext) {
@@ -339,9 +342,9 @@ func (s *BlockHelper) BlockRemoveObject(c *gc.C, msg string) {
 	s.on(c, multiwatcher.BlockRemove, msg)
 }
 
-// BlockDestroyEnvironment switches destroy block on.
+// BlockDestroyModel switches destroy block on.
 // This prevents juju environment destruction.
-func (s *BlockHelper) BlockDestroyEnvironment(c *gc.C, msg string) {
+func (s *BlockHelper) BlockDestroyModel(c *gc.C, msg string) {
 	s.on(c, multiwatcher.BlockDestroy, msg)
 }
 

@@ -5,19 +5,23 @@ package space
 
 import (
 	"fmt"
+	"io"
 	"net"
+	"sort"
 	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"launchpad.net/gnuflag"
+	"github.com/juju/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/cmd/output"
 )
 
-func newListCommand() cmd.Command {
-	return envcmd.Wrap(&listCommand{})
+// NewListCommand returns a command used to list spaces.
+func NewListCommand() cmd.Command {
+	return modelcmd.Wrap(&listCommand{})
 }
 
 // listCommand displays a list of all spaces known to Juju.
@@ -37,21 +41,22 @@ output to be redirected to a file. `
 // Info is defined on the cmd.Command interface.
 func (c *listCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "list",
+		Name:    "spaces",
 		Args:    "[--short] [--format yaml|json] [--output <path>]",
-		Purpose: "list spaces known to Juju, including associated subnets",
+		Purpose: "List known spaces, including associated subnets",
 		Doc:     strings.TrimSpace(listCommandDoc),
+		Aliases: []string{"list-spaces"},
 	}
 }
 
 // SetFlags is defined on the cmd.Command interface.
 func (c *listCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.SpaceCommandBase.SetFlags(f)
-	c.out.AddFlags(f, "yaml", map[string]cmd.Formatter{
-		"yaml": cmd.FormatYaml,
-		"json": cmd.FormatJson,
+	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
+		"yaml":    cmd.FormatYaml,
+		"json":    cmd.FormatJson,
+		"tabular": c.printTabular,
 	})
-
 	f.BoolVar(&c.Short, "short", false, "only display spaces.")
 }
 
@@ -78,7 +83,7 @@ func (c *listCommand) Run(ctx *cmd.Context) error {
 		}
 		if len(spaces) == 0 {
 			ctx.Infof("no spaces to display")
-			return c.out.Write(ctx, nil)
+			return nil
 		}
 
 		if c.Short {
@@ -131,6 +136,53 @@ func (c *listCommand) Run(ctx *cmd.Context) error {
 		}
 		return c.out.Write(ctx, result)
 	})
+}
+
+// printTabular prints the list of spaces in tabular format
+func (c *listCommand) printTabular(writer io.Writer, value interface{}) error {
+	tw := output.TabWriter(writer)
+	if c.Short {
+		list, ok := value.(formattedShortList)
+		if !ok {
+			return errors.New("unexpected value")
+		}
+		fmt.Fprintln(tw, "Space")
+		spaces := list.Spaces
+		sort.Strings(spaces)
+		for _, space := range spaces {
+			fmt.Fprintf(tw, "%v\n", space)
+		}
+	} else {
+		list, ok := value.(formattedList)
+		if !ok {
+			return errors.New("unexpected value")
+		}
+
+		fmt.Fprintf(tw, "%s\t%s\n", "Space", "Subnets")
+		spaces := []string{}
+		for name, _ := range list.Spaces {
+			spaces = append(spaces, name)
+		}
+		sort.Strings(spaces)
+		for _, name := range spaces {
+			subnets := list.Spaces[name]
+			fmt.Fprintf(tw, "%s", name)
+			if len(subnets) == 0 {
+				fmt.Fprintf(tw, "\n")
+				continue
+			}
+			cidrs := []string{}
+			for subnet, _ := range subnets {
+				cidrs = append(cidrs, subnet)
+			}
+			sort.Strings(cidrs)
+			for _, cidr := range cidrs {
+				fmt.Fprintf(tw, "\t%v\n", cidr)
+			}
+		}
+	}
+	tw.Flush()
+	return nil
 }
 
 const (

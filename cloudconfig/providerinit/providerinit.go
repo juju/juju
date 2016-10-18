@@ -26,7 +26,7 @@ func configureCloudinit(icfg *instancecfg.InstanceConfig, cloudcfg cloudinit.Clo
 	if err != nil {
 		return nil, err
 	}
-	if icfg.Bootstrap {
+	if icfg.Bootstrap != nil {
 		err = udata.ConfigureBasic()
 		if err != nil {
 			return nil, err

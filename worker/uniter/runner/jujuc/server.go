@@ -43,23 +43,25 @@ func RegisterCommand(name string, f creator) {
 
 // baseCommands maps Command names to creators.
 var baseCommands = map[string]creator{
-	"close-port" + cmdSuffix:    NewClosePortCommand,
-	"config-get" + cmdSuffix:    NewConfigGetCommand,
-	"juju-log" + cmdSuffix:      NewJujuLogCommand,
-	"open-port" + cmdSuffix:     NewOpenPortCommand,
-	"opened-ports" + cmdSuffix:  NewOpenedPortsCommand,
-	"relation-get" + cmdSuffix:  NewRelationGetCommand,
-	"action-get" + cmdSuffix:    NewActionGetCommand,
-	"action-set" + cmdSuffix:    NewActionSetCommand,
-	"action-fail" + cmdSuffix:   NewActionFailCommand,
-	"relation-ids" + cmdSuffix:  NewRelationIdsCommand,
-	"relation-list" + cmdSuffix: NewRelationListCommand,
-	"relation-set" + cmdSuffix:  NewRelationSetCommand,
-	"unit-get" + cmdSuffix:      NewUnitGetCommand,
-	"add-metric" + cmdSuffix:    NewAddMetricCommand,
-	"juju-reboot" + cmdSuffix:   NewJujuRebootCommand,
-	"status-get" + cmdSuffix:    NewStatusGetCommand,
-	"status-set" + cmdSuffix:    NewStatusSetCommand,
+	"close-port" + cmdSuffix:              NewClosePortCommand,
+	"config-get" + cmdSuffix:              NewConfigGetCommand,
+	"juju-log" + cmdSuffix:                NewJujuLogCommand,
+	"open-port" + cmdSuffix:               NewOpenPortCommand,
+	"opened-ports" + cmdSuffix:            NewOpenedPortsCommand,
+	"relation-get" + cmdSuffix:            NewRelationGetCommand,
+	"action-get" + cmdSuffix:              NewActionGetCommand,
+	"action-set" + cmdSuffix:              NewActionSetCommand,
+	"action-fail" + cmdSuffix:             NewActionFailCommand,
+	"relation-ids" + cmdSuffix:            NewRelationIdsCommand,
+	"relation-list" + cmdSuffix:           NewRelationListCommand,
+	"relation-set" + cmdSuffix:            NewRelationSetCommand,
+	"unit-get" + cmdSuffix:                NewUnitGetCommand,
+	"add-metric" + cmdSuffix:              NewAddMetricCommand,
+	"juju-reboot" + cmdSuffix:             NewJujuRebootCommand,
+	"status-get" + cmdSuffix:              NewStatusGetCommand,
+	"status-set" + cmdSuffix:              NewStatusSetCommand,
+	"network-get" + cmdSuffix:             NewNetworkGetCommand,
+	"application-version-set" + cmdSuffix: NewApplicationVersionSetCommand,
 }
 
 var storageCommands = map[string]creator{
@@ -169,7 +171,10 @@ func (j *Jujuc) Main(req Request, resp *exec.ExecResponse) error {
 	}
 	j.mu.Lock()
 	defer j.mu.Unlock()
-	logger.Infof("running hook tool %q %q", req.CommandName, req.Args)
+	// Beware, reducing the log level of the following line will lead
+	// to passwords leaking if passed as args.
+	logger.Tracef("running hook tool %q %q", req.CommandName, req.Args)
+	logger.Tracef("running hook tool %q", req.CommandName)
 	logger.Debugf("hook context id %q; dir %q", req.ContextId, req.Dir)
 	wrapper := &cmdWrapper{c, nil}
 	resp.Code = cmd.Main(wrapper, ctx, req.Args)

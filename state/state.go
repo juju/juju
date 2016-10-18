@@ -2,13 +2,12 @@
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 // Package state enables reading, observing, and changing
-// the state stored in MongoDB of a whole environment
+// the state stored in MongoDB of a whole model
 // managed by juju.
 package state
 
 import (
 	"fmt"
-	"net"
 	"regexp"
 	"sort"
 	"strconv"
@@ -18,28 +17,34 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
+	"github.com/juju/utils/clock"
 	"github.com/juju/utils/os"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
+	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6-unstable"
+	csparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/audit"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state/cloudimagemetadata"
-	"github.com/juju/juju/state/leadership"
-	"github.com/juju/juju/state/lease"
-	"github.com/juju/juju/state/presence"
-	"github.com/juju/juju/state/watcher"
-	"github.com/juju/juju/version"
+	stateaudit "github.com/juju/juju/state/internal/audit"
+	statelease "github.com/juju/juju/state/lease"
+	"github.com/juju/juju/state/workers"
+	"github.com/juju/juju/status"
+	jujuversion "github.com/juju/juju/version"
 )
 
 var logger = loggo.GetLogger("juju.state")
@@ -55,40 +60,69 @@ const (
 	// blobstoreDB is the name of the blobstore GridFS database.
 	blobstoreDB = "blobstore"
 
-	// serviceLeadershipNamespace is the name of the lease.Client namespace
+	// applicationLeadershipNamespace is the name of the lease.Client namespace
 	// used by the leadership manager.
-	serviceLeadershipNamespace = "service-leadership"
+	applicationLeadershipNamespace = "application-leadership"
+
+	// singularControllerNamespace is the name of the lease.Client namespace
+	// used by the singular manager
+	singularControllerNamespace = "singular-controller"
 )
 
-// State represents the state of an environment
+type providerIdDoc struct {
+	ID string `bson:"_id"` // format: "<model-uuid>:<global-key>:<provider-id>"
+}
+
+// State represents the state of an model
 // managed by juju.
 type State struct {
-	environTag    names.EnvironTag
-	controllerTag names.EnvironTag
-	mongoInfo     *mongo.MongoInfo
-	session       *mgo.Session
-	database      Database
-	policy        Policy
+	clock              clock.Clock
+	modelTag           names.ModelTag
+	controllerModelTag names.ModelTag
+	controllerTag      names.ControllerTag
+	mongoInfo          *mongo.MongoInfo
+	session            *mgo.Session
+	database           Database
+	policy             Policy
+	newPolicy          NewPolicyFunc
 
-	// TODO(fwereade): move these out of state and make them independent
-	// workers on which state depends.
-	watcher           *watcher.Watcher
-	pwatcher          *presence.Watcher
-	leadershipManager leadership.ManagerWorker
+	// cloudName is the name of the cloud on which the model
+	// represented by this state runs.
+	cloudName string
 
-	// mu guards allManager, allEnvManager & allEnvWatcherBacking
-	mu                   sync.Mutex
-	allManager           *storeManager
-	allEnvManager        *storeManager
-	allEnvWatcherBacking Backing
+	// leaseClientId is used by the lease infrastructure to
+	// differentiate between machines whose clocks may be
+	// relatively-skewed.
+	leaseClientId string
+
+	// workers is responsible for keeping the various sub-workers
+	// available by starting new ones as they fail. It doesn't do
+	// that yet, but having a type that collects them together is the
+	// first step.
+	//
+	// note that the allManager stuff below probably ought to be
+	// folded in as well, but that feels like its own task.
+	workers workers.Workers
+
+	// mu guards allManager, allModelManager & allModelWatcherBacking
+	mu                     sync.Mutex
+	allManager             *storeManager
+	allModelManager        *storeManager
+	allModelWatcherBacking Backing
 
 	// TODO(anastasiamac 2015-07-16) As state gets broken up, remove this.
 	CloudImageMetadataStorage cloudimagemetadata.Storage
 }
 
-// StateServingInfo holds information needed by a state server.
+// StateServingInfo holds information needed by a controller.
 // This type is a copy of the type of the same name from the api/params package.
 // It is replicated here to avoid the state pacakge depending on api/params.
+//
+// NOTE(fwereade): the api/params type exists *purely* for representing
+// this data over the wire, and has a legitimate reason to exist. This
+// type does not: it's non-implementation-specific and shoudl be defined
+// under core/ somewhere, so it can be used both here and in the agent
+// without dragging unnecessary/irrelevant packages into scope.
 type StateServingInfo struct {
 	APIPort      int
 	StatePort    int
@@ -100,90 +134,210 @@ type StateServingInfo struct {
 	SystemIdentity string
 }
 
-// IsStateServer returns true if this state instance has the bootstrap
-// environment UUID.
-func (st *State) IsStateServer() bool {
-	return st.environTag == st.controllerTag
+// IsController returns true if this state instance has the bootstrap
+// model UUID.
+func (st *State) IsController() bool {
+	return st.modelTag == st.controllerModelTag
 }
 
-// RemoveAllEnvironDocs removes all documents from multi-environment
-// collections. The environment should be put into a dying state before call
+// ControllerUUID returns the UUID for the controller
+// of this state instance.
+func (st *State) ControllerUUID() string {
+	return st.controllerTag.Id()
+}
+func (st *State) ControllerTag() names.ControllerTag {
+	return st.controllerTag
+}
+
+func ControllerAccess(st *State, tag names.Tag) (permission.UserAccess, error) {
+	return st.UserAccess(tag.(names.UserTag), st.controllerTag)
+}
+
+// RemoveAllModelDocs removes all documents from multi-model
+// collections. The model should be put into a dying state before call
 // this method. Otherwise, there is a race condition in which collections
 // could be added to during or after the running of this method.
-func (st *State) RemoveAllEnvironDocs() error {
-	env, err := st.Environment()
-	if err != nil {
-		return errors.Trace(err)
+func (st *State) RemoveAllModelDocs() error {
+	err := st.removeAllModelDocs(bson.D{{"life", Dead}})
+	if errors.Cause(err) == txn.ErrAborted {
+		return errors.New("can't remove model: model not dead")
 	}
-	id := userEnvNameIndex(env.Owner().Canonical(), env.Name())
-	ops := []txn.Op{{
-		// Cleanup the owner:envName unique key.
-		C:      userenvnameC,
-		Id:     id,
-		Remove: true,
-	}, {
-		C:      environmentsC,
-		Id:     st.EnvironUUID(),
-		Assert: bson.D{{"life", Dead}},
-		Remove: true,
-	}}
+	return errors.Trace(err)
+}
 
-	// Add all per-environment docs to the txn.
+// RemoveImportingModelDocs removes all documents from multi-model collections
+// for the current model. This method asserts that the model's migration mode
+// is "importing".
+func (st *State) RemoveImportingModelDocs() error {
+	err := st.removeAllModelDocs(bson.D{{"migration-mode", MigrationModeImporting}})
+	if errors.Cause(err) == txn.ErrAborted {
+		return errors.New("can't remove model: model not being imported for migration")
+	}
+	return errors.Trace(err)
+}
+
+// RemoveExportingModelDocs removes all documents from multi-model collections
+// for the current model. This method asserts that the model's migration mode
+// is "exporting".
+func (st *State) RemoveExportingModelDocs() error {
+	err := st.removeAllModelDocs(bson.D{{"migration-mode", MigrationModeExporting}})
+	if errors.Cause(err) == txn.ErrAborted {
+		return errors.New("can't remove model: model not being exported for migration")
+	}
+	return errors.Trace(err)
+}
+
+func (st *State) removeAllModelDocs(modelAssertion bson.D) error {
+	modelUUID := st.ModelUUID()
+
+	// Remove each collection in its own transaction.
 	for name, info := range st.database.Schema() {
-		if info.global {
+		if info.global || info.rawAccess {
 			continue
 		}
-		coll, closer := st.getCollection(name)
-		defer closer()
 
-		var ids []bson.M
-		err := coll.Find(nil).Select(bson.D{{"_id", 1}}).All(&ids)
+		ops, err := st.removeAllInCollectionOps(name)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		for _, id := range ids {
-			if info.rawAccess {
-				if err := coll.Writeable().RemoveId(id["_id"]); err != nil {
-					return errors.Trace(err)
-				}
-			} else {
-				ops = append(ops, txn.Op{
-					C:      name,
-					Id:     id["_id"],
-					Remove: true,
-				})
+		// Make sure we gate everything on the model assertion.
+		ops = append([]txn.Op{{
+			C:      modelsC,
+			Id:     modelUUID,
+			Assert: modelAssertion,
+		}}, ops...)
+		err = st.runTransaction(ops)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+
+	// Remove from the raw (non-transactional) collections.
+	for name, info := range st.database.Schema() {
+		if !info.global && info.rawAccess {
+			if err := st.removeAllInCollectionRaw(name); err != nil {
+				return errors.Trace(err)
 			}
 		}
 	}
 
+	// Remove all user permissions for the model.
+	permPattern := bson.M{
+		"_id": bson.M{"$regex": "^" + permissionID(modelKey(modelUUID), "")},
+	}
+	ops, err := st.removeInCollectionOps(permissionsC, permPattern)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	err = st.runTransaction(ops)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// Now remove remove the model.
+	env, err := st.Model()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	id := userModelNameIndex(env.Owner().Id(), env.Name())
+	ops = []txn.Op{{
+		// Cleanup the owner:envName unique key.
+		C:      usermodelnameC,
+		Id:     id,
+		Remove: true,
+	}, {
+		C:      modelEntityRefsC,
+		Id:     modelUUID,
+		Remove: true,
+	}, {
+		C:      modelsC,
+		Id:     modelUUID,
+		Assert: modelAssertion,
+		Remove: true,
+	}}
+	if !st.IsController() {
+		ops = append(ops, decHostedModelCountOp())
+	}
 	return st.runTransaction(ops)
 }
 
-// ForEnviron returns a connection to mongo for the specified environment. The
-// connection uses the same credentials and policy as the existing connection.
-func (st *State) ForEnviron(env names.EnvironTag) (*State, error) {
-	newState, err := open(env, st.mongoInfo, mongo.DefaultDialOpts(), st.policy)
+// removeAllInCollectionRaw removes all the documents from the given
+// named collection.
+func (st *State) removeAllInCollectionRaw(name string) error {
+	coll, closer := st.getCollection(name)
+	defer closer()
+	_, err := coll.Writeable().RemoveAll(nil)
+	return errors.Trace(err)
+}
+
+// removeAllInCollectionOps appends to ops operations to
+// remove all the documents in the given named collection.
+func (st *State) removeAllInCollectionOps(name string) ([]txn.Op, error) {
+	return st.removeInCollectionOps(name, nil)
+}
+
+// removeInCollectionOps generates operations to remove all documents
+// from the named collection matching a specific selector.
+func (st *State) removeInCollectionOps(name string, sel interface{}) ([]txn.Op, error) {
+	coll, closer := st.getCollection(name)
+	defer closer()
+
+	var ids []bson.M
+	err := coll.Find(sel).Select(bson.D{{"_id", 1}}).All(&ids)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := newState.start(st.controllerTag); err != nil {
-		return nil, errors.Trace(err)
+	var ops []txn.Op
+	for _, id := range ids {
+		ops = append(ops, txn.Op{
+			C:      name,
+			Id:     id["_id"],
+			Remove: true,
+		})
 	}
-	return newState, nil
+	return ops, nil
 }
 
-// start starts the presence watcher, leadership manager and images metadata storage,
-// and fills in the controllerTag field with the supplied value.
-func (st *State) start(controllerTag names.EnvironTag) error {
+// ForModel returns a connection to mongo for the specified model. The
+// connection uses the same credentials and policy as the existing connection.
+func (st *State) ForModel(modelTag names.ModelTag) (*State, error) {
+	session := st.session.Copy()
+	newSt, err := newState(
+		modelTag, st.controllerModelTag, session, st.mongoInfo, st.newPolicy, st.clock,
+	)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if err := newSt.start(st.controllerTag); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return newSt, nil
+}
+
+// start makes a *State functional post-creation, by:
+//   * setting controllerTag, cloudName and leaseClientId
+//   * starting lease managers and watcher backends
+//   * creating cloud metadata storage
+//
+// start will close the *State if it fails.
+func (st *State) start(controllerTag names.ControllerTag) (err error) {
+	defer func() {
+		if err == nil {
+			return
+		}
+		if err2 := st.Close(); err2 != nil {
+			logger.Errorf("closing State for %s: %v", st.modelTag, err2)
+		}
+	}()
+
 	st.controllerTag = controllerTag
 
-	var clientId string
 	if identity := st.mongoInfo.Tag; identity != nil {
 		// TODO(fwereade): it feels a bit wrong to take this from MongoInfo -- I
 		// think it's just coincidental that the mongodb user happens to map to
 		// the machine that's executing the code -- but there doesn't seem to be
 		// an accessible alternative.
-		clientId = identity.String()
+		st.leaseClientId = identity.String()
 	} else {
 		// If we're running state anonymously, we can still use the lease
 		// manager; but we need to make sure we use a unique client ID, and
@@ -193,61 +347,120 @@ func (st *State) start(controllerTag names.EnvironTag) error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		clientId = fmt.Sprintf("anon-%s", uuid.String())
+		st.leaseClientId = fmt.Sprintf("anon-%s", uuid.String())
 	}
+	// now we've set up leaseClientId, we can use workersFactory
 
-	logger.Infof("creating lease client as %s", clientId)
-	clock := GetClock()
-	datastore := &environMongo{st}
-	leaseClient, err := lease.NewClient(lease.ClientConfig{
-		Id:         clientId,
-		Namespace:  serviceLeadershipNamespace,
-		Collection: leasesC,
-		Mongo:      datastore,
-		Clock:      clock,
+	logger.Infof("starting standard state workers")
+	factory := workersFactory{
+		st:    st,
+		clock: st.clock,
+	}
+	workers, err := workers.NewRestartWorkers(workers.RestartConfig{
+		Factory: factory,
+		Logger:  loggo.GetLogger(logger.Name() + ".workers"),
+		Clock:   st.clock,
+		Delay:   time.Second,
 	})
 	if err != nil {
-		return errors.Annotatef(err, "cannot create lease client")
+		return errors.Annotatef(err, "cannot create standard state workers")
 	}
-	logger.Infof("starting leadership manager")
-	leadershipManager, err := leadership.NewManager(leadership.ManagerConfig{
-		Client: leaseClient,
-		Clock:  clock,
-	})
-	if err != nil {
-		return errors.Annotatef(err, "cannot create leadership manager")
-	}
-	st.leadershipManager = leadershipManager
+	st.workers = workers
 
 	logger.Infof("creating cloud image metadata storage")
-	st.CloudImageMetadataStorage = cloudimagemetadata.NewStorage(st.EnvironUUID(), cloudimagemetadataC, datastore)
+	st.CloudImageMetadataStorage = cloudimagemetadata.NewStorage(
+		cloudimagemetadataC,
+		&environMongo{st},
+	)
 
-	logger.Infof("starting presence watcher")
-	st.pwatcher = presence.NewWatcher(st.getPresence(), st.environTag)
+	logger.Infof("started state for %s successfully", st.modelTag)
 	return nil
 }
 
-// EnvironTag() returns the environment tag for the environment controlled by
+// KillWorkers tells the state's internal workers to die. This is
+// mainly used to kill the leadership manager to prevent it from
+// interfering with apiserver shutdown.
+func (st *State) KillWorkers() {
+	// TODO(fwereade): 2015-08-07 lp:1482634
+	// obviously, this should not exist: it's a quick hack to address lp:1481368 in
+	// 1.24.4, and should be quickly replaced with something that isn't so heinous.
+	//
+	// But.
+	//
+	// I *believe* that what it'll take to fix this is to extract the mongo-session-
+	// opening from state.Open, so we can create a mongosessioner Manifold on which
+	// state, leadership, watching, tools storage, etc etc etc can all independently
+	// depend. (Each dependency would/should have a separate session so they can
+	// close them all on their own schedule, without panics -- but the failure of
+	// the shared component should successfully goose them all into shutting down,
+	// in parallel, of their own accord.)
+	st.workers.Kill()
+}
+
+// ApplicationLeaders returns a map of the application name to the
+// unit name that is the current leader.
+func (st *State) ApplicationLeaders() (map[string]string, error) {
+	client, err := st.getLeadershipLeaseClient()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	leases := client.Leases()
+	result := make(map[string]string, len(leases))
+	for key, value := range leases {
+		result[key] = value.Holder
+	}
+	return result, nil
+}
+
+func (st *State) getLeadershipLeaseClient() (lease.Client, error) {
+	client, err := statelease.NewClient(statelease.ClientConfig{
+		Id:         st.leaseClientId,
+		Namespace:  applicationLeadershipNamespace,
+		Collection: leasesC,
+		Mongo:      &environMongo{st},
+		Clock:      st.clock,
+	})
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot create leadership lease client")
+	}
+	return client, nil
+}
+
+func (st *State) getSingularLeaseClient() (lease.Client, error) {
+	client, err := statelease.NewClient(statelease.ClientConfig{
+		Id:         st.leaseClientId,
+		Namespace:  singularControllerNamespace,
+		Collection: leasesC,
+		Mongo:      &environMongo{st},
+		Clock:      st.clock,
+	})
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot create singular lease client")
+	}
+	return client, nil
+}
+
+// ModelTag() returns the model tag for the model controlled by
 // this state instance.
-func (st *State) EnvironTag() names.EnvironTag {
-	return st.environTag
+func (st *State) ModelTag() names.ModelTag {
+	return st.modelTag
 }
 
-// EnvironUUID returns the environment UUID for the environment
+// ModelUUID returns the model UUID for the model
 // controlled by this state instance.
-func (st *State) EnvironUUID() string {
-	return st.environTag.Id()
+func (st *State) ModelUUID() string {
+	return st.modelTag.Id()
 }
 
-// userEnvNameIndex returns a string to be used as a userenvnameC unique index.
-func userEnvNameIndex(username, envName string) string {
+// userModelNameIndex returns a string to be used as a usermodelnameC unique index.
+func userModelNameIndex(username, envName string) string {
 	return strings.ToLower(username) + ":" + envName
 }
 
-// EnsureEnvironmentRemoved returns an error if any multi-environment
-// documents for this environment are found. It is intended only to be used in
+// EnsureModelRemoved returns an error if any multi-model
+// documents for this model are found. It is intended only to be used in
 // tests and exported so it can be used in the tests of other packages.
-func (st *State) EnsureEnvironmentRemoved() error {
+func (st *State) EnsureModelRemoved() error {
 	found := map[string]int{}
 	var foundOrdered []string
 	for name, info := range st.database.Schema() {
@@ -267,7 +480,7 @@ func (st *State) EnsureEnvironmentRemoved() error {
 	}
 
 	if len(found) != 0 {
-		errMessage := fmt.Sprintf("found documents for environment with uuid %s:", st.EnvironUUID())
+		errMessage := fmt.Sprintf("found documents for model with uuid %s:", st.ModelUUID())
 		sort.Strings(foundOrdered)
 		for _, name := range foundOrdered {
 			number := found[name]
@@ -280,9 +493,16 @@ func (st *State) EnsureEnvironmentRemoved() error {
 	return nil
 }
 
-// getPresence returns the presence m.
-func (st *State) getPresence() *mgo.Collection {
+// getPresenceCollection returns the raw mongodb presence collection,
+// which is needed to interact with the state/presence package.
+func (st *State) getPresenceCollection() *mgo.Collection {
 	return st.session.DB(presenceDB).C(presenceC)
+}
+
+// getTxnLogCollection returns the raw mongodb txns collection, which is
+// needed to interact with the state/watcher package.
+func (st *State) getTxnLogCollection() *mgo.Collection {
+	return st.session.DB(jujuDB).C(txnLogC)
 }
 
 // newDB returns a database connection using a new session, along with
@@ -290,13 +510,22 @@ func (st *State) getPresence() *mgo.Collection {
 // with various collections in a single session, so don't want to call
 // getCollection multiple times.
 func (st *State) newDB() (Database, func()) {
-	return st.database.CopySession()
+	return st.database.Copy()
 }
 
 // Ping probes the state's database connection to ensure
 // that it is still alive.
 func (st *State) Ping() error {
 	return st.session.Ping()
+}
+
+// MongoVersion return the string repre
+func (st *State) MongoVersion() (string, error) {
+	binfo, err := st.session.BuildInfo()
+	if err != nil {
+		return "", errors.Annotate(err, "cannot obtain mongo build info")
+	}
+	return binfo.Version, nil
 }
 
 // MongoSession returns the underlying mongodb session
@@ -307,8 +536,6 @@ func (st *State) MongoSession() *mgo.Session {
 	return st.session
 }
 
-type closeFunc func()
-
 func (st *State) Watch() *Multiwatcher {
 	st.mu.Lock()
 	if st.allManager == nil {
@@ -318,34 +545,14 @@ func (st *State) Watch() *Multiwatcher {
 	return NewMultiwatcher(st.allManager)
 }
 
-func (st *State) WatchAllEnvs() *Multiwatcher {
+func (st *State) WatchAllModels() *Multiwatcher {
 	st.mu.Lock()
-	if st.allEnvManager == nil {
-		st.allEnvWatcherBacking = newAllEnvWatcherStateBacking(st)
-		st.allEnvManager = newStoreManager(st.allEnvWatcherBacking)
+	if st.allModelManager == nil {
+		st.allModelWatcherBacking = NewAllModelWatcherStateBacking(st)
+		st.allModelManager = newStoreManager(st.allModelWatcherBacking)
 	}
 	st.mu.Unlock()
-	return NewMultiwatcher(st.allEnvManager)
-}
-
-func (st *State) EnvironConfig() (*config.Config, error) {
-	settings, err := readSettings(st, environGlobalKey)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	attrs := settings.Map()
-	return config.New(config.NoDefaults, attrs)
-}
-
-// checkEnvironConfig returns an error if the config is definitely invalid.
-func checkEnvironConfig(cfg *config.Config) error {
-	if cfg.AdminSecret() != "" {
-		return errors.Errorf("admin-secret should never be written to the state")
-	}
-	if _, ok := cfg.AgentVersion(); !ok {
-		return errors.Errorf("agent-version must always be set in state")
-	}
-	return nil
+	return NewMultiwatcher(st.allModelManager)
 }
 
 // versionInconsistentError indicates one or more agents have a
@@ -358,7 +565,7 @@ type versionInconsistentError struct {
 
 func (e *versionInconsistentError) Error() string {
 	sort.Strings(e.agents)
-	return fmt.Sprintf("some agents have not upgraded to the current environment version %s: %s", e.currentVersion, strings.Join(e.agents, ", "))
+	return fmt.Sprintf("some agents have not upgraded to the current model version %s: %s", e.currentVersion, strings.Join(e.agents, ", "))
 }
 
 // newVersionInconsistentError returns a new instance of
@@ -422,33 +629,34 @@ func (st *State) checkCanUpgrade(currentVersion, newVersion string) error {
 	return nil
 }
 
-var UpgradeInProgressError = errors.New("an upgrade is already in progress or the last upgrade did not complete")
+var errUpgradeInProgress = errors.New(params.CodeUpgradeInProgress)
 
-// IsUpgradeInProgressError returns true if the error given is UpgradeInProgressError.
+// IsUpgradeInProgressError returns true if the error is caused by an
+// in-progress upgrade.
 func IsUpgradeInProgressError(err error) bool {
-	return errors.Cause(err) == UpgradeInProgressError
+	return errors.Cause(err) == errUpgradeInProgress
 }
 
-// SetEnvironAgentVersion changes the agent version for the environment to the
-// given version, only if the environment is in a stable state (all agents are
-// running the current version). If this is a hosted environment, newVersion
-// cannot be higher than the state server version.
-func (st *State) SetEnvironAgentVersion(newVersion version.Number) (err error) {
-	if newVersion.Compare(version.Current) > 0 && !st.IsStateServer() {
-		return errors.Errorf("a hosted environment cannot have a higher version than the server environment: %s > %s",
+// SetModelAgentVersion changes the agent version for the model to the
+// given version, only if the model is in a stable state (all agents are
+// running the current version). If this is a hosted model, newVersion
+// cannot be higher than the controller version.
+func (st *State) SetModelAgentVersion(newVersion version.Number) (err error) {
+	if newVersion.Compare(jujuversion.Current) > 0 && !st.IsController() {
+		return errors.Errorf("a hosted model cannot have a higher version than the server model: %s > %s",
 			newVersion.String(),
-			version.Current,
+			jujuversion.Current,
 		)
 	}
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		settings, err := readSettings(st, environGlobalKey)
+		settings, err := readSettings(st, settingsC, modelGlobalKey)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		agentVersion, ok := settings.Get("agent-version")
 		if !ok {
-			return nil, errors.Errorf("no agent version set in the environment")
+			return nil, errors.Errorf("no agent version set in the model")
 		}
 		currentVersion, ok := agentVersion.(string)
 		if !ok {
@@ -471,7 +679,7 @@ func (st *State) SetEnvironAgentVersion(newVersion version.Number) (err error) {
 				Assert: txn.DocMissing,
 			}, {
 				C:      settingsC,
-				Id:     st.docID(environGlobalKey),
+				Id:     st.docID(modelGlobalKey),
 				Assert: bson.D{{"version", settings.version}},
 				Update: bson.D{
 					{"$set", bson.D{{"settings.agent-version", newVersion.String()}}},
@@ -485,7 +693,7 @@ func (st *State) SetEnvironAgentVersion(newVersion version.Number) (err error) {
 		// return a more helpful error message in the case of an
 		// active upgradeInfo document being in place.
 		if upgrading, _ := st.IsUpgrading(); upgrading {
-			err = UpgradeInProgressError
+			err = errUpgradeInProgress
 		} else {
 			err = errors.Annotate(err, "cannot set agent version")
 		}
@@ -493,105 +701,52 @@ func (st *State) SetEnvironAgentVersion(newVersion version.Number) (err error) {
 	return errors.Trace(err)
 }
 
-func (st *State) buildAndValidateEnvironConfig(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) (validCfg *config.Config, err error) {
-	newConfig, err := oldConfig.Apply(updateAttrs)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if len(removeAttrs) != 0 {
-		newConfig, err = newConfig.Remove(removeAttrs)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
-	if err := checkEnvironConfig(newConfig); err != nil {
-		return nil, errors.Trace(err)
-	}
-	return st.validate(newConfig, oldConfig)
-}
-
-type ValidateConfigFunc func(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) error
-
-// UpdateEnvironConfig adds, updates or removes attributes in the current
-// configuration of the environment with the provided updateAttrs and
-// removeAttrs.
-func (st *State) UpdateEnvironConfig(updateAttrs map[string]interface{}, removeAttrs []string, additionalValidation ValidateConfigFunc) error {
-	if len(updateAttrs)+len(removeAttrs) == 0 {
-		return nil
-	}
-
-	// TODO(axw) 2013-12-6 #1167616
-	// Ensure that the settings on disk have not changed
-	// underneath us. The settings changes are actually
-	// applied as a delta to what's on disk; if there has
-	// been a concurrent update, the change may not be what
-	// the user asked for.
-	settings, err := readSettings(st, environGlobalKey)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	// Get the existing environment config from state.
-	oldConfig, err := config.New(config.NoDefaults, settings.Map())
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if additionalValidation != nil {
-		err = additionalValidation(updateAttrs, removeAttrs, oldConfig)
-		if err != nil {
-			return errors.Trace(err)
-		}
-	}
-	validCfg, err := st.buildAndValidateEnvironConfig(updateAttrs, removeAttrs, oldConfig)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	validAttrs := validCfg.AllAttrs()
-	for k := range oldConfig.AllAttrs() {
-		if _, ok := validAttrs[k]; !ok {
-			settings.Delete(k)
-		}
-	}
-	settings.Update(validAttrs)
-	_, err = settings.Write()
-	return errors.Trace(err)
-}
-
-// EnvironConstraints returns the current environment constraints.
-func (st *State) EnvironConstraints() (constraints.Value, error) {
-	cons, err := readConstraints(st, environGlobalKey)
+// ModelConstraints returns the current model constraints.
+func (st *State) ModelConstraints() (constraints.Value, error) {
+	cons, err := readConstraints(st, modelGlobalKey)
 	return cons, errors.Trace(err)
 }
 
-// SetEnvironConstraints replaces the current environment constraints.
-func (st *State) SetEnvironConstraints(cons constraints.Value) error {
+// SetModelConstraints replaces the current model constraints.
+func (st *State) SetModelConstraints(cons constraints.Value) error {
 	unsupported, err := st.validateConstraints(cons)
 	if len(unsupported) > 0 {
 		logger.Warningf(
-			"setting environment constraints: unsupported constraints: %v", strings.Join(unsupported, ","))
+			"setting model constraints: unsupported constraints: %v", strings.Join(unsupported, ","))
 	} else if err != nil {
 		return errors.Trace(err)
 	}
-	return writeConstraints(st, environGlobalKey, cons)
+	return writeConstraints(st, modelGlobalKey, cons)
 }
 
-// AllMachines returns all machines in the environment
-// ordered by id.
-func (st *State) AllMachines() (machines []*Machine, err error) {
-	machinesCollection, closer := st.getCollection(machinesC)
-	defer closer()
-
+func (st *State) allMachines(machinesCollection mongo.Collection) ([]*Machine, error) {
 	mdocs := machineDocSlice{}
-	err = machinesCollection.Find(nil).All(&mdocs)
+	err := machinesCollection.Find(nil).All(&mdocs)
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot get all machines")
 	}
 	sort.Sort(mdocs)
-	for _, doc := range mdocs {
-		machines = append(machines, newMachine(st, &doc))
+	machines := make([]*Machine, len(mdocs))
+	for i, doc := range mdocs {
+		machines[i] = newMachine(st, &doc)
 	}
-	return
+	return machines, nil
+}
+
+// AllMachines returns all machines in the model
+// ordered by id.
+func (st *State) AllMachines() ([]*Machine, error) {
+	machinesCollection, closer := st.getCollection(machinesC)
+	defer closer()
+	return st.allMachines(machinesCollection)
+}
+
+// AllMachinesFor returns all machines for the model represented
+// by the given modeluuid
+func (st *State) AllMachinesFor(modelUUID string) ([]*Machine, error) {
+	machinesCollection, closer := st.getCollectionFor(modelUUID, machinesC)
+	defer closer()
+	return st.allMachines(machinesCollection)
 }
 
 type machineDocSlice []machineDoc
@@ -654,26 +809,15 @@ func (st *State) Machine(id string) (*Machine, error) {
 }
 
 func (st *State) getMachineDoc(id string) (*machineDoc, error) {
-	machinesCollection, closer := st.getRawCollection(machinesC)
+	machinesCollection, closer := st.getCollection(machinesC)
 	defer closer()
 
 	var err error
 	mdoc := &machineDoc{}
-	for _, tryId := range []string{st.docID(id), id} {
-		err = machinesCollection.FindId(tryId).One(mdoc)
-		if err != mgo.ErrNotFound {
-			break
-		}
-	}
+	err = machinesCollection.FindId(id).One(mdoc)
+
 	switch err {
 	case nil:
-		// This is required to allow loading of machines before the
-		// environment UUID migration has been applied to the machines
-		// collection. Without this, a machine agent can't come up to
-		// run the database migration.
-		if mdoc.Id == "" {
-			mdoc.Id = mdoc.DocID
-		}
 		return mdoc, nil
 	case mgo.ErrNotFound:
 		return nil, errors.NotFoundf("machine %s", id)
@@ -685,7 +829,7 @@ func (st *State) getMachineDoc(id string) (*machineDoc, error) {
 // FindEntity returns the entity with the given tag.
 //
 // The returned value can be of type *Machine, *Unit,
-// *User, *Service, *Environment, or *Action, depending
+// *User, *Application, *Model, or *Action, depending
 // on the tag.
 func (st *State) FindEntity(tag names.Tag) (Entity, error) {
 	id := tag.Id()
@@ -696,38 +840,34 @@ func (st *State) FindEntity(tag names.Tag) (Entity, error) {
 		return st.Unit(id)
 	case names.UserTag:
 		return st.User(tag)
-	case names.ServiceTag:
-		return st.Service(id)
-	case names.EnvironTag:
-		env, err := st.Environment()
+	case names.ApplicationTag:
+		return st.Application(id)
+	case names.ModelTag:
+		env, err := st.Model()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		// Return an invalid entity error if the requested environment is not
+		// Return an invalid entity error if the requested model is not
 		// the current one.
 		if id != env.UUID() {
 			if utils.IsValidUUIDString(id) {
-				return nil, errors.NotFoundf("environment %q", id)
+				return nil, errors.NotFoundf("model %q", id)
 			}
 			// TODO(axw) 2013-12-04 #1257587
-			// We should not accept environment tags that do not match the
-			// environment's UUID. We accept anything for now, to cater
+			// We should not accept model tags that do not match the
+			// model's UUID. We accept anything for now, to cater
 			// both for past usage, and for potentially supporting aliases.
-			logger.Warningf("environment-tag does not match current environment UUID: %q != %q", id, env.UUID())
-			conf, err := st.EnvironConfig()
+			logger.Warningf("model-tag does not match current model UUID: %q != %q", id, env.UUID())
+			conf, err := st.ModelConfig()
 			if err != nil {
-				logger.Warningf("EnvironConfig failed: %v", err)
+				logger.Warningf("ModelConfig failed: %v", err)
 			} else if id != conf.Name() {
-				logger.Warningf("environment-tag does not match current environment name: %q != %q", id, conf.Name())
+				logger.Warningf("model-tag does not match current model name: %q != %q", id, conf.Name())
 			}
 		}
 		return env, nil
 	case names.RelationTag:
 		return st.KeyRelation(id)
-	case names.NetworkTag:
-		return st.Network(id)
-	case names.IPAddressTag:
-		return st.IPAddressByTag(tag)
 	case names.ActionTag:
 		return st.ActionByTag(tag)
 	case names.CharmTag:
@@ -758,8 +898,8 @@ func (st *State) tagToCollectionAndId(tag names.Tag) (string, interface{}, error
 	case names.MachineTag:
 		coll = machinesC
 		id = st.docID(id)
-	case names.ServiceTag:
-		coll = servicesC
+	case names.ApplicationTag:
+		coll = applicationsC
 		id = st.docID(id)
 	case names.UnitTag:
 		coll = unitsC
@@ -767,17 +907,14 @@ func (st *State) tagToCollectionAndId(tag names.Tag) (string, interface{}, error
 	case names.UserTag:
 		coll = usersC
 		if !tag.IsLocal() {
-			return "", nil, fmt.Errorf("%q is not a local user", tag.Canonical())
+			return "", nil, fmt.Errorf("%q is not a local user", tag.Id())
 		}
 		id = tag.Name()
 	case names.RelationTag:
 		coll = relationsC
 		id = st.docID(id)
-	case names.EnvironTag:
-		coll = environmentsC
-	case names.NetworkTag:
-		coll = networksC
-		id = st.docID(id)
+	case names.ModelTag:
+		coll = modelsC
 	case names.ActionTag:
 		coll = actionsC
 		id = tag.Id()
@@ -790,282 +927,9 @@ func (st *State) tagToCollectionAndId(tag names.Tag) (string, interface{}, error
 	return coll, id, nil
 }
 
-// AddCharm adds the ch charm with curl to the state.
-// On success the newly added charm state is returned.
-func (st *State) AddCharm(ch charm.Charm, curl *charm.URL, storagePath, bundleSha256 string) (stch *Charm, err error) {
-	charms, closer := st.getCollection(charmsC)
-	defer closer()
-
-	query := charms.FindId(curl.String()).Select(bson.D{{"placeholder", 1}})
-
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		var placeholderDoc struct {
-			Placeholder bool `bson:"placeholder"`
-		}
-		if err := query.One(&placeholderDoc); err == mgo.ErrNotFound {
-			return insertCharmOps(st, ch, curl, storagePath, bundleSha256)
-		} else if err != nil {
-			return nil, errors.Trace(err)
-		} else if placeholderDoc.Placeholder {
-			return updateCharmOps(st, ch, curl, storagePath, bundleSha256, stillPlaceholder)
-		}
-		return nil, errors.AlreadyExistsf("charm %q", curl)
-	}
-	if err = st.run(buildTxn); err == nil {
-		return st.Charm(curl)
-	}
-	return nil, errors.Trace(err)
-}
-
-// AllCharms returns all charms in state.
-func (st *State) AllCharms() ([]*Charm, error) {
-	charmsCollection, closer := st.getCollection(charmsC)
-	defer closer()
-	var cdoc charmDoc
-	var charms []*Charm
-	iter := charmsCollection.Find(nil).Iter()
-	for iter.Next(&cdoc) {
-		charms = append(charms, newCharm(st, &cdoc))
-	}
-	return charms, errors.Trace(iter.Close())
-}
-
-// Charm returns the charm with the given URL. Charms pending upload
-// to storage and placeholders are never returned.
-func (st *State) Charm(curl *charm.URL) (*Charm, error) {
-	charms, closer := st.getCollection(charmsC)
-	defer closer()
-
-	cdoc := &charmDoc{}
-	what := bson.D{
-		{"_id", curl.String()},
-		{"placeholder", bson.D{{"$ne", true}}},
-		{"pendingupload", bson.D{{"$ne", true}}},
-	}
-	err := charms.Find(what).One(&cdoc)
-	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("charm %q", curl)
-	}
-	if err != nil {
-		return nil, errors.Annotatef(err, "cannot get charm %q", curl)
-	}
-	if err := cdoc.Meta.Check(); err != nil {
-		return nil, errors.Annotatef(err, "malformed charm metadata found in state")
-	}
-	return newCharm(st, cdoc), nil
-}
-
-// LatestPlaceholderCharm returns the latest charm described by the
-// given URL but which is not yet deployed.
-func (st *State) LatestPlaceholderCharm(curl *charm.URL) (*Charm, error) {
-	charms, closer := st.getCollection(charmsC)
-	defer closer()
-
-	noRevURL := curl.WithRevision(-1)
-	curlRegex := "^" + regexp.QuoteMeta(st.docID(noRevURL.String()))
-	var docs []charmDoc
-	err := charms.Find(bson.D{{"_id", bson.D{{"$regex", curlRegex}}}, {"placeholder", true}}).All(&docs)
-	if err != nil {
-		return nil, errors.Annotatef(err, "cannot get charm %q", curl)
-	}
-	// Find the highest revision.
-	var latest charmDoc
-	for _, doc := range docs {
-		if latest.URL == nil || doc.URL.Revision > latest.URL.Revision {
-			latest = doc
-		}
-	}
-	if latest.URL == nil {
-		return nil, errors.NotFoundf("placeholder charm %q", noRevURL)
-	}
-	return newCharm(st, &latest), nil
-}
-
-// PrepareLocalCharmUpload must be called before a local charm is
-// uploaded to the provider storage in order to create a charm
-// document in state. It returns the chosen unique charm URL reserved
-// in state for the charm.
-//
-// The url's schema must be "local" and it must include a revision.
-func (st *State) PrepareLocalCharmUpload(curl *charm.URL) (chosenUrl *charm.URL, err error) {
-	// Perform a few sanity checks first.
-	if curl.Schema != "local" {
-		return nil, errors.Errorf("expected charm URL with local schema, got %q", curl)
-	}
-	if curl.Revision < 0 {
-		return nil, errors.Errorf("expected charm URL with revision, got %q", curl)
-	}
-	// Get a regex with the charm URL and no revision.
-	noRevURL := curl.WithRevision(-1)
-	curlRegex := "^" + regexp.QuoteMeta(st.docID(noRevURL.String()))
-
-	charms, closer := st.getCollection(charmsC)
-	defer closer()
-
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		// Find the highest revision of that charm in state.
-		var docs []charmDoc
-		query := bson.D{{"_id", bson.D{{"$regex", curlRegex}}}}
-		err = charms.Find(query).Select(bson.D{{"_id", 1}, {"url", 1}}).All(&docs)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		// Find the highest revision.
-		maxRevision := -1
-		for _, doc := range docs {
-			if doc.URL.Revision > maxRevision {
-				maxRevision = doc.URL.Revision
-			}
-		}
-
-		// Respect the local charm's revision first.
-		chosenRevision := curl.Revision
-		if maxRevision >= chosenRevision {
-			// More recent revision exists in state, pick the next.
-			chosenRevision = maxRevision + 1
-		}
-		chosenUrl = curl.WithRevision(chosenRevision)
-		return insertPendingCharmOps(st, chosenUrl)
-	}
-	if err = st.run(buildTxn); err == nil {
-		return chosenUrl, nil
-	}
-	return nil, errors.Trace(err)
-}
-
-// PrepareStoreCharmUpload must be called before a charm store charm
-// is uploaded to the provider storage in order to create a charm
-// document in state. If a charm with the same URL is already in
-// state, it will be returned as a *state.Charm (it can be still
-// pending or already uploaded). Otherwise, a new charm document is
-// added in state with just the given charm URL and
-// PendingUpload=true, which is then returned as a *state.Charm.
-//
-// The url's schema must be "cs" and it must include a revision.
-func (st *State) PrepareStoreCharmUpload(curl *charm.URL) (*Charm, error) {
-	// Perform a few sanity checks first.
-	if curl.Schema != "cs" {
-		return nil, errors.Errorf("expected charm URL with cs schema, got %q", curl)
-	}
-	if curl.Revision < 0 {
-		return nil, errors.Errorf("expected charm URL with revision, got %q", curl)
-	}
-
-	charms, closer := st.getCollection(charmsC)
-	defer closer()
-
-	var (
-		uploadedCharm charmDoc
-		err           error
-	)
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		// Find an uploaded or pending charm with the given exact curl.
-		err := charms.FindId(curl.String()).One(&uploadedCharm)
-		switch {
-		case err == mgo.ErrNotFound:
-			uploadedCharm = charmDoc{
-				DocID:         st.docID(curl.String()),
-				EnvUUID:       st.EnvironTag().Id(),
-				URL:           curl,
-				PendingUpload: true,
-			}
-			return insertAnyCharmOps(&uploadedCharm)
-		case err != nil:
-			return nil, errors.Trace(err)
-		case uploadedCharm.Placeholder:
-			// Update the fields of the document we're returning.
-			uploadedCharm.PendingUpload = true
-			uploadedCharm.Placeholder = false
-			return convertPlaceholderCharmOps(uploadedCharm.DocID)
-		default:
-			// The charm exists and it's either uploaded or still
-			// pending, but it's not a placeholder. In any case,
-			// there's nothing to do.
-			return nil, jujutxn.ErrNoOperations
-		}
-	}
-	if err = st.run(buildTxn); err == nil {
-		return newCharm(st, &uploadedCharm), nil
-	}
-	return nil, errors.Trace(err)
-}
-
-var (
-	stillPending     = bson.D{{"pendingupload", true}}
-	stillPlaceholder = bson.D{{"placeholder", true}}
-)
-
-// AddStoreCharmPlaceholder creates a charm document in state for the given charm URL which
-// must reference a charm from the store. The charm document is marked as a placeholder which
-// means that if the charm is to be deployed, it will need to first be uploaded to env storage.
-func (st *State) AddStoreCharmPlaceholder(curl *charm.URL) (err error) {
-	// Perform sanity checks first.
-	if curl.Schema != "cs" {
-		return errors.Errorf("expected charm URL with cs schema, got %q", curl)
-	}
-	if curl.Revision < 0 {
-		return errors.Errorf("expected charm URL with revision, got %q", curl)
-	}
-	charms, closer := st.getCollection(charmsC)
-	defer closer()
-
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		// See if the charm already exists in state and exit early if that's the case.
-		var doc charmDoc
-		err := charms.Find(bson.D{{"_id", curl.String()}}).Select(bson.D{{"_id", 1}}).One(&doc)
-		if err != nil && err != mgo.ErrNotFound {
-			return nil, errors.Trace(err)
-		}
-		if err == nil {
-			return nil, jujutxn.ErrNoOperations
-		}
-
-		// Delete all previous placeholders so we don't fill up the database with unused data.
-		deleteOps, err := deleteOldPlaceholderCharmsOps(st, charms, curl)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		insertOps, err := insertPlaceholderCharmOps(st, curl)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		ops := append(deleteOps, insertOps...)
-		return ops, nil
-	}
-	return errors.Trace(st.run(buildTxn))
-}
-
-// UpdateUploadedCharm marks the given charm URL as uploaded and
-// updates the rest of its data, returning it as *state.Charm.
-func (st *State) UpdateUploadedCharm(ch charm.Charm, curl *charm.URL, storagePath, bundleSha256 string) (*Charm, error) {
-	charms, closer := st.getCollection(charmsC)
-	defer closer()
-
-	doc := &charmDoc{}
-	err := charms.FindId(curl.String()).One(&doc)
-	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("charm %q", curl)
-	}
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if !doc.PendingUpload {
-		return nil, errors.Trace(&ErrCharmAlreadyUploaded{curl})
-	}
-
-	ops, err := updateCharmOps(st, ch, curl, storagePath, bundleSha256, stillPending)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if err := st.runTransaction(ops); err != nil {
-		return nil, onAbort(err, ErrCharmRevisionAlreadyModified)
-	}
-	return st.Charm(curl)
-}
-
 // addPeerRelationsOps returns the operations necessary to add the
-// specified service peer relations to the state.
-func (st *State) addPeerRelationsOps(serviceName string, peers map[string]charm.Relation) ([]txn.Op, error) {
+// specified application peer relations to the state.
+func (st *State) addPeerRelationsOps(applicationname string, peers map[string]charm.Relation) ([]txn.Op, error) {
 	var ops []txn.Op
 	for _, rel := range peers {
 		relId, err := st.sequence("relation")
@@ -1073,14 +937,14 @@ func (st *State) addPeerRelationsOps(serviceName string, peers map[string]charm.
 			return nil, errors.Trace(err)
 		}
 		eps := []Endpoint{{
-			ServiceName: serviceName,
-			Relation:    rel,
+			ApplicationName: applicationname,
+			Relation:        rel,
 		}}
 		relKey := relationKey(eps)
 		relDoc := &relationDoc{
 			DocID:     st.docID(relKey),
 			Key:       relKey,
-			EnvUUID:   st.EnvironUUID(),
+			ModelUUID: st.ModelUUID(),
 			Id:        relId,
 			Endpoints: eps,
 			Life:      Alive,
@@ -1096,52 +960,52 @@ func (st *State) addPeerRelationsOps(serviceName string, peers map[string]charm.
 }
 
 var (
-	errSameNameRemoteServiceExists = errors.Errorf("remote service with same name already exists")
-	errLocalServiceExists          = errors.Errorf("service already exists")
+	errSameNameRemoteApplicationExists = errors.Errorf("remote application with same name already exists")
+	errLocalApplicationExists          = errors.Errorf("application already exists")
 )
 
-type AddServiceArgs struct {
-	Name        string
-	Series      string
-	Owner       string
-	Charm       *Charm
-	Networks    []string
-	Storage     map[string]StorageConstraints
-	Settings    charm.Settings
-	NumUnits    int
-	Placement   []*instance.Placement
-	Constraints constraints.Value
+type AddApplicationArgs struct {
+	Name             string
+	Series           string
+	Charm            *Charm
+	Channel          csparams.Channel
+	Storage          map[string]StorageConstraints
+	EndpointBindings map[string]string
+	Settings         charm.Settings
+	NumUnits         int
+	Placement        []*instance.Placement
+	Constraints      constraints.Value
+	Resources        map[string]string
 }
 
-// AddService creates a new service, running the supplied charm, with the
+// AddApplication creates a new application, running the supplied charm, with the
 // supplied name (which must be unique). If the charm defines peer relations,
 // they will be created automatically.
-func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot add service %q", args.Name)
-	ownerTag, err := names.ParseUserTag(args.Owner)
-	if err != nil {
-		return nil, errors.Annotatef(err, "Invalid ownertag %s", args.Owner)
-	}
+func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot add application %q", args.Name)
 	// Sanity checks.
-	if !names.IsValidService(args.Name) {
+	if !names.IsValidApplication(args.Name) {
 		return nil, errors.Errorf("invalid name")
 	}
 	if args.Charm == nil {
 		return nil, errors.Errorf("charm is nil")
 	}
-	env, err := st.Environment()
-	if err != nil {
+
+	if err := validateCharmVersion(args.Charm); err != nil {
 		return nil, errors.Trace(err)
-	} else if env.Life() != Alive {
-		return nil, errors.Errorf("environment is no longer alive")
 	}
-	if _, err := st.EnvironmentUser(ownerTag); err != nil {
+
+	if exists, err := isNotDead(st, applicationsC, args.Name); err != nil {
+		return nil, errors.Trace(err)
+	} else if exists {
+		return nil, errors.Errorf("application already exists")
+	}
+	if err := checkModelActive(st); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if args.Storage == nil {
 		args.Storage = make(map[string]StorageConstraints)
 	}
-
 	if err := addDefaultStorageConstraints(st, args.Storage, args.Charm.Meta()); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1174,24 +1038,34 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 		} else {
 			supportedSeries = args.Charm.Meta().Series
 		}
-		seriesOS, err := series.GetOSFromSeries(args.Series)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		supportedOperatingSystems := make(map[os.OSType]bool)
-		for _, supportedSeries := range supportedSeries {
-			os, err := series.GetOSFromSeries(supportedSeries)
+		if len(supportedSeries) > 0 {
+			seriesOS, err := series.GetOSFromSeries(args.Series)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			supportedOperatingSystems[os] = true
+			supportedOperatingSystems := make(map[os.OSType]bool)
+			for _, supportedSeries := range supportedSeries {
+				os, err := series.GetOSFromSeries(supportedSeries)
+				if err != nil {
+					return nil, errors.Trace(err)
+				}
+				supportedOperatingSystems[os] = true
+			}
+			if !supportedOperatingSystems[seriesOS] {
+				return nil, errors.NewNotSupported(errors.Errorf(
+					"series %q (OS %q) not supported by charm, supported series are %q",
+					args.Series, seriesOS, strings.Join(supportedSeries, ", "),
+				), "")
+			}
 		}
-		if !supportedOperatingSystems[seriesOS] {
-			return nil, errors.NewNotSupported(errors.Errorf(
-				"series %q (OS %q) not supported by charm",
-				args.Series, seriesOS,
-			), "")
-		}
+	}
+
+	// Ignore constraints that result from this call as
+	// these would be accumulation of model and application constraints
+	// but we only want application constraints to be persisted here.
+	_, err = st.resolveConstraints(args.Constraints)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 
 	for _, placement := range args.Placement {
@@ -1222,95 +1096,110 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 		}
 	}
 
-	serviceID := st.docID(args.Name)
-	// Create the service addition operations.
+	applicationID := st.docID(args.Name)
+
+	// Create the application addition operations.
 	peers := args.Charm.Meta().Peers
-	svcDoc := &serviceDoc{
-		DocID:         serviceID,
+
+	// The doc defaults to CharmModifiedVersion = 0, which is correct, since it
+	// has, by definition, at its initial state.
+	appDoc := &applicationDoc{
+		DocID:         applicationID,
 		Name:          args.Name,
-		EnvUUID:       env.UUID(),
+		ModelUUID:     st.ModelUUID(),
 		Series:        args.Series,
 		Subordinate:   args.Charm.Meta().Subordinate,
 		CharmURL:      args.Charm.URL(),
+		Channel:       string(args.Channel),
 		RelationCount: len(peers),
 		Life:          Alive,
-		OwnerTag:      args.Owner,
 	}
-	svc := newService(st, svcDoc)
+
+	app := newApplication(st, appDoc)
+
+	endpointBindingsOp, err := createEndpointBindingsOp(
+		st, app.globalKey(),
+		args.EndpointBindings, args.Charm.Meta(),
+	)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	statusDoc := statusDoc{
-		EnvUUID: st.EnvironUUID(),
-		// TODO(fwereade): this violates the spec. Should be "waiting".
-		// Implemented like this to be consistent with incorrect add-unit
-		// behaviour.
-		Status:     StatusUnknown,
-		StatusInfo: MessageWaitForAgentInit,
-		Updated:    time.Now().UnixNano(),
+		ModelUUID:  st.ModelUUID(),
+		Status:     status.Waiting,
+		StatusInfo: status.MessageWaitForMachine,
+		Updated:    st.clock.Now().UnixNano(),
 		// This exists to preserve questionable unit-aggregation behaviour
 		// while we work out how to switch to an implementation that makes
-		// sense. It is also set in AddMissingServiceStatuses.
+		// sense.
 		NeverSet: true,
 	}
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		// If we've tried once already and failed, check that
-		// environment may have been destroyed.
+		// model may have been destroyed.
 		if attempt > 0 {
-			if err := checkEnvLife(st); err != nil {
+			if err := checkModelActive(st); err != nil {
 				return nil, errors.Trace(err)
 			}
-			// Ensure a local service with the same name doesn't exist.
-			if exists, err := isNotDead(st, servicesC, args.Name); err != nil {
+			// Ensure a local application with the same name doesn't exist.
+			if exists, err := isNotDead(st, applicationsC, args.Name); err != nil {
 				return nil, errors.Trace(err)
 			} else if exists {
-				return nil, errLocalServiceExists
+				return nil, errLocalApplicationExists
 			}
-			// Ensure a remote service with the same name doesn't exist.
-			if remoteExists, err := isNotDead(st, remoteServicesC, args.Name); err != nil {
+			// Ensure a remote application with the same name doesn't exist.
+			if remoteExists, err := isNotDead(st, remoteApplicationsC, args.Name); err != nil {
 				return nil, errors.Trace(err)
 			} else if remoteExists {
-				return nil, errSameNameRemoteServiceExists
+				return nil, errSameNameRemoteApplicationExists
 			}
 		}
+		// The addApplicationOps does not include the model alive assertion,
+		// so we add it here.
 		ops := []txn.Op{
-			env.assertAliveOp(),
-			createConstraintsOp(st, svc.globalKey(), args.Constraints),
-			// TODO(dimitern) 2014-04-04 bug #1302498
-			// Once we can add networks independently of machine
-			// provisioning, we should check the given networks are valid
-			// and known before setting them.
-			createRequestedNetworksOp(st, svc.globalKey(), args.Networks),
-			createStorageConstraintsOp(svc.globalKey(), args.Storage),
-			createSettingsOp(svc.settingsKey(), map[string]interface{}(args.Settings)),
-			addLeadershipSettingsOp(svc.Tag().Id()),
-			createStatusOp(st, svc.globalKey(), statusDoc),
-			{
-				C:      settingsrefsC,
-				Id:     st.docID(svc.settingsKey()),
-				Assert: txn.DocMissing,
-				Insert: settingsRefsDoc{
-					RefCount: 1,
-					EnvUUID:  st.EnvironUUID()},
-			}, {
-				C:      servicesC,
-				Id:     serviceID,
-				Assert: txn.DocMissing,
-				Insert: svcDoc,
-			}, {
-				C:      remoteServicesC,
-				Id:     serviceID,
-				Assert: txn.DocMissing,
-			},
+			assertModelActiveOp(st.ModelUUID()),
+			endpointBindingsOp,
 		}
+		addOps, err := addApplicationOps(st, addApplicationOpsArgs{
+			applicationDoc: appDoc,
+			statusDoc:      statusDoc,
+			constraints:    args.Constraints,
+			storage:        args.Storage,
+			settings:       map[string]interface{}(args.Settings),
+		})
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		ops = append(ops, addOps...)
+
 		// Collect peer relation addition operations.
+		//
+		// TODO(dimitern): Ensure each st.Endpoint has a space name associated in a
+		// follow-up.
 		peerOps, err := st.addPeerRelationsOps(args.Name, peers)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		ops = append(ops, peerOps...)
 
+		if len(args.Resources) > 0 {
+			// Collect pending resource resolution operations.
+			resources, err := st.Resources()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			resOps, err := resources.NewResolvePendingResourcesOps(args.Name, args.Resources)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			ops = append(ops, resOps...)
+		}
+
+		// Collect unit-adding operations.
 		for x := 0; x < args.NumUnits; x++ {
-			unitName, unitOps, err := svc.addServiceUnitOps(addUnitOpsArgs{cons: args.Constraints, storageCons: args.Storage})
+			unitName, unitOps, err := app.addApplicationUnitOps(applicationAddUnitOpsArgs{cons: args.Constraints, storageCons: args.Storage})
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -1321,18 +1210,17 @@ func (st *State) AddService(args AddServiceArgs) (service *Service, err error) {
 			}
 			ops = append(ops, assignUnitOps(unitName, placement)...)
 		}
-
 		return ops, nil
 	}
-	// At the last moment before inserting the service, prime status history.
-	probablyUpdateStatusHistory(st, svc.globalKey(), statusDoc)
+	// At the last moment before inserting the application, prime status history.
+	probablyUpdateStatusHistory(st, app.globalKey(), statusDoc)
 
 	if err = st.run(buildTxn); err == nil {
 		// Refresh to pick the txn-revno.
-		if err = svc.Refresh(); err != nil {
+		if err = app.Refresh(); err != nil {
 			return nil, errors.Trace(err)
 		}
-		return svc, nil
+		return app, nil
 	}
 	return nil, errors.Trace(err)
 }
@@ -1370,7 +1258,7 @@ func (st *State) AssignStagedUnits(ids []string) ([]UnitAssignmentResult, error)
 	return results, nil
 }
 
-// UnitAssignments returns all staged unit assignments in the environment.
+// UnitAssignments returns all staged unit assignments in the model.
 func (st *State) AllUnitAssignments() ([]UnitAssignment, error) {
 	return st.unitAssignments(nil)
 }
@@ -1407,31 +1295,22 @@ func (st *State) assignStagedUnit(a UnitAssignment) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	svc, err := u.Service()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	networks, err := svc.Networks()
-	if err != nil {
-		return errors.Trace(err)
-	}
 	if a.Scope == "" && a.Directive == "" {
 		return errors.Trace(st.AssignUnit(u, AssignCleanEmpty))
 	}
 
 	placement := &instance.Placement{Scope: a.Scope, Directive: a.Directive}
 
-	// units always have the same networks as their service.
-	return errors.Trace(st.AssignUnitWithPlacement(u, placement, networks))
+	return errors.Trace(st.AssignUnitWithPlacement(u, placement))
 }
 
 // AssignUnitWithPlacement chooses a machine using the given placement directive
 // and then assigns the unit to it.
-func (st *State) AssignUnitWithPlacement(unit *Unit, placement *instance.Placement, networks []string) error {
+func (st *State) AssignUnitWithPlacement(unit *Unit, placement *instance.Placement) error {
 	// TODO(natefinch) this should be done as a single transaction, not two.
 	// Mark https://launchpad.net/bugs/1506994 fixed when done.
 
-	m, err := st.addMachineWithPlacement(unit, placement, networks)
+	m, err := st.addMachineWithPlacement(unit, placement)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1475,17 +1354,17 @@ func (st *State) parsePlacement(placement *instance.Placement) (*placementData, 
 		}, nil
 	}
 	switch placement.Scope {
-	case st.EnvironUUID():
+	case st.ModelUUID():
 		return &placementData{directive: placement.Directive}, nil
 	case instance.MachineScope:
 		return &placementData{machineId: placement.Directive}, nil
 	default:
-		return nil, errors.Errorf("invalid environment UUID %q", placement.Scope)
+		return nil, errors.Errorf("placement scope: invalid model UUID %q", placement.Scope)
 	}
 }
 
 // addMachineWithPlacement finds a machine that matches the given placement directive for the given unit.
-func (st *State) addMachineWithPlacement(unit *Unit, placement *instance.Placement, networks []string) (*Machine, error) {
+func (st *State) addMachineWithPlacement(unit *Unit, placement *instance.Placement) (*Machine, error) {
 	unitCons, err := unit.Constraints()
 	if err != nil {
 		return nil, err
@@ -1506,22 +1385,23 @@ func (st *State) addMachineWithPlacement(unit *Unit, placement *instance.Placeme
 	case containerPlacement:
 		// If a container is to be used, create it.
 		template := MachineTemplate{
-			Series:            unit.Series(),
-			Jobs:              []MachineJob{JobHostUnits},
-			Dirty:             true,
-			Constraints:       *unitCons,
-			RequestedNetworks: networks,
+			Series:      unit.Series(),
+			Jobs:        []MachineJob{JobHostUnits},
+			Dirty:       true,
+			Constraints: *unitCons,
 		}
-		return st.AddMachineInsideMachine(template, data.machineId, data.containerType)
+		if data.machineId != "" {
+			return st.AddMachineInsideMachine(template, data.machineId, data.containerType)
+		}
+		return st.AddMachineInsideNewMachine(template, template, data.containerType)
 	case directivePlacement:
 		// If a placement directive is to be used, do that here.
 		template := MachineTemplate{
-			Series:            unit.Series(),
-			Jobs:              []MachineJob{JobHostUnits},
-			Dirty:             true,
-			Constraints:       *unitCons,
-			RequestedNetworks: networks,
-			Placement:         data.directive,
+			Series:      unit.Series(),
+			Jobs:        []MachineJob{JobHostUnits},
+			Dirty:       true,
+			Constraints: *unitCons,
+			Placement:   data.directive,
 		}
 		return st.AddOneMachine(template)
 	default:
@@ -1530,278 +1410,43 @@ func (st *State) addMachineWithPlacement(unit *Unit, placement *instance.Placeme
 	}
 }
 
-// AddIPAddress creates and returns a new IP address. It can return an
-// error satisfying IsNotValid() or IsAlreadyExists() when the addr
-// does not contain a valid IP, or when addr is already added.
-func (st *State) AddIPAddress(addr network.Address, subnetID string) (*IPAddress, error) {
-	return addIPAddress(st, addr, subnetID)
-}
-
-// IPAddress returns an existing IP address from the state.
-func (st *State) IPAddress(value string) (*IPAddress, error) {
-	return ipAddress(st, value)
-}
-
-// IPAddressByTag returns an existing IP address from the state
-// identified by its tag.
-func (st *State) IPAddressByTag(tag names.IPAddressTag) (*IPAddress, error) {
-	return ipAddressByTag(st, tag)
-}
-
-// AllocatedIPAddresses returns all the allocated addresses for a machine
-func (st *State) AllocatedIPAddresses(machineId string) ([]*IPAddress, error) {
-	return fetchIPAddresses(st, bson.D{{"machineid", machineId}})
-}
-
-// DeadIPAddresses returns all IP addresses with a Life of Dead
-func (st *State) DeadIPAddresses() ([]*IPAddress, error) {
-	return fetchIPAddresses(st, isDeadDoc)
-}
-
-// AddSubnet creates and returns a new subnet
-func (st *State) AddSubnet(args SubnetInfo) (subnet *Subnet, err error) {
-	defer errors.DeferredAnnotatef(&err, "adding subnet %q", args.CIDR)
-
-	subnetID := st.docID(args.CIDR)
-	subDoc := subnetDoc{
-		DocID:             subnetID,
-		EnvUUID:           st.EnvironUUID(),
-		Life:              Alive,
-		CIDR:              args.CIDR,
-		VLANTag:           args.VLANTag,
-		ProviderId:        args.ProviderId,
-		AllocatableIPHigh: args.AllocatableIPHigh,
-		AllocatableIPLow:  args.AllocatableIPLow,
-		AvailabilityZone:  args.AvailabilityZone,
-		SpaceName:         args.SpaceName,
-	}
-	subnet = &Subnet{doc: subDoc, st: st}
-	err = subnet.Validate()
-	if err != nil {
-		return nil, err
-	}
-	ops := []txn.Op{
-		assertEnvAliveOp(st.EnvironUUID()),
-		{
-			C:      subnetsC,
-			Id:     subnetID,
-			Assert: txn.DocMissing,
-			Insert: subDoc,
-		},
-	}
-
-	err = st.runTransaction(ops)
-	switch err {
-	case txn.ErrAborted:
-		if err := checkEnvLife(st); err != nil {
-			return nil, errors.Trace(err)
-		}
-		if _, err = st.Subnet(args.CIDR); err == nil {
-			return nil, errors.AlreadyExistsf("subnet %q", args.CIDR)
-		} else if err != nil {
-			return nil, errors.Trace(err)
-		}
-	case nil:
-		// if the ProviderId was not unique adding the subnet can fail
-		// without an error. Refreshing catches this
-		err = subnet.Refresh()
-		if err == nil {
-			return subnet, nil
-		}
-		return nil, errors.Errorf("ProviderId %q not unique", args.ProviderId)
-	}
-	return nil, errors.Trace(err)
-}
-
-func (st *State) Subnet(cidr string) (*Subnet, error) {
-	subnets, closer := st.getCollection(subnetsC)
+// Application returns a application state by name.
+func (st *State) Application(name string) (_ *Application, err error) {
+	applications, closer := st.getCollection(applicationsC)
 	defer closer()
 
-	doc := &subnetDoc{}
-	err := subnets.FindId(cidr).One(doc)
+	if !names.IsValidApplication(name) {
+		return nil, errors.Errorf("%q is not a valid application name", name)
+	}
+	sdoc := &applicationDoc{}
+	err = applications.FindId(name).One(sdoc)
 	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("subnet %q", cidr)
+		return nil, errors.NotFoundf("application %q", name)
 	}
 	if err != nil {
-		return nil, errors.Annotatef(err, "cannot get subnet %q", cidr)
+		return nil, errors.Annotatef(err, "cannot get application %q", name)
 	}
-	return &Subnet{st, *doc}, nil
+	return newApplication(st, sdoc), nil
 }
 
-// AllSubnets returns all known subnets in the environment.
-func (st *State) AllSubnets() (subnets []*Subnet, err error) {
-	subnetsCollection, closer := st.getCollection(subnetsC)
+// AllApplications returns all deployed applications in the model.
+func (st *State) AllApplications() (applications []*Application, err error) {
+	applicationsCollection, closer := st.getCollection(applicationsC)
 	defer closer()
 
-	docs := []subnetDoc{}
-	err = subnetsCollection.Find(nil).All(&docs)
+	sdocs := []applicationDoc{}
+	err = applicationsCollection.Find(bson.D{}).All(&sdocs)
 	if err != nil {
-		return nil, errors.Annotatef(err, "cannot get all subnets")
-	}
-	for _, doc := range docs {
-		subnets = append(subnets, &Subnet{st, doc})
-	}
-	return subnets, nil
-}
-
-// AddNetwork creates a new network with the given params. If a
-// network with the same name or provider id already exists in state,
-// an error satisfying errors.IsAlreadyExists is returned.
-func (st *State) AddNetwork(args NetworkInfo) (n *Network, err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot add network %q", args.Name)
-	if args.CIDR != "" {
-		_, _, err := net.ParseCIDR(args.CIDR)
-		if err != nil {
-			return nil, err
-		}
-	}
-	if args.Name == "" {
-		return nil, errors.Errorf("name must be not empty")
-	}
-	if !names.IsValidNetwork(args.Name) {
-		return nil, errors.Errorf("invalid name")
-	}
-	if args.ProviderId == "" {
-		return nil, errors.Errorf("provider id must be not empty")
-	}
-	if args.VLANTag < 0 || args.VLANTag > 4094 {
-		return nil, errors.Errorf("invalid VLAN tag %d: must be between 0 and 4094", args.VLANTag)
-	}
-	doc := st.newNetworkDoc(args)
-	ops := []txn.Op{
-		assertEnvAliveOp(st.EnvironUUID()),
-		{
-			C:      networksC,
-			Id:     doc.DocID,
-			Assert: txn.DocMissing,
-			Insert: doc,
-		},
-	}
-	err = st.runTransaction(ops)
-	switch err {
-	case txn.ErrAborted:
-		if err := checkEnvLife(st); err != nil {
-			return nil, errors.Trace(err)
-		}
-		if _, err = st.Network(args.Name); err == nil {
-			return nil, errors.AlreadyExistsf("network %q", args.Name)
-		} else if err != nil {
-			return nil, errors.Trace(err)
-		}
-	case nil:
-		// We have a unique key restriction on the ProviderId field,
-		// which will cause the insert to fail if there is another
-		// record with the same provider id in the table. The txn
-		// logic does not report insertion errors, so we check that
-		// the record has actually been inserted correctly before
-		// reporting success.
-		if _, err = st.Network(args.Name); err != nil {
-			return nil, errors.AlreadyExistsf("network with provider id %q", args.ProviderId)
-		}
-		return newNetwork(st, doc), nil
-	}
-	return nil, errors.Trace(err)
-}
-
-// Network returns the network with the given name.
-func (st *State) Network(name string) (*Network, error) {
-	networks, closer := st.getCollection(networksC)
-	defer closer()
-
-	doc := &networkDoc{}
-	err := networks.FindId(name).One(doc)
-	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("network %q", name)
-	}
-	if err != nil {
-		return nil, errors.Annotatef(err, "cannot get network %q", name)
-	}
-	return newNetwork(st, doc), nil
-}
-
-// AllNetworks returns all known networks in the environment.
-func (st *State) AllNetworks() (networks []*Network, err error) {
-	networksCollection, closer := st.getCollection(networksC)
-	defer closer()
-
-	docs := []networkDoc{}
-	err = networksCollection.Find(nil).All(&docs)
-	if err != nil {
-		return nil, errors.Annotatef(err, "cannot get all networks")
-	}
-	for _, doc := range docs {
-		networks = append(networks, newNetwork(st, &doc))
-	}
-	return networks, nil
-}
-
-// Service returns a service state by name.
-func (st *State) Service(name string) (service *Service, err error) {
-	services, closer := st.getCollection(servicesC)
-	defer closer()
-
-	if !names.IsValidService(name) {
-		return nil, errors.NotValidf("service name %q", name)
-	}
-	sdoc := &serviceDoc{}
-	err = services.FindId(name).One(sdoc)
-	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("service %q", name)
-	}
-	if err != nil {
-		return nil, errors.Annotatef(err, "cannot get service %q", name)
-	}
-	return newService(st, sdoc), nil
-}
-
-// AllServices returns all deployed services in the environment.
-func (st *State) AllServices() (services []*Service, err error) {
-	servicesCollection, closer := st.getCollection(servicesC)
-	defer closer()
-
-	sdocs := []serviceDoc{}
-	err = servicesCollection.Find(bson.D{}).All(&sdocs)
-	if err != nil {
-		return nil, errors.Errorf("cannot get all services")
+		return nil, errors.Errorf("cannot get all applications")
 	}
 	for _, v := range sdocs {
-		services = append(services, newService(st, &v))
+		applications = append(applications, newApplication(st, &v))
 	}
-	return services, nil
-}
-
-// docID generates a globally unique id value
-// where the environment uuid is prefixed to the
-// localID.
-func (st *State) docID(localID string) string {
-	return ensureEnvUUID(st.EnvironUUID(), localID)
-}
-
-// localID returns the local id value by stripping
-// off the environment uuid prefix if it is there.
-func (st *State) localID(ID string) string {
-	envUUID, localID, ok := splitDocID(ID)
-	if !ok || envUUID != st.EnvironUUID() {
-		return ID
-	}
-	return localID
-}
-
-// strictLocalID returns the local id value by removing the
-// environment UUID prefix.
-//
-// If there is no prefix matching the State's environment, an error is
-// returned.
-func (st *State) strictLocalID(ID string) (string, error) {
-	envUUID, localID, ok := splitDocID(ID)
-	if !ok || envUUID != st.EnvironUUID() {
-		return "", errors.Errorf("unexpected id: %#v", ID)
-	}
-	return localID, nil
+	return applications, nil
 }
 
 // InferEndpoints returns the endpoints corresponding to the supplied names.
-// There must be 1 or 2 supplied names, of the form <service>[:<relation>].
+// There must be 1 or 2 supplied names, of the form <application>[:<relation>].
 // If the supplied names uniquely specify a possible relation, or if they
 // uniquely specify a possible relation once all implicit relations have been
 // filtered, the endpoints corresponding to that relation will be returned.
@@ -1883,45 +1528,45 @@ func containerScopeOk(st *State, ep1, ep2 Endpoint) (bool, error) {
 	}
 	var subordinateCount int
 	for _, ep := range []Endpoint{ep1, ep2} {
-		svc, err := serviceByName(st, ep.ServiceName)
+		svc, err := applicationByName(st, ep.ApplicationName)
 		if err != nil {
 			return false, err
 		}
-		// Container scoped relations are not allowed for remote services.
+		// Container scoped relations are not allowed for remote applications.
 		if svc.IsRemote() {
 			return false, nil
 		}
-		if svc.(*Service).doc.Subordinate {
+		if svc.(*Application).doc.Subordinate {
 			subordinateCount++
 		}
 	}
 	return subordinateCount >= 1, nil
 }
 
-func serviceByName(st *State, name string) (ServiceEntity, error) {
-	s, err := st.RemoteService(name)
+func applicationByName(st *State, name string) (ApplicationEntity, error) {
+	s, err := st.RemoteApplication(name)
 	if err == nil {
 		return s, nil
 	} else if err != nil && !errors.IsNotFound(err) {
 		return nil, err
 	}
-	return st.Service(name)
+	return st.Application(name)
 }
 
 // endpoints returns all endpoints that could be intended by the
 // supplied endpoint name, and which cause the filter param to
 // return true.
 func (st *State) endpoints(name string, filter func(ep Endpoint) bool) ([]Endpoint, error) {
-	var svcName, relName string
+	var appName, relName string
 	if i := strings.Index(name, ":"); i == -1 {
-		svcName = name
+		appName = name
 	} else if i != 0 && i != len(name)-1 {
-		svcName = name[:i]
+		appName = name[:i]
 		relName = name[i+1:]
 	} else {
 		return nil, errors.Errorf("invalid endpoint %q", name)
 	}
-	svc, err := serviceByName(st, svcName)
+	svc, err := applicationByName(st, appName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1960,17 +1605,17 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 		return nil, errors.Errorf("endpoints do not relate")
 	}
 
-	// Check services are alive and do checks if one is remote.
-	svc1, err := aliveService(st, eps[0].ServiceName)
+	// Check applications are alive and do checks if one is remote.
+	svc1, err := aliveApplication(st, eps[0].ApplicationName)
 	if err != nil {
 		return nil, err
 	}
-	svc2, err := aliveService(st, eps[1].ServiceName)
+	svc2, err := aliveApplication(st, eps[1].ApplicationName)
 	if err != nil {
 		return nil, err
 	}
 	if svc1.IsRemote() && svc2.IsRemote() {
-		return nil, errors.Errorf("cannot add relation between remote services %q and %q", eps[0].ServiceName, eps[1].ServiceName)
+		return nil, errors.Errorf("cannot add relation between remote applications %q and %q", eps[0].ApplicationName, eps[1].ApplicationName)
 	}
 	remoteRelation := svc1.IsRemote() || svc2.IsRemote()
 	if remoteRelation && (eps[0].Scope != charm.ScopeGlobal || eps[1].Scope != charm.ScopeGlobal) {
@@ -1978,7 +1623,7 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 	}
 
 	// If either endpoint has container scope, so must the other; and the
-	// services's series must also match, because they'll be deployed to
+	// applications's series must also match, because they'll be deployed to
 	// the same machines.
 	matchSeries := true
 	if eps[0].Scope == charm.ScopeContainer {
@@ -1992,8 +1637,8 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 	// -1, we haven't got it yet (we don't get it at this stage, because we
 	// still don't know whether it's sane to even attempt creation).
 	id := -1
-	// If a service's charm is upgraded while we're trying to add a relation,
-	// we'll need to re-validate service sanity.
+	// If a application's charm is upgraded while we're trying to add a relation,
+	// we'll need to re-validate application sanity.
 	var doc *relationDoc
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		// Perform initial relation sanity check.
@@ -2002,27 +1647,27 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 		} else if exists {
 			return nil, errors.Errorf("relation already exists")
 		}
-		// Collect per-service operations, checking sanity as we go.
+		// Collect per-application operations, checking sanity as we go.
 		var ops []txn.Op
 		var subordinateCount int
 		series := map[string]bool{}
 		for _, ep := range eps {
-			svc, err := aliveService(st, ep.ServiceName)
+			svc, err := aliveApplication(st, ep.ApplicationName)
 			if err != nil {
 				return nil, err
 			}
 			if svc.IsRemote() {
 				ops = append(ops, txn.Op{
-					C:      remoteServicesC,
-					Id:     st.docID(ep.ServiceName),
+					C:      remoteApplicationsC,
+					Id:     st.docID(ep.ApplicationName),
 					Assert: bson.D{{"life", Alive}},
 					Update: bson.D{{"$inc", bson.D{{"relationcount", 1}}}},
 				})
 			} else {
-				localSvc := svc.(*Service)
+				localSvc := svc.(*Application)
 				if localSvc.doc.Subordinate {
 					if remoteRelation {
-						return nil, errors.Errorf("cannot relate subordinate %q to remote service", localSvc.Name())
+						return nil, errors.Errorf("cannot relate subordinate %q to remote application", localSvc.Name())
 					}
 					subordinateCount++
 				}
@@ -2032,21 +1677,21 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 					return nil, errors.Trace(err)
 				}
 				if !ep.ImplementedBy(ch) {
-					return nil, errors.Errorf("%q does not implement %q", ep.ServiceName, ep)
+					return nil, errors.Errorf("%q does not implement %q", ep.ApplicationName, ep)
 				}
 				ops = append(ops, txn.Op{
-					C:      servicesC,
-					Id:     st.docID(ep.ServiceName),
+					C:      applicationsC,
+					Id:     st.docID(ep.ApplicationName),
 					Assert: bson.D{{"life", Alive}, {"charmurl", ch.URL()}},
 					Update: bson.D{{"$inc", bson.D{{"relationcount", 1}}}},
 				})
 			}
 		}
 		if matchSeries && len(series) != 1 {
-			return nil, errors.Errorf("principal and subordinate services' series must match")
+			return nil, errors.Errorf("principal and subordinate applications' series must match")
 		}
 		if eps[0].Scope == charm.ScopeContainer && subordinateCount < 1 {
-			return nil, errors.Errorf("container scoped relation requires at least one subordinate service")
+			return nil, errors.Errorf("container scoped relation requires at least one subordinate application")
 		}
 
 		// Create a new unique id if that has not already been done, and add
@@ -2061,7 +1706,7 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 		doc = &relationDoc{
 			DocID:     docID,
 			Key:       key,
-			EnvUUID:   st.EnvironUUID(),
+			ModelUUID: st.ModelUUID(),
 			Id:        id,
 			Endpoints: eps,
 			Life:      Alive,
@@ -2080,14 +1725,14 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 	return nil, errors.Trace(err)
 }
 
-func aliveService(st *State, name string) (ServiceEntity, error) {
-	svc1, err := serviceByName(st, name)
+func aliveApplication(st *State, name string) (ApplicationEntity, error) {
+	svc1, err := applicationByName(st, name)
 	if errors.IsNotFound(err) {
-		return nil, errors.Errorf("service %q does not exist", name)
+		return nil, errors.Errorf("application %q does not exist", name)
 	} else if err != nil {
 		return nil, errors.Trace(err)
 	} else if svc1.Life() != Alive {
-		return nil, errors.Errorf("service %q is not alive", name)
+		return nil, errors.Errorf("application %q is not alive", name)
 	}
 	return svc1, err
 }
@@ -2130,7 +1775,7 @@ func (st *State) Relation(id int) (*Relation, error) {
 	return newRelation(st, &doc), nil
 }
 
-// AllRelations returns all relations in the environment ordered by id.
+// AllRelations returns all relations in the model ordered by id.
 func (st *State) AllRelations() (relations []*Relation, err error) {
 	relationsCollection, closer := st.getCollection(relationsC)
 	defer closer()
@@ -2189,8 +1834,8 @@ func (st *State) UnitsFor(machineId string) ([]*Unit, error) {
 }
 
 // AssignUnit places the unit on a machine. Depending on the policy, and the
-// state of the environment, this may lead to new instances being launched
-// within the environment.
+// state of the model, this may lead to new instances being launched
+// within the model.
 func (st *State) AssignUnit(u *Unit, policy AssignmentPolicy) (err error) {
 	if !u.IsPrincipal() {
 		return errors.Errorf("subordinate unit %q cannot be assigned directly to a machine", u)
@@ -2205,12 +1850,12 @@ func (st *State) AssignUnit(u *Unit, policy AssignmentPolicy) (err error) {
 		}
 		return u.AssignToMachine(m)
 	case AssignClean:
-		if _, err = u.AssignToCleanMachine(); err != noCleanMachines {
+		if _, err = u.AssignToCleanMachine(); errors.Cause(err) != noCleanMachines {
 			return errors.Trace(err)
 		}
 		return u.AssignToNewMachineOrContainer()
 	case AssignCleanEmpty:
-		if _, err = u.AssignToCleanEmptyMachine(); err != noCleanMachines {
+		if _, err = u.AssignToCleanEmptyMachine(); errors.Cause(err) != noCleanMachines {
 			return errors.Trace(err)
 		}
 		return u.AssignToNewMachineOrContainer()
@@ -2223,8 +1868,8 @@ func (st *State) AssignUnit(u *Unit, policy AssignmentPolicy) (err error) {
 // StartSync forces watchers to resynchronize their state with the
 // database immediately. This will happen periodically automatically.
 func (st *State) StartSync() {
-	st.watcher.StartSync()
-	st.pwatcher.Sync()
+	st.workers.TxnLogWatcher().StartSync()
+	st.workers.PresenceWatcher().Sync()
 }
 
 // SetAdminMongoPassword sets the administrative password
@@ -2236,93 +1881,99 @@ func (st *State) SetAdminMongoPassword(password string) error {
 	return errors.Trace(err)
 }
 
-type stateServersDoc struct {
+type controllersDoc struct {
 	Id               string `bson:"_id"`
-	EnvUUID          string `bson:"env-uuid"`
+	CloudName        string `bson:"cloud"`
+	ModelUUID        string `bson:"model-uuid"`
 	MachineIds       []string
 	VotingMachineIds []string
+	MongoSpaceName   string `bson:"mongo-space-name"`
+	MongoSpaceState  string `bson:"mongo-space-state"`
 }
 
-// StateServerInfo holds information about currently
-// configured state server machines.
-type StateServerInfo struct {
-	// EnvironmentTag identifies the initial environment. Only the initial
-	// environment is able to have machines that manage state. The initial
-	// environment is the environment that is created when bootstrapping.
-	EnvironmentTag names.EnvironTag
+// ControllerInfo holds information about currently
+// configured controller machines.
+type ControllerInfo struct {
+	// CloudName is the name of the cloud to which this controller is deployed.
+	CloudName string
+
+	// ModelTag identifies the initial model. Only the initial
+	// model is able to have machines that manage state. The initial
+	// model is the model that is created when bootstrapping.
+	ModelTag names.ModelTag
 
 	// MachineIds holds the ids of all machines configured
-	// to run a state server. It includes all the machine
+	// to run a controller. It includes all the machine
 	// ids in VotingMachineIds.
 	MachineIds []string
 
 	// VotingMachineIds holds the ids of all machines
-	// configured to run a state server and to have a vote
+	// configured to run a controller and to have a vote
 	// in peer election.
 	VotingMachineIds []string
+
+	// MongoSpaceName is the space that contains all Mongo servers.
+	MongoSpaceName string
+
+	// MongoSpaceState records the state of the mongo space selection state machine. Valid states are:
+	// * We haven't looked for a Mongo space yet (MongoSpaceUnknown)
+	// * We have looked for a Mongo space, but we didn't find one (MongoSpaceInvalid)
+	// * We have looked for and found a Mongo space (MongoSpaceValid)
+	// * We didn't try to find a Mongo space because the provider doesn't support spaces (MongoSpaceUnsupported)
+	MongoSpaceState MongoSpaceStates
 }
 
-// StateServerInfo returns information about
-// the currently configured state server machines.
-func (st *State) StateServerInfo() (*StateServerInfo, error) {
+type MongoSpaceStates string
+
+const (
+	MongoSpaceUnknown     MongoSpaceStates = ""
+	MongoSpaceValid       MongoSpaceStates = "valid"
+	MongoSpaceInvalid     MongoSpaceStates = "invalid"
+	MongoSpaceUnsupported MongoSpaceStates = "unsupported"
+)
+
+// ControllerInfo returns information about
+// the currently configured controller machines.
+func (st *State) ControllerInfo() (*ControllerInfo, error) {
 	session := st.session.Copy()
 	defer session.Close()
-	return readRawStateServerInfo(st.session)
+	return readRawControllerInfo(st.session)
 }
 
-// readRawStateServerInfo reads StateServerInfo direct from the supplied session,
-// falling back to the bootstrap environment document to extract the UUID when
+// readRawControllerInfo reads ControllerInfo direct from the supplied session,
+// falling back to the bootstrap model document to extract the UUID when
 // required.
-func readRawStateServerInfo(session *mgo.Session) (*StateServerInfo, error) {
+func readRawControllerInfo(session *mgo.Session) (*ControllerInfo, error) {
 	db := session.DB(jujuDB)
-	stateServers := db.C(stateServersC)
+	controllers := db.C(controllersC)
 
-	var doc stateServersDoc
-	err := stateServers.Find(bson.D{{"_id", environGlobalKey}}).One(&doc)
+	var doc controllersDoc
+	err := controllers.Find(bson.D{{"_id", modelGlobalKey}}).One(&doc)
+	if err == mgo.ErrNotFound {
+		return nil, errors.NotFoundf("controllers document")
+	}
 	if err != nil {
-		return nil, errors.Annotatef(err, "cannot get state servers document")
+		return nil, errors.Annotatef(err, "cannot get controllers document")
 	}
-
-	if doc.EnvUUID == "" {
-		logger.Warningf("state servers info has no environment UUID so retrieving it from environment")
-
-		// This only happens when migrating from 1.20 to 1.21 before
-		// upgrade steps have been run. Without this hack environTag
-		// on State ends up empty, breaking basic functionality needed
-		// to run upgrade steps (a chicken-and-egg scenario).
-		environments := db.C(environmentsC)
-
-		var envDoc environmentDoc
-		query := environments.Find(nil)
-		count, err := query.Count()
-		if err != nil {
-			return nil, errors.Annotate(err, "cannot get environment document count")
-		}
-		if count != 1 {
-			return nil, errors.New("expected just one environment to get UUID from")
-		}
-		if err := query.One(&envDoc); err != nil {
-			return nil, errors.Annotate(err, "cannot load environment document")
-		}
-		doc.EnvUUID = envDoc.UUID
-	}
-
-	return &StateServerInfo{
-		EnvironmentTag:   names.NewEnvironTag(doc.EnvUUID),
+	return &ControllerInfo{
+		CloudName:        doc.CloudName,
+		ModelTag:         names.NewModelTag(doc.ModelUUID),
 		MachineIds:       doc.MachineIds,
 		VotingMachineIds: doc.VotingMachineIds,
+		MongoSpaceName:   doc.MongoSpaceName,
+		MongoSpaceState:  MongoSpaceStates(doc.MongoSpaceState),
 	}, nil
 }
 
 const stateServingInfoKey = "stateServingInfo"
 
-// StateServingInfo returns information for running a state server machine
+// StateServingInfo returns information for running a controller machine
 func (st *State) StateServingInfo() (StateServingInfo, error) {
-	stateServers, closer := st.getCollection(stateServersC)
+	controllers, closer := st.getCollection(controllersC)
 	defer closer()
 
 	var info StateServingInfo
-	err := stateServers.Find(bson.D{{"_id", stateServingInfoKey}}).One(&info)
+	err := controllers.Find(bson.D{{"_id", stateServingInfoKey}}).One(&info)
 	if err != nil {
 		return info, errors.Trace(err)
 	}
@@ -2332,14 +1983,14 @@ func (st *State) StateServingInfo() (StateServingInfo, error) {
 	return info, nil
 }
 
-// SetStateServingInfo stores information needed for running a state server
+// SetStateServingInfo stores information needed for running a controller
 func (st *State) SetStateServingInfo(info StateServingInfo) error {
 	if info.StatePort == 0 || info.APIPort == 0 ||
 		info.Cert == "" || info.PrivateKey == "" {
 		return errors.Errorf("incomplete state serving info set in state")
 	}
 	if info.CAPrivateKey == "" {
-		// No CA certificate key means we can't generate new state server
+		// No CA certificate key means we can't generate new controller
 		// certificates when needed to add to the certificate SANs.
 		// Older Juju deployments discard the key because no one realised
 		// the certificate was flawed, so at best we can log a warning
@@ -2347,7 +1998,7 @@ func (st *State) SetStateServingInfo(info StateServingInfo) error {
 		logger.Warningf("state serving info has no CA certificate key")
 	}
 	ops := []txn.Op{{
-		C:      stateServersC,
+		C:      controllersC,
 		Id:     stateServingInfoKey,
 		Update: bson.D{{"$set", info}},
 	}}
@@ -2361,7 +2012,7 @@ func (st *State) SetStateServingInfo(info StateServingInfo) error {
 // if and only iff it is empty.
 func SetSystemIdentity(st *State, identity string) error {
 	ops := []txn.Op{{
-		C:      stateServersC,
+		C:      controllersC,
 		Id:     stateServingInfoKey,
 		Assert: bson.D{{"systemidentity", ""}},
 		Update: bson.D{{"$set", bson.D{{"systemidentity", identity}}}},
@@ -2373,13 +2024,113 @@ func SetSystemIdentity(st *State, identity string) error {
 	return nil
 }
 
+// SetOrGetMongoSpaceName attempts to set the Mongo space or, if that fails, look
+// up the current Mongo space. Either way, it always returns what is in the
+// database by the end of the call.
+func (st *State) SetOrGetMongoSpaceName(mongoSpaceName network.SpaceName) (network.SpaceName, error) {
+	err := st.setMongoSpaceName(mongoSpaceName)
+	if err == txn.ErrAborted {
+		// Failed to set the new space name. Return what is already stored in state.
+		controllerInfo, err := st.ControllerInfo()
+		if err != nil {
+			return network.SpaceName(""), errors.Trace(err)
+		}
+		return network.SpaceName(controllerInfo.MongoSpaceName), nil
+	} else if err != nil {
+		return network.SpaceName(""), errors.Trace(err)
+	}
+	return mongoSpaceName, nil
+}
+
+// SetMongoSpaceState attempts to set the Mongo space state or, if that fails, look
+// up the current Mongo state. Either way, it always returns what is in the
+// database by the end of the call.
+func (st *State) SetMongoSpaceState(mongoSpaceState MongoSpaceStates) error {
+
+	if mongoSpaceState != MongoSpaceUnknown &&
+		mongoSpaceState != MongoSpaceValid &&
+		mongoSpaceState != MongoSpaceInvalid &&
+		mongoSpaceState != MongoSpaceUnsupported {
+		return errors.NotValidf("mongoSpaceState: %s", mongoSpaceState)
+	}
+
+	err := st.setMongoSpaceState(mongoSpaceState)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+func (st *State) setMongoSpaceName(mongoSpaceName network.SpaceName) error {
+	ops := []txn.Op{{
+		C:      controllersC,
+		Id:     modelGlobalKey,
+		Assert: bson.D{{"mongo-space-state", string(MongoSpaceUnknown)}},
+		Update: bson.D{{
+			"$set",
+			bson.D{
+				{"mongo-space-name", string(mongoSpaceName)},
+				{"mongo-space-state", MongoSpaceValid},
+			},
+		}},
+	}}
+
+	return st.runTransaction(ops)
+}
+
+func (st *State) setMongoSpaceState(mongoSpaceState MongoSpaceStates) error {
+	ops := []txn.Op{{
+		C:      controllersC,
+		Id:     modelGlobalKey,
+		Update: bson.D{{"$set", bson.D{{"mongo-space-state", mongoSpaceState}}}},
+	}}
+
+	return st.runTransaction(ops)
+}
+
+func (st *State) networkEntityGlobalKeyOp(globalKey string, providerId network.Id) txn.Op {
+	key := st.networkEntityGlobalKey(globalKey, providerId)
+	return txn.Op{
+		C:      providerIDsC,
+		Id:     key,
+		Assert: txn.DocMissing,
+		Insert: providerIdDoc{ID: key},
+	}
+}
+
+func (st *State) networkEntityGlobalKeyRemoveOp(globalKey string, providerId network.Id) txn.Op {
+	key := st.networkEntityGlobalKey(globalKey, providerId)
+	return txn.Op{
+		C:      providerIDsC,
+		Id:     key,
+		Remove: true,
+	}
+}
+
+func (st *State) networkEntityGlobalKey(globalKey string, providerId network.Id) string {
+	return st.docID(globalKey + ":" + string(providerId))
+}
+
+// PutAuditEntryFn returns a function which will persist
+// audit.AuditEntry instances to the database.
+func (st *State) PutAuditEntryFn() func(audit.AuditEntry) error {
+	insert := func(collectionName string, docs ...interface{}) error {
+		collection, closeCollection := st.getCollection(collectionName)
+		defer closeCollection()
+
+		writeableCollection := collection.Writeable()
+
+		return errors.Trace(writeableCollection.Insert(docs...))
+	}
+	return stateaudit.PutAuditEntryFn(auditingC, insert)
+}
+
 var tagPrefix = map[byte]string{
 	'm': names.MachineTagKind + "-",
-	's': names.ServiceTagKind + "-",
+	'a': names.ApplicationTagKind + "-",
 	'u': names.UnitTagKind + "-",
-	'e': names.EnvironTagKind + "-",
+	'e': names.ModelTagKind + "-",
 	'r': names.RelationTagKind + "-",
-	'n': names.NetworkTagKind + "-",
 }
 
 func tagForGlobalKey(key string) (string, bool) {
@@ -2391,4 +2142,22 @@ func tagForGlobalKey(key string) (string, bool) {
 		return "", false
 	}
 	return p + key[2:], true
+}
+
+// SetClockForTesting is an exported function to allow other packages
+// to set the internal clock for the State instance. It is named such
+// that it should be obvious if it is ever called from a non-test package.
+func (st *State) SetClockForTesting(clock clock.Clock) error {
+	st.clock = clock
+	// Need to restart the lease workers so they get the new clock.
+	st.workers.Kill()
+	err := st.workers.Wait()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	err = st.start(st.controllerTag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }

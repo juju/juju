@@ -4,6 +4,7 @@
 package debug
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -142,7 +143,8 @@ func (s *DebugHooksServerSuite) TestRunHookExceptional(c *gc.C) {
 func (s *DebugHooksServerSuite) TestRunHook(c *gc.C) {
 	err := ioutil.WriteFile(s.ctx.ClientFileLock(), []byte{}, 0777)
 	c.Assert(err, jc.ErrorIsNil)
-	session, err := s.ctx.FindSession()
+	var output bytes.Buffer
+	session, err := s.ctx.FindSessionWithWriter(&output)
 	c.Assert(session, gc.NotNil)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -154,6 +156,8 @@ func (s *DebugHooksServerSuite) TestRunHook(c *gc.C) {
 	// exit cleanly (as if the PID were real and no longer running).
 	cmd := exec.Command("flock", s.ctx.ClientExitFileLock(), "-c", "sleep 5s")
 	c.Assert(cmd.Start(), gc.IsNil)
+	defer cmd.Process.Kill() // kill flock
+
 	ch := make(chan error)
 	go func() {
 		ch <- session.RunHook(hookName, s.tmpdir, os.Environ())
@@ -162,12 +166,14 @@ func (s *DebugHooksServerSuite) TestRunHook(c *gc.C) {
 	// Wait until either we find the debug dir, or the flock is released.
 	ticker := time.Tick(10 * time.Millisecond)
 	var debugdir os.FileInfo
+	timeout := time.After(testing.LongWait)
 	for debugdir == nil {
 		select {
+		case <-timeout:
+			c.Fatal("test timed out")
 		case err = <-ch:
 			// flock was released before we found the debug dir.
-			c.Error("could not find hook.sh")
-
+			c.Fatalf("could not find hook.sh\nerr: %v\noutput: %s", err, output.String())
 		case <-ticker:
 			tmpdir, err := os.Open(s.tmpdir)
 			if err != nil {
@@ -203,9 +209,12 @@ func (s *DebugHooksServerSuite) TestRunHook(c *gc.C) {
 
 	// RunHook should complete without waiting to be
 	// killed, and despite the exit lock being held.
-	err = <-ch
-	c.Assert(err, jc.ErrorIsNil)
-	cmd.Process.Kill() // kill flock
+	select {
+	case err = <-ch:
+		c.Assert(err, jc.ErrorIsNil)
+	case <-time.After(testing.LongWait):
+		c.Fatal("RunHook did not complete")
+	}
 }
 
 func (s *DebugHooksServerSuite) verifyEnvshFile(c *gc.C, envshPath string, hookName string) {

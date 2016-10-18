@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/provider/common"
 )
 
 // Instances returns the available instances in the environment that
@@ -62,9 +61,7 @@ func (env *environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
 // will see they are not tracked in state, assume they're stale/rogue,
 // and shut them down.
 func (env *environ) instances() ([]instance.Instance, error) {
-	env = env.getSnapshot()
-
-	prefix := common.MachineFullName(env, "")
+	prefix := env.namespace.Prefix()
 	instances, err := env.client.Instances(prefix)
 	err = errors.Trace(err)
 
@@ -79,13 +76,10 @@ func (env *environ) instances() ([]instance.Instance, error) {
 	return results, err
 }
 
-// StateServerInstances returns the IDs of the instances corresponding
-// to juju state servers.
-func (env *environ) StateServerInstances() ([]instance.Id, error) {
-	env = env.getSnapshot()
-
-	prefix := common.MachineFullName(env, "")
-	instances, err := env.client.Instances(prefix)
+// ControllerInstances returns the IDs of the instances corresponding
+// to juju controllers.
+func (env *environ) ControllerInstances(controllerUUID string) ([]instance.Id, error) {
+	instances, err := env.client.Instances("juju-")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -95,7 +89,10 @@ func (env *environ) StateServerInstances() ([]instance.Id, error) {
 		metadata := inst.Config.ExtraConfig
 		for _, item := range metadata {
 			value := item.GetOptionValue()
-			if value.Key == metadataKeyIsState && value.Value == metadataValueIsState {
+			if value.Key == metadataKeyControllerUUID && value.Value != controllerUUID {
+				continue
+			}
+			if value.Key == metadataKeyIsController && value.Value == metadataValueIsController {
 				results = append(results, instance.Id(inst.Name))
 				break
 			}

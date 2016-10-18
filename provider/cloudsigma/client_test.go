@@ -12,9 +12,12 @@ import (
 	"github.com/altoros/gosigma/data"
 	"github.com/altoros/gosigma/mock"
 	"github.com/juju/loggo"
+	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -22,7 +25,6 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
 )
 
 type clientSuite struct {
@@ -34,11 +36,9 @@ var _ = gc.Suite(&clientSuite{})
 func (s *clientSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
 	mock.Start()
-}
-
-func (s *clientSuite) TearDownSuite(c *gc.C) {
-	mock.Stop()
-	s.BaseSuite.TearDownSuite(c)
+	s.AddCleanup(func(*gc.C) {
+		mock.Stop()
+	})
 }
 
 func (s *clientSuite) SetUpTest(c *gc.C) {
@@ -56,15 +56,16 @@ func (s *clientSuite) TearDownTest(c *gc.C) {
 }
 
 func testNewClient(c *gc.C, endpoint, username, password string) (*environClient, error) {
-	ecfg := &environConfig{
-		Config: newConfig(c, testing.Attrs{"name": "client-test", "uuid": "f54aac3a-9dcd-4a0c-86b5-24091478478c"}),
-		attrs: map[string]interface{}{
-			"region":   endpoint,
-			"username": username,
-			"password": password,
-		},
+	cred := cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
+		"username": username,
+		"password": password,
+	})
+	spec := environs.CloudSpec{
+		Region:     "testregion",
+		Endpoint:   endpoint,
+		Credential: &cred,
 	}
-	return newClient(ecfg)
+	return newClient(spec, "f54aac3a-9dcd-4a0c-86b5-24091478478c")
 }
 
 func addTestClientServer(c *gc.C, instance, env string) string {
@@ -72,7 +73,7 @@ func addTestClientServer(c *gc.C, instance, env string) string {
 	if instance != "" {
 		json += fmt.Sprintf(`"juju-instance": "%s"`, instance)
 		if env != "" {
-			json += fmt.Sprintf(`, "juju-environment": "%s"`, env)
+			json += fmt.Sprintf(`, "juju-model": "%s"`, env)
 		}
 	}
 	json += `}, "status": "running"}`
@@ -86,10 +87,10 @@ func addTestClientServer(c *gc.C, instance, env string) string {
 func (s *clientSuite) TestClientInstances(c *gc.C) {
 	addTestClientServer(c, "", "")
 	addTestClientServer(c, jujuMetaInstanceServer, "alien")
-	addTestClientServer(c, jujuMetaInstanceStateServer, "alien")
+	addTestClientServer(c, jujuMetaInstanceController, "alien")
 	addTestClientServer(c, jujuMetaInstanceServer, "f54aac3a-9dcd-4a0c-86b5-24091478478c")
 	addTestClientServer(c, jujuMetaInstanceServer, "f54aac3a-9dcd-4a0c-86b5-24091478478c")
-	suuid := addTestClientServer(c, jujuMetaInstanceStateServer, "f54aac3a-9dcd-4a0c-86b5-24091478478c")
+	suuid := addTestClientServer(c, jujuMetaInstanceController, "f54aac3a-9dcd-4a0c-86b5-24091478478c")
 
 	cli, err := testNewClient(c, mock.Endpoint(""), mock.TestUser, mock.TestPassword)
 	c.Assert(err, gc.IsNil)
@@ -104,7 +105,7 @@ func (s *clientSuite) TestClientInstances(c *gc.C) {
 	c.Assert(sm, gc.NotNil)
 	c.Check(sm, gc.HasLen, 3)
 
-	ids, err := cli.getStateServerIds()
+	ids, err := cli.getControllerIds()
 	c.Check(err, gc.IsNil)
 	c.Check(len(ids), gc.Equals, 1)
 	c.Check(string(ids[0]), gc.Equals, suuid)
@@ -114,9 +115,9 @@ func (s *clientSuite) TestClientStopStateInstance(c *gc.C) {
 	addTestClientServer(c, "", "")
 
 	addTestClientServer(c, jujuMetaInstanceServer, "alien")
-	addTestClientServer(c, jujuMetaInstanceStateServer, "alien")
+	addTestClientServer(c, jujuMetaInstanceController, "alien")
 	addTestClientServer(c, jujuMetaInstanceServer, "client-test")
-	suuid := addTestClientServer(c, jujuMetaInstanceStateServer, "client-test")
+	suuid := addTestClientServer(c, jujuMetaInstanceController, "client-test")
 
 	cli, err := testNewClient(c, mock.Endpoint(""), mock.TestUser, mock.TestPassword)
 	c.Assert(err, gc.IsNil)
@@ -124,7 +125,7 @@ func (s *clientSuite) TestClientStopStateInstance(c *gc.C) {
 	err = cli.stopInstance(instance.Id(suuid))
 	c.Assert(err, gc.IsNil)
 
-	_, err = cli.getStateServerIds()
+	_, err = cli.getControllerIds()
 	c.Check(err, gc.Equals, environs.ErrNotBootstrapped)
 }
 
@@ -152,7 +153,7 @@ func (s *clientSuite) TestClientInvalidServer(c *gc.C) {
 	_, err = cli.instanceMap()
 	c.Check(err, gc.ErrorMatches, "broken connection")
 
-	_, err = cli.getStateServerIds()
+	_, err = cli.getControllerIds()
 	c.Check(err, gc.ErrorMatches, "broken connection")
 }
 
@@ -166,7 +167,7 @@ func (s *clientSuite) TestClientNewInstanceInvalidParams(c *gc.C) {
 	img := &imagemetadata.ImageMetadata{
 		Id: validImageId,
 	}
-	server, drive, arch, err := cli.newInstance(params, img, nil)
+	server, drive, arch, err := cli.newInstance(params, img, nil, "")
 	c.Check(server, gc.IsNil)
 	c.Check(arch, gc.Equals, "")
 	c.Check(drive, gc.IsNil)
@@ -178,20 +179,21 @@ func (s *clientSuite) TestClientNewInstanceInvalidTemplate(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	params := environs.StartInstanceParams{
-		Constraints: constraints.Value{},
-		InstanceConfig: &instancecfg.InstanceConfig{
-			Bootstrap: true,
-			Tools: &tools.Tools{
-				Version: version.Binary{
-					Series: "trusty",
-				},
-			},
-		},
+		InstanceConfig: &instancecfg.InstanceConfig{},
 	}
+	err = params.InstanceConfig.SetTools(tools.List{
+		&tools.Tools{
+			Version: version.Binary{
+				Series: "trusty",
+			},
+			URL: "https://0.1.2.3:2000/x.y.z.tgz",
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
 	img := &imagemetadata.ImageMetadata{
 		Id: "invalid-id",
 	}
-	server, drive, arch, err := cli.newInstance(params, img, nil)
+	server, drive, arch, err := cli.newInstance(params, img, nil, "")
 	c.Check(server, gc.IsNil)
 	c.Check(arch, gc.Equals, "")
 	c.Check(drive, gc.IsNil)
@@ -205,20 +207,21 @@ func (s *clientSuite) TestClientNewInstance(c *gc.C) {
 	cli.conn.OperationTimeout(1 * time.Second)
 
 	params := environs.StartInstanceParams{
-		Constraints: constraints.Value{},
-		InstanceConfig: &instancecfg.InstanceConfig{
-			Bootstrap: true,
-			Tools: &tools.Tools{
-				Version: version.Binary{
-					Series: "trusty",
-				},
-			},
-		},
+		InstanceConfig: &instancecfg.InstanceConfig{},
 	}
+	err = params.InstanceConfig.SetTools(tools.List{
+		&tools.Tools{
+			Version: version.Binary{
+				Series: "trusty",
+			},
+			URL: "https://0.1.2.3:2000/x.y.z.tgz",
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
 	img := &imagemetadata.ImageMetadata{
 		Id: validImageId,
 	}
-	cs := newConstraints(params.InstanceConfig.Bootstrap, params.Constraints, img)
+	cs := newConstraints(true, params.Constraints, img)
 	c.Assert(cs, gc.NotNil)
 	c.Check(err, gc.IsNil)
 
@@ -236,7 +239,7 @@ func (s *clientSuite) TestClientNewInstance(c *gc.C) {
 	mock.ResetDrives()
 	mock.LibDrives.Add(templateDrive)
 
-	server, drive, arch, err := cli.newInstance(params, img, utils.Gzip([]byte{}))
+	server, drive, arch, err := cli.newInstance(params, img, utils.Gzip([]byte{}), "")
 	c.Check(server, gc.NotNil)
 	c.Check(drive, gc.NotNil)
 	c.Check(arch, gc.NotNil)

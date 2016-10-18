@@ -1,24 +1,26 @@
+// Copyright 2014 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package reboot
 
 import (
+	"time"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
-	"github.com/juju/utils/fslock"
-	"launchpad.net/tomb"
+	"github.com/juju/mutex"
+	"github.com/juju/utils/clock"
+	"gopkg.in/juju/names.v2"
+	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/reboot"
-	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker"
 )
 
 var logger = loggo.GetLogger("juju.worker.reboot")
-
-const RebootMessage = "preparing for reboot"
-
-var _ worker.NotifyWatchHandler = (*Reboot)(nil)
 
 // The reboot worker listens for changes to the reboot flag and
 // exists with worker.ErrRebootMachine if the machine should reboot or
@@ -26,52 +28,33 @@ var _ worker.NotifyWatchHandler = (*Reboot)(nil)
 // up by the machine agent as a fatal error and will do the
 // right thing (reboot or shutdown)
 type Reboot struct {
-	tomb        tomb.Tomb
-	st          *reboot.State
-	tag         names.MachineTag
-	machineLock *fslock.Lock
+	tomb            tomb.Tomb
+	st              reboot.State
+	tag             names.MachineTag
+	machineLockName string
+	clock           clock.Clock
 }
 
-func NewReboot(st *reboot.State, agentConfig agent.Config, machineLock *fslock.Lock) (worker.Worker, error) {
+func NewReboot(st reboot.State, agentConfig agent.Config, machineLockName string, clock clock.Clock) (worker.Worker, error) {
 	tag, ok := agentConfig.Tag().(names.MachineTag)
 	if !ok {
 		return nil, errors.Errorf("Expected names.MachineTag, got %T: %v", agentConfig.Tag(), agentConfig.Tag())
 	}
 	r := &Reboot{
-		st:          st,
-		tag:         tag,
-		machineLock: machineLock,
+		st:              st,
+		tag:             tag,
+		machineLockName: machineLockName,
+		clock:           clock,
 	}
-	return worker.NewNotifyWorker(r), nil
-}
-
-func (r *Reboot) checkForRebootState() error {
-	var err error
-	if r.machineLock.IsLocked() == false {
-		return nil
-	}
-
-	if r.machineLock.Message() == RebootMessage {
-		// Not a lock held by the machne agent in order to reboot
-		err = r.machineLock.BreakLock()
-		if err != nil {
-			return errors.Trace(err)
-		}
-	}
-	return nil
+	w, err := watcher.NewNotifyWorker(watcher.NotifyConfig{
+		Handler: r,
+	})
+	return w, errors.Trace(err)
 }
 
 func (r *Reboot) SetUp() (watcher.NotifyWatcher, error) {
-	logger.Debugf("Reboot worker setup")
-	err := r.checkForRebootState()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	watcher, err := r.st.WatchForRebootEvent()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return watcher, nil
+	return watcher, errors.Trace(err)
 }
 
 func (r *Reboot) Handle(_ <-chan struct{}) error {
@@ -80,15 +63,33 @@ func (r *Reboot) Handle(_ <-chan struct{}) error {
 		return errors.Trace(err)
 	}
 	logger.Debugf("Reboot worker got action: %v", rAction)
+	// NOTE: Here we explicitly avoid stopping on the abort channel as we are
+	// wanting to make sure that we grab the lock and return an error
+	// sufficiently heavyweight to get the agent to restart.
+	spec := mutex.Spec{
+		Name:  r.machineLockName,
+		Clock: r.clock,
+		Delay: 250 * time.Millisecond,
+	}
+
 	switch rAction {
 	case params.ShouldReboot:
-		r.machineLock.Lock(RebootMessage)
+		logger.Debugf("acquiring mutex %q for reboot", r.machineLockName)
+		if _, err := mutex.Acquire(spec); err != nil {
+			return errors.Trace(err)
+		}
+		logger.Debugf("mutex %q acquired, won't release", r.machineLockName)
 		return worker.ErrRebootMachine
 	case params.ShouldShutdown:
-		r.machineLock.Lock(RebootMessage)
+		logger.Debugf("acquiring mutex %q for shutdown", r.machineLockName)
+		if _, err := mutex.Acquire(spec); err != nil {
+			return errors.Trace(err)
+		}
+		logger.Debugf("mutex %q acquired, won't release", r.machineLockName)
 		return worker.ErrShutdownMachine
+	default:
+		return nil
 	}
-	return nil
 }
 
 func (r *Reboot) TearDown() error {

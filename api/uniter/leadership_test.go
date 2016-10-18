@@ -10,8 +10,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/uniter"
-	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/watcher"
 )
 
 type leadershipSuite struct {
@@ -86,7 +86,7 @@ func (s *leadershipSuite) expectReadCalls() []testing.StubCall {
 		Args: []interface{}{
 			"Read",
 			params.Entities{Entities: []params.Entity{{
-				Tag: "service-foobar",
+				Tag: "application-foobar",
 			}}},
 		},
 	}}
@@ -168,7 +168,7 @@ func (s *leadershipSuite) expectMergeCalls() []testing.StubCall {
 			"Merge",
 			params.MergeLeadershipSettingsBulkParams{
 				Params: []params.MergeLeadershipSettingsParam{{
-					ServiceTag: "service-foobar",
+					ApplicationTag: "application-foobar",
 					Settings: map[string]string{
 						"foo": "bar",
 						"baz": "qux",
@@ -257,7 +257,7 @@ func (s *leadershipSuite) expectWatchCalls() []testing.StubCall {
 		Args: []interface{}{
 			"WatchLeadershipSettings",
 			params.Entities{Entities: []params.Entity{{
-				Tag: "service-foobar",
+				Tag: "application-foobar",
 			}}},
 		},
 	}}

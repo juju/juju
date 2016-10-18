@@ -6,12 +6,13 @@ package unitassigner
 import (
 	"errors"
 
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/status"
+	"github.com/juju/juju/watcher"
 )
 
 var _ = gc.Suite(testsuite{})
@@ -20,7 +21,7 @@ type testsuite struct{}
 
 func (testsuite) TestSetup(c *gc.C) {
 	f := &fakeAPI{}
-	ua := unitAssigner{api: f}
+	ua := unitAssignerHandler{api: f}
 	_, err := ua.SetUp()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(f.calledWatch, jc.IsTrue)
@@ -32,9 +33,9 @@ func (testsuite) TestSetup(c *gc.C) {
 
 func (testsuite) TestHandle(c *gc.C) {
 	f := &fakeAPI{}
-	ua := unitAssigner{api: f}
+	ua := unitAssignerHandler{api: f}
 	ids := []string{"foo/0", "bar/0"}
-	err := ua.Handle(ids)
+	err := ua.Handle(nil, ids)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(f.assignTags, gc.DeepEquals, []names.UnitTag{
 		names.NewUnitTag("foo/0"),
@@ -42,16 +43,16 @@ func (testsuite) TestHandle(c *gc.C) {
 	})
 
 	f.err = errors.New("boo")
-	err = ua.Handle(ids)
+	err = ua.Handle(nil, ids)
 	c.Assert(err, gc.Equals, f.err)
 }
 
 func (testsuite) TestHandleError(c *gc.C) {
 	e := errors.New("some error")
 	f := &fakeAPI{assignErrs: []error{e}}
-	ua := unitAssigner{api: f}
+	ua := unitAssignerHandler{api: f}
 	ids := []string{"foo/0", "bar/0"}
-	err := ua.Handle(ids)
+	err := ua.Handle(nil, ids)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(f.assignTags, gc.DeepEquals, []names.UnitTag{
 		names.NewUnitTag("foo/0"),
@@ -62,7 +63,7 @@ func (testsuite) TestHandleError(c *gc.C) {
 	c.Assert(entities, gc.HasLen, 1)
 	c.Assert(entities[0], gc.DeepEquals, params.EntityStatusArgs{
 		Tag:    "unit-foo-0",
-		Status: params.StatusError,
+		Status: status.Error.String(),
 		Info:   e.Error(),
 	})
 }

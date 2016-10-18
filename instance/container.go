@@ -7,18 +7,19 @@ import (
 	"fmt"
 )
 
+// ContainerType defines different container technologies known to juju.
 type ContainerType string
 
+// Known container types.
 const (
-	NONE = ContainerType("none")
-	LXC  = ContainerType("lxc")
-	KVM  = ContainerType("kvm")
+	NONE ContainerType = "none"
+	LXD  ContainerType = "lxd"
+	KVM  ContainerType = "kvm"
 )
 
 // ContainerTypes is used to validate add-machine arguments.
-var ContainerTypes []ContainerType = []ContainerType{
-	LXC,
-	// LXD is also added under Go 1.3+.
+var ContainerTypes = []ContainerType{
+	LXD,
 	KVM,
 }
 

@@ -1,3 +1,7 @@
+// Copyright 2014 Canonical Ltd.
+// Copyright 2014 Cloudbase Solutions SRL
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package state
 
 import (
@@ -32,9 +36,9 @@ const (
 
 // rebootDoc will hold the reboot flag for a machine.
 type rebootDoc struct {
-	DocID   string `bson:"_id"`
-	Id      string `bson:"machineid"`
-	EnvUUID string `bson:"env-uuid"`
+	DocID     string `bson:"_id"`
+	Id        string `bson:"machineid"`
+	ModelUUID string `bson:"model-uuid"`
 }
 
 func (m *Machine) setFlag() error {
@@ -42,7 +46,7 @@ func (m *Machine) setFlag() error {
 		return mgo.ErrNotFound
 	}
 	ops := []txn.Op{
-		assertEnvAliveOp(m.st.EnvironUUID()),
+		assertModelActiveOp(m.st.ModelUUID()),
 		{
 			C:      machinesC,
 			Id:     m.doc.DocID,
@@ -55,7 +59,7 @@ func (m *Machine) setFlag() error {
 	}
 	err := m.st.runTransaction(ops)
 	if err == txn.ErrAborted {
-		if err := checkEnvLife(m.st); err != nil {
+		if err := checkModelActive(m.st); err != nil {
 			return errors.Trace(err)
 		}
 		return mgo.ErrNotFound

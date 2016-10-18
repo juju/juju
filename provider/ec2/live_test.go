@@ -7,7 +7,6 @@ import (
 	"crypto/rand"
 	"fmt"
 	"io"
-	"strings"
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
@@ -24,7 +23,7 @@ import (
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/provider/ec2"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 // uniqueName is generated afresh for every test run, so that
@@ -49,12 +48,11 @@ func registerAmazonTests() {
 	//  access-key: $AWS_ACCESS_KEY_ID
 	//  secret-key: $AWS_SECRET_ACCESS_KEY
 	attrs := coretesting.FakeConfig().Merge(map[string]interface{}{
-		"name":           "sample-" + uniqueName,
-		"type":           "ec2",
-		"control-bucket": "juju-test-" + uniqueName,
-		"admin-secret":   "for real",
-		"firewall-mode":  config.FwInstance,
-		"agent-version":  coretesting.FakeVersionNumber.String(),
+		"name":          "sample-" + uniqueName,
+		"type":          "ec2",
+		"admin-secret":  "for real",
+		"firewall-mode": config.FwInstance,
+		"agent-version": coretesting.FakeVersionNumber.String(),
 	})
 	gc.Suite(&LiveTests{
 		LiveTests: jujutest.LiveTests{
@@ -79,6 +77,9 @@ func (t *LiveTests) SetUpSuite(c *gc.C) {
 	t.UploadArches = []string{arch.AMD64, arch.I386}
 	t.BaseSuite.SetUpSuite(c)
 	t.LiveTests.SetUpSuite(c)
+	t.BaseSuite.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
+	t.BaseSuite.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
+	t.BaseSuite.PatchValue(&series.HostSeries, func() string { return series.LatestLts() })
 }
 
 func (t *LiveTests) TearDownSuite(c *gc.C) {
@@ -87,9 +88,6 @@ func (t *LiveTests) TearDownSuite(c *gc.C) {
 }
 
 func (t *LiveTests) SetUpTest(c *gc.C) {
-	t.BaseSuite.PatchValue(&version.Current, coretesting.FakeVersionNumber)
-	t.BaseSuite.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
-	t.BaseSuite.PatchValue(&series.HostSeries, func() string { return coretesting.FakeDefaultSeries })
 	t.BaseSuite.SetUpTest(c)
 	t.LiveTests.SetUpTest(c)
 }
@@ -103,7 +101,7 @@ func (t *LiveTests) TearDownTest(c *gc.C) {
 
 func (t *LiveTests) TestInstanceAttributes(c *gc.C) {
 	t.PrepareOnce(c)
-	inst, hc := testing.AssertStartInstance(c, t.Env, "30")
+	inst, hc := testing.AssertStartInstance(c, t.Env, t.ControllerUUID, "30")
 	defer t.Env.StopInstances(inst.Id())
 	// Sanity check for hardware characteristics.
 	c.Assert(hc.Arch, gc.NotNil)
@@ -128,15 +126,32 @@ func (t *LiveTests) TestInstanceAttributes(c *gc.C) {
 func (t *LiveTests) TestStartInstanceConstraints(c *gc.C) {
 	t.PrepareOnce(c)
 	cons := constraints.MustParse("mem=4G")
-	inst, hc := testing.AssertStartInstanceWithConstraints(c, t.Env, "30", cons)
+	inst, hc := testing.AssertStartInstanceWithConstraints(c, t.Env, t.ControllerUUID, "30", cons)
 	defer t.Env.StopInstances(inst.Id())
 	ec2inst := ec2.InstanceEC2(inst)
-	c.Assert(ec2inst.InstanceType, gc.Equals, "m3.large")
+	c.Assert(ec2inst.InstanceType, gc.Equals, "m4.large")
 	c.Assert(*hc.Arch, gc.Equals, "amd64")
-	c.Assert(*hc.Mem, gc.Equals, uint64(7680))
-	c.Assert(*hc.RootDisk, gc.Equals, uint64(8192))
+	c.Assert(*hc.Mem, gc.Equals, uint64(8*1024))
+	c.Assert(*hc.RootDisk, gc.Equals, uint64(8*1024))
 	c.Assert(*hc.CpuCores, gc.Equals, uint64(2))
-	c.Assert(*hc.CpuPower, gc.Equals, uint64(650))
+}
+
+func (t *LiveTests) TestControllerInstances(c *gc.C) {
+	t.BootstrapOnce(c)
+	allInsts, err := t.Env.AllInstances()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(allInsts, gc.HasLen, 1) // bootstrap instance
+	bootstrapInstId := allInsts[0].Id()
+
+	inst0, _ := testing.AssertStartInstance(c, t.Env, t.ControllerUUID, "98")
+	defer t.Env.StopInstances(inst0.Id())
+
+	inst1, _ := testing.AssertStartInstance(c, t.Env, t.ControllerUUID, "99")
+	defer t.Env.StopInstances(inst1.Id())
+
+	insts, err := t.Env.ControllerInstances(t.ControllerUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(insts, gc.DeepEquals, []instance.Id{bootstrapInstId})
 }
 
 func (t *LiveTests) TestInstanceGroups(c *gc.C) {
@@ -180,14 +195,14 @@ func (t *LiveTests) TestInstanceGroups(c *gc.C) {
 		})
 	c.Assert(err, jc.ErrorIsNil)
 
-	inst0, _ := testing.AssertStartInstance(c, t.Env, "98")
+	inst0, _ := testing.AssertStartControllerInstance(c, t.Env, t.ControllerUUID, "98")
 	defer t.Env.StopInstances(inst0.Id())
 
 	// Create a same-named group for the second instance
 	// before starting it, to check that it's reused correctly.
 	oldMachineGroup := createGroup(c, ec2conn, groups[2].Name, "old machine group")
 
-	inst1, _ := testing.AssertStartInstance(c, t.Env, "99")
+	inst1, _ := testing.AssertStartControllerInstance(c, t.Env, t.ControllerUUID, "99")
 	defer t.Env.StopInstances(inst1.Id())
 
 	groupsResp, err := ec2conn.SecurityGroups(groups, nil)
@@ -220,7 +235,7 @@ func (t *LiveTests) TestInstanceGroups(c *gc.C) {
 	perms := info[0].IPPerms
 	c.Assert(perms, gc.HasLen, 5)
 	checkPortAllowed(c, perms, 22) // SSH
-	checkPortAllowed(c, perms, coretesting.FakeConfig()["api-port"].(int))
+	checkPortAllowed(c, perms, coretesting.FakeControllerConfig().APIPort())
 	checkSecurityGroupAllowed(c, perms, groups[0])
 
 	// The old machine group should have been reused also.
@@ -320,9 +335,9 @@ func (t *LiveTests) TestStopInstances(c *gc.C) {
 	// It would be nice if this test was in jujutest, but
 	// there's no way for jujutest to fabricate a valid-looking
 	// instance id.
-	inst0, _ := testing.AssertStartInstance(c, t.Env, "40")
+	inst0, _ := testing.AssertStartInstance(c, t.Env, t.ControllerUUID, "40")
 	inst1 := ec2.FabricateInstance(inst0, "i-aaaaaaaa")
-	inst2, _ := testing.AssertStartInstance(c, t.Env, "41")
+	inst2, _ := testing.AssertStartInstance(c, t.Env, t.ControllerUUID, "41")
 
 	err := t.Env.StopInstances(inst0.Id(), inst1.Id(), inst2.Id())
 	c.Check(err, jc.ErrorIsNil)
@@ -348,32 +363,6 @@ func (t *LiveTests) TestStopInstances(c *gc.C) {
 	if !gone {
 		c.Errorf("after termination, instances remaining: %v", insts)
 	}
-}
-
-func (t *LiveTests) TestPutBucketOnlyOnce(c *gc.C) {
-	t.PrepareOnce(c)
-	s3inst := ec2.EnvironS3(t.Env)
-	b, err := s3inst.Bucket("test-once-" + uniqueName)
-	c.Assert(err, jc.ErrorIsNil)
-	s := ec2.BucketStorage(b)
-
-	// Check that we don't do a PutBucket every time by
-	// getting it to create the bucket, destroying the bucket behind
-	// the scenes, and trying to put another object,
-	// which should fail because it doesn't try to do
-	// the PutBucket again.
-
-	err = s.Put("test-object", strings.NewReader("test"), 4)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.Remove("test-object")
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = ec2.DeleteBucket(s)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.Put("test-object", strings.NewReader("test"), 4)
-	c.Assert(err, gc.ErrorMatches, ".*The specified bucket does not exist")
 }
 
 // createGroup creates a new EC2 group and returns it. If it already exists,

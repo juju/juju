@@ -5,17 +5,18 @@ package keyupdater
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"github.com/juju/utils/ssh"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 )
 
 func init() {
-	common.RegisterStandardFacade("KeyUpdater", 0, NewKeyUpdaterAPI)
+	common.RegisterStandardFacade("KeyUpdater", 1, NewKeyUpdaterAPI)
 }
 
 // KeyUpdater defines the methods on the keyupdater API end point.
@@ -28,8 +29,8 @@ type KeyUpdater interface {
 // implementation of the api end point.
 type KeyUpdaterAPI struct {
 	state      *state.State
-	resources  *common.Resources
-	authorizer common.Authorizer
+	resources  facade.Resources
+	authorizer facade.Authorizer
 	getCanRead common.GetAuthFunc
 }
 
@@ -38,8 +39,8 @@ var _ KeyUpdater = (*KeyUpdaterAPI)(nil)
 // NewKeyUpdaterAPI creates a new server-side keyupdater API end point.
 func NewKeyUpdaterAPI(
 	st *state.State,
-	resources *common.Resources,
-	authorizer common.Authorizer,
+	resources facade.Resources,
+	authorizer facade.Authorizer,
 ) (*KeyUpdaterAPI, error) {
 	// Only machine agents have access to the keyupdater service.
 	if !authorizer.AuthMachineAgent() {
@@ -84,7 +85,7 @@ func (api *KeyUpdaterAPI) WatchAuthorisedKeys(arg params.Entities) (params.Notif
 			continue
 		}
 		// 3. Watch for changes
-		watch := api.state.WatchForEnvironConfigChanges()
+		watch := api.state.WatchForModelConfigChanges()
 		// Consume the initial event.
 		if _, ok := <-watch.Changes(); ok {
 			results[i].NotifyWatcherId = api.resources.Register(watch)
@@ -107,7 +108,7 @@ func (api *KeyUpdaterAPI) AuthorisedKeys(arg params.Entities) (params.StringsRes
 
 	// For now, authorised keys are global, common to all machines.
 	var keys []string
-	config, configErr := api.state.EnvironConfig()
+	config, configErr := api.state.ModelConfig()
 	if configErr == nil {
 		keys = ssh.SplitAuthorisedKeys(config.AuthorizedKeys())
 	}

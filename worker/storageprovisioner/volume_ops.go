@@ -5,10 +5,10 @@ package storageprovisioner
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
 )
 
@@ -19,7 +19,7 @@ func createVolumes(ctx *context, ops map[names.VolumeTag]*createVolumeOp) error 
 		volumeParams = append(volumeParams, op.args)
 	}
 	paramsBySource, volumeSources, err := volumeParamsBySource(
-		ctx.environConfig, ctx.storageDir, volumeParams,
+		ctx.config.StorageDir, volumeParams, ctx.config.Registry,
 	)
 	if err != nil {
 		return errors.Trace(err)
@@ -38,7 +38,7 @@ func createVolumes(ctx *context, ops map[names.VolumeTag]*createVolumeOp) error 
 			}
 			statuses = append(statuses, params.EntityStatusArgs{
 				Tag:    volumeParams[i].Tag.String(),
-				Status: params.StatusError,
+				Status: status.Error.String(),
 				Info:   err.Error(),
 			})
 			logger.Debugf(
@@ -57,9 +57,9 @@ func createVolumes(ctx *context, ops map[names.VolumeTag]*createVolumeOp) error 
 		for i, result := range results {
 			statuses = append(statuses, params.EntityStatusArgs{
 				Tag:    volumeParams[i].Tag.String(),
-				Status: params.StatusAttaching,
+				Status: status.Attaching.String(),
 			})
-			status := &statuses[len(statuses)-1]
+			entityStatus := &statuses[len(statuses)-1]
 			if result.Error != nil {
 				// Reschedule the volume creation.
 				reschedule = append(reschedule, ops[volumeParams[i].Tag])
@@ -68,8 +68,8 @@ func createVolumes(ctx *context, ops map[names.VolumeTag]*createVolumeOp) error 
 				// that we will retry. When we distinguish between
 				// transient and permanent errors, we will set the
 				// status to "error" for permanent errors.
-				status.Status = params.StatusPending
-				status.Info = result.Error.Error()
+				entityStatus.Status = status.Pending.String()
+				entityStatus.Info = result.Error.Error()
 				logger.Debugf(
 					"failed to create %s: %v",
 					names.ReadableString(volumeParams[i].Tag),
@@ -79,7 +79,7 @@ func createVolumes(ctx *context, ops map[names.VolumeTag]*createVolumeOp) error 
 			}
 			volumes = append(volumes, *result.Volume)
 			if result.VolumeAttachment != nil {
-				status.Status = params.StatusAttached
+				entityStatus.Status = status.Attached.String()
 				volumeAttachments = append(volumeAttachments, *result.VolumeAttachment)
 			}
 		}
@@ -93,7 +93,7 @@ func createVolumes(ctx *context, ops map[names.VolumeTag]*createVolumeOp) error 
 	// by environment, so that we can "harvest" them if they're
 	// unknown. This will take care of killing volumes that we fail
 	// to record in state.
-	errorResults, err := ctx.volumeAccessor.SetVolumeInfo(volumesFromStorage(volumes))
+	errorResults, err := ctx.config.Volumes.SetVolumeInfo(volumesFromStorage(volumes))
 	if err != nil {
 		return errors.Annotate(err, "publishing volumes to state")
 	}
@@ -128,7 +128,7 @@ func attachVolumes(ctx *context, ops map[params.MachineStorageId]*attachVolumeOp
 		volumeAttachmentParams = append(volumeAttachmentParams, op.args)
 	}
 	paramsBySource, volumeSources, err := volumeAttachmentParamsBySource(
-		ctx.environConfig, ctx.storageDir, volumeAttachmentParams,
+		ctx.config.StorageDir, volumeAttachmentParams, ctx.config.Registry,
 	)
 	if err != nil {
 		return errors.Trace(err)
@@ -147,9 +147,9 @@ func attachVolumes(ctx *context, ops map[params.MachineStorageId]*attachVolumeOp
 			p := volumeAttachmentParams[i]
 			statuses = append(statuses, params.EntityStatusArgs{
 				Tag:    p.Volume.String(),
-				Status: params.StatusAttached,
+				Status: status.Attached.String(),
 			})
-			status := &statuses[len(statuses)-1]
+			entityStatus := &statuses[len(statuses)-1]
 			if result.Error != nil {
 				// Reschedule the volume attachment.
 				id := params.MachineStorageId{
@@ -162,8 +162,8 @@ func attachVolumes(ctx *context, ops map[params.MachineStorageId]*attachVolumeOp
 				// indicate that we will retry. When we distinguish
 				// between transient and permanent errors, we will
 				// set the status to "error" for permanent errors.
-				status.Status = params.StatusAttaching
-				status.Info = result.Error.Error()
+				entityStatus.Status = status.Attaching.String()
+				entityStatus.Info = result.Error.Error()
 				logger.Debugf(
 					"failed to attach %s to %s: %v",
 					names.ReadableString(p.Volume),
@@ -194,7 +194,7 @@ func destroyVolumes(ctx *context, ops map[names.VolumeTag]*destroyVolumeOp) erro
 		return errors.Trace(err)
 	}
 	paramsBySource, volumeSources, err := volumeParamsBySource(
-		ctx.environConfig, ctx.storageDir, volumeParams,
+		ctx.config.StorageDir, volumeParams, ctx.config.Registry,
 	)
 	if err != nil {
 		return errors.Trace(err)
@@ -212,7 +212,7 @@ func destroyVolumes(ctx *context, ops map[names.VolumeTag]*destroyVolumeOp) erro
 			}
 			statuses = append(statuses, params.EntityStatusArgs{
 				Tag:    volumeParams[i].Tag.String(),
-				Status: params.StatusError,
+				Status: status.Error.String(),
 				Info:   err.Error(),
 			})
 			logger.Debugf(
@@ -246,7 +246,7 @@ func destroyVolumes(ctx *context, ops map[names.VolumeTag]*destroyVolumeOp) erro
 			reschedule = append(reschedule, ops[tag])
 			statuses = append(statuses, params.EntityStatusArgs{
 				Tag:    tag.String(),
-				Status: params.StatusDestroying,
+				Status: status.Destroying.String(),
 				Info:   err.Error(),
 			})
 		}
@@ -266,7 +266,7 @@ func detachVolumes(ctx *context, ops map[params.MachineStorageId]*detachVolumeOp
 		volumeAttachmentParams = append(volumeAttachmentParams, op.args)
 	}
 	paramsBySource, volumeSources, err := volumeAttachmentParamsBySource(
-		ctx.environConfig, ctx.storageDir, volumeAttachmentParams,
+		ctx.config.StorageDir, volumeAttachmentParams, ctx.config.Registry,
 	)
 	if err != nil {
 		return errors.Trace(err)
@@ -289,17 +289,17 @@ func detachVolumes(ctx *context, ops map[params.MachineStorageId]*detachVolumeOp
 				// attachment, we'll have to check if
 				// there are any other attachments
 				// before saying the status "detached".
-				Status: params.StatusDetached,
+				Status: status.Detached.String(),
 			})
 			id := params.MachineStorageId{
 				MachineTag:    p.Machine.String(),
 				AttachmentTag: p.Volume.String(),
 			}
-			status := &statuses[len(statuses)-1]
+			entityStatus := &statuses[len(statuses)-1]
 			if err != nil {
 				reschedule = append(reschedule, ops[id])
-				status.Status = params.StatusDetaching
-				status.Info = err.Error()
+				entityStatus.Status = status.Detaching.String()
+				entityStatus.Info = err.Error()
 				logger.Debugf(
 					"failed to detach %s from %s: %v",
 					names.ReadableString(p.Volume),
@@ -324,9 +324,9 @@ func detachVolumes(ctx *context, ops map[params.MachineStorageId]*detachVolumeOp
 
 // volumeParamsBySource separates the volume parameters by volume source.
 func volumeParamsBySource(
-	environConfig *config.Config,
 	baseStorageDir string,
 	params []storage.VolumeParams,
+	registry storage.ProviderRegistry,
 ) (map[string][]storage.VolumeParams, map[string]storage.VolumeSource, error) {
 	// TODO(axw) later we may have multiple instantiations (sources)
 	// for a storage provider, e.g. multiple Ceph installations. For
@@ -339,7 +339,7 @@ func volumeParamsBySource(
 			continue
 		}
 		volumeSource, err := volumeSource(
-			environConfig, baseStorageDir, sourceName, params.Provider,
+			baseStorageDir, sourceName, params.Provider, registry,
 		)
 		if errors.Cause(err) == errNonDynamic {
 			volumeSource = nil
@@ -380,9 +380,9 @@ func validateVolumeParams(
 
 // volumeAttachmentParamsBySource separates the volume attachment parameters by volume source.
 func volumeAttachmentParamsBySource(
-	environConfig *config.Config,
 	baseStorageDir string,
 	params []storage.VolumeAttachmentParams,
+	registry storage.ProviderRegistry,
 ) (map[string][]storage.VolumeAttachmentParams, map[string]storage.VolumeSource, error) {
 	// TODO(axw) later we may have multiple instantiations (sources)
 	// for a storage provider, e.g. multiple Ceph installations. For
@@ -397,7 +397,7 @@ func volumeAttachmentParamsBySource(
 			continue
 		}
 		volumeSource, err := volumeSource(
-			environConfig, baseStorageDir, sourceName, params.Provider,
+			baseStorageDir, sourceName, params.Provider, registry,
 		)
 		if err != nil {
 			return nil, nil, errors.Annotate(err, "getting volume source")
@@ -415,7 +415,7 @@ func setVolumeAttachmentInfo(ctx *context, volumeAttachments []storage.VolumeAtt
 	// provider, by environment, so that we can "harvest" them if they're
 	// unknown. This will take care of killing volumes that we fail to
 	// record in state.
-	errorResults, err := ctx.volumeAccessor.SetVolumeAttachmentInfo(
+	errorResults, err := ctx.config.Volumes.SetVolumeAttachmentInfo(
 		volumeAttachmentsFromStorage(volumeAttachments),
 	)
 	if err != nil {

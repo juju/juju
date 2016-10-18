@@ -4,16 +4,16 @@
 package firewaller_test
 
 import (
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/firewaller"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/watcher/watchertest"
 )
 
 type machineSuite struct {
@@ -70,8 +70,8 @@ func (s *machineSuite) TestInstanceId(c *gc.C) {
 func (s *machineSuite) TestWatchUnits(c *gc.C) {
 	w, err := s.apiMachine.WatchUnits()
 	c.Assert(err, jc.ErrorIsNil)
-	defer statetesting.AssertStop(c, w)
-	wc := statetesting.NewStringsWatcherC(c, s.BackingState, w)
+	wc := watchertest.NewStringsWatcherC(c, w, s.BackingState.StartSync)
+	defer wc.AssertStops()
 
 	// Initial event.
 	wc.AssertChange("wordpress/0")
@@ -92,49 +92,43 @@ func (s *machineSuite) TestWatchUnits(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange("wordpress/0")
 	wc.AssertNoChange()
-
-	statetesting.AssertStop(c, w)
-	wc.AssertClosed()
 }
 
-func (s *machineSuite) TestActiveNetworks(c *gc.C) {
-	// No ports opened at first, no networks.
-	nets, err := s.apiMachine.ActiveNetworks()
+func (s *machineSuite) TestActiveSubnets(c *gc.C) {
+	// No ports opened at first, no active subnets.
+	subnets, err := s.apiMachine.ActiveSubnets()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(nets, gc.HasLen, 0)
+	c.Assert(subnets, gc.HasLen, 0)
 
 	// Open a port and check again.
 	err = s.units[0].OpenPort("tcp", 1234)
 	c.Assert(err, jc.ErrorIsNil)
-	nets, err = s.apiMachine.ActiveNetworks()
+	subnets, err = s.apiMachine.ActiveSubnets()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(nets, jc.DeepEquals, []names.NetworkTag{
-		names.NewNetworkTag(network.DefaultPublic),
-	})
+	c.Assert(subnets, jc.DeepEquals, []names.SubnetTag{{}})
 
-	// Remove all ports, no networks.
-	ports, err := s.machines[0].OpenedPorts(network.DefaultPublic)
+	// Remove all ports, no more active subnets.
+	ports, err := s.machines[0].OpenedPorts("")
 	c.Assert(err, jc.ErrorIsNil)
 	err = ports.Remove()
 	c.Assert(err, jc.ErrorIsNil)
-	nets, err = s.apiMachine.ActiveNetworks()
+	subnets, err = s.apiMachine.ActiveSubnets()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(nets, gc.HasLen, 0)
+	c.Assert(subnets, gc.HasLen, 0)
 }
 
 func (s *machineSuite) TestOpenedPorts(c *gc.C) {
-	networkTag := names.NewNetworkTag(network.DefaultPublic)
 	unitTag := s.units[0].Tag().(names.UnitTag)
 
 	// No ports opened at first.
-	ports, err := s.apiMachine.OpenedPorts(networkTag)
+	ports, err := s.apiMachine.OpenedPorts(names.SubnetTag{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ports, gc.HasLen, 0)
 
 	// Open a port and check again.
 	err = s.units[0].OpenPort("tcp", 1234)
 	c.Assert(err, jc.ErrorIsNil)
-	ports, err = s.apiMachine.OpenedPorts(networkTag)
+	ports, err = s.apiMachine.OpenedPorts(names.SubnetTag{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ports, jc.DeepEquals, map[network.PortRange]names.UnitTag{
 		network.PortRange{FromPort: 1234, ToPort: 1234, Protocol: "tcp"}: unitTag,

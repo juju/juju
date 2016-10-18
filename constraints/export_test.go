@@ -5,7 +5,7 @@ package constraints
 
 var WithFallbacks = withFallbacks
 
-func Without(cons Value, attrTags ...string) (Value, error) {
+func Without(cons Value, attrTags ...string) Value {
 	return cons.without(attrTags...)
 }
 

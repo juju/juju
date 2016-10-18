@@ -4,70 +4,94 @@
 package resumer
 
 import (
-	"fmt"
 	"time"
 
+	"github.com/juju/errors"
+	"github.com/juju/juju/worker/catacomb"
 	"github.com/juju/loggo"
-	"launchpad.net/tomb"
+	"github.com/juju/utils/clock"
 )
 
 var logger = loggo.GetLogger("juju.worker.resumer")
 
-// defaultInterval is the standard value for the interval setting.
-const defaultInterval = time.Minute
+// Facade defines the interface for types capable of resuming
+// transactions.
+type Facade interface {
 
-// interval sets how often the resuming is called.
-var interval = defaultInterval
-
-// TransactionResumer defines the interface for types capable to
-// resume transactions.
-type TransactionResumer interface {
 	// ResumeTransactions resumes all pending transactions.
 	ResumeTransactions() error
 }
 
-// Resumer is responsible for a periodical resuming of pending transactions.
+// Config holds the dependencies and configuration necessary to
+// drive a Resumer.
+type Config struct {
+	Facade   Facade
+	Clock    clock.Clock
+	Interval time.Duration
+}
+
+// Validate returns an error if config cannot be expected to drive
+// a Resumer.
+func (config Config) Validate() error {
+	if config.Facade == nil {
+		return errors.NotValidf("nil Facade")
+	}
+	if config.Clock == nil {
+		return errors.NotValidf("nil Clock")
+	}
+	if config.Interval <= 0 {
+		return errors.NotValidf("non-positive Interval")
+	}
+	return nil
+}
+
+// Resumer is responsible for periodically resuming all pending
+// transactions.
 type Resumer struct {
-	tomb tomb.Tomb
-	tr   TransactionResumer
+	catacomb catacomb.Catacomb
+	config   Config
 }
 
-// NewResumer periodically resumes pending transactions.
-func NewResumer(tr TransactionResumer) *Resumer {
-	rr := &Resumer{tr: tr}
-	go func() {
-		defer rr.tomb.Done()
-		rr.tomb.Kill(rr.loop())
-	}()
-	return rr
+// NewResumer returns a new Resumer or an error. If the Resumer is
+// not nil, the caller is responsible for stopping it via `Kill()`
+// and handling any error returned from `Wait()`.
+var NewResumer = func(config Config) (*Resumer, error) {
+	if err := config.Validate(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	rr := &Resumer{config: config}
+	err := catacomb.Invoke(catacomb.Plan{
+		Site: &rr.catacomb,
+		Work: rr.loop,
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return rr, nil
 }
 
-func (rr *Resumer) String() string {
-	return fmt.Sprintf("resumer")
-}
-
+// Kill is part of the worker.Worker interface.
 func (rr *Resumer) Kill() {
-	rr.tomb.Kill(nil)
+	rr.catacomb.Kill(nil)
 }
 
-func (rr *Resumer) Stop() error {
-	rr.tomb.Kill(nil)
-	return rr.tomb.Wait()
-}
-
+// Wait is part of the worker.Worker interface.
 func (rr *Resumer) Wait() error {
-	return rr.tomb.Wait()
+	return rr.catacomb.Wait()
 }
 
 func (rr *Resumer) loop() error {
+	var interval time.Duration
 	for {
 		select {
-		case <-rr.tomb.Dying():
-			return tomb.ErrDying
-		case <-time.After(interval):
-			if err := rr.tr.ResumeTransactions(); err != nil {
-				logger.Errorf("cannot resume transactions: %v", err)
+		case <-rr.catacomb.Dying():
+			return rr.catacomb.ErrDying()
+		case <-rr.config.Clock.After(interval):
+			err := rr.config.Facade.ResumeTransactions()
+			if err != nil {
+				return errors.Annotate(err, "cannot resume transactions")
 			}
 		}
+		interval = rr.config.Interval
 	}
 }

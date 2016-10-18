@@ -9,13 +9,21 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/juju/juju/network"
 	"github.com/juju/utils/arch"
+
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/status"
 )
 
 // An instance Id is a provider-specific identifier associated with an
 // instance (physical or virtual machine allocated in the provider).
 type Id string
+
+// InstanceStatus represents the status for a provider instance.
+type InstanceStatus struct {
+	Status  status.Status
+	Message string
+}
 
 // UnknownId can be used to explicitly specify the instance ID does not matter.
 const UnknownId Id = ""
@@ -26,7 +34,7 @@ type Instance interface {
 	Id() Id
 
 	// Status returns the provider-specific status for the instance.
-	Status() string
+	Status() InstanceStatus
 
 	// Addresses returns a list of hostnames or ip addresses
 	// associated with the instance.
@@ -49,42 +57,26 @@ type Instance interface {
 // HardwareCharacteristics represents the characteristics of the instance (if known).
 // Attributes that are nil are unknown or not supported.
 type HardwareCharacteristics struct {
-	Arch     *string   `json:",omitempty" yaml:"arch,omitempty"`
-	Mem      *uint64   `json:",omitempty" yaml:"mem,omitempty"`
-	RootDisk *uint64   `json:",omitempty" yaml:"rootdisk,omitempty"`
-	CpuCores *uint64   `json:",omitempty" yaml:"cpucores,omitempty"`
-	CpuPower *uint64   `json:",omitempty" yaml:"cpupower,omitempty"`
-	Tags     *[]string `json:",omitempty" yaml:"tags,omitempty"`
+	// Arch is the architecture of the processor.
+	Arch *string `json:"arch,omitempty" yaml:"arch,omitempty"`
 
-	AvailabilityZone *string `json:",omitempty" yaml:"availabilityzone,omitempty"`
-}
+	// Mem is the size of RAM in megabytes.
+	Mem *uint64 `json:"mem,omitempty" yaml:"mem,omitempty"`
 
-func uintStr(i uint64) string {
-	if i == 0 {
-		return ""
-	}
-	return fmt.Sprintf("%d", i)
-}
+	// RootDisk is the size of the disk in megabytes.
+	RootDisk *uint64 `json:"root-disk,omitempty" yaml:"rootdisk,omitempty"`
 
-// An error reporting that an error has occurred during instance creation
-// (e.g. due to a failed container from on of previous deploys) and
-// that it is safe to restart instance creation
-type RetryableCreationError struct {
-	message string
-}
+	// CpuCores is the number of logical cores the processor has.
+	CpuCores *uint64 `json:"cpu-cores,omitempty" yaml:"cpucores,omitempty"`
 
-// Returns the error message
-func (e RetryableCreationError) Error() string { return e.message }
+	// CpuPower is a relative representation of the speed of the processor.
+	CpuPower *uint64 `json:"cpu-power,omitempty" yaml:"cpupower,omitempty"`
 
-func NewRetryableCreationError(errorMessage string) *RetryableCreationError {
-	return &RetryableCreationError{errorMessage}
-}
+	// Tags is a list of strings that identify the machine.
+	Tags *[]string `json:"tags,omitempty" yaml:"tags,omitempty"`
 
-// IsRetryableCreationError returns true if the given error is
-// RetryableCreationError
-func IsRetryableCreationError(err error) bool {
-	_, ok := err.(*RetryableCreationError)
-	return ok
+	// AvailabilityZone defines the zone in which the machine resides.
+	AvailabilityZone *string `json:"availability-zone,omitempty" yaml:"availabilityzone,omitempty"`
 }
 
 func (hc HardwareCharacteristics) String() string {
@@ -93,7 +85,7 @@ func (hc HardwareCharacteristics) String() string {
 		strs = append(strs, fmt.Sprintf("arch=%s", *hc.Arch))
 	}
 	if hc.CpuCores != nil {
-		strs = append(strs, fmt.Sprintf("cpu-cores=%d", *hc.CpuCores))
+		strs = append(strs, fmt.Sprintf("cores=%d", *hc.CpuCores))
 	}
 	if hc.CpuPower != nil {
 		strs = append(strs, fmt.Sprintf("cpu-power=%d", *hc.CpuPower))
@@ -111,16 +103,6 @@ func (hc HardwareCharacteristics) String() string {
 		strs = append(strs, fmt.Sprintf("availability-zone=%s", *hc.AvailabilityZone))
 	}
 	return strings.Join(strs, " ")
-}
-
-// Implement gnuflag.Value
-func (hc *HardwareCharacteristics) Set(s string) error {
-	parsed, err := ParseHardware(s)
-	if err != nil {
-		return err
-	}
-	*hc = parsed
-	return nil
 }
 
 // MustParseHardware constructs a HardwareCharacteristics from the supplied arguments,
@@ -163,7 +145,7 @@ func (hc *HardwareCharacteristics) setRaw(raw string) error {
 	switch name {
 	case "arch":
 		err = hc.setArch(str)
-	case "cpu-cores":
+	case "cores":
 		err = hc.setCpuCores(str)
 	case "cpu-power":
 		err = hc.setCpuPower(str)

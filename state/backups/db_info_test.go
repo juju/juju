@@ -4,9 +4,9 @@
 package backups_test
 
 import (
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/backups"
@@ -39,7 +39,7 @@ func (s *dbInfoSuite) TestNewDBInfoOkay(c *gc.C) {
 		Tag:      tag,
 		Password: "eggs",
 	}
-	dbInfo, err := backups.NewDBInfo(mgoInfo, &session)
+	dbInfo, err := backups.NewDBInfo(mgoInfo, &session, mongo.Mongo32wt)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(dbInfo.Address, gc.Equals, "localhost:8080")
@@ -56,7 +56,7 @@ func (s *dbInfoSuite) TestNewDBInfoMissingTag(c *gc.C) {
 		},
 		Password: "eggs",
 	}
-	dbInfo, err := backups.NewDBInfo(mgoInfo, &session)
+	dbInfo, err := backups.NewDBInfo(mgoInfo, &session, mongo.Mongo32wt)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(dbInfo.Username, gc.Equals, "")

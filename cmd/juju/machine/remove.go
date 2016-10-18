@@ -4,62 +4,73 @@
 package machine
 
 import (
-	"fmt"
-
 	"github.com/juju/cmd"
-	"github.com/juju/names"
-	"launchpad.net/gnuflag"
+	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
+	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
-func newRemoveCommand() cmd.Command {
-	return envcmd.Wrap(&removeCommand{})
+// NewRemoveCommand returns a command used to remove a specified machine.
+func NewRemoveCommand() cmd.Command {
+	return modelcmd.Wrap(&removeCommand{})
 }
 
 // removeCommand causes an existing machine to be destroyed.
 type removeCommand struct {
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 	api        RemoveMachineAPI
 	MachineIds []string
 	Force      bool
 }
 
 const destroyMachineDoc = `
-Machines that are responsible for the environment cannot be removed. Machines
-running units or containers can only be removed with the --force flag; doing
-so will also remove all those units and containers without giving them any
-opportunity to shut down cleanly.
+Machines are specified by their numbers, which may be retrieved from the
+output of ` + "`juju status`." + `
+Machines responsible for the model cannot be removed.
+Machines running units or containers can be removed using the '--force'
+option; this will also remove those units and containers without giving
+them an opportunity to shut down cleanly.
 
 Examples:
-	# Remove machine number 5 which has no running units or containers
-	$ juju machine remove 5
 
-	# Remove machine 6 and any running units or containers
-	$ juju machine remove 6 --force
+Remove machine number 5 which has no running units or containers:
+
+    juju remove-machine 5
+
+Remove machine 6 and any running units or containers:
+
+    juju remove-machine 6 --force
+
+See also:
+    add-machine
 `
 
+// Info implements Command.Info.
 func (c *removeCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "remove",
-		Args:    "<machine> ...",
-		Purpose: "remove machines from the environment",
+		Name:    "remove-machine",
+		Args:    "<machine number> ...",
+		Purpose: "Removes one or more machines from a model.",
 		Doc:     destroyMachineDoc,
 	}
 }
 
+// SetFlags implements Command.SetFlags.
 func (c *removeCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.BoolVar(&c.Force, "force", false, "completely remove machine and all dependencies")
+	c.ModelCommandBase.SetFlags(f)
+	f.BoolVar(&c.Force, "force", false, "Completely remove a machine and all its dependencies")
 }
 
 func (c *removeCommand) Init(args []string) error {
 	if len(args) == 0 {
-		return fmt.Errorf("no machines specified")
+		return errors.Errorf("no machines specified")
 	}
 	for _, id := range args {
 		if !names.IsValidMachine(id) {
-			return fmt.Errorf("invalid machine id %q", id)
+			return errors.Errorf("invalid machine id %q", id)
 		}
 	}
 	c.MachineIds = args
@@ -79,6 +90,7 @@ func (c *removeCommand) getRemoveMachineAPI() (RemoveMachineAPI, error) {
 	return c.NewAPIClient()
 }
 
+// Run implements Command.Run.
 func (c *removeCommand) Run(_ *cmd.Context) error {
 	client, err := c.getRemoveMachineAPI()
 	if err != nil {

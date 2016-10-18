@@ -7,8 +7,10 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/tools"
 )
@@ -16,6 +18,9 @@ import (
 // StartInstanceParams holds parameters for the
 // InstanceBroker.StartInstance method.
 type StartInstanceParams struct {
+	// ControllerUUID is the uuid of the controller.
+	ControllerUUID string
+
 	// Constraints is a set of constraints on
 	// the kind of instance to create.
 	Constraints constraints.Value
@@ -56,6 +61,23 @@ type StartInstanceParams struct {
 	// in. It is only populated when valid positive spaces constraints
 	// are present.
 	SubnetsToZones map[network.Id][]string
+
+	// EndpointBindings holds the mapping between service endpoint names to
+	// provider-specific space IDs. It is populated when provisioning a machine
+	// to host a unit of a service with endpoint bindings.
+	EndpointBindings map[string]network.Id
+	// ImageMetadata is a collection of image metadata
+	// that may be used to start this instance.
+	ImageMetadata []*imagemetadata.ImageMetadata
+
+	// StatusCallback is a callback to be used by the instance to report
+	// changes in status. Its signature is consistent with other
+	// status-related functions to allow them to be used as callbacks.
+	StatusCallback func(settableStatus status.Status, info string, data map[string]interface{}) error
+
+	// CleanupCallback is a callback to be used to clean up any residual
+	// status-reporting output from StatusCallback.
+	CleanupCallback func(info string) error
 }
 
 // StartInstanceResult holds the result of an
@@ -65,7 +87,7 @@ type StartInstanceResult struct {
 	Instance instance.Instance
 
 	// Config holds the environment config to be used for any further
-	// operations, if the instance is for a state server.
+	// operations, if the instance is for a controller.
 	Config *config.Config
 
 	// HardwareCharacteristics represents the hardware characteristics

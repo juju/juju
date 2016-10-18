@@ -7,22 +7,23 @@ import (
 	"sort"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/storageprovisioner"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/stateenvirons"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/storage"
-	"github.com/juju/juju/storage/provider/dummy"
-	"github.com/juju/juju/storage/provider/registry"
+	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
@@ -39,24 +40,6 @@ type provisionerSuite struct {
 	api        *storageprovisioner.StorageProvisionerAPI
 }
 
-func (s *provisionerSuite) SetUpSuite(c *gc.C) {
-	s.JujuConnSuite.SetUpSuite(c)
-
-	registry.RegisterProvider("environscoped", &dummy.StorageProvider{
-		StorageScope: storage.ScopeEnviron,
-	})
-	registry.RegisterProvider("machinescoped", &dummy.StorageProvider{
-		StorageScope: storage.ScopeMachine,
-	})
-	registry.RegisterEnvironStorageProviders(
-		"dummy", "environscoped", "machinescoped",
-	)
-	s.AddSuiteCleanup(func(c *gc.C) {
-		registry.RegisterProvider("environscoped", nil)
-		registry.RegisterProvider("machinescoped", nil)
-	})
-}
-
 func (s *provisionerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.factory = factory.NewFactory(s.State)
@@ -66,19 +49,25 @@ func (s *provisionerSuite) SetUpTest(c *gc.C) {
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
-	var err error
+	env, err := stateenvirons.GetNewEnvironFunc(environs.New)(s.State)
+	c.Assert(err, jc.ErrorIsNil)
+	registry := stateenvirons.NewStorageProviderRegistry(env)
+	pm := poolmanager.New(state.NewStateSettings(s.State), registry)
+
 	s.authorizer = &apiservertesting.FakeAuthorizer{
 		Tag:            names.NewMachineTag("0"),
 		EnvironManager: true,
 	}
-	s.api, err = storageprovisioner.NewStorageProvisionerAPI(s.State, s.resources, s.authorizer)
+	backend := storageprovisioner.NewStateBackend(s.State)
+	s.api, err = storageprovisioner.NewStorageProvisionerAPI(backend, s.resources, s.authorizer, registry, pm)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *provisionerSuite) TestNewStorageProvisionerAPINonMachine(c *gc.C) {
 	tag := names.NewUnitTag("mysql/0")
 	authorizer := &apiservertesting.FakeAuthorizer{Tag: tag}
-	_, err := storageprovisioner.NewStorageProvisionerAPI(s.State, common.NewResources(), authorizer)
+	backend := storageprovisioner.NewStateBackend(s.State)
+	_, err := storageprovisioner.NewStorageProvisionerAPI(backend, common.NewResources(), authorizer, nil, nil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
@@ -368,7 +357,8 @@ func (s *provisionerSuite) TestVolumeParams(c *gc.C) {
 				Size:      1024,
 				Provider:  "machinescoped",
 				Tags: map[string]string{
-					tags.JujuEnv: testing.EnvironmentTag.Id(),
+					tags.JujuController: testing.ControllerTag.Id(),
+					tags.JujuModel:      testing.ModelTag.Id(),
 				},
 				Attachment: &params.VolumeAttachmentParams{
 					MachineTag: "machine-0",
@@ -382,7 +372,8 @@ func (s *provisionerSuite) TestVolumeParams(c *gc.C) {
 				Size:      2048,
 				Provider:  "environscoped",
 				Tags: map[string]string{
-					tags.JujuEnv: testing.EnvironmentTag.Id(),
+					tags.JujuController: testing.ControllerTag.Id(),
+					tags.JujuModel:      testing.ModelTag.Id(),
 				},
 				Attachment: &params.VolumeAttachmentParams{
 					MachineTag: "machine-0",
@@ -396,7 +387,8 @@ func (s *provisionerSuite) TestVolumeParams(c *gc.C) {
 				Size:      4096,
 				Provider:  "environscoped",
 				Tags: map[string]string{
-					tags.JujuEnv: testing.EnvironmentTag.Id(),
+					tags.JujuController: testing.ControllerTag.Id(),
+					tags.JujuModel:      testing.ModelTag.Id(),
 				},
 				Attachment: &params.VolumeAttachmentParams{
 					MachineTag: "machine-0",
@@ -430,7 +422,8 @@ func (s *provisionerSuite) TestFilesystemParams(c *gc.C) {
 				Size:          1024,
 				Provider:      "machinescoped",
 				Tags: map[string]string{
-					tags.JujuEnv: testing.EnvironmentTag.Id(),
+					tags.JujuController: testing.ControllerTag.Id(),
+					tags.JujuModel:      testing.ModelTag.Id(),
 				},
 			}},
 			{Result: params.FilesystemParams{
@@ -438,7 +431,8 @@ func (s *provisionerSuite) TestFilesystemParams(c *gc.C) {
 				Size:          2048,
 				Provider:      "environscoped",
 				Tags: map[string]string{
-					tags.JujuEnv: testing.EnvironmentTag.Id(),
+					tags.JujuController: testing.ControllerTag.Id(),
+					tags.JujuModel:      testing.ModelTag.Id(),
 				},
 			}},
 			{Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},
@@ -684,7 +678,7 @@ func (s *provisionerSuite) TestWatchVolumes(c *gc.C) {
 
 	args := params.Entities{Entities: []params.Entity{
 		{"machine-0"},
-		{s.State.EnvironTag().String()},
+		{s.State.ModelTag().String()},
 		{"environ-adb650da-b77b-4ee8-9cbb-d57a9a592847"},
 		{"machine-1"},
 		{"machine-42"}},
@@ -724,7 +718,7 @@ func (s *provisionerSuite) TestWatchVolumeAttachments(c *gc.C) {
 
 	args := params.Entities{Entities: []params.Entity{
 		{"machine-0"},
-		{s.State.EnvironTag().String()},
+		{s.State.ModelTag().String()},
 		{"environ-adb650da-b77b-4ee8-9cbb-d57a9a592847"},
 		{"machine-1"},
 		{"machine-42"}},
@@ -785,7 +779,7 @@ func (s *provisionerSuite) TestWatchFilesystems(c *gc.C) {
 
 	args := params.Entities{Entities: []params.Entity{
 		{"machine-0"},
-		{s.State.EnvironTag().String()},
+		{s.State.ModelTag().String()},
 		{"environ-adb650da-b77b-4ee8-9cbb-d57a9a592847"},
 		{"machine-1"},
 		{"machine-42"}},
@@ -830,7 +824,7 @@ func (s *provisionerSuite) TestWatchFilesystemAttachments(c *gc.C) {
 
 	args := params.Entities{Entities: []params.Entity{
 		{"machine-0"},
-		{s.State.EnvironTag().String()},
+		{s.State.ModelTag().String()},
 		{"environ-adb650da-b77b-4ee8-9cbb-d57a9a592847"},
 		{"machine-1"},
 		{"machine-42"}},
@@ -888,7 +882,7 @@ func (s *provisionerSuite) TestWatchBlockDevices(c *gc.C) {
 
 	args := params.Entities{Entities: []params.Entity{
 		{"machine-0"},
-		{"service-mysql"},
+		{"application-mysql"},
 		{"machine-1"},
 		{"machine-42"}},
 	}
@@ -897,7 +891,7 @@ func (s *provisionerSuite) TestWatchBlockDevices(c *gc.C) {
 	c.Assert(results, jc.DeepEquals, params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{
 			{NotifyWatcherId: "1"},
-			{Error: &params.Error{Message: `"service-mysql" is not a valid machine tag`}},
+			{Error: &params.Error{Message: `"application-mysql" is not a valid machine tag`}},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
 		},
@@ -948,7 +942,7 @@ func (s *provisionerSuite) TestVolumeBlockDevices(c *gc.C) {
 		{MachineTag: "machine-0", AttachmentTag: "volume-0-2"},
 		{MachineTag: "machine-1", AttachmentTag: "volume-1"},
 		{MachineTag: "machine-42", AttachmentTag: "volume-42"},
-		{MachineTag: "service-mysql", AttachmentTag: "volume-1"},
+		{MachineTag: "application-mysql", AttachmentTag: "volume-1"},
 	}}
 	results, err := s.api.VolumeBlockDevices(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -963,7 +957,7 @@ func (s *provisionerSuite) TestVolumeBlockDevices(c *gc.C) {
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
-			{Error: &params.Error{Message: `"service-mysql" is not a valid machine tag`}},
+			{Error: &params.Error{Message: `"application-mysql" is not a valid machine tag`}},
 		},
 	})
 }
@@ -1027,36 +1021,6 @@ func (s *provisionerSuite) TestEnsureDead(c *gc.C) {
 			{Error: common.ServerError(errors.NotFoundf(`volume "42"`))},
 		},
 	})
-}
-
-func (s *provisionerSuite) TestWatchForEnvironConfigChanges(c *gc.C) {
-	result, err := s.api.WatchForEnvironConfigChanges()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.NotifyWatcherId, gc.Equals, "1")
-
-	// Verify the resource was registered and stop it when done.
-	c.Assert(s.resources.Count(), gc.Equals, 1)
-	watcher := s.resources.Get("1")
-	defer statetesting.AssertStop(c, watcher)
-
-	// Check that the Watch has consumed the initial events ("returned" in
-	// the Watch call)
-	wc := statetesting.NewNotifyWatcherC(c, s.State, watcher.(state.NotifyWatcher))
-	wc.AssertNoChange()
-
-	// Updating config should trigger the watcher.
-	err = s.State.UpdateEnvironConfig(map[string]interface{}{"what": "ever"}, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertOneChange()
-}
-
-func (s *provisionerSuite) TestEnvironConfig(c *gc.C) {
-	stateEnvironConfig, err := s.State.EnvironConfig()
-	c.Assert(err, jc.ErrorIsNil)
-
-	result, err := s.api.EnvironConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Config, jc.DeepEquals, params.EnvironConfig(stateEnvironConfig.AllAttrs()))
 }
 
 func (s *provisionerSuite) TestRemoveVolumesEnvironManager(c *gc.C) {

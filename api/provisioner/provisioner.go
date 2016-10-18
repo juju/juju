@@ -5,21 +5,23 @@ package provisioner
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names"
+	"github.com/juju/version"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
-	"github.com/juju/juju/api/watcher"
+	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
+	"github.com/juju/juju/watcher"
 )
 
 // State provides access to the Machiner API facade.
 type State struct {
-	*common.EnvironWatcher
+	*common.ModelWatcher
 	*common.APIAddresser
+	*common.ControllerConfigAPI
 
 	facade base.FacadeCaller
 }
@@ -30,9 +32,11 @@ const provisionerFacade = "Provisioner"
 func NewState(caller base.APICaller) *State {
 	facadeCaller := base.NewFacadeCaller(caller, provisionerFacade)
 	return &State{
-		EnvironWatcher: common.NewEnvironWatcher(facadeCaller),
-		APIAddresser:   common.NewAPIAddresser(facadeCaller),
-		facade:         facadeCaller}
+		ModelWatcher:        common.NewModelWatcher(facadeCaller),
+		APIAddresser:        common.NewAPIAddresser(facadeCaller),
+		ControllerConfigAPI: common.NewControllerConfig(facadeCaller),
+		facade:              facadeCaller,
+	}
 }
 
 // machineLife requests the lifecycle of the given machine from the server.
@@ -53,19 +57,19 @@ func (st *State) Machine(tag names.MachineTag) (*Machine, error) {
 	}, nil
 }
 
-// WatchEnvironMachines returns a StringsWatcher that notifies of
+// WatchModelMachines returns a StringsWatcher that notifies of
 // changes to the lifecycles of the machines (but not containers) in
-// the current environment.
-func (st *State) WatchEnvironMachines() (watcher.StringsWatcher, error) {
+// the current model.
+func (st *State) WatchModelMachines() (watcher.StringsWatcher, error) {
 	var result params.StringsWatchResult
-	err := st.facade.FacadeCall("WatchEnvironMachines", nil, &result)
+	err := st.facade.FacadeCall("WatchModelMachines", nil, &result)
 	if err != nil {
 		return nil, err
 	}
 	if err := result.Error; err != nil {
 		return nil, result.Error
 	}
-	w := watcher.NewStringsWatcher(st.facade.RawAPICaller(), result)
+	w := apiwatcher.NewStringsWatcher(st.facade.RawAPICaller(), result)
 	return w, nil
 }
 
@@ -78,7 +82,7 @@ func (st *State) WatchMachineErrorRetry() (watcher.NotifyWatcher, error) {
 	if err := result.Error; err != nil {
 		return nil, result.Error
 	}
-	w := watcher.NewNotifyWatcher(st.facade.RawAPICaller(), result)
+	w := apiwatcher.NewNotifyWatcher(st.facade.RawAPICaller(), result)
 	return w, nil
 }
 
@@ -92,14 +96,14 @@ func (st *State) StateAddresses() ([]string, error) {
 	return result.Result, nil
 }
 
-// ContainerManagerConfig returns information from the environment config that is
+// ContainerManagerConfig returns information from the model config that is
 // needed for configuring the container manager.
 func (st *State) ContainerManagerConfig(args params.ContainerManagerConfigParams) (result params.ContainerManagerConfig, err error) {
 	err = st.facade.FacadeCall("ContainerManagerConfig", args, &result)
 	return result, err
 }
 
-// ContainerConfig returns information from the environment config that is
+// ContainerConfig returns information from the model config that is
 // needed for container cloud-init.
 func (st *State) ContainerConfig() (result params.ContainerConfig, err error) {
 	err = st.facade.FacadeCall("ContainerConfig", nil, &result)
@@ -164,17 +168,14 @@ func (st *State) ReleaseContainerAddresses(containerTag names.MachineTag) (err e
 	return result.OneError()
 }
 
-// PrepareContainerInterfaceInfo allocates an address and returns
-// information to configure networking for a container. It accepts
-// container tags as arguments. If the address allocation feature flag
-// is not enabled, it returns a NotSupported error.
+// PrepareContainerInterfaceInfo allocates an address and returns information to
+// configure networking for a container. It accepts container tags as arguments.
 func (st *State) PrepareContainerInterfaceInfo(containerTag names.MachineTag) ([]network.InterfaceInfo, error) {
 	return st.prepareOrGetContainerInterfaceInfo(containerTag, true)
 }
 
 // GetContainerInterfaceInfo returns information to configure networking
-// for a container. It accepts container tags as arguments. If the address
-// allocation feature flag is not enabled, it returns a NotSupported error.
+// for a container. It accepts container tags as arguments.
 func (st *State) GetContainerInterfaceInfo(containerTag names.MachineTag) ([]network.InterfaceInfo, error) {
 	return st.prepareOrGetContainerInterfaceInfo(containerTag, false)
 }
@@ -209,23 +210,28 @@ func (st *State) prepareOrGetContainerInterfaceInfo(
 		return nil, err
 	}
 	ifaceInfo := make([]network.InterfaceInfo, len(result.Results[0].Config))
-	for i, netInfo := range result.Results[0].Config {
+	for i, cfg := range result.Results[0].Config {
 		ifaceInfo[i] = network.InterfaceInfo{
-			DeviceIndex:      netInfo.DeviceIndex,
-			MACAddress:       netInfo.MACAddress,
-			CIDR:             netInfo.CIDR,
-			NetworkName:      netInfo.NetworkName,
-			ProviderId:       network.Id(netInfo.ProviderId),
-			ProviderSubnetId: network.Id(netInfo.ProviderSubnetId),
-			VLANTag:          netInfo.VLANTag,
-			InterfaceName:    netInfo.InterfaceName,
-			Disabled:         netInfo.Disabled,
-			NoAutoStart:      netInfo.NoAutoStart,
-			ConfigType:       network.InterfaceConfigType(netInfo.ConfigType),
-			Address:          network.NewAddress(netInfo.Address),
-			DNSServers:       network.NewAddresses(netInfo.DNSServers...),
-			GatewayAddress:   network.NewAddress(netInfo.GatewayAddress),
-			ExtraConfig:      netInfo.ExtraConfig,
+			DeviceIndex:         cfg.DeviceIndex,
+			MACAddress:          cfg.MACAddress,
+			CIDR:                cfg.CIDR,
+			MTU:                 cfg.MTU,
+			ProviderId:          network.Id(cfg.ProviderId),
+			ProviderSubnetId:    network.Id(cfg.ProviderSubnetId),
+			ProviderSpaceId:     network.Id(cfg.ProviderSpaceId),
+			ProviderVLANId:      network.Id(cfg.ProviderVLANId),
+			ProviderAddressId:   network.Id(cfg.ProviderAddressId),
+			VLANTag:             cfg.VLANTag,
+			InterfaceName:       cfg.InterfaceName,
+			ParentInterfaceName: cfg.ParentInterfaceName,
+			InterfaceType:       network.InterfaceType(cfg.InterfaceType),
+			Disabled:            cfg.Disabled,
+			NoAutoStart:         cfg.NoAutoStart,
+			ConfigType:          network.InterfaceConfigType(cfg.ConfigType),
+			Address:             network.NewAddress(cfg.Address),
+			DNSServers:          network.NewAddresses(cfg.DNSServers...),
+			DNSSearchDomains:    cfg.DNSSearchDomains,
+			GatewayAddress:      network.NewAddress(cfg.GatewayAddress),
 		}
 	}
 	return ifaceInfo, nil

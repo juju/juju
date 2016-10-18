@@ -4,33 +4,28 @@
 package machiner_test
 
 import (
-	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
+	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/status"
+	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/machiner"
 )
 
 type mockWatcher struct {
-	gitjujutesting.Stub
 	changes chan struct{}
 }
 
-func (w *mockWatcher) Changes() <-chan struct{} {
-	w.MethodCall(w, "Changes")
+func (w *mockWatcher) Changes() watcher.NotifyChannel {
 	return w.changes
 }
 
-func (w *mockWatcher) Stop() error {
-	w.MethodCall(w, "Stop")
-	return w.NextErr()
-}
+func (w *mockWatcher) Kill() {}
 
-func (w *mockWatcher) Err() error {
-	w.MethodCall(w, "Err")
-	return w.NextErr()
+func (w *mockWatcher) Wait() error {
+	return nil
 }
 
 type mockMachine struct {
@@ -60,7 +55,12 @@ func (m *mockMachine) SetMachineAddresses(addresses []network.Address) error {
 	return m.NextErr()
 }
 
-func (m *mockMachine) SetStatus(status params.Status, info string, data map[string]interface{}) error {
+func (m *mockMachine) SetObservedNetworkConfig(netConfig []params.NetworkConfig) error {
+	m.MethodCall(m, "SetObservedNetworkConfig", netConfig)
+	return m.NextErr()
+}
+
+func (m *mockMachine) SetStatus(status status.Status, info string, data map[string]interface{}) error {
 	m.MethodCall(m, "SetStatus", status, info, data)
 	return m.NextErr()
 }

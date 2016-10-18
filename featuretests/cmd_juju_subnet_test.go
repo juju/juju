@@ -8,8 +8,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	cmdsubnet "github.com/juju/juju/cmd/juju/subnet"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 )
@@ -26,7 +26,7 @@ func (s *cmdSubnetSuite) AddSubnet(c *gc.C, info state.SubnetInfo) *state.Subnet
 }
 
 func (s *cmdSubnetSuite) AddSpace(c *gc.C, name string, ids []string, public bool) *state.Space {
-	space, err := s.State.AddSpace(name, ids, public)
+	space, err := s.State.AddSpace(name, "", ids, public)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(space.Name(), gc.Equals, name)
 	subnets, err := space.Subnets()
@@ -35,8 +35,8 @@ func (s *cmdSubnetSuite) AddSpace(c *gc.C, name string, ids []string, public boo
 	return space
 }
 
-func (s *cmdSubnetSuite) Run(c *gc.C, command cmd.Command, expectedError string, args ...string) *cmd.Context {
-	context, err := testing.RunCommand(c, command, args...)
+func (s *cmdSubnetSuite) Run(c *gc.C, expectedError string, args ...string) *cmd.Context {
+	context, err := runJujuCommand(c, args...)
 	if expectedError != "" {
 		c.Assert(err, gc.ErrorMatches, expectedError)
 	} else {
@@ -45,12 +45,8 @@ func (s *cmdSubnetSuite) Run(c *gc.C, command cmd.Command, expectedError string,
 	return context
 }
 
-func (s *cmdSubnetSuite) RunSuper(c *gc.C, expectedError string, args ...string) *cmd.Context {
-	return s.Run(c, cmdsubnet.NewSuperCommand(), expectedError, args...)
-}
-
 func (s *cmdSubnetSuite) RunAdd(c *gc.C, expectedError string, args ...string) (string, string, error) {
-	cmdArgs := append([]string{"subnet", "add"}, args...)
+	cmdArgs := append([]string{"add-subnet"}, args...)
 	ctx, err := runJujuCommand(c, cmdArgs...)
 	stdout, stderr := "", ""
 	if ctx != nil {
@@ -71,17 +67,17 @@ func (s *cmdSubnetSuite) AssertOutput(c *gc.C, context *cmd.Context, expectedOut
 
 func (s *cmdSubnetSuite) TestSubnetAddNoArguments(c *gc.C) {
 	expectedError := "invalid arguments specified: either CIDR or provider ID is required"
-	s.RunSuper(c, expectedError, "add")
+	s.Run(c, expectedError, "add-subnet")
 }
 
 func (s *cmdSubnetSuite) TestSubnetAddInvalidCIDRTakenAsProviderId(c *gc.C) {
 	expectedError := "invalid arguments specified: space name is required"
-	s.RunSuper(c, expectedError, "add", "subnet-xyz")
+	s.Run(c, expectedError, "add-subnet", "subnet-xyz")
 }
 
 func (s *cmdSubnetSuite) TestSubnetAddCIDRAndInvalidSpaceName(c *gc.C) {
 	expectedError := `invalid arguments specified: " f o o " is not a valid space name`
-	s.RunSuper(c, expectedError, "add", "10.0.0.0/8", " f o o ")
+	s.Run(c, expectedError, "add-subnet", "10.0.0.0/8", " f o o ")
 }
 
 func (s *cmdSubnetSuite) TestSubnetAddAlreadyExistingCIDR(c *gc.C) {
@@ -112,7 +108,7 @@ func (s *cmdSubnetSuite) TestSubnetAddWithUnknownSpace(c *gc.C) {
 func (s *cmdSubnetSuite) TestSubnetAddWithoutZonesWhenProviderHasZones(c *gc.C) {
 	s.AddSpace(c, "myspace", nil, true)
 
-	context := s.RunSuper(c, expectedSuccess, "add", "0.10.0.0/24", "myspace")
+	context := s.Run(c, expectedSuccess, "add-subnet", "0.10.0.0/24", "myspace")
 	s.AssertOutput(c, context,
 		"", // no stdout output
 		"added subnet with CIDR \"0.10.0.0/24\" in space \"myspace\"\n",
@@ -122,7 +118,7 @@ func (s *cmdSubnetSuite) TestSubnetAddWithoutZonesWhenProviderHasZones(c *gc.C) 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(subnet.CIDR(), gc.Equals, "0.10.0.0/24")
 	c.Assert(subnet.SpaceName(), gc.Equals, "myspace")
-	c.Assert(subnet.ProviderId(), gc.Equals, "dummy-private")
+	c.Assert(subnet.ProviderId(), gc.Equals, network.Id("dummy-private"))
 	c.Assert(subnet.AvailabilityZone(), gc.Equals, "zone1")
 }
 
@@ -136,7 +132,7 @@ func (s *cmdSubnetSuite) TestSubnetAddWithUnavailableZones(c *gc.C) {
 func (s *cmdSubnetSuite) TestSubnetAddWithZonesWithNoProviderZones(c *gc.C) {
 	s.AddSpace(c, "myspace", nil, true)
 
-	context := s.RunSuper(c, expectedSuccess, "add", "dummy-public", "myspace", "zone1")
+	context := s.Run(c, expectedSuccess, "add-subnet", "dummy-public", "myspace", "zone1")
 	s.AssertOutput(c, context,
 		"", // no stdout output
 		"added subnet with ProviderId \"dummy-public\" in space \"myspace\"\n",
@@ -146,15 +142,15 @@ func (s *cmdSubnetSuite) TestSubnetAddWithZonesWithNoProviderZones(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(subnet.CIDR(), gc.Equals, "0.20.0.0/24")
 	c.Assert(subnet.SpaceName(), gc.Equals, "myspace")
-	c.Assert(subnet.ProviderId(), gc.Equals, "dummy-public")
+	c.Assert(subnet.ProviderId(), gc.Equals, network.Id("dummy-public"))
 	c.Assert(subnet.AvailabilityZone(), gc.Equals, "zone1")
 }
 
 func (s *cmdSubnetSuite) TestSubnetListNoResults(c *gc.C) {
-	context := s.RunSuper(c, expectedSuccess, "list")
+	context := s.Run(c, expectedSuccess, "list-subnets")
 	s.AssertOutput(c, context,
 		"", // no stdout output
-		"no subnets to display\n",
+		"No subnets to display.\n",
 	)
 }
 
@@ -169,9 +165,9 @@ func (s *cmdSubnetSuite) TestSubnetListResultsWithFilters(c *gc.C) {
 	})
 	s.AddSpace(c, "myspace", []string{"10.10.0.0/16"}, true)
 
-	context := s.RunSuper(c,
+	context := s.Run(c,
 		expectedSuccess,
-		"list", "--zone", "zone1", "--space", "myspace",
+		"subnets", "--zone", "zone1", "--space", "myspace",
 	)
 	c.Assert(testing.Stderr(context), gc.Equals, "") // no stderr expected
 	stdout := testing.Stdout(context)

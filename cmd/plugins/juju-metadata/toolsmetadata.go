@@ -7,27 +7,28 @@ import (
 	"fmt"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
-	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
 	envtools "github.com/juju/juju/environs/tools"
+	"github.com/juju/juju/juju/keys"
 	"github.com/juju/juju/juju/osenv"
 	coretools "github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
 )
 
 func newToolsMetadataCommand() cmd.Command {
-	return envcmd.Wrap(&toolsMetadataCommand{})
+	return modelcmd.Wrap(&toolsMetadataCommand{})
 }
 
 // toolsMetadataCommand is used to generate simplestreams metadata for juju tools.
 type toolsMetadataCommand struct {
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 	fetch       bool
 	metadataDir string
 	stream      string
@@ -35,12 +36,13 @@ type toolsMetadataCommand struct {
 	public      bool
 }
 
-var toolsMetadataDoc = `
+const toolsMetadataDoc = `
 generate-tools creates simplestreams tools metadata.
 
 This command works by scanning a directory for tools tarballs from which to generate
 simplestreams tools metadata. The working directory is specified using the -d argument
-(defaults to ~/.juju). The working directory is expected to contain a named subdirectory
+(defaults to $JUJU_DATA or if not defined $XDG_DATA_HOME/juju or if that is not defined
+~/.local/share/juju). The working directory is expected to contain a named subdirectory
 containing tools tarballs, and is where the resulting metadata is written.
 
 The stream for which metadata is generated is specified using the --stream parameter
@@ -59,22 +61,17 @@ use the --clean option.
 
 Examples:
 
-  - generate metadata for "released" tools, looking in the "releases" directory:
+# generate metadata for "released":
+juju metadata generate-tools -d <workingdir>
 
-   juju metadata generate-tools -d <workingdir>
+# generate metadata for "released":
+juju metadata generate-tools -d <workingdir> --stream released
 
-  - generate metadata for "released" tools, looking in the "released" directory:
+# generate metadata for "proposed":
+juju metadata generate-tools -d <workingdir> --stream proposed
 
-   juju metadata generate-tools -d <workingdir> --stream released
-
-  - generate metadata for "proposed" tools, looking in the "proposed" directory:
-
-   juju metadata generate-tools -d <workingdir> --stream proposed
-
-  - generate metadata for "proposed" tools, first removing existing "proposed" metadata:
-
-   juju metadata generate-tools -d <workingdir> --stream proposed --clean
-
+# generate metadata for "proposed", first removing existing "proposed" metadata:
+juju metadata generate-tools -d <workingdir> --stream proposed --clean
 `
 
 func (c *toolsMetadataCommand) Info() *cmd.Info {
@@ -87,61 +84,68 @@ func (c *toolsMetadataCommand) Info() *cmd.Info {
 
 func (c *toolsMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.metadataDir, "d", "", "local directory in which to store metadata")
-	// If no stream is specified, we'll generate metadata for the legacy tools location.
-	f.StringVar(&c.stream, "stream", "", "simplestreams stream for which to generate the metadata")
-	f.BoolVar(&c.clean, "clean", false, "remove any existing metadata for the specified stream before generating new metadata")
-	f.BoolVar(&c.public, "public", false, "tools are for a public cloud, so generate mirrors information")
+	f.StringVar(&c.stream, "stream", envtools.ReleasedStream,
+		"simplestreams stream for which to generate the metadata")
+	f.BoolVar(&c.clean, "clean", false,
+		"remove any existing metadata for the specified stream before generating new metadata")
+	f.BoolVar(&c.public, "public", false,
+		"tools are for a public cloud, so generate mirrors information")
 }
 
 func (c *toolsMetadataCommand) Run(context *cmd.Context) error {
-	loggo.RegisterWriter("toolsmetadata", cmd.NewCommandLogWriter("juju.environs.tools", context.Stdout, context.Stderr), loggo.INFO)
+	writer := loggo.NewMinimumLevelWriter(
+		cmd.NewCommandLogWriter("juju.environs.tools", context.Stdout, context.Stderr),
+		loggo.INFO)
+	loggo.RegisterWriter("toolsmetadata", writer)
 	defer loggo.RemoveWriter("toolsmetadata")
 	if c.metadataDir == "" {
-		c.metadataDir = osenv.JujuHome()
+		c.metadataDir = osenv.JujuXDGDataHomeDir()
 	} else {
 		c.metadataDir = context.AbsPath(c.metadataDir)
 	}
 
 	sourceStorage, err := filestorage.NewFileStorageReader(c.metadataDir)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
-	// We now store the tools in a directory named after their stream, but the
-	// legacy behaviour is to store all tools in a single "releases" directory.
-	toolsDir := c.stream
-	if c.stream == "" {
-		fmt.Fprintf(context.Stdout, "No stream specified, defaulting to released tools in the releases directory.\n")
-		c.stream = envtools.ReleasedStream
-		toolsDir = envtools.LegacyReleaseDirectory
-	}
 	fmt.Fprintf(context.Stdout, "Finding tools in %s for stream %s.\n", c.metadataDir, c.stream)
-	const minorVersion = -1
-	toolsList, err := envtools.ReadList(sourceStorage, toolsDir, version.Current.Major, minorVersion)
+	toolsList, err := envtools.ReadList(sourceStorage, c.stream, -1, -1)
 	if err == envtools.ErrNoTools {
 		var source string
 		source, err = envtools.ToolsURL(envtools.DefaultBaseURL)
 		if err != nil {
-			return err
+			return errors.Trace(err)
 		}
-		sourceDataSource := simplestreams.NewURLDataSource("local source", source, utils.VerifySSLHostnames)
-		toolsList, err = envtools.FindToolsForCloud(
-			[]simplestreams.DataSource{sourceDataSource}, simplestreams.CloudSpec{}, c.stream,
-			version.Current.Major, minorVersion, coretools.Filter{})
+		toolsList, err = envtools.FindToolsForCloud(toolsDataSources(source), simplestreams.CloudSpec{}, c.stream, -1, -1, coretools.Filter{})
 	}
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	targetStorage, err := filestorage.NewFileStorageWriter(c.metadataDir)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	writeMirrors := envtools.DoNotWriteMirrors
 	if c.public {
 		writeMirrors = envtools.WriteMirrors
 	}
-	return mergeAndWriteMetadata(targetStorage, toolsDir, c.stream, c.clean, toolsList, writeMirrors)
+	return errors.Trace(mergeAndWriteMetadata(targetStorage, c.stream, c.stream, c.clean, toolsList, writeMirrors))
+}
+
+func toolsDataSources(urls ...string) []simplestreams.DataSource {
+	dataSources := make([]simplestreams.DataSource, len(urls))
+	for i, url := range urls {
+		dataSources[i] = simplestreams.NewURLSignedDataSource(
+			"local source",
+			url,
+			keys.JujuPublicKey,
+			utils.VerifySSLHostnames,
+			simplestreams.CUSTOM_CLOUD_DATA,
+			false)
+	}
+	return dataSources
 }
 
 // This is essentially the same as tools.MergeAndWriteMetadata, but also

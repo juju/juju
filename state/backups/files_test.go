@@ -16,6 +16,7 @@ import (
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/backups"
 	"github.com/juju/juju/testing"
 )
@@ -58,15 +59,11 @@ func (s *filesSuite) createFiles(c *gc.C, paths backups.Paths, root, machineID s
 	dirname = mkdir(filepath.Join(paths.DataDir, "agents"))
 	touch(dirname, "machine-"+machineID+".conf")
 
-	dirname = mkdir(paths.LogsDir)
-	touch(dirname, "all-machines.log")
-	touch(dirname, "machine-"+machineID+".log")
-
-	dirname = mkdir("/etc/rsyslog.d")
-	touch(dirname, "spam-juju.conf")
-
 	dirname = mkdir("/home/ubuntu/.ssh")
 	touch(dirname, "authorized_keys")
+
+	dirname = mkdir(filepath.Join(paths.DataDir, "init", "juju-db"))
+	touch(dirname, "juju-db.service")
 }
 
 func (s *filesSuite) checkSameStrings(c *gc.C, actual, expected []string) {
@@ -109,7 +106,6 @@ func (s *filesSuite) TestGetFilesToBackUpMachine0(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	expected := []string{
-		filepath.Join(s.root, "/etc/rsyslog.d/spam-juju.conf"),
 		filepath.Join(s.root, "/home/ubuntu/.ssh/authorized_keys"),
 		filepath.Join(s.root, "/var/lib/juju/agents/machine-0.conf"),
 		filepath.Join(s.root, "/var/lib/juju/nonce.txt"),
@@ -117,8 +113,7 @@ func (s *filesSuite) TestGetFilesToBackUpMachine0(c *gc.C) {
 		filepath.Join(s.root, "/var/lib/juju/shared-secret"),
 		filepath.Join(s.root, "/var/lib/juju/system-identity"),
 		filepath.Join(s.root, "/var/lib/juju/tools"),
-		filepath.Join(s.root, "/var/log/juju/all-machines.log"),
-		filepath.Join(s.root, "/var/log/juju/machine-0.log"),
+		filepath.Join(s.root, "/var/lib/juju/init/juju-db"),
 	}
 	c.Check(files, jc.SameContents, expected)
 	s.checkSameStrings(c, files, expected)
@@ -148,7 +143,7 @@ func (s *filesSuite) TestDirectoriesCleaned(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer fhr.Close()
 
-	s.PatchValue(backups.ReplaceableFolders, func() (map[string]os.FileMode, error) {
+	s.PatchValue(backups.ReplaceableFolders, func(_ string, _ mongo.Version) (map[string]os.FileMode, error) {
 		replaceables := map[string]os.FileMode{}
 		for _, replaceable := range []string{
 			recreatableFolder,
@@ -163,7 +158,7 @@ func (s *filesSuite) TestDirectoriesCleaned(c *gc.C) {
 		return replaceables, nil
 	})
 
-	err = backups.PrepareMachineForRestore()
+	err = backups.PrepareMachineForRestore(mongo.Version{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = os.Stat(deletableFolder)
@@ -181,6 +176,40 @@ func (s *filesSuite) TestDirectoriesCleaned(c *gc.C) {
 	c.Assert(recreatableFolder1Info.Sys().(*syscall.Stat_t).Ino, gc.Not(gc.Equals), recreatedFolder1Info.Sys().(*syscall.Stat_t).Ino)
 }
 
+func (s *filesSuite) setupReplaceableFolders(c *gc.C) string {
+	dataDir := c.MkDir()
+	c.Assert(os.Mkdir(filepath.Join(dataDir, "init"), 0640), jc.ErrorIsNil)
+	c.Assert(os.Mkdir(filepath.Join(dataDir, "tools"), 0660), jc.ErrorIsNil)
+	c.Assert(os.Mkdir(filepath.Join(dataDir, "agents"), 0600), jc.ErrorIsNil)
+	c.Assert(os.Mkdir(filepath.Join(dataDir, "db"), 0600), jc.ErrorIsNil)
+	return dataDir
+}
+
+func (s *filesSuite) TestReplaceableFoldersMongo2(c *gc.C) {
+	dataDir := s.setupReplaceableFolders(c)
+
+	result, err := (*backups.ReplaceableFolders)(dataDir, mongo.Version{Major: 2, Minor: 4})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, map[string]os.FileMode{
+		filepath.Join(dataDir, "init"):   0640 | os.ModeDir,
+		filepath.Join(dataDir, "tools"):  0660 | os.ModeDir,
+		filepath.Join(dataDir, "agents"): 0600 | os.ModeDir,
+		filepath.Join(dataDir, "db"):     0600 | os.ModeDir,
+	})
+}
+
+func (s *filesSuite) TestReplaceableFoldersMongo3(c *gc.C) {
+	dataDir := s.setupReplaceableFolders(c)
+
+	result, err := (*backups.ReplaceableFolders)(dataDir, mongo.Version{Major: 3, Minor: 2})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, map[string]os.FileMode{
+		filepath.Join(dataDir, "init"):   0640 | os.ModeDir,
+		filepath.Join(dataDir, "tools"):  0660 | os.ModeDir,
+		filepath.Join(dataDir, "agents"): 0600 | os.ModeDir,
+	})
+}
+
 func (s *filesSuite) TestGetFilesToBackUpMachine10(c *gc.C) {
 	paths := backups.Paths{
 		DataDir: "/var/lib/juju",
@@ -192,7 +221,6 @@ func (s *filesSuite) TestGetFilesToBackUpMachine10(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	expected := []string{
-		filepath.Join(s.root, "/etc/rsyslog.d/spam-juju.conf"),
 		filepath.Join(s.root, "/home/ubuntu/.ssh/authorized_keys"),
 		filepath.Join(s.root, "/var/lib/juju/agents/machine-10.conf"),
 		filepath.Join(s.root, "/var/lib/juju/nonce.txt"),
@@ -200,8 +228,7 @@ func (s *filesSuite) TestGetFilesToBackUpMachine10(c *gc.C) {
 		filepath.Join(s.root, "/var/lib/juju/shared-secret"),
 		filepath.Join(s.root, "/var/lib/juju/system-identity"),
 		filepath.Join(s.root, "/var/lib/juju/tools"),
-		filepath.Join(s.root, "/var/log/juju/all-machines.log"),
-		filepath.Join(s.root, "/var/log/juju/machine-10.log"),
+		filepath.Join(s.root, "/var/lib/juju/init/juju-db"),
 	}
 	c.Check(files, jc.SameContents, expected)
 	s.checkSameStrings(c, files, expected)
@@ -217,8 +244,6 @@ func (s *filesSuite) TestGetFilesToBackUpMissing(c *gc.C) {
 	missing := []string{
 		"/var/lib/juju/nonce.txt",
 		"/home/ubuntu/.ssh/authorized_keys",
-		"/var/log/juju/all-machines.log",
-		"/var/log/juju/machine-0.log",
 	}
 	for _, filename := range missing {
 		err := os.Remove(filepath.Join(s.root, filename))
@@ -229,12 +254,12 @@ func (s *filesSuite) TestGetFilesToBackUpMissing(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	expected := []string{
-		filepath.Join(s.root, "/etc/rsyslog.d/spam-juju.conf"),
 		filepath.Join(s.root, "/var/lib/juju/agents/machine-0.conf"),
 		filepath.Join(s.root, "/var/lib/juju/server.pem"),
 		filepath.Join(s.root, "/var/lib/juju/shared-secret"),
 		filepath.Join(s.root, "/var/lib/juju/system-identity"),
 		filepath.Join(s.root, "/var/lib/juju/tools"),
+		filepath.Join(s.root, "/var/lib/juju/init/juju-db"),
 	}
 	// This got re-created.
 	expected = append(expected, filepath.Join(s.root, "/home/ubuntu/.ssh/authorized_keys"))

@@ -10,14 +10,16 @@ import (
 	"time"
 
 	"github.com/juju/loggo"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type LogsSuite struct {
@@ -34,6 +36,119 @@ func (s *LogsSuite) SetUpTest(c *gc.C) {
 	s.logsColl = session.DB("logs").C("logs")
 }
 
+func (s *LogsSuite) TestLastSentLogTrackerSetGet(c *gc.C) {
+	tracker := state.NewLastSentLogTracker(s.State, s.State.ModelUUID(), "test-sink")
+	defer tracker.Close()
+
+	err := tracker.Set(10, 100)
+	c.Assert(err, jc.ErrorIsNil)
+	id1, ts1, err := tracker.Get()
+	c.Assert(err, jc.ErrorIsNil)
+	err = tracker.Set(20, 200)
+	c.Assert(err, jc.ErrorIsNil)
+	id2, ts2, err := tracker.Get()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(id1, gc.Equals, int64(10))
+	c.Check(ts1, gc.Equals, int64(100))
+	c.Check(id2, gc.Equals, int64(20))
+	c.Check(ts2, gc.Equals, int64(200))
+}
+
+func (s *LogsSuite) TestLastSentLogTrackerGetNeverSet(c *gc.C) {
+	tracker := state.NewLastSentLogTracker(s.State, s.State.ModelUUID(), "test")
+	defer tracker.Close()
+
+	_, _, err := tracker.Get()
+
+	c.Check(err, gc.ErrorMatches, state.ErrNeverForwarded.Error())
+}
+
+func (s *LogsSuite) TestLastSentLogTrackerIndependentModels(c *gc.C) {
+	tracker0 := state.NewLastSentLogTracker(s.State, s.State.ModelUUID(), "test-sink")
+	defer tracker0.Close()
+	otherModel := s.NewStateForModelNamed(c, "test-model")
+	defer otherModel.Close()
+	tracker1 := state.NewLastSentLogTracker(otherModel, otherModel.ModelUUID(), "test-sink") // same sink
+	defer tracker1.Close()
+	err := tracker0.Set(10, 100)
+	c.Assert(err, jc.ErrorIsNil)
+	id0, ts0, err := tracker0.Get()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(id0, gc.Equals, int64(10))
+	c.Assert(ts0, gc.Equals, int64(100))
+
+	_, _, errBefore := tracker1.Get()
+	err = tracker1.Set(20, 200)
+	c.Assert(err, jc.ErrorIsNil)
+	id1, ts1, errAfter := tracker1.Get()
+	c.Assert(errAfter, jc.ErrorIsNil)
+	id0, ts0, err = tracker0.Get()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(errBefore, gc.ErrorMatches, state.ErrNeverForwarded.Error())
+	c.Check(id1, gc.Equals, int64(20))
+	c.Check(ts1, gc.Equals, int64(200))
+	c.Check(id0, gc.Equals, int64(10))
+	c.Check(ts0, gc.Equals, int64(100))
+}
+
+func (s *LogsSuite) TestLastSentLogTrackerIndependentSinks(c *gc.C) {
+	tracker0 := state.NewLastSentLogTracker(s.State, s.State.ModelUUID(), "test-sink0")
+	defer tracker0.Close()
+	tracker1 := state.NewLastSentLogTracker(s.State, s.State.ModelUUID(), "test-sink1")
+	defer tracker1.Close()
+	err := tracker0.Set(10, 100)
+	c.Assert(err, jc.ErrorIsNil)
+	id0, ts0, err := tracker0.Get()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(id0, gc.Equals, int64(10))
+	c.Assert(ts0, gc.Equals, int64(100))
+
+	_, _, errBefore := tracker1.Get()
+	err = tracker1.Set(20, 200)
+	c.Assert(err, jc.ErrorIsNil)
+	id1, ts1, errAfter := tracker1.Get()
+	c.Assert(errAfter, jc.ErrorIsNil)
+	id0, ts0, err = tracker0.Get()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(errBefore, gc.ErrorMatches, state.ErrNeverForwarded.Error())
+	c.Check(id1, gc.Equals, int64(20))
+	c.Check(ts1, gc.Equals, int64(200))
+	c.Check(id0, gc.Equals, int64(10))
+	c.Check(ts0, gc.Equals, int64(100))
+}
+
+func (s *LogsSuite) TestAllLastSentLogTrackerSetGet(c *gc.C) {
+	tracker, err := state.NewAllLastSentLogTracker(s.State, "test-sink")
+	c.Assert(err, jc.ErrorIsNil)
+	defer tracker.Close()
+
+	err = tracker.Set(10, 100)
+	c.Assert(err, jc.ErrorIsNil)
+	id1, ts1, err := tracker.Get()
+	c.Assert(err, jc.ErrorIsNil)
+	err = tracker.Set(20, 200)
+	c.Assert(err, jc.ErrorIsNil)
+	id2, ts2, err := tracker.Get()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(id1, gc.Equals, int64(10))
+	c.Check(ts1, gc.Equals, int64(100))
+	c.Check(id2, gc.Equals, int64(20))
+	c.Check(ts2, gc.Equals, int64(200))
+}
+
+func (s *LogsSuite) TestAllLastSentLogTrackerNotController(c *gc.C) {
+	st := s.NewStateForModelNamed(c, "test-model")
+	defer st.Close()
+
+	_, err := state.NewAllLastSentLogTracker(st, "test")
+
+	c.Check(err, gc.ErrorMatches, `only the admin model can track all log records`)
+}
+
 func (s *LogsSuite) TestIndexesCreated(c *gc.C) {
 	// Indexes should be created on the logs collection when state is opened.
 	indexes, err := s.logsColl.Indexes()
@@ -44,15 +159,15 @@ func (s *LogsSuite) TestIndexesCreated(c *gc.C) {
 	}
 	c.Assert(keys, jc.SameContents, []string{
 		"_id", // default index
-		"e-t", // env-uuid and timestamp
-		"e-n", // env-uuid and entity
+		"e-t", // model-uuid and timestamp
+		"e-n", // model-uuid and entity
 	})
 }
 
 func (s *LogsSuite) TestDbLogger(c *gc.C) {
-	logger := state.NewDbLogger(s.State, names.NewMachineTag("22"))
+	logger := state.NewDbLogger(s.State, names.NewMachineTag("22"), jujuversion.Current)
 	defer logger.Close()
-	t0 := time.Now().Truncate(time.Millisecond) // MongoDB only stores timestamps with ms precision.
+	t0 := coretesting.ZeroTime().Truncate(time.Millisecond) // MongoDB only stores timestamps with ms precision.
 	logger.Log(t0, "some.where", "foo.go:99", loggo.INFO, "all is well")
 	t1 := t0.Add(time.Second)
 	logger.Log(t1, "else.where", "bar.go:42", loggo.ERROR, "oh noes")
@@ -62,16 +177,16 @@ func (s *LogsSuite) TestDbLogger(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(docs, gc.HasLen, 2)
 
-	c.Assert(docs[0]["t"], gc.Equals, t0)
-	c.Assert(docs[0]["e"], gc.Equals, s.State.EnvironUUID())
+	c.Assert(docs[0]["t"], gc.Equals, t0.UnixNano())
+	c.Assert(docs[0]["e"], gc.Equals, s.State.ModelUUID())
 	c.Assert(docs[0]["n"], gc.Equals, "machine-22")
 	c.Assert(docs[0]["m"], gc.Equals, "some.where")
 	c.Assert(docs[0]["l"], gc.Equals, "foo.go:99")
 	c.Assert(docs[0]["v"], gc.Equals, int(loggo.INFO))
 	c.Assert(docs[0]["x"], gc.Equals, "all is well")
 
-	c.Assert(docs[1]["t"], gc.Equals, t1)
-	c.Assert(docs[1]["e"], gc.Equals, s.State.EnvironUUID())
+	c.Assert(docs[1]["t"], gc.Equals, t1.UnixNano())
+	c.Assert(docs[1]["e"], gc.Equals, s.State.ModelUUID())
 	c.Assert(docs[1]["n"], gc.Equals, "machine-22")
 	c.Assert(docs[1]["m"], gc.Equals, "else.where")
 	c.Assert(docs[1]["l"], gc.Equals, "bar.go:42")
@@ -80,14 +195,14 @@ func (s *LogsSuite) TestDbLogger(c *gc.C) {
 }
 
 func (s *LogsSuite) TestPruneLogsByTime(c *gc.C) {
-	dbLogger := state.NewDbLogger(s.State, names.NewMachineTag("22"))
+	dbLogger := state.NewDbLogger(s.State, names.NewMachineTag("22"), jujuversion.Current)
 	defer dbLogger.Close()
 	log := func(t time.Time, msg string) {
 		err := dbLogger.Log(t, "module", "loc", loggo.INFO, msg)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
-	now := time.Now()
+	now := coretesting.NonZeroTime()
 	maxLogTime := now.Add(-time.Minute)
 	log(now, "keep")
 	log(maxLogTime.Add(time.Second), "keep")
@@ -110,26 +225,26 @@ func (s *LogsSuite) TestPruneLogsByTime(c *gc.C) {
 }
 
 func (s *LogsSuite) TestPruneLogsBySize(c *gc.C) {
-	// Set up 3 environments and generate different amounts of logs
+	// Set up 3 models and generate different amounts of logs
 	// for them.
-	now := time.Now().Truncate(time.Millisecond)
+	now := coretesting.NonZeroTime().Truncate(time.Millisecond)
 
 	s0 := s.State
 	startingLogsS0 := 10
 	s.generateLogs(c, s0, now, startingLogsS0)
 
-	s1 := s.Factory.MakeEnvironment(c, nil)
+	s1 := s.Factory.MakeModel(c, nil)
 	defer s1.Close()
 	startingLogsS1 := 10000
 	s.generateLogs(c, s1, now, startingLogsS1)
 
-	s2 := s.Factory.MakeEnvironment(c, nil)
+	s2 := s.Factory.MakeModel(c, nil)
 	defer s2.Close()
 	startingLogsS2 := 12000
 	s.generateLogs(c, s2, now, startingLogsS2)
 
 	// Prune logs collection back to 1 MiB.
-	tsNoPrune := time.Now().Add(-3 * 24 * time.Hour)
+	tsNoPrune := coretesting.NonZeroTime().Add(-3 * 24 * time.Hour)
 	err := state.PruneLogs(s.State, tsNoPrune, 1)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -146,9 +261,9 @@ func (s *LogsSuite) TestPruneLogsBySize(c *gc.C) {
 	// Ensure that the latest log records are still there.
 	assertLatestTs := func(st *state.State) {
 		var doc bson.M
-		err := s.logsColl.Find(bson.M{"e": st.EnvironUUID()}).Sort("-t").One(&doc)
+		err := s.logsColl.Find(bson.M{"e": st.ModelUUID()}).Sort("-t").One(&doc)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(doc["t"].(time.Time), gc.Equals, now)
+		c.Assert(doc["t"], gc.Equals, now.UnixNano())
 	}
 	assertLatestTs(s0)
 	assertLatestTs(s1)
@@ -156,7 +271,7 @@ func (s *LogsSuite) TestPruneLogsBySize(c *gc.C) {
 }
 
 func (s *LogsSuite) generateLogs(c *gc.C, st *state.State, endTime time.Time, count int) {
-	dbLogger := state.NewDbLogger(st, names.NewMachineTag("0"))
+	dbLogger := state.NewDbLogger(st, names.NewMachineTag("0"), jujuversion.Current)
 	defer dbLogger.Close()
 	for i := 0; i < count; i++ {
 		ts := endTime.Add(-time.Duration(i) * time.Second)
@@ -166,21 +281,22 @@ func (s *LogsSuite) generateLogs(c *gc.C, st *state.State, endTime time.Time, co
 }
 
 func (s *LogsSuite) countLogs(c *gc.C, st *state.State) int {
-	count, err := s.logsColl.Find(bson.M{"e": st.EnvironUUID()}).Count()
+	count, err := s.logsColl.Find(bson.M{"e": st.ModelUUID()}).Count()
 	c.Assert(err, jc.ErrorIsNil)
 	return count
 }
 
 type LogTailerSuite struct {
-	ConnSuite
-	logsColl  *mgo.Collection
-	oplogColl *mgo.Collection
+	ConnWithWallClockSuite
+	logsColl   *mgo.Collection
+	oplogColl  *mgo.Collection
+	otherState *state.State
 }
 
 var _ = gc.Suite(&LogTailerSuite{})
 
 func (s *LogTailerSuite) SetUpTest(c *gc.C) {
-	s.ConnSuite.SetUpTest(c)
+	s.ConnWithWallClockSuite.SetUpTest(c)
 
 	session := s.State.MongoSession()
 	s.logsColl = session.DB("logs").C("logs")
@@ -193,11 +309,18 @@ func (s *LogTailerSuite) SetUpTest(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(*gc.C) { s.oplogColl.DropCollection() })
+
+	s.otherState = s.NewStateForModelNamed(c, "test-model")
+	c.Assert(s.otherState, gc.NotNil)
+	s.AddCleanup(func(c *gc.C) {
+		err := s.otherState.Close()
+		c.Assert(err, jc.ErrorIsNil)
+	})
 }
 
 func (s *LogTailerSuite) TestTimeFiltering(c *gc.C) {
 	// Add 10 logs that shouldn't be returned.
-	threshT := time.Now()
+	threshT := coretesting.NonZeroTime()
 	s.writeLogsT(c,
 		threshT.Add(-5*time.Second), threshT.Add(-time.Millisecond), 5,
 		logTemplate{Message: "dont want"},
@@ -206,10 +329,11 @@ func (s *LogTailerSuite) TestTimeFiltering(c *gc.C) {
 	// Add 5 logs that should be returned.
 	want := logTemplate{Message: "want"}
 	s.writeLogsT(c, threshT, threshT.Add(5*time.Second), 5, want)
-	tailer := state.NewLogTailer(s.State, &state.LogTailerParams{
+	tailer, err := state.NewLogTailer(s.otherState, &state.LogTailerParams{
 		StartTime: threshT,
 		Oplog:     s.oplogColl,
 	})
+	c.Assert(err, jc.ErrorIsNil)
 	defer tailer.Stop()
 	s.assertTailer(c, tailer, 5, want)
 
@@ -231,9 +355,10 @@ func (s *LogTailerSuite) TestOplogTransition(c *gc.C) {
 		s.writeLogs(c, 1, logTemplate{Message: strconv.Itoa(i)})
 	}
 
-	tailer := state.NewLogTailer(s.State, &state.LogTailerParams{
+	tailer, err := state.NewLogTailer(s.otherState, &state.LogTailerParams{
 		Oplog: s.oplogColl,
 	})
+	c.Assert(err, jc.ErrorIsNil)
 	defer tailer.Stop()
 	for i := 0; i < 5; i++ {
 		s.assertTailer(c, tailer, 1, logTemplate{Message: strconv.Itoa(i)})
@@ -247,16 +372,16 @@ func (s *LogTailerSuite) TestOplogTransition(c *gc.C) {
 	}
 }
 
-func (s *LogTailerSuite) TestEnvironmentFiltering(c *gc.C) {
+func (s *LogTailerSuite) TestModelFiltering(c *gc.C) {
 	good := logTemplate{Message: "good"}
 	writeLogs := func() {
 		s.writeLogs(c, 1, logTemplate{
-			EnvUUID: "someuuid0",
-			Message: "bad",
+			ModelUUID: "someuuid0",
+			Message:   "bad",
 		})
 		s.writeLogs(c, 1, logTemplate{
-			EnvUUID: "someuuid1",
-			Message: "bad",
+			ModelUUID: "someuuid1",
+			Message:   "bad",
 		})
 		s.writeLogs(c, 1, good)
 	}
@@ -266,7 +391,100 @@ func (s *LogTailerSuite) TestEnvironmentFiltering(c *gc.C) {
 		s.assertTailer(c, tailer, 1, good)
 	}
 
-	s.checkLogTailerFiltering(&state.LogTailerParams{}, writeLogs, assert)
+	s.checkLogTailerFiltering(c, s.otherState, &state.LogTailerParams{}, writeLogs, assert)
+}
+
+func (s *LogTailerSuite) TestTailingLogsForAllModels(c *gc.C) {
+	writeLogs := func() {
+		s.writeLogs(c, 1, logTemplate{
+			ModelUUID: "someuuid0",
+			Message:   "bad",
+		})
+		s.writeLogs(c, 1, logTemplate{
+			ModelUUID: "someuuid1",
+			Message:   "bad",
+		})
+		s.writeLogs(c, 1, logTemplate{Message: "good"})
+	}
+
+	assert := func(tailer state.LogTailer) {
+		messagesFrom := map[string]bool{
+			s.otherState.ModelUUID(): false,
+			"someuuid0":              false,
+			"someuuid1":              false,
+		}
+		defer func() {
+			c.Assert(messagesFrom, gc.HasLen, 3)
+			for _, v := range messagesFrom {
+				c.Assert(v, jc.IsTrue)
+			}
+		}()
+		count := 0
+		for {
+			select {
+			case log := <-tailer.Logs():
+				messagesFrom[log.ModelUUID] = true
+				count++
+				c.Logf("count %d", count)
+				if count >= 3 {
+					return
+				}
+			case <-time.After(coretesting.ShortWait):
+				c.Fatalf("timeout waiting for logs %d", count)
+			}
+		}
+	}
+	s.checkLogTailerFiltering(c, s.State, &state.LogTailerParams{AllModels: true}, writeLogs, assert)
+}
+
+func (s *LogTailerSuite) TestTailingLogsOnlyForControllerModel(c *gc.C) {
+	writeLogs := func() {
+		s.writeLogs(c, 1, logTemplate{
+			ModelUUID: s.otherState.ModelUUID(),
+			Message:   "bad"},
+		)
+		s.writeLogs(c, 1, logTemplate{
+			ModelUUID: s.State.ModelUUID(),
+			Message:   "good1",
+		})
+		s.writeLogs(c, 1, logTemplate{
+			ModelUUID: s.State.ModelUUID(),
+			Message:   "good2",
+		})
+	}
+
+	assert := func(tailer state.LogTailer) {
+		messages := map[string]bool{}
+		defer func() {
+			c.Assert(messages, gc.HasLen, 2)
+			for m, _ := range messages {
+				if m != "good1" && m != "good2" {
+					c.Fatalf("received message: %v", m)
+				}
+			}
+		}()
+		count := 0
+		for {
+			select {
+			case log := <-tailer.Logs():
+				c.Assert(log.ModelUUID, gc.Equals, s.State.ModelUUID())
+				messages[log.Message] = true
+				count++
+				c.Logf("count %d", count)
+				if count >= 2 {
+					return
+				}
+			case <-time.After(coretesting.ShortWait):
+				c.Fatalf("timeout waiting for logs %d", count)
+			}
+		}
+	}
+	s.checkLogTailerFiltering(c, s.State, &state.LogTailerParams{}, writeLogs, assert)
+}
+
+func (s *LogTailerSuite) TestTailingAllLogsFromNonController(c *gc.C) {
+	_, err := state.NewLogTailer(s.otherState, &state.LogTailerParams{AllModels: true})
+	c.Assert(err, gc.ErrorMatches, "not allowed to tail logs from all models: not a controller")
 }
 
 func (s *LogTailerSuite) TestLevelFiltering(c *gc.C) {
@@ -284,7 +502,7 @@ func (s *LogTailerSuite) TestLevelFiltering(c *gc.C) {
 		s.assertTailer(c, tailer, 1, info)
 		s.assertTailer(c, tailer, 1, error)
 	}
-	s.checkLogTailerFiltering(params, writeLogs, assert)
+	s.checkLogTailerFiltering(c, s.otherState, params, writeLogs, assert)
 }
 
 func (s *LogTailerSuite) TestInitialLines(c *gc.C) {
@@ -292,9 +510,10 @@ func (s *LogTailerSuite) TestInitialLines(c *gc.C) {
 	s.writeLogs(c, 3, logTemplate{Message: "dont want"})
 	s.writeLogs(c, 5, expected)
 
-	tailer := state.NewLogTailer(s.State, &state.LogTailerParams{
+	tailer, err := state.NewLogTailer(s.otherState, &state.LogTailerParams{
 		InitialLines: 5,
 	})
+	c.Assert(err, jc.ErrorIsNil)
 	defer tailer.Stop()
 
 	// Should see just the last 5 lines as requested.
@@ -305,9 +524,10 @@ func (s *LogTailerSuite) TestInitialLinesWithNotEnoughLines(c *gc.C) {
 	expected := logTemplate{Message: "want"}
 	s.writeLogs(c, 2, expected)
 
-	tailer := state.NewLogTailer(s.State, &state.LogTailerParams{
+	tailer, err := state.NewLogTailer(s.otherState, &state.LogTailerParams{
 		InitialLines: 5,
 	})
+	c.Assert(err, jc.ErrorIsNil)
 	defer tailer.Stop()
 
 	// Should see just the 2 lines that existed, even though 5 were
@@ -320,13 +540,14 @@ func (s *LogTailerSuite) TestNoTail(c *gc.C) {
 	s.writeLogs(c, 2, expected)
 
 	// Write a log entry that's only in the oplog.
-	doc := s.logTemplateToDoc(logTemplate{Message: "dont want"}, time.Now())
+	doc := s.logTemplateToDoc(logTemplate{Message: "dont want"}, coretesting.ZeroTime())
 	err := s.writeLogToOplog(doc)
 	c.Assert(err, jc.ErrorIsNil)
 
-	tailer := state.NewLogTailer(s.State, &state.LogTailerParams{
+	tailer, err := state.NewLogTailer(s.otherState, &state.LogTailerParams{
 		NoTail: true,
 	})
+	c.Assert(err, jc.ErrorIsNil)
 	// Not strictly necessary, just in case NoTail doesn't work in the test.
 	defer tailer.Stop()
 
@@ -370,7 +591,7 @@ func (s *LogTailerSuite) TestIncludeEntity(c *gc.C) {
 		s.assertTailer(c, tailer, 2, foo0)
 		s.assertTailer(c, tailer, 1, foo1)
 	}
-	s.checkLogTailerFiltering(params, writeLogs, assert)
+	s.checkLogTailerFiltering(c, s.otherState, params, writeLogs, assert)
 }
 
 func (s *LogTailerSuite) TestIncludeEntityWildcard(c *gc.C) {
@@ -392,7 +613,7 @@ func (s *LogTailerSuite) TestIncludeEntityWildcard(c *gc.C) {
 		s.assertTailer(c, tailer, 2, foo0)
 		s.assertTailer(c, tailer, 1, foo1)
 	}
-	s.checkLogTailerFiltering(params, writeLogs, assert)
+	s.checkLogTailerFiltering(c, s.otherState, params, writeLogs, assert)
 }
 
 func (s *LogTailerSuite) TestExcludeEntity(c *gc.C) {
@@ -414,7 +635,7 @@ func (s *LogTailerSuite) TestExcludeEntity(c *gc.C) {
 	assert := func(tailer state.LogTailer) {
 		s.assertTailer(c, tailer, 1, foo1)
 	}
-	s.checkLogTailerFiltering(params, writeLogs, assert)
+	s.checkLogTailerFiltering(c, s.otherState, params, writeLogs, assert)
 }
 
 func (s *LogTailerSuite) TestExcludeEntityWildcard(c *gc.C) {
@@ -436,7 +657,7 @@ func (s *LogTailerSuite) TestExcludeEntityWildcard(c *gc.C) {
 	assert := func(tailer state.LogTailer) {
 		s.assertTailer(c, tailer, 1, foo1)
 	}
-	s.checkLogTailerFiltering(params, writeLogs, assert)
+	s.checkLogTailerFiltering(c, s.otherState, params, writeLogs, assert)
 }
 func (s *LogTailerSuite) TestIncludeModule(c *gc.C) {
 	mod0 := logTemplate{Module: "foo.bar"}
@@ -459,7 +680,7 @@ func (s *LogTailerSuite) TestIncludeModule(c *gc.C) {
 		s.assertTailer(c, tailer, 1, subMod1)
 		s.assertTailer(c, tailer, 1, mod2)
 	}
-	s.checkLogTailerFiltering(params, writeLogs, assert)
+	s.checkLogTailerFiltering(c, s.otherState, params, writeLogs, assert)
 }
 
 func (s *LogTailerSuite) TestExcludeModule(c *gc.C) {
@@ -481,7 +702,7 @@ func (s *LogTailerSuite) TestExcludeModule(c *gc.C) {
 	assert := func(tailer state.LogTailer) {
 		s.assertTailer(c, tailer, 2, mod0)
 	}
-	s.checkLogTailerFiltering(params, writeLogs, assert)
+	s.checkLogTailerFiltering(c, s.otherState, params, writeLogs, assert)
 }
 
 func (s *LogTailerSuite) TestIncludeExcludeModule(c *gc.C) {
@@ -506,10 +727,12 @@ func (s *LogTailerSuite) TestIncludeExcludeModule(c *gc.C) {
 		// then excluded.
 		s.assertTailer(c, tailer, 1, qux)
 	}
-	s.checkLogTailerFiltering(params, writeLogs, assert)
+	s.checkLogTailerFiltering(c, s.otherState, params, writeLogs, assert)
 }
 
 func (s *LogTailerSuite) checkLogTailerFiltering(
+	c *gc.C,
+	st *state.State,
 	params *state.LogTailerParams,
 	writeLogs func(),
 	assertTailer func(state.LogTailer),
@@ -518,7 +741,8 @@ func (s *LogTailerSuite) checkLogTailerFiltering(
 	// logs collection.
 	writeLogs()
 	params.Oplog = s.oplogColl
-	tailer := state.NewLogTailer(s.State, params)
+	tailer, err := state.NewLogTailer(st, params)
+	c.Assert(err, jc.ErrorIsNil)
 	defer tailer.Stop()
 	assertTailer(tailer)
 
@@ -529,19 +753,20 @@ func (s *LogTailerSuite) checkLogTailerFiltering(
 }
 
 type logTemplate struct {
-	EnvUUID  string
-	Entity   names.Tag
-	Module   string
-	Location string
-	Level    loggo.Level
-	Message  string
+	ModelUUID string
+	Entity    names.Tag
+	Version   version.Number
+	Module    string
+	Location  string
+	Level     loggo.Level
+	Message   string
 }
 
 // writeLogs creates count log messages at the current time using
 // the supplied template. As well as writing to the logs collection,
 // entries are also made into the fake oplog collection.
 func (s *LogTailerSuite) writeLogs(c *gc.C, count int, lt logTemplate) {
-	t := time.Now()
+	t := coretesting.ZeroTime()
 	s.writeLogsT(c, t, t, count, lt)
 }
 
@@ -565,20 +790,23 @@ func (s *LogTailerSuite) writeLogsT(c *gc.C, startTime, endTime time.Time, count
 // oplog collection.
 func (s *LogTailerSuite) writeLogToOplog(doc interface{}) error {
 	return s.oplogColl.Insert(bson.D{
-		{"ts", bson.MongoTimestamp(time.Now().Unix() << 32)}, // an approximation which will do
-		{"h", rand.Int63()},                                  // again, a suitable fake
-		{"op", "i"},                                          // this will always be an insert
+		{"ts", bson.MongoTimestamp(coretesting.ZeroTime().Unix() << 32)}, // an approximation which will do
+		{"h", rand.Int63()},                                              // again, a suitable fake
+		{"op", "i"},                                                      // this will always be an insert
 		{"ns", "logs.logs"},
 		{"o", doc},
 	})
 }
 
 func (s *LogTailerSuite) normaliseLogTemplate(lt *logTemplate) {
-	if lt.EnvUUID == "" {
-		lt.EnvUUID = s.State.EnvironUUID()
+	if lt.ModelUUID == "" {
+		lt.ModelUUID = s.otherState.ModelUUID()
 	}
 	if lt.Entity == nil {
 		lt.Entity = names.NewMachineTag("0")
+	}
+	if lt.Version == version.Zero {
+		lt.Version = jujuversion.Current
 	}
 	if lt.Module == "" {
 		lt.Module = "module"
@@ -597,7 +825,7 @@ func (s *LogTailerSuite) normaliseLogTemplate(lt *logTemplate) {
 func (s *LogTailerSuite) logTemplateToDoc(lt logTemplate, t time.Time) interface{} {
 	s.normaliseLogTemplate(&lt)
 	return state.MakeLogDoc(
-		lt.EnvUUID,
+		lt.ModelUUID,
 		lt.Entity,
 		t,
 		lt.Module,
@@ -618,11 +846,13 @@ func (s *LogTailerSuite) assertTailer(c *gc.C, tailer state.LogTailer, expectedC
 			if !ok {
 				c.Fatalf("tailer died unexpectedly: %v", tailer.Err())
 			}
-			c.Assert(log.Entity, gc.Equals, lt.Entity.String())
+			c.Assert(log.Version, gc.Equals, lt.Version)
+			c.Assert(log.Entity, gc.Equals, lt.Entity)
 			c.Assert(log.Module, gc.Equals, lt.Module)
 			c.Assert(log.Location, gc.Equals, lt.Location)
 			c.Assert(log.Level, gc.Equals, lt.Level)
 			c.Assert(log.Message, gc.Equals, lt.Message)
+			c.Assert(log.ModelUUID, gc.Equals, lt.ModelUUID)
 			count++
 			if count == expectedCount {
 				return

@@ -4,221 +4,88 @@
 package state
 
 import (
-	"time"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 )
 
 var upgradesLogger = loggo.GetLogger("juju.state.upgrade")
 
-func AddPreferredAddressesToMachines(st *State) error {
-	machines, err := st.AllMachines()
+// runForAllModelStates will run runner function for every model passing a state
+// for that model.
+func runForAllModelStates(st *State, runner func(st *State) error) error {
+	models, closer := st.getCollection(modelsC)
+	defer closer()
+
+	var modelDocs []bson.M
+	err := models.Find(nil).Select(bson.M{"_id": 1}).All(&modelDocs)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotate(err, "failed to read models")
 	}
 
-	for _, machine := range machines {
-		if machine.Life() == Dead {
-			continue
-		}
-		// Setting the addresses is enough to trigger setting the preferred
-		// addresses.
-		err = machine.SetMachineAddresses(machine.MachineAddresses()...)
+	for _, modelDoc := range modelDocs {
+		modelUUID := modelDoc["_id"].(string)
+		envSt, err := st.ForModel(names.NewModelTag(modelUUID))
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Annotatef(err, "failed to open model %q", modelUUID)
 		}
-		err := machine.SetProviderAddresses(machine.ProviderAddresses()...)
-		if err != nil {
-			return errors.Trace(err)
+		defer envSt.Close()
+		if err := runner(envSt); err != nil {
+			return errors.Annotatef(err, "model UUID %q", modelUUID)
 		}
 	}
 	return nil
 }
 
 // readBsonDField returns the value of a given field in a bson.D.
-func readBsonDField(d bson.D, name string) (interface{}, error) {
+func readBsonDField(d bson.D, name string) (interface{}, bool) {
 	for i := range d {
 		field := &d[i]
 		if field.Name == name {
-			return field.Value, nil
+			return field.Value, true
 		}
 	}
-	return nil, errors.NotFoundf("field %q", name)
+	return nil, false
 }
 
-// addBsonDField adds a new field to the end of a bson.D, returning
-// the updated bson.D.
-func addBsonDField(d bson.D, name string, value interface{}) (bson.D, error) {
-	for i := range d {
-		if d[i].Name == name {
-			return nil, errors.AlreadyExistsf("field %q", name)
+// replaceBsonDField replaces a field in bson.D.
+func replaceBsonDField(d bson.D, name string, value interface{}) error {
+	for i, field := range d {
+		if field.Name == name {
+			newField := field
+			newField.Value = value
+			d[i] = newField
+			return nil
 		}
 	}
-	return append(d, bson.DocElem{
-		Name:  name,
-		Value: value,
-	}), nil
+	return errors.NotFoundf("field %q", name)
 }
 
-// runForAllEnvStates will run runner function for every env passing a state
-// for that env.
-func runForAllEnvStates(st *State, runner func(st *State) error) error {
-	environments, closer := st.getCollection(environmentsC)
+// RenameAddModelPermission renames any permissions called addmodel to add-model.
+func RenameAddModelPermission(st *State) error {
+	coll, closer := st.getRawCollection(permissionsC)
 	defer closer()
+	upgradesLogger.Infof("migrating addmodel permission")
 
-	var envDocs []bson.M
-	err := environments.Find(nil).Select(bson.M{"_id": 1}).All(&envDocs)
-	if err != nil {
-		return errors.Annotate(err, "failed to read environments")
-	}
-
-	for _, envDoc := range envDocs {
-		envUUID := envDoc["_id"].(string)
-		envSt, err := st.ForEnviron(names.NewEnvironTag(envUUID))
-		if err != nil {
-			return errors.Annotatef(err, "failed to open environment %q", envUUID)
-		}
-		defer envSt.Close()
-		if err := runner(envSt); err != nil {
-			return errors.Annotatef(err, "environment UUID %q", envUUID)
-		}
-	}
-	return nil
-}
-
-// AddFilesystemStatus ensures each filesystem has a status doc.
-func AddFilesystemStatus(st *State) error {
-	return runForAllEnvStates(st, func(st *State) error {
-		filesystems, err := st.AllFilesystems()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		var ops []txn.Op
-		for _, filesystem := range filesystems {
-			_, err := filesystem.Status()
-			if err == nil {
-				continue
-			}
-			if !errors.IsNotFound(err) {
-				return errors.Annotate(err, "getting status")
-			}
-			status, err := upgradingFilesystemStatus(st, filesystem)
-			if err != nil {
-				return errors.Annotate(err, "deciding filesystem status")
-			}
-			ops = append(ops, createStatusOp(st, filesystem.globalKey(), statusDoc{
-				Status:  status,
-				Updated: time.Now().UnixNano(),
-			}))
-		}
-		if len(ops) > 0 {
-			return errors.Trace(st.runTransaction(ops))
-		}
-		return nil
-	})
-}
-
-// If the filesystem has not been provisioned, then it should be Pending;
-// if it has been provisioned, but there is an unprovisioned attachment, then
-// it should be Attaching; otherwise it is Attached.
-func upgradingFilesystemStatus(st *State, filesystem Filesystem) (Status, error) {
-	if _, err := filesystem.Info(); errors.IsNotProvisioned(err) {
-		return StatusPending, nil
-	}
-	attachments, err := st.FilesystemAttachments(filesystem.FilesystemTag())
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	for _, attachment := range attachments {
-		_, err := attachment.Info()
-		if errors.IsNotProvisioned(err) {
-			return StatusAttaching, nil
-		}
-	}
-	return StatusAttached, nil
-}
-
-// MigrateSettingsSchema migrates the schema of the settings collection,
-// moving non-reserved keys at the top-level into a subdoc, and introducing
-// a top-level "version" field with the initial value matching txn-revno.
-//
-// This migration takes place both before and after env-uuid migration,
-// to get the correct txn-revno value.
-func MigrateSettingsSchema(st *State) error {
-	coll, closer := st.getRawCollection(settingsC)
-	defer closer()
-
-	upgradesLogger.Debugf("migrating schema of the %s collection", settingsC)
-	iter := coll.Find(nil).Iter()
+	iter := coll.Find(bson.M{"access": "addmodel"}).Iter()
 	defer iter.Close()
-
 	var ops []txn.Op
 	var doc bson.M
 	for iter.Next(&doc) {
-		if !settingsDocNeedsMigration(doc) {
-			continue
+		id, ok := doc["_id"]
+		if !ok {
+			return errors.New("no id found in permission doc")
 		}
-
-		id := doc["_id"]
-		txnRevno := doc["txn-revno"].(int64)
-
-		// Remove reserved attributes; we'll move the remaining
-		// ones to the "settings" subdoc.
-		delete(doc, "env-uuid")
-		delete(doc, "_id")
-		delete(doc, "txn-revno")
-		delete(doc, "txn-queue")
-
-		// If there exists a setting by the name "settings",
-		// we must remove it first, or it will collide with
-		// the dotted-notation $sets.
-		if _, ok := doc["settings"]; ok {
-			ops = append(ops, txn.Op{
-				C:      settingsC,
-				Id:     id,
-				Assert: txn.DocExists,
-				Update: bson.D{{"$unset", bson.D{{"settings", 1}}}},
-			})
-		}
-
-		var update bson.D
-		for key, value := range doc {
-			if key != "settings" && key != "version" {
-				// Don't try to unset these fields,
-				// as we've unset "settings" above
-				// already, and we'll overwrite
-				// "version" below.
-				update = append(update, bson.DocElem{
-					"$unset", bson.D{{key, 1}},
-				})
-			}
-			update = append(update, bson.DocElem{
-				"$set", bson.D{{"settings." + key, value}},
-			})
-		}
-		if len(update) == 0 {
-			// If there are no settings, then we need
-			// to add an empty "settings" map so we
-			// can tell for next time that migration
-			// is complete, and don't move the "version"
-			// field we add.
-			update = bson.D{{
-				"$set", bson.D{{"settings", bson.M{}}},
-			}}
-		}
-		update = append(update, bson.DocElem{
-			"$set", bson.D{{"version", txnRevno}},
-		})
 
 		ops = append(ops, txn.Op{
-			C:      settingsC,
+			C:      permissionsC,
 			Id:     id,
 			Assert: txn.DocExists,
-			Update: update,
+			Update: bson.D{{"$set", bson.D{{"access", "add-model"}}}},
 		})
 	}
 	if err := iter.Err(); err != nil {
@@ -227,12 +94,129 @@ func MigrateSettingsSchema(st *State) error {
 	return st.runRawTransaction(ops)
 }
 
-func settingsDocNeedsMigration(doc bson.M) bool {
-	// It is not possible for there to exist a settings value
-	// with type bson.M, so we know that it is the new settings
-	// field and not just a setting with the name "settings".
-	if _, ok := doc["settings"].(bson.M); ok {
-		return false
+// StripLocalUserDomain removes any @local suffix from any relevant document field values.
+func StripLocalUserDomain(st *State) error {
+	var ops []txn.Op
+	more, err := stripLocalFromFields(st, cloudCredentialsC, "_id", "owner")
+	if err != nil {
+		return err
 	}
-	return true
+	ops = append(ops, more...)
+
+	more, err = stripLocalFromFields(st, modelsC, "owner", "cloud-credential")
+	if err != nil {
+		return err
+	}
+	ops = append(ops, more...)
+
+	more, err = stripLocalFromFields(st, usermodelnameC, "_id")
+	if err != nil {
+		return err
+	}
+	ops = append(ops, more...)
+
+	more, err = stripLocalFromFields(st, controllerUsersC, "_id", "user", "createdby")
+	if err != nil {
+		return err
+	}
+	ops = append(ops, more...)
+
+	more, err = stripLocalFromFields(st, modelUsersC, "_id", "user", "createdby")
+	if err != nil {
+		return err
+	}
+	ops = append(ops, more...)
+
+	more, err = stripLocalFromFields(st, permissionsC, "_id", "subject-global-key")
+	if err != nil {
+		return err
+	}
+	ops = append(ops, more...)
+
+	more, err = stripLocalFromFields(st, modelUserLastConnectionC, "_id", "user")
+	if err != nil {
+		return err
+	}
+	ops = append(ops, more...)
+	return st.runRawTransaction(ops)
+}
+
+func stripLocalFromFields(st *State, collName string, fields ...string) ([]txn.Op, error) {
+	coll, closer := st.getRawCollection(collName)
+	defer closer()
+	upgradesLogger.Infof("migrating document fields of the %s collection", collName)
+
+	iter := coll.Find(nil).Iter()
+	defer iter.Close()
+	var ops []txn.Op
+	var doc bson.D
+	for iter.Next(&doc) {
+		// Get a copy of the current doc id so we can see if it has changed.
+		var newId interface{}
+		id, ok := readBsonDField(doc, "_id")
+		if ok {
+			newId = id
+		}
+
+		// Take a copy of the current doc fields.
+		newDoc := make(bson.D, len(doc))
+		for i, f := range doc {
+			newDoc[i] = f
+		}
+
+		// Iterate over the fields that need to be updated and
+		// record any updates to be made.
+		var update bson.D
+		for _, field := range fields {
+			isId := field == "_id"
+			fieldVal, ok := readBsonDField(doc, field)
+			if !ok {
+				continue
+			}
+			updatedVal := strings.Replace(fieldVal.(string), "@local", "", -1)
+			if err := replaceBsonDField(newDoc, field, updatedVal); err != nil {
+				return nil, err
+			}
+			if isId {
+				newId = updatedVal
+			} else {
+				if fieldVal != updatedVal {
+					update = append(update, bson.DocElem{
+						"$set", bson.D{{field, updatedVal}},
+					})
+				}
+			}
+		}
+
+		// For documents where the id has not changed, we can
+		// use an update operation.
+		if newId == id {
+			if len(update) > 0 {
+				ops = append(ops, txn.Op{
+					C:      collName,
+					Id:     id,
+					Assert: txn.DocExists,
+					Update: update,
+				})
+			}
+		} else {
+			// Where the id has changed, we need to remove the old and
+			// insert the new document.
+			ops = append(ops, []txn.Op{{
+				C:      collName,
+				Id:     id,
+				Assert: txn.DocExists,
+				Remove: true,
+			}, {
+				C:      collName,
+				Id:     newId,
+				Assert: txn.DocMissing,
+				Insert: newDoc,
+			}}...)
+		}
+	}
+	if err := iter.Err(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return ops, nil
 }

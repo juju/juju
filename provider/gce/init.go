@@ -3,10 +3,7 @@
 
 package gce
 
-import (
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/storage/provider/registry"
-)
+import "github.com/juju/juju/environs"
 
 const (
 	providerType = "gce"
@@ -14,10 +11,4 @@ const (
 
 func init() {
 	environs.RegisterProvider(providerType, providerInstance)
-
-	// Register the GCE specific providers.
-	registry.RegisterProvider(storageProviderType, &storageProvider{})
-
-	// Inform the storage provider registry about the GCE providers.
-	registry.RegisterEnvironStorageProviders(providerType, storageProviderType)
 }

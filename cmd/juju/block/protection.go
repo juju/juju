@@ -4,52 +4,56 @@
 package block
 
 import (
-	"fmt"
-
-	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
+	"github.com/juju/juju/api"
 	apiblock "github.com/juju/juju/api/block"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
-	"github.com/juju/juju/state/multiwatcher"
 )
 
 var logger = loggo.GetLogger("juju.cmd.juju.block")
 
-// blockArgs has all valid operations that can be
-// supplied to the command.
-// These operations do not necessarily correspond to juju commands
-// but are rather juju command groupings.
-var blockArgs = []string{"destroy-environment", "remove-object", "all-changes"}
+const (
+	cmdAll          = "all"
+	cmdDestroyModel = "destroy-model"
+	cmdRemoveObject = "remove-object"
 
-// TypeFromOperation translates given operation string
-// such as destroy-environment, remove-object, etc to
-// block type string as defined in multiwatcher.
-var TypeFromOperation = func(operation string) string {
-	for key, value := range blockTypes {
-		if value == operation {
-			return key
-		}
+	apiAll          = "BlockChange"
+	apiDestroyModel = "BlockDestroy"
+	apiRemoveObject = "BlockRemove"
+)
+
+var (
+	toAPIValue = map[string]string{
+		cmdAll:          apiAll,
+		cmdDestroyModel: apiDestroyModel,
+		cmdRemoveObject: apiRemoveObject,
 	}
-	panic(fmt.Sprintf("unknown operation %v", operation))
+
+	toCmdValue = map[string]string{
+		apiAll:          cmdAll,
+		apiDestroyModel: cmdDestroyModel,
+		apiRemoveObject: cmdRemoveObject,
+	}
+
+	validTargets = cmdAll + ", " + cmdDestroyModel + ", " + cmdRemoveObject
+)
+
+func operationFromType(blockType string) string {
+	value, ok := toCmdValue[blockType]
+	if !ok {
+		value = "<unknown>"
+	}
+	return value
 }
 
-var blockTypes = map[string]string{
-	string(multiwatcher.BlockDestroy): "destroy-environment",
-	string(multiwatcher.BlockRemove):  "remove-object",
-	string(multiwatcher.BlockChange):  "all-changes",
-}
-
-// OperationFromType translates given block type as
-// defined in multiwatcher into the operation
-// such as destroy-environment.
-var OperationFromType = func(blockType string) string {
-	return blockTypes[blockType]
+type newAPIRoot interface {
+	NewAPIRoot() (api.Connection, error)
 }
 
 // getBlockAPI returns a block api for block manipulation.
-func getBlockAPI(c *envcmd.EnvCommandBase) (*apiblock.Client, error) {
+func getBlockAPI(c newAPIRoot) (*apiblock.Client, error) {
 	root, err := c.NewAPIRoot()
 	if err != nil {
 		return nil, err
@@ -87,31 +91,32 @@ func ProcessBlockedError(err error, block Block) error {
 		return nil
 	}
 	if params.IsCodeOperationBlocked(err) {
-		logger.Errorf("\n%v%v", err, blockedMessages[block])
-		return cmd.ErrSilent
+		msg := blockedMessages[block]
+		logger.Errorf("%v\n%v", err, msg)
+		return errors.New(msg)
 	}
 	return err
 }
 
 var removeMsg = `
-All operations that remove (or delete or terminate) machines, services, units or
-relations have been blocked for the current environment.
-To unblock removal, run
+All operations that remove machines, applications, units or
+relations have been disabled for the current model.
+To enable removal, run
 
-    juju unblock remove-object
+    juju enable-command remove-object
 
 `
 var destroyMsg = `
-destroy-environment operation has been blocked for the current environment.
-To remove the block run
+destroy-model operation has been disabled for the current model.
+To enable the command run
 
-    juju unblock destroy-environment
+    juju enable-command destroy-model
 
 `
 var changeMsg = `
-All operations that change environment have been blocked for the current environment.
-To unblock changes, run
+All operations that change model have been disabled for the current model.
+To enable changes, run
 
-    juju unblock all-changes
+    juju enable-command all
 
 `

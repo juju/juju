@@ -20,16 +20,15 @@ import (
 	coretesting "github.com/juju/juju/testing"
 )
 
-type SignMetadataSuite struct{}
+type SignMetadataSuite struct {
+	coretesting.BaseSuite
+}
 
 var _ = gc.Suite(&SignMetadataSuite{})
 
 func (s *SignMetadataSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
 	loggo.GetLogger("").SetLogLevel(loggo.INFO)
-}
-
-func (s *SignMetadataSuite) TearDownTest(c *gc.C) {
-	loggo.ResetLoggers()
 }
 
 var expectedLoggingOutput = `signing 2 file\(s\) in .*subdir1.*

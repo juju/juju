@@ -7,9 +7,9 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -113,7 +113,7 @@ func (*passwordSuite) TestSetPasswords(c *gc.C) {
 			},
 			u("x/4"): &fakeUnitAuthenticator{},
 			u("x/5"): &fakeMachineAuthenticator{jobs: []state.MachineJob{state.JobHostUnits}},
-			u("x/6"): &fakeMachineAuthenticator{jobs: []state.MachineJob{state.JobManageEnviron}},
+			u("x/6"): &fakeMachineAuthenticator{jobs: []state.MachineJob{state.JobManageModel}},
 		},
 	}
 	getCanChange := func() (common.AuthFunc, error) {

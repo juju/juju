@@ -5,10 +5,10 @@ package upgrader_test
 
 import (
 	"fmt"
-	stdtesting "testing"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
@@ -19,12 +19,8 @@ import (
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
+	"github.com/juju/juju/watcher/watchertest"
 )
-
-func TestAll(t *stdtesting.T) {
-	coretesting.MgoTestPackage(t)
-}
 
 type machineUpgraderSuite struct {
 	testing.JujuConnSuite
@@ -99,36 +95,41 @@ func (s *machineUpgraderSuite) TestTools(c *gc.C) {
 	s.rawMachine.SetAgentVersion(current)
 	// Upgrader.Tools returns the *desired* set of tools, not the currently
 	// running set. We want to be upgraded to cur.Version
-	stateTools, err := s.st.Tools(s.rawMachine.Tag().String())
+	stateToolsList, err := s.st.Tools(s.rawMachine.Tag().String())
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(stateToolsList, gc.HasLen, 1)
+	stateTools := stateToolsList[0]
 	c.Assert(stateTools.Version, gc.Equals, current)
-	url := fmt.Sprintf("https://%s/environment/%s/tools/%s",
-		s.stateAPI.Addr(), coretesting.EnvironmentTag.Id(), current)
+	url := fmt.Sprintf("https://%s/model/%s/tools/%s",
+		s.stateAPI.Addr(), coretesting.ModelTag.Id(), current)
 	c.Assert(stateTools.URL, gc.Equals, url)
 }
 
 func (s *machineUpgraderSuite) TestWatchAPIVersion(c *gc.C) {
 	w, err := s.st.WatchAPIVersion(s.rawMachine.Tag().String())
 	c.Assert(err, jc.ErrorIsNil)
-	defer statetesting.AssertStop(c, w)
-	wc := statetesting.NewNotifyWatcherC(c, s.BackingState, w)
+	wc := watchertest.NewNotifyWatcherC(c, w, s.BackingState.StartSync)
+	defer wc.AssertStops()
+
 	// Initial event
 	wc.AssertOneChange()
+
+	// One change noticing the new version
 	vers := version.MustParse("10.20.34")
 	err = statetesting.SetAgentVersion(s.BackingState, vers)
 	c.Assert(err, jc.ErrorIsNil)
-	// One change noticing the new version
 	wc.AssertOneChange()
+
 	// Setting the version to the same value doesn't trigger a change
 	err = statetesting.SetAgentVersion(s.BackingState, vers)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
+
+	// Another change noticing another new version
 	vers = version.MustParse("10.20.35")
 	err = statetesting.SetAgentVersion(s.BackingState, vers)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
-	statetesting.AssertStop(c, w)
-	wc.AssertClosed()
 }
 
 func (s *machineUpgraderSuite) TestDesiredVersion(c *gc.C) {

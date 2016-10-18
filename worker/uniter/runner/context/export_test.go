@@ -5,14 +5,14 @@ package context
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"github.com/juju/utils/clock"
 	"github.com/juju/utils/proxy"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/worker/leadership"
+	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
@@ -136,17 +136,17 @@ func StorageAddConstraints(ctx *HookContext) map[string][]params.StorageConstrai
 	return ctx.storageAddConstraints
 }
 
-// NewEnvironmentHookContext exists purely to set the fields used in rs.
+// NewModelHookContext exists purely to set the fields used in rs.
 // The returned value is not otherwise valid.
-func NewEnvironmentHookContext(
-	id, envUUID, envName, unitName, meterCode, meterInfo, availZone string,
+func NewModelHookContext(
+	id, modelUUID, envName, unitName, meterCode, meterInfo, availZone string,
 	apiAddresses []string, proxySettings proxy.Settings,
 	machineTag names.MachineTag,
 ) *HookContext {
 	return &HookContext{
 		id:            id,
 		unitName:      unitName,
-		uuid:          envUUID,
+		uuid:          modelUUID,
 		envName:       envName,
 		apiAddrs:      apiAddresses,
 		proxySettings: proxySettings,

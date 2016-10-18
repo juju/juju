@@ -4,15 +4,15 @@
 package constraints
 
 import (
+	"encoding/json"
 	"fmt"
 	"math"
-	"reflect"
 	"strconv"
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"github.com/juju/utils/arch"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/instance"
 )
@@ -20,16 +20,18 @@ import (
 // The following constants list the supported constraint attribute names, as defined
 // by the fields in the Value struct.
 const (
-	Arch         = "arch"
-	Container    = "container"
-	CpuCores     = "cpu-cores"
+	Arch      = "arch"
+	Container = "container"
+	// cpuCores is an alias for Cores.
+	cpuCores     = "cpu-cores"
+	Cores        = "cores"
 	CpuPower     = "cpu-power"
 	Mem          = "mem"
 	RootDisk     = "root-disk"
 	Tags         = "tags"
 	InstanceType = "instance-type"
-	Networks     = "networks"
 	Spaces       = "spaces"
+	VirtType     = "virt-type"
 )
 
 // Value describes a user's requirements of the hardware on which units
@@ -47,7 +49,7 @@ type Value struct {
 
 	// CpuCores, if not nil, indicates that a machine must have at least that
 	// number of effective cores available.
-	CpuCores *uint64 `json:"cpu-cores,omitempty" yaml:"cpu-cores,omitempty"`
+	CpuCores *uint64 `json:"cores,omitempty" yaml:"cores,omitempty"`
 
 	// CpuPower, if not nil, indicates that a machine must have at least that
 	// amount of CPU power available, where 100 CpuPower is considered to be
@@ -80,44 +82,50 @@ type Value struct {
 	// have a "^" prefix to the name.
 	Spaces *[]string `json:"spaces,omitempty" yaml:"spaces,omitempty"`
 
-	// Networks, if not nil, holds a list of juju networks that
-	// should be available (or not) on the machine. Positive and
-	// negative values are accepted, and the difference is the latter
-	// have a "^" prefix to the name.
-	//
-	// TODO(dimitern): Drop this as soon as spaces can be used for
-	// deployments instead.
-	Networks *[]string `json:"networks,omitempty" yaml:"networks,omitempty"`
+	// VirtType, if not nil or empty, indicates that a machine must run the named
+	// virtual type. Only valid for clouds with multi-hypervisor support.
+	VirtType *string `json:"virt-type,omitempty" yaml:"virt-type,omitempty"`
 }
 
-// fieldNames records a mapping from the constraint tag to struct field name.
-// eg "root-disk" maps to RootDisk.
-var fieldNames map[string]string
+var rawAliases = map[string]string{
+	cpuCores: Cores,
+}
 
-func init() {
-	// Create the fieldNames map by inspecting the json tags for each of
-	// the Value struct fields.
-	fieldNames = make(map[string]string)
-	typ := reflect.TypeOf(Value{})
-	for i := 0; i < typ.NumField(); i++ {
-		field := typ.Field(i)
-		if tag := field.Tag.Get("json"); tag != "" {
-			if i := strings.Index(tag, ","); i >= 0 {
-				tag = tag[0:i]
-			}
-			if tag == "-" {
-				continue
-			}
-			if tag != "" {
-				fieldNames[tag] = field.Name
-			}
-		}
+// resolveAlias returns the canonical representation of the given key, if it'a
+// an alias listed in aliases, otherwise it returns the original key.
+func resolveAlias(key string) string {
+	if canonical, ok := rawAliases[key]; ok {
+		return canonical
 	}
+	return key
 }
 
 // IsEmpty returns if the given constraints value has no constraints set
 func IsEmpty(v *Value) bool {
 	return v.String() == ""
+}
+
+// HasArch returns true if the constraints.Value specifies an architecture.
+func (v *Value) HasArch() bool {
+	return v.Arch != nil && *v.Arch != ""
+}
+
+// HasMem returns true if the constraints.Value specifies a minimum amount
+// of memory.
+func (v *Value) HasMem() bool {
+	return v.Mem != nil && *v.Mem > 0
+}
+
+// HasCpuPower returns true if the constraints.Value specifies a minimum amount
+// of CPU power.
+func (v *Value) HasCpuPower() bool {
+	return v.CpuPower != nil && *v.CpuPower > 0
+}
+
+// HasCpuCores returns true if the constraints.Value specifies a minimum number
+// of CPU cores.
+func (v *Value) HasCpuCores() bool {
+	return v.CpuCores != nil && *v.CpuCores > 0
 }
 
 // HasInstanceType returns true if the constraints.Value specifies an instance type.
@@ -167,31 +175,9 @@ func (v *Value) HaveSpaces() bool {
 	return v.Spaces != nil && len(*v.Spaces) > 0
 }
 
-// TODO(dimitern): Drop the following 3 methods once spaces can be
-// used as deployment constraints.
-
-// IncludeNetworks returns a list of networks to include when starting
-// a machine, if specified.
-func (v *Value) IncludeNetworks() []string {
-	if v.Networks == nil {
-		return nil
-	}
-	return v.extractItems(*v.Networks, true)
-}
-
-// ExcludeNetworks returns a list of networks to exclude when starting
-// a machine, if specified. They are given in the networks constraint
-// with a "^" prefix to the name, which is stripped before returning.
-func (v *Value) ExcludeNetworks() []string {
-	if v.Networks == nil {
-		return nil
-	}
-	return v.extractItems(*v.Networks, false)
-}
-
-// HaveNetworks returns whether any network constraints were specified.
-func (v *Value) HaveNetworks() bool {
-	return v.Networks != nil && len(*v.Networks) > 0
+// HasVirtType returns true if the constraints.Value specifies an virtual type.
+func (v *Value) HasVirtType() bool {
+	return v.VirtType != nil && *v.VirtType != ""
 }
 
 // String expresses a constraints.Value in the language in which it was specified.
@@ -204,7 +190,7 @@ func (v Value) String() string {
 		strs = append(strs, "container="+string(*v.Container))
 	}
 	if v.CpuCores != nil {
-		strs = append(strs, "cpu-cores="+uintStr(*v.CpuCores))
+		strs = append(strs, "cores="+uintStr(*v.CpuCores))
 	}
 	if v.CpuPower != nil {
 		strs = append(strs, "cpu-power="+uintStr(*v.CpuPower))
@@ -234,9 +220,8 @@ func (v Value) String() string {
 		s := strings.Join(*v.Spaces, ",")
 		strs = append(strs, "spaces="+s)
 	}
-	if v.Networks != nil {
-		s := strings.Join(*v.Networks, ",")
-		strs = append(strs, "networks="+s)
+	if v.VirtType != nil {
+		strs = append(strs, "virt-type="+string(*v.VirtType))
 	}
 	return strings.Join(strs, " ")
 }
@@ -249,7 +234,7 @@ func (v Value) GoString() string {
 		values = append(values, fmt.Sprintf("Arch: %q", *v.Arch))
 	}
 	if v.CpuCores != nil {
-		values = append(values, fmt.Sprintf("CpuCores: %v", *v.CpuCores))
+		values = append(values, fmt.Sprintf("Cores: %v", *v.CpuCores))
 	}
 	if v.CpuPower != nil {
 		values = append(values, fmt.Sprintf("CpuPower: %v", *v.CpuPower))
@@ -276,10 +261,8 @@ func (v Value) GoString() string {
 	} else if v.Spaces != nil {
 		values = append(values, "Spaces: (*[]string)(nil)")
 	}
-	if v.Networks != nil && *v.Networks != nil {
-		values = append(values, fmt.Sprintf("Networks: %q", *v.Networks))
-	} else if v.Networks != nil {
-		values = append(values, "Networks: (*[]string)(nil)")
+	if v.VirtType != nil {
+		values = append(values, fmt.Sprintf("VirtType: %q", *v.VirtType))
 	}
 	return fmt.Sprintf("{%s}", strings.Join(values, ", "))
 }
@@ -295,19 +278,36 @@ func uintStr(i uint64) string {
 // each of which must contain only spaces and name=value pairs. If any
 // name is specified more than once, an error is returned.
 func Parse(args ...string) (Value, error) {
-	cons := Value{}
+	v, _, err := ParseWithAliases(args...)
+	return v, err
+}
+
+// ParseWithAliases constructs a constraints.Value from the supplied arguments, each
+// of which must contain only spaces and name=value pairs. If any name is
+// specified more than once, an error is returned.  The aliases map returned
+// contains a map of aliases used, and their canonical values.
+func ParseWithAliases(args ...string) (cons Value, aliases map[string]string, err error) {
+	aliases = make(map[string]string)
 	for _, arg := range args {
 		raws := strings.Split(strings.TrimSpace(arg), " ")
 		for _, raw := range raws {
 			if raw == "" {
 				continue
 			}
-			if err := cons.setRaw(raw); err != nil {
-				return Value{}, err
+			name, val, err := splitRaw(raw)
+			if err != nil {
+				return Value{}, nil, errors.Trace(err)
+			}
+			if canonical, ok := rawAliases[name]; ok {
+				aliases[name] = canonical
+				name = canonical
+			}
+			if err := cons.setRaw(name, val); err != nil {
+				return Value{}, aliases, errors.Trace(err)
 			}
 		}
 	}
-	return cons, nil
+	return cons, aliases, nil
 }
 
 // Merge returns the effective constraints after merging any given
@@ -348,30 +348,29 @@ func (v ConstraintsValue) String() string {
 	return v.Target.String()
 }
 
-func (v *Value) fieldFromTag(tagName string) (reflect.Value, bool) {
-	fieldName := fieldNames[tagName]
-	val := reflect.ValueOf(v).Elem().FieldByName(fieldName)
-	return val, val.IsValid()
+// attributesWithValues returns the non-zero attribute tags and their values from the constraint.
+func (v *Value) attributesWithValues() map[string]interface{} {
+	// These can never fail, so we ignore the error for the sake of keeping our
+	// API clean.  I'm sorry (but not that sorry).
+	b, _ := json.Marshal(v)
+	result := map[string]interface{}{}
+	_ = json.Unmarshal(b, &result)
+	return result
 }
 
-// attributesWithValues returns the non-zero attribute tags and their values from the constraint.
-func (v *Value) attributesWithValues() (result map[string]interface{}) {
-	result = make(map[string]interface{})
-	for fieldTag, fieldName := range fieldNames {
-		val := reflect.ValueOf(v).Elem().FieldByName(fieldName)
-		if !val.IsNil() {
-			result[fieldTag] = val.Elem().Interface()
-		}
-	}
+func fromAttributes(attr map[string]interface{}) Value {
+	b, _ := json.Marshal(attr)
+	var result Value
+	_ = json.Unmarshal(b, &result)
 	return result
 }
 
 // hasAny returns any attrTags for which the constraint has a non-nil value.
 func (v *Value) hasAny(attrTags ...string) []string {
-	attrValues := v.attributesWithValues()
-	var result []string = []string{}
+	attributes := v.attributesWithValues()
+	var result []string
 	for _, tag := range attrTags {
-		_, ok := attrValues[tag]
+		_, ok := attributes[resolveAlias(tag)]
 		if ok {
 			result = append(result, tag)
 		}
@@ -381,32 +380,31 @@ func (v *Value) hasAny(attrTags ...string) []string {
 
 // without returns a copy of the constraint without values for
 // the specified attributes.
-func (v *Value) without(attrTags ...string) (Value, error) {
-	result := *v
+func (v *Value) without(attrTags ...string) Value {
+	attributes := v.attributesWithValues()
 	for _, tag := range attrTags {
-		val, ok := result.fieldFromTag(tag)
-		if !ok {
-			return Value{}, errors.Errorf("unknown constraint %q", tag)
-		}
-		val.Set(reflect.Zero(val.Type()))
+		delete(attributes, resolveAlias(tag))
 	}
-	return result, nil
+	return fromAttributes(attributes)
+}
+
+func splitRaw(s string) (name, val string, err error) {
+	eq := strings.Index(s, "=")
+	if eq <= 0 {
+		return "", "", errors.Errorf("malformed constraint %q", s)
+	}
+	return s[:eq], s[eq+1:], nil
 }
 
 // setRaw interprets a name=value string and sets the supplied value.
-func (v *Value) setRaw(raw string) error {
-	eq := strings.Index(raw, "=")
-	if eq <= 0 {
-		return errors.Errorf("malformed constraint %q", raw)
-	}
-	name, str := raw[:eq], raw[eq+1:]
+func (v *Value) setRaw(name, str string) error {
 	var err error
-	switch name {
+	switch resolveAlias(name) {
 	case Arch:
 		err = v.setArch(str)
 	case Container:
 		err = v.setContainer(str)
-	case CpuCores:
+	case Cores:
 		err = v.setCpuCores(str)
 	case CpuPower:
 		err = v.setCpuPower(str)
@@ -420,8 +418,8 @@ func (v *Value) setRaw(raw string) error {
 		err = v.setInstanceType(str)
 	case Spaces:
 		err = v.setSpaces(str)
-	case Networks:
-		err = v.setNetworks(str)
+	case VirtType:
+		err = v.setVirtType(str)
 	default:
 		return errors.Errorf("unknown constraint %q", name)
 	}
@@ -442,9 +440,20 @@ func (v *Value) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	canonicals := map[string]string{}
 	for k, val := range values {
 		vstr := fmt.Sprintf("%v", val)
-		switch k {
+		key, ok := k.(string)
+		if !ok {
+			return errors.Errorf("unexpected non-string key: %#v", k)
+		}
+		canonical := resolveAlias(key)
+		if v, ok := canonicals[canonical]; ok {
+			// duplicate entry
+			return errors.Errorf("constraint %q duplicates constraint %q", key, v)
+		}
+		canonicals[canonical] = key
+		switch canonical {
 		case Arch:
 			v.Arch = &vstr
 		case Container:
@@ -452,7 +461,7 @@ func (v *Value) UnmarshalYAML(unmarshal func(interface{}) error) error {
 			v.Container = &ctype
 		case InstanceType:
 			v.InstanceType = &vstr
-		case CpuCores:
+		case Cores:
 			v.CpuCores, err = parseUint64(vstr)
 		case CpuPower:
 			v.CpuPower, err = parseUint64(vstr)
@@ -472,16 +481,8 @@ func (v *Value) UnmarshalYAML(unmarshal func(interface{}) error) error {
 			if err == nil {
 				v.Spaces = spaces
 			}
-		case Networks:
-			var networks *[]string
-			networks, err = parseYamlStrings("networks", val)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			err = v.validateNetworks(networks)
-			if err == nil {
-				v.Networks = networks
-			}
+		case VirtType:
+			v.VirtType = &vstr
 		default:
 			return errors.Errorf("unknown constraint value: %v", k)
 		}
@@ -598,28 +599,11 @@ func (v *Value) validateSpaces(spaces *[]string) error {
 	return nil
 }
 
-func (v *Value) setNetworks(str string) error {
-	if v.Networks != nil {
+func (v *Value) setVirtType(str string) error {
+	if v.VirtType != nil {
 		return errors.Errorf("already set")
 	}
-	networks := parseCommaDelimited(str)
-	if err := v.validateNetworks(networks); err != nil {
-		return err
-	}
-	v.Networks = networks
-	return nil
-}
-
-func (v *Value) validateNetworks(networks *[]string) error {
-	if networks == nil {
-		return nil
-	}
-	for _, name := range *networks {
-		netName := strings.TrimPrefix(name, "^")
-		if !names.IsValidNetwork(netName) {
-			return errors.Errorf("%q is not a valid network name", netName)
-		}
-	}
+	v.VirtType = &str
 	return nil
 }
 

@@ -4,29 +4,30 @@
 package action
 
 import (
-	"github.com/juju/loggo"
-	"github.com/juju/names"
+	"github.com/juju/errors"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 )
 
-var logger = loggo.GetLogger("juju.apiserver.action")
-
 func init() {
-	common.RegisterStandardFacade("Action", 0, NewActionAPI)
+	common.RegisterStandardFacade("Action", 2, NewActionAPI)
 }
 
 // ActionAPI implements the client API for interacting with Actions
 type ActionAPI struct {
 	state      *state.State
-	resources  *common.Resources
-	authorizer common.Authorizer
+	resources  facade.Resources
+	authorizer facade.Authorizer
+	check      *common.BlockChecker
 }
 
 // NewActionAPI returns an initialized ActionAPI
-func NewActionAPI(st *state.State, resources *common.Resources, authorizer common.Authorizer) (*ActionAPI, error) {
+func NewActionAPI(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*ActionAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
 	}
@@ -35,12 +36,50 @@ func NewActionAPI(st *state.State, resources *common.Resources, authorizer commo
 		state:      st,
 		resources:  resources,
 		authorizer: authorizer,
+		check:      common.NewBlockChecker(st),
 	}, nil
+}
+
+func (a *ActionAPI) checkCanRead() error {
+	canRead, err := a.authorizer.HasPermission(permission.ReadAccess, a.state.ModelTag())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if !canRead {
+		return common.ErrPerm
+	}
+	return nil
+}
+
+func (a *ActionAPI) checkCanWrite() error {
+	canWrite, err := a.authorizer.HasPermission(permission.WriteAccess, a.state.ModelTag())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if !canWrite {
+		return common.ErrPerm
+	}
+	return nil
+}
+
+func (a *ActionAPI) checkCanAdmin() error {
+	canAdmin, err := a.authorizer.HasPermission(permission.AdminAccess, a.state.ModelTag())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if !canAdmin {
+		return common.ErrPerm
+	}
+	return nil
 }
 
 // Actions takes a list of ActionTags, and returns the full Action for
 // each ID.
 func (a *ActionAPI) Actions(arg params.Entities) (params.ActionResults, error) {
+	if err := a.checkCanRead(); err != nil {
+		return params.ActionResults{}, errors.Trace(err)
+	}
+
 	response := params.ActionResults{Results: make([]params.ActionResult, len(arg.Entities))}
 	for i, entity := range arg.Entities {
 		currentResult := &response.Results[i]
@@ -64,7 +103,7 @@ func (a *ActionAPI) Actions(arg params.Entities) (params.ActionResults, error) {
 			currentResult.Error = common.ServerError(err)
 			continue
 		}
-		response.Results[i] = makeActionResult(receiverTag, action)
+		response.Results[i] = common.MakeActionResult(receiverTag, action)
 	}
 	return response, nil
 }
@@ -72,6 +111,10 @@ func (a *ActionAPI) Actions(arg params.Entities) (params.ActionResults, error) {
 // FindActionTagsByPrefix takes a list of string prefixes and finds
 // corresponding ActionTags that match that prefix.
 func (a *ActionAPI) FindActionTagsByPrefix(arg params.FindTags) (params.FindTagsResults, error) {
+	if err := a.checkCanRead(); err != nil {
+		return params.FindTagsResults{}, errors.Trace(err)
+	}
+
 	response := params.FindTagsResults{Matches: make(map[string][]params.Entity)}
 	for _, prefix := range arg.Prefixes {
 		found := a.state.FindActionTagsByPrefix(prefix)
@@ -84,15 +127,52 @@ func (a *ActionAPI) FindActionTagsByPrefix(arg params.FindTags) (params.FindTags
 	return response, nil
 }
 
+func (a *ActionAPI) FindActionsByNames(arg params.FindActionsByNames) (params.ActionsByNames, error) {
+	if err := a.checkCanWrite(); err != nil {
+		return params.ActionsByNames{}, errors.Trace(err)
+	}
+
+	response := params.ActionsByNames{Actions: make([]params.ActionsByName, len(arg.ActionNames))}
+	for i, name := range arg.ActionNames {
+		currentResult := &response.Actions[i]
+		currentResult.Name = name
+
+		actions, err := a.state.FindActionsByName(name)
+		if err != nil {
+			currentResult.Error = common.ServerError(err)
+			continue
+		}
+		for _, action := range actions {
+			recvTag, err := names.ActionReceiverTag(action.Receiver())
+			if err != nil {
+				currentResult.Actions = append(currentResult.Actions, params.ActionResult{Error: common.ServerError(err)})
+				continue
+			}
+			currentAction := common.MakeActionResult(recvTag, action)
+			currentResult.Actions = append(currentResult.Actions, currentAction)
+		}
+	}
+	return response, nil
+}
+
 // Enqueue takes a list of Actions and queues them up to be executed by
 // the designated ActionReceiver, returning the params.Action for each
 // enqueued Action, or an error if there was a problem enqueueing the
 // Action.
 func (a *ActionAPI) Enqueue(arg params.Actions) (params.ActionResults, error) {
+	if err := a.checkCanWrite(); err != nil {
+		return params.ActionResults{}, errors.Trace(err)
+	}
+
+	if err := a.check.ChangeAllowed(); err != nil {
+		return params.ActionResults{}, errors.Trace(err)
+	}
+
+	tagToActionReceiver := common.TagToActionReceiverFn(a.state.FindEntity)
 	response := params.ActionResults{Results: make([]params.ActionResult, len(arg.Actions))}
 	for i, action := range arg.Actions {
 		currentResult := &response.Results[i]
-		receiver, err := tagToActionReceiver(a.state, action.Receiver)
+		receiver, err := tagToActionReceiver(action.Receiver)
 		if err != nil {
 			currentResult.Error = common.ServerError(err)
 			continue
@@ -103,7 +183,7 @@ func (a *ActionAPI) Enqueue(arg params.Actions) (params.ActionResults, error) {
 			continue
 		}
 
-		response.Results[i] = makeActionResult(receiver.Tag(), enqueued)
+		response.Results[i] = common.MakeActionResult(receiver.Tag(), enqueued)
 	}
 	return response, nil
 }
@@ -112,6 +192,10 @@ func (a *ActionAPI) Enqueue(arg params.Actions) (params.ActionResults, error) {
 // returns all of the Actions that have been enqueued or run by each of
 // those Entities.
 func (a *ActionAPI) ListAll(arg params.Entities) (params.ActionsByReceivers, error) {
+	if err := a.checkCanRead(); err != nil {
+		return params.ActionsByReceivers{}, errors.Trace(err)
+	}
+
 	return a.internalList(arg, combine(pendingActions, runningActions, completedActions))
 }
 
@@ -119,6 +203,10 @@ func (a *ActionAPI) ListAll(arg params.Entities) (params.ActionsByReceivers, err
 // and returns all of the Actions that are enqueued for each of those
 // Entities.
 func (a *ActionAPI) ListPending(arg params.Entities) (params.ActionsByReceivers, error) {
+	if err := a.checkCanRead(); err != nil {
+		return params.ActionsByReceivers{}, errors.Trace(err)
+	}
+
 	return a.internalList(arg, pendingActions)
 }
 
@@ -126,6 +214,10 @@ func (a *ActionAPI) ListPending(arg params.Entities) (params.ActionsByReceivers,
 // returns all of the Actions that have are running on each of those
 // Entities.
 func (a *ActionAPI) ListRunning(arg params.Entities) (params.ActionsByReceivers, error) {
+	if err := a.checkCanRead(); err != nil {
+		return params.ActionsByReceivers{}, errors.Trace(err)
+	}
+
 	return a.internalList(arg, runningActions)
 }
 
@@ -133,11 +225,23 @@ func (a *ActionAPI) ListRunning(arg params.Entities) (params.ActionsByReceivers,
 // and returns all of the Actions that have been run on each of those
 // Entities.
 func (a *ActionAPI) ListCompleted(arg params.Entities) (params.ActionsByReceivers, error) {
+	if err := a.checkCanRead(); err != nil {
+		return params.ActionsByReceivers{}, errors.Trace(err)
+	}
+
 	return a.internalList(arg, completedActions)
 }
 
 // Cancel attempts to cancel enqueued Actions from running.
 func (a *ActionAPI) Cancel(arg params.Entities) (params.ActionResults, error) {
+	if err := a.checkCanWrite(); err != nil {
+		return params.ActionResults{}, errors.Trace(err)
+	}
+
+	if err := a.check.ChangeAllowed(); err != nil {
+		return params.ActionResults{}, errors.Trace(err)
+	}
+
 	response := params.ActionResults{Results: make([]params.ActionResult, len(arg.Entities))}
 	for i, entity := range arg.Entities {
 		currentResult := &response.Results[i]
@@ -167,24 +271,28 @@ func (a *ActionAPI) Cancel(arg params.Entities) (params.ActionResults, error) {
 			continue
 		}
 
-		response.Results[i] = makeActionResult(receiverTag, result)
+		response.Results[i] = common.MakeActionResult(receiverTag, result)
 	}
 	return response, nil
 }
 
-// ServicesCharmActions returns a slice of charm Actions for a slice of
+// ApplicationsCharmsActions returns a slice of charm Actions for a slice of
 // services.
-func (a *ActionAPI) ServicesCharmActions(args params.Entities) (params.ServicesCharmActionsResults, error) {
-	result := params.ServicesCharmActionsResults{Results: make([]params.ServiceCharmActionsResult, len(args.Entities))}
+func (a *ActionAPI) ApplicationsCharmsActions(args params.Entities) (params.ApplicationsCharmActionsResults, error) {
+	result := params.ApplicationsCharmActionsResults{Results: make([]params.ApplicationCharmActionsResult, len(args.Entities))}
+	if err := a.checkCanWrite(); err != nil {
+		return result, errors.Trace(err)
+	}
+
 	for i, entity := range args.Entities {
 		currentResult := &result.Results[i]
-		svcTag, err := names.ParseServiceTag(entity.Tag)
+		svcTag, err := names.ParseApplicationTag(entity.Tag)
 		if err != nil {
 			currentResult.Error = common.ServerError(common.ErrBadId)
 			continue
 		}
-		currentResult.ServiceTag = svcTag.String()
-		svc, err := a.state.Service(svcTag.Id())
+		currentResult.ApplicationTag = svcTag.String()
+		svc, err := a.state.Application(svcTag.Id())
 		if err != nil {
 			currentResult.Error = common.ServerError(err)
 			continue
@@ -194,7 +302,16 @@ func (a *ActionAPI) ServicesCharmActions(args params.Entities) (params.ServicesC
 			currentResult.Error = common.ServerError(err)
 			continue
 		}
-		currentResult.Actions = ch.Actions()
+		if actions := ch.Actions(); actions != nil {
+			charmActions := make(map[string]params.ActionSpec)
+			for key, value := range actions.ActionSpecs {
+				charmActions[key] = params.ActionSpec{
+					Description: value.Description,
+					Params:      value.Params,
+				}
+			}
+			currentResult.Actions = charmActions
+		}
 	}
 	return result, nil
 }
@@ -203,10 +320,11 @@ func (a *ActionAPI) ServicesCharmActions(args params.Entities) (params.ServicesC
 // and returns all of the Actions the extractorFn can get out of the
 // ActionReceiver.
 func (a *ActionAPI) internalList(arg params.Entities, fn extractorFn) (params.ActionsByReceivers, error) {
+	tagToActionReceiver := common.TagToActionReceiverFn(a.state.FindEntity)
 	response := params.ActionsByReceivers{Actions: make([]params.ActionsByReceiver, len(arg.Entities))}
 	for i, entity := range arg.Entities {
 		currentResult := &response.Actions[i]
-		receiver, err := tagToActionReceiver(a.state, entity.Tag)
+		receiver, err := tagToActionReceiver(entity.Tag)
 		if err != nil {
 			currentResult.Error = common.ServerError(common.ErrBadId)
 			continue
@@ -223,24 +341,6 @@ func (a *ActionAPI) internalList(arg params.Entities, fn extractorFn) (params.Ac
 	return response, nil
 }
 
-// tagToActionReceiver takes a tag string and tries to convert it to an
-// ActionReceiver.
-func tagToActionReceiver(st *state.State, tag string) (state.ActionReceiver, error) {
-	receiverTag, err := names.ParseTag(tag)
-	if err != nil {
-		return nil, common.ErrBadId
-	}
-	entity, err := st.FindEntity(receiverTag)
-	if err != nil {
-		return nil, common.ErrBadId
-	}
-	receiver, ok := entity.(state.ActionReceiver)
-	if !ok {
-		return nil, common.ErrBadId
-	}
-	return receiver, nil
-}
-
 // extractorFn is the generic signature for functions that extract
 // state.Actions from an ActionReceiver, and return them as a slice of
 // params.ActionResult.
@@ -254,7 +354,7 @@ func combine(funcs ...extractorFn) extractorFn {
 		for _, fn := range funcs {
 			items, err := fn(ar)
 			if err != nil {
-				return result, err
+				return result, errors.Trace(err)
 			}
 			result = append(result, items...)
 		}
@@ -265,60 +365,18 @@ func combine(funcs ...extractorFn) extractorFn {
 // pendingActions iterates through the Actions() enqueued for an
 // ActionReceiver, and converts them to a slice of params.ActionResult.
 func pendingActions(ar state.ActionReceiver) ([]params.ActionResult, error) {
-	return convertActions(ar, ar.PendingActions)
+	return common.ConvertActions(ar, ar.PendingActions)
 }
 
 // runningActions iterates through the Actions() running on an
 // ActionReceiver, and converts them to a slice of params.ActionResult.
 func runningActions(ar state.ActionReceiver) ([]params.ActionResult, error) {
-	return convertActions(ar, ar.RunningActions)
+	return common.ConvertActions(ar, ar.RunningActions)
 }
 
 // completedActions iterates through the Actions() that have run to
 // completion for an ActionReceiver, and converts them to a slice of
 // params.ActionResult.
 func completedActions(ar state.ActionReceiver) ([]params.ActionResult, error) {
-	return convertActions(ar, ar.CompletedActions)
-}
-
-// getActionsFn declares the function type that returns a slice of
-// *state.Action and error, used to curry specific list functions.
-type getActionsFn func() ([]*state.Action, error)
-
-// convertActions takes a generic getActionsFn to obtain a slice
-// of *state.Action and then converts them to the API slice of
-// params.ActionResult.
-func convertActions(ar state.ActionReceiver, fn getActionsFn) ([]params.ActionResult, error) {
-	items := []params.ActionResult{}
-	actions, err := fn()
-	if err != nil {
-		return items, err
-	}
-	for _, action := range actions {
-		if action == nil {
-			continue
-		}
-		items = append(items, makeActionResult(ar.Tag(), action))
-	}
-	return items, nil
-}
-
-// makeActionResult does the actual type conversion from *state.Action
-// to params.ActionResult.
-func makeActionResult(actionReceiverTag names.Tag, action *state.Action) params.ActionResult {
-	output, message := action.Results()
-	return params.ActionResult{
-		Action: &params.Action{
-			Receiver:   actionReceiverTag.String(),
-			Tag:        action.ActionTag().String(),
-			Name:       action.Name(),
-			Parameters: action.Parameters(),
-		},
-		Status:    string(action.Status()),
-		Message:   message,
-		Output:    output,
-		Enqueued:  action.Enqueued(),
-		Started:   action.Started(),
-		Completed: action.Completed(),
-	}
+	return common.ConvertActions(ar, ar.CompletedActions)
 }

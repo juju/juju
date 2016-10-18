@@ -15,15 +15,16 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
+	"github.com/juju/version"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/toolstorage"
+	"github.com/juju/juju/state/binarystorage"
+	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
 )
 
 // toolsHandler handles tool upload through HTTPS in the API server.
@@ -39,7 +40,9 @@ type toolsDownloadHandler struct {
 func (h *toolsDownloadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	st, err := h.ctxt.stateForRequestUnauthenticated(r)
 	if err != nil {
-		sendError(w, err)
+		if err := sendError(w, err); err != nil {
+			logger.Errorf("%v", err)
+		}
 		return
 	}
 
@@ -48,12 +51,18 @@ func (h *toolsDownloadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		tarball, err := h.processGet(r, st)
 		if err != nil {
 			logger.Errorf("GET(%s) failed: %v", r.URL, err)
-			sendError(w, errors.NewBadRequest(err, ""))
+			if err := sendError(w, errors.NewBadRequest(err, "")); err != nil {
+				logger.Errorf("%v", err)
+			}
 			return
 		}
-		h.sendTools(w, http.StatusOK, tarball)
+		if err := h.sendTools(w, http.StatusOK, tarball); err != nil {
+			logger.Errorf("%v", err)
+		}
 	default:
-		sendError(w, errors.MethodNotAllowedf("unsupported method: %q", r.Method))
+		if err := sendError(w, errors.MethodNotAllowedf("unsupported method: %q", r.Method)); err != nil {
+			logger.Errorf("%v", err)
+		}
 	}
 }
 
@@ -62,7 +71,9 @@ func (h *toolsUploadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// on the state connection that is determined during the validation.
 	st, _, err := h.ctxt.stateForRequestAuthenticatedUser(r)
 	if err != nil {
-		sendError(w, err)
+		if err := sendError(w, err); err != nil {
+			logger.Errorf("%v", err)
+		}
 		return
 	}
 
@@ -71,12 +82,20 @@ func (h *toolsUploadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// Add tools to storage.
 		agentTools, err := h.processPost(r, st)
 		if err != nil {
-			sendError(w, err)
+			if err := sendError(w, err); err != nil {
+				logger.Errorf("%v", err)
+			}
 			return
 		}
-		sendStatusAndJSON(w, http.StatusOK, &params.ToolsResult{Tools: agentTools})
+		if err := sendStatusAndJSON(w, http.StatusOK, &params.ToolsResult{
+			ToolsList: tools.List{agentTools},
+		}); err != nil {
+			logger.Errorf("%v", err)
+		}
 	default:
-		sendError(w, errors.MethodNotAllowedf("unsupported method: %q", r.Method))
+		if err := sendError(w, errors.MethodNotAllowedf("unsupported method: %q", r.Method)); err != nil {
+			logger.Errorf("%v", err)
+		}
 	}
 }
 
@@ -91,11 +110,11 @@ func (h *toolsDownloadHandler) processGet(r *http.Request, st *state.State) ([]b
 		return nil, errors.Annotate(err, "error getting tools storage")
 	}
 	defer storage.Close()
-	_, reader, err := storage.Tools(version)
+	_, reader, err := storage.Open(version.String())
 	if errors.IsNotFound(err) {
-		// Tools could not be found in toolstorage,
+		// Tools could not be found in tools storage,
 		// so look for them in simplestreams, fetch
-		// them and cache in toolstorage.
+		// them and cache in tools storage.
 		logger.Infof("%v tools not found locally, fetching", version)
 		reader, err = h.fetchAndCacheTools(version, storage, st)
 		if err != nil {
@@ -114,14 +133,11 @@ func (h *toolsDownloadHandler) processGet(r *http.Request, st *state.State) ([]b
 }
 
 // fetchAndCacheTools fetches tools with the specified version by searching for a URL
-// in simplestreams and GETting it, caching the result in toolstorage before returning
+// in simplestreams and GETting it, caching the result in tools storage before returning
 // to the caller.
-func (h *toolsDownloadHandler) fetchAndCacheTools(v version.Binary, stor toolstorage.Storage, st *state.State) (io.ReadCloser, error) {
-	envcfg, err := st.EnvironConfig()
-	if err != nil {
-		return nil, err
-	}
-	env, err := environs.New(envcfg)
+func (h *toolsDownloadHandler) fetchAndCacheTools(v version.Binary, stor binarystorage.Storage, st *state.State) (io.ReadCloser, error) {
+	newEnviron := stateenvirons.GetNewEnvironFunc(environs.New)
+	env, err := newEnviron(st)
 	if err != nil {
 		return nil, err
 	}
@@ -155,27 +171,30 @@ func (h *toolsDownloadHandler) fetchAndCacheTools(v version.Binary, stor toolsto
 		return nil, errors.Errorf("hash mismatch for %s", tools.URL)
 	}
 
-	// Cache tarball in toolstorage before returning.
-	metadata := toolstorage.Metadata{
-		Version: v,
+	// Cache tarball in tools storage before returning.
+	metadata := binarystorage.Metadata{
+		Version: v.String(),
 		Size:    tools.Size,
 		SHA256:  tools.SHA256,
 	}
-	if err := stor.AddTools(bytes.NewReader(data), metadata); err != nil {
+	if err := stor.Add(bytes.NewReader(data), metadata); err != nil {
 		return nil, errors.Annotate(err, "error caching tools")
 	}
 	return ioutil.NopCloser(bytes.NewReader(data)), nil
 }
 
 // sendTools streams the tools tarball to the client.
-func (h *toolsDownloadHandler) sendTools(w http.ResponseWriter, statusCode int, tarball []byte) {
+func (h *toolsDownloadHandler) sendTools(w http.ResponseWriter, statusCode int, tarball []byte) error {
 	w.Header().Set("Content-Type", "application/x-tar-gz")
 	w.Header().Set("Content-Length", fmt.Sprint(len(tarball)))
 	w.WriteHeader(statusCode)
 	if _, err := w.Write(tarball); err != nil {
-		sendError(w, errors.NewBadRequest(errors.Annotatef(err, "failed to write tools"), ""))
-		return
+		return errors.Trace(sendError(
+			w,
+			errors.NewBadRequest(errors.Annotatef(err, "failed to write tools"), ""),
+		))
 	}
+	return nil
 }
 
 // processPost handles a tools upload POST request after authentication.
@@ -223,15 +242,15 @@ func (h *toolsUploadHandler) processPost(r *http.Request, st *state.State) (*too
 }
 
 func (h *toolsUploadHandler) getServerRoot(r *http.Request, query url.Values, st *state.State) (string, error) {
-	uuid := query.Get(":envuuid")
+	uuid := query.Get(":modeluuid")
 	if uuid == "" {
-		env, err := st.Environment()
+		env, err := st.Model()
 		if err != nil {
 			return "", err
 		}
 		uuid = env.UUID()
 	}
-	return fmt.Sprintf("https://%s/environment/%s", r.Host, uuid), nil
+	return fmt.Sprintf("https://%s/model/%s", r.Host, uuid), nil
 }
 
 // handleUpload uploads the tools data from the reader to env storage as the specified version.
@@ -258,15 +277,15 @@ func (h *toolsUploadHandler) handleUpload(r io.Reader, toolsVersions []version.B
 
 	// TODO(wallyworld): check integrity of tools tarball.
 
-	// Store tools and metadata in toolstorage.
+	// Store tools and metadata in tools storage.
 	for _, v := range toolsVersions {
-		metadata := toolstorage.Metadata{
-			Version: v,
+		metadata := binarystorage.Metadata{
+			Version: v.String(),
 			Size:    int64(len(data)),
 			SHA256:  sha256,
 		}
 		logger.Debugf("uploading tools %+v to storage", metadata)
-		if err := storage.AddTools(bytes.NewReader(data), metadata); err != nil {
+		if err := storage.Add(bytes.NewReader(data), metadata); err != nil {
 			return nil, err
 		}
 	}

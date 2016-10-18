@@ -7,12 +7,14 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/common"
-	"github.com/juju/juju/api/watcher"
+	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/status"
+	"github.com/juju/juju/watcher"
 )
 
 // Unit represents a juju unit as seen by a uniter worker.
@@ -53,14 +55,14 @@ func (u *Unit) Refresh() error {
 }
 
 // SetUnitStatus sets the status of the unit.
-func (u *Unit) SetUnitStatus(status params.Status, info string, data map[string]interface{}) error {
+func (u *Unit) SetUnitStatus(unitStatus status.Status, info string, data map[string]interface{}) error {
 	if u.st.facade.BestAPIVersion() < 2 {
 		return errors.NotImplementedf("SetUnitStatus")
 	}
 	var result params.ErrorResults
 	args := params.SetStatus{
 		Entities: []params.EntityStatusArgs{
-			{Tag: u.tag.String(), Status: status, Info: info, Data: data},
+			{Tag: u.tag.String(), Status: unitStatus.String(), Info: info, Data: data},
 		},
 	}
 	err := u.st.facade.FacadeCall("SetUnitStatus", args, &result)
@@ -80,9 +82,6 @@ func (u *Unit) UnitStatus() (params.StatusResult, error) {
 	}
 	err := u.st.facade.FacadeCall("UnitStatus", args, &results)
 	if err != nil {
-		if params.IsCodeNotImplemented(err) {
-			return params.StatusResult{}, errors.NotImplementedf("UnitStatus")
-		}
 		return params.StatusResult{}, errors.Trace(err)
 	}
 	if len(results.Results) != 1 {
@@ -96,11 +95,11 @@ func (u *Unit) UnitStatus() (params.StatusResult, error) {
 }
 
 // SetAgentStatus sets the status of the unit agent.
-func (u *Unit) SetAgentStatus(status params.Status, info string, data map[string]interface{}) error {
+func (u *Unit) SetAgentStatus(agentStatus status.Status, info string, data map[string]interface{}) error {
 	var result params.ErrorResults
 	args := params.SetStatus{
 		Entities: []params.EntityStatusArgs{
-			{Tag: u.tag.String(), Status: status, Info: info, Data: data},
+			{Tag: u.tag.String(), Status: agentStatus.String(), Info: info, Data: data},
 		},
 	}
 	setStatusFacadeCall := "SetAgentStatus"
@@ -146,15 +145,7 @@ func (u *Unit) AddMetricBatches(batches []params.MetricBatch) (map[string]error,
 	}
 	results := new(params.ErrorResults)
 	err := u.st.facade.FacadeCall("AddMetricBatches", p, results)
-	if params.IsCodeNotImplemented(err) {
-		for _, batch := range batches {
-			err = u.AddMetrics(batch.Metrics)
-			if err != nil {
-				batchResults[batch.UUID] = errors.Annotate(err, "failed to send metric batch")
-			}
-		}
-		return batchResults, nil
-	} else if err != nil {
+	if err != nil {
 		return nil, errors.Annotate(err, "failed to send metric batches")
 	}
 	for i, result := range results.Results {
@@ -183,10 +174,10 @@ func (u *Unit) Watch() (watcher.NotifyWatcher, error) {
 }
 
 // Service returns the service.
-func (u *Unit) Service() (*Service, error) {
-	service := &Service{
+func (u *Unit) Application() (*Application, error) {
+	service := &Application{
 		st:  u.st,
-		tag: u.ServiceTag(),
+		tag: u.ApplicationTag(),
 	}
 	// Call Refresh() immediately to get the up-to-date
 	// life and other needed locally cached fields.
@@ -220,18 +211,18 @@ func (u *Unit) ConfigSettings() (charm.Settings, error) {
 	return charm.Settings(result.Settings), nil
 }
 
-// ServiceName returns the service name.
-func (u *Unit) ServiceName() string {
-	service, err := names.UnitService(u.Name())
+// ApplicationName returns the application name.
+func (u *Unit) ApplicationName() string {
+	application, err := names.UnitApplication(u.Name())
 	if err != nil {
 		panic(err)
 	}
-	return service
+	return application
 }
 
-// ServiceTag returns the service tag.
-func (u *Unit) ServiceTag() names.ServiceTag {
-	return names.NewServiceTag(u.ServiceName())
+// ApplicationTag returns the service tag.
+func (u *Unit) ApplicationTag() names.ApplicationTag {
+	return names.NewApplicationTag(u.ApplicationName())
 }
 
 // Destroy, when called on a Alive unit, advances its lifecycle as far as
@@ -469,44 +460,6 @@ func (u *Unit) ClosePorts(protocol string, fromPort, toPort int) error {
 	return result.OneError()
 }
 
-// OpenPort sets the policy of the port with protocol and number to be
-// opened.
-//
-// TODO(dimitern): This is deprecated and is kept for
-// backwards-compatibility. Use OpenPorts instead.
-func (u *Unit) OpenPort(protocol string, number int) error {
-	var result params.ErrorResults
-	args := params.EntitiesPorts{
-		Entities: []params.EntityPort{
-			{Tag: u.tag.String(), Protocol: protocol, Port: number},
-		},
-	}
-	err := u.st.facade.FacadeCall("OpenPort", args, &result)
-	if err != nil {
-		return err
-	}
-	return result.OneError()
-}
-
-// ClosePort sets the policy of the port with protocol and number to
-// be closed.
-//
-// TODO(dimitern): This is deprecated and is kept for
-// backwards-compatibility. Use ClosePorts instead.
-func (u *Unit) ClosePort(protocol string, number int) error {
-	var result params.ErrorResults
-	args := params.EntitiesPorts{
-		Entities: []params.EntityPort{
-			{Tag: u.tag.String(), Protocol: protocol, Port: number},
-		},
-	}
-	err := u.st.facade.FacadeCall("ClosePort", args, &result)
-	if err != nil {
-		return err
-	}
-	return result.OneError()
-}
-
 var ErrNoCharmURLSet = errors.New("unit has no charm url set")
 
 // CharmURL returns the charm URL this unit is currently using.
@@ -591,7 +544,7 @@ func (u *Unit) WatchConfigSettings() (watcher.NotifyWatcher, error) {
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	w := watcher.NewNotifyWatcher(u.st.facade.RawAPICaller(), result)
+	w := apiwatcher.NewNotifyWatcher(u.st.facade.RawAPICaller(), result)
 	return w, nil
 }
 
@@ -615,7 +568,7 @@ func (u *Unit) WatchAddresses() (watcher.NotifyWatcher, error) {
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	w := watcher.NewNotifyWatcher(u.st.facade.RawAPICaller(), result)
+	w := apiwatcher.NewNotifyWatcher(u.st.facade.RawAPICaller(), result)
 	return w, nil
 }
 
@@ -638,7 +591,7 @@ func (u *Unit) WatchActionNotifications() (watcher.StringsWatcher, error) {
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	w := watcher.NewStringsWatcher(u.st.facade.RawAPICaller(), result)
+	w := apiwatcher.NewStringsWatcher(u.st.facade.RawAPICaller(), result)
 	return w, nil
 }
 
@@ -725,7 +678,7 @@ func (u *Unit) WatchMeterStatus() (watcher.NotifyWatcher, error) {
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	w := watcher.NewNotifyWatcher(u.st.facade.RawAPICaller(), result)
+	w := apiwatcher.NewNotifyWatcher(u.st.facade.RawAPICaller(), result)
 	return w, nil
 }
 
@@ -756,4 +709,32 @@ func (u *Unit) AddStorage(constraints map[string][]params.StorageConstraints) er
 	}
 
 	return results.Combine()
+}
+
+// NetworkConfig requests network config information for the unit and the given
+// bindingName.
+func (u *Unit) NetworkConfig(bindingName string) ([]params.NetworkConfig, error) {
+	var results params.UnitNetworkConfigResults
+	args := params.UnitsNetworkConfig{
+		Args: []params.UnitNetworkConfig{{
+			BindingName: bindingName,
+			UnitTag:     u.tag.String(),
+		}},
+	}
+
+	err := u.st.facade.FacadeCall("NetworkConfig", args, &results)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	if len(results.Results) != 1 {
+		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, result.Error
+	}
+
+	return result.Config, nil
 }

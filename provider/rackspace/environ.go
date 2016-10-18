@@ -10,11 +10,9 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/state/multiwatcher"
 	jujuos "github.com/juju/utils/os"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/ssh"
@@ -32,8 +30,9 @@ func (e environ) Bootstrap(ctx environs.BootstrapContext, params environs.Bootst
 	return bootstrap(ctx, e, params)
 }
 
-func isStateServer(mcfg *instancecfg.InstanceConfig) bool {
-	return multiwatcher.AnyJobNeedsState(mcfg.Jobs...)
+// BootstrapMessage is part of the Environ interface.
+func (e environ) BootstrapMessage() string {
+	return ""
 }
 
 var waitSSH = common.WaitSSH
@@ -55,7 +54,7 @@ func (e environ) StartInstance(args environs.StartInstanceParams) (*environs.Sta
 	}
 	if fwmode != config.FwNone {
 		interrupted := make(chan os.Signal, 1)
-		timeout := config.SSHTimeoutOpts{
+		timeout := environs.BootstrapDialOpts{
 			Timeout:        time.Minute * 5,
 			RetryDelay:     time.Second * 5,
 			AddressesDelay: time.Second * 20,
@@ -66,8 +65,8 @@ func (e environ) StartInstance(args environs.StartInstanceParams) (*environs.Sta
 		}
 		client := newInstanceConfigurator(addr)
 		apiPort := 0
-		if isStateServer(args.InstanceConfig) {
-			apiPort = args.InstanceConfig.StateServingInfo.APIPort
+		if args.InstanceConfig.Controller != nil {
+			apiPort = args.InstanceConfig.Controller.Config.APIPort()
 		}
 		err = client.DropAllPorts([]int{apiPort, 22}, addr)
 		if err != nil {

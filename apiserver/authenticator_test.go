@@ -4,9 +4,9 @@
 package apiserver_test
 
 import (
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/authentication"
@@ -32,8 +32,9 @@ var _ = gc.Suite(&agentAuthenticatorSuite{})
 func (s *agentAuthenticatorSuite) TestAuthenticatorForTag(c *gc.C) {
 	fact := factory.NewFactory(s.State)
 	user := fact.MakeUser(c, &factory.UserParams{Password: "password"})
-	srv := newServer(c, s.State)
-	defer srv.Stop()
+	_, srv := newServer(c, s.State)
+	defer assertStop(c, srv)
+
 	authenticator, err := apiserver.ServerAuthenticatorForTag(srv, user.Tag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(authenticator, gc.NotNil)
@@ -48,7 +49,7 @@ func (s *agentAuthenticatorSuite) TestAuthenticatorForTag(c *gc.C) {
 }
 
 func (s *agentAuthenticatorSuite) TestMachineGetsAgentAuthenticator(c *gc.C) {
-	srv := newServer(c, s.State)
+	_, srv := newServer(c, s.State)
 	defer srv.Stop()
 	authenticator, err := apiserver.ServerAuthenticatorForTag(srv, names.NewMachineTag("0"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -57,7 +58,7 @@ func (s *agentAuthenticatorSuite) TestMachineGetsAgentAuthenticator(c *gc.C) {
 }
 
 func (s *agentAuthenticatorSuite) TestUnitGetsAgentAuthenticator(c *gc.C) {
-	srv := newServer(c, s.State)
+	_, srv := newServer(c, s.State)
 	defer srv.Stop()
 	authenticator, err := apiserver.ServerAuthenticatorForTag(srv, names.NewUnitTag("wordpress/0"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -66,9 +67,9 @@ func (s *agentAuthenticatorSuite) TestUnitGetsAgentAuthenticator(c *gc.C) {
 }
 
 func (s *agentAuthenticatorSuite) TestNotSupportedTag(c *gc.C) {
-	srv := newServer(c, s.State)
+	_, srv := newServer(c, s.State)
 	defer srv.Stop()
-	authenticator, err := apiserver.ServerAuthenticatorForTag(srv, names.NewServiceTag("not-support"))
+	authenticator, err := apiserver.ServerAuthenticatorForTag(srv, names.NewApplicationTag("not-support"))
 	c.Assert(err, gc.ErrorMatches, "unexpected login entity tag: invalid request")
 	c.Assert(authenticator, gc.IsNil)
 }

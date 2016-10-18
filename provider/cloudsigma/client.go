@@ -17,9 +17,8 @@ import (
 )
 
 type environClient struct {
-	conn   *gosigma.Client
-	uuid   string
-	config *environConfig
+	conn *gosigma.Client
+	uuid string
 }
 
 type tracer struct{}
@@ -29,16 +28,15 @@ func (tracer) Logf(format string, args ...interface{}) {
 }
 
 // newClient returns an instance of the CloudSigma client.
-var newClient = func(cfg *environConfig) (client *environClient, err error) {
-	uuid, ok := cfg.UUID()
-	if !ok {
-		return nil, errors.New("Environ uuid must not be empty")
-	}
-
+var newClient = func(cloud environs.CloudSpec, uuid string) (client *environClient, err error) {
 	logger.Debugf("creating CloudSigma client: id=%q", uuid)
 
+	credAttrs := cloud.Credential.Attributes()
+	username := credAttrs[credAttrUsername]
+	password := credAttrs[credAttrPassword]
+
 	// create connection to CloudSigma
-	conn, err := gosigma.NewClient(cfg.region(), cfg.username(), cfg.password(), nil)
+	conn, err := gosigma.NewClient(cloud.Endpoint, username, password, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -49,20 +47,19 @@ var newClient = func(cfg *environConfig) (client *environClient, err error) {
 	}
 
 	client = &environClient{
-		conn:   conn,
-		uuid:   uuid,
-		config: cfg,
+		conn: conn,
+		uuid: uuid,
 	}
 
 	return client, nil
 }
 
 const (
-	jujuMetaInstance            = "juju-instance"
-	jujuMetaInstanceStateServer = "state-server"
-	jujuMetaInstanceServer      = "server"
+	jujuMetaInstance           = "juju-instance"
+	jujuMetaInstanceController = "controller"
+	jujuMetaInstanceServer     = "server"
 
-	jujuMetaEnvironment = "juju-environment"
+	jujuMetaEnvironment = "juju-model"
 	jujuMetaCoudInit    = "cloudinit-user-data"
 	jujuMetaBase64      = "base64_fields"
 )
@@ -81,9 +78,9 @@ func (c *environClient) isMyServer(s gosigma.Server) bool {
 	return false
 }
 
-// isMyStateServer is used to filter servers in the CloudSigma account
-func (c environClient) isMyStateServer(s gosigma.Server) bool {
-	if v, ok := s.Get(jujuMetaInstance); ok && v == jujuMetaInstanceStateServer {
+// isMyController is used to filter servers in the CloudSigma account
+func (c environClient) isMyController(s gosigma.Server) bool {
+	if v, ok := s.Get(jujuMetaInstance); ok && v == jujuMetaInstanceController {
 		return c.isMyEnvironment(s)
 	}
 	return false
@@ -109,11 +106,11 @@ func (c *environClient) instanceMap() (map[string]gosigma.Server, error) {
 	return m, nil
 }
 
-//getStateServerIds get list of ids for all state server instances
-func (c *environClient) getStateServerIds() (ids []instance.Id, err error) {
+//getControllerIds get list of ids for all controller instances
+func (c *environClient) getControllerIds() (ids []instance.Id, err error) {
 	logger.Tracef("query state...")
 
-	servers, err := c.conn.ServersFiltered(gosigma.RequestDetail, c.isMyStateServer)
+	servers, err := c.conn.ServersFiltered(gosigma.RequestDetail, c.isMyController)
 	if err != nil {
 		return []instance.Id{}, errors.Trace(err)
 	}
@@ -125,7 +122,7 @@ func (c *environClient) getStateServerIds() (ids []instance.Id, err error) {
 	ids = make([]instance.Id, len(servers))
 
 	for i, server := range servers {
-		logger.Tracef("State server id: %s", server.UUID())
+		logger.Tracef("controller id: %s", server.UUID())
 		ids[i] = instance.Id(server.UUID())
 	}
 
@@ -154,7 +151,12 @@ func (c *environClient) stopInstance(id instance.Id) error {
 }
 
 //newInstance creates and starts new instance.
-func (c *environClient) newInstance(args environs.StartInstanceParams, img *imagemetadata.ImageMetadata, userData []byte) (srv gosigma.Server, drv gosigma.Drive, ar string, err error) {
+func (c *environClient) newInstance(
+	args environs.StartInstanceParams,
+	img *imagemetadata.ImageMetadata,
+	userData []byte,
+	authorizedKeys string,
+) (srv gosigma.Server, drv gosigma.Drive, ar string, err error) {
 
 	defer func() {
 		if err == nil {
@@ -178,7 +180,7 @@ func (c *environClient) newInstance(args environs.StartInstanceParams, img *imag
 	logger.Debugf("Juju Constraints:" + args.Constraints.String())
 	logger.Debugf("InstanceConfig: %#v", args.InstanceConfig)
 
-	constraints := newConstraints(args.InstanceConfig.Bootstrap, args.Constraints, img)
+	constraints := newConstraints(args.InstanceConfig.Bootstrap != nil, args.Constraints, img)
 	logger.Debugf("CloudSigma Constraints: %v", constraints)
 
 	originalDrive, err := c.conn.Drive(constraints.driveTemplate, gosigma.LibraryMedia)
@@ -202,7 +204,9 @@ func (c *environClient) newInstance(args environs.StartInstanceParams, img *imag
 		}
 	}
 
-	cc, err := c.generateSigmaComponents(baseName, constraints, args, drv, userData)
+	cc, err := c.generateSigmaComponents(
+		baseName, constraints, args, drv, userData, authorizedKeys,
+	)
 	if err != nil {
 		return nil, nil, "", errors.Trace(err)
 	}
@@ -231,7 +235,14 @@ func (c *environClient) newInstance(args environs.StartInstanceParams, img *imag
 	return srv, drv, ar, nil
 }
 
-func (c *environClient) generateSigmaComponents(baseName string, constraints *sigmaConstraints, args environs.StartInstanceParams, drv gosigma.Drive, userData []byte) (cc gosigma.Components, err error) {
+func (c *environClient) generateSigmaComponents(
+	baseName string,
+	constraints *sigmaConstraints,
+	args environs.StartInstanceParams,
+	drv gosigma.Drive,
+	userData []byte,
+	authorizedKeys string,
+) (cc gosigma.Components, err error) {
 	cc.SetName(baseName)
 	cc.SetDescription(baseName)
 	cc.SetSMP(constraints.cores)
@@ -244,13 +255,13 @@ func (c *environClient) generateSigmaComponents(baseName string, constraints *si
 		return
 	}
 	cc.SetVNCPassword(vncpass)
-	logger.Debugf("Setting ssh key: %s end", c.config.AuthorizedKeys())
-	cc.SetSSHPublicKey(c.config.AuthorizedKeys())
+	logger.Debugf("Setting ssh key: %s end", authorizedKeys)
+	cc.SetSSHPublicKey(authorizedKeys)
 	cc.AttachDrive(1, "0:0", "virtio", drv.UUID())
 	cc.NetworkDHCP4(gosigma.ModelVirtio)
 
 	if multiwatcher.AnyJobNeedsState(args.InstanceConfig.Jobs...) {
-		cc.SetMeta(jujuMetaInstance, jujuMetaInstanceStateServer)
+		cc.SetMeta(jujuMetaInstance, jujuMetaInstanceController)
 	} else {
 		cc.SetMeta(jujuMetaInstance, jujuMetaInstanceServer)
 	}

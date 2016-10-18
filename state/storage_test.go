@@ -5,75 +5,37 @@ package state_test
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 
+	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
-	"github.com/juju/juju/storage/provider/dummy"
-	"github.com/juju/juju/storage/provider/registry"
+	dummystorage "github.com/juju/juju/storage/provider/dummy"
+	"github.com/juju/juju/testing/factory"
 )
-
-type StorageStateSuite struct {
-	StorageStateSuiteBase
-}
-
-var _ = gc.Suite(&StorageStateSuite{})
 
 type StorageStateSuiteBase struct {
 	ConnSuite
-}
-
-func (s *StorageStateSuiteBase) SetUpSuite(c *gc.C) {
-	s.ConnSuite.SetUpSuite(c)
-
-	registry.RegisterProvider("environscoped", &dummy.StorageProvider{
-		StorageScope: storage.ScopeEnviron,
-		IsDynamic:    true,
-	})
-	registry.RegisterProvider("machinescoped", &dummy.StorageProvider{
-		StorageScope: storage.ScopeMachine,
-		IsDynamic:    true,
-	})
-	registry.RegisterProvider("environscoped-block", &dummy.StorageProvider{
-		StorageScope: storage.ScopeEnviron,
-		SupportsFunc: func(k storage.StorageKind) bool {
-			return k == storage.StorageKindBlock
-		},
-		IsDynamic: true,
-	})
-	registry.RegisterProvider("static", &dummy.StorageProvider{
-		IsDynamic: false,
-	})
-	registry.RegisterEnvironStorageProviders(
-		"someprovider", "environscoped", "machinescoped",
-		"environscoped-block", "static",
-	)
-	s.AddSuiteCleanup(func(c *gc.C) {
-		registry.RegisterProvider("environscoped", nil)
-		registry.RegisterProvider("machinescoped", nil)
-		registry.RegisterProvider("environscoped-block", nil)
-		registry.RegisterProvider("static", nil)
-	})
 }
 
 func (s *StorageStateSuiteBase) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
 
 	// Create a default pool for block devices.
-	pm := poolmanager.New(state.NewStateSettings(s.State))
+	pm := poolmanager.New(state.NewStateSettings(s.State), dummy.StorageProviders())
 	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{})
 	c.Assert(err, jc.ErrorIsNil)
-	registry.RegisterEnvironStorageProviders("someprovider", provider.LoopProviderType)
 
 	// Create a pool that creates persistent block devices.
 	_, err = pm.Create("persistent-block", "environscoped-block", map[string]interface{}{
@@ -82,7 +44,7 @@ func (s *StorageStateSuiteBase) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *StorageStateSuiteBase) setupSingleStorage(c *gc.C, kind, pool string) (*state.Service, *state.Unit, names.StorageTag) {
+func (s *StorageStateSuiteBase) setupSingleStorage(c *gc.C, kind, pool string) (*state.Application, *state.Unit, names.StorageTag) {
 	// There are test charms called "storage-block" and
 	// "storage-filesystem" which are what you'd expect.
 	ch := s.AddTestingCharm(c, "storage-"+kind)
@@ -133,7 +95,7 @@ storage:
 	return ch
 }
 
-func (s *StorageStateSuiteBase) setupMixedScopeStorageService(c *gc.C, kind string) *state.Service {
+func (s *StorageStateSuiteBase) setupMixedScopeStorageService(c *gc.C, kind string) *state.Application {
 	storageCons := map[string]state.StorageConstraints{
 		"multi1to10": makeStorageCons("environscoped", 1024, 1),
 		"multi2up":   makeStorageCons("machinescoped", 2048, 2),
@@ -142,7 +104,7 @@ func (s *StorageStateSuiteBase) setupMixedScopeStorageService(c *gc.C, kind stri
 	return s.AddTestingServiceWithStorage(c, "storage-"+kind+"2", ch, storageCons)
 }
 
-func (s *StorageStateSuite) storageInstanceExists(c *gc.C, tag names.StorageTag) bool {
+func (s *StorageStateSuiteBase) storageInstanceExists(c *gc.C, tag names.StorageTag) bool {
 	_, err := state.TxnRevno(
 		s.State,
 		state.StorageInstancesC,
@@ -367,9 +329,15 @@ func makeStorageCons(pool string, size, count uint64) state.StorageConstraints {
 	return state.StorageConstraints{Pool: pool, Size: size, Count: count}
 }
 
+type StorageStateSuite struct {
+	StorageStateSuiteBase
+}
+
+var _ = gc.Suite(&StorageStateSuite{})
+
 func (s *StorageStateSuite) TestAddServiceStorageConstraintsDefault(c *gc.C) {
 	ch := s.AddTestingCharm(c, "storage-block")
-	storageBlock, err := s.State.AddService(state.AddServiceArgs{Name: "storage-block", Owner: "user-test-admin@local", Charm: ch})
+	storageBlock, err := s.State.AddApplication(state.AddApplicationArgs{Name: "storage-block", Charm: ch})
 	c.Assert(err, jc.ErrorIsNil)
 	constraints, err := storageBlock.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
@@ -387,7 +355,7 @@ func (s *StorageStateSuite) TestAddServiceStorageConstraintsDefault(c *gc.C) {
 	})
 
 	ch = s.AddTestingCharm(c, "storage-filesystem")
-	storageFilesystem, err := s.State.AddService(state.AddServiceArgs{Name: "storage-filesystem", Owner: "user-test-admin@local", Charm: ch})
+	storageFilesystem, err := s.State.AddApplication(state.AddApplicationArgs{Name: "storage-filesystem", Charm: ch})
 	c.Assert(err, jc.ErrorIsNil)
 	constraints, err = storageFilesystem.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
@@ -402,8 +370,8 @@ func (s *StorageStateSuite) TestAddServiceStorageConstraintsDefault(c *gc.C) {
 
 func (s *StorageStateSuite) TestAddServiceStorageConstraintsValidation(c *gc.C) {
 	ch := s.AddTestingCharm(c, "storage-block2")
-	addService := func(storage map[string]state.StorageConstraints) (*state.Service, error) {
-		return s.State.AddService(state.AddServiceArgs{Name: "storage-block2", Owner: "user-test-admin@local", Charm: ch, Storage: storage})
+	addService := func(storage map[string]state.StorageConstraints) (*state.Application, error) {
+		return s.State.AddApplication(state.AddApplicationArgs{Name: "storage-block2", Charm: ch, Storage: storage})
 	}
 	assertErr := func(storage map[string]state.StorageConstraints, expect string) {
 		_, err := addService(storage)
@@ -414,14 +382,14 @@ func (s *StorageStateSuite) TestAddServiceStorageConstraintsValidation(c *gc.C) 
 		"multi1to10": makeStorageCons("loop-pool", 1024, 1),
 		"multi2up":   makeStorageCons("loop-pool", 2048, 1),
 	}
-	assertErr(storageCons, `cannot add service "storage-block2": charm "storage-block2" store "multi2up": 2 instances required, 1 specified`)
+	assertErr(storageCons, `cannot add application "storage-block2": charm "storage-block2" store "multi2up": 2 instances required, 1 specified`)
 	storageCons["multi2up"] = makeStorageCons("loop-pool", 1024, 2)
-	assertErr(storageCons, `cannot add service "storage-block2": charm "storage-block2" store "multi2up": minimum storage size is 2.0GB, 1.0GB specified`)
+	assertErr(storageCons, `cannot add application "storage-block2": charm "storage-block2" store "multi2up": minimum storage size is 2.0GB, 1.0GB specified`)
 	storageCons["multi2up"] = makeStorageCons("loop-pool", 2048, 2)
 	storageCons["multi1to10"] = makeStorageCons("loop-pool", 1024, 11)
-	assertErr(storageCons, `cannot add service "storage-block2": charm "storage-block2" store "multi1to10": at most 10 instances supported, 11 specified`)
+	assertErr(storageCons, `cannot add application "storage-block2": charm "storage-block2" store "multi1to10": at most 10 instances supported, 11 specified`)
 	storageCons["multi1to10"] = makeStorageCons("ebs-fast", 1024, 10)
-	assertErr(storageCons, `cannot add service "storage-block2": pool "ebs-fast" not found`)
+	assertErr(storageCons, `cannot add application "storage-block2": pool "ebs-fast" not found`)
 	storageCons["multi1to10"] = makeStorageCons("loop-pool", 1024, 10)
 	_, err := addService(storageCons)
 	c.Assert(err, jc.ErrorIsNil)
@@ -429,13 +397,13 @@ func (s *StorageStateSuite) TestAddServiceStorageConstraintsValidation(c *gc.C) 
 
 func (s *StorageStateSuite) assertAddServiceStorageConstraintsDefaults(c *gc.C, pool string, cons, expect map[string]state.StorageConstraints) {
 	if pool != "" {
-		err := s.State.UpdateEnvironConfig(map[string]interface{}{
+		err := s.State.UpdateModelConfig(map[string]interface{}{
 			"storage-default-block-source": pool,
 		}, nil, nil)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	ch := s.AddTestingCharm(c, "storage-block")
-	service, err := s.State.AddService(state.AddServiceArgs{Name: "storage-block2", Owner: "user-test-admin@local", Charm: ch, Storage: cons})
+	service, err := s.State.AddApplication(state.AddApplicationArgs{Name: "storage-block2", Charm: ch, Storage: cons})
 	c.Assert(err, jc.ErrorIsNil)
 	savedCons, err := service.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
@@ -507,7 +475,7 @@ func (s *StorageStateSuite) TestAddServiceStorageConstraintsDefaultSizeFromCharm
 		"multi2up":   makeStorageCons("loop", 2048, 2),
 	}
 	ch := s.AddTestingCharm(c, "storage-block2")
-	service, err := s.State.AddService(state.AddServiceArgs{Name: "storage-block2", Owner: "user-test-admin@local", Charm: ch, Storage: storageCons})
+	service, err := s.State.AddApplication(state.AddApplicationArgs{Name: "storage-block2", Charm: ch, Storage: storageCons})
 	c.Assert(err, jc.ErrorIsNil)
 	savedCons, err := service.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
@@ -516,8 +484,8 @@ func (s *StorageStateSuite) TestAddServiceStorageConstraintsDefaultSizeFromCharm
 
 func (s *StorageStateSuite) TestProviderFallbackToType(c *gc.C) {
 	ch := s.AddTestingCharm(c, "storage-block")
-	addService := func(storage map[string]state.StorageConstraints) (*state.Service, error) {
-		return s.State.AddService(state.AddServiceArgs{Name: "storage-block", Owner: "user-test-admin@local", Charm: ch, Storage: storage})
+	addService := func(storage map[string]state.StorageConstraints) (*state.Application, error) {
+		return s.State.AddApplication(state.AddApplicationArgs{Name: "storage-block", Charm: ch, Storage: storage})
 	}
 	storageCons := map[string]state.StorageConstraints{
 		"data": makeStorageCons("loop", 1024, 1),
@@ -531,7 +499,7 @@ func (s *StorageStateSuite) TestAddUnit(c *gc.C) {
 }
 
 func (s *StorageStateSuite) assertStorageUnitsAdded(c *gc.C) {
-	err := s.State.UpdateEnvironConfig(map[string]interface{}{
+	err := s.State.UpdateModelConfig(map[string]interface{}{
 		"storage-default-block-source": "loop-pool",
 	}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -556,7 +524,6 @@ func (s *StorageStateSuite) assertStorageUnitsAdded(c *gc.C) {
 			c.Assert(err, jc.ErrorIsNil)
 			count[storageInstance.StorageName()]++
 			c.Assert(storageInstance.Kind(), gc.Equals, state.StorageKindBlock)
-			c.Assert(storageInstance.CharmURL(), gc.DeepEquals, ch.URL())
 		}
 		c.Assert(count, gc.DeepEquals, map[string]int{
 			"multi1to10": 1,
@@ -918,8 +885,147 @@ func (s *StorageStateSuite) testStorageLocationConflict(c *gc.C, first, second, 
 	}
 }
 
+func mustStorageConfig(name string, provider storage.ProviderType, attrs map[string]interface{}) *storage.Config {
+	cfg, err := storage.NewConfig(name, provider, attrs)
+	if err != nil {
+		panic(err)
+	}
+	return cfg
+}
+
+var testingStorageProviders = storage.StaticProviderRegistry{
+	map[storage.ProviderType]storage.Provider{
+		"dummy": &dummystorage.StorageProvider{
+			DefaultPools_: []*storage.Config{radiancePool},
+		},
+		"lancashire": &dummystorage.StorageProvider{
+			DefaultPools_: []*storage.Config{blackPool},
+		},
+	},
+}
+
+var radiancePool = mustStorageConfig("radiance", "dummy", map[string]interface{}{"k": "v"})
+var blackPool = mustStorageConfig("black", "lancashire", map[string]interface{}{})
+
+func (s *StorageStateSuite) TestNewModelDefaultPools(c *gc.C) {
+	st := s.Factory.MakeModel(c, &factory.ModelParams{
+		StorageProviderRegistry: testingStorageProviders,
+	})
+	s.AddCleanup(func(*gc.C) { st.Close() })
+
+	// When a model is created, it is populated with the default
+	// pools of each storage provider supported by the model's
+	// cloud provider.
+	pm := poolmanager.New(state.NewStateSettings(st), testingStorageProviders)
+	listed, err := pm.List()
+	c.Assert(err, jc.ErrorIsNil)
+	sort.Sort(byStorageConfigName(listed))
+	c.Assert(listed, jc.DeepEquals, []*storage.Config{blackPool, radiancePool})
+}
+
+type byStorageConfigName []*storage.Config
+
+func (c byStorageConfigName) Len() int {
+	return len(c)
+}
+
+func (c byStorageConfigName) Less(a, b int) bool {
+	return c[a].Name() < c[b].Name()
+}
+
+func (c byStorageConfigName) Swap(a, b int) {
+	c[a], c[b] = c[b], c[a]
+}
+
 // TODO(axw) the following require shared storage support to test:
 // - StorageAttachments can't be added to Dying StorageInstance
 // - StorageInstance without attachments is removed by Destroy
 // - concurrent add-unit and StorageAttachment removal does not
 //   remove storage instance.
+
+type StorageSubordinateStateSuite struct {
+	StorageStateSuiteBase
+
+	mysql                  *state.Application
+	mysqlUnit              *state.Unit
+	mysqlRelunit           *state.RelationUnit
+	subordinateApplication *state.Application
+	relation               *state.Relation
+}
+
+var _ = gc.Suite(&StorageSubordinateStateSuite{})
+
+func (s *StorageSubordinateStateSuite) SetUpTest(c *gc.C) {
+	s.StorageStateSuiteBase.SetUpTest(c)
+
+	var err error
+	storageCharm := s.AddTestingCharm(c, "storage-filesystem-subordinate")
+	s.subordinateApplication = s.AddTestingService(c, "storage-filesystem-subordinate", storageCharm)
+	s.mysql = s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	s.mysqlUnit, err = s.mysql.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+
+	eps, err := s.State.InferEndpoints("mysql", "storage-filesystem-subordinate")
+	c.Assert(err, jc.ErrorIsNil)
+	s.relation, err = s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+	s.mysqlRelunit, err = s.relation.Unit(s.mysqlUnit)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *StorageSubordinateStateSuite) TestSubordinateStoragePrincipalUnassigned(c *gc.C) {
+	storageTag := names.NewStorageTag("data/0")
+	exists := s.storageInstanceExists(c, storageTag)
+	c.Assert(exists, jc.IsFalse)
+
+	err := s.mysqlRelunit.EnterScope(nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// The subordinate unit will have been created, along with its storage.
+	exists = s.storageInstanceExists(c, storageTag)
+	c.Assert(exists, jc.IsTrue)
+
+	// The principal unit is not yet assigned to a machine, so there should
+	// be no filesystem associated with the storage instance yet.
+	_, err = s.State.StorageInstanceFilesystem(storageTag)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+
+	// Assigning the principal unit to a machine should cause the subordinate
+	// unit's machine storage to be created.
+	err = s.State.AssignUnit(s.mysqlUnit, state.AssignCleanEmpty)
+	c.Assert(err, jc.ErrorIsNil)
+	_ = s.storageInstanceFilesystem(c, storageTag)
+}
+
+func (s *StorageSubordinateStateSuite) TestSubordinateStoragePrincipalAssigned(c *gc.C) {
+	err := s.State.AssignUnit(s.mysqlUnit, state.AssignCleanEmpty)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.mysqlRelunit.EnterScope(nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// The subordinate unit will have been created, along with its storage.
+	storageTag := names.NewStorageTag("data/0")
+	exists := s.storageInstanceExists(c, storageTag)
+	c.Assert(exists, jc.IsTrue)
+
+	// The principal unit was assigned to a machine when the subordinate
+	// unit was created, so there should be a filesystem associated with
+	// the storage instance now.
+	_ = s.storageInstanceFilesystem(c, storageTag)
+}
+
+func (s *StorageSubordinateStateSuite) TestSubordinateStoragePrincipalAssignRace(c *gc.C) {
+	// Add the subordinate before attempting to commit the transaction
+	// that assigns the unit to a machine. The transaction should fail
+	// and be reattempted with the knowledge of the subordinate, and
+	// add the subordinate's storage.
+	defer state.SetBeforeHooks(c, s.State, func() {
+		err := s.mysqlRelunit.EnterScope(nil)
+		c.Assert(err, jc.ErrorIsNil)
+	}).Check()
+
+	err := s.State.AssignUnit(s.mysqlUnit, state.AssignCleanEmpty)
+	c.Assert(err, jc.ErrorIsNil)
+	_ = s.storageInstanceFilesystem(c, names.NewStorageTag("data/0"))
+}

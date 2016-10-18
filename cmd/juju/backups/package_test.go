@@ -8,7 +8,6 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"regexp"
 	"testing"
 
 	"github.com/juju/cmd"
@@ -33,7 +32,7 @@ stored:          0001-01-01 00:00:00 +0000 UTC
 started:         0001-01-01 00:00:00 +0000 UTC
 finished:        0001-01-01 00:00:00 +0000 UTC
 notes:           ""
-environment ID:  ""
+model ID:        ""
 machine ID:      ""
 created on host: ""
 juju version:    0.0.0
@@ -44,9 +43,9 @@ func TestPackage(t *testing.T) {
 }
 
 type BaseBackupsSuite struct {
-	jujutesting.FakeJujuHomeSuite
+	jujutesting.FakeJujuXDGDataHomeSuite
 
-	command    *backups.Command
+	command    cmd.Command
 	metaresult *params.BackupsMetadataResult
 	data       string
 
@@ -54,9 +53,8 @@ type BaseBackupsSuite struct {
 }
 
 func (s *BaseBackupsSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 
-	s.command = backups.NewSuperCommand().(*backups.Command)
 	s.metaresult = &params.BackupsMetadataResult{
 		ID: "spam",
 	}
@@ -71,30 +69,7 @@ func (s *BaseBackupsSuite) TearDownTest(c *gc.C) {
 		}
 	}
 
-	s.FakeJujuHomeSuite.TearDownTest(c)
-}
-
-func (s *BaseBackupsSuite) checkHelp(c *gc.C, subcmd cmd.Command) {
-	ctx, err := jujutesting.RunCommand(c, s.command, subcmd.Info().Name, "--help")
-	c.Assert(err, gc.IsNil)
-
-	var expected string
-	if subcmd.Info().Args != "" {
-		expected = "(?sm).*^usage: juju backups " +
-			regexp.QuoteMeta(subcmd.Info().Name) +
-			` \[options\] ` + regexp.QuoteMeta(subcmd.Info().Args) + ".+"
-	} else {
-		expected = "(?sm).*^usage: juju backups " +
-			regexp.QuoteMeta(subcmd.Info().Name) +
-			` \[options\].+`
-	}
-	c.Check(jujutesting.Stdout(ctx), gc.Matches, expected)
-
-	expected = "(?sm).*^purpose: " + regexp.QuoteMeta(subcmd.Info().Purpose) + "$.*"
-	c.Check(jujutesting.Stdout(ctx), gc.Matches, expected)
-
-	expected = "(?sm).*^" + regexp.QuoteMeta(subcmd.Info().Doc) + "$.*"
-	c.Check(jujutesting.Stdout(ctx), gc.Matches, expected)
+	s.FakeJujuXDGDataHomeSuite.TearDownTest(c)
 }
 
 func (s *BaseBackupsSuite) patchAPIClient(client backups.APIClient) {

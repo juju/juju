@@ -13,14 +13,14 @@ import (
 	"path/filepath"
 	"regexp"
 	"strconv"
-	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
 	"github.com/juju/utils"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/shell"
+	"github.com/juju/version"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
@@ -28,16 +28,21 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/multiwatcher"
-	"github.com/juju/juju/version"
 )
 
 var logger = loggo.GetLogger("juju.agent")
 
 const (
-	// UninstallAgentFile is the name of the file inside the data
-	// dir that, if it exists, will cause a machine agent to uninstall
-	// when it receives the termination signal.
-	UninstallAgentFile = "uninstall-agent"
+	// BootstrapNonce is used as a nonce for the initial controller machine.
+	BootstrapNonce = "user-admin:bootstrap"
+
+	// BootstrapMachineId is the ID of the initial controller machine.
+	BootstrapMachineId = "0"
+
+	// MachineLockName is the name of the mutex that the agent creates to
+	// ensure serialization of tasks such as uniter hook executions, juju-run,
+	// and others.
+	MachineLockName = "machine-lock"
 )
 
 // These are base values used for the corresponding defaults.
@@ -76,7 +81,7 @@ func (s APIHostPortsSetter) SetAPIHostPorts(servers [][]network.HostPort) error 
 	})
 }
 
-// SetStateServingInfo trivially wraps an Agent to implement
+// StateServingInfoSetter trivially wraps an Agent to implement
 // worker/certupdater/SetStateServingInfo.
 type StateServingInfoSetter struct {
 	Agent
@@ -154,16 +159,14 @@ var (
 const SystemIdentity = "system-identity"
 
 const (
-	LxcBridge              = "LXC_BRIDGE"
-	ProviderType           = "PROVIDER_TYPE"
-	ContainerType          = "CONTAINER_TYPE"
-	Namespace              = "NAMESPACE"
-	StorageDir             = "STORAGE_DIR"
-	StorageAddr            = "STORAGE_ADDR"
-	AgentServiceName       = "AGENT_SERVICE_NAME"
-	MongoOplogSize         = "MONGO_OPLOG_SIZE"
-	NumaCtlPreference      = "NUMA_CTL_PREFERENCE"
-	AllowsSecureConnection = "SECURE_STATESERVER_CONNECTION"
+	LxcBridge         = "LXC_BRIDGE"
+	LxdBridge         = "LXD_BRIDGE"
+	ProviderType      = "PROVIDER_TYPE"
+	ContainerType     = "CONTAINER_TYPE"
+	Namespace         = "NAMESPACE"
+	AgentServiceName  = "AGENT_SERVICE_NAME"
+	MongoOplogSize    = "MONGO_OPLOG_SIZE"
+	NUMACtlPreference = "NUMA_CTL_PREFERENCE"
 )
 
 // The Config interface is the sole way that the agent gets access to the
@@ -216,7 +219,7 @@ type Config interface {
 	WriteCommands(renderer shell.Renderer) ([]string, error)
 
 	// StateServingInfo returns the details needed to run
-	// a state server and reports whether those details
+	// a controller and reports whether those details
 	// are available
 	StateServingInfo() (params.StateServingInfo, bool)
 
@@ -224,7 +227,7 @@ type Config interface {
 	// reports whether the details are available.
 	APIInfo() (*api.Info, bool)
 
-	// MongoInfo returns details for connecting to the state server's mongo
+	// MongoInfo returns details for connecting to the controller's mongo
 	// database and reports whether those details are available
 	MongoInfo() (*mongo.MongoInfo, bool)
 
@@ -240,17 +243,19 @@ type Config interface {
 	// the key is not found.
 	Value(key string) string
 
-	// PreferIPv6 returns whether to prefer using IPv6 addresses (if
-	// available) when connecting to the state or API server.
-	PreferIPv6() bool
+	// Model returns the tag for the model that the agent belongs to.
+	Model() names.ModelTag
 
-	// Environment returns the tag for the environment that the agent belongs
-	// to.
-	Environment() names.EnvironTag
+	// Controller returns the tag for the controller that the agent belongs to.
+	Controller() names.ControllerTag
 
 	// MetricsSpoolDir returns the spool directory where workloads store
 	// collected metrics.
 	MetricsSpoolDir() string
+
+	// MongoVersion returns the version of mongo that the state server
+	// is using.
+	MongoVersion() mongo.Version
 }
 
 type configSetterOnly interface {
@@ -278,25 +283,15 @@ type configSetterOnly interface {
 	// SetAPIHostPorts sets the API host/port addresses to connect to.
 	SetAPIHostPorts(servers [][]network.HostPort)
 
-	// Migrate takes an existing agent config and applies the given
-	// parameters to change it.
-	//
-	// Only non-empty fields in newParams are used
-	// to change existing config settings. All changes are written
-	// atomically. UpgradedToVersion cannot be changed here, because
-	// Migrate is most likely called during an upgrade, so it will be
-	// changed at the end of the upgrade anyway, if successful.
-	//
-	// Migrate does not actually write the new configuration.
-	//
-	// Note that if the configuration file moves location,
-	// (if DataDir is set), the the caller is responsible for removing
-	// the old configuration.
-	Migrate(MigrateParams) error
+	// SetCACert sets the CA cert used for validating API connections.
+	SetCACert(string)
 
 	// SetStateServingInfo sets the information needed
-	// to run a state server
+	// to run a controller
 	SetStateServingInfo(info params.StateServingInfo)
+
+	// SetMongoVersion sets the passed version as currently in use.
+	SetMongoVersion(mongo.Version)
 }
 
 // LogFileName returns the filename for the Agent's log file.
@@ -322,17 +317,6 @@ type ConfigSetterWriter interface {
 	ConfigWriter
 }
 
-// MigrateParams holds agent config values to change in a
-// Migrate call. Empty fields will be ignored. DeleteValues
-// specifies a list of keys to delete.
-type MigrateParams struct {
-	Paths        Paths
-	Jobs         []multiwatcher.MachineJob
-	DeleteValues []string
-	Values       map[string]string
-	Environment  names.EnvironTag
-}
-
 // Ensure that the configInternal struct implements the Config interface.
 var _ Config = (*configInternal)(nil)
 
@@ -355,7 +339,8 @@ type configInternal struct {
 	paths             Paths
 	tag               names.Tag
 	nonce             string
-	environment       names.EnvironTag
+	controller        names.ControllerTag
+	model             names.ModelTag
 	jobs              []multiwatcher.MachineJob
 	upgradedToVersion version.Number
 	caCert            string
@@ -364,9 +349,11 @@ type configInternal struct {
 	oldPassword       string
 	servingInfo       *params.StateServingInfo
 	values            map[string]string
-	preferIPv6        bool
+	mongoVersion      string
 }
 
+// AgentConfigParams holds the parameters required to create
+// a new AgentConfig.
 type AgentConfigParams struct {
 	Paths             Paths
 	Jobs              []multiwatcher.MachineJob
@@ -374,12 +361,13 @@ type AgentConfigParams struct {
 	Tag               names.Tag
 	Password          string
 	Nonce             string
-	Environment       names.EnvironTag
+	Controller        names.ControllerTag
+	Model             names.ModelTag
 	StateAddresses    []string
 	APIAddresses      []string
 	CACert            string
 	Values            map[string]string
-	PreferIPv6        bool
+	MongoVersion      mongo.Version
 }
 
 // NewAgentConfig returns a new config object suitable for use for a
@@ -403,28 +391,39 @@ func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) 
 	if configParams.Password == "" {
 		return nil, errors.Trace(requiredError("password"))
 	}
-	if uuid := configParams.Environment.Id(); uuid == "" {
-		return nil, errors.Trace(requiredError("environment"))
-	} else if !names.IsValidEnvironment(uuid) {
-		return nil, errors.Errorf("%q is not a valid environment uuid", uuid)
+	if uuid := configParams.Controller.Id(); uuid == "" {
+		return nil, errors.Trace(requiredError("controller"))
+	} else if !names.IsValidController(uuid) {
+		return nil, errors.Errorf("%q is not a valid controller uuid", uuid)
+	}
+	if uuid := configParams.Model.Id(); uuid == "" {
+		return nil, errors.Trace(requiredError("model"))
+	} else if !names.IsValidModel(uuid) {
+		return nil, errors.Errorf("%q is not a valid model uuid", uuid)
 	}
 	if len(configParams.CACert) == 0 {
 		return nil, errors.Trace(requiredError("CA certificate"))
 	}
 	// Note that the password parts of the state and api information are
-	// blank.  This is by design.
+	// blank.  This is by design: we want to generate a secure password
+	// for new agents. So, we create this config without a current password
+	// which signals to apicaller worker that it should try to connect using old password.
+	// When/if this connection is successful, apicaller worker will generate
+	// a new secure password and update this agent's config.
 	config := &configInternal{
 		paths:             NewPathsWithDefaults(configParams.Paths),
 		jobs:              configParams.Jobs,
 		upgradedToVersion: configParams.UpgradedToVersion,
 		tag:               configParams.Tag,
 		nonce:             configParams.Nonce,
-		environment:       configParams.Environment,
+		controller:        configParams.Controller,
+		model:             configParams.Model,
 		caCert:            configParams.CACert,
 		oldPassword:       configParams.Password,
 		values:            configParams.Values,
-		preferIPv6:        configParams.PreferIPv6,
+		mongoVersion:      configParams.MongoVersion.String(),
 	}
+
 	if len(configParams.StateAddresses) > 0 {
 		config.stateDetails = &connectionDetails{
 			addresses: configParams.StateAddresses,
@@ -446,13 +445,13 @@ func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) 
 }
 
 // NewStateMachineConfig returns a configuration suitable for
-// a machine running the state server.
+// a machine running the controller.
 func NewStateMachineConfig(configParams AgentConfigParams, serverInfo params.StateServingInfo) (ConfigSetterWriter, error) {
 	if serverInfo.Cert == "" {
-		return nil, errors.Trace(requiredError("state server cert"))
+		return nil, errors.Trace(requiredError("controller cert"))
 	}
 	if serverInfo.PrivateKey == "" {
-		return nil, errors.Trace(requiredError("state server key"))
+		return nil, errors.Trace(requiredError("controller key"))
 	}
 	if serverInfo.CAPrivateKey == "" {
 		return nil, errors.Trace(requiredError("ca cert key"))
@@ -503,47 +502,12 @@ func ReadConfig(configFilePath string) (ConfigSetterWriter, error) {
 	if err != nil {
 		return nil, fmt.Errorf("cannot read agent config %q: %v", configFilePath, err)
 	}
-
-	// Try to read the legacy format file.
-	dir := filepath.Dir(configFilePath)
-	legacyFormatPath := filepath.Join(dir, legacyFormatFilename)
-	formatBytes, err := ioutil.ReadFile(legacyFormatPath)
-	if err != nil && !os.IsNotExist(err) {
-		return nil, fmt.Errorf("cannot read format file: %v", err)
-	}
-	formatData := string(formatBytes)
-	if err == nil {
-		// It exists, so unmarshal with a legacy formatter.
-		// Drop the format prefix to leave the version only.
-		if !strings.HasPrefix(formatData, legacyFormatPrefix) {
-			return nil, fmt.Errorf("malformed agent config format %q", formatData)
-		}
-		format, err = getFormatter(strings.TrimPrefix(formatData, legacyFormatPrefix))
-		if err != nil {
-			return nil, err
-		}
-		config, err = format.unmarshal(configData)
-	} else {
-		// Does not exist, just parse the data.
-		format, config, err = parseConfigData(configData)
-	}
+	format, config, err = parseConfigData(configData)
 	if err != nil {
 		return nil, err
 	}
 	logger.Debugf("read agent config, format %q", format.version())
 	config.configFilePath = configFilePath
-	if format != currentFormat {
-		// Migrate from a legacy format to the new one.
-		err := config.Write()
-		if err != nil {
-			return nil, fmt.Errorf("cannot migrate %s agent config to %s: %v", format.version(), currentFormat.version(), err)
-		}
-		logger.Debugf("migrated agent config from %s to %s", format.version(), currentFormat.version())
-		err = os.Remove(legacyFormatPath)
-		if err != nil && !os.IsNotExist(err) {
-			return nil, fmt.Errorf("cannot remove legacy format file %q: %v", legacyFormatPath, err)
-		}
-	}
 	return config, nil
 }
 
@@ -558,32 +522,11 @@ func (c0 *configInternal) Clone() Config {
 	for key, val := range c0.values {
 		c1.values[key] = val
 	}
+	if c0.servingInfo != nil {
+		info := *c0.servingInfo
+		c1.servingInfo = &info
+	}
 	return &c1
-}
-
-func (config *configInternal) Migrate(newParams MigrateParams) error {
-	config.paths.Migrate(newParams.Paths)
-	config.configFilePath = ConfigPath(config.paths.DataDir, config.tag)
-	if len(newParams.Jobs) > 0 {
-		config.jobs = make([]multiwatcher.MachineJob, len(newParams.Jobs))
-		copy(config.jobs, newParams.Jobs)
-	}
-	for _, key := range newParams.DeleteValues {
-		delete(config.values, key)
-	}
-	for key, value := range newParams.Values {
-		if config.values == nil {
-			config.values = make(map[string]string)
-		}
-		config.values[key] = value
-	}
-	if newParams.Environment.Id() != "" {
-		config.environment = newParams.Environment
-	}
-	if err := config.check(); err != nil {
-		return fmt.Errorf("migrated agent config is invalid: %v", err)
-	}
-	return nil
 }
 
 func (c *configInternal) SetUpgradedToVersion(newVersion version.Number) {
@@ -596,10 +539,15 @@ func (c *configInternal) SetAPIHostPorts(servers [][]network.HostPort) {
 	}
 	var addrs []string
 	for _, serverHostPorts := range servers {
-		addrs = append(addrs, network.SelectInternalHostPorts(serverHostPorts, false)...)
+		hps := network.PrioritizeInternalHostPorts(serverHostPorts, false)
+		addrs = append(addrs, hps...)
 	}
 	c.apiDetails.addresses = addrs
 	logger.Infof("API server address details %q written to agent config as %q", servers, addrs)
+}
+
+func (c *configInternal) SetCACert(cert string) {
+	c.caCert = cert
 }
 
 func (c *configInternal) SetValue(key, value string) {
@@ -680,10 +628,6 @@ func (c *configInternal) Value(key string) string {
 	return c.values[key]
 }
 
-func (c *configInternal) PreferIPv6() bool {
-	return c.preferIPv6
-}
-
 func (c *configInternal) StateServingInfo() (params.StateServingInfo, bool) {
 	if c.servingInfo == nil {
 		return params.StateServingInfo{}, false
@@ -710,8 +654,12 @@ func (c *configInternal) Tag() names.Tag {
 	return c.tag
 }
 
-func (c *configInternal) Environment() names.EnvironTag {
-	return c.environment
+func (c *configInternal) Model() names.ModelTag {
+	return c.model
+}
+
+func (c *configInternal) Controller() names.ControllerTag {
+	return c.controller
 }
 
 func (c *configInternal) Dir() string {
@@ -723,7 +671,7 @@ func (c *configInternal) check() error {
 		return errors.Trace(requiredError("state or API addresses"))
 	}
 	if c.stateDetails != nil {
-		if err := checkAddrs(c.stateDetails.addresses, "state server address"); err != nil {
+		if err := checkAddrs(c.stateDetails.addresses, "controller address"); err != nil {
 			return err
 		}
 	}
@@ -733,6 +681,20 @@ func (c *configInternal) check() error {
 		}
 	}
 	return nil
+}
+
+// MongoVersion implements Config.
+func (c *configInternal) MongoVersion() mongo.Version {
+	v, err := mongo.NewVersion(c.mongoVersion)
+	if err != nil {
+		return mongo.Mongo24
+	}
+	return v
+}
+
+// SetMongoVersion implements configSetterOnly.
+func (c *configInternal) SetMongoVersion(v mongo.Version) {
+	c.mongoVersion = v.String()
 }
 
 var validAddr = regexp.MustCompile("^.+:[0-9]+$")
@@ -778,14 +740,11 @@ func (c *configInternal) APIInfo() (*api.Info, bool) {
 	if c.apiDetails == nil || c.apiDetails.addresses == nil {
 		return nil, false
 	}
-	servingInfo, isStateServer := c.StateServingInfo()
+	servingInfo, isController := c.StateServingInfo()
 	addrs := c.apiDetails.addresses
-	if isStateServer {
+	if isController {
 		port := servingInfo.APIPort
 		localAPIAddr := net.JoinHostPort("localhost", strconv.Itoa(port))
-		if c.preferIPv6 {
-			localAPIAddr = net.JoinHostPort("::1", strconv.Itoa(port))
-		}
 		addrInAddrs := false
 		for _, addr := range addrs {
 			if addr == localAPIAddr {
@@ -798,12 +757,12 @@ func (c *configInternal) APIInfo() (*api.Info, bool) {
 		}
 	}
 	return &api.Info{
-		Addrs:      addrs,
-		Password:   c.apiDetails.password,
-		CACert:     c.caCert,
-		Tag:        c.tag,
-		Nonce:      c.nonce,
-		EnvironTag: c.environment,
+		Addrs:    addrs,
+		Password: c.apiDetails.password,
+		CACert:   c.caCert,
+		Tag:      c.tag,
+		Nonce:    c.nonce,
+		ModelTag: c.model,
 	}, true
 }
 
@@ -814,9 +773,6 @@ func (c *configInternal) MongoInfo() (info *mongo.MongoInfo, ok bool) {
 		return nil, false
 	}
 	addr := net.JoinHostPort("127.0.0.1", strconv.Itoa(ssi.StatePort))
-	if c.preferIPv6 {
-		addr = net.JoinHostPort("::1", strconv.Itoa(ssi.StatePort))
-	}
 	return &mongo.MongoInfo{
 		Info: mongo.Info{
 			Addrs:  []string{addr},

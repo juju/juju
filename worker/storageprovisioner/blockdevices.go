@@ -5,8 +5,8 @@ package storageprovisioner
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"github.com/juju/utils/set"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
 )
@@ -63,7 +63,7 @@ func processPendingVolumeBlockDevices(ctx *context) error {
 // refreshVolumeBlockDevices refreshes the block devices for the specified
 // volumes.
 func refreshVolumeBlockDevices(ctx *context, volumeTags []names.VolumeTag) error {
-	machineTag, ok := ctx.scope.(names.MachineTag)
+	machineTag, ok := ctx.config.Scope.(names.MachineTag)
 	if !ok {
 		// This function should only be called by machine-scoped
 		// storage provisioners.
@@ -76,7 +76,7 @@ func refreshVolumeBlockDevices(ctx *context, volumeTags []names.VolumeTag) error
 			AttachmentTag: volumeTag.String(),
 		}
 	}
-	results, err := ctx.volumeAccessor.VolumeBlockDevices(ids)
+	results, err := ctx.config.Volumes.VolumeBlockDevices(ids)
 	if err != nil {
 		return errors.Annotate(err, "refreshing volume block devices")
 	}

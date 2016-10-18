@@ -10,17 +10,15 @@ import (
 	"github.com/juju/utils/arch"
 	jujuos "github.com/juju/utils/os"
 	"github.com/juju/utils/series"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/gce"
-	"github.com/juju/juju/testing"
 )
 
 type environBrokerSuite struct {
@@ -91,51 +89,15 @@ func (s *environBrokerSuite) TestStartInstance(c *gc.C) {
 	result, err := s.Env.StartInstance(s.StartInstArgs)
 
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result.Instance, gc.DeepEquals, s.Instance)
-	c.Check(result.Hardware, gc.DeepEquals, s.hardware)
-}
-
-func (s *environBrokerSuite) TestStartInstanceOpensAPIPort(c *gc.C) {
-	s.FakeEnviron.Spec = s.spec
-	s.FakeEnviron.Inst = s.BaseInstance
-	s.FakeEnviron.Hwc = s.hardware
-
-	// Get the API port from the fake environment config used to
-	// "bootstrap".
-	envConfig := testing.FakeConfig()
-	apiPort, ok := envConfig["api-port"].(int)
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(apiPort, gc.Not(gc.Equals), 0)
-
-	// When StateServingInfo is not nil, verify OpenPorts was called
-	// for the API port.
-	s.StartInstArgs.InstanceConfig.StateServingInfo = &params.StateServingInfo{
-		APIPort: apiPort,
-	}
-
-	result, err := s.Env.StartInstance(s.StartInstArgs)
-
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result.Instance, gc.DeepEquals, s.Instance)
-	c.Check(result.Hardware, gc.DeepEquals, s.hardware)
-
-	called, calls := s.FakeConn.WasCalled("OpenPorts")
-	c.Check(called, gc.Equals, true)
-	c.Check(calls, gc.HasLen, 1)
-	c.Check(calls[0].FirewallName, gc.Equals, gce.GlobalFirewallName(s.Env))
-	expectPorts := []network.PortRange{{
-		FromPort: apiPort,
-		ToPort:   apiPort,
-		Protocol: "tcp",
-	}}
-	c.Check(calls[0].PortRanges, jc.DeepEquals, expectPorts)
+	c.Check(result.Instance, jc.DeepEquals, s.Instance)
+	c.Check(result.Hardware, jc.DeepEquals, s.hardware)
 }
 
 func (s *environBrokerSuite) TestFinishInstanceConfig(c *gc.C) {
 	err := gce.FinishInstanceConfig(s.Env, s.StartInstArgs, s.spec)
 
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(s.StartInstArgs.InstanceConfig.Tools, gc.NotNil)
+	c.Check(s.StartInstArgs.InstanceConfig.AgentVersion(), gc.Not(gc.Equals), version.Binary{})
 }
 
 func (s *environBrokerSuite) TestBuildInstanceSpec(c *gc.C) {
@@ -144,17 +106,14 @@ func (s *environBrokerSuite) TestBuildInstanceSpec(c *gc.C) {
 	spec, err := gce.BuildInstanceSpec(s.Env, s.StartInstArgs)
 
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(spec.InstanceType, gc.DeepEquals, s.InstanceType)
+	c.Check(spec.InstanceType, jc.DeepEquals, s.InstanceType)
 }
 
 func (s *environBrokerSuite) TestFindInstanceSpec(c *gc.C) {
-	s.FakeImages.Metadata = s.imageMetadata
-	s.FakeImages.ResolveInfo = s.resolveInfo
-
-	spec, err := gce.FindInstanceSpec(s.Env, s.Env.Config().ImageStream(), s.ic)
+	spec, err := gce.FindInstanceSpec(s.Env, s.ic, s.imageMetadata)
 
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(spec, gc.DeepEquals, s.spec)
+	c.Check(spec, jc.DeepEquals, s.spec)
 }
 
 func (s *environBrokerSuite) TestNewRawInstance(c *gc.C) {
@@ -167,14 +126,14 @@ func (s *environBrokerSuite) TestNewRawInstance(c *gc.C) {
 	inst, err := gce.NewRawInstance(s.Env, s.StartInstArgs, s.spec)
 
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(inst, gc.DeepEquals, s.BaseInstance)
+	c.Check(inst, jc.DeepEquals, s.BaseInstance)
 }
 
 func (s *environBrokerSuite) TestGetMetadataUbuntu(c *gc.C) {
 	metadata, err := gce.GetMetadata(s.StartInstArgs, jujuos.Ubuntu)
 
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(metadata, gc.DeepEquals, s.UbuntuMetadata)
+	c.Check(metadata, jc.DeepEquals, s.UbuntuMetadata)
 
 }
 
@@ -187,10 +146,10 @@ func (s *environBrokerSuite) TestGetMetadataWindows(c *gc.C) {
 }
 
 func (s *environBrokerSuite) TestGetMetadataOSNotSupported(c *gc.C) {
-	metadata, err := gce.GetMetadata(s.StartInstArgs, jujuos.Arch)
+	metadata, err := gce.GetMetadata(s.StartInstArgs, jujuos.GenericLinux)
 
 	c.Assert(metadata, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "cannot pack metadata for os Arch on the gce provider")
+	c.Assert(err, gc.ErrorMatches, "cannot pack metadata for os GenericLinux on the gce provider")
 }
 
 var getDisksTests = []struct {
@@ -205,7 +164,7 @@ var getDisksTests = []struct {
 
 func (s *environBrokerSuite) TestGetDisks(c *gc.C) {
 	for _, test := range getDisksTests {
-		diskSpecs, err := gce.GetDisks(s.spec, s.StartInstArgs.Constraints, test.Series)
+		diskSpecs, err := gce.GetDisks(s.spec, s.StartInstArgs.Constraints, test.Series, "32f7d570-5bac-4b72-b169-250c24a94b2b", false)
 		if test.error != nil {
 			c.Assert(err, gc.Equals, err)
 		} else {
@@ -227,6 +186,12 @@ func (s *environBrokerSuite) TestGetDisks(c *gc.C) {
 			c.Check(diskSpec.ImageURL, gc.Equals, test.basePath+s.spec.Image.Id)
 		}
 	}
+
+	diskSpecs, err := gce.GetDisks(s.spec, s.StartInstArgs.Constraints, "trusty", "32f7d570-5bac-4b72-b169-250c24a94b2b", true)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(diskSpecs, gc.HasLen, 1)
+	spec := diskSpecs[0]
+	c.Assert(spec.ImageURL, gc.Equals, gce.UbuntuDailyImageBasePath+s.spec.Image.Id)
 }
 
 func (s *environBrokerSuite) TestGetHardwareCharacteristics(c *gc.C) {
@@ -256,6 +221,6 @@ func (s *environBrokerSuite) TestStopInstances(c *gc.C) {
 	called, calls := s.FakeConn.WasCalled("RemoveInstances")
 	c.Check(called, gc.Equals, true)
 	c.Check(calls, gc.HasLen, 1)
-	c.Check(calls[0].Prefix, gc.Equals, "juju-2d02eeac-9dbb-11e4-89d3-123b93f75cba-machine-")
-	c.Check(calls[0].IDs, gc.DeepEquals, []string{"spam"})
+	c.Check(calls[0].Prefix, gc.Equals, s.Prefix())
+	c.Check(calls[0].IDs, jc.DeepEquals, []string{"spam"})
 }

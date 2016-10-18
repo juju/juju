@@ -53,32 +53,36 @@ func (s *DiskManagerWorkerSuite) TestBlockDeviceChanges(c *gc.C) {
 	var oldDevices []storage.BlockDevice
 	var devicesSet [][]storage.BlockDevice
 	var setDevices BlockDeviceSetterFunc = func(devices []storage.BlockDevice) error {
-		devicesSet = append(devicesSet, devices)
+		devicesSet = append(devicesSet, append([]storage.BlockDevice{}, devices...))
 		return nil
 	}
 
+	device := storage.BlockDevice{DeviceName: "sda", DeviceLinks: []string{"a", "b"}}
 	var listDevices diskmanager.ListBlockDevicesFunc = func() ([]storage.BlockDevice, error) {
-		return []storage.BlockDevice{{DeviceName: "sda"}}, nil
-	}
-	for i := 0; i < 2; i++ {
-		err := diskmanager.DoWork(listDevices, setDevices, &oldDevices)
-		c.Assert(err, jc.ErrorIsNil)
+		return []storage.BlockDevice{device}, nil
 	}
 
-	listDevices = func() ([]storage.BlockDevice, error) {
-		return []storage.BlockDevice{{DeviceName: "sdb"}}, nil
-	}
 	err := diskmanager.DoWork(listDevices, setDevices, &oldDevices)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(devicesSet, gc.HasLen, 1)
 
-	// diskmanager only calls the BlockDeviceSetter when it sees
-	// a change in disks.
+	// diskmanager only calls the BlockDeviceSetter when it sees a
+	// change in disks. Order of DeviceLinks should not matter.
+	device.DeviceLinks = []string{"b", "a"}
+	err = diskmanager.DoWork(listDevices, setDevices, &oldDevices)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(devicesSet, gc.HasLen, 1)
+
+	device.DeviceName = "sdb"
+	err = diskmanager.DoWork(listDevices, setDevices, &oldDevices)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(devicesSet, gc.HasLen, 2)
+
 	c.Assert(devicesSet[0], gc.DeepEquals, []storage.BlockDevice{{
-		DeviceName: "sda",
+		DeviceName: "sda", DeviceLinks: []string{"a", "b"},
 	}})
 	c.Assert(devicesSet[1], gc.DeepEquals, []storage.BlockDevice{{
-		DeviceName: "sdb",
+		DeviceName: "sdb", DeviceLinks: []string{"a", "b"},
 	}})
 }
 

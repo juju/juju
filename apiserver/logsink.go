@@ -12,7 +12,9 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/utils"
+	"github.com/juju/version"
 	"golang.org/x/net/websocket"
 	"gopkg.in/natefinch/lumberjack.v2"
 
@@ -62,6 +64,7 @@ func (h *logSinkHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	server := websocket.Server{
 		Handler: func(socket *websocket.Conn) {
 			defer socket.Close()
+
 			st, entity, err := h.ctxt.stateForRequestAuthenticatedAgent(req)
 			if err != nil {
 				h.sendError(socket, req, err)
@@ -69,39 +72,90 @@ func (h *logSinkHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			}
 			tag := entity.Tag()
 
+			// Note that this endpoint is agent-only. Thus the only
+			// callers will necessarily provide their Juju version.
+			//
+			// This would be a problem if non-Juju clients (e.g. the
+			// GUI) could use this endpoint since we require that the
+			// *Juju* version be provided as part of the request. Any
+			// attempt to open this endpoint to broader access must
+			// address this caveat appropriately.
+			ver, err := jujuClientVersionFromReq(req)
+			if err != nil {
+				h.sendError(socket, req, err)
+				return
+			}
+
+			filePrefix := st.ModelUUID() + " " + tag.String() + ":"
+			dbLogger := state.NewDbLogger(st, tag, ver)
+			defer dbLogger.Close()
+
 			// If we get to here, no more errors to report, so we report a nil
 			// error.  This way the first line of the socket is always a json
 			// formatted simple error.
 			h.sendError(socket, req, nil)
 
-			filePrefix := st.EnvironUUID() + " " + tag.String() + ":"
-			dbLogger := state.NewDbLogger(st, tag)
-			defer dbLogger.Close()
-			m := new(params.LogRecord)
+			logCh := h.receiveLogs(socket)
 			for {
-				if err := websocket.JSON.Receive(socket, m); err != nil {
-					if err != io.EOF {
-						logger.Errorf("error while receiving logs: %v", err)
+				select {
+				case <-h.ctxt.stop():
+					return
+				case m := <-logCh:
+					fileErr := h.logToFile(filePrefix, m)
+					if fileErr != nil {
+						logger.Errorf("logging to logsink.log failed: %v", fileErr)
 					}
-					break
-				}
-
-				fileErr := h.logToFile(filePrefix, m)
-				if fileErr != nil {
-					logger.Errorf("logging to logsink.log failed: %v", fileErr)
-				}
-
-				dbErr := dbLogger.Log(m.Time, m.Module, m.Location, m.Level, m.Message)
-				if dbErr != nil {
-					logger.Errorf("logging to DB failed: %v", err)
-				}
-
-				if fileErr != nil || dbErr != nil {
-					break
+					level, _ := loggo.ParseLevel(m.Level)
+					dbErr := dbLogger.Log(m.Time, m.Module, m.Location, level, m.Message)
+					if dbErr != nil {
+						logger.Errorf("logging to DB failed: %v", err)
+					}
+					if fileErr != nil || dbErr != nil {
+						return
+					}
 				}
 			}
-		}}
+		},
+	}
 	server.ServeHTTP(w, req)
+}
+
+func jujuClientVersionFromReq(req *http.Request) (version.Number, error) {
+	verStr := req.URL.Query().Get("jujuclientversion")
+	if verStr == "" {
+		return version.Zero, errors.New(`missing "jujuclientversion" in URL query`)
+	}
+	ver, err := version.Parse(verStr)
+	if err != nil {
+		return version.Zero, errors.Annotatef(err, "invalid jujuclientversion %q", verStr)
+	}
+	return ver, nil
+}
+
+func (h *logSinkHandler) receiveLogs(socket *websocket.Conn) <-chan params.LogRecord {
+	logCh := make(chan params.LogRecord)
+
+	go func() {
+		var m params.LogRecord
+		for {
+			// Receive() blocks until data arrives but will also be
+			// unblocked when the API handler calls socket.Close as it
+			// finishes.
+			if err := websocket.JSON.Receive(socket, &m); err != nil {
+				logger.Debugf("logsink receive error: %v", err)
+				return
+			}
+
+			// Send the log message.
+			select {
+			case <-h.ctxt.stop():
+				return
+			case logCh <- m:
+			}
+		}
+	}()
+
+	return logCh
 }
 
 // sendError sends a JSON-encoded error response.
@@ -115,11 +169,11 @@ func (h *logSinkHandler) sendError(w io.Writer, req *http.Request, err error) {
 }
 
 // logToFile writes a single log message to the logsink log file.
-func (h *logSinkHandler) logToFile(prefix string, m *params.LogRecord) error {
+func (h *logSinkHandler) logToFile(prefix string, m params.LogRecord) error {
 	_, err := h.fileLogger.Write([]byte(strings.Join([]string{
 		prefix,
 		m.Time.In(time.UTC).Format("2006-01-02 15:04:05"),
-		m.Level.String(),
+		m.Level,
 		m.Module,
 		m.Location,
 		m.Message,

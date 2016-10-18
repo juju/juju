@@ -4,41 +4,23 @@
 package storage
 
 import (
-	"bytes"
 	"fmt"
+	"io"
 	"sort"
 	"strings"
-	"text/tabwriter"
 
 	"github.com/dustin/go-humanize"
-	"github.com/juju/errors"
+	"github.com/juju/juju/cmd/output"
 )
 
 // formatVolumeListTabular returns a tabular summary of volume instances.
-func formatVolumeListTabular(value interface{}) ([]byte, error) {
-	infos, ok := value.(map[string]VolumeInfo)
-	if !ok {
-		return nil, errors.Errorf("expected value of type %T, got %T", infos, value)
-	}
-	return formatVolumeListTabularTyped(infos), nil
-}
-
-func formatVolumeListTabularTyped(infos map[string]VolumeInfo) []byte {
-	var out bytes.Buffer
-	const (
-		// To format things into columns.
-		minwidth = 0
-		tabwidth = 1
-		padding  = 2
-		padchar  = ' '
-		flags    = 0
-	)
-	tw := tabwriter.NewWriter(&out, minwidth, tabwidth, padding, padchar, flags)
+func formatVolumeListTabular(writer io.Writer, infos map[string]VolumeInfo) error {
+	tw := output.TabWriter(writer)
 
 	print := func(values ...string) {
 		fmt.Fprintln(tw, strings.Join(values, "\t"))
 	}
-	print("MACHINE", "UNIT", "STORAGE", "ID", "PROVIDER-ID", "DEVICE", "SIZE", "STATE", "MESSAGE")
+	print("Machine", "Unit", "Storage", "Id", "Provider Id", "Device", "Size", "State", "Message")
 
 	volumeAttachmentInfos := make(volumeAttachmentInfos, 0, len(infos))
 	for volumeId, info := range infos {
@@ -84,8 +66,7 @@ func formatVolumeListTabularTyped(infos map[string]VolumeInfo) []byte {
 		)
 	}
 
-	tw.Flush()
-	return out.Bytes()
+	return tw.Flush()
 }
 
 type volumeAttachmentInfo struct {

@@ -11,7 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/model/crossmodel"
+	"github.com/juju/juju/core/crossmodel"
 )
 
 type crossmodelSuite struct {
@@ -27,19 +27,19 @@ func (s *crossmodelSuite) SetUpTest(c *gc.C) {
 func (s *crossmodelSuite) TestOffer(c *gc.C) {
 	serviceName := "test"
 	expectedOffer := s.addService(c, serviceName)
-	one := params.ServiceOfferParams{
-		ServiceURL:  "local:/u/me/test",
-		ServiceName: serviceName,
-		Endpoints:   []string{"db"},
+	one := params.ApplicationOfferParams{
+		ApplicationURL:  "local:/u/me/test",
+		ApplicationName: serviceName,
+		Endpoints:       []string{"db"},
 	}
-	all := params.ServiceOffersParams{[]params.ServiceOfferParams{one}}
-	expectedOfferParams := params.AddServiceOffer{
-		ServiceOffer: params.ServiceOffer{
-			ServiceURL:         "local:/u/me/test",
-			SourceEnvironTag:   "environment-deadbeef-0bad-400d-8000-4b1d0d06f00d",
-			SourceLabel:        "dummyenv",
-			ServiceName:        "test",
-			ServiceDescription: "A pretty popular blog engine",
+	all := params.ApplicationOffersParams{[]params.ApplicationOfferParams{one}}
+	expectedOfferParams := params.AddApplicationOffer{
+		ApplicationOffer: params.ApplicationOffer{
+			ApplicationURL:         "local:/u/me/test",
+			SourceModelTag:         "model-deadbeef-0bad-400d-8000-4b1d0d06f00d",
+			SourceLabel:            "controller",
+			ApplicationName:        "test",
+			ApplicationDescription: "A pretty popular blog engine",
 			Endpoints: []params.RemoteEndpoint{
 				{Name: "db",
 					Role:      "requirer",
@@ -49,7 +49,7 @@ func (s *crossmodelSuite) TestOffer(c *gc.C) {
 				},
 			}}}
 
-	s.serviceBackend.addOffer = func(offer crossmodel.OfferedService, offerParams params.AddServiceOffer) error {
+	s.serviceBackend.addOffer = func(offer crossmodel.OfferedApplication, offerParams params.AddApplicationOffer) error {
 		c.Assert(offer, gc.DeepEquals, expectedOffer)
 		c.Assert(offerParams, gc.DeepEquals, expectedOfferParams)
 		return nil
@@ -65,14 +65,14 @@ func (s *crossmodelSuite) TestOffer(c *gc.C) {
 func (s *crossmodelSuite) TestOfferError(c *gc.C) {
 	serviceName := "test"
 	s.addService(c, serviceName)
-	one := params.ServiceOfferParams{
-		ServiceName: serviceName,
+	one := params.ApplicationOfferParams{
+		ApplicationName: serviceName,
 	}
-	all := params.ServiceOffersParams{[]params.ServiceOfferParams{one}}
+	all := params.ApplicationOffersParams{[]params.ApplicationOfferParams{one}}
 
 	msg := "fail"
 
-	s.serviceBackend.addOffer = func(offer crossmodel.OfferedService, offerParams params.AddServiceOffer) error {
+	s.serviceBackend.addOffer = func(offer crossmodel.OfferedApplication, offerParams params.AddApplicationOffer) error {
 		return errors.New(msg)
 	}
 
@@ -87,45 +87,45 @@ func (s *crossmodelSuite) TestShow(c *gc.C) {
 	serviceName := "test"
 	url := "local:/u/fred/hosted-db2"
 
-	filter := params.ServiceURLs{[]string{url}}
-	anOffer := params.ServiceOffer{
-		ServiceName:        serviceName,
-		ServiceDescription: "description",
-		ServiceURL:         url,
-		SourceEnvironTag:   "environment-",
-		SourceLabel:        "label",
-		Endpoints:          []params.RemoteEndpoint{{Name: "db"}},
+	filter := params.ApplicationURLs{[]string{url}}
+	anOffer := params.ApplicationOffer{
+		ApplicationName:        serviceName,
+		ApplicationDescription: "description",
+		ApplicationURL:         url,
+		SourceModelTag:         "environment-",
+		SourceLabel:            "label",
+		Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
 	}
 
-	s.serviceBackend.listDirectoryOffers = func(filter params.OfferFilters) (params.ServiceOfferResults, error) {
-		return params.ServiceOfferResults{Offers: []params.ServiceOffer{anOffer}}, nil
+	s.serviceBackend.listDirectoryOffers = func(filter params.OfferFilters) (params.ApplicationOfferResults, error) {
+		return params.ApplicationOfferResults{Offers: []params.ApplicationOffer{anOffer}}, nil
 	}
 
-	found, err := s.api.ServiceOffers(filter)
+	found, err := s.api.ApplicationOffers(filter)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found, gc.DeepEquals,
-		params.ServiceOffersResults{[]params.ServiceOfferResult{
-			{Result: params.ServiceOffer{
-				ServiceName:        serviceName,
-				ServiceDescription: "description",
-				ServiceURL:         url,
-				SourceEnvironTag:   "environment-",
-				SourceLabel:        "label",
-				Endpoints:          []params.RemoteEndpoint{{Name: "db"}}}},
+		params.ApplicationOffersResults{[]params.ApplicationOfferResult{
+			{Result: params.ApplicationOffer{
+				ApplicationName:        serviceName,
+				ApplicationDescription: "description",
+				ApplicationURL:         url,
+				SourceModelTag:         "environment-",
+				SourceLabel:            "label",
+				Endpoints:              []params.RemoteEndpoint{{Name: "db"}}}},
 		}})
 	s.serviceBackend.CheckCallNames(c, listDirectoryOffersBackendCall)
 }
 
 func (s *crossmodelSuite) TestShowError(c *gc.C) {
 	url := "local:/u/fred/hosted-db2"
-	filter := params.ServiceURLs{[]string{url}}
+	filter := params.ApplicationURLs{[]string{url}}
 	msg := "fail"
 
-	s.serviceBackend.listDirectoryOffers = func(filter params.OfferFilters) (params.ServiceOfferResults, error) {
-		return params.ServiceOfferResults{}, errors.New(msg)
+	s.serviceBackend.listDirectoryOffers = func(filter params.OfferFilters) (params.ApplicationOfferResults, error) {
+		return params.ApplicationOfferResults{}, errors.New(msg)
 	}
 
-	found, err := s.api.ServiceOffers(filter)
+	found, err := s.api.ApplicationOffers(filter)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Results, gc.HasLen, 1)
 	c.Assert(found.Results[0].Error, gc.ErrorMatches, fmt.Sprintf(".*%v.*", msg))
@@ -134,104 +134,104 @@ func (s *crossmodelSuite) TestShowError(c *gc.C) {
 
 func (s *crossmodelSuite) TestShowNotFound(c *gc.C) {
 	urls := []string{"local:/u/fred/hosted-db2"}
-	filter := params.ServiceURLs{urls}
+	filter := params.ApplicationURLs{urls}
 
-	s.serviceBackend.listDirectoryOffers = func(filter params.OfferFilters) (params.ServiceOfferResults, error) {
-		return params.ServiceOfferResults{}, nil
+	s.serviceBackend.listDirectoryOffers = func(filter params.OfferFilters) (params.ApplicationOfferResults, error) {
+		return params.ApplicationOfferResults{}, nil
 	}
 
-	found, err := s.api.ServiceOffers(filter)
+	found, err := s.api.ApplicationOffers(filter)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Results, gc.HasLen, 1)
-	c.Assert(found.Results[0].Error.Error(), gc.Matches, fmt.Sprintf(`offer for remote service url %v not found`, urls[0]))
+	c.Assert(found.Results[0].Error.Error(), gc.Matches, fmt.Sprintf(`offer for remote application url %v not found`, urls[0]))
 	s.serviceBackend.CheckCallNames(c, listDirectoryOffersBackendCall)
 }
 
 func (s *crossmodelSuite) TestShowErrorMsgMultipleURLs(c *gc.C) {
 	urls := []string{"local:/u/fred/prod/foo/hosted-db2", "local:/u/fred/hosted-db2"}
-	filter := params.ServiceURLs{urls}
+	filter := params.ApplicationURLs{urls}
 
-	s.serviceBackend.listDirectoryOffers = func(filter params.OfferFilters) (params.ServiceOfferResults, error) {
-		return params.ServiceOfferResults{}, nil
+	s.serviceBackend.listDirectoryOffers = func(filter params.OfferFilters) (params.ApplicationOfferResults, error) {
+		return params.ApplicationOfferResults{}, nil
 	}
 
-	found, err := s.api.ServiceOffers(filter)
+	found, err := s.api.ApplicationOffers(filter)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Results, gc.HasLen, 2)
-	c.Assert(found.Results[0].Error.Error(), gc.Matches, fmt.Sprintf(`service URL has invalid form: %q`, urls[0]))
-	c.Assert(found.Results[1].Error.Error(), gc.Matches, fmt.Sprintf(`offer for remote service url %v not found`, urls[1]))
+	c.Assert(found.Results[0].Error.Error(), gc.Matches, fmt.Sprintf(`application URL has invalid form: %q`, urls[0]))
+	c.Assert(found.Results[1].Error.Error(), gc.Matches, fmt.Sprintf(`offer for remote application url %v not found`, urls[1]))
 	s.serviceBackend.CheckCallNames(c, listDirectoryOffersBackendCall)
 }
 
 func (s *crossmodelSuite) TestShowNotFoundEmpty(c *gc.C) {
 	urls := []string{"local:/u/fred/hosted-db2"}
-	filter := params.ServiceURLs{urls}
+	filter := params.ApplicationURLs{urls}
 
-	s.serviceBackend.listDirectoryOffers = func(filter params.OfferFilters) (params.ServiceOfferResults, error) {
-		return params.ServiceOfferResults{}, nil
+	s.serviceBackend.listDirectoryOffers = func(filter params.OfferFilters) (params.ApplicationOfferResults, error) {
+		return params.ApplicationOfferResults{}, nil
 	}
 
-	found, err := s.api.ServiceOffers(filter)
+	found, err := s.api.ApplicationOffers(filter)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Results, gc.HasLen, 1)
-	c.Assert(found.Results[0].Error.Error(), gc.Matches, fmt.Sprintf(`offer for remote service url %v not found`, urls[0]))
+	c.Assert(found.Results[0].Error.Error(), gc.Matches, fmt.Sprintf(`offer for remote application url %v not found`, urls[0]))
 	s.serviceBackend.CheckCallNames(c, listDirectoryOffersBackendCall)
 }
 
 func (s *crossmodelSuite) TestShowFoundMultiple(c *gc.C) {
 	name := "test"
 	url := "local:/u/fred/hosted-db2"
-	anOffer := params.ServiceOffer{
-		ServiceName:        name,
-		ServiceDescription: "description",
-		ServiceURL:         url,
-		SourceEnvironTag:   "environment-",
-		SourceLabel:        "label",
-		Endpoints:          []params.RemoteEndpoint{{Name: "db"}},
+	anOffer := params.ApplicationOffer{
+		ApplicationName:        name,
+		ApplicationDescription: "description",
+		ApplicationURL:         url,
+		SourceModelTag:         "environment-",
+		SourceLabel:            "label",
+		Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
 	}
 
 	name2 := "testAgain"
 	url2 := "local:/u/mary/hosted-db2"
-	anOffer2 := params.ServiceOffer{
-		ServiceName:        name2,
-		ServiceDescription: "description2",
-		ServiceURL:         url2,
-		SourceEnvironTag:   "environment-",
-		SourceLabel:        "label2",
-		Endpoints:          []params.RemoteEndpoint{{Name: "db2"}},
+	anOffer2 := params.ApplicationOffer{
+		ApplicationName:        name2,
+		ApplicationDescription: "description2",
+		ApplicationURL:         url2,
+		SourceModelTag:         "environment-",
+		SourceLabel:            "label2",
+		Endpoints:              []params.RemoteEndpoint{{Name: "db2"}},
 	}
 
-	filter := params.ServiceURLs{[]string{url, url2}}
+	filter := params.ApplicationURLs{[]string{url, url2}}
 
-	s.serviceBackend.listDirectoryOffers = func(filter params.OfferFilters) (params.ServiceOfferResults, error) {
-		return params.ServiceOfferResults{Offers: []params.ServiceOffer{anOffer, anOffer2}}, nil
+	s.serviceBackend.listDirectoryOffers = func(filter params.OfferFilters) (params.ApplicationOfferResults, error) {
+		return params.ApplicationOfferResults{Offers: []params.ApplicationOffer{anOffer, anOffer2}}, nil
 	}
 
-	found, err := s.api.ServiceOffers(filter)
+	found, err := s.api.ApplicationOffers(filter)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(found, gc.DeepEquals, params.ServiceOffersResults{
-		[]params.ServiceOfferResult{
-			{Result: params.ServiceOffer{
-				ServiceName:        name,
-				ServiceDescription: "description",
-				ServiceURL:         url,
-				SourceEnvironTag:   "environment-",
-				SourceLabel:        "label",
-				Endpoints:          []params.RemoteEndpoint{{Name: "db"}}}},
-			{Result: params.ServiceOffer{
-				ServiceName:        name2,
-				ServiceDescription: "description2",
-				ServiceURL:         url2,
-				SourceEnvironTag:   "environment-",
-				SourceLabel:        "label2",
-				Endpoints:          []params.RemoteEndpoint{{Name: "db2"}}}},
+	c.Assert(found, gc.DeepEquals, params.ApplicationOffersResults{
+		[]params.ApplicationOfferResult{
+			{Result: params.ApplicationOffer{
+				ApplicationName:        name,
+				ApplicationDescription: "description",
+				ApplicationURL:         url,
+				SourceModelTag:         "environment-",
+				SourceLabel:            "label",
+				Endpoints:              []params.RemoteEndpoint{{Name: "db"}}}},
+			{Result: params.ApplicationOffer{
+				ApplicationName:        name2,
+				ApplicationDescription: "description2",
+				ApplicationURL:         url2,
+				SourceModelTag:         "environment-",
+				SourceLabel:            "label2",
+				Endpoints:              []params.RemoteEndpoint{{Name: "db2"}}}},
 		}})
 	s.serviceBackend.CheckCallNames(c, listDirectoryOffersBackendCall)
 }
 
-var emptyFilterSet = params.OfferedServiceFilters{
-	Filters: []params.OfferedServiceFilter{
-		{FilterTerms: []params.OfferedServiceFilterTerm{}},
+var emptyFilterSet = params.OfferedApplicationFilters{
+	Filters: []params.OfferedApplicationFilter{
+		{FilterTerms: []params.OfferedApplicationFilterTerm{}},
 	},
 }
 
@@ -241,32 +241,32 @@ func (s *crossmodelSuite) TestList(c *gc.C) {
 
 	s.addService(c, serviceName)
 
-	s.serviceBackend.listOfferedServices = func(filter ...crossmodel.OfferedServiceFilter) ([]crossmodel.OfferedService, error) {
-		return []crossmodel.OfferedService{
+	s.serviceBackend.listOfferedApplications = func(filter ...crossmodel.OfferedApplicationFilter) ([]crossmodel.OfferedApplication, error) {
+		return []crossmodel.OfferedApplication{
 			{
-				ServiceName: serviceName,
-				ServiceURL:  url,
-				Description: "description",
-				CharmName:   "charm",
-				Endpoints:   map[string]string{"db": "db"},
+				ApplicationName: serviceName,
+				ApplicationURL:  url,
+				Description:     "description",
+				CharmName:       "charm",
+				Endpoints:       map[string]string{"db": "db"},
 			}}, nil
 	}
 
 	found, err := s.api.ListOffers(emptyFilterSet)
 	c.Assert(err, jc.ErrorIsNil)
-	s.serviceBackend.CheckCallNames(c, listOfferedServicesBackendCall)
+	s.serviceBackend.CheckCallNames(c, listOfferedApplicationsBackendCall)
 
-	expectedService := params.OfferedServiceDetails{
-		CharmName:   "wordpress",
-		UsersCount:  0,
-		ServiceName: serviceName,
-		ServiceURL:  url,
-		Endpoints:   []params.RemoteEndpoint{{Name: "db", Role: "requirer", Interface: "mysql", Limit: 1, Scope: "global"}},
+	expectedService := params.OfferedApplicationDetails{
+		CharmName:       "wordpress",
+		UsersCount:      0,
+		ApplicationName: serviceName,
+		ApplicationURL:  url,
+		Endpoints:       []params.RemoteEndpoint{{Name: "db", Role: "requirer", Interface: "mysql", Limit: 1, Scope: "global"}},
 	}
 	c.Assert(found, jc.DeepEquals,
 		params.ListOffersResults{
 			Results: []params.ListOffersFilterResults{{
-				Result: []params.OfferedServiceDetailsResult{
+				Result: []params.OfferedApplicationDetailsResult{
 					{Result: &expectedService},
 				}},
 			},
@@ -276,13 +276,13 @@ func (s *crossmodelSuite) TestList(c *gc.C) {
 func (s *crossmodelSuite) TestListError(c *gc.C) {
 	msg := "fail test"
 
-	s.serviceBackend.listOfferedServices = func(filter ...crossmodel.OfferedServiceFilter) ([]crossmodel.OfferedService, error) {
+	s.serviceBackend.listOfferedApplications = func(filter ...crossmodel.OfferedApplicationFilter) ([]crossmodel.OfferedApplication, error) {
 		return nil, errors.New(msg)
 	}
 
 	found, err := s.api.ListOffers(emptyFilterSet)
 	c.Assert(err, jc.ErrorIsNil)
-	s.serviceBackend.CheckCallNames(c, listOfferedServicesBackendCall)
+	s.serviceBackend.CheckCallNames(c, listOfferedApplicationsBackendCall)
 	c.Assert(found.Results[0].Error, gc.ErrorMatches, fmt.Sprintf("%v", msg))
 }
 
@@ -296,49 +296,49 @@ func (s *crossmodelSuite) TestFind(c *gc.C) {
 				Directory: "local",
 				Filters: []params.OfferFilter{
 					{
-						ServiceURL:  "local:/u/fred/hosted-db2",
-						ServiceName: "test",
+						ApplicationURL:  "local:/u/fred/hosted-db2",
+						ApplicationName: "test",
 					},
 				},
 			},
 		},
 	}
-	anOffer := params.ServiceOffer{
-		ServiceName:        serviceName,
-		ServiceDescription: "description",
-		ServiceURL:         url,
-		SourceEnvironTag:   "environment-",
-		SourceLabel:        "label",
-		Endpoints:          []params.RemoteEndpoint{{Name: "db"}},
+	anOffer := params.ApplicationOffer{
+		ApplicationName:        serviceName,
+		ApplicationDescription: "description",
+		ApplicationURL:         url,
+		SourceModelTag:         "environment-",
+		SourceLabel:            "label",
+		Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
 	}
 
-	s.serviceBackend.listDirectoryOffers = func(filter params.OfferFilters) (params.ServiceOfferResults, error) {
+	s.serviceBackend.listDirectoryOffers = func(filter params.OfferFilters) (params.ApplicationOfferResults, error) {
 		c.Assert(filter, jc.DeepEquals, params.OfferFilters{
 			Directory: "local",
 			Filters: []params.OfferFilter{
 				{
-					ServiceURL:  "local:/u/fred/hosted-db2",
-					ServiceName: "test",
+					ApplicationURL:  "local:/u/fred/hosted-db2",
+					ApplicationName: "test",
 				},
 			},
 		})
-		return params.ServiceOfferResults{Offers: []params.ServiceOffer{anOffer}}, nil
+		return params.ApplicationOfferResults{Offers: []params.ApplicationOffer{anOffer}}, nil
 	}
 
-	found, err := s.api.FindServiceOffers(filter)
+	found, err := s.api.FindApplicationOffers(filter)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found, gc.DeepEquals,
-		params.FindServiceOffersResults{
-			Results: []params.ServiceOfferResults{
+		params.FindApplicationOffersResults{
+			Results: []params.ApplicationOfferResults{
 				{
-					Offers: []params.ServiceOffer{
+					Offers: []params.ApplicationOffer{
 						{
-							ServiceName:        serviceName,
-							ServiceDescription: "description",
-							ServiceURL:         url,
-							SourceEnvironTag:   "environment-",
-							SourceLabel:        "label",
-							Endpoints:          []params.RemoteEndpoint{{Name: "db"}}}},
+							ApplicationName:        serviceName,
+							ApplicationDescription: "description",
+							ApplicationURL:         url,
+							SourceModelTag:         "environment-",
+							SourceLabel:            "label",
+							Endpoints:              []params.RemoteEndpoint{{Name: "db"}}}},
 				}}})
 	s.serviceBackend.CheckCallNames(c, listDirectoryOffersBackendCall)
 }
@@ -347,11 +347,11 @@ func (s *crossmodelSuite) TestFindError(c *gc.C) {
 	filter := params.OfferFilterParams{Filters: []params.OfferFilters{{}}}
 	msg := "fail"
 
-	s.serviceBackend.listDirectoryOffers = func(filter params.OfferFilters) (params.ServiceOfferResults, error) {
-		return params.ServiceOfferResults{}, errors.New(msg)
+	s.serviceBackend.listDirectoryOffers = func(filter params.OfferFilters) (params.ApplicationOfferResults, error) {
+		return params.ApplicationOfferResults{}, errors.New(msg)
 	}
 
-	found, err := s.api.FindServiceOffers(filter)
+	found, err := s.api.FindApplicationOffers(filter)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Results, gc.HasLen, 1)
 	c.Assert(found.Results[0].Error, gc.ErrorMatches, fmt.Sprintf(".*%v.*", msg))

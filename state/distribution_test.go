@@ -10,8 +10,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
 )
@@ -19,7 +17,7 @@ import (
 type InstanceDistributorSuite struct {
 	ConnSuite
 	distributor mockInstanceDistributor
-	wordpress   *state.Service
+	wordpress   *state.Application
 	machines    []*state.Machine
 }
 
@@ -45,16 +43,14 @@ func (p *mockInstanceDistributor) DistributeInstances(candidates, distributionGr
 func (s *InstanceDistributorSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
 	s.distributor = mockInstanceDistributor{}
-	s.policy.GetInstanceDistributor = func(*config.Config) (state.InstanceDistributor, error) {
+	s.policy.GetInstanceDistributor = func() (instance.Distributor, error) {
 		return &s.distributor, nil
 	}
-	s.wordpress = s.AddTestingServiceWithNetworks(
+	s.wordpress = s.AddTestingService(
 		c,
 		"wordpress",
 		s.AddTestingCharm(c, "wordpress"),
-		[]string{"net1", "net2"},
 	)
-	s.wordpress.SetConstraints(constraints.MustParse("networks=net3,^net4,^net5"))
 	s.machines = make([]*state.Machine, 3)
 	for i := range s.machines {
 		var err error
@@ -134,7 +130,7 @@ func (s *InstanceDistributorSuite) TestDistributeInstancesErrors(c *gc.C) {
 	_, err = unit.AssignToCleanEmptyMachine()
 	c.Assert(err, gc.ErrorMatches, ".*no assignment for you")
 	// If the policy's InstanceDistributor method fails, that will be returned first.
-	s.policy.GetInstanceDistributor = func(*config.Config) (state.InstanceDistributor, error) {
+	s.policy.GetInstanceDistributor = func() (instance.Distributor, error) {
 		return nil, fmt.Errorf("incapable of InstanceDistributor")
 	}
 	_, err = unit.AssignToCleanMachine()
@@ -161,7 +157,7 @@ func (s *InstanceDistributorSuite) TestDistributeInstancesEmptyDistributionGroup
 func (s *InstanceDistributorSuite) TestInstanceDistributorUnimplemented(c *gc.C) {
 	s.setupScenario(c)
 	var distributorErr error
-	s.policy.GetInstanceDistributor = func(*config.Config) (state.InstanceDistributor, error) {
+	s.policy.GetInstanceDistributor = func() (instance.Distributor, error) {
 		return nil, distributorErr
 	}
 	unit, err := s.wordpress.AddUnit()
@@ -174,7 +170,7 @@ func (s *InstanceDistributorSuite) TestInstanceDistributorUnimplemented(c *gc.C)
 }
 
 func (s *InstanceDistributorSuite) TestDistributeInstancesNoPolicy(c *gc.C) {
-	s.policy.GetInstanceDistributor = func(*config.Config) (state.InstanceDistributor, error) {
+	s.policy.GetInstanceDistributor = func() (instance.Distributor, error) {
 		c.Errorf("should not have been invoked")
 		return nil, nil
 	}

@@ -6,14 +6,14 @@ package remoterelations
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
 	"github.com/juju/utils/set"
-	"launchpad.net/tomb"
+	"gopkg.in/juju/names.v2"
+	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/watcher"
 )
 
@@ -26,16 +26,16 @@ func init() {
 // RemoteRelationsAPI provides access to the Provisioner API facade.
 type RemoteRelationsAPI struct {
 	st         RemoteRelationsState
-	resources  *common.Resources
-	authorizer common.Authorizer
+	resources  facade.Resources
+	authorizer facade.Authorizer
 }
 
 // NewRemoteRelationsAPI creates a new server-side RemoteRelationsAPI facade
 // backed by global state.
 func NewStateRemoteRelationsAPI(
 	st *state.State,
-	resources *common.Resources,
-	authorizer common.Authorizer,
+	resources facade.Resources,
+	authorizer facade.Authorizer,
 ) (*RemoteRelationsAPI, error) {
 	return NewRemoteRelationsAPI(stateShim{st}, resources, authorizer)
 }
@@ -43,10 +43,10 @@ func NewStateRemoteRelationsAPI(
 // NewRemoteRelationsAPI returns a new server-side RemoteRelationsAPI facade.
 func NewRemoteRelationsAPI(
 	st RemoteRelationsState,
-	resources *common.Resources,
-	authorizer common.Authorizer,
+	resources facade.Resources,
+	authorizer facade.Authorizer,
 ) (*RemoteRelationsAPI, error) {
-	if !authorizer.AuthEnvironManager() {
+	if !authorizer.AuthModelManager() {
 		return nil, common.ErrPerm
 	}
 	return &RemoteRelationsAPI{
@@ -56,15 +56,15 @@ func NewRemoteRelationsAPI(
 	}, nil
 }
 
-// ConsumeRemoteServiceChange consumes remote changes to services into the
+// ConsumeRemoteApplicationChange consumes remote changes to applications into the
 // local environment.
-func (api *RemoteRelationsAPI) ConsumeRemoteServiceChange(
-	changes params.ServiceChanges,
+func (api *RemoteRelationsAPI) ConsumeRemoteApplicationChange(
+	changes params.ApplicationChanges,
 ) (params.ErrorResults, error) {
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(changes.Changes)),
 	}
-	handleServiceRelationsChange := func(change params.ServiceRelationsChange) error {
+	handleApplicationRelationsChange := func(change params.ApplicationRelationsChange) error {
 		// For any relations that have been removed on the offering
 		// side, destroy them on the consuming side.
 		for _, relId := range change.RemovedRelations {
@@ -119,21 +119,21 @@ func (api *RemoteRelationsAPI) ConsumeRemoteServiceChange(
 		}
 		return nil
 	}
-	handleServiceChange := func(change params.ServiceChange) error {
-		serviceTag, err := names.ParseServiceTag(change.ServiceTag)
+	handleApplicationChange := func(change params.ApplicationChange) error {
+		applicationTag, err := names.ParseApplicationTag(change.ApplicationTag)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		service, err := api.st.RemoteService(serviceTag.Id())
+		application, err := api.st.RemoteApplication(applicationTag.Id())
 		if err != nil {
 			return errors.Trace(err)
 		}
-		// TODO(axw) update service status, lifecycle state.
-		_ = service
-		return handleServiceRelationsChange(change.Relations)
+		// TODO(axw) update application status, lifecycle state.
+		_ = application
+		return handleApplicationRelationsChange(change.Relations)
 	}
 	for i, change := range changes.Changes {
-		if err := handleServiceChange(change); err != nil {
+		if err := handleApplicationChange(change); err != nil {
 			results.Results[i].Error = common.ServerError(err)
 		}
 	}
@@ -143,17 +143,17 @@ func (api *RemoteRelationsAPI) ConsumeRemoteServiceChange(
 // PublishLocalRelationChange publishes local relations changes to the
 // remote side offering those relations.
 func (api *RemoteRelationsAPI) PublishLocalRelationsChange(
-	changes params.ServiceRelationsChanges,
+	changes params.ApplicationRelationsChanges,
 ) (params.ErrorResults, error) {
 	return params.ErrorResults{}, errors.NotImplementedf("PublishLocalRelationChange")
 }
 
-// WatchRemoteServices starts a strings watcher that notifies of the addition,
-// removal, and lifecycle changes of remote services in the environment; and
-// returns the watcher ID and initial IDs of remote services, or an error if
+// WatchRemoteApplications starts a strings watcher that notifies of the addition,
+// removal, and lifecycle changes of remote applications in the environment; and
+// returns the watcher ID and initial IDs of remote applications, or an error if
 // watching failed.
-func (api *RemoteRelationsAPI) WatchRemoteServices() (params.StringsWatchResult, error) {
-	w := api.st.WatchRemoteServices()
+func (api *RemoteRelationsAPI) WatchRemoteApplications() (params.StringsWatchResult, error) {
+	w := api.st.WatchRemoteApplications()
 	if changes, ok := <-w.Changes(); ok {
 		return params.StringsWatchResult{
 			StringsWatcherId: api.resources.Register(w),
@@ -163,20 +163,20 @@ func (api *RemoteRelationsAPI) WatchRemoteServices() (params.StringsWatchResult,
 	return params.StringsWatchResult{}, watcher.EnsureErr(w)
 }
 
-// WatchRemoteService starts a ServiceRelationsWatcher for each specified
-// remote service, and returns the watcher IDs and initial values, or an error
-// if the remote services could not be watched.
-func (api *RemoteRelationsAPI) WatchRemoteService(args params.Entities) (params.ServiceRelationsWatchResults, error) {
-	results := params.ServiceRelationsWatchResults{
-		make([]params.ServiceRelationsWatchResult, len(args.Entities)),
+// WatchRemoteApplication starts a ApplicationRelationsWatcher for each specified
+// remote application, and returns the watcher IDs and initial values, or an error
+// if the remote applications could not be watched.
+func (api *RemoteRelationsAPI) WatchRemoteApplication(args params.Entities) (params.ApplicationRelationsWatchResults, error) {
+	results := params.ApplicationRelationsWatchResults{
+		make([]params.ApplicationRelationsWatchResult, len(args.Entities)),
 	}
 	for i, arg := range args.Entities {
-		serviceTag, err := names.ParseServiceTag(arg.Tag)
+		applicationTag, err := names.ParseApplicationTag(arg.Tag)
 		if err != nil {
 			results.Results[i].Error = common.ServerError(err)
 			continue
 		}
-		w, err := api.watchService(serviceTag)
+		w, err := api.watchApplication(applicationTag)
 		if err != nil {
 			results.Results[i].Error = common.ServerError(err)
 			continue
@@ -186,48 +186,48 @@ func (api *RemoteRelationsAPI) WatchRemoteService(args params.Entities) (params.
 			results.Results[i].Error = common.ServerError(watcher.EnsureErr(w))
 			continue
 		}
-		results.Results[i].ServiceRelationsWatcherId = api.resources.Register(w)
+		results.Results[i].ApplicationRelationsWatcherId = api.resources.Register(w)
 		results.Results[i].Changes = &changes
 	}
 	return results, nil
 }
 
-func (api *RemoteRelationsAPI) watchService(serviceTag names.ServiceTag) (*serviceRelationsWatcher, error) {
+func (api *RemoteRelationsAPI) watchApplication(applicationTag names.ApplicationTag) (*applicationRelationsWatcher, error) {
 	// TODO(axw) subscribe to changes sent by the offering side.
-	serviceName := serviceTag.Id()
-	relationsWatcher, err := api.st.WatchRemoteServiceRelations(serviceName)
+	applicationName := applicationTag.Id()
+	relationsWatcher, err := api.st.WatchRemoteApplicationRelations(applicationName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return newServiceRelationsWatcher(api.st, serviceName, relationsWatcher), nil
+	return newApplicationRelationsWatcher(api.st, applicationName, relationsWatcher), nil
 }
 
-// serviceRelationsWatcher watches the relations of a service, and the
+// applicationRelationsWatcher watches the relations of a application, and the
 // *counterpart* endpoint units for each of those relations.
-type serviceRelationsWatcher struct {
+type applicationRelationsWatcher struct {
 	tomb                  tomb.Tomb
 	st                    RemoteRelationsState
-	serviceName           string
+	applicationName       string
 	relationsWatcher      state.StringsWatcher
 	relationUnitsChanges  chan relationUnitsChange
 	relationUnitsWatchers map[string]*relationWatcher
 	relations             map[string]relationInfo
-	out                   chan params.ServiceRelationsChange
+	out                   chan params.ApplicationRelationsChange
 }
 
-func newServiceRelationsWatcher(
+func newApplicationRelationsWatcher(
 	st RemoteRelationsState,
-	serviceName string,
+	applicationName string,
 	rw state.StringsWatcher,
-) *serviceRelationsWatcher {
-	w := &serviceRelationsWatcher{
+) *applicationRelationsWatcher {
+	w := &applicationRelationsWatcher{
 		st:                    st,
-		serviceName:           serviceName,
+		applicationName:       applicationName,
 		relationsWatcher:      rw,
 		relationUnitsChanges:  make(chan relationUnitsChange),
 		relationUnitsWatchers: make(map[string]*relationWatcher),
 		relations:             make(map[string]relationInfo),
-		out:                   make(chan params.ServiceRelationsChange),
+		out:                   make(chan params.ApplicationRelationsChange),
 	}
 	go func() {
 		defer w.tomb.Done()
@@ -244,9 +244,9 @@ func newServiceRelationsWatcher(
 	return w
 }
 
-func (w *serviceRelationsWatcher) loop() error {
-	var out chan<- params.ServiceRelationsChange
-	var value params.ServiceRelationsChange
+func (w *applicationRelationsWatcher) loop() error {
+	var out chan<- params.ApplicationRelationsChange
+	var value params.ApplicationRelationsChange
 	for {
 		select {
 		case <-w.tomb.Dying():
@@ -293,7 +293,7 @@ func (w *serviceRelationsWatcher) loop() error {
 				if _, ok := w.relationUnitsWatchers[relationKey]; !ok {
 					// Start a relation units watcher, wait for the initial
 					// value before informing the client of the relation.
-					ruw, err := relation.WatchCounterpartEndpointUnits(w.serviceName)
+					ruw, err := relation.WatchCounterpartEndpointUnits(w.applicationName)
 					if err != nil {
 						return errors.Trace(err)
 					}
@@ -331,12 +331,12 @@ func (w *serviceRelationsWatcher) loop() error {
 
 		case out <- value:
 			out = nil
-			value = params.ServiceRelationsChange{}
+			value = params.ApplicationRelationsChange{}
 		}
 	}
 }
 
-func (w *serviceRelationsWatcher) updateRelationUnits(change relationUnitsChange, value *params.ServiceRelationsChange) {
+func (w *applicationRelationsWatcher) updateRelationUnits(change relationUnitsChange, value *params.ApplicationRelationsChange) {
 	relationInfo, ok := w.relations[change.relationKey]
 	r, ok := getRelationChange(value, relationInfo.relationId)
 	if !ok {
@@ -356,7 +356,7 @@ func (w *serviceRelationsWatcher) updateRelationUnits(change relationUnitsChange
 	r.DepartedUnits = append(r.DepartedUnits, change.departedUnits...)
 }
 
-func getRelationChange(value *params.ServiceRelationsChange, relationId int) (*params.RelationChange, bool) {
+func getRelationChange(value *params.ApplicationRelationsChange, relationId int) (*params.RelationChange, bool) {
 	for i, r := range value.ChangedRelations {
 		if r.RelationId == relationId {
 			return &value.ChangedRelations[i], true
@@ -368,7 +368,7 @@ func getRelationChange(value *params.ServiceRelationsChange, relationId int) (*p
 	return &value.ChangedRelations[len(value.ChangedRelations)-1], false
 }
 
-func (w *serviceRelationsWatcher) updateRelation(change params.RelationChange, value *params.ServiceRelationsChange) {
+func (w *applicationRelationsWatcher) updateRelation(change params.RelationChange, value *params.ApplicationRelationsChange) {
 	for i, r := range value.ChangedRelations {
 		if r.RelationId == change.RelationId {
 			value.ChangedRelations[i] = change
@@ -377,15 +377,15 @@ func (w *serviceRelationsWatcher) updateRelation(change params.RelationChange, v
 	}
 }
 
-func (w *serviceRelationsWatcher) Changes() <-chan params.ServiceRelationsChange {
+func (w *applicationRelationsWatcher) Changes() <-chan params.ApplicationRelationsChange {
 	return w.out
 }
 
-func (w *serviceRelationsWatcher) Err() error {
+func (w *applicationRelationsWatcher) Err() error {
 	return w.tomb.Err()
 }
 
-func (w *serviceRelationsWatcher) Stop() error {
+func (w *applicationRelationsWatcher) Stop() error {
 	w.tomb.Kill(nil)
 	return w.tomb.Wait()
 }
@@ -449,17 +449,17 @@ func (w *relationWatcher) loop() error {
 	}
 }
 
-func (w *relationWatcher) update(change multiwatcher.RelationUnitsChange, value *relationUnitsChange) error {
+func (w *relationWatcher) update(change params.RelationUnitsChange, value *relationUnitsChange) error {
 	return updateRelationUnits(w.st, w.relation, w.knownUnits, change, value)
 }
 
-// updateRelationUnits updates a relationUnitsChange structure with the a
-// multiwatcher.RelationUnitsChange.
+// updateRelationUnits updates a relationUnitsChange structure with the
+// params.RelationUnitsChange.
 func updateRelationUnits(
 	st RemoteRelationsState,
 	relation Relation,
 	knownUnits set.Strings,
-	change multiwatcher.RelationUnitsChange,
+	change params.RelationUnitsChange,
 	value *relationUnitsChange,
 ) error {
 	if value.changedUnits == nil && len(change.Changed) > 0 {

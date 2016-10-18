@@ -7,9 +7,9 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/instancepoller"
@@ -17,6 +17,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -91,11 +92,11 @@ var machineErrorTests = []struct {
 		_, err := m.InstanceStatus()
 		return err
 	},
-	resultsRef: params.StringResults{},
+	resultsRef: params.StatusResults{},
 }, {
 	method: "SetInstanceStatus",
 	wrapper: func(m *instancepoller.Machine) error {
-		return m.SetInstanceStatus("")
+		return m.SetInstanceStatus("", "", nil)
 	},
 	resultsRef: params.ErrorResults{},
 }, {
@@ -205,21 +206,23 @@ func (s *MachineSuite) TestInstanceIdSuccess(c *gc.C) {
 
 func (s *MachineSuite) TestInstanceStatusSuccess(c *gc.C) {
 	var called int
-	results := params.StringResults{
-		Results: []params.StringResult{{Result: "A-OK"}},
+	results := params.StatusResults{
+		Results: []params.StatusResult{{
+			Status: status.Provisioning.String(),
+		}},
 	}
 	apiCaller := successAPICaller(c, "InstanceStatus", entitiesArgs, results, &called)
 	machine := instancepoller.NewMachine(apiCaller, s.tag, params.Alive)
-	status, err := machine.InstanceStatus()
+	statusResult, err := machine.InstanceStatus()
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(status, gc.Equals, "A-OK")
+	c.Check(statusResult.Status, gc.DeepEquals, status.Provisioning.String())
 	c.Check(called, gc.Equals, 1)
 }
 
 func (s *MachineSuite) TestSetInstanceStatusSuccess(c *gc.C) {
 	var called int
-	expectArgs := params.SetInstancesStatus{
-		Entities: []params.InstanceStatus{{
+	expectArgs := params.SetStatus{
+		Entities: []params.EntityStatusArgs{{
 			Tag:    "machine-42",
 			Status: "RUNNING",
 		}}}
@@ -228,7 +231,7 @@ func (s *MachineSuite) TestSetInstanceStatusSuccess(c *gc.C) {
 	}
 	apiCaller := successAPICaller(c, "SetInstanceStatus", expectArgs, results, &called)
 	machine := instancepoller.NewMachine(apiCaller, s.tag, params.Alive)
-	err := machine.SetInstanceStatus("RUNNING")
+	err := machine.SetInstanceStatus("RUNNING", "", nil)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(called, gc.Equals, 1)
 }
@@ -238,7 +241,7 @@ func (s *MachineSuite) TestProviderAddressesSuccess(c *gc.C) {
 	addresses := network.NewAddresses("2001:db8::1", "0.1.2.3")
 	results := params.MachineAddressesResults{
 		Results: []params.MachineAddressesResult{{
-			Addresses: params.FromNetworkAddresses(addresses),
+			Addresses: params.FromNetworkAddresses(addresses...),
 		}}}
 	apiCaller := successAPICaller(c, "ProviderAddresses", entitiesArgs, results, &called)
 	machine := instancepoller.NewMachine(apiCaller, s.tag, params.Alive)
@@ -254,7 +257,7 @@ func (s *MachineSuite) TestSetProviderAddressesSuccess(c *gc.C) {
 	expectArgs := params.SetMachinesAddresses{
 		MachineAddresses: []params.MachineAddresses{{
 			Tag:       "machine-42",
-			Addresses: params.FromNetworkAddresses(addresses),
+			Addresses: params.FromNetworkAddresses(addresses...),
 		}}}
 	results := params.ErrorResults{
 		Results: []params.ErrorResult{{Error: nil}},

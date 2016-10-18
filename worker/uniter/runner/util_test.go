@@ -11,11 +11,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/names"
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/fs"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/uniter"
@@ -25,7 +26,6 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testcharms"
-	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/runner"
 	"github.com/juju/juju/worker/uniter/runner/context"
 	runnertesting "github.com/juju/juju/worker/uniter/runner/testing"
@@ -42,7 +42,7 @@ type ContextSuite struct {
 	membership     map[int][]string
 
 	st      api.Connection
-	service *state.Service
+	service *state.Application
 	machine *state.Machine
 	unit    *state.Unit
 	uniter  *uniter.State
@@ -105,7 +105,7 @@ func (s *ContextSuite) SetUpTest(c *gc.C) {
 		s.getRelationInfos,
 		s.storage,
 		s.paths,
-		coretesting.NewClock(time.Time{}),
+		jujutesting.NewClock(time.Time{}),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -136,7 +136,7 @@ func (s *ContextSuite) AddContextRelation(c *gc.C, name string) {
 	s.apiRelunits[rel.Id()] = apiRelUnit
 }
 
-func (s *ContextSuite) AddUnit(c *gc.C, svc *state.Service) *state.Unit {
+func (s *ContextSuite) AddUnit(c *gc.C, svc *state.Application) *state.Unit {
 	unit, err := svc.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
 	if s.machine != nil {

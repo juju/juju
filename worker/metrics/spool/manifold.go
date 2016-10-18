@@ -13,12 +13,12 @@ import (
 
 	"github.com/juju/errors"
 	corecharm "gopkg.in/juju/charm.v6-unstable"
-	"launchpad.net/tomb"
+	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
-	"github.com/juju/juju/worker/util"
 )
 
 // MetricRecorder records metrics to a spool directory.
@@ -78,12 +78,12 @@ var newFactory = func(spoolDir string) MetricFactory {
 
 // ManifoldConfig specifies names a spooldirectory manifold should use to
 // address its dependencies.
-type ManifoldConfig util.AgentManifoldConfig
+type ManifoldConfig engine.AgentManifoldConfig
 
 // Manifold returns a dependency.Manifold that extracts the metrics
 // spool directory path from the agent.
 func Manifold(config ManifoldConfig) dependency.Manifold {
-	manifold := util.AgentManifold(util.AgentManifoldConfig(config), newWorker)
+	manifold := engine.AgentManifold(engine.AgentManifoldConfig(config), newWorker)
 	manifold.Output = outputFunc
 	return manifold
 }

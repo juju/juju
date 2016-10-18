@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
@@ -52,6 +52,7 @@ type HookContext interface {
 	ContextStorage
 	ContextComponents
 	ContextRelations
+	ContextVersion
 }
 
 // UnitHookContext is the context for a unit hook.
@@ -87,7 +88,7 @@ type actionHookContext interface {
 	ActionParams() (map[string]interface{}, error)
 
 	// UpdateActionResults inserts new values for use with action-set.
-	// The results struct will be delivered to the state server upon
+	// The results struct will be delivered to the controller upon
 	// completion of the Action.
 	UpdateActionResults(keys []string, value string) error
 
@@ -115,17 +116,17 @@ type ContextStatus interface {
 	// SetUnitStatus updates the unit's status.
 	SetUnitStatus(StatusInfo) error
 
-	// ServiceStatus returns the executing unit's service status
+	// ApplicationStatus returns the executing unit's service status
 	// (including all units).
-	ServiceStatus() (ServiceStatusInfo, error)
+	ApplicationStatus() (ApplicationStatusInfo, error)
 
-	// SetServiceStatus updates the status for the unit's service.
-	SetServiceStatus(StatusInfo) error
+	// SetApplicationStatus updates the status for the unit's service.
+	SetApplicationStatus(StatusInfo) error
 }
 
-// ContextInstance is the part of a hook context related to the unit's intance.
+// ContextInstance is the part of a hook context related to the unit's instance.
 type ContextInstance interface {
-	// AvailabilityZone returns the executing unit's availablilty zone or an error
+	// AvailabilityZone returns the executing unit's availability zone or an error
 	// if it was not found (or is not available).
 	AvailabilityZone() (string, error)
 
@@ -157,6 +158,15 @@ type ContextNetworking interface {
 	// unit on its assigned machine. The result is sorted first by
 	// protocol, then by number.
 	OpenedPorts() []network.PortRange
+
+	// NetworkConfig returns the network configuration for the unit and the
+	// given bindingName.
+	//
+	// TODO(dimitern): Currently, only the Address is populated, add the
+	// rest later.
+	//
+	// LKK Card: https://canonical.leankit.com/Boards/View/101652562/119258804
+	NetworkConfig(bindingName string) ([]params.NetworkConfig, error)
 }
 
 // ContextLeadership is the part of a hook context related to the
@@ -276,6 +286,18 @@ type ContextStorageAttachment interface {
 	// Location returns the location of the storage: the mount point for
 	// filesystem-kind stores, and the device path for block-kind stores.
 	Location() string
+}
+
+// ContextVersion expresses the parts of a hook context related to
+// reporting workload versions.
+type ContextVersion interface {
+
+	// UnitWorkloadVersion returns the currently set workload version for
+	// the unit.
+	UnitWorkloadVersion() (string, error)
+
+	// SetUnitWorkloadVersion updates the workload version for the unit.
+	SetUnitWorkloadVersion(string) error
 }
 
 // Settings is implemented by types that manipulate unit settings.

@@ -5,25 +5,27 @@ package manual
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/manual"
 )
 
-type manualProvider struct{}
+type manualProvider struct {
+	environProviderCredentials
+}
 
 // Verify that we conform to the interface.
 var _ environs.EnvironProvider = (*manualProvider)(nil)
 
-var errNoBootstrapHost = errors.New("bootstrap-host must be specified")
-
 var initUbuntuUser = manual.InitUbuntuUser
 
-func ensureBootstrapUbuntuUser(ctx environs.BootstrapContext, cfg *environConfig) error {
-	err := initUbuntuUser(cfg.bootstrapHost(), cfg.bootstrapUser(), cfg.AuthorizedKeys(), ctx.GetStdin(), ctx.GetStdout())
+func ensureBootstrapUbuntuUser(ctx environs.BootstrapContext, host, user string, cfg *environConfig) error {
+	err := initUbuntuUser(host, user, cfg.AuthorizedKeys(), ctx.GetStdin(), ctx.GetStdout())
 	if err != nil {
 		logger.Errorf("initializing ubuntu user: %v", err)
 		return err
@@ -32,50 +34,54 @@ func ensureBootstrapUbuntuUser(ctx environs.BootstrapContext, cfg *environConfig
 	return nil
 }
 
-// RestrictedConfigAttributes is specified in the EnvironProvider interface.
-func (p manualProvider) RestrictedConfigAttributes() []string {
-	return []string{"bootstrap-host", "bootstrap-user"}
+// DetectRegions is specified in the environs.CloudRegionDetector interface.
+func (p manualProvider) DetectRegions() ([]cloud.Region, error) {
+	return nil, errors.NotFoundf("regions")
 }
 
-// PrepareForCreateEnvironment is specified in the EnvironProvider interface.
-func (p manualProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
-	// Not even sure if this will ever make sense.
-	return nil, errors.NotImplementedf("PrepareForCreateEnvironment")
-}
-
-func (p manualProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
-	if use, ok := cfg.UnknownAttrs()["use-sshstorage"].(bool); ok && !use {
-		return nil, fmt.Errorf("use-sshstorage must not be specified")
+// PrepareConfig is specified in the EnvironProvider interface.
+func (p manualProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {
+	if err := validateCloudSpec(args.Cloud); err != nil {
+		return nil, errors.Trace(err)
 	}
-	envConfig, err := p.validate(cfg, nil)
+	envConfig, err := p.validate(args.Config, nil)
 	if err != nil {
 		return nil, err
 	}
-	cfg, err = cfg.Apply(envConfig.attrs)
-	if err != nil {
-		return nil, err
-	}
-	envConfig = newEnvironConfig(cfg, envConfig.attrs)
-	if err := ensureBootstrapUbuntuUser(ctx, envConfig); err != nil {
-		return nil, err
-	}
-	return p.open(envConfig)
+	return args.Config.Apply(envConfig.attrs)
 }
 
-func (p manualProvider) Open(cfg *config.Config) (environs.Environ, error) {
-	_, err := p.validate(cfg, nil)
+func (p manualProvider) Open(args environs.OpenParams) (environs.Environ, error) {
+	if err := validateCloudSpec(args.Cloud); err != nil {
+		return nil, errors.Trace(err)
+	}
+	_, err := p.validate(args.Config, nil)
 	if err != nil {
 		return nil, err
 	}
 	// validate adds missing manual-specific config attributes
 	// with their defaults in the result; we don't wnat that in
 	// Open.
-	envConfig := newEnvironConfig(cfg, cfg.UnknownAttrs())
-	return p.open(envConfig)
+	envConfig := newModelConfig(args.Config, args.Config.UnknownAttrs())
+	host, user := args.Cloud.Endpoint, ""
+	if i := strings.IndexRune(host, '@'); i >= 0 {
+		user, host = host[:i], host[i+1:]
+	}
+	return p.open(host, user, envConfig)
 }
 
-func (p manualProvider) open(cfg *environConfig) (environs.Environ, error) {
-	env := &manualEnviron{cfg: cfg}
+func validateCloudSpec(spec environs.CloudSpec) error {
+	if spec.Endpoint == "" {
+		return errors.Errorf(
+			"missing address of host to bootstrap: " +
+				`please specify "juju bootstrap manual/[user@]<host>"`,
+		)
+	}
+	return nil
+}
+
+func (p manualProvider) open(host, user string, cfg *environConfig) (environs.Environ, error) {
+	env := &manualEnviron{host: host, user: user, cfg: cfg}
 	// Need to call SetConfig to initialise storage.
 	if err := env.SetConfig(cfg.Config); err != nil {
 		return nil, err
@@ -99,29 +105,7 @@ func (p manualProvider) validate(cfg, old *config.Config) (*environConfig, error
 	if err != nil {
 		return nil, err
 	}
-	envConfig := newEnvironConfig(cfg, validated)
-	if envConfig.bootstrapHost() == "" {
-		return nil, errNoBootstrapHost
-	}
-	// Check various immutable attributes.
-	if old != nil {
-		oldEnvConfig, err := p.validate(old, nil)
-		if err != nil {
-			return nil, err
-		}
-		for _, key := range [...]string{
-			"bootstrap-user",
-			"bootstrap-host",
-		} {
-			if err = checkImmutableString(envConfig, oldEnvConfig, key); err != nil {
-				return nil, err
-			}
-		}
-		oldUseSSHStorage, newUseSSHStorage := oldEnvConfig.useSSHStorage(), envConfig.useSSHStorage()
-		if oldUseSSHStorage != newUseSSHStorage && newUseSSHStorage == true {
-			return nil, fmt.Errorf("cannot change use-sshstorage from %v to %v", oldUseSSHStorage, newUseSSHStorage)
-		}
-	}
+	envConfig := newModelConfig(cfg, validated)
 
 	// If the user hasn't already specified a value, set it to the
 	// given value.
@@ -146,38 +130,4 @@ func (p manualProvider) Validate(cfg, old *config.Config) (valid *config.Config,
 		return nil, err
 	}
 	return cfg.Apply(envConfig.attrs)
-}
-
-func (_ manualProvider) BoilerplateConfig() string {
-	return `
-manual:
-    type: manual
-    # bootstrap-host holds the host name of the machine where the
-    # bootstrap machine agent will be started.
-    bootstrap-host: somehost.example.com
-
-    # bootstrap-user specifies the user to authenticate as when
-    # connecting to the bootstrap machine. It defaults to
-    # the current user.
-    # bootstrap-user: joebloggs
-
-    # Whether or not to refresh the list of available updates for an
-    # OS. The default option of true is recommended for use in
-    # production systems.
-    #
-    # enable-os-refresh-update: true
-
-    # Whether or not to perform OS upgrades when machines are
-    # provisioned. The default option of false is set so that Juju
-    # does not subsume any other way the system might be
-    # maintained.
-    #
-    # enable-os-upgrade: false
-
-`[1:]
-}
-
-func (p manualProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
-	attrs := make(map[string]string)
-	return attrs, nil
 }

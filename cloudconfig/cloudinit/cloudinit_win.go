@@ -69,7 +69,7 @@ func (cfg *windowsCloudConfig) RenderYAML() ([]byte, error) {
 // RenderScript is defined on the RenderConfig interface.
 func (cfg *windowsCloudConfig) RenderScript() (string, error) {
 	// NOTE: This shouldn't really be called on windows as it's used only for
-	// initialization via ssh or on local providers.
+	// initialization via ssh.
 	script, err := cfg.renderWindows()
 	if err != nil {
 		return "", err

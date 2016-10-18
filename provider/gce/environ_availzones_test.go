@@ -51,7 +51,7 @@ func (s *environAZSuite) TestAvailabilityZonesAPI(c *gc.C) {
 
 	c.Check(s.FakeConn.Calls, gc.HasLen, 1)
 	c.Check(s.FakeConn.Calls[0].FuncName, gc.Equals, "AvailabilityZones")
-	c.Check(s.FakeConn.Calls[0].Region, gc.Equals, "home")
+	c.Check(s.FakeConn.Calls[0].Region, gc.Equals, "us-east1")
 }
 
 func (s *environAZSuite) TestInstanceAvailabilityZoneNames(c *gc.C) {
@@ -72,7 +72,7 @@ func (s *environAZSuite) TestInstanceAvailabilityZoneNamesAPIs(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.FakeEnviron.CheckCalls(c, []gce.FakeCall{{
-		FuncName: "GetInstances", Args: gce.FakeCallArgs{"env": s.Env},
+		FuncName: "GetInstances", Args: gce.FakeCallArgs{"switch": s.Env},
 	}})
 }
 
@@ -106,8 +106,8 @@ func (s *environAZSuite) TestParseAvailabilityZonesAPI(c *gc.C) {
 	s.FakeCommon.CheckCalls(c, []gce.FakeCall{{
 		FuncName: "AvailabilityZoneAllocations",
 		Args: gce.FakeCallArgs{
-			"env":   s.Env,
-			"group": ids,
+			"switch": s.Env,
+			"group":  ids,
 		},
 	}})
 }
@@ -137,7 +137,7 @@ func (s *environAZSuite) TestParseAvailabilityZonesPlacementAPI(c *gc.C) {
 	s.FakeCommon.CheckCalls(c, []gce.FakeCall{})
 	c.Check(s.FakeConn.Calls, gc.HasLen, 1)
 	c.Check(s.FakeConn.Calls[0].FuncName, gc.Equals, "AvailabilityZones")
-	c.Check(s.FakeConn.Calls[0].Region, gc.Equals, "home")
+	c.Check(s.FakeConn.Calls[0].Region, gc.Equals, "us-east1")
 }
 
 func (s *environAZSuite) TestParseAvailabilityZonesPlacementUnavailable(c *gc.C) {

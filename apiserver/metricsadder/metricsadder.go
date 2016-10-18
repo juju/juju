@@ -4,20 +4,16 @@
 package metricsadder
 
 import (
-	"github.com/juju/loggo"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 )
 
-var (
-	logger = loggo.GetLogger("juju.apiserver.metricsadder")
-)
-
 func init() {
-	common.RegisterStandardFacade("MetricsAdder", 1, NewMetricsAdderAPI)
+	common.RegisterStandardFacade("MetricsAdder", 2, NewMetricsAdderAPI)
 }
 
 // MetricsAdder defines methods that are used to store metric batches in the state.
@@ -37,8 +33,8 @@ var _ MetricsAdder = (*MetricsAdderAPI)(nil)
 // NewMetricsAdderAPI creates a new API endpoint for adding metrics to state.
 func NewMetricsAdderAPI(
 	st *state.State,
-	resources *common.Resources,
-	authorizer common.Authorizer,
+	resources facade.Resources,
+	authorizer facade.Authorizer,
 ) (*MetricsAdderAPI, error) {
 	// TODO(cmars): remove unit agent auth, once worker/metrics/sender manifold
 	// can be righteously relocated to machine agent.

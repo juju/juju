@@ -4,6 +4,7 @@
 package commands
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -18,52 +19,36 @@ import (
 	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/envcmd"
-	"github.com/juju/juju/cmd/juju/block"
-	"github.com/juju/juju/cmd/juju/crossmodel"
-	"github.com/juju/juju/cmd/juju/helptopics"
-	"github.com/juju/juju/cmd/juju/service"
+	"github.com/juju/juju/cmd/juju/application"
+	"github.com/juju/juju/cmd/juju/cloud"
+	"github.com/juju/juju/cmd/modelcmd"
 	cmdtesting "github.com/juju/juju/cmd/testing"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/osenv"
 	_ "github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type MainSuite struct {
-	testing.FakeJujuHomeSuite
+	testing.FakeJujuXDGDataHomeSuite
+	gitjujutesting.PatchExecHelper
 }
 
 var _ = gc.Suite(&MainSuite{})
 
 func deployHelpText() string {
-	return cmdtesting.HelpText(newDeployCommand(), "juju deploy")
+	return cmdtesting.HelpText(application.NewDefaultDeployCommand(), "juju deploy")
 }
-
-func setHelpText() string {
-	return cmdtesting.HelpText(service.NewSetCommand(), "juju service set")
+func configHelpText() string {
+	return cmdtesting.HelpText(application.NewConfigCommand(), "juju config")
 }
 
 func syncToolsHelpText() string {
 	return cmdtesting.HelpText(newSyncToolsCommand(), "juju sync-tools")
-}
-
-func blockHelpText() string {
-	return cmdtesting.HelpText(block.NewSuperBlockCommand(), "juju block")
-}
-
-func offerHelpText() string {
-	return cmdtesting.HelpText(crossmodel.NewOfferCommand(), "juju offer")
-}
-
-func showEndpointsHelpText() string {
-	return cmdtesting.HelpText(crossmodel.NewShowOfferedEndpointCommand(), "juju show-endpoints")
-}
-
-func findEndpointsHelpText() string {
-	return cmdtesting.HelpText(crossmodel.NewFindEndpointsCommand(), "juju find-endpoints")
 }
 
 func (s *MainSuite) TestRunMain(c *gc.C) {
@@ -71,7 +56,7 @@ func (s *MainSuite) TestRunMain(c *gc.C) {
 	// expected values below use deployHelpText().  This constructs the deploy
 	// command and runs gets the help for it.  When the deploy command is
 	// setting the flags (which is needed for the help text) it is accessing
-	// osenv.JujuHome(), which panics if SetJujuHome has not been called.
+	// osenv.JujuXDGDataHome(), which panics if SetJujuXDGDataHome has not been called.
 	// The FakeHome from testing does this.
 	for i, t := range []struct {
 		summary string
@@ -79,26 +64,6 @@ func (s *MainSuite) TestRunMain(c *gc.C) {
 		code    int
 		out     string
 	}{{
-		summary: "no params shows help",
-		args:    []string{},
-		code:    0,
-		out:     strings.TrimLeft(helptopics.Basics, "\n"),
-	}, {
-		summary: "juju help is the same as juju",
-		args:    []string{"help"},
-		code:    0,
-		out:     strings.TrimLeft(helptopics.Basics, "\n"),
-	}, {
-		summary: "juju --help works too",
-		args:    []string{"--help"},
-		code:    0,
-		out:     strings.TrimLeft(helptopics.Basics, "\n"),
-	}, {
-		summary: "juju help basics is the same as juju",
-		args:    []string{"help", "basics"},
-		code:    0,
-		out:     strings.TrimLeft(helptopics.Basics, "\n"),
-	}, {
 		summary: "juju help foo doesn't exist",
 		args:    []string{"help", "foo"},
 		code:    1,
@@ -119,20 +84,15 @@ func (s *MainSuite) TestRunMain(c *gc.C) {
 		code:    0,
 		out:     deployHelpText(),
 	}, {
-		summary: "juju help set shows the default help without global options",
-		args:    []string{"help", "set"},
+		summary: "juju --help config shows the same help as 'help config'",
+		args:    []string{"--help", "config"},
 		code:    0,
-		out:     setHelpText(),
+		out:     configHelpText(),
 	}, {
-		summary: "juju --help set shows the same help as 'help set'",
-		args:    []string{"--help", "set"},
+		summary: "juju config --help shows the same help as 'help config'",
+		args:    []string{"config", "--help"},
 		code:    0,
-		out:     setHelpText(),
-	}, {
-		summary: "juju set --help shows the same help as 'help set'",
-		args:    []string{"set", "--help"},
-		code:    0,
-		out:     setHelpText(),
+		out:     configHelpText(),
 	}, {
 		summary: "unknown command",
 		args:    []string{"discombobulate"},
@@ -150,9 +110,9 @@ func (s *MainSuite) TestRunMain(c *gc.C) {
 		out:     "error: flag provided but not defined: --cheese\n",
 	}, {
 		summary: "known option, but specified before command",
-		args:    []string{"--environment", "blah", "bootstrap"},
+		args:    []string{"--model", "blah", "bootstrap"},
 		code:    2,
-		out:     "error: flag provided but not defined: --environment\n",
+		out:     "error: flag provided but not defined: --model\n",
 	}, {
 		summary: "juju sync-tools registered properly",
 		args:    []string{"sync-tools", "--help"},
@@ -163,57 +123,11 @@ func (s *MainSuite) TestRunMain(c *gc.C) {
 		args:    []string{"version"},
 		code:    0,
 		out: version.Binary{
-			Number: version.Current,
+			Number: jujuversion.Current,
 			Arch:   arch.HostArch(),
 			Series: series.HostSeries(),
 		}.String() + "\n",
-	}, {
-		summary: "check block command registered properly",
-		args:    []string{"block", "-h"},
-		code:    0,
-		out:     blockHelpText(),
-	}, {
-		summary: "check unblock command registered properly",
-		args:    []string{"unblock"},
-		code:    0,
-		out:     "error: must specify one of [destroy-environment | remove-object | all-changes] to unblock\n",
-	}, {
-		summary: "check offer command has help",
-		args:    []string{"offer", "-h"},
-		code:    0,
-		out:     offerHelpText(),
-	}, {
-		summary: "check offer command registered properly",
-		args:    []string{"offer"},
-		code:    0,
-		out:     "error: an offer must at least specify service endpoint\n",
-	}, {
-		summary: "check show-endpoints command has help",
-		args:    []string{"show-endpoints", "-h"},
-		code:    0,
-		out:     showEndpointsHelpText(),
-	}, {
-		summary: "check show-endpoints command registered properly",
-		args:    []string{"show-endpoints"},
-		code:    0,
-		out:     "error: must specify endpoint URL\n",
-	}, {
-		summary: "check find-endpoints command has help",
-		args:    []string{"find-endpoints", "-h"},
-		code:    0,
-		out:     findEndpointsHelpText(),
-	}, {
-		summary: "check find-endpoints command registered properly",
-		args:    []string{"find-endpoints"},
-		code:    0,
-		out:     "ERROR environment is not prepared\n",
-	}, {
-		summary: "check list-offers command registered properly",
-		args:    []string{"list-offers"},
-		code:    0,
-		out:     "ERROR environment is not prepared\n",
-	},
-	} {
+	}} {
 		c.Logf("test %d: %s", i, t.summary)
 		out := badrun(c, t.code, t.args...)
 		c.Assert(out, gc.Equals, t.out)
@@ -227,11 +141,12 @@ func (s *MainSuite) TestActualRunJujuArgOrder(c *gc.C) {
 	if runtime.GOOS == "windows" {
 		c.Skip("bug 1403084: cannot read env file on windows because of suite problems")
 	}
+	s.PatchEnvironment(osenv.JujuModelEnvKey, "current")
 	logpath := filepath.Join(c.MkDir(), "log")
 	tests := [][]string{
-		{"--log-file", logpath, "--debug", "env"}, // global flags before
-		{"env", "--log-file", logpath, "--debug"}, // after
-		{"--log-file", logpath, "env", "--debug"}, // mixed
+		{"--log-file", logpath, "--debug", "controllers"}, // global flags before
+		{"controllers", "--log-file", logpath, "--debug"}, // after
+		{"--log-file", logpath, "controllers", "--debug"}, // mixed
 	}
 	for i, test := range tests {
 		c.Logf("test %d: %v", i, test)
@@ -244,116 +159,425 @@ func (s *MainSuite) TestActualRunJujuArgOrder(c *gc.C) {
 	}
 }
 
-var commandNames = []string{
-	"action",
-	"add-machine",
-	"add-relation",
-	"add-unit",
-	"api-endpoints",
-	"api-info",
-	"authorised-keys", // alias for authorized-keys
-	"authorized-keys",
-	"backups",
-	"block",
-	"bootstrap",
-	"cached-images",
-	"debug-hooks",
-	"debug-log",
-	"deploy",
-	"destroy-environment",
-	"destroy-machine",
-	"destroy-relation",
-	"destroy-service",
-	"destroy-unit",
-	"ensure-availability",
-	"env", // alias for switch
-	"environment",
-	"expose",
-	"find-endpoints",
-	"generate-config", // alias for init
-	"get",
-	"get-constraints",
-	"get-env", // alias for get-environment
-	"get-environment",
-	"help",
-	"help-tool",
-	"init",
-	"list-offers",
-	"machine",
-	"publish",
-	"offer",
-	"remove-machine",  // alias for destroy-machine
-	"remove-relation", // alias for destroy-relation
-	"remove-service",  // alias for destroy-service
-	"remove-unit",     // alias for destroy-unit
-	"resolved",
-	"retry-provisioning",
-	"run",
-	"scp",
-	"service",
-	"set",
-	"set-constraints",
-	"set-env", // alias for set-environment
-	"set-environment",
-	"show-endpoints",
-	"space",
-	"ssh",
-	"stat", // alias for status
-	"status",
-	"status-history",
-	"storage",
-	"subnet",
-	"switch",
-	"sync-tools",
-	"terminate-machine", // alias for destroy-machine
-	"unblock",
-	"unexpose",
-	"unset",
-	"unset-env", // alias for unset-environment
-	"unset-environment",
-	"upgrade-charm",
-	"upgrade-juju",
-	"user",
-	"version",
+func (s *MainSuite) TestFirstRun2xFrom1xOnUbuntu(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		// This test can't work on Windows and shouldn't need to
+		c.Skip("test doesn't work on Windows because Juju's 1.x and 2.x config directory are the same")
+	}
+
+	// Code should only run on ubuntu series, so patch out the series for
+	// when non-ubuntu OSes run this test.
+	s.PatchValue(&series.HostSeries, func() string { return "trusty" })
+
+	argChan := make(chan []string, 1)
+
+	execCommand := s.GetExecCommand(gitjujutesting.PatchExecConfig{
+		Stdout: "1.25.0-trusty-amd64",
+		Args:   argChan,
+	})
+	stub := &gitjujutesting.Stub{}
+	s.PatchValue(&cloud.NewUpdateCloudsCommand, func() cmd.Command {
+		return &stubCommand{stub: stub}
+	})
+
+	// remove the new juju-home and create a fake old juju home.
+	err := os.RemoveAll(osenv.JujuXDGDataHomeDir())
+	c.Assert(err, jc.ErrorIsNil)
+	makeValidOldHome(c)
+
+	var code int
+	f := func() {
+		code = main{
+			execCommand: execCommand,
+		}.Run([]string{"juju", "version"})
+	}
+
+	stdout, stderr := gitjujutesting.CaptureOutput(c, f)
+
+	select {
+	case args := <-argChan:
+		c.Assert(args, gc.DeepEquals, []string{"juju-1", "version"})
+	default:
+		c.Fatalf("Exec function not called.")
+	}
+
+	c.Check(code, gc.Equals, 0)
+	c.Check(string(stderr), gc.Equals, fmt.Sprintf(`
+    Welcome to Juju %s. If you meant to use Juju 1.25.0 you can continue using it
+    with the command juju-1 e.g. 'juju-1 switch'.
+    See https://jujucharms.com/docs/stable/introducing-2 for more details.
+
+Since Juju 2 is being run for the first time, downloading latest cloud information.`[1:]+"\n", jujuversion.Current))
+	checkVersionOutput(c, string(stdout))
 }
 
-func (s *MainSuite) TestHelpCommands(c *gc.C) {
-	defer osenv.SetJujuHome(osenv.SetJujuHome(c.MkDir()))
+func (s *MainSuite) TestFirstRun2xFrom1xNotUbuntu(c *gc.C) {
+	// Code should only run on ubuntu series, so pretend to be something else.
+	s.PatchValue(&series.HostSeries, func() string { return "win8" })
 
+	argChan := make(chan []string, 1)
+
+	// we shouldn't actually be running anything, but if we do, this will
+	// provide some consistent results.
+	execCommand := s.GetExecCommand(gitjujutesting.PatchExecConfig{
+		Stdout: "1.25.0-trusty-amd64",
+		Args:   argChan,
+	})
+	stub := &gitjujutesting.Stub{}
+	s.PatchValue(&cloud.NewUpdateCloudsCommand, func() cmd.Command {
+		return &stubCommand{stub: stub}
+	})
+
+	// remove the new juju-home and create a fake old juju home.
+	err := os.RemoveAll(osenv.JujuXDGDataHomeDir())
+	c.Assert(err, jc.ErrorIsNil)
+
+	makeValidOldHome(c)
+
+	var code int
+	stdout, stderr := gitjujutesting.CaptureOutput(c, func() {
+		code = main{
+			execCommand: execCommand,
+		}.Run([]string{"juju", "version"})
+	})
+
+	c.Assert(code, gc.Equals, 0)
+
+	assertNoArgs(c, argChan)
+
+	c.Check(string(stderr), gc.Equals, `
+Since Juju 2 is being run for the first time, downloading latest cloud information.`[1:]+"\n")
+	checkVersionOutput(c, string(stdout))
+}
+
+func (s *MainSuite) TestNoWarn1xWith2xData(c *gc.C) {
+	// Code should only rnu on ubuntu series, so patch out the series for
+	// when non-ubuntu OSes run this test.
+	s.PatchValue(&series.HostSeries, func() string { return "trusty" })
+
+	argChan := make(chan []string, 1)
+
+	// we shouldn't actually be running anything, but if we do, this will
+	// provide some consistent results.
+	execCommand := s.GetExecCommand(gitjujutesting.PatchExecConfig{
+		Stdout: "1.25.0-trusty-amd64",
+		Args:   argChan,
+	})
+
+	// there should be a 2x home directory already created by the test setup.
+
+	// create a fake old juju home.
+	makeValidOldHome(c)
+
+	var code int
+	stdout, stderr := gitjujutesting.CaptureOutput(c, func() {
+		code = main{
+			execCommand: execCommand,
+		}.Run([]string{"juju", "version"})
+	})
+
+	c.Assert(code, gc.Equals, 0)
+
+	assertNoArgs(c, argChan)
+	c.Assert(string(stderr), gc.Equals, "")
+	checkVersionOutput(c, string(stdout))
+}
+
+func (s *MainSuite) TestNoWarnWithNo1xOr2xData(c *gc.C) {
+	// Code should only rnu on ubuntu series, so patch out the series for
+	// when non-ubuntu OSes run this test.
+	s.PatchValue(&series.HostSeries, func() string { return "trusty" })
+
+	argChan := make(chan []string, 1)
+	// we shouldn't actually be running anything, but if we do, this will
+	// provide some consistent results.
+	execCommand := s.GetExecCommand(gitjujutesting.PatchExecConfig{
+		Stdout: "1.25.0-trusty-amd64",
+		Args:   argChan,
+	})
+	stub := &gitjujutesting.Stub{}
+	s.PatchValue(&cloud.NewUpdateCloudsCommand, func() cmd.Command {
+		return &stubCommand{stub: stub}
+	})
+
+	// remove the new juju-home.
+	err := os.RemoveAll(osenv.JujuXDGDataHomeDir())
+	c.Assert(err, jc.ErrorIsNil)
+
+	// create fake (empty) old juju home.
+	path := c.MkDir()
+	s.PatchEnvironment("JUJU_HOME", path)
+
+	var code int
+	stdout, stderr := gitjujutesting.CaptureOutput(c, func() {
+		code = main{
+			execCommand: execCommand,
+		}.Run([]string{"juju", "version"})
+	})
+
+	c.Assert(code, gc.Equals, 0)
+
+	assertNoArgs(c, argChan)
+	c.Check(string(stderr), gc.Equals, `
+Since Juju 2 is being run for the first time, downloading latest cloud information.`[1:]+"\n")
+	checkVersionOutput(c, string(stdout))
+}
+
+func (s *MainSuite) assertRunCommandUpdateCloud(c *gc.C, expectedCall string) {
+	argChan := make(chan []string, 1)
+	execCommand := s.GetExecCommand(gitjujutesting.PatchExecConfig{
+		Stdout: "1.25.0-trusty-amd64",
+		Args:   argChan,
+	})
+
+	stub := &gitjujutesting.Stub{}
+	s.PatchValue(&cloud.NewUpdateCloudsCommand, func() cmd.Command {
+		return &stubCommand{stub: stub}
+
+	})
+	var code int
+	gitjujutesting.CaptureOutput(c, func() {
+		code = main{
+			execCommand: execCommand,
+		}.Run([]string{"juju", "version"})
+	})
+	c.Assert(code, gc.Equals, 0)
+	c.Assert(stub.Calls()[0].FuncName, gc.Equals, expectedCall)
+}
+
+func (s *MainSuite) TestFirstRunUpdateCloud(c *gc.C) {
+	// remove the juju-home.
+	err := os.RemoveAll(osenv.JujuXDGDataHomeDir())
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertRunCommandUpdateCloud(c, "Run")
+}
+
+func (s *MainSuite) TestRunNoUpdateCloud(c *gc.C) {
+	s.assertRunCommandUpdateCloud(c, "Info")
+}
+
+func makeValidOldHome(c *gc.C) {
+	oldhome := osenv.OldJujuHomeDir()
+	err := os.MkdirAll(oldhome, 0700)
+	c.Assert(err, jc.ErrorIsNil)
+	err = ioutil.WriteFile(filepath.Join(oldhome, "environments.yaml"), []byte("boo!"), 0600)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func checkVersionOutput(c *gc.C, output string) {
+	ver := version.Binary{
+		Number: jujuversion.Current,
+		Arch:   arch.HostArch(),
+		Series: series.HostSeries(),
+	}
+
+	c.Check(output, gc.Equals, ver.String()+"\n")
+}
+
+func assertNoArgs(c *gc.C, argChan <-chan []string) {
+	select {
+	case args := <-argChan:
+		c.Fatalf("Exec function called when it shouldn't have been (with args %q).", args)
+	default:
+		// this is the good path - there shouldn't be any args, which indicates
+		// the executable was not called.
+	}
+}
+
+var commandNames = []string{
+	"actions",
+	"add-cloud",
+	"add-credential",
+	"add-machine",
+	"add-model",
+	"add-relation",
+	"add-space",
+	"add-ssh-key",
+	"add-storage",
+	"add-subnet",
+	"add-unit",
+	"add-user",
+	"agree",
+	"agreements",
+	"allocate",
+	"autoload-credentials",
+	"backups",
+	"bootstrap",
+	"budgets",
+	"cached-images",
+	"change-user-password",
+	"charm",
+	"clouds",
+	"config",
+	"collect-metrics",
+	"controllers",
+	"create-backup",
+	"create-budget",
+	"create-storage-pool",
+	"credentials",
+	"controller-config",
+	"debug-hooks",
+	"debug-log",
+	"remove-user",
+	"deploy",
+	"destroy-controller",
+	"destroy-model",
+	"disable-command",
+	"disable-user",
+	"disabled-commands",
+	"download-backup",
+	"enable-ha",
+	"enable-command",
+	"enable-destroy-controller",
+	"enable-user",
+	"expose",
+	"find-endpoints",
+	"get-constraints",
+	"get-model-constraints",
+	"grant",
+	"gui",
+	"help",
+	"help-tool",
+	"import-ssh-key",
+	"kill-controller",
+	"list-actions",
+	"list-agreements",
+	"list-backups",
+	"list-budgets",
+	"list-cached-images",
+	"list-clouds",
+	"list-controllers",
+	"list-credentials",
+	"list-disabled-commands",
+	"list-machines",
+	"list-models",
+	"list-offers",
+	"list-plans",
+	"list-regions",
+	"list-ssh-keys",
+	"list-spaces",
+	"list-storage",
+	"list-storage-pools",
+	"list-subnets",
+	"list-users",
+	"login",
+	"logout",
+	"machines",
+	"metrics",
+	"model-config",
+	"model-defaults",
+	"offer",
+	"models",
+	"plans",
+	"regions",
+	"register",
+	"relate", //alias for add-relation
+	"remove-application",
+	"remove-backup",
+	"remove-cached-images",
+	"remove-cloud",
+	"remove-credential",
+	"remove-machine",
+	"remove-relation",
+	"remove-ssh-key",
+	"remove-unit",
+	"resolved",
+	"restore-backup",
+	"retry-provisioning",
+	"revoke",
+	"run",
+	"run-action",
+	"scp",
+	"set-budget",
+	"set-constraints",
+	"set-default-credential",
+	"set-default-region",
+	"set-meter-status",
+	"set-model-constraints",
+	"set-plan",
+	"show-action-output",
+	"show-action-status",
+	"show-backup",
+	"show-budget",
+	"show-cloud",
+	"show-controller",
+	"show-endpoints",
+	"show-machine",
+	"show-model",
+	"show-status",
+	"show-status-log",
+	"show-storage",
+	"show-user",
+	"spaces",
+	"ssh",
+	"ssh-keys",
+	"status",
+	"storage",
+	"storage-pools",
+	"subnets",
+	"switch",
+	"sync-tools",
+	"unexpose",
+	"update-allocation",
+	"upload-backup",
+	"unregister",
+	"update-clouds",
+	"update-credential",
+	"upgrade-charm",
+	"upgrade-gui",
+	"upgrade-juju",
+	"users",
+	"version",
+	"whoami",
+}
+
+// devFeatures are feature flags that impact registration of commands.
+var devFeatures = []string{feature.Migration}
+
+// These are the commands that are behind the `devFeatures`.
+var commandNamesBehindFlags = set.NewStrings(
+	"migrate",
+)
+
+func (s *MainSuite) TestHelpCommands(c *gc.C) {
 	// Check that we have correctly registered all the commands
 	// by checking the help output.
 	// First check default commands, and then check commands that are
 	// activated by feature flags.
 
-	// Here we can add feature flags for any commands we want to hide by default.
-	devFeatures := []string{}
-
 	// remove features behind dev_flag for the first test
 	// since they are not enabled.
 	cmdSet := set.NewStrings(commandNames...)
-	for _, feature := range devFeatures {
-		cmdSet.Remove(feature)
-	}
 
 	// 1. Default Commands. Disable all features.
 	setFeatureFlags("")
-	c.Assert(getHelpCommandNames(c), jc.SameContents, cmdSet.Values())
+	// Use sorted values here so we can better see what is wrong.
+	registered := getHelpCommandNames(c)
+	unknown := registered.Difference(cmdSet)
+	c.Assert(unknown, jc.DeepEquals, set.NewStrings())
+	missing := cmdSet.Difference(registered)
+	c.Assert(missing, jc.DeepEquals, set.NewStrings())
 
 	// 2. Enable development features, and test again.
+	cmdSet = cmdSet.Union(commandNamesBehindFlags)
 	setFeatureFlags(strings.Join(devFeatures, ","))
-	c.Assert(getHelpCommandNames(c), jc.SameContents, commandNames)
+	registered = getHelpCommandNames(c)
+	unknown = registered.Difference(cmdSet)
+	c.Assert(unknown, jc.DeepEquals, set.NewStrings())
+	missing = cmdSet.Difference(registered)
+	c.Assert(missing, jc.DeepEquals, set.NewStrings())
 }
 
-func getHelpCommandNames(c *gc.C) []string {
+func getHelpCommandNames(c *gc.C) set.Strings {
 	out := badrun(c, 0, "help", "commands")
 	lines := strings.Split(out, "\n")
-	var names []string
+	names := set.NewStrings()
 	for _, line := range lines {
 		f := strings.Fields(line)
 		if len(f) == 0 {
 			continue
 		}
-		names = append(names, f[0])
+		names.Add(f[0])
 	}
 	return names
 }
@@ -363,46 +587,6 @@ func setFeatureFlags(flags string) {
 		panic(err)
 	}
 	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
-}
-
-var topicNames = []string{
-	"azure-provider",
-	"basics",
-	"commands",
-	"constraints",
-	"ec2-provider",
-	"global-options",
-	"glossary",
-	"hpcloud-provider",
-	"juju",
-	"juju-systems",
-	"local-provider",
-	"logging",
-	"maas-provider",
-	"openstack-provider",
-	"placement",
-	"plugins",
-	"spaces",
-	"topics",
-	"users",
-}
-
-func (s *MainSuite) TestHelpTopics(c *gc.C) {
-	// Check that we have correctly registered all the topics
-	// by checking the help output.
-	defer osenv.SetJujuHome(osenv.SetJujuHome(c.MkDir()))
-	out := badrun(c, 0, "help", "topics")
-	lines := strings.Split(out, "\n")
-	var names []string
-	for _, line := range lines {
-		f := strings.Fields(line)
-		if len(f) == 0 {
-			continue
-		}
-		names = append(names, f[0])
-	}
-	// The names should be output in alphabetical order, so don't sort.
-	c.Assert(names, gc.DeepEquals, topicNames)
 }
 
 var globalFlags = []string{
@@ -419,7 +603,6 @@ var globalFlags = []string{
 func (s *MainSuite) TestHelpGlobalOptions(c *gc.C) {
 	// Check that we have correctly registered all the topics
 	// by checking the help output.
-	defer osenv.SetJujuHome(osenv.SetJujuHome(c.MkDir()))
 	out := badrun(c, 0, "help", "global-options")
 	c.Assert(out, gc.Matches, `Global Options
 
@@ -483,21 +666,20 @@ func (r *commands) RegisterSuperAlias(name, super, forName string, check cmd.Dep
 	// Do nothing.
 }
 
-func (s *MainSuite) TestEnvironCommands(c *gc.C) {
+func (s *MainSuite) TestModelCommands(c *gc.C) {
 	var commands commands
 	registerCommands(&commands, testing.Context(c))
-	// There should not be any EnvironCommands registered.
-	// EnvironCommands must be wrapped using envcmd.Wrap.
+	// There should not be any ModelCommands registered.
+	// ModelCommands must be wrapped using modelcmd.Wrap.
 	for _, cmd := range commands {
 		c.Logf("%v", cmd.Info().Name)
-		c.Check(cmd, gc.Not(gc.FitsTypeOf), envcmd.EnvironCommand(&bootstrapCommand{}))
+		c.Check(cmd, gc.Not(gc.FitsTypeOf), modelcmd.ModelCommand(&bootstrapCommand{}))
 	}
 }
 
 func (s *MainSuite) TestAllCommandsPurposeDocCapitalization(c *gc.C) {
 	// Verify each command that:
-	// - the Purpose field is not empty and begins with a lowercase
-	// letter, and,
+	// - the Purpose field is not empty
 	// - if set, the Doc field either begins with the name of the
 	// command or and uppercase letter.
 	//
@@ -520,8 +702,8 @@ func (s *MainSuite) TestAllCommandsPurposeDocCapitalization(c *gc.C) {
 		c.Check(purpose, gc.Not(gc.Equals), "", comment("has empty Purpose"))
 		if purpose != "" {
 			prefix := string(purpose[0])
-			c.Check(prefix, gc.Equals, strings.ToLower(prefix),
-				comment("expected lowercase first-letter Purpose"),
+			c.Check(prefix, gc.Equals, strings.ToUpper(prefix),
+				comment("expected uppercase first-letter Purpose"),
 			)
 		}
 		if doc != "" && !strings.HasPrefix(doc, info.Name) {
@@ -531,27 +713,4 @@ func (s *MainSuite) TestAllCommandsPurposeDocCapitalization(c *gc.C) {
 			)
 		}
 	}
-}
-
-func (s *MainSuite) TestTwoDotOhDeprecation(c *gc.C) {
-	check := twoDotOhDeprecation("the replacement")
-
-	// first check pre-2.0
-	s.PatchValue(&version.Current, version.MustParse("1.26.4"))
-	deprecated, replacement := check.Deprecated()
-	c.Check(deprecated, jc.IsFalse)
-	c.Check(replacement, gc.Equals, "")
-	c.Check(check.Obsolete(), jc.IsFalse)
-
-	s.PatchValue(&version.Current, version.MustParse("2.0-alpha1"))
-	deprecated, replacement = check.Deprecated()
-	c.Check(deprecated, jc.IsTrue)
-	c.Check(replacement, gc.Equals, "the replacement")
-	c.Check(check.Obsolete(), jc.IsFalse)
-
-	s.PatchValue(&version.Current, version.MustParse("3.0-alpha1"))
-	deprecated, replacement = check.Deprecated()
-	c.Check(deprecated, jc.IsTrue)
-	c.Check(replacement, gc.Equals, "the replacement")
-	c.Check(check.Obsolete(), jc.IsTrue)
 }

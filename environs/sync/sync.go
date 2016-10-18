@@ -5,7 +5,6 @@ package sync
 
 import (
 	"bytes"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -15,13 +14,15 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 	jujuseries "github.com/juju/utils/series"
+	"github.com/juju/version"
 
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
 	envtools "github.com/juju/juju/environs/tools"
+	"github.com/juju/juju/juju/keys"
 	coretools "github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 var logger = loggo.GetLogger("juju.environs.sync")
@@ -75,15 +76,15 @@ type ToolsUploader interface {
 func SyncTools(syncContext *SyncContext) error {
 	sourceDataSource, err := selectSourceDatasource(syncContext)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	logger.Infof("listing available tools")
 	if syncContext.MajorVersion == 0 && syncContext.MinorVersion == 0 {
-		syncContext.MajorVersion = version.Current.Major
+		syncContext.MajorVersion = jujuversion.Current.Major
 		syncContext.MinorVersion = -1
 		if !syncContext.AllVersions {
-			syncContext.MinorVersion = version.Current.Minor
+			syncContext.MinorVersion = jujuversion.Current.Minor
 		}
 	}
 
@@ -92,8 +93,8 @@ func SyncTools(syncContext *SyncContext) error {
 	if syncContext.Stream == "" {
 		// We now store the tools in a directory named after their stream, but the
 		// legacy behaviour is to store all tools in a single "releases" directory.
-		toolsDir = envtools.LegacyReleaseDirectory
-		syncContext.Stream = envtools.PreferredStream(&version.Current, false, syncContext.Stream)
+		toolsDir = envtools.ReleasedStream
+		syncContext.Stream = envtools.PreferredStream(&jujuversion.Current, false, "")
 	}
 	sourceTools, err := envtools.FindToolsForCloud(
 		[]simplestreams.DataSource{sourceDataSource}, simplestreams.CloudSpec{},
@@ -107,7 +108,7 @@ func SyncTools(syncContext *SyncContext) error {
 			envtools.ReleasedStream, syncContext.MajorVersion, syncContext.MinorVersion, coretools.Filter{})
 	}
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	logger.Infof("found %d tools", len(sourceTools))
@@ -125,7 +126,7 @@ func SyncTools(syncContext *SyncContext) error {
 	switch err {
 	case nil, coretools.ErrNoMatches, envtools.ErrNoTools:
 	default:
-		return err
+		return errors.Trace(err)
 	}
 	for _, tool := range targetTools {
 		logger.Debugf("found target tool: %v", tool)
@@ -159,7 +160,7 @@ func selectSourceDatasource(syncContext *SyncContext) (simplestreams.DataSource,
 		return nil, err
 	}
 	logger.Infof("using sync tools source: %v", sourceURL)
-	return simplestreams.NewURLDataSource("sync tools source", sourceURL, utils.VerifySSLHostnames), nil
+	return simplestreams.NewURLSignedDataSource("sync tools source", sourceURL, keys.JujuPublicKey, utils.VerifySSLHostnames, simplestreams.CUSTOM_CLOUD_DATA, false), nil
 }
 
 // copyTools copies a set of tools from the source to the target.
@@ -189,12 +190,12 @@ func copyOneToolsPackage(toolsDir, stream string, tools *coretools.Tools, u Tool
 		return err
 	}
 	if tools.SHA256 == "" {
-		logger.Warningf("no SHA-256 hash for %v", tools.SHA256)
+		logger.Errorf("no SHA-256 hash for %v", tools.SHA256) // TODO(dfc) can you spot the bug ?
 	} else if sha256 != tools.SHA256 {
 		return errors.Errorf("SHA-256 hash mismatch (%v/%v)", sha256, tools.SHA256)
 	}
 	sizeInKB := (size + 512) / 1024
-	logger.Infof("uploading %v (%dkB) to environment", toolsName, sizeInKB)
+	logger.Infof("uploading %v (%dkB) to model", toolsName, sizeInKB)
 	return u.UploadTools(toolsDir, stream, tools, buf.Bytes())
 }
 
@@ -214,18 +215,18 @@ var Upload UploadFunc = upload
 // Juju tools built for one series do not necessarily run on another, but this
 // func exists only for development use cases.
 func upload(stor storage.Storage, stream string, forceVersion *version.Number, fakeSeries ...string) (*coretools.Tools, error) {
-	builtTools, err := BuildToolsTarball(forceVersion, stream)
+	builtTools, err := BuildAgentTarball(true, forceVersion, stream)
 	if err != nil {
 		return nil, err
 	}
 	defer os.RemoveAll(builtTools.Dir)
-	logger.Debugf("Uploading tools for %v", fakeSeries)
+	logger.Debugf("Uploading agent binaries for %v", fakeSeries)
 	return syncBuiltTools(stor, stream, builtTools, fakeSeries...)
 }
 
 // cloneToolsForSeries copies the built tools tarball into a tarball for the specified
 // stream and series and generates corresponding metadata.
-func cloneToolsForSeries(toolsInfo *BuiltTools, stream string, series ...string) error {
+func cloneToolsForSeries(toolsInfo *BuiltAgent, stream string, series ...string) error {
 	// Copy the tools to the target storage, recording a Tools struct for each one.
 	var targetTools coretools.List
 	targetTools = append(targetTools, &coretools.Tools{
@@ -276,9 +277,9 @@ func cloneToolsForSeries(toolsInfo *BuiltTools, stream string, series ...string)
 	return envtools.MergeAndWriteMetadata(metadataStore, stream, stream, targetTools, false)
 }
 
-// BuiltTools contains metadata for a tools tarball resulting from
+// BuiltAgent contains metadata for a tools tarball resulting from
 // a call to BundleTools.
-type BuiltTools struct {
+type BuiltAgent struct {
 	Version     version.Binary
 	Dir         string
 	StorageName string
@@ -286,19 +287,19 @@ type BuiltTools struct {
 	Size        int64
 }
 
-// BuildToolsTarballFunc is a function which can build a tools tarball.
-type BuildToolsTarballFunc func(forceVersion *version.Number, stream string) (*BuiltTools, error)
+// BuildAgentTarballFunc is a function which can build an agent tarball.
+type BuildAgentTarballFunc func(build bool, forceVersion *version.Number, stream string) (*BuiltAgent, error)
 
 // Override for testing.
-var BuildToolsTarball BuildToolsTarballFunc = buildToolsTarball
+var BuildAgentTarball BuildAgentTarballFunc = buildAgentTarball
 
-// buildToolsTarball bundles a tools tarball and places it in a temp directory in
-// the expected tools path.
-func buildToolsTarball(forceVersion *version.Number, stream string) (builtTools *BuiltTools, err error) {
+// BuildAgentTarball bundles an agent tarball and places it in a temp directory in
+// the expected agent path.
+func buildAgentTarball(build bool, forceVersion *version.Number, stream string) (_ *BuiltAgent, err error) {
 	// TODO(rog) find binaries from $PATH when not using a development
 	// version of juju within a $GOPATH.
 
-	logger.Debugf("Building tools")
+	logger.Debugf("Making agent binary tarball")
 	// We create the entire archive before asking the environment to
 	// start uploading so that we can be sure we have archived
 	// correctly.
@@ -308,16 +309,28 @@ func buildToolsTarball(forceVersion *version.Number, stream string) (builtTools 
 	}
 	defer f.Close()
 	defer os.Remove(f.Name())
-	toolsVersion, sha256Hash, err := envtools.BundleTools(f, forceVersion)
+	toolsVersion, sha256Hash, err := envtools.BundleTools(build, f, forceVersion)
 	if err != nil {
 		return nil, err
 	}
+	// Built agent version needs to match the client used to bootstrap.
+	builtVersion := toolsVersion
+	builtVersion.Build = 0
+	clientVersion := jujuversion.Current
+	clientVersion.Build = 0
+	if builtVersion.Number.Compare(clientVersion) != 0 {
+		return nil, errors.Errorf("agent binary %v not compatibile with bootstrap client %v", toolsVersion.Number, jujuversion.Current)
+	}
 	fileInfo, err := f.Stat()
 	if err != nil {
-		return nil, fmt.Errorf("cannot stat newly made tools archive: %v", err)
+		return nil, errors.Errorf("cannot stat newly made tools archive: %v", err)
 	}
 	size := fileInfo.Size()
-	logger.Infof("built tools %v (%dkB)", toolsVersion, (size+512)/1024)
+	reportedVersion := toolsVersion
+	if forceVersion != nil {
+		reportedVersion.Number = *forceVersion
+	}
+	logger.Infof("using agent binary %v aliased to %v (%dkB)", toolsVersion, reportedVersion, (size+512)/1024)
 	baseToolsDir, err := ioutil.TempDir("", "juju-tools")
 	if err != nil {
 		return nil, err
@@ -339,7 +352,7 @@ func buildToolsTarball(forceVersion *version.Number, stream string) (builtTools 
 	if err != nil {
 		return nil, err
 	}
-	return &BuiltTools{
+	return &BuiltAgent{
 		Version:     toolsVersion,
 		Dir:         baseToolsDir,
 		StorageName: storageName,
@@ -349,7 +362,7 @@ func buildToolsTarball(forceVersion *version.Number, stream string) (builtTools 
 }
 
 // syncBuiltTools copies to storage a tools tarball and cloned copies for each series.
-func syncBuiltTools(stor storage.Storage, stream string, builtTools *BuiltTools, fakeSeries ...string) (*coretools.Tools, error) {
+func syncBuiltTools(stor storage.Storage, stream string, builtTools *BuiltAgent, fakeSeries ...string) (*coretools.Tools, error) {
 	if err := cloneToolsForSeries(builtTools, stream, fakeSeries...); err != nil {
 		return nil, err
 	}
@@ -362,7 +375,7 @@ func syncBuiltTools(stor storage.Storage, stream string, builtTools *BuiltTools,
 		MajorVersion:        builtTools.Version.Major,
 		MinorVersion:        -1,
 	}
-	logger.Debugf("uploading tools to cloud storage")
+	logger.Debugf("uploading agent binaries to cloud storage")
 	err := SyncTools(syncContext)
 	if err != nil {
 		return nil, err

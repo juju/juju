@@ -30,7 +30,7 @@ type machineRebootSuite struct {
 
 	machine *state.Machine
 	st      api.Connection
-	reboot  *reboot.State
+	reboot  reboot.State
 }
 
 var _ = gc.Suite(&machineRebootSuite{})

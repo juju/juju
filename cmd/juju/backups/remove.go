@@ -9,15 +9,17 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 const removeDoc = `
-"remove" removes a backup from remote storage.
+remove-backup removes a backup from remote storage.
 `
 
-func newRemoveCommand() cmd.Command {
-	return envcmd.Wrap(&removeCommand{})
+// NewRemoveCommand returns a command used to remove a
+// backup from remote storage.
+func NewRemoveCommand() cmd.Command {
+	return modelcmd.Wrap(&removeCommand{})
 }
 
 type removeCommand struct {
@@ -29,9 +31,9 @@ type removeCommand struct {
 // Info implements Command.Info.
 func (c *removeCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "remove",
+		Name:    "remove-backup",
 		Args:    "<ID>",
-		Purpose: "delete a backup",
+		Purpose: "Remove the spcified backup from remote storage.",
 		Doc:     removeDoc,
 	}
 }
@@ -51,6 +53,11 @@ func (c *removeCommand) Init(args []string) error {
 
 // Run implements Command.Run.
 func (c *removeCommand) Run(ctx *cmd.Context) error {
+	if c.Log != nil {
+		if err := c.Log.Start(ctx); err != nil {
+			return err
+		}
+	}
 	client, err := c.NewAPIClient()
 	if err != nil {
 		return errors.Trace(err)

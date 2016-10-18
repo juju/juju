@@ -14,8 +14,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/tar"
-
-	"github.com/juju/juju/version"
+	"github.com/juju/version"
 )
 
 const (

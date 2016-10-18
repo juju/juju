@@ -4,10 +4,10 @@
 package uniter_test
 
 import (
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
@@ -22,12 +22,12 @@ import (
 type uniterSuite struct {
 	testing.JujuConnSuite
 
-	st                 api.Connection
-	stateServerMachine *state.Machine
-	wordpressMachine   *state.Machine
-	wordpressService   *state.Service
-	wordpressCharm     *state.Charm
-	wordpressUnit      *state.Unit
+	st                api.Connection
+	controllerMachine *state.Machine
+	wordpressMachine  *state.Machine
+	wordpressService  *state.Application
+	wordpressCharm    *state.Charm
+	wordpressUnit     *state.Unit
 
 	uniter *uniter.State
 }
@@ -38,16 +38,27 @@ func (s *uniterSuite) SetUpTest(c *gc.C) {
 	s.setUpTest(c, true)
 }
 
-func (s *uniterSuite) setUpTest(c *gc.C, addStateServer bool) {
+func (s *uniterSuite) setUpTest(c *gc.C, addController bool) {
 	s.JujuConnSuite.SetUpTest(c)
 
-	if addStateServer {
-		s.stateServerMachine = testing.AddStateServerMachine(c, s.State)
+	if addController {
+		s.controllerMachine = testing.AddControllerMachine(c, s.State)
 	}
+
+	// Bind "db" relation of wordpress to space "internal",
+	// and the "admin-api" extra-binding to space "public".
+	bindings := map[string]string{
+		"db":        "internal",
+		"admin-api": "public",
+	}
+	_, err := s.State.AddSpace("internal", "", nil, false)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddSpace("public", "", nil, true)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Create a machine, a service and add a unit so we can log in as
 	// its agent.
-	s.wordpressMachine, s.wordpressService, s.wordpressCharm, s.wordpressUnit = s.addMachineServiceCharmAndUnit(c, "wordpress")
+	s.wordpressMachine, s.wordpressService, s.wordpressCharm, s.wordpressUnit = s.addMachineBoundServiceCharmAndUnit(c, "wordpress", bindings)
 	password, err := utils.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.wordpressUnit.SetPassword(password)
@@ -60,16 +71,29 @@ func (s *uniterSuite) setUpTest(c *gc.C, addStateServer bool) {
 	c.Assert(s.uniter, gc.NotNil)
 }
 
-func (s *uniterSuite) addMachineServiceCharmAndUnit(c *gc.C, serviceName string) (*state.Machine, *state.Service, *state.Charm, *state.Unit) {
+func (s *uniterSuite) addMachineBoundServiceCharmAndUnit(c *gc.C, serviceName string, bindings map[string]string) (*state.Machine, *state.Application, *state.Charm, *state.Unit) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	charm := s.AddTestingCharm(c, serviceName)
-	service := s.AddTestingService(c, serviceName, charm)
+
+	service, err := s.State.AddApplication(state.AddApplicationArgs{
+		Name:             serviceName,
+		Charm:            charm,
+		EndpointBindings: bindings,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
 	unit, err := service.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
+
 	err = unit.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
+
 	return machine, service, charm, unit
+}
+
+func (s *uniterSuite) addMachineServiceCharmAndUnit(c *gc.C, serviceName string) (*state.Machine, *state.Application, *state.Charm, *state.Unit) {
+	return s.addMachineBoundServiceCharmAndUnit(c, serviceName, nil)
 }
 
 func (s *uniterSuite) addRelation(c *gc.C, first, second string) *state.Relation {
@@ -80,7 +104,7 @@ func (s *uniterSuite) addRelation(c *gc.C, first, second string) *state.Relation
 	return rel
 }
 
-func (s *uniterSuite) addRelatedService(c *gc.C, firstSvc, relatedSvc string, unit *state.Unit) (*state.Relation, *state.Service, *state.Unit) {
+func (s *uniterSuite) addRelatedService(c *gc.C, firstSvc, relatedSvc string, unit *state.Unit) (*state.Relation, *state.Application, *state.Unit) {
 	relatedService := s.AddTestingService(c, relatedSvc, s.AddTestingCharm(c, relatedSvc))
 	rel := s.addRelation(c, firstSvc, relatedSvc)
 	relUnit, err := rel.Unit(unit)

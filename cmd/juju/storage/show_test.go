@@ -8,9 +8,9 @@ import (
 	"time"
 
 	"github.com/juju/cmd"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/storage"
@@ -38,7 +38,7 @@ func (s *ShowSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ShowSuite) runShow(c *gc.C, args []string) (*cmd.Context, error) {
-	return testing.RunCommand(c, storage.NewShowCommand(s.mockAPI), args...)
+	return testing.RunCommand(c, storage.NewShowCommandForTest(s.mockAPI, s.store), args...)
 }
 
 func (s *ShowSuite) TestShowNoMatch(c *gc.C) {
@@ -138,7 +138,7 @@ func (s mockShowAPI) Close() error {
 	return nil
 }
 
-func (s mockShowAPI) Show(tags []names.StorageTag) ([]params.StorageDetailsResult, error) {
+func (s mockShowAPI) StorageDetails(tags []names.StorageTag) ([]params.StorageDetailsResult, error) {
 	if s.noMatch {
 		return nil, nil
 	}
@@ -147,7 +147,7 @@ func (s mockShowAPI) Show(tags []names.StorageTag) ([]params.StorageDetailsResul
 		if strings.Contains(tag.String(), "shared") {
 			all[i].Result = &params.StorageDetails{
 				StorageTag: tag.String(),
-				OwnerTag:   "service-transcode",
+				OwnerTag:   "application-transcode",
 				Kind:       params.StorageKindFilesystem,
 				Status: params.EntityStatus{
 					Status: "attached",
@@ -166,14 +166,19 @@ func (s mockShowAPI) Show(tags []names.StorageTag) ([]params.StorageDetailsResul
 				},
 			}
 		} else {
-			all[i].Legacy = params.LegacyStorageDetails{
+			all[i].Result = &params.StorageDetails{
 				StorageTag: tag.String(),
-				UnitTag:    "unit-postgresql-0",
 				Kind:       params.StorageKindBlock,
-				Status:     "pending",
+				Status: params.EntityStatus{
+					Status: "pending",
+					Since:  &epoch,
+				},
+				Attachments: map[string]params.StorageAttachmentDetails{
+					"unit-postgresql-0": params.StorageAttachmentDetails{},
+				},
 			}
 			if i == 1 {
-				all[i].Legacy.Persistent = true
+				all[i].Result.Persistent = true
 			}
 		}
 	}

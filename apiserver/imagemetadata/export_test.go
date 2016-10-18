@@ -4,7 +4,6 @@
 package imagemetadata
 
 var (
-	CreateAPI               = createAPI
-	ParseMetadataFromParams = parseMetadataFromParams
-	ProcessErrors           = processErrors
+	CreateAPI     = createAPI
+	ProcessErrors = processErrors
 )

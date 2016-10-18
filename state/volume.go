@@ -9,21 +9,22 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
 )
 
-// Volume describes a volume (disk, logical volume, etc.) in the environment.
+// Volume describes a volume (disk, logical volume, etc.) in the model.
 type Volume interface {
 	GlobalEntity
 	LifeBinder
-	StatusGetter
-	StatusSetter
+	status.StatusGetter
+	status.StatusSetter
 
 	// VolumeTag returns the tag for the volume.
 	VolumeTag() names.VolumeTag
@@ -79,11 +80,11 @@ type volumeAttachment struct {
 	doc volumeAttachmentDoc
 }
 
-// volumeDoc records information about a volume in the environment.
+// volumeDoc records information about a volume in the model.
 type volumeDoc struct {
 	DocID           string        `bson:"_id"`
 	Name            string        `bson:"name"`
-	EnvUUID         string        `bson:"env-uuid"`
+	ModelUUID       string        `bson:"model-uuid"`
 	Life            Life          `bson:"life"`
 	StorageId       string        `bson:"storageid,omitempty"`
 	AttachmentCount int           `bson:"attachmentcount"`
@@ -95,13 +96,13 @@ type volumeDoc struct {
 // volumeAttachmentDoc records information about a volume attachment.
 type volumeAttachmentDoc struct {
 	// DocID is the machine global key followed by the volume name.
-	DocID   string                  `bson:"_id"`
-	EnvUUID string                  `bson:"env-uuid"`
-	Volume  string                  `bson:"volumeid"`
-	Machine string                  `bson:"machineid"`
-	Life    Life                    `bson:"life"`
-	Info    *VolumeAttachmentInfo   `bson:"info,omitempty"`
-	Params  *VolumeAttachmentParams `bson:"params,omitempty"`
+	DocID     string                  `bson:"_id"`
+	ModelUUID string                  `bson:"model-uuid"`
+	Volume    string                  `bson:"volumeid"`
+	Machine   string                  `bson:"machineid"`
+	Life      Life                    `bson:"life"`
+	Info      *VolumeAttachmentInfo   `bson:"info,omitempty"`
+	Params    *VolumeAttachmentParams `bson:"params,omitempty"`
 }
 
 // VolumeParams records parameters for provisioning a new volume.
@@ -149,9 +150,9 @@ func (v *volume) validate() error {
 			return errors.Annotate(err, "parsing binding")
 		}
 		switch tag.(type) {
-		case names.EnvironTag:
-			// TODO(axw) support binding to environment
-			return errors.NotSupportedf("binding to environment")
+		case names.ModelTag:
+			// TODO(axw) support binding to model
+			return errors.NotSupportedf("binding to model")
 		case names.MachineTag:
 		case names.FilesystemTag:
 		case names.StorageTag:
@@ -198,8 +199,8 @@ func (v *volume) Life() Life {
 //   Filesystem:  If the volume is bound to a filesystem, i.e. the
 //                volume backs that filesystem, then it will be
 //                destroyed when the filesystem is removed from state.
-//   Environment: If the volume is bound to the environment, then the
-//                volume must be destroyed prior to the environment
+//   Model: If the volume is bound to the model, then the
+//                volume must be destroyed prior to the model
 //                being destroyed.
 func (v *volume) LifeBinding() names.Tag {
 	if v.doc.Binding == "" {
@@ -236,13 +237,13 @@ func (v *volume) Params() (VolumeParams, bool) {
 }
 
 // Status is required to implement StatusGetter.
-func (v *volume) Status() (StatusInfo, error) {
+func (v *volume) Status() (status.StatusInfo, error) {
 	return v.st.VolumeStatus(v.VolumeTag())
 }
 
 // SetStatus is required to implement StatusSetter.
-func (v *volume) SetStatus(status Status, info string, data map[string]interface{}) error {
-	return v.st.SetVolumeStatus(v.VolumeTag(), status, info, data)
+func (v *volume) SetStatus(volumeStatus status.StatusInfo) error {
+	return v.st.SetVolumeStatus(v.VolumeTag(), volumeStatus.Status, volumeStatus.Message, volumeStatus.Data, volumeStatus.Since)
 }
 
 // Volume is required to implement VolumeAttachment.
@@ -458,16 +459,16 @@ func isVolumeInherentlyMachineBound(st *State, tag names.VolumeTag) (bool, error
 		if err != nil {
 			return false, errors.Trace(err)
 		}
+		if provider.Scope() == storage.ScopeMachine {
+			// Any storage created by a machine must be destroyed
+			// along with the machine.
+			return true, nil
+		}
 		if provider.Dynamic() {
-			// Even machine-scoped storage could be provisioned
-			// while the machine is Dying, and we don't know at
-			// this layer whether or not it will be Persistent.
-			//
-			// TODO(axw) extend storage provider interface to
-			// determine up-front whether or not a volume will
-			// be persistent. This will have to depend on the
-			// machine type, since, e.g., loop devices will
-			// outlive LXC containers.
+			// We don't know ahead of time whether the storage
+			// will be Persistent, so we assume it will be, and
+			// rely on the environment-level storage provisioner
+			// to clean up.
 			return false, nil
 		}
 		// Volume is static, so even if it is provisioned, it will
@@ -672,7 +673,7 @@ func destroyVolumeOps(st *State, v *volume) []txn.Op {
 			Update: bson.D{{"$set", bson.D{{"life", Dead}}}},
 		}}
 	}
-	cleanupOp := st.newCleanupOp(cleanupAttachmentsForDyingVolume, v.doc.Name)
+	cleanupOp := newCleanupOp(cleanupAttachmentsForDyingVolume, v.doc.Name)
 	hasAttachments := bson.D{{"attachmentcount", bson.D{{"$gt", 0}}}}
 	return []txn.Op{{
 		C:      volumesC,
@@ -745,33 +746,38 @@ func (st *State) addVolumeOps(params VolumeParams, machineId string) ([]txn.Op, 
 	if err != nil {
 		return nil, names.VolumeTag{}, errors.Annotate(err, "cannot generate volume name")
 	}
-	ops := []txn.Op{
-		createStatusOp(st, volumeGlobalKey(name), statusDoc{
-			Status:  StatusPending,
-			Updated: time.Now().UnixNano(),
-		}),
+	status := statusDoc{
+		Status:  status.Pending,
+		Updated: st.clock.Now().UnixNano(),
+	}
+	doc := volumeDoc{
+		Name:      name,
+		StorageId: params.storage.Id(),
+		Binding:   params.binding.String(),
+		Params:    &params,
+		// Every volume is created with one attachment.
+		AttachmentCount: 1,
+	}
+	return st.newVolumeOps(doc, status), names.NewVolumeTag(name), nil
+}
+
+func (st *State) newVolumeOps(doc volumeDoc, status statusDoc) []txn.Op {
+	return []txn.Op{
+		createStatusOp(st, volumeGlobalKey(doc.Name), status),
 		{
 			C:      volumesC,
-			Id:     name,
+			Id:     doc.Name,
 			Assert: txn.DocMissing,
-			Insert: &volumeDoc{
-				Name:      name,
-				StorageId: params.storage.Id(),
-				Binding:   params.binding.String(),
-				Params:    &params,
-				// Every volume is created with one attachment.
-				AttachmentCount: 1,
-			},
+			Insert: &doc,
 		},
 	}
-	return ops, names.NewVolumeTag(name), nil
 }
 
 func (st *State) volumeParamsWithDefaults(params VolumeParams) (VolumeParams, error) {
 	if params.Pool != "" {
 		return params, nil
 	}
-	envConfig, err := st.EnvironConfig()
+	envConfig, err := st.ModelConfig()
 	if err != nil {
 		return VolumeParams{}, errors.Trace(err)
 	}
@@ -1012,7 +1018,7 @@ func setVolumeInfoOps(tag names.VolumeTag, info VolumeInfo, unsetParams bool) []
 	}}
 }
 
-// AllVolumes returns all Volumes scoped to the environment.
+// AllVolumes returns all Volumes scoped to the model.
 func (st *State) AllVolumes() ([]Volume, error) {
 	volumes, err := st.volumes(nil)
 	if err != nil {
@@ -1026,19 +1032,19 @@ func volumeGlobalKey(name string) string {
 }
 
 // VolumeStatus returns the status of the specified volume.
-func (st *State) VolumeStatus(tag names.VolumeTag) (StatusInfo, error) {
+func (st *State) VolumeStatus(tag names.VolumeTag) (status.StatusInfo, error) {
 	return getStatus(st, volumeGlobalKey(tag.Id()), "volume")
 }
 
 // SetVolumeStatus sets the status of the specified volume.
-func (st *State) SetVolumeStatus(tag names.VolumeTag, status Status, info string, data map[string]interface{}) error {
-	switch status {
-	case StatusAttaching, StatusAttached, StatusDetaching, StatusDetached, StatusDestroying:
-	case StatusError:
+func (st *State) SetVolumeStatus(tag names.VolumeTag, volumeStatus status.Status, info string, data map[string]interface{}, updated *time.Time) error {
+	switch volumeStatus {
+	case status.Attaching, status.Attached, status.Detaching, status.Detached, status.Destroying:
+	case status.Error:
 		if info == "" {
-			return errors.Errorf("cannot set status %q without info", status)
+			return errors.Errorf("cannot set status %q without info", volumeStatus)
 		}
-	case StatusPending:
+	case status.Pending:
 		// If a volume is not yet provisioned, we allow its status
 		// to be set back to pending (when a retry is to occur).
 		v, err := st.Volume(tag)
@@ -1049,15 +1055,16 @@ func (st *State) SetVolumeStatus(tag names.VolumeTag, status Status, info string
 		if errors.IsNotProvisioned(err) {
 			break
 		}
-		return errors.Errorf("cannot set status %q", status)
+		return errors.Errorf("cannot set status %q", volumeStatus)
 	default:
-		return errors.Errorf("cannot set invalid status %q", status)
+		return errors.Errorf("cannot set invalid status %q", volumeStatus)
 	}
 	return setStatus(st, setStatusParams{
 		badge:     "volume",
 		globalKey: volumeGlobalKey(tag.Id()),
-		status:    status,
+		status:    volumeStatus,
 		message:   info,
 		rawData:   data,
+		updated:   updated,
 	})
 }

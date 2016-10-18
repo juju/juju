@@ -7,52 +7,132 @@ import (
 	"sync"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 )
 
 // NewStatePool returns a new StatePool instance. It takes a State
-// connected to the system (state server environment).
+// connected to the system (controller model).
 func NewStatePool(systemState *State) *StatePool {
 	return &StatePool{
 		systemState: systemState,
-		pool:        make(map[string]*State),
+		pool:        make(map[string]*PoolItem),
 	}
 }
 
-// StatePool is a simple cache of State instances for multiple environments.
+// PoolItem holds a State and tracks how many requests are using it
+// and whether it's been marked for removal.
+type PoolItem struct {
+	state      *State
+	references uint
+	remove     bool
+}
+
+// StatePool is a cache of State instances for multiple
+// models. Clients should call Release when they have finished with any
+// state.
 type StatePool struct {
 	systemState *State
 	// mu protects pool
 	mu   sync.Mutex
-	pool map[string]*State
+	pool map[string]*PoolItem
 }
 
-// Get returns a State for a given environment from the pool, creating
-// one if required.
-func (p *StatePool) Get(envUUID string) (*State, error) {
-	if envUUID == p.systemState.EnvironUUID() {
+// Get returns a State for a given model from the pool, creating one
+// if required. If the State has been marked for removal because there
+// are outstanding uses, an error will be returned.
+func (p *StatePool) Get(modelUUID string) (*State, error) {
+	if modelUUID == p.systemState.ModelUUID() {
 		return p.systemState, nil
 	}
 
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	st, ok := p.pool[envUUID]
+	item, ok := p.pool[modelUUID]
+	if ok && item.remove {
+		// We don't want to allow increasing the refcount of a model
+		// that's been removed.
+		return nil, errors.Errorf("model %v has been removed", modelUUID)
+	}
 	if ok {
-		return st, nil
+		item.references++
+		return item.state, nil
 	}
 
-	st, err := p.systemState.ForEnviron(names.NewEnvironTag(envUUID))
+	st, err := p.systemState.ForModel(names.NewModelTag(modelUUID))
 	if err != nil {
-		return nil, errors.Annotatef(err, "failed to create state for environment %v", envUUID)
+		return nil, errors.Annotatef(err, "failed to create state for model %v", modelUUID)
 	}
-	p.pool[envUUID] = st
+	p.pool[modelUUID] = &PoolItem{state: st, references: 1}
 	return st, nil
+}
+
+// Release indicates that the client has finished using the State. If the
+// state has been marked for removal, it will be closed and removed
+// when the final Release is done.
+func (p *StatePool) Release(modelUUID string) error {
+	if modelUUID == p.systemState.ModelUUID() {
+		// We don't maintain a refcount for the controller.
+		return nil
+	}
+
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	item, ok := p.pool[modelUUID]
+	if !ok {
+		return errors.Errorf("unable to return unknown model %v to the pool", modelUUID)
+	}
+	if item.references == 0 {
+		return errors.Errorf("state pool refcount for model %v is already 0", modelUUID)
+	}
+	item.references--
+	return p.maybeRemoveItem(modelUUID, item)
+}
+
+// Remove takes the state out of the pool and closes it, or marks it
+// for removal if it's currently being used (indicated by Gets without
+// corresponding Releases).
+func (p *StatePool) Remove(modelUUID string) error {
+	if modelUUID == p.systemState.ModelUUID() {
+		// We don't manage the controller state.
+		return nil
+	}
+
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	item, ok := p.pool[modelUUID]
+	if !ok {
+		// Don't require the client to keep track of what we've seen -
+		// ignore unknown model uuids.
+		return nil
+	}
+	item.remove = true
+	return p.maybeRemoveItem(modelUUID, item)
+}
+
+func (p *StatePool) maybeRemoveItem(modelUUID string, item *PoolItem) error {
+	if item.remove && item.references == 0 {
+		delete(p.pool, modelUUID)
+		return item.state.Close()
+	}
+	return nil
 }
 
 // SystemState returns the State passed in to NewStatePool.
 func (p *StatePool) SystemState() *State {
 	return p.systemState
+}
+
+// KillWorkers tells the internal worker for all cached State
+// instances in the pool to die.
+func (p *StatePool) KillWorkers() {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	for _, item := range p.pool {
+		item.state.KillWorkers()
+	}
 }
 
 // Close closes all State instances in the pool.
@@ -61,12 +141,20 @@ func (p *StatePool) Close() error {
 	defer p.mu.Unlock()
 
 	var lastErr error
-	for _, st := range p.pool {
-		err := st.Close()
+	for _, item := range p.pool {
+		if item.references != 0 || item.remove {
+			logger.Warningf(
+				"state for %v leaked from pool - references: %v, removed: %v",
+				item.state.ModelUUID(),
+				item.references,
+				item.remove,
+			)
+		}
+		err := item.state.Close()
 		if err != nil {
 			lastErr = err
 		}
 	}
-	p.pool = make(map[string]*State)
+	p.pool = make(map[string]*PoolItem)
 	return errors.Annotate(lastErr, "at least one error closing a state")
 }

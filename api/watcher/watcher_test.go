@@ -4,28 +4,26 @@
 package watcher_test
 
 import (
-	stdtesting "testing"
 	"time"
 
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/migrationminion"
 	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
-	"github.com/juju/juju/storage"
-	"github.com/juju/juju/storage/provider/dummy"
-	"github.com/juju/juju/storage/provider/registry"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
+	corewatcher "github.com/juju/juju/watcher"
+	"github.com/juju/juju/watcher/watchertest"
+	"github.com/juju/juju/worker"
 )
-
-func TestAll(t *stdtesting.T) {
-	coretesting.MgoTestPackage(t)
-}
 
 type watcherSuite struct {
 	testing.JujuConnSuite
@@ -41,7 +39,7 @@ var _ = gc.Suite(&watcherSuite{})
 
 func (s *watcherSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-	s.stateAPI, s.rawMachine = s.OpenAPIAsNewMachine(c, state.JobManageEnviron, state.JobHostUnits)
+	s.stateAPI, s.rawMachine = s.OpenAPIAsNewMachine(c, state.JobManageModel, state.JobHostUnits)
 }
 
 func (s *watcherSuite) TestWatchInitialEventConsumed(c *gc.C) {
@@ -79,12 +77,10 @@ func (s *watcherSuite) TestWatchMachine(c *gc.C) {
 	result := results.Results[0]
 	c.Assert(result.Error, gc.IsNil)
 
-	// params.NotifyWatcher conforms to the state.NotifyWatcher interface
 	w := watcher.NewNotifyWatcher(s.stateAPI, result)
-	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
+	wc := watchertest.NewNotifyWatcherC(c, w, s.BackingState.StartSync)
+	defer wc.AssertStops()
 	wc.AssertOneChange()
-	statetesting.AssertStop(c, w)
-	wc.AssertClosed()
 }
 
 func (s *watcherSuite) TestNotifyWatcherStopsWithPendingSend(c *gc.C) {
@@ -96,13 +92,10 @@ func (s *watcherSuite) TestNotifyWatcherStopsWithPendingSend(c *gc.C) {
 	result := results.Results[0]
 	c.Assert(result.Error, gc.IsNil)
 
-	// params.NotifyWatcher conforms to the state.NotifyWatcher interface
+	// params.NotifyWatcher conforms to the watcher.NotifyWatcher interface
 	w := watcher.NewNotifyWatcher(s.stateAPI, result)
-	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
-
-	// Now, without reading any changes try stopping the watcher.
-	statetesting.AssertCanStopWhenSending(c, w)
-	wc.AssertClosed()
+	wc := watchertest.NewNotifyWatcherC(c, w, s.BackingState.StartSync)
+	wc.AssertStops()
 }
 
 func (s *watcherSuite) TestWatchUnitsKeepsEvents(c *gc.C) {
@@ -136,7 +129,9 @@ func (s *watcherSuite) TestWatchUnitsKeepsEvents(c *gc.C) {
 
 	// Start a StringsWatcher and check the initial event.
 	w := watcher.NewStringsWatcher(s.stateAPI, result)
-	wc := statetesting.NewStringsWatcherC(c, s.State, w)
+	wc := watchertest.NewStringsWatcherC(c, w, s.BackingState.StartSync)
+	defer wc.AssertStops()
+
 	wc.AssertChange("mysql/0", "logging/0")
 	wc.AssertNoChange()
 
@@ -157,9 +152,6 @@ func (s *watcherSuite) TestWatchUnitsKeepsEvents(c *gc.C) {
 	wc.AssertChange("logging/0")
 	wc.AssertChange("mysql/0")
 	wc.AssertNoChange()
-
-	statetesting.AssertStop(c, w)
-	wc.AssertClosed()
 }
 
 func (s *watcherSuite) TestStringsWatcherStopsWithPendingSend(c *gc.C) {
@@ -174,7 +166,8 @@ func (s *watcherSuite) TestStringsWatcherStopsWithPendingSend(c *gc.C) {
 
 	// Start a StringsWatcher and check the initial event.
 	w := watcher.NewStringsWatcher(s.stateAPI, result)
-	wc := statetesting.NewStringsWatcherC(c, s.State, w)
+	wc := watchertest.NewStringsWatcherC(c, w, s.BackingState.StartSync)
+	defer wc.AssertStops()
 
 	// Create a service, deploy a unit of it on the machine.
 	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
@@ -182,29 +175,15 @@ func (s *watcherSuite) TestStringsWatcherStopsWithPendingSend(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = principal.AssignToMachine(s.rawMachine)
 	c.Assert(err, jc.ErrorIsNil)
-
-	// Ensure the initial event is delivered. Then test the watcher
-	// can be stopped cleanly without reading the pending change.
-	s.BackingState.StartSync()
-	statetesting.AssertCanStopWhenSending(c, w)
-	wc.AssertClosed()
 }
 
+// TODO(fwereade): 2015-11-18 lp:1517391
 func (s *watcherSuite) TestWatchMachineStorage(c *gc.C) {
-	registry.RegisterProvider(
-		"envscoped",
-		&dummy.StorageProvider{
-			StorageScope: storage.ScopeEnviron,
-		},
-	)
-	registry.RegisterEnvironStorageProviders("dummy", "envscoped")
-	defer registry.RegisterProvider("envscoped", nil)
-
 	f := factory.NewFactory(s.BackingState)
 	f.MakeMachine(c, &factory.MachineParams{
 		Volumes: []state.MachineVolumeParams{{
 			Volume: state.VolumeParams{
-				Pool: "envscoped",
+				Pool: "environscoped",
 				Size: 1024,
 			},
 		}},
@@ -212,7 +191,7 @@ func (s *watcherSuite) TestWatchMachineStorage(c *gc.C) {
 
 	var results params.MachineStorageIdsWatchResults
 	args := params.Entities{Entities: []params.Entity{{
-		Tag: s.State.EnvironTag().String(),
+		Tag: s.State.ModelTag().String(),
 	}}}
 	err := s.stateAPI.APICall(
 		"StorageProvisioner",
@@ -224,27 +203,145 @@ func (s *watcherSuite) TestWatchMachineStorage(c *gc.C) {
 	c.Assert(result.Error, gc.IsNil)
 
 	w := watcher.NewVolumeAttachmentsWatcher(s.stateAPI, result)
+	defer func() {
+
+		// Check we can stop the watcher...
+		w.Kill()
+		wait := make(chan error)
+		go func() {
+			wait <- w.Wait()
+		}()
+		select {
+		case err := <-wait:
+			c.Assert(err, jc.ErrorIsNil)
+		case <-time.After(coretesting.LongWait):
+			c.Fatalf("watcher never stopped")
+		}
+
+		// ...and that its channel hasn't been closed.
+		s.BackingState.StartSync()
+		select {
+		case change, ok := <-w.Changes():
+			c.Fatalf("watcher sent unexpected change: (%#v, %v)", change, ok)
+		default:
+		}
+
+	}()
+
+	// Check initial event;
+	s.BackingState.StartSync()
 	select {
 	case changes, ok := <-w.Changes():
 		c.Assert(ok, jc.IsTrue)
-		c.Assert(changes, jc.SameContents, []params.MachineStorageId{{
+		c.Assert(changes, jc.SameContents, []corewatcher.MachineStorageId{{
 			MachineTag:    "machine-1",
 			AttachmentTag: "volume-0",
 		}})
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for change")
 	}
+
+	// check no subsequent event.
+	s.BackingState.StartSync()
 	select {
 	case <-w.Changes():
 		c.Fatalf("received unexpected change")
 	case <-time.After(coretesting.ShortWait):
 	}
+}
 
-	statetesting.AssertStop(c, w)
-	select {
-	case _, ok := <-w.Changes():
-		c.Assert(ok, jc.IsFalse)
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timed out waiting for watcher channel to be closed")
+type migrationSuite struct {
+	testing.JujuConnSuite
+}
+
+var _ = gc.Suite(&migrationSuite{})
+
+func (s *migrationSuite) startSync(c *gc.C, st *state.State) {
+	backingSt, err := s.BackingStatePool.Get(st.ModelUUID())
+	c.Assert(err, jc.ErrorIsNil)
+	backingSt.StartSync()
+}
+
+func (s *migrationSuite) TestMigrationStatusWatcher(c *gc.C) {
+	const nonce = "noncey"
+
+	// Create a model to migrate.
+	hostedState := s.Factory.MakeModel(c, &factory.ModelParams{})
+	defer hostedState.Close()
+	hostedFactory := factory.NewFactory(hostedState)
+
+	// Create a machine in the hosted model to connect as.
+	m, password := hostedFactory.MakeMachineReturningPassword(c, &factory.MachineParams{
+		Nonce: nonce,
+	})
+
+	// Connect as the machine to watch for migration status.
+	apiInfo := s.APIInfo(c)
+	apiInfo.Tag = m.Tag()
+	apiInfo.Password = password
+	apiInfo.ModelTag = hostedState.ModelTag()
+	apiInfo.Nonce = nonce
+
+	apiConn, err := api.Open(apiInfo, api.DialOpts{})
+	c.Assert(err, jc.ErrorIsNil)
+	defer apiConn.Close()
+
+	// Start watching for a migration.
+	client := migrationminion.NewClient(apiConn)
+	w, err := client.Watch()
+	c.Assert(err, jc.ErrorIsNil)
+	defer func() {
+		c.Assert(worker.Stop(w), jc.ErrorIsNil)
+	}()
+
+	assertNoChange := func() {
+		s.startSync(c, hostedState)
+		select {
+		case _, ok := <-w.Changes():
+			c.Fatalf("watcher sent unexpected change: (_, %v)", ok)
+		case <-time.After(coretesting.ShortWait):
+		}
 	}
+
+	assertChange := func(id string, phase migration.Phase) {
+		s.startSync(c, hostedState)
+		select {
+		case status, ok := <-w.Changes():
+			c.Assert(ok, jc.IsTrue)
+			c.Check(status.MigrationId, gc.Equals, id)
+			c.Check(status.Phase, gc.Equals, phase)
+		case <-time.After(coretesting.LongWait):
+			c.Fatalf("watcher didn't emit an event")
+		}
+		assertNoChange()
+	}
+
+	// Initial event with no migration in progress.
+	assertChange("", migration.NONE)
+
+	// Now create a migration, should trigger watcher.
+	spec := state.MigrationSpec{
+		InitiatedBy: names.NewUserTag("someone"),
+		TargetInfo: migration.TargetInfo{
+			ControllerTag: names.NewControllerTag(utils.MustNewUUID().String()),
+			Addrs:         []string{"1.2.3.4:5"},
+			CACert:        "cert",
+			AuthTag:       names.NewUserTag("dog"),
+			Password:      "sekret",
+		},
+	}
+	mig, err := hostedState.CreateMigration(spec)
+	c.Assert(err, jc.ErrorIsNil)
+	assertChange(mig.Id(), migration.QUIESCE)
+
+	// Now abort the migration, this should be reported too.
+	c.Assert(mig.SetPhase(migration.ABORT), jc.ErrorIsNil)
+	assertChange(mig.Id(), migration.ABORT)
+	c.Assert(mig.SetPhase(migration.ABORTDONE), jc.ErrorIsNil)
+	assertChange(mig.Id(), migration.ABORTDONE)
+
+	// Start a new migration, this should also trigger.
+	mig2, err := hostedState.CreateMigration(spec)
+	c.Assert(err, jc.ErrorIsNil)
+	assertChange(mig2.Id(), migration.QUIESCE)
 }

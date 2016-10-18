@@ -13,10 +13,12 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
-// Command suffix for the hooks
-var cmdSuffix = ""
-
 var (
+	jujudBuildArgs = []string{"go", "build", "github.com/juju/juju/cmd/jujud"}
+
+	// Command suffix for the hooks
+	cmdSuffix = ""
+
 	// Variables for changed hooks. These are used in uniter_test
 	appendConfigChanged            = "config-get --format yaml --output config.out"
 	uniterRelationsCustomizeScript = "relation-ids db > relations.out && chmod 644 relations.out"
@@ -31,12 +33,12 @@ if [ $(is-leader) != "False" ]; then exit -1; fi
 	// Different hook file contents. These are used in util_test
 	goodHook = `
 #!/bin/bash --norc
-juju-log $JUJU_ENV_UUID %s $JUJU_REMOTE_UNIT
+juju-log $JUJU_MODEL_UUID %s $JUJU_REMOTE_UNIT
 `[1:]
 
 	badHook = `
 #!/bin/bash --norc
-juju-log $JUJU_ENV_UUID fail-%s $JUJU_REMOTE_UNIT
+juju-log $JUJU_MODEL_UUID fail-%s $JUJU_REMOTE_UNIT
 exit 1
 `[1:]
 
@@ -66,7 +68,7 @@ juju-reboot --now
 	actions = map[string]string{
 		"action-log": `
 #!/bin/bash --norc
-juju-log $JUJU_ENV_UUID action-log
+juju-log $JUJU_MODEL_UUID action-log
 `[1:],
 		"snapshot": `
 #!/bin/bash --norc
@@ -109,9 +111,10 @@ func (s *UniterSuite) TestRunCommand(c *gc.C) {
 		return echoUnitNameToFileHelper(testDir, name)
 	}
 
+	lock := &hookLock{}
 	s.runUniterTests(c, []uniterTest{
 		ut(
-			"run commands: environment",
+			"run commands: model",
 			quickStart{},
 			runCommands{echoUnitNameToFile("run.output")},
 			verifyFile{filepath.Join(testDir, "run.output"), "juju run u/0\n"},
@@ -127,7 +130,7 @@ func (s *UniterSuite) TestRunCommand(c *gc.C) {
 				"private.address.example.com\npublic.address.example.com\n",
 			},
 		), ut(
-			"run commands: jujuc environment",
+			"run commands: jujuc model",
 			quickStartRelation{},
 			relationRunCommands{
 				fmt.Sprintf("echo $JUJU_RELATION_ID > %s", testFile("jujuc-env.output")),
@@ -164,10 +167,10 @@ func (s *UniterSuite) TestRunCommand(c *gc.C) {
 		), ut(
 			"run commands: waits for lock",
 			quickStart{},
-			acquireHookSyncLock{},
+			lock.acquire(),
 			asyncRunCommands{echoUnitNameToFile("wait.output")},
 			verifyNoFile{testFile("wait.output")},
-			releaseHookSyncLock,
+			lock.release(),
 			verifyFile{testFile("wait.output"), "juju run u/0\n"},
 			waitContextWaitGroup{},
 		),

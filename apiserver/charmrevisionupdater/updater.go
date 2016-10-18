@@ -6,18 +6,18 @@ package charmrevisionupdater
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"gopkg.in/juju/charm.v6-unstable"
-	"gopkg.in/juju/charmrepo.v2-unstable"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/state"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.charmrevisionupdater")
 
 func init() {
-	common.RegisterStandardFacade("CharmRevisionUpdater", 0, NewCharmRevisionUpdaterAPI)
+	common.RegisterStandardFacade("CharmRevisionUpdater", 2, NewCharmRevisionUpdaterAPI)
 }
 
 // CharmRevisionUpdater defines the methods on the charmrevisionupdater API end point.
@@ -29,8 +29,8 @@ type CharmRevisionUpdater interface {
 // implementation of the api end point.
 type CharmRevisionUpdaterAPI struct {
 	state      *state.State
-	resources  *common.Resources
-	authorizer common.Authorizer
+	resources  facade.Resources
+	authorizer facade.Authorizer
 }
 
 var _ CharmRevisionUpdater = (*CharmRevisionUpdaterAPI)(nil)
@@ -38,10 +38,10 @@ var _ CharmRevisionUpdater = (*CharmRevisionUpdaterAPI)(nil)
 // NewCharmRevisionUpdaterAPI creates a new server-side charmrevisionupdater API end point.
 func NewCharmRevisionUpdaterAPI(
 	st *state.State,
-	resources *common.Resources,
-	authorizer common.Authorizer,
+	resources facade.Resources,
+	authorizer facade.Authorizer,
 ) (*CharmRevisionUpdaterAPI, error) {
-	if !authorizer.AuthMachineAgent() && !authorizer.AuthEnvironManager() {
+	if !authorizer.AuthMachineAgent() && !authorizer.AuthModelManager() {
 		return nil, common.ErrPerm
 	}
 	return &CharmRevisionUpdaterAPI{
@@ -51,87 +51,121 @@ func NewCharmRevisionUpdaterAPI(
 // UpdateLatestRevisions retrieves the latest revision information from the charm store for all deployed charms
 // and records this information in state.
 func (api *CharmRevisionUpdaterAPI) UpdateLatestRevisions() (params.ErrorResult, error) {
-	// First get the uuid for the environment to use when querying the charm store.
-	env, err := api.state.Environment()
-	if err != nil {
+	if err := api.updateLatestRevisions(); err != nil {
 		return params.ErrorResult{Error: common.ServerError(err)}, nil
-	}
-	uuid := env.UUID()
-
-	deployedCharms, err := fetchAllDeployedCharms(api.state)
-	if err != nil {
-		return params.ErrorResult{Error: common.ServerError(err)}, nil
-	}
-	// Look up the revision information for all the deployed charms.
-	curls, err := retrieveLatestCharmInfo(deployedCharms, uuid)
-	if err != nil {
-		return params.ErrorResult{Error: common.ServerError(err)}, nil
-	}
-	// Add the charms and latest revision info to state as charm placeholders.
-	for _, curl := range curls {
-		if err = api.state.AddStoreCharmPlaceholder(curl); err != nil {
-			return params.ErrorResult{Error: common.ServerError(err)}, nil
-		}
 	}
 	return params.ErrorResult{}, nil
 }
 
-// fetchAllDeployedCharms returns a map from service name to service
-// and a map from service name to unit name to unit.
-func fetchAllDeployedCharms(st *state.State) (map[string]*charm.URL, error) {
-	deployedCharms := make(map[string]*charm.URL)
-	services, err := st.AllServices()
+func (api *CharmRevisionUpdaterAPI) updateLatestRevisions() error {
+	// Get the handlers to use.
+	handlers, err := createHandlers(api.state)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	for _, s := range services {
-		url, _ := s.CharmURL()
-		// Record the basic charm information so it can be bulk processed later to
-		// get the available revision numbers from the repo.
-		baseCharm := url.WithRevision(-1)
-		deployedCharms[baseCharm.String()] = baseCharm
+
+	// Look up the information for all the deployed charms. This is the
+	// "expensive" part.
+	latest, err := retrieveLatestCharmInfo(api.state)
+	if err != nil {
+		return err
 	}
-	return deployedCharms, nil
+
+	// Process the resulting info for each charm.
+	for _, info := range latest {
+		// First, add a charm placeholder to the model for each.
+		if err = api.state.AddStoreCharmPlaceholder(info.LatestURL()); err != nil {
+			return err
+		}
+
+		// Then run through the handlers.
+		serviceID := info.service.ApplicationTag()
+		for _, handler := range handlers {
+			if err := handler.HandleLatest(serviceID, info.CharmInfo); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }
 
-// NewCharmStore instantiates a new charm store repository.
-// It is defined at top level for testing purposes.
-var NewCharmStore = charmrepo.NewCharmStore
+// NewCharmStoreClient instantiates a new charm store repository.  Exported so
+// we can change it during testing.
+var NewCharmStoreClient = func(st *state.State) (charmstore.Client, error) {
+	return charmstore.NewCachingClient(state.MacaroonCache{st}, nil)
+}
+
+type latestCharmInfo struct {
+	charmstore.CharmInfo
+	service *state.Application
+}
 
 // retrieveLatestCharmInfo looks up the charm store to return the charm URLs for the
 // latest revision of the deployed charms.
-func retrieveLatestCharmInfo(deployedCharms map[string]*charm.URL, uuid string) ([]*charm.URL, error) {
-	var curls []*charm.URL
-	for _, curl := range deployedCharms {
+func retrieveLatestCharmInfo(st *state.State) ([]latestCharmInfo, error) {
+	// First get the uuid for the environment to use when querying the charm store.
+	env, err := st.Model()
+	if err != nil {
+		return nil, err
+	}
+
+	services, err := st.AllApplications()
+	if err != nil {
+		return nil, err
+	}
+
+	client, err := NewCharmStoreClient(st)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var charms []charmstore.CharmID
+	var resultsIndexedServices []*state.Application
+	for _, service := range services {
+		curl, _ := service.CharmURL()
 		if curl.Schema == "local" {
 			// Version checking for charms from local repositories is not
 			// currently supported, since we don't yet support passing in
 			// a path to the local repo. This may change if the need arises.
 			continue
 		}
-		curls = append(curls, curl)
+
+		cid := charmstore.CharmID{
+			URL:     curl,
+			Channel: service.Channel(),
+		}
+		charms = append(charms, cid)
+		resultsIndexedServices = append(resultsIndexedServices, service)
 	}
 
-	// Do a bulk call to get the revision info for all charms.
-	logger.Infof("retrieving revision information for %d charms", len(curls))
-	repo := NewCharmStore(charmrepo.NewCharmStoreParams{})
-	repo = repo.WithJujuAttrs(map[string]string{
-		"environment_uuid": uuid,
-	})
-	revInfo, err := repo.Latest(curls...)
+	metadata := map[string]string{
+		"environment_uuid": env.UUID(),
+		"cloud":            env.Cloud(),
+		"cloud_region":     env.CloudRegion(),
+	}
+	cloud, err := st.Cloud(env.Cloud())
 	if err != nil {
-		err = errors.Annotate(err, "finding charm revision info")
-		logger.Infof(err.Error())
+		metadata["provider"] = "unknown"
+	} else {
+		metadata["provider"] = cloud.Type
+	}
+	results, err := charmstore.LatestCharmInfo(client, charms, metadata)
+	if err != nil {
 		return nil, err
 	}
-	var latestCurls []*charm.URL
-	for i, info := range revInfo {
-		curl := curls[i]
-		if info.Err == nil {
-			latestCurls = append(latestCurls, curl.WithRevision(info.Revision))
-		} else {
-			logger.Errorf("retrieving charm info for %s: %v", curl, info.Err)
+
+	var latest []latestCharmInfo
+	for i, result := range results {
+		if result.Error != nil {
+			logger.Errorf("retrieving charm info for %s: %v", charms[i].URL, result.Error)
+			continue
 		}
+		service := resultsIndexedServices[i]
+		latest = append(latest, latestCharmInfo{
+			CharmInfo: result.CharmInfo,
+			service:   service,
+		})
 	}
-	return latestCurls, nil
+	return latest, nil
 }

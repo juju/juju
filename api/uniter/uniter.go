@@ -7,21 +7,22 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
-	"github.com/juju/juju/api/watcher"
+	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/watcher"
 )
 
 const uniterFacade = "Uniter"
 
 // State provides access to the Uniter API facade.
 type State struct {
-	*common.EnvironWatcher
+	*common.ModelWatcher
 	*common.APIAddresser
 	*StorageAccessor
 
@@ -44,24 +45,21 @@ func newStateForVersion(
 		version,
 	)
 	state := &State{
-		EnvironWatcher:  common.NewEnvironWatcher(facadeCaller),
+		ModelWatcher:    common.NewModelWatcher(facadeCaller),
 		APIAddresser:    common.NewAPIAddresser(facadeCaller),
 		StorageAccessor: NewStorageAccessor(facadeCaller),
 		facade:          facadeCaller,
 		unitTag:         authTag,
 	}
 
-	if version >= 2 {
-		newWatcher := func(result params.NotifyWatchResult) watcher.NotifyWatcher {
-			return watcher.NewNotifyWatcher(caller, result)
-		}
-		state.LeadershipSettings = NewLeadershipSettingsAccessor(
-			facadeCaller.FacadeCall,
-			newWatcher,
-			ErrIfNotVersionFn(2, state.BestAPIVersion()),
-		)
+	newWatcher := func(result params.NotifyWatchResult) watcher.NotifyWatcher {
+		return apiwatcher.NewNotifyWatcher(caller, result)
 	}
-
+	state.LeadershipSettings = NewLeadershipSettingsAccessor(
+		facadeCaller.FacadeCall,
+		newWatcher,
+		ErrIfNotVersionFn(2, state.BestAPIVersion()),
+	)
 	return state
 }
 
@@ -71,18 +69,12 @@ func newStateForVersionFn(version int) func(base.APICaller, names.UnitTag) *Stat
 	}
 }
 
-// newStateV0 creates a new client-side Uniter facade, version 0.
-var newStateV0 = newStateForVersionFn(0)
-
-// newStateV1 creates a new client-side Uniter facade, version 1.
-var newStateV1 = newStateForVersionFn(1)
-
-// newStateV2 creates a new client-side Uniter facade, version 2.
-var newStateV2 = newStateForVersionFn(2)
+// newStateV4 creates a new client-side Uniter facade, version 4.
+var newStateV4 = newStateForVersionFn(4)
 
 // NewState creates a new client-side Uniter facade.
 // Defined like this to allow patching during tests.
-var NewState = newStateV2
+var NewState = newStateV4
 
 // BestAPIVersion returns the API version that we were able to
 // determine is supported by both the client and the API Server.
@@ -122,9 +114,9 @@ func (st *State) relation(relationTag, unitTag names.Tag) (params.RelationResult
 	return result.Results[0], nil
 }
 
-// getOneAction retrieves a single Action from the state server.
-func (st *State) getOneAction(tag *names.ActionTag) (params.ActionsQueryResult, error) {
-	nothing := params.ActionsQueryResult{}
+// getOneAction retrieves a single Action from the controller.
+func (st *State) getOneAction(tag *names.ActionTag) (params.ActionResult, error) {
+	nothing := params.ActionResult{}
 
 	args := params.Entities{
 		Entities: []params.Entity{
@@ -132,7 +124,7 @@ func (st *State) getOneAction(tag *names.ActionTag) (params.ActionsQueryResult, 
 		},
 	}
 
-	var results params.ActionsQueryResults
+	var results params.ActionResults
 	err := st.facade.FacadeCall("Actions", args, &results)
 	if err != nil {
 		return nothing, err
@@ -164,21 +156,20 @@ func (st *State) Unit(tag names.UnitTag) (*Unit, error) {
 	}, nil
 }
 
-// Service returns a service state by tag.
-func (st *State) Service(tag names.ServiceTag) (*Service, error) {
+// Application returns an application state by tag.
+func (st *State) Application(tag names.ApplicationTag) (*Application, error) {
 	life, err := st.life(tag)
 	if err != nil {
 		return nil, err
 	}
-	return &Service{
+	return &Application{
 		tag:  tag,
 		life: life,
 		st:   st,
 	}, nil
 }
 
-// ProviderType returns a provider type used by the current juju
-// environment.
+// ProviderType returns a provider type used by the current juju model.
 //
 // TODO(dimitern): We might be able to drop this, once we have machine
 // addresses implemented fully. See also LP bug 1221798.
@@ -226,8 +217,8 @@ func (st *State) Action(tag names.ActionTag) (*Action, error) {
 		return nil, err
 	}
 	return &Action{
-		name:   result.Action.Action.Name,
-		params: result.Action.Action.Parameters,
+		name:   result.Action.Name,
+		params: result.Action.Parameters,
 	}, nil
 }
 
@@ -310,21 +301,17 @@ func (st *State) RelationById(id int) (*Relation, error) {
 	}, nil
 }
 
-// Environment returns the environment entity.
-func (st *State) Environment() (*Environment, error) {
-	var result params.EnvironmentResult
-	err := st.facade.FacadeCall("CurrentEnvironment", nil, &result)
-	if params.IsCodeNotImplemented(err) {
-		// Fall back to using the 1.16 API.
-		return st.environment1dot16()
-	}
+// Model returns the model entity.
+func (st *State) Model() (*Model, error) {
+	var result params.ModelResult
+	err := st.facade.FacadeCall("CurrentModel", nil, &result)
 	if err != nil {
 		return nil, err
 	}
 	if err := result.Error; err != nil {
 		return nil, err
 	}
-	return &Environment{
+	return &Model{
 		name: result.Name,
 		uuid: result.UUID,
 	}, nil
@@ -388,32 +375,16 @@ func (st *State) WatchRelationUnits(
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	w := watcher.NewRelationUnitsWatcher(st.facade.RawAPICaller(), result)
+	w := apiwatcher.NewRelationUnitsWatcher(st.facade.RawAPICaller(), result)
 	return w, nil
-}
-
-// environment1dot16 requests just the UUID of the current environment, when
-// using an older API server that does not support CurrentEnvironment API call.
-func (st *State) environment1dot16() (*Environment, error) {
-	var result params.StringResult
-	err := st.facade.FacadeCall("CurrentEnvironUUID", nil, &result)
-	if err != nil {
-		return nil, err
-	}
-	if err := result.Error; err != nil {
-		return nil, err
-	}
-	return &Environment{
-		uuid: result.Result,
-	}, nil
 }
 
 // ErrIfNotVersionFn returns a function which can be used to check for
 // the minimum supported version, and, if appropriate, generate an
 // error.
-func ErrIfNotVersionFn(minVersion int, bestApiVersion int) func(string) error {
+func ErrIfNotVersionFn(minVersion int, bestAPIVersion int) func(string) error {
 	return func(fnName string) error {
-		if minVersion <= bestApiVersion {
+		if minVersion <= bestAPIVersion {
 			return nil
 		}
 		return errors.NotImplementedf("%s(...) requires v%d+", fnName, minVersion)

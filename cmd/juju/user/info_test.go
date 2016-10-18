@@ -21,7 +21,7 @@ import (
 var logger = loggo.GetLogger("juju.cmd.user.test")
 
 // All of the functionality of the UserInfo api call is contained elsewhere.
-// This suite provides basic tests for the "user info" command
+// This suite provides basic tests for the "show-user" command
 type UserInfoCommandSuite struct {
 	BaseSuite
 }
@@ -34,8 +34,8 @@ var (
 	lastConnection = time.Unix(1388534400, 0).UTC()
 )
 
-func newUserInfoCommand() cmd.Command {
-	return user.NewInfoCommand(&fakeUserInfoAPI{})
+func (s *UserInfoCommandSuite) NewShowUserCommand() cmd.Command {
+	return user.NewShowUserCommandForTest(&fakeUserInfoAPI{}, s.store)
 }
 
 type fakeUserInfoAPI struct{}
@@ -51,11 +51,17 @@ func (*fakeUserInfoAPI) UserInfo(usernames []string, all usermanager.IncludeDisa
 		LastConnection: &lastConnection,
 	}
 	switch usernames[0] {
-	case "user-test":
-		info.Username = "user-test"
+	case "current-user":
+		info.Username = "current-user"
+		info.Access = "add-model"
 	case "foobar":
 		info.Username = "foobar"
 		info.DisplayName = "Foo Bar"
+		info.Access = "login"
+	case "fred@external":
+		info.Username = "fred@external"
+		info.DisplayName = "Fred External"
+		info.Access = "add-model"
 	default:
 		return nil, common.ErrPerm
 	}
@@ -63,126 +69,77 @@ func (*fakeUserInfoAPI) UserInfo(usernames []string, all usermanager.IncludeDisa
 }
 
 func (s *UserInfoCommandSuite) TestUserInfo(c *gc.C) {
-	context, err := testing.RunCommand(c, newUserInfoCommand())
+	context, err := testing.RunCommand(c, s.NewShowUserCommand())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stdout(context), gc.Equals, `user-name: user-test
-display-name: ""
+	c.Assert(testing.Stdout(context), gc.Equals, `user-name: current-user
+access: add-model
 date-created: 1981-02-27
 last-connection: 2014-01-01
 `)
 }
 
 func (s *UserInfoCommandSuite) TestUserInfoExactTime(c *gc.C) {
-	context, err := testing.RunCommand(c, newUserInfoCommand(), "--exact-time")
+	context, err := testing.RunCommand(c, s.NewShowUserCommand(), "--exact-time")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stdout(context), gc.Equals, `user-name: user-test
-display-name: ""
+	c.Assert(testing.Stdout(context), gc.Equals, `user-name: current-user
+access: add-model
 date-created: 1981-02-27 16:10:05 +0000 UTC
 last-connection: 2014-01-01 00:00:00 +0000 UTC
 `)
 }
 
 func (s *UserInfoCommandSuite) TestUserInfoWithUsername(c *gc.C) {
-	context, err := testing.RunCommand(c, newUserInfoCommand(), "foobar")
+	context, err := testing.RunCommand(c, s.NewShowUserCommand(), "foobar")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, `user-name: foobar
 display-name: Foo Bar
+access: login
 date-created: 1981-02-27
 last-connection: 2014-01-01
 `)
 }
 
-func (*UserInfoCommandSuite) TestUserInfoUserDoesNotExist(c *gc.C) {
-	_, err := testing.RunCommand(c, newUserInfoCommand(), "barfoo")
+func (s *UserInfoCommandSuite) TestUserInfoExternalUser(c *gc.C) {
+	context, err := testing.RunCommand(c, s.NewShowUserCommand(), "fred@external")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(testing.Stdout(context), gc.Equals, `user-name: fred@external
+display-name: Fred External
+access: add-model
+`)
+}
+
+func (s *UserInfoCommandSuite) TestUserInfoUserDoesNotExist(c *gc.C) {
+	_, err := testing.RunCommand(c, s.NewShowUserCommand(), "barfoo")
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
-func (*UserInfoCommandSuite) TestUserInfoFormatJson(c *gc.C) {
-	context, err := testing.RunCommand(c, newUserInfoCommand(), "--format", "json")
+func (s *UserInfoCommandSuite) TestUserInfoFormatJson(c *gc.C) {
+	context, err := testing.RunCommand(c, s.NewShowUserCommand(), "--format", "json")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, `
-{"user-name":"user-test","display-name":"","date-created":"1981-02-27","last-connection":"2014-01-01"}
+{"user-name":"current-user","access":"add-model","date-created":"1981-02-27","last-connection":"2014-01-01"}
 `[1:])
 }
 
-func (*UserInfoCommandSuite) TestUserInfoFormatJsonWithUsername(c *gc.C) {
-	context, err := testing.RunCommand(c, newUserInfoCommand(), "foobar", "--format", "json")
+func (s *UserInfoCommandSuite) TestUserInfoFormatJsonWithUsername(c *gc.C) {
+	context, err := testing.RunCommand(c, s.NewShowUserCommand(), "foobar", "--format", "json")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, `
-{"user-name":"foobar","display-name":"Foo Bar","date-created":"1981-02-27","last-connection":"2014-01-01"}
+{"user-name":"foobar","display-name":"Foo Bar","access":"login","date-created":"1981-02-27","last-connection":"2014-01-01"}
 `[1:])
 }
 
-func (*UserInfoCommandSuite) TestUserInfoFormatYaml(c *gc.C) {
-	context, err := testing.RunCommand(c, newUserInfoCommand(), "--format", "yaml")
+func (s *UserInfoCommandSuite) TestUserInfoFormatYaml(c *gc.C) {
+	context, err := testing.RunCommand(c, s.NewShowUserCommand(), "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(testing.Stdout(context), gc.Equals, `user-name: user-test
-display-name: ""
+	c.Assert(testing.Stdout(context), gc.Equals, `user-name: current-user
+access: add-model
 date-created: 1981-02-27
 last-connection: 2014-01-01
 `)
 }
 
-func (*UserInfoCommandSuite) TestTooManyArgs(c *gc.C) {
-	_, err := testing.RunCommand(c, newUserInfoCommand(), "username", "whoops")
+func (s *UserInfoCommandSuite) TestTooManyArgs(c *gc.C) {
+	_, err := testing.RunCommand(c, s.NewShowUserCommand(), "username", "whoops")
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["whoops"\]`)
-}
-
-type userFriendlyDurationSuite struct{}
-
-var _ = gc.Suite(&userFriendlyDurationSuite{})
-
-func (*userFriendlyDurationSuite) TestFormat(c *gc.C) {
-	now := time.Now()
-	for _, test := range []struct {
-		other    time.Time
-		expected string
-	}{
-		{
-			other:    now,
-			expected: "just now",
-		}, {
-			other:    now.Add(-1 * time.Second),
-			expected: "just now",
-		}, {
-			other:    now.Add(-2 * time.Second),
-			expected: "2 seconds ago",
-		}, {
-			other:    now.Add(-59 * time.Second),
-			expected: "59 seconds ago",
-		}, {
-			other:    now.Add(-60 * time.Second),
-			expected: "1 minute ago",
-		}, {
-			other:    now.Add(-61 * time.Second),
-			expected: "1 minute ago",
-		}, {
-			other:    now.Add(-2 * time.Minute),
-			expected: "2 minutes ago",
-		}, {
-			other:    now.Add(-59 * time.Minute),
-			expected: "59 minutes ago",
-		}, {
-			other:    now.Add(-60 * time.Minute),
-			expected: "1 hour ago",
-		}, {
-			other:    now.Add(-61 * time.Minute),
-			expected: "1 hour ago",
-		}, {
-			other:    now.Add(-2 * time.Hour),
-			expected: "2 hours ago",
-		}, {
-			other:    now.Add(-23 * time.Hour),
-			expected: "23 hours ago",
-		}, {
-			other:    now.Add(-24 * time.Hour),
-			expected: now.Add(-24 * time.Hour).Format("2006-01-02"),
-		}, {
-			other:    now.Add(-96 * time.Hour),
-			expected: now.Add(-96 * time.Hour).Format("2006-01-02"),
-		},
-	} {
-		obtained := user.UserFriendlyDuration(test.other, now)
-		c.Check(obtained, gc.Equals, test.expected)
-	}
 }

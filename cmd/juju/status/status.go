@@ -5,16 +5,17 @@ package status
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"strconv"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
-	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/juju/osenv"
 )
 
@@ -28,77 +29,86 @@ type statusAPI interface {
 // NewStatusCommand returns a new command, which reports on the
 // runtime state of various system entities.
 func NewStatusCommand() cmd.Command {
-	return envcmd.Wrap(&statusCommand{})
+	return modelcmd.Wrap(&statusCommand{})
 }
 
 type statusCommand struct {
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 	out      cmd.Output
 	patterns []string
 	isoTime  bool
 	api      statusAPI
+
+	color bool
 }
 
-var statusDoc = `
-This command will report on the runtime state of various system entities.
+var usageSummary = `
+Reports the current status of the model, machines, applications and units.`[1:]
 
-There are a number of ways to format the status output:
+var usageDetails = `
+By default (without argument), the status of the model, including all
+applications and units will be output.
 
-- {short|line|oneline}: List units and their subordinates. For each
-           unit, the IP address and agent status are listed.
-- summary: Displays the subnet(s) and port(s) the environment utilises.
-           Also displays aggregate information about:
-           - MACHINES: total #, and # in each state.
-           - UNITS: total #, and # in each state.
-           - SERVICES: total #, and # exposed of each service.
-- tabular: Displays information in a tabular format in these sections:
-           - Machines: ID, STATE, DNS, INS-ID, SERIES, AZ
-           - Services: NAME, EXPOSED, CHARM
-           - Units: ID, STATE, VERSION, MACHINE, PORTS, PUBLIC-ADDRESS
-             - Also displays subordinate units.
-- yaml (DEFAULT): Displays information on machines, services, and units
-                  in the yaml format.
+Application or unit names may be used as output filters (the '*' can be used as
+a wildcard character). In addition to matched applications and units, related
+machines, applications, and units will also be displayed. If a subordinate unit
+is matched, then its principal unit will be displayed. If a principal unit is
+matched, then all of its subordinates will be displayed.
 
-Note: AZ above is the cloud region's availability zone.
+The available output formats are:
 
-Service or unit names may be specified to filter the status to only those
-services and units that match, along with the related machines, services
-and units. If a subordinate unit is matched, then its principal unit will
-be displayed. If a principal unit is matched, then all of its subordinates
-will be displayed.
+- tabular (default): Displays status in a tabular format with a separate table
+      for the model, machines, applications, relations (if any) and units.
+      Note: in this format, the AZ column refers to the cloud region's
+      availability zone.
+- {short|line|oneline}: List units and their subordinates. For each unit, the IP
+      address and agent status are listed.
+- summary: Displays the subnet(s) and port(s) the model utilises. Also displays
+      aggregate information about:
+      - Machines: total #, and # in each state.
+      - Units: total #, and # in each state.
+      - Applications: total #, and # exposed of each application.
+- yaml: Displays information about the model, machines, applications, and units
+      in structured YAML format.
+- json: Displays information about the model, machines, applications, and units
+      in structured JSON format.
 
-Wildcards ('*') may be specified in service/unit names to match any sequence
-of characters. For example, 'nova-*' will match any service whose name begins
-with 'nova-': 'nova-compute', 'nova-volume', etc.
+Examples:
+    juju show-status
+    juju show-status mysql
+    juju show-status nova-*
+
+See also:
+    machines
+    show-model
+    show-status-log
+    storage
 `
 
 func (c *statusCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "status",
-		Args:    "[pattern ...]",
-		Purpose: "output status information about an environment",
-		Doc:     statusDoc,
-		Aliases: []string{"stat"},
+		Name:    "show-status",
+		Args:    "[filter pattern ...]",
+		Purpose: usageSummary,
+		Doc:     usageDetails,
+		Aliases: []string{"status"},
 	}
 }
 
 func (c *statusCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.BoolVar(&c.isoTime, "utc", false, "display time as UTC in RFC3339 format")
+	c.ModelCommandBase.SetFlags(f)
+	f.BoolVar(&c.isoTime, "utc", false, "Display time as UTC in RFC3339 format")
+	f.BoolVar(&c.color, "color", false, "Force use of ANSI color codes")
 
-	oneLineFormatter := FormatOneline
-	defaultFormat := "yaml"
-	if c.CompatVersion() > 1 {
-		defaultFormat = "tabular"
-		oneLineFormatter = FormatOnelineV2
-	}
+	defaultFormat := "tabular"
 
 	c.out.AddFlags(f, defaultFormat, map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,
-		"short":   oneLineFormatter,
-		"oneline": oneLineFormatter,
-		"line":    oneLineFormatter,
-		"tabular": FormatTabular,
+		"short":   FormatOneline,
+		"oneline": FormatOneline,
+		"line":    FormatOneline,
+		"tabular": c.FormatTabular,
 		"summary": FormatSummary,
 	})
 }
@@ -119,21 +129,14 @@ func (c *statusCommand) Init(args []string) error {
 	return nil
 }
 
-var connectionError = `Unable to connect to environment %q.
-Please check your credentials or use 'juju bootstrap' to create a new environment.
-
-Error details:
-%v
-`
-
-var newApiClientForStatus = func(c *statusCommand) (statusAPI, error) {
+var newAPIClientForStatus = func(c *statusCommand) (statusAPI, error) {
 	return c.NewAPIClient()
 }
 
 func (c *statusCommand) Run(ctx *cmd.Context) error {
-	apiclient, err := newApiClientForStatus(c)
+	apiclient, err := newAPIClientForStatus(c)
 	if err != nil {
-		return errors.Errorf(connectionError, c.ConnectionName(), err)
+		return errors.Trace(err)
 	}
 	defer apiclient.Close()
 
@@ -149,7 +152,14 @@ func (c *statusCommand) Run(ctx *cmd.Context) error {
 		return errors.Errorf("unable to obtain the current status")
 	}
 
-	formatter := newStatusFormatter(status, c.CompatVersion(), c.isoTime)
-	formatted := formatter.format()
+	formatter := newStatusFormatter(status, c.ControllerName(), c.isoTime)
+	formatted, err := formatter.format()
+	if err != nil {
+		return err
+	}
 	return c.out.Write(ctx, formatted)
+}
+
+func (c *statusCommand) FormatTabular(writer io.Writer, value interface{}) error {
+	return FormatTabular(writer, c.color, value)
 }

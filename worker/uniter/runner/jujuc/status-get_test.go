@@ -42,7 +42,6 @@ var statusGetTests = []struct {
 }{
 	{[]string{"--format", "json", "--include-data"}, formatJson, statusAttributes},
 	{[]string{"--format", "yaml"}, formatYaml, map[string]interface{}{"status": "error"}},
-	{[]string{}, -1, "error\n"},
 }
 
 func setFakeStatus(ctx *Context) {
@@ -54,7 +53,7 @@ func setFakeStatus(ctx *Context) {
 }
 
 func setFakeServiceStatus(ctx *Context) {
-	ctx.info.Status.SetServiceStatus(
+	ctx.info.Status.SetApplicationStatus(
 		jujuc.StatusInfo{
 			Status: "active",
 			Info:   "this is a service status",
@@ -104,19 +103,22 @@ func (s *statusGetSuite) TestHelp(c *gc.C) {
 	code := cmd.Main(com, ctx, []string{"--help"})
 	c.Assert(code, gc.Equals, 0)
 	expectedHelp := "" +
-		"usage: status-get [options] [--include-data] [--service]\n" +
-		"purpose: print status information\n" +
+		"Usage: status-get [options] [--include-data] [--application]\n" +
 		"\n" +
-		"options:\n" +
+		"Summary:\n" +
+		"print status information\n" +
+		"\n" +
+		"Options:\n" +
+		"--application  (= false)\n" +
+		"    print status for all units of this application if this unit is the leader\n" +
 		"--format  (= smart)\n" +
-		"    specify output format (json|smart|yaml)\n" +
+		"    Specify output format (json|smart|yaml)\n" +
 		"--include-data  (= false)\n" +
 		"    print all status data\n" +
 		"-o, --output (= \"\")\n" +
-		"    specify an output file\n" +
-		"--service  (= false)\n" +
-		"    print status for all units of this service if this unit is the leader\n" +
+		"    Specify an output file\n" +
 		"\n" +
+		"Details:\n" +
 		"By default, only the status value is printed.\n" +
 		"If the --include-data flag is passed, the associated data are printed also.\n"
 
@@ -144,7 +146,7 @@ func (s *statusGetSuite) TestOutputPath(c *gc.C) {
 
 func (s *statusGetSuite) TestServiceStatus(c *gc.C) {
 	expected := map[string]interface{}{
-		"service-status": map[interface{}]interface{}{
+		"application-status": map[interface{}]interface{}{
 			"status-data": map[interface{}]interface{}{},
 			"units": map[interface{}]interface{}{
 				"": map[interface{}]interface{}{
@@ -161,7 +163,7 @@ func (s *statusGetSuite) TestServiceStatus(c *gc.C) {
 	com, err := jujuc.NewCommand(hctx, cmdString("status-get"))
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := testing.Context(c)
-	code := cmd.Main(com, ctx, []string{"--format", "json", "--include-data", "--service"})
+	code := cmd.Main(com, ctx, []string{"--format", "json", "--include-data", "--application"})
 	c.Assert(code, gc.Equals, 0)
 
 	var out map[string]interface{}

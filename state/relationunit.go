@@ -9,9 +9,9 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -73,10 +73,7 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 
 	// Verify that the unit is not already in scope, and abort without error
 	// if it is.
-	ruKey, err := ru.key(ru.unitName)
-	if err != nil {
-		return err
-	}
+	ruKey := ru.key()
 	if count, err := relationScopes.FindId(ruKey).Count(); err != nil {
 		return err
 	} else if count != 0 {
@@ -114,10 +111,10 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 	if count, err := settingsColl.FindId(ruKey).Count(); err != nil {
 		return err
 	} else if count == 0 {
-		ops = append(ops, createSettingsOp(ruKey, settings))
+		ops = append(ops, createSettingsOp(settingsC, ruKey, settings))
 	} else {
 		var rop txn.Op
-		rop, settingsChanged, err = replaceSettingsOp(ru.st, ruKey, settings)
+		rop, settingsChanged, err = replaceSettingsOp(ru.st, settingsC, ruKey, settings)
 		if err != nil {
 			return err
 		}
@@ -125,15 +122,12 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 	}
 
 	// * Create the scope doc.
-	rsDocID := ru.st.docID(ruKey)
 	ops = append(ops, txn.Op{
 		C:      relationScopesC,
-		Id:     rsDocID,
+		Id:     ruKey,
 		Assert: txn.DocMissing,
 		Insert: relationScopeDoc{
-			DocID:   rsDocID,
-			Key:     ruKey,
-			EnvUUID: ru.st.EnvironUUID(),
+			Key: ruKey,
 		},
 	})
 
@@ -150,7 +144,7 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 	if err := ru.st.runTransaction(ops); err != txn.ErrAborted {
 		return err
 	}
-	if count, err := relationScopes.FindId(rsDocID).Count(); err != nil {
+	if count, err := relationScopes.FindId(ruKey).Count(); err != nil {
 		return err
 	} else if count != 0 {
 		// The scope document exists, so we're actually already in scope.
@@ -216,22 +210,22 @@ func (ru *RelationUnit) subordinateOps() ([]txn.Op, string, error) {
 	if !ru.isPrincipal || ru.endpoint.Scope != charm.ScopeContainer {
 		return nil, "", nil
 	}
-	related, err := ru.relation.RelatedEndpoints(ru.endpoint.ServiceName)
+	related, err := ru.relation.RelatedEndpoints(ru.endpoint.ApplicationName)
 	if err != nil {
 		return nil, "", err
 	}
 	if len(related) != 1 {
 		return nil, "", fmt.Errorf("expected single related endpoint, got %v", related)
 	}
-	serviceName, unitName := related[0].ServiceName, ru.unitName
-	selSubordinate := bson.D{{"service", serviceName}, {"principal", unitName}}
+	applicationname, unitName := related[0].ApplicationName, ru.unitName
+	selSubordinate := bson.D{{"application", applicationname}, {"principal", unitName}}
 	var lDoc lifeDoc
 	if err := units.Find(selSubordinate).One(&lDoc); err == mgo.ErrNotFound {
-		service, err := ru.st.Service(serviceName)
+		application, err := ru.st.Application(applicationname)
 		if err != nil {
 			return nil, "", err
 		}
-		_, ops, err := service.addUnitOps(unitName, nil)
+		_, ops, err := application.addUnitOps(unitName, nil)
 		return ops, "", err
 	} else if err != nil {
 		return nil, "", err
@@ -252,10 +246,7 @@ func (ru *RelationUnit) PrepareLeaveScope() error {
 	relationScopes, closer := ru.st.getCollection(relationScopesC)
 	defer closer()
 
-	key, err := ru.key(ru.unitName)
-	if err != nil {
-		return err
-	}
+	key := ru.key()
 	if count, err := relationScopes.FindId(key).Count(); err != nil {
 		return err
 	} else if count == 0 {
@@ -263,7 +254,7 @@ func (ru *RelationUnit) PrepareLeaveScope() error {
 	}
 	ops := []txn.Op{{
 		C:      relationScopesC,
-		Id:     ru.st.docID(key),
+		Id:     key,
 		Update: bson.D{{"$set", bson.D{{"departing", true}}}},
 	}}
 	return ru.st.runTransaction(ops)
@@ -278,10 +269,7 @@ func (ru *RelationUnit) LeaveScope() error {
 	relationScopes, closer := ru.st.getCollection(relationScopesC)
 	defer closer()
 
-	key, err := ru.key(ru.unitName)
-	if err != nil {
-		return err
-	}
+	key := ru.key()
 	// The logic below is involved because we remove a dying relation
 	// with the last unit that leaves a scope in it. It handles three
 	// possible cases:
@@ -321,7 +309,7 @@ func (ru *RelationUnit) LeaveScope() error {
 		}
 		ops := []txn.Op{{
 			C:      relationScopesC,
-			Id:     ru.st.docID(key),
+			Id:     key,
 			Assert: txn.DocExists,
 			Remove: true,
 		}}
@@ -348,8 +336,8 @@ func (ru *RelationUnit) LeaveScope() error {
 		}
 		return ops, nil
 	}
-	if err = ru.st.run(buildTxn); err != nil {
-		return fmt.Errorf("cannot leave scope for %s: %v", desc, err)
+	if err := ru.st.run(buildTxn); err != nil {
+		return errors.Annotatef(err, "cannot leave scope for %s", desc)
 	}
 	return nil
 }
@@ -371,11 +359,7 @@ func (ru *RelationUnit) inScope(sel bson.D) (bool, error) {
 	relationScopes, closer := ru.st.getCollection(relationScopesC)
 	defer closer()
 
-	key, err := ru.key(ru.unitName)
-	if err != nil {
-		return false, err
-	}
-	sel = append(sel, bson.D{{"_id", key}}...)
+	sel = append(sel, bson.D{{"_id", ru.key()}}...)
 	count, err := relationScopes.Find(sel).Count()
 	if err != nil {
 		return false, err
@@ -400,11 +384,7 @@ func watchRelationScope(
 // Settings returns a Settings which allows access to the unit's settings
 // within the relation.
 func (ru *RelationUnit) Settings() (*Settings, error) {
-	key, err := ru.key(ru.unitName)
-	if err != nil {
-		return nil, err
-	}
-	return readSettings(ru.st, key)
+	return readSettings(ru.st, settingsC, ru.key())
 }
 
 // ReadSettings returns a map holding the settings of the unit with the
@@ -419,29 +399,40 @@ func (ru *RelationUnit) ReadSettings(uname string) (m map[string]interface{}, er
 	if !names.IsValidUnit(uname) {
 		return nil, fmt.Errorf("%q is not a valid unit name", uname)
 	}
-	key, err := ru.key(uname)
+	key, err := ru.unitKey(uname)
 	if err != nil {
 		return nil, err
 	}
-	node, err := readSettings(ru.st, key)
+	node, err := readSettings(ru.st, settingsC, key)
 	if err != nil {
 		return nil, err
 	}
 	return node.Map(), nil
 }
 
-// key returns a string, based on the relation and the supplied unit name,
+// unitKey returns a string, based on the relation and the supplied unit name,
 // which is used as a key for that unit within this relation in the settings,
 // presence, and relationScopes collections.
-func (ru *RelationUnit) key(uname string) (string, error) {
+func (ru *RelationUnit) unitKey(uname string) (string, error) {
 	uparts := strings.Split(uname, "/")
 	sname := uparts[0]
 	ep, err := ru.relation.Endpoint(sname)
 	if err != nil {
 		return "", err
 	}
-	parts := []string{ru.scope, string(ep.Role), uname}
-	return strings.Join(parts, "#"), nil
+	return ru._key(string(ep.Role), uname), nil
+}
+
+// key returns a string, based on the relation and the current unit name,
+// which is used as a key for that unit within this relation in the settings,
+// presence, and relationScopes collections.
+func (ru *RelationUnit) key() string {
+	return ru._key(string(ru.endpoint.Role), ru.unitName)
+}
+
+func (ru *RelationUnit) _key(role, unitname string) string {
+	parts := []string{ru.scope, role, unitname}
+	return strings.Join(parts, "#")
 }
 
 // relationScopeDoc represents a unit which is in a relation scope.
@@ -449,7 +440,7 @@ func (ru *RelationUnit) key(uname string) (string, error) {
 type relationScopeDoc struct {
 	DocID     string `bson:"_id"`
 	Key       string `bson:"key"`
-	EnvUUID   string `bson:"env-uuid"`
+	ModelUUID string `bson:"model-uuid"`
 	Departing bool
 }
 

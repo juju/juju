@@ -5,31 +5,31 @@ package uniter
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/watcher"
 )
 
 // NewLeadershipSettingsAccessor returns a new LeadershipSettingsAccessor.
 func NewLeadershipSettingsAccessor(
 	caller FacadeCallFn,
 	newWatcher NewNotifyWatcherFn,
-	checkApiVersion CheckApiVersionFn,
+	checkAPIVersion CheckAPIVersionFn,
 ) *LeadershipSettingsAccessor {
-	return &LeadershipSettingsAccessor{caller, newWatcher, checkApiVersion}
+	return &LeadershipSettingsAccessor{caller, newWatcher, checkAPIVersion}
 }
 
 type FacadeCallFn func(request string, params, response interface{}) error
 type NewNotifyWatcherFn func(params.NotifyWatchResult) watcher.NotifyWatcher
-type CheckApiVersionFn func(functionName string) error
+type CheckAPIVersionFn func(functionName string) error
 
 // LeadershipSettingsAccessor provides a type that can make RPC calls
 // to a service which can read, write, and watch leadership settings.
 type LeadershipSettingsAccessor struct {
 	facadeCaller     FacadeCallFn
 	newNotifyWatcher NewNotifyWatcherFn
-	checkApiVersion  CheckApiVersionFn
+	checkAPIVersion  CheckAPIVersionFn
 }
 
 // Merge merges the provided settings into the leadership settings for
@@ -37,7 +37,7 @@ type LeadershipSettingsAccessor struct {
 // this operation.
 func (lsa *LeadershipSettingsAccessor) Merge(serviceId string, settings map[string]string) error {
 
-	if err := lsa.checkApiVersion("Merge"); err != nil {
+	if err := lsa.checkAPIVersion("Merge"); err != nil {
 		return errors.Annotatef(err, "cannot access leadership api")
 	}
 
@@ -58,7 +58,7 @@ func (lsa *LeadershipSettingsAccessor) Merge(serviceId string, settings map[stri
 // ID. Anyone may perform this operation.
 func (lsa *LeadershipSettingsAccessor) Read(serviceId string) (map[string]string, error) {
 
-	if err := lsa.checkApiVersion("Read"); err != nil {
+	if err := lsa.checkAPIVersion("Read"); err != nil {
 		return nil, errors.Annotatef(err, "cannot access leadership api")
 	}
 
@@ -79,13 +79,13 @@ func (lsa *LeadershipSettingsAccessor) Read(serviceId string) (map[string]string
 // for leadership settings changes to be made for a given service ID.
 func (lsa *LeadershipSettingsAccessor) WatchLeadershipSettings(serviceId string) (watcher.NotifyWatcher, error) {
 
-	if err := lsa.checkApiVersion("WatchLeadershipSettings"); err != nil {
+	if err := lsa.checkAPIVersion("WatchLeadershipSettings"); err != nil {
 		return nil, errors.Annotatef(err, "cannot access leadership api")
 	}
 	var results params.NotifyWatchResults
 	if err := lsa.facadeCaller(
 		"WatchLeadershipSettings",
-		params.Entities{[]params.Entity{{names.NewServiceTag(serviceId).String()}}},
+		params.Entities{[]params.Entity{{names.NewApplicationTag(serviceId).String()}}},
 		&results,
 	); err != nil {
 		return nil, errors.Annotate(err, "failed to call leadership api")
@@ -105,13 +105,13 @@ func (lsa *LeadershipSettingsAccessor) WatchLeadershipSettings(serviceId string)
 
 func (lsa *LeadershipSettingsAccessor) prepareMerge(serviceId string, settings map[string]string) params.MergeLeadershipSettingsParam {
 	return params.MergeLeadershipSettingsParam{
-		ServiceTag: names.NewServiceTag(serviceId).String(),
-		Settings:   settings,
+		ApplicationTag: names.NewApplicationTag(serviceId).String(),
+		Settings:       settings,
 	}
 }
 
 func (lsa *LeadershipSettingsAccessor) prepareRead(serviceId string) params.Entity {
-	return params.Entity{Tag: names.NewServiceTag(serviceId).String()}
+	return params.Entity{Tag: names.NewApplicationTag(serviceId).String()}
 }
 
 //

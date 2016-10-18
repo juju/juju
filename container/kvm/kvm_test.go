@@ -20,10 +20,8 @@ import (
 	"github.com/juju/juju/container/kvm"
 	kvmtesting "github.com/juju/juju/container/kvm/testing"
 	containertesting "github.com/juju/juju/container/testing"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/provider/dummy"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -37,23 +35,24 @@ var _ = gc.Suite(&KVMSuite{})
 func (s *KVMSuite) SetUpTest(c *gc.C) {
 	s.TestSuite.SetUpTest(c)
 	var err error
-	s.manager, err = kvm.NewContainerManager(container.ManagerConfig{container.ConfigName: "test"})
+	s.manager, err = kvm.NewContainerManager(
+		container.ManagerConfig{container.ConfigModelUUID: coretesting.ModelTag.Id()})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (*KVMSuite) TestManagerNameNeeded(c *gc.C) {
-	manager, err := kvm.NewContainerManager(container.ManagerConfig{container.ConfigName: ""})
-	c.Assert(err, gc.ErrorMatches, "name is required")
+func (*KVMSuite) TestManagerModelUUIDNeeded(c *gc.C) {
+	manager, err := kvm.NewContainerManager(container.ManagerConfig{container.ConfigModelUUID: ""})
+	c.Assert(err, gc.ErrorMatches, "model UUID is required")
 	c.Assert(manager, gc.IsNil)
 }
 
 func (*KVMSuite) TestManagerWarnsAboutUnknownOption(c *gc.C) {
 	_, err := kvm.NewContainerManager(container.ManagerConfig{
-		container.ConfigName: "BillyBatson",
-		"shazam":             "Captain Marvel",
+		container.ConfigModelUUID: coretesting.ModelTag.Id(),
+		"shazam":                  "Captain Marvel",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(c.GetTestLog(), jc.Contains, `WARNING juju.container unused config option: "shazam" -> "Captain Marvel"`)
+	c.Assert(c.GetTestLog(), jc.Contains, `INFO juju.container unused config option: "shazam" -> "Captain Marvel"`)
 }
 
 func (s *KVMSuite) TestListInitiallyEmpty(c *gc.C) {
@@ -74,21 +73,21 @@ func (s *KVMSuite) createRunningContainer(c *gc.C, name string) kvm.Container {
 }
 
 func (s *KVMSuite) TestListMatchesManagerName(c *gc.C) {
-	s.createRunningContainer(c, "test-match1")
-	s.createRunningContainer(c, "test-match2")
+	s.createRunningContainer(c, "juju-06f00d-match1")
+	s.createRunningContainer(c, "juju-06f00d-match2")
 	s.createRunningContainer(c, "testNoMatch")
 	s.createRunningContainer(c, "other")
 	containers, err := s.manager.ListContainers()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(containers, gc.HasLen, 2)
-	expectedIds := []instance.Id{"test-match1", "test-match2"}
+	expectedIds := []instance.Id{"juju-06f00d-match1", "juju-06f00d-match2"}
 	ids := []instance.Id{containers[0].Id(), containers[1].Id()}
 	c.Assert(ids, jc.SameContents, expectedIds)
 }
 
 func (s *KVMSuite) TestListMatchesRunningContainers(c *gc.C) {
-	running := s.createRunningContainer(c, "test-running")
-	s.ContainerFactory.New("test-stopped")
+	running := s.createRunningContainer(c, "juju-06f00d-running")
+	s.ContainerFactory.New("juju-06f00d-stopped")
 	containers, err := s.manager.ListContainers()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(containers, gc.HasLen, 1)
@@ -106,9 +105,15 @@ func (s *KVMSuite) TestWriteTemplate(c *gc.C) {
 	params := kvm.CreateMachineParams{
 		Hostname:      "foo-bar",
 		NetworkBridge: "br0",
-		Interfaces: []network.InterfaceInfo{
-			{MACAddress: "00:16:3e:20:b0:11"},
-		},
+		Interfaces: []network.InterfaceInfo{{
+			InterfaceName:       "eth0",
+			MACAddress:          "00:16:3e:20:b0:11",
+			ParentInterfaceName: "br-eth0.10",
+		}, {
+			InterfaceName:       "eth42",
+			MACAddress:          "00:16:3e:20:b0:12",
+			ParentInterfaceName: "virbr42",
+		}},
 	}
 	tempDir := c.MkDir()
 
@@ -120,10 +125,14 @@ func (s *KVMSuite) TestWriteTemplate(c *gc.C) {
 
 	template := string(templateBytes)
 
-	c.Assert(template, jc.Contains, "<name>foo-bar</name>")
-	c.Assert(template, jc.Contains, "<mac address='00:16:3e:20:b0:11'/>")
-	c.Assert(template, jc.Contains, "<source bridge='br0'/>")
-	c.Assert(strings.Count(string(template), "<interface type='bridge'>"), gc.Equals, 1)
+	c.Check(template, jc.Contains, "<name>foo-bar</name>")
+	c.Check(strings.Count(template, "<interface type='bridge'>"), gc.Equals, 2)
+	c.Check(template, jc.Contains, "<source bridge='br-eth0.10'/>")
+	c.Check(template, jc.Contains, "<mac address='00:16:3e:20:b0:11'/>")
+	c.Check(template, jc.Contains, "<guest dev='eth0'/>")
+	c.Check(template, jc.Contains, "<source bridge='virbr42'/>")
+	c.Check(template, jc.Contains, "<mac address='00:16:3e:20:b0:12'/>")
+	c.Check(template, jc.Contains, "<guest dev='eth42'/>")
 }
 
 func (s *KVMSuite) TestCreateMachineUsesTemplate(c *gc.C) {
@@ -157,7 +166,7 @@ func (s *KVMSuite) TestCreateMachineUsesTemplate(c *gc.C) {
 }
 
 func (s *KVMSuite) TestDestroyContainer(c *gc.C) {
-	instance := containertesting.CreateContainer(c, s.manager, "1/lxc/0")
+	instance := containertesting.CreateContainer(c, s.manager, "1/kvm/0")
 
 	err := s.manager.DestroyContainer(instance.Id())
 	c.Assert(err, jc.ErrorIsNil)
@@ -172,24 +181,15 @@ func (s *KVMSuite) TestDestroyContainer(c *gc.C) {
 // Test that CreateContainer creates proper startParams.
 func (s *KVMSuite) TestCreateContainerUtilizesReleaseSimpleStream(c *gc.C) {
 
-	envCfg, err := config.New(
-		config.NoDefaults,
-		dummy.SampleConfig().Merge(
-			coretesting.Attrs{"image-stream": "released"},
-		),
-	)
-	c.Assert(err, jc.ErrorIsNil)
-
 	// Mock machineConfig with a mocked simple stream URL.
 	instanceConfig, err := containertesting.MockMachineConfig("1/kvm/0")
 	c.Assert(err, jc.ErrorIsNil)
-	instanceConfig.Config = envCfg
 
 	// CreateContainer sets TestStartParams internally; we call this
 	// purely for the side-effect.
 	containertesting.CreateContainerWithMachineConfig(c, s.manager, instanceConfig)
 
-	c.Assert(kvm.TestStartParams.ImageDownloadUrl, gc.Equals, "")
+	c.Assert(kvm.TestStartParams.ImageDownloadURL, gc.Equals, "")
 }
 
 // Test that CreateContainer creates proper startParams.
@@ -204,7 +204,7 @@ func (s *KVMSuite) TestCreateContainerUtilizesDailySimpleStream(c *gc.C) {
 	// purely for the side-effect.
 	containertesting.CreateContainerWithMachineConfig(c, s.manager, instanceConfig)
 
-	c.Assert(kvm.TestStartParams.ImageDownloadUrl, gc.Equals, "http://cloud-images.ubuntu.com/daily")
+	c.Assert(kvm.TestStartParams.ImageDownloadURL, gc.Equals, "http://cloud-images.ubuntu.com/daily")
 }
 
 func (s *KVMSuite) TestStartContainerUtilizesSimpleStream(c *gc.C) {
@@ -215,7 +215,7 @@ func (s *KVMSuite) TestStartContainerUtilizesSimpleStream(c *gc.C) {
 	startParams := kvm.StartParams{
 		Series:           "mocked-series",
 		Arch:             "mocked-arch",
-		ImageDownloadUrl: "mocked-url",
+		ImageDownloadURL: "mocked-url",
 	}
 	mockedContainer := kvm.NewEmptyKvmContainer()
 	mockedContainer.Start(startParams)
@@ -225,7 +225,7 @@ func (s *KVMSuite) TestStartContainerUtilizesSimpleStream(c *gc.C) {
 			"sync arch=%s release=%s --source=%s",
 			startParams.Arch,
 			startParams.Series,
-			startParams.ImageDownloadUrl,
+			startParams.ImageDownloadURL,
 		),
 		" ",
 	)
@@ -266,14 +266,14 @@ func (s *ConstraintsSuite) TestDefaults(c *gc.C) {
 			RootDisk: kvm.DefaultDisk,
 		},
 	}, {
-		cons: "cpu-cores=4",
+		cons: "cores=4",
 		expected: kvm.StartParams{
 			Memory:   kvm.DefaultMemory,
 			CpuCores: 4,
 			RootDisk: kvm.DefaultDisk,
 		},
 	}, {
-		cons: "cpu-cores=0",
+		cons: "cores=0",
 		expected: kvm.StartParams{
 			Memory:   kvm.DefaultMemory,
 			CpuCores: kvm.MinCpu,
@@ -304,14 +304,14 @@ func (s *ConstraintsSuite) TestDefaults(c *gc.C) {
 			`arch constraint of "armhf" being ignored as not supported`,
 		},
 	}, {
-		cons: "container=lxc",
+		cons: "container=lxd",
 		expected: kvm.StartParams{
 			Memory:   kvm.DefaultMemory,
 			CpuCores: kvm.DefaultCpu,
 			RootDisk: kvm.DefaultDisk,
 		},
 		infoLog: []string{
-			`container constraint of "lxc" being ignored as not supported`,
+			`container constraint of "lxd" being ignored as not supported`,
 		},
 	}, {
 		cons: "cpu-power=100",
@@ -334,7 +334,7 @@ func (s *ConstraintsSuite) TestDefaults(c *gc.C) {
 			`tags constraint of "foo,bar" being ignored as not supported`,
 		},
 	}, {
-		cons: "mem=4G cpu-cores=4 root-disk=20G arch=armhf cpu-power=100 container=lxc tags=foo,bar",
+		cons: "mem=4G cores=4 root-disk=20G arch=armhf cpu-power=100 container=lxd tags=foo,bar",
 		expected: kvm.StartParams{
 			Memory:   4 * 1024,
 			CpuCores: 4,
@@ -342,13 +342,13 @@ func (s *ConstraintsSuite) TestDefaults(c *gc.C) {
 		},
 		infoLog: []string{
 			`arch constraint of "armhf" being ignored as not supported`,
-			`container constraint of "lxc" being ignored as not supported`,
+			`container constraint of "lxd" being ignored as not supported`,
 			`cpu-power constraint of 100 being ignored as not supported`,
 			`tags constraint of "foo,bar" being ignored as not supported`,
 		},
 	}} {
 		var tw loggo.TestWriter
-		c.Assert(loggo.RegisterWriter("constraint-tester", &tw, loggo.DEBUG), gc.IsNil)
+		c.Assert(loggo.RegisterWriter("constraint-tester", &tw), gc.IsNil)
 		cons := constraints.MustParse(test.cons)
 		params := kvm.ParseConstraintsToStartParams(cons)
 		c.Check(params, gc.DeepEquals, test.expected)

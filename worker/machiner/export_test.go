@@ -3,4 +3,7 @@
 
 package machiner
 
-var InterfaceAddrs = &interfaceAddrs
+var (
+	InterfaceAddrs           = &interfaceAddrs
+	GetObservedNetworkConfig = &getObservedNetworkConfig
+)

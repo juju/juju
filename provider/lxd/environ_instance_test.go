@@ -14,7 +14,8 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/lxd"
-	"github.com/juju/juju/provider/lxd/lxdclient"
+	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/tools/lxdclient"
 )
 
 type environInstSuite struct {
@@ -46,7 +47,7 @@ func (s *environInstSuite) TestInstancesAPI(c *gc.C) {
 	s.Stub.CheckCalls(c, []gitjujutesting.StubCall{{
 		FuncName: "Instances",
 		Args: []interface{}{
-			s.Prefix + "machine-",
+			s.Prefix(),
 			lxdclient.AliveStatuses,
 		},
 	}})
@@ -93,26 +94,32 @@ func (s *environInstSuite) TestInstancesNoMatch(c *gc.C) {
 	c.Check(errors.Cause(err), gc.Equals, environs.ErrNoInstances)
 }
 
-func (s *environInstSuite) TestStateServerInstancesOkay(c *gc.C) {
+func (s *environInstSuite) TestControllerInstancesOkay(c *gc.C) {
 	s.Client.Insts = []lxdclient.Instance{*s.RawInstance}
 
-	ids, err := s.Env.StateServerInstances()
+	ids, err := s.Env.ControllerInstances(coretesting.ControllerTag.Id())
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(ids, jc.DeepEquals, []instance.Id{"spam"})
+	s.BaseSuite.Client.CheckCallNames(c, "Instances")
+	s.BaseSuite.Client.CheckCall(
+		c, 0, "Instances",
+		"juju-",
+		[]string{"Starting", "Started", "Running", "Stopping", "Stopped"},
+	)
 }
 
-func (s *environInstSuite) TestStateServerInstancesNotBootstrapped(c *gc.C) {
-	_, err := s.Env.StateServerInstances()
+func (s *environInstSuite) TestControllerInstancesNotBootstrapped(c *gc.C) {
+	_, err := s.Env.ControllerInstances("not-used")
 
 	c.Check(err, gc.Equals, environs.ErrNotBootstrapped)
 }
 
-func (s *environInstSuite) TestStateServerInstancesMixed(c *gc.C) {
+func (s *environInstSuite) TestControllerInstancesMixed(c *gc.C) {
 	other := lxdclient.NewInstance(lxdclient.InstanceSummary{}, nil)
 	s.Client.Insts = []lxdclient.Instance{*s.RawInstance, *other}
 
-	ids, err := s.Env.StateServerInstances()
+	ids, err := s.Env.ControllerInstances(coretesting.ControllerTag.Id())
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(ids, jc.DeepEquals, []instance.Id{"spam"})

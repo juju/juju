@@ -4,24 +4,18 @@
 package juju
 
 import (
-	"fmt"
-	"io"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
-	"github.com/juju/utils/parallel"
-	"gopkg.in/macaroon-bakery.v1/httpbakery"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/configstore"
+	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/network"
 )
 
-var logger = loggo.GetLogger("juju.api")
+var logger = loggo.GetLogger("juju.juju")
 
 // The following are variables so that they can be
 // changed by tests.
@@ -36,398 +30,185 @@ type apiStateCachedInfo struct {
 	cachedInfo *api.Info
 }
 
-var errAborted = fmt.Errorf("aborted")
+// NewAPIConnectionParams contains the parameters for creating a new Juju API
+// connection.
+type NewAPIConnectionParams struct {
+	// ControllerName is the name of the controller to connect to.
+	ControllerName string
 
-// NewAPIState creates an api.State object from an Environ
-// This is almost certainly the wrong thing to do as it assumes
-// the old admin password (stored as admin-secret in the config).
-func NewAPIState(user names.Tag, environ environs.Environ, dialOpts api.DialOpts) (api.Connection, error) {
-	info, err := environAPIInfo(environ, user)
-	if err != nil {
-		return nil, err
-	}
+	// Store is the jujuclient.ClientStore from which the controller's
+	// details will be fetched, and updated on address changes.
+	Store jujuclient.ClientStore
 
-	st, err := api.Open(info, dialOpts)
-	if err != nil {
-		return nil, err
-	}
-	return st, nil
+	// OpenAPI is the function that will be used to open API connections.
+	OpenAPI api.OpenFunc
+
+	// DialOpts contains the options used to dial the API connection.
+	DialOpts api.DialOpts
+
+	// AccountDetails contains the account details to use for logging
+	// in to the Juju API. If this is nil, then no login will take
+	// place. If AccountDetails.Password and AccountDetails.Macaroon
+	// are zero, the login will be as an external user.
+	AccountDetails *jujuclient.AccountDetails
+
+	// ModelUUID is an optional model UUID. If specified, the API connection
+	// will be scoped to the model with that UUID; otherwise it will be
+	// scoped to the controller.
+	ModelUUID string
 }
 
-// NewAPIClientFromName returns an api.Client connected to the API Server for
-// the named environment. If envName is "", the default environment
-// will be used.
-func NewAPIClientFromName(envName string, bClient *httpbakery.Client) (*api.Client, error) {
-	st, err := newAPIClient(envName, bClient)
+// NewAPIConnection returns an api.Connection to the specified Juju controller,
+// with specified account credentials, optionally scoped to the specified model
+// name.
+func NewAPIConnection(args NewAPIConnectionParams) (api.Connection, error) {
+	apiInfo, controller, err := connectionInfo(args)
 	if err != nil {
-		return nil, err
+		return nil, errors.Annotatef(err, "cannot work out how to connect")
 	}
-	return st.Client(), nil
-}
-
-// NewAPIFromName returns an api.State connected to the API Server for
-// the named environment. If envName is "", the default environment will
-// be used.
-func NewAPIFromName(envName string, bClient *httpbakery.Client) (api.Connection, error) {
-	return newAPIClient(envName, bClient)
-}
-
-var defaultAPIOpen = api.Open
-
-func newAPIClient(envName string, bClient *httpbakery.Client) (api.Connection, error) {
-	store, err := configstore.Default()
+	if len(apiInfo.Addrs) == 0 {
+		return nil, errors.New("no API addresses")
+	}
+	logger.Infof("connecting to API addresses: %v", apiInfo.Addrs)
+	st, err := args.OpenAPI(apiInfo, args.DialOpts)
 	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	st, err := newAPIFromStore(envName, store, defaultAPIOpen, bClient)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return st, nil
-}
-
-// serverAddress returns the given string address:port as network.HostPort.
-var serverAddress = func(hostPort string) (network.HostPort, error) {
-	addrConnectedTo, err := network.ParseHostPorts(hostPort)
-	if err != nil {
-		// Should never happen, since we've just connected with it.
-		return network.HostPort{}, errors.Annotatef(err, "invalid API address %q", hostPort)
-	}
-	return addrConnectedTo[0], nil
-}
-
-// newAPIFromStore implements the bulk of NewAPIClientFromName
-// but is separate for testing purposes.
-func newAPIFromStore(envName string, store configstore.Storage, apiOpen api.OpenFunc, bClient *httpbakery.Client) (api.Connection, error) {
-	// Try to read the default environment configuration file.
-	// If it doesn't exist, we carry on in case
-	// there's some environment info for that environment.
-	// This enables people to copy environment files
-	// into their .juju/environments directory and have
-	// them be directly useful with no further configuration changes.
-	envs, err := environs.ReadEnvirons("")
-	if err == nil {
-		if envName == "" {
-			envName = envs.Default
+		redirErr, ok := errors.Cause(err).(*api.RedirectError)
+		if !ok {
+			return nil, errors.Trace(err)
 		}
-		if envName == "" {
-			return nil, fmt.Errorf("no default environment found")
+		// We've been told to connect to a different API server,
+		// so do so. Note that we don't copy the account details
+		// because the account on the redirected server may well
+		// be different - we'll use macaroon authentication
+		// directly without sending account details.
+		// Copy the API info because it's possible that the
+		// apiConfigConnect is still using it concurrently.
+		apiInfo = &api.Info{
+			ModelTag: apiInfo.ModelTag,
+			Addrs:    network.HostPortsToStrings(usableHostPorts(redirErr.Servers)),
+			CACert:   redirErr.CACert,
 		}
-	} else if !environs.IsNoEnv(err) {
-		return nil, err
-	}
-
-	// Try to connect to the API concurrently using two different
-	// possible sources of truth for the API endpoint. Our
-	// preference is for the API endpoint cached in the API info,
-	// because we know that without needing to access any remote
-	// provider. However, the addresses stored there may no longer
-	// be current (and the network connection may take a very long
-	// time to time out) so we also try to connect using information
-	// found from the provider. We only start to make that
-	// connection after some suitable delay, so that in the
-	// hopefully usual case, we will make the connection to the API
-	// and never hit the provider. By preference we use provider
-	// attributes from the config store, but for backward
-	// compatibility reasons, we fall back to information from
-	// ReadEnvirons if that does not exist.
-	chooseError := func(err0, err1 error) error {
-		if err0 == nil {
-			return err1
-		}
-		if errorImportance(err0) < errorImportance(err1) {
-			err0, err1 = err1, err0
-		}
-		logger.Warningf("discarding API open error: %v", err1)
-		return err0
-	}
-	try := parallel.NewTry(0, chooseError)
-
-	info, err := store.ReadInfo(envName)
-	if err != nil && !errors.IsNotFound(err) {
-		return nil, err
-	}
-	var delay time.Duration
-	if info != nil && len(info.APIEndpoint().Addresses) > 0 {
-		logger.Debugf(
-			"trying cached API connection settings - endpoints %v",
-			info.APIEndpoint().Addresses,
-		)
-		try.Start(func(stop <-chan struct{}) (io.Closer, error) {
-			return apiInfoConnect(info, apiOpen, stop, bClient)
-		})
-		// Delay the config connection until we've spent
-		// some time trying to connect to the cached info.
-		delay = providerConnectDelay
-	} else {
-		logger.Debugf("no cached API connection settings found")
-	}
-	try.Start(func(stop <-chan struct{}) (io.Closer, error) {
-		cfg, err := getConfig(info, envs, envName)
+		st, err = args.OpenAPI(apiInfo, args.DialOpts)
 		if err != nil {
-			return nil, err
+			return nil, errors.Annotatef(err, "cannot connect to redirected address")
 		}
-		return apiConfigConnect(cfg, apiOpen, stop, delay, environInfoUserTag(info))
-	})
-	try.Close()
-	val0, err := try.Result()
-	if err != nil {
-		if ierr, ok := err.(*infoConnectError); ok {
-			// lose error encapsulation:
-			err = ierr.error
-		}
-		return nil, err
+		// TODO(rog) update cached model addresses.
+		// TODO(rog) should we do something with the logged-in username?
+		return st, nil
 	}
-
-	st := val0.(api.Connection)
 	addrConnectedTo, err := serverAddress(st.Addr())
 	if err != nil {
-		return nil, err
-	}
-	// Even though we are about to update API addresses based on
-	// APIHostPorts in cacheChangedAPIInfo, we first cache the
-	// addresses based on the provider lookup. This is because older API
-	// servers didn't return their HostPort information on Login, and we
-	// still want to cache our connection information to them.
-	if cachedInfo, ok := st.(apiStateCachedInfo); ok {
-		st = cachedInfo.Connection
-		if cachedInfo.cachedInfo != nil && info != nil {
-			// Cache the connection settings only if we used the
-			// environment config, but any errors are just logged
-			// as warnings, because they're not fatal.
-			err = cacheAPIInfo(st, info, cachedInfo.cachedInfo)
-			if err != nil {
-				logger.Warningf("cannot cache API connection settings: %v", err.Error())
-			} else {
-				logger.Infof("updated API connection settings cache")
-			}
-			addrConnectedTo, err = serverAddress(st.Addr())
-			if err != nil {
-				return nil, err
-			}
-		}
+		return nil, errors.Trace(err)
 	}
 	// Update API addresses if they've changed. Error is non-fatal.
-	// For older servers, the environ tag or server tag may not be set.
-	// if they are not, we store empty values.
-	var environUUID string
-	var serverUUID string
-	if envTag, err := st.EnvironTag(); err == nil {
-		environUUID = envTag.Id()
+	// Note that in the redirection case, we won't update the addresses
+	// of the controller we first connected to. This shouldn't be
+	// a problem in practice because the intended scenario for
+	// controllers that redirect involves them having well known
+	// public addresses that won't change over time.
+	hostPorts := st.APIHostPorts()
+	agentVersion := ""
+	if v, ok := st.ServerVersion(); ok {
+		agentVersion = v.String()
 	}
-	if controllerTag, err := st.ControllerTag(); err == nil {
-		serverUUID = controllerTag.Id()
+	params := UpdateControllerParams{
+		AgentVersion:     agentVersion,
+		AddrConnectedTo:  []network.HostPort{addrConnectedTo},
+		CurrentHostPorts: hostPorts,
 	}
-	if localerr := cacheChangedAPIInfo(info, st.APIHostPorts(), addrConnectedTo, environUUID, serverUUID); localerr != nil {
-		logger.Warningf("cannot cache API addresses: %v", localerr)
+	err = updateControllerDetailsFromLogin(args.Store, args.ControllerName, controller, params)
+	if err != nil {
+		logger.Errorf("cannot cache API addresses: %v", err)
+	}
+
+	// Process the account details obtained from login.
+	var accountDetails *jujuclient.AccountDetails
+	user, ok := st.AuthTag().(names.UserTag)
+	if !apiInfo.SkipLogin {
+		if ok {
+			if accountDetails, err = args.Store.AccountDetails(args.ControllerName); err != nil {
+				if !errors.IsNotFound(err) {
+					logger.Errorf("cannot load local account information: %v", err)
+				}
+			} else {
+				accountDetails.LastKnownAccess = st.ControllerAccess()
+			}
+		}
+		if ok && !user.IsLocal() && apiInfo.Tag == nil {
+			// We used macaroon auth to login; save the username
+			// that we've logged in as.
+			accountDetails = &jujuclient.AccountDetails{
+				User:            user.Id(),
+				LastKnownAccess: st.ControllerAccess(),
+			}
+		} else if apiInfo.Tag == nil {
+			logger.Errorf("unexpected logged-in username %v", st.AuthTag())
+		}
+	}
+	if accountDetails != nil {
+		if err := args.Store.UpdateAccount(args.ControllerName, *accountDetails); err != nil {
+			logger.Errorf("cannot update account information: %v", err)
+		}
 	}
 	return st, nil
 }
 
-func errorImportance(err error) int {
-	if err == nil {
-		return 0
+// connectionInfo returns connection information suitable for
+// connecting to the controller and model specified in the given
+// parameters. If there are no addresses known for the controller,
+// it may return a *api.Info with no APIEndpoints, but all other
+// information will be populated.
+func connectionInfo(args NewAPIConnectionParams) (*api.Info, *jujuclient.ControllerDetails, error) {
+	controller, err := args.Store.ControllerByName(args.ControllerName)
+	if err != nil {
+		return nil, nil, errors.Annotate(err, "cannot get controller details")
 	}
-	if errors.IsNotFound(err) {
-		// An error from an actual connection attempt
-		// is more interesting than the fact that there's
-		// no environment info available.
-		return 2
-	}
-	if _, ok := err.(*infoConnectError); ok {
-		// A connection to a potentially stale cached address
-		// is less important than a connection from fresh info.
-		return 1
-	}
-	return 3
-}
-
-type infoConnectError struct {
-	error
-}
-
-func environInfoUserTag(info configstore.EnvironInfo) names.Tag {
-	var username string
-	if info != nil {
-		username = info.APICredentials().User
-	}
-	if username == "" {
-		return nil
-	}
-	return names.NewUserTag(username)
-}
-
-// apiInfoConnect looks for endpoint on the given environment and
-// tries to connect to it, sending the result on the returned channel.
-func apiInfoConnect(info configstore.EnvironInfo, apiOpen api.OpenFunc, stop <-chan struct{}, bClient *httpbakery.Client) (api.Connection, error) {
-	endpoint := info.APIEndpoint()
-	if info == nil || len(endpoint.Addresses) == 0 {
-		return nil, &infoConnectError{fmt.Errorf("no cached addresses")}
-	}
-	logger.Infof("connecting to API addresses: %v", endpoint.Addresses)
-	var environTag names.EnvironTag
-	if names.IsValidEnvironment(endpoint.EnvironUUID) {
-		environTag = names.NewEnvironTag(endpoint.EnvironUUID)
-	}
-
 	apiInfo := &api.Info{
-		Addrs:      endpoint.Addresses,
-		CACert:     endpoint.CACert,
-		Tag:        environInfoUserTag(info),
-		Password:   info.APICredentials().Password,
-		EnvironTag: environTag,
+		Addrs:  controller.APIEndpoints,
+		CACert: controller.CACert,
 	}
-	if apiInfo.Tag == nil {
-		apiInfo.UseMacaroons = true
+	if args.ModelUUID != "" {
+		apiInfo.ModelTag = names.NewModelTag(args.ModelUUID)
 	}
-
-	dialOpts := api.DefaultDialOpts()
-	dialOpts.BakeryClient = bClient
-
-	st, err := apiOpen(apiInfo, dialOpts)
-	if err != nil {
-		return nil, &infoConnectError{err}
+	if args.AccountDetails == nil {
+		apiInfo.SkipLogin = true
+		return apiInfo, controller, nil
 	}
-	return st, nil
-}
-
-// apiConfigConnect looks for configuration info on the given environment,
-// and tries to use an Environ constructed from that to connect to
-// its endpoint. It only starts the attempt after the given delay,
-// to allow the faster apiInfoConnect to hopefully succeed first.
-// It returns nil if there was no configuration information found.
-func apiConfigConnect(cfg *config.Config, apiOpen api.OpenFunc, stop <-chan struct{}, delay time.Duration, user names.Tag) (api.Connection, error) {
-	select {
-	case <-time.After(delay):
-	case <-stop:
-		return nil, errAborted
-	}
-	environ, err := environs.New(cfg)
-	if err != nil {
-		return nil, err
-	}
-	apiInfo, err := environAPIInfo(environ, user)
-	if err != nil {
-		return nil, err
-	}
-
-	st, err := apiOpen(apiInfo, api.DefaultDialOpts())
-	// TODO(rog): handle errUnauthorized when the API handles passwords.
-	if err != nil {
-		return nil, err
-	}
-	return apiStateCachedInfo{st, apiInfo}, nil
-}
-
-// getConfig looks for configuration info on the given environment
-func getConfig(info configstore.EnvironInfo, envs *environs.Environs, envName string) (*config.Config, error) {
-	if info != nil && len(info.BootstrapConfig()) > 0 {
-		cfg, err := config.New(config.NoDefaults, info.BootstrapConfig())
-		if err != nil {
-			logger.Warningf("failed to parse bootstrap-config: %v", err)
-		}
-		return cfg, err
-	}
-	if envs != nil {
-		cfg, err := envs.Config(envName)
-		if err != nil && !errors.IsNotFound(err) {
-			logger.Warningf("failed to get config for environment %q: %v", envName, err)
-		}
-		return cfg, err
-	}
-	return nil, errors.NotFoundf("environment %q", envName)
-}
-
-func environAPIInfo(environ environs.Environ, user names.Tag) (*api.Info, error) {
-	config := environ.Config()
-	password := config.AdminSecret()
-	info, err := environs.APIInfo(environ)
-	if err != nil {
-		return nil, err
-	}
-	info.Tag = user
-	info.Password = password
-	if info.Tag == nil {
-		info.UseMacaroons = true
-	}
-	return info, nil
-}
-
-// cacheAPIInfo updates the local environment settings (.jenv file)
-// with the provided apiInfo, assuming we've just successfully
-// connected to the API server.
-func cacheAPIInfo(st api.Connection, info configstore.EnvironInfo, apiInfo *api.Info) (err error) {
-	defer errors.DeferredAnnotatef(&err, "failed to cache API credentials")
-	var environUUID string
-	if names.IsValidEnvironment(apiInfo.EnvironTag.Id()) {
-		environUUID = apiInfo.EnvironTag.Id()
-	} else {
-		// For backwards-compatibility, we have to allow connections
-		// with an empty UUID. Login will work for the same reasons.
-		logger.Warningf("ignoring invalid cached API endpoint environment UUID %v", apiInfo.EnvironTag.Id())
-	}
-	hostPorts, err := network.ParseHostPorts(apiInfo.Addrs...)
-	if err != nil {
-		return errors.Annotatef(err, "invalid API addresses %v", apiInfo.Addrs)
-	}
-	addrConnectedTo, err := network.ParseHostPorts(st.Addr())
-	if err != nil {
-		// Should never happen, since we've just connected with it.
-		return errors.Annotatef(err, "invalid API address %q", st.Addr())
-	}
-	addrs, hostnames, addrsChanged := PrepareEndpointsForCaching(
-		info, [][]network.HostPort{hostPorts}, addrConnectedTo[0],
-	)
-
-	endpoint := configstore.APIEndpoint{
-		CACert:      string(apiInfo.CACert),
-		EnvironUUID: environUUID,
-	}
-	if addrsChanged {
-		endpoint.Addresses = addrs
-		endpoint.Hostnames = hostnames
-	}
-	info.SetAPIEndpoint(endpoint)
-	tag, ok := apiInfo.Tag.(names.UserTag)
-	if !ok {
-		return errors.Errorf("apiInfo.Tag was of type %T, expecting names.UserTag", apiInfo.Tag)
-	}
-	info.SetAPICredentials(configstore.APICredentials{
-		// This looks questionable. We have a tag, say "user-admin", but then only
-		// the Id portion of the tag is recorded, "admin", so this is really a
-		// username, not a tag, and cannot be reconstructed accurately.
-		User:     tag.Id(),
-		Password: apiInfo.Password,
-	})
-	return info.Write()
-}
-
-var maybePreferIPv6 = func(info configstore.EnvironInfo) bool {
-	// BootstrapConfig will exist in production environments after
-	// bootstrap, but for testing it's easier to mock this function.
-	cfg := info.BootstrapConfig()
-	result := false
-	if cfg != nil {
-		if val, ok := cfg["prefer-ipv6"]; ok {
-			// It's optional, so if missing assume false.
-			result, _ = val.(bool)
+	account := args.AccountDetails
+	if account.User != "" {
+		userTag := names.NewUserTag(account.User)
+		if userTag.IsLocal() {
+			apiInfo.Tag = userTag
 		}
 	}
-	return result
+	if args.AccountDetails.Password != "" {
+		// If a password is available, we always use that.
+		// If no password is recorded, we'll attempt to
+		// authenticate using macaroons.
+		apiInfo.Password = account.Password
+	}
+	return apiInfo, controller, nil
+}
+
+func isAPIError(err error) bool {
+	type errorCoder interface {
+		ErrorCode() string
+	}
+	_, ok := errors.Cause(err).(errorCoder)
+	return ok
 }
 
 var resolveOrDropHostnames = network.ResolveOrDropHostnames
 
 // PrepareEndpointsForCaching performs the necessary operations on the
-// given API hostPorts so they are suitable for caching into the
-// environment's .jenv file, taking into account the addrConnectedTo
+// given API hostPorts so they are suitable for saving into the
+// controller.yaml file, taking into account the addrConnectedTo
 // and the existing config store info:
 //
 // 1. Collapses hostPorts into a single slice.
 // 2. Filters out machine-local and link-local addresses.
 // 3. Removes any duplicates
-// 4. Call network.SortHostPorts() on the list, respecing prefer-ipv6
-// flag.
+// 4. Call network.SortHostPorts() on the list.
 // 5. Puts the addrConnectedTo on top.
 // 6. Compares the result against info.APIEndpoint.Hostnames.
 // 7. If the addresses differ, call network.ResolveOrDropHostnames()
@@ -439,38 +220,36 @@ var resolveOrDropHostnames = network.ResolveOrDropHostnames
 // 9. If the hostnames haven't changed, return two empty slices and set
 // haveChanged to false. No DNS resolution is performed to save time.
 //
-// This is used right after bootstrap to cache the initial API
+// This is used right after bootstrap to saved the initial API
 // endpoints, as well as on each CLI connection to verify if the
-// cached endpoints need updating.
-func PrepareEndpointsForCaching(info configstore.EnvironInfo, hostPorts [][]network.HostPort, addrConnectedTo network.HostPort) (addresses, hostnames []string, haveChanged bool) {
+// saved endpoints need updating.
+//
+// TODO(rogpeppe) this function mixes too many concerns - the
+// logic is difficult to follow and has non-obvious properties.
+func PrepareEndpointsForCaching(
+	controllerDetails jujuclient.ControllerDetails,
+	hostPorts [][]network.HostPort,
+	addrConnectedTo ...network.HostPort,
+) (addrs, unresolvedAddrs []string, haveChanged bool) {
 	processHostPorts := func(allHostPorts [][]network.HostPort) []network.HostPort {
-		collapsedHPs := network.CollapseHostPorts(allHostPorts)
-		filteredHPs := network.FilterUnusableHostPorts(collapsedHPs)
-		uniqueHPs := network.DropDuplicatedHostPorts(filteredHPs)
-		// Sort the result to prefer public IPs on top (when prefer-ipv6
-		// is true, IPv6 addresses of the same scope will come before IPv4
-		// ones).
-		preferIPv6 := maybePreferIPv6(info)
-		network.SortHostPorts(uniqueHPs, preferIPv6)
-
-		if addrConnectedTo.Value != "" {
-			return network.EnsureFirstHostPort(addrConnectedTo, uniqueHPs)
+		uniqueHPs := usableHostPorts(allHostPorts)
+		network.SortHostPorts(uniqueHPs)
+		for _, addr := range addrConnectedTo {
+			uniqueHPs = network.EnsureFirstHostPort(addr, uniqueHPs)
 		}
-		// addrConnectedTo can be empty only right after bootstrap.
 		return uniqueHPs
 	}
 
 	apiHosts := processHostPorts(hostPorts)
 	hostsStrings := network.HostPortsToStrings(apiHosts)
-	endpoint := info.APIEndpoint()
 	needResolving := false
 
 	// Verify if the unresolved addresses have changed.
-	if len(apiHosts) > 0 && len(endpoint.Hostnames) > 0 {
-		if addrsChanged(hostsStrings, endpoint.Hostnames) {
+	if len(apiHosts) > 0 && len(controllerDetails.UnresolvedAPIEndpoints) > 0 {
+		if addrsChanged(hostsStrings, controllerDetails.UnresolvedAPIEndpoints) {
 			logger.Debugf(
 				"API hostnames changed from %v to %v - resolving hostnames",
-				endpoint.Hostnames, hostsStrings,
+				controllerDetails.UnresolvedAPIEndpoints, hostsStrings,
 			)
 			needResolving = true
 		}
@@ -488,11 +267,11 @@ func PrepareEndpointsForCaching(info configstore.EnvironInfo, hostPorts [][]netw
 	resolved := resolveOrDropHostnames(apiHosts)
 	apiAddrs := processHostPorts([][]network.HostPort{resolved})
 	addrsStrings := network.HostPortsToStrings(apiAddrs)
-	if len(apiAddrs) > 0 && len(endpoint.Addresses) > 0 {
-		if addrsChanged(addrsStrings, endpoint.Addresses) {
+	if len(apiAddrs) > 0 && len(controllerDetails.APIEndpoints) > 0 {
+		if addrsChanged(addrsStrings, controllerDetails.APIEndpoints) {
 			logger.Infof(
 				"API addresses changed from %v to %v",
-				endpoint.Addresses, addrsStrings,
+				controllerDetails.APIEndpoints, addrsStrings,
 			)
 			return addrsStrings, hostsStrings, true
 		}
@@ -506,36 +285,13 @@ func PrepareEndpointsForCaching(info configstore.EnvironInfo, hostPorts [][]netw
 	return nil, nil, false
 }
 
-// cacheChangedAPIInfo updates the local environment settings (.jenv file)
-// with the provided API server addresses if they have changed. It will also
-// save the environment tag if it is available.
-func cacheChangedAPIInfo(info configstore.EnvironInfo, hostPorts [][]network.HostPort, addrConnectedTo network.HostPort, environUUID, serverUUID string) error {
-	addrs, hosts, addrsChanged := PrepareEndpointsForCaching(info, hostPorts, addrConnectedTo)
-	logger.Debugf("cacheChangedAPIInfo: serverUUID=%q", serverUUID)
-	endpoint := info.APIEndpoint()
-	needCaching := false
-	if endpoint.EnvironUUID != environUUID && environUUID != "" {
-		endpoint.EnvironUUID = environUUID
-		needCaching = true
-	}
-	if endpoint.ServerUUID != serverUUID && serverUUID != "" {
-		endpoint.ServerUUID = serverUUID
-		needCaching = true
-	}
-	if addrsChanged {
-		endpoint.Addresses = addrs
-		endpoint.Hostnames = hosts
-		needCaching = true
-	}
-	if !needCaching {
-		return nil
-	}
-	info.SetAPIEndpoint(endpoint)
-	if err := info.Write(); err != nil {
-		return err
-	}
-	logger.Infof("updated API connection settings cache - endpoints %v", endpoint.Addresses)
-	return nil
+// usableHostPorts returns hps with unusable and non-unique
+// host-ports filtered out.
+func usableHostPorts(hps [][]network.HostPort) []network.HostPort {
+	collapsed := network.CollapseHostPorts(hps)
+	usable := network.FilterUnusableHostPorts(collapsed)
+	unique := network.DropDuplicatedHostPorts(usable)
+	return unique
 }
 
 // addrsChanged returns true iff the two
@@ -550,4 +306,85 @@ func addrsChanged(a, b []string) bool {
 		}
 	}
 	return false
+}
+
+// UpdateControllerParams holds values used to update a controller details
+// after bootstrap or a login operation.
+type UpdateControllerParams struct {
+	// AgentVersion is the version of the controller agent.
+	AgentVersion string
+
+	// CurrentHostPorts are the available api addresses.
+	CurrentHostPorts [][]network.HostPort
+
+	// AddrConnectedTo are the previously known api addresses.
+	AddrConnectedTo []network.HostPort
+
+	// ModelCount (when set) is the number of models visible to the user.
+	ModelCount *int
+
+	// ControllerMachineCount (when set) is the total number of controller machines in the environment.
+	ControllerMachineCount *int
+
+	// MachineCount (when set) is the total number of machines in the models.
+	MachineCount *int
+}
+
+// UpdateControllerDetailsFromLogin writes any new api addresses and other relevant details
+// to the client controller file.
+// Controller may be specified by a UUID or name, and must already exist.
+func UpdateControllerDetailsFromLogin(
+	store jujuclient.ControllerStore, controllerName string,
+	params UpdateControllerParams,
+) error {
+	controllerDetails, err := store.ControllerByName(controllerName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return updateControllerDetailsFromLogin(store, controllerName, controllerDetails, params)
+}
+
+func updateControllerDetailsFromLogin(
+	store jujuclient.ControllerStore,
+	controllerName string, controllerDetails *jujuclient.ControllerDetails,
+	params UpdateControllerParams,
+) error {
+	// Get the new endpoint addresses.
+	addrs, unresolvedAddrs, addrsChanged := PrepareEndpointsForCaching(*controllerDetails, params.CurrentHostPorts, params.AddrConnectedTo...)
+	agentChanged := params.AgentVersion != controllerDetails.AgentVersion
+	if !addrsChanged && !agentChanged && params.ModelCount == nil && params.MachineCount == nil && params.ControllerMachineCount == nil {
+		return nil
+	}
+
+	// Write the new controller data.
+	if addrsChanged {
+		controllerDetails.APIEndpoints = addrs
+		controllerDetails.UnresolvedAPIEndpoints = unresolvedAddrs
+	}
+	if agentChanged {
+		controllerDetails.AgentVersion = params.AgentVersion
+	}
+	if params.ModelCount != nil {
+		controllerDetails.ModelCount = params.ModelCount
+	}
+	if params.MachineCount != nil {
+		controllerDetails.MachineCount = params.MachineCount
+	}
+	if params.ControllerMachineCount != nil {
+		controllerDetails.ControllerMachineCount = *params.ControllerMachineCount
+	}
+	err := store.UpdateController(controllerName, *controllerDetails)
+	return errors.Trace(err)
+}
+
+// serverAddress returns the given string address:port as network.HostPort.
+//
+// TODO(axw) fix the tests that pass invalid addresses, and drop this.
+var serverAddress = func(hostPort string) (network.HostPort, error) {
+	addrConnectedTo, err := network.ParseHostPorts(hostPort)
+	if err != nil {
+		// Should never happen, since we've just connected with it.
+		return network.HostPort{}, errors.Annotatef(err, "invalid API address %q", hostPort)
+	}
+	return addrConnectedTo[0], nil
 }

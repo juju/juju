@@ -4,24 +4,21 @@
 package environs
 
 import (
-	"github.com/juju/utils/featureflag"
+	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/feature"
+	"github.com/juju/errors"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 )
 
+// SupportsNetworking is a convenience helper to check if an environment
+// supports networking. It returns an interface containing Environ and
+// Networking in this case.
+var SupportsNetworking = supportsNetworking
+
 // Networking interface defines methods that environments
 // with networking capabilities must implement.
 type Networking interface {
-	// AllocateAddress requests a specific address to be allocated for the
-	// given instance on the given subnet.
-	AllocateAddress(instId instance.Id, subnetId network.Id, addr network.Address, macAddress, hostname string) error
-
-	// ReleaseAddress releases a specific address previously allocated with
-	// AllocateAddress.
-	ReleaseAddress(instId instance.Id, subnetId network.Id, addr network.Address, macAddress, hostname string) error
-
 	// Subnets returns basic information about subnets known
 	// by the provider for the environment.
 	Subnets(inst instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error)
@@ -30,16 +27,29 @@ type Networking interface {
 	// interfaces on the given instance.
 	NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo, error)
 
-	// SupportsAddressAllocation returns whether the given subnetId
-	// supports static IP address allocation using AllocateAddress and
-	// ReleaseAddress. If subnetId is network.AnySubnet, the provider
-	// can decide whether it can return true or a false and an error
-	// (e.g. "subnetId must be set").
-	SupportsAddressAllocation(subnetId network.Id) (bool, error)
-
-	// SupportsSpaces returns whether the current environment supports spaces. The
-	// returned error satisfies errors.IsNotSupported(), unless a general API failure occurs.
+	// SupportsSpaces returns whether the current environment supports
+	// spaces. The returned error satisfies errors.IsNotSupported(),
+	// unless a general API failure occurs.
 	SupportsSpaces() (bool, error)
+
+	// SupportsSpaceDiscovery returns whether the current environment
+	// supports discovering spaces from the provider. The returned error
+	// satisfies errors.IsNotSupported(), unless a general API failure occurs.
+	SupportsSpaceDiscovery() (bool, error)
+
+	// Spaces returns a slice of network.SpaceInfo with info, including
+	// details of all associated subnets, about all spaces known to the
+	// provider that have subnets available.
+	Spaces() ([]network.SpaceInfo, error)
+
+	// AllocateContainerAddresses allocates a static address for each of the
+	// container NICs in preparedInfo, hosted by the hostInstanceID. Returns the
+	// network config including all allocated addresses on success.
+	AllocateContainerAddresses(hostInstanceID instance.Id, containerTag names.MachineTag, preparedInfo []network.InterfaceInfo) ([]network.InterfaceInfo, error)
+
+	// ReleaseContainerAddresses releases the previously allocated
+	// addresses matching the interface details passed in.
+	ReleaseContainerAddresses(interfaces []network.ProviderInterfaceInfo) error
 }
 
 // NetworkingEnviron combines the standard Environ interface with the
@@ -52,16 +62,24 @@ type NetworkingEnviron interface {
 	Networking
 }
 
-// SupportsNetworking is a convenience helper to check if an environment
-// supports networking. It returns an interface containing Environ and
-// Networking in this case.
-func SupportsNetworking(environ Environ) (NetworkingEnviron, bool) {
+func supportsNetworking(environ Environ) (NetworkingEnviron, bool) {
 	ne, ok := environ.(NetworkingEnviron)
 	return ne, ok
 }
 
-// AddressAllocationEnabled is a shortcut for checking if the
-// AddressAllocation feature flag is enabled.
-func AddressAllocationEnabled() bool {
-	return featureflag.Enabled(feature.AddressAllocation)
+// SupportsSpaces checks if the environment implements NetworkingEnviron
+// and also if it supports spaces.
+func SupportsSpaces(env Environ) bool {
+	netEnv, ok := supportsNetworking(env)
+	if !ok {
+		return false
+	}
+	ok, err := netEnv.SupportsSpaces()
+	if err != nil {
+		if !errors.IsNotSupported(err) {
+			logger.Errorf("checking model spaces support failed with: %v", err)
+		}
+		return false
+	}
+	return ok
 }

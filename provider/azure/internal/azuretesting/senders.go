@@ -8,10 +8,14 @@ import (
 	"fmt"
 	"net/http"
 	"regexp"
+	"sync"
 
-	"github.com/Azure/azure-sdk-for-go/Godeps/_workspace/src/github.com/Azure/go-autorest/autorest"
-	"github.com/Azure/azure-sdk-for-go/Godeps/_workspace/src/github.com/Azure/go-autorest/autorest/mocks"
+	"github.com/Azure/go-autorest/autorest"
+	"github.com/Azure/go-autorest/autorest/mocks"
+	"github.com/juju/loggo"
 )
+
+var logger = loggo.GetLogger("juju.provider.azure.internal.azuretesting")
 
 // MockSender is a wrapper around autorest/mocks.Sender, extending it with
 // request path checking to ease testing.
@@ -48,15 +52,16 @@ func NewSenderWithValue(v interface{}) *MockSender {
 		panic(err)
 	}
 	sender := &MockSender{Sender: mocks.NewSender()}
-	sender.EmitContent(string(content))
+	sender.AppendResponse(mocks.NewResponseWithContent(string(content)))
 	return sender
 }
 
-// SequentialSender is a Sender that includes a collection of Senders, which
+// Senders is a Sender that includes a collection of Senders, which
 // will be called in sequence.
 type Senders []autorest.Sender
 
 func (s *Senders) Do(req *http.Request) (*http.Response, error) {
+	logger.Debugf("Senders.Do(%s)", req.URL)
 	if len(*s) == 0 {
 		response := mocks.NewResponseWithStatus("", http.StatusInternalServerError)
 		return response, fmt.Errorf("no sender for %q", req.URL)
@@ -64,4 +69,21 @@ func (s *Senders) Do(req *http.Request) (*http.Response, error) {
 	sender := (*s)[0]
 	*s = (*s)[1:]
 	return sender.Do(req)
+}
+
+// SerialSender is a Sender that permits only one active Do call
+// at a time.
+type SerialSender struct {
+	mu sync.Mutex
+	s  autorest.Sender
+}
+
+func (s *SerialSender) Do(req *http.Request) (*http.Response, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.s.Do(req)
+}
+
+func NewSerialSender(s autorest.Sender) *SerialSender {
+	return &SerialSender{s: s}
 }

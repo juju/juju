@@ -4,26 +4,30 @@
 package azure
 
 import (
+	"fmt"
 	"math/rand"
+	"net/http"
+	"time"
 
-	"github.com/Azure/azure-sdk-for-go/Godeps/_workspace/src/github.com/Azure/go-autorest/autorest/to"
+	"github.com/Azure/go-autorest/autorest"
+	"github.com/Azure/go-autorest/autorest/to"
+	"github.com/juju/errors"
+	"github.com/juju/retry"
 	"github.com/juju/utils"
+	"github.com/juju/utils/clock"
 )
 
-func toTagsPtr(tags map[string]string) *map[string]*string {
-	stringPtrMap := to.StringMapPtr(tags)
-	return &stringPtrMap
-}
+const (
+	retryDelay       = 5 * time.Second
+	maxRetryDelay    = 1 * time.Minute
+	maxRetryDuration = 5 * time.Minute
+)
 
 func toTags(tags *map[string]*string) map[string]string {
 	if tags == nil {
 		return nil
 	}
 	return to.StringMap(*tags)
-}
-
-func toStringSlicePtr(s ...string) *[]string {
-	return &s
 }
 
 // randomAdminPassword returns a random administrator password for
@@ -45,4 +49,62 @@ func randomAdminPassword() string {
 		password[i], password[j] = password[j], password[i]
 	}
 	return string(password)
+}
+
+// callAPIFunc is a function type that should wrap any any
+// Azure Resource Manager API calls.
+type callAPIFunc func(func() (autorest.Response, error)) error
+
+// backoffAPIRequestCaller is a type whose "call" method can
+// be used as a callAPIFunc.
+type backoffAPIRequestCaller struct {
+	clock clock.Clock
+}
+
+// call will call the supplied function, with exponential backoff
+// as long as the request returns an http.StatusTooManyRequests
+// status.
+func (c backoffAPIRequestCaller) call(f func() (autorest.Response, error)) error {
+	var resp *http.Response
+	return retry.Call(retry.CallArgs{
+		Func: func() error {
+			autorestResp, err := f()
+			resp = autorestResp.Response
+			return err
+		},
+		IsFatalError: func(err error) bool {
+			return resp == nil || !autorest.ResponseHasStatusCode(resp, http.StatusTooManyRequests)
+		},
+		NotifyFunc: func(err error, attempt int) {
+			logger.Debugf("attempt %d: %v", attempt, err)
+		},
+		Attempts:    -1,
+		Delay:       retryDelay,
+		MaxDelay:    maxRetryDelay,
+		MaxDuration: maxRetryDuration,
+		BackoffFunc: retry.DoubleDelay,
+		Clock:       c.clock,
+	})
+}
+
+// deleteResource deletes a resource with the given name from the resource
+// group, using the provided "Deleter". If the resource does not exist, an
+// error satisfying errors.IsNotFound will be returned.
+func deleteResource(callAPI callAPIFunc, deleter resourceDeleter, resourceGroup, name string) error {
+	var result autorest.Response
+	if err := callAPI(func() (autorest.Response, error) {
+		var err error
+		result, err = deleter.Delete(resourceGroup, name, nil)
+		return result, err
+	}); err != nil {
+		if result.Response != nil && result.StatusCode == http.StatusNotFound {
+			return errors.NewNotFound(err, fmt.Sprintf("resource %q not found", name))
+		}
+		return errors.Annotate(err, "canceling deployment")
+	}
+	return nil
+}
+
+type resourceDeleter interface {
+	Delete(resourceGroup, name string, cancel <-chan struct{}) (autorest.Response, error)
 }

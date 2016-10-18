@@ -5,34 +5,36 @@ package common
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 )
 
-// ServiceStatusSetter implements a SetServiceStatus method to be
-// used by facades that can change a service status.
-// This is only slightly less evil than ServiceStatusGetter. We have
+// ApplicationStatusSetter implements a SetApplicationStatus method to be
+// used by facades that can change an application status.
+// This is only slightly less evil than ApplicationStatusGetter. We have
 // StatusSetter already; all this does is set the status for the wrong
 // entity, and render the auth so confused as to be ~worthless.
-type ServiceStatusSetter struct {
+type ApplicationStatusSetter struct {
 	st           *state.State
 	getCanModify GetAuthFunc
 }
 
 // NewServiceStatusSetter returns a ServiceStatusSetter.
-func NewServiceStatusSetter(st *state.State, getCanModify GetAuthFunc) *ServiceStatusSetter {
-	return &ServiceStatusSetter{
+func NewServiceStatusSetter(st *state.State, getCanModify GetAuthFunc) *ApplicationStatusSetter {
+	return &ApplicationStatusSetter{
 		st:           st,
 		getCanModify: getCanModify,
 	}
 }
 
 // SetStatus sets the status on the service given by the unit in args if the unit is the leader.
-func (s *ServiceStatusSetter) SetStatus(args params.SetStatus) (params.ErrorResults, error) {
+func (s *ApplicationStatusSetter) SetStatus(args params.SetStatus) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
 	}
@@ -75,12 +77,12 @@ func (s *ServiceStatusSetter) SetStatus(args params.SetStatus) (params.ErrorResu
 
 		// Now we have the unit, we can get the service that should have been
 		// specified in the first place...
-		serviceId, err := names.UnitService(unitId)
+		serviceId, err := names.UnitApplication(unitId)
 		if err != nil {
 			result.Results[i].Error = ServerError(err)
 			continue
 		}
-		service, err := s.st.Service(serviceId)
+		service, err := s.st.Application(serviceId)
 		if err != nil {
 			result.Results[i].Error = ServerError(err)
 			continue
@@ -99,8 +101,15 @@ func (s *ServiceStatusSetter) SetStatus(args params.SetStatus) (params.ErrorResu
 			result.Results[i].Error = ServerError(err)
 			continue
 		}
-
-		if err := service.SetStatus(state.Status(arg.Status), arg.Info, arg.Data); err != nil {
+		// TODO(perrito666) 2016-05-02 lp:1558657
+		now := time.Now()
+		sInfo := status.StatusInfo{
+			Status:  status.Status(arg.Status),
+			Message: arg.Info,
+			Data:    arg.Data,
+			Since:   &now,
+		}
+		if err := service.SetStatus(sInfo); err != nil {
 			result.Results[i].Error = ServerError(err)
 		}
 
@@ -125,16 +134,22 @@ func NewStatusSetter(st state.EntityFinder, getCanModify GetAuthFunc) *StatusSet
 	}
 }
 
-func (s *StatusSetter) setEntityStatus(tag names.Tag, status params.Status, info string, data map[string]interface{}) error {
+func (s *StatusSetter) setEntityStatus(tag names.Tag, entityStatus status.Status, info string, data map[string]interface{}, updated *time.Time) error {
 	entity, err := s.st.FindEntity(tag)
 	if err != nil {
 		return err
 	}
 	switch entity := entity.(type) {
-	case *state.Service:
+	case *state.Application:
 		return ErrPerm
-	case state.StatusSetter:
-		return entity.SetStatus(state.Status(status), info, data)
+	case status.StatusSetter:
+		sInfo := status.StatusInfo{
+			Status:  entityStatus,
+			Message: info,
+			Data:    data,
+			Since:   updated,
+		}
+		return entity.SetStatus(sInfo)
 	default:
 		return NotSupportedError(tag, fmt.Sprintf("setting status, %T", entity))
 	}
@@ -152,6 +167,8 @@ func (s *StatusSetter) SetStatus(args params.SetStatus) (params.ErrorResults, er
 	if err != nil {
 		return params.ErrorResults{}, err
 	}
+	// TODO(perrito666) 2016-05-02 lp:1558657
+	now := time.Now()
 	for i, arg := range args.Entities {
 		tag, err := names.ParseTag(arg.Tag)
 		if err != nil {
@@ -160,7 +177,7 @@ func (s *StatusSetter) SetStatus(args params.SetStatus) (params.ErrorResults, er
 		}
 		err = ErrPerm
 		if canModify(tag) {
-			err = s.setEntityStatus(tag, arg.Status, arg.Info, arg.Data)
+			err = s.setEntityStatus(tag, status.Status(arg.Status), arg.Info, arg.Data, &now)
 		}
 		result.Results[i].Error = ServerError(err)
 	}
@@ -172,7 +189,7 @@ func (s *StatusSetter) updateEntityStatusData(tag names.Tag, data map[string]int
 	if err != nil {
 		return err
 	}
-	statusGetter, ok := entity0.(state.StatusGetter)
+	statusGetter, ok := entity0.(status.StatusGetter)
 	if !ok {
 		return NotSupportedError(tag, "getting status")
 	}
@@ -188,14 +205,22 @@ func (s *StatusSetter) updateEntityStatusData(tag names.Tag, data map[string]int
 			newData[k] = v
 		}
 	}
-	entity, ok := entity0.(state.StatusSetter)
+	entity, ok := entity0.(status.StatusSetter)
 	if !ok {
 		return NotSupportedError(tag, "updating status")
 	}
-	if len(newData) > 0 && existingStatusInfo.Status != state.StatusError {
+	if len(newData) > 0 && existingStatusInfo.Status != status.Error {
 		return fmt.Errorf("%s is not in an error state", names.ReadableString(tag))
 	}
-	return entity.SetStatus(existingStatusInfo.Status, existingStatusInfo.Message, newData)
+	// TODO(perrito666) 2016-05-02 lp:1558657
+	now := time.Now()
+	sInfo := status.StatusInfo{
+		Status:  existingStatusInfo.Status,
+		Message: existingStatusInfo.Message,
+		Data:    newData,
+		Since:   &now,
+	}
+	return entity.SetStatus(sInfo)
 }
 
 // UpdateStatus updates the status data of each given entity.

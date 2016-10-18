@@ -26,7 +26,7 @@ var _ = gc.Suite(&ConfigSuite{})
 func (s *ConfigSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
-	cfg, err := testing.EnvironConfig(c).Apply(vsphere.ConfigAttrs)
+	cfg, err := testing.ModelConfig(c).Apply(vsphere.ConfigAttrs())
 	c.Assert(err, jc.ErrorIsNil)
 	s.config = cfg
 }
@@ -75,60 +75,31 @@ func (ts configTestSpec) checkAttrs(c *gc.C, attrs map[string]interface{}, cfg *
 }
 
 func (ts configTestSpec) attrs() testing.Attrs {
-	return vsphere.ConfigAttrs.Merge(ts.insert).Delete(ts.remove...)
+	return vsphere.ConfigAttrs().Merge(ts.insert).Delete(ts.remove...)
 }
 
 func (ts configTestSpec) newConfig(c *gc.C) *config.Config {
 	attrs := ts.attrs()
-	cfg, err := testing.EnvironConfig(c).Apply(attrs)
+	cfg, err := testing.ModelConfig(c).Apply(attrs)
 	c.Assert(err, jc.ErrorIsNil)
 	return cfg
 }
 
 var newConfigTests = []configTestSpec{{
-	info:   "datacenter is required",
-	remove: []string{"datacenter"},
-	err:    "datacenter: expected string, got nothing",
-}, {
-	info:   "datacenter cannot be empty",
-	insert: testing.Attrs{"datacenter": ""},
-	err:    "datacenter: must not be empty",
-}, {
-	info:   "host is required",
-	remove: []string{"host"},
-	err:    "host: expected string, got nothing",
-}, {
-	info:   "host cannot be empty",
-	insert: testing.Attrs{"host": ""},
-	err:    "host: must not be empty",
-}, {
-	info:   "user is required",
-	remove: []string{"user"},
-	err:    "user: expected string, got nothing",
-}, {
-	info:   "user cannot be empty",
-	insert: testing.Attrs{"user": ""},
-	err:    "user: must not be empty",
-}, {
-	info:   "password is required",
-	remove: []string{"password"},
-	err:    "password: expected string, got nothing",
-}, {
-	info:   "password cannot be empty",
-	insert: testing.Attrs{"password": ""},
-	err:    "password: must not be empty",
-}, {
 	info:   "unknown field is not touched",
 	insert: testing.Attrs{"unknown-field": "12345"},
 	expect: testing.Attrs{"unknown-field": "12345"},
 }}
 
-func (*ConfigSuite) TestNewEnvironConfig(c *gc.C) {
+func (*ConfigSuite) TestNewModelConfig(c *gc.C) {
 	for i, test := range newConfigTests {
 		c.Logf("test %d: %s", i, test.info)
 
 		testConfig := test.newConfig(c)
-		environ, err := environs.New(testConfig)
+		environ, err := environs.New(environs.OpenParams{
+			Cloud:  vsphere.FakeCloudSpec(),
+			Config: testConfig,
+		})
 
 		// Check the result
 		if test.err != "" {
@@ -162,7 +133,7 @@ func (s *ConfigSuite) TestValidateOldConfig(c *gc.C) {
 
 		oldcfg := test.newConfig(c)
 		newcfg := s.config
-		expected := vsphere.ConfigAttrs
+		expected := vsphere.ConfigAttrs()
 
 		// Validate the new config (relative to the old one) using the
 		// provider.
@@ -189,23 +160,7 @@ func (s *ConfigSuite) TestValidateOldConfig(c *gc.C) {
 
 var changeConfigTests = []configTestSpec{{
 	info:   "no change, no error",
-	expect: vsphere.ConfigAttrs,
-}, {
-	info:   "cannot change datacenter",
-	insert: testing.Attrs{"datacenter": "/datacenter2"},
-	err:    "datacenter: cannot change from /datacenter1 to /datacenter2",
-}, {
-	info:   "cannot change host",
-	insert: testing.Attrs{"host": "host2"},
-	err:    "host: cannot change from host1 to host2",
-}, {
-	info:   "cannot change user",
-	insert: testing.Attrs{"user": "user2"},
-	expect: testing.Attrs{"user": "user2"},
-}, {
-	info:   "cannot change password",
-	insert: testing.Attrs{"password": "password2"},
-	expect: testing.Attrs{"password": "password2"},
+	expect: vsphere.ConfigAttrs(),
 }, {
 	info:   "can insert unknown field",
 	insert: testing.Attrs{"unknown": "ignoti"},
@@ -232,7 +187,10 @@ func (s *ConfigSuite) TestSetConfig(c *gc.C) {
 	for i, test := range changeConfigTests {
 		c.Logf("test %d: %s", i, test.info)
 
-		environ, err := environs.New(s.config)
+		environ, err := environs.New(environs.OpenParams{
+			Cloud:  vsphere.FakeCloudSpec(),
+			Config: s.config,
+		})
 		c.Assert(err, jc.ErrorIsNil)
 
 		testConfig := test.newConfig(c)

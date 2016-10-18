@@ -7,20 +7,19 @@ package agent_test
 import (
 	"fmt"
 	"path/filepath"
-	"reflect"
 
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type suite struct {
@@ -55,36 +54,60 @@ var agentConfigTests = []struct {
 	params: agent.AgentConfigParams{
 		Paths:             agent.Paths{DataDir: "/data/dir"},
 		Tag:               names.NewMachineTag("1"),
-		UpgradedToVersion: version.Current,
+		UpgradedToVersion: jujuversion.Current,
 	},
 	checkErr: "password not found in configuration",
 }, {
-	about: "missing environment tag",
+	about: "missing model tag",
 	params: agent.AgentConfigParams{
 		Paths:             agent.Paths{DataDir: "/data/dir"},
 		Tag:               names.NewMachineTag("1"),
-		UpgradedToVersion: version.Current,
+		UpgradedToVersion: jujuversion.Current,
 		Password:          "sekrit",
+		Controller:        testing.ControllerTag,
 	},
-	checkErr: "environment not found in configuration",
+	checkErr: "model not found in configuration",
 }, {
-	about: "invalid environment tag",
+	about: "invalid model tag",
 	params: agent.AgentConfigParams{
 		Paths:             agent.Paths{DataDir: "/data/dir"},
 		Tag:               names.NewMachineTag("1"),
-		UpgradedToVersion: version.Current,
+		UpgradedToVersion: jujuversion.Current,
 		Password:          "sekrit",
-		Environment:       names.NewEnvironTag("uuid"),
+		Controller:        testing.ControllerTag,
+		Model:             names.NewModelTag("uuid"),
 	},
-	checkErr: `"uuid" is not a valid environment uuid`,
+	checkErr: `"uuid" is not a valid model uuid`,
+}, {
+	about: "missing controller tag",
+	params: agent.AgentConfigParams{
+		Paths:             agent.Paths{DataDir: "/data/dir"},
+		Tag:               names.NewMachineTag("1"),
+		UpgradedToVersion: jujuversion.Current,
+		Password:          "sekrit",
+		Model:             testing.ModelTag,
+	},
+	checkErr: "controller not found in configuration",
+}, {
+	about: "invalid controller tag",
+	params: agent.AgentConfigParams{
+		Paths:             agent.Paths{DataDir: "/data/dir"},
+		Tag:               names.NewMachineTag("1"),
+		UpgradedToVersion: jujuversion.Current,
+		Password:          "sekrit",
+		Controller:        names.NewControllerTag("uuid"),
+		Model:             testing.ModelTag,
+	},
+	checkErr: `"uuid" is not a valid controller uuid`,
 }, {
 	about: "missing CA cert",
 	params: agent.AgentConfigParams{
 		Paths:             agent.Paths{DataDir: "/data/dir"},
 		Tag:               names.NewMachineTag("1"),
-		UpgradedToVersion: version.Current,
+		UpgradedToVersion: jujuversion.Current,
 		Password:          "sekrit",
-		Environment:       testing.EnvironmentTag,
+		Controller:        testing.ControllerTag,
+		Model:             testing.ModelTag,
 	},
 	checkErr: "CA certificate not found in configuration",
 }, {
@@ -92,10 +115,11 @@ var agentConfigTests = []struct {
 	params: agent.AgentConfigParams{
 		Paths:             agent.Paths{DataDir: "/data/dir"},
 		Tag:               names.NewMachineTag("1"),
-		UpgradedToVersion: version.Current,
+		UpgradedToVersion: jujuversion.Current,
 		Password:          "sekrit",
 		CACert:            "ca cert",
-		Environment:       testing.EnvironmentTag,
+		Controller:        testing.ControllerTag,
+		Model:             testing.ModelTag,
 	},
 	checkErr: "state or API addresses not found in configuration",
 }, {
@@ -103,22 +127,24 @@ var agentConfigTests = []struct {
 	params: agent.AgentConfigParams{
 		Paths:             agent.Paths{DataDir: "/data/dir"},
 		Tag:               names.NewMachineTag("1"),
-		UpgradedToVersion: version.Current,
+		UpgradedToVersion: jujuversion.Current,
 		Password:          "sekrit",
 		CACert:            "ca cert",
-		Environment:       testing.EnvironmentTag,
+		Controller:        testing.ControllerTag,
+		Model:             testing.ModelTag,
 		StateAddresses:    []string{"localhost:8080", "bad-address"},
 	},
-	checkErr: `invalid state server address "bad-address"`,
+	checkErr: `invalid controller address "bad-address"`,
 }, {
 	about: "invalid api address",
 	params: agent.AgentConfigParams{
 		Paths:             agent.Paths{DataDir: "/data/dir"},
 		Tag:               names.NewMachineTag("1"),
-		UpgradedToVersion: version.Current,
+		UpgradedToVersion: jujuversion.Current,
 		Password:          "sekrit",
 		CACert:            "ca cert",
-		Environment:       testing.EnvironmentTag,
+		Controller:        testing.ControllerTag,
+		Model:             testing.ModelTag,
 		APIAddresses:      []string{"localhost:8080", "bad-address"},
 	},
 	checkErr: `invalid API server address "bad-address"`,
@@ -127,10 +153,11 @@ var agentConfigTests = []struct {
 	params: agent.AgentConfigParams{
 		Paths:             agent.Paths{DataDir: "/data/dir"},
 		Tag:               names.NewMachineTag("1"),
-		UpgradedToVersion: version.Current,
+		UpgradedToVersion: jujuversion.Current,
 		Password:          "sekrit",
 		CACert:            "ca cert",
-		Environment:       testing.EnvironmentTag,
+		Controller:        testing.ControllerTag,
+		Model:             testing.ModelTag,
 		StateAddresses:    []string{"localhost:1234"},
 	},
 }, {
@@ -138,10 +165,11 @@ var agentConfigTests = []struct {
 	params: agent.AgentConfigParams{
 		Paths:             agent.Paths{DataDir: "/data/dir"},
 		Tag:               names.NewMachineTag("1"),
-		UpgradedToVersion: version.Current,
+		UpgradedToVersion: jujuversion.Current,
 		Password:          "sekrit",
 		CACert:            "ca cert",
-		Environment:       testing.EnvironmentTag,
+		Controller:        testing.ControllerTag,
+		Model:             testing.ModelTag,
 		APIAddresses:      []string{"localhost:1234"},
 	},
 }, {
@@ -149,10 +177,11 @@ var agentConfigTests = []struct {
 	params: agent.AgentConfigParams{
 		Paths:             agent.Paths{DataDir: "/data/dir"},
 		Tag:               names.NewMachineTag("1"),
-		UpgradedToVersion: version.Current,
+		UpgradedToVersion: jujuversion.Current,
 		Password:          "sekrit",
 		CACert:            "ca cert",
-		Environment:       testing.EnvironmentTag,
+		Controller:        testing.ControllerTag,
+		Model:             testing.ModelTag,
 		StateAddresses:    []string{"localhost:1234"},
 		APIAddresses:      []string{"localhost:1235"},
 	},
@@ -162,9 +191,10 @@ var agentConfigTests = []struct {
 		Paths:             agent.Paths{DataDir: "/data/dir"},
 		Tag:               names.NewMachineTag("1"),
 		Password:          "sekrit",
-		UpgradedToVersion: version.Current,
+		UpgradedToVersion: jujuversion.Current,
 		CACert:            "ca cert",
-		Environment:       testing.EnvironmentTag,
+		Controller:        testing.ControllerTag,
+		Model:             testing.ModelTag,
 		StateAddresses:    []string{"localhost:1234"},
 		APIAddresses:      []string{"localhost:1235"},
 		Nonce:             "a nonce",
@@ -175,9 +205,10 @@ var agentConfigTests = []struct {
 		Paths:             agent.Paths{DataDir: "/data/dir"},
 		Tag:               names.NewMachineTag("1"),
 		Password:          "sekrit",
-		UpgradedToVersion: version.Current,
+		UpgradedToVersion: jujuversion.Current,
 		CACert:            "ca cert",
-		Environment:       testing.EnvironmentTag,
+		Controller:        testing.ControllerTag,
+		Model:             testing.ModelTag,
 		StateAddresses:    []string{"localhost:1234"},
 		APIAddresses:      []string{"localhost:1235"},
 		Nonce:             "a nonce",
@@ -191,9 +222,10 @@ var agentConfigTests = []struct {
 		Paths:             agent.Paths{DataDir: "/data/dir"},
 		Tag:               names.NewMachineTag("1"),
 		Password:          "sekrit",
-		UpgradedToVersion: version.Current,
+		UpgradedToVersion: jujuversion.Current,
 		CACert:            "ca cert",
-		Environment:       testing.EnvironmentTag,
+		Controller:        testing.ControllerTag,
+		Model:             testing.ModelTag,
 		StateAddresses:    []string{"localhost:1234"},
 		APIAddresses:      []string{"localhost:1235"},
 		Nonce:             "a nonce",
@@ -210,9 +242,10 @@ var agentConfigTests = []struct {
 		},
 		Tag:               names.NewMachineTag("1"),
 		Password:          "sekrit",
-		UpgradedToVersion: version.Current,
+		UpgradedToVersion: jujuversion.Current,
 		CACert:            "ca cert",
-		Environment:       testing.EnvironmentTag,
+		Controller:        testing.ControllerTag,
+		Model:             testing.ModelTag,
 		StateAddresses:    []string{"localhost:1234"},
 		APIAddresses:      []string{"localhost:1235"},
 		Nonce:             "a nonce",
@@ -225,7 +258,7 @@ var agentConfigTests = []struct {
 	params: agent.AgentConfigParams{
 		Paths:             agent.Paths{DataDir: "/data/dir"},
 		Tag:               names.NewUserTag("admin"), // this is a joke, the admin user is nil.
-		UpgradedToVersion: version.Current,
+		UpgradedToVersion: jujuversion.Current,
 		Password:          "sekrit",
 	},
 	checkErr: "entity tag must be MachineTag or UnitTag, got names.UserTag",
@@ -235,47 +268,15 @@ var agentConfigTests = []struct {
 		Paths:             agent.Paths{DataDir: "/data/dir"},
 		Tag:               names.NewUnitTag("ubuntu/1"),
 		Password:          "sekrit",
-		UpgradedToVersion: version.Current,
-		Environment:       testing.EnvironmentTag,
+		UpgradedToVersion: jujuversion.Current,
+		Controller:        testing.ControllerTag,
+		Model:             testing.ModelTag,
 		CACert:            "ca cert",
 		StateAddresses:    []string{"localhost:1234"},
 		APIAddresses:      []string{"localhost:1235"},
 	},
 	inspectConfig: func(c *gc.C, cfg agent.Config) {
 		c.Check(cfg.Dir(), gc.Equals, "/data/dir/agents/unit-ubuntu-1")
-	},
-}, {
-	about: "prefer-ipv6 parsed when set",
-	params: agent.AgentConfigParams{
-		Paths:             agent.Paths{DataDir: "/data/dir"},
-		Tag:               names.NewMachineTag("1"),
-		Password:          "sekrit",
-		UpgradedToVersion: version.Current,
-		CACert:            "ca cert",
-		Environment:       testing.EnvironmentTag,
-		StateAddresses:    []string{"localhost:1234"},
-		APIAddresses:      []string{"localhost:1235"},
-		Nonce:             "a nonce",
-		PreferIPv6:        true,
-	},
-	inspectConfig: func(c *gc.C, cfg agent.Config) {
-		c.Check(cfg.PreferIPv6(), jc.IsTrue)
-	},
-}, {
-	about: "missing prefer-ipv6 defaults to false",
-	params: agent.AgentConfigParams{
-		Paths:             agent.Paths{DataDir: "/data/dir"},
-		Tag:               names.NewMachineTag("1"),
-		Password:          "sekrit",
-		UpgradedToVersion: version.Current,
-		CACert:            "ca cert",
-		Environment:       testing.EnvironmentTag,
-		StateAddresses:    []string{"localhost:1234"},
-		APIAddresses:      []string{"localhost:1235"},
-		Nonce:             "a nonce",
-	},
-	inspectConfig: func(c *gc.C, cfg agent.Config) {
-		c.Check(cfg.PreferIPv6(), jc.IsFalse)
 	},
 }}
 
@@ -291,136 +292,6 @@ func (*suite) TestNewAgentConfig(c *gc.C) {
 		} else {
 			c.Assert(err, gc.ErrorMatches, test.checkErr)
 		}
-	}
-}
-
-func (*suite) TestMigrate(c *gc.C) {
-	initialParams := agent.AgentConfigParams{
-		Paths: agent.Paths{
-			DataDir: c.MkDir(),
-			LogDir:  c.MkDir(),
-		},
-		Tag:               names.NewMachineTag("1"),
-		Nonce:             "nonce",
-		Password:          "secret",
-		UpgradedToVersion: version.MustParse("1.16.5"),
-		Jobs: []multiwatcher.MachineJob{
-			multiwatcher.JobManageEnviron,
-			multiwatcher.JobHostUnits,
-		},
-		CACert:         "ca cert",
-		Environment:    testing.EnvironmentTag,
-		StateAddresses: []string{"localhost:1234"},
-		APIAddresses:   []string{"localhost:4321"},
-		Values: map[string]string{
-			"key1": "value1",
-			"key2": "value2",
-			"key3": "value3",
-		},
-	}
-
-	migrateTests := []struct {
-		comment      string
-		fields       []string
-		newParams    agent.MigrateParams
-		expectValues map[string]string
-		expectErr    string
-	}{{
-		comment:   "nothing to change",
-		fields:    nil,
-		newParams: agent.MigrateParams{},
-	}, {
-		fields: []string{"Paths"},
-		newParams: agent.MigrateParams{
-			Paths: agent.Paths{DataDir: c.MkDir()},
-		},
-	}, {
-		fields: []string{"Paths"},
-		newParams: agent.MigrateParams{
-			Paths: agent.Paths{
-				DataDir: c.MkDir(),
-				LogDir:  c.MkDir(),
-			},
-		},
-	}, {
-		fields: []string{"Jobs"},
-		newParams: agent.MigrateParams{
-			Jobs: []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
-		},
-	}, {
-		comment:   "invalid/immutable field specified",
-		fields:    []string{"InvalidField"},
-		newParams: agent.MigrateParams{},
-		expectErr: `unknown field "InvalidField"`,
-	}, {
-		comment: "Values can be added, changed or removed",
-		fields:  []string{"Values", "DeleteValues"},
-		newParams: agent.MigrateParams{
-			DeleteValues: []string{"key2", "key3"}, // delete
-			Values: map[string]string{
-				"key1":     "new value1", // change
-				"new key3": "value3",     // add
-				"empty":    "",           // add empty val
-			},
-		},
-		expectValues: map[string]string{
-			"key1":     "new value1",
-			"new key3": "value3",
-			"empty":    "",
-		},
-	}}
-	for i, test := range migrateTests {
-		summary := "migrate fields"
-		if test.comment != "" {
-			summary += " (" + test.comment + ") "
-		}
-		c.Logf("test %d: %s %v", i, summary, test.fields)
-
-		initialConfig, err := agent.NewAgentConfig(initialParams)
-		c.Assert(err, jc.ErrorIsNil)
-
-		newConfig, err := agent.NewAgentConfig(initialParams)
-		c.Assert(err, jc.ErrorIsNil)
-
-		c.Assert(initialConfig.Write(), gc.IsNil)
-		c.Assert(agent.ConfigFileExists(initialConfig), jc.IsTrue)
-
-		err = newConfig.Migrate(test.newParams)
-		c.Assert(err, jc.ErrorIsNil)
-		err = newConfig.Write()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(agent.ConfigFileExists(newConfig), jc.IsTrue)
-
-		// Make sure we can read it back successfully and it
-		// matches what we wrote.
-		configPath := agent.ConfigPath(newConfig.DataDir(), newConfig.Tag())
-		c.Logf("new config path: %v", configPath)
-		readConfig, err := agent.ReadConfig(configPath)
-		c.Check(err, jc.ErrorIsNil)
-		c.Check(newConfig, jc.DeepEquals, readConfig)
-
-		// Make sure only the specified fields were changed and
-		// the rest matches.
-		for _, field := range test.fields {
-			switch field {
-			case "Values":
-				err = agent.PatchConfig(initialConfig, field, test.expectValues)
-				c.Check(err, jc.ErrorIsNil)
-			case "DeleteValues":
-				err = agent.PatchConfig(initialConfig, field, test.newParams.DeleteValues)
-				c.Check(err, jc.ErrorIsNil)
-			default:
-				value := reflect.ValueOf(test.newParams).FieldByName(field)
-				if value.IsValid() && test.expectErr == "" {
-					err = agent.PatchConfig(initialConfig, field, value.Interface())
-					c.Check(err, jc.ErrorIsNil)
-				} else {
-					err = agent.PatchConfig(initialConfig, field, value)
-					c.Check(err, gc.ErrorMatches, test.expectErr)
-				}
-			}
-		}
-		c.Check(newConfig, jc.DeepEquals, initialConfig)
 	}
 }
 
@@ -445,14 +316,14 @@ func (*suite) TestNewStateMachineConfig(c *gc.C) {
 		inspectConfig func(*gc.C, agent.Config)
 	}
 	var tests = []testStruct{{
-		about:    "missing state server cert",
-		checkErr: "state server cert not found in configuration",
+		about:    "missing controller cert",
+		checkErr: "controller cert not found in configuration",
 	}, {
-		about: "missing state server key",
+		about: "missing controller key",
 		servingInfo: params.StateServingInfo{
 			Cert: "server cert",
 		},
-		checkErr: "state server key not found in configuration",
+		checkErr: "controller key not found in configuration",
 	}, {
 		about: "missing ca cert key",
 		servingInfo: params.StateServingInfo{
@@ -506,13 +377,14 @@ var attributeParams = agent.AgentConfigParams{
 		DataDir: "/data/dir",
 	},
 	Tag:               names.NewMachineTag("1"),
-	UpgradedToVersion: version.Current,
+	UpgradedToVersion: jujuversion.Current,
 	Password:          "sekrit",
 	CACert:            "ca cert",
 	StateAddresses:    []string{"localhost:1234"},
 	APIAddresses:      []string{"localhost:1235"},
 	Nonce:             "a nonce",
-	Environment:       testing.EnvironmentTag,
+	Controller:        testing.ControllerTag,
+	Model:             testing.ModelTag,
 }
 
 func (*suite) TestAttributes(c *gc.C) {
@@ -525,7 +397,7 @@ func (*suite) TestAttributes(c *gc.C) {
 	c.Assert(conf.Tag(), gc.Equals, names.NewMachineTag("1"))
 	c.Assert(conf.Dir(), gc.Equals, "/data/dir/agents/machine-1")
 	c.Assert(conf.Nonce(), gc.Equals, "a nonce")
-	c.Assert(conf.UpgradedToVersion(), jc.DeepEquals, version.Current)
+	c.Assert(conf.UpgradedToVersion(), jc.DeepEquals, jujuversion.Current)
 }
 
 func (*suite) TestStateServingInfo(c *gc.C) {
@@ -599,8 +471,8 @@ func (*suite) TestAPIInfoAddsLocalhostWhenServingInfoPresent(c *gc.C) {
 	c.Assert(ok, jc.IsTrue)
 	c.Check(apiinfo.Addrs, gc.HasLen, len(attrParams.APIAddresses)+1)
 	localhostAddressFound := false
-	for _, eachApiAddress := range apiinfo.Addrs {
-		if eachApiAddress == "localhost:47" {
+	for _, eachAPIAddress := range apiinfo.Addrs {
+		if eachAPIAddress == "localhost:47" {
 			localhostAddressFound = true
 			break
 		}
@@ -608,57 +480,18 @@ func (*suite) TestAPIInfoAddsLocalhostWhenServingInfoPresent(c *gc.C) {
 	c.Assert(localhostAddressFound, jc.IsTrue)
 }
 
-func (*suite) TestAPIInfoAddsLocalhostWhenServingInfoPresentAndPreferIPv6On(c *gc.C) {
+func (*suite) TestMongoInfo(c *gc.C) {
 	attrParams := attributeParams
-	attrParams.PreferIPv6 = true
-	servingInfo := stateServingInfo()
-	conf, err := agent.NewStateMachineConfig(attrParams, servingInfo)
-	c.Assert(err, jc.ErrorIsNil)
-	apiinfo, ok := conf.APIInfo()
-	c.Assert(ok, jc.IsTrue)
-	c.Check(apiinfo.Addrs, gc.HasLen, len(attrParams.APIAddresses)+1)
-	localhostAddressFound := false
-	for _, eachApiAddress := range apiinfo.Addrs {
-		if eachApiAddress == "[::1]:47" {
-			localhostAddressFound = true
-			break
-		}
-		c.Check(eachApiAddress, gc.Not(gc.Equals), "localhost:47")
-	}
-	c.Assert(localhostAddressFound, jc.IsTrue)
-}
-
-func (*suite) TestMongoInfoHonorsPreferIPv6(c *gc.C) {
-	attrParams := attributeParams
-	attrParams.PreferIPv6 = true
 	servingInfo := stateServingInfo()
 	conf, err := agent.NewStateMachineConfig(attrParams, servingInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	mongoInfo, ok := conf.MongoInfo()
 	c.Assert(ok, jc.IsTrue)
-	c.Check(mongoInfo.Info.Addrs, jc.DeepEquals, []string{"[::1]:69"})
-
-	attrParams.PreferIPv6 = false
-	conf, err = agent.NewStateMachineConfig(attrParams, servingInfo)
-	c.Assert(err, jc.ErrorIsNil)
-	mongoInfo, ok = conf.MongoInfo()
-	c.Assert(ok, jc.IsTrue)
 	c.Check(mongoInfo.Info.Addrs, jc.DeepEquals, []string{"127.0.0.1:69"})
 }
 
-func (*suite) TestAPIInfoDoesntAddLocalhostWhenNoServingInfoPreferIPv6Off(c *gc.C) {
+func (*suite) TestAPIInfoDoesntAddLocalhostWhenNoServingInfo(c *gc.C) {
 	attrParams := attributeParams
-	attrParams.PreferIPv6 = false
-	conf, err := agent.NewAgentConfig(attrParams)
-	c.Assert(err, jc.ErrorIsNil)
-	apiinfo, ok := conf.APIInfo()
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(apiinfo.Addrs, gc.DeepEquals, attrParams.APIAddresses)
-}
-
-func (*suite) TestAPIInfoDoesntAddLocalhostWhenNoServingInfoPreferIPv6On(c *gc.C) {
-	attrParams := attributeParams
-	attrParams.PreferIPv6 = true
 	conf, err := agent.NewAgentConfig(attrParams)
 	c.Assert(err, jc.ErrorIsNil)
 	apiinfo, ok := conf.APIInfo()
@@ -674,12 +507,12 @@ func (*suite) TestSetPassword(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	expectAPIInfo := &api.Info{
-		Addrs:      attrParams.APIAddresses,
-		CACert:     attrParams.CACert,
-		Tag:        attrParams.Tag,
-		Password:   "",
-		Nonce:      attrParams.Nonce,
-		EnvironTag: attrParams.Environment,
+		Addrs:    attrParams.APIAddresses,
+		CACert:   attrParams.CACert,
+		Tag:      attrParams.Tag,
+		Password: "",
+		Nonce:    attrParams.Nonce,
+		ModelTag: attrParams.Model,
 	}
 	apiInfo, ok := conf.APIInfo()
 	c.Assert(ok, jc.IsTrue)
@@ -723,7 +556,7 @@ func (*suite) TestSetUpgradedToVersion(c *gc.C) {
 	conf, err := agent.NewAgentConfig(attributeParams)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(conf.UpgradedToVersion(), gc.Equals, version.Current)
+	c.Assert(conf.UpgradedToVersion(), gc.Equals, jujuversion.Current)
 
 	expectVers := version.MustParse("3.4.5")
 	conf.SetUpgradedToVersion(expectVers)
@@ -771,9 +604,19 @@ func (*suite) TestSetAPIHostPorts(c *gc.C) {
 	c.Assert(addrs, gc.DeepEquals, []string{
 		"0.1.0.1:1111",
 		"0.1.0.2:1111",
+		"host.com:1111",
 		"0.2.0.1:2222",
 		"0.2.0.2:2222",
 		"0.4.0.1:4444",
 		"elsewhere.net:4444",
 	})
+}
+
+func (*suite) TestSetCACert(c *gc.C) {
+	conf, err := agent.NewAgentConfig(attributeParams)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(conf.CACert(), gc.Equals, "ca cert")
+
+	conf.SetCACert("new ca cert")
+	c.Assert(conf.CACert(), gc.Equals, "new ca cert")
 }

@@ -7,7 +7,9 @@ package testing
 
 import (
 	"fmt"
+	"io/ioutil"
 	"net/http"
+	"strings"
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/series"
@@ -99,7 +101,11 @@ var imageData = map[string]string{
 		   "format": "products:1.0",
 		   "products": [
 			"com.ubuntu.cloud:server:12.04:amd64",
-			"com.ubuntu.cloud:server:12.04:arm"
+ 			"com.ubuntu.cloud:server:12.10:amd64",
+ 			"com.ubuntu.cloud:server:13.04:amd64",
+ 			"com.ubuntu.cloud:server:14.04:amd64",
+ 			"com.ubuntu.cloud:server:14.10:amd64",
+ 			"com.ubuntu.cloud:server:12.04:arm"
 		   ],
 		   "path": "streams/v1/image_metadata.json"
 		  },
@@ -427,6 +433,8 @@ var imageData = map[string]string{
  "content_id": "com.ubuntu.cloud:released:aws",
  "region": "nz-east-1",
  "endpoint": "https://anywhere",
+ "root_store": "ebs",
+ "virt": "pv", 
  "products": {
   "com.ubuntu.cloud:server:14.04:amd64": {
    "release": "trusty",
@@ -436,12 +444,64 @@ var imageData = map[string]string{
     "20140118": {
      "items": {
       "nzww1pe": {
-       "root_store": "ebs",
-       "virt": "pv",
+       "root_store": "ssd",
+       "virt": "hvm",
        "id": "ami-36745463"
       }
      },
      "pubname": "ubuntu-trusty-14.04-amd64-server-20140118",
+     "label": "release"
+    }
+   }
+  },
+  "com.ubuntu.cloud:server:13.04:amd64": {
+   "release": "raring",
+   "version": "13.04",
+   "arch": "amd64",
+   "versions": {
+    "20160318": {
+     "items": {
+      "nzww1pe": {
+       "id": "ami-36745463"
+      }
+     },
+     "pubname": "ubuntu-utopic-13.04-amd64-server-20160318",
+     "label": "release"
+    }
+   }
+  },
+  "com.ubuntu.cloud:server:14.10:amd64": {
+   "release": "utopic",
+   "version": "14.10",
+   "arch": "amd64",
+   "root_store": "ebs",
+   "virt": "pv",
+   "versions": {
+    "20160218": {
+     "items": {
+      "nzww1pe": {
+       "id": "ami-36745463"
+      }
+     },
+     "pubname": "ubuntu-utopic-14.10-amd64-server-20160218",
+     "label": "release"
+    }
+   }
+  },
+  "com.ubuntu.cloud:server:12.10:amd64": {
+   "release": "quantal",
+   "version": "12.10",
+   "arch": "amd64",
+   "versions": {
+    "20160118": {
+     "items": {
+      "nzww1pe": {
+       "id": "ami-36745463"
+      }
+     },
+     "root_store": "ebs",
+     "virt": "pv",
+     "pubname": "ubuntu-quantal-12.10-amd64-server-20160118",
      "label": "release"
     }
    }
@@ -533,32 +593,83 @@ var imageData = map[string]string{
 `,
 }
 
-var testRoundTripper *testing.ProxyRoundTripper
+var TestRoundTripper = &testing.ProxyRoundTripper{}
 
 func init() {
-	testRoundTripper = &testing.ProxyRoundTripper{}
-	testRoundTripper.RegisterForScheme("test")
+	TestRoundTripper.RegisterForScheme("test")
+	TestRoundTripper.RegisterForScheme("signedtest")
 }
 
 type TestDataSuite struct{}
 
 func (s *TestDataSuite) SetUpSuite(c *gc.C) {
-	testRoundTripper.Sub = testing.NewCannedRoundTripper(
-		imageData, map[string]int{"test://unauth": http.StatusUnauthorized})
+	TestRoundTripper.Sub = testing.NewCannedRoundTripper(imageData, map[string]int{"test://unauth": http.StatusUnauthorized})
 }
 
 func (s *TestDataSuite) TearDownSuite(c *gc.C) {
-	testRoundTripper.Sub = nil
+	TestRoundTripper.Sub = nil
 }
 
-func AssertExpectedSources(c *gc.C, obtained []simplestreams.DataSource, baseURLs []string) {
-	var obtainedURLs = make([]string, len(baseURLs))
+const (
+	UnsignedJsonSuffix = ".json"
+	SignedJsonSuffix   = ".sjson"
+)
+
+func SetRoundTripperFiles(files map[string]string, errorFiles map[string]int) {
+	TestRoundTripper.Sub = testing.NewCannedRoundTripper(files, errorFiles)
+}
+
+func AddSignedFiles(c *gc.C, files map[string]string) map[string]string {
+	all := make(map[string]string)
+	for name, content := range files {
+		all[name] = content
+		// Sign file content
+		r := strings.NewReader(content)
+		bytes, err := ioutil.ReadAll(r)
+		c.Assert(err, jc.ErrorIsNil)
+		signedName, signedContent, err := SignMetadata(name, bytes)
+		c.Assert(err, jc.ErrorIsNil)
+		all[signedName] = string(signedContent)
+	}
+	return all
+}
+
+func SignMetadata(fileName string, fileData []byte) (string, []byte, error) {
+	signString := func(unsigned string) string {
+		return strings.Replace(unsigned, UnsignedJsonSuffix, SignedJsonSuffix, -1)
+	}
+
+	// Make sure that contents point to signed files too.
+	signedFileData := signString(string(fileData))
+	signedBytes, err := simplestreams.Encode(strings.NewReader(signedFileData), SignedMetadataPrivateKey, PrivateKeyPassphrase)
+	if err != nil {
+		return "", nil, err
+	}
+
+	return signString(fileName), signedBytes, nil
+}
+
+// SourceDetails stored some details that need to be checked about data source.
+type SourceDetails struct {
+	URL string
+	Key string
+}
+
+func AssertExpectedSources(c *gc.C, obtained []simplestreams.DataSource, dsDetails []SourceDetails) {
+	// Some data sources do not require to contain signed data.
+	// However, they may still contain it.
+	// Since we will always try to read signed data first,
+	// we want to be able to try to read this signed data
+	// with a public key. Check keys are provided where needed.
+	// Bugs #1542127, #1542131
 	for i, source := range obtained {
 		url, err := source.URL("")
 		c.Assert(err, jc.ErrorIsNil)
-		obtainedURLs[i] = url
+		expected := dsDetails[i]
+		c.Assert(url, gc.DeepEquals, expected.URL)
+		c.Assert(source.PublicSigningKey(), gc.DeepEquals, expected.Key)
 	}
-	c.Assert(obtainedURLs, gc.DeepEquals, baseURLs)
+	c.Assert(obtained, gc.HasLen, len(dsDetails))
 }
 
 type LocalLiveSimplestreamsSuite struct {

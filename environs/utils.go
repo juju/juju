@@ -1,11 +1,14 @@
+// Copyright 2014 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package environs
 
 import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"github.com/juju/utils"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/instance"
@@ -63,31 +66,21 @@ func waitAnyInstanceAddresses(
 
 // APIInfo returns an api.Info for the environment. The result is populated
 // with addresses and CA certificate, but no tag or password.
-func APIInfo(env Environ) (*api.Info, error) {
-	instanceIds, err := env.StateServerInstances()
+func APIInfo(controllerUUID, modelUUID, caCert string, apiPort int, env Environ) (*api.Info, error) {
+	instanceIds, err := env.ControllerInstances(controllerUUID)
 	if err != nil {
 		return nil, err
 	}
-	logger.Debugf("StateServerInstances returned: %v", instanceIds)
+	logger.Debugf("ControllerInstances returned: %v", instanceIds)
 	addrs, err := waitAnyInstanceAddresses(env, instanceIds)
 	if err != nil {
 		return nil, err
 	}
-	config := env.Config()
-	cert, hasCert := config.CACert()
-	if !hasCert {
-		return nil, errors.New("config has no CACert")
-	}
-	apiPort := config.APIPort()
 	apiAddrs := network.HostPortsToStrings(
 		network.AddressesWithPort(addrs, apiPort),
 	)
-	uuid, uuidSet := config.UUID()
-	if !uuidSet {
-		return nil, errors.New("config has no UUID")
-	}
-	envTag := names.NewEnvironTag(uuid)
-	apiInfo := &api.Info{Addrs: apiAddrs, CACert: cert, EnvironTag: envTag}
+	modelTag := names.NewModelTag(modelUUID)
+	apiInfo := &api.Info{Addrs: apiAddrs, CACert: caCert, ModelTag: modelTag}
 	return apiInfo, nil
 }
 

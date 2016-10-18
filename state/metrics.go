@@ -5,12 +5,13 @@ package state
 
 import (
 	"encoding/json"
+	"sort"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -34,9 +35,9 @@ type MetricBatch struct {
 
 type metricBatchDoc struct {
 	UUID        string    `bson:"_id"`
-	EnvUUID     string    `bson:"env-uuid"`
+	ModelUUID   string    `bson:"model-uuid"`
 	Unit        string    `bson:"unit"`
-	CharmUrl    string    `bson:"charmurl"`
+	CharmURL    string    `bson:"charmurl"`
 	Sent        bool      `bson:"sent"`
 	DeleteTime  time.Time `bson:"delete-time"`
 	Created     time.Time `bson:"created"`
@@ -51,13 +52,21 @@ type Metric struct {
 	Time  time.Time `bson:"time"`
 }
 
+type byTime []Metric
+
+func (t byTime) Len() int      { return len(t) }
+func (t byTime) Swap(i, j int) { t[i], t[j] = t[j], t[i] }
+func (t byTime) Less(i, j int) bool {
+	return t[i].Time.Before(t[j].Time)
+}
+
 // validate checks that the MetricBatch contains valid metrics.
 func (m *MetricBatch) validate() error {
-	charmUrl, err := charm.ParseURL(m.doc.CharmUrl)
+	charmURL, err := charm.ParseURL(m.doc.CharmURL)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	chrm, err := m.st.Charm(charmUrl)
+	chrm, err := m.st.Charm(charmURL)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -97,7 +106,7 @@ func (st *State) AddMetrics(batch BatchParam) (*MetricBatch, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	service, err := unit.Service()
+	application, err := unit.Application()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -106,13 +115,13 @@ func (st *State) AddMetrics(batch BatchParam) (*MetricBatch, error) {
 		st: st,
 		doc: metricBatchDoc{
 			UUID:        batch.UUID,
-			EnvUUID:     st.EnvironUUID(),
+			ModelUUID:   st.ModelUUID(),
 			Unit:        batch.Unit.Id(),
-			CharmUrl:    charmURL.String(),
+			CharmURL:    charmURL.String(),
 			Sent:        false,
 			Created:     batch.Created,
 			Metrics:     batch.Metrics,
-			Credentials: service.MetricCredentials(),
+			Credentials: application.MetricCredentials(),
 		},
 	}
 	if err := metric.validate(); err != nil {
@@ -152,11 +161,11 @@ func (st *State) AddMetrics(batch BatchParam) (*MetricBatch, error) {
 	return metric, nil
 }
 
-// MetricBatches returns all metric batches currently stored in state.
+// AllMetricBatches returns all metric batches currently stored in state.
 // TODO (tasdomas): this method is currently only used in the uniter worker test -
 //                  it needs to be modified to restrict the scope of the values it
 //                  returns if it is to be used outside of tests.
-func (st *State) MetricBatches() ([]MetricBatch, error) {
+func (st *State) AllMetricBatches() ([]MetricBatch, error) {
 	c, closer := st.getCollection(metricsC)
 	defer closer()
 	docs := []metricBatchDoc{}
@@ -169,6 +178,52 @@ func (st *State) MetricBatches() ([]MetricBatch, error) {
 		results[i] = MetricBatch{st: st, doc: doc}
 	}
 	return results, nil
+}
+
+func (st *State) queryMetricBatches(query bson.M) ([]MetricBatch, error) {
+	c, closer := st.getCollection(metricsC)
+	defer closer()
+	docs := []metricBatchDoc{}
+	err := c.Find(query).Sort("created").All(&docs)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	results := make([]MetricBatch, len(docs))
+	for i, doc := range docs {
+		results[i] = MetricBatch{st: st, doc: doc}
+	}
+	return results, nil
+}
+
+// MetricBatchesForUnit returns metric batches for the given unit.
+func (st *State) MetricBatchesForUnit(unit string) ([]MetricBatch, error) {
+	_, err := st.Unit(unit)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return st.queryMetricBatches(bson.M{"unit": unit})
+}
+
+// MetricBatchesForModel returns metric batches for all the units in the model.
+func (st *State) MetricBatchesForModel() ([]MetricBatch, error) {
+	return st.queryMetricBatches(bson.M{"model-uuid": st.ModelUUID()})
+}
+
+// MetricBatchesForApplication returns metric batches for the given application.
+func (st *State) MetricBatchesForApplication(application string) ([]MetricBatch, error) {
+	svc, err := st.Application(application)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	units, err := svc.AllUnits()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	unitNames := make([]bson.M, len(units))
+	for i, u := range units {
+		unitNames[i] = bson.M{"unit": u.Name()}
+	}
+	return st.queryMetricBatches(bson.M{"$or": unitNames})
 }
 
 // MetricBatch returns the metric batch with the given id.
@@ -189,7 +244,7 @@ func (st *State) MetricBatch(id string) (*MetricBatch, error) {
 // CleanupOldMetrics looks for metrics that are 24 hours old (or older)
 // and have been sent. Any metrics it finds are deleted.
 func (st *State) CleanupOldMetrics() error {
-	now := time.Now()
+	now := st.clock.Now()
 	metrics, closer := st.getCollection(metricsC)
 	defer closer()
 	// Nothing else in the system will interact with sent metrics, and nothing needs
@@ -198,6 +253,7 @@ func (st *State) CleanupOldMetrics() error {
 	metricsW := metrics.Writeable()
 	// TODO (mattyw) iter over this.
 	info, err := metricsW.RemoveAll(bson.M{
+		"model-uuid":  st.ModelUUID(),
 		"sent":        true,
 		"delete-time": bson.M{"$lte": now},
 	})
@@ -213,9 +269,12 @@ func (st *State) MetricsToSend(batchSize int) ([]*MetricBatch, error) {
 	var docs []metricBatchDoc
 	c, closer := st.getCollection(metricsC)
 	defer closer()
-	err := c.Find(bson.M{
-		"sent": false,
-	}).Limit(batchSize).All(&docs)
+
+	q := bson.M{
+		"model-uuid": st.ModelUUID(),
+		"sent":       false,
+	}
+	err := c.Find(q).Limit(batchSize).All(&docs)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -235,7 +294,8 @@ func (st *State) CountOfUnsentMetrics() (int, error) {
 	c, closer := st.getCollection(metricsC)
 	defer closer()
 	return c.Find(bson.M{
-		"sent": false,
+		"model-uuid": st.ModelUUID(),
+		"sent":       false,
 	}).Count()
 }
 
@@ -246,7 +306,8 @@ func (st *State) CountOfSentMetrics() (int, error) {
 	c, closer := st.getCollection(metricsC)
 	defer closer()
 	return c.Find(bson.M{
-		"sent": true,
+		"model-uuid": st.ModelUUID(),
+		"sent":       true,
 	}).Count()
 }
 
@@ -261,9 +322,9 @@ func (m *MetricBatch) UUID() string {
 	return m.doc.UUID
 }
 
-// EnvUUID returns the environment UUID this metric applies to.
-func (m *MetricBatch) EnvUUID() string {
-	return m.doc.EnvUUID
+// ModelUUID returns the model UUID this metric applies to.
+func (m *MetricBatch) ModelUUID() string {
+	return m.doc.ModelUUID
 }
 
 // Unit returns the name of the unit this metric was generated in.
@@ -273,7 +334,7 @@ func (m *MetricBatch) Unit() string {
 
 // CharmURL returns the charm url for the charm this metric was generated in.
 func (m *MetricBatch) CharmURL() string {
-	return m.doc.CharmUrl
+	return m.doc.CharmURL
 }
 
 // Created returns the time this metric batch was created.
@@ -292,6 +353,24 @@ func (m *MetricBatch) Metrics() []Metric {
 	result := make([]Metric, len(m.doc.Metrics))
 	copy(result, m.doc.Metrics)
 	return result
+}
+
+// UniqueMetrics returns only the last value for each
+// metric key in this batch.
+func (m *MetricBatch) UniqueMetrics() []Metric {
+	metrics := m.Metrics()
+	sort.Sort(byTime(metrics))
+	uniq := map[string]Metric{}
+	for _, m := range metrics {
+		uniq[m.Key] = m
+	}
+	results := make([]Metric, len(uniq))
+	i := 0
+	for _, m := range uniq {
+		results[i] = m
+		i++
+	}
+	return results
 }
 
 // SetSent marks the metric has having been sent at
@@ -328,7 +407,7 @@ func setSentOps(batchUUIDs []string, deleteTime time.Time) []txn.Op {
 
 // SetMetricBatchesSent sets sent on each MetricBatch corresponding to the uuids provided.
 func (st *State) SetMetricBatchesSent(batchUUIDs []string) error {
-	deleteTime := time.Now().UTC().Add(CleanupAge)
+	deleteTime := st.clock.Now().UTC().Add(CleanupAge)
 	ops := setSentOps(batchUUIDs, deleteTime)
 	if err := st.runTransaction(ops); err != nil {
 		return errors.Annotatef(err, "cannot set metric sent in bulk call")

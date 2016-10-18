@@ -9,12 +9,13 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
 	"github.com/juju/utils/ssh"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
@@ -23,8 +24,11 @@ import (
 var logger = loggo.GetLogger("juju.apiserver.keymanager")
 
 func init() {
-	common.RegisterStandardFacade("KeyManager", 0, NewKeyManagerAPI)
+	common.RegisterStandardFacade("KeyManager", 1, NewKeyManagerAPI)
 }
+
+// The comment values used by juju internal ssh keys.
+var internalComments = set.NewStrings([]string{"juju-client-key", "juju-system-key"}...)
 
 // KeyManager defines the methods on the keymanager API end point.
 type KeyManager interface {
@@ -34,12 +38,12 @@ type KeyManager interface {
 	ImportKeys(arg params.ModifyUserSSHKeys) (params.ErrorResults, error)
 }
 
-// KeyUpdaterAPI implements the KeyUpdater interface and is the concrete
+// KeyManagerAPI implements the KeyUpdater interface and is the concrete
 // implementation of the api end point.
 type KeyManagerAPI struct {
 	state      *state.State
-	resources  *common.Resources
-	authorizer common.Authorizer
+	resources  facade.Resources
+	authorizer facade.Authorizer
 	canRead    func(string) bool
 	canWrite   func(string) bool
 	check      *common.BlockChecker
@@ -48,12 +52,12 @@ type KeyManagerAPI struct {
 var _ KeyManager = (*KeyManagerAPI)(nil)
 
 // NewKeyManagerAPI creates a new server-side keyupdater API end point.
-func NewKeyManagerAPI(st *state.State, resources *common.Resources, authorizer common.Authorizer) (*KeyManagerAPI, error) {
+func NewKeyManagerAPI(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*KeyManagerAPI, error) {
 	// Only clients and environment managers can access the key manager service.
-	if !authorizer.AuthClient() && !authorizer.AuthEnvironManager() {
+	if !authorizer.AuthClient() && !authorizer.AuthModelManager() {
 		return nil, common.ErrPerm
 	}
-	env, err := st.Environment()
+	env, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -101,7 +105,7 @@ func (api *KeyManagerAPI) ListKeys(arg params.ListSSHKeys) (params.StringsResult
 
 	// For now, authorised keys are global, common to all users.
 	var keyInfo []string
-	cfg, configErr := api.state.EnvironConfig()
+	cfg, configErr := api.state.ModelConfig()
 	if configErr == nil {
 		keys := ssh.SplitAuthorisedKeys(cfg.AuthorizedKeys())
 		keyInfo = parseKeys(keys, arg.Mode)
@@ -127,16 +131,20 @@ func parseKeys(keys []string, mode ssh.ListMode) (keyInfo []string) {
 		fingerprint, comment, err := ssh.KeyFingerprint(key)
 		if err != nil {
 			keyInfo = append(keyInfo, fmt.Sprintf("Invalid key: %v", key))
+			continue
+		}
+		// Only including user added keys not internal ones.
+		if internalComments.Contains(comment) {
+			continue
+		}
+		if mode == ssh.FullKeys {
+			keyInfo = append(keyInfo, key)
 		} else {
-			if mode == ssh.FullKeys {
-				keyInfo = append(keyInfo, key)
-			} else {
-				shortKey := fingerprint
-				if comment != "" {
-					shortKey += fmt.Sprintf(" (%s)", comment)
-				}
-				keyInfo = append(keyInfo, shortKey)
+			shortKey := fingerprint
+			if comment != "" {
+				shortKey += fmt.Sprintf(" (%s)", comment)
 			}
+			keyInfo = append(keyInfo, shortKey)
 		}
 	}
 	return keyInfo
@@ -145,11 +153,11 @@ func parseKeys(keys []string, mode ssh.ListMode) (keyInfo []string) {
 func (api *KeyManagerAPI) writeSSHKeys(sshKeys []string) error {
 	// Write out the new keys.
 	keyStr := strings.Join(sshKeys, "\n")
-	attrs := map[string]interface{}{config.AuthKeysConfig: keyStr}
+	attrs := map[string]interface{}{config.AuthorizedKeysKey: keyStr}
 	// TODO(waigani) 2014-03-17 bug #1293324
 	// Pass in validation to ensure SSH keys
 	// have not changed underfoot
-	err := api.state.UpdateEnvironConfig(attrs, nil, nil)
+	err := api.state.UpdateModelConfig(attrs, nil, nil)
 	if err != nil {
 		return fmt.Errorf("writing environ config: %v", err)
 	}
@@ -159,7 +167,7 @@ func (api *KeyManagerAPI) writeSSHKeys(sshKeys []string) error {
 // currentKeyDataForAdd gathers data used when adding ssh keys.
 func (api *KeyManagerAPI) currentKeyDataForAdd() (keys []string, fingerprints set.Strings, err error) {
 	fingerprints = make(set.Strings)
-	cfg, err := api.state.EnvironConfig()
+	cfg, err := api.state.ModelConfig()
 	if err != nil {
 		return nil, nil, fmt.Errorf("reading current key data: %v", err)
 	}
@@ -317,33 +325,31 @@ func (api *KeyManagerAPI) ImportKeys(arg params.ModifyUserSSHKeys) (params.Error
 
 // currentKeyDataForDelete gathers data used when deleting ssh keys.
 func (api *KeyManagerAPI) currentKeyDataForDelete() (
-	keys map[string]string, invalidKeys []string, comments map[string]string, err error) {
+	currentKeys []string, byFingerprint map[string]string, byComment map[string]string, err error) {
 
-	cfg, err := api.state.EnvironConfig()
+	cfg, err := api.state.ModelConfig()
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("reading current key data: %v", err)
 	}
 	// For now, authorised keys are global, common to all users.
-	existingSSHKeys := ssh.SplitAuthorisedKeys(cfg.AuthorizedKeys())
+	currentKeys = ssh.SplitAuthorisedKeys(cfg.AuthorizedKeys())
 
-	// Build up a map of keys indexed by fingerprint, and fingerprints indexed by comment
-	// so we can easily get the key represented by each keyId, which may be either a fingerprint
-	// or comment.
-	keys = make(map[string]string)
-	comments = make(map[string]string)
-	for _, key := range existingSSHKeys {
+	// Make two maps that index keys by fingerprint and by comment for fast
+	// lookup of keys to delete which may be given as either.
+	byFingerprint = make(map[string]string)
+	byComment = make(map[string]string)
+	for _, key := range currentKeys {
 		fingerprint, comment, err := ssh.KeyFingerprint(key)
 		if err != nil {
 			logger.Debugf("keeping unrecognised existing ssh key %q: %v", key, err)
-			invalidKeys = append(invalidKeys, key)
 			continue
 		}
-		keys[fingerprint] = key
+		byFingerprint[fingerprint] = key
 		if comment != "" {
-			comments[comment] = fingerprint
+			byComment[comment] = key
 		}
 	}
-	return keys, invalidKeys, comments, nil
+	return currentKeys, byFingerprint, byComment, nil
 }
 
 // DeleteKeys deletes the authorised ssh keys for the specified user.
@@ -362,32 +368,44 @@ func (api *KeyManagerAPI) DeleteKeys(arg params.ModifyUserSSHKeys) (params.Error
 		return params.ErrorResults{}, common.ServerError(common.ErrPerm)
 	}
 
-	sshKeys, invalidKeys, keyComments, err := api.currentKeyDataForDelete()
+	allKeys, byFingerprint, byComment, err := api.currentKeyDataForDelete()
 	if err != nil {
 		return params.ErrorResults{}, common.ServerError(fmt.Errorf("reading current key data: %v", err))
 	}
 
-	// We keep all existing invalid keys.
-	keysToWrite := invalidKeys
+	// Record the keys to be deleted in the second pass.
+	keysToDelete := make(set.Strings)
 
 	// Find the keys corresponding to the specified key fingerprints or comments.
 	for i, keyId := range arg.Keys {
-		// assume keyId may be a fingerprint
-		fingerprint := keyId
-		_, ok := sshKeys[keyId]
-		if !ok {
-			// keyId is a comment
-			fingerprint, ok = keyComments[keyId]
+		// Is given keyId a fingerprint?
+		key, ok := byFingerprint[keyId]
+		if ok {
+			keysToDelete.Add(key)
+			continue
 		}
-		if !ok {
-			result.Results[i].Error = common.ServerError(fmt.Errorf("invalid ssh key: %s", keyId))
+		// Not a fingerprint, is it a comment?
+		key, ok = byComment[keyId]
+		if ok {
+			if internalComments.Contains(keyId) {
+				result.Results[i].Error = common.ServerError(fmt.Errorf("may not delete internal key: %s", keyId))
+				continue
+			}
+			keysToDelete.Add(key)
+			continue
 		}
-		// We found the key to delete so remove it from those we wish to keep.
-		delete(sshKeys, fingerprint)
+		result.Results[i].Error = common.ServerError(fmt.Errorf("invalid ssh key: %s", keyId))
 	}
-	for _, key := range sshKeys {
-		keysToWrite = append(keysToWrite, key)
+
+	var keysToWrite []string
+
+	// Add back only the keys that are not deleted, preserving the order.
+	for _, key := range allKeys {
+		if !keysToDelete.Contains(key) {
+			keysToWrite = append(keysToWrite, key)
+		}
 	}
+
 	if len(keysToWrite) == 0 {
 		return params.ErrorResults{}, common.ServerError(fmt.Errorf("cannot delete all keys"))
 	}

@@ -11,9 +11,8 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/storage"
 )
 
@@ -52,10 +51,7 @@ func (lp *loopProvider) validateFullConfig(cfg *storage.Config) error {
 }
 
 // VolumeSource is defined on the Provider interface.
-func (lp *loopProvider) VolumeSource(
-	environConfig *config.Config,
-	sourceConfig *storage.Config,
-) (storage.VolumeSource, error) {
+func (lp *loopProvider) VolumeSource(sourceConfig *storage.Config) (storage.VolumeSource, error) {
 	if err := lp.validateFullConfig(sourceConfig); err != nil {
 		return nil, err
 	}
@@ -69,10 +65,7 @@ func (lp *loopProvider) VolumeSource(
 }
 
 // FilesystemSource is defined on the Provider interface.
-func (lp *loopProvider) FilesystemSource(
-	environConfig *config.Config,
-	providerConfig *storage.Config,
-) (storage.FilesystemSource, error) {
+func (lp *loopProvider) FilesystemSource(providerConfig *storage.Config) (storage.FilesystemSource, error) {
 	return nil, errors.NotSupportedf("filesystems")
 }
 
@@ -89,6 +82,11 @@ func (*loopProvider) Scope() storage.Scope {
 // Dynamic is defined on the Provider interface.
 func (*loopProvider) Dynamic() bool {
 	return true
+}
+
+// DefaultPools is defined on the Provider interface.
+func (*loopProvider) DefaultPools() []*storage.Config {
+	return nil
 }
 
 // loopVolumeSource provides common functionality to handle
@@ -229,7 +227,7 @@ func (lvs *loopVolumeSource) detachVolume(tag names.VolumeTag) error {
 		return errors.Annotate(err, "locating loop device")
 	}
 	if len(deviceNames) > 1 {
-		logger.Warningf("expected 1 loop device, got %d", len(deviceNames))
+		logger.Errorf("expected 1 loop device, got %d", len(deviceNames))
 	}
 	for _, deviceName := range deviceNames {
 		if err := detachLoopDevice(lvs.run, deviceName); err != nil {

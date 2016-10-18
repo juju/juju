@@ -8,15 +8,16 @@ import (
 
 	"github.com/juju/errors"
 	"gopkg.in/macaroon.v1"
-
-	"github.com/juju/juju/rpc"
 )
+
+// UpgradeInProgressError signifies an upgrade is in progress.
+var UpgradeInProgressError = errors.New(CodeUpgradeInProgress)
 
 // Error is the type of error returned by any call to the state API.
 type Error struct {
-	Message string
-	Code    string
-	Info    *ErrorInfo `json:",omitempty"`
+	Message string     `json:"message"`
+	Code    string     `json:"code"`
+	Info    *ErrorInfo `json:"info,omitempty"`
 }
 
 // ErrorInfo holds additional information provided by an error.
@@ -30,14 +31,14 @@ type ErrorInfo struct {
 	// discharged, may allow access to the juju API.
 	// This field is associated with the ErrDischargeRequired
 	// error code.
-	Macaroon *macaroon.Macaroon `json:",omitempty"`
+	Macaroon *macaroon.Macaroon `json:"macaroon,omitempty"`
 
 	// MacaroonPath holds the URL path to be associated
 	// with the macaroon. The macaroon is potentially
 	// valid for all URLs under the given path.
 	// If it is empty, the macaroon will be associated with
 	// the original URL from which the error was returned.
-	MacaroonPath string `json:",omitempty"`
+	MacaroonPath string `json:"macaroon-path,omitempty"`
 }
 
 func (e Error) Error() string {
@@ -48,8 +49,6 @@ func (e Error) ErrorCode() string {
 	return e.Code
 }
 
-var _ rpc.ErrorCoder = (*Error)(nil)
-
 // GoString implements fmt.GoStringer.  It means that a *Error shows its
 // contents correctly when printed with %#v.
 func (e Error) GoString() string {
@@ -59,7 +58,11 @@ func (e Error) GoString() string {
 // The Code constants hold error codes for some kinds of error.
 const (
 	CodeNotFound                  = "not found"
+	CodeUserNotFound              = "user not found"
+	CodeModelNotFound             = "model not found"
 	CodeUnauthorized              = "unauthorized access"
+	CodeLoginExpired              = "login expired"
+	CodeNoCreds                   = "no credentials provided"
 	CodeCannotEnterScope          = "cannot enter scope"
 	CodeCannotEnterScopeYet       = "cannot enter scope yet"
 	CodeExcessiveContention       = "excessive contention"
@@ -68,48 +71,39 @@ const (
 	CodeStopped                   = "stopped"
 	CodeDead                      = "dead"
 	CodeHasAssignedUnits          = "machine has assigned units"
+	CodeHasHostedModels           = "controller has hosted models"
 	CodeMachineHasAttachedStorage = "machine has attached storage"
 	CodeNotProvisioned            = "not provisioned"
 	CodeNoAddressSet              = "no address set"
 	CodeTryAgain                  = "try again"
-	CodeNotImplemented            = rpc.CodeNotImplemented
+	CodeNotImplemented            = "not implemented" // asserted to match rpc.codeNotImplemented in rpc/rpc_test.go
 	CodeAlreadyExists             = "already exists"
 	CodeUpgradeInProgress         = "upgrade in progress"
 	CodeActionNotAvailable        = "action no longer available"
 	CodeOperationBlocked          = "operation is blocked"
 	CodeLeadershipClaimDenied     = "leadership claim denied"
+	CodeLeaseClaimDenied          = "lease claim denied"
 	CodeNotSupported              = "not supported"
 	CodeBadRequest                = "bad request"
 	CodeMethodNotAllowed          = "method not allowed"
 	CodeForbidden                 = "forbidden"
 	CodeDischargeRequired         = "macaroon discharge required"
+	CodeRedirect                  = "redirection required"
+	CodeRetry                     = "retry"
 )
 
 // ErrCode returns the error code associated with
 // the given error, or the empty string if there
 // is none.
 func ErrCode(err error) string {
-	err = errors.Cause(err)
-	if err, _ := err.(rpc.ErrorCoder); err != nil {
+	type ErrorCoder interface {
+		ErrorCode() string
+	}
+	switch err := errors.Cause(err).(type) {
+	case ErrorCoder:
 		return err.ErrorCode()
-	}
-	return ""
-}
-
-// ClientError maps errors returned from an RPC call into local errors with
-// appropriate values.
-func ClientError(err error) error {
-	rerr, ok := err.(*rpc.RequestError)
-	if !ok {
-		return err
-	}
-	// We use our own error type rather than rpc.ServerError
-	// because we don't want the code or the "server error" prefix
-	// within the error message. Also, it's best not to make clients
-	// know that we're using the rpc package.
-	return &Error{
-		Message: rerr.Message,
-		Code:    rerr.Code,
+	default:
+		return ""
 	}
 }
 
@@ -121,8 +115,24 @@ func IsCodeNotFound(err error) bool {
 	return ErrCode(err) == CodeNotFound
 }
 
+func IsCodeUserNotFound(err error) bool {
+	return ErrCode(err) == CodeUserNotFound
+}
+
+func IsCodeModelNotFound(err error) bool {
+	return ErrCode(err) == CodeModelNotFound
+}
+
 func IsCodeUnauthorized(err error) bool {
 	return ErrCode(err) == CodeUnauthorized
+}
+
+func IsCodeNoCreds(err error) bool {
+	return ErrCode(err) == CodeNoCreds
+}
+
+func IsCodeLoginExpired(err error) bool {
+	return ErrCode(err) == CodeLoginExpired
 }
 
 // IsCodeNotFoundOrCodeUnauthorized is used in API clients which,
@@ -166,6 +176,10 @@ func IsCodeHasAssignedUnits(err error) bool {
 	return ErrCode(err) == CodeHasAssignedUnits
 }
 
+func IsCodeHasHostedModels(err error) bool {
+	return ErrCode(err) == CodeHasHostedModels
+}
+
 func IsCodeMachineHasAttachedStorage(err error) bool {
 	return ErrCode(err) == CodeMachineHasAttachedStorage
 }
@@ -202,6 +216,10 @@ func IsCodeLeadershipClaimDenied(err error) bool {
 	return ErrCode(err) == CodeLeadershipClaimDenied
 }
 
+func IsCodeLeaseClaimDenied(err error) bool {
+	return ErrCode(err) == CodeLeaseClaimDenied
+}
+
 func IsCodeNotSupported(err error) bool {
 	return ErrCode(err) == CodeNotSupported
 }
@@ -212,4 +230,8 @@ func IsBadRequest(err error) bool {
 
 func IsMethodNotAllowed(err error) bool {
 	return ErrCode(err) == CodeMethodNotAllowed
+}
+
+func IsRedirect(err error) bool {
+	return ErrCode(err) == CodeRedirect
 }

@@ -99,10 +99,12 @@ func trimCompletedActions(pendingActions []string, completedActions map[string]s
 }
 
 func (s *resolverOpFactory) wrapUpgradeOp(op operation.Operation, charmURL *charm.URL) operation.Operation {
+	charmModifiedVersion := s.RemoteState.CharmModifiedVersion
 	return onCommitWrapper{op, func() {
 		s.LocalState.CharmURL = charmURL
 		s.LocalState.Restart = true
 		s.LocalState.Conflicted = false
+		s.LocalState.CharmModifiedVersion = charmModifiedVersion
 	}}
 }
 
@@ -120,11 +122,13 @@ func (s *resolverOpFactory) wrapHookOp(op operation.Operation, info hook.Info) o
 		}}
 	}
 
+	charmModifiedVersion := s.RemoteState.CharmModifiedVersion
 	updateStatusVersion := s.RemoteState.UpdateStatusVersion
 	op = onCommitWrapper{op, func() {
 		// Update UpdateStatusVersion so that the update-status
 		// hook only fires after the next timer.
 		s.LocalState.UpdateStatusVersion = updateStatusVersion
+		s.LocalState.CharmModifiedVersion = charmModifiedVersion
 	}}
 
 	retryHookVersion := s.RemoteState.RetryHookVersion

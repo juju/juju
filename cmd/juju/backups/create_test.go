@@ -27,7 +27,7 @@ var _ = gc.Suite(&createSuite{})
 
 func (s *createSuite) SetUpTest(c *gc.C) {
 	s.BaseBackupsSuite.SetUpTest(c)
-	s.wrappedCommand, s.command = backups.NewCreateCommand()
+	s.wrappedCommand, s.command = backups.NewCreateCommandForTest()
 	s.defaultFilename = "juju-backup-<date>-<time>.tar.gz"
 }
 
@@ -40,7 +40,7 @@ func (s *createSuite) checkDownloadStd(c *gc.C, ctx *cmd.Context) {
 	c.Check(ctx.Stderr.(*bytes.Buffer).String(), gc.Equals, "")
 
 	out := ctx.Stdout.(*bytes.Buffer).String()
-	if !s.command.Quiet {
+	if !s.command.Log.Quiet {
 		parts := strings.Split(out, MetaResultString)
 		c.Assert(parts, gc.HasLen, 2)
 		c.Assert(parts[0], gc.Equals, "")
@@ -63,10 +63,6 @@ func (s *createSuite) checkDownloadStd(c *gc.C, ctx *cmd.Context) {
 func (s *createSuite) checkDownload(c *gc.C, ctx *cmd.Context) {
 	s.checkDownloadStd(c, ctx)
 	s.checkArchive(c)
-}
-
-func (s *createSuite) TestHelp(c *gc.C) {
-	s.checkHelp(c, s.wrappedCommand)
 }
 
 func (s *createSuite) TestNoArgs(c *gc.C) {

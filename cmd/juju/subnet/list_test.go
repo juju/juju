@@ -9,9 +9,9 @@ import (
 	"path/filepath"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/cmd/juju/subnet"
 	coretesting "github.com/juju/juju/testing"
@@ -25,7 +25,7 @@ var _ = gc.Suite(&ListSuite{})
 
 func (s *ListSuite) SetUpTest(c *gc.C) {
 	s.BaseSubnetSuite.SetUpTest(c)
-	s.command, _ = subnet.NewListCommand(s.api)
+	s.command, _ = subnet.NewListCommandForTest(s.api)
 	c.Assert(s.command, gc.NotNil)
 }
 
@@ -85,8 +85,8 @@ func (s *ListSuite) TestInit(c *gc.C) {
 		c.Logf("test #%d: %s", i, test.about)
 		// Create a new instance of the subcommand for each test, but
 		// since we're not running the command no need to use
-		// envcmd.Wrap().
-		wrappedCommand, command := subnet.NewListCommand(s.api)
+		// modelcmd.Wrap().
+		wrappedCommand, command := subnet.NewListCommandForTest(s.api)
 		err := coretesting.InitCommand(wrappedCommand, test.args)
 		if test.expectErr != "" {
 			c.Check(err, gc.ErrorMatches, test.expectErr)
@@ -223,7 +223,7 @@ func (s *ListSuite) TestRunWhenNoneMatchSucceeds(c *gc.C) {
 	s.api.Subnets = s.api.Subnets[0:0]
 
 	s.AssertRunSucceeds(c,
-		`no subnets found matching requested criteria\n`,
+		`No subnets found matching requested criteria.\n`,
 		"", // empty stdout.
 		"--space", "default",
 	)
@@ -237,7 +237,7 @@ func (s *ListSuite) TestRunWhenNoSubnetsExistSucceeds(c *gc.C) {
 	s.api.Subnets = s.api.Subnets[0:0]
 
 	s.AssertRunSucceeds(c,
-		`no subnets to display\n`,
+		`No subnets to display.\n`,
 		"", // empty stdout.
 	)
 

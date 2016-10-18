@@ -8,35 +8,36 @@ import (
 	"time"
 
 	"github.com/juju/cmd"
-	"launchpad.net/gnuflag"
+	"github.com/juju/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/cmd/output"
 )
 
 const listCommandDoc = `
-List cached os images in the Juju environment.
+List cached os images in the Juju model.
 
 Images can be filtered on:
-  Kind         eg "lxc"
-  Series       eg "trusty"
+  Kind         eg "lxd"
+  Series       eg "xenial"
   Architecture eg "amd64"
 The filter attributes are optional.
 
 Examples:
-
   # List all cached images.
-  juju cache-images list
+  juju cached-images
 
-  # List cached images for trusty.
-  juju cache-images list --series trusty
+  # List cached images for xenial.
+  juju cached-images --series xenial
 
-  # List all cached lxc images for trusty amd64.
-  juju cache-images list --kind lxc --series trusty --arch amd64
+  # List all cached lxd images for xenial amd64.
+  juju cached-images --kind lxd --series xenial --arch amd64
 `
 
-func newListCommand() cmd.Command {
-	return envcmd.Wrap(&listCommand{})
+// NewListCommand returns a command for listing chached images.
+func NewListCommand() cmd.Command {
+	return modelcmd.Wrap(&listCommand{})
 }
 
 // listCommand shows the images in the Juju server.
@@ -49,26 +50,24 @@ type listCommand struct {
 // Info implements Command.Info.
 func (c *listCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "list",
-		Purpose: "shows cached os images",
+		Name:    "cached-images",
+		Purpose: "Shows cached os images.",
 		Doc:     listCommandDoc,
+		Aliases: []string{"list-cached-images"},
 	}
 }
 
 // SetFlags implements Command.SetFlags.
 func (c *listCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.CachedImagesCommandBase.SetFlags(f)
-	f.StringVar(&c.Kind, "kind", "", "the image kind to list eg lxc")
-	f.StringVar(&c.Series, "series", "", "the series of the image to list eg trusty")
-	f.StringVar(&c.Arch, "arch", "", "the architecture of the image to list eg amd64")
-	c.out.AddFlags(f, "yaml", map[string]cmd.Formatter{
-		"yaml": cmd.FormatYaml,
-		"json": cmd.FormatJson,
-	})
+	f.StringVar(&c.Kind, "kind", "", "The image kind to list eg lxd")
+	f.StringVar(&c.Series, "series", "", "The series of the image to list eg xenial")
+	f.StringVar(&c.Arch, "arch", "", "The architecture of the image to list eg amd64")
+	c.out.AddFlags(f, "yaml", output.DefaultFormatters)
 }
 
 // Init implements Command.Init.
-func (c *listCommand) Init(args []string) (err error) {
+func (c *listCommand) Init(args []string) error {
 	return cmd.CheckEmpty(args)
 }
 
@@ -120,7 +119,7 @@ func (c *listCommand) Run(ctx *cmd.Context) (err error) {
 	}
 	imageInfo := c.imageMetadataToImageInfo(results)
 	if len(imageInfo) == 0 {
-		fmt.Fprintf(ctx.Stdout, "no matching images found\n")
+		ctx.Infof("No images to display.")
 		return nil
 	}
 	fmt.Fprintf(ctx.Stdout, "Cached images:\n")

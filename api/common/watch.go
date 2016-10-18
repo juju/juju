@@ -6,11 +6,12 @@ package common
 import (
 	"fmt"
 
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/watcher"
+	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/watcher"
 )
 
 // Watch starts a NotifyWatcher for the entity with the specified tag.
@@ -30,5 +31,5 @@ func Watch(facade base.FacadeCaller, tag names.Tag) (watcher.NotifyWatcher, erro
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	return watcher.NewNotifyWatcher(facade.RawAPICaller(), result), nil
+	return apiwatcher.NewNotifyWatcher(facade.RawAPICaller(), result), nil
 }

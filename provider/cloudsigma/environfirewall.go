@@ -12,14 +12,14 @@ import "github.com/juju/juju/network"
 // OpenPorts opens the given ports for the whole environment.
 // Must only be used if the environment was setup with the FwGlobal firewall mode.
 func (env *environ) OpenPorts(ports []network.PortRange) error {
-	logger.Warningf("pretending to open ports %v for all instances", ports)
+	logger.Debugf("pretending to open ports %v for all instances", ports)
 	return nil
 }
 
 // ClosePorts closes the given ports for the whole environment.
 // Must only be used if the environment was setup with the FwGlobal firewall mode.
 func (env *environ) ClosePorts(ports []network.PortRange) error {
-	logger.Warningf("pretending to close ports %v for all instances", ports)
+	logger.Debugf("pretending to close ports %v for all instances", ports)
 	return nil
 }
 

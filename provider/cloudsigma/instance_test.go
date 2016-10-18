@@ -71,7 +71,7 @@ func (s *instanceSuite) TestInstanceId(c *gc.C) {
 }
 
 func (s *instanceSuite) TestInstanceStatus(c *gc.C) {
-	c.Check(s.inst.Status(), gc.Equals, "running")
+	c.Check(s.inst.Status().Message, gc.Equals, "running")
 }
 
 func (s *instanceSuite) TestInstanceAddresses(c *gc.C) {
@@ -82,7 +82,6 @@ func (s *instanceSuite) TestInstanceAddresses(c *gc.C) {
 	c.Check(a.Value, gc.Equals, "178.22.70.33")
 	c.Check(a.Type, gc.Equals, network.IPv4Address)
 	c.Check(a.Scope, gc.Equals, network.ScopePublic)
-	c.Check(a.NetworkName, gc.Equals, "")
 
 	addrs, err = s.instWithoutIP.Addresses()
 	c.Check(err, gc.IsNil)

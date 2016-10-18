@@ -5,11 +5,12 @@ package storagecommon
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 )
 
@@ -18,8 +19,10 @@ import (
 func FilesystemParams(
 	f state.Filesystem,
 	storageInstance state.StorageInstance,
+	modelUUID, controllerUUID string,
 	environConfig *config.Config,
 	poolManager poolmanager.PoolManager,
+	registry storage.ProviderRegistry,
 ) (params.FilesystemParams, error) {
 
 	var pool string
@@ -36,12 +39,12 @@ func FilesystemParams(
 		size = filesystemInfo.Size
 	}
 
-	filesystemTags, err := storageTags(storageInstance, environConfig)
+	filesystemTags, err := storageTags(storageInstance, modelUUID, controllerUUID, environConfig)
 	if err != nil {
 		return params.FilesystemParams{}, errors.Annotate(err, "computing storage tags")
 	}
 
-	providerType, cfg, err := StoragePoolConfig(pool, poolManager)
+	providerType, cfg, err := StoragePoolConfig(pool, poolManager, registry)
 	if err != nil {
 		return params.FilesystemParams{}, errors.Trace(err)
 	}

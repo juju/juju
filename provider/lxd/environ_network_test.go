@@ -20,7 +20,7 @@ type environNetSuite struct {
 var _ = gc.Suite(&environNetSuite{})
 
 func (s *environNetSuite) TestGlobalFirewallName(c *gc.C) {
-	uuid, _ := s.Config.UUID()
+	uuid := s.Config.UUID()
 	fwname := lxd.GlobalFirewallName(s.Env)
 
 	c.Check(fwname, gc.Equals, "juju-"+uuid)

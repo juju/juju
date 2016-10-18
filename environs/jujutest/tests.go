@@ -4,18 +4,26 @@
 package jujutest
 
 import (
+	"path/filepath"
+
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/configstore"
+	"github.com/juju/juju/environs/filestorage"
+	sstesting "github.com/juju/juju/environs/simplestreams/testing"
+	"github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 // Tests is a gocheck suite containing tests verifying juju functionality
@@ -24,43 +32,94 @@ import (
 // is opened once for each test, and some potentially expensive operations
 // may be executed.
 type Tests struct {
-	TestConfig coretesting.Attrs
+	TestConfig     coretesting.Attrs
+	Credential     cloud.Credential
+	CloudEndpoint  string
+	CloudRegion    string
+	ControllerUUID string
 	envtesting.ToolsFixture
+	sstesting.TestDataSuite
 
-	// ConfigStore holds the configuration storage
-	// used when preparing the environment.
-	// This is initialized by SetUpTest.
-	ConfigStore configstore.Storage
+	// ControllerStore holds the controller related informtion
+	// such as controllers, accounts, etc., used when preparing
+	// the environment. This is initialized by SetUpSuite.
+	ControllerStore jujuclient.ClientStore
+	toolsStorage    storage.Storage
 }
 
 // Open opens an instance of the testing environment.
-func (t *Tests) Open(c *gc.C) environs.Environ {
-	info, err := t.ConfigStore.ReadInfo(t.TestConfig["name"].(string))
-	c.Assert(err, jc.ErrorIsNil)
-	cfg, err := config.New(config.NoDefaults, info.BootstrapConfig())
-	c.Assert(err, jc.ErrorIsNil)
-	e, err := environs.New(cfg)
+func (t *Tests) Open(c *gc.C, cfg *config.Config) environs.Environ {
+	e, err := environs.New(environs.OpenParams{
+		Cloud:  t.CloudSpec(),
+		Config: cfg,
+	})
 	c.Assert(err, gc.IsNil, gc.Commentf("opening environ %#v", cfg.AllAttrs()))
 	c.Assert(e, gc.NotNil)
 	return e
 }
 
+func (t *Tests) CloudSpec() environs.CloudSpec {
+	credential := t.Credential
+	if credential.AuthType() == "" {
+		credential = cloud.NewEmptyCredential()
+	}
+	return environs.CloudSpec{
+		Type:       t.TestConfig["type"].(string),
+		Name:       t.TestConfig["type"].(string),
+		Region:     t.CloudRegion,
+		Endpoint:   t.CloudEndpoint,
+		Credential: &credential,
+	}
+}
+
+// PrepareParams returns the environs.PrepareParams that will be used to call
+// environs.Prepare.
+func (t *Tests) PrepareParams(c *gc.C) bootstrap.PrepareParams {
+	testConfigCopy := t.TestConfig.Merge(nil)
+
+	return bootstrap.PrepareParams{
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		ModelConfig:      testConfigCopy,
+		Cloud:            t.CloudSpec(),
+		ControllerName:   t.TestConfig["name"].(string),
+		AdminSecret:      AdminSecret,
+	}
+}
+
 // Prepare prepares an instance of the testing environment.
 func (t *Tests) Prepare(c *gc.C) environs.Environ {
-	cfg, err := config.New(config.NoDefaults, t.TestConfig)
-	c.Assert(err, jc.ErrorIsNil)
-	e, err := environs.Prepare(cfg, envtesting.BootstrapContext(c), t.ConfigStore)
-	c.Assert(err, gc.IsNil, gc.Commentf("preparing environ %#v", t.TestConfig))
+	return t.PrepareWithParams(c, t.PrepareParams(c))
+}
+
+// PrepareWithParams prepares an instance of the testing environment.
+func (t *Tests) PrepareWithParams(c *gc.C, params bootstrap.PrepareParams) environs.Environ {
+	e, err := bootstrap.Prepare(envtesting.BootstrapContext(c), t.ControllerStore, params)
+	c.Assert(err, gc.IsNil, gc.Commentf("preparing environ %#v", params.ModelConfig))
 	c.Assert(e, gc.NotNil)
 	return e
 }
 
+func (t *Tests) AssertPrepareFailsWithConfig(c *gc.C, badConfig coretesting.Attrs, errorMatches string) error {
+	args := t.PrepareParams(c)
+	args.ModelConfig = coretesting.Attrs(args.ModelConfig).Merge(badConfig)
+
+	e, err := bootstrap.Prepare(envtesting.BootstrapContext(c), t.ControllerStore, args)
+	c.Assert(err, gc.ErrorMatches, errorMatches)
+	c.Assert(e, gc.IsNil)
+	return err
+}
+
 func (t *Tests) SetUpTest(c *gc.C) {
 	storageDir := c.MkDir()
-	t.DefaultBaseURL = "file://" + storageDir + "/tools"
+	baseURLPath := filepath.Join(storageDir, "tools")
+	t.DefaultBaseURL = utils.MakeFileURL(baseURLPath)
 	t.ToolsFixture.SetUpTest(c)
-	t.UploadFakeToolsToDirectory(c, storageDir, "released", "released")
-	t.ConfigStore = configstore.NewMem()
+	stor, err := filestorage.NewFileStorageWriter(storageDir)
+	c.Assert(err, jc.ErrorIsNil)
+	t.UploadFakeTools(c, stor, "released", "released")
+	t.toolsStorage = stor
+	t.ControllerStore = jujuclienttesting.NewMemStore()
+	t.ControllerUUID = coretesting.FakeControllerConfig().ControllerUUID()
 }
 
 func (t *Tests) TearDownTest(c *gc.C) {
@@ -70,7 +129,7 @@ func (t *Tests) TearDownTest(c *gc.C) {
 func (t *Tests) TestStartStop(c *gc.C) {
 	e := t.Prepare(c)
 	cfg, err := e.Config().Apply(map[string]interface{}{
-		"agent-version": version.Current.String(),
+		"agent-version": jujuversion.Current.String(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = e.SetConfig(cfg)
@@ -80,7 +139,7 @@ func (t *Tests) TestStartStop(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(insts, gc.HasLen, 0)
 
-	inst0, hc := testing.AssertStartInstance(c, e, "0")
+	inst0, hc := testing.AssertStartInstance(c, e, t.ControllerUUID, "0")
 	c.Assert(inst0, gc.NotNil)
 	id0 := inst0.Id()
 	// Sanity check for hardware characteristics.
@@ -88,7 +147,7 @@ func (t *Tests) TestStartStop(c *gc.C) {
 	c.Assert(hc.Mem, gc.NotNil)
 	c.Assert(hc.CpuCores, gc.NotNil)
 
-	inst1, _ := testing.AssertStartInstance(c, e, "1")
+	inst1, _ := testing.AssertStartInstance(c, e, t.ControllerUUID, "1")
 	c.Assert(inst1, gc.NotNil)
 	id1 := inst1.Id()
 
@@ -118,42 +177,58 @@ func (t *Tests) TestStartStop(c *gc.C) {
 }
 
 func (t *Tests) TestBootstrap(c *gc.C) {
+	credential := t.Credential
+	if credential.AuthType() == "" {
+		credential = cloud.NewEmptyCredential()
+	}
+
+	var regions []cloud.Region
+	if t.CloudRegion != "" {
+		regions = []cloud.Region{{
+			Name:     t.CloudRegion,
+			Endpoint: t.CloudEndpoint,
+		}}
+	}
+
+	args := bootstrap.BootstrapParams{
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		CloudName:        t.TestConfig["type"].(string),
+		Cloud: cloud.Cloud{
+			Type:      t.TestConfig["type"].(string),
+			AuthTypes: []cloud.AuthType{credential.AuthType()},
+			Regions:   regions,
+			Endpoint:  t.CloudEndpoint,
+		},
+		CloudRegion:         t.CloudRegion,
+		CloudCredential:     &credential,
+		CloudCredentialName: "credential",
+		AdminSecret:         AdminSecret,
+		CAPrivateKey:        coretesting.CAKey,
+	}
+
 	e := t.Prepare(c)
-	err := bootstrap.EnsureNotBootstrapped(e)
-	c.Assert(err, jc.ErrorIsNil)
-	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), e, bootstrap.BootstrapParams{})
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), e, args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	stateServerInstances, err := e.StateServerInstances()
+	controllerInstances, err := e.ControllerInstances(t.ControllerUUID)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(stateServerInstances, gc.Not(gc.HasLen), 0)
+	c.Assert(controllerInstances, gc.Not(gc.HasLen), 0)
 
-	err = bootstrap.EnsureNotBootstrapped(e)
-	c.Assert(err, gc.ErrorMatches, "environment is already bootstrapped")
-
-	e2 := t.Open(c)
-	err = bootstrap.EnsureNotBootstrapped(e2)
-	c.Assert(err, gc.ErrorMatches, "environment is already bootstrapped")
-
-	stateServerInstances2, err := e2.StateServerInstances()
+	e2 := t.Open(c, e.Config())
+	controllerInstances2, err := e2.ControllerInstances(t.ControllerUUID)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(stateServerInstances2, gc.Not(gc.HasLen), 0)
-	c.Assert(stateServerInstances2, jc.SameContents, stateServerInstances)
+	c.Assert(controllerInstances2, gc.Not(gc.HasLen), 0)
+	c.Assert(controllerInstances2, jc.SameContents, controllerInstances)
 
-	err = environs.Destroy(e2, t.ConfigStore)
+	err = environs.Destroy(e2.Config().Name(), e2, t.ControllerStore)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Prepare again because Destroy invalidates old environments.
 	e3 := t.Prepare(c)
 
-	err = bootstrap.EnsureNotBootstrapped(e3)
-	c.Assert(err, jc.ErrorIsNil)
-	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), e3, bootstrap.BootstrapParams{})
+	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), e3, args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = bootstrap.EnsureNotBootstrapped(e3)
-	c.Assert(err, gc.ErrorMatches, "environment is already bootstrapped")
-
-	err = environs.Destroy(e3, t.ConfigStore)
+	err = environs.Destroy(e3.Config().Name(), e3, t.ControllerStore)
 	c.Assert(err, jc.ErrorIsNil)
 }

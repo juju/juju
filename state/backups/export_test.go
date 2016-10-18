@@ -7,7 +7,7 @@ import (
 	"bytes"
 	"io"
 	"io/ioutil"
-	"time"
+	"time" // Only used for time types.
 
 	"github.com/juju/errors"
 	"github.com/juju/testing"
@@ -20,23 +20,25 @@ var (
 	Create        = create
 	FileTimestamp = fileTimestamp
 
-	TestGetFilesToBackUp = &getFilesToBackUp
-	GetDBDumper          = &getDBDumper
-	RunCreate            = &runCreate
-	FinishMeta           = &finishMeta
-	StoreArchiveRef      = &storeArchive
-	GetMongodumpPath     = &getMongodumpPath
-	RunCommand           = &runCommandFn
-	ReplaceableFolders   = &replaceableFolders
+	TestGetFilesToBackUp  = &getFilesToBackUp
+	GetDBDumper           = &getDBDumper
+	RunCreate             = &runCreate
+	FinishMeta            = &finishMeta
+	StoreArchiveRef       = &storeArchive
+	GetMongodumpPath      = &getMongodumpPath
+	GetMongorestorePath   = &getMongorestorePath
+	RunCommand            = &runCommandFn
+	ReplaceableFolders    = &replaceableFolders
+	MongoInstalledVersion = &mongoInstalledVersion
 )
 
 var _ filestorage.DocStorage = (*backupsDocStorage)(nil)
 var _ filestorage.RawFileStorage = (*backupBlobStorage)(nil)
 
 func getBackupDBWrapper(st *state.State) *storageDBWrapper {
-	envUUID := st.EnvironTag().Id()
+	modelUUID := st.ModelTag().Id()
 	db := st.MongoSession().DB(storageDBName)
-	return newStorageDBWrapper(db, storageMetaName, envUUID)
+	return newStorageDBWrapper(db, storageMetaName, modelUUID)
 }
 
 // NewBackupID creates a new backup ID based on the metadata.
@@ -164,7 +166,4 @@ func NewTestArchiveStorer(failure string) func(filestorage.FileStorage, *Metadat
 }
 
 // Export for patching in tests
-var PlaceNewMongo = placeNewMongo
-var MongoRestoreArgsForVersion = mongoRestoreArgsForVersion
-var RestorePath = &restorePath
-var RestoreArgsForVersion = &restoreArgsForVersion
+var RestorePath = &getMongorestorePath

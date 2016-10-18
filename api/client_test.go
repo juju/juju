@@ -4,7 +4,6 @@
 package api_test
 
 import (
-	"bufio"
 	"bytes"
 	"fmt"
 	"io"
@@ -18,22 +17,23 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/httprequest"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/version"
 	"golang.org/x/net/websocket"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 	jujunames "github.com/juju/juju/juju/names"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
-	"github.com/juju/juju/version"
 )
 
 type clientSuite struct {
@@ -53,8 +53,8 @@ func (s *clientSuite) TestCloseMultipleOk(c *gc.C) {
 	c.Assert(client.Close(), gc.IsNil)
 }
 
-func (s *clientSuite) TestUploadToolsOtherEnvironment(c *gc.C) {
-	otherSt, otherAPISt := s.otherEnviron(c)
+func (s *clientSuite) TestUploadToolsOtherModel(c *gc.C) {
+	otherSt, otherAPISt := s.otherModel(c)
 	defer otherSt.Close()
 	defer otherAPISt.Close()
 	client := otherAPISt.Client()
@@ -117,13 +117,13 @@ func (s *clientSuite) TestAddLocalCharm(c *gc.C) {
 	c.Assert(savedURL.String(), gc.Equals, curl.WithRevision(43).String())
 }
 
-func (s *clientSuite) TestAddLocalCharmOtherEnvironment(c *gc.C) {
+func (s *clientSuite) TestAddLocalCharmOtherModel(c *gc.C) {
 	charmArchive := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 	curl := charm.MustParseURL(
 		fmt.Sprintf("local:quantal/%s-%d", charmArchive.Meta().Name, charmArchive.Revision()),
 	)
 
-	otherSt, otherAPISt := s.otherEnviron(c)
+	otherSt, otherAPISt := s.otherModel(c)
 	defer otherSt.Close()
 	defer otherAPISt.Close()
 	client := otherAPISt.Client()
@@ -138,10 +138,10 @@ func (s *clientSuite) TestAddLocalCharmOtherEnvironment(c *gc.C) {
 	c.Assert(charm.String(), gc.Equals, curl.String())
 }
 
-func (s *clientSuite) otherEnviron(c *gc.C) (*state.State, api.Connection) {
-	otherSt := s.Factory.MakeEnvironment(c, nil)
+func (s *clientSuite) otherModel(c *gc.C) (*state.State, api.Connection) {
+	otherSt := s.Factory.MakeModel(c, nil)
 	info := s.APIInfo(c)
-	info.EnvironTag = otherSt.EnvironTag()
+	info.ModelTag = otherSt.ModelTag()
 	apiState, err := api.Open(info, api.DefaultDialOpts())
 	c.Assert(err, jc.ErrorIsNil)
 	return otherSt, apiState
@@ -167,50 +167,170 @@ func (s *clientSuite) TestAddLocalCharmError(c *gc.C) {
 	)
 
 	_, err := client.AddLocalCharm(curl, charmArchive)
-	c.Assert(err, gc.ErrorMatches, `POST http://.*/environment/deadbeef-0bad-400d-8000-4b1d0d06f00d/charms\?series=quantal: the POST method is not allowed`)
+	c.Assert(err, gc.ErrorMatches, `.*the POST method is not allowed$`)
+}
+
+func (s *clientSuite) TestMinVersionLocalCharm(c *gc.C) {
+	tests := []minverTest{
+		{"2.0.0", "1.0.0", true},
+		{"1.0.0", "2.0.0", false},
+		{"1.25.0", "1.24.0", true},
+		{"1.24.0", "1.25.0", false},
+		{"1.25.1", "1.25.0", true},
+		{"1.25.0", "1.25.1", false},
+		{"1.25.0", "1.25.0", true},
+		{"1.25.0", "1.25-alpha1", true},
+		{"1.25-alpha1", "1.25.0", false},
+	}
+	client := s.APIState.Client()
+	for _, t := range tests {
+		testMinVer(client, t, c)
+	}
+}
+
+type minverTest struct {
+	juju  string
+	charm string
+	ok    bool
+}
+
+func testMinVer(client *api.Client, t minverTest, c *gc.C) {
+	charmMinVer := version.MustParse(t.charm)
+	jujuVer := version.MustParse(t.juju)
+
+	cleanup := api.PatchClientFacadeCall(client,
+		func(request string, paramsIn interface{}, response interface{}) error {
+			c.Assert(paramsIn, gc.IsNil)
+			if response, ok := response.(*params.AgentVersionResult); ok {
+				response.Version = jujuVer
+			} else {
+				c.Log("wrong output structure")
+				c.Fail()
+			}
+			return nil
+		},
+	)
+	defer cleanup()
+
+	charmArchive := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
+	curl := charm.MustParseURL(
+		fmt.Sprintf("local:quantal/%s-%d", charmArchive.Meta().Name, charmArchive.Revision()),
+	)
+	charmArchive.Meta().MinJujuVersion = charmMinVer
+
+	_, err := client.AddLocalCharm(curl, charmArchive)
+
+	if t.ok {
+		if err != nil {
+			c.Errorf("Unexpected non-nil error for jujuver %v, minver %v: %#v", t.juju, t.charm, err)
+		}
+	} else {
+		if err == nil {
+			c.Errorf("Unexpected nil error for jujuver %v, minver %v", t.juju, t.charm)
+		} else if !api.IsMinVersionError(err) {
+			c.Errorf("Wrong error for jujuver %v, minver %v: expected minVersionError, got: %#v", t.juju, t.charm, err)
+		}
+	}
+}
+
+func (s *clientSuite) TestOpenURIFound(c *gc.C) {
+	// Use tools download to test OpenURI
+	const toolsVersion = "2.0.0-xenial-ppc64"
+	s.AddToolsToState(c, version.MustParseBinary(toolsVersion))
+
+	client := s.APIState.Client()
+	reader, err := client.OpenURI("/tools/"+toolsVersion, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	defer reader.Close()
+
+	// The fake tools content will be the version number.
+	content, err := ioutil.ReadAll(reader)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(string(content), gc.Equals, toolsVersion)
+}
+
+func (s *clientSuite) TestOpenURIError(c *gc.C) {
+	client := s.APIState.Client()
+	_, err := client.OpenURI("/tools/foobar", nil)
+	c.Assert(err, gc.ErrorMatches, ".*error parsing version.+")
+}
+
+func (s *clientSuite) TestOpenCharmFound(c *gc.C) {
+	client := s.APIState.Client()
+	curl, ch := addLocalCharm(c, client, "dummy")
+	expected, err := ioutil.ReadFile(ch.Path)
+	c.Assert(err, jc.ErrorIsNil)
+
+	reader, err := client.OpenCharm(curl)
+	defer reader.Close()
+	c.Assert(err, jc.ErrorIsNil)
+
+	data, err := ioutil.ReadAll(reader)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(data, jc.DeepEquals, expected)
+}
+
+func (s *clientSuite) TestOpenCharmMissing(c *gc.C) {
+	curl := charm.MustParseURL("cs:quantal/spam-3")
+	client := s.APIState.Client()
+
+	_, err := client.OpenCharm(curl)
+
+	c.Check(err, gc.ErrorMatches, `.*cannot get charm from state: charm "cs:quantal/spam-3" not found`)
+}
+
+func addLocalCharm(c *gc.C, client *api.Client, name string) (*charm.URL, *charm.CharmArchive) {
+	charmArchive := testcharms.Repo.CharmArchive(c.MkDir(), name)
+	curl := charm.MustParseURL(fmt.Sprintf("local:quantal/%s-%d", charmArchive.Meta().Name, charmArchive.Revision()))
+	_, err := client.AddLocalCharm(curl, charmArchive)
+	c.Assert(err, jc.ErrorIsNil)
+	return curl, charmArchive
 }
 
 func fakeAPIEndpoint(c *gc.C, client *api.Client, address, method string, handle func(http.ResponseWriter, *http.Request)) net.Listener {
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	c.Assert(err, jc.ErrorIsNil)
 
-	http.HandleFunc(address, func(w http.ResponseWriter, r *http.Request) {
+	mux := http.NewServeMux()
+	mux.HandleFunc(address, func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == method {
 			handle(w, r)
 		}
 	})
 	go func() {
-		http.Serve(lis, nil)
+		http.Serve(lis, mux)
 	}()
 	api.SetServerAddress(client, "http", lis.Addr().String())
 	return lis
 }
 
-// envEndpoint returns "/environment/<env-uuid>/<destination>"
+// envEndpoint returns "/model/<model-uuid>/<destination>"
 func envEndpoint(c *gc.C, apiState api.Connection, destination string) string {
-	envTag, err := apiState.EnvironTag()
-	c.Assert(err, jc.ErrorIsNil)
-	return path.Join("/environment", envTag.Id(), destination)
+	modelTag, ok := apiState.ModelTag()
+	c.Assert(ok, jc.IsTrue)
+	return path.Join("/model", modelTag.Id(), destination)
 }
 
-func (s *clientSuite) TestClientEnvironmentUUID(c *gc.C) {
-	environ, err := s.State.Environment()
+func (s *clientSuite) TestClientModelUUID(c *gc.C) {
+	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
 	client := s.APIState.Client()
-	c.Assert(client.EnvironmentUUID(), gc.Equals, environ.Tag().Id())
+	uuid, ok := client.ModelUUID()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(uuid, gc.Equals, model.Tag().Id())
 }
 
-func (s *clientSuite) TestClientEnvironmentUsers(c *gc.C) {
+func (s *clientSuite) TestClientModelUsers(c *gc.C) {
 	client := s.APIState.Client()
 	cleanup := api.PatchClientFacadeCall(client,
 		func(request string, paramsIn interface{}, response interface{}) error {
 			c.Assert(paramsIn, gc.IsNil)
-			if response, ok := response.(*params.EnvUserInfoResults); ok {
-				response.Results = []params.EnvUserInfoResult{
-					{Result: &params.EnvUserInfo{UserName: "one"}},
-					{Result: &params.EnvUserInfo{UserName: "two"}},
-					{Result: &params.EnvUserInfo{UserName: "three"}},
+			if response, ok := response.(*params.ModelUserInfoResults); ok {
+				response.Results = []params.ModelUserInfoResult{
+					{Result: &params.ModelUserInfo{UserName: "one"}},
+					{Result: &params.ModelUserInfo{UserName: "two"}},
+					{Result: &params.ModelUserInfo{UserName: "three"}},
 				}
 			} else {
 				c.Log("wrong output structure")
@@ -221,178 +341,29 @@ func (s *clientSuite) TestClientEnvironmentUsers(c *gc.C) {
 	)
 	defer cleanup()
 
-	obtained, err := client.EnvironmentUserInfo()
+	obtained, err := client.ModelUserInfo()
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(obtained, jc.DeepEquals, []params.EnvUserInfo{
+	c.Assert(obtained, jc.DeepEquals, []params.ModelUserInfo{
 		{UserName: "one"},
 		{UserName: "two"},
 		{UserName: "three"},
 	})
 }
 
-func (s *clientSuite) TestShareEnvironmentExistingUser(c *gc.C) {
-	client := s.APIState.Client()
-	user := s.Factory.MakeEnvUser(c, nil)
-	cleanup := api.PatchClientFacadeCall(client,
-		func(request string, paramsIn interface{}, response interface{}) error {
-			if users, ok := paramsIn.(params.ModifyEnvironUsers); ok {
-				c.Assert(users.Changes, gc.HasLen, 1)
-				c.Logf(string(users.Changes[0].Action), gc.Equals, string(params.AddEnvUser))
-				c.Logf(users.Changes[0].UserTag, gc.Equals, user.UserTag().String())
-			} else {
-				c.Fatalf("wrong input structure")
-			}
-			if result, ok := response.(*params.ErrorResults); ok {
-				err := &params.Error{
-					Message: "error message",
-					Code:    params.CodeAlreadyExists,
-				}
-				*result = params.ErrorResults{Results: []params.ErrorResult{{Error: err}}}
-			} else {
-				c.Fatalf("wrong input structure")
-			}
-			return nil
-		},
-	)
-	defer cleanup()
-
-	err := client.ShareEnvironment(user.UserTag())
-	c.Assert(err, jc.ErrorIsNil)
-	logMsg := fmt.Sprintf("WARNING juju.api environment is already shared with %s", user.UserName())
-	c.Assert(c.GetTestLog(), jc.Contains, logMsg)
-}
-
-func (s *clientSuite) TestDestroyEnvironment(c *gc.C) {
-	client := s.APIState.Client()
-	var called bool
-	cleanup := api.PatchClientFacadeCall(client,
-		func(req string, args interface{}, resp interface{}) error {
-			c.Assert(req, gc.Equals, "DestroyEnvironment")
-			called = true
-			return nil
-		})
-	defer cleanup()
-
-	err := client.DestroyEnvironment()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(called, jc.IsTrue)
-}
-
-func (s *clientSuite) TestShareEnvironmentThreeUsers(c *gc.C) {
-	client := s.APIState.Client()
-	existingUser := s.Factory.MakeEnvUser(c, nil)
-	localUser := s.Factory.MakeUser(c, nil)
-	newUserTag := names.NewUserTag("foo@bar")
-	cleanup := api.PatchClientFacadeCall(client,
-		func(request string, paramsIn interface{}, response interface{}) error {
-			if users, ok := paramsIn.(params.ModifyEnvironUsers); ok {
-				c.Assert(users.Changes, gc.HasLen, 3)
-				c.Assert(string(users.Changes[0].Action), gc.Equals, string(params.AddEnvUser))
-				c.Assert(users.Changes[0].UserTag, gc.Equals, existingUser.UserTag().String())
-				c.Assert(string(users.Changes[1].Action), gc.Equals, string(params.AddEnvUser))
-				c.Assert(users.Changes[1].UserTag, gc.Equals, localUser.UserTag().String())
-				c.Assert(string(users.Changes[2].Action), gc.Equals, string(params.AddEnvUser))
-				c.Assert(users.Changes[2].UserTag, gc.Equals, newUserTag.String())
-			} else {
-				c.Log("wrong input structure")
-				c.Fail()
-			}
-			if result, ok := response.(*params.ErrorResults); ok {
-				err := &params.Error{Message: "existing user"}
-				*result = params.ErrorResults{Results: []params.ErrorResult{{Error: err}, {Error: nil}, {Error: nil}}}
-			} else {
-				c.Log("wrong output structure")
-				c.Fail()
-			}
-			return nil
-		},
-	)
-	defer cleanup()
-
-	err := client.ShareEnvironment(existingUser.UserTag(), localUser.UserTag(), newUserTag)
-	c.Assert(err, gc.ErrorMatches, `existing user`)
-}
-
-func (s *clientSuite) TestUnshareEnvironmentThreeUsers(c *gc.C) {
-	client := s.APIState.Client()
-	missingUser := s.Factory.MakeEnvUser(c, nil)
-	localUser := s.Factory.MakeUser(c, nil)
-	newUserTag := names.NewUserTag("foo@bar")
-	cleanup := api.PatchClientFacadeCall(client,
-		func(request string, paramsIn interface{}, response interface{}) error {
-			if users, ok := paramsIn.(params.ModifyEnvironUsers); ok {
-				c.Assert(users.Changes, gc.HasLen, 3)
-				c.Assert(string(users.Changes[0].Action), gc.Equals, string(params.RemoveEnvUser))
-				c.Assert(users.Changes[0].UserTag, gc.Equals, missingUser.UserTag().String())
-				c.Assert(string(users.Changes[1].Action), gc.Equals, string(params.RemoveEnvUser))
-				c.Assert(users.Changes[1].UserTag, gc.Equals, localUser.UserTag().String())
-				c.Assert(string(users.Changes[2].Action), gc.Equals, string(params.RemoveEnvUser))
-				c.Assert(users.Changes[2].UserTag, gc.Equals, newUserTag.String())
-			} else {
-				c.Log("wrong input structure")
-				c.Fail()
-			}
-			if result, ok := response.(*params.ErrorResults); ok {
-				err := &params.Error{Message: "error unsharing user"}
-				*result = params.ErrorResults{Results: []params.ErrorResult{{Error: err}, {Error: nil}, {Error: nil}}}
-			} else {
-				c.Log("wrong output structure")
-				c.Fail()
-			}
-			return nil
-		},
-	)
-	defer cleanup()
-
-	err := client.UnshareEnvironment(missingUser.UserTag(), localUser.UserTag(), newUserTag)
-	c.Assert(err, gc.ErrorMatches, "error unsharing user")
-}
-
-func (s *clientSuite) TestUnshareEnvironmentMissingUser(c *gc.C) {
-	client := s.APIState.Client()
-	user := names.NewUserTag("bob@local")
-	cleanup := api.PatchClientFacadeCall(client,
-		func(request string, paramsIn interface{}, response interface{}) error {
-			if users, ok := paramsIn.(params.ModifyEnvironUsers); ok {
-				c.Assert(users.Changes, gc.HasLen, 1)
-				c.Logf(string(users.Changes[0].Action), gc.Equals, string(params.RemoveEnvUser))
-				c.Logf(users.Changes[0].UserTag, gc.Equals, user.String())
-			} else {
-				c.Fatalf("wrong input structure")
-			}
-			if result, ok := response.(*params.ErrorResults); ok {
-				err := &params.Error{
-					Message: "error message",
-					Code:    params.CodeNotFound,
-				}
-				*result = params.ErrorResults{Results: []params.ErrorResult{{Error: err}}}
-			} else {
-				c.Fatalf("wrong input structure")
-			}
-			return nil
-		},
-	)
-	defer cleanup()
-
-	err := client.UnshareEnvironment(user)
-	c.Assert(err, jc.ErrorIsNil)
-	logMsg := fmt.Sprintf("WARNING juju.api environment was not previously shared with user %s", user.Canonical())
-	c.Assert(c.GetTestLog(), jc.Contains, logMsg)
-}
-
 func (s *clientSuite) TestWatchDebugLogConnected(c *gc.C) {
-	// Shows both the unmarshalling of a real error, and
-	// that the api server is connected.
 	client := s.APIState.Client()
-	reader, err := client.WatchDebugLog(api.DebugLogParams{})
-	c.Assert(err, gc.ErrorMatches, "cannot open log file: .*")
-	c.Assert(reader, gc.IsNil)
+	// Use the no tail option so we don't try to start a tailing cursor
+	// on the oplog when there is no oplog configured in mongo as the tests
+	// don't set up mongo in replicaset mode.
+	messages, err := client.WatchDebugLog(api.DebugLogParams{NoTail: true})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(messages, gc.NotNil)
 }
 
 func (s *clientSuite) TestConnectStreamRequiresSlashPathPrefix(c *gc.C) {
 	reader, err := s.APIState.ConnectStream("foo", nil)
-	c.Assert(err, gc.ErrorMatches, `path must start with "/"`)
+	c.Assert(err, gc.ErrorMatches, `cannot make API path from non-slash-prefixed path "foo"`)
 	c.Assert(reader, gc.Equals, nil)
 }
 
@@ -434,7 +405,8 @@ func (s *clientSuite) TestConnectStreamErrorReadError(c *gc.C) {
 }
 
 func (s *clientSuite) TestWatchDebugLogParamsEncoded(c *gc.C) {
-	s.PatchValue(api.WebsocketDialConfig, echoURL(c))
+	catcher := urlCatcher{}
+	s.PatchValue(api.WebsocketDialConfig, catcher.recordLocation)
 
 	params := api.DebugLogParams{
 		IncludeEntity: []string{"a", "b"},
@@ -445,13 +417,14 @@ func (s *clientSuite) TestWatchDebugLogParamsEncoded(c *gc.C) {
 		Backlog:       200,
 		Level:         loggo.ERROR,
 		Replay:        true,
+		NoTail:        true,
 	}
 
 	client := s.APIState.Client()
-	reader, err := client.WatchDebugLog(params)
+	_, err := client.WatchDebugLog(params)
 	c.Assert(err, jc.ErrorIsNil)
 
-	connectURL := connectURLFromReader(c, reader)
+	connectURL := catcher.location
 	values := connectURL.Query()
 	c.Assert(values, jc.DeepEquals, url.Values{
 		"includeEntity": params.IncludeEntity,
@@ -462,74 +435,58 @@ func (s *clientSuite) TestWatchDebugLogParamsEncoded(c *gc.C) {
 		"backlog":       {"200"},
 		"level":         {"ERROR"},
 		"replay":        {"true"},
+		"noTail":        {"true"},
 	})
 }
 
-func (s *clientSuite) TestConnectStreamRootPath(c *gc.C) {
-	s.PatchValue(api.WebsocketDialConfig, echoURL(c))
-
-	// If the server is old, we connect to /path.
-	info := s.APIInfo(c)
-	info.EnvironTag = names.NewEnvironTag("")
-	apistate, err := api.OpenWithVersion(info, api.DialOpts{}, 1)
-	c.Assert(err, jc.ErrorIsNil)
-	defer apistate.Close()
-	reader, err := apistate.ConnectStream("/path", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	connectURL := connectURLFromReader(c, reader)
-	c.Assert(connectURL.Path, gc.Matches, "/path")
-}
-
 func (s *clientSuite) TestConnectStreamAtUUIDPath(c *gc.C) {
-	s.PatchValue(api.WebsocketDialConfig, echoURL(c))
-	// If the server supports it, we should log at "/environment/UUID/log"
-	environ, err := s.State.Environment()
+	catcher := urlCatcher{}
+	s.PatchValue(api.WebsocketDialConfig, catcher.recordLocation)
+	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	info := s.APIInfo(c)
-	info.EnvironTag = environ.EnvironTag()
+	info.ModelTag = model.ModelTag()
 	apistate, err := api.Open(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	defer apistate.Close()
-	reader, err := apistate.ConnectStream("/path", nil)
+	_, err = apistate.ConnectStream("/path", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	connectURL := connectURLFromReader(c, reader)
-	c.Assert(connectURL.Path, gc.Matches, fmt.Sprintf("/environment/%s/path", environ.UUID()))
+	connectURL := catcher.location
+	c.Assert(connectURL.Path, gc.Matches, fmt.Sprintf("/model/%s/path", model.UUID()))
 }
 
-func (s *clientSuite) TestOpenUsesEnvironUUIDPaths(c *gc.C) {
+func (s *clientSuite) TestOpenUsesModelUUIDPaths(c *gc.C) {
 	info := s.APIInfo(c)
-	// Backwards compatibility, passing EnvironTag = "" should just work
-	info.EnvironTag = names.NewEnvironTag("")
+
+	// Passing in the correct model UUID should work
+	model, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	info.ModelTag = model.ModelTag()
 	apistate, err := api.Open(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	apistate.Close()
 
-	// Passing in the correct environment UUID should also work
-	environ, err := s.State.Environment()
-	c.Assert(err, jc.ErrorIsNil)
-	info.EnvironTag = environ.EnvironTag()
+	// Passing in a bad model UUID should fail with a known error
+	info.ModelTag = names.NewModelTag("dead-beef-123456")
 	apistate, err = api.Open(info, api.DialOpts{})
-	c.Assert(err, jc.ErrorIsNil)
-	apistate.Close()
-
-	// Passing in a bad environment UUID should fail with a known error
-	info.EnvironTag = names.NewEnvironTag("dead-beef-123456")
-	apistate, err = api.Open(info, api.DialOpts{})
-	c.Check(err, gc.ErrorMatches, `unknown environment: "dead-beef-123456"`)
-	c.Check(err, jc.Satisfies, params.IsCodeNotFound)
+	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
+		Message: `unknown model: "dead-beef-123456"`,
+		Code:    "model not found",
+	})
+	c.Check(err, jc.Satisfies, params.IsCodeModelNotFound)
 	c.Assert(apistate, gc.IsNil)
 }
 
-func (s *clientSuite) TestSetEnvironAgentVersionDuringUpgrade(c *gc.C) {
+func (s *clientSuite) TestSetModelAgentVersionDuringUpgrade(c *gc.C) {
 	// This is an integration test which ensure that a test with the
 	// correct error code is seen by the client from the
-	// SetEnvironAgentVersion call when an upgrade is in progress.
-	envConfig, err := s.State.EnvironConfig()
+	// SetModelAgentVersion call when an upgrade is in progress.
+	envConfig, err := s.State.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	agentVersion, ok := envConfig.AgentVersion()
 	c.Assert(ok, jc.IsTrue)
 	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
-		Jobs: []state.MachineJob{state.JobManageEnviron},
+		Jobs: []state.MachineJob{state.JobManageModel},
 	})
 	err = machine.SetAgentVersion(version.MustParseBinary(agentVersion.String() + "-quantal-amd64"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -537,7 +494,7 @@ func (s *clientSuite) TestSetEnvironAgentVersionDuringUpgrade(c *gc.C) {
 	_, err = s.State.EnsureUpgradeInfo(machine.Id(), agentVersion, nextVersion)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.APIState.Client().SetEnvironAgentVersion(nextVersion)
+	err = s.APIState.Client().SetModelAgentVersion(nextVersion)
 
 	// Expect an error with a error code that indicates this specific
 	// situation. The client needs to be able to reliably identify
@@ -562,45 +519,6 @@ func (s *clientSuite) TestAbortCurrentUpgrade(c *gc.C) {
 	c.Assert(err, gc.Equals, someErr) // Confirms that the correct facade was called
 }
 
-func (s *clientSuite) TestEnvironmentGet(c *gc.C) {
-	client := s.APIState.Client()
-	env, err := client.EnvironmentGet()
-	c.Assert(err, jc.ErrorIsNil)
-	// Check a known value, just checking that there is something there.
-	c.Assert(env["type"], gc.Equals, "dummy")
-}
-
-func (s *clientSuite) TestEnvironmentSet(c *gc.C) {
-	client := s.APIState.Client()
-	err := client.EnvironmentSet(map[string]interface{}{
-		"some-name":  "value",
-		"other-name": true,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	// Check them using EnvironmentGet.
-	env, err := client.EnvironmentGet()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env["some-name"], gc.Equals, "value")
-	c.Assert(env["other-name"], gc.Equals, true)
-}
-
-func (s *clientSuite) TestEnvironmentUnset(c *gc.C) {
-	client := s.APIState.Client()
-	err := client.EnvironmentSet(map[string]interface{}{
-		"some-name": "value",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Now unset it and make sure it isn't there.
-	err = client.EnvironmentUnset("some-name")
-	c.Assert(err, jc.ErrorIsNil)
-
-	env, err := client.EnvironmentGet()
-	c.Assert(err, jc.ErrorIsNil)
-	_, found := env["some-name"]
-	c.Assert(found, jc.IsFalse)
-}
-
 // badReader raises err when Read is called.
 type badReader struct {
 	err error
@@ -610,25 +528,17 @@ func (r *badReader) Read(p []byte) (n int, err error) {
 	return 0, r.err
 }
 
-func echoURL(c *gc.C) func(*websocket.Config) (base.Stream, error) {
-	return func(config *websocket.Config) (base.Stream, error) {
-		pr, pw := io.Pipe()
-		go func() {
-			fmt.Fprintf(pw, "null\n")
-			fmt.Fprintf(pw, "%s\n", config.Location)
-		}()
-		return fakeStreamReader{pr}, nil
-	}
+type urlCatcher struct {
+	location *url.URL
 }
 
-func connectURLFromReader(c *gc.C, rc io.ReadCloser) *url.URL {
-	bufReader := bufio.NewReader(rc)
-	location, err := bufReader.ReadString('\n')
-	c.Assert(err, jc.ErrorIsNil)
-	connectURL, err := url.Parse(strings.TrimSpace(location))
-	c.Assert(err, jc.ErrorIsNil)
-	rc.Close()
-	return connectURL
+func (u *urlCatcher) recordLocation(config *websocket.Config) (base.Stream, error) {
+	u.location = config.Location
+	pr, pw := io.Pipe()
+	go func() {
+		fmt.Fprintf(pw, "null\n")
+	}()
+	return fakeStreamReader{pr}, nil
 }
 
 type fakeStreamReader struct {
@@ -643,13 +553,13 @@ func (s fakeStreamReader) Close() error {
 }
 
 func (s fakeStreamReader) Write([]byte) (int, error) {
-	panic("not implemented")
+	return 0, errors.NotImplementedf("Write")
 }
 
 func (s fakeStreamReader) ReadJSON(v interface{}) error {
-	panic("not implemented")
+	return errors.NotImplementedf("ReadJSON")
 }
 
 func (s fakeStreamReader) WriteJSON(v interface{}) error {
-	panic("not implemented")
+	return errors.NotImplementedf("WriteJSON")
 }

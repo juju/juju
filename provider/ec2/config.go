@@ -7,82 +7,24 @@ import (
 	"fmt"
 
 	"github.com/juju/schema"
-	"gopkg.in/amz.v3/aws"
 	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/environs/config"
 )
 
-const boilerplateConfig = `
-# https://juju.ubuntu.com/docs/config-aws.html
-amazon:
-    type: ec2
-
-    # region specifies the EC2 region. It defaults to us-east-1.
-    #
-    # region: us-east-1
-
-    # access-key holds the EC2 access key. It defaults to the
-    # environment variable AWS_ACCESS_KEY_ID.
-    #
-    # access-key: <secret>
-
-    # secret-key holds the EC2 secret key. It defaults to the
-    # environment variable AWS_SECRET_ACCESS_KEY.
-    #
-    # secret-key: <secret>
-
-    # image-stream chooses a simplestreams stream from which to select
-    # OS images, for example daily or released images (or any other stream
-    # available on simplestreams).
-    #
-    # image-stream: "released"
-
-    # agent-stream chooses a simplestreams stream from which to select tools,
-    # for example released or proposed tools (or any other stream available
-    # on simplestreams).
-    #
-    # agent-stream: "released"
-
-    # Whether or not to refresh the list of available updates for an
-    # OS. The default option of true is recommended for use in
-    # production systems, but disabling this can speed up local
-    # deployments for development or testing.
-    #
-    # enable-os-refresh-update: true
-
-    # Whether or not to perform OS upgrades when machines are
-    # provisioned. The default option of true is recommended for use
-    # in production systems, but disabling this can speed up local
-    # deployments for development or testing.
-    #
-    # enable-os-upgrade: true
-
-`
-
 var configSchema = environschema.Fields{
-	"access-key": {
-		Description: "The EC2 access key",
-		EnvVar:      "AWS_ACCESS_KEY_ID",
+	"vpc-id": {
+		Description: "Use a specific AWS VPC ID (optional). When not specified, Juju requires a default VPC or EC2-Classic features to be available for the account/region.",
+		Example:     "vpc-a1b2c3d4",
 		Type:        environschema.Tstring,
-		Mandatory:   true,
 		Group:       environschema.AccountGroup,
+		Immutable:   true,
 	},
-	"secret-key": {
-		Description: "The EC2 secret key",
-		EnvVar:      "AWS_SECRET_ACCESS_KEY",
-		Type:        environschema.Tstring,
-		Mandatory:   true,
-		Secret:      true,
+	"vpc-id-force": {
+		Description: "Force Juju to use the AWS VPC ID specified with vpc-id, when it fails the minimum validation criteria. Not accepted without vpc-id",
+		Type:        environschema.Tbool,
 		Group:       environschema.AccountGroup,
-	},
-	"region": {
-		Description: "The EC2 region to use",
-		Type:        environschema.Tstring,
-	},
-	"control-bucket": {
-		Description: "The S3 bucket used to store environment metadata",
-		Type:        environschema.Tstring,
+		Immutable:   true,
 	},
 }
 
@@ -95,10 +37,8 @@ var configFields = func() schema.Fields {
 }()
 
 var configDefaults = schema.Defaults{
-	"access-key":     "",
-	"secret-key":     "",
-	"region":         "us-east-1",
-	"control-bucket": "",
+	"vpc-id":       "",
+	"vpc-id-force": false,
 }
 
 type environConfig struct {
@@ -106,20 +46,12 @@ type environConfig struct {
 	attrs map[string]interface{}
 }
 
-func (c *environConfig) region() string {
-	return c.attrs["region"].(string)
+func (c *environConfig) vpcID() string {
+	return c.attrs["vpc-id"].(string)
 }
 
-func (c *environConfig) controlBucket() string {
-	return c.attrs["control-bucket"].(string)
-}
-
-func (c *environConfig) accessKey() string {
-	return c.attrs["access-key"].(string)
-}
-
-func (c *environConfig) secretKey() string {
-	return c.attrs["secret-key"].(string)
+func (c *environConfig) forceVPCID() bool {
+	return c.attrs["vpc-id-force"].(bool)
 }
 
 func (p environProvider) newConfig(cfg *config.Config) (*environConfig, error) {
@@ -139,6 +71,18 @@ func (environProvider) Schema() environschema.Fields {
 	return fields
 }
 
+// ConfigSchema returns extra config attributes specific
+// to this provider only.
+func (p environProvider) ConfigSchema() schema.Fields {
+	return configFields
+}
+
+// ConfigDefaults returns the default values for the
+// provider specific config attributes.
+func (p environProvider) ConfigDefaults() schema.Defaults {
+	return configDefaults
+}
+
 func validateConfig(cfg, old *config.Config) (*environConfig, error) {
 	// Check for valid changes for the base config values.
 	if err := config.Validate(cfg, old); err != nil {
@@ -148,40 +92,23 @@ func validateConfig(cfg, old *config.Config) (*environConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	// Add EC2 specific defaults.
-	providerDefaults := make(map[string]interface{})
-
-	// Storage.
-	if _, ok := cfg.StorageDefaultBlockSource(); !ok {
-		providerDefaults[config.StorageDefaultBlockSourceKey] = EBS_ProviderType
-	}
-	if len(providerDefaults) > 0 {
-		if cfg, err = cfg.Apply(providerDefaults); err != nil {
-			return nil, err
-		}
-	}
 	ecfg := &environConfig{cfg, validated}
 
-	if ecfg.accessKey() == "" || ecfg.secretKey() == "" {
-		auth, err := aws.EnvAuth()
-		if err != nil || ecfg.accessKey() != "" || ecfg.secretKey() != "" {
-			return nil, fmt.Errorf("environment has no access-key or secret-key")
-		}
-		ecfg.attrs["access-key"] = auth.AccessKey
-		ecfg.attrs["secret-key"] = auth.SecretKey
-	}
-	if _, ok := aws.Regions[ecfg.region()]; !ok {
-		return nil, fmt.Errorf("invalid region name %q", ecfg.region())
+	if vpcID := ecfg.vpcID(); isVPCIDSetButInvalid(vpcID) {
+		return nil, fmt.Errorf("vpc-id: %q is not a valid AWS VPC ID", vpcID)
+	} else if !isVPCIDSet(vpcID) && ecfg.forceVPCID() {
+		return nil, fmt.Errorf("cannot use vpc-id-force without specifying vpc-id as well")
 	}
 
 	if old != nil {
 		attrs := old.UnknownAttrs()
-		if region, _ := attrs["region"].(string); ecfg.region() != region {
-			return nil, fmt.Errorf("cannot change region from %q to %q", region, ecfg.region())
+
+		if vpcID, _ := attrs["vpc-id"].(string); vpcID != ecfg.vpcID() {
+			return nil, fmt.Errorf("cannot change vpc-id from %q to %q", vpcID, ecfg.vpcID())
 		}
-		if bucket, _ := attrs["control-bucket"].(string); ecfg.controlBucket() != bucket {
-			return nil, fmt.Errorf("cannot change control-bucket from %q to %q", bucket, ecfg.controlBucket())
+
+		if forceVPCID, _ := attrs["vpc-id-force"].(bool); forceVPCID != ecfg.forceVPCID() {
+			return nil, fmt.Errorf("cannot change vpc-id-force from %v to %v", forceVPCID, ecfg.forceVPCID())
 		}
 	}
 

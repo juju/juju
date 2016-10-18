@@ -10,14 +10,14 @@ import (
 
 	"github.com/juju/juju/api/crossmodel"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 var logger = loggo.GetLogger("juju.cmd.juju.crossmodel")
 
 // CrossModelCommandBase is a base structure to get cross model managing client.
 type CrossModelCommandBase struct {
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 }
 
 // NewCrossModelAPI returns a cross model api for the root api endpoint
@@ -40,7 +40,7 @@ type RemoteEndpoint struct {
 	Role string `yaml:"role" json:"role"`
 }
 
-// convertRemoteEndpoints takes any number of api-formatted remote services' endpoints and
+// convertRemoteEndpoints takes any number of api-formatted remote applications' endpoints and
 // creates a collection of ui-formatted endpoints.
 func convertRemoteEndpoints(apiEndpoints ...params.RemoteEndpoint) map[string]RemoteEndpoint {
 	if len(apiEndpoints) == 0 {

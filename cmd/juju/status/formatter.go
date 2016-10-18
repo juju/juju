@@ -4,26 +4,37 @@
 package status
 
 import (
-	"fmt"
+	"strings"
+
+	"github.com/juju/utils/series"
+	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/status"
 )
 
 type statusFormatter struct {
-	status        *params.FullStatus
-	relations     map[int]params.RelationStatus
-	isoTime       bool
-	compatVersion int
+	status         *params.FullStatus
+	controllerName string
+	relations      map[int]params.RelationStatus
+	isoTime        bool
 }
 
-func newStatusFormatter(status *params.FullStatus, compatVersion int, isoTime bool) *statusFormatter {
+// NewStatusFormatter takes stored model information (params.FullStatus) and populates
+// the statusFormatter struct used in various status formatting methods
+func NewStatusFormatter(status *params.FullStatus, isoTime bool) *statusFormatter {
+	return newStatusFormatter(status, "", isoTime)
+}
+
+func newStatusFormatter(status *params.FullStatus, controllerName string, isoTime bool) *statusFormatter {
 	sf := statusFormatter{
-		status:        status,
-		relations:     make(map[int]params.RelationStatus),
-		compatVersion: compatVersion,
-		isoTime:       isoTime,
+		status:         status,
+		controllerName: controllerName,
+		relations:      make(map[int]params.RelationStatus),
+		isoTime:        isoTime,
 	}
 	for _, relation := range status.Relations {
 		sf.relations[relation.Id] = relation
@@ -31,36 +42,59 @@ func newStatusFormatter(status *params.FullStatus, compatVersion int, isoTime bo
 	return &sf
 }
 
-func (sf *statusFormatter) format() formattedStatus {
+func (sf *statusFormatter) format() (formattedStatus, error) {
 	if sf.status == nil {
-		return formattedStatus{}
+		return formattedStatus{}, nil
+	}
+	cloudTag, err := names.ParseCloudTag(sf.status.Model.CloudTag)
+	if err != nil {
+		return formattedStatus{}, err
 	}
 	out := formattedStatus{
-		Environment:    sf.status.EnvironmentName,
-		Machines:       make(map[string]machineStatus),
-		Services:       make(map[string]serviceStatus),
-		RemoteServices: make(map[string]remoteServiceStatus),
+		Model: modelStatus{
+			Name:             sf.status.Model.Name,
+			Controller:       sf.controllerName,
+			Cloud:            cloudTag.Id(),
+			CloudRegion:      sf.status.Model.CloudRegion,
+			Version:          sf.status.Model.Version,
+			AvailableVersion: sf.status.Model.AvailableVersion,
+			Migration:        sf.status.Model.Migration,
+		},
+		Machines:           make(map[string]machineStatus),
+		Applications:       make(map[string]applicationStatus),
+		RemoteApplications: make(map[string]remoteApplicationStatus),
 	}
-	if sf.status.AvailableVersion != "" {
-		out.EnvironmentStatus = &environmentStatus{
-			AvailableVersion: sf.status.AvailableVersion,
-		}
-	}
-
 	for k, m := range sf.status.Machines {
 		out.Machines[k] = sf.formatMachine(m)
 	}
-	for sn, s := range sf.status.Services {
-		out.Services[sn] = sf.formatService(sn, s)
+	for sn, s := range sf.status.Applications {
+		out.Applications[sn] = sf.formatApplication(sn, s)
 	}
-	for sn, s := range sf.status.RemoteServices {
-		out.RemoteServices[sn] = sf.formatRemoteService(sn, s)
+	for sn, s := range sf.status.RemoteApplications {
+		out.RemoteApplications[sn] = sf.formatRemoteApplication(sn, s)
 	}
-	for k, n := range sf.status.Networks {
-		if out.Networks == nil {
-			out.Networks = make(map[string]networkStatus)
+	return out, nil
+}
+
+// MachineFormat takes stored model information (params.FullStatus) and formats machine status info.
+func (sf *statusFormatter) MachineFormat(machineId []string) formattedMachineStatus {
+	if sf.status == nil {
+		return formattedMachineStatus{}
+	}
+	out := formattedMachineStatus{
+		Model:    sf.status.Model.Name,
+		Machines: make(map[string]machineStatus),
+	}
+	for k, m := range sf.status.Machines {
+		if len(machineId) != 0 {
+			for i := 0; i < len(machineId); i++ {
+				if m.Id == machineId[i] {
+					out.Machines[k] = sf.formatMachine(m)
+				}
+			}
+		} else {
+			out.Machines[k] = sf.formatMachine(m)
 		}
-		out.Networks[k] = sf.formatNetwork(n)
 	}
 	return out
 }
@@ -68,40 +102,16 @@ func (sf *statusFormatter) format() formattedStatus {
 func (sf *statusFormatter) formatMachine(machine params.MachineStatus) machineStatus {
 	var out machineStatus
 
-	if machine.Agent.Status == "" {
-		// Older server
-		// TODO: this will go away at some point (v1.21?).
-		out = machineStatus{
-			AgentState:     machine.AgentState,
-			AgentStateInfo: machine.AgentStateInfo,
-			AgentVersion:   machine.AgentVersion,
-			Life:           machine.Life,
-			Err:            machine.Err,
-			DNSName:        machine.DNSName,
-			InstanceId:     machine.InstanceId,
-			InstanceState:  machine.InstanceState,
-			Series:         machine.Series,
-			Id:             machine.Id,
-			Containers:     make(map[string]machineStatus),
-			Hardware:       machine.Hardware,
-		}
-	} else {
-		// New server
-		agent := machine.Agent
-		out = machineStatus{
-			AgentState:     agent.Status,
-			AgentStateInfo: adjustInfoIfMachineAgentDown(machine.AgentState, agent.Status, agent.Info),
-			AgentVersion:   agent.Version,
-			Life:           agent.Life,
-			Err:            agent.Err,
-			DNSName:        machine.DNSName,
-			InstanceId:     machine.InstanceId,
-			InstanceState:  machine.InstanceState,
-			Series:         machine.Series,
-			Id:             machine.Id,
-			Containers:     make(map[string]machineStatus),
-			Hardware:       machine.Hardware,
-		}
+	out = machineStatus{
+		JujuStatus:    sf.getStatusInfoContents(machine.AgentStatus),
+		DNSName:       machine.DNSName,
+		IPAddresses:   machine.IPAddresses,
+		InstanceId:    machine.InstanceId,
+		MachineStatus: sf.getStatusInfoContents(machine.InstanceStatus),
+		Series:        machine.Series,
+		Id:            machine.Id,
+		Containers:    make(map[string]machineStatus),
+		Hardware:      machine.Hardware,
 	}
 
 	for k, m := range machine.Containers {
@@ -109,7 +119,7 @@ func (sf *statusFormatter) formatMachine(machine params.MachineStatus) machineSt
 	}
 
 	for _, job := range machine.Jobs {
-		if job == multiwatcher.JobManageEnviron {
+		if job == multiwatcher.JobManageModel {
 			out.HAStatus = makeHAStatus(machine.HasVote, machine.WantsVote)
 			break
 		}
@@ -117,16 +127,68 @@ func (sf *statusFormatter) formatMachine(machine params.MachineStatus) machineSt
 	return out
 }
 
-func (sf *statusFormatter) formatRemoteService(name string, service params.RemoteServiceStatus) remoteServiceStatus {
-	out := remoteServiceStatus{
-		Err:        service.Err,
-		ServiceURL: service.ServiceURL,
-		Life:       service.Life,
-		Relations:  service.Relations,
-		StatusInfo: sf.getAgentStatusInfo(service.Status),
+func (sf *statusFormatter) formatApplication(name string, application params.ApplicationStatus) applicationStatus {
+	appOS, _ := series.GetOSFromSeries(application.Series)
+	var (
+		charmOrigin = ""
+		charmName   = ""
+		charmRev    = 0
+	)
+	if curl, err := charm.ParseURL(application.Charm); err != nil {
+		// We should never fail to parse a charm url sent back
+		// but if we do, don't crash.
+		logger.Errorf("failed to parse charm: %v", err)
+	} else {
+		switch curl.Schema {
+		case "cs":
+			charmOrigin = "jujucharms"
+		case "local":
+			charmOrigin = "local"
+		default:
+			charmOrigin = "unknown"
+		}
+		charmName = curl.Name
+		charmRev = curl.Revision
+	}
+
+	out := applicationStatus{
+		Err:           application.Err,
+		Charm:         application.Charm,
+		Series:        application.Series,
+		OS:            strings.ToLower(appOS.String()),
+		CharmOrigin:   charmOrigin,
+		CharmName:     charmName,
+		CharmRev:      charmRev,
+		Exposed:       application.Exposed,
+		Life:          application.Life,
+		Relations:     application.Relations,
+		CanUpgradeTo:  application.CanUpgradeTo,
+		SubordinateTo: application.SubordinateTo,
+		Units:         make(map[string]unitStatus),
+		StatusInfo:    sf.getApplicationStatusInfo(application),
+		Version:       application.WorkloadVersion,
+	}
+	for k, m := range application.Units {
+		out.Units[k] = sf.formatUnit(unitFormatInfo{
+			unit:            m,
+			unitName:        k,
+			applicationName: name,
+			meterStatuses:   application.MeterStatuses,
+		})
+	}
+	return out
+}
+
+func (sf *statusFormatter) formatRemoteApplication(name string, application params.RemoteApplicationStatus) remoteApplicationStatus {
+	out := remoteApplicationStatus{
+		Err:            application.Err,
+		ApplicationURL: application.ApplicationURL,
+		Life:           application.Life,
+		Relations:      application.Relations,
+		StatusInfo:     sf.getRemoteApplicationStatusInfo(application),
 	}
 	out.Endpoints = make(map[string]remoteEndpoint)
-	for _, ep := range service.Endpoints {
+	for _, ep := range application.Endpoints {
 		out.Endpoints[ep.Name] = remoteEndpoint{
 			Interface: ep.Interface,
 			Role:      string(ep.Role),
@@ -135,68 +197,54 @@ func (sf *statusFormatter) formatRemoteService(name string, service params.Remot
 	return out
 }
 
-func (sf *statusFormatter) formatService(name string, service params.ServiceStatus) serviceStatus {
-	out := serviceStatus{
-		Err:           service.Err,
-		Charm:         service.Charm,
-		Exposed:       service.Exposed,
-		Life:          service.Life,
-		Relations:     service.Relations,
-		Networks:      make(map[string][]string),
-		CanUpgradeTo:  service.CanUpgradeTo,
-		SubordinateTo: service.SubordinateTo,
-		Units:         make(map[string]unitStatus),
-		StatusInfo:    sf.getAgentStatusInfo(service.Status),
+func (sf *statusFormatter) getApplicationStatusInfo(application params.ApplicationStatus) statusInfoContents {
+	// TODO(perrito66) add status validation.
+	info := statusInfoContents{
+		Err:     application.Status.Err,
+		Current: status.Status(application.Status.Status),
+		Message: application.Status.Info,
+		Version: application.Status.Version,
 	}
-	if len(service.Networks.Enabled) > 0 {
-		out.Networks["enabled"] = service.Networks.Enabled
+	if application.Status.Since != nil {
+		info.Since = common.FormatTime(application.Status.Since, sf.isoTime)
 	}
-	if len(service.Networks.Disabled) > 0 {
-		out.Networks["disabled"] = service.Networks.Disabled
-	}
-	for k, m := range service.Units {
-		out.Units[k] = sf.formatUnit(unitFormatInfo{
-			unit:          m,
-			unitName:      k,
-			serviceName:   name,
-			meterStatuses: service.MeterStatuses,
-		})
-	}
-	return out
+	return info
 }
 
-func (sf *statusFormatter) getAgentStatusInfo(status params.AgentStatus) statusInfoContents {
+func (sf *statusFormatter) getRemoteApplicationStatusInfo(application params.RemoteApplicationStatus) statusInfoContents {
+	// TODO(perrito66) add status validation.
 	info := statusInfoContents{
-		Err:     status.Err,
-		Current: status.Status,
-		Message: status.Info,
-		Version: status.Version,
+		Err:     application.Status.Err,
+		Current: status.Status(application.Status.Status),
+		Message: application.Status.Info,
+		Version: application.Status.Version,
 	}
-	if status.Since != nil {
-		info.Since = common.FormatTime(status.Since, sf.isoTime)
+	if application.Status.Since != nil {
+		info.Since = common.FormatTime(application.Status.Since, sf.isoTime)
 	}
 	return info
 }
 
 type unitFormatInfo struct {
-	unit          params.UnitStatus
-	unitName      string
-	serviceName   string
-	meterStatuses map[string]params.MeterStatus
+	unit            params.UnitStatus
+	unitName        string
+	applicationName string
+	meterStatuses   map[string]params.MeterStatus
 }
 
 func (sf *statusFormatter) formatUnit(info unitFormatInfo) unitStatus {
 	// TODO(Wallyworld) - this should be server side but we still need to support older servers.
-	sf.updateUnitStatusInfo(&info.unit, info.serviceName)
+	sf.updateUnitStatusInfo(&info.unit, info.applicationName)
 
 	out := unitStatus{
-		WorkloadStatusInfo: sf.getAgentStatusInfo(info.unit.Workload),
-		AgentStatusInfo:    sf.getAgentStatusInfo(info.unit.UnitAgent),
+		WorkloadStatusInfo: sf.getWorkloadStatusInfo(info.unit),
+		JujuStatusInfo:     sf.getAgentStatusInfo(info.unit),
 		Machine:            info.unit.Machine,
 		OpenedPorts:        info.unit.OpenedPorts,
 		PublicAddress:      info.unit.PublicAddress,
 		Charm:              info.unit.Charm,
 		Subordinates:       make(map[string]unitStatus),
+		Leader:             info.unit.Leader,
 	}
 
 	if ms, ok := info.meterStatuses[info.unitName]; ok {
@@ -206,51 +254,69 @@ func (sf *statusFormatter) formatUnit(info unitFormatInfo) unitStatus {
 		}
 	}
 
-	// These legacy fields will be dropped for Juju 2.0.
-	if sf.compatVersion < 2 || out.AgentStatusInfo.Current == "" {
-		out.Err = info.unit.Err
-		out.AgentState = info.unit.AgentState
-		out.AgentStateInfo = info.unit.AgentStateInfo
-		out.Life = info.unit.Life
-		out.AgentVersion = info.unit.AgentVersion
-	}
-
 	for k, m := range info.unit.Subordinates {
 		out.Subordinates[k] = sf.formatUnit(unitFormatInfo{
-			unit:          m,
-			unitName:      k,
-			serviceName:   info.serviceName,
-			meterStatuses: info.meterStatuses,
+			unit:            m,
+			unitName:        k,
+			applicationName: info.applicationName,
+			meterStatuses:   info.meterStatuses,
 		})
 	}
 	return out
 }
 
-func (sf *statusFormatter) updateUnitStatusInfo(unit *params.UnitStatus, serviceName string) {
-	// This logic has no business here but can't be moved until Juju 2.0.
-	statusInfo := unit.Workload.Info
-	if unit.Workload.Status == "" {
-		// Old server that doesn't support this field and others.
-		// Just use the info string as-is.
-		statusInfo = unit.AgentStateInfo
+func (sf *statusFormatter) getStatusInfoContents(inst params.DetailedStatus) statusInfoContents {
+	// TODO(perrito66) add status validation.
+	info := statusInfoContents{
+		Err:     inst.Err,
+		Current: status.Status(inst.Status),
+		Message: inst.Info,
+		Version: inst.Version,
+		Life:    inst.Life,
 	}
-	if unit.Workload.Status == params.StatusError {
-		if relation, ok := sf.relations[getRelationIdFromData(unit)]; ok {
-			// Append the details of the other endpoint on to the status info string.
-			if ep, ok := findOtherEndpoint(relation.Endpoints, serviceName); ok {
-				unit.Workload.Info = statusInfo + " for " + ep.String()
-				unit.AgentStateInfo = unit.Workload.Info
-			}
-		}
+	if inst.Since != nil {
+		info.Since = common.FormatTime(inst.Since, sf.isoTime)
 	}
+	return info
 }
 
-func (sf *statusFormatter) formatNetwork(network params.NetworkStatus) networkStatus {
-	return networkStatus{
-		Err:        network.Err,
-		ProviderId: network.ProviderId,
-		CIDR:       network.CIDR,
-		VLANTag:    network.VLANTag,
+func (sf *statusFormatter) getWorkloadStatusInfo(unit params.UnitStatus) statusInfoContents {
+	// TODO(perrito66) add status validation.
+	info := statusInfoContents{
+		Err:     unit.WorkloadStatus.Err,
+		Current: status.Status(unit.WorkloadStatus.Status),
+		Message: unit.WorkloadStatus.Info,
+		Version: unit.WorkloadStatus.Version,
+	}
+	if unit.WorkloadStatus.Since != nil {
+		info.Since = common.FormatTime(unit.WorkloadStatus.Since, sf.isoTime)
+	}
+	return info
+}
+
+func (sf *statusFormatter) getAgentStatusInfo(unit params.UnitStatus) statusInfoContents {
+	// TODO(perrito66) add status validation.
+	info := statusInfoContents{
+		Err:     unit.AgentStatus.Err,
+		Current: status.Status(unit.AgentStatus.Status),
+		Message: unit.AgentStatus.Info,
+		Version: unit.AgentStatus.Version,
+	}
+	if unit.AgentStatus.Since != nil {
+		info.Since = common.FormatTime(unit.AgentStatus.Since, sf.isoTime)
+	}
+	return info
+}
+
+func (sf *statusFormatter) updateUnitStatusInfo(unit *params.UnitStatus, applicationName string) {
+	// TODO(perrito66) add status validation.
+	if status.Status(unit.WorkloadStatus.Status) == status.Error {
+		if relation, ok := sf.relations[getRelationIdFromData(unit)]; ok {
+			// Append the details of the other endpoint on to the status info string.
+			if ep, ok := findOtherEndpoint(relation.Endpoints, applicationName); ok {
+				unit.WorkloadStatus.Info = unit.WorkloadStatus.Info + " for " + ep.String()
+			}
+		}
 	}
 }
 
@@ -270,7 +336,7 @@ func makeHAStatus(hasVote, wantsVote bool) string {
 }
 
 func getRelationIdFromData(unit *params.UnitStatus) int {
-	if relationId_, ok := unit.Workload.Data["relation-id"]; ok {
+	if relationId_, ok := unit.WorkloadStatus.Data["relation-id"]; ok {
 		if relationId, ok := relationId_.(float64); ok {
 			return int(relationId)
 		} else {
@@ -282,26 +348,13 @@ func getRelationIdFromData(unit *params.UnitStatus) int {
 }
 
 // findOtherEndpoint searches the provided endpoints for an endpoint
-// that *doesn't* match serviceName. The returned bool indicates if
+// that *doesn't* match applicationName. The returned bool indicates if
 // such an endpoint was found.
-func findOtherEndpoint(endpoints []params.EndpointStatus, serviceName string) (params.EndpointStatus, bool) {
+func findOtherEndpoint(endpoints []params.EndpointStatus, applicationName string) (params.EndpointStatus, bool) {
 	for _, endpoint := range endpoints {
-		if endpoint.ServiceName != serviceName {
+		if endpoint.ApplicationName != applicationName {
 			return endpoint, true
 		}
 	}
 	return params.EndpointStatus{}, false
-}
-
-// adjustInfoIfMachineAgentDown modifies the agent status info string if the
-// agent is down. The original status and info is included in
-// parentheses.
-func adjustInfoIfMachineAgentDown(status, origStatus params.Status, info string) string {
-	if status == params.StatusDown {
-		if info == "" {
-			return fmt.Sprintf("(%s)", origStatus)
-		}
-		return fmt.Sprintf("(%s: %s)", origStatus, info)
-	}
-	return info
 }

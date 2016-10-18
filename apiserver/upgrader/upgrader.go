@@ -6,20 +6,23 @@ package upgrader
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
+	"github.com/juju/version"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/state/watcher"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.upgrader")
 
 func init() {
-	common.RegisterStandardFacade("Upgrader", 0, upgraderFacade)
+	common.RegisterStandardFacade("Upgrader", 1, upgraderFacade)
 }
 
 // upgraderFacade is a bit unique vs the other API Facades, as it has two
@@ -27,7 +30,7 @@ func init() {
 // returned depends on who is calling.
 // Both of them conform to the exact Upgrader API, so the actual calls that are
 // available do not depend on who is currently connected.
-func upgraderFacade(st *state.State, resources *common.Resources, auth common.Authorizer) (Upgrader, error) {
+func upgraderFacade(st *state.State, resources facade.Resources, auth facade.Authorizer) (Upgrader, error) {
 	// The type of upgrader we return depends on who is asking.
 	// Machines get an UpgraderAPI, units get a UnitUpgraderAPI.
 	// This is tested in the api/upgrader package since there
@@ -60,15 +63,15 @@ type UpgraderAPI struct {
 	*common.ToolsSetter
 
 	st         *state.State
-	resources  *common.Resources
-	authorizer common.Authorizer
+	resources  facade.Resources
+	authorizer facade.Authorizer
 }
 
 // NewUpgraderAPI creates a new server-side UpgraderAPI facade.
 func NewUpgraderAPI(
 	st *state.State,
-	resources *common.Resources,
-	authorizer common.Authorizer,
+	resources facade.Resources,
+	authorizer facade.Authorizer,
 ) (*UpgraderAPI, error) {
 	if !authorizer.AuthMachineAgent() {
 		return nil, common.ErrPerm
@@ -76,13 +79,14 @@ func NewUpgraderAPI(
 	getCanReadWrite := func() (common.AuthFunc, error) {
 		return authorizer.AuthOwner, nil
 	}
-	env, err := st.Environment()
+	env, err := st.Model()
 	if err != nil {
 		return nil, err
 	}
 	urlGetter := common.NewToolsURLGetter(env.UUID(), st)
+	configGetter := stateenvirons.EnvironConfigGetter{st}
 	return &UpgraderAPI{
-		ToolsGetter: common.NewToolsGetter(st, st, st, urlGetter, getCanReadWrite),
+		ToolsGetter: common.NewToolsGetter(st, configGetter, st, urlGetter, getCanReadWrite),
 		ToolsSetter: common.NewToolsSetter(st, getCanReadWrite),
 		st:          st,
 		resources:   resources,
@@ -103,7 +107,7 @@ func (u *UpgraderAPI) WatchAPIVersion(args params.Entities) (params.NotifyWatchR
 		}
 		err = common.ErrPerm
 		if u.authorizer.AuthOwner(tag) {
-			watch := u.st.WatchForEnvironConfigChanges()
+			watch := u.st.WatchForModelConfigChanges()
 			// Consume the initial event. Technically, API
 			// calls to Watch 'transmit' the initial event
 			// in the Watch response. But NotifyWatchers
@@ -122,13 +126,13 @@ func (u *UpgraderAPI) WatchAPIVersion(args params.Entities) (params.NotifyWatchR
 
 func (u *UpgraderAPI) getGlobalAgentVersion() (version.Number, *config.Config, error) {
 	// Get the Agent Version requested in the Environment Config
-	cfg, err := u.st.EnvironConfig()
+	cfg, err := u.st.ModelConfig()
 	if err != nil {
 		return version.Number{}, nil, err
 	}
 	agentVersion, ok := cfg.AgentVersion()
 	if !ok {
-		return version.Number{}, nil, errors.New("agent version not set in environment config")
+		return version.Number{}, nil, errors.New("agent version not set in model config")
 	}
 	return agentVersion, cfg, nil
 }
@@ -160,7 +164,7 @@ func (u *UpgraderAPI) DesiredVersion(args params.Entities) (params.VersionResult
 		return params.VersionResults{}, common.ServerError(err)
 	}
 	// Is the desired version greater than the current API server version?
-	isNewerVersion := agentVersion.Compare(version.Current) > 0
+	isNewerVersion := agentVersion.Compare(jujuversion.Current) > 0
 	for i, entity := range args.Entities {
 		tag, err := names.ParseTag(entity.Tag)
 		if err != nil {
@@ -170,7 +174,7 @@ func (u *UpgraderAPI) DesiredVersion(args params.Entities) (params.VersionResult
 		err = common.ErrPerm
 		if u.authorizer.AuthOwner(tag) {
 			// Only return the globally desired agent version if the
-			// asking entity is a machine agent with JobManageEnviron or
+			// asking entity is a machine agent with JobManageModel or
 			// if this API server is running the globally desired agent
 			// version. Otherwise report this API server's current
 			// agent version.
@@ -182,8 +186,8 @@ func (u *UpgraderAPI) DesiredVersion(args params.Entities) (params.VersionResult
 			if !isNewerVersion || u.entityIsManager(tag) {
 				results[i].Version = &agentVersion
 			} else {
-				logger.Debugf("desired version is %s, but current version is %s and agent is not a manager node", agentVersion, version.Current)
-				results[i].Version = &version.Current
+				logger.Debugf("desired version is %s, but current version is %s and agent is not a manager node", agentVersion, jujuversion.Current)
+				results[i].Version = &jujuversion.Current
 			}
 			err = nil
 		}

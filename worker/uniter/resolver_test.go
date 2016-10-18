@@ -5,12 +5,12 @@ package uniter_test
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/charm.v6-unstable/hooks"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/worker/uniter"
@@ -25,11 +25,13 @@ import (
 )
 
 type resolverSuite struct {
-	stub        testing.Stub
-	charmURL    *charm.URL
-	remoteState remotestate.Snapshot
-	opFactory   operation.Factory
-	resolver    resolver.Resolver
+	stub                 testing.Stub
+	charmModifiedVersion int
+	charmURL             *charm.URL
+	remoteState          remotestate.Snapshot
+	opFactory            operation.Factory
+	resolver             resolver.Resolver
+	resolverConfig       uniter.ResolverConfig
 
 	clearResolved   func() error
 	reportHookError func(hook.Info) error
@@ -41,7 +43,8 @@ func (s *resolverSuite) SetUpTest(c *gc.C) {
 	s.stub = testing.Stub{}
 	s.charmURL = charm.MustParseURL("cs:precise/mysql-2")
 	s.remoteState = remotestate.Snapshot{
-		CharmURL: s.charmURL,
+		CharmModifiedVersion: s.charmModifiedVersion,
+		CharmURL:             s.charmURL,
 	}
 	s.opFactory = operation.NewFactory(operation.FactoryParams{})
 
@@ -56,18 +59,20 @@ func (s *resolverSuite) SetUpTest(c *gc.C) {
 		return errors.New("unexpected report hook error")
 	}
 
-	s.resolver = uniter.NewUniterResolver(uniter.ResolverConfig{
+	s.resolverConfig = uniter.ResolverConfig{
 		ClearResolved:       func() error { return s.clearResolved() },
 		ReportHookError:     func(info hook.Info) error { return s.reportHookError(info) },
-		FixDeployer:         func() error { return nil },
 		StartRetryHookTimer: func() { s.stub.AddCall("StartRetryHookTimer") },
 		StopRetryHookTimer:  func() { s.stub.AddCall("StopRetryHookTimer") },
+		ShouldRetryHooks:    true,
 		Leadership:          leadership.NewResolver(),
 		Actions:             uniteractions.NewResolver(),
 		Relations:           relation.NewRelationsResolver(&dummyRelations{}),
 		Storage:             storage.NewResolver(attachments),
 		Commands:            nopResolver{},
-	})
+	}
+
+	s.resolver = uniter.NewUniterResolver(s.resolverConfig)
 }
 
 // TestStartedNotInstalled tests whether the Started flag overrides the
@@ -75,7 +80,8 @@ func (s *resolverSuite) SetUpTest(c *gc.C) {
 // local state.
 func (s *resolverSuite) TestStartedNotInstalled(c *gc.C) {
 	localState := resolver.LocalState{
-		CharmURL: s.charmURL,
+		CharmModifiedVersion: s.charmModifiedVersion,
+		CharmURL:             s.charmURL,
 		State: operation.State{
 			Kind:      operation.Continue,
 			Installed: false,
@@ -90,7 +96,8 @@ func (s *resolverSuite) TestStartedNotInstalled(c *gc.C) {
 // uninstalled local state is an install hook operation.
 func (s *resolverSuite) TestNotStartedNotInstalled(c *gc.C) {
 	localState := resolver.LocalState{
-		CharmURL: s.charmURL,
+		CharmModifiedVersion: s.charmModifiedVersion,
+		CharmURL:             s.charmURL,
 		State: operation.State{
 			Kind:      operation.Continue,
 			Installed: false,
@@ -102,10 +109,33 @@ func (s *resolverSuite) TestNotStartedNotInstalled(c *gc.C) {
 	c.Assert(op.String(), gc.Equals, "run install hook")
 }
 
-func (s *resolverSuite) TestHookErrorStartRetryTimer(c *gc.C) {
+func (s *resolverSuite) TestHookErrorDoesNotStartRetryTimerIfShouldRetryFalse(c *gc.C) {
+	s.resolverConfig.ShouldRetryHooks = false
+	s.resolver = uniter.NewUniterResolver(s.resolverConfig)
 	s.reportHookError = func(hook.Info) error { return nil }
 	localState := resolver.LocalState{
 		CharmURL: s.charmURL,
+		State: operation.State{
+			Kind:      operation.RunHook,
+			Step:      operation.Pending,
+			Installed: true,
+			Started:   true,
+			Hook: &hook.Info{
+				Kind: hooks.ConfigChanged,
+			},
+		},
+	}
+	// Run the resolver; we should not attempt a hook retry
+	_, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
+	s.stub.CheckNoCalls(c)
+}
+
+func (s *resolverSuite) TestHookErrorStartRetryTimer(c *gc.C) {
+	s.reportHookError = func(hook.Info) error { return nil }
+	localState := resolver.LocalState{
+		CharmModifiedVersion: s.charmModifiedVersion,
+		CharmURL:             s.charmURL,
 		State: operation.State{
 			Kind:      operation.RunHook,
 			Step:      operation.Pending,
@@ -130,7 +160,8 @@ func (s *resolverSuite) TestHookErrorStartRetryTimer(c *gc.C) {
 func (s *resolverSuite) TestHookErrorStartRetryTimerAgain(c *gc.C) {
 	s.reportHookError = func(hook.Info) error { return nil }
 	localState := resolver.LocalState{
-		CharmURL: s.charmURL,
+		CharmModifiedVersion: s.charmModifiedVersion,
+		CharmURL:             s.charmURL,
 		State: operation.State{
 			Kind:      operation.RunHook,
 			Step:      operation.Pending,
@@ -173,7 +204,8 @@ func (s *resolverSuite) testResolveHookErrorStopRetryTimer(c *gc.C, mode params.
 	s.clearResolved = func() error { return nil }
 	s.reportHookError = func(hook.Info) error { return nil }
 	localState := resolver.LocalState{
-		CharmURL: s.charmURL,
+		CharmModifiedVersion: s.charmModifiedVersion,
+		CharmURL:             s.charmURL,
 		State: operation.State{
 			Kind:      operation.RunHook,
 			Step:      operation.Pending,
@@ -198,7 +230,8 @@ func (s *resolverSuite) testResolveHookErrorStopRetryTimer(c *gc.C, mode params.
 func (s *resolverSuite) TestRunHookStopRetryTimer(c *gc.C) {
 	s.reportHookError = func(hook.Info) error { return nil }
 	localState := resolver.LocalState{
-		CharmURL: s.charmURL,
+		CharmModifiedVersion: s.charmModifiedVersion,
+		CharmURL:             s.charmURL,
 		State: operation.State{
 			Kind:      operation.RunHook,
 			Step:      operation.Pending,

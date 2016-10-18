@@ -9,13 +9,16 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/juju/network"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/juju/common"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
-func newAddCommand() cmd.Command {
-	return envcmd.Wrap(&addCommand{})
+// NewAddCommand returns a command used to add an existing subnet to Juju.
+func NewAddCommand() cmd.Command {
+	return modelcmd.Wrap(&addCommand{})
 }
 
 // addCommand calls the API to add an existing subnet to Juju.
@@ -31,7 +34,7 @@ type addCommand struct {
 
 const addCommandDoc = `
 Adds an existing subnet to Juju, making it available for use. Unlike
-"juju subnet create", this command does not create a new subnet, so it
+"juju create-subnet", this command does not create a new subnet, so it
 is supported on a wider variety of clouds (where SDN features are not
 available, e.g. MAAS). The subnet will be associated with the given
 existing Juju network space.
@@ -50,9 +53,9 @@ zone(s) is required.
 // Info is defined on the cmd.Command interface.
 func (c *addCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "add",
+		Name:    "add-subnet",
 		Args:    "<CIDR>|<provider-id> <space> [<zone1> <zone2> ...]",
-		Purpose: "add an existing subnet to Juju",
+		Purpose: "Add an existing subnet to Juju.",
 		Doc:     strings.TrimSpace(addCommandDoc),
 	}
 }
@@ -111,6 +114,9 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 			ctx.Infof("ERROR: %v.", err)
 			return nil
 		} else if err != nil {
+			if params.IsCodeUnauthorized(err) {
+				common.PermissionsMessage(ctx.Stderr, "add a subnet")
+			}
 			return errors.Annotatef(err, "cannot add subnet")
 		}
 

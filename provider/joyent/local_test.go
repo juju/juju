@@ -7,12 +7,12 @@ import (
 	"net/http"
 	"net/http/httptest"
 
-	lm "github.com/joyent/gomanta/localservices/manta"
 	lc "github.com/joyent/gosdc/localservices/cloudapi"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
@@ -20,13 +20,15 @@ import (
 	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
 	"github.com/juju/juju/environs/jujutest"
 	"github.com/juju/juju/environs/simplestreams"
+	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju/keys"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/provider/joyent"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 func registerLocalTests() {
@@ -35,102 +37,73 @@ func registerLocalTests() {
 }
 
 type localCloudAPIServer struct {
-	Server     *httptest.Server
-	Mux        *http.ServeMux
-	oldHandler http.Handler
-	cloudapi   *lc.CloudAPI
+	Server *httptest.Server
 }
 
 func (ca *localCloudAPIServer) setupServer(c *gc.C) {
 	// Set up the HTTP server.
 	ca.Server = httptest.NewServer(nil)
 	c.Assert(ca.Server, gc.NotNil)
-	ca.oldHandler = ca.Server.Config.Handler
-	ca.Mux = http.NewServeMux()
-	ca.Server.Config.Handler = ca.Mux
+	mux := http.NewServeMux()
+	ca.Server.Config.Handler = mux
 
-	ca.cloudapi = lc.New(ca.Server.URL, testUser)
-	ca.cloudapi.SetupHTTP(ca.Mux)
+	cloudapi := lc.New(ca.Server.URL, testUser)
+	cloudapi.SetupHTTP(mux)
 	c.Logf("Started local CloudAPI service at: %v", ca.Server.URL)
 }
 
-func (c *localCloudAPIServer) destroyServer() {
-	c.Mux = nil
-	c.Server.Config.Handler = c.oldHandler
-	c.Server.Close()
-}
-
-type localMantaServer struct {
-	Server     *httptest.Server
-	Mux        *http.ServeMux
-	oldHandler http.Handler
-	manta      *lm.Manta
-}
-
-func (m *localMantaServer) setupServer(c *gc.C) {
-	// Set up the HTTP server.
-	m.Server = httptest.NewServer(nil)
-	c.Assert(m.Server, gc.NotNil)
-	m.oldHandler = m.Server.Config.Handler
-	m.Mux = http.NewServeMux()
-	m.Server.Config.Handler = m.Mux
-
-	m.manta = lm.New(m.Server.URL, testUser)
-	m.manta.SetupHTTP(m.Mux)
-	c.Logf("Started local Manta service at: %v", m.Server.URL)
-}
-
-func (m *localMantaServer) destroyServer() {
-	m.Mux = nil
-	m.Server.Config.Handler = m.oldHandler
-	m.Server.Close()
+func (s *localCloudAPIServer) destroyServer(c *gc.C) {
+	s.Server.Close()
 }
 
 type localLiveSuite struct {
-	providerSuite
+	baseSuite
 	jujutest.LiveTests
-	cSrv *localCloudAPIServer
-	mSrv *localMantaServer
+	cSrv localCloudAPIServer
 }
 
 func (s *localLiveSuite) SetUpSuite(c *gc.C) {
-	s.providerSuite.SetUpSuite(c)
-	s.cSrv = &localCloudAPIServer{}
-	s.mSrv = &localMantaServer{}
+	s.baseSuite.SetUpSuite(c)
+	s.LiveTests.SetUpSuite(c)
 	s.cSrv.setupServer(c)
-	s.mSrv.setupServer(c)
-	s.AddSuiteCleanup(func(*gc.C) { envtesting.PatchAttemptStrategies(&joyent.ShortAttempt) })
+	s.AddCleanup(s.cSrv.destroyServer)
 
-	s.TestConfig = GetFakeConfig(s.cSrv.Server.URL, s.mSrv.Server.URL)
-	s.TestConfig = s.TestConfig.Merge(coretesting.Attrs{
+	s.Credential = cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
+		"sdc-user":    testUser,
+		"sdc-key-id":  testKeyFingerprint,
+		"private-key": testPrivateKey,
+		"algorithm":   "rsa-sha256",
+	})
+	s.CloudEndpoint = s.cSrv.Server.URL
+	s.CloudRegion = "some-region"
+
+	s.TestConfig = GetFakeConfig().Merge(coretesting.Attrs{
 		"image-metadata-url": "test://host",
 	})
-	s.LiveTests.UploadArches = []string{arch.AMD64}
-	s.LiveTests.SetUpSuite(c)
+	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
+	s.AddCleanup(func(*gc.C) { envtesting.PatchAttemptStrategies(&joyent.ShortAttempt) })
 }
 
 func (s *localLiveSuite) TearDownSuite(c *gc.C) {
 	joyent.UnregisterExternalTestImageMetadata()
 	s.LiveTests.TearDownSuite(c)
-	s.cSrv.destroyServer()
-	s.mSrv.destroyServer()
-	s.providerSuite.TearDownSuite(c)
+	s.baseSuite.TearDownSuite(c)
 }
 
 func (s *localLiveSuite) SetUpTest(c *gc.C) {
-	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
-	s.providerSuite.SetUpTest(c)
-	creds := joyent.MakeCredentials(c, s.TestConfig)
-	joyent.UseExternalTestImageMetadata(creds)
+	s.baseSuite.SetUpTest(c)
+	s.LiveTests.SetUpTest(c)
+	creds := joyent.MakeCredentials(c, s.CloudEndpoint, s.Credential)
+	joyent.UseExternalTestImageMetadata(c, creds)
 	imagetesting.PatchOfficialDataSources(&s.CleanupSuite, "test://host")
 	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
 	s.AddCleanup(func(*gc.C) { restoreFinishBootstrap() })
-	s.LiveTests.SetUpTest(c)
+	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 }
 
 func (s *localLiveSuite) TearDownTest(c *gc.C) {
 	s.LiveTests.TearDownTest(c)
-	s.providerSuite.TearDownTest(c)
+	s.baseSuite.TearDownTest(c)
 }
 
 // localServerSuite contains tests that run against an Joyent service double.
@@ -138,42 +111,49 @@ func (s *localLiveSuite) TearDownTest(c *gc.C) {
 // to test on a live Joyent server. The service double is started and stopped for
 // each test.
 type localServerSuite struct {
-	providerSuite
+	baseSuite
 	jujutest.Tests
-	cSrv *localCloudAPIServer
-	mSrv *localMantaServer
+	cSrv localCloudAPIServer
 }
 
 func (s *localServerSuite) SetUpSuite(c *gc.C) {
-	s.providerSuite.SetUpSuite(c)
+	s.baseSuite.SetUpSuite(c)
+	s.PatchValue(&imagemetadata.SimplestreamsImagesPublicKey, sstesting.SignedMetadataPublicKey)
+	s.PatchValue(&keys.JujuPublicKey, sstesting.SignedMetadataPublicKey)
+
 	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
-	s.AddSuiteCleanup(func(*gc.C) { restoreFinishBootstrap() })
+	s.AddCleanup(func(*gc.C) { restoreFinishBootstrap() })
 }
 
 func (s *localServerSuite) SetUpTest(c *gc.C) {
-	s.providerSuite.SetUpTest(c)
+	s.baseSuite.SetUpTest(c)
 
-	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
-	s.cSrv = &localCloudAPIServer{}
-	s.mSrv = &localMantaServer{}
+	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	s.cSrv.setupServer(c)
-	s.mSrv.setupServer(c)
-
-	s.Tests.ToolsFixture.UploadArches = []string{arch.AMD64}
+	s.AddCleanup(s.cSrv.destroyServer)
+	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 	s.Tests.SetUpTest(c)
-	s.TestConfig = GetFakeConfig(s.cSrv.Server.URL, s.mSrv.Server.URL)
+
+	s.Credential = cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
+		"sdc-user":    testUser,
+		"sdc-key-id":  testKeyFingerprint,
+		"private-key": testPrivateKey,
+		"algorithm":   "rsa-sha256",
+	})
+	s.CloudEndpoint = s.cSrv.Server.URL
+	s.CloudRegion = "some-region"
+	s.TestConfig = GetFakeConfig()
+
 	// Put some fake image metadata in place.
-	creds := joyent.MakeCredentials(c, s.TestConfig)
-	joyent.UseExternalTestImageMetadata(creds)
+	creds := joyent.MakeCredentials(c, s.CloudEndpoint, s.Credential)
+	joyent.UseExternalTestImageMetadata(c, creds)
 	imagetesting.PatchOfficialDataSources(&s.CleanupSuite, "test://host")
 }
 
 func (s *localServerSuite) TearDownTest(c *gc.C) {
 	joyent.UnregisterExternalTestImageMetadata()
 	s.Tests.TearDownTest(c)
-	s.cSrv.destroyServer()
-	s.mSrv.destroyServer()
-	s.providerSuite.TearDownTest(c)
+	s.baseSuite.TearDownTest(c)
 }
 
 func bootstrapContext(c *gc.C) environs.BootstrapContext {
@@ -185,18 +165,26 @@ func bootstrapContext(c *gc.C) environs.BootstrapContext {
 // allocate a public address.
 func (s *localServerSuite) TestStartInstance(c *gc.C) {
 	env := s.Prepare(c)
-	err := bootstrap.Bootstrap(bootstrapContext(c), env, bootstrap.BootstrapParams{})
+	err := bootstrap.Bootstrap(bootstrapContext(c), env, bootstrap.BootstrapParams{
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		AdminSecret:      testing.AdminSecret,
+		CAPrivateKey:     coretesting.CAKey,
+	})
 	c.Assert(err, jc.ErrorIsNil)
-	inst, _ := testing.AssertStartInstance(c, env, "100")
+	inst, _ := testing.AssertStartInstance(c, env, s.ControllerUUID, "100")
 	err = env.StopInstances(inst.Id())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *localServerSuite) TestStartInstanceAvailabilityZone(c *gc.C) {
 	env := s.Prepare(c)
-	err := bootstrap.Bootstrap(bootstrapContext(c), env, bootstrap.BootstrapParams{})
+	err := bootstrap.Bootstrap(bootstrapContext(c), env, bootstrap.BootstrapParams{
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		AdminSecret:      testing.AdminSecret,
+		CAPrivateKey:     coretesting.CAKey,
+	})
 	c.Assert(err, jc.ErrorIsNil)
-	inst, hwc := testing.AssertStartInstance(c, env, "100")
+	inst, hwc := testing.AssertStartInstance(c, env, s.ControllerUUID, "100")
 	err = env.StopInstances(inst.Id())
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -205,9 +193,13 @@ func (s *localServerSuite) TestStartInstanceAvailabilityZone(c *gc.C) {
 
 func (s *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 	env := s.Prepare(c)
-	err := bootstrap.Bootstrap(bootstrapContext(c), env, bootstrap.BootstrapParams{})
+	err := bootstrap.Bootstrap(bootstrapContext(c), env, bootstrap.BootstrapParams{
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		AdminSecret:      testing.AdminSecret,
+		CAPrivateKey:     coretesting.CAKey,
+	})
 	c.Assert(err, jc.ErrorIsNil)
-	_, hc := testing.AssertStartInstanceWithConstraints(c, env, "100", constraints.MustParse("mem=1024"))
+	_, hc := testing.AssertStartInstanceWithConstraints(c, env, s.ControllerUUID, "100", constraints.MustParse("mem=1024"))
 	c.Check(*hc.Arch, gc.Equals, "amd64")
 	c.Check(*hc.Mem, gc.Equals, uint64(1024))
 	c.Check(*hc.CpuCores, gc.Equals, uint64(1))
@@ -263,22 +255,25 @@ var instanceGathering = []struct {
 
 func (s *localServerSuite) TestInstanceStatus(c *gc.C) {
 	env := s.Prepare(c)
-	inst, _ := testing.AssertStartInstance(c, env, "100")
-	c.Assert(inst.Status(), gc.Equals, "running")
+	inst, _ := testing.AssertStartInstance(c, env, s.ControllerUUID, "100")
+	c.Assert(inst.Status().Message, gc.Equals, "running")
 	err := env.StopInstances(inst.Id())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *localServerSuite) TestInstancesGathering(c *gc.C) {
 	env := s.Prepare(c)
-	inst0, _ := testing.AssertStartInstance(c, env, "100")
+	inst0, _ := testing.AssertStartInstance(c, env, s.ControllerUUID, "100")
 	id0 := inst0.Id()
-	inst1, _ := testing.AssertStartInstance(c, env, "101")
+	inst1, _ := testing.AssertStartInstance(c, env, s.ControllerUUID, "101")
 	id1 := inst1.Id()
 	c.Logf("id0: %s, id1: %s", id0, id1)
 	defer func() {
-		err := env.StopInstances(inst0.Id(), inst1.Id())
-		c.Assert(err, jc.ErrorIsNil)
+		// StopInstances deletes machines in parallel but the Joyent
+		// API test double isn't goroutine-safe so stop them one at a
+		// time. See https://pad.lv/1604514
+		c.Check(env.StopInstances(inst0.Id()), jc.ErrorIsNil)
+		c.Check(env.StopInstances(inst1.Id()), jc.ErrorIsNil)
 	}()
 
 	for i, test := range instanceGathering {
@@ -312,11 +307,15 @@ func (s *localServerSuite) TestInstancesGathering(c *gc.C) {
 // It should be moved to environs.jujutests.Tests.
 func (s *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	env := s.Prepare(c)
-	err := bootstrap.Bootstrap(bootstrapContext(c), env, bootstrap.BootstrapParams{})
+	err := bootstrap.Bootstrap(bootstrapContext(c), env, bootstrap.BootstrapParams{
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		AdminSecret:      testing.AdminSecret,
+		CAPrivateKey:     coretesting.CAKey,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	// check that StateServerInstances returns the id of the bootstrap machine.
-	instanceIds, err := env.StateServerInstances()
+	// check that ControllerInstances returns the id of the bootstrap machine.
+	instanceIds, err := env.ControllerInstances(s.ControllerUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(instanceIds, gc.HasLen, 1)
 
@@ -341,7 +340,12 @@ func (s *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
 
 func (s *localServerSuite) TestFindInstanceSpec(c *gc.C) {
 	env := s.Prepare(c)
-	spec, err := joyent.FindInstanceSpec(env, "trusty", "amd64", "mem=4G")
+	imageMetadata := []*imagemetadata.ImageMetadata{{
+		Id:       "image-id",
+		Arch:     "amd64",
+		VirtType: "kvm",
+	}}
+	spec, err := joyent.FindInstanceSpec(env, "trusty", "amd64", "mem=4G", imageMetadata)
 	c.Assert(err, gc.IsNil)
 	c.Assert(spec.InstanceType.VirtType, gc.NotNil)
 	c.Check(spec.Image.Arch, gc.Equals, "amd64")
@@ -353,7 +357,7 @@ func (s *localServerSuite) TestFindInstanceSpec(c *gc.C) {
 func (s *localServerSuite) TestFindImageBadDefaultImage(c *gc.C) {
 	env := s.Prepare(c)
 	// An error occurs if no suitable image is found.
-	_, err := joyent.FindInstanceSpec(env, "saucy", "amd64", "mem=4G")
+	_, err := joyent.FindInstanceSpec(env, "saucy", "amd64", "mem=4G", nil)
 	c.Assert(err, gc.ErrorMatches, `no "saucy" images in some-region with arches \[amd64\]`)
 }
 
@@ -373,20 +377,17 @@ func (s *localServerSuite) TestConstraintsValidator(c *gc.C) {
 	env := s.Prepare(c)
 	validator, err := env.ConstraintsValidator()
 	c.Assert(err, jc.ErrorIsNil)
-	cons := constraints.MustParse("arch=amd64 tags=bar cpu-power=10")
+	cons := constraints.MustParse("arch=amd64 tags=bar cpu-power=10 virt-type=kvm")
 	unsupported, err := validator.Validate(cons)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unsupported, jc.SameContents, []string{"cpu-power", "tags"})
+	c.Assert(unsupported, jc.SameContents, []string{"cpu-power", "tags", "virt-type"})
 }
 
 func (s *localServerSuite) TestConstraintsValidatorVocab(c *gc.C) {
 	env := s.Prepare(c)
 	validator, err := env.ConstraintsValidator()
 	c.Assert(err, jc.ErrorIsNil)
-	cons := constraints.MustParse("arch=ppc64el")
-	_, err = validator.Validate(cons)
-	c.Assert(err, gc.ErrorMatches, "invalid constraint value: arch=ppc64el\nvalid values are:.*")
-	cons = constraints.MustParse("instance-type=foo")
+	cons := constraints.MustParse("instance-type=foo")
 	_, err = validator.Validate(cons)
 	c.Assert(err, gc.ErrorMatches, "invalid constraint value: instance-type=foo\nvalid values are:.*")
 }

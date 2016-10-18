@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/api/crossmodel"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
-	model "github.com/juju/juju/model/crossmodel"
+	model "github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/testing"
 )
 
@@ -45,15 +45,15 @@ func (s *crossmodelMockSuite) TestOffer(c *gc.C) {
 			c.Check(id, gc.Equals, "")
 			c.Check(request, gc.Equals, "Offer")
 
-			args, ok := a.(params.ServiceOffersParams)
+			args, ok := a.(params.ApplicationOffersParams)
 			c.Assert(ok, jc.IsTrue)
 			c.Assert(args.Offers, gc.HasLen, 1)
 
 			offer := args.Offers[0]
-			c.Assert(offer.ServiceName, gc.DeepEquals, service)
+			c.Assert(offer.ApplicationName, gc.DeepEquals, service)
 			c.Assert(offer.Endpoints, jc.SameContents, []string{endPointA, endPointB})
-			c.Assert(offer.ServiceURL, gc.DeepEquals, url)
-			c.Assert(offer.ServiceDescription, gc.DeepEquals, desc)
+			c.Assert(offer.ApplicationURL, gc.DeepEquals, url)
+			c.Assert(offer.ApplicationDescription, gc.DeepEquals, desc)
 			c.Assert(offer.AllowedUserTags, jc.SameContents, []string{user1, user2})
 
 			if results, ok := result.(*params.ErrorResults); ok {
@@ -120,32 +120,32 @@ func (s *crossmodelMockSuite) TestShow(c *gc.C) {
 
 			c.Check(objType, gc.Equals, "CrossModelRelations")
 			c.Check(id, gc.Equals, "")
-			c.Check(request, gc.Equals, "ServiceOffers")
+			c.Check(request, gc.Equals, "ApplicationOffers")
 
-			args, ok := a.(params.ServiceURLs)
+			args, ok := a.(params.ApplicationURLs)
 			c.Assert(ok, jc.IsTrue)
-			c.Assert(args.ServiceUrls, gc.DeepEquals, []string{url})
+			c.Assert(args.ApplicationURLs, gc.DeepEquals, []string{url})
 
-			if points, ok := result.(*params.ServiceOffersResults); ok {
-				points.Results = []params.ServiceOfferResult{
-					{Result: params.ServiceOffer{
-						ServiceDescription: desc,
-						Endpoints:          endpoints,
-						ServiceName:        serviceTag,
+			if points, ok := result.(*params.ApplicationOffersResults); ok {
+				points.Results = []params.ApplicationOfferResult{
+					{Result: params.ApplicationOffer{
+						ApplicationDescription: desc,
+						Endpoints:              endpoints,
+						ApplicationName:        serviceTag,
 					}},
 				}
 			}
 			return nil
 		})
 	client := crossmodel.NewClient(apiCaller)
-	found, err := client.ServiceOffer(url)
+	found, err := client.ApplicationOffer(url)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(called, jc.IsTrue)
-	c.Assert(found, gc.DeepEquals, params.ServiceOffer{
-		ServiceDescription: desc,
-		Endpoints:          endpoints,
-		ServiceName:        serviceTag})
+	c.Assert(found, gc.DeepEquals, params.ApplicationOffer{
+		ApplicationDescription: desc,
+		Endpoints:              endpoints,
+		ApplicationName:        serviceTag})
 }
 
 func (s *crossmodelMockSuite) TestShowURLError(c *gc.C) {
@@ -164,23 +164,23 @@ func (s *crossmodelMockSuite) TestShowURLError(c *gc.C) {
 
 			c.Check(objType, gc.Equals, "CrossModelRelations")
 			c.Check(id, gc.Equals, "")
-			c.Check(request, gc.Equals, "ServiceOffers")
+			c.Check(request, gc.Equals, "ApplicationOffers")
 
-			args, ok := a.(params.ServiceURLs)
+			args, ok := a.(params.ApplicationURLs)
 			c.Assert(ok, jc.IsTrue)
-			c.Assert(args.ServiceUrls, gc.DeepEquals, []string{url})
+			c.Assert(args.ApplicationURLs, gc.DeepEquals, []string{url})
 
-			if points, ok := result.(*params.ServiceOffersResults); ok {
-				points.Results = []params.ServiceOfferResult{
+			if points, ok := result.(*params.ApplicationOffersResults); ok {
+				points.Results = []params.ApplicationOfferResult{
 					{Error: common.ServerError(errors.New(msg))}}
 			}
 			return nil
 		})
 	client := crossmodel.NewClient(apiCaller)
-	found, err := client.ServiceOffer(url)
+	found, err := client.ApplicationOffer(url)
 
 	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
-	c.Assert(found, gc.DeepEquals, params.ServiceOffer{})
+	c.Assert(found, gc.DeepEquals, params.ApplicationOffer{})
 	c.Assert(called, jc.IsTrue)
 }
 
@@ -206,31 +206,31 @@ func (s *crossmodelMockSuite) TestShowMultiple(c *gc.C) {
 
 			c.Check(objType, gc.Equals, "CrossModelRelations")
 			c.Check(id, gc.Equals, "")
-			c.Check(request, gc.Equals, "ServiceOffers")
+			c.Check(request, gc.Equals, "ApplicationOffers")
 
-			args, ok := a.(params.ServiceURLs)
+			args, ok := a.(params.ApplicationURLs)
 			c.Assert(ok, jc.IsTrue)
-			c.Assert(args.ServiceUrls, gc.DeepEquals, []string{url})
+			c.Assert(args.ApplicationURLs, gc.DeepEquals, []string{url})
 
-			if points, ok := result.(*params.ServiceOffersResults); ok {
-				points.Results = []params.ServiceOfferResult{
-					{Result: params.ServiceOffer{
-						ServiceDescription: desc,
-						Endpoints:          endpoints,
-						ServiceName:        serviceTag,
+			if points, ok := result.(*params.ApplicationOffersResults); ok {
+				points.Results = []params.ApplicationOfferResult{
+					{Result: params.ApplicationOffer{
+						ApplicationDescription: desc,
+						Endpoints:              endpoints,
+						ApplicationName:        serviceTag,
 					}},
-					{Result: params.ServiceOffer{
-						ServiceDescription: desc,
-						Endpoints:          endpoints,
-						ServiceName:        serviceTag,
+					{Result: params.ApplicationOffer{
+						ApplicationDescription: desc,
+						Endpoints:              endpoints,
+						ApplicationName:        serviceTag,
 					}}}
 			}
 			return nil
 		})
 	client := crossmodel.NewClient(apiCaller)
-	found, err := client.ServiceOffer(url)
+	found, err := client.ApplicationOffer(url)
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(`expected to find one result for url %q but found 2`, url))
-	c.Assert(found, gc.DeepEquals, params.ServiceOffer{})
+	c.Assert(found, gc.DeepEquals, params.ApplicationOffer{})
 
 	c.Assert(called, jc.IsTrue)
 }
@@ -246,14 +246,14 @@ func (s *crossmodelMockSuite) TestShowFacadeCallError(c *gc.C) {
 		) error {
 			c.Check(objType, gc.Equals, "CrossModelRelations")
 			c.Check(id, gc.Equals, "")
-			c.Check(request, gc.Equals, "ServiceOffers")
+			c.Check(request, gc.Equals, "ApplicationOffers")
 
 			return errors.New(msg)
 		})
 	client := crossmodel.NewClient(apiCaller)
-	found, err := client.ServiceOffer(url)
+	found, err := client.ApplicationOffer(url)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
-	c.Assert(found, gc.DeepEquals, params.ServiceOffer{})
+	c.Assert(found, gc.DeepEquals, params.ApplicationOffer{})
 }
 
 func (s *crossmodelMockSuite) TestList(c *gc.C) {
@@ -278,23 +278,23 @@ func (s *crossmodelMockSuite) TestList(c *gc.C) {
 			c.Check(request, gc.Equals, "ListOffers")
 
 			called = true
-			args, ok := a.(params.OfferedServiceFilters)
+			args, ok := a.(params.OfferedApplicationFilters)
 			c.Assert(ok, jc.IsTrue)
 			//TODO (anastasiamac 2015-11-18) To add proper check once filters are implemented
 			c.Assert(args.Filters, gc.HasLen, 1)
 
 			if results, ok := result.(*params.ListOffersResults); ok {
 
-				validItem := params.OfferedServiceDetails{
-					ServiceURL:  url,
-					ServiceName: serviceName,
-					CharmName:   charmName,
-					UsersCount:  count,
-					Endpoints:   endpoints,
+				validItem := params.OfferedApplicationDetails{
+					ApplicationURL:  url,
+					ApplicationName: serviceName,
+					CharmName:       charmName,
+					UsersCount:      count,
+					Endpoints:       endpoints,
 				}
 
 				validDir := params.ListOffersFilterResults{
-					Result: []params.OfferedServiceDetailsResult{
+					Result: []params.OfferedApplicationDetailsResult{
 						{Result: &validItem},
 						{Error: common.ServerError(errors.New(msg))},
 					}}
@@ -306,16 +306,16 @@ func (s *crossmodelMockSuite) TestList(c *gc.C) {
 		})
 
 	client := crossmodel.NewClient(apiCaller)
-	results, err := client.ListOffers(model.OfferedServiceFilter{})
+	results, err := client.ListOffers(model.OfferedApplicationFilter{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
-	c.Assert(results, jc.DeepEquals, []model.OfferedServiceDetailsResult{
-		{Result: &model.OfferedServiceDetails{
-			ServiceName:    serviceName,
-			ServiceURL:     url,
-			CharmName:      charmName,
-			ConnectedCount: count,
-			Endpoints:      relations,
+	c.Assert(results, jc.DeepEquals, []model.OfferedApplicationDetailsResult{
+		{Result: &model.OfferedApplicationDetails{
+			ApplicationName: serviceName,
+			ApplicationURL:  url,
+			CharmName:       charmName,
+			ConnectedCount:  count,
+			Endpoints:       relations,
 		}},
 		{Error: common.ServerError(errors.New(msg))},
 	})
@@ -342,7 +342,7 @@ func (s *crossmodelMockSuite) TestListMultipleResults(c *gc.C) {
 		})
 
 	client := crossmodel.NewClient(apiCaller)
-	_, err := client.ListOffers(model.OfferedServiceFilter{})
+	_, err := client.ListOffers(model.OfferedApplicationFilter{})
 	c.Assert(errors.Cause(err), gc.ErrorMatches, ".*expected to find one result but found 2.*")
 	c.Assert(called, jc.IsTrue)
 }
@@ -371,7 +371,7 @@ func (s *crossmodelMockSuite) TestListDirectoryError(c *gc.C) {
 		})
 
 	client := crossmodel.NewClient(apiCaller)
-	_, err := client.ListOffers(model.OfferedServiceFilter{})
+	_, err := client.ListOffers(model.OfferedApplicationFilter{})
 	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
 	c.Assert(called, jc.IsTrue)
 }
@@ -391,7 +391,7 @@ func (s *crossmodelMockSuite) TestListFacadeCallError(c *gc.C) {
 			return errors.New(msg)
 		})
 	client := crossmodel.NewClient(apiCaller)
-	results, err := client.ListOffers(model.OfferedServiceFilter{})
+	results, err := client.ListOffers(model.OfferedApplicationFilter{})
 	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
 	c.Assert(results, gc.IsNil)
 }
@@ -404,11 +404,11 @@ func (s *crossmodelMockSuite) TestFind(c *gc.C) {
 	endpoints := []params.RemoteEndpoint{{Name: "endPointA"}}
 	relations := []charm.Relation{{Name: "endPointA", Interface: "http"}}
 
-	filter := model.ServiceOfferFilter{
-		ServiceOffer: model.ServiceOffer{
-			ServiceURL:  fmt.Sprintf("%s:/u/fred/%s", directoryName, serviceName),
-			ServiceName: fmt.Sprintf("hosted-%s", charmName),
-			Endpoints:   relations,
+	filter := model.ApplicationOfferFilter{
+		ApplicationOffer: model.ApplicationOffer{
+			ApplicationURL:  fmt.Sprintf("%s:/u/fred/%s", directoryName, serviceName),
+			ApplicationName: fmt.Sprintf("hosted-%s", charmName),
+			Endpoints:       relations,
 		},
 	}
 
@@ -421,7 +421,7 @@ func (s *crossmodelMockSuite) TestFind(c *gc.C) {
 		) error {
 			c.Check(objType, gc.Equals, "CrossModelRelations")
 			c.Check(id, gc.Equals, "")
-			c.Check(request, gc.Equals, "FindServiceOffers")
+			c.Check(request, gc.Equals, "FindApplicationOffers")
 
 			called = true
 			args, ok := a.(params.OfferFilterParams)
@@ -429,22 +429,22 @@ func (s *crossmodelMockSuite) TestFind(c *gc.C) {
 			c.Assert(args.Filters, gc.HasLen, 1)
 			c.Assert(args.Filters[0].Directory, gc.Equals, "local")
 			c.Assert(args.Filters[0].Filters, jc.DeepEquals, []params.OfferFilter{{
-				ServiceURL:  filter.ServiceURL,
-				ServiceName: filter.ServiceName,
+				ApplicationURL:  filter.ApplicationURL,
+				ApplicationName: filter.ApplicationName,
 				Endpoints: []params.EndpointFilterAttributes{{
 					Name:      "endPointA",
 					Interface: "http",
 				}},
 			}})
 
-			if results, ok := result.(*params.FindServiceOffersResults); ok {
-				offer := params.ServiceOffer{
-					ServiceURL:  url,
-					ServiceName: serviceName,
-					Endpoints:   endpoints,
+			if results, ok := result.(*params.FindApplicationOffersResults); ok {
+				offer := params.ApplicationOffer{
+					ApplicationURL:  url,
+					ApplicationName: serviceName,
+					Endpoints:       endpoints,
 				}
-				results.Results = []params.ServiceOfferResults{{
-					Offers: []params.ServiceOffer{offer},
+				results.Results = []params.ApplicationOfferResults{{
+					Offers: []params.ApplicationOffer{offer},
 				}}
 			}
 
@@ -452,13 +452,13 @@ func (s *crossmodelMockSuite) TestFind(c *gc.C) {
 		})
 
 	client := crossmodel.NewClient(apiCaller)
-	results, err := client.FindServiceOffers(filter)
+	results, err := client.FindApplicationOffers(filter)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
-	c.Assert(results, jc.DeepEquals, []params.ServiceOffer{{
-		ServiceName: serviceName,
-		ServiceURL:  url,
-		Endpoints:   endpoints,
+	c.Assert(results, jc.DeepEquals, []params.ApplicationOffer{{
+		ApplicationName: serviceName,
+		ApplicationURL:  url,
+		Endpoints:       endpoints,
 	}})
 }
 
@@ -474,7 +474,7 @@ func (s *crossmodelMockSuite) TestFindNoFilter(c *gc.C) {
 		})
 
 	client := crossmodel.NewClient(apiCaller)
-	_, err := client.FindServiceOffers()
+	_, err := client.FindApplicationOffers()
 	c.Assert(err, gc.ErrorMatches, "at least one filter must be specified")
 }
 
@@ -488,21 +488,21 @@ func (s *crossmodelMockSuite) TestFindMultipleResults(c *gc.C) {
 		) error {
 			c.Check(objType, gc.Equals, "CrossModelRelations")
 			c.Check(id, gc.Equals, "")
-			c.Check(request, gc.Equals, "FindServiceOffers")
+			c.Check(request, gc.Equals, "FindApplicationOffers")
 
 			called = true
-			if results, ok := result.(*params.FindServiceOffersResults); ok {
-				results.Results = []params.ServiceOfferResults{{}, {}}
+			if results, ok := result.(*params.FindApplicationOffersResults); ok {
+				results.Results = []params.ApplicationOfferResults{{}, {}}
 			}
 
 			return nil
 		})
 
 	client := crossmodel.NewClient(apiCaller)
-	filter := model.ServiceOfferFilter{
-		ServiceOffer: model.ServiceOffer{ServiceURL: "local:"},
+	filter := model.ApplicationOfferFilter{
+		ApplicationOffer: model.ApplicationOffer{ApplicationURL: "local:"},
 	}
-	_, err := client.FindServiceOffers(filter)
+	_, err := client.FindApplicationOffers(filter)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, ".*expected to find one result but found 2.*")
 	c.Assert(called, jc.IsTrue)
 }
@@ -518,11 +518,11 @@ func (s *crossmodelMockSuite) TestFindError(c *gc.C) {
 		) error {
 			c.Check(objType, gc.Equals, "CrossModelRelations")
 			c.Check(id, gc.Equals, "")
-			c.Check(request, gc.Equals, "FindServiceOffers")
+			c.Check(request, gc.Equals, "FindApplicationOffers")
 
 			called = true
-			if results, ok := result.(*params.FindServiceOffersResults); ok {
-				results.Results = []params.ServiceOfferResults{{
+			if results, ok := result.(*params.FindApplicationOffersResults); ok {
+				results.Results = []params.ApplicationOfferResults{{
 					Error: common.ServerError(errors.New(msg)),
 				}}
 			}
@@ -531,10 +531,10 @@ func (s *crossmodelMockSuite) TestFindError(c *gc.C) {
 		})
 
 	client := crossmodel.NewClient(apiCaller)
-	filter := model.ServiceOfferFilter{
-		ServiceOffer: model.ServiceOffer{ServiceURL: "local:"},
+	filter := model.ApplicationOfferFilter{
+		ApplicationOffer: model.ApplicationOffer{ApplicationURL: "local:"},
 	}
-	_, err := client.FindServiceOffers(filter)
+	_, err := client.FindApplicationOffers(filter)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
 	c.Assert(called, jc.IsTrue)
 }
@@ -549,15 +549,15 @@ func (s *crossmodelMockSuite) TestFindFacadeCallError(c *gc.C) {
 		) error {
 			c.Check(objType, gc.Equals, "CrossModelRelations")
 			c.Check(id, gc.Equals, "")
-			c.Check(request, gc.Equals, "FindServiceOffers")
+			c.Check(request, gc.Equals, "FindApplicationOffers")
 
 			return errors.New(msg)
 		})
 	client := crossmodel.NewClient(apiCaller)
-	filter := model.ServiceOfferFilter{
-		ServiceOffer: model.ServiceOffer{ServiceURL: "local:"},
+	filter := model.ApplicationOfferFilter{
+		ApplicationOffer: model.ApplicationOffer{ApplicationURL: "local:"},
 	}
-	results, err := client.FindServiceOffers(filter)
+	results, err := client.FindApplicationOffers(filter)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
 	c.Assert(results, gc.IsNil)
 }

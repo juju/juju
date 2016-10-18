@@ -4,38 +4,34 @@
 package backups
 
 import (
-	"fmt"
 	"os"
-	"path"
 	"path/filepath"
 	"sort"
 
 	"github.com/juju/errors"
+
+	"github.com/juju/juju/mongo"
 )
 
 // TODO(ericsnow) lp-1392876
 // Pull these from authoritative sources (see
 // github.com/juju/juju/juju/paths, etc.):
 const (
-	dataDir        = "/var/lib/juju"
-	loggingConfDir = "/etc/rsyslog.d"
-	logsDir        = "/var/log/juju"
-	sshDir         = "/home/ubuntu/.ssh"
+	dataDir = "/var/lib/juju"
+	logsDir = "/var/log/juju"
+	sshDir  = "/home/ubuntu/.ssh"
 
-	agentsDir    = "agents"
-	agentsConfs  = "machine-*"
-	loggingConfs = "*juju.conf"
-	toolsDir     = "tools"
+	agentsDir   = "agents"
+	agentsConfs = "machine-*"
+	toolsDir    = "tools"
+	initDir     = "init"
 
-	sshIdentFile   = "system-identity"
-	nonceFile      = "nonce.txt"
-	allMachinesLog = "all-machines.log"
-	machineLog     = "machine-%s.log"
-	authKeysFile   = "authorized_keys"
+	sshIdentFile = "system-identity"
+	nonceFile    = "nonce.txt"
+	authKeysFile = "authorized_keys"
 
-	dbStartupConf = "juju-db.conf"
-	dbPEM         = "server.pem"
-	dbSecret      = "shared-secret"
+	dbPEM    = "server.pem"
+	dbSecret = "shared-secret"
 )
 
 // Paths holds the paths that backups needs.
@@ -55,10 +51,10 @@ func GetFilesToBackUp(rootDir string, paths *Paths, oldmachine string) ([]string
 		return nil, errors.Annotate(err, "failed to fetch agent config files")
 	}
 
-	glob = filepath.Join(rootDir, loggingConfDir, loggingConfs)
-	jujuLogConfs, err := filepath.Glob(glob)
+	glob = filepath.Join(rootDir, paths.DataDir, initDir, "*")
+	serviceConfs, err := filepath.Glob(glob)
 	if err != nil {
-		return nil, errors.Annotate(err, "failed to fetch juju log conf files")
+		return nil, errors.Annotate(err, "failed to fetch service config files")
 	}
 
 	backupFiles := []string{
@@ -70,29 +66,7 @@ func GetFilesToBackUp(rootDir string, paths *Paths, oldmachine string) ([]string
 		filepath.Join(rootDir, paths.DataDir, dbSecret),
 	}
 	backupFiles = append(backupFiles, agentConfs...)
-	backupFiles = append(backupFiles, jujuLogConfs...)
-
-	// Handle logs (might not exist).
-	// TODO(ericsnow) We should consider dropping these entirely.
-	allmachines := filepath.Join(rootDir, paths.LogsDir, allMachinesLog)
-	if _, err := os.Stat(allmachines); err != nil {
-		if !os.IsNotExist(err) {
-			return nil, errors.Trace(err)
-		}
-		logger.Errorf("skipping missing file %q", allmachines)
-	} else {
-		backupFiles = append(backupFiles, allmachines)
-	}
-	// TODO(ericsnow) It might not be machine 0...
-	machinelog := filepath.Join(rootDir, paths.LogsDir, fmt.Sprintf(machineLog, oldmachine))
-	if _, err := os.Stat(machinelog); err != nil {
-		if !os.IsNotExist(err) {
-			return nil, errors.Trace(err)
-		}
-		logger.Errorf("skipping missing file %q", machinelog)
-	} else {
-		backupFiles = append(backupFiles, machinelog)
-	}
+	backupFiles = append(backupFiles, serviceConfs...)
 
 	// Handle nonce.txt (might not exist).
 	nonce := filepath.Join(rootDir, paths.DataDir, nonceFile)
@@ -124,16 +98,27 @@ var replaceableFolders = replaceableFoldersFunc
 
 // replaceableFoldersFunc will return a map with the folders that need to
 // be replaced so they can be deleted prior to a restore.
-func replaceableFoldersFunc() (map[string]os.FileMode, error) {
+// Mongo 2.4 requires that the database directory be removed, while
+// Mongo 3.2 requires that it not be removed
+func replaceableFoldersFunc(dataDir string, mongoVersion mongo.Version) (map[string]os.FileMode, error) {
 	replaceables := map[string]os.FileMode{}
 
-	for _, replaceable := range []string{
-		filepath.Join(dataDir, "db"),
-		dataDir,
-		logsDir,
-		path.Join(logsDir, "all-machines.log"),
-	} {
+	// NOTE: never put dataDir in here directly as that will unconditionally
+	// remove the database.
+	dirs := []string{
+		filepath.Join(dataDir, "init"),
+		filepath.Join(dataDir, "tools"),
+		filepath.Join(dataDir, "agents"),
+	}
+	if mongoVersion.Major == 2 {
+		dirs = append(dirs, filepath.Join(dataDir, "db"))
+	}
+
+	for _, replaceable := range dirs {
 		dirStat, err := os.Stat(replaceable)
+		if os.IsNotExist(err) {
+			continue
+		}
 		if err != nil {
 			return map[string]os.FileMode{}, errors.Annotatef(err, "cannot stat %q", replaceable)
 		}
@@ -150,8 +135,8 @@ func replaceableFoldersFunc() (map[string]os.FileMode, error) {
 // directories that are to contain new files; this is to avoid
 // possible mixup from new/old files that lead to an inconsistent
 // restored state machine.
-func PrepareMachineForRestore() error {
-	replaceFolders, err := replaceableFolders()
+func PrepareMachineForRestore(mongoVersion mongo.Version) error {
+	replaceFolders, err := replaceableFolders(dataDir, mongoVersion)
 	if err != nil {
 		return errors.Annotate(err, "cannot retrieve the list of folders to be cleaned before restore")
 	}
@@ -170,6 +155,7 @@ func PrepareMachineForRestore() error {
 		if !fmode.IsDir() {
 			continue
 		}
+		logger.Debugf("removing dir: %s", toBeRecreated)
 		if err := os.RemoveAll(toBeRecreated); err != nil {
 			return errors.Trace(err)
 		}

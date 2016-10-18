@@ -1,18 +1,23 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package openstack_test
+package openstack
 
 import (
+	gitjujutesting "github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/goose.v1/nova"
 
+	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/provider/openstack"
 )
 
 // localTests contains tests which do not require a live service or test double to run.
-type localTests struct{}
+type localTests struct {
+	gitjujutesting.IsolationSuite
+}
 
 var _ = gc.Suite(&localTests{})
 
@@ -49,12 +54,7 @@ var addressTests = []struct {
 	networks: []string{"private"},
 	expected: "192.168.0.1",
 }, {
-	summary:  "private only, both IPv6 and IPv4",
-	private:  []nova.IPAddress{{6, "fc00::1"}, {4, "192.168.0.1"}},
-	networks: []string{"private"},
-	expected: "fc00::1",
-}, {
-	summary:  "private IPv4 plus (HP cloud)",
+	summary:  "private IPv4 plus (what HP cloud used to do)",
 	private:  []nova.IPAddress{{4, "10.0.0.1"}, {4, "8.8.4.4"}},
 	networks: []string{"private"},
 	expected: "8.8.4.4",
@@ -73,11 +73,6 @@ var addressTests = []struct {
 	public:   []nova.IPAddress{{4, "8.8.8.8"}, {6, "2001:db8::1"}},
 	networks: []string{"", "public"},
 	expected: "8.8.8.8",
-}, {
-	summary:  "public only, both IPv6 and IPv4",
-	public:   []nova.IPAddress{{6, "2001:db8::1"}, {4, "8.8.8.8"}},
-	networks: []string{"", "public"},
-	expected: "2001:db8::1",
 }, {
 	summary:  "public and private both IPv4",
 	private:  []nova.IPAddress{{4, "10.0.0.4"}},
@@ -109,12 +104,6 @@ var addressTests = []struct {
 	networks: []string{"private", "public"},
 	expected: "8.8.8.8",
 }, {
-	summary:  "public, private, and localhost - both IPv6 and IPv4",
-	private:  []nova.IPAddress{{6, "::1"}, {6, "fc00::1"}, {4, "127.0.0.4"}, {4, "192.168.0.1"}},
-	public:   []nova.IPAddress{{6, "2001:db8::1"}, {4, "8.8.8.8"}},
-	networks: []string{"private", "public"},
-	expected: "2001:db8::1",
-}, {
 	summary:  "custom only IPv4",
 	private:  []nova.IPAddress{{4, "192.168.0.1"}},
 	networks: []string{"special"},
@@ -129,11 +118,6 @@ var addressTests = []struct {
 	private:  []nova.IPAddress{{4, "192.168.0.1"}, {6, "fc00::1"}},
 	networks: []string{"special"},
 	expected: "192.168.0.1",
-}, {
-	summary:  "custom only - both IPv6 and IPv4",
-	private:  []nova.IPAddress{{6, "fc00::1"}, {4, "192.168.0.1"}},
-	networks: []string{"special"},
-	expected: "fc00::1",
 }, {
 	summary:  "custom and public IPv4",
 	private:  []nova.IPAddress{{4, "172.16.0.1"}},
@@ -152,12 +136,6 @@ var addressTests = []struct {
 	public:   []nova.IPAddress{{4, "8.8.8.8"}, {6, "2001:db8::1"}},
 	networks: []string{"special", "public"},
 	expected: "8.8.8.8",
-}, {
-	summary:  "custom and public - both IPv6 and IPv4",
-	private:  []nova.IPAddress{{6, "fc00::1"}, {4, "172.16.0.1"}},
-	public:   []nova.IPAddress{{6, "2001:db8::1"}, {4, "8.8.8.8"}},
-	networks: []string{"special", "public"},
-	expected: "2001:db8::1",
 }, {
 	summary:    "floating and public, same address",
 	floatingIP: "8.8.8.8",
@@ -203,8 +181,8 @@ func (t *localTests) TestGetServerAddresses(c *gc.C) {
 				addresses[t.networks[1]] = t.public
 			}
 		}
-		addr := openstack.InstanceAddress(t.floatingIP, addresses)
-		c.Assert(addr, gc.Equals, t.expected)
+		addr := InstanceAddress(t.floatingIP, addresses)
+		c.Check(addr, gc.Equals, t.expected)
 	}
 }
 
@@ -270,7 +248,7 @@ func (*localTests) TestPortsToRuleInfo(c *gc.C) {
 
 	for i, t := range testCases {
 		c.Logf("test %d: %s", i, t.about)
-		rules := openstack.PortsToRuleInfo(groupId, t.ports)
+		rules := PortsToRuleInfo(groupId, t.ports)
 		c.Check(len(rules), gc.Equals, len(t.expected))
 		c.Check(rules, gc.DeepEquals, t.expected)
 	}
@@ -342,6 +320,57 @@ func (*localTests) TestRuleMatchesPortRange(c *gc.C) {
 	}}
 	for i, t := range testCases {
 		c.Logf("test %d: %s", i, t.about)
-		c.Check(openstack.RuleMatchesPortRange(t.rule, t.ports), gc.Equals, t.expected)
+		c.Check(RuleMatchesPortRange(t.rule, t.ports), gc.Equals, t.expected)
 	}
+}
+
+func (s *localTests) TestDetectRegionsNoRegionName(c *gc.C) {
+	_, err := s.detectRegions(c)
+	c.Assert(err, gc.ErrorMatches, "OS_REGION_NAME environment variable not set")
+}
+
+func (s *localTests) TestDetectRegionsNoAuthURL(c *gc.C) {
+	s.PatchEnvironment("OS_REGION_NAME", "oceania")
+	_, err := s.detectRegions(c)
+	c.Assert(err, gc.ErrorMatches, "OS_AUTH_URL environment variable not set")
+}
+
+func (s *localTests) TestDetectRegions(c *gc.C) {
+	s.PatchEnvironment("OS_REGION_NAME", "oceania")
+	s.PatchEnvironment("OS_AUTH_URL", "http://keystone.internal")
+	regions, err := s.detectRegions(c)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(regions, jc.DeepEquals, []cloud.Region{
+		{Name: "oceania", Endpoint: "http://keystone.internal"},
+	})
+}
+
+func (s *localTests) detectRegions(c *gc.C) ([]cloud.Region, error) {
+	provider, err := environs.Provider("openstack")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(provider, gc.Implements, new(environs.CloudRegionDetector))
+	return provider.(environs.CloudRegionDetector).DetectRegions()
+}
+
+type providerUnitTests struct{}
+
+var _ = gc.Suite(&providerUnitTests{})
+
+func (s *providerUnitTests) TestIdentityClientVersion_BadURLErrors(c *gc.C) {
+	_, err := identityClientVersion("abc123")
+	c.Check(err, gc.Not(jc.ErrorIsNil))
+}
+
+func (s *providerUnitTests) TestIdentityClientVersion_ParsesGoodURL(c *gc.C) {
+	version, err := identityClientVersion("https://keystone.internal/v2.0")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(version, gc.Equals, 2)
+
+	version, err = identityClientVersion("https://keystone.internal/v3.0/")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(version, gc.Equals, 3)
+
+	version, err = identityClientVersion("https://keystone.internal/v2/")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(version, gc.Equals, 2)
 }

@@ -6,18 +6,19 @@ package subnet
 import (
 	"strings"
 
-	"launchpad.net/gnuflag"
+	"github.com/juju/gnuflag"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"github.com/juju/utils/set"
+	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
-func newCreateCommand() cmd.Command {
-	return envcmd.Wrap(&createCommand{})
+// NewCreateCommand returns a command to create a new subnet.
+func NewCreateCommand() cmd.Command {
+	return modelcmd.Wrap(&createCommand{})
 }
 
 // createCommand calls the API to create a new subnet.
@@ -40,15 +41,14 @@ access for the subnet can be specified using the mutually exclusive flags
 --private and --public.
 
 When --private is specified (or no flags are given, as this is the default),
-the created subnet will not allow access from outside the environment and
+the created subnet will not allow access from outside the model and
 the available address range is only cloud-local.
 
-When --public is specified, the created subnet will support "shadow addresses"
-(see "juju help glossary" for the full definition of the term). This means
-all machines inside the subnet will have cloud-local addresses configured,
-but there will also be a shadow address configured for each machine, so that
-the machines can be accessed from outside the environment (similarly to the
-automatic public IP addresses supported with AWS VPCs).
+When --public is specified, the created subnet will support "shadow addresses".
+This means all machines inside the subnet will have cloud-local addresses
+configured, but there will also be a shadow address configured for each
+machine, so that the machines can be accessed from outside the model (similarly
+to the automatic public IP addresses supported with AWS VPCs).
 
 This command is only supported on clouds which support creating new subnets
 dynamically (i.e. Software Defined Networking or SDN). If you want to make
@@ -63,7 +63,7 @@ supported.
 // Info is defined on the cmd.Command interface.
 func (c *createCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "create",
+		Name:    "create-subnet",
 		Args:    "<CIDR> <space> <zone1> [<zone2> <zone3> ...] [--public|--private]",
 		Purpose: "create a new subnet",
 		Doc:     strings.TrimSpace(createCommandDoc),

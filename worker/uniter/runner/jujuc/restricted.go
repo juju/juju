@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
@@ -31,13 +31,13 @@ func (*RestrictedContext) UnitStatus() (*StatusInfo, error) { return nil, ErrRes
 // SetUnitStatus implements jujuc.Context.
 func (*RestrictedContext) SetUnitStatus(StatusInfo) error { return ErrRestrictedContext }
 
-// ServiceStatus implements jujuc.Context.
-func (*RestrictedContext) ServiceStatus() (ServiceStatusInfo, error) {
-	return ServiceStatusInfo{}, ErrRestrictedContext
+// ApplicationStatus implements jujuc.Context.
+func (*RestrictedContext) ApplicationStatus() (ApplicationStatusInfo, error) {
+	return ApplicationStatusInfo{}, ErrRestrictedContext
 }
 
-// SetServiceStatus implements jujuc.Context.
-func (*RestrictedContext) SetServiceStatus(StatusInfo) error { return ErrRestrictedContext }
+// SetApplicationStatus implements jujuc.Context.
+func (*RestrictedContext) SetApplicationStatus(StatusInfo) error { return ErrRestrictedContext }
 
 // AvailabilityZone implements jujuc.Context.
 func (*RestrictedContext) AvailabilityZone() (string, error) { return "", ErrRestrictedContext }
@@ -63,6 +63,11 @@ func (*RestrictedContext) ClosePorts(protocol string, fromPort, toPort int) erro
 
 // OpenedPorts implements jujuc.Context.
 func (*RestrictedContext) OpenedPorts() []network.PortRange { return nil }
+
+// NetworkConfig implements jujuc.Context.
+func (*RestrictedContext) NetworkConfig(bindingName string) ([]params.NetworkConfig, error) {
+	return nil, ErrRestrictedContext
+}
 
 // IsLeader implements jujuc.Context.
 func (*RestrictedContext) IsLeader() (bool, error) { return false, ErrRestrictedContext }
@@ -131,4 +136,14 @@ func (*RestrictedContext) SetActionFailed() error { return ErrRestrictedContext 
 // Component implements jujc.Context.
 func (*RestrictedContext) Component(string) (ContextComponent, error) {
 	return nil, ErrRestrictedContext
+}
+
+// UnitWorkloadVersion implements jujuc.Context.
+func (*RestrictedContext) UnitWorkloadVersion() (string, error) {
+	return "", ErrRestrictedContext
+}
+
+// SetUnitWorkloadVersion implements jujuc.Context.
+func (*RestrictedContext) SetUnitWorkloadVersion(string) error {
+	return ErrRestrictedContext
 }

@@ -4,23 +4,23 @@
 package crossmodel_test
 
 import (
-	"github.com/juju/names"
 	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/crossmodel"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/testing"
+	jujucrossmodel "github.com/juju/juju/core/crossmodel"
 	jujutesting "github.com/juju/juju/juju/testing"
-	jujucrossmodel "github.com/juju/juju/model/crossmodel"
 )
 
 const (
-	addOfferBackendCall            = "AddOffer"
-	listOfferedServicesBackendCall = "ListOfferedServices"
-	listDirectoryOffersBackendCall = "ListDirectoryOffers"
+	addOfferBackendCall                = "AddOffer"
+	listOfferedApplicationsBackendCall = "ListOfferedApplications"
+	listDirectoryOffersBackendCall     = "ListDirectoryOffers"
 )
 
 type baseCrossmodelSuite struct {
@@ -36,23 +36,23 @@ type baseCrossmodelSuite struct {
 	serviceBackend *mockServiceBackend
 }
 
-func (s *baseCrossmodelSuite) addService(c *gc.C, name string) jujucrossmodel.OfferedService {
+func (s *baseCrossmodelSuite) addService(c *gc.C, name string) jujucrossmodel.OfferedApplication {
 	ch := s.AddTestingCharm(c, "wordpress")
 	s.AddTestingService(c, name, ch)
 
-	return jujucrossmodel.OfferedService{
-		ServiceURL:  "local:/u/me/" + name,
-		ServiceName: name,
-		CharmName:   ch.Meta().Name,
-		Endpoints:   map[string]string{"db": "db"},
-		Description: ch.Meta().Description,
+	return jujucrossmodel.OfferedApplication{
+		ApplicationURL:  "local:/u/me/" + name,
+		ApplicationName: name,
+		CharmName:       ch.Meta().Name,
+		Endpoints:       map[string]string{"db": "db"},
+		Description:     ch.Meta().Description,
 	}
 }
 
 func (s *baseCrossmodelSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.resources = common.NewResources()
-	s.authorizer = testing.FakeAuthorizer{names.NewUserTag("testuser"), true}
+	s.authorizer = testing.FakeAuthorizer{Tag: names.NewUserTag("testuser"), EnvironManager: true}
 
 	s.serviceBackend = &mockServiceBackend{}
 
@@ -64,22 +64,22 @@ func (s *baseCrossmodelSuite) SetUpTest(c *gc.C) {
 type mockServiceBackend struct {
 	jtesting.Stub
 
-	addOffer            func(offer jujucrossmodel.OfferedService, offerParams params.AddServiceOffer) error
-	listOfferedServices func(filter ...jujucrossmodel.OfferedServiceFilter) ([]jujucrossmodel.OfferedService, error)
-	listDirectoryOffers func(filter params.OfferFilters) (params.ServiceOfferResults, error)
+	addOffer                func(offer jujucrossmodel.OfferedApplication, offerParams params.AddApplicationOffer) error
+	listOfferedApplications func(filter ...jujucrossmodel.OfferedApplicationFilter) ([]jujucrossmodel.OfferedApplication, error)
+	listDirectoryOffers     func(filter params.OfferFilters) (params.ApplicationOfferResults, error)
 }
 
-func (m *mockServiceBackend) AddOffer(offer jujucrossmodel.OfferedService, offerParams params.AddServiceOffer) error {
+func (m *mockServiceBackend) AddOffer(offer jujucrossmodel.OfferedApplication, offerParams params.AddApplicationOffer) error {
 	m.MethodCall(m, addOfferBackendCall, offer)
 	return m.addOffer(offer, offerParams)
 }
 
-func (m *mockServiceBackend) ListOfferedServices(filter ...jujucrossmodel.OfferedServiceFilter) ([]jujucrossmodel.OfferedService, error) {
-	m.MethodCall(m, listOfferedServicesBackendCall, filter)
-	return m.listOfferedServices(filter...)
+func (m *mockServiceBackend) ListOfferedApplications(filter ...jujucrossmodel.OfferedApplicationFilter) ([]jujucrossmodel.OfferedApplication, error) {
+	m.MethodCall(m, listOfferedApplicationsBackendCall, filter)
+	return m.listOfferedApplications(filter...)
 }
 
-func (m *mockServiceBackend) ListDirectoryOffers(filter params.OfferFilters) (params.ServiceOfferResults, error) {
+func (m *mockServiceBackend) ListDirectoryOffers(filter params.OfferFilters) (params.ApplicationOfferResults, error) {
 	m.MethodCall(m, listDirectoryOffersBackendCall, filter)
 	return m.listDirectoryOffers(filter)
 }

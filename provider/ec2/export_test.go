@@ -4,29 +4,21 @@
 package ec2
 
 import (
-	"io"
+	"strings"
 
 	"gopkg.in/amz.v3/aws"
 	"gopkg.in/amz.v3/ec2"
-	"gopkg.in/amz.v3/s3"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/storage"
+	"github.com/juju/juju/environs/imagemetadata"
+	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/instance"
 	jujustorage "github.com/juju/juju/storage"
-	"github.com/juju/juju/testing"
 )
 
-func EBSProvider() jujustorage.Provider {
-	return &ebsProvider{}
-}
-
 func StorageEC2(vs jujustorage.VolumeSource) *ec2.EC2 {
-	return vs.(*ebsVolumeSource).ec2
-}
-
-func ControlBucketName(e environs.Environ) string {
-	return e.(*environ).ecfg().controlBucket()
+	return vs.(*ebsVolumeSource).env.ec2
 }
 
 func JujuGroupName(e environs.Environ) string {
@@ -38,15 +30,19 @@ func MachineGroupName(e environs.Environ, machineId string) string {
 }
 
 func EnvironEC2(e environs.Environ) *ec2.EC2 {
-	return e.(*environ).ec2()
-}
-
-func EnvironS3(e environs.Environ) *s3.S3 {
-	return e.(*environ).s3()
+	return e.(*environ).ec2
 }
 
 func InstanceEC2(inst instance.Instance) *ec2.Instance {
 	return inst.(*ec2Instance).Instance
+}
+
+func TerminatedInstances(e environs.Environ) ([]instance.Instance, error) {
+	return e.(*environ).AllInstancesByState("shutting-down", "terminated")
+}
+
+func InstanceSecurityGroups(e environs.Environ, ids []instance.Id, states ...string) ([]ec2.SecurityGroup, error) {
+	return e.(*environ).instanceSecurityGroups(ids, states...)
 }
 
 var (
@@ -55,65 +51,29 @@ var (
 	RunInstances                = &runInstances
 	BlockDeviceNamer            = blockDeviceNamer
 	GetBlockDeviceMappings      = getBlockDeviceMappings
+	IsVPCNotUsableError         = isVPCNotUsableError
+	IsVPCNotRecommendedError    = isVPCNotRecommendedError
 )
 
-// BucketStorage returns a storage instance addressing
-// an arbitrary s3 bucket.
-func BucketStorage(b *s3.Bucket) storage.Storage {
-	return &ec2storage{
-		bucket: b,
-	}
-}
-
-// DeleteBucket deletes the s3 bucket used by the storage instance.
-func DeleteBucket(s storage.Storage) error {
-	return deleteBucket(s.(*ec2storage))
-}
-
-var testRoundTripper = &testing.ProxyRoundTripper{}
-
-func init() {
-	// Prepare mock http transport for overriding metadata and images output in tests.
-	testRoundTripper.RegisterForScheme("test")
-}
+const VPCIDNone = vpcIDNone
 
 // TODO: Apart from overriding different hardcoded hosts, these two test helpers are identical. Let's share.
 
 // UseTestImageData causes the given content to be served
 // when the ec2 client asks for image data.
-func UseTestImageData(files map[string]string) {
+func UseTestImageData(c *gc.C, files map[string]string) {
 	if files != nil {
-		testRoundTripper.Sub = testing.NewCannedRoundTripper(files, nil)
-		signedImageDataOnly = false
+		sstesting.SetRoundTripperFiles(sstesting.AddSignedFiles(c, files), nil)
 	} else {
-		signedImageDataOnly = true
-		testRoundTripper.Sub = nil
-	}
-}
-
-func UseTestRegionData(content map[string]aws.Region) {
-	if content != nil {
-		allRegions = content
-	} else {
-		allRegions = aws.Regions
-	}
-
-}
-
-// UseTestInstanceTypeData causes the given instance type
-// cost data to be served for the "test" region.
-func UseTestInstanceTypeData(content instanceTypeCost) {
-	if content != nil {
-		allRegionCosts["test"] = content
-	} else {
-		delete(allRegionCosts, "test")
+		sstesting.SetRoundTripperFiles(nil, nil)
 	}
 }
 
 var (
-	ShortAttempt         = &shortAttempt
-	StorageAttempt       = &storageAttempt
-	DestroyVolumeAttempt = &destroyVolumeAttempt
+	ShortAttempt                   = &shortAttempt
+	DestroyVolumeAttempt           = &destroyVolumeAttempt
+	DeleteSecurityGroupInsistently = &deleteSecurityGroupInsistently
+	TerminateInstancesById         = &terminateInstancesById
 )
 
 func EC2ErrCode(err error) string {
@@ -133,55 +93,88 @@ func FabricateInstance(inst instance.Instance, newId string) instance.Instance {
 	return newi
 }
 
-// Access non exported methods on ec2.storage
-type Storage interface {
-	Put(file string, r io.Reader, length int64) error
-	ResetMadeBucket()
+func makeImage(id, storage, virtType, arch, version, region string) *imagemetadata.ImageMetadata {
+	return &imagemetadata.ImageMetadata{
+		Id:         id,
+		Storage:    storage,
+		VirtType:   virtType,
+		Arch:       arch,
+		Version:    version,
+		RegionName: region,
+		Endpoint:   "https://ec2.endpoint.com",
+		Stream:     "released",
+	}
 }
 
-func (s *ec2storage) ResetMadeBucket() {
-	s.Lock()
-	defer s.Unlock()
-	s.madeBucket = false
+var TestImageMetadata = []*imagemetadata.ImageMetadata{
+	// LTS-dependent requires new entries upon new LTS release.
+	// 16.04:amd64
+	makeImage("ami-00000133", "ssd", "hvm", "amd64", "16.04", "test"),
+	makeImage("ami-00000139", "ebs", "hvm", "amd64", "16.04", "test"),
+	makeImage("ami-00000135", "ssd", "pv", "amd64", "16.04", "test"),
+
+	// 14.04:amd64
+	makeImage("ami-00000033", "ssd", "hvm", "amd64", "14.04", "test"),
+
+	// 14.04:i386
+	makeImage("ami-00000034", "ssd", "pv", "i386", "14.04", "test"),
+
+	// 12.10:amd64
+	makeImage("ami-01000035", "ssd", "hvm", "amd64", "12.10", "test"),
+
+	// 12.10:i386
+	makeImage("ami-01000034", "ssd", "hvm", "i386", "12.10", "test"),
+
+	// 13.04:i386
+	makeImage("ami-02000034", "ssd", "hvm", "i386", "13.04", "test"),
+	makeImage("ami-02000035", "ssd", "pv", "i386", "13.04", "test"),
 }
 
-var TestImagesData = map[string]string{
-	"/streams/v1/index.json": `
-        {
-         "index": {
-          "com.ubuntu.cloud:released": {
-           "updated": "Wed, 01 May 2013 13:31:26 +0000",
-           "clouds": [
-            {
-             "region": "test",
-             "endpoint": "https://ec2.endpoint.com"
-            }
-           ],
-           "cloudname": "aws",
-           "datatype": "image-ids",
-           "format": "products:1.0",
-           "products": [
-            "com.ubuntu.cloud:server:14.04:amd64",
-            "com.ubuntu.cloud:server:14.04:i386",
-            "com.ubuntu.cloud:server:14.04:amd64",
-            "com.ubuntu.cloud:server:12.10:amd64",
-            "com.ubuntu.cloud:server:12.10:i386",
-            "com.ubuntu.cloud:server:13.04:i386"
-           ],
-           "path": "streams/v1/com.ubuntu.cloud:released:aws.js"
-          }
-         },
-         "updated": "Wed, 01 May 2013 13:31:26 +0000",
-         "format": "index:1.0"
-        }
-`,
-	"/streams/v1/com.ubuntu.cloud:released:aws.js": `
+func MakeTestImageStreamsData(region aws.Region) map[string]string {
+	testImageMetadataIndex := strings.Replace(testImageMetadataIndex, "$REGION", region.Name, -1)
+	testImageMetadataIndex = strings.Replace(testImageMetadataIndex, "$ENDPOINT", region.EC2Endpoint, -1)
+	return map[string]string{
+		"/streams/v1/index.json":                         testImageMetadataIndex,
+		"/streams/v1/com.ubuntu.cloud:released:aws.json": testImageMetadataProduct,
+	}
+}
+
+// LTS-dependent requires new/updated entries upon new LTS release.
+const testImageMetadataIndex = `
+{
+ "index": {
+  "com.ubuntu.cloud:released": {
+   "updated": "Wed, 01 May 2013 13:31:26 +0000",
+   "clouds": [
+    {
+     "region": "$REGION",
+     "endpoint": "$ENDPOINT"
+    }
+   ],
+   "cloudname": "aws",
+   "datatype": "image-ids",
+   "format": "products:1.0",
+   "products": [
+    "com.ubuntu.cloud:server:16.04:amd64",
+    "com.ubuntu.cloud:server:14.04:amd64",
+    "com.ubuntu.cloud:server:14.04:i386",
+    "com.ubuntu.cloud:server:12.10:i386",
+    "com.ubuntu.cloud:server:13.04:i386"
+   ],
+   "path": "streams/v1/com.ubuntu.cloud:released:aws.json"
+  }
+ },
+ "updated": "Wed, 01 May 2013 13:31:26 +0000",
+ "format": "index:1.0"
+}
+`
+const testImageMetadataProduct = `
 {
  "content_id": "com.ubuntu.cloud:released:aws",
  "products": {
-   "com.ubuntu.cloud:server:14.04:amd64": {
+   "com.ubuntu.cloud:server:16.04:amd64": {
      "release": "trusty",
-     "version": "14.04",
+     "version": "16.04",
      "arch": "amd64",
      "versions": {
        "20121218": {
@@ -190,44 +183,63 @@ var TestImagesData = map[string]string{
              "root_store": "instance",
              "virt": "pv",
              "region": "us-east-1",
-             "id": "ami-00000011"
+             "id": "ami-00000111"
            },
            "usww1pe": {
              "root_store": "ssd",
              "virt": "pv",
              "region": "eu-west-1",
-             "id": "ami-00000016"
+             "id": "ami-00000116"
            },
            "apne1pe": {
              "root_store": "ssd",
              "virt": "pv",
              "region": "ap-northeast-1",
-             "id": "ami-00000026"
+             "id": "ami-00000126"
            },
            "apne1he": {
              "root_store": "ssd",
              "virt": "hvm",
              "region": "ap-northeast-1",
-             "id": "ami-00000087"
+             "id": "ami-00000187"
            },
            "test1peebs": {
              "root_store": "ssd",
              "virt": "pv",
              "region": "test",
-             "id": "ami-00000033"
+             "id": "ami-00000133"
            },
            "test1pessd": {
              "root_store": "ebs",
              "virt": "pv",
              "region": "test",
-             "id": "ami-00000039"
+             "id": "ami-00000139"
            },
            "test1he": {
              "root_store": "ssd",
              "virt": "hvm",
              "region": "test",
-             "id": "ami-00000035"
+             "id": "ami-00000135"
            }
+         },
+         "pubname": "ubuntu-trusty-16.04-amd64-server-20121218",
+         "label": "release"
+       }
+     }
+   },
+   "com.ubuntu.cloud:server:14.04:amd64": {
+     "release": "trusty",
+     "version": "14.04",
+     "arch": "amd64",
+     "versions": {
+       "20121218": {
+         "items": {
+           "test1peebs": {
+             "root_store": "ssd",
+             "virt": "hvm",
+             "region": "test",
+             "id": "ami-00000033"
+			}
          },
          "pubname": "ubuntu-trusty-14.04-amd64-server-20121218",
          "label": "release"
@@ -246,12 +258,6 @@ var TestImagesData = map[string]string{
              "virt": "pv",
              "region": "test",
              "id": "ami-00000034"
-           },
-           "apne1pe": {
-             "root_store": "ssd",
-             "virt": "pv",
-             "region": "ap-northeast-1",
-             "id": "ami-00000023"
            }
          },
          "pubname": "ubuntu-trusty-14.04-i386-server-20121218",
@@ -349,27 +355,4 @@ var TestImagesData = map[string]string{
  },
  "format": "products:1.0"
 }
-`,
-}
-
-var TestInstanceTypeCosts = instanceTypeCost{
-	"m1.small":    60,
-	"m1.medium":   120,
-	"m1.large":    240,
-	"m1.xlarge":   480,
-	"m3.medium":   95,
-	"m3.large":    190,
-	"m3.xlarge":   385,
-	"m3.2xlarge":  765,
-	"t1.micro":    20,
-	"c1.medium":   145,
-	"c1.xlarge":   580,
-	"cc2.8xlarge": 2400,
-}
-
-var TestRegions = map[string]aws.Region{
-	"test": {
-		Name:        "test",
-		EC2Endpoint: "https://ec2.endpoint.com",
-	},
-}
+`

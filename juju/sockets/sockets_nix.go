@@ -1,3 +1,7 @@
+// Copyright 2014 Canonical Ltd.
+// Copyright 2014 Cloudbase Solutions SRL
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 // +build !windows
 
 package sockets
@@ -6,6 +10,8 @@ import (
 	"net"
 	"net/rpc"
 	"os"
+
+	"github.com/juju/errors"
 )
 
 func Dial(socketPath string) (*rpc.Client, error) {
@@ -18,9 +24,5 @@ func Listen(socketPath string) (net.Listener, error) {
 		logger.Tracef("ignoring error on removing %q: %v", socketPath, err)
 	}
 	listener, err := net.Listen("unix", socketPath)
-	if err != nil {
-		logger.Errorf("failed to listen on unix:%s: %v", socketPath, err)
-		return nil, err
-	}
-	return listener, err
+	return listener, errors.Trace(err)
 }

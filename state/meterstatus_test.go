@@ -45,14 +45,14 @@ func (s *MeterStateSuite) TestMeterStatus(c *gc.C) {
 	c.Assert(status.Code, gc.Equals, state.MeterGreen)
 }
 
-func (s *MeterStateSuite) TestMeterStatusIncludesEnvUUID(c *gc.C) {
+func (s *MeterStateSuite) TestMeterStatusIncludesModelUUID(c *gc.C) {
 	jujuDB := s.MgoSuite.Session.DB("juju")
 	meterStatus := jujuDB.C("meterStatus")
 	var docs []bson.M
 	err := meterStatus.Find(nil).All(&docs)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(docs, gc.HasLen, 1)
-	c.Assert(docs[0]["env-uuid"], gc.Equals, s.State.EnvironUUID())
+	c.Assert(docs[0]["model-uuid"], gc.Equals, s.State.ModelUUID())
 }
 
 func (s *MeterStateSuite) TestSetMeterStatusIncorrect(c *gc.C) {
@@ -108,7 +108,7 @@ func (s *MeterStateSuite) TestMeterStatusWatcherRespondsToMetricsManager(c *gc.C
 	c.Assert(err, jc.ErrorIsNil)
 	watcher := s.unit.WatchMeterStatus()
 	assertMeterStatusChanged(c, watcher)
-	err = mm.SetLastSuccessfulSend(time.Now())
+	err = mm.SetLastSuccessfulSend(testing.NonZeroTime())
 	c.Assert(err, jc.ErrorIsNil)
 	for i := 0; i < 3; i++ {
 		err := mm.IncrementConsecutiveErrors()
@@ -124,7 +124,7 @@ func (s *MeterStateSuite) TestMeterStatusWatcherRespondsToMetricsManagerAndStatu
 	c.Assert(err, jc.ErrorIsNil)
 	watcher := s.unit.WatchMeterStatus()
 	assertMeterStatusChanged(c, watcher)
-	err = mm.SetLastSuccessfulSend(time.Now())
+	err = mm.SetLastSuccessfulSend(testing.NonZeroTime())
 	c.Assert(err, jc.ErrorIsNil)
 	for i := 0; i < 3; i++ {
 		err := mm.IncrementConsecutiveErrors()
@@ -155,7 +155,7 @@ func assertMeterStatusNotChanged(c *gc.C, w state.NotifyWatcher) {
 }
 
 func assertMetricsManagerAmberState(c *gc.C, metricsManager *state.MetricsManager) {
-	err := metricsManager.SetLastSuccessfulSend(time.Now())
+	err := metricsManager.SetLastSuccessfulSend(testing.NonZeroTime())
 	c.Assert(err, jc.ErrorIsNil)
 	for i := 0; i < 3; i++ {
 		err := metricsManager.IncrementConsecutiveErrors()
@@ -168,7 +168,7 @@ func assertMetricsManagerAmberState(c *gc.C, metricsManager *state.MetricsManage
 // TODO (mattyw) This function could be moved into a metricsmanager testing package.
 func assertMetricsManagerRedState(c *gc.C, metricsManager *state.MetricsManager) {
 	// To enter the red state we need to set a last successful send as over 1 week ago
-	err := metricsManager.SetLastSuccessfulSend(time.Now().Add(-8 * 24 * time.Hour))
+	err := metricsManager.SetLastSuccessfulSend(testing.NonZeroTime().Add(-8 * 24 * time.Hour))
 	c.Assert(err, jc.ErrorIsNil)
 	for i := 0; i < 3; i++ {
 		err := metricsManager.IncrementConsecutiveErrors()

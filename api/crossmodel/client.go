@@ -5,12 +5,12 @@ package crossmodel
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/model/crossmodel"
+	"github.com/juju/juju/core/crossmodel"
 )
 
 // Client allows access to the cross model management API end points.
@@ -27,67 +27,67 @@ func NewClient(st base.APICallCloser) *Client {
 
 // Offer prepares service's endpoints for consumption.
 func (c *Client) Offer(service string, endpoints []string, url string, users []string, desc string) ([]params.ErrorResult, error) {
-	offers := []params.ServiceOfferParams{
-		params.ServiceOfferParams{
-			ServiceName:        service,
-			ServiceDescription: desc,
-			Endpoints:          endpoints,
-			ServiceURL:         url,
-			AllowedUserTags:    users,
+	offers := []params.ApplicationOfferParams{
+		{
+			ApplicationName:        service,
+			ApplicationDescription: desc,
+			Endpoints:              endpoints,
+			ApplicationURL:         url,
+			AllowedUserTags:        users,
 		},
 	}
 	out := params.ErrorResults{}
-	if err := c.facade.FacadeCall("Offer", params.ServiceOffersParams{Offers: offers}, &out); err != nil {
+	if err := c.facade.FacadeCall("Offer", params.ApplicationOffersParams{Offers: offers}, &out); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return out.Results, nil
 }
 
-// ServiceOffer returns offered remote service details for a given URL.
-func (c *Client) ServiceOffer(url string) (params.ServiceOffer, error) {
-	found := params.ServiceOffersResults{}
+// ApplicationOffer returns offered remote application details for a given URL.
+func (c *Client) ApplicationOffer(url string) (params.ApplicationOffer, error) {
+	found := params.ApplicationOffersResults{}
 
-	err := c.facade.FacadeCall("ServiceOffers", params.ServiceURLs{[]string{url}}, &found)
+	err := c.facade.FacadeCall("ApplicationOffers", params.ApplicationURLs{[]string{url}}, &found)
 	if err != nil {
-		return params.ServiceOffer{}, errors.Trace(err)
+		return params.ApplicationOffer{}, errors.Trace(err)
 	}
 
 	result := found.Results
 	if len(result) != 1 {
-		return params.ServiceOffer{}, errors.Errorf("expected to find one result for url %q but found %d", url, len(result))
+		return params.ApplicationOffer{}, errors.Errorf("expected to find one result for url %q but found %d", url, len(result))
 	}
 
 	theOne := result[0]
 	if theOne.Error != nil {
-		return params.ServiceOffer{}, errors.Trace(theOne.Error)
+		return params.ApplicationOffer{}, errors.Trace(theOne.Error)
 	}
 	return theOne.Result, nil
 }
 
-// FindServiceOffers returns all service offers matching the supplied filter.
-func (c *Client) FindServiceOffers(filters ...crossmodel.ServiceOfferFilter) ([]params.ServiceOffer, error) {
+// FindApplicationOffers returns all application offers matching the supplied filter.
+func (c *Client) FindApplicationOffers(filters ...crossmodel.ApplicationOfferFilter) ([]params.ApplicationOffer, error) {
 	// We need at least one filter. The default filter will list all local services.
 	if len(filters) == 0 {
 		return nil, errors.New("at least one filter must be specified")
 	}
 	var paramsFilter params.OfferFilterParams
 	for _, f := range filters {
-		urlParts, err := crossmodel.ParseServiceURLParts(f.ServiceURL)
+		urlParts, err := crossmodel.ParseApplicationURLParts(f.ApplicationURL)
 		if err != nil {
 			return nil, err
 		}
 		if urlParts.Directory == "" {
-			return nil, errors.Errorf("service offer filter needs a directory: %#v", f)
+			return nil, errors.Errorf("application offer filter needs a directory: %#v", f)
 		}
 		// TODO(wallyworld) - include allowed users
 		filterTerm := params.OfferFilter{
-			ServiceURL:         f.ServiceURL,
-			ServiceName:        f.ServiceName,
-			ServiceDescription: f.ServiceDescription,
-			SourceLabel:        f.SourceLabel,
+			ApplicationURL:         f.ApplicationURL,
+			ApplicationName:        f.ApplicationName,
+			ApplicationDescription: f.ApplicationDescription,
+			SourceLabel:            f.SourceLabel,
 		}
-		if f.SourceEnvUUID != "" {
-			filterTerm.SourceEnvUUIDTag = names.NewEnvironTag(f.SourceEnvUUID).String()
+		if f.SourceModelUUID != "" {
+			filterTerm.SourceModelUUIDTag = names.NewModelTag(f.SourceModelUUID).String()
 		}
 		filterTerm.Endpoints = make([]params.EndpointFilterAttributes, len(f.Endpoints))
 		for i, ep := range f.Endpoints {
@@ -101,8 +101,8 @@ func (c *Client) FindServiceOffers(filters ...crossmodel.ServiceOfferFilter) ([]
 		})
 	}
 
-	out := params.FindServiceOffersResults{}
-	err := c.facade.FacadeCall("FindServiceOffers", paramsFilter, &out)
+	out := params.FindApplicationOffersResults{}
+	err := c.facade.FacadeCall("FindApplicationOffers", paramsFilter, &out)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -121,13 +121,13 @@ func (c *Client) FindServiceOffers(filters ...crossmodel.ServiceOfferFilter) ([]
 	return theOne.Offers, nil
 }
 
-// ListOffers gets all remote services that have been offered from this Juju model.
+// ListOffers gets all remote applications that have been offered from this Juju model.
 // Each returned service satisfies at least one of the the specified filters.
-func (c *Client) ListOffers(filters ...crossmodel.OfferedServiceFilter) ([]crossmodel.OfferedServiceDetailsResult, error) {
+func (c *Client) ListOffers(filters ...crossmodel.OfferedApplicationFilter) ([]crossmodel.OfferedApplicationDetailsResult, error) {
 	// TODO (anastasiamac 2015-11-23) translate a set of filters from crossmodel domain to params
-	paramsFilters := params.OfferedServiceFilters{
-		Filters: []params.OfferedServiceFilter{
-			{FilterTerms: []params.OfferedServiceFilterTerm{}},
+	paramsFilters := params.OfferedApplicationFilters{
+		Filters: []params.OfferedApplicationFilter{
+			{FilterTerms: []params.OfferedApplicationFilterTerm{}},
 		},
 	}
 
@@ -153,16 +153,16 @@ func (c *Client) ListOffers(filters ...crossmodel.OfferedServiceFilter) ([]cross
 	return convertListResultsToModel(theOne.Result), nil
 }
 
-func convertListResultsToModel(items []params.OfferedServiceDetailsResult) []crossmodel.OfferedServiceDetailsResult {
-	result := make([]crossmodel.OfferedServiceDetailsResult, len(items))
+func convertListResultsToModel(items []params.OfferedApplicationDetailsResult) []crossmodel.OfferedApplicationDetailsResult {
+	result := make([]crossmodel.OfferedApplicationDetailsResult, len(items))
 	for i, one := range items {
 		if one.Error != nil {
 			result[i].Error = one.Error
 			continue
 		}
-		remoteService := one.Result
-		eps := make([]charm.Relation, len(remoteService.Endpoints))
-		for i, ep := range remoteService.Endpoints {
+		remoteApplication := one.Result
+		eps := make([]charm.Relation, len(remoteApplication.Endpoints))
+		for i, ep := range remoteApplication.Endpoints {
 			eps[i] = charm.Relation{
 				Name:      ep.Name,
 				Role:      ep.Role,
@@ -171,12 +171,12 @@ func convertListResultsToModel(items []params.OfferedServiceDetailsResult) []cro
 				Limit:     ep.Limit,
 			}
 		}
-		result[i].Result = &crossmodel.OfferedServiceDetails{
-			ServiceName:    remoteService.ServiceName,
-			ServiceURL:     remoteService.ServiceURL,
-			CharmName:      remoteService.CharmName,
-			ConnectedCount: remoteService.UsersCount,
-			Endpoints:      eps,
+		result[i].Result = &crossmodel.OfferedApplicationDetails{
+			ApplicationName: remoteApplication.ApplicationName,
+			ApplicationURL:  remoteApplication.ApplicationURL,
+			CharmName:       remoteApplication.CharmName,
+			ConnectedCount:  remoteApplication.UsersCount,
+			Endpoints:       eps,
 		}
 	}
 	return result

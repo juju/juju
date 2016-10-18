@@ -4,16 +4,16 @@
 package uniter_test
 
 import (
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/watcher/watchertest"
 )
 
 // commonRelationSuiteMixin contains fields used by both relationSuite
@@ -21,7 +21,7 @@ import (
 // into relationSuite to avoid running the former's tests twice.
 type commonRelationSuiteMixin struct {
 	mysqlMachine *state.Machine
-	mysqlService *state.Service
+	mysqlService *state.Application
 	mysqlCharm   *state.Charm
 	mysqlUnit    *state.Unit
 
@@ -272,8 +272,8 @@ func (s *relationUnitSuite) TestWatchRelationUnits(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	w, err := apiRelUnit.Watch()
-	defer statetesting.AssertStop(c, w)
-	wc := statetesting.NewRelationUnitsWatcherC(c, s.BackingState, w)
+	wc := watchertest.NewRelationUnitsWatcherC(c, w, s.BackingState.StartSync)
+	defer wc.AssertStops()
 
 	// Initial event.
 	wc.AssertChange([]string{"mysql/0"}, nil)
@@ -288,12 +288,4 @@ func (s *relationUnitSuite) TestWatchRelationUnits(c *gc.C) {
 	err = myRelUnit.LeaveScope()
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
-
-	// NOTE: This test is not as exhaustive as the one in state,
-	// because the watcher is already tested there. Here we just
-	// ensure we get the events when we expect them and don't get
-	// them when they're not expected.
-
-	statetesting.AssertStop(c, w)
-	wc.AssertClosed()
 }

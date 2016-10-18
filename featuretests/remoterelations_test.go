@@ -11,13 +11,14 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/api/remoterelations"
-	"github.com/juju/juju/apiserver"
-	"github.com/juju/juju/apiserver/params"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
+	"github.com/juju/juju/watcher"
+	"github.com/juju/juju/watcher/watchertest"
+	"github.com/juju/juju/worker"
 )
 
 // TODO(axw) this suite should be re-written as end-to-end tests using the
@@ -30,48 +31,55 @@ type remoteRelationsSuite struct {
 
 func (s *remoteRelationsSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-	conn, _ := s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
+	conn, _ := s.OpenAPIAsNewMachine(c, state.JobManageModel)
 	s.client = remoterelations.NewState(conn)
 }
 
-func (s *remoteRelationsSuite) TestWatchRemoteServices(c *gc.C) {
-	_, err := s.State.AddRemoteService("mysql", "local:/u/me/mysql", nil)
+func (s *remoteRelationsSuite) TestWatchRemoteApplications(c *gc.C) {
+	_, err := s.State.AddRemoteApplication("mysql", "local:/u/me/mysql", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	w, err := s.client.WatchRemoteServices()
+	w, err := s.client.WatchRemoteApplications()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(w, gc.NotNil)
-	defer statetesting.AssertStop(c, w)
+	defer func() {
+		c.Assert(worker.Stop(w), jc.ErrorIsNil)
+	}()
 
-	wc := statetesting.NewStringsWatcherC(c, s.BackingState, w)
+	wc := watchertest.NewStringsWatcherC(c, w, s.BackingState.StartSync)
+	defer wc.AssertStops()
+
 	wc.AssertChangeInSingleEvent("mysql")
 	wc.AssertNoChange()
 
-	_, err = s.State.AddRemoteService("db2", "local:/u/ibm/db2", nil)
+	_, err = s.State.AddRemoteApplication("db2", "local:/u/ibm/db2", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChangeInSingleEvent("db2")
 	wc.AssertNoChange()
 }
 
-func (s *remoteRelationsSuite) TestWatchRemoteService(c *gc.C) {
-	// Add a remote service, and watch it. It should initially have no
+func (s *remoteRelationsSuite) TestWatchRemoteApplication(c *gc.C) {
+	// Add a remote application, and watch it. It should initially have no
 	// relations.
-	_, err := s.State.AddRemoteService("mysql", "local:/u/me/mysql", []charm.Relation{{
+	_, err := s.State.AddRemoteApplication("mysql", "local:/u/me/mysql", []charm.Relation{{
 		Interface: "mysql",
 		Name:      "db",
 		Role:      charm.RoleProvider,
 		Scope:     charm.ScopeGlobal,
 	}})
 	c.Assert(err, jc.ErrorIsNil)
-	w, err := s.client.WatchRemoteService("mysql")
+	w, err := s.client.WatchRemoteApplication("mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(w, gc.NotNil)
-	defer statetesting.AssertStop(c, w)
-	assertServiceRelationsChange(c, s.BackingState, w, params.ServiceRelationsChange{})
-	assertNoServiceRelationsChange(c, s.BackingState, w)
+	defer func() {
+		c.Assert(worker.Stop(w), jc.ErrorIsNil)
+	}()
+
+	assertApplicationRelationsChange(c, s.BackingState, w, watcher.ApplicationRelationsChange{})
+	assertNoApplicationRelationsChange(c, s.BackingState, w)
 
 	// Add the relation, and expect a watcher change.
-	wordpress := s.Factory.MakeService(c, &factory.ServiceParams{
+	wordpress := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{
 			Name: "wordpress",
 		}),
@@ -81,14 +89,15 @@ func (s *remoteRelationsSuite) TestWatchRemoteService(c *gc.C) {
 	rel, err := s.State.AddRelation(eps[0], eps[1])
 	c.Assert(err, jc.ErrorIsNil)
 
-	expect := params.ServiceRelationsChange{
-		ChangedRelations: []params.RelationChange{{
-			RelationId: rel.Id(),
-			Life:       params.Alive,
+	expect := watcher.ApplicationRelationsChange{
+		ChangedRelations: []watcher.RelationChange{{
+			RelationId:   rel.Id(),
+			Life:         "alive",
+			ChangedUnits: map[string]watcher.RelationUnitChange{},
 		}},
 	}
-	assertServiceRelationsChange(c, s.BackingState, w, expect)
-	assertNoServiceRelationsChange(c, s.BackingState, w)
+	assertApplicationRelationsChange(c, s.BackingState, w, expect)
+	assertNoApplicationRelationsChange(c, s.BackingState, w)
 
 	// Add a unit of wordpress, expect a change.
 	settings := map[string]interface{}{"key": "value"}
@@ -98,16 +107,16 @@ func (s *remoteRelationsSuite) TestWatchRemoteService(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = ru.EnterScope(settings)
 	c.Assert(err, jc.ErrorIsNil)
-	expect.ChangedRelations[rel.Id()] = params.RelationChange{
-		Life: params.Alive,
-		ChangedUnits: map[string]params.RelationUnitChange{
-			wordpress0.Name(): params.RelationUnitChange{
+	expect.ChangedRelations[rel.Id()] = watcher.RelationChange{
+		Life: "alive",
+		ChangedUnits: map[string]watcher.RelationUnitChange{
+			wordpress0.Name(): {
 				Settings: settings,
 			},
 		},
 	}
-	assertServiceRelationsChange(c, s.BackingState, w, expect)
-	assertNoServiceRelationsChange(c, s.BackingState, w)
+	assertApplicationRelationsChange(c, s.BackingState, w, expect)
+	assertNoApplicationRelationsChange(c, s.BackingState, w)
 
 	// Change the settings, expect a change.
 	ruSettings, err := ru.Settings()
@@ -116,31 +125,33 @@ func (s *remoteRelationsSuite) TestWatchRemoteService(c *gc.C) {
 	ruSettings.Update(settings)
 	_, err = ruSettings.Write()
 	c.Assert(err, jc.ErrorIsNil)
-	expect.ChangedRelations[rel.Id()].ChangedUnits[wordpress0.Name()] = params.RelationUnitChange{
+	// Numeric settings values are unmarshalled as float64.
+	settings["quay"] = float64(123)
+	expect.ChangedRelations[rel.Id()].ChangedUnits[wordpress0.Name()] = watcher.RelationUnitChange{
 		Settings: settings,
 	}
-	assertServiceRelationsChange(c, s.BackingState, w, expect)
-	assertNoServiceRelationsChange(c, s.BackingState, w)
+	assertApplicationRelationsChange(c, s.BackingState, w, expect)
+	assertNoApplicationRelationsChange(c, s.BackingState, w)
 }
 
-func assertServiceRelationsChange(
-	c *gc.C, ss statetesting.SyncStarter, w apiserver.ServiceRelationsWatcher, change params.ServiceRelationsChange,
+func assertApplicationRelationsChange(
+	c *gc.C, ss statetesting.SyncStarter, w watcher.ApplicationRelationsWatcher, expect watcher.ApplicationRelationsChange,
 ) {
 	ss.StartSync()
 	select {
 	case change, ok := <-w.Changes():
 		c.Assert(ok, jc.IsTrue)
-		c.Assert(change, jc.DeepEquals, change)
+		c.Assert(change, jc.DeepEquals, expect)
 	case <-time.After(testing.LongWait):
-		c.Errorf("timed out waiting for service relations change")
+		c.Errorf("timed out waiting for application relations change")
 	}
 }
 
-func assertNoServiceRelationsChange(c *gc.C, ss statetesting.SyncStarter, w apiserver.ServiceRelationsWatcher) {
+func assertNoApplicationRelationsChange(c *gc.C, ss statetesting.SyncStarter, w watcher.ApplicationRelationsWatcher) {
 	ss.StartSync()
 	select {
 	case change, ok := <-w.Changes():
-		c.Errorf("unexpected change from service relations watcher: %v, %v", change, ok)
+		c.Errorf("unexpected change from application relations watcher: %v, %v", change, ok)
 	case <-time.After(testing.ShortWait):
 	}
 }

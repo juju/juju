@@ -8,14 +8,15 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/names"
-	"launchpad.net/gnuflag"
+	"github.com/juju/gnuflag"
+	"gopkg.in/juju/names.v2"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
-func newRenameCommand() cmd.Command {
-	return envcmd.Wrap(&renameCommand{})
+// NewRenameCommand returns a command used to rename an existing space.
+func NewRenameCommand() cmd.Command {
+	return modelcmd.Wrap(&renameCommand{})
 }
 
 // renameCommand calls the API to rename an existing network space.
@@ -38,9 +39,9 @@ func (c *renameCommand) SetFlags(f *gnuflag.FlagSet) {
 // Info is defined on the cmd.Command interface.
 func (c *renameCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "rename",
+		Name:    "rename-space",
 		Args:    "<old-name> <new-name>",
-		Purpose: "rename a network space",
+		Purpose: "Rename a network space",
 		Doc:     strings.TrimSpace(renameCommandDoc),
 	}
 }

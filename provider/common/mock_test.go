@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
+	jujustorage "github.com/juju/juju/storage"
 	"github.com/juju/juju/tools"
 )
 
@@ -33,11 +34,8 @@ type mockEnviron struct {
 	getToolsSources  getToolsSourcesFunc
 	config           configFunc
 	setConfig        setConfigFunc
+	storageProviders jujustorage.StaticProviderRegistry
 	environs.Environ // stub out other methods with panics
-}
-
-func (*mockEnviron) SupportedArchitectures() ([]string, error) {
-	return []string{"amd64", "arm64"}, nil
 }
 
 func (env *mockEnviron) Storage() storage.Storage {
@@ -47,11 +45,16 @@ func (env *mockEnviron) Storage() storage.Storage {
 func (env *mockEnviron) AllInstances() ([]instance.Instance, error) {
 	return env.allInstances()
 }
+
+func (env *mockEnviron) BootstrapMessage() string {
+	return "Some message"
+}
+
 func (env *mockEnviron) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 	inst, hw, networkInfo, err := env.startInstance(
 		args.Placement,
 		args.Constraints,
-		args.InstanceConfig.Networks,
+		nil,
 		args.Tools,
 		args.InstanceConfig,
 	)
@@ -84,8 +87,16 @@ func (env *mockEnviron) GetToolsSources() ([]simplestreams.DataSource, error) {
 	if env.getToolsSources != nil {
 		return env.getToolsSources()
 	}
-	datasource := storage.NewStorageSimpleStreamsDataSource("test cloud storage", env.Storage(), storage.BaseToolsPath)
+	datasource := storage.NewStorageSimpleStreamsDataSource("test cloud storage", env.Storage(), storage.BaseToolsPath, simplestreams.SPECIFIC_CLOUD_DATA, false)
 	return []simplestreams.DataSource{datasource}, nil
+}
+
+func (env *mockEnviron) StorageProviderTypes() ([]jujustorage.ProviderType, error) {
+	return env.storageProviders.StorageProviderTypes()
+}
+
+func (env *mockEnviron) StorageProvider(t jujustorage.ProviderType) (jujustorage.Provider, error) {
+	return env.storageProviders.StorageProvider(t)
 }
 
 type availabilityZonesFunc func() ([]common.AvailabilityZone, error)

@@ -6,75 +6,75 @@ package crossmodel
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/model/crossmodel"
+	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/state"
 )
 
-// ServiceOffersAPIFactory instances create ServiceDirectory instance.
-type ServiceOffersAPIFactory interface {
-	common.Resource
+// ApplicationOffersAPIFactory instances create ApplicationDirectory instance.
+type ApplicationOffersAPIFactory interface {
+	facade.Resource
 
-	// ServiceOffers returns a service directory used to look up services
+	// ApplicationOffers returns a application directory used to look up services
 	// based on the specified directory name.
-	ServiceOffers(directory string) (ServiceOffersAPI, error)
+	ApplicationOffers(directory string) (ApplicationOffersAPI, error)
 }
 
-type createServiceDirectoryFunc func() crossmodel.ServiceDirectory
+type createApplicationDirectoryFunc func() crossmodel.ApplicationDirectory
 
 type closer interface {
 	Close() error
 }
 
-type serviceOffersAPIFactory struct {
-	createLocalServiceDirectory createServiceDirectoryFunc
-	closer                      closer
+type applicationOffersAPIFactory struct {
+	createLocalApplicationDirectory createApplicationDirectoryFunc
+	closer                          closer
 }
 
-// newServiceAPIFactory creates a ServiceOffersAPIFactory instance which
+// newServiceAPIFactory creates a ApplicationOffersAPIFactory instance which
 // is used to provide access to services for specified directories eg "local" or "vendor".
-func newServiceAPIFactory(createFunc createServiceDirectoryFunc, closer closer) (ServiceOffersAPIFactory, error) {
-	return &serviceOffersAPIFactory{createFunc, closer}, nil
+func newServiceAPIFactory(createFunc createApplicationDirectoryFunc, closer closer) (ApplicationOffersAPIFactory, error) {
+	return &applicationOffersAPIFactory{createFunc, closer}, nil
 }
 
-// ServiceOffers returns a service directory used to look up services
+// ApplicationOffers returns a application directory used to look up services
 // based on the specified directory name.
-func (s *serviceOffersAPIFactory) ServiceOffers(directory string) (ServiceOffersAPI, error) {
+func (s *applicationOffersAPIFactory) ApplicationOffers(directory string) (ApplicationOffersAPI, error) {
 	switch directory {
 	case "local":
-		return &localServiceOffers{s.createLocalServiceDirectory()}, nil
+		return &localApplicationOffers{s.createLocalApplicationDirectory()}, nil
 	}
-	return nil, errors.NotSupportedf("service directory for %q", directory)
+	return nil, errors.NotSupportedf("application directory for %q", directory)
 }
 
 // Stop is required by the Resource interface.
-func (s *serviceOffersAPIFactory) Stop() error {
+func (s *applicationOffersAPIFactory) Stop() error {
 	if s.closer != nil {
 		return s.closer.Close()
 	}
 	return nil
 }
 
-// ServiceOffersAPIFactoryResource is a function which returns the service offer api factory
+// ApplicationOffersAPIFactoryResource is a function which returns the application offer api factory
 // which can be used as an facade resource.
-func ServiceOffersAPIFactoryResource(st *state.State) (common.Resource, error) {
-	ssState := st
-	env, err := st.StateServerEnvironment()
+func ApplicationOffersAPIFactoryResource(st *state.State) (facade.Resource, error) {
+	controllerModelStata := st
+	controllerModel, err := st.ControllerModel()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	var closer closer
-	if st.EnvironTag() != env.EnvironTag() {
+	if st.ModelTag() != controllerModel.ModelTag() {
 		// We are not using the state server environment, so get one.
-		logger.Debugf("getting a state server state connection, current env: %s", st.EnvironTag())
-		ssState, err = st.ForEnviron(env.EnvironTag())
+		logger.Debugf("getting a controller connection, current model: %s", st.ModelTag())
+		controllerModelStata, err = st.ForModel(controllerModel.ModelTag())
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		closer = ssState
+		closer = controllerModelStata
 	}
 	return newServiceAPIFactory(
-		func() crossmodel.ServiceDirectory {
-			return state.NewServiceDirectory(ssState)
+		func() crossmodel.ApplicationDirectory {
+			return state.NewApplicationDirectory(controllerModelStata)
 		}, closer)
 }

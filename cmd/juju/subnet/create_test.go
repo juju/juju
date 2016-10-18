@@ -5,9 +5,9 @@ package subnet_test
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/cmd/juju/subnet"
 	"github.com/juju/juju/feature"
@@ -21,9 +21,9 @@ type CreateSuite struct {
 var _ = gc.Suite(&CreateSuite{})
 
 func (s *CreateSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetFeatureFlags(feature.PostNetCLIMVP)
+	s.BaseSubnetSuite.SetFeatureFlags(feature.PostNetCLIMVP)
 	s.BaseSubnetSuite.SetUpTest(c)
-	s.command, _ = subnet.NewCreateCommand(s.api)
+	s.command, _ = subnet.NewCreateCommandForTest(s.api)
 	c.Assert(s.command, gc.NotNil)
 }
 
@@ -124,8 +124,8 @@ func (s *CreateSuite) TestInit(c *gc.C) {
 		c.Logf("test #%d: %s", i, test.about)
 		// Create a new instance of the subcommand for each test, but
 		// since we're not running the command no need to use
-		// envcmd.Wrap().
-		wrappedCommand, command := subnet.NewCreateCommand(s.api)
+		// modelcmd.Wrap().
+		wrappedCommand, command := subnet.NewCreateCommandForTest(s.api)
 		err := coretesting.InitCommand(wrappedCommand, test.args)
 		if test.expectErr != "" {
 			c.Check(err, gc.ErrorMatches, test.expectErr)

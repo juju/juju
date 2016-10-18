@@ -7,10 +7,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/configstore"
 	envtesting "github.com/juju/juju/environs/testing"
+	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/testing"
 )
@@ -23,23 +23,7 @@ type ConfigSuite struct {
 
 func (s *ConfigSuite) TearDownTest(c *gc.C) {
 	s.BaseSuite.TearDownTest(c)
-	dummy.Reset()
-}
-
-func (*ConfigSuite) TestSecretAttrs(c *gc.C) {
-	attrs := dummy.SampleConfig().Delete("secret")
-	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, jc.ErrorIsNil)
-	ctx := envtesting.BootstrapContext(c)
-	env, err := environs.Prepare(cfg, ctx, configstore.NewMem())
-	c.Assert(err, jc.ErrorIsNil)
-	defer env.Destroy()
-	expected := map[string]string{
-		"secret": "pork",
-	}
-	actual, err := env.Provider().SecretAttrs(cfg)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(actual, gc.DeepEquals, expected)
+	dummy.Reset(c)
 }
 
 var firewallModeTests = []struct {
@@ -65,7 +49,7 @@ var firewallModeTests = []struct {
 	}, {
 		// Invalid mode.
 		configFirewallMode: "invalid",
-		errorMsg:           `firewall-mode: expected one of \[instance global none ], got "invalid"`,
+		errorMsg:           `firewall-mode: expected one of \[instance global none], got "invalid"`,
 	},
 }
 
@@ -84,7 +68,16 @@ func (s *ConfigSuite) TestFirewallMode(c *gc.C) {
 			continue
 		}
 		ctx := envtesting.BootstrapContext(c)
-		env, err := environs.Prepare(cfg, ctx, configstore.NewMem())
+		env, err := bootstrap.Prepare(
+			ctx, jujuclienttesting.NewMemStore(),
+			bootstrap.PrepareParams{
+				ControllerConfig: testing.FakeControllerConfig(),
+				ControllerName:   cfg.Name(),
+				ModelConfig:      cfg.AllAttrs(),
+				Cloud:            dummy.SampleCloudSpec(),
+				AdminSecret:      AdminSecret,
+			},
+		)
 		if test.errorMsg != "" {
 			c.Assert(err, gc.ErrorMatches, test.errorMsg)
 			continue

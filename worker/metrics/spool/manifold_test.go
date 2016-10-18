@@ -20,10 +20,9 @@ import (
 
 type ManifoldSuite struct {
 	testing.IsolationSuite
-	factory     *stubFactory
-	manifold    dependency.Manifold
-	getResource dependency.GetResourceFunc
-	spoolDir    string
+	factory  *stubFactory
+	manifold dependency.Manifold
+	spoolDir string
 }
 
 var _ = gc.Suite(&ManifoldSuite{})
@@ -36,9 +35,6 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		AgentName: "agent-name",
 	})
 	s.spoolDir = c.MkDir()
-	s.getResource = dt.StubGetResource(dt.StubResources{
-		"agent-name": dt.StubResource{Output: &dummyAgent{spoolDir: s.spoolDir}},
-	})
 }
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
@@ -46,10 +42,10 @@ func (s *ManifoldSuite) TestInputs(c *gc.C) {
 }
 
 func (s *ManifoldSuite) TestStartMissingAgent(c *gc.C) {
-	getResource := dt.StubGetResource(dt.StubResources{
-		"agent-name": dt.StubResource{Error: dependency.ErrMissing},
+	context := dt.StubContext(nil, map[string]interface{}{
+		"agent-name": dependency.ErrMissing,
 	})
-	worker, err := s.manifold.Start(getResource)
+	worker, err := s.manifold.Start(context)
 	c.Check(worker, gc.IsNil)
 	c.Check(err, gc.Equals, dependency.ErrMissing)
 }
@@ -67,7 +63,10 @@ func (s *ManifoldSuite) TestOutputSuccess(c *gc.C) {
 }
 
 func (s *ManifoldSuite) setupWorkerTest(c *gc.C) worker.Worker {
-	worker, err := s.manifold.Start(s.getResource)
+	context := dt.StubContext(nil, map[string]interface{}{
+		"agent-name": &dummyAgent{spoolDir: s.spoolDir},
+	})
+	worker, err := s.manifold.Start(context)
 	c.Check(err, jc.ErrorIsNil)
 	s.AddCleanup(func(c *gc.C) {
 		worker.Kill()
@@ -88,10 +87,10 @@ func (s *ManifoldSuite) TestOutputBadTarget(c *gc.C) {
 func (s *ManifoldSuite) TestCannotCreateSpoolDir(c *gc.C) {
 	c.Assert(ioutil.WriteFile(filepath.Join(s.spoolDir, "x"), nil, 0666), jc.ErrorIsNil)
 	spoolDir := filepath.Join(s.spoolDir, "x", "y")
-	getResource := dt.StubGetResource(dt.StubResources{
-		"agent-name": dt.StubResource{Output: &dummyAgent{spoolDir: spoolDir}},
+	context := dt.StubContext(nil, map[string]interface{}{
+		"agent-name": &dummyAgent{spoolDir: spoolDir},
 	})
-	w, err := s.manifold.Start(getResource)
+	w, err := s.manifold.Start(context)
 	c.Check(err, gc.ErrorMatches, ".*error checking spool directory.*")
 
 	var factory spool.MetricFactory

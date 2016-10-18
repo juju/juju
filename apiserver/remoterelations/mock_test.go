@@ -4,29 +4,29 @@
 package remoterelations_test
 
 import (
-	"launchpad.net/tomb"
+	"gopkg.in/tomb.v1"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/remoterelations"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/testing"
 )
 
 type mockState struct {
 	testing.Stub
-	relations                map[string]*mockRelation
-	remoteServices           map[string]*mockRemoteService
-	remoteServicesWatcher    *mockStringsWatcher
-	serviceRelationsWatchers map[string]*mockStringsWatcher
+	relations                    map[string]*mockRelation
+	remoteApplications           map[string]*mockRemoteApplication
+	remoteApplicationsWatcher    *mockStringsWatcher
+	applicationRelationsWatchers map[string]*mockStringsWatcher
 }
 
 func newMockState() *mockState {
 	return &mockState{
-		relations:                make(map[string]*mockRelation),
-		remoteServices:           make(map[string]*mockRemoteService),
-		remoteServicesWatcher:    newMockStringsWatcher(),
-		serviceRelationsWatchers: make(map[string]*mockStringsWatcher),
+		relations:                    make(map[string]*mockRelation),
+		remoteApplications:           make(map[string]*mockRemoteApplication),
+		remoteApplicationsWatcher:    newMockStringsWatcher(),
+		applicationRelationsWatchers: make(map[string]*mockStringsWatcher),
 	}
 }
 
@@ -55,31 +55,31 @@ func (st *mockState) Relation(id int) (remoterelations.Relation, error) {
 	return nil, errors.NotFoundf("relation %d", id)
 }
 
-func (st *mockState) RemoteService(id string) (remoterelations.RemoteService, error) {
-	st.MethodCall(st, "RemoteService", id)
+func (st *mockState) RemoteApplication(id string) (remoterelations.RemoteApplication, error) {
+	st.MethodCall(st, "RemoteApplication", id)
 	if err := st.NextErr(); err != nil {
 		return nil, err
 	}
-	s, ok := st.remoteServices[id]
+	s, ok := st.remoteApplications[id]
 	if !ok {
-		return nil, errors.NotFoundf("remote service %q", id)
+		return nil, errors.NotFoundf("remote application %q", id)
 	}
 	return s, nil
 }
 
-func (st *mockState) WatchRemoteServices() state.StringsWatcher {
-	st.MethodCall(st, "WatchRemoteServices")
-	return st.remoteServicesWatcher
+func (st *mockState) WatchRemoteApplications() state.StringsWatcher {
+	st.MethodCall(st, "WatchRemoteApplications")
+	return st.remoteApplicationsWatcher
 }
 
-func (st *mockState) WatchRemoteServiceRelations(serviceName string) (state.StringsWatcher, error) {
-	st.MethodCall(st, "WatchRemoteServiceRelations", serviceName)
+func (st *mockState) WatchRemoteApplicationRelations(applicationName string) (state.StringsWatcher, error) {
+	st.MethodCall(st, "WatchRemoteApplicationRelations", applicationName)
 	if err := st.NextErr(); err != nil {
 		return nil, err
 	}
-	w, ok := st.serviceRelationsWatchers[serviceName]
+	w, ok := st.applicationRelationsWatchers[applicationName]
 	if !ok {
-		return nil, errors.NotFoundf("service %q", serviceName)
+		return nil, errors.NotFoundf("application %q", applicationName)
 	}
 	return w, nil
 }
@@ -140,41 +140,41 @@ func (r *mockRelation) Unit(unitId string) (remoterelations.RelationUnit, error)
 	return u, nil
 }
 
-func (r *mockRelation) WatchCounterpartEndpointUnits(serviceName string) (state.RelationUnitsWatcher, error) {
-	r.MethodCall(r, "WatchCounterpartEndpointUnits", serviceName)
+func (r *mockRelation) WatchCounterpartEndpointUnits(applicationName string) (state.RelationUnitsWatcher, error) {
+	r.MethodCall(r, "WatchCounterpartEndpointUnits", applicationName)
 	if err := r.NextErr(); err != nil {
 		return nil, err
 	}
-	w, ok := r.endpointUnitsWatchers[serviceName]
+	w, ok := r.endpointUnitsWatchers[applicationName]
 	if !ok {
-		return nil, errors.NotFoundf("service %q", serviceName)
+		return nil, errors.NotFoundf("application %q", applicationName)
 	}
 	return w, nil
 }
 
-type mockRemoteService struct {
+type mockRemoteApplication struct {
 	testing.Stub
 	name string
 	url  string
 }
 
-func newMockRemoteService(name, url string) *mockRemoteService {
-	return &mockRemoteService{
+func newMockRemoteApplication(name, url string) *mockRemoteApplication {
+	return &mockRemoteApplication{
 		name: name, url: url,
 	}
 }
 
-func (r *mockRemoteService) Name() string {
+func (r *mockRemoteApplication) Name() string {
 	r.MethodCall(r, "Name")
 	return r.name
 }
 
-func (r *mockRemoteService) URL() string {
+func (r *mockRemoteApplication) URL() string {
 	r.MethodCall(r, "URL")
 	return r.url
 }
 
-func (r *mockRemoteService) Destroy() error {
+func (r *mockRemoteApplication) Destroy() error {
 	r.MethodCall(r, "Destroy")
 	return r.NextErr()
 }
@@ -221,18 +221,18 @@ func (w *mockStringsWatcher) Changes() <-chan []string {
 
 type mockRelationUnitsWatcher struct {
 	mockWatcher
-	changes chan multiwatcher.RelationUnitsChange
+	changes chan params.RelationUnitsChange
 }
 
 func newMockRelationUnitsWatcher() *mockRelationUnitsWatcher {
 	w := &mockRelationUnitsWatcher{
-		changes: make(chan multiwatcher.RelationUnitsChange, 1),
+		changes: make(chan params.RelationUnitsChange, 1),
 	}
 	go w.doneWhenDying()
 	return w
 }
 
-func (w *mockRelationUnitsWatcher) Changes() <-chan multiwatcher.RelationUnitsChange {
+func (w *mockRelationUnitsWatcher) Changes() <-chan params.RelationUnitsChange {
 	w.MethodCall(w, "Changes")
 	return w.changes
 }

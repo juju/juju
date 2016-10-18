@@ -7,7 +7,7 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 )
 
-// OfferFilterParams contains filters used to query service offers
+// OfferFilterParams contains filters used to query application offers
 // from one or more directories.
 type OfferFilterParams struct {
 	Filters []OfferFilters `json:"filters"`
@@ -21,54 +21,54 @@ type EndpointFilterAttributes struct {
 	Name      string             `json:"name"`
 }
 
-// OfferFilters is used to query offers in a service directory.
+// OfferFilters is used to query offers in an application directory.
 // Offers matching any of the filters are returned.
 type OfferFilters struct {
 	Directory string
 	Filters   []OfferFilter
 }
 
-// OfferFilter is used to query offers in a service directory.
+// OfferFilter is used to query offers in a application directory.
 type OfferFilter struct {
-	ServiceURL         string                     `json:"serviceurl"`
-	SourceLabel        string                     `json:"sourcelabel"`
-	SourceEnvUUIDTag   string                     `json:"sourceuuid"`
-	ServiceName        string                     `json:"servicename"`
-	ServiceDescription string                     `json:"servicedescription"`
-	ServiceUser        string                     `json:"serviceuser"`
-	Endpoints          []EndpointFilterAttributes `json:"endpoints"`
-	AllowedUserTags    []string                   `json:"allowedusers"`
+	ApplicationURL         string                     `json:"application-url"`
+	SourceLabel            string                     `json:"source-label"`
+	SourceModelUUIDTag     string                     `json:"source-uuid"`
+	ApplicationName        string                     `json:"application-name"`
+	ApplicationDescription string                     `json:"application-description"`
+	ApplicationUser        string                     `json:"application-user"`
+	Endpoints              []EndpointFilterAttributes `json:"endpoints"`
+	AllowedUserTags        []string                   `json:"allowed-users"`
 }
 
-// ServiceOffer represents a service offering from an external environment.
-type ServiceOffer struct {
-	ServiceURL         string           `json:"serviceurl"`
-	SourceEnvironTag   string           `json:"sourceenviron"`
-	SourceLabel        string           `json:"sourcelabel"`
-	ServiceName        string           `json:"servicename"`
-	ServiceDescription string           `json:"servicedescription"`
-	Endpoints          []RemoteEndpoint `json:"endpoints"`
+// ApplicationOffer represents an application offering from an external model.
+type ApplicationOffer struct {
+	ApplicationURL         string           `json:"application-url"`
+	SourceModelTag         string           `json:"source-model-tag"`
+	SourceLabel            string           `json:"source-label"`
+	ApplicationName        string           `json:"application-name"`
+	ApplicationDescription string           `json:"application-description"`
+	Endpoints              []RemoteEndpoint `json:"endpoints"`
 }
 
-// AddServiceOffers is used when adding offers to a service directory.
-type AddServiceOffers struct {
-	Offers []AddServiceOffer
+// AddApplicationOffers is used when adding offers to a application directory.
+type AddApplicationOffers struct {
+	Offers []AddApplicationOffer
 }
 
-// AddServiceOffer represents a service offering from an external environment.
-type AddServiceOffer struct {
-	ServiceOffer
+// AddApplicationOffer represents a application offering from an external environment.
+type AddApplicationOffer struct {
+	ApplicationOffer
 	// UserTags are those who can consume the offer.
 	UserTags []string `json:"users"`
 }
 
-// ServiceOfferResults is a result of listing service offers.
-type ServiceOfferResults struct {
-	Offers []ServiceOffer
+// ApplicationOfferResults is a result of listing application offers.
+type ApplicationOfferResults struct {
+	Offers []ApplicationOffer
 	Error  *Error
 }
 
-// RemoteEndpoint represents a remote service endpoint.
+// RemoteEndpoint represents a remote application endpoint.
 type RemoteEndpoint struct {
 	Name      string              `json:"name"`
 	Role      charm.RelationRole  `json:"role"`
@@ -77,146 +77,146 @@ type RemoteEndpoint struct {
 	Scope     charm.RelationScope `json:"scope"`
 }
 
-// ServiceOfferParams is used to offer remote service.
-type ServiceOfferParams struct {
-	// ServiceURL may contain user supplied service url.
-	ServiceURL string `json:"serviceurl,omitempty"`
+// ApplicationOfferParams is used to offer remote applications.
+type ApplicationOfferParams struct {
+	// ApplicationURL may contain user supplied application url.
+	ApplicationURL string `json:"application-url,omitempty"`
 
-	// ServiceName contains name of service being offered.
-	ServiceName string `json:"servicename"`
+	// ApplicationName contains name of application being offered.
+	ApplicationName string `json:"application-name"`
 
-	// Description is description for the offered service.
+	// ApplicationDescription is description for the offered application.
 	// For now, this defaults to description provided in the charm or
 	// is supplied by the user.
-	ServiceDescription string `json:"servicedescription"`
+	ApplicationDescription string `json:"application-description"`
 
-	// Endpoints contains offered service endpoints.
+	// Endpoints contains offered application endpoints.
 	Endpoints []string `json:"endpoints"`
 
-	// AllowedUserTags contains tags of users that are allowed to use this offered service.
-	AllowedUserTags []string `json:"allowedusers"`
+	// AllowedUserTags contains tags of users that are allowed to use this offered application.
+	AllowedUserTags []string `json:"allowed-users"`
 }
 
-// ServiceOffersParams contains a collection of offers to allow adding offers in bulk.
-type ServiceOffersParams struct {
-	Offers []ServiceOfferParams `json:"offers"`
+// ApplicationOffersParams contains a collection of offers to allow adding offers in bulk.
+type ApplicationOffersParams struct {
+	Offers []ApplicationOfferParams `json:"offers"`
 }
 
-// FindServiceOffersResults is a result of finding remote service offers.
-type FindServiceOffersResults struct {
-	// Results contains service offers matching each filter.
-	Results []ServiceOfferResults `json:"results"`
+// FindApplicationOffersResults is a result of finding remote application offers.
+type FindApplicationOffersResults struct {
+	// Results contains application offers matching each filter.
+	Results []ApplicationOfferResults `json:"results"`
 }
 
-// ServiceOfferResult is a result of listing a remote service offer.
-type ServiceOfferResult struct {
-	// Result contains service offer information.
-	Result ServiceOffer `json:"result"`
+// ApplicationOfferResult is a result of listing a remote application offer.
+type ApplicationOfferResult struct {
+	// Result contains application offer information.
+	Result ApplicationOffer `json:"result"`
 
 	// Error contains related error.
 	Error *Error `json:"error,omitempty"`
 }
 
-// ServiceOffersResults is a result of listing remote service offers.
-type ServiceOffersResults struct {
-	// Result contains collection of remote service results.
-	Results []ServiceOfferResult `json:"results,omitempty"`
+// ApplicationOffersResults is a result of listing remote application offers.
+type ApplicationOffersResults struct {
+	// Result contains collection of remote application results.
+	Results []ApplicationOfferResult `json:"results,omitempty"`
 }
 
-// ServiceURLs is a filter used to select remote services via show call.
-type ServiceURLs struct {
-	// URLs contains collection of urls for services that are to be shown.
-	ServiceUrls []string `json:"serviceurls,omitempty"`
+// ApplicationURLs is a filter used to select remote applications via show call.
+type ApplicationURLs struct {
+	// ApplicationURLs contains collection of urls for applications that are to be shown.
+	ApplicationURLs []string `json:"application-urls,omitempty"`
 }
 
-// OfferedService represents attributes for an offered service.
-type OfferedService struct {
-	ServiceURL  string            `json:"serviceurl"`
-	ServiceName string            `json:"servicename"`
-	CharmName   string            `json:"charmname"`
-	Description string            `json:"description"`
-	Registered  bool              `json:"registered"`
-	Endpoints   map[string]string `json:"endpoints"`
+// OfferedApplication represents attributes for an offered application.
+type OfferedApplication struct {
+	ApplicationURL  string            `json:"application-url"`
+	ApplicationName string            `json:"application-name"`
+	CharmName       string            `json:"charm-name"`
+	Description     string            `json:"description"`
+	Registered      bool              `json:"registered"`
+	Endpoints       map[string]string `json:"endpoints"`
 }
 
-// OfferedServiceResult holds the result of loading an
-// offerred service at a URL.
-type OfferedServiceResult struct {
-	Result OfferedService `json:"result"`
-	Error  *Error         `json:"error,omitempty"`
+// OfferedApplicationResult holds the result of loading an
+// offered application at a URL.
+type OfferedApplicationResult struct {
+	Result OfferedApplication `json:"result"`
+	Error  *Error             `json:"error,omitempty"`
 }
 
-// OfferedServiceResults represents the result of a ListOfferedServices call.
-type OfferedServiceResults struct {
-	Results []OfferedServiceResult
+// OfferedApplicationResults represents the result of a ListOfferedApplications call.
+type OfferedApplicationResults struct {
+	Results []OfferedApplicationResult
 }
 
-// OfferedServiceDetails is a service found during a request to list remote services.
-type OfferedServiceDetails struct {
-	// ServiceURL may contain user supplied service url.
-	ServiceURL string `json:"serviceurl,omitempty"`
+// OfferedApplicationDetails is an application found during a request to list remote applications.
+type OfferedApplicationDetails struct {
+	// ApplicationURL may contain user supplied application URL.
+	ApplicationURL string `json:"application-url,omitempty"`
 
-	// ServiceName contains name of service being offered.
-	ServiceName string `json:"servicename"`
+	// ApplicationName contains name of application being offered.
+	ApplicationName string `json:"application-name"`
 
 	// CharmName is the charm name of this service.
-	CharmName string `json:"charmname"`
+	CharmName string `json:"charm-name"`
 
-	// UsersCount is the count of how many users are connected to this shared service.
-	UsersCount int `json:"userscount,omitempty"`
+	// UsersCount is the count of how many users are connected to this shared application.
+	UsersCount int `json:"users-count,omitempty"`
 
-	// Endpoints is a list of charm relations that this remote service offered.
+	// Endpoints is a list of charm relations that this remote application offered.
 	Endpoints []RemoteEndpoint `json:"endpoints"`
 }
 
-// OfferedServiceDetailsResult is a result of listing a remote service.
-type OfferedServiceDetailsResult struct {
-	// Result contains remote service information.
-	Result *OfferedServiceDetails `json:"result,omitempty"`
+// OfferedApplicationDetailsResult is a result of listing a remote application.
+type OfferedApplicationDetailsResult struct {
+	// Result contains remote application information.
+	Result *OfferedApplicationDetails `json:"result,omitempty"`
 
 	// Error contains error related to this item.
 	Error *Error `json:"error,omitempty"`
 }
 
-// ListOffersFilterResults is a result of listing remote service offers
-// for a service directory.
+// ListOffersFilterResults is a result of listing remote application offers
+// for an application directory.
 type ListOffersFilterResults struct {
 	// Error contains error related to this directory.
 	Error *Error `json:"error,omitempty"`
 
-	// Result contains collection of remote service item results for this directory.
-	Result []OfferedServiceDetailsResult `json:"result,omitempty"`
+	// Result contains collection of remote application item results for this directory.
+	Result []OfferedApplicationDetailsResult `json:"result,omitempty"`
 }
 
-// ListOffersResults is a result of listing remote service offers
-// for service directories.
+// ListOffersResults is a result of listing remote application offers
+// for application directories.
 type ListOffersResults struct {
 	// Results contains collection of remote directories results.
 	Results []ListOffersFilterResults `json:"results,omitempty"`
 }
 
-// OfferedServiceFilters has sets of filters that
-// are used by a vendor to query remote services that the vendor has offered.
-type OfferedServiceFilters struct {
-	Filters []OfferedServiceFilter `json:"filters,omitempty"`
+// OfferedApplicationFilters has sets of filters that
+// are used by a vendor to query remote applications that the vendor has offered.
+type OfferedApplicationFilters struct {
+	Filters []OfferedApplicationFilter `json:"filters,omitempty"`
 }
 
-// OfferedServiceFilter has a set of filter terms that
-// are used by a vendor to query remote services that the vendor has offered.
-type OfferedServiceFilter struct {
-	FilterTerms []OfferedServiceFilterTerm `json:"filterterms,omitempty"`
+// OfferedApplicationFilter has a set of filter terms that
+// are used by a vendor to query remote applications that the vendor has offered.
+type OfferedApplicationFilter struct {
+	FilterTerms []OfferedApplicationFilterTerm `json:"filter-terms,omitempty"`
 }
 
-// OfferedServiceFilterTerm has filter criteria that
-// are used by a vendor to query remote services that the vendor has offered.
-type OfferedServiceFilterTerm struct {
-	// ServiceURL is url for remote service.
+// OfferedApplicationFilterTerm has filter criteria that
+// are used by a vendor to query remote applications that the vendor has offered.
+type OfferedApplicationFilterTerm struct {
+	// ApplicationURL is url for remote application.
 	// This may be a part of valid URL.
-	ServiceURL string `json:"serviceurl,omitempty"`
+	ApplicationURL string `json:"application-url,omitempty"`
 
 	// Endpoint contains endpoint properties for filter.
 	Endpoint RemoteEndpoint `json:"endpoint"`
 
-	// CharmName is the charm name of this service.
-	CharmName string `json:"charmname,omitempty"`
+	// CharmName is the charm name of this application.
+	CharmName string `json:"charm-name,omitempty"`
 }

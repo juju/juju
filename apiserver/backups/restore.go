@@ -8,9 +8,10 @@ import (
 	"os"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/state"
@@ -21,13 +22,14 @@ var bootstrapNode = names.NewMachineTag("0")
 
 // Restore implements the server side of Backups.Restore.
 func (a *API) Restore(p params.RestoreArgs) error {
+	logger.Infof("Starting server side restore")
 
 	// Get hold of a backup file Reader
-	backup, closer := newBackups(a.st)
+	backup, closer := newBackups(a.backend)
 	defer closer.Close()
 
 	// Obtain the address of current machine, where we will be performing restore.
-	machine, err := a.st.Machine(a.machineID)
+	machine, err := a.backend.Machine(a.machineID)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -44,10 +46,7 @@ func (a *API) Restore(p params.RestoreArgs) error {
 
 	}
 
-	info, err := a.st.RestoreInfoSetter()
-	if err != nil {
-		return errors.Trace(err)
-	}
+	info := a.backend.RestoreInfo()
 	// Signal to current state and api server that restore will begin
 	err = info.SetStatus(state.RestoreInProgress)
 	if err != nil {
@@ -72,13 +71,38 @@ func (a *API) Restore(p params.RestoreArgs) error {
 		NewInstSeries:  machine.Series(),
 	}
 
-	oldTagString, err := backup.Restore(p.BackupId, restoreArgs)
+	session := a.backend.MongoSession().Copy()
+	defer session.Close()
+
+	// Don't go if HA isn't ready.
+	err = waitUntilReady(session, 60)
+	if err != nil {
+		return errors.Annotatef(err, "HA not ready; try again later")
+	}
+
+	mgoInfo := a.backend.MongoConnectionInfo()
+	logger.Debugf("mongo info from state %+v", mgoInfo)
+	v, err := a.backend.MongoVersion()
+	if err != nil {
+		return errors.Annotatef(err, "discovering mongo version")
+	}
+	mongoVersion, err := mongo.NewVersion(v)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	dbInfo, err := backups.NewDBInfo(mgoInfo, session, mongoVersion)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	oldTagString, err := backup.Restore(p.BackupId, dbInfo, restoreArgs)
 	if err != nil {
 		return errors.Annotate(err, "restore failed")
 	}
 
 	// A backup can be made of any component of an ha array.
-	// The files in a backup dont contain purely relativized paths.
+	// The files in a backup don't contain purely relativized paths.
 	// If the backup is made of the bootstrap node (machine 0) the
 	// recently created machine will have the same paths and therefore
 	// the startup scripts will fit the new juju. If the backup belongs
@@ -102,29 +126,37 @@ func (a *API) Restore(p params.RestoreArgs) error {
 	// After restoring, the api server needs a forced restart, tomb will not work
 	// this is because we change all of juju configuration files and mongo too.
 	// Exiting with 0 would prevent upstart to respawn the process
+
+	// NOTE(fwereade): the apiserver needs to be restarted, yes, but
+	// this approach is completely broken. The only place it's ever
+	// ok to use os.Exit is in a main() func that's *so* simple as to
+	// be reasonably left untested.
+	//
+	// And passing os.Exit in wouldn't make this any better either,
+	// just using it subverts the expectations of *everything* else
+	// running in the process.
 	os.Exit(1)
 	return nil
 }
 
 // PrepareRestore implements the server side of Backups.PrepareRestore.
 func (a *API) PrepareRestore() error {
-	info, err := a.st.RestoreInfoSetter()
-	if err != nil {
-		return errors.Trace(err)
-	}
+	info := a.backend.RestoreInfo()
 	logger.Infof("entering restore preparation mode")
 	return info.SetStatus(state.RestorePending)
 }
 
 // FinishRestore implements the server side of Backups.FinishRestore.
 func (a *API) FinishRestore() error {
-	info, err := a.st.RestoreInfoSetter()
+	info := a.backend.RestoreInfo()
+	currentStatus, err := info.Status()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	currentStatus := info.Status()
 	if currentStatus != state.RestoreFinished {
-		info.SetStatus(state.RestoreFailed)
+		if err := info.SetStatus(state.RestoreFailed); err != nil {
+			return errors.Trace(err)
+		}
 		return errors.Errorf("Restore did not finish succesfuly")
 	}
 	logger.Infof("Succesfully restored")

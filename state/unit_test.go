@@ -5,6 +5,7 @@ package state_test
 
 import (
 	"strconv"
+	"time" // Only used for time types.
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -16,7 +17,9 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
+	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/worker"
 )
 
 const (
@@ -26,7 +29,7 @@ const (
 type UnitSuite struct {
 	ConnSuite
 	charm   *state.Charm
-	service *state.Service
+	service *state.Application
 	unit    *state.Unit
 }
 
@@ -50,9 +53,9 @@ func (s *UnitSuite) TestUnitNotFound(c *gc.C) {
 }
 
 func (s *UnitSuite) TestService(c *gc.C) {
-	svc, err := s.unit.Service()
+	svc, err := s.unit.Application()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(svc.Name(), gc.Equals, s.unit.ServiceName())
+	c.Assert(svc.Name(), gc.Equals, s.unit.ApplicationName())
 }
 
 func (s *UnitSuite) TestConfigSettingsNeedCharmURLSet(c *gc.C) {
@@ -88,7 +91,8 @@ func (s *UnitSuite) TestConfigSettingsReflectCharm(c *gc.C) {
 	err := s.unit.SetCharmURL(s.charm.URL())
 	c.Assert(err, jc.ErrorIsNil)
 	newCharm := s.AddConfigCharm(c, "wordpress", "options: {}", 123)
-	err = s.service.SetCharm(newCharm, false, false)
+	cfg := state.SetCharmConfig{Charm: newCharm}
+	err = s.service.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Settings still reflect charm set on unit.
@@ -140,7 +144,8 @@ func (s *UnitSuite) TestWatchConfigSettings(c *gc.C) {
 
 	// Change service's charm; nothing detected.
 	newCharm := s.AddConfigCharm(c, "wordpress", floatConfig, 123)
-	err = s.service.SetCharm(newCharm, false, false)
+	cfg := state.SetCharmConfig{Charm: newCharm}
+	err = s.service.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
@@ -213,7 +218,7 @@ func (s *UnitSuite) TestPublicAddress(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.unit.PublicAddress()
-	c.Assert(err, jc.Satisfies, network.IsNoAddress)
+	c.Assert(err, jc.Satisfies, network.IsNoAddressError)
 
 	public := network.NewScopedAddress("8.8.8.8", network.ScopePublic)
 	private := network.NewScopedAddress("127.0.0.1", network.ScopeCloudLocal)
@@ -310,7 +315,7 @@ func (s *UnitSuite) TestPrivateAddress(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.unit.PrivateAddress()
-	c.Assert(err, jc.Satisfies, network.IsNoAddress)
+	c.Assert(err, jc.Satisfies, network.IsNoAddressError)
 
 	public := network.NewScopedAddress("8.8.8.8", network.ScopePublic)
 	private := network.NewScopedAddress("127.0.0.1", network.ScopeCloudLocal)
@@ -364,7 +369,7 @@ func (s *UnitSuite) destroyMachineTestCases(c *gc.C) []destroyMachineTestCase {
 		_, err := s.State.AddMachineInsideMachine(state.MachineTemplate{
 			Series: "quantal",
 			Jobs:   []state.MachineJob{state.JobHostUnits},
-		}, tc.host.Id(), instance.LXC)
+		}, tc.host.Id(), instance.LXD)
 		c.Assert(err, jc.ErrorIsNil)
 		tc.target, err = s.service.AddUnit()
 		c.Assert(err, jc.ErrorIsNil)
@@ -498,7 +503,7 @@ func (s *UnitSuite) TestRemoveUnitMachineRetryContainer(c *gc.C) {
 			machine, err := s.State.AddMachineInsideMachine(state.MachineTemplate{
 				Series: "quantal",
 				Jobs:   []state.MachineJob{state.JobHostUnits},
-			}, host.Id(), instance.LXC)
+			}, host.Id(), instance.LXD)
 			c.Assert(err, jc.ErrorIsNil)
 			assertLife(c, machine, state.Alive)
 
@@ -645,7 +650,8 @@ func (s *UnitSuite) TestSetCharmURLRetriesWithDifferentURL(c *gc.C) {
 				// Set a different charm to force a retry: first on
 				// the service, so the settings are created, then on
 				// the unit.
-				err := s.service.SetCharm(sch, false, false)
+				cfg := state.SetCharmConfig{Charm: sch}
+				err := s.service.SetCharm(cfg)
 				c.Assert(err, jc.ErrorIsNil)
 				err = s.unit.SetCharmURL(sch.URL())
 				c.Assert(err, jc.ErrorIsNil)
@@ -653,7 +659,8 @@ func (s *UnitSuite) TestSetCharmURLRetriesWithDifferentURL(c *gc.C) {
 			After: func() {
 				// Set back the same charm on the service, so the
 				// settings refcount is correct..
-				err := s.service.SetCharm(s.charm, false, false)
+				cfg := state.SetCharmConfig{Charm: s.charm}
+				err := s.service.SetCharm(cfg)
 				c.Assert(err, jc.ErrorIsNil)
 			},
 		},
@@ -676,7 +683,13 @@ func (s *UnitSuite) TestSetCharmURLRetriesWithDifferentURL(c *gc.C) {
 
 func (s *UnitSuite) TestDestroySetStatusRetry(c *gc.C) {
 	defer state.SetRetryHooks(c, s.State, func() {
-		err := s.unit.SetAgentStatus(state.StatusIdle, "", nil)
+		now := coretesting.NonZeroTime()
+		sInfo := status.StatusInfo{
+			Status:  status.Idle,
+			Message: "",
+			Since:   &now,
+		}
+		err := s.unit.SetAgentStatus(sInfo)
 		c.Assert(err, jc.ErrorIsNil)
 	}, func() {
 		assertLife(c, s.unit, state.Dying)
@@ -702,7 +715,8 @@ func (s *UnitSuite) TestDestroyChangeCharmRetry(c *gc.C) {
 	err := s.unit.SetCharmURL(s.charm.URL())
 	c.Assert(err, jc.ErrorIsNil)
 	newCharm := s.AddConfigCharm(c, "mysql", "options: {}", 99)
-	err = s.service.SetCharm(newCharm, false, false)
+	cfg := state.SetCharmConfig{Charm: newCharm}
+	err = s.service.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer state.SetRetryHooks(c, s.State, func() {
@@ -779,21 +793,27 @@ func (s *UnitSuite) TestCannotShortCircuitDestroyWithSubordinates(c *gc.C) {
 
 func (s *UnitSuite) TestCannotShortCircuitDestroyWithAgentStatus(c *gc.C) {
 	for i, test := range []struct {
-		status state.Status
+		status status.Status
 		info   string
 	}{{
-		state.StatusExecuting, "blah",
+		status.Executing, "blah",
 	}, {
-		state.StatusIdle, "blah",
+		status.Idle, "blah",
 	}, {
-		state.StatusFailed, "blah",
+		status.Failed, "blah",
 	}, {
-		state.StatusRebooting, "blah",
+		status.Rebooting, "blah",
 	}} {
 		c.Logf("test %d: %s", i, test.status)
 		unit, err := s.service.AddUnit()
 		c.Assert(err, jc.ErrorIsNil)
-		err = unit.SetAgentStatus(test.status, test.info, nil)
+		now := coretesting.NonZeroTime()
+		sInfo := status.StatusInfo{
+			Status:  test.status,
+			Message: test.info,
+			Since:   &now,
+		}
+		err = unit.SetAgentStatus(sInfo)
 		c.Assert(err, jc.ErrorIsNil)
 		err = unit.Destroy()
 		c.Assert(err, jc.ErrorIsNil)
@@ -848,12 +868,6 @@ func (s *UnitSuite) TestSetPassword(c *gc.C) {
 	})
 }
 
-func (s *UnitSuite) TestSetAgentCompatPassword(c *gc.C) {
-	e, err := s.State.Unit(s.unit.Name())
-	c.Assert(err, jc.ErrorIsNil)
-	testSetAgentCompatPassword(c, e)
-}
-
 func (s *UnitSuite) TestUnitSetAgentPresence(c *gc.C) {
 	alive, err := s.unit.AgentPresence()
 	c.Assert(err, jc.ErrorIsNil)
@@ -862,8 +876,9 @@ func (s *UnitSuite) TestUnitSetAgentPresence(c *gc.C) {
 	pinger, err := s.unit.SetAgentPresence()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(pinger, gc.NotNil)
-	defer pinger.Stop()
-
+	defer func() {
+		c.Assert(worker.Stop(pinger), jc.ErrorIsNil)
+	}()
 	s.State.StartSync()
 	alive, err = s.unit.AgentPresence()
 	c.Assert(err, jc.ErrorIsNil)
@@ -889,7 +904,7 @@ func (s *UnitSuite) TestUnitWaitAgentPresence(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(alive, jc.IsTrue)
 
-	err = pinger.Kill()
+	err = pinger.KillForTesting()
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.State.StartSync()
@@ -905,13 +920,19 @@ func (s *UnitSuite) TestResolve(c *gc.C) {
 	err = s.unit.Resolve(true)
 	c.Assert(err, gc.ErrorMatches, `unit "wordpress/0" is not in an error state`)
 
-	err = s.unit.SetAgentStatus(state.StatusError, "gaaah", nil)
+	now := coretesting.NonZeroTime()
+	sInfo := status.StatusInfo{
+		Status:  status.Error,
+		Message: "gaaah",
+		Since:   &now,
+	}
+	err = s.unit.SetAgentStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.Resolve(false)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.Resolve(true)
 	c.Assert(err, gc.ErrorMatches, `cannot set resolved mode for unit "wordpress/0": already resolved`)
-	c.Assert(s.unit.Resolved(), gc.Equals, state.ResolvedNoHooks)
+	c.Assert(s.unit.Resolved(), gc.Equals, state.ResolvedRetryHooks)
 
 	err = s.unit.ClearResolved()
 	c.Assert(err, jc.ErrorIsNil)
@@ -919,7 +940,7 @@ func (s *UnitSuite) TestResolve(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.Resolve(false)
 	c.Assert(err, gc.ErrorMatches, `cannot set resolved mode for unit "wordpress/0": already resolved`)
-	c.Assert(s.unit.Resolved(), gc.Equals, state.ResolvedRetryHooks)
+	c.Assert(s.unit.Resolved(), gc.Equals, state.ResolvedNoHooks)
 }
 
 func (s *UnitSuite) TestGetSetClearResolved(c *gc.C) {
@@ -955,97 +976,154 @@ func (s *UnitSuite) TestGetSetClearResolved(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `cannot set resolved mode for unit "wordpress/0": invalid error resolution mode: "foo"`)
 }
 
-func (s *UnitSuite) TestOpenedPorts(c *gc.C) {
+func (s *UnitSuite) TestOpenedPortsOnInvalidSubnet(c *gc.C) {
+	s.testOpenedPorts(c, "bad CIDR", `invalid subnet ID "bad CIDR"`)
+}
+
+func (s *UnitSuite) TestOpenedPortsOnUnknownSubnet(c *gc.C) {
+	// We're not adding the 127.0.0.0/8 subnet to test the "not found" case.
+	s.testOpenedPorts(c, "127.0.0.0/8", `subnet "127.0.0.0/8" not found or not alive`)
+}
+
+func (s *UnitSuite) TestOpenedPortsOnDeadSubnet(c *gc.C) {
+	// We're adding the 0.1.2.0/24 subnet first and then setting it to Dead to
+	// check the "not alive" case.
+	subnet, err := s.State.AddSubnet(state.SubnetInfo{CIDR: "0.1.2.0/24"})
+	c.Assert(err, jc.ErrorIsNil)
+	err = subnet.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.testOpenedPorts(c, "0.1.2.0/24", `subnet "0.1.2.0/24" not found or not alive`)
+}
+
+func (s *UnitSuite) TestOpenedPortsOnAliveIPv4Subnet(c *gc.C) {
+	_, err := s.State.AddSubnet(state.SubnetInfo{CIDR: "192.168.0.0/16"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.testOpenedPorts(c, "192.168.0.0/16", "")
+}
+
+func (s *UnitSuite) TestOpenedPortsOnAliveIPv6Subnet(c *gc.C) {
+	_, err := s.State.AddSubnet(state.SubnetInfo{CIDR: "2001:db8::/64"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.testOpenedPorts(c, "2001:db8::/64", "")
+}
+
+func (s *UnitSuite) TestOpenedPortsOnEmptySubnet(c *gc.C) {
+	// TODO(dimitern): This should go away and become an error once we always
+	// explicitly pass subnet IDs when handling unit ports.
+	s.testOpenedPorts(c, "", "")
+}
+
+func (s *UnitSuite) testOpenedPorts(c *gc.C, subnetID, expectedErrorCauseMatches string) {
+
+	checkExpectedError := func(err error) bool {
+		if expectedErrorCauseMatches == "" {
+			c.Check(err, jc.ErrorIsNil)
+			return true
+		}
+		c.Check(errors.Cause(err), gc.ErrorMatches, expectedErrorCauseMatches)
+		return false
+	}
+
 	// Verify ports can be opened and closed only when the unit has
 	// assigned machine.
-	err := s.unit.OpenPort("tcp", 10)
-	c.Assert(errors.Cause(err), jc.Satisfies, errors.IsNotAssigned)
-	err = s.unit.OpenPorts("tcp", 10, 20)
-	c.Assert(errors.Cause(err), jc.Satisfies, errors.IsNotAssigned)
-	err = s.unit.ClosePort("tcp", 10)
-	c.Assert(errors.Cause(err), jc.Satisfies, errors.IsNotAssigned)
-	err = s.unit.ClosePorts("tcp", 10, 20)
-	c.Assert(errors.Cause(err), jc.Satisfies, errors.IsNotAssigned)
-	open, err := s.unit.OpenedPorts()
-	c.Assert(errors.Cause(err), jc.Satisfies, errors.IsNotAssigned)
-	c.Assert(open, gc.HasLen, 0)
+	err := s.unit.OpenPortOnSubnet(subnetID, "tcp", 10)
+	c.Check(errors.Cause(err), jc.Satisfies, errors.IsNotAssigned)
+	err = s.unit.OpenPortsOnSubnet(subnetID, "tcp", 10, 20)
+	c.Check(errors.Cause(err), jc.Satisfies, errors.IsNotAssigned)
+	err = s.unit.ClosePortOnSubnet(subnetID, "tcp", 10)
+	c.Check(errors.Cause(err), jc.Satisfies, errors.IsNotAssigned)
+	err = s.unit.ClosePortsOnSubnet(subnetID, "tcp", 10, 20)
+	c.Check(errors.Cause(err), jc.Satisfies, errors.IsNotAssigned)
+	open, err := s.unit.OpenedPortsOnSubnet(subnetID)
+	c.Check(errors.Cause(err), jc.Satisfies, errors.IsNotAssigned)
+	c.Check(open, gc.HasLen, 0)
 
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Check(err, jc.ErrorIsNil)
 	err = s.unit.AssignToMachine(machine)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Check(err, jc.ErrorIsNil)
 
 	// Verify no open ports before activity.
-	open, err = s.unit.OpenedPorts()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(open, gc.HasLen, 0)
+	open, err = s.unit.OpenedPortsOnSubnet(subnetID)
+	if checkExpectedError(err) {
+		c.Check(open, gc.HasLen, 0)
+	}
 
 	// Now open and close ports and ranges and check.
 
-	err = s.unit.OpenPort("tcp", 80)
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.unit.OpenPorts("udp", 100, 200)
-	c.Assert(err, jc.ErrorIsNil)
-	open, err = s.unit.OpenedPorts()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(open, gc.DeepEquals, []network.PortRange{
-		{80, 80, "tcp"},
-		{100, 200, "udp"},
-	})
+	err = s.unit.OpenPortOnSubnet(subnetID, "tcp", 80)
+	checkExpectedError(err)
+	err = s.unit.OpenPortsOnSubnet(subnetID, "udp", 100, 200)
+	checkExpectedError(err)
+	open, err = s.unit.OpenedPortsOnSubnet(subnetID)
+	if checkExpectedError(err) {
+		c.Check(open, gc.DeepEquals, []network.PortRange{
+			{80, 80, "tcp"},
+			{100, 200, "udp"},
+		})
+	}
 
-	err = s.unit.OpenPort("udp", 53)
-	c.Assert(err, jc.ErrorIsNil)
-	open, err = s.unit.OpenedPorts()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(open, gc.DeepEquals, []network.PortRange{
-		{80, 80, "tcp"},
-		{53, 53, "udp"},
-		{100, 200, "udp"},
-	})
+	err = s.unit.OpenPortOnSubnet(subnetID, "udp", 53)
+	checkExpectedError(err)
+	open, err = s.unit.OpenedPortsOnSubnet(subnetID)
+	if checkExpectedError(err) {
+		c.Check(open, gc.DeepEquals, []network.PortRange{
+			{80, 80, "tcp"},
+			{53, 53, "udp"},
+			{100, 200, "udp"},
+		})
+	}
 
-	err = s.unit.OpenPorts("tcp", 53, 55)
-	c.Assert(err, jc.ErrorIsNil)
-	open, err = s.unit.OpenedPorts()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(open, gc.DeepEquals, []network.PortRange{
-		{53, 55, "tcp"},
-		{80, 80, "tcp"},
-		{53, 53, "udp"},
-		{100, 200, "udp"},
-	})
+	err = s.unit.OpenPortsOnSubnet(subnetID, "tcp", 53, 55)
+	checkExpectedError(err)
+	open, err = s.unit.OpenedPortsOnSubnet(subnetID)
+	if checkExpectedError(err) {
+		c.Check(open, gc.DeepEquals, []network.PortRange{
+			{53, 55, "tcp"},
+			{80, 80, "tcp"},
+			{53, 53, "udp"},
+			{100, 200, "udp"},
+		})
+	}
 
-	err = s.unit.OpenPort("tcp", 443)
-	c.Assert(err, jc.ErrorIsNil)
-	open, err = s.unit.OpenedPorts()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(open, gc.DeepEquals, []network.PortRange{
-		{53, 55, "tcp"},
-		{80, 80, "tcp"},
-		{443, 443, "tcp"},
-		{53, 53, "udp"},
-		{100, 200, "udp"},
-	})
+	err = s.unit.OpenPortOnSubnet(subnetID, "tcp", 443)
+	checkExpectedError(err)
+	open, err = s.unit.OpenedPortsOnSubnet(subnetID)
+	if checkExpectedError(err) {
+		c.Check(open, gc.DeepEquals, []network.PortRange{
+			{53, 55, "tcp"},
+			{80, 80, "tcp"},
+			{443, 443, "tcp"},
+			{53, 53, "udp"},
+			{100, 200, "udp"},
+		})
+	}
 
-	err = s.unit.ClosePort("tcp", 80)
-	c.Assert(err, jc.ErrorIsNil)
-	open, err = s.unit.OpenedPorts()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(open, gc.DeepEquals, []network.PortRange{
-		{53, 55, "tcp"},
-		{443, 443, "tcp"},
-		{53, 53, "udp"},
-		{100, 200, "udp"},
-	})
+	err = s.unit.ClosePortOnSubnet(subnetID, "tcp", 80)
+	checkExpectedError(err)
+	open, err = s.unit.OpenedPortsOnSubnet(subnetID)
+	if checkExpectedError(err) {
+		c.Check(open, gc.DeepEquals, []network.PortRange{
+			{53, 55, "tcp"},
+			{443, 443, "tcp"},
+			{53, 53, "udp"},
+			{100, 200, "udp"},
+		})
+	}
 
-	err = s.unit.ClosePorts("udp", 100, 200)
-	c.Assert(err, jc.ErrorIsNil)
-	open, err = s.unit.OpenedPorts()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(open, gc.DeepEquals, []network.PortRange{
-		{53, 55, "tcp"},
-		{443, 443, "tcp"},
-		{53, 53, "udp"},
-	})
+	err = s.unit.ClosePortsOnSubnet(subnetID, "udp", 100, 200)
+	checkExpectedError(err)
+	open, err = s.unit.OpenedPortsOnSubnet(subnetID)
+	if checkExpectedError(err) {
+		c.Check(open, gc.DeepEquals, []network.PortRange{
+			{53, 55, "tcp"},
+			{443, 443, "tcp"},
+			{53, 53, "udp"},
+		})
+	}
 }
 
 func (s *UnitSuite) TestOpenClosePortWhenDying(c *gc.C) {
@@ -1457,7 +1535,7 @@ func (s *UnitSuite) TestRemovePathologicalWithBuggyUniter(c *gc.C) {
 }
 
 func (s *UnitSuite) TestWatchSubordinates(c *gc.C) {
-	// TODO(mjs) - ENVUUID - test with multiple environments with
+	// TODO(mjs) - ModelUUID - test with multiple models with
 	// identically named units and ensure there's no leakage.
 	w := s.unit.WatchSubordinateUnits()
 	defer testing.AssertStop(c, w)
@@ -1564,12 +1642,13 @@ func (s *UnitSuite) TestUnitAgentTools(c *gc.C) {
 	testAgentTools(c, s.unit, `unit "wordpress/0"`)
 }
 
-func (s *UnitSuite) TestActionSpecs(c *gc.C) {
+func (s *UnitSuite) TestValidActionsAndSpecs(c *gc.C) {
 	basicActions := `
 snapshot:
   params:
     outfile:
       type: string
+      default: "abcd"
 `[1:]
 
 	wordpress := s.AddTestingService(c, "wordpress-actions", s.AddActionsCharm(c, "wordpress", basicActions, 1))
@@ -1586,12 +1665,60 @@ snapshot:
 				"description": "No description",
 				"properties": map[string]interface{}{
 					"outfile": map[string]interface{}{
-						"type": "string",
+						"type":    "string",
+						"default": "abcd",
 					},
 				},
 			},
 		},
 	})
+
+	var tests = []struct {
+		actionName      string
+		errString       string
+		givenPayload    map[string]interface{}
+		expectedPayload map[string]interface{}
+	}{
+		{
+			actionName:      "snapshot",
+			expectedPayload: map[string]interface{}{"outfile": "abcd"},
+		},
+		{
+			actionName: "juju-run",
+			errString:  `validation failed: (root) : "command" property is missing and required, given {}; (root) : "timeout" property is missing and required, given {}`,
+		},
+		{
+			actionName:   "juju-run",
+			givenPayload: map[string]interface{}{"command": "allyourbasearebelongtous"},
+			errString:    `validation failed: (root) : "timeout" property is missing and required, given {"command":"allyourbasearebelongtous"}`,
+		},
+		{
+			actionName:   "juju-run",
+			givenPayload: map[string]interface{}{"timeout": 5 * time.Second},
+			errString:    `validation failed: (root) : "command" property is missing and required, given {"timeout":5e+09}`,
+		},
+		{
+			actionName:      "juju-run",
+			givenPayload:    map[string]interface{}{"command": "allyourbasearebelongtous", "timeout": 5.0},
+			expectedPayload: map[string]interface{}{"command": "allyourbasearebelongtous", "timeout": 5.0},
+		},
+		{
+			actionName: "baiku",
+			errString:  `action "baiku" not defined on unit "wordpress-actions/0"`,
+		},
+	}
+
+	for i, t := range tests {
+		c.Logf("running test %d", i)
+		action, err := unit1.AddAction(t.actionName, t.givenPayload)
+		if t.errString != "" {
+			c.Assert(err.Error(), gc.Equals, t.errString)
+			continue
+		} else {
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(action.Parameters(), jc.DeepEquals, t.expectedPayload)
+		}
+	}
 }
 
 func (s *UnitSuite) TestUnitActionsFindsRightActions(c *gc.C) {
@@ -1643,4 +1770,26 @@ action-b-b:
 	for _, action := range actions2 {
 		c.Assert(action.Name(), gc.Matches, "^action-b-.")
 	}
+}
+
+func (s *UnitSuite) TestWorkloadVersion(c *gc.C) {
+	ch := state.AddTestingCharm(c, s.State, "dummy")
+	app := state.AddTestingService(c, s.State, "alexandrite", ch)
+	unit, err := app.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+
+	version, err := unit.WorkloadVersion()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(version, gc.Equals, "")
+
+	unit.SetWorkloadVersion("3.combined")
+	version, err = unit.WorkloadVersion()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(version, gc.Equals, "3.combined")
+
+	regotUnit, err := s.State.Unit("alexandrite/0")
+	c.Assert(err, jc.ErrorIsNil)
+	version, err = regotUnit.WorkloadVersion()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(version, gc.Equals, "3.combined")
 }

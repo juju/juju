@@ -5,6 +5,8 @@ package state
 
 import (
 	"gopkg.in/mgo.v2"
+
+	"github.com/juju/juju/state/bakerystorage"
 )
 
 // The capped collection used for transaction logs defaults to 10MB.
@@ -20,16 +22,16 @@ var (
 //
 //  * infrastructure: we really don't have any business touching these once
 //    we've created them. They should have the rawAccess attribute set, so that
-//    multiEnvRunner will consider them forbidden.
+//    multiModelRunner will consider them forbidden.
 //
-//  * global: these hold information external to environments. They may include
-//    environment metadata, or references; but they're generally not relevant
-//    from the perspective of a given environment.
+//  * global: these hold information external to models. They may include
+//    model metadata, or references; but they're generally not relevant
+//    from the perspective of a given model.
 //
 //  * local (in opposition to global; and for want of a better term): these
-//    hold information relevant *within* specific environments (machines,
-//    services, relations, settings, bookkeeping, etc) and should generally be
-//    read via an envStateCollection, and written via a multiEnvRunner. This is
+//    hold information relevant *within* specific models (machines,
+//    applications, relations, settings, bookkeeping, etc) and should generally be
+//    read via an modelStateCollection, and written via a multiModelRunner. This is
 //    the most common form of collection, and the above access should usually
 //    be automatic via Database.Collection and Database.Runner.
 //
@@ -71,34 +73,70 @@ func allCollections() collectionSchema {
 		// Global collections
 		// ==================
 
-		// This collection holds the details of the state servers hosting, well,
+		// This collection holds the details of the controllers hosting, well,
 		// everything in state.
-		stateServersC: {global: true},
+		controllersC: {global: true},
 
 		// This collection is used to track progress when restoring a
-		// state server from backup.
+		// controller from backup.
 		restoreInfoC: {global: true},
 
-		// This collection is used by the state servers to coordinate binary
+		// This collection is used by the controllers to coordinate binary
 		// upgrades and schema migrations.
 		upgradeInfoC: {global: true},
 
 		// This collection holds a convenient representation of the content of
 		// the simplestreams data source pointing to binaries required by juju.
-		toolsmetadataC: {global: true},
+		//
+		// Tools metadata is per-model, to allow multiple revisions of tools to
+		// be uploaded to different models without affecting other models.
+		toolsmetadataC: {},
 
-		// This collection holds environment information; in particular its
+		// This collection holds a convenient representation of the content of
+		// the simplestreams data source pointing to Juju GUI archives.
+		guimetadataC: {global: true},
+
+		// This collection holds Juju GUI current version and other settings.
+		guisettingsC: {global: true},
+
+		// This collection holds model information; in particular its
 		// Life and its UUID.
-		environmentsC: {global: true},
+		modelsC: {global: true},
 
-		// This collection holds user information that's not specific to any
-		// one environment.
-		usersC: {
+		// This collection holds references to entities owned by a
+		// model. We use this to determine whether or not we can safely
+		// destroy empty models.
+		modelEntityRefsC: {global: true},
+
+		// This collection is holds the parameters for model migrations.
+		migrationsC: {
 			global: true,
 			indexes: []mgo.Index{{
-				// TODO(thumper): schema change to remove this index.
-				Key: []string{"name"},
+				Key: []string{"model-uuid"},
 			}},
+		},
+
+		// This collection tracks the progress of model migrations.
+		migrationsStatusC: {global: true},
+
+		// This collection records the model migrations which
+		// are currently in progress. It is used to ensure that only
+		// one model migration document exists per model.
+		migrationsActiveC: {global: true},
+
+		// This collection tracks migration progress reports from the
+		// migration minions.
+		migrationsMinionSyncC: {global: true},
+
+		// This collection holds user information that's not specific to any
+		// one model.
+		usersC: {
+			global: true,
+		},
+
+		// This collection holds users that are relative to controllers.
+		controllerUsersC: {
+			global: true,
 		},
 
 		// This collection holds the last time the user connected to the API server.
@@ -110,8 +148,23 @@ func allCollections() collectionSchema {
 		// This collection is used as a unique key restraint. The _id field is
 		// a concatenation of multiple fields that form a compound index,
 		// allowing us to ensure users cannot have the same name for two
-		// different environments at a time.
-		userenvnameC: {global: true},
+		// different models at a time.
+		usermodelnameC: {global: true},
+
+		// This collection holds cloud definitions.
+		cloudsC: {global: true},
+
+		// This collection holds users' cloud credentials.
+		cloudCredentialsC: {
+			global: true,
+			indexes: []mgo.Index{{
+				Key: []string{"owner", "cloud"},
+			}},
+		},
+
+		// This collection holds settings from various sources which
+		// are inherited and then forked by new models.
+		globalSettingsC: {global: true},
 
 		// This collection holds workload metrics reported by certain charms
 		// for passing onward to other tools.
@@ -120,24 +173,44 @@ func allCollections() collectionSchema {
 		// This collection holds persistent state for the metrics manager.
 		metricsManagerC: {global: true},
 
-		// This collection holds lease data, which is per-environment, but is
-		// not itself multi-environment-aware; happily it will imminently be
-		// deprecated in favour of the non-global leasesC below.
-		// TODO(fwereade): drop leaseC entirely so can't use wrong const.
-		leaseC: {global: true},
-
-		// This collection was deprecated before multi-environment support
+		// This collection was deprecated before multi-model support
 		// was implemented.
 		actionresultsC: {global: true},
 
-		// This collection holds information about services that have been
+		// This collection holds information about applications that have been
 		// offered (exported) for use in other models managed by the same
 		// host controller.
-		localServiceDirectoryC: {
+		localApplicationDirectoryC: {
 			global: true,
 			indexes: []mgo.Index{{
 				Key: []string{"url"},
 			}},
+		},
+
+		// This collection holds storage items for a macaroon bakery.
+		bakeryStorageItemsC: {
+			global:  true,
+			indexes: bakerystorage.MongoIndexes(),
+		},
+
+		// This collection is basically a standard SQL intersection table; it
+		// references the global records of the users allowed access to a
+		// given operation.
+		permissionsC: {
+			global: true,
+		},
+
+		// This collection holds information cached by autocert certificate
+		// acquisition.
+		autocertCacheC: {
+			global:    true,
+			rawAccess: true,
+		},
+
+		// This collection holds the last time the model user connected
+		// to the model.
+		modelUserLastConnectionC: {
+			rawAccess: true,
 		},
 
 		// -----------------
@@ -145,16 +218,9 @@ func allCollections() collectionSchema {
 		// Local collections
 		// =================
 
-		// This collection is basically a standard SQL intersection table; it
-		// references the global records of the users allowed access to a
-		// given collection.
-		envUsersC: {},
-
-		// This collection holds the last time the environment user connected
-		// to the environment.
-		envUserLastConnectionC: {
-			rawAccess: true,
-		},
+		// This collection holds users related to a model and will be used as one
+		// of the intersection axis of permissionsC
+		modelUsersC: {},
 
 		// This collection contains governors that prevent certain kinds of
 		// changes from being accepted.
@@ -170,32 +236,32 @@ func allCollections() collectionSchema {
 		sequenceC: {},
 
 		// This collection holds lease data. It's currently only used to
-		// implement service leadership, but is namespaced and available
+		// implement application leadership, but is namespaced and available
 		// for use by other clients in future.
 		leasesC: {
 			indexes: []mgo.Index{{
-				Key: []string{"env-uuid", "type"},
+				Key: []string{"model-uuid", "type"},
 			}, {
-				Key: []string{"env-uuid", "namespace"},
+				Key: []string{"model-uuid", "namespace"},
 			}},
 		},
 
 		// -----
 
-		// These collections hold information associated with services.
-		charmsC:         {},
-		remoteServicesC: {},
-		servicesC:       {},
-		serviceOffersC: {
+		// These collections hold information associated with applications.
+		charmsC:             {},
+		remoteApplicationsC: {},
+		applicationsC:       {},
+		applicationOffersC: {
 			indexes: []mgo.Index{{Key: []string{"env-uuid", "url"}}},
 		},
 		unitsC: {
 			indexes: []mgo.Index{{
-				Key: []string{"env-uuid", "service"},
+				Key: []string{"model-uuid", "application"},
 			}, {
-				Key: []string{"env-uuid", "principal"},
+				Key: []string{"model-uuid", "principal"},
 			}, {
-				Key: []string{"env-uuid", "machineid"},
+				Key: []string{"model-uuid", "machineid"},
 			}},
 		},
 		minUnitsC: {},
@@ -206,13 +272,13 @@ func allCollections() collectionSchema {
 		assignUnitC: {},
 
 		// meterStatusC is the collection used to store meter status information.
-		meterStatusC:  {},
-		settingsrefsC: {},
+		meterStatusC: {},
+		refcountsC:   {},
 		relationsC: {
 			indexes: []mgo.Index{{
-				Key: []string{"env-uuid", "endpoints.relationname"},
+				Key: []string{"model-uuid", "endpoints.relationname"},
 			}, {
-				Key: []string{"env-uuid", "endpoints.servicename"},
+				Key: []string{"model-uuid", "endpoints.applicationname"},
 			}},
 		},
 		relationScopesC: {},
@@ -224,104 +290,88 @@ func allCollections() collectionSchema {
 		instanceDataC:  {},
 		machinesC:      {},
 		rebootC:        {},
+		sshHostKeysC:   {},
+
+		// This collection contains information from removed machines
+		// that needs to be cleaned up in the provider.
+		machineRemovalsC: {},
 
 		// -----
 
 		// These collections hold information associated with storage.
 		blockDevicesC: {
 			indexes: []mgo.Index{{
-				Key: []string{"env-uuid", "machineid"},
+				Key: []string{"model-uuid", "machineid"},
 			}},
 		},
 		filesystemsC: {
 			indexes: []mgo.Index{{
-				Key: []string{"env-uuid", "storageid"},
+				Key: []string{"model-uuid", "storageid"},
 			}},
 		},
 		filesystemAttachmentsC: {},
 		storageInstancesC: {
 			indexes: []mgo.Index{{
-				Key: []string{"env-uuid", "owner"},
+				Key: []string{"model-uuid", "owner"},
 			}},
 		},
 		storageAttachmentsC: {
 			indexes: []mgo.Index{{
-				Key: []string{"env-uuid", "storageid"},
+				Key: []string{"model-uuid", "storageid"},
 			}, {
-				Key: []string{"env-uuid", "unitid"},
+				Key: []string{"model-uuid", "unitid"},
 			}},
 		},
 		volumesC: {
 			indexes: []mgo.Index{{
-				Key: []string{"env-uuid", "storageid"},
+				Key: []string{"model-uuid", "storageid"},
 			}},
 		},
 		volumeAttachmentsC: {},
 
 		// -----
 
-		// These collections hold information associated with networking.
-		ipaddressesC: {
-			indexes: []mgo.Index{{
-				Key: []string{"uuid"},
-			}, {
-				Key: []string{"env-uuid", "state"},
-			}, {
-				Key: []string{"env-uuid", "subnetid"},
-			}},
-		},
-		networkInterfacesC: {
-			indexes: []mgo.Index{{
-				Key:    []string{"env-uuid", "interfacename", "machineid"},
-				Unique: true,
-			}, {
-				Key:    []string{"env-uuid", "macaddress", "networkname"},
-				Unique: true,
-			}, {
-				Key: []string{"env-uuid", "machineid"},
-			}, {
-				Key: []string{"env-uuid", "networkname"},
-			}},
-		},
-		networksC: {
-			indexes: []mgo.Index{{
-				Key:    []string{"env-uuid", "providerid"},
-				Unique: true,
-			}},
-		},
-		openedPortsC:       {},
-		requestedNetworksC: {},
-		subnetsC: {
-			indexes: []mgo.Index{{
-				// TODO(dimitern): make unique per-environment, not globally.
-				Key: []string{"providerid"},
-				// Not always present; but, if present, must be unique; hence
-				// both unique and sparse.
-				Unique: true,
-				Sparse: true,
-			}},
-		},
+		providerIDsC:          {},
+		spacesC:               {},
+		subnetsC:              {},
+		linkLayerDevicesC:     {},
+		linkLayerDevicesRefsC: {},
+		ipAddressesC:          {},
+		endpointBindingsC:     {},
+		openedPortsC:          {},
 
 		// -----
 
 		// These collections hold information associated with actions.
-		actionsC:             {},
+		actionsC: {
+			indexes: []mgo.Index{{
+				Key: []string{"model-uuid", "name"},
+			}},
+		},
 		actionNotificationsC: {},
 
 		// -----
 
-		// TODO(ericsnow) Use a component-oriented registration mechanism...
-
 		// This collection holds information associated with charm payloads.
-		// See payload/persistence/mongo.go.
-		"payloads": {},
+		payloadsC: {
+			indexes: []mgo.Index{{
+				Key: []string{"model-uuid", "unitid"},
+			}, {
+				Key: []string{"model-uuid", "name"},
+			}},
+		},
+
+		// This collection holds information associated with charm resources.
+		// See resource/persistence/mongo.go, where it should never have
+		// been put in the first place.
+		"resources": {},
 
 		// -----
 
 		// The remaining non-global collections share the property of being
 		// relevant to multiple other kinds of entities, and are thus generally
 		// indexed by globalKey(). This is unhelpfully named in this context --
-		// it's meant to imply "global within an environment", because it was
+		// it's meant to imply "global within an model", because it was
 		// named before multi-env support.
 
 		// This collection holds user annotations for various entities. They
@@ -329,22 +379,24 @@ func allCollections() collectionSchema {
 		annotationsC: {},
 
 		// This collection in particular holds an astounding number of
-		// different sorts of data: service config settings by charm version,
-		// unit relation settings, environment config, etc etc etc.
+		// different sorts of data: application config settings by charm version,
+		// unit relation settings, model config, etc etc etc.
 		settingsC: {},
 
 		constraintsC:        {},
 		storageConstraintsC: {},
 		statusesC:           {},
 		statusesHistoryC: {
+			rawAccess: true,
 			indexes: []mgo.Index{{
-				Key: []string{"env-uuid", "globalkey"},
+				Key: []string{"model-uuid", "globalkey", "updated"},
 			}},
 		},
-		spacesC: {},
 
 		// This collection holds information about cloud image metadata.
-		cloudimagemetadataC: {},
+		cloudimagemetadataC: {
+			global: true,
+		},
 
 		// ----------------------
 
@@ -352,6 +404,11 @@ func allCollections() collectionSchema {
 		// ======================
 
 		// metrics; status-history; logs; ..?
+
+		auditingC: {
+			global:    true,
+			rawAccess: true,
+		},
 	}
 }
 
@@ -360,64 +417,84 @@ func allCollections() collectionSchema {
 // it in allCollections, above; and please keep this list sorted for easy
 // inspection.
 const (
-	actionNotificationsC   = "actionnotifications"
-	actionresultsC         = "actionresults"
-	actionsC               = "actions"
-	annotationsC           = "annotations"
-	assignUnitC            = "assignUnits"
-	blockDevicesC          = "blockdevices"
-	blocksC                = "blocks"
-	charmsC                = "charms"
-	cleanupsC              = "cleanups"
-	cloudimagemetadataC    = "cloudimagemetadata"
-	constraintsC           = "constraints"
-	containerRefsC         = "containerRefs"
-	envUsersC              = "envusers"
-	environmentsC          = "environments"
-	filesystemAttachmentsC = "filesystemAttachments"
-	filesystemsC           = "filesystems"
-	instanceDataC          = "instanceData"
-	ipaddressesC           = "ipaddresses"
-	leaseC                 = "lease"
-	leasesC                = "leases"
-	machinesC              = "machines"
-	meterStatusC           = "meterStatus"
-	metricsC               = "metrics"
-	metricsManagerC        = "metricsmanager"
-	minUnitsC              = "minunits"
-	networkInterfacesC     = "networkinterfaces"
-	networksC              = "networks"
-	openedPortsC           = "openedPorts"
-	serviceOffersC         = "serviceoffers"
-	rebootC                = "reboot"
-	relationScopesC        = "relationscopes"
-	relationsC             = "relations"
-	remoteServicesC        = "remoteservices"
-	requestedNetworksC     = "requestednetworks"
-	restoreInfoC           = "restoreInfo"
-	sequenceC              = "sequence"
-	servicesC              = "services"
-	localServiceDirectoryC = "localservicedirectory"
-	settingsC              = "settings"
-	settingsrefsC          = "settingsrefs"
-	stateServersC          = "stateServers"
-	statusesC              = "statuses"
-	statusesHistoryC       = "statuseshistory"
-	storageAttachmentsC    = "storageattachments"
-	storageConstraintsC    = "storageconstraints"
-	storageInstancesC      = "storageinstances"
-	subnetsC               = "subnets"
-	spacesC                = "spaces"
-	toolsmetadataC         = "toolsmetadata"
-	txnLogC                = "txns.log"
-	txnsC                  = "txns"
-	unitsC                 = "units"
-	upgradeInfoC           = "upgradeInfo"
-	userenvnameC           = "userenvname"
-	usersC                 = "users"
-	userLastLoginC         = "userLastLogin"
-	envUserLastConnectionC = "envUserLastConnection"
-	volumeAttachmentsC     = "volumeattachments"
-	volumesC               = "volumes"
-	// "payloads" (see payload/persistence/mongo.go)
+	actionNotificationsC     = "actionnotifications"
+	actionresultsC           = "actionresults"
+	actionsC                 = "actions"
+	annotationsC             = "annotations"
+	autocertCacheC           = "autocertCache"
+	assignUnitC              = "assignUnits"
+	auditingC                = "audit.log"
+	bakeryStorageItemsC      = "bakeryStorageItems"
+	blockDevicesC            = "blockdevices"
+	blocksC                  = "blocks"
+	charmsC                  = "charms"
+	cleanupsC                = "cleanups"
+	cloudimagemetadataC      = "cloudimagemetadata"
+	cloudsC                  = "clouds"
+	cloudCredentialsC        = "cloudCredentials"
+	constraintsC             = "constraints"
+	containerRefsC           = "containerRefs"
+	controllersC             = "controllers"
+	controllerUsersC         = "controllerusers"
+	filesystemAttachmentsC   = "filesystemAttachments"
+	filesystemsC             = "filesystems"
+	globalSettingsC          = "globalSettings"
+	guimetadataC             = "guimetadata"
+	guisettingsC             = "guisettings"
+	instanceDataC            = "instanceData"
+	leasesC                  = "leases"
+	machinesC                = "machines"
+	machineRemovalsC         = "machineremovals"
+	meterStatusC             = "meterStatus"
+	metricsC                 = "metrics"
+	metricsManagerC          = "metricsmanager"
+	minUnitsC                = "minunits"
+	migrationsActiveC        = "migrations.active"
+	migrationsC              = "migrations"
+	migrationsMinionSyncC    = "migrations.minionsync"
+	migrationsStatusC        = "migrations.status"
+	modelUserLastConnectionC = "modelUserLastConnection"
+	modelUsersC              = "modelusers"
+	modelsC                  = "models"
+	modelEntityRefsC         = "modelEntityRefs"
+	openedPortsC             = "openedPorts"
+	payloadsC                = "payloads"
+	permissionsC             = "permissions"
+	providerIDsC             = "providerIDs"
+	rebootC                  = "reboot"
+	relationScopesC          = "relationscopes"
+	relationsC               = "relations"
+	restoreInfoC             = "restoreInfo"
+	sequenceC                = "sequence"
+	applicationsC            = "applications"
+	endpointBindingsC        = "endpointbindings"
+	settingsC                = "settings"
+	refcountsC               = "refcounts"
+	sshHostKeysC             = "sshhostkeys"
+	spacesC                  = "spaces"
+	statusesC                = "statuses"
+	statusesHistoryC         = "statuseshistory"
+	storageAttachmentsC      = "storageattachments"
+	storageConstraintsC      = "storageconstraints"
+	storageInstancesC        = "storageinstances"
+	subnetsC                 = "subnets"
+	linkLayerDevicesC        = "linklayerdevices"
+	linkLayerDevicesRefsC    = "linklayerdevicesrefs"
+	ipAddressesC             = "ip.addresses"
+	toolsmetadataC           = "toolsmetadata"
+	txnLogC                  = "txns.log"
+	txnsC                    = "txns"
+	unitsC                   = "units"
+	upgradeInfoC             = "upgradeInfo"
+	userLastLoginC           = "userLastLogin"
+	usermodelnameC           = "usermodelname"
+	usersC                   = "users"
+	volumeAttachmentsC       = "volumeattachments"
+	volumesC                 = "volumes"
+	// "resources" (see resource/persistence/mongo.go)
+
+	// Cross model relations
+	localApplicationDirectoryC = "localapplicationdirectory"
+	applicationOffersC         = "applicationOffers"
+	remoteApplicationsC        = "remoteApplications"
 )

@@ -4,39 +4,16 @@
 package storage
 
 import (
+	"fmt"
+
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/params"
-	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
+	"github.com/juju/juju/status"
 )
-
-const volumeCmdDoc = `
-"juju storage volume" is used to manage storage volumes in
- the Juju environment.
-`
-
-const volumeCmdPurpose = "manage storage volumes"
-
-// newVolumeSuperCommand creates the storage volume super subcommand and
-// registers the subcommands that it supports.
-func newVolumeSuperCommand() cmd.Command {
-	supercmd := jujucmd.NewSubSuperCommand(cmd.SuperCommandParams{
-		Name:        "volume",
-		Doc:         volumeCmdDoc,
-		UsagePrefix: "juju storage",
-		Purpose:     volumeCmdPurpose,
-	})
-	supercmd.Register(newVolumeListCommand())
-	return supercmd
-}
-
-// VolumeCommandBase is a helper base structure for volume commands.
-type VolumeCommandBase struct {
-	StorageCommandBase
-}
 
 // VolumeInfo defines the serialization behaviour for storage volume.
 type VolumeInfo struct {
@@ -64,7 +41,7 @@ type VolumeInfo struct {
 }
 
 type EntityStatus struct {
-	Current params.Status `json:"current,omitempty" yaml:"current,omitempty"`
+	Current status.Status `json:"current,omitempty" yaml:"current,omitempty"`
 	Message string        `json:"message,omitempty" yaml:"message,omitempty"`
 	Since   string        `json:"since,omitempty" yaml:"since,omitempty"`
 }
@@ -82,8 +59,41 @@ type MachineVolumeAttachment struct {
 	// TODO(axw) add machine volume attachment status when we have it
 }
 
+//generateListVolumeOutput returns a map of volume info
+func (c *listCommand) generateListVolumeOutput(ctx *cmd.Context, api StorageListAPI) (output interface{}, err error) {
+
+	results, err := api.ListVolumes(c.ids)
+	if err != nil {
+		return nil, err
+	}
+	// filter out valid output, if any
+	var valid []params.VolumeDetails
+	for _, result := range results {
+		if result.Error == nil {
+			valid = append(valid, result.Result...)
+			continue
+		}
+		// display individual error
+		fmt.Fprintf(ctx.Stderr, "%v\n", result.Error)
+	}
+	if len(valid) == 0 {
+		return nil, nil
+	}
+	info, err := convertToVolumeInfo(valid)
+	if err != nil {
+		return nil, err
+	}
+	switch c.out.Name() {
+	case "yaml", "json":
+		output = map[string]map[string]VolumeInfo{"volumes": info}
+	default:
+		output = info
+	}
+	return output, nil
+}
+
 // convertToVolumeInfo returns a map of volume IDs to volume info.
-func convertToVolumeInfo(all []params.VolumeDetailsResult) (map[string]VolumeInfo, error) {
+func convertToVolumeInfo(all []params.VolumeDetails) (map[string]VolumeInfo, error) {
 	result := make(map[string]VolumeInfo)
 	for _, one := range all {
 		volumeTag, info, err := createVolumeInfo(one)
@@ -103,12 +113,7 @@ var idFromTag = func(s string) (string, error) {
 	return tag.Id(), nil
 }
 
-func createVolumeInfo(result params.VolumeDetailsResult) (names.VolumeTag, VolumeInfo, error) {
-	details := result.Details
-	if details == nil {
-		details = volumeDetailsFromLegacy(result)
-	}
-
+func createVolumeInfo(details params.VolumeDetails) (names.VolumeTag, VolumeInfo, error) {
 	volumeTag, err := names.ParseVolumeTag(details.VolumeTag)
 	if err != nil {
 		return names.VolumeTag{}, VolumeInfo{}, errors.Trace(err)
@@ -157,50 +162,4 @@ func createVolumeInfo(result params.VolumeDetailsResult) (names.VolumeTag, Volum
 	}
 
 	return volumeTag, info, nil
-}
-
-// volumeDetailsFromLegacy converts from legacy data structures
-// to params.VolumeDetails. This exists only for backwards-
-// compatibility. Please think long and hard before changing it.
-func volumeDetailsFromLegacy(result params.VolumeDetailsResult) *params.VolumeDetails {
-	details := &params.VolumeDetails{
-		VolumeTag: result.LegacyVolume.VolumeTag,
-		Status:    result.LegacyVolume.Status,
-	}
-	details.Info.VolumeId = result.LegacyVolume.VolumeId
-	details.Info.HardwareId = result.LegacyVolume.HardwareId
-	details.Info.Size = result.LegacyVolume.Size
-	details.Info.Persistent = result.LegacyVolume.Persistent
-	if len(result.LegacyAttachments) > 0 {
-		attachments := make(map[string]params.VolumeAttachmentInfo)
-		for _, attachment := range result.LegacyAttachments {
-			attachments[attachment.MachineTag] = attachment.Info
-		}
-		details.MachineAttachments = attachments
-	}
-	if result.LegacyVolume.StorageTag != "" {
-		details.Storage = &params.StorageDetails{
-			StorageTag: result.LegacyVolume.StorageTag,
-			Status:     details.Status,
-		}
-		if result.LegacyVolume.UnitTag != "" {
-			// Servers with legacy storage do not support shared
-			// storage, so there will only be one attachment, and
-			// the owner is always a unit.
-			details.Storage.OwnerTag = result.LegacyVolume.UnitTag
-			if len(result.LegacyAttachments) == 1 {
-				details.Storage.Attachments = map[string]params.StorageAttachmentDetails{
-					result.LegacyVolume.UnitTag: params.StorageAttachmentDetails{
-						StorageTag: result.LegacyVolume.StorageTag,
-						UnitTag:    result.LegacyVolume.UnitTag,
-						MachineTag: result.LegacyAttachments[0].MachineTag,
-						// Don't set Location, because we can't infer that
-						// from the legacy volume details.
-						Location: "",
-					},
-				}
-			}
-		}
-	}
-	return details
 }

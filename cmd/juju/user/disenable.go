@@ -7,43 +7,49 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
-const disableUserDoc = `
-Disabling a user stops that user from being able to log in. The user still
-exists and can be reenabled using the "juju enable" command.  If the user is
-already disabled, this command succeeds silently.
+var usageDisableUserSummary = `
+Disables a Juju user.`[1:]
+
+var usageDisableUserDetails = `
+A disabled Juju user is one that cannot log in to any controller.
+This command has no affect on models that the disabled user may have
+created and/or shared nor any applications associated with that user.
 
 Examples:
-  juju user disable foobar
+    juju disable-user bob
 
-See Also:
-  juju help user enable
-`
+See also: 
+    users
+    enable-user
+    login`[1:]
 
-const enableUserDoc = `
-Enabling a user that is disabled allows that user to log in again. The user
-still exists and can be reenabled using the "juju enable" command.  If the
-user is already enabled, this command succeeds silently.
+var usageEnableUserSummary = `
+Re-enables a previously disabled Juju user.`[1:]
+
+var usageEnableUserDetails = `
+An enabled Juju user is one that can log in to a controller.
 
 Examples:
-  juju user enable foobar
+    juju enable-user bob
 
-See Also:
-  juju help user disable
-`
+See also: 
+    users
+    disable-user
+    login`[1:]
 
 // disenableUserBase common code for enable/disable user commands
 type disenableUserBase struct {
-	UserCommandBase
+	modelcmd.ControllerCommandBase
 	api  disenableUserAPI
 	User string
 }
 
-func newDisableCommand() cmd.Command {
-	return envcmd.WrapSystem(&disableCommand{})
+func NewDisableCommand() cmd.Command {
+	return modelcmd.WrapController(&disableCommand{})
 }
 
 // disableCommand disables users.
@@ -51,8 +57,8 @@ type disableCommand struct {
 	disenableUserBase
 }
 
-func newEnableCommand() cmd.Command {
-	return envcmd.WrapSystem(&enableCommand{})
+func NewEnableCommand() cmd.Command {
+	return modelcmd.WrapController(&enableCommand{})
 }
 
 // enableCommand enables users.
@@ -63,20 +69,20 @@ type enableCommand struct {
 // Info implements Command.Info.
 func (c *disableCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "disable",
-		Args:    "<username>",
-		Purpose: "disable a user to stop the user logging in",
-		Doc:     disableUserDoc,
+		Name:    "disable-user",
+		Args:    "<user name>",
+		Purpose: usageDisableUserSummary,
+		Doc:     usageDisableUserDetails,
 	}
 }
 
 // Info implements Command.Info.
 func (c *enableCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "enable",
-		Args:    "<username>",
-		Purpose: "reenables a disabled user to allow the user to log in",
-		Doc:     enableUserDoc,
+		Name:    "enable-user",
+		Args:    "<user name>",
+		Purpose: usageEnableUserSummary,
+		Doc:     usageEnableUserDetails,
 	}
 }
 
@@ -105,12 +111,6 @@ type disenableUserAPI interface {
 	DisableUser(username string) error
 	Close() error
 }
-
-func (c *disenableUserBase) getDisableUserAPI() (disenableUserAPI, error) {
-	return c.NewUserManagerAPIClient()
-}
-
-var getDisableUserAPI = (*disenableUserBase).getDisableUserAPI
 
 // Run implements Command.Run.
 func (c *disableCommand) Run(ctx *cmd.Context) error {

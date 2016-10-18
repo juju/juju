@@ -4,31 +4,36 @@
 package agent
 
 import (
-	"fmt"
 	"runtime"
 	"time"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
 	"github.com/juju/utils/featureflag"
+	"github.com/juju/utils/voyeur"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/natefinch/lumberjack.v2"
-	"launchpad.net/gnuflag"
-	"launchpad.net/tomb"
+	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/cmd/jujud/agent/unit"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
-	"github.com/juju/juju/network"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dependency"
+	"github.com/juju/juju/worker/introspection"
 	"github.com/juju/juju/worker/logsender"
-	"github.com/juju/juju/worker/uniter"
 )
 
 var (
 	agentLogger = loggo.GetLogger("juju.jujud")
+
+	// should be an explicit dependency, can't do it cleanly yet
+	unitManifolds = unit.Manifolds
 )
 
 // UnitAgent is a cmd.Command responsible for running a unit agent.
@@ -36,27 +41,29 @@ type UnitAgent struct {
 	cmd.CommandBase
 	tomb tomb.Tomb
 	AgentConf
-	UnitName     string
-	runner       worker.Runner
-	bufferedLogs logsender.LogRecordCh
-	setupLogging func(agent.Config) error
-	logToStdErr  bool
-	ctx          *cmd.Context
+	configChangedVal *voyeur.Value
+	UnitName         string
+	runner           worker.Runner
+	bufferedLogs     logsender.LogRecordCh
+	setupLogging     func(agent.Config) error
+	logToStdErr      bool
+	ctx              *cmd.Context
 
 	// Used to signal that the upgrade worker will not
 	// reboot the agent on startup because there are no
 	// longer any immediately pending agent upgrades.
 	// Channel used as a selectable bool (closed means true).
-	initialAgentUpgradeCheckComplete chan struct{}
+	initialUpgradeCheckComplete chan struct{}
 }
 
 // NewUnitAgent creates a new UnitAgent value properly initialized.
 func NewUnitAgent(ctx *cmd.Context, bufferedLogs logsender.LogRecordCh) *UnitAgent {
 	return &UnitAgent{
-		AgentConf: NewAgentConf(""),
-		ctx:       ctx,
-		initialAgentUpgradeCheckComplete: make(chan struct{}),
-		bufferedLogs:                     bufferedLogs,
+		AgentConf:        NewAgentConf(""),
+		configChangedVal: voyeur.NewValue(true),
+		ctx:              ctx,
+		initialUpgradeCheckComplete: make(chan struct{}),
+		bufferedLogs:                bufferedLogs,
 	}
 }
 
@@ -80,7 +87,7 @@ func (a *UnitAgent) Init(args []string) error {
 		return cmdutil.RequiredError("unit-name")
 	}
 	if !names.IsValidUnit(a.UnitName) {
-		return fmt.Errorf(`--unit-name option expects "<service>/<n>" argument`)
+		return errors.Errorf(`--unit-name option expects "<service>/<n>" argument`)
 	}
 	if err := a.AgentConf.CheckArgs(args); err != nil {
 		return err
@@ -117,24 +124,10 @@ func (a *UnitAgent) Run(ctx *cmd.Context) error {
 	if err := a.ReadConfig(a.Tag().String()); err != nil {
 		return err
 	}
-	agentConfig := a.CurrentConfig()
-
-	agentLogger.Infof("unit agent %v start (%s [%s])", a.Tag().String(), version.Current, runtime.Compiler)
+	agentLogger.Infof("unit agent %v start (%s [%s])", a.Tag().String(), jujuversion.Current, runtime.Compiler)
 	if flags := featureflag.String(); flags != "" {
 		logger.Warningf("developer feature flags enabled: %s", flags)
 	}
-	network.SetPreferIPv6(agentConfig.PreferIPv6())
-
-	// Sometimes there are upgrade steps that are needed for each unit.
-	// There are plans afoot to unify the unit and machine agents. When
-	// this happens, there will be a simple helper function for the upgrade
-	// steps to run something for each unit on the machine. Until then, we
-	// need to have the uniter do it, as the overhead of getting a full
-	// upgrade process in the unit agent out weights the current benefits.
-	// So.. since the upgrade steps are all idempotent, we will just call
-	// the upgrade steps when we start the uniter. To be clear, these
-	// should move back to the upgrade package when we do unify the agents.
-	runUpgrades(agentConfig.Tag(), agentConfig.DataDir())
 
 	a.runner.StartWorker("api", a.APIWorkers)
 	err := cmdutil.AgentDone(logger, a.runner.Wait())
@@ -142,33 +135,14 @@ func (a *UnitAgent) Run(ctx *cmd.Context) error {
 	return err
 }
 
-// runUpgrades is a temporary fix to deal with upgrade steps that need
-// to be run for each unit. This function cannot fail. Errors in the
-// upgrade steps are logged, but the uniter will attempt to continue.
-// Worst case, we are no worse off than we are today, best case, things
-// actually work properly. Only simple upgrade steps that don't use the API
-// are available now. If we need really complex steps using the API, there
-// should be significant steps to unify the agents first.
-func runUpgrades(tag names.Tag, dataDir string) {
-	unitTag, ok := tag.(names.UnitTag)
-	if !ok {
-		logger.Errorf("unit agent tag not a unit tag: %v", tag)
-		return
-	}
-	if err := uniter.AddStoppedFieldToUniterState(unitTag, dataDir); err != nil {
-		logger.Errorf("Upgrade step failed - add Stopped field to uniter state: %v", err)
-	}
-	if err := uniter.AddInstalledToUniterState(unitTag, dataDir); err != nil {
-		logger.Errorf("Upgrade step failed - installed boolean needs to be set in the uniter local state: %v", err)
-	}
-}
-
 // APIWorkers returns a dependency.Engine running the unit agent's responsibilities.
 func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
-	manifolds := unit.Manifolds(unit.ManifoldsConfig{
+	manifolds := unitManifolds(unit.ManifoldsConfig{
 		Agent:               agent.APIHostPortsSetter{a},
 		LogSource:           a.bufferedLogs,
 		LeadershipGuarantee: 30 * time.Second,
+		AgentConfigChanged:  a.configChangedVal,
+		ValidateMigration:   a.validateMigration,
 	})
 
 	config := dependency.EngineConfig{
@@ -187,9 +161,49 @@ func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
 		}
 		return nil, err
 	}
+	if err := startIntrospection(introspectionConfig{
+		Agent:      a,
+		Engine:     engine,
+		WorkerFunc: introspection.NewWorker,
+	}); err != nil {
+		// If the introspection worker failed to start, we just log error
+		// but continue. It is very unlikely to happen in the real world
+		// as the only issue is connecting to the abstract domain socket
+		// and the agent is controlled by by the OS to only have one.
+		logger.Errorf("failed to start introspection worker: %v", err)
+	}
 	return engine, nil
 }
 
 func (a *UnitAgent) Tag() names.Tag {
 	return names.NewUnitTag(a.UnitName)
+}
+
+func (a *UnitAgent) ChangeConfig(mutate agent.ConfigMutator) error {
+	err := a.AgentConf.ChangeConfig(mutate)
+	a.configChangedVal.Set(true)
+	return errors.Trace(err)
+}
+
+// validateMigration is called by the migrationminion to help check
+// that the agent will be ok when connected to a new controller.
+func (a *UnitAgent) validateMigration(apiCaller base.APICaller) error {
+	// TODO(mjs) - more extensive checks to come.
+	unitTag := names.NewUnitTag(a.UnitName)
+	facade := uniter.NewState(apiCaller, unitTag)
+	_, err := facade.Unit(unitTag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	model, err := facade.Model()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	curModelUUID := a.CurrentConfig().Model().Id()
+	newModelUUID := model.UUID()
+	if newModelUUID != curModelUUID {
+		return errors.Errorf("model mismatch when validating: got %q, expected %q",
+			newModelUUID, curModelUUID)
+	}
+	return nil
 }

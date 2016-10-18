@@ -23,7 +23,7 @@ var _ = gc.Suite(&downloadSuite{})
 
 func (s *downloadSuite) SetUpTest(c *gc.C) {
 	s.BaseBackupsSuite.SetUpTest(c)
-	s.wrappedCommand, s.command = backups.NewDownloadCommand()
+	s.wrappedCommand, s.command = backups.NewDownloadCommandForTest()
 }
 
 func (s *downloadSuite) TearDownTest(c *gc.C) {
@@ -44,10 +44,6 @@ func (s *downloadSuite) TearDownTest(c *gc.C) {
 func (s *downloadSuite) setSuccess() *fakeAPIClient {
 	client := s.BaseBackupsSuite.setDownload()
 	return client
-}
-
-func (s *downloadSuite) TestHelp(c *gc.C) {
-	s.checkHelp(c, s.wrappedCommand)
 }
 
 func (s *downloadSuite) TestOkay(c *gc.C) {

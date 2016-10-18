@@ -9,6 +9,11 @@ import (
 	"github.com/juju/juju/worker"
 )
 
+// Installer exposes an Engine's Install method.
+type Installer interface {
+	Install(name string, manifold Manifold) error
+}
+
 // Install is a convenience function for installing multiple manifolds into an
 // Installer at once. It returns the first error it encounters (and installs no
 // more manifolds).
@@ -75,9 +80,9 @@ func (v validator) visit(node string) error {
 // Installer and Reporter services. The returned manifold is intended for
 // installation into the engine it wraps; installing it into other engines
 // may have surprising effects.
-func SelfManifold(engine Engine) Manifold {
+func SelfManifold(engine *Engine) Manifold {
 	return Manifold{
-		Start: func(_ GetResourceFunc) (worker.Worker, error) {
+		Start: func(_ Context) (worker.Worker, error) {
 			return engine, nil
 		},
 		Output: func(in worker.Worker, out interface{}) error {

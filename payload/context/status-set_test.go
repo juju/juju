@@ -61,9 +61,12 @@ func (s *statusSetSuite) TestHelp(c *gc.C) {
 	c.Assert(code, gc.Equals, 0)
 
 	c.Check(s.ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, `
-usage: payload-status-set <class> <id> <status>
-purpose: update the status of a payload
+Usage: payload-status-set <class> <id> <status>
 
+Summary:
+update the status of a payload
+
+Details:
 "payload-status-set" is used to update the current status of a registered payload.
 The <class> and <id> provided must match a payload that has been previously
 registered with juju using payload-register. The <status> must be one of the

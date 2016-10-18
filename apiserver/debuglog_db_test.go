@@ -14,10 +14,5 @@ type debugLogDBSuite struct {
 
 var _ = gc.Suite(&debugLogDBSuite{})
 
-func (s *debugLogDBSuite) SetUpSuite(c *gc.C) {
-	s.SetInitialFeatureFlags("db-log")
-	s.debugLogBaseSuite.SetUpSuite(c)
-}
-
 // See debuglog_db_internal_test.go for DB specific unit tests and the
 // featuretests package for an end-to-end integration test.

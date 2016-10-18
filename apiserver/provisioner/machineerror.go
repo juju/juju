@@ -6,7 +6,7 @@ package provisioner
 import (
 	"time"
 
-	"launchpad.net/tomb"
+	"gopkg.in/tomb.v1"
 
 	"github.com/juju/juju/state"
 )
@@ -70,6 +70,7 @@ func (w *machineErrorRetry) loop() error {
 		select {
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
+		// TODO(fwereade): 2016-03-17 lp:1558657
 		case <-time.After(ErrorRetryWaitDelay):
 			out = w.out
 		case out <- struct{}{}:

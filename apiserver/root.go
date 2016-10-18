@@ -9,11 +9,13 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/crossmodel"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/rpcreflect"
 	"github.com/juju/juju/state"
@@ -40,31 +42,35 @@ type objectKey struct {
 }
 
 // apiHandler represents a single client's connection to the state
-// after it has logged in. It contains an rpc.MethodFinder which it
-// uses to dispatch Api calls appropriately.
+// after it has logged in. It contains an rpc.Root which it
+// uses to dispatch API calls appropriately.
 type apiHandler struct {
-	state            *state.State
-	rpcConn          *rpc.Conn
-	resources        *common.Resources
-	entity           state.Entity
-	mongoUnavailable *uint32
-	// An empty envUUID means that the user has logged in through the
-	// root of the API server rather than the /environment/:env-uuid/api
+	state     *state.State
+	rpcConn   *rpc.Conn
+	resources *common.Resources
+	entity    state.Entity
+
+	// An empty modelUUID means that the user has logged in through the
+	// root of the API server rather than the /model/:model-uuid/api
 	// path, logins processed with v2 or later will only offer the
-	// user manager and environment manager api endpoints from here.
-	envUUID string
+	// user manager and model manager api endpoints from here.
+	modelUUID string
+
+	// serverHost is the host:port of the API server that the client
+	// connected to.
+	serverHost string
 }
 
 var _ = (*apiHandler)(nil)
 
-// newApiHandler returns a new apiHandler.
-func newApiHandler(srv *Server, st *state.State, rpcConn *rpc.Conn, reqNotifier *requestNotifier, envUUID string) (*apiHandler, error) {
+// newAPIHandler returns a new apiHandler.
+func newAPIHandler(srv *Server, st *state.State, rpcConn *rpc.Conn, modelUUID string, serverHost string) (*apiHandler, error) {
 	r := &apiHandler{
-		state:            st,
-		resources:        common.NewResources(),
-		rpcConn:          rpcConn,
-		envUUID:          envUUID,
-		mongoUnavailable: &srv.mongoUnavailable,
+		state:      st,
+		resources:  common.NewResources(),
+		rpcConn:    rpcConn,
+		modelUUID:  modelUUID,
+		serverHost: serverHost,
 	}
 	if err := r.resources.RegisterNamed("machineID", common.StringResource(srv.tag.Id())); err != nil {
 		return nil, errors.Trace(err)
@@ -75,11 +81,11 @@ func newApiHandler(srv *Server, st *state.State, rpcConn *rpc.Conn, reqNotifier 
 	if err := r.resources.RegisterNamed("logDir", common.StringResource(srv.logDir)); err != nil {
 		return nil, errors.Trace(err)
 	}
-	apiFactory, err := crossmodel.ServiceOffersAPIFactoryResource(st)
+	apiFactory, err := crossmodel.ApplicationOffersAPIFactoryResource(st)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := r.resources.RegisterNamed("serviceOffersApiFactory", apiFactory); err != nil {
+	if err := r.resources.RegisterNamed("applicationOffersApiFactory", apiFactory); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return r, nil
@@ -135,13 +141,13 @@ func (s *srvCaller) Call(objId string, arg reflect.Value) (reflect.Value, error)
 type apiRoot struct {
 	state       *state.State
 	resources   *common.Resources
-	authorizer  common.Authorizer
+	authorizer  facade.Authorizer
 	objectMutex sync.RWMutex
 	objectCache map[objectKey]reflect.Value
 }
 
-// newApiRoot returns a new apiRoot.
-func newApiRoot(st *state.State, resources *common.Resources, authorizer common.Authorizer) *apiRoot {
+// newAPIRoot returns a new apiRoot.
+func newAPIRoot(st *state.State, resources *common.Resources, authorizer facade.Authorizer) *apiRoot {
 	r := &apiRoot{
 		state:       st,
 		resources:   resources,
@@ -163,7 +169,7 @@ func (r *apiRoot) Kill() {
 // For more information about how FindMethod should work, see rpc/server.go and
 // rpc/rpcreflect/value.go
 func (r *apiRoot) FindMethod(rootName string, version int, methodName string) (rpcreflect.MethodCaller, error) {
-	goType, objMethod, err := r.lookupMethod(rootName, version, methodName)
+	goType, objMethod, err := lookupMethod(rootName, version, methodName)
 	if err != nil {
 		return nil, err
 	}
@@ -190,7 +196,7 @@ func (r *apiRoot) FindMethod(rootName string, version int, methodName string) (r
 			// check.
 			return reflect.Value{}, err
 		}
-		obj, err := factory(r.state, r.resources, r.authorizer, id)
+		obj, err := factory(r.facadeContext(id))
 		if err != nil {
 			return reflect.Value{}, err
 		}
@@ -219,7 +225,40 @@ func (r *apiRoot) FindMethod(rootName string, version int, methodName string) (r
 	}, nil
 }
 
-func (r *apiRoot) lookupMethod(rootName string, version int, methodName string) (reflect.Type, rpcreflect.ObjMethod, error) {
+func (r *apiRoot) facadeContext(id string) *facadeContext {
+	return &facadeContext{
+		r:  r,
+		id: id,
+	}
+}
+
+// facadeContext implements facade.Context
+type facadeContext struct {
+	r  *apiRoot
+	id string
+}
+
+func (ctx *facadeContext) Abort() <-chan struct{} {
+	return nil
+}
+
+func (ctx *facadeContext) Auth() facade.Authorizer {
+	return ctx.r.authorizer
+}
+
+func (ctx *facadeContext) Resources() facade.Resources {
+	return ctx.r.resources
+}
+
+func (ctx *facadeContext) State() *state.State {
+	return ctx.r.state
+}
+
+func (ctx *facadeContext) ID() string {
+	return ctx.id
+}
+
+func lookupMethod(rootName string, version int, methodName string) (reflect.Type, rpcreflect.ObjMethod, error) {
 	noMethod := rpcreflect.ObjMethod{}
 	goType, err := common.Facades.GetType(rootName, version)
 	if err != nil {
@@ -250,14 +289,14 @@ func (r *apiRoot) lookupMethod(rootName string, version int, methodName string) 
 // which has not logged in.
 type anonRoot struct {
 	*apiHandler
-	adminApis map[int]interface{}
+	adminAPIs map[int]interface{}
 }
 
 // NewAnonRoot creates a new AnonRoot which dispatches to the given Admin API implementation.
-func newAnonRoot(h *apiHandler, adminApis map[int]interface{}) *anonRoot {
+func newAnonRoot(h *apiHandler, adminAPIs map[int]interface{}) *anonRoot {
 	r := &anonRoot{
 		apiHandler: h,
-		adminApis:  adminApis,
+		adminAPIs:  adminAPIs,
 	}
 	return r
 }
@@ -269,13 +308,12 @@ func (r *anonRoot) FindMethod(rootName string, version int, methodName string) (
 			Version:    version,
 		}
 	}
-	if api, ok := r.adminApis[version]; ok {
+	if api, ok := r.adminAPIs[version]; ok {
 		return rpcreflect.ValueOf(reflect.ValueOf(api)).FindMethod(rootName, 0, methodName)
 	}
-	return nil, &rpcreflect.CallNotImplementedError{
-		RootMethod: rootName,
-		Method:     methodName,
-		Version:    version,
+	return nil, &rpc.RequestError{
+		Code:    params.CodeNotSupported,
+		Message: "this version of Juju does not support login from old clients",
 	}
 }
 
@@ -297,10 +335,10 @@ func (r *apiHandler) AuthOwner(tag names.Tag) bool {
 	return r.entity.Tag() == tag
 }
 
-// AuthEnvironManager returns whether the authenticated user is a
+// AuthModelManager returns whether the authenticated user is a
 // machine with running the ManageEnviron job.
-func (r *apiHandler) AuthEnvironManager() bool {
-	return isMachineWithJob(r.entity, state.JobManageEnviron)
+func (r *apiHandler) AuthModelManager() bool {
+	return isMachineWithJob(r.entity, state.JobManageModel)
 }
 
 // AuthClient returns whether the authenticated entity is a client
@@ -315,9 +353,27 @@ func (r *apiHandler) GetAuthTag() names.Tag {
 	return r.entity.Tag()
 }
 
+// ConnectedModel returns the UUID of the model authenticated
+// against. It's possible for it to be empty if the login was made
+// directly to the root of the API instead of a model endpoint, but
+// that method is deprecated.
+func (r *apiHandler) ConnectedModel() string {
+	return r.modelUUID
+}
+
 // GetAuthEntity returns the authenticated entity.
 func (r *apiHandler) GetAuthEntity() state.Entity {
 	return r.entity
+}
+
+// HasPermission returns true if the logged in user can perform <operation> on <target>.
+func (r *apiHandler) HasPermission(operation permission.Access, target names.Tag) (bool, error) {
+	return common.HasPermission(r.state.UserAccess, r.entity.Tag(), operation, target)
+}
+
+// UserHasPermission returns true if the passed in user can perform <operation> on <target>.
+func (r *apiHandler) UserHasPermission(user names.UserTag, operation permission.Access, target names.Tag) (bool, error) {
+	return common.HasPermission(r.state.UserAccess, user, operation, target)
 }
 
 // DescribeFacades returns the list of available Facades and their Versions

@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -18,30 +19,35 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
+	apiauthentication "github.com/juju/juju/api/authentication"
+	apitesting "github.com/juju/juju/api/testing"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
 	"github.com/juju/juju/apiserver/params"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/toolstorage"
+	"github.com/juju/juju/state/binarystorage"
 	"github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 	coretools "github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
-// charmsCommonSuite wraps authHttpSuite and adds
+// charmsCommonSuite wraps authHTTPSuite and adds
 // some helper methods suitable for working with the
 // tools endpoint.
 type toolsCommonSuite struct {
-	authHttpSuite
+	authHTTPSuite
 }
 
 func (s *toolsCommonSuite) toolsURL(c *gc.C, query string) *url.URL {
 	uri := s.baseURL(c)
-	uri.Path = fmt.Sprintf("/environment/%s/tools", s.envUUID)
+	uri.Path = fmt.Sprintf("/model/%s/tools", s.modelUUID)
 	uri.RawQuery = query
 	return uri
 }
@@ -58,7 +64,7 @@ func (s *toolsCommonSuite) downloadRequest(c *gc.C, version version.Binary, uuid
 	if uuid == "" {
 		url.Path = fmt.Sprintf("/tools/%s", version)
 	} else {
-		url.Path = fmt.Sprintf("/environment/%s/tools/%s", uuid, version)
+		url.Path = fmt.Sprintf("/model/%s/tools/%s", uuid, version)
 	}
 	return s.sendRequest(c, httpRequestParams{method: "GET", url: url.String()})
 }
@@ -66,7 +72,7 @@ func (s *toolsCommonSuite) downloadRequest(c *gc.C, version version.Binary, uuid
 func (s *toolsCommonSuite) assertUploadResponse(c *gc.C, resp *http.Response, agentTools *coretools.Tools) {
 	toolsResponse := s.assertResponse(c, resp, http.StatusOK)
 	c.Check(toolsResponse.Error, gc.IsNil)
-	c.Check(toolsResponse.Tools, gc.DeepEquals, agentTools)
+	c.Check(toolsResponse.ToolsList, jc.DeepEquals, coretools.List{agentTools})
 }
 
 func (s *toolsCommonSuite) assertGetFileResponse(c *gc.C, resp *http.Response, expBody, expContentType string) {
@@ -176,13 +182,14 @@ func (s *toolsSuite) setupToolsForUpload(c *gc.C) (coretools.List, version.Binar
 
 func (s *toolsSuite) TestUpload(c *gc.C) {
 	// Make some fake tools.
-	expectedTools, vers, toolPath := s.setupToolsForUpload(c)
+	expectedTools, v, toolPath := s.setupToolsForUpload(c)
+	vers := v.String()
 	// Now try uploading them.
 	resp := s.uploadRequest(
-		c, s.toolsURI(c, "?binaryVersion="+vers.String()), "application/x-tar-gz", toolPath)
+		c, s.toolsURI(c, "?binaryVersion="+vers), "application/x-tar-gz", toolPath)
 
 	// Check the response.
-	expectedTools[0].URL = fmt.Sprintf("%s/environment/%s/tools/%s", s.baseURL(c), s.State.EnvironUUID(), vers)
+	expectedTools[0].URL = fmt.Sprintf("%s/model/%s/tools/%s", s.baseURL(c), s.State.ModelUUID(), vers)
 	s.assertUploadResponse(c, resp, expectedTools[0])
 
 	// Check the contents.
@@ -191,17 +198,18 @@ func (s *toolsSuite) TestUpload(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(uploadedData, gc.DeepEquals, expectedData)
 	allMetadata := s.getToolsMetadataFromStorage(c, s.State)
-	c.Assert(allMetadata, jc.DeepEquals, []toolstorage.Metadata{metadata})
+	c.Assert(allMetadata, jc.DeepEquals, []binarystorage.Metadata{metadata})
 }
 
 func (s *toolsSuite) TestBlockUpload(c *gc.C) {
 	// Make some fake tools.
-	_, vers, toolPath := s.setupToolsForUpload(c)
+	_, v, toolPath := s.setupToolsForUpload(c)
+	vers := v.String()
 	// Block all changes.
 	s.BlockAllChanges(c, "TestUpload")
 	// Now try uploading them.
 	resp := s.uploadRequest(
-		c, s.toolsURI(c, "?binaryVersion="+vers.String()), "application/x-tar-gz", toolPath)
+		c, s.toolsURI(c, "?binaryVersion="+vers), "application/x-tar-gz", toolPath)
 	toolsResponse := s.assertResponse(c, resp, http.StatusBadRequest)
 	s.AssertBlocked(c, toolsResponse.Error, "TestUpload")
 
@@ -209,7 +217,7 @@ func (s *toolsSuite) TestBlockUpload(c *gc.C) {
 	storage, err := s.State.ToolsStorage()
 	c.Assert(err, jc.ErrorIsNil)
 	defer storage.Close()
-	_, _, err = storage.Tools(vers)
+	_, _, err = storage.Open(vers)
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 }
 
@@ -221,53 +229,54 @@ func (s *toolsSuite) TestUploadAllowsTopLevelPath(c *gc.C) {
 	url.Path = "/tools"
 	resp := s.uploadRequest(c, url.String(), "application/x-tar-gz", toolPath)
 	// Check the response.
-	expectedTools[0].URL = fmt.Sprintf("%s/environment/%s/tools/%s", s.baseURL(c), s.State.EnvironUUID(), vers)
+	expectedTools[0].URL = fmt.Sprintf("%s/model/%s/tools/%s", s.baseURL(c), s.State.ModelUUID(), vers)
 	s.assertUploadResponse(c, resp, expectedTools[0])
 }
 
-func (s *toolsSuite) TestUploadAllowsEnvUUIDPath(c *gc.C) {
-	// Check that we can upload tools to https://host:port/ENVUUID/tools
+func (s *toolsSuite) TestUploadAllowsModelUUIDPath(c *gc.C) {
+	// Check that we can upload tools to https://host:port/ModelUUID/tools
 	expectedTools, vers, toolPath := s.setupToolsForUpload(c)
 	url := s.toolsURL(c, "binaryVersion="+vers.String())
-	url.Path = fmt.Sprintf("/environment/%s/tools", s.State.EnvironUUID())
+	url.Path = fmt.Sprintf("/model/%s/tools", s.State.ModelUUID())
 	resp := s.uploadRequest(c, url.String(), "application/x-tar-gz", toolPath)
 	// Check the response.
-	expectedTools[0].URL = fmt.Sprintf("%s/environment/%s/tools/%s", s.baseURL(c), s.State.EnvironUUID(), vers)
+	expectedTools[0].URL = fmt.Sprintf("%s/model/%s/tools/%s", s.baseURL(c), s.State.ModelUUID(), vers)
 	s.assertUploadResponse(c, resp, expectedTools[0])
 }
 
-func (s *toolsSuite) TestUploadAllowsOtherEnvUUIDPath(c *gc.C) {
-	envState := s.setupOtherEnvironment(c)
-	// Check that we can upload tools to https://host:port/ENVUUID/tools
+func (s *toolsSuite) TestUploadAllowsOtherModelUUIDPath(c *gc.C) {
+	envState := s.setupOtherModel(c)
+	// Check that we can upload tools to https://host:port/ModelUUID/tools
 	expectedTools, vers, toolPath := s.setupToolsForUpload(c)
 	url := s.toolsURL(c, "binaryVersion="+vers.String())
-	url.Path = fmt.Sprintf("/environment/%s/tools", envState.EnvironUUID())
+	url.Path = fmt.Sprintf("/model/%s/tools", envState.ModelUUID())
 	resp := s.uploadRequest(c, url.String(), "application/x-tar-gz", toolPath)
 	// Check the response.
-	expectedTools[0].URL = fmt.Sprintf("%s/environment/%s/tools/%s", s.baseURL(c), envState.EnvironUUID(), vers)
+	expectedTools[0].URL = fmt.Sprintf("%s/model/%s/tools/%s", s.baseURL(c), envState.ModelUUID(), vers)
 	s.assertUploadResponse(c, resp, expectedTools[0])
 }
 
-func (s *toolsSuite) TestUploadRejectsWrongEnvUUIDPath(c *gc.C) {
-	// Check that we cannot access the tools at https://host:port/BADENVUUID/tools
+func (s *toolsSuite) TestUploadRejectsWrongModelUUIDPath(c *gc.C) {
+	// Check that we cannot access the tools at https://host:port/BADModelUUID/tools
 	url := s.toolsURL(c, "")
-	url.Path = "/environment/dead-beef-123456/tools"
+	url.Path = "/model/dead-beef-123456/tools"
 	resp := s.authRequest(c, httpRequestParams{method: "POST", url: url.String()})
-	s.assertErrorResponse(c, resp, http.StatusNotFound, `unknown environment: "dead-beef-123456"`)
+	s.assertErrorResponse(c, resp, http.StatusNotFound, `unknown model: "dead-beef-123456"`)
 }
 
 func (s *toolsSuite) TestUploadSeriesExpanded(c *gc.C) {
 	// Make some fake tools.
-	expectedTools, vers, toolPath := s.setupToolsForUpload(c)
+	expectedTools, v, toolPath := s.setupToolsForUpload(c)
+	vers := v.String()
 	// Now try uploading them. The tools will be cloned for
 	// each additional series specified.
-	params := "?binaryVersion=" + vers.String() + "&series=quantal,precise"
+	params := "?binaryVersion=" + vers + "&series=quantal,precise"
 	resp := s.uploadRequest(c, s.toolsURI(c, params), "application/x-tar-gz", toolPath)
 	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
 
 	// Check the response.
 	info := s.APIInfo(c)
-	expectedTools[0].URL = fmt.Sprintf("%s/environment/%s/tools/%s", s.baseURL(c), info.EnvironTag.Id(), vers)
+	expectedTools[0].URL = fmt.Sprintf("%s/model/%s/tools/%s", s.baseURL(c), info.ModelTag.Id(), vers)
 	s.assertUploadResponse(c, resp, expectedTools[0])
 
 	// Check the contents.
@@ -277,9 +286,8 @@ func (s *toolsSuite) TestUploadSeriesExpanded(c *gc.C) {
 	expectedData, err := ioutil.ReadFile(toolPath)
 	c.Assert(err, jc.ErrorIsNil)
 	for _, series := range []string{"precise", "quantal"} {
-		vers := vers
-		vers.Series = series
-		_, r, err := storage.Tools(vers)
+		v.Series = series
+		_, r, err := storage.Open(v.String())
 		c.Assert(err, jc.ErrorIsNil)
 		uploadedData, err := ioutil.ReadAll(r)
 		r.Close()
@@ -288,62 +296,65 @@ func (s *toolsSuite) TestUploadSeriesExpanded(c *gc.C) {
 	}
 
 	// ensure other series *aren't* there.
-	vers.Series = "trusty"
-	_, err = storage.Metadata(vers)
+	v.Series = "trusty"
+	_, err = storage.Metadata(v.String())
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
-func (s *toolsSuite) TestDownloadEnvUUIDPath(c *gc.C) {
-	tools := s.storeFakeTools(c, s.State, "abc", toolstorage.Metadata{
-		Version: version.Binary{
-			Number: version.Current,
-			Arch:   arch.HostArch(),
-			Series: series.HostSeries(),
-		},
-		Size:   3,
-		SHA256: "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+func (s *toolsSuite) TestDownloadModelUUIDPath(c *gc.C) {
+	v := version.Binary{
+		Number: jujuversion.Current,
+		Arch:   arch.HostArch(),
+		Series: series.HostSeries(),
+	}
+	tools := s.storeFakeTools(c, s.State, "abc", binarystorage.Metadata{
+		Version: v.String(),
+		Size:    3,
+		SHA256:  "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
 	})
-	s.testDownload(c, tools, s.State.EnvironUUID())
+	s.testDownload(c, tools, s.State.ModelUUID())
 }
 
-func (s *toolsSuite) TestDownloadOtherEnvUUIDPath(c *gc.C) {
-	envState := s.setupOtherEnvironment(c)
-	tools := s.storeFakeTools(c, envState, "abc", toolstorage.Metadata{
-		Version: version.Binary{
-			Number: version.Current,
-			Arch:   arch.HostArch(),
-			Series: series.HostSeries(),
-		},
-		Size:   3,
-		SHA256: "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+func (s *toolsSuite) TestDownloadOtherModelUUIDPath(c *gc.C) {
+	envState := s.setupOtherModel(c)
+	v := version.Binary{
+		Number: jujuversion.Current,
+		Arch:   arch.HostArch(),
+		Series: series.HostSeries(),
+	}
+	tools := s.storeFakeTools(c, envState, "abc", binarystorage.Metadata{
+		Version: v.String(),
+		Size:    3,
+		SHA256:  "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
 	})
-	s.testDownload(c, tools, envState.EnvironUUID())
+	s.testDownload(c, tools, envState.ModelUUID())
 }
 
 func (s *toolsSuite) TestDownloadTopLevelPath(c *gc.C) {
-	tools := s.storeFakeTools(c, s.State, "abc", toolstorage.Metadata{
-		Version: version.Binary{
-			Number: version.Current,
-			Arch:   arch.HostArch(),
-			Series: series.HostSeries(),
-		},
-		Size:   3,
-		SHA256: "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+	v := version.Binary{
+		Number: jujuversion.Current,
+		Arch:   arch.HostArch(),
+		Series: series.HostSeries(),
+	}
+	tools := s.storeFakeTools(c, s.State, "abc", binarystorage.Metadata{
+		Version: v.String(),
+		Size:    3,
+		SHA256:  "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
 	})
 	s.testDownload(c, tools, "")
 }
 
 func (s *toolsSuite) TestDownloadFetchesAndCaches(c *gc.C) {
-	// The tools are not in toolstorage, so the download request causes
+	// The tools are not in binarystorage, so the download request causes
 	// the API server to search for the tools in simplestreams, fetch
-	// them, and then cache them in toolstorage.
+	// them, and then cache them in binarystorage.
 	vers := version.MustParseBinary("1.23.0-trusty-amd64")
 	stor := s.DefaultToolsStorage
 	envtesting.RemoveTools(c, stor, "released")
 	tools := envtesting.AssertUploadFakeToolsVersions(c, stor, "released", "released", vers)[0]
 	data := s.testDownload(c, tools, "")
 
-	metadata, cachedData := s.getToolsFromStorage(c, s.State, tools.Version)
+	metadata, cachedData := s.getToolsFromStorage(c, s.State, tools.Version.String())
 	c.Assert(metadata.Size, gc.Equals, tools.Size)
 	c.Assert(metadata.SHA256, gc.Equals, tools.SHA256)
 	c.Assert(string(cachedData), gc.Equals, string(data))
@@ -351,11 +362,11 @@ func (s *toolsSuite) TestDownloadFetchesAndCaches(c *gc.C) {
 
 func (s *toolsSuite) TestDownloadFetchesAndVerifiesSize(c *gc.C) {
 	// Upload fake tools, then upload over the top so the SHA256 hash does not match.
-	s.PatchValue(&version.Current, testing.FakeVersionNumber)
+	s.PatchValue(&jujuversion.Current, testing.FakeVersionNumber)
 	stor := s.DefaultToolsStorage
 	envtesting.RemoveTools(c, stor, "released")
 	current := version.Binary{
-		Number: version.Current,
+		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
 		Series: series.HostSeries(),
 	}
@@ -365,16 +376,16 @@ func (s *toolsSuite) TestDownloadFetchesAndVerifiesSize(c *gc.C) {
 
 	resp := s.downloadRequest(c, tools.Version, "")
 	s.assertErrorResponse(c, resp, http.StatusBadRequest, "error fetching tools: size mismatch for .*")
-	s.assertToolsNotStored(c, tools.Version)
+	s.assertToolsNotStored(c, tools.Version.String())
 }
 
 func (s *toolsSuite) TestDownloadFetchesAndVerifiesHash(c *gc.C) {
 	// Upload fake tools, then upload over the top so the SHA256 hash does not match.
-	s.PatchValue(&version.Current, testing.FakeVersionNumber)
+	s.PatchValue(&jujuversion.Current, testing.FakeVersionNumber)
 	stor := s.DefaultToolsStorage
 	envtesting.RemoveTools(c, stor, "released")
 	current := version.Binary{
-		Number: version.Current,
+		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
 		Series: series.HostSeries(),
 	}
@@ -385,27 +396,27 @@ func (s *toolsSuite) TestDownloadFetchesAndVerifiesHash(c *gc.C) {
 
 	resp := s.downloadRequest(c, tools.Version, "")
 	s.assertErrorResponse(c, resp, http.StatusBadRequest, "error fetching tools: hash mismatch for .*")
-	s.assertToolsNotStored(c, tools.Version)
+	s.assertToolsNotStored(c, tools.Version.String())
 }
 
-func (s *toolsSuite) storeFakeTools(c *gc.C, st *state.State, content string, metadata toolstorage.Metadata) *coretools.Tools {
+func (s *toolsSuite) storeFakeTools(c *gc.C, st *state.State, content string, metadata binarystorage.Metadata) *coretools.Tools {
 	storage, err := st.ToolsStorage()
 	c.Assert(err, jc.ErrorIsNil)
 	defer storage.Close()
-	err = storage.AddTools(strings.NewReader(content), metadata)
+	err = storage.Add(strings.NewReader(content), metadata)
 	c.Assert(err, jc.ErrorIsNil)
 	return &coretools.Tools{
-		Version: metadata.Version,
+		Version: version.MustParseBinary(metadata.Version),
 		Size:    metadata.Size,
 		SHA256:  metadata.SHA256,
 	}
 }
 
-func (s *toolsSuite) getToolsFromStorage(c *gc.C, st *state.State, vers version.Binary) (toolstorage.Metadata, []byte) {
+func (s *toolsSuite) getToolsFromStorage(c *gc.C, st *state.State, vers string) (binarystorage.Metadata, []byte) {
 	storage, err := st.ToolsStorage()
 	c.Assert(err, jc.ErrorIsNil)
 	defer storage.Close()
-	metadata, r, err := storage.Tools(vers)
+	metadata, r, err := storage.Open(vers)
 	c.Assert(err, jc.ErrorIsNil)
 	data, err := ioutil.ReadAll(r)
 	r.Close()
@@ -413,7 +424,7 @@ func (s *toolsSuite) getToolsFromStorage(c *gc.C, st *state.State, vers version.
 	return metadata, data
 }
 
-func (s *toolsSuite) getToolsMetadataFromStorage(c *gc.C, st *state.State) []toolstorage.Metadata {
+func (s *toolsSuite) getToolsMetadataFromStorage(c *gc.C, st *state.State) []binarystorage.Metadata {
 	storage, err := st.ToolsStorage()
 	c.Assert(err, jc.ErrorIsNil)
 	defer storage.Close()
@@ -422,7 +433,7 @@ func (s *toolsSuite) getToolsMetadataFromStorage(c *gc.C, st *state.State) []too
 	return metadata
 }
 
-func (s *toolsSuite) assertToolsNotStored(c *gc.C, vers version.Binary) {
+func (s *toolsSuite) assertToolsNotStored(c *gc.C, vers string) {
 	storage, err := s.State.ToolsStorage()
 	c.Assert(err, jc.ErrorIsNil)
 	defer storage.Close()
@@ -443,14 +454,14 @@ func (s *toolsSuite) testDownload(c *gc.C, tools *coretools.Tools, uuid string) 
 	return data
 }
 
-func (s *toolsSuite) TestDownloadRejectsWrongEnvUUIDPath(c *gc.C) {
+func (s *toolsSuite) TestDownloadRejectsWrongModelUUIDPath(c *gc.C) {
 	current := version.Binary{
-		Number: version.Current,
+		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
 		Series: series.HostSeries(),
 	}
 	resp := s.downloadRequest(c, current, "dead-beef-123456")
-	s.assertErrorResponse(c, resp, http.StatusNotFound, `unknown environment: "dead-beef-123456"`)
+	s.assertErrorResponse(c, resp, http.StatusNotFound, `unknown model: "dead-beef-123456"`)
 }
 
 type toolsWithMacaroonsSuite struct {
@@ -491,6 +502,51 @@ func (s *toolsWithMacaroonsSuite) TestCanPostWithDischargedMacaroon(c *gc.C) {
 	})
 	s.assertErrorResponse(c, resp, http.StatusBadRequest, "expected binaryVersion argument")
 	c.Assert(checkCount, gc.Equals, 1)
+}
+
+func (s *toolsWithMacaroonsSuite) TestCanPostWithLocalLogin(c *gc.C) {
+	// Create a new local user that we can log in as
+	// using macaroon authentication.
+	const password = "hunter2"
+	user := s.Factory.MakeUser(c, &factory.UserParams{Password: password})
+
+	// Install a "web-page" visitor that deals with the interaction
+	// method that Juju controllers support for authenticating local
+	// users. Note: the use of httpbakery.NewMultiVisitor is necessary
+	// to trigger httpbakery to query the authentication methods and
+	// bypass browser authentication.
+	var prompted bool
+	jar := apitesting.NewClearableCookieJar()
+	client := utils.GetNonValidatingHTTPClient()
+	client.Jar = jar
+	bakeryClient := httpbakery.NewClient()
+	bakeryClient.Client = client
+	bakeryClient.WebPageVisitor = httpbakery.NewMultiVisitor(apiauthentication.NewVisitor(
+		user.UserTag().Id(),
+		func(username string) (string, error) {
+			c.Assert(username, gc.Equals, user.UserTag().Id())
+			prompted = true
+			return password, nil
+		},
+	))
+	bakeryDo := func(req *http.Request) (*http.Response, error) {
+		var body io.ReadSeeker
+		if req.Body != nil {
+			body = req.Body.(io.ReadSeeker)
+			req.Body = nil
+		}
+		return bakeryClient.DoWithBodyAndCustomError(req, body, bakeryGetError)
+	}
+
+	resp := s.sendRequest(c, httpRequestParams{
+		method:   "POST",
+		url:      s.toolsURI(c, ""),
+		tag:      user.UserTag().String(),
+		password: "", // no password forces macaroon usage
+		do:       bakeryDo,
+	})
+	s.assertErrorResponse(c, resp, http.StatusBadRequest, "expected binaryVersion argument")
+	c.Assert(prompted, jc.IsTrue)
 }
 
 // doer returns a Do function that can make a bakery request

@@ -46,22 +46,47 @@ func MergeAndWriteMetadata(ser string, metadata []*ImageMetadata, cloudSpec *sim
 // readMetadata reads the image metadata from metadataStore.
 func readMetadata(metadataStore storage.Storage) ([]*ImageMetadata, error) {
 	// Read any existing metadata so we can merge the new tools metadata with what's there.
-	dataSource := storage.NewStorageSimpleStreamsDataSource("existing metadata", metadataStore, storage.BaseImagesPath)
+	dataSource := storage.NewStorageSimpleStreamsDataSource("existing metadata", metadataStore, storage.BaseImagesPath, simplestreams.EXISTING_CLOUD_DATA, false)
 	imageConstraint := NewImageConstraint(simplestreams.LookupParams{})
-	existingMetadata, _, err := Fetch([]simplestreams.DataSource{dataSource}, imageConstraint, false)
+	existingMetadata, _, err := Fetch([]simplestreams.DataSource{dataSource}, imageConstraint)
 	if err != nil && !errors.IsNotFound(err) {
 		return nil, err
 	}
 	return existingMetadata, nil
 }
 
+// mapKey returns a key that uniquely identifies image metadata.
+// The metadata for different images may have similar values
+// for some parameters. This key ensures that truly distinct
+// metadata is not overwritten by closely related ones.
+// This key is similar to image metadata key built in state which combines
+// parameter values rather than using image id to ensure record uniqueness.
 func mapKey(im *ImageMetadata) string {
-	return fmt.Sprintf("%s-%s", im.productId(), im.RegionName)
+	return fmt.Sprintf("%s-%s-%s-%s", im.productId(), im.RegionName, im.VirtType, im.Storage)
 }
 
 // mergeMetadata merges the newMetadata into existingMetadata, overwriting existing matching image records.
 func mergeMetadata(seriesVersion string, cloudSpec *simplestreams.CloudSpec, newMetadata,
 	existingMetadata []*ImageMetadata) ([]*ImageMetadata, []simplestreams.CloudSpec) {
+
+	regions := make(map[string]bool)
+	var allCloudSpecs = []simplestreams.CloudSpec{}
+	// Each metadata item defines its own cloud specification.
+	// However, when we combine metadata items in the file, we do not want to
+	// repeat common cloud specifications in index definition.
+	// Since region name and endpoint have 1:1 correspondence,
+	// only one distinct cloud specification for each region
+	// is being collected.
+	addDistinctCloudSpec := func(im *ImageMetadata) {
+		if _, ok := regions[im.RegionName]; !ok {
+			regions[im.RegionName] = true
+			aCloudSpec := simplestreams.CloudSpec{
+				Region:   im.RegionName,
+				Endpoint: im.Endpoint,
+			}
+			allCloudSpecs = append(allCloudSpecs, aCloudSpec)
+		}
+	}
 
 	var toWrite = make([]*ImageMetadata, len(newMetadata))
 	imageIds := make(map[string]bool)
@@ -72,23 +97,13 @@ func mergeMetadata(seriesVersion string, cloudSpec *simplestreams.CloudSpec, new
 		newRecord.Endpoint = cloudSpec.Endpoint
 		toWrite[i] = &newRecord
 		imageIds[mapKey(&newRecord)] = true
+		addDistinctCloudSpec(&newRecord)
 	}
-	regions := make(map[string]bool)
-	var allCloudSpecs = []simplestreams.CloudSpec{*cloudSpec}
 	for _, im := range existingMetadata {
-		if _, ok := imageIds[mapKey(im)]; ok {
-			continue
+		if _, ok := imageIds[mapKey(im)]; !ok {
+			toWrite = append(toWrite, im)
+			addDistinctCloudSpec(im)
 		}
-		toWrite = append(toWrite, im)
-		if _, ok := regions[im.RegionName]; ok {
-			continue
-		}
-		regions[im.RegionName] = true
-		existingCloudSpec := simplestreams.CloudSpec{
-			Region:   im.RegionName,
-			Endpoint: im.Endpoint,
-		}
-		allCloudSpecs = append(allCloudSpecs, existingCloudSpec)
 	}
 	return toWrite, allCloudSpecs
 }
@@ -103,6 +118,7 @@ type MetadataFile struct {
 func writeMetadata(metadata []*ImageMetadata, cloudSpec []simplestreams.CloudSpec,
 	metadataStore storage.Storage) error {
 
+	// TODO(perrito666) 2016-05-02 lp:1558657
 	index, products, err := MarshalImageMetadataJSON(metadata, cloudSpec, time.Now())
 	if err != nil {
 		return err

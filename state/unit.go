@@ -4,27 +4,29 @@
 package state
 
 import (
-	stderrors "errors"
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
+	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/actions"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/presence"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
 )
 
 var unitLogger = loggo.GetLogger("juju.state.unit")
@@ -71,23 +73,13 @@ type port struct {
 	Number   int    `bson:"number"`
 }
 
-// networkPorts is a convenience helper to return the state type
-// as network type, here for a slice of Port.
-func networkPorts(ports []port) []network.Port {
-	netPorts := make([]network.Port, len(ports))
-	for i, port := range ports {
-		netPorts[i] = network.Port{port.Protocol, port.Number}
-	}
-	return netPorts
-}
-
 // unitDoc represents the internal state of a unit in MongoDB.
 // Note the correspondence with UnitInfo in apiserver/params.
 type unitDoc struct {
 	DocID                  string `bson:"_id"`
 	Name                   string `bson:"name"`
-	EnvUUID                string `bson:"env-uuid"`
-	Service                string
+	ModelUUID              string `bson:"model-uuid"`
+	Application            string
 	Series                 string
 	CharmURL               *charm.URL
 	Principal              string
@@ -99,20 +91,12 @@ type unitDoc struct {
 	Life                   Life
 	TxnRevno               int64 `bson:"txn-revno"`
 	PasswordHash           string
-
-	// TODO(mue) No longer actively used, only in upgrades.go.
-	// To be removed later.
-	Ports          []port `bson:"ports"`
-	PublicAddress  string `bson:"publicaddress"`
-	PrivateAddress string `bson:"privateaddress"`
 }
 
 // Unit represents the state of a service unit.
 type Unit struct {
 	st  *State
 	doc unitDoc
-	presence.Presencer
-	StatusHistoryGetter
 }
 
 func newUnit(st *State, udoc *unitDoc) *Unit {
@@ -123,9 +107,9 @@ func newUnit(st *State, udoc *unitDoc) *Unit {
 	return unit
 }
 
-// Service returns the service.
-func (u *Unit) Service() (*Service, error) {
-	return u.st.Service(u.doc.Service)
+// Application returns the application.
+func (u *Unit) Application() (*Application, error) {
+	return u.st.Application(u.doc.Application)
 }
 
 // ConfigSettings returns the complete set of service charm config settings
@@ -136,7 +120,7 @@ func (u *Unit) ConfigSettings() (charm.Settings, error) {
 	if u.doc.CharmURL == nil {
 		return nil, fmt.Errorf("unit charm not set")
 	}
-	settings, err := readSettings(u.st, serviceSettingsKey(u.doc.Service, u.doc.CharmURL))
+	settings, err := readSettings(u.st, settingsC, applicationSettingsKey(u.doc.Application, u.doc.CharmURL))
 	if err != nil {
 		return nil, err
 	}
@@ -151,9 +135,9 @@ func (u *Unit) ConfigSettings() (charm.Settings, error) {
 	return result, nil
 }
 
-// ServiceName returns the service name.
-func (u *Unit) ServiceName() string {
-	return u.doc.Service
+// ApplicationName returns the application name.
+func (u *Unit) ApplicationName() string {
+	return u.doc.Application
 }
 
 // Series returns the deployed charm's series.
@@ -176,6 +160,12 @@ func unitGlobalKey(name string) string {
 	return "u#" + name + "#charm"
 }
 
+// globalWorkloadVersionKey returns the global database key for the
+// workload version status key for this unit.
+func globalWorkloadVersionKey(name string) string {
+	return unitGlobalKey(name) + "#sat#workload-version"
+}
+
 // globalAgentKey returns the global database key for the unit.
 func (u *Unit) globalAgentKey() string {
 	return unitAgentGlobalKey(u.doc.Name)
@@ -191,9 +181,50 @@ func (u *Unit) globalKey() string {
 	return unitGlobalKey(u.doc.Name)
 }
 
+// globalWorkloadVersionKey returns the global database key for the unit's
+// workload version info.
+func (u *Unit) globalWorkloadVersionKey() string {
+	return globalWorkloadVersionKey(u.doc.Name)
+}
+
 // Life returns whether the unit is Alive, Dying or Dead.
 func (u *Unit) Life() Life {
 	return u.doc.Life
+}
+
+// WorkloadVersion returns the version of the running workload set by
+// the charm (eg, the version of postgresql that is running, as
+// opposed to the version of the postgresql charm).
+func (u *Unit) WorkloadVersion() (string, error) {
+	status, err := getStatus(u.st, u.globalWorkloadVersionKey(), "workload")
+	if errors.IsNotFound(err) {
+		return "", nil
+	} else if err != nil {
+		return "", errors.Trace(err)
+	}
+	return status.Message, nil
+}
+
+// SetWorkloadVersion sets the version of the workload that the unit
+// is currently running.
+func (u *Unit) SetWorkloadVersion(version string) error {
+	// Store in status rather than an attribute of the unit doc - we
+	// want to avoid everything being an attr of the main docs to
+	// stop a swarm of watchers being notified for irrelevant changes.
+	now := u.st.clock.Now()
+	return setStatus(u.st, setStatusParams{
+		badge:     "workload",
+		globalKey: u.globalWorkloadVersionKey(),
+		status:    status.Active,
+		message:   version,
+		updated:   &now,
+	})
+}
+
+// WorkloadVersionHistory returns a HistoryGetter which enables the
+// caller to request past workload version changes.
+func (u *Unit) WorkloadVersionHistory() *HistoryGetter {
+	return &HistoryGetter{st: u.st, globalKey: u.globalWorkloadVersionKey()}
 }
 
 // AgentTools returns the tools that the agent is currently running.
@@ -268,17 +299,6 @@ func (u *Unit) PasswordValid(password string) bool {
 	if agentHash == u.doc.PasswordHash {
 		return true
 	}
-	// In Juju 1.16 and older we used the slower password hash for unit
-	// agents. So check to see if the supplied password matches the old
-	// path, and if so, update it to the new mechanism.
-	// We ignore any error in setting the password hash, as we'll just try
-	// again next time
-	if utils.UserPasswordHash(password, utils.CompatSalt) == u.doc.PasswordHash {
-		logger.Debugf("%s logged in with old password hash, changing to AgentPasswordHash",
-			u.Tag())
-		u.setPasswordHash(agentHash)
-		return true
-	}
 	return false
 }
 
@@ -328,9 +348,6 @@ func (u *Unit) Destroy() (err error) {
 func (u *Unit) eraseHistory() error {
 	history, closer := u.st.getCollection(statusesHistoryC)
 	defer closer()
-	// XXX(fwereade): 2015-06-19 this is anything but safe: we must not mix
-	// txn and non-txn operations in the same collection without clear and
-	// detailed reasoning for so doing.
 	historyW := history.Writeable()
 
 	if _, err := historyW.RemoveAll(bson.D{{"statusid", u.globalKey()}}); err != nil {
@@ -371,14 +388,15 @@ func (u *Unit) destroyOps() ([]txn.Op, error) {
 	// lose much time and (2) by maintaining this restriction, I can reduce
 	// the number of tests that have to change and defer that improvement to
 	// its own CL.
-	minUnitsOp := minUnitsTriggerOp(u.st, u.ServiceName())
-	cleanupOp := u.st.newCleanupOp(cleanupDyingUnit, u.doc.Name)
-	setDyingOps := []txn.Op{{
+	minUnitsOp := minUnitsTriggerOp(u.st, u.ApplicationName())
+	cleanupOp := newCleanupOp(cleanupDyingUnit, u.doc.Name)
+	setDyingOp := txn.Op{
 		C:      unitsC,
 		Id:     u.doc.DocID,
 		Assert: isAliveDoc,
 		Update: bson.D{{"$set", bson.D{{"life", Dying}}}},
-	}, cleanupOp, minUnitsOp}
+	}
+	setDyingOps := []txn.Op{setDyingOp, cleanupOp, minUnitsOp}
 	if u.doc.Principal != "" {
 		return setDyingOps, nil
 	} else if len(u.doc.Subordinates)+u.doc.StorageAttachmentCount != 0 {
@@ -394,14 +412,14 @@ func (u *Unit) destroyOps() ([]txn.Op, error) {
 	} else if agentErr != nil {
 		return nil, errors.Trace(agentErr)
 	}
-	if agentStatusInfo.Status != StatusAllocating {
+	if agentStatusInfo.Status != status.Allocating {
 		return setDyingOps, nil
 	}
 
 	ops := []txn.Op{{
 		C:      statusesC,
 		Id:     u.st.docID(agentStatusDocId),
-		Assert: bson.D{{"status", StatusAllocating}},
+		Assert: bson.D{{"status", status.Allocating}},
 	}, minUnitsOp}
 	removeAsserts := append(isAliveDoc, bson.DocElem{
 		"$and", []bson.D{
@@ -420,7 +438,7 @@ func (u *Unit) destroyOps() ([]txn.Op, error) {
 
 // destroyHostOps returns all necessary operations to destroy the service unit's host machine,
 // or ensure that the conditions preventing its destruction remain stable through the transaction.
-func (u *Unit) destroyHostOps(s *Service) (ops []txn.Op, err error) {
+func (u *Unit) destroyHostOps(s *Application) (ops []txn.Op, err error) {
 	if s.doc.Subordinate {
 		return []txn.Op{{
 			C:      unitsC,
@@ -429,7 +447,7 @@ func (u *Unit) destroyHostOps(s *Service) (ops []txn.Op, err error) {
 			Update: bson.D{{"$pull", bson.D{{"subordinates", u.doc.Name}}}},
 		}}, nil
 	} else if u.doc.MachineId == "" {
-		unitLogger.Errorf("unit %v unassigned", u)
+		unitLogger.Tracef("unit %v unassigned", u)
 		return nil, nil
 	}
 
@@ -469,7 +487,7 @@ func (u *Unit) destroyHostOps(s *Service) (ops []txn.Op, err error) {
 	machineCheck := true // whether host machine conditions allow destroy
 	if len(m.doc.Principals) != 1 || m.doc.Principals[0] != u.doc.Name {
 		machineCheck = false
-	} else if hasJob(m.doc.Jobs, JobManageEnviron) {
+	} else if hasJob(m.doc.Jobs, JobManageModel) {
 		// Check that the machine does not have any responsibilities that
 		// prevent a lifecycle change.
 		machineCheck = false
@@ -483,13 +501,13 @@ func (u *Unit) destroyHostOps(s *Service) (ops []txn.Op, err error) {
 	if machineCheck {
 		machineAssert = bson.D{{"$and", []bson.D{
 			{{"principals", []string{u.doc.Name}}},
-			{{"jobs", bson.D{{"$nin", []MachineJob{JobManageEnviron}}}}},
+			{{"jobs", bson.D{{"$nin", []MachineJob{JobManageModel}}}}},
 			{{"hasvote", bson.D{{"$ne", true}}}},
 		}}}
 	} else {
 		machineAssert = bson.D{{"$or", []bson.D{
 			{{"principals", bson.D{{"$ne", []string{u.doc.Name}}}}},
-			{{"jobs", bson.D{{"$in", []MachineJob{JobManageEnviron}}}}},
+			{{"jobs", bson.D{{"$in", []MachineJob{JobManageModel}}}}},
 			{{"hasvote", true}},
 		}}}
 	}
@@ -509,12 +527,10 @@ func (u *Unit) destroyHostOps(s *Service) (ops []txn.Op, err error) {
 	return ops, nil
 }
 
-var errAlreadyRemoved = stderrors.New("entity has already been removed")
-
 // removeOps returns the operations necessary to remove the unit, assuming
 // the supplied asserts apply to the unit document.
 func (u *Unit) removeOps(asserts bson.D) ([]txn.Op, error) {
-	svc, err := u.st.Service(u.doc.Service)
+	svc, err := u.st.Application(u.doc.Application)
 	if errors.IsNotFound(err) {
 		// If the service has been removed, the unit must already have been.
 		return nil, errAlreadyRemoved
@@ -527,7 +543,7 @@ func (u *Unit) removeOps(asserts bson.D) ([]txn.Op, error) {
 // ErrUnitHasSubordinates is a standard error to indicate that a Unit
 // cannot complete an operation to end its life because it still has
 // subordinate services
-var ErrUnitHasSubordinates = stderrors.New("unit has subordinates")
+var ErrUnitHasSubordinates = errors.New("unit has subordinates")
 
 var unitHasNoSubordinates = bson.D{{
 	"$or", []bson.D{
@@ -539,7 +555,7 @@ var unitHasNoSubordinates = bson.D{{
 // ErrUnitHasStorageAttachments is a standard error to indicate that
 // a Unit cannot complete an operation to end its life because it still
 // has storage attachments.
-var ErrUnitHasStorageAttachments = stderrors.New("unit has storage attachments")
+var ErrUnitHasStorageAttachments = errors.New("unit has storage attachments")
 
 var unitHasNoStorageAttachments = bson.D{{
 	"$or", []bson.D{
@@ -598,7 +614,7 @@ func (u *Unit) EnsureDead() (err error) {
 func (u *Unit) Remove() (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot remove unit %q", u)
 	if u.doc.Life != Dead {
-		return stderrors.New("unit is not dead")
+		return errors.New("unit is not dead")
 	}
 
 	// Now the unit is Dead, we can be sure that it's impossible for it to
@@ -606,7 +622,7 @@ func (u *Unit) Remove() (err error) {
 	// EnsureDead does not require that it already be Dying, so this is the
 	// only point at which we can safely backstop lp:1233457 and mitigate
 	// the impact of unit agent bugs that leave relation scopes occupied).
-	relations, err := serviceRelations(u.st, u.doc.Service)
+	relations, err := applicationRelations(u.st, u.doc.Application)
 	if err != nil {
 		return err
 	}
@@ -683,7 +699,7 @@ type relationPredicate func(ru *RelationUnit) (bool, error)
 
 // relations implements RelationsJoined and RelationsInScope.
 func (u *Unit) relations(predicate relationPredicate) ([]*Relation, error) {
-	candidates, err := serviceRelations(u.st, u.doc.Service)
+	candidates, err := applicationRelations(u.st, u.doc.Application)
 	if err != nil {
 		return nil, err
 	}
@@ -720,6 +736,8 @@ func (u *Unit) PrincipalName() (string, bool) {
 }
 
 // machine returns the unit's machine.
+//
+// machine is part of the machineAssignable interface.
 func (u *Unit) machine() (*Machine, error) {
 	id, err := u.AssignedMachineId()
 	if err != nil {
@@ -727,16 +745,29 @@ func (u *Unit) machine() (*Machine, error) {
 	}
 	m, err := u.st.Machine(id)
 	if err != nil {
-		return nil, errors.Annotatef(err, "unit %v misses machine id %v", u)
+		return nil, errors.Annotatef(err, "unit %v misses machine id %v", u, id)
 	}
 	return m, nil
+}
+
+// noAssignedMachineOp is part of the machineAssignable interface.
+func (u *Unit) noAssignedMachineOp() txn.Op {
+	id := u.doc.DocID
+	if u.doc.Principal != "" {
+		id = u.doc.Principal
+	}
+	return txn.Op{
+		C:      unitsC,
+		Id:     id,
+		Assert: bson.D{{"machineid", ""}},
+	}
 }
 
 // PublicAddress returns the public address of the unit.
 func (u *Unit) PublicAddress() (network.Address, error) {
 	m, err := u.machine()
 	if err != nil {
-		unitLogger.Errorf("%v", err)
+		unitLogger.Tracef("%v", err)
 		return network.Address{}, errors.Trace(err)
 	}
 	return m.PublicAddress()
@@ -746,7 +777,7 @@ func (u *Unit) PublicAddress() (network.Address, error) {
 func (u *Unit) PrivateAddress() (network.Address, error) {
 	m, err := u.machine()
 	if err != nil {
-		unitLogger.Errorf("%v", err)
+		unitLogger.Tracef("%v", err)
 		return network.Address{}, errors.Trace(err)
 	}
 	return m.PrivateAddress()
@@ -786,37 +817,49 @@ func (u *Unit) Agent() *UnitAgent {
 
 // AgentHistory returns an StatusHistoryGetter which can
 //be used to query the status history of the unit's agent.
-func (u *Unit) AgentHistory() StatusHistoryGetter {
+func (u *Unit) AgentHistory() status.StatusHistoryGetter {
 	return u.Agent()
 }
 
 // SetAgentStatus calls SetStatus for this unit's agent, this call
 // is equivalent to the former call to SetStatus when Agent and Unit
 // where not separate entities.
-func (u *Unit) SetAgentStatus(status Status, info string, data map[string]interface{}) error {
+func (u *Unit) SetAgentStatus(agentStatus status.StatusInfo) error {
 	agent := newUnitAgent(u.st, u.Tag(), u.Name())
-	return agent.SetStatus(status, info, data)
+	s := status.StatusInfo{
+		Status:  agentStatus.Status,
+		Message: agentStatus.Message,
+		Data:    agentStatus.Data,
+		Since:   agentStatus.Since,
+	}
+	return agent.SetStatus(s)
 }
 
 // AgentStatus calls Status for this unit's agent, this call
 // is equivalent to the former call to Status when Agent and Unit
 // where not separate entities.
-func (u *Unit) AgentStatus() (StatusInfo, error) {
+func (u *Unit) AgentStatus() (status.StatusInfo, error) {
 	agent := newUnitAgent(u.st, u.Tag(), u.Name())
 	return agent.Status()
 }
 
 // StatusHistory returns a slice of at most <size> StatusInfo items
+// or items as old as <date> or items newer than now - <delta> time
 // representing past statuses for this unit.
-func (u *Unit) StatusHistory(size int) ([]StatusInfo, error) {
-	return statusHistory(u.st, u.globalKey(), size)
+func (u *Unit) StatusHistory(filter status.StatusHistoryFilter) ([]status.StatusInfo, error) {
+	args := &statusHistoryArgs{
+		st:        u.st,
+		globalKey: u.globalKey(),
+		filter:    filter,
+	}
+	return statusHistory(args)
 }
 
 // Status returns the status of the unit.
 // This method relies on globalKey instead of globalAgentKey since it is part of
 // the effort to separate Unit from UnitAgent. Now the Status for UnitAgent is in
 // the UnitAgent struct.
-func (u *Unit) Status() (StatusInfo, error) {
+func (u *Unit) Status() (status.StatusInfo, error) {
 	// The current health spec says when a hook error occurs, the workload should
 	// be in error state, but the state model more correctly records the agent
 	// itself as being in error. So we'll do that model translation here.
@@ -824,12 +867,12 @@ func (u *Unit) Status() (StatusInfo, error) {
 	// For now, pretend we're always reading the unit status.
 	info, err := getStatus(u.st, u.globalAgentKey(), "unit")
 	if err != nil {
-		return StatusInfo{}, err
+		return status.StatusInfo{}, err
 	}
-	if info.Status != StatusError {
+	if info.Status != status.Error {
 		info, err = getStatus(u.st, u.globalKey(), "unit")
 		if err != nil {
-			return StatusInfo{}, err
+			return status.StatusInfo{}, err
 		}
 	}
 	return info, nil
@@ -840,105 +883,181 @@ func (u *Unit) Status() (StatusInfo, error) {
 // This method relies on globalKey instead of globalAgentKey since it is part of
 // the effort to separate Unit from UnitAgent. Now the SetStatus for UnitAgent is in
 // the UnitAgent struct.
-func (u *Unit) SetStatus(status Status, info string, data map[string]interface{}) error {
-	if !ValidWorkloadStatus(status) {
-		return errors.Errorf("cannot set invalid status %q", status)
+func (u *Unit) SetStatus(unitStatus status.StatusInfo) error {
+	if !status.ValidWorkloadStatus(unitStatus.Status) {
+		return errors.Errorf("cannot set invalid status %q", unitStatus.Status)
 	}
 	return setStatus(u.st, setStatusParams{
 		badge:     "unit",
 		globalKey: u.globalKey(),
-		status:    status,
-		message:   info,
-		rawData:   data,
+		status:    unitStatus.Status,
+		message:   unitStatus.Message,
+		rawData:   unitStatus.Data,
+		updated:   unitStatus.Since,
 	})
 }
 
-// OpenPorts opens the given port range and protocol for the unit, if
-// it does not conflict with another already opened range on the
-// unit's assigned machine.
-func (u *Unit) OpenPorts(protocol string, fromPort, toPort int) (err error) {
+// OpenPortsOnSubnet opens the given port range and protocol for the unit on the
+// given subnet, which can be empty. When non-empty, subnetID must refer to an
+// existing, alive subnet, otherwise an error is returned. Returns an error if
+// opening the requested range conflicts with another already opened range on
+// the same subnet and and the unit's assigned machine.
+func (u *Unit) OpenPortsOnSubnet(subnetID, protocol string, fromPort, toPort int) (err error) {
 	ports, err := NewPortRange(u.Name(), fromPort, toPort, protocol)
 	if err != nil {
 		return errors.Annotatef(err, "invalid port range %v-%v/%v", fromPort, toPort, protocol)
 	}
-	defer errors.DeferredAnnotatef(&err, "cannot open ports %v for unit %q", ports, u)
+	defer errors.DeferredAnnotatef(&err, "cannot open ports %v for unit %q on subnet %q", ports, u, subnetID)
 
-	machineId, err := u.AssignedMachineId()
+	machineID, err := u.AssignedMachineId()
 	if err != nil {
 		return errors.Annotatef(err, "unit %q has no assigned machine", u)
 	}
 
-	// TODO(dimitern) 2014-09-10 bug #1337804: network name is
-	// hard-coded until multiple network support lands
-	machinePorts, err := getOrCreatePorts(u.st, machineId, network.DefaultPublic)
+	if err := u.checkSubnetAliveWhenSet(subnetID); err != nil {
+		return errors.Trace(err)
+	}
+
+	machinePorts, err := getOrCreatePorts(u.st, machineID, subnetID)
 	if err != nil {
-		return errors.Annotatef(err, "cannot get or create ports for machine %q", machineId)
+		return errors.Annotate(err, "cannot get or create ports")
 	}
 
 	return machinePorts.OpenPorts(ports)
 }
 
-// ClosePorts closes the given port range and protocol for the unit.
-func (u *Unit) ClosePorts(protocol string, fromPort, toPort int) (err error) {
+func (u *Unit) checkSubnetAliveWhenSet(subnetID string) error {
+	if subnetID == "" {
+		return nil
+	} else if !names.IsValidSubnet(subnetID) {
+		return errors.Errorf("invalid subnet ID %q", subnetID)
+	}
+
+	subnet, err := u.st.Subnet(subnetID)
+	if err != nil && !errors.IsNotFound(err) {
+		return errors.Annotatef(err, "getting subnet %q", subnetID)
+	} else if errors.IsNotFound(err) || subnet.Life() != Alive {
+		return errors.Errorf("subnet %q not found or not alive", subnetID)
+	}
+	return nil
+}
+
+// ClosePortsOnSubnet closes the given port range and protocol for the unit on
+// the given subnet, which can be empty. When non-empty, subnetID must refer to
+// an existing, alive subnet, otherwise an error is returned.
+func (u *Unit) ClosePortsOnSubnet(subnetID, protocol string, fromPort, toPort int) (err error) {
 	ports, err := NewPortRange(u.Name(), fromPort, toPort, protocol)
 	if err != nil {
 		return errors.Annotatef(err, "invalid port range %v-%v/%v", fromPort, toPort, protocol)
 	}
-	defer errors.DeferredAnnotatef(&err, "cannot close ports %v for unit %q", ports, u)
+	defer errors.DeferredAnnotatef(&err, "cannot close ports %v for unit %q on subnet %q", ports, u, subnetID)
 
-	machineId, err := u.AssignedMachineId()
+	machineID, err := u.AssignedMachineId()
 	if err != nil {
 		return errors.Annotatef(err, "unit %q has no assigned machine", u)
 	}
 
-	// TODO(dimitern) 2014-09-10 bug #1337804: network name is
-	// hard-coded until multiple network support lands
-	machinePorts, err := getOrCreatePorts(u.st, machineId, network.DefaultPublic)
+	if err := u.checkSubnetAliveWhenSet(subnetID); err != nil {
+		return errors.Trace(err)
+	}
+
+	machinePorts, err := getOrCreatePorts(u.st, machineID, subnetID)
 	if err != nil {
-		return errors.Annotatef(err, "cannot get or create ports for machine %q", machineId)
+		return errors.Annotate(err, "cannot get or create ports")
 	}
 
 	return machinePorts.ClosePorts(ports)
 }
 
+// OpenPorts opens the given port range and protocol for the unit, if it does
+// not conflict with another already opened range on the unit's assigned
+// machine.
+//
+// TODO(dimitern): This should be removed once we use OpenPortsOnSubnet across
+// the board, passing subnet IDs explicitly.
+func (u *Unit) OpenPorts(protocol string, fromPort, toPort int) error {
+	return u.OpenPortsOnSubnet("", protocol, fromPort, toPort)
+}
+
+// ClosePorts closes the given port range and protocol for the unit.
+//
+// TODO(dimitern): This should be removed once we use ClosePortsOnSubnet across
+// the board, passing subnet IDs explicitly.
+func (u *Unit) ClosePorts(protocol string, fromPort, toPort int) (err error) {
+	return u.ClosePortsOnSubnet("", protocol, fromPort, toPort)
+}
+
+// OpenPortOnSubnet opens the given port and protocol for the unit on the given
+// subnet, which can be empty. When non-empty, subnetID must refer to an
+// existing, alive subnet, otherwise an error is returned.
+func (u *Unit) OpenPortOnSubnet(subnetID, protocol string, number int) error {
+	return u.OpenPortsOnSubnet(subnetID, protocol, number, number)
+}
+
+// ClosePortOnSubnet closes the given port and protocol for the unit on the given
+// subnet, which can be empty. When non-empty, subnetID must refer to an
+// existing, alive subnet, otherwise an error is returned.
+func (u *Unit) ClosePortOnSubnet(subnetID, protocol string, number int) error {
+	return u.ClosePortsOnSubnet(subnetID, protocol, number, number)
+}
+
 // OpenPort opens the given port and protocol for the unit.
+//
+// TODO(dimitern): This should be removed once we use OpenPort(s)OnSubnet across
+// the board, passing subnet IDs explicitly.
 func (u *Unit) OpenPort(protocol string, number int) error {
-	return u.OpenPorts(protocol, number, number)
+	return u.OpenPortOnSubnet("", protocol, number)
 }
 
 // ClosePort closes the given port and protocol for the unit.
+//
+// TODO(dimitern): This should be removed once we use ClosePortsOnSubnet across
+// the board, passing subnet IDs explicitly.
 func (u *Unit) ClosePort(protocol string, number int) error {
-	return u.ClosePorts(protocol, number, number)
+	return u.ClosePortOnSubnet("", protocol, number)
 }
 
-// OpenedPorts returns a slice containing the open port ranges of the
-// unit.
-func (u *Unit) OpenedPorts() ([]network.PortRange, error) {
-	machineId, err := u.AssignedMachineId()
+// OpenedPortsOnSubnet returns a slice containing the open port ranges of the
+// unit on the given subnet ID, which can be empty. When subnetID is not empty,
+// it must refer to an existing, alive subnet, otherwise an error is returned.
+// Also, when no ports are yet open for the unit on that subnet, no error and
+// empty slice is returned.
+func (u *Unit) OpenedPortsOnSubnet(subnetID string) ([]network.PortRange, error) {
+	machineID, err := u.AssignedMachineId()
 	if err != nil {
 		return nil, errors.Annotatef(err, "unit %q has no assigned machine", u)
 	}
 
-	// TODO(dimitern) 2014-09-10 bug #1337804: network name is
-	// hard-coded until multiple network support lands
-	machinePorts, err := getPorts(u.st, machineId, network.DefaultPublic)
+	if err := u.checkSubnetAliveWhenSet(subnetID); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	machinePorts, err := getPorts(u.st, machineID, subnetID)
 	result := []network.PortRange{}
-	if err == nil {
-		ports := machinePorts.PortsForUnit(u.Name())
-		for _, port := range ports {
-			result = append(result, network.PortRange{
-				Protocol: port.Protocol,
-				FromPort: port.FromPort,
-				ToPort:   port.ToPort,
-			})
-		}
-	} else {
-		if !errors.IsNotFound(err) {
-			return nil, errors.Annotatef(err, "failed getting ports for unit %q", u)
-		}
+	if errors.IsNotFound(err) {
+		return result, nil
+	} else if err != nil {
+		return nil, errors.Annotatef(err, "failed getting ports for unit %q, subnet %q", u, subnetID)
+	}
+	ports := machinePorts.PortsForUnit(u.Name())
+	for _, port := range ports {
+		result = append(result, network.PortRange{
+			Protocol: port.Protocol,
+			FromPort: port.FromPort,
+			ToPort:   port.ToPort,
+		})
 	}
 	network.SortPortRanges(result)
 	return result, nil
+}
+
+// OpenedPorts returns a slice containing the open port ranges of the
+// unit.
+//
+// TODO(dimitern): This should be removed once we use OpenedPortsOnSubnet across
+// the board, passing subnet IDs explicitly.
+func (u *Unit) OpenedPorts() ([]network.PortRange, error) {
+	return u.OpenedPortsOnSubnet("")
 }
 
 // CharmURL returns the charm URL this unit is currently using.
@@ -990,24 +1109,23 @@ func (u *Unit) SetCharmURL(curl *charm.URL) error {
 		}
 
 		// Add a reference to the service settings for the new charm.
-		incOp, err := settingsIncRefOp(u.st, u.doc.Service, curl, false)
+		incOps, err := appCharmIncRefOps(u.st, u.doc.Application, curl, false)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 
 		// Set the new charm URL.
 		differentCharm := bson.D{{"charmurl", bson.D{{"$ne", curl}}}}
-		ops := []txn.Op{
-			incOp,
-			{
+		ops := append(incOps,
+			txn.Op{
 				C:      unitsC,
 				Id:     u.doc.DocID,
 				Assert: append(notDeadDoc, differentCharm...),
 				Update: bson.D{{"$set", bson.D{{"charmurl", curl}}}},
-			}}
+			})
 		if u.doc.CharmURL != nil {
 			// Drop the reference to the old charm.
-			decOps, err := settingsDecRefOps(u.st, u.doc.Service, u.doc.CharmURL)
+			decOps, err := appCharmDecRefOps(u.st, u.doc.Application, u.doc.CharmURL)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -1022,29 +1140,10 @@ func (u *Unit) SetCharmURL(curl *charm.URL) error {
 	return err
 }
 
-func (u *Unit) charm() (*Charm, error) {
-	if u.doc.CharmURL == nil {
-		s, err := u.Service()
-		if err != nil {
-			return nil, errors.Annotatef(err, "getting service for unit %v", u.Tag().Id())
-		}
-		ch, _, err := s.Charm()
-		if err != nil {
-			return nil, errors.Annotatef(err, "getting charm for unit %q", u.Tag().Id())
-		}
-		return ch, nil
-	}
-
-	ch, err := u.st.Charm(u.doc.CharmURL)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return ch, nil
-}
-
 // AgentPresence returns whether the respective remote agent is alive.
 func (u *Unit) AgentPresence() (bool, error) {
-	return u.st.pwatcher.Alive(u.globalAgentKey())
+	pwatcher := u.st.workers.PresenceWatcher()
+	return pwatcher.Alive(u.globalAgentKey())
 }
 
 // Tag returns a name identifying the unit.
@@ -1064,8 +1163,9 @@ func (u *Unit) UnitTag() names.UnitTag {
 func (u *Unit) WaitAgentPresence(timeout time.Duration) (err error) {
 	defer errors.DeferredAnnotatef(&err, "waiting for agent of unit %q", u)
 	ch := make(chan presence.Change)
-	u.st.pwatcher.Watch(u.globalAgentKey(), ch)
-	defer u.st.pwatcher.Unwatch(u.globalAgentKey(), ch)
+	pwatcher := u.st.workers.PresenceWatcher()
+	pwatcher.Watch(u.globalAgentKey(), ch)
+	defer pwatcher.Unwatch(u.globalAgentKey(), ch)
 	for i := 0; i < 2; i++ {
 		select {
 		case change := <-ch:
@@ -1073,9 +1173,10 @@ func (u *Unit) WaitAgentPresence(timeout time.Duration) (err error) {
 				return nil
 			}
 		case <-time.After(timeout):
+			// TODO(fwereade): 2016-03-17 lp:1558657
 			return fmt.Errorf("still not alive after timeout")
-		case <-u.st.pwatcher.Dead():
-			return u.st.pwatcher.Err()
+		case <-pwatcher.Dead():
+			return pwatcher.Err()
 		}
 	}
 	panic(fmt.Sprintf("presence reported dead status twice in a row for unit %q", u))
@@ -1084,8 +1185,8 @@ func (u *Unit) WaitAgentPresence(timeout time.Duration) (err error) {
 // SetAgentPresence signals that the agent for unit u is alive.
 // It returns the started pinger.
 func (u *Unit) SetAgentPresence() (*presence.Pinger, error) {
-	presenceCollection := u.st.getPresence()
-	p := presence.NewPinger(presenceCollection, u.st.EnvironTag(), u.globalAgentKey())
+	presenceCollection := u.st.getPresenceCollection()
+	p := presence.NewPinger(presenceCollection, u.st.ModelTag(), u.globalAgentKey())
 	err := p.Start()
 	if err != nil {
 		return nil, err
@@ -1124,24 +1225,23 @@ func (u *Unit) AssignedMachineId() (id string, err error) {
 }
 
 var (
-	machineNotAliveErr = stderrors.New("machine is not alive")
-	machineNotCleanErr = stderrors.New("machine is dirty")
-	unitNotAliveErr    = stderrors.New("unit is not alive")
-	alreadyAssignedErr = stderrors.New("unit is already assigned to a machine")
-	inUseErr           = stderrors.New("machine is not unused")
+	machineNotAliveErr = errors.New("machine is not alive")
+	machineNotCleanErr = errors.New("machine is dirty")
+	unitNotAliveErr    = errors.New("unit is not alive")
+	alreadyAssignedErr = errors.New("unit is already assigned to a machine")
+	inUseErr           = errors.New("machine is not unused")
 )
 
-// assignToMachine is the internal version of AssignToMachine,
-// also used by AssignToUnusedMachine. It returns specific errors
-// in some cases:
-// - machineNotAliveErr when the machine is not alive.
-// - unitNotAliveErr when the unit is not alive.
-// - alreadyAssignedErr when the unit has already been assigned
-// - inUseErr when the machine already has a unit assigned (if unused is true)
+// assignToMachine is the internal version of AssignToMachine.
 func (u *Unit) assignToMachine(m *Machine, unused bool) (err error) {
-	originalm := m
 	buildTxn := func(attempt int) ([]txn.Op, error) {
+		u, m := u, m // don't change outer vars
 		if attempt > 0 {
+			var err error
+			u, err = u.st.Unit(u.Name())
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
 			m, err = u.st.Machine(m.Id())
 			if err != nil {
 				return nil, errors.Trace(err)
@@ -1150,15 +1250,19 @@ func (u *Unit) assignToMachine(m *Machine, unused bool) (err error) {
 		return u.assignToMachineOps(m, unused)
 	}
 	if err := u.st.run(buildTxn); err != nil {
-		// Don't wrap the error, as we want to return specific values
-		// as described in the doc comment.
-		return err
+		return errors.Trace(err)
 	}
-	u.doc.MachineId = originalm.doc.Id
-	originalm.doc.Clean = false
+	u.doc.MachineId = m.doc.Id
+	m.doc.Clean = false
 	return nil
 }
 
+// assignToMachineOps returns txn.Ops to assign a unit to a machine.
+// assignToMachineOps returns specific errors in some cases:
+// - machineNotAliveErr when the machine is not alive.
+// - unitNotAliveErr when the unit is not alive.
+// - alreadyAssignedErr when the unit has already been assigned
+// - inUseErr when the machine already has a unit assigned (if unused is true)
 func (u *Unit) assignToMachineOps(m *Machine, unused bool) ([]txn.Op, error) {
 	if u.Life() != Alive {
 		return nil, unitNotAliveErr
@@ -1202,12 +1306,17 @@ func (u *Unit) assignToMachineOps(m *Machine, unused bool) ([]txn.Op, error) {
 	}
 	storageOps = append(storageOps, attachmentOps...)
 
-	assert := append(isAliveDoc, bson.D{
-		{"$or", []bson.D{
+	assert := append(isAliveDoc, bson.D{{
+		// The unit's subordinates must not change while we're
+		// assigning it to a machine, to ensure machine storage
+		// is created for subordinate units.
+		"subordinates", u.doc.Subordinates,
+	}, {
+		"$or", []bson.D{
 			{{"machineid", ""}},
 			{{"machineid", m.Id()}},
-		}},
-	}...)
+		},
+	}}...)
 	massert := isAliveDoc
 	if unused {
 		massert = append(massert, bson.D{{"clean", bson.D{{"$ne", false}}}}...)
@@ -1255,9 +1364,6 @@ func validateUnitMachineAssignment(
 	}
 	if !canHost {
 		return fmt.Errorf("machine %q cannot host units", m)
-	}
-	if err := m.st.supportsUnitPlacement(); err != nil {
-		return errors.Trace(err)
 	}
 	if err := validateDynamicMachineStoragePools(m, storagePools); err != nil {
 		return errors.Trace(err)
@@ -1381,9 +1487,21 @@ func (u *Unit) AssignToMachine(m *Machine) (err error) {
 	return u.assignToMachine(m, false)
 }
 
-// assignToNewMachine assigns the unit to a machine created according to
-// the supplied params, with the supplied constraints.
-func (u *Unit) assignToNewMachine(template MachineTemplate, parentId string, containerType instance.ContainerType) error {
+// assignToNewMachineOps returns txn.Ops to assign the unit to a machine
+// created according to the supplied params, with the supplied constraints.
+func (u *Unit) assignToNewMachineOps(
+	template MachineTemplate,
+	parentId string,
+	containerType instance.ContainerType,
+) (*Machine, []txn.Op, error) {
+
+	if u.Life() != Alive {
+		return nil, nil, unitNotAliveErr
+	}
+	if u.doc.MachineId != "" {
+		return nil, nil, alreadyAssignedErr
+	}
+
 	template.principals = []string{u.doc.Name}
 	template.Dirty = true
 
@@ -1397,7 +1515,7 @@ func (u *Unit) assignToNewMachine(template MachineTemplate, parentId string, con
 		mdoc, ops, err = u.st.addMachineOps(template)
 	case parentId == "":
 		if containerType == "" {
-			return fmt.Errorf("assignToNewMachine called without container type (should never happen)")
+			return nil, nil, errors.New("assignToNewMachine called without container type (should never happen)")
 		}
 		// The new parent machine is clean and only hosts units,
 		// regardless of its child.
@@ -1405,14 +1523,28 @@ func (u *Unit) assignToNewMachine(template MachineTemplate, parentId string, con
 		parentParams.Jobs = []MachineJob{JobHostUnits}
 		mdoc, ops, err = u.st.addMachineInsideNewMachineOps(template, parentParams, containerType)
 	default:
-		// Container type is specified but no parent id.
 		mdoc, ops, err = u.st.addMachineInsideMachineOps(template, parentId, containerType)
 	}
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
+
 	// Ensure the host machine is really clean.
 	if parentId != "" {
+		mparent, err := u.st.Machine(parentId)
+		if err != nil {
+			return nil, nil, err
+		}
+		if !mparent.Clean() {
+			return nil, nil, machineNotCleanErr
+		}
+		containers, err := mparent.Containers()
+		if err != nil {
+			return nil, nil, err
+		}
+		if len(containers) > 0 {
+			return nil, nil, machineNotCleanErr
+		}
 		parentDocId := u.st.docID(parentId)
 		ops = append(ops, txn.Op{
 			C:      machinesC,
@@ -1424,8 +1556,15 @@ func (u *Unit) assignToNewMachine(template MachineTemplate, parentId string, con
 			Assert: bson.D{hasNoContainersTerm},
 		})
 	}
+
+	// The unit's subordinates must not change while we're
+	// assigning it to a machine, to ensure machine storage
+	// is created for subordinate units.
+	subordinatesUnchanged := bson.D{{"subordinates", u.doc.Subordinates}}
 	isUnassigned := bson.D{{"machineid", ""}}
 	asserts := append(isAliveDoc, isUnassigned...)
+	asserts = append(asserts, subordinatesUnchanged...)
+
 	ops = append(ops, txn.Op{
 		C:      unitsC,
 		Id:     u.doc.DocID,
@@ -1434,51 +1573,7 @@ func (u *Unit) assignToNewMachine(template MachineTemplate, parentId string, con
 	},
 		removeStagedAssignmentOp(u.doc.DocID),
 	)
-
-	err = u.st.runTransaction(ops)
-	if err == nil {
-		u.doc.MachineId = mdoc.Id
-		return nil
-	} else if err != txn.ErrAborted {
-		return err
-	}
-
-	// If we assume that the machine ops will never give us an
-	// operation that would fail (because the machine id(s) that it
-	// chooses are unique), then the only reasons that the
-	// transaction could have been aborted are:
-	//  * the unit is no longer alive
-	//  * the unit has been assigned to a different machine
-	//  * the parent machine we want to create a container on was
-	//  clean but became dirty
-	unit, err := u.st.Unit(u.Name())
-	if err != nil {
-		return err
-	}
-	switch {
-	case unit.Life() != Alive:
-		return unitNotAliveErr
-	case unit.doc.MachineId != "":
-		return alreadyAssignedErr
-	}
-	if parentId == "" {
-		return fmt.Errorf("cannot add top level machine: transaction aborted for unknown reason")
-	}
-	m, err := u.st.Machine(parentId)
-	if err != nil {
-		return err
-	}
-	if !m.Clean() {
-		return machineNotCleanErr
-	}
-	containers, err := m.Containers()
-	if err != nil {
-		return err
-	}
-	if len(containers) > 0 {
-		return machineNotCleanErr
-	}
-	return fmt.Errorf("cannot add container within machine: transaction aborted for unknown reason")
+	return &Machine{u.st, *mdoc}, ops, nil
 }
 
 // Constraints returns the unit's deployment constraints.
@@ -1495,7 +1590,7 @@ func (u *Unit) Constraints() (*constraints.Value, error) {
 
 // AssignToNewMachineOrContainer assigns the unit to a new machine,
 // with constraints determined according to the service and
-// environment constraints at the time of unit creation. If a
+// model constraints at the time of unit creation. If a
 // container is required, a clean, empty machine instance is required
 // on which to create the container. An existing clean, empty instance
 // is first searched for, and if not found, a new one is created.
@@ -1524,95 +1619,142 @@ func (u *Unit) AssignToNewMachineOrContainer() (err error) {
 	defer closer()
 	var host machineDoc
 	if err := machinesCollection.Find(query).One(&host); err == mgo.ErrNotFound {
-		// No existing clean, empty machine so create a new one.
-		// The container constraint will be used by AssignToNewMachine to create the required container.
+		// No existing clean, empty machine so create a new one. The
+		// container constraint will be used by AssignToNewMachine to
+		// create the required container.
 		return u.AssignToNewMachine()
 	} else if err != nil {
 		return err
 	}
 
-	svc, err := u.Service()
-	if err != nil {
-		return err
+	var m *Machine
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		var err error
+		u := u // don't change outer var
+		if attempt > 0 {
+			u, err = u.st.Unit(u.Name())
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+		template := MachineTemplate{
+			Series:      u.doc.Series,
+			Constraints: *cons,
+			Jobs:        []MachineJob{JobHostUnits},
+		}
+		var ops []txn.Op
+		m, ops, err = u.assignToNewMachineOps(template, host.Id, *cons.Container)
+		return ops, err
 	}
-	requestedNetworks, err := svc.Networks()
-	if err != nil {
-		return err
+	if err := u.st.run(buildTxn); err != nil {
+		if errors.Cause(err) == machineNotCleanErr {
+			// The clean machine was used before we got a chance
+			// to use it so just stick the unit on a new machine.
+			return u.AssignToNewMachine()
+		}
+		return errors.Trace(err)
 	}
-	template := MachineTemplate{
-		Series:            u.doc.Series,
-		Constraints:       *cons,
-		Jobs:              []MachineJob{JobHostUnits},
-		RequestedNetworks: requestedNetworks,
-	}
-	err = u.assignToNewMachine(template, host.Id, *cons.Container)
-	if err == machineNotCleanErr {
-		// The clean machine was used before we got a chance to use it so just
-		// stick the unit on a new machine.
-		return u.AssignToNewMachine()
-	}
-	return err
+	u.doc.MachineId = m.doc.Id
+	return nil
 }
 
 // AssignToNewMachine assigns the unit to a new machine, with constraints
-// determined according to the service and environment constraints at the
+// determined according to the service and model constraints at the
 // time of unit creation.
 func (u *Unit) AssignToNewMachine() (err error) {
 	defer assignContextf(&err, u.Name(), "new machine")
 	if u.doc.Principal != "" {
 		return fmt.Errorf("unit is a subordinate")
 	}
-	// Get the ops necessary to create a new machine, and the machine doc that
-	// will be added with those operations (which includes the machine id).
-	cons, err := u.Constraints()
-	if err != nil {
-		return err
+	var m *Machine
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		var err error
+		u := u // don't change outer var
+		if attempt > 0 {
+			u, err = u.st.Unit(u.Name())
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+		cons, err := u.Constraints()
+		if err != nil {
+			return nil, err
+		}
+		var containerType instance.ContainerType
+		if cons.HasContainer() {
+			containerType = *cons.Container
+		}
+		storageParams, err := u.machineStorageParams()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		template := MachineTemplate{
+			Series:                u.doc.Series,
+			Constraints:           *cons,
+			Jobs:                  []MachineJob{JobHostUnits},
+			Volumes:               storageParams.volumes,
+			VolumeAttachments:     storageParams.volumeAttachments,
+			Filesystems:           storageParams.filesystems,
+			FilesystemAttachments: storageParams.filesystemAttachments,
+		}
+		// Get the ops necessary to create a new machine, and the
+		// machine doc that will be added with those operations
+		// (which includes the machine id).
+		var ops []txn.Op
+		m, ops, err = u.assignToNewMachineOps(template, "", containerType)
+		return ops, err
 	}
-	var containerType instance.ContainerType
-	// Configure to create a new container if required.
-	if cons.HasContainer() {
-		containerType = *cons.Container
-	}
-	svc, err := u.Service()
-	if err != nil {
-		return err
-	}
-	requestedNetworks, err := svc.Networks()
-	if err != nil {
-		return err
-	}
-	storageParams, err := u.machineStorageParams()
-	if err != nil {
+	if err := u.st.run(buildTxn); err != nil {
 		return errors.Trace(err)
 	}
-	template := MachineTemplate{
-		Series:                u.doc.Series,
-		Constraints:           *cons,
-		Jobs:                  []MachineJob{JobHostUnits},
-		RequestedNetworks:     requestedNetworks,
-		Volumes:               storageParams.volumes,
-		VolumeAttachments:     storageParams.volumeAttachments,
-		Filesystems:           storageParams.filesystems,
-		FilesystemAttachments: storageParams.filesystemAttachments,
-	}
-	return u.assignToNewMachine(template, "", containerType)
+	u.doc.MachineId = m.doc.Id
+	return nil
+}
+
+type byStorageInstance []StorageAttachment
+
+func (b byStorageInstance) Len() int      { return len(b) }
+func (b byStorageInstance) Swap(i, j int) { b[i], b[j] = b[j], b[i] }
+
+func (b byStorageInstance) Less(i, j int) bool {
+	return b[i].StorageInstance().String() < b[j].StorageInstance().String()
 }
 
 // machineStorageParams returns parameters for creating volumes/filesystems
 // and volume/filesystem attachments for a machine that the unit will be
 // assigned to.
 func (u *Unit) machineStorageParams() (*machineStorageParams, error) {
+	params, err := unitMachineStorageParams(u)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	for _, name := range u.doc.Subordinates {
+		sub, err := u.st.Unit(name)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		subParams, err := unitMachineStorageParams(sub)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		params = combineMachineStorageParams(params, subParams)
+	}
+	return params, nil
+}
+
+func unitMachineStorageParams(u *Unit) (*machineStorageParams, error) {
 	storageAttachments, err := u.st.UnitStorageAttachments(u.UnitTag())
 	if err != nil {
 		return nil, errors.Annotate(err, "getting storage attachments")
 	}
-	svc, err := u.Service()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	curl, _ := svc.CharmURL()
+	curl := u.doc.CharmURL
 	if curl == nil {
-		return nil, errors.Errorf("no URL set for service %q", svc.Name())
+		var err error
+		app, err := u.Application()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		curl, _ = app.CharmURL()
 	}
 	ch, err := u.st.Charm(curl)
 	if err != nil {
@@ -1622,6 +1764,9 @@ func (u *Unit) machineStorageParams() (*machineStorageParams, error) {
 	if err != nil {
 		return nil, errors.Annotatef(err, "getting storage constraints")
 	}
+
+	// Sort storage attachments so the volume ids are consistent (for testing).
+	sort.Sort(byStorageInstance(storageAttachments))
 
 	chMeta := ch.Meta()
 
@@ -1756,7 +1901,7 @@ func machineStorageParamsForStorageInstance(
 	return result, nil
 }
 
-var noCleanMachines = stderrors.New("all eligible machines in use")
+var noCleanMachines = errors.New("all eligible machines in use")
 
 // AssignToCleanMachine assigns u to a machine which is marked as clean. A machine
 // is clean if it has never had any principal units assigned to it.
@@ -1875,7 +2020,34 @@ func (u *Unit) findCleanMachineQuery(requireEmpty bool, cons *constraints.Value)
 
 // assignToCleanMaybeEmptyMachine implements AssignToCleanMachine and AssignToCleanEmptyMachine.
 // A 'machine' may be a machine instance or container depending on the service constraints.
-func (u *Unit) assignToCleanMaybeEmptyMachine(requireEmpty bool) (m *Machine, err error) {
+func (u *Unit) assignToCleanMaybeEmptyMachine(requireEmpty bool) (*Machine, error) {
+	var m *Machine
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		var err error
+		u := u // don't change outer var
+		if attempt > 0 {
+			u, err = u.st.Unit(u.Name())
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+		var ops []txn.Op
+		m, ops, err = u.assignToCleanMaybeEmptyMachineOps(requireEmpty)
+		return ops, err
+	}
+	if err := u.st.run(buildTxn); err != nil {
+		return nil, errors.Trace(err)
+	}
+	u.doc.MachineId = m.doc.Id
+	m.doc.Clean = false
+	return m, nil
+}
+
+func (u *Unit) assignToCleanMaybeEmptyMachineOps(requireEmpty bool) (_ *Machine, _ []txn.Op, err error) {
+	failure := func(err error) (*Machine, []txn.Op, error) {
+		return nil, nil, err
+	}
+
 	context := "clean"
 	if requireEmpty {
 		context += ", empty"
@@ -1885,7 +2057,7 @@ func (u *Unit) assignToCleanMaybeEmptyMachine(requireEmpty bool) (m *Machine, er
 	if u.doc.Principal != "" {
 		err = fmt.Errorf("unit is a subordinate")
 		assignContextf(&err, u.Name(), context)
-		return nil, err
+		return failure(err)
 	}
 
 	// If required storage is not all dynamic, then assigning
@@ -1893,31 +2065,31 @@ func (u *Unit) assignToCleanMaybeEmptyMachine(requireEmpty bool) (m *Machine, er
 	storageParams, err := u.machineStorageParams()
 	if err != nil {
 		assignContextf(&err, u.Name(), context)
-		return nil, err
+		return failure(err)
 	}
 	storagePools, err := machineStoragePools(u.st, storageParams)
 	if err != nil {
 		assignContextf(&err, u.Name(), context)
-		return nil, err
+		return failure(err)
 	}
 	if err := validateDynamicStoragePools(u.st, storagePools); err != nil {
 		if errors.IsNotSupported(err) {
-			return nil, noCleanMachines
+			return failure(noCleanMachines)
 		}
 		assignContextf(&err, u.Name(), context)
-		return nil, err
+		return failure(err)
 	}
 
 	// Get the unit constraints to see what deployment requirements we have to adhere to.
 	cons, err := u.Constraints()
 	if err != nil {
 		assignContextf(&err, u.Name(), context)
-		return nil, err
+		return failure(err)
 	}
 	query, err := u.findCleanMachineQuery(requireEmpty, cons)
 	if err != nil {
 		assignContextf(&err, u.Name(), context)
-		return nil, err
+		return failure(err)
 	}
 
 	// Find all of the candidate machines, and associated
@@ -1929,7 +2101,7 @@ func (u *Unit) assignToCleanMaybeEmptyMachine(requireEmpty bool) (m *Machine, er
 	var mdocs []*machineDoc
 	if err := machinesCollection.Find(query).All(&mdocs); err != nil {
 		assignContextf(&err, u.Name(), context)
-		return nil, err
+		return failure(err)
 	}
 	var unprovisioned []*Machine
 	var instances []instance.Id
@@ -1941,7 +2113,7 @@ func (u *Unit) assignToCleanMaybeEmptyMachine(requireEmpty bool) (m *Machine, er
 			unprovisioned = append(unprovisioned, m)
 		} else if err != nil {
 			assignContextf(&err, u.Name(), context)
-			return nil, err
+			return failure(err)
 		} else {
 			instances = append(instances, instance)
 			instanceMachines[instance] = m
@@ -1957,7 +2129,7 @@ func (u *Unit) assignToCleanMaybeEmptyMachine(requireEmpty bool) (m *Machine, er
 	// must be maintained.
 	if instances, err = distributeUnit(u, instances); err != nil {
 		assignContextf(&err, u.Name(), context)
-		return nil, err
+		return failure(err)
 	}
 	machines := make([]*Machine, len(instances), len(instances)+len(unprovisioned))
 	for i, instance := range instances {
@@ -1965,7 +2137,7 @@ func (u *Unit) assignToCleanMaybeEmptyMachine(requireEmpty bool) (m *Machine, er
 		if !ok {
 			err := fmt.Errorf("invalid instance returned: %v", instance)
 			assignContextf(&err, u.Name(), context)
-			return nil, err
+			return failure(err)
 		}
 		machines[i] = m
 	}
@@ -1986,20 +2158,20 @@ func (u *Unit) assignToCleanMaybeEmptyMachine(requireEmpty bool) (m *Machine, er
 				continue
 			}
 			assignContextf(&err, u.Name(), context)
-			return nil, err
+			return failure(err)
 		}
-		err := u.assignToMachine(m, true)
+		ops, err := u.assignToMachineOps(m, true)
 		if err == nil {
-			return m, nil
+			return m, ops, nil
 		}
 		switch errors.Cause(err) {
 		case inUseErr, machineNotAliveErr:
 		default:
 			assignContextf(&err, u.Name(), context)
-			return nil, err
+			return failure(err)
 		}
 	}
-	return nil, noCleanMachines
+	return failure(noCleanMachines)
 }
 
 // UnassignFromMachine removes the assignment between this unit and the
@@ -2035,20 +2207,25 @@ type ActionSpecsByName map[string]charm.ActionSpec
 // AddAction adds a new Action of type name and using arguments payload to
 // this Unit, and returns its ID.  Note that the use of spec.InsertDefaults
 // mutates payload.
-func (u *Unit) AddAction(name string, payload map[string]interface{}) (*Action, error) {
+func (u *Unit) AddAction(name string, payload map[string]interface{}) (Action, error) {
 	if len(name) == 0 {
 		return nil, errors.New("no action name given")
 	}
-	specs, err := u.ActionSpecs()
-	if err != nil {
-		return nil, err
-	}
-	spec, ok := specs[name]
+
+	// If the action is predefined inside juju, get spec from map
+	spec, ok := actions.PredefinedActionsSpec[name]
 	if !ok {
-		return nil, errors.Errorf("action %q not defined on unit %q", name, u.Name())
+		specs, err := u.ActionSpecs()
+		if err != nil {
+			return nil, err
+		}
+		spec, ok = specs[name]
+		if !ok {
+			return nil, errors.Errorf("action %q not defined on unit %q", name, u.Name())
+		}
 	}
 	// Reject bad payloads before attempting to insert defaults.
-	err = spec.ValidateParams(payload)
+	err := spec.ValidateParams(payload)
 	if err != nil {
 		return nil, err
 	}
@@ -2065,13 +2242,13 @@ func (u *Unit) ActionSpecs() (ActionSpecsByName, error) {
 	curl, _ := u.CharmURL()
 	if curl == nil {
 		// If unit charm URL is not yet set, fall back to service
-		svc, err := u.Service()
+		svc, err := u.Application()
 		if err != nil {
 			return none, err
 		}
 		curl, _ = svc.CharmURL()
 		if curl == nil {
-			return none, errors.Errorf("no URL set for service %q", svc.Name())
+			return none, errors.Errorf("no URL set for application %q", svc.Name())
 		}
 	}
 	ch, err := u.st.Charm(curl)
@@ -2087,7 +2264,7 @@ func (u *Unit) ActionSpecs() (ActionSpecsByName, error) {
 
 // CancelAction removes a pending Action from the queue for this
 // ActionReceiver and marks it as cancelled.
-func (u *Unit) CancelAction(action *Action) (*Action, error) {
+func (u *Unit) CancelAction(action Action) (Action, error) {
 	return action.Finish(ActionResults{Status: ActionCancelled})
 }
 
@@ -2098,23 +2275,23 @@ func (u *Unit) WatchActionNotifications() StringsWatcher {
 }
 
 // Actions returns a list of actions pending or completed for this unit.
-func (u *Unit) Actions() ([]*Action, error) {
+func (u *Unit) Actions() ([]Action, error) {
 	return u.st.matchingActions(u)
 }
 
 // CompletedActions returns a list of actions that have finished for
 // this unit.
-func (u *Unit) CompletedActions() ([]*Action, error) {
+func (u *Unit) CompletedActions() ([]Action, error) {
 	return u.st.matchingActionsCompleted(u)
 }
 
 // PendingActions returns a list of actions pending for this unit.
-func (u *Unit) PendingActions() ([]*Action, error) {
+func (u *Unit) PendingActions() ([]Action, error) {
 	return u.st.matchingActionsPending(u)
 }
 
 // RunningActions returns a list of actions running on this unit.
-func (u *Unit) RunningActions() ([]*Action, error) {
+func (u *Unit) RunningActions() ([]Action, error) {
 	return u.st.matchingActionsRunning(u)
 }
 
@@ -2123,7 +2300,7 @@ func (u *Unit) RunningActions() ([]*Action, error) {
 // reestablish normal workflow. The retryHooks parameter informs
 // whether to attempt to reexecute previous failed hooks or to continue
 // as if they had succeeded before.
-func (u *Unit) Resolve(retryHooks bool) error {
+func (u *Unit) Resolve(noretryHooks bool) error {
 	// We currently check agent status to see if a unit is
 	// in error state. As the new Juju Health work is completed,
 	// this will change to checking the unit status.
@@ -2131,12 +2308,12 @@ func (u *Unit) Resolve(retryHooks bool) error {
 	if err != nil {
 		return err
 	}
-	if statusInfo.Status != StatusError {
+	if statusInfo.Status != status.Error {
 		return errors.Errorf("unit %q is not in an error state", u)
 	}
-	mode := ResolvedNoHooks
-	if retryHooks {
-		mode = ResolvedRetryHooks
+	mode := ResolvedRetryHooks
+	if noretryHooks {
+		mode = ResolvedNoHooks
 	}
 	return u.SetResolved(mode)
 }
@@ -2194,7 +2371,82 @@ func (u *Unit) ClearResolved() error {
 
 // StorageConstraints returns the unit's storage constraints.
 func (u *Unit) StorageConstraints() (map[string]StorageConstraints, error) {
-	// TODO(axw) eventually we should be able to override service
-	// storage constraints at the unit level.
-	return readStorageConstraints(u.st, serviceGlobalKey(u.doc.Service))
+	if u.doc.CharmURL == nil {
+		app, err := u.st.Application(u.doc.Application)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return app.StorageConstraints()
+	}
+	key := applicationStorageConstraintsKey(u.doc.Application, u.doc.CharmURL)
+	cons, err := readStorageConstraints(u.st, key)
+	if errors.IsNotFound(err) {
+		return nil, nil
+	} else if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return cons, nil
+}
+
+type addUnitOpsArgs struct {
+	unitDoc            *unitDoc
+	agentStatusDoc     statusDoc
+	workloadStatusDoc  statusDoc
+	workloadVersionDoc statusDoc
+	meterStatusDoc     *meterStatusDoc
+}
+
+// addUnitOps returns the operations required to add a unit to the units
+// collection, along with all the associated expected other unit entries. This
+// method is used by both the *Service.addUnitOpsWithCons method and the
+// migration import code.
+func addUnitOps(st *State, args addUnitOpsArgs) ([]txn.Op, error) {
+	name := args.unitDoc.Name
+	agentGlobalKey := unitAgentGlobalKey(name)
+
+	// TODO: consider the constraints op
+	// TODO: consider storageOps
+	prereqOps := []txn.Op{
+		createStatusOp(st, unitGlobalKey(name), args.workloadStatusDoc),
+		createStatusOp(st, agentGlobalKey, args.agentStatusDoc),
+		createStatusOp(st, globalWorkloadVersionKey(name), args.workloadVersionDoc),
+		createMeterStatusOp(st, agentGlobalKey, args.meterStatusDoc),
+	}
+
+	// Freshly-created units will not have a charm URL set; migrated
+	// ones will, and they need to maintain their refcounts. If we
+	// relax the restrictions on migrating apps mid-upgrade, this
+	// will need to be more sophisticated, because it might need to
+	// create the settings doc.
+	if curl := args.unitDoc.CharmURL; curl != nil {
+		appName := args.unitDoc.Application
+		charmRefOps, err := appCharmIncRefOps(st, appName, curl, false)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		prereqOps = append(prereqOps, charmRefOps...)
+	}
+
+	return append(prereqOps, txn.Op{
+		C:      unitsC,
+		Id:     name,
+		Assert: txn.DocMissing,
+		Insert: args.unitDoc,
+	}), nil
+}
+
+// HistoryGetter allows getting the status history based on some identifying key.
+type HistoryGetter struct {
+	st        *State
+	globalKey string
+}
+
+// StatusHistory implements status.StatusHistoryGetter.
+func (g *HistoryGetter) StatusHistory(filter status.StatusHistoryFilter) ([]status.StatusInfo, error) {
+	args := &statusHistoryArgs{
+		st:        g.st,
+		globalKey: g.globalKey,
+		filter:    filter,
+	}
+	return statusHistory(args)
 }

@@ -4,10 +4,12 @@
 package testing
 
 import (
-	"github.com/juju/names"
 	jujutesting "github.com/juju/testing"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -20,10 +22,14 @@ var _ = gc.Suite(&StateSuite{})
 type StateSuite struct {
 	jujutesting.MgoSuite
 	testing.BaseSuite
-	Policy  state.Policy
-	State   *state.State
-	Owner   names.UserTag
-	Factory *factory.Factory
+	NewPolicy                 state.NewPolicyFunc
+	State                     *state.State
+	Owner                     names.UserTag
+	Factory                   *factory.Factory
+	InitialConfig             *config.Config
+	ControllerInheritedConfig map[string]interface{}
+	RegionConfig              cloud.RegionConfig
+	Clock                     *jujutesting.Clock
 }
 
 func (s *StateSuite) SetUpSuite(c *gc.C) {
@@ -41,7 +47,15 @@ func (s *StateSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.Owner = names.NewLocalUserTag("test-admin")
-	s.State = Initialize(c, s.Owner, nil, s.Policy)
+	s.Clock = jujutesting.NewClock(testing.NonZeroTime())
+	s.State = InitializeWithArgs(c, InitializeArgs{
+		Owner:                     s.Owner,
+		InitialConfig:             s.InitialConfig,
+		ControllerInheritedConfig: s.ControllerInheritedConfig,
+		RegionConfig:              s.RegionConfig,
+		NewPolicy:                 s.NewPolicy,
+		Clock:                     s.Clock,
+	})
 	s.AddCleanup(func(*gc.C) { s.State.Close() })
 	s.Factory = factory.NewFactory(s.State)
 }

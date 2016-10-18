@@ -4,18 +4,22 @@
 package common_test
 
 import (
+	"bytes"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
-	"github.com/juju/testing"
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/ssh"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -24,24 +28,25 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
+	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type BootstrapSuite struct {
-	coretesting.FakeJujuHomeSuite
+	coretesting.FakeJujuXDGDataHomeSuite
 	envtesting.ToolsFixture
 }
 
 var _ = gc.Suite(&BootstrapSuite{})
 
 type cleaner interface {
-	AddCleanup(testing.CleanupFunc)
+	AddCleanup(func(*gc.C))
 }
 
 func (s *BootstrapSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
 	s.PatchValue(common.ConnectSSH, func(_ ssh.Client, host, checkHostScript string) error {
 		return fmt.Errorf("mock connection failure to %s", host)
@@ -50,7 +55,7 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 
 func (s *BootstrapSuite) TearDownTest(c *gc.C) {
 	s.ToolsFixture.TearDownTest(c)
-	s.FakeJujuHomeSuite.TearDownTest(c)
+	s.FakeJujuXDGDataHomeSuite.TearDownTest(c)
 }
 
 func newStorage(suite cleaner, c *gc.C) storage.Storage {
@@ -64,7 +69,8 @@ func minimalConfig(c *gc.C) *config.Config {
 	attrs := map[string]interface{}{
 		"name":            "whatever",
 		"type":            "anything, really",
-		"uuid":            coretesting.EnvironmentTag.Id(),
+		"uuid":            coretesting.ModelTag.Id(),
+		"controller-uuid": coretesting.ControllerTag.Id(),
 		"ca-cert":         coretesting.CACert,
 		"ca-private-key":  coretesting.CAKey,
 		"authorized-keys": coretesting.FakeAuthKeys,
@@ -81,7 +87,7 @@ func configGetter(c *gc.C) configFunc {
 }
 
 func (s *BootstrapSuite) TestCannotStartInstance(c *gc.C) {
-	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
+	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	checkPlacement := "directive"
 	checkCons := constraints.MustParse("mem=8G")
 	env := &mockEnviron{
@@ -101,29 +107,32 @@ func (s *BootstrapSuite) TestCannotStartInstance(c *gc.C) {
 
 		// The machine config should set its upgrade behavior based on
 		// the environment config.
-		expectedMcfg, err := instancecfg.NewBootstrapInstanceConfig(cons, icfg.Series, "")
+		expectedMcfg, err := instancecfg.NewBootstrapInstanceConfig(coretesting.FakeControllerConfig(), cons, cons, icfg.Series, "")
 		c.Assert(err, jc.ErrorIsNil)
 		expectedMcfg.EnableOSRefreshUpdate = env.Config().EnableOSRefreshUpdate()
 		expectedMcfg.EnableOSUpgrade = env.Config().EnableOSUpgrade()
 		expectedMcfg.Tags = map[string]string{
-			"juju-env-uuid": coretesting.EnvironmentTag.Id(),
-			"juju-is-state": "true",
+			"juju-model-uuid":      coretesting.ModelTag.Id(),
+			"juju-controller-uuid": coretesting.ControllerTag.Id(),
+			"juju-is-controller":   "true",
 		}
 
 		c.Assert(icfg, jc.DeepEquals, expectedMcfg)
-		return nil, nil, nil, fmt.Errorf("meh, not started")
+		return nil, nil, nil, errors.Errorf("meh, not started")
 	}
 
 	env.startInstance = startInstance
 
 	ctx := envtesting.BootstrapContext(c)
 	_, err := common.Bootstrap(ctx, env, environs.BootstrapParams{
-		Constraints: checkCons,
-		Placement:   checkPlacement,
+		ControllerConfig:     coretesting.FakeControllerConfig(),
+		BootstrapConstraints: checkCons,
+		ModelConstraints:     checkCons,
+		Placement:            checkPlacement,
 		AvailableTools: tools.List{
 			&tools.Tools{
 				Version: version.Binary{
-					Number: version.Current,
+					Number: jujuversion.Current,
 					Arch:   arch.HostArch(),
 					Series: series.HostSeries(),
 				},
@@ -132,8 +141,55 @@ func (s *BootstrapSuite) TestCannotStartInstance(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "cannot start bootstrap instance: meh, not started")
 }
 
+func (s *BootstrapSuite) TestBootstrapSeries(c *gc.C) {
+	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
+	s.PatchValue(&series.HostSeries, func() string { return "precise" })
+	stor := newStorage(s, c)
+	checkInstanceId := "i-success"
+	checkHardware := instance.MustParseHardware("arch=ppc64el mem=2T")
+
+	startInstance := func(_ string, _ constraints.Value, _ []string, _ tools.List, icfg *instancecfg.InstanceConfig) (instance.Instance,
+		*instance.HardwareCharacteristics, []network.InterfaceInfo, error) {
+		return &mockInstance{id: checkInstanceId}, &checkHardware, nil, nil
+	}
+	var mocksConfig = minimalConfig(c)
+	var numGetConfigCalled int
+	getConfig := func() *config.Config {
+		numGetConfigCalled++
+		return mocksConfig
+	}
+	setConfig := func(c *config.Config) error {
+		mocksConfig = c
+		return nil
+	}
+
+	env := &mockEnviron{
+		storage:       stor,
+		startInstance: startInstance,
+		config:        getConfig,
+		setConfig:     setConfig,
+	}
+	ctx := envtesting.BootstrapContext(c)
+	bootstrapSeries := "utopic"
+	result, err := common.Bootstrap(ctx, env, environs.BootstrapParams{
+		ControllerConfig: coretesting.FakeControllerConfig(),
+		BootstrapSeries:  bootstrapSeries,
+		AvailableTools: tools.List{
+			&tools.Tools{
+				Version: version.Binary{
+					Number: jujuversion.Current,
+					Arch:   arch.HostArch(),
+					Series: bootstrapSeries,
+				},
+			},
+		}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(result.Arch, gc.Equals, "ppc64el") // based on hardware characteristics
+	c.Check(result.Series, gc.Equals, bootstrapSeries)
+}
+
 func (s *BootstrapSuite) TestSuccess(c *gc.C) {
-	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
+	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	stor := newStorage(s, c)
 	checkInstanceId := "i-success"
 	checkHardware := instance.MustParseHardware("arch=ppc64el mem=2T")
@@ -162,12 +218,14 @@ func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 		config:        getConfig,
 		setConfig:     setConfig,
 	}
-	ctx := envtesting.BootstrapContext(c)
+	inner := coretesting.Context(c)
+	ctx := modelcmd.BootstrapContext(inner)
 	result, err := common.Bootstrap(ctx, env, environs.BootstrapParams{
+		ControllerConfig: coretesting.FakeControllerConfig(),
 		AvailableTools: tools.List{
 			&tools.Tools{
 				Version: version.Binary{
-					Number: version.Current,
+					Number: jujuversion.Current,
 					Arch:   arch.HostArch(),
 					Series: series.HostSeries(),
 				},
@@ -176,6 +234,10 @@ func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Arch, gc.Equals, "ppc64el") // based on hardware characteristics
 	c.Assert(result.Series, gc.Equals, config.PreferredSeries(mocksConfig))
+	output := inner.Stderr.(*bytes.Buffer)
+	lines := strings.Split(output.String(), "\n")
+	c.Assert(len(lines), jc.GreaterThan, 1)
+	c.Assert(lines[0], gc.Equals, "Some message")
 }
 
 type neverRefreshes struct {
@@ -183,6 +245,10 @@ type neverRefreshes struct {
 
 func (neverRefreshes) Refresh() error {
 	return nil
+}
+
+func (neverRefreshes) Status() instance.InstanceStatus {
+	return instance.InstanceStatus{}
 }
 
 type neverAddresses struct {
@@ -193,7 +259,19 @@ func (neverAddresses) Addresses() ([]network.Address, error) {
 	return nil, nil
 }
 
-var testSSHTimeout = config.SSHTimeoutOpts{
+type failsProvisioning struct {
+	neverAddresses
+	message string
+}
+
+func (f failsProvisioning) Status() instance.InstanceStatus {
+	return instance.InstanceStatus{
+		Status:  status.ProvisioningError,
+		Message: f.message,
+	}
+}
+
+var testSSHTimeout = environs.BootstrapDialOpts{
 	Timeout:        coretesting.ShortWait,
 	RetryDelay:     1 * time.Millisecond,
 	AddressesDelay: 1 * time.Millisecond,
@@ -215,12 +293,20 @@ func (s *BootstrapSuite) TestWaitSSHKilledWaitingForAddresses(c *gc.C) {
 	c.Check(coretesting.Stderr(ctx), gc.Matches, "Waiting for address\n")
 }
 
+func (s *BootstrapSuite) TestWaitSSHNoticesProvisioningFailures(c *gc.C) {
+	ctx := coretesting.Context(c)
+	_, err := common.WaitSSH(ctx.Stderr, nil, ssh.DefaultClient, "/bin/true", failsProvisioning{}, testSSHTimeout)
+	c.Check(err, gc.ErrorMatches, `instance provisioning failed`)
+	_, err = common.WaitSSH(ctx.Stderr, nil, ssh.DefaultClient, "/bin/true", failsProvisioning{message: "blargh"}, testSSHTimeout)
+	c.Check(err, gc.ErrorMatches, `instance provisioning failed \(blargh\)`)
+}
+
 type brokenAddresses struct {
 	neverRefreshes
 }
 
 func (brokenAddresses) Addresses() ([]network.Address, error) {
-	return nil, fmt.Errorf("Addresses will never work")
+	return nil, errors.Errorf("Addresses will never work")
 }
 
 func (s *BootstrapSuite) TestWaitSSHStopsOnBadError(c *gc.C) {
@@ -291,6 +377,10 @@ func (ac *addressesChange) Refresh() error {
 	return nil
 }
 
+func (ac *addressesChange) Status() instance.InstanceStatus {
+	return instance.InstanceStatus{}
+}
+
 func (ac *addressesChange) Addresses() ([]network.Address, error) {
 	return network.NewAddresses(ac.addrs[0]...), nil
 }
@@ -315,4 +405,57 @@ func (s *BootstrapSuite) TestWaitSSHRefreshAddresses(c *gc.C) {
 	c.Check(stderr, gc.Matches,
 		"Waiting for address\n"+
 			"(.|\n)*(Attempting to connect to 0.1.2.4:22\n)+(.|\n)*")
+}
+
+type FormatHardwareSuite struct{}
+
+var _ = gc.Suite(&FormatHardwareSuite{})
+
+func (s *FormatHardwareSuite) check(c *gc.C, hw *instance.HardwareCharacteristics, expected string) {
+	c.Check(common.FormatHardware(hw), gc.Equals, expected)
+}
+
+func (s *FormatHardwareSuite) TestNil(c *gc.C) {
+	s.check(c, nil, "")
+}
+
+func (s *FormatHardwareSuite) TestFieldsNil(c *gc.C) {
+	s.check(c, &instance.HardwareCharacteristics{}, "")
+}
+
+func (s *FormatHardwareSuite) TestArch(c *gc.C) {
+	arch := ""
+	s.check(c, &instance.HardwareCharacteristics{Arch: &arch}, "")
+	arch = "amd64"
+	s.check(c, &instance.HardwareCharacteristics{Arch: &arch}, "arch=amd64")
+}
+
+func (s *FormatHardwareSuite) TestCores(c *gc.C) {
+	var cores uint64
+	s.check(c, &instance.HardwareCharacteristics{CpuCores: &cores}, "")
+	cores = 24
+	s.check(c, &instance.HardwareCharacteristics{CpuCores: &cores}, "cores=24")
+}
+
+func (s *FormatHardwareSuite) TestMem(c *gc.C) {
+	var mem uint64
+	s.check(c, &instance.HardwareCharacteristics{Mem: &mem}, "")
+	mem = 800
+	s.check(c, &instance.HardwareCharacteristics{Mem: &mem}, "mem=800M")
+	mem = 1024
+	s.check(c, &instance.HardwareCharacteristics{Mem: &mem}, "mem=1G")
+	mem = 2712
+	s.check(c, &instance.HardwareCharacteristics{Mem: &mem}, "mem=2.6G")
+}
+
+func (s *FormatHardwareSuite) TestAll(c *gc.C) {
+	arch := "ppc64"
+	var cores uint64 = 2
+	var mem uint64 = 123
+	hw := &instance.HardwareCharacteristics{
+		Arch:     &arch,
+		CpuCores: &cores,
+		Mem:      &mem,
+	}
+	s.check(c, hw, "arch=ppc64 mem=123M cores=2")
 }

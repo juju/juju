@@ -22,11 +22,7 @@ var _ = gc.Suite(&removeSuite{})
 
 func (s *removeSuite) SetUpTest(c *gc.C) {
 	s.BaseBackupsSuite.SetUpTest(c)
-	s.command = backups.NewRemoveCommand()
-}
-
-func (s *removeSuite) TestHelp(c *gc.C) {
-	s.checkHelp(c, s.command)
+	s.command = backups.NewRemoveCommandForTest()
 }
 
 func (s *removeSuite) TestOkay(c *gc.C) {

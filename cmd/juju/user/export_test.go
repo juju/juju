@@ -5,88 +5,124 @@ package user
 
 import (
 	"github.com/juju/cmd"
+	"github.com/juju/utils/clock"
 
-	"github.com/juju/juju/cmd/envcmd"
-)
-
-var (
-	RandomPasswordNotify = &randomPasswordNotify
-	ReadPassword         = &readPassword
-	ServerFileNotify     = &serverFileNotify
-	WriteServerFile      = writeServerFile
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/juju"
+	"github.com/juju/juju/jujuclient"
 )
 
 type AddCommand struct {
 	*addCommand
 }
 
-type CredentialsCommand struct {
-	*credentialsCommand
+type RemoveCommand struct {
+	*removeCommand
 }
 
 type ChangePasswordCommand struct {
 	*changePasswordCommand
 }
 
+type LoginCommand struct {
+	*loginCommand
+}
+
+type LogoutCommand struct {
+	*logoutCommand
+}
+
 type DisenableUserBase struct {
 	*disenableUserBase
 }
 
-func NewAddCommand(api AddUserAPI) (cmd.Command, *AddCommand) {
+func NewAddCommandForTest(api AddUserAPI, store jujuclient.ClientStore, modelAPI modelcmd.ModelAPI) (cmd.Command, *AddCommand) {
 	c := &addCommand{api: api}
-	return envcmd.WrapSystem(c), &AddCommand{c}
+	c.SetClientStore(store)
+	c.SetModelAPI(modelAPI)
+	return modelcmd.WrapController(c), &AddCommand{c}
 }
 
-func NewInfoCommand(api UserInfoAPI) cmd.Command {
-	return envcmd.WrapSystem(&infoCommand{
-		infoCommandBase: infoCommandBase{
-			api: api,
-		}})
+func NewRemoveCommandForTest(api RemoveUserAPI, store jujuclient.ClientStore) (cmd.Command, *RemoveCommand) {
+	c := &removeCommand{api: api}
+	c.SetClientStore(store)
+	return modelcmd.WrapController(c), &RemoveCommand{c}
 }
 
-func NewCredentialsCommand() (cmd.Command, *CredentialsCommand) {
-	c := &credentialsCommand{}
-	return envcmd.WrapSystem(c), &CredentialsCommand{c}
+func NewShowUserCommandForTest(api UserInfoAPI, store jujuclient.ClientStore) cmd.Command {
+	cmd := &infoCommand{infoCommandBase: infoCommandBase{
+		clock: clock.WallClock,
+		api:   api}}
+	cmd.SetClientStore(store)
+	return modelcmd.WrapController(cmd)
 }
 
 // NewChangePasswordCommand returns a ChangePasswordCommand with the api
 // and writer provided as specified.
-func NewChangePasswordCommand(api ChangePasswordAPI, writer EnvironInfoCredsWriter) (cmd.Command, *ChangePasswordCommand) {
+func NewChangePasswordCommandForTest(
+	newAPIConnection func(juju.NewAPIConnectionParams) (api.Connection, error),
+	api ChangePasswordAPI,
+	store jujuclient.ClientStore,
+) (cmd.Command, *ChangePasswordCommand) {
 	c := &changePasswordCommand{
-		api:    api,
-		writer: writer,
+		newAPIConnection: newAPIConnection,
+		api:              api,
 	}
-	return envcmd.WrapSystem(c), &ChangePasswordCommand{c}
+	c.SetClientStore(store)
+	return modelcmd.WrapController(c), &ChangePasswordCommand{c}
+}
+
+// NewLoginCommand returns a LoginCommand with the api
+// and writer provided as specified.
+func NewLoginCommandForTest(
+	newLoginAPI func(juju.NewAPIConnectionParams) (LoginAPI, ConnectionAPI, error),
+	store jujuclient.ClientStore,
+) (cmd.Command, *LoginCommand) {
+	c := &loginCommand{newLoginAPI: newLoginAPI}
+	c.SetClientStore(store)
+	return modelcmd.WrapController(c), &LoginCommand{c}
+}
+
+// NewLogoutCommand returns a LogoutCommand with the api
+// and writer provided as specified.
+func NewLogoutCommandForTest(store jujuclient.ClientStore) (cmd.Command, *LogoutCommand) {
+	c := &logoutCommand{}
+	c.SetClientStore(store)
+	return modelcmd.WrapController(c), &LogoutCommand{c}
 }
 
 // NewDisableCommand returns a DisableCommand with the api provided as
 // specified.
-func NewDisableCommand(api disenableUserAPI) (cmd.Command, *DisenableUserBase) {
-	c := &disableCommand{
-		disenableUserBase{
-			api: api,
-		},
-	}
-	return envcmd.WrapSystem(c), &DisenableUserBase{&c.disenableUserBase}
+func NewDisableCommandForTest(api disenableUserAPI, store jujuclient.ClientStore) (cmd.Command, *DisenableUserBase) {
+	c := &disableCommand{disenableUserBase{api: api}}
+	c.SetClientStore(store)
+	return modelcmd.WrapController(c), &DisenableUserBase{&c.disenableUserBase}
 }
 
 // NewEnableCommand returns a EnableCommand with the api provided as
 // specified.
-func NewEnableCommand(api disenableUserAPI) (cmd.Command, *DisenableUserBase) {
-	c := &enableCommand{
-		disenableUserBase{
-			api: api,
-		},
-	}
-	return envcmd.WrapSystem(c), &DisenableUserBase{&c.disenableUserBase}
+func NewEnableCommandForTest(api disenableUserAPI, store jujuclient.ClientStore) (cmd.Command, *DisenableUserBase) {
+	c := &enableCommand{disenableUserBase{api: api}}
+	c.SetClientStore(store)
+	return modelcmd.WrapController(c), &DisenableUserBase{&c.disenableUserBase}
 }
 
 // NewListCommand returns a ListCommand with the api provided as specified.
-func NewListCommand(api UserInfoAPI) cmd.Command {
+func NewListCommandForTest(api UserInfoAPI, modelAPI modelUsersAPI, store jujuclient.ClientStore, clock clock.Clock) cmd.Command {
 	c := &listCommand{
 		infoCommandBase: infoCommandBase{
-			api: api,
+			clock: clock,
+			api:   api,
 		},
+		modelUserAPI: modelAPI,
 	}
-	return envcmd.WrapSystem(c)
+	c.SetClientStore(store)
+	return modelcmd.WrapController(c)
+}
+
+// NewWhoAmICommandForTest returns a whoAMI command with a mock store.
+func NewWhoAmICommandForTest(store jujuclient.ClientStore) cmd.Command {
+	c := &whoAmICommand{store: store}
+	return c
 }

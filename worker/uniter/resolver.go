@@ -18,7 +18,7 @@ import (
 type ResolverConfig struct {
 	ClearResolved       func() error
 	ReportHookError     func(hook.Info) error
-	FixDeployer         func() error
+	ShouldRetryHooks    bool
 	StartRetryHookTimer func()
 	StopRetryHookTimer  func()
 	Leadership          resolver.Resolver
@@ -46,7 +46,6 @@ func (s *uniterResolver) NextOp(
 	remoteState remotestate.Snapshot,
 	opFactory operation.Factory,
 ) (operation.Operation, error) {
-
 	if remoteState.Life == params.Dead || localState.Stopped {
 		return nil, resolver.ErrTerminate
 	}
@@ -64,12 +63,6 @@ func (s *uniterResolver) NextOp(
 		// unit's charm URL. We need to restart the resolver
 		// loop so that we start watching the correct events.
 		return nil, resolver.ErrRestart
-	}
-
-	if localState.Kind == operation.Continue {
-		if err := s.config.FixDeployer(); err != nil {
-			return nil, errors.Trace(err)
-		}
 	}
 
 	if s.retryHookTimerStarted && (localState.Kind != operation.RunHook || localState.Step != operation.Pending) {
@@ -147,8 +140,7 @@ func (s *uniterResolver) nextOpConflicted(
 		}
 		return opFactory.NewResolvedUpgrade(localState.CharmURL)
 	}
-	if remoteState.ForceCharmUpgrade && *localState.CharmURL != *remoteState.CharmURL {
-		logger.Debugf("upgrade from %v to %v", localState.CharmURL, remoteState.CharmURL)
+	if remoteState.ForceCharmUpgrade && charmModified(localState, remoteState) {
 		return opFactory.NewRevertUpgrade(remoteState.CharmURL)
 	}
 	return nil, resolver.ErrWaiting
@@ -165,8 +157,7 @@ func (s *uniterResolver) nextOpHookError(
 		return nil, errors.Trace(err)
 	}
 
-	if remoteState.ForceCharmUpgrade && *localState.CharmURL != *remoteState.CharmURL {
-		logger.Debugf("upgrade from %v to %v", localState.CharmURL, remoteState.CharmURL)
+	if remoteState.ForceCharmUpgrade && charmModified(localState, remoteState) {
 		return opFactory.NewUpgrade(remoteState.CharmURL)
 	}
 
@@ -183,7 +174,7 @@ func (s *uniterResolver) nextOpHookError(
 			s.retryHookTimerStarted = false
 			return opFactory.NewRunHook(*localState.Hook)
 		}
-		if !s.retryHookTimerStarted {
+		if !s.retryHookTimerStarted && s.config.ShouldRetryHooks {
 			// We haven't yet started a retry timer, so start one
 			// now. If we retry and fail, retryHookTimerStarted is
 			// cleared so that we'll still start it again.
@@ -210,6 +201,19 @@ func (s *uniterResolver) nextOpHookError(
 			"unknown resolved mode %q", remoteState.ResolvedMode,
 		)
 	}
+}
+
+func charmModified(local resolver.LocalState, remote remotestate.Snapshot) bool {
+	if *local.CharmURL != *remote.CharmURL {
+		logger.Debugf("upgrade from %v to %v", local.CharmURL, remote.CharmURL)
+		return true
+	}
+
+	if local.CharmModifiedVersion != remote.CharmModifiedVersion {
+		logger.Debugf("upgrade from CharmModifiedVersion %v to %v", local.CharmModifiedVersion, remote.CharmModifiedVersion)
+		return true
+	}
+	return false
 }
 
 func (s *uniterResolver) nextOp(
@@ -252,8 +256,7 @@ func (s *uniterResolver) nextOp(
 		return opFactory.NewRunHook(hook.Info{Kind: hooks.Install})
 	}
 
-	if *localState.CharmURL != *remoteState.CharmURL {
-		logger.Debugf("upgrade from %v to %v", localState.CharmURL, remoteState.CharmURL)
+	if charmModified(localState, remoteState) {
 		return opFactory.NewUpgrade(remoteState.CharmURL)
 	}
 

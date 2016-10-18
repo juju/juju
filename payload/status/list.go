@@ -9,9 +9,9 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"launchpad.net/gnuflag"
+	"github.com/juju/gnuflag"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/payload"
 )
 
@@ -21,9 +21,9 @@ type ListAPI interface {
 	io.Closer
 }
 
-// ListCommand implements the list-payloads command.
+// ListCommand implements the payloads command.
 type ListCommand struct {
-	envcmd.EnvCommandBase
+	modelcmd.ModelCommandBase
 	out      cmd.Output
 	patterns []string
 
@@ -59,14 +59,16 @@ will be checked against the following info in Juju:
 
 func (c *ListCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "list-payloads",
+		Name:    "payloads",
 		Args:    "[pattern ...]",
 		Purpose: "display status information about known payloads",
 		Doc:     listDoc,
+		Aliases: []string{"list-payloads"},
 	}
 }
 
 func (c *ListCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.ModelCommandBase.SetFlags(f)
 	defaultFormat := "tabular"
 	c.out.AddFlags(f, defaultFormat, map[string]cmd.Formatter{
 		"tabular": FormatTabular,
@@ -80,18 +82,10 @@ func (c *ListCommand) Init(args []string) error {
 	return nil
 }
 
-// TODO(ericsnow) Move this to a common place, like cmd/envcmd?
-const connectionError = `Unable to connect to environment %q.
-Please check your credentials or use 'juju bootstrap' to create a new environment.
-
-Error details:
-%v
-`
-
 func (c *ListCommand) Run(ctx *cmd.Context) error {
 	apiclient, err := c.newAPIClient(c)
 	if err != nil {
-		return fmt.Errorf(connectionError, c.ConnectionName(), err)
+		return errors.Trace(err)
 	}
 	defer apiclient.Close()
 
@@ -105,7 +99,12 @@ func (c *ListCommand) Run(ctx *cmd.Context) error {
 		fmt.Fprintf(ctx.Stderr, "%v\n", err)
 	}
 
-	// Note that we do not worry about c.CompatVersion for list-payloads...
+	if len(payloads) == 0 {
+		ctx.Infof("No payloads to display.")
+		return nil
+	}
+
+	// Note that we do not worry about c.CompatVersion for payloads...
 	formatter := newListFormatter(payloads)
 	formatted := formatter.format()
 	return c.out.Write(ctx, formatted)

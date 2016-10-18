@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/factory"
+	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/testing"
 )
@@ -24,7 +25,10 @@ func (*factorySuite) TestNewContainerManager(c *gc.C) {
 		containerType instance.ContainerType
 		valid         bool
 	}{{
-		containerType: instance.LXC,
+		containerType: instance.LXD,
+		valid:         true,
+	}, {
+		containerType: instance.LXD,
 		valid:         true,
 	}, {
 		containerType: instance.KVM,
@@ -36,8 +40,13 @@ func (*factorySuite) TestNewContainerManager(c *gc.C) {
 		containerType: instance.ContainerType("other"),
 		valid:         false,
 	}} {
-		conf := container.ManagerConfig{container.ConfigName: "test"}
-		manager, err := factory.NewContainerManager(test.containerType, conf, nil)
+		/* LXD isn't available in go 1.2 */
+		if test.containerType == instance.LXD && !lxd.HasLXDSupport() {
+			continue
+		}
+
+		conf := container.ManagerConfig{container.ConfigModelUUID: testing.ModelTag.Id()}
+		manager, err := factory.NewContainerManager(test.containerType, conf)
 		if test.valid {
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(manager, gc.NotNil)

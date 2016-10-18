@@ -7,10 +7,10 @@ import (
 	"fmt"
 	stdtesting "testing"
 
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	coretesting "github.com/juju/juju/testing"
@@ -95,7 +95,7 @@ var authEitherTests = []struct {
 	about:  "tag quxx - both return false",
 	a:      fooAuth,
 	b:      barAuth,
-	tag:    names.NewServiceTag("quxx"),
+	tag:    names.NewApplicationTag("quxx"),
 	expect: false,
 }}
 
@@ -115,9 +115,9 @@ func (s *commonSuite) TestAuthEither(c *gc.C) {
 	}
 }
 
-func u(unit string) names.Tag             { return names.NewUnitTag(unit) }
-func serviceTag(service string) names.Tag { return names.NewServiceTag(service) }
-func m(machine string) names.Tag          { return names.NewMachineTag(machine) }
+func u(unit string) names.Tag                 { return names.NewUnitTag(unit) }
+func ApplicationTag(service string) names.Tag { return names.NewApplicationTag(service) }
+func m(machine string) names.Tag              { return names.NewMachineTag(machine) }
 
 func (s *commonSuite) TestAuthFuncForTagKind(c *gc.C) {
 	// TODO(dimitern): This list of all supported tags and kinds needs
@@ -129,13 +129,12 @@ func (s *commonSuite) TestAuthFuncForTagKind(c *gc.C) {
 		nil, // invalid tag
 		names.NewActionTag(uuid.String()),
 		names.NewCharmTag("cs:precise/missing"),
-		names.NewEnvironTag(uuid.String()),
+		names.NewModelTag(uuid.String()),
 		names.NewFilesystemTag("20/20"),
 		names.NewLocalUserTag("user"),
 		names.NewMachineTag("42"),
-		names.NewNetworkTag("public"),
 		names.NewRelationTag("wordpress:mysql mysql:db"),
-		names.NewServiceTag("wordpress"),
+		names.NewApplicationTag("wordpress"),
 		names.NewSpaceTag("apps"),
 		names.NewStorageTag("foo/42"),
 		names.NewUnitTag("wordpress/5"),

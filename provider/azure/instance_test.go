@@ -7,10 +7,11 @@ import (
 	"net/http"
 	"path"
 
-	"github.com/Azure/azure-sdk-for-go/Godeps/_workspace/src/github.com/Azure/go-autorest/autorest/mocks"
-	"github.com/Azure/azure-sdk-for-go/Godeps/_workspace/src/github.com/Azure/go-autorest/autorest/to"
 	"github.com/Azure/azure-sdk-for-go/arm/compute"
 	"github.com/Azure/azure-sdk-for-go/arm/network"
+	"github.com/Azure/azure-sdk-for-go/arm/resources/resources"
+	"github.com/Azure/go-autorest/autorest/mocks"
+	"github.com/Azure/go-autorest/autorest/to"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -18,7 +19,9 @@ import (
 	"github.com/juju/juju/instance"
 	jujunetwork "github.com/juju/juju/network"
 	"github.com/juju/juju/provider/azure"
+	"github.com/juju/juju/provider/azure/internal/azureauth"
 	"github.com/juju/juju/provider/azure/internal/azuretesting"
+	"github.com/juju/juju/status"
 	"github.com/juju/juju/testing"
 )
 
@@ -29,7 +32,7 @@ type instanceSuite struct {
 	requests          []*http.Request
 	sender            azuretesting.Senders
 	env               environs.Environ
-	virtualMachines   []compute.VirtualMachine
+	deployments       []resources.DeploymentExtended
 	networkInterfaces []network.Interface
 	publicIPAddresses []network.PublicIPAddress
 }
@@ -38,9 +41,11 @@ var _ = gc.Suite(&instanceSuite{})
 
 func (s *instanceSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.provider, _ = newProviders(c, azure.ProviderConfig{
-		Sender:           &s.sender,
-		RequestInspector: requestRecorder(&s.requests),
+	s.provider = newProvider(c, azure.ProviderConfig{
+		Sender:                            &s.sender,
+		RequestInspector:                  azuretesting.RequestRecorder(&s.requests),
+		RandomWindowsAdminPassword:        func() string { return "sorandom" },
+		InteractiveCreateServicePrincipal: azureauth.InteractiveCreateServicePrincipal,
 	})
 	s.env = openEnviron(c, s.provider, &s.sender)
 	s.sender = nil
@@ -49,9 +54,27 @@ func (s *instanceSuite) SetUpTest(c *gc.C) {
 		makeNetworkInterface("nic-0", "machine-0"),
 	}
 	s.publicIPAddresses = nil
-	s.virtualMachines = []compute.VirtualMachine{
-		makeVirtualMachine("machine-0"),
-		makeVirtualMachine("machine-1"),
+	s.deployments = []resources.DeploymentExtended{
+		makeDeployment("machine-0"),
+		makeDeployment("machine-1"),
+	}
+}
+
+func makeDeployment(name string) resources.DeploymentExtended {
+	dependsOn := []resources.BasicDependency{{
+		ResourceType: to.StringPtr("Microsoft.Compute/availabilitySets"),
+		ResourceName: to.StringPtr("mysql"),
+	}}
+	dependencies := []resources.Dependency{{
+		ResourceType: to.StringPtr("Microsoft.Compute/virtualMachines"),
+		DependsOn:    &dependsOn,
+	}}
+	return resources.DeploymentExtended{
+		Name: to.StringPtr(name),
+		Properties: &resources.DeploymentPropertiesExtended{
+			ProvisioningState: to.StringPtr("Succeeded"),
+			Dependencies:      &dependencies,
+		},
 	}
 }
 
@@ -59,7 +82,7 @@ func makeVirtualMachine(name string) compute.VirtualMachine {
 	return compute.VirtualMachine{
 		Name: to.StringPtr(name),
 		Properties: &compute.VirtualMachineProperties{
-			ProvisioningState: to.StringPtr("Successful"),
+			ProvisioningState: to.StringPtr("Succeeded"),
 		},
 	}
 }
@@ -110,11 +133,11 @@ func makeSecurityRule(name, ipAddress, ports string) network.SecurityRule {
 	return network.SecurityRule{
 		Name: to.StringPtr(name),
 		Properties: &network.SecurityRulePropertiesFormat{
-			Protocol:                 network.SecurityRuleProtocolTCP,
+			Protocol:                 network.TCP,
 			DestinationAddressPrefix: to.StringPtr(ipAddress),
 			DestinationPortRange:     to.StringPtr(ports),
 			Access:                   network.Allow,
-			Priority:                 to.IntPtr(200),
+			Priority:                 to.Int32Ptr(200),
 			Direction:                network.Inbound,
 		},
 	}
@@ -127,29 +150,28 @@ func (s *instanceSuite) getInstance(c *gc.C) instance.Instance {
 }
 
 func (s *instanceSuite) getInstances(c *gc.C, ids ...instance.Id) []instance.Instance {
-
-	nicsSender := azuretesting.NewSenderWithValue(&network.InterfaceListResult{
-		Value: &s.networkInterfaces,
-	})
-	nicsSender.PathPattern = ".*/networkInterfaces"
-
-	vmsSender := azuretesting.NewSenderWithValue(&compute.VirtualMachineListResult{
-		Value: &s.virtualMachines,
-	})
-	vmsSender.PathPattern = ".*/virtualMachines"
-
-	pipsSender := azuretesting.NewSenderWithValue(&network.PublicIPAddressListResult{
-		Value: &s.publicIPAddresses,
-	})
-	pipsSender.PathPattern = ".*/publicIPAddresses"
-
-	s.sender = azuretesting.Senders{nicsSender, vmsSender, pipsSender}
-
+	s.sender = s.getInstancesSender()
 	instances, err := s.env.Instances(ids)
 	c.Assert(err, jc.ErrorIsNil)
 	s.sender = azuretesting.Senders{}
 	s.requests = nil
 	return instances
+}
+
+func (s *instanceSuite) getInstancesSender() azuretesting.Senders {
+	deploymentsSender := azuretesting.NewSenderWithValue(&resources.DeploymentListResult{
+		Value: &s.deployments,
+	})
+	deploymentsSender.PathPattern = ".*/deployments"
+	nicsSender := azuretesting.NewSenderWithValue(&network.InterfaceListResult{
+		Value: &s.networkInterfaces,
+	})
+	nicsSender.PathPattern = ".*/networkInterfaces"
+	pipsSender := azuretesting.NewSenderWithValue(&network.PublicIPAddressListResult{
+		Value: &s.publicIPAddresses,
+	})
+	pipsSender.PathPattern = ".*/publicIPAddresses"
+	return azuretesting.Senders{deploymentsSender, nicsSender, pipsSender}
 }
 
 func networkSecurityGroupSender(rules []network.SecurityRule) *azuretesting.MockSender {
@@ -158,28 +180,38 @@ func networkSecurityGroupSender(rules []network.SecurityRule) *azuretesting.Mock
 			SecurityRules: &rules,
 		},
 	})
-	nsgSender.PathPattern = ".*/networkSecurityGroups/juju-internal"
+	nsgSender.PathPattern = ".*/networkSecurityGroups/juju-internal-nsg"
 	return nsgSender
 }
 
 func (s *instanceSuite) TestInstanceStatus(c *gc.C) {
 	inst := s.getInstance(c)
-	c.Assert(inst.Status(), gc.Equals, "Successful")
+	assertInstanceStatus(c, inst.Status(), status.Running, "")
+}
+
+func (s *instanceSuite) TestInstanceStatusDeploymentFailed(c *gc.C) {
+	s.deployments[0].Properties.ProvisioningState = to.StringPtr("Failed")
+	inst := s.getInstance(c)
+	assertInstanceStatus(c, inst.Status(), status.ProvisioningError, "Failed")
+}
+
+func (s *instanceSuite) TestInstanceStatusDeploymentCanceled(c *gc.C) {
+	s.deployments[0].Properties.ProvisioningState = to.StringPtr("Canceled")
+	inst := s.getInstance(c)
+	assertInstanceStatus(c, inst.Status(), status.ProvisioningError, "Canceled")
 }
 
 func (s *instanceSuite) TestInstanceStatusNilProvisioningState(c *gc.C) {
-	s.virtualMachines[0].Properties.ProvisioningState = nil
+	s.deployments[0].Properties.ProvisioningState = nil
 	inst := s.getInstance(c)
-	c.Assert(inst.Status(), gc.Equals, "")
+	assertInstanceStatus(c, inst.Status(), status.Allocating, "")
 }
 
-func (s *instanceSuite) TestInstanceStatusNoVM(c *gc.C) {
-	// Instances will still return an instance if there's a NIC, which is
-	// the last thing we delete. If there's no VM, we return the string
-	// "Partially Deleted" from Instance.Status().
-	s.virtualMachines = nil
-	inst := s.getInstance(c)
-	c.Assert(inst.Status(), gc.Equals, "Partially Deleted")
+func assertInstanceStatus(c *gc.C, actual instance.InstanceStatus, status status.Status, message string) {
+	c.Assert(actual, jc.DeepEquals, instance.InstanceStatus{
+		Status:  status,
+		Message: message,
+	})
 }
 
 func (s *instanceSuite) TestInstanceAddressesEmpty(c *gc.C) {
@@ -257,64 +289,64 @@ func (s *instanceSuite) TestInstancePorts(c *gc.C) {
 	nsgSender := networkSecurityGroupSender([]network.SecurityRule{{
 		Name: to.StringPtr("machine-0-xyzzy"),
 		Properties: &network.SecurityRulePropertiesFormat{
-			Protocol:             network.SecurityRuleProtocolUDP,
+			Protocol:             network.UDP,
 			DestinationPortRange: to.StringPtr("*"),
 			Access:               network.Allow,
-			Priority:             to.IntPtr(200),
+			Priority:             to.Int32Ptr(200),
 			Direction:            network.Inbound,
 		},
 	}, {
 		Name: to.StringPtr("machine-0-tcpcp"),
 		Properties: &network.SecurityRulePropertiesFormat{
-			Protocol:             network.SecurityRuleProtocolTCP,
+			Protocol:             network.TCP,
 			DestinationPortRange: to.StringPtr("1000-2000"),
 			Access:               network.Allow,
-			Priority:             to.IntPtr(201),
+			Priority:             to.Int32Ptr(201),
 			Direction:            network.Inbound,
 		},
 	}, {
 		Name: to.StringPtr("machine-0-http"),
 		Properties: &network.SecurityRulePropertiesFormat{
-			Protocol:             network.SecurityRuleProtocolAsterisk,
+			Protocol:             network.Asterisk,
 			DestinationPortRange: to.StringPtr("80"),
 			Access:               network.Allow,
-			Priority:             to.IntPtr(202),
+			Priority:             to.Int32Ptr(202),
 			Direction:            network.Inbound,
 		},
 	}, {
 		Name: to.StringPtr("machine-00-ignored"),
 		Properties: &network.SecurityRulePropertiesFormat{
-			Protocol:             network.SecurityRuleProtocolTCP,
+			Protocol:             network.TCP,
 			DestinationPortRange: to.StringPtr("80"),
 			Access:               network.Allow,
-			Priority:             to.IntPtr(202),
+			Priority:             to.Int32Ptr(202),
 			Direction:            network.Inbound,
 		},
 	}, {
 		Name: to.StringPtr("machine-0-ignored"),
 		Properties: &network.SecurityRulePropertiesFormat{
-			Protocol:             network.SecurityRuleProtocolTCP,
+			Protocol:             network.TCP,
 			DestinationPortRange: to.StringPtr("80"),
 			Access:               network.Deny,
-			Priority:             to.IntPtr(202),
+			Priority:             to.Int32Ptr(202),
 			Direction:            network.Inbound,
 		},
 	}, {
 		Name: to.StringPtr("machine-0-ignored"),
 		Properties: &network.SecurityRulePropertiesFormat{
-			Protocol:             network.SecurityRuleProtocolTCP,
+			Protocol:             network.TCP,
 			DestinationPortRange: to.StringPtr("80"),
 			Access:               network.Allow,
-			Priority:             to.IntPtr(202),
+			Priority:             to.Int32Ptr(202),
 			Direction:            network.Outbound,
 		},
 	}, {
 		Name: to.StringPtr("machine-0-ignored"),
 		Properties: &network.SecurityRulePropertiesFormat{
-			Protocol:             network.SecurityRuleProtocolTCP,
+			Protocol:             network.TCP,
 			DestinationPortRange: to.StringPtr("80"),
 			Access:               network.Allow,
-			Priority:             to.IntPtr(199), // internal range
+			Priority:             to.Int32Ptr(199), // internal range
 			Direction:            network.Inbound,
 		},
 	}})
@@ -345,7 +377,9 @@ func (s *instanceSuite) TestInstanceClosePorts(c *gc.C) {
 	inst := s.getInstance(c)
 	sender := mocks.NewSender()
 	notFoundSender := mocks.NewSender()
-	notFoundSender.EmitStatus("rule not found", http.StatusNotFound)
+	notFoundSender.AppendResponse(mocks.NewResponseWithStatus(
+		"rule not found", http.StatusNotFound,
+	))
 	s.sender = azuretesting.Senders{sender, notFoundSender}
 
 	err := inst.ClosePorts("0", []jujunetwork.PortRange{{
@@ -369,13 +403,14 @@ func (s *instanceSuite) TestInstanceClosePorts(c *gc.C) {
 func (s *instanceSuite) TestInstanceOpenPorts(c *gc.C) {
 	internalSubnetId := path.Join(
 		"/subscriptions", fakeSubscriptionId,
-		"resourceGroups/arbitrary/providers/Microsoft.Network/virtualnetworks/juju-internal/subnets",
-		"juju-testenv-environment-"+testing.EnvironmentTag.Id(),
+		"resourceGroups/juju-testenv-model-deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		"providers/Microsoft.Network/virtualnetworks/juju-internal-network/subnets/juju-internal-subnet",
 	)
 	ipConfiguration := network.InterfaceIPConfiguration{
 		Properties: &network.InterfaceIPConfigurationPropertiesFormat{
+			Primary:          to.BoolPtr(true),
 			PrivateIPAddress: to.StringPtr("10.0.0.4"),
-			Subnet: &network.SubResource{
+			Subnet: &network.Subnet{
 				ID: to.StringPtr(internalSubnetId),
 			},
 		},
@@ -386,7 +421,7 @@ func (s *instanceSuite) TestInstanceOpenPorts(c *gc.C) {
 
 	inst := s.getInstance(c)
 	okSender := mocks.NewSender()
-	okSender.EmitContent("{}")
+	okSender.AppendResponse(mocks.NewResponseWithContent("{}"))
 	nsgSender := networkSecurityGroupSender(nil)
 	s.sender = azuretesting.Senders{nsgSender, okSender, okSender}
 
@@ -409,13 +444,13 @@ func (s *instanceSuite) TestInstanceOpenPorts(c *gc.C) {
 	assertRequestBody(c, s.requests[1], &network.SecurityRule{
 		Properties: &network.SecurityRulePropertiesFormat{
 			Description:              to.StringPtr("1000/tcp"),
-			Protocol:                 network.SecurityRuleProtocolTCP,
+			Protocol:                 network.TCP,
 			SourcePortRange:          to.StringPtr("*"),
 			SourceAddressPrefix:      to.StringPtr("*"),
 			DestinationPortRange:     to.StringPtr("1000"),
 			DestinationAddressPrefix: to.StringPtr("10.0.0.4"),
 			Access:    network.Allow,
-			Priority:  to.IntPtr(200),
+			Priority:  to.Int32Ptr(200),
 			Direction: network.Inbound,
 		},
 	})
@@ -424,13 +459,78 @@ func (s *instanceSuite) TestInstanceOpenPorts(c *gc.C) {
 	assertRequestBody(c, s.requests[2], &network.SecurityRule{
 		Properties: &network.SecurityRulePropertiesFormat{
 			Description:              to.StringPtr("1000-2000/udp"),
-			Protocol:                 network.SecurityRuleProtocolUDP,
+			Protocol:                 network.UDP,
 			SourcePortRange:          to.StringPtr("*"),
 			SourceAddressPrefix:      to.StringPtr("*"),
 			DestinationPortRange:     to.StringPtr("1000-2000"),
 			DestinationAddressPrefix: to.StringPtr("10.0.0.4"),
 			Access:    network.Allow,
-			Priority:  to.IntPtr(201),
+			Priority:  to.Int32Ptr(201),
+			Direction: network.Inbound,
+		},
+	})
+}
+
+func (s *instanceSuite) TestInstanceOpenPortsAlreadyOpen(c *gc.C) {
+	internalSubnetId := path.Join(
+		"/subscriptions", fakeSubscriptionId,
+		"resourceGroups/juju-testenv-model-deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		"providers/Microsoft.Network/virtualnetworks/juju-internal-network/subnets/juju-internal-subnet",
+	)
+	ipConfiguration := network.InterfaceIPConfiguration{
+		Properties: &network.InterfaceIPConfigurationPropertiesFormat{
+			Primary:          to.BoolPtr(true),
+			PrivateIPAddress: to.StringPtr("10.0.0.4"),
+			Subnet: &network.Subnet{
+				ID: to.StringPtr(internalSubnetId),
+			},
+		},
+	}
+	s.networkInterfaces = []network.Interface{
+		makeNetworkInterface("nic-0", "machine-0", ipConfiguration),
+	}
+
+	inst := s.getInstance(c)
+	okSender := mocks.NewSender()
+	okSender.AppendResponse(mocks.NewResponseWithContent("{}"))
+	nsgSender := networkSecurityGroupSender([]network.SecurityRule{{
+		Name: to.StringPtr("machine-0-tcp-1000"),
+		Properties: &network.SecurityRulePropertiesFormat{
+			Protocol:             network.Asterisk,
+			DestinationPortRange: to.StringPtr("1000"),
+			Access:               network.Allow,
+			Priority:             to.Int32Ptr(202),
+			Direction:            network.Inbound,
+		},
+	}})
+	s.sender = azuretesting.Senders{nsgSender, okSender, okSender}
+
+	err := inst.OpenPorts("0", []jujunetwork.PortRange{{
+		Protocol: "tcp",
+		FromPort: 1000,
+		ToPort:   1000,
+	}, {
+		Protocol: "udp",
+		FromPort: 1000,
+		ToPort:   2000,
+	}})
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(s.requests, gc.HasLen, 2)
+	c.Assert(s.requests[0].Method, gc.Equals, "GET")
+	c.Assert(s.requests[0].URL.Path, gc.Equals, internalSecurityGroupPath)
+	c.Assert(s.requests[1].Method, gc.Equals, "PUT")
+	c.Assert(s.requests[1].URL.Path, gc.Equals, securityRulePath("machine-0-udp-1000-2000"))
+	assertRequestBody(c, s.requests[1], &network.SecurityRule{
+		Properties: &network.SecurityRulePropertiesFormat{
+			Description:              to.StringPtr("1000-2000/udp"),
+			Protocol:                 network.UDP,
+			SourcePortRange:          to.StringPtr("*"),
+			SourceAddressPrefix:      to.StringPtr("*"),
+			DestinationPortRange:     to.StringPtr("1000-2000"),
+			DestinationAddressPrefix: to.StringPtr("10.0.0.4"),
+			Access:    network.Allow,
+			Priority:  to.Int32Ptr(200),
 			Direction: network.Inbound,
 		},
 	})
@@ -441,10 +541,28 @@ func (s *instanceSuite) TestInstanceOpenPortsNoInternalAddress(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "internal network address not found")
 }
 
+func (s *instanceSuite) TestAllInstances(c *gc.C) {
+	s.sender = s.getInstancesSender()
+	instances, err := s.env.AllInstances()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(instances, gc.HasLen, 2)
+	c.Assert(instances[0].Id(), gc.Equals, instance.Id("machine-0"))
+	c.Assert(instances[1].Id(), gc.Equals, instance.Id("machine-1"))
+}
+
+func (s *instanceSuite) TestControllerInstances(c *gc.C) {
+	*(*(*s.deployments[0].Properties.Dependencies)[0].DependsOn)[0].ResourceName = "juju-controller"
+	s.sender = s.getInstancesSender()
+	ids, err := s.env.ControllerInstances("foo")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ids, gc.HasLen, 1)
+	c.Assert(ids[0], gc.Equals, instance.Id("machine-0"))
+}
+
 var internalSecurityGroupPath = path.Join(
 	"/subscriptions", fakeSubscriptionId,
-	"resourceGroups", "juju-testenv-environment-"+testing.EnvironmentTag.Id(),
-	"providers/Microsoft.Network/networkSecurityGroups/juju-internal",
+	"resourceGroups", "juju-testenv-model-"+testing.ModelTag.Id(),
+	"providers/Microsoft.Network/networkSecurityGroups/juju-internal-nsg",
 )
 
 func securityRulePath(ruleName string) string {

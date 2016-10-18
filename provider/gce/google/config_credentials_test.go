@@ -25,6 +25,7 @@ func (s *credentialsSuite) TestNewCredentials(c *gc.C) {
 		google.OSEnvClientID:    "abc",
 		google.OSEnvClientEmail: "xyz@g.com",
 		google.OSEnvPrivateKey:  "<some-key>",
+		google.OSEnvProjectID:   "yup",
 	}
 	creds, err := google.NewCredentials(values)
 	c.Assert(err, jc.ErrorIsNil)
@@ -35,6 +36,7 @@ func (s *credentialsSuite) TestNewCredentials(c *gc.C) {
 		ClientID:    "abc",
 		ClientEmail: "xyz@g.com",
 		PrivateKey:  []byte("<some-key>"),
+		ProjectID:   "yup",
 	})
 	data := make(map[string]string)
 	err = json.Unmarshal(jsonKey, &data)
@@ -47,13 +49,6 @@ func (s *credentialsSuite) TestNewCredentials(c *gc.C) {
 	})
 }
 
-func (s *credentialsSuite) TestNewCredentialsEmpty(c *gc.C) {
-	creds, err := google.NewCredentials(nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(creds, jc.DeepEquals, &google.Credentials{})
-}
-
 func (s *credentialsSuite) TestNewCredentialsUnrecognized(c *gc.C) {
 	values := map[string]string{
 		"spam": "eggs",
@@ -63,6 +58,19 @@ func (s *credentialsSuite) TestNewCredentialsUnrecognized(c *gc.C) {
 	c.Check(err, jc.Satisfies, errors.IsNotSupported)
 }
 
+func (s *credentialsSuite) TestNewCredentialsValidates(c *gc.C) {
+	values := map[string]string{
+		google.OSEnvClientEmail: "xyz@g.com",
+		google.OSEnvPrivateKey:  "<some-key>",
+		google.OSEnvProjectID:   "yup",
+	}
+	_, err := google.NewCredentials(values)
+	// This error comes from Credentials.Validate so by implication
+	// if we're getting this error, validation is being performed.
+	c.Check(err, gc.ErrorMatches, `invalid config value \(\) for "GCE_CLIENT_ID": missing ClientID`)
+	c.Assert(err, jc.Satisfies, google.IsInvalidConfigValueError)
+}
+
 func (s *credentialsSuite) TestParseJSONKey(c *gc.C) {
 	original := `
 {
@@ -70,6 +78,7 @@ func (s *credentialsSuite) TestParseJSONKey(c *gc.C) {
     "private_key": "<some-key>",
     "client_email": "xyz@g.com",
     "client_id": "abc",
+    "project_id": "yup",
     "type": "service_account"
 }`[1:]
 	creds, err := google.ParseJSONKey(bytes.NewBufferString(original))
@@ -81,6 +90,7 @@ func (s *credentialsSuite) TestParseJSONKey(c *gc.C) {
 		ClientID:    "abc",
 		ClientEmail: "xyz@g.com",
 		PrivateKey:  []byte("<some-key>"),
+		ProjectID:   "yup",
 	})
 	c.Check(string(jsonKey), gc.Equals, original)
 }
@@ -90,6 +100,7 @@ func (s *credentialsSuite) TestCredentialsValues(c *gc.C) {
 		google.OSEnvClientID:    "abc",
 		google.OSEnvClientEmail: "xyz@g.com",
 		google.OSEnvPrivateKey:  "<some-key>",
+		google.OSEnvProjectID:   "yup",
 	}
 	creds, err := google.NewCredentials(original)
 	c.Assert(err, jc.ErrorIsNil)
@@ -116,8 +127,8 @@ func (*credentialsSuite) TestValidateMissingID(c *gc.C) {
 	}
 	err := creds.Validate()
 
-	c.Assert(err, jc.Satisfies, google.IsInvalidConfigValue)
-	c.Check(err.(*google.InvalidConfigValue).Key, gc.Equals, "GCE_CLIENT_ID")
+	c.Assert(err, jc.Satisfies, google.IsInvalidConfigValueError)
+	c.Check(err.(*google.InvalidConfigValueError).Key, gc.Equals, "GCE_CLIENT_ID")
 }
 
 func (*credentialsSuite) TestValidateBadEmail(c *gc.C) {
@@ -128,8 +139,8 @@ func (*credentialsSuite) TestValidateBadEmail(c *gc.C) {
 	}
 	err := creds.Validate()
 
-	c.Assert(err, jc.Satisfies, google.IsInvalidConfigValue)
-	c.Check(err.(*google.InvalidConfigValue).Key, gc.Equals, "GCE_CLIENT_EMAIL")
+	c.Assert(err, jc.Satisfies, google.IsInvalidConfigValueError)
+	c.Check(err.(*google.InvalidConfigValueError).Key, gc.Equals, "GCE_CLIENT_EMAIL")
 }
 
 func (*credentialsSuite) TestValidateMissingKey(c *gc.C) {
@@ -139,6 +150,6 @@ func (*credentialsSuite) TestValidateMissingKey(c *gc.C) {
 	}
 	err := creds.Validate()
 
-	c.Assert(err, jc.Satisfies, google.IsInvalidConfigValue)
-	c.Check(err.(*google.InvalidConfigValue).Key, gc.Equals, "GCE_PRIVATE_KEY")
+	c.Assert(err, jc.Satisfies, google.IsInvalidConfigValueError)
+	c.Check(err.(*google.InvalidConfigValueError).Key, gc.Equals, "GCE_PRIVATE_KEY")
 }

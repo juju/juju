@@ -8,39 +8,33 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/modelcmd"
 )
 
 const listDoc = `
-"list" provides the metadata associated with all backups.
+backups provides the metadata associated with all backups.
 `
 
-func newListCommand() cmd.Command {
-	return envcmd.Wrap(&listCommand{})
+// NewListCommand returns a command used to list metadata for backups.
+func NewListCommand() cmd.Command {
+	return modelcmd.Wrap(&listCommand{})
 }
 
 // listCommand is the sub-command for listing all available backups.
 type listCommand struct {
 	CommandBase
-	// Brief means only IDs will be printed.
-	Brief bool
 }
 
 // Info implements Command.Info.
 func (c *listCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "list",
+		Name:    "backups",
 		Args:    "",
-		Purpose: "get all metadata",
+		Purpose: "Displays information about all backups.",
 		Doc:     listDoc,
+		Aliases: []string{"list-backups"},
 	}
-}
-
-// SetFlags implements Command.SetFlags.
-func (c *listCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.BoolVar(&c.Brief, "brief", false, "only print IDs")
 }
 
 // Init implements Command.Init.
@@ -53,6 +47,11 @@ func (c *listCommand) Init(args []string) error {
 
 // Run implements Command.Run.
 func (c *listCommand) Run(ctx *cmd.Context) error {
+	if c.Log != nil {
+		if err := c.Log.Start(ctx); err != nil {
+			return err
+		}
+	}
 	client, err := c.NewAPIClient()
 	if err != nil {
 		return errors.Trace(err)
@@ -65,21 +64,22 @@ func (c *listCommand) Run(ctx *cmd.Context) error {
 	}
 
 	if len(result.List) == 0 {
-		fmt.Fprintln(ctx.Stdout, "(no backups found)")
+		ctx.Infof("No backups to display.")
 		return nil
 	}
 
-	if c.Brief {
-		fmt.Fprintln(ctx.Stdout, result.List[0].ID)
-	} else {
+	verbose := c.Log != nil && c.Log.Verbose
+	if verbose {
 		c.dumpMetadata(ctx, &result.List[0])
+	} else {
+		fmt.Fprintln(ctx.Stdout, result.List[0].ID)
 	}
 	for _, resultItem := range result.List[1:] {
-		if c.Brief {
-			fmt.Fprintln(ctx.Stdout, resultItem.ID)
-		} else {
+		if verbose {
 			fmt.Fprintln(ctx.Stdout)
 			c.dumpMetadata(ctx, &resultItem)
+		} else {
+			fmt.Fprintln(ctx.Stdout, resultItem.ID)
 		}
 	}
 	return nil
