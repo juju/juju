@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 )
 
@@ -69,14 +68,18 @@ func NewAllWatcher(context facade.Context) (facade.Facade, error) {
 	auth := context.Auth()
 	resources := context.Resources()
 
-	// HasPermission should not be replaced by auth.AuthClient() even if, at first sight, they seem
-	// equivalent because this allows us to remove login permission for a user
-	// (a permission that is given by default).
-	isAuthorized, err := auth.HasPermission(permission.LoginAccess, context.State().ControllerTag())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if !isAuthorized {
+	if !auth.AuthClient() {
+		// Note that we don't need to check specific permissions
+		// here, as the AllWatcher can only do anything if the
+		// watcher resource has already been created, so we can
+		// rely on the permission check there to ensure that
+		// this facade can't do anything it shouldn't be allowed
+		// to.
+		//
+		// This is useful because the AllWatcher is reused for
+		// both the WatchAll (requires model access rights) and
+		// the WatchAllModels (requring controller superuser
+		// rights) API calls.
 		return nil, common.ErrPerm
 	}
 	watcher, ok := resources.Get(id).(*state.Multiwatcher)
