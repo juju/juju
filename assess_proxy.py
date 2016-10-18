@@ -62,7 +62,7 @@ sudo ufw allow out on {interface} to any port 3128
 sudo ufw allow out on {interface} to any port 53
 sudo ufw allow out on {interface} to any port 67
 sudo iptables -A FORWARD -i {interface} -p tcp --dport 3128 -j ACCEPT
-{sudo iptables -D {original_forward_rule}
+sudo iptables -D {original_forward_rule}
 """
 UFW_ENABLE_COMMAND = ['sudo', 'ufw', '--force', 'enable']
 UFW_RESET_COMMANDS = [
