@@ -4,6 +4,7 @@ import logging
 import os
 import tarfile
 from textwrap import dedent
+import re
 import sys
 
 
@@ -43,6 +44,11 @@ def check_tar(tested_texts_dir, tar_filename):
 
     tar_filename is the filename of the tarfile.
     """
+    base_tar_name = os.path.basename(tar_filename)
+    if re.match(r'juju-core_1\..*\.tar.gz', base_tar_name) is not None:
+        logging.info(
+            'Juju 1 does not use fallback-public-cloud.yaml.  Skipping.')
+        return 0
     try:
         tf = tarfile.open(tar_filename, 'r:*')
     except FileNotFoundError:
