@@ -3,6 +3,7 @@ from argparse import ArgumentParser
 import logging
 import os
 import tarfile
+from textwrap import dedent
 import sys
 
 
@@ -59,21 +60,26 @@ def check_tar(tested_texts_dir, tar_filename):
             continue
         with open(os.path.join(tested_texts_dir, tested), 'rb') as tested_file:
             if tested_file.read() == fpc_text:
-                logging.info('Matched {}.'.format(tested))
+                logging.info('fallback-public-cloud.yaml matched {}.'.format(
+                    tested))
                 return 0
     else:
         print(
-            'fallback-public-clouds.yaml does not match a tested version.\n'
-            'Please submit it to the QA team for testing before landing.',
+            'fallback-public-cloud.yaml does not match a tested version.\n'
+            'Please have the QA team test it before landing.',
             file=sys.stderr)
         return 1
 
 
 def main():
     logging.basicConfig(level=logging.INFO)
-    parser = ArgumentParser()
-    parser.add_argument('tested_texts_dir')
-    parser.add_argument('tarfile')
+    parser = ArgumentParser(description=dedent("""\
+        Ensure fallback-public-cloud.yaml has been tested.
+        """))
+    parser.add_argument('tested_texts_dir', help=(
+        'The directory containing previously-tested versions of'
+        ' fallback-public-cloud.'))
+    parser.add_argument('tarfile', help='The tarfile to check.')
     args = parser.parse_args()
     try:
         return check_tar(args.tested_texts_dir, args.tarfile)
