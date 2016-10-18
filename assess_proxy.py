@@ -92,6 +92,11 @@ def check_environment():
 def check_network(client_interface, controller_interface):
     """Verify the interfaces are usable and return the FORWARD IN rule.
 
+    The environment is also checked that it defines proxy information needed
+    to work on a restricted network.
+
+    :raises UndefinedProxyError: when the current env or /etc/environment does
+        not define proxy info.
     :raises ValueError: when the interfaces are not present or the FORWARD IN
         rule cannot be identified.
     :return: the FORWARD IN rule that must be restored before the test exits.
@@ -105,6 +110,7 @@ def check_network(client_interface, controller_interface):
             controller_interface)
         log.error(message)
         raise ValueError(message)
+    check_environment()
     # We need to match a single rule from iptables:
     # sudo iptables -S lxdbr0
     # -A FORWARD -i lxdbr0 -m comment --comment "managed by lxd" -j ACCEPT

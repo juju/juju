@@ -162,7 +162,9 @@ class TestAssess(TestCase):
                    return_value=iptables_rule) as mock_scc:
             with patch('subprocess.call', autospec=True,
                        side_effect=[0, 0]) as mock_sc:
-                forward_rule = assess_proxy.check_network('eth0', 'lxdbr0')
+                with patch('assess_proxy.check_environment',
+                           autospec=True) as mock_ce:
+                    forward_rule = assess_proxy.check_network('eth0', 'lxdbr0')
         self.assertEqual(
             '-A FORWARD -i lxdbr0 -m comment --comment "by lxd" -j ACCEPT',
             forward_rule)
@@ -171,6 +173,7 @@ class TestAssess(TestCase):
         self.assertEqual(
             [call(['ifconfig', 'eth0']), call(['ifconfig', 'lxdbr0'])],
             mock_sc.mock_calls)
+        mock_ce.assert_called_once_with()
 
     def test_check_network_forward_rule_no_match_error(self):
         iptables_rule = '-A FORWARD -i lxdbr1 -j ACCEPT'
@@ -178,8 +181,9 @@ class TestAssess(TestCase):
                    return_value=iptables_rule):
             with patch('subprocess.call', autospec=True,
                        side_effect=[0, 0]):
-                with self.assertRaises(ValueError):
-                    assess_proxy.check_network('eth0', 'lxdbr0')
+                with patch('assess_proxy.check_environment', autospec=True):
+                    with self.assertRaises(ValueError):
+                        assess_proxy.check_network('eth0', 'lxdbr0')
 
     def test_check_network_forward_rule_many_match_error(self):
         iptables_rule = (
@@ -190,8 +194,9 @@ class TestAssess(TestCase):
                    return_value=iptables_rule):
             with patch('subprocess.call', autospec=True,
                        side_effect=[0, 0]):
-                with self.assertRaises(ValueError):
-                    assess_proxy.check_network('eth0', 'lxdbr0')
+                with patch('assess_proxy.check_environment', autospec=True):
+                    with self.assertRaises(ValueError):
+                        assess_proxy.check_network('eth0', 'lxdbr0')
 
     def test_check_network_client_interface_error(self):
             with patch('subprocess.call', autospec=True,
