@@ -10,7 +10,7 @@ import (
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 
-	jjtesting "github.com/juju/juju/testing"
+	jtesting "github.com/juju/juju/testing"
 )
 
 var _ = gc.Suite(&MonitorSuite{})
@@ -108,7 +108,7 @@ func (s *MonitorSuite) waitThenAdvance(c *gc.C, d time.Duration) {
 func assertEvent(c *gc.C, ch <-chan struct{}) {
 	select {
 	case <-ch:
-	case <-time.After(jjtesting.LongWait):
+	case <-time.After(jtesting.LongWait):
 		c.Fatal("timed out waiting for channel event")
 	}
 }

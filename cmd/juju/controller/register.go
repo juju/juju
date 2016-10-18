@@ -482,11 +482,6 @@ func (c *registerCommand) secretKeyLogin(addrs []string, request params.SecretKe
 	conn, err := c.apiOpen(&api.Info{
 		Addrs:     addrs,
 		SkipLogin: true,
-		// NOTE(axw) CACert is required, but ignored if
-		// InsecureSkipVerify is set. We should try to
-		// bring together CACert and InsecureSkipVerify
-		// so they can be validated together.
-		CACert: "ignored",
 	}, opts)
 	if err != nil {
 		return nil, errors.Trace(err)
