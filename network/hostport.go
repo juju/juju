@@ -263,7 +263,7 @@ func FastestHostPort(hostPorts []HostPort, dialer Dialer, timeout time.Duration)
 		go func(hp HostPort) {
 			conn, err := dialer.Dial("tcp", hp.NetAddr())
 			if err == nil {
-				defer conn.Close()
+				conn.Close()
 				successful <- hp
 			}
 		}(hostPort)
