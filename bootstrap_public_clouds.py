@@ -11,8 +11,8 @@ from jujupy import client_from_config
 
 def bootstrap_cloud(config, region):
     client = client_from_config(config, 'juju-2.0')
-    client.env.environment = 'bootstrap-public-clouds-{}-{}'.format(config,
-                                                                    region)
+    client.env.environment = 'boot-cpc-{}-{}'.format(client.get_cloud(),
+                                                     region)
     client.env.controller.name = client.env.environment
     client.env.config['region'] = region
     client.kill_controller()
@@ -60,7 +60,7 @@ def bootstrap_cloud_regions(public_clouds, credentials):
         try:
             bootstrap_cloud(config, region)
         except Exception as e:
-            failures.append((config, region, e))
+            yield(config, region, e)
 
 
 def main():
@@ -72,15 +72,17 @@ def main():
     credentials_name = os.path.join(get_juju_home(), 'credentials.yaml')
     with open(credentials_name) as credentials_file:
         credentials = yaml.safe_load(credentials_file)['credentials']
-    failures = bootstrap_cloud_regions(public_clouds, credentials)
-    if len(failures) == 0:
-        print('No failures!')
-        return 0
-    else:
-        failure_str = ', '.join(
-            '{} {} {}'.format(c, r, e) for c, r, e in failures)
-        print('Failed: {}'.format(failure_str))
-        return 1
+    failures = []
+    try:
+        for failure in bootstrap_cloud_regions(public_clouds, credentials):
+            failures.apppend(failure)
+    finally:
+        if len(failures) == 0:
+            print('No failures!')
+        else:
+            failure_str = ', '.join(
+                '{} {} {}'.format(c, r, e) for c, r, e in failures)
+            print('Failed: {}'.format(failure_str))
 
 if __name__ == '__main__':
     sys.exit(main())
