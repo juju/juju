@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from argparse import ArgumentParser
 import logging
 import os
 import sys
@@ -10,15 +11,15 @@ from jujupy import client_from_config
 
 
 def bootstrap_cloud(config, region):
-    client = client_from_config(config, 'juju-2.0')
-    client.env.environment = 'boot-cpc-{}-{}'.format(client.get_cloud(),
-                                                     region)
-    client.env.controller.name = client.env.environment
-    client.env.config['region'] = region
-    client.kill_controller()
-    # Not using BootstrapManager, because it doesn't copy public-clouds.yaml
-    # (bug #1634570)
     try:
+        client = client_from_config(config, 'juju-2.0')
+        client.env.environment = 'boot-cpc-{}-{}'.format(
+            client.env.get_cloud(), region)
+        client.env.controller.name = client.env.environment
+        client.env.config['region'] = region
+        client.kill_controller()
+        # Not using BootstrapManager, because it doesn't copy
+        # public-clouds.yaml (bug #1634570)
         client.bootstrap()
     except Exception as e:
         logging.exception(e)
@@ -52,10 +53,12 @@ def iter_cloud_regions(public_clouds, credentials):
         for region in sorted(info['regions']):
             yield config, region
 
-def bootstrap_cloud_regions(public_clouds, credentials):
+def bootstrap_cloud_regions(public_clouds, credentials, start):
     cloud_regions = list(iter_cloud_regions(public_clouds, credentials))
     failures = []
     for num, (config, region) in enumerate(cloud_regions):
+        if num < start:
+            continue
         logging.info('Bootstrapping {} {} #{}'.format(config, region, num))
         try:
             bootstrap_cloud(config, region)
@@ -65,6 +68,9 @@ def bootstrap_cloud_regions(public_clouds, credentials):
 
 def main():
     logging.basicConfig(level=logging.INFO)
+    parser = ArgumentParser()
+    parser.add_argument('--start', type=int, default=0)
+    args = parser.parse_args()
     logging.warning('This is a quick hack to test 0052b26.  HERE BE DRAGONS!')
     public_clouds_name = os.path.join(get_juju_home(), 'public-clouds.yaml')
     with open(public_clouds_name) as public_clouds_file:
@@ -74,8 +80,9 @@ def main():
         credentials = yaml.safe_load(credentials_file)['credentials']
     failures = []
     try:
-        for failure in bootstrap_cloud_regions(public_clouds, credentials):
-            failures.apppend(failure)
+        for failure in bootstrap_cloud_regions(public_clouds, credentials,
+                                               args.start):
+            failures.append(failure)
     finally:
         if len(failures) == 0:
             print('No failures!')
