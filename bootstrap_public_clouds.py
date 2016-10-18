@@ -32,7 +32,7 @@ def bootstrap_cloud(config, region):
             client.wait_for_started()
             client.juju(
                 'destroy-controller', (
-                    self.env.controller.name, '-y'), include_e=False,
+                    client.env.controller.name, '-y'), include_e=False,
                     timeout=get_teardown_timeout(client))
         except Exception as e:
             logging.exception(e)
