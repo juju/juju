@@ -284,6 +284,18 @@ func (s *ipAddressesStateSuite) TestMachineAllAddressesSuccess(c *gc.C) {
 	c.Assert(allAddresses, jc.DeepEquals, addedAddresses)
 }
 
+func (s *ipAddressesStateSuite) TestMachineAllNetworkAddresses(c *gc.C) {
+	addedAddresses := s.addTwoDevicesWithTwoAddressesEach(c)
+	expected := make([]network.Address, len(addedAddresses))
+	for i := range addedAddresses {
+		expected[i] = addedAddresses[i].NetworkAddress()
+	}
+
+	networkAddresses, err := s.machine.AllNetworkAddresses()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(networkAddresses, jc.DeepEquals, expected)
+}
+
 func (s *ipAddressesStateSuite) TestLinkLayerDeviceRemoveAlsoRemovesDeviceAddresses(c *gc.C) {
 	device, _ := s.addNamedDeviceWithAddresses(c, "eth0", "10.20.30.40/16", "fc00::/64")
 	s.assertAllAddressesOnMachineMatchCount(c, s.machine, 2)
