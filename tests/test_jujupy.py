@@ -2949,6 +2949,22 @@ class TestEnvJujuClient(ClientTest):
                 ['address-allocation', 'migration']), 'foo',
             'name:name', user_name=None)
 
+    def test_run_machines(self):
+        client = fake_juju_client(cls=EnvJujuClient)
+        output = json.dumps({"ReturnCode": 255})
+        with patch.object(client, 'get_juju_output',
+                          return_value=output) as output_mock:
+            client.run(['true'], machines=['0', '1', '2'])
+        output_mock.assert_called_once_with(
+            'run', '--format', 'json', '--machine', '0,1,2', 'true')
+
+    def test_run_use_json_false(self):
+        client = fake_juju_client(cls=EnvJujuClient)
+        output = json.dumps({"ReturnCode": 255})
+        with patch.object(client, 'get_juju_output', return_value=output):
+            result = client.run(['true'], use_json=False)
+        self.assertEqual(output, result)
+
     def test_list_space(self):
         client = EnvJujuClient(JujuData(None, {'type': 'local'}),
                                '1.23-series-arch', None)
