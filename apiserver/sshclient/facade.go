@@ -70,8 +70,8 @@ func (facade *Facade) PrivateAddress(args params.Entities) (params.SSHAddressRes
 }
 
 // AllAddresses reports all addresses known to Juju for each given entity in
-// args. Machines and units are suppored as entity types. Since the returned
-// addresses are gathered from multiple sources, results can include duplicates.
+// args. Machines and units are supported as entity types. Since the returned
+// addresses are gathered from multiple sources, results may include duplicates.
 func (facade *Facade) AllAddresses(args params.Entities) (params.SSHAddressesResults, error) {
 	if err := facade.checkIsModelAdmin(); err != nil {
 		return params.SSHAddressesResults{}, errors.Trace(err)
@@ -116,22 +116,22 @@ func (facade *Facade) getAllEntityAddresses(args params.Entities, getter func(SS
 	return out, nil
 }
 
-func (facade *Facade) getAddressPerEntity(args params.Entities, getter func(SSHMachine) (network.Address, error)) (
+func (facade *Facade) getAddressPerEntity(args params.Entities, addressGetter func(SSHMachine) (network.Address, error)) (
 	params.SSHAddressResults, error,
 ) {
 	out := params.SSHAddressResults{
 		Results: make([]params.SSHAddressResult, len(args.Entities)),
 	}
 
-	getterWrapper := func(m SSHMachine) ([]network.Address, error) {
-		address, err := getter(m)
+	getter := func(m SSHMachine) ([]network.Address, error) {
+		address, err := addressGetter(m)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		return []network.Address{address}, nil
 	}
 
-	fullResults, err := facade.getAllEntityAddresses(args, getterWrapper)
+	fullResults, err := facade.getAllEntityAddresses(args, getter)
 	if err != nil {
 		return params.SSHAddressResults{}, errors.Trace(err)
 	}
