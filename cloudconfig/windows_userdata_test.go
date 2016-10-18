@@ -658,8 +658,23 @@ function SetUserLogonAsServiceRights($UserName)
 	}
 }
 
+function Test-RegistryValue {
+param ([parameter(Mandatory=$true)] [ValidateNotNullOrEmpty()]$Path,
+ [parameter(Mandatory=$true)]
+ [ValidateNotNullOrEmpty()]$Value)
+	try {
+	Get-ItemProperty -Path $Path | Select-Object -ExpandProperty $Value -ErrorAction Stop | Out-Null
+	return $true
+	}catch {return $false}
+}
+
 $juju_passwd = Get-RandomPassword 20
 $juju_passwd += "^"
+
+if (& net users | select-string "jujud") {
+	net user "jujud" /DELETE
+} 
+
 create-account jujud "Juju Admin user" $juju_passwd
 $hostname = hostname
 $juju_user = "$hostname\jujud"
@@ -668,9 +683,23 @@ SetUserLogonAsServiceRights $juju_user
 SetAssignPrimaryTokenPrivilege $juju_user
 
 $path = "HKLM:\Software\Microsoft\Windows NT\CurrentVersion\Winlogon\SpecialAccounts\UserList"
+
+if (Test-RegistryValue -Path $path -Value "jujud") {
+	Remove-ItemProperty -Path $path -Name "jujud"
+}
+
 if(!(Test-Path $path)){
 	New-Item -Path $path -force
 }
+
+if(Test-Path "C:\Juju") {
+	rm -Recurse -Force "C:\Juju"
+}
+
+if(Test-Path "HKLM:\SOFTWARE\juju-core") {
+	Remove-Item -Path "HKLM:\SOFTWARE\juju-core" -Recurse -Force
+}
+
 New-ItemProperty $path -Name "jujud" -Value 0 -PropertyType "DWord"
 
 $secpasswd = ConvertTo-SecureString $juju_passwd -AsPlainText -Force
