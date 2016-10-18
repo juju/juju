@@ -187,6 +187,31 @@ end script
 	testing.CheckWriteFileCommand(c, cmds[0], filename, script, nil)
 }
 
+func (s *UserDataSuite) TestShutdownInitCommandsUpstartDHCP(c *gc.C) {
+	cmds, err := containerinit.ShutdownInitCommands(service.InitSystemUpstart, "trusty")
+	c.Assert(err, jc.ErrorIsNil)
+
+	filename := "/etc/init/juju-template-restart.conf"
+	script := `
+description "juju shutdown job"
+author "Juju Team <juju@lists.ubuntu.com>"
+start on stopped cloud-final
+
+script
+  /sbin/dhclient -r $(/usr/bin/awk '/^iface.*dhcp$/ {print $2}' /etc/network/interfaces /etc/network/interfaces.d/*) &&
+  /sbin/ifdown $(/usr/bin/awk '/^iface.*dhcp$/ {print $2}' /etc/network/interfaces /etc/network/interfaces.d/*)
+  /bin/rm -fr /var/lib/dhcp/dhclient* /var/log/cloud-init*.log
+  /sbin/shutdown -h now
+end script
+
+post-stop script
+  rm /etc/init/juju-template-restart.conf
+end script
+`[1:]
+	c.Check(cmds, gc.HasLen, 1)
+	testing.CheckWriteFileCommand(c, cmds[0], filename, script, nil)
+}
+
 func (s *UserDataSuite) TestShutdownInitCommandsSystemd(c *gc.C) {
 	s.SetFeatureFlags(feature.AddressAllocation)
 	commands, err := containerinit.ShutdownInitCommands(service.InitSystemSystemd, "vivid")
@@ -220,6 +245,37 @@ iface lo inet loopback
 auto eth0
 iface eth0 inet dhcp
 EOC
+  /bin/rm -fr /var/lib/dhcp/dhclient* /var/log/cloud-init*.log
+  /sbin/shutdown -h now`[1:],
+	}
+	test.CheckInstallAndStartCommands(c, commands)
+}
+
+func (s *UserDataSuite) TestShutdownInitCommandsSystemdDHCP(c *gc.C) {
+	commands, err := containerinit.ShutdownInitCommands(service.InitSystemSystemd, "vivid")
+	c.Assert(err, jc.ErrorIsNil)
+
+	test := systemdtesting.WriteConfTest{
+		Service: "juju-template-restart",
+		DataDir: "/var/lib/juju",
+		Expected: `
+[Unit]
+Description=juju shutdown job
+After=syslog.target
+After=network.target
+After=systemd-user-sessions.service
+After=cloud-config.target
+
+[Service]
+ExecStart=/var/lib/juju/init/juju-template-restart/exec-start.sh
+ExecStopPost=/bin/systemctl disable juju-template-restart.service
+
+[Install]
+WantedBy=multi-user.target
+`[1:],
+		Script: `
+/sbin/dhclient -r $(/usr/bin/awk '/^iface.*dhcp$/ {print $2}' /etc/network/interfaces /etc/network/interfaces.d/*) &&
+  /sbin/ifdown $(/usr/bin/awk '/^iface.*dhcp$/ {print $2}' /etc/network/interfaces /etc/network/interfaces.d/*)
   /bin/rm -fr /var/lib/dhcp/dhclient* /var/log/cloud-init*.log
   /sbin/shutdown -h now`[1:],
 	}

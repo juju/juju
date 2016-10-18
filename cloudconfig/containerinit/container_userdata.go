@@ -241,6 +241,11 @@ func shutdownInitCommands(initSystem, series string) ([]string, error) {
 		// keep clean logs for diagnosing issues / debugging.
 		"/var/log/cloud-init*.log",
 	}
+	paths := strings.Join(cleanupOnShutdown, " ")
+	removeCmd := fmt.Sprintf("/bin/rm -fr %s\n  ", paths)
+	shutdownCmd := "/sbin/shutdown -h now"
+	name := "juju-template-restart"
+	desc := "juju shutdown job"
 
 	// Using EOC below as the template shutdown script is itself
 	// passed through cat > ... < EOF.
@@ -248,17 +253,19 @@ func shutdownInitCommands(initSystem, series string) ([]string, error) {
 		"/bin/cat > /etc/network/interfaces << EOC%sEOC\n  ",
 		defaultEtcNetworkInterfaces,
 	)
-	paths := strings.Join(cleanupOnShutdown, " ")
-	removeCmd := fmt.Sprintf("/bin/rm -fr %s\n  ", paths)
-	shutdownCmd := "/sbin/shutdown -h now"
-	name := "juju-template-restart"
-	desc := "juju shutdown job"
 
-	execStart := shutdownCmd
+	// This intentionally avoids a for loop, keeping the ExecStart validation code more generic.
+	ifaces := `$(/usr/bin/awk '/^iface.*dhcp$/ {print $2}' /etc/network/interfaces /etc/network/interfaces.d/*)`
+	dhcpRelease := fmt.Sprintf("/sbin/dhclient -r %s &&\n  /sbin/ifdown %s\n  ", ifaces, ifaces)
+
+	var execStart string
 	if environs.AddressAllocationEnabled() {
-		// Only do the cleanup and replacement of /e/n/i when address
-		// allocation feature flag is enabled.
+		// Only do the replacement of /e/n/i when address allocation
+		// feature flag is enabled.
 		execStart = replaceNetConfCmd + removeCmd + shutdownCmd
+	} else {
+		// Release any DHCP-assigned IP addresses.
+		execStart = dhcpRelease + removeCmd + shutdownCmd
 	}
 
 	conf := common.Conf{
