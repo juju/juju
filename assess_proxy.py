@@ -55,7 +55,7 @@ def get_environment_file_path():
 
 
 def check_environment():
-    """Verify the the current env and etc/environment' define a proxy.
+    """Verify the current env and etc/environment' define a proxy.
 
     Check for lowercase names because Juju uses them, some charms/apps might
     want uppercase names. This check assumes the env has both upper and lower
