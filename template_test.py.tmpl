@@ -45,11 +45,11 @@ class TestMain(TestCase):
         argv = ["an-env", "/bin/juju", "/tmp/logs", "an-env-mod", "--verbose"]
         env = object()
         client = Mock(spec=["is_jes_enabled"])
-        with patch("utility.configure_logging",
+        with patch("assess_TEMPLATE.configure_logging",
                    autospec=True) as mock_cl:
-            with patch("deploy_stack.BootstrapManager.booted_context",
+            with patch("assess_TEMPLATE.BootstrapManager.booted_context",
                        autospec=True) as mock_bc:
-                with patch('jujupy.client_from_config',
+                with patch('deploy_stack.client_from_config',
                            return_value=client) as mock_c:
                     with patch("assess_TEMPLATE.assess_TEMPLATE",
                                autospec=True) as mock_assess:
