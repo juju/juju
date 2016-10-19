@@ -33,6 +33,19 @@ type SSHAddressResult struct {
 	Address string `json:"address,omitempty"`
 }
 
+// SSHAddressesResults defines the response from AllAddresses on the SSHClient
+// API facade.
+type SSHAddressesResults struct {
+	Results []SSHAddressesResult `json:"results"`
+}
+
+// SSHAddressesResult defines a single result with multiple addresses (see
+// SSHAddressesResults).
+type SSHAddressesResult struct {
+	Error     *Error   `json:"error,omitempty"`
+	Addresses []string `json:"addresses"`
+}
+
 // SSHPublicKeysResults is used to return SSH public host keys for one
 // or more target for the SSHClient.PublicKeys API.
 type SSHPublicKeysResults struct {
