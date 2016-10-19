@@ -1,19 +1,23 @@
 """Tests for assess_TEMPLATE module."""
 
 import logging
-from mock import Mock, patch
 import StringIO
+
+from mock import (
+    Mock,
+    patch,
+    )
 
 from assess_TEMPLATE import (
     assess_TEMPLATE,
     parse_args,
     main,
-)
+    )
+from fakejuju import fake_juju_client
 from tests import (
     parse_error,
     TestCase,
-)
-from tests.test_jujupy import fake_juju_client
+    )
 
 
 class TestParseArgs(TestCase):
@@ -41,11 +45,11 @@ class TestMain(TestCase):
         argv = ["an-env", "/bin/juju", "/tmp/logs", "an-env-mod", "--verbose"]
         env = object()
         client = Mock(spec=["is_jes_enabled"])
-        with patch("assess_TEMPLATE.configure_logging",
+        with patch("utility.configure_logging",
                    autospec=True) as mock_cl:
-            with patch("assess_TEMPLATE.BootstrapManager.booted_context",
+            with patch("deploy_stack.BootstrapManager.booted_context",
                        autospec=True) as mock_bc:
-                with patch('deploy_stack.client_from_config',
+                with patch('jujupy.client_from_config',
                            return_value=client) as mock_c:
                     with patch("assess_TEMPLATE.assess_TEMPLATE",
                                autospec=True) as mock_assess:
