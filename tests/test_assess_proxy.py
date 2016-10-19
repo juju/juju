@@ -244,7 +244,17 @@ class TestAssess(TestCase):
         self.assertEqual(expected_log, self.log_stream.getvalue())
 
     def test_controller_firewall(self):
-        pass
+        original_forward_rule = '-A FORWARD -i lxdbr0 -j ACCEPT'
+        with patch('subprocess.check_call', autospec=True,
+                   return_value=0) as mock_cc:
+            assess_proxy.setup_controller_firewall(
+                'lxdbr0', original_forward_rule)
+        mock_cc.assert_called_once_with(
+            [assess_proxy.UFW_PROXY_CONTROLLER_BASH], shell=True)
+        expected_log = (
+            "INFO Setting controller firewall rules.\n"
+            "INFO These rules restrict the controller on lxdbr0.\n")
+        self.assertEqual(expected_log, self.log_stream.getvalue())
 
     def test_set_firewall(self):
         forward_rule = '-A FORWARD -i lxdbr0 -j ACCEPT'
@@ -253,11 +263,14 @@ class TestAssess(TestCase):
                        autospec=True) as mock_common:
                 with patch('assess_proxy.setup_client_firewall',
                            autospec=True) as mock_client:
-                    assess_proxy.set_firewall(
-                        'both-proxied', 'eth0', 'lxdbr0', forward_rule)
+                    with patch('assess_proxy.setup_controller_firewall',
+                               autospec=True) as mock_controller:
+                        assess_proxy.set_firewall(
+                            'both-proxied', 'eth0', 'lxdbr0', forward_rule)
         mock_bi.assert_called_once_with()
         mock_common.assert_called_once_with()
         mock_client.assert_called_once_with('eth0')
+        mock_controller.assert_called_once_with('lxdbr0', forward_rule)
         expected_log = (
             "INFO \nIn case of disaster, the firewall can be restored"
             " by running:\n"

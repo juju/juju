@@ -204,7 +204,7 @@ def setup_client_firewall(client_interface):
     subprocess.check_call([UFW_PROXY_CLIENT_BASH], shell=True)
 
 
-def setup_controller_firewall(forward_rule, controller_interface):
+def setup_controller_firewall(controller_interface, forward_rule):
     """Setup rules for Juju controller proxy testing.
 
     These rules block the network interface the controller and its models use.
@@ -214,11 +214,13 @@ def setup_controller_firewall(forward_rule, controller_interface):
         the internet. It will be blocked
     :param forward_rule: the iptables FORWARD IN rule that must be deleted to
          setup then test, then restored later
+    :raises: CalledProcessError when ufw or iptables cannot add rules.
     """
     log.info('Setting controller firewall rules.')
     log.info(
         'These rules restrict the controller on {}.'.format(
             controller_interface))
+    subprocess.check_call([UFW_PROXY_CONTROLLER_BASH], shell=True)
 
 
 def set_firewall(scenario,
