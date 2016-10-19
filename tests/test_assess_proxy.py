@@ -251,7 +251,8 @@ class TestAssess(TestCase):
             assess_proxy.setup_controller_firewall(
                 'lxdbr0', original_forward_rule)
         script = assess_proxy.UFW_PROXY_CONTROLLER_BASH.format(
-            interface='lxdbr0', original_forward_rule=original_forward_rule)
+            interface='lxdbr0',
+            original_forward_rule='FORWARD -i lxdbr0 -j ACCEPT')
         mock_cc.assert_called_once_with([script], shell=True)
         expected_log = (
             "INFO Setting controller firewall rules.\n"

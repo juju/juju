@@ -222,8 +222,10 @@ def setup_controller_firewall(controller_interface, forward_rule):
     log.info(
         'These rules restrict the controller on {}.'.format(
             controller_interface))
+    original_forward_rule = forward_rule.replace('-A FORWARD', 'FORWARD')
     script = UFW_PROXY_CONTROLLER_BASH.format(
-        interface=controller_interface, original_forward_rule=forward_rule)
+        interface=controller_interface,
+        original_forward_rule=original_forward_rule)
     subprocess.check_call([script], shell=True)
 
 
