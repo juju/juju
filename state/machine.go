@@ -1133,7 +1133,7 @@ func (m *Machine) SetInstanceInfo(
 	volumes map[names.VolumeTag]VolumeInfo,
 	volumeAttachments map[names.VolumeTag]VolumeAttachmentInfo,
 ) error {
-	logger.Tracef("Setting instance info: machine %v, deviceAddrs: %#v, devicesArgs: %#v", m.Id, devicesAddrs, devicesArgs)
+	logger.Tracef("Setting instance info: machine %v, deviceAddrs: %#v, devicesArgs: %#v", m.Id(), devicesAddrs, devicesArgs)
 
 	if err := m.SetParentLinkLayerDevicesBeforeTheirChildren(devicesArgs); err != nil {
 		return errors.Trace(err)
@@ -1277,7 +1277,7 @@ func (m *Machine) setPreferredAddressOps(addr address, isPublic bool) []txn.Op {
 
 func (m *Machine) setPublicAddressOps(providerAddresses []address, machineAddresses []address) ([]txn.Op, address, bool) {
 	publicAddress := m.doc.PreferredPublicAddress
-	logger.Tracef("machine %v: current public address: %#v \nprovider addresses: %#v \nmachine addresses: %#v", m.Id, publicAddress, providerAddresses, machineAddresses)
+	logger.Tracef("machine %v: current public address: %#v \nprovider addresses: %#v \nmachine addresses: %#v", m.Id(), publicAddress, providerAddresses, machineAddresses)
 	// Always prefer an exact match if available.
 	checkScope := func(addr address) bool {
 		return network.ExactScopeMatch(addr.networkAddress(), network.ScopePublic)
