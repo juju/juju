@@ -181,7 +181,7 @@ def setup_common_firewall():
     These rules ensure ssh in and proxy, dns, dhcp, and ntp are permitted.
     These rules are safe to keep, but unnecessary on open networks.
 
-    :raises: CalledProcessError when iptable could not be backed up.
+    :raises: CalledProcessError when ufw cannot add rules.
     """
     log.info('Setting common firewall rules.')
     log.info('These are safe permissive rules.')
@@ -196,10 +196,12 @@ def setup_client_firewall(client_interface):
 
     :param client-interface: the interface used by the client to access
         the internet. It will be blocked.
+    :raises: CalledProcessError when ufw cannot add rules.
     """
     log.info('Setting client firewall rules.')
     log.info(
         'These rules restrict the localhost on {}.'.format(client_interface))
+    subprocess.check_call([UFW_PROXY_CLIENT_BASH], shell=True)
 
 
 def setup_controller_firewall(forward_rule, controller_interface):
