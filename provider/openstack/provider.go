@@ -38,6 +38,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/tools"
+	"github.com/juju/utils/clock"
 )
 
 var logger = loggo.GetLogger("juju.provider.openstack")
@@ -87,6 +88,7 @@ func (p EnvironProvider) Open(args environs.OpenParams) (environs.Environ, error
 		uuid:      uuid,
 		cloud:     args.Cloud,
 		namespace: namespace,
+		clock:     clock.WallClock,
 	}
 	e.firewaller = p.FirewallerFactory.GetFirewaller(e)
 	e.configurator = p.Configurator
@@ -175,6 +177,9 @@ type Environ struct {
 	availabilityZones      []common.AvailabilityZone
 	firewaller             Firewaller
 	configurator           ProviderConfigurator
+
+	// Clock is defined so it can be replaced for testing
+	clock clock.Clock
 }
 
 var _ environs.Environ = (*Environ)(nil)
@@ -1351,7 +1356,7 @@ func (e *Environ) deleteSecurityGroups(securityGroupNames []string) error {
 	for _, securityGroup := range allSecurityGroups {
 		for _, name := range securityGroupNames {
 			if securityGroup.Name == name {
-				deleteSecurityGroup(novaclient, name, securityGroup.Id)
+				deleteSecurityGroup(novaclient, name, securityGroup.Id, e.clock)
 				break
 			}
 		}
@@ -1412,6 +1417,10 @@ func (e *Environ) TagInstance(id instance.Id, tags map[string]string) error {
 		return errors.Annotate(err, "setting server metadata")
 	}
 	return nil
+}
+
+func (e *Environ) SetClock(clock clock.Clock) {
+	e.clock = clock
 }
 
 func validateCloudSpec(spec environs.CloudSpec) error {

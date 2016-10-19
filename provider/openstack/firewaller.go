@@ -253,7 +253,7 @@ func (c *defaultFirewaller) deleteSecurityGroups(prefix string) error {
 	}
 	for _, group := range securityGroups {
 		if re.MatchString(group.Name) {
-			deleteSecurityGroup(novaClient, group.Name, group.Id)
+			deleteSecurityGroup(novaClient, group.Name, group.Id, clock.WallClock)
 		}
 	}
 	return nil
@@ -278,7 +278,7 @@ func (c *defaultFirewaller) DeleteAllModelGroups() error {
 // terminated and hence attempt to delete the security groups but nova still
 // has it around internally. To attempt to catch this timing issue, deletion
 // of the groups is tried multiple times.
-func deleteSecurityGroup(novaclient *nova.Client, name, id string) {
+func deleteSecurityGroup(novaclient *nova.Client, name, id string, clock clock.Clock) {
 	logger.Debugf("deleting security group %q", name)
 	err := retry.Call(retry.CallArgs{
 		Func: func() error {
@@ -295,11 +295,7 @@ func deleteSecurityGroup(novaclient *nova.Client, name, id string) {
 		},
 		Attempts: 30,
 		Delay:    time.Second,
-		// TODO(dimitern): This should be fixed to take a clock.Clock arg, not
-		// hard-coded WallClock, like in provider/ec2/securitygroups_test.go!
-		// See PR juju:#5197, especially the code around autoAdvancingClock.
-		// LP Bug: http://pad.lv/1580626.
-		Clock: clock.WallClock,
+		Clock:    clock,
 	})
 	if err != nil {
 		logger.Warningf("cannot delete security group %q. Used by another model?", name)
