@@ -1271,7 +1271,7 @@ func (m *Machine) setPreferredAddressOps(addr address, isPublic bool) []txn.Op {
 		Update: bson.D{{"$set", bson.D{{fieldName, addr}}}},
 		Assert: assert,
 	}}
-	logger.Infof("setting preferred address to %v (isPublic %#v)", addr, isPublic)
+	logger.Tracef("setting preferred address to %v (isPublic %#v)", addr, isPublic)
 	return ops
 }
 
