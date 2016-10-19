@@ -14,13 +14,14 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.crossmodel")
 
 func init() {
-	common.RegisterStandardFacade("CrossModelRelations", 1, NewAPI)
+	common.RegisterStandardFacadeForFeature("CrossModelRelations", 1, NewAPI, feature.CrossModelRelations)
 }
 
 // API implements the cross model interface and is the concrete

@@ -6,7 +6,9 @@ package state
 import (
 	"gopkg.in/mgo.v2"
 
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state/bakerystorage"
+	"github.com/juju/utils/featureflag"
 )
 
 // The capped collection used for transaction logs defaults to 10MB.
@@ -44,7 +46,7 @@ var (
 // collections, please document them, and make an effort to put them in an
 // appropriate section.
 func allCollections() collectionSchema {
-	return collectionSchema{
+	result := collectionSchema{
 
 		// Infrastructure collections
 		// ==========================
@@ -177,16 +179,6 @@ func allCollections() collectionSchema {
 		// was implemented.
 		actionresultsC: {global: true},
 
-		// This collection holds information about applications that have been
-		// offered (exported) for use in other models managed by the same
-		// host controller.
-		localApplicationDirectoryC: {
-			global: true,
-			indexes: []mgo.Index{{
-				Key: []string{"url"},
-			}},
-		},
-
 		// This collection holds storage items for a macaroon bakery.
 		bakeryStorageItemsC: {
 			global:  true,
@@ -249,12 +241,8 @@ func allCollections() collectionSchema {
 		// -----
 
 		// These collections hold information associated with applications.
-		charmsC:             {},
-		remoteApplicationsC: {},
-		applicationsC:       {},
-		applicationOffersC: {
-			indexes: []mgo.Index{{Key: []string{"env-uuid", "url"}}},
-		},
+		charmsC:       {},
+		applicationsC: {},
 		unitsC: {
 			indexes: []mgo.Index{{
 				Key: []string{"model-uuid", "application"},
@@ -410,6 +398,26 @@ func allCollections() collectionSchema {
 			rawAccess: true,
 		},
 	}
+	if featureflag.Enabled(feature.CrossModelRelations) {
+		for name, details := range map[string]collectionInfo{
+			applicationOffersC: {
+				indexes: []mgo.Index{{Key: []string{"model-uuid", "url"}}},
+			},
+			// This collection holds information about applications that have been
+			// offered (exported) for use in other models managed by the same
+			// host controller.
+			localApplicationDirectoryC: {
+				global: true,
+				indexes: []mgo.Index{{
+					Key: []string{"url"},
+				}},
+			},
+			remoteApplicationsC: {},
+		} {
+			result[name] = details
+		}
+	}
+	return result
 }
 
 // These constants are used to avoid sprinkling the package with any more

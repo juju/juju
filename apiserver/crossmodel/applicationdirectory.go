@@ -13,11 +13,12 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/crossmodel"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state"
 )
 
 func init() {
-	common.RegisterStandardFacade("ApplicationOffers", 1, newApplicationOffersAPI)
+	common.RegisterStandardFacadeForFeature("ApplicationOffers", 1, newApplicationOffersAPI, feature.CrossModelRelations)
 }
 
 // ApplicationOffersAPI implements the cross model interface and is the concrete

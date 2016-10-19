@@ -17,10 +17,12 @@ import (
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/feature"
+	"github.com/juju/utils/featureflag"
 )
 
-const addRelationDoc = `
-Add a relation between 2 local service endpoints or a local endpoint and a remote application endpoint.
+const addRelationDocCrossModel = `
+Add a relation between 2 local application endpoints or a local endpoint and a remote application endpoint.
 Adding a relation between two remote application endpoints is not supported.
 
 Service endpoints can be identified either by:
@@ -63,13 +65,16 @@ type addRelationCommand struct {
 }
 
 func (c *addRelationCommand) Info() *cmd.Info {
-	return &cmd.Info{
+	addCmd := &cmd.Info{
 		Name:    "add-relation",
 		Aliases: []string{"relate"},
 		Args:    "<application1>[:<endpoint name1>] <application2>[:<endpoint name2>]",
 		Purpose: "Add a relation between two application endpoints.",
-		Doc:     addRelationDoc,
 	}
+	if featureflag.Enabled(feature.CrossModelRelations) {
+		addCmd.Doc = addRelationDocCrossModel
+	}
+	return addCmd
 }
 
 func (c *addRelationCommand) Init(args []string) error {
@@ -115,17 +120,19 @@ func (c *addRelationCommand) Run(ctx *cmd.Context) error {
 // If more than one remote endpoint are supplied, the input argument are considered invalid.
 func (c *addRelationCommand) validateEndpoints(all []string) error {
 	for _, endpoint := range all {
-		// We can only determine if this is a remote endpoint with 100%.
-		// If we cannot parse it, it may still be a valid local endpoint...
-		// so ignoring parsing error,
-		if _, err := crossmodel.ParseApplicationURL(endpoint); err == nil {
-			if c.hasRemoteEndpoints {
-				return errors.NotSupportedf("providing more than one remote endpoints")
+		if featureflag.Enabled(feature.CrossModelRelations) {
+			// We can only determine if this is a remote endpoint with 100%.
+			// If we cannot parse it, it may still be a valid local endpoint...
+			// so ignoring parsing error,
+			if _, err := crossmodel.ParseApplicationURL(endpoint); err == nil {
+				if c.hasRemoteEndpoints {
+					return errors.NotSupportedf("providing more than one remote endpoints")
+				}
+				c.hasRemoteEndpoints = true
+				continue
 			}
-			c.hasRemoteEndpoints = true
-			continue
 		}
-		// at this stage, we are asuming that this could be a local endpoint
+		// at this stage, we are assuming that this could be a local endpoint
 		if err := validateLocalEndpoint(endpoint, ":"); err != nil {
 			return err
 		}

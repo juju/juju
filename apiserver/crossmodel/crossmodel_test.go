@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/feature"
 )
 
 type crossmodelSuite struct {
@@ -21,6 +22,7 @@ type crossmodelSuite struct {
 var _ = gc.Suite(&crossmodelSuite{})
 
 func (s *crossmodelSuite) SetUpTest(c *gc.C) {
+	s.SetInitialFeatureFlags(feature.CrossModelRelations)
 	s.baseCrossmodelSuite.SetUpTest(c)
 }
 

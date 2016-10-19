@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/testing"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/feature"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -53,6 +54,7 @@ func (s *applicationdirectorySuite) constructApplicationDirectory() *mockApplica
 }
 
 func (s *applicationdirectorySuite) SetUpTest(c *gc.C) {
+	s.SetInitialFeatureFlags(feature.CrossModelRelations)
 	s.authoriser = testing.FakeAuthorizer{
 		Tag: names.NewUserTag("testuser"),
 	}
