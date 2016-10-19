@@ -38,13 +38,13 @@ SCENARIO_CONTROLLER = 'controller-proxied'
 
 IPTABLES_FORWARD_PROXY = '-A FORWARD -i {} -p tcp --d port 3128 -j ACCEPT'
 IPTABLES_BACKUP = '/etc/iptables.before-assess-proxy'
-IPTABLES_BACKUP_BASH = """
+IPTABLES_BACKUP_BASH = """\
 #!/bin/bash
 set -eux
 sudo iptables-save | sudo tee {iptables_backup}
 """.format(iptables_backup=IPTABLES_BACKUP)
 
-UFW_PROXY_COMMON_BASH = """
+UFW_PROXY_COMMON_BASH = """\
 #!/bin/bash
 set -eux
 sudo ufw allow in 22/tcp
@@ -53,12 +53,12 @@ sudo ufw allow out 53/udp
 sudo ufw allow out 123/udp
 sudo ufw allow out 3128/tcp
 """
-UFW_PROXY_CLIENT_BASH = """
+UFW_PROXY_CLIENT_BASH = """\
 #!/bin/bash
 set -eux
 sudo ufw deny out on {interface} to any
 """
-UFW_PROXY_CONTROLLER_BASH = """
+UFW_PROXY_CONTROLLER_BASH = """\
 #!/bin/bash
 set -eux
 sudo ufw allow out on {interface} to any port 3128
@@ -168,8 +168,11 @@ def backup_iptables():
     """Backup iptables so that it can be restored later.
 
     The backup is to /etc/iptables.before-assess-proxy.
+
+    :raises: CalledProcessError when iptable could not be backed up.
     """
     log.info('Backing up iptables to {}'.format(IPTABLES_BACKUP))
+    subprocess.check_call([IPTABLES_BACKUP_BASH], shell=True)
 
 
 def setup_common_firewall():
