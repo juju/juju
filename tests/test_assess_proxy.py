@@ -222,7 +222,15 @@ class TestAssess(TestCase):
         self.assertEqual(expected_log, self.log_stream.getvalue())
 
     def test_setup_common_firewall(self):
-        pass
+        with patch('subprocess.check_call', autospec=True,
+                   return_value=0) as mock_cc:
+            assess_proxy.setup_common_firewall()
+        mock_cc.assert_called_once_with(
+            [assess_proxy.UFW_PROXY_COMMON_BASH], shell=True)
+        expected_log = (
+            "INFO Setting common firewall rules.\n"
+            "INFO These are safe permissive rules.\n")
+        self.assertEqual(expected_log, self.log_stream.getvalue())
 
     def test_setup_client_firewall(self):
         pass
@@ -233,9 +241,12 @@ class TestAssess(TestCase):
     def test_set_firewall(self):
         forward_rule = '-A FORWARD -i lxdbr0 -j ACCEPT'
         with patch('assess_proxy.backup_iptables', autospec=True) as mock_bi:
-            assess_proxy.set_firewall(
-                'both-proxied', 'eth0', 'lxdbr0', forward_rule)
+            with patch('assess_proxy.setup_common_firewall',
+                       autospec=True) as mock_scf:
+                assess_proxy.set_firewall(
+                    'both-proxied', 'eth0', 'lxdbr0', forward_rule)
         mock_bi.assert_called_once_with()
+        mock_scf.assert_called_once_with()
         expected_log = (
             "INFO \nIn case of disaster, the firewall can be restored"
             " by running:\n"

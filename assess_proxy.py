@@ -180,9 +180,12 @@ def setup_common_firewall():
 
     These rules ensure ssh in and proxy, dns, dhcp, and ntp are permitted.
     These rules are safe to keep, but unnecessary on open networks.
+
+    :raises: CalledProcessError when iptable could not be backed up.
     """
     log.info('Setting common firewall rules.')
     log.info('These are safe permissive rules.')
+    subprocess.check_call([UFW_PROXY_COMMON_BASH], shell=True)
 
 
 def setup_client_firewall(client_interface):
