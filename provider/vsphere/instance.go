@@ -53,11 +53,7 @@ func (inst *environInstance) Addresses() ([]network.Address, error) {
 	res := make([]network.Address, 0)
 	for _, net := range inst.base.Guest.Net {
 		for _, ip := range net.IpAddress {
-			scope := network.ScopeCloudLocal
-			if net.Network == inst.env.ecfg.externalNetwork() {
-				scope = network.ScopePublic
-			}
-			res = append(res, network.NewScopedAddress(ip, scope))
+			res = append(res, network.NewAddress(ip))
 		}
 	}
 	return res, nil
