@@ -201,7 +201,9 @@ def setup_client_firewall(client_interface):
     log.info('Setting client firewall rules.')
     log.info(
         'These rules restrict the localhost on {}.'.format(client_interface))
-    subprocess.check_call([UFW_PROXY_CLIENT_BASH], shell=True)
+    ufw_proxy_client_bash = UFW_PROXY_CLIENT_BASH.format(
+        interface=client_interface)
+    subprocess.check_call([ufw_proxy_client_bash], shell=True)
 
 
 def setup_controller_firewall(controller_interface, forward_rule):

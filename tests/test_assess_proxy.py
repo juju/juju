@@ -236,14 +236,15 @@ class TestAssess(TestCase):
         with patch('subprocess.check_call', autospec=True,
                    return_value=0) as mock_cc:
             assess_proxy.setup_client_firewall('eth0')
-        mock_cc.assert_called_once_with(
-            [assess_proxy.UFW_PROXY_CLIENT_BASH], shell=True)
+        ufw_proxy_client_bash = assess_proxy.UFW_PROXY_CLIENT_BASH.format(
+            interface='eth0')
+        mock_cc.assert_called_once_with([ufw_proxy_client_bash], shell=True)
         expected_log = (
             "INFO Setting client firewall rules.\n"
             "INFO These rules restrict the localhost on eth0.\n")
         self.assertEqual(expected_log, self.log_stream.getvalue())
 
-    def test_controller_firewall(self):
+    def test_setup_controller_firewall(self):
         original_forward_rule = '-A FORWARD -i lxdbr0 -j ACCEPT'
         with patch('subprocess.check_call', autospec=True,
                    return_value=0) as mock_cc:
