@@ -57,7 +57,7 @@ def iter_cloud_regions(public_clouds, credentials):
         'aws': 'default-aws',
         'aws-china': 'default-aws-cn',
         'azure': 'default-azure',
-        'google': 'default-google',
+        'google': 'default-gce',
         'joyent': 'default-joyent',
         'rackspace': 'default-rackspace',
     }
