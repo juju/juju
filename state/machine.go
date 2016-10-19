@@ -1133,7 +1133,7 @@ func (m *Machine) SetInstanceInfo(
 	volumes map[names.VolumeTag]VolumeInfo,
 	volumeAttachments map[names.VolumeTag]VolumeAttachmentInfo,
 ) error {
-	logger.Tracef("Setting instance info: machine %v, deviceAddrs: %#v, devicesArgs: %#v", m.Id(), devicesAddrs, devicesArgs)
+	logger.Tracef("setting instance info: machine %v, deviceAddrs: %#v, devicesArgs: %#v", m.Id(), devicesAddrs, devicesArgs)
 
 	if err := m.SetParentLinkLayerDevicesBeforeTheirChildren(devicesArgs); err != nil {
 		return errors.Trace(err)
