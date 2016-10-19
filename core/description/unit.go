@@ -241,7 +241,7 @@ func (u *unit) setPayloads(payloadList []*payload) {
 	}
 }
 
-// Validate impelements Unit.
+// Validate implements Unit.
 func (u *unit) Validate() error {
 	if u.Name_ == "" {
 		return errors.NotValidf("missing name")
