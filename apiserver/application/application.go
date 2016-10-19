@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/charm.v6-unstable"
 	csparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
 	goyaml "gopkg.in/yaml.v2"
@@ -26,7 +27,6 @@ import (
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	statestorage "github.com/juju/juju/state/storage"
-	"github.com/juju/utils/featureflag"
 )
 
 var (

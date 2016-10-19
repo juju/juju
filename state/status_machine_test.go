@@ -143,7 +143,7 @@ func (s *MachineStatusSuite) TestGetSetStatusDead(c *gc.C) {
 	s.checkGetSetStatus(c)
 }
 
-func (s *MachineStatusSuite) TestGetSetStatusNotFound(c *gc.C) {
+func (s *MachineStatusSuite) TestGetSetStatusGone(c *gc.C) {
 	err := s.machine.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.machine.Remove()

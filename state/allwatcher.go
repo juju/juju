@@ -674,10 +674,7 @@ func (s *backingStatus) updated(st *State, store *multiwatcherStore, id string) 
 		info0 = &newInfo
 	case *multiwatcher.RemoteApplicationInfo:
 		newInfo := *info
-		newInfo.Status.Current = s.Status
-		newInfo.Status.Message = s.StatusInfo
-		newInfo.Status.Data = normaliseStatusData(s.StatusData)
-		newInfo.Status.Since = unixNanoToTime(s.Updated)
+		newInfo.Status = s.toStatusInfo()
 		info0 = &newInfo
 	case *multiwatcher.MachineInfo:
 		newInfo := *info
