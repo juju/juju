@@ -119,6 +119,11 @@ def check_environment():
             'http_proxy and https_proxy not defined in /etc/environment')
         log.error(message)
         raise UndefinedProxyError(message)
+    log.info('Proxy env is:')
+    log.info('http_proxy={}'.format(http_proxy))
+    log.info('https_proxy={}'.format(https_proxy))
+    log.info('ftp_proxy={}'.format(ftp_proxy))
+    log.info('no_proxy={}'.format(no_proxy))
     return http_proxy, https_proxy, ftp_proxy, no_proxy
 
 
