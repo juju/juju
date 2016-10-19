@@ -258,7 +258,7 @@ class TestAssess(TestCase):
             "INFO These rules restrict the controller on lxdbr0.\n")
         self.assertEqual(expected_log, self.log_stream.getvalue())
 
-    def test_set_firewall(self):
+    def test_set_firewall_both(self):
         forward_rule = '-A FORWARD -i lxdbr0 -j ACCEPT'
         with patch('assess_proxy.backup_iptables', autospec=True) as mock_bi:
             with patch('assess_proxy.setup_common_firewall',
@@ -280,6 +280,39 @@ class TestAssess(TestCase):
             "INFO sudo ufw reset\n\n")
         logged = self.log_stream.getvalue()
         self.assertIsTrue(logged.startswith(expected_log), logged)
+
+    def test_set_firewall_client(self):
+        forward_rule = '-A FORWARD -i lxdbr0 -j ACCEPT'
+        with patch('assess_proxy.backup_iptables', autospec=True) as mock_bi:
+            with patch('assess_proxy.setup_common_firewall',
+                       autospec=True) as mock_common:
+                with patch('assess_proxy.setup_client_firewall',
+                           autospec=True) as mock_client:
+                    with patch('assess_proxy.setup_controller_firewall',
+                               autospec=True) as mock_controller:
+                        assess_proxy.set_firewall(
+                            'client-proxied', 'eth0', 'lxdbr0', forward_rule)
+        mock_bi.assert_called_once_with()
+        mock_common.assert_called_once_with()
+        mock_client.assert_called_once_with('eth0')
+        self.assertEqual(0, mock_controller.call_count)
+
+    def test_set_firewall_controller(self):
+        forward_rule = '-A FORWARD -i lxdbr0 -j ACCEPT'
+        with patch('assess_proxy.backup_iptables', autospec=True) as mock_bi:
+            with patch('assess_proxy.setup_common_firewall',
+                       autospec=True) as mock_common:
+                with patch('assess_proxy.setup_client_firewall',
+                           autospec=True) as mock_client:
+                    with patch('assess_proxy.setup_controller_firewall',
+                               autospec=True) as mock_controller:
+                        assess_proxy.set_firewall(
+                            'controller-proxied', 'eth0', 'lxdbr0',
+                            forward_rule)
+        mock_bi.assert_called_once_with()
+        mock_common.assert_called_once_with()
+        mock_controller.assert_called_once_with('lxdbr0', forward_rule)
+        self.assertEqual(0, mock_client.call_count)
 
     def test_reset_firewall(self):
         # Verify the ufw was called to reset and disable even if one of the
