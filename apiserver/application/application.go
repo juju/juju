@@ -36,6 +36,9 @@ var (
 )
 
 func init() {
+	common.RegisterStandardFacade("Application", 2, newAPI)
+
+	// Version 3 adds support for cross model relations.
 	common.RegisterStandardFacade("Application", 3, newAPI)
 }
 
