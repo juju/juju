@@ -236,9 +236,9 @@ class TestAssess(TestCase):
         with patch('subprocess.check_call', autospec=True,
                    return_value=0) as mock_cc:
             assess_proxy.setup_client_firewall('eth0')
-        ufw_proxy_client_bash = assess_proxy.UFW_PROXY_CLIENT_BASH.format(
+        script = assess_proxy.UFW_PROXY_CLIENT_BASH.format(
             interface='eth0')
-        mock_cc.assert_called_once_with([ufw_proxy_client_bash], shell=True)
+        mock_cc.assert_called_once_with([script], shell=True)
         expected_log = (
             "INFO Setting client firewall rules.\n"
             "INFO These rules restrict the localhost on eth0.\n")
@@ -250,8 +250,9 @@ class TestAssess(TestCase):
                    return_value=0) as mock_cc:
             assess_proxy.setup_controller_firewall(
                 'lxdbr0', original_forward_rule)
-        mock_cc.assert_called_once_with(
-            [assess_proxy.UFW_PROXY_CONTROLLER_BASH], shell=True)
+        script = assess_proxy.UFW_PROXY_CONTROLLER_BASH.format(
+            interface='lxdbr0', original_forward_rule=original_forward_rule)
+        mock_cc.assert_called_once_with([script], shell=True)
         expected_log = (
             "INFO Setting controller firewall rules.\n"
             "INFO These rules restrict the controller on lxdbr0.\n")
