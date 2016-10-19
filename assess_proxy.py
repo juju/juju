@@ -89,9 +89,13 @@ def check_environment():
     Check for lowercase names because Juju uses them, some charms/apps might
     want uppercase names. This check assumes the env has both upper and lower
     case forms.
+
+    :return: a tuple of http_proxy, https_proxy, ftp_proxy, no_proxy.
     """
     http_proxy = os.environ.get('http_proxy', None)
     https_proxy = os.environ.get('https_proxy', None)
+    ftp_proxy = os.environ.get('ftp_proxy', None)
+    no_proxy = os.environ.get('no_proxy', None)
     if http_proxy is None or https_proxy is None:
         message = 'http_proxy and https_proxy not defined in env'
         log.error(message)
@@ -115,7 +119,7 @@ def check_environment():
             'http_proxy and https_proxy not defined in /etc/environment')
         log.error(message)
         raise UndefinedProxyError(message)
-    return http_proxy, https_proxy
+    return http_proxy, https_proxy, ftp_proxy, no_proxy
 
 
 def check_network(client_interface, controller_interface):

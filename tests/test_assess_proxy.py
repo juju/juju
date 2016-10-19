@@ -115,7 +115,9 @@ class TestAssess(TestCase):
 
     def test_check_environment(self):
         proxy_data = "http_proxy=http\nhttps_proxy=https"
-        proxy_env = {'http_proxy': 'http', 'https_proxy': 'https'}
+        proxy_env = {
+            'http_proxy': 'http', 'https_proxy': 'https',
+            'ftp_proxy': 'ftp', 'no_proxy': '127.0.0.1'}
         with temp_dir() as base:
             env_file = os.path.join(base, 'environment')
             with open(env_file, 'w') as _file:
@@ -123,9 +125,12 @@ class TestAssess(TestCase):
             with patch('assess_proxy.get_environment_file_path',
                        return_value=env_file):
                 with patch.dict(os.environ, proxy_env):
-                    http_proxy, https_proxy = assess_proxy.check_environment()
+                    proxies = assess_proxy.check_environment()
+        http_proxy, https_proxy, ftp_proxy, no_proxy = proxies
         self.assertEqual('http', http_proxy)
         self.assertEqual('https', https_proxy)
+        self.assertEqual('ftp', ftp_proxy)
+        self.assertEqual('127.0.0.1', no_proxy)
 
     def test_check_environment_missing_env(self):
         proxy_env = {'http_proxy': 'http'}
