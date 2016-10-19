@@ -159,7 +159,7 @@ func (s *FilesystemStatusSuite) TestGetSetStatusDead(c *gc.C) {
 	s.checkGetSetStatus(c)
 }
 
-func (s *FilesystemStatusSuite) TestGetSetStatusNotFound(c *gc.C) {
+func (s *FilesystemStatusSuite) TestGetSetStatusGone(c *gc.C) {
 	s.obliterateFilesystem(c, s.filesystem.FilesystemTag())
 
 	now := testing.ZeroTime()

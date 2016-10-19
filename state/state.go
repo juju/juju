@@ -1726,15 +1726,15 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 }
 
 func aliveApplication(st *State, name string) (ApplicationEntity, error) {
-	svc1, err := applicationByName(st, name)
+	app, err := applicationByName(st, name)
 	if errors.IsNotFound(err) {
 		return nil, errors.Errorf("application %q does not exist", name)
 	} else if err != nil {
 		return nil, errors.Trace(err)
-	} else if svc1.Life() != Alive {
+	} else if app.Life() != Alive {
 		return nil, errors.Errorf("application %q is not alive", name)
 	}
-	return svc1, err
+	return app, err
 }
 
 // EndpointsRelation returns the existing relation with the given endpoints.

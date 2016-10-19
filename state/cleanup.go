@@ -86,7 +86,7 @@ func (st *State) Cleanup() (err error) {
 		case cleanupCharm:
 			err = st.cleanupCharm(doc.Prefix)
 		case cleanupUnitsForDyingApplication:
-			err = st.cleanupUnitsForDyingService(doc.Prefix)
+			err = st.cleanupUnitsForDyingApplication(doc.Prefix)
 		case cleanupDyingUnit:
 			err = st.cleanupDyingUnit(doc.Prefix)
 		case cleanupRemovedUnit:
@@ -233,10 +233,10 @@ func (st *State) cleanupServicesForDyingModel() (err error) {
 	return nil
 }
 
-// cleanupUnitsForDyingService sets all units with the given prefix to Dying,
+// cleanupUnitsForDyingApplication sets all units with the given prefix to Dying,
 // if they are not already Dying or Dead. It's expected to be used when a
 // service is destroyed.
-func (st *State) cleanupUnitsForDyingService(applicationname string) (err error) {
+func (st *State) cleanupUnitsForDyingApplication(applicationname string) (err error) {
 	// This won't miss units, because a Dying service cannot have units added
 	// to it. But we do have to remove the units themselves via individual
 	// transactions, because they could be in any state at all.
