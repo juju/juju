@@ -33,7 +33,11 @@ def bootstrap_cloud(config, region):
         client.kill_controller()
         # Not using BootstrapManager, because it doesn't copy
         # public-clouds.yaml (bug #1634570)
-        client.bootstrap()
+        try:
+            client.bootstrap()
+        except:
+            client.kill_controller()
+            raise
     except Exception as e:
         logging.exception(e)
         raise
