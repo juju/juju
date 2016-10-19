@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 
 	jujuerrors "github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
@@ -564,6 +565,12 @@ func (s *localServerSuite) TestStopInstanceSecurityGroupNotDeleted(c *gc.C) {
 		fmt.Sprintf("juju-%v-%v-%v", s.ControllerUUID, modelUUID, instanceName),
 	}
 	assertSecurityGroups(c, env, allSecurityGroups)
+
+	// Make time advance in zero time
+	clk := gitjujutesting.NewClock(time.Time{})
+	clock := gitjujutesting.AutoAdvancingClock{clk, clk.Advance}
+	env.(*openstack.Environ).SetClock(&clock)
+
 	err := env.StopInstances(inst.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	assertSecurityGroups(c, env, allSecurityGroups)
