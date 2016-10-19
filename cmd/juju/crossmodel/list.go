@@ -80,7 +80,8 @@ func (c *listCommand) Init(args []string) (err error) {
 // Info implements Command.Info.
 func (c *listCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "list-offers",
+		Name:    "offers",
+		Aliases: []string{"list-offers"},
 		Purpose: "Lists shared endpoints",
 		Doc:     listCommandDoc,
 	}

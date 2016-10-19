@@ -10,12 +10,13 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 )
 
 func init() {
-	common.RegisterStandardFacade("OfferedApplications", 1, newOfferedApplicationAPI)
+	common.RegisterStandardFacadeForFeature("OfferedApplications", 1, newOfferedApplicationAPI, feature.CrossModelRelations)
 }
 
 // OfferedApplicationLister instances allow offered applications to be queried.

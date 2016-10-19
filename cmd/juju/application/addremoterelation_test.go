@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/feature"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/testing"
 )
@@ -147,6 +148,7 @@ type baseAddRemoteRelationSuite struct {
 }
 
 func (s *baseAddRemoteRelationSuite) SetUpTest(c *gc.C) {
+	s.SetInitialFeatureFlags(feature.CrossModelRelations)
 	s.RepoSuite.SetUpTest(c)
 	s.mockAPI = &mockAddRelationAPI{
 		addRelation: func(endpoints ...string) (*params.AddRelationResults, error) {

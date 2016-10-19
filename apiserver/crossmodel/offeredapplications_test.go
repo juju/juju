@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/testing"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -32,6 +33,7 @@ type offeredApplicationsSuite struct {
 var _ = gc.Suite(&offeredApplicationsSuite{})
 
 func (s *offeredApplicationsSuite) SetUpTest(c *gc.C) {
+	s.SetInitialFeatureFlags(feature.CrossModelRelations)
 	s.authoriser = testing.FakeAuthorizer{
 		EnvironManager: true,
 	}

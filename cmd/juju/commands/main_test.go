@@ -431,7 +431,6 @@ var commandNames = []string{
 	"enable-destroy-controller",
 	"enable-user",
 	"expose",
-	"find-endpoints",
 	"get-constraints",
 	"get-model-constraints",
 	"grant",
@@ -451,7 +450,6 @@ var commandNames = []string{
 	"list-disabled-commands",
 	"list-machines",
 	"list-models",
-	"list-offers",
 	"list-plans",
 	"list-regions",
 	"list-ssh-keys",
@@ -466,7 +464,6 @@ var commandNames = []string{
 	"metrics",
 	"model-config",
 	"model-defaults",
-	"offer",
 	"models",
 	"plans",
 	"regions",
@@ -501,7 +498,6 @@ var commandNames = []string{
 	"show-budget",
 	"show-cloud",
 	"show-controller",
-	"show-endpoints",
 	"show-machine",
 	"show-model",
 	"show-status",
@@ -532,11 +528,16 @@ var commandNames = []string{
 }
 
 // devFeatures are feature flags that impact registration of commands.
-var devFeatures = []string{feature.Migration}
+var devFeatures = []string{feature.Migration, feature.CrossModelRelations}
 
 // These are the commands that are behind the `devFeatures`.
 var commandNamesBehindFlags = set.NewStrings(
+	"find-endpoints",
+	"list-offers",
 	"migrate",
+	"offer",
+	"offers",
+	"show-endpoints",
 )
 
 func (s *MainSuite) TestHelpCommands(c *gc.C) {

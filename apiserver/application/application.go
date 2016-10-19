@@ -20,11 +20,13 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	jjj "github.com/juju/juju/juju"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	statestorage "github.com/juju/juju/state/storage"
+	"github.com/juju/utils/featureflag"
 )
 
 var (
@@ -709,6 +711,11 @@ func (api *API) AddRelation(args params.AddRelation) (params.AddRelationResults,
 	// We'll iterate the endpoints to check.
 	for i, ep := range args.Endpoints {
 		endpoints[i] = ep
+
+		// If cross model relations not enabled, ignore remote endpoints.
+		if !featureflag.Enabled(feature.CrossModelRelations) {
+			continue
+		}
 
 		// If the endpoint is not remote, skip it.
 		// We first need to strip off any relation name
