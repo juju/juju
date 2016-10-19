@@ -626,6 +626,7 @@ class DumpEnvLogsTestCase(FakeHomeTestCase):
                 ' /var/log/syslog'
                 ' /var/log/mongodb/mongodb.log'
                 ' /etc/network/interfaces'
+                ' /etc/environment'
                 ' /home/ubuntu/ifconfig.log'
                 ),),
             cc_mock.call_args_list[0][0])
@@ -654,6 +655,7 @@ class DumpEnvLogsTestCase(FakeHomeTestCase):
                 '10.10.0.1:/var/log/syslog',
                 '10.10.0.1:/var/log/mongodb/mongodb.log',
                 '10.10.0.1:/etc/network/interfaces',
+                '10.10.0.1:/etc/environment',
                 '10.10.0.1:/home/ubuntu/ifconfig.log',
                 '/foo'),),
             cc_mock.call_args_list[2][0])
@@ -691,6 +693,7 @@ class DumpEnvLogsTestCase(FakeHomeTestCase):
              "/var/log/syslog "
              "/var/log/mongodb/mongodb.log "
              "/etc/network/interfaces "
+             "/etc/environment "
              "/home/ubuntu/ifconfig.log'",
              'WARNING Could not allow access to the juju logs:',
              'WARNING None',
