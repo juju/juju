@@ -28,4 +28,5 @@ timeout 180m concurrently.py -v -l $WORKSPACE/artifacts \
     trusty="$SCRIPTS/run-unit-tests c3.4xlarge $TRUSTY_AMI --local $TARFILE_NAME --use-tmpfs --force-archive" \
     windows="$SCRIPTS/gotestwin.py developer-win-unit-tester.vapour.ws $TARFILE_NAME github.com/juju/juju/cmd" \
     lxd="$LXD" \
-    race="$RACE"
+    race="$RACE"\
+    tarball="$SCRIPTS/check_tar.py $SCRIPTS/tested-public-clouds $TARFILE"
