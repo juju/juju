@@ -11,6 +11,7 @@ import argparse
 from datetime import datetime
 import logging
 import sys
+from time import sleep
 
 from deploy_stack import (
     BootstrapManager,
@@ -43,6 +44,9 @@ def perfscale_assess_model_destruction(client, args):
         new_model.wait_for_started()
         all_models.append(new_model)
 
+    # Workaround for bug: https://bugs.launchpad.net/juju/+bug/1635052
+    # Noted here: https://bugs.launchpad.net/juju-ci-tools/+bug/1635109
+    sleep(10)
     destruction_start = datetime.utcnow()
     for doomed in all_models:
         doomed.destroy_model()
