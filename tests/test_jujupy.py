@@ -508,10 +508,6 @@ class TestClientFromConfig(ClientTest):
         with context:
             self.assertIs(EnvJujuClient1X,
                           type(client_from_config('foo', None)))
-            with self.assertRaisesVersionNotTested('1.16'):
-                client_from_config('foo', None)
-            with self.assertRaisesVersionNotTested('1.16.1'):
-                client_from_config('foo', None)
 
             def test_fc(version, cls):
                 if cls is not None:
@@ -526,6 +522,8 @@ class TestClientFromConfig(ClientTest):
                     with self.assertRaisesVersionNotTested(version):
                         client_from_config('foo', None)
 
+            test_fc('1.16', None)
+            test_fc('1.16.1', None)
             test_fc('1.15', EnvJujuClient1X)
             test_fc('1.22.1', EnvJujuClient22)
             test_fc('1.24-alpha1', EnvJujuClient24)

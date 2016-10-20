@@ -1872,10 +1872,6 @@ class TestBootContext(FakeHomeTestCase):
                    return_value=FakePopen(output, '', 0)) as po_mock:
             yield
         self.assertEqual(po_count, po_mock.call_count)
-        for help_index in range(po_count):
-            assert_juju_call(self, po_mock, client, (
-                juju_name, '--show-log', 'help', 'commands'),
-                call_index=help_index)
         dal_mock.assert_called_once_with()
         if keep_env:
             tear_down_count = 1
