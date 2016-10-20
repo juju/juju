@@ -246,11 +246,11 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 
 	// Error resolution and debugging commands.
 	r.Register(newRunCommand())
-	r.Register(newSCPCommand())
-	r.Register(newSSHCommand())
+	r.Register(newSCPCommand(nil))
+	r.Register(newSSHCommand(nil))
 	r.Register(newResolvedCommand())
 	r.Register(newDebugLogCommand())
-	r.Register(newDebugHooksCommand())
+	r.Register(newDebugHooksCommand(nil))
 
 	// Configuration commands.
 	r.Register(model.NewModelGetConstraintsCommand())

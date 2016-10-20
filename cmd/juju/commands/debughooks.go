@@ -15,11 +15,14 @@ import (
 
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/network"
 	unitdebug "github.com/juju/juju/worker/uniter/runner/debug"
 )
 
-func newDebugHooksCommand() cmd.Command {
-	return modelcmd.Wrap(&debugHooksCommand{})
+func newDebugHooksCommand(hostDialer network.Dialer) cmd.Command {
+	c := new(debugHooksCommand)
+	c.setHostDialer(hostDialer)
+	return modelcmd.Wrap(c)
 }
 
 // debugHooksCommand is responsible for launching a ssh shell on a given unit or machine.
