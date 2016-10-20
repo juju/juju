@@ -23,12 +23,14 @@ import (
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
+	"time"
 )
 
 var (
 	_ backingEntityDoc = (*backingMachine)(nil)
 	_ backingEntityDoc = (*backingUnit)(nil)
 	_ backingEntityDoc = (*backingApplication)(nil)
+	_ backingEntityDoc = (*backingRemoteApplication)(nil)
 	_ backingEntityDoc = (*backingRelation)(nil)
 	_ backingEntityDoc = (*backingAnnotation)(nil)
 	_ backingEntityDoc = (*backingStatus)(nil)
@@ -286,7 +288,43 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 			},
 		})
 	}
+
+	_, remoteApplicationInfo := addTestingRemoteApplication(
+		c, st, "remote-mysql", "local:/u/me/mysql", mysqlRelations,
+	)
+	add(&remoteApplicationInfo)
 	return
+}
+
+var mysqlRelations = []charm.Relation{{
+	Name:      "db",
+	Role:      "provider",
+	Scope:     charm.ScopeGlobal,
+	Interface: "mysql",
+}, {
+	Name:      "nrpe-external-master",
+	Role:      "provider",
+	Scope:     charm.ScopeGlobal,
+	Interface: "nrpe-external-master",
+}}
+
+func addTestingRemoteApplication(
+	c *gc.C, st *State, name, url string, relations []charm.Relation,
+) (*RemoteApplication, multiwatcher.RemoteApplicationInfo) {
+
+	rs, err := st.AddRemoteApplication(name, url, relations)
+	c.Assert(err, jc.ErrorIsNil)
+	return rs, multiwatcher.RemoteApplicationInfo{
+		ModelUUID:      st.ModelUUID(),
+		Name:           name,
+		ApplicationURL: url,
+		Life:           multiwatcher.Life(rs.Life().String()),
+		Status: multiwatcher.StatusInfo{
+			Current: "unknown",
+			Message: "waiting for remote connection",
+			Data:    map[string]interface{}{},
+		},
+	}
 }
 
 var _ = gc.Suite(&allWatcherStateSuite{})
@@ -380,6 +418,10 @@ func substNilSinceTimeForEntities(c *gc.C, entities []multiwatcher.EntityInfo) {
 			applicationInfo := *e // must copy because this entity came out of the multiwatcher cache.
 			substNilSinceTimeForStatus(c, &applicationInfo.Status)
 			entities[i] = &applicationInfo
+		case *multiwatcher.RemoteApplicationInfo:
+			remoteApplicationInfo := *e // must copy because this entity came out of the multiwatcher cache.
+			substNilSinceTimeForStatus(c, &remoteApplicationInfo.Status)
+			entities[i] = &remoteApplicationInfo
 		case *multiwatcher.MachineInfo:
 			machineInfo := *e // must copy because this entity came out of the multiwatcher cache.
 			substNilSinceTimeForStatus(c, &machineInfo.AgentStatus)
@@ -402,6 +444,10 @@ func substNilSinceTimeForEntityNoCheck(entity multiwatcher.EntityInfo) multiwatc
 		applicationInfo := *e // must copy because this entity came out of the multiwatcher cache.
 		applicationInfo.Status.Since = nil
 		return &applicationInfo
+	case *multiwatcher.RemoteApplicationInfo:
+		remoteApplicationInfo := *e // must copy because this entity came out of the multiwatcher cache.
+		remoteApplicationInfo.Status.Since = nil
+		return &remoteApplicationInfo
 	case *multiwatcher.MachineInfo:
 		machineInfo := *e // must copy because we this entity came out of the multiwatcher cache.
 		machineInfo.AgentStatus.Since = nil
@@ -462,6 +508,39 @@ func (s *allWatcherStateSuite) TestChangeUnits(c *gc.C) {
 
 func (s *allWatcherStateSuite) TestChangeUnitsNonNilPorts(c *gc.C) {
 	testChangeUnitsNonNilPorts(c, s.owner, s.performChangeTestCases)
+}
+
+func (s *allWatcherStateSuite) TestChangeRemoteApplications(c *gc.C) {
+	testChangeRemoteApplications(c, s.performChangeTestCases)
+}
+
+func (s *allWatcherStateSuite) TestRemoveRemoteApplication(c *gc.C) {
+	mysql, remoteApplicationInfo := addTestingRemoteApplication(
+		c, s.state, "remote-mysql", "local:/u/me/mysql", mysqlRelations,
+	)
+	tw := newTestAllWatcher(s.state, c)
+	defer tw.Stop()
+
+	// We should see the initial remote application entity.
+	deltas := tw.All(1)
+	zeroOutTimestampsForDeltas(c, deltas)
+	checkDeltasEqual(c, deltas, []multiwatcher.Delta{{
+		Entity: &remoteApplicationInfo,
+	}})
+
+	// Destroying the remote application will remove it from state,
+	// because it has no relations.
+	err := mysql.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(mysql.Refresh(), jc.Satisfies, errors.IsNotFound)
+	checkDeltasEqual(c, tw.All(1), []multiwatcher.Delta{{
+		Removed: true,
+		Entity: &multiwatcher.RemoteApplicationInfo{
+			ModelUUID:      s.state.ModelUUID(),
+			Name:           "remote-mysql",
+			ApplicationURL: "local:/u/me/mysql",
+		},
+	}})
 }
 
 func (s *allWatcherStateSuite) TestChangeActions(c *gc.C) {
@@ -1202,6 +1281,10 @@ func (s *allModelWatcherStateSuite) TestChangeUnitsNonNilPorts(c *gc.C) {
 	testChangeUnitsNonNilPorts(c, s.owner, s.performChangeTestCases)
 }
 
+func (s *allModelWatcherStateSuite) TestChangeRemoteApplications(c *gc.C) {
+	testChangeRemoteApplications(c, s.performChangeTestCases)
+}
+
 func (s *allModelWatcherStateSuite) TestChangeModels(c *gc.C) {
 	changeTestFuncs := []changeTestFunc{
 		func(c *gc.C, st *State) changeTestCase {
@@ -1646,6 +1729,10 @@ func zeroOutTimestampsForDeltas(c *gc.C, deltas []multiwatcher.Delta) {
 			applicationInfo := *e // must copy, we may not own this reference
 			substNilSinceTimeForStatus(c, &applicationInfo.Status)
 			delta.Entity = &applicationInfo
+		case *multiwatcher.RemoteApplicationInfo:
+			remoteApplicationInfo := *e // must copy, we may not own this reference
+			substNilSinceTimeForStatus(c, &remoteApplicationInfo.Status)
+			delta.Entity = &remoteApplicationInfo
 		}
 		deltas[i] = delta
 	}
@@ -3039,6 +3126,115 @@ func testChangeUnitsNonNilPorts(c *gc.C, owner names.UserTag, runChangeTests fun
 							Data:    map[string]interface{}{},
 						},
 					}}}
+		},
+	}
+	runChangeTests(c, changeTestFuncs)
+}
+
+func testChangeRemoteApplications(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
+	changeTestFuncs := []changeTestFunc{
+		func(c *gc.C, st *State) changeTestCase {
+			return changeTestCase{
+				about: "no remote application in state, no remote application in store -> do nothing",
+				change: watcher.Change{
+					C:  "remoteApplications",
+					Id: st.docID("remote-mysql"),
+				}}
+		},
+		func(c *gc.C, st *State) changeTestCase {
+			return changeTestCase{
+				about: "remote application is removed if it's not in backing",
+				initialContents: []multiwatcher.EntityInfo{
+					&multiwatcher.RemoteApplicationInfo{
+						ModelUUID:      st.ModelUUID(),
+						Name:           "remote-mysql",
+						ApplicationURL: "local:/u/me/mysql",
+					},
+				},
+				change: watcher.Change{
+					C:  "remoteApplications",
+					Id: st.docID("remote-mysql"),
+				}}
+		},
+		func(c *gc.C, st *State) changeTestCase {
+			_, remoteApplicationInfo := addTestingRemoteApplication(c, st, "remote-mysql", "local:/u/me/mysql", mysqlRelations)
+			return changeTestCase{
+				about: "remote application is added if it's in backing but not in Store",
+				change: watcher.Change{
+					C:  "remoteApplications",
+					Id: st.docID("remote-mysql"),
+				},
+				expectContents: []multiwatcher.EntityInfo{&remoteApplicationInfo},
+			}
+		},
+		func(c *gc.C, st *State) changeTestCase {
+			// Currently the only change we can make to a remote
+			// service is to destroy it.
+			//
+			// We must add a relation to the remote application, and
+			// a unit to the relation, so that the relation is not
+			// removed and thus the remote application is not removed
+			// upon destroying.
+			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
+			mysql, remoteApplicationInfo := addTestingRemoteApplication(
+				c, st, "remote-mysql", "local:/u/me/mysql", mysqlRelations,
+			)
+
+			eps, err := st.InferEndpoints("wordpress", "remote-mysql")
+			c.Assert(err, jc.ErrorIsNil)
+			rel, err := st.AddRelation(eps[0], eps[1])
+			c.Assert(err, jc.ErrorIsNil)
+
+			wu, err := wordpress.AddUnit()
+			c.Assert(err, jc.ErrorIsNil)
+			wru, err := rel.Unit(wu)
+			c.Assert(err, jc.ErrorIsNil)
+			err = wru.EnterScope(nil)
+			c.Assert(err, jc.ErrorIsNil)
+
+			err = mysql.Destroy()
+			c.Assert(err, jc.ErrorIsNil)
+			initialRemoteApplicationInfo := remoteApplicationInfo
+			remoteApplicationInfo.Life = "dying"
+			remoteApplicationInfo.Status = multiwatcher.StatusInfo{}
+			return changeTestCase{
+				about:           "remote application is updated if it's in backing and in multiwatcher.Store",
+				initialContents: []multiwatcher.EntityInfo{&initialRemoteApplicationInfo},
+				change: watcher.Change{
+					C:  "remoteApplications",
+					Id: st.docID("remote-mysql"),
+				},
+				expectContents: []multiwatcher.EntityInfo{&remoteApplicationInfo},
+			}
+		},
+		func(c *gc.C, st *State) changeTestCase {
+			mysql, remoteApplicationInfo := addTestingRemoteApplication(
+				c, st, "remote-mysql", "local:/u/me/mysql", mysqlRelations,
+			)
+			now := time.Now()
+			sInfo := status.StatusInfo{
+				Status:  status.Active,
+				Message: "running",
+				Data:    map[string]interface{}{"foo": "bar"},
+				Since:   &now,
+			}
+			err := mysql.SetStatus(sInfo)
+			c.Assert(err, jc.ErrorIsNil)
+			initialRemoteApplicationInfo := remoteApplicationInfo
+			remoteApplicationInfo.Status = multiwatcher.StatusInfo{
+				Current: "active",
+				Message: "running",
+				Data:    map[string]interface{}{"foo": "bar"},
+			}
+			return changeTestCase{
+				about:           "remote application status is updated if it's in backing and in multiwatcher.Store",
+				initialContents: []multiwatcher.EntityInfo{&initialRemoteApplicationInfo},
+				change: watcher.Change{
+					C:  "statuses",
+					Id: st.docID(mysql.globalKey()),
+				},
+				expectContents: []multiwatcher.EntityInfo{&remoteApplicationInfo},
+			}
 		},
 	}
 	runChangeTests(c, changeTestFuncs)

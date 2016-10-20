@@ -82,7 +82,7 @@ func (c *setPlanCommand) Init(args []string) error {
 }
 
 func (c *setPlanCommand) requestMetricCredentials(client *application.Client, ctx *cmd.Context) ([]byte, error) {
-	envUUID := client.ModelUUID()
+	modelUUID := client.ModelUUID()
 	charmURL, err := client.GetCharmURL(c.Application)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -96,7 +96,7 @@ func (c *setPlanCommand) requestMetricCredentials(client *application.Client, ct
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	m, err := authClient.Authorize(envUUID, charmURL.String(), c.Application, c.Plan, hc.VisitWebPage)
+	m, err := authClient.Authorize(modelUUID, charmURL.String(), c.Application, c.Plan, hc.VisitWebPage)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

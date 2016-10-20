@@ -14,9 +14,10 @@ import (
 )
 
 type formattedStatus struct {
-	Model        modelStatus                  `json:"model"`
-	Machines     map[string]machineStatus     `json:"machines"`
-	Applications map[string]applicationStatus `json:"applications"`
+	Model              modelStatus                        `json:"model"`
+	Machines           map[string]machineStatus           `json:"machines"`
+	Applications       map[string]applicationStatus       `json:"applications"`
+	RemoteApplications map[string]remoteApplicationStatus `json:"application-endpoints,omitempty" yaml:"application-endpoints,omitempty"`
 }
 
 type formattedMachineStatus struct {
@@ -102,6 +103,36 @@ func (s applicationStatus) MarshalYAML() (interface{}, error) {
 		return errorStatus{s.Err.Error()}, nil
 	}
 	return applicationStatusNoMarshal(s), nil
+}
+
+type remoteEndpoint struct {
+	Interface string `json:"interface" yaml:"interface"`
+	Role      string `json:"role" yaml:"role"`
+}
+
+type remoteApplicationStatus struct {
+	Err            error                     `json:"-" yaml:",omitempty"`
+	ApplicationURL string                    `json:"url" yaml:"url"`
+	Endpoints      map[string]remoteEndpoint `json:"endpoints,omitempty" yaml:"endpoints,omitempty"`
+	Life           string                    `json:"life,omitempty" yaml:"life,omitempty"`
+	StatusInfo     statusInfoContents        `json:"application-status,omitempty" yaml:"application-status"`
+	Relations      map[string][]string       `json:"relations,omitempty" yaml:"relations,omitempty"`
+}
+
+type remoteApplicationStatusNoMarshal remoteApplicationStatus
+
+func (s remoteApplicationStatus) MarshalJSON() ([]byte, error) {
+	if s.Err != nil {
+		return json.Marshal(errorStatus{s.Err.Error()})
+	}
+	return json.Marshal(remoteApplicationStatusNoMarshal(s))
+}
+
+func (s remoteApplicationStatus) MarshalYAML() (interface{}, error) {
+	if s.Err != nil {
+		return errorStatus{s.Err.Error()}, nil
+	}
+	return remoteApplicationStatusNoMarshal(s), nil
 }
 
 type meterStatus struct {

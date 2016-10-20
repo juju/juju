@@ -22,7 +22,7 @@ func NewAPIClient(apiCaller base.APICallCloser) (*client.Client, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	// The apiCaller takes care of prepending /environment/<envUUID>.
+	// The apiCaller takes care of prepending /environment/<modelUUID>.
 	apiClient := client.NewClient(caller, httpClient, apiCaller)
 	return apiClient, nil
 }

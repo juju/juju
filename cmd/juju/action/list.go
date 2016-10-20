@@ -59,7 +59,7 @@ func (c *listCommand) Info() *cmd.Info {
 	}
 }
 
-// Init validates the service name and any other options.
+// Init validates the application name and any other options.
 func (c *listCommand) Init(args []string) error {
 	if c.out.Name() == "tabular" && c.fullSchema {
 		return errors.New("full schema not compatible with tabular output")

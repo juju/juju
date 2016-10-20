@@ -39,3 +39,6 @@ const Migration = "migration"
 
 // DeveloperMode allows access to developer specific commands and behaviour.
 const DeveloperMode = "developer-mode"
+
+// CrossModelRelations allows cross model relations functionality.
+const CrossModelRelations = "cross-model"

@@ -528,11 +528,16 @@ var commandNames = []string{
 }
 
 // devFeatures are feature flags that impact registration of commands.
-var devFeatures = []string{feature.Migration}
+var devFeatures = []string{feature.Migration, feature.CrossModelRelations}
 
 // These are the commands that are behind the `devFeatures`.
 var commandNamesBehindFlags = set.NewStrings(
+	"find-endpoints",
+	"list-offers",
 	"migrate",
+	"offer",
+	"offers",
+	"show-endpoints",
 )
 
 func (s *MainSuite) TestHelpCommands(c *gc.C) {

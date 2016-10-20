@@ -44,15 +44,6 @@ func (s *cmdModelSuite) run(c *gc.C, args ...string) *cmd.Context {
 	return context
 }
 
-func (s *cmdModelSuite) runErr(c *gc.C, args ...string) (*cmd.Context, error) {
-	context := testing.Context(c)
-	jujuCmd := commands.NewJujuCommand(context)
-	err := testing.InitCommand(jujuCmd, args)
-	c.Assert(err, jc.ErrorIsNil)
-	err = jujuCmd.Run(context)
-	return context, err
-}
-
 func (s *cmdModelSuite) TestGrantModelCmdStack(c *gc.C) {
 	username := "bar@ubuntuone"
 	context := s.run(c, "grant", username, "read", "controller")
@@ -163,26 +154,6 @@ special         -        -
 `[1:])
 }
 
-func (s *cmdModelSuite) TestModelDefaultsGetOneRegionNoVal(c *gc.C) {
-	context, _ := s.runErr(c, "model-defaults", "dummy-region", "attr")
-	c.Assert(testing.Stdout(context), gc.Equals, "")
-	c.Assert(
-		testing.Stderr(context),
-		jc.DeepEquals,
-		`ERROR there are no default model values for "attr" in region "dummy-region"
-`)
-}
-
-func (s *cmdModelSuite) TestModelDefaultsGetRegionNoVal(c *gc.C) {
-	context, _ := s.runErr(c, "model-defaults", "dummy-region")
-	c.Assert(testing.Stdout(context), gc.Equals, "")
-	c.Assert(
-		testing.Stderr(context),
-		jc.DeepEquals,
-		`ERROR there are no default model values in region "dummy-region"
-`)
-}
-
 func (s *cmdModelSuite) TestModelDefaultsSet(c *gc.C) {
 	s.run(c, "model-defaults", "special=known")
 	defaults, err := s.State.ModelConfigDefaultValues()
@@ -206,8 +177,7 @@ func (s *cmdModelSuite) TestModelDefaultsReset(c *gc.C) {
 	err := s.State.UpdateModelConfigDefaultValues(map[string]interface{}{"special": "known"}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	ctx := s.run(c, "model-defaults", "--reset", "special")
-	c.Check(testing.Stdout(ctx), jc.DeepEquals, "")
+	s.run(c, "model-defaults", "--reset", "special")
 	defaults, err := s.State.ModelConfigDefaultValues()
 	c.Assert(err, jc.ErrorIsNil)
 	_, found := defaults["special"]
@@ -218,8 +188,7 @@ func (s *cmdModelSuite) TestModelDefaultsResetRegion(c *gc.C) {
 	err := s.State.UpdateModelConfigDefaultValues(map[string]interface{}{"special": "known"}, nil, &environs.RegionSpec{"dummy", "dummy-region"})
 	c.Assert(err, jc.ErrorIsNil)
 
-	ctx := s.run(c, "model-defaults", "dummy-region", "--reset", "special")
-	c.Check(testing.Stdout(ctx), jc.DeepEquals, "")
+	s.run(c, "model-defaults", "dummy-region", "--reset", "special")
 	defaults, err := s.State.ModelConfigDefaultValues()
 	c.Assert(err, jc.ErrorIsNil)
 	_, found := defaults["special"]

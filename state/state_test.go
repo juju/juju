@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
@@ -374,6 +375,14 @@ func (s *MultiEnvStateSuite) TestWatchTwoEnvironments(c *gc.C) {
 				f.MakeApplication(c, nil)
 			},
 		}, {
+			about: "remote applications",
+			getWatcher: func(st *state.State) interface{} {
+				return st.WatchRemoteApplications()
+			},
+			triggerEvent: func(st *state.State) {
+				st.AddRemoteApplication("db2", "local:/u/ibm/db2", nil)
+			},
+		}, {
 			about: "relations",
 			getWatcher: func(st *state.State) interface{} {
 				f := factory.NewFactory(st)
@@ -550,6 +559,24 @@ func (s *MultiEnvStateSuite) TestWatchTwoEnvironments(c *gc.C) {
 				wordpress, err := st.Application("wordpress")
 				c.Assert(err, jc.ErrorIsNil)
 				err = wordpress.SetMinUnits(2)
+				c.Assert(err, jc.ErrorIsNil)
+			},
+		}, {
+			about: "offered applications",
+			getWatcher: func(st *state.State) interface{} {
+				return st.WatchOfferedApplications()
+			},
+			setUpState: func(st *state.State) bool {
+				offeredApplications := state.NewOfferedApplications(st)
+				offeredApplications.AddOffer(crossmodel.OfferedApplication{
+					ApplicationName: "mysql",
+					ApplicationURL:  "local:/u/me/mysql",
+				})
+				return false
+			},
+			triggerEvent: func(st *state.State) {
+				offeredApplications := state.NewOfferedApplications(st)
+				err := offeredApplications.SetOfferRegistered("local:/u/me/mysql", false)
 				c.Assert(err, jc.ErrorIsNil)
 			},
 		},
@@ -1397,7 +1424,47 @@ func (s *StateSuite) TestAddServiceEnvironmentMigrating(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `cannot add application "s1": model "testenv" is being migrated`)
 }
 
-func (s *StateSuite) TestAddServiceEnvironmentDyingAfterInitial(c *gc.C) {
+func (s *StateSuite) TestAddApplicationSameRemoteExists(c *gc.C) {
+	charm := s.AddTestingCharm(c, "dummy")
+	_, err := s.State.AddRemoteApplication("s1", "local:/u/me/dummy", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddApplication(state.AddApplicationArgs{Name: "s1", Charm: charm})
+	c.Assert(err, gc.ErrorMatches, `cannot add application "s1": remote application with same name already exists`)
+}
+
+func (s *StateSuite) TestAddApplicationRemotedAddedAfterInitial(c *gc.C) {
+	charm := s.AddTestingCharm(c, "dummy")
+	// Check that a application with a name conflict cannot be added if
+	// there is no conflict initially but a remote application is added
+	// before the transaction is run.
+	defer state.SetBeforeHooks(c, s.State, func() {
+		_, err := s.State.AddRemoteApplication("s1", "local:/u/me/s1", nil)
+		c.Assert(err, jc.ErrorIsNil)
+	}).Check()
+	_, err := s.State.AddApplication(state.AddApplicationArgs{Name: "s1", Charm: charm})
+	c.Assert(err, gc.ErrorMatches, `cannot add application "s1": remote application with same name already exists`)
+}
+
+func (s *StateSuite) TestAddApplicationSameLocalExists(c *gc.C) {
+	charm := s.AddTestingCharm(c, "dummy")
+	s.AddTestingService(c, "s0", charm)
+	_, err := s.State.AddApplication(state.AddApplicationArgs{Name: "s0", Charm: charm})
+	c.Assert(err, gc.ErrorMatches, `cannot add application "s0": application already exists`)
+}
+
+func (s *StateSuite) TestAddApplicationLocalAddedAfterInitial(c *gc.C) {
+	charm := s.AddTestingCharm(c, "dummy")
+	// Check that a service with a name conflict cannot be added if
+	// there is no conflict initially but a local service is added
+	// before the transaction is run.
+	defer state.SetBeforeHooks(c, s.State, func() {
+		s.AddTestingService(c, "s1", charm)
+	}).Check()
+	_, err := s.State.AddApplication(state.AddApplicationArgs{Name: "s1", Charm: charm})
+	c.Assert(err, gc.ErrorMatches, `cannot add application "s1": application already exists`)
+}
+
+func (s *StateSuite) TestAddApplicationEnvironmentDyingAfterInitial(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
 	s.AddTestingService(c, "s0", charm)
 	env, err := s.State.Model()
@@ -1412,7 +1479,7 @@ func (s *StateSuite) TestAddServiceEnvironmentDyingAfterInitial(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `cannot add application "s1": model "testenv" is no longer alive`)
 }
 
-func (s *StateSuite) TestServiceNotFound(c *gc.C) {
+func (s *StateSuite) TestApplicationNotFound(c *gc.C) {
 	_, err := s.State.Application("bummer")
 	c.Assert(err, gc.ErrorMatches, `application "bummer" not found`)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
@@ -3056,6 +3123,66 @@ func (s *StateSuite) TestWatchMinUnits(c *gc.C) {
 func (s *StateSuite) TestWatchMinUnitsDiesOnStateClose(c *gc.C) {
 	testWatcherDiesWhenStateCloses(c, s.modelTag, s.State.ControllerTag(), func(c *gc.C, st *state.State) waiter {
 		w := st.WatchMinUnits()
+		<-w.Changes()
+		return w
+	})
+}
+
+func (s *StateSuite) TestWatchOfferedApplications(c *gc.C) {
+	// Check initial event.
+	w := s.State.WatchOfferedApplications()
+	defer statetesting.AssertStop(c, w)
+	wc := statetesting.NewStringsWatcherC(c, s.State, w)
+	wc.AssertChange()
+	wc.AssertNoChange()
+
+	// Add a new offered application; a single change should occur.
+	offers := state.NewOfferedApplications(s.State)
+	offer := crossmodel.OfferedApplication{
+		ApplicationName: "service",
+		ApplicationURL:  "local:/u/me/service",
+		Registered:      true,
+	}
+	err := offers.AddOffer(offer)
+	wc.AssertChange("local:/u/me/service")
+	wc.AssertNoChange()
+
+	// Set the registered value; expect one change.
+	err = offers.SetOfferRegistered("local:/u/me/service", false)
+	c.Assert(err, jc.ErrorIsNil)
+	offer.Registered = false
+	wc.AssertChange("local:/u/me/service")
+	wc.AssertNoChange()
+
+	// Insert a new offer2 and set registered value; expect 2 changes.
+	offer2 := crossmodel.OfferedApplication{
+		ApplicationName: "service2",
+		ApplicationURL:  "local:/u/me/service2",
+		Registered:      true,
+	}
+	err = offers.AddOffer(offer2)
+	c.Assert(err, jc.ErrorIsNil)
+	err = offers.SetOfferRegistered("local:/u/me/service", true)
+	offer.Registered = true
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange("local:/u/me/service2", "local:/u/me/service")
+
+	// Update endpoints and registered value; expect 2 changes.
+	err = offers.UpdateOffer("local:/u/me/service2", map[string]string{"foo": "bar"})
+	c.Assert(err, jc.ErrorIsNil)
+	err = offers.SetOfferRegistered("local:/u/me/service", false)
+	offer.Registered = true
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange("local:/u/me/service2", "local:/u/me/service")
+
+	// Stop watcher, check closed.
+	statetesting.AssertStop(c, w)
+	wc.AssertClosed()
+}
+
+func (s *StateSuite) TestWatchOfferedApplicationsDiesOnStateClose(c *gc.C) {
+	testWatcherDiesWhenStateCloses(c, s.modelTag, s.State.ControllerTag(), func(c *gc.C, st *state.State) waiter {
+		w := st.WatchOfferedApplications()
 		<-w.Changes()
 		return w
 	})

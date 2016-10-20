@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
+	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/series"
 	"gopkg.in/juju/charm.v6-unstable"
 	csparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
@@ -22,6 +23,7 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/status"
 )
 
@@ -31,7 +33,7 @@ type Application struct {
 	doc applicationDoc
 }
 
-// serviceDoc represents the internal state of an application in MongoDB.
+// applicationDoc represents the internal state of an application in MongoDB.
 // Note the correspondence with ApplicationInfo in apiserver.
 type applicationDoc struct {
 	DocID                string     `bson:"_id"`
@@ -53,11 +55,16 @@ type applicationDoc struct {
 }
 
 func newApplication(st *State, doc *applicationDoc) *Application {
-	svc := &Application{
+	app := &Application{
 		st:  st,
 		doc: *doc,
 	}
-	return svc
+	return app
+}
+
+// IsRemote returns false for a local application.
+func (s *Application) IsRemote() bool {
+	return false
 }
 
 // Name returns the application name.
@@ -65,7 +72,7 @@ func (a *Application) Name() string {
 	return a.doc.Name
 }
 
-// Tag returns a name identifying the service.
+// Tag returns a name identifying the application.
 // The returned name will be different from other Tag values returned by any
 // other entities from the same state.
 func (a *Application) Tag() names.Tag {
@@ -155,7 +162,7 @@ func (a *Application) Destroy() (err error) {
 	return a.st.run(buildTxn)
 }
 
-// destroyOps returns the operations required to destroy the service. If it
+// destroyOps returns the operations required to destroy the application. If it
 // returns errRefresh, the application should be refreshed and the destruction
 // operations recalculated.
 func (a *Application) destroyOps() ([]txn.Op, error) {
@@ -222,7 +229,7 @@ func (a *Application) destroyOps() ([]txn.Op, error) {
 	// about is that *some* unit is, or is not, keeping the application from
 	// being removed: the difference between 1 unit and 1000 is irrelevant.
 	if a.doc.UnitCount > 0 {
-		ops = append(ops, newCleanupOp(cleanupUnitsForDyingService, a.doc.Name))
+		ops = append(ops, newCleanupOp(cleanupUnitsForDyingApplication, a.doc.Name))
 		notLastRefs = append(notLastRefs, bson.D{{"unitcount", bson.D{{"$gt", 0}}}}...)
 	} else {
 		notLastRefs = append(notLastRefs, bson.D{{"unitcount", 0}}...)
@@ -240,7 +247,7 @@ func (a *Application) destroyOps() ([]txn.Op, error) {
 	}), nil
 }
 
-func removeResourcesOps(st *State, serviceID string) ([]txn.Op, error) {
+func removeResourcesOps(st *State, applicationID string) ([]txn.Op, error) {
 	persist, err := st.ResourcesPersistence()
 	if errors.IsNotSupported(err) {
 		// Nothing to see here, move along.
@@ -249,14 +256,14 @@ func removeResourcesOps(st *State, serviceID string) ([]txn.Op, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	ops, err := persist.NewRemoveResourcesOps(serviceID)
+	ops, err := persist.NewRemoveResourcesOps(applicationID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return ops, nil
 }
 
-// removeOps returns the operations required to remove the service. Supplied
+// removeOps returns the operations required to remove the application. Supplied
 // asserts will be included in the operation on the application document.
 func (a *Application) removeOps(asserts bson.D) ([]txn.Op, error) {
 	ops := []txn.Op{
@@ -292,13 +299,13 @@ func (a *Application) removeOps(asserts bson.D) ([]txn.Op, error) {
 		annotationRemoveOp(a.st, globalKey),
 		removeLeadershipSettingsOp(name),
 		removeStatusOp(a.st, globalKey),
-		removeModelServiceRefOp(a.st, name),
+		removeModelApplicationRefOp(a.st, name),
 	)
 	return ops, nil
 }
 
 // IsExposed returns whether this application is exposed. The explicitly open
-// ports (with open-port) for exposed services may be accessed from machines
+// ports (with open-port) for exposed applications may be accessed from machines
 // outside of the local deployment network. See SetExposed and ClearExposed.
 func (a *Application) IsExposed() bool {
 	return a.doc.Exposed
@@ -310,7 +317,7 @@ func (a *Application) SetExposed() error {
 	return a.setExposed(true)
 }
 
-// ClearExposed removes the exposed flag from the service.
+// ClearExposed removes the exposed flag from the application.
 // See SetExposed and IsExposed.
 func (a *Application) ClearExposed() error {
 	return a.setExposed(false)
@@ -330,7 +337,7 @@ func (a *Application) setExposed(exposed bool) (err error) {
 	return nil
 }
 
-// Charm returns the service's charm and whether units should upgrade to that
+// Charm returns the application's charm and whether units should upgrade to that
 // charm even if they are in an error state.
 func (a *Application) Charm() (ch *Charm, force bool, err error) {
 	// We don't worry about the channel since we aren't interacting
@@ -348,26 +355,26 @@ func (a *Application) IsPrincipal() bool {
 	return !a.doc.Subordinate
 }
 
-// CharmModifiedVersion increases whenever the service's charm is changed in any
+// CharmModifiedVersion increases whenever the application's charm is changed in any
 // way.
 func (a *Application) CharmModifiedVersion() int {
 	return a.doc.CharmModifiedVersion
 }
 
-// CharmURL returns the service's charm URL, and whether units should upgrade
+// CharmURL returns the application's charm URL, and whether units should upgrade
 // to the charm with that URL even if they are in an error state.
 func (a *Application) CharmURL() (curl *charm.URL, force bool) {
 	return a.doc.CharmURL, a.doc.ForceCharm
 }
 
-// Channel identifies the charm store channel from which the service's
+// Channel identifies the charm store channel from which the application's
 // charm was deployed. It is only needed when interacting with the charm
 // store.
 func (a *Application) Channel() csparams.Channel {
 	return csparams.Channel(a.doc.Channel)
 }
 
-// Endpoints returns the service's currently available relation endpoints.
+// Endpoints returns the application's currently available relation endpoints.
 func (a *Application) Endpoints() (eps []Endpoint, err error) {
 	ch, _, err := a.Charm()
 	if err != nil {
@@ -412,7 +419,7 @@ func (a *Application) Endpoint(relationName string) (Endpoint, error) {
 }
 
 // extraPeerRelations returns only the peer relations in newMeta not
-// present in the service's current charm meta data.
+// present in the application's current charm meta data.
 func (a *Application) extraPeerRelations(newMeta *charm.Meta) map[string]charm.Relation {
 	if newMeta == nil {
 		// This should never happen, since we're checking the charm in SetCharm already.
@@ -541,7 +548,7 @@ func (a *Application) checkStorageUpgrade(newMeta, oldMeta *charm.Meta, units []
 	return ops, nil
 }
 
-// changeCharmOps returns the operations necessary to set a service's
+// changeCharmOps returns the operations necessary to set a application's
 // charm URL to a new value.
 func (a *Application) changeCharmOps(
 	ch *Charm,
@@ -755,7 +762,7 @@ func (a *Application) changeCharmOps(
 	if err == nil {
 		ops = append(ops, endpointBindingsOp)
 	} else if !errors.IsNotFound(err) && err != jujutxn.ErrNoOperations {
-		// If endpoint bindings do not exist this most likely means the service
+		// If endpoint bindings do not exist this most likely means the application
 		// itself no longer exists, which will be caught soon enough anyway.
 		// ErrNoOperations on the other hand means there's nothing to update.
 		return nil, errors.Trace(err)
@@ -797,11 +804,11 @@ func (a *Application) upgradeStorageOps(
 }
 
 // incCharmModifiedVersionOps returns the operations necessary to increment
-// the CharmModifiedVersion field for the given service.
-func incCharmModifiedVersionOps(serviceID string) []txn.Op {
+// the CharmModifiedVersion field for the given application.
+func incCharmModifiedVersionOps(applicationID string) []txn.Op {
 	return []txn.Op{{
 		C:      applicationsC,
-		Id:     serviceID,
+		Id:     applicationID,
 		Assert: txn.DocExists,
 		Update: bson.D{{"$inc", bson.D{{"charmmodifiedversion", 1}}}},
 	}}
@@ -924,9 +931,9 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 		}
 
 		// NOTE: We're explicitly allowing SetCharm to succeed
-		// when the application is Dying, because service/charm
+		// when the application is Dying, because application/charm
 		// upgrades should still be allowed to apply to dying
-		// services and units, so that bugs in departed/broken
+		// applications and units, so that bugs in departed/broken
 		// hooks can be addressed at runtime.
 		if a.Life() == Dead {
 			return nil, ErrDead
@@ -989,14 +996,14 @@ func (a *Application) String() string {
 	return a.doc.Name
 }
 
-// Refresh refreshes the contents of the Service from the underlying
+// Refresh refreshes the contents of the Application from the underlying
 // state. It returns an error that satisfies errors.IsNotFound if the
 // application has been removed.
 func (a *Application) Refresh() error {
-	services, closer := a.st.getCollection(applicationsC)
+	applications, closer := a.st.getCollection(applicationsC)
 	defer closer()
 
-	err := services.FindId(a.doc.DocID).One(&a.doc)
+	err := applications.FindId(a.doc.DocID).One(&a.doc)
 	if err == mgo.ErrNotFound {
 		return errors.NotFoundf("application %q", a)
 	}
@@ -1018,7 +1025,7 @@ func (a *Application) newUnitName() (string, error) {
 
 // addUnitOps returns a unique name for a new unit, and a list of txn operations
 // necessary to create that unit. The principalName param must be non-empty if
-// and only if s is a subordinate service. Only one subordinate of a given
+// and only if s is a subordinate application. Only one subordinate of a given
 // application will be assigned to a given principal. The asserts param can be used
 // to include additional assertions for the application document.  This method
 // assumes that the application already exists in the db.
@@ -1062,9 +1069,9 @@ type applicationAddUnitOpsArgs struct {
 	storageCons   map[string]StorageConstraints
 }
 
-// addServiceUnitOps is just like addUnitOps but explicitly takes a
+// addApplicationUnitOps is just like addUnitOps but explicitly takes a
 // constraints value (this is used at application creation time).
-func (a *Application) addServiceUnitOps(args applicationAddUnitOpsArgs) (string, []txn.Op, error) {
+func (a *Application) addApplicationUnitOps(args applicationAddUnitOpsArgs) (string, []txn.Op, error) {
 	names, ops, err := a.addUnitOpsWithCons(args)
 	if err == nil {
 		ops = append(ops, a.incUnitCountOp(nil))
@@ -1178,7 +1185,7 @@ func (a *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 	return name, ops, nil
 }
 
-// incUnitCountOp returns the operation to increment the service's unit count.
+// incUnitCountOp returns the operation to increment the application's unit count.
 func (a *Application) incUnitCountOp(asserts bson.D) txn.Op {
 	op := txn.Op{
 		C:      applicationsC,
@@ -1191,7 +1198,7 @@ func (a *Application) incUnitCountOp(asserts bson.D) txn.Op {
 	return op
 }
 
-// AddUnit adds a new principal unit to the service.
+// AddUnit adds a new principal unit to the application.
 func (a *Application) AddUnit() (unit *Unit, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot add unit to application %q", a)
 	name, ops, err := a.addUnitOps("", nil)
@@ -1291,7 +1298,7 @@ func (a *Application) removeUnitOps(u *Unit, asserts bson.D) ([]txn.Op, error) {
 	return ops, nil
 }
 
-func removeUnitResourcesOps(st *State, serviceID, unitID string) ([]txn.Op, error) {
+func removeUnitResourcesOps(st *State, applicationID, unitID string) ([]txn.Op, error) {
 	persist, err := st.ResourcesPersistence()
 	if errors.IsNotSupported(err) {
 		// Nothing to see here, move along.
@@ -1307,7 +1314,7 @@ func removeUnitResourcesOps(st *State, serviceID, unitID string) ([]txn.Op, erro
 	return ops, nil
 }
 
-// AllUnits returns all units of the service.
+// AllUnits returns all units of the application.
 func (a *Application) AllUnits() (units []*Unit, err error) {
 	return allUnits(a.st, a.doc.Name)
 }
@@ -1358,7 +1365,7 @@ func (a *Application) ConfigSettings() (charm.Settings, error) {
 	return settings.Map(), nil
 }
 
-// UpdateConfigSettings changes a service's charm config settings. Values set
+// UpdateConfigSettings changes a application's charm config settings. Values set
 // to nil will be deleted; unknown and invalid values will return an error.
 func (a *Application) UpdateConfigSettings(changes charm.Settings) error {
 	charm, _, err := a.Charm()
@@ -1371,7 +1378,7 @@ func (a *Application) UpdateConfigSettings(changes charm.Settings) error {
 	}
 	// TODO(fwereade) state.Settings is itself really problematic in just
 	// about every use case. This needs to be resolved some time; but at
-	// least the settings docs are keyed by charm url as well as service
+	// least the settings docs are keyed by charm url as well as application
 	// name, so the actual impact of a race is non-threatening.
 	node, err := readSettings(a.st, settingsC, a.settingsKey())
 	if err != nil {
@@ -1388,10 +1395,10 @@ func (a *Application) UpdateConfigSettings(changes charm.Settings) error {
 	return err
 }
 
-// LeaderSettings returns a service's leader settings. If nothing has been set
+// LeaderSettings returns a application's leader settings. If nothing has been set
 // yet, it will return an empty map; this is not an error.
 func (a *Application) LeaderSettings() (map[string]string, error) {
-	// There's no compelling reason to have these methods on Service -- and
+	// There's no compelling reason to have these methods on Application -- and
 	// thus require an extra db read to access them -- but it stops the State
 	// type getting even more cluttered.
 
@@ -1415,11 +1422,11 @@ func (a *Application) LeaderSettings() (map[string]string, error) {
 	return result, nil
 }
 
-// UpdateLeaderSettings updates the service's leader settings with the supplied
+// UpdateLeaderSettings updates the application's leader settings with the supplied
 // values, but will fail (with a suitable error) if the supplied Token loses
 // validity. Empty values in the supplied map will be cleared in the database.
 func (a *Application) UpdateLeaderSettings(token leadership.Token, updates map[string]string) error {
-	// There's no compelling reason to have these methods on Service -- and
+	// There's no compelling reason to have these methods on Application -- and
 	// thus require an extra db read to access them -- but it stops the State
 	// type getting even more cluttered.
 
@@ -1476,7 +1483,7 @@ func (a *Application) UpdateLeaderSettings(token leadership.Token, updates map[s
 	return a.st.run(buildTxnWithLeadership(buildTxn, token))
 }
 
-var ErrSubordinateConstraints = stderrors.New("constraints do not apply to subordinate services")
+var ErrSubordinateConstraints = stderrors.New("constraints do not apply to subordinate applications")
 
 // Constraints returns the current application constraints.
 func (a *Application) Constraints() (constraints.Value, error) {
@@ -1545,12 +1552,12 @@ func (a *Application) defaultEndpointBindings() (map[string]string, error) {
 	return DefaultEndpointBindingsForCharm(charm.Meta()), nil
 }
 
-// MetricCredentials returns any metric credentials associated with this service.
+// MetricCredentials returns any metric credentials associated with this application.
 func (a *Application) MetricCredentials() []byte {
 	return a.doc.MetricCredentials
 }
 
-// SetMetricCredentials updates the metric credentials associated with this service.
+// SetMetricCredentials updates the metric credentials associated with this application.
 func (a *Application) SetMetricCredentials(b []byte) error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
@@ -1592,8 +1599,8 @@ func (a *Application) StorageConstraints() (map[string]StorageConstraints, error
 	return cons, nil
 }
 
-// Status returns the status of the service.
-// Only unit leaders are allowed to set the status of the service.
+// Status returns the status of the application.
+// Only unit leaders are allowed to set the status of the application.
 // If no status is recorded, then there are no unit leaders and the
 // status is derived from the unit status values.
 func (a *Application) Status() (status.StatusInfo, error) {
@@ -1603,7 +1610,7 @@ func (a *Application) Status() (status.StatusInfo, error) {
 	if count, err := query.Count(); err != nil {
 		return status.StatusInfo{}, errors.Trace(err)
 	} else if count != 0 {
-		// This indicates that SetStatus has never been called on this service.
+		// This indicates that SetStatus has never been called on this application.
 		// This in turn implies the application status document is likely to be
 		// inaccurate, so we return aggregated unit statuses instead.
 		//
@@ -1617,7 +1624,7 @@ func (a *Application) Status() (status.StatusInfo, error) {
 		if err != nil {
 			return status.StatusInfo{}, err
 		}
-		logger.Tracef("service %q has %d units", a.Name(), len(units))
+		logger.Tracef("application %q has %d units", a.Name(), len(units))
 		if len(units) > 0 {
 			return a.deriveStatus(units)
 		}
@@ -1642,7 +1649,7 @@ func (a *Application) SetStatus(statusInfo status.StatusInfo) error {
 
 // StatusHistory returns a slice of at most filter.Size StatusInfo items
 // or items as old as filter.Date or items newer than now - filter.Delta time
-// representing past statuses for this service.
+// representing past statuses for this application.
 func (a *Application) StatusHistory(filter status.StatusHistoryFilter) ([]status.StatusInfo, error) {
 	args := &statusHistoryArgs{
 		st:        a.st,
@@ -1652,9 +1659,9 @@ func (a *Application) StatusHistory(filter status.StatusHistoryFilter) ([]status
 	return statusHistory(args)
 }
 
-// ServiceAndUnitsStatus returns the status for this application and all its units.
-func (a *Application) ServiceAndUnitsStatus() (status.StatusInfo, map[string]status.StatusInfo, error) {
-	serviceStatus, err := a.Status()
+// ApplicationAndUnitsStatus returns the status for this application and all its units.
+func (a *Application) ApplicationAndUnitsStatus() (status.StatusInfo, map[string]status.StatusInfo, error) {
+	applicationStatus, err := a.Status()
 	if err != nil {
 		return status.StatusInfo{}, nil, errors.Trace(err)
 	}
@@ -1670,7 +1677,7 @@ func (a *Application) ServiceAndUnitsStatus() (status.StatusInfo, map[string]sta
 		}
 		results[unit.Name()] = unitStatus
 	}
-	return serviceStatus, results, nil
+	return applicationStatus, results, nil
 
 }
 
@@ -1711,27 +1718,27 @@ type addApplicationOpsArgs struct {
 	constraints    constraints.Value
 	storage        map[string]StorageConstraints
 	settings       map[string]interface{}
-	// These are nil when adding a new service, and most likely
+	// These are nil when adding a new application, and most likely
 	// non-nil when migrating.
 	leadershipSettings map[string]interface{}
 }
 
 // addApplicationOps returns the operations required to add an application to the
-// services collection, along with all the associated expected other service
-// entries. This method is used by both the *State.AddService method and the
+// applications collection, along with all the associated expected other application
+// entries. This method is used by both the *State.AddApplication method and the
 // migration import code.
 func addApplicationOps(st *State, args addApplicationOpsArgs) ([]txn.Op, error) {
-	svc := newApplication(st, args.applicationDoc)
+	app := newApplication(st, args.applicationDoc)
 
 	charmRefOps, err := appCharmIncRefOps(st, args.applicationDoc.Name, args.applicationDoc.CharmURL, true)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	globalKey := svc.globalKey()
-	settingsKey := svc.settingsKey()
-	storageConstraintsKey := svc.storageConstraintsKey()
-	leadershipKey := leadershipSettingsKey(svc.Name())
+	globalKey := app.globalKey()
+	settingsKey := app.settingsKey()
+	storageConstraintsKey := app.storageConstraintsKey()
+	leadershipKey := leadershipSettingsKey(app.Name())
 
 	ops := []txn.Op{
 		createConstraintsOp(st, globalKey, args.constraints),
@@ -1739,14 +1746,21 @@ func addApplicationOps(st *State, args addApplicationOpsArgs) ([]txn.Op, error) 
 		createSettingsOp(settingsC, settingsKey, args.settings),
 		createSettingsOp(settingsC, leadershipKey, args.leadershipSettings),
 		createStatusOp(st, globalKey, args.statusDoc),
-		addModelServiceRefOp(st, svc.Name()),
+		addModelApplicationRefOp(st, app.Name()),
 	}
 	ops = append(ops, charmRefOps...)
 	ops = append(ops, txn.Op{
 		C:      applicationsC,
-		Id:     svc.Name(),
+		Id:     app.Name(),
 		Assert: txn.DocMissing,
 		Insert: args.applicationDoc,
 	})
+	if featureflag.Enabled(feature.CrossModelRelations) {
+		ops = append(ops, txn.Op{
+			C:      remoteApplicationsC,
+			Id:     app.Name(),
+			Assert: txn.DocMissing,
+		})
+	}
 	return ops, nil
 }

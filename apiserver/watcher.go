@@ -40,6 +40,10 @@ func init() {
 		reflect.TypeOf((*srvStringsWatcher)(nil)),
 	)
 	common.RegisterFacade(
+		"ApplicationRelationsWatcher", 1, newApplicationRelationsWatcher,
+		reflect.TypeOf((*srvApplicationRelationsWatcher)(nil)),
+	)
+	common.RegisterFacade(
 		"RelationUnitsWatcher", 1, newRelationUnitsWatcher,
 		reflect.TypeOf((*srvRelationUnitsWatcher)(nil)),
 	)
@@ -260,6 +264,66 @@ func (w *srvRelationUnitsWatcher) Next() (params.RelationUnitsWatchResult, error
 
 // Stop stops the watcher.
 func (w *srvRelationUnitsWatcher) Stop() error {
+	return w.resources.Stop(w.id)
+}
+
+// srvApplicationRelationsWatcher defines the API wrapping a ApplicationRelationsWatcher.
+// This watcher notifies about:
+//  - addition and removal of relations of the service
+//  - lifecycle changes to relations of the service
+//  - settings of relation units changing
+//  - units departing the relation (joining is implicit in seeing new settings)
+type srvApplicationRelationsWatcher struct {
+	watcher   ApplicationRelationsWatcher
+	id        string
+	resources facade.Resources
+}
+
+// ApplicationRelationsWatcher is a watcher that reports on changes to relations
+// and relation units related to those relations for a specified service.
+type ApplicationRelationsWatcher interface {
+	Changes() <-chan params.ApplicationRelationsChange
+	Err() error
+	Stop() error
+}
+
+func newApplicationRelationsWatcher(context facade.Context) (facade.Facade, error) {
+	id := context.ID()
+	resources := context.Resources()
+	auth := context.Auth()
+
+	if !auth.AuthModelManager() {
+		return nil, common.ErrPerm
+	}
+	watcher, ok := resources.Get(id).(ApplicationRelationsWatcher)
+	if !ok {
+		return nil, common.ErrUnknownWatcher
+	}
+	return &srvApplicationRelationsWatcher{
+		watcher:   watcher,
+		id:        id,
+		resources: resources,
+	}, nil
+}
+
+// Next returns when a change has occured to an entity of the
+// collection being watched since the most recent call to Next
+// or the Watch call that created the srvApplicationRelationsWatcher.
+func (w *srvApplicationRelationsWatcher) Next() (params.ApplicationRelationsWatchResult, error) {
+	if changes, ok := <-w.watcher.Changes(); ok {
+		return params.ApplicationRelationsWatchResult{
+			Changes: &changes,
+		}, nil
+	}
+	err := w.watcher.Err()
+	if err == nil {
+		err = common.ErrStoppedWatcher
+	}
+	return params.ApplicationRelationsWatchResult{}, err
+}
+
+// Stop stops the watcher.
+func (w *srvApplicationRelationsWatcher) Stop() error {
 	return w.resources.Stop(w.id)
 }
 

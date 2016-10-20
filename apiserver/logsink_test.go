@@ -64,7 +64,7 @@ func (s *logsinkSuite) SetUpTest(c *gc.C) {
 	c.Assert(loggo.RegisterWriter("logsink-tests", writer), jc.ErrorIsNil)
 }
 
-func (s *logsinkSuite) TestRejectsBadEnvironUUID(c *gc.C) {
+func (s *logsinkSuite) TestRejectsBadModelUUID(c *gc.C) {
 	reader := s.openWebsocketCustomPath(c, "/model/does-not-exist/logsink")
 	assertJSONError(c, reader, `unknown model: "does-not-exist"`)
 	assertWebsocketClosed(c, reader)

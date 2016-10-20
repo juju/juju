@@ -155,6 +155,11 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 
 		// Recreated whilst migrating actions.
 		actionNotificationsC,
+
+		//Cross Model Relations - TODO
+		localApplicationDirectoryC,
+		remoteApplicationsC,
+		applicationOffersC,
 	)
 
 	// THIS SET WILL BE REMOVED WHEN MIGRATIONS ARE COMPLETE
