@@ -6,17 +6,17 @@ from mock import (
     call,
     Mock,
     patch,
-)
+    )
 import os
 import StringIO
 import subprocess
 
 import assess_proxy
+from fakejuju import fake_juju_client
 from tests import (
     parse_error,
     TestCase,
-)
-from tests.test_jujupy import fake_juju_client
+    )
 from utility import temp_dir
 
 
