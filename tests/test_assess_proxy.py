@@ -72,7 +72,8 @@ class TestMain(TestCase):
         mock_cfc.assert_called_once_with(
             'an-env', "/bin/juju", debug=False, soft_deadline=None)
         mock_check.assert_called_once_with('eth0', 'lxdbr0')
-        mock_set.assert_called_once_with('both-proxied', 'FORWARD')
+        mock_set.assert_called_once_with(
+            'both-proxied', 'eth0', 'lxdbr0', 'FORWARD')
         mock_reset.assert_called_once_with()
         self.assertEqual(mock_bc.call_count, 1)
         mock_assess.assert_called_once_with(client, 'both-proxied')
@@ -114,7 +115,9 @@ class TestAssess(TestCase):
 
     def test_check_environment(self):
         proxy_data = "http_proxy=http\nhttps_proxy=https"
-        proxy_env = {'http_proxy': 'http', 'https_proxy': 'https'}
+        proxy_env = {
+            'http_proxy': 'http', 'https_proxy': 'https',
+            'ftp_proxy': 'ftp', 'no_proxy': '127.0.0.1'}
         with temp_dir() as base:
             env_file = os.path.join(base, 'environment')
             with open(env_file, 'w') as _file:
@@ -122,9 +125,12 @@ class TestAssess(TestCase):
             with patch('assess_proxy.get_environment_file_path',
                        return_value=env_file):
                 with patch.dict(os.environ, proxy_env):
-                    http_proxy, https_proxy = assess_proxy.check_environment()
+                    proxies = assess_proxy.check_environment()
+        http_proxy, https_proxy, ftp_proxy, no_proxy = proxies
         self.assertEqual('http', http_proxy)
         self.assertEqual('https', https_proxy)
+        self.assertEqual('ftp', ftp_proxy)
+        self.assertEqual('127.0.0.1', no_proxy)
 
     def test_check_environment_missing_env(self):
         proxy_env = {'http_proxy': 'http'}
@@ -209,6 +215,110 @@ class TestAssess(TestCase):
                        side_effect=[1, 0]):
                 with self.assertRaises(ValueError):
                     assess_proxy.check_network('eth0', 'lxdbr0')
+
+    def test_backup_iptables(self):
+        with patch('subprocess.check_call', autospec=True,
+                   return_value=0) as mock_cc:
+            assess_proxy.backup_iptables()
+        mock_cc.assert_called_once_with(
+            [assess_proxy.IPTABLES_BACKUP_BASH], shell=True)
+        expected_log = (
+            "INFO Backing up iptables to /etc/iptables.before-assess-proxy\n")
+        self.assertEqual(expected_log, self.log_stream.getvalue())
+
+    def test_setup_common_firewall(self):
+        with patch('subprocess.check_call', autospec=True,
+                   return_value=0) as mock_cc:
+            assess_proxy.setup_common_firewall()
+        mock_cc.assert_called_once_with(
+            [assess_proxy.UFW_PROXY_COMMON_BASH], shell=True)
+        expected_log = (
+            "INFO Setting common firewall rules.\n"
+            "INFO These are safe permissive rules.\n")
+        self.assertEqual(expected_log, self.log_stream.getvalue())
+
+    def test_setup_client_firewall(self):
+        with patch('subprocess.check_call', autospec=True,
+                   return_value=0) as mock_cc:
+            assess_proxy.setup_client_firewall('eth0')
+        script = assess_proxy.UFW_PROXY_CLIENT_BASH.format(
+            interface='eth0')
+        mock_cc.assert_called_once_with([script], shell=True)
+        expected_log = (
+            "INFO Setting client firewall rules.\n"
+            "INFO These rules restrict the localhost on eth0.\n")
+        self.assertEqual(expected_log, self.log_stream.getvalue())
+
+    def test_setup_controller_firewall(self):
+        original_forward_rule = '-A FORWARD -i lxdbr0 -j ACCEPT'
+        with patch('subprocess.check_call', autospec=True,
+                   return_value=0) as mock_cc:
+            assess_proxy.setup_controller_firewall(
+                'lxdbr0', original_forward_rule)
+        script = assess_proxy.UFW_PROXY_CONTROLLER_BASH.format(
+            interface='lxdbr0',
+            original_forward_rule='FORWARD -i lxdbr0 -j ACCEPT')
+        mock_cc.assert_called_once_with([script], shell=True)
+        expected_log = (
+            "INFO Setting controller firewall rules.\n"
+            "INFO These rules restrict the controller on lxdbr0.\n")
+        self.assertEqual(expected_log, self.log_stream.getvalue())
+
+    def test_set_firewall_both(self):
+        forward_rule = '-A FORWARD -i lxdbr0 -j ACCEPT'
+        with patch('assess_proxy.backup_iptables', autospec=True) as mock_bi:
+            with patch('assess_proxy.setup_common_firewall',
+                       autospec=True) as mock_common:
+                with patch('assess_proxy.setup_client_firewall',
+                           autospec=True) as mock_client:
+                    with patch('assess_proxy.setup_controller_firewall',
+                               autospec=True) as mock_controller:
+                        assess_proxy.set_firewall(
+                            'both-proxied', 'eth0', 'lxdbr0', forward_rule)
+        mock_bi.assert_called_once_with()
+        mock_common.assert_called_once_with()
+        mock_client.assert_called_once_with('eth0')
+        mock_controller.assert_called_once_with('lxdbr0', forward_rule)
+        expected_log = (
+            "INFO \nIn case of disaster, the firewall can be restored"
+            " by running:\n"
+            "INFO sudo iptables-restore /etc/iptables.before-assess-proxy\n"
+            "INFO sudo ufw reset\n\n")
+        logged = self.log_stream.getvalue()
+        self.assertIsTrue(logged.startswith(expected_log), logged)
+
+    def test_set_firewall_client(self):
+        forward_rule = '-A FORWARD -i lxdbr0 -j ACCEPT'
+        with patch('assess_proxy.backup_iptables', autospec=True) as mock_bi:
+            with patch('assess_proxy.setup_common_firewall',
+                       autospec=True) as mock_common:
+                with patch('assess_proxy.setup_client_firewall',
+                           autospec=True) as mock_client:
+                    with patch('assess_proxy.setup_controller_firewall',
+                               autospec=True) as mock_controller:
+                        assess_proxy.set_firewall(
+                            'client-proxied', 'eth0', 'lxdbr0', forward_rule)
+        mock_bi.assert_called_once_with()
+        mock_common.assert_called_once_with()
+        mock_client.assert_called_once_with('eth0')
+        self.assertEqual(0, mock_controller.call_count)
+
+    def test_set_firewall_controller(self):
+        forward_rule = '-A FORWARD -i lxdbr0 -j ACCEPT'
+        with patch('assess_proxy.backup_iptables', autospec=True) as mock_bi:
+            with patch('assess_proxy.setup_common_firewall',
+                       autospec=True) as mock_common:
+                with patch('assess_proxy.setup_client_firewall',
+                           autospec=True) as mock_client:
+                    with patch('assess_proxy.setup_controller_firewall',
+                               autospec=True) as mock_controller:
+                        assess_proxy.set_firewall(
+                            'controller-proxied', 'eth0', 'lxdbr0',
+                            forward_rule)
+        mock_bi.assert_called_once_with()
+        mock_common.assert_called_once_with()
+        mock_controller.assert_called_once_with('lxdbr0', forward_rule)
+        self.assertEqual(0, mock_client.call_count)
 
     def test_reset_firewall(self):
         # Verify the ufw was called to reset and disable even if one of the
