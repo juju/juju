@@ -178,7 +178,7 @@ def backup_iptables():
 
     The backup is to /etc/iptables.before-assess-proxy.
 
-    :raises: CalledProcessError when iptable could not be backed up.
+    :raises: CalledProcessError when iptables could not be backed up.
     """
     log.info('Backing up iptables to {}'.format(IPTABLES_BACKUP))
     subprocess.check_call([IPTABLES_BACKUP_BASH], shell=True)
