@@ -823,7 +823,7 @@ def fake_juju_client_optional_jes(env=None, full_path=None, debug=False,
         _backend.set_feature('jes', jes_enabled)
     client = fake_juju_client(env, full_path, debug, version, _backend,
                               cls=FakeJujuClientOptionalJES)
-    client.used_feature_flags = frozenset(['address-allocation', 'jes'])
+    client.used_feature_flags = frozenset(['jes'])
     return client
 
 
