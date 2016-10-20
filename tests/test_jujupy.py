@@ -4,7 +4,7 @@ import copy
 from datetime import (
     datetime,
     timedelta,
-)
+    )
 import errno
 import json
 import logging
@@ -22,31 +22,29 @@ from mock import (
     MagicMock,
     Mock,
     patch,
-)
+    )
 import yaml
 
 from fakejuju import (
     fake_juju_client,
     get_user_register_command_info,
     get_user_register_token,
-)
+    )
 from jujuconfig import (
     get_environments_path,
     get_jenv_path,
     NoSuchEnvironment,
-)
+    )
 from jujupy import (
     BootstrapMismatch,
     CannotConnectEnv,
     client_from_config,
-    CONTROLLER,
     Controller,
     EnvJujuClient,
     EnvJujuClient1X,
     EnvJujuClient22,
     EnvJujuClient24,
     EnvJujuClient25,
-    EnvJujuClient26,
     EnvJujuClient2A1,
     EnvJujuClient2A2,
     EnvJujuClient2B2,
@@ -63,7 +61,6 @@ from jujupy import (
     get_timeout_path,
     IncompatibleConfigClass,
     jes_home_path,
-    JESByDefault,
     JESNotSupported,
     Juju2Backend,
     JujuData,
@@ -83,17 +80,18 @@ from jujupy import (
     temp_yaml_file,
     uniquify_local,
     UpgradeMongoNotSupported,
-)
+    VersionNotTestedError,
+    )
 from tests import (
     TestCase,
     FakeHomeTestCase,
-)
+    )
 from tests.test_assess_resources import make_resource_list
 from utility import (
     JujuResourceTimeout,
     scoped_environ,
     temp_dir,
-)
+    )
 
 
 __metaclass__ = type
@@ -253,58 +251,16 @@ class TestJuju2Backend(TestCase):
                     backend.get_juju_output('cmd', ('args',), [], 'home')
 
 
-class TestEnvJujuClient26(ClientTest, CloudSigmaTest):
+class TestEnvJujuClient25(ClientTest):
 
-    client_class = EnvJujuClient26
+    client_class = EnvJujuClient25
 
-    def test_enable_jes_already_supported(self):
-        client = self.client_class(
-            SimpleEnvironment('baz', {}),
-            '1.26-foobar', 'path')
-        fake_popen = FakePopen(CONTROLLER, '', 0)
-        with patch('subprocess.Popen', autospec=True,
-                   return_value=fake_popen) as po_mock:
-            with self.assertRaises(JESByDefault):
-                client.enable_jes()
-        self.assertNotIn('jes', client.feature_flags)
-        assert_juju_call(
-            self, po_mock, client, ('path', '--show-log', 'help', 'commands'))
-
-    def test_enable_jes_unsupported(self):
-        client = self.client_class(
-            SimpleEnvironment('baz', {}),
-            '1.24-foobar', 'path')
-        with patch('subprocess.Popen', autospec=True,
-                   return_value=FakePopen('', '', 0)) as po_mock:
-            with self.assertRaises(JESNotSupported):
-                client.enable_jes()
-        self.assertNotIn('jes', client.feature_flags)
-        assert_juju_call(
-            self, po_mock, client, ('path', '--show-log', 'help', 'commands'),
-            0)
-        assert_juju_call(
-            self, po_mock, client, ('path', '--show-log', 'help', 'commands'),
-            1)
-        self.assertEqual(po_mock.call_count, 2)
-
-    def test_enable_jes_requires_flag(self):
+    def test_enable_jes(self):
         client = self.client_class(
             SimpleEnvironment('baz', {}),
             '1.25-foobar', 'path')
-        # The help output will change when the jes feature flag is set.
-        with patch('subprocess.Popen', autospec=True, side_effect=[
-                FakePopen('', '', 0),
-                FakePopen(SYSTEM, '', 0)]) as po_mock:
+        with self.assertRaises(JESNotSupported):
             client.enable_jes()
-        self.assertIn('jes', client.feature_flags)
-        assert_juju_call(
-            self, po_mock, client, ('path', '--show-log', 'help', 'commands'),
-            0)
-        # GZ 2015-10-26: Should assert that env has feature flag at call time.
-        assert_juju_call(
-            self, po_mock, client, ('path', '--show-log', 'help', 'commands'),
-            1)
-        self.assertEqual(po_mock.call_count, 2)
 
     def test_disable_jes(self):
         client = self.client_class(
@@ -313,23 +269,6 @@ class TestEnvJujuClient26(ClientTest, CloudSigmaTest):
         client.feature_flags.add('jes')
         client.disable_jes()
         self.assertNotIn('jes', client.feature_flags)
-
-    def test__shell_environ_jes(self):
-        client = self.client_class(
-            SimpleEnvironment('baz', {}),
-            '1.25-foobar', 'path')
-        client.feature_flags.add('jes')
-        env = client._shell_environ()
-        self.assertIn('jes', env[JUJU_DEV_FEATURE_FLAGS].split(","))
-
-    def test__shell_environ_jes_cloudsigma(self):
-        client = self.client_class(
-            SimpleEnvironment('baz', {'type': 'cloudsigma'}),
-            '1.25-foobar', 'path')
-        client.feature_flags.add('jes')
-        env = client._shell_environ()
-        flags = env[JUJU_DEV_FEATURE_FLAGS].split(",")
-        self.assertItemsEqual(['cloudsigma', 'jes'], flags)
 
     def test_clone_unchanged(self):
         client1 = self.client_class(
@@ -363,33 +302,6 @@ class TestEnvJujuClient26(ClientTest, CloudSigmaTest):
         self.assertIs(self.client_class, type(client2))
         self.assertEqual(set(), client2.feature_flags)
 
-    def test_clone_enabled(self):
-        client1 = self.client_class(
-            SimpleEnvironment('foo'), '1.27', 'full/path', debug=True)
-        client1.enable_feature('jes')
-        client1.enable_feature('address-allocation')
-        client2 = client1.clone()
-        self.assertIsNot(client1, client2)
-        self.assertIs(self.client_class, type(client2))
-        self.assertEqual(
-            set(['jes', 'address-allocation']),
-            client2.feature_flags)
-
-    def test_clone_old_feature(self):
-        client1 = self.client_class(
-            SimpleEnvironment('foo'), '1.27', 'full/path', debug=True)
-        client1.enable_feature('actions')
-        client1.enable_feature('address-allocation')
-        client2 = client1.clone()
-        self.assertIsNot(client1, client2)
-        self.assertIs(self.client_class, type(client2))
-        self.assertEqual(set(['address-allocation']), client2.feature_flags)
-
-
-class TestEnvJujuClient25(TestEnvJujuClient26):
-
-    client_class = EnvJujuClient25
-
 
 class TestEnvJujuClient22(ClientTest):
 
@@ -409,7 +321,7 @@ class TestEnvJujuClient22(ClientTest):
         self.assertEqual(env['JUJU_HOME'], 'asdf')
 
 
-class TestEnvJujuClient24(ClientTest, CloudSigmaTest):
+class TestEnvJujuClient24(ClientTest):
 
     client_class = EnvJujuClient24
 
@@ -545,6 +457,12 @@ def observable_temp_file():
 
 class TestClientFromConfig(ClientTest):
 
+    @contextmanager
+    def assertRaisesVersionNotTested(self, version):
+        with self.assertRaisesRegexp(
+                VersionNotTestedError, 'juju ' + version):
+            yield
+
     @patch.object(JujuData, 'from_config', return_value=JujuData('', {}))
     @patch.object(SimpleEnvironment, 'from_config',
                   return_value=SimpleEnvironment('', {}))
@@ -590,27 +508,28 @@ class TestClientFromConfig(ClientTest):
         with context:
             self.assertIs(EnvJujuClient1X,
                           type(client_from_config('foo', None)))
-            with self.assertRaisesRegexp(Exception, 'Unsupported juju: 1.16'):
-                client_from_config('foo', None)
-            with self.assertRaisesRegexp(Exception,
-                                         'Unsupported juju: 1.16.1'):
-                client_from_config('foo', None)
 
             def test_fc(version, cls):
-                client = client_from_config('foo', None)
-                if isinstance(client, EnvJujuClient2A2):
-                    self.assertEqual(se_fc_mock.return_value, client.env)
+                if cls is not None:
+                    client = client_from_config('foo', None)
+                    if isinstance(client, EnvJujuClient2A2):
+                        self.assertEqual(se_fc_mock.return_value, client.env)
+                    else:
+                        self.assertEqual(jd_fc_mock.return_value, client.env)
+                    self.assertIs(cls, type(client))
+                    self.assertEqual(version, client.version)
                 else:
-                    self.assertEqual(jd_fc_mock.return_value, client.env)
-                self.assertIs(cls, type(client))
-                self.assertEqual(version, client.version)
+                    with self.assertRaisesVersionNotTested(version):
+                        client_from_config('foo', None)
 
+            test_fc('1.16', None)
+            test_fc('1.16.1', None)
             test_fc('1.15', EnvJujuClient1X)
             test_fc('1.22.1', EnvJujuClient22)
             test_fc('1.24-alpha1', EnvJujuClient24)
             test_fc('1.24.7', EnvJujuClient24)
             test_fc('1.25.1', EnvJujuClient25)
-            test_fc('1.26.1', EnvJujuClient26)
+            test_fc('1.26.1', None)
             test_fc('1.27.1', EnvJujuClient1X)
             test_fc('2.0-alpha1', EnvJujuClient2A1)
             test_fc('2.0-alpha2', EnvJujuClient2A2)
@@ -5055,21 +4974,8 @@ class TestEnvJujuClient1X(ClientTest):
         fake_popen = FakePopen(' %s' % SYSTEM, None, 0)
         with patch('subprocess.Popen',
                    return_value=fake_popen) as po_mock:
-            self.assertFalse(client.is_jes_enabled())
-        assert_juju_call(self, po_mock, client, (
-            'baz', '--show-log', 'help', 'commands'))
-        # Juju 1.25 uses the system command.
-        client = EnvJujuClient1X(env, None, '/foobar/baz')
-        fake_popen = FakePopen(SYSTEM, None, 0)
-        with patch('subprocess.Popen', autospec=True,
-                   return_value=fake_popen):
-            self.assertTrue(client.is_jes_enabled())
-        # Juju 1.26 uses the controller command.
-        client = EnvJujuClient1X(env, None, '/foobar/baz')
-        fake_popen = FakePopen(CONTROLLER, None, 0)
-        with patch('subprocess.Popen', autospec=True,
-                   return_value=fake_popen):
-            self.assertTrue(client.is_jes_enabled())
+            self.assertIsFalse(client.is_jes_enabled())
+        self.assertEqual(0, po_mock.call_count)
 
     def test_get_jes_command(self):
         env = SimpleEnvironment('qux')
@@ -5081,27 +4987,7 @@ class TestEnvJujuClient1X(ClientTest):
                    return_value=fake_popen) as po_mock:
             with self.assertRaises(JESNotSupported):
                 client.get_jes_command()
-        assert_juju_call(self, po_mock, client, (
-            'baz', '--show-log', 'help', 'commands'))
-        # Juju 2.x uses the 'controller kill' command.
-        client = EnvJujuClient1X(env, None, '/foobar/baz')
-        fake_popen = FakePopen(CONTROLLER, None, 0)
-        with patch('subprocess.Popen', autospec=True,
-                   return_value=fake_popen):
-            self.assertEqual(CONTROLLER, client.get_jes_command())
-        # Juju 1.26 uses the destroy-controller command.
-        client = EnvJujuClient1X(env, None, '/foobar/baz')
-        fake_popen = FakePopen(KILL_CONTROLLER, None, 0)
-        with patch('subprocess.Popen', autospec=True,
-                   return_value=fake_popen):
-            self.assertEqual(KILL_CONTROLLER, client.get_jes_command())
-        # Juju 1.25 uses the 'system kill' command.
-        client = EnvJujuClient1X(env, None, '/foobar/baz')
-        fake_popen = FakePopen(SYSTEM, None, 0)
-        with patch('subprocess.Popen', autospec=True,
-                   return_value=fake_popen):
-            self.assertEqual(
-                SYSTEM, client.get_jes_command())
+        self.assertEqual(0, po_mock.call_count)
 
     def test_get_juju_timings(self):
         env = SimpleEnvironment('foo')

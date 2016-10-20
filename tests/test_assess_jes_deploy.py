@@ -31,7 +31,6 @@ class TestJES(tests.FakeHomeTestCase):
         client = self.client_class(
             SimpleEnvironment.from_config('baz'),
             '1.25-foobar', 'path')
-        client.enable_feature('jes')
         return client
 
     @patch('assess_jes_deploy.get_random_string', autospec=True)
@@ -42,7 +41,7 @@ class TestJES(tests.FakeHomeTestCase):
     def test_set_jes_flag(self):
         client = self.mock_client()
         env = client._shell_environ()
-        self.assertTrue('jes' in env[JUJU_DEV_FEATURE_FLAGS].split(","))
+        self.assertIsFalse('jes' in env[JUJU_DEV_FEATURE_FLAGS].split(","))
 
     @patch('assess_jes_deploy.print_now', autospec=True)
     @patch('assess_jes_deploy.get_random_string', autospec=True)
