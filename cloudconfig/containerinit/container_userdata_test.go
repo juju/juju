@@ -198,7 +198,7 @@ author "Juju Team <juju@lists.ubuntu.com>"
 start on stopped cloud-final
 
 script
-  /sbin/dhclient -r $(/usr/bin/awk '/^iface.*dhcp$/ {print $2}' /etc/network/interfaces /etc/network/interfaces.d/*) &&
+  /sbin/dhclient -r $(/usr/bin/awk '/^iface.*dhcp$/ {print $2}' /etc/network/interfaces /etc/network/interfaces.d/*)
   /sbin/ifdown $(/usr/bin/awk '/^iface.*dhcp$/ {print $2}' /etc/network/interfaces /etc/network/interfaces.d/*)
   /usr/bin/rename 's/$/.juju-template/' /var/lib/dhcp/dhclient* /var/log/cloud-init*.log
   /sbin/shutdown -h now
@@ -274,7 +274,7 @@ ExecStopPost=/bin/systemctl disable juju-template-restart.service
 WantedBy=multi-user.target
 `[1:],
 		Script: `
-/sbin/dhclient -r $(/usr/bin/awk '/^iface.*dhcp$/ {print $2}' /etc/network/interfaces /etc/network/interfaces.d/*) &&
+/sbin/dhclient -r $(/usr/bin/awk '/^iface.*dhcp$/ {print $2}' /etc/network/interfaces /etc/network/interfaces.d/*)
   /sbin/ifdown $(/usr/bin/awk '/^iface.*dhcp$/ {print $2}' /etc/network/interfaces /etc/network/interfaces.d/*)
   /usr/bin/rename 's/$/.juju-template/' /var/lib/dhcp/dhclient* /var/log/cloud-init*.log
   /sbin/shutdown -h now`[1:],

@@ -256,7 +256,7 @@ func shutdownInitCommands(initSystem, series string) ([]string, error) {
 
 	// This intentionally avoids a for loop, keeping the ExecStart validation code more generic.
 	ifaces := `$(/usr/bin/awk '/^iface.*dhcp$/ {print $2}' /etc/network/interfaces /etc/network/interfaces.d/*)`
-	dhcpRelease := fmt.Sprintf("/sbin/dhclient -r %s &&\n  /sbin/ifdown %s\n  ", ifaces, ifaces)
+	dhcpRelease := fmt.Sprintf("/sbin/dhclient -r %s\n  /sbin/ifdown %s\n  ", ifaces, ifaces)
 
 	var execStart string
 	if environs.AddressAllocationEnabled() {
