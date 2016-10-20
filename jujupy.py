@@ -940,11 +940,10 @@ class EnvJujuClient:
     bootstrap_replaces = frozenset(['agent-version'])
 
     # What feature flags have existed that CI used.
-    known_feature_flags = frozenset([
-        'actions', 'jes', 'address-allocation', 'cloudsigma', 'migration'])
+    known_feature_flags = frozenset(['actions', 'jes', 'migration'])
 
     # What feature flags are used by this version of the juju client.
-    used_feature_flags = frozenset(['address-allocation', 'migration'])
+    used_feature_flags = frozenset(['migration'])
 
     destroy_model_command = 'destroy-model'
 
@@ -2868,17 +2867,12 @@ class EnvJujuClient25(EnvJujuClient1X):
 
     used_feature_flags = frozenset()
 
-    def enable_jes(self):
-        raise JESNotSupported()
-
     def disable_jes(self):
         self.feature_flags.discard('jes')
 
 
 class EnvJujuClient24(EnvJujuClient25):
     """Similar to EnvJujuClient25."""
-
-    used_feature_flags = frozenset(['cloudsigma'])
 
     def add_ssh_machines(self, machines):
         for machine in machines:

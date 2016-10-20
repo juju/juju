@@ -122,29 +122,6 @@ class ClientTest(FakeHomeTestCase):
         self.pause_mock = patcher.start()
 
 
-class CloudSigmaTest:
-
-    def test__shell_environ_no_flags(self):
-        client = self.client_class(
-            SimpleEnvironment('baz', {'type': 'ec2'}), '1.25-foobar', 'path')
-        env = client._shell_environ()
-        self.assertEqual(env.get(JUJU_DEV_FEATURE_FLAGS, ''), '')
-
-    def test__shell_environ_cloudsigma(self):
-        client = self.client_class(
-            SimpleEnvironment('baz', {'type': 'cloudsigma'}),
-            '1.25-foobar', 'path')
-        env = client._shell_environ()
-        self.assertTrue('cloudsigma' in env[JUJU_DEV_FEATURE_FLAGS].split(","))
-
-    def test__shell_environ_juju_home(self):
-        client = self.client_class(
-            SimpleEnvironment('baz', {'type': 'ec2'}), '1.25-foobar', 'path',
-            'asdf')
-        env = client._shell_environ()
-        self.assertEqual(env['JUJU_HOME'], 'asdf')
-
-
 class TestTempYamlFile(TestCase):
 
     def test_temp_yaml_file(self):
@@ -327,7 +304,7 @@ class TestEnvJujuClient24(ClientTest):
 
     def test_no_jes(self):
         client = self.client_class(
-            SimpleEnvironment('baz', {'type': 'cloudsigma'}),
+            SimpleEnvironment('baz', {}),
             '1.25-foobar', 'path')
         with self.assertRaises(JESNotSupported):
             client.enable_jes()
@@ -1141,12 +1118,6 @@ class TestEnvJujuClient(ClientTest):
         env = client._shell_environ()
         self.assertEqual(env['JUJU_DATA'], 'asdf')
         self.assertNotIn('JUJU_HOME', env)
-
-    def test__shell_environ_cloudsigma(self):
-        client = EnvJujuClient(
-            JujuData('baz', {'type': 'cloudsigma'}), '1.24-foobar', 'path')
-        env = client._shell_environ()
-        self.assertEqual(env.get(JUJU_DEV_FEATURE_FLAGS, ''), '')
 
     def test_juju_output_supplies_path(self):
         env = JujuData('foo')
@@ -2864,8 +2835,7 @@ class TestEnvJujuClient(ClientTest):
         self.assertEqual(run_list, result)
         gjo_mock.assert_called_once_with(
             'run', ('--format', 'json', '--application', 'foo,bar', 'wname'),
-            frozenset(
-                ['address-allocation', 'migration']), 'foo',
+            frozenset(['migration']), 'foo',
             'name:name', user_name=None)
 
     def test_run_machines(self):
@@ -4091,13 +4061,6 @@ class TestEnvJujuClient1X(ClientTest):
         self.assertEqual(env['JUJU_HOME'], 'asdf')
         self.assertNotIn('JUJU_DATA', env)
 
-    def test__shell_environ_cloudsigma(self):
-        client = EnvJujuClient1X(
-            SimpleEnvironment('baz', {'type': 'cloudsigma'}),
-            '1.24-foobar', 'path')
-        env = client._shell_environ()
-        self.assertEqual(env.get(JUJU_DEV_FEATURE_FLAGS, ''), '')
-
     def test_juju_output_supplies_path(self):
         env = SimpleEnvironment('foo')
         client = EnvJujuClient1X(env, None, '/foobar/bar')
@@ -5262,8 +5225,7 @@ class TestEnvJujuClient1X(ClientTest):
         self.assertEqual(run_list, result)
         gjo_mock.assert_called_once_with(
             'run', ('--format', 'json', '--service', 'foo,bar', 'wname'),
-            frozenset(
-                ['address-allocation', 'migration']),
+            frozenset(['migration']),
             'foo', 'name', user_name=None)
 
     def test_list_space(self):
