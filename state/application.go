@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
+	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/series"
 	"gopkg.in/juju/charm.v6-unstable"
 	csparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
@@ -22,6 +23,7 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/status"
 )
 
@@ -1747,15 +1749,18 @@ func addApplicationOps(st *State, args addApplicationOpsArgs) ([]txn.Op, error) 
 		addModelApplicationRefOp(st, app.Name()),
 	}
 	ops = append(ops, charmRefOps...)
-	ops = append(ops, []txn.Op{{
+	ops = append(ops, txn.Op{
 		C:      applicationsC,
 		Id:     app.Name(),
 		Assert: txn.DocMissing,
 		Insert: args.applicationDoc,
-	}, {
-		C:      remoteApplicationsC,
-		Id:     app.Name(),
-		Assert: txn.DocMissing,
-	}}...)
+	})
+	if featureflag.Enabled(feature.CrossModelRelations) {
+		ops = append(ops, txn.Op{
+			C:      remoteApplicationsC,
+			Id:     app.Name(),
+			Assert: txn.DocMissing,
+		})
+	}
 	return ops, nil
 }

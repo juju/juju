@@ -20,6 +20,7 @@ import (
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
 	"github.com/juju/utils/clock"
+	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/os"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
@@ -35,6 +36,7 @@ import (
 	"github.com/juju/juju/audit"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
@@ -1149,11 +1151,13 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 			} else if exists {
 				return nil, errLocalApplicationExists
 			}
-			// Ensure a remote application with the same name doesn't exist.
-			if remoteExists, err := isNotDead(st, remoteApplicationsC, args.Name); err != nil {
-				return nil, errors.Trace(err)
-			} else if remoteExists {
-				return nil, errSameNameRemoteApplicationExists
+			if featureflag.Enabled(feature.CrossModelRelations) {
+				// Ensure a remote application with the same name doesn't exist.
+				if remoteExists, err := isNotDead(st, remoteApplicationsC, args.Name); err != nil {
+					return nil, errors.Trace(err)
+				} else if remoteExists {
+					return nil, errSameNameRemoteApplicationExists
+				}
 			}
 		}
 		// The addApplicationOps does not include the model alive assertion,

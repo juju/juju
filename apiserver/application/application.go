@@ -36,6 +36,10 @@ var (
 )
 
 func init() {
+	// TODO - version 1 is required for the legacy deployer,
+	// remove when deploy is updated.
+	common.RegisterStandardFacade("Application", 1, newAPI)
+
 	common.RegisterStandardFacade("Application", 2, newAPI)
 
 	// Version 3 adds support for cross model relations.
