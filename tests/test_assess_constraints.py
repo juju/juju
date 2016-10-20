@@ -25,6 +25,7 @@ from assess_constraints import (
     mem_to_int,
     INSTANCE_TYPES,
     )
+from fakejuju import fake_juju_client
 from jujupy import (
     Status,
     )
@@ -32,7 +33,6 @@ from tests import (
     parse_error,
     TestCase,
     )
-from tests.test_jujupy import fake_juju_client
 from utility import (
     JujuAssertionError,
     temp_dir,

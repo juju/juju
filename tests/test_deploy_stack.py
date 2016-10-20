@@ -60,7 +60,6 @@ from jujupy import (
     EnvJujuClient,
     EnvJujuClient1X,
     EnvJujuClient25,
-    EnvJujuClient26,
     get_cache_path,
     get_timeout_prefix,
     get_timeout_path,
@@ -626,6 +625,7 @@ class DumpEnvLogsTestCase(FakeHomeTestCase):
                 ' /var/log/syslog'
                 ' /var/log/mongodb/mongodb.log'
                 ' /etc/network/interfaces'
+                ' /etc/environment'
                 ' /home/ubuntu/ifconfig.log'
                 ),),
             cc_mock.call_args_list[0][0])
@@ -654,6 +654,7 @@ class DumpEnvLogsTestCase(FakeHomeTestCase):
                 '10.10.0.1:/var/log/syslog',
                 '10.10.0.1:/var/log/mongodb/mongodb.log',
                 '10.10.0.1:/etc/network/interfaces',
+                '10.10.0.1:/etc/environment',
                 '10.10.0.1:/home/ubuntu/ifconfig.log',
                 '/foo'),),
             cc_mock.call_args_list[2][0])
@@ -691,6 +692,7 @@ class DumpEnvLogsTestCase(FakeHomeTestCase):
              "/var/log/syslog "
              "/var/log/mongodb/mongodb.log "
              "/etc/network/interfaces "
+             "/etc/environment "
              "/home/ubuntu/ifconfig.log'",
              'WARNING Could not allow access to the juju logs:',
              'WARNING None',
@@ -1204,12 +1206,12 @@ class TestTestUpgrade(FakeHomeTestCase):
         old_client = fake_juju_client(
             env, '/foo/juju', version='1.25', cls=EnvJujuClient25)
         with patch('jujupy.EnvJujuClient.get_version',
-                   return_value='1.26-arch-series'):
-            with patch('jujupy.EnvJujuClient26._get_models', return_value=[]):
+                   return_value='1.25-arch-series'):
+            with patch('jujupy.EnvJujuClient25._get_models', return_value=[]):
                 [new_client] = _get_clients_to_upgrade(
                     old_client, '/foo/newer/juju')
 
-        self.assertIs(type(new_client), EnvJujuClient26)
+        self.assertIs(type(new_client), EnvJujuClient25)
 
     def test__get_clients_to_upgrade_returns_controller_and_model(self):
         old_client = fake_juju_client()
@@ -1866,17 +1868,12 @@ class TestBootContext(FakeHomeTestCase):
         juju_name = os.path.basename(client.full_path)
         if jes:
             output = jes
-            po_count = 0
         else:
             output = ''
-            po_count = 2
+        po_count = 0
         with patch('subprocess.Popen', autospec=True,
                    return_value=FakePopen(output, '', 0)) as po_mock:
             yield
-        for help_index in range(po_count):
-            assert_juju_call(self, po_mock, client, (
-                juju_name, '--show-log', 'help', 'commands'),
-                call_index=help_index)
         self.assertEqual(po_count, po_mock.call_count)
         dal_mock.assert_called_once_with()
         if keep_env:
@@ -2140,11 +2137,7 @@ class TestBootContext(FakeHomeTestCase):
             'path', '--show-log', 'destroy-environment', 'bar', '-y'
             ), 1)
         self.assertEqual(2, call_mock.call_count)
-        assert_juju_call(self, po_mock, client, (
-            'path', '--show-log', 'help', 'commands'), 0)
-        assert_juju_call(self, po_mock, client, (
-            'path', '--show-log', 'help', 'commands'), 1)
-        self.assertEqual(2, po_mock.call_count)
+        self.assertEqual(0, po_mock.call_count)
 
     def test_jes(self):
         self.addContext(patch('subprocess.check_call', autospec=True))

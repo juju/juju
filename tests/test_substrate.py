@@ -15,6 +15,7 @@ from mock import (
     patch,
     )
 
+from fakejuju import fake_juju_client
 from jujuconfig import (
     get_euca_env,
     translate_to_env,
@@ -49,7 +50,6 @@ from substrate import (
     verify_libvirt_domain,
     )
 from tests import TestCase
-from tests.test_jujupy import fake_juju_client
 from tests.test_winazurearm import (
     fake_init_services,
     ResourceGroup,
