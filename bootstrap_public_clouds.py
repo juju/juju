@@ -59,6 +59,8 @@ def bootstrap_cloud(config, region):
 def iter_cloud_regions(public_clouds, credentials):
     configs = {
         'aws': 'default-aws',
+        # sinzui: We may lose this access. No one remaining at Canonical can
+        # access the account. There is talk of terminating it.
         'aws-china': 'default-aws-cn',
         'azure': 'default-azure',
         'google': 'default-gce',
