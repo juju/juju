@@ -831,6 +831,41 @@ var allRegionCosts = regionCosts{
 		"c4.4xlarge": 928,
 		"c4.8xlarge": 1856,
 	},
+	"us-east-2": { // Ohio
+		// General Purpose
+		"t2.micro":    13,
+		"t2.small":    26,
+		"t2.medium":   52,
+		"t2.large":    104,
+		"m4.large":    120,
+		"m4.xlarge":   239,
+		"m4.2xlarge":  479,
+		"m4.4xlarge":  958,
+		"m4.10xlarge": 2394,
+		"m4.16xlarge": 3830,
+
+		// Compute Optimized
+		"c4.large":   105,
+		"c4.xlarge":  209,
+		"c4.2xlarge": 419,
+		"c4.4xlarge": 838,
+		"c4.8xlarge": 1675,
+
+		// Memory Optimized
+		"x1.16xlarge": 6669,
+		"x1.32xlarge": 13338,
+		"r3.large":    166,
+		"r3.xlarge":   333,
+		"r3.2xlarge":  665,
+		"r3.4xlarge":  1330,
+		"r3.8xlarge":  2660,
+
+		// Storage Optimized
+		"i2.xlarge":  853,
+		"i2.2xlarge": 1705,
+		"i2.4xlarge": 3410,
+		"i2.8xlarge": 6820,
+	},
 	"us-west-1": { // Northern California.
 		"m1.small":  47,
 		"m1.medium": 95,
