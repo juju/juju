@@ -41,7 +41,6 @@ def perfscale_assess_model_destruction(client, args):
         model_name = 'model{}'.format(item)
         log.info('Creating model: {}'.format(model_name))
         new_model = client.add_model(client.env.clone(model_name))
-        new_model.wait_for_started()
         all_models.append(new_model)
 
     # Workaround for bug: https://bugs.launchpad.net/juju/+bug/1635052
