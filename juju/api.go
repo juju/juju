@@ -290,7 +290,7 @@ func PrepareEndpointsForCaching(
 func usableHostPorts(hps [][]network.HostPort) []network.HostPort {
 	collapsed := network.CollapseHostPorts(hps)
 	usable := network.FilterUnusableHostPorts(collapsed)
-	unique := network.DropDuplicatedHostPorts(usable)
+	unique := network.UniqueHostPorts(usable)
 	return unique
 }
 
