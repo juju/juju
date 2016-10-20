@@ -229,9 +229,9 @@ iface eth0 inet dhcp
 `
 
 func shutdownInitCommands(initSystem, series string) ([]string, error) {
-	// These files are removed just before the template shuts down.
+	// These files are moved just before the template shuts down.
 	cleanupOnShutdown := []string{
-		// We remove any dhclient lease files so there's no chance a
+		// We move any dhclient lease files so there's no chance a
 		// clone to reuse a lease from the template it was cloned
 		// from.
 		"/var/lib/dhcp/dhclient*",
@@ -242,7 +242,7 @@ func shutdownInitCommands(initSystem, series string) ([]string, error) {
 		"/var/log/cloud-init*.log",
 	}
 	paths := strings.Join(cleanupOnShutdown, " ")
-	removeCmd := fmt.Sprintf("/bin/rm -fr %s\n  ", paths)
+	moveCmd := fmt.Sprintf("/usr/bin/rename 's/$/.juju-template/' %s\n  ", paths)
 	shutdownCmd := "/sbin/shutdown -h now"
 	name := "juju-template-restart"
 	desc := "juju shutdown job"
@@ -262,10 +262,10 @@ func shutdownInitCommands(initSystem, series string) ([]string, error) {
 	if environs.AddressAllocationEnabled() {
 		// Only do the replacement of /e/n/i when address allocation
 		// feature flag is enabled.
-		execStart = replaceNetConfCmd + removeCmd + shutdownCmd
+		execStart = replaceNetConfCmd + moveCmd + shutdownCmd
 	} else {
 		// Release any DHCP-assigned IP addresses.
-		execStart = dhcpRelease + removeCmd + shutdownCmd
+		execStart = dhcpRelease + moveCmd + shutdownCmd
 	}
 
 	conf := common.Conf{

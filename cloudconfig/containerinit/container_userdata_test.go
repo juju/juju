@@ -175,7 +175,7 @@ iface lo inet loopback
 auto eth0
 iface eth0 inet dhcp
 EOC
-  /bin/rm -fr /var/lib/dhcp/dhclient* /var/log/cloud-init*.log
+  /usr/bin/rename 's/$/.juju-template/' /var/lib/dhcp/dhclient* /var/log/cloud-init*.log
   /sbin/shutdown -h now
 end script
 
@@ -200,7 +200,7 @@ start on stopped cloud-final
 script
   /sbin/dhclient -r $(/usr/bin/awk '/^iface.*dhcp$/ {print $2}' /etc/network/interfaces /etc/network/interfaces.d/*) &&
   /sbin/ifdown $(/usr/bin/awk '/^iface.*dhcp$/ {print $2}' /etc/network/interfaces /etc/network/interfaces.d/*)
-  /bin/rm -fr /var/lib/dhcp/dhclient* /var/log/cloud-init*.log
+  /usr/bin/rename 's/$/.juju-template/' /var/lib/dhcp/dhclient* /var/log/cloud-init*.log
   /sbin/shutdown -h now
 end script
 
@@ -245,7 +245,7 @@ iface lo inet loopback
 auto eth0
 iface eth0 inet dhcp
 EOC
-  /bin/rm -fr /var/lib/dhcp/dhclient* /var/log/cloud-init*.log
+  /usr/bin/rename 's/$/.juju-template/' /var/lib/dhcp/dhclient* /var/log/cloud-init*.log
   /sbin/shutdown -h now`[1:],
 	}
 	test.CheckInstallAndStartCommands(c, commands)
@@ -276,7 +276,7 @@ WantedBy=multi-user.target
 		Script: `
 /sbin/dhclient -r $(/usr/bin/awk '/^iface.*dhcp$/ {print $2}' /etc/network/interfaces /etc/network/interfaces.d/*) &&
   /sbin/ifdown $(/usr/bin/awk '/^iface.*dhcp$/ {print $2}' /etc/network/interfaces /etc/network/interfaces.d/*)
-  /bin/rm -fr /var/lib/dhcp/dhclient* /var/log/cloud-init*.log
+  /usr/bin/rename 's/$/.juju-template/' /var/lib/dhcp/dhclient* /var/log/cloud-init*.log
   /sbin/shutdown -h now`[1:],
 	}
 	test.CheckInstallAndStartCommands(c, commands)
