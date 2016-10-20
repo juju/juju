@@ -954,6 +954,9 @@ class EnvJujuClient:
 
     controller_permissions = frozenset(['login', 'addmodel', 'superuser'])
 
+    reserved_spaces = frozenset([
+        'endpoint-bindings-data', 'endpoint-bindings-public'])
+
     @classmethod
     def preferred_container(cls):
         for container_type in [LXD_MACHINE, LXC_MACHINE]:
@@ -1046,6 +1049,7 @@ class EnvJujuClient:
         feature_flags = self.feature_flags.intersection(cls.used_feature_flags)
         backend = self._backend.clone(full_path, version, debug, feature_flags)
         other = cls.from_backend(backend, env)
+        other.excluded_spaces = set(self.excluded_spaces)
         return other
 
     @classmethod
@@ -1122,6 +1126,7 @@ class EnvJujuClient:
                     env.juju_home = get_juju_home()
             else:
                 env.juju_home = juju_home
+        self.excluded_spaces = set(self.reserved_spaces)
 
     @property
     def version(self):
@@ -1155,6 +1160,12 @@ class EnvJujuClient:
         return self._backend.shell_environ(self.used_feature_flags,
                                            self.env.juju_home)
 
+    def use_reserved_spaces(self, spaces):
+        """Allow machines in given spaces to be allocated and used."""
+        if not self.reserved_spaces.issuperset(spaces):
+            raise ValueError('Space not reserved: {}'.format(spaces))
+        self.excluded_spaces.difference_update(spaces)
+
     def add_ssh_machines(self, machines):
         for count, machine in enumerate(machines):
             try:
@@ -1177,11 +1188,7 @@ class EnvJujuClient:
             credential=None, auto_upgrade=False, metadata_source=None,
             to=None, agent_version=None):
         """Return the bootstrap arguments for the substrate."""
-        if self.env.joyent:
-            # Only accept kvm packages by requiring >1 cpu core, see lp:1446264
-            constraints = 'mem=2G cpu-cores=1'
-        else:
-            constraints = 'mem=2G'
+        constraints = self._get_substrate_constraints()
         cloud_region = self.get_cloud_region(self.env.get_cloud(),
                                              self.env.get_region())
         # Note cloud_region before controller name
@@ -1534,6 +1541,10 @@ class EnvJujuClient:
         if self.env.joyent:
             # Only accept kvm packages by requiring >1 cpu core, see lp:1446264
             return 'mem=2G cpu-cores=1'
+        elif self.env.maas:
+            # For now only maas support spaces in a meaningful way.
+            return 'mem=2G spaces={}'.format( ','.join(
+                '^' + space for space in sorted(self.excluded_spaces)))
         else:
             return 'mem=2G'
 
@@ -2687,6 +2698,13 @@ class EnvJujuClient1X(EnvJujuClient2A1):
             return None
         else:
             return unqualified_model_name(self.model_name)
+
+    def _get_substrate_constraints(self):
+        if self.env.joyent:
+            # Only accept kvm packages by requiring >1 cpu core, see lp:1446264
+            return 'mem=2G cpu-cores=1'
+        else:
+            return 'mem=2G'
 
     def get_bootstrap_args(self, upload_tools, bootstrap_series=None,
                            credential=None):
