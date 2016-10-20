@@ -35,7 +35,10 @@ func (s *environInstanceSuite) machineName(c *gc.C, id string) string {
 }
 
 func (s *environInstanceSuite) TestInstances(c *gc.C) {
-	client := vsphere.ExposeEnvFakeClient(s.Env)
+	client, closer, err := vsphere.ExposeEnvFakeClient(s.Env)
+	c.Assert(err, jc.ErrorIsNil)
+	defer closer()
+	s.FakeClient = client
 	client.SetPropertyProxyHandler("FakeDatacenter", vsphere.RetrieveDatacenterProperties)
 	vmName1 := s.machineName(c, "1")
 	vmName2 := s.machineName(c, "2")
@@ -50,23 +53,29 @@ func (s *environInstanceSuite) TestInstances(c *gc.C) {
 }
 
 func (s *environInstanceSuite) TestInstancesReturnNoInstances(c *gc.C) {
-	client := vsphere.ExposeEnvFakeClient(s.Env)
+	client, closer, err := vsphere.ExposeEnvFakeClient(s.Env)
+	c.Assert(err, jc.ErrorIsNil)
+	defer closer()
+	s.FakeClient = client
 	client.SetPropertyProxyHandler("FakeDatacenter", vsphere.RetrieveDatacenterProperties)
 	s.FakeInstancesWithResourcePool(client, vsphere.InstRp{Inst: "Some name that don't match naming convention", Rp: "rp1"})
 
-	_, err := s.Env.Instances([]instance.Id{instance.Id("Some other name")})
+	_, err = s.Env.Instances([]instance.Id{instance.Id("Some other name")})
 
 	c.Assert(err, gc.Equals, environs.ErrNoInstances)
 }
 
 func (s *environInstanceSuite) TestInstancesReturnPartialInstances(c *gc.C) {
-	client := vsphere.ExposeEnvFakeClient(s.Env)
+	client, closer, err := vsphere.ExposeEnvFakeClient(s.Env)
+	c.Assert(err, jc.ErrorIsNil)
+	defer closer()
 	client.SetPropertyProxyHandler("FakeDatacenter", vsphere.RetrieveDatacenterProperties)
 	vmName1 := s.machineName(c, "1")
 	vmName2 := s.machineName(c, "2")
 	s.FakeInstancesWithResourcePool(client, vsphere.InstRp{Inst: vmName1, Rp: "rp1"}, vsphere.InstRp{Inst: "Some inst", Rp: "rp2"})
 
-	_, err := s.Env.Instances([]instance.Id{instance.Id(vmName1), instance.Id(vmName2)})
+	s.FakeClient = client
+	_, err = s.Env.Instances([]instance.Id{instance.Id(vmName1), instance.Id(vmName2)})
 
 	c.Assert(err, gc.Equals, environs.ErrPartialInstances)
 }

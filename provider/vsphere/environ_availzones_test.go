@@ -24,7 +24,10 @@ func (s *environAvailzonesSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *environAvailzonesSuite) TestAvailabilityZones(c *gc.C) {
-	client := vsphere.ExposeEnvFakeClient(s.Env)
+	client, closer, err := vsphere.ExposeEnvFakeClient(s.Env)
+	c.Assert(err, jc.ErrorIsNil)
+	defer closer()
+	s.FakeClient = client
 	s.FakeAvailabilityZones(client, "z1", "z2")
 	zones, err := s.Env.AvailabilityZones()
 
@@ -35,13 +38,17 @@ func (s *environAvailzonesSuite) TestAvailabilityZones(c *gc.C) {
 }
 
 func (s *environAvailzonesSuite) TestInstanceAvailabilityZoneNames(c *gc.C) {
-	client := vsphere.ExposeEnvFakeClient(s.Env)
+	client, closer, err := vsphere.ExposeEnvFakeClient(s.Env)
+	c.Assert(err, jc.ErrorIsNil)
+	defer closer()
+	s.FakeClient = client
 	client.SetPropertyProxyHandler("FakeDatacenter", vsphere.RetrieveDatacenterProperties)
 	namespace, err := instance.NewNamespace(s.Env.Config().UUID())
 	c.Assert(err, jc.ErrorIsNil)
 	vmName, err := namespace.Hostname("1")
 	c.Assert(err, jc.ErrorIsNil)
 	s.FakeInstancesWithResourcePool(client, vsphere.InstRp{Inst: vmName, Rp: "rp1"})
+	s.FakeClient.SetPropertyProxyHandler("FakeRootFolder", vsphere.RetrieveDatacenter)
 	s.FakeAvailabilityZonesWithResourcePool(client, vsphere.ZoneRp{Zone: "z1", Rp: "rp1"}, vsphere.ZoneRp{Zone: "z2", Rp: "rp2"})
 
 	zones, err := s.Env.InstanceAvailabilityZoneNames([]instance.Id{instance.Id(vmName)})
