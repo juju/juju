@@ -109,6 +109,14 @@ var allInstanceTypes = []instances.InstanceType{
 		Mem:      163840,
 		VirtType: &hvm,
 	},
+	{
+		Name:     "m4.16xlarge",
+		Arches:   amd64,
+		CpuCores: 64,
+		CpuPower: instances.CpuPower(18800),
+		Mem:      262144,
+		VirtType: &hvm,
+	},
 
 	{ // General purpose, 2nd generation.
 		Name:     "m3.medium",
@@ -217,6 +225,14 @@ var allInstanceTypes = []instances.InstanceType{
 		Mem:      15360,
 		VirtType: &hvm,
 	},
+	{
+		Name:     "g2.8xlarge",
+		Arches:   amd64,
+		CpuCores: 32,
+		CpuPower: instances.CpuPower(10400),
+		Mem:      61560,
+		VirtType: &hvm,
+	},
 
 	{ // Memory-optimized, 1st generation.
 		Name:     "m2.xlarge",
@@ -282,6 +298,22 @@ var allInstanceTypes = []instances.InstanceType{
 		CpuCores: 32,
 		CpuPower: instances.CpuPower(10400),
 		Mem:      249856,
+		VirtType: &hvm,
+	},
+
+	{ // Memory-optimized ? generation
+		Name:     "x1.16xlarge",
+		Arches:   amd64,
+		CpuCores: 64,
+		CpuPower: instances.CpuPower(17450),
+		Mem:      999424,
+		VirtType: &hvm,
+	}, {
+		Name:     "x1.32xlarge",
+		Arches:   amd64,
+		CpuCores: 128,
+		CpuPower: instances.CpuPower(34900),
+		Mem:      1998848,
 		VirtType: &hvm,
 	},
 
@@ -366,6 +398,14 @@ var allInstanceTypes = []instances.InstanceType{
 		Mem:      4096,
 		// Burstable baseline is 40% (from http://aws.amazon.com/ec2/faqs/#burst)
 		CpuPower: instances.CpuPower(40),
+		VirtType: &hvm,
+	}, {
+		Name:     "t2.large",
+		Arches:   amd64,
+		CpuCores: 2,
+		// Burstable caveats apply <http://aws.amazon.com/ec2/faqs/#burst>
+		CpuPower: instances.CpuPower(60),
+		Mem:      8192,
 		VirtType: &hvm,
 	},
 
@@ -505,6 +545,41 @@ var allRegionCosts = regionCosts{
 		//"d2.2xlarge": 1688,
 		//"d2.4xlarge": 3376,
 		//"d2.8xlarge": 6752,
+	},
+	"ap-south-1": { // Mumbai
+		// General Purpose
+		"t2.micro":    19,
+		"t2.small":    38,
+		"t2.medium":   76,
+		"t2.large":    152,
+		"m4.large":    169,
+		"m4.xlarge":   337,
+		"m4.2xlarge":  675,
+		"m4.4xlarge":  1350,
+		"m4.10xlarge": 3375,
+		"m4.16xlarge": 5400,
+
+		// Compute Optimized
+		"c4.large":   137,
+		"c4.xlarge":  275,
+		"c4.2xlarge": 549,
+		"c4.4xlarge": 1097,
+		"c4.8xlarge": 2195,
+
+		// Memory Optimized
+		"x1.16xlarge": 9187,
+		"x1.32xlarge": 18374,
+		"r3.large":    190,
+		"r3.xlarge":   379,
+		"r3.2xlarge":  758,
+		"r3.4xlarge":  1516,
+		"r3.8xlarge":  3032,
+
+		// Storage Optimized
+		"i2.xlarge":  967,
+		"i2.2xlarge": 1933,
+		"i2.4xlarge": 3867,
+		"i2.8xlarge": 7733,
 	},
 	"ap-southeast-1": { // Singapore.
 		"m1.small":  58,
@@ -755,6 +830,41 @@ var allRegionCosts = regionCosts{
 		"c4.2xlarge": 464,
 		"c4.4xlarge": 928,
 		"c4.8xlarge": 1856,
+	},
+	"us-east-2": { // Ohio
+		// General Purpose
+		"t2.micro":    13,
+		"t2.small":    26,
+		"t2.medium":   52,
+		"t2.large":    104,
+		"m4.large":    120,
+		"m4.xlarge":   239,
+		"m4.2xlarge":  479,
+		"m4.4xlarge":  958,
+		"m4.10xlarge": 2394,
+		"m4.16xlarge": 3830,
+
+		// Compute Optimized
+		"c4.large":   105,
+		"c4.xlarge":  209,
+		"c4.2xlarge": 419,
+		"c4.4xlarge": 838,
+		"c4.8xlarge": 1675,
+
+		// Memory Optimized
+		"x1.16xlarge": 6669,
+		"x1.32xlarge": 13338,
+		"r3.large":    166,
+		"r3.xlarge":   333,
+		"r3.2xlarge":  665,
+		"r3.4xlarge":  1330,
+		"r3.8xlarge":  2660,
+
+		// Storage Optimized
+		"i2.xlarge":  853,
+		"i2.2xlarge": 1705,
+		"i2.4xlarge": 3410,
+		"i2.8xlarge": 6820,
 	},
 	"us-west-1": { // Northern California.
 		"m1.small":  47,
