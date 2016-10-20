@@ -158,6 +158,13 @@ class JESByDefault(Exception):
             'This client does not need to enable JES')
 
 
+class VersionNotTestedError(Exception):
+
+    def __init__(self, version):
+        super(VersionNotTestedError, self).__init__(
+            'Tests for juju {} are no longer supported.'.format(version))
+
+
 Machine = namedtuple('Machine', ['machine_id', 'info'])
 
 
@@ -688,6 +695,8 @@ class Juju2Backend:
         flags = self.feature_flags.intersection(used_feature_flags)
         if flags:
             env[JUJU_DEV_FEATURE_FLAGS] = ','.join(sorted(flags))
+        else:
+            env[JUJU_DEV_FEATURE_FLAGS] = ''
         env['JUJU_DATA'] = juju_home
         return env
 
@@ -859,7 +868,7 @@ class Juju1XBackend(Juju2A2Backend):
 
 def get_client_class(version):
     if version.startswith('1.16'):
-        raise Exception('Unsupported juju: %s' % version)
+        raise VersionNotTestedError(version)
     elif re.match('^1\.22[.-]', version):
         client_class = EnvJujuClient22
     elif re.match('^1\.24[.-]', version):
@@ -867,7 +876,7 @@ def get_client_class(version):
     elif re.match('^1\.25[.-]', version):
         client_class = EnvJujuClient25
     elif re.match('^1\.26[.-]', version):
-        client_class = EnvJujuClient26
+        raise VersionNotTestedError(version)
     elif re.match('^1\.', version):
         client_class = EnvJujuClient1X
     # Ensure alpha/beta number matches precisely
@@ -2707,21 +2716,9 @@ class EnvJujuClient1X(EnvJujuClient2A1):
         return args
 
     def get_jes_command(self):
-        """Return the JES command to destroy a controller.
+        raise JESNotSupported()
 
-        Juju 2.x has 'kill-controller'.
-        Some intermediate versions had 'controller kill'.
-        Juju 1.25 has 'system kill' when the jes feature flag is set.
-
-        :raises: JESNotSupported when the version of Juju does not expose
-            a JES command.
-        :return: The JES command.
-        """
-        commands = self.get_juju_output('help', 'commands', include_e=False)
-        for line in commands.splitlines():
-            for cmd in _jes_cmds.keys():
-                if line.startswith(cmd):
-                    return cmd
+    def enable_jes(self):
         raise JESNotSupported()
 
     def upgrade_juju(self, force_version=True):
@@ -2866,55 +2863,22 @@ class EnvJujuClient22(EnvJujuClient1X):
         self.feature_flags.add('actions')
 
 
-class EnvJujuClient26(EnvJujuClient1X):
-    """Drives Juju 2.6-series clients."""
-
-    used_feature_flags = frozenset(['address-allocation', 'cloudsigma', 'jes'])
-
-    def __init__(self, *args, **kwargs):
-        super(EnvJujuClient26, self).__init__(*args, **kwargs)
-        if self.env is None or self.env.config is None:
-            return
-        if self.env.config.get('type') == 'cloudsigma':
-            self.feature_flags.add('cloudsigma')
-
-    def enable_jes(self):
-        """Enable JES if JES is optional.
-
-        :raises: JESByDefault when JES is always enabled; Juju has the
-            'destroy-controller' command.
-        :raises: JESNotSupported when JES is not supported; Juju does not have
-            the 'system kill' command when the JES feature flag is set.
-        """
-
-        if 'jes' in self.feature_flags:
-            return
-        if self.is_jes_enabled():
-            raise JESByDefault()
-        self.feature_flags.add('jes')
-        if not self.is_jes_enabled():
-            self.feature_flags.remove('jes')
-            raise JESNotSupported()
-
-    def disable_jes(self):
-        if 'jes' in self.feature_flags:
-            self.feature_flags.remove('jes')
-
-    def enable_container_address_allocation(self):
-        self.feature_flags.add('address-allocation')
-
-
-class EnvJujuClient25(EnvJujuClient26):
+class EnvJujuClient25(EnvJujuClient1X):
     """Drives Juju 2.5-series clients."""
 
-
-class EnvJujuClient24(EnvJujuClient25):
-    """Similar to EnvJujuClient25, but lacking JES support."""
-
-    used_feature_flags = frozenset(['cloudsigma'])
+    used_feature_flags = frozenset()
 
     def enable_jes(self):
         raise JESNotSupported()
+
+    def disable_jes(self):
+        self.feature_flags.discard('jes')
+
+
+class EnvJujuClient24(EnvJujuClient25):
+    """Similar to EnvJujuClient25."""
+
+    used_feature_flags = frozenset(['cloudsigma'])
 
     def add_ssh_machines(self, machines):
         for machine in machines:
