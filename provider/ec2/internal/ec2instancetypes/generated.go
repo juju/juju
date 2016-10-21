@@ -16,14 +16,27 @@ var (
 	both        = []string{arch.AMD64, arch.I386}
 )
 
-// Version: 20160901005907
-// Publication date: 2016-09-01 00:59:07 +0000 UTC
+// Version: 20161017231909
+// Publication date: 2016-10-17 23:19:09 +0000 UTC
 //
 // This pricing list is for informational purposes only. All prices are subject to the additional terms included in the pricing pages on http://aws.amazon.com. All Free Tier prices are also subject to the terms included at https://aws.amazon.com/free/
 
 var allInstanceTypes = map[string][]instances.InstanceType{
 
 	"ap-northeast-1": {
+
+		// SKU: 2JSMK4YRVSAHV4RW
+		// Instance family: General purpose
+		// Storage: EBS only
+		{
+			Name:     "m4.16xlarge",
+			Arches:   amd64,
+			CpuCores: 64,
+			CpuPower: instances.CpuPower(20608),
+			Mem:      262144,
+			VirtType: &hvm,
+			Cost:     5563,
+		},
 
 		// SKU: 4BJPFU3PAZJ4AKMM
 		// Instance family: General purpose
@@ -314,6 +327,19 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 			Mem:      30720,
 			VirtType: &hvm,
 			Cost:     1061,
+		},
+
+		// SKU: E5ZC2EJP47JC4Y2A
+		// Instance family: Memory optimized
+		// Storage: 1 x 1,920
+		{
+			Name:     "x1.16xlarge",
+			Arches:   amd64,
+			CpuCores: 64,
+			CpuPower: instances.CpuPower(20608),
+			Mem:      999424,
+			VirtType: &hvm,
+			Cost:     9671,
 		},
 
 		// SKU: E6F66FZ47YZNXAJ2
@@ -938,6 +964,19 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 			Cost:     3592,
 		},
 
+		// SKU: 9DY7H84NVAJTABAD
+		// Instance family: General purpose
+		// Storage: EBS only
+		{
+			Name:     "m4.16xlarge",
+			Arches:   amd64,
+			CpuCores: 64,
+			CpuPower: instances.CpuPower(20608),
+			Mem:      262144,
+			VirtType: &hvm,
+			Cost:     5285,
+		},
+
 		// SKU: 9XQJDHCZD834J68K
 		// Instance family: General purpose
 		// Storage: EBS only
@@ -1079,6 +1118,19 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 			Mem:      7680,
 			VirtType: &hvm,
 			Cost:     183,
+		},
+
+		// SKU: KF2B96YA25ZRC292
+		// Instance family: Memory optimized
+		// Storage: 1 x 1,920
+		{
+			Name:     "x1.16xlarge",
+			Arches:   amd64,
+			CpuCores: 64,
+			CpuPower: instances.CpuPower(20608),
+			Mem:      999424,
+			VirtType: &hvm,
+			Cost:     9671,
 		},
 
 		// SKU: KGFSNH7UYJEDWTQQ
@@ -1420,6 +1472,32 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 			Mem:      124928,
 			VirtType: &hvm,
 			Cost:     1516,
+		},
+
+		// SKU: D3KF5EAWRYNBCMNK
+		// Instance family: Memory optimized
+		// Storage: 1 x 1,920
+		{
+			Name:     "x1.16xlarge",
+			Arches:   amd64,
+			CpuCores: 64,
+			CpuPower: instances.CpuPower(20608),
+			Mem:      999424,
+			VirtType: &hvm,
+			Cost:     9187,
+		},
+
+		// SKU: DDTXDG7MMJKV72FM
+		// Instance family: General purpose
+		// Storage: EBS only
+		{
+			Name:     "m4.16xlarge",
+			Arches:   amd64,
+			CpuCores: 64,
+			CpuPower: instances.CpuPower(20608),
+			Mem:      262144,
+			VirtType: &hvm,
+			Cost:     5400,
 		},
 
 		// SKU: FQ7FVC9B3R8RBBXA
@@ -1766,6 +1844,19 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 			Mem:      124928,
 			VirtType: &hvm,
 			Cost:     4070,
+		},
+
+		// SKU: 8HKF2YYVVMBUQWDD
+		// Instance family: General purpose
+		// Storage: EBS only
+		{
+			Name:     "m4.16xlarge",
+			Arches:   amd64,
+			CpuCores: 64,
+			CpuPower: instances.CpuPower(20608),
+			Mem:      262144,
+			VirtType: &hvm,
+			Cost:     5685,
 		},
 
 		// SKU: 8V5MYBMPUD434579
@@ -2305,6 +2396,19 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 			VirtType: &hvm,
 			Cost:     98,
 		},
+
+		// SKU: ZB3PCMUQE9XQZAHW
+		// Instance family: Memory optimized
+		// Storage: 1 x 1,920
+		{
+			Name:     "x1.16xlarge",
+			Arches:   amd64,
+			CpuCores: 64,
+			CpuPower: instances.CpuPower(20608),
+			Mem:      999424,
+			VirtType: &hvm,
+			Cost:     9671,
+		},
 	},
 
 	"ap-southeast-2": {
@@ -2466,6 +2570,19 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 			Mem:      3840,
 			VirtType: &hvm,
 			Cost:     93,
+		},
+
+		// SKU: 78Z5UDBK335DDYN5
+		// Instance family: Memory optimized
+		// Storage: 1 x 1,920
+		{
+			Name:     "x1.16xlarge",
+			Arches:   amd64,
+			CpuCores: 64,
+			CpuPower: instances.CpuPower(20608),
+			Mem:      999424,
+			VirtType: &hvm,
+			Cost:     9671,
 		},
 
 		// SKU: 7NYHPHSMD45SYSNN
@@ -2809,6 +2926,19 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 			Cost:     200,
 		},
 
+		// SKU: NV37A29BHV49EC6J
+		// Instance family: General purpose
+		// Storage: EBS only
+		{
+			Name:     "m4.16xlarge",
+			Arches:   amd64,
+			CpuCores: 64,
+			CpuPower: instances.CpuPower(20608),
+			Mem:      262144,
+			VirtType: &hvm,
+			Cost:     5381,
+		},
+
 		// SKU: R8KMJWXSQ8BJC35M
 		// Instance family: Compute optimized
 		// Storage: 2 x 80 SSD
@@ -3141,6 +3271,19 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 			Cost:     158,
 		},
 
+		// SKU: 8MASRMZD7KUHQBJC
+		// Instance family: Memory optimized
+		// Storage: 1 x 1,920
+		{
+			Name:     "x1.16xlarge",
+			Arches:   amd64,
+			CpuCores: 64,
+			CpuPower: instances.CpuPower(20608),
+			Mem:      999424,
+			VirtType: &hvm,
+			Cost:     9337,
+		},
+
 		// SKU: ABFDCPB959KUGRH8
 		// Instance family: General purpose
 		// Storage: EBS only
@@ -3440,6 +3583,19 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 			Cost:     3088,
 		},
 
+		// SKU: QJ82YTRR8GFNUS8T
+		// Instance family: General purpose
+		// Storage: EBS only
+		{
+			Name:     "m4.16xlarge",
+			Arches:   amd64,
+			CpuCores: 64,
+			CpuPower: instances.CpuPower(20608),
+			Mem:      262144,
+			VirtType: &hvm,
+			Cost:     4560,
+		},
+
 		// SKU: SMTUMBHX6YKRBJQB
 		// Instance family: Storage optimized
 		// Storage: 8 x 800 SSD
@@ -3532,6 +3688,19 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 			Mem:      62464,
 			VirtType: &hvm,
 			Cost:     1470,
+		},
+
+		// SKU: 38KKRTQP385PX9HY
+		// Instance family: GPU instance
+		// Storage: EBS only
+		{
+			Name:     "p2.8xlarge",
+			Arches:   amd64,
+			CpuCores: 32,
+			CpuPower: instances.CpuPower(3200),
+			Mem:      499712,
+			VirtType: &hvm,
+			Cost:     7776,
 		},
 
 		// SKU: 3H8WR8FBAE4DWNRB
@@ -3783,6 +3952,19 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 			Cost:     3751,
 		},
 
+		// SKU: F3VADBY3Z6MMHKTQ
+		// Instance family: Memory optimized
+		// Storage: 1 x 1,920
+		{
+			Name:     "x1.16xlarge",
+			Arches:   amd64,
+			CpuCores: 64,
+			CpuPower: instances.CpuPower(20608),
+			Mem:      999424,
+			VirtType: &hvm,
+			Cost:     8003,
+		},
+
 		// SKU: FSS42UA3US5PWMV7
 		// Instance family: Memory optimized
 		// Storage: 2 x 120 SSD
@@ -3862,6 +4044,19 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 			Mem:      31232,
 			VirtType: &hvm,
 			Cost:     938,
+		},
+
+		// SKU: KPQDNX9YMUA29HRQ
+		// Instance family: GPU instance
+		// Storage: EBS only
+		{
+			Name:     "p2.xlarge",
+			Arches:   amd64,
+			CpuCores: 4,
+			CpuPower: instances.CpuPower(400),
+			Mem:      62464,
+			VirtType: &hvm,
+			Cost:     972,
 		},
 
 		// SKU: N6KDUVR23T758UUC
@@ -4023,6 +4218,19 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 			Cost:     120,
 		},
 
+		// SKU: RQP6UTWCTHK7X5XP
+		// Instance family: General purpose
+		// Storage: EBS only
+		{
+			Name:     "m4.16xlarge",
+			Arches:   amd64,
+			CpuCores: 64,
+			CpuPower: instances.CpuPower(20608),
+			Mem:      262144,
+			VirtType: &hvm,
+			Cost:     4226,
+		},
+
 		// SKU: SDFJSCXXJEFDV7P2
 		// Instance family: General purpose
 		// Storage: EBS only
@@ -4047,6 +4255,19 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 			Mem:      1024,
 			VirtType: &hvm,
 			Cost:     14,
+		},
+
+		// SKU: SZGY4A8U8CBJGHRV
+		// Instance family: GPU instance
+		// Storage: EBS only
+		{
+			Name:     "p2.16xlarge",
+			Arches:   amd64,
+			CpuCores: 64,
+			CpuPower: instances.CpuPower(6400),
+			Mem:      786432,
+			VirtType: &hvm,
+			Cost:     15552,
 		},
 
 		// SKU: T3ZC3B9VPS8PA59H
@@ -4252,6 +4473,19 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 			Cost:     26010,
 		},
 
+		// SKU: 38R4NKAE2QECWRDD
+		// Instance family: General purpose
+		// Storage: EBS only
+		{
+			Name:     "m4.2xlarge",
+			Arches:   amd64,
+			CpuCores: 8,
+			CpuPower: instances.CpuPower(2688),
+			Mem:      32768,
+			VirtType: &hvm,
+			Cost:     685,
+		},
+
 		// SKU: 3AW2EEGJZNBGCQTC
 		// Instance family: General purpose
 		// Storage: EBS only
@@ -4289,6 +4523,19 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 			Mem:      3840,
 			VirtType: &hvm,
 			Cost:     163,
+		},
+
+		// SKU: 5V3T67JXMGR4TH34
+		// Instance family: General purpose
+		// Storage: EBS only
+		{
+			Name:     "m4.large",
+			Arches:   amd64,
+			CpuCores: 2,
+			CpuPower: instances.CpuPower(672),
+			Mem:      8192,
+			VirtType: &hvm,
+			Cost:     171,
 		},
 
 		// SKU: 5YDAVRN5B6TSD9NF
@@ -4372,6 +4619,19 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 			Deprecated: true,
 		},
 
+		// SKU: 9C4Q3RMVKSYS988K
+		// Instance family: General purpose
+		// Storage: EBS only
+		{
+			Name:     "m4.xlarge",
+			Arches:   amd64,
+			CpuCores: 4,
+			CpuPower: instances.CpuPower(1344),
+			Mem:      16384,
+			VirtType: &hvm,
+			Cost:     343,
+		},
+
 		// SKU: ADMZJH7G4TK3XW72
 		// Instance family: General purpose
 		// Storage: 1 x 4 SSD
@@ -4451,6 +4711,32 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 			Cost:     1300,
 		},
 
+		// SKU: DYHZ6YTHR4RRH3TS
+		// Instance family: General purpose
+		// Storage: EBS only
+		{
+			Name:     "m4.16xlarge",
+			Arches:   amd64,
+			CpuCores: 64,
+			CpuPower: instances.CpuPower(20608),
+			Mem:      262144,
+			VirtType: &hvm,
+			Cost:     5480,
+		},
+
+		// SKU: EKJ89WCZYTF4ZNY8
+		// Instance family: General purpose
+		// Storage: EBS only
+		{
+			Name:     "m4.4xlarge",
+			Arches:   amd64,
+			CpuCores: 16,
+			CpuPower: instances.CpuPower(5376),
+			Mem:      65536,
+			VirtType: &hvm,
+			Cost:     1370,
+		},
+
 		// SKU: EY7JV9JX6H66P24B
 		// Instance family: Memory optimized
 		// Storage: 1 x 420
@@ -4463,6 +4749,19 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 			VirtType:   &paravirtual,
 			Cost:       323,
 			Deprecated: true,
+		},
+
+		// SKU: F3B7MENDPCX44NH3
+		// Instance family: Memory optimized
+		// Storage: 1 x 1,920
+		{
+			Name:     "x1.16xlarge",
+			Arches:   amd64,
+			CpuCores: 64,
+			CpuPower: instances.CpuPower(20608),
+			Mem:      999424,
+			VirtType: &hvm,
+			Cost:     13005,
 		},
 
 		// SKU: FDUDDQXMYRBXXPU6
@@ -4610,6 +4909,19 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 			Mem:      4096,
 			VirtType: &hvm,
 			Cost:     108,
+		},
+
+		// SKU: VZ7SHPDE4QVD6EJ6
+		// Instance family: General purpose
+		// Storage: EBS only
+		{
+			Name:     "m4.10xlarge",
+			Arches:   amd64,
+			CpuCores: 40,
+			CpuPower: instances.CpuPower(13440),
+			Mem:      163840,
+			VirtType: &hvm,
+			Cost:     3425,
 		},
 
 		// SKU: W6ARQS59M94CBPW2
@@ -4800,6 +5112,19 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 			Cost:     2660,
 		},
 
+		// SKU: 58HUPRT96M5H8VUW
+		// Instance family: GPU instance
+		// Storage: EBS only
+		{
+			Name:     "p2.xlarge",
+			Arches:   amd64,
+			CpuCores: 4,
+			CpuPower: instances.CpuPower(400),
+			Mem:      62464,
+			VirtType: &hvm,
+			Cost:     900,
+		},
+
 		// SKU: 5KHB4S5E8M74C6ES
 		// Instance family: Storage optimized
 		// Storage: 1 x 800 SSD
@@ -4982,6 +5307,19 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 			Mem:      62464,
 			VirtType: &hvm,
 			Cost:     665,
+		},
+
+		// SKU: ECM8RSBXMC7F4WAS
+		// Instance family: General purpose
+		// Storage: EBS only
+		{
+			Name:     "m4.16xlarge",
+			Arches:   amd64,
+			CpuCores: 64,
+			CpuPower: instances.CpuPower(20608),
+			Mem:      262144,
+			VirtType: &hvm,
+			Cost:     3830,
 		},
 
 		// SKU: EYGMRBWWFGSQBSBZ
@@ -5302,6 +5640,19 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 			Cost:     479,
 		},
 
+		// SKU: WAWEH2Q4B3BTK68V
+		// Instance family: GPU instance
+		// Storage: EBS only
+		{
+			Name:     "p2.8xlarge",
+			Arches:   amd64,
+			CpuCores: 32,
+			CpuPower: instances.CpuPower(3200),
+			Mem:      499712,
+			VirtType: &hvm,
+			Cost:     7200,
+		},
+
 		// SKU: X4RWGEB2DKQGCWC2
 		// Instance family: Compute optimized
 		// Storage: 1 x 350
@@ -5329,6 +5680,19 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 			Cost:     5520,
 		},
 
+		// SKU: XVDMNM2WMYBYVW3T
+		// Instance family: GPU instance
+		// Storage: EBS only
+		{
+			Name:     "p2.16xlarge",
+			Arches:   amd64,
+			CpuCores: 64,
+			CpuPower: instances.CpuPower(6400),
+			Mem:      786432,
+			VirtType: &hvm,
+			Cost:     14400,
+		},
+
 		// SKU: YGU2QZY8VPP94FSR
 		// Instance family: General purpose
 		// Storage: 1 x 32 SSD
@@ -5340,6 +5704,19 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 			Mem:      7680,
 			VirtType: &hvm,
 			Cost:     133,
+		},
+
+		// SKU: YNFV4A5QUAMVDGKX
+		// Instance family: Memory optimized
+		// Storage: 1 x 1,920
+		{
+			Name:     "x1.16xlarge",
+			Arches:   amd64,
+			CpuCores: 64,
+			CpuPower: instances.CpuPower(20608),
+			Mem:      999424,
+			VirtType: &hvm,
+			Cost:     6669,
 		},
 
 		// SKU: YUXKRQ5SQSHVKD58
@@ -5393,6 +5770,399 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 			Mem:      124928,
 			VirtType: &hvm,
 			Cost:     2760,
+		},
+	},
+
+	"us-east-2": {
+
+		// SKU: 2N2QH6UEJZ5GUPT8
+		// Instance family: General purpose
+		// Storage: EBS only
+		{
+			Name:     "t2.medium",
+			Arches:   both,
+			CpuCores: 2,
+			CpuPower: instances.CpuPower(40),
+			Mem:      4096,
+			VirtType: &hvm,
+			Cost:     52,
+		},
+
+		// SKU: 34ZEJZENQ3WGN6MA
+		// Instance family: Memory optimized
+		// Storage: 1 x 32 SSD
+		{
+			Name:     "r3.large",
+			Arches:   amd64,
+			CpuCores: 2,
+			CpuPower: instances.CpuPower(700),
+			Mem:      15616,
+			VirtType: &hvm,
+			Cost:     166,
+		},
+
+		// SKU: 3VWERDY4UHEZUS9F
+		// Instance family: Memory optimized
+		// Storage: 2 x 320 SSD
+		{
+			Name:     "r3.8xlarge",
+			Arches:   amd64,
+			CpuCores: 32,
+			CpuPower: instances.CpuPower(11200),
+			Mem:      249856,
+			VirtType: &hvm,
+			Cost:     2660,
+		},
+
+		// SKU: 65YDGPXVA9GTBYCA
+		// Instance family: Storage optimized
+		// Storage: 3 x 2000 HDD
+		{
+			Name:     "d2.xlarge",
+			Arches:   amd64,
+			CpuCores: 4,
+			CpuPower: instances.CpuPower(1344),
+			Mem:      31232,
+			VirtType: &hvm,
+			Cost:     690,
+		},
+
+		// SKU: 9DMUVQNHGNHC7R92
+		// Instance family: Memory optimized
+		// Storage: 1 x 80 SSD
+		{
+			Name:     "r3.xlarge",
+			Arches:   amd64,
+			CpuCores: 4,
+			CpuPower: instances.CpuPower(1400),
+			Mem:      31232,
+			VirtType: &hvm,
+			Cost:     333,
+		},
+
+		// SKU: 9F7GGKJQGM6J387N
+		// Instance family: Compute optimized
+		// Storage: EBS only
+		{
+			Name:     "c4.large",
+			Arches:   amd64,
+			CpuCores: 2,
+			CpuPower: instances.CpuPower(811),
+			Mem:      3840,
+			VirtType: &hvm,
+			Cost:     105,
+		},
+
+		// SKU: 9MXQF8NSPZESJJUW
+		// Instance family: Memory optimized
+		// Storage: 1 x 1,920
+		{
+			Name:     "x1.16xlarge",
+			Arches:   amd64,
+			CpuCores: 64,
+			CpuPower: instances.CpuPower(20608),
+			Mem:      999424,
+			VirtType: &hvm,
+			Cost:     6669,
+		},
+
+		// SKU: AW2T9CUGJYGQKTY8
+		// Instance family: Storage optimized
+		// Storage: 4 x 800 SSD
+		{
+			Name:     "i2.4xlarge",
+			Arches:   amd64,
+			CpuCores: 16,
+			CpuPower: instances.CpuPower(5600),
+			Mem:      124928,
+			VirtType: &hvm,
+			Cost:     3410,
+		},
+
+		// SKU: B7KJQVXZZNDAS23N
+		// Instance family: General purpose
+		// Storage: EBS only
+		{
+			Name:     "t2.large",
+			Arches:   amd64,
+			CpuCores: 2,
+			CpuPower: instances.CpuPower(60),
+			Mem:      8192,
+			VirtType: &hvm,
+			Cost:     104,
+		},
+
+		// SKU: C2XHT7MUVASJ7UQ3
+		// Instance family: General purpose
+		// Storage: EBS only
+		{
+			Name:     "m4.10xlarge",
+			Arches:   amd64,
+			CpuCores: 40,
+			CpuPower: instances.CpuPower(13440),
+			Mem:      163840,
+			VirtType: &hvm,
+			Cost:     2394,
+		},
+
+		// SKU: DJPGFVCZAKBSEZ3N
+		// Instance family: Storage optimized
+		// Storage: 24 x 2000 HDD
+		{
+			Name:     "d2.8xlarge",
+			Arches:   amd64,
+			CpuCores: 36,
+			CpuPower: instances.CpuPower(12096),
+			Mem:      249856,
+			VirtType: &hvm,
+			Cost:     5520,
+		},
+
+		// SKU: DWQDRJ9AWUJ8BZKH
+		// Instance family: Memory optimized
+		// Storage: 2 x 1,920
+		{
+			Name:     "x1.32xlarge",
+			Arches:   amd64,
+			CpuCores: 128,
+			CpuPower: instances.CpuPower(41216),
+			Mem:      1998848,
+			VirtType: &hvm,
+			Cost:     13338,
+		},
+
+		// SKU: F9GPUA3E29X6GJVE
+		// Instance family: General purpose
+		// Storage: EBS only
+		{
+			Name:     "t2.micro",
+			Arches:   both,
+			CpuCores: 1,
+			CpuPower: instances.CpuPower(10),
+			Mem:      1024,
+			VirtType: &hvm,
+			Cost:     13,
+		},
+
+		// SKU: GSMN37GEEUV2CC27
+		// Instance family: General purpose
+		// Storage: EBS only
+		{
+			Name:     "m4.4xlarge",
+			Arches:   amd64,
+			CpuCores: 16,
+			CpuPower: instances.CpuPower(5376),
+			Mem:      65536,
+			VirtType: &hvm,
+			Cost:     958,
+		},
+
+		// SKU: GWP38ESW2CNEVPUS
+		// Instance family: Storage optimized
+		// Storage: 8 x 800 SSD
+		{
+			Name:     "i2.8xlarge",
+			Arches:   amd64,
+			CpuCores: 32,
+			CpuPower: instances.CpuPower(11200),
+			Mem:      249856,
+			VirtType: &hvm,
+			Cost:     6820,
+		},
+
+		// SKU: GZSHSGVERG8544YU
+		// Instance family: General purpose
+		// Storage: EBS only
+		{
+			Name:     "m4.xlarge",
+			Arches:   amd64,
+			CpuCores: 4,
+			CpuPower: instances.CpuPower(1344),
+			Mem:      16384,
+			VirtType: &hvm,
+			Cost:     239,
+		},
+
+		// SKU: JNBD8ZZ5JSFMNNYR
+		// Instance family: General purpose
+		// Storage: EBS only
+		{
+			Name:     "t2.nano",
+			Arches:   both,
+			CpuCores: 1,
+			CpuPower: instances.CpuPower(5),
+			Mem:      512,
+			VirtType: &hvm,
+			Cost:     6,
+		},
+
+		// SKU: JVT8Z9JR8H2KTMEY
+		// Instance family: Compute optimized
+		// Storage: EBS only
+		{
+			Name:     "c4.8xlarge",
+			Arches:   amd64,
+			CpuCores: 36,
+			CpuPower: instances.CpuPower(14615),
+			Mem:      61440,
+			VirtType: &hvm,
+			Cost:     1675,
+		},
+
+		// SKU: M6S6AKBD4WYEHANV
+		// Instance family: Memory optimized
+		// Storage: 1 x 320 SSD
+		{
+			Name:     "r3.4xlarge",
+			Arches:   amd64,
+			CpuCores: 16,
+			CpuPower: instances.CpuPower(5600),
+			Mem:      124928,
+			VirtType: &hvm,
+			Cost:     1330,
+		},
+
+		// SKU: MD5WDRNPRHM2XAGC
+		// Instance family: Compute optimized
+		// Storage: EBS only
+		{
+			Name:     "c4.2xlarge",
+			Arches:   amd64,
+			CpuCores: 8,
+			CpuPower: instances.CpuPower(3247),
+			Mem:      15360,
+			VirtType: &hvm,
+			Cost:     419,
+		},
+
+		// SKU: P3R3B44DZXKTKMYR
+		// Instance family: Storage optimized
+		// Storage: 2 x 800 SSD
+		{
+			Name:     "i2.2xlarge",
+			Arches:   amd64,
+			CpuCores: 8,
+			CpuPower: instances.CpuPower(2800),
+			Mem:      62464,
+			VirtType: &hvm,
+			Cost:     1705,
+		},
+
+		// SKU: PBMCNRQPJ8XA43PT
+		// Instance family: Storage optimized
+		// Storage: 6 x 2000 HDD
+		{
+			Name:     "d2.2xlarge",
+			Arches:   amd64,
+			CpuCores: 8,
+			CpuPower: instances.CpuPower(2688),
+			Mem:      62464,
+			VirtType: &hvm,
+			Cost:     1380,
+		},
+
+		// SKU: PSAR6KAESEV4S8JY
+		// Instance family: Storage optimized
+		// Storage: 12 x 2000 HDD
+		{
+			Name:     "d2.4xlarge",
+			Arches:   amd64,
+			CpuCores: 16,
+			CpuPower: instances.CpuPower(5376),
+			Mem:      124928,
+			VirtType: &hvm,
+			Cost:     2760,
+		},
+
+		// SKU: Q236HUQXMUFFR9AN
+		// Instance family: General purpose
+		// Storage: EBS only
+		{
+			Name:     "m4.large",
+			Arches:   amd64,
+			CpuCores: 2,
+			CpuPower: instances.CpuPower(672),
+			Mem:      8192,
+			VirtType: &hvm,
+			Cost:     120,
+		},
+
+		// SKU: R99FC88U7735H9RR
+		// Instance family: Compute optimized
+		// Storage: EBS only
+		{
+			Name:     "c4.xlarge",
+			Arches:   amd64,
+			CpuCores: 4,
+			CpuPower: instances.CpuPower(1623),
+			Mem:      7680,
+			VirtType: &hvm,
+			Cost:     209,
+		},
+
+		// SKU: RGU9HRNUAS2TX83W
+		// Instance family: Compute optimized
+		// Storage: EBS only
+		{
+			Name:     "c4.4xlarge",
+			Arches:   amd64,
+			CpuCores: 16,
+			CpuPower: instances.CpuPower(6495),
+			Mem:      30720,
+			VirtType: &hvm,
+			Cost:     838,
+		},
+
+		// SKU: RHW8EAZNVJA4KSWC
+		// Instance family: General purpose
+		// Storage: EBS only
+		{
+			Name:     "m4.2xlarge",
+			Arches:   amd64,
+			CpuCores: 8,
+			CpuPower: instances.CpuPower(2688),
+			Mem:      32768,
+			VirtType: &hvm,
+			Cost:     479,
+		},
+
+		// SKU: URPTCUXU96S8XJUV
+		// Instance family: Memory optimized
+		// Storage: 1 x 160 SSD
+		{
+			Name:     "r3.2xlarge",
+			Arches:   amd64,
+			CpuCores: 8,
+			CpuPower: instances.CpuPower(2800),
+			Mem:      62464,
+			VirtType: &hvm,
+			Cost:     665,
+		},
+
+		// SKU: Y9Z92WYATPYKXSM2
+		// Instance family: Storage optimized
+		// Storage: 1 x 800 SSD
+		{
+			Name:     "i2.xlarge",
+			Arches:   amd64,
+			CpuCores: 4,
+			CpuPower: instances.CpuPower(1400),
+			Mem:      31232,
+			VirtType: &hvm,
+			Cost:     853,
+		},
+
+		// SKU: ZZNXUPSQ9BSA2M88
+		// Instance family: General purpose
+		// Storage: EBS only
+		{
+			Name:     "t2.small",
+			Arches:   both,
+			CpuCores: 1,
+			CpuPower: instances.CpuPower(20),
+			Mem:      2048,
+			VirtType: &hvm,
+			Cost:     26,
 		},
 	},
 
@@ -5516,6 +6286,19 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 			Mem:      61440,
 			VirtType: &hvm,
 			Cost:     2016,
+		},
+
+		// SKU: 8GK9ASUZPC2EWUZ4
+		// Instance family: General purpose
+		// Storage: EBS only
+		{
+			Name:     "m4.large",
+			Arches:   amd64,
+			CpuCores: 2,
+			CpuPower: instances.CpuPower(672),
+			Mem:      8192,
+			VirtType: &hvm,
+			Cost:     151,
 		},
 
 		// SKU: 98882H5A8BVY29GC
@@ -5692,6 +6475,32 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 			Cost:     24,
 		},
 
+		// SKU: HVTS332KRPZUNRU4
+		// Instance family: General purpose
+		// Storage: EBS only
+		{
+			Name:     "m4.16xlarge",
+			Arches:   amd64,
+			CpuCores: 64,
+			CpuPower: instances.CpuPower(20608),
+			Mem:      262144,
+			VirtType: &hvm,
+			Cost:     4840,
+		},
+
+		// SKU: J9DSB6BXY5KQK7F9
+		// Instance family: General purpose
+		// Storage: EBS only
+		{
+			Name:     "m4.2xlarge",
+			Arches:   amd64,
+			CpuCores: 8,
+			CpuPower: instances.CpuPower(2688),
+			Mem:      32768,
+			VirtType: &hvm,
+			Cost:     605,
+		},
+
 		// SKU: K5CWXN5HSW7SME2R
 		// Instance family: Memory optimized
 		// Storage: 1 x 160 SSD
@@ -5718,6 +6527,19 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 			Cost:     4091,
 		},
 
+		// SKU: MCV6F96BD976FX6F
+		// Instance family: General purpose
+		// Storage: EBS only
+		{
+			Name:     "m4.4xlarge",
+			Arches:   amd64,
+			CpuCores: 16,
+			CpuPower: instances.CpuPower(5376),
+			Mem:      65536,
+			VirtType: &hvm,
+			Cost:     1210,
+		},
+
 		// SKU: N5HCW4AX6C3QWS7P
 		// Instance family: General purpose
 		// Storage: EBS only
@@ -5742,6 +6564,32 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 			Mem:      15616,
 			VirtType: &hvm,
 			Cost:     200,
+		},
+
+		// SKU: PB9ZD3B8VHMC8YD9
+		// Instance family: General purpose
+		// Storage: EBS only
+		{
+			Name:     "m4.10xlarge",
+			Arches:   amd64,
+			CpuCores: 40,
+			CpuPower: instances.CpuPower(13440),
+			Mem:      163840,
+			VirtType: &hvm,
+			Cost:     3025,
+		},
+
+		// SKU: PKQU74FNEQGYH8AN
+		// Instance family: Memory optimized
+		// Storage: 1 x 1,920
+		{
+			Name:     "x1.16xlarge",
+			Arches:   amd64,
+			CpuCores: 64,
+			CpuPower: instances.CpuPower(20608),
+			Mem:      999424,
+			VirtType: &hvm,
+			Cost:     8003,
 		},
 
 		// SKU: Q864N6CVS6UKQ3WZ
@@ -5887,6 +6735,19 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 			Mem:      249856,
 			VirtType: &hvm,
 			Cost:     3192,
+		},
+
+		// SKU: WVKVYKA9HGPSEYHF
+		// Instance family: General purpose
+		// Storage: EBS only
+		{
+			Name:     "m4.xlarge",
+			Arches:   amd64,
+			CpuCores: 4,
+			CpuPower: instances.CpuPower(1344),
+			Mem:      16384,
+			VirtType: &hvm,
+			Cost:     303,
 		},
 
 		// SKU: XBS8PBKJMH9G6SDB
@@ -6365,6 +7226,19 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 			Cost:     262,
 		},
 
+		// SKU: N63KE7N2NCMCYWXC
+		// Instance family: Memory optimized
+		// Storage: 1 x 1,920
+		{
+			Name:     "x1.16xlarge",
+			Arches:   amd64,
+			CpuCores: 64,
+			CpuPower: instances.CpuPower(20608),
+			Mem:      999424,
+			VirtType: &hvm,
+			Cost:     8670,
+		},
+
 		// SKU: P5VFWENV9YDAQVFH
 		// Instance family: General purpose
 		// Storage: 1 x 160
@@ -6481,6 +7355,19 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 			Mem:      31232,
 			VirtType: &hvm,
 			Cost:     781,
+		},
+
+		// SKU: VQ4GF8ZANSG56N6Z
+		// Instance family: General purpose
+		// Storage: EBS only
+		{
+			Name:     "m4.16xlarge",
+			Arches:   amd64,
+			CpuCores: 64,
+			CpuPower: instances.CpuPower(20608),
+			Mem:      262144,
+			VirtType: &hvm,
+			Cost:     4469,
 		},
 
 		// SKU: VZ7V29X35F98VENC
@@ -7164,6 +8051,19 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 			Deprecated: true,
 		},
 
+		// SKU: PWCUVRQBX67NDRMJ
+		// Instance family: GPU instance
+		// Storage: EBS only
+		{
+			Name:     "p2.8xlarge",
+			Arches:   amd64,
+			CpuCores: 32,
+			CpuPower: instances.CpuPower(3200),
+			Mem:      499712,
+			VirtType: &hvm,
+			Cost:     7200,
+		},
+
 		// SKU: PWGQ6MKD7A6EHVXN
 		// Instance family: Memory optimized
 		// Storage: 2 x 120 SSD
@@ -7203,6 +8103,19 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 			VirtType:   &paravirtual,
 			Cost:       980,
 			Deprecated: true,
+		},
+
+		// SKU: TKYAD5H42TYVUTMG
+		// Instance family: General purpose
+		// Storage: EBS only
+		{
+			Name:     "m4.16xlarge",
+			Arches:   amd64,
+			CpuCores: 64,
+			CpuPower: instances.CpuPower(20608),
+			Mem:      262144,
+			VirtType: &hvm,
+			Cost:     3830,
 		},
 
 		// SKU: UNB4R4KS4XXHQFD2
@@ -7296,6 +8209,19 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 			Cost:     419,
 		},
 
+		// SKU: YKQ7DN6CCEDVB8Q2
+		// Instance family: GPU instance
+		// Storage: EBS only
+		{
+			Name:     "p2.xlarge",
+			Arches:   amd64,
+			CpuCores: 4,
+			CpuPower: instances.CpuPower(400),
+			Mem:      62464,
+			VirtType: &hvm,
+			Cost:     900,
+		},
+
 		// SKU: YMWQW8W92QHE628D
 		// Instance family: Storage optimized
 		// Storage: 3 x 2000 HDD
@@ -7307,6 +8233,32 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 			Mem:      31232,
 			VirtType: &hvm,
 			Cost:     690,
+		},
+
+		// SKU: YT7P3Q75RMN2RX4J
+		// Instance family: GPU instance
+		// Storage: EBS only
+		{
+			Name:     "p2.16xlarge",
+			Arches:   amd64,
+			CpuCores: 64,
+			CpuPower: instances.CpuPower(6400),
+			Mem:      786432,
+			VirtType: &hvm,
+			Cost:     14400,
+		},
+
+		// SKU: YZN6FRZW8JHKE3HV
+		// Instance family: Memory optimized
+		// Storage: 1 x 1,920
+		{
+			Name:     "x1.16xlarge",
+			Arches:   amd64,
+			CpuCores: 64,
+			CpuPower: instances.CpuPower(20608),
+			Mem:      999424,
+			VirtType: &hvm,
+			Cost:     6669,
 		},
 
 		// SKU: ZKYE77DHMC32Y9BK
