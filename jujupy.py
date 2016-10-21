@@ -881,7 +881,7 @@ def get_client_class(version):
         client_class = EnvJujuClient1X
     # Ensure alpha/beta number matches precisely
     elif re.match('^2\.0-alpha1([^\d]|$)', version):
-        client_class = EnvJujuClient2A1
+        raise VersionNotTestedError(version)
     elif re.match('^2\.0-alpha2([^\d]|$)', version):
         client_class = EnvJujuClient2A2
     elif re.match('^2\.0-(alpha3|beta[12])([^\d]|$)', version):
@@ -2521,8 +2521,18 @@ class EnvJujuClient2A2(EnvJujuClient2B2):
         return self.juju('deploy', tuple(args))
 
 
-class EnvJujuClient2A1(EnvJujuClient2A2):
-    """Drives Juju 2.0-alpha1 clients."""
+class EnvJujuClient1X(EnvJujuClient2A2):
+    """Base for all 1.x client drivers."""
+
+    # The environments.yaml options that are replaced by bootstrap options.
+    # For Juju 1.x, no bootstrap options are used.
+    bootstrap_replaces = frozenset()
+
+    destroy_model_command = 'destroy-environment'
+
+    supported_container_types = frozenset([KVM_MACHINE, LXC_MACHINE])
+
+    agent_metadata_url = 'tools-metadata-url'
 
     _show_status = 'status'
 
@@ -2585,12 +2595,6 @@ class EnvJujuClient2A1(EnvJujuClient2A2):
     def get_models(self):
         """return a models dict with a 'models': [] key-value pair."""
         return {}
-
-    def _get_models(self):
-        """return a list of model dicts."""
-        # In 2.0-alpha1, 'list-models' produced a yaml list rather than a
-        # dict, but the command and parsing are the same.
-        return super(EnvJujuClient2A1, self).get_models()
 
     def list_controllers(self):
         """List the controllers."""
@@ -2673,20 +2677,6 @@ class EnvJujuClient2A1(EnvJujuClient2A2):
         """Set the value of the option in the environment."""
         option_value = "%s=%s" % (option, value)
         return self.juju('set-env', (option_value,))
-
-
-class EnvJujuClient1X(EnvJujuClient2A1):
-    """Base for all 1.x client drivers."""
-
-    # The environments.yaml options that are replaced by bootstrap options.
-    # For Juju 1.x, no bootstrap options are used.
-    bootstrap_replaces = frozenset()
-
-    destroy_model_command = 'destroy-environment'
-
-    supported_container_types = frozenset([KVM_MACHINE, LXC_MACHINE])
-
-    agent_metadata_url = 'tools-metadata-url'
 
     def _cmd_model(self, include_e, controller):
         if controller:
