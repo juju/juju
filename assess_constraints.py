@@ -8,8 +8,6 @@ import os
 import sys
 import re
 
-import yaml
-
 from deploy_stack import (
     BootstrapManager,
     )
@@ -70,6 +68,15 @@ class Constraints:
                  constraints_list if value is not None]
         return ' '.join(parts)
 
+    def _get_constraint_pairs(self):
+        """Get a list of (constraint-name, constraint-value) pairs."""
+        return [('mem', self.mem), ('cores', self.cores),
+                ('virt-type', self.virt_type),
+                ('instance-type', self.instance_type),
+                ('root-disk', self.root_disk), ('cpu-power', self.cpu_power),
+                ('arch', self.arch),
+                ]
+
     def __init__(self, mem=None, cores=None, virt_type=None,
                  instance_type=None, root_disk=None, cpu_power=None,
                  arch=None):
@@ -82,15 +89,16 @@ class Constraints:
         self.cpu_power = cpu_power
         self.arch = arch
 
+    def __repr__(self):
+        """Get a detailed string reperentation of the object."""
+        pairs = self._get_constraint_pairs()
+        parts = ['{}={!r}'.format(name.replace('-', '_'), value)
+                 for (name, value) in pairs if value is not None]
+        return 'Constraints({})'.format(', '.join(parts))
+
     def __str__(self):
         """Convert the instance constraint values into an argument string."""
-        return Constraints._list_to_str(
-            [('mem', self.mem), ('cores', self.cores),
-             ('virt-type', self.virt_type),
-             ('instance-type', self.instance_type),
-             ('root-disk', self.root_disk), ('cpu-power', self.cpu_power),
-             ('arch', self.arch),
-             ])
+        return Constraints._list_to_str(self._get_constraint_pairs())
 
     def __eq__(self, other):
         return (self.mem == other.mem and self.cores == other.cores and
@@ -105,18 +113,24 @@ class Constraints:
     def _meets_string(constraint, actual):
         if constraint is None:
             return True
+        if actual is None:
+            return False
         return constraint == actual
 
     @staticmethod
     def _meets_min_int(constraint, actual):
         if constraint is None:
             return True
+        if actual is None:
+            return False
         return int(constraint) <= int(actual)
 
     @staticmethod
     def _meets_min_mem(constraint, actual):
         if constraint is None:
             return True
+        if actual is None:
+            return False
         return mem_to_int(constraint) <= mem_to_int(actual)
 
     def meets_root_disk(self, actual_root_disk):
@@ -140,6 +154,8 @@ class Constraints:
 
         Currently there is no direct way to check for it, so we 'fingerprint'
         each instance_type in a dictionary."""
+        if self.instance_type is None:
+            return True
         instance_data = get_instance_spec(self.instance_type)
         for (key, value) in instance_data.iteritems():
             # Temperary fix until cpu-cores -> cores switch is finished.
@@ -154,6 +170,13 @@ class Constraints:
                 return False
         else:
             return True
+
+    def meets_all(self, actual_data):
+        return (self.meets_root_disk(actual_data.get('root-disk')) and
+                self.meets_cores(actual_data.get('cores')) and
+                self.meets_cpu_power(actual_data.get('cpu-power')) and
+                self.meets_arch(actual_data.get('arch')) and
+                self.meets_instance_type(actual_data))
 
 
 def deploy_constraint(client, constraints, charm, series, charm_repo):
@@ -180,14 +203,10 @@ def deploy_charm_constraint(client, constraints, charm_name, charm_series,
                       charm_series, charm_dir)
 
 
-def juju_show_machine_hardware(client, machine):
-    """Uses juju show-machine and returns information about the hardware."""
-    raw = client.get_juju_output('show-machine', machine, '--format', 'yaml')
-    raw_yaml = yaml.load(raw)
-    try:
-        hardware = raw_yaml['machines'][machine]['hardware']
-    except KeyError as error:
-        raise KeyError(error.args, raw_yaml)
+def machine_hardware(client, machine):
+    """Get hardware data about the given machine."""
+    machine_data = client.show_machine(machine)
+    hardware = machine_data['machines'][machine]['hardware']
     data = {}
     for kvp in hardware.split(' '):
         (key, value) = kvp.split('=')
@@ -197,16 +216,17 @@ def juju_show_machine_hardware(client, machine):
 
 def application_machines(client, application):
     """Get all the machines used to host the given application."""
-    raw = client.get_juju_output('status', '--format', 'yaml')
-    raw_yaml = yaml.load(raw)
-    try:
-        app_data = raw_yaml['applications'][application]
-        machines = []
-        for (unit, unit_data) in app_data['units'].items():
-            machines.append(unit_data['machine'])
-        return machines
-    except KeyError as error:
-        raise KeyError(error.args, raw_yaml)
+    status = client.get_status()
+    app_data = status.get_applications()[application]
+    machines = [unit_data['machine'] for unit_data in
+                app_data['units'].itervalues()]
+    return machines
+
+
+def application_hardware(client, application):
+    """Get hardware data about a machine for an application."""
+    machines = application_machines(client, application)
+    return machine_hardware(client, machines[0])
 
 
 def prepare_constraint_test(client, constraints, charm_name,
@@ -216,8 +236,7 @@ def prepare_constraint_test(client, constraints, charm_name,
         deploy_charm_constraint(client, constraints, charm_name,
                                 charm_series, charm_dir)
         client.wait_for_started()
-        machines = application_machines(client, charm_name)
-        return juju_show_machine_hardware(client, machines[0])
+        return application_hardware(client, charm_name)
 
 
 def assess_virt_type(client, virt_type):
@@ -255,15 +274,25 @@ def get_failure_exception(client, constraints):
     return JujuAssertionError(message)
 
 
+def assess_constraints_deploy(client, constraints, charm_name):
+    """Check a single set of constraints on deploy.
+
+    :param client: Client to deploy the charm to.
+    :param constraints: Constraints used and checked against.
+    :param charm_name: Name of the charm to try deploying.
+    :raises JujuAssertionError if test fails."""
+    data = prepare_constraint_test(client, constraints, charm_name)
+    if not constraints.meets_all(data):
+        raise get_failure_exception(client, constraints)
+
+
 def assess_instance_type(client, provider, instance_type):
     """Assess the instance-type option for constraints"""
     if instance_type not in INSTANCE_TYPES[provider]:
         raise JujuAssertionError(instance_type)
     constraints = Constraints(instance_type=instance_type)
     charm_name = 'instance-type-{}'.format(instance_type.replace('.', '-'))
-    data = prepare_constraint_test(client, constraints, charm_name)
-    if not constraints.meets_instance_type(data):
-        raise get_failure_exception(client, constraints)
+    assess_constraints_deploy(client, constraints, charm_name)
 
 
 def assess_instance_type_constraints(client, provider=None):
@@ -281,9 +310,7 @@ def assess_root_disk_constraints(client, values):
     for root_disk in values:
         constraints = Constraints(root_disk=root_disk)
         charm_name = 'root-disk-{}'.format(root_disk.lower())
-        data = prepare_constraint_test(client, constraints, charm_name)
-        if not constraints.meets_root_disk(data['root-disk']):
-            raise get_failure_exception(client, constraints)
+        assess_constraints_deploy(client, constraints, charm_name)
 
 
 def assess_cores_constraints(client, values):
@@ -291,9 +318,7 @@ def assess_cores_constraints(client, values):
     for cores in values:
         constraints = Constraints(cores=cores)
         charm_name = 'cores-{}c'.format(cores)
-        data = prepare_constraint_test(client, constraints, charm_name)
-        if not constraints.meets_cores(data['cores']):
-            raise get_failure_exception(client, constraints)
+        assess_constraints_deploy(client, constraints, charm_name)
 
 
 def assess_cpu_power_constraints(client, values):
@@ -301,9 +326,27 @@ def assess_cpu_power_constraints(client, values):
     for cpu_power in values:
         constraints = Constraints(cpu_power=cpu_power)
         charm_name = 'cpu-power-{}cp'.format(cpu_power)
-        data = prepare_constraint_test(client, constraints, charm_name)
-        if not constraints.meets_cpu_power(data['cpu-power']):
-            raise get_failure_exception(client, constraints)
+        assess_constraints_deploy(client, constraints, charm_name)
+
+
+def assess_multiple_constraints(client, base_name, **kwargs):
+    """Assess deployment with muliple_constraints.
+
+    Makes sure the combination of constraints gives us new instance type."""
+    finger_prints = []
+    for (part, (constraint, value)) in enumerate(kwargs.iteritems()):
+        data = prepare_constraint_test(
+            client, Constraints(**{constraint: value}),
+            '{}-part{}'.format(base_name, part))
+        finger_prints.append(data)
+    final_constraints = Constraints(**kwargs)
+    data = prepare_constraint_test(client, final_constraints,
+                                   '{}-whole'.format(base_name))
+    if not final_constraints.meets_all(data):
+        raise get_failure_exception(client, final_constraints)
+    if data in finger_prints:
+        raise JujuAssertionError(
+            'Multiple Constraints did not change the hardware.')
 
 
 def assess_constraints(client, test_kvm=False):
@@ -316,6 +359,8 @@ def assess_constraints(client, test_kvm=False):
         assess_root_disk_constraints(client, ['16G'])
         assess_cores_constraints(client, ['2'])
         assess_cpu_power_constraints(client, ['30'])
+        assess_multiple_constraints(client, 'root-disk-and-cpu-power',
+                                    root_disk='15G', cpu_power='40')
 
 
 def parse_args(argv):

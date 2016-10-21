@@ -6,12 +6,15 @@ from mock import Mock, patch
 import StringIO
 
 import assess_model_config_tree as amct
+from fakejuju import fake_juju_client
 from tests import (
     parse_error,
     TestCase,
-)
-from tests.test_jujupy import fake_juju_client
-from utility import JujuAssertionError
+    )
+from utility import (
+    JujuAssertionError,
+    temp_dir,
+    )
 
 
 class TestParseArgs(TestCase):
@@ -86,10 +89,12 @@ class TestSetCloudsYamlConfig(TestCase):
 
     def test_appends_valid_cloud_details(self):
         client = fake_juju_client()
-        client.env.load_yaml()
+        with temp_dir() as juju_home:
+            client.env.juju_home = juju_home
+            client.env.load_yaml()
 
-        config_details = {'test': 'abc'}
-        amct.set_clouds_yaml_config(client, config_details)
+            config_details = {'test': 'abc'}
+            amct.set_clouds_yaml_config(client, config_details)
 
         cloud_name = 'foo'
         cloud_details = client.env.clouds['clouds'][cloud_name]

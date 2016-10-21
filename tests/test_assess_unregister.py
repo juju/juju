@@ -5,17 +5,17 @@ from mock import (
     Mock,
     call,
     patch,
-)
+    )
 import StringIO
 import subprocess
 from textwrap import dedent
 
 import assess_unregister as a_unreg
+from fakejuju import fake_juju_client
 from tests import (
     parse_error,
     TestCase,
-)
-from tests.test_jujupy import fake_juju_client
+    )
 from utility import JujuAssertionError
 
 
@@ -105,7 +105,7 @@ class TestAssertControllerList(TestCase):
     def test_raises_when_list_controllers_expecting_none(self):
         json_output = """\
         {"controllers":
-        {"local-temp": {"current-model":"testing-model","user":"admin@local"}},
+        {"local-temp": {"current-model":"testing-model","user":"admin"}},
         "current-controller":"local-temp"}\n"""
 
         fake_client = Mock(spec=['get_juju_output'])
@@ -119,7 +119,7 @@ class TestAssertControllerList(TestCase):
     def test_passes_when_expected_and_listed_match(self):
         json_output = """\
         {"controllers":
-        {"local-temp": {"current-model":"testing-model","user":"admin@local"}},
+        {"local-temp": {"current-model":"testing-model","user":"admin"}},
         "current-controller":"local-temp"}\n"""
 
         fake_client = Mock(spec=['get_juju_output'])

@@ -342,6 +342,7 @@ def copy_remote_logs(remote, directory):
             '/var/log/syslog',
             '/var/log/mongodb/mongodb.log',
             '/etc/network/interfaces',
+            '/etc/environment',
             '/home/ubuntu/ifconfig.log',
         ]
 
@@ -376,7 +377,8 @@ def copy_remote_logs(remote, directory):
 
 
 def assess_juju_run(client):
-    responses = client.run(('uname',), ['dummy-source', 'dummy-sink'])
+    responses = client.run(('uname',),
+                           applications=['dummy-source', 'dummy-sink'])
     for machine in responses:
         if machine.get('ReturnCode', 0) != 0:
             raise ValueError('juju run on machine %s returned %d: %s' % (
@@ -823,26 +825,23 @@ class BootstrapManager:
                 if self.client is not controller_client:
                     clients.append(self.client)
         for client in clients:
-            if client.env.environment == controller_client.env.environment:
-                known_hosts = self.known_hosts
-                if self.jes_enabled:
-                    runtime_config = self.client.get_cache_path()
+            with client.ignore_soft_deadline():
+                if client.env.environment == controller_client.env.environment:
+                    known_hosts = self.known_hosts
+                    if self.jes_enabled:
+                        runtime_config = self.client.get_cache_path()
+                    else:
+                        runtime_config = get_jenv_path(
+                            self.client.env.juju_home,
+                            self.client.env.environment)
                 else:
-                    runtime_config = get_jenv_path(
-                        self.client.env.juju_home,
-                        self.client.env.environment)
-            else:
-                known_hosts = {}
-                runtime_config = None
-            if patch_dir is None:
-                artifacts_dir = os.path.join(
-                    self.log_dir, client.env.environment)
-            else:
-                artifacts_dir = os.path.join(
-                    self.log_dir, patch_dir, client.env.environment)
-            os.makedirs(artifacts_dir)
-            dump_env_logs_known_hosts(
-                client, artifacts_dir, runtime_config, known_hosts)
+                    known_hosts = {}
+                    runtime_config = None
+                artifacts_dir = os.path.join(self.log_dir,
+                                             client.env.environment)
+                os.mkdir(artifacts_dir)
+                dump_env_logs_known_hosts(
+                    client, artifacts_dir, runtime_config, known_hosts)
 
     @contextmanager
     def top_context(self):
@@ -994,8 +993,9 @@ def _deploy_job(args, charm_series, series):
 def safe_print_status(client):
     """Show the output of juju status without raising exceptions."""
     try:
-        for m_client in client.iter_model_clients():
-            m_client.show_status()
+        with client.ignore_soft_deadline():
+            for m_client in client.iter_model_clients():
+                m_client.show_status()
     except Exception as e:
         logging.exception(e)
 

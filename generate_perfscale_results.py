@@ -1,14 +1,18 @@
-#!/usr/bin/env python
-"""Simple performance and scale tests."""
+"""
+Framework for perfscale testing incl. timing and controller system metric
+collection.
+"""
 
 from __future__ import print_function
 
-import argparse
-from collections import defaultdict, namedtuple
+from collections import (
+    OrderedDict,
+    defaultdict
+)
 from datetime import datetime
 import logging
 import os
-import sys
+import re
 import subprocess
 
 try:
@@ -18,20 +22,13 @@ except ImportError:
     # on non-linux.
     rrdtool = object()
 from jinja2 import Template
+import json
 
-
-from deploy_stack import (
-    BootstrapManager,
-)
 from logbreakdown import (
     _render_ds_string,
     breakdown_log_by_timeframes,
 )
 import perf_graphing
-from utility import (
-    add_basic_testing_arguments,
-    configure_logging,
-)
 
 
 __metaclass__ = type
@@ -47,22 +44,63 @@ class TimingData:
     # Log breakdown uses the start/end too. Perhaps have a property for string
     # rep and a ds for the datetime.
     def __init__(self, start, end):
+        """Time difference details for an event.
+
+        :param start: datetime.datetime object representing the start of the
+          event.
+        :param end: datetime.datetime object representing the end of the event.
+        """
         self.start = start.strftime(self.strf_format)
         self.end = end.strftime(self.strf_format)
         self.seconds = int((end - start).total_seconds())
 
-DeployDetails = namedtuple(
-    'DeployDetails', ['name', 'applications', 'timings'])
+
+class DeployDetails:
+    """Details regarding a perfscale testrun.
+
+    :param name: String naming deploy details
+    :param applications: A dict containg a {name -> single detail} mapping. For
+    instance: {application name -> unit count}
+    or {'version' -> juju version string}
+    :param timings: A TimingData object representing the test runs start/end
+    details
+    """
+    def __init__(self, name, applications, timings):
+        self.name = name
+        self.applications = applications
+        self.timings = timings
+
+
+class PerfTestDataJsonSerialisation(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, TimingData):
+            return obj.__dict__
+        if isinstance(obj, DeployDetails):
+            return obj.__dict__
+        return super(PerfTestDataJsonSerialisation, self).default(obj)
 
 
 SETUP_SCRIPT_PATH = 'perf_static/setup-perf-monitoring.sh'
 COLLECTD_CONFIG_PATH = 'perf_static/collectd.conf'
 
 
-log = logging.getLogger("assess_perf_test_simple")
+log = logging.getLogger("run_perfscale_test")
 
 
-def assess_perf_test_simple(bs_manager, upload_tools):
+def run_perfscale_test(target_test, bs_manager, args):
+    """Run a perfscale test collect the data and generate a report.
+
+    Run the callable `target_test` and collect timing data and system metrics
+    for the controller during the test run.
+
+    :param target_test: A callable that takes 2 arguments:
+        - EnvJujuClient client object  (bootstrapped)
+        - argparse args object
+      This callable must return a `DeployDetails` object.
+
+    :param bs_manager: `BootstrapManager` object.
+    :param args: `argparse` object to pass to `target_test` when run.
+    """
     # XXX
     # Find the actual cause for this!! (Something to do with the template and
     # the logs.)
@@ -74,7 +112,7 @@ def assess_perf_test_simple(bs_manager, upload_tools):
     ensure_complete_system()
 
     bs_start = datetime.utcnow()
-    with bs_manager.booted_context(upload_tools):
+    with bs_manager.booted_context(args.upload_tools):
         client = bs_manager.client
         admin_client = client.get_controller_client()
         admin_client.wait_for_started()
@@ -85,27 +123,10 @@ def assess_perf_test_simple(bs_manager, upload_tools):
 
             setup_system_monitoring(admin_client)
 
-            deploy_details = assess_longrun_perf(
-                bs_manager, test_length=MINUTE*60*12)
+            deploy_details = target_test(client, args)
         finally:
-            results_dir = os.path.join(
-                os.path.abspath(bs_manager.log_dir), 'performance_results/')
-            os.makedirs(results_dir)
-            try:
-                admin_client.juju(
-                    'scp',
-                    ('--', '-r', '0:/var/lib/collectd/rrd/localhost/*',
-                     results_dir)
-                )
-            except subprocess.CalledProcessError as e:
-                log.error('Failed to copy RRD files: {}'.format(e))
-
-            try:
-                admin_client.juju(
-                    'scp', ('0:/tmp/mongodb-stats.log', results_dir)
-                )
-            except subprocess.CalledProcessError as e:
-                log.error('Failed to copy mongodb stats: {}'.format(e))
+            results_dir = dump_performance_metrics_logs(
+                bs_manager.log_dir, admin_client)
             cleanup_start = datetime.utcnow()
     # Cleanup happens when we move out of context
     cleanup_end = datetime.utcnow()
@@ -121,7 +142,6 @@ def assess_perf_test_simple(bs_manager, upload_tools):
         cleanup=cleanup_timing,
     )
 
-    # Could be smarter about this.
     controller_log_file = os.path.join(
         bs_manager.log_dir,
         'controller',
@@ -168,6 +188,24 @@ def ensure_complete_system():
         raise RuntimeError(err_message)
 
 
+def dump_performance_metrics_logs(log_dir, admin_client):
+    results_dir = os.path.join(
+        os.path.abspath(log_dir), 'performance_results/')
+    os.makedirs(results_dir)
+    admin_client.juju(
+        'scp',
+        ('--', '-r', '0:/var/lib/collectd/rrd/localhost/*',
+         results_dir)
+    )
+    try:
+        admin_client.juju(
+            'scp', ('0:/tmp/mongodb-stats.log', results_dir)
+        )
+    except subprocess.CalledProcessError as e:
+        log.error('Failed to copy mongodb stats: {}'.format(e))
+    return results_dir
+
+
 def apply_any_workarounds(client):
     # Work around mysql charm wanting 80% memory.
     if client.env.get_cloud() == 'lxd':
@@ -187,15 +225,36 @@ def generate_reports(controller_log, results_dir, deployments, graph_period):
     cpu_image = generate_cpu_graph_image(results_dir, graph_period)
     memory_image = generate_memory_graph_image(results_dir, graph_period)
     network_image = generate_network_graph_image(results_dir, graph_period)
-    mongo_query_image, mongo_memory_image = generate_mongo_graph_image(
-        results_dir, graph_period)
+
+    destination_dir = os.path.join(results_dir, 'mongodb')
+    os.mkdir(destination_dir)
+    try:
+        perf_graphing.create_mongodb_rrd_files(results_dir, destination_dir)
+    except perf_graphing.SourceFileNotFound:
+        log.error(
+            'Failed to create the MongoDB RRD file. Source file not found.'
+        )
+
+        # Sometimes mongostats fails to startup and start logging. Unsure yet
+        # why this is. For now generate the report without the mongodb details,
+        # the rest of the report is still useful.
+        mongo_query_image = None
+        mongo_memory_image = None
+    else:
+        mongo_query_image = generate_mongo_query_graph_image(
+            results_dir, graph_period)
+        mongo_memory_image = generate_mongo_memory_graph_image(
+            results_dir, graph_period)
 
     # Skip doing the logs for such a long run for now.
     if graph_period == perf_graphing.GraphPeriod.hours:
-        log_message_chunks = get_log_message_in_timed_chunks(
-            controller_log, deployments)
+        log_message_chunks = breakdown_log_by_events_timeframe(
+            controller_log,
+            deployments['bootstrap'],
+            deployments['cleanup'],
+            deployments['deploys'])
     else:
-        log_message_chunks = defaultdict(defaultdict)
+        log_message_chunks = None
 
     details = dict(
         cpu_graph=cpu_image,
@@ -207,21 +266,75 @@ def generate_reports(controller_log, results_dir, deployments, graph_period):
         log_message_chunks=log_message_chunks
     )
 
+    json_dump_path = os.path.join(results_dir, 'report-data.json')
+    with open(json_dump_path, 'wt') as f:
+        json.dump(details, f, cls=PerfTestDataJsonSerialisation)
+
     create_html_report(results_dir, details)
 
 
-def get_log_message_in_timed_chunks(log_file, deployments):
-    """Breakdown log into timechunks based on event timeranges in 'deployments'
+def breakdown_log_by_events_timeframe(log, bootstrap, cleanup, deployments):
+    """Breakdown a log file into event chunks.
 
+    Given a log file and time details for events (i.e. bootstrap, cleanup and
+    deployments) return a datastructure containing the log contents broken up
+    into time chunks relevant for those events.
+
+    :param log: Log file path from which to breakdown data.
+    :param bootstrap: TimingData object representing bootstrap timings.
+    :param cleanup: TimingData object representing clean timings.
+    :param deployments: List of DeployDetails representing each deploy made.
+    :return: OrderedDict of dictionaries, with a structure like:
+       {'date range':
+            { name, display name, logs -> [{'time frame', display, logs}]}
     """
-    deploy_timings = [d.timings for d in deployments['deploys']]
+    name_lookup = _get_log_name_lookup_table(bootstrap, cleanup, deployments)
 
-    bootstrap = deployments['bootstrap']
-    cleanup = deployments['cleanup']
-    all_event_timings = [bootstrap] + deploy_timings + [cleanup]
+    deploy_timings = [d.timings for d in deployments]
+    raw_details = _get_chunked_log(log, bootstrap, cleanup, deploy_timings)
 
-    raw_details = breakdown_log_by_timeframes(log_file, all_event_timings)
+    # Outer-layer (i.e. event)
+    event_details = defaultdict(defaultdict)
+    for event_range in raw_details.keys():
+        display_name = _display_safe_daterange(event_range)
+        event_details[event_range]['name'] = name_lookup[event_range]
+        event_details[event_range]['logs'] = []
+        event_details[event_range]['event_range_display'] = display_name
 
+        # sort here so that the log list is in order.
+        for log_range in raw_details[event_range].keys():
+            timeframe = log_range
+            display_timeframe = _display_safe_timerange(log_range)
+            message = '<br/>'.join(raw_details[event_range][log_range])
+            event_details[event_range]['logs'].append(
+                dict(
+                    timeframe=timeframe,
+                    display_timeframe=display_timeframe,
+                    message=message))
+
+    return OrderedDict(sorted(event_details.items()))
+
+
+def _display_safe_daterange(datestamp):
+    """Return a datestamp string that can be used as an html class/id."""
+    return re.sub('[:\ ]', '', datestamp)
+
+
+def _display_safe_timerange(timerange):
+    """Return a timerange string that can be used as an html class/id."""
+    return re.sub('[:\(\)\ ]', '', timerange)
+
+
+def _get_chunked_log(log_file, bootstrap, cleanup, deployments):
+    all_event_timings = [bootstrap] + deployments + [cleanup]
+    return breakdown_log_by_timeframes(log_file, all_event_timings)
+
+
+def _get_log_name_lookup_table(bootstrap, cleanup, deployments):
+    """Given event details construct a lookup table to give them names.
+
+    :return: dict containing { daterange -> event name } look up.
+    """
     bs_name = _render_ds_string(bootstrap.start, bootstrap.end)
     cleanup_name = _render_ds_string(cleanup.start, cleanup.end)
 
@@ -229,53 +342,40 @@ def get_log_message_in_timed_chunks(log_file, deployments):
         bs_name: 'Bootstrap',
         cleanup_name: 'Kill-Controller',
     }
-    for dep in deployments['deploys']:
+    for dep in deployments:
         name_range = _render_ds_string(
             dep.timings.start, dep.timings.end)
         name_lookup[name_range] = dep.name
 
-    event_details = defaultdict(defaultdict)
-    # Outer-layer (i.e. event)
-    for event_range in raw_details.keys():
-        event_details[event_range]['name'] = name_lookup[event_range]
-        event_details[event_range]['logs'] = []
-
-        for log_range in raw_details[event_range].keys():
-            timeframe = log_range
-            message = '<br/>'.join(raw_details[event_range][log_range])
-            event_details[event_range]['logs'].append(
-                dict(
-                    timeframe=timeframe,
-                    message=message))
-
-    return event_details
+    return name_lookup
 
 
 def create_html_report(results_dir, details):
-    # render the html file to the results dir
-    with open('./perf_report_template.html', 'rt') as f:
+    template_path = os.path.join(
+        os.path.dirname(__file__), 'perf_report_template.html')
+    with open(template_path, 'rt') as f:
         template = Template(f.read())
 
-    results_output = os.path.join(results_dir, 'report.html')
+    results_output = os.path.join(results_dir, 'index.html')
     with open(results_output, 'wt') as f:
         f.write(template.render(details))
 
 
 def generate_graph_image(base_dir, results_dir, name, generator, graph_period):
     metric_files_dir = os.path.join(os.path.abspath(base_dir), results_dir)
+    output_file = os.path.join(
+        os.path.abspath(base_dir), '{}.png'.format(name))
     return create_report_graph(
-        metric_files_dir, base_dir, name, generator, graph_period)
+        metric_files_dir, output_file, generator, graph_period)
 
 
-def create_report_graph(rrd_dir, output_dir, name, generator, graph_period):
+def create_report_graph(rrd_dir, output_file, generator, graph_period):
     any_file = os.listdir(rrd_dir)[0]
     start, end = get_duration_points(
         os.path.join(rrd_dir, any_file), graph_period)
-    output_file = os.path.join(
-        os.path.abspath(output_dir), '{}.png'.format(name))
     generator(start, end, rrd_dir, output_file)
     print('Created: {}'.format(output_file))
-    return output_file
+    return os.path.basename(output_file)
 
 
 def generate_cpu_graph_image(results_dir, graph_period):
@@ -305,20 +405,17 @@ def generate_network_graph_image(results_dir, graph_period):
         graph_period)
 
 
-def generate_mongo_graph_image(results_dir, graph_period):
-    dest_path = os.path.join(results_dir, 'mongodb')
-
-    if not perf_graphing.create_mongodb_rrd_file(results_dir, dest_path):
-        log.error('Failed to create the MongoDB RRD file.')
-        return None
-    query_graph = generate_graph_image(
+def generate_mongo_query_graph_image(results_dir, graph_period):
+    return generate_graph_image(
         results_dir,
         'mongodb',
         'mongodb',
         perf_graphing.mongodb_graph,
         graph_period)
 
-    memory_graph = generate_graph_image(
+
+def generate_mongo_memory_graph_image(results_dir):
+    return generate_graph_image(
         results_dir,
         'mongodb',
         'mongodb_memory',
@@ -326,13 +423,14 @@ def generate_mongo_graph_image(results_dir, graph_period):
         graph_period
     )
 
-    return query_graph, memory_graph
-
 
 def get_duration_points(rrd_file, graph_period):
     start = rrdtool.first(rrd_file, '--rraindex', graph_period)
     end = rrdtool.last(rrd_file)
 
+    # Start gives us the start timestamp in the data but it might be null/empty
+    # (i.e no data entered for that time.)
+    # Find the timestamp in which data was first entered.
     command = [
         'rrdtool', 'fetch', rrd_file, 'AVERAGE',
         '--start', str(start), '--end', str(end)]
@@ -352,33 +450,6 @@ def find_actual_start(fetch_output):
                 return timestamp
         except ValueError:
             pass
-
-
-def assess_deployment_perf(client, bundle_name='cs:ubuntu'):
-    # This is where multiple services are started either at the same time
-    # or one after the other etc.
-    deploy_start = datetime.utcnow()
-
-    # We possibly want 2 timing details here, one for started (i.e. agents
-    # ready) and the other for the workloads to be complete.
-    client.deploy(bundle_name)
-    client.wait_for_started()
-    client.wait_for_workloads()
-
-    deploy_end = datetime.utcnow()
-    deploy_timing = TimingData(deploy_start, deploy_end)
-
-    client_details = get_client_details(client)
-
-    return DeployDetails(bundle_name, client_details, deploy_timing)
-
-
-def get_client_details(client):
-    status = client.get_status()
-    units = dict()
-    for name in status.get_applications().keys():
-        units[name] = status.get_service_unit_count(name)
-    return units
 
 
 def setup_system_monitoring(admin_client):
@@ -418,23 +489,3 @@ def _get_static_script_path(script_path):
     full_path = os.path.abspath(__file__)
     current_dir = os.path.dirname(full_path)
     return os.path.join(current_dir, script_path)
-
-
-def parse_args(argv):
-    """Parse all arguments."""
-    parser = argparse.ArgumentParser(description="Simple perf/scale testing")
-    add_basic_testing_arguments(parser)
-    return parser.parse_args(argv)
-
-
-def main(argv=None):
-    args = parse_args(argv)
-    configure_logging(args.verbose)
-    bs_manager = BootstrapManager.from_args(args)
-    assess_perf_test_simple(bs_manager, args.upload_tools)
-
-    return 0
-
-
-if __name__ == '__main__':
-    sys.exit(main())

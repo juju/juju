@@ -9,16 +9,15 @@ import sys
 
 from assess_min_version import (
     JujuAssertionError
-)
+    )
 from deploy_stack import (
     BootstrapManager,
     deploy_dummy_stack,
-)
+    )
 from utility import (
     add_basic_testing_arguments,
     configure_logging,
-    wait_for_removed_services,
-)
+    )
 
 
 __metaclass__ = type
@@ -115,7 +114,7 @@ def assess_block_all_changes(client, charm_series):
     test_disabled(client, 'expose', ('dummy-sink',))
     client.enable_command(DisableCommandTypes.all)
     client.remove_service('dummy-sink')
-    wait_for_removed_services(client, 'dummy-sink')
+    client.wait_for_started()
     client.disable_command(DisableCommandTypes.all)
     test_disabled(client, 'deploy', ('dummy-sink',))
     test_disabled(
@@ -132,9 +131,9 @@ def assess_unblock(client, type):
         raise JujuAssertionError(block_list)
     if type == client.destroy_model_command:
         client.remove_service('dummy-source')
-        wait_for_removed_services(client, 'dummy-source')
+        client.wait_for_started()
         client.remove_service('dummy-sink')
-        wait_for_removed_services(client, 'dummy-sink')
+        client.wait_for_started()
 
 
 def assess_block(client, charm_series):

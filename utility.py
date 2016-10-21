@@ -489,14 +489,6 @@ def run_command(command, dry_run=False, verbose=False):
             print_now(output)
 
 
-def wait_for_removed_services(client, charm):
-    """Timeout until the remove process ends"""
-    for ignored in until_timeout(60):
-        status = client.get_status()
-        if charm not in status.get_applications():
-            break
-
-
 def unqualified_model_name(model_name):
     """Return the model name with the owner qualifier stripped if present."""
     return model_name.split('/', 1)[-1]

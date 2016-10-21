@@ -1215,7 +1215,7 @@ class TestBootstrapAttempt(JujuPyTestCase):
                 self.assertEqual(boot_iter.next(), {'test_id': 'bootstrap'})
             assert_juju_call(self, popen_mock, client, (
                 'juju', '--show-log', 'bootstrap', '--constraints', 'mem=2G',
-                'steve', 'fake/regionx', '--config', config_file.name,
+                'fake/regionx', 'steve', '--config', config_file.name,
                 '--default-model', 'steve', '--agent-version', '1.2'))
             statuses = [
                 {'machines': {'0': {'agent-state': 'pending'}},
@@ -1477,8 +1477,7 @@ class TestEnsureAvailabilityAttempt(JujuPyTestCase):
         assert_juju_call(
             self,
             cc_mock, client,
-            ('juju', '--show-log', 'enable-ha', '-m',
-             'steve:{}'.format(controller_client.env.environment), '-n', '3'))
+            ('juju', '--show-log', 'enable-ha', '-n', '3', '-c', 'steve'))
         status = {
             'machines': {
                 '0': {'controller-member-status': 'has-vote'},

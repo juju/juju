@@ -12,11 +12,11 @@ import yaml
 
 import assess_autoload_credentials as aac
 from deploy_stack import BootstrapManager
+from fakejuju import fake_juju_client
 from tests import (
     TestCase,
     parse_error,
     )
-from tests.test_jujupy import fake_juju_client
 from utility import temp_dir
 
 

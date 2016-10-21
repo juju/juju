@@ -79,9 +79,7 @@ class TestAssess(TestCase):
         mock_client.env.environment = 'foo'
         mock_client.version = '1.25'
         with patch('assess_block.deploy_dummy_stack', autospec=True):
-            with patch('assess_block.wait_for_removed_services',
-                       autospec=True):
-                assess_block(mock_client, 'trusty')
+            assess_block(mock_client, 'trusty')
         mock_client.wait_for_started.assert_called_with()
         self.assertEqual([call('destroy-model',
                                ('-y', 'foo'), include_e=False),

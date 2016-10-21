@@ -10,6 +10,9 @@ from deploy_stack import (
     BootstrapManager,
     tear_down,
     )
+from jujupy import (
+    get_machine_dns_name,
+    )
 from utility import (
     add_basic_testing_arguments,
     configure_logging,
@@ -24,15 +27,21 @@ log = logging.getLogger("assess_bootstrap")
 INVALID_URL = 'example.com/invalid'
 
 
-def assess_base_bootstrap(bs_manager):
+@contextmanager
+def thin_booted_context(bs_manager, **kwargs):
     client = bs_manager.client
     with bs_manager.top_context() as machines:
         with bs_manager.bootstrap_context(machines):
             tear_down(client, client.is_jes_enabled())
-            client.bootstrap()
+            client.bootstrap(**kwargs)
         with bs_manager.runtime_context(machines):
-            client.get_status(1)
-            log.info('Environment successfully bootstrapped.')
+            yield client
+
+
+def assess_base_bootstrap(bs_manager):
+    with thin_booted_context(bs_manager) as client:
+        client.get_status(1)
+        log.info('Environment successfully bootstrapped.')
 
 
 def prepare_metadata(client, local_dir):
@@ -58,15 +67,35 @@ def assess_metadata(bs_manager, local_source):
     client.env.config['agent-metadata-url'] = INVALID_URL
     with prepare_temp_metadata(client, local_source) as metadata_dir:
         log.info('Metadata written to: {}'.format(metadata_dir))
-        with bs_manager.top_context() as machines:
-            with bs_manager.bootstrap_context(machines):
-                tear_down(client, client.is_jes_enabled())
-                client.bootstrap(metadata_source=metadata_dir)
-            with bs_manager.runtime_context(machines):
-                log.info('Metadata bootstrap successful.')
-                data = client.get_model_config()
-                if INVALID_URL != data['agent-metadata-url']['value']:
-                    raise JujuAssertionError('Error, possible web metadata.')
+        with thin_booted_context(bs_manager,
+                                 metadata_source=metadata_dir):
+            log.info('Metadata bootstrap successful.')
+            data = client.get_model_config()
+    if INVALID_URL != data['agent-metadata-url']['value']:
+        raise JujuAssertionError('Error, possible web metadata.')
+
+
+def get_controller_address(client):
+    """Get the address of the controller for this model."""
+    return get_machine_dns_name(client, "0")
+
+
+def get_controller_hostname(client):
+    """Get the hostname of the controller for this model."""
+    controller_client = client.get_controller_client()
+    name = controller_client.run(['hostname'], machines=['0'], use_json=False)
+    return name.strip()
+
+
+def assess_to(bs_manager, to):
+    """Assess bootstraping with the --to option."""
+    if to is None:
+        raise ValueError('--to not given when testing to')
+    with thin_booted_context(bs_manager, to=to) as client:
+        log.info('To {} bootstrap successful.'.format(to))
+        addr = get_controller_hostname(client)
+    if addr != to:
+        raise JujuAssertionError('Not bootstrapped to the correct address.')
 
 
 def assess_bootstrap(args):
@@ -75,6 +104,8 @@ def assess_bootstrap(args):
         assess_base_bootstrap(bs_manager)
     elif 'metadata' == args.part:
         assess_metadata(bs_manager, args.local_metadata_source)
+    elif 'to' == args.part:
+        assess_to(bs_manager, args.to)
 
 
 def parse_args(argv=None):
@@ -85,12 +116,14 @@ def parse_args(argv=None):
     --local-metadata-source: If given it should be a directory that contains
     the agent to use in the test. This skips downloading them."""
     parser = ArgumentParser(description='Test the bootstrap command.')
-    parser.add_argument('part', choices=['base', 'metadata'],
+    parser.add_argument('part', choices=['base', 'metadata', 'to'],
                         help='Which part of bootstrap to assess')
     add_basic_testing_arguments(parser)
     parser.add_argument('--local-metadata-source',
                         action='store', default=None,
                         help='Directory with pre-loaded metadata.')
+    parser.add_argument('--to', action='store', default=None,
+                        help='bootstrap to (when part=to only)')
     return parser.parse_args(argv)
 
 
