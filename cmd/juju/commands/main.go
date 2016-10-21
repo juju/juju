@@ -178,7 +178,7 @@ If you meant to use Juju %s, run 'juju' commands as '%s'. For example, 'juju swi
     '%s' command comes from %s-default package.
     On trusty, use 'update-alternatives'.
     On xenial/yakkety, use %s-default package install.
-    After the installation, you should have /usr/bin/%s directory to use '%s' command. 
+    After the installation, you should have /usr/bin/%s to use '%s' command. 
 
 `[1:], jujuversion.Current, ver, juju1xCmdName, juju1xCmdName, juju1xCmdName, juju1xCmdName, juju1xCmdName, juju1xCmdName, juju1xCmdName)
 	return newInstall

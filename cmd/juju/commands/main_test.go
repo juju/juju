@@ -211,7 +211,7 @@ If you meant to use Juju 1.25.0, run 'juju' commands as 'juju-1'. For example, '
     'juju-1' command comes from juju-1-default package.
     On trusty, use 'update-alternatives'.
     On xenial/yakkety, use juju-1-default package install.
-    After the installation, you should have /usr/bin/juju-1 directory to use 'juju-1' command. 
+    After the installation, you should have /usr/bin/juju-1 to use 'juju-1' command. 
 
 Since Juju 2 is being run for the first time, downloading latest cloud information.`[1:]+"\n", jujuversion.Current))
 	checkVersionOutput(c, string(stdout))
