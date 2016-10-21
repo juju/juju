@@ -60,6 +60,25 @@ def _generate_cidrs(start=40, inc=10, block_pattern="10.0.{}.0/24"):
         yield block_pattern.format(n)
 
 
+def ensure_spaces(manager, required_spaces):
+    """Return details for each given required_spaces creating spaces as needed.
+
+    :param manager: MAAS account manager.
+    :param required_spaces: List of space names that may need to be created.
+    """
+    existing_spaces = manager.spaces()
+    log.info("Have spaces: %s", ", ".join(s["name"] for s in existing_spaces))
+    spaces_map = dict((s["name"], s) for s in existing_spaces)
+    spaces = []
+    for space_name in required_spaces:
+        space = spaces_map.get(space_name)
+        if space is None:
+            space = manager.create_space(space_name)
+            log.info("Created space: %r", space)
+        spaces.append(space)
+    return spaces
+
+
 @contextlib.contextmanager
 def reconfigure_networking(manager, required_spaces):
     """Create new MAAS networking primitives to prepare for testing.
@@ -67,7 +86,6 @@ def reconfigure_networking(manager, required_spaces):
     :param manager: MAAS account manager.
     :param required_spaces: List of spaces to make with vlans and subnets.
     """
-    new_spaces = []
     new_subnets = []
     new_vlans = []
     fabrics = manager.fabrics()
@@ -76,22 +94,20 @@ def reconfigure_networking(manager, required_spaces):
     try:
         log.info("Created fabric: %r", new_fabric)
 
-        for space_name in required_spaces:
-            new_spaces.append(manager.create_space(space_name))
-            log.info("Created space: %r", new_spaces[-1])
+        spaces = ensure_spaces(manager, required_spaces)
 
         for vid, space_name in zip(_generate_vids(), required_spaces):
             name = space_name + "-vlan"
             new_vlans.append(manager.create_vlan(new_fabric["id"], vid, name))
             log.info("Created vlan: %r", new_vlans[-1])
 
-        for cidr, vlan, space in zip(_generate_cidrs(), new_vlans, new_spaces):
+        for cidr, vlan, space in zip(_generate_cidrs(), new_vlans, spaces):
             new_subnets.append(manager.create_subnet(
                 cidr, fabric_id=new_fabric["id"], vlan_id=vlan["id"],
                 space=space["id"]))
             log.info("Created subnet: %r", new_subnets[-1])
 
-        yield new_fabric, list(new_spaces), list(new_vlans), list(new_subnets)
+        yield new_fabric, spaces, list(new_vlans), list(new_subnets)
 
     finally:
         for subnet in new_subnets:
@@ -101,10 +117,6 @@ def reconfigure_networking(manager, required_spaces):
         for vlan in new_vlans:
             manager.delete_vlan(new_fabric["id"], vlan["vid"])
             log.info("Deleted vlan: %s", vlan["name"])
-
-        for space in new_spaces:
-            manager.delete_space(space["id"])
-            log.info("Deleted space: %s", space["name"])
 
         try:
             manager.delete_fabric(new_fabric["id"])
@@ -150,7 +162,10 @@ def reconfigure_machines(manager, fabric, required_machine_subnets):
             machine = candidate_machines.pop()
             system_id = machine["system_id"]
             # TODO(gz): Add logic to pick sane parent?
-            existing_interface = machine["interface_set"][0]
+            existing_interface = [
+                interface for interface in machine["interface_set"]
+                if not any("subnet" in link for link in interface["links"])
+                ][0]
             previous_vlan_id = existing_interface["vlan"]["id"]
             new_interfaces = []
             machine_interfaces[system_id] = (
@@ -179,12 +194,12 @@ def reconfigure_machines(manager, fabric, required_machine_subnets):
     finally:
         log.info("About to reset machine interfaces to original states.")
         for system_id in machine_interfaces:
-            interface, vlan, new_interfaces = machine_interfaces[system_id]
-            for interface in new_interfaces:
-                manager.delete_interface(system_id, interface["id"])
-                log.info("Deleted interface: %s %s", system_id, interface["id"])
-            manager.interface_update(system_id, interface["id"], vlan_id=vlan)
-            log.info("Reset original interface: %s", interface["name"])
+            parent, vlan, children = machine_interfaces[system_id]
+            for child in children:
+                manager.delete_interface(system_id, child["id"])
+                log.info("Deleted interface: %s %s", system_id, child["id"])
+            manager.interface_update(system_id, parent["id"], vlan_id=vlan)
+            log.info("Reset original interface: %s", parent["name"])
 
 
 def create_test_charms():
@@ -245,7 +260,7 @@ def using_bundle_and_charms(bundle, charms, bundle_name="bundle.yaml"):
 
 
 def machine_spaces_for_bundle(bundle):
-    """Give a list of sets of spaces required for machines in bundle."""
+    """Return a list of sets of spaces required for machines in bundle."""
     machines = []
     for service in bundle["services"].values():
         spaces = frozenset(service.get("bindings", {}).values())
@@ -254,13 +269,14 @@ def machine_spaces_for_bundle(bundle):
     return machines
 
 
-def bootstrap_and_test(bootstrap_manager, upload_tools, bundle_path, machine):
-    with bootstrap_manager.booted_context(upload_tools, to=machine):
+def bootstrap_and_test(bootstrap_manager, bundle_path, machine):
+    with bootstrap_manager.booted_context(False, to=machine):
         client = bootstrap_manager.client
         log.info("Deploying bundle.")
         client.deploy(bundle_path)
         log.info("Waiting for all units to start.")
         client.wait_for_started()
+        client.wait_for_workloads()
         log.info("Validating bindings.")
         validate(client)
 
@@ -269,7 +285,7 @@ def validate(client):
     """Ensure relations are bound to the correct spaces."""
 
 
-def assess_endpoint_bindings(maas_manager, bootstrap_manager, upload_tools):
+def assess_endpoint_bindings(maas_manager, bootstrap_manager):
     required_spaces = [space_data, space_public]
 
     bundle, charms = create_test_charms()
@@ -302,14 +318,17 @@ def assess_endpoint_bindings(maas_manager, bootstrap_manager, upload_tools):
 
                 log.info("About to bootstrap.")
                 bootstrap_and_test(
-                    bootstrap_manager, upload_tools, bundle_path, base_machine)
+                    bootstrap_manager, bundle_path, base_machine)
 
 
 def parse_args(argv):
     """Parse all arguments."""
     parser = argparse.ArgumentParser(description="assess endpoint bindings")
     add_basic_testing_arguments(parser)
-    return parser.parse_args(argv)
+    args = parser.parse_args(argv)
+    if args.upload_tools:
+        parser.error("giving --upload-tools meaningless on 2.0 only test")
+    return args
 
 
 def main(argv=None):
@@ -317,13 +336,7 @@ def main(argv=None):
     configure_logging(args.verbose)
     bs_manager = BootstrapManager.from_args(args)
     with maas_account_from_config(bs_manager.client.env.config) as account:
-        import subprocess
-        try:
-            assess_endpoint_bindings(account, bs_manager, args.upload_tools)
-        except subprocess.CalledProcessError as e:
-            if e.output:
-                log.error("GZ out:\n%s", e.output)
-            raise
+        assess_endpoint_bindings(account, bs_manager)
     return 0
 
 
