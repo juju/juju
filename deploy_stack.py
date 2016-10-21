@@ -342,6 +342,7 @@ def copy_remote_logs(remote, directory):
             '/var/log/syslog',
             '/var/log/mongodb/mongodb.log',
             '/etc/network/interfaces',
+            '/etc/environment',
             '/home/ubuntu/ifconfig.log',
         ]
 

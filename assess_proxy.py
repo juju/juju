@@ -38,7 +38,36 @@ SCENARIO_CONTROLLER = 'controller-proxied'
 
 IPTABLES_FORWARD_PROXY = '-A FORWARD -i {} -p tcp --d port 3128 -j ACCEPT'
 IPTABLES_BACKUP = '/etc/iptables.before-assess-proxy'
+IPTABLES_BACKUP_BASH = """\
+#!/bin/bash
+set -eux
+sudo iptables-save | sudo tee {iptables_backup}
+""".format(iptables_backup=IPTABLES_BACKUP)
 
+UFW_PROXY_COMMON_BASH = """\
+#!/bin/bash
+set -eux
+sudo ufw allow in 22/tcp
+sudo ufw allow out 22/tcp
+sudo ufw allow out 53/udp
+sudo ufw allow out 123/udp
+sudo ufw allow out 3128/tcp
+"""
+UFW_PROXY_CLIENT_BASH = """\
+#!/bin/bash
+set -eux
+sudo ufw deny out on {interface} to any
+"""
+UFW_PROXY_CONTROLLER_BASH = """\
+#!/bin/bash
+set -eux
+sudo ufw allow out on {interface} to any port 3128
+sudo ufw allow out on {interface} to any port 53
+sudo ufw allow out on {interface} to any port 67
+sudo iptables -A FORWARD -i {interface} -p tcp --dport 3128 -j ACCEPT
+sudo iptables -D {original_forward_rule}
+"""
+UFW_ENABLE_COMMAND = ['sudo', 'ufw', '--force', 'enable']
 UFW_RESET_COMMANDS = [
     ('sudo', 'iptables-restore', IPTABLES_BACKUP),
     ('sudo', 'ufw', '--force', 'reset'),
@@ -60,9 +89,13 @@ def check_environment():
     Check for lowercase names because Juju uses them, some charms/apps might
     want uppercase names. This check assumes the env has both upper and lower
     case forms.
+
+    :return: a tuple of http_proxy, https_proxy, ftp_proxy, no_proxy.
     """
     http_proxy = os.environ.get('http_proxy', None)
     https_proxy = os.environ.get('https_proxy', None)
+    ftp_proxy = os.environ.get('ftp_proxy', None)
+    no_proxy = os.environ.get('no_proxy', None)
     if http_proxy is None or https_proxy is None:
         message = 'http_proxy and https_proxy not defined in env'
         log.error(message)
@@ -86,7 +119,12 @@ def check_environment():
             'http_proxy and https_proxy not defined in /etc/environment')
         log.error(message)
         raise UndefinedProxyError(message)
-    return http_proxy, https_proxy
+    log.info('Proxy env is:')
+    log.info('http_proxy={}'.format(http_proxy))
+    log.info('https_proxy={}'.format(https_proxy))
+    log.info('ftp_proxy={}'.format(ftp_proxy))
+    log.info('no_proxy={}'.format(no_proxy))
+    return http_proxy, https_proxy, ftp_proxy, no_proxy
 
 
 def check_network(client_interface, controller_interface):
@@ -99,7 +137,7 @@ def check_network(client_interface, controller_interface):
         not define proxy info.
     :raises ValueError: when the interfaces are not present or the FORWARD IN
         rule cannot be identified.
-    :return: the FORWARD IN rule that must be restored before the test exits.
+    :return: the FORWARD IN rule that must be deleted to test, then restored.
     """
     if subprocess.call(['ifconfig', client_interface]) != 0:
         message = 'client_interface {} not found'.format(client_interface)
@@ -135,9 +173,96 @@ def check_network(client_interface, controller_interface):
     return forward_rule
 
 
-def set_firewall(scenario, forward_rule):
-    """Setup the firewall to match the scenario."""
-    pass
+def backup_iptables():
+    """Backup iptables so that it can be restored later.
+
+    The backup is to /etc/iptables.before-assess-proxy.
+
+    :raises: CalledProcessError when iptables could not be backed up.
+    """
+    log.info('Backing up iptables to {}'.format(IPTABLES_BACKUP))
+    subprocess.check_call([IPTABLES_BACKUP_BASH], shell=True)
+
+
+def setup_common_firewall():
+    """Setup rules for basic proxy testing.
+
+    These rules ensure ssh in and proxy, dns, dhcp, and ntp are permitted.
+    These rules are safe to keep, but unnecessary on open networks.
+
+    :raises: CalledProcessError when ufw cannot add rules.
+    """
+    log.info('Setting common firewall rules.')
+    log.info('These are safe permissive rules.')
+    subprocess.check_call([UFW_PROXY_COMMON_BASH], shell=True)
+
+
+def setup_client_firewall(client_interface):
+    """Setup rules for Juju client proxy testing.
+
+    These rules block the localhost's interface to the internet. Call
+    setup_common_firewall() first to ensure the host has basic egress.
+
+    :param client-interface: the interface used by the client to access
+        the internet. It will be blocked.
+    :raises: CalledProcessError when ufw cannot add rules.
+    """
+    log.info('Setting client firewall rules.')
+    log.info(
+        'These rules restrict the localhost on {}.'.format(client_interface))
+    script = UFW_PROXY_CLIENT_BASH.format(
+        interface=client_interface)
+    subprocess.check_call([script], shell=True)
+
+
+def setup_controller_firewall(controller_interface, forward_rule):
+    """Setup rules for Juju controller proxy testing.
+
+    These rules block the network interface the controller and its models use.
+    Call setup_common_firewall() first to ensure the host has basic egress.
+
+    :param controller-interface: the interface used by the controller to access
+        the internet. It will be blocked
+    :param forward_rule: the iptables FORWARD IN rule that must be deleted to
+         setup then test, then restored later
+    :raises: CalledProcessError when ufw or iptables cannot add rules.
+    """
+    log.info('Setting controller firewall rules.')
+    log.info(
+        'These rules restrict the controller on {}.'.format(
+            controller_interface))
+    original_forward_rule = forward_rule.replace('-A FORWARD', 'FORWARD')
+    script = UFW_PROXY_CONTROLLER_BASH.format(
+        interface=controller_interface,
+        original_forward_rule=original_forward_rule)
+    subprocess.check_call([script], shell=True)
+
+
+def set_firewall(scenario,
+                 client_interface, controller_interface, forward_rule):
+    """Setup the firewall to match the scenario.
+
+    Calling this will create a backup of iptables, then update both ufw and
+    iptables to setup the scenario under test.
+
+    :param scenario: the scenario to setup: both-proxied, client-proxied, or
+        controller-proxied.
+    :param client-interface: the interface used by the client to access
+        the internet.
+    :param controller-interface: the interface used by the controller to access
+        the internet.
+    :param forward_rule: the iptables FORWARD IN rule that must be deleted to
+         setup then test, then restored later.
+    """
+    backup_iptables()
+    log.info('\nIn case of disaster, the firewall can be restored by running:')
+    log.info('sudo iptables-restore {}'.format(IPTABLES_BACKUP))
+    log.info('sudo ufw reset\n')
+    setup_common_firewall()
+    if scenario in (SCENARIO_BOTH, SCENARIO_CLIENT):
+        setup_client_firewall(client_interface)
+    if scenario in (SCENARIO_BOTH, SCENARIO_CONTROLLER):
+        setup_controller_firewall(controller_interface, forward_rule)
 
 
 def reset_firewall():
@@ -193,7 +318,9 @@ def main(argv=None):
         args.client_interface, args.controller_interface)
     try:
         log.info("Setting firewall")
-        set_firewall(args.scenario, forward_rule)
+        set_firewall(
+            args.scenario, args.client_interface, args.controller_interface,
+            forward_rule)
         log.info("Starting test")
         bs_manager = BootstrapManager.from_args(args)
         log.info("Starting bootstrap")
