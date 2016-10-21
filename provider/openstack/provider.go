@@ -672,12 +672,14 @@ func identityClientVersion(authURL string) (int, error) {
 	url, err := url.Parse(authURL)
 	if err != nil {
 		return -1, err
-	} else if url.Path == "" {
-		return -1, err
 	}
+	logger.Tracef("authURL: %s", authURL)
 	// The last part of the path should be the version #.
 	// Example: https://keystone.foo:443/v3/
-	logger.Tracef("authURL: %s", authURL)
+	if url.Path == "" || len(url.Path) < 3 {
+		// Version number was not specified on identity endpoint.
+		return -1, errors.Errorf("identity endpoint url %s has no version number", authURL)
+	}
 	versionNumStr := url.Path[2:]
 	if versionNumStr[len(versionNumStr)-1] == '/' {
 		versionNumStr = versionNumStr[:len(versionNumStr)-1]
