@@ -806,26 +806,8 @@ class Juju2Backend:
         pause(seconds)
 
 
-class Juju2A2Backend(Juju2Backend):
-    """Backend for 2A2.
-
-    Uses -m to specify models, uses JUJU_HOME and JUJU_DATA to specify home
-    directory.
-    """
-
-    def shell_environ(self, used_feature_flags, juju_home):
-        """Generate a suitable shell environment.
-
-        For 2.0-alpha2 set both JUJU_HOME and JUJU_DATA.
-        """
-        env = super(Juju2A2Backend, self).shell_environ(used_feature_flags,
-                                                        juju_home)
-        env['JUJU_HOME'] = juju_home
-        return env
-
-
-class Juju1XBackend(Juju2A2Backend):
-    """Backend for Juju 1.x - 2A1.
+class Juju1XBackend(Juju2Backend):
+    """Backend for Juju 1.x versions.
 
     Uses -e to specify models ("environments", uses JUJU_HOME to specify home
     directory.
@@ -880,10 +862,8 @@ def get_client_class(version):
     elif re.match('^1\.', version):
         client_class = EnvJujuClient1X
     # Ensure alpha/beta number matches precisely
-    elif re.match('^2\.0-alpha1([^\d]|$)', version):
+    elif re.match('^2\.0-alpha[12]([^\d]|$)', version):
         raise VersionNotTestedError(version)
-    elif re.match('^2\.0-alpha2([^\d]|$)', version):
-        client_class = EnvJujuClient2A2
     elif re.match('^2\.0-(alpha3|beta[12])([^\d]|$)', version):
         client_class = EnvJujuClient2B2
     elif re.match('^2\.0-(beta[3-6])([^\d]|$)', version):
@@ -2468,68 +2448,12 @@ class EnvJujuClient2B2(EnvJujuClient2B3):
         return self.env.environment
 
 
-class EnvJujuClient2A2(EnvJujuClient2B2):
-    """Drives Juju 2.0-alpha2 clients."""
+class EnvJujuClient1X(EnvJujuClient2B2):
+    """Base for all 1.x client drivers."""
 
-    default_backend = Juju2A2Backend
+    default_backend = Juju1XBackend
 
     config_class = SimpleEnvironment
-
-    @classmethod
-    def _get_env(cls, env):
-        if isinstance(env, JujuData):
-            raise IncompatibleConfigClass(
-                'JujuData cannot be used with {}'.format(cls.__name__))
-        return env
-
-    def bootstrap(self, upload_tools=False, bootstrap_series=None):
-        """Bootstrap a controller."""
-        self._check_bootstrap()
-        args = self.get_bootstrap_args(upload_tools, bootstrap_series)
-        self.juju('bootstrap', args, self.env.needs_sudo())
-
-    @contextmanager
-    def bootstrap_async(self, upload_tools=False):
-        self._check_bootstrap()
-        args = self.get_bootstrap_args(upload_tools)
-        with self.juju_async('bootstrap', args):
-            yield
-            log.info('Waiting for bootstrap of {}.'.format(
-                self.env.environment))
-
-    def get_bootstrap_args(self, upload_tools, bootstrap_series=None,
-                           credential=None):
-        """Return the bootstrap arguments for the substrate."""
-        if credential is not None:
-            raise ValueError(
-                '--credential is not supported by this juju version.')
-        constraints = self._get_substrate_constraints()
-        args = ('--constraints', constraints,
-                '--agent-version', self.get_matching_agent_version())
-        if upload_tools:
-            args = ('--upload-tools',) + args
-        if bootstrap_series is not None:
-            args = args + ('--bootstrap-series', bootstrap_series)
-        return args
-
-    def deploy(self, charm, repository=None, to=None, series=None,
-               service=None, force=False, storage=None, constraints=None):
-        args = [charm]
-        if repository is not None:
-            args.extend(['--repository', repository])
-        if to is not None:
-            args.extend(['--to', to])
-        if service is not None:
-            args.extend([service])
-        if storage is not None:
-            args.extend(['--storage', storage])
-        if constraints is not None:
-            args.extend(['--constraints', constraints])
-        return self.juju('deploy', tuple(args))
-
-
-class EnvJujuClient1X(EnvJujuClient2A2):
-    """Base for all 1.x client drivers."""
 
     # The environments.yaml options that are replaced by bootstrap options.
     # For Juju 1.x, no bootstrap options are used.
@@ -2543,7 +2467,12 @@ class EnvJujuClient1X(EnvJujuClient2A2):
 
     _show_status = 'status'
 
-    default_backend = Juju1XBackend
+    @classmethod
+    def _get_env(cls, env):
+        if isinstance(env, JujuData):
+            raise IncompatibleConfigClass(
+                'JujuData cannot be used with {}'.format(cls.__name__))
+        return env
 
     def get_cache_path(self):
         return get_cache_path(self.env.juju_home, models=False)
@@ -2711,6 +2640,21 @@ class EnvJujuClient1X(EnvJujuClient2A2):
                     env_val)
         return args
 
+    def bootstrap(self, upload_tools=False, bootstrap_series=None):
+        """Bootstrap a controller."""
+        self._check_bootstrap()
+        args = self.get_bootstrap_args(upload_tools, bootstrap_series)
+        self.juju('bootstrap', args, self.env.needs_sudo())
+
+    @contextmanager
+    def bootstrap_async(self, upload_tools=False):
+        self._check_bootstrap()
+        args = self.get_bootstrap_args(upload_tools)
+        with self.juju_async('bootstrap', args):
+            yield
+            log.info('Waiting for bootstrap of {}.'.format(
+                self.env.environment))
+
     def get_jes_command(self):
         raise JESNotSupported()
 
@@ -2789,6 +2733,21 @@ class EnvJujuClient1X(EnvJujuClient2A2):
         if name:
             args += (name,)
         self.juju('deployer', args, self.env.needs_sudo())
+
+    def deploy(self, charm, repository=None, to=None, series=None,
+               service=None, force=False, storage=None, constraints=None):
+        args = [charm]
+        if repository is not None:
+            args.extend(['--repository', repository])
+        if to is not None:
+            args.extend(['--to', to])
+        if service is not None:
+            args.extend([service])
+        if storage is not None:
+            args.extend(['--storage', storage])
+        if constraints is not None:
+            args.extend(['--constraints', constraints])
+        return self.juju('deploy', tuple(args))
 
     def upgrade_charm(self, service, charm_path=None):
         args = (service,)
