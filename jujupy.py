@@ -806,26 +806,8 @@ class Juju2Backend:
         pause(seconds)
 
 
-class Juju2A2Backend(Juju2Backend):
-    """Backend for 2A2.
-
-    Uses -m to specify models, uses JUJU_HOME and JUJU_DATA to specify home
-    directory.
-    """
-
-    def shell_environ(self, used_feature_flags, juju_home):
-        """Generate a suitable shell environment.
-
-        For 2.0-alpha2 set both JUJU_HOME and JUJU_DATA.
-        """
-        env = super(Juju2A2Backend, self).shell_environ(used_feature_flags,
-                                                        juju_home)
-        env['JUJU_HOME'] = juju_home
-        return env
-
-
-class Juju1XBackend(Juju2A2Backend):
-    """Backend for Juju 1.x - 2A1.
+class Juju1XBackend(Juju2Backend):
+    """Backend for Juju 1.x versions.
 
     Uses -e to specify models ("environments", uses JUJU_HOME to specify home
     directory.
