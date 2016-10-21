@@ -254,7 +254,7 @@ def generate_reports(controller_log, results_dir, deployments, graph_period):
             deployments['cleanup'],
             deployments['deploys'])
     else:
-        log_message_chunks = None
+        log_message_chunks = defaultdict(defaultdict)
 
     details = dict(
         cpu_graph=cpu_image,

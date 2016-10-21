@@ -1,14 +1,24 @@
+import argparse
 from datetime import datetime
+import sys
 import time
 import logging
 
 from assess_recovery import deploy_stack
-from utility import until_timeout
+from deploy_stack import (
+    BootstrapManager,
+)
 from generate_perfscale_results import (
     _convert_seconds_to_readable,
     DeployDetails,
     MINUTE,
     TimingData,
+    run_perfscale_test,
+)
+from utility import (
+    add_basic_testing_arguments,
+    configure_logging,
+    until_timeout,
 )
 
 
@@ -27,8 +37,8 @@ class Rest:
     really_long = MINUTE * 120
 
 
-def assess_longrun_perf(bs_manager, test_length):
-    client = bs_manager.client
+def perfscale_longrun_perf(client, args):
+    test_length = args.run_length * (60 * MINUTE)
     longrun_start = datetime.utcnow()
     run_count = 0
     for _ in until_timeout(test_length):
@@ -100,3 +110,28 @@ def action_cleanup(client, new_models):
 def action_rest(rest_length=Rest.short):
     log.info('Resting for {} seconds'.format(rest_length))
     time.sleep(rest_length)
+
+
+def parse_args(argv):
+    """Parse all arguments."""
+    parser = argparse.ArgumentParser(
+        description="Perfscale bundle deployment test.")
+    add_basic_testing_arguments(parser)
+    parser.add_argument(
+        '--run-length',
+        help='Length of time (in hours) to run the test',
+        type=int,
+        default=12)
+    return parser.parse_args(argv)
+
+
+def main(argv=None):
+    args = parse_args(argv)
+    configure_logging(args.verbose)
+    bs_manager = BootstrapManager.from_args(args)
+    run_perfscale_test(perfscale_longrun_perf, bs_manager, args)
+
+    return 0
+
+if __name__ == '__main__':
+    sys.exit(main())
