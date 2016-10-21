@@ -684,7 +684,7 @@ func identityClientVersion(authURL string) (int, error) {
 	}
 	if url.Path == "" || url.Path == "/" {
 		// User explicitely did not provide any version, it is empty.
-		return -1, err
+		return -1, nil
 	}
 	// The last part of the path should be the version #.
 	// Example: https://keystone.foo:443/v3/
