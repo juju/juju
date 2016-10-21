@@ -1959,7 +1959,7 @@ class TestPrepareUpgradeJujuAttempt(JujuPyTestCase):
             {future_client.full_path: present_client.full_path})
         puj_iterator = iter_steps_validate_info(self, puj_attempt,
                                                 future_client)
-        with patch('subprocess.check_output', return_value='2.0-alpha3-a-b'):
+        with patch('subprocess.check_output', return_value='2.0.0'):
             with patch('industrial_test.client_from_config',
                        return_value=future_client):
                 self.assertEqual({'test_id': 'prepare-upgrade-juju'},
@@ -1970,8 +1970,8 @@ class TestPrepareUpgradeJujuAttempt(JujuPyTestCase):
                                  puj_iterator.next())
             assert_juju_call(self, po_mock, future_client, (
                 'juju', '--show-log', 'bootstrap', '--constraints', 'mem=2G',
-                'steve', 'fake/regionx', '--config', config_file.name,
-                '--agent-version', '2.0-alpha3'))
+                'fake/regionx', 'steve', '--config', config_file.name,
+                '--default-model', 'steve', '--agent-version', '2.0.0'))
             po_mock.return_value.wait.return_value = 0
             self.assertEqual(puj_iterator.next(),
                              {'test_id': 'prepare-upgrade-juju'})
