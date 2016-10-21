@@ -862,10 +862,8 @@ def get_client_class(version):
     elif re.match('^1\.', version):
         client_class = EnvJujuClient1X
     # Ensure alpha/beta number matches precisely
-    elif re.match('^2\.0-alpha[12]([^\d]|$)', version):
+    elif re.match('^2\.0-(alpha[123]|beta[12])([^\d]|$)', version):
         raise VersionNotTestedError(version)
-    elif re.match('^2\.0-(alpha3|beta[12])([^\d]|$)', version):
-        client_class = EnvJujuClient2B2
     elif re.match('^2\.0-(beta[3-6])([^\d]|$)', version):
         client_class = EnvJujuClient2B3
     elif re.match('^2\.0-(beta7)([^\d]|$)', version):
@@ -2382,66 +2380,7 @@ class EnvJujuClient2B3(EnvJujuClient2B7):
             model_name, '--config', config_file))
 
 
-class EnvJujuClient2B2(EnvJujuClient2B3):
-
-    def get_bootstrap_args(
-            self, upload_tools, config_filename, bootstrap_series=None,
-            credential=None, auto_upgrade=False, metadata_source=None,
-            to=None, agent_version=None):
-        """Return the bootstrap arguments for the substrate."""
-        err_fmt = 'EnvJujuClient2B2 does not support bootstrap argument {}'
-        if auto_upgrade:
-            raise ValueError(err_fmt.format('auto_upgrade'))
-        if metadata_source is not None:
-            raise ValueError(err_fmt.format('metadata_source'))
-        if to is not None:
-            raise ValueError(err_fmt.format('to'))
-        if agent_version is not None:
-            raise ValueError(err_fmt.format('agent_version'))
-        if self.env.joyent:
-            # Only accept kvm packages by requiring >1 cpu core, see lp:1446264
-            constraints = 'mem=2G cpu-cores=1'
-        else:
-            constraints = 'mem=2G'
-        cloud_region = self.get_cloud_region(self.env.get_cloud(),
-                                             self.env.get_region())
-        args = ['--constraints', constraints, self.env.environment,
-                cloud_region, '--config', config_filename]
-        if upload_tools:
-            args.insert(0, '--upload-tools')
-        else:
-            args.extend(['--agent-version', self.get_matching_agent_version()])
-
-        if bootstrap_series is not None:
-            args.extend(['--bootstrap-series', bootstrap_series])
-
-        if credential is not None:
-            args.extend(['--credential', credential])
-
-        return tuple(args)
-
-    def get_controller_client(self):
-        """Return a client for the controller model.  May return self."""
-        return self
-
-    def get_controller_model_name(self):
-        """Return the name of the 'controller' model.
-
-        Return the name of the environment when an 'controller' model does
-        not exist.
-        """
-        models = self.get_models()
-        # The dict can be empty because 1.x does not support the models.
-        # This is an ambiguous case for the jes feature flag which supports
-        # multiple models, but none is named 'admin' by default. Since the
-        # jes case also uses '-e' for models, the env is the controller model.
-        for model in models.get('models', []):
-            if 'admin' in model['name']:
-                return 'admin'
-        return self.env.environment
-
-
-class EnvJujuClient1X(EnvJujuClient2B2):
+class EnvJujuClient1X(EnvJujuClient2B3):
     """Base for all 1.x client drivers."""
 
     default_backend = Juju1XBackend
@@ -2748,6 +2687,26 @@ class EnvJujuClient1X(EnvJujuClient2B2):
             repository = os.path.dirname(os.path.dirname(charm_path))
             args = args + ('--repository', repository)
         self.juju('upgrade-charm', args)
+
+    def get_controller_client(self):
+        """Return a client for the controller model.  May return self."""
+        return self
+
+    def get_controller_model_name(self):
+        """Return the name of the 'controller' model.
+
+        Return the name of the environment when an 'controller' model does
+        not exist.
+        """
+        models = self.get_models()
+        # The dict can be empty because 1.x does not support the models.
+        # This is an ambiguous case for the jes feature flag which supports
+        # multiple models, but none is named 'admin' by default. Since the
+        # jes case also uses '-e' for models, the env is the controller model.
+        for model in models.get('models', []):
+            if 'admin' in model['name']:
+                return 'admin'
+        return self.env.environment
 
     def get_controller_endpoint(self):
         """Return the address of the state-server leader."""
