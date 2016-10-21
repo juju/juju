@@ -45,9 +45,9 @@ def bootstrap_cloud(config, region):
         try:
             client.wait_for_started()
             client.juju(
-                'destroy-controller', (
-                    client.env.controller.name, '-y'), include_e=False,
-                    timeout=get_teardown_timeout(client))
+                'destroy-controller',
+                (client.env.controller.name, '-y'), include_e=False,
+                timeout=get_teardown_timeout(client))
         except Exception as e:
             logging.exception(e)
             raise
@@ -75,9 +75,9 @@ def iter_cloud_regions(public_clouds, credentials):
         for region in sorted(info['regions']):
             yield config, region
 
+
 def bootstrap_cloud_regions(public_clouds, credentials, start):
     cloud_regions = list(iter_cloud_regions(public_clouds, credentials))
-    failures = []
     for num, (config, region) in enumerate(cloud_regions):
         if num < start:
             continue
@@ -109,8 +109,6 @@ def main():
         if len(failures) == 0:
             print('No failures!')
         else:
-            failure_str = [
-                '{} {} {}'.format(c, r, e) for c, r, e in failures]
             print('Failed:')
             for config, region, e in failures:
                 print(' * {} {} {}'.format(config, region, e))
