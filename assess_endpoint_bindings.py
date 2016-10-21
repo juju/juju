@@ -104,7 +104,7 @@ def reconfigure_networking(manager, required_spaces):
         for cidr, vlan, space in zip(_generate_cidrs(), new_vlans, spaces):
             new_subnets.append(manager.create_subnet(
                 cidr, fabric_id=new_fabric["id"], vlan_id=vlan["id"],
-                space=space["id"]))
+                space=space["id"], gateway_ip=cidr.replace(".0/24", ".1")))
             log.info("Created subnet: %r", new_subnets[-1])
 
         yield new_fabric, spaces, list(new_vlans), list(new_subnets)
