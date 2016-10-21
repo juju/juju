@@ -4,11 +4,17 @@
 package rpc
 
 import (
-	"errors"
 	"strings"
+
+	"github.com/juju/errors"
 )
 
 var ErrShutdown = errors.New("connection is shut down")
+
+// IsShutdownErr checks if supplied error has ErrShutdown as a cause.
+func IsShutdownErr(err error) bool {
+	return errors.Cause(err) == ErrShutdown
+}
 
 // Call represents an active RPC.
 type Call struct {
