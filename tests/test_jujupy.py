@@ -45,7 +45,6 @@ from jujupy import (
     EnvJujuClient22,
     EnvJujuClient24,
     EnvJujuClient25,
-    EnvJujuClient2A1,
     EnvJujuClient2A2,
     EnvJujuClient2B2,
     EnvJujuClient2B3,
@@ -508,7 +507,7 @@ class TestClientFromConfig(ClientTest):
             test_fc('1.25.1', EnvJujuClient25)
             test_fc('1.26.1', None)
             test_fc('1.27.1', EnvJujuClient1X)
-            test_fc('2.0-alpha1', EnvJujuClient2A1)
+            test_fc('2.0-alpha1', None)
             test_fc('2.0-alpha2', EnvJujuClient2A2)
             test_fc('2.0-alpha3', EnvJujuClient2B2)
             test_fc('2.0-beta1', EnvJujuClient2B2)
