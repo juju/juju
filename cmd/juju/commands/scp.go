@@ -12,6 +12,7 @@ import (
 	"github.com/juju/utils/ssh"
 
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/network"
 )
 
 var usageSCPSummary = `
@@ -72,8 +73,10 @@ causes the transfer to be made via the client):
 See also: 
     ssh`
 
-func newSCPCommand() cmd.Command {
-	return modelcmd.Wrap(&scpCommand{})
+func newSCPCommand(hostDialer network.Dialer) cmd.Command {
+	c := new(scpCommand)
+	c.setHostDialer(hostDialer)
+	return modelcmd.Wrap(c)
 }
 
 // scpCommand is responsible for launching a scp command to copy files to/from remote machine(s)
