@@ -2700,17 +2700,7 @@ class EnvJujuClient1X(EnvJujuClient2B3):
     def get_controller_model_name(self):
         """Return the name of the 'controller' model.
 
-        Return the name of the environment when an 'controller' model does
-        not exist.
-        """
-        models = self.get_models()
-        # The dict can be empty because 1.x does not support the models.
-        # This is an ambiguous case for the jes feature flag which supports
-        # multiple models, but none is named 'admin' by default. Since the
-        # jes case also uses '-e' for models, the env is the controller model.
-        for model in models.get('models', []):
-            if 'admin' in model['name']:
-                return 'admin'
+        Return the name of the 1.x environment."""
         return self.env.environment
 
     def get_controller_endpoint(self):
