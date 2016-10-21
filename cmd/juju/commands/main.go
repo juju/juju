@@ -166,12 +166,21 @@ func (m main) maybeWarnJuju1x() (newInstall bool) {
 	if !exists {
 		return newInstall
 	}
+	// TODO (anastasiamac 2016-10-21) Once manual page exists as per
+	// https://github.com/juju/docs/issues/1487,
+	// link it in the Note below to avoid propose here.
 	fmt.Fprintf(os.Stderr, `
-    Welcome to Juju %s. If you meant to use Juju %s you can continue using it
-    with the command %s e.g. '%s switch'.
+Welcome to Juju %s. 
     See https://jujucharms.com/docs/stable/introducing-2 for more details.
 
-`[1:], jujuversion.Current, ver, juju1xCmdName, juju1xCmdName)
+If you meant to use Juju %s, run 'juju' commands as '%s'. For example, 'juju switch' as '%s switch'.
+    Note: 
+    '%s' command comes from %s-default package.
+    On trusty, use 'update-alternatives'.
+    On xenial/yakkety, use %s-default package install.
+    After the installation, you should have /usr/bin/%s directory to use '%s' command. 
+
+`[1:], jujuversion.Current, ver, juju1xCmdName, juju1xCmdName, juju1xCmdName, juju1xCmdName, juju1xCmdName, juju1xCmdName, juju1xCmdName)
 	return newInstall
 }
 
