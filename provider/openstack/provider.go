@@ -671,21 +671,35 @@ func (e *Environ) SetConfig(cfg *config.Config) error {
 func identityClientVersion(authURL string) (int, error) {
 	url, err := url.Parse(authURL)
 	if err != nil {
-		return -1, err
-	} else if url.Path == "" {
-		return -1, nil
+		// Return 0 as this is the lowest invalid number according to openstack codebase:
+		// -1 is reserved and has special handling; 1, 2, 3, etc are valid identity client versions.
+		return 0, err
 	}
-	logger.Tracef("authURL: %s", authURL)
+	if url.Path == authURL {
+		// This means we could not parse URL into url structure
+		// with protocols, domain, port, etc.
+		// For example, specifying "keystone.foo" instead of "https://keystone.foo:443/v3/"
+		// falls into this category.
+		return 0, errors.Errorf("url %s is malformed", authURL)
+	}
+	if url.Path == "" || url.Path == "/" {
+		// User explicitely did not provide any version, it is empty.
+		return -1, err
+	}
 	// The last part of the path should be the version #.
 	// Example: https://keystone.foo:443/v3/
-	if len(url.Path) < 3 {
-		// Version number was not specified on identity endpoint.
-		return -1, errors.Errorf("identity endpoint url %s has no version number", authURL)
+	versionNumStr := strings.TrimPrefix(strings.ToLower(url.Path), "/v")
+	versionNumStr = strings.TrimSuffix(versionNumStr, "/")
+	if versionNumStr == url.Path || versionNumStr == "" {
+		// If nothing was trimmed, version specification was malformed.
+		// If nothing was left after trim, version number is not provided and,
+		// hence, version specification was malformed.
+		// At this stage only '/Vxxx' and '/vxxx' are valid where xxx is major.minor version.
+		// Return 0 as this is the lowest invalid number according to openstack codebase:
+		// -1 is reserved and has special handling; 1, 2, 3, etc are valid identity client versions.
+		return 0, errors.NotValidf("version part of identity url %s", authURL)
 	}
-	versionNumStr := url.Path[2:]
-	if versionNumStr[len(versionNumStr)-1] == '/' {
-		versionNumStr = versionNumStr[:len(versionNumStr)-1]
-	}
+	logger.Tracef("authURL: %s", authURL)
 	major, _, err := version.ParseMajorMinor(versionNumStr)
 	return major, err
 }
