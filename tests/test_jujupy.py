@@ -45,7 +45,6 @@ from jujupy import (
     EnvJujuClient22,
     EnvJujuClient24,
     EnvJujuClient25,
-    EnvJujuClient2A2,
     EnvJujuClient2B2,
     EnvJujuClient2B3,
     EnvJujuClient2B7,
@@ -488,7 +487,7 @@ class TestClientFromConfig(ClientTest):
             def test_fc(version, cls):
                 if cls is not None:
                     client = client_from_config('foo', None)
-                    if isinstance(client, EnvJujuClient2A2):
+                    if isinstance(client, EnvJujuClient1X):
                         self.assertEqual(se_fc_mock.return_value, client.env)
                     else:
                         self.assertEqual(jd_fc_mock.return_value, client.env)
@@ -508,7 +507,7 @@ class TestClientFromConfig(ClientTest):
             test_fc('1.26.1', None)
             test_fc('1.27.1', EnvJujuClient1X)
             test_fc('2.0-alpha1', None)
-            test_fc('2.0-alpha2', EnvJujuClient2A2)
+            test_fc('2.0-alpha2', None)
             test_fc('2.0-alpha3', EnvJujuClient2B2)
             test_fc('2.0-beta1', EnvJujuClient2B2)
             test_fc('2.0-beta2', EnvJujuClient2B2)
@@ -3669,36 +3668,14 @@ class TestEnvJujuClient2B2(ClientTest):
         self.assertEqual('foo', controller_name)
 
 
-class TestEnvJujuClient2A2(TestCase):
+class TestEnvJujuClient1X(ClientTest):
 
     def test_raise_on_juju_data(self):
         env = JujuData('foo', {'type': 'bar'}, 'baz')
         with self.assertRaisesRegexp(
                 IncompatibleConfigClass,
-                'JujuData cannot be used with EnvJujuClient2A2'):
-            EnvJujuClient2A2(env, '1.25', 'full_path')
-
-    def test__shell_environ_juju_home(self):
-        client = EnvJujuClient2A2(
-            SimpleEnvironment('baz', {'type': 'ec2'}), '1.25-foobar', 'path',
-            'asdf')
-        with patch.dict(os.environ, {'PATH': ''}):
-            env = client._shell_environ()
-        # For transition, supply both.
-        self.assertEqual(env['JUJU_HOME'], 'asdf')
-        self.assertEqual(env['JUJU_DATA'], 'asdf')
-
-    def test_get_bootstrap_args_bootstrap_series(self):
-        env = SimpleEnvironment('foo', {})
-        client = EnvJujuClient2A2(env, '2.0-zeta1', 'path', 'home')
-        args = client.get_bootstrap_args(upload_tools=True,
-                                         bootstrap_series='angsty')
-        self.assertEqual(args, (
-            '--upload-tools', '--constraints', 'mem=2G',
-            '--agent-version', '2.0', '--bootstrap-series', 'angsty'))
-
-
-class TestEnvJujuClient1X(ClientTest):
+                'JujuData cannot be used with EnvJujuClient1X'):
+            EnvJujuClient1X(env, '1.25', 'full_path')
 
     def test_no_duplicate_env(self):
         env = SimpleEnvironment('foo', {})
