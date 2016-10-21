@@ -12,10 +12,10 @@ from deploy_stack import BootstrapManager
 from fakejuju import fake_juju_client
 from jujupy import SoftDeadlineExceeded
 from tests import (
+    client_past_deadline,
     parse_error,
     TestCase,
 )
-from tests.test_jujupy import client_past_deadline
 from utility import (
     JujuAssertionError,
     noop_context,

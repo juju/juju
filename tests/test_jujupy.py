@@ -5,7 +5,6 @@ from datetime import (
     datetime,
     timedelta,
     )
-import errno
 import json
 import logging
 import os
@@ -13,7 +12,6 @@ import socket
 import StringIO
 import subprocess
 import sys
-from tempfile import NamedTemporaryFile
 from textwrap import dedent
 import types
 
@@ -80,8 +78,12 @@ from jujupy import (
     VersionNotTestedError,
     )
 from tests import (
-    TestCase,
+    assert_juju_call,
+    client_past_deadline,
     FakeHomeTestCase,
+    FakePopen,
+    observable_temp_file,
+    TestCase,
     )
 from tests.test_assess_resources import make_resource_list
 from utility import (
@@ -92,15 +94,6 @@ from utility import (
 
 
 __metaclass__ = type
-
-
-def assert_juju_call(test_case, mock_method, client, expected_args,
-                     call_index=None):
-    if call_index is None:
-        test_case.assertEqual(len(mock_method.mock_calls), 1)
-        call_index = 0
-    empty, args, kwargs = mock_method.mock_calls[call_index]
-    test_case.assertEqual(args, (expected_args,))
 
 
 class TestErroredUnit(TestCase):
@@ -396,39 +389,6 @@ class TestTearDown(TestCase):
         self.assertEqual(0, client.disable_jes.call_count)
 
 
-class FakePopen(object):
-
-    def __init__(self, out, err, returncode):
-        self._out = out
-        self._err = err
-        self._code = returncode
-
-    def communicate(self):
-        self.returncode = self._code
-        return self._out, self._err
-
-    def poll(self):
-        return self._code
-
-
-@contextmanager
-def observable_temp_file():
-    temporary_file = NamedTemporaryFile(delete=False)
-    try:
-        with temporary_file as temp_file:
-            with patch('jujupy.NamedTemporaryFile',
-                       return_value=temp_file):
-                with patch.object(temp_file, '__exit__'):
-                    yield temp_file
-    finally:
-        try:
-            os.unlink(temporary_file.name)
-        except OSError as e:
-            # File may have already been deleted, e.g. by temp_yaml_file.
-            if e.errno != errno.ENOENT:
-                raise
-
-
 class TestClientFromConfig(ClientTest):
 
     @contextmanager
@@ -554,17 +514,6 @@ class TestClientFromConfig(ClientTest):
                 client = client_from_config(
                     'foo', 'foo/bar/qux', soft_deadline=deadline)
         self.assertEqual(client._backend.soft_deadline, deadline)
-
-
-@contextmanager
-def client_past_deadline():
-    client = EnvJujuClient(JujuData('local', juju_home=''), None, None)
-    soft_deadline = datetime(2015, 1, 2, 3, 4, 6)
-    now = soft_deadline + timedelta(seconds=1)
-    client._backend.soft_deadline = soft_deadline
-    with patch.object(client._backend, '_now', return_value=now,
-                      autospec=True):
-        yield client
 
 
 class TestEnvJujuClient(ClientTest):

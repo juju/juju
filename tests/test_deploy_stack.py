@@ -76,14 +76,12 @@ from remote import (
     winrm,
     )
 from tests import (
-    FakeHomeTestCase,
-    temp_os_env,
-    use_context,
-    )
-from tests.test_jujupy import (
     assert_juju_call,
+    FakeHomeTestCase,
     FakePopen,
     observable_temp_file,
+    temp_os_env,
+    use_context,
     )
 from utility import (
     LoggedException,
