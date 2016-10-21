@@ -56,7 +56,9 @@ type Conf struct {
 
 	// TODO(ericsnow) Turn ExtraScript into ExecStartPre.
 
-	// ExtraScript allows to insert script before command execution.
+	// ExtraScript allows for the insertion of scripting before command
+	// execution. This is not the same as ExecStartPre, but rather
+	// scripting that will be prepended to ExecStart.
 	ExtraScript string
 
 	// ServiceBinary is the actual binary without any arguments.
