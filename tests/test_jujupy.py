@@ -878,7 +878,7 @@ class TestEnvJujuClient(ClientTest):
                 '--agent-version', '2.0',
                 '--bootstrap-series', 'angsty'), include_e=False)
 
-    def test_bootstrap_auto_upgade(self):
+    def test_bootstrap_auto_upgrade(self):
         env = JujuData('foo', {'type': 'bar', 'region': 'baz'})
         client = EnvJujuClient(env, '2.0-zeta1', None)
         with patch.object(client, 'juju') as mock:
@@ -890,6 +890,19 @@ class TestEnvJujuClient(ClientTest):
                 'bar/baz', 'foo',
                 '--config', config_file.name, '--default-model', 'foo',
                 '--agent-version', '2.0', '--auto-upgrade'), include_e=False)
+
+    def test_bootstrap_no_gui(self):
+        env = JujuData('foo', {'type': 'bar', 'region': 'baz'})
+        client = EnvJujuClient(env, '2.0-zeta1', None)
+        with patch.object(client, 'juju') as mock:
+            with observable_temp_file() as config_file:
+                client.bootstrap(no_gui=True)
+        mock.assert_called_with(
+            'bootstrap', (
+                '--constraints', 'mem=2G',
+                'bar/baz', 'foo',
+                '--config', config_file.name, '--default-model', 'foo',
+                '--agent-version', '2.0', '--no-gui'), include_e=False)
 
     def test_bootstrap_metadata(self):
         env = JujuData('foo', {'type': 'bar', 'region': 'baz'})
