@@ -414,7 +414,7 @@ def generate_mongo_query_graph_image(results_dir, graph_period):
         graph_period)
 
 
-def generate_mongo_memory_graph_image(results_dir):
+def generate_mongo_memory_graph_image(results_dir, graph_period):
     return generate_graph_image(
         results_dir,
         'mongodb',
