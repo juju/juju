@@ -4,10 +4,12 @@
 package commands
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"os/exec"
 	"strings"
+	"text/template"
 
 	"github.com/juju/cmd"
 	"github.com/juju/loggo"
@@ -167,12 +169,28 @@ func (m main) maybeWarnJuju1x() (newInstall bool) {
 	if !exists {
 		return newInstall
 	}
-	fmt.Fprintf(os.Stderr, `
-    Welcome to Juju %s. If you meant to use Juju %s you can continue using it
-    with the command %s e.g. '%s switch'.
+	// TODO (anastasiamac 2016-10-21) Once manual page exists as per
+	// https://github.com/juju/docs/issues/1487,
+	// link it in the Note below to avoid propose here.
+	welcomeMsgTemplate := `
+Welcome to Juju {{.CurrentJujuVersion}}. 
     See https://jujucharms.com/docs/stable/introducing-2 for more details.
 
-`[1:], jujuversion.Current, ver, juju1xCmdName, juju1xCmdName)
+If you meant to use Juju {{.OldJujuVersion}}, run 'juju' commands as '{{.OldJujuCommand}}'. For example, 'juju switch' as '{{.OldJujuCommand}} switch'.
+    Note: 
+    '{{.OldJujuCommand}}' command comes from {{.OldJujuCommand}}-default package.
+    On trusty, use 'update-alternatives'.
+    On xenial/yakkety, use {{.OldJujuCommand}}-default package install.
+    After the installation, you should have /usr/bin/{{.OldJujuCommand}} to use '{{.OldJujuCommand}}' command. 
+`[1:]
+	t := template.Must(template.New("plugin").Parse(welcomeMsgTemplate))
+	var buf bytes.Buffer
+	t.Execute(&buf, map[string]interface{}{
+		"CurrentJujuVersion": jujuversion.Current,
+		"OldJujuVersion":     ver,
+		"OldJujuCommand":     juju1xCmdName,
+	})
+	fmt.Fprintln(os.Stderr, buf.String())
 	return newInstall
 }
 
