@@ -440,6 +440,8 @@ class MAASAccount:
 
     _API_PATH = 'api/2.0/'
 
+    STATUS_READY = 4
+
     SUBNET_CONNECTION_MODES = frozenset(('AUTO', 'DHCP', 'STATIC', 'LINK_UP'))
 
     def __init__(self, profile, url, oauth):
@@ -493,6 +495,10 @@ class MAASAccount:
                if v['ip_addresses']}
         return ips
 
+    def machines(self):
+        """Return list of all machines."""
+        return self._maas(self.profile, 'machines', 'read')
+
     def fabrics(self):
         """Return list of all fabrics."""
         return self._maas(self.profile, 'fabrics', 'read')
@@ -537,6 +543,22 @@ class MAASAccount:
     def interfaces(self, system_id):
         """Return list of interfaces belonging to node with given system_id."""
         return self._maas(self.profile, 'interfaces', 'read', system_id)
+
+    def interface_update(self, system_id, interface_id, name=None,
+                         mac_address=None, tags=None, vlan_id=None):
+        """Update fields of existing interface on node with given system_id."""
+        args = [
+            self.profile, 'interface', 'update', system_id, str(interface_id),
+        ]
+        if name is not None:
+            args.append('name=' + name)
+        if mac_address is not None:
+            args.append('mac_address=' + mac_address)
+        if tags is not None:
+            args.append('tags=' + tags)
+        if vlan_id is not None:
+            args.append('vlan=' + str(vlan_id))
+        return self._maas(*args)
 
     def interface_create_vlan(self, system_id, parent, vlan_id):
         """Create a vlan interface on machine with given system_id."""

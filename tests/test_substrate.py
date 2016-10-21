@@ -877,6 +877,14 @@ class TestMAASAccount(TestCase):
             ('maas', 'mas', 'machines', 'list-allocated'))
         self.assertEqual({}, ips)
 
+    def test_machines(self):
+        account = self.get_account()
+        with patch('subprocess.check_output', autospec=True,
+                   return_value='[]') as co_mock:
+            machines = account.machines()
+        co_mock.assert_called_once_with(('maas', 'mas', 'machines', 'read'))
+        self.assertEqual([], machines)
+
     def test_fabrics(self):
         account = self.get_account()
         with patch('subprocess.check_output', autospec=True,
@@ -966,6 +974,16 @@ class TestMAASAccount(TestCase):
         co_mock.assert_called_once_with((
             'maas', 'mas', 'interfaces', 'read', 'node-xyz'))
         self.assertEqual([], interfaces)
+
+    def test_interface_update(self):
+        account = self.get_account()
+        with patch('subprocess.check_output', autospec=True,
+                   return_value='{"id": 10}') as co_mock:
+            interface = account.interface_update('node-xyz', 10, vlan=5000)
+        co_mock.assert_called_once_with((
+            'maas', 'mas', 'interface', 'update', 'node-xyz', '10',
+            'vlan=5000'))
+        self.assertEqual({'id': 10}, interface)
 
     def test_interface_create_vlan(self):
         account = self.get_account()
