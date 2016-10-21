@@ -4966,36 +4966,9 @@ class TestEnvJujuClient1X(ClientTest):
             self.log_stream.getvalue())
 
     def test_get_controller_model_name(self):
-        models = {
-            'models': [
-                {'name': 'admin', 'model-uuid': 'aaaa'},
-                {'name': 'bar', 'model-uuid': 'bbbb'}],
-            'current-model': 'bar'
-        }
-        client = EnvJujuClient1X(SimpleEnvironment('foo'), None, None)
-        with patch.object(client, 'get_models',
-                          return_value=models) as gm_mock:
-            controller_name = client.get_controller_model_name()
-        self.assertEqual(0, gm_mock.call_count)
-        self.assertEqual('foo', controller_name)
-
-    def test_get_controller_model_name_without_controller(self):
-        models = {
-            'models': [
-                {'name': 'bar', 'model-uuid': 'aaaa'},
-                {'name': 'baz', 'model-uuid': 'bbbb'}],
-            'current-model': 'bar'
-        }
-        client = EnvJujuClient1X(SimpleEnvironment('foo'), None, None)
-        with patch.object(client, 'get_models', return_value=models):
-            controller_name = client.get_controller_model_name()
-        self.assertEqual('foo', controller_name)
-
-    def test_get_controller_model_name_no_models(self):
         env = SimpleEnvironment('foo', {'type': 'local'})
         client = EnvJujuClient1X(env, '1.23-series-arch', None)
-        with patch.object(client, 'get_models', return_value={}):
-            controller_name = client.get_controller_model_name()
+        controller_name = client.get_controller_model_name()
         self.assertEqual('foo', controller_name)
 
     def test_get_controller_endpoint_ipv4(self):
