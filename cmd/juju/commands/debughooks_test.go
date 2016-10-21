@@ -50,7 +50,7 @@ var debugHooksTests = []struct {
 }, {
 	info:       "unit name without hook (api v2)",
 	args:       []string{"mysql/0"},
-	dialWith:   dialerFuncFor("0.private", "0.public", "0.1.2.3"), // last one set on machine 0 eth0
+	dialWith:   dialerFuncFor("0.private", "0.public", "0.1.2.3"), // set by setAddresses() and setLinkLayerDevicesAddresses()
 	forceAPIv1: false,
 	expected: &argsSpec{
 		hostKeyChecking: "yes",
@@ -73,7 +73,7 @@ var debugHooksTests = []struct {
 }, {
 	info:       "proxy (api v2)",
 	args:       []string{"--proxy=true", "mysql/0"},
-	dialWith:   dialerFuncFor("0.private", "0.public", "0.1.2.3"), // last one set on machine 0 eth0
+	dialWith:   dialerFuncFor("0.private", "0.public", "0.1.2.3"), // set by setAddresses() and setLinkLayerDevicesAddresses()
 	forceAPIv1: false,
 	expected: &argsSpec{
 		hostKeyChecking: "yes",

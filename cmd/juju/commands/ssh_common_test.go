@@ -216,7 +216,9 @@ func (s *SSHCommonSuite) setupModel(c *gc.C) {
 	// Add machine-0 with a mysql service and mysql/0 unit
 	u := s.Factory.MakeUnit(c, nil)
 
-	// Set addresses and keys for machine-0
+	// Set both the preferred public and private addresses for machine-0, add a
+	// couple of link-layer devices (loopback and ethernet) with addresses, and
+	// the ssh keys.
 	m := s.getMachineForUnit(c, u)
 	s.setAddresses(c, m)
 	s.setKeys(c, m)

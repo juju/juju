@@ -48,7 +48,7 @@ var sshTests = []struct {
 	{
 		about:      "connect to machine 0 (api v2)",
 		args:       []string{"0"},
-		dialWith:   dialerFuncFor("0.private", "0.public", "0.1.2.3"), // last one set on machine 0 eth0
+		dialWith:   dialerFuncFor("0.private", "0.public", "0.1.2.3"), // set by setAddresses() and setLinkLayerDevicesAddresses()
 		forceAPIv1: false,
 		expected: argsSpec{
 			hostKeyChecking: "yes",
@@ -157,7 +157,7 @@ var sshTests = []struct {
 	{
 		about:      "connect to unit mysql/0 with proxy (api v2)",
 		args:       []string{"--proxy=true", "mysql/0"},
-		dialWith:   dialerFuncFor("0.private", "0.public", "0.1.2.3"), // last one set on machine 0 eth0
+		dialWith:   dialerFuncFor("0.private", "0.public", "0.1.2.3"), // set by setAddresses() and setLinkLayerDevicesAddresses()
 		forceAPIv1: false,
 		expected: argsSpec{
 			hostKeyChecking: "yes",

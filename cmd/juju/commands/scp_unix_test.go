@@ -42,7 +42,7 @@ var scpTests = []struct {
 	}, {
 		about:      "scp from machine 0 to current dir (api v2)",
 		args:       []string{"0:foo", "."},
-		dialWith:   dialerFuncFor("0.private", "0.public", "0.1.2.3"), // last one set on machine 0 eth0
+		dialWith:   dialerFuncFor("0.private", "0.public", "0.1.2.3"), // set by setAddresses() and setLinkLayerDevicesAddresses()
 		forceAPIv1: false,
 		expected: argsSpec{
 			argsMatch:       `ubuntu@0.(public|private|1\.2\.3):foo \.`, // can be any of the 3
