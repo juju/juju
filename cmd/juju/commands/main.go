@@ -192,7 +192,6 @@ If you want to use Juju {{.OldJujuVersion}}, run 'juju' commands as '{{.OldJujuC
 		"OldJujuCommand":     juju1xCmdName,
 	})
 	fmt.Fprintln(os.Stderr, buf.String())
-	return newInstall
 }
 
 func (m main) juju1xVersion() (ver string, exists bool) {

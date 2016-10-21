@@ -91,7 +91,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 // newWorker creates a degenerate worker that provides access to the metrics
 // spool directory path.
 func newWorker(a agent.Agent) (worker.Worker, error) {
-	metricsSpoolDir := a.CurrentConfig().MetricsSpoolDir()
+	metricsSpoolDir := a.CurrentConfig().MetricsSpoolPath()
 	err := checkSpoolDir(metricsSpoolDir)
 	if err != nil {
 		return nil, errors.Annotatef(err, "error checking spool directory %q", metricsSpoolDir)

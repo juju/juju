@@ -25,7 +25,6 @@ import (
 	"gopkg.in/juju/names.v2"
 	goyaml "gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/juju/osenv"
@@ -72,6 +71,8 @@ var (
 
 type unixConfigure struct {
 	baseConfigure
+
+	confPath string
 }
 
 // TODO(ericsnow) Move Configure to the baseConfigure type?
@@ -124,7 +125,7 @@ func (w *unixConfigure) ConfigureBasic() error {
 		w.addCleanShutdownJob(service.InitSystemSystemd)
 	}
 	SetUbuntuUser(w.conf, w.icfg.AuthorizedKeys)
-	w.conf.SetOutput(cloudinit.OutAll, "| tee -a "+w.icfg.CloudInitOutputLog, "")
+	w.conf.SetOutput(cloudinit.OutAll, "| tee -a "+w.icfg.CloudInitOutputLogPath, "")
 	// Create a file in a well-defined location containing the machine's
 	// nonce. The presence and contents of this file will be verified
 	// during bootstrap.
@@ -132,7 +133,7 @@ func (w *unixConfigure) ConfigureBasic() error {
 	// Note: this must be the last runcmd we do in ConfigureBasic, as
 	// the presence of the nonce file is used to gate the remainder
 	// of synchronous bootstrap.
-	noncefile := path.Join(w.icfg.DataDir, NonceFile)
+	noncefile := path.Join(w.icfg.DataPath, NonceFile)
 	w.conf.AddRunTextFile(noncefile, w.icfg.MachineNonce, 0644)
 	return nil
 }
@@ -157,7 +158,7 @@ func (w *unixConfigure) setDataDirPermissions() string {
 	default:
 		user = "syslog"
 	}
-	return fmt.Sprintf("chown %s:adm %s", user, w.icfg.LogDir)
+	return fmt.Sprintf("chown %s:adm %s", user, w.icfg.LogPath)
 }
 
 // ConfigureJuju updates the provided cloudinit.Config with configuration
@@ -178,9 +179,9 @@ func (w *unixConfigure) ConfigureJuju() error {
 	// have been set. We don't want to show the log to the user, so simply
 	// append to the log file rather than teeing.
 	if stdout, _ := w.conf.Output(cloudinit.OutAll); stdout == "" {
-		w.conf.SetOutput(cloudinit.OutAll, ">> "+w.icfg.CloudInitOutputLog, "")
+		w.conf.SetOutput(cloudinit.OutAll, ">> "+w.icfg.CloudInitOutputLogPath, "")
 		w.conf.AddBootCmd(initProgressCmd)
-		w.conf.AddBootCmd(cloudinit.LogProgressCmd("Logging to %s on the bootstrap machine", w.icfg.CloudInitOutputLog))
+		w.conf.AddBootCmd(cloudinit.LogProgressCmd("Logging to %s on the bootstrap machine", w.icfg.CloudInitOutputLogPath))
 	}
 
 	w.conf.AddPackageCommands(
@@ -208,7 +209,7 @@ func (w *unixConfigure) ConfigureJuju() error {
 	}
 
 	if w.icfg.Controller != nil && w.icfg.Controller.PublicImageSigningKey != "" {
-		keyFile := filepath.Join(agent.DefaultPaths.ConfDir, simplestreams.SimplestreamsPublicKeyFile)
+		keyFile := filepath.Join(w.confPath, simplestreams.SimplestreamsPublicKeyFile)
 		w.conf.AddRunTextFile(keyFile, w.icfg.Controller.PublicImageSigningKey, 0644)
 	}
 
@@ -216,12 +217,12 @@ func (w *unixConfigure) ConfigureJuju() error {
 	// ubuntu:ubuntu from root:root so the juju-run command run as the ubuntu
 	// user is able to get access to the hook execution lock (like the uniter
 	// itself does.)
-	lockDir := path.Join(w.icfg.DataDir, "locks")
+	lockDir := path.Join(w.icfg.DataPath, "locks")
 	w.conf.AddScripts(
 		fmt.Sprintf("mkdir -p %s", lockDir),
 		// We only try to change ownership if there is an ubuntu user defined.
 		fmt.Sprintf("(id ubuntu &> /dev/null) && chown ubuntu:ubuntu %s", lockDir),
-		fmt.Sprintf("mkdir -p %s", w.icfg.LogDir),
+		fmt.Sprintf("mkdir -p %s", w.icfg.LogPath),
 		w.setDataDirPermissions(),
 	)
 
@@ -281,7 +282,7 @@ func (w *unixConfigure) configureBootstrap() error {
 		defer cleanup()
 	}
 
-	bootstrapParamsFile := path.Join(w.icfg.DataDir, "bootstrap-params")
+	bootstrapParamsFile := path.Join(w.icfg.DataPath, "bootstrap-params")
 	bootstrapParams, err := w.icfg.Bootstrap.StateInitializationParams.Marshal()
 	if err != nil {
 		return errors.Annotate(err, "marshalling bootstrap params")
@@ -302,7 +303,7 @@ func (w *unixConfigure) configureBootstrap() error {
 		featureFlags + w.icfg.JujuTools() + "/jujud",
 		"bootstrap-state",
 		"--timeout", w.icfg.Bootstrap.Timeout.String(),
-		"--data-dir", shquote(w.icfg.DataDir),
+		"--data-dir", shquote(w.icfg.DataPath),
 		loggingOption,
 		shquote(bootstrapParamsFile),
 	}

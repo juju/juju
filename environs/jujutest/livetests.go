@@ -13,6 +13,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
+	"github.com/juju/utils/os"
 	"github.com/juju/utils/series"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
@@ -35,6 +36,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/keys"
+	"github.com/juju/juju/juju/paths"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
@@ -762,8 +764,20 @@ func (t *LiveTests) assertStopInstance(c *gc.C, env environs.Environ, instId ins
 func (t *LiveTests) TestStartInstanceWithEmptyNonceFails(c *gc.C) {
 	machineId := "4"
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
-	instanceConfig, err := instancecfg.NewInstanceConfig(coretesting.ControllerTag, machineId, "", "released", "quantal", apiInfo)
-	c.Assert(err, jc.ErrorIsNil)
+	instanceConfig := instancecfg.NewInstanceConfig(
+		paths.Nix.Conf,
+		paths.Nix.Temp,
+		paths.Nix.Data,
+		paths.Nix.Log,
+		paths.Nix.MetricsSpool,
+		coretesting.ControllerTag,
+		machineId,
+		"",
+		"released",
+		os.Ubuntu,
+		"quantal",
+		apiInfo,
+	)
 
 	t.PrepareOnce(c)
 	possibleTools := coretools.List(envtesting.AssertUploadFakeToolsVersions(
@@ -774,7 +788,7 @@ func (t *LiveTests) TestStartInstanceWithEmptyNonceFails(c *gc.C) {
 		Tools:          possibleTools,
 		InstanceConfig: instanceConfig,
 	}
-	err = jujutesting.SetImageMetadata(
+	err := jujutesting.SetImageMetadata(
 		t.Env,
 		possibleTools.AllSeries(),
 		possibleTools.Arches(),

@@ -17,7 +17,7 @@ import (
 // PreUpgradeSteps runs various checks and prepares for performing an upgrade.
 // If any check fails, an error is returned which aborts the upgrade.
 func PreUpgradeSteps(st *state.State, agentConf agent.Config, isController, isMaster bool) error {
-	if err := checkDiskSpace(agentConf.DataDir()); err != nil {
+	if err := checkDiskSpace(agentConf.DataPath()); err != nil {
 		return errors.Trace(err)
 	}
 	if isController {

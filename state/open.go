@@ -36,12 +36,13 @@ import (
 //
 // Open returns unauthorizedError if access is unauthorized.
 func Open(
+	storagePath string,
 	controllerModelTag names.ModelTag,
 	controllerTag names.ControllerTag,
 	info *mongo.MongoInfo, opts mongo.DialOpts,
 	newPolicy NewPolicyFunc,
 ) (*State, error) {
-	st, err := open(controllerModelTag, info, opts, newPolicy, clock.WallClock)
+	st, err := open(controllerModelTag, info, opts, newPolicy, clock.WallClock, storagePath)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -65,6 +66,7 @@ func open(
 	info *mongo.MongoInfo, opts mongo.DialOpts,
 	newPolicy NewPolicyFunc,
 	clock clock.Clock,
+	storagePath string,
 ) (*State, error) {
 	logger.Infof("opening state, mongo addresses: %q; entity %v", info.Addrs, info.Tag)
 	logger.Debugf("dialing mongo")
@@ -81,7 +83,7 @@ func open(
 	}
 	logger.Debugf("mongodb login successful")
 
-	st, err := newState(controllerModelTag, controllerModelTag, session, info, newPolicy, clock)
+	st, err := newState(storagePath, controllerModelTag, controllerModelTag, session, info, newPolicy, clock)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -148,6 +150,8 @@ type InitializeParams struct {
 	// MongoDialOpts contains the dial options for connecting to
 	// Mongo.
 	MongoDialOpts mongo.DialOpts
+
+	StoragePath string
 }
 
 // Validate checks that the state initialization parameters are valid.
@@ -210,7 +214,7 @@ func Initialize(args InitializeParams) (_ *State, err error) {
 	// When creating the controller model, the new model
 	// UUID is also used as the controller UUID.
 	modelTag := names.NewModelTag(args.ControllerModelArgs.Config.UUID())
-	st, err := open(modelTag, args.MongoInfo, args.MongoDialOpts, args.NewPolicy, args.Clock)
+	st, err := open(modelTag, args.MongoInfo, args.MongoDialOpts, args.NewPolicy, args.Clock, args.StoragePath)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -470,6 +474,7 @@ func isUnauthorized(err error) bool {
 // newState takes responsibility for the supplied *mgo.Session, and will
 // close it if it cannot be returned under the aegis of a *State.
 func newState(
+	storagePath string,
 	modelTag, controllerModelTag names.ModelTag,
 	session *mgo.Session, mongoInfo *mongo.MongoInfo,
 	newPolicy NewPolicyFunc,
@@ -501,6 +506,7 @@ func newState(
 		session:            session,
 		database:           database,
 		newPolicy:          newPolicy,
+		storagePath:        storagePath,
 	}
 	if newPolicy != nil {
 		st.policy = newPolicy(st)

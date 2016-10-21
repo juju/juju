@@ -31,13 +31,16 @@ const (
 // UserdataConfig is the bridge between instancecfg and cloudinit
 // It supports different levels of configuration for instances
 type UserdataConfig interface {
+
 	// Configure is a convenience function that updates the cloudinit.Config
 	// with appropriate configuration. It will run ConfigureBasic() and
 	// ConfigureJuju()
 	Configure() error
+
 	// ConfigureBasic updates the provided cloudinit.Config with
 	// basic configuration to initialise an OS image.
 	ConfigureBasic() error
+
 	// ConfigureJuju updates the provided cloudinit.Config with configuration
 	// to initialise a Juju machine agent.
 	ConfigureJuju() error
@@ -62,12 +65,10 @@ func NewUserdataConfig(icfg *instancecfg.InstanceConfig, conf cloudinit.CloudCon
 	}
 
 	switch operatingSystem {
-	case os.Ubuntu:
-		return &unixConfigure{base}, nil
-	case os.CentOS:
-		return &unixConfigure{base}, nil
+	case os.Ubuntu, os.CentOS:
+		return &unixConfigure{base, icfg.ConfPath}, nil
 	case os.Windows:
-		return &windowsConfigure{base}, nil
+		return &windowsConfigure{base, icfg.TempPath}, nil
 	default:
 		return nil, errors.NotSupportedf("OS %s", icfg.Series)
 	}
@@ -122,11 +123,7 @@ func (c *baseConfigure) addMachineAgentToBoot() error {
 	svcName := c.icfg.MachineAgentServiceName
 	// TODO (gsamfira): This is temporary until we find a cleaner way to fix
 	// cloudinit.LogProgressCmd to not add >&9 on Windows.
-	targetOS, err := series.GetOSFromSeries(c.icfg.Series)
-	if err != nil {
-		return err
-	}
-	if targetOS != os.Windows {
+	if c.os != os.Windows {
 		c.conf.AddRunCmd(cloudinit.LogProgressCmd("Starting Juju machine agent (service %s)", svcName))
 	}
 	c.conf.AddScripts(cmds...)
@@ -143,23 +140,28 @@ func SetUbuntuUser(conf cloudinit.CloudConfig, authorizedKeys string) {
 	targetSeries := conf.GetSeries()
 	if targetSeries == "precise" {
 		conf.SetSSHAuthorizedKeys(authorizedKeys)
-	} else {
-		var groups []string
-		targetOS, _ := series.GetOSFromSeries(targetSeries)
-		switch targetOS {
-		case os.Ubuntu:
-			groups = UbuntuGroups
-		case os.CentOS:
-			groups = CentOSGroups
-		}
-		conf.AddUser(&cloudinit.User{
-			Name:              "ubuntu",
-			Groups:            groups,
-			Shell:             "/bin/bash",
-			Sudo:              []string{"ALL=(ALL) NOPASSWD:ALL"},
-			SSHAuthorizedKeys: authorizedKeys,
-		})
+		return
 	}
+
+	var groups []string
+	targetOS, err := series.GetOSFromSeries(targetSeries)
+	if err != nil {
+		logger.Warningf(errors.Annotate(err, "cannot determine OS").Error())
+	}
+
+	switch targetOS {
+	case os.Ubuntu:
+		groups = UbuntuGroups
+	case os.CentOS:
+		groups = CentOSGroups
+	}
+	conf.AddUser(&cloudinit.User{
+		Name:              "ubuntu",
+		Groups:            groups,
+		Shell:             "/bin/bash",
+		Sudo:              []string{"ALL=(ALL) NOPASSWD:ALL"},
+		SSHAuthorizedKeys: authorizedKeys,
+	})
 }
 
 // TODO(ericsnow) toolsSymlinkCommand should just be replaced with a

@@ -3,58 +3,61 @@
 
 package paths
 
-import (
-	"github.com/juju/utils/os"
+// collection couples together all the paths Juju knows about into a
+// struct. Instances should be passed by value.
+type Collection struct {
+
+	// data is the path where Juju may put tools, charms, locks, etc.
+	Data string
+
+	// log is the path where Juju may put log files.
+	Log string
+
+	// temp is the path where Juju may put temporary data.
+	Temp string
+
+	// metricsSpool is the path where Juju may store metrics.
+	MetricsSpool string
+
+	// storage is the path where Juju may mount machine-level
+	// storaage.
+	Storage string
+
+	// Conf is the path where Juju may store configuration files.
+	Conf string
+
+	// jujuRun is the path to the juju-run binary.
+	JujuRun string
+
+	// jujuDumpLogs is the path to the juju-dumplogs binary.
+	JujuDumpLogs string
+
+	// Cert is the path where Juju may put certificates added by
+	// default to the Juju client API certification pool.
+	Cert string
+}
+
+var (
+	Nix = Collection{
+		Cert:         "/etc/juju/certs.d",
+		Conf:         "/etc/juju",
+		Data:         "/var/lib/juju",
+		JujuDumpLogs: "/usr/bin/juju-dumplogs",
+		JujuRun:      "/usr/bin/juju-run",
+		Log:          "/var/log",
+		MetricsSpool: "/var/lib/juju/metricspool",
+		Storage:      "/var/lib/juju/storage",
+		Temp:         "/tmp",
+	}
+	Windows = Collection{
+		Cert:         "C:/Juju/certs",
+		Conf:         "C:/Juju/etc",
+		Data:         "C:/Juju/lib/juju",
+		JujuDumpLogs: "C:/Juju/bin/juju-dumplogs.exe",
+		JujuRun:      "C:/Juju/bin/juju-run.exe",
+		Log:          "C:/Juju/log",
+		MetricsSpool: "C:/Juju/lib/juju/metricspool",
+		Storage:      "C:/Juju/lib/juju/storage",
+		Temp:         "C:/Juju/tmp",
+	}
 )
-
-// These values must be known at run-time so that we can build scripts
-// for OSs other than our processes host OS. If a value is not needed
-// at runtime, do not put it here. Instead, place it in the file which
-// is guarded by a compilation flag for its proper OS.
-const (
-	nixData         string = "/var/lib/juju"
-	nixLog                 = "/var/log"
-	nixTemp                = "/tmp"
-	nixMetricsSpool        = "/var/lib/juju/metricspool"
-
-	winData         = "C:/Juju/lib/juju"
-	winLog          = "C:/Juju/log"
-	winTemp         = "C:/Juju/tmp"
-	winMetricsSpool = "C:/Juju/lib/juju/metricspool"
-)
-
-// DataForOS returns the correct Data path for the given OS. If the OS
-// is known at compile-time, use the Data const instead.
-func DataForOS(osType os.OSType) string {
-	if osType == os.Windows {
-		return winData
-	}
-	return nixData
-}
-
-// LogForOS returns the correct Log path for the given OS. If the OS
-// is known at compile-time, use the Log const instead.
-func LogForOS(osType os.OSType) string {
-	if osType == os.Windows {
-		return winLog
-	}
-	return nixLog
-}
-
-// MetricsSpoolForOS returns the correct MetricsSpool path for the given OS. If the OS
-// is known at compile-time, use the MetricsSpool const instead.
-func MetricsSpoolForOS(osType os.OSType) string {
-	if osType == os.Windows {
-		return winMetricsSpool
-	}
-	return nixMetricsSpool
-}
-
-// TempForOS returns the correct Temp path for the given OS. If the OS
-// is known at compile-time, use the Temp const instead.
-func TempForOS(osType os.OSType) string {
-	if osType == os.Windows {
-		return winTemp
-	}
-	return nixTemp
-}

@@ -406,7 +406,7 @@ func upgradeCertificateDNSNames(config agent.ConfigSetter) error {
 	if err != nil {
 		return err
 	}
-	if err := mongo.UpdateSSLKey(config.DataDir(), si.Cert, si.PrivateKey); err != nil {
+	if err := mongo.UpdateSSLKey(config.DataPath(), si.Cert, si.PrivateKey); err != nil {
 		return err
 	}
 	config.SetStateServingInfo(si)
@@ -446,8 +446,8 @@ func (a *MachineAgent) Run(*cmd.Context) error {
 
 	agentConfig := a.CurrentConfig()
 	createEngine := a.makeEngineCreator(agentConfig.UpgradedToVersion())
-	charmrepo.CacheDir = filepath.Join(agentConfig.DataDir(), "charmcache")
-	if err := a.createJujudSymlinks(agentConfig.DataDir()); err != nil {
+	charmrepo.CacheDir = filepath.Join(agentConfig.DataPath(), "charmcache")
+	if err := a.createJujudSymlinks(agentConfig.DataPath()); err != nil {
 		return err
 	}
 	a.runner.StartWorker("engine", createEngine)
@@ -797,7 +797,12 @@ func (a *MachineAgent) openStateForUpgrade() (*state.State, error) {
 	if !ok {
 		return nil, errors.New("no state info available")
 	}
-	st, err := state.Open(agentConfig.Model(), agentConfig.Controller(), info, mongo.DefaultDialOpts(),
+	st, err := state.Open(
+		agentConfig.StoragePath(),
+		agentConfig.Model(),
+		agentConfig.Controller(),
+		info,
+		mongo.DefaultDialOpts(),
 		stateenvirons.GetNewPolicyFunc(
 			stateenvirons.GetNewEnvironFunc(environs.New),
 		),
@@ -1100,8 +1105,8 @@ func (a *MachineAgent) newAPIserverWorker(st *state.State, certChanged chan para
 		return nil, &cmdutil.FatalError{"configuration does not have controller cert/key"}
 	}
 	tag := agentConfig.Tag()
-	dataDir := agentConfig.DataDir()
-	logDir := agentConfig.LogDir()
+	dataDir := agentConfig.DataPath()
+	logDir := agentConfig.LogPath()
 
 	endpoint := net.JoinHostPort("", strconv.Itoa(info.APIPort))
 	listener, err := net.Listen("tcp", endpoint)
@@ -1358,7 +1363,12 @@ func openState(agentConfig agent.Config, dialOpts mongo.DialOpts) (_ *state.Stat
 	if !ok {
 		return nil, nil, errors.Errorf("no state info available")
 	}
-	st, err := state.Open(agentConfig.Model(), agentConfig.Controller(), info, dialOpts,
+	st, err := state.Open(
+		agentConfig.StoragePath(),
+		agentConfig.Model(),
+		agentConfig.Controller(),
+		info,
+		dialOpts,
 		stateenvirons.GetNewPolicyFunc(
 			stateenvirons.GetNewEnvironFunc(environs.New),
 		),
@@ -1456,7 +1466,7 @@ func (a *MachineAgent) Tag() names.Tag {
 
 func (a *MachineAgent) createJujudSymlinks(dataDir string) error {
 	jujud := filepath.Join(tools.ToolsDir(dataDir, a.Tag().String()), jujunames.Jujud)
-	for _, link := range []string{paths.JujuRun, paths.JujuDumpLogs} {
+	for _, link := range []string{paths.Defaults.JujuRun, paths.Defaults.JujuDumpLogs} {
 		err := a.createSymlink(jujud, link)
 		if err != nil {
 			return errors.Annotatef(err, "failed to create %s symlink", link)
@@ -1490,7 +1500,7 @@ func (a *MachineAgent) createSymlink(target, link string) error {
 }
 
 func (a *MachineAgent) removeJujudSymlinks() (errs []error) {
-	for _, link := range []string{paths.JujuRun, paths.JujuDumpLogs} {
+	for _, link := range []string{paths.Defaults.JujuRun, paths.Defaults.JujuDumpLogs} {
 		err := os.Remove(utils.EnsureBaseDir(a.rootDir, link))
 		if err != nil && !os.IsNotExist(err) {
 			errs = append(errs, errors.Annotatef(err, "failed to remove %s symlink", link))
@@ -1534,7 +1544,7 @@ func (a *MachineAgent) uninstallAgent() error {
 	if insideContainer {
 		// We're running inside a container, so loop devices may leak. Detach
 		// any loop devices that are backed by files on this machine.
-		if err := a.loopDeviceManager.DetachLoopDevices("/", agentConfig.DataDir()); err != nil {
+		if err := a.loopDeviceManager.DetachLoopDevices("/", agentConfig.DataPath()); err != nil {
 			errs = append(errs, err)
 		}
 	}
@@ -1542,7 +1552,7 @@ func (a *MachineAgent) uninstallAgent() error {
 	if err := mongo.RemoveService(); err != nil {
 		errs = append(errs, errors.Annotate(err, "cannot stop/remove mongo service"))
 	}
-	if err := os.RemoveAll(agentConfig.DataDir()); err != nil {
+	if err := os.RemoveAll(agentConfig.DataPath()); err != nil {
 		errs = append(errs, err)
 	}
 	if len(errs) == 0 {

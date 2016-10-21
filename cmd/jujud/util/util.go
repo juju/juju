@@ -223,7 +223,7 @@ func NewEnsureServerParams(agentConfig agent.Config) (mongo.EnsureServerParams, 
 		SharedSecret:   si.SharedSecret,
 		SystemIdentity: si.SystemIdentity,
 
-		DataDir:              agentConfig.DataDir(),
+		DataDir:              agentConfig.DataPath(),
 		OplogSize:            oplogSize,
 		SetNUMAControlPolicy: numaCtlPolicy,
 		OSSeriesName:         series,

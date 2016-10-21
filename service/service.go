@@ -12,7 +12,6 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/series"
 
-	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/service/systemd"
 	"github.com/juju/juju/service/upstart"
@@ -121,7 +120,7 @@ func newService(name string, conf common.Conf, initSystem string) (Service, erro
 	case InitSystemUpstart:
 		return upstart.NewService(name, conf), nil
 	case InitSystemSystemd:
-		svc, err := systemd.NewService(name, conf, paths.Data)
+		svc, err := systemd.NewService(name, conf)
 		if err != nil {
 			return nil, errors.Annotatef(err, "failed to wrap service %q", name)
 		}

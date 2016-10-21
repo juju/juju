@@ -15,7 +15,7 @@ import (
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 
-	"github.com/juju/juju/agent"
+	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/imagestorage"
 )
@@ -273,7 +273,8 @@ type mongoRestorer24 struct {
 }
 
 func (md *mongoRestorer24) options(dumpDir string) []string {
-	dbDir := filepath.Join(agent.DefaultPaths.DataDir, "db")
+	// TODO(katco): Pass these in
+	dbDir := filepath.Join(paths.Defaults.Data, "db")
 	options := []string{
 		"--drop",
 		"--journal",

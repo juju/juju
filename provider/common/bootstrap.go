@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/status"
 	coretools "github.com/juju/juju/tools"
@@ -78,7 +79,12 @@ func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args
 		Series: selectedSeries,
 	})
 	if err != nil {
-		return nil, "", nil, err
+		return nil, "", nil, errors.Trace(err)
+	}
+
+	osType, err := series.GetOSFromSeries(selectedSeries)
+	if err != nil {
+		return nil, "", nil, errors.Trace(err)
 	}
 
 	// Filter image metadata to the selected series.
@@ -100,20 +106,28 @@ func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args
 	if client == nil {
 		// This should never happen: if we don't have OpenSSH, then
 		// go.crypto/ssh should be used with an auto-generated key.
-		return nil, "", nil, fmt.Errorf("no SSH client available")
+		return nil, "", nil, errors.New("no SSH client available")
 	}
 
-	publicKey, err := simplestreams.UserPublicSigningKey()
+	publicKey, err := simplestreams.UserPublicSigningKey(paths.Defaults.Conf)
 	if err != nil {
-		return nil, "", nil, err
+		return nil, "", nil, errors.Trace(err)
 	}
 	envCfg := env.Config()
-	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(
-		args.ControllerConfig, args.BootstrapConstraints, args.ModelConstraints, selectedSeries, publicKey,
+	instanceConfig := instancecfg.NewBootstrapInstanceConfig(
+		// TODO(katco): Pass this in (does it go in BootstrapContext, Environ, or params?)
+		paths.Defaults.Conf,
+		paths.Defaults.Temp,
+		paths.Defaults.Data,
+		paths.Defaults.Log,
+		paths.Defaults.MetricsSpool,
+		args.ControllerConfig,
+		args.BootstrapConstraints,
+		args.ModelConstraints,
+		osType,
+		selectedSeries,
+		publicKey,
 	)
-	if err != nil {
-		return nil, "", nil, err
-	}
 	instanceConfig.EnableOSRefreshUpdate = env.Config().EnableOSRefreshUpdate()
 	instanceConfig.EnableOSUpgrade = env.Config().EnableOSUpgrade()
 
@@ -266,7 +280,7 @@ func GetCheckNonceCommand(instanceConfig *instancecfg.InstanceConfig) string {
 	// nonce in the InstanceConfig. This also blocks sshinit from proceeding
 	// until cloud-init has completed, which is necessary to ensure apt
 	// invocations don't trample each other.
-	nonceFile := utils.ShQuote(path.Join(instanceConfig.DataDir, cloudconfig.NonceFile))
+	nonceFile := utils.ShQuote(path.Join(instanceConfig.DataPath, cloudconfig.NonceFile))
 	checkNonceCommand := fmt.Sprintf(`
 	noncefile=%s
 	if [ ! -e "$noncefile" ]; then
@@ -309,7 +323,7 @@ func ConfigureMachine(ctx environs.BootstrapContext, client ssh.Client, host str
 	if err != nil {
 		return err
 	}
-	script := shell.DumpFileOnErrorScript(instanceConfig.CloudInitOutputLog) + configScript
+	script := shell.DumpFileOnErrorScript(instanceConfig.CloudInitOutputLogPath) + configScript
 	return sshinit.RunConfigureScript(script, sshinit.ConfigureParams{
 		Host:           "ubuntu@" + host,
 		Client:         client,

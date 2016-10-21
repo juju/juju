@@ -23,7 +23,6 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/multiwatcher"
@@ -86,65 +85,64 @@ func (s StateServingInfoSetter) SetStateServingInfo(info params.StateServingInfo
 	})
 }
 
-// Paths holds the directory paths used by the agent.
-type Paths struct {
-	// DataDir is the data directory where each agent has a subdirectory
-	// containing the configuration files.
-	DataDir string
-	// LogDir is the log directory where all logs from all agents on
-	// the machine are written.
-	LogDir string
-	// MetricsSpoolDir is the spool directory where workloads store
-	// collected metrics.
-	MetricsSpoolDir string
-	// ConfDir is the directory where all  config file for
-	// Juju agents are stored.
-	ConfDir string
-}
+// type AgentPaths struct {
+// 	paths.Collection
 
-// Migrate assigns the directory locations specified from the new path configuration.
-func (p *Paths) Migrate(newPaths Paths) {
-	if newPaths.DataDir != "" {
-		p.DataDir = newPaths.DataDir
-	}
-	if newPaths.LogDir != "" {
-		p.LogDir = newPaths.LogDir
-	}
-	if newPaths.MetricsSpoolDir != "" {
-		p.MetricsSpoolDir = newPaths.MetricsSpoolDir
-	}
-	if newPaths.ConfDir != "" {
-		p.ConfDir = newPaths.ConfDir
-	}
-}
+// 	configFilePath string
+// }
+
+// type Paths interface {
+// 	// return path.Join(p.PathsB.Log(), "juju")
+// 	LogPath() string
+// 	DataPath() string
+// 	MetricsSpoolPath() string
+// 	// ConfigPath(config.paths.DataDir, config.tag)
+// 	ConfigFilePath() string
+// }
+
+// // Migrate assigns the directory locations specified from the new path configuration.
+// func (p *Paths) Migrate(newPaths Paths) {
+// 	if newPaths.DataDir != "" {
+// 		p.DataDir = newPaths.DataDir
+// 	}
+// 	if newPaths.LogDir != "" {
+// 		p.LogDir = newPaths.LogDir
+// 	}
+// 	if newPaths.MetricsSpoolDir != "" {
+// 		p.MetricsSpoolDir = newPaths.MetricsSpoolDir
+// 	}
+// 	if newPaths.ConfDir != "" {
+// 		p.ConfDir = newPaths.ConfDir
+// 	}
+// }
 
 // NewPathsWithDefaults returns a Paths struct initialized with default locations if not otherwise specified.
-func NewPathsWithDefaults(p Paths) Paths {
-	paths := DefaultPaths
-	if p.DataDir != "" {
-		paths.DataDir = p.DataDir
-	}
-	if p.LogDir != "" {
-		paths.LogDir = p.LogDir
-	}
-	if p.MetricsSpoolDir != "" {
-		paths.MetricsSpoolDir = p.MetricsSpoolDir
-	}
-	if p.ConfDir != "" {
-		paths.ConfDir = p.ConfDir
-	}
-	return paths
-}
+// func NewPathsWithDefaults(p Paths) Paths {
+// 	paths := DefaultPaths
+// 	if p.DataDir != "" {
+// 		paths.DataDir = p.DataDir
+// 	}
+// 	if p.LogDir != "" {
+// 		paths.LogDir = p.LogDir
+// 	}
+// 	if p.MetricsSpoolDir != "" {
+// 		paths.MetricsSpoolDir = p.MetricsSpoolDir
+// 	}
+// 	if p.ConfDir != "" {
+// 		paths.ConfDir = p.ConfDir
+// 	}
+// 	return paths
+// }
 
-var (
-	// DefaultPaths defines the default paths for an agent.
-	DefaultPaths = Paths{
-		DataDir:         paths.Data,
-		LogDir:          path.Join(paths.Log, "juju"),
-		MetricsSpoolDir: paths.MetricsSpool,
-		ConfDir:         paths.Conf,
-	}
-)
+// var (
+// 	// DefaultPaths defines the default paths for an agent.
+// 	DefaultPaths = Paths{
+// 		DataDir:         paths.Data,
+// 		LogDir:          path.Join(paths.Log, "juju"),
+// 		MetricsSpoolDir: paths.MetricsSpool,
+// 		ConfDir:         paths.Conf,
+// 	}
+// )
 
 // SystemIdentity is the name of the file where the environment SSH key is kept.
 const SystemIdentity = "system-identity"
@@ -171,13 +169,15 @@ const (
 // is needed around the synchronisation as a single instance is used in
 // multiple go routines.
 type Config interface {
-	// DataDir returns the data directory. Each agent has a subdirectory
+	// DataPath returns the data directory. Each agent has a subdirectory
 	// containing the configuration files.
-	DataDir() string
+	DataPath() string
 
-	// LogDir returns the log directory. All logs from all agents on
+	StoragePath() string
+
+	// LogPath returns the log directory. All logs from all agents on
 	// the machine are written to this directory.
-	LogDir() string
+	LogPath() string
 
 	// SystemIdentityPath returns the path of the file where the environment
 	// SSH key is kept.
@@ -242,7 +242,7 @@ type Config interface {
 
 	// MetricsSpoolDir returns the spool directory where workloads store
 	// collected metrics.
-	MetricsSpoolDir() string
+	MetricsSpoolPath() string
 
 	// MongoVersion returns the version of mongo that the state server
 	// is using.
@@ -287,7 +287,7 @@ type configSetterOnly interface {
 
 // LogFileName returns the filename for the Agent's log file.
 func LogFilename(c Config) string {
-	return filepath.Join(c.LogDir(), c.Tag().String()+".log")
+	return filepath.Join(c.LogPath(), c.Tag().String()+".log")
 }
 
 type ConfigMutator func(ConfigSetter) error
@@ -308,9 +308,6 @@ type ConfigSetterWriter interface {
 	ConfigWriter
 }
 
-// Ensure that the configInternal struct implements the Config interface.
-var _ Config = (*configInternal)(nil)
-
 type connectionDetails struct {
 	addresses []string
 	password  string
@@ -326,8 +323,11 @@ func (d *connectionDetails) clone() *connectionDetails {
 }
 
 type configInternal struct {
+	dataPath          string
+	logPath           string
+	metricsSpoolPath  string
 	configFilePath    string
-	paths             Paths
+	storagePath       string
 	tag               names.Tag
 	nonce             string
 	controller        names.ControllerTag
@@ -346,7 +346,9 @@ type configInternal struct {
 // AgentConfigParams holds the parameters required to create
 // a new AgentConfig.
 type AgentConfigParams struct {
-	Paths             Paths
+	DataPath          string
+	LogPath           string
+	MetricsSpoolPath  string
 	Jobs              []multiwatcher.MachineJob
 	UpgradedToVersion version.Number
 	Tag               names.Tag
@@ -364,7 +366,7 @@ type AgentConfigParams struct {
 // NewAgentConfig returns a new config object suitable for use for a
 // machine or unit agent.
 func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) {
-	if configParams.Paths.DataDir == "" {
+	if configParams.DataPath == "" {
 		return nil, errors.Trace(requiredError("data directory"))
 	}
 	if configParams.Tag == nil {
@@ -402,7 +404,9 @@ func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) 
 	// When/if this connection is successful, apicaller worker will generate
 	// a new secure password and update this agent's config.
 	config := &configInternal{
-		paths:             NewPathsWithDefaults(configParams.Paths),
+		dataPath:          configParams.DataPath,
+		logPath:           configParams.LogPath,
+		metricsSpoolPath:  configParams.MetricsSpoolPath,
 		jobs:              configParams.Jobs,
 		upgradedToVersion: configParams.UpgradedToVersion,
 		tag:               configParams.Tag,
@@ -431,7 +435,6 @@ func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) 
 	if config.values == nil {
 		config.values = make(map[string]string)
 	}
-	config.configFilePath = ConfigPath(config.paths.DataDir, config.tag)
 	return config, nil
 }
 
@@ -485,15 +488,11 @@ func ConfigPath(dataDir string, tag names.Tag) string {
 
 // ReadConfig reads configuration data from the given location.
 func ReadConfig(configFilePath string) (ConfigSetterWriter, error) {
-	var (
-		format formatter
-		config *configInternal
-	)
 	configData, err := ioutil.ReadFile(configFilePath)
 	if err != nil {
 		return nil, fmt.Errorf("cannot read agent config %q: %v", configFilePath, err)
 	}
-	format, config, err = parseConfigData(configData)
+	format, config, err := parseConfigData(configData)
 	if err != nil {
 		return nil, err
 	}
@@ -583,20 +582,24 @@ func (c *configInternal) File(name string) string {
 	return path.Join(c.Dir(), name)
 }
 
-func (c *configInternal) DataDir() string {
-	return c.paths.DataDir
+func (c *configInternal) StoragePath() string {
+	return c.storagePath
 }
 
-func (c *configInternal) MetricsSpoolDir() string {
-	return c.paths.MetricsSpoolDir
+func (c *configInternal) DataPath() string {
+	return c.dataPath
 }
 
-func (c *configInternal) LogDir() string {
-	return c.paths.LogDir
+func (c *configInternal) MetricsSpoolPath() string {
+	return c.metricsSpoolPath
+}
+
+func (c *configInternal) LogPath() string {
+	return c.logPath
 }
 
 func (c *configInternal) SystemIdentityPath() string {
-	return filepath.Join(c.paths.DataDir, SystemIdentity)
+	return filepath.Join(c.dataPath, SystemIdentity)
 }
 
 func (c *configInternal) Jobs() []multiwatcher.MachineJob {
@@ -654,7 +657,7 @@ func (c *configInternal) Controller() names.ControllerTag {
 }
 
 func (c *configInternal) Dir() string {
-	return Dir(c.paths.DataDir, c.tag)
+	return Dir(c.dataPath, c.tag)
 }
 
 func (c *configInternal) check() error {

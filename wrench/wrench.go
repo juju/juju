@@ -20,7 +20,7 @@ var (
 	enabledMu sync.Mutex
 	enabled   = true
 
-	wrenchDir = filepath.Join(paths.Data, "wrench")
+	wrenchDir = filepath.Join(paths.Defaults.Data, "wrench")
 	jujuUid   = os.Getuid()
 )
 

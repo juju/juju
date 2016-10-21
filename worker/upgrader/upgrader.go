@@ -61,7 +61,7 @@ func NewAgentUpgrader(
 ) (*Upgrader, error) {
 	u := &Upgrader{
 		st:                          st,
-		dataDir:                     agentConfig.DataDir(),
+		dataDir:                     agentConfig.DataPath(),
 		tag:                         agentConfig.Tag(),
 		origAgentVersion:            origAgentVersion,
 		upgradeStepsWaiter:          upgradeStepsWaiter,

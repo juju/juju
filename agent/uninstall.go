@@ -22,7 +22,7 @@ const (
 // provider/manual package. Don't change it without extreme care,
 // and handling for mismatches with already-deployed agents.
 func uninstallFile(a Agent) string {
-	return filepath.Join(a.CurrentConfig().DataDir(), UninstallFile)
+	return filepath.Join(a.CurrentConfig().DataPath(), UninstallFile)
 }
 
 // SetCanUninstall creates the uninstall file in the data dir. It does

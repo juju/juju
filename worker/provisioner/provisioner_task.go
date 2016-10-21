@@ -9,6 +9,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
+	"github.com/juju/utils/os"
+	"github.com/juju/utils/series"
 	"gopkg.in/juju/names.v2"
 
 	apiprovisioner "github.com/juju/juju/api/provisioner"
@@ -23,6 +25,7 @@ import (
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
@@ -499,18 +502,31 @@ func (task *provisionerTask) constructInstanceConfig(
 		return nil, errors.Annotate(err, "failed to generate a nonce for machine "+machine.Id())
 	}
 
+	osType, err := series.GetOSFromSeries(pInfo.Series)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	instancePaths := paths.Nix
+	if osType == os.Windows {
+		instancePaths = paths.Windows
+	}
+
 	nonce := fmt.Sprintf("%s:%s", task.machineTag, uuid)
-	instanceConfig, err := instancecfg.NewInstanceConfig(
+	instanceConfig := instancecfg.NewInstanceConfig(
+		instancePaths.Conf,
+		instancePaths.Temp,
+		instancePaths.Data,
+		instancePaths.Log,
+		instancePaths.MetricsSpool,
 		names.NewControllerTag(controller.Config(pInfo.ControllerConfig).ControllerUUID()),
 		machine.Id(),
 		nonce,
 		task.imageStream,
+		osType,
 		pInfo.Series,
 		apiInfo,
 	)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 
 	instanceConfig.Tags = pInfo.Tags
 	if len(pInfo.Jobs) > 0 {
@@ -518,7 +534,7 @@ func (task *provisionerTask) constructInstanceConfig(
 	}
 
 	if multiwatcher.AnyJobNeedsState(instanceConfig.Jobs...) {
-		publicKey, err := simplestreams.UserPublicSigningKey()
+		publicKey, err := simplestreams.UserPublicSigningKey(paths.Defaults.Conf)
 		if err != nil {
 			return nil, err
 		}

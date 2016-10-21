@@ -126,6 +126,12 @@ type BootstrapParams struct {
 	// tools and/or image metadata.
 	MetadataDir string
 
+	ConfPath         string
+	TempPath         string
+	DataPath         string
+	LogPath          string
+	MetricsSpoolPath string
+
 	// AgentVersion, if set, determines the exact tools version that
 	// will be used to start the Juju agents.
 	AgentVersion *version.Number
@@ -158,6 +164,21 @@ func (p BootstrapParams) Validate() error {
 	}
 	if p.CAPrivateKey == "" {
 		return errors.New("empty ca-private-key")
+	}
+	if p.ConfPath == "" {
+		return errors.New("empty ConfPath")
+	}
+	if p.TempPath == "" {
+		return errors.New("empty TempPath")
+	}
+	if p.DataPath == "" {
+		return errors.New("empty DataPath")
+	}
+	if p.LogPath == "" {
+		return errors.New("empty LogPath")
+	}
+	if p.MetricsSpoolPath == "" {
+		return errors.New("empty MetricsSpoolPath")
 	}
 	// TODO(axw) validate other things.
 	return nil
@@ -192,7 +213,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	var customImageMetadata []*imagemetadata.ImageMetadata
 	if args.MetadataDir != "" {
 		var err error
-		customImageMetadata, err = setPrivateMetadataSources(args.MetadataDir)
+		customImageMetadata, err = setPrivateMetadataSources(args.ConfPath, args.MetadataDir)
 		if err != nil {
 			return err
 		}
@@ -356,6 +377,11 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 		return err
 	}
 
+	osType, err := series.GetOSFromSeries(result.Series)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	matchingTools, err := availableTools.Match(coretools.Filter{
 		Arch:   result.Arch,
 		Series: result.Series,
@@ -380,16 +406,19 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	if err != nil {
 		return err
 	}
-	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(
+	instanceConfig := instancecfg.NewBootstrapInstanceConfig(
+		args.ConfPath,
+		args.TempPath,
+		args.DataPath,
+		args.LogPath,
+		args.MetricsSpoolPath,
 		args.ControllerConfig,
 		bootstrapConstraints,
 		args.ModelConstraints,
+		osType,
 		result.Series,
 		publicKey,
 	)
-	if err != nil {
-		return err
-	}
 	if err := instanceConfig.SetTools(selectedToolsList); err != nil {
 		return errors.Trace(err)
 	}
@@ -644,11 +673,11 @@ func isCompatibleVersion(v1, v2 version.Number) bool {
 // setPrivateMetadataSources sets the default tools metadata source
 // for tools syncing, and adds an image metadata source after verifying
 // the contents.
-func setPrivateMetadataSources(metadataDir string) ([]*imagemetadata.ImageMetadata, error) {
-	logger.Infof("Setting default tools and image metadata sources: %s", metadataDir)
-	tools.DefaultBaseURL = metadataDir
+func setPrivateMetadataSources(confPath, metadataPath string) ([]*imagemetadata.ImageMetadata, error) {
+	logger.Infof("Setting default tools and image metadata sources: %s", metadataPath)
+	tools.DefaultBaseURL = metadataPath
 
-	imageMetadataDir := filepath.Join(metadataDir, storage.BaseImagesPath)
+	imageMetadataDir := filepath.Join(metadataPath, storage.BaseImagesPath)
 	if _, err := os.Stat(imageMetadataDir); err != nil {
 		if !os.IsNotExist(err) {
 			return nil, errors.Annotate(err, "cannot access image metadata")
@@ -657,7 +686,7 @@ func setPrivateMetadataSources(metadataDir string) ([]*imagemetadata.ImageMetada
 	}
 
 	baseURL := fmt.Sprintf("file://%s", filepath.ToSlash(imageMetadataDir))
-	publicKey, _ := simplestreams.UserPublicSigningKey()
+	publicKey, _ := simplestreams.UserPublicSigningKey(confPath)
 	datasource := simplestreams.NewURLSignedDataSource("bootstrap metadata", baseURL, publicKey, utils.NoVerifySSLHostnames, simplestreams.CUSTOM_CLOUD_DATA, false)
 
 	// Read the image metadata, as we'll want to upload it to the environment.

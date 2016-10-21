@@ -46,15 +46,19 @@ type AgentConf interface {
 }
 
 // NewAgentConf returns a new value that satisfies AgentConf
-func NewAgentConf(dataDir string) AgentConf {
-	return &agentConf{dataDir: dataDir}
+func NewAgentConf(storagePath, dataDir string) AgentConf {
+	return &agentConf{
+		dataDir:     dataDir,
+		storagePath: storagePath,
+	}
 }
 
 // agentConf handles command-line flags shared by all agents.
 type agentConf struct {
-	dataDir string
-	mu      sync.Mutex
-	_config agent.ConfigSetterWriter
+	storagePath string
+	dataDir     string
+	mu          sync.Mutex
+	_config     agent.ConfigSetterWriter
 }
 
 // AddFlags injects common agent flags into f.
@@ -63,7 +67,7 @@ func (c *agentConf) AddFlags(f *gnuflag.FlagSet) {
 	// We need to pass a config location here instead and
 	// use it to locate the conf and the infer the data-dir
 	// from there instead of passing it like that.
-	f.StringVar(&c.dataDir, "data-dir", paths.Data, "directory for juju data")
+	f.StringVar(&c.dataDir, "data-dir", paths.Defaults.Data, "directory for juju data")
 }
 
 // CheckArgs reports whether the given args are valid for this agent.
@@ -71,12 +75,19 @@ func (c *agentConf) CheckArgs(args []string) error {
 	if c.dataDir == "" {
 		return util.RequiredError("data-dir")
 	}
+	if c.storagePath == "" {
+		return util.RequiredError("storagePath")
+	}
 	return cmd.CheckEmpty(args)
 }
 
 // DataDir returns the directory where this agent should store its data.
 func (c *agentConf) DataDir() string {
 	return c.dataDir
+}
+
+func (c *agentConf) StoragePath() string {
+	return c.storagePath
 }
 
 // ReadConfig reads the agent's config from its config file.

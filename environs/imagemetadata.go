@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
+	"github.com/juju/juju/juju/paths"
 )
 
 type datasourceFuncId struct {
@@ -83,6 +84,9 @@ func UnregisterImageDataSourceFunc(id string) {
 func ImageMetadataSources(env Environ) ([]simplestreams.DataSource, error) {
 	config := env.Config()
 
+	// TODO(katco): Pass this in (does it belong in Environ?)
+	confPath := paths.Defaults.Conf
+
 	// Add configured and environment-specific datasources.
 	var sources []simplestreams.DataSource
 	if userURL, ok := config.ImageMetadataURL(); ok {
@@ -90,7 +94,7 @@ func ImageMetadataSources(env Environ) ([]simplestreams.DataSource, error) {
 		if !config.SSLHostnameVerification() {
 			verify = utils.NoVerifySSLHostnames
 		}
-		publicKey, _ := simplestreams.UserPublicSigningKey()
+		publicKey, _ := simplestreams.UserPublicSigningKey(confPath)
 		sources = append(sources, simplestreams.NewURLSignedDataSource("image-metadata-url", userURL, publicKey, verify, simplestreams.SPECIFIC_CLOUD_DATA, false))
 	}
 
@@ -101,7 +105,7 @@ func ImageMetadataSources(env Environ) ([]simplestreams.DataSource, error) {
 	sources = append(sources, envDataSources...)
 
 	// Add the official image metadata datasources.
-	officialDataSources, err := imagemetadata.OfficialDataSources(config.ImageStream())
+	officialDataSources, err := imagemetadata.OfficialDataSources(confPath, config.ImageStream())
 	if err != nil {
 		return nil, err
 	}

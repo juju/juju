@@ -44,7 +44,8 @@ func ensureMongoService(agentConfig agent.Config) error {
 		return errors.Errorf("agent config has no state serving info")
 	}
 
-	if err := mongo.EnsureServiceInstalled(agentConfig.DataDir(),
+	if err := mongo.EnsureServiceInstalled(
+		agentConfig.DataPath(),
 		si.StatePort,
 		oplogSize,
 		numaCtlPolicy,
@@ -94,7 +95,7 @@ func (b *backups) Restore(backupId string, dbInfo *DBInfo, args RestoreArgs) (na
 	backupMachine := names.NewMachineTag(meta.Origin.Machine)
 
 	var oldAgentConfig agent.ConfigSetterWriter
-	oldAgentConfigFile := agent.ConfigPath(paths.Data, args.NewInstTag)
+	oldAgentConfigFile := agent.ConfigPath(paths.Defaults.Data, args.NewInstTag)
 	if oldAgentConfig, err = agent.ReadConfig(oldAgentConfigFile); err != nil {
 		return nil, errors.Annotate(err, "cannot load old agent config from disk")
 	}
@@ -117,7 +118,7 @@ func (b *backups) Restore(backupId string, dbInfo *DBInfo, args RestoreArgs) (na
 
 	var agentConfig agent.ConfigSetterWriter
 
-	agentConfigFile := agent.ConfigPath(paths.Data, backupMachine)
+	agentConfigFile := agent.ConfigPath(paths.Defaults.Data, backupMachine)
 	if agentConfig, err = agent.ReadConfig(agentConfigFile); err != nil {
 		return nil, errors.Annotate(err, "cannot load agent config from disk")
 	}
@@ -138,7 +139,7 @@ func (b *backups) Restore(backupId string, dbInfo *DBInfo, args RestoreArgs) (na
 		aInfo := service.NewMachineAgentInfo(
 			agentConfig.Tag().Id(),
 			dataDir,
-			paths.Log,
+			paths.Defaults.Log,
 		)
 
 		// TODO(perrito666) renderer should have a RendererForSeries, for the moment
@@ -217,7 +218,12 @@ func (b *backups) Restore(backupId string, dbInfo *DBInfo, args RestoreArgs) (na
 		return nil, errors.Errorf("cannot retrieve info to connect to mongo")
 	}
 
-	st, err := newStateConnection(agentConfig.Controller(), agentConfig.Model(), mgoInfo)
+	st, err := newStateConnection(
+		agentConfig.StoragePath(),
+		agentConfig.Controller(),
+		agentConfig.Model(),
+		mgoInfo,
+	)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -15,6 +15,12 @@ import (
 // It implements the CloudConfig interface.
 type windowsCloudConfig struct {
 	*cloudConfig
+
+	dataPath string
+}
+
+func (cfg *windowsCloudConfig) DataPath() string {
+	return cfg.dataPath
 }
 
 // SetPackageProxy is defined on the PackageProxyConfig interface.

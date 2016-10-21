@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/agent"
 	jujudagent "github.com/juju/juju/cmd/jujud/agent"
 	corenames "github.com/juju/juju/juju/names"
+	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
 )
@@ -32,7 +33,10 @@ import (
 // "juju-dumplogs" command.
 func NewCommand() cmd.Command {
 	return &dumpLogsCommand{
-		agentConfig: jujudagent.NewAgentConf(""),
+		agentConfig: jujudagent.NewAgentConf(
+			paths.Defaults.Storage,
+			paths.Defaults.Data,
+		),
 	}
 }
 
@@ -108,7 +112,14 @@ func (c *dumpLogsCommand) Run(ctx *cmd.Context) error {
 		return errors.New("no database connection info available (is this a controller host?)")
 	}
 
-	st0, err := state.Open(config.Model(), config.Controller(), info, mongo.DefaultDialOpts(), nil)
+	st0, err := state.Open(
+		config.StoragePath(),
+		config.Model(),
+		config.Controller(),
+		info,
+		mongo.DefaultDialOpts(),
+		nil,
+	)
 	if err != nil {
 		return errors.Annotate(err, "failed to connect to database")
 	}

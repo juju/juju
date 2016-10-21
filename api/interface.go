@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/api/upgrader"
 	"github.com/juju/juju/network"
+	"github.com/juju/utils/clock"
 	"github.com/juju/utils/set"
 )
 
@@ -117,6 +118,13 @@ func (info *Info) Validate() error {
 // DialOpts holds configuration parameters that control the
 // Dialing behavior when connecting to a controller.
 type DialOpts struct {
+	// CertPath is the path to the directory where certificates are
+	// stored.
+	CertPath string
+
+	// Clock is the clock to use for all timing-related operations.
+	Clock clock.Clock
+
 	// DialAddressInterval is the amount of time to wait
 	// before starting to dial another address.
 	DialAddressInterval time.Duration

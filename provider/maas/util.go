@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
-	"github.com/juju/utils/series"
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/cloudconfig/cloudinit"
@@ -48,25 +47,19 @@ type machineInfo struct {
 	Hostname string `yaml:",omitempty"`
 }
 
-var _MAASInstanceFilename = path.Join(paths.Data, "MAASmachine.txt")
+var _MAASInstanceFilename = path.Join(paths.Defaults.Data, "MAASmachine.txt")
 
 // cloudinitRunCmd returns the shell command that, when run, will create the
 // "machine info" file containing the hostname of a machine.
 // That command is destined to be used by cloudinit.
 func (info *machineInfo) cloudinitRunCmd(cloudcfg cloudinit.CloudConfig) (string, error) {
-	os, err := series.GetOSFromSeries(cloudcfg.GetSeries())
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	dataDir := paths.DataForOS(os)
-
 	yaml, err := goyaml.Marshal(info)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
 	renderer := cloudcfg.ShellRenderer()
-	fileName := renderer.Join(renderer.FromSlash(dataDir), "MAASmachine.txt")
-	script := renderer.MkdirAll(dataDir)
+	fileName := renderer.Join(renderer.FromSlash(cloudcfg.DataPath()), "MAASmachine.txt")
+	script := renderer.MkdirAll(cloudcfg.DataPath())
 	contents := renderer.Quote(string(yaml))
 	script = append(script, renderer.WriteFile(fileName, []byte(contents))...)
 	script = append(script, renderer.Chmod(fileName, 0755)...)

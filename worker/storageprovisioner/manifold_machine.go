@@ -42,7 +42,7 @@ func (config MachineManifoldConfig) newWorker(a agent.Agent, apiCaller base.APIC
 		return nil, errors.Errorf("this manifold may only be used inside a machine agent")
 	}
 
-	storageDir := filepath.Join(cfg.DataDir(), "storage")
+	storageDir := filepath.Join(cfg.DataPath(), "storage")
 	w, err := NewStorageProvisioner(Config{
 		Scope:       tag,
 		StorageDir:  storageDir,

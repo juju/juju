@@ -22,9 +22,6 @@ var format_2_0 = formatter_2_0{}
 type formatter_2_0 struct {
 }
 
-// Ensure that the formatter_2_0 struct implements the formatter interface.
-var _ formatter = formatter_2_0{}
-
 // format_2_0Serialization holds information for a given agent.
 type format_2_0Serialization struct {
 	Tag               string                    `yaml:"tag,omitempty"`
@@ -85,13 +82,12 @@ func (formatter_2_0) unmarshal(data []byte) (*configInternal, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	config := &configInternal{
-		tag: tag,
-		paths: NewPathsWithDefaults(Paths{
-			DataDir:         format.DataDir,
-			LogDir:          format.LogDir,
-			MetricsSpoolDir: format.MetricsSpoolDir,
-		}),
+		dataPath:          format.DataDir,
+		logPath:           format.LogDir,
+		metricsSpoolPath:  format.MetricsSpoolDir,
+		tag:               tag,
 		jobs:              format.Jobs,
 		upgradedToVersion: *format.UpgradedToVersion,
 		nonce:             format.Nonce,
@@ -159,9 +155,9 @@ func (formatter_2_0) marshal(config *configInternal) ([]byte, error) {
 	modelTag := config.model.String()
 	format := &format_2_0Serialization{
 		Tag:               config.tag.String(),
-		DataDir:           config.paths.DataDir,
-		LogDir:            config.paths.LogDir,
-		MetricsSpoolDir:   config.paths.MetricsSpoolDir,
+		DataDir:           config.dataPath,
+		LogDir:            config.logPath,
+		MetricsSpoolDir:   config.metricsSpoolPath,
 		Jobs:              config.jobs,
 		UpgradedToVersion: &config.upgradedToVersion,
 		Nonce:             config.nonce,

@@ -23,9 +23,9 @@ import (
 )
 
 var (
-	clientCertPath = path.Join(paths.Conf, "lxd-client.crt")
-	clientKeyPath  = path.Join(paths.Conf, "lxd-client.key")
-	serverCertPath = path.Join(paths.Conf, "lxd-server.crt")
+	clientCertPath = path.Join(paths.Defaults.Conf, "lxd-client.crt")
+	clientKeyPath  = path.Join(paths.Defaults.Conf, "lxd-client.key")
+	serverCertPath = path.Join(paths.Defaults.Conf, "lxd-server.crt")
 )
 
 type rawProvider struct {

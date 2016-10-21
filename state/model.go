@@ -184,6 +184,8 @@ type ModelArgs struct {
 
 	// MigrationMode is the initial migration mode of the model.
 	MigrationMode MigrationMode
+
+	StoragePath string
 }
 
 // Validate validates the ModelArgs.
@@ -265,7 +267,15 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 
 	uuid := args.Config.UUID()
 	session := st.session.Copy()
-	newSt, err := newState(names.NewModelTag(uuid), controllerInfo.ModelTag, session, st.mongoInfo, st.newPolicy, st.clock)
+	newSt, err := newState(
+		args.StoragePath,
+		names.NewModelTag(uuid),
+		controllerInfo.ModelTag,
+		session,
+		st.mongoInfo,
+		st.newPolicy,
+		st.clock,
+	)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "could not create state for new model")
 	}

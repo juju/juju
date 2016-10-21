@@ -354,7 +354,8 @@ func (u *UpgradeMongoCommand) UpdateService(auth bool) error {
 	}
 	ssi, _ := u.agentConfig.StateServingInfo()
 
-	err := u.mongoEnsureServiceInstalled(u.agentConfig.DataDir(),
+	err := u.mongoEnsureServiceInstalled(
+		u.agentConfig.DataPath(),
 		ssi.StatePort,
 		oplogSize,
 		numaCtlPolicy,
@@ -476,7 +477,7 @@ func (u *UpgradeMongoCommand) maybeUpgrade26to3x(dataDir string) error {
 			return errors.Annotate(err, "cannot stop mongo to update to wired tiger")
 		}
 		logger.Infof("mongo stopped before storage migration")
-		if err := u.removeOldDb(u.agentConfig.DataDir()); err != nil {
+		if err := u.removeOldDb(u.agentConfig.DataPath()); err != nil {
 			return errors.Annotate(err, "cannot prepare the new db location for wired tiger")
 		}
 		logger.Infof("old db files removed")

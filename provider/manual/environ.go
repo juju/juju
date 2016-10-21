@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/names"
+	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
@@ -148,11 +149,12 @@ func (e *manualEnviron) ControllerInstances(controllerUUID string) ([]instance.I
 }
 
 func (e *manualEnviron) verifyBootstrapHost() error {
+
 	// First verify that the environment is bootstrapped by checking
 	// if the agents directory exists. Note that we cannot test the
 	// root data directory, as that is created in the process of
 	// initialising sshstorage.
-	agentsDir := path.Join(agent.DefaultPaths.DataDir, "agents")
+	agentsDir := path.Join(paths.Defaults.Data, "agents")
 	const noAgentDir = "no-agent-dir"
 	stdin := fmt.Sprintf(
 		"test -d %s || echo %s",
@@ -277,14 +279,14 @@ exit 0
 		// the agent package. Don't change it without extreme care,
 		// and handling for mismatches with already-deployed agents.
 		utils.ShQuote(path.Join(
-			agent.DefaultPaths.DataDir,
+			paths.Defaults.Data,
 			agent.UninstallFile,
 		)),
 		terminationworker.TerminationSignal,
 		diagnostics,
 		mongo.ServiceName,
-		utils.ShQuote(agent.DefaultPaths.DataDir),
-		utils.ShQuote(agent.DefaultPaths.LogDir),
+		utils.ShQuote(paths.Defaults.Data),
+		utils.ShQuote(paths.Defaults.Log),
 	)
 	logger.Tracef("destroy controller script: %s", script)
 	stdout, stderr, err := runSSHCommand(

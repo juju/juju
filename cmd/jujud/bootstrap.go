@@ -67,7 +67,7 @@ type BootstrapCommand struct {
 }
 
 // NewBootstrapCommand returns a new BootstrapCommand that has been initialized.
-func NewBootstrapCommand(seriesName string) *BootstrapCommand {
+func NewBootstrapCommand(storagePath, dataPath, seriesName string) *BootstrapCommand {
 	if seriesName == "" {
 		// This indicates a bug and nothing above us can handle the
 		// error graciously.
@@ -75,7 +75,7 @@ func NewBootstrapCommand(seriesName string) *BootstrapCommand {
 	}
 
 	return &BootstrapCommand{
-		AgentConf:  agentcmd.NewAgentConf(""),
+		AgentConf:  agentcmd.NewAgentConf(storagePath, dataPath),
 		SeriesName: seriesName,
 	}
 }
@@ -366,7 +366,7 @@ func (c *BootstrapCommand) startMongo(addrs []network.Address, agentConfig agent
 // and updates the tools metadata.
 func (c *BootstrapCommand) populateTools(st *state.State, env environs.Environ) error {
 	agentConfig := c.CurrentConfig()
-	dataDir := agentConfig.DataDir()
+	dataDir := agentConfig.DataPath()
 
 	current := version.Binary{
 		Number: jujuversion.Current,
@@ -428,7 +428,7 @@ func (c *BootstrapCommand) populateTools(st *state.State, env environs.Environ) 
 // updates the GUI metadata and set the current Juju GUI version.
 func (c *BootstrapCommand) populateGUIArchive(st *state.State, env environs.Environ) error {
 	agentConfig := c.CurrentConfig()
-	dataDir := agentConfig.DataDir()
+	dataDir := agentConfig.DataPath()
 	guistorage, err := st.GUIStorage()
 	if err != nil {
 		return errors.Trace(err)

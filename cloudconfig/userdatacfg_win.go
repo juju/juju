@@ -13,13 +13,11 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/featureflag"
-	"github.com/juju/utils/os"
 	"github.com/juju/utils/series"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/tools"
 )
 
@@ -35,6 +33,8 @@ const (
 
 type windowsConfigure struct {
 	baseConfigure
+
+	tempPath string
 }
 
 // Configure updates the provided cloudinit.Config with
@@ -47,11 +47,9 @@ func (w *windowsConfigure) Configure() error {
 }
 
 func (w *windowsConfigure) ConfigureBasic() error {
-	tmpDir := paths.TempForOS(os.Windows)
-
 	renderer := w.conf.ShellRenderer()
-	dataDir := renderer.FromSlash(w.icfg.DataDir)
-	baseDir := renderer.FromSlash(filepath.Dir(tmpDir))
+	dataDir := renderer.FromSlash(w.icfg.DataPath)
+	baseDir := renderer.FromSlash(filepath.Dir(w.tempPath))
 	binDir := renderer.Join(baseDir, "bin")
 
 	w.conf.AddScripts(windowsPowershellHelpers)
@@ -65,7 +63,7 @@ func (w *windowsConfigure) ConfigureBasic() error {
 		// Some providers create a baseDir before this step, but we need to
 		// make sure it exists before applying icacls
 		fmt.Sprintf(`mkdir -Force "%s"`, renderer.FromSlash(baseDir)),
-		fmt.Sprintf(`mkdir %s`, renderer.FromSlash(tmpDir)),
+		fmt.Sprintf(`mkdir %s`, renderer.FromSlash(w.tempPath)),
 		fmt.Sprintf(`mkdir "%s"`, binDir),
 		fmt.Sprintf(`mkdir "%s\locks"`, renderer.FromSlash(dataDir)),
 		`setx /m PATH "$env:PATH;C:\Juju\bin\"`,
@@ -104,7 +102,7 @@ func (w *windowsConfigure) ConfigureJuju() error {
 	renderer := w.conf.ShellRenderer()
 	w.conf.AddScripts(
 		fmt.Sprintf(`$binDir="%s"`, renderer.FromSlash(w.icfg.JujuTools())),
-		fmt.Sprintf(`mkdir '%s'`, renderer.FromSlash(w.icfg.LogDir)),
+		fmt.Sprintf(`mkdir '%s'`, renderer.FromSlash(w.icfg.LogPath)),
 		`mkdir $binDir`,
 	)
 
