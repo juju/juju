@@ -735,7 +735,7 @@ class DeployManyAttempt(SteppedStageAttempt):
         timeout_start = datetime.now()
         yield results
         # Joyent needs longer to deploy so many containers (bug #1624384).
-        if client.env.config['type'] == 'joyent':
+        if client.env.provider == 'joyent':
             deploy_many_timeout = 3000
         else:
             deploy_many_timeout = 1200
@@ -765,7 +765,7 @@ class DeployManyAttempt(SteppedStageAttempt):
         yield results
         for machine_name in machine_names:
             client.juju('remove-machine', (machine_name,))
-        if client.env.config['type'] == 'azure':
+        if client.env.provider == 'azure':
             # Azure takes a minimum of 5 minutes per machine to delete.
             remove_timeout = 600 * len(machine_names)
         else:
