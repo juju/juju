@@ -274,6 +274,24 @@ class SimpleEnvironment:
         except KeyError:
             raise NoProvider('No provider specified.')
 
+    def get_region(self):
+        provider = self.provider
+        if provider == 'azure':
+            if 'tenant-id' not in self.config:
+                return self.config['location'].replace(' ', '').lower()
+            return self.config['location']
+        elif provider == 'joyent':
+            matcher = re.compile('https://(.*).api.joyentcloud.com')
+            return matcher.match(self.config['sdc-url']).group(1)
+        elif provider == 'lxd':
+            return 'localhost'
+        elif provider == 'manual':
+            return self.config['bootstrap-host']
+        elif provider in ('maas', 'manual'):
+            return None
+        else:
+            return self.config['region']
+
     def clone(self, model_name=None):
         config = deepcopy(self.config)
         if model_name is None:
@@ -444,24 +462,6 @@ class JujuData(SimpleEnvironment):
         elif provider == 'openstack':
             endpoint = self.config['auth-url']
         return self.find_endpoint_cloud(provider, endpoint)
-
-    def get_region(self):
-        provider = self.provider
-        if provider == 'azure':
-            if 'tenant-id' not in self.config:
-                return self.config['location'].replace(' ', '').lower()
-            return self.config['location']
-        elif provider == 'joyent':
-            matcher = re.compile('https://(.*).api.joyentcloud.com')
-            return matcher.match(self.config['sdc-url']).group(1)
-        elif provider == 'lxd':
-            return 'localhost'
-        elif provider == 'manual':
-            return self.config['bootstrap-host']
-        elif provider in ('maas', 'manual'):
-            return None
-        else:
-            return self.config['region']
 
     def get_cloud_credentials(self):
         """Return the credentials for this model's cloud."""

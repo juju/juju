@@ -6312,6 +6312,39 @@ class TestSimpleEnvironment(TestCase):
         with self.assertRaisesRegexp(NoProvider, 'No provider specified.'):
             env.provider
 
+    def test_get_region(self):
+        self.assertEqual(
+            'bar', SimpleEnvironment(
+                'foo', {'type': 'foo', 'region': 'bar'}, 'home').get_region())
+
+    def test_get_region_old_azure(self):
+        self.assertEqual('northeu', SimpleEnvironment('foo', {
+            'type': 'azure', 'location': 'North EU'}, 'home').get_region())
+
+    def test_get_region_azure_arm(self):
+        self.assertEqual('bar', SimpleEnvironment('foo', {
+            'type': 'azure', 'location': 'bar', 'tenant-id': 'baz'},
+            'home').get_region())
+
+    def test_get_region_joyent(self):
+        self.assertEqual('bar', SimpleEnvironment('foo', {
+            'type': 'joyent', 'sdc-url': 'https://bar.api.joyentcloud.com'},
+            'home').get_region())
+
+    def test_get_region_lxd(self):
+        self.assertEqual('localhost', SimpleEnvironment(
+            'foo', {'type': 'lxd'}, 'home').get_region())
+
+    def test_get_region_maas(self):
+        self.assertIs(None, SimpleEnvironment('foo', {
+            'type': 'maas', 'region': 'bar',
+        }, 'home').get_region())
+
+    def test_get_region_manual(self):
+        self.assertEqual('baz', SimpleEnvironment('foo', {
+            'type': 'manual', 'region': 'bar',
+            'bootstrap-host': 'baz'}, 'home').get_region())
+
     def test_get_cloud_credentials_returns_config(self):
         env = SimpleEnvironment(
             'foo', {'type': 'ec2', 'region': 'foo'}, 'home')
@@ -6408,38 +6441,6 @@ class TestJujuData(TestCase):
             }}
         with self.assertRaisesRegexp(LookupError, 'No such endpoint: bar'):
             data.get_cloud()
-
-    def test_get_region(self):
-        self.assertEqual(
-            'bar', JujuData('foo', {'type': 'foo', 'region': 'bar'},
-                            'home').get_region())
-
-    def test_get_region_old_azure(self):
-        self.assertEqual('northeu', JujuData('foo', {
-            'type': 'azure', 'location': 'North EU'}, 'home').get_region())
-
-    def test_get_region_azure_arm(self):
-        self.assertEqual('bar', JujuData('foo', {
-            'type': 'azure', 'location': 'bar', 'tenant-id': 'baz'},
-            'home').get_region())
-
-    def test_get_region_joyent(self):
-        self.assertEqual('bar', JujuData('foo', {
-            'type': 'joyent', 'sdc-url': 'https://bar.api.joyentcloud.com'},
-            'home').get_region())
-
-    def test_get_region_lxd(self):
-        self.assertEqual('localhost', JujuData('foo', {'type': 'lxd'},
-                                               'home').get_region())
-
-    def test_get_region_maas(self):
-        self.assertIs(None, JujuData('foo', {'type': 'maas', 'region': 'bar'},
-                                     'home').get_region())
-
-    def test_get_region_manual(self):
-        self.assertEqual('baz', JujuData('foo', {
-            'type': 'manual', 'region': 'bar',
-            'bootstrap-host': 'baz'}, 'home').get_region())
 
     def test_get_cloud_credentials(self):
         juju_data = JujuData('foo', {'type': 'ec2', 'region': 'foo'}, 'home')
