@@ -6351,6 +6351,11 @@ class TestSimpleEnvironment(TestCase):
         self.assertEqual(env.config['region'], 'baz')
         self.assertEqual(env.get_region(), 'baz')
 
+    def test_set_region_no_provider(self):
+        env = SimpleEnvironment('foo', {}, 'home')
+        env.set_region('baz')
+        self.assertEqual(env.config['region'], 'baz')
+
     def test_set_region_joyent(self):
         env = SimpleEnvironment('foo', {'type': 'joyent'}, 'home')
         env.set_region('baz')

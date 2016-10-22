@@ -293,7 +293,10 @@ class SimpleEnvironment:
             return self.config['region']
 
     def set_region(self, region):
-        provider = self.provider
+        try:
+            provider = self.provider
+        except NoProvider:
+            provider = None
         if provider == 'azure':
             self.config['location'] = region
         elif provider == 'joyent':
