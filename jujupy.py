@@ -89,6 +89,10 @@ class SoftDeadlineExceeded(Exception):
             'Operation exceeded deadline.')
 
 
+class NoProvider(Exception):
+    """Raised when an environment defines no provider."""
+
+
 def get_timeout_path():
     import timeout
     return os.path.abspath(timeout.__file__)
@@ -103,7 +107,7 @@ def get_timeout_prefix(duration, timeout_path=None):
 
 def get_teardown_timeout(client):
     """Return the timeout need byt the client to teardown resources."""
-    if client.env.config['type'] == 'azure':
+    if client.env.get_provider() == 'azure':
         return 1800
     else:
         return 600
@@ -244,16 +248,30 @@ class SimpleEnvironment:
         self.config = config
         self.juju_home = juju_home
         if self.config is not None:
-            self.local = bool(self.config.get('type') == 'local')
+            try:
+                provider = self.get_provider()
+            except NoProvider:
+                provider = None
+            self.local = bool(provider == 'local')
             self.kvm = (
                 self.local and bool(self.config.get('container') == 'kvm'))
-            self.maas = bool(self.config.get('type') == 'maas')
-            self.joyent = bool(self.config.get('type') == 'joyent')
+            self.maas = bool(provider == 'maas')
+            self.joyent = bool(provider == 'joyent')
         else:
             self.local = False
             self.kvm = False
             self.maas = False
             self.joyent = False
+
+    def get_provider(self):
+        """Return the provider type for this environment.
+
+        See get_cloud to determine the specific cloud.
+        """
+        try:
+            return self.config['type']
+        except KeyError:
+            raise NoProvider('No provider specified.')
 
     def clone(self, model_name=None):
         config = deepcopy(self.config)
@@ -410,7 +428,7 @@ class JujuData(SimpleEnvironment):
         raise LookupError('No such endpoint: {}'.format(endpoint))
 
     def get_cloud(self):
-        provider = self.config['type']
+        provider = self.get_provider()
         # Separate cloud recommended by: Juju Cloud / Credentials / BootStrap /
         # Model CLI specification
         if provider == 'ec2' and self.config['region'] == 'cn-north-1':
@@ -427,7 +445,7 @@ class JujuData(SimpleEnvironment):
         return self.find_endpoint_cloud(provider, endpoint)
 
     def get_region(self):
-        provider = self.config['type']
+        provider = self.get_provider()
         if provider == 'azure':
             if 'tenant-id' not in self.config:
                 return self.config['location'].replace(' ', '').lower()

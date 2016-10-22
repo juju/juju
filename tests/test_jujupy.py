@@ -65,6 +65,7 @@ from jujupy import (
     KILL_CONTROLLER,
     Machine,
     make_safe_config,
+    NoProvider,
     parse_new_state_server_from_error,
     SimpleEnvironment,
     ServiceStatus,
@@ -6301,6 +6302,15 @@ class TestSimpleEnvironment(TestCase):
             with env.make_jes_home(juju_home, 'bar',
                                    {'baz': 'qux'}) as jes_home:
                 self.assertFalse(os.path.exists(foo_path))
+
+    def test_get_provider(self):
+        env = SimpleEnvironment('foo', {'type': 'provider1'})
+        self.assertEqual('provider1', env.get_provider())
+
+    def test_get_provider_no_provider(self):
+        env = SimpleEnvironment('foo', {'foo': 'bar'})
+        with self.assertRaisesRegexp(NoProvider, 'No provider specified.'):
+            env.get_provider()
 
     def test_get_cloud_credentials_returns_config(self):
         env = SimpleEnvironment(
