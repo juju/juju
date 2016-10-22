@@ -42,6 +42,7 @@ from jujupy import (
     get_local_root,
     get_machine_dns_name,
     jes_home_path,
+    NoProvider,
     SimpleEnvironment,
     tear_down,
     temp_bootstrap_env,
@@ -78,7 +79,7 @@ __metaclass__ = type
 
 def destroy_environment(client, instance_tag):
     client.destroy_environment()
-    if (client.env.config['type'] == 'manual' and
+    if (client.env.provider == 'manual' and
             'AWS_ACCESS_KEY' in os.environ):
         destroy_job_instances(instance_tag)
 
@@ -395,7 +396,7 @@ def assess_upgrade(old_client, juju_path):
     all_clients = _get_clients_to_upgrade(old_client, juju_path)
 
     # all clients have the same provider type, work this out once.
-    if all_clients[0].env.config['type'] == 'maas':
+    if all_clients[0].env.provider == 'maas':
         timeout = 1200
     else:
         timeout = 600
@@ -582,7 +583,7 @@ class BootstrapManager:
         """Handle starting/stopping MAAS machines."""
         running_domains = dict()
         try:
-            if self.client.env.config['type'] == 'maas' and self.machines:
+            if self.client.env.provider == 'maas' and self.machines:
                 for machine in self.machines:
                     name, URI = machine.split('@')
                     # Record already running domains, so we can warn that
@@ -602,7 +603,7 @@ class BootstrapManager:
             else:
                 yield self.machines
         finally:
-            if self.client.env.config['type'] == 'maas' and not self.keep_env:
+            if self.client.env.provider == 'maas' and not self.keep_env:
                 logging.info("Waiting for destroy-environment to complete")
                 time.sleep(90)
                 for machine, running in running_domains.items():
@@ -624,7 +625,7 @@ class BootstrapManager:
         from previous runs will be killed.
         """
         if (
-                self.client.env.config['type'] != 'manual' or
+                self.client.env.provider != 'manual' or
                 self.bootstrap_host is not None):
             yield []
             return
@@ -1004,7 +1005,10 @@ def wait_for_state_server_to_shutdown(host, client, instance_id, timeout=60):
     print_now("Waiting for port to close on %s" % host)
     wait_for_port(host, 17070, closed=True, timeout=timeout)
     print_now("Closed.")
-    provider_type = client.env.config.get('type')
+    try:
+        provider_type = client.env.provider
+    except NoProvider:
+        provider_type = None
     if provider_type == 'openstack':
         environ = dict(os.environ)
         environ.update(translate_to_env(client.env.config))

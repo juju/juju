@@ -19,10 +19,10 @@ def bootstrap_cloud(config, region):
         client.env.environment = 'boot-cpc-{}-{}'.format(
             client.env.get_cloud(), region)[:30]
         client.env.controller.name = client.env.environment
-        provider = client.env.config['type']
+        provider = client.env.provider
         if provider == 'azure':
             client.env.config['location'] = region
-        elif client.env.config['type'] == 'joyent':
+        elif provider == 'joyent':
             client.env.config['sdc-url'] = (
                 'https://{}.api.joyentcloud.com'.format(region))
         else:

@@ -50,7 +50,7 @@ def terminate_instances(env, instance_ids):
     if len(instance_ids) == 0:
         log.info("No instances to delete.")
         return
-    provider_type = env.config.get('type')
+    provider_type = env.provider
     environ = dict(os.environ)
     if provider_type == 'ec2':
         environ.update(get_euca_env(env.config))
