@@ -6345,6 +6345,47 @@ class TestSimpleEnvironment(TestCase):
             'type': 'manual', 'region': 'bar',
             'bootstrap-host': 'baz'}, 'home').get_region())
 
+    def test_set_region(self):
+        env = SimpleEnvironment('foo', {'type': 'bar'}, 'home')
+        env.set_region('baz')
+        self.assertEqual(env.config['region'], 'baz')
+        self.assertEqual(env.get_region(), 'baz')
+
+    def test_set_region_joyent(self):
+        env = SimpleEnvironment('foo', {'type': 'joyent'}, 'home')
+        env.set_region('baz')
+        self.assertEqual(env.config['sdc-url'],
+                         'https://baz.api.joyentcloud.com')
+        self.assertEqual(env.get_region(), 'baz')
+
+    def test_set_region_azure(self):
+        env = SimpleEnvironment('foo', {'type': 'azure'}, 'home')
+        env.set_region('baz')
+        self.assertEqual(env.config['location'], 'baz')
+        self.assertEqual(env.get_region(), 'baz')
+
+    def test_set_region_lxd(self):
+        env = SimpleEnvironment('foo', {'type': 'lxd'}, 'home')
+        with self.assertRaisesRegexp(ValueError,
+                                     'Only "localhost" allowed for lxd.'):
+            env.set_region('baz')
+        env.set_region('localhost')
+        self.assertEqual(env.get_region(), 'localhost')
+
+    def test_set_region_manual(self):
+        env = SimpleEnvironment('foo', {'type': 'manual'}, 'home')
+        env.set_region('baz')
+        self.assertEqual(env.config['bootstrap-host'], 'baz')
+        self.assertEqual(env.get_region(), 'baz')
+
+    def test_set_region_maas(self):
+        env = SimpleEnvironment('foo', {'type': 'maas'}, 'home')
+        with self.assertRaisesRegexp(ValueError,
+                                     'Only None allowed for maas.'):
+            env.set_region('baz')
+        env.set_region(None)
+        self.assertIs(env.get_region(), None)
+
     def test_get_cloud_credentials_returns_config(self):
         env = SimpleEnvironment(
             'foo', {'type': 'ec2', 'region': 'foo'}, 'home')

@@ -292,6 +292,24 @@ class SimpleEnvironment:
         else:
             return self.config['region']
 
+    def set_region(self, region):
+        provider = self.provider
+        if provider == 'azure':
+            self.config['location'] = region
+        elif provider == 'joyent':
+            self.config['sdc-url'] = (
+                'https://{}.api.joyentcloud.com'.format(region))
+        elif provider == 'lxd':
+            if region != 'localhost':
+                raise ValueError('Only "localhost" allowed for lxd.')
+        elif provider == 'manual':
+            self.config['bootstrap-host'] = region
+        elif provider == 'maas':
+            if region is not None:
+                raise ValueError('Only None allowed for maas.')
+        else:
+            self.config['region'] = region
+
     def clone(self, model_name=None):
         config = deepcopy(self.config)
         if model_name is None:
