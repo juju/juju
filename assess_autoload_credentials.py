@@ -77,7 +77,7 @@ def assess_autoload_credentials(args):
     client = client_from_config(args.env, args.juju_bin, False)
     client.env.load_yaml()
     real_credential_details = client_credentials_to_details(client)
-    provider = client.env.get_provider()
+    provider = client.env.provider
 
     for scenario_name, scenario_setup in test_scenarios[provider]:
         log.info('* Starting test scenario: {}'.format(scenario_name))
@@ -96,7 +96,7 @@ def assess_autoload_credentials(args):
 
 def client_credentials_to_details(client):
     """Convert the credentials in the client to details."""
-    provider = client.env.get_provider()
+    provider = client.env.provider
     log.info("provider: {}".format(provider))
     cloud_name = client.env.get_cloud()
     log.info("cloud_name: {}".format(cloud_name))

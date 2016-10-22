@@ -6303,14 +6303,14 @@ class TestSimpleEnvironment(TestCase):
                                    {'baz': 'qux'}) as jes_home:
                 self.assertFalse(os.path.exists(foo_path))
 
-    def test_get_provider(self):
+    def test_provider(self):
         env = SimpleEnvironment('foo', {'type': 'provider1'})
-        self.assertEqual('provider1', env.get_provider())
+        self.assertEqual('provider1', env.provider)
 
-    def test_get_provider_no_provider(self):
+    def test_provider_no_provider(self):
         env = SimpleEnvironment('foo', {'foo': 'bar'})
         with self.assertRaisesRegexp(NoProvider, 'No provider specified.'):
-            env.get_provider()
+            env.provider
 
     def test_get_cloud_credentials_returns_config(self):
         env = SimpleEnvironment(

@@ -186,7 +186,12 @@ class TestAssess(TestCase):
         # allows assertions to be made about calls.  Mocks and the fake client
         # can also be used separately.
         """Mock a client and the deploy function."""
-        fake_client = Mock(wraps=fake_juju_client())
+        fake_client = fake_juju_client()
+        env = fake_client.env
+        fake_client = Mock(wraps=fake_client)
+        # force the real env, because attribute access on a wrapped one is
+        # weird.
+        fake_client.env = env
         fake_client.bootstrap()
         with patch('jujupy.EnvJujuClient.deploy',
                    autospec=True) as deploy_mock:

@@ -107,7 +107,7 @@ def get_timeout_prefix(duration, timeout_path=None):
 
 def get_teardown_timeout(client):
     """Return the timeout need byt the client to teardown resources."""
-    if client.env.get_provider() == 'azure':
+    if client.env.provider == 'azure':
         return 1800
     else:
         return 600
@@ -249,7 +249,7 @@ class SimpleEnvironment:
         self.juju_home = juju_home
         if self.config is not None:
             try:
-                provider = self.get_provider()
+                provider = self.provider
             except NoProvider:
                 provider = None
             self.local = bool(provider == 'local')
@@ -263,7 +263,8 @@ class SimpleEnvironment:
             self.maas = False
             self.joyent = False
 
-    def get_provider(self):
+    @property
+    def provider(self):
         """Return the provider type for this environment.
 
         See get_cloud to determine the specific cloud.
@@ -428,7 +429,7 @@ class JujuData(SimpleEnvironment):
         raise LookupError('No such endpoint: {}'.format(endpoint))
 
     def get_cloud(self):
-        provider = self.get_provider()
+        provider = self.provider
         # Separate cloud recommended by: Juju Cloud / Credentials / BootStrap /
         # Model CLI specification
         if provider == 'ec2' and self.config['region'] == 'cn-north-1':
@@ -445,7 +446,7 @@ class JujuData(SimpleEnvironment):
         return self.find_endpoint_cloud(provider, endpoint)
 
     def get_region(self):
-        provider = self.get_provider()
+        provider = self.provider
         if provider == 'azure':
             if 'tenant-id' not in self.config:
                 return self.config['location'].replace(' ', '').lower()
