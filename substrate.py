@@ -832,7 +832,7 @@ def destroy_job_instances(job_name):
 
 def resolve_remote_dns_names(env, remote_machines):
     """Update addresses of given remote_machines as needed by providers."""
-    if env.config['type'] != 'maas':
+    if env.provider != 'maas':
         # Only MAAS requires special handling at prsent.
         return
     # MAAS hostnames are not resolvable, but we can adapt them to IPs.

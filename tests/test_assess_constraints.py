@@ -286,7 +286,7 @@ class TestAssess(TestCase):
                             Constraints(instance_type='baz')]
         expected_calls = ['instance-type=bar', 'instance-type=baz']
         with self.prepare_deploy_mock() as (fake_client, deploy_mock):
-            fake_provider = fake_client.env.config.get('type')
+            fake_provider = fake_client.env.provider
             with self.patch_instance_spec(fake_provider):
                 for constraints in constraints_list:
                     assess_constraints_deploy(fake_client, constraints,
@@ -297,7 +297,7 @@ class TestAssess(TestCase):
     def test_instance_type_constraints(self):
         assert_constraints_calls = ['instance-type=bar', 'instance-type=baz']
         with self.prepare_deploy_mock() as (fake_client, deploy_mock):
-            fake_provider = fake_client.env.config.get('type')
+            fake_provider = fake_client.env.provider
             with self.patch_instance_spec(fake_provider) as spec_mock:
                 assess_instance_type_constraints(fake_client)
         constraints_calls = self.gather_constraint_args(deploy_mock)
@@ -306,7 +306,7 @@ class TestAssess(TestCase):
 
     def test_instance_type_constraints_fail(self):
         with self.prepare_deploy_mock() as (fake_client, deploy_mock):
-            fake_provider = fake_client.env.config.get('type')
+            fake_provider = fake_client.env.provider
             with self.patch_instance_spec(fake_provider, False):
                 with self.assertRaisesRegexp(
                         JujuAssertionError,
