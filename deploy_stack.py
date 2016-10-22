@@ -469,7 +469,7 @@ def update_env(env, new_env_name, series=None, bootstrap_host=None,
     if agent_stream is not None:
         env.config['agent-stream'] = agent_stream
     if region is not None:
-        env.config['region'] = region
+        env.set_region(region)
 
 
 @contextmanager
