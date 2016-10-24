@@ -22,7 +22,7 @@ def get_regions(args, env):
     if args.all_regions:
         return [region.name for region in filter(
                 lambda x: '-gov-' not in x.name, regions())]
-    return [env.config['region']]
+    return [env.get_region()]
 
 
 def clean(args):

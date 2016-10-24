@@ -31,7 +31,8 @@ class CleanResources(TestCase):
 
     def test_get_regions(self):
         class FakeEnv:
-            config = {'region': 'foo'}
+            def get_region(self):
+                return 'foo'
         args = Namespace(all_regions=False)
         env = FakeEnv()
         regions = get_regions(args, env)

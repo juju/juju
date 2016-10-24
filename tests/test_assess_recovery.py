@@ -180,7 +180,7 @@ class TestDeleteControllerMembers(FakeHomeTestCase):
     def test_delete_controller_members(self, ti_mock, wsss_mock):
         client = Mock(spec=['env', 'get_controller_members'])
         client.env = sentinel.env
-        client.env.config = {'type': 'lxd'}
+        client.env.provider = 'lxd'
         client.get_controller_members.return_value = [
             Machine('3', {
                 'dns-name': '10.0.0.3',
@@ -221,7 +221,7 @@ class TestDeleteControllerMembers(FakeHomeTestCase):
     def test_delete_controller_members_leader_only(self, ti_mock, wsss_mock):
         client = Mock(spec=['env', 'get_controller_leader'])
         client.env = sentinel.env
-        client.env.config = {'type': 'lxd'}
+        client.env.provider = 'lxd'
         client.get_controller_leader.return_value = Machine('3', {
             'dns-name': '10.0.0.3',
             'instance-id': 'juju-dddd-machine-3',
@@ -240,7 +240,7 @@ class TestDeleteControllerMembers(FakeHomeTestCase):
     def test_delete_controller_members_azure(self, ti_mock, wsss_mock):
         client = Mock(spec=['env', 'get_controller_leader'])
         client.env = sentinel.env
-        client.env.config = {'type': 'azure'}
+        client.env.provider = 'azure'
         client.get_controller_leader.return_value = Machine('3', {
             'dns-name': '10.0.0.3',
             'instance-id': 'juju-dddd-machine-3',

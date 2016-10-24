@@ -19,17 +19,7 @@ def bootstrap_cloud(config, region):
         client.env.environment = 'boot-cpc-{}-{}'.format(
             client.env.get_cloud(), region)[:30]
         client.env.controller.name = client.env.environment
-        provider = client.env.config['type']
-        if provider == 'azure':
-            client.env.config['location'] = region
-        elif client.env.config['type'] == 'joyent':
-            client.env.config['sdc-url'] = (
-                'https://{}.api.joyentcloud.com'.format(region))
-        else:
-            client.env.config['region'] = region
-        if region != client.env.get_region():
-            raise ValueError('Failed to set region: {} != {}'.format(
-                client.env.get_region(), region))
+        client.env.set_region(region)
         client.kill_controller()
         # Not using BootstrapManager, because it doesn't copy
         # public-clouds.yaml (bug #1634570)

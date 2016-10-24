@@ -50,7 +50,7 @@ def terminate_instances(env, instance_ids):
     if len(instance_ids) == 0:
         log.info("No instances to delete.")
         return
-    provider_type = env.config.get('type')
+    provider_type = env.provider
     environ = dict(os.environ)
     if provider_type == 'ec2':
         environ.update(get_euca_env(env.config))
@@ -854,7 +854,7 @@ def destroy_job_instances(job_name):
 
 def resolve_remote_dns_names(env, remote_machines):
     """Update addresses of given remote_machines as needed by providers."""
-    if env.config['type'] != 'maas':
+    if env.provider != 'maas':
         # Only MAAS requires special handling at prsent.
         return
     # MAAS hostnames are not resolvable, but we can adapt them to IPs.
