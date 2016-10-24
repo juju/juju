@@ -801,6 +801,23 @@ class TestEnvJujuClient(ClientTest):
                     '--agent-version', '2.0'),
                 include_e=False)
 
+    def test_bootstrap_maas_spaceless(self):
+        # Disable space constraint with environment variable
+        os.environ['JUJU_CI_SPACELESSNESS'] = "1"
+        env = JujuData('maas', {'type': 'foo', 'region': 'asdf'})
+        with patch.object(EnvJujuClient, 'juju') as mock:
+            client = EnvJujuClient(env, '2.0-zeta1', None)
+            with patch.object(client.env, 'maas', lambda: True):
+                with observable_temp_file() as config_file:
+                    client.bootstrap()
+            mock.assert_called_with(
+                'bootstrap', (
+                    '--constraints', 'mem=2G'
+                    'foo/asdf', 'maas',
+                    '--config', config_file.name, '--default-model', 'maas',
+                    '--agent-version', '2.0'),
+                include_e=False)
+
     def test_bootstrap_joyent(self):
         env = JujuData('joyent', {
             'type': 'joyent', 'sdc-url': 'https://foo.api.joyentcloud.com'})
