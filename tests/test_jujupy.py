@@ -45,7 +45,6 @@ from jujupy import (
     EnvJujuClient22,
     EnvJujuClient24,
     EnvJujuClient25,
-    EnvJujuClient2B8,
     EnvJujuClient2B9,
     EnvJujuClientRC,
     ErroredUnit,
@@ -514,7 +513,7 @@ class TestClientFromConfig(ClientTest):
             test_fc('2.0-beta5', None)
             test_fc('2.0-beta6', None)
             test_fc('2.0-beta7', None)
-            test_fc('2.0-beta8', EnvJujuClient2B8)
+            test_fc('2.0-beta8', None)
             test_fc('2.0-beta9', EnvJujuClient2B9)
             test_fc('2.0-beta10', EnvJujuClient2B9)
             test_fc('2.0-beta11', EnvJujuClient2B9)
@@ -3246,40 +3245,6 @@ class TestEnvJujuClientRC(ClientTest):
                 config_file.seek(0)
                 config = yaml.safe_load(config_file)
         self.assertEqual({'test-mode': True}, config)
-
-
-class TestEnvJujuClient2B8(ClientTest):
-
-    def test_remove_service(self):
-        env = EnvJujuClient2B8(
-            JujuData('foo', {'type': 'local'}), '1.234-76', None)
-        with patch.object(env, 'juju') as mock_juju:
-            env.remove_service('mondogb')
-        mock_juju.assert_called_with('remove-service', ('mondogb',))
-
-    def test_deployer(self):
-        client = EnvJujuClient2B8(JujuData('foo', {'type': 'local'}),
-                                  '1.23-series-arch', None)
-        with patch.object(EnvJujuClient, 'juju') as mock:
-            client.deployer('bundle:~juju-qa/some-bundle')
-        mock.assert_called_with(
-            'deployer', ('-e', 'local.foo:foo', '--debug', '--deploy-delay',
-                         '10', '--timeout', '3600', '--config',
-                         'bundle:~juju-qa/some-bundle'),
-            True, include_e=False
-        )
-
-    def test_deployer_with_bundle_name(self):
-        client = EnvJujuClient2B8(JujuData('foo', {'type': 'local'}),
-                                  '2.0.0-series-arch', None)
-        with patch.object(EnvJujuClient, 'juju') as mock:
-            client.deployer('bundle:~juju-qa/some-bundle', 'name')
-        mock.assert_called_with(
-            'deployer', ('-e', 'local.foo:foo', '--debug', '--deploy-delay',
-                         '10', '--timeout', '3600', '--config',
-                         'bundle:~juju-qa/some-bundle', 'name'),
-            True, include_e=False
-        )
 
 
 class TestEnvJujuClient2B9(ClientTest):
