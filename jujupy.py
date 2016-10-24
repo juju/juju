@@ -862,11 +862,9 @@ def get_client_class(version):
     elif re.match('^1\.', version):
         client_class = EnvJujuClient1X
     # Ensure alpha/beta number matches precisely
-    elif re.match('^2\.0-(alpha[123]|beta[1-8])([^\d]|$)', version):
+    elif re.match('^2\.0-(alpha[1-3]|beta([1-9]|1[0-4]))([^\d]|$)', version):
         raise VersionNotTestedError(version)
     # between beta 9-14
-    elif re.match('^2\.0-beta(9|1[0-4])([^\d]|$)', version):
-        client_class = EnvJujuClient2B9
     elif re.match('^2\.0-rc[1-3]', version):
         client_class = EnvJujuClientRC
     else:
@@ -2235,102 +2233,7 @@ class EnvJujuClientRC(EnvJujuClient):
         return tuple(args)
 
 
-class EnvJujuClient2B9(EnvJujuClientRC):
-
-    def update_user_name(self):
-        return
-
-    def create_cloned_environment(
-            self, cloned_juju_home, controller_name, user_name=None):
-        """Create a cloned environment.
-
-        `user_name` is unused in this version of beta.
-        """
-        user_client = self.clone(env=self.env.clone())
-        user_client.env.juju_home = cloned_juju_home
-        # New user names the controller.
-        user_client.env.controller = Controller(controller_name)
-        return user_client
-
-    def get_model_uuid(self):
-        name = self.env.environment
-        output_yaml = self.get_juju_output('show-model', '--format', 'yaml')
-        output = yaml.safe_load(output_yaml)
-        return output[name]['model-uuid']
-
-    def add_user_perms(self, username, models=None, permissions='read'):
-        """Adds provided user and return register command arguments.
-
-        :return: Registration token provided by the add-user command.
-
-        """
-        if models is None:
-            models = self.env.environment
-
-        args = (username, '--models', models, '--acl', permissions,
-                '-c', self.env.controller.name)
-
-        output = self.get_juju_output('add-user', *args, include_e=False)
-        return self._get_register_command(output)
-
-    def grant(self, user_name, permission, model=None):
-        """Grant the user with a model."""
-        if model is None:
-            model = self.model_name
-        self.juju('grant', (user_name, model, '--acl', permission),
-                  include_e=False)
-
-    def revoke(self, username, models=None, permissions='read'):
-        if models is None:
-            models = self.env.environment
-
-        args = (username, models, '--acl', permissions)
-
-        self.controller_juju('revoke', args)
-
-    def set_config(self, service, options):
-        option_strings = self._dict_as_option_strings(options)
-        self.juju('set-config', (service,) + option_strings)
-
-    def get_config(self, service):
-        return yaml.safe_load(self.get_juju_output('get-config', service))
-
-    def get_model_config(self):
-        """Return the value of the environment's configured option."""
-        return yaml.safe_load(
-            self.get_juju_output('get-model-config', '--format', 'yaml'))
-
-    def get_env_option(self, option):
-        """Return the value of the environment's configured option."""
-        return self.get_juju_output('get-model-config', option)
-
-    def set_env_option(self, option, value):
-        """Set the value of the option in the environment."""
-        option_value = "%s=%s" % (option, value)
-        return self.juju('set-model-config', (option_value,))
-
-    def unset_env_option(self, option):
-        """Unset the value of the option in the environment."""
-        return self.juju('unset-model-config', (option,))
-
-    def list_disabled_commands(self):
-        """List all the commands disabled on the model."""
-        raw = self.get_juju_output('block list', '--format', 'yaml')
-        return yaml.safe_load(raw)
-
-    def disable_command(self, args):
-        """Disable a command set."""
-        return self.juju('block', args)
-
-    def enable_command(self, args):
-        """Enable a command set."""
-        return self.juju('unblock', args)
-
-    def enable_ha(self):
-        self.juju('enable-ha', ('-n', '3'))
-
-
-class EnvJujuClient1X(EnvJujuClient2B9):
+class EnvJujuClient1X(EnvJujuClientRC):
     """Base for all 1.x client drivers."""
 
     default_backend = Juju1XBackend
@@ -2480,6 +2383,36 @@ class EnvJujuClient1X(EnvJujuClient2B9):
     def add_subnet(self, subnet, space):
         self.juju('subnet add', (subnet, space))
 
+    def add_user_perms(self, username, models=None, permissions='read'):
+        """Adds provided user and return register command arguments.
+
+        :return: Registration token provided by the add-user command.
+
+        """
+        if models is None:
+            models = self.env.environment
+
+        args = (username, '--models', models, '--acl', permissions,
+                '-c', self.env.controller.name)
+
+        output = self.get_juju_output('add-user', *args, include_e=False)
+        return self._get_register_command(output)
+
+    def grant(self, user_name, permission, model=None):
+        """Grant the user with a model."""
+        if model is None:
+            model = self.model_name
+        self.juju('grant', (user_name, model, '--acl', permission),
+                  include_e=False)
+
+    def revoke(self, username, models=None, permissions='read'):
+        if models is None:
+            models = self.env.environment
+
+        args = (username, models, '--acl', permissions)
+
+        self.controller_juju('revoke', args)
+
     def set_model_constraints(self, constraints):
         constraint_strings = self._dict_as_option_strings(constraints)
         return self.juju('set-constraints', constraint_strings)
@@ -2504,6 +2437,10 @@ class EnvJujuClient1X(EnvJujuClient2B9):
         option_value = "%s=%s" % (option, value)
         return self.juju('set-env', (option_value,))
 
+    def unset_env_option(self, option):
+        """Unset the value of the option in the environment."""
+        return self.juju('unset-model-config', (option,))
+
     def _cmd_model(self, include_e, controller):
         if controller:
             return self.get_controller_model_name()
@@ -2511,6 +2448,9 @@ class EnvJujuClient1X(EnvJujuClient2B9):
             return None
         else:
             return unqualified_model_name(self.model_name)
+
+    def update_user_name(self):
+        return
 
     def get_bootstrap_args(self, upload_tools, bootstrap_series=None,
                            credential=None):
@@ -2606,6 +2546,12 @@ class EnvJujuClient1X(EnvJujuClient2B9):
             log.info('Call to JES juju environments failed, falling back.')
             return []
 
+    def get_model_uuid(self):
+        name = self.env.environment
+        output_yaml = self.get_juju_output('show-model', '--format', 'yaml')
+        output = yaml.safe_load(output_yaml)
+        return output[name]['model-uuid']
+
     def deploy_bundle(self, bundle, timeout=_DEFAULT_BUNDLE_TIMEOUT):
         """Deploy bundle using deployer for Juju 1.X version."""
         self.deployer(bundle, timeout=timeout)
@@ -2665,6 +2611,18 @@ class EnvJujuClient1X(EnvJujuClient2B9):
     def upgrade_mongo(self):
         raise UpgradeMongoNotSupported()
 
+    def create_cloned_environment(
+            self, cloned_juju_home, controller_name, user_name=None):
+        """Create a cloned environment.
+
+        `user_name` is unused in this version of juju.
+        """
+        user_client = self.clone(env=self.env.clone())
+        user_client.env.juju_home = cloned_juju_home
+        # New user names the controller.
+        user_client.env.controller = Controller(controller_name)
+        return user_client
+
     def add_storage(self, unit, storage_type, amount="1"):
         """Add storage instances to service.
 
@@ -2707,6 +2665,19 @@ class EnvJujuClient1X(EnvJujuClient2B9):
         """Import ssh keys from one or more identities to the current model."""
         return self.get_juju_output('authorized-keys import', *keys,
                                     merge_stderr=True)
+
+    def list_disabled_commands(self):
+        """List all the commands disabled on the model."""
+        raw = self.get_juju_output('block list', '--format', 'yaml')
+        return yaml.safe_load(raw)
+
+    def disable_command(self, args):
+        """Disable a command set."""
+        return self.juju('block', args)
+
+    def enable_command(self, args):
+        """Enable a command set."""
+        return self.juju('unblock', args)
 
 
 class EnvJujuClient22(EnvJujuClient1X):
