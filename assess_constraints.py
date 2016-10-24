@@ -270,7 +270,7 @@ def assess_virt_type_constraints(client, test_kvm=False):
 def get_failure_exception(client, constraints):
     """Create a JujuAssertionError with a detailed error message."""
     message = 'Test Failed: on {} with constraints "{}"'.format(
-        client.env.config.get('type'), str(constraints))
+        client.env.provider, str(constraints))
     return JujuAssertionError(message)
 
 
@@ -298,7 +298,7 @@ def assess_instance_type(client, provider, instance_type):
 def assess_instance_type_constraints(client, provider=None):
     """Assess deployment with instance-type constraints."""
     if provider is None:
-        provider = client.env.config.get('type')
+        provider = client.env.provider
     if provider not in INSTANCE_TYPES:
         return
     for instance_type in INSTANCE_TYPES[provider]:
@@ -351,7 +351,7 @@ def assess_multiple_constraints(client, base_name, **kwargs):
 
 def assess_constraints(client, test_kvm=False):
     """Assess deployment with constraints."""
-    provider = client.env.config.get('type')
+    provider = client.env.provider
     if 'lxd' == provider:
         assess_virt_type_constraints(client, test_kvm)
     elif 'ec2' == provider:

@@ -77,7 +77,7 @@ def assess_autoload_credentials(args):
     client = client_from_config(args.env, args.juju_bin, False)
     client.env.load_yaml()
     real_credential_details = client_credentials_to_details(client)
-    provider = client.env.config['type']
+    provider = client.env.provider
 
     for scenario_name, scenario_setup in test_scenarios[provider]:
         log.info('* Starting test scenario: {}'.format(scenario_name))
@@ -96,7 +96,7 @@ def assess_autoload_credentials(args):
 
 def client_credentials_to_details(client):
     """Convert the credentials in the client to details."""
-    provider = client.env.config['type']
+    provider = client.env.provider
     log.info("provider: {}".format(provider))
     cloud_name = client.env.get_cloud()
     log.info("cloud_name: {}".format(cloud_name))
@@ -114,7 +114,7 @@ def client_credentials_to_details(client):
         os_cloud = client.env.clouds['clouds'][cloud_name]
         return {'os_tenant_name': credentials['tenant-name'],
                 'os_password': credentials['password'],
-                'os_region_name': client.env.config['region'],
+                'os_region_name': client.env.get_region(),
                 'os_auth_url': os_cloud['endpoint'],
                 }
 
@@ -367,7 +367,7 @@ def aws_credential_dict_generator():
 def openstack_envvar_test_details(
         user, tmp_dir, client, credential_details=None):
     if credential_details is None:
-        region = client.env.config['region']
+        region = client.env.get_region()
         log.info(
             'Generating credential_details for openstack {}'.format(region))
         credential_details = openstack_credential_dict_generator(region)
@@ -392,7 +392,7 @@ def get_openstack_envvar_changes(user, credential_details):
 def openstack_directory_test_details(user, tmp_dir, client,
                                      credential_details=None):
     if credential_details is None:
-        region = client.env.config['region']
+        region = client.env.get_region()
         log.info(
             'Generating credential_details for openstack {}'.format(region))
         credential_details = openstack_credential_dict_generator(region)

@@ -89,6 +89,10 @@ class SoftDeadlineExceeded(Exception):
             'Operation exceeded deadline.')
 
 
+class NoProvider(Exception):
+    """Raised when an environment defines no provider."""
+
+
 def get_timeout_path():
     import timeout
     return os.path.abspath(timeout.__file__)
@@ -103,7 +107,7 @@ def get_timeout_prefix(duration, timeout_path=None):
 
 def get_teardown_timeout(client):
     """Return the timeout need byt the client to teardown resources."""
-    if client.env.config['type'] == 'azure':
+    if client.env.provider == 'azure':
         return 1800
     else:
         return 600
@@ -244,16 +248,70 @@ class SimpleEnvironment:
         self.config = config
         self.juju_home = juju_home
         if self.config is not None:
-            self.local = bool(self.config.get('type') == 'local')
+            try:
+                provider = self.provider
+            except NoProvider:
+                provider = None
+            self.local = bool(provider == 'local')
             self.kvm = (
                 self.local and bool(self.config.get('container') == 'kvm'))
-            self.maas = bool(self.config.get('type') == 'maas')
-            self.joyent = bool(self.config.get('type') == 'joyent')
+            self.maas = bool(provider == 'maas')
+            self.joyent = bool(provider == 'joyent')
         else:
             self.local = False
             self.kvm = False
             self.maas = False
             self.joyent = False
+
+    @property
+    def provider(self):
+        """Return the provider type for this environment.
+
+        See get_cloud to determine the specific cloud.
+        """
+        try:
+            return self.config['type']
+        except KeyError:
+            raise NoProvider('No provider specified.')
+
+    def get_region(self):
+        provider = self.provider
+        if provider == 'azure':
+            if 'tenant-id' not in self.config:
+                return self.config['location'].replace(' ', '').lower()
+            return self.config['location']
+        elif provider == 'joyent':
+            matcher = re.compile('https://(.*).api.joyentcloud.com')
+            return matcher.match(self.config['sdc-url']).group(1)
+        elif provider == 'lxd':
+            return 'localhost'
+        elif provider == 'manual':
+            return self.config['bootstrap-host']
+        elif provider in ('maas', 'manual'):
+            return None
+        else:
+            return self.config['region']
+
+    def set_region(self, region):
+        try:
+            provider = self.provider
+        except NoProvider:
+            provider = None
+        if provider == 'azure':
+            self.config['location'] = region
+        elif provider == 'joyent':
+            self.config['sdc-url'] = (
+                'https://{}.api.joyentcloud.com'.format(region))
+        elif provider == 'lxd':
+            if region != 'localhost':
+                raise ValueError('Only "localhost" allowed for lxd.')
+        elif provider == 'manual':
+            self.config['bootstrap-host'] = region
+        elif provider == 'maas':
+            if region is not None:
+                raise ValueError('Only None allowed for maas.')
+        else:
+            self.config['region'] = region
 
     def clone(self, model_name=None):
         config = deepcopy(self.config)
@@ -410,7 +468,7 @@ class JujuData(SimpleEnvironment):
         raise LookupError('No such endpoint: {}'.format(endpoint))
 
     def get_cloud(self):
-        provider = self.config['type']
+        provider = self.provider
         # Separate cloud recommended by: Juju Cloud / Credentials / BootStrap /
         # Model CLI specification
         if provider == 'ec2' and self.config['region'] == 'cn-north-1':
@@ -425,24 +483,6 @@ class JujuData(SimpleEnvironment):
         elif provider == 'openstack':
             endpoint = self.config['auth-url']
         return self.find_endpoint_cloud(provider, endpoint)
-
-    def get_region(self):
-        provider = self.config['type']
-        if provider == 'azure':
-            if 'tenant-id' not in self.config:
-                return self.config['location'].replace(' ', '').lower()
-            return self.config['location']
-        elif provider == 'joyent':
-            matcher = re.compile('https://(.*).api.joyentcloud.com')
-            return matcher.match(self.config['sdc-url']).group(1)
-        elif provider == 'lxd':
-            return 'localhost'
-        elif provider == 'manual':
-            return self.config['bootstrap-host']
-        elif provider in ('maas', 'manual'):
-            return None
-        else:
-            return self.config['region']
 
     def get_cloud_credentials(self):
         """Return the credentials for this model's cloud."""
@@ -932,6 +972,9 @@ class EnvJujuClient:
 
     controller_permissions = frozenset(['login', 'addmodel', 'superuser'])
 
+    reserved_spaces = frozenset([
+        'endpoint-bindings-data', 'endpoint-bindings-public'])
+
     @classmethod
     def preferred_container(cls):
         for container_type in [LXD_MACHINE, LXC_MACHINE]:
@@ -1024,6 +1067,7 @@ class EnvJujuClient:
         feature_flags = self.feature_flags.intersection(cls.used_feature_flags)
         backend = self._backend.clone(full_path, version, debug, feature_flags)
         other = cls.from_backend(backend, env)
+        other.excluded_spaces = set(self.excluded_spaces)
         return other
 
     @classmethod
@@ -1100,6 +1144,7 @@ class EnvJujuClient:
                     env.juju_home = get_juju_home()
             else:
                 env.juju_home = juju_home
+        self.excluded_spaces = set(self.reserved_spaces)
 
     @property
     def version(self):
@@ -1133,6 +1178,12 @@ class EnvJujuClient:
         return self._backend.shell_environ(self.used_feature_flags,
                                            self.env.juju_home)
 
+    def use_reserved_spaces(self, spaces):
+        """Allow machines in given spaces to be allocated and used."""
+        if not self.reserved_spaces.issuperset(spaces):
+            raise ValueError('Space not reserved: {}'.format(spaces))
+        self.excluded_spaces.difference_update(spaces)
+
     def add_ssh_machines(self, machines):
         for count, machine in enumerate(machines):
             try:
@@ -1155,11 +1206,7 @@ class EnvJujuClient:
             credential=None, auto_upgrade=False, metadata_source=None,
             to=None, no_gui=False, agent_version=None):
         """Return the bootstrap arguments for the substrate."""
-        if self.env.joyent:
-            # Only accept kvm packages by requiring >1 cpu core, see lp:1446264
-            constraints = 'mem=2G cpu-cores=1'
-        else:
-            constraints = 'mem=2G'
+        constraints = self._get_substrate_constraints()
         cloud_region = self.get_cloud_region(self.env.get_cloud(),
                                              self.env.get_region())
         # Note cloud_region before controller name
@@ -1515,6 +1562,10 @@ class EnvJujuClient:
         if self.env.joyent:
             # Only accept kvm packages by requiring >1 cpu core, see lp:1446264
             return 'mem=2G cpu-cores=1'
+        elif self.env.maas:
+            # For now only maas support spaces in a meaningful way.
+            return 'mem=2G spaces={}'.format(','.join(
+                '^' + space for space in sorted(self.excluded_spaces)))
         else:
             return 'mem=2G'
 
@@ -2451,6 +2502,13 @@ class EnvJujuClient1X(EnvJujuClientRC):
 
     def update_user_name(self):
         return
+
+    def _get_substrate_constraints(self):
+        if self.env.joyent:
+            # Only accept kvm packages by requiring >1 cpu core, see lp:1446264
+            return 'mem=2G cpu-cores=1'
+        else:
+            return 'mem=2G'
 
     def get_bootstrap_args(self, upload_tools, bootstrap_series=None,
                            credential=None):

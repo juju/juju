@@ -296,7 +296,7 @@ def assess_storage(client, charm_series):
     if client.is_juju1x():
         expected_pool = storage_pool_1x
     else:
-        if client.env.config['type'] == 'ec2':
+        if client.env.provider == 'ec2':
             expected_pool = dict(AWS_DEFAULT_STORAGE_POOL_DETAILS)
         else:
             expected_pool = dict(DEFAULT_STORAGE_POOL_DETAILS)
