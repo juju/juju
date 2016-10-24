@@ -176,12 +176,8 @@ func (m main) maybeWarnJuju1x() (newInstall bool) {
 Welcome to Juju {{.CurrentJujuVersion}}. 
     See https://jujucharms.com/docs/stable/introducing-2 for more details.
 
-If you meant to use Juju {{.OldJujuVersion}}, run 'juju' commands as '{{.OldJujuCommand}}'. For example, 'juju switch' as '{{.OldJujuCommand}} switch'.
-    Note: 
-    '{{.OldJujuCommand}}' command comes from {{.OldJujuCommand}}-default package.
-    On trusty, use 'update-alternatives'.
-    On xenial/yakkety, use {{.OldJujuCommand}}-default package install.
-    After the installation, you should have /usr/bin/{{.OldJujuCommand}} to use '{{.OldJujuCommand}}' command. 
+If you want to use Juju {{.OldJujuVersion}}, run 'juju' commands as '{{.OldJujuCommand}}'. For example, '{{.OldJujuCommand}} bootstrap'.
+   See https://jujucharms.com/docs/stable/juju-coexist for installation details. 
 `[1:]
 	t := template.Must(template.New("plugin").Parse(welcomeMsgTemplate))
 	var buf bytes.Buffer
