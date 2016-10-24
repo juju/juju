@@ -274,7 +274,7 @@ class TestAssessMetadata(FakeHomeTestCase):
         def check(myself, metadata_source=None):
             self.assertEqual(self.target_dict, myself.env.config)
             self.assertIsNotNone(metadata_source)
-        with extended_bootstrap_cxt('2.0-rc1'):
+        with extended_bootstrap_cxt('2.0.0'):
             with patch('jujupy.EnvJujuClient.bootstrap', side_effect=check,
                        autospec=True):
                 args = parse_args(['metadata', 'bar', '/foo'])
@@ -289,7 +289,7 @@ class TestAssessMetadata(FakeHomeTestCase):
         def check(myself, metadata_source=None):
             self.assertEqual(self.target_dict, myself.env.config)
             self.assertEqual('agents', metadata_source)
-        with extended_bootstrap_cxt('2.0-rc1'):
+        with extended_bootstrap_cxt('2.0.0'):
             with patch('jujupy.EnvJujuClient.bootstrap', side_effect=check,
                        autospec=True):
                 args = parse_args(['metadata', 'bar', '/foo'])
@@ -301,7 +301,7 @@ class TestAssessMetadata(FakeHomeTestCase):
                     assess_metadata(bs_manager, 'agents')
 
     def test_assess_metadata_valid_url(self):
-        with extended_bootstrap_cxt('2.0-rc1'):
+        with extended_bootstrap_cxt('2.0.0'):
             with patch('jujupy.EnvJujuClient.bootstrap', autospec=True):
                 args = parse_args(['metadata', 'bar', '/foo'])
                 args.temp_env_name = 'qux'
@@ -342,7 +342,7 @@ class TestAssessTo(FakeHomeTestCase):
             self.assertEqual({'name': 'qux', 'type': 'foo'},
                              myself.env.config)
             self.assertEqual(DEST, to)
-        with extended_bootstrap_cxt('2.0-rc1'):
+        with extended_bootstrap_cxt('2.0.0'):
             with patch('jujupy.EnvJujuClient.bootstrap', side_effect=check,
                        autospec=True):
                 with patch('assess_bootstrap.get_controller_hostname',
@@ -358,7 +358,7 @@ class TestAssessTo(FakeHomeTestCase):
             assess_to('bs_manager', None)
 
     def test_assess_to_fails(self):
-        with extended_bootstrap_cxt('2.0-rc1'):
+        with extended_bootstrap_cxt('2.0.0'):
             with patch('jujupy.EnvJujuClient.bootstrap', autospec=True):
                 with patch('assess_bootstrap.get_controller_address',
                            return_value='255.1.1.0', autospec=True):
