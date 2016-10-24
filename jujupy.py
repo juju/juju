@@ -862,10 +862,8 @@ def get_client_class(version):
     elif re.match('^1\.', version):
         client_class = EnvJujuClient1X
     # Ensure alpha/beta number matches precisely
-    elif re.match('^2\.0-(alpha[123]|beta[1-7])([^\d]|$)', version):
+    elif re.match('^2\.0-(alpha[123]|beta[1-8])([^\d]|$)', version):
         raise VersionNotTestedError(version)
-    elif re.match('^2\.0-beta8([^\d]|$)', version):
-        client_class = EnvJujuClient2B8
     # between beta 9-14
     elif re.match('^2\.0-beta(9|1[0-4])([^\d]|$)', version):
         client_class = EnvJujuClient2B9
@@ -2332,43 +2330,14 @@ class EnvJujuClient2B9(EnvJujuClientRC):
         self.juju('enable-ha', ('-n', '3'))
 
 
-class EnvJujuClient2B8(EnvJujuClient2B9):
-
-    status_class = ServiceStatus
-
-    def remove_service(self, service):
-        self.juju('remove-service', (service,))
-
-    def run(self, commands, applications):
-        responses = self.get_juju_output(
-            'run', '--format', 'json', '--service', ','.join(applications),
-            *commands)
-        return json.loads(responses)
-
-    def deployer(self, bundle_template, name=None, deploy_delay=10,
-                 timeout=3600):
-        """Deploy a bundle using deployer."""
-        bundle = self.format_bundle(bundle_template)
-        args = (
-            '--debug',
-            '--deploy-delay', str(deploy_delay),
-            '--timeout', str(timeout),
-            '--config', bundle,
-        )
-        if name:
-            args += (name,)
-        e_arg = ('-e', 'local.{}:{}'.format(
-            self.env.controller.name, self.env.environment))
-        args = e_arg + args
-        self.juju('deployer', args, self.env.needs_sudo(), include_e=False)
-
-
-class EnvJujuClient1X(EnvJujuClient2B8):
+class EnvJujuClient1X(EnvJujuClient2B9):
     """Base for all 1.x client drivers."""
 
     default_backend = Juju1XBackend
 
     config_class = SimpleEnvironment
+
+    status_class = ServiceStatus
 
     # The environments.yaml options that are replaced by bootstrap options.
     # For Juju 1.x, no bootstrap options are used.
@@ -2495,6 +2464,12 @@ class EnvJujuClient1X(EnvJujuClient2B8):
             raise Exception("Action id not found in output: %s" %
                             output)
         return match.group(1)
+
+    def run(self, commands, applications):
+        responses = self.get_juju_output(
+            'run', '--format', 'json', '--service', ','.join(applications),
+            *commands)
+        return json.loads(responses)
 
     def list_space(self):
         return yaml.safe_load(self.get_juju_output('space list'))
