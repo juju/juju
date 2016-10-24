@@ -1532,7 +1532,7 @@ class EnvJujuClient:
             return 'mem=2G cpu-cores=1'
         elif self.env.maas:
             # For now only maas support spaces in a meaningful way.
-            return 'mem=2G spaces={}'.format( ','.join(
+            return 'mem=2G spaces={}'.format(','.join(
                 '^' + space for space in sorted(self.excluded_spaces)))
         else:
             return 'mem=2G'

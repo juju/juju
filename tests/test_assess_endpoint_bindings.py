@@ -5,7 +5,6 @@ from mock import Mock, patch
 import StringIO
 
 from assess_endpoint_bindings import (
-    assess_endpoint_bindings,
     ensure_spaces,
     parse_args,
     machine_spaces_for_bundle,
@@ -15,7 +14,6 @@ from tests import (
     parse_error,
     TestCase,
 )
-from tests.test_jujupy import fake_juju_client
 
 
 class TestParseArgs(TestCase):
@@ -167,8 +165,9 @@ class TestMain(TestCase):
                        autospec=True) as mock_ma:
                 with patch("deploy_stack.client_from_config",
                            return_value=client) as mock_c:
-                    with patch("assess_endpoint_bindings.assess_endpoint_bindings",
-                               autospec=True) as mock_assess:
+                    with patch(
+                        "assess_endpoint_bindings.assess_endpoint_bindings",
+                            autospec=True) as mock_assess:
                         main(argv)
         mock_cl.assert_called_once_with(logging.DEBUG)
         mock_c.assert_called_once_with(

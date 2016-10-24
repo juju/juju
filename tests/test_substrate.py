@@ -979,7 +979,7 @@ class TestMAASAccount(TestCase):
         account = self.get_account()
         with patch('subprocess.check_output', autospec=True,
                    return_value='{"id": 10}') as co_mock:
-            interface = account.interface_update('node-xyz', 10, vlan=5000)
+            interface = account.interface_update('node-xyz', 10, vlan_id=5000)
         co_mock.assert_called_once_with((
             'maas', 'mas', 'interface', 'update', 'node-xyz', '10',
             'vlan=5000'))
