@@ -121,11 +121,12 @@ def assert_juju_call(test_case, mock_method, client, expected_args,
                      call_index=None):
     """Check a mock's positional arguments.
 
-    :param test_case:
-    :param mock_mothod:
-    :param client:
-    :param expected_args:
-    :param call_index:"""
+    :param test_case: The test case currently being run.
+    :param mock_mothod: The mock object to be checked.
+    :param client: Ignored.
+    :param expected_args: The expected positional arguments for the call.
+    :param call_index: Index of the call to check, if None checks first call
+    and checks for only one call."""
     if call_index is None:
         test_case.assertEqual(len(mock_method.mock_calls), 1)
         call_index = 0
@@ -151,7 +152,7 @@ class FakePopen(object):
 
 @contextmanager
 def observable_temp_file():
-    """..."""
+    """Get a name which is used to create temporary files in the context."""
     temporary_file = NamedTemporaryFile(delete=False)
     try:
         with temporary_file as temp_file:
@@ -171,6 +172,7 @@ def observable_temp_file():
 # Fake Juju ?
 @contextmanager
 def client_past_deadline():
+    """Create a client patched to be past its deadline."""
     client = EnvJujuClient(JujuData('local', juju_home=''), None, None)
     soft_deadline = datetime(2015, 1, 2, 3, 4, 6)
     now = soft_deadline + timedelta(seconds=1)
