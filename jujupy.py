@@ -1560,11 +1560,15 @@ class EnvJujuClient:
         args = e_arg + args
         self.juju('deployer', args, self.env.needs_sudo(), include_e=False)
 
+    @staticmethod
+    def _maas_spaces_enabled():
+        return not os.environ.get("JUJU_CI_SPACELESSNESS")
+
     def _get_substrate_constraints(self):
         if self.env.joyent:
             # Only accept kvm packages by requiring >1 cpu core, see lp:1446264
             return 'mem=2G cpu-cores=1'
-        elif self.env.maas:
+        elif self.env.maas and self._maas_spaces_enabled():
             # For now only maas support spaces in a meaningful way.
             return 'mem=2G spaces={}'.format(','.join(
                 '^' + space for space in sorted(self.excluded_spaces)))
