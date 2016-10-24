@@ -12,13 +12,13 @@ import (
 	"reflect"
 
 	"github.com/juju/errors"
-	"github.com/juju/govmomi"
-	"github.com/juju/govmomi/session"
-	"github.com/juju/govmomi/vim25"
-	"github.com/juju/govmomi/vim25/methods"
-	"github.com/juju/govmomi/vim25/soap"
-	"github.com/juju/govmomi/vim25/types"
 	jc "github.com/juju/testing/checkers"
+	"github.com/vmware/govmomi"
+	"github.com/vmware/govmomi/session"
+	"github.com/vmware/govmomi/vim25"
+	"github.com/vmware/govmomi/vim25/methods"
+	"github.com/vmware/govmomi/vim25/soap"
+	"github.com/vmware/govmomi/vim25/types"
 	"golang.org/x/net/context"
 	gc "gopkg.in/check.v1"
 
@@ -61,12 +61,46 @@ type BaseSuite struct {
 	EnvConfig *environConfig
 	Env       *environ
 
-	ServeMux  *http.ServeMux
-	ServerURL string
+	ServeMux   *http.ServeMux
+	ServerURL  string
+	FakeClient *fakeClient
 }
 
 func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
+	s.FakeClient = &fakeClient{
+		handlers:         make([]fakeAPICall, 0, 100),
+		propertyHandlers: make([]fakePropertiesCall, 0, 100),
+	}
+
+	newFakeConnection := func(url *url.URL) (*govmomi.Client, func() error, error) {
+		logger.Debugf("CONNECT")
+		fakeClient := s.FakeClient
+		if len(fakeClient.propertyHandlers) == 0 {
+			fakeClient.SetPropertyProxyHandler("FakeRootFolder", RetrieveDatacenter)
+		}
+		vimClient := &vim25.Client{
+			Client: &soap.Client{},
+			ServiceContent: types.ServiceContent{
+				RootFolder: types.ManagedObjectReference{
+					Type:  "Folder",
+					Value: "FakeRootFolder",
+				},
+				OvfManager: &types.ManagedObjectReference{
+					Type:  "OvfManager",
+					Value: "FakeOvfManager",
+				},
+			},
+			RoundTripper: fakeClient,
+		}
+
+		c := &govmomi.Client{
+			Client:         vimClient,
+			SessionManager: session.NewManager(vimClient),
+		}
+		fakeLogout := func() error { return nil }
+		return c, fakeLogout, nil
+	}
 
 	s.PatchValue(&newConnection, newFakeConnection)
 	s.initEnv(c)
@@ -158,36 +192,6 @@ func (c *fakeClient) SetProxyHandler(method string, handler fakeAPIHandler) {
 
 func (c *fakeClient) SetPropertyProxyHandler(obj string, handler fakePropertiesHandler) {
 	c.propertyHandlers = append(c.propertyHandlers, fakePropertiesCall{object: obj, handler: handler})
-}
-
-var newFakeConnection = func(url *url.URL) (*govmomi.Client, error) {
-	fakeClient := &fakeClient{
-		handlers:         make([]fakeAPICall, 0, 100),
-		propertyHandlers: make([]fakePropertiesCall, 0, 100),
-	}
-
-	fakeClient.SetPropertyProxyHandler("FakeRootFolder", RetrieveDatacenter)
-
-	vimClient := &vim25.Client{
-		Client: &soap.Client{},
-		ServiceContent: types.ServiceContent{
-			RootFolder: types.ManagedObjectReference{
-				Type:  "Folder",
-				Value: "FakeRootFolder",
-			},
-			OvfManager: &types.ManagedObjectReference{
-				Type:  "OvfManager",
-				Value: "FakeOvfManager",
-			},
-		},
-		RoundTripper: fakeClient,
-	}
-
-	c := &govmomi.Client{
-		Client:         vimClient,
-		SessionManager: session.NewManager(vimClient),
-	}
-	return c, nil
 }
 
 var CommonRetrieveProperties = func(resBody *methods.RetrievePropertiesBody, objType, objValue, propName string, propValue interface{}) {

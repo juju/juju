@@ -7,12 +7,12 @@ package vsphere_test
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/govmomi/vim25/methods"
-	"github.com/juju/govmomi/vim25/soap"
-	"github.com/juju/govmomi/vim25/types"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
 	"github.com/juju/version"
+	"github.com/vmware/govmomi/vim25/methods"
+	"github.com/vmware/govmomi/vim25/soap"
+	"github.com/vmware/govmomi/vim25/types"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
@@ -33,20 +33,40 @@ type environBrokerSuite struct {
 
 var _ = gc.Suite(&environBrokerSuite{})
 
-func (s *environBrokerSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
-}
-
 func (s *environBrokerSuite) PrepareStartInstanceFakes(c *gc.C) {
 	imagetesting.PatchOfficialDataSources(&s.CleanupSuite, "")
 
-	client := vsphere.ExposeEnvFakeClient(s.Env)
+	client, closer, err := vsphere.ExposeEnvFakeClient(s.Env)
+	c.Assert(err, jc.ErrorIsNil)
+	defer closer()
+	s.FakeClient = client
 	client.SetPropertyProxyHandler("FakeDatacenter", vsphere.RetrieveDatacenterProperties)
 	s.FakeInstances(client)
 	s.FakeAvailabilityZones(client, "z1")
 	s.FakeAvailabilityZones(client, "z1")
 	s.FakeAvailabilityZones(client, "z1")
 	s.FakeCreateInstance(client, s.ServerURL, c)
+}
+
+func (s *environBrokerSuite) PrepareStartInstanceFakesForNewImplementation(c *gc.C) {
+	imagetesting.PatchOfficialDataSources(&s.CleanupSuite, "")
+
+	client, closer, err := vsphere.ExposeEnvFakeClient(s.Env)
+	c.Assert(err, jc.ErrorIsNil)
+	defer closer()
+	s.FakeClient = client
+	s.FakeAvailabilityZones(client, "z1")
+	s.FakeClient.SetPropertyProxyHandler("FakeRootFolder", vsphere.RetrieveDatacenter)
+	s.FakeCreateInstance(client, s.ServerURL, c)
+}
+
+func (s *environBrokerSuite) fakeAvailabilityZonesAllocations() {
+	fakeAZAllocations := func(env common.ZonedEnviron, group []instance.Id) ([]common.AvailabilityZoneInstances, error) {
+		return []common.AvailabilityZoneInstances{
+			{ZoneName: "z1"},
+		}, nil
+	}
+	s.PatchValue(&vsphere.AvailabilityZoneAllocations, fakeAZAllocations)
 }
 
 func (s *environBrokerSuite) CreateStartInstanceArgs(c *gc.C) environs.StartInstanceParams {
@@ -75,7 +95,8 @@ func (s *environBrokerSuite) CreateStartInstanceArgs(c *gc.C) environs.StartInst
 }
 
 func (s *environBrokerSuite) TestStartInstance(c *gc.C) {
-	s.PrepareStartInstanceFakes(c)
+	s.PrepareStartInstanceFakesForNewImplementation(c)
+	s.fakeAvailabilityZonesAllocations()
 	startInstArgs := s.CreateStartInstanceArgs(c)
 	_, err := s.Env.StartInstance(startInstArgs)
 
@@ -93,7 +114,7 @@ func (s *environBrokerSuite) TestStartInstanceWithUnsupportedConstraints(c *gc.C
 
 // if tools for multiple architectures are avaliable, provider should filter tools by arch of the selected image
 func (s *environBrokerSuite) TestStartInstanceFilterToolByArch(c *gc.C) {
-	s.PrepareStartInstanceFakes(c)
+	s.PrepareStartInstanceFakesForNewImplementation(c)
 	startInstArgs := s.CreateStartInstanceArgs(c)
 	tools := []*coretools.Tools{{
 		Version: version.Binary{Arch: arch.I386, Series: "trusty"},
@@ -108,6 +129,7 @@ func (s *environBrokerSuite) TestStartInstanceFilterToolByArch(c *gc.C) {
 		tools[0],
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	s.fakeAvailabilityZonesAllocations()
 	res, err := s.Env.StartInstance(startInstArgs)
 
 	c.Assert(err, jc.ErrorIsNil)
@@ -116,7 +138,8 @@ func (s *environBrokerSuite) TestStartInstanceFilterToolByArch(c *gc.C) {
 }
 
 func (s *environBrokerSuite) TestStartInstanceDefaultConstraintsApplied(c *gc.C) {
-	s.PrepareStartInstanceFakes(c)
+	s.PrepareStartInstanceFakesForNewImplementation(c)
+	s.fakeAvailabilityZonesAllocations()
 	startInstArgs := s.CreateStartInstanceArgs(c)
 	res, err := s.Env.StartInstance(startInstArgs)
 
@@ -128,7 +151,8 @@ func (s *environBrokerSuite) TestStartInstanceDefaultConstraintsApplied(c *gc.C)
 }
 
 func (s *environBrokerSuite) TestStartInstanceCustomConstraintsApplied(c *gc.C) {
-	s.PrepareStartInstanceFakes(c)
+	s.PrepareStartInstanceFakesForNewImplementation(c)
+	s.fakeAvailabilityZonesAllocations()
 	startInstArgs := s.CreateStartInstanceArgs(c)
 	cpuCores := uint64(4)
 	startInstArgs.Constraints.CpuCores = &cpuCores
@@ -159,7 +183,8 @@ func (s *environBrokerSuite) TestStartInstanceCallsFinishMachineConfig(c *gc.C) 
 }
 
 func (s *environBrokerSuite) TestStartInstanceDefaultDiskSizeIsUsedForSmallConstraintValue(c *gc.C) {
-	s.PrepareStartInstanceFakes(c)
+	s.fakeAvailabilityZonesAllocations()
+	s.PrepareStartInstanceFakesForNewImplementation(c)
 	startInstArgs := s.CreateStartInstanceArgs(c)
 	rootDisk := uint64(1000)
 	startInstArgs.Constraints.RootDisk = &rootDisk
@@ -177,13 +202,18 @@ func (s *environBrokerSuite) TestStartInstanceInvalidPlacement(c *gc.C) {
 }
 
 func (s *environBrokerSuite) TestStartInstanceSelectZone(c *gc.C) {
-	client := vsphere.ExposeEnvFakeClient(s.Env)
+	client, closer, err := vsphere.ExposeEnvFakeClient(s.Env)
+	c.Assert(err, jc.ErrorIsNil)
+	defer closer()
+	s.FakeClient = client
 	s.FakeAvailabilityZones(client, "z1", "z2")
+	client.SetPropertyProxyHandler("FakeRootFolder", vsphere.RetrieveDatacenter)
 	s.FakeAvailabilityZones(client, "z1", "z2")
+	client.SetPropertyProxyHandler("FakeRootFolder", vsphere.RetrieveDatacenter)
 	s.FakeCreateInstance(client, s.ServerURL, c)
 	startInstArgs := s.CreateStartInstanceArgs(c)
 	startInstArgs.Placement = "zone=z2"
-	_, err := s.Env.StartInstance(startInstArgs)
+	_, err = s.Env.StartInstance(startInstArgs)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -203,12 +233,26 @@ func (s *environBrokerSuite) TestStartInstanceCallsAvailabilityZoneAllocations(c
 }
 
 func (s *environBrokerSuite) TestStartInstanceTriesToCreateInstanceInAllAvailabilityZones(c *gc.C) {
-	client := vsphere.ExposeEnvFakeClient(s.Env)
+	client, closer, err := vsphere.ExposeEnvFakeClient(s.Env)
+	c.Assert(err, jc.ErrorIsNil)
+	defer closer()
+	s.FakeClient = client
+	s.FakeAvailabilityZones(client, "z1", "z2")
+	client.SetPropertyProxyHandler("FakeRootFolder", vsphere.RetrieveDatacenter)
 	client.SetPropertyProxyHandler("FakeDatacenter", vsphere.RetrieveDatacenterProperties)
-	s.FakeInstances(client)
+
+	client.SetPropertyProxyHandler("FakeRootFolder", vsphere.RetrieveDatacenter)
 	s.FakeAvailabilityZones(client, "z1", "z2")
-	s.FakeAvailabilityZones(client, "z1", "z2")
-	s.FakeAvailabilityZones(client, "z1", "z2")
+	client.SetPropertyProxyHandler("FakeRootFolder", vsphere.RetrieveDatacenter)
+
+	fakeAZAllocations := func(env common.ZonedEnviron, group []instance.Id) ([]common.AvailabilityZoneInstances, error) {
+		return []common.AvailabilityZoneInstances{
+			{ZoneName: "z1"},
+			{ZoneName: "z2"},
+		}, nil
+	}
+	s.PatchValue(&vsphere.AvailabilityZoneAllocations, fakeAZAllocations)
+
 	client.SetPropertyProxyHandler("FakeDatacenter", vsphere.RetrieveDatacenterProperties)
 	client.SetProxyHandler("CreateImportSpec", func(req, res soap.HasFault) {
 		resBody := res.(*methods.CreateImportSpecBody)
@@ -233,6 +277,6 @@ func (s *environBrokerSuite) TestStartInstanceTriesToCreateInstanceInAllAvailabi
 		}
 	})
 	startInstArgs := s.CreateStartInstanceArgs(c)
-	_, err := s.Env.StartInstance(startInstArgs)
+	_, err = s.Env.StartInstance(startInstArgs)
 	c.Assert(err, gc.ErrorMatches, "Can't create instance in any of availability zones, last error: Failed to import OVA file: Error zone 2")
 }

@@ -15,10 +15,11 @@ import (
 	"path/filepath"
 
 	"github.com/juju/errors"
-	"github.com/juju/govmomi/object"
-	"github.com/juju/govmomi/vim25/progress"
-	"github.com/juju/govmomi/vim25/soap"
-	"github.com/juju/govmomi/vim25/types"
+	"github.com/vmware/govmomi"
+	"github.com/vmware/govmomi/object"
+	"github.com/vmware/govmomi/vim25/progress"
+	"github.com/vmware/govmomi/vim25/soap"
+	"github.com/vmware/govmomi/vim25/types"
 	"golang.org/x/net/context"
 )
 
@@ -46,11 +47,17 @@ func (o ovaFileItem) Sink() chan<- progress.Report {
 }
 
 type ovaImportManager struct {
-	client *client
+	client         *govmomi.Client
+	providerClient *client
 }
 
 func (m *ovaImportManager) importOva(ecfg *environConfig, instSpec *instanceSpec) (*object.VirtualMachine, error) {
-	folders, err := m.client.datacenter.Folders(context.TODO())
+	_, datacenter, err := m.providerClient.finder(m.client)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	folders, err := datacenter.Folders(context.TODO())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -77,9 +84,9 @@ func (m *ovaImportManager) importOva(ecfg *environConfig, instSpec *instanceSpec
 		},
 	}
 
-	ovfManager := object.NewOvfManager(m.client.connection.Client)
-	resourcePool := object.NewReference(m.client.connection.Client, *instSpec.zone.r.ResourcePool)
-	datastore := object.NewReference(m.client.connection.Client, instSpec.zone.r.Datastore[0])
+	ovfManager := object.NewOvfManager(m.client.Client)
+	resourcePool := object.NewReference(m.client.Client, *instSpec.zone.r.ResourcePool)
+	datastore := object.NewReference(m.client.Client, instSpec.zone.r.Datastore[0])
 	spec, err := ovfManager.CreateImportSpec(context.TODO(), string(ovf), resourcePool, datastore, cisp)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -89,11 +96,19 @@ func (m *ovaImportManager) importOva(ecfg *environConfig, instSpec *instanceSpec
 		return nil, errors.New(spec.Error[0].LocalizedMessage)
 	}
 	s := &spec.ImportSpec.(*types.VirtualMachineImportSpec).ConfigSpec
-	s.NumCPUs = int(*instSpec.hwc.CpuCores)
-	s.MemoryMB = int64(*instSpec.hwc.Mem)
+	if instSpec.hwc.CpuCores != nil {
+		s.NumCPUs = int32(*instSpec.hwc.CpuCores)
+	}
+	if instSpec.hwc.Mem != nil {
+		s.MemoryMB = int64(*instSpec.hwc.Mem)
+	}
+	var cpuPower int64
+	if instSpec.hwc.CpuPower != nil {
+		cpuPower = int64(*instSpec.hwc.CpuPower)
+	}
 	s.CpuAllocation = &types.ResourceAllocationInfo{
-		Limit:       int64(*instSpec.hwc.CpuPower),
-		Reservation: int64(*instSpec.hwc.CpuPower),
+		Limit:       cpuPower,
+		Reservation: cpuPower,
 	}
 	s.ExtraConfig = append(s.ExtraConfig, &types.OptionValue{
 		Key: metadataKeyControllerUUID, Value: instSpec.controllerUUID,
@@ -105,13 +120,22 @@ func (m *ovaImportManager) importOva(ecfg *environConfig, instSpec *instanceSpec
 	}
 	for _, d := range s.DeviceChange {
 		if disk, ok := d.GetVirtualDeviceConfigSpec().Device.(*types.VirtualDisk); ok {
-			if disk.CapacityInKB < int64(*instSpec.hwc.RootDisk*1024) {
-				disk.CapacityInKB = int64(*instSpec.hwc.RootDisk * 1024)
+			var rootDisk int64
+			if instSpec.hwc.RootDisk != nil {
+				rootDisk = int64(*instSpec.hwc.RootDisk * 1024)
+			}
+			if disk.CapacityInKB < rootDisk {
+				disk.CapacityInKB = rootDisk
 			}
 			//Set UnitNumber to -1 if it is unset in ovf file template (in this case it is parces as 0)
 			//but 0 causes an error for disk devices
-			if disk.UnitNumber == 0 {
-				disk.UnitNumber = -1
+			var unitNumber int32
+			if disk.UnitNumber != nil {
+				unitNumber = *disk.UnitNumber
+			}
+			if unitNumber == 0 {
+				unitNumber = -1
+				disk.UnitNumber = &unitNumber
 			}
 		}
 	}
@@ -135,7 +159,7 @@ func (m *ovaImportManager) importOva(ecfg *environConfig, instSpec *instanceSpec
 			},
 		})
 	}
-	rp := object.NewResourcePool(m.client.connection.Client, *instSpec.zone.r.ResourcePool)
+	rp := object.NewResourcePool(m.client.Client, *instSpec.zone.r.ResourcePool)
 	lease, err := rp.ImportVApp(context.TODO(), spec.ImportSpec, folders.VmFolder, nil)
 	if err != nil {
 		return nil, errors.Annotatef(err, "failed to import vapp")
@@ -152,7 +176,7 @@ func (m *ovaImportManager) importOva(ecfg *environConfig, instSpec *instanceSpec
 				continue
 			}
 
-			u, err := m.client.connection.Client.ParseURL(device.Url)
+			u, err := m.client.Client.ParseURL(device.Url)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -173,7 +197,7 @@ func (m *ovaImportManager) importOva(ecfg *environConfig, instSpec *instanceSpec
 		}
 	}
 	lease.HttpNfcLeaseComplete(context.TODO())
-	return object.NewVirtualMachine(m.client.connection.Client, info.Entity), nil
+	return object.NewVirtualMachine(m.client.Client, info.Entity), nil
 }
 
 func (m *ovaImportManager) downloadOva(basePath, url string) (string, error) {
@@ -272,7 +296,8 @@ func (m *ovaImportManager) uploadImage(ofi ovaFileItem, basePath string) error {
 			}
 		}
 	}()
-	err = m.client.connection.Client.Upload(f, ofi.url, &opts)
+
+	err = m.client.Client.Upload(f, ofi.url, &opts)
 	if err == nil {
 		logger.Debugf("Image uploaded")
 	}
