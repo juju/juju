@@ -45,7 +45,6 @@ from jujupy import (
     EnvJujuClient22,
     EnvJujuClient24,
     EnvJujuClient25,
-    EnvJujuClient2B7,
     EnvJujuClient2B8,
     EnvJujuClient2B9,
     EnvJujuClientRC,
@@ -513,7 +512,7 @@ class TestClientFromConfig(ClientTest):
             test_fc('2.0-beta4', None)
             test_fc('2.0-beta5', None)
             test_fc('2.0-beta6', None)
-            test_fc('2.0-beta7', EnvJujuClient2B7)
+            test_fc('2.0-beta7', None)
             test_fc('2.0-beta8', EnvJujuClient2B8)
             test_fc('2.0-beta9', EnvJujuClient2B9)
             test_fc('2.0-beta10', EnvJujuClient2B9)
@@ -3250,7 +3249,7 @@ class TestEnvJujuClientRC(ClientTest):
 class TestEnvJujuClient2B8(ClientTest):
 
     def test_remove_service(self):
-        env = EnvJujuClient2B7(
+        env = EnvJujuClient2B8(
             JujuData('foo', {'type': 'local'}), '1.234-76', None)
         with patch.object(env, 'juju') as mock_juju:
             env.remove_service('mondogb')
@@ -3461,50 +3460,6 @@ class TestEnvJujuClient2B9(ClientTest):
         with patch.object(client, 'juju', autospec=True) as mock:
             client.enable_command('all')
         mock.assert_called_once_with('unblock', 'all')
-
-
-class TestEnvJujuClient2B7(ClientTest):
-
-    def test_get_controller_model_name(self):
-        models = {
-            'models': [
-                {'name': 'admin', 'model-uuid': 'aaaa'},
-                {'name': 'bar', 'model-uuid': 'bbbb'}],
-            'current-model': 'bar'
-        }
-        client = EnvJujuClient2B7(JujuData('foo'), None, None)
-        with patch.object(client, 'get_models',
-                          return_value=models) as gm_mock:
-            controller_name = client.get_controller_model_name()
-        self.assertEqual(0, gm_mock.call_count)
-        self.assertEqual('admin', controller_name)
-
-    def test_get_controller_model_name_without_controller(self):
-        models = {
-            'models': [
-                {'name': 'bar', 'model-uuid': 'aaaa'},
-                {'name': 'baz', 'model-uuid': 'bbbb'}],
-            'current-model': 'bar'
-        }
-        client = EnvJujuClient2B7(JujuData('foo'), None, None)
-        with patch.object(client, 'get_models', return_value=models):
-            controller_name = client.get_controller_model_name()
-        self.assertEqual('admin', controller_name)
-
-    def test_get_controller_model_name_no_models(self):
-        client = EnvJujuClient2B7(JujuData('foo'), None, None)
-        with patch.object(client, 'get_models', return_value={}):
-            controller_name = client.get_controller_model_name()
-        self.assertEqual('admin', controller_name)
-
-    def test_get_controller_client(self):
-        client = EnvJujuClient2B7(
-            JujuData('foo', {'bar': 'baz'}, 'myhome'), None, None)
-        controller_client = client.get_controller_client()
-        controller_env = controller_client.env
-        self.assertEqual('admin', controller_env.environment)
-        self.assertEqual({'bar': 'baz', 'name': 'admin'},
-                         controller_env.config)
 
 
 class TestEnvJujuClient1X(ClientTest):
