@@ -6,7 +6,6 @@
 package vsphere
 
 import (
-	"context"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -20,6 +19,7 @@ import (
 	"github.com/vmware/govmomi/vim25/methods"
 	"github.com/vmware/govmomi/vim25/soap"
 	"github.com/vmware/govmomi/vim25/types"
+	"golang.org/x/net/context"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
