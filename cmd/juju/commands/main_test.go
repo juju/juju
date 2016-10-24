@@ -206,8 +206,8 @@ func (s *MainSuite) TestFirstRun2xFrom1xOnUbuntu(c *gc.C) {
 Welcome to Juju %s. 
     See https://jujucharms.com/docs/stable/introducing-2 for more details.
 
-If you want to use Juju 1.25.0, run 'juju' commands as 'juju-1'. For example, 'juju bootstrap' as 'juju-1 bootstrap'.
-   See https://jujucharms.com/docs/stable/juju-coexist for more details. 
+If you want to use Juju 1.25.0, run 'juju' commands as 'juju-1'. For example, 'juju-1 bootstrap'.
+   See https://jujucharms.com/docs/stable/juju-coexist for installation details. 
 
 Since Juju 2 is being run for the first time, downloading latest cloud information.`[1:]+"\n", jujuversion.Current))
 	checkVersionOutput(c, string(stdout))

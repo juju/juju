@@ -176,8 +176,8 @@ func (m main) maybeWarnJuju1x() (newInstall bool) {
 Welcome to Juju {{.CurrentJujuVersion}}. 
     See https://jujucharms.com/docs/stable/introducing-2 for more details.
 
-If you want to use Juju {{.OldJujuVersion}}, run 'juju' commands as '{{.OldJujuCommand}}'. For example, 'juju bootstrap' as '{{.OldJujuCommand}} bootstrap'.
-   See https://jujucharms.com/docs/stable/juju-coexist for more details. 
+If you want to use Juju {{.OldJujuVersion}}, run 'juju' commands as '{{.OldJujuCommand}}'. For example, '{{.OldJujuCommand}} bootstrap'.
+   See https://jujucharms.com/docs/stable/juju-coexist for installation details. 
 `[1:]
 	t := template.Must(template.New("plugin").Parse(welcomeMsgTemplate))
 	var buf bytes.Buffer
