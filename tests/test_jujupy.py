@@ -519,7 +519,7 @@ class TestClientFromConfig(ClientTest):
             test_fc('2.0-beta12', None)
             test_fc('2.0-beta13', None)
             test_fc('2.0-beta14', None)
-            test_fc('2.0-beta15', EnvJujuClient)
+            test_fc('2.0-beta15', None)
             test_fc('2.0-rc1', EnvJujuClientRC)
             test_fc('2.0-rc2', EnvJujuClientRC)
             test_fc('2.0-rc3', EnvJujuClientRC)
@@ -3260,6 +3260,18 @@ class TestEnvJujuClient1X(ClientTest):
         client = EnvJujuClient1X(env, '1.25', 'full_path')
         self.assertIs(env, client.env)
 
+    def test_not_supported(self):
+        client = EnvJujuClient1X(
+            SimpleEnvironment('foo', {}), '1.25', 'full_path')
+        with self.assertRaises(JESNotSupported):
+            client.add_user_perms('test-user')
+        with self.assertRaises(JESNotSupported):
+            client.grant('test-user', 'read')
+        with self.assertRaises(JESNotSupported):
+            client.revoke('test-user', 'read')
+        with self.assertRaises(JESNotSupported):
+            client.get_model_uuid()
+
     def test_get_version(self):
         value = ' 5.6 \n'
         with patch('subprocess.check_output', return_value=value) as vsn:
@@ -3555,37 +3567,6 @@ class TestEnvJujuClient1X(ClientTest):
             kill_command, ('foo', '-y'), check=False, include_e=False,
             timeout=600)
 
-    def test_get_model_uuid_returns_uuid(self):
-        model_uuid = '9ed1bde9-45c6-4d41-851d-33fdba7fa194'
-        yaml_string = dedent("""\
-        foo:
-          name: foo
-          model-uuid: {uuid}
-          controller-uuid: eb67e1eb-6c54-45f5-8b6a-b6243be97202
-          owner: admin@local
-          cloud: lxd
-          region: localhost
-          type: lxd
-          life: alive
-          status:
-            current: available
-            since: 1 minute ago
-          users:
-            admin@local:
-              display-name: admin
-              access: admin
-              last-connection: just now
-            """.format(uuid=model_uuid))
-        client = EnvJujuClient1X(SimpleEnvironment('foo'), None, None)
-        with patch.object(client, 'get_juju_output') as m_get_juju_output:
-            m_get_juju_output.return_value = yaml_string
-            self.assertEqual(
-                client.get_model_uuid(),
-                model_uuid
-            )
-            m_get_juju_output.assert_called_once_with(
-                'show-model', '--format', 'yaml')
-
     def test_get_juju_output(self):
         env = SimpleEnvironment('foo')
         client = EnvJujuClient1X(env, None, 'juju')
@@ -3792,53 +3773,6 @@ class TestEnvJujuClient1X(ClientTest):
         with patch.object(client, 'juju') as mock_juju:
             client.remove_service('mondogb')
         mock_juju.assert_called_with('destroy-service', ('mondogb',))
-
-    def test_add_user_perms(self):
-        fake_client = fake_juju_client(
-            cls=EnvJujuClient1X,
-            env=SimpleEnvironment('foo', {'type': 'local'}))
-        username = 'fakeuser'
-        model = 'foo'
-        permissions = 'write'
-        output = get_user_register_command_info(username)
-
-        def _get_expected_args(model=None, permissions=None):
-            return [
-                username,
-                '--models', model or fake_client.env.environment,
-                '--acl', permissions or 'read',
-                '-c', fake_client.env.controller.name]
-
-        # Ensure add_user_perms returns expected value.
-        self.assertEqual(
-            fake_client.add_user_perms(username),
-            get_user_register_token(username))
-
-        with patch.object(fake_client, 'get_juju_output',
-                          return_value=output) as get_output:
-            # Check using default model and permissions
-            fake_client.add_user_perms(username)
-            expected_args = _get_expected_args()
-            get_output.assert_called_with(
-                'add-user', *expected_args, include_e=False)
-
-            # Check explicit model & default permissions
-            fake_client.add_user_perms(username, model)
-            expected_args = _get_expected_args(model)
-            get_output.assert_called_with(
-                'add-user', *expected_args, include_e=False)
-
-            # Check explicit model & permissions
-            fake_client.add_user_perms(username, model, permissions)
-            expected_args = _get_expected_args(model, permissions)
-            get_output.assert_called_with(
-                'add-user', *expected_args, include_e=False)
-
-            # Check default model & explicit permissions
-            fake_client.add_user_perms(username, permissions=permissions)
-            expected_args = _get_expected_args(permissions=permissions)
-            get_output.assert_called_with(
-                'add-user', *expected_args, include_e=False)
 
     def test_status_until_always_runs_once(self):
         client = EnvJujuClient1X(
@@ -4356,8 +4290,8 @@ class TestEnvJujuClient1X(ClientTest):
         environ = dict(os.environ)
         environ['JUJU_HOME'] = client.env.juju_home
         mock.assert_called_with(
-            ('juju', '--show-log', 'unset-model-config', '-e', 'foo',
-             'tools-metadata-url'))
+            ('juju', '--show-log', 'set-env', '-e', 'foo',
+             'tools-metadata-url='))
 
     def test_set_testing_agent_metadata_url(self):
         env = SimpleEnvironment(None, {'type': 'foo'})

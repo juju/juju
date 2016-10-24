@@ -902,7 +902,7 @@ def get_client_class(version):
     elif re.match('^1\.', version):
         client_class = EnvJujuClient1X
     # Ensure alpha/beta number matches precisely
-    elif re.match('^2\.0-(alpha[1-3]|beta([1-9]|1[0-4]))([^\d]|$)', version):
+    elif re.match('^2\.0-(alpha|beta)', version):
         raise VersionNotTestedError(version)
     # between beta 9-14
     elif re.match('^2\.0-rc[1-3]', version):
@@ -2435,34 +2435,13 @@ class EnvJujuClient1X(EnvJujuClientRC):
         self.juju('subnet add', (subnet, space))
 
     def add_user_perms(self, username, models=None, permissions='read'):
-        """Adds provided user and return register command arguments.
-
-        :return: Registration token provided by the add-user command.
-
-        """
-        if models is None:
-            models = self.env.environment
-
-        args = (username, '--models', models, '--acl', permissions,
-                '-c', self.env.controller.name)
-
-        output = self.get_juju_output('add-user', *args, include_e=False)
-        return self._get_register_command(output)
+        raise JESNotSupported()
 
     def grant(self, user_name, permission, model=None):
-        """Grant the user with a model."""
-        if model is None:
-            model = self.model_name
-        self.juju('grant', (user_name, model, '--acl', permission),
-                  include_e=False)
+        raise JESNotSupported()
 
     def revoke(self, username, models=None, permissions='read'):
-        if models is None:
-            models = self.env.environment
-
-        args = (username, models, '--acl', permissions)
-
-        self.controller_juju('revoke', args)
+        raise JESNotSupported()
 
     def set_model_constraints(self, constraints):
         constraint_strings = self._dict_as_option_strings(constraints)
@@ -2490,7 +2469,7 @@ class EnvJujuClient1X(EnvJujuClientRC):
 
     def unset_env_option(self, option):
         """Unset the value of the option in the environment."""
-        return self.juju('unset-model-config', (option,))
+        return self.juju('set-env', ('{}='.format(option),))
 
     def _cmd_model(self, include_e, controller):
         if controller:
@@ -2605,10 +2584,7 @@ class EnvJujuClient1X(EnvJujuClientRC):
             return []
 
     def get_model_uuid(self):
-        name = self.env.environment
-        output_yaml = self.get_juju_output('show-model', '--format', 'yaml')
-        output = yaml.safe_load(output_yaml)
-        return output[name]['model-uuid']
+        raise JESNotSupported()
 
     def deploy_bundle(self, bundle, timeout=_DEFAULT_BUNDLE_TIMEOUT):
         """Deploy bundle using deployer for Juju 1.X version."""
