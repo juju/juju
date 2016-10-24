@@ -96,12 +96,19 @@ func (m *ovaImportManager) importOva(ecfg *environConfig, instSpec *instanceSpec
 		return nil, errors.New(spec.Error[0].LocalizedMessage)
 	}
 	s := &spec.ImportSpec.(*types.VirtualMachineImportSpec).ConfigSpec
-	numCpus := int32(*instSpec.hwc.CpuCores)
-	s.NumCPUs = numCpus
-	s.MemoryMB = int64(*instSpec.hwc.Mem)
+	if instSpec.hwc.CpuCores != nil {
+		s.NumCPUs = int32(*instSpec.hwc.CpuCores)
+	}
+	if instSpec.hwc.Mem != nil {
+		s.MemoryMB = int64(*instSpec.hwc.Mem)
+	}
+	var cpuPower int64
+	if instSpec.hwc.CpuPower != nil {
+		cpuPower = int64(*instSpec.hwc.CpuPower)
+	}
 	s.CpuAllocation = &types.ResourceAllocationInfo{
-		Limit:       int64(*instSpec.hwc.CpuPower),
-		Reservation: int64(*instSpec.hwc.CpuPower),
+		Limit:       cpuPower,
+		Reservation: cpuPower,
 	}
 	s.ExtraConfig = append(s.ExtraConfig, &types.OptionValue{
 		Key: metadataKeyControllerUUID, Value: instSpec.controllerUUID,
@@ -113,13 +120,22 @@ func (m *ovaImportManager) importOva(ecfg *environConfig, instSpec *instanceSpec
 	}
 	for _, d := range s.DeviceChange {
 		if disk, ok := d.GetVirtualDeviceConfigSpec().Device.(*types.VirtualDisk); ok {
-			if disk.CapacityInKB < int64(*instSpec.hwc.RootDisk*1024) {
-				disk.CapacityInKB = int64(*instSpec.hwc.RootDisk * 1024)
+			var rootDisk int64
+			if instSpec.hwc.RootDisk != nil {
+				rootDisk = int64(*instSpec.hwc.RootDisk * 1024)
+			}
+			if disk.CapacityInKB < rootDisk {
+				disk.CapacityInKB = rootDisk
 			}
 			//Set UnitNumber to -1 if it is unset in ovf file template (in this case it is parces as 0)
 			//but 0 causes an error for disk devices
-			if *disk.UnitNumber == 0 {
-				*disk.UnitNumber = -1
+			var unitNumber int32
+			if disk.UnitNumber != nil {
+				unitNumber = *disk.UnitNumber
+			}
+			if unitNumber == 0 {
+				unitNumber = -1
+				disk.UnitNumber = &unitNumber
 			}
 		}
 	}

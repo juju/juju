@@ -234,7 +234,7 @@ func (c *client) Instances(prefix string) ([]*mo.VirtualMachine, error) {
 
 // Refresh refreshes the virtual machine
 func (c *client) Refresh(v *mo.VirtualMachine) error {
-	vm, err := c.getVm(v.Name)
+	vm, err := c.vm(v.Name)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -242,7 +242,7 @@ func (c *client) Refresh(v *mo.VirtualMachine) error {
 	return nil
 }
 
-func (c *client) getVm(name string) (*mo.VirtualMachine, error) {
+func (c *client) vm(name string) (*mo.VirtualMachine, error) {
 	conn, closer, err := c.connection()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -305,7 +305,7 @@ func (c *client) AvailabilityZones() ([]*mo.ComputeResource, error) {
 }
 
 func (c *client) GetNetworkInterfaces(inst instance.Id, ecfg *environConfig) ([]network.InterfaceInfo, error) {
-	vm, err := c.getVm(string(inst))
+	vm, err := c.vm(string(inst))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -336,7 +336,7 @@ func (c *client) Subnets(inst instance.Id, ids []network.Id) ([]network.SubnetIn
 	if len(ids) == 0 {
 		return nil, errors.Errorf("subnetIds must not be empty")
 	}
-	vm, err := c.getVm(string(inst))
+	vm, err := c.vm(string(inst))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
