@@ -812,7 +812,7 @@ class TestEnvJujuClient(ClientTest):
                     client.bootstrap()
             mock.assert_called_with(
                 'bootstrap', (
-                    '--constraints', 'mem=2G'
+                    '--constraints', 'mem=2G',
                     'foo/asdf', 'maas',
                     '--config', config_file.name, '--default-model', 'maas',
                     '--agent-version', '2.0'),
