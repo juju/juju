@@ -1337,10 +1337,8 @@ class EnvJujuClient:
         return exit_status
 
     def kill_controller(self):
-        """Kill a controller and its environments."""
-        seen_cmd = self.get_jes_command()
-        self.juju(
-            _jes_cmds[seen_cmd]['kill'], (self.env.controller.name, '-y'),
+        """Kill a controller and its models."""
+        return self.juju('kill-controller', (self.env.controller.name, '-y'),
             include_e=False, check=False, timeout=get_teardown_timeout(self))
 
     def get_juju_output(self, command, *args, **kwargs):
@@ -2557,7 +2555,11 @@ class EnvJujuClient1X(EnvJujuClientRC):
 
     def destroy_model(self):
         """With JES enabled, destroy-environment destroys the model."""
-        self.destroy_environment(force=False)
+        return self.destroy_environment(force=False)
+
+    def kill_controller(self):
+        """Destroy the environment, with force."""
+        return self.destroy_environment(force=True)
 
     def destroy_environment(self, force=True, delete_jenv=False):
         if force:
@@ -2567,7 +2569,7 @@ class EnvJujuClient1X(EnvJujuClientRC):
         exit_status = self.juju(
             'destroy-environment',
             (self.env.environment,) + force_arg + ('-y',),
-            self.env.needs_sudo(), check=False, include_e=False,
+            check=False, include_e=False,
             timeout=get_teardown_timeout(self))
         if delete_jenv:
             jenv_path = get_jenv_path(self.env.juju_home, self.env.environment)
