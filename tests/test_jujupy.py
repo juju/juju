@@ -45,7 +45,6 @@ from jujupy import (
     EnvJujuClient22,
     EnvJujuClient24,
     EnvJujuClient25,
-    EnvJujuClient2B3,
     EnvJujuClient2B7,
     EnvJujuClient2B8,
     EnvJujuClient2B9,
@@ -510,10 +509,10 @@ class TestClientFromConfig(ClientTest):
             test_fc('2.0-alpha3', None)
             test_fc('2.0-beta1', None)
             test_fc('2.0-beta2', None)
-            test_fc('2.0-beta3', EnvJujuClient2B3)
-            test_fc('2.0-beta4', EnvJujuClient2B3)
-            test_fc('2.0-beta5', EnvJujuClient2B3)
-            test_fc('2.0-beta6', EnvJujuClient2B3)
+            test_fc('2.0-beta3', None)
+            test_fc('2.0-beta4', None)
+            test_fc('2.0-beta5', None)
+            test_fc('2.0-beta6', None)
             test_fc('2.0-beta7', EnvJujuClient2B7)
             test_fc('2.0-beta8', EnvJujuClient2B8)
             test_fc('2.0-beta9', EnvJujuClient2B9)
@@ -3506,26 +3505,6 @@ class TestEnvJujuClient2B7(ClientTest):
         self.assertEqual('admin', controller_env.environment)
         self.assertEqual({'bar': 'baz', 'name': 'admin'},
                          controller_env.config)
-
-
-class TestEnvJujuClient2B3(ClientTest):
-
-    def test_add_model_hypenated_controller(self):
-        self.do_add_model(
-            'kill-controller', 'create-model', ('-c', 'foo'))
-
-    def do_add_model(self, jes_command, create_cmd, controller_option):
-        controller_client = EnvJujuClient2B3(JujuData('foo'), None, None)
-        model_data = JujuData('bar', {'type': 'foo'})
-        client = EnvJujuClient2B3(model_data, None, None)
-        with patch.object(client, 'get_jes_command',
-                          return_value=jes_command):
-                with patch.object(controller_client, 'juju') as ccj_mock:
-                    with observable_temp_file() as config_file:
-                        controller_client.add_model(model_data)
-        ccj_mock.assert_called_once_with(
-            create_cmd, controller_option + (
-                'bar', '--config', config_file.name), include_e=False)
 
 
 class TestEnvJujuClient1X(ClientTest):
