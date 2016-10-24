@@ -222,7 +222,7 @@ def create_test_charms():
             "datastore": {
                 "charm": "./xenial/datastore",
                 "series": "xenial",
-                "num-units": 1,
+                "num_units": 1,
                 "bindings": {
                     "datastore": space_data,
                 },
@@ -230,7 +230,7 @@ def create_test_charms():
             "frontend": {
                 "charm": "./xenial/frontend",
                 "series": "xenial",
-                "num-units": 1,
+                "num_units": 1,
                 "bindings": {
                     "website": space_public,
                     "datastore": space_data,
