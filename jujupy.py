@@ -902,10 +902,8 @@ def get_client_class(version):
     elif re.match('^1\.', version):
         client_class = EnvJujuClient1X
     # Ensure alpha/beta number matches precisely
-    elif re.match('^2\.0-(alpha[123]|beta[1-6])([^\d]|$)', version):
+    elif re.match('^2\.0-(alpha[123]|beta[1-7])([^\d]|$)', version):
         raise VersionNotTestedError(version)
-    elif re.match('^2\.0-(beta7)([^\d]|$)', version):
-        client_class = EnvJujuClient2B7
     elif re.match('^2\.0-beta8([^\d]|$)', version):
         client_class = EnvJujuClient2B8
     # between beta 9-14
@@ -2416,18 +2414,7 @@ class EnvJujuClient2B8(EnvJujuClient2B9):
         self.juju('deployer', args, self.env.needs_sudo(), include_e=False)
 
 
-class EnvJujuClient2B7(EnvJujuClient2B8):
-
-    def get_controller_model_name(self):
-        """Return the name of the 'controller' model.
-
-        Return the name of the environment when an 'controller' model does
-        not exist.
-        """
-        return 'admin'
-
-
-class EnvJujuClient1X(EnvJujuClient2B7):
+class EnvJujuClient1X(EnvJujuClient2B8):
     """Base for all 1.x client drivers."""
 
     default_backend = Juju1XBackend
