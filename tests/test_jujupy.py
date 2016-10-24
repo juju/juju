@@ -45,7 +45,6 @@ from jujupy import (
     EnvJujuClient22,
     EnvJujuClient24,
     EnvJujuClient25,
-    EnvJujuClient2B9,
     EnvJujuClientRC,
     ErroredUnit,
     GroupReporter,
@@ -514,13 +513,13 @@ class TestClientFromConfig(ClientTest):
             test_fc('2.0-beta6', None)
             test_fc('2.0-beta7', None)
             test_fc('2.0-beta8', None)
-            test_fc('2.0-beta9', EnvJujuClient2B9)
-            test_fc('2.0-beta10', EnvJujuClient2B9)
-            test_fc('2.0-beta11', EnvJujuClient2B9)
-            test_fc('2.0-beta12', EnvJujuClient2B9)
-            test_fc('2.0-beta13', EnvJujuClient2B9)
-            test_fc('2.0-beta14', EnvJujuClient2B9)
-            test_fc('2.0-beta15', EnvJujuClient)
+            test_fc('2.0-beta9', None)
+            test_fc('2.0-beta10', None)
+            test_fc('2.0-beta11', None)
+            test_fc('2.0-beta12', None)
+            test_fc('2.0-beta13', None)
+            test_fc('2.0-beta14', None)
+            test_fc('2.0-beta15', None)
             test_fc('2.0-rc1', EnvJujuClientRC)
             test_fc('2.0-rc2', EnvJujuClientRC)
             test_fc('2.0-rc3', EnvJujuClientRC)
@@ -3264,188 +3263,6 @@ class TestEnvJujuClientRC(ClientTest):
         self.assertEqual({'test-mode': True}, config)
 
 
-class TestEnvJujuClient2B9(ClientTest):
-
-    def test_get_model_uuid_returns_uuid(self):
-        model_uuid = '9ed1bde9-45c6-4d41-851d-33fdba7fa194'
-        yaml_string = dedent("""\
-        foo:
-          name: foo
-          model-uuid: {uuid}
-          controller-uuid: eb67e1eb-6c54-45f5-8b6a-b6243be97202
-          owner: admin@local
-          cloud: lxd
-          region: localhost
-          type: lxd
-          life: alive
-          status:
-            current: available
-            since: 1 minute ago
-          users:
-            admin@local:
-              display-name: admin
-              access: admin
-              last-connection: just now
-            """.format(uuid=model_uuid))
-        client = EnvJujuClient2B9(JujuData('foo'), None, None)
-        with patch.object(client, 'get_juju_output') as m_get_juju_output:
-            m_get_juju_output.return_value = yaml_string
-            self.assertEqual(
-                client.get_model_uuid(),
-                model_uuid
-            )
-            m_get_juju_output.assert_called_once_with(
-                'show-model', '--format', 'yaml')
-
-    def test_add_user_perms(self):
-        fake_client = fake_juju_client(cls=EnvJujuClient2B9)
-        username = 'fakeuser'
-        model = 'foo'
-        permissions = 'write'
-        output = get_user_register_command_info(username)
-
-        def _get_expected_args(model=None, permissions=None):
-            return [
-                username,
-                '--models', model or fake_client.env.environment,
-                '--acl', permissions or 'read',
-                '-c', fake_client.env.controller.name]
-
-        # Ensure add_user_perms returns expected value.
-        self.assertEqual(
-            fake_client.add_user_perms(username),
-            get_user_register_token(username))
-
-        with patch.object(fake_client, 'get_juju_output',
-                          return_value=output) as get_output:
-            # Check using default model and permissions
-            fake_client.add_user_perms(username)
-            expected_args = _get_expected_args()
-            get_output.assert_called_with(
-                'add-user', *expected_args, include_e=False)
-
-            # Check explicit model & default permissions
-            fake_client.add_user_perms(username, model)
-            expected_args = _get_expected_args(model)
-            get_output.assert_called_with(
-                'add-user', *expected_args, include_e=False)
-
-            # Check explicit model & permissions
-            fake_client.add_user_perms(username, model, permissions)
-            expected_args = _get_expected_args(model, permissions)
-            get_output.assert_called_with(
-                'add-user', *expected_args, include_e=False)
-
-            # Check default model & explicit permissions
-            fake_client.add_user_perms(username, permissions=permissions)
-            expected_args = _get_expected_args(permissions=permissions)
-            get_output.assert_called_with(
-                'add-user', *expected_args, include_e=False)
-
-    def test_set_config(self):
-        client = EnvJujuClient2B9(JujuData('bar', {}), None, '/foo')
-        with patch.object(client, 'juju') as juju_mock:
-            client.set_config('foo', {'bar': 'baz'})
-        juju_mock.assert_called_once_with('set-config', ('foo', 'bar=baz'))
-
-    def test_get_config(self):
-        def output(*args, **kwargs):
-            return yaml.safe_dump({
-                'charm': 'foo',
-                'service': 'foo',
-                'settings': {
-                    'dir': {
-                        'default': 'true',
-                        'description': 'bla bla',
-                        'type': 'string',
-                        'value': '/tmp/charm-dir',
-                    }
-                }
-            })
-        expected = yaml.safe_load(output())
-        client = EnvJujuClient2B9(JujuData('bar', {}), None, '/foo')
-        with patch.object(client, 'get_juju_output',
-                          side_effect=output) as gjo_mock:
-            results = client.get_config('foo')
-        self.assertEqual(expected, results)
-        gjo_mock.assert_called_once_with('get-config', 'foo')
-
-    def test_get_model_config(self):
-        env = JujuData('foo', None)
-        fake_popen = FakePopen(yaml.safe_dump({'bar': 'baz'}), None, 0)
-        client = EnvJujuClient2B9(env, None, 'juju')
-        with patch('subprocess.Popen', return_value=fake_popen) as po_mock:
-            result = client.get_model_config()
-        assert_juju_call(
-            self, po_mock, client, (
-                'juju', '--show-log',
-                'get-model-config',
-                '-m', 'foo:foo',
-                '--format', 'yaml'))
-        self.assertEqual({'bar': 'baz'}, result)
-
-    def test_get_env_option(self):
-        env = JujuData('foo', None)
-        fake_popen = FakePopen('https://example.org/juju/tools', None, 0)
-        client = EnvJujuClient2B9(env, None, 'juju')
-        with patch('subprocess.Popen', return_value=fake_popen) as mock:
-            result = client.get_env_option('tools-metadata-url')
-        self.assertEqual(
-            mock.call_args[0][0],
-            ('juju', '--show-log', 'get-model-config', '-m', 'foo:foo',
-             'tools-metadata-url'))
-        self.assertEqual('https://example.org/juju/tools', result)
-
-    def test_set_env_option(self):
-        env = JujuData('foo')
-        client = EnvJujuClient2B9(env, None, 'juju')
-        with patch('subprocess.check_call') as mock:
-            client.set_env_option(
-                'tools-metadata-url', 'https://example.org/juju/tools')
-        environ = dict(os.environ)
-        environ['JUJU_HOME'] = client.env.juju_home
-        mock.assert_called_with(
-            ('juju', '--show-log', 'set-model-config', '-m', 'foo:foo',
-             'tools-metadata-url=https://example.org/juju/tools'))
-
-    def test_unset_env_option(self):
-        env = JujuData('foo')
-        client = EnvJujuClient2B9(env, None, 'juju')
-        with patch('subprocess.check_call') as mock:
-            client.unset_env_option('tools-metadata-url')
-        environ = dict(os.environ)
-        environ['JUJU_HOME'] = client.env.juju_home
-        mock.assert_called_with(
-            ('juju', '--show-log', 'unset-model-config', '-m', 'foo:foo',
-             'tools-metadata-url'))
-
-    def test_list_disabled_commands(self):
-        client = EnvJujuClient2B9(JujuData('foo'), None, None)
-        with patch.object(client, 'get_juju_output', autospec=True,
-                          return_value=dedent("""\
-             - command-set: destroy-model
-               message: Lock Models
-             - command-set: remove-object""")) as mock:
-            output = client.list_disabled_commands()
-        self.assertEqual([{'command-set': 'destroy-model',
-                           'message': 'Lock Models'},
-                          {'command-set': 'remove-object'}], output)
-        mock.assert_called_once_with('block list',
-                                     '--format', 'yaml')
-
-    def test_disable_command(self):
-        client = EnvJujuClient2B9(JujuData('foo'), None, None)
-        with patch.object(client, 'juju', autospec=True) as mock:
-            client.disable_command(('all', 'message'))
-        mock.assert_called_once_with('block', ('all', 'message'))
-
-    def test_enable_command(self):
-        client = EnvJujuClient2B9(JujuData('foo'), None, None)
-        with patch.object(client, 'juju', autospec=True) as mock:
-            client.enable_command('all')
-        mock.assert_called_once_with('unblock', 'all')
-
-
 class TestEnvJujuClient1X(ClientTest):
 
     def test_raise_on_juju_data(self):
@@ -3459,6 +3276,18 @@ class TestEnvJujuClient1X(ClientTest):
         env = SimpleEnvironment('foo', {})
         client = EnvJujuClient1X(env, '1.25', 'full_path')
         self.assertIs(env, client.env)
+
+    def test_not_supported(self):
+        client = EnvJujuClient1X(
+            SimpleEnvironment('foo', {}), '1.25', 'full_path')
+        with self.assertRaises(JESNotSupported):
+            client.add_user_perms('test-user')
+        with self.assertRaises(JESNotSupported):
+            client.grant('test-user', 'read')
+        with self.assertRaises(JESNotSupported):
+            client.revoke('test-user', 'read')
+        with self.assertRaises(JESNotSupported):
+            client.get_model_uuid()
 
     def test_get_version(self):
         value = ' 5.6 \n'
@@ -3956,10 +3785,10 @@ class TestEnvJujuClient1X(ClientTest):
                               '/bar/repository',))
 
     def test_remove_service(self):
-        env = EnvJujuClient1X(
+        client = EnvJujuClient1X(
             SimpleEnvironment('foo', {'type': 'local'}), '1.234-76', None)
-        with patch.object(env, 'juju') as mock_juju:
-            env.remove_service('mondogb')
+        with patch.object(client, 'juju') as mock_juju:
+            client.remove_service('mondogb')
         mock_juju.assert_called_with('destroy-service', ('mondogb',))
 
     def test_status_until_always_runs_once(self):
@@ -4469,6 +4298,17 @@ class TestEnvJujuClient1X(ClientTest):
         mock.assert_called_with(
             ('juju', '--show-log', 'set-env', '-e', 'foo',
              'tools-metadata-url=https://example.org/juju/tools'))
+
+    def test_unset_env_option(self):
+        env = SimpleEnvironment('foo')
+        client = EnvJujuClient1X(env, None, 'juju')
+        with patch('subprocess.check_call') as mock:
+            client.unset_env_option('tools-metadata-url')
+        environ = dict(os.environ)
+        environ['JUJU_HOME'] = client.env.juju_home
+        mock.assert_called_with(
+            ('juju', '--show-log', 'set-env', '-e', 'foo',
+             'tools-metadata-url='))
 
     def test_set_testing_agent_metadata_url(self):
         env = SimpleEnvironment(None, {'type': 'foo'})
@@ -5113,6 +4953,32 @@ class TestEnvJujuClient1X(ClientTest):
         self.assertEqual(output, '')
         mock.assert_called_once_with(
             'authorized-keys import', 'gh:au', 'lp:bu', merge_stderr=True)
+
+    def test_list_disabled_commands(self):
+        client = EnvJujuClient1X(SimpleEnvironment('foo'), None, None)
+        with patch.object(client, 'get_juju_output', autospec=True,
+                          return_value=dedent("""\
+             - command-set: destroy-model
+               message: Lock Models
+             - command-set: remove-object""")) as mock:
+            output = client.list_disabled_commands()
+        self.assertEqual([{'command-set': 'destroy-model',
+                           'message': 'Lock Models'},
+                          {'command-set': 'remove-object'}], output)
+        mock.assert_called_once_with('block list',
+                                     '--format', 'yaml')
+
+    def test_disable_command(self):
+        client = EnvJujuClient1X(SimpleEnvironment('foo'), None, None)
+        with patch.object(client, 'juju', autospec=True) as mock:
+            client.disable_command(('all', 'message'))
+        mock.assert_called_once_with('block', ('all', 'message'))
+
+    def test_enable_command(self):
+        client = EnvJujuClient1X(SimpleEnvironment('foo'), None, None)
+        with patch.object(client, 'juju', autospec=True) as mock:
+            client.enable_command('all')
+        mock.assert_called_once_with('unblock', 'all')
 
 
 class TestUniquifyLocal(TestCase):
