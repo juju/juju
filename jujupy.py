@@ -1344,7 +1344,7 @@ class EnvJujuClient:
         """Destroy a controller and its models. Soft kill option."""
         return self.juju(
             'destroy-controller', (self.env.controller.name, '-y'),
-            include_e=False, check=False, timeout=get_teardown_timeout(self))
+            include_e=False, timeout=get_teardown_timeout(self))
 
     def get_juju_output(self, command, *args, **kwargs):
         """Call a juju command and return the output.
@@ -2564,11 +2564,15 @@ class EnvJujuClient1X(EnvJujuClientRC):
 
     def kill_controller(self):
         """Destroy the environment, with force. Hard kill option."""
-        return self.destroy_environment(force=True)
+        return self.juju(
+            'destroy-environment', (self.env.environment, '--force', '-y'),
+            check=False, include_e=False, timeout=get_teardown_timeout(self))
 
     def destroy_controller(self):
         """Destroy the environment, with force. Soft kill option."""
-        return self.destroy_environment(force=False)
+        return self.juju(
+            'destroy-environment', (self.env.environment, '-y'),
+            include_e=False, timeout=get_teardown_timeout(self))
 
     def destroy_environment(self, force=True, delete_jenv=False):
         if force:

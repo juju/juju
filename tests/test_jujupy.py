@@ -1068,7 +1068,7 @@ class TestEnvJujuClient(ClientTest):
         with patch.object(client, 'juju') as juju_mock:
             client.destroy_controller()
         juju_mock.assert_called_once_with(
-            'destroy-controller', ('foo', '-y'), check=False, include_e=False,
+            'destroy-controller', ('foo', '-y'), include_e=False,
             timeout=600)
 
     def test_get_juju_output(self):
@@ -3576,7 +3576,7 @@ class TestEnvJujuClient1X(ClientTest):
         with patch.object(client, 'juju') as juju_mock:
             client.destroy_controller()
         juju_mock.assert_called_once_with(
-            'destroy-environment', ('foo', '-y'), check=False,
+            'destroy-environment', ('foo', '-y'),
             include_e=False, timeout=600)
 
     def test_get_juju_output(self):
