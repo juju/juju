@@ -5,7 +5,6 @@ package description
 
 import (
 	jc "github.com/juju/testing/checkers"
-	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/yaml.v2"
@@ -188,8 +187,6 @@ func (s *ApplicationSerializationSuite) exportImport(c *gc.C, application_ *appl
 func (s *ApplicationSerializationSuite) TestParsingSerializedData(c *gc.C) {
 	svc := minimalApplication()
 	application := s.exportImport(c, svc)
-	pretty.Println(application)
-	pretty.Println(svc)
 	c.Assert(application, jc.DeepEquals, svc)
 }
 
@@ -262,4 +259,13 @@ func (s *ApplicationSerializationSuite) TestLeaderValid(c *gc.C) {
 
 	err := application.Validate()
 	c.Assert(err, gc.ErrorMatches, `missing unit for leader "ubuntu/1" not valid`)
+}
+
+func (s *ApplicationSerializationSuite) TestResourcesAreValidated(c *gc.C) {
+	application := minimalApplication()
+	application.setResources([]*resource{
+		newResource(ResourceArgs{Name: "foo"}),
+	})
+	err := application.Validate()
+	c.Assert(err, gc.ErrorMatches, `resource foo: missing application revision .+`)
 }

@@ -320,6 +320,13 @@ func (a *application) Validate() error {
 	if a.Status_ == nil {
 		return errors.NotValidf("application %q missing status", a.Name_)
 	}
+
+	for _, resource := range s.Resources_.Resources_ {
+		if err := resource.Validate(); err != nil {
+			return errors.Annotatef(err, "resource %s", resource.Name_)
+		}
+	}
+
 	// If leader is set, it must match one of the units.
 	var leaderFound bool
 	// All of the applications units should also be valid.
