@@ -1338,7 +1338,8 @@ class EnvJujuClient:
 
     def kill_controller(self):
         """Kill a controller and its models."""
-        return self.juju('kill-controller', (self.env.controller.name, '-y'),
+        return self.juju(
+            'kill-controller', (self.env.controller.name, '-y'),
             include_e=False, check=False, timeout=get_teardown_timeout(self))
 
     def get_juju_output(self, command, *args, **kwargs):
