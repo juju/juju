@@ -901,10 +901,8 @@ def get_client_class(version):
         raise VersionNotTestedError(version)
     elif re.match('^1\.', version):
         client_class = EnvJujuClient1X
-    # Ensure alpha/beta number matches precisely
     elif re.match('^2\.0-(alpha|beta)', version):
         raise VersionNotTestedError(version)
-    # between beta 9-14
     elif re.match('^2\.0-rc[1-3]', version):
         client_class = EnvJujuClientRC
     else:
