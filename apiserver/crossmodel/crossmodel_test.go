@@ -10,8 +10,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/apiserver/crossmodel"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/feature"
 )
 
@@ -27,71 +27,155 @@ func (s *crossmodelSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *crossmodelSuite) TestOffer(c *gc.C) {
-	serviceName := "test"
-	expectedOffer := s.addService(c, serviceName)
+	applicationName := "test"
+	s.addApplication(c, applicationName)
 	one := params.ApplicationOfferParams{
+		ModelTag:        "model-deadbeef-0bad-400d-8000-4b1d0d06f00d",
 		ApplicationURL:  "local:/u/me/test",
-		ApplicationName: serviceName,
+		ApplicationName: applicationName,
 		Endpoints:       []string{"db"},
 	}
-	all := params.ApplicationOffersParams{[]params.ApplicationOfferParams{one}}
-	expectedOfferParams := params.AddApplicationOffer{
-		ApplicationOffer: params.ApplicationOffer{
-			ApplicationURL:         "local:/u/me/test",
-			SourceModelTag:         "model-deadbeef-0bad-400d-8000-4b1d0d06f00d",
-			SourceLabel:            "controller",
-			ApplicationName:        "test",
-			ApplicationDescription: "A pretty popular blog engine",
-			Endpoints: []params.RemoteEndpoint{
-				{Name: "db",
-					Role:      "requirer",
-					Interface: "mysql",
-					Limit:     1,
-					Scope:     "global",
-				},
-			}}}
-
-	s.serviceBackend.addOffer = func(offer crossmodel.OfferedApplication, offerParams params.AddApplicationOffer) error {
-		c.Assert(offer, gc.DeepEquals, expectedOffer)
-		c.Assert(offerParams, gc.DeepEquals, expectedOfferParams)
-		return nil
+	all := params.ApplicationOffersParams{Offers: []params.ApplicationOfferParams{one}}
+	expectedOffers := params.AddApplicationOffers{
+		Offers: []params.AddApplicationOffer{{
+			ApplicationOffer: params.ApplicationOffer{
+				ApplicationURL:         "local:/u/me/test",
+				SourceModelTag:         "model-deadbeef-0bad-400d-8000-4b1d0d06f00d",
+				SourceLabel:            "controller",
+				ApplicationName:        "test",
+				ApplicationDescription: "A pretty popular blog engine",
+				Endpoints: []params.RemoteEndpoint{
+					{Name: "db",
+						Role:      "requirer",
+						Interface: "mysql",
+						Limit:     1,
+						Scope:     "global",
+					},
+				}}}}}
+	s.applicationDirectory.addOffers = func(offers params.AddApplicationOffers) (params.ErrorResults, error) {
+		c.Assert(offers, jc.DeepEquals, expectedOffers)
+		result := params.ErrorResults{}
+		result.Results = make([]params.ErrorResult, len(offers.Offers))
+		return result, nil
 	}
 
 	errs, err := s.api.Offer(all)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(errs.Results, gc.HasLen, len(all.Offers))
 	c.Assert(errs.Results[0].Error, gc.IsNil)
-	s.serviceBackend.CheckCallNames(c, addOfferBackendCall)
+	s.applicationDirectory.CheckCallNames(c, addOffersBackendCall)
+}
+
+func (s *crossmodelSuite) TestOfferSomeFail(c *gc.C) {
+	s.addApplication(c, "one")
+	s.addApplication(c, "two")
+	one := params.ApplicationOfferParams{
+		ModelTag:        "model-deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		ApplicationURL:  "local:/u/me/one",
+		ApplicationName: "one",
+		Endpoints:       []string{"db"},
+	}
+	bad := params.ApplicationOfferParams{
+		ModelTag:        "model-deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		ApplicationURL:  "local:/u/me/bad",
+		ApplicationName: "notthere",
+		Endpoints:       []string{"db"},
+	}
+	bad2 := params.ApplicationOfferParams{
+		ModelTag:        "model-deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		ApplicationURL:  "local:/u/me/bad",
+		ApplicationName: "paramsfail",
+		Endpoints:       []string{"db"},
+	}
+	two := params.ApplicationOfferParams{
+		ModelTag:        "model-deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		ApplicationURL:  "local:/u/me/two",
+		ApplicationName: "two",
+		Endpoints:       []string{"db"},
+	}
+	all := params.ApplicationOffersParams{Offers: []params.ApplicationOfferParams{one, bad, bad2, two}}
+	expectedOffers := params.AddApplicationOffers{
+		Offers: []params.AddApplicationOffer{{
+			ApplicationOffer: params.ApplicationOffer{
+				ApplicationURL:         "local:/u/me/one",
+				SourceModelTag:         "model-deadbeef-0bad-400d-8000-4b1d0d06f00d",
+				SourceLabel:            "controller",
+				ApplicationName:        "one",
+				ApplicationDescription: "A pretty popular blog engine",
+				Endpoints: []params.RemoteEndpoint{
+					{Name: "db",
+						Role:      "requirer",
+						Interface: "mysql",
+						Limit:     1,
+						Scope:     "global",
+					},
+				}}}, {
+			ApplicationOffer: params.ApplicationOffer{
+				ApplicationURL:         "local:/u/me/two",
+				SourceModelTag:         "model-deadbeef-0bad-400d-8000-4b1d0d06f00d",
+				SourceLabel:            "controller",
+				ApplicationName:        "two",
+				ApplicationDescription: "A pretty popular blog engine",
+				Endpoints: []params.RemoteEndpoint{
+					{Name: "db",
+						Role:      "requirer",
+						Interface: "mysql",
+						Limit:     1,
+						Scope:     "global",
+					},
+				}}}}}
+	s.applicationDirectory.addOffers = func(offers params.AddApplicationOffers) (params.ErrorResults, error) {
+		c.Assert(offers, jc.DeepEquals, expectedOffers)
+		result := params.ErrorResults{}
+		result.Results = make([]params.ErrorResult, len(offers.Offers))
+		return result, nil
+	}
+
+	s.makeOfferedApplicationParamsFunc = func(p params.ApplicationOfferParams) (params.ApplicationOffer, error) {
+		if p.ApplicationName == "paramsfail" {
+			return params.ApplicationOffer{}, errors.New("params fail")
+		}
+		return crossmodel.MakeOfferedApplicationParams(s.api, p)
+	}
+	errs, err := s.api.Offer(all)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(errs.Results, gc.HasLen, len(all.Offers))
+	c.Assert(errs.Results[0].Error, gc.IsNil)
+	c.Assert(errs.Results[3].Error, gc.IsNil)
+	c.Assert(errs.Results[1].Error, gc.ErrorMatches, `getting offered application notthere: application "notthere" not found`)
+	c.Assert(errs.Results[2].Error, gc.ErrorMatches, `params fail`)
+	s.applicationDirectory.CheckCallNames(c, addOffersBackendCall)
 }
 
 func (s *crossmodelSuite) TestOfferError(c *gc.C) {
-	serviceName := "test"
-	s.addService(c, serviceName)
+	applicationName := "test"
+	s.addApplication(c, applicationName)
 	one := params.ApplicationOfferParams{
-		ApplicationName: serviceName,
+		ModelTag:        "model-deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		ApplicationName: applicationName,
 	}
 	all := params.ApplicationOffersParams{[]params.ApplicationOfferParams{one}}
 
 	msg := "fail"
 
-	s.serviceBackend.addOffer = func(offer crossmodel.OfferedApplication, offerParams params.AddApplicationOffer) error {
-		return errors.New(msg)
+	s.applicationDirectory.addOffers = func(offers params.AddApplicationOffers) (params.ErrorResults, error) {
+		return params.ErrorResults{Results: []params.ErrorResult{{Error: &params.Error{Message: msg}}}}, nil
 	}
 
 	errs, err := s.api.Offer(all)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(errs.Results, gc.HasLen, len(all.Offers))
 	c.Assert(errs.Results[0].Error, gc.ErrorMatches, fmt.Sprintf(".*%v.*", msg))
-	s.serviceBackend.CheckCallNames(c, addOfferBackendCall)
+	s.applicationDirectory.CheckCallNames(c, addOffersBackendCall)
 }
 
 func (s *crossmodelSuite) TestShow(c *gc.C) {
-	serviceName := "test"
+	applicationName := "test"
 	url := "local:/u/fred/hosted-db2"
 
 	filter := params.ApplicationURLs{[]string{url}}
 	anOffer := params.ApplicationOffer{
-		ApplicationName:        serviceName,
+		ApplicationName:        applicationName,
 		ApplicationDescription: "description",
 		ApplicationURL:         url,
 		SourceModelTag:         "environment-",
@@ -99,23 +183,23 @@ func (s *crossmodelSuite) TestShow(c *gc.C) {
 		Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
 	}
 
-	s.serviceBackend.listDirectoryOffers = func(filter params.OfferFilters) (params.ApplicationOfferResults, error) {
+	s.applicationDirectory.listOffers = func(filter params.OfferFilters) (params.ApplicationOfferResults, error) {
 		return params.ApplicationOfferResults{Offers: []params.ApplicationOffer{anOffer}}, nil
 	}
 
 	found, err := s.api.ApplicationOffers(filter)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(found, gc.DeepEquals,
+	c.Assert(found, jc.DeepEquals,
 		params.ApplicationOffersResults{[]params.ApplicationOfferResult{
 			{Result: params.ApplicationOffer{
-				ApplicationName:        serviceName,
+				ApplicationName:        applicationName,
 				ApplicationDescription: "description",
 				ApplicationURL:         url,
 				SourceModelTag:         "environment-",
 				SourceLabel:            "label",
 				Endpoints:              []params.RemoteEndpoint{{Name: "db"}}}},
 		}})
-	s.serviceBackend.CheckCallNames(c, listDirectoryOffersBackendCall)
+	s.applicationDirectory.CheckCallNames(c, listOffersBackendCall)
 }
 
 func (s *crossmodelSuite) TestShowError(c *gc.C) {
@@ -123,7 +207,7 @@ func (s *crossmodelSuite) TestShowError(c *gc.C) {
 	filter := params.ApplicationURLs{[]string{url}}
 	msg := "fail"
 
-	s.serviceBackend.listDirectoryOffers = func(filter params.OfferFilters) (params.ApplicationOfferResults, error) {
+	s.applicationDirectory.listOffers = func(filter params.OfferFilters) (params.ApplicationOfferResults, error) {
 		return params.ApplicationOfferResults{}, errors.New(msg)
 	}
 
@@ -131,14 +215,14 @@ func (s *crossmodelSuite) TestShowError(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Results, gc.HasLen, 1)
 	c.Assert(found.Results[0].Error, gc.ErrorMatches, fmt.Sprintf(".*%v.*", msg))
-	s.serviceBackend.CheckCallNames(c, listDirectoryOffersBackendCall)
+	s.applicationDirectory.CheckCallNames(c, listOffersBackendCall)
 }
 
 func (s *crossmodelSuite) TestShowNotFound(c *gc.C) {
 	urls := []string{"local:/u/fred/hosted-db2"}
 	filter := params.ApplicationURLs{urls}
 
-	s.serviceBackend.listDirectoryOffers = func(filter params.OfferFilters) (params.ApplicationOfferResults, error) {
+	s.applicationDirectory.listOffers = func(filter params.OfferFilters) (params.ApplicationOfferResults, error) {
 		return params.ApplicationOfferResults{}, nil
 	}
 
@@ -146,14 +230,14 @@ func (s *crossmodelSuite) TestShowNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Results, gc.HasLen, 1)
 	c.Assert(found.Results[0].Error.Error(), gc.Matches, fmt.Sprintf(`offer for remote application url %v not found`, urls[0]))
-	s.serviceBackend.CheckCallNames(c, listDirectoryOffersBackendCall)
+	s.applicationDirectory.CheckCallNames(c, listOffersBackendCall)
 }
 
 func (s *crossmodelSuite) TestShowErrorMsgMultipleURLs(c *gc.C) {
 	urls := []string{"local:/u/fred/prod/foo/hosted-db2", "local:/u/fred/hosted-db2"}
 	filter := params.ApplicationURLs{urls}
 
-	s.serviceBackend.listDirectoryOffers = func(filter params.OfferFilters) (params.ApplicationOfferResults, error) {
+	s.applicationDirectory.listOffers = func(filter params.OfferFilters) (params.ApplicationOfferResults, error) {
 		return params.ApplicationOfferResults{}, nil
 	}
 
@@ -162,14 +246,14 @@ func (s *crossmodelSuite) TestShowErrorMsgMultipleURLs(c *gc.C) {
 	c.Assert(found.Results, gc.HasLen, 2)
 	c.Assert(found.Results[0].Error.Error(), gc.Matches, fmt.Sprintf(`application URL has invalid form: %q`, urls[0]))
 	c.Assert(found.Results[1].Error.Error(), gc.Matches, fmt.Sprintf(`offer for remote application url %v not found`, urls[1]))
-	s.serviceBackend.CheckCallNames(c, listDirectoryOffersBackendCall)
+	s.applicationDirectory.CheckCallNames(c, listOffersBackendCall)
 }
 
 func (s *crossmodelSuite) TestShowNotFoundEmpty(c *gc.C) {
 	urls := []string{"local:/u/fred/hosted-db2"}
 	filter := params.ApplicationURLs{urls}
 
-	s.serviceBackend.listDirectoryOffers = func(filter params.OfferFilters) (params.ApplicationOfferResults, error) {
+	s.applicationDirectory.listOffers = func(filter params.OfferFilters) (params.ApplicationOfferResults, error) {
 		return params.ApplicationOfferResults{}, nil
 	}
 
@@ -177,7 +261,7 @@ func (s *crossmodelSuite) TestShowNotFoundEmpty(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Results, gc.HasLen, 1)
 	c.Assert(found.Results[0].Error.Error(), gc.Matches, fmt.Sprintf(`offer for remote application url %v not found`, urls[0]))
-	s.serviceBackend.CheckCallNames(c, listDirectoryOffersBackendCall)
+	s.applicationDirectory.CheckCallNames(c, listOffersBackendCall)
 }
 
 func (s *crossmodelSuite) TestShowFoundMultiple(c *gc.C) {
@@ -205,13 +289,13 @@ func (s *crossmodelSuite) TestShowFoundMultiple(c *gc.C) {
 
 	filter := params.ApplicationURLs{[]string{url, url2}}
 
-	s.serviceBackend.listDirectoryOffers = func(filter params.OfferFilters) (params.ApplicationOfferResults, error) {
+	s.applicationDirectory.listOffers = func(filter params.OfferFilters) (params.ApplicationOfferResults, error) {
 		return params.ApplicationOfferResults{Offers: []params.ApplicationOffer{anOffer, anOffer2}}, nil
 	}
 
 	found, err := s.api.ApplicationOffers(filter)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(found, gc.DeepEquals, params.ApplicationOffersResults{
+	c.Assert(found, jc.DeepEquals, params.ApplicationOffersResults{
 		[]params.ApplicationOfferResult{
 			{Result: params.ApplicationOffer{
 				ApplicationName:        name,
@@ -228,68 +312,17 @@ func (s *crossmodelSuite) TestShowFoundMultiple(c *gc.C) {
 				SourceLabel:            "label2",
 				Endpoints:              []params.RemoteEndpoint{{Name: "db2"}}}},
 		}})
-	s.serviceBackend.CheckCallNames(c, listDirectoryOffersBackendCall)
+	s.applicationDirectory.CheckCallNames(c, listOffersBackendCall)
 }
 
-var emptyFilterSet = params.OfferedApplicationFilters{
+var emptyFilterSet1 = params.OfferedApplicationFilters{
 	Filters: []params.OfferedApplicationFilter{
 		{FilterTerms: []params.OfferedApplicationFilterTerm{}},
 	},
 }
 
-func (s *crossmodelSuite) TestList(c *gc.C) {
-	serviceName := "test"
-	url := "local:/u/fred/hosted-db2"
-
-	s.addService(c, serviceName)
-
-	s.serviceBackend.listOfferedApplications = func(filter ...crossmodel.OfferedApplicationFilter) ([]crossmodel.OfferedApplication, error) {
-		return []crossmodel.OfferedApplication{
-			{
-				ApplicationName: serviceName,
-				ApplicationURL:  url,
-				Description:     "description",
-				CharmName:       "charm",
-				Endpoints:       map[string]string{"db": "db"},
-			}}, nil
-	}
-
-	found, err := s.api.ListOffers(emptyFilterSet)
-	c.Assert(err, jc.ErrorIsNil)
-	s.serviceBackend.CheckCallNames(c, listOfferedApplicationsBackendCall)
-
-	expectedService := params.OfferedApplicationDetails{
-		CharmName:       "wordpress",
-		UsersCount:      0,
-		ApplicationName: serviceName,
-		ApplicationURL:  url,
-		Endpoints:       []params.RemoteEndpoint{{Name: "db", Role: "requirer", Interface: "mysql", Limit: 1, Scope: "global"}},
-	}
-	c.Assert(found, jc.DeepEquals,
-		params.ListOffersResults{
-			Results: []params.ListOffersFilterResults{{
-				Result: []params.OfferedApplicationDetailsResult{
-					{Result: &expectedService},
-				}},
-			},
-		})
-}
-
-func (s *crossmodelSuite) TestListError(c *gc.C) {
-	msg := "fail test"
-
-	s.serviceBackend.listOfferedApplications = func(filter ...crossmodel.OfferedApplicationFilter) ([]crossmodel.OfferedApplication, error) {
-		return nil, errors.New(msg)
-	}
-
-	found, err := s.api.ListOffers(emptyFilterSet)
-	c.Assert(err, jc.ErrorIsNil)
-	s.serviceBackend.CheckCallNames(c, listOfferedApplicationsBackendCall)
-	c.Assert(found.Results[0].Error, gc.ErrorMatches, fmt.Sprintf("%v", msg))
-}
-
 func (s *crossmodelSuite) TestFind(c *gc.C) {
-	serviceName := "test"
+	applicationName := "test"
 	url := "local:/u/fred/hosted-db2"
 
 	filter := params.OfferFilterParams{
@@ -306,7 +339,7 @@ func (s *crossmodelSuite) TestFind(c *gc.C) {
 		},
 	}
 	anOffer := params.ApplicationOffer{
-		ApplicationName:        serviceName,
+		ApplicationName:        applicationName,
 		ApplicationDescription: "description",
 		ApplicationURL:         url,
 		SourceModelTag:         "environment-",
@@ -314,7 +347,7 @@ func (s *crossmodelSuite) TestFind(c *gc.C) {
 		Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
 	}
 
-	s.serviceBackend.listDirectoryOffers = func(filter params.OfferFilters) (params.ApplicationOfferResults, error) {
+	s.applicationDirectory.listOffers = func(filter params.OfferFilters) (params.ApplicationOfferResults, error) {
 		c.Assert(filter, jc.DeepEquals, params.OfferFilters{
 			Directory: "local",
 			Filters: []params.OfferFilter{
@@ -329,27 +362,27 @@ func (s *crossmodelSuite) TestFind(c *gc.C) {
 
 	found, err := s.api.FindApplicationOffers(filter)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(found, gc.DeepEquals,
+	c.Assert(found, jc.DeepEquals,
 		params.FindApplicationOffersResults{
 			Results: []params.ApplicationOfferResults{
 				{
 					Offers: []params.ApplicationOffer{
 						{
-							ApplicationName:        serviceName,
+							ApplicationName:        applicationName,
 							ApplicationDescription: "description",
 							ApplicationURL:         url,
 							SourceModelTag:         "environment-",
 							SourceLabel:            "label",
 							Endpoints:              []params.RemoteEndpoint{{Name: "db"}}}},
 				}}})
-	s.serviceBackend.CheckCallNames(c, listDirectoryOffersBackendCall)
+	s.applicationDirectory.CheckCallNames(c, listOffersBackendCall)
 }
 
 func (s *crossmodelSuite) TestFindError(c *gc.C) {
 	filter := params.OfferFilterParams{Filters: []params.OfferFilters{{}}}
 	msg := "fail"
 
-	s.serviceBackend.listDirectoryOffers = func(filter params.OfferFilters) (params.ApplicationOfferResults, error) {
+	s.applicationDirectory.listOffers = func(filter params.OfferFilters) (params.ApplicationOfferResults, error) {
 		return params.ApplicationOfferResults{}, errors.New(msg)
 	}
 
@@ -357,5 +390,5 @@ func (s *crossmodelSuite) TestFindError(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Results, gc.HasLen, 1)
 	c.Assert(found.Results[0].Error, gc.ErrorMatches, fmt.Sprintf(".*%v.*", msg))
-	s.serviceBackend.CheckCallNames(c, listDirectoryOffersBackendCall)
+	s.applicationDirectory.CheckCallNames(c, listOffersBackendCall)
 }

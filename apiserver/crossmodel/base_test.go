@@ -18,9 +18,8 @@ import (
 )
 
 const (
-	addOfferBackendCall                = "AddOffer"
-	listOfferedApplicationsBackendCall = "ListOfferedApplications"
-	listDirectoryOffersBackendCall     = "ListDirectoryOffers"
+	addOffersBackendCall  = "AddOffers"
+	listOffersBackendCall = "ListOffers"
 )
 
 type baseCrossmodelSuite struct {
@@ -33,10 +32,11 @@ type baseCrossmodelSuite struct {
 
 	api *crossmodel.API
 
-	serviceBackend *mockServiceBackend
+	applicationDirectory             *mockApplicationOffersAPI
+	makeOfferedApplicationParamsFunc func(p params.ApplicationOfferParams) (params.ApplicationOffer, error)
 }
 
-func (s *baseCrossmodelSuite) addService(c *gc.C, name string) jujucrossmodel.OfferedApplication {
+func (s *baseCrossmodelSuite) addApplication(c *gc.C, name string) jujucrossmodel.OfferedApplication {
 	ch := s.AddTestingCharm(c, "wordpress")
 	s.AddTestingService(c, name, ch)
 
@@ -54,32 +54,33 @@ func (s *baseCrossmodelSuite) SetUpTest(c *gc.C) {
 	s.resources = common.NewResources()
 	s.authorizer = testing.FakeAuthorizer{Tag: names.NewUserTag("testuser"), EnvironManager: true}
 
-	s.serviceBackend = &mockServiceBackend{}
+	s.applicationDirectory = &mockApplicationOffersAPI{}
 
 	var err error
-	s.api, err = crossmodel.CreateAPI(s.serviceBackend, crossmodel.GetStateAccess(s.State), s.resources, s.authorizer)
+	s.api, err = crossmodel.CreateAPI(
+		s.applicationDirectory, crossmodel.GetStateAccess(s.State), s.authorizer,
+		func(p params.ApplicationOfferParams) (params.ApplicationOffer, error) {
+			if s.makeOfferedApplicationParamsFunc != nil {
+				return s.makeOfferedApplicationParamsFunc(p)
+			}
+			return crossmodel.MakeOfferedApplicationParams(s.api, p)
+		})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-type mockServiceBackend struct {
+type mockApplicationOffersAPI struct {
 	jtesting.Stub
 
-	addOffer                func(offer jujucrossmodel.OfferedApplication, offerParams params.AddApplicationOffer) error
-	listOfferedApplications func(filter ...jujucrossmodel.OfferedApplicationFilter) ([]jujucrossmodel.OfferedApplication, error)
-	listDirectoryOffers     func(filter params.OfferFilters) (params.ApplicationOfferResults, error)
+	addOffers  func(offers params.AddApplicationOffers) (params.ErrorResults, error)
+	listOffers func(filters params.OfferFilters) (params.ApplicationOfferResults, error)
 }
 
-func (m *mockServiceBackend) AddOffer(offer jujucrossmodel.OfferedApplication, offerParams params.AddApplicationOffer) error {
-	m.MethodCall(m, addOfferBackendCall, offer)
-	return m.addOffer(offer, offerParams)
+func (m *mockApplicationOffersAPI) AddOffers(offers params.AddApplicationOffers) (params.ErrorResults, error) {
+	m.MethodCall(m, addOffersBackendCall)
+	return m.addOffers(offers)
 }
 
-func (m *mockServiceBackend) ListOfferedApplications(filter ...jujucrossmodel.OfferedApplicationFilter) ([]jujucrossmodel.OfferedApplication, error) {
-	m.MethodCall(m, listOfferedApplicationsBackendCall, filter)
-	return m.listOfferedApplications(filter...)
-}
-
-func (m *mockServiceBackend) ListDirectoryOffers(filter params.OfferFilters) (params.ApplicationOfferResults, error) {
-	m.MethodCall(m, listDirectoryOffersBackendCall, filter)
-	return m.listDirectoryOffers(filter)
+func (m *mockApplicationOffersAPI) ListOffers(filters params.OfferFilters) (params.ApplicationOfferResults, error) {
+	m.MethodCall(m, listOffersBackendCall, filters)
+	return m.listOffers(filters)
 }

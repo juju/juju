@@ -25,15 +25,15 @@ func NewClient(st base.APICallCloser) *Client {
 	return &Client{ClientFacade: frontend, facade: backend}
 }
 
-// Offer prepares service's endpoints for consumption.
-func (c *Client) Offer(service string, endpoints []string, url string, users []string, desc string) ([]params.ErrorResult, error) {
+// Offer prepares application's endpoints for consumption.
+func (c *Client) Offer(modelUUID, application string, endpoints []string, url string, desc string) ([]params.ErrorResult, error) {
 	offers := []params.ApplicationOfferParams{
 		{
-			ApplicationName:        service,
+			ModelTag:               names.NewModelTag(modelUUID).String(),
+			ApplicationName:        application,
 			ApplicationDescription: desc,
 			Endpoints:              endpoints,
 			ApplicationURL:         url,
-			AllowedUserTags:        users,
 		},
 	}
 	out := params.ErrorResults{}
@@ -66,7 +66,7 @@ func (c *Client) ApplicationOffer(url string) (params.ApplicationOffer, error) {
 
 // FindApplicationOffers returns all application offers matching the supplied filter.
 func (c *Client) FindApplicationOffers(filters ...crossmodel.ApplicationOfferFilter) ([]params.ApplicationOffer, error) {
-	// We need at least one filter. The default filter will list all local services.
+	// We need at least one filter. The default filter will list all local applications.
 	if len(filters) == 0 {
 		return nil, errors.New("at least one filter must be specified")
 	}
@@ -122,47 +122,36 @@ func (c *Client) FindApplicationOffers(filters ...crossmodel.ApplicationOfferFil
 }
 
 // ListOffers gets all remote applications that have been offered from this Juju model.
-// Each returned service satisfies at least one of the the specified filters.
+// Each returned application satisfies at least one of the the specified filters.
 func (c *Client) ListOffers(filters ...crossmodel.OfferedApplicationFilter) ([]crossmodel.OfferedApplicationDetailsResult, error) {
 	// TODO (anastasiamac 2015-11-23) translate a set of filters from crossmodel domain to params
-	paramsFilters := params.OfferedApplicationFilters{
-		Filters: []params.OfferedApplicationFilter{
-			{FilterTerms: []params.OfferedApplicationFilterTerm{}},
-		},
+	offerFilters := make([]crossmodel.ApplicationOfferFilter, len(filters))
+	for i, f := range filters {
+		offerFilters[i] = crossmodel.ApplicationOfferFilter{
+			ApplicationOffer: crossmodel.ApplicationOffer{
+				ApplicationURL:  f.ApplicationURL,
+				ApplicationName: f.ApplicationName,
+				Endpoints: []charm.Relation{
+					{
+						Name:      f.Endpoint.Name,
+						Interface: f.Endpoint.Interface,
+						Role:      f.Endpoint.Role,
+					}},
+			},
+		}
 	}
-
-	out := params.ListOffersResults{}
-
-	err := c.facade.FacadeCall("ListOffers", paramsFilters, &out)
+	applicationOffers, err := c.FindApplicationOffers(offerFilters...)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
-	result := out.Results
-	// Since only one filters set was sent, expecting only one back
-	if len(result) != 1 {
-		return nil, errors.Errorf("expected to find one result but found %d", len(result))
-
-	}
-
-	theOne := result[0]
-	if theOne.Error != nil {
-		return nil, errors.Trace(theOne.Error)
-	}
-
-	return convertListResultsToModel(theOne.Result), nil
+	return convertListResultsToModel(applicationOffers), nil
 }
 
-func convertListResultsToModel(items []params.OfferedApplicationDetailsResult) []crossmodel.OfferedApplicationDetailsResult {
+func convertListResultsToModel(items []params.ApplicationOffer) []crossmodel.OfferedApplicationDetailsResult {
 	result := make([]crossmodel.OfferedApplicationDetailsResult, len(items))
 	for i, one := range items {
-		if one.Error != nil {
-			result[i].Error = one.Error
-			continue
-		}
-		remoteApplication := one.Result
-		eps := make([]charm.Relation, len(remoteApplication.Endpoints))
-		for i, ep := range remoteApplication.Endpoints {
+		eps := make([]charm.Relation, len(one.Endpoints))
+		for i, ep := range one.Endpoints {
 			eps[i] = charm.Relation{
 				Name:      ep.Name,
 				Role:      ep.Role,
@@ -172,10 +161,8 @@ func convertListResultsToModel(items []params.OfferedApplicationDetailsResult) [
 			}
 		}
 		result[i].Result = &crossmodel.OfferedApplicationDetails{
-			ApplicationName: remoteApplication.ApplicationName,
-			ApplicationURL:  remoteApplication.ApplicationURL,
-			CharmName:       remoteApplication.CharmName,
-			ConnectedCount:  remoteApplication.UsersCount,
+			ApplicationName: one.ApplicationName,
+			ApplicationURL:  one.ApplicationURL,
 			Endpoints:       eps,
 		}
 	}

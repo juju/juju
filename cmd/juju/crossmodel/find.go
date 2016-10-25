@@ -54,7 +54,7 @@ func NewFindEndpointsCommand() cmd.Command {
 	findCmd.newAPIFunc = func() (FindAPI, error) {
 		return findCmd.NewCrossModelAPI()
 	}
-	return modelcmd.Wrap(findCmd)
+	return modelcmd.WrapController(findCmd)
 }
 
 // Init implements Command.Init.

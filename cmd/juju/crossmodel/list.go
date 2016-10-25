@@ -68,7 +68,7 @@ func NewListEndpointsCommand() cmd.Command {
 	listCmd.newAPIFunc = func() (ListAPI, error) {
 		return listCmd.NewCrossModelAPI()
 	}
-	return modelcmd.Wrap(listCmd)
+	return modelcmd.WrapController(listCmd)
 }
 
 // Init implements Command.Init.
@@ -107,6 +107,9 @@ func (c *listCommand) Run(ctx *cmd.Context) (err error) {
 	}
 	defer api.Close()
 
+	if len(c.filters) == 0 {
+		c.filters = []crossmodel.OfferedApplicationFilter{{ApplicationURL: "local:"}}
+	}
 	// TODO (anastasiamac 2015-11-17) add input filters
 	offeredApplications, err := api.ListOffers(c.filters...)
 	if err != nil {
@@ -145,10 +148,10 @@ type ListAPI interface {
 // ListServiceItem defines the serialization behaviour of a service item in endpoints list.
 type ListServiceItem struct {
 	// CharmName is the charm name of this service.
-	CharmName string `yaml:"charm" json:"charm"`
+	CharmName string `yaml:"charm,omitempty" json:"charm,omitempty"`
 
 	// UsersCount is the count of how many users are connected to this shared service.
-	UsersCount int `yaml:"connected" json:"connected"`
+	UsersCount int `yaml:"connected,omitempty" json:"connected,omitempty"`
 
 	// Store is the name of the store which offers this shared service.
 	Store string `yaml:"store" json:"store"`

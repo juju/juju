@@ -44,7 +44,7 @@ func NewShowOfferedEndpointCommand() cmd.Command {
 	showCmd.newAPIFunc = func() (ShowAPI, error) {
 		return showCmd.NewCrossModelAPI()
 	}
-	return modelcmd.Wrap(showCmd)
+	return modelcmd.WrapController(showCmd)
 }
 
 // Init implements Command.Init.
