@@ -1063,6 +1063,14 @@ class TestEnvJujuClient(ClientTest):
             kill_command, ('foo', '-y'), check=False, include_e=False,
             timeout=1800)
 
+    def test_destroy_controller(self):
+        client = EnvJujuClient(JujuData('foo', {'type': 'gce'}), None, None)
+        with patch.object(client, 'juju') as juju_mock:
+            client.destroy_controller()
+        juju_mock.assert_called_once_with(
+            'destroy-controller', ('foo', '-y'), include_e=False,
+            timeout=600)
+
     def test_get_juju_output(self):
         env = JujuData('foo')
         client = EnvJujuClient(env, None, 'juju')
@@ -3556,14 +3564,20 @@ class TestEnvJujuClient1X(ClientTest):
     def test_kill_controller(self):
         client = EnvJujuClient1X(
             SimpleEnvironment('foo', {'type': 'gce'}), None, None)
-        with patch.object(client, 'get_jes_command',
-                          return_value='kill-controller') as jes_mock:
-            with patch.object(client, 'juju') as juju_mock:
-                client.kill_controller()
+        with patch.object(client, 'juju') as juju_mock:
+            client.kill_controller()
         juju_mock.assert_called_once_with(
             'destroy-environment', ('foo', '--force', '-y'), check=False,
             include_e=False, timeout=600)
-        self.assertIsFalse(jes_mock.called)
+
+    def test_destroy_controller(self):
+        client = EnvJujuClient1X(
+            SimpleEnvironment('foo', {'type': 'gce'}), None, None)
+        with patch.object(client, 'juju') as juju_mock:
+            client.destroy_controller()
+        juju_mock.assert_called_once_with(
+            'destroy-environment', ('foo', '-y'),
+            include_e=False, timeout=600)
 
     def test_get_juju_output(self):
         env = SimpleEnvironment('foo')
