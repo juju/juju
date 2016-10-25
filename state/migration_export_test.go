@@ -1024,13 +1024,6 @@ func (s *MigrationExportSuite) TestResources(c *gc.C) {
 
 	data := "ham"
 
-	/* XXX save rev 1 for units
-	ts1 := time.Date(2016, 10, 1, 0, 0, 0, 0, time.UTC)
-	res1 := s.newResource(c, app.Name(), "spam", 1, ts1, data)
-	res1, err = st.SetResource(app.Name(), res1.Username, res1.Resource, bytes.NewBufferString(data))
-	c.Assert(err, jc.ErrorIsNil)
-	*/
-
 	// Revision 2 is set for the application.
 	ts2 := time.Date(2016, 10, 2, 0, 0, 0, 0, time.UTC)
 	res2 := s.newResource(c, app.Name(), "spam", 2, ts2, data)
@@ -1084,8 +1077,6 @@ func (s *MigrationExportSuite) TestResources(c *gc.C) {
 	// These shouldn't be set for charmstore only revisions.
 	c.Check(exRev3.AddTimestamp(), gc.Equals, time.Time{})
 	c.Check(exRev3.Username(), gc.Equals, "")
-
-	c.Fatal("unit revisions")
 }
 
 func (s *MigrationExportSuite) newResource(c *gc.C, appName, name string, revision int, ts time.Time, data string) resource.Resource {
