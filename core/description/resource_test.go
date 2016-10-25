@@ -34,8 +34,8 @@ func minimalResourceMap() map[interface{}]interface{} {
 		"application-revision": 3,
 		"charmstore-revision":  4,
 		"name":                 "bdist",
-		"revisions": map[interface{}]interface{}{
-			"3": map[interface{}]interface{}{
+		"revisions": []interface{}{
+			map[interface{}]interface{}{
 				"revision":      3,
 				"add-timestamp": "2016-10-18T02:03:04Z",
 				"description":   "description",
@@ -46,7 +46,7 @@ func minimalResourceMap() map[interface{}]interface{} {
 				"type":          "file",
 				"username":      "user",
 			},
-			"4": map[interface{}]interface{}{
+			map[interface{}]interface{}{
 				"revision":    4,
 				"description": "description",
 				"fingerprint": "bbbbbbbb",
@@ -162,6 +162,17 @@ func (s *ResourceSuite) TestValidateMissingCharmStoreRev(c *gc.C) {
 		Username:     "user",
 	})
 	c.Assert(r.Validate(), gc.ErrorMatches, `missing charmstore revision \(4\)`)
+}
+
+func (s *ResourceSuite) TestDuplicateRevisions(c *gc.C) {
+	r := newResource(ResourceArgs{
+		Name:               "bdist",
+		Revision:           3,
+		CharmStoreRevision: 3,
+	})
+	r.AddRevision(ResourceRevisionArgs{Revision: 3})
+	r.AddRevision(ResourceRevisionArgs{Revision: 3})
+	c.Assert(r.Validate(), gc.ErrorMatches, `revision 3 appears more than once`)
 }
 
 func (s *ResourceSuite) TestRoundTrip(c *gc.C) {

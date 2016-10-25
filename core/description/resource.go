@@ -4,7 +4,6 @@
 package description
 
 import (
-	"strconv"
 	"time"
 
 	"github.com/juju/errors"
@@ -47,7 +46,7 @@ func newResource(args ResourceArgs) *resource {
 		Name_:               args.Name,
 		Revision_:           args.Revision,
 		CharmStoreRevision_: args.CharmStoreRevision,
-		Revisions_:          make(map[string]ResourceRevision),
+		Revisions_:          make([]*resourceRevision, 0),
 	}
 }
 
@@ -57,22 +56,11 @@ type resources struct {
 }
 
 type resource struct {
-	Name_               string `yaml:"name"`
-	Revision_           int    `yaml:"application-revision"`
-	CharmStoreRevision_ int    `yaml:"charmstore-revision"`
-	// Revisions_ uses string keys to avoid serialisation problems.
-	// XXX make this a type with it's own serialisation?
-	Revisions_ map[string]ResourceRevision `yaml:"revisions"`
+	Name_               string              `yaml:"name"`
+	Revision_           int                 `yaml:"application-revision"`
+	CharmStoreRevision_ int                 `yaml:"charmstore-revision"`
+	Revisions_          []*resourceRevision `yaml:"revisions"`
 }
-
-/*
-type ResourceRevisionMap map[int]ResourceRevision
-
-// MarshalYAML implements yaml.v2.Marshaller interface.
-func (m ResourceRevisionMap) MarshalYAML() (interface{}, error) {
-	return b.String(), nil
-}
-*/
 
 // Name implements Resource.
 func (r *resource) Name() string {
@@ -121,31 +109,37 @@ func (r *resource) AddRevision(args ResourceRevisionArgs) {
 		AddTimestamp_: addTs,
 		Username_:     args.Username,
 	}
-	r.Revisions_[strconv.Itoa(args.Revision)] = rev
+	r.Revisions_ = append(r.Revisions_, rev)
 }
 
 // Revisions implements Resource.
 func (r *resource) Revisions() map[int]ResourceRevision {
 	out := make(map[int]ResourceRevision)
-	for k, v := range r.Revisions_ {
-		revId, err := strconv.Atoi(k)
-		if err != nil {
-			// XXX
-			panic(err) // This really is very unlikely.
-		}
-		out[revId] = v
+	for _, rev := range r.Revisions_ {
+		out[rev.Revision_] = rev
 	}
 	return out
 }
 
 // Validate implements Resource.
 func (r *resource) Validate() error {
-	if _, ok := r.Revisions_[strconv.Itoa(r.Revision_)]; !ok {
+	revs := r.Revisions()
+	if _, ok := revs[r.Revision_]; !ok {
 		return errors.Errorf("missing application revision (%d)", r.Revision_)
 	}
-	if _, ok := r.Revisions_[strconv.Itoa(r.CharmStoreRevision_)]; !ok {
+	if _, ok := revs[r.CharmStoreRevision_]; !ok {
 		return errors.Errorf("missing charmstore revision (%d)", r.CharmStoreRevision_)
 	}
+
+	seenRevs := make(map[int]struct{})
+	for _, rev := range r.Revisions_ {
+		revNum := rev.Revision_
+		if _, exists := seenRevs[revNum]; exists {
+			return errors.Errorf("revision %d appears more than once", revNum)
+		}
+		seenRevs[revNum] = struct{}{}
+	}
+
 	return nil
 }
 
@@ -253,7 +247,7 @@ func importResourceV1(source map[string]interface{}) (*resource, error) {
 		"name":                 schema.String(),
 		"application-revision": schema.Int(),
 		"charmstore-revision":  schema.Int(),
-		"revisions":            schema.StringMap(schema.Any()),
+		"revisions":            schema.List(schema.StringMap(schema.Any())),
 	}
 	checker := schema.FieldMap(fields, nil)
 
@@ -266,23 +260,19 @@ func importResourceV1(source map[string]interface{}) (*resource, error) {
 	// From here we know that the map returned from the schema coercion
 	// contains fields of the right type.
 	name := valid["name"].(string)
-	r := &resource{
-		Name_:               name,
-		Revision_:           int(valid["application-revision"].(int64)),
-		CharmStoreRevision_: int(valid["charmstore-revision"].(int64)),
-		Revisions_:          make(map[string]ResourceRevision),
-	}
-
-	// Now read in the resource revisions...
-	revsMap := valid["revisions"].(map[string]interface{})
-	for revNum, revSource := range revsMap {
+	revList := valid["revisions"].([]interface{})
+	r := newResource(ResourceArgs{
+		Name:               name,
+		Revision:           int(valid["application-revision"].(int64)),
+		CharmStoreRevision: int(valid["charmstore-revision"].(int64)),
+	})
+	for i, revSource := range revList {
 		revision, err := importResourceRevisionV1(revSource)
 		if err != nil {
-			return nil, errors.Annotatef(err, "resource %s, revision %s", name, revNum)
+			return nil, errors.Annotatef(err, "resource %s, revision index %d", name, i)
 		}
-		r.Revisions_[revNum] = revision
+		r.Revisions_ = append(r.Revisions_, revision)
 	}
-
 	return r, nil
 }
 
