@@ -65,7 +65,7 @@ func (c *guiCommand) SetFlags(f *gnuflag.FlagSet) {
 // Run implements the cmd.Command interface.
 func (c *guiCommand) Run(ctx *cmd.Context) error {
 	// Retrieve model details.
-	conn, err := c.NewAPIRoot()
+	conn, err := c.NewControllerAPIRoot()
 	if err != nil {
 		return errors.Annotate(err, "cannot establish API connection")
 	}
