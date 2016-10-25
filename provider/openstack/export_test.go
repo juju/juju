@@ -443,7 +443,7 @@ func FindInstanceSpec(
 }
 
 func GetSwiftURL(e environs.Environ) (string, error) {
-	return e.(*Environ).client.MakeServiceURL("object-store", nil)
+	return e.(*Environ).client.MakeServiceURL("object-store", "", nil)
 }
 
 func SetUseFloatingIP(e environs.Environ, val bool) {
