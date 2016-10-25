@@ -315,94 +315,26 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	if err := c.parseConstraints(ctx); err != nil {
 		return err
 	}
-	if c.BootstrapImage != "" {
-		if c.BootstrapSeries == "" {
-			return errors.Errorf("--bootstrap-image must be used with --bootstrap-series")
-		}
-		cons, err := constraints.Merge(c.Constraints, c.BootstrapConstraints)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if !cons.HasArch() {
-			return errors.Errorf("--bootstrap-image must be used with --bootstrap-constraints, specifying architecture")
-		}
+
+	// Start by checking for usage errors, equests for information
+	finished, err := c.handleCommandLineErrorsAndInfoRequests(ctx)
+	if err != nil {
+		return errors.Trace(err)
 	}
+	if finished {
+		return nil
+	}
+
+	// Run interactive bootstrap if needed/asked for
 	if c.interactive {
 		if err := c.runInteractive(ctx); err != nil {
 			return errors.Trace(err)
 		}
 		// now run normal bootstrap using info gained above.
 	}
-	if c.showClouds {
-		return printClouds(ctx, c.ClientStore())
-	}
-	if c.showRegionsForCloud != "" {
-		return printCloudRegions(ctx, c.showRegionsForCloud)
-	}
 
-	bootstrapFuncs := getBootstrapFuncs()
-
-	// Get the cloud definition identified by c.Cloud. If c.Cloud does not
-	// identify a cloud in clouds.yaml, but is the name of a provider, and
-	// that provider implements environs.CloudRegionDetector, we'll
-	// synthesise a Cloud structure with the detected regions and no auth-
-	// types.
-	cloud, err := jujucloud.CloudByName(c.Cloud)
-	if errors.IsNotFound(err) {
-		ctx.Verbosef("cloud %q not found, trying as a provider name", c.Cloud)
-		provider, err := environs.Provider(c.Cloud)
-		if errors.IsNotFound(err) {
-			return errors.NewNotFound(nil, fmt.Sprintf("unknown cloud %q, please try %q", c.Cloud, "juju update-clouds"))
-		} else if err != nil {
-			return errors.Trace(err)
-		}
-		detector, ok := bootstrapFuncs.CloudRegionDetector(provider)
-		if !ok {
-			ctx.Verbosef(
-				"provider %q does not support detecting regions",
-				c.Cloud,
-			)
-			return errors.NewNotFound(nil, fmt.Sprintf("unknown cloud %q, please try %q", c.Cloud, "juju update-clouds"))
-		}
-		var cloudEndpoint string
-		regions, err := detector.DetectRegions()
-		if errors.IsNotFound(err) {
-			// It's not an error to have no regions. If the
-			// provider does not support regions, then we
-			// reinterpret the supplied region name as the
-			// cloud's endpoint. This enables the user to
-			// supply, for example, maas/<IP> or manual/<IP>.
-			if c.Region != "" {
-				ctx.Verbosef("interpreting %q as the cloud endpoint", c.Region)
-				cloudEndpoint = c.Region
-				c.Region = ""
-			}
-		} else if err != nil {
-			return errors.Annotatef(err,
-				"detecting regions for %q cloud provider",
-				c.Cloud,
-			)
-		}
-		schemas := provider.CredentialSchemas()
-		authTypes := make([]jujucloud.AuthType, 0, len(schemas))
-		for authType := range schemas {
-			authTypes = append(authTypes, authType)
-		}
-		// Since we are iterating over a map, lets sort the authTypes so
-		// they are always in a consistent order.
-		sort.Sort(jujucloud.AuthTypes(authTypes))
-		cloud = &jujucloud.Cloud{
-			Type:      c.Cloud,
-			AuthTypes: authTypes,
-			Endpoint:  cloudEndpoint,
-			Regions:   regions,
-		}
-	} else if err != nil {
-		return errors.Trace(err)
-	}
-	if err := checkProviderType(cloud.Type); errors.IsNotFound(err) {
-		// This error will get handled later.
-	} else if err != nil {
+	cloud, err := c.getCloud(ctx)
+	if err != nil {
 		return errors.Trace(err)
 	}
 
@@ -419,46 +351,12 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		}
 	}
 
-	// Get the credentials and region name.
-	store := c.ClientStore()
-	var detectedCredentialName string
-	credential, credentialName, regionName, err := modelcmd.GetCredentials(
-		ctx, store, modelcmd.GetCredentialsParams{
-			Cloud:          *cloud,
-			CloudName:      c.Cloud,
-			CloudRegion:    c.Region,
-			CredentialName: c.CredentialName,
-		},
-	)
-	if errors.Cause(err) == modelcmd.ErrMultipleCredentials {
-		return ambiguousCredentialError
-	}
-	if errors.IsNotFound(err) && c.CredentialName == "" {
-		// No credential was explicitly specified, and no credential
-		// was found in credentials.yaml; have the provider detect
-		// credentials from the environment.
-		ctx.Verbosef("no credentials found, checking environment")
-		detected, err := modelcmd.DetectCredential(c.Cloud, cloud.Type)
-		if errors.Cause(err) == modelcmd.ErrMultipleCredentials {
-			return ambiguousDetectedCredentialError
-		} else if err != nil {
-			return errors.Trace(err)
-		}
-		// We have one credential so extract it from the map.
-		var oneCredential jujucloud.Credential
-		for detectedCredentialName, oneCredential = range detected.AuthCredentials {
-		}
-		credential = &oneCredential
-		regionName = c.Region
-		if regionName == "" {
-			regionName = detected.DefaultRegion
-		}
-		logger.Debugf(
-			"authenticating with region %q and credential %q (%v)",
-			regionName, detectedCredentialName, credential.Label,
-		)
-		logger.Tracef("credential: %v", credential)
-	} else if err != nil {
+	credential,
+		credentialName,
+		detectedCredentialName,
+		regionName,
+		err := c.getCredentialsAndRegionName(ctx, cloud)
+	if err != nil {
 		return errors.Trace(err)
 	}
 
@@ -474,134 +372,19 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		c.controllerName = defaultControllerName(c.Cloud, region.Name)
 	}
 
-	controllerModelUUID, err := utils.NewUUID()
+	bootstrapModelConfig,
+		controllerConfig,
+		bootstrapConfig,
+		inheritedControllerAttrs,
+		userConfigAttrs,
+		err := c.getBootstrapConfigs(ctx, cloud, provider)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	hostedModelUUID, err := utils.NewUUID()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	controllerUUID, err := utils.NewUUID()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	// Create a model config, and split out any controller
-	// and bootstrap config attributes.
-	modelConfigAttrs := map[string]interface{}{
-		"type":         cloud.Type,
-		"name":         bootstrap.ControllerModelName,
-		config.UUIDKey: controllerModelUUID.String(),
-	}
-
-	userConfigAttrs, err := c.config.ReadAttrs(ctx)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	modelDefaultConfigAttrs, err := c.modelDefaults.ReadAttrs(ctx)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	// The provider may define some custom attributes specific
-	// to the provider. These will be added to the model config.
-	providerAttrs := make(map[string]interface{})
-	if ps, ok := provider.(config.ConfigSchemaSource); ok {
-		for attr := range ps.ConfigSchema() {
-			// Start with the model defaults, and if also specified
-			// in the user config attrs, they override the model default.
-			if v, ok := modelDefaultConfigAttrs[attr]; ok {
-				providerAttrs[attr] = v
-			}
-			if v, ok := userConfigAttrs[attr]; ok {
-				providerAttrs[attr] = v
-			}
-		}
-		fields := schema.FieldMap(ps.ConfigSchema(), ps.ConfigDefaults())
-		if coercedAttrs, err := fields.Coerce(providerAttrs, nil); err != nil {
-			return errors.Annotatef(err, "invalid attribute value(s) for %v cloud", cloud.Type)
-		} else {
-			providerAttrs = coercedAttrs.(map[string]interface{})
-		}
-	}
-	// Start with the model defaults, then add in user config attributes.
-	for k, v := range modelDefaultConfigAttrs {
-		modelConfigAttrs[k] = v
-	}
-	for k, v := range userConfigAttrs {
-		modelConfigAttrs[k] = v
-	}
-	// Provider specific attributes are either already specified in model
-	// config (but may have been coerced), or were not present. Either way,
-	// copy them in.
-	logger.Debugf("provider attrs: %v", providerAttrs)
-	for k, v := range providerAttrs {
-		modelConfigAttrs[k] = v
-	}
-	bootstrapConfigAttrs := make(map[string]interface{})
-	controllerConfigAttrs := make(map[string]interface{})
-	// Based on the attribute names in clouds.yaml, create
-	// a map of shared config for all models on this cloud.
-	inheritedControllerAttrs := make(map[string]interface{})
-	for k, v := range cloud.Config {
-		switch {
-		case bootstrap.IsBootstrapAttribute(k):
-			bootstrapConfigAttrs[k] = v
-			continue
-		case controller.ControllerOnlyAttribute(k):
-			controllerConfigAttrs[k] = v
-			continue
-		}
-		inheritedControllerAttrs[k] = v
-	}
-	// Model defaults are added to the inherited controller attributes.
-	// Any command line set model defaults override what is in the cloud config.
-	for k, v := range modelDefaultConfigAttrs {
-		switch {
-		case bootstrap.IsBootstrapAttribute(k):
-			return errors.Errorf("%q is a bootstrap only attribute, and cannot be set as a model-default", k)
-		case controller.ControllerOnlyAttribute(k):
-			return errors.Errorf("%q is a controller attribute, and cannot be set as a model-default", k)
-		}
-		inheritedControllerAttrs[k] = v
-	}
-	for k, v := range modelConfigAttrs {
-		switch {
-		case bootstrap.IsBootstrapAttribute(k):
-			bootstrapConfigAttrs[k] = v
-			delete(modelConfigAttrs, k)
-		case controller.ControllerOnlyAttribute(k):
-			controllerConfigAttrs[k] = v
-			delete(modelConfigAttrs, k)
-		}
-	}
-	bootstrapConfig, err := bootstrap.NewConfig(bootstrapConfigAttrs)
-	if err != nil {
-		return errors.Annotate(err, "constructing bootstrap config")
-	}
-	controllerConfig, err := controller.NewConfig(
-		controllerUUID.String(), bootstrapConfig.CACert, controllerConfigAttrs,
-	)
-	if err != nil {
-		return errors.Annotate(err, "constructing controller config")
-	}
-	if controllerConfig.AutocertDNSName() != "" {
-		if _, ok := controllerConfigAttrs[controller.APIPort]; !ok {
-			// The configuration did not explicitly mention the API port,
-			// so default to 443 because it is not usually possible to
-			// obtain autocert certificates without listening on port 443.
-			controllerConfig[controller.APIPort] = 443
-		}
-	}
-
-	if err := common.FinalizeAuthorizedKeys(ctx, modelConfigAttrs); err != nil {
-		return errors.Annotate(err, "finalizing authorized-keys")
-	}
-	logger.Debugf("preparing controller with config: %v", modelConfigAttrs)
 
 	// Read existing current controller so we can clean up on error.
 	var oldCurrentController string
+	store := c.ClientStore()
 	oldCurrentController, err = store.CurrentController()
 	if errors.IsNotFound(err) {
 		oldCurrentController = ""
@@ -629,22 +412,6 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		}
 	}()
 
-	bootstrapModelConfig := make(map[string]interface{})
-	for k, v := range inheritedControllerAttrs {
-		bootstrapModelConfig[k] = v
-	}
-	for k, v := range modelConfigAttrs {
-		bootstrapModelConfig[k] = v
-	}
-	// Add in any default attribute values if not already
-	// specified, making the recorded bootstrap config
-	// immutable to changes in Juju.
-	for k, v := range config.ConfigDefaults() {
-		if _, ok := bootstrapModelConfig[k]; !ok {
-			bootstrapModelConfig[k] = v
-		}
-	}
-
 	environ, err := bootstrapPrepare(
 		modelcmd.BootstrapContext(ctx), store,
 		bootstrap.PrepareParams{
@@ -664,6 +431,11 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 			AdminSecret:    bootstrapConfig.AdminSecret,
 		},
 	)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	hostedModelUUID, err := utils.NewUUID()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -743,29 +515,7 @@ See `[1:] + "`juju kill-controller`" + `.`)
 	}
 	logger.Infof("combined bootstrap constraints: %v", bootstrapConstraints)
 
-	hostedModelConfig := map[string]interface{}{
-		"name":         c.hostedModelName,
-		config.UUIDKey: hostedModelUUID.String(),
-	}
-	for k, v := range inheritedControllerAttrs {
-		hostedModelConfig[k] = v
-	}
-
-	// We copy across any user supplied attributes to the hosted model config.
-	// But only if the attributes have not been removed from the controller
-	// model config as part of preparing the controller model.
-	controllerModelConfigAttrs := environ.Config().AllAttrs()
-	for k, v := range userConfigAttrs {
-		if _, ok := controllerModelConfigAttrs[k]; ok {
-			hostedModelConfig[k] = v
-		}
-	}
-	// Ensure that certain config attributes are not included in the hosted
-	// model config. These attributes may be modified during bootstrap; by
-	// removing them from this map, we ensure the modified values are
-	// inherited.
-	delete(hostedModelConfig, config.AuthorizedKeysKey)
-	delete(hostedModelConfig, config.AgentVersionKey)
+	hostedModelConfig := c.getHostedModelConfig(hostedModelUUID, inheritedControllerAttrs, userConfigAttrs, environ)
 
 	// Check whether the Juju GUI must be installed in the controller.
 	// Leaving this value empty means no GUI will be installed.
@@ -781,6 +531,7 @@ See `[1:] + "`juju kill-controller`" + `.`)
 		credentialName = detectedCredentialName
 	}
 
+	bootstrapFuncs := getBootstrapFuncs()
 	err = bootstrapFuncs.Bootstrap(modelcmd.BootstrapContext(ctx), environ, bootstrap.BootstrapParams{
 		ModelConstraints:          c.Constraints,
 		BootstrapConstraints:      bootstrapConstraints,
@@ -830,6 +581,327 @@ See `[1:] + "`juju kill-controller`" + `.`)
 	// for the controller's machine agent to be ready to accept commands
 	// before exiting this bootstrap command.
 	return waitForAgentInitialisation(ctx, &c.ModelCommandBase, c.controllerName, c.hostedModelName)
+}
+
+func (c *bootstrapCommand) handleCommandLineErrorsAndInfoRequests(ctx *cmd.Context) (bool, error) {
+	if c.BootstrapImage != "" {
+		if c.BootstrapSeries == "" {
+			return true, errors.Errorf("--bootstrap-image must be used with --bootstrap-series")
+		}
+		cons, err := constraints.Merge(c.Constraints, c.BootstrapConstraints)
+		if err != nil {
+			return true, errors.Trace(err)
+		}
+		if !cons.HasArch() {
+			return true, errors.Errorf("--bootstrap-image must be used with --bootstrap-constraints, specifying architecture")
+		}
+	}
+	if c.showClouds {
+		return true, printClouds(ctx, c.ClientStore())
+	}
+	if c.showRegionsForCloud != "" {
+		return true, printCloudRegions(ctx, c.showRegionsForCloud)
+	}
+
+	return false, nil
+}
+
+func (c *bootstrapCommand) getCloud(ctx *cmd.Context) (*jujucloud.Cloud, error) {
+	bootstrapFuncs := getBootstrapFuncs()
+
+	// Get the cloud definition identified by c.Cloud. If c.Cloud does not
+	// identify a cloud in clouds.yaml, but is the name of a provider, and
+	// that provider implements environs.CloudRegionDetector, we'll
+	// synthesise a Cloud structure with the detected regions and no auth-
+	// types.
+	cloud, err := jujucloud.CloudByName(c.Cloud)
+	if errors.IsNotFound(err) {
+		ctx.Verbosef("cloud %q not found, trying as a provider name", c.Cloud)
+		provider, err := environs.Provider(c.Cloud)
+		if errors.IsNotFound(err) {
+			return nil, errors.NewNotFound(nil, fmt.Sprintf("unknown cloud %q, please try %q", c.Cloud, "juju update-clouds"))
+		} else if err != nil {
+			return nil, errors.Trace(err)
+		}
+		detector, ok := bootstrapFuncs.CloudRegionDetector(provider)
+		if !ok {
+			ctx.Verbosef(
+				"provider %q does not support detecting regions",
+				c.Cloud,
+			)
+			return nil, errors.NewNotFound(nil, fmt.Sprintf("unknown cloud %q, please try %q", c.Cloud, "juju update-clouds"))
+		}
+		var cloudEndpoint string
+		regions, err := detector.DetectRegions()
+		if errors.IsNotFound(err) {
+			// It's not an error to have no regions. If the
+			// provider does not support regions, then we
+			// reinterpret the supplied region name as the
+			// cloud's endpoint. This enables the user to
+			// supply, for example, maas/<IP> or manual/<IP>.
+			if c.Region != "" {
+				ctx.Verbosef("interpreting %q as the cloud endpoint", c.Region)
+				cloudEndpoint = c.Region
+				c.Region = ""
+			}
+		} else if err != nil {
+			return nil, errors.Annotatef(err,
+				"detecting regions for %q cloud provider",
+				c.Cloud,
+			)
+		}
+		schemas := provider.CredentialSchemas()
+		authTypes := make([]jujucloud.AuthType, 0, len(schemas))
+		for authType := range schemas {
+			authTypes = append(authTypes, authType)
+		}
+		// Since we are iterating over a map, lets sort the authTypes so
+		// they are always in a consistent order.
+		sort.Sort(jujucloud.AuthTypes(authTypes))
+		cloud = &jujucloud.Cloud{
+			Type:      c.Cloud,
+			AuthTypes: authTypes,
+			Endpoint:  cloudEndpoint,
+			Regions:   regions,
+		}
+	} else if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if err := checkProviderType(cloud.Type); errors.IsNotFound(err) {
+		// This error will get handled later.
+	} else if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return cloud, nil
+}
+
+// Get the credentials and region name.
+func (c *bootstrapCommand) getCredentialsAndRegionName(
+	ctx *cmd.Context, cloud *jujucloud.Cloud) (
+	*jujucloud.Credential, string, string, string, error) {
+
+	store := c.ClientStore()
+	var detectedCredentialName string
+	credential, credentialName, regionName, err := modelcmd.GetCredentials(
+		ctx, store, modelcmd.GetCredentialsParams{
+			Cloud:          *cloud,
+			CloudName:      c.Cloud,
+			CloudRegion:    c.Region,
+			CredentialName: c.CredentialName,
+		},
+	)
+	if errors.Cause(err) == modelcmd.ErrMultipleCredentials {
+		return nil, "", "", "", ambiguousCredentialError
+	}
+	if errors.IsNotFound(err) && c.CredentialName == "" {
+		// No credential was explicitly specified, and no credential
+		// was found in credentials.yaml; have the provider detect
+		// credentials from the environment.
+		ctx.Verbosef("no credentials found, checking environment")
+		detected, err := modelcmd.DetectCredential(c.Cloud, cloud.Type)
+		if errors.Cause(err) == modelcmd.ErrMultipleCredentials {
+			return nil, "", "", "", ambiguousDetectedCredentialError
+		} else if err != nil {
+			return nil, "", "", "", errors.Trace(err)
+		}
+		// We have one credential so extract it from the map.
+		var oneCredential jujucloud.Credential
+		for detectedCredentialName, oneCredential = range detected.AuthCredentials {
+		}
+		credential = &oneCredential
+		regionName = c.Region
+		if regionName == "" {
+			regionName = detected.DefaultRegion
+		}
+		logger.Debugf(
+			"authenticating with region %q and credential %q (%v)",
+			regionName, detectedCredentialName, credential.Label,
+		)
+		logger.Tracef("credential: %v", credential)
+	} else if err != nil {
+		return nil, "", "", "", errors.Trace(err)
+	}
+
+	return credential, credentialName, detectedCredentialName, regionName, nil
+}
+
+func (c *bootstrapCommand) getBootstrapConfigs(
+	ctx *cmd.Context, cloud *jujucloud.Cloud, provider environs.EnvironProvider) (
+	map[string]interface{}, controller.Config, bootstrap.Config, map[string]interface{}, map[string]interface{}, error) {
+
+	controllerModelUUID, err := utils.NewUUID()
+	if err != nil {
+		return nil, nil, bootstrap.Config{}, nil, nil, errors.Trace(err)
+	}
+	controllerUUID, err := utils.NewUUID()
+	if err != nil {
+		return nil, nil, bootstrap.Config{}, nil, nil, errors.Trace(err)
+	}
+
+	// Create a model config, and split out any controller
+	// and bootstrap config attributes.
+	combinedConfig := map[string]interface{}{
+		"type":         cloud.Type,
+		"name":         bootstrap.ControllerModelName,
+		config.UUIDKey: controllerModelUUID.String(),
+	}
+
+	userConfigAttrs, err := c.config.ReadAttrs(ctx)
+	if err != nil {
+		return nil, nil, bootstrap.Config{}, nil, nil, errors.Trace(err)
+	}
+	modelDefaultConfigAttrs, err := c.modelDefaults.ReadAttrs(ctx)
+	if err != nil {
+		return nil, nil, bootstrap.Config{}, nil, nil, errors.Trace(err)
+	}
+	// The provider may define some custom attributes specific
+	// to the provider. These will be added to the model config.
+	providerAttrs := make(map[string]interface{})
+	if ps, ok := provider.(config.ConfigSchemaSource); ok {
+		for attr := range ps.ConfigSchema() {
+			// Start with the model defaults, and if also specified
+			// in the user config attrs, they override the model default.
+			if v, ok := modelDefaultConfigAttrs[attr]; ok {
+				providerAttrs[attr] = v
+			}
+			if v, ok := userConfigAttrs[attr]; ok {
+				providerAttrs[attr] = v
+			}
+		}
+		fields := schema.FieldMap(ps.ConfigSchema(), ps.ConfigDefaults())
+		if coercedAttrs, err := fields.Coerce(providerAttrs, nil); err != nil {
+			return nil, nil, bootstrap.Config{}, nil, nil, errors.Annotatef(err, "invalid attribute value(s) for %v cloud", cloud.Type)
+		} else {
+			providerAttrs = coercedAttrs.(map[string]interface{})
+		}
+	}
+
+	bootstrapConfigAttrs := make(map[string]interface{})
+	controllerConfigAttrs := make(map[string]interface{})
+	// Based on the attribute names in clouds.yaml, create
+	// a map of shared config for all models on this cloud.
+	inheritedControllerAttrs := make(map[string]interface{})
+	for k, v := range cloud.Config {
+		switch {
+		case bootstrap.IsBootstrapAttribute(k):
+			bootstrapConfigAttrs[k] = v
+			continue
+		case controller.ControllerOnlyAttribute(k):
+			controllerConfigAttrs[k] = v
+			continue
+		}
+		inheritedControllerAttrs[k] = v
+	}
+	// Model defaults are added to the inherited controller attributes.
+	// Any command line set model defaults override what is in the cloud config.
+	for k, v := range modelDefaultConfigAttrs {
+		switch {
+		case bootstrap.IsBootstrapAttribute(k):
+			return nil, nil, bootstrap.Config{}, nil, nil, errors.Errorf("%q is a bootstrap only attribute, and cannot be set as a model-default", k)
+		case controller.ControllerOnlyAttribute(k):
+			return nil, nil, bootstrap.Config{}, nil, nil, errors.Errorf("%q is a controller attribute, and cannot be set as a model-default", k)
+		}
+		inheritedControllerAttrs[k] = v
+	}
+
+	// Start with the model defaults, then add in user config attributes.
+	for k, v := range modelDefaultConfigAttrs {
+		combinedConfig[k] = v
+	}
+
+	// Provider specific attributes are either already specified in model
+	// config (but may have been coerced), or were not present. Either way,
+	// copy them in.
+	logger.Debugf("provider attrs: %v", providerAttrs)
+	for k, v := range providerAttrs {
+		combinedConfig[k] = v
+	}
+
+	for k, v := range inheritedControllerAttrs {
+		combinedConfig[k] = v
+	}
+
+	for k, v := range userConfigAttrs {
+		combinedConfig[k] = v
+	}
+
+	// Add in any default attribute values if not already
+	// specified, making the recorded bootstrap config
+	// immutable to changes in Juju.
+	for k, v := range config.ConfigDefaults() {
+		if _, ok := combinedConfig[k]; !ok {
+			combinedConfig[k] = v
+		}
+	}
+
+	bootstrapModelConfig := make(map[string]interface{})
+	for k, v := range combinedConfig {
+		switch {
+		case bootstrap.IsBootstrapAttribute(k):
+			bootstrapConfigAttrs[k] = v
+		case controller.ControllerOnlyAttribute(k):
+			controllerConfigAttrs[k] = v
+		default:
+			bootstrapModelConfig[k] = v
+		}
+	}
+
+	bootstrapConfig, err := bootstrap.NewConfig(bootstrapConfigAttrs)
+	if err != nil {
+		return nil, nil, bootstrap.Config{}, nil, nil, errors.Annotate(err, "constructing bootstrap config")
+	}
+	controllerConfig, err := controller.NewConfig(
+		controllerUUID.String(), bootstrapConfig.CACert, controllerConfigAttrs,
+	)
+	if err != nil {
+		return nil, nil, bootstrap.Config{}, nil, nil, errors.Annotate(err, "constructing controller config")
+	}
+	if controllerConfig.AutocertDNSName() != "" {
+		if _, ok := controllerConfigAttrs[controller.APIPort]; !ok {
+			// The configuration did not explicitly mention the API port,
+			// so default to 443 because it is not usually possible to
+			// obtain autocert certificates without listening on port 443.
+			controllerConfig[controller.APIPort] = 443
+		}
+	}
+
+	if err := common.FinalizeAuthorizedKeys(ctx, bootstrapModelConfig); err != nil {
+		return nil, nil, bootstrap.Config{}, nil, nil, errors.Annotate(err, "finalizing authorized-keys")
+	}
+	logger.Debugf("preparing controller with config: %v", bootstrapModelConfig)
+
+	return bootstrapModelConfig, controllerConfig, bootstrapConfig, inheritedControllerAttrs, userConfigAttrs, nil
+}
+
+func (c *bootstrapCommand) getHostedModelConfig(
+	hostedModelUUID utils.UUID, inheritedControllerAttrs, userConfigAttrs map[string]interface{}, environ environs.Environ) map[string]interface{} {
+
+	hostedModelConfig := map[string]interface{}{
+		"name":         c.hostedModelName,
+		config.UUIDKey: hostedModelUUID.String(),
+	}
+	for k, v := range inheritedControllerAttrs {
+		hostedModelConfig[k] = v
+	}
+
+	// We copy across any user supplied attributes to the hosted model config.
+	// But only if the attributes have not been removed from the controller
+	// model config as part of preparing the controller model.
+	controllerModelConfigAttrs := environ.Config().AllAttrs()
+	for k, v := range userConfigAttrs {
+		if _, ok := controllerModelConfigAttrs[k]; ok {
+			hostedModelConfig[k] = v
+		}
+	}
+	// Ensure that certain config attributes are not included in the hosted
+	// model config. These attributes may be modified during bootstrap; by
+	// removing them from this map, we ensure the modified values are
+	// inherited.
+	delete(hostedModelConfig, config.AuthorizedKeysKey)
+	delete(hostedModelConfig, config.AgentVersionKey)
+
+	return hostedModelConfig
 }
 
 // runInteractive queries the user about bootstrap config interactively at the
