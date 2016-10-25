@@ -395,6 +395,7 @@ func importApplicationV1(source map[string]interface{}) (*application, error) {
 		"leadership-settings": schema.StringMap(schema.Any()),
 		"storage-constraints": schema.StringMap(schema.StringMap(schema.Any())),
 		"metrics-creds":       schema.String(),
+		"resources":           schema.StringMap(schema.Any()),
 		"units":               schema.StringMap(schema.Any()),
 	}
 
@@ -471,6 +472,12 @@ func importApplicationV1(source map[string]interface{}) (*application, error) {
 		return nil, errors.Trace(err)
 	}
 	result.Status_ = status
+
+	resources, err := importResources(valid["resources"].(map[string]interface{}))
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	result.setResources(resources)
 
 	units, err := importUnits(valid["units"].(map[string]interface{}))
 	if err != nil {

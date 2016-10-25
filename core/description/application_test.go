@@ -5,6 +5,7 @@ package description
 
 import (
 	jc "github.com/juju/testing/checkers"
+	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/yaml.v2"
@@ -52,6 +53,12 @@ func minimalApplicationMap() map[interface{}]interface{} {
 			"leader": true,
 		},
 		"metrics-creds": "c2Vrcml0", // base64 encoded
+		"resources": map[interface{}]interface{}{
+			"version": 1,
+			"resources": []interface{}{
+				minimalResourceMap(),
+			},
+		},
 		"units": map[interface{}]interface{}{
 			"version": 1,
 			"units": []interface{}{
@@ -71,6 +78,7 @@ func minimalApplication(args ...ApplicationArgs) *application {
 	u.SetAgentStatus(minimalStatusArgs())
 	u.SetWorkloadStatus(minimalStatusArgs())
 	u.SetTools(minimalAgentToolsArgs())
+	s.setResources([]*resource{minimalResource()})
 	return s
 }
 
@@ -180,6 +188,8 @@ func (s *ApplicationSerializationSuite) exportImport(c *gc.C, application_ *appl
 func (s *ApplicationSerializationSuite) TestParsingSerializedData(c *gc.C) {
 	svc := minimalApplication()
 	application := s.exportImport(c, svc)
+	pretty.Println(application)
+	pretty.Println(svc)
 	c.Assert(application, jc.DeepEquals, svc)
 }
 
