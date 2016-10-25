@@ -717,26 +717,26 @@ func (e *exporter) setResources(exApp description.Application, resources resourc
 		})
 
 		exResource.AddRevision(description.ResourceRevisionArgs{
-			Revision:     resource.Revision,
-			Type:         resource.Type.String(),
-			Path:         resource.Path,
-			Description:  resource.Description,
-			Origin:       resource.Origin.String(),
-			Fingerprint:  resource.Fingerprint.Hex(),
-			Size:         resource.Size,
-			AddTimestamp: resource.Timestamp,
-			Username:     resource.Username,
+			Revision:       resource.Revision,
+			Type:           resource.Type.String(),
+			Path:           resource.Path,
+			Description:    resource.Description,
+			Origin:         resource.Origin.String(),
+			FingerprintHex: resource.Fingerprint.Hex(),
+			Size:           resource.Size,
+			AddTimestamp:   resource.Timestamp,
+			Username:       resource.Username,
 		})
 
 		if csResource.Revision != resource.Revision {
 			exResource.AddRevision(description.ResourceRevisionArgs{
-				Revision:    csResource.Revision,
-				Type:        csResource.Type.String(),
-				Path:        csResource.Path,
-				Description: csResource.Description,
-				Origin:      csResource.Origin.String(),
-				Size:        csResource.Size,
-				Fingerprint: csResource.Fingerprint.Hex(),
+				Revision:       csResource.Revision,
+				Type:           csResource.Type.String(),
+				Path:           csResource.Path,
+				Description:    csResource.Description,
+				Origin:         csResource.Origin.String(),
+				Size:           csResource.Size,
+				FingerprintHex: csResource.Fingerprint.Hex(),
 			})
 		}
 	}

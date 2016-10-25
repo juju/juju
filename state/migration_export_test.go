@@ -1060,7 +1060,7 @@ func (s *MigrationExportSuite) TestResources(c *gc.C) {
 	c.Check(exRev2.Path(), gc.Equals, res2.Path)
 	c.Check(exRev2.Description(), gc.Equals, res2.Description)
 	c.Check(exRev2.Origin(), gc.Equals, res2.Origin.String())
-	c.Check(exRev2.Fingerprint(), gc.Equals, res2.Fingerprint.Hex())
+	c.Check(exRev2.FingerprintHex(), gc.Equals, res2.Fingerprint.Hex())
 	c.Check(exRev2.Size(), gc.Equals, res2.Size)
 	c.Check(exRev2.AddTimestamp().UTC(), gc.Equals, truncateDBTime(res2.Timestamp))
 	c.Check(exRev2.Username(), gc.Equals, res2.Username)
@@ -1072,7 +1072,7 @@ func (s *MigrationExportSuite) TestResources(c *gc.C) {
 	c.Check(exRev3.Path(), gc.Equals, res3.Path)
 	c.Check(exRev3.Description(), gc.Equals, res3.Description)
 	c.Check(exRev3.Origin(), gc.Equals, res3.Origin.String())
-	c.Check(exRev3.Fingerprint(), gc.Equals, res3.Fingerprint.Hex())
+	c.Check(exRev3.FingerprintHex(), gc.Equals, res3.Fingerprint.Hex())
 	c.Check(exRev3.Size(), gc.Equals, res3.Size)
 	// These shouldn't be set for charmstore only revisions.
 	c.Check(exRev3.AddTimestamp(), gc.Equals, time.Time{})

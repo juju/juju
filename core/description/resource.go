@@ -27,7 +27,7 @@ type ResourceRevision interface {
 	Path() string
 	Description() string
 	Origin() string
-	Fingerprint() string
+	FingerprintHex() string
 	Size() int64
 	AddTimestamp() time.Time
 	Username() string
@@ -80,15 +80,15 @@ func (r *resource) CharmStoreRevision() int {
 // ResourceArgs is an argument struct used to add a new internal
 // resource revision to a Resource.
 type ResourceRevisionArgs struct {
-	Revision     int
-	Type         string
-	Path         string
-	Description  string
-	Origin       string
-	Fingerprint  string
-	Size         int64
-	AddTimestamp time.Time
-	Username     string
+	Revision       int
+	Type           string
+	Path           string
+	Description    string
+	Origin         string
+	FingerprintHex string
+	Size           int64
+	AddTimestamp   time.Time
+	Username       string
 }
 
 // AddRevision implements Resource.
@@ -99,15 +99,15 @@ func (r *resource) AddRevision(args ResourceRevisionArgs) {
 		addTs = &t
 	}
 	rev := &resourceRevision{
-		Revision_:     args.Revision,
-		Type_:         args.Type,
-		Path_:         args.Path,
-		Description_:  args.Description,
-		Origin_:       args.Origin,
-		Fingerprint_:  args.Fingerprint,
-		Size_:         args.Size,
-		AddTimestamp_: addTs,
-		Username_:     args.Username,
+		Revision_:       args.Revision,
+		Type_:           args.Type,
+		Path_:           args.Path,
+		Description_:    args.Description,
+		Origin_:         args.Origin,
+		FingerprintHex_: args.FingerprintHex,
+		Size_:           args.Size,
+		AddTimestamp_:   addTs,
+		Username_:       args.Username,
 	}
 	r.Revisions_ = append(r.Revisions_, rev)
 }
@@ -144,15 +144,15 @@ func (r *resource) Validate() error {
 }
 
 type resourceRevision struct {
-	Revision_     int        `yaml:"revision"`
-	Type_         string     `yaml:"type"`
-	Path_         string     `yaml:"path"`
-	Description_  string     `yaml:"description"`
-	Origin_       string     `yaml:"origin"`
-	Fingerprint_  string     `yaml:"fingerprint"` // XXX include Hex in the name?
-	Size_         int64      `yaml:"size"`
-	AddTimestamp_ *time.Time `yaml:"add-timestamp,omitempty"`
-	Username_     string     `yaml:"username,omitempty"`
+	Revision_       int        `yaml:"revision"`
+	Type_           string     `yaml:"type"`
+	Path_           string     `yaml:"path"`
+	Description_    string     `yaml:"description"`
+	Origin_         string     `yaml:"origin"`
+	FingerprintHex_ string     `yaml:"fingerprint"`
+	Size_           int64      `yaml:"size"`
+	AddTimestamp_   *time.Time `yaml:"add-timestamp,omitempty"`
+	Username_       string     `yaml:"username,omitempty"`
 }
 
 // Revision implements ResourceRevision.
@@ -180,9 +180,9 @@ func (r *resourceRevision) Origin() string {
 	return r.Origin_
 }
 
-// Fingerprint implements ResourceRevision.
-func (r *resourceRevision) Fingerprint() string {
-	return r.Fingerprint_
+// FingerprintHex implements ResourceRevision.
+func (r *resourceRevision) FingerprintHex() string {
+	return r.FingerprintHex_
 }
 
 // Size implements ResourceRevision.
@@ -300,14 +300,14 @@ func importResourceRevisionV1(source interface{}) (*resourceRevision, error) {
 	valid := coerced.(map[string]interface{})
 
 	rev := &resourceRevision{
-		Revision_:    int(valid["revision"].(int64)),
-		Type_:        valid["type"].(string),
-		Path_:        valid["path"].(string),
-		Description_: valid["description"].(string),
-		Origin_:      valid["origin"].(string),
-		Fingerprint_: valid["fingerprint"].(string),
-		Size_:        valid["size"].(int64),
-		Username_:    valid["username"].(string),
+		Revision_:       int(valid["revision"].(int64)),
+		Type_:           valid["type"].(string),
+		Path_:           valid["path"].(string),
+		Description_:    valid["description"].(string),
+		Origin_:         valid["origin"].(string),
+		FingerprintHex_: valid["fingerprint"].(string),
+		Size_:           valid["size"].(int64),
+		Username_:       valid["username"].(string),
 	}
 	addTs := valid["add-timestamp"].(time.Time)
 	if !addTs.IsZero() {
