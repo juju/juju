@@ -34,12 +34,11 @@ class TestRunPerfscaleTest(TestCase):
             deploy_details = gpr.DeployDetails('test', dict(), timing)
             noop_test = Mock(return_value=deploy_details)
 
-            with patch.object(gpr, 'ensure_complete_system', autospec=True):
-                with patch.object(gpr, 'dump_performance_metrics_logs',
-                                  autospec=True):
-                    with patch.object(gpr, 'generate_reports', autospec=True):
-                        gpr.run_perfscale_test(noop_test, bs_manager,
-                                               get_default_args())
+            with patch.object(gpr, 'dump_performance_metrics_logs',
+                              autospec=True):
+                with patch.object(gpr, 'generate_reports', autospec=True):
+                    gpr.run_perfscale_test(noop_test, bs_manager,
+                                           get_default_args())
 
             noop_test.assert_called_once_with(client, get_default_args())
 

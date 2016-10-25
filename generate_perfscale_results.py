@@ -109,8 +109,6 @@ def run_perfscale_test(target_test, bs_manager, args):
     sys.setdefaultencoding('utf-8')
     # XXX
 
-    ensure_complete_system()
-
     bs_start = datetime.utcnow()
     with bs_manager.booted_context(args.upload_tools):
         client = bs_manager.client
@@ -169,23 +167,6 @@ def _determine_graph_period(seconds):
     if seconds >= (MINUTE * 60 * 2):
         return perf_graphing.GraphPeriod.day
     return perf_graphing.GraphPeriod.hours
-
-
-def ensure_complete_system():
-    """Ensure all tools are installed and ready.
-
-    Because this is a long running test double check that all reqs. are
-    installed, error now if not an not in 12 hours time.
-    """
-    try:
-        subprocess.check_call(['rrdtool', '--help'])
-    except Exception as e:
-        err_message = "Unable to find rrdtool, {}." \
-                      "ensure it's installed (apt-get install rrdtool)".format(
-                          str(e)
-                      )
-        log.error(err_message)
-        raise RuntimeError(err_message)
 
 
 def dump_performance_metrics_logs(log_dir, admin_client):
