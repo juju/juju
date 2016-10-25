@@ -56,9 +56,14 @@ func (s *dblogSuite) runMachineAgentTest(c *gc.C) bool {
 	s.PrimeAgent(c, m.Tag(), password)
 	agentConf := agentcmd.NewAgentConf(s.DataDir())
 	agentConf.ReadConfig(m.Tag().String())
-	logsCh, err := logsender.InstallBufferedLogWriter(1000)
+	logger, err := logsender.InstallBufferedLogWriter(1000)
 	c.Assert(err, jc.ErrorIsNil)
-	machineAgentFactory := agentcmd.MachineAgentFactoryFn(agentConf, logsCh, c.MkDir())
+	machineAgentFactory := agentcmd.MachineAgentFactoryFn(
+		agentConf,
+		logger,
+		agentcmd.DefaultIntrospectionSocketName,
+		c.MkDir(),
+	)
 	a := machineAgentFactory(m.Id())
 
 	// Ensure there's no logs to begin with.
@@ -75,9 +80,9 @@ func (s *dblogSuite) runUnitAgentTest(c *gc.C) bool {
 	// Create a unit and an agent for it.
 	u, password := s.Factory.MakeUnitReturningPassword(c, nil)
 	s.PrimeAgent(c, u.Tag(), password)
-	logsCh, err := logsender.InstallBufferedLogWriter(1000)
+	logger, err := logsender.InstallBufferedLogWriter(1000)
 	c.Assert(err, jc.ErrorIsNil)
-	a := agentcmd.NewUnitAgent(nil, logsCh)
+	a := agentcmd.NewUnitAgent(nil, logger)
 	s.InitAgent(c, a, "--unit-name", u.Name(), "--log-to-stderr=true")
 
 	// Ensure there's no logs to begin with.

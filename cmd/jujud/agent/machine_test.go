@@ -100,9 +100,10 @@ func (s *MachineSuite) TestParseUnknown(c *gc.C) {
 func (s *MachineSuite) TestParseSuccess(c *gc.C) {
 	create := func() (cmd.Command, AgentConf) {
 		agentConf := agentConf{dataDir: s.DataDir()}
+		logger := s.newBufferedLogWriter()
 		a := NewMachineAgentCmd(
 			nil,
-			NewTestMachineAgentFactory(&agentConf, nil, c.MkDir()),
+			NewTestMachineAgentFactory(&agentConf, logger, c.MkDir()),
 			&agentConf,
 			&agentConf,
 		)
@@ -124,10 +125,11 @@ func (s *MachineSuite) TestRunInvalidMachineId(c *gc.C) {
 func (s *MachineSuite) TestUseLumberjack(c *gc.C) {
 	ctx := cmdtesting.Context(c)
 	agentConf := FakeAgentConfig{}
+	logger := s.newBufferedLogWriter()
 
 	a := NewMachineAgentCmd(
 		ctx,
-		NewTestMachineAgentFactory(&agentConf, nil, c.MkDir()),
+		NewTestMachineAgentFactory(&agentConf, logger, c.MkDir()),
 		agentConf,
 		agentConf,
 	)
@@ -148,10 +150,11 @@ func (s *MachineSuite) TestUseLumberjack(c *gc.C) {
 func (s *MachineSuite) TestDontUseLumberjack(c *gc.C) {
 	ctx := cmdtesting.Context(c)
 	agentConf := FakeAgentConfig{}
+	logger := s.newBufferedLogWriter()
 
 	a := NewMachineAgentCmd(
 		ctx,
-		NewTestMachineAgentFactory(&agentConf, nil, c.MkDir()),
+		NewTestMachineAgentFactory(&agentConf, logger, c.MkDir()),
 		agentConf,
 		agentConf,
 	)

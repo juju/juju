@@ -32,6 +32,7 @@ import (
 	"github.com/juju/utils/symlink"
 	"github.com/juju/utils/voyeur"
 	"github.com/juju/version"
+	"github.com/prometheus/client_golang/prometheus"
 	"gopkg.in/juju/charmrepo.v2-unstable"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
@@ -45,6 +46,7 @@ import (
 	apiprovisioner "github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/observer"
+	"github.com/juju/juju/apiserver/observer/metricobserver"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/audit"
 	"github.com/juju/juju/cert"
@@ -80,6 +82,7 @@ import (
 	"github.com/juju/juju/worker/imagemetadataworker"
 	"github.com/juju/juju/worker/introspection"
 	"github.com/juju/juju/worker/logsender"
+	"github.com/juju/juju/worker/logsender/logsendermetrics"
 	"github.com/juju/juju/worker/migrationmaster"
 	"github.com/juju/juju/worker/modelworkermanager"
 	"github.com/juju/juju/worker/mongoupgrader"
@@ -245,16 +248,18 @@ func (a *machineAgentCmd) Info() *cmd.Info {
 // MachineAgent given a machineId.
 func MachineAgentFactoryFn(
 	agentConfWriter AgentConfigWriter,
-	bufferedLogs logsender.LogRecordCh,
+	bufferedLogger *logsender.BufferedLogWriter,
+	newIntrospectionSocketName func(names.Tag) string,
 	rootDir string,
 ) func(string) *MachineAgent {
 	return func(machineId string) *MachineAgent {
 		return NewMachineAgent(
 			machineId,
 			agentConfWriter,
-			bufferedLogs,
+			bufferedLogger,
 			worker.NewRunner(cmdutil.IsFatal, cmdutil.MoreImportant, worker.RestartDelay),
 			looputil.NewLoopDeviceManager(),
+			newIntrospectionSocketName,
 			rootDir,
 		)
 	}
@@ -264,22 +269,29 @@ func MachineAgentFactoryFn(
 func NewMachineAgent(
 	machineId string,
 	agentConfWriter AgentConfigWriter,
-	bufferedLogs logsender.LogRecordCh,
+	bufferedLogger *logsender.BufferedLogWriter,
 	runner worker.Runner,
 	loopDeviceManager looputil.LoopDeviceManager,
+	newIntrospectionSocketName func(names.Tag) string,
 	rootDir string,
 ) *MachineAgent {
-	return &MachineAgent{
+	a := &MachineAgent{
 		machineId:                   machineId,
 		AgentConfigWriter:           agentConfWriter,
 		configChangedVal:            voyeur.NewValue(true),
-		bufferedLogs:                bufferedLogs,
+		bufferedLogger:              bufferedLogger,
 		workersStarted:              make(chan struct{}),
 		runner:                      runner,
 		rootDir:                     rootDir,
 		initialUpgradeCheckComplete: gate.NewLock(),
 		loopDeviceManager:           loopDeviceManager,
+		newIntrospectionSocketName:  newIntrospectionSocketName,
+		prometheusRegistry:          newPrometheusRegistry(),
 	}
+	a.prometheusRegistry.MustRegister(
+		logsendermetrics.BufferedLogWriterMetrics{bufferedLogger},
+	)
+	return a
 }
 
 // MachineAgent is responsible for tying together all functionality
@@ -291,7 +303,7 @@ type MachineAgent struct {
 	machineId        string
 	runner           worker.Runner
 	rootDir          string
-	bufferedLogs     logsender.LogRecordCh
+	bufferedLogger   *logsender.BufferedLogWriter
 	configChangedVal *voyeur.Value
 	upgradeComplete  gate.Lock
 	workersStarted   chan struct{}
@@ -310,7 +322,9 @@ type MachineAgent struct {
 	mongoInitMutex   sync.Mutex
 	mongoInitialized bool
 
-	loopDeviceManager looputil.LoopDeviceManager
+	loopDeviceManager          looputil.LoopDeviceManager
+	newIntrospectionSocketName func(names.Tag) string
+	prometheusRegistry         *prometheus.Registry
 }
 
 // IsRestorePreparing returns bool representing if we are in restore mode
@@ -474,10 +488,11 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 			StartStateWorkers:    a.startStateWorkers,
 			StartAPIWorkers:      a.startAPIWorkers,
 			PreUpgradeSteps:      upgrades.PreUpgradeSteps,
-			LogSource:            a.bufferedLogs,
+			LogSource:            a.bufferedLogger.Logs(),
 			NewDeployContext:     newDeployContext,
 			Clock:                clock.WallClock,
 			ValidateMigration:    a.validateMigration,
+			PrometheusRegisterer: a.prometheusRegistry,
 		})
 		if err := dependency.Install(engine, manifolds); err != nil {
 			if err := worker.Stop(engine); err != nil {
@@ -486,9 +501,11 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 			return nil, err
 		}
 		if err := startIntrospection(introspectionConfig{
-			Agent:      a,
-			Engine:     engine,
-			WorkerFunc: introspection.NewWorker,
+			Agent:              a,
+			Engine:             engine,
+			NewSocketName:      a.newIntrospectionSocketName,
+			PrometheusGatherer: a.prometheusRegistry,
+			WorkerFunc:         introspection.NewWorker,
 		}); err != nil {
 			// If the introspection worker failed to start, we just log error
 			// but continue. It is very unlikely to happen in the real world
@@ -1098,6 +1115,19 @@ func (a *MachineAgent) newAPIserverWorker(st *state.State, certChanged chan para
 		return nil, errors.Annotate(err, "cannot fetch the controller config")
 	}
 
+	newObserver, err := newObserverFn(
+		controllerConfig,
+		clock.WallClock,
+		jujuversion.Current,
+		agentConfig.Model().Id(),
+		newAuditEntrySink(st, logDir),
+		auditErrorHandler,
+		a.prometheusRegistry,
+	)
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot create RPC observer factory")
+	}
+
 	server, err := apiserver.NewServer(st, listener, apiserver.ServerConfig{
 		Clock:            clock.WallClock,
 		Cert:             cert,
@@ -1110,14 +1140,7 @@ func (a *MachineAgent) newAPIserverWorker(st *state.State, certChanged chan para
 		AutocertURL:      controllerConfig.AutocertURL(),
 		AutocertDNSName:  controllerConfig.AutocertDNSName(),
 		AllowModelAccess: controllerConfig.AllowModelAccess(),
-		NewObserver: newObserverFn(
-			controllerConfig,
-			clock.WallClock,
-			jujuversion.Current,
-			agentConfig.Model().Id(),
-			newAuditEntrySink(st, logDir),
-			auditErrorHandler,
-		),
+		NewObserver:      newObserver,
 	})
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot start api server worker")
@@ -1157,7 +1180,8 @@ func newObserverFn(
 	modelUUID string,
 	persistAuditEntry audit.AuditEntrySinkFn,
 	auditErrorHandler observer.ErrorHandler,
-) observer.ObserverFactory {
+	prometheusRegisterer prometheus.Registerer,
+) (observer.ObserverFactory, error) {
 
 	var observerFactories []observer.ObserverFactory
 
@@ -1183,7 +1207,17 @@ func newObserverFn(
 		})
 	}
 
-	return observer.ObserverFactoryMultiplexer(observerFactories...)
+	// Metrics observer.
+	metricObserver, err := metricobserver.NewObserverFactory(metricobserver.Config{
+		Clock:                clock,
+		PrometheusRegisterer: prometheusRegisterer,
+	})
+	if err != nil {
+		return nil, errors.Annotate(err, "creating metric observer factory")
+	}
+	observerFactories = append(observerFactories, metricObserver)
+
+	return observer.ObserverFactoryMultiplexer(observerFactories...), nil
 
 }
 

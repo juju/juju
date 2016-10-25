@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/clock"
 	"github.com/juju/utils/voyeur"
+	"github.com/prometheus/client_golang/prometheus"
 
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -58,6 +59,10 @@ type ManifoldsConfig struct {
 	// migration process to check that the agent will be ok when
 	// connected to the new target controller.
 	ValidateMigration func(base.APICaller) error
+
+	// PrometheusRegisterer is a prometheus.Registerer that may be used
+	// by workers to register Prometheus metric collectors.
+	PrometheusRegisterer prometheus.Registerer
 }
 
 // Manifolds returns a set of co-configured manifolds covering the various

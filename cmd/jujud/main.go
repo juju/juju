@@ -132,7 +132,7 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 	// Assuming an average of 200 bytes per log message, use up to
 	// 200MB for the log buffer.
 	defer logger.Debugf("jujud complete, code %d, err %v", code, err)
-	logCh, err := logsender.InstallBufferedLogWriter(1048576)
+	bufferedLogger, err := logsender.InstallBufferedLogWriter(1048576)
 	if err != nil {
 		return 1, errors.Trace(err)
 	}
@@ -152,10 +152,15 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 	// MachineAgent type has called out the separate concerns; the
 	// AgentConf should be split up to follow suit.
 	agentConf := agentcmd.NewAgentConf("")
-	machineAgentFactory := agentcmd.MachineAgentFactoryFn(agentConf, logCh, "")
+	machineAgentFactory := agentcmd.MachineAgentFactoryFn(
+		agentConf,
+		bufferedLogger,
+		agentcmd.DefaultIntrospectionSocketName,
+		"",
+	)
 	jujud.Register(agentcmd.NewMachineAgentCmd(ctx, machineAgentFactory, agentConf, agentConf))
 
-	jujud.Register(agentcmd.NewUnitAgent(ctx, logCh))
+	jujud.Register(agentcmd.NewUnitAgent(ctx, bufferedLogger))
 
 	jujud.Register(NewUpgradeMongoCommand())
 

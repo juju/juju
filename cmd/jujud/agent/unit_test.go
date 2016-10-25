@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
+	"github.com/juju/juju/worker/logsender"
 	"github.com/juju/juju/worker/upgrader"
 )
 
@@ -77,15 +78,21 @@ func (s *UnitSuite) primeAgent(c *gc.C) (*state.Machine, *state.Unit, agent.Conf
 }
 
 func (s *UnitSuite) newAgent(c *gc.C, unit *state.Unit) *UnitAgent {
-	a := NewUnitAgent(nil, nil)
+	a := NewUnitAgent(nil, s.newBufferedLogWriter())
 	s.InitAgent(c, a, "--unit-name", unit.Name(), "--log-to-stderr=true")
 	err := a.ReadConfig(unit.Tag().String())
 	c.Assert(err, jc.ErrorIsNil)
 	return a
 }
 
+func (s *UnitSuite) newBufferedLogWriter() *logsender.BufferedLogWriter {
+	logger := logsender.NewBufferedLogWriter(1024)
+	s.AddCleanup(func(*gc.C) { logger.Close() })
+	return logger
+}
+
 func (s *UnitSuite) TestParseSuccess(c *gc.C) {
-	a := NewUnitAgent(nil, nil)
+	a := NewUnitAgent(nil, s.newBufferedLogWriter())
 	err := coretesting.InitCommand(a, []string{
 		"--data-dir", "jd",
 		"--unit-name", "w0rd-pre55/1",
@@ -98,7 +105,7 @@ func (s *UnitSuite) TestParseSuccess(c *gc.C) {
 }
 
 func (s *UnitSuite) TestParseMissing(c *gc.C) {
-	uc := NewUnitAgent(nil, nil)
+	uc := NewUnitAgent(nil, s.newBufferedLogWriter())
 	err := coretesting.InitCommand(uc, []string{
 		"--data-dir", "jc",
 	})
@@ -114,13 +121,15 @@ func (s *UnitSuite) TestParseNonsense(c *gc.C) {
 		{"--unit-name", "wordpress/wild/9"},
 		{"--unit-name", "20/20"},
 	} {
-		err := coretesting.InitCommand(NewUnitAgent(nil, nil), append(args, "--data-dir", "jc"))
+		a := NewUnitAgent(nil, s.newBufferedLogWriter())
+		err := coretesting.InitCommand(a, append(args, "--data-dir", "jc"))
 		c.Check(err, gc.ErrorMatches, `--unit-name option expects "<service>/<n>" argument`)
 	}
 }
 
 func (s *UnitSuite) TestParseUnknown(c *gc.C) {
-	err := coretesting.InitCommand(NewUnitAgent(nil, nil), []string{
+	a := NewUnitAgent(nil, s.newBufferedLogWriter())
+	err := coretesting.InitCommand(a, []string{
 		"--unit-name", "wordpress/1",
 		"thundering typhoons",
 	})
@@ -403,7 +412,7 @@ func (s *UnitSuite) TestWorkers(c *gc.C) {
 
 	_, unit, _, _ := s.primeAgent(c)
 	ctx := cmdtesting.Context(c)
-	a := NewUnitAgent(ctx, nil)
+	a := NewUnitAgent(ctx, s.newBufferedLogWriter())
 	s.InitAgent(c, a, "--unit-name", unit.Name())
 
 	go func() { c.Check(a.Run(nil), gc.IsNil) }()

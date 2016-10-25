@@ -32,7 +32,7 @@ var metricLabelNames = []string{
 	errorCodeLabel,
 }
 
-// Config contains the configuration for a Observer.
+// Config contains the configuration for an Observer.
 type Config struct {
 	// Clock is the clock to use for all time-related operations.
 	Clock clock.Clock
