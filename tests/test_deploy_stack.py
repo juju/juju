@@ -1586,17 +1586,13 @@ class TestBootstrapManager(FakeHomeTestCase):
             'foobar', client, tear_down_client,
             None, [], None, None, None, None, client.env.juju_home, False,
             False, False)
-
-        def check_home(foo, bar, try_jes):
-            self.assertEqual(client.env.juju_home,
-                             tear_down_client.env.juju_home)
-
         with self.assertRaisesRegexp(AssertionError,
                                      'Tear down client needs same env'):
-            with patch('deploy_stack.tear_down', autospec=True,
-                       side_effect=check_home):
+            with patch.object(client, 'destroy_controller',
+                              autospec=True) as destroy_mock:
                 bs_manager.tear_down()
         self.assertEqual('barfoo', tear_down_client.env.juju_home)
+        self.assertIsFalse(destroy_mock.called)
 
     def test_dump_all_no_jes_one_model(self):
         client = fake_juju_client()
