@@ -44,7 +44,6 @@ from jujupy import (
     jes_home_path,
     NoProvider,
     SimpleEnvironment,
-    tear_down,
     temp_bootstrap_env,
 )
 from remote import (
@@ -655,13 +654,6 @@ class BootstrapManager:
             # Dump information for error.
             self.tear_down_client.kill_controller()
             raise error
-#       if self.tear_down_client == self.client:
-#           jes_enabled = self.jes_enabled
-#       else:
-#           jes_enabled = self.tear_down_client.is_jes_enabled()
-#       if self.tear_down_client.env is not self.client.env:
-#           raise AssertionError('Tear down client needs same env!')
-#       tear_down(self.tear_down_client, jes_enabled, try_jes=try_jes)
 
     def _log_and_wrap_exception(self, exc):
         logging.exception(exc)
