@@ -42,11 +42,9 @@ import json, sys
 sys.stderr.close()
 j = json.load(sys.stdin)
 all_units = []
-try:
-    for k, v in j.get("applications", {}).items():
-        all_units.extend(v.get("units", {}).keys())
-    print ("\n".join([unit + trail for unit in all_units]))
-except: pass
+for k, v in j.get("applications", {}).items():
+    all_units.extend(v.get("units", {}).keys())
+print ("\n".join([unit + trail for unit in all_units]))
 '   < ${cache_fname}
 }
 
@@ -58,9 +56,7 @@ _juju_2_0_applications_from_status() {
 import json, sys
 sys.stderr.close()
 j = json.load(sys.stdin)
-try:
-    print ("\n".join(j.get("applications", {}).keys()))
-except: pass
+print ("\n".join(j.get("applications", {}).keys()))
 '   < ${cache_fname}
 }
 

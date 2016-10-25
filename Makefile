@@ -99,8 +99,8 @@ endif
 # Install bash_completion
 install-etc:
 	@echo Installing bash completion
-	@sudo install -o root -g root -m 644 etc/bash_completion.d/juju-2.0 /etc/bash_completion.d
-	@sudo install -o root -g root -m 644 etc/bash_completion.d/juju-version /etc/bash_completion.d
+	@sudo install -o root -g root -m 644 etc/bash_completion.d/juju-2.0 /usr/share/bash-completion/completions
+	@sudo install -o root -g root -m 644 etc/bash_completion.d/juju-version /usr/share/bash-completion/completions
 
 setup-lxd:
 ifeq ($(shell ifconfig lxdbr0 2>&1 | grep -q "inet addr" && echo true),true)
