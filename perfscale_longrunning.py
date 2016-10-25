@@ -73,7 +73,6 @@ def action_create(client, series='trusty'):
 
 def action_busy(client, applications):
     start = datetime.utcnow()
-    client.get_status()
 
     for app in applications:
         client.juju('add-unit', (app, '-n', '1'))
@@ -117,7 +116,7 @@ def action_rest(rest_length=Rest.short):
 def parse_args(argv):
     """Parse all arguments."""
     parser = argparse.ArgumentParser(
-        description="Perfscale bundle deployment test.")
+        description="Perfscale longrunning test.")
     add_basic_testing_arguments(parser)
     parser.add_argument(
         '--run-length',
