@@ -600,20 +600,15 @@ func checkConfigs(
 	ctx *cmd.Context, cloud *cloud.Cloud, provider environs.EnvironProvider,
 	expect map[string]map[string]interface{}) {
 
-	bootstrapModelConfig,
-		controllerConfig,
-		_,
-		inheritedControllerAttrs,
-		userConfigAttrs,
-		err := bootstrapCmd.getBootstrapConfigs(ctx, cloud, provider)
+	configs, err := bootstrapCmd.bootstrapConfigs(ctx, cloud, provider)
 
 	c.Assert(err, jc.ErrorIsNil)
 
-	checkConfigEntryMatches(c, bootstrapModelConfig, key, "bootstrapModelConfig", expect)
-	checkConfigEntryMatches(c, inheritedControllerAttrs, key, "inheritedControllerAttrs", expect)
-	checkConfigEntryMatches(c, userConfigAttrs, key, "userConfigAttrs", expect)
+	checkConfigEntryMatches(c, configs.bootstrapModel, key, "bootstrapModelConfig", expect)
+	checkConfigEntryMatches(c, configs.inheritedControllerAttrs, key, "inheritedControllerAttrs", expect)
+	checkConfigEntryMatches(c, configs.userConfigAttrs, key, "userConfigAttrs", expect)
 
-	_, ok := controllerConfig[key]
+	_, ok := configs.controller[key]
 	c.Check(ok, jc.IsFalse)
 }
 

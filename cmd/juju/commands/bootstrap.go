@@ -316,7 +316,7 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		return err
 	}
 
-	// Start by checking for usage errors, equests for information
+	// Start by checking for usage errors, requests for information
 	finished, err := c.handleCommandLineErrorsAndInfoRequests(ctx)
 	if err != nil {
 		return errors.Trace(err)
@@ -333,7 +333,7 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		// now run normal bootstrap using info gained above.
 	}
 
-	cloud, err := c.getCloud(ctx)
+	cloud, err := c.cloud(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -351,11 +351,7 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		}
 	}
 
-	credential,
-		credentialName,
-		detectedCredentialName,
-		regionName,
-		err := c.getCredentialsAndRegionName(ctx, cloud)
+	credentials, regionName, err := c.credentialsAndRegionName(ctx, cloud)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -372,12 +368,7 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		c.controllerName = defaultControllerName(c.Cloud, region.Name)
 	}
 
-	bootstrapModelConfig,
-		controllerConfig,
-		bootstrapConfig,
-		inheritedControllerAttrs,
-		userConfigAttrs,
-		err := c.getBootstrapConfigs(ctx, cloud, provider)
+	config, err := c.bootstrapConfigs(ctx, cloud, provider)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -415,8 +406,8 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	environ, err := bootstrapPrepare(
 		modelcmd.BootstrapContext(ctx), store,
 		bootstrap.PrepareParams{
-			ModelConfig:      bootstrapModelConfig,
-			ControllerConfig: controllerConfig,
+			ModelConfig:      config.bootstrapModel,
+			ControllerConfig: config.controller,
 			ControllerName:   c.controllerName,
 			Cloud: environs.CloudSpec{
 				Type:             cloud.Type,
@@ -425,10 +416,10 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 				Endpoint:         region.Endpoint,
 				IdentityEndpoint: region.IdentityEndpoint,
 				StorageEndpoint:  region.StorageEndpoint,
-				Credential:       credential,
+				Credential:       credentials.credential,
 			},
-			CredentialName: credentialName,
-			AdminSecret:    bootstrapConfig.AdminSecret,
+			CredentialName: credentials.name,
+			AdminSecret:    config.bootstrap.AdminSecret,
 		},
 	)
 	if err != nil {
@@ -515,7 +506,8 @@ See `[1:] + "`juju kill-controller`" + `.`)
 	}
 	logger.Infof("combined bootstrap constraints: %v", bootstrapConstraints)
 
-	hostedModelConfig := c.getHostedModelConfig(hostedModelUUID, inheritedControllerAttrs, userConfigAttrs, environ)
+	hostedModelConfig := c.hostedModelConfig(
+		hostedModelUUID, config.inheritedControllerAttrs, config.userConfigAttrs, environ)
 
 	// Check whether the Juju GUI must be installed in the controller.
 	// Leaving this value empty means no GUI will be installed.
@@ -524,11 +516,11 @@ See `[1:] + "`juju kill-controller`" + `.`)
 		guiDataSourceBaseURL = common.GUIDataSourceBaseURL()
 	}
 
-	if credentialName == "" {
+	if credentials.name == "" {
 		// credentialName will be empty if the credential was detected.
 		// We must supply a name for the credential in the database,
 		// so choose one.
-		credentialName = detectedCredentialName
+		credentials.name = credentials.detectedName
 	}
 
 	bootstrapFuncs := getBootstrapFuncs()
@@ -545,19 +537,19 @@ See `[1:] + "`juju kill-controller`" + `.`)
 		Cloud:                     *cloud,
 		CloudName:                 c.Cloud,
 		CloudRegion:               region.Name,
-		CloudCredential:           credential,
-		CloudCredentialName:       credentialName,
-		ControllerConfig:          controllerConfig,
-		ControllerInheritedConfig: inheritedControllerAttrs,
+		CloudCredential:           credentials.credential,
+		CloudCredentialName:       credentials.name,
+		ControllerConfig:          config.controller,
+		ControllerInheritedConfig: config.inheritedControllerAttrs,
 		RegionInheritedConfig:     cloud.RegionConfig,
 		HostedModelConfig:         hostedModelConfig,
 		GUIDataSourceBaseURL:      guiDataSourceBaseURL,
-		AdminSecret:               bootstrapConfig.AdminSecret,
-		CAPrivateKey:              bootstrapConfig.CAPrivateKey,
+		AdminSecret:               config.bootstrap.AdminSecret,
+		CAPrivateKey:              config.bootstrap.CAPrivateKey,
 		DialOpts: environs.BootstrapDialOpts{
-			Timeout:        bootstrapConfig.BootstrapTimeout,
-			RetryDelay:     bootstrapConfig.BootstrapRetryDelay,
-			AddressesDelay: bootstrapConfig.BootstrapAddressesDelay,
+			Timeout:        config.bootstrap.BootstrapTimeout,
+			RetryDelay:     config.bootstrap.BootstrapRetryDelay,
+			AddressesDelay: config.bootstrap.BootstrapAddressesDelay,
 		},
 	})
 	if err != nil {
@@ -572,7 +564,7 @@ See `[1:] + "`juju kill-controller`" + `.`)
 	if c.AgentVersion != nil {
 		agentVersion = *c.AgentVersion
 	}
-	err = common.SetBootstrapEndpointAddress(c.ClientStore(), c.controllerName, agentVersion, controllerConfig.APIPort(), environ)
+	err = common.SetBootstrapEndpointAddress(c.ClientStore(), c.controllerName, agentVersion, config.controller.APIPort(), environ)
 	if err != nil {
 		return errors.Annotate(err, "saving bootstrap endpoint address")
 	}
@@ -606,7 +598,7 @@ func (c *bootstrapCommand) handleCommandLineErrorsAndInfoRequests(ctx *cmd.Conte
 	return false, nil
 }
 
-func (c *bootstrapCommand) getCloud(ctx *cmd.Context) (*jujucloud.Cloud, error) {
+func (c *bootstrapCommand) cloud(ctx *cmd.Context) (*jujucloud.Cloud, error) {
 	bootstrapFuncs := getBootstrapFuncs()
 
 	// Get the cloud definition identified by c.Cloud. If c.Cloud does not
@@ -676,14 +668,24 @@ func (c *bootstrapCommand) getCloud(ctx *cmd.Context) (*jujucloud.Cloud, error) 
 	return cloud, nil
 }
 
+type bootstrapCredentials struct {
+	credential   *jujucloud.Credential
+	name         string
+	detectedName string
+}
+
 // Get the credentials and region name.
-func (c *bootstrapCommand) getCredentialsAndRegionName(
-	ctx *cmd.Context, cloud *jujucloud.Cloud) (
-	*jujucloud.Credential, string, string, string, error) {
+func (c *bootstrapCommand) credentialsAndRegionName(
+	ctx *cmd.Context,
+	cloud *jujucloud.Cloud,
+) (
+	creds bootstrapCredentials,
+	regionName string,
+	err error,
+) {
 
 	store := c.ClientStore()
-	var detectedCredentialName string
-	credential, credentialName, regionName, err := modelcmd.GetCredentials(
+	creds.credential, creds.name, regionName, err = modelcmd.GetCredentials(
 		ctx, store, modelcmd.GetCredentialsParams{
 			Cloud:          *cloud,
 			CloudName:      c.Cloud,
@@ -692,7 +694,7 @@ func (c *bootstrapCommand) getCredentialsAndRegionName(
 		},
 	)
 	if errors.Cause(err) == modelcmd.ErrMultipleCredentials {
-		return nil, "", "", "", ambiguousCredentialError
+		return bootstrapCredentials{}, "", ambiguousCredentialError
 	}
 	if errors.IsNotFound(err) && c.CredentialName == "" {
 		// No credential was explicitly specified, and no credential
@@ -701,42 +703,55 @@ func (c *bootstrapCommand) getCredentialsAndRegionName(
 		ctx.Verbosef("no credentials found, checking environment")
 		detected, err := modelcmd.DetectCredential(c.Cloud, cloud.Type)
 		if errors.Cause(err) == modelcmd.ErrMultipleCredentials {
-			return nil, "", "", "", ambiguousDetectedCredentialError
+			return bootstrapCredentials{}, "", ambiguousDetectedCredentialError
 		} else if err != nil {
-			return nil, "", "", "", errors.Trace(err)
+			return bootstrapCredentials{}, "", errors.Trace(err)
 		}
 		// We have one credential so extract it from the map.
 		var oneCredential jujucloud.Credential
-		for detectedCredentialName, oneCredential = range detected.AuthCredentials {
+		for creds.detectedName, oneCredential = range detected.AuthCredentials {
 		}
-		credential = &oneCredential
+		creds.credential = &oneCredential
 		regionName = c.Region
 		if regionName == "" {
 			regionName = detected.DefaultRegion
 		}
 		logger.Debugf(
 			"authenticating with region %q and credential %q (%v)",
-			regionName, detectedCredentialName, credential.Label,
+			regionName, creds.detectedName, creds.credential.Label,
 		)
-		logger.Tracef("credential: %v", credential)
+		logger.Tracef("credential: %v", creds.credential)
 	} else if err != nil {
-		return nil, "", "", "", errors.Trace(err)
+		return bootstrapCredentials{}, "", errors.Trace(err)
 	}
 
-	return credential, credentialName, detectedCredentialName, regionName, nil
+	return creds, regionName, nil
 }
 
-func (c *bootstrapCommand) getBootstrapConfigs(
-	ctx *cmd.Context, cloud *jujucloud.Cloud, provider environs.EnvironProvider) (
-	map[string]interface{}, controller.Config, bootstrap.Config, map[string]interface{}, map[string]interface{}, error) {
+type bootstrapConfigs struct {
+	bootstrapModel           map[string]interface{}
+	controller               controller.Config
+	bootstrap                bootstrap.Config
+	inheritedControllerAttrs map[string]interface{}
+	userConfigAttrs          map[string]interface{}
+}
+
+func (c *bootstrapCommand) bootstrapConfigs(
+	ctx *cmd.Context,
+	cloud *jujucloud.Cloud,
+	provider environs.EnvironProvider,
+) (
+	bootstrapConfigs,
+	error,
+) {
 
 	controllerModelUUID, err := utils.NewUUID()
 	if err != nil {
-		return nil, nil, bootstrap.Config{}, nil, nil, errors.Trace(err)
+		return bootstrapConfigs{}, errors.Trace(err)
 	}
 	controllerUUID, err := utils.NewUUID()
 	if err != nil {
-		return nil, nil, bootstrap.Config{}, nil, nil, errors.Trace(err)
+		return bootstrapConfigs{}, errors.Trace(err)
 	}
 
 	// Create a model config, and split out any controller
@@ -749,11 +764,11 @@ func (c *bootstrapCommand) getBootstrapConfigs(
 
 	userConfigAttrs, err := c.config.ReadAttrs(ctx)
 	if err != nil {
-		return nil, nil, bootstrap.Config{}, nil, nil, errors.Trace(err)
+		return bootstrapConfigs{}, errors.Trace(err)
 	}
 	modelDefaultConfigAttrs, err := c.modelDefaults.ReadAttrs(ctx)
 	if err != nil {
-		return nil, nil, bootstrap.Config{}, nil, nil, errors.Trace(err)
+		return bootstrapConfigs{}, errors.Trace(err)
 	}
 	// The provider may define some custom attributes specific
 	// to the provider. These will be added to the model config.
@@ -771,7 +786,8 @@ func (c *bootstrapCommand) getBootstrapConfigs(
 		}
 		fields := schema.FieldMap(ps.ConfigSchema(), ps.ConfigDefaults())
 		if coercedAttrs, err := fields.Coerce(providerAttrs, nil); err != nil {
-			return nil, nil, bootstrap.Config{}, nil, nil, errors.Annotatef(err, "invalid attribute value(s) for %v cloud", cloud.Type)
+			return bootstrapConfigs{},
+				errors.Annotatef(err, "invalid attribute value(s) for %v cloud", cloud.Type)
 		} else {
 			providerAttrs = coercedAttrs.(map[string]interface{})
 		}
@@ -798,9 +814,11 @@ func (c *bootstrapCommand) getBootstrapConfigs(
 	for k, v := range modelDefaultConfigAttrs {
 		switch {
 		case bootstrap.IsBootstrapAttribute(k):
-			return nil, nil, bootstrap.Config{}, nil, nil, errors.Errorf("%q is a bootstrap only attribute, and cannot be set as a model-default", k)
+			return bootstrapConfigs{},
+				errors.Errorf("%q is a bootstrap only attribute, and cannot be set as a model-default", k)
 		case controller.ControllerOnlyAttribute(k):
-			return nil, nil, bootstrap.Config{}, nil, nil, errors.Errorf("%q is a controller attribute, and cannot be set as a model-default", k)
+			return bootstrapConfigs{},
+				errors.Errorf("%q is a controller attribute, and cannot be set as a model-default", k)
 		}
 		inheritedControllerAttrs[k] = v
 	}
@@ -849,13 +867,13 @@ func (c *bootstrapCommand) getBootstrapConfigs(
 
 	bootstrapConfig, err := bootstrap.NewConfig(bootstrapConfigAttrs)
 	if err != nil {
-		return nil, nil, bootstrap.Config{}, nil, nil, errors.Annotate(err, "constructing bootstrap config")
+		return bootstrapConfigs{}, errors.Annotate(err, "constructing bootstrap config")
 	}
 	controllerConfig, err := controller.NewConfig(
 		controllerUUID.String(), bootstrapConfig.CACert, controllerConfigAttrs,
 	)
 	if err != nil {
-		return nil, nil, bootstrap.Config{}, nil, nil, errors.Annotate(err, "constructing controller config")
+		return bootstrapConfigs{}, errors.Annotate(err, "constructing controller config")
 	}
 	if controllerConfig.AutocertDNSName() != "" {
 		if _, ok := controllerConfigAttrs[controller.APIPort]; !ok {
@@ -867,15 +885,26 @@ func (c *bootstrapCommand) getBootstrapConfigs(
 	}
 
 	if err := common.FinalizeAuthorizedKeys(ctx, bootstrapModelConfig); err != nil {
-		return nil, nil, bootstrap.Config{}, nil, nil, errors.Annotate(err, "finalizing authorized-keys")
+		return bootstrapConfigs{}, errors.Annotate(err, "finalizing authorized-keys")
 	}
 	logger.Debugf("preparing controller with config: %v", bootstrapModelConfig)
 
-	return bootstrapModelConfig, controllerConfig, bootstrapConfig, inheritedControllerAttrs, userConfigAttrs, nil
+	configs := bootstrapConfigs{
+		bootstrapModel:           bootstrapModelConfig,
+		controller:               controllerConfig,
+		bootstrap:                bootstrapConfig,
+		inheritedControllerAttrs: inheritedControllerAttrs,
+		userConfigAttrs:          userConfigAttrs,
+	}
+	return configs, nil
 }
 
-func (c *bootstrapCommand) getHostedModelConfig(
-	hostedModelUUID utils.UUID, inheritedControllerAttrs, userConfigAttrs map[string]interface{}, environ environs.Environ) map[string]interface{} {
+func (c *bootstrapCommand) hostedModelConfig(
+	hostedModelUUID utils.UUID,
+	inheritedControllerAttrs,
+	userConfigAttrs map[string]interface{},
+	environ environs.Environ,
+) map[string]interface{} {
 
 	hostedModelConfig := map[string]interface{}{
 		"name":         c.hostedModelName,
