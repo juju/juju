@@ -171,9 +171,10 @@ def observable_temp_file():
 
 # Fake Juju ?
 @contextmanager
-def client_past_deadline():
+def client_past_deadline(client=None):
     """Create a client patched to be past its deadline."""
-    client = EnvJujuClient(JujuData('local', juju_home=''), None, None)
+    if client is None:
+        client = EnvJujuClient(JujuData('local', juju_home=''), None, None)
     soft_deadline = datetime(2015, 1, 2, 3, 4, 6)
     now = soft_deadline + timedelta(seconds=1)
     client._backend.soft_deadline = soft_deadline
