@@ -641,13 +641,27 @@ class BootstrapManager:
             destroy_job_instances(self.temp_env_name)
 
     def tear_down(self, try_jes=False):
-        if self.tear_down_client == self.client:
-            jes_enabled = self.jes_enabled
-        else:
-            jes_enabled = self.tear_down_client.is_jes_enabled()
+        """Tear down the client using tear_down_client.
+
+        Attempts to use the soft method destroy_controller, if that fails
+        it will use the hard kill_controller.
+
+        :param try_jes: Ignored."""
         if self.tear_down_client.env is not self.client.env:
             raise AssertionError('Tear down client needs same env!')
-        tear_down(self.tear_down_client, jes_enabled, try_jes=try_jes)
+        try:
+            self.tear_down_client.destroy_controller()
+        except subprocess.CalledProcessError as error:
+            # Dump information for error.
+            self.tear_down_client.kill_controller()
+            raise error
+#       if self.tear_down_client == self.client:
+#           jes_enabled = self.jes_enabled
+#       else:
+#           jes_enabled = self.tear_down_client.is_jes_enabled()
+#       if self.tear_down_client.env is not self.client.env:
+#           raise AssertionError('Tear down client needs same env!')
+#       tear_down(self.tear_down_client, jes_enabled, try_jes=try_jes)
 
     def _log_and_wrap_exception(self, exc):
         logging.exception(exc)

@@ -1361,7 +1361,7 @@ class TestBootstrapManager(FakeHomeTestCase):
             self.assertNotEqual(initial_home, client.env.juju_home)
 
         ije_cxt = patch.object(client, 'is_jes_enabled')
-        with patch('deploy_stack.tear_down',
+        with patch('deploy_stack.BootstrapManager.tear_down',
                    side_effect=check_config) as td_mock, ije_cxt:
             with bs_manager.bootstrap_context([]):
                 td_mock.assert_called_once_with(client, False, try_jes=True)
@@ -1378,14 +1378,14 @@ class TestBootstrapManager(FakeHomeTestCase):
             'foobar', client, client, None, [], None, None, None, None,
             client.env.juju_home, False, False, False)
 
-        def check_config(client_, jes_enabled, try_jes=False):
+        def check_config(client_, try_jes=False):
             self.assertEqual(0, client.is_jes_enabled.call_count)
             self.assertTrue(os.path.isfile(jenv_path))
             environments_path = get_environments_path(client.env.juju_home)
             self.assertFalse(os.path.exists(environments_path))
             self.assertEqual(initial_home, client.env.juju_home)
 
-        with patch('deploy_stack.tear_down',
+        with patch('deploy_stack.BootstrapManager.tear_down',
                    side_effect=check_config) as td_mock:
             with bs_manager.bootstrap_context([]):
                 td_mock.assert_called_once_with(client, False, try_jes=False)
@@ -1398,11 +1398,11 @@ class TestBootstrapManager(FakeHomeTestCase):
             'foobar', client, tear_down_client, None, [], None, None, None,
             None, client.env.juju_home, False, False, False)
 
-        def check_config(client_, jes_enabled, try_jes=False):
+        def check_config(client_, try_jes=False):
             self.assertEqual(0, client.is_jes_enabled.call_count)
             tear_down_client.is_jes_enabled.assert_called_once_with()
 
-        with patch('deploy_stack.tear_down',
+        with patch('deploy_stack.BootstrapManager.tear_down',
                    side_effect=check_config) as td_mock:
             with bs_manager.bootstrap_context([]):
                 td_mock.assert_called_once_with(tear_down_client,
@@ -1426,7 +1426,7 @@ class TestBootstrapManager(FakeHomeTestCase):
             self.assertEqual(0, client.is_jes_enabled.call_count)
             tear_down_client.is_jes_enabled.assert_called_once_with()
 
-        with patch('deploy_stack.tear_down',
+        with patch('deploy_stack.BootstrapManager.tear_down',
                    side_effect=check_config) as td_mock:
             with bs_manager.bootstrap_context([]):
                 td_mock.assert_called_once_with(tear_down_client, False,
@@ -1514,6 +1514,65 @@ class TestBootstrapManager(FakeHomeTestCase):
                         tear_down_client._backend.soft_deadline = soft_deadline
                         raise fake_exception
                 self.assertIs(fake_exception, exc.exception.exception)
+
+    @contextmanager
+    def make_bs_manager(self, client=None):
+        # if client is None:
+        #     client = self.make_client()
+        with temp_dir() as log_dir:
+            bs_manager = BootstrapManager(
+                'foobar', client, client,
+                None, [], None, None, None, None, log_dir, False,
+                False, jes_enabled=False)
+            yield bs_manager
+
+    @contextmanager
+    def mock_tear_down(self, client, destroy_raises=False, kill_raises=False):
+        @contextmanager
+        def patch_raise(target, attribute, raises):
+            def raise_error():
+                raise subprocess.CalledProcessError(
+                    1, ('juju', attribute.replace('_', '-'), '-y'))
+            if raises:
+                with patch.object(target, attribute, autospec=True,
+                                  side_effect=raise_error) as mock:
+                    yield mock
+            else:
+                with patch.object(target, attribute, autospec=True) as mock:
+                    yield mock
+
+        with patch_raise(client, 'destroy_controller', destroy_raises) as d:
+            with patch_raise(client, 'kill_controller', kill_raises) as k:
+                yield (d, k)
+
+    def test_tear_down(self):
+        client = self.make_client()
+        with self.mock_tear_down(client) as (destroy_mock, kill_mock):
+            with self.make_bs_manager(client) as bs_manager:
+                bs_manager.tear_down()
+        destroy_mock.assert_called_once_with()
+        self.assertIsFalse(kill_mock.called)
+
+    def test_tear_down_fall_back(self):
+        client = self.make_client()
+        with self.mock_tear_down(client, True) as (destroy_mock, kill_mock):
+            with self.make_bs_manager(client) as bs_manager:
+                with self.assertRaises(subprocess.CalledProcessError) as err:
+                    bs_manager.tear_down()
+        self.assertEqual('destroy-controller', err.exception.cmd[1])
+        destroy_mock.assert_called_once_with()
+        kill_mock.assert_called_once_with()
+
+    def test_tear_down_double_fail(self):
+        client = self.make_client()
+        with self.mock_tear_down(client, True, True) as (
+                destroy_mock, kill_mock):
+            with self.make_bs_manager(client) as bs_manager:
+                with self.assertRaises(subprocess.CalledProcessError) as err:
+                    bs_manager.tear_down()
+        self.assertEqual('kill-controller', err.exception.cmd[1])
+        destroy_mock.assert_called_once_with()
+        kill_mock.assert_called_once_with()
 
     def test_tear_down_requires_same_env(self):
         client = self.make_client()
