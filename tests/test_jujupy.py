@@ -19,7 +19,6 @@ import types
 
 from mock import (
     call,
-    MagicMock,
     Mock,
     patch,
     )
