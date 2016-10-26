@@ -1086,38 +1086,40 @@ class TestEnvJujuClient(ClientTest):
                 with patch.object(target, attribute, autospec=True) as mock:
                     yield mock
 
-        with patch_raise(client, 'destroy_controller', destroy_raises) as d:
-            with patch_raise(client, 'kill_controller', kill_raises) as k:
-                yield (d, k)
+        with patch_raise(client, 'destroy_controller', destroy_raises
+                         ) as mock_destroy:
+            with patch_raise(client, 'kill_controller', kill_raises
+                             ) as mock_kill:
+                yield (mock_destroy, mock_kill)
 
     def test_tear_down(self):
         """Check that a successful tear_down calls destroy."""
         client = EnvJujuClient(JujuData('foo', {'type': 'gce'}), None, None)
-        with self.mock_tear_down(client) as (destroy_mock, kill_mock):
+        with self.mock_tear_down(client) as (mock_destroy, mock_kill):
             client.tear_down()
-        destroy_mock.assert_called_once_with()
-        self.assertIsFalse(kill_mock.called)
+        mock_destroy.assert_called_once_with()
+        self.assertIsFalse(mock_kill.called)
 
     def test_tear_down_fall_back(self):
         """Check that tear_down uses kill_controller if destroy fails."""
         client = EnvJujuClient(JujuData('foo', {'type': 'gce'}), None, None)
-        with self.mock_tear_down(client, True) as (destroy_mock, kill_mock):
+        with self.mock_tear_down(client, True) as (mock_destroy, mock_kill):
             with self.assertRaises(subprocess.CalledProcessError) as err:
                 client.tear_down()
         self.assertEqual('destroy-controller', err.exception.cmd[1])
-        destroy_mock.assert_called_once_with()
-        kill_mock.assert_called_once_with()
+        mock_destroy.assert_called_once_with()
+        mock_kill.assert_called_once_with()
 
     def test_tear_down_double_fail(self):
         """Check tear_down when both destroy and kill fail."""
         client = EnvJujuClient(JujuData('foo', {'type': 'gce'}), None, None)
         with self.mock_tear_down(client, True, True) as (
-                destroy_mock, kill_mock):
+                mock_destroy, mock_kill):
             with self.assertRaises(subprocess.CalledProcessError) as err:
                 client.tear_down()
         self.assertEqual('kill-controller', err.exception.cmd[1])
-        destroy_mock.assert_called_once_with()
-        kill_mock.assert_called_once_with()
+        mock_destroy.assert_called_once_with()
+        mock_kill.assert_called_once_with()
 
     def test_get_juju_output(self):
         env = JujuData('foo')

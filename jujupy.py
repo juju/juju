@@ -1356,7 +1356,11 @@ class EnvJujuClient:
         except subprocess.CalledProcessError:
             logging.warning('tear_down destroy-controller failed')
             retval = self.kill_controller()
-            logging.warning('tear_down kill-controller result=' + str(retval))
+            message = 'tear_down kill-controller result={}'.format(retval)
+            if retval == 0:
+                logging.info(message)
+            else:
+                logging.warning(message)
             raise
 
     def get_juju_output(self, command, *args, **kwargs):
