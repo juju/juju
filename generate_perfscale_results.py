@@ -157,6 +157,7 @@ def output_test_run_length(seconds):
 
 
 def _convert_seconds_to_readable(seconds):
+    """Given a period in seconds break it down into hour, minute & seconds."""
     m, s = divmod(seconds, 60)
     h, m = divmod(m, 60)
     return '{0}h:{1:02d}m:{2:02d}s'.format(h, m, s)
