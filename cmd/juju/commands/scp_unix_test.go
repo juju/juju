@@ -52,7 +52,7 @@ var scpTests = []struct {
 	}, {
 		about:    "scp from machine 0 to current dir with extra args",
 		args:     []string{"0:foo", ".", "-rv", "-o", "SomeOption"},
-		dialWith: dialerFuncFor("0.private", "0.public"),
+		dialWith: dialerFuncFor("0.public"),
 		expected: argsSpec{
 			args:            "ubuntu@0.public:foo . -rv -o SomeOption",
 			hostKeyChecking: "yes",
@@ -61,7 +61,7 @@ var scpTests = []struct {
 	}, {
 		about:    "scp from current dir to machine 0",
 		args:     []string{"foo", "0:"},
-		dialWith: dialerFuncFor("0.private", "0.public"),
+		dialWith: dialerFuncFor("0.public"),
 		expected: argsSpec{
 			args:            "foo ubuntu@0.public:",
 			hostKeyChecking: "yes",
@@ -74,7 +74,7 @@ var scpTests = []struct {
 	}, {
 		about:    "scp when no keys available, with --no-host-key-checks",
 		args:     []string{"--no-host-key-checks", "foo", "1:"},
-		dialWith: dialerFuncFor("1.private", "1.public"),
+		dialWith: dialerFuncFor("1.public"),
 		expected: argsSpec{
 			args:            "foo ubuntu@1.public:",
 			hostKeyChecking: "no",
@@ -83,7 +83,7 @@ var scpTests = []struct {
 	}, {
 		about:    "scp from current dir to machine 0 with extra args",
 		args:     []string{"foo", "0:", "-r", "-v"},
-		dialWith: dialerFuncFor("0.private", "0.public"),
+		dialWith: dialerFuncFor("0.public"),
 		expected: argsSpec{
 			args:            "foo ubuntu@0.public: -r -v",
 			hostKeyChecking: "yes",
@@ -92,7 +92,7 @@ var scpTests = []struct {
 	}, {
 		about:    "scp from machine 0 to unit mysql/0",
 		args:     []string{"0:foo", "mysql/0:/foo"},
-		dialWith: dialerFuncFor("0.private", "0.public"),
+		dialWith: dialerFuncFor("0.public"),
 		expected: argsSpec{
 			args:            "ubuntu@0.public:foo ubuntu@0.public:/foo",
 			hostKeyChecking: "yes",
@@ -101,7 +101,7 @@ var scpTests = []struct {
 	}, {
 		about:    "scp from machine 0 to unit mysql/0 and extra args",
 		args:     []string{"0:foo", "mysql/0:/foo", "-q"},
-		dialWith: dialerFuncFor("0.private", "0.public"),
+		dialWith: dialerFuncFor("0.public"),
 		expected: argsSpec{
 			args:            "ubuntu@0.public:foo ubuntu@0.public:/foo -q",
 			hostKeyChecking: "yes",
@@ -114,7 +114,7 @@ var scpTests = []struct {
 	}, {
 		about:    "scp two local files to unit mysql/0",
 		args:     []string{"file1", "file2", "mysql/0:/foo/"},
-		dialWith: dialerFuncFor("0.private", "0.public"),
+		dialWith: dialerFuncFor("0.public"),
 		expected: argsSpec{
 			args:            "file1 file2 ubuntu@0.public:/foo/",
 			hostKeyChecking: "yes",
@@ -123,7 +123,7 @@ var scpTests = []struct {
 	}, {
 		about:    "scp from machine 0 to unit mysql/0 and multiple extra args",
 		args:     []string{"0:foo", "mysql/0:", "-r", "-v", "-q", "-l5"},
-		dialWith: dialerFuncFor("0.private", "0.public"),
+		dialWith: dialerFuncFor("0.public"),
 		expected: argsSpec{
 			args:            "ubuntu@0.public:foo ubuntu@0.public: -r -v -q -l5",
 			hostKeyChecking: "yes",
@@ -151,7 +151,7 @@ var scpTests = []struct {
 	}, {
 		about:    "scp from unit mysql/0 to machine 2 with a --",
 		args:     []string{"--", "-r", "-v", "mysql/0:foo", "2:", "-q", "-l5"},
-		dialWith: dialerFuncFor("0.public", "0.private", "2001:db8::1"),
+		dialWith: dialerFuncFor("0.public", "2001:db8::1"),
 		expected: argsSpec{
 			args:            "-r -v ubuntu@0.public:foo ubuntu@[2001:db8::1]: -q -l5",
 			hostKeyChecking: "yes",
@@ -160,7 +160,7 @@ var scpTests = []struct {
 	}, {
 		about:    "scp from unit mysql/0 to current dir as 'sam' user",
 		args:     []string{"sam@mysql/0:foo", "."},
-		dialWith: dialerFuncFor("0.private", "0.public"),
+		dialWith: dialerFuncFor("0.public"),
 		expected: argsSpec{
 			args:            "sam@0.public:foo .",
 			hostKeyChecking: "yes",
@@ -193,7 +193,7 @@ var scpTests = []struct {
 	}, {
 		about:      "scp with arbitrary host name and an entity, --no-host-key-checks, --proxy (api v1)",
 		args:       []string{"--no-host-key-checks", "--proxy", "some.host:foo", "0:"},
-		dialWith:   dialerFuncFor("some.host", "0.public", "0.private"),
+		dialWith:   dialerFuncFor("some.host", "0.private"),
 		forceAPIv1: true,
 		expected: argsSpec{
 			args:            "some.host:foo ubuntu@0.private:",
