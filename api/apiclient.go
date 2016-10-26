@@ -180,7 +180,7 @@ func open(
 	if clock == nil {
 		return nil, errors.NotValidf("nil clock")
 	}
-	conn, tlsConfig, err := connectWebsocket(info, opts)
+	conn, tlsConfig, err := dialAPI(info, opts)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -273,70 +273,6 @@ func (t *hostSwitchingTransport) RoundTrip(req *http.Request) (*http.Response, e
 		return t.primary.RoundTrip(req)
 	}
 	return t.fallback.RoundTrip(req)
-}
-
-// connectWebsocket establishes a websocket connection to the RPC
-// API websocket on the API server using Info. If multiple API addresses
-// are provided in Info they will be tried concurrently - the first successful
-// connection wins.
-//
-// It also returns the TLS configuration that it has derived from the Info.
-func connectWebsocket(info *Info, opts DialOpts) (*websocket.Conn, *tls.Config, error) {
-	if len(info.Addrs) == 0 {
-		return nil, nil, errors.New("no API addresses to connect to")
-	}
-	tlsConfig := utils.SecureTLSConfig()
-	tlsConfig.InsecureSkipVerify = opts.InsecureSkipVerify
-
-	if info.CACert != "" && !tlsConfig.InsecureSkipVerify {
-		// We want to be specific here (rather than just using "anything".
-		// See commit 7fc118f015d8480dfad7831788e4b8c0432205e8 (PR 899).
-		tlsConfig.ServerName = "juju-apiserver"
-		certPool, err := CreateCertPool(info.CACert)
-		if err != nil {
-			return nil, nil, errors.Annotate(err, "cert pool creation failed")
-		}
-		tlsConfig.RootCAs = certPool
-	}
-	path, err := apiPath(info.ModelTag, "/api")
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-	conn, err := dialWebSocket(info.Addrs, path, tlsConfig, opts)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-	logger.Infof("connection established to %q", conn.RemoteAddr())
-	return conn, tlsConfig, nil
-}
-
-// dialWebSocket dials a websocket with one of the provided addresses, the
-// specified URL path, TLS configuration, and dial options. Each of the
-// specified addresses will be attempted concurrently, and the first
-// successful connection will be returned.
-func dialWebSocket(addrs []string, path string, tlsConfig *tls.Config, opts DialOpts) (*websocket.Conn, error) {
-	// Dial all addresses at reasonable intervals.
-	try := parallel.NewTry(0, nil)
-	defer try.Kill()
-	for _, addr := range addrs {
-		err := dialWebsocket(addr, path, opts, tlsConfig, try)
-		if err == parallel.ErrStopped {
-			break
-		}
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		select {
-		case <-time.After(opts.DialAddressInterval):
-		case <-try.Dead():
-		}
-	}
-	try.Close()
-	result, err := try.Result()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return result.(*websocket.Conn), nil
 }
 
 // ConnectStream implements StreamConnector.ConnectStream.
@@ -486,7 +422,83 @@ func tagToString(tag names.Tag) string {
 	return tag.String()
 }
 
-func dialWebsocket(addr, path string, opts DialOpts, tlsConfig *tls.Config, try *parallel.Try) error {
+// dialAPI establishes a websocket connection to the RPC
+// API websocket on the API server using Info. If multiple API addresses
+// are provided in Info they will be tried concurrently - the first successful
+// connection wins.
+//
+// It also returns the TLS configuration that it has derived from the Info.
+func dialAPI(info *Info, opts DialOpts) (*websocket.Conn, *tls.Config, error) {
+	// Set opts.DialWebsocket here rather than in open because
+	// some tests call dialAPI directly.
+	if opts.DialWebsocket == nil {
+		opts.DialWebsocket = websocket.DialConfig
+	}
+	if len(info.Addrs) == 0 {
+		return nil, nil, errors.New("no API addresses to connect to")
+	}
+	tlsConfig := utils.SecureTLSConfig()
+	tlsConfig.InsecureSkipVerify = opts.InsecureSkipVerify
+
+	if info.CACert != "" {
+		// We want to be specific here (rather than just using "anything".
+		// See commit 7fc118f015d8480dfad7831788e4b8c0432205e8 (PR 899).
+		tlsConfig.ServerName = "juju-apiserver"
+		certPool, err := CreateCertPool(info.CACert)
+		if err != nil {
+			return nil, nil, errors.Annotate(err, "cert pool creation failed")
+		}
+		tlsConfig.RootCAs = certPool
+	} else {
+		// No CA certificate so use the SNI host name for all
+		// connections (if SNIHostName is empty, the host
+		// name in the address will be used as usual).
+		tlsConfig.ServerName = info.SNIHostName
+	}
+	path, err := apiPath(info.ModelTag, "/api")
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	conn, err := dialWebsocketMulti(info.Addrs, path, tlsConfig, opts)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	logger.Infof("connection established to %q", conn.RemoteAddr())
+	return conn, tlsConfig, nil
+}
+
+// dialWebsocketMulti dials a websocket with one of the provided addresses, the
+// specified URL path, TLS configuration, and dial options. Each of the
+// specified addresses will be attempted concurrently, and the first
+// successful connection will be returned.
+func dialWebsocketMulti(addrs []string, path string, tlsConfig *tls.Config, opts DialOpts) (*websocket.Conn, error) {
+	// Dial all addresses at reasonable intervals.
+	try := parallel.NewTry(0, nil)
+	defer try.Kill()
+	for _, addr := range addrs {
+		err := startDialWebsocket(try, addr, path, opts, tlsConfig)
+		if err == parallel.ErrStopped {
+			break
+		}
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		select {
+		case <-time.After(opts.DialAddressInterval):
+		case <-try.Dead():
+		}
+	}
+	try.Close()
+	result, err := try.Result()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return result.(*websocket.Conn), nil
+}
+
+// startDialWebsocket starts websocket connection to a single address
+// on the given try instance.
+func startDialWebsocket(try *parallel.Try, addr, path string, opts DialOpts, tlsConfig *tls.Config) error {
 	// origin is required by the WebSocket API, used for "origin policy"
 	// in websockets. We pass localhost to satisfy the API; it is
 	// inconsequential to us.
@@ -499,11 +511,10 @@ func dialWebsocket(addr, path string, opts DialOpts, tlsConfig *tls.Config, try 
 	return try.Start(newWebsocketDialer(cfg, opts))
 }
 
-// newWebsocketDialer returns a function that
-// can be passed to utils/parallel.Try.Start.
-var newWebsocketDialer = createWebsocketDialer
-
-func createWebsocketDialer(cfg *websocket.Config, opts DialOpts) func(<-chan struct{}) (io.Closer, error) {
+// newWebsocketDialer0 returns a function that dials the websocket represented
+// by the given configuration with the given dial options, suitable for passing
+// to utils/parallel.Try.Start.
+func newWebsocketDialer(cfg *websocket.Config, opts DialOpts) func(<-chan struct{}) (io.Closer, error) {
 	// TODO(katco): 2016-08-09: lp:1611427
 	openAttempt := utils.AttemptStrategy{
 		Total: opts.Timeout,
@@ -517,7 +528,7 @@ func createWebsocketDialer(cfg *websocket.Config, opts DialOpts) func(<-chan str
 			default:
 			}
 			logger.Infof("dialing %q", cfg.Location)
-			conn, err := websocket.DialConfig(cfg)
+			conn, err := opts.DialWebsocket(cfg)
 			if err == nil {
 				return conn, nil
 			}
