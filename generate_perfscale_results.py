@@ -34,6 +34,9 @@ import perf_graphing
 __metaclass__ = type
 
 
+MINUTE = 60
+
+
 class TimingData:
 
     strf_format = '%F %H:%M:%S'
@@ -126,6 +129,11 @@ def run_perfscale_test(target_test, bs_manager, args):
     # Cleanup happens when we move out of context
     cleanup_end = datetime.utcnow()
     cleanup_timing = TimingData(cleanup_start, cleanup_end)
+
+    total_timing = TimingData(bs_start, cleanup_end)
+    output_test_run_length(total_timing.seconds)
+
+    graph_period = _determine_graph_period(total_timing.seconds)
     deployments = dict(
         bootstrap=bootstrap_timing,
         deploys=[deploy_details],
@@ -138,7 +146,28 @@ def run_perfscale_test(target_test, bs_manager, args):
         'machine-0',
         'machine-0.log.gz')
 
-    generate_reports(controller_log_file, results_dir, deployments)
+    generate_reports(
+        controller_log_file, results_dir, deployments, graph_period)
+
+
+def output_test_run_length(seconds):
+    time_taken = _convert_seconds_to_readable(seconds)
+
+    log.info('Test took: {}'.format(time_taken))
+
+
+def _convert_seconds_to_readable(seconds):
+    """Given a period in seconds break it down into hour, minute & seconds."""
+    m, s = divmod(seconds, 60)
+    h, m = divmod(m, 60)
+    return '{0}h:{1:02d}m:{2:02d}s'.format(h, m, s)
+
+
+def _determine_graph_period(seconds):
+    """Given a tests length determine what graphing period is needed."""
+    if seconds >= (MINUTE * 60 * 2):
+        return perf_graphing.GraphPeriod.day
+    return perf_graphing.GraphPeriod.hours
 
 
 def dump_performance_metrics_logs(log_dir, admin_client):
@@ -173,11 +202,11 @@ def apply_any_workarounds(client):
         subprocess.check_output(constraint_cmd)
 
 
-def generate_reports(controller_log, results_dir, deployments):
+def generate_reports(controller_log, results_dir, deployments, graph_period):
     """Generate reports and graphs from run results."""
-    cpu_image = generate_cpu_graph_image(results_dir)
-    memory_image = generate_memory_graph_image(results_dir)
-    network_image = generate_network_graph_image(results_dir)
+    cpu_image = generate_cpu_graph_image(results_dir, graph_period)
+    memory_image = generate_memory_graph_image(results_dir, graph_period)
+    network_image = generate_network_graph_image(results_dir, graph_period)
 
     destination_dir = os.path.join(results_dir, 'mongodb')
     os.mkdir(destination_dir)
@@ -194,14 +223,20 @@ def generate_reports(controller_log, results_dir, deployments):
         mongo_query_image = None
         mongo_memory_image = None
     else:
-        mongo_query_image = generate_mongo_query_graph_image(results_dir)
-        mongo_memory_image = generate_mongo_memory_graph_image(results_dir)
+        mongo_query_image = generate_mongo_query_graph_image(
+            results_dir, graph_period)
+        mongo_memory_image = generate_mongo_memory_graph_image(
+            results_dir, graph_period)
 
-    log_message_chunks = breakdown_log_by_events_timeframe(
-        controller_log,
-        deployments['bootstrap'],
-        deployments['cleanup'],
-        deployments['deploys'])
+    # Skip doing the logs for such a long run for now.
+    if graph_period == perf_graphing.GraphPeriod.hours:
+        log_message_chunks = breakdown_log_by_events_timeframe(
+            controller_log,
+            deployments['bootstrap'],
+            deployments['cleanup'],
+            deployments['deploys'])
+    else:
+        log_message_chunks = defaultdict(defaultdict)
 
     details = dict(
         cpu_graph=cpu_image,
@@ -308,51 +343,71 @@ def create_html_report(results_dir, details):
         f.write(template.render(details))
 
 
-def generate_graph_image(base_dir, results_dir, name, generator):
+def generate_graph_image(base_dir, results_dir, name, generator, graph_period):
     metric_files_dir = os.path.join(os.path.abspath(base_dir), results_dir)
     output_file = os.path.join(
         os.path.abspath(base_dir), '{}.png'.format(name))
-    return create_report_graph(metric_files_dir, output_file, generator)
+    return create_report_graph(
+        metric_files_dir, output_file, generator, graph_period)
 
 
-def create_report_graph(rrd_dir, output_file, generator):
+def create_report_graph(rrd_dir, output_file, generator, graph_period):
     any_file = os.listdir(rrd_dir)[0]
-    start, end = get_duration_points(os.path.join(rrd_dir, any_file))
+    start, end = get_duration_points(
+        os.path.join(rrd_dir, any_file), graph_period)
     generator(start, end, rrd_dir, output_file)
     print('Created: {}'.format(output_file))
     return os.path.basename(output_file)
 
 
-def generate_cpu_graph_image(results_dir):
+def generate_cpu_graph_image(results_dir, graph_period):
     return generate_graph_image(
-        results_dir, 'aggregation-cpu-average', 'cpu', perf_graphing.cpu_graph)
+        results_dir,
+        'aggregation-cpu-max',
+        'cpu',
+        perf_graphing.cpu_graph,
+        graph_period)
 
 
-def generate_memory_graph_image(results_dir):
+def generate_memory_graph_image(results_dir, graph_period):
     return generate_graph_image(
-        results_dir, 'memory', 'memory', perf_graphing.memory_graph)
+        results_dir,
+        'memory',
+        'memory',
+        perf_graphing.memory_graph,
+        graph_period)
 
 
-def generate_network_graph_image(results_dir):
+def generate_network_graph_image(results_dir, graph_period):
     return generate_graph_image(
-        results_dir, 'interface-eth0', 'network', perf_graphing.network_graph)
+        results_dir,
+        'interface-eth0',
+        'network',
+        perf_graphing.network_graph,
+        graph_period)
 
 
-def generate_mongo_query_graph_image(results_dir):
+def generate_mongo_query_graph_image(results_dir, graph_period):
     return generate_graph_image(
-        results_dir, 'mongodb', 'mongodb', perf_graphing.mongodb_graph)
+        results_dir,
+        'mongodb',
+        'mongodb',
+        perf_graphing.mongodb_graph,
+        graph_period)
 
 
-def generate_mongo_memory_graph_image(results_dir):
+def generate_mongo_memory_graph_image(results_dir, graph_period):
     return generate_graph_image(
         results_dir,
         'mongodb',
         'mongodb_memory',
-        perf_graphing.mongodb_memory_graph)
+        perf_graphing.mongodb_memory_graph,
+        graph_period
+    )
 
 
-def get_duration_points(rrd_file):
-    start = rrdtool.first(rrd_file)
+def get_duration_points(rrd_file, graph_period):
+    start = rrdtool.first(rrd_file, '--rraindex', graph_period)
     end = rrdtool.last(rrd_file)
 
     # Start gives us the start timestamp in the data but it might be null/empty
