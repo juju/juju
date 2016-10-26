@@ -65,7 +65,7 @@ class TestThinBootedContext(TestCase):
     def test_thin_booted_context(self):
         bs_manager = self.make_bs_manager_mock()
         with patch('assess_bootstrap.tear_down',
-                   autospec=True) as (tear_down_mock):
+                   autospec=True) as tear_down_mock:
             with thin_booted_context(bs_manager):
                 pass
         tear_down_mock.assert_called_once_with(
@@ -79,8 +79,9 @@ class TestThinBootedContext(TestCase):
         bs_manager = self.make_bs_manager_mock(True)
         with patch('assess_bootstrap.tear_down', autospec=True):
             with thin_booted_context(bs_manager, alpha='foo', beta='bar'):
-                bs_manager.client.bootstrap.assert_called_once_with(
-                    alpha='foo', beta='bar')
+                pass
+        bs_manager.client.bootstrap.assert_called_once_with(
+            alpha='foo', beta='bar')
 
 
 class TestParseArgs(TestCase):

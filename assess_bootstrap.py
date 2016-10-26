@@ -8,10 +8,10 @@ import sys
 
 from deploy_stack import (
     BootstrapManager,
-    tear_down,
     )
 from jujupy import (
     get_machine_dns_name,
+    tear_down,
     )
 from utility import (
     add_basic_testing_arguments,

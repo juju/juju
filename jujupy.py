@@ -1346,6 +1346,23 @@ class EnvJujuClient:
             'destroy-controller', (self.env.controller.name, '-y'),
             include_e=False, timeout=get_teardown_timeout(self))
 
+    def tear_down(self):
+        """Tear down the client as cleanly as possible.
+
+        Attempts to use the soft method destroy_controller, if that fails
+        it will use the hard kill_controller."""
+        try:
+            self.destroy_controller()
+        except subprocess.CalledProcessError:
+            logging.warning('tear_down destroy-controller failed')
+            retval = self.kill_controller()
+            message = 'tear_down kill-controller result={}'.format(retval)
+            if retval == 0:
+                logging.info(message)
+            else:
+                logging.warning(message)
+            raise
+
     def get_juju_output(self, command, *args, **kwargs):
         """Call a juju command and return the output.
 

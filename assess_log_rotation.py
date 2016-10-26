@@ -9,7 +9,6 @@ import yaml
 
 from deploy_stack import (
     boot_context,
-    tear_down,
     update_env,
     )
 from jujucharm import (
@@ -18,6 +17,7 @@ from jujucharm import (
 from jujupy import (
     client_from_config,
     jes_home_path,
+    tear_down,
     )
 from utility import (
     add_basic_testing_arguments,
