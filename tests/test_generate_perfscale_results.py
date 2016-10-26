@@ -48,7 +48,7 @@ class TestAddBasicPerfscaleArguments(TestCase):
     def test_adds_perfscale_arguments(self):
         parser = argparse.ArgumentParser()
         gpr.add_basic_perfscale_arguments(parser)
-        parsed_args = parser.parse_args()
+        parsed_args = parser.parse_args([])
         self.assertEqual(parsed_args.enable_ha, False)
 
         parsed_args = parser.parse_args(['--enable-ha'])
@@ -285,12 +285,13 @@ class TestGetControllerLogMessageChunks(TestCase):
         machine_ids = ['0']
         deployments = dict(
             bootstrap='bootstrap', cleanup='cleanup', deploys='deploys')
+        graph_period = '0'
 
         with patch.object(
                 gpr, 'breakdown_log_by_events_timeframe',
                 autospec=True) as m_blbet:
             results = gpr._get_controller_log_message_chunks(
-                log_dir, machine_ids, deployments)
+                log_dir, machine_ids, deployments, graph_period)
 
         self.assertListEqual(
             results.keys(),
@@ -307,12 +308,13 @@ class TestGetControllerLogMessageChunks(TestCase):
         machine_ids = ['0', '1', '2']
         deployments = dict(
             bootstrap='bootstrap', cleanup='cleanup', deploys='deploys')
+        graph_period = '0'
 
         with patch.object(
                 gpr, 'breakdown_log_by_events_timeframe',
                 autospec=True) as m_blbet:
             results = gpr._get_controller_log_message_chunks(
-                log_dir, machine_ids, deployments)
+                log_dir, machine_ids, deployments, graph_period)
 
         self.assertListEqual(
             sorted(results.keys()),
