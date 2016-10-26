@@ -27,7 +27,7 @@ func CreateCertPool(caCert string) (*x509.CertPool, error) {
 	if caCert != "" {
 		xcert, err := cert.ParseCert(caCert)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, errors.Annotatef(err, "cannot parse certificate %q", caCert)
 		}
 		pool.AddCert(xcert)
 	}

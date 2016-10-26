@@ -21,6 +21,16 @@ By default, the controller is the current controller.
 Users with read access are limited in what they can do with models:
 ` + "`juju models`, `juju machines`, and `juju status`" + `.
 
+Valid access levels for models are:
+    read
+    write
+    admin
+
+Valid access levels for controllers are:
+    login
+    add-model
+    superuser
+
 Examples:
 Grant user 'joe' 'read' access to model 'mymodel':
 
@@ -37,16 +47,6 @@ Grant user 'sam' 'read' access to models 'model1' and 'model2':
 Grant user 'maria' 'add-model' access to the controller:
 
     juju grant maria add-model
-
-Valid access levels for models are:
-    read
-    write
-    admin
-
-Valid access levels for controllers are:
-    login
-    add-model
-    superuser
 
 See also: 
     revoke
