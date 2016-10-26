@@ -85,6 +85,9 @@ func (s *ModelSerializationSuite) TestParsingYAML(c *gc.C) {
 		Blocks: map[string]string{
 			"all-changes": "locked down",
 		},
+		Cloud:           "vapour",
+		CloudRegion:     "east-west",
+		CloudCredential: "cirrus",
 	}
 	initial := NewModel(args)
 	adminUser := names.NewUserTag("admin@local")
@@ -100,6 +103,9 @@ func (s *ModelSerializationSuite) TestParsingYAML(c *gc.C) {
 	c.Assert(model.Owner(), gc.Equals, args.Owner)
 	c.Assert(model.Tag().Id(), gc.Equals, "some-uuid")
 	c.Assert(model.Config(), jc.DeepEquals, args.Config)
+	c.Assert(model.Cloud(), gc.Equals, "vapour")
+	c.Assert(model.CloudRegion(), gc.Equals, "east-west")
+	c.Assert(model.CloudCredential(), gc.Equals, "cirrus")
 	c.Assert(model.LatestToolsVersion(), gc.Equals, args.LatestToolsVersion)
 	c.Assert(model.Blocks(), jc.DeepEquals, args.Blocks)
 	users := model.Users()

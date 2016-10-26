@@ -67,6 +67,9 @@ func (st *State) Export() (description.Model, error) {
 		LatestToolsVersion: dbModel.LatestToolsVersion(),
 		Blocks:             blocks,
 	}
+	if creds, credsSet := dbModel.CloudCredential(); credsSet {
+		args.CloudCredential = creds.Id()
+	}
 	export.model = description.NewModel(args)
 	modelKey := dbModel.globalKey()
 	export.model.SetAnnotations(export.getAnnotations(modelKey))

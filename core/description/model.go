@@ -896,6 +896,7 @@ func importModelV1(source map[string]interface{}) (*model, error) {
 		"owner":                schema.String(),
 		"cloud":                schema.String(),
 		"cloud-region":         schema.String(),
+		"cloud-credential":     schema.String(),
 		"config":               schema.StringMap(schema.Any()),
 		"latest-tools":         schema.String(),
 		"blocks":               schema.StringMap(schema.String()),
@@ -918,9 +919,10 @@ func importModelV1(source map[string]interface{}) (*model, error) {
 	}
 	// Some values don't have to be there.
 	defaults := schema.Defaults{
-		"latest-tools": schema.Omit,
-		"blocks":       schema.Omit,
-		"cloud-region": schema.Omit,
+		"latest-tools":     schema.Omit,
+		"blocks":           schema.Omit,
+		"cloud-region":     "",
+		"cloud-credential": "",
 	}
 	addAnnotationSchema(fields, defaults)
 	addConstraintsSchema(fields, defaults)
@@ -935,12 +937,14 @@ func importModelV1(source map[string]interface{}) (*model, error) {
 	// contains fields of the right type.
 
 	result := &model{
-		Version:    1,
-		Owner_:     valid["owner"].(string),
-		Config_:    valid["config"].(map[string]interface{}),
-		Sequences_: make(map[string]int),
-		Blocks_:    convertToStringMap(valid["blocks"]),
-		Cloud_:     valid["cloud"].(string),
+		Version:          1,
+		Owner_:           valid["owner"].(string),
+		Config_:          valid["config"].(map[string]interface{}),
+		Sequences_:       make(map[string]int),
+		Blocks_:          convertToStringMap(valid["blocks"]),
+		Cloud_:           valid["cloud"].(string),
+		CloudRegion_:     valid["cloud-region"].(string),
+		CloudCredential_: valid["cloud-credential"].(string),
 	}
 	result.importAnnotations(valid)
 	sequences := valid["sequences"].(map[string]interface{})
@@ -962,14 +966,6 @@ func importModelV1(source map[string]interface{}) (*model, error) {
 			return nil, errors.Trace(err)
 		}
 		result.LatestToolsVersion_ = num
-	}
-
-	if region, ok := valid["cloud-region"]; ok {
-		result.CloudRegion_ = region.(string)
-	}
-
-	if credential, ok := valid["cloud-credential"]; ok {
-		result.CloudCredential_ = credential.(string)
 	}
 
 	userMap := valid["users"].(map[string]interface{})

@@ -55,7 +55,7 @@ func (st *State) Import(model description.Model) (_ *Model, _ *State, err error)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	dbModel, newSt, err := st.NewModel(ModelArgs{
+	args := ModelArgs{
 		CloudName:     model.Cloud(),
 		CloudRegion:   model.CloudRegion(),
 		Config:        cfg,
@@ -67,7 +67,11 @@ func (st *State) Import(model description.Model) (_ *Model, _ *State, err error)
 		// the model description before adding any volumes,
 		// filesystems or storage instances.
 		StorageProviderRegistry: storage.StaticProviderRegistry{},
-	})
+	}
+	if creds := model.CloudCredential(); creds != "" {
+		args.CloudCredential = names.NewCloudCredentialTag(creds)
+	}
+	dbModel, newSt, err := st.NewModel(args)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
