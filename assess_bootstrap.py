@@ -11,7 +11,6 @@ from deploy_stack import (
     )
 from jujupy import (
     get_machine_dns_name,
-    tear_down,
     )
 from utility import (
     add_basic_testing_arguments,
@@ -32,7 +31,7 @@ def thin_booted_context(bs_manager, **kwargs):
     client = bs_manager.client
     with bs_manager.top_context() as machines:
         with bs_manager.bootstrap_context(machines):
-            tear_down(client, client.is_jes_enabled())
+            client.tear_down()
             client.bootstrap(**kwargs)
         with bs_manager.runtime_context(machines):
             yield client

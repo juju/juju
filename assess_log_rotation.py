@@ -17,7 +17,6 @@ from jujucharm import (
 from jujupy import (
     client_from_config,
     jes_home_path,
-    tear_down,
     )
 from utility import (
     add_basic_testing_arguments,
@@ -216,7 +215,7 @@ def make_client_from_args(args):
     if jes_enabled:
         client.env.juju_home = jes_home_path(client.env.juju_home,
                                              args.temp_env_name)
-    tear_down(client, jes_enabled)
+    client.tear_down()
     return client
 
 
