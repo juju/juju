@@ -12,13 +12,13 @@ chmod +x /var/lib/jenkins/bin/place-slave.sh
 
 status-set maintenance "Checking config" 
 PACKAGES=$(config-get packages)
-if [[ -n "$PACKAGES" ]]; then
+if [[ "$PACKAGES" != "" ]]; then
     status-set maintenance "Installing packages." || true
     apt-get install -y $PACKAGES
 fi
 
 SLAVE_NAME=$(config-get slave-name)
-if [[ -x "$SLAVE_NAME" ]]; then
+if [[ "$SLAVE_NAME" == "" ]]; then
     SLAVE_NAME=$(echo $JUJU_UNIT_NAME | sed s,/,-,)
 fi
 
@@ -32,7 +32,7 @@ for app in $(relation-ids slave); do
         break
     done
 done
-if [[ -x "$MASTER_URL" ]]; then
+if [[ "$MASTER_URL" == "" ]]; then
     status-set blocked "Set master-url option or relate to master" || true
     juju-log "master-url config is not set or master needs to export its url"
     exit 0
