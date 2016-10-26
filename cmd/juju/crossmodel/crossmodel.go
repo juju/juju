@@ -17,7 +17,7 @@ var logger = loggo.GetLogger("juju.cmd.juju.crossmodel")
 
 // CrossModelCommandBase is a base structure to get cross model managing client.
 type CrossModelCommandBase struct {
-	modelcmd.ModelCommandBase
+	modelcmd.ControllerCommandBase
 }
 
 // NewCrossModelAPI returns a cross model api for the root api endpoint

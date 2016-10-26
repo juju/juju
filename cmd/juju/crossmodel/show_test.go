@@ -32,7 +32,7 @@ func (s *showSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *showSuite) runShow(c *gc.C, args ...string) (*cmd.Context, error) {
-	return testing.RunCommand(c, crossmodel.NewShowEndpointsCommandForTest(s.mockAPI), args...)
+	return testing.RunCommand(c, crossmodel.NewShowEndpointsCommandForTest(s.store, s.mockAPI), args...)
 }
 
 func (s *showSuite) TestShowNoUrl(c *gc.C) {

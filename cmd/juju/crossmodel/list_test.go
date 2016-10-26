@@ -124,7 +124,6 @@ func (s *ListSuite) TestListYAML(c *gc.C) {
 local:
   hosted-db2:
     charm: db2
-    connected: 0
     store: local
     url: /u/fred/hosted-db2
     endpoints:
@@ -147,7 +146,7 @@ func (s *ListSuite) createServiceItem(name, store string, count int) *model.Offe
 }
 
 func (s *ListSuite) runList(c *gc.C, args []string) (*cmd.Context, error) {
-	return testing.RunCommand(c, crossmodel.NewListEndpointsCommandForTest(s.mockAPI), args...)
+	return testing.RunCommand(c, crossmodel.NewListEndpointsCommandForTest(s.store, s.mockAPI), args...)
 }
 
 func (s *ListSuite) assertValidList(c *gc.C, args []string, expectedValid, expectedErr string) {

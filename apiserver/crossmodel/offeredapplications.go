@@ -27,7 +27,7 @@ type OfferedApplicationLister interface {
 
 // OfferedApplicationAPI is a facade used to access offered applications.
 type OfferedApplicationAPI struct {
-	st                  stateAccess
+	st                  Backend
 	offeredApplications OfferedApplicationLister
 	resources           facade.Resources
 	authorizer          facade.Authorizer
@@ -35,7 +35,7 @@ type OfferedApplicationAPI struct {
 
 // createApplicationDirectoryAPI returns a new cross model API facade.
 func createOfferedApplicationAPI(
-	st stateAccess,
+	st Backend,
 	offeredApplicationLister OfferedApplicationLister,
 	resources facade.Resources,
 	authorizer facade.Authorizer,

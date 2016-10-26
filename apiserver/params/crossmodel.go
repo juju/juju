@@ -79,6 +79,9 @@ type RemoteEndpoint struct {
 
 // ApplicationOfferParams is used to offer remote applications.
 type ApplicationOfferParams struct {
+	// ModelTag is the tag of the model containing the application to offer.
+	ModelTag string `json:"model-tag"`
+
 	// ApplicationURL may contain user supplied application url.
 	ApplicationURL string `json:"application-url,omitempty"`
 

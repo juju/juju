@@ -34,7 +34,7 @@ func (s *findSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *findSuite) runFind(c *gc.C, args ...string) (*cmd.Context, error) {
-	return testing.RunCommand(c, crossmodel.NewFindEndpointsCommandForTest(s.mockAPI), args...)
+	return testing.RunCommand(c, crossmodel.NewFindEndpointsCommandForTest(s.store, s.mockAPI), args...)
 }
 
 func (s *findSuite) TestFindNoArgs(c *gc.C) {

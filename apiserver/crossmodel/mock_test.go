@@ -55,6 +55,10 @@ func (m *mockState) WatchOfferedApplications() state.StringsWatcher {
 	return m.watchOfferedApplications()
 }
 
+func (m *mockState) ForModel(tag names.ModelTag) (*state.State, error) {
+	return nil, errors.New("not implemented")
+}
+
 func (m *mockState) Application(name string) (application *state.Application, err error) {
 	return nil, errors.New("not implemented")
 }

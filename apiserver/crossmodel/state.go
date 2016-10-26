@@ -9,17 +9,18 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// stateAccess provides selected methods off the state.State struct
+// Backend provides selected methods off the state.State struct
 // plus additional helpers.
-type stateAccess interface {
-	Application(name string) (service *state.Application, err error)
+type Backend interface {
+	Application(name string) (*state.Application, error)
+	ForModel(modelTag names.ModelTag) (*state.State, error)
 	ModelTag() names.ModelTag
 	ModelUUID() string
 	WatchOfferedApplications() state.StringsWatcher
 	ModelName() (string, error)
 }
 
-var getStateAccess = func(st *state.State) stateAccess {
+var getStateAccess = func(st *state.State) Backend {
 	return &stateShim{st}
 }
 
@@ -27,7 +28,7 @@ type stateShim struct {
 	*state.State
 }
 
-// EnvironName returns the name of the environment.
+// ModelName returns the name of the model.
 func (s *stateShim) ModelName() (string, error) {
 	cfg, err := s.ModelConfig()
 	if err != nil {

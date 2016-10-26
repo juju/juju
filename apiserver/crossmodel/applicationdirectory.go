@@ -99,7 +99,7 @@ func (api *applicationOffersAPI) AddOffers(offers params.AddApplicationOffers) (
 // localApplicationOffers provides access to application offers hosted within
 // a local controller.
 type localApplicationOffers struct {
-	applicationdirectory crossmodel.ApplicationDirectory
+	applicationDirectory crossmodel.ApplicationDirectory
 }
 
 // ListOffers returns offers matching the filter from a application directory.
@@ -109,7 +109,7 @@ func (so *localApplicationOffers) ListOffers(filters params.OfferFilters) (param
 	if err != nil {
 		return result, err
 	}
-	offers, err := so.applicationdirectory.ListOffers(offerFilters...)
+	offers, err := so.applicationDirectory.ListOffers(offerFilters...)
 	if err != nil {
 		result.Error = common.ServerError(err)
 		return result, nil
@@ -160,7 +160,7 @@ func (so *localApplicationOffers) AddOffers(offers params.AddApplicationOffers) 
 			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
-		if err := so.applicationdirectory.AddOffer(offer); err != nil {
+		if err := so.applicationDirectory.AddOffer(offer); err != nil {
 			result.Results[i].Error = common.ServerError(err)
 		}
 	}
