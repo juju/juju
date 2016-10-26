@@ -723,7 +723,7 @@ func (e *Environ) getKeystoneDataSource(mu *sync.Mutex, datasource *simplestream
 		}
 	}
 
-	url, err := makeServiceURL(e.client, keystoneName, nil)
+	url, err := makeServiceURL(e.client, keystoneName, "", nil)
 	if err != nil {
 		return nil, errors.NewNotSupported(err, fmt.Sprintf("cannot make service URL: %v", err))
 	}
