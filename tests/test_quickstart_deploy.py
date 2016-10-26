@@ -76,10 +76,9 @@ class TestQuickstartTest(FakeHomeTestCase):
         with patch.object(client, 'quickstart') as qs_mock:
             # Test first yield
             with patch('jujupy.check_free_disk_space', autospec=True):
-                with patch('deploy_stack.BootstrapManager.tear_down',
-                           autospec=True) as td_mock:
+                with patch('deploy_stack.tear_down', autospec=True) as td_mock:
                     step = steps.next()
-        td_mock.assert_called_once_with(bs_manager, try_jes=True)
+        td_mock.assert_called_once_with(client, 'jes_enabled', try_jes=True)
         qs_mock.assert_called_once_with('/tmp/bundle.yaml')
         expected = {'juju-quickstart': 'Returned from quickstart'}
         self.assertEqual(expected, step)
@@ -101,7 +100,7 @@ class TestQuickstartTest(FakeHomeTestCase):
         ws_mock.assert_called_once_with(ANY)
         self.assertEqual('All Agents started', step['agents_started'])
         with patch('deploy_stack.safe_print_status'):
-            with patch('deploy_stack.BootstrapManager.tear_down'):
+            with patch('deploy_stack.tear_down'):
                 with patch('quickstart_deploy.BootstrapManager.dump_all_logs'):
                     with patch('jujupy.EnvJujuClient.iter_model_clients',
                                return_value=[]):

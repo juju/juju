@@ -44,6 +44,7 @@ from jujupy import (
     jes_home_path,
     NoProvider,
     SimpleEnvironment,
+    tear_down,
     temp_bootstrap_env,
 )
 from remote import (
@@ -640,15 +641,13 @@ class BootstrapManager:
             destroy_job_instances(self.temp_env_name)
 
     def tear_down(self, try_jes=False):
-        """Tear down the client using tear_down_client.
-
-        Attempts to use the soft method destroy_controller, if that fails
-        it will use the hard kill_controller.
-
-        :param try_jes: Ignored."""
+        if self.tear_down_client == self.client:
+            jes_enabled = self.jes_enabled
+        else:
+            jes_enabled = self.tear_down_client.is_jes_enabled()
         if self.tear_down_client.env is not self.client.env:
             raise AssertionError('Tear down client needs same env!')
-        self.tear_down_client.tear_down()
+        tear_down(self.tear_down_client, jes_enabled, try_jes=try_jes)
 
     def _log_and_wrap_exception(self, exc):
         logging.exception(exc)

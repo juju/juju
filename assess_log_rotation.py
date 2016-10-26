@@ -9,6 +9,7 @@ import yaml
 
 from deploy_stack import (
     boot_context,
+    tear_down,
     update_env,
     )
 from jujucharm import (
@@ -215,7 +216,7 @@ def make_client_from_args(args):
     if jes_enabled:
         client.env.juju_home = jes_home_path(client.env.juju_home,
                                              args.temp_env_name)
-    client.tear_down()
+    tear_down(client, jes_enabled)
     return client
 
 
