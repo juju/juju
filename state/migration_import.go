@@ -55,7 +55,7 @@ func (st *State) Import(model description.Model) (_ *Model, _ *State, err error)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	dbModel, newSt, err := st.NewModel(ModelArgs{
+	args := ModelArgs{
 		CloudName:     model.Cloud(),
 		CloudRegion:   model.CloudRegion(),
 		Config:        cfg,
@@ -67,7 +67,11 @@ func (st *State) Import(model description.Model) (_ *Model, _ *State, err error)
 		// the model description before adding any volumes,
 		// filesystems or storage instances.
 		StorageProviderRegistry: storage.StaticProviderRegistry{},
-	})
+	}
+	if creds := model.CloudCredential(); creds != "" {
+		args.CloudCredential = names.NewCloudCredentialTag(creds)
+	}
+	dbModel, newSt, err := st.NewModel(args)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
@@ -613,18 +617,19 @@ func (i *importer) makeStatusDoc(statusVal description.Status) statusDoc {
 	}
 }
 
-func (i *importer) application(s description.Application) error {
+func (i *importer) application(a description.Application) error {
 	// Import this application, then its units.
-	i.logger.Debugf("importing application %s", s.Name())
+	i.logger.Debugf("importing application %s", a.Name())
 
 	// 1. construct an applicationDoc
-	sdoc, err := i.makeApplicationDoc(s)
+	appDoc, err := i.makeApplicationDoc(a)
 	if err != nil {
 		return errors.Trace(err)
 	}
+	app := newApplication(i.st, appDoc)
 
 	// 2. construct a statusDoc
-	status := s.Status()
+	status := a.Status()
 	if status == nil {
 		return errors.NotValidf("missing status")
 	}
@@ -632,41 +637,49 @@ func (i *importer) application(s description.Application) error {
 	// TODO: update never set malarky... maybe...
 
 	ops, err := addApplicationOps(i.st, addApplicationOpsArgs{
-		applicationDoc:     sdoc,
+		applicationDoc:     appDoc,
 		statusDoc:          statusDoc,
-		constraints:        i.constraints(s.Constraints()),
-		storage:            i.storageConstraints(s.StorageConstraints()),
-		settings:           s.Settings(),
-		leadershipSettings: s.LeadershipSettings(),
+		constraints:        i.constraints(a.Constraints()),
+		storage:            i.storageConstraints(a.StorageConstraints()),
+		settings:           a.Settings(),
+		leadershipSettings: a.LeadershipSettings(),
 	})
 	if err != nil {
 		return errors.Trace(err)
 	}
 
+	ops = append(ops, txn.Op{
+		C:      endpointBindingsC,
+		Id:     app.globalKey(),
+		Assert: txn.DocMissing,
+		Insert: endpointBindingsDoc{
+			Bindings: bindingsMap(a.EndpointBindings()),
+		},
+	})
+
 	if err := i.st.runTransaction(ops); err != nil {
 		return errors.Trace(err)
 	}
 
-	svc := newApplication(i.st, sdoc)
-	if annotations := s.Annotations(); len(annotations) > 0 {
-		if err := i.st.SetAnnotations(svc, annotations); err != nil {
+	if annotations := a.Annotations(); len(annotations) > 0 {
+		if err := i.st.SetAnnotations(app, annotations); err != nil {
 			return errors.Trace(err)
 		}
 	}
-	if err := i.importStatusHistory(svc.globalKey(), s.StatusHistory()); err != nil {
+	if err := i.importStatusHistory(app.globalKey(), a.StatusHistory()); err != nil {
 		return errors.Trace(err)
 	}
 
-	for _, unit := range s.Units() {
-		if err := i.unit(s, unit); err != nil {
+	for _, unit := range a.Units() {
+		if err := i.unit(a, unit); err != nil {
 			return errors.Trace(err)
 		}
 	}
 
-	if s.Leader() != "" {
+	if a.Leader() != "" {
 		if err := i.st.LeadershipClaimer().ClaimLeadership(
-			s.Name(),
-			s.Leader(),
+			a.Name(),
+			a.Leader(),
 			initialLeaderClaimTime); err != nil {
 			return errors.Trace(err)
 		}

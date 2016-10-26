@@ -486,6 +486,26 @@ func (s *MigrationExportSuite) TestUnitsOpenPorts(c *gc.C) {
 	c.Assert(opened[0].UnitName(), gc.Equals, unit.Name())
 }
 
+func (s *MigrationExportSuite) TestEndpointBindings(c *gc.C) {
+	s.Factory.MakeSpace(c, &factory.SpaceParams{
+		Name: "one", ProviderID: network.Id("provider"), IsPublic: true})
+	state.AddTestingServiceWithBindings(
+		c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"),
+		map[string]string{"db": "one"})
+
+	model, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+
+	apps := model.Applications()
+	c.Assert(apps, gc.HasLen, 1)
+	wordpress := apps[0]
+
+	bindings := wordpress.EndpointBindings()
+	// There are empty values for every charm endpoint, but we only care about the
+	// db endpoint.
+	c.Assert(bindings["db"], gc.Equals, "one")
+}
+
 func (s *MigrationExportSuite) TestRelations(c *gc.C) {
 	wordpress := state.AddTestingService(c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))
 	mysql := state.AddTestingService(c, s.State, "mysql", state.AddTestingCharm(c, s.State, "mysql"))

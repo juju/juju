@@ -48,6 +48,7 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		relationScopesC,
 
 		// networking
+		endpointBindingsC,
 		ipAddressesC,
 		spacesC,
 		linkLayerDevicesC,
@@ -173,7 +174,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// service / unit
 		charmsC,
 		"resources",
-		endpointBindingsC,
 
 		// uncategorised
 		metricsManagerC, // should really be copied across
@@ -798,6 +798,20 @@ func (s *MigrationSuite) TestPayloadDocFields(c *gc.C) {
 		"Labels",
 	)
 	s.AssertExportedFields(c, payloadDoc{}, migrated.Union(definedThroughContainment))
+}
+
+func (s *MigrationSuite) TestEndpointBindingFields(c *gc.C) {
+	definedThroughContainment := set.NewStrings(
+		"DocID",
+	)
+	migrated := set.NewStrings(
+		"Bindings",
+	)
+	ignored := set.NewStrings(
+		"TxnRevno",
+	)
+	fields := definedThroughContainment.Union(migrated).Union(ignored)
+	s.AssertExportedFields(c, endpointBindingsDoc{}, fields)
 }
 
 func (s *MigrationSuite) AssertExportedFields(c *gc.C, doc interface{}, fields set.Strings) {

@@ -491,6 +491,26 @@ func (s *MigrationImportSuite) TestRelations(c *gc.C) {
 	c.Assert(settings.Map(), gc.DeepEquals, relSettings)
 }
 
+func (s *MigrationImportSuite) TestEndpointBindings(c *gc.C) {
+	// Endpoint bindings need both valid charms, applications, and spaces.
+	s.Factory.MakeSpace(c, &factory.SpaceParams{
+		Name: "one", ProviderID: network.Id("provider"), IsPublic: true})
+	state.AddTestingServiceWithBindings(
+		c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"),
+		map[string]string{"db": "one"})
+
+	_, newSt := s.importModel(c)
+
+	newWordpress, err := newSt.Application("wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+
+	bindings, err := newWordpress.EndpointBindings()
+	c.Assert(err, jc.ErrorIsNil)
+	// There are empty values for every charm endpoint, but we only care about the
+	// db endpoint.
+	c.Assert(bindings["db"], gc.Equals, "one")
+}
+
 func (s *MigrationImportSuite) TestUnitsOpenPorts(c *gc.C) {
 	unit := s.Factory.MakeUnit(c, nil)
 	err := unit.OpenPorts("tcp", 1234, 2345)
