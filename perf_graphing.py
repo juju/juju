@@ -62,6 +62,10 @@ class SourceFileNotFound(Exception):
     """Indicate when an expected metrics data file does not exist."""
 
 
+class NoDataPresent(Exception):
+    """Indicate when an no data is found in a metrics log file."""
+
+
 def value_to_bytes(amount):
     """Using SI Prefix rules."""
 
@@ -283,8 +287,11 @@ def get_mongodb_stat_data(stats_file):
                 details[MongoStats.vsize],
                 details[MongoStats.res],
             ))
-    first_timestamp = data_lines[0].timestamp
-    final_timestamp = data_lines[-1].timestamp
+    try:
+        first_timestamp = data_lines[0].timestamp
+        final_timestamp = data_lines[-1].timestamp
+    except IndexError:
+        raise NoDataPresent('No data found in mongodb log.')
     return first_timestamp, final_timestamp, data_lines
 
 

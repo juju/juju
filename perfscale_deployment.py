@@ -18,10 +18,10 @@ from deploy_stack import (
 from generate_perfscale_results import (
     DeployDetails,
     TimingData,
+    add_basic_perfscale_arguments,
     run_perfscale_test,
 )
 from utility import (
-    add_basic_testing_arguments,
     configure_logging,
 )
 
@@ -62,7 +62,7 @@ def parse_args(argv):
     """Parse all arguments."""
     parser = argparse.ArgumentParser(
         description="Perfscale bundle deployment test.")
-    add_basic_testing_arguments(parser)
+    add_basic_perfscale_arguments(parser)
     parser.add_argument(
         '--bundle-name',
         help='Bundle to deploy during test run.',

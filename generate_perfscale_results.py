@@ -29,6 +29,7 @@ from logbreakdown import (
     breakdown_log_by_timeframes,
 )
 import perf_graphing
+from utility import add_basic_testing_arguments
 
 
 __metaclass__ = type
@@ -77,11 +78,41 @@ class PerfTestDataJsonSerialisation(json.JSONEncoder):
         return super(PerfTestDataJsonSerialisation, self).default(obj)
 
 
+class SetupPathsConfig:
+    """Paths for transferring data to a target or running on that target."""
+    def __init__(self):
+        self.installer_script_path = _get_static_script_path(
+            SETUP_SCRIPT_PATH)
+        self.collectd_config_path = _get_static_script_path(
+            COLLECTD_CONFIG_PATH)
+        self.installer_script_dest_path = '/tmp/installer.sh'
+        self.runner_script_dest_path = '/tmp/runner.sh'
+        self.collectd_config_dest_file = '/tmp/collectd.config'
+
+
+def _get_static_script_path(script_path):
+    full_path = os.path.abspath(__file__)
+    current_dir = os.path.dirname(full_path)
+    return os.path.join(current_dir, script_path)
+
+
 SETUP_SCRIPT_PATH = 'perf_static/setup-perf-monitoring.sh'
 COLLECTD_CONFIG_PATH = 'perf_static/collectd.conf'
 
 
+SetupPaths = SetupPathsConfig()
+
+
 log = logging.getLogger("run_perfscale_test")
+
+
+def add_basic_perfscale_arguments(parser):
+    """Add the basic required args needed for a perfscale test."""
+    add_basic_testing_arguments(parser)
+    parser.add_argument(
+        '--enable-ha',
+        help='Enable HA before running perfscale test.',
+        action='store_true')
 
 
 def run_perfscale_test(target_test, bs_manager, args):
@@ -116,12 +147,14 @@ def run_perfscale_test(target_test, bs_manager, args):
             apply_any_workarounds(client)
             bootstrap_timing = TimingData(bs_start, bs_end)
 
-            setup_system_monitoring(admin_client)
+            maybe_enable_ha(admin_client, args)
+
+            machine_ids = setup_system_monitoring(admin_client)
 
             deploy_details = target_test(client, args)
         finally:
             results_dir = dump_performance_metrics_logs(
-                bs_manager.log_dir, admin_client)
+                bs_manager.log_dir, admin_client, machine_ids)
             cleanup_start = datetime.utcnow()
     # Cleanup happens when we move out of context
     cleanup_end = datetime.utcnow()
@@ -132,31 +165,42 @@ def run_perfscale_test(target_test, bs_manager, args):
         cleanup=cleanup_timing,
     )
 
-    controller_log_file = os.path.join(
-        bs_manager.log_dir,
-        'controller',
-        'machine-0',
-        'machine-0.log.gz')
-
-    generate_reports(controller_log_file, results_dir, deployments)
+    generate_reports(bs_manager.log_dir, results_dir, deployments, machine_ids)
 
 
-def dump_performance_metrics_logs(log_dir, admin_client):
-    results_dir = os.path.join(
+def dump_performance_metrics_logs(log_dir, admin_client, machine_ids):
+    """Pull metric logs and data off every controller machine in action.
+
+    Store the retrieved data in a machine-id named directory underneath the
+    genereated (and returned) base directory.
+
+    :return: Path string indicating the base path of data retrieved from the
+      controllers.
+    """
+    base_results_dir = os.path.join(
         os.path.abspath(log_dir), 'performance_results/')
-    os.makedirs(results_dir)
-    admin_client.juju(
-        'scp',
-        ('--', '-r', '0:/var/lib/collectd/rrd/localhost/*',
-         results_dir)
-    )
-    try:
+
+    for machine_id in machine_ids:
+        results_dir = os.path.join(
+            base_results_dir, 'machine-{}'.format(machine_id))
+        os.makedirs(results_dir)
+
         admin_client.juju(
-            'scp', ('0:/tmp/mongodb-stats.log', results_dir)
+            'scp',
+            ('--',
+             '-r',
+             '{}:/var/lib/collectd/rrd/localhost/*'.format(machine_id),
+             results_dir)
         )
-    except subprocess.CalledProcessError as e:
-        log.error('Failed to copy mongodb stats: {}'.format(e))
-    return results_dir
+        try:
+            admin_client.juju(
+                'scp', ('{}:/tmp/mongodb-stats.log'.format(machine_id),
+                        results_dir)
+            )
+        except subprocess.CalledProcessError as e:
+            log.error('Failed to copy mongodb stats for machine {}: {}'.format(
+                machine_id, e))
+    return base_results_dir
 
 
 def apply_any_workarounds(client):
@@ -173,51 +217,83 @@ def apply_any_workarounds(client):
         subprocess.check_output(constraint_cmd)
 
 
-def generate_reports(controller_log, results_dir, deployments):
-    """Generate reports and graphs from run results."""
-    cpu_image = generate_cpu_graph_image(results_dir)
-    memory_image = generate_memory_graph_image(results_dir)
-    network_image = generate_network_graph_image(results_dir)
+def maybe_enable_ha(admin_client, args):
+    if args.enable_ha:
+        log.info('Enabling HA.')
+        admin_client.enable_ha()
+        admin_client.wait_for_ha()
 
-    destination_dir = os.path.join(results_dir, 'mongodb')
-    os.mkdir(destination_dir)
-    try:
-        perf_graphing.create_mongodb_rrd_files(results_dir, destination_dir)
-    except perf_graphing.SourceFileNotFound:
-        log.error(
-            'Failed to create the MongoDB RRD file. Source file not found.'
-        )
 
-        # Sometimes mongostats fails to startup and start logging. Unsure yet
-        # why this is. For now generate the report without the mongodb details,
-        # the rest of the report is still useful.
-        mongo_query_image = None
-        mongo_memory_image = None
-    else:
-        mongo_query_image = generate_mongo_query_graph_image(results_dir)
-        mongo_memory_image = generate_mongo_memory_graph_image(results_dir)
+def generate_reports(log_dir, results_dir, deployments, machine_ids):
+    """Generate graph image from run results for each controller in action."""
 
-    log_message_chunks = breakdown_log_by_events_timeframe(
-        controller_log,
-        deployments['bootstrap'],
-        deployments['cleanup'],
-        deployments['deploys'])
+    for m_id in machine_ids:
+        machine_results_dir = os.path.join(
+            results_dir, 'machine-{}'.format(m_id))
+        _create_graph_images_for_machine(m_id, machine_results_dir)
+
+    # This will take care of making sure machine-0 is named log_message_chunks.
+    log_chunks = _get_controller_log_message_chunks(
+        log_dir, machine_ids, deployments)
 
     details = dict(
-        cpu_graph=cpu_image,
-        memory_graph=memory_image,
-        network_graph=network_image,
-        mongo_graph=mongo_query_image,
-        mongo_memory_graph=mongo_memory_image,
         deployments=deployments,
-        log_message_chunks=log_message_chunks
+        **log_chunks
     )
 
     json_dump_path = os.path.join(results_dir, 'report-data.json')
     with open(json_dump_path, 'wt') as f:
         json.dump(details, f, cls=PerfTestDataJsonSerialisation)
 
-    create_html_report(results_dir, details)
+
+def _get_controller_log_message_chunks(log_dir, machine_ids, deployments):
+    """Produce 'chunked' logs for the provided controller ids.
+
+    :return: dict containing chunked logs for a controller machine. The key
+      indicates which controller it's from.
+      i.e. log_message_chunks_2 is from machine-2. (Note. naming is due to
+      backwards compatibility for existing data collection.)
+    """
+    log_chunks = dict()
+    for m_id in machine_ids:
+        machine_log_file = os.path.join(
+            log_dir,
+            'controller',
+            'machine-{}'.format(m_id),
+            'machine-{}.log.gz'.format(m_id))
+
+        log_name = 'log_message_chunks_{}'.format(m_id)
+        log_chunks[log_name] = breakdown_log_by_events_timeframe(
+            machine_log_file,
+            deployments['bootstrap'],
+            deployments['cleanup'],
+            deployments['deploys'])
+    # Keep backwards compatible data naming (for before collecting HA results).
+    log_chunks['log_message_chunks'] = log_chunks.pop('log_message_chunks_0')
+    return log_chunks
+
+
+def _create_graph_images_for_machine(machine_id, results_dir):
+    """Create graph images from the data from `machine_id`s details."""
+    generate_cpu_graph_image(results_dir)
+    generate_memory_graph_image(results_dir)
+    generate_network_graph_image(results_dir)
+
+    destination_dir = os.path.join(results_dir, 'mongodb')
+    os.mkdir(destination_dir)
+    try:
+        perf_graphing.create_mongodb_rrd_files(results_dir, destination_dir)
+    except (perf_graphing.SourceFileNotFound, perf_graphing.NoDataPresent):
+        # Sometimes mongostats fails to startup and start logging. Unsure yet
+        # why this is. For now generate the report without the mongodb details,
+        # the rest of the report is still useful.
+        log.error(
+            'Failed to create the MongoDB RRD file. '
+            'Source file empty or not found.'
+        )
+    else:
+        generate_mongo_query_graph_image(results_dir)
+        generate_mongo_memory_graph_image(results_dir)
 
 
 def breakdown_log_by_events_timeframe(log, bootstrap, cleanup, deployments):
@@ -309,10 +385,27 @@ def create_html_report(results_dir, details):
 
 
 def generate_graph_image(base_dir, results_dir, name, generator):
+    """Generate graph image files.
+
+    The images will have the machine id encoded within the names.
+    i.e. machine-0-cpu.png
+    """
     metric_files_dir = os.path.join(os.path.abspath(base_dir), results_dir)
-    output_file = os.path.join(
-        os.path.abspath(base_dir), '{}.png'.format(name))
-    return create_report_graph(metric_files_dir, output_file, generator)
+    output_file = _image_name(base_dir, name)
+    try:
+        return create_report_graph(metric_files_dir, output_file, generator)
+    except perf_graphing.SourceFileNotFound:
+        # It's possible that a HA controller isn't around long enough to
+        # actually gather some data from resulting in a lack of rrd file for
+        # that metric.
+        log.warning('Failed to generate {}.'.format(output_file))
+
+
+def _image_name(base_dir, name):
+    # Encode the machine id into the image name. The machine id is part of the
+    # directory structure.
+    basename = os.path.basename(os.path.normpath(base_dir))
+    return os.path.join(base_dir, '{}-{}.png'.format(basename, name))
 
 
 def create_report_graph(rrd_dir, output_file, generator):
@@ -379,40 +472,58 @@ def find_actual_start(fetch_output):
             pass
 
 
+def get_controller_machines(admin_client):
+    """Returns list of machine ids for all active controller machines."""
+    machines = admin_client.get_controller_members()
+    return [m.machine_id for m in machines]
+
+
 def setup_system_monitoring(admin_client):
-    # Using ssh get into the machine-0 (or all api/state servers)
-    # Install the required packages and start up logging of systems collections
-    # and mongodb details.
+    """Setup metrics collections for all controller machines in action."""
+    # For all contrller machines we need to get what machines they are and
+    # install on them.
 
-    installer_script_path = _get_static_script_path(SETUP_SCRIPT_PATH)
-    collectd_config_path = _get_static_script_path(COLLECTD_CONFIG_PATH)
-    installer_script_dest_path = '/tmp/installer.sh'
-    runner_script_dest_path = '/tmp/runner.sh'
-    collectd_config_dest_file = '/tmp/collectd.config'
+    controller_machine_ids = get_controller_machines(admin_client)
+
+    for machine_id in controller_machine_ids:
+        _setup_system_monitoring(admin_client, machine_id)
+
+    # Start logging separate to setup so things start almost at the same time
+    # (not waiting around for other machines to setup.)
+    for machine_id in controller_machine_ids:
+        _enable_monitoring(admin_client, machine_id)
+
+    return controller_machine_ids
+
+
+def _setup_system_monitoring(admin_client, machine_id):
+    """Install required metrics monitoring software on supplied machine id.
+
+    Using ssh & scp get into the controller machines install the required
+    packages and start up logging of systems collections and mongodb details.
+    """
+    admin_client.juju(
+        'scp',
+        (SetupPaths.collectd_config_path, '{}:{}'.format(
+            machine_id, SetupPaths.collectd_config_dest_file)))
 
     admin_client.juju(
         'scp',
-        (collectd_config_path, '0:{}'.format(collectd_config_dest_file)))
+        (SetupPaths.installer_script_path, '{}:{}'.format(
+            machine_id, SetupPaths.installer_script_dest_path)))
+    admin_client.juju('ssh', (machine_id, 'chmod +x {}'.format(
+        SetupPaths.installer_script_dest_path)))
 
-    admin_client.juju(
-        'scp',
-        (installer_script_path, '0:{}'.format(installer_script_dest_path)))
-    admin_client.juju('ssh', ('0', 'chmod +x {}'.format(
-        installer_script_dest_path)))
-    admin_client.juju(
-        'ssh',
-        ('0', '{installer} {config_file} {output_file}'.format(
-            installer=installer_script_dest_path,
-            config_file=collectd_config_dest_file,
-            output_file=runner_script_dest_path)))
 
+def _enable_monitoring(admin_client, machine_id):
     # Start collection
     # Respawn incase the initial execution fails for whatever reason.
-    admin_client.juju('ssh', ('0', '--', 'daemon --respawn {}'.format(
-        runner_script_dest_path)))
+    admin_client.juju(
+        'ssh',
+        (machine_id, '{installer} {config_file} {output_file}'.format(
+            installer=SetupPaths.installer_script_dest_path,
+            config_file=SetupPaths.collectd_config_dest_file,
+            output_file=SetupPaths.runner_script_dest_path)))
 
-
-def _get_static_script_path(script_path):
-    full_path = os.path.abspath(__file__)
-    current_dir = os.path.dirname(full_path)
-    return os.path.join(current_dir, script_path)
+    admin_client.juju('ssh', (machine_id, '--', 'daemon --respawn {}'.format(
+        SetupPaths.runner_script_dest_path)))
