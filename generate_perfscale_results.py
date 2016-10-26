@@ -35,6 +35,9 @@ from utility import add_basic_testing_arguments
 __metaclass__ = type
 
 
+MINUTE = 60
+
+
 class TimingData:
 
     strf_format = '%F %H:%M:%S'
@@ -159,13 +162,43 @@ def run_perfscale_test(target_test, bs_manager, args):
     # Cleanup happens when we move out of context
     cleanup_end = datetime.utcnow()
     cleanup_timing = TimingData(cleanup_start, cleanup_end)
+
+    total_timing = TimingData(bs_start, cleanup_end)
+    output_test_run_length(total_timing.seconds)
+
+    graph_period = _determine_graph_period(total_timing.seconds)
     deployments = dict(
         bootstrap=bootstrap_timing,
         deploys=[deploy_details],
         cleanup=cleanup_timing,
     )
 
-    generate_reports(bs_manager.log_dir, results_dir, deployments, machine_ids)
+    generate_reports(
+        bs_manager.log_dir,
+        results_dir,
+        deployments,
+        machine_ids,
+        graph_period)
+
+
+def output_test_run_length(seconds):
+    time_taken = _convert_seconds_to_readable(seconds)
+
+    log.info('Test took: {}'.format(time_taken))
+
+
+def _convert_seconds_to_readable(seconds):
+    """Given a period in seconds break it down into hour, minute & seconds."""
+    m, s = divmod(seconds, 60)
+    h, m = divmod(m, 60)
+    return '{0}h:{1:02d}m:{2:02d}s'.format(h, m, s)
+
+
+def _determine_graph_period(seconds):
+    """Given a tests length determine what graphing period is needed."""
+    if seconds >= (MINUTE * 60 * 2):
+        return perf_graphing.GraphPeriod.day
+    return perf_graphing.GraphPeriod.hours
 
 
 def dump_performance_metrics_logs(log_dir, admin_client, machine_ids):
@@ -224,17 +257,19 @@ def maybe_enable_ha(admin_client, args):
         admin_client.wait_for_ha()
 
 
-def generate_reports(log_dir, results_dir, deployments, machine_ids):
+def generate_reports(
+        log_dir, results_dir, deployments, machine_ids, graph_period):
     """Generate graph image from run results for each controller in action."""
 
     for m_id in machine_ids:
         machine_results_dir = os.path.join(
             results_dir, 'machine-{}'.format(m_id))
-        _create_graph_images_for_machine(m_id, machine_results_dir)
+        _create_graph_images_for_machine(
+            m_id, machine_results_dir, graph_period)
 
     # This will take care of making sure machine-0 is named log_message_chunks.
     log_chunks = _get_controller_log_message_chunks(
-        log_dir, machine_ids, deployments)
+        log_dir, machine_ids, deployments, graph_period)
 
     details = dict(
         deployments=deployments,
@@ -246,7 +281,8 @@ def generate_reports(log_dir, results_dir, deployments, machine_ids):
         json.dump(details, f, cls=PerfTestDataJsonSerialisation)
 
 
-def _get_controller_log_message_chunks(log_dir, machine_ids, deployments):
+def _get_controller_log_message_chunks(
+        log_dir, machine_ids, deployments, graph_period):
     """Produce 'chunked' logs for the provided controller ids.
 
     :return: dict containing chunked logs for a controller machine. The key
@@ -263,21 +299,25 @@ def _get_controller_log_message_chunks(log_dir, machine_ids, deployments):
             'machine-{}.log.gz'.format(m_id))
 
         log_name = 'log_message_chunks_{}'.format(m_id)
-        log_chunks[log_name] = breakdown_log_by_events_timeframe(
-            machine_log_file,
-            deployments['bootstrap'],
-            deployments['cleanup'],
-            deployments['deploys'])
+        # Skip doing the logs for long runs (the logs can get huge).
+        if graph_period == perf_graphing.GraphPeriod.hours:
+            log_chunks[log_name] = breakdown_log_by_events_timeframe(
+                machine_log_file,
+                deployments['bootstrap'],
+                deployments['cleanup'],
+                deployments['deploys'])
+        else:
+            log_chunks[log_name] = defaultdict(defaultdict)
     # Keep backwards compatible data naming (for before collecting HA results).
     log_chunks['log_message_chunks'] = log_chunks.pop('log_message_chunks_0')
     return log_chunks
 
 
-def _create_graph_images_for_machine(machine_id, results_dir):
+def _create_graph_images_for_machine(machine_id, results_dir, graph_period):
     """Create graph images from the data from `machine_id`s details."""
-    generate_cpu_graph_image(results_dir)
-    generate_memory_graph_image(results_dir)
-    generate_network_graph_image(results_dir)
+    generate_cpu_graph_image(results_dir, graph_period)
+    generate_memory_graph_image(results_dir, graph_period)
+    generate_network_graph_image(results_dir, graph_period)
 
     destination_dir = os.path.join(results_dir, 'mongodb')
     os.mkdir(destination_dir)
@@ -292,8 +332,8 @@ def _create_graph_images_for_machine(machine_id, results_dir):
             'Source file empty or not found.'
         )
     else:
-        generate_mongo_query_graph_image(results_dir)
-        generate_mongo_memory_graph_image(results_dir)
+        generate_mongo_query_graph_image(results_dir, graph_period)
+        generate_mongo_memory_graph_image(results_dir, graph_period)
 
 
 def breakdown_log_by_events_timeframe(log, bootstrap, cleanup, deployments):
@@ -384,7 +424,7 @@ def create_html_report(results_dir, details):
         f.write(template.render(details))
 
 
-def generate_graph_image(base_dir, results_dir, name, generator):
+def generate_graph_image(base_dir, results_dir, name, generator, graph_period):
     """Generate graph image files.
 
     The images will have the machine id encoded within the names.
@@ -393,7 +433,8 @@ def generate_graph_image(base_dir, results_dir, name, generator):
     metric_files_dir = os.path.join(os.path.abspath(base_dir), results_dir)
     output_file = _image_name(base_dir, name)
     try:
-        return create_report_graph(metric_files_dir, output_file, generator)
+        return create_report_graph(
+            metric_files_dir, output_file, generator, graph_period)
     except perf_graphing.SourceFileNotFound:
         # It's possible that a HA controller isn't around long enough to
         # actually gather some data from resulting in a lack of rrd file for
@@ -408,44 +449,63 @@ def _image_name(base_dir, name):
     return os.path.join(base_dir, '{}-{}.png'.format(basename, name))
 
 
-def create_report_graph(rrd_dir, output_file, generator):
+def create_report_graph(rrd_dir, output_file, generator, graph_period):
     any_file = os.listdir(rrd_dir)[0]
-    start, end = get_duration_points(os.path.join(rrd_dir, any_file))
+    start, end = get_duration_points(
+        os.path.join(rrd_dir, any_file), graph_period)
     generator(start, end, rrd_dir, output_file)
     print('Created: {}'.format(output_file))
     return os.path.basename(output_file)
 
 
-def generate_cpu_graph_image(results_dir):
+def generate_cpu_graph_image(results_dir, graph_period):
     return generate_graph_image(
-        results_dir, 'aggregation-cpu-average', 'cpu', perf_graphing.cpu_graph)
+        results_dir,
+        'aggregation-cpu-max',
+        'cpu',
+        perf_graphing.cpu_graph,
+        graph_period)
 
 
-def generate_memory_graph_image(results_dir):
+def generate_memory_graph_image(results_dir, graph_period):
     return generate_graph_image(
-        results_dir, 'memory', 'memory', perf_graphing.memory_graph)
+        results_dir,
+        'memory',
+        'memory',
+        perf_graphing.memory_graph,
+        graph_period)
 
 
-def generate_network_graph_image(results_dir):
+def generate_network_graph_image(results_dir, graph_period):
     return generate_graph_image(
-        results_dir, 'interface-eth0', 'network', perf_graphing.network_graph)
+        results_dir,
+        'interface-eth0',
+        'network',
+        perf_graphing.network_graph,
+        graph_period)
 
 
-def generate_mongo_query_graph_image(results_dir):
+def generate_mongo_query_graph_image(results_dir, graph_period):
     return generate_graph_image(
-        results_dir, 'mongodb', 'mongodb', perf_graphing.mongodb_graph)
+        results_dir,
+        'mongodb',
+        'mongodb',
+        perf_graphing.mongodb_graph,
+        graph_period)
 
 
-def generate_mongo_memory_graph_image(results_dir):
+def generate_mongo_memory_graph_image(results_dir, graph_period):
     return generate_graph_image(
         results_dir,
         'mongodb',
         'mongodb_memory',
-        perf_graphing.mongodb_memory_graph)
+        perf_graphing.mongodb_memory_graph,
+        graph_period
+    )
 
 
-def get_duration_points(rrd_file):
-    start = rrdtool.first(rrd_file)
+def get_duration_points(rrd_file, graph_period):
+    start = rrdtool.first(rrd_file, '--rraindex', graph_period)
     end = rrdtool.last(rrd_file)
 
     # Start gives us the start timestamp in the data but it might be null/empty

@@ -901,10 +901,8 @@ def get_client_class(version):
         raise VersionNotTestedError(version)
     elif re.match('^1\.', version):
         client_class = EnvJujuClient1X
-    # Ensure alpha/beta number matches precisely
     elif re.match('^2\.0-(alpha|beta)', version):
         raise VersionNotTestedError(version)
-    # between beta 9-14
     elif re.match('^2\.0-rc[1-3]', version):
         client_class = EnvJujuClientRC
     else:
@@ -1337,11 +1335,16 @@ class EnvJujuClient:
         return exit_status
 
     def kill_controller(self):
-        """Kill a controller and its environments."""
-        seen_cmd = self.get_jes_command()
-        self.juju(
-            _jes_cmds[seen_cmd]['kill'], (self.env.controller.name, '-y'),
+        """Kill a controller and its models. Hard kill option."""
+        return self.juju(
+            'kill-controller', (self.env.controller.name, '-y'),
             include_e=False, check=False, timeout=get_teardown_timeout(self))
+
+    def destroy_controller(self):
+        """Destroy a controller and its models. Soft kill option."""
+        return self.juju(
+            'destroy-controller', (self.env.controller.name, '-y'),
+            include_e=False, timeout=get_teardown_timeout(self))
 
     def get_juju_output(self, command, *args, **kwargs):
         """Call a juju command and return the output.
@@ -2557,7 +2560,19 @@ class EnvJujuClient1X(EnvJujuClientRC):
 
     def destroy_model(self):
         """With JES enabled, destroy-environment destroys the model."""
-        self.destroy_environment(force=False)
+        return self.destroy_environment(force=False)
+
+    def kill_controller(self):
+        """Destroy the environment, with force. Hard kill option."""
+        return self.juju(
+            'destroy-environment', (self.env.environment, '--force', '-y'),
+            check=False, include_e=False, timeout=get_teardown_timeout(self))
+
+    def destroy_controller(self):
+        """Destroy the environment, with force. Soft kill option."""
+        return self.juju(
+            'destroy-environment', (self.env.environment, '-y'),
+            include_e=False, timeout=get_teardown_timeout(self))
 
     def destroy_environment(self, force=True, delete_jenv=False):
         if force:
@@ -2567,7 +2582,7 @@ class EnvJujuClient1X(EnvJujuClientRC):
         exit_status = self.juju(
             'destroy-environment',
             (self.env.environment,) + force_arg + ('-y',),
-            self.env.needs_sudo(), check=False, include_e=False,
+            check=False, include_e=False,
             timeout=get_teardown_timeout(self))
         if delete_jenv:
             jenv_path = get_jenv_path(self.env.juju_home, self.env.environment)
