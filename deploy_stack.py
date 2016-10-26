@@ -648,13 +648,7 @@ class BootstrapManager:
         :param try_jes: Ignored."""
         if self.tear_down_client.env is not self.client.env:
             raise AssertionError('Tear down client needs same env!')
-        try:
-            self.tear_down_client.destroy_controller()
-        except subprocess.CalledProcessError as error:
-            logging.warning('tear_down destroy-controller failed')
-            retval = self.tear_down_client.kill_controller()
-            logging.warning('tear_down kill-controller result=' + str(retval))
-            raise error
+        self.tear_down_client.tear_down()
 
     def _log_and_wrap_exception(self, exc):
         logging.exception(exc)

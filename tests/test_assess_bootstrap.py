@@ -77,7 +77,7 @@ class TestThinBootedContext(TestCase):
 
     def test_thin_booted_context_kwargs(self):
         bs_manager = self.make_bs_manager_mock(True)
-        with patch('jujupy.tear_down', autospec=True):
+        with patch('assess_bootstrap.tear_down', autospec=True):
             with thin_booted_context(bs_manager, alpha='foo', beta='bar'):
                 pass
         bs_manager.client.bootstrap.assert_called_once_with(
