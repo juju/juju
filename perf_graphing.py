@@ -192,7 +192,7 @@ def mongodb_memory_graph(start, end, rrd_path, output_file):
             '-w', '800',
             '-h', '600',
             '-n', 'DEFAULT:0:Bitstream Vera Sans',
-            '-v', 'Queries',
+            '-v', 'Memory',
             '--alt-autoscale-max',
             '-t', 'MongoDB Memory Usage',
             'DEF:vsize_avg={}:vsize:AVERAGE'.format(rrd_file),
