@@ -47,7 +47,7 @@ func handleResponse(mm *state.MetricsManager, st ModelBackend, response wireform
 			}
 		}
 	}
-	if response.NewGracePeriod > 0 {
+	if response.NewGracePeriod > 0 && response.NewGracePeriod != mm.GracePeriod() {
 		err := mm.SetGracePeriod(response.NewGracePeriod)
 		if err != nil {
 			logger.Errorf("failed to set new grace period %v", err)
