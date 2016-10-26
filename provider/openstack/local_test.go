@@ -108,13 +108,15 @@ type localServer struct {
 	UseTLS          bool
 }
 
-type newOpenstackFunc func(*identity.Credentials, identity.AuthMode, bool) (*novaservice.Nova, []string)
+type newOpenstackFunc func(*identity.Credentials, identity.AuthMode, bool) (*openstackservice.Openstack, []string)
 
 func (s *localServer) start(
 	c *gc.C, cred *identity.Credentials, newOpenstackFunc newOpenstackFunc,
 ) {
 	var logMsg []string
-	s.Nova, logMsg = newOpenstackFunc(cred, identity.AuthUserPass, s.UseTLS)
+	s.Openstack, logMsg = newOpenstackFunc(cred, identity.AuthUserPass, s.UseTLS)
+	s.Openstack.SetupHTTP(nil)
+	s.Nova = s.Openstack.Nova
 	for _, msg := range logMsg {
 		c.Logf("%v", msg)
 	}
@@ -131,11 +133,7 @@ func (s *localServer) start(
 }
 
 func (s *localServer) stop() {
-	if s.Openstack != nil {
-		s.Openstack.Stop()
-	} else if s.Nova != nil {
-		s.Nova.Stop()
-	}
+	s.Openstack.Stop()
 	s.restoreTimeouts()
 }
 
@@ -156,7 +154,7 @@ func (s *localLiveSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
 
 	c.Logf("Running live tests using openstack service test double")
-	s.srv.start(c, s.cred, newFullOpenstackService)
+	s.srv.start(c, s.cred, openstackservice.New)
 
 	// Set credentials to use when bootstrapping. Must be done after
 	// starting server to get the auth URL.
@@ -213,7 +211,7 @@ func (s *localServerSuite) SetUpSuite(c *gc.C) {
 
 func (s *localServerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.srv.start(c, s.cred, newFullOpenstackService)
+	s.srv.start(c, s.cred, openstackservice.New)
 
 	// Set credentials to use when bootstrapping. Must be done after
 	// starting server to get the auth URL.
@@ -1243,7 +1241,7 @@ func (s *localHTTPSServerSuite) SetUpTest(c *gc.C) {
 		TenantName: "some tenant",
 	}
 	// Note: start() will change cred.URL to point to s.srv.Server.URL
-	s.srv.start(c, cred, newFullOpenstackService)
+	s.srv.start(c, cred, openstackservice.New)
 	s.cred = cred
 	attrs := s.createConfigAttrs(c)
 	c.Assert(attrs["auth-url"].(string)[:8], gc.Equals, "https://")
@@ -1860,7 +1858,7 @@ func (s *noSwiftSuite) SetUpTest(c *gc.C) {
 		Region:     "some-region",
 		TenantName: "some tenant",
 	}
-	s.srv.start(c, s.cred, newNovaOnlyOpenstackService)
+	s.srv.start(c, s.cred, openstackservice.NewNoSwift)
 
 	attrs := coretesting.FakeConfig().Merge(coretesting.Attrs{
 		"name":            "sample-no-swift",
@@ -1908,18 +1906,6 @@ func (s *noSwiftSuite) TestBootstrap(c *gc.C) {
 		CAPrivateKey:     coretesting.CAKey,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-func newFullOpenstackService(cred *identity.Credentials, auth identity.AuthMode, useTSL bool) (*novaservice.Nova, []string) {
-	service, logMsg := openstackservice.New(cred, auth, useTSL)
-	service.SetupHTTP(nil)
-	return service.Nova, logMsg
-}
-
-func newNovaOnlyOpenstackService(cred *identity.Credentials, auth identity.AuthMode, useTSL bool) (*novaservice.Nova, []string) {
-	service, logMsg := openstackservice.NewNoSwift(cred, auth, useTSL)
-	service.SetupHTTP(nil)
-	return service.Nova, logMsg
 }
 
 func bootstrapEnv(c *gc.C, env environs.Environ) error {
