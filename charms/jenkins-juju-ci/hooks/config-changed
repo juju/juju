@@ -110,6 +110,26 @@ cat << EOC > $JENKINS_HOME/.gitconfig
         insteadOf = http://
 EOC
 
+S3_PROXY=$(config-get s3-proxy)
+if [[ $S3_PROXY == ""  ]]; then
+    # Remove s3 proxy changes from .boto and juju-qa.s3cfg.
+    rm $JENKINS_HOME/.boto || true
+    (cd cloud-city && as_jenkins bzr revert bzr revert juju-qa.s3cfg || true)
+else
+    S3_PROXY_HOST=$(echo "$S3_PROXY" | cut -d ':' -f 1)
+    S3_PROXY_PORT=$(echo "$S3_PROXY" | cut -d ':' -f 2)
+    # Place a .boto file for python scripts
+    cat << EOC > $JENKINS_HOME/.boto
+[Boto]
+proxy = $S3_PROXY_HOST
+proxy_port = $S3_PROXY_PORT
+EOC
+    chown jenkins:jenkins $JENKINS_HOME/.boto
+    # Modify cloud-city/juju-qa.s3cfg to use a proxy.
+    sed -i -r "s/(proxy_host =).*/\1 $S3_PROXY_HOST/; s/(proxy_port =).*/\1 $S3_PROXY_PORT/;" \
+        $JENKINS_HOME/cloud-city/juju-qa.s3cfg
+fi
+
 status-set maintenance "Updating dependencies from branches" || true
 if [[ $(uname) == "Linux" ]]; then
     as_jenkins make -C $JENKINS_HOME/juju-ci-tools install-deps
