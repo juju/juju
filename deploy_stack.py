@@ -651,8 +651,9 @@ class BootstrapManager:
         try:
             self.tear_down_client.destroy_controller()
         except subprocess.CalledProcessError as error:
-            # Dump information for error.
-            self.tear_down_client.kill_controller()
+            logging.warning('tear_down destroy-controller failed')
+            retval = self.tear_down_client.kill_controller()
+            logging.warning('tear_down kill-controller result=' + str(retval))
             raise error
 
     def _log_and_wrap_exception(self, exc):
