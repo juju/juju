@@ -44,6 +44,7 @@ class TestThinBootedContext(TestCase):
         client = Mock()
         client.attach_mock(Mock(), 'bootstrap')
         client.attack_mock(Mock(return_value=jes_enabled), 'is_jes_enabled')
+        client.attack_mock(Mock(), 'tear_down')
         bs_manager = Mock()
         bs_manager.attach_mock(client, 'client')
         bs_manager.attack_mock(Mock(), 'tear_down')
@@ -64,22 +65,18 @@ class TestThinBootedContext(TestCase):
 
     def test_thin_booted_context(self):
         bs_manager = self.make_bs_manager_mock()
-        with patch('assess_bootstrap.tear_down',
-                   autospec=True) as tear_down_mock:
-            with thin_booted_context(bs_manager):
-                pass
-        tear_down_mock.assert_called_once_with(
-            bs_manager.client, bs_manager.client.is_jes_enabled())
+        with thin_booted_context(bs_manager):
+            pass
         bs_manager.top_context.assert_called_once_with()
         bs_manager.bootstrap_context.assert_called_once_with('machines')
         bs_manager.runtime_context.assert_called_once_with('machines')
+        bs_manager.client.tear_down.assert_called_once_with()
         bs_manager.client.bootstrap.assert_called_once_with()
 
     def test_thin_booted_context_kwargs(self):
         bs_manager = self.make_bs_manager_mock(True)
-        with patch('assess_bootstrap.tear_down', autospec=True):
-            with thin_booted_context(bs_manager, alpha='foo', beta='bar'):
-                pass
+        with thin_booted_context(bs_manager, alpha='foo', beta='bar'):
+            pass
         bs_manager.client.bootstrap.assert_called_once_with(
             alpha='foo', beta='bar')
 
