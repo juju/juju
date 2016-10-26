@@ -226,7 +226,7 @@ class TestMakeClientFromArgs(TestCase):
                            autospec=True, return_value='controller'):
                     with patch('jujupy.EnvJujuClient.juju',
                                autospec=True, return_value=''):
-                        with patch('jujupy.EnvJujuClient.tear_down',
+                        with patch('assess_log_rotation.tear_down',
                                    autospec=True, return_value='') as td_func:
                             with patch.object(JujuData, 'load_yaml'):
                                 yield td_func
@@ -240,4 +240,4 @@ class TestMakeClientFromArgs(TestCase):
                 ))
         self.assertIsInstance(client, EnvJujuClient)
         self.assertIn('/jes-homes/bar', client.env.juju_home)
-        td_func.assert_called_once_with(client)
+        td_func.assert_called_once_with(client, True)

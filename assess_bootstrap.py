@@ -8,6 +8,7 @@ import sys
 
 from deploy_stack import (
     BootstrapManager,
+    tear_down,
     )
 from jujupy import (
     get_machine_dns_name,
@@ -31,7 +32,7 @@ def thin_booted_context(bs_manager, **kwargs):
     client = bs_manager.client
     with bs_manager.top_context() as machines:
         with bs_manager.bootstrap_context(machines):
-            client.tear_down()
+            tear_down(client, client.is_jes_enabled())
             client.bootstrap(**kwargs)
         with bs_manager.runtime_context(machines):
             yield client
