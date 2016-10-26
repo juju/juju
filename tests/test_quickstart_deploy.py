@@ -76,10 +76,10 @@ class TestQuickstartTest(FakeHomeTestCase):
         with patch.object(client, 'quickstart') as qs_mock:
             # Test first yield
             with patch('jujupy.check_free_disk_space', autospec=True):
-                with patch('deploy_stack.BootstrapManager.tear_down',
-                           autospec=True) as td_mock:
+                with patch.object(client, 'kill_controller',
+                                  autospec=True) as kill_mock:
                     step = steps.next()
-        td_mock.assert_called_once_with(bs_manager, try_jes=True)
+        kill_mock.assert_called_once_with()
         qs_mock.assert_called_once_with('/tmp/bundle.yaml')
         expected = {'juju-quickstart': 'Returned from quickstart'}
         self.assertEqual(expected, step)

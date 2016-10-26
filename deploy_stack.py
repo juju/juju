@@ -684,7 +684,7 @@ class BootstrapManager:
         if os.path.isfile(jenv_path):
             # An existing .jenv implies JES was not used, because when JES is
             # enabled, cache.yaml is enabled.
-            self.tear_down(try_jes=False)
+            self.tear_down_client.kill_controller()
             torn_down = True
         else:
             jes_home = jes_home_path(
@@ -694,14 +694,14 @@ class BootstrapManager:
                 if os.path.isfile(cache_path):
                     # An existing .jenv implies JES was used, because when JES
                     # is enabled, cache.yaml is enabled.
-                    self.tear_down(try_jes=True)
+                    self.tear_down_client.kill_controller()
                     torn_down = True
         ensure_deleted(jenv_path)
         with temp_bootstrap_env(self.client.env.juju_home, self.client,
                                 permanent=self.permanent, set_home=False):
             with self.handle_bootstrap_exceptions():
                 if not torn_down:
-                    self.tear_down(try_jes=True)
+                    self.tear_down_client.kill_controller()
                 yield
 
     @contextmanager
