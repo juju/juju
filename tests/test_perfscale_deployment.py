@@ -1,6 +1,5 @@
 """Tests for assess_perf_test_simple module."""
 
-import argparse
 from mock import patch, Mock
 import StringIO
 
@@ -10,28 +9,17 @@ from tests import (
     parse_error,
     TestCase,
 )
+from test_generate_perfscale_results import (
+    get_default_args,
+)
 from utility import temp_dir
 
 
-def get_default_args(log_dir='/tmp/logs'):
-    return argparse.Namespace(
-        env='an-env',
-        juju_bin='/bin/juju',
-        logs=log_dir,
-        temp_env_name='an-env-mod',
-        bundle_name='cs:~landscape/bundle/landscape-scalable',
-        debug=False,
-        agent_stream=None,
-        agent_url=None,
-        bootstrap_host=None,
-        keep_env=False,
-        machine=[],
-        region=None,
-        series=None,
-        upload_tools=False,
-        verbose=20,
-        deadline=None,
-    )
+def _get_default_args(**kwargs):
+    # Wrap default args for this test.
+    bundle = kwargs.pop(
+        'bundle_name', 'cs:~landscape/bundle/landscape-scalable')
+    return get_default_args(bundle_name=bundle, **kwargs)
 
 
 class TestParseArgs(TestCase):
@@ -45,7 +33,7 @@ class TestParseArgs(TestCase):
                 'an-env-mod'])
         self.assertEqual(
             args,
-            get_default_args()
+            _get_default_args()
         )
 
     def test_default_bundle_name(self):
@@ -97,4 +85,4 @@ class TestMain(TestCase):
         mock_run_pt.assert_called_once_with(
             pd.assess_deployment_perf,
             bs_manager,
-            get_default_args(log_dir))
+            _get_default_args(logs=log_dir))
