@@ -18,8 +18,7 @@ DEBS_NOT_FOUND = 3
 
 # This constant defines the location of the base source package branch.
 DEFAULT_SPB = 'lp:~juju-qa/juju-release-tools/packaging-juju-core-default'
-# TODO Merge packaging-juju2-default when juju-ci-tools is ready.
-DEFAULT_SPB2 = 'lp:~juju-qa/juju-release-tools/packaging-juju-core2-default'
+DEFAULT_SPB2 = 'lp:~juju-qa/juju-release-tools/packaging-juju2-default'
 
 
 # This constant defines the status of the series supported by CI and Releases.
@@ -32,7 +31,8 @@ SUPPORTED_RELEASES = """\
 15.04 vivid HISTORIC
 15.10 wily HISTORIC
 16.04 xenial LTS
-16.10 yakkety DEVEL
+16.10 yakkety SUPPORTED
+17.04 zesty DEVEL
 """
 
 
