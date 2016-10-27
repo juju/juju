@@ -289,8 +289,8 @@ func (a *application) SetConstraints(args ConstraintsArgs) {
 }
 
 // Resources implements Application.
-func (s *application) Resources() []Resource {
-	rs := s.Resources_.Resources_
+func (a *application) Resources() []Resource {
+	rs := a.Resources_.Resources_
 	result := make([]Resource, len(rs))
 	for i, r := range rs {
 		result[i] = r
@@ -299,14 +299,14 @@ func (s *application) Resources() []Resource {
 }
 
 // AddResource implements Application.
-func (s *application) AddResource(args ResourceArgs) Resource {
+func (a *application) AddResource(args ResourceArgs) Resource {
 	r := newResource(args)
-	s.Resources_.Resources_ = append(s.Resources_.Resources_, r)
+	a.Resources_.Resources_ = append(a.Resources_.Resources_, r)
 	return r
 }
 
-func (s *application) setResources(resourceList []*resource) {
-	s.Resources_ = resources{
+func (a *application) setResources(resourceList []*resource) {
+	a.Resources_ = resources{
 		Version:    1,
 		Resources_: resourceList,
 	}
@@ -321,7 +321,7 @@ func (a *application) Validate() error {
 		return errors.NotValidf("application %q missing status", a.Name_)
 	}
 
-	for _, resource := range s.Resources_.Resources_ {
+	for _, resource := range a.Resources_.Resources_ {
 		if err := resource.Validate(); err != nil {
 			return errors.Annotatef(err, "resource %s", resource.Name_)
 		}
