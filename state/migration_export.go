@@ -724,7 +724,7 @@ func (e *exporter) setResources(exApp description.Application, resources resourc
 			Origin:         resource.Origin.String(),
 			FingerprintHex: resource.Fingerprint.Hex(),
 			Size:           resource.Size,
-			AddTimestamp:   resource.Timestamp,
+			Timestamp:      resource.Timestamp,
 			Username:       resource.Username,
 		})
 

@@ -84,7 +84,7 @@ type application struct {
 	// unit count will be assumed by the number of units associated.
 	Units_ units `yaml:"units"`
 
-	Resources_ resources `yaml:"resources,omitempty"`
+	Resources_ resources `yaml:"resources"`
 
 	Annotations_ `yaml:"annotations,omitempty"`
 

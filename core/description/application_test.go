@@ -263,9 +263,7 @@ func (s *ApplicationSerializationSuite) TestLeaderValid(c *gc.C) {
 
 func (s *ApplicationSerializationSuite) TestResourcesAreValidated(c *gc.C) {
 	application := minimalApplication()
-	application.setResources([]*resource{
-		newResource(ResourceArgs{Name: "foo"}),
-	})
+	application.AddResource(ResourceArgs{Name: "foo"})
 	err := application.Validate()
 	c.Assert(err, gc.ErrorMatches, `resource foo: missing application revision .+`)
 }

@@ -36,15 +36,15 @@ func minimalResourceMap() map[interface{}]interface{} {
 		"name":                 "bdist",
 		"revisions": []interface{}{
 			map[interface{}]interface{}{
-				"revision":      3,
-				"add-timestamp": "2016-10-18T02:03:04Z",
-				"description":   "description",
-				"fingerprint":   "aaaaaaaa",
-				"origin":        "store",
-				"path":          "file.tar.gz",
-				"size":          111,
-				"type":          "file",
-				"username":      "user",
+				"revision":    3,
+				"timestamp":   "2016-10-18T02:03:04Z",
+				"description": "description",
+				"fingerprint": "aaaaaaaa",
+				"origin":      "store",
+				"path":        "file.tar.gz",
+				"size":        111,
+				"type":        "file",
+				"username":    "user",
 			},
 			map[interface{}]interface{}{
 				"revision":    4,
@@ -66,24 +66,24 @@ func minimalResource() *resource {
 		CharmStoreRevision: 4,
 	})
 	r.AddRevision(ResourceRevisionArgs{
-		Revision:     3,
-		Type:         "file",
-		Path:         "file.tar.gz",
-		Description:  "description",
-		Origin:       "store",
-		Fingerprint:  "aaaaaaaa",
-		Size:         111,
-		AddTimestamp: time.Date(2016, 10, 18, 2, 3, 4, 0, time.UTC),
-		Username:     "user",
+		Revision:       3,
+		Type:           "file",
+		Path:           "file.tar.gz",
+		Description:    "description",
+		Origin:         "store",
+		FingerprintHex: "aaaaaaaa",
+		Size:           111,
+		Timestamp:      time.Date(2016, 10, 18, 2, 3, 4, 0, time.UTC),
+		Username:       "user",
 	})
 	r.AddRevision(ResourceRevisionArgs{
-		Revision:    4,
-		Type:        "file",
-		Path:        "file.tar.gz",
-		Description: "description",
-		Origin:      "store",
-		Fingerprint: "bbbbbbbb",
-		Size:        222,
+		Revision:       4,
+		Type:           "file",
+		Path:           "file.tar.gz",
+		Description:    "description",
+		Origin:         "store",
+		FingerprintHex: "bbbbbbbb",
+		Size:           222,
 	})
 	return r
 }
@@ -103,9 +103,9 @@ func (s *ResourceSuite) TestNew(c *gc.C) {
 	c.Check(rev3.Path(), gc.Equals, "file.tar.gz")
 	c.Check(rev3.Description(), gc.Equals, "description")
 	c.Check(rev3.Origin(), gc.Equals, "store")
-	c.Check(rev3.Fingerprint(), gc.Equals, "aaaaaaaa")
+	c.Check(rev3.FingerprintHex(), gc.Equals, "aaaaaaaa")
 	c.Check(rev3.Size(), gc.Equals, int64(111))
-	c.Check(rev3.AddTimestamp(), gc.Equals, time.Date(2016, 10, 18, 2, 3, 4, 0, time.UTC))
+	c.Check(rev3.Timestamp(), gc.Equals, time.Date(2016, 10, 18, 2, 3, 4, 0, time.UTC))
 	c.Check(rev3.Username(), gc.Equals, "user")
 
 	rev4 := rs[4]
@@ -114,9 +114,9 @@ func (s *ResourceSuite) TestNew(c *gc.C) {
 	c.Check(rev4.Path(), gc.Equals, "file.tar.gz")
 	c.Check(rev4.Description(), gc.Equals, "description")
 	c.Check(rev4.Origin(), gc.Equals, "store")
-	c.Check(rev4.Fingerprint(), gc.Equals, "bbbbbbbb")
+	c.Check(rev4.FingerprintHex(), gc.Equals, "bbbbbbbb")
 	c.Check(rev4.Size(), gc.Equals, int64(222))
-	c.Check(rev4.AddTimestamp(), gc.Equals, time.Time{})
+	c.Check(rev4.Timestamp(), gc.Equals, time.Time{})
 	c.Check(rev4.Username(), gc.Equals, "")
 }
 
@@ -151,15 +151,15 @@ func (s *ResourceSuite) TestValidateMissingCharmStoreRev(c *gc.C) {
 		CharmStoreRevision: 4,
 	})
 	r.AddRevision(ResourceRevisionArgs{
-		Revision:     3,
-		Type:         "file",
-		Path:         "file.tar.gz",
-		Description:  "description",
-		Origin:       "store",
-		Fingerprint:  "aaaaaaaa",
-		Size:         111,
-		AddTimestamp: time.Date(2016, 10, 18, 2, 3, 4, 0, time.UTC),
-		Username:     "user",
+		Revision:       3,
+		Type:           "file",
+		Path:           "file.tar.gz",
+		Description:    "description",
+		Origin:         "store",
+		FingerprintHex: "aaaaaaaa",
+		Size:           111,
+		Timestamp:      time.Date(2016, 10, 18, 2, 3, 4, 0, time.UTC),
+		Username:       "user",
 	})
 	c.Assert(r.Validate(), gc.ErrorMatches, `missing charmstore revision \(4\)`)
 }

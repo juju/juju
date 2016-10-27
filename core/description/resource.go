@@ -15,7 +15,7 @@ type Resource interface {
 	Name() string
 	Revision() int
 	CharmStoreRevision() int
-	AddRevision(ResourceRevisionArgs)
+	AddRevision(ResourceRevisionArgs) ResourceRevision
 	Revisions() map[int]ResourceRevision
 	Validate() error
 }
@@ -29,7 +29,7 @@ type ResourceRevision interface {
 	Origin() string
 	FingerprintHex() string
 	Size() int64
-	AddTimestamp() time.Time
+	Timestamp() time.Time
 	Username() string
 }
 
@@ -46,7 +46,6 @@ func newResource(args ResourceArgs) *resource {
 		Name_:               args.Name,
 		Revision_:           args.Revision,
 		CharmStoreRevision_: args.CharmStoreRevision,
-		Revisions_:          make([]*resourceRevision, 0),
 	}
 }
 
@@ -87,15 +86,15 @@ type ResourceRevisionArgs struct {
 	Origin         string
 	FingerprintHex string
 	Size           int64
-	AddTimestamp   time.Time
+	Timestamp      time.Time
 	Username       string
 }
 
 // AddRevision implements Resource.
-func (r *resource) AddRevision(args ResourceRevisionArgs) {
+func (r *resource) AddRevision(args ResourceRevisionArgs) ResourceRevision {
 	var addTs *time.Time
-	if !args.AddTimestamp.IsZero() {
-		t := args.AddTimestamp.UTC()
+	if !args.Timestamp.IsZero() {
+		t := args.Timestamp.UTC()
 		addTs = &t
 	}
 	rev := &resourceRevision{
@@ -106,10 +105,11 @@ func (r *resource) AddRevision(args ResourceRevisionArgs) {
 		Origin_:         args.Origin,
 		FingerprintHex_: args.FingerprintHex,
 		Size_:           args.Size,
-		AddTimestamp_:   addTs,
+		Timestamp_:      addTs,
 		Username_:       args.Username,
 	}
 	r.Revisions_ = append(r.Revisions_, rev)
+	return rev
 }
 
 // Revisions implements Resource.
@@ -151,7 +151,7 @@ type resourceRevision struct {
 	Origin_         string     `yaml:"origin"`
 	FingerprintHex_ string     `yaml:"fingerprint"`
 	Size_           int64      `yaml:"size"`
-	AddTimestamp_   *time.Time `yaml:"add-timestamp,omitempty"`
+	Timestamp_      *time.Time `yaml:"timestamp,omitempty"`
 	Username_       string     `yaml:"username,omitempty"`
 }
 
@@ -190,12 +190,12 @@ func (r *resourceRevision) Size() int64 {
 	return r.Size_
 }
 
-// AddTimestamp implements ResourceRevision.
-func (r *resourceRevision) AddTimestamp() time.Time {
-	if r.AddTimestamp_ == nil {
+// Timestamp implements ResourceRevision.
+func (r *resourceRevision) Timestamp() time.Time {
+	if r.Timestamp_ == nil {
 		return time.Time{}
 	}
-	return *r.AddTimestamp_
+	return *r.Timestamp_
 }
 
 // Username implements ResourceRevision.
@@ -278,19 +278,19 @@ func importResourceV1(source map[string]interface{}) (*resource, error) {
 
 func importResourceRevisionV1(source interface{}) (*resourceRevision, error) {
 	fields := schema.Fields{
-		"revision":      schema.Int(),
-		"type":          schema.String(),
-		"path":          schema.String(),
-		"description":   schema.String(),
-		"origin":        schema.String(),
-		"fingerprint":   schema.String(),
-		"size":          schema.Int(),
-		"add-timestamp": schema.Time(),
-		"username":      schema.String(),
+		"revision":    schema.Int(),
+		"type":        schema.String(),
+		"path":        schema.String(),
+		"description": schema.String(),
+		"origin":      schema.String(),
+		"fingerprint": schema.String(),
+		"size":        schema.Int(),
+		"timestamp":   schema.Time(),
+		"username":    schema.String(),
 	}
 	defaults := schema.Defaults{
-		"add-timestamp": time.Time{},
-		"username":      "",
+		"timestamp": schema.Omit,
+		"username":  "",
 	}
 	checker := schema.FieldMap(fields, defaults)
 	coerced, err := checker.Coerce(source, nil)
