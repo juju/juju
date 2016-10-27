@@ -34,7 +34,7 @@ import (
 
 type syslogSuite struct {
 	agenttest.AgentSuite
-	logsCh          logsender.LogRecordCh
+	logger          *logsender.BufferedLogWriter
 	received        chan rfc5424test.Message
 	fakeEnsureMongo *agenttest.FakeEnsureMongo
 }
@@ -127,7 +127,7 @@ func (s *syslogSuite) SetUpTest(c *gc.C) {
 	}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.logsCh, err = logsender.InstallBufferedLogWriter(1000)
+	s.logger, err = logsender.InstallBufferedLogWriter(1000)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -143,7 +143,7 @@ func (s *syslogSuite) newRecord(msg string) *logsender.LogRecord {
 
 func (s *syslogSuite) sendRecord(c *gc.C, rec *logsender.LogRecord) {
 	select {
-	case s.logsCh <- rec:
+	case s.logger.Logs() <- rec:
 	case <-time.After(coretesting.LongWait):
 		c.Fatal(`timed out "sending" message`)
 	}
@@ -201,15 +201,21 @@ func (s *syslogSuite) TestLogRecordForwarded(c *gc.C) {
 	agentConf := agentcmd.NewAgentConf(s.DataDir())
 	agentConf.ReadConfig(m.Tag().String())
 
-	machineAgentFactory := agentcmd.MachineAgentFactoryFn(agentConf, s.logsCh, c.MkDir())
-	a := machineAgentFactory(m.Id())
+	machineAgentFactory := agentcmd.MachineAgentFactoryFn(
+		agentConf,
+		s.logger,
+		agentcmd.DefaultIntrospectionSocketName,
+		c.MkDir(),
+	)
+	a, err := machineAgentFactory(m.Id())
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure there's no logs to begin with.
 	// Start the agent.
 	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
 	defer a.Stop()
 
-	err := s.State.UpdateModelConfig(map[string]interface{}{
+	err = s.State.UpdateModelConfig(map[string]interface{}{
 		"logforward-enabled": true,
 	}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -228,8 +234,14 @@ func (s *syslogSuite) TestConfigChange(c *gc.C) {
 	agentConf := agentcmd.NewAgentConf(s.DataDir())
 	agentConf.ReadConfig(m.Tag().String())
 
-	machineAgentFactory := agentcmd.MachineAgentFactoryFn(agentConf, s.logsCh, c.MkDir())
-	a := machineAgentFactory(m.Id())
+	machineAgentFactory := agentcmd.MachineAgentFactoryFn(
+		agentConf,
+		s.logger,
+		agentcmd.DefaultIntrospectionSocketName,
+		c.MkDir(),
+	)
+	a, err := machineAgentFactory(m.Id())
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure there's no logs to begin with.
 	// Start the agent.
@@ -240,7 +252,7 @@ func (s *syslogSuite) TestConfigChange(c *gc.C) {
 	received := make(chan rfc5424test.Message)
 	addr := s.createSyslogServer(c, received, done)
 
-	err := s.State.UpdateModelConfig(map[string]interface{}{
+	err = s.State.UpdateModelConfig(map[string]interface{}{
 		"logforward-enabled": true,
 		"syslog-host":        addr,
 		"syslog-ca-cert":     coretesting.CACert,
