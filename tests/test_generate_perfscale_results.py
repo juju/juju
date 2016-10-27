@@ -121,7 +121,7 @@ class TestGetControllerMachines(TestCase):
         client.bootstrap()
         self.assertListEqual(
             ['0'],
-            gpr.get_controller_machines(client.get_controller_client()))
+            gpr.get_controller_machine_ids(client.get_controller_client()))
 
     def test_returns_machine_id_for_ha_enabled(self):
         client = fake_juju_client()
@@ -129,7 +129,7 @@ class TestGetControllerMachines(TestCase):
         client.enable_ha()
         self.assertListEqual(
             ['0', '1', '2'],
-            gpr.get_controller_machines(client.get_controller_client()))
+            gpr.get_controller_machine_ids(client.get_controller_client()))
 
 
 class TestSetupSystemMonitoring(TestCase):
@@ -186,7 +186,7 @@ class TestSetupSystemMonitoring(TestCase):
             call('ssh', ('2', 'chmod +x /tmp/installer.sh')),
         ]
 
-        with patch.object(gpr, 'SetupPaths', autospec=True) as m_sp:
+        with patch.object(gpr, 'PATHS', autospec=True) as m_sp:
             m_sp.installer_script_path = static_setup_path
             m_sp.collectd_config_path = static_config_path
             m_sp.collectd_config_dest_file = '/tmp/collectd.config'

@@ -81,7 +81,7 @@ class PerfTestDataJsonSerialisation(json.JSONEncoder):
         return super(PerfTestDataJsonSerialisation, self).default(obj)
 
 
-class SetupPathsConfig:
+class PathConfig:
     """Paths for transferring data to a target or running on that target."""
     def __init__(self):
         self.installer_script_path = _get_static_script_path(
@@ -103,7 +103,7 @@ SETUP_SCRIPT_PATH = 'perf_static/setup-perf-monitoring.sh'
 COLLECTD_CONFIG_PATH = 'perf_static/collectd.conf'
 
 
-SetupPaths = SetupPathsConfig()
+PATHS = PathConfig()
 
 
 log = logging.getLogger("run_perfscale_test")
@@ -532,7 +532,7 @@ def find_actual_start(fetch_output):
             pass
 
 
-def get_controller_machines(admin_client):
+def get_controller_machine_ids(admin_client):
     """Returns list of machine ids for all active controller machines."""
     machines = admin_client.get_controller_members()
     return [m.machine_id for m in machines]
@@ -543,7 +543,7 @@ def setup_system_monitoring(admin_client):
     # For all contrller machines we need to get what machines they are and
     # install on them.
 
-    controller_machine_ids = get_controller_machines(admin_client)
+    controller_machine_ids = get_controller_machine_ids(admin_client)
 
     for machine_id in controller_machine_ids:
         _setup_system_monitoring(admin_client, machine_id)
@@ -564,15 +564,15 @@ def _setup_system_monitoring(admin_client, machine_id):
     """
     admin_client.juju(
         'scp',
-        (SetupPaths.collectd_config_path, '{}:{}'.format(
-            machine_id, SetupPaths.collectd_config_dest_file)))
+        (PATHS.collectd_config_path, '{}:{}'.format(
+            machine_id, PATHS.collectd_config_dest_file)))
 
     admin_client.juju(
         'scp',
-        (SetupPaths.installer_script_path, '{}:{}'.format(
-            machine_id, SetupPaths.installer_script_dest_path)))
+        (PATHS.installer_script_path, '{}:{}'.format(
+            machine_id, PATHS.installer_script_dest_path)))
     admin_client.juju('ssh', (machine_id, 'chmod +x {}'.format(
-        SetupPaths.installer_script_dest_path)))
+        PATHS.installer_script_dest_path)))
 
 
 def _enable_monitoring(admin_client, machine_id):
@@ -581,9 +581,9 @@ def _enable_monitoring(admin_client, machine_id):
     admin_client.juju(
         'ssh',
         (machine_id, '{installer} {config_file} {output_file}'.format(
-            installer=SetupPaths.installer_script_dest_path,
-            config_file=SetupPaths.collectd_config_dest_file,
-            output_file=SetupPaths.runner_script_dest_path)))
+            installer=PATHS.installer_script_dest_path,
+            config_file=PATHS.collectd_config_dest_file,
+            output_file=PATHS.runner_script_dest_path)))
 
     admin_client.juju('ssh', (machine_id, '--', 'daemon --respawn {}'.format(
-        SetupPaths.runner_script_dest_path)))
+        PATHS.runner_script_dest_path)))
