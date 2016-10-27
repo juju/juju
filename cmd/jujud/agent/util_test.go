@@ -195,8 +195,8 @@ func NewTestMachineAgentFactory(
 	agentConfWriter AgentConfigWriter,
 	bufferedLogger *logsender.BufferedLogWriter,
 	rootDir string,
-) func(string) *MachineAgent {
-	return func(machineId string) *MachineAgent {
+) func(string) (*MachineAgent, error) {
+	return func(machineId string) (*MachineAgent, error) {
 		return NewMachineAgent(
 			machineId,
 			agentConfWriter,
@@ -215,7 +215,9 @@ func (s *commonMachineSuite) newAgent(c *gc.C, m *state.Machine) *MachineAgent {
 	agentConf.ReadConfig(names.NewMachineTag(m.Id()).String())
 	logger := s.newBufferedLogWriter()
 	machineAgentFactory := NewTestMachineAgentFactory(&agentConf, logger, c.MkDir())
-	return machineAgentFactory(m.Id())
+	machineAgent, err := machineAgentFactory(m.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	return machineAgent
 }
 
 func (s *commonMachineSuite) newBufferedLogWriter() *logsender.BufferedLogWriter {

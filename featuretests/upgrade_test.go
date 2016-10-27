@@ -227,7 +227,9 @@ func (s *upgradeSuite) newAgent(c *gc.C, m *state.Machine) *agentcmd.MachineAgen
 		agentcmd.DefaultIntrospectionSocketName,
 		c.MkDir(),
 	)
-	return machineAgentFactory(m.Id())
+	a, err := machineAgentFactory(m.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	return a
 }
 
 // TODO(mjs) - the following should maybe be part of AgentSuite

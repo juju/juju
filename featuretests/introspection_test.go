@@ -67,7 +67,8 @@ func (s *introspectionSuite) startMachineAgent(c *gc.C) (*agentcmd.MachineAgent,
 		func(names.Tag) string { return rootDir },
 		rootDir,
 	)
-	a := machineAgentFactory(m.Id())
+	a, err := machineAgentFactory(m.Id())
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Start the agent.
 	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()

@@ -71,9 +71,13 @@ func startIntrospection(cfg introspectionConfig) error {
 // the Go and process metric collectors registered. This registry
 // is exposed by the introspection abstract domain socket on all
 // Linux agents.
-func newPrometheusRegistry() *prometheus.Registry {
+func newPrometheusRegistry() (*prometheus.Registry, error) {
 	r := prometheus.NewRegistry()
-	r.MustRegister(prometheus.NewGoCollector())
-	r.MustRegister(prometheus.NewProcessCollector(os.Getpid(), ""))
-	return r
+	if err := r.Register(prometheus.NewGoCollector()); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if err := r.Register(prometheus.NewProcessCollector(os.Getpid(), "")); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return r, nil
 }

@@ -64,7 +64,8 @@ func (s *dblogSuite) runMachineAgentTest(c *gc.C) bool {
 		agentcmd.DefaultIntrospectionSocketName,
 		c.MkDir(),
 	)
-	a := machineAgentFactory(m.Id())
+	a, err := machineAgentFactory(m.Id())
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure there's no logs to begin with.
 	c.Assert(s.getLogCount(c, m.Tag()), gc.Equals, 0)
@@ -82,7 +83,8 @@ func (s *dblogSuite) runUnitAgentTest(c *gc.C) bool {
 	s.PrimeAgent(c, u.Tag(), password)
 	logger, err := logsender.InstallBufferedLogWriter(1000)
 	c.Assert(err, jc.ErrorIsNil)
-	a := agentcmd.NewUnitAgent(nil, logger)
+	a, err := agentcmd.NewUnitAgent(nil, logger)
+	c.Assert(err, jc.ErrorIsNil)
 	s.InitAgent(c, a, "--unit-name", u.Name(), "--log-to-stderr=true")
 
 	// Ensure there's no logs to begin with.

@@ -160,7 +160,7 @@ type AgentConfigWriter interface {
 // MachineAgent.
 func NewMachineAgentCmd(
 	ctx *cmd.Context,
-	machineAgentFactory func(string) *MachineAgent,
+	machineAgentFactory func(string) (*MachineAgent, error),
 	agentInitializer AgentInitializer,
 	configFetcher AgentConfigWriter,
 ) cmd.Command {
@@ -178,7 +178,7 @@ type machineAgentCmd struct {
 	// This group of arguments is required.
 	agentInitializer    AgentInitializer
 	currentConfig       AgentConfigWriter
-	machineAgentFactory func(string) *MachineAgent
+	machineAgentFactory func(string) (*MachineAgent, error)
 	ctx                 *cmd.Context
 
 	// This group is for debugging purposes.
@@ -226,7 +226,10 @@ func (a *machineAgentCmd) Init(args []string) error {
 
 // Run instantiates a MachineAgent and runs it.
 func (a *machineAgentCmd) Run(c *cmd.Context) error {
-	machineAgent := a.machineAgentFactory(a.machineId)
+	machineAgent, err := a.machineAgentFactory(a.machineId)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	return machineAgent.Run(c)
 }
 
@@ -251,8 +254,8 @@ func MachineAgentFactoryFn(
 	bufferedLogger *logsender.BufferedLogWriter,
 	newIntrospectionSocketName func(names.Tag) string,
 	rootDir string,
-) func(string) *MachineAgent {
-	return func(machineId string) *MachineAgent {
+) func(string) (*MachineAgent, error) {
+	return func(machineId string) (*MachineAgent, error) {
 		return NewMachineAgent(
 			machineId,
 			agentConfWriter,
@@ -274,7 +277,11 @@ func NewMachineAgent(
 	loopDeviceManager looputil.LoopDeviceManager,
 	newIntrospectionSocketName func(names.Tag) string,
 	rootDir string,
-) *MachineAgent {
+) (*MachineAgent, error) {
+	prometheusRegistry, err := newPrometheusRegistry()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	a := &MachineAgent{
 		machineId:                   machineId,
 		AgentConfigWriter:           agentConfWriter,
@@ -286,12 +293,14 @@ func NewMachineAgent(
 		initialUpgradeCheckComplete: gate.NewLock(),
 		loopDeviceManager:           loopDeviceManager,
 		newIntrospectionSocketName:  newIntrospectionSocketName,
-		prometheusRegistry:          newPrometheusRegistry(),
+		prometheusRegistry:          prometheusRegistry,
 	}
-	a.prometheusRegistry.MustRegister(
+	if err := a.prometheusRegistry.Register(
 		logsendermetrics.BufferedLogWriterMetrics{bufferedLogger},
-	)
-	return a
+	); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return a, nil
 }
 
 // MachineAgent is responsible for tying together all functionality

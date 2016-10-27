@@ -78,9 +78,10 @@ func (s *UnitSuite) primeAgent(c *gc.C) (*state.Machine, *state.Unit, agent.Conf
 }
 
 func (s *UnitSuite) newAgent(c *gc.C, unit *state.Unit) *UnitAgent {
-	a := NewUnitAgent(nil, s.newBufferedLogWriter())
+	a, err := NewUnitAgent(nil, s.newBufferedLogWriter())
+	c.Assert(err, jc.ErrorIsNil)
 	s.InitAgent(c, a, "--unit-name", unit.Name(), "--log-to-stderr=true")
-	err := a.ReadConfig(unit.Tag().String())
+	err = a.ReadConfig(unit.Tag().String())
 	c.Assert(err, jc.ErrorIsNil)
 	return a
 }
@@ -92,21 +93,22 @@ func (s *UnitSuite) newBufferedLogWriter() *logsender.BufferedLogWriter {
 }
 
 func (s *UnitSuite) TestParseSuccess(c *gc.C) {
-	a := NewUnitAgent(nil, s.newBufferedLogWriter())
-	err := coretesting.InitCommand(a, []string{
+	a, err := NewUnitAgent(nil, s.newBufferedLogWriter())
+	c.Assert(err, jc.ErrorIsNil)
+	err = coretesting.InitCommand(a, []string{
 		"--data-dir", "jd",
 		"--unit-name", "w0rd-pre55/1",
 		"--log-to-stderr",
 	})
-
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(a.AgentConf.DataDir(), gc.Equals, "jd")
 	c.Check(a.UnitName, gc.Equals, "w0rd-pre55/1")
 }
 
 func (s *UnitSuite) TestParseMissing(c *gc.C) {
-	uc := NewUnitAgent(nil, s.newBufferedLogWriter())
-	err := coretesting.InitCommand(uc, []string{
+	uc, err := NewUnitAgent(nil, s.newBufferedLogWriter())
+	c.Assert(err, jc.ErrorIsNil)
+	err = coretesting.InitCommand(uc, []string{
 		"--data-dir", "jc",
 	})
 
@@ -121,15 +123,19 @@ func (s *UnitSuite) TestParseNonsense(c *gc.C) {
 		{"--unit-name", "wordpress/wild/9"},
 		{"--unit-name", "20/20"},
 	} {
-		a := NewUnitAgent(nil, s.newBufferedLogWriter())
-		err := coretesting.InitCommand(a, append(args, "--data-dir", "jc"))
+		a, err := NewUnitAgent(nil, s.newBufferedLogWriter())
+		c.Assert(err, jc.ErrorIsNil)
+
+		err = coretesting.InitCommand(a, append(args, "--data-dir", "jc"))
 		c.Check(err, gc.ErrorMatches, `--unit-name option expects "<service>/<n>" argument`)
 	}
 }
 
 func (s *UnitSuite) TestParseUnknown(c *gc.C) {
-	a := NewUnitAgent(nil, s.newBufferedLogWriter())
-	err := coretesting.InitCommand(a, []string{
+	a, err := NewUnitAgent(nil, s.newBufferedLogWriter())
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = coretesting.InitCommand(a, []string{
 		"--unit-name", "wordpress/1",
 		"thundering typhoons",
 	})
@@ -412,7 +418,8 @@ func (s *UnitSuite) TestWorkers(c *gc.C) {
 
 	_, unit, _, _ := s.primeAgent(c)
 	ctx := cmdtesting.Context(c)
-	a := NewUnitAgent(ctx, s.newBufferedLogWriter())
+	a, err := NewUnitAgent(ctx, s.newBufferedLogWriter())
+	c.Assert(err, jc.ErrorIsNil)
 	s.InitAgent(c, a, "--unit-name", unit.Name())
 
 	go func() { c.Check(a.Run(nil), gc.IsNil) }()

@@ -207,14 +207,15 @@ func (s *syslogSuite) TestLogRecordForwarded(c *gc.C) {
 		agentcmd.DefaultIntrospectionSocketName,
 		c.MkDir(),
 	)
-	a := machineAgentFactory(m.Id())
+	a, err := machineAgentFactory(m.Id())
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure there's no logs to begin with.
 	// Start the agent.
 	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
 	defer a.Stop()
 
-	err := s.State.UpdateModelConfig(map[string]interface{}{
+	err = s.State.UpdateModelConfig(map[string]interface{}{
 		"logforward-enabled": true,
 	}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -239,7 +240,8 @@ func (s *syslogSuite) TestConfigChange(c *gc.C) {
 		agentcmd.DefaultIntrospectionSocketName,
 		c.MkDir(),
 	)
-	a := machineAgentFactory(m.Id())
+	a, err := machineAgentFactory(m.Id())
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure there's no logs to begin with.
 	// Start the agent.
@@ -250,7 +252,7 @@ func (s *syslogSuite) TestConfigChange(c *gc.C) {
 	received := make(chan rfc5424test.Message)
 	addr := s.createSyslogServer(c, received, done)
 
-	err := s.State.UpdateModelConfig(map[string]interface{}{
+	err = s.State.UpdateModelConfig(map[string]interface{}{
 		"logforward-enabled": true,
 		"syslog-host":        addr,
 		"syslog-ca-cert":     coretesting.CACert,

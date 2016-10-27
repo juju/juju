@@ -160,7 +160,11 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 	)
 	jujud.Register(agentcmd.NewMachineAgentCmd(ctx, machineAgentFactory, agentConf, agentConf))
 
-	jujud.Register(agentcmd.NewUnitAgent(ctx, bufferedLogger))
+	unitAgent, err := agentcmd.NewUnitAgent(ctx, bufferedLogger)
+	if err != nil {
+		return -1, errors.Trace(err)
+	}
+	jujud.Register(unitAgent)
 
 	jujud.Register(NewUpgradeMongoCommand())
 
