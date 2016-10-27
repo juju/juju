@@ -4,8 +4,6 @@
 package logsendermetrics_test
 
 import (
-	"reflect"
-
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -13,9 +11,9 @@ import (
 	dto "github.com/prometheus/client_model/go"
 	gc "gopkg.in/check.v1"
 
-	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/logsender"
 	"github.com/juju/juju/worker/logsender/logsendermetrics"
+	"github.com/juju/juju/worker/logsender/logsendertest"
 )
 
 const maxLen = 3
@@ -63,9 +61,7 @@ func (s *bufferedLogWriterSuite) TestCollect(c *gc.C) {
 		<-s.writer.Logs()
 	}
 
-	// The statistics are not incremented atomically with the log
-	// writing, so we need to wait for the statistics to be updated.
-	s.waitForStats(c, logsender.LogStats{
+	logsendertest.ExpectLogStats(c, s.writer, logsender.LogStats{
 		Enqueued: 5,
 		Sent:     3,
 		Dropped:  1,
@@ -98,15 +94,4 @@ func (s *bufferedLogWriterSuite) TestCollect(c *gc.C) {
 		{Counter: &dto.Counter{Value: float64ptr(3)}},
 		{Counter: &dto.Counter{Value: float64ptr(1)}},
 	})
-}
-
-func (s *bufferedLogWriterSuite) waitForStats(c *gc.C, expect logsender.LogStats) {
-	var stats logsender.LogStats
-	for a := coretesting.LongAttempt.Start(); a.Next(); {
-		stats = s.writer.Stats()
-		if reflect.DeepEqual(stats, expect) {
-			return
-		}
-	}
-	c.Errorf("timed out waiting for statistics: got %+v, expected %+v", stats, expect)
 }
