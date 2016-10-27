@@ -11,7 +11,9 @@ import (
 	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2/bson"
 
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/multiwatcher"
@@ -115,12 +117,17 @@ func makeAllWatcherCollectionInfo(collNames ...string) map[string]allWatcherStat
 type backingModel modelDoc
 
 func (e *backingModel) updated(st *State, store *multiwatcherStore, id string) error {
+	cfg, err := st.ModelConfig()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	store.Update(&multiwatcher.ModelInfo{
 		ModelUUID:      e.UUID,
 		Name:           e.Name,
 		Life:           multiwatcher.Life(e.Life.String()),
 		Owner:          e.Owner,
 		ControllerUUID: e.ControllerUUID,
+		Config:         cfg.AllAttrs(),
 	})
 	return nil
 }
@@ -791,6 +798,16 @@ func (s *backingSettings) updated(st *State, store *multiwatcherStore, id string
 	case nil:
 		// The parent info doesn't exist. Ignore the status until it does.
 		return nil
+	case *multiwatcher.ModelInfo:
+		// We need to construct a model config so that coercion
+		// of raw settings values occurs.
+		cfg, err := config.New(config.UseDefaults, s.Settings)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		newInfo := *info
+		newInfo.Config = cfg.AllAttrs()
+		info0 = &newInfo
 	case *multiwatcher.ApplicationInfo:
 		// If we're seeing settings for the application with a different
 		// charm URL, we ignore them - we will fetch
@@ -985,7 +1002,11 @@ func backingEntityIdForOpenedPortsKey(modelUUID, key string) (multiwatcher.Entit
 // backingEntityIdForGlobalKey returns the entity id for the given global key.
 // It returns false if the key is not recognized.
 func backingEntityIdForGlobalKey(modelUUID, key string) (multiwatcher.EntityId, bool) {
-	if len(key) < 3 || key[1] != '#' {
+	if key == modelGlobalKey {
+		return (&multiwatcher.ModelInfo{
+			ModelUUID: modelUUID,
+		}).EntityId(), true
+	} else if len(key) < 3 || key[1] != '#' {
 		return multiwatcher.EntityId{}, false
 	}
 	id := key[2:]
@@ -1065,7 +1086,7 @@ func newAllWatcherStateBacking(st *State) Backing {
 	}
 }
 
-func (b *allWatcherStateBacking) filterEnv(docID interface{}) bool {
+func (b *allWatcherStateBacking) filterModel(docID interface{}) bool {
 	_, err := b.st.strictLocalID(docID.(string))
 	return err == nil
 }
@@ -1073,7 +1094,7 @@ func (b *allWatcherStateBacking) filterEnv(docID interface{}) bool {
 // Watch watches all the collections.
 func (b *allWatcherStateBacking) Watch(in chan<- watcher.Change) {
 	for _, c := range b.collectionByName {
-		b.watcher.WatchCollectionWithFilter(c.name, in, b.filterEnv)
+		b.watcher.WatchCollectionWithFilter(c.name, in, b.filterModel)
 	}
 }
 
@@ -1208,10 +1229,10 @@ func (b *allModelWatcherStateBacking) Changed(all *multiwatcherStore, change wat
 
 	doc := reflect.New(c.docType).Interface().(backingEntityDoc)
 
-	st, err := b.getState(change.C, modelUUID)
+	st, err := b.getState(modelUUID)
 	if err != nil {
-		_, envErr := b.st.GetModel(names.NewModelTag(modelUUID))
-		if errors.IsNotFound(envErr) {
+		_, modelErr := b.st.GetModel(names.NewModelTag(modelUUID))
+		if errors.IsNotFound(modelErr) {
 			// The entity's model is gone so remove the entity
 			// from the store.
 			doc.removed(all, modelUUID, id, nil)
@@ -1248,8 +1269,8 @@ func (b *allModelWatcherStateBacking) idForChange(change watcher.Change) (string
 	return modelUUID, id, nil
 }
 
-func (b *allModelWatcherStateBacking) getState(collName, modelUUID string) (*State, error) {
-	if collName == modelsC {
+func (b *allModelWatcherStateBacking) getState(modelUUID string) (*State, error) {
+	if b.st.ModelUUID() == modelUUID {
 		return b.st, nil
 	}
 
@@ -1279,7 +1300,14 @@ func loadAllWatcherEntities(st *State, collectionByName map[string]allWatcherSta
 		col, closer := db.GetCollection(c.name)
 		defer closer()
 		infoSlicePtr := reflect.New(reflect.SliceOf(c.docType))
-		if err := col.Find(nil).All(infoSlicePtr.Interface()); err != nil {
+
+		// models is a global collection so need to filter on UUID.
+		var filter bson.M
+		if c.name == modelsC {
+			filter = bson.M{"_id": st.ModelUUID()}
+		}
+
+		if err := col.Find(filter).All(infoSlicePtr.Interface()); err != nil {
 			return errors.Errorf("cannot get all %s: %v", c.name, err)
 		}
 		infos := infoSlicePtr.Elem()

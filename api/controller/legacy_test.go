@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/observer/fakeobserver"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/environs/config"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
@@ -160,14 +161,28 @@ func (s *legacySuite) TestWatchAllModels(c *gc.C) {
 		c.Assert(deltas, gc.HasLen, 1)
 		modelInfo := deltas[0].Entity.(*multiwatcher.ModelInfo)
 
-		env, err := s.State.Model()
+		model, err := s.State.Model()
+		c.Assert(err, jc.ErrorIsNil)
+		cfg, err := model.Config()
 		c.Assert(err, jc.ErrorIsNil)
 
-		c.Assert(modelInfo.ModelUUID, gc.Equals, env.UUID())
-		c.Assert(modelInfo.Name, gc.Equals, env.Name())
+		// Resource tags are marshalleded as map[string]interface{}
+		// Convert to map[string]string for comparison.
+		switch tags := modelInfo.Config[config.ResourceTagsKey].(type) {
+		case map[string]interface{}:
+			tagStrings := make(map[string]string)
+			for tag, val := range tags {
+				tagStrings[tag] = fmt.Sprintf("%v", val)
+			}
+			modelInfo.Config[config.ResourceTagsKey] = tagStrings
+		}
+
+		c.Assert(modelInfo.ModelUUID, gc.Equals, model.UUID())
+		c.Assert(modelInfo.Name, gc.Equals, model.Name())
 		c.Assert(modelInfo.Life, gc.Equals, multiwatcher.Life("alive"))
-		c.Assert(modelInfo.Owner, gc.Equals, env.Owner().Id())
-		c.Assert(modelInfo.ControllerUUID, gc.Equals, env.ControllerUUID())
+		c.Assert(modelInfo.Owner, gc.Equals, model.Owner().Id())
+		c.Assert(modelInfo.ControllerUUID, gc.Equals, model.ControllerUUID())
+		c.Assert(modelInfo.Config, jc.DeepEquals, cfg.AllAttrs())
 	case <-time.After(testing.LongWait):
 		c.Fatal("timed out")
 	}
