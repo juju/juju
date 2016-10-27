@@ -64,7 +64,7 @@ from jujupy import (
     NoProvider,
     parse_new_state_server_from_error,
     SimpleEnvironment,
-    ServiceStatus,
+    Status1X,
     SoftDeadlineExceeded,
     Status,
     SYSTEM,
@@ -3663,7 +3663,7 @@ class TestEnvJujuClient1X(ClientTest):
             result = client.get_status()
         gjo_mock.assert_called_once_with(
             'status', '--format', 'yaml', controller=False)
-        self.assertEqual(ServiceStatus, type(result))
+        self.assertEqual(Status1X, type(result))
         self.assertEqual(['a', 'b', 'c'], result.status)
 
     def test_get_status_retries_on_error(self):
@@ -4023,7 +4023,7 @@ class TestEnvJujuClient1X(ClientTest):
                         'jenkins', 'sub1', start=now - timedelta(1200))
 
     def test_wait_for_workload(self):
-        initial_status = ServiceStatus.from_text("""\
+        initial_status = Status1X.from_text("""\
             services:
               jenkins:
                 units:
@@ -5938,10 +5938,10 @@ class TestStatus(FakeHomeTestCase):
         self.assertEqual({'application': {}}, status.get_applications())
 
 
-class TestServiceStatus(FakeHomeTestCase):
+class TestStatus1X(FakeHomeTestCase):
 
     def test_get_applications_gets_services(self):
-        status = ServiceStatus({
+        status = Status1X({
             'services': {'service': {}},
             'applications': {'application': {}},
             }, '')
