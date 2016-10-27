@@ -645,7 +645,7 @@ class Status:
         return self.get_unit(unit_name).get('open-ports', [])
 
 
-class ServiceStatus(Status):
+class Status1X(Status):
 
     def get_applications(self):
         return self.status.get('services', {})
@@ -2298,7 +2298,7 @@ class EnvJujuClient1X(EnvJujuClientRC):
 
     config_class = SimpleEnvironment
 
-    status_class = ServiceStatus
+    status_class = Status1X
 
     # The environments.yaml options that are replaced by bootstrap options.
     # For Juju 1.x, no bootstrap options are used.
