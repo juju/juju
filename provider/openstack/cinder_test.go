@@ -48,10 +48,6 @@ func init() {
 	openstack.CinderAttempt.Delay = 0
 }
 
-func toStringPtr(s string) *string {
-	return &s
-}
-
 func (s *cinderVolumeSourceSuite) TestAttachVolumes(c *gc.C) {
 	mockAdapter := &mockAdapter{
 		attachVolume: func(serverId, volId, mountPoint string) (*nova.VolumeAttachment, error) {
@@ -61,7 +57,7 @@ func (s *cinderVolumeSourceSuite) TestAttachVolumes(c *gc.C) {
 				Id:       volId,
 				VolumeId: volId,
 				ServerId: serverId,
-				Device:   toStringPtr("/dev/sda"),
+				Device:   "/dev/sda",
 			}, nil
 		},
 	}
@@ -86,33 +82,6 @@ func (s *cinderVolumeSourceSuite) TestAttachVolumes(c *gc.C) {
 			},
 		},
 	}})
-}
-
-func (s *cinderVolumeSourceSuite) TestAttachVolumesNoDevice(c *gc.C) {
-	mockAdapter := &mockAdapter{
-		attachVolume: func(serverId, volId, mountPoint string) (*nova.VolumeAttachment, error) {
-			return &nova.VolumeAttachment{
-				Id:       volId,
-				VolumeId: volId,
-				ServerId: serverId,
-				Device:   nil,
-			}, nil
-		},
-	}
-
-	volSource := openstack.NewCinderVolumeSource(mockAdapter)
-	results, err := volSource.AttachVolumes([]storage.VolumeAttachmentParams{{
-		Volume:   mockVolumeTag,
-		VolumeId: mockVolId,
-		AttachmentParams: storage.AttachmentParams{
-			Provider:   openstack.CinderProviderType,
-			Machine:    mockMachineTag,
-			InstanceId: instance.Id(mockServerId),
-		}},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.HasLen, 1)
-	c.Assert(results[0].Error, gc.ErrorMatches, "device not assigned to volume attachment")
 }
 
 func (s *cinderVolumeSourceSuite) TestCreateVolume(c *gc.C) {
@@ -153,7 +122,7 @@ func (s *cinderVolumeSourceSuite) TestCreateVolume(c *gc.C) {
 				Id:       volId,
 				VolumeId: volId,
 				ServerId: serverId,
-				Device:   toStringPtr("/dev/sda"),
+				Device:   "/dev/sda",
 			}, nil
 		},
 	}
@@ -216,7 +185,7 @@ func (s *cinderVolumeSourceSuite) TestResourceTags(c *gc.C) {
 				Id:       volId,
 				VolumeId: volId,
 				ServerId: serverId,
-				Device:   toStringPtr("/dev/sda"),
+				Device:   "/dev/sda",
 			}, nil
 		},
 	}
@@ -347,7 +316,7 @@ func (s *cinderVolumeSourceSuite) TestDetachVolumes(c *gc.C) {
 				Id:       mockVolId,
 				VolumeId: mockVolId,
 				ServerId: mockServerId,
-				Device:   toStringPtr("/dev/sda"),
+				Device:   "/dev/sda",
 			}}, nil
 		},
 		detachVolume: func(serverId, volId string) error {

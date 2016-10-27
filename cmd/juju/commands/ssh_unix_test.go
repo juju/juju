@@ -40,21 +40,8 @@ var sshTests = []struct {
 		},
 	},
 	{
-		about:      "connect to machine 0 (api v2)",
-		args:       []string{"0"},
-		dialWith:   dialerFuncFor("0.private", "0.public", "0.1.2.3"), // set by setAddresses() and setLinkLayerDevicesAddresses()
-		forceAPIv1: false,
-		expected: argsSpec{
-			hostKeyChecking: "yes",
-			knownHosts:      "0",
-			enablePty:       true,
-			argsMatch:       `ubuntu@0.(public|private|1\.2\.3)`, // can be any of the 3
-		},
-	},
-	{
-		about:    "connect to machine 0 and pass extra arguments",
-		args:     []string{"0", "uname", "-a"},
-		dialWith: dialerFuncFor("0.public"),
+		about: "connect to machine 0 and pass extra arguments",
+		args:  []string{"0", "uname", "-a"},
 		expected: argsSpec{
 			hostKeyChecking: "yes",
 			knownHosts:      "0",
@@ -63,9 +50,8 @@ var sshTests = []struct {
 		},
 	},
 	{
-		about:    "connect to machine 0 with no pseudo-tty",
-		args:     []string{"--pty=false", "0"},
-		dialWith: dialerFuncFor("0.public"),
+		about: "connect to machine 0 with no pseudo-tty",
+		args:  []string{"--pty=false", "0"},
 		expected: argsSpec{
 			hostKeyChecking: "yes",
 			knownHosts:      "0",
@@ -79,9 +65,8 @@ var sshTests = []struct {
 		expectedErr: `retrieving SSH host keys for "1": keys not found`,
 	},
 	{
-		about:    "connect to machine 1 which has no SSH host keys, no host key checks",
-		args:     []string{"--no-host-key-checks", "1"},
-		dialWith: dialerFuncFor("1.public"),
+		about: "connect to machine 1 which has no SSH host keys, no host key checks",
+		args:  []string{"--no-host-key-checks", "1"},
 		expected: argsSpec{
 			hostKeyChecking: "no",
 			knownHosts:      "null",
@@ -102,9 +87,8 @@ var sshTests = []struct {
 		},
 	},
 	{
-		about:    "connect to unit mysql/0",
-		args:     []string{"mysql/0"},
-		dialWith: dialerFuncFor("0.public"),
+		about: "connect to unit mysql/0",
+		args:  []string{"mysql/0"},
 		expected: argsSpec{
 			hostKeyChecking: "yes",
 			knownHosts:      "0",
@@ -113,9 +97,8 @@ var sshTests = []struct {
 		},
 	},
 	{
-		about:    "connect to unit mysql/0 as the mongo user",
-		args:     []string{"mongo@mysql/0"},
-		dialWith: dialerFuncFor("0.public"),
+		about: "connect to unit mysql/0 as the mongo user",
+		args:  []string{"mongo@mysql/0"},
 		expected: argsSpec{
 			hostKeyChecking: "yes",
 			knownHosts:      "0",
@@ -124,9 +107,8 @@ var sshTests = []struct {
 		},
 	},
 	{
-		about:    "connect to unit mysql/0 and pass extra arguments",
-		args:     []string{"mysql/0", "ls", "/"},
-		dialWith: dialerFuncFor("0.public"),
+		about: "connect to unit mysql/0 and pass extra arguments",
+		args:  []string{"mysql/0", "ls", "/"},
 		expected: argsSpec{
 			hostKeyChecking: "yes",
 			knownHosts:      "0",
