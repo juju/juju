@@ -67,6 +67,9 @@ func (st *State) Export() (description.Model, error) {
 		LatestToolsVersion: dbModel.LatestToolsVersion(),
 		Blocks:             blocks,
 	}
+	if creds, credsSet := dbModel.CloudCredential(); credsSet {
+		args.CloudCredential = creds.Id()
+	}
 	export.model = description.NewModel(args)
 	modelKey := dbModel.globalKey()
 	export.model.SetAnnotations(export.getAnnotations(modelKey))
@@ -472,6 +475,11 @@ func (e *exporter) applications() error {
 		return errors.Trace(err)
 	}
 
+	bindings, err := e.readAllEndpointBindings()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	leaders, err := e.st.ApplicationLeaders()
 	if err != nil {
 		return errors.Trace(err)
@@ -486,11 +494,12 @@ func (e *exporter) applications() error {
 		applicationUnits := e.units[application.Name()]
 		leader := leaders[application.Name()]
 		if err := e.addApplication(addApplicationContext{
-			application: application,
-			units:       applicationUnits,
-			meterStatus: meterStatus,
-			leader:      leader,
-			payloads:    payloads,
+			application:      application,
+			units:            applicationUnits,
+			meterStatus:      meterStatus,
+			leader:           leader,
+			payloads:         payloads,
+			endpoingBindings: bindings,
 		}); err != nil {
 			return errors.Trace(err)
 		}
@@ -542,16 +551,18 @@ func (e *exporter) readAllPayloads() (map[string][]payload.FullPayloadInfo, erro
 }
 
 type addApplicationContext struct {
-	application *Application
-	units       []*Unit
-	meterStatus map[string]*meterStatusDoc
-	leader      string
-	payloads    map[string][]payload.FullPayloadInfo
+	application      *Application
+	units            []*Unit
+	meterStatus      map[string]*meterStatusDoc
+	leader           string
+	payloads         map[string][]payload.FullPayloadInfo
+	endpoingBindings map[string]bindingsMap
 }
 
 func (e *exporter) addApplication(ctx addApplicationContext) error {
 	application := ctx.application
 	appName := application.Name()
+	globalKey := application.globalKey()
 	settingsKey := application.settingsKey()
 	leadershipKey := leadershipSettingsKey(appName)
 	storageConstraintsKey := application.storageConstraintsKey()
@@ -575,6 +586,7 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 		ForceCharm:           application.doc.ForceCharm,
 		Exposed:              application.doc.Exposed,
 		MinUnits:             application.doc.MinUnits,
+		EndpointBindings:     map[string]string(ctx.endpoingBindings[globalKey]),
 		Settings:             applicationSettingsDoc.Settings,
 		Leader:               ctx.leader,
 		LeadershipSettings:   leadershipSettingsDoc.Settings,
@@ -585,7 +597,6 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 	}
 	exApplication := e.model.AddApplication(args)
 	// Find the current application status.
-	globalKey := application.globalKey()
 	statusArgs, err := e.statusArgs(globalKey)
 	if err != nil {
 		return errors.Annotatef(err, "status for application %s", appName)
@@ -929,6 +940,23 @@ func (e *exporter) readAllUnits() (map[string][]*Unit, error) {
 	for _, doc := range docs {
 		units := result[doc.Application]
 		result[doc.Application] = append(units, newUnit(e.st, &doc))
+	}
+	return result, nil
+}
+
+func (e *exporter) readAllEndpointBindings() (map[string]bindingsMap, error) {
+	bindings, closer := e.st.getCollection(endpointBindingsC)
+	defer closer()
+
+	docs := []endpointBindingsDoc{}
+	err := bindings.Find(nil).All(&docs)
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot get all application endpoint bindings")
+	}
+	e.logger.Debugf("found %d application endpoint binding docs", len(docs))
+	result := make(map[string]bindingsMap)
+	for _, doc := range docs {
+		result[e.st.localID(doc.DocID)] = doc.Bindings
 	}
 	return result, nil
 }

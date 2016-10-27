@@ -186,7 +186,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 	}
 	requiredEvents++
 
-	var seenServiceChange bool
+	var seenApplicationChange bool
 	servicew, err := w.service.Watch()
 	if err != nil {
 		return errors.Trace(err)
@@ -319,10 +319,10 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			if !ok {
 				return errors.New("service watcher closed")
 			}
-			if err := w.serviceChanged(); err != nil {
+			if err := w.applicationChanged(); err != nil {
 				return errors.Trace(err)
 			}
-			observedEvent(&seenServiceChange)
+			observedEvent(&seenApplicationChange)
 
 		case _, ok := <-configw.Changes():
 			logger.Debugf("got config change: ok=%t", ok)
@@ -482,8 +482,8 @@ func (w *RemoteStateWatcher) unitChanged() error {
 	return nil
 }
 
-// serviceChanged responds to changes in the service.
-func (w *RemoteStateWatcher) serviceChanged() error {
+// applicationChanged responds to changes in the application.
+func (w *RemoteStateWatcher) applicationChanged() error {
 	if err := w.service.Refresh(); err != nil {
 		return errors.Trace(err)
 	}

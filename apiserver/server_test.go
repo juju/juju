@@ -464,7 +464,7 @@ func (s *serverSuite) TestAPIHandlerHasPermissionLogin(c *gc.C) {
 	apiserver.AssertHasPermission(c, handler, permission.SuperuserAccess, ctag, false)
 }
 
-func (s *serverSuite) TestAPIHandlerHasPermissionAdmodel(c *gc.C) {
+func (s *serverSuite) TestAPIHandlerHasPermissionAddmodel(c *gc.C) {
 	u, ctag := s.bootstrapHasPermissionTest(c)
 	user := u.UserTag()
 
@@ -510,6 +510,7 @@ func (s *serverSuite) TestAPIHandlerConnectedModel(c *gc.C) {
 	otherState := s.Factory.MakeModel(c, nil)
 	defer otherState.Close()
 	handler, _ := apiserver.TestingAPIHandler(c, s.State, otherState)
+	defer handler.Kill()
 	c.Check(handler.ConnectedModel(), gc.Equals, otherState.ModelUUID())
 }
 

@@ -847,6 +847,21 @@ func (m *Machine) AllAddresses() ([]*Address, error) {
 	return allAddresses, nil
 }
 
+// AllNetworkAddresses returns the result of AllAddresses(), but transformed to
+// []network.Address.
+func (m *Machine) AllNetworkAddresses() ([]network.Address, error) {
+	stateAddresses, err := m.AllAddresses()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	networkAddresses := make([]network.Address, len(stateAddresses))
+	for i := range stateAddresses {
+		networkAddresses[i] = stateAddresses[i].NetworkAddress()
+	}
+	return networkAddresses, nil
+}
+
 // SetParentLinkLayerDevicesBeforeTheirChildren splits the given devicesArgs
 // into multiple sets of args and calls SetLinkLayerDevices() for each set, such
 // that child devices are set only after their parents.

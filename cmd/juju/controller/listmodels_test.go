@@ -152,10 +152,10 @@ func (s *ModelsSuite) TestModelsOwner(c *gc.C) {
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
 		"Controller: fake\n"+
 		"\n"+
-		"Model                        Owner            Status      Access  Last connection\n"+
-		"test-model1*                 admin            active      read    2015-03-20\n"+
-		"carlotta/test-model2         carlotta         active      write   2015-03-01\n"+
-		"daiwik@external/test-model3  daiwik@external  destroying          never connected\n"+
+		"Model                        Cloud/Region  Status      Access  Last connection\n"+
+		"test-model1*                 dummy         active      read    2015-03-20\n"+
+		"carlotta/test-model2         dummy         active      write   2015-03-01\n"+
+		"daiwik@external/test-model3  dummy         destroying          never connected\n"+
 		"\n")
 }
 
@@ -166,10 +166,10 @@ func (s *ModelsSuite) TestModelsNonOwner(c *gc.C) {
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
 		"Controller: fake\n"+
 		"\n"+
-		"Model                        Owner            Status      Access  Last connection\n"+
-		"admin/test-model1*           admin            active      read    2015-03-20\n"+
-		"carlotta/test-model2         carlotta         active      write   2015-03-01\n"+
-		"daiwik@external/test-model3  daiwik@external  destroying          never connected\n"+
+		"Model                        Cloud/Region  Status      Access  Last connection\n"+
+		"admin/test-model1*           dummy         active      read    2015-03-20\n"+
+		"carlotta/test-model2         dummy         active      write   2015-03-01\n"+
+		"daiwik@external/test-model3  dummy         destroying          never connected\n"+
 		"\n")
 }
 
@@ -180,10 +180,10 @@ func (s *ModelsSuite) TestAllModels(c *gc.C) {
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
 		"Controller: fake\n"+
 		"\n"+
-		"Model                        Owner            Status      Access  Last connection\n"+
-		"admin/test-model1*           admin            active      read    2015-03-20\n"+
-		"carlotta/test-model2         carlotta         active      write   2015-03-01\n"+
-		"daiwik@external/test-model3  daiwik@external  destroying          never connected\n"+
+		"Model                        Cloud/Region  Status      Access  Last connection\n"+
+		"admin/test-model1*           dummy         active      read    2015-03-20\n"+
+		"carlotta/test-model2         dummy         active      write   2015-03-01\n"+
+		"daiwik@external/test-model3  dummy         destroying          never connected\n"+
 		"\n")
 }
 
@@ -194,10 +194,10 @@ func (s *ModelsSuite) TestAllModelsNoneCurrent(c *gc.C) {
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
 		"Controller: fake\n"+
 		"\n"+
-		"Model                        Owner            Status      Access  Last connection\n"+
-		"test-model1                  admin            active      read    2015-03-20\n"+
-		"carlotta/test-model2         carlotta         active      write   2015-03-01\n"+
-		"daiwik@external/test-model3  daiwik@external  destroying          never connected\n"+
+		"Model                        Cloud/Region  Status      Access  Last connection\n"+
+		"test-model1                  dummy         active      read    2015-03-20\n"+
+		"carlotta/test-model2         dummy         active      write   2015-03-01\n"+
+		"daiwik@external/test-model3  dummy         destroying          never connected\n"+
 		"\n")
 }
 
@@ -209,10 +209,10 @@ func (s *ModelsSuite) TestModelsUUID(c *gc.C) {
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
 		"Controller: fake\n"+
 		"\n"+
-		"Model                        UUID              Owner            Status      Machines  Cores  Access  Last connection\n"+
-		"test-model1*                 test-model1-UUID  admin            active             2      1  read    2015-03-20\n"+
-		"carlotta/test-model2         test-model2-UUID  carlotta         active             0      -  write   2015-03-01\n"+
-		"daiwik@external/test-model3  test-model3-UUID  daiwik@external  destroying         0      -          never connected\n"+
+		"Model                        UUID              Cloud/Region  Status      Machines  Cores  Access  Last connection\n"+
+		"test-model1*                 test-model1-UUID  dummy         active             2      1  read    2015-03-20\n"+
+		"carlotta/test-model2         test-model2-UUID  dummy         active             0      -  write   2015-03-01\n"+
+		"daiwik@external/test-model3  test-model3-UUID  dummy         destroying         0      -          never connected\n"+
 		"\n")
 }
 
@@ -224,10 +224,10 @@ func (s *ModelsSuite) TestModelsMachineInfo(c *gc.C) {
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
 		"Controller: fake\n"+
 		"\n"+
-		"Model                        Owner            Status      Machines  Cores  Access  Last connection\n"+
-		"test-model1*                 admin            active             2      1  read    2015-03-20\n"+
-		"carlotta/test-model2         carlotta         active             0      -  write   2015-03-01\n"+
-		"daiwik@external/test-model3  daiwik@external  destroying         0      -          never connected\n"+
+		"Model                        Cloud/Region  Status      Machines  Cores  Access  Last connection\n"+
+		"test-model1*                 dummy         active             2      1  read    2015-03-20\n"+
+		"carlotta/test-model2         dummy         active             0      -  write   2015-03-01\n"+
+		"daiwik@external/test-model3  dummy         destroying         0      -          never connected\n"+
 		"\n")
 }
 

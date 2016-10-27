@@ -241,38 +241,6 @@ type Status interface {
 	Updated() time.Time
 }
 
-// Application represents a deployed charm in a model.
-type Application interface {
-	HasAnnotations
-	HasConstraints
-	HasStatus
-	HasStatusHistory
-
-	Tag() names.ApplicationTag
-	Name() string
-	Series() string
-	Subordinate() bool
-	CharmURL() string
-	Channel() string
-	CharmModifiedVersion() int
-	ForceCharm() bool
-	Exposed() bool
-	MinUnits() int
-
-	Settings() map[string]interface{}
-
-	Leader() string
-	LeadershipSettings() map[string]interface{}
-
-	MetricsCredentials() []byte
-	StorageConstraints() map[string]StorageConstraint
-
-	Units() []Unit
-	AddUnit(UnitArgs) Unit
-
-	Validate() error
-}
-
 // Unit represents an instance of an application in a model.
 type Unit interface {
 	HasAnnotations

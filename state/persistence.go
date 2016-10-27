@@ -87,10 +87,10 @@ func (sp statePersistence) Run(transactions jujutxn.TransactionSource) error {
 
 // NewStorage returns a new blob storage for the environment.
 func (sp *statePersistence) NewStorage() storage.Storage {
-	envUUID := sp.st.ModelUUID()
+	modelUUID := sp.st.ModelUUID()
 	// TODO(ericsnow) Copy the session?
 	session := sp.st.session
-	store := storage.NewStorage(envUUID, session)
+	store := storage.NewStorage(modelUUID, session)
 	return store
 }
 

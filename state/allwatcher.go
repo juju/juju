@@ -8,9 +8,11 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
 
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/watcher"
@@ -89,6 +91,8 @@ func makeAllWatcherCollectionInfo(collNames ...string) map[string]allWatcherStat
 		case openedPortsC:
 			collection.docType = reflect.TypeOf(backingOpenedPorts{})
 			collection.subsidiary = true
+		case remoteApplicationsC:
+			collection.docType = reflect.TypeOf(backingRemoteApplication{})
 		default:
 			panic(errors.Errorf("unknown collection %q", collName))
 		}
@@ -400,12 +404,7 @@ func (svc *backingApplication) updated(st *State, store *multiwatcherStore, id s
 		}
 		info.Constraints = c
 		needConfig = true
-		// Fetch the status.
-		application, err := st.Application(svc.Name)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		applicationStatus, err := application.Status()
+		applicationStatus, err := getStatus(st, key, "application")
 		if err != nil {
 			return errors.Annotatef(err, "reading application status for key %s", key)
 		}
@@ -464,6 +463,55 @@ func (svc *backingApplication) removed(store *multiwatcherStore, modelUUID, id s
 }
 
 func (svc *backingApplication) mongoId() string {
+	return svc.DocID
+}
+
+type backingRemoteApplication remoteApplicationDoc
+
+func (svc *backingRemoteApplication) updated(st *State, store *multiwatcherStore, id string) error {
+	if svc.Name == "" {
+		return errors.Errorf("remote application name is not set")
+	}
+	info := &multiwatcher.RemoteApplicationInfo{
+		ModelUUID:      st.ModelUUID(),
+		Name:           svc.Name,
+		ApplicationURL: svc.URL,
+		Life:           multiwatcher.Life(svc.Life.String()),
+	}
+	oldInfo := store.Get(info.EntityId())
+	if oldInfo == nil {
+		logger.Debugf("new remote application %q added to backing state", svc.Name)
+		// Fetch the status.
+		key := remoteApplicationGlobalKey(svc.Name)
+		serviceStatus, err := getStatus(st, key, "remote application")
+		if err != nil {
+			return errors.Annotatef(err, "reading remote application status for key %s", key)
+		}
+		info.Status = multiwatcher.StatusInfo{
+			Current: serviceStatus.Status,
+			Message: serviceStatus.Message,
+			Data:    normaliseStatusData(serviceStatus.Data),
+			Since:   serviceStatus.Since,
+		}
+		logger.Debugf("service status %#v", info.Status)
+	}
+	if store.Get(info.EntityId()) == nil {
+		logger.Debugf("new remote application %q added to backing state", svc.Name)
+	}
+	store.Update(info)
+	return nil
+}
+
+func (svc *backingRemoteApplication) removed(store *multiwatcherStore, modelUUID, id string, _ *State) error {
+	store.Remove(multiwatcher.EntityId{
+		Kind:      "remoteApplication",
+		ModelUUID: modelUUID,
+		Id:        id,
+	})
+	return nil
+}
+
+func (svc *backingRemoteApplication) mongoId() string {
 	return svc.DocID
 }
 
@@ -623,6 +671,10 @@ func (s *backingStatus) updated(st *State, store *multiwatcherStore, id string) 
 		}
 		info0 = &newInfo
 	case *multiwatcher.ApplicationInfo:
+		newInfo := *info
+		newInfo.Status = s.toStatusInfo()
+		info0 = &newInfo
+	case *multiwatcher.RemoteApplicationInfo:
 		newInfo := *info
 		newInfo.Status = s.toStatusInfo()
 		info0 = &newInfo
@@ -954,6 +1006,11 @@ func backingEntityIdForGlobalKey(modelUUID, key string) (multiwatcher.EntityId, 
 			ModelUUID: modelUUID,
 			Name:      id,
 		}).EntityId(), true
+	case 'c':
+		return (&multiwatcher.RemoteApplicationInfo{
+			ModelUUID: modelUUID,
+			Name:      id,
+		}).EntityId(), true
 	default:
 		return multiwatcher.EntityId{}, false
 	}
@@ -985,6 +1042,7 @@ func newAllWatcherStateBacking(st *State) Backing {
 		machinesC,
 		unitsC,
 		applicationsC,
+		remoteApplicationsC,
 		relationsC,
 		annotationsC,
 		statusesC,
@@ -994,6 +1052,12 @@ func newAllWatcherStateBacking(st *State) Backing {
 		actionsC,
 		blocksC,
 	)
+	if featureflag.Enabled(feature.CrossModelRelations) {
+		crossModelCollections := makeAllWatcherCollectionInfo(remoteApplicationsC)
+		for name, w := range crossModelCollections {
+			collections[name] = w
+		}
+	}
 	return &allWatcherStateBacking{
 		st:               st,
 		watcher:          st.workers.TxnLogWatcher(),
@@ -1073,6 +1137,12 @@ func NewAllModelWatcherStateBacking(st *State) Backing {
 		settingsC,
 		openedPortsC,
 	)
+	if featureflag.Enabled(feature.CrossModelRelations) {
+		crossModelCollections := makeAllWatcherCollectionInfo(remoteApplicationsC)
+		for name, w := range crossModelCollections {
+			collections[name] = w
+		}
+	}
 	return &allModelWatcherStateBacking{
 		st:               st,
 		watcher:          st.workers.TxnLogWatcher(),

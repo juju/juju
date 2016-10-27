@@ -193,9 +193,7 @@ func (s *CharmSuite) TestReferenceDyingCharmRace(c *gc.C) {
 		Charm: s.charm,
 	}
 	_, err := s.State.AddApplication(args)
-	// bad message: see lp:1621754. should match
-	// TestReferenceDyingCharm above.
-	c.Check(err, gc.ErrorMatches, `cannot add application "blah": application already exists`)
+	c.Check(err, gc.ErrorMatches, `cannot add application "blah": charm: not found or not alive`)
 }
 
 func (s *CharmSuite) TestDestroyReferencedCharm(c *gc.C) {

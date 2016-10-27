@@ -100,3 +100,8 @@ func (s mockAddAPI) AddRelation(endpoints ...string) (*params.AddRelationResults
 	s.MethodCall(s, "AddRelation", endpoints)
 	return s.addRelationFunc(endpoints...)
 }
+
+func (s mockAddAPI) BestAPIVersion() int {
+	s.MethodCall(s, "BestAPIVersion")
+	return 2
+}

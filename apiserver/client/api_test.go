@@ -218,6 +218,7 @@ var scenarioStatus = &params.FullStatus{
 			WantsVote:  false,
 		},
 	},
+	RemoteApplications: map[string]params.RemoteApplicationStatus{},
 	Applications: map[string]params.ApplicationStatus{
 		"logging": {
 			Charm:  "local:quantal/logging-1",

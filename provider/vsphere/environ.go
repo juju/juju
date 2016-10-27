@@ -16,9 +16,6 @@ import (
 	"github.com/juju/juju/provider/common"
 )
 
-// TODO(ericsnow) All imports from github.com/juju/govmomi should change
-// back to github.com/vmware/govmomi once our min Go is 1.3 or higher.
-
 // Note: This provider/environment does *not* implement storage.
 
 type environ struct {

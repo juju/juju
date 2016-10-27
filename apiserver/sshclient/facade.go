@@ -17,6 +17,9 @@ import (
 
 func init() {
 	common.RegisterStandardFacade("SSHClient", 1, newFacade)
+
+	// Facade version 2 adds AllAddresses() method.
+	common.RegisterStandardFacade("SSHClient", 2, newFacade)
 }
 
 // Facade implements the API required by the sshclient worker.
@@ -52,7 +55,7 @@ func (facade *Facade) PublicAddress(args params.Entities) (params.SSHAddressResu
 	}
 
 	getter := func(m SSHMachine) (network.Address, error) { return m.PublicAddress() }
-	return facade.getAddresses(args, getter)
+	return facade.getAddressPerEntity(args, getter)
 }
 
 // PrivateAddress reports the preferred private network address for one or
@@ -63,28 +66,84 @@ func (facade *Facade) PrivateAddress(args params.Entities) (params.SSHAddressRes
 	}
 
 	getter := func(m SSHMachine) (network.Address, error) { return m.PrivateAddress() }
-	return facade.getAddresses(args, getter)
+	return facade.getAddressPerEntity(args, getter)
 }
 
-func (facade *Facade) getAddresses(args params.Entities, getter func(SSHMachine) (network.Address, error)) (
-	params.SSHAddressResults, error,
+// AllAddresses reports all addresses known to Juju for each given entity in
+// args. Machines and units are supported as entity types. Since the returned
+// addresses are gathered from multiple sources, results may include duplicates.
+func (facade *Facade) AllAddresses(args params.Entities) (params.SSHAddressesResults, error) {
+	if err := facade.checkIsModelAdmin(); err != nil {
+		return params.SSHAddressesResults{}, errors.Trace(err)
+	}
+
+	getter := func(m SSHMachine) ([]network.Address, error) {
+		devicesAddresses, err := m.AllNetworkAddresses()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		legacyAddresses := m.Addresses()
+		return append(devicesAddresses, legacyAddresses...), nil
+	}
+
+	return facade.getAllEntityAddresses(args, getter)
+}
+
+func (facade *Facade) getAllEntityAddresses(args params.Entities, getter func(SSHMachine) ([]network.Address, error)) (
+	params.SSHAddressesResults, error,
 ) {
-	out := params.SSHAddressResults{
-		Results: make([]params.SSHAddressResult, len(args.Entities)),
+	out := params.SSHAddressesResults{
+		Results: make([]params.SSHAddressesResult, len(args.Entities)),
 	}
 	for i, entity := range args.Entities {
 		machine, err := facade.backend.GetMachineForEntity(entity.Tag)
 		if err != nil {
 			out.Results[i].Error = common.ServerError(err)
 		} else {
-			address, err := getter(machine)
+			addresses, err := getter(machine)
 			if err != nil {
 				out.Results[i].Error = common.ServerError(err)
-			} else {
-				out.Results[i].Address = address.Value
+				continue
+			}
+
+			out.Results[i].Addresses = make([]string, len(addresses))
+			for j := range addresses {
+				out.Results[i].Addresses[j] = addresses[j].Value
 			}
 		}
 	}
+	return out, nil
+}
+
+func (facade *Facade) getAddressPerEntity(args params.Entities, addressGetter func(SSHMachine) (network.Address, error)) (
+	params.SSHAddressResults, error,
+) {
+	out := params.SSHAddressResults{
+		Results: make([]params.SSHAddressResult, len(args.Entities)),
+	}
+
+	getter := func(m SSHMachine) ([]network.Address, error) {
+		address, err := addressGetter(m)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return []network.Address{address}, nil
+	}
+
+	fullResults, err := facade.getAllEntityAddresses(args, getter)
+	if err != nil {
+		return params.SSHAddressResults{}, errors.Trace(err)
+	}
+
+	for i, result := range fullResults.Results {
+		if result.Error != nil {
+			out.Results[i].Error = result.Error
+		} else {
+			out.Results[i].Address = result.Addresses[0]
+		}
+	}
+
 	return out, nil
 }
 

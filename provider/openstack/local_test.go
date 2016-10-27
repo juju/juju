@@ -8,13 +8,12 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"net/http"
-	"net/http/httptest"
 	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 
 	jujuerrors "github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
@@ -29,7 +28,6 @@ import (
 	"gopkg.in/goose.v1/identity"
 	"gopkg.in/goose.v1/nova"
 	"gopkg.in/goose.v1/testservices/hook"
-	"gopkg.in/goose.v1/testservices/identityservice"
 	"gopkg.in/goose.v1/testservices/novaservice"
 	"gopkg.in/goose.v1/testservices/openstackservice"
 
@@ -105,32 +103,24 @@ func registerLocalTests() {
 
 // localServer is used to spin up a local Openstack service double.
 type localServer struct {
-	Server          *httptest.Server
-	Mux             *http.ServeMux
-	oldHandler      http.Handler
+	Openstack       *openstackservice.Openstack
 	Nova            *novaservice.Nova
 	restoreTimeouts func()
 	UseTLS          bool
 }
 
-type newOpenstackFunc func(*http.ServeMux, *identity.Credentials, identity.AuthMode) *novaservice.Nova
+type newOpenstackFunc func(*identity.Credentials, identity.AuthMode, bool) (*openstackservice.Openstack, []string)
 
 func (s *localServer) start(
 	c *gc.C, cred *identity.Credentials, newOpenstackFunc newOpenstackFunc,
 ) {
-	// Set up the HTTP server.
-	if s.UseTLS {
-		s.Server = httptest.NewTLSServer(nil)
-	} else {
-		s.Server = httptest.NewServer(nil)
+	var logMsg []string
+	s.Openstack, logMsg = newOpenstackFunc(cred, identity.AuthUserPass, s.UseTLS)
+	s.Openstack.SetupHTTP(nil)
+	s.Nova = s.Openstack.Nova
+	for _, msg := range logMsg {
+		c.Logf("%v", msg)
 	}
-	c.Assert(s.Server, gc.NotNil)
-	s.oldHandler = s.Server.Config.Handler
-	s.Mux = http.NewServeMux()
-	s.Server.Config.Handler = s.Mux
-	cred.URL = s.Server.URL
-	c.Logf("Started service at: %v", s.Server.URL)
-	s.Nova = newOpenstackFunc(s.Mux, cred, identity.AuthUserPass)
 	s.restoreTimeouts = envtesting.PatchAttemptStrategies(openstack.ShortAttempt, openstack.StorageAttempt)
 	s.Nova.SetAvailabilityZones(
 		nova.AvailabilityZone{Name: "test-unavailable"},
@@ -144,9 +134,7 @@ func (s *localServer) start(
 }
 
 func (s *localServer) stop() {
-	s.Mux = nil
-	s.Server.Config.Handler = s.oldHandler
-	s.Server.Close()
+	s.Openstack.Stop()
 	s.restoreTimeouts()
 }
 
@@ -167,7 +155,7 @@ func (s *localLiveSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
 
 	c.Logf("Running live tests using openstack service test double")
-	s.srv.start(c, s.cred, newFullOpenstackService)
+	s.srv.start(c, s.cred, openstackservice.New)
 
 	// Set credentials to use when bootstrapping. Must be done after
 	// starting server to get the auth URL.
@@ -224,7 +212,7 @@ func (s *localServerSuite) SetUpSuite(c *gc.C) {
 
 func (s *localServerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.srv.start(c, s.cred, newFullOpenstackService)
+	s.srv.start(c, s.cred, openstackservice.New)
 
 	// Set credentials to use when bootstrapping. Must be done after
 	// starting server to get the auth URL.
@@ -235,7 +223,7 @@ func (s *localServerSuite) SetUpTest(c *gc.C) {
 	cl := client.NewClient(s.cred, identity.AuthUserPass, nil)
 	err := cl.Authenticate()
 	c.Assert(err, jc.ErrorIsNil)
-	containerURL, err := cl.MakeServiceURL("object-store", nil)
+	containerURL, err := cl.MakeServiceURL("object-store", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.TestConfig = s.TestConfig.Merge(coretesting.Attrs{
 		"agent-metadata-url": containerURL + "/juju-dist-test/tools",
@@ -564,6 +552,12 @@ func (s *localServerSuite) TestStopInstanceSecurityGroupNotDeleted(c *gc.C) {
 		fmt.Sprintf("juju-%v-%v-%v", s.ControllerUUID, modelUUID, instanceName),
 	}
 	assertSecurityGroups(c, env, allSecurityGroups)
+
+	// Make time advance in zero time
+	clk := gitjujutesting.NewClock(time.Time{})
+	clock := gitjujutesting.AutoAdvancingClock{clk, clk.Advance}
+	env.(*openstack.Environ).SetClock(&clock)
+
 	err := env.StopInstances(inst.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	assertSecurityGroups(c, env, allSecurityGroups)
@@ -930,7 +924,7 @@ func (s *localServerSuite) TestGetImageMetadataSources(c *gc.C) {
 }
 
 func (s *localServerSuite) TestGetImageMetadataSourcesNoProductStreams(c *gc.C) {
-	s.PatchValue(openstack.MakeServiceURL, func(client.AuthenticatingClient, string, []string) (string, error) {
+	s.PatchValue(openstack.MakeServiceURL, func(client.AuthenticatingClient, string, string, []string) (string, error) {
 		return "", errors.New("cannae do it captain")
 	})
 	env := s.Open(c, s.env.Config())
@@ -1233,7 +1227,7 @@ func (s *localHTTPSServerSuite) createConfigAttrs(c *gc.C) map[string]interface{
 	cl := client.NewNonValidatingClient(s.cred, identity.AuthUserPass, nil)
 	err := cl.Authenticate()
 	c.Assert(err, jc.ErrorIsNil)
-	containerURL, err := cl.MakeServiceURL("object-store", nil)
+	containerURL, err := cl.MakeServiceURL("object-store", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(containerURL[:8], gc.Equals, "https://")
 	attrs["agent-metadata-url"] = containerURL + "/juju-dist-test/tools"
@@ -1254,7 +1248,7 @@ func (s *localHTTPSServerSuite) SetUpTest(c *gc.C) {
 		TenantName: "some tenant",
 	}
 	// Note: start() will change cred.URL to point to s.srv.Server.URL
-	s.srv.start(c, cred, newFullOpenstackService)
+	s.srv.start(c, cred, openstackservice.New)
 	s.cred = cred
 	attrs := s.createConfigAttrs(c)
 	c.Assert(attrs["auth-url"].(string)[:8], gc.Equals, "https://")
@@ -1871,7 +1865,7 @@ func (s *noSwiftSuite) SetUpTest(c *gc.C) {
 		Region:     "some-region",
 		TenantName: "some tenant",
 	}
-	s.srv.start(c, s.cred, newNovaOnlyOpenstackService)
+	s.srv.start(c, s.cred, openstackservice.NewNoSwift)
 
 	attrs := coretesting.FakeConfig().Merge(coretesting.Attrs{
 		"name":            "sample-no-swift",
@@ -1919,30 +1913,6 @@ func (s *noSwiftSuite) TestBootstrap(c *gc.C) {
 		CAPrivateKey:     coretesting.CAKey,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-func newFullOpenstackService(mux *http.ServeMux, cred *identity.Credentials, auth identity.AuthMode) *novaservice.Nova {
-	service := openstackservice.New(cred, auth)
-	service.SetupHTTP(mux)
-	return service.Nova
-}
-
-func newNovaOnlyOpenstackService(mux *http.ServeMux, cred *identity.Credentials, auth identity.AuthMode) *novaservice.Nova {
-	var identityService, fallbackService identityservice.IdentityService
-	if auth == identity.AuthKeyPair {
-		identityService = identityservice.NewKeyPair()
-	} else {
-		identityService = identityservice.NewUserPass()
-		fallbackService = identityservice.NewV3UserPass()
-	}
-	userInfo := identityService.AddUser(cred.User, cred.Secrets, cred.TenantName)
-	if cred.TenantName == "" {
-		panic("Openstack service double requires a tenant to be specified.")
-	}
-	novaService := novaservice.New(cred.URL, "v2", userInfo.TenantId, cred.Region, identityService, fallbackService)
-	identityService.SetupHTTP(mux)
-	novaService.SetupHTTP(mux)
-	return novaService
 }
 
 func bootstrapEnv(c *gc.C, env environs.Environ) error {

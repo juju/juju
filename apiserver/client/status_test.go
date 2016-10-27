@@ -48,6 +48,7 @@ func (s *statusSuite) TestFullStatus(c *gc.C) {
 	c.Check(status.Model.Name, gc.Equals, "controller")
 	c.Check(status.Model.CloudTag, gc.Equals, "cloud-dummy")
 	c.Check(status.Applications, gc.HasLen, 0)
+	c.Check(status.RemoteApplications, gc.HasLen, 0)
 	c.Check(status.Machines, gc.HasLen, 1)
 	resultMachine, ok := status.Machines[machine.Id()]
 	if !ok {

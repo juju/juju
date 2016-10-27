@@ -20,6 +20,8 @@ var controllerFacadeNames = set.NewStrings(
 	"MigrationTarget",
 	"ModelManager",
 	"UserManager",
+	"ApplicationOffers",
+	"CrossModelRelations",
 )
 
 // commonFacadeNames holds root names that can be accessed using both

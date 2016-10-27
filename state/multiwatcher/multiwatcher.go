@@ -93,6 +93,8 @@ func (d *Delta) UnmarshalJSON(data []byte) error {
 		d.Entity = new(MachineInfo)
 	case "application":
 		d.Entity = new(ApplicationInfo)
+	case "remoteApplication":
+		d.Entity = new(RemoteApplicationInfo)
 	case "unit":
 		d.Entity = new(UnitInfo)
 	case "relation":
@@ -191,6 +193,26 @@ type ApplicationInfo struct {
 func (i *ApplicationInfo) EntityId() EntityId {
 	return EntityId{
 		Kind:      "application",
+		ModelUUID: i.ModelUUID,
+		Id:        i.Name,
+	}
+}
+
+// RemoteApplicationInfo holds the information about a remote application that is
+// tracked by multiwatcherStore.
+type RemoteApplicationInfo struct {
+	ModelUUID      string
+	Name           string
+	ApplicationURL string
+	Life           Life
+	Status         StatusInfo
+}
+
+// EntityId returns a unique identifier for a remote application across
+// environments.
+func (i *RemoteApplicationInfo) EntityId() EntityId {
+	return EntityId{
+		Kind:      "remoteApplication",
 		ModelUUID: i.ModelUUID,
 		Id:        i.Name,
 	}

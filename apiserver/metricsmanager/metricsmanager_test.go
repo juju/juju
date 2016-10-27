@@ -26,6 +26,7 @@ import (
 type metricsManagerSuite struct {
 	jujujutesting.JujuConnSuite
 
+	clock          *jujutesting.Clock
 	metricsmanager *metricsmanager.MetricsManagerAPI
 	authorizer     apiservertesting.FakeAuthorizer
 	unit           *state.Unit
@@ -39,7 +40,8 @@ func (s *metricsManagerSuite) SetUpTest(c *gc.C) {
 		Tag:            names.NewMachineTag("0"),
 		EnvironManager: true,
 	}
-	manager, err := metricsmanager.NewMetricsManagerAPI(s.State, nil, s.authorizer, jujutesting.NewClock(time.Now()))
+	s.clock = jujutesting.NewClock(time.Now())
+	manager, err := metricsmanager.NewMetricsManagerAPI(s.State, nil, s.authorizer, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 	s.metricsmanager = manager
 	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered"})
@@ -185,7 +187,7 @@ func (s *metricsManagerSuite) TestMeterStatusOnConsecutiveErrors(c *gc.C) {
 
 func (s *metricsManagerSuite) TestMeterStatusSuccessfulSend(c *gc.C) {
 	var sender testing.MockSender
-	pastTime := time.Now().Add(-time.Second)
+	pastTime := s.clock.Now().Add(-time.Second)
 	metric := state.Metric{"pings", "5", pastTime}
 	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: false, Time: &pastTime, Metrics: []state.Metric{metric}})
 	metricsmanager.PatchSender(&sender)

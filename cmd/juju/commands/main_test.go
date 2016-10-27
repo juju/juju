@@ -203,9 +203,11 @@ func (s *MainSuite) TestFirstRun2xFrom1xOnUbuntu(c *gc.C) {
 
 	c.Check(code, gc.Equals, 0)
 	c.Check(string(stderr), gc.Equals, fmt.Sprintf(`
-    Welcome to Juju %s. If you meant to use Juju 1.25.0 you can continue using it
-    with the command juju-1 e.g. 'juju-1 switch'.
+Welcome to Juju %s. 
     See https://jujucharms.com/docs/stable/introducing-2 for more details.
+
+If you want to use Juju 1.25.0, run 'juju' commands as 'juju-1'. For example, 'juju-1 bootstrap'.
+   See https://jujucharms.com/docs/stable/juju-coexist for installation details. 
 
 Since Juju 2 is being run for the first time, downloading latest cloud information.`[1:]+"\n", jujuversion.Current))
 	checkVersionOutput(c, string(stdout))
@@ -528,11 +530,16 @@ var commandNames = []string{
 }
 
 // devFeatures are feature flags that impact registration of commands.
-var devFeatures = []string{feature.Migration}
+var devFeatures = []string{feature.Migration, feature.CrossModelRelations}
 
 // These are the commands that are behind the `devFeatures`.
 var commandNamesBehindFlags = set.NewStrings(
+	"find-endpoints",
+	"list-offers",
 	"migrate",
+	"offer",
+	"offers",
+	"show-endpoints",
 )
 
 func (s *MainSuite) TestHelpCommands(c *gc.C) {
