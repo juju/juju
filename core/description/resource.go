@@ -307,11 +307,8 @@ func importResourceRevisionV1(source interface{}) (*resourceRevision, error) {
 		Origin_:         valid["origin"].(string),
 		FingerprintHex_: valid["fingerprint"].(string),
 		Size_:           valid["size"].(int64),
+		Timestamp_:      fieldToTimePtr(valid, "timestamp"),
 		Username_:       valid["username"].(string),
-	}
-	addTs := valid["add-timestamp"].(time.Time)
-	if !addTs.IsZero() {
-		rev.AddTimestamp_ = &addTs
 	}
 	return rev, nil
 }
