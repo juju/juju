@@ -14,6 +14,7 @@ import (
 
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/logsender"
+	"github.com/juju/juju/worker/logsender/logsendertest"
 )
 
 const maxLen = 6
@@ -120,8 +121,7 @@ func (s *bufferedLogWriterSuite) TestLimiting(c *gc.C) {
 		expect(i, 0)
 	}
 
-	stats := s.writer.Stats()
-	c.Assert(stats, jc.DeepEquals, logsender.LogStats{
+	logsendertest.ExpectLogStats(c, s.writer, logsender.LogStats{
 		Enqueued: maxLen*2 + 3,
 		Sent:     maxLen*2 + 3 - 5,
 		Dropped:  5,
