@@ -31,7 +31,7 @@ def thin_booted_context(bs_manager, **kwargs):
     client = bs_manager.client
     with bs_manager.top_context() as machines:
         with bs_manager.bootstrap_context(machines):
-            client.tear_down()
+            client.kill_controller()
             client.bootstrap(**kwargs)
         with bs_manager.runtime_context(machines):
             yield client

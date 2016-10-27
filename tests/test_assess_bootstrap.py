@@ -44,7 +44,7 @@ class TestThinBootedContext(TestCase):
         client = Mock()
         client.attach_mock(Mock(), 'bootstrap')
         client.attack_mock(Mock(return_value=jes_enabled), 'is_jes_enabled')
-        client.attack_mock(Mock(), 'tear_down')
+        client.attack_mock(Mock(), 'kill_controller')
         bs_manager = Mock()
         bs_manager.attach_mock(client, 'client')
         bs_manager.attack_mock(Mock(), 'tear_down')
@@ -70,7 +70,7 @@ class TestThinBootedContext(TestCase):
         bs_manager.top_context.assert_called_once_with()
         bs_manager.bootstrap_context.assert_called_once_with('machines')
         bs_manager.runtime_context.assert_called_once_with('machines')
-        bs_manager.client.tear_down.assert_called_once_with()
+        bs_manager.client.kill_controller.assert_called_once_with()
         bs_manager.client.bootstrap.assert_called_once_with()
 
     def test_thin_booted_context_kwargs(self):
