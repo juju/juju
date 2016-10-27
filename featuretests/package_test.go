@@ -14,12 +14,18 @@ import (
 	gc "gopkg.in/check.v1"
 
 	jujucmd "github.com/juju/juju/cmd/juju/commands"
+	"github.com/juju/juju/component/all"
 	coretesting "github.com/juju/juju/testing"
 )
 
 var runFeatureTests = flag.Bool("featuretests", true, "Run long-running feature tests.")
 
 func init() {
+	// Required for anything requiring components (e.g. resources).
+	if err := all.RegisterForServer(); err != nil {
+		panic(err)
+	}
+
 	flag.Parse()
 
 	if *runFeatureTests == false {

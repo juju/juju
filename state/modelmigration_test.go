@@ -32,7 +32,7 @@ var _ = gc.Suite(new(MigrationSuite))
 
 func (s *MigrationSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
-	s.clock = jujutesting.NewClock(time.Now().Truncate(time.Second))
+	s.clock = jujutesting.NewClock(truncateDBTime(time.Now()))
 	err := s.State.SetClockForTesting(s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 

@@ -167,7 +167,7 @@ func (s *LogsSuite) TestIndexesCreated(c *gc.C) {
 func (s *LogsSuite) TestDbLogger(c *gc.C) {
 	logger := state.NewDbLogger(s.State, names.NewMachineTag("22"), jujuversion.Current)
 	defer logger.Close()
-	t0 := coretesting.ZeroTime().Truncate(time.Millisecond) // MongoDB only stores timestamps with ms precision.
+	t0 := truncateDBTime(coretesting.ZeroTime())
 	logger.Log(t0, "some.where", "foo.go:99", loggo.INFO, "all is well")
 	t1 := t0.Add(time.Second)
 	logger.Log(t1, "else.where", "bar.go:42", loggo.ERROR, "oh noes")
@@ -227,7 +227,7 @@ func (s *LogsSuite) TestPruneLogsByTime(c *gc.C) {
 func (s *LogsSuite) TestPruneLogsBySize(c *gc.C) {
 	// Set up 3 models and generate different amounts of logs
 	// for them.
-	now := coretesting.NonZeroTime().Truncate(time.Millisecond)
+	now := truncateDBTime(coretesting.NonZeroTime())
 
 	s0 := s.State
 	startingLogsS0 := 10

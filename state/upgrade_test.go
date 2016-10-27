@@ -5,7 +5,6 @@ package state_test
 
 import (
 	"fmt"
-	"time" // Only used for time types.
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -574,8 +573,7 @@ func (s *UpgradeSuite) checkUpgradeInfoArchived(
 	c.Assert(info.Status(), gc.Equals, expectedStatus)
 	c.Assert(info.PreviousVersion(), gc.Equals, initialInfo.PreviousVersion())
 	c.Assert(info.TargetVersion(), gc.Equals, initialInfo.TargetVersion())
-	// Truncate because mongo only stores times down to millisecond resolution.
-	c.Assert(info.Started().Equal(initialInfo.Started().Truncate(time.Millisecond)), jc.IsTrue)
+	c.Assert(info.Started().Equal(truncateDBTime(initialInfo.Started())), jc.IsTrue)
 	c.Assert(len(info.ControllersDone()), gc.Equals, expectedControllers)
 	if expectedControllers > 0 {
 		c.Assert(info.ControllersDone(), jc.SameContents, info.ControllersReady())

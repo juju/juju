@@ -17,6 +17,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 
+	"github.com/juju/juju/component/all"
 	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/migration"
 	"github.com/juju/juju/provider/dummy"
@@ -25,6 +26,13 @@ import (
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 )
+
+func init() {
+	// Required for resources.
+	if err := all.RegisterForServer(); err != nil {
+		panic(err)
+	}
+}
 
 type ImportSuite struct {
 	statetesting.StateSuite
@@ -53,7 +61,7 @@ func (s *ImportSuite) TestBadBytes(c *gc.C) {
 
 func (s *ImportSuite) TestImportModel(c *gc.C) {
 	model, err := s.State.Export()
-	c.Check(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Update the config values in the exported model for different values for
 	// "state-port", "api-port", and "ca-cert". Also give the model a new UUID
@@ -68,7 +76,7 @@ func (s *ImportSuite) TestImportModel(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 
 	dbModel, dbState, err := migration.ImportModel(s.State, bytes)
-	c.Check(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer dbState.Close()
 
 	dbConfig, err := dbModel.Config()

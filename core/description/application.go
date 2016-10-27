@@ -41,6 +41,9 @@ type Application interface {
 	MetricsCredentials() []byte
 	StorageConstraints() map[string]StorageConstraint
 
+	Resources() []Resource
+	AddResource(ResourceArgs) Resource
+
 	Units() []Unit
 	AddUnit(UnitArgs) Unit
 
@@ -80,6 +83,8 @@ type application struct {
 
 	// unit count will be assumed by the number of units associated.
 	Units_ units `yaml:"units"`
+
+	Resources_ resources `yaml:"resources"`
 
 	Annotations_ `yaml:"annotations,omitempty"`
 
@@ -126,6 +131,7 @@ func newApplication(args ApplicationArgs) *application {
 		StatusHistory_:        newStatusHistory(),
 	}
 	app.setUnits(nil)
+	app.setResources(nil)
 	if len(args.StorageConstraints) > 0 {
 		app.StorageConstraints_ = make(map[string]*storageconstraint)
 		for key, value := range args.StorageConstraints {
@@ -282,6 +288,30 @@ func (a *application) SetConstraints(args ConstraintsArgs) {
 	a.Constraints_ = newConstraints(args)
 }
 
+// Resources implements Application.
+func (a *application) Resources() []Resource {
+	rs := a.Resources_.Resources_
+	result := make([]Resource, len(rs))
+	for i, r := range rs {
+		result[i] = r
+	}
+	return result
+}
+
+// AddResource implements Application.
+func (a *application) AddResource(args ResourceArgs) Resource {
+	r := newResource(args)
+	a.Resources_.Resources_ = append(a.Resources_.Resources_, r)
+	return r
+}
+
+func (a *application) setResources(resourceList []*resource) {
+	a.Resources_ = resources{
+		Version:    1,
+		Resources_: resourceList,
+	}
+}
+
 // Validate implements Application.
 func (a *application) Validate() error {
 	if a.Name_ == "" {
@@ -290,6 +320,13 @@ func (a *application) Validate() error {
 	if a.Status_ == nil {
 		return errors.NotValidf("application %q missing status", a.Name_)
 	}
+
+	for _, resource := range a.Resources_.Resources_ {
+		if err := resource.Validate(); err != nil {
+			return errors.Annotatef(err, "resource %s", resource.Name_)
+		}
+	}
+
 	// If leader is set, it must match one of the units.
 	var leaderFound bool
 	// All of the applications units should also be valid.
@@ -365,6 +402,7 @@ func importApplicationV1(source map[string]interface{}) (*application, error) {
 		"leadership-settings": schema.StringMap(schema.Any()),
 		"storage-constraints": schema.StringMap(schema.StringMap(schema.Any())),
 		"metrics-creds":       schema.String(),
+		"resources":           schema.StringMap(schema.Any()),
 		"units":               schema.StringMap(schema.Any()),
 	}
 
@@ -441,6 +479,12 @@ func importApplicationV1(source map[string]interface{}) (*application, error) {
 		return nil, errors.Trace(err)
 	}
 	result.Status_ = status
+
+	resources, err := importResources(valid["resources"].(map[string]interface{}))
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	result.setResources(resources)
 
 	units, err := importUnits(valid["units"].(map[string]interface{}))
 	if err != nil {

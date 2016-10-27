@@ -52,6 +52,12 @@ func minimalApplicationMap() map[interface{}]interface{} {
 			"leader": true,
 		},
 		"metrics-creds": "c2Vrcml0", // base64 encoded
+		"resources": map[interface{}]interface{}{
+			"version": 1,
+			"resources": []interface{}{
+				minimalResourceMap(),
+			},
+		},
 		"units": map[interface{}]interface{}{
 			"version": 1,
 			"units": []interface{}{
@@ -71,6 +77,7 @@ func minimalApplication(args ...ApplicationArgs) *application {
 	u.SetAgentStatus(minimalStatusArgs())
 	u.SetWorkloadStatus(minimalStatusArgs())
 	u.SetTools(minimalAgentToolsArgs())
+	s.setResources([]*resource{minimalResource()})
 	return s
 }
 
@@ -252,4 +259,11 @@ func (s *ApplicationSerializationSuite) TestLeaderValid(c *gc.C) {
 
 	err := application.Validate()
 	c.Assert(err, gc.ErrorMatches, `missing unit for leader "ubuntu/1" not valid`)
+}
+
+func (s *ApplicationSerializationSuite) TestResourcesAreValidated(c *gc.C) {
+	application := minimalApplication()
+	application.AddResource(ResourceArgs{Name: "foo"})
+	err := application.Validate()
+	c.Assert(err, gc.ErrorMatches, `resource foo: missing application revision .+`)
 }
