@@ -1343,7 +1343,7 @@ class TestBootstrapManager(FakeHomeTestCase):
             client.env.juju_home)
         return client
 
-    def test_bootstrap_context_tear_down(self):
+    def test_bootstrap_context_kill(self):
         client = fake_juju_client()
         client.env.juju_home = use_context(self, temp_dir())
         initial_home = client.env.juju_home
@@ -1360,11 +1360,11 @@ class TestBootstrapManager(FakeHomeTestCase):
             self.assertNotEqual(initial_home, client.env.juju_home)
 
         ije_cxt = patch.object(client, 'is_jes_enabled')
-        with patch('deploy_stack.BootstrapManager.tear_down',
-                   side_effect=check_config) as td_mock, ije_cxt:
+        with patch('jujupy.EnvJujuClient.kill_controller',
+                   side_effect=check_config) as kill_mock, ije_cxt:
             with bs_manager.bootstrap_context([]):
                 pass
-        td_mock.assert_called_once_with(try_jes=True)
+        kill_mock.assert_called_once_with()
 
     def test_bootstrap_context_tear_down_jenv(self):
         client = self.make_client()
@@ -1385,11 +1385,11 @@ class TestBootstrapManager(FakeHomeTestCase):
             self.assertFalse(os.path.exists(environments_path))
             self.assertEqual(initial_home, client.env.juju_home)
 
-        with patch.object(bs_manager, 'tear_down',
-                          side_effect=check_config) as td_mock:
+        with patch.object(client, 'kill_controller',
+                          side_effect=check_config) as kill_mock:
             with bs_manager.bootstrap_context([]):
                 pass
-        td_mock.assert_called_once_with(try_jes=False)
+        kill_mock.assert_called_once_with()
 
     def test_bootstrap_context_tear_down_client(self):
         client = self.make_client()
@@ -1403,11 +1403,13 @@ class TestBootstrapManager(FakeHomeTestCase):
             self.assertIsFalse(client.is_jes_enabled.called)
             self.assertIsFalse(tear_down_client.is_jes_enabled.called)
 
-        with patch('deploy_stack.BootstrapManager.tear_down',
-                   side_effect=check_config) as td_mock:
-            with bs_manager.bootstrap_context([]):
-                pass
-        td_mock.assert_called_once_with(try_jes=True)
+        with patch.object(tear_down_client, 'kill_controller',
+                          side_effect=check_config) as kill_mock:
+            with patch('deploy_stack.BootstrapManager.tear_down') as td_mock:
+                with bs_manager.bootstrap_context([]):
+                    pass
+        kill_mock.assert_called_once_with()
+        self.assertIsFalse(td_mock.called)
 
     def test_bootstrap_context_tear_down_client_jenv(self):
         client = self.make_client()
@@ -1427,10 +1429,10 @@ class TestBootstrapManager(FakeHomeTestCase):
             self.assertIsFalse(client.is_jes_enabled.called)
             self.assertIsFalse(tear_down_client.is_jes_enabled.called)
 
-        with patch('deploy_stack.BootstrapManager.tear_down',
-                   side_effect=check_config) as td_mock:
+        with patch.object(tear_down_client, 'kill_controller',
+                          side_effect=check_config) as kill_mock:
             with bs_manager.bootstrap_context([]):
-                td_mock.assert_called_once_with(try_jes=False)
+                kill_mock.assert_called_once_with()
 
     def test_bootstrap_context_no_set_home(self):
         orig_home = get_juju_home()
@@ -1878,13 +1880,13 @@ class TestBootContext(FakeHomeTestCase):
                    return_value=FakePopen(output, '', 0)) as po_mock:
             with patch('deploy_stack.BootstrapManager.tear_down',
                        autospec=True) as tear_down_mock:
-                yield
+                with patch.object(client, 'kill_controller',
+                                  autospec=True) as kill_mock:
+                    yield
         self.assertEqual(po_count, po_mock.call_count)
         dal_mock.assert_called_once_with()
-        if keep_env:
-            tear_down_count = 1
-        else:
-            tear_down_count = 2
+        tear_down_count = 0 if keep_env else 1
+        self.assertEqual(1, kill_mock.call_count)
         self.assertEqual(tear_down_count, tear_down_mock.call_count)
 
     def test_bootstrap_context(self):
@@ -2059,6 +2061,8 @@ class TestBootContext(FakeHomeTestCase):
         self.addContext(patch('subprocess.check_call'))
         tear_down_mock = self.addContext(
             patch('deploy_stack.BootstrapManager.tear_down', autospec=True))
+        kill_mock = self.addContext(
+            patch('jujupy.EnvJujuClient.kill_controller', autospec=True))
         po_mock = self.addContext(patch(
             'subprocess.Popen', autospec=True,
             return_value=FakePopen('kill-controller', '', 0)))
@@ -2080,7 +2084,8 @@ class TestBootContext(FakeHomeTestCase):
         self.assertEqual(call_args[0].get_address(), 'baz')
         self.assertEqual(call_args[1], 'log_dir')
         al_mock.assert_called_once_with('log_dir')
-        self.assertEqual(2, tear_down_mock.call_count)
+        self.assertEqual(1, tear_down_mock.call_count)
+        self.assertEqual(1, kill_mock.call_count)
         self.assertEqual(0, po_mock.call_count)
 
     def test_with_bootstrap_failure_non_jes(self):
@@ -2095,6 +2100,8 @@ class TestBootContext(FakeHomeTestCase):
         self.addContext(patch('subprocess.check_call'))
         tear_down_mock = self.addContext(
             patch('deploy_stack.BootstrapManager.tear_down', autospec=True))
+        kill_mock = self.addContext(
+            patch.object(client, 'kill_controller', autospec=True))
         po_mock = self.addContext(patch('subprocess.Popen', autospec=True,
                                         return_value=FakePopen('', '', 0)))
         self.addContext(patch('deploy_stack.wait_for_port'))
@@ -2115,7 +2122,8 @@ class TestBootContext(FakeHomeTestCase):
         self.assertEqual(call_args[0].get_address(), 'baz')
         self.assertEqual(call_args[1], 'log_dir')
         al_mock.assert_called_once_with('log_dir')
-        self.assertEqual(2, tear_down_mock.call_count)
+        self.assertEqual(1, tear_down_mock.call_count)
+        self.assertEqual(1, kill_mock.call_count)
         self.assertEqual(0, po_mock.call_count)
 
     def test_jes(self):
