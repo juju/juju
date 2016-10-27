@@ -807,7 +807,7 @@ class BootstrapManager:
     def _should_dump(self):
         return not isinstance(self.client._backend, FakeBackend)
 
-    def dump_all_logs(self):
+    def dump_all_logs(self, patch_dir=None):
         """Dump logs for all models in the bootstrapped controller."""
         # This is accurate because we bootstrapped self.client.  It might not
         # be accurate for a model created by create_environment.

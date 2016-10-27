@@ -105,62 +105,88 @@ class TestGenerateGraphImages(TestCase):
         results_dir = 'results'
         name = 'testing_name'
         generator = Mock()
+        graph_period = '0'
         with patch.object(
                 gpr, 'create_report_graph', return_value=image) as m_crg:
             self.assertEqual(
                 image,
                 gpr.generate_graph_image(
-                    base_dir, results_dir, name, generator))
+                    base_dir, results_dir, name, generator, graph_period))
         m_crg.assert_called_once_with(
-            '/foo/test/results', '/foo/test/testing_name.png', generator)
+            '/foo/test/results',
+            '/foo/test/testing_name.png',
+            generator,
+            graph_period)
 
     def test_generate_cpu_graph(self):
         image = Mock()
+        graph_period = '0'
         with self.patch_image_creation_ctx(image) as m_ggi:
             self.assertEqual(
                 image,
-                gpr.generate_cpu_graph_image('/foo'))
+                gpr.generate_cpu_graph_image('/foo', graph_period))
         m_ggi.assert_called_once_with(
-            '/foo', 'aggregation-cpu-average', 'cpu', perf_graphing.cpu_graph)
+            '/foo',
+            'aggregation-cpu-max',
+            'cpu',
+            perf_graphing.cpu_graph,
+            graph_period)
 
     def test_generate_memory_graph_calls_(self):
         image = Mock()
+        graph_period = '0'
         with self.patch_image_creation_ctx(image) as m_ggi:
             self.assertEqual(
                 image,
-                gpr.generate_memory_graph_image('/foo'))
+                gpr.generate_memory_graph_image('/foo', graph_period))
         m_ggi.assert_called_once_with(
-            '/foo', 'memory', 'memory', perf_graphing.memory_graph)
+            '/foo',
+            'memory',
+            'memory',
+            perf_graphing.memory_graph,
+            graph_period)
 
     def test_generate_network_graph(self):
         image = Mock()
+        graph_period = '0'
         with self.patch_image_creation_ctx(image) as m_ggi:
             self.assertEqual(
                 image,
-                gpr.generate_network_graph_image('/foo'))
+                gpr.generate_network_graph_image('/foo', graph_period))
         m_ggi.assert_called_once_with(
-            '/foo', 'interface-eth0', 'network', perf_graphing.network_graph)
+            '/foo',
+            'interface-eth0',
+            'network',
+            perf_graphing.network_graph,
+            graph_period)
 
     def test_generate_mongo_query_graph(self):
         image = Mock()
+        graph_period = '0'
         with self.patch_image_creation_ctx(image) as m_ggi:
             self.assertEqual(
                 image,
-                gpr.generate_mongo_query_graph_image('/foo'))
+                gpr.generate_mongo_query_graph_image('/foo', graph_period))
         m_ggi.assert_called_once_with(
-            '/foo', 'mongodb', 'mongodb', perf_graphing.mongodb_graph)
+            '/foo',
+            'mongodb',
+            'mongodb',
+            perf_graphing.mongodb_graph,
+            graph_period)
 
     def test_generate_mongo_memory_graph(self):
         image = Mock()
+        graph_period = '0'
         with self.patch_image_creation_ctx(image) as m_ggi:
             self.assertEqual(
                 image,
-                gpr.generate_mongo_memory_graph_image('/foo'))
+                gpr.generate_mongo_memory_graph_image('/foo', graph_period))
         m_ggi.assert_called_once_with(
             '/foo',
             'mongodb',
             'mongodb_memory',
-            perf_graphing.mongodb_memory_graph)
+            perf_graphing.mongodb_memory_graph,
+            graph_period)
 
     def test_create_report_graph_returns_base_file_path(self):
         """The returned filepath should just be the basename."""
@@ -171,6 +197,7 @@ class TestGenerateGraphImages(TestCase):
         rrd_dir = '/foo'
         output_file = '/bar/test.png'
         output_file_base = 'test.png'
+        graph_period = '0'
 
         with patch.object(
                 gpr.os, 'listdir',
@@ -180,11 +207,13 @@ class TestGenerateGraphImages(TestCase):
                     autospec=True, return_value=(start, end)) as m_gdp:
                 self.assertEqual(
                     output_file_base,
-                    gpr.create_report_graph(rrd_dir, output_file, generator)
+                    gpr.create_report_graph(
+                        rrd_dir, output_file, generator, graph_period)
                 )
-        m_gdp.assert_called_once_with('/foo/example.rrd')
+        m_gdp.assert_called_once_with('/foo/example.rrd', graph_period)
         m_list.assert_called_once_with(rrd_dir)
-        generator.assert_called_once_with(start, end, rrd_dir, output_file)
+        generator.assert_called_once_with(
+            start, end, rrd_dir, output_file)
 
 
 class TestFindActualStart(TestCase):
