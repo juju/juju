@@ -44,7 +44,6 @@ from jujupy import (
     jes_home_path,
     NoProvider,
     SimpleEnvironment,
-    tear_down,
     temp_bootstrap_env,
 )
 from remote import (
@@ -641,13 +640,15 @@ class BootstrapManager:
             destroy_job_instances(self.temp_env_name)
 
     def tear_down(self, try_jes=False):
-        if self.tear_down_client == self.client:
-            jes_enabled = self.jes_enabled
-        else:
-            jes_enabled = self.tear_down_client.is_jes_enabled()
+        """Tear down the client using tear_down_client.
+
+        Attempts to use the soft method destroy_controller, if that fails
+        it will use the hard kill_controller.
+
+        :param try_jes: Ignored."""
         if self.tear_down_client.env is not self.client.env:
             raise AssertionError('Tear down client needs same env!')
-        tear_down(self.tear_down_client, jes_enabled, try_jes=try_jes)
+        self.tear_down_client.tear_down()
 
     def _log_and_wrap_exception(self, exc):
         logging.exception(exc)
@@ -683,7 +684,7 @@ class BootstrapManager:
         if os.path.isfile(jenv_path):
             # An existing .jenv implies JES was not used, because when JES is
             # enabled, cache.yaml is enabled.
-            self.tear_down(try_jes=False)
+            self.tear_down_client.kill_controller()
             torn_down = True
         else:
             jes_home = jes_home_path(
@@ -693,14 +694,14 @@ class BootstrapManager:
                 if os.path.isfile(cache_path):
                     # An existing .jenv implies JES was used, because when JES
                     # is enabled, cache.yaml is enabled.
-                    self.tear_down(try_jes=True)
+                    self.tear_down_client.kill_controller()
                     torn_down = True
         ensure_deleted(jenv_path)
         with temp_bootstrap_env(self.client.env.juju_home, self.client,
                                 permanent=self.permanent, set_home=False):
             with self.handle_bootstrap_exceptions():
                 if not torn_down:
-                    self.tear_down(try_jes=True)
+                    self.tear_down_client.kill_controller()
                 yield
 
     @contextmanager

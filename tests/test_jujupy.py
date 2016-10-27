@@ -19,7 +19,6 @@ import types
 
 from mock import (
     call,
-    MagicMock,
     Mock,
     patch,
     )
@@ -68,7 +67,6 @@ from jujupy import (
     SoftDeadlineExceeded,
     Status,
     SYSTEM,
-    tear_down,
     temp_bootstrap_env,
     _temp_env as temp_env,
     temp_yaml_file,
@@ -327,70 +325,6 @@ class TestEnvJujuClient24(ClientTest):
                 client.add_ssh_machines(['m-foo', 'm-bar', 'm-baz'])
         assert_juju_call(self, cc_mock, client, (
             'juju', '--show-log', 'add-machine', '-e', 'foo', 'ssh:m-foo'))
-
-
-class TestTearDown(TestCase):
-
-    def test_tear_down_no_jes(self):
-        client = MagicMock()
-        client.destroy_environment.return_value = 0
-        tear_down(client, False)
-        client.destroy_environment.assert_called_once_with(force=False)
-        self.assertEqual(0, client.kill_controller.call_count)
-        self.assertEqual(0, client.disable_jes.call_count)
-
-    def test_tear_down_no_jes_exception(self):
-        client = MagicMock()
-        client.destroy_environment.side_effect = [1, 0]
-        tear_down(client, False)
-        self.assertEqual(
-            client.destroy_environment.mock_calls,
-            [call(force=False), call(force=True)])
-        self.assertEqual(0, client.kill_controller.call_count)
-        self.assertEqual(0, client.disable_jes.call_count)
-
-    def test_tear_down_jes(self):
-        client = MagicMock()
-        tear_down(client, True)
-        client.kill_controller.assert_called_once_with()
-        self.assertEqual(0, client.destroy_environment.call_count)
-        self.assertEqual(0, client.enable_jes.call_count)
-        self.assertEqual(0, client.disable_jes.call_count)
-
-    def test_tear_down_try_jes(self):
-
-        def check_jes():
-            client.enable_jes.assert_called_once_with()
-            self.assertEqual(0, client.disable_jes.call_count)
-
-        client = MagicMock()
-        client.kill_controller.side_effect = check_jes
-
-        tear_down(client, jes_enabled=False, try_jes=True)
-        client.kill_controller.assert_called_once_with()
-        client.disable_jes.assert_called_once_with()
-
-    def test_tear_down_jes_try_jes(self):
-        client = MagicMock()
-        tear_down(client, jes_enabled=True, try_jes=True)
-        client.kill_controller.assert_called_once_with()
-        self.assertEqual(0, client.destroy_environment.call_count)
-        self.assertEqual(0, client.enable_jes.call_count)
-        self.assertEqual(0, client.disable_jes.call_count)
-
-    def test_tear_down_try_jes_not_supported(self):
-
-        def check_jes(force=True):
-            client.enable_jes.assert_called_once_with()
-            return 0
-
-        client = MagicMock()
-        client.enable_jes.side_effect = JESNotSupported
-        client.destroy_environment.side_effect = check_jes
-
-        tear_down(client, jes_enabled=False, try_jes=True)
-        client.destroy_environment.assert_called_once_with(force=False)
-        self.assertEqual(0, client.disable_jes.call_count)
 
 
 class FakePopen(object):
@@ -1070,6 +1004,56 @@ class TestEnvJujuClient(ClientTest):
         juju_mock.assert_called_once_with(
             'destroy-controller', ('foo', '-y'), include_e=False,
             timeout=600)
+
+    @contextmanager
+    def mock_tear_down(self, client, destroy_raises=False, kill_raises=False):
+        @contextmanager
+        def patch_raise(target, attribute, raises):
+            def raise_error():
+                raise subprocess.CalledProcessError(
+                    1, ('juju', attribute.replace('_', '-'), '-y'))
+            if raises:
+                with patch.object(target, attribute, autospec=True,
+                                  side_effect=raise_error) as mock:
+                    yield mock
+            else:
+                with patch.object(target, attribute, autospec=True) as mock:
+                    yield mock
+
+        with patch_raise(client, 'destroy_controller', destroy_raises
+                         ) as mock_destroy:
+            with patch_raise(client, 'kill_controller', kill_raises
+                             ) as mock_kill:
+                yield (mock_destroy, mock_kill)
+
+    def test_tear_down(self):
+        """Check that a successful tear_down calls destroy."""
+        client = EnvJujuClient(JujuData('foo', {'type': 'gce'}), None, None)
+        with self.mock_tear_down(client) as (mock_destroy, mock_kill):
+            client.tear_down()
+        mock_destroy.assert_called_once_with()
+        self.assertIsFalse(mock_kill.called)
+
+    def test_tear_down_fall_back(self):
+        """Check that tear_down uses kill_controller if destroy fails."""
+        client = EnvJujuClient(JujuData('foo', {'type': 'gce'}), None, None)
+        with self.mock_tear_down(client, True) as (mock_destroy, mock_kill):
+            with self.assertRaises(subprocess.CalledProcessError) as err:
+                client.tear_down()
+        self.assertEqual('destroy-controller', err.exception.cmd[1])
+        mock_destroy.assert_called_once_with()
+        mock_kill.assert_called_once_with()
+
+    def test_tear_down_double_fail(self):
+        """Check tear_down when both destroy and kill fail."""
+        client = EnvJujuClient(JujuData('foo', {'type': 'gce'}), None, None)
+        with self.mock_tear_down(client, True, True) as (
+                mock_destroy, mock_kill):
+            with self.assertRaises(subprocess.CalledProcessError) as err:
+                client.tear_down()
+        self.assertEqual('kill-controller', err.exception.cmd[1])
+        mock_destroy.assert_called_once_with()
+        mock_kill.assert_called_once_with()
 
     def test_get_juju_output(self):
         env = JujuData('foo')
