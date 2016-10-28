@@ -423,6 +423,8 @@ type ModelInfo struct {
 	Owner          string                 `json:"owner"`
 	ControllerUUID string                 `json:"controller-uuid"`
 	Config         map[string]interface{} `json:"config,omitempty"`
+	Status         StatusInfo             `json:"status"`
+	Constraints    constraints.Value      `json:"constraints"`
 }
 
 // EntityId returns a unique identifier for an model.

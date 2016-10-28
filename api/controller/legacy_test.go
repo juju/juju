@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/observer/fakeobserver"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/permission"
@@ -139,6 +140,10 @@ func (s *legacySuite) TestRemoveBlocks(c *gc.C) {
 func (s *legacySuite) TestWatchAllModels(c *gc.C) {
 	// The WatchAllModels infrastructure is comprehensively tested
 	// else. This test just ensure that the API calls work end-to-end.
+	cons := constraints.MustParse("mem=4G")
+	err := s.State.SetModelConstraints(cons)
+	c.Assert(err, jc.ErrorIsNil)
+
 	sysManager := s.OpenAPI(c)
 	defer sysManager.Close()
 
@@ -165,8 +170,10 @@ func (s *legacySuite) TestWatchAllModels(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		cfg, err := model.Config()
 		c.Assert(err, jc.ErrorIsNil)
+		status, err := model.Status()
+		c.Assert(err, jc.ErrorIsNil)
 
-		// Resource tags are marshalleded as map[string]interface{}
+		// Resource tags are unmarshalled as map[string]interface{}
 		// Convert to map[string]string for comparison.
 		switch tags := modelInfo.Config[config.ResourceTagsKey].(type) {
 		case map[string]interface{}:
@@ -177,12 +184,19 @@ func (s *legacySuite) TestWatchAllModels(c *gc.C) {
 			modelInfo.Config[config.ResourceTagsKey] = tagStrings
 		}
 
+		expectedStatus := multiwatcher.StatusInfo{
+			Current: status.Status,
+			Message: status.Message,
+		}
+		modelInfo.Status.Since = nil
 		c.Assert(modelInfo.ModelUUID, gc.Equals, model.UUID())
 		c.Assert(modelInfo.Name, gc.Equals, model.Name())
 		c.Assert(modelInfo.Life, gc.Equals, multiwatcher.Life("alive"))
 		c.Assert(modelInfo.Owner, gc.Equals, model.Owner().Id())
 		c.Assert(modelInfo.ControllerUUID, gc.Equals, model.ControllerUUID())
 		c.Assert(modelInfo.Config, jc.DeepEquals, cfg.AllAttrs())
+		c.Assert(modelInfo.Status, jc.DeepEquals, expectedStatus)
+		c.Assert(modelInfo.Constraints, jc.DeepEquals, cons)
 	case <-time.After(testing.LongWait):
 		c.Fatal("timed out")
 	}

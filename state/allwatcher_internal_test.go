@@ -1316,6 +1316,11 @@ func (s *allModelWatcherStateSuite) TestChangeModels(c *gc.C) {
 			c.Assert(err, jc.ErrorIsNil)
 			cfg, err := model.Config()
 			c.Assert(err, jc.ErrorIsNil)
+			status, err := model.Status()
+			c.Assert(err, jc.ErrorIsNil)
+			cons := constraints.MustParse("mem=4G")
+			err = st.SetModelConstraints(cons)
+			c.Assert(err, jc.ErrorIsNil)
 			return changeTestCase{
 				about: "model is added if it's in backing but not in Store",
 				change: watcher.Change{
@@ -1330,12 +1335,21 @@ func (s *allModelWatcherStateSuite) TestChangeModels(c *gc.C) {
 						Owner:          model.Owner().Id(),
 						ControllerUUID: model.ControllerUUID(),
 						Config:         cfg.AllAttrs(),
+						Constraints:    cons,
+						Status: multiwatcher.StatusInfo{
+							Current: status.Status,
+							Message: status.Message,
+							Data:    status.Data,
+							Since:   status.Since,
+						},
 					}}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
 			model, err := st.Model()
 			c.Assert(err, jc.ErrorIsNil)
 			cfg, err := model.Config()
+			c.Assert(err, jc.ErrorIsNil)
+			status, err := model.Status()
 			c.Assert(err, jc.ErrorIsNil)
 			return changeTestCase{
 				about: "model is updated if it's in backing and in Store",
@@ -1347,6 +1361,12 @@ func (s *allModelWatcherStateSuite) TestChangeModels(c *gc.C) {
 						Owner:          model.Owner().Id(),
 						ControllerUUID: model.ControllerUUID(),
 						Config:         cfg.AllAttrs(),
+						Status: multiwatcher.StatusInfo{
+							Current: status.Status,
+							Message: status.Message,
+							Data:    status.Data,
+							Since:   status.Since,
+						},
 					},
 				},
 				change: watcher.Change{
@@ -1361,6 +1381,12 @@ func (s *allModelWatcherStateSuite) TestChangeModels(c *gc.C) {
 						Owner:          model.Owner().Id(),
 						ControllerUUID: model.ControllerUUID(),
 						Config:         cfg.AllAttrs(),
+						Status: multiwatcher.StatusInfo{
+							Current: status.Status,
+							Message: status.Message,
+							Data:    status.Data,
+							Since:   status.Since,
+						},
 					}}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
@@ -1430,7 +1456,11 @@ func (s *allModelWatcherStateSuite) TestGetAll(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	cfg, err := model.Config()
 	c.Assert(err, jc.ErrorIsNil)
+	status, err := model.Status()
+	c.Assert(err, jc.ErrorIsNil)
 	cfg1, err := model1.Config()
+	c.Assert(err, jc.ErrorIsNil)
+	status1, err := model1.Status()
 	c.Assert(err, jc.ErrorIsNil)
 	expectedEntities = append(expectedEntities,
 		&multiwatcher.ModelInfo{
@@ -1440,6 +1470,12 @@ func (s *allModelWatcherStateSuite) TestGetAll(c *gc.C) {
 			Owner:          model.Owner().Id(),
 			ControllerUUID: model.ControllerUUID(),
 			Config:         cfg.AllAttrs(),
+			Status: multiwatcher.StatusInfo{
+				Current: status.Status,
+				Message: status.Message,
+				Data:    status.Data,
+				Since:   status.Since,
+			},
 		},
 		&multiwatcher.ModelInfo{
 			ModelUUID:      model1.UUID(),
@@ -1448,6 +1484,12 @@ func (s *allModelWatcherStateSuite) TestGetAll(c *gc.C) {
 			Owner:          model1.Owner().Id(),
 			ControllerUUID: model1.ControllerUUID(),
 			Config:         cfg1.AllAttrs(),
+			Status: multiwatcher.StatusInfo{
+				Current: status1.Status,
+				Message: status1.Message,
+				Data:    status1.Data,
+				Since:   status1.Since,
+			},
 		},
 	)
 
@@ -1499,11 +1541,19 @@ func (s *allModelWatcherStateSuite) TestModelSettings(c *gc.C) {
 // tested elsewhere - this just tests end-to-end.
 func (s *allModelWatcherStateSuite) TestStateWatcher(c *gc.C) {
 	st0 := s.state
-	env0, err := st0.Model()
+	model0, err := st0.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	cfg0, err := model0.Config()
+	c.Assert(err, jc.ErrorIsNil)
+	status0, err := model0.Status()
 	c.Assert(err, jc.ErrorIsNil)
 
 	st1 := s.state1
-	env1, err := st1.Model()
+	model1, err := st1.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	cfg1, err := model1.Config()
+	c.Assert(err, jc.ErrorIsNil)
+	status1, err := model1.Status()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Create some initial machines across 2 models
@@ -1523,19 +1573,33 @@ func (s *allModelWatcherStateSuite) TestStateWatcher(c *gc.C) {
 	deltas := tw.All(4)
 	checkDeltasEqual(c, deltas, []multiwatcher.Delta{{
 		Entity: &multiwatcher.ModelInfo{
-			ModelUUID:      env0.UUID(),
-			Name:           env0.Name(),
+			ModelUUID:      model0.UUID(),
+			Name:           model0.Name(),
 			Life:           "alive",
-			Owner:          env0.Owner().Id(),
-			ControllerUUID: env0.ControllerUUID(),
+			Owner:          model0.Owner().Id(),
+			ControllerUUID: model0.ControllerUUID(),
+			Config:         cfg0.AllAttrs(),
+			Status: multiwatcher.StatusInfo{
+				Current: status0.Status,
+				Message: status0.Message,
+				Data:    status0.Data,
+				Since:   status0.Since,
+			},
 		},
 	}, {
 		Entity: &multiwatcher.ModelInfo{
-			ModelUUID:      env1.UUID(),
-			Name:           env1.Name(),
+			ModelUUID:      model1.UUID(),
+			Name:           model1.Name(),
 			Life:           "alive",
-			Owner:          env1.Owner().Id(),
-			ControllerUUID: env1.ControllerUUID(),
+			Owner:          model1.Owner().Id(),
+			ControllerUUID: model1.ControllerUUID(),
+			Config:         cfg1.AllAttrs(),
+			Status: multiwatcher.StatusInfo{
+				Current: status1.Status,
+				Message: status1.Message,
+				Data:    status1.Data,
+				Since:   status1.Since,
+			},
 		},
 	}, {
 		Entity: &multiwatcher.MachineInfo{
@@ -1649,9 +1713,10 @@ func (s *allModelWatcherStateSuite) TestStateWatcher(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	st2 := s.newState(c)
-	env2, err := st2.Model()
+	model2, err := st2.Model()
 	c.Assert(err, jc.ErrorIsNil)
-
+	cfg2, err := model2.Config()
+	c.Assert(err, jc.ErrorIsNil)
 	m20, err := st2.AddMachine("trusty", JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m20.Id(), gc.Equals, "0")
@@ -1739,11 +1804,17 @@ func (s *allModelWatcherStateSuite) TestStateWatcher(c *gc.C) {
 		},
 	}, {
 		Entity: &multiwatcher.ModelInfo{
-			ModelUUID:      env2.UUID(),
-			Name:           env2.Name(),
+			ModelUUID:      model2.UUID(),
+			Name:           model2.Name(),
 			Life:           "alive",
-			Owner:          env2.Owner().Id(),
-			ControllerUUID: env2.ControllerUUID(),
+			Owner:          model2.Owner().Id(),
+			ControllerUUID: model2.ControllerUUID(),
+			Config:         cfg2.AllAttrs(),
+			Status: multiwatcher.StatusInfo{
+				Current: "available",
+				Message: "",
+				Data:    map[string]interface{}{},
+			},
 		},
 	}, {
 		Entity: &multiwatcher.MachineInfo{
@@ -1775,6 +1846,10 @@ func zeroOutTimestampsForDeltas(c *gc.C, deltas []multiwatcher.Delta) {
 			substNilSinceTimeForStatus(c, &unitInfo.WorkloadStatus)
 			substNilSinceTimeForStatus(c, &unitInfo.AgentStatus)
 			delta.Entity = &unitInfo
+		case *multiwatcher.ModelInfo:
+			modelInfo := *e // must copy, we may not own this reference
+			substNilSinceTimeForStatus(c, &modelInfo.Status)
+			delta.Entity = &modelInfo
 		case *multiwatcher.ApplicationInfo:
 			applicationInfo := *e // must copy, we may not own this reference
 			substNilSinceTimeForStatus(c, &applicationInfo.Status)

@@ -121,14 +121,30 @@ func (e *backingModel) updated(st *State, store *multiwatcherStore, id string) e
 	if err != nil {
 		return errors.Trace(err)
 	}
-	store.Update(&multiwatcher.ModelInfo{
+	info := &multiwatcher.ModelInfo{
 		ModelUUID:      e.UUID,
 		Name:           e.Name,
 		Life:           multiwatcher.Life(e.Life.String()),
 		Owner:          e.Owner,
 		ControllerUUID: e.ControllerUUID,
 		Config:         cfg.AllAttrs(),
-	})
+	}
+	c, err := readConstraints(st, modelGlobalKey)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	info.Constraints = c
+	modelStatus, err := getStatus(st, modelGlobalKey, "model")
+	if err != nil {
+		return errors.Trace(err)
+	}
+	info.Status = multiwatcher.StatusInfo{
+		Current: modelStatus.Status,
+		Message: modelStatus.Message,
+		Data:    normaliseStatusData(modelStatus.Data),
+		Since:   modelStatus.Since,
+	}
+	store.Update(info)
 	return nil
 }
 
@@ -677,6 +693,10 @@ func (s *backingStatus) updated(st *State, store *multiwatcherStore, id string) 
 			return err
 		}
 		info0 = &newInfo
+	case *multiwatcher.ModelInfo:
+		newInfo := *info
+		newInfo.Status = s.toStatusInfo()
+		info0 = &newInfo
 	case *multiwatcher.ApplicationInfo:
 		newInfo := *info
 		newInfo.Status = s.toStatusInfo()
@@ -767,12 +787,16 @@ func (c *backingConstraints) updated(st *State, store *multiwatcherStore, id str
 	case *multiwatcher.UnitInfo, *multiwatcher.MachineInfo:
 		// We don't (yet) publish unit or machine constraints.
 		return nil
+	case *multiwatcher.ModelInfo:
+		newInfo := *info
+		newInfo.Constraints = constraintsDoc(*c).value()
+		info0 = &newInfo
 	case *multiwatcher.ApplicationInfo:
 		newInfo := *info
 		newInfo.Constraints = constraintsDoc(*c).value()
 		info0 = &newInfo
 	default:
-		return errors.Errorf("status for unexpected entity with id %q; type %T", id, info)
+		return errors.Errorf("constraints for unexpected entity with id %q; type %T", id, info)
 	}
 	store.Update(info0)
 	return nil
@@ -801,7 +825,7 @@ func (s *backingSettings) updated(st *State, store *multiwatcherStore, id string
 	case *multiwatcher.ModelInfo:
 		// We need to construct a model config so that coercion
 		// of raw settings values occurs.
-		cfg, err := config.New(config.UseDefaults, s.Settings)
+		cfg, err := config.New(config.NoDefaults, s.Settings)
 		if err != nil {
 			return errors.Trace(err)
 		}
