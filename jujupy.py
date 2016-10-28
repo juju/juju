@@ -2841,13 +2841,11 @@ def _temp_env(new_config, parent=None, set_home=True):
     with temp_dir(parent) as temp_juju_home:
         dump_environments_yaml(temp_juju_home, new_config)
         if set_home:
-            context = scoped_environ()
-        else:
-            context = nested()
-        with context:
-            if set_home:
+            with scoped_environ():
                 os.environ['JUJU_HOME'] = temp_juju_home
                 os.environ['JUJU_DATA'] = temp_juju_home
+                yield temp_juju_home
+        else:
             yield temp_juju_home
 
 
