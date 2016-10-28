@@ -2084,8 +2084,8 @@ class TestBootContext(FakeHomeTestCase):
         self.assertEqual(call_args[0].get_address(), 'baz')
         self.assertEqual(call_args[1], 'log_dir')
         al_mock.assert_called_once_with('log_dir')
-        self.assertEqual(1, tear_down_mock.call_count)
-        self.assertEqual(1, kill_mock.call_count)
+        self.assertEqual(0, tear_down_mock.call_count)
+        self.assertEqual(2, kill_mock.call_count)
         self.assertEqual(0, po_mock.call_count)
 
     def test_with_bootstrap_failure_non_jes(self):
@@ -2122,8 +2122,8 @@ class TestBootContext(FakeHomeTestCase):
         self.assertEqual(call_args[0].get_address(), 'baz')
         self.assertEqual(call_args[1], 'log_dir')
         al_mock.assert_called_once_with('log_dir')
-        self.assertEqual(1, tear_down_mock.call_count)
-        self.assertEqual(1, kill_mock.call_count)
+        self.assertEqual(0, tear_down_mock.call_count)
+        self.assertEqual(2, kill_mock.call_count)
         self.assertEqual(0, po_mock.call_count)
 
     def test_jes(self):
