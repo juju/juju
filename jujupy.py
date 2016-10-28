@@ -1340,19 +1340,21 @@ class EnvJujuClient:
             'kill-controller', (self.env.controller.name, '-y'),
             include_e=False, check=False, timeout=get_teardown_timeout(self))
 
-    def destroy_controller(self):
+    def destroy_controller(self, all_models=False):
         """Destroy a controller and its models. Soft kill option."""
-        return self.juju(
-            'destroy-controller', (self.env.controller.name, '-y'),
-            include_e=False, timeout=get_teardown_timeout(self))
+        args = (self.env.controller.name, '-y')
+        if all_models:
+            args += ('--destroy-all-models',)
+        return self.juju('destroy-controller', args, include_e=False,
+                         timeout=get_teardown_timeout(self))
 
     def tear_down(self):
         """Tear down the client as cleanly as possible.
 
         Attempts to use the soft method destroy_controller, if that fails
-        it will use the hard kill_controller."""
+        it will use the hard kill_controller and raise an error."""
         try:
-            self.destroy_controller()
+            self.destroy_controller(all_models=True)
         except subprocess.CalledProcessError:
             logging.warning('tear_down destroy-controller failed')
             retval = self.kill_controller()
@@ -2585,7 +2587,7 @@ class EnvJujuClient1X(EnvJujuClientRC):
             'destroy-environment', (self.env.environment, '--force', '-y'),
             check=False, include_e=False, timeout=get_teardown_timeout(self))
 
-    def destroy_controller(self):
+    def destroy_controller(self, all_models=False):
         """Destroy the environment, with force. Soft kill option."""
         return self.juju(
             'destroy-environment', (self.env.environment, '-y'),

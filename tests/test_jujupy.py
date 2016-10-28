@@ -1005,11 +1005,19 @@ class TestEnvJujuClient(ClientTest):
             'destroy-controller', ('foo', '-y'), include_e=False,
             timeout=600)
 
+    def test_destroy_controller_all_models(self):
+        client = EnvJujuClient(JujuData('foo', {'type': 'gce'}), None, None)
+        with patch.object(client, 'juju') as juju_mock:
+            client.destroy_controller(all_models=True)
+        juju_mock.assert_called_once_with(
+            'destroy-controller', ('foo', '-y', '--destroy-all-models'),
+            include_e=False, timeout=600)
+
     @contextmanager
     def mock_tear_down(self, client, destroy_raises=False, kill_raises=False):
         @contextmanager
         def patch_raise(target, attribute, raises):
-            def raise_error():
+            def raise_error(*args, **kwargs):
                 raise subprocess.CalledProcessError(
                     1, ('juju', attribute.replace('_', '-'), '-y'))
             if raises:
@@ -1031,7 +1039,7 @@ class TestEnvJujuClient(ClientTest):
         client = EnvJujuClient(JujuData('foo', {'type': 'gce'}), None, None)
         with self.mock_tear_down(client) as (mock_destroy, mock_kill):
             client.tear_down()
-        mock_destroy.assert_called_once_with()
+        mock_destroy.assert_called_once_with(all_models=True)
         self.assertIsFalse(mock_kill.called)
 
     def test_tear_down_fall_back(self):
@@ -1041,7 +1049,7 @@ class TestEnvJujuClient(ClientTest):
             with self.assertRaises(subprocess.CalledProcessError) as err:
                 client.tear_down()
         self.assertEqual('destroy-controller', err.exception.cmd[1])
-        mock_destroy.assert_called_once_with()
+        mock_destroy.assert_called_once_with(all_models=True)
         mock_kill.assert_called_once_with()
 
     def test_tear_down_double_fail(self):
@@ -1052,7 +1060,7 @@ class TestEnvJujuClient(ClientTest):
             with self.assertRaises(subprocess.CalledProcessError) as err:
                 client.tear_down()
         self.assertEqual('kill-controller', err.exception.cmd[1])
-        mock_destroy.assert_called_once_with()
+        mock_destroy.assert_called_once_with(all_models=True)
         mock_kill.assert_called_once_with()
 
     def test_get_juju_output(self):
