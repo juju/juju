@@ -129,6 +129,7 @@ type MachineInfo struct {
 	AgentStatus              StatusInfo                        `json:"agent-status"`
 	InstanceStatus           StatusInfo                        `json:"instance-status"`
 	Life                     Life                              `json:"life"`
+	Config                   map[string]interface{}            `json:"config,omitempty"`
 	Series                   string                            `json:"series"`
 	SupportedContainers      []instance.ContainerType          `json:"supported-containers"`
 	SupportedContainersKnown bool                              `json:"supported-containers-known"`
@@ -416,11 +417,14 @@ const (
 // ModelInfo holds the information about an model that is
 // tracked by multiwatcherStore.
 type ModelInfo struct {
-	ModelUUID      string `json:"model-uuid"`
-	Name           string `json:"name"`
-	Life           Life   `json:"life"`
-	Owner          string `json:"owner"`
-	ControllerUUID string `json:"controller-uuid"`
+	ModelUUID      string                 `json:"model-uuid"`
+	Name           string                 `json:"name"`
+	Life           Life                   `json:"life"`
+	Owner          string                 `json:"owner"`
+	ControllerUUID string                 `json:"controller-uuid"`
+	Config         map[string]interface{} `json:"config,omitempty"`
+	Status         StatusInfo             `json:"status"`
+	Constraints    constraints.Value      `json:"constraints"`
 }
 
 // EntityId returns a unique identifier for an model.
