@@ -17,7 +17,7 @@ import logging
 import os
 import pexpect
 import re
-from shutil import rmtree
+import shutil
 import subprocess
 import sys
 from tempfile import NamedTemporaryFile
@@ -370,7 +370,7 @@ class SimpleEnvironment:
     def make_jes_home(self, juju_home, dir_name, new_config):
         home_path = jes_home_path(juju_home, dir_name)
         if os.path.exists(home_path):
-            rmtree(home_path)
+            shutil.rmtree(home_path)
         os.makedirs(home_path)
         self.dump_yaml(home_path, new_config)
         yield home_path
@@ -2902,8 +2902,12 @@ def temp_bootstrap_env(juju_home, client, set_home=True, permanent=False):
     This involves creating a temporary juju home directory and returning its
     location.
 
+    :param juju_home: The current JUJU_HOME value.
+    :param client: The client being prepared for bootstrapping.
     :param set_home: Set JUJU_HOME to match the temporary home in this
         context.  If False, juju_home should be supplied to bootstrap.
+    :param permanent: If permanent, the environment is kept afterwards.
+        Otherwise the environment is deleted on close.
     """
     new_config = {
         'environments': {client.env.environment: make_safe_config(client)}}
@@ -2928,6 +2932,8 @@ def temp_bootstrap_env(juju_home, client, set_home=True, permanent=False):
         old_juju_home = client.env.juju_home
         client.env.juju_home = temp_juju_home
         try:
+            shutil.copy(os.path.join(old_juju_home, 'public-clouds.yaml'),
+                        temp_juju_home)
             yield temp_juju_home
         finally:
             if not permanent:
