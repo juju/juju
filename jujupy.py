@@ -1335,13 +1335,19 @@ class EnvJujuClient:
         return exit_status
 
     def kill_controller(self):
-        """Kill a controller and its models. Hard kill option."""
+        """Kill a controller and its models. Hard kill option.
+
+        :return: Subprocess's exit code."""
         return self.juju(
             'kill-controller', (self.env.controller.name, '-y'),
             include_e=False, check=False, timeout=get_teardown_timeout(self))
 
     def destroy_controller(self, all_models=False):
-        """Destroy a controller and its models. Soft kill option."""
+        """Destroy a controller and its models. Soft kill option.
+
+        :param all_models: If true will attempt to destroy all the
+            controller's models as well.
+        :raises: subprocess.CalledProcessError if the operation fails."""
         args = (self.env.controller.name, '-y')
         if all_models:
             args += ('--destroy-all-models',)
@@ -2582,13 +2588,18 @@ class EnvJujuClient1X(EnvJujuClientRC):
         return self.destroy_environment(force=False)
 
     def kill_controller(self):
-        """Destroy the environment, with force. Hard kill option."""
+        """Destroy the environment, with force. Hard kill option.
+
+        :return: Subprocess's exit code."""
         return self.juju(
             'destroy-environment', (self.env.environment, '--force', '-y'),
             check=False, include_e=False, timeout=get_teardown_timeout(self))
 
     def destroy_controller(self, all_models=False):
-        """Destroy the environment, with force. Soft kill option."""
+        """Destroy the environment, with force. Soft kill option.
+
+        :param all_models: Ignored.
+        :raises: subprocess.CalledProcessError if the operation fails."""
         return self.juju(
             'destroy-environment', (self.env.environment, '-y'),
             include_e=False, timeout=get_teardown_timeout(self))
