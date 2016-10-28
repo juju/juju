@@ -11,16 +11,8 @@ import unittest
 
 from mock import patch
 
+import datetime
 import utility
-# For client_past_deadline
-from jujupy import (
-    EnvJujuClient,
-    JujuData,
-    )
-from datetime import (
-    datetime,
-    timedelta,
-    )
 
 
 @contextmanager
@@ -171,13 +163,15 @@ def observable_temp_file():
 
 # Fake Juju ?
 @contextmanager
-def client_past_deadline(client=None):
+def client_past_deadline(client):
     """Create a client patched to be past its deadline."""
-    if client is None:
-        client = EnvJujuClient(JujuData('local', juju_home=''), None, None)
-    soft_deadline = datetime(2015, 1, 2, 3, 4, 6)
-    now = soft_deadline + timedelta(seconds=1)
+    soft_deadline = datetime.datetime(2015, 1, 2, 3, 4, 6)
+    now = soft_deadline + datetime.timedelta(seconds=1)
+    old_soft_deadline = client._backend.soft_deadline
     client._backend.soft_deadline = soft_deadline
-    with patch.object(client._backend, '_now', return_value=now,
-                      autospec=True):
-        yield client
+    try:
+        with patch.object(client._backend, '_now', return_value=now,
+                          autospec=True):
+            yield client
+    finally:
+        client._backend.soft_deadline = old_soft_deadline

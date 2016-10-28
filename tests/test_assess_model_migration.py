@@ -10,7 +10,11 @@ from subprocess import CalledProcessError
 import assess_model_migration as amm
 from deploy_stack import BootstrapManager
 from fakejuju import fake_juju_client
-from jujupy import SoftDeadlineExceeded
+from jujupy import (
+    EnvJujuClient,
+    JujuData,
+    SoftDeadlineExceeded,
+    )
 from tests import (
     client_past_deadline,
     parse_error,
@@ -188,7 +192,8 @@ class TestWaitForModel(TestCase):
             mock_sleep.assert_called_once_with(1)
 
     def test_suppresses_deadline(self):
-        with client_past_deadline() as client:
+        client = EnvJujuClient(JujuData('local', juju_home=''), None, None)
+        with client_past_deadline(client):
 
             real_check_timeouts = client.check_timeouts
 
@@ -202,7 +207,8 @@ class TestWaitForModel(TestCase):
                     amm.wait_for_model(client, 'TestModelName')
 
     def test_checks_deadline(self):
-        with client_past_deadline() as client:
+        client = EnvJujuClient(JujuData('local', juju_home=''), None, None)
+        with client_past_deadline(client):
 
             def get_models():
                 return {'models': [{'name': 'TestModelName'}]}

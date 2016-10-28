@@ -1276,7 +1276,8 @@ class TestEnvJujuClient(ClientTest):
         self.assertEqual(mock_ju.mock_calls, [call(60)])
 
     def test_wait_for_resource_suppresses_deadline(self):
-        with client_past_deadline() as client:
+        client = EnvJujuClient(JujuData('local', juju_home=''), None, None)
+        with client_past_deadline(client):
             real_check_timeouts = client.check_timeouts
 
             def list_resources(service_or_unit):
@@ -1291,7 +1292,8 @@ class TestEnvJujuClient(ClientTest):
 
     def test_wait_for_resource_checks_deadline(self):
         resource_list = make_resource_list()
-        with client_past_deadline() as client:
+        client = EnvJujuClient(JujuData('local', juju_home=''), None, None)
+        with client_past_deadline(client):
             with patch.object(client, 'list_resources', autospec=True,
                               return_value=resource_list):
                 with self.assertRaises(SoftDeadlineExceeded):
@@ -1527,7 +1529,8 @@ class TestEnvJujuClient(ClientTest):
 
         Also, the client is patched so that the soft_deadline has been hit.
         """
-        with client_past_deadline() as client:
+        client = EnvJujuClient(JujuData('local', juju_home=''), None, None)
+        with client_past_deadline(client):
             # This will work even after we patch check_timeouts below.
             real_check_timeouts = client.check_timeouts
 
@@ -1554,7 +1557,8 @@ class TestEnvJujuClient(ClientTest):
 
         Also, the client is patched so that the soft_deadline has been hit.
         """
-        with client_past_deadline() as client:
+        client = EnvJujuClient(JujuData('local', juju_home=''), None, None)
+        with client_past_deadline(client):
             status_obj = client.status_class(status, '')
             with patch.object(client, 'get_status', autospec=True,
                               return_value=status_obj):
