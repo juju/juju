@@ -758,7 +758,7 @@ class BootstrapManager:
                                                      series=self.series)
                         copy_remote_logs(remote, self.log_dir)
                         archive_logs(self.log_dir)
-                    self.tear_down()
+                    self.tear_down_client.kill_controller()
             raise
 
     @contextmanager
