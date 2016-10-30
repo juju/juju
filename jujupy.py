@@ -645,7 +645,7 @@ class Status:
         return self.get_unit(unit_name).get('open-ports', [])
 
 
-class ServiceStatus(Status):
+class Status1X(Status):
 
     def get_applications(self):
         return self.status.get('services', {})
@@ -1335,16 +1335,41 @@ class EnvJujuClient:
         return exit_status
 
     def kill_controller(self):
-        """Kill a controller and its models. Hard kill option."""
+        """Kill a controller and its models. Hard kill option.
+
+        :return: Subprocess's exit code."""
         return self.juju(
             'kill-controller', (self.env.controller.name, '-y'),
             include_e=False, check=False, timeout=get_teardown_timeout(self))
 
-    def destroy_controller(self):
-        """Destroy a controller and its models. Soft kill option."""
-        return self.juju(
-            'destroy-controller', (self.env.controller.name, '-y'),
-            include_e=False, timeout=get_teardown_timeout(self))
+    def destroy_controller(self, all_models=False):
+        """Destroy a controller and its models. Soft kill option.
+
+        :param all_models: If true will attempt to destroy all the
+            controller's models as well.
+        :raises: subprocess.CalledProcessError if the operation fails."""
+        args = (self.env.controller.name, '-y')
+        if all_models:
+            args += ('--destroy-all-models',)
+        return self.juju('destroy-controller', args, include_e=False,
+                         timeout=get_teardown_timeout(self))
+
+    def tear_down(self):
+        """Tear down the client as cleanly as possible.
+
+        Attempts to use the soft method destroy_controller, if that fails
+        it will use the hard kill_controller and raise an error."""
+        try:
+            self.destroy_controller(all_models=True)
+        except subprocess.CalledProcessError:
+            logging.warning('tear_down destroy-controller failed')
+            retval = self.kill_controller()
+            message = 'tear_down kill-controller result={}'.format(retval)
+            if retval == 0:
+                logging.info(message)
+            else:
+                logging.warning(message)
+            raise
 
     def get_juju_output(self, command, *args, **kwargs):
         """Call a juju command and return the output.
@@ -2298,7 +2323,7 @@ class EnvJujuClient1X(EnvJujuClientRC):
 
     config_class = SimpleEnvironment
 
-    status_class = ServiceStatus
+    status_class = Status1X
 
     # The environments.yaml options that are replaced by bootstrap options.
     # For Juju 1.x, no bootstrap options are used.
@@ -2563,13 +2588,18 @@ class EnvJujuClient1X(EnvJujuClientRC):
         return self.destroy_environment(force=False)
 
     def kill_controller(self):
-        """Destroy the environment, with force. Hard kill option."""
+        """Destroy the environment, with force. Hard kill option.
+
+        :return: Subprocess's exit code."""
         return self.juju(
             'destroy-environment', (self.env.environment, '--force', '-y'),
             check=False, include_e=False, timeout=get_teardown_timeout(self))
 
-    def destroy_controller(self):
-        """Destroy the environment, with force. Soft kill option."""
+    def destroy_controller(self, all_models=False):
+        """Destroy the environment, with force. Soft kill option.
+
+        :param all_models: Ignored.
+        :raises: subprocess.CalledProcessError if the operation fails."""
         return self.juju(
             'destroy-environment', (self.env.environment, '-y'),
             include_e=False, timeout=get_teardown_timeout(self))
@@ -2771,49 +2801,6 @@ def bootstrap_from_env(juju_home, client):
 def quickstart_from_env(juju_home, client, bundle):
     with temp_bootstrap_env(juju_home, client):
         client.quickstart(bundle)
-
-
-@contextmanager
-def maybe_jes(client, jes_enabled, try_jes):
-    """If JES is desired and not enabled, try to enable it for this context.
-
-    JES will be in its previous state after exiting this context.
-    If jes_enabled is True or try_jes is False, the context is a no-op.
-    If enable_jes() raises JESNotSupported, JES will not be enabled in the
-    context.
-
-    The with value is True if JES is enabled in the context.
-    """
-
-    class JESUnwanted(Exception):
-        """Non-error.  Used to avoid enabling JES if not wanted."""
-
-    try:
-        if not try_jes or jes_enabled:
-            raise JESUnwanted
-        client.enable_jes()
-    except (JESNotSupported, JESUnwanted):
-        yield jes_enabled
-        return
-    else:
-        try:
-            yield True
-        finally:
-            client.disable_jes()
-
-
-def tear_down(client, jes_enabled, try_jes=False):
-    """Tear down a JES or non-JES environment.
-
-    JES environments are torn down via 'controller kill' or 'system kill',
-    and non-JES environments are torn down via 'destroy-environment --force.'
-    """
-    with maybe_jes(client, jes_enabled, try_jes) as jes_enabled:
-        if jes_enabled:
-            client.kill_controller()
-        else:
-            if client.destroy_environment(force=False) != 0:
-                client.destroy_environment(force=True)
 
 
 def uniquify_local(env):
