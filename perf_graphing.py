@@ -14,6 +14,12 @@ except ImportError:
 log = logging.getLogger("perf_graphing")
 
 
+class GraphPeriod:
+    """This relates to the RRA index in the RRD file."""
+    hours = '0'
+    day = '3'
+
+
 class GraphDefaults:
     height = '600'
     width = '800'
@@ -186,7 +192,7 @@ def mongodb_memory_graph(start, end, rrd_path, output_file):
             '-w', '800',
             '-h', '600',
             '-n', 'DEFAULT:0:Bitstream Vera Sans',
-            '-v', 'Queries',
+            '-v', 'Memory',
             '--alt-autoscale-max',
             '-t', 'MongoDB Memory Usage',
             'DEF:vsize_avg={}:vsize:AVERAGE'.format(rrd_file),
@@ -213,7 +219,7 @@ def cpu_graph(start, end, rrd_path, output_file):
             '-n', GraphDefaults.font,
             '-v', 'Jiffies',
             '--alt-autoscale-max',
-            '-t', 'CPU Average',
+            '-t', 'CPU Aggregated Max',
             '-u', '100',
             '-r',
             'DEF:idle_avg={}/cpu-idle.rrd:value:AVERAGE'.format(rrd_path),

@@ -645,7 +645,7 @@ class Status:
         return self.get_unit(unit_name).get('open-ports', [])
 
 
-class ServiceStatus(Status):
+class Status1X(Status):
 
     def get_applications(self):
         return self.status.get('services', {})
@@ -901,18 +901,8 @@ def get_client_class(version):
         raise VersionNotTestedError(version)
     elif re.match('^1\.', version):
         client_class = EnvJujuClient1X
-    # Ensure alpha/beta number matches precisely
-    elif re.match('^2\.0-(alpha[123]|beta[12])([^\d]|$)', version):
+    elif re.match('^2\.0-(alpha|beta)', version):
         raise VersionNotTestedError(version)
-    elif re.match('^2\.0-(beta[3-6])([^\d]|$)', version):
-        client_class = EnvJujuClient2B3
-    elif re.match('^2\.0-(beta7)([^\d]|$)', version):
-        client_class = EnvJujuClient2B7
-    elif re.match('^2\.0-beta8([^\d]|$)', version):
-        client_class = EnvJujuClient2B8
-    # between beta 9-14
-    elif re.match('^2\.0-beta(9|1[0-4])([^\d]|$)', version):
-        client_class = EnvJujuClient2B9
     elif re.match('^2\.0-rc[1-3]', version):
         client_class = EnvJujuClientRC
     else:
@@ -979,6 +969,9 @@ class EnvJujuClient:
     model_permissions = frozenset(['read', 'write', 'admin'])
 
     controller_permissions = frozenset(['login', 'addmodel', 'superuser'])
+
+    reserved_spaces = frozenset([
+        'endpoint-bindings-data', 'endpoint-bindings-public'])
 
     @classmethod
     def preferred_container(cls):
@@ -1072,6 +1065,7 @@ class EnvJujuClient:
         feature_flags = self.feature_flags.intersection(cls.used_feature_flags)
         backend = self._backend.clone(full_path, version, debug, feature_flags)
         other = cls.from_backend(backend, env)
+        other.excluded_spaces = set(self.excluded_spaces)
         return other
 
     @classmethod
@@ -1148,6 +1142,7 @@ class EnvJujuClient:
                     env.juju_home = get_juju_home()
             else:
                 env.juju_home = juju_home
+        self.excluded_spaces = set(self.reserved_spaces)
 
     @property
     def version(self):
@@ -1181,6 +1176,12 @@ class EnvJujuClient:
         return self._backend.shell_environ(self.used_feature_flags,
                                            self.env.juju_home)
 
+    def use_reserved_spaces(self, spaces):
+        """Allow machines in given spaces to be allocated and used."""
+        if not self.reserved_spaces.issuperset(spaces):
+            raise ValueError('Space not reserved: {}'.format(spaces))
+        self.excluded_spaces.difference_update(spaces)
+
     def add_ssh_machines(self, machines):
         for count, machine in enumerate(machines):
             try:
@@ -1203,11 +1204,7 @@ class EnvJujuClient:
             credential=None, auto_upgrade=False, metadata_source=None,
             to=None, no_gui=False, agent_version=None):
         """Return the bootstrap arguments for the substrate."""
-        if self.env.joyent:
-            # Only accept kvm packages by requiring >1 cpu core, see lp:1446264
-            constraints = 'mem=2G cpu-cores=1'
-        else:
-            constraints = 'mem=2G'
+        constraints = self._get_substrate_constraints()
         cloud_region = self.get_cloud_region(self.env.get_cloud(),
                                              self.env.get_region())
         # Note cloud_region before controller name
@@ -1338,11 +1335,41 @@ class EnvJujuClient:
         return exit_status
 
     def kill_controller(self):
-        """Kill a controller and its environments."""
-        seen_cmd = self.get_jes_command()
-        self.juju(
-            _jes_cmds[seen_cmd]['kill'], (self.env.controller.name, '-y'),
+        """Kill a controller and its models. Hard kill option.
+
+        :return: Subprocess's exit code."""
+        return self.juju(
+            'kill-controller', (self.env.controller.name, '-y'),
             include_e=False, check=False, timeout=get_teardown_timeout(self))
+
+    def destroy_controller(self, all_models=False):
+        """Destroy a controller and its models. Soft kill option.
+
+        :param all_models: If true will attempt to destroy all the
+            controller's models as well.
+        :raises: subprocess.CalledProcessError if the operation fails."""
+        args = (self.env.controller.name, '-y')
+        if all_models:
+            args += ('--destroy-all-models',)
+        return self.juju('destroy-controller', args, include_e=False,
+                         timeout=get_teardown_timeout(self))
+
+    def tear_down(self):
+        """Tear down the client as cleanly as possible.
+
+        Attempts to use the soft method destroy_controller, if that fails
+        it will use the hard kill_controller and raise an error."""
+        try:
+            self.destroy_controller(all_models=True)
+        except subprocess.CalledProcessError:
+            logging.warning('tear_down destroy-controller failed')
+            retval = self.kill_controller()
+            message = 'tear_down kill-controller result={}'.format(retval)
+            if retval == 0:
+                logging.info(message)
+            else:
+                logging.warning(message)
+            raise
 
     def get_juju_output(self, command, *args, **kwargs):
         """Call a juju command and return the output.
@@ -1559,10 +1586,18 @@ class EnvJujuClient:
         args = e_arg + args
         self.juju('deployer', args, self.env.needs_sudo(), include_e=False)
 
+    @staticmethod
+    def _maas_spaces_enabled():
+        return not os.environ.get("JUJU_CI_SPACELESSNESS")
+
     def _get_substrate_constraints(self):
         if self.env.joyent:
             # Only accept kvm packages by requiring >1 cpu core, see lp:1446264
             return 'mem=2G cpu-cores=1'
+        elif self.env.maas and self._maas_spaces_enabled():
+            # For now only maas support spaces in a meaningful way.
+            return 'mem=2G spaces={}'.format(','.join(
+                '^' + space for space in sorted(self.excluded_spaces)))
         else:
             return 'mem=2G'
 
@@ -2281,156 +2316,14 @@ class EnvJujuClientRC(EnvJujuClient):
         return tuple(args)
 
 
-class EnvJujuClient2B9(EnvJujuClientRC):
-
-    def update_user_name(self):
-        return
-
-    def create_cloned_environment(
-            self, cloned_juju_home, controller_name, user_name=None):
-        """Create a cloned environment.
-
-        `user_name` is unused in this version of beta.
-        """
-        user_client = self.clone(env=self.env.clone())
-        user_client.env.juju_home = cloned_juju_home
-        # New user names the controller.
-        user_client.env.controller = Controller(controller_name)
-        return user_client
-
-    def get_model_uuid(self):
-        name = self.env.environment
-        output_yaml = self.get_juju_output('show-model', '--format', 'yaml')
-        output = yaml.safe_load(output_yaml)
-        return output[name]['model-uuid']
-
-    def add_user_perms(self, username, models=None, permissions='read'):
-        """Adds provided user and return register command arguments.
-
-        :return: Registration token provided by the add-user command.
-
-        """
-        if models is None:
-            models = self.env.environment
-
-        args = (username, '--models', models, '--acl', permissions,
-                '-c', self.env.controller.name)
-
-        output = self.get_juju_output('add-user', *args, include_e=False)
-        return self._get_register_command(output)
-
-    def grant(self, user_name, permission, model=None):
-        """Grant the user with a model."""
-        if model is None:
-            model = self.model_name
-        self.juju('grant', (user_name, model, '--acl', permission),
-                  include_e=False)
-
-    def revoke(self, username, models=None, permissions='read'):
-        if models is None:
-            models = self.env.environment
-
-        args = (username, models, '--acl', permissions)
-
-        self.controller_juju('revoke', args)
-
-    def set_config(self, service, options):
-        option_strings = self._dict_as_option_strings(options)
-        self.juju('set-config', (service,) + option_strings)
-
-    def get_config(self, service):
-        return yaml.safe_load(self.get_juju_output('get-config', service))
-
-    def get_model_config(self):
-        """Return the value of the environment's configured option."""
-        return yaml.safe_load(
-            self.get_juju_output('get-model-config', '--format', 'yaml'))
-
-    def get_env_option(self, option):
-        """Return the value of the environment's configured option."""
-        return self.get_juju_output('get-model-config', option)
-
-    def set_env_option(self, option, value):
-        """Set the value of the option in the environment."""
-        option_value = "%s=%s" % (option, value)
-        return self.juju('set-model-config', (option_value,))
-
-    def unset_env_option(self, option):
-        """Unset the value of the option in the environment."""
-        return self.juju('unset-model-config', (option,))
-
-    def list_disabled_commands(self):
-        """List all the commands disabled on the model."""
-        raw = self.get_juju_output('block list', '--format', 'yaml')
-        return yaml.safe_load(raw)
-
-    def disable_command(self, args):
-        """Disable a command set."""
-        return self.juju('block', args)
-
-    def enable_command(self, args):
-        """Enable a command set."""
-        return self.juju('unblock', args)
-
-    def enable_ha(self):
-        self.juju('enable-ha', ('-n', '3'))
-
-
-class EnvJujuClient2B8(EnvJujuClient2B9):
-
-    status_class = ServiceStatus
-
-    def remove_service(self, service):
-        self.juju('remove-service', (service,))
-
-    def run(self, commands, applications):
-        responses = self.get_juju_output(
-            'run', '--format', 'json', '--service', ','.join(applications),
-            *commands)
-        return json.loads(responses)
-
-    def deployer(self, bundle_template, name=None, deploy_delay=10,
-                 timeout=3600):
-        """Deploy a bundle using deployer."""
-        bundle = self.format_bundle(bundle_template)
-        args = (
-            '--debug',
-            '--deploy-delay', str(deploy_delay),
-            '--timeout', str(timeout),
-            '--config', bundle,
-        )
-        if name:
-            args += (name,)
-        e_arg = ('-e', 'local.{}:{}'.format(
-            self.env.controller.name, self.env.environment))
-        args = e_arg + args
-        self.juju('deployer', args, self.env.needs_sudo(), include_e=False)
-
-
-class EnvJujuClient2B7(EnvJujuClient2B8):
-
-    def get_controller_model_name(self):
-        """Return the name of the 'controller' model.
-
-        Return the name of the environment when an 'controller' model does
-        not exist.
-        """
-        return 'admin'
-
-
-class EnvJujuClient2B3(EnvJujuClient2B7):
-
-    def _add_model(self, model_name, config_file):
-        self.controller_juju('create-model', (
-            model_name, '--config', config_file))
-
-
-class EnvJujuClient1X(EnvJujuClient2B3):
+class EnvJujuClient1X(EnvJujuClientRC):
     """Base for all 1.x client drivers."""
 
     default_backend = Juju1XBackend
 
     config_class = SimpleEnvironment
+
+    status_class = Status1X
 
     # The environments.yaml options that are replaced by bootstrap options.
     # For Juju 1.x, no bootstrap options are used.
@@ -2558,6 +2451,12 @@ class EnvJujuClient1X(EnvJujuClient2B3):
                             output)
         return match.group(1)
 
+    def run(self, commands, applications):
+        responses = self.get_juju_output(
+            'run', '--format', 'json', '--service', ','.join(applications),
+            *commands)
+        return json.loads(responses)
+
     def list_space(self):
         return yaml.safe_load(self.get_juju_output('space list'))
 
@@ -2566,6 +2465,15 @@ class EnvJujuClient1X(EnvJujuClient2B3):
 
     def add_subnet(self, subnet, space):
         self.juju('subnet add', (subnet, space))
+
+    def add_user_perms(self, username, models=None, permissions='read'):
+        raise JESNotSupported()
+
+    def grant(self, user_name, permission, model=None):
+        raise JESNotSupported()
+
+    def revoke(self, username, models=None, permissions='read'):
+        raise JESNotSupported()
 
     def set_model_constraints(self, constraints):
         constraint_strings = self._dict_as_option_strings(constraints)
@@ -2591,6 +2499,10 @@ class EnvJujuClient1X(EnvJujuClient2B3):
         option_value = "%s=%s" % (option, value)
         return self.juju('set-env', (option_value,))
 
+    def unset_env_option(self, option):
+        """Unset the value of the option in the environment."""
+        return self.juju('set-env', ('{}='.format(option),))
+
     def _cmd_model(self, include_e, controller):
         if controller:
             return self.get_controller_model_name()
@@ -2598,6 +2510,16 @@ class EnvJujuClient1X(EnvJujuClient2B3):
             return None
         else:
             return unqualified_model_name(self.model_name)
+
+    def update_user_name(self):
+        return
+
+    def _get_substrate_constraints(self):
+        if self.env.joyent:
+            # Only accept kvm packages by requiring >1 cpu core, see lp:1446264
+            return 'mem=2G cpu-cores=1'
+        else:
+            return 'mem=2G'
 
     def get_bootstrap_args(self, upload_tools, bootstrap_series=None,
                            credential=None):
@@ -2663,7 +2585,24 @@ class EnvJujuClient1X(EnvJujuClient2B3):
 
     def destroy_model(self):
         """With JES enabled, destroy-environment destroys the model."""
-        self.destroy_environment(force=False)
+        return self.destroy_environment(force=False)
+
+    def kill_controller(self):
+        """Destroy the environment, with force. Hard kill option.
+
+        :return: Subprocess's exit code."""
+        return self.juju(
+            'destroy-environment', (self.env.environment, '--force', '-y'),
+            check=False, include_e=False, timeout=get_teardown_timeout(self))
+
+    def destroy_controller(self, all_models=False):
+        """Destroy the environment, with force. Soft kill option.
+
+        :param all_models: Ignored.
+        :raises: subprocess.CalledProcessError if the operation fails."""
+        return self.juju(
+            'destroy-environment', (self.env.environment, '-y'),
+            include_e=False, timeout=get_teardown_timeout(self))
 
     def destroy_environment(self, force=True, delete_jenv=False):
         if force:
@@ -2673,7 +2612,7 @@ class EnvJujuClient1X(EnvJujuClient2B3):
         exit_status = self.juju(
             'destroy-environment',
             (self.env.environment,) + force_arg + ('-y',),
-            self.env.needs_sudo(), check=False, include_e=False,
+            check=False, include_e=False,
             timeout=get_teardown_timeout(self))
         if delete_jenv:
             jenv_path = get_jenv_path(self.env.juju_home, self.env.environment)
@@ -2692,6 +2631,9 @@ class EnvJujuClient1X(EnvJujuClient2B3):
             # directly test juju cli; the failure is not a contract violation.
             log.info('Call to JES juju environments failed, falling back.')
             return []
+
+    def get_model_uuid(self):
+        raise JESNotSupported()
 
     def deploy_bundle(self, bundle, timeout=_DEFAULT_BUNDLE_TIMEOUT):
         """Deploy bundle using deployer for Juju 1.X version."""
@@ -2752,6 +2694,18 @@ class EnvJujuClient1X(EnvJujuClient2B3):
     def upgrade_mongo(self):
         raise UpgradeMongoNotSupported()
 
+    def create_cloned_environment(
+            self, cloned_juju_home, controller_name, user_name=None):
+        """Create a cloned environment.
+
+        `user_name` is unused in this version of juju.
+        """
+        user_client = self.clone(env=self.env.clone())
+        user_client.env.juju_home = cloned_juju_home
+        # New user names the controller.
+        user_client.env.controller = Controller(controller_name)
+        return user_client
+
     def add_storage(self, unit, storage_type, amount="1"):
         """Add storage instances to service.
 
@@ -2795,6 +2749,19 @@ class EnvJujuClient1X(EnvJujuClient2B3):
         return self.get_juju_output('authorized-keys import', *keys,
                                     merge_stderr=True)
 
+    def list_disabled_commands(self):
+        """List all the commands disabled on the model."""
+        raw = self.get_juju_output('block list', '--format', 'yaml')
+        return yaml.safe_load(raw)
+
+    def disable_command(self, args):
+        """Disable a command set."""
+        return self.juju('block', args)
+
+    def enable_command(self, args):
+        """Enable a command set."""
+        return self.juju('unblock', args)
+
 
 class EnvJujuClient22(EnvJujuClient1X):
 
@@ -2834,49 +2801,6 @@ def bootstrap_from_env(juju_home, client):
 def quickstart_from_env(juju_home, client, bundle):
     with temp_bootstrap_env(juju_home, client):
         client.quickstart(bundle)
-
-
-@contextmanager
-def maybe_jes(client, jes_enabled, try_jes):
-    """If JES is desired and not enabled, try to enable it for this context.
-
-    JES will be in its previous state after exiting this context.
-    If jes_enabled is True or try_jes is False, the context is a no-op.
-    If enable_jes() raises JESNotSupported, JES will not be enabled in the
-    context.
-
-    The with value is True if JES is enabled in the context.
-    """
-
-    class JESUnwanted(Exception):
-        """Non-error.  Used to avoid enabling JES if not wanted."""
-
-    try:
-        if not try_jes or jes_enabled:
-            raise JESUnwanted
-        client.enable_jes()
-    except (JESNotSupported, JESUnwanted):
-        yield jes_enabled
-        return
-    else:
-        try:
-            yield True
-        finally:
-            client.disable_jes()
-
-
-def tear_down(client, jes_enabled, try_jes=False):
-    """Tear down a JES or non-JES environment.
-
-    JES environments are torn down via 'controller kill' or 'system kill',
-    and non-JES environments are torn down via 'destroy-environment --force.'
-    """
-    with maybe_jes(client, jes_enabled, try_jes) as jes_enabled:
-        if jes_enabled:
-            client.kill_controller()
-        else:
-            if client.destroy_environment(force=False) != 0:
-                client.destroy_environment(force=True)
 
 
 def uniquify_local(env):
