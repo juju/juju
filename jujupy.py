@@ -2833,8 +2833,10 @@ def uniquify_local(env):
         'storage-port': 8040,
         'syslog-port': 6514,
     }
+    new_config = {}
     for key, default in port_defaults.items():
-        env.config[key] = env.config.get(key, default) + 1
+        new_config[key] = env.config.get(key, default) + 1
+    env.update_config(new_config)
 
 
 def dump_environments_yaml(juju_home, config):
