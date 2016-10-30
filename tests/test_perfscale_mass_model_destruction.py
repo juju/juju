@@ -5,6 +5,7 @@ from mock import patch, Mock
 
 import perfscale_mass_model_destruction as pmmd
 from generate_perfscale_results import DeployDetails
+from test_generate_perfscale_results import get_default_args
 from fakejuju import fake_juju_client
 from tests import (
     TestCase
@@ -12,25 +13,10 @@ from tests import (
 from utility import temp_dir
 
 
-def get_default_args(model_count=100, log_dir='/tmp/logs'):
-    return argparse.Namespace(
-        env='an-env',
-        juju_bin='/bin/juju',
-        logs=log_dir,
-        temp_env_name='an-env-mod',
-        model_count=model_count,
-        debug=False,
-        agent_stream=None,
-        agent_url=None,
-        bootstrap_host=None,
-        keep_env=False,
-        machine=[],
-        region=None,
-        series=None,
-        upload_tools=False,
-        verbose=20,
-        deadline=None,
-    )
+def _get_default_args(**kwargs):
+    # Wrap default args for this test.
+    model_count = kwargs.pop('model_count', 100)
+    return get_default_args(model_count=model_count, **kwargs)
 
 
 class TestPerfscaleAssessModelDestruction(TestCase):
@@ -59,7 +45,7 @@ class TestPerfscaleAssessModelDestruction(TestCase):
 class TestParseArgs(TestCase):
 
     def test_default_args(self):
-        expected_args = get_default_args(model_count=42)
+        expected_args = _get_default_args(model_count=42)
         self.assertEqual(
             expected_args,
             pmmd.parse_args(
@@ -84,4 +70,4 @@ class TestMain(TestCase):
             mock_run_pt.assert_called_once_with(
                 pmmd.perfscale_assess_model_destruction,
                 bs_manager,
-                get_default_args(log_dir=log_dir))
+                _get_default_args(logs=log_dir))
