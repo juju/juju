@@ -386,15 +386,16 @@ class SimpleEnvironment:
         :param juju_home: Current JUJU_HOME/DATA directory, used as a
             base path for the new directory.
         :param dir_name: Name of sub-directory to make the home in.
-        :param new_config: Dictionary reperenting the contents of
+        :param new_config: Dictionary representing the contents of
             the environments.yaml configuation file."""
         home_path = jes_home_path(juju_home, dir_name)
         if os.path.exists(home_path):
             rmtree(home_path)
         os.makedirs(home_path)
         self.dump_yaml(home_path, new_config)
-        for copy_file in ['public-clouds.yaml']:
-            src_path = os.path.join(juju_home, copy_file)
+        # For extention: Add all files carried over to the list.
+        for file_name in ['public-clouds.yaml']:
+            src_path = os.path.join(juju_home, file_name)
             if os.path.exists(src_path):
                 copyfile(src_path, home_path)
         yield home_path
