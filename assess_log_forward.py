@@ -167,8 +167,8 @@ def enable_log_forwarding(client):
 
 
 def update_client_config(client, rsyslog_details):
-    client.env.config['logforward-enabled'] = False
-    client.env.config.update(rsyslog_details)
+    client.env.update_config({'logforward-enabled': False})
+    client.env.update_config(rsyslog_details)
 
 
 def deploy_rsyslog(client):

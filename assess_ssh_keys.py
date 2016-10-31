@@ -143,12 +143,12 @@ def assess_ssh_keys(client):
     expect_juju_failure(pattern, client.add_ssh_key, VALID_KEY)
 
     log.info("Testing success when importing keys from github")
-    client.import_ssh_key("gh:jujubot")
-    assert_has_key_matching_comment(client, r'.*gh:jujubot')
+    client.import_ssh_key("gh:sinzui")
+    assert_has_key_matching_comment(client, r'.*gh:sinzui')
 
     log.info("Testing success when importing keys from launchpad")
-    client.import_ssh_key("lp:go-bot")
-    assert_has_key_matching_comment(client, r'.*lp:go-bot')
+    client.import_ssh_key("lp:gz")
+    assert_has_key_matching_comment(client, r'.*lp:gz')
 
     log.info("Testing expected error when removing a non-existent key")
     pattern = r'^cannot {0} key id "{1}": invalid ssh key: {1}$'.format(

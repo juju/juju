@@ -42,8 +42,8 @@ from jujupy import (
     get_local_root,
     get_machine_dns_name,
     jes_home_path,
+    NoProvider,
     SimpleEnvironment,
-    tear_down,
     temp_bootstrap_env,
 )
 from remote import (
@@ -78,7 +78,7 @@ __metaclass__ = type
 
 def destroy_environment(client, instance_tag):
     client.destroy_environment()
-    if (client.env.config['type'] == 'manual' and
+    if (client.env.provider == 'manual' and
             'AWS_ACCESS_KEY' in os.environ):
         destroy_job_instances(instance_tag)
 
@@ -395,7 +395,7 @@ def assess_upgrade(old_client, juju_path):
     all_clients = _get_clients_to_upgrade(old_client, juju_path)
 
     # all clients have the same provider type, work this out once.
-    if all_clients[0].env.config['type'] == 'maas':
+    if all_clients[0].env.provider == 'maas':
         timeout = 1200
     else:
         timeout = 600
@@ -459,16 +459,18 @@ def update_env(env, new_env_name, series=None, bootstrap_host=None,
                agent_url=None, agent_stream=None, region=None):
     # Rename to the new name.
     env.set_model_name(new_env_name)
+    new_config = {}
     if series is not None:
-        env.config['default-series'] = series
+        new_config['default-series'] = series
     if bootstrap_host is not None:
-        env.config['bootstrap-host'] = bootstrap_host
+        new_config['bootstrap-host'] = bootstrap_host
     if agent_url is not None:
-        env.config['tools-metadata-url'] = agent_url
+        new_config['tools-metadata-url'] = agent_url
     if agent_stream is not None:
-        env.config['agent-stream'] = agent_stream
+        new_config['agent-stream'] = agent_stream
+    env.update_config(new_config)
     if region is not None:
-        env.config['region'] = region
+        env.set_region(region)
 
 
 @contextmanager
@@ -582,7 +584,7 @@ class BootstrapManager:
         """Handle starting/stopping MAAS machines."""
         running_domains = dict()
         try:
-            if self.client.env.config['type'] == 'maas' and self.machines:
+            if self.client.env.provider == 'maas' and self.machines:
                 for machine in self.machines:
                     name, URI = machine.split('@')
                     # Record already running domains, so we can warn that
@@ -602,7 +604,7 @@ class BootstrapManager:
             else:
                 yield self.machines
         finally:
-            if self.client.env.config['type'] == 'maas' and not self.keep_env:
+            if self.client.env.provider == 'maas' and not self.keep_env:
                 logging.info("Waiting for destroy-environment to complete")
                 time.sleep(90)
                 for machine, running in running_domains.items():
@@ -624,7 +626,7 @@ class BootstrapManager:
         from previous runs will be killed.
         """
         if (
-                self.client.env.config['type'] != 'manual' or
+                self.client.env.provider != 'manual' or
                 self.bootstrap_host is not None):
             yield []
             return
@@ -640,13 +642,15 @@ class BootstrapManager:
             destroy_job_instances(self.temp_env_name)
 
     def tear_down(self, try_jes=False):
-        if self.tear_down_client == self.client:
-            jes_enabled = self.jes_enabled
-        else:
-            jes_enabled = self.tear_down_client.is_jes_enabled()
+        """Tear down the client using tear_down_client.
+
+        Attempts to use the soft method destroy_controller, if that fails
+        it will use the hard kill_controller.
+
+        :param try_jes: Ignored."""
         if self.tear_down_client.env is not self.client.env:
             raise AssertionError('Tear down client needs same env!')
-        tear_down(self.tear_down_client, jes_enabled, try_jes=try_jes)
+        self.tear_down_client.tear_down()
 
     def _log_and_wrap_exception(self, exc):
         logging.exception(exc)
@@ -682,7 +686,7 @@ class BootstrapManager:
         if os.path.isfile(jenv_path):
             # An existing .jenv implies JES was not used, because when JES is
             # enabled, cache.yaml is enabled.
-            self.tear_down(try_jes=False)
+            self.tear_down_client.kill_controller()
             torn_down = True
         else:
             jes_home = jes_home_path(
@@ -692,14 +696,14 @@ class BootstrapManager:
                 if os.path.isfile(cache_path):
                     # An existing .jenv implies JES was used, because when JES
                     # is enabled, cache.yaml is enabled.
-                    self.tear_down(try_jes=True)
+                    self.tear_down_client.kill_controller()
                     torn_down = True
         ensure_deleted(jenv_path)
         with temp_bootstrap_env(self.client.env.juju_home, self.client,
                                 permanent=self.permanent, set_home=False):
             with self.handle_bootstrap_exceptions():
                 if not torn_down:
-                    self.tear_down(try_jes=True)
+                    self.tear_down_client.kill_controller()
                 yield
 
     @contextmanager
@@ -756,7 +760,7 @@ class BootstrapManager:
                                                      series=self.series)
                         copy_remote_logs(remote, self.log_dir)
                         archive_logs(self.log_dir)
-                    self.tear_down()
+                    self.tear_down_client.kill_controller()
             raise
 
     @contextmanager
@@ -805,7 +809,7 @@ class BootstrapManager:
     def _should_dump(self):
         return not isinstance(self.client._backend, FakeBackend)
 
-    def dump_all_logs(self):
+    def dump_all_logs(self, patch_dir=None):
         """Dump logs for all models in the bootstrapped controller."""
         # This is accurate because we bootstrapped self.client.  It might not
         # be accurate for a model created by create_environment.
@@ -1004,7 +1008,10 @@ def wait_for_state_server_to_shutdown(host, client, instance_id, timeout=60):
     print_now("Waiting for port to close on %s" % host)
     wait_for_port(host, 17070, closed=True, timeout=timeout)
     print_now("Closed.")
-    provider_type = client.env.config.get('type')
+    try:
+        provider_type = client.env.provider
+    except NoProvider:
+        provider_type = None
     if provider_type == 'openstack':
         environ = dict(os.environ)
         environ.update(translate_to_env(client.env.config))

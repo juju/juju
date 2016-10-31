@@ -79,7 +79,7 @@ def set_clouds_yaml_config(client, config_details):
     cloud_name = client.env.get_cloud()
 
     extra_conf = {
-        'type': client.env.config['type'],
+        'type': client.env.provider,
         'regions': {client.env.get_region(): {}},
         'config': config_details}
     client.env.clouds['clouds'][cloud_name] = extra_conf

@@ -209,7 +209,8 @@ class IndustrialTest:
         new_client = client_from_config(env, new_juju_path, debug=debug)
         new_client.env.set_model_name(env + '-new')
         if new_agent_url is not None:
-            new_client.env.config['tools-metadata-url'] = new_agent_url
+            new_client.env.update_config(
+                {'tools-metadata-url': new_agent_url})
         uniquify_local(new_client.env)
         return cls(old_client, new_client, stage_attempts)
 
@@ -735,7 +736,7 @@ class DeployManyAttempt(SteppedStageAttempt):
         timeout_start = datetime.now()
         yield results
         # Joyent needs longer to deploy so many containers (bug #1624384).
-        if client.env.config['type'] == 'joyent':
+        if client.env.provider == 'joyent':
             deploy_many_timeout = 3000
         else:
             deploy_many_timeout = 1200
@@ -765,7 +766,7 @@ class DeployManyAttempt(SteppedStageAttempt):
         yield results
         for machine_name in machine_names:
             client.juju('remove-machine', (machine_name,))
-        if client.env.config['type'] == 'azure':
+        if client.env.provider == 'azure':
             # Azure takes a minimum of 5 minutes per machine to delete.
             remove_timeout = 600 * len(machine_names)
         else:
