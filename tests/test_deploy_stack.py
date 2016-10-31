@@ -1008,37 +1008,6 @@ class FakeBootstrapManager:
             with self.runtime_context(machines):
                 yield machines
 
-    @staticmethod
-    def get_fake_public_clouds():
-        return {
-            'clouds': {
-                'foo': {
-                    'type': 'fake',
-                    'auth-types': [ 'access-key' ],
-                    'regions': {
-                        'fee': {'endpoint': 'fee.foo.example.com'},
-                        'fi': {'endpoint': 'fi.foo.example.com'},
-                        'foe': {'endpoint': 'foe.foo.example.com'},
-                        'fum': {'endpoint': 'fum.foo.example.com'},
-                        }
-                    },
-                'bar': {
-                    'type': 'fake',
-                    'auth-types': [ 'access-key' ],
-                    'regions': {
-                        'north': {'endpoint': 'north.bar.example.com'},
-                        'south': {'endpoint': 'south.bar.example.com'},
-                        }
-                    },
-                }
-            }
-
-    def dump_fake_public_clouds(self, dest_file=None):
-        if dest_file is None:
-            dest_file = os.path.join(self.client.env.juju_home,
-                                     '.juju', 'public-clouds.yaml')
-        yaml.safe_dump(self.get_fake_public_clouds(), dest_file)
-
 
 class TestDeployJob(FakeHomeTestCase):
 

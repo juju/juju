@@ -2930,8 +2930,6 @@ def temp_bootstrap_env(juju_home, client, set_home=True, permanent=False):
         old_juju_home = client.env.juju_home
         client.env.juju_home = temp_juju_home
         try:
-            shutil.copy(os.path.join(old_juju_home, 'public-clouds.yaml'),
-                        temp_juju_home)
             yield temp_juju_home
         finally:
             if not permanent:
