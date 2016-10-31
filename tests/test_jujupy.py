@@ -6073,6 +6073,19 @@ class TestSimpleEnvironment(TestCase):
                                    {'baz': 'qux'}) as jes_home:
                 self.assertFalse(os.path.exists(foo_path))
 
+    def test_make_jes_home_copy_public_clouds(self):
+        file_name = 'public-clouds.yaml'
+        env = SimpleEnvironment('foo')
+        test_string = 'Test string for: {}'.format(file_name)
+        with temp_dir() as juju_home:
+            with open(os.path.join(juju_home, file_name), 'w') as file:
+                file.write(test_string)
+            with env.make_jes_home(juju_home, 'bar',
+                                   {'baz': 'qux'}) as jes_home:
+                with open(os.path.join(jes_home, file_name)) as file:
+                    contents = file.readlines()
+        self.assertEqual([test_string], contents)
+
     def test_provider(self):
         env = SimpleEnvironment('foo', {'type': 'provider1'})
         self.assertEqual('provider1', env.provider)

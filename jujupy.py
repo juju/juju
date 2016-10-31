@@ -16,7 +16,10 @@ import logging
 import os
 import pexpect
 import re
-from shutil import rmtree
+from shutil import (
+    copy as copyfile,
+    rmtree,
+    )
 import subprocess
 import sys
 from tempfile import NamedTemporaryFile
@@ -367,11 +370,22 @@ class SimpleEnvironment:
 
     @contextmanager
     def make_jes_home(self, juju_home, dir_name, new_config):
+        """Make a JUJU_HOME/DATA directory to avoid conflicts.
+
+        :param juju_home: Current JUJU_HOME/DATA directory, used as a
+            base path for the new directory.
+        :param dir_name: Name of sub-directory to make the home in.
+        :param new_config: Dictionary reperenting the contents of
+            the environments.yaml configuation file."""
         home_path = jes_home_path(juju_home, dir_name)
         if os.path.exists(home_path):
             rmtree(home_path)
         os.makedirs(home_path)
         self.dump_yaml(home_path, new_config)
+        for copy_file in ['public-clouds.yaml']:
+            src_path = os.path.join(juju_home, copy_file)
+            if os.path.exists(src_path):
+                copyfile(src_path, home_path)
         yield home_path
 
     def get_cloud_credentials(self):
