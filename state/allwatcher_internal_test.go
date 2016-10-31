@@ -6,6 +6,7 @@ package state
 import (
 	"fmt"
 	"sort"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -23,7 +24,6 @@ import (
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
-	"time"
 )
 
 var (
@@ -512,35 +512,6 @@ func (s *allWatcherStateSuite) TestChangeUnitsNonNilPorts(c *gc.C) {
 
 func (s *allWatcherStateSuite) TestChangeRemoteApplications(c *gc.C) {
 	testChangeRemoteApplications(c, s.performChangeTestCases)
-}
-
-func (s *allWatcherStateSuite) TestRemoveRemoteApplication(c *gc.C) {
-	mysql, remoteApplicationInfo := addTestingRemoteApplication(
-		c, s.state, "remote-mysql", "local:/u/me/mysql", mysqlRelations,
-	)
-	tw := newTestAllWatcher(s.state, c)
-	defer tw.Stop()
-
-	// We should see the initial remote application entity.
-	deltas := tw.All(1)
-	zeroOutTimestampsForDeltas(c, deltas)
-	checkDeltasEqual(c, deltas, []multiwatcher.Delta{{
-		Entity: &remoteApplicationInfo,
-	}})
-
-	// Destroying the remote application will remove it from state,
-	// because it has no relations.
-	err := mysql.Destroy()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(mysql.Refresh(), jc.Satisfies, errors.IsNotFound)
-	checkDeltasEqual(c, tw.All(1), []multiwatcher.Delta{{
-		Removed: true,
-		Entity: &multiwatcher.RemoteApplicationInfo{
-			ModelUUID:      s.state.ModelUUID(),
-			Name:           "remote-mysql",
-			ApplicationURL: "local:/u/me/mysql",
-		},
-	}})
 }
 
 func (s *allWatcherStateSuite) TestChangeActions(c *gc.C) {
@@ -1153,7 +1124,7 @@ func (s *allWatcherStateSuite) TestStateWatcherTwoModels(c *gc.C) {
 	} {
 		c.Logf("Test %d: %s", i, test.about)
 		func() {
-			checkIsolationForEnv := func(st *State, w, otherW *testWatcher) {
+			checkIsolationForModel := func(st *State, w, otherW *testWatcher) {
 				c.Logf("Making changes to model %s", st.ModelUUID())
 
 				if test.setUpState != nil {
@@ -1178,8 +1149,8 @@ func (s *allWatcherStateSuite) TestStateWatcherTwoModels(c *gc.C) {
 			// The first set of deltas is empty, reflecting an empty model.
 			w1.AssertNoChange(c)
 			w2.AssertNoChange(c)
-			checkIsolationForEnv(s.state, w1, w2)
-			checkIsolationForEnv(otherState, w2, w1)
+			checkIsolationForModel(s.state, w1, w2)
+			checkIsolationForModel(otherState, w2, w1)
 		}()
 		s.reset(c)
 	}
@@ -1378,7 +1349,7 @@ func (s *allModelWatcherStateSuite) TestChangeModels(c *gc.C) {
 	s.performChangeTestCases(c, changeTestFuncs)
 }
 
-func (s *allModelWatcherStateSuite) TestChangeForDeadEnv(c *gc.C) {
+func (s *allModelWatcherStateSuite) TestChangeForDeadModel(c *gc.C) {
 	// Ensure an entity is removed when a change is seen but
 	// the model the entity belonged to has already died.
 

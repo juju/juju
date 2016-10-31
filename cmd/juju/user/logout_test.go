@@ -13,7 +13,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/persistent-cookiejar"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/user"
@@ -62,7 +61,7 @@ func (s *LogoutCommandSuite) TestInit(c *gc.C) {
 }
 
 func (s *LogoutCommandSuite) TestLogout(c *gc.C) {
-	cookiefile := filepath.Join(utils.Home(), ".go-cookies")
+	cookiefile := filepath.Join(c.MkDir(), ".go-cookies")
 	jar, err := cookiejar.New(&cookiejar.Options{Filename: cookiefile})
 	c.Assert(err, jc.ErrorIsNil)
 	cont, err := s.store.CurrentController()
