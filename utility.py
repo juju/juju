@@ -42,8 +42,8 @@ def noop_context():
 def scoped_environ(new_environ=None):
     """Save the current environment and restore it when the context is exited.
 
-    :param new_environ: If provided and not None, the key/value pairs of other
-    are used to create a new environment in the context."""
+    :param new_environ: If provided and not None, the key/value pairs of the
+    iterable are used to create a new environment in the context."""
     old_environ = dict(os.environ)
     try:
         if new_environ is not None:

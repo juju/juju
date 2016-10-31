@@ -2904,7 +2904,7 @@ def temp_bootstrap_env(juju_home, client, set_home=True, permanent=False):
     :param set_home: Set JUJU_HOME to match the temporary home in this
         context.  If False, juju_home should be supplied to bootstrap.
     :param permanent: If permanent, the environment is kept afterwards.
-        Otherwise the environment is deleted on close.
+        Otherwise the environment is deleted when exiting the context.
     """
     new_config = {
         'environments': {client.env.environment: make_safe_config(client)}}
