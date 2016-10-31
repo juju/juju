@@ -56,7 +56,8 @@ def main(argv=None):
     bs_manager = BootstrapManager.from_args(args)
     client = bs_manager.client
     if args.image_metadata_url is not None:
-        client.env.config['image-metadata-url'] = args.image_metadata_url
+        client.env.update_config('image-metadata-url',
+                                 args.image_metadata_url)
     with bs_manager.booted_context(args.upload_tools):
         assess_mixed_images(bs_manager.client)
     return 0

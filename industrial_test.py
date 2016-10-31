@@ -209,7 +209,8 @@ class IndustrialTest:
         new_client = client_from_config(env, new_juju_path, debug=debug)
         new_client.env.set_model_name(env + '-new')
         if new_agent_url is not None:
-            new_client.env.config['tools-metadata-url'] = new_agent_url
+            new_client.env.update_config(
+                {'tools-metadata-url': new_agent_url})
         uniquify_local(new_client.env)
         return cls(old_client, new_client, stage_attempts)
 
