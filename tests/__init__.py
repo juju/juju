@@ -1,6 +1,7 @@
 """Testing helpers and base classes for better isolation."""
 
 from contextlib import contextmanager
+import datetime
 import errno
 import logging
 import os
@@ -11,7 +12,6 @@ import unittest
 
 from mock import patch
 
-import datetime
 import utility
 
 
@@ -100,6 +100,7 @@ def parse_error(test_case):
 
 @contextmanager
 def temp_os_env(key, value):
+    """Set the environment key to value for the context, then restore it."""
     org_value = os.environ.get(key, '')
     os.environ[key] = value
     try:
@@ -108,7 +109,6 @@ def temp_os_env(key, value):
         os.environ[key] = org_value
 
 
-# Testing tools: ported from jujupy.py.
 def assert_juju_call(test_case, mock_method, client, expected_args,
                      call_index=None):
     """Check a mock's positional arguments.
@@ -161,7 +161,6 @@ def observable_temp_file():
                 raise
 
 
-# Fake Juju ?
 @contextmanager
 def client_past_deadline(client):
     """Create a client patched to be past its deadline."""
