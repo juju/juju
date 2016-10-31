@@ -86,7 +86,8 @@ class FakeHomeTestCase(TestCase):
                 if error.errno != errno.ENOENT:
                     raise
         else:
-            yaml.safe_dump(data_dict, dest_file)
+            with open(dest_file, 'w') as file:
+                yaml.safe_dump(data_dict, file)
 
 
 def setup_test_logging(testcase, level=None):
