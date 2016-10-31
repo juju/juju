@@ -125,6 +125,7 @@ def temp_os_env(key, value):
 
 
 def get_default_public_clouds():
+    """The dict used to fill public-clouds.yaml by FakeHomeTestCase."""
     return {
         'clouds': {
             'foo': {

@@ -16,7 +16,7 @@ import logging
 import os
 import pexpect
 import re
-import shutil
+from shutil import rmtree
 import subprocess
 import sys
 from tempfile import NamedTemporaryFile
@@ -369,7 +369,7 @@ class SimpleEnvironment:
     def make_jes_home(self, juju_home, dir_name, new_config):
         home_path = jes_home_path(juju_home, dir_name)
         if os.path.exists(home_path):
-            shutil.rmtree(home_path)
+            rmtree(home_path)
         os.makedirs(home_path)
         self.dump_yaml(home_path, new_config)
         yield home_path
