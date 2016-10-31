@@ -9,12 +9,14 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
@@ -173,9 +175,11 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 		fetchAllApplicationsAndUnits(c.api.stateAccessor, len(args.Patterns) <= 0); err != nil {
 		return noStatus, errors.Annotate(err, "could not fetch applications and units")
 	}
-	if context.remoteApplications, err =
-		fetchRemoteApplications(c.api.stateAccessor); err != nil {
-		return noStatus, errors.Annotate(err, "could not fetch remote applications")
+	if featureflag.Enabled(feature.CrossModelRelations) {
+		if context.remoteApplications, err =
+			fetchRemoteApplications(c.api.stateAccessor); err != nil {
+			return noStatus, errors.Annotate(err, "could not fetch remote applications")
+		}
 	}
 	if context.machines, err = fetchMachines(c.api.stateAccessor, nil); err != nil {
 		return noStatus, errors.Annotate(err, "could not fetch machines")
