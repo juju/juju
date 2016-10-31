@@ -1,6 +1,7 @@
 """Testing helpers and base classes for better isolation."""
 
 from contextlib import contextmanager
+import errno
 import logging
 import os
 import StringIO
@@ -8,6 +9,7 @@ import subprocess
 import unittest
 
 from mock import patch
+import yaml
 
 import utility
 
@@ -65,9 +67,27 @@ class FakeHomeTestCase(TestCase):
     def setUp(self):
         super(FakeHomeTestCase, self).setUp()
         self.home_dir = use_context(self, utility.temp_dir())
-        os.environ["HOME"] = self.home_dir
-        os.environ["PATH"] = os.path.join(self.home_dir, ".local", "bin")
-        os.mkdir(os.path.join(self.home_dir, ".juju"))
+        os.environ['HOME'] = self.home_dir
+        os.environ['PATH'] = os.path.join(self.home_dir, '.local', 'bin')
+        os.mkdir(os.path.join(self.home_dir, '.juju'))
+        self.set_public_clouds(get_default_public_clouds())
+
+    def set_public_clouds(self, data_dict):
+        """Set the data in the public-clouds.yaml file.
+
+        :param data_dict: A dictionary of data, which is used to overwrite
+            the data in public-clouds.yaml, or None, in which case the file
+            is removed."""
+        dest_file = os.path.join(self.home_dir, '.juju/public-clouds.yaml')
+        if data_dict is None:
+            try:
+                os.remove(dest_file)
+            except OSError as error:
+                if error.errno != errno.ENOENT:
+                    raise
+        else:
+            with open(dest_file, 'w') as file:
+                yaml.safe_dump(data_dict, file)
 
 
 def setup_test_logging(testcase, level=None):
@@ -103,3 +123,31 @@ def temp_os_env(key, value):
         yield
     finally:
         os.environ[key] = org_value
+
+
+def get_default_public_clouds():
+    """The dict used to fill public-clouds.yaml by FakeHomeTestCase."""
+    return {
+        'clouds': {
+            'foo': {
+                'type': 'foo',
+                'auth-types': ['access-key'],
+                'regions': {
+                    # This is the fake juju endpoint:
+                    'bar': {'endpoint': 'bar.foo.example.com'},
+                    'fee': {'endpoint': 'fee.foo.example.com'},
+                    'fi': {'endpoint': 'fi.foo.example.com'},
+                    'foe': {'endpoint': 'foe.foo.example.com'},
+                    'fum': {'endpoint': 'fum.foo.example.com'},
+                    }
+                },
+            'qux': {
+                'type': 'fake',
+                'auth-types': ['access-key'],
+                'regions': {
+                    'north': {'endpoint': 'north.qux.example.com'},
+                    'south': {'endpoint': 'south.qux.example.com'},
+                    }
+                },
+            }
+        }

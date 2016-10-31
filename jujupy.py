@@ -6,7 +6,6 @@ from collections import (
     )
 from contextlib import (
     contextmanager,
-    nested,
     )
 from copy import deepcopy
 from datetime import datetime
@@ -2859,13 +2858,11 @@ def _temp_env(new_config, parent=None, set_home=True):
     with temp_dir(parent) as temp_juju_home:
         dump_environments_yaml(temp_juju_home, new_config)
         if set_home:
-            context = scoped_environ()
-        else:
-            context = nested()
-        with context:
-            if set_home:
+            with scoped_environ():
                 os.environ['JUJU_HOME'] = temp_juju_home
                 os.environ['JUJU_DATA'] = temp_juju_home
+                yield temp_juju_home
+        else:
             yield temp_juju_home
 
 
@@ -2920,8 +2917,12 @@ def temp_bootstrap_env(juju_home, client, set_home=True, permanent=False):
     This involves creating a temporary juju home directory and returning its
     location.
 
+    :param juju_home: The current JUJU_HOME value.
+    :param client: The client being prepared for bootstrapping.
     :param set_home: Set JUJU_HOME to match the temporary home in this
         context.  If False, juju_home should be supplied to bootstrap.
+    :param permanent: If permanent, the environment is kept afterwards.
+        Otherwise the environment is deleted when exiting the context.
     """
     new_config = {
         'environments': {client.env.environment: make_safe_config(client)}}
