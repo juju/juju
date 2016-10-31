@@ -800,11 +800,16 @@ func (a *MachineAgent) openStateForUpgrade() (*state.State, error) {
 	if !ok {
 		return nil, errors.New("no state info available")
 	}
-	st, err := state.Open(agentConfig.Model(), agentConfig.Controller(), info, mongo.DefaultDialOpts(),
-		stateenvirons.GetNewPolicyFunc(
+	st, err := state.Open(state.OpenParams{
+		Clock:              clock.WallClock,
+		ControllerTag:      agentConfig.Controller(),
+		ControllerModelTag: agentConfig.Model(),
+		MongoInfo:          info,
+		MongoDialOpts:      mongo.DefaultDialOpts(),
+		NewPolicy: stateenvirons.GetNewPolicyFunc(
 			stateenvirons.GetNewEnvironFunc(environs.New),
 		),
-	)
+	})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1361,11 +1366,16 @@ func openState(agentConfig agent.Config, dialOpts mongo.DialOpts) (_ *state.Stat
 	if !ok {
 		return nil, nil, errors.Errorf("no state info available")
 	}
-	st, err := state.Open(agentConfig.Model(), agentConfig.Controller(), info, dialOpts,
-		stateenvirons.GetNewPolicyFunc(
+	st, err := state.Open(state.OpenParams{
+		Clock:              clock.WallClock,
+		ControllerTag:      agentConfig.Controller(),
+		ControllerModelTag: agentConfig.Model(),
+		MongoInfo:          info,
+		MongoDialOpts:      dialOpts,
+		NewPolicy: stateenvirons.GetNewPolicyFunc(
 			stateenvirons.GetNewEnvironFunc(environs.New),
 		),
-	)
+	})
 	if err != nil {
 		return nil, nil, err
 	}

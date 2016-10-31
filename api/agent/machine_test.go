@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
@@ -181,7 +182,13 @@ func (s *machineSuite) TestClearReboot(c *gc.C) {
 }
 
 func tryOpenState(modelTag names.ModelTag, controllerTag names.ControllerTag, info *mongo.MongoInfo) error {
-	st, err := state.Open(modelTag, controllerTag, info, mongotest.DialOpts(), nil)
+	st, err := state.Open(state.OpenParams{
+		Clock:              clock.WallClock,
+		ControllerTag:      controllerTag,
+		ControllerModelTag: modelTag,
+		MongoInfo:          info,
+		MongoDialOpts:      mongotest.DialOpts(),
+	})
 	if err == nil {
 		st.Close()
 	}

@@ -16,6 +16,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
+	"github.com/juju/utils/clock"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
 	"github.com/juju/version"
@@ -475,13 +476,21 @@ func newState(controllerUUID string, environ environs.Environ, mongoInfo *mongo.
 		stateenvirons.GetNewEnvironFunc(environs.New),
 	)
 	controllerTag := names.NewControllerTag(controllerUUID)
-	st, err := state.Open(modelTag, controllerTag, mongoInfo, opts, newPolicyFunc)
+	args := state.OpenParams{
+		Clock:              clock.WallClock,
+		ControllerTag:      controllerTag,
+		ControllerModelTag: modelTag,
+		MongoInfo:          mongoInfo,
+		MongoDialOpts:      opts,
+		NewPolicy:          newPolicyFunc,
+	}
+	st, err := state.Open(args)
 	if errors.IsUnauthorized(errors.Cause(err)) {
 		// We try for a while because we might succeed in
 		// connecting to mongo before the state has been
 		// initialized and the initial password set.
 		for a := redialStrategy.Start(); a.Next(); {
-			st, err = state.Open(modelTag, controllerTag, mongoInfo, opts, newPolicyFunc)
+			st, err = state.Open(args)
 			if !errors.IsUnauthorized(errors.Cause(err)) {
 				break
 			}
