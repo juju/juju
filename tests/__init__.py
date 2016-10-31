@@ -70,8 +70,7 @@ class FakeHomeTestCase(TestCase):
         os.environ['HOME'] = self.home_dir
         os.environ['PATH'] = os.path.join(self.home_dir, '.local', 'bin')
         os.mkdir(os.path.join(self.home_dir, '.juju'))
-        # self.set_public_clouds(get_default_public_clouds())
-        self.set_public_clouds(None)
+        self.set_public_clouds(get_default_public_clouds())
 
     def set_public_clouds(self, data_dict):
         """Set the data in the public-clouds.yaml file.
@@ -129,21 +128,23 @@ def get_default_public_clouds():
     return {
         'clouds': {
             'foo': {
-                'type': 'fake',
-                'auth-types': [ 'access-key' ],
+                'type': 'foo',
+                'auth-types': ['access-key'],
                 'regions': {
+                    # This is the fake juju endpoint:
+                    'bar': {'endpoint': 'bar.foo.example.com'},
                     'fee': {'endpoint': 'fee.foo.example.com'},
                     'fi': {'endpoint': 'fi.foo.example.com'},
                     'foe': {'endpoint': 'foe.foo.example.com'},
                     'fum': {'endpoint': 'fum.foo.example.com'},
                     }
                 },
-            'bar': {
+            'qux': {
                 'type': 'fake',
-                'auth-types': [ 'access-key' ],
+                'auth-types': ['access-key'],
                 'regions': {
-                    'north': {'endpoint': 'north.bar.example.com'},
-                    'south': {'endpoint': 'south.bar.example.com'},
+                    'north': {'endpoint': 'north.qux.example.com'},
+                    'south': {'endpoint': 'south.qux.example.com'},
                     }
                 },
             }
