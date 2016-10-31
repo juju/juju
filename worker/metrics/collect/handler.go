@@ -57,7 +57,7 @@ func (l *handler) Handle(c net.Conn, abort <-chan struct{}) error {
 }
 
 func (l *handler) do(c net.Conn) error {
-	paths := uniter.NewWorkerPaths(l.config.agent.CurrentConfig().DataDir(), l.config.unitTag, "metrics-collect")
+	paths := uniter.NewWorkerPaths(l.config.agent.CurrentConfig().DataPath(), l.config.unitTag, "metrics-collect")
 	charmURL, validMetrics, err := readCharm(l.config.unitTag, paths)
 	if err != nil {
 		return errors.Trace(err)

@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
+	"github.com/juju/juju/juju/paths"
 )
 
 func newValidateImageMetadataCommand() cmd.Command {
@@ -233,7 +234,7 @@ func (c *validateImageMetadataCommand) createLookupParams(context *cmd.Context) 
 
 var imagesDataSources = func(urls ...string) []simplestreams.DataSource {
 	dataSources := make([]simplestreams.DataSource, len(urls))
-	publicKey, _ := simplestreams.UserPublicSigningKey()
+	publicKey, _ := simplestreams.UserPublicSigningKey(paths.Defaults.Conf)
 	for i, url := range urls {
 		dataSources[i] = simplestreams.NewURLSignedDataSource(
 			"local metadata directory", "file://"+url, publicKey, utils.VerifySSLHostnames, simplestreams.CUSTOM_CLOUD_DATA, false)

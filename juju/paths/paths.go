@@ -1,130 +1,63 @@
-// Copyright 2014 Canonical Ltd.
-// Copyright 2014 Cloudbase Solutions SRL
+// Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package paths
 
-import (
-	jujuos "github.com/juju/utils/os"
-	"github.com/juju/utils/series"
+// collection couples together all the paths Juju knows about into a
+// struct. Instances should be passed by value.
+type Collection struct {
+
+	// data is the path where Juju may put tools, charms, locks, etc.
+	Data string
+
+	// log is the path where Juju may put log files.
+	Log string
+
+	// temp is the path where Juju may put temporary data.
+	Temp string
+
+	// metricsSpool is the path where Juju may store metrics.
+	MetricsSpool string
+
+	// storage is the path where Juju may mount machine-level
+	// storaage.
+	Storage string
+
+	// Conf is the path where Juju may store configuration files.
+	Conf string
+
+	// jujuRun is the path to the juju-run binary.
+	JujuRun string
+
+	// jujuDumpLogs is the path to the juju-dumplogs binary.
+	JujuDumpLogs string
+
+	// Cert is the path where Juju may put certificates added by
+	// default to the Juju client API certification pool.
+	Cert string
+}
+
+var (
+	Nix = Collection{
+		Cert:         "/etc/juju/certs.d",
+		Conf:         "/etc/juju",
+		Data:         "/var/lib/juju",
+		JujuDumpLogs: "/usr/bin/juju-dumplogs",
+		JujuRun:      "/usr/bin/juju-run",
+		Log:          "/var/log",
+		MetricsSpool: "/var/lib/juju/metricspool",
+		Storage:      "/var/lib/juju/storage",
+		Temp:         "/tmp",
+	}
+	Windows = Collection{
+		Cert:         "C:/Juju/certs",
+		Conf:         "C:/Juju/etc",
+		Data:         "C:/Juju/lib/juju",
+		JujuDumpLogs: "C:/Juju/bin/juju-dumplogs.exe",
+		JujuRun:      "C:/Juju/bin/juju-run.exe",
+		Log:          "C:/Juju/log",
+		MetricsSpool: "C:/Juju/lib/juju/metricspool",
+		Storage:      "C:/Juju/lib/juju/storage",
+		Temp:         "C:/Juju/tmp",
+	}
 )
-
-type osVarType int
-
-const (
-	tmpDir osVarType = iota
-	logDir
-	dataDir
-	storageDir
-	confDir
-	jujuRun
-	certDir
-	metricsSpoolDir
-	uniterStateDir
-	jujuDumpLogs
-)
-
-var nixVals = map[osVarType]string{
-	tmpDir:          "/tmp",
-	logDir:          "/var/log",
-	dataDir:         "/var/lib/juju",
-	storageDir:      "/var/lib/juju/storage",
-	confDir:         "/etc/juju",
-	jujuRun:         "/usr/bin/juju-run",
-	jujuDumpLogs:    "/usr/bin/juju-dumplogs",
-	certDir:         "/etc/juju/certs.d",
-	metricsSpoolDir: "/var/lib/juju/metricspool",
-	uniterStateDir:  "/var/lib/juju/uniter/state",
-}
-
-var winVals = map[osVarType]string{
-	tmpDir:          "C:/Juju/tmp",
-	logDir:          "C:/Juju/log",
-	dataDir:         "C:/Juju/lib/juju",
-	storageDir:      "C:/Juju/lib/juju/storage",
-	confDir:         "C:/Juju/etc",
-	jujuRun:         "C:/Juju/bin/juju-run.exe",
-	jujuDumpLogs:    "C:/Juju/bin/juju-dumplogs.exe",
-	certDir:         "C:/Juju/certs",
-	metricsSpoolDir: "C:/Juju/lib/juju/metricspool",
-	uniterStateDir:  "C:/Juju/lib/juju/uniter/state",
-}
-
-// osVal will lookup the value of the key valname
-// in the apropriate map, based on the series. This will
-// help reduce boilerplate code
-func osVal(ser string, valname osVarType) (string, error) {
-	os, err := series.GetOSFromSeries(ser)
-	if err != nil {
-		return "", err
-	}
-	switch os {
-	case jujuos.Windows:
-		return winVals[valname], nil
-	default:
-		return nixVals[valname], nil
-	}
-}
-
-// TempDir returns the path on disk to the corect tmp directory
-// for the series. This value will be the same on virtually
-// all linux systems, but will differ on windows
-func TempDir(series string) (string, error) {
-	return osVal(series, tmpDir)
-}
-
-// LogDir returns filesystem path the directory where juju may
-// save log files.
-func LogDir(series string) (string, error) {
-	return osVal(series, logDir)
-}
-
-// DataDir returns a filesystem path to the folder used by juju to
-// store tools, charms, locks, etc
-func DataDir(series string) (string, error) {
-	return osVal(series, dataDir)
-}
-
-// MetricsSpoolDir returns a filesystem path to the folder used by juju
-// to store metrics.
-func MetricsSpoolDir(series string) (string, error) {
-	return osVal(series, metricsSpoolDir)
-}
-
-// CertDir returns a filesystem path to the folder used by juju to
-// store certificates that are added by default to the Juju client
-// api certificate pool.
-func CertDir(series string) (string, error) {
-	return osVal(series, certDir)
-}
-
-// StorageDir returns a filesystem path to the folder used by juju to
-// mount machine-level storage.
-func StorageDir(series string) (string, error) {
-	return osVal(series, storageDir)
-}
-
-// ConfDir returns the path to the directory where Juju may store
-// configuration files.
-func ConfDir(series string) (string, error) {
-	return osVal(series, confDir)
-}
-
-// JujuRun returns the absolute path to the juju-run binary for
-// a particular series.
-func JujuRun(series string) (string, error) {
-	return osVal(series, jujuRun)
-}
-
-// JujuDumpLogs returns the absolute path to the juju-dumplogs binary
-// for a particular series.
-func JujuDumpLogs(series string) (string, error) {
-	return osVal(series, jujuDumpLogs)
-}
-
-func MustSucceed(s string, e error) string {
-	if e != nil {
-		panic(e)
-	}
-	return s
-}

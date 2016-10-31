@@ -256,9 +256,13 @@ func initBootstrapMachine(c agent.ConfigSetter, st *state.State, args Initialize
 	if args.BootstrapMachineHardwareCharacteristics != nil {
 		hardware = *args.BootstrapMachineHardwareCharacteristics
 	}
+	series, err := series.HostSeries()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	m, err := st.AddOneMachine(state.MachineTemplate{
 		Addresses:               args.BootstrapMachineAddresses,
-		Series:                  series.HostSeries(),
+		Series:                  series,
 		Nonce:                   agent.BootstrapNonce,
 		Constraints:             args.BootstrapMachineConstraints,
 		InstanceId:              args.BootstrapMachineInstanceId,

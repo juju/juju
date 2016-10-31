@@ -30,6 +30,9 @@ var idOptions = map[AgentKind]string{
 
 // AgentInfo holds commonly used information about a juju agent.
 type AgentInfo struct {
+	dataPath string
+	logPath  string
+
 	name string
 
 	// ID is the string that identifies the agent uniquely within
@@ -38,42 +41,35 @@ type AgentInfo struct {
 
 	// Kind is the kind of agent.
 	Kind AgentKind
-
-	// DataDir is the path to the agent's data dir.
-	DataDir string
-
-	// LogDir is the path to the agent's log dir.
-	LogDir string
 }
 
 // NewAgentInfo composes a new AgentInfo for the given essentials.
-func NewAgentInfo(kind AgentKind, id, dataDir, logDir string) AgentInfo {
+func NewAgentInfo(kind AgentKind, dataPath, logPath, id string) AgentInfo {
 	name := fmt.Sprintf("%s-%s", kind, strings.Replace(id, "/", "-", -1))
 
 	info := AgentInfo{
-		Kind:    kind,
-		ID:      id,
-		DataDir: dataDir,
-		LogDir:  logDir,
-
-		name: name,
+		dataPath: dataPath,
+		logPath:  logPath,
+		Kind:     kind,
+		ID:       id,
+		name:     name,
 	}
 	return info
 }
 
 // NewMachineAgentInfo returns a new AgentInfo for a machine agent.
-func NewMachineAgentInfo(id, dataDir, logDir string) AgentInfo {
-	return NewAgentInfo(AgentKindMachine, id, dataDir, logDir)
+func NewMachineAgentInfo(dataPath, logPath, id string) AgentInfo {
+	return NewAgentInfo(AgentKindMachine, dataPath, logPath, id)
 }
 
 // NewUnitAgentInfo returns a new AgentInfo for a unit agent.
-func NewUnitAgentInfo(id, dataDir, logDir string) AgentInfo {
-	return NewAgentInfo(AgentKindUnit, id, dataDir, logDir)
+func NewUnitAgentInfo(dataPath, logPath, id string) AgentInfo {
+	return NewAgentInfo(AgentKindUnit, dataPath, logPath, id)
 }
 
 // ToolsDir returns the path to the agent's tools dir.
 func (ai AgentInfo) ToolsDir(renderer shell.Renderer) string {
-	return renderer.FromSlash(tools.ToolsDir(ai.DataDir, ai.name))
+	return renderer.FromSlash(tools.ToolsDir(ai.dataPath, ai.name))
 }
 
 func (ai AgentInfo) jujud(renderer shell.Renderer) string {
@@ -88,7 +84,7 @@ func (ai AgentInfo) cmd(renderer shell.Renderer) string {
 	return strings.Join([]string{
 		renderer.Quote(ai.jujud(renderer)),
 		string(ai.Kind),
-		"--data-dir", renderer.Quote(renderer.FromSlash(ai.DataDir)),
+		"--data-dir", renderer.Quote(renderer.FromSlash(ai.dataPath)),
 		idOptions[ai.Kind], ai.ID,
 		"--debug",
 	}, " ")
@@ -101,12 +97,12 @@ func (ai AgentInfo) cmd(renderer shell.Renderer) string {
 func (ai AgentInfo) execArgs(renderer shell.Renderer) []string {
 	return []string{
 		string(ai.Kind),
-		"--data-dir", renderer.FromSlash(ai.DataDir),
+		"--data-dir", renderer.FromSlash(ai.dataPath),
 		idOptions[ai.Kind], ai.ID,
 		"--debug",
 	}
 }
 
 func (ai AgentInfo) logFile(renderer shell.Renderer) string {
-	return renderer.Join(renderer.FromSlash(ai.LogDir), ai.name+".log")
+	return renderer.Join(renderer.FromSlash(ai.logPath), ai.name+".log")
 }

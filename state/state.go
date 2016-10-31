@@ -87,6 +87,7 @@ type State struct {
 	database           Database
 	policy             Policy
 	newPolicy          NewPolicyFunc
+	storagePath        string
 
 	// cloudName is the name of the cloud on which the model
 	// represented by this state runs.
@@ -305,7 +306,13 @@ func (st *State) removeInCollectionOps(name string, sel interface{}) ([]txn.Op, 
 func (st *State) ForModel(modelTag names.ModelTag) (*State, error) {
 	session := st.session.Copy()
 	newSt, err := newState(
-		modelTag, st.controllerModelTag, session, st.mongoInfo, st.newPolicy, st.clock,
+		st.storagePath,
+		modelTag,
+		st.controllerModelTag,
+		session,
+		st.mongoInfo,
+		st.newPolicy,
+		st.clock,
 	)
 	if err != nil {
 		return nil, errors.Trace(err)

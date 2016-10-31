@@ -60,13 +60,13 @@ type UnitAgent struct {
 }
 
 // NewUnitAgent creates a new UnitAgent value properly initialized.
-func NewUnitAgent(ctx *cmd.Context, bufferedLogger *logsender.BufferedLogWriter) (*UnitAgent, error) {
+func NewUnitAgent(ctx *cmd.Context, bufferedLogger *logsender.BufferedLogWriter, dataPath, storagePath string) (*UnitAgent, error) {
 	prometheusRegistry, err := newPrometheusRegistry()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return &UnitAgent{
-		AgentConf:        NewAgentConf(""),
+		AgentConf:        NewAgentConf(storagePath, dataPath),
 		configChangedVal: voyeur.NewValue(true),
 		ctx:              ctx,
 		initialUpgradeCheckComplete: make(chan struct{}),

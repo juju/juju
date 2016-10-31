@@ -4,6 +4,7 @@
 package kvm
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/utils/packaging/manager"
 	"github.com/juju/utils/series"
 
@@ -34,7 +35,11 @@ func (ci *containerInitialiser) Initialise() error {
 // getPackageManager is a helper function which returns the
 // package manager implementation for the current system.
 func getPackageManager() (manager.PackageManager, error) {
-	return manager.NewPackageManager(series.HostSeries())
+	series, err := series.HostSeries()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return manager.NewPackageManager(series)
 }
 
 func ensureDependencies() error {

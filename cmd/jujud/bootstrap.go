@@ -63,12 +63,20 @@ type BootstrapCommand struct {
 	agentcmd.AgentConf
 	BootstrapParamsFile string
 	Timeout             time.Duration
+	SeriesName          string
 }
 
 // NewBootstrapCommand returns a new BootstrapCommand that has been initialized.
-func NewBootstrapCommand() *BootstrapCommand {
+func NewBootstrapCommand(storagePath, dataPath, seriesName string) *BootstrapCommand {
+	if seriesName == "" {
+		// This indicates a bug and nothing above us can handle the
+		// error graciously.
+		panic("seriesName is required")
+	}
+
 	return &BootstrapCommand{
-		AgentConf: agentcmd.NewAgentConf(""),
+		AgentConf:  agentcmd.NewAgentConf(storagePath, dataPath),
+		SeriesName: seriesName,
 	}
 }
 
@@ -99,7 +107,7 @@ func (c *BootstrapCommand) Init(args []string) error {
 }
 
 // Run initializes state for an environment.
-func (c *BootstrapCommand) Run(_ *cmd.Context) error {
+func (c *BootstrapCommand) Run(*cmd.Context) error {
 	bootstrapParamsData, err := ioutil.ReadFile(c.BootstrapParamsFile)
 	if err != nil {
 		return errors.Annotate(err, "reading bootstrap params file")
@@ -153,10 +161,11 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		// tools can actually be found, or else bootstrap won't complete.
 		stream := envtools.PreferredStream(&desiredVersion, args.ControllerModelConfig.Development(), args.ControllerModelConfig.AgentStream())
 		logger.Infof("newer tools requested, looking for %v in stream %v", desiredVersion, stream)
+
 		filter := tools.Filter{
 			Number: desiredVersion,
 			Arch:   arch.HostArch(),
-			Series: series.HostSeries(),
+			Series: c.SeriesName,
 		}
 		_, toolsErr := envtools.FindTools(env, -1, -1, stream, filter)
 		if toolsErr == nil {
@@ -357,12 +366,12 @@ func (c *BootstrapCommand) startMongo(addrs []network.Address, agentConfig agent
 // and updates the tools metadata.
 func (c *BootstrapCommand) populateTools(st *state.State, env environs.Environ) error {
 	agentConfig := c.CurrentConfig()
-	dataDir := agentConfig.DataDir()
+	dataDir := agentConfig.DataPath()
 
 	current := version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
-		Series: series.HostSeries(),
+		Series: c.SeriesName,
 	}
 	tools, err := agenttools.ReadTools(dataDir, current)
 	if err != nil {
@@ -419,7 +428,7 @@ func (c *BootstrapCommand) populateTools(st *state.State, env environs.Environ) 
 // updates the GUI metadata and set the current Juju GUI version.
 func (c *BootstrapCommand) populateGUIArchive(st *state.State, env environs.Environ) error {
 	agentConfig := c.CurrentConfig()
-	dataDir := agentConfig.DataDir()
+	dataDir := agentConfig.DataPath()
 	guistorage, err := st.GUIStorage()
 	if err != nil {
 		return errors.Trace(err)

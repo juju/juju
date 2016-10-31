@@ -141,7 +141,12 @@ var mongoDefaultDialOpts = mongo.DefaultDialOpts
 var environsGetNewPolicyFunc = stateenvirons.GetNewPolicyFunc
 
 // newStateConnection tries to connect to the newly restored controller.
-func newStateConnection(controllerTag names.ControllerTag, modelTag names.ModelTag, info *mongo.MongoInfo) (*state.State, error) {
+func newStateConnection(
+	storagePath string,
+	controllerTag names.ControllerTag,
+	modelTag names.ModelTag,
+	info *mongo.MongoInfo,
+) (*state.State, error) {
 	// We need to retry here to allow mongo to come up on the restored controller.
 	// The connection might succeed due to the mongo dial retries but there may still
 	// be a problem issuing database commands.
@@ -157,7 +162,14 @@ func newStateConnection(controllerTag names.ControllerTag, modelTag names.ModelT
 	attempt := utils.AttemptStrategy{Delay: newStateConnDelay, Min: newStateConnMinAttempts}
 	getEnviron := stateenvirons.GetNewEnvironFunc(environs.New)
 	for a := attempt.Start(); a.Next(); {
-		st, err = state.Open(modelTag, controllerTag, info, mongoDefaultDialOpts(), environsGetNewPolicyFunc(getEnviron))
+		st, err = state.Open(
+			storagePath,
+			modelTag,
+			controllerTag,
+			info,
+			mongoDefaultDialOpts(),
+			environsGetNewPolicyFunc(getEnviron),
+		)
 		if err == nil {
 			return st, nil
 		}

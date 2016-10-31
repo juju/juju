@@ -1111,11 +1111,11 @@ func (a *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 		machineAssignable = pu
 	}
 	storageOps, numStorageAttachments, err := createStorageOps(
+		a.st.storagePath,
 		a.st,
 		unitTag,
 		charm.Meta(),
 		args.storageCons,
-		a.doc.Series,
 		machineAssignable,
 	)
 	if err != nil {

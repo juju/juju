@@ -6,6 +6,8 @@ package testing
 import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/os"
+	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
@@ -18,6 +20,7 @@ import (
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/multiwatcher"
@@ -174,11 +177,28 @@ func fillinStartInstanceParams(env environs.Environ, machineId string, isControl
 
 	machineNonce := "fake_nonce"
 	apiInfo := FakeAPIInfo(machineId)
-	instanceConfig, err := instancecfg.NewInstanceConfig(
+
+	osType, err := series.GetOSFromSeries(preferredSeries)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	instancePaths := paths.Nix
+	if osType == os.Windows {
+		instancePaths = paths.Windows
+	}
+
+	instanceConfig := instancecfg.NewInstanceConfig(
+		instancePaths.Conf,
+		instancePaths.Temp,
+		instancePaths.Data,
+		instancePaths.Log,
+		instancePaths.MetricsSpool,
 		testing.ControllerTag,
 		machineId,
 		machineNonce,
 		imagemetadata.ReleasedStream,
+		osType,
 		preferredSeries,
 		apiInfo,
 	)

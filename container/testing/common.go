@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/os"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
@@ -15,6 +16,7 @@ import (
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju/paths"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/testing"
@@ -24,11 +26,21 @@ import (
 func MockMachineConfig(machineId string) (*instancecfg.InstanceConfig, error) {
 
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
-	instanceConfig, err := instancecfg.NewInstanceConfig(testing.ControllerTag, machineId, "fake-nonce", imagemetadata.ReleasedStream, "quantal", apiInfo)
-	if err != nil {
-		return nil, err
-	}
-	err = instanceConfig.SetTools(tools.List{
+	instanceConfig := instancecfg.NewInstanceConfig(
+		paths.Nix.Conf,
+		paths.Nix.Temp,
+		paths.Nix.Data,
+		paths.Nix.Log,
+		paths.Nix.MetricsSpool,
+		testing.ControllerTag,
+		machineId,
+		"fake-nonce",
+		imagemetadata.ReleasedStream,
+		os.Ubuntu,
+		"quantal",
+		apiInfo,
+	)
+	err := instanceConfig.SetTools(tools.List{
 		&tools.Tools{
 			Version: version.MustParseBinary("2.3.4-quantal-amd64"),
 			URL:     "http://tools.testing.invalid/2.3.4-quantal-amd64.tgz",

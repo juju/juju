@@ -164,7 +164,7 @@ func (e *RedirectError) Error() string {
 //
 // See Connect for details of the connection mechanics.
 func Open(info *Info, opts DialOpts) (Connection, error) {
-	return open(info, opts, clock.WallClock)
+	return open(info, opts, opts.Clock, opts.CertPath)
 }
 
 // open is the unexported version of open that also includes
@@ -173,6 +173,7 @@ func open(
 	info *Info,
 	opts DialOpts,
 	clock clock.Clock,
+	certPath string,
 ) (Connection, error) {
 	if err := info.Validate(); err != nil {
 		return nil, errors.Annotate(err, "validating info for opening an API connection")
@@ -180,7 +181,7 @@ func open(
 	if clock == nil {
 		return nil, errors.NotValidf("nil clock")
 	}
-	conn, tlsConfig, err := dialAPI(info, opts)
+	conn, tlsConfig, err := dialAPI(certPath, info, opts)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -428,7 +429,7 @@ func tagToString(tag names.Tag) string {
 // connection wins.
 //
 // It also returns the TLS configuration that it has derived from the Info.
-func dialAPI(info *Info, opts DialOpts) (*websocket.Conn, *tls.Config, error) {
+func dialAPI(certPath string, info *Info, opts DialOpts) (*websocket.Conn, *tls.Config, error) {
 	// Set opts.DialWebsocket here rather than in open because
 	// some tests call dialAPI directly.
 	if opts.DialWebsocket == nil {
@@ -444,7 +445,7 @@ func dialAPI(info *Info, opts DialOpts) (*websocket.Conn, *tls.Config, error) {
 		// We want to be specific here (rather than just using "anything".
 		// See commit 7fc118f015d8480dfad7831788e4b8c0432205e8 (PR 899).
 		tlsConfig.ServerName = "juju-apiserver"
-		certPool, err := CreateCertPool(info.CACert)
+		certPool, err := CreateCertPool(certPath, info.CACert)
 		if err != nil {
 			return nil, nil, errors.Annotate(err, "cert pool creation failed")
 		}

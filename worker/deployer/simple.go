@@ -109,12 +109,17 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 
 	// Link the current tools for use by the new agent.
 	tag := names.NewUnitTag(unitName)
-	dataDir := ctx.agentConfig.DataDir()
-	logDir := ctx.agentConfig.LogDir()
+	dataDir := ctx.agentConfig.DataPath()
+	logDir := ctx.agentConfig.LogPath()
+	series, err := series.HostSeries()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	current := version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
-		Series: series.HostSeries(),
+		Series: series,
 	}
 	toolsDir := tools.ToolsDir(dataDir, tag.String())
 	defer removeOnErr(&err, toolsDir)
@@ -133,11 +138,9 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 	namespace := ctx.agentConfig.Value(agent.Namespace)
 	conf, err := agent.NewAgentConfig(
 		agent.AgentConfigParams{
-			Paths: agent.Paths{
-				DataDir:         dataDir,
-				LogDir:          logDir,
-				MetricsSpoolDir: agent.DefaultPaths.MetricsSpoolDir,
-			},
+			DataPath:          dataDir,
+			LogPath:           logDir,
+			MetricsSpoolPath:  ctx.agentConfig.MetricsSpoolPath(),
 			UpgradedToVersion: jujuversion.Current,
 			Tag:               tag,
 			Password:          initialPassword,
@@ -210,7 +213,7 @@ func (ctx *SimpleContext) RecallUnit(unitName string) error {
 		return err
 	}
 	tag := names.NewUnitTag(unitName)
-	dataDir := ctx.agentConfig.DataDir()
+	dataDir := ctx.agentConfig.DataPath()
 	agentDir := agent.Dir(dataDir, tag)
 	// Recursivley change mode to 777 on windows to avoid
 	// Operation not permitted errors when deleting the agentDir
@@ -270,8 +273,8 @@ func (ctx *SimpleContext) service(unitName string, renderer shell.Renderer) (dep
 	info := service.NewAgentInfo(
 		service.AgentKindUnit,
 		unitName,
-		ctx.agentConfig.DataDir(),
-		ctx.agentConfig.LogDir(),
+		ctx.agentConfig.DataPath(),
+		ctx.agentConfig.LogPath(),
 	)
 
 	// TODO(thumper): 2013-09-02 bug 1219630

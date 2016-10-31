@@ -13,13 +13,13 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils/arch"
 
-	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cloudconfig/containerinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/status"
 )
 
@@ -84,7 +84,9 @@ func NewContainerManager(conf container.ManagerConfig) (container.Manager, error
 	}
 	logDir := conf.PopValue(container.ConfigLogDir)
 	if logDir == "" {
-		logDir = agent.DefaultPaths.LogDir
+		logDir = paths.Defaults.Log
+		// TODO(katco): Require this to be passed in.
+		//return nil, errors.Errorf("%q is required", container.ConfigLogDir)
 	}
 	conf.WarnAboutUnused()
 	return &containerManager{namespace: namespace, logdir: logDir}, nil

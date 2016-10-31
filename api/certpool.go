@@ -10,18 +10,14 @@ import (
 	"path/filepath"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils/series"
 
 	"github.com/juju/juju/cert"
-	"github.com/juju/juju/juju/paths"
 )
-
-var certDir = filepath.FromSlash(paths.MustSucceed(paths.CertDir(series.HostSeries())))
 
 // CreateCertPool creates a new x509.CertPool and adds in the caCert passed
 // in.  All certs from the cert directory (/etc/juju/cert.d on ubuntu) are
 // also added.
-func CreateCertPool(caCert string) (*x509.CertPool, error) {
+func CreateCertPool(certPath string, caCert string) (*x509.CertPool, error) {
 
 	pool := x509.NewCertPool()
 	if caCert != "" {
@@ -32,21 +28,21 @@ func CreateCertPool(caCert string) (*x509.CertPool, error) {
 		pool.AddCert(xcert)
 	}
 
-	count := processCertDir(pool)
+	count := processCertDir(certPath, pool)
 	if count >= 0 {
-		logger.Debugf("added %d certs to the pool from %s", count, certDir)
+		logger.Debugf("added %d certs to the pool from %s", count, certPath)
 	}
 
 	return pool, nil
 }
 
-// processCertDir iterates through the certDir looking for *.pem files.
+// processCertDir iterates through the paths.Cert looking for *.pem files.
 // Each pem file is read in turn and added to the pool.  A count of the number
 // of successful certificates processed is returned.
-func processCertDir(pool *x509.CertPool) (count int) {
-	fileInfo, err := os.Stat(certDir)
+func processCertDir(certPath string, pool *x509.CertPool) (count int) {
+	fileInfo, err := os.Stat(certPath)
 	if os.IsNotExist(err) {
-		logger.Tracef("cert dir %q does not exist", certDir)
+		logger.Tracef("cert dir %q does not exist", certPath)
 		return -1
 	}
 	if err != nil {
@@ -54,11 +50,11 @@ func processCertDir(pool *x509.CertPool) (count int) {
 		return -1
 	}
 	if !fileInfo.IsDir() {
-		logger.Infof("cert dir %q is not a directory", certDir)
+		logger.Infof("cert dir %q is not a directory", certPath)
 		return -1
 	}
 
-	matches, err := filepath.Glob(filepath.Join(certDir, "*.pem"))
+	matches, err := filepath.Glob(filepath.Join(certPath, "*.pem"))
 	if err != nil {
 		logger.Infof("globbing files failed: %s", err)
 		return -1

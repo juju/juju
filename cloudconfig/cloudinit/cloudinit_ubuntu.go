@@ -25,6 +25,12 @@ import (
 // It satisfies the cloudinit.CloudConfig interface
 type ubuntuCloudConfig struct {
 	*cloudConfig
+
+	dataPath string
+}
+
+func (cfg *ubuntuCloudConfig) DataPath() string {
+	return cfg.dataPath
 }
 
 // SetPackageProxy is defined on the PackageProxyConfig interface.

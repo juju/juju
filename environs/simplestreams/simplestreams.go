@@ -23,8 +23,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
-
-	"github.com/juju/juju/agent"
 )
 
 var logger = loggo.GetLogger("juju.environs.simplestreams")
@@ -1054,8 +1052,8 @@ func (bv byVersionDesc) Less(i, j int) bool {
 const SimplestreamsPublicKeyFile = "publicsimplestreamskey"
 
 // UserPublicSigningKey returns the public signing key (if defined).
-func UserPublicSigningKey() (string, error) {
-	signingKeyFile := filepath.Join(agent.DefaultPaths.ConfDir, SimplestreamsPublicKeyFile)
+func UserPublicSigningKey(confPath string) (string, error) {
+	signingKeyFile := filepath.Join(confPath, SimplestreamsPublicKeyFile)
 	b, err := ioutil.ReadFile(signingKeyFile)
 	if os.IsNotExist(err) {
 		// TODO (anastasiamac 2016-05-07)

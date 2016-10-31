@@ -381,11 +381,11 @@ type machineAssignable interface {
 // describes the entity's machine assignment. If the entity is assigned
 // to a machine, then machine storage will be created.
 func createStorageOps(
+	storagePath string,
 	st *State,
 	entityTag names.Tag,
 	charmMeta *charm.Meta,
 	cons map[string]StorageConstraints,
-	series string,
 	maybeMachineAssignable machineAssignable,
 ) (ops []txn.Op, numStorageAttachments int, err error) {
 
@@ -480,7 +480,8 @@ func createStorageOps(
 				if maybeMachineAssignable != nil {
 					var err error
 					machineOps, err = unitAssignedMachineStorageOps(
-						st, unitTag, charmMeta, cons, series,
+						st.storagePath,
+						st, unitTag, charmMeta, cons,
 						&storageInstance{st, *doc},
 						maybeMachineAssignable,
 					)
@@ -518,16 +519,16 @@ func createStorageOps(
 // If the unit is not assigned to a machine, then ops will be returned to assert
 // this, and no error will be returned.
 func unitAssignedMachineStorageOps(
+	storagePath string,
 	st *State,
 	unitTag names.UnitTag,
 	charmMeta *charm.Meta,
 	cons map[string]StorageConstraints,
-	series string,
 	storage StorageInstance,
 	machineAssignable machineAssignable,
 ) (ops []txn.Op, err error) {
 	storageParams, err := machineStorageParamsForStorageInstance(
-		st, charmMeta, unitTag, series, cons, storage,
+		storagePath, st, charmMeta, unitTag, cons, storage,
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -1265,11 +1266,11 @@ func (st *State) addUnitStorageOps(
 
 	// Create storage db operations
 	storageOps, _, err := createStorageOps(
+		st.storagePath,
 		st,
 		u.Tag(),
 		charmMeta,
 		map[string]StorageConstraints{storageName: cons},
-		u.Series(),
 		u,
 	)
 	if err != nil {

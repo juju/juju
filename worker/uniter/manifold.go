@@ -91,7 +91,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				UniterFacade:         uniterFacade,
 				UnitTag:              unitTag,
 				LeadershipTracker:    leadershipTracker,
-				DataDir:              agentConfig.DataDir(),
+				DataDir:              agentConfig.DataPath(),
 				Downloader:           downloader,
 				MachineLockName:      manifoldConfig.MachineLockName,
 				CharmDirGuard:        charmDirGuard,

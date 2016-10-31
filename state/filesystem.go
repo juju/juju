@@ -17,7 +17,6 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
 )
@@ -1002,18 +1001,14 @@ func setFilesystemAttachmentInfoOps(
 // storage. For stores with potentially multiple instances, the instance
 // name is appended to the location.
 func filesystemMountPoint(
+	storagePath string,
 	meta charm.Storage,
 	tag names.StorageTag,
-	series string,
 ) (string, error) {
-	storageDir, err := paths.StorageDir(series)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	if strings.HasPrefix(meta.Location, storageDir) {
+	if strings.HasPrefix(meta.Location, storagePath) {
 		return "", errors.Errorf(
 			"invalid location %q: must not fall within %q",
-			meta.Location, storageDir,
+			meta.Location, storagePath,
 		)
 	}
 	if meta.Location != "" && meta.CountMax == 1 {
@@ -1024,6 +1019,7 @@ func filesystemMountPoint(
 	// If the location is unspecified then we use
 	// <storage-dir>/<storage-id> as the location.
 	// Otherwise, we use <location>/<storage-id>.
+	storageDir := storagePath
 	if meta.Location != "" {
 		storageDir = meta.Location
 	}

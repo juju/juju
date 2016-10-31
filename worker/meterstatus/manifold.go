@@ -70,7 +70,7 @@ func newStatusWorker(config ManifoldConfig, context dependency.Context) (worker.
 	}
 
 	agentConfig := agent.CurrentConfig()
-	stateFile := NewStateFile(path.Join(agentConfig.DataDir(), "meter-status.yaml"))
+	stateFile := NewStateFile(path.Join(agentConfig.DataPath(), "meter-status.yaml"))
 	runner := config.NewHookRunner(unitTag, config.MachineLockName, agentConfig, config.Clock)
 
 	// If we don't have a valid APICaller, start a meter status

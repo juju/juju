@@ -59,7 +59,7 @@ func (w *hookRunner) acquireExecutionLock(interrupt <-chan struct{}) (mutex.Rele
 
 func (w *hookRunner) RunHook(code, info string, interrupt <-chan struct{}) (runErr error) {
 	unitTag := w.tag
-	paths := uniter.NewPaths(w.config.DataDir(), unitTag)
+	paths := uniter.NewPaths(w.config.DataPath(), unitTag)
 	ctx := NewLimitedContext(unitTag.String())
 	ctx.SetEnvVars(map[string]string{
 		"JUJU_METER_STATUS": code,

@@ -7,6 +7,8 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/os"
+	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/api"
@@ -14,6 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/controller/authentication"
+	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 )
@@ -93,14 +96,32 @@ func InstanceConfig(st *state.State, machineId, nonce, dataDir string) (*instanc
 		return nil, errors.Annotate(err, "setting up machine authentication")
 	}
 
-	icfg, err := instancecfg.NewInstanceConfig(st.ControllerTag(), machineId, nonce, modelConfig.ImageStream(),
-		machine.Series(), apiInfo,
-	)
+	osType, err := series.GetOSFromSeries(machine.Series())
 	if err != nil {
-		return nil, errors.Annotate(err, "initializing instance config")
+		return nil, errors.Trace(err)
 	}
+
+	instancePaths := paths.Nix
+	if osType == os.Windows {
+		instancePaths = paths.Windows
+	}
+
+	icfg := instancecfg.NewInstanceConfig(
+		instancePaths.Conf,
+		instancePaths.Temp,
+		instancePaths.Data,
+		instancePaths.Log,
+		instancePaths.MetricsSpool,
+		st.ControllerTag(),
+		machineId,
+		nonce,
+		modelConfig.ImageStream(),
+		osType,
+		machine.Series(),
+		apiInfo,
+	)
 	if dataDir != "" {
-		icfg.DataDir = dataDir
+		icfg.DataPath = dataDir
 	}
 	if err := icfg.SetTools(toolsList); err != nil {
 		return nil, errors.Trace(err)

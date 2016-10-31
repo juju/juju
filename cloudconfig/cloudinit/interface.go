@@ -9,6 +9,7 @@ package cloudinit
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/juju/juju/paths"
 	"github.com/juju/utils/os"
 	"github.com/juju/utils/packaging"
 	"github.com/juju/utils/packaging/commands"
@@ -31,6 +32,8 @@ type CloudConfig interface {
 
 	// GetSeries returns the series this CloudConfig was made for.
 	GetSeries() string
+
+	DataPath() string
 
 	// CloudConfig also contains all the smaller interfaces for config
 	// management:
@@ -397,6 +400,7 @@ func New(ser string) (CloudConfig, error) {
 				renderer: renderer,
 				attrs:    make(map[string]interface{}),
 			},
+			paths.Windows.Data,
 		}, nil
 	case os.Ubuntu:
 		renderer, _ := shell.NewRenderer("bash")
@@ -408,6 +412,7 @@ func New(ser string) (CloudConfig, error) {
 				renderer:  renderer,
 				attrs:     make(map[string]interface{}),
 			},
+			paths.Nix.Data,
 		}, nil
 	case os.CentOS:
 		renderer, _ := shell.NewRenderer("bash")
@@ -419,6 +424,7 @@ func New(ser string) (CloudConfig, error) {
 				renderer:  renderer,
 				attrs:     make(map[string]interface{}),
 			},
+			paths.Nix.Data,
 		}, nil
 	default:
 		return nil, errors.NotFoundf("cloudconfig for series %q", ser)

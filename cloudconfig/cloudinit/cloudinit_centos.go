@@ -22,6 +22,12 @@ import (
 // It implements the cloudinit.Config interface.
 type centOSCloudConfig struct {
 	*cloudConfig
+
+	dataPath string
+}
+
+func (cfg *centOSCloudConfig) DataPath() string {
+	return cfg.dataPath
 }
 
 // SetPackageProxy is defined on the PackageProxyConfig interface.

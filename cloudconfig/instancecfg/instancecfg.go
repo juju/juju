@@ -8,13 +8,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
-	"path"
 	"reflect"
 	"strconv"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils/os"
 	"github.com/juju/utils/proxy"
 	"github.com/juju/utils/shell"
 	"github.com/juju/version"
@@ -32,7 +32,6 @@ import (
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
@@ -44,6 +43,16 @@ var logger = loggo.GetLogger("juju.cloudconfig.instancecfg")
 
 // InstanceConfig represents initialization information for a new juju instance.
 type InstanceConfig struct {
+	// CloudInitOutputLogPath specifies the path to the output log for
+	// cloud-init. The directory containing the log file must already
+	// exist.
+	CloudInitOutputLogPath string
+	ConfPath               string
+	TempPath               string
+	DataPath               string
+	LogPath                string
+	MetricsSpoolPath       string
+
 	// Tags is a set of tags to set on the instance, if supported. This
 	// should be populated using the InstanceTags method in this package.
 	Tags map[string]string
@@ -75,23 +84,8 @@ type InstanceConfig struct {
 	// identical versions and hashes, but may have different URLs.
 	tools coretools.List
 
-	// DataDir holds the directory that juju state will be put in the new
-	// instance.
-	DataDir string
-
-	// LogDir holds the directory that juju logs will be written to.
-	LogDir string
-
-	// MetricsSpoolDir represents the spool directory path, where all
-	// metrics are stored.
-	MetricsSpoolDir string
-
 	// Jobs holds what machine jobs to run.
 	Jobs []multiwatcher.MachineJob
-
-	// CloudInitOutputLog specifies the path to the output log for cloud-init.
-	// The directory containing the log file must already exist.
-	CloudInitOutputLog string
 
 	// MachineId identifies the new machine.
 	MachineId string
@@ -341,11 +335,7 @@ func (p *StateInitializationParams) Unmarshal(data []byte) error {
 }
 
 func (cfg *InstanceConfig) agentInfo() service.AgentInfo {
-	return service.NewMachineAgentInfo(
-		cfg.MachineId,
-		cfg.DataDir,
-		cfg.LogDir,
-	)
+	return service.NewMachineAgentInfo(cfg.DataPath, cfg.LogPath, cfg.MachineId)
 }
 
 func (cfg *InstanceConfig) ToolsDir(renderer shell.Renderer) string {
@@ -380,11 +370,9 @@ func (cfg *InstanceConfig) AgentConfig(
 		cacert = cfg.Controller.MongoInfo.CACert
 	}
 	configParams := agent.AgentConfigParams{
-		Paths: agent.Paths{
-			DataDir:         cfg.DataDir,
-			LogDir:          cfg.LogDir,
-			MetricsSpoolDir: cfg.MetricsSpoolDir,
-		},
+		DataPath:          cfg.DataPath,
+		LogPath:           cfg.LogPath,
+		MetricsSpoolPath:  cfg.MetricsSpoolPath,
 		Jobs:              cfg.Jobs,
 		Tag:               tag,
 		UpgradedToVersion: toolsVersion,
@@ -405,12 +393,12 @@ func (cfg *InstanceConfig) AgentConfig(
 
 // JujuTools returns the directory where Juju tools are stored.
 func (cfg *InstanceConfig) JujuTools() string {
-	return agenttools.SharedToolsDir(cfg.DataDir, cfg.AgentVersion())
+	return agenttools.SharedToolsDir(cfg.DataPath, cfg.AgentVersion())
 }
 
 // GUITools returns the directory where the Juju GUI release is stored.
 func (cfg *InstanceConfig) GUITools() string {
-	return agenttools.SharedGUIDir(cfg.DataDir)
+	return agenttools.SharedGUIDir(cfg.DataPath)
 }
 
 func (cfg *InstanceConfig) stateHostAddrs() []string {
@@ -509,20 +497,8 @@ func (cfg *InstanceConfig) VerifyConfig() (err error) {
 	if !names.IsValidMachine(cfg.MachineId) {
 		return errors.New("invalid machine id")
 	}
-	if cfg.DataDir == "" {
-		return errors.New("missing var directory")
-	}
-	if cfg.LogDir == "" {
-		return errors.New("missing log directory")
-	}
-	if cfg.MetricsSpoolDir == "" {
-		return errors.New("missing metrics spool directory")
-	}
 	if len(cfg.Jobs) == 0 {
 		return errors.New("missing machine jobs")
-	}
-	if cfg.CloudInitOutputLog == "" {
-		return errors.New("missing cloud-init output log path")
 	}
 	if cfg.tools == nil {
 		// SetTools() has never been called successfully.
@@ -647,35 +623,29 @@ const DefaultBridgeName = DefaultBridgePrefix + "eth0"
 // but this takes care of the fixed entries and the ones that are
 // always needed.
 func NewInstanceConfig(
+	confPath string,
+	tempPath string,
+	dataPath string,
+	logPath string,
+	metricsSpoolPath string,
 	controllerTag names.ControllerTag,
-	machineID,
-	machineNonce,
-	imageStream,
-	series string,
+	machineID string,
+	machineNonce string,
+	imageStream string,
+	os os.OSType,
+	seriesName string,
 	apiInfo *api.Info,
-) (*InstanceConfig, error) {
-	dataDir, err := paths.DataDir(series)
-	if err != nil {
-		return nil, err
-	}
-	logDir, err := paths.LogDir(series)
-	if err != nil {
-		return nil, err
-	}
-	metricsSpoolDir, err := paths.MetricsSpoolDir(series)
-	if err != nil {
-		return nil, err
-	}
-	cloudInitOutputLog := path.Join(logDir, "cloud-init-output.log")
-	icfg := &InstanceConfig{
+) *InstanceConfig {
+	return &InstanceConfig{
 		// Fixed entries.
-		DataDir:                 dataDir,
-		LogDir:                  path.Join(logDir, "juju"),
-		MetricsSpoolDir:         metricsSpoolDir,
-		Jobs:                    []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
-		CloudInitOutputLog:      cloudInitOutputLog,
+		ConfPath:         confPath,
+		TempPath:         tempPath,
+		DataPath:         dataPath,
+		LogPath:          logPath,
+		MetricsSpoolPath: metricsSpoolPath,
+		Jobs:             []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 		MachineAgentServiceName: "jujud-" + names.NewMachineTag(machineID).String(),
-		Series:                  series,
+		Series:                  seriesName,
 		Tags:                    map[string]string{},
 
 		// Parameter entries.
@@ -685,23 +655,38 @@ func NewInstanceConfig(
 		APIInfo:       apiInfo,
 		ImageStream:   imageStream,
 	}
-	return icfg, nil
 }
 
 // NewBootstrapInstanceConfig sets up a basic machine configuration for a
 // bootstrap node.  You'll still need to supply more information, but this
 // takes care of the fixed entries and the ones that are always needed.
 func NewBootstrapInstanceConfig(
+	confPath string,
+	tempPath string,
+	dataPath string,
+	logPath string,
+	metricsSpoolPath string,
 	config controller.Config,
 	cons, modelCons constraints.Value,
+	os os.OSType,
 	series, publicImageSigningKey string,
-) (*InstanceConfig, error) {
+) *InstanceConfig {
 	// For a bootstrap instance, the caller must provide the state.Info
 	// and the api.Info. The machine id must *always* be "0".
-	icfg, err := NewInstanceConfig(names.NewControllerTag(config.ControllerUUID()), "0", agent.BootstrapNonce, "", series, nil)
-	if err != nil {
-		return nil, err
-	}
+	icfg := NewInstanceConfig(
+		confPath,
+		tempPath,
+		dataPath,
+		logPath,
+		metricsSpoolPath,
+		names.NewControllerTag(config.ControllerUUID()),
+		"0",
+		agent.BootstrapNonce,
+		"",
+		os,
+		series,
+		nil,
+	)
 	icfg.Controller = &ControllerConfig{
 		PublicImageSigningKey: publicImageSigningKey,
 	}
@@ -719,7 +704,7 @@ func NewBootstrapInstanceConfig(
 		multiwatcher.JobManageModel,
 		multiwatcher.JobHostUnits,
 	}
-	return icfg, nil
+	return icfg
 }
 
 // PopulateInstanceConfig is called both from the FinishInstanceConfig below,

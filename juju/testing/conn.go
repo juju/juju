@@ -41,6 +41,7 @@ import (
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/keys"
 	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/mongotest"
@@ -230,7 +231,7 @@ func DefaultVersions(conf *config.Config) []version.Binary {
 	supported := series.SupportedLts()
 	defaultSeries := set.NewStrings(supported...)
 	defaultSeries.Add(config.PreferredSeries(conf))
-	defaultSeries.Add(series.HostSeries())
+	defaultSeries.Add(series.MustHostSeries())
 	agentVersion, set := conf.AgentVersion()
 	if !set {
 		agentVersion = jujuversion.Current
@@ -475,13 +476,14 @@ func newState(controllerUUID string, environ environs.Environ, mongoInfo *mongo.
 		stateenvirons.GetNewEnvironFunc(environs.New),
 	)
 	controllerTag := names.NewControllerTag(controllerUUID)
-	st, err := state.Open(modelTag, controllerTag, mongoInfo, opts, newPolicyFunc)
+	// TODO(katco): Pass storagePath in
+	st, err := state.Open(paths.Defaults.Storage, modelTag, controllerTag, mongoInfo, opts, newPolicyFunc)
 	if errors.IsUnauthorized(errors.Cause(err)) {
 		// We try for a while because we might succeed in
 		// connecting to mongo before the state has been
 		// initialized and the initial password set.
 		for a := redialStrategy.Start(); a.Next(); {
-			st, err = state.Open(modelTag, controllerTag, mongoInfo, opts, newPolicyFunc)
+			st, err = state.Open(paths.Defaults.Storage, modelTag, controllerTag, mongoInfo, opts, newPolicyFunc)
 			if !errors.IsUnauthorized(errors.Cause(err)) {
 				break
 			}
@@ -694,11 +696,11 @@ func (s *JujuConnSuite) AddTestingServiceWithBindings(c *gc.C, name string, ch *
 func (s *JujuConnSuite) AgentConfigForTag(c *gc.C, tag names.Tag) agent.ConfigSetter {
 	password, err := utils.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
-	paths := agent.DefaultPaths
-	paths.DataDir = s.DataDir()
 	config, err := agent.NewAgentConfig(
 		agent.AgentConfigParams{
-			Paths:             paths,
+			DataPath:          s.DataDir(),
+			LogPath:           paths.Defaults.Log,
+			MetricsSpoolPath:  paths.Defaults.MetricsSpool,
 			Tag:               tag,
 			UpgradedToVersion: jujuversion.Current,
 			Password:          password,

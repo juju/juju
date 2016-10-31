@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/environs/filestorage"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
+	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/mongotest"
@@ -113,7 +114,7 @@ func (s *AgentSuite) PrimeAgent(c *gc.C, tag names.Tag, password string) (agent.
 	vers := version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
-		Series: series.HostSeries(),
+		Series: series.MustHostSeries(),
 	}
 	return s.PrimeAgentVersion(c, tag, password, vers)
 }
@@ -133,12 +134,11 @@ func (s *AgentSuite) PrimeAgentVersion(c *gc.C, tag names.Tag, password string, 
 
 	stateInfo := s.MongoInfo(c)
 	apiInfo := s.APIInfo(c)
-	paths := agent.DefaultPaths
-	paths.DataDir = s.DataDir()
-	paths.MetricsSpoolDir = c.MkDir()
 	conf, err := agent.NewAgentConfig(
 		agent.AgentConfigParams{
-			Paths:             paths,
+			DataPath:          s.DataDir(),
+			LogPath:           paths.Defaults.Log,
+			MetricsSpoolPath:  c.MkDir(),
 			Tag:               tag,
 			UpgradedToVersion: vers.Number,
 			Password:          password,
@@ -163,7 +163,7 @@ func (s *AgentSuite) PrimeStateAgent(c *gc.C, tag names.Tag, password string) (a
 	vers := version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
-		Series: series.HostSeries(),
+		Series: series.MustHostSeries(),
 	}
 	return s.PrimeStateAgentVersion(c, tag, password, vers)
 }
@@ -199,7 +199,9 @@ func (s *AgentSuite) WriteStateAgentConfig(
 	apiAddr := []string{fmt.Sprintf("localhost:%d", apiPort)}
 	conf, err := agent.NewStateMachineConfig(
 		agent.AgentConfigParams{
-			Paths:             agent.NewPathsWithDefaults(agent.Paths{DataDir: s.DataDir()}),
+			DataPath:          s.DataDir(),
+			LogPath:           paths.Defaults.Log,
+			MetricsSpoolPath:  paths.Defaults.MetricsSpool,
 			Tag:               tag,
 			UpgradedToVersion: vers.Number,
 			Password:          password,
@@ -249,9 +251,16 @@ func (s *AgentSuite) AssertCanOpenState(c *gc.C, tag names.Tag, dataDir string) 
 	c.Assert(err, jc.ErrorIsNil)
 	info, ok := config.MongoInfo()
 	c.Assert(ok, jc.IsTrue)
-	st, err := state.Open(config.Model(), config.Controller(), info, mongotest.DialOpts(), stateenvirons.GetNewPolicyFunc(
-		stateenvirons.GetNewEnvironFunc(environs.New),
-	))
+	st, err := state.Open(
+		paths.Defaults.Storage,
+		config.Model(),
+		config.Controller(),
+		info,
+		mongotest.DialOpts(),
+		stateenvirons.GetNewPolicyFunc(
+			stateenvirons.GetNewEnvironFunc(environs.New),
+		),
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	st.Close()
 }

@@ -116,7 +116,7 @@ var (
 
 // OfficialDataSources returns the simplestreams datasources where official
 // image metadata can be found.
-func OfficialDataSources(stream string) ([]simplestreams.DataSource, error) {
+func OfficialDataSources(confPath string, stream string) ([]simplestreams.DataSource, error) {
 	var result []simplestreams.DataSource
 
 	// New images metadata for centos and windows and existing clouds.
@@ -125,7 +125,7 @@ func OfficialDataSources(stream string) ([]simplestreams.DataSource, error) {
 		return nil, err
 	}
 	if defaultJujuURL != "" {
-		publicKey, err := simplestreams.UserPublicSigningKey()
+		publicKey, err := simplestreams.UserPublicSigningKey(confPath)
 		if err != nil {
 			return nil, err
 		}

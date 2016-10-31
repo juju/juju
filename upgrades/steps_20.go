@@ -44,7 +44,7 @@ func stepsFor20() []Step {
 // removeCharmGetCache removes the cache directory that was previously
 // used by the charms API endpoint. It is no longer necessary.
 func removeCharmGetCache(context Context) error {
-	dataDir := context.AgentConfig().DataDir()
+	dataDir := context.AgentConfig().DataPath()
 	cacheDir := filepath.Join(dataDir, "charm-get-cache")
 	return os.RemoveAll(cacheDir)
 }

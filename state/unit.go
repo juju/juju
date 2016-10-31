@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/actions"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/status"
@@ -95,14 +96,18 @@ type unitDoc struct {
 
 // Unit represents the state of a service unit.
 type Unit struct {
-	st  *State
-	doc unitDoc
+	storagePath string
+	st          *State
+	doc         unitDoc
 }
 
 func newUnit(st *State, udoc *unitDoc) *Unit {
 	unit := &Unit{
-		st:  st,
-		doc: *udoc,
+		// TODO(katco): Pass this in; unsure if I should store this in
+		// Mongo or not.
+		storagePath: paths.Defaults.Storage,
+		st:          st,
+		doc:         *udoc,
 	}
 	return unit
 }
@@ -1724,7 +1729,7 @@ func (b byStorageInstance) Less(i, j int) bool {
 // and volume/filesystem attachments for a machine that the unit will be
 // assigned to.
 func (u *Unit) machineStorageParams() (*machineStorageParams, error) {
-	params, err := unitMachineStorageParams(u)
+	params, err := unitMachineStorageParams(u.storagePath, u)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1733,7 +1738,7 @@ func (u *Unit) machineStorageParams() (*machineStorageParams, error) {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		subParams, err := unitMachineStorageParams(sub)
+		subParams, err := unitMachineStorageParams(u.storagePath, sub)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -1742,7 +1747,7 @@ func (u *Unit) machineStorageParams() (*machineStorageParams, error) {
 	return params, nil
 }
 
-func unitMachineStorageParams(u *Unit) (*machineStorageParams, error) {
+func unitMachineStorageParams(storagePath string, u *Unit) (*machineStorageParams, error) {
 	storageAttachments, err := u.st.UnitStorageAttachments(u.UnitTag())
 	if err != nil {
 		return nil, errors.Annotate(err, "getting storage attachments")
@@ -1780,7 +1785,7 @@ func unitMachineStorageParams(u *Unit) (*machineStorageParams, error) {
 			return nil, errors.Annotatef(err, "getting storage instance")
 		}
 		machineParams, err := machineStorageParamsForStorageInstance(
-			u.st, chMeta, u.UnitTag(), u.Series(), allCons, storage,
+			storagePath, u.st, chMeta, u.UnitTag(), allCons, storage,
 		)
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -1810,10 +1815,10 @@ func unitMachineStorageParams(u *Unit) (*machineStorageParams, error) {
 // the unit will be assigned to. These parameters are based on a given storage
 // instance.
 func machineStorageParamsForStorageInstance(
+	storagePath string,
 	st *State,
 	charmMeta *charm.Meta,
 	unit names.UnitTag,
-	series string,
 	allCons map[string]StorageConstraints,
 	storage StorageInstance,
 ) (*machineStorageParams, error) {
@@ -1854,7 +1859,7 @@ func machineStorageParamsForStorageInstance(
 			volumeAttachments[volume.VolumeTag()] = volumeAttachmentParams
 		}
 	case StorageKindFilesystem:
-		location, err := filesystemMountPoint(charmStorage, storage.StorageTag(), series)
+		location, err := filesystemMountPoint(storagePath, charmStorage, storage.StorageTag())
 		if err != nil {
 			return nil, errors.Annotatef(
 				err, "getting filesystem mount point for storage %s",

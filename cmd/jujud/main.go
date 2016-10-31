@@ -17,6 +17,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/exec"
+	"github.com/juju/utils/series"
 
 	"github.com/juju/juju/agent"
 	jujucmd "github.com/juju/juju/cmd"
@@ -24,6 +25,7 @@ import (
 	"github.com/juju/juju/cmd/jujud/dumplogs"
 	components "github.com/juju/juju/component/all"
 	"github.com/juju/juju/juju/names"
+	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/juju/sockets"
 	// Import the providers.
 	_ "github.com/juju/juju/provider/all"
@@ -146,12 +148,17 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 		return &jujudWriter{target: target}
 	}
 
-	jujud.Register(NewBootstrapCommand())
+	seriesName, err := series.HostSeries()
+	if err != nil {
+		return 1, errors.Annotate(err, "cannot create bootstrap command")
+	}
+
+	jujud.Register(NewBootstrapCommand(paths.Defaults.Storage, paths.Defaults.Data, seriesName))
 
 	// TODO(katco-): AgentConf type is doing too much. The
 	// MachineAgent type has called out the separate concerns; the
 	// AgentConf should be split up to follow suit.
-	agentConf := agentcmd.NewAgentConf("")
+	agentConf := agentcmd.NewAgentConf(paths.Defaults.Storage, paths.Defaults.Data)
 	machineAgentFactory := agentcmd.MachineAgentFactoryFn(
 		agentConf,
 		bufferedLogger,
@@ -160,13 +167,13 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 	)
 	jujud.Register(agentcmd.NewMachineAgentCmd(ctx, machineAgentFactory, agentConf, agentConf))
 
-	unitAgent, err := agentcmd.NewUnitAgent(ctx, bufferedLogger)
+	unitAgent, err := agentcmd.NewUnitAgent(ctx, bufferedLogger, paths.Defaults.Data, paths.Defaults.Storage)
 	if err != nil {
 		return -1, errors.Trace(err)
 	}
 	jujud.Register(unitAgent)
 
-	jujud.Register(NewUpgradeMongoCommand())
+	jujud.Register(NewUpgradeMongoCommand(paths.Defaults.Data))
 
 	code = cmd.Main(jujud, ctx, args[1:])
 	return code, nil

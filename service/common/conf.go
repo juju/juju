@@ -11,9 +11,15 @@ import (
 	"github.com/juju/utils/shell"
 )
 
+type Paths interface {
+	DataPath() string
+}
+
 // Conf is responsible for defining services. Its fields
 // represent elements of a service configuration.
 type Conf struct {
+	Paths
+
 	// Desc is the init service's description.
 	Desc string
 

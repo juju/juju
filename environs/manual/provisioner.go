@@ -232,9 +232,9 @@ func ProvisioningScript(icfg *instancecfg.InstanceConfig) (string, error) {
 
 	var buf bytes.Buffer
 	// Always remove the cloud-init-output.log file first, if it exists.
-	fmt.Fprintf(&buf, "rm -f %s\n", utils.ShQuote(icfg.CloudInitOutputLog))
+	fmt.Fprintf(&buf, "rm -f %s\n", utils.ShQuote(icfg.CloudInitOutputLogPath))
 	// If something goes wrong, dump cloud-init-output.log to stderr.
-	buf.WriteString(shell.DumpFileOnErrorScript(icfg.CloudInitOutputLog))
+	buf.WriteString(shell.DumpFileOnErrorScript(icfg.CloudInitOutputLogPath))
 	buf.WriteString(configScript)
 	return buf.String(), nil
 }

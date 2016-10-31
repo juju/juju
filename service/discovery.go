@@ -23,23 +23,26 @@ import (
 // DiscoverService returns an interface to a service appropriate
 // for the current system
 func DiscoverService(name string, conf common.Conf) (Service, error) {
-	initName, err := discoverInitSystem()
+	series, err := series.HostSeries()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
-	service, err := newService(name, conf, initName, series.HostSeries())
+	initName, err := discoverInitSystem(series)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	service, err := newService(name, conf, initName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return service, nil
 }
 
-func discoverInitSystem() (string, error) {
+func discoverInitSystem(series string) (string, error) {
 	initName, err := discoverLocalInitSystem()
 	if errors.IsNotFound(err) {
 		// Fall back to checking the juju version.
-		versionInitName, err2 := VersionInitSystem(series.HostSeries())
+		versionInitName, err2 := VersionInitSystem(series)
 		if err2 != nil {
 			// The key error is the one from discoverLocalInitSystem so
 			// that is what we return.
@@ -54,16 +57,7 @@ func discoverInitSystem() (string, error) {
 
 // VersionInitSystem returns an init system name based on the provided
 // series. If one cannot be identified a NotFound error is returned.
-func VersionInitSystem(series string) (string, error) {
-	initName, err := versionInitSystem(series)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	logger.Debugf("discovered init system %q from series %q", initName, series)
-	return initName, nil
-}
-
-func versionInitSystem(ser string) (string, error) {
+func VersionInitSystem(ser string) (string, error) {
 	seriesos, err := series.GetOSFromSeries(ser)
 	if err != nil {
 		notFound := errors.NotFoundf("init system for series %q", ser)
