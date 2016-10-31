@@ -459,14 +459,16 @@ def update_env(env, new_env_name, series=None, bootstrap_host=None,
                agent_url=None, agent_stream=None, region=None):
     # Rename to the new name.
     env.set_model_name(new_env_name)
+    new_config = {}
     if series is not None:
-        env.config['default-series'] = series
+        new_config['default-series'] = series
     if bootstrap_host is not None:
-        env.config['bootstrap-host'] = bootstrap_host
+        new_config['bootstrap-host'] = bootstrap_host
     if agent_url is not None:
-        env.config['tools-metadata-url'] = agent_url
+        new_config['tools-metadata-url'] = agent_url
     if agent_stream is not None:
-        env.config['agent-stream'] = agent_stream
+        new_config['agent-stream'] = agent_stream
+    env.update_config(new_config)
     if region is not None:
         env.set_region(region)
 
@@ -758,7 +760,7 @@ class BootstrapManager:
                                                      series=self.series)
                         copy_remote_logs(remote, self.log_dir)
                         archive_logs(self.log_dir)
-                    self.tear_down()
+                    self.tear_down_client.kill_controller()
             raise
 
     @contextmanager

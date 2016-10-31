@@ -6086,6 +6086,27 @@ class TestSimpleEnvironment(TestCase):
                     contents = file.readlines()
         self.assertEqual([test_string], contents)
 
+    def test_update_config(self):
+        env = SimpleEnvironment('foo', {'type': 'azure'})
+        env.update_config({'bar': 'baz', 'qux': 'quxx'})
+        self.assertEqual(env.config, {
+            'type': 'azure', 'bar': 'baz', 'qux': 'quxx'})
+
+    def test_update_config_region(self):
+        env = SimpleEnvironment('foo', {'type': 'azure'})
+        env.update_config({'region': 'foo1'})
+        self.assertEqual(env.config, {
+            'type': 'azure', 'location': 'foo1'})
+        self.assertEqual('WARNING Using set_region to set region to "foo1".\n',
+                         self.log_stream.getvalue())
+
+    def test_update_config_type(self):
+        env = SimpleEnvironment('foo', {'type': 'azure'})
+        env.update_config({'type': 'foo1'})
+        self.assertEqual(env.config, {'type': 'foo1'})
+        self.assertEqual('WARNING Setting type is not 2.x compatible.\n',
+                         self.log_stream.getvalue())
+
     def test_provider(self):
         env = SimpleEnvironment('foo', {'type': 'provider1'})
         self.assertEqual('provider1', env.provider)
@@ -6218,6 +6239,26 @@ class TestJujuData(TestCase):
         copy = orig.clone(model_name='newname')
         self.assertEqual('newname', copy.environment)
         self.assertEqual('newname', copy.config['name'])
+
+    def test_update_config(self):
+        env = JujuData('foo', {'type': 'azure'}, juju_home='')
+        env.update_config({'bar': 'baz', 'qux': 'quxx'})
+        self.assertEqual(env.config, {
+            'type': 'azure', 'bar': 'baz', 'qux': 'quxx'})
+
+    def test_update_config_region(self):
+        env = JujuData('foo', {'type': 'azure'}, juju_home='')
+        env.update_config({'region': 'foo1'})
+        self.assertEqual(env.config, {
+            'type': 'azure', 'location': 'foo1'})
+        self.assertEqual('WARNING Using set_region to set region to "foo1".\n',
+                         self.log_stream.getvalue())
+
+    def test_update_config_type(self):
+        env = JujuData('foo', {'type': 'azure'}, juju_home='')
+        with self.assertRaisesRegexp(
+                ValueError, 'type cannot be set via update_config.'):
+            env.update_config({'type': 'foo1'})
 
     def test_get_cloud_random_provider(self):
         self.assertEqual(

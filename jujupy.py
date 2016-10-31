@@ -265,6 +265,17 @@ class SimpleEnvironment:
             self.maas = False
             self.joyent = False
 
+    def update_config(self, new_config):
+        for key, value in new_config.items():
+            if key == 'region':
+                logging.warning(
+                    'Using set_region to set region to "{}".'.format(value))
+                self.set_region(value)
+                continue
+            if key == 'type':
+                logging.warning('Setting type is not 2.x compatible.')
+            self.config[key] = value
+
     @property
     def provider(self):
         """Return the provider type for this environment.
@@ -434,6 +445,11 @@ class JujuData(SimpleEnvironment):
         juju_data = cls(env.environment, env.config, env.juju_home)
         juju_data.load_yaml()
         return juju_data
+
+    def update_config(self, new_config):
+        if 'type' in new_config:
+            raise ValueError('type cannot be set via update_config.')
+        super(JujuData, self).update_config(new_config)
 
     def load_yaml(self):
         try:
@@ -2830,8 +2846,10 @@ def uniquify_local(env):
         'storage-port': 8040,
         'syslog-port': 6514,
     }
+    new_config = {}
     for key, default in port_defaults.items():
-        env.config[key] = env.config.get(key, default) + 1
+        new_config[key] = env.config.get(key, default) + 1
+    env.update_config(new_config)
 
 
 def dump_environments_yaml(juju_home, config):
