@@ -263,6 +263,9 @@ class SimpleEnvironment:
             self.maas = False
             self.joyent = False
 
+    def get_option(self, key, default=None):
+        return self.config.get(key, default)
+
     def update_config(self, new_config):
         for key, value in new_config.items():
             if key == 'region':
@@ -2548,7 +2551,7 @@ class EnvJujuClient1X(EnvJujuClientRC):
         if upload_tools:
             args = ('--upload-tools',) + args
         if bootstrap_series is not None:
-            env_val = self.env.config.get('default-series')
+            env_val = self.env.get_option('default-series')
             if bootstrap_series != env_val:
                 raise BootstrapMismatch(
                     'bootstrap-series', bootstrap_series, 'default-series',
@@ -2835,7 +2838,7 @@ def uniquify_local(env):
     }
     new_config = {}
     for key, default in port_defaults.items():
-        new_config[key] = env.config.get(key, default) + 1
+        new_config[key] = env.config.get_option(key, default) + 1
     env.update_config(new_config)
 
 

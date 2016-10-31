@@ -6073,6 +6073,16 @@ class TestSimpleEnvironment(TestCase):
                                    {'baz': 'qux'}) as jes_home:
                 self.assertFalse(os.path.exists(foo_path))
 
+    def test_get_option(self):
+        env = SimpleEnvironment('foo', {'type': 'azure', 'foo': 'bar'})
+        self.assertEqual(env.get_option('foo'), 'bar')
+        self.assertIs(env.get_option('baz'), None)
+
+    def test_get_option_sentinel(self):
+        env = SimpleEnvironment('foo', {'type': 'azure', 'foo': 'bar'})
+        sentinel = object()
+        self.assertIs(env.get_option('baz', sentinel), sentinel)
+
     def test_update_config(self):
         env = SimpleEnvironment('foo', {'type': 'azure'})
         env.update_config({'bar': 'baz', 'qux': 'quxx'})
