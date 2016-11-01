@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/manual"
+	"github.com/juju/juju/environs/manual/sshprovisioner"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/permission"
@@ -374,7 +374,6 @@ func (c *Client) ProvisioningScript(args params.ProvisioningScriptParams) (param
 			err, "getting instance config",
 		))
 	}
-
 	// Until DisablePackageCommands is retired, for backwards
 	// compatibility, we must respect the client's request and
 	// override any model settings the user may have specified.
@@ -393,12 +392,13 @@ func (c *Client) ProvisioningScript(args params.ProvisioningScriptParams) (param
 		icfg.EnableOSRefreshUpdate = cfg.EnableOSRefreshUpdate()
 	}
 
-	result.Script, err = manual.ProvisioningScript(icfg)
+	result.Script, err = sshprovisioner.ProvisioningScript(icfg)
 	if err != nil {
 		return result, common.ServerError(errors.Annotate(
 			err, "getting provisioning script",
 		))
 	}
+
 	return result, nil
 }
 

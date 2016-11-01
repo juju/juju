@@ -14,7 +14,7 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/manual"
+	"github.com/juju/juju/environs/manual/sshprovisioner"
 	"github.com/juju/juju/instance"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -138,7 +138,7 @@ func (s *environSuite) TestSupportsNetworking(c *gc.C) {
 }
 
 func (s *environSuite) TestConstraintsValidator(c *gc.C) {
-	s.PatchValue(&manual.DetectSeriesAndHardwareCharacteristics,
+	s.PatchValue(&sshprovisioner.DetectSeriesAndHardwareCharacteristics,
 		func(string) (instance.HardwareCharacteristics, string, error) {
 			amd64 := "amd64"
 			return instance.HardwareCharacteristics{

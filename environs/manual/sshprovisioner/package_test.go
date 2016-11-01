@@ -1,7 +1,6 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
-
-package manual_test
+package sshprovisioner_test
 
 import (
 	"runtime"
