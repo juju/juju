@@ -164,14 +164,114 @@ func (s *ResourceSuite) TestValidateMissingCharmStoreRev(c *gc.C) {
 	c.Assert(r.Validate(), gc.ErrorMatches, `missing charmstore revision \(4\)`)
 }
 
+func (s *ResourceSuite) TestRevisionMerging(c *gc.C) {
+	now := time.Now().UTC()
+
+	args0 := ResourceRevisionArgs{
+		Revision: 3,
+	}
+	args1 := ResourceRevisionArgs{
+		Revision:       3,
+		Description:    "description",
+		Type:           "type",
+		Path:           "path",
+		FingerprintHex: "print",
+		Size:           123,
+		Timestamp:      now,
+		Username:       "user",
+	}
+
+	check := func(a, b ResourceRevisionArgs) {
+		r := newResource(ResourceArgs{
+			Name:               "bdist",
+			Revision:           3,
+			CharmStoreRevision: 3,
+		})
+		_, err := r.AddRevision(a)
+		c.Assert(err, jc.ErrorIsNil)
+		_, err = r.AddRevision(b)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(r.Validate(), jc.ErrorIsNil)
+
+		revs := r.Revisions()
+		c.Assert(revs, gc.HasLen, 1)
+		rev, found := revs[3]
+		c.Assert(found, jc.IsTrue)
+		c.Check(rev.Revision(), gc.Equals, 3)
+		c.Check(rev.Type(), gc.Equals, "type")
+		c.Check(rev.Description(), gc.Equals, "description")
+		c.Check(rev.Path(), gc.Equals, "path")
+		c.Check(rev.FingerprintHex(), gc.Equals, "print")
+		c.Check(rev.Size(), gc.Equals, int64(123))
+		c.Check(rev.Timestamp(), gc.Equals, now)
+		c.Check(rev.Username(), gc.Equals, "user")
+	}
+
+	// The merged revision should be the same regarding of ordering.
+	check(args0, args1)
+	check(args1, args0)
+}
+
+func (s *ResourceSuite) TestMergedRevisionsMismatch(c *gc.C) {
+	now := time.Now()
+	args0 := ResourceRevisionArgs{
+		Revision:       3,
+		Description:    "description",
+		Type:           "type",
+		Path:           "path",
+		FingerprintHex: "print",
+		Size:           123,
+		Timestamp:      now,
+		Username:       "user",
+	}
+	r := newResource(ResourceArgs{Name: "bdist"})
+	r.AddRevision(args0)
+
+	shouldFail := func(args ResourceRevisionArgs, field string) {
+		_, err := r.AddRevision(args)
+		c.Check(err, gc.ErrorMatches, field+" mismatch for revision 3")
+	}
+
+	args := args0
+	args.Description = "other"
+	shouldFail(args, "description")
+
+	args = args0
+	args.Type = "other"
+	shouldFail(args, "type")
+
+	args = args0
+	args.Path = "other"
+	shouldFail(args, "path")
+
+	args = args0
+	args.FingerprintHex = "other"
+	shouldFail(args, "fingerprint")
+
+	args = args0
+	args.Size = 999
+	shouldFail(args, "size")
+
+	args = args0
+	args.Timestamp = now.Add(time.Hour)
+	shouldFail(args, "timestamp")
+
+	args = args0
+	args.Username = "other"
+	shouldFail(args, "username")
+}
+
 func (s *ResourceSuite) TestDuplicateRevisions(c *gc.C) {
+	// This shouldn't really be possible but test it anyway.
 	r := newResource(ResourceArgs{
 		Name:               "bdist",
 		Revision:           3,
 		CharmStoreRevision: 3,
 	})
-	r.AddRevision(ResourceRevisionArgs{Revision: 3})
-	r.AddRevision(ResourceRevisionArgs{Revision: 3})
+	r.Revisions_ = []*resourceRevision{
+		&resourceRevision{Revision_: 3},
+		&resourceRevision{Revision_: 3},
+	}
 	c.Assert(r.Validate(), gc.ErrorMatches, `revision 3 appears more than once`)
 }
 

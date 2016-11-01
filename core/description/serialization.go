@@ -92,3 +92,14 @@ func fieldToTimePtr(fields map[string]interface{}, name string) *time.Time {
 	}
 	return nil
 }
+
+// timePtr takes a time.Time and returns a pointer to a time.Time of
+// the same (UTC) value. Nil is returned if the time is the time zero
+// value. This is useful for handling optional time values.
+func timePtr(t time.Time) *time.Time {
+	if t.IsZero() {
+		return nil
+	}
+	t = t.UTC()
+	return &t
+}
