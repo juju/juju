@@ -5,6 +5,7 @@ package apiserver_test
 
 import (
 	"bufio"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -200,6 +201,24 @@ func (s *logsinkSuite) TestLogging(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(info.Mode(), gc.Equals, os.FileMode(0600))
 	}
+}
+
+func (s *logsinkSuite) TestReceiveErrorBreaksConn(c *gc.C) {
+	conn := s.dialWebsocket(c)
+	defer conn.Close()
+
+	// Read back the nil error, indicating that all is well.
+	reader := bufio.NewReader(conn)
+	errResult := readJSONErrorLine(c, reader)
+	c.Assert(errResult.Error, gc.IsNil)
+
+	// The logsink handler expects JSON messages. Send some
+	// junk to verify that the server closes the connection.
+	err := websocket.Message.Send(conn, "junk!")
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = conn.Read(make([]byte, 1024))
+	c.Assert(err, gc.Equals, io.EOF)
 }
 
 func (s *logsinkSuite) dialWebsocket(c *gc.C) *websocket.Conn {
