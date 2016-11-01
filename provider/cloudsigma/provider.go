@@ -9,6 +9,7 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	"github.com/juju/jsonschema"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 
@@ -79,6 +80,9 @@ func (environProvider) Open(args environs.OpenParams) (environs.Environ, error) 
 	}
 
 	return env, nil
+}
+func (p environProvider) CloudSchema() *jsonschema.Schema {
+	return nil
 }
 
 // PrepareConfig is defined by EnvironProvider.

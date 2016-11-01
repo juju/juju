@@ -29,6 +29,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/jsonschema"
 	"github.com/juju/loggo"
 	"github.com/juju/retry"
 	"github.com/juju/schema"
@@ -611,6 +612,9 @@ func (p *environProvider) Open(args environs.OpenParams) (environs.Environ, erro
 		return nil, err
 	}
 	return env, nil
+}
+func (p environProvider) CloudSchema() *jsonschema.Schema {
+	return nil
 }
 
 // PrepareConfig is specified in the EnvironProvider interface.

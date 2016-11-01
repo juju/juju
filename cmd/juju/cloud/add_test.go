@@ -4,10 +4,15 @@
 package cloud_test
 
 import (
+	"bytes"
+	"io"
 	"io/ioutil"
 	"path/filepath"
+	"strings"
 
+	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
+	"github.com/pkg/errors"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/cloud"
@@ -22,10 +27,7 @@ type addSuite struct {
 var _ = gc.Suite(&addSuite{})
 
 func (s *addSuite) TestAddBadArgs(c *gc.C) {
-	addCmd := cloud.NewAddCloudCommand()
-	_, err := testing.RunCommand(c, addCmd)
-	c.Assert(err, gc.ErrorMatches, "Usage: juju add-cloud <cloud name> <cloud definition file>")
-	_, err = testing.RunCommand(c, addCmd, "cloud", "cloud.yaml", "extra")
+	_, err := testing.RunCommand(c, cloud.NewAddCloudCommand(), "cloud", "cloud.yaml", "extra")
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["extra"\]`)
 }
 
@@ -90,7 +92,7 @@ func (s *addSuite) TestAddBadCloudName(c *gc.C) {
 func (s *addSuite) TestAddExisting(c *gc.C) {
 	sourceFile := s.createTestCloudData(c)
 	_, err := testing.RunCommand(c, cloud.NewAddCloudCommand(), "homestack", sourceFile)
-	c.Assert(err, gc.ErrorMatches, `\"homestack\" already exists; use --replace to replace this existing cloud`)
+	c.Assert(err, gc.ErrorMatches, `"homestack" already exists; use --replace to override this definition`)
 }
 
 func (s *addSuite) TestAddExistingReplace(c *gc.C) {
@@ -115,13 +117,13 @@ clouds:
 func (s *addSuite) TestAddExistingPublic(c *gc.C) {
 	sourceFile := s.createTestCloudData(c)
 	_, err := testing.RunCommand(c, cloud.NewAddCloudCommand(), "aws", sourceFile)
-	c.Assert(err, gc.ErrorMatches, `\"aws\" is the name of a public cloud; use --replace to use your cloud definition instead`)
+	c.Assert(err, gc.ErrorMatches, `"aws" is the name of a public cloud; use --replace to override this definition`)
 }
 
 func (s *addSuite) TestAddExistingBuiltin(c *gc.C) {
 	sourceFile := s.createTestCloudData(c)
 	_, err := testing.RunCommand(c, cloud.NewAddCloudCommand(), "localhost", sourceFile)
-	c.Assert(err, gc.ErrorMatches, `\"localhost\" is the name of a built-in cloud; use --replace to use your cloud definition instead`)
+	c.Assert(err, gc.ErrorMatches, `"localhost" is the name of a built-in cloud; use --replace to override this definition`)
 }
 
 func (s *addSuite) TestAddExistingPublicReplace(c *gc.C) {
@@ -165,5 +167,260 @@ clouds:
     regions:
       london:
         endpoint: http://london/1.0
+`[1:])
+}
+
+func (s *addSuite) TestInteractive(c *gc.C) {
+	s.createTestCloudData(c)
+	command := cloud.NewAddCloudCommand()
+	err := testing.InitCommand(command, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	out := &bytes.Buffer{}
+
+	ctx := &cmd.Context{
+		Dir:    c.MkDir(),
+		Stdout: out,
+		Stderr: ioutil.Discard,
+		Stdin:  &bytes.Buffer{},
+	}
+	err = command.Run(ctx)
+	c.Check(errors.Cause(err), gc.Equals, io.EOF)
+
+	c.Assert(out.String(), gc.Equals, `
+Cloud Types
+  maas
+  manual
+  openstack
+  vsphere
+
+Select cloud type: 
+`[1:])
+}
+
+func (s *addSuite) TestInteractiveOpenstack(c *gc.C) {
+	s.createTestCloudData(c)
+	command := cloud.NewAddCloudCommand()
+	err := testing.InitCommand(command, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ctx := &cmd.Context{
+		Dir:    c.MkDir(),
+		Stdout: ioutil.Discard,
+		Stderr: ioutil.Discard,
+		Stdin: strings.NewReader(`
+openstack
+os1
+http://myopenstack
+userpass,access-key
+regionone
+http://boston/1.0
+n
+`[1:])}
+
+	err = command.Run(ctx)
+	c.Check(err, jc.ErrorIsNil)
+
+	data, err := ioutil.ReadFile(osenv.JujuXDGDataHomePath("clouds.yaml"))
+	c.Assert(string(data), gc.Equals, `
+clouds:
+  homestack:
+    type: openstack
+    auth-types: [userpass, access-key]
+    endpoint: http://homestack
+    regions:
+      london:
+        endpoint: http://london/1.0
+  os1:
+    type: openstack
+    auth-types: [userpass, access-key]
+    endpoint: http://myopenstack
+    regions:
+      regionone:
+        endpoint: http://boston/1.0
+`[1:])
+}
+
+func (s *addSuite) TestInteractiveMaas(c *gc.C) {
+	s.createTestCloudData(c)
+	command := cloud.NewAddCloudCommand()
+	err := testing.InitCommand(command, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ctx := &cmd.Context{
+		Dir:    c.MkDir(),
+		Stdout: ioutil.Discard,
+		Stderr: ioutil.Discard,
+		Stdin: strings.NewReader(`
+maas
+m1
+http://mymaas
+`[1:])}
+
+	err = command.Run(ctx)
+	c.Check(err, jc.ErrorIsNil)
+
+	data, err := ioutil.ReadFile(osenv.JujuXDGDataHomePath("clouds.yaml"))
+	c.Assert(string(data), gc.Equals, `
+clouds:
+  homestack:
+    type: openstack
+    auth-types: [userpass, access-key]
+    endpoint: http://homestack
+    regions:
+      london:
+        endpoint: http://london/1.0
+  m1:
+    type: maas
+    auth-types: [oauth1]
+    endpoint: http://mymaas
+`[1:])
+}
+
+func (s *addSuite) TestInteractiveManual(c *gc.C) {
+	s.createTestCloudData(c)
+	command := cloud.NewAddCloudCommand()
+	err := testing.InitCommand(command, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ctx := &cmd.Context{
+		Dir:    c.MkDir(),
+		Stdout: ioutil.Discard,
+		Stderr: ioutil.Discard,
+		Stdin: strings.NewReader(`
+manual
+man
+192.168.1.6
+`[1:])}
+
+	err = command.Run(ctx)
+	c.Check(err, jc.ErrorIsNil)
+
+	data, err := ioutil.ReadFile(osenv.JujuXDGDataHomePath("clouds.yaml"))
+	c.Assert(string(data), gc.Equals, `
+clouds:
+  homestack:
+    type: openstack
+    auth-types: [userpass, access-key]
+    endpoint: http://homestack
+    regions:
+      london:
+        endpoint: http://london/1.0
+  man:
+    type: manual
+    endpoint: 192.168.1.6
+`[1:])
+}
+
+func (s *addSuite) TestInteractiveVSphere(c *gc.C) {
+	s.createTestCloudData(c)
+	command := cloud.NewAddCloudCommand()
+	err := testing.InitCommand(command, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ctx := &cmd.Context{
+		Dir:    c.MkDir(),
+		Stdout: ioutil.Discard,
+		Stderr: ioutil.Discard,
+		Stdin: strings.NewReader(`
+vsphere
+mvs
+192.168.1.6
+foo
+y
+bar
+n
+`[1:])}
+
+	err = command.Run(ctx)
+	c.Check(err, jc.ErrorIsNil)
+
+	data, err := ioutil.ReadFile(osenv.JujuXDGDataHomePath("clouds.yaml"))
+
+	// Yes, the conversion copies the endpoint to each region, for some reason.
+	c.Assert(string(data), gc.Equals, `
+clouds:
+  homestack:
+    type: openstack
+    auth-types: [userpass, access-key]
+    endpoint: http://homestack
+    regions:
+      london:
+        endpoint: http://london/1.0
+  mvs:
+    type: vsphere
+    auth-types: [userpass]
+    endpoint: 192.168.1.6
+    regions:
+      bar:
+        endpoint: 192.168.1.6
+      foo:
+        endpoint: 192.168.1.6
+`[1:])
+}
+
+func (s *addSuite) TestInteractiveExistingNameOverride(c *gc.C) {
+	s.createTestCloudData(c)
+	command := cloud.NewAddCloudCommand()
+	err := testing.InitCommand(command, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ctx := &cmd.Context{
+		Dir:    c.MkDir(),
+		Stdout: ioutil.Discard,
+		Stderr: ioutil.Discard,
+		Stdin: strings.NewReader(`
+manual
+homestack
+y
+192.168.1.6
+`[1:])}
+
+	err = command.Run(ctx)
+	c.Check(err, jc.ErrorIsNil)
+
+	data, err := ioutil.ReadFile(osenv.JujuXDGDataHomePath("clouds.yaml"))
+	c.Assert(string(data), gc.Equals, `
+clouds:
+  homestack:
+    type: manual
+    endpoint: 192.168.1.6
+`[1:])
+}
+
+func (s *addSuite) TestInteractiveExistingNameNoOverride(c *gc.C) {
+	s.createTestCloudData(c)
+	command := cloud.NewAddCloudCommand()
+	err := testing.InitCommand(command, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ctx := &cmd.Context{
+		Dir:    c.MkDir(),
+		Stdout: ioutil.Discard,
+		Stderr: ioutil.Discard,
+		Stdin: strings.NewReader(`
+manual
+homestack
+n
+homestack2
+192.168.1.6
+`[1:])}
+
+	err = command.Run(ctx)
+	c.Check(err, jc.ErrorIsNil)
+
+	data, err := ioutil.ReadFile(osenv.JujuXDGDataHomePath("clouds.yaml"))
+	c.Assert(string(data), gc.Equals, `
+clouds:
+  homestack:
+    type: openstack
+    auth-types: [userpass, access-key]
+    endpoint: http://homestack
+    regions:
+      london:
+        endpoint: http://london/1.0
+  homestack2:
+    type: manual
+    endpoint: 192.168.1.6
 `[1:])
 }

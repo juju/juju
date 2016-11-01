@@ -6,6 +6,7 @@ package rackspace
 import (
 	"strings"
 
+	"github.com/juju/jsonschema"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 )
@@ -15,6 +16,10 @@ type environProvider struct {
 }
 
 var providerInstance *environProvider
+
+func (p environProvider) CloudSchema() *jsonschema.Schema {
+	return nil
+}
 
 // PrepareConfig is part of the EnvironProvider interface.
 func (p *environProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {

@@ -10,12 +10,31 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/gomaasapi"
+	"github.com/juju/jsonschema"
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 )
+
+var cloudSchema = &jsonschema.Schema{
+	Type:     []jsonschema.Type{jsonschema.ObjectType},
+	Required: []string{cloud.EndpointKey, cloud.AuthTypesKey},
+	// Order doesn't matter since there's only one thing to ask about.  Add
+	// order if this changes.
+	Properties: map[string]*jsonschema.Schema{
+		cloud.AuthTypesKey: &jsonschema.Schema{
+			// don't need a prompt, since there's only one choice.
+			Type: []jsonschema.Type{jsonschema.ArrayType},
+			Enum: []interface{}{[]string{string(cloud.OAuth1AuthType)}},
+		},
+		cloud.EndpointKey: &jsonschema.Schema{
+			Singular: "the API endpoint url",
+			Type:     []jsonschema.Type{jsonschema.StringType},
+		},
+	},
+}
 
 // Logger for the MAAS provider.
 var logger = loggo.GetLogger("juju.provider.maas")
@@ -42,6 +61,10 @@ func (maasEnvironProvider) Open(args environs.OpenParams) (environs.Environ, err
 
 var errAgentNameAlreadySet = errors.New(
 	"maas-agent-name is already set; this should not be set by hand")
+
+func (p maasEnvironProvider) CloudSchema() *jsonschema.Schema {
+	return cloudSchema
+}
 
 // PrepareConfig is specified in the EnvironProvider interface.
 func (p maasEnvironProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {

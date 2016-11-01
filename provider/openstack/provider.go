@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/jsonschema"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 	"github.com/juju/version"
@@ -58,6 +59,53 @@ var providerInstance *EnvironProvider = &EnvironProvider{
 	OpenstackCredentials{},
 	&defaultConfigurator{},
 	&firewallerFactory{},
+}
+
+var cloudSchema = &jsonschema.Schema{
+	Type:     []jsonschema.Type{jsonschema.ObjectType},
+	Required: []string{cloud.EndpointKey, cloud.AuthTypesKey, cloud.RegionsKey},
+	Order:    []string{cloud.EndpointKey, cloud.AuthTypesKey, cloud.RegionsKey},
+	Properties: map[string]*jsonschema.Schema{
+		cloud.EndpointKey: {
+			Singular: "the API endpoint url for the cloud",
+			Type:     []jsonschema.Type{jsonschema.StringType},
+			Format:   jsonschema.FormatURI,
+		},
+		cloud.AuthTypesKey: {
+			Singular:    "auth type",
+			Plural:      "auth types",
+			Type:        []jsonschema.Type{jsonschema.ArrayType},
+			UniqueItems: jsonschema.Bool(true),
+			Items: &jsonschema.ItemSpec{
+				Schemas: []*jsonschema.Schema{{
+					Type: []jsonschema.Type{jsonschema.StringType},
+					Enum: []interface{}{
+						cloud.OAuth1AuthType,
+						cloud.OAuth2AuthType,
+						cloud.AccessKeyAuthType,
+						cloud.UserPassAuthType,
+					},
+				}},
+			},
+		},
+		cloud.RegionsKey: {
+			Type:     []jsonschema.Type{jsonschema.ObjectType},
+			Singular: "region",
+			Plural:   "regions",
+			AdditionalProperties: &jsonschema.Schema{
+				Type:          []jsonschema.Type{jsonschema.ObjectType},
+				Required:      []string{cloud.EndpointKey},
+				MaxProperties: jsonschema.Int(1),
+				Properties: map[string]*jsonschema.Schema{
+					cloud.EndpointKey: {
+						Singular: "the API endpoint url for the region",
+						Type:     []jsonschema.Type{jsonschema.StringType},
+						Format:   jsonschema.FormatURI,
+					},
+				},
+			},
+		},
+	},
 }
 
 var makeServiceURL = client.AuthenticatingClient.MakeServiceURL
@@ -113,6 +161,11 @@ func (EnvironProvider) DetectRegions() ([]cloud.Region, error) {
 		Name:     creds.Region,
 		Endpoint: creds.URL,
 	}}, nil
+}
+
+// CloudSchema returns the schema for adding new clouds of this type.
+func (p EnvironProvider) CloudSchema() *jsonschema.Schema {
+	return cloudSchema
 }
 
 // PrepareConfig is specified in the EnvironProvider interface.

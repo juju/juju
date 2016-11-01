@@ -6,6 +6,7 @@ package azure
 import (
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/juju/errors"
+	"github.com/juju/jsonschema"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/clock"
 
@@ -95,6 +96,10 @@ func (prov *azureEnvironProvider) Open(args environs.OpenParams) (environs.Envir
 		return nil, errors.Annotate(err, "opening model")
 	}
 	return environ, nil
+}
+
+func (p azureEnvironProvider) CloudSchema() *jsonschema.Schema {
+	return nil
 }
 
 // PrepareConfig is part of the EnvironProvider interface.

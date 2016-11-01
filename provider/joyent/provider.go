@@ -11,6 +11,7 @@ import (
 	"github.com/joyent/gosdc/cloudapi"
 	"github.com/joyent/gosign/auth"
 	"github.com/juju/errors"
+	"github.com/juju/jsonschema"
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/cloud"
@@ -45,6 +46,10 @@ var providerInstance = joyentProvider{}
 var _ environs.EnvironProvider = providerInstance
 
 var _ simplestreams.HasRegion = (*joyentEnviron)(nil)
+
+func (p joyentProvider) CloudSchema() *jsonschema.Schema {
+	return nil
+}
 
 // PrepareConfig is part of the EnvironProvider interface.
 func (p joyentProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {

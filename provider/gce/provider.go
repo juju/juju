@@ -5,6 +5,7 @@ package gce
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/jsonschema"
 	"github.com/juju/schema"
 	"gopkg.in/juju/environschema.v1"
 
@@ -26,6 +27,9 @@ func (environProvider) Open(args environs.OpenParams) (environs.Environ, error) 
 	}
 	env, err := newEnviron(args.Cloud, args.Config)
 	return env, errors.Trace(err)
+}
+func (p environProvider) CloudSchema() *jsonschema.Schema {
+	return nil
 }
 
 // PrepareConfig implements environs.EnvironProvider.
