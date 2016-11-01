@@ -31,12 +31,15 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
+	"github.com/juju/juju/environs/sync"
 	"github.com/juju/juju/environs/tags"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
+	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/provider/azure"
 	"github.com/juju/juju/provider/azure/internal/armtemplates"
 	"github.com/juju/juju/provider/azure/internal/azureauth"
@@ -156,12 +159,26 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 	}
 
 	vmSizes := []compute.VirtualMachineSize{{
+		Name:                 to.StringPtr("Standard_A1"),
+		NumberOfCores:        to.Int32Ptr(1),
+		OsDiskSizeInMB:       to.Int32Ptr(1047552),
+		ResourceDiskSizeInMB: to.Int32Ptr(71680),
+		MemoryInMB:           to.Int32Ptr(1792),
+		MaxDataDiskCount:     to.Int32Ptr(2),
+	}, {
 		Name:                 to.StringPtr("Standard_D1"),
 		NumberOfCores:        to.Int32Ptr(1),
 		OsDiskSizeInMB:       to.Int32Ptr(1047552),
 		ResourceDiskSizeInMB: to.Int32Ptr(51200),
 		MemoryInMB:           to.Int32Ptr(3584),
 		MaxDataDiskCount:     to.Int32Ptr(2),
+	}, {
+		Name:                 to.StringPtr("Standard_D2"),
+		NumberOfCores:        to.Int32Ptr(2),
+		OsDiskSizeInMB:       to.Int32Ptr(1047552),
+		ResourceDiskSizeInMB: to.Int32Ptr(102400),
+		MemoryInMB:           to.Int32Ptr(7168),
+		MaxDataDiskCount:     to.Int32Ptr(4),
 	}}
 	s.vmSizes = &compute.VirtualMachineSizeListResult{Value: &vmSizes}
 
@@ -312,6 +329,15 @@ func (s *environSuite) startInstanceSenders(controller bool) azuretesting.Sender
 	return senders
 }
 
+func (s *environSuite) startInstanceSendersNoSizes() azuretesting.Senders {
+	senders := azuretesting.Senders{}
+	if s.ubuntuServerSKUs != nil {
+		senders = append(senders, s.makeSender(".*/Canonical/.*/UbuntuServer/skus", s.ubuntuServerSKUs))
+	}
+	senders = append(senders, s.makeSender("/deployments/machine-0", s.deployment))
+	return senders
+}
+
 func (s *environSuite) networkInterfacesSender(nics ...network.Interface) *azuretesting.MockSender {
 	return s.makeSender(".*/networkInterfaces", network.InterfaceListResult{Value: &nics})
 }
@@ -438,7 +464,7 @@ func (s *environSuite) TestStartInstance(c *gc.C) {
 	c.Assert(result.VolumeAttachments, gc.HasLen, 0)
 
 	arch := "amd64"
-	mem := uint64(3584)
+	mem := uint64(1792)
 	rootDisk := uint64(30 * 1024) // 30 GiB
 	cpuCores := uint64(1)
 	c.Assert(result.Hardware, jc.DeepEquals, &instance.HardwareCharacteristics{
@@ -451,6 +477,7 @@ func (s *environSuite) TestStartInstance(c *gc.C) {
 		imageReference: &quantalImageReference,
 		diskSizeGB:     32,
 		osProfile:      &linuxOsProfile,
+		instanceType:   "Standard_A1",
 	})
 }
 
@@ -499,7 +526,8 @@ func (s *environSuite) testStartInstanceWindows(
 			AutoUpgradeMinorVersion: to.BoolPtr(true),
 			Settings:                &vmExtensionSettings,
 		},
-		osProfile: &windowsOsProfile,
+		osProfile:    &windowsOsProfile,
+		instanceType: "Standard_A1",
 	})
 }
 
@@ -527,7 +555,8 @@ func (s *environSuite) TestStartInstanceCentOS(c *gc.C) {
 			AutoUpgradeMinorVersion: to.BoolPtr(true),
 			Settings:                &vmExtensionSettings,
 		},
-		osProfile: &linuxOsProfile,
+		osProfile:    &linuxOsProfile,
+		instanceType: "Standard_A1",
 	})
 }
 
@@ -563,6 +592,7 @@ func (s *environSuite) TestStartInstanceTooManyRequests(c *gc.C) {
 		imageReference: &quantalImageReference,
 		diskSizeGB:     32,
 		osProfile:      &linuxOsProfile,
+		instanceType:   "Standard_A1",
 	})
 
 	// The final requests should all be identical.
@@ -641,6 +671,7 @@ func (s *environSuite) TestStartInstanceServiceAvailabilitySet(c *gc.C) {
 		imageReference:      &quantalImageReference,
 		diskSizeGB:          32,
 		osProfile:           &linuxOsProfile,
+		instanceType:        "Standard_A1",
 	})
 }
 
@@ -652,6 +683,8 @@ type assertStartInstanceRequestsParams struct {
 	vmExtension         *compute.VirtualMachineExtensionProperties
 	diskSizeGB          int
 	osProfile           *compute.OSProfile
+	needsProviderInit   bool
+	instanceType        string
 }
 
 func (s *environSuite) assertStartInstanceRequests(
@@ -824,7 +857,7 @@ func (s *environSuite) assertStartInstanceRequests(
 		Tags:       to.StringMap(s.vmTags),
 		Properties: &compute.VirtualMachineProperties{
 			HardwareProfile: &compute.HardwareProfile{
-				VMSize: "Standard_D1",
+				VMSize: compute.VirtualMachineSizeTypes(args.instanceType),
 			},
 			StorageProfile: &compute.StorageProfile{
 				ImageReference: args.imageReference,
@@ -882,12 +915,21 @@ func (s *environSuite) assertStartInstanceRequests(
 		startInstanceRequests.deployment = requests[1]
 	} else {
 		c.Assert(requests, gc.HasLen, numExpectedStartInstanceRequests)
-		c.Assert(requests[0].Method, gc.Equals, "GET") // vmSizes
-		c.Assert(requests[1].Method, gc.Equals, "GET") // skus
-		c.Assert(requests[2].Method, gc.Equals, "PUT") // create deployment
-		startInstanceRequests.vmSizes = requests[0]
-		startInstanceRequests.skus = requests[1]
-		startInstanceRequests.deployment = requests[2]
+		if args.needsProviderInit {
+			c.Assert(requests[0].Method, gc.Equals, "PUT") // resource groups
+			c.Assert(requests[1].Method, gc.Equals, "GET") // skus
+			c.Assert(requests[2].Method, gc.Equals, "PUT") // create deployment
+			startInstanceRequests.resourceGroups = requests[0]
+			startInstanceRequests.skus = requests[1]
+			startInstanceRequests.deployment = requests[2]
+		} else {
+			c.Assert(requests[0].Method, gc.Equals, "GET") // vmSizes
+			c.Assert(requests[1].Method, gc.Equals, "GET") // skus
+			c.Assert(requests[2].Method, gc.Equals, "PUT") // create deployment
+			startInstanceRequests.vmSizes = requests[0]
+			startInstanceRequests.skus = requests[1]
+			startInstanceRequests.deployment = requests[2]
+		}
 	}
 
 	// Marshal/unmarshal the deployment we expect, so it's in map form.
@@ -921,9 +963,10 @@ func (s *environSuite) assertStartInstanceRequests(
 }
 
 type startInstanceRequests struct {
-	vmSizes    *http.Request
-	skus       *http.Request
-	deployment *http.Request
+	resourceGroups *http.Request
+	vmSizes        *http.Request
+	skus           *http.Request
+	deployment     *http.Request
 }
 
 func (s *environSuite) TestBootstrap(c *gc.C) {
@@ -937,9 +980,10 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 	s.requests = nil
 	result, err := env.Bootstrap(
 		ctx, environs.BootstrapParams{
-			ControllerConfig: testing.FakeControllerConfig(),
-			AvailableTools:   makeToolsList("quantal"),
-			BootstrapSeries:  "quantal",
+			ControllerConfig:     testing.FakeControllerConfig(),
+			AvailableTools:       makeToolsList("quantal"),
+			BootstrapSeries:      "quantal",
+			BootstrapConstraints: constraints.MustParse("mem=3.5G"),
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -953,6 +997,43 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 		imageReference:      &quantalImageReference,
 		diskSizeGB:          32,
 		osProfile:           &linuxOsProfile,
+		instanceType:        "Standard_D1",
+	})
+}
+
+func (s *environSuite) TestBootstrapInstanceConstraints(c *gc.C) {
+	defer envtesting.DisableFinishBootstrap()()
+
+	ctx := envtesting.BootstrapContext(c)
+	env := prepareForBootstrap(c, ctx, s.provider, &s.sender)
+
+	s.sender = append(s.sender, s.vmSizesSender())
+	s.sender = append(s.sender, s.initResourceGroupSenders()...)
+	s.sender = append(s.sender, s.startInstanceSendersNoSizes()...)
+	s.requests = nil
+	err := bootstrap.Bootstrap(
+		ctx, env, bootstrap.BootstrapParams{
+			ControllerConfig: testing.FakeControllerConfig(),
+			AdminSecret:      jujutesting.AdminSecret,
+			CAPrivateKey:     testing.CAKey,
+			BootstrapSeries:  "quantal",
+			BuildAgentTarball: func(build bool, ver *version.Number, _ string) (*sync.BuiltAgent, error) {
+				c.Assert(build, jc.IsFalse)
+				return &sync.BuiltAgent{Dir: c.MkDir()}, nil
+			},
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(len(s.requests), gc.Equals, numExpectedStartInstanceRequests+1)
+	s.vmTags[tags.JujuIsController] = to.StringPtr("true")
+	s.assertStartInstanceRequests(c, s.requests[1:], assertStartInstanceRequestsParams{
+		availabilitySetName: "juju-controller",
+		imageReference:      &quantalImageReference,
+		diskSizeGB:          32,
+		osProfile:           &linuxOsProfile,
+		needsProviderInit:   true,
+		instanceType:        "Standard_D1",
 	})
 }
 
@@ -1128,7 +1209,7 @@ func (s *environSuite) TestConstraintsValidatorVocabulary(c *gc.C) {
 	)
 	_, err = validator.Validate(constraints.MustParse("instance-type=t1.micro"))
 	c.Assert(err, gc.ErrorMatches,
-		"invalid constraint value: instance-type=t1.micro\nvalid values are: \\[D1 Standard_D1\\]",
+		"invalid constraint value: instance-type=t1.micro\nvalid values are: \\[A1 D1 D2 Standard_A1 Standard_D1 Standard_D2\\]",
 	)
 }
 
