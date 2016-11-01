@@ -48,4 +48,4 @@ JENKINS_SLAVE_LOG=/var/log/jenkins/$NAME.log
 MAXOPENFILES=8192
 
 # Arguments to pass to jenkins slave on startup
-JENKINS_ARGS="-jnlpUrl $JENKINS_URL/computer/$JENKINS_HOSTNAME/slave-agent.jnlp"
+JENKINS_ARGS="-jnlpUrl $JENKINS_URL/computer/$NAME/slave-agent.jnlp"
