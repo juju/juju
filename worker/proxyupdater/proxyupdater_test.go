@@ -174,7 +174,7 @@ func (s *ProxyUpdaterSuite) TestInitialState(c *gc.C) {
 	s.waitProxySettings(c, proxySettings)
 	s.waitForFile(c, s.proxyFile, proxySettings.AsScriptEnvironment()+"\n")
 
-	paccmder, err := commands.NewPackageCommander(series.HostSeries())
+	paccmder, err := commands.NewPackageCommander(series.MustHostSeries())
 	c.Assert(err, jc.ErrorIsNil)
 	s.waitForFile(c, pacconfig.AptProxyConfigFile, paccmder.ProxyConfigContents(aptProxySettings)+"\n")
 }
@@ -189,7 +189,7 @@ func (s *ProxyUpdaterSuite) TestWriteSystemFiles(c *gc.C) {
 	s.waitProxySettings(c, proxySettings)
 	s.waitForFile(c, s.proxyFile, proxySettings.AsScriptEnvironment()+"\n")
 
-	paccmder, err := commands.NewPackageCommander(series.HostSeries())
+	paccmder, err := commands.NewPackageCommander(series.MustHostSeries())
 	c.Assert(err, jc.ErrorIsNil)
 	s.waitForFile(c, pacconfig.AptProxyConfigFile, paccmder.ProxyConfigContents(aptProxySettings)+"\n")
 }

@@ -23,23 +23,24 @@ import (
 // DiscoverService returns an interface to a service appropriate
 // for the current system
 func DiscoverService(name string, conf common.Conf) (Service, error) {
-	initName, err := discoverInitSystem()
+	hostSeries := series.MustHostSeries()
+	initName, err := discoverInitSystem(hostSeries)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	service, err := newService(name, conf, initName, series.HostSeries())
+	service, err := newService(name, conf, initName, hostSeries)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return service, nil
 }
 
-func discoverInitSystem() (string, error) {
+func discoverInitSystem(hostSeries string) (string, error) {
 	initName, err := discoverLocalInitSystem()
 	if errors.IsNotFound(err) {
 		// Fall back to checking the juju version.
-		versionInitName, err2 := VersionInitSystem(series.HostSeries())
+		versionInitName, err2 := VersionInitSystem(hostSeries)
 		if err2 != nil {
 			// The key error is the one from discoverLocalInitSystem so
 			// that is what we return.

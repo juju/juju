@@ -123,7 +123,7 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	current := version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
-		Series: series.HostSeries(),
+		Series: series.MustHostSeries(),
 	}
 	toolsDir := filepath.FromSlash(agenttools.SharedToolsDir(s.dataDir, current))
 	err := os.MkdirAll(toolsDir, 0755)
@@ -659,7 +659,7 @@ func (s *BootstrapSuite) TestUploadedToolsMetadata(c *gc.C) {
 		Version: version.Binary{
 			Number: jujuversion.Current,
 			Arch:   arch.HostArch(),
-			Series: series.HostSeries(),
+			Series: series.MustHostSeries(),
 		},
 		URL: "file:///does/not/matter",
 	})
@@ -697,14 +697,14 @@ func (s *BootstrapSuite) testToolsMetadata(c *gc.C, exploded bool) {
 		for _, ser := range series.SupportedSeries() {
 			os, err := series.GetOSFromSeries(ser)
 			c.Assert(err, jc.ErrorIsNil)
-			hostos, err := series.GetOSFromSeries(series.HostSeries())
+			hostos, err := series.GetOSFromSeries(series.MustHostSeries())
 			c.Assert(err, jc.ErrorIsNil)
 			if os == hostos {
 				expectedSeries.Add(ser)
 			}
 		}
 	} else {
-		expectedSeries.Add(series.HostSeries())
+		expectedSeries.Add(series.MustHostSeries())
 	}
 
 	storage, err := st.ToolsStorage()

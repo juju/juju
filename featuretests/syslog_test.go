@@ -100,7 +100,7 @@ func (s *syslogSuite) SetUpTest(c *gc.C) {
 	if runtime.GOOS != "linux" {
 		c.Skip(fmt.Sprintf("this test requires a controller, therefore does not support %q", runtime.GOOS))
 	}
-	currentSeries := series.HostSeries()
+	currentSeries := series.MustHostSeries()
 	osFromSeries, err := series.GetOSFromSeries(currentSeries)
 	c.Assert(err, jc.ErrorIsNil)
 	if osFromSeries != os.Ubuntu {

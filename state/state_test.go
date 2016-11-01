@@ -3366,7 +3366,7 @@ func (s *StateSuite) TestSetEnvironAgentVersionOnOtherEnviron(c *gc.C) {
 	current := version.MustParseBinary("1.24.7-trusty-amd64")
 	s.PatchValue(&jujuversion.Current, current.Number)
 	s.PatchValue(&arch.HostArch, func() string { return current.Arch })
-	s.PatchValue(&series.HostSeries, func() string { return current.Series })
+	s.PatchValue(&series.MustHostSeries, func() string { return current.Series })
 
 	otherSt := s.Factory.MakeModel(c, nil)
 	defer otherSt.Close()
