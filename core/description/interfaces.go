@@ -278,6 +278,9 @@ type Unit interface {
 	AgentStatusHistory() []Status
 	SetAgentStatusHistory([]StatusArgs)
 
+	AddResource(UnitResourceArgs) UnitResource
+	Resources() []UnitResource
+
 	AddPayload(PayloadArgs) Payload
 	Payloads() []Payload
 
