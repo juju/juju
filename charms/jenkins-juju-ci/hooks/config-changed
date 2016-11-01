@@ -109,6 +109,7 @@ cat << EOC > $JENKINS_HOME/.gitconfig
 [url "https://"]
         insteadOf = http://
 EOC
+sudo chown jenkins:jenkins $JENKINS_HOME/.gitconfig
 
 S3_PROXY=$(config-get s3-proxy)
 if [[ $S3_PROXY == ""  ]]; then
