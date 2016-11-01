@@ -18,6 +18,7 @@ from utility import (
     add_basic_testing_arguments,
     _clean_dir,
     configure_logging,
+    _generate_default_binary,
     temp_dir,
     _to_deadline,
     )
