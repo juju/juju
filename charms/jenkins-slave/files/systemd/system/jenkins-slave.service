@@ -4,7 +4,6 @@ Wants=network-online.target
 After=network-online.target
 
 [Service]
-EnvironmentFile=/etc/default/jenkins-slave
 ExecStart=/var/lib/jenkins/bin/start-jenkins-slave.sh
 
 [Install]
