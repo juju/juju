@@ -1,0 +1,7 @@
+#!/bin/bash
+# This will be run when the service is being torn down, allowing you to disable
+# it in various ways..
+# For example, if your web app uses a text file to signal to the load balancer
+# that it is live... you could remove it and sleep for a bit to allow the load
+# balancer to stop sending traffic.
+# rm /srv/webroot/server-live.txt && sleep 30
