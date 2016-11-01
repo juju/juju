@@ -18,7 +18,7 @@ DEBS_NOT_FOUND = 3
 
 # This constant defines the location of the base source package branch.
 DEFAULT_SPB = 'lp:~juju-qa/juju-release-tools/packaging-juju-core-default'
-DEFAULT_SPB2 = 'lp:~juju-qa/juju-release-tools/packaging-juju2-default'
+DEFAULT_SPB2 = 'lp:~juju-qa/juju-release-tools/packaging-juju-core2-default'
 
 
 # This constant defines the status of the series supported by CI and Releases.
