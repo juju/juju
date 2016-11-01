@@ -5,7 +5,7 @@ from mock import call, patch, Mock
 import StringIO
 from types import GeneratorType
 
-import perfscale_xplode_charm as pxc
+import perfscale_xplod_charm as pxc
 from tests import (
     parse_error,
     TestCase,
