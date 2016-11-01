@@ -670,6 +670,30 @@ class Status1X(Status):
         return self.status.get('services', {})
 
 
+def describe_substrate(env):
+    if env.provider == 'local':
+        return {
+            'kvm': 'KVM (local)',
+            'lxc': 'LXC (local)'
+        }[env.get_option('container', 'lxc')]
+    elif env.provider == 'openstack':
+        if env.get_option('auth-url') == (
+                'https://keystone.canonistack.canonical.com:443/v2.0/'):
+            return 'Canonistack'
+        else:
+            return 'Openstack'
+    try:
+        return {
+            'ec2': 'AWS',
+            'rackspace': 'Rackspace',
+            'joyent': 'Joyent',
+            'azure': 'Azure',
+            'maas': 'MAAS',
+        }[env.provider]
+    except KeyError:
+        return env.provider
+
+
 class Juju2Backend:
     """A Juju backend referring to a specific juju 2 binary.
 

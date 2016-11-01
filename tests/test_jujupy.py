@@ -39,6 +39,7 @@ from jujupy import (
     CannotConnectEnv,
     client_from_config,
     Controller,
+    describe_substrate,
     EnvJujuClient,
     EnvJujuClient1X,
     EnvJujuClient22,
@@ -6342,6 +6343,77 @@ class TestJujuData(TestCase):
                 yaml.safe_dump(credential_dict, f)
             data = JujuData('baz', {'type': 'qux'}, path)
             data.load_yaml()
+
+
+class TestDescribeSubstrate(TestCase):
+
+    def test_local_lxc(self):
+        env = SimpleEnvironment('foo', {
+            'type': 'local',
+            })
+        self.assertEqual(describe_substrate(env), 'LXC (local)')
+        env = SimpleEnvironment('foo', {
+            'type': 'local',
+            'container': 'lxc',
+            })
+        self.assertEqual(describe_substrate(env), 'LXC (local)')
+
+    def test_local_kvm(self):
+        env = SimpleEnvironment('foo', {
+            'type': 'local',
+            'container': 'kvm',
+            })
+        self.assertEqual(describe_substrate(env), 'KVM (local)')
+
+    def test_openstack(self):
+        env = SimpleEnvironment('foo', {
+            'type': 'openstack',
+            'auth-url': 'foo',
+            })
+        self.assertEqual(describe_substrate(env), 'Openstack')
+
+    def test_canonistack(self):
+        env = SimpleEnvironment('foo', {
+            'type': 'openstack',
+            'auth-url': 'https://keystone.canonistack.canonical.com:443/v2.0/',
+            })
+        self.assertEqual(describe_substrate(env), 'Canonistack')
+
+    def test_aws(self):
+        env = SimpleEnvironment('foo', {
+            'type': 'ec2',
+            })
+        self.assertEqual(describe_substrate(env), 'AWS')
+
+    def test_rackspace(self):
+        env = SimpleEnvironment('foo', {
+            'type': 'rackspace',
+            })
+        self.assertEqual(describe_substrate(env), 'Rackspace')
+
+    def test_joyent(self):
+        env = SimpleEnvironment('foo', {
+            'type': 'joyent',
+            })
+        self.assertEqual(describe_substrate(env), 'Joyent')
+
+    def test_azure(self):
+        env = SimpleEnvironment('foo', {
+            'type': 'azure',
+            })
+        self.assertEqual(describe_substrate(env), 'Azure')
+
+    def test_maas(self):
+        env = SimpleEnvironment('foo', {
+            'type': 'maas',
+            })
+        self.assertEqual(describe_substrate(env), 'MAAS')
+
+    def test_bar(self):
+        env = SimpleEnvironment('foo', {
+            'type': 'bar',
+            })
+        self.assertEqual(describe_substrate(env), 'bar')
 
 
 class TestGroupReporter(TestCase):
