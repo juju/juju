@@ -162,7 +162,7 @@ func (fix *SimpleToolsFixture) SetUp(c *gc.C, dataDir string) {
 	current := version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
-		Series: series.HostSeries(),
+		Series: series.MustHostSeries(),
 	}
 	toolsDir := tools.SharedToolsDir(fix.dataDir, current)
 	err := os.MkdirAll(toolsDir, 0755)

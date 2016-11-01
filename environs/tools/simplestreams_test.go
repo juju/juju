@@ -72,7 +72,7 @@ func setupSimpleStreamsTests(t *testing.T) {
 		registerLiveSimpleStreamsTests(testData.baseURL,
 			tools.NewVersionedToolsConstraint(version.MustParse("1.13.0"), simplestreams.LookupParams{
 				CloudSpec: testData.validCloudSpec,
-				Series:    []string{series.HostSeries()},
+				Series:    []string{series.MustHostSeries()},
 				Arches:    []string{"amd64"},
 				Stream:    "released",
 			}), testData.requireSigned)
@@ -356,10 +356,11 @@ func (s *simplestreamsSuite) TestWriteMetadataNoFetch(c *gc.C) {
 	}
 	expected := toolsList
 
-	// Add tools with an unknown series. Do not add an entry in the
-	// expected list as these tools should be ignored.
+	// Add tools with an unknown series.
+	// We need to support this case for times when a new Ubuntu series
+	// is released and jujud does not know about it yet.
 	vers, err := version.ParseBinary("3.2.1-xuanhuaceratops-amd64")
-	c.Assert(err, jc.Satisfies, series.IsUnknownOSForSeriesError)
+	c.Assert(err, jc.ErrorIsNil)
 	toolsList = append(toolsList, &coretools.Tools{
 		Version: vers,
 		Size:    456,

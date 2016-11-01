@@ -17,7 +17,7 @@ type CurrentSuite struct{}
 var _ = gc.Suite(&CurrentSuite{})
 
 func (*CurrentSuite) TestCurrentSeries(c *gc.C) {
-	s := series.HostSeries()
+	s := series.MustHostSeries()
 	if s == "unknown" {
 		s = "n/a"
 	}

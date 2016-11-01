@@ -34,7 +34,7 @@ func (s *ToolsSuite) SetUpTest(c *gc.C) {
 	s.toolsDir = tools.SharedToolsDir(s.dataDir, version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
-		Series: series.HostSeries(),
+		Series: series.MustHostSeries(),
 	})
 	err := os.MkdirAll(s.toolsDir, 0755)
 	c.Assert(err, jc.ErrorIsNil)

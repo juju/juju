@@ -199,7 +199,7 @@ func (s *UnitSuite) TestUpgrade(c *gc.C) {
 	newVers := version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
-		Series: series.HostSeries(),
+		Series: series.MustHostSeries(),
 	}
 	newVers.Patch++
 	envtesting.AssertUploadFakeToolsVersions(
@@ -235,7 +235,7 @@ func (s *UnitSuite) TestUpgradeFailsWithoutTools(c *gc.C) {
 	newVers := version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
-		Series: series.HostSeries(),
+		Series: series.MustHostSeries(),
 	}
 	newVers.Patch++
 	err := machine.SetAgentVersion(newVers)
@@ -277,7 +277,7 @@ func (s *UnitSuite) TestAgentSetsToolsVersion(c *gc.C) {
 	vers := version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
-		Series: series.HostSeries(),
+		Series: series.MustHostSeries(),
 	}
 	vers.Minor++
 	err := unit.SetAgentVersion(vers)
@@ -303,7 +303,7 @@ func (s *UnitSuite) TestAgentSetsToolsVersion(c *gc.C) {
 			current := version.Binary{
 				Number: jujuversion.Current,
 				Arch:   arch.HostArch(),
-				Series: series.HostSeries(),
+				Series: series.MustHostSeries(),
 			}
 			c.Assert(agentTools.Version, gc.DeepEquals, current)
 			done = true

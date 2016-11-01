@@ -230,7 +230,7 @@ func DefaultVersions(conf *config.Config) []version.Binary {
 	supported := series.SupportedLts()
 	defaultSeries := set.NewStrings(supported...)
 	defaultSeries.Add(config.PreferredSeries(conf))
-	defaultSeries.Add(series.HostSeries())
+	defaultSeries.Add(series.MustHostSeries())
 	agentVersion, set := conf.AgentVersion()
 	if !set {
 		agentVersion = jujuversion.Current

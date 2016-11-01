@@ -113,7 +113,7 @@ func (s *AgentSuite) PrimeAgent(c *gc.C, tag names.Tag, password string) (agent.
 	vers := version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
-		Series: series.HostSeries(),
+		Series: series.MustHostSeries(),
 	}
 	return s.PrimeAgentVersion(c, tag, password, vers)
 }
@@ -163,7 +163,7 @@ func (s *AgentSuite) PrimeStateAgent(c *gc.C, tag names.Tag, password string) (a
 	vers := version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
-		Series: series.HostSeries(),
+		Series: series.MustHostSeries(),
 	}
 	return s.PrimeStateAgentVersion(c, tag, password, vers)
 }
