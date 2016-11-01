@@ -386,7 +386,7 @@ func (suite *environSuite) TestAcquireNodePassesPositiveAndNegativeSpaces(c *gc.
 	nodeValues, found := requestValues["node0"]
 	c.Assert(found, jc.IsTrue)
 	c.Check(nodeValues[0].Get("interfaces"), gc.Equals, "0:space=2;1:space=4")
-	c.Check(nodeValues[0].Get("not_networks"), gc.Equals, "space:3,space:5")
+	c.Check(nodeValues[0]["not_networks"], jc.DeepEquals, []string{"space:3", "space:5"})
 }
 
 func (suite *environSuite) createFourSpaces(c *gc.C) {
