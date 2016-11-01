@@ -6,6 +6,7 @@ package apiserver
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"io"
 	"net"
 	"net/http"
 	"strings"
@@ -63,6 +64,7 @@ type Server struct {
 	certChanged       <-chan params.StateServingInfo
 	tlsConfig         *tls.Config
 	allowModelAccess  bool
+	logSinkWriter     io.WriteCloser
 
 	// mu guards the fields below it.
 	mu sync.Mutex
@@ -192,6 +194,12 @@ func newServer(s *state.State, lis net.Listener, cfg ServerConfig) (_ *Server, e
 	if err := srv.updateCertificate(cfg.Cert, cfg.Key); err != nil {
 		return nil, errors.Annotatef(err, "cannot set initial certificate")
 	}
+	logSinkWriter, err := newLogSinkWriter(srv.logDir)
+	if err != nil {
+		return nil, errors.Annotate(err, "creating logsink writer")
+	}
+	srv.logSinkWriter = logSinkWriter
+
 	go srv.run()
 	return srv, nil
 }
@@ -277,6 +285,7 @@ func (srv *Server) run() {
 		srv.tomb.Done()
 		srv.statePool.Close()
 		srv.state.Close()
+		srv.logSinkWriter.Close()
 	}()
 
 	srv.wg.Add(1)
@@ -355,11 +364,11 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 	strictCtxt.controllerModelOnly = true
 
 	mainAPIHandler := srv.trackRequests(http.HandlerFunc(srv.apiHandler))
-	logSinkHandler := srv.trackRequests(newLogSinkHandler(httpCtxt, srv.logDir))
+	logSinkHandler := newLogSinkHandler(httpCtxt, srv.logSinkWriter)
 	logStreamHandler := srv.trackRequests(newLogStreamEndpointHandler(strictCtxt))
 	debugLogHandler := srv.trackRequests(newDebugLogDBHandler(httpCtxt))
 
-	add("/model/:modeluuid/logsink", logSinkHandler)
+	add("/model/:modeluuid/logsink", srv.trackRequests(logSinkHandler))
 	add("/model/:modeluuid/logstream", logStreamHandler)
 	add("/model/:modeluuid/log", debugLogHandler)
 
