@@ -1242,7 +1242,7 @@ class TestMakeSubstrateManager(TestCase):
 
     def test_make_substrate_manager_aws(self):
         aws_env = get_aws_env()
-        with make_substrate_manager(aws_env.config, aws_env.config) as aws:
+        with make_substrate_manager(aws_env) as aws:
             self.assertIs(type(aws), AWSAccount)
             self.assertEqual(aws.euca_environ, {
                 'AWS_ACCESS_KEY': 'skeleton-key',
@@ -1254,8 +1254,8 @@ class TestMakeSubstrateManager(TestCase):
             self.assertEqual(aws.region, 'ca-west')
 
     def test_make_substrate_manager_openstack(self):
-        config = get_os_config()
-        with make_substrate_manager(config, config) as account:
+        env = SimpleEnvironment('foo', get_os_config())
+        with make_substrate_manager(env) as account:
             self.assertIs(type(account), OpenStackAccount)
             self.assertEqual(account._username, 'foo')
             self.assertEqual(account._password, 'bar')
@@ -1266,7 +1266,8 @@ class TestMakeSubstrateManager(TestCase):
     def test_make_substrate_manager_rackspace(self):
         config = get_os_config()
         config['type'] = 'rackspace'
-        with make_substrate_manager(config, config) as account:
+        env = SimpleEnvironment('foo', config)
+        with make_substrate_manager(env) as account:
             self.assertIs(type(account), OpenStackAccount)
             self.assertEqual(account._username, 'foo')
             self.assertEqual(account._password, 'bar')
@@ -1275,19 +1276,19 @@ class TestMakeSubstrateManager(TestCase):
             self.assertEqual(account._region_name, 'quxx')
 
     def test_make_substrate_manager_joyent(self):
-        config = get_joyent_config()
-        with make_substrate_manager(config, config) as account:
+        env = SimpleEnvironment('foo', get_joyent_config())
+        with make_substrate_manager(env) as account:
             self.assertEqual(account.client.sdc_url, 'http://example.org/sdc')
             self.assertEqual(account.client.account, 'user@manta.org')
             self.assertEqual(account.client.key_id, 'key-id@manta.org')
 
     def test_make_substrate_manager_azure(self):
-        config = {
+        env = SimpleEnvironment('foo', {
             'type': 'azure',
             'management-subscription-id': 'fooasdfbar',
             'management-certificate': 'ab\ncd\n'
-            }
-        with make_substrate_manager(config, config) as substrate:
+            })
+        with make_substrate_manager(env) as substrate:
             self.assertIs(type(substrate), AzureAccount)
             self.assertEqual(substrate.service_client.subscription_id,
                              'fooasdfbar')
@@ -1298,8 +1299,8 @@ class TestMakeSubstrateManager(TestCase):
     @patch('winazurearm.ARMClient.init_services',
            autospec=True, side_effect=fake_init_services)
     def test_make_substrate_manager_azure_arm(self, is_mock):
-        config = get_azure_config()
-        with make_substrate_manager(config, config) as substrate:
+        env = SimpleEnvironment('foo', get_azure_config())
+        with make_substrate_manager(env) as substrate:
             self.assertEqual(
                 substrate.arm_client.subscription_id, 'subscription-id')
             self.assertEqual(
@@ -1312,7 +1313,8 @@ class TestMakeSubstrateManager(TestCase):
     def test_make_substrate_manager_other(self):
         config = get_os_config()
         config['type'] = 'other'
-        with make_substrate_manager(config, config) as account:
+        env = SimpleEnvironment('foo', config)
+        with make_substrate_manager(env) as account:
             self.assertIs(account, None)
 
 
