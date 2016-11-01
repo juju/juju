@@ -238,7 +238,7 @@ def check_series(client,  machine='0', series=None):
     if series:
         expected_codename = series
     else:
-        expected_codename = client.env.config['default-series']
+        expected_codename = client.env.get_option('default-series')
     if codename != expected_codename:
         raise AssertionError(
             'Series is {}, not {}'.format(codename, expected_codename))

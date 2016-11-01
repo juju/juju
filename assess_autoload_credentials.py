@@ -207,7 +207,7 @@ def autoload_and_bootstrap(bs_manager, upload_tools, real_credentials,
         bs_manager.client.env.juju_home = client_na.env.juju_home
         bs_manager.tear_down_client.env.juju_home = client_na.env.juju_home
         # Openstack needs the real username.
-        user = client_na.env.config.get('username', 'testing-user')
+        user = client_na.env.get_option('username', 'testing-user')
         cloud_details = cloud_details_fn(
             user, tmp_scratch_dir, bs_manager.client, real_credentials)
         # Reset the client's credentials before autoload.
@@ -451,7 +451,7 @@ def ensure_openstack_personal_cloud_exists(client):
         'testing-openstack': {
             'type': 'openstack',
             'auth-types': ['userpass'],
-            'endpoint': client.env.config['auth-url'],
+            'endpoint': client.env.get_option('auth-url'),
             'regions': regions
             }
         }

@@ -2838,7 +2838,7 @@ def uniquify_local(env):
     }
     new_config = {}
     for key, default in port_defaults.items():
-        new_config[key] = env.config.get_option(key, default) + 1
+        new_config[key] = env.get_option(key, default) + 1
     env.update_config(new_config)
 
 
