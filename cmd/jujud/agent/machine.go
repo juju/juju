@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/api/base"
 	apimachiner "github.com/juju/juju/api/machiner"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/mongo/txnmetrics"
 	"github.com/juju/loggo"
 	"github.com/juju/replicaset"
 	"github.com/juju/utils"
@@ -295,10 +296,14 @@ func NewMachineAgent(
 		loopDeviceManager:           loopDeviceManager,
 		newIntrospectionSocketName:  newIntrospectionSocketName,
 		prometheusRegistry:          prometheusRegistry,
+		txnmetricsCollector:         txnmetrics.New(),
 	}
 	if err := a.prometheusRegistry.Register(
 		logsendermetrics.BufferedLogWriterMetrics{bufferedLogger},
 	); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if err := a.prometheusRegistry.Register(a.txnmetricsCollector); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return a, nil
@@ -335,6 +340,7 @@ type MachineAgent struct {
 	loopDeviceManager          looputil.LoopDeviceManager
 	newIntrospectionSocketName func(names.Tag) string
 	prometheusRegistry         *prometheus.Registry
+	txnmetricsCollector        *txnmetrics.Collector
 }
 
 // IsRestorePreparing returns bool representing if we are in restore mode
@@ -810,6 +816,7 @@ func (a *MachineAgent) openStateForUpgrade() (*state.State, error) {
 		NewPolicy: stateenvirons.GetNewPolicyFunc(
 			stateenvirons.GetNewEnvironFunc(environs.New),
 		),
+		RunTransactionObserver: a.txnmetricsCollector.AfterRunTransaction,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -904,7 +911,11 @@ func (a *MachineAgent) initState(agentConfig agent.Config) (*state.State, error)
 		return nil, err
 	}
 
-	st, _, err := openState(agentConfig, stateWorkerDialOpts)
+	st, _, err := openState(
+		agentConfig,
+		stateWorkerDialOpts,
+		a.txnmetricsCollector.AfterRunTransaction,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -994,7 +1005,11 @@ func (a *MachineAgent) startStateWorkers(st *state.State) (worker.Worker, error)
 			// to the fact that state holds lease managers which are killed and need to be reset.
 			stateOpener := func() (*state.State, error) {
 				logger.Debugf("opening state for apiserver worker")
-				st, _, err := openState(agentConfig, stateWorkerDialOpts)
+				st, _, err := openState(
+					agentConfig,
+					stateWorkerDialOpts,
+					a.txnmetricsCollector.AfterRunTransaction,
+				)
 				return st, err
 			}
 			runner.StartWorker("apiserver", a.apiserverWorkerStarter(stateOpener, certChangedChan))
@@ -1362,7 +1377,11 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) (err error) {
 	return nil
 }
 
-func openState(agentConfig agent.Config, dialOpts mongo.DialOpts) (_ *state.State, _ *state.Machine, err error) {
+func openState(
+	agentConfig agent.Config,
+	dialOpts mongo.DialOpts,
+	runTransactionObserver state.RunTransactionObserverFunc,
+) (_ *state.State, _ *state.Machine, err error) {
 	info, ok := agentConfig.MongoInfo()
 	if !ok {
 		return nil, nil, errors.Errorf("no state info available")
@@ -1376,6 +1395,7 @@ func openState(agentConfig agent.Config, dialOpts mongo.DialOpts) (_ *state.Stat
 		NewPolicy: stateenvirons.GetNewPolicyFunc(
 			stateenvirons.GetNewEnvironFunc(environs.New),
 		),
+		RunTransactionObserver: runTransactionObserver,
 	})
 	if err != nil {
 		return nil, nil, err

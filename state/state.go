@@ -78,15 +78,16 @@ type providerIdDoc struct {
 // State represents the state of an model
 // managed by juju.
 type State struct {
-	clock              clock.Clock
-	modelTag           names.ModelTag
-	controllerModelTag names.ModelTag
-	controllerTag      names.ControllerTag
-	mongoInfo          *mongo.MongoInfo
-	session            *mgo.Session
-	database           Database
-	policy             Policy
-	newPolicy          NewPolicyFunc
+	clock                  clock.Clock
+	modelTag               names.ModelTag
+	controllerModelTag     names.ModelTag
+	controllerTag          names.ControllerTag
+	mongoInfo              *mongo.MongoInfo
+	session                *mgo.Session
+	database               Database
+	policy                 Policy
+	newPolicy              NewPolicyFunc
+	runTransactionObserver RunTransactionObserverFunc
 
 	// cloudName is the name of the cloud on which the model
 	// represented by this state runs.
@@ -306,6 +307,7 @@ func (st *State) ForModel(modelTag names.ModelTag) (*State, error) {
 	session := st.session.Copy()
 	newSt, err := newState(
 		modelTag, st.controllerModelTag, session, st.mongoInfo, st.newPolicy, st.clock,
+		st.runTransactionObserver,
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
