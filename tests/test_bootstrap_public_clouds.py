@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 """Tests for bootstrap_public_clouds."""
 
+from argparse import Namespace
 from contextlib import contextmanager
 
 from mock import (
@@ -13,12 +14,23 @@ from bootstrap_public_clouds import (
     iter_cloud_regions,
     parse_args,
     )
+from fakejuju import (
+    fake_juju_client,
+    )
 from tests import (
+    FakeHomeTestCase,
     TestCase,
     )
 
 
 class TestParseArgs(TestCase):
+
+    def test_parse_args(self):
+        args = parse_args([])
+        self.assertEqual(Namespace(
+            deadline=None, debug=False, juju_bin='/usr/bin/juju', logs=None,
+            start=0,
+            ), args)
 
     def test_parse_args_start(self):
         args = parse_args(['--start', '7'])
@@ -46,32 +58,30 @@ class TestIterCloudRegions(TestCase):
         self.assertEqual([], regions)
 
 
-class StartArgs:
-
-    def __init__(self, start):
-        self.start = start
-
-
-class TestBootstrapCloudRegions(TestCase):
+class TestBootstrapCloudRegions(FakeHomeTestCase):
 
     @contextmanager
-    def patch_for_test(self, cloud_regions, error=None):
+    def patch_for_test(self, cloud_regions, client, error=None,):
         """Handles all the patching for testing bootstrap_cloud_regions."""
         with patch('bootstrap_public_clouds.iter_cloud_regions',
                    autospec=True, return_value=cloud_regions) as iter_mock:
             with patch('bootstrap_public_clouds.bootstrap_cloud',
                        autospec=True, side_effect=error) as bootstrap_mock:
-                with patch('logging.info', autospec=True) as info_mock:
-                    yield (iter_mock, bootstrap_mock, info_mock)
+                with patch('bootstrap_public_clouds.client_from_config',
+                           autospec=True, return_value=client):
+                    with patch('logging.info', autospec=True) as info_mock:
+                        yield (iter_mock, bootstrap_mock, info_mock)
 
     def run_test_bootstrap_cloud_regions(self, start=0, error=None):
         pc_key = 'public_clouds'
         cred_key = 'credentials'
         cloud_regions = [('foo.config', 'foo'), ('bar.config', 'bar')]
-        args = StartArgs(start)
-        expect_calls = [call('foo.config', 'foo', args),
-                        call('bar.config', 'bar', args)]
-        with self.patch_for_test(cloud_regions, error) as (
+        args = Namespace(start=start, debug=True, deadline=None,
+                         juju_bin='juju', logs='/tmp/log')
+        fake_client = fake_juju_client()
+        expect_calls = [call('foo.config', 'foo', fake_client, '/tmp/log'),
+                        call('bar.config', 'bar', fake_client, '/tmp/log')]
+        with self.patch_for_test(cloud_regions, fake_client, error) as (
                 iter_mock, bootstrap_mock, info_mock):
             errors = list(bootstrap_cloud_regions(pc_key, cred_key, args))
 

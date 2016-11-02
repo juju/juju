@@ -17,6 +17,7 @@ from utility import (
     _clean_dir,
     configure_logging,
     _generate_default_binary,
+    LoggedException,
     _to_deadline,
     )
 
@@ -30,17 +31,13 @@ def make_logging_dir(base_dir, config, region):
     return log_dir
 
 
-def bootstrap_cloud(config, region, args):
-    client = client_from_config(
-        config, args.juju_bin, args.debug, args.deadline)
+def bootstrap_cloud(config, region, client, log_dir):
     env_name = 'boot-cpc-{}-{}'.format(client.env.get_cloud(), region)[:30]
-    client.env.environment = env_name
-    client.env.controller.name = env_name
-    client.env.set_region(region)
-    logging_dir = make_logging_dir(args.logs, config, region)
+    logging_dir = make_logging_dir(log_dir, config, region)
     bs_manager = BootstrapManager(
-        env_name, client, client, None, [], None, None, None, None,
-        logging_dir, False, False, False)
+        env_name, client, client, bootstrap_host=None, machines=[],
+        series=None, agent_url=None, agent_stream=None, region=region,
+        log_dir=logging_dir, keep_env=False, permanent=True, jes_enable=True)
     with bs_manager.booted_context(False):
         client.wait_for_started()
 
@@ -72,9 +69,13 @@ def bootstrap_cloud_regions(public_clouds, credentials, args):
             continue
         logging.info('Bootstrapping {} {} #{}'.format(config, region, num))
         try:
-            bootstrap_cloud(config, region, args)
-        except Exception as e:
-            yield(config, region, e)
+            client = client_from_config(
+                config, args.juju_bin, args.debug, args.deadline)
+            bootstrap_cloud(config, region, client, args.logs)
+        except LoggedException as error:
+            yield config, region, error.exception
+        except Exception as error:
+            yield config, region, error
 
 
 def parse_args(argv):
