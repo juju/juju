@@ -78,8 +78,9 @@ class AWSAccount:
 
     @classmethod
     @contextmanager
-    def manager_from_config(cls, config, region=None):
+    def manager_from_config(cls, env, region=None):
         """Create an AWSAccount from a juju environment dict."""
+        config = get_config(env)
         euca_environ = get_euca_env(config)
         if region is None:
             region = config["region"]
@@ -170,8 +171,9 @@ class OpenStackAccount:
 
     @classmethod
     @contextmanager
-    def manager_from_config(cls, config):
+    def manager_from_config(cls, env):
         """Create an OpenStackAccount from a juju environment dict."""
+        config = get_config(env)
         yield cls(
             config['username'], config['password'], config['tenant-name'],
             config['auth-url'], config['region'])
@@ -226,7 +228,7 @@ class JoyentAccount:
 
     @classmethod
     @contextmanager
-    def manager_from_config(cls, config):
+    def manager_from_config(cls, env):
         """Create a ContextManager for a JoyentAccount.
 
          Using a juju environment dict, the private key is written to a
@@ -234,6 +236,7 @@ class JoyentAccount:
          tmp key. The key is removed when done.
          """
         from joyent import Client
+        config = get_config(env)
         with temp_dir() as key_dir:
             key_path = os.path.join(key_dir, 'joyent.key')
             open(key_path, 'w').write(config['private-key'])
@@ -286,7 +289,7 @@ def convert_to_azure_ids(client, instance_ids):
         return instance_ids
     else:
         with AzureARMAccount.manager_from_config(
-                client.env.config) as substrate:
+                client.env) as substrate:
             return substrate.convert_to_azure_ids(client, instance_ids)
 
 
@@ -302,12 +305,13 @@ class AzureARMAccount:
 
     @classmethod
     @contextmanager
-    def manager_from_config(cls, config):
+    def manager_from_config(cls, env):
         """A context manager for a Azure RM account.
 
         In the case of the Juju 1x, the ARM keys must be in the env's config.
         subscription_id is the same. The PEM for the SMS is ignored.
         """
+        config = get_config(env)
         arm_client = winazurearm.ARMClient(
             config['subscription-id'], config['application-id'],
             config['application-password'], config['tenant-id'])
@@ -353,13 +357,14 @@ class AzureAccount:
 
     @classmethod
     @contextmanager
-    def manager_from_config(cls, config):
+    def manager_from_config(cls, env):
         """A context manager for a AzureAccount.
 
         It writes the certificate to a temp file because the Azure client
         library requires it, then deletes the temp file when done.
         """
         from azure.servicemanagement import ServiceManagementService
+        config = get_config(env)
         with temp_dir() as cert_dir:
             cert_file = os.path.join(cert_dir, 'azure.pem')
             open(cert_file, 'w').write(config['management-certificate'])
@@ -674,8 +679,9 @@ class LXDAccount:
 
     @classmethod
     @contextmanager
-    def manager_from_config(cls, config):
+    def manager_from_config(cls, env):
         """Create a ContextManager for a LXDAccount."""
+        config = get_config(env)
         remote = config.get('region', None)
         yield cls(remote=remote)
 
@@ -688,14 +694,19 @@ class LXDAccount:
             subprocess.check_call(['lxc', 'delete', '--force', instance_id])
 
 
+def get_config(env):
+    config = deepcopy(env.config)
+    config.update(env.get_cloud_credentials())
+    return config
+
+
 @contextmanager
 def make_substrate_manager(env):
     """A ContextManager that returns an Account for the config's substrate.
 
     Returns None if the substrate is not supported.
     """
-    config = deepcopy(env.config)
-    config.update(env.get_cloud_credentials())
+    config = get_config(env)
     substrate_factory = {
         'ec2': AWSAccount.manager_from_config,
         'openstack': OpenStackAccount.manager_from_config,
@@ -712,7 +723,7 @@ def make_substrate_manager(env):
     if factory is None:
         yield None
     else:
-        with factory(config) as substrate:
+        with factory(env) as substrate:
             yield substrate
 
 

@@ -260,11 +260,11 @@ class TestTerminateInstances(TestCase):
 class TestAWSAccount(TestCase):
 
     def test_manager_from_config(self):
-        with AWSAccount.manager_from_config({
+        with AWSAccount.manager_from_config(SimpleEnvironment('foo', {
                 'access-key': 'skeleton',
                 'region': 'france',
                 'secret-key': 'hoover',
-                }) as aws:
+                })) as aws:
             self.assertEqual(aws.euca_environ, {
                 'AWS_ACCESS_KEY': 'skeleton',
                 'AWS_SECRET_KEY': 'hoover',
@@ -289,7 +289,7 @@ class TestAWSAccount(TestCase):
         client.get_all_security_groups.return_value = list(make_group())
         with patch('substrate.ec2.connect_to_region',
                    return_value=client) as ctr_mock:
-            with AWSAccount.manager_from_config(get_aws_env().config) as aws:
+            with AWSAccount.manager_from_config(get_aws_env()) as aws:
                 groups = list(aws.iter_security_groups())
         self.assertEqual(groups, [
             ('foo-id', 'foo'), ('foobar-id', 'foobar'), ('baz-id', 'baz')])
@@ -312,7 +312,7 @@ class TestAWSAccount(TestCase):
         client.get_all_instances.return_value = instances
         with patch('substrate.ec2.connect_to_region',
                    return_value=client) as ctr_mock:
-            with AWSAccount.manager_from_config(get_aws_env().config) as aws:
+            with AWSAccount.manager_from_config(get_aws_env()) as aws:
                 groups = list(aws.iter_instance_security_groups())
         self.assertEqual(
             groups, [('foo', 'bar'), ('baz', 'qux'), ('quxx-id', 'quxx')])
@@ -333,7 +333,7 @@ class TestAWSAccount(TestCase):
         client.get_all_instances.return_value = instances
         with patch('substrate.ec2.connect_to_region',
                    return_value=client) as ctr_mock:
-            with AWSAccount.manager_from_config(get_aws_env().config) as aws:
+            with AWSAccount.manager_from_config(get_aws_env()) as aws:
                     list(aws.iter_instance_security_groups(['abc', 'def']))
         client.get_all_instances.assert_called_once_with(
             instance_ids=['abc', 'def'])
@@ -344,7 +344,7 @@ class TestAWSAccount(TestCase):
         client.delete_security_group.return_value = True
         with patch('substrate.ec2.connect_to_region',
                    return_value=client) as ctr_mock:
-            with AWSAccount.manager_from_config(get_aws_env().config) as aws:
+            with AWSAccount.manager_from_config(get_aws_env()) as aws:
                 failures = aws.destroy_security_groups(
                     ['foo', 'foobar', 'baz'])
         calls = [call(name='foo'), call(name='foobar'), call(name='baz')]
@@ -357,7 +357,7 @@ class TestAWSAccount(TestCase):
         client.delete_security_group.return_value = False
         with patch('substrate.ec2.connect_to_region',
                    return_value=client) as ctr_mock:
-            with AWSAccount.manager_from_config(get_aws_env().config) as aws:
+            with AWSAccount.manager_from_config(get_aws_env()) as aws:
                 failures = aws.destroy_security_groups(
                     ['foo', 'foobar', 'baz'])
         self.assertEqual(failures, ['foo', 'foobar', 'baz'])
@@ -369,7 +369,7 @@ class TestAWSAccount(TestCase):
         client.get_all_network_interfaces.return_value = return_value
         with patch('substrate.ec2.connect_to_region',
                    return_value=client) as ctr_mock:
-            with AWSAccount.manager_from_config(get_aws_env().config) as aws:
+            with AWSAccount.manager_from_config(get_aws_env()) as aws:
                 yield aws
         self.assert_ec2_connection_call(ctr_mock)
 
@@ -431,6 +431,10 @@ def get_os_config():
         'tenant-name': 'baz', 'auth-url': 'qux', 'region': 'quxx'}
 
 
+def get_os_env():
+    return SimpleEnvironment('foo', get_os_config())
+
+
 def make_os_security_groups(names, non_juju=()):
     groups = []
     for name in names:
@@ -453,7 +457,8 @@ def make_os_security_group_instance(names):
 class TestOpenstackAccount(TestCase):
 
     def test_manager_from_config(self):
-        with OpenStackAccount.manager_from_config(get_os_config()) as account:
+        with OpenStackAccount.manager_from_config(
+                get_os_env()) as account:
             self.assertEqual(account._username, 'foo')
             self.assertEqual(account._password, 'bar')
             self.assertEqual(account._tenant_name, 'baz')
@@ -461,7 +466,7 @@ class TestOpenstackAccount(TestCase):
             self.assertEqual(account._region_name, 'quxx')
 
     def test_get_client(self):
-        with OpenStackAccount.manager_from_config(get_os_config()) as account:
+        with OpenStackAccount.manager_from_config(get_os_env()) as account:
             with patch('novaclient.client.Client') as ncc_mock:
                 account.get_client()
         ncc_mock.assert_called_once_with(
@@ -469,7 +474,7 @@ class TestOpenstackAccount(TestCase):
             service_type='compute', insecure=False)
 
     def test_iter_security_groups(self):
-        with OpenStackAccount.manager_from_config(get_os_config()) as account:
+        with OpenStackAccount.manager_from_config(get_os_env()) as account:
             with patch.object(account, 'get_client') as gc_mock:
                 client = gc_mock.return_value
                 groups = make_os_security_groups(['foo', 'bar', 'baz'])
@@ -479,7 +484,7 @@ class TestOpenstackAccount(TestCase):
                 ('foo-id', 'foo'), ('bar-id', 'bar'), ('baz-id', 'baz')])
 
     def test_iter_security_groups_non_juju(self):
-        with OpenStackAccount.manager_from_config(get_os_config()) as account:
+        with OpenStackAccount.manager_from_config(get_os_env()) as account:
             with patch.object(account, 'get_client') as gc_mock:
                 client = gc_mock.return_value
                 groups = make_os_security_groups(
@@ -489,7 +494,7 @@ class TestOpenstackAccount(TestCase):
             self.assertEqual(list(result), [('bar-id', 'bar')])
 
     def test_iter_instance_security_groups(self):
-        with OpenStackAccount.manager_from_config(get_os_config()) as account:
+        with OpenStackAccount.manager_from_config(get_os_env()) as account:
             with patch.object(account, 'get_client') as gc_mock:
                 client = gc_mock.return_value
                 instance = MagicMock(security_groups=[{'name': 'foo'}])
@@ -500,7 +505,7 @@ class TestOpenstackAccount(TestCase):
             self.assertEqual(list(result), [('foo-id', 'foo')])
 
     def test_iter_instance_security_groups_instance_ids(self):
-        with OpenStackAccount.manager_from_config(get_os_config()) as account:
+        with OpenStackAccount.manager_from_config(get_os_env()) as account:
             with patch.object(account, 'get_client') as gc_mock:
                 client = gc_mock.return_value
                 foo_bar = make_os_security_group_instance(['foo', 'bar'])
@@ -526,7 +531,8 @@ def get_joyent_config():
 class TestJoyentAccount(TestCase):
 
     def test_manager_from_config(self):
-        with JoyentAccount.manager_from_config(get_joyent_config()) as account:
+        env = SimpleEnvironment('foo', get_joyent_config())
+        with JoyentAccount.manager_from_config(env) as account:
             self.assertEqual(
                 open(account.client.key_path).read(), 'key\abc\n')
         self.assertFalse(os.path.exists(account.client.key_path))
@@ -589,11 +595,11 @@ def get_lxd_config():
 class TestLXDAccount(TestCase):
 
     def test_manager_from_config(self):
-        config = get_lxd_config()
-        with LXDAccount.manager_from_config(config) as account:
+        env = SimpleEnvironment('foo', get_lxd_config())
+        with LXDAccount.manager_from_config(env) as account:
             self.assertIsNone(account.remote)
-        config['region'] = 'lxd-server'
-        with LXDAccount.manager_from_config(config) as account:
+        env.set_region('lxd-server')
+        with LXDAccount.manager_from_config(env) as account:
             self.assertEqual('lxd-server', account.remote)
 
     def test_terminate_instances(self):
@@ -644,7 +650,8 @@ class TestAzureAccount(TestCase):
     def test_manager_from_config(self):
         config = {'management-subscription-id': 'fooasdfbar',
                   'management-certificate': 'ab\ncd\n'}
-        with AzureAccount.manager_from_config(config) as substrate:
+        env = SimpleEnvironment('foo', config)
+        with AzureAccount.manager_from_config(env) as substrate:
             self.assertEqual(substrate.service_client.subscription_id,
                              'fooasdfbar')
             self.assertEqual(open(substrate.service_client.cert_file).read(),
@@ -704,8 +711,8 @@ class TestAzureARMAccount(TestCase):
     @patch('winazurearm.ARMClient.init_services',
            autospec=True, side_effect=fake_init_services)
     def test_manager_from_config(self, is_mock):
-        config = get_azure_config()
-        with AzureARMAccount.manager_from_config(config) as substrate:
+        env = SimpleEnvironment('foo', get_azure_config())
+        with AzureARMAccount.manager_from_config(env) as substrate:
             self.assertEqual(
                 substrate.arm_client.subscription_id, 'subscription-id')
             self.assertEqual(substrate.arm_client.client_id, 'application-id')
@@ -762,6 +769,7 @@ class TestAzureARMAccount(TestCase):
            autospec=True, side_effect=fake_init_services)
     def test_convert_to_azure_ids_function(self, is_mock):
         env = JujuData('controller', get_azure_config(), juju_home='data')
+        env.credentials['credentials'] = {'azure': {'credentials': {}}}
         client = fake_juju_client(env=env)
         arm_client = ARMClient(
             'subscription-id', 'application-id', 'application-password',
@@ -801,6 +809,7 @@ class TestAzureARMAccount(TestCase):
            autospec=True, side_effect=fake_init_services)
     def test_convert_to_azure_ids_function_bug_1586089_fixed(self, is_mock):
         env = JujuData('controller', get_azure_config(), juju_home='data')
+        env.credentials['credentials'] = {'azure': {'credentials': {}}}
         client = fake_juju_client(env=env, version='2.1')
         with patch.object(client, 'get_models') as gm_mock:
             with patch('winazurearm.list_resources') as lr_mock:
@@ -1254,7 +1263,7 @@ class TestMakeSubstrateManager(TestCase):
             self.assertEqual(aws.region, 'ca-west')
 
     def test_make_substrate_manager_openstack(self):
-        env = SimpleEnvironment('foo', get_os_config())
+        env = get_os_env()
         with make_substrate_manager(env) as account:
             self.assertIs(type(account), OpenStackAccount)
             self.assertEqual(account._username, 'foo')
