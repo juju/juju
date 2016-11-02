@@ -12,6 +12,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
+	"github.com/juju/utils/clock"
 	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
@@ -414,7 +415,14 @@ func (s *UpgradeSuite) openStateForUpgrade() (*state.State, error) {
 	newPolicy := stateenvirons.GetNewPolicyFunc(
 		stateenvirons.GetNewEnvironFunc(environs.New),
 	)
-	st, err := state.Open(s.State.ModelTag(), s.State.ControllerTag(), mongoInfo, mongotest.DialOpts(), newPolicy)
+	st, err := state.Open(state.OpenParams{
+		Clock:              clock.WallClock,
+		ControllerTag:      s.State.ControllerTag(),
+		ControllerModelTag: s.State.ModelTag(),
+		MongoInfo:          mongoInfo,
+		MongoDialOpts:      mongotest.DialOpts(),
+		NewPolicy:          newPolicy,
+	})
 	if err != nil {
 		return nil, err
 	}

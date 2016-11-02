@@ -5,6 +5,7 @@ package state_test
 
 import (
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
@@ -43,7 +44,13 @@ func (s *offeredApplicationsSuite) TestRemove(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	modelTag := names.NewModelTag(s.State.ModelUUID())
-	anotherState, err := state.Open(modelTag, s.State.ControllerTag(), testing.NewMongoInfo(), mongotest.DialOpts(), nil)
+	anotherState, err := state.Open(state.OpenParams{
+		Clock:              clock.WallClock,
+		ControllerTag:      s.State.ControllerTag(),
+		ControllerModelTag: modelTag,
+		MongoInfo:          testing.NewMongoInfo(),
+		MongoDialOpts:      mongotest.DialOpts(),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer anotherState.Close()
 
@@ -67,7 +74,13 @@ func (s *offeredApplicationsSuite) TestAddApplicationOffer(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	modelTag := names.NewModelTag(s.State.ModelUUID())
-	anotherState, err := state.Open(modelTag, s.State.ControllerTag(), testing.NewMongoInfo(), mongotest.DialOpts(), nil)
+	anotherState, err := state.Open(state.OpenParams{
+		Clock:              clock.WallClock,
+		ControllerTag:      s.State.ControllerTag(),
+		ControllerModelTag: modelTag,
+		MongoInfo:          testing.NewMongoInfo(),
+		MongoDialOpts:      mongotest.DialOpts(),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer anotherState.Close()
 
@@ -97,7 +110,13 @@ func (s *offeredApplicationsSuite) TestUpdateApplicationOffer(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	modelTag := names.NewModelTag(s.State.ModelUUID())
-	anotherState, err := state.Open(modelTag, s.State.ControllerTag(), testing.NewMongoInfo(), mongotest.DialOpts(), nil)
+	anotherState, err := state.Open(state.OpenParams{
+		Clock:              clock.WallClock,
+		ControllerTag:      s.State.ControllerTag(),
+		ControllerModelTag: modelTag,
+		MongoInfo:          testing.NewMongoInfo(),
+		MongoDialOpts:      mongotest.DialOpts(),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer anotherState.Close()
 

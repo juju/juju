@@ -140,7 +140,13 @@ func (s *StateSuite) TestStrictLocalIDWithNoPrefix(c *gc.C) {
 func (s *StateSuite) TestDialAgain(c *gc.C) {
 	// Ensure idempotent operations on Dial are working fine.
 	for i := 0; i < 2; i++ {
-		st, err := state.Open(s.modelTag, s.State.ControllerTag(), statetesting.NewMongoInfo(), mongotest.DialOpts(), nil)
+		st, err := state.Open(state.OpenParams{
+			Clock:              clock.WallClock,
+			ControllerTag:      s.State.ControllerTag(),
+			ControllerModelTag: s.modelTag,
+			MongoInfo:          statetesting.NewMongoInfo(),
+			MongoDialOpts:      mongotest.DialOpts(),
+		})
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(st.Close(), gc.IsNil)
 	}
@@ -149,7 +155,13 @@ func (s *StateSuite) TestDialAgain(c *gc.C) {
 func (s *StateSuite) TestOpenRequiresExtantModelTag(c *gc.C) {
 	uuid := utils.MustNewUUID()
 	tag := names.NewModelTag(uuid.String())
-	st, err := state.Open(tag, s.State.ControllerTag(), statetesting.NewMongoInfo(), mongotest.DialOpts(), nil)
+	st, err := state.Open(state.OpenParams{
+		Clock:              clock.WallClock,
+		ControllerTag:      s.State.ControllerTag(),
+		ControllerModelTag: tag,
+		MongoInfo:          statetesting.NewMongoInfo(),
+		MongoDialOpts:      mongotest.DialOpts(),
+	})
 	if !c.Check(st, gc.IsNil) {
 		c.Check(st.Close(), jc.ErrorIsNil)
 	}
@@ -158,7 +170,13 @@ func (s *StateSuite) TestOpenRequiresExtantModelTag(c *gc.C) {
 }
 
 func (s *StateSuite) TestOpenSetsModelTag(c *gc.C) {
-	st, err := state.Open(s.modelTag, s.State.ControllerTag(), statetesting.NewMongoInfo(), mongotest.DialOpts(), nil)
+	st, err := state.Open(state.OpenParams{
+		Clock:              clock.WallClock,
+		ControllerTag:      s.State.ControllerTag(),
+		ControllerModelTag: s.modelTag,
+		MongoInfo:          statetesting.NewMongoInfo(),
+		MongoDialOpts:      mongotest.DialOpts(),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
@@ -2701,7 +2719,13 @@ func (s *StateSuite) TestAddAndGetEquivalence(c *gc.C) {
 }
 
 func tryOpenState(modelTag names.ModelTag, controllerTag names.ControllerTag, info *mongo.MongoInfo) error {
-	st, err := state.Open(modelTag, controllerTag, info, mongotest.DialOpts(), nil)
+	st, err := state.Open(state.OpenParams{
+		Clock:              clock.WallClock,
+		ControllerTag:      controllerTag,
+		ControllerModelTag: modelTag,
+		MongoInfo:          info,
+		MongoDialOpts:      mongotest.DialOpts(),
+	})
 	if err == nil {
 		err = st.Close()
 	}
@@ -2728,9 +2752,15 @@ func (s *StateSuite) TestOpenWithoutSetMongoPassword(c *gc.C) {
 func (s *StateSuite) TestOpenBadAddress(c *gc.C) {
 	info := statetesting.NewMongoInfo()
 	info.Addrs = []string{"0.1.2.3:1234"}
-	st, err := state.Open(testing.ModelTag, testing.ControllerTag, info, mongo.DialOpts{
-		Timeout: 1 * time.Millisecond,
-	}, nil)
+	st, err := state.Open(state.OpenParams{
+		Clock:              clock.WallClock,
+		ControllerTag:      testing.ControllerTag,
+		ControllerModelTag: testing.ModelTag,
+		MongoInfo:          info,
+		MongoDialOpts: mongo.DialOpts{
+			Timeout: 1 * time.Millisecond,
+		},
+	})
 	if err == nil {
 		st.Close()
 	}
@@ -2744,9 +2774,16 @@ func (s *StateSuite) TestOpenDelaysRetryBadAddress(c *gc.C) {
 	info.Addrs = []string{"0.1.2.3:1234"}
 
 	t0 := time.Now()
-	st, err := state.Open(testing.ModelTag, testing.ControllerTag, info, mongo.DialOpts{
-		Timeout: 1 * time.Millisecond,
-	}, nil)
+	st, err := state.Open(state.OpenParams{
+		Clock:              clock.WallClock,
+		ControllerTag:      testing.ControllerTag,
+		ControllerModelTag: testing.ModelTag,
+		MongoInfo:          info,
+		MongoDialOpts: mongo.DialOpts{
+			Timeout: 1 * time.Millisecond,
+		},
+	})
+
 	if err == nil {
 		st.Close()
 	}
@@ -3475,7 +3512,13 @@ type waiter interface {
 // interact with the closed state, causing it to return an
 // unexpected error (often "Closed explictly").
 func testWatcherDiesWhenStateCloses(c *gc.C, modelTag names.ModelTag, controllerTag names.ControllerTag, startWatcher func(c *gc.C, st *state.State) waiter) {
-	st, err := state.Open(modelTag, controllerTag, statetesting.NewMongoInfo(), mongotest.DialOpts(), nil)
+	st, err := state.Open(state.OpenParams{
+		Clock:              clock.WallClock,
+		ControllerTag:      controllerTag,
+		ControllerModelTag: modelTag,
+		MongoInfo:          statetesting.NewMongoInfo(),
+		MongoDialOpts:      mongotest.DialOpts(),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	watcher := startWatcher(c, st)
 	err = st.Close()
@@ -3513,7 +3556,13 @@ func (s *StateSuite) TestReopenWithNoMachines(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, expected)
 
-	st, err := state.Open(s.modelTag, s.State.ControllerTag(), statetesting.NewMongoInfo(), mongotest.DialOpts(), nil)
+	st, err := state.Open(state.OpenParams{
+		Clock:              clock.WallClock,
+		ControllerTag:      s.State.ControllerTag(),
+		ControllerModelTag: s.modelTag,
+		MongoInfo:          statetesting.NewMongoInfo(),
+		MongoDialOpts:      mongotest.DialOpts(),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
