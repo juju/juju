@@ -2,12 +2,9 @@
 """Tests for bootstrap_public_clouds."""
 
 from contextlib import contextmanager
-import logging
-import StringIO
 
 from mock import (
     call,
-    Mock,
     patch,
     )
 
@@ -16,9 +13,7 @@ from bootstrap_public_clouds import (
     iter_cloud_regions,
     parse_args,
     )
-from fakejuju import fake_juju_client
 from tests import (
-    parse_error,
     TestCase,
     )
 
@@ -32,18 +27,13 @@ class TestParseArgs(TestCase):
 
 class TestIterCloudRegions(TestCase):
 
-    @staticmethod
-    def collect_cloud_regions(public_clouds, credentials):
-        return [config_region for config_region in
-                iter_cloud_regions(public_clouds, credentials)]
-
     def test_iter_cloud_regions(self):
         credentials = {'aws', 'google', 'rackspace'}
         public_clouds = {
             'aws': {'regions': ['north', 'south']},
             'google': {'regions': ['west']},
             }
-        regions = self.collect_cloud_regions(public_clouds, credentials)
+        regions = list(iter_cloud_regions(public_clouds, credentials))
         self.assertEqual([('default-aws', 'north'), ('default-aws', 'south'),
                           ('default-gce', 'west')], regions)
 
@@ -51,7 +41,7 @@ class TestIterCloudRegions(TestCase):
         credentials = {}
         public_clouds = {'rackspace': {'regions': 'none'}}
         with patch('logging.warning') as warning_mock:
-            regions = self.collect_cloud_regions(public_clouds, credentials)
+            regions = list(iter_cloud_regions(public_clouds, credentials))
         self.assertEqual(1, warning_mock.call_count)
         self.assertEqual([], regions)
 

@@ -12,14 +12,11 @@ from deploy_stack import (
 from jujuconfig import get_juju_home
 from jujupy import (
     client_from_config,
-    get_teardown_timeout,
     )
 from utility import (
-    add_basic_testing_arguments,
     _clean_dir,
     configure_logging,
     _generate_default_binary,
-    temp_dir,
     _to_deadline,
     )
 
@@ -109,6 +106,7 @@ def default_log_dir(settings):
     if settings.logs is None:
         settings.logs = BootstrapManager._generate_default_clean_dir(
             'bootstrap_public_clouds')
+
 
 def main():
     configure_logging(logging.INFO)
