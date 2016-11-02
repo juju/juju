@@ -66,7 +66,7 @@ class TestCase(unittest.TestCase):
         """Enter context manager for the remainder of the test, then leave.
 
         This can be used in place of a with block in setUp, which must return
-        and may not yield. Note that execptions will not be passed in when
+        and may not yield. Note that exceptions will not be passed in when
         calling __exit__."""
         self.addCleanup(context.__exit__, None, None, None)
         return context.__enter__()
