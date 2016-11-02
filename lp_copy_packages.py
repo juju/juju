@@ -16,6 +16,8 @@ STABLE = 'stable'
 # Ubuntu supported versions
 PROPOSED_1_22 = '1.22-proposed'
 SUPPORTED_1_22 = '1.22'
+PROPOSED_1_25 = '1.25-proposed'
+SUPPORTED_1_25 = '1.25'
 
 
 def get_archives(lp, to_archive_name):
@@ -50,6 +52,12 @@ def get_archives(lp, to_archive_name):
         from_team_name = 'juju-packaging'
     elif to_archive_name == SUPPORTED_1_22:
         from_archive_name = PROPOSED_1_22
+        from_team_name = 'juju'
+    elif to_archive_name == PROPOSED_1_25:
+        from_archive_name = SUPPORTED_1_25
+        from_team_name = 'juju-packaging'
+    elif to_archive_name == SUPPORTED_1_25:
+        from_archive_name = PROPOSED_1_25
         from_team_name = 'juju'
     else:
         raise ValueError('{} is not a valid archive'.format(to_archive_name))
