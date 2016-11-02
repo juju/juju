@@ -67,17 +67,15 @@ from substrate import (
     AzureARMAccount,
     )
 from tests import (
+    assert_juju_call,
     FakeHomeTestCase,
+    FakePopen,
+    observable_temp_file,
     parse_error,
     TestCase,
     use_context,
 )
 from tests.test_deploy_stack import FakeBootstrapManager
-from tests.test_jujupy import (
-    assert_juju_call,
-    FakePopen,
-    observable_temp_file,
-    )
 from tests.test_substrate import (
     get_aws_env,
     get_azure_config,

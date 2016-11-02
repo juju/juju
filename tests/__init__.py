@@ -1,11 +1,13 @@
 """Testing helpers and base classes for better isolation."""
 
 from contextlib import contextmanager
+import datetime
 import errno
 import logging
 import os
 import StringIO
 import subprocess
+from tempfile import NamedTemporaryFile
 import unittest
 
 from mock import patch
@@ -117,12 +119,80 @@ def parse_error(test_case):
 
 @contextmanager
 def temp_os_env(key, value):
+    """Set the environment key to value for the context, then restore it."""
     org_value = os.environ.get(key, '')
     os.environ[key] = value
     try:
         yield
     finally:
         os.environ[key] = org_value
+
+
+def assert_juju_call(test_case, mock_method, client, expected_args,
+                     call_index=None):
+    """Check a mock's positional arguments.
+
+    :param test_case: The test case currently being run.
+    :param mock_mothod: The mock object to be checked.
+    :param client: Ignored.
+    :param expected_args: The expected positional arguments for the call.
+    :param call_index: Index of the call to check, if None checks first call
+    and checks for only one call."""
+    if call_index is None:
+        test_case.assertEqual(len(mock_method.mock_calls), 1)
+        call_index = 0
+    empty, args, kwargs = mock_method.mock_calls[call_index]
+    test_case.assertEqual(args, (expected_args,))
+
+
+class FakePopen(object):
+    """Create an artifical version of the Popen class."""
+
+    def __init__(self, out, err, returncode):
+        self._out = out
+        self._err = err
+        self._code = returncode
+
+    def communicate(self):
+        self.returncode = self._code
+        return self._out, self._err
+
+    def poll(self):
+        return self._code
+
+
+@contextmanager
+def observable_temp_file():
+    """Get a name which is used to create temporary files in the context."""
+    temporary_file = NamedTemporaryFile(delete=False)
+    try:
+        with temporary_file as temp_file:
+            with patch('jujupy.NamedTemporaryFile',
+                       return_value=temp_file):
+                with patch.object(temp_file, '__exit__'):
+                    yield temp_file
+    finally:
+        try:
+            os.unlink(temporary_file.name)
+        except OSError as e:
+            # File may have already been deleted, e.g. by temp_yaml_file.
+            if e.errno != errno.ENOENT:
+                raise
+
+
+@contextmanager
+def client_past_deadline(client):
+    """Create a client patched to be past its deadline."""
+    soft_deadline = datetime.datetime(2015, 1, 2, 3, 4, 6)
+    now = soft_deadline + datetime.timedelta(seconds=1)
+    old_soft_deadline = client._backend.soft_deadline
+    client._backend.soft_deadline = soft_deadline
+    try:
+        with patch.object(client._backend, '_now', return_value=now,
+                          autospec=True):
+            yield client
+    finally:
+        client._backend.soft_deadline = old_soft_deadline
 
 
 def get_default_public_clouds():
