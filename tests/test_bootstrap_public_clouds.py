@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 """Tests for bootstrap_public_clouds."""
 
+from contextlib import contextmanager
 import logging
 import StringIO
 
@@ -63,57 +64,52 @@ class StartArgs:
 
 class TestBootstrapCloudRegions(TestCase):
 
-    def test_bootstrap_cloud_regions(self):
-        pc_key = 'public_clouds'
-        cred_key = 'credentials'
-        cloud_regions = [('foo.config', 'foo'), ('bar.config', 'bar')]
-        args = StartArgs(0)
+    pc_key = 'public_clouds'
+    cred_key = 'credentials'
+    cloud_regions = [('foo.config', 'foo'), ('bar.config', 'bar')]
+
+    @contextmanager
+    def patch_for_test(self, error=None):
+        """Handles all the patching for testing bootstrap_cloud_regions."""
         with patch('bootstrap_public_clouds.iter_cloud_regions',
-                   autospec=True, return_value=cloud_regions) as iter_mock:
+                   autospec=True, return_value=self.cloud_regions
+                   ) as iter_mock:
             with patch('bootstrap_public_clouds.bootstrap_cloud',
-                       autospec=True) as bootstrap_mock:
-                with patch('logging.info') as info_mock:
-                    errors = list(bootstrap_cloud_regions(
-                        pc_key, cred_key, args))
-        iter_mock.assert_called_once_with(pc_key, cred_key)
+                       autospec=True, side_effect=error) as bootstrap_mock:
+                with patch('logging.info', autospec=True) as info_mock:
+                    yield (iter_mock, bootstrap_mock, info_mock)
+
+    def test_bootstrap_cloud_regions(self):
+        args = StartArgs(0)
+        with self.patch_for_test() as (iter_mock, bootstrap_mock, info_mock):
+            errors = list(bootstrap_cloud_regions(
+                self.pc_key, self.cred_key, args))
+        iter_mock.assert_called_once_with(self.pc_key, self.cred_key)
         bootstrap_mock.assert_has_calls([call('foo.config', 'foo', args),
                                          call('bar.config', 'bar', args)])
         self.assertEqual(2, info_mock.call_count)
         self.assertEqual([], errors)
 
     def test_bootstrap_cloud_regions_start(self):
-        pc_key = 'public_clouds'
-        cred_key = 'credentials'
-        cloud_regions = [('foo.config', 'foo'), ('bar.config', 'bar')]
         args = StartArgs(1)
-        with patch('bootstrap_public_clouds.iter_cloud_regions',
-                   autospec=True, return_value=cloud_regions) as iter_mock:
-            with patch('bootstrap_public_clouds.bootstrap_cloud',
-                       autospec=True) as bootstrap_mock:
-                with patch('logging.info') as info_mock:
-                    errors = list(bootstrap_cloud_regions(
-                        pc_key, cred_key, args))
-        iter_mock.assert_called_once_with(pc_key, cred_key)
+        with self.patch_for_test() as (iter_mock, bootstrap_mock, info_mock):
+            errors = list(bootstrap_cloud_regions(
+                self.pc_key, self.cred_key, args))
+        iter_mock.assert_called_once_with(self.pc_key, self.cred_key)
         bootstrap_mock.assert_has_calls([call('bar.config', 'bar', args)])
         self.assertEqual(1, info_mock.call_count)
         self.assertEqual([], errors)
 
     def test_bootstrap_cloud_regions_error(self):
-        pc_key = 'public_clouds'
-        cred_key = 'credentials'
-        cloud_regions = [('foo.config', 'foo'), ('bar.config', 'bar')]
         args = StartArgs(0)
         err = Exception('test')
-        with patch('bootstrap_public_clouds.iter_cloud_regions',
-                   autospec=True, return_value=cloud_regions) as iter_mock:
-            with patch('bootstrap_public_clouds.bootstrap_cloud',
-                       autospec=True, side_effect=err) as bootstrap_mock:
-                with patch('logging.info') as info_mock:
-                    errors = list(bootstrap_cloud_regions(
-                        pc_key, cred_key, args))
-        iter_mock.assert_called_once_with(pc_key, cred_key)
+        with self.patch_for_test(error=err) as (
+                iter_mock, bootstrap_mock, info_mock):
+            errors = list(bootstrap_cloud_regions(
+                self.pc_key, self.cred_key, args))
+        iter_mock.assert_called_once_with(self.pc_key, self.cred_key)
         bootstrap_mock.assert_has_calls([call('foo.config', 'foo', args),
                                          call('bar.config', 'bar', args)])
         self.assertEqual(2, info_mock.call_count)
-        expect_errors = [cr + (err,) for cr in cloud_regions]
+        expect_errors = [cr + (err,) for cr in self.cloud_regions]
         self.assertEqual(expect_errors, errors)
