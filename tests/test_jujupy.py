@@ -6137,6 +6137,10 @@ class TestSimpleEnvironment(TestCase):
         self.assertEqual('localhost', SimpleEnvironment(
             'foo', {'type': 'lxd'}, 'home').get_region())
 
+    def test_get_region_lxd_specified(self):
+        self.assertEqual('foo', SimpleEnvironment(
+            'foo', {'type': 'lxd', 'region': 'foo'}, 'home').get_region())
+
     def test_get_region_maas(self):
         self.assertIs(None, SimpleEnvironment('foo', {
             'type': 'maas', 'region': 'bar',
@@ -6173,11 +6177,8 @@ class TestSimpleEnvironment(TestCase):
 
     def test_set_region_lxd(self):
         env = SimpleEnvironment('foo', {'type': 'lxd'}, 'home')
-        with self.assertRaisesRegexp(ValueError,
-                                     'Only "localhost" allowed for lxd.'):
-            env.set_region('baz')
-        env.set_region('localhost')
-        self.assertEqual(env.get_region(), 'localhost')
+        env.set_region('baz')
+        self.assertEqual(env.config['region'], 'baz')
 
     def test_set_region_manual(self):
         env = SimpleEnvironment('foo', {'type': 'manual'}, 'home')

@@ -298,7 +298,7 @@ class SimpleEnvironment:
             matcher = re.compile('https://(.*).api.joyentcloud.com')
             return matcher.match(self.config['sdc-url']).group(1)
         elif provider == 'lxd':
-            return 'localhost'
+            return self.config.get('region', 'localhost')
         elif provider == 'manual':
             return self.config['bootstrap-host']
         elif provider in ('maas', 'manual'):
@@ -316,9 +316,6 @@ class SimpleEnvironment:
         elif provider == 'joyent':
             self.config['sdc-url'] = (
                 'https://{}.api.joyentcloud.com'.format(region))
-        elif provider == 'lxd':
-            if region != 'localhost':
-                raise ValueError('Only "localhost" allowed for lxd.')
         elif provider == 'manual':
             self.config['bootstrap-host'] = region
         elif provider == 'maas':
