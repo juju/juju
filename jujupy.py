@@ -6,7 +6,6 @@ from collections import (
     )
 from contextlib import (
     contextmanager,
-    nested,
     )
 from copy import deepcopy
 from datetime import datetime
@@ -17,7 +16,7 @@ import logging
 import os
 import pexpect
 import re
-from shutil import rmtree
+import shutil
 import subprocess
 import sys
 from tempfile import NamedTemporaryFile
@@ -379,11 +378,26 @@ class SimpleEnvironment:
 
     @contextmanager
     def make_jes_home(self, juju_home, dir_name, new_config):
+        """Make a JUJU_HOME/DATA directory to avoid conflicts.
+
+        :param juju_home: Current JUJU_HOME/DATA directory, used as a
+            base path for the new directory.
+        :param dir_name: Name of sub-directory to make the home in.
+        :param new_config: Dictionary representing the contents of
+            the environments.yaml configuation file."""
         home_path = jes_home_path(juju_home, dir_name)
         if os.path.exists(home_path):
-            rmtree(home_path)
+            shutil.rmtree(home_path)
         os.makedirs(home_path)
         self.dump_yaml(home_path, new_config)
+        # For extention: Add all files carried over to the list.
+        for file_name in ['public-clouds.yaml']:
+            src_path = os.path.join(juju_home, file_name)
+            try:
+                shutil.copy(src_path, home_path)
+            except IOError as error:
+                if error.errno != errno.ENOENT:
+                    raise
         yield home_path
 
     def get_cloud_credentials(self):
@@ -2883,13 +2897,11 @@ def _temp_env(new_config, parent=None, set_home=True):
     with temp_dir(parent) as temp_juju_home:
         dump_environments_yaml(temp_juju_home, new_config)
         if set_home:
-            context = scoped_environ()
-        else:
-            context = nested()
-        with context:
-            if set_home:
+            with scoped_environ():
                 os.environ['JUJU_HOME'] = temp_juju_home
                 os.environ['JUJU_DATA'] = temp_juju_home
+                yield temp_juju_home
+        else:
             yield temp_juju_home
 
 
@@ -2944,8 +2956,12 @@ def temp_bootstrap_env(juju_home, client, set_home=True, permanent=False):
     This involves creating a temporary juju home directory and returning its
     location.
 
+    :param juju_home: The current JUJU_HOME value.
+    :param client: The client being prepared for bootstrapping.
     :param set_home: Set JUJU_HOME to match the temporary home in this
         context.  If False, juju_home should be supplied to bootstrap.
+    :param permanent: If permanent, the environment is kept afterwards.
+        Otherwise the environment is deleted when exiting the context.
     """
     new_config = {
         'environments': {client.env.environment: make_safe_config(client)}}
