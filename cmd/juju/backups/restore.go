@@ -273,7 +273,7 @@ func (c *restoreCommand) rebootstrap(ctx *cmd.Context, meta *params.BackupsMetad
 	}
 
 	instanceIds, err := env.ControllerInstances(params.ControllerConfig.ControllerUUID())
-	if err != nil && errors.Cause(err) != environs.ErrNotBootstrapped {
+	if err != nil && errors.Cause(err) != environs.ErrNotBootstrapped && !errors.IsNotFound(err) {
 		return errors.Annotatef(err, "cannot determine controller instances")
 	}
 	if len(instanceIds) > 0 {
