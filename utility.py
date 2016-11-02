@@ -420,6 +420,33 @@ def skip_if_missing():
         if e.errno != errno.ENOENT:
             raise
 
+
+# A different name (and form of) skip_if_missing. Either can be used.
+def allow_missing_file(cmd, *args, **kwargs):
+    try:
+       cmd(*args, **kwargs)
+    except (IOError, OSError) as e:
+        if e.errno != errno.ENOENT:
+            raise
+
+
+# I admit it: This one is mostly just for fun.
+def allow_missing_file_both(cmd=None, *args, **kwargs):
+    @contextmanager
+    def skip_if_missing():
+        try:
+            yield
+        except (IOError, OSError) as e:
+            if e.errno != errno.ENOENT:
+                raise
+    if cmd is None:
+        return skip_if_missing()
+    else:
+        with skip_if_missing():
+            return cmd(*args, **kwargs)
+        # if it raises: return default_return
+
+
 def ensure_dir(path):
     try:
         os.mkdir(path)
