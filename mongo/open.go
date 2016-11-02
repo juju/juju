@@ -131,6 +131,9 @@ func DialInfo(info Info, opts DialOpts) (*mgo.DialInfo, error) {
 		cc := tls.Client(c, tlsConfig)
 		if err := cc.Handshake(); err != nil {
 			logger.Debugf("TLS handshake failed: %v", err)
+			if err := c.Close(); err != nil {
+				logger.Warningf("failed to close connection: %v", err)
+			}
 			return nil, err
 		}
 		logger.Infof("dialled mongo successfully on address %q", addr)
