@@ -251,6 +251,10 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 	if test.bootstrapConstraints == (constraints.Value{}) {
 		test.bootstrapConstraints = test.constraints
 	}
+	if test.bootstrapConstraints.Mem == nil {
+		mem := uint64(3584)
+		test.bootstrapConstraints.Mem = &mem
+	}
 	c.Check(opBootstrap.Args.BootstrapConstraints, gc.DeepEquals, test.bootstrapConstraints)
 	c.Check(opBootstrap.Args.Placement, gc.Equals, test.placement)
 

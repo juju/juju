@@ -130,7 +130,8 @@ func (s *bootstrapSuite) TestBootstrapEmptyConstraints(c *gc.C) {
 	c.Assert(env.bootstrapCount, gc.Equals, 1)
 	env.args.AvailableTools = nil
 	c.Assert(env.args, gc.DeepEquals, environs.BootstrapParams{
-		ControllerConfig: coretesting.FakeControllerConfig(),
+		ControllerConfig:     coretesting.FakeControllerConfig(),
+		BootstrapConstraints: constraints.MustParse("mem=3.5G"),
 	})
 }
 
@@ -187,6 +188,10 @@ func (s *bootstrapSuite) TestBootstrapSpecifiedPlacement(c *gc.C) {
 	c.Assert(env.args.Placement, gc.DeepEquals, placement)
 }
 
+func intPtr(i uint64) *uint64 {
+	return &i
+}
+
 func (s *bootstrapSuite) TestBootstrapImage(c *gc.C) {
 	s.PatchValue(&series.MustHostSeries, func() string { return "precise" })
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
@@ -229,7 +234,9 @@ func (s *bootstrapSuite) TestBootstrapImage(c *gc.C) {
 	c.Assert(env.instanceConfig.Bootstrap.CustomImageMetadata, gc.HasLen, 2)
 	c.Assert(env.instanceConfig.Bootstrap.CustomImageMetadata[0], jc.DeepEquals, metadata[0])
 	c.Assert(env.instanceConfig.Bootstrap.CustomImageMetadata[1], jc.DeepEquals, env.args.ImageMetadata[0])
-	c.Assert(env.instanceConfig.Bootstrap.BootstrapMachineConstraints, jc.DeepEquals, bootstrapCons)
+	expectedCons := bootstrapCons
+	expectedCons.Mem = intPtr(3584)
+	c.Assert(env.instanceConfig.Bootstrap.BootstrapMachineConstraints, jc.DeepEquals, expectedCons)
 }
 
 func (s *bootstrapSuite) TestBootstrapAddsArchFromImageToExistingProviderSupportedArches(c *gc.C) {
@@ -250,7 +257,9 @@ func (s *bootstrapSuite) TestBootstrapAddsArchFromImageToExistingProviderSupport
 		MetadataDir:          data.metadataDir,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertBootstrapImageMetadata(c, env.bootstrapEnviron, data, bootstrapCons)
+	expectedCons := bootstrapCons
+	expectedCons.Mem = intPtr(3584)
+	s.assertBootstrapImageMetadata(c, env.bootstrapEnviron, data, expectedCons)
 }
 
 type testImageMetadata struct {
@@ -329,7 +338,9 @@ func (s *bootstrapSuite) TestBootstrapAddsArchFromImageToProviderWithNoSupported
 		MetadataDir:          data.metadataDir,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertBootstrapImageMetadata(c, env.bootstrapEnviron, data, bootstrapCons)
+	expectedCons := bootstrapCons
+	expectedCons.Mem = intPtr(3584)
+	s.assertBootstrapImageMetadata(c, env.bootstrapEnviron, data, expectedCons)
 }
 
 func (s *bootstrapSuite) setupProviderWithNoSupportedArches(c *gc.C) bootstrapEnvironNoExplicitArchitectures {
