@@ -62,6 +62,19 @@ class TestCase(unittest.TestCase):
         """Assert that expr is the False object."""
         self.assertIs(False, expr, msg)
 
+    def addContext(self, context):
+        """Enter context manager for the remainder of the test, then leave.
+
+        This can be used in place of a with block in setUp, which must return
+        not yield. Note that execptions will not be passed in when calling
+        __exit__.
+
+        :param context: The context manager.
+        :return: The value emitted by cxt.__enter__.
+        """
+        self.addCleanup(context.__exit__, None, None, None)
+        return context.__enter__()
+
 
 class FakeHomeTestCase(TestCase):
     """FakeHomeTestCase creates an isolated home dir for Juju to use."""
