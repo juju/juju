@@ -23,23 +23,21 @@ import (
 	"github.com/juju/juju/state"
 )
 
-func newLogSinkHandler(h httpContext, logDir string) http.Handler {
+func newLogSinkHandler(h httpContext, w io.Writer) http.Handler {
+	return &logSinkHandler{ctxt: h, fileLogger: w}
+}
 
+func newLogSinkWriter(logDir string) (io.WriteCloser, error) {
 	logPath := filepath.Join(logDir, "logsink.log")
 	if err := primeLogFile(logPath); err != nil {
-		// This isn't a fatal error so log and continue if priming
-		// fails.
-		logger.Errorf("Unable to prime %s (proceeding anyway): %v", logPath, err)
+		// This isn't a fatal error so log and continue if priming fails.
+		logger.Warningf("Unable to prime %s (proceeding anyway): %v", logPath, err)
 	}
-
-	return &logSinkHandler{
-		ctxt: h,
-		fileLogger: &lumberjack.Logger{
-			Filename:   logPath,
-			MaxSize:    300, // MB
-			MaxBackups: 2,
-		},
-	}
+	return &lumberjack.Logger{
+		Filename:   logPath,
+		MaxSize:    300, // MB
+		MaxBackups: 2,
+	}, nil
 }
 
 // primeLogFile ensures the logsink log file is created with the
@@ -56,7 +54,7 @@ func primeLogFile(path string) error {
 
 type logSinkHandler struct {
 	ctxt       httpContext
-	fileLogger io.WriteCloser
+	fileLogger io.Writer
 }
 
 // ServeHTTP implements the http.Handler interface.
@@ -100,7 +98,10 @@ func (h *logSinkHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 				select {
 				case <-h.ctxt.stop():
 					return
-				case m := <-logCh:
+				case m, ok := <-logCh:
+					if !ok {
+						return
+					}
 					fileErr := h.logToFile(filePrefix, m)
 					if fileErr != nil {
 						logger.Errorf("logging to logsink.log failed: %v", fileErr)
@@ -136,6 +137,7 @@ func (h *logSinkHandler) receiveLogs(socket *websocket.Conn) <-chan params.LogRe
 	logCh := make(chan params.LogRecord)
 
 	go func() {
+		defer close(logCh)
 		var m params.LogRecord
 		for {
 			// Receive() blocks until data arrives but will also be
