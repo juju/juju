@@ -29,7 +29,10 @@ func Destroy(
 	store jujuclient.ControllerStore,
 ) error {
 	details, err := store.ControllerByName(controllerName)
-	if err != nil && !errors.IsNotFound(err) {
+	if errors.IsNotFound(err) {
+		// No controller details, nothing to do.
+		return nil
+	} else if err != nil {
 		return errors.Trace(err)
 	}
 	if err := env.DestroyController(details.ControllerUUID); err != nil {

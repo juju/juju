@@ -189,7 +189,7 @@ func (s *toolsSuite) TestFindAvailableToolsSpecificVersion(c *gc.C) {
 	currentVersion := version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
-		Series: series.HostSeries(),
+		Series: series.MustHostSeries(),
 	}
 	currentVersion.Major = 2
 	currentVersion.Minor = 3

@@ -198,7 +198,13 @@ func (s *serverSuite) TestNewServerDoesNotAccessState(c *gc.C) {
 		Timeout:       5 * time.Second,
 		SocketTimeout: 5 * time.Second,
 	}
-	st, err := state.Open(s.State.ModelTag(), s.State.ControllerTag(), mongoInfo, dialOpts, nil)
+	st, err := state.Open(state.OpenParams{
+		Clock:              clock.WallClock,
+		ControllerTag:      s.State.ControllerTag(),
+		ControllerModelTag: s.State.ModelTag(),
+		MongoInfo:          mongoInfo,
+		MongoDialOpts:      dialOpts,
+	})
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 
@@ -464,7 +470,7 @@ func (s *serverSuite) TestAPIHandlerHasPermissionLogin(c *gc.C) {
 	apiserver.AssertHasPermission(c, handler, permission.SuperuserAccess, ctag, false)
 }
 
-func (s *serverSuite) TestAPIHandlerHasPermissionAdmodel(c *gc.C) {
+func (s *serverSuite) TestAPIHandlerHasPermissionAddmodel(c *gc.C) {
 	u, ctag := s.bootstrapHasPermissionTest(c)
 	user := u.UserTag()
 
@@ -510,6 +516,7 @@ func (s *serverSuite) TestAPIHandlerConnectedModel(c *gc.C) {
 	otherState := s.Factory.MakeModel(c, nil)
 	defer otherState.Close()
 	handler, _ := apiserver.TestingAPIHandler(c, s.State, otherState)
+	defer handler.Kill()
 	c.Check(handler.ConnectedModel(), gc.Equals, otherState.ModelUUID())
 }
 

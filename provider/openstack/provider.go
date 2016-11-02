@@ -38,6 +38,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/tools"
+	"github.com/juju/utils/clock"
 )
 
 var logger = loggo.GetLogger("juju.provider.openstack")
@@ -87,6 +88,7 @@ func (p EnvironProvider) Open(args environs.OpenParams) (environs.Environ, error
 		uuid:      uuid,
 		cloud:     args.Cloud,
 		namespace: namespace,
+		clock:     clock.WallClock,
 	}
 	e.firewaller = p.FirewallerFactory.GetFirewaller(e)
 	e.configurator = p.Configurator
@@ -175,6 +177,9 @@ type Environ struct {
 	availabilityZones      []common.AvailabilityZone
 	firewaller             Firewaller
 	configurator           ProviderConfigurator
+
+	// Clock is defined so it can be replaced for testing
+	clock clock.Clock
 }
 
 var _ environs.Environ = (*Environ)(nil)
@@ -671,17 +676,35 @@ func (e *Environ) SetConfig(cfg *config.Config) error {
 func identityClientVersion(authURL string) (int, error) {
 	url, err := url.Parse(authURL)
 	if err != nil {
-		return -1, err
-	} else if url.Path == "" {
-		return -1, err
+		// Return 0 as this is the lowest invalid number according to openstack codebase:
+		// -1 is reserved and has special handling; 1, 2, 3, etc are valid identity client versions.
+		return 0, err
+	}
+	if url.Path == authURL {
+		// This means we could not parse URL into url structure
+		// with protocols, domain, port, etc.
+		// For example, specifying "keystone.foo" instead of "https://keystone.foo:443/v3/"
+		// falls into this category.
+		return 0, errors.Errorf("url %s is malformed", authURL)
+	}
+	if url.Path == "" || url.Path == "/" {
+		// User explicitely did not provide any version, it is empty.
+		return -1, nil
 	}
 	// The last part of the path should be the version #.
 	// Example: https://keystone.foo:443/v3/
-	logger.Tracef("authURL: %s", authURL)
-	versionNumStr := url.Path[2:]
-	if versionNumStr[len(versionNumStr)-1] == '/' {
-		versionNumStr = versionNumStr[:len(versionNumStr)-1]
+	versionNumStr := strings.TrimPrefix(strings.ToLower(url.Path), "/v")
+	versionNumStr = strings.TrimSuffix(versionNumStr, "/")
+	if versionNumStr == url.Path || versionNumStr == "" {
+		// If nothing was trimmed, version specification was malformed.
+		// If nothing was left after trim, version number is not provided and,
+		// hence, version specification was malformed.
+		// At this stage only '/Vxxx' and '/vxxx' are valid where xxx is major.minor version.
+		// Return 0 as this is the lowest invalid number according to openstack codebase:
+		// -1 is reserved and has special handling; 1, 2, 3, etc are valid identity client versions.
+		return 0, errors.NotValidf("version part of identity url %s", authURL)
 	}
+	logger.Tracef("authURL: %s", authURL)
 	major, _, err := version.ParseMajorMinor(versionNumStr)
 	return major, err
 }
@@ -718,7 +741,7 @@ func (e *Environ) getKeystoneDataSource(mu *sync.Mutex, datasource *simplestream
 		}
 	}
 
-	url, err := makeServiceURL(e.client, keystoneName, nil)
+	url, err := makeServiceURL(e.client, keystoneName, "", nil)
 	if err != nil {
 		return nil, errors.NewNotSupported(err, fmt.Sprintf("cannot make service URL: %v", err))
 	}
@@ -1351,7 +1374,7 @@ func (e *Environ) deleteSecurityGroups(securityGroupNames []string) error {
 	for _, securityGroup := range allSecurityGroups {
 		for _, name := range securityGroupNames {
 			if securityGroup.Name == name {
-				deleteSecurityGroup(novaclient, name, securityGroup.Id)
+				deleteSecurityGroup(novaclient, name, securityGroup.Id, e.clock)
 				break
 			}
 		}
@@ -1412,6 +1435,10 @@ func (e *Environ) TagInstance(id instance.Id, tags map[string]string) error {
 		return errors.Annotate(err, "setting server metadata")
 	}
 	return nil
+}
+
+func (e *Environ) SetClock(clock clock.Clock) {
+	e.clock = clock
 }
 
 func validateCloudSpec(spec environs.CloudSpec) error {

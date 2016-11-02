@@ -14,6 +14,7 @@ import (
 
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/logsender"
+	"github.com/juju/juju/worker/logsender/logsendertest"
 )
 
 const maxLen = 6
@@ -119,6 +120,12 @@ func (s *bufferedLogWriterSuite) TestLimiting(c *gc.C) {
 	for i := 9; i < maxLen+3+maxLen; i++ {
 		expect(i, 0)
 	}
+
+	logsendertest.ExpectLogStats(c, s.writer, logsender.LogStats{
+		Enqueued: maxLen*2 + 3,
+		Sent:     maxLen*2 + 3 - 5,
+		Dropped:  5,
+	})
 }
 
 func (s *bufferedLogWriterSuite) TestClose(c *gc.C) {
@@ -139,7 +146,7 @@ func (s *bufferedLogWriterSuite) TestClose(c *gc.C) {
 }
 
 func (s *bufferedLogWriterSuite) TestInstallBufferedLogWriter(c *gc.C) {
-	logsCh, err := logsender.InstallBufferedLogWriter(10)
+	bufferedLogger, err := logsender.InstallBufferedLogWriter(10)
 	c.Assert(err, jc.ErrorIsNil)
 	defer logsender.UninstallBufferedLogWriter()
 
@@ -149,6 +156,7 @@ func (s *bufferedLogWriterSuite) TestInstallBufferedLogWriter(c *gc.C) {
 		logger.Infof("%d", i)
 	}
 
+	logsCh := bufferedLogger.Logs()
 	for i := 0; i < 5; i++ {
 		select {
 		case rec := <-logsCh:

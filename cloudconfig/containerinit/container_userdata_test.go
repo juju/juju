@@ -281,8 +281,6 @@ func (s *UserDataSuite) TestCloudInitUserDataFallbackConfig(c *gc.C) {
 		expectedLinesToMatch = append(expectedLinesToMatch, line)
 	}
 
-	expectedLinesToMatch = append(expectedLinesToMatch, "manage_etc_hosts: true")
-
 	c.Assert(strings.Join(linesToMatch, "\n")+"\n", gc.Equals, strings.Join(expectedLinesToMatch, "\n")+"\n")
 }
 
@@ -308,7 +306,6 @@ func (s *UserDataSuite) TestCloudInitUserDataFallbackConfigWithContainerHostname
 	}
 
 	expectedLinesToMatch = append(expectedLinesToMatch, "hostname: lxdhostname")
-	expectedLinesToMatch = append(expectedLinesToMatch, "manage_etc_hosts: true")
 
 	c.Assert(strings.Join(linesToMatch, "\n")+"\n", gc.Equals, strings.Join(expectedLinesToMatch, "\n")+"\n")
 }

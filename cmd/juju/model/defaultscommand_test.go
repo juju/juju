@@ -229,16 +229,17 @@ func (s *DefaultsCommandSuite) TestDefaultsInit(c *gc.C) {
 }
 
 func (s *DefaultsCommandSuite) TestResetUnknownValueLogs(c *gc.C) {
-	_, err := s.run(c, "--reset", "attr,weird")
+	ctx, err := s.run(c, "--reset", "attr,weird")
 	c.Assert(err, jc.ErrorIsNil)
 	expected := `key "weird" is not defined in the known model configuration: possible misspelling`
 	c.Check(c.GetTestLog(), jc.Contains, expected)
+	c.Check(testing.Stdout(ctx), jc.DeepEquals, "")
 }
 
 func (s *DefaultsCommandSuite) TestResetAttr(c *gc.C) {
-	_, err := s.run(c, "--reset", "attr,unknown")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.fakeDefaultsAPI.defaults, jc.DeepEquals, config.ModelDefaultAttributes{
+	ctx, err := s.run(c, "--reset", "attr,unknown")
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(s.fakeDefaultsAPI.defaults, jc.DeepEquals, config.ModelDefaultAttributes{
 		"attr2": {Controller: "bar", Default: nil, Regions: []config.RegionDefaultValue{{
 			Name:  "dummy-region",
 			Value: "dummy-value",
@@ -247,6 +248,22 @@ func (s *DefaultsCommandSuite) TestResetAttr(c *gc.C) {
 			Value: "another-value",
 		}}},
 	})
+	c.Check(testing.Stdout(ctx), jc.DeepEquals, "")
+}
+
+func (s *DefaultsCommandSuite) TestResetRegionAttr(c *gc.C) {
+	ctx, err := s.run(c, "--reset", "attr,unknown", "dummy-region")
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(s.fakeDefaultsAPI.defaults, jc.DeepEquals, config.ModelDefaultAttributes{
+		"attr2": {Controller: "bar", Default: nil, Regions: []config.RegionDefaultValue{{
+			Name:  "dummy-region",
+			Value: "dummy-value",
+		}, {
+			Name:  "another-region",
+			Value: "another-value",
+		}}},
+	})
+	c.Check(testing.Stdout(ctx), jc.DeepEquals, "")
 }
 
 func (s *DefaultsCommandSuite) TestResetBlockedError(c *gc.C) {
@@ -380,4 +397,18 @@ func (s *DefaultsCommandSuite) TestGetRegionValuesTabular(c *gc.C) {
 		"attr2           -            bar\n" +
 		"  dummy-region  dummy-value  -"
 	c.Assert(output, gc.Equals, expected)
+}
+
+func (s *DefaultsCommandSuite) TestGetRegionNoValuesTabular(c *gc.C) {
+	_, err := s.run(c, "--reset", "attr2")
+	c.Assert(err, jc.ErrorIsNil)
+	ctx, err := s.run(c, "dummy-region")
+	c.Assert(err, gc.ErrorMatches, `there are no default model values in region "dummy-region"`)
+	c.Assert(testing.Stdout(ctx), gc.Equals, "")
+}
+
+func (s *DefaultsCommandSuite) TestGetRegionOneArgNoValuesTabular(c *gc.C) {
+	ctx, err := s.run(c, "dummy-region", "attr")
+	c.Assert(err, gc.ErrorMatches, `there are no default model values for "attr" in region "dummy-region"`)
+	c.Assert(testing.Stdout(ctx), gc.Equals, "")
 }

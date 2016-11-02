@@ -9,8 +9,6 @@ import (
 	"github.com/juju/juju/network"
 )
 
-var netLookupHost = net.LookupHost
-
 // HostAddress returns an network.Address for the specified
 // hostname, depending on whether it is an IP or a resolvable
 // hostname. The address is given public scope.

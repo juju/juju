@@ -909,7 +909,7 @@ func removeModelMachineRefOp(st *State, machineId string) txn.Op {
 	}
 }
 
-func addModelServiceRefOp(st *State, applicationname string) txn.Op {
+func addModelApplicationRefOp(st *State, applicationname string) txn.Op {
 	return txn.Op{
 		C:      modelEntityRefsC,
 		Id:     st.ModelUUID(),
@@ -918,7 +918,7 @@ func addModelServiceRefOp(st *State, applicationname string) txn.Op {
 	}
 }
 
-func removeModelServiceRefOp(st *State, applicationname string) txn.Op {
+func removeModelApplicationRefOp(st *State, applicationname string) txn.Op {
 	return txn.Op{
 		C:      modelEntityRefsC,
 		Id:     st.ModelUUID(),

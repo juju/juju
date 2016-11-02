@@ -727,7 +727,7 @@ func availabilitySetName(
 			}
 			serviceName, err := names.UnitApplication(unitName)
 			if err != nil {
-				return "", errors.Annotate(err, "getting service name")
+				return "", errors.Annotate(err, "getting application name")
 			}
 			availabilitySetName = serviceName
 			break

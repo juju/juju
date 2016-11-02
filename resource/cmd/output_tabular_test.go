@@ -122,7 +122,7 @@ func (s *SvcTabularSuite) TestFormatServiceOkay(c *gc.C) {
 
 	data := s.formatTabular(c, formatted)
 	c.Check(data, gc.Equals, `
-[Application]
+[Service]
 Resource  Supplied by  Revision
 openjdk   charmstore   7
 `[1:])
@@ -251,7 +251,7 @@ func (s *SvcTabularSuite) TestFormatSvcTabularMulti(c *gc.C) {
 	data := s.formatTabular(c, formatted)
 	// Notes: sorted by name, then by revision, newest first.
 	c.Check(data, gc.Equals, `
-[Application]
+[Service]
 Resource  Supplied by  Revision
 openjdk   charmstore   7
 website   upload       -

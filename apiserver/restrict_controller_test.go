@@ -9,6 +9,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/testing"
 )
@@ -21,6 +22,7 @@ type restrictControllerSuite struct {
 var _ = gc.Suite(&restrictControllerSuite{})
 
 func (s *restrictControllerSuite) SetUpSuite(c *gc.C) {
+	s.SetInitialFeatureFlags(feature.CrossModelRelations)
 	s.BaseSuite.SetUpSuite(c)
 	s.root = apiserver.TestingControllerOnlyRoot()
 }
@@ -33,6 +35,8 @@ func (s *restrictControllerSuite) TestAllowed(c *gc.C) {
 	s.assertMethod(c, "Pinger", 1, "Ping")
 	s.assertMethod(c, "Bundle", 1, "GetChanges")
 	s.assertMethod(c, "HighAvailability", 2, "EnableHA")
+	s.assertMethod(c, "CrossModelRelations", 1, "FindApplicationOffers")
+	s.assertMethod(c, "ApplicationOffers", 1, "ListOffers")
 }
 
 func (s *restrictControllerSuite) TestNotAllowed(c *gc.C) {

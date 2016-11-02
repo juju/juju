@@ -46,13 +46,13 @@ func (s *InitializeSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *InitializeSuite) openState(c *gc.C, modelTag names.ModelTag) {
-	st, err := state.Open(
-		modelTag,
-		testing.ControllerTag,
-		statetesting.NewMongoInfo(),
-		mongotest.DialOpts(),
-		state.NewPolicyFunc(nil),
-	)
+	st, err := state.Open(state.OpenParams{
+		Clock:              clock.WallClock,
+		ControllerTag:      testing.ControllerTag,
+		ControllerModelTag: modelTag,
+		MongoInfo:          statetesting.NewMongoInfo(),
+		MongoDialOpts:      mongotest.DialOpts(),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.State = st
 }

@@ -7,10 +7,8 @@ package instancepoller
 import (
 	stderrors "errors"
 	"fmt"
-	"math"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	gitjujutesting "github.com/juju/testing"
@@ -46,13 +44,11 @@ func (s *machineSuite) TestSetsInstanceInfoInitially(c *gc.C) {
 		life:       params.Alive,
 	}
 	died := make(chan machine)
-	// Change the poll intervals to be short, so that we know
-	// that we've polled (probably) at least a few times.
-	s.PatchValue(&ShortPoll, coretesting.ShortWait/10)
-	s.PatchValue(&LongPoll, coretesting.ShortWait/10)
 
-	go runMachine(context, m, nil, died, clock.WallClock)
-	time.Sleep(coretesting.ShortWait)
+	clock := newTestClock()
+	go runMachine(context, m, nil, died, clock)
+	c.Assert(clock.WaitAdvance(LongPoll, 0, 1), jc.ErrorIsNil)
+	c.Assert(clock.WaitAdvance(LongPoll, 0, 1), jc.ErrorIsNil)
 
 	killMachineLoop(c, m, context.dyingc, died)
 	c.Assert(context.killErr, gc.Equals, nil)
@@ -73,13 +69,11 @@ func (s *machineSuite) TestSetsInstanceInfoDeadMachineInitially(c *gc.C) {
 		life:       params.Dead,
 	}
 	died := make(chan machine)
-	// Change the poll intervals to be short, so that we know
-	// that we've polled (probably) at least a few times.
-	s.PatchValue(&ShortPoll, coretesting.ShortWait/10)
-	s.PatchValue(&LongPoll, coretesting.ShortWait/10)
 
-	go runMachine(context, m, nil, died, clock.WallClock)
-	time.Sleep(coretesting.ShortWait)
+	clock := newTestClock()
+	go runMachine(context, m, nil, died, clock)
+	c.Assert(clock.WaitAdvance(LongPoll, 0, 1), jc.ErrorIsNil)
+	c.Assert(clock.WaitAdvance(LongPoll, 0, 1), jc.ErrorIsNil)
 
 	killMachineLoop(c, m, context.dyingc, died)
 	c.Assert(context.killErr, gc.Equals, nil)
@@ -88,37 +82,34 @@ func (s *machineSuite) TestSetsInstanceInfoDeadMachineInitially(c *gc.C) {
 }
 
 func (s *machineSuite) TestShortPollIntervalWhenNoAddress(c *gc.C) {
-	s.PatchValue(&ShortPoll, 1*time.Millisecond)
-	s.PatchValue(&LongPoll, coretesting.LongWait)
-	count := countPolls(c, nil, "i1234", "running", status.Started)
-	c.Assert(count, jc.GreaterThan, 2)
+	s.testShortPoll(c, nil, "i1234", "running", status.Started)
 }
 
 func (s *machineSuite) TestShortPollIntervalWhenNoStatus(c *gc.C) {
-	s.PatchValue(&ShortPoll, 1*time.Millisecond)
-	s.PatchValue(&LongPoll, coretesting.LongWait)
-	count := countPolls(c, testAddrs, "i1234", "", status.Status(""))
-	c.Assert(count, jc.GreaterThan, 2)
+	s.testShortPoll(c, testAddrs, "i1234", "", status.Status(""))
 }
 
 func (s *machineSuite) TestShortPollIntervalWhenNotStarted(c *gc.C) {
-	s.PatchValue(&ShortPoll, 1*time.Millisecond)
-	s.PatchValue(&LongPoll, coretesting.LongWait)
-	count := countPolls(c, testAddrs, "i1234", "pending", status.Pending)
-	c.Assert(count, jc.GreaterThan, 2)
+	s.testShortPoll(c, testAddrs, "i1234", "pending", status.Pending)
 }
 
-func (s *machineSuite) TestShortPollIntervalWhenNotProvisioned(c *gc.C) {
-	s.PatchValue(&ShortPoll, 1*time.Millisecond)
-	s.PatchValue(&LongPoll, coretesting.LongWait)
-	count := countPolls(c, testAddrs, "", "pending", status.Pending)
-	c.Assert(count, gc.Equals, 0)
+func (s *machineSuite) testShortPoll(
+	c *gc.C, addrs []network.Address,
+	instId, instStatus string,
+	machineStatus status.Status,
+) {
+	clock := newTestClock()
+	testRunMachine(c, addrs, instId, instStatus, machineStatus, clock, func() {
+		c.Assert(clock.WaitAdvance(
+			time.Duration(float64(ShortPoll)*ShortPollBackoff), 0, 1),
+			jc.ErrorIsNil,
+		)
+	})
+	clock.CheckCall(c, 0, "After", time.Duration(float64(ShortPoll)*ShortPollBackoff))
+	clock.CheckCall(c, 1, "After", time.Duration(float64(ShortPoll)*ShortPollBackoff*ShortPollBackoff))
 }
 
 func (s *machineSuite) TestNoPollWhenNotProvisioned(c *gc.C) {
-	s.PatchValue(&ShortPoll, 1*time.Millisecond)
-	s.PatchValue(&LongPoll, coretesting.LongWait)
-
 	polled := make(chan struct{}, 1)
 	getInstanceInfo := func(id instance.Id) (instanceInfo, error) {
 		select {
@@ -146,13 +137,7 @@ func (s *machineSuite) TestNoPollWhenNotProvisioned(c *gc.C) {
 	go runMachine(context, m, changed, died, clock)
 
 	expectPoll := func() {
-		// worker should be waiting for ShortPoll
-		select {
-		case <-clock.Alarms():
-		case <-time.After(coretesting.LongWait):
-			c.Fatalf("expected time-based polling")
-		}
-		clock.Advance(ShortPoll)
+		c.Assert(clock.WaitAdvance(ShortPoll, 0, 1), jc.ErrorIsNil)
 	}
 
 	expectPoll()
@@ -175,38 +160,49 @@ func (s *machineSuite) TestNoPollWhenNotProvisioned(c *gc.C) {
 	c.Assert(context.killErr, gc.Equals, nil)
 }
 
-func (s *machineSuite) TestShortPollIntervalExponent(c *gc.C) {
-	s.PatchValue(&ShortPoll, 1*time.Microsecond)
-	s.PatchValue(&LongPoll, coretesting.LongWait)
-	s.PatchValue(&ShortPollBackoff, 2.0)
+func (s *machineSuite) TestShortPollBackoffLimit(c *gc.C) {
+	pollDurations := []time.Duration{
+		2 * time.Second, // ShortPoll
+		4 * time.Second,
+		8 * time.Second,
+		16 * time.Second,
+		32 * time.Second,
+		64 * time.Second,
+		128 * time.Second,
+		256 * time.Second,
+		512 * time.Second,
+		900 * time.Second, // limit is 15 minutes (LongPoll)
+	}
 
-	// With an exponent of 2, the maximum number of polls that can
-	// occur within the given interval ShortWait is log to the base
-	// ShortPollBackoff of ShortWait/ShortPoll, given that sleep will
-	// sleep for at least the requested interval.
-	maxCount := int(math.Log(float64(coretesting.ShortWait)/float64(ShortPoll))/math.Log(ShortPollBackoff) + 1)
-	count := countPolls(c, nil, "i1234", "", status.Started)
-	c.Assert(count, jc.GreaterThan, 2)
-	c.Assert(count, jc.LessThan, maxCount)
-	c.Logf("actual count: %v; max %v", count, maxCount)
+	clock := newTestClock()
+	testRunMachine(c, nil, "i1234", "", status.Started, clock, func() {
+		for _, d := range pollDurations {
+			c.Assert(clock.WaitAdvance(time.Duration(d), 0, 1), jc.ErrorIsNil)
+		}
+	})
+	for i, d := range pollDurations {
+		clock.CheckCall(c, i, "After", d)
+	}
 }
 
 func (s *machineSuite) TestLongPollIntervalWhenHasAllInstanceInfo(c *gc.C) {
-	s.PatchValue(&ShortPoll, coretesting.LongWait)
-	s.PatchValue(&LongPoll, 1*time.Millisecond)
-	count := countPolls(c, testAddrs, "i1234", "running", status.Started)
-	c.Assert(count, jc.GreaterThan, 2)
+	clock := newTestClock()
+	testRunMachine(c, testAddrs, "i1234", "running", status.Started, clock, func() {
+		c.Assert(clock.WaitAdvance(LongPoll, 0, 1), jc.ErrorIsNil)
+	})
+	clock.CheckCall(c, 0, "After", LongPoll)
 }
 
-// countPolls sets up a machine loop with the given
-// addresses and status to be returned from getInstanceInfo,
-// waits for coretesting.ShortWait, and returns the
-// number of times the instance is polled.
-func countPolls(c *gc.C, addrs []network.Address, instId, instStatus string, machineStatus status.Status) int {
-	count := int32(0)
+func testRunMachine(
+	c *gc.C,
+	addrs []network.Address,
+	instId, instStatus string,
+	machineStatus status.Status,
+	clock clock.Clock,
+	test func(),
+) {
 	getInstanceInfo := func(id instance.Id) (instanceInfo, error) {
 		c.Check(string(id), gc.Equals, instId)
-		atomic.AddInt32(&count, 1)
 		if addrs == nil {
 			return instanceInfo{}, fmt.Errorf("no instance addresses available")
 		}
@@ -226,12 +222,11 @@ func countPolls(c *gc.C, addrs []network.Address, instId, instStatus string, mac
 	}
 	died := make(chan machine)
 
-	go runMachine(context, m, nil, died, clock.WallClock)
+	go runMachine(context, m, nil, died, clock)
+	test()
 
-	time.Sleep(coretesting.ShortWait)
 	killMachineLoop(c, m, context.dyingc, died)
 	c.Assert(context.killErr, gc.Equals, nil)
-	return int(count)
 }
 
 func (*machineSuite) TestChangedRefreshes(c *gc.C) {
@@ -252,7 +247,10 @@ func (*machineSuite) TestChangedRefreshes(c *gc.C) {
 	}
 	died := make(chan machine)
 	changed := make(chan struct{})
-	go runMachine(context, m, changed, died, clock.WallClock)
+	clock := newTestClock()
+	go runMachine(context, m, changed, died, clock)
+
+	c.Assert(clock.WaitAdvance(LongPoll, 0, 1), jc.ErrorIsNil)
 	select {
 	case <-died:
 		c.Fatalf("machine died prematurely")
@@ -329,7 +327,7 @@ func testTerminatingErrors(c *gc.C, mutate func(m *testMachine, err error)) {
 	mutate(m, expectErr)
 	died := make(chan machine)
 	changed := make(chan struct{}, 1)
-	go runMachine(context, m, changed, died, clock.WallClock)
+	go runMachine(context, m, changed, died, newTestClock())
 	changed <- struct{}{}
 	select {
 	case <-died:
@@ -490,4 +488,19 @@ func (m *testMachine) setLife(life params.Life) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.life = life
+}
+
+type testClock struct {
+	gitjujutesting.Stub
+	*gitjujutesting.Clock
+}
+
+func newTestClock() *testClock {
+	clock := gitjujutesting.NewClock(time.Time{})
+	return &testClock{Clock: clock}
+}
+
+func (t *testClock) After(d time.Duration) <-chan time.Time {
+	t.MethodCall(t, "After", d)
+	return t.Clock.After(d)
 }

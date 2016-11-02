@@ -230,7 +230,7 @@ func toBinaryVersion(vers version.Number) version.Binary {
 	outVers := version.Binary{
 		Number: vers,
 		Arch:   arch.HostArch(),
-		Series: series.HostSeries(),
+		Series: series.MustHostSeries(),
 	}
 	return outVers
 }

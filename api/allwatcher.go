@@ -4,6 +4,8 @@
 package api
 
 import (
+	"sort"
+
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state/multiwatcher"
@@ -57,7 +59,44 @@ func (watcher *AllWatcher) Next() ([]multiwatcher.Delta, error) {
 		"Next",
 		nil, &info,
 	)
+	// We'll order the deltas so relation changes come last.
+	// This allows the callers like the GUI to process changes
+	// in the right order.
+	sort.Sort(orderedDeltas(info.Deltas))
 	return info.Deltas, err
+}
+
+type orderedDeltas []multiwatcher.Delta
+
+func (o orderedDeltas) Len() int {
+	return len(o)
+}
+
+func (o orderedDeltas) kindPriority(kind string) int {
+	switch kind {
+	case "machine":
+		return 1
+	case "service":
+		return 2
+	case "relation":
+		return 3
+	}
+	return 0
+}
+
+func (o orderedDeltas) Less(i, j int) bool {
+	// All we care about is having relation deltas last.
+	// We'll add extra checks though to make the order more
+	// deterministic for tests.
+	pi, pj := o.kindPriority(o[i].Entity.EntityId().Kind), o.kindPriority(o[j].Entity.EntityId().Kind)
+	if pi == pj {
+		return o[i].Entity.EntityId().Id < o[j].Entity.EntityId().Id
+	}
+	return pi < pj
+}
+
+func (o orderedDeltas) Swap(i, j int) {
+	o[i], o[j] = o[j], o[i]
 }
 
 // Stop shutdowns down a watcher previously created by the WatchAll or

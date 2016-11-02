@@ -74,7 +74,7 @@ func minimalConfig(c *gc.C) *config.Config {
 		"ca-cert":         coretesting.CACert,
 		"ca-private-key":  coretesting.CAKey,
 		"authorized-keys": coretesting.FakeAuthKeys,
-		"default-series":  series.HostSeries(),
+		"default-series":  series.MustHostSeries(),
 	}
 	cfg, err := config.New(config.UseDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
@@ -134,7 +134,7 @@ func (s *BootstrapSuite) TestCannotStartInstance(c *gc.C) {
 				Version: version.Binary{
 					Number: jujuversion.Current,
 					Arch:   arch.HostArch(),
-					Series: series.HostSeries(),
+					Series: series.MustHostSeries(),
 				},
 			},
 		}})
@@ -143,7 +143,7 @@ func (s *BootstrapSuite) TestCannotStartInstance(c *gc.C) {
 
 func (s *BootstrapSuite) TestBootstrapSeries(c *gc.C) {
 	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
-	s.PatchValue(&series.HostSeries, func() string { return "precise" })
+	s.PatchValue(&series.MustHostSeries, func() string { return "precise" })
 	stor := newStorage(s, c)
 	checkInstanceId := "i-success"
 	checkHardware := instance.MustParseHardware("arch=ppc64el mem=2T")
@@ -227,7 +227,7 @@ func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 				Version: version.Binary{
 					Number: jujuversion.Current,
 					Arch:   arch.HostArch(),
-					Series: series.HostSeries(),
+					Series: series.MustHostSeries(),
 				},
 			},
 		}})

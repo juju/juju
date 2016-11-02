@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/mongotest"
@@ -45,6 +46,7 @@ func (s *internalStateSuite) TearDownSuite(c *gc.C) {
 }
 
 func (s *internalStateSuite) SetUpTest(c *gc.C) {
+	s.SetInitialFeatureFlags(feature.CrossModelRelations)
 	s.MgoSuite.SetUpTest(c)
 	s.BaseSuite.SetUpTest(c)
 

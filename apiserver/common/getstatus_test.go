@@ -124,7 +124,7 @@ func (s *statusGetterSuite) TestBulk(c *gc.C) {
 
 type serviceStatusGetterSuite struct {
 	statusBaseSuite
-	getter *common.ServiceStatusGetter
+	getter *common.ApplicationStatusGetter
 }
 
 var _ = gc.Suite(&serviceStatusGetterSuite{})
@@ -132,7 +132,7 @@ var _ = gc.Suite(&serviceStatusGetterSuite{})
 func (s *serviceStatusGetterSuite) SetUpTest(c *gc.C) {
 	s.statusBaseSuite.SetUpTest(c)
 
-	s.getter = common.NewServiceStatusGetter(s.State, func() (common.AuthFunc, error) {
+	s.getter = common.NewApplicationStatusGetter(s.State, func() (common.AuthFunc, error) {
 		return s.authFunc, nil
 	})
 }

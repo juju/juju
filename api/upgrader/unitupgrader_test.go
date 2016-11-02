@@ -40,7 +40,7 @@ var _ = gc.Suite(&unitUpgraderSuite{})
 var current = version.Binary{
 	Number: jujuversion.Current,
 	Arch:   arch.HostArch(),
-	Series: series.HostSeries(),
+	Series: series.MustHostSeries(),
 }
 
 func (s *unitUpgraderSuite) SetUpTest(c *gc.C) {

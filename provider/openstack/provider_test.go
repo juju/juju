@@ -4,6 +4,8 @@
 package openstack
 
 import (
+	"fmt"
+
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -356,9 +358,23 @@ type providerUnitTests struct{}
 
 var _ = gc.Suite(&providerUnitTests{})
 
+func (s *providerUnitTests) checkIdentityClientVersionInvalid(c *gc.C, url string) {
+	_, err := identityClientVersion(url)
+	c.Check(err, gc.ErrorMatches, fmt.Sprintf("version part of identity url %s not valid", url))
+}
+
 func (s *providerUnitTests) TestIdentityClientVersion_BadURLErrors(c *gc.C) {
+	s.checkIdentityClientVersionInvalid(c, "https://keystone.internal/a")
+	s.checkIdentityClientVersionInvalid(c, "https://keystone.internal/v")
+	s.checkIdentityClientVersionInvalid(c, "https://keystone.internal/V")
+	s.checkIdentityClientVersionInvalid(c, "https://keystone.internal/V/")
+	s.checkIdentityClientVersionInvalid(c, "https://keystone.internal/100")
+
 	_, err := identityClientVersion("abc123")
-	c.Check(err, gc.Not(jc.ErrorIsNil))
+	c.Check(err, gc.ErrorMatches, `url abc123 is malformed`)
+
+	_, err = identityClientVersion("https://keystone.internal/vot")
+	c.Check(err, gc.ErrorMatches, `invalid major version number ot: strconv.ParseInt: parsing "ot": invalid syntax`)
 }
 
 func (s *providerUnitTests) TestIdentityClientVersion_ParsesGoodURL(c *gc.C) {
@@ -373,4 +389,14 @@ func (s *providerUnitTests) TestIdentityClientVersion_ParsesGoodURL(c *gc.C) {
 	version, err = identityClientVersion("https://keystone.internal/v2/")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(version, gc.Equals, 2)
+
+	version, err = identityClientVersion("https://keystone.internal/V2/")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(version, gc.Equals, 2)
+
+	_, err = identityClientVersion("https://keystone.internal")
+	c.Check(err, jc.ErrorIsNil)
+
+	_, err = identityClientVersion("https://keystone.internal/")
+	c.Check(err, jc.ErrorIsNil)
 }

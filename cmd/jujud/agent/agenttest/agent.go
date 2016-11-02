@@ -12,6 +12,7 @@ import (
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
+	"github.com/juju/utils/clock"
 	"github.com/juju/utils/series"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
@@ -113,7 +114,7 @@ func (s *AgentSuite) PrimeAgent(c *gc.C, tag names.Tag, password string) (agent.
 	vers := version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
-		Series: series.HostSeries(),
+		Series: series.MustHostSeries(),
 	}
 	return s.PrimeAgentVersion(c, tag, password, vers)
 }
@@ -163,7 +164,7 @@ func (s *AgentSuite) PrimeStateAgent(c *gc.C, tag names.Tag, password string) (a
 	vers := version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
-		Series: series.HostSeries(),
+		Series: series.MustHostSeries(),
 	}
 	return s.PrimeStateAgentVersion(c, tag, password, vers)
 }
@@ -249,9 +250,16 @@ func (s *AgentSuite) AssertCanOpenState(c *gc.C, tag names.Tag, dataDir string) 
 	c.Assert(err, jc.ErrorIsNil)
 	info, ok := config.MongoInfo()
 	c.Assert(ok, jc.IsTrue)
-	st, err := state.Open(config.Model(), config.Controller(), info, mongotest.DialOpts(), stateenvirons.GetNewPolicyFunc(
-		stateenvirons.GetNewEnvironFunc(environs.New),
-	))
+	st, err := state.Open(state.OpenParams{
+		Clock:              clock.WallClock,
+		ControllerTag:      config.Controller(),
+		ControllerModelTag: config.Model(),
+		MongoInfo:          info,
+		MongoDialOpts:      mongotest.DialOpts(),
+		NewPolicy: stateenvirons.GetNewPolicyFunc(
+			stateenvirons.GetNewEnvironFunc(environs.New),
+		),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	st.Close()
 }
