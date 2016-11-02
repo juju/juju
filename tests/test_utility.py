@@ -7,6 +7,7 @@ from datetime import (
     timedelta,
     )
 from contextlib import contextmanager
+import errno
 import json
 import logging
 import os
@@ -37,6 +38,7 @@ from utility import (
     quote,
     run_command,
     scoped_environ,
+    skip_if_missing,
     split_address_port,
     temp_dir,
     until_timeout,
@@ -541,6 +543,23 @@ class TestAddBasicTestingArguments(TestCase):
             dt_class.utcnow.return_value = now
             args = parser.parse_args(cmd_line)
         self.assertEqual(now + timedelta(seconds=300), args.deadline)
+
+
+class TestSkipIfMissing(TestCase):
+
+    def test_skip_if_missing(self):
+        with skip_if_missing():
+            raise OSError(errno.ENOENT, 'should be hidden')
+        with skip_if_missing():
+            raise IOError(errno.ENOENT, 'should be hidden')
+
+    def test_skip_if_missing_except(self):
+        with self.assertRaises(RuntimeError):
+            with skip_if_missing():
+                raise RuntimeError(errno.ENOENT, 'pass through')
+        with self.assertRaises(IOError):
+            with skip_if_missing():
+                raise IOError(errno.EEXIST, 'pass through')
 
 
 class TestRunCommand(TestCase):

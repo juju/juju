@@ -412,6 +412,14 @@ def configure_logging(log_level):
         datefmt='%Y-%m-%d %H:%M:%S')
 
 
+@contextmanager
+def skip_if_missing():
+    try:
+       yield
+    except (IOError, OSError) as e:
+        if e.errno != errno.ENOENT:
+            raise
+
 def ensure_dir(path):
     try:
         os.mkdir(path)
@@ -421,11 +429,8 @@ def ensure_dir(path):
 
 
 def ensure_deleted(path):
-    try:
+    with skip_if_missing():
         os.unlink(path)
-    except OSError as e:
-        if e.errno != errno.ENOENT:
-            raise
 
 
 def get_candidates_path(root_dir):
