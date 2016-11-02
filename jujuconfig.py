@@ -120,6 +120,8 @@ def get_awscli_env(current_env):
 
 
 def describe_substrate(config):
+    # This is maintained solely for inject-metadata.  See
+    # jujupy.describe_substrate.
     if config['type'] == 'local':
         return {
             'kvm': 'KVM (local)',
