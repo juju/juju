@@ -38,7 +38,7 @@ from utility import (
     quote,
     run_command,
     scoped_environ,
-    skip_if_missing,
+    allow_missing_file,
     split_address_port,
     temp_dir,
     until_timeout,
@@ -545,20 +545,20 @@ class TestAddBasicTestingArguments(TestCase):
         self.assertEqual(now + timedelta(seconds=300), args.deadline)
 
 
-class TestSkipIfMissing(TestCase):
+class TestAllowMissingFile(TestCase):
 
-    def test_skip_if_missing(self):
-        with skip_if_missing():
+    def test_allow_missing_file(self):
+        with allow_missing_file():
             raise OSError(errno.ENOENT, 'should be hidden')
-        with skip_if_missing():
+        with allow_missing_file():
             raise IOError(errno.ENOENT, 'should be hidden')
 
-    def test_skip_if_missing_except(self):
+    def test_allow_missing_file_except(self):
         with self.assertRaises(RuntimeError):
-            with skip_if_missing():
+            with allow_missing_file():
                 raise RuntimeError(errno.ENOENT, 'pass through')
         with self.assertRaises(IOError):
-            with skip_if_missing():
+            with allow_missing_file():
                 raise IOError(errno.EEXIST, 'pass through')
 
 
