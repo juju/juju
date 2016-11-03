@@ -57,7 +57,7 @@ def get_jenv_path(juju_home, name):
 
 def get_jenv_config(home, environment):
     single_name = get_jenv_path(home, environment)
-    with utility.allow_missing_file():
+    with utility.skip_on_missing_file():
         with open(single_name) as env:
             return yaml.safe_load(env)['bootstrap-config']
 

@@ -413,7 +413,7 @@ def configure_logging(log_level):
 
 
 @contextmanager
-def allow_missing_file():
+def skip_on_missing_file():
     """Surpress exceptions that represent missing files."""
     try:
         yield
@@ -431,7 +431,7 @@ def ensure_dir(path):
 
 
 def ensure_deleted(path):
-    with allow_missing_file():
+    with skip_on_missing_file():
         os.unlink(path)
 
 

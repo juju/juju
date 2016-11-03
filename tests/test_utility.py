@@ -26,7 +26,6 @@ from tests import (
     )
 from utility import (
     add_basic_testing_arguments,
-    allow_missing_file,
     as_literal_address,
     extract_deb,
     _find_candidates,
@@ -39,6 +38,7 @@ from utility import (
     quote,
     run_command,
     scoped_environ,
+    skip_on_missing_file,
     split_address_port,
     temp_dir,
     until_timeout,
@@ -545,20 +545,20 @@ class TestAddBasicTestingArguments(TestCase):
         self.assertEqual(now + timedelta(seconds=300), args.deadline)
 
 
-class TestAllowMissingFile(TestCase):
+class TestSkipOnMissingFile(TestCase):
 
-    def test_allow_missing_file(self):
-        with allow_missing_file():
+    def test_skip_on_missing_file(self):
+        with skip_on_missing_file():
             raise OSError(errno.ENOENT, 'should be hidden')
-        with allow_missing_file():
+        with skip_on_missing_file():
             raise IOError(errno.ENOENT, 'should be hidden')
 
-    def test_allow_missing_file_except(self):
+    def test_skip_on_missing_file_except(self):
         with self.assertRaises(RuntimeError):
-            with allow_missing_file():
+            with skip_on_missing_file():
                 raise RuntimeError(errno.ENOENT, 'pass through')
         with self.assertRaises(IOError):
-            with allow_missing_file():
+            with skip_on_missing_file():
                 raise IOError(errno.EEXIST, 'pass through')
 
 
