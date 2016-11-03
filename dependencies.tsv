@@ -28,7 +28,7 @@ github.com/juju/gojsonpointer	git	afe8b77aa08f272b49e01b82de78510c11f61500	2015-
 github.com/juju/gojsonreference	git	f0d24ac5ee330baa21721cdff56d45e4ee42628e	2015-02-04T19:46:33Z
 github.com/juju/gojsonschema	git	e1ad140384f254c82f89450d9a7c8dd38a632838	2015-03-12T17:00:16Z
 github.com/juju/gomaasapi	git	f0300c96aa5e0deb3cc599ca8a8949097b955e60	2016-11-02T12:07:14Z
-github.com/juju/govmomi	git	4354a88d4b34abe467215f77c2fc1cb9f78b66f7	2015-04-24T01:54:48Z
+github.com/vmware/govmomi	git	c0c7ce63df7edd78e713257b924c89d9a2dac119	2016-06-30T15:37:42Z
 github.com/juju/httpprof	git	14bf14c307672fd2456bdbf35d19cf0ccd3cf565	2014-12-17T16:00:36Z
 github.com/juju/httprequest	git	266fd1e9debf09c037a63f074d099a2da4559ece	2016-10-06T15:09:09Z
 github.com/juju/idmclient	git	3dda079a75cccb85083d4c3877e638f5d6ab79c2	2016-05-26T05:00:34Z
