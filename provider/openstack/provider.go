@@ -630,6 +630,13 @@ func authClient(spec environs.CloudSpec, ecfg *environConfig) (client.Authentica
 	// By default, the client requires "compute" and
 	// "object-store". Juju only requires "compute".
 	client.SetRequiredServiceTypes([]string{"compute"})
+
+	// By default, the client performs API version discovery.
+	// Because we're using some deprecated endpoints, we have
+	// to be careful not to use too new a version. Disable
+	// discovery until we've moved off those deprecated APIs.
+	client.SetVersionDiscoveryEnabled(false)
+
 	return client, nil
 }
 
