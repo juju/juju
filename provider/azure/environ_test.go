@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"path"
 	"reflect"
+	"runtime"
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/arm/compute"
@@ -1002,6 +1003,9 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 }
 
 func (s *environSuite) TestBootstrapInstanceConstraints(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("bootstrap not supported on Windows")
+	}
 	defer envtesting.DisableFinishBootstrap()()
 
 	ctx := envtesting.BootstrapContext(c)
