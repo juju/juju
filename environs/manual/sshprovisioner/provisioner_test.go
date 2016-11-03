@@ -51,7 +51,7 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 
 	args := s.getArgs(c)
 	hostname := args.Host
-	args.Host = args.Host
+	args.Host = hostname
 	args.User = "ubuntu"
 
 	defaultToolsURL := envtools.DefaultBaseURL
