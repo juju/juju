@@ -5,6 +5,7 @@ package state_test
 
 import (
 	"bytes"
+	"io/ioutil"
 	"math/rand"
 	"time"
 
@@ -1016,22 +1017,46 @@ func (s *MigrationExportSuite) TestPayloads(c *gc.C) {
 }
 
 func (s *MigrationExportSuite) TestResources(c *gc.C) {
-	unit := s.Factory.MakeUnit(c, nil)
-	app, err := unit.Application()
-	c.Assert(err, jc.ErrorIsNil)
+	app := s.Factory.MakeApplication(c, nil)
+	unit1 := s.Factory.MakeUnit(c, &factory.UnitParams{
+		Application: app,
+	})
+	unit2 := s.Factory.MakeUnit(c, &factory.UnitParams{
+		Application: app,
+	})
+
 	st, err := s.State.Resources()
 	c.Assert(err, jc.ErrorIsNil)
 
-	data := "ham"
+	setUnitResource := func(u *state.Unit) {
+		_, reader, err := st.OpenResourceForUniter(u, "spam")
+		c.Assert(err, jc.ErrorIsNil)
+		defer reader.Close()
+		_, err = ioutil.ReadAll(reader) // Need to read the content to set the resource for the unit.
+		c.Assert(err, jc.ErrorIsNil)
+	}
 
-	// Revision 2 is set for the application.
-	ts2 := time.Date(2016, 10, 2, 0, 0, 0, 0, time.UTC)
-	res2 := s.newResource(c, app.Name(), "spam", 2, ts2, data)
-	res2, err = st.SetResource(app.Name(), res2.Username, res2.Resource, bytes.NewBufferString(data))
+	const body = "ham"
+	const bodySize = int64(len(body))
+
+	// Initially set revision 1 for the application.
+	res1 := s.newResource(c, app.Name(), "spam", 1, body)
+	res1, err = st.SetResource(app.Name(), res1.Username, res1.Resource, bytes.NewBufferString(body))
 	c.Assert(err, jc.ErrorIsNil)
 
+	// Unit 1 gets revision 1.
+	setUnitResource(unit1)
+
+	// Now set revision 2 for the application.
+	res2 := s.newResource(c, app.Name(), "spam", 2, body)
+	res2, err = st.SetResource(app.Name(), res2.Username, res2.Resource, bytes.NewBufferString(body))
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Unit 2 gets revision 2.
+	setUnitResource(unit2)
+
 	// Revision 3 is in the charmstore.
-	res3 := resourcetesting.NewCharmResource(c, "spam", data)
+	res3 := resourcetesting.NewCharmResource(c, "spam", body)
 	res3.Revision = 3
 	err = st.SetCharmStoreResources(app.Name(), []charmresource.Resource{res3}, time.Now())
 	c.Assert(err, jc.ErrorIsNil)
@@ -1051,38 +1076,56 @@ func (s *MigrationExportSuite) TestResources(c *gc.C) {
 	c.Check(exResource.Revision(), gc.Equals, 2)
 	c.Check(exResource.CharmStoreRevision(), gc.Equals, 3)
 	exRevs := exResource.Revisions()
-	c.Assert(exRevs, gc.HasLen, 2)
+	c.Assert(exRevs, gc.HasLen, 3)
 
-	// Application revision.
-	exRev2 := exRevs[2]
-	c.Check(exRev2.Revision(), gc.Equals, 2)
-	c.Check(exRev2.Type(), gc.Equals, res2.Type.String())
-	c.Check(exRev2.Path(), gc.Equals, res2.Path)
-	c.Check(exRev2.Description(), gc.Equals, res2.Description)
-	c.Check(exRev2.Origin(), gc.Equals, res2.Origin.String())
-	c.Check(exRev2.FingerprintHex(), gc.Equals, res2.Fingerprint.Hex())
-	c.Check(exRev2.Size(), gc.Equals, res2.Size)
-	c.Check(exRev2.Timestamp().UTC(), gc.Equals, truncateDBTime(res2.Timestamp))
-	c.Check(exRev2.Username(), gc.Equals, res2.Username)
+	checkExRevBase := func(exRev description.ResourceRevision, res charmresource.Resource) {
+		c.Check(exRev.Revision(), gc.Equals, res.Revision)
+		c.Check(exRev.Type(), gc.Equals, res.Type.String())
+		c.Check(exRev.Path(), gc.Equals, res.Path)
+		c.Check(exRev.Description(), gc.Equals, res.Description)
+		c.Check(exRev.Origin(), gc.Equals, res.Origin.String())
+		c.Check(exRev.FingerprintHex(), gc.Equals, res.Fingerprint.Hex())
+		c.Check(exRev.Size(), gc.Equals, bodySize)
+	}
+
+	checkExRev := func(exRev description.ResourceRevision, res resource.Resource) {
+		checkExRevBase(exRev, res.Resource)
+		c.Check(exRev.Timestamp().UTC(), gc.Equals, truncateDBTime(res.Timestamp))
+		c.Check(exRev.Username(), gc.Equals, res.Username)
+	}
+
+	// Unit 1 revision.
+	checkExRev(exRevs[1], res1)
+
+	// Application and unit 2 revision.
+	checkExRev(exRevs[2], res2)
 
 	// Charmstore revision.
 	exRev3 := exRevs[3]
-	c.Check(exRev3.Revision(), gc.Equals, 3)
-	c.Check(exRev3.Type(), gc.Equals, res3.Type.String())
-	c.Check(exRev3.Path(), gc.Equals, res3.Path)
-	c.Check(exRev3.Description(), gc.Equals, res3.Description)
-	c.Check(exRev3.Origin(), gc.Equals, res3.Origin.String())
-	c.Check(exRev3.FingerprintHex(), gc.Equals, res3.Fingerprint.Hex())
-	c.Check(exRev3.Size(), gc.Equals, res3.Size)
+	checkExRevBase(exRev3, res3)
 	// These shouldn't be set for charmstore only revisions.
 	c.Check(exRev3.Timestamp(), gc.Equals, time.Time{})
 	c.Check(exRev3.Username(), gc.Equals, "")
+
+	// Now check the revisions against each unit.
+	units := exApp.Units()
+	c.Assert(units, gc.HasLen, 2)
+
+	checkUnitRes := func(exUnit description.Unit, unit *state.Unit, revision int) {
+		c.Assert(exUnit.Name(), gc.Equals, unit.Name())
+		resources := exUnit.Resources()
+		c.Assert(resources, gc.HasLen, 1)
+		resource := resources[0]
+		c.Check(resource.Name(), gc.Equals, "spam")
+		c.Check(resource.Revision(), gc.Equals, revision)
+	}
+	checkUnitRes(units[0], unit1, 1)
+	checkUnitRes(units[1], unit2, 2)
 }
 
-func (s *MigrationExportSuite) newResource(c *gc.C, appName, name string, revision int, ts time.Time, data string) resource.Resource {
-	opened := resourcetesting.NewResource(c, nil, name, appName, data)
+func (s *MigrationExportSuite) newResource(c *gc.C, appName, name string, revision int, body string) resource.Resource {
+	opened := resourcetesting.NewResource(c, nil, name, appName, body)
 	res := opened.Resource
 	res.Revision = revision
-	res.Timestamp = ts
 	return res
 }

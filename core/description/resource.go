@@ -12,11 +12,28 @@ import (
 
 // Resource represents an application resource.
 type Resource interface {
+	// Name returns the name of the resource.
 	Name() string
+
+	// Revision returns the revision of the resource as set on the
+	// application.
 	Revision() int
+
+	// CharmStoreRevision returns the revision the charmstore has, as
+	// seen at the last poll.
 	CharmStoreRevision() int
-	AddRevision(ResourceRevisionArgs) ResourceRevision
+
+	// AddRevision defines a revision of the resource. If the revision
+	// has already been added, the revision details will be merged
+	// with the details added before.
+	AddRevision(ResourceRevisionArgs) (ResourceRevision, error)
+
+	// Revisions returns a map of known revisions for the resource,
+	// indexed by the revision number.
 	Revisions() map[int]ResourceRevision
+
+	// Validate checks the consistency of the resource and its
+	// revisions.
 	Validate() error
 }
 
@@ -91,11 +108,11 @@ type ResourceRevisionArgs struct {
 }
 
 // AddRevision implements Resource.
-func (r *resource) AddRevision(args ResourceRevisionArgs) ResourceRevision {
-	var addTs *time.Time
-	if !args.Timestamp.IsZero() {
-		t := args.Timestamp.UTC()
-		addTs = &t
+func (r *resource) AddRevision(args ResourceRevisionArgs) (ResourceRevision, error) {
+	for _, rev := range r.Revisions_ {
+		if rev.Revision_ == args.Revision {
+			return rev.merge(args)
+		}
 	}
 	rev := &resourceRevision{
 		Revision_:       args.Revision,
@@ -105,11 +122,11 @@ func (r *resource) AddRevision(args ResourceRevisionArgs) ResourceRevision {
 		Origin_:         args.Origin,
 		FingerprintHex_: args.FingerprintHex,
 		Size_:           args.Size,
-		Timestamp_:      addTs,
+		Timestamp_:      timePtr(args.Timestamp),
 		Username_:       args.Username,
 	}
 	r.Revisions_ = append(r.Revisions_, rev)
-	return rev
+	return rev, nil
 }
 
 // Revisions implements Resource.
@@ -201,6 +218,70 @@ func (r *resourceRevision) Timestamp() time.Time {
 // Username implements ResourceRevision.
 func (r *resourceRevision) Username() string {
 	return r.Username_
+}
+
+func (r *resourceRevision) merge(args ResourceRevisionArgs) (*resourceRevision, error) {
+	// Check fields match where set.
+	mkErr := func(field string) error {
+		return errors.Errorf("%s mismatch for revision %d", field, args.Revision)
+	}
+	checkStr := func(field, a, b string) error {
+		if a != "" && b != "" && a != b {
+			return errors.Trace(mkErr(field))
+		}
+		return nil
+	}
+	if err := checkStr("description", args.Description, r.Description_); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if err := checkStr("type", args.Type, r.Type_); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if err := checkStr("path", args.Path, r.Path_); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if err := checkStr("origin", args.Origin, r.Origin_); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if err := checkStr("fingerprint", args.FingerprintHex, r.FingerprintHex_); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if args.Size > 0 && r.Size_ > 0 && args.Size != r.Size_ {
+		return nil, mkErr("size")
+	}
+	if !args.Timestamp.IsZero() && r.Timestamp_ != nil && args.Timestamp.UTC() != r.Timestamp() {
+		return nil, mkErr("timestamp")
+	}
+	if err := checkStr("username", args.Username, r.Username_); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// Now merge.
+	if args.Description != "" {
+		r.Description_ = args.Description
+	}
+	if args.Type != "" {
+		r.Type_ = args.Type
+	}
+	if args.Path != "" {
+		r.Path_ = args.Path
+	}
+	if args.Origin != "" {
+		r.Origin_ = args.Origin
+	}
+	if args.FingerprintHex != "" {
+		r.FingerprintHex_ = args.FingerprintHex
+	}
+	if args.Size != 0 {
+		r.Size_ = args.Size
+	}
+	if !args.Timestamp.IsZero() {
+		r.Timestamp_ = timePtr(args.Timestamp)
+	}
+	if args.Username != "" {
+		r.Username_ = args.Username
+	}
+	return r, nil
 }
 
 func importResources(source map[string]interface{}) ([]*resource, error) {
