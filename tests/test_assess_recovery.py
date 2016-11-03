@@ -11,6 +11,7 @@ from assess_recovery import (
     assess_recovery,
     check_token,
     delete_controller_members,
+    detect_bootstrap_machine,
     main,
     parse_args,
     restore_missing_state_server,
@@ -322,3 +323,31 @@ class TestCheckToken(TestCase):
                        side_effect=['1', '0']):
                 with self.assertRaises(JujuAssertionError):
                     check_token(client, 'foo')
+
+
+class TestDetectBootstrapMachine(TestCase):
+
+    def test_no_error(self):
+        fake_manager = object()
+        with detect_bootstrap_machine(fake_manager):
+            pass
+
+    def test_error_with_address(self):
+        fake_manager = Mock(spec_set=['known_hosts'])
+        fake_manager.known_hosts = {}
+        error = Exception('Attempting to connect to 127.0.0.1:22')
+        with self.assertRaises(Exception) as ctx:
+            with detect_bootstrap_machine(fake_manager):
+                raise error
+        self.assertIs(ctx.exception, error)
+        self.assertEqual(fake_manager.known_hosts, {'0': '127.0.0.1'})
+
+    def test_error_without_address(self):
+        fake_manager = Mock(spec_set=['known_hosts'])
+        fake_manager.known_hosts = {}
+        error = Exception('Some other error')
+        with self.assertRaises(Exception) as ctx:
+            with detect_bootstrap_machine(fake_manager):
+                raise error
+        self.assertIs(ctx.exception, error)
+        self.assertEqual(fake_manager.known_hosts, {})
