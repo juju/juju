@@ -26,6 +26,7 @@ from tests import (
     )
 from utility import (
     add_basic_testing_arguments,
+    allow_missing_file,
     as_literal_address,
     extract_deb,
     _find_candidates,
@@ -38,7 +39,6 @@ from utility import (
     quote,
     run_command,
     scoped_environ,
-    allow_missing_file,
     split_address_port,
     temp_dir,
     until_timeout,
