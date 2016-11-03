@@ -215,7 +215,7 @@ def make_client_from_args(args):
     if jes_enabled:
         client.env.juju_home = jes_home_path(client.env.juju_home,
                                              args.temp_env_name)
-    client.tear_down()
+    client.kill_controller()
     return client
 
 

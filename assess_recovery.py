@@ -151,7 +151,9 @@ def detect_bootstrap_machine(bs_manager):
     try:
         yield
     except Exception as e:
-        bs_manager.known_hosts['0'] = parse_new_state_server_from_error(e)
+        address = parse_new_state_server_from_error(e)
+        if address is not None:
+            bs_manager.known_hosts['0'] = address
         raise
 
 
