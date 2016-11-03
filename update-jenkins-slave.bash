@@ -45,8 +45,7 @@ update_branch lp:~juju-qa/+junk/cloud-city
 
 echo "Updating permissions"
 chown -R jenkins $HOME/cloud-city
-chmod -R go-w $HOME/cloud-city
-chmod 700 $HOME/cloud-city
+chmod -R go-rwx $HOME/cloud-city
 chmod 700 $HOME/cloud-city/gnupg
 chmod 600 $HOME/cloud-city/staging-juju-rsa
 
