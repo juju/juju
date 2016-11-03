@@ -10,7 +10,11 @@ import (
 
 // UnitResource represents the revision of a resource used by a unit.
 type UnitResource interface {
+	// Name returns the name of the resource.
 	Name() string
+
+	// Revision returns the revision of the resource as used by a
+	// particular unit.
 	Revision() int
 }
 

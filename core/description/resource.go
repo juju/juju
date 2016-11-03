@@ -12,11 +12,28 @@ import (
 
 // Resource represents an application resource.
 type Resource interface {
+	// Name returns the name of the resource.
 	Name() string
+
+	// Revision returns the revision of the resource as set on the
+	// application.
 	Revision() int
+
+	// CharmStoreRevision returns the revision the charmstore has, as
+	// seen at the last poll.
 	CharmStoreRevision() int
+
+	// AddRevision defines a revision of the resource. If the revision
+	// has already been added, the revision details will be merged
+	// with the details added before.
 	AddRevision(ResourceRevisionArgs) (ResourceRevision, error)
+
+	// Revisions returns a map of known revisions for the resource,
+	// indexed by the revision number.
 	Revisions() map[int]ResourceRevision
+
+	// Validate checks the consistency of the resource and its
+	// revisions.
 	Validate() error
 }
 
