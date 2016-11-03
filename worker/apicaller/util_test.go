@@ -4,6 +4,8 @@
 package apicaller_test
 
 import (
+	"time"
+
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -187,7 +189,10 @@ func openCalls(model names.ModelTag, entity names.Tag, passwords ...string) []te
 		}
 		calls[i] = testing.StubCall{
 			FuncName: "apiOpen",
-			Args:     []interface{}{info, api.DialOpts{}},
+			Args: []interface{}{info, api.DialOpts{
+				Timeout:    time.Second,
+				RetryDelay: 200 * time.Millisecond,
+			}},
 		}
 	}
 	return calls
