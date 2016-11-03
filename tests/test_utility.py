@@ -1,7 +1,7 @@
 from argparse import (
     ArgumentParser,
     Namespace,
-)
+    )
 from datetime import (
     datetime,
     timedelta,
@@ -23,7 +23,7 @@ from mock import (
 
 from tests import (
     TestCase,
-)
+    )
 from utility import (
     add_basic_testing_arguments,
     as_literal_address,

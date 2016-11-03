@@ -4,6 +4,8 @@ import re
 import subprocess
 import yaml
 
+import utility
+
 
 class NoSuchEnvironment(Exception):
     """Raised when a specified environment does not exist."""
@@ -56,12 +58,9 @@ def get_jenv_path(juju_home, name):
 
 def get_jenv_config(home, environment):
     single_name = get_jenv_path(home, environment)
-    try:
+    with utility.allow_missing_file():
         with open(single_name) as env:
             return yaml.safe_load(env)['bootstrap-config']
-    except IOError as e:
-        if e.errno != errno.ENOENT:
-            raise
 
 
 def get_environments():

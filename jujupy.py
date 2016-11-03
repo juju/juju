@@ -31,6 +31,7 @@ from jujuconfig import (
     get_selected_environment,
     )
 from utility import (
+    allow_missing_file,
     check_free_disk_space,
     ensure_deleted,
     ensure_dir,
@@ -386,18 +387,15 @@ class SimpleEnvironment:
         :param new_config: Dictionary representing the contents of
             the environments.yaml configuation file."""
         home_path = jes_home_path(juju_home, dir_name)
-        if os.path.exists(home_path):
+        with allow_missing_file():
             shutil.rmtree(home_path)
         os.makedirs(home_path)
         self.dump_yaml(home_path, new_config)
         # For extention: Add all files carried over to the list.
         for file_name in ['public-clouds.yaml']:
             src_path = os.path.join(juju_home, file_name)
-            try:
+            with allow_missing_file():
                 shutil.copy(src_path, home_path)
-            except IOError as error:
-                if error.errno != errno.ENOENT:
-                    raise
         yield home_path
 
     def get_cloud_credentials(self):
@@ -2972,11 +2970,8 @@ def temp_bootstrap_env(juju_home, client, set_home=True, permanent=False):
                     if e.errno != errno.ENOENT:
                         raise
                     # Remove dangling symlink
-                    try:
+                    with allow_missing_file():
                         os.unlink(jenv_path)
-                    except OSError as e:
-                        if e.errno != errno.ENOENT:
-                            raise
                 client.env.juju_home = old_juju_home
 
 
