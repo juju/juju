@@ -262,6 +262,9 @@ class SimpleEnvironment:
             self.maas = False
             self.joyent = False
 
+    def get_option(self, key, default=None):
+        return self.config.get(key, default)
+
     def update_config(self, new_config):
         for key, value in new_config.items():
             if key == 'region':
@@ -294,7 +297,7 @@ class SimpleEnvironment:
             matcher = re.compile('https://(.*).api.joyentcloud.com')
             return matcher.match(self.config['sdc-url']).group(1)
         elif provider == 'lxd':
-            return 'localhost'
+            return self.config.get('region', 'localhost')
         elif provider == 'manual':
             return self.config['bootstrap-host']
         elif provider in ('maas', 'manual'):
@@ -312,9 +315,6 @@ class SimpleEnvironment:
         elif provider == 'joyent':
             self.config['sdc-url'] = (
                 'https://{}.api.joyentcloud.com'.format(region))
-        elif provider == 'lxd':
-            if region != 'localhost':
-                raise ValueError('Only "localhost" allowed for lxd.')
         elif provider == 'manual':
             self.config['bootstrap-host'] = region
         elif provider == 'maas':
@@ -679,6 +679,30 @@ class Status1X(Status):
 
     def get_applications(self):
         return self.status.get('services', {})
+
+
+def describe_substrate(env):
+    if env.provider == 'local':
+        return {
+            'kvm': 'KVM (local)',
+            'lxc': 'LXC (local)'
+        }[env.get_option('container', 'lxc')]
+    elif env.provider == 'openstack':
+        if env.get_option('auth-url') == (
+                'https://keystone.canonistack.canonical.com:443/v2.0/'):
+            return 'Canonistack'
+        else:
+            return 'Openstack'
+    try:
+        return {
+            'ec2': 'AWS',
+            'rackspace': 'Rackspace',
+            'joyent': 'Joyent',
+            'azure': 'Azure',
+            'maas': 'MAAS',
+        }[env.provider]
+    except KeyError:
+        return env.provider
 
 
 class Juju2Backend:
@@ -2562,7 +2586,7 @@ class EnvJujuClient1X(EnvJujuClientRC):
         if upload_tools:
             args = ('--upload-tools',) + args
         if bootstrap_series is not None:
-            env_val = self.env.config.get('default-series')
+            env_val = self.env.get_option('default-series')
             if bootstrap_series != env_val:
                 raise BootstrapMismatch(
                     'bootstrap-series', bootstrap_series, 'default-series',
@@ -2849,7 +2873,7 @@ def uniquify_local(env):
     }
     new_config = {}
     for key, default in port_defaults.items():
-        new_config[key] = env.config.get(key, default) + 1
+        new_config[key] = env.get_option(key, default) + 1
     env.update_config(new_config)
 
 

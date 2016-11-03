@@ -729,7 +729,7 @@ class DeployManyAttempt(SteppedStageAttempt):
                 application = 'ubuntu{}x{}'.format(machine_name, container)
                 # Work around bug #1540900: juju deploy ignores model
                 # default-series
-                series = client.env.config['default-series']
+                series = client.env.get_option('default-series')
                 client.deploy('ubuntu', service=application, to=target,
                               series=series)
                 application_names.append(application)

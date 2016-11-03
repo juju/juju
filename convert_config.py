@@ -20,8 +20,9 @@ def write_new_config(env, out):
     out.write('# cloud/region: {}\n'.format(client.get_cloud_region(
         client.env.get_cloud(), client.env.get_region())))
     config = client.make_model_config()
-    if 'agent-version' in env.config:
-        config['agent-version'] = env.config['agent-version']
+    agent_version = env.get_option('agent-version')
+    if agent_version is not None:
+        config['agent-version'] = agent_version
     else:
         config.pop('agent-version', None)
     yaml.dump(config, out, default_flow_style=False)
