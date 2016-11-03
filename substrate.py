@@ -78,9 +78,9 @@ class AWSAccount:
 
     @classmethod
     @contextmanager
-    def manager_from_config(cls, env, region=None):
-        """Create an AWSAccount from a juju environment dict."""
-        config = get_config(env)
+    def from_boot_config(cls, boot_config, region=None):
+        """Create an AWSAccount from a SimpleEnvironment or JujuData."""
+        config = get_config(boot_config)
         euca_environ = get_euca_env(config)
         if region is None:
             region = config["region"]
@@ -171,9 +171,9 @@ class OpenStackAccount:
 
     @classmethod
     @contextmanager
-    def manager_from_config(cls, env):
-        """Create an OpenStackAccount from a juju environment dict."""
-        config = get_config(env)
+    def from_boot_config(cls, boot_config):
+        """Create an OpenStackAccount from a SimpleEnvironment or JujuData."""
+        config = get_config(boot_config)
         yield cls(
             config['username'], config['password'], config['tenant-name'],
             config['auth-url'], config['region'])
@@ -228,15 +228,15 @@ class JoyentAccount:
 
     @classmethod
     @contextmanager
-    def manager_from_config(cls, env):
+    def from_boot_config(cls, boot_config):
         """Create a ContextManager for a JoyentAccount.
 
-         Using a juju environment dict, the private key is written to a
-         tmp file. Then, the Joyent client is inited with the path to the
+         Using a SimpleEnvironment or JujuData, the private key is written to
+         a tmp file. Then, the Joyent client is inited with the path to the
          tmp key. The key is removed when done.
          """
         from joyent import Client
-        config = get_config(env)
+        config = get_config(boot_config)
         with temp_dir() as key_dir:
             key_path = os.path.join(key_dir, 'joyent.key')
             open(key_path, 'w').write(config['private-key'])
@@ -288,7 +288,7 @@ def convert_to_azure_ids(client, instance_ids):
         # Juju 1.x reports the true vm instance-id.
         return instance_ids
     else:
-        with AzureARMAccount.manager_from_config(
+        with AzureARMAccount.from_boot_config(
                 client.env) as substrate:
             return substrate.convert_to_azure_ids(client, instance_ids)
 
@@ -305,13 +305,13 @@ class AzureARMAccount:
 
     @classmethod
     @contextmanager
-    def manager_from_config(cls, env):
+    def from_boot_config(cls, boot_config):
         """A context manager for a Azure RM account.
 
-        In the case of the Juju 1x, the ARM keys must be in the env's config.
-        subscription_id is the same. The PEM for the SMS is ignored.
+        In the case of the Juju 1x, the ARM keys must be in the boot_config's
+        config.  subscription_id is the same. The PEM for the SMS is ignored.
         """
-        config = get_config(env)
+        config = get_config(boot_config)
         arm_client = winazurearm.ARMClient(
             config['subscription-id'], config['application-id'],
             config['application-password'], config['tenant-id'])
@@ -357,14 +357,14 @@ class AzureAccount:
 
     @classmethod
     @contextmanager
-    def manager_from_config(cls, env):
+    def from_boot_config(cls, boot_config):
         """A context manager for a AzureAccount.
 
         It writes the certificate to a temp file because the Azure client
         library requires it, then deletes the temp file when done.
         """
         from azure.servicemanagement import ServiceManagementService
-        config = get_config(env)
+        config = get_config(boot_config)
         with temp_dir() as cert_dir:
             cert_file = os.path.join(cert_dir, 'azure.pem')
             open(cert_file, 'w').write(config['management-certificate'])
@@ -679,9 +679,9 @@ class LXDAccount:
 
     @classmethod
     @contextmanager
-    def manager_from_config(cls, env):
+    def from_boot_config(cls, boot_config):
         """Create a ContextManager for a LXDAccount."""
-        config = get_config(env)
+        config = get_config(boot_config)
         remote = config.get('region', None)
         yield cls(remote=remote)
 
@@ -694,27 +694,27 @@ class LXDAccount:
             subprocess.check_call(['lxc', 'delete', '--force', instance_id])
 
 
-def get_config(env):
-    config = deepcopy(env.config)
-    config.update(env.get_cloud_credentials())
+def get_config(boot_config):
+    config = deepcopy(boot_config.config)
+    config.update(boot_config.get_cloud_credentials())
     return config
 
 
 @contextmanager
-def make_substrate_manager(env):
+def make_substrate_manager(boot_config):
     """A ContextManager that returns an Account for the config's substrate.
 
     Returns None if the substrate is not supported.
     """
-    config = get_config(env)
+    config = get_config(boot_config)
     substrate_factory = {
-        'ec2': AWSAccount.manager_from_config,
-        'openstack': OpenStackAccount.manager_from_config,
-        'rackspace': OpenStackAccount.manager_from_config,
-        'joyent': JoyentAccount.manager_from_config,
-        'azure': AzureAccount.manager_from_config,
-        'azure-arm': AzureARMAccount.manager_from_config,
-        'lxd': LXDAccount.manager_from_config,
+        'ec2': AWSAccount.from_boot_config,
+        'openstack': OpenStackAccount.from_boot_config,
+        'rackspace': OpenStackAccount.from_boot_config,
+        'joyent': JoyentAccount.from_boot_config,
+        'azure': AzureAccount.from_boot_config,
+        'azure-arm': AzureARMAccount.from_boot_config,
+        'lxd': LXDAccount.from_boot_config,
     }
     substrate_type = config['type']
     if substrate_type == 'azure' and 'application-id' in config:
@@ -723,7 +723,7 @@ def make_substrate_manager(env):
     if factory is None:
         yield None
     else:
-        with factory(env) as substrate:
+        with factory(boot_config) as substrate:
             yield substrate
 
 
