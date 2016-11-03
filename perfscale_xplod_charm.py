@@ -66,7 +66,8 @@ def add_multiple_units(client, args):
         total_seconds = int((after_add - before_add).total_seconds())
 
         total_units += additional_amount
-        unit_deploys['unit-{}'.format(total_units)] = total_seconds
+        unit_deploys['unit-{}'.format(total_units)] = '{} Seconds'.format(
+            total_seconds)
     return unit_deploys
 
 

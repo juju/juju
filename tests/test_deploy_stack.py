@@ -1850,13 +1850,6 @@ class TestBootContext(FakeHomeTestCase):
         super(TestBootContext, self).setUp()
         self.addContext(patch('sys.stdout'))
 
-    def addContext(self, cxt):
-        """Enter context manager for the remainder of the test, then leave.
-
-        :return: The value emitted by cxt.__enter__.
-        """
-        return use_context(self, cxt)
-
     @contextmanager
     def bc_context(self, client, log_dir=None, jes=None, keep_env=False):
         dal_mock = self.addContext(
