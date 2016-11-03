@@ -17,19 +17,17 @@ update_branch() {
 
 get_os() {
     # Get the to OS name: ubuntu, darwin, linux, unknown.
-    set +x
     local_uname=$(uname -a)
-    if echo "$local_uname" | grep -qi "ubuntu"; then
+    if [[ "$local_uname" =~ ^.*Ubuntu.*$ ]]; then
         echo "ubuntu"
-    elif echo "$local_uname" | grep -qi "darwin"; then
+    elif [[ "$local_uname" =~ ^.*Darwin.*$ ]]; then
         echo "darwin"
-    elif echo "$local_uname" | grep -qi "linux"; then
+    elif [[ "$local_uname" =~ ^.*Linux.*$ ]]; then
         # Probably CentOS.
         echo "linux"
     else
         echo "unknown"
     fi
-    set -x
 }
 
 
