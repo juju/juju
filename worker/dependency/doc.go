@@ -10,7 +10,6 @@ a distributed system that needs to be very fault-tolerant) handle them clearly
 and sanely.
 
 Background
-----------
 
 A cursory examination of the various workers run in juju agents (as of 2015-04-20)
 reveals a distressing range of approaches to the shared resource problem. A
@@ -80,7 +79,6 @@ very risky re: clarity.
 
 
 Problem
--------
 
 The package is intended to implement the following developer stories:
 
@@ -131,7 +129,6 @@ engine-nesting approach.
 
 
 Solution
---------
 
 Run a single dependency.Engine at the top level of each agent; express every
 shared resource, and every worker that uses one, as a dependency.Manifold; and
@@ -159,7 +156,6 @@ thought.
 
 
 Usage
------
 
 In each worker package, write a `manifold.go` containing the following:
 
@@ -220,7 +216,6 @@ or on both.
 
 
 Testing
--------
 
 The `worker/dependency/testing` package, commonly imported as "dt", exposes a
 `StubResource` that is helpful for testing `Start` funcs in decent isolation,
@@ -230,7 +225,6 @@ generalisation.
 
 
 Special considerations
-----------------------
 
 The nodes in your *dependency* graph must be acyclic; this does not imply that
 the *information flow* must be acyclic. Indeed, it is common for separate
@@ -258,15 +252,12 @@ when working with locks still apply.
 
 
 Concerns and mitigations thereof
---------------------------------
 
 The dependency package will *not* provide the following features:
 
   * Deterministic worker startup. As above, this is a blessing in disguise: if
     your workers have a problem with this, they're using magical undeclared
     dependencies and we get to see the inevitable bugs sooner.
-    TODO(fwereade): we should add fuzz to the bounce and restart durations to
-    more vigorously shake out the bugs...
   * Hand-holding for developers writing Output funcs; the onus is on you to
     document what you expose; produce useful error messages when they supplied
     with unexpected types via the interface{} param; and NOT to panic. The onus
