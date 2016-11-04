@@ -26,8 +26,10 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/goose.v1/client"
 	"gopkg.in/goose.v1/identity"
+	"gopkg.in/goose.v1/neutron"
 	"gopkg.in/goose.v1/nova"
 	"gopkg.in/goose.v1/testservices/hook"
+	"gopkg.in/goose.v1/testservices/neutronservice"
 	"gopkg.in/goose.v1/testservices/novaservice"
 	"gopkg.in/goose.v1/testservices/openstackservice"
 
@@ -105,19 +107,18 @@ func registerLocalTests() {
 type localServer struct {
 	Openstack       *openstackservice.Openstack
 	Nova            *novaservice.Nova
+	Neutron         *neutronservice.Neutron
 	restoreTimeouts func()
 	UseTLS          bool
 }
 
-type newOpenstackFunc func(*identity.Credentials, identity.AuthMode, bool) (*openstackservice.Openstack, []string)
+type newOpenstackFunc func(*identity.Credentials, identity.AuthMode, bool) (*novaservice.Nova, *neutronservice.Neutron, []string)
 
 func (s *localServer) start(
 	c *gc.C, cred *identity.Credentials, newOpenstackFunc newOpenstackFunc,
 ) {
 	var logMsg []string
-	s.Openstack, logMsg = newOpenstackFunc(cred, identity.AuthUserPass, s.UseTLS)
-	s.Openstack.SetupHTTP(nil)
-	s.Nova = s.Openstack.Nova
+	s.Nova, s.Neutron, logMsg = newOpenstackFunc(cred, identity.AuthUserPass, s.UseTLS)
 	for _, msg := range logMsg {
 		c.Logf("%v", msg)
 	}
@@ -134,7 +135,11 @@ func (s *localServer) start(
 }
 
 func (s *localServer) stop() {
-	s.Openstack.Stop()
+	if s.Openstack != nil {
+		s.Openstack.Stop()
+	} else if s.Nova != nil {
+		s.Nova.Stop()
+	}
 	s.restoreTimeouts()
 }
 
@@ -155,7 +160,7 @@ func (s *localLiveSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
 
 	c.Logf("Running live tests using openstack service test double")
-	s.srv.start(c, s.cred, openstackservice.New)
+	s.srv.start(c, s.cred, newFullOpenstackService)
 
 	// Set credentials to use when bootstrapping. Must be done after
 	// starting server to get the auth URL.
@@ -212,7 +217,7 @@ func (s *localServerSuite) SetUpSuite(c *gc.C) {
 
 func (s *localServerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.srv.start(c, s.cred, openstackservice.New)
+	s.srv.start(c, s.cred, newFullOpenstackService)
 
 	// Set credentials to use when bootstrapping. Must be done after
 	// starting server to get the auth URL.
@@ -285,7 +290,7 @@ func (s *localServerSuite) TestStartStop(c *gc.C) {
 func (s *localServerSuite) TestBootstrapFailsWhenPublicIPError(c *gc.C) {
 	coretesting.SkipIfPPC64EL(c, "lp:1425242")
 
-	cleanup := s.srv.Nova.RegisterControlPoint(
+	cleanup := s.srv.Neutron.RegisterControlPoint(
 		"addFloatingIP",
 		func(sc hook.ServiceControl, args ...interface{}) error {
 			return fmt.Errorf("failed on purpose")
@@ -363,7 +368,7 @@ func (s *localServerSuite) TestAddressesWithoutPublicIP(c *gc.C) {
 // bootstrapping and starting an instance should occur without any attempt to
 // allocate a public address.
 func (s *localServerSuite) TestStartInstanceWithoutPublicIP(c *gc.C) {
-	cleanup := s.srv.Nova.RegisterControlPoint(
+	cleanup := s.srv.Neutron.RegisterControlPoint(
 		"addFloatingIP",
 		func(sc hook.ServiceControl, args ...interface{}) error {
 			return fmt.Errorf("add floating IP should not have been called")
@@ -424,8 +429,23 @@ func (s *localServerSuite) TestInstanceName(c *gc.C) {
 
 func (s *localServerSuite) TestStartInstanceNetwork(c *gc.C) {
 	cfg, err := s.env.Config().Apply(coretesting.Attrs{
-		// A label that corresponds to a nova test service network
+		// A label that corresponds to a neutron test service network
 		"network": "net",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.env.SetConfig(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	inst, _ := testing.AssertStartInstance(c, s.env, s.ControllerUUID, "100")
+	err = s.env.StopInstances(inst.Id())
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *localServerSuite) TestStartInstanceExternalNetwork(c *gc.C) {
+	cfg, err := s.env.Config().Apply(coretesting.Attrs{
+		// A label that corresponds to a neutron test service external network
+		"external-network": "ext-net",
+		"use-floating-ip": true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.env.SetConfig(cfg)
@@ -438,7 +458,7 @@ func (s *localServerSuite) TestStartInstanceNetwork(c *gc.C) {
 
 func (s *localServerSuite) TestStartInstanceNetworkUnknownLabel(c *gc.C) {
 	cfg, err := s.env.Config().Apply(coretesting.Attrs{
-		// A label that has no related network in the nova test service
+		// A label that has no related network in the neutron test service
 		"network": "no-network-with-this-label",
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -448,6 +468,21 @@ func (s *localServerSuite) TestStartInstanceNetworkUnknownLabel(c *gc.C) {
 	inst, _, _, err := testing.StartInstance(s.env, s.ControllerUUID, "100")
 	c.Check(inst, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "No networks exist with label .*")
+}
+
+func (s *localServerSuite) TestStartInstanceExternalNetworkUnknownLabel(c *gc.C) {
+	cfg, err := s.env.Config().Apply(coretesting.Attrs{
+		// A label that has no related network in the neutron test service
+		"external-network": "no-network-with-this-label",
+		"use-floating-ip": true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.env.SetConfig(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	inst, _, _, err := testing.StartInstance(s.env, s.ControllerUUID, "100")
+	err = s.env.StopInstances(inst.Id())
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *localServerSuite) TestStartInstanceNetworkUnknownId(c *gc.C) {
@@ -468,8 +503,8 @@ func (s *localServerSuite) TestStartInstanceNetworkUnknownId(c *gc.C) {
 }
 
 func assertSecurityGroups(c *gc.C, env environs.Environ, expected []string) {
-	novaClient := openstack.GetNovaClient(env)
-	groups, err := novaClient.ListSecurityGroups()
+	neutronClient := openstack.GetNeutronClient(env)
+	groups, err := neutronClient.ListSecurityGroupsV2()
 	c.Assert(err, jc.ErrorIsNil)
 	for _, name := range expected {
 		found := false
@@ -536,7 +571,7 @@ func (s *localServerSuite) TestStopInstanceSecurityGroupNotDeleted(c *gc.C) {
 	coretesting.SkipIfPPC64EL(c, "lp:1425242")
 
 	// Force an error when a security group is deleted.
-	cleanup := s.srv.Nova.RegisterControlPoint(
+	cleanup := s.srv.Neutron.RegisterControlPoint(
 		"removeSecurityGroup",
 		func(sc hook.ServiceControl, args ...interface{}) error {
 			return fmt.Errorf("failed on purpose")
@@ -717,7 +752,7 @@ func (s *localServerSuite) TestAllInstancesFloatingIP(c *gc.C) {
 	insts, err := env.AllInstances()
 	c.Assert(err, jc.ErrorIsNil)
 	for _, inst := range insts {
-		c.Assert(openstack.InstanceFloatingIP(inst).IP, gc.Equals, fmt.Sprintf("10.0.0.%v", inst.Id()))
+		c.Assert(*openstack.InstanceFloatingIP(inst), gc.Equals, fmt.Sprintf("10.0.0.%v", inst.Id()))
 	}
 }
 
@@ -755,7 +790,7 @@ func (s *localServerSuite) assertInstancesGathering(c *gc.C, withFloatingIP bool
 			if ids[j] != "" {
 				c.Assert(inst.Id(), gc.Equals, ids[j])
 				if withFloatingIP {
-					c.Assert(openstack.InstanceFloatingIP(inst).IP, gc.Equals, fmt.Sprintf("10.0.0.%v", inst.Id()))
+					c.Assert(*openstack.InstanceFloatingIP(inst), gc.Equals, fmt.Sprintf("10.0.0.%v", inst.Id()))
 				} else {
 					c.Assert(openstack.InstanceFloatingIP(inst), gc.IsNil)
 				}
@@ -1162,19 +1197,28 @@ func (s *localServerSuite) TestImageMetadataSourceOrder(c *gc.C) {
 // TestEnsureGroup checks that when creating a duplicate security group, the existing group is
 // returned and the existing rules have been left as is.
 func (s *localServerSuite) TestEnsureGroup(c *gc.C) {
-	rule := []nova.RuleInfo{
+	rule := []neutron.RuleInfoV2{
 		{
-			IPProtocol: "tcp",
-			FromPort:   22,
-			ToPort:     22,
+			Direction:    "ingress",
+			IPProtocol:   "tcp",
+			PortRangeMin: 22,
+			PortRangeMax: 22,
 		},
 	}
 
-	assertRule := func(group nova.SecurityGroup) {
-		c.Check(len(group.Rules), gc.Equals, 1)
-		c.Check(*group.Rules[0].IPProtocol, gc.Equals, "tcp")
-		c.Check(*group.Rules[0].FromPort, gc.Equals, 22)
-		c.Check(*group.Rules[0].ToPort, gc.Equals, 22)
+	assertRule := func(group neutron.SecurityGroupV2) {
+		c.Check(len(group.Rules), gc.Equals, 3)
+		for _, r := range group.Rules {
+			// Ignore the 2 default egress rules for each new
+			// security group created by Neutron
+			if r.Direction == "egress" {
+				continue
+			}
+			c.Check(r.Direction, gc.Equals, "ingress")
+			c.Check(*r.IPProtocol, gc.Equals, "tcp")
+			c.Check(*r.PortRangeMin, gc.Equals, 22)
+			c.Check(*r.PortRangeMax, gc.Equals, 22)
+		}
 	}
 
 	group, err := openstack.EnsureGroup(s.env, "test group", rule)
@@ -1183,14 +1227,7 @@ func (s *localServerSuite) TestEnsureGroup(c *gc.C) {
 	assertRule(group)
 	id := group.Id
 	// Do it again and check that the existing group is returned.
-	anotherRule := []nova.RuleInfo{
-		{
-			IPProtocol: "tcp",
-			FromPort:   1,
-			ToPort:     65535,
-		},
-	}
-	group, err = openstack.EnsureGroup(s.env, "test group", anotherRule)
+	group, err = openstack.EnsureGroup(s.env, "test group", rule)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(group.Id, gc.Equals, id)
 	c.Assert(group.Name, gc.Equals, "test group")
@@ -1248,7 +1285,7 @@ func (s *localHTTPSServerSuite) SetUpTest(c *gc.C) {
 		TenantName: "some tenant",
 	}
 	// Note: start() will change cred.URL to point to s.srv.Server.URL
-	s.srv.start(c, cred, openstackservice.New)
+	s.srv.start(c, cred, newFullOpenstackService)
 	s.cred = cred
 	attrs := s.createConfigAttrs(c)
 	c.Assert(attrs["auth-url"].(string)[:8], gc.Equals, "https://")
@@ -1865,7 +1902,7 @@ func (s *noSwiftSuite) SetUpTest(c *gc.C) {
 		Region:     "some-region",
 		TenantName: "some tenant",
 	}
-	s.srv.start(c, s.cred, openstackservice.NewNoSwift)
+	s.srv.start(c, s.cred, newNovaOnlyOpenstackService)
 
 	attrs := coretesting.FakeConfig().Merge(coretesting.Attrs{
 		"name":            "sample-no-swift",
@@ -1913,6 +1950,20 @@ func (s *noSwiftSuite) TestBootstrap(c *gc.C) {
 		CAPrivateKey:     coretesting.CAKey,
 	})
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func newFullOpenstackService(cred *identity.Credentials, auth identity.AuthMode, useTSL bool) (*novaservice.Nova, *neutronservice.Neutron, []string) {
+	service, logMsg := openstackservice.New(cred, auth, useTSL)
+	service.UseNeutronNetworking()
+	service.SetupHTTP(nil)
+	return service.Nova, service.Neutron, logMsg
+}
+
+func newNovaOnlyOpenstackService(cred *identity.Credentials, auth identity.AuthMode, useTSL bool) (*novaservice.Nova, *neutronservice.Neutron, []string) {
+	service, logMsg := openstackservice.NewNoSwift(cred, auth, useTSL)
+	service.UseNeutronNetworking()
+	service.SetupHTTP(nil)
+	return service.Nova, service.Neutron, logMsg
 }
 
 func bootstrapEnv(c *gc.C, env environs.Environ) error {

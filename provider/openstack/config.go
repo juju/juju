@@ -25,12 +25,17 @@ var configSchema = environschema.Fields{
 		Description: "The network label or UUID to bring machines up on when multiple networks exist.",
 		Type:        environschema.Tstring,
 	},
+	"external-network": {
+		Description: "The network label or UUID to create floating IP addresses on when multiple external networks exist.",
+		Type:        environschema.Tstring,
+	},
 }
 
 var configDefaults = schema.Defaults{
 	"use-floating-ip":      false,
 	"use-default-secgroup": false,
 	"network":              "",
+	"external-network":     "",
 }
 
 var configFields = func() schema.Fields {
@@ -56,6 +61,10 @@ func (c *environConfig) useDefaultSecurityGroup() bool {
 
 func (c *environConfig) network() string {
 	return c.attrs["network"].(string)
+}
+
+func (c *environConfig) externalNetwork() string {
+	return c.attrs["external-network"].(string)
 }
 
 type AuthMode string

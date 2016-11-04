@@ -9,6 +9,7 @@ import (
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/goose.v1/neutron"
 	"gopkg.in/goose.v1/nova"
 
 	"github.com/juju/juju/cloud"
@@ -42,125 +43,125 @@ var addressTests = []struct {
 	expected: "",
 }, {
 	summary:  "private IPv4 only",
-	private:  []nova.IPAddress{{4, "192.168.0.1"}},
+	private:  []nova.IPAddress{{4, "192.168.0.1", "fixed"}},
 	networks: []string{"private"},
 	expected: "192.168.0.1",
 }, {
 	summary:  "private IPv6 only",
-	private:  []nova.IPAddress{{6, "fc00::1"}},
+	private:  []nova.IPAddress{{6, "fc00::1", "fixed"}},
 	networks: []string{"private"},
 	expected: "fc00::1",
 }, {
 	summary:  "private only, both IPv4 and IPv6",
-	private:  []nova.IPAddress{{4, "192.168.0.1"}, {6, "fc00::1"}},
+	private:  []nova.IPAddress{{4, "192.168.0.1", "fixed"}, {6, "fc00::1", "fixed"}},
 	networks: []string{"private"},
 	expected: "192.168.0.1",
 }, {
 	summary:  "private IPv4 plus (what HP cloud used to do)",
-	private:  []nova.IPAddress{{4, "10.0.0.1"}, {4, "8.8.4.4"}},
+	private:  []nova.IPAddress{{4, "10.0.0.1", "fixed"}, {4, "8.8.4.4", "fixed"}},
 	networks: []string{"private"},
 	expected: "8.8.4.4",
 }, {
 	summary:  "public IPv4 only",
-	public:   []nova.IPAddress{{4, "8.8.8.8"}},
+	public:   []nova.IPAddress{{4, "8.8.8.8", "floating"}},
 	networks: []string{"", "public"},
 	expected: "8.8.8.8",
 }, {
 	summary:  "public IPv6 only",
-	public:   []nova.IPAddress{{6, "2001:db8::1"}},
+	public:   []nova.IPAddress{{6, "2001:db8::1", "floating"}},
 	networks: []string{"", "public"},
 	expected: "2001:db8::1",
 }, {
 	summary:  "public only, both IPv4 and IPv6",
-	public:   []nova.IPAddress{{4, "8.8.8.8"}, {6, "2001:db8::1"}},
+	public:   []nova.IPAddress{{4, "8.8.8.8", "floating"}, {6, "2001:db8::1", "floating"}},
 	networks: []string{"", "public"},
 	expected: "8.8.8.8",
 }, {
 	summary:  "public and private both IPv4",
-	private:  []nova.IPAddress{{4, "10.0.0.4"}},
-	public:   []nova.IPAddress{{4, "8.8.4.4"}},
+	private:  []nova.IPAddress{{4, "10.0.0.4", "fixed"}},
+	public:   []nova.IPAddress{{4, "8.8.4.4", "floating"}},
 	networks: []string{"private", "public"},
 	expected: "8.8.4.4",
 }, {
 	summary:  "public and private both IPv6",
-	private:  []nova.IPAddress{{6, "fc00::1"}},
-	public:   []nova.IPAddress{{6, "2001:db8::1"}},
+	private:  []nova.IPAddress{{6, "fc00::1", "fixed"}},
+	public:   []nova.IPAddress{{6, "2001:db8::1", "floating"}},
 	networks: []string{"private", "public"},
 	expected: "2001:db8::1",
 }, {
 	summary:  "public, private, and localhost IPv4",
-	private:  []nova.IPAddress{{4, "127.0.0.4"}, {4, "192.168.0.1"}},
-	public:   []nova.IPAddress{{4, "8.8.8.8"}},
+	private:  []nova.IPAddress{{4, "127.0.0.4", "fixed"}, {4, "192.168.0.1", "fixed"}},
+	public:   []nova.IPAddress{{4, "8.8.8.8", "floating"}},
 	networks: []string{"private", "public"},
 	expected: "8.8.8.8",
 }, {
 	summary:  "public, private, and localhost IPv6",
-	private:  []nova.IPAddress{{6, "::1"}, {6, "fc00::1"}},
-	public:   []nova.IPAddress{{6, "2001:db8::1"}},
+	private:  []nova.IPAddress{{6, "::1", "fixed"}, {6, "fc00::1", "fixed"}},
+	public:   []nova.IPAddress{{6, "2001:db8::1", "floating"}},
 	networks: []string{"private", "public"},
 	expected: "2001:db8::1",
 }, {
 	summary:  "public, private, and localhost - both IPv4 and IPv6",
-	private:  []nova.IPAddress{{4, "127.0.0.4"}, {4, "192.168.0.1"}, {6, "::1"}, {6, "fc00::1"}},
-	public:   []nova.IPAddress{{4, "8.8.8.8"}, {6, "2001:db8::1"}},
+	private:  []nova.IPAddress{{4, "127.0.0.4", "fixed"}, {4, "192.168.0.1", "fixed"}, {6, "::1", "fixed"}, {6, "fc00::1", "fixed"}},
+	public:   []nova.IPAddress{{4, "8.8.8.8", "floating"}, {6, "2001:db8::1", "floating"}},
 	networks: []string{"private", "public"},
 	expected: "8.8.8.8",
 }, {
 	summary:  "custom only IPv4",
-	private:  []nova.IPAddress{{4, "192.168.0.1"}},
+	private:  []nova.IPAddress{{4, "192.168.0.1", "fixed"}},
 	networks: []string{"special"},
 	expected: "192.168.0.1",
 }, {
 	summary:  "custom only IPv6",
-	private:  []nova.IPAddress{{6, "fc00::1"}},
+	private:  []nova.IPAddress{{6, "fc00::1", "fixed"}},
 	networks: []string{"special"},
 	expected: "fc00::1",
 }, {
 	summary:  "custom only - both IPv4 and IPv6",
-	private:  []nova.IPAddress{{4, "192.168.0.1"}, {6, "fc00::1"}},
+	private:  []nova.IPAddress{{4, "192.168.0.1", "fixed"}, {6, "fc00::1", "fixed"}},
 	networks: []string{"special"},
 	expected: "192.168.0.1",
 }, {
 	summary:  "custom and public IPv4",
-	private:  []nova.IPAddress{{4, "172.16.0.1"}},
-	public:   []nova.IPAddress{{4, "8.8.8.8"}},
+	private:  []nova.IPAddress{{4, "172.16.0.1", "fixed"}},
+	public:   []nova.IPAddress{{4, "8.8.8.8", "floating"}},
 	networks: []string{"special", "public"},
 	expected: "8.8.8.8",
 }, {
 	summary:  "custom and public IPv6",
-	private:  []nova.IPAddress{{6, "fc00::1"}},
-	public:   []nova.IPAddress{{6, "2001:db8::1"}},
+	private:  []nova.IPAddress{{6, "fc00::1", "fixed"}},
+	public:   []nova.IPAddress{{6, "2001:db8::1", "floating"}},
 	networks: []string{"special", "public"},
 	expected: "2001:db8::1",
 }, {
 	summary:  "custom and public - both IPv4 and IPv6",
-	private:  []nova.IPAddress{{4, "172.16.0.1"}, {6, "fc00::1"}},
-	public:   []nova.IPAddress{{4, "8.8.8.8"}, {6, "2001:db8::1"}},
+	private:  []nova.IPAddress{{4, "172.16.0.1", "fixed"}, {6, "fc00::1", "fixed"}},
+	public:   []nova.IPAddress{{4, "8.8.8.8", "floating"}, {6, "2001:db8::1", "floating"}},
 	networks: []string{"special", "public"},
 	expected: "8.8.8.8",
 }, {
 	summary:    "floating and public, same address",
 	floatingIP: "8.8.8.8",
-	public:     []nova.IPAddress{{4, "8.8.8.8"}},
+	public:     []nova.IPAddress{{4, "8.8.8.8", "floating"}},
 	networks:   []string{"", "public"},
 	expected:   "8.8.8.8",
 }, {
 	summary:    "floating and public, different address",
 	floatingIP: "8.8.4.4",
-	public:     []nova.IPAddress{{4, "8.8.8.8"}},
+	public:     []nova.IPAddress{{4, "8.8.8.8", "floating"}},
 	networks:   []string{"", "public"},
 	expected:   "8.8.4.4",
 }, {
 	summary:    "floating and private",
 	floatingIP: "8.8.4.4",
-	private:    []nova.IPAddress{{4, "10.0.0.1"}},
+	private:    []nova.IPAddress{{4, "10.0.0.1", "fixed"}},
 	networks:   []string{"private"},
 	expected:   "8.8.4.4",
 }, {
 	summary:    "floating, custom and public",
 	floatingIP: "8.8.4.4",
-	private:    []nova.IPAddress{{4, "172.16.0.1"}},
-	public:     []nova.IPAddress{{4, "8.8.8.8"}},
+	private:    []nova.IPAddress{{4, "172.16.0.1", "fixed"}},
+	public:     []nova.IPAddress{{4, "8.8.8.8", "floating"}},
 	networks:   []string{"special", "public"},
 	expected:   "8.8.4.4",
 }}
@@ -193,7 +194,7 @@ func (*localTests) TestPortsToRuleInfo(c *gc.C) {
 	testCases := []struct {
 		about    string
 		ports    []network.PortRange
-		expected []nova.RuleInfo
+		expected []neutron.RuleInfoV2
 	}{{
 		about: "single port",
 		ports: []network.PortRange{{
@@ -201,12 +202,13 @@ func (*localTests) TestPortsToRuleInfo(c *gc.C) {
 			ToPort:   80,
 			Protocol: "tcp",
 		}},
-		expected: []nova.RuleInfo{{
-			IPProtocol:    "tcp",
-			FromPort:      80,
-			ToPort:        80,
-			Cidr:          "0.0.0.0/0",
-			ParentGroupId: groupId,
+		expected: []neutron.RuleInfoV2{{
+			Direction:      "ingress",
+			IPProtocol:     "tcp",
+			PortRangeMin:   80,
+			PortRangeMax:   80,
+			RemoteIPPrefix: "0.0.0.0/0",
+			ParentGroupId:  groupId,
 		}},
 	}, {
 		about: "multiple ports",
@@ -215,12 +217,13 @@ func (*localTests) TestPortsToRuleInfo(c *gc.C) {
 			ToPort:   82,
 			Protocol: "tcp",
 		}},
-		expected: []nova.RuleInfo{{
-			IPProtocol:    "tcp",
-			FromPort:      80,
-			ToPort:        82,
-			Cidr:          "0.0.0.0/0",
-			ParentGroupId: groupId,
+		expected: []neutron.RuleInfoV2{{
+			Direction:      "ingress",
+			IPProtocol:     "tcp",
+			PortRangeMin:   80,
+			PortRangeMax:   82,
+			RemoteIPPrefix: "0.0.0.0/0",
+			ParentGroupId:  groupId,
 		}},
 	}, {
 		about: "multiple port ranges",
@@ -233,18 +236,20 @@ func (*localTests) TestPortsToRuleInfo(c *gc.C) {
 			ToPort:   120,
 			Protocol: "tcp",
 		}},
-		expected: []nova.RuleInfo{{
-			IPProtocol:    "tcp",
-			FromPort:      80,
-			ToPort:        82,
-			Cidr:          "0.0.0.0/0",
-			ParentGroupId: groupId,
+		expected: []neutron.RuleInfoV2{{
+			Direction:      "ingress",
+			IPProtocol:     "tcp",
+			PortRangeMin:   80,
+			PortRangeMax:   82,
+			RemoteIPPrefix: "0.0.0.0/0",
+			ParentGroupId:  groupId,
 		}, {
-			IPProtocol:    "tcp",
-			FromPort:      100,
-			ToPort:        120,
-			Cidr:          "0.0.0.0/0",
-			ParentGroupId: groupId,
+			Direction:      "ingress",
+			IPProtocol:     "tcp",
+			PortRangeMin:   100,
+			PortRangeMax:   120,
+			RemoteIPPrefix: "0.0.0.0/0",
+			ParentGroupId:  groupId,
 		}},
 	}}
 
@@ -265,7 +270,7 @@ func (*localTests) TestRuleMatchesPortRange(c *gc.C) {
 	testCases := []struct {
 		about    string
 		ports    network.PortRange
-		rule     nova.SecurityGroupRule
+		rule     neutron.SecurityGroupRuleV2
 		expected bool
 	}{{
 		about: "single port",
@@ -274,10 +279,10 @@ func (*localTests) TestRuleMatchesPortRange(c *gc.C) {
 			ToPort:   80,
 			Protocol: "tcp",
 		},
-		rule: nova.SecurityGroupRule{
-			IPProtocol: &proto_tcp,
-			FromPort:   &port_80,
-			ToPort:     &port_80,
+		rule: neutron.SecurityGroupRuleV2{
+			IPProtocol:   &proto_tcp,
+			PortRangeMin: &port_80,
+			PortRangeMax: &port_80,
 		},
 		expected: true,
 	}, {
@@ -287,10 +292,10 @@ func (*localTests) TestRuleMatchesPortRange(c *gc.C) {
 			ToPort:   port_85,
 			Protocol: proto_tcp,
 		},
-		rule: nova.SecurityGroupRule{
-			IPProtocol: &proto_tcp,
-			FromPort:   &port_80,
-			ToPort:     &port_85,
+		rule: neutron.SecurityGroupRuleV2{
+			IPProtocol:   &proto_tcp,
+			PortRangeMin: &port_80,
+			PortRangeMax: &port_85,
 		},
 		expected: true,
 	}, {
@@ -300,10 +305,10 @@ func (*localTests) TestRuleMatchesPortRange(c *gc.C) {
 			ToPort:   port_85,
 			Protocol: proto_tcp,
 		},
-		rule: nova.SecurityGroupRule{
-			IPProtocol: nil,
-			FromPort:   nil,
-			ToPort:     nil,
+		rule: neutron.SecurityGroupRuleV2{
+			IPProtocol:   nil,
+			PortRangeMin: nil,
+			PortRangeMax: nil,
 		},
 		expected: false,
 	}, {
@@ -313,10 +318,10 @@ func (*localTests) TestRuleMatchesPortRange(c *gc.C) {
 			ToPort:   port_85,
 			Protocol: proto_tcp,
 		},
-		rule: nova.SecurityGroupRule{
-			IPProtocol: &proto_udp,
-			FromPort:   &port_80,
-			ToPort:     &port_80,
+		rule: neutron.SecurityGroupRuleV2{
+			IPProtocol:   &proto_udp,
+			PortRangeMin: &port_80,
+			PortRangeMax: &port_80,
 		},
 		expected: false,
 	}}
