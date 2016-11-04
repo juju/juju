@@ -98,6 +98,8 @@ func (prov *azureEnvironProvider) Open(args environs.OpenParams) (environs.Envir
 	return environ, nil
 }
 
+// CloudSchema returns the schema used to validate input for add-cloud.  Since
+// this provider does not support custom clouds, this always returns nil.
 func (p azureEnvironProvider) CloudSchema() *jsonschema.Schema {
 	return nil
 }

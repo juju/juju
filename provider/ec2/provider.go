@@ -97,6 +97,9 @@ func awsClient(cloud environs.CloudSpec) (*ec2.EC2, error) {
 	signer := aws.SignV4Factory(cloud.Region, "ec2")
 	return ec2.New(auth, region, signer), nil
 }
+
+// CloudSchema returns the schema used to validate input for add-cloud.  Since
+// this provider does not support custom clouds, this always returns nil.
 func (p environProvider) CloudSchema() *jsonschema.Schema {
 	return nil
 }

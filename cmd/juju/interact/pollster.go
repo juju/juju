@@ -45,8 +45,8 @@ type List struct {
 	Default  string
 }
 
-// MultiList contains the information necessary to ask the user to select form a list
-// of options.
+// MultiList contains the information necessary to ask the user to select from a
+// list of options.
 type MultiList struct {
 	Singular string
 	Plural   string
@@ -63,13 +63,13 @@ var listTmpl = template.Must(template.New("").Funcs(map[string]interface{}{"titl
 var selectTmpl = template.Must(template.New("").Parse(`
 Select {{.Singular}}{{if .Default}} [{{.Default}}]{{end}}: `[1:]))
 
-// Select queries the user to select from the give list of options.
+// Select queries the user to select from the given list of options.
 func (p *Pollster) Select(l List) (string, error) {
 	return p.SelectVerify(l, VerifyOptions(l.Singular, l.Options, l.Default != ""))
 }
 
-// SelectVerify queries the user to select from the give list of options, using
-// the custom verifier listed.
+// SelectVerify queries the user to select from the given list of options,
+// verifying the choice by passing responses through verify.
 func (p *Pollster) SelectVerify(l List, verify VerifyFunc) (string, error) {
 	if err := listTmpl.Execute(p.out, l); err != nil {
 		return "", err
@@ -93,10 +93,19 @@ var multiSelectTmpl = template.Must(template.New("").Funcs(
 	map[string]interface{}{"join": strings.Join}).Parse(`
 Select one or more {{.Plural}} separated by commas{{if .Default}} [{{join .Default ", "}}]{{end}}: `[1:]))
 
-// MultiSelect queries the user to select one more answers from the give list of
+// MultiSelect queries the user to select one more answers from the given list of
 // options by entering values delimited by commas (and thus options must not
 // contain commas).
 func (p *Pollster) MultiSelect(l MultiList) ([]string, error) {
+	var bad []string
+	for _, s := range l.Options {
+		if strings.Contains(s, ",") {
+			bad = append(bad, s)
+		}
+	}
+	if len(bad) > 0 {
+		return nil, errors.Errorf("options may not contain commas: %q", bad)
+	}
 	if err := listTmpl.Execute(p.out, l); err != nil {
 		return nil, err
 	}
@@ -105,7 +114,8 @@ func (p *Pollster) MultiSelect(l MultiList) ([]string, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	a, err := QueryVerify(question, p.scanner, p.out, p.errOut, multiVerify(l.Singular, l.Plural, l.Options, l.Default != nil))
+	verify := multiVerify(l.Singular, l.Plural, l.Options, l.Default != nil)
+	a, err := QueryVerify(question, p.scanner, p.out, p.errOut, verify)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -146,29 +156,29 @@ func (p *Pollster) EnterVerify(valueName string, verify VerifyFunc) (string, err
 }
 
 // YN queries the user with a yes no question q (which should not include a
-// question mark at the end).  It uses def as the default answer.
-func (p *Pollster) YN(q string, def bool) (bool, error) {
-	defstring := "(y/N)"
-	if def {
-		defstring = "(Y/n)"
+// question mark at the end).  It uses defVal as the default answer.
+func (p *Pollster) YN(q string, defVal bool) (bool, error) {
+	defaultStr := "(y/N)"
+	if defVal {
+		defaultStr = "(Y/n)"
 	}
 	verify := func(s string) (ok bool, errmsg string, err error) {
-		_, err = yesNoConvert(s, def)
+		_, err = yesNoConvert(s, defVal)
 		if err != nil {
 			return false, err.Error(), nil
 		}
 		return true, "", nil
 	}
-	a, err := QueryVerify(q+"? "+defstring+": ", p.scanner, p.out, p.errOut, verify)
+	a, err := QueryVerify(q+"? "+defaultStr+": ", p.scanner, p.out, p.errOut, verify)
 	if err != nil {
 		return false, errors.Trace(err)
 	}
-	return yesNoConvert(a, def)
+	return yesNoConvert(a, defVal)
 }
 
-func yesNoConvert(s string, def bool) (bool, error) {
+func yesNoConvert(s string, defVal bool) (bool, error) {
 	if s == "" {
-		return def, nil
+		return defVal, nil
 	}
 	switch strings.ToLower(s) {
 	case "y", "yes":
@@ -371,18 +381,7 @@ func (p *Pollster) queryOneSchema(schema *jsonschema.Schema) (interface{}, error
 		return schema.Enum[0], nil
 	}
 	if schema.Type[0] == jsonschema.ArrayType {
-		if !supportedArraySchema(schema) {
-			b, err := schema.MarshalJSON()
-			if err != nil {
-				return nil, errors.Errorf("unsupported schema for an array")
-			}
-			return nil, errors.Errorf("unsupported schema for an array: %s", b)
-		}
-		return p.MultiSelect(MultiList{
-			Singular: schema.Singular,
-			Plural:   schema.Plural,
-			Options:  optFromEnum(schema.Items.Schemas[0]),
-		})
+		return p.queryArray(schema)
 	}
 	if len(schema.Enum) > 1 {
 		return p.selectOne(schema)
@@ -403,6 +402,22 @@ func (p *Pollster) queryOneSchema(schema *jsonschema.Schema) (interface{}, error
 		return nil, errors.Trace(err)
 	}
 	return convert(a, schema.Type[0])
+}
+
+func (p *Pollster) queryArray(schema *jsonschema.Schema) (interface{}, error) {
+	if !supportedArraySchema(schema) {
+		b, err := schema.MarshalJSON()
+		if err != nil {
+			// shouldn't ever happen
+			return nil, errors.Errorf("unsupported schema for an array")
+		}
+		return nil, errors.Errorf("unsupported schema for an array: %s", b)
+	}
+	return p.MultiSelect(MultiList{
+		Singular: schema.Singular,
+		Plural:   schema.Plural,
+		Options:  optFromEnum(schema.Items.Schemas[0]),
+	})
 }
 
 func uriVerify(s string) (ok bool, errMsg string, err error) {
@@ -476,18 +491,6 @@ func isObject(schema *jsonschema.Schema) bool {
 		}
 	}
 	return false
-}
-
-func convArray(vals []string, schema *jsonschema.Schema) (interface{}, error) {
-	ret := make([]interface{}, len(vals))
-	for i := range vals {
-		v, err := convert(vals[i], schema.Type[0])
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		ret[i] = v
-	}
-	return ret, nil
 }
 
 // convert converts the given string to a specific value based on the schema

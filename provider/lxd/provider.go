@@ -32,6 +32,9 @@ func (environProvider) Open(args environs.OpenParams) (environs.Environ, error) 
 	env, err := newEnviron(args.Cloud, args.Config, newRawProvider)
 	return env, errors.Trace(err)
 }
+
+// CloudSchema returns the schema used to validate input for add-cloud.  Since
+// this provider does not support custom clouds, this always returns nil.
 func (p environProvider) CloudSchema() *jsonschema.Schema {
 	return nil
 }

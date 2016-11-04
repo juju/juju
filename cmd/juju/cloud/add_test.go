@@ -92,7 +92,7 @@ func (s *addSuite) TestAddBadCloudName(c *gc.C) {
 func (s *addSuite) TestAddExisting(c *gc.C) {
 	sourceFile := s.createTestCloudData(c)
 	_, err := testing.RunCommand(c, cloud.NewAddCloudCommand(), "homestack", sourceFile)
-	c.Assert(err, gc.ErrorMatches, `"homestack" already exists; use --replace to override this definition`)
+	c.Assert(err, gc.ErrorMatches, `"homestack" already exists; use --replace to replace this existing cloud`)
 }
 
 func (s *addSuite) TestAddExistingReplace(c *gc.C) {

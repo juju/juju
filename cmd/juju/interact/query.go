@@ -50,13 +50,7 @@ func QueryVerify(question string, scanner *bufio.Scanner, out, errOut io.Writer,
 			return answer, nil
 		}
 
-		if done {
-			// can't query any more, nothing we can do.
-			return "", io.EOF
-		}
-
 		// invalid answer, inform user of problem and retry.
-
 		if msg != "" {
 			_, err := fmt.Fprint(errOut, msg+"\n")
 			if err != nil {
@@ -66,6 +60,11 @@ func QueryVerify(question string, scanner *bufio.Scanner, out, errOut io.Writer,
 		_, err = errOut.Write([]byte{'\n'})
 		if err != nil {
 			return "", err
+		}
+
+		if done {
+			// can't query any more, nothing we can do.
+			return "", io.EOF
 		}
 	}
 }

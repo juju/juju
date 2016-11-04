@@ -316,6 +316,35 @@ Select one or more numbers separated by commas:
 	c.Check(s, jc.SameContents, []string{"one", "three"})
 }
 
+func (PollsterSuite) TestQueryEnum(c *gc.C) {
+	schema := &jsonschema.Schema{
+		Singular: "number",
+		Plural:   "numbers",
+		Type:     []jsonschema.Type{jsonschema.IntegerType},
+		Enum: []interface{}{
+			1,
+			2,
+			3,
+		},
+	}
+	r := strings.NewReader("2")
+	w := &bytes.Buffer{}
+	p := New(r, w, w)
+	v, err := p.QuerySchema(schema)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(w.String(), gc.Equals, `
+Numbers
+  1
+  2
+  3
+
+Select number: 
+`[1:])
+	i, ok := v.(int)
+	c.Check(ok, jc.IsTrue)
+	c.Check(i, gc.Equals, 2)
+}
+
 func (PollsterSuite) TestQueryObjectSchema(c *gc.C) {
 	schema := &jsonschema.Schema{
 		Type: []jsonschema.Type{jsonschema.ObjectType},

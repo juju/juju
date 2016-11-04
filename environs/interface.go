@@ -22,6 +22,9 @@ type EnvironProvider interface {
 	config.Validator
 	ProviderCredentials
 
+	// CloudSchema returns the schema used to validate input for add-cloud.  If
+	// a provider does not suppport custom clouds, CloudSchema should return
+	// nil.
 	CloudSchema() *jsonschema.Schema
 
 	// PrepareConfig prepares the configuration for a new model, based on

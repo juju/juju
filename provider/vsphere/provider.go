@@ -60,6 +60,7 @@ var cloudSchema = &jsonschema.Schema{
 	},
 }
 
+// CloudSchema returns the schema for adding new clouds of this type.
 func (p environProvider) CloudSchema() *jsonschema.Schema {
 	return cloudSchema
 }

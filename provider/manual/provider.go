@@ -52,7 +52,7 @@ var cloudSchema = &jsonschema.Schema{
 	},
 }
 
-// CloudSchema returns the schema for verifying cloud
+// CloudSchema returns the schema for verifying the cloud configuration.
 func (p manualProvider) CloudSchema() *jsonschema.Schema {
 	return cloudSchema
 }
