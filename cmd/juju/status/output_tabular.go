@@ -204,7 +204,11 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 		for _, name := range utils.SortStringsNaturally(stringKeysFromMap(units)) {
 			u := units[name]
 			if u.MeterStatus != nil {
-				p(name, u.MeterStatus.Color, u.MeterStatus.Message)
+				w.Print(name)
+				outputColor := fromMeterStatusColor(u.MeterStatus.Color)
+				w.PrintColor(outputColor, u.MeterStatus.Color)
+				w.PrintColor(outputColor, u.MeterStatus.Message)
+				w.Println()
 			}
 		}
 	}
@@ -223,6 +227,18 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 	}
 
 	tw.Flush()
+	return nil
+}
+
+func fromMeterStatusColor(msColor string) *ansiterm.Context {
+	switch msColor {
+	case "green":
+		return output.GoodHighlight
+	case "amber":
+		return output.WarningHighlight
+	case "red":
+		return output.ErrorHighlight
+	}
 	return nil
 }
 
