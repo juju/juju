@@ -14,7 +14,7 @@ kill $(ps aux | grep [s]imple-server.py | awk '{print $2}') || true
 
 juju-log -l INFO "Serving file: ${INDEX_FILE}"
 
-nohup $HTTP_SERVER_SCRIPT --file-path "${INDEX_FILE}" --port 80 &>> /tmp/log.log&
+nohup $HTTP_SERVER_SCRIPT --file-path "${INDEX_FILE}" --port 80 &
 
 open-port 80
 
