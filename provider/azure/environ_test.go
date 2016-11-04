@@ -1335,3 +1335,16 @@ func (s *environSuite) TestDestroyControllerErrors(c *gc.C) {
 	c.Check(destroyErr, gc.ErrorMatches, ".*foo.*")
 	c.Check(destroyErr, gc.ErrorMatches, ".*bar.*")
 }
+
+func (s *environSuite) TestInstanceInformation(c *gc.C) {
+	env := s.openEnviron(c)
+	s.sender = s.startInstanceSenders(false)
+	types, err := env.InstanceTypes(constraints.Value{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(types.InstanceTypes, gc.HasLen, 6)
+
+	cons := constraints.MustParse("mem=4G")
+	types, err = env.InstanceTypes(cons)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(types.InstanceTypes, gc.HasLen, 2)
+}

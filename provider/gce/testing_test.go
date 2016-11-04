@@ -644,3 +644,16 @@ func (fc *fakeConn) WasCalled(funcName string) (bool, []fakeConnCall) {
 	}
 	return called, calls
 }
+
+func (fc *fakeConn) ListMachineTypes(zone string) ([]google.MachineType, error) {
+	call := fakeConnCall{
+		FuncName: "ListMachineTypes",
+		ZoneName: zone,
+	}
+	fc.Calls = append(fc.Calls, call)
+
+	return []google.MachineType{
+		{Name: "type-1", MemoryMb: 1024},
+		{Name: "type-2", MemoryMb: 2048},
+	}, nil
+}
