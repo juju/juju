@@ -31,7 +31,18 @@ type filesSuite struct {
 func (s *filesSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
+	// Set the process' umask to 0 so tests that check permission bits don't
+	// fail due to the users umask being an unexpected value.
+	oldUmask := syscall.Umask(0)
+	s.AddCleanup(func(_ *gc.C) {
+		syscall.Umask(oldUmask)
+	})
+
 	s.root = c.MkDir()
+}
+
+func (s *filesSuite) TearDownTest(c *gc.C) {
+	s.BaseSuite.TearDownTest(c)
 }
 
 // createFiles preps the fake FS. The files are all created relative to
