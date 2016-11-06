@@ -179,6 +179,7 @@ func (s *modelManagerSuite) TestCreateModelArgs(c *gc.C) {
 		"LastModelConnection",
 		"LastModelConnection",
 		"AllMachines",
+		"LatestMigration",
 		"Close",
 		"Close",
 	)
