@@ -164,7 +164,7 @@ func (s *LogsSuite) TestIndexesCreated(c *gc.C) {
 	})
 }
 
-func (s *LogsSuite) TestDbLogger(c *gc.C) {
+func (s *LogsSuite) TestEntityDbLogger(c *gc.C) {
 	logger := state.NewEntityDbLogger(s.State, names.NewMachineTag("22"), jujuversion.Current)
 	defer logger.Close()
 	t0 := truncateDBTime(coretesting.ZeroTime())
@@ -188,6 +188,36 @@ func (s *LogsSuite) TestDbLogger(c *gc.C) {
 	c.Assert(docs[1]["t"], gc.Equals, t1.UnixNano())
 	c.Assert(docs[1]["e"], gc.Equals, s.State.ModelUUID())
 	c.Assert(docs[1]["n"], gc.Equals, "machine-22")
+	c.Assert(docs[1]["m"], gc.Equals, "else.where")
+	c.Assert(docs[1]["l"], gc.Equals, "bar.go:42")
+	c.Assert(docs[1]["v"], gc.Equals, int(loggo.ERROR))
+	c.Assert(docs[1]["x"], gc.Equals, "oh noes")
+}
+
+func (s *LogsSuite) TestDbLogger(c *gc.C) {
+	logger := state.NewDbLogger(s.State, jujuversion.Current)
+	defer logger.Close()
+	t0 := coretesting.ZeroTime().Truncate(time.Millisecond) // MongoDB only stores timestamps with ms precision.
+	logger.Log(t0, names.NewMachineTag("45").String(), "some.where", "foo.go:99", loggo.INFO, "all is well")
+	t1 := t0.Add(time.Second)
+	logger.Log(t1, names.NewMachineTag("47").String(), "else.where", "bar.go:42", loggo.ERROR, "oh noes")
+
+	var docs []bson.M
+	err := s.logsColl.Find(nil).Sort("t").All(&docs)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(docs, gc.HasLen, 2)
+
+	c.Assert(docs[0]["t"], gc.Equals, t0.UnixNano())
+	c.Assert(docs[0]["e"], gc.Equals, s.State.ModelUUID())
+	c.Assert(docs[0]["n"], gc.Equals, "machine-45")
+	c.Assert(docs[0]["m"], gc.Equals, "some.where")
+	c.Assert(docs[0]["l"], gc.Equals, "foo.go:99")
+	c.Assert(docs[0]["v"], gc.Equals, int(loggo.INFO))
+	c.Assert(docs[0]["x"], gc.Equals, "all is well")
+
+	c.Assert(docs[1]["t"], gc.Equals, t1.UnixNano())
+	c.Assert(docs[1]["e"], gc.Equals, s.State.ModelUUID())
+	c.Assert(docs[1]["n"], gc.Equals, "machine-47")
 	c.Assert(docs[1]["m"], gc.Equals, "else.where")
 	c.Assert(docs[1]["l"], gc.Equals, "bar.go:42")
 	c.Assert(docs[1]["v"], gc.Equals, int(loggo.ERROR))
