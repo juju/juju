@@ -11,11 +11,9 @@ categories:
 series:
   - trusty
   - precise
-  - utopic
-  - vivid
-  - wily
   - xenial
   - yakkety
+  - zesty
 resources:
   index:
     type: file
