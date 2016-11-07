@@ -68,8 +68,7 @@ class CleanResources(TestCase):
         regions = get_regions(args, env)
         calls = [call(cr_mock.return_value, region=r) for r in regions]
         self.assertEqual(fbc_mock.call_args_list, calls)
-        mfc_mock = fbc_mock.return_value
-        ctx_mock = mfc_mock.__enter__.return_value
+        ctx_mock = fbc_mock.return_value.__enter__.return_value
         self.assertEqual(ctx_mock.iter_security_groups.call_count, call_count)
         self.assertEqual(
             ctx_mock.iter_instance_security_groups.call_count, call_count)
