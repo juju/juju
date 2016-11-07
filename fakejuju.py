@@ -96,6 +96,15 @@ class FakeControllerState:
         self.models[default_model.name] = default_model
         return default_model
 
+    def destroy(self, kill=False):
+        for model in self.models.values():
+            model.kill_controller()
+        self.models.clear()
+        if kill:
+            self.state = 'controller-killed'
+        else:
+            self.state = 'controller-destroyed'
+
 
 class FakeEnvironmentState:
     """A Fake environment state that can be used by multiple FakeBackends."""
@@ -624,12 +633,14 @@ class FakeBackend:
         else:
             if command == 'bootstrap':
                 self.bootstrap(args)
+            if command == 'destroy-controller':
+                if self.controller_state.state != 'bootstrapped':
+                    raise subprocess.CalledProcessError(1, 'Not bootstrapped.')
+                self.controller_state.destroy()
             if command == 'kill-controller':
                 if self.controller_state.state == 'not-bootstrapped':
                     return
-                model = args[0]
-                model_state = self.controller_state.models[model]
-                model_state.kill_controller()
+                self.controller_state.destroy(kill=True)
             if command == 'destroy-model':
                 if not self.is_feature_enabled('jes'):
                     raise JESNotSupported()

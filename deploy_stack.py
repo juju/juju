@@ -484,6 +484,39 @@ def temp_juju_home(client, new_home):
         client.env.juju_home = old_home
 
 
+class CreateController:
+    """A Controller strategy where the controller is created.
+
+    Intended for use with BootstrapManager.
+    """
+
+    def __init__(self, client, tear_down_client):
+        self.client = client
+        self.tear_down_client = tear_down_client
+
+    def prepare(self):
+        """Prepare client for use by killing the existing controller."""
+        self.tear_down_client.kill_controller()
+
+    def create_initial_model(self, upload_tools, series, boot_kwargs):
+        """Create the initial model by bootstrapping."""
+        self.client.bootstrap(
+            upload_tools=upload_tools, bootstrap_series=series,
+            **boot_kwargs)
+
+    def get_hosts(self):
+        """Provide the controller host."""
+        host = get_machine_dns_name(
+            self.client.get_controller_client(), '0')
+        if host is None:
+            raise ValueError('Could not get machine 0 host')
+        return {'0': host}
+
+    def tear_down(self):
+        """Tear down via client.tear_down."""
+        self.tear_down_client.tear_down()
+
+
 class BootstrapManager:
     """
     Helper class for running juju tests.
