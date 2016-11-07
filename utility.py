@@ -414,7 +414,7 @@ def configure_logging(log_level):
 
 @contextmanager
 def skip_on_missing_file():
-    """Surpress exceptions that represent missing files."""
+    """Skip to the end of block if a missing file exception is raised."""
     try:
         yield
     except (IOError, OSError) as e:
