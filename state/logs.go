@@ -204,7 +204,7 @@ type logDoc struct {
 	Message   string        `bson:"x"`
 }
 
-type DbLogger struct {
+type EntityDbLogger struct {
 	logsColl  *mgo.Collection
 	modelUUID string
 	entity    string
@@ -213,9 +213,9 @@ type DbLogger struct {
 
 // NewDbLogger returns a DbLogger instance which is used to write logs
 // to the database.
-func NewDbLogger(st ModelSessioner, entity names.Tag, ver version.Number) *DbLogger {
+func NewEntityDbLogger(st ModelSessioner, entity names.Tag, ver version.Number) *EntityDbLogger {
 	_, logsColl := initLogsSession(st)
-	return &DbLogger{
+	return &EntityDbLogger{
 		logsColl:  logsColl,
 		modelUUID: st.ModelUUID(),
 		entity:    entity.String(),
@@ -224,7 +224,7 @@ func NewDbLogger(st ModelSessioner, entity names.Tag, ver version.Number) *DbLog
 }
 
 // Log writes a log message to the database.
-func (logger *DbLogger) Log(t time.Time, module string, location string, level loggo.Level, msg string) error {
+func (logger *EntityDbLogger) Log(t time.Time, module string, location string, level loggo.Level, msg string) error {
 	// TODO(ericsnow) Use a controller-global int sequence for Id.
 
 	// UnixNano() returns the "absolute" (UTC) number of nanoseconds
@@ -244,7 +244,7 @@ func (logger *DbLogger) Log(t time.Time, module string, location string, level l
 }
 
 // Close cleans up resources used by the DbLogger instance.
-func (logger *DbLogger) Close() {
+func (logger *EntityDbLogger) Close() {
 	if logger.logsColl != nil {
 		logger.logsColl.Database.Session.Close()
 	}

@@ -86,7 +86,7 @@ func (h *logSinkHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			}
 
 			filePrefix := st.ModelUUID() + " " + tag.String() + ":"
-			dbLogger := state.NewDbLogger(st, tag, ver)
+			dbLogger := state.NewEntityDbLogger(st, tag, ver)
 			defer dbLogger.Close()
 
 			// If we get to here, no more errors to report, so we report a nil
