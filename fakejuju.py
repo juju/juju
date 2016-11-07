@@ -662,7 +662,9 @@ class FakeBackend:
                 parser = ArgumentParser()
                 parser.add_argument('-c', '--controller')
                 parser.add_argument('--config')
+                parser.add_argument('--credential')
                 parser.add_argument('model_name')
+                parser.add_argument('cloud-region', nargs='?')
                 parsed = parser.parse_args(args)
                 self.controller_state.add_model(parsed.model_name)
             if command == 'revoke':

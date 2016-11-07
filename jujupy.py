@@ -514,12 +514,15 @@ class JujuData(SimpleEnvironment):
             endpoint = self.config['auth-url']
         return self.find_endpoint_cloud(provider, endpoint)
 
-    def get_cloud_credentials(self):
-        """Return the credentials for this model's cloud."""
+    def get_cloud_credentials_item(self):
         cloud_name = self.get_cloud()
         cloud = self.credentials['credentials'][cloud_name]
-        (credentials,) = cloud.values()
-        return credentials
+        (credentials_item,) = cloud.items()
+        return credentials_item
+
+    def get_cloud_credentials(self):
+        """Return the credentials for this model's cloud."""
+        return self.get_cloud_credentials_item()[1]
 
 
 class Status:
@@ -1379,8 +1382,16 @@ class EnvJujuClient:
                     self.env.environment))
 
     def _add_model(self, model_name, config_file):
+        explicit_region = self.env.controller.explicit_region
+        if explicit_region:
+            credential_name = self.env.get_cloud_credentials_item()[0]
+            cloud_region = self.get_cloud_region(self.env.get_cloud(),
+                                                 self.env.get_region())
+            region_args = ('--credential', credential_name, cloud_region)
+        else:
+            region_args = ()
         self.controller_juju('add-model', (
-            model_name, '--config', config_file))
+            model_name, '--config', config_file) + region_args)
 
     def destroy_model(self):
         exit_status = self.juju(
@@ -3025,6 +3036,7 @@ class Controller:
 
     def __init__(self, name):
         self.name = name
+        self.explicit_region = False
 
 
 class GroupReporter:

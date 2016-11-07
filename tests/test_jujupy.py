@@ -906,6 +906,19 @@ class TestEnvJujuClient(ClientTest):
             create_cmd, controller_option + (
                 'bar', '--config', config_file.name), include_e=False)
 
+    def test_add_model_explicit_region(self):
+        client = fake_juju_client()
+        client.bootstrap()
+        client.env.controller.explicit_region = True
+        model = client.env.clone('new-model')
+        with patch.object(client._backend, 'juju') as juju_mock:
+            with observable_temp_file() as config_file:
+                client.add_model(model)
+        juju_mock.assert_called_once_with('add-model', (
+            '-c', 'name', 'new-model', '--config', config_file.name,
+            '--credential', 'creds', 'foo/bar'),
+            frozenset({'migration'}), 'foo', None, True, None, None)
+
     def test_destroy_environment(self):
         env = JujuData('foo')
         client = EnvJujuClient(env, None, None)
@@ -6276,6 +6289,15 @@ class TestJujuData(TestCase):
             }}
         with self.assertRaisesRegexp(LookupError, 'No such endpoint: bar'):
             data.get_cloud()
+
+    def test_get_cloud_credentials_item(self):
+        juju_data = JujuData('foo', {'type': 'ec2', 'region': 'foo'}, 'home')
+        juju_data.credentials = {'credentials': {
+            'aws': {'credentials': {'aws': True}},
+            'azure': {'credentials': {'azure': True}},
+            }}
+        self.assertEqual(('credentials', {'aws': True}),
+                         juju_data.get_cloud_credentials_item())
 
     def test_get_cloud_credentials(self):
         juju_data = JujuData('foo', {'type': 'ec2', 'region': 'foo'}, 'home')
