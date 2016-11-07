@@ -547,14 +547,12 @@ class BootstrapManager:
 
     def __init__(self, temp_env_name, client, tear_down_client, bootstrap_host,
                  machines, series, agent_url, agent_stream, region, log_dir,
-                 keep_env, permanent, jes_enabled):
+                 keep_env, permanent, jes_enabled, controller_strategy=None):
         """Constructor.
 
         Please see see `BootstrapManager` for argument descriptions.
         """
         self.temp_env_name = temp_env_name
-        self.client = client
-        self.tear_down_client = tear_down_client
         self.bootstrap_host = bootstrap_host
         self.machines = machines
         self.series = series
@@ -571,6 +569,17 @@ class BootstrapManager:
         self.known_hosts = {}
         if bootstrap_host is not None:
             self.known_hosts['0'] = bootstrap_host
+        if controller_strategy is None:
+            controller_strategy = CreateController(client, tear_down_client)
+        self.controller_strategy = controller_strategy
+
+    @property
+    def client(self):
+        return self.controller_strategy.client
+
+    @property
+    def tear_down_client(self):
+        return self.controller_strategy.tear_down_client
 
     @classmethod
     def _generate_default_clean_dir(cls, temp_env_name):
@@ -683,7 +692,7 @@ class BootstrapManager:
         :param try_jes: Ignored."""
         if self.tear_down_client.env is not self.client.env:
             raise AssertionError('Tear down client needs same env!')
-        self.tear_down_client.tear_down()
+        self.controller_strategy.tear_down()
 
     def _log_and_wrap_exception(self, exc):
         logging.exception(exc)
@@ -729,14 +738,14 @@ class BootstrapManager:
                 if os.path.isfile(cache_path):
                     # An existing .jenv implies JES was used, because when JES
                     # is enabled, cache.yaml is enabled.
-                    self.tear_down_client.kill_controller()
+                    self.controller_strategy.prepare()
                     torn_down = True
         ensure_deleted(jenv_path)
         with temp_bootstrap_env(self.client.env.juju_home, self.client,
                                 permanent=self.permanent, set_home=False):
             with self.handle_bootstrap_exceptions():
                 if not torn_down:
-                    self.tear_down_client.kill_controller()
+                    self.controller_strategy.prepare()
                 yield
 
     @contextmanager
@@ -793,7 +802,7 @@ class BootstrapManager:
                                                      series=self.series)
                         copy_remote_logs(remote, self.log_dir)
                         archive_logs(self.log_dir)
-                    self.tear_down_client.kill_controller()
+                    self.controller_strategy.prepare()
             raise
 
     @contextmanager
@@ -806,11 +815,8 @@ class BootstrapManager:
         try:
             try:
                 if len(self.known_hosts) == 0:
-                    host = get_machine_dns_name(
-                        self.client.get_controller_client(), '0')
-                    if host is None:
-                        raise ValueError('Could not get machine 0 host')
-                    self.known_hosts['0'] = host
+                    self.known_hosts.update(
+                        self.controller_strategy.get_hosts())
                 if addable_machines is not None:
                     self.client.add_ssh_machines(addable_machines)
                 yield
@@ -914,10 +920,8 @@ class BootstrapManager:
             with self.top_context() as machines:
                 with self.bootstrap_context(
                         machines, omit_config=self.client.bootstrap_replaces):
-                    self.client.bootstrap(
-                        upload_tools=upload_tools,
-                        bootstrap_series=self.series,
-                        **kwargs)
+                    self.controller_strategy.create_initial_model(
+                        upload_tools, self.series, kwargs)
                 with self.runtime_context(machines):
                     self.client.list_controllers()
                     self.client.list_models()

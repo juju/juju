@@ -1293,7 +1293,6 @@ class TestCreateController(FakeHomeTestCase):
 
     def test_tear_down_nothing(self):
         create_controller = self.get_cleanup_controller()
-        client = create_controller.tear_down_client
         with self.assertRaises(subprocess.CalledProcessError):
             create_controller.tear_down()
 
