@@ -790,8 +790,6 @@ class Juju2Backend:
             flags.update(feature_flag_string.split(','))
         if flags:
             env[JUJU_DEV_FEATURE_FLAGS] = ','.join(sorted(flags))
-        else:
-            env[JUJU_DEV_FEATURE_FLAGS] = ''
         env['JUJU_DATA'] = juju_home
         return env
 
