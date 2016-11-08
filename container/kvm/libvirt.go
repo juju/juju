@@ -42,24 +42,6 @@ func run(command string, args ...string) (output string, err error) {
 	return output, err
 }
 
-// SyncImages updates the local cached images by reading the simplestreams
-// data and downloading the cloud images to the uvtool pool (used by libvirt).
-func SyncImages(series, arch, source string) error {
-
-	args := []string{
-		"sync",
-		fmt.Sprintf("arch=%s", arch),
-		fmt.Sprintf("release=%s", series),
-	}
-
-	if source != "" {
-		args = append(args, fmt.Sprintf("--source=%s", source))
-	}
-
-	_, err := run("uvt-simplestreams-libvirt", args...)
-	return err
-}
-
 type CreateMachineParams struct {
 	Hostname      string
 	Series        string

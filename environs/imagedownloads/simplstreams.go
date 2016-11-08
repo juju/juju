@@ -52,18 +52,23 @@ func newDataSourceFunc(baseURL string) func() simplestreams.DataSource {
 // Metadata models the inforamtion about a particular cloud image download
 // product.
 type Metadata struct {
-	Arch    string `json:"arch,omitempty"`
+	Arch string `json:"arch,omitempty"`
+	// For testing.
+	BaseURL string `json:"-"`
 	Release string `json:"release,omitempty"`
 	Version string `json:"version,omitempty"`
 	FType   string `json:"ftype,omitempty"`
 	SHA256  string `json:"sha256,omitempty"`
 	Path    string `json:"path,omitempty"`
-	Size    int    `json:"size,omitempty"`
+	Size    int64  `json:"size,omitempty"`
 }
 
 // DownloadURL returns the URL representing the image.
 func (m *Metadata) DownloadURL() (*url.URL, error) {
-	u, err := url.Parse(imagemetadata.UbuntuCloudImagesURL + "/" + m.Path)
+	if m.BaseURL == "" {
+		m.BaseURL = imagemetadata.UbuntuCloudImagesURL
+	}
+	u, err := url.Parse(m.BaseURL + "/" + m.Path)
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to create url")
 	}

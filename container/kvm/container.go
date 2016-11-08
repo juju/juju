@@ -9,6 +9,8 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/container"
+	"github.com/juju/juju/environs/imagedownloads"
+	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/network"
 )
 
@@ -28,9 +30,20 @@ func (c *kvmContainer) Name() string {
 }
 
 func (c *kvmContainer) Start(params StartParams) error {
-
-	logger.Debugf("Synchronise images for %s %s %v", params.Series, params.Arch, params.ImageDownloadURL)
-	if err := SyncImages(params.Series, params.Arch, params.ImageDownloadURL); err != nil {
+	var srcFunc func() simplestreams.DataSource
+	if params.ImageDownloadURL != "" {
+		srcFunc = func() simplestreams.DataSource {
+			return imagedownloads.NewDataSource(params.ImageDownloadURL)
+		}
+	}
+	sp := SyncParams{
+		arch:    params.Arch,
+		series:  params.Series,
+		ftype:   FType,
+		srcFunc: srcFunc,
+	}
+	logger.Debugf("Synchronise images for %s %s %s", sp.arch, sp.series, params.ImageDownloadURL)
+	if err := Sync(sp, nil); err != nil {
 		return err
 	}
 	var bridge string
