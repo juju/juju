@@ -623,6 +623,25 @@ func (m *ModelManagerAPI) getModelInfo(tag names.ModelTag) (params.ModelInfo, er
 			return params.ModelInfo{}, err
 		}
 	}
+
+	migration, err := st.LatestMigration()
+	if err != nil && !errors.IsNotFound(err) {
+		return params.ModelInfo{}, errors.Trace(err)
+	}
+	if err == nil {
+		startTime := migration.StartTime()
+		endTime := new(time.Time)
+		*endTime = migration.EndTime()
+		var zero time.Time
+		if *endTime == zero {
+			endTime = nil
+		}
+		info.Migration = &params.ModelMigrationStatus{
+			Status: migration.StatusMessage(),
+			Start:  &startTime,
+			End:    endTime,
+		}
+	}
 	return info, nil
 }
 
