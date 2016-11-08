@@ -12,7 +12,9 @@ import (
 	"strings"
 
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
+	yaml "gopkg.in/yaml.v1"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
@@ -167,4 +169,20 @@ func (suite *EnvironProviderSuite) TestOpenReturnsNilInterfaceUponFailure(c *gc.
 	// type.
 	c.Check(env, gc.Equals, nil)
 	c.Check(err, gc.ErrorMatches, ".*malformed maas-oauth.*")
+}
+
+func (suite *EnvironProviderSuite) TestSchema(c *gc.C) {
+	y := []byte(`
+auth-types: [oauth1]
+endpoint: http://foo.com/openstack
+`[1:])
+	var v interface{}
+	err := yaml.Unmarshal(y, &v)
+	c.Assert(err, jc.ErrorIsNil)
+	v, err = utils.ConformYAML(v)
+	c.Assert(err, jc.ErrorIsNil)
+
+	p, err := environs.Provider("maas")
+	err = p.CloudSchema().Validate(v)
+	c.Assert(err, jc.ErrorIsNil)
 }

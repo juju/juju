@@ -8,8 +8,10 @@ import (
 
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/goose.v1/nova"
+	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
@@ -374,7 +376,7 @@ func (s *providerUnitTests) TestIdentityClientVersion_BadURLErrors(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, `url abc123 is malformed`)
 
 	_, err = identityClientVersion("https://keystone.internal/vot")
-	c.Check(err, gc.ErrorMatches, `invalid major version number ot: strconv.ParseInt: parsing "ot": invalid syntax`)
+	c.Check(err, gc.ErrorMatches, `invalid major version number ot: .* parsing "ot": invalid syntax`)
 }
 
 func (s *providerUnitTests) TestIdentityClientVersion_ParsesGoodURL(c *gc.C) {
@@ -399,4 +401,25 @@ func (s *providerUnitTests) TestIdentityClientVersion_ParsesGoodURL(c *gc.C) {
 
 	_, err = identityClientVersion("https://keystone.internal/")
 	c.Check(err, jc.ErrorIsNil)
+}
+
+func (s *providerUnitTests) TestSchema(c *gc.C) {
+	y := []byte(`
+auth-types: [userpass, oauth1]
+endpoint: http://foo.com/openstack
+regions: 
+  one:
+    endpoint: http://foo.com/bar
+  two:
+    endpoint: http://foo2.com/bar2
+`[1:])
+	var v interface{}
+	err := yaml.Unmarshal(y, &v)
+	c.Assert(err, jc.ErrorIsNil)
+	v, err = utils.ConformYAML(v)
+	c.Assert(err, jc.ErrorIsNil)
+
+	p, err := environs.Provider("openstack")
+	err = p.CloudSchema().Validate(v)
+	c.Assert(err, jc.ErrorIsNil)
 }
