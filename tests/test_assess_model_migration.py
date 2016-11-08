@@ -8,7 +8,10 @@ import StringIO
 from subprocess import CalledProcessError
 
 import assess_model_migration as amm
-from deploy_stack import BootstrapManager
+from deploy_stack import (
+    BootstrapManager,
+    get_random_string,
+)
 from fakejuju import fake_juju_client
 from jujupy import (
     EnvJujuClient,
@@ -61,6 +64,51 @@ class TestParseArgs(TestCase):
         self.assertEqual("", fake_stderr.getvalue())
         self.assertIn(
             "Test model migration feature", fake_stdout.getvalue())
+
+
+class TestGetServerResponse(TestCase):
+
+    def test_uses_protocol_and_ipaddress(self):
+        with patch.object(
+                amm, 'urlopen', autospec=True) as m_uopen:
+            amm.get_server_response('192.168.1.2')
+            m_uopen.assert_called_once_with('http://192.168.1.2')
+
+    def test_returns_stripped_value(self):
+        response = StringIO.StringIO('simple server.\n')
+        with patch.object(
+                amm, 'urlopen', autospec=True, return_value=response):
+            self.assertEqual(
+                amm.get_server_response('192.168.1.2'),
+                'simple server.'
+            )
+
+
+class TestAssertDeployedCharmIsResponding(TestCase):
+
+    def test_passes_when_charm_is_responding_correctly(self):
+        expected_output = get_random_string()
+        client = Mock()
+        client.get_juju_output.return_value = expected_output
+
+        with patch.object(amm, 'get_unit_ipaddress',
+                          autospec=True, return_value='192.168.1.2') as m_gui:
+            amm.assert_deployed_charm_is_responding(client, expected_output)
+        m_gui.assert_called_once_with(client)
+
+    def test_raises_when_charm_does_not_respond_correctly(self):
+        expected_output = get_random_string()
+        client = Mock()
+        client.get_juju_output.return_value = 'abc'
+
+        with patch.object(amm, 'get_unit_ipaddress',
+                          autospec=True, return_value='192.168.1.2'):
+            with self.assertRaises(AssertionError) as ex:
+                amm.assert_deployed_charm_is_responding(
+                    client, expected_output)
+            self.assertEqual(
+                ex.exception.message,
+                'Server charm is not responding as expected.')
 
 
 class TestExpectMigrationAttemptToFail(TestCase):
