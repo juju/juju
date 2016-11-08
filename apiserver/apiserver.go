@@ -364,7 +364,7 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 	strictCtxt.controllerModelOnly = true
 
 	mainAPIHandler := srv.trackRequests(http.HandlerFunc(srv.apiHandler))
-	logSinkHandler := newLogSinkHandler(httpCtxt, srv.logSinkWriter)
+	logSinkHandler := newLogSinkHandler(httpCtxt, srv.logSinkWriter, newAgentLoggingStrategy)
 	logStreamHandler := srv.trackRequests(newLogStreamEndpointHandler(strictCtxt))
 	debugLogHandler := srv.trackRequests(newDebugLogDBHandler(httpCtxt))
 
