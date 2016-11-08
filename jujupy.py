@@ -14,7 +14,6 @@ from itertools import chain
 import json
 import logging
 import os
-import pexpect
 import re
 import shutil
 import subprocess
@@ -22,6 +21,7 @@ import sys
 from tempfile import NamedTemporaryFile
 import time
 
+import pexpect
 import yaml
 
 from jujuconfig import (

@@ -548,12 +548,14 @@ class TestAddBasicTestingArguments(TestCase):
 class TestSkipOnMissingFile(TestCase):
 
     def test_skip_on_missing_file(self):
+        """Test if skip_on_missing_file hides the proper exceptions."""
         with skip_on_missing_file():
             raise OSError(errno.ENOENT, 'should be hidden')
         with skip_on_missing_file():
             raise IOError(errno.ENOENT, 'should be hidden')
 
     def test_skip_on_missing_file_except(self):
+        """Test if skip_on_missing_file ignores other types of exceptions."""
         with self.assertRaises(RuntimeError):
             with skip_on_missing_file():
                 raise RuntimeError(errno.ENOENT, 'pass through')
