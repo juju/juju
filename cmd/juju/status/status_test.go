@@ -3908,23 +3908,22 @@ func (s *StatusSuite) TestFormatTabularMetering(c *gc.C) {
 	out := &bytes.Buffer{}
 	err := FormatTabular(out, false, status)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(out.String(), gc.Equals, `
-Model  Controller  Cloud/Region  Version
-                                 
-
-App  Version  Status  Scale  Charm  Store  Rev  OS  Notes
-foo                     0/2                  0      
-
-Unit   Workload  Agent  Machine  Public address  Ports  Message
-foo/0                                                   
-foo/1                                                   
-
-Meter  Status   Message
-foo/0  strange  warning: stable strangelets
-foo/1  up       things are looking up
-
-Machine  State  DNS  Inst id  Series  AZ
-`[1:])
+	c.Assert(out.String(), gc.Equals, ""+
+		"Model  Controller  Cloud/Region  Version\n"+
+		"                                 \n"+
+		"\n"+
+		"App  Version  Status  Scale  Charm  Store  Rev  OS  Notes\n"+
+		"foo                     0/2                  0      \n"+
+		"\n"+
+		"Unit   Workload  Agent  Machine  Public address  Ports  Message\n"+
+		"foo/0                                                   \n"+
+		"foo/1                                                   \n"+
+		"\n"+
+		"Meter  Status   Message\n"+
+		"foo/0  strange  warning: stable strangelets  \n"+
+		"foo/1  up       things are looking up        \n"+
+		"\n"+
+		"Machine  State  DNS  Inst id  Series  AZ\n")
 }
 
 //
