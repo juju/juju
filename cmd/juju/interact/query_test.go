@@ -6,7 +6,6 @@ package interact
 import (
 	"bufio"
 	"bytes"
-	"errors"
 	"io/ioutil"
 	"strings"
 
@@ -23,7 +22,7 @@ var _ = gc.Suite(Suite{})
 
 func (Suite) TestAnswer(c *gc.C) {
 	scanner := bufio.NewScanner(strings.NewReader("hi!\n"))
-	answer, err := QueryVerify([]byte("boo: "), scanner, ioutil.Discard, nil)
+	answer, err := QueryVerify("boo: ", scanner, ioutil.Discard, ioutil.Discard, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(answer, gc.Equals, "hi!")
 }
@@ -31,13 +30,13 @@ func (Suite) TestAnswer(c *gc.C) {
 func (Suite) TestVerify(c *gc.C) {
 	scanner := bufio.NewScanner(strings.NewReader("hi!\nok!\n"))
 	out := bytes.Buffer{}
-	verify := func(s string) error {
+	verify := func(s string) (ok bool, errmsg string, err error) {
 		if s == "ok!" {
-			return nil
+			return true, "", nil
 		}
-		return errors.New("No!")
+		return false, "No!", nil
 	}
-	answer, err := QueryVerify([]byte("boo: "), scanner, &out, verify)
+	answer, err := QueryVerify("boo: ", scanner, &out, &out, verify)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(answer, gc.Equals, "ok!")
 	// in practice, "No!" will be on a separate line, since the cursor will get
@@ -57,29 +56,33 @@ hi!
 ok!
 bob
 `[1:]))
-	verify := func(s string) error {
+	verify := func(s string) (ok bool, errmsg string, err error) {
 		if s == "ok!" {
-			return nil
+			return true, "", nil
 		}
-		return errors.New("No!")
+		return false, "No!", nil
 	}
-	answer, err := QueryVerify([]byte("boo: "), scanner, ioutil.Discard, verify)
+	answer, err := QueryVerify("boo: ", scanner, ioutil.Discard, ioutil.Discard, verify)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(answer, gc.Equals, "ok!")
 
-	answer, err = QueryVerify([]byte("name: "), scanner, ioutil.Discard, nil)
+	answer, err = QueryVerify("name: ", scanner, ioutil.Discard, ioutil.Discard, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(answer, gc.Equals, "bob")
 }
 
 func (Suite) TestMatchOptions(c *gc.C) {
-	err := errors.New("err")
-	f := MatchOptions([]string{"foo", "BAR"}, err)
-	c.Check(f("foo"), jc.ErrorIsNil)
-	c.Check(f("FOO"), jc.ErrorIsNil)
-	c.Check(f("BAR"), jc.ErrorIsNil)
-	c.Check(f("bar"), jc.ErrorIsNil)
-	c.Check(f("baz"), gc.Equals, err)
+	f := MatchOptions([]string{"foo", "BAR"}, "nope")
+	for _, s := range []string{"foo", "FOO", "BAR", "bar"} {
+		ok, msg, err := f(s)
+		c.Check(err, jc.ErrorIsNil)
+		c.Check(msg, gc.Equals, "")
+		c.Check(ok, jc.IsTrue)
+	}
+	ok, msg, err := f("baz")
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(msg, gc.Equals, "nope")
+	c.Check(ok, jc.IsFalse)
 }
 
 func (Suite) TestFindMatch(c *gc.C) {

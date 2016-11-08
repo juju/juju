@@ -22,6 +22,7 @@ github.com/juju/blobstore	git	06056004b3d7b54bbb7984d830c537bad00fec21	2015-07-2
 github.com/juju/bundlechanges	git	6791af0ab78efe88ff99c2a0095208b3b7a32055	2016-07-20T09:32:50Z
 github.com/juju/cmd	git	1c6973d59b804e4d3c293fbf240f067e73436bc9	2016-08-23T10:31:14Z
 github.com/juju/errors	git	1b5e39b83d1835fa480e0c2ddefb040ee82d58b3	2015-09-16T12:56:42Z
+github.com/juju/jsonschema	git	a0ef8b74ebcffeeff9fc374854deb4af388f037e	2016-11-02T18:19:19Z
 github.com/juju/gnuflag	git	4e76c56581859c14d9d87e1ddbe29e1c0f10195f	2016-08-09T16:52:14Z
 github.com/juju/go4	git	40d72ab9641a2a8c36a9c46a51e28367115c8e59	2016-02-22T16:32:58Z
 github.com/juju/gojsonpointer	git	afe8b77aa08f272b49e01b82de78510c11f61500	2015-02-04T19:46:29Z
@@ -51,12 +52,19 @@ github.com/juju/webbrowser	git	54b8c57083b4afb7dc75da7f13e2967b2606a507	2016-03-
 github.com/juju/xml	git	eb759a627588d35166bc505fceb51b88500e291e	2015-04-13T13:11:21Z
 github.com/juju/zip	git	f6b1e93fa2e29a1d7d49b566b2b51efb060c982a	2016-02-05T10:52:21Z
 github.com/julienschmidt/httprouter	git	77a895ad01ebc98a4dc95d8355bc825ce80a56f6	2015-10-13T22:55:20Z
+github.com/lestrrat/go-jspointer	git	f4881e611bdbe9fb413a7780721ef8400a1f2341	2016-02-29T02:13:54Z
+github.com/lestrrat/go-jsref	git	e452c7b5801d1c6494c9e7e0cbc7498c0f88dfd1	2016-06-01T01:32:40Z
+github.com/lestrrat/go-jsschema	git	b09d7650b822d2ea3dc83d5091a5e2acd8330051	2016-09-03T13:19:57Z
+github.com/lestrrat/go-jsval	git	b1258a10419fe0693f7b35ad65cd5074bc0ba1e5	2016-10-12T04:57:17Z
+github.com/lestrrat/go-pdebug	git	2e6eaaa5717f81bda41d27070d3c966f40a1e75f	2016-08-17T06:33:33Z
+github.com/lestrrat/go-structinfo	git	f74c056fe41f860aa6264478c664a6fff8a64298	2016-03-08T13:11:05Z
 github.com/lunixbochs/vtclean	git	4fbf7632a2c6d3fbdb9931439bdbbeded02cbe36	2016-01-25T03:51:06Z
 github.com/lxc/lxd	git	95a324a23696e937c466996d57554e3677b3c84a	2016-10-11T20:54:09Z
 github.com/mattn/go-colorable	git	ed8eb9e318d7a84ce5915b495b7d35e0cfe7b5a8	2016-07-31T23:54:17Z
 github.com/mattn/go-isatty	git	66b8e73f3f5cda9f96b69efd03dd3d7fc4a5cdb8	2016-08-06T12:27:52Z
 github.com/mattn/go-runewidth	git	d96d1bd051f2bd9e7e43d602782b37b93b1b5666	2015-11-18T07:21:59Z
 github.com/matttproud/golang_protobuf_extensions	git	c12348ce28de40eed0136aa2b644d0ee0650e56c	2016-04-24T11:30:07Z
+github.com/pkg/errors	git	839d9e913e063e28dfd0e6c7b7512793e0a48be9	2016-10-02T05:25:12Z
 github.com/prometheus/client_golang	git	c5b7fccd204277076155f10851dad72b76a49317	2016-08-17T15:48:24Z
 github.com/prometheus/client_model	git	fa8ad6fec33561be4280a8f0514318c79d7f6cb6	2015-02-12T10:17:44Z
 github.com/prometheus/common	git	dd586c1c5abb0be59e60f942c22af711a2008cb4	2016-05-03T22:05:32Z

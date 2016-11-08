@@ -29,6 +29,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/jsonschema"
 	"github.com/juju/loggo"
 	"github.com/juju/retry"
 	"github.com/juju/schema"
@@ -611,6 +612,12 @@ func (p *environProvider) Open(args environs.OpenParams) (environs.Environ, erro
 		return nil, err
 	}
 	return env, nil
+}
+
+// CloudSchema returns the schema used to validate input for add-cloud.  Since
+// this provider does not support custom clouds, this always returns nil.
+func (p environProvider) CloudSchema() *jsonschema.Schema {
+	return nil
 }
 
 // PrepareConfig is specified in the EnvironProvider interface.

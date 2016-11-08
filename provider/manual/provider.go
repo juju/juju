@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/jsonschema"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
@@ -37,6 +38,23 @@ func ensureBootstrapUbuntuUser(ctx environs.BootstrapContext, host, user string,
 // DetectRegions is specified in the environs.CloudRegionDetector interface.
 func (p manualProvider) DetectRegions() ([]cloud.Region, error) {
 	return nil, errors.NotFoundf("regions")
+}
+
+var cloudSchema = &jsonschema.Schema{
+	Type:     []jsonschema.Type{jsonschema.ObjectType},
+	Required: []string{cloud.EndpointKey},
+	Properties: map[string]*jsonschema.Schema{
+		cloud.EndpointKey: &jsonschema.Schema{
+			Singular: "the controller's hostname or IP address",
+			Type:     []jsonschema.Type{jsonschema.StringType},
+			Format:   jsonschema.FormatURI,
+		},
+	},
+}
+
+// CloudSchema returns the schema for verifying the cloud configuration.
+func (p manualProvider) CloudSchema() *jsonschema.Schema {
+	return cloudSchema
 }
 
 // PrepareConfig is specified in the EnvironProvider interface.

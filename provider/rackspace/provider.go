@@ -6,6 +6,7 @@ package rackspace
 import (
 	"strings"
 
+	"github.com/juju/jsonschema"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 )
@@ -15,6 +16,12 @@ type environProvider struct {
 }
 
 var providerInstance *environProvider
+
+// CloudSchema returns the schema used to validate input for add-cloud.  Since
+// this provider does not support custom clouds, this always returns nil.
+func (p environProvider) CloudSchema() *jsonschema.Schema {
+	return nil
+}
 
 // PrepareConfig is part of the EnvironProvider interface.
 func (p *environProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {

@@ -8,6 +8,7 @@ import (
 
 	"gopkg.in/juju/environschema.v1"
 
+	"github.com/juju/jsonschema"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
@@ -21,7 +22,10 @@ type EnvironProvider interface {
 	config.Validator
 	ProviderCredentials
 
-	// TODO(wallyworld) - embed config.ConfigSchemaSource and make all providers implement it
+	// CloudSchema returns the schema used to validate input for add-cloud.  If
+	// a provider does not suppport custom clouds, CloudSchema should return
+	// nil.
+	CloudSchema() *jsonschema.Schema
 
 	// PrepareConfig prepares the configuration for a new model, based on
 	// the provided arguments. PrepareConfig is expected to produce a

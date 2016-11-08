@@ -7,6 +7,7 @@ package lxd
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/jsonschema"
 	"github.com/juju/schema"
 	"gopkg.in/juju/environschema.v1"
 
@@ -30,6 +31,12 @@ func (environProvider) Open(args environs.OpenParams) (environs.Environ, error) 
 	// TODO(ericsnow) verify prerequisites (see provider/local/prereq.go)?
 	env, err := newEnviron(args.Cloud, args.Config, newRawProvider)
 	return env, errors.Trace(err)
+}
+
+// CloudSchema returns the schema used to validate input for add-cloud.  Since
+// this provider does not support custom clouds, this always returns nil.
+func (p environProvider) CloudSchema() *jsonschema.Schema {
+	return nil
 }
 
 // PrepareConfig implements environs.EnvironProvider.
