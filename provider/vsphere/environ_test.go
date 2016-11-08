@@ -55,7 +55,6 @@ func (s *environSuite) TestPrepareForBootstrap(c *gc.C) {
 }
 
 func (s *environSuite) TestSupportsNetworking(c *gc.C) {
-	var _ environs.Networking = s.Env
 	_, ok := environs.SupportsNetworking(s.Env)
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(ok, jc.IsFalse)
 }
