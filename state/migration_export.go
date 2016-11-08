@@ -68,10 +68,20 @@ func (st *State) Export() (description.Model, error) {
 		LatestToolsVersion: dbModel.LatestToolsVersion(),
 		Blocks:             blocks,
 	}
-	if creds, credsSet := dbModel.CloudCredential(); credsSet {
-		args.CloudCredential = creds.Id()
-	}
 	export.model = description.NewModel(args)
+	if credsTag, credsSet := dbModel.CloudCredential(); credsSet {
+		creds, err := st.CloudCredential(credsTag)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		export.model.SetCloudCredential(description.CloudCredentialArgs{
+			Owner:      credsTag.Owner(),
+			Cloud:      credsTag.Cloud(),
+			Name:       credsTag.Name(),
+			AuthType:   string(creds.AuthType()),
+			Attributes: creds.Attributes(),
+		})
+	}
 	modelKey := dbModel.globalKey()
 	export.model.SetAnnotations(export.getAnnotations(modelKey))
 	if err := export.sequences(); err != nil {

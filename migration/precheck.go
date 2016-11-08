@@ -12,6 +12,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/cloud"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/status"
@@ -30,6 +31,7 @@ type PrecheckBackend interface {
 	AllMachines() ([]PrecheckMachine, error)
 	AllApplications() ([]PrecheckApplication, error)
 	ControllerBackend() (PrecheckBackend, error)
+	CloudCredential(tag names.CloudCredentialTag) (cloud.Credential, error)
 }
 
 // PrecheckModel describes the state interface a model as needed by
@@ -40,6 +42,7 @@ type PrecheckModel interface {
 	Owner() names.UserTag
 	Life() state.Life
 	MigrationMode() state.MigrationMode
+	CloudCredential() (names.CloudCredentialTag, bool)
 }
 
 // PrecheckMachine describes the state interface for a machine needed
@@ -119,6 +122,15 @@ func checkModel(backend PrecheckBackend) error {
 	}
 	if model.MigrationMode() == state.MigrationModeImporting {
 		return errors.New("model is being imported as part of another migration")
+	}
+	if credTag, found := model.CloudCredential(); found {
+		creds, err := backend.CloudCredential(credTag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if creds.Revoked {
+			return errors.New("model has revoked credentials")
+		}
 	}
 	return nil
 }
