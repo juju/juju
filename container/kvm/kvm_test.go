@@ -209,9 +209,6 @@ func (s *KVMSuite) TestCreateContainerUtilizesDailySimpleStream(c *gc.C) {
 
 func (s *KVMSuite) TestStartContainerUtilizesSimpleStream(c *gc.C) {
 
-	const libvirtBinName = "uvt-simplestreams-libvirt"
-	testing.PatchExecutableAsEchoArgs(c, s, libvirtBinName)
-
 	startParams := kvm.StartParams{
 		Series:           "mocked-series",
 		Arch:             "mocked-arch",
@@ -220,17 +217,13 @@ func (s *KVMSuite) TestStartContainerUtilizesSimpleStream(c *gc.C) {
 	mockedContainer := kvm.NewEmptyKvmContainer()
 	mockedContainer.Start(startParams)
 
-	expectedArgs := strings.Split(
-		fmt.Sprintf(
-			"sync arch=%s release=%s --source=%s",
-			startParams.Arch,
-			startParams.Series,
-			startParams.ImageDownloadURL,
-		),
-		" ",
+	expectedArgs := fmt.Sprintf(
+		"Synchronise images for %s %s %s",
+		startParams.Arch,
+		startParams.Series,
+		startParams.ImageDownloadURL,
 	)
-
-	testing.AssertEchoArgs(c, libvirtBinName, expectedArgs...)
+	c.Assert(c.GetTestLog(), jc.Contains, expectedArgs)
 }
 
 type ConstraintsSuite struct {
