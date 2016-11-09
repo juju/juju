@@ -4,11 +4,9 @@
 package commands
 
 import (
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"net/http/httptest"
 	"net/url"
 	"strings"
 
@@ -564,36 +562,6 @@ func (t *testMetricCredentialsSetter) Close() error {
 	return nil
 }
 
-func (s *DeploySuite) TestAddMetricCredentialsDefault(c *gc.C) {
-	var called bool
-	setter := &testMetricCredentialsSetter{
-		assert: func(serviceName string, data []byte) {
-			called = true
-			c.Assert(serviceName, gc.DeepEquals, "metered")
-			var b []byte
-			err := json.Unmarshal(data, &b)
-			c.Assert(err, gc.IsNil)
-			c.Assert(string(b), gc.Equals, "hello registration")
-		},
-	}
-
-	cleanup := jujutesting.PatchValue(&getMetricCredentialsAPI, func(_ api.Connection) (metricCredentialsAPI, error) {
-		return setter, nil
-	})
-	defer cleanup()
-
-	handler := &testMetricsRegistrationHandler{}
-	server := httptest.NewServer(handler)
-	defer server.Close()
-
-	testcharms.Repo.ClonedDirPath(s.SeriesPath, "metered")
-	_, err := coretesting.RunCommand(c, envcmd.Wrap(&DeployCommand{RegisterURL: server.URL}), "local:quantal/metered-1")
-	c.Assert(err, jc.ErrorIsNil)
-	curl := charm.MustParseURL("local:quantal/metered-1")
-	s.AssertService(c, "metered", curl, 1, 0)
-	c.Assert(called, jc.IsTrue)
-}
-
 func (s *DeploySuite) TestAddMetricCredentialsDefaultForUnmeteredCharm(c *gc.C) {
 	var called bool
 	setter := &testMetricCredentialsSetter{
@@ -615,40 +583,6 @@ func (s *DeploySuite) TestAddMetricCredentialsDefaultForUnmeteredCharm(c *gc.C) 
 	curl := charm.MustParseURL(fmt.Sprintf("local:%s/dummy-1", series.LatestLts()))
 	s.AssertService(c, "dummy", curl, 1, 0)
 	c.Assert(called, jc.IsFalse)
-}
-
-func (s *DeploySuite) TestAddMetricCredentialsHttp(c *gc.C) {
-	handler := &testMetricsRegistrationHandler{}
-	server := httptest.NewServer(handler)
-	defer server.Close()
-
-	var called bool
-	setter := &testMetricCredentialsSetter{
-		assert: func(serviceName string, data []byte) {
-			called = true
-			c.Assert(serviceName, gc.DeepEquals, "metered")
-			var b []byte
-			err := json.Unmarshal(data, &b)
-			c.Assert(err, gc.IsNil)
-			c.Assert(string(b), gc.Equals, "hello registration")
-		},
-	}
-
-	cleanup := jujutesting.PatchValue(&getMetricCredentialsAPI, func(_ api.Connection) (metricCredentialsAPI, error) {
-		return setter, nil
-	})
-	defer cleanup()
-
-	testcharms.Repo.ClonedDirPath(s.SeriesPath, "metered")
-	_, err := coretesting.RunCommand(c, envcmd.Wrap(&DeployCommand{RegisterURL: server.URL}), "local:quantal/metered-1")
-	c.Assert(err, jc.ErrorIsNil)
-	curl := charm.MustParseURL("local:quantal/metered-1")
-	s.AssertService(c, "metered", curl, 1, 0)
-	c.Assert(called, jc.IsTrue)
-
-	c.Assert(handler.registrationCalls, gc.HasLen, 1)
-	c.Assert(handler.registrationCalls[0].CharmURL, gc.DeepEquals, "local:quantal/metered-1")
-	c.Assert(handler.registrationCalls[0].ServiceName, gc.DeepEquals, "metered")
 }
 
 func (s *DeploySuite) TestDeployCharmsEndpointNotImplemented(c *gc.C) {

@@ -166,11 +166,20 @@ func (s *charmsSuite) TestIsMeteredFalse(c *gc.C) {
 	c.Assert(metered.Metered, jc.IsFalse)
 }
 
-func (s *charmsSuite) TestIsMeteredTrue(c *gc.C) {
+func (s *charmsSuite) TestIsMeteredFalseOptional(c *gc.C) {
 	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered"})
 	metered, err := s.api.IsMetered(params.CharmInfo{
 		CharmURL: meteredCharm.URL().String(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(metered.Metered, jc.IsTrue)
+	c.Assert(metered.Metered, jc.IsFalse)
+}
+
+func (s *charmsSuite) TestIsMeteredTrueRequired(c *gc.C) {
+	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered-required"})
+	metered, err := s.api.IsMetered(params.CharmInfo{
+		CharmURL: meteredCharm.URL().String(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(metered.Metered, jc.IsFalse)
 }
