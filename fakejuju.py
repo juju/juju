@@ -355,16 +355,12 @@ class AutoloadCredentials(FakeExpectChild):
         return False
 
 
-class RegisterHost(FakeExpectChild):
+class PromptingExpectChild(FakeExpectChild):
 
-    def __init__(self, backend, juju_home, extra_env):
-        super(RegisterHost, self).__init__(backend, juju_home, extra_env)
-        self.prompts = iter([
-            'E-Mail:',
-            'Password:',
-            'Two-factor auth (Enter for none):',
-            'Enter a name for this controller:',
-        ])
+    def __init__(self, backend, juju_home, extra_env, prompts):
+        super(PromptingExpectChild, self).__init__(backend, juju_home,
+                                                   extra_env)
+        self.prompts = iter(prompts)
         self.values = {}
 
     def expect(self, regex):
@@ -377,13 +373,27 @@ class RegisterHost(FakeExpectChild):
             return
         if regex is pexpect.EOF:
             raise ValueError('Expected EOF. got "{}"'.format(prompt))
-        super(RegisterHost, self).expect(regex)
+        super(PromptingExpectChild, self).expect(regex)
         regex_match = re.search(regex, prompt)
         if regex_match is None:
             raise ValueError(
                 'Regular expression did not match prompt.  Regex: "{}",'
                 ' prompt "{}"'.format(regex, prompt))
         self.match = regex_match.group(0)
+
+    def sendline(self, line=''):
+        self.values[self.match] = line.rstrip()
+
+
+class RegisterHost(PromptingExpectChild):
+
+    def __init__(self, backend, juju_home, extra_env):
+        super(RegisterHost, self).__init__(backend, juju_home, extra_env, [
+            'E-Mail:',
+            'Password:',
+            'Two-factor auth (Enter for none):',
+            'Enter a name for this controller:',
+        ])
 
     def close(self):
         controller_state = self.backend.controller_state
@@ -395,25 +405,6 @@ class RegisterHost(FakeExpectChild):
             '2fa': self.values['Two-factor auth (Enter for none):'],
             })
         super(RegisterHost, self).close()
-
-    def sendline(self, line=''):
-        self.values[self.match] = line.rstrip()
-
-    def isalive(self):
-        juju_data = JujuData('foo', juju_home=self.juju_home)
-        juju_data.load_yaml()
-        creds = juju_data.credentials.setdefault('credentials', {})
-        creds.update({self.cloud: {
-            'default-region': self.extra_env['OS_REGION_NAME'],
-            self.extra_env['OS_USERNAME']: {
-                'domain-name': '',
-                'auth-type': 'userpass',
-                'username': self.extra_env['OS_USERNAME'],
-                'password': self.extra_env['OS_PASSWORD'],
-                'tenant-name': self.extra_env['OS_TENANT_NAME'],
-                }}})
-        juju_data.dump_yaml(self.juju_home, {})
-        return False
 
 
 class FakeBackend:
