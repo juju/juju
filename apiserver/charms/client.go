@@ -106,8 +106,7 @@ func (a *API) IsMetered(args params.CharmInfo) (params.IsMeteredResult, error) {
 	if err != nil {
 		return params.IsMeteredResult{false}, err
 	}
-	if aCharm.Metrics() != nil && len(aCharm.Metrics().Metrics) > 0 {
-		return params.IsMeteredResult{true}, nil
-	}
-	return params.IsMeteredResult{false}, nil
+	metrics := aCharm.Metrics()
+	metered := metrics != nil && metrics.Plan != nil && metrics.Plan.Required
+	return params.IsMeteredResult{metered}, nil
 }
