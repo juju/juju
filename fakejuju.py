@@ -705,7 +705,10 @@ class FakeBackend:
                 if not self.is_feature_enabled('jes'):
                     raise JESNotSupported()
                 model = args[0]
-                model_state = self.controller_state.models[model]
+                try:
+                    model_state = self.controller_state.models[model]
+                except KeyError:
+                    raise subprocess.CalledProcessError(1, 'No such model')
                 model_state.destroy_model()
             if command == 'enable-ha':
                 parser = ArgumentParser()

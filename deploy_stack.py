@@ -517,6 +517,47 @@ class CreateController:
         self.tear_down_client.tear_down()
 
 
+class PublicController:
+    """A controller strategy where the controller is public.
+
+    The user registers with the controller, and adds the initial model.
+    """
+    def __init__(self, controller_host, email, password, client,
+                 tear_down_client):
+        self.controller_host = controller_host
+        self.email = email
+        self.password = password
+        self.client = client
+        self.tear_down_client = tear_down_client
+
+    def prepare(self):
+        """Prepare by destroying the model and unregistering if possible."""
+        try:
+            self.tear_down()
+        except subprocess.CalledProcessError:
+            pass
+
+    def create_initial_model(self, upload_tools, series, boot_kwargs):
+        """Register controller and add model."""
+        self.client.register_host(
+            self.controller_host, self.email, self.password)
+        self.client.env.controller.explicit_region = True
+        self.client.add_model(self.client.env)
+
+    def get_hosts(self):
+        """There are no user-owned controller hosts, so no-op."""
+        return {}
+
+    def tear_down(self):
+        """Remove the current model and clean up the controller."""
+        try:
+            self.tear_down_client.destroy_model()
+        finally:
+            controller = self.tear_down_client.env.controller.name
+            self.tear_down_client.juju('unregister', ('-y', controller),
+                                       include_e=False)
+
+
 class BootstrapManager:
     """
     Helper class for running juju tests.

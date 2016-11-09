@@ -44,6 +44,7 @@ from deploy_stack import (
     iter_remote_machines,
     get_remote_machines,
     GET_TOKEN_SCRIPT,
+    PublicController,
     safe_print_status,
     retain_config,
     update_env,
@@ -1295,6 +1296,68 @@ class TestCreateController(FakeHomeTestCase):
         create_controller = self.get_cleanup_controller()
         with self.assertRaises(subprocess.CalledProcessError):
             create_controller.tear_down()
+
+
+class TestPublicController(FakeHomeTestCase):
+
+    def get_cleanup_controller(self):
+        client = fake_juju_client()
+        public_controller = PublicController('host', 'email2', 'password2',
+                                             None, client)
+        return public_controller
+
+    def get_controller(self):
+        client = fake_juju_client()
+        public_controller = PublicController('host', 'email2', 'password2',
+                                             client, None)
+        return public_controller
+
+    def test_prepare_no_existing(self):
+        public_controller = self.get_cleanup_controller()
+        client = public_controller.tear_down_client
+        public_controller.prepare()
+        self.assertEqual({'models': []}, client.get_models())
+        self.assertEqual(
+            'not-bootstrapped', client._backend.controller_state.state)
+
+    def test_prepare_leftover(self):
+        public_controller = self.get_cleanup_controller()
+        client = public_controller.tear_down_client
+        client.add_model(client.env)
+        public_controller.prepare()
+        self.assertEqual({'models': []}, client.get_models())
+        self.assertEqual(
+            'model-destroyed', client._backend.controller_state.state)
+
+    def test_create_initial_model(self):
+        controller = self.get_controller()
+        client = controller.client
+        self.assertEqual({'models': []}, client.get_models())
+        controller.create_initial_model(False, 'angsty', {})
+        self.assertItemsEqual([{'name': 'name'}],
+                              client.get_models()['models'])
+        self.assertEqual(
+            'created', client._backend.controller_state.state)
+
+    def test_get_hosts(self):
+        controller = self.get_controller()
+        client = controller.client
+        client.bootstrap()
+        self.assertEqual({}, controller.get_hosts())
+
+    def test_tear_down_existing(self):
+        public_controller = self.get_cleanup_controller()
+        client = public_controller.tear_down_client
+        client.add_model(client.env)
+        public_controller.tear_down()
+        self.assertEqual({'models': []}, client.get_models())
+        self.assertEqual(
+            'model-destroyed', client._backend.controller_state.state)
+
+    def test_tear_down_nothing(self):
+        public_controller = self.get_cleanup_controller()
+        with self.assertRaises(subprocess.CalledProcessError):
+            public_controller.tear_down()
 
 
 class TestBootstrapManager(FakeHomeTestCase):
