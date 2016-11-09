@@ -319,7 +319,7 @@ class TestEnvJujuClient24(ClientTest):
             client.enable_jes()
         client._use_jes = True
         env = client._shell_environ()
-        self.assertNotIn('jes', env[JUJU_DEV_FEATURE_FLAGS].split(","))
+        self.assertNotIn('jes', env.get(JUJU_DEV_FEATURE_FLAGS, '').split(","))
 
     def test_add_ssh_machines(self):
         client = self.client_class(SimpleEnvironment('foo', {}), None, 'juju')
