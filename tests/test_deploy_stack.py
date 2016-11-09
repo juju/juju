@@ -1039,6 +1039,7 @@ class TestDeployJob(FakeHomeTestCase):
             series='trusty', debug=False, agent_url=None, agent_stream=None,
             keep_env=False, upload_tools=False, with_chaos=1, jes=False,
             region=None, verbose=False, upgrade=False, deadline=None,
+            controller_host=None,
         )
         with self.ds_cxt():
             with patch('deploy_stack.background_chaos',
@@ -1062,6 +1063,7 @@ class TestDeployJob(FakeHomeTestCase):
             series='trusty', debug=False, agent_url=None, agent_stream=None,
             keep_env=False, upload_tools=False, with_chaos=0, jes=False,
             region=None, verbose=False, upgrade=False, deadline=None,
+            controller_host=None,
         )
         with self.ds_cxt():
             with patch('deploy_stack.background_chaos',
@@ -1080,17 +1082,22 @@ class TestDeployJob(FakeHomeTestCase):
             series='trusty', debug=False, agent_url=None, agent_stream=None,
             keep_env=False, upload_tools=False, with_chaos=0, jes=False,
             region='region-foo', verbose=False, upgrade=False, deadline=None,
+            controller_host=None,
         )
         with self.ds_cxt() as (client, bm_mock):
             with patch('deploy_stack.assess_juju_relations',
                        autospec=True):
                 with patch('subprocess.Popen', autospec=True,
                            return_value=FakePopen('', '', 0)):
-                    _deploy_job(args, 'local:trusty/', 'trusty')
+                    with patch('deploy_stack.make_controller_strategy'
+                            ) as mcs_mock:
+                        _deploy_job(args, 'local:trusty/', 'trusty')
                     jes = client.is_jes_enabled()
         bm_mock.assert_called_once_with(
             'foo', client, client, None, None, 'trusty', None, None,
-            'region-foo', 'log', False, permanent=jes, jes_enabled=jes)
+            'region-foo', 'log', False,
+            permanent=jes, jes_enabled=jes,
+            controller_strategy=mcs_mock.return_value)
 
     def test_deploy_job_changes_series_with_win(self):
         args = Namespace(
@@ -2354,6 +2361,7 @@ class TestDeployJobParseArgs(FakeHomeTestCase):
             jes=False,
             region=None,
             deadline=None,
+            controller_host=None,
         ))
 
     def test_upload_tools(self):

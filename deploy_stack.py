@@ -438,6 +438,10 @@ def deploy_job_parse_args(argv=None):
                         help='Deploy and run Chaos Monkey in the background.')
     parser.add_argument('--jes', action='store_true',
                         help='Use JES to control environments.')
+    parser.add_argument(
+        '--controller-host', help=('Host with a controller to use.  If'
+        ' supplied, SSO_EMAIL and SSO_PASSWORD environment variables will be'
+        ' used for oauth authentication.'))
     return parser.parse_args(argv)
 
 
@@ -1051,10 +1055,13 @@ def _deploy_job(args, charm_series, series):
     if args.jes and not client.is_jes_enabled():
         client.enable_jes()
     jes_enabled = client.is_jes_enabled()
+    controller_strategy = make_controller_strategy(client, client,
+                                                   args.controller_host)
     bs_manager = BootstrapManager(
         args.temp_env_name, client, client, args.bootstrap_host, args.machine,
         series, args.agent_url, args.agent_stream, args.region, args.logs,
-        args.keep_env, permanent=jes_enabled, jes_enabled=jes_enabled)
+        args.keep_env, permanent=jes_enabled, jes_enabled=jes_enabled,
+        controller_strategy=controller_strategy)
     with bs_manager.booted_context(args.upload_tools):
         if sys.platform in ('win32', 'darwin'):
             # The win and osx client tests only verify the client
