@@ -3078,10 +3078,11 @@ class TestEnvJujuClient(ClientTest):
         self.assertNotEqual(controller_state.name, client.env.controller.name)
         client.register_host('host1', 'email1', 'password1')
         self.assertEqual(controller_state.name, client.env.controller.name)
-        admin = controller_state.users['admin']
-        self.assertEqual(admin['email'], 'email1')
-        self.assertEqual(admin['password'], 'password1')
-        self.assertEqual(admin['2fa'], '')
+        self.assertEqual(controller_state.state, 'registered')
+        jrandom = controller_state.users['jrandom@external']
+        self.assertEqual(jrandom['email'], 'email1')
+        self.assertEqual(jrandom['password'], 'password1')
+        self.assertEqual(jrandom['2fa'], '')
 
     def test_create_cloned_environment(self):
         fake_client = fake_juju_client()

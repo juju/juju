@@ -98,6 +98,13 @@ class FakeControllerState:
         self.models[default_model.name] = default_model
         return default_model
 
+    def register(self, name, email, password, twofa):
+        self.name = name
+        self.add_user_perms('jrandom@external', 'write')
+        self.users['jrandom@external'].update(
+            {'email': email, 'password': password, '2fa': twofa})
+        self.state = 'registered'
+
     def destroy(self, kill=False):
         for model in self.models.values():
             model.kill_controller()
@@ -396,14 +403,12 @@ class RegisterHost(PromptingExpectChild):
         ])
 
     def close(self):
-        controller_state = self.backend.controller_state
-        controller_state.name = self.values[
-            'Enter a name for this controller:']
-        controller_state.users['admin'].update({
-            'email': self.values['E-Mail:'],
-            'password': self.values['Password:'],
-            '2fa': self.values['Two-factor auth (Enter for none):'],
-            })
+        self.backend.controller_state.register(
+            self.values['Enter a name for this controller:'],
+            self.values['E-Mail:'],
+            self.values['Password:'],
+            self.values['Two-factor auth (Enter for none):'],
+            )
         super(RegisterHost, self).close()
 
 
