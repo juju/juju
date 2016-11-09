@@ -1387,11 +1387,11 @@ class EnvJujuClient:
             credential_name = self.env.get_cloud_credentials_item()[0]
             cloud_region = self.get_cloud_region(self.env.get_cloud(),
                                                  self.env.get_region())
-            region_args = ('--credential', credential_name, cloud_region)
+            region_args = (cloud_region, '--credential', credential_name)
         else:
             region_args = ()
-        self.controller_juju('add-model', (
-            model_name, '--config', config_file) + region_args)
+        self.controller_juju('add-model', (model_name,) + region_args + (
+            '--config', config_file))
 
     def destroy_model(self):
         exit_status = self.juju(

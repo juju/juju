@@ -915,8 +915,8 @@ class TestEnvJujuClient(ClientTest):
             with observable_temp_file() as config_file:
                 client.add_model(model)
         juju_mock.assert_called_once_with('add-model', (
-            '-c', 'name', 'new-model', '--config', config_file.name,
-            '--credential', 'creds', 'foo/bar'),
+            '-c', 'name', 'new-model', 'foo/bar', '--credential', 'creds',
+            '--config', config_file.name),
             frozenset({'migration'}), 'foo', None, True, None, None)
 
     def test_destroy_environment(self):
