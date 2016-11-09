@@ -13,6 +13,7 @@ import subprocess
 import sys
 from unittest import (
     skipIf,
+    TestCase,
     )
 
 from mock import (
@@ -44,6 +45,7 @@ from deploy_stack import (
     iter_remote_machines,
     get_remote_machines,
     GET_TOKEN_SCRIPT,
+    make_controller_strategy,
     PublicController,
     safe_print_status,
     retain_config,
@@ -1236,6 +1238,31 @@ class TestTestUpgrade(FakeHomeTestCase):
             with patch.object(EnvJujuClient, 'wait_for_version') as wfv_mock:
                 assess_upgrade(old_client, '/bar/juju')
         wfv_mock.assert_has_calls([call('2.0-rc2', 1200)] * 2)
+
+
+class TestMakeControllerStrategy(TestCase):
+
+    def test_make_controller_strategy_no_host(self):
+        client = object()
+        tear_down_client = object()
+        strategy = make_controller_strategy(client, tear_down_client, None)
+        self.assertIs(CreateController, type(strategy))
+        self.assertEqual(client, strategy.client)
+        self.assertEqual(tear_down_client, strategy.tear_down_client)
+
+    def test_make_controller_strategy_host(self):
+        client = object()
+        tear_down_client = object()
+        with patch.dict(os.environ, {
+                'SSO_EMAIL': 'sso@email',
+                'SSO_PASSWORD': 'sso-password'}):
+            strategy = make_controller_strategy(client, tear_down_client,
+                                                'host')
+        self.assertIs(PublicController, type(strategy))
+        self.assertEqual(client, strategy.client)
+        self.assertEqual(tear_down_client, strategy.tear_down_client)
+        self.assertEqual('sso@email', strategy.email)
+        self.assertEqual('sso-password', strategy.password)
 
 
 class TestCreateController(FakeHomeTestCase):

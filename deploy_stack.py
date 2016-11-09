@@ -484,6 +484,15 @@ def temp_juju_home(client, new_home):
         client.env.juju_home = old_home
 
 
+def make_controller_strategy(client, tear_down_client, controller_host):
+    if controller_host is None:
+        return CreateController(client, tear_down_client)
+    else:
+        return PublicController(
+            controller_host, os.environ['SSO_EMAIL'],
+            os.environ['SSO_PASSWORD'], client, tear_down_client)
+
+
 class CreateController:
     """A Controller strategy where the controller is created.
 
