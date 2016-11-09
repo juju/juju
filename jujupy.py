@@ -2241,6 +2241,30 @@ class EnvJujuClient:
         user_client.env.user_name = username
         return user_client
 
+    def register_host(self, host, email, password):
+        child = self.expect('register', ('--no-browser-login', host),
+                            include_e=False)
+        try:
+            child.logfile = sys.stdout
+            child.expect('E-Mail:|Enter a name for this controller:')
+            if child.match == 'E-Mail:':
+                child.sendline(email)
+                child.expect('Password:')
+                child.logfile = None
+                try:
+                    child.sendline(password)
+                finally:
+                    child.logfile = sys.stdout
+                child.expect(r'Two-factor auth \(Enter for none\):')
+                child.sendline()
+                child.expect('Enter a name for this controller:')
+            child.sendline(self.env.controller.name)
+            child.expect(pexpect.EOF)
+        except pexpect.TIMEOUT:
+            raise
+            raise Exception(
+                'Registering user failed: pexpect session timed out')
+
     def remove_user(self, username):
         self.juju('remove-user', (username, '-y'), include_e=False)
 

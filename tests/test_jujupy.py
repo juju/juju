@@ -3071,6 +3071,18 @@ class TestEnvJujuClient(ClientTest):
         mock.assert_called_with(
             'logout', ('-c', 'foo'), include_e=False)
 
+    def test_register_host(self):
+        client = fake_juju_client()
+        controller_state = client._backend.controller_state
+        client.env.controller.name = 'foo-controller'
+        self.assertNotEqual(controller_state.name, client.env.controller.name)
+        client.register_host('host1', 'email1', 'password1')
+        self.assertEqual(controller_state.name, client.env.controller.name)
+        admin = controller_state.users['admin']
+        self.assertEqual(admin['email'], 'email1')
+        self.assertEqual(admin['password'], 'password1')
+        self.assertEqual(admin['2fa'], '')
+
     def test_create_cloned_environment(self):
         fake_client = fake_juju_client()
         fake_client.bootstrap()

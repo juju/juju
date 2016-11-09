@@ -6,8 +6,10 @@ from hashlib import sha512
 from itertools import count
 import json
 import logging
+import re
 import subprocess
 
+import pexpect
 import yaml
 
 from jujupy import (
@@ -305,6 +307,7 @@ class FakeExpectChild:
         self.extra_env = extra_env
         self.last_expect = None
         self.exitstatus = None
+        self.match = None
 
     def expect(self, line):
         self.last_expect = line
@@ -334,6 +337,67 @@ class AutoloadCredentials(FakeExpectChild):
                 '(Select the cloud it belongs to|'
                 'Enter cloud to which the credential).* Q to quit.*'):
             self.cloud = line
+
+    def isalive(self):
+        juju_data = JujuData('foo', juju_home=self.juju_home)
+        juju_data.load_yaml()
+        creds = juju_data.credentials.setdefault('credentials', {})
+        creds.update({self.cloud: {
+            'default-region': self.extra_env['OS_REGION_NAME'],
+            self.extra_env['OS_USERNAME']: {
+                'domain-name': '',
+                'auth-type': 'userpass',
+                'username': self.extra_env['OS_USERNAME'],
+                'password': self.extra_env['OS_PASSWORD'],
+                'tenant-name': self.extra_env['OS_TENANT_NAME'],
+                }}})
+        juju_data.dump_yaml(self.juju_home, {})
+        return False
+
+
+class RegisterHost(FakeExpectChild):
+
+    def __init__(self, backend, juju_home, extra_env):
+        super(RegisterHost, self).__init__(backend, juju_home, extra_env)
+        self.prompts = iter([
+            'E-Mail:',
+            'Password:',
+            'Two-factor auth (Enter for none):',
+            'Enter a name for this controller:',
+        ])
+        self.values = {}
+
+    def expect(self, regex):
+        try:
+            prompt = self.prompts.next()
+        except StopIteration:
+            if regex is not pexpect.EOF:
+                raise
+            self.close()
+            return
+        if regex is pexpect.EOF:
+            raise ValueError('Expected EOF. got "{}"'.format(prompt))
+        super(RegisterHost, self).expect(regex)
+        regex_match = re.search(regex, prompt)
+        if regex_match is None:
+            raise ValueError(
+                'Regular expression did not match prompt.  Regex: "{}",'
+                ' prompt "{}"'.format(regex, prompt))
+        self.match = regex_match.group(0)
+
+    def close(self):
+        controller_state = self.backend.controller_state
+        controller_state.name = self.values[
+            'Enter a name for this controller:']
+        controller_state.users['admin'].update({
+            'email': self.values['E-Mail:'],
+            'password': self.values['Password:'],
+            '2fa': self.values['Two-factor auth (Enter for none):'],
+            })
+        super(RegisterHost, self).close()
+
+    def sendline(self, line=''):
+        self.values[self.match] = line.rstrip()
 
     def isalive(self):
         juju_data = JujuData('foo', juju_home=self.juju_home)
@@ -763,6 +827,8 @@ class FakeBackend:
                timeout=None, extra_env=None):
         if command == 'autoload-credentials':
             return AutoloadCredentials(self, juju_home, extra_env)
+        if command == 'register':
+            return RegisterHost(self, juju_home, extra_env)
         else:
             return FakeExpectChild(self, juju_home, extra_env)
 
