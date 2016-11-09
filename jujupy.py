@@ -785,10 +785,11 @@ class Juju2Backend:
             env['PATH'] = '{}{}{}'.format(os.path.dirname(self.full_path),
                                           os.pathsep, env['PATH'])
         flags = self.feature_flags.intersection(used_feature_flags)
+        feature_flag_string = env.get(JUJU_DEV_FEATURE_FLAGS, '')
+        if feature_flag_string != '':
+            flags.update(feature_flag_string.split(','))
         if flags:
             env[JUJU_DEV_FEATURE_FLAGS] = ','.join(sorted(flags))
-        else:
-            env[JUJU_DEV_FEATURE_FLAGS] = ''
         env['JUJU_DATA'] = juju_home
         return env
 
