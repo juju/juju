@@ -535,6 +535,8 @@ class PublicController:
         try:
             self.tear_down()
         except subprocess.CalledProcessError:
+            # Assume that any error tearing down means that there was nothing
+            # to tear down.
             pass
 
     def create_initial_model(self, upload_tools, series, boot_kwargs):
