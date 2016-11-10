@@ -2307,6 +2307,55 @@ class EnvJujuClient:
         return self.get_juju_output('list-clouds', '--format',
                                     format, include_e=False)
 
+    def add_cloud_interactive(self, cloud_name):
+        cloud = self.env.clouds['clouds'][cloud_name]
+        child = self.expect('add-cloud', include_e=False)
+        try:
+            child.logfile = sys.stdout
+            child.expect('Select cloud type:')
+            child.sendline(cloud['type'])
+            child.expect('Enter a name for the cloud:')
+            child.sendline(cloud_name)
+            if cloud['type'] == 'maas':
+                child.expect('Enter the API endpoint url:')
+                child.sendline(cloud['endpoint'])
+            if cloud['type'] == 'manual':
+                child.expect("Enter the controller's hostname or IP address:")
+                child.sendline(cloud['endpoint'])
+            if cloud['type'] == 'openstack':
+                child.expect('Enter the API endpoint url for the cloud:')
+                child.sendline(cloud['endpoint'])
+                child.expect(
+                    'Select one or more auth types separated by commas:')
+                child.sendline(','.join(cloud['auth-types']))
+                for num, (name, values) in enumerate(cloud['regions'].items()):
+                    child.expect('Enter region name:')
+                    child.sendline(name)
+                    child.expect('Enter the API endpoint url for the region:')
+                    child.sendline(values['endpoint'])
+                    child.expect('Enter another region\? \(Y/n\)')
+                    if num + 1 < len(cloud['regions']):
+                        child.sendline('y')
+                    else:
+                        child.sendline('n')
+            if cloud['type'] == 'vsphere':
+                child.expect('Enter the API endpoint url for the cloud:')
+                child.sendline(cloud['endpoint'])
+                for num, (name, values) in enumerate(cloud['regions'].items()):
+                    child.expect('Enter region name:')
+                    child.sendline(name)
+                    child.expect('Enter another region\? \(Y/n\)')
+                    if num + 1 < len(cloud['regions']):
+                        child.sendline('y')
+                    else:
+                        child.sendline('n')
+
+            child.expect(pexpect.EOF)
+        except pexpect.TIMEOUT:
+            raise Exception(
+                'Adding cloud failed: pexpect session timed out')
+
+
     def show_controller(self, format='json'):
         """Show controller's status."""
         return self.get_juju_output('show-controller', '--format',
