@@ -2355,7 +2355,6 @@ class EnvJujuClient:
             raise Exception(
                 'Adding cloud failed: pexpect session timed out')
 
-
     def show_controller(self, format='json'):
         """Show controller's status."""
         return self.get_juju_output('show-controller', '--format',
