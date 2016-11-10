@@ -98,7 +98,7 @@ class FakeControllerState:
 
     def destroy(self, kill=False):
         for model in self.models.values():
-            model.kill_controller()
+            model.destroy_model()
         self.models.clear()
         if kill:
             self.state = 'controller-killed'
@@ -177,10 +177,6 @@ class FakeEnvironmentState:
         self._clear()
         self.controller.state = 'destroyed'
         return 0
-
-    def kill_controller(self):
-        self._clear()
-        self.controller.state = 'controller-killed'
 
     def destroy_model(self):
         del self.controller.models[self.name]
