@@ -14,7 +14,6 @@ from itertools import chain
 import json
 import logging
 import os
-import pexpect
 import re
 import shutil
 import subprocess
@@ -22,6 +21,7 @@ import sys
 from tempfile import NamedTemporaryFile
 import time
 
+import pexpect
 import yaml
 
 from jujuconfig import (
@@ -40,6 +40,7 @@ from utility import (
     quote,
     qualified_model_name,
     scoped_environ,
+    skip_on_missing_file,
     split_address_port,
     temp_dir,
     unqualified_model_name,
@@ -386,18 +387,15 @@ class SimpleEnvironment:
         :param new_config: Dictionary representing the contents of
             the environments.yaml configuation file."""
         home_path = jes_home_path(juju_home, dir_name)
-        if os.path.exists(home_path):
+        with skip_on_missing_file():
             shutil.rmtree(home_path)
         os.makedirs(home_path)
         self.dump_yaml(home_path, new_config)
         # For extention: Add all files carried over to the list.
         for file_name in ['public-clouds.yaml']:
             src_path = os.path.join(juju_home, file_name)
-            try:
+            with skip_on_missing_file():
                 shutil.copy(src_path, home_path)
-            except IOError as error:
-                if error.errno != errno.ENOENT:
-                    raise
         yield home_path
 
     def get_cloud_credentials(self):
@@ -787,10 +785,11 @@ class Juju2Backend:
             env['PATH'] = '{}{}{}'.format(os.path.dirname(self.full_path),
                                           os.pathsep, env['PATH'])
         flags = self.feature_flags.intersection(used_feature_flags)
+        feature_flag_string = env.get(JUJU_DEV_FEATURE_FLAGS, '')
+        if feature_flag_string != '':
+            flags.update(feature_flag_string.split(','))
         if flags:
             env[JUJU_DEV_FEATURE_FLAGS] = ','.join(sorted(flags))
-        else:
-            env[JUJU_DEV_FEATURE_FLAGS] = ''
         env['JUJU_DATA'] = juju_home
         return env
 
@@ -2996,11 +2995,8 @@ def temp_bootstrap_env(juju_home, client, set_home=True, permanent=False):
                     if e.errno != errno.ENOENT:
                         raise
                     # Remove dangling symlink
-                    try:
+                    with skip_on_missing_file():
                         os.unlink(jenv_path)
-                    except OSError as e:
-                        if e.errno != errno.ENOENT:
-                            raise
                 client.env.juju_home = old_juju_home
 
 

@@ -169,6 +169,29 @@ class TestJuju2Backend(TestCase):
                 with backend._check_timeouts():
                     pass
 
+    def test_shell_environ_feature_flags(self):
+        backend = Juju2Backend('/bin/path', '2.0', {'may', 'june'},
+                               debug=False, soft_deadline=None)
+        env = backend.shell_environ({'april', 'june'}, 'fake-home')
+        self.assertEqual('june', env[JUJU_DEV_FEATURE_FLAGS])
+
+    def test_shell_environ_feature_flags_environmental(self):
+        backend = Juju2Backend('/bin/path', '2.0', set(), debug=False,
+                               soft_deadline=None)
+        with scoped_environ():
+            os.environ[JUJU_DEV_FEATURE_FLAGS] = 'run-test'
+            env = backend.shell_environ(set(), 'fake-home')
+        self.assertEqual('run-test', env[JUJU_DEV_FEATURE_FLAGS])
+
+    def test_shell_environ_feature_flags_environmental_union(self):
+        backend = Juju2Backend('/bin/path', '2.0', {'june'}, debug=False,
+                               soft_deadline=None)
+        with scoped_environ():
+            os.environ[JUJU_DEV_FEATURE_FLAGS] = 'run-test'
+            env = backend.shell_environ({'june'}, 'fake-home')
+        # The feature_flags are combined in alphabetic order.
+        self.assertEqual('june,run-test', env[JUJU_DEV_FEATURE_FLAGS])
+
     def test_juju_checks_timeouts(self):
         backend = Juju2Backend('/bin/path', '2.0', set(), debug=False,
                                soft_deadline=datetime(2015, 1, 2, 3, 4, 5))
@@ -296,7 +319,7 @@ class TestEnvJujuClient24(ClientTest):
             client.enable_jes()
         client._use_jes = True
         env = client._shell_environ()
-        self.assertNotIn('jes', env[JUJU_DEV_FEATURE_FLAGS].split(","))
+        self.assertNotIn('jes', env.get(JUJU_DEV_FEATURE_FLAGS, '').split(","))
 
     def test_add_ssh_machines(self):
         client = self.client_class(SimpleEnvironment('foo', {}), None, 'juju')
