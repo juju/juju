@@ -37,6 +37,24 @@ def assess_cloud(client, example_cloud):
         raise JujuAssertionError('Cloud mismatch')
 
 
+def assess_all_clouds(client, clouds):
+    succeeded = set()
+    failed = set()
+    for cloud_name, cloud in clouds.items():
+        sys.stdout.write('Testing {}.\n'.format(cloud_name))
+        try:
+            assess_cloud(client, cloud)
+        except Exception as e:
+            logging.exception(e)
+            failed.add(cloud_name)
+        else:
+            succeeded.add(cloud_name)
+        finally:
+            client.env.clouds = {'clouds': {}}
+            client.env.dump_yaml(client.env.juju_home, {})
+    return succeeded, failed
+
+
 def parse_args():
     parser = ArgumentParser()
     parser.add_argument('example_clouds',
@@ -54,24 +72,10 @@ def main():
         logging.warn('This test does not support old jujus.')
     with open(args.example_clouds) as f:
         clouds = yaml.safe_load(f)['clouds']
-
-    succeeded = set()
-    failed = set()
     with temp_dir() as juju_home:
         env = JujuData('foo', config=None, juju_home=juju_home)
         client = client_class(env, version, juju_bin)
-        for cloud_name, cloud in clouds.items():
-            sys.stdout.write('Testing {}.\n'.format(cloud_name))
-            try:
-                assess_cloud(client, cloud)
-            except Exception as e:
-                logging.exception(e)
-                failed.add(cloud_name)
-            else:
-                succeeded.add(cloud_name)
-            finally:
-                env.clouds = {'clouds': {}}
-                env.dump_yaml(env.juju_home, {})
+        succeeded, failed = assess_all_clouds(client, clouds)
     sys.stdout.write('Succeeded: {}\n'.format(', '.join(sorted(succeeded))))
     sys.stdout.write('Failed: {}\n'.format(', '.join(sorted(failed))))
 
