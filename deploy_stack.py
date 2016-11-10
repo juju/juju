@@ -439,9 +439,10 @@ def deploy_job_parse_args(argv=None):
     parser.add_argument('--jes', action='store_true',
                         help='Use JES to control environments.')
     parser.add_argument(
-        '--controller-host', help=('Host with a controller to use.  If'
-        ' supplied, SSO_EMAIL and SSO_PASSWORD environment variables will be'
-        ' used for oauth authentication.'))
+        '--controller-host', help=(
+            'Host with a controller to use.  If supplied, SSO_EMAIL and'
+            ' SSO_PASSWORD environment variables will be used for oauth'
+            ' authentication.'))
     return parser.parse_args(argv)
 
 

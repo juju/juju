@@ -1089,8 +1089,8 @@ class TestDeployJob(FakeHomeTestCase):
                        autospec=True):
                 with patch('subprocess.Popen', autospec=True,
                            return_value=FakePopen('', '', 0)):
-                    with patch('deploy_stack.make_controller_strategy'
-                            ) as mcs_mock:
+                    with patch('deploy_stack.make_controller_strategy',
+                               ) as mcs_mock:
                         _deploy_job(args, 'local:trusty/', 'trusty')
                     jes = client.is_jes_enabled()
         bm_mock.assert_called_once_with(
