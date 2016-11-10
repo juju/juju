@@ -630,7 +630,8 @@ class FakeBackend:
             if command == 'bootstrap':
                 self.bootstrap(args)
             if command == 'destroy-controller':
-                if self.controller_state.state != 'bootstrapped':
+                if self.controller_state.state not in ('bootstrapped',
+                                                       'created'):
                     raise subprocess.CalledProcessError(1, 'Not bootstrapped.')
                 self.controller_state.destroy()
             if command == 'kill-controller':
