@@ -481,7 +481,7 @@ class AddCloud(PromptingExpectChild):
                     regions[line] = cur_region
             cloud.update({
                 'endpoint': self.values[self.CLOUD_ENDPOINT],
-                'regions': regions
+                'regions': regions,
                 })
         self.backend.clouds[self.values[self.NAME]] = cloud
         self.backend.clouds[self.values[self.NAME]] = cloud
