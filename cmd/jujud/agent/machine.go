@@ -91,6 +91,7 @@ import (
 	"github.com/juju/juju/worker/singular"
 	"github.com/juju/juju/worker/txnpruner"
 	"github.com/juju/juju/worker/upgradesteps"
+	utilscert "github.com/juju/utils/cert"
 )
 
 var (
@@ -382,7 +383,7 @@ func upgradeCertificateDNSNames(config agent.ConfigSetter) error {
 	// certificate validation fails, or it does not contain the DNS
 	// names we require, we will generate a new one.
 	var dnsNames set.Strings
-	serverCert, _, err := cert.ParseCertAndKey(si.Cert, si.PrivateKey)
+	serverCert, _, err := utilscert.ParseCertAndKey(si.Cert, si.PrivateKey)
 	if err != nil {
 		// The certificate is invalid, so create a new one.
 		logger.Infof("parsing certificate/key failed, will generate a new one: %v", err)
