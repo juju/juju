@@ -6,8 +6,10 @@ from hashlib import sha512
 from itertools import count
 import json
 import logging
+import re
 import subprocess
 
+import pexpect
 import yaml
 
 from jujupy import (
@@ -96,6 +98,22 @@ class FakeControllerState:
         self.models[default_model.name] = default_model
         return default_model
 
+    def register(self, name, email, password, twofa):
+        self.name = name
+        self.add_user_perms('jrandom@external', 'write')
+        self.users['jrandom@external'].update(
+            {'email': email, 'password': password, '2fa': twofa})
+        self.state = 'registered'
+
+    def destroy(self, kill=False):
+        for model in self.models.values():
+            model.destroy_model()
+        self.models.clear()
+        if kill:
+            self.state = 'controller-killed'
+        else:
+            self.state = 'controller-destroyed'
+
 
 class FakeEnvironmentState:
     """A Fake environment state that can be used by multiple FakeBackends."""
@@ -168,10 +186,6 @@ class FakeEnvironmentState:
         self._clear()
         self.controller.state = 'destroyed'
         return 0
-
-    def kill_controller(self):
-        self._clear()
-        self.controller.state = 'controller-killed'
 
     def destroy_model(self):
         del self.controller.models[self.name]
@@ -296,6 +310,7 @@ class FakeExpectChild:
         self.extra_env = extra_env
         self.last_expect = None
         self.exitstatus = None
+        self.match = None
 
     def expect(self, line):
         self.last_expect = line
@@ -341,6 +356,56 @@ class AutoloadCredentials(FakeExpectChild):
                 }}})
         juju_data.dump_yaml(self.juju_home, {})
         return False
+
+
+class PromptingExpectChild(FakeExpectChild):
+
+    def __init__(self, backend, juju_home, extra_env, prompts):
+        super(PromptingExpectChild, self).__init__(backend, juju_home,
+                                                   extra_env)
+        self.prompts = iter(prompts)
+        self.values = {}
+
+    def expect(self, regex):
+        try:
+            prompt = self.prompts.next()
+        except StopIteration:
+            if regex is not pexpect.EOF:
+                raise
+            self.close()
+            return
+        if regex is pexpect.EOF:
+            raise ValueError('Expected EOF. got "{}"'.format(prompt))
+        super(PromptingExpectChild, self).expect(regex)
+        regex_match = re.search(regex, prompt)
+        if regex_match is None:
+            raise ValueError(
+                'Regular expression did not match prompt.  Regex: "{}",'
+                ' prompt "{}"'.format(regex, prompt))
+        self.match = regex_match.group(0)
+
+    def sendline(self, line=''):
+        self.values[self.match] = line.rstrip()
+
+
+class RegisterHost(PromptingExpectChild):
+
+    def __init__(self, backend, juju_home, extra_env):
+        super(RegisterHost, self).__init__(backend, juju_home, extra_env, [
+            'E-Mail:',
+            'Password:',
+            'Two-factor auth (Enter for none):',
+            'Enter a name for this controller:',
+        ])
+
+    def close(self):
+        self.backend.controller_state.register(
+            self.values['Enter a name for this controller:'],
+            self.values['E-Mail:'],
+            self.values['Password:'],
+            self.values['Two-factor auth (Enter for none):'],
+            )
+        super(RegisterHost, self).close()
 
 
 class FakeBackend:
@@ -624,17 +689,23 @@ class FakeBackend:
         else:
             if command == 'bootstrap':
                 self.bootstrap(args)
+            if command == 'destroy-controller':
+                if self.controller_state.state not in ('bootstrapped',
+                                                       'created'):
+                    raise subprocess.CalledProcessError(1, 'Not bootstrapped.')
+                self.controller_state.destroy()
             if command == 'kill-controller':
                 if self.controller_state.state == 'not-bootstrapped':
                     return
-                model = args[0]
-                model_state = self.controller_state.models[model]
-                model_state.kill_controller()
+                self.controller_state.destroy(kill=True)
             if command == 'destroy-model':
                 if not self.is_feature_enabled('jes'):
                     raise JESNotSupported()
                 model = args[0]
-                model_state = self.controller_state.models[model]
+                try:
+                    model_state = self.controller_state.models[model]
+                except KeyError:
+                    raise subprocess.CalledProcessError(1, 'No such model')
                 model_state.destroy_model()
             if command == 'enable-ha':
                 parser = ArgumentParser()
@@ -651,7 +722,9 @@ class FakeBackend:
                 parser = ArgumentParser()
                 parser.add_argument('-c', '--controller')
                 parser.add_argument('--config')
+                parser.add_argument('--credential')
                 parser.add_argument('model_name')
+                parser.add_argument('cloud-region', nargs='?')
                 parsed = parser.parse_args(args)
                 self.controller_state.add_model(parsed.model_name)
             if command == 'revoke':
@@ -750,6 +823,8 @@ class FakeBackend:
                timeout=None, extra_env=None):
         if command == 'autoload-credentials':
             return AutoloadCredentials(self, juju_home, extra_env)
+        if command == 'register':
+            return RegisterHost(self, juju_home, extra_env)
         else:
             return FakeExpectChild(self, juju_home, extra_env)
 
