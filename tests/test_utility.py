@@ -1,12 +1,13 @@
 from argparse import (
     ArgumentParser,
     Namespace,
-)
+    )
 from datetime import (
     datetime,
     timedelta,
     )
 from contextlib import contextmanager
+import errno
 import json
 import logging
 import os
@@ -22,7 +23,7 @@ from mock import (
 
 from tests import (
     TestCase,
-)
+    )
 from utility import (
     add_basic_testing_arguments,
     as_literal_address,
@@ -37,6 +38,7 @@ from utility import (
     quote,
     run_command,
     scoped_environ,
+    skip_on_missing_file,
     split_address_port,
     temp_dir,
     until_timeout,
@@ -541,6 +543,25 @@ class TestAddBasicTestingArguments(TestCase):
             dt_class.utcnow.return_value = now
             args = parser.parse_args(cmd_line)
         self.assertEqual(now + timedelta(seconds=300), args.deadline)
+
+
+class TestSkipOnMissingFile(TestCase):
+
+    def test_skip_on_missing_file(self):
+        """Test if skip_on_missing_file hides the proper exceptions."""
+        with skip_on_missing_file():
+            raise OSError(errno.ENOENT, 'should be hidden')
+        with skip_on_missing_file():
+            raise IOError(errno.ENOENT, 'should be hidden')
+
+    def test_skip_on_missing_file_except(self):
+        """Test if skip_on_missing_file ignores other types of exceptions."""
+        with self.assertRaises(RuntimeError):
+            with skip_on_missing_file():
+                raise RuntimeError(errno.ENOENT, 'pass through')
+        with self.assertRaises(IOError):
+            with skip_on_missing_file():
+                raise IOError(errno.EEXIST, 'pass through')
 
 
 class TestRunCommand(TestCase):
