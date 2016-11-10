@@ -10,9 +10,9 @@ import (
 	"github.com/juju/loggo"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/cert"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cert"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/testing"
 )

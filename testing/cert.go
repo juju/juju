@@ -11,8 +11,7 @@ import (
 	"time"
 
 	gitjujutesting "github.com/juju/testing"
-
-	"github.com/juju/juju/cert"
+	"github.com/juju/utils/cert"
 )
 
 func init() {

@@ -12,10 +12,10 @@ import (
 
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/cert"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/cert"
 	"github.com/juju/juju/testing"
 )
 

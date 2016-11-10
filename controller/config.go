@@ -10,9 +10,8 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/schema"
 	"github.com/juju/utils"
+	"github.com/juju/utils/cert"
 	"gopkg.in/macaroon-bakery.v1/bakery"
-
-	"github.com/juju/juju/cert"
 )
 
 var logger = loggo.GetLogger("juju.controller")
