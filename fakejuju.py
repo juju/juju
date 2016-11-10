@@ -412,6 +412,33 @@ class RegisterHost(PromptingExpectChild):
         super(RegisterHost, self).close()
 
 
+class AddCloud(PromptingExpectChild):
+
+    def __init__(self, backend, juju_home, extra_env):
+        super(RegisterHost, self).__init__(
+            backend, juju_home, extra_env, self.iter_prompts())
+
+    def iter_prompts(self):
+        yield 'Select cloud type:'
+        yield 'Enter a name for the cloud:'
+        if self.values['Select cloud type:'] == 'maas':
+            yield 'Enter the API endpoint url:'
+        if self.values['Select cloud type:'] == 'manual':
+            yield "Enter the controller's hostname or IP address"
+        if self.values['Select cloud type:'] == 'openstack':
+            yield 'Enter the API endpoint url for the cloud:'
+            yield 'Select one or more auth types separated by commas:'
+            while self.values.get('Enter another region? (Y/n)') != 'n':
+                yield 'Enter region name:'
+                yield 'Enter the API endpoint url for the region:'
+                yield 'Enter another region? (Y/n)'
+        if self.values['Select cloud type:'] == 'vsphere':
+            yield 'Enter the API endpoint url for the cloud:'
+            while self.values.get('Enter another region? (Y/n)') != 'n':
+                yield 'Enter region name:'
+                yield 'Enter another region? (Y/n):'
+
+
 class FakeBackend:
     """A fake juju backend for tests.
 
