@@ -56,11 +56,11 @@ class TestCase(unittest.TestCase):
 
     def assertIsTrue(self, expr, msg=None):
         """Assert that expr is the True object."""
-        self.assertIs(True, expr, msg)
+        self.assertIs(expr, True, msg)
 
     def assertIsFalse(self, expr, msg=None):
         """Assert that expr is the False object."""
-        self.assertIs(False, expr, msg)
+        self.assertIs(expr, False, msg)
 
     def addContext(self, context):
         """Enter context manager for the remainder of the test, then leave.
