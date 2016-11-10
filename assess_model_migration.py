@@ -14,6 +14,7 @@ from time import sleep
 from assess_user_grant_revoke import User
 from deploy_stack import BootstrapManager
 from jujucharm import local_charm_path
+from remote import remote_from_address
 from utility import (
     JujuAssertionError,
     add_basic_testing_arguments,
@@ -236,23 +237,29 @@ def ensure_migration_rolls_back_on_failure(source_bs, dest_bs, upload_tools):
     test_model.wait_for_workloads()
     test_deployed_mongo_is_up(test_model)
 
-    source_client.controller_juju(
+    test_model.controller_juju(
         'migrate',
-        (source_client.env.environment,
+        (test_model.env.environment,
          dest_client.env.controller.name))
     # Immediately disrupt the migration.
     with disable_apiserver(dest_client.get_controller_client()):
         # Wait for model to be back and working on the original controller.
         wait_for_model(test_model, source_client.env.environment)
+        test_model.wait_for_started()
+        test_deployed_mongo_is_up(test_model)
+        ensure_model_is_functional(test_model, application)
 
 
 @contextmanager
 def disable_apiserver(admin_client):
+    status = admin_client.get_status()
+    controller_ip = status.get_machine_dns_name('0')
+    rem_client = remote_from_address(controller_ip)
     try:
-        admin_client.juju('ssh', ('0', 'service jujud-machine-0 stop'))
+        rem_client.run('sudo service jujud-machine-0 stop')
         yield
     finally:
-        admin_client.juju('ssh', ('0', 'service jujud-machine-0 start'))
+        rem_client.run('sudo service jujud-machine-0 start')
 
 
 def ensure_migrating_with_insufficient_user_permissions_fails(
