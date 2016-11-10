@@ -4,6 +4,7 @@
 from __future__ import print_function
 
 import argparse
+from contextlib import contextmanager
 import logging
 import os
 from subprocess import CalledProcessError
@@ -42,6 +43,8 @@ def assess_model_migration(bs1, bs2, upload_tools):
                     bs1, bs2, upload_tools, temp)
                 ensure_migrating_with_superuser_user_permissions_succeeds(
                     bs1, bs2, upload_tools, temp)
+
+            ensure_migration_rolls_back_on_failure(bs1, bs2, upload_tools)
 
 
 def parse_args(argv):
@@ -210,6 +213,46 @@ def raise_if_shared_machines(unit_machines):
         raise ValueError('Cannot share 0 machines. Empty list provided.')
     if len(unit_machines) != len(set(unit_machines)):
         raise JujuAssertionError('Appliction units reside on the same machine')
+
+
+def ensure_migration_rolls_back_on_failure(source_bs, dest_bs, upload_tools):
+    """Must successfully roll back migration when migration fails.
+
+    If the target controller becomes unavailable for the migration to complete
+    the migration must roll back.
+
+    """
+    source_client = source_bs.client
+    dest_client = dest_bs.client
+
+    bundle = 'mongodb'
+    application = 'mongodb'
+
+    test_model = source_client.add_model(
+        source_client.env.clone('example-model'))
+
+    test_model.juju("deploy", (bundle))
+    test_model.wait_for_started()
+    test_model.wait_for_workloads()
+    test_deployed_mongo_is_up(test_model)
+
+    source_client.controller_juju(
+        'migrate',
+        (source_client.env.environment,
+         dest_client.env.controller.name))
+    # Immediately disrupt the migration.
+    with disable_apiserver(dest_client.get_controller_client()):
+        # Wait for model to be back and working on the original controller.
+        wait_for_model(test_model, source_client.env.environment)
+
+
+@contextmanager
+def disable_apiserver(admin_client):
+    try:
+        admin_client.juju('ssh', ('0', 'service jujud-machine-0 stop'))
+        yield
+    finally:
+        admin_client.juju('ssh', ('0', 'service jujud-machine-0 start'))
 
 
 def ensure_migrating_with_insufficient_user_permissions_fails(
