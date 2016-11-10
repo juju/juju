@@ -11,7 +11,9 @@ import (
 	"time"
 
 	gitjujutesting "github.com/juju/testing"
-	"github.com/juju/utils/cert"
+	utilscert "github.com/juju/utils/cert"
+
+	"github.com/juju/juju/cert"
 )
 
 func init() {
@@ -51,7 +53,7 @@ func verifyCertificates() error {
 }
 
 func mustNewCA() (string, string) {
-	cert.KeyBits = 512
+	utilscert.KeyBits = 512
 	caCert, caKey, err := cert.NewCA("juju testing", "1234-ABCD-IS-NOT-A-REAL-UUID", time.Now().AddDate(10, 0, 0))
 	if err != nil {
 		panic(err)
@@ -60,7 +62,7 @@ func mustNewCA() (string, string) {
 }
 
 func mustNewServer() (string, string) {
-	cert.KeyBits = 512
+	utilscert.KeyBits = 512
 	var hostnames []string
 	srvCert, srvKey, err := cert.NewServer(CACert, CAKey, time.Now().AddDate(10, 0, 0), hostnames)
 	if err != nil {
@@ -70,7 +72,7 @@ func mustNewServer() (string, string) {
 }
 
 func mustParseCertAndKey(certPEM, keyPEM string) (*x509.Certificate, *rsa.PrivateKey) {
-	cert, key, err := cert.ParseCertAndKey(certPEM, keyPEM)
+	cert, key, err := utilscert.ParseCertAndKey(certPEM, keyPEM)
 	if err != nil {
 		panic(err)
 	}
