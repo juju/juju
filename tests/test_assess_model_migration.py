@@ -323,6 +323,43 @@ class TestDeployMongodbToNewModel(TestCase):
         m_tdmiu.assert_called_once_with(new_model)
 
 
+class TestDisableAPIServer(TestCase):
+
+    def test_starts_and_stops_api_server(self):
+        remote_client = Mock()
+        mock_client = Mock()
+        with patch.object(
+                amm, 'get_remote_for_controller',
+                autospec=True, return_value=remote_client) as m_grfc:
+            with amm.disable_apiserver(mock_client):
+                pass
+        m_grfc.assert_called_once_with(mock_client)
+        self.assertItemsEqual(
+            [
+                call('sudo service jujud-machine-0 stop'),
+                call('sudo service jujud-machine-0 start')
+            ],
+            remote_client.run.mock_calls)
+
+    def test_starts_api_server_if_exception_occurs(self):
+        remote_client = Mock()
+        mock_client = Mock()
+        with patch.object(
+                amm, 'get_remote_for_controller',
+                autospec=True, return_value=remote_client):
+            try:
+                with amm.disable_apiserver(mock_client):
+                    raise ValueError()
+            except ValueError:
+                pass            # Expected test exception.
+        self.assertItemsEqual(
+            [
+                call('sudo service jujud-machine-0 stop'),
+                call('sudo service jujud-machine-0 start')
+            ],
+            remote_client.run.mock_calls)
+
+
 class TestRaiseIfSharedMachines(TestCase):
 
     def test_empty_list_raises(self):

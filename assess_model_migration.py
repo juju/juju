@@ -280,14 +280,18 @@ def ensure_migration_rolls_back_on_failure(source_bs, dest_bs, upload_tools):
 
 @contextmanager
 def disable_apiserver(admin_client):
-    status = admin_client.get_status()
-    controller_ip = status.get_machine_dns_name('0')
-    rem_client = remote_from_address(controller_ip)
+    rem_client = get_remote_for_controller(admin_client)
     try:
         rem_client.run('sudo service jujud-machine-0 stop')
         yield
     finally:
         rem_client.run('sudo service jujud-machine-0 start')
+
+
+def get_remote_for_controller(admin_client):
+    status = admin_client.get_status()
+    controller_ip = status.get_machine_dns_name('0')
+    return remote_from_address(controller_ip)
 
 
 def ensure_migrating_with_insufficient_user_permissions_fails(
