@@ -6,17 +6,27 @@ from mock import patch
 
 from fakejuju import fake_juju_client
 from jujupy import JujuData
-from assess_add_cloud import assess_cloud
+from assess_add_cloud import (
+    assess_all_clouds,
+    assess_cloud,
+    write_status,
+    )
 from tests import FakeHomeTestCase
 from utility import JujuAssertionError
 
 
-class TestAssessCloud(FakeHomeTestCase):
+class TestCase(FakeHomeTestCase):
+
+    def make_fake_juju_client(self):
+        env = JujuData('foo', juju_home=self.juju_home)
+        return fake_juju_client(env=env)
+
+
+class TestAssessCloud(TestCase):
 
     @contextmanager
     def cloud_client(self, clouds):
-        env = JujuData('foo', juju_home=self.juju_home)
-        client = fake_juju_client(env=env)
+        client = self.make_fake_juju_client()
         client.env.load_yaml()
 
         def get_clouds(cloud_name):
@@ -67,3 +77,38 @@ class TestAssessCloud(FakeHomeTestCase):
             Actual:
             {}
             """), stderr.getvalue())
+
+
+class TestAssessAllClouds(TestCase):
+
+    def test_assess_all_clouds(self):
+        client = self.make_fake_juju_client()
+        clouds = {'a': {}, 'b': {}}
+        exception = Exception()
+        with patch('assess_add_cloud.assess_cloud',
+                   side_effect=[None, exception]):
+            with patch('sys.stdout'):
+                with patch('logging.exception') as exception_mock:
+                    succeeded, failed = assess_all_clouds(client, clouds)
+        self.assertEqual({'a'}, succeeded)
+        self.assertEqual({'b'}, failed)
+        exception_mock.assert_called_once_with(exception)
+
+
+class TestWriteStatus(TestCase):
+
+    def do_write(self, status, items):
+        stdout = StringIO()
+        with patch('sys.stdout', stdout):
+            write_status(status, items)
+        return stdout.getvalue()
+
+    def test_write_none(self):
+        self.assertEqual('pending: none\n', self.do_write('pending', set()))
+
+    def test_write_one(self):
+        self.assertEqual('pending: q\n', self.do_write('pending', {'q'}))
+
+    def test_write_two(self):
+        self.assertEqual('pending: q, r\n',
+                         self.do_write('pending', {'r', 'q'}))
