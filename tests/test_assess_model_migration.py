@@ -1,6 +1,7 @@
 """Tests for assess_model_migration module."""
 
 import argparse
+from contextlib import contextmanager
 import logging
 from mock import call, Mock, patch
 import os
@@ -42,6 +43,7 @@ class TestParseArgs(TestCase):
                 juju_bin='/bin/juju',
                 logs='/tmp/logs',
                 temp_env_name='an-env-mod',
+                use_develop=False,
                 debug=False,
                 agent_stream=None,
                 agent_url=None,
@@ -390,4 +392,83 @@ class TestMain(TestCase):
                                   return_value=[bs_1, bs_2]):
                     amm.main(argv)
         mock_cl.assert_called_once_with(logging.DEBUG)
-        mock_assess.assert_called_once_with(bs_1, bs_2, False)
+        mock_assess.assert_called_once_with(bs_1, bs_2, amm.parse_args(argv))
+
+
+@contextmanager
+def tmp_ctx():
+    yield '/tmp/dir'
+
+
+class TestAssessModelMigration(TestCase):
+
+    def test_runs_develop_tests_when_requested(self):
+        argv = [
+            'an-env', '/bin/juju', '/tmp/logs', 'an-env-mod', '--use-develop']
+        args = amm.parse_args(argv)
+        bs1 = Mock()
+        bs2 = Mock()
+        bs1.booted_context.return_value = noop_context()
+        bs2.existing_booted_context.return_value = noop_context()
+
+        with patch.object(
+                amm,
+                'ensure_migrating_with_insufficient_user_permissions_fails',
+                autospec=True) as m_user:
+            with patch.object(
+                    amm,
+                    'ensure_migrating_with_superuser_user_permissions_succeeds',  # NOQA
+                    autospec=True) as m_super:
+                with patch.object(
+                        amm,
+                        'ensure_able_to_migrate_model_between_controllers',
+                        autospec=True) as m_between:
+                    with patch.object(
+                            amm,
+                            'ensure_migration_rolls_back_on_failure',
+                            autospec=True) as m_rollback:
+                        with patch.object(
+                                amm, 'temp_dir',
+                                autospec=True, return_value=tmp_ctx()):
+                            amm.assess_model_migration(bs1, bs2, args)
+        m_user.assert_called_once_with(bs1, bs2, args.upload_tools, '/tmp/dir')
+        m_super.assert_called_once_with(
+            bs1, bs2, args.upload_tools, '/tmp/dir')
+        m_between.assert_called_once_with(bs1, bs2, args.upload_tools)
+        m_rollback.assert_called_once_with(bs1, bs2, args.upload_tools)
+
+    def test_does_not_run_develop_tests_by_default(self):
+        argv = [
+            'an-env', '/bin/juju', '/tmp/logs', 'an-env-mod']
+        args = amm.parse_args(argv)
+        bs1 = Mock()
+        bs2 = Mock()
+        bs1.booted_context.return_value = noop_context()
+        bs2.existing_booted_context.return_value = noop_context()
+
+        with patch.object(
+                amm,
+                'ensure_migrating_with_insufficient_user_permissions_fails',
+                autospec=True) as m_user:
+            with patch.object(
+                    amm,
+                    'ensure_migrating_with_superuser_user_permissions_succeeds',  # NOQA
+                    autospec=True) as m_super:
+                with patch.object(
+                        amm,
+                        'ensure_able_to_migrate_model_between_controllers',
+                        autospec=True) as m_between:
+                    with patch.object(
+                            amm,
+                            'ensure_migration_rolls_back_on_failure',
+                            autospec=True) as m_rollback:
+                        with patch.object(
+                                amm, 'temp_dir',
+                                autospec=True, return_value=tmp_ctx()):
+                            amm.assess_model_migration(bs1, bs2, args)
+        m_user.assert_called_once_with(bs1, bs2, args.upload_tools, '/tmp/dir')
+        m_super.assert_called_once_with(
+            bs1, bs2, args.upload_tools, '/tmp/dir')
+        m_between.assert_called_once_with(bs1, bs2, args.upload_tools)
+
+        self.assertEqual(m_rollback.call_count, 0)

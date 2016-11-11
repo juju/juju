@@ -31,22 +31,24 @@ __metaclass__ = type
 log = logging.getLogger("assess_model_migration")
 
 
-def assess_model_migration(bs1, bs2, upload_tools):
-    with bs1.booted_context(upload_tools):
+def assess_model_migration(bs1, bs2, args):
+    with bs1.booted_context(args.upload_tools):
         bs1.client.enable_feature('migration')
 
         bs2.client.env.juju_home = bs1.client.env.juju_home
-        with bs2.existing_booted_context(upload_tools):
+        with bs2.existing_booted_context(args.upload_tools):
             ensure_able_to_migrate_model_between_controllers(
-                bs1, bs2, upload_tools)
+                bs1, bs2, args.upload_tools)
 
             with temp_dir() as temp:
                 ensure_migrating_with_insufficient_user_permissions_fails(
-                    bs1, bs2, upload_tools, temp)
+                    bs1, bs2, args.upload_tools, temp)
                 ensure_migrating_with_superuser_user_permissions_succeeds(
-                    bs1, bs2, upload_tools, temp)
+                    bs1, bs2, args.upload_tools, temp)
 
-            ensure_migration_rolls_back_on_failure(bs1, bs2, upload_tools)
+            if args.use_develop:
+                ensure_migration_rolls_back_on_failure(
+                    bs1, bs2, args.upload_tools)
 
 
 def parse_args(argv):
@@ -55,6 +57,10 @@ def parse_args(argv):
         description="Test model migration feature"
     )
     add_basic_testing_arguments(parser)
+    parser.add_argument(
+        '--use-develop',
+        action='store_true',
+        help='Run tests that rely on features in the develop branch.')
     return parser.parse_args(argv)
 
 
@@ -392,7 +398,7 @@ def main(argv=None):
 
     bs1, bs2 = get_bootstrap_managers(args)
 
-    assess_model_migration(bs1, bs2, args.upload_tools)
+    assess_model_migration(bs1, bs2, args)
 
     return 0
 
