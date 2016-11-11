@@ -240,30 +240,29 @@ class TestWaitForModel(TestCase):
     # Check that it returns an error if the model never comes up.
     # Pass in a timeout for the model check
     def test_raises_exception_when_timeout_occurs(self):
-        mock_client = Mock()
-        mock_client.check_timeouts.return_value = noop_context()
-        mock_client.ignore_soft_deadline.return_value = noop_context()
+        mock_client = _get_time_noop_mock_client()
         with patch.object(until_timeout, 'next', side_effect=StopIteration()):
             with self.assertRaises(AssertionError):
                 amm.wait_for_model(mock_client, 'TestModelName')
 
     def test_returns_when_model_found(self):
-        mock_client = Mock()
-        mock_client.check_timeouts.return_value = noop_context()
-        mock_client.ignore_soft_deadline.return_value = noop_context()
-        mock_client.get_models.return_value = dict(
+        controller_client = Mock()
+        controller_client.get_models.return_value = dict(
             models=[
                 dict(name='TestModelName')])
+        mock_client = _get_time_noop_mock_client()
+        mock_client.get_controller_client.return_value = controller_client
         amm.wait_for_model(mock_client, 'TestModelName')
 
     def test_pauses_between_failed_matches(self):
-        mock_client = Mock()
-        mock_client.check_timeouts.return_value = noop_context()
-        mock_client.ignore_soft_deadline.return_value = noop_context()
-        mock_client.get_models.side_effect = [
+        controller_client = Mock()
+        controller_client.get_models.side_effect = [
             dict(models=[]),    # Failed check
             dict(models=[dict(name='TestModelName')]),  # Successful check
             ]
+        mock_client = _get_time_noop_mock_client()
+        mock_client.get_controller_client.return_value = controller_client
+
         with patch.object(amm, 'sleep') as mock_sleep:
             amm.wait_for_model(mock_client, 'TestModelName')
             mock_sleep.assert_called_once_with(1)
@@ -278,20 +277,27 @@ class TestWaitForModel(TestCase):
                 with real_check_timeouts():
                     return {'models': [{'name': 'TestModelName'}]}
 
-            with patch.object(client, 'get_models', side_effect=get_models,
-                              autospec=True):
+            controller_client = Mock()
+            controller_client.get_models.side_effect = get_models
+
+            with patch.object(
+                    client, 'get_controller_client',
+                    autospec=True, return_value=controller_client):
                 with patch.object(client, 'check_timeouts', autospec=True):
                     amm.wait_for_model(client, 'TestModelName')
 
     def test_checks_deadline(self):
         client = EnvJujuClient(JujuData('local', juju_home=''), None, None)
         with client_past_deadline(client):
-
             def get_models():
                 return {'models': [{'name': 'TestModelName'}]}
 
-            with patch.object(client, 'get_models', side_effect=get_models,
-                              autospec=True):
+            controller_client = Mock()
+            controller_client.get_models.side_effect = get_models
+
+            with patch.object(
+                    client, 'get_controller_client',
+                    autospec=True, return_value=controller_client):
                 with self.assertRaises(SoftDeadlineExceeded):
                     amm.wait_for_model(client, 'TestModelName')
 
