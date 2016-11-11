@@ -15,7 +15,6 @@ import (
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
-	"github.com/juju/utils/cert"
 	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 
@@ -36,7 +35,7 @@ type SenderSuite struct {
 var _ = gc.Suite(&SenderSuite{})
 
 func createCerts(c *gc.C, serverName string) (*x509.CertPool, tls.Certificate) {
-	certCaPem, keyCaPem, err := cert.NewCA("sender-test", "1", time.Now().Add(time.Minute))
+	certCaPem, keyCaPem, err := jujucert.NewCA("sender-test", "1", time.Now().Add(time.Minute))
 	c.Assert(err, jc.ErrorIsNil)
 	certPem, keyPem, err := jujucert.NewServer(certCaPem, keyCaPem, time.Now().Add(time.Minute), []string{serverName})
 	c.Assert(err, jc.ErrorIsNil)
