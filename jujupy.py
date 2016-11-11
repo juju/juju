@@ -488,8 +488,12 @@ class JujuData(SimpleEnvironment):
         """
         with open(os.path.join(path, 'credentials.yaml'), 'w') as f:
             yaml.safe_dump(self.credentials, f)
+        self.write_clouds(path, self.clouds)
+
+    @staticmethod
+    def write_clouds(path, clouds):
         with open(os.path.join(path, 'clouds.yaml'), 'w') as f:
-            yaml.safe_dump(self.clouds, f)
+            yaml.safe_dump(clouds, f)
 
     def find_endpoint_cloud(self, cloud_type, endpoint):
         for cloud, cloud_config in self.clouds['clouds'].items():
