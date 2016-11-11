@@ -270,8 +270,10 @@ def ensure_migration_rolls_back_on_failure(source_bs, dest_bs, upload_tools):
          dest_client.env.controller.name))
     # Once migration has started interrupt it
     wait_for_migrating(test_model)
+    log.info('Disrupting target controller to force rollback')
     with disable_apiserver(dest_client.get_controller_client()):
         # Wait for model to be back and working on the original controller.
+        log.info('Waiting for migration rollback to complete.')
         wait_for_model(test_model, test_model.env.environment)
         test_model.wait_for_started()
         test_deployed_mongo_is_up(test_model)
