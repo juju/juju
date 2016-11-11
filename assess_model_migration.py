@@ -172,7 +172,8 @@ def ensure_able_to_migrate_model_between_controllers(
 
     """
     application = 'mongodb'
-    test_model = deploy_mongodb_to_new_model(source_environ.client)
+    test_model = deploy_mongodb_to_new_model(
+        source_environ.client, model_name='example-model')
 
     log.info('Initiating migration process')
 
@@ -186,12 +187,12 @@ def ensure_able_to_migrate_model_between_controllers(
     migration_target_client.remove_service(application)
 
 
-def deploy_mongodb_to_new_model(client):
+def deploy_mongodb_to_new_model(client, model_name):
     bundle = 'mongodb'
 
     log.info('Deploying charm')
     # Don't move the default model so we can reuse it in later tests.
-    test_model = client.add_model(client.env.clone('example-model'))
+    test_model = client.add_model(client.env.clone(model_name))
     test_model.juju("deploy", (bundle))
     test_model.wait_for_started()
     test_model.wait_for_workloads()
@@ -268,7 +269,8 @@ def ensure_migration_rolls_back_on_failure(source_bs, dest_bs, upload_tools):
     dest_client = dest_bs.client
 
     application = 'mongodb'
-    test_model = deploy_mongodb_to_new_model(source_client)
+    test_model = deploy_mongodb_to_new_model(
+        source_client, model_name='rollme_back')
 
     test_model.controller_juju(
         'migrate',

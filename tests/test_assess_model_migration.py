@@ -315,7 +315,7 @@ class TestDeployMongodbToNewModel(TestCase):
                 amm, 'test_deployed_mongo_is_up', autospec=True) as m_tdmiu:
             self.assertEqual(
                 new_model,
-                amm.deploy_mongodb_to_new_model(source_client))
+                amm.deploy_mongodb_to_new_model(source_client, 'test'))
 
         source_client.add_model.assert_called_once_with(
             source_client.env.clone.return_value)
