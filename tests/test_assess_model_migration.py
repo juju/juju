@@ -302,6 +302,27 @@ class TestWaitForModel(TestCase):
                     amm.wait_for_model(client, 'TestModelName')
 
 
+class TestDeployMongodbToNewModel(TestCase):
+
+    def test_deploys_mongodb_to_new_model(self):
+        new_model = Mock()
+        source_client = Mock()
+        source_client.add_model.return_value = new_model
+
+        with patch.object(
+                amm, 'test_deployed_mongo_is_up', autospec=True) as m_tdmiu:
+            self.assertEqual(
+                new_model,
+                amm.deploy_mongodb_to_new_model(source_client))
+
+        source_client.add_model.assert_called_once_with(
+            source_client.env.clone.return_value)
+        new_model.juju.assert_called_once_with('deploy', ('mongodb'))
+        new_model.wait_for_started.assert_called_once_with()
+        new_model.wait_for_workloads.assert_called_once_with
+        m_tdmiu.assert_called_once_with(new_model)
+
+
 class TestRaiseIfSharedMachines(TestCase):
 
     def test_empty_list_raises(self):

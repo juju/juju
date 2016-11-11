@@ -165,17 +165,8 @@ def ensure_able_to_migrate_model_between_controllers(
 
 
     """
-    bundle = 'mongodb'
     application = 'mongodb'
-
-    log.info('Deploying charm')
-    # Don't move the default model so we can reuse it in later tests.
-    test_model = source_environ.client.add_model(
-        source_environ.client.env.clone('example-model'))
-    test_model.juju("deploy", (bundle))
-    test_model.wait_for_started()
-    test_model.wait_for_workloads()
-    test_deployed_mongo_is_up(test_model)
+    test_model = deploy_mongodb_to_new_model(source_environ.client)
 
     log.info('Initiating migration process')
 
@@ -187,6 +178,20 @@ def ensure_able_to_migrate_model_between_controllers(
     ensure_model_is_functional(migration_target_client, application)
 
     migration_target_client.remove_service(application)
+
+
+def deploy_mongodb_to_new_model(client):
+    bundle = 'mongodb'
+
+    log.info('Deploying charm')
+    # Don't move the default model so we can reuse it in later tests.
+    test_model = client.add_model(client.env.clone('example-model'))
+    test_model.juju("deploy", (bundle))
+    test_model.wait_for_started()
+    test_model.wait_for_workloads()
+    test_deployed_mongo_is_up(test_model)
+
+    return test_model
 
 
 def migrate_model_to_controller(source_client, dest_client):
@@ -254,16 +259,8 @@ def ensure_migration_rolls_back_on_failure(source_bs, dest_bs, upload_tools):
     source_client = source_bs.client
     dest_client = dest_bs.client
 
-    bundle = 'mongodb'
     application = 'mongodb'
-
-    test_model = source_client.add_model(
-        source_client.env.clone('example-model'))
-
-    test_model.juju("deploy", (bundle))
-    test_model.wait_for_started()
-    test_model.wait_for_workloads()
-    test_deployed_mongo_is_up(test_model)
+    test_model = deploy_mongodb_to_new_model(source_client)
 
     test_model.controller_juju(
         'migrate',
