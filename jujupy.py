@@ -512,12 +512,15 @@ class JujuData(SimpleEnvironment):
             endpoint = self.config['auth-url']
         return self.find_endpoint_cloud(provider, endpoint)
 
-    def get_cloud_credentials(self):
-        """Return the credentials for this model's cloud."""
+    def get_cloud_credentials_item(self):
         cloud_name = self.get_cloud()
         cloud = self.credentials['credentials'][cloud_name]
-        (credentials,) = cloud.values()
-        return credentials
+        (credentials_item,) = cloud.items()
+        return credentials_item
+
+    def get_cloud_credentials(self):
+        """Return the credentials for this model's cloud."""
+        return self.get_cloud_credentials_item()[1]
 
 
 class Status:
@@ -1378,8 +1381,16 @@ class EnvJujuClient:
                     self.env.environment))
 
     def _add_model(self, model_name, config_file):
-        self.controller_juju('add-model', (
-            model_name, '--config', config_file))
+        explicit_region = self.env.controller.explicit_region
+        if explicit_region:
+            credential_name = self.env.get_cloud_credentials_item()[0]
+            cloud_region = self.get_cloud_region(self.env.get_cloud(),
+                                                 self.env.get_region())
+            region_args = (cloud_region, '--credential', credential_name)
+        else:
+            region_args = ()
+        self.controller_juju('add-model', (model_name,) + region_args + (
+            '--config', config_file))
 
     def destroy_model(self):
         exit_status = self.juju(
@@ -2229,6 +2240,30 @@ class EnvJujuClient:
         user_client.env.user_name = username
         return user_client
 
+    def register_host(self, host, email, password):
+        child = self.expect('register', ('--no-browser-login', host),
+                            include_e=False)
+        try:
+            child.logfile = sys.stdout
+            child.expect('E-Mail:|Enter a name for this controller:')
+            if child.match == 'E-Mail:':
+                child.sendline(email)
+                child.expect('Password:')
+                child.logfile = None
+                try:
+                    child.sendline(password)
+                finally:
+                    child.logfile = sys.stdout
+                child.expect(r'Two-factor auth \(Enter for none\):')
+                child.sendline()
+                child.expect('Enter a name for this controller:')
+            child.sendline(self.env.controller.name)
+            child.expect(pexpect.EOF)
+        except pexpect.TIMEOUT:
+            raise
+            raise Exception(
+                'Registering user failed: pexpect session timed out')
+
     def remove_user(self, username):
         self.juju('remove-user', (username, '-y'), include_e=False)
 
@@ -3021,6 +3056,7 @@ class Controller:
 
     def __init__(self, name):
         self.name = name
+        self.explicit_region = False
 
 
 class GroupReporter:

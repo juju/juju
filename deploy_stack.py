@@ -438,6 +438,11 @@ def deploy_job_parse_args(argv=None):
                         help='Deploy and run Chaos Monkey in the background.')
     parser.add_argument('--jes', action='store_true',
                         help='Use JES to control environments.')
+    parser.add_argument(
+        '--controller-host', help=(
+            'Host with a controller to use.  If supplied, SSO_EMAIL and'
+            ' SSO_PASSWORD environment variables will be used for oauth'
+            ' authentication.'))
     return parser.parse_args(argv)
 
 
@@ -484,6 +489,91 @@ def temp_juju_home(client, new_home):
         client.env.juju_home = old_home
 
 
+def make_controller_strategy(client, tear_down_client, controller_host):
+    if controller_host is None:
+        return CreateController(client, tear_down_client)
+    else:
+        return PublicController(
+            controller_host, os.environ['SSO_EMAIL'],
+            os.environ['SSO_PASSWORD'], client, tear_down_client)
+
+
+class CreateController:
+    """A Controller strategy where the controller is created.
+
+    Intended for use with BootstrapManager.
+    """
+
+    def __init__(self, client, tear_down_client):
+        self.client = client
+        self.tear_down_client = tear_down_client
+
+    def prepare(self):
+        """Prepare client for use by killing the existing controller."""
+        self.tear_down_client.kill_controller()
+
+    def create_initial_model(self, upload_tools, series, boot_kwargs):
+        """Create the initial model by bootstrapping."""
+        self.client.bootstrap(
+            upload_tools=upload_tools, bootstrap_series=series,
+            **boot_kwargs)
+
+    def get_hosts(self):
+        """Provide the controller host."""
+        host = get_machine_dns_name(
+            self.client.get_controller_client(), '0')
+        if host is None:
+            raise ValueError('Could not get machine 0 host')
+        return {'0': host}
+
+    def tear_down(self):
+        """Tear down via client.tear_down."""
+        self.tear_down_client.tear_down()
+
+
+class PublicController:
+    """A controller strategy where the controller is public.
+
+    The user registers with the controller, and adds the initial model.
+    """
+    def __init__(self, controller_host, email, password, client,
+                 tear_down_client):
+        self.controller_host = controller_host
+        self.email = email
+        self.password = password
+        self.client = client
+        self.tear_down_client = tear_down_client
+
+    def prepare(self):
+        """Prepare by destroying the model and unregistering if possible."""
+        try:
+            self.tear_down()
+        except subprocess.CalledProcessError:
+            # Assume that any error tearing down means that there was nothing
+            # to tear down.
+            pass
+
+    def create_initial_model(self, upload_tools, series, boot_kwargs):
+        """Register controller and add model."""
+        self.client.register_host(
+            self.controller_host, self.email, self.password)
+        self.client.env.controller.explicit_region = True
+        self.client.add_model(self.client.env)
+
+    def get_hosts(self):
+        """There are no user-owned controller hosts, so no-op."""
+        return {}
+
+    def tear_down(self):
+        """Remove the current model and clean up the controller."""
+        try:
+            self.tear_down_client.destroy_model()
+        finally:
+            controller = self.tear_down_client.env.controller.name
+            self.tear_down_client.juju('unregister', ('-y', controller),
+                                       include_e=False)
+
+
 class BootstrapManager:
     """
     Helper class for running juju tests.
@@ -514,14 +604,12 @@ class BootstrapManager:
 
     def __init__(self, temp_env_name, client, tear_down_client, bootstrap_host,
                  machines, series, agent_url, agent_stream, region, log_dir,
-                 keep_env, permanent, jes_enabled):
+                 keep_env, permanent, jes_enabled, controller_strategy=None):
         """Constructor.
 
         Please see see `BootstrapManager` for argument descriptions.
         """
         self.temp_env_name = temp_env_name
-        self.client = client
-        self.tear_down_client = tear_down_client
         self.bootstrap_host = bootstrap_host
         self.machines = machines
         self.series = series
@@ -538,6 +626,17 @@ class BootstrapManager:
         self.known_hosts = {}
         if bootstrap_host is not None:
             self.known_hosts['0'] = bootstrap_host
+        if controller_strategy is None:
+            controller_strategy = CreateController(client, tear_down_client)
+        self.controller_strategy = controller_strategy
+
+    @property
+    def client(self):
+        return self.controller_strategy.client
+
+    @property
+    def tear_down_client(self):
+        return self.controller_strategy.tear_down_client
 
     @classmethod
     def _generate_default_clean_dir(cls, temp_env_name):
@@ -650,7 +749,7 @@ class BootstrapManager:
         :param try_jes: Ignored."""
         if self.tear_down_client.env is not self.client.env:
             raise AssertionError('Tear down client needs same env!')
-        self.tear_down_client.tear_down()
+        self.controller_strategy.tear_down()
 
     def _log_and_wrap_exception(self, exc):
         logging.exception(exc)
@@ -696,14 +795,14 @@ class BootstrapManager:
                 if os.path.isfile(cache_path):
                     # An existing .jenv implies JES was used, because when JES
                     # is enabled, cache.yaml is enabled.
-                    self.tear_down_client.kill_controller()
+                    self.controller_strategy.prepare()
                     torn_down = True
         ensure_deleted(jenv_path)
         with temp_bootstrap_env(self.client.env.juju_home, self.client,
                                 permanent=self.permanent, set_home=False):
             with self.handle_bootstrap_exceptions():
                 if not torn_down:
-                    self.tear_down_client.kill_controller()
+                    self.controller_strategy.prepare()
                 yield
 
     @contextmanager
@@ -760,7 +859,7 @@ class BootstrapManager:
                                                      series=self.series)
                         copy_remote_logs(remote, self.log_dir)
                         archive_logs(self.log_dir)
-                    self.tear_down_client.kill_controller()
+                    self.controller_strategy.prepare()
             raise
 
     @contextmanager
@@ -773,11 +872,8 @@ class BootstrapManager:
         try:
             try:
                 if len(self.known_hosts) == 0:
-                    host = get_machine_dns_name(
-                        self.client.get_controller_client(), '0')
-                    if host is None:
-                        raise ValueError('Could not get machine 0 host')
-                    self.known_hosts['0'] = host
+                    self.known_hosts.update(
+                        self.controller_strategy.get_hosts())
                 if addable_machines is not None:
                     self.client.add_ssh_machines(addable_machines)
                 yield
@@ -881,10 +977,8 @@ class BootstrapManager:
             with self.top_context() as machines:
                 with self.bootstrap_context(
                         machines, omit_config=self.client.bootstrap_replaces):
-                    self.client.bootstrap(
-                        upload_tools=upload_tools,
-                        bootstrap_series=self.series,
-                        **kwargs)
+                    self.controller_strategy.create_initial_model(
+                        upload_tools, self.series, kwargs)
                 with self.runtime_context(machines):
                     self.client.list_controllers()
                     self.client.list_models()
@@ -964,10 +1058,13 @@ def _deploy_job(args, charm_series, series):
     if args.jes and not client.is_jes_enabled():
         client.enable_jes()
     jes_enabled = client.is_jes_enabled()
+    controller_strategy = make_controller_strategy(client, client,
+                                                   args.controller_host)
     bs_manager = BootstrapManager(
         args.temp_env_name, client, client, args.bootstrap_host, args.machine,
         series, args.agent_url, args.agent_stream, args.region, args.logs,
-        args.keep_env, permanent=jes_enabled, jes_enabled=jes_enabled)
+        args.keep_env, permanent=jes_enabled, jes_enabled=jes_enabled,
+        controller_strategy=controller_strategy)
     with bs_manager.booted_context(args.upload_tools):
         if sys.platform in ('win32', 'darwin'):
             # The win and osx client tests only verify the client
