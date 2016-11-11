@@ -16,8 +16,10 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/cloud"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
+	utilscert "github.com/juju/utils/cert"
 	jujuos "github.com/juju/utils/os"
 	"github.com/juju/utils/series"
 	"github.com/juju/version"
@@ -25,7 +27,6 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cert"
-	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/constraints"
@@ -1029,7 +1030,7 @@ func (s *bootstrapSuite) TestFinishBootstrapConfig(c *gc.C) {
 
 	srvCertPEM := icfg.Bootstrap.StateServingInfo.Cert
 	srvKeyPEM := icfg.Bootstrap.StateServingInfo.PrivateKey
-	_, _, err = cert.ParseCertAndKey(srvCertPEM, srvKeyPEM)
+	_, _, err = utilscert.ParseCertAndKey(srvCertPEM, srvKeyPEM)
 	c.Check(err, jc.ErrorIsNil)
 
 	// TODO(perrito666) 2016-05-02 lp:1558657
