@@ -261,8 +261,8 @@ def ensure_migration_rolls_back_on_failure(source_bs, dest_bs, upload_tools):
     """Must successfully roll back migration when migration fails.
 
     If the target controller becomes unavailable for the migration to complete
-    the migration must roll back.
-
+    the migration must roll back and continue to be available on the source
+    controller.
     """
     source_client = source_bs.client
     dest_client = dest_bs.client
@@ -288,6 +288,11 @@ def ensure_migration_rolls_back_on_failure(source_bs, dest_bs, upload_tools):
 
 @contextmanager
 def disable_apiserver(admin_client):
+    """Disable the api server on the controller machine.
+
+    For the duration of the context manager stop the apiserver process on the
+    controller machine.
+    """
     rem_client = get_remote_for_controller(admin_client)
     try:
         rem_client.run('sudo service jujud-machine-0 stop')
@@ -297,6 +302,10 @@ def disable_apiserver(admin_client):
 
 
 def get_remote_for_controller(admin_client):
+    """Get a remote client to the controller machine of `admin_client`.
+
+    :return: remote.SSHRemote object for the controller machine.
+    """
     status = admin_client.get_status()
     controller_ip = status.get_machine_dns_name('0')
     return remote_from_address(controller_ip)
