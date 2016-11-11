@@ -55,6 +55,14 @@ def assess_all_clouds(client, clouds):
     return succeeded, failed
 
 
+def write_status(status, tests):
+    if len(tests) == 0:
+        test_str = 'none'
+    else:
+        test_str = ', '.join(sorted(tests))
+    sys.stdout.write('{}: {}\n'.format(status, test_str))
+
+
 def parse_args():
     parser = ArgumentParser()
     parser.add_argument('example_clouds',
@@ -76,8 +84,8 @@ def main():
         env = JujuData('foo', config=None, juju_home=juju_home)
         client = client_class(env, version, juju_bin)
         succeeded, failed = assess_all_clouds(client, clouds)
-    sys.stdout.write('Succeeded: {}\n'.format(', '.join(sorted(succeeded))))
-    sys.stdout.write('Failed: {}\n'.format(', '.join(sorted(failed))))
+    write_status('Succeeded', succeeded)
+    write_status('Failed', failed)
 
 
 if __name__ == '__main__':
