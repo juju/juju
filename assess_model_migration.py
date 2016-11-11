@@ -270,7 +270,7 @@ def ensure_migration_rolls_back_on_failure(source_bs, dest_bs, upload_tools):
 
     application = 'mongodb'
     test_model = deploy_mongodb_to_new_model(
-        source_client, model_name='rollme_back')
+        source_client, model_name='rollmeback')
 
     test_model.controller_juju(
         'migrate',
