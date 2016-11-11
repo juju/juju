@@ -220,6 +220,8 @@ def ensure_model_is_functional(client, application):
     LP:1607599)
 
     """
+    # Ensure model returns status before adding units
+    client.get_status()
     client.juju('add-unit', (application,))
     client.wait_for_started()
 
@@ -266,7 +268,8 @@ def ensure_migration_rolls_back_on_failure(source_bs, dest_bs, upload_tools):
         'migrate',
         (test_model.env.environment,
          dest_client.env.controller.name))
-    # Immediately disrupt the migration.
+    # Once migration has started interrupt it
+    wait_for_migrating(test_model)
     with disable_apiserver(dest_client.get_controller_client()):
         # Wait for model to be back and working on the original controller.
         wait_for_model(test_model, test_model.env.environment)
