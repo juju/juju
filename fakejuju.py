@@ -383,11 +383,12 @@ class PromptingExpectChild(FakeExpectChild):
             raise ValueError(
                 'Regular expression did not match prompt.  Regex: "{}",'
                 ' prompt "{}"'.format(regex, prompt))
-        self.match = regex_match.group(0)
+        self.match = regex_match
 
     def sendline(self, line=''):
-        self.values[self.match] = line.rstrip()
-        self.lines.append((self.match, line))
+        full_match = self.match.group(0)
+        self.values[full_match] = line.rstrip()
+        self.lines.append((full_match, line))
 
 
 class RegisterHost(PromptingExpectChild):
