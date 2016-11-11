@@ -19,27 +19,34 @@ from utility import (
     )
 
 
+def get_current_clouds(client):
+    env = client.env.clone()
+    env.clouds.clear()
+    env.load_yaml()
+    return env.clouds
+
+
 def assess_cloud(client, example_cloud):
-    client.env.load_yaml()
-    if len(client.env.clouds['clouds']) > 0:
+    clouds = get_current_clouds(client)
+    if len(clouds['clouds']) > 0:
         raise AssertionError('Clouds already present!')
     client.env.clouds['clouds'].update({'foo': deepcopy(example_cloud)})
     client.add_cloud_interactive('foo')
-    client.env.clouds.clear()
-    client.env.load_yaml()
-    if len(client.env.clouds['clouds']) == 0:
+    clouds = get_current_clouds(client)
+    if len(clouds['clouds']) == 0:
         raise JujuAssertionError('Clouds missing!')
-    if client.env.clouds['clouds']['foo'] != example_cloud:
+    if clouds['clouds']['foo'] != example_cloud:
         sys.stderr.write('\nExpected:\n')
         yaml.dump(example_cloud, sys.stderr)
         sys.stderr.write('\nActual:\n')
-        yaml.dump(client.env.clouds['clouds']['foo'], sys.stderr)
+        yaml.dump(clouds['clouds']['foo'], sys.stderr)
         raise JujuAssertionError('Cloud mismatch')
 
 
 def assess_all_clouds(client, clouds):
     succeeded = set()
     failed = set()
+    client.env.load_yaml()
     for cloud_name, cloud in clouds.items():
         sys.stdout.write('Testing {}.\n'.format(cloud_name))
         try:
