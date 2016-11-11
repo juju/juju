@@ -202,11 +202,11 @@ func (i *ApplicationInfo) EntityId() EntityId {
 // RemoteApplicationInfo holds the information about a remote application that is
 // tracked by multiwatcherStore.
 type RemoteApplicationInfo struct {
-	ModelUUID      string
-	Name           string
-	ApplicationURL string
-	Life           Life
-	Status         StatusInfo
+	ModelUUID      string     `json:"model-uuid"`
+	Name           string     `json:"name"`
+	ApplicationURL string     `json:"application-url"`
+	Life           Life       `json:"life"`
+	Status         StatusInfo `json:"status"`
 }
 
 // EntityId returns a unique identifier for a remote application across
