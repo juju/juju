@@ -10,6 +10,7 @@ import os
 from subprocess import CalledProcessError
 import sys
 from time import sleep
+import yaml
 
 from assess_user_grant_revoke import User
 from deploy_stack import BootstrapManager
@@ -94,12 +95,39 @@ def wait_for_model(client, model_name, timeout=60):
     with client.check_timeouts():
         with client.ignore_soft_deadline():
             for _ in until_timeout(timeout):
-                models = client.get_models()
+                models = client.get_controller_client().get_models()
                 if model_name in [m['name'] for m in models['models']]:
                     return
                 sleep(1)
             raise JujuAssertionError(
                 'Model \'{}\' failed to appear after {} seconds'.format(
+                    model_name, timeout
+                ))
+
+
+def wait_for_migrating(client, timeout=60):
+    """Block until provided model client has a migration status.
+
+    :raises JujuAssertionError: If the status doesn't show migration within the
+      `timeout` period.
+    """
+    model_name = client.env.environment
+    with client.check_timeouts():
+        with client.ignore_soft_deadline():
+            for _ in until_timeout(timeout):
+                model_details = client.get_juju_output(
+                    'show-model',
+                    '{}:{}'.format(client.env.controller.name, model_name),
+                    '--format', 'yaml',
+                    include_e=False)
+                output = yaml.safe_load(model_details)
+
+                if output[model_name]['status'].get('migration') is not None:
+                    return
+                sleep(1)
+            raise JujuAssertionError(
+                'Model \'{}\' failed to start migration after'
+                '{} seconds'.format(
                     model_name, timeout
                 ))
 
@@ -244,7 +272,7 @@ def ensure_migration_rolls_back_on_failure(source_bs, dest_bs, upload_tools):
     # Immediately disrupt the migration.
     with disable_apiserver(dest_client.get_controller_client()):
         # Wait for model to be back and working on the original controller.
-        wait_for_model(test_model, source_client.env.environment)
+        wait_for_model(test_model, test_model.env.environment)
         test_model.wait_for_started()
         test_deployed_mongo_is_up(test_model)
         ensure_model_is_functional(test_model, application)
