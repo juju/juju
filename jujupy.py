@@ -2246,7 +2246,7 @@ class EnvJujuClient:
         try:
             child.logfile = sys.stdout
             child.expect('E-Mail:|Enter a name for this controller:')
-            if child.match == 'E-Mail:':
+            if child.match.group(0) == 'E-Mail:':
                 child.sendline(email)
                 child.expect('Password:')
                 child.logfile = None
