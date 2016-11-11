@@ -19,20 +19,13 @@ from utility import (
     )
 
 
-def get_current_clouds(client):
-    env = client.env.clone()
-    env.clouds.clear()
-    env.load_yaml()
-    return env.clouds
-
-
 def assess_cloud(client, example_cloud):
-    clouds = get_current_clouds(client)
+    clouds = client.env.read_clouds()
     if len(clouds['clouds']) > 0:
         raise AssertionError('Clouds already present!')
     client.env.clouds['clouds'].update({'foo': deepcopy(example_cloud)})
     client.add_cloud_interactive('foo')
-    clouds = get_current_clouds(client)
+    clouds = client.env.read_clouds()
     if len(clouds['clouds']) == 0:
         raise JujuAssertionError('Clouds missing!')
     if clouds['clouds']['foo'] != example_cloud:

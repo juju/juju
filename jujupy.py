@@ -459,15 +459,19 @@ class JujuData(SimpleEnvironment):
                 raise RuntimeError(
                     'Failed to read credentials file: {}'.format(str(e)))
             self.credentials = {}
+        self.clouds = self.read_clouds()
+
+    def read_clouds(self):
+        """Read and return clouds.yaml as a Python dict."""
         try:
             with open(os.path.join(self.juju_home, 'clouds.yaml')) as f:
-                self.clouds = yaml.safe_load(f)
+                return yaml.safe_load(f)
         except IOError as e:
             if e.errno != errno.ENOENT:
                 raise RuntimeError(
                     'Failed to read clouds file: {}'.format(str(e)))
             # Default to an empty clouds file.
-            self.clouds = {'clouds': {}}
+            return {'clouds': {}}
 
     @classmethod
     def from_config(cls, name):
