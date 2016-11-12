@@ -109,6 +109,8 @@ def get_teardown_timeout(client):
     """Return the timeout need byt the client to teardown resources."""
     if client.env.provider == 'azure':
         return 1800
+    elif client.env.provider == 'gce':
+        return 1200
     else:
         return 600
 
