@@ -70,6 +70,46 @@ class TestParseArgs(TestCase):
             "Test model migration feature", fake_stdout.getvalue())
 
 
+class TestDeploySimpleResourceServer(TestCase):
+
+    def test_deploys_with_resource(self):
+        contents = 'test123'
+        client = Mock()
+        with temp_dir() as tmp_dir:
+            resource_file_path = os.path.join(tmp_dir, 'index.html')
+            with patch.object(
+                    amm, 'temp_dir', autospec=True) as m_td:
+                m_td.return_value.__enter__.return_value = tmp_dir
+                amm.deploy_simple_resource_server(client, contents)
+        client.deploy.assert_called_once_with(
+            'local:simple-resource-http',
+            resource='index={}'.format(resource_file_path))
+
+    def test_deploys_file_with_requested_contents(self):
+        contents = 'test123'
+        client = Mock()
+        with temp_dir() as tmp_dir:
+            resource_file_path = os.path.join(tmp_dir, 'index.html')
+            with patch.object(
+                    amm, 'temp_dir', autospec=True) as m_td:
+                m_td.return_value.__enter__.return_value = tmp_dir
+                amm.deploy_simple_resource_server(client, contents)
+
+            with open(resource_file_path, 'rt') as f:
+                self.assertEqual(f.read(), contents)
+
+    def test_returns_application_name(self):
+        client = Mock()
+        with temp_dir() as tmp_dir:
+            with patch.object(
+                    amm, 'temp_dir', autospec=True) as m_td:
+                m_td.return_value.__enter__.return_value = tmp_dir
+
+                self.assertEqual(
+                    amm.deploy_simple_resource_server(client, ''),
+                    'simple-resource-http')
+
+
 class TestGetServerResponse(TestCase):
 
     def test_uses_protocol_and_ipaddress(self):

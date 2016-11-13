@@ -14,7 +14,10 @@ import yaml
 from urllib2 import urlopen
 
 from assess_user_grant_revoke import User
-from deploy_stack import BootstrapManager
+from deploy_stack import (
+    BootstrapManager,
+    get_random_string
+)
 from jujucharm import local_charm_path
 from remote import remote_from_address
 from utility import (
@@ -216,6 +219,26 @@ def deploy_mongodb_to_new_model(client, model_name):
     test_deployed_mongo_is_up(test_model)
 
     return test_model
+
+
+def deploy_simple_resource_server(client, resource_contents):
+    application_name = 'simple-resource-http'
+
+    log.info('Deploying charm: '.format(application_name))
+    charm_path = local_charm_path(
+        charm=application_name, juju_ver=client.version)
+
+    # Create a temp file which we'll use as the resource.
+    with temp_dir() as temp:
+        index_file = os.path.join(temp, 'index.html')
+        with open(index_file, 'wt') as f:
+            f.write(resource_contents)
+
+            client.deploy(charm_path, resource='index={}'.format(index_file))
+            client.wait_for_started()
+            client.wait_for_workloads()
+
+            return application_name
 
 
 def migrate_model_to_controller(source_client, dest_client):
