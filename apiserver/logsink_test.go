@@ -28,21 +28,8 @@ import (
 	"github.com/juju/juju/version"
 )
 
-// logsinkBaseSuite has functionality that's shared between the the 2 logsink related suites
-type logsinkBaseSuite struct {
-	authHTTPSuite
-}
-
-func (s *logsinkBaseSuite) logsinkURL(c *gc.C, scheme string) *url.URL {
-	server := s.makeURL(c, scheme, "/model/"+s.State.ModelUUID()+"/logsink", nil)
-	query := server.Query()
-	query.Set("jujuclientversion", version.Current.String())
-	server.RawQuery = query.Encode()
-	return server
-}
-
 type logsinkSuite struct {
-	logsinkBaseSuite
+	authHTTPSuite
 	machineTag names.Tag
 	password   string
 	nonce      string
@@ -51,8 +38,16 @@ type logsinkSuite struct {
 
 var _ = gc.Suite(&logsinkSuite{})
 
+func (s *logsinkSuite) logsinkURL(c *gc.C, scheme string) *url.URL {
+	server := s.makeURL(c, scheme, "/model/"+s.State.ModelUUID()+"/logsink", nil)
+	query := server.Query()
+	query.Set("jujuclientversion", version.Current.String())
+	server.RawQuery = query.Encode()
+	return server
+}
+
 func (s *logsinkSuite) SetUpTest(c *gc.C) {
-	s.logsinkBaseSuite.SetUpTest(c)
+	s.authHTTPSuite.SetUpTest(c)
 	s.nonce = "nonce"
 	m, password := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
 		Nonce: s.nonce,

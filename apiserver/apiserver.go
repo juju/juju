@@ -66,6 +66,7 @@ type Server struct {
 	tlsConfig         *tls.Config
 	allowModelAccess  bool
 	logSinkWriter     io.WriteCloser
+	migratedLogWriter io.WriteCloser
 
 	// mu guards the fields below it.
 	mu sync.Mutex
@@ -195,12 +196,18 @@ func newServer(s *state.State, lis net.Listener, cfg ServerConfig) (_ *Server, e
 	if err := srv.updateCertificate(cfg.Cert, cfg.Key); err != nil {
 		return nil, errors.Annotatef(err, "cannot set initial certificate")
 	}
-	logPath := filepath.Join(srv.logDir, "logsink.log")
-	logSinkWriter, err := newLogSinkWriter(logPath)
+
+	logSinkWriter, err := newLogSinkWriter(filepath.Join(srv.logDir, "logsink.log"))
 	if err != nil {
 		return nil, errors.Annotate(err, "creating logsink writer")
 	}
 	srv.logSinkWriter = logSinkWriter
+
+	migratedLogWriter, err := newLogSinkWriter(filepath.Join(srv.logDir, "migrated.log"))
+	if err != nil {
+		return nil, errors.Annotate(err, "creating migration logtransfer writer")
+	}
+	srv.migratedLogWriter = migratedLogWriter
 
 	go srv.run()
 	return srv, nil
@@ -288,6 +295,7 @@ func (srv *Server) run() {
 		srv.statePool.Close()
 		srv.state.Close()
 		srv.logSinkWriter.Close()
+		srv.migratedLogWriter.Close()
 	}()
 
 	srv.wg.Add(1)
@@ -366,13 +374,17 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 	strictCtxt.controllerModelOnly = true
 
 	mainAPIHandler := srv.trackRequests(http.HandlerFunc(srv.apiHandler))
-	logSinkHandler := newLogSinkHandler(httpCtxt, srv.logSinkWriter, newAgentLoggingStrategy)
 	logStreamHandler := srv.trackRequests(newLogStreamEndpointHandler(strictCtxt))
 	debugLogHandler := srv.trackRequests(newDebugLogDBHandler(httpCtxt))
 
-	add("/model/:modeluuid/logsink", srv.trackRequests(logSinkHandler))
 	add("/model/:modeluuid/logstream", logStreamHandler)
 	add("/model/:modeluuid/log", debugLogHandler)
+
+	logSinkHandler := newLogSinkHandler(httpCtxt, srv.logSinkWriter, newAgentLoggingStrategy)
+	add("/model/:modeluuid/logsink", srv.trackRequests(logSinkHandler))
+
+	logTransferHandler := newLogSinkHandler(httpCtxt, srv.migratedLogWriter, newMigrationLoggingStrategy)
+	add("/migrate/logtransfer", srv.trackRequests(logTransferHandler))
 
 	modelCharmsHandler := &charmsHandler{
 		ctxt:          httpCtxt,
