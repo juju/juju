@@ -11,6 +11,7 @@ from subprocess import CalledProcessError
 import sys
 from time import sleep
 import yaml
+from urllib2 import urlopen
 
 from assess_user_grant_revoke import User
 from deploy_stack import BootstrapManager
@@ -136,6 +137,16 @@ def wait_for_migrating(client, timeout=60):
                 '{} seconds'.format(
                     model_name, timeout
                 ))
+
+
+def assert_deployed_charm_is_responding(client, expected_ouput):
+    """Ensure that the deployed simple-server charm is still responding."""
+    # get_unit_ipaddress
+    pass
+
+
+def get_server_response(ipaddress):
+    return urlopen('http://{}'.format(ipaddress)).read().rstrip()
 
 
 def test_deployed_mongo_is_up(client):
