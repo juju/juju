@@ -14,9 +14,11 @@ from assess_block import (
 from jujupy import (
     EnvJujuClient,
     EnvJujuClient1X,
+    SimpleEnvironment
     )
 from tests import (
     parse_error,
+    FakeHomeTestCase,
     TestCase,
     )
 
@@ -61,7 +63,7 @@ class TestMain(TestCase):
         mock_assess.assert_called_once_with(client, 'trusty')
 
 
-class TestAssess(TestCase):
+class TestAssess(FakeHomeTestCase):
 
     def test_block_2x(self):
         mock_client = Mock(spec=[
@@ -129,55 +131,57 @@ class TestAssess(TestCase):
                          mock_client.remove_service.mock_calls)
 
     def test_block_1x(self):
-        mock_client = Mock(spec=[
-            "juju", "wait_for_started", "list_disabled_commands",
-            "disable_command", "enable_command", "is_juju1x",
-            "remove_service", "env", "deploy", "expose",
-            "destroy-model", "remove-machine", "get_status"],
-            disable_command_destroy_model='destroy-environment',
-            disable_command_remove_object='remove-object',
-            disable_command_all='all-changes',
-            destroy_model_command='destroy-environment')
-        mock_client.is_juju1x.return_value = True
-        mock_client.list_disabled_commands.side_effect = [
-            make_block_list(mock_client, []),
+        client = EnvJujuClient1X(
+            SimpleEnvironment('foo'), '1.25.0-series-arch', None)
+        side_effects = [
+            make_block_list(client, []),
             make_block_list(
-                mock_client, [EnvJujuClient1X.disable_command_destroy_model]),
-            make_block_list(mock_client, []),
+                client, [EnvJujuClient1X.disable_command_destroy_model]),
+            make_block_list(client, []),
             make_block_list(
-                mock_client, [EnvJujuClient1X.disable_command_remove_object]),
-            make_block_list(mock_client, []),
+                client, [EnvJujuClient1X.disable_command_remove_object]),
+            make_block_list(client, []),
             make_block_list(
-                mock_client, [EnvJujuClient1X.disable_command_all]),
-            make_block_list(mock_client, []),
+                client, [EnvJujuClient1X.disable_command_all]),
+            make_block_list(client, []),
             ]
-        mock_client.env.environment = 'foo'
-        mock_client.version = '1.25.6'
-        with patch('assess_block.deploy_dummy_stack', autospec=True):
-            assess_block(mock_client, 'trusty')
-        mock_client.wait_for_started.assert_called_with()
-        self.assertEqual([call('destroy-environment',
-                               ('-y', 'foo'), include_e=False),
-                          call('destroy-environment',
-                               ('-y', 'foo'), include_e=False),
-                          call('remove-unit',
-                               ('dummy-source/1',), include_e=True),
-                          call('remove-relation',
-                               ('dummy-source', 'dummy-sink'), include_e=True),
-                          call('remove-relation',
-                               ('dummy-source', 'dummy-sink')),
-                          call('add-relation',
-                               ('dummy-source', 'dummy-sink'), include_e=True),
-                          call('unexpose',
-                               ('dummy-sink',), include_e=True),
-                          call('unexpose', ('dummy-sink',)),
-                          call('expose', ('dummy-sink',), include_e=True),
-                          call('destroy-environment',
-                               ('-y', 'foo'), include_e=False)],
-                         mock_client.juju.mock_calls)
+        with patch.object(client, 'list_disabled_commands',
+                          autospec=True, side_effect=side_effects):
+            with patch('assess_block.deploy_dummy_stack', autospec=True):
+                with patch.object(client, 'remove_service') as mock_rs:
+                    with patch.object(client, 'juju') as mock_juju:
+                        with patch.object(
+                                client, 'wait_for_started') as mock_ws:
+                            assess_block(client, 'trusty')
+        mock_ws.assert_called_with()
+        self.assertEqual(
+            [call('block destroy-environment', ('',)),
+             call('destroy-environment', ('-y', 'foo'), include_e=False),
+             call('unblock', 'destroy-environment'),
+             call('block remove-object', ('',)),
+             call('destroy-environment', ('-y', 'foo'), include_e=False),
+             call('remove-unit', ('dummy-source/1',), include_e=True),
+             call('remove-relation', ('dummy-source', 'dummy-sink'),
+                  include_e=True),
+             call('unblock', 'remove-object'),
+             call('remove-relation', ('dummy-source', 'dummy-sink')),
+             call('block all-changes', ('',)),
+             call('add-relation', ('dummy-source', 'dummy-sink'),
+                  include_e=True),
+             call('unexpose', ('dummy-sink',), include_e=True),
+             call('unblock', 'all-changes'),
+             call('unexpose', ('dummy-sink',)),
+             call('block all-changes', ('',)),
+             call('expose', ('dummy-sink',), include_e=True),
+             call('unblock', 'all-changes'),
+             call('block all-changes', ('',)),
+             call('deploy', (('dummy-sink',),)),
+             call('destroy-environment', ('-y', 'foo'), include_e=False),
+             call('unblock', 'all-changes')],
+            mock_juju.mock_calls)
         self.assertEqual([call('dummy-source'),
                           call('dummy-sink'),
                           call('dummy-source'),
                           call('dummy-sink'),
                           call('dummy-sink')],
-                         mock_client.remove_service.mock_calls)
+                         mock_rs.mock_calls)
