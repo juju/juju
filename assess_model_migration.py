@@ -53,6 +53,8 @@ def assess_model_migration(bs1, bs2, args):
             if args.use_develop:
                 ensure_migration_rolls_back_on_failure(
                     bs1, bs2, args.upload_tools)
+                ensure_migration_of_resources_succeeds(
+                    bs1, bs2, args.upload_tools)
 
 
 def parse_args(argv):
@@ -202,6 +204,45 @@ def ensure_able_to_migrate_model_between_controllers(
 
     migration_target_client.wait_for_workloads()
     test_deployed_mongo_is_up(migration_target_client)
+    ensure_model_is_functional(migration_target_client, application)
+
+    migration_target_client.remove_service(application)
+
+
+def ensure_migration_of_resources_succeeds(
+        source_environ, dest_environ, upload_tools):
+    """Test simple migration of a model to another controller.
+
+    Ensure that migration a model that has an application, that uses resources,
+    deployed upon it is able to continue it's operation after the migration
+    process. This includes assertion that the resources are migrated correctly
+    too.
+
+    Almost identical to ensure_able_to_migrate_model_between_controllers except
+    this test uses a charm with a resource.
+
+    Note: This test will supersede
+    ensure_able_to_migrate_model_between_controllers when the develop branch is
+    merged into master.
+
+    """
+    # Don't move the default model so we can reuse it in later tests.
+    test_model = source_environ.client.add_model(
+        source_environ.client.env.clone('example-model-resource'))
+
+    resource_contents = get_random_string()
+    application = deploy_simple_resource_server(test_model, resource_contents)
+
+    assert_deployed_charm_is_responding(test_model, resource_contents)
+
+    log.info('Initiating migration process')
+
+    migration_target_client = migrate_model_to_controller(
+        test_model, dest_environ.client)
+
+    migration_target_client.wait_for_workloads()
+    assert_deployed_charm_is_responding(
+        migration_target_client, resource_contents)
     ensure_model_is_functional(migration_target_client, application)
 
     migration_target_client.remove_service(application)

@@ -525,14 +525,19 @@ class TestAssessModelMigration(TestCase):
                             'ensure_migration_rolls_back_on_failure',
                             autospec=True) as m_rollback:
                         with patch.object(
-                                amm, 'temp_dir',
-                                autospec=True, return_value=tmp_ctx()):
-                            amm.assess_model_migration(bs1, bs2, args)
+                            amm,
+                            'ensure_migration_of_resources_succeeds',
+                            autospec=True) as m_resource:
+                            with patch.object(
+                                    amm, 'temp_dir',
+                                    autospec=True, return_value=tmp_ctx()):
+                                amm.assess_model_migration(bs1, bs2, args)
         m_user.assert_called_once_with(bs1, bs2, args.upload_tools, '/tmp/dir')
         m_super.assert_called_once_with(
             bs1, bs2, args.upload_tools, '/tmp/dir')
         m_between.assert_called_once_with(bs1, bs2, args.upload_tools)
         m_rollback.assert_called_once_with(bs1, bs2, args.upload_tools)
+        m_resource.assert_called_once_with(bs1, bs2, args.upload_tools)
 
     def test_does_not_run_develop_tests_by_default(self):
         argv = [
