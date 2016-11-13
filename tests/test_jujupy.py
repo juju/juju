@@ -3213,6 +3213,12 @@ class TestEnvJujuClient(ClientTest):
         mock.assert_called_once_with(
             'import-ssh-key', 'gh:au', 'lp:bu', merge_stderr=True)
 
+    def test_disable_commands_properties(self):
+        client = EnvJujuClient(JujuData('foo'), None, None)
+        self.assertEqual('destroy-model', client.disable_command_destroy_model)
+        self.assertEqual('remove-object', client.disable_command_remove_object)
+        self.assertEqual('all', client.disable_command_all)
+
     def test_list_disabled_commands(self):
         client = EnvJujuClient(JujuData('foo'), None, None)
         with patch.object(client, 'get_juju_output', autospec=True,
@@ -3230,7 +3236,7 @@ class TestEnvJujuClient(ClientTest):
     def test_disable_command(self):
         client = EnvJujuClient(JujuData('foo'), None, None)
         with patch.object(client, 'juju', autospec=True) as mock:
-            client.disable_command(('all', 'message'))
+            client.disable_command('all', 'message')
         mock.assert_called_once_with('disable-command', ('all', 'message'))
 
     def test_enable_command(self):
@@ -4970,6 +4976,13 @@ class TestEnvJujuClient1X(ClientTest):
         mock.assert_called_once_with(
             'authorized-keys import', 'gh:au', 'lp:bu', merge_stderr=True)
 
+    def test_disable_commands_properties(self):
+        client = EnvJujuClient1X(SimpleEnvironment('foo'), None, None)
+        self.assertEqual(
+            'destroy-environment', client.disable_command_destroy_model)
+        self.assertEqual('remove-object', client.disable_command_remove_object)
+        self.assertEqual('all-changes', client.disable_command_all)
+
     def test_list_disabled_commands(self):
         client = EnvJujuClient1X(SimpleEnvironment('foo'), None, None)
         with patch.object(client, 'get_juju_output', autospec=True,
@@ -4987,8 +5000,8 @@ class TestEnvJujuClient1X(ClientTest):
     def test_disable_command(self):
         client = EnvJujuClient1X(SimpleEnvironment('foo'), None, None)
         with patch.object(client, 'juju', autospec=True) as mock:
-            client.disable_command(('all', 'message'))
-        mock.assert_called_once_with('block', ('all', 'message'))
+            client.disable_command('all', 'message')
+        mock.assert_called_once_with('block all', ('message', ))
 
     def test_enable_command(self):
         client = EnvJujuClient1X(SimpleEnvironment('foo'), None, None)
