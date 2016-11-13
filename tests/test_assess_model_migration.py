@@ -93,26 +93,35 @@ class TestAssertDeployedCharmIsResponding(TestCase):
     def test_passes_when_charm_is_responding_correctly(self):
         expected_output = get_random_string()
         client = Mock()
-        client.get_juju_output.return_value = expected_output
 
-        with patch.object(amm, 'get_unit_ipaddress',
-                          autospec=True, return_value='192.168.1.2') as m_gui:
-            amm.assert_deployed_charm_is_responding(client, expected_output)
-        m_gui.assert_called_once_with(client)
+        with patch.object(
+                amm, 'get_unit_ipaddress',
+                autospec=True, return_value='192.168.1.2') as m_gui:
+            with patch.object(
+                    amm, 'get_server_response',
+                    autospec=True, return_value=expected_output) as m_gsr:
+                amm.assert_deployed_charm_is_responding(
+                    client, expected_output)
+        m_gui.assert_called_once_with(client, 'simple-resource-http/0')
+        m_gsr.assert_called_once_with('192.168.1.2')
 
     def test_raises_when_charm_does_not_respond_correctly(self):
         expected_output = get_random_string()
         client = Mock()
-        client.get_juju_output.return_value = 'abc'
 
-        with patch.object(amm, 'get_unit_ipaddress',
-                          autospec=True, return_value='192.168.1.2'):
-            with self.assertRaises(AssertionError) as ex:
-                amm.assert_deployed_charm_is_responding(
-                    client, expected_output)
-            self.assertEqual(
-                ex.exception.message,
-                'Server charm is not responding as expected.')
+        with patch.object(
+                amm, 'get_unit_ipaddress',
+                autospec=True, return_value='192.168.1.2'):
+            with patch.object(
+                    amm, 'get_server_response',
+                    autospec=True, return_value='abc'):
+
+                with self.assertRaises(AssertionError) as ex:
+                    amm.assert_deployed_charm_is_responding(
+                        client, expected_output)
+                self.assertEqual(
+                    ex.exception.message,
+                    'Server charm is not responding as expected.')
 
 
 class TestExpectMigrationAttemptToFail(TestCase):
