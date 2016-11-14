@@ -1423,7 +1423,7 @@ class TestBootstrapManager(FakeHomeTestCase):
         self.assertEqual(jes_enabled, bs_manager.permanent)
         self.assertEqual(jes_enabled, bs_manager.jes_enabled)
         self.assertEqual({'0': 'example.org'}, bs_manager.known_hosts)
-        self.assertIsNone(bs_manager._has_controller)
+        self.assertIsFalse(bs_manager.has_controller)
 
     def test_no_args(self):
         args = Namespace(
@@ -1455,7 +1455,7 @@ class TestBootstrapManager(FakeHomeTestCase):
         self.assertEqual(jes_enabled, bs_manager.permanent)
         self.assertEqual(jes_enabled, bs_manager.jes_enabled)
         self.assertEqual({'0': 'example.org'}, bs_manager.known_hosts)
-        self.assertIsNone(bs_manager._has_controller)
+        self.assertIsFalse(bs_manager.has_controller)
 
     def test_jes_not_permanent(self):
         with self.assertRaisesRegexp(ValueError, 'Cannot set permanent False'
@@ -1695,7 +1695,7 @@ class TestBootstrapManager(FakeHomeTestCase):
                 bs_manager.has_controller = True
                 bs_manager.tear_down()
         tear_down_mock.assert_called_once_with()
-        self.assertIsNone(bs_manager.has_controller)
+        self.assertIsFalse(bs_manager.has_controller)
 
     def test_tear_down_requires_same_env(self):
         client = self.make_client()
@@ -2043,19 +2043,6 @@ class TestBootstrapManager(FakeHomeTestCase):
                 with bs_manager.top_context():
                     pass
         self.assertEqual(djt_mock.call_count, 0)
-
-    def test_has_controller(self):
-        with self.make_bootstrap_manager() as bs_manager:
-            self.assertIsNone(bs_manager.has_controller)
-            self.assertIsNone(bs_manager._has_controller)
-            bs_manager.has_controller = True
-            self.assertIsTrue(bs_manager.has_controller)
-            self.assertIsTrue(bs_manager._has_controller)
-            bs_manager.has_controller = False
-            self.assertIsFalse(bs_manager.has_controller)
-            self.assertIsFalse(bs_manager._has_controller)
-            with self.assertRaises(AssertionError):
-                bs_manager.has_controller = 0
 
 
 class TestBootContext(FakeHomeTestCase):
