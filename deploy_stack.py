@@ -629,6 +629,7 @@ class BootstrapManager:
         if controller_strategy is None:
             controller_strategy = CreateController(client, tear_down_client)
         self.controller_strategy = controller_strategy
+        self.has_controller = False
 
     @property
     def client(self):
@@ -750,6 +751,7 @@ class BootstrapManager:
         if self.tear_down_client.env is not self.client.env:
             raise AssertionError('Tear down client needs same env!')
         self.controller_strategy.tear_down()
+        self.has_controller = False
 
     def _log_and_wrap_exception(self, exc):
         logging.exception(exc)
@@ -803,6 +805,7 @@ class BootstrapManager:
             with self.handle_bootstrap_exceptions():
                 if not torn_down:
                     self.controller_strategy.prepare()
+                self.has_controller = True
                 yield
 
     @contextmanager
@@ -883,7 +886,10 @@ class BootstrapManager:
             except BaseException as e:
                 raise self._log_and_wrap_exception(e)
         except:
-            safe_print_status(self.client)
+            if self.has_controller:
+                safe_print_status(self.client)
+            else:
+                logging.info("Client lost controller, not calling status.")
             raise
         else:
             with self.client.ignore_soft_deadline():

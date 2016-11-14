@@ -1423,6 +1423,7 @@ class TestBootstrapManager(FakeHomeTestCase):
         self.assertEqual(jes_enabled, bs_manager.permanent)
         self.assertEqual(jes_enabled, bs_manager.jes_enabled)
         self.assertEqual({'0': 'example.org'}, bs_manager.known_hosts)
+        self.assertIsFalse(bs_manager.has_controller)
 
     def test_no_args(self):
         args = Namespace(
@@ -1454,6 +1455,7 @@ class TestBootstrapManager(FakeHomeTestCase):
         self.assertEqual(jes_enabled, bs_manager.permanent)
         self.assertEqual(jes_enabled, bs_manager.jes_enabled)
         self.assertEqual({'0': 'example.org'}, bs_manager.known_hosts)
+        self.assertIsFalse(bs_manager.has_controller)
 
     def test_jes_not_permanent(self):
         with self.assertRaisesRegexp(ValueError, 'Cannot set permanent False'
@@ -1645,6 +1647,16 @@ class TestBootstrapManager(FakeHomeTestCase):
         wfp_mock.assert_called_once_with(
             'bootstrap.example.org', 22, timeout=120)
 
+    def test_bootstrap_context_sets_has_controller(self):
+        client = self.make_client()
+        bs_manager = BootstrapManager(
+            'foobar', client, client, None, [], None, None, None, None,
+            None, False, False, False)
+        with patch.object(client, 'kill_controller'):
+            with bs_manager.bootstrap_context([]):
+                self.assertIsTrue(bs_manager.has_controller)
+        self.assertIsTrue(bs_manager.has_controller)
+
     def test_handle_bootstrap_exceptions_ignores_soft_deadline(self):
         env = JujuData('foo', {'type': 'nonlocal'})
         client = EnvJujuClient(env, None, None)
@@ -1680,8 +1692,10 @@ class TestBootstrapManager(FakeHomeTestCase):
                 bs_manager = BootstrapManager(
                     'foobar', client, client, None, [], None, None, None,
                     None, log_dir, False, False, jes_enabled=False)
+                bs_manager.has_controller = True
                 bs_manager.tear_down()
         tear_down_mock.assert_called_once_with()
+        self.assertIsFalse(bs_manager.has_controller)
 
     def test_tear_down_requires_same_env(self):
         client = self.make_client()
@@ -1788,9 +1802,9 @@ class TestBootstrapManager(FakeHomeTestCase):
         client.bootstrap()
         with temp_dir() as log_dir:
             bs_manager = BootstrapManager(
-                    'foobar', client, client,
-                    None, [], None, None, None, None, log_dir, False,
-                    True, True)
+                'foobar', client, client,
+                None, [], None, None, None, None, log_dir, False,
+                True, True)
             with patch.object(bs_manager, '_should_dump', return_value=True,
                               autospec=True):
                 with patch('deploy_stack.dump_env_logs_known_hosts',
@@ -1801,19 +1815,48 @@ class TestBootstrapManager(FakeHomeTestCase):
         client = fake_juju_client()
         client.bootstrap()
         bs_manager = BootstrapManager(
-                'foobar', client, client,
-                None, [], None, None, None, None, client.env.juju_home, False,
-                True, True)
+            'foobar', client, client,
+            None, [], None, None, None, None, client.env.juju_home, False,
+            True, True)
+        bs_manager.has_controller = True
         test_error = Exception("Some exception")
         test_error.output = "a stdout value"
         test_error.stderr = "a stderr value"
         with patch.object(bs_manager, 'dump_all_logs', autospec=True):
-            with self.assertRaises(LoggedException) as err_ctx:
-                with bs_manager.runtime_context([]):
-                    raise test_error
-                self.assertIs(err_ctx.exception.exception, test_error)
+            with patch('deploy_stack.safe_print_status',
+                       autospec=True) as sp_mock:
+                with self.assertRaises(LoggedException) as err_ctx:
+                    with bs_manager.runtime_context([]):
+                        raise test_error
+                    self.assertIs(err_ctx.exception.exception, test_error)
         self.assertIn("a stdout value", self.log_stream.getvalue())
         self.assertIn("a stderr value", self.log_stream.getvalue())
+        sp_mock.assert_called_once_with(client)
+
+    def test_runtime_context_raises_logged_exception_no_controller(self):
+        client = fake_juju_client()
+        client.bootstrap()
+        bs_manager = BootstrapManager(
+            'foobar', client, client,
+            None, [], None, None, None, None, client.env.juju_home, False,
+            True, True)
+        bs_manager.has_controller = False
+        test_error = Exception("Some exception")
+        test_error.output = "a stdout value"
+        test_error.stderr = "a stderr value"
+        with patch.object(bs_manager, 'dump_all_logs', autospec=True):
+            with patch('deploy_stack.safe_print_status',
+                       autospec=True) as sp_mock:
+                with self.assertRaises(LoggedException) as err_ctx:
+                    with bs_manager.runtime_context([]):
+                        raise test_error
+                    self.assertIs(err_ctx.exception.exception, test_error)
+        self.assertIn("a stdout value", self.log_stream.getvalue())
+        self.assertIn("a stderr value", self.log_stream.getvalue())
+        self.assertEqual(0, sp_mock.call_count)
+        self.assertIn(
+            "Client lost controller, not calling status",
+            self.log_stream.getvalue())
 
     def test_runtime_context_looks_up_host(self):
         client = fake_juju_client()
