@@ -461,15 +461,19 @@ class JujuData(SimpleEnvironment):
                 raise RuntimeError(
                     'Failed to read credentials file: {}'.format(str(e)))
             self.credentials = {}
+        self.clouds = self.read_clouds()
+
+    def read_clouds(self):
+        """Read and return clouds.yaml as a Python dict."""
         try:
             with open(os.path.join(self.juju_home, 'clouds.yaml')) as f:
-                self.clouds = yaml.safe_load(f)
+                return yaml.safe_load(f)
         except IOError as e:
             if e.errno != errno.ENOENT:
                 raise RuntimeError(
                     'Failed to read clouds file: {}'.format(str(e)))
             # Default to an empty clouds file.
-            self.clouds = {'clouds': {}}
+            return {'clouds': {}}
 
     @classmethod
     def from_config(cls, name):
@@ -486,8 +490,12 @@ class JujuData(SimpleEnvironment):
         """
         with open(os.path.join(path, 'credentials.yaml'), 'w') as f:
             yaml.safe_dump(self.credentials, f)
+        self.write_clouds(path, self.clouds)
+
+    @staticmethod
+    def write_clouds(path, clouds):
         with open(os.path.join(path, 'clouds.yaml'), 'w') as f:
-            yaml.safe_dump(self.clouds, f)
+            yaml.safe_dump(clouds, f)
 
     def find_endpoint_cloud(self, cloud_type, endpoint):
         for cloud, cloud_config in self.clouds['clouds'].items():
@@ -2314,6 +2322,54 @@ class EnvJujuClient:
         """List all the available clouds."""
         return self.get_juju_output('list-clouds', '--format',
                                     format, include_e=False)
+
+    def add_cloud_interactive(self, cloud_name):
+        cloud = self.env.clouds['clouds'][cloud_name]
+        child = self.expect('add-cloud', include_e=False)
+        try:
+            child.logfile = sys.stdout
+            child.expect('Select cloud type:')
+            child.sendline(cloud['type'])
+            child.expect('Enter a name for the cloud:')
+            child.sendline(cloud_name)
+            if cloud['type'] == 'maas':
+                child.expect('Enter the API endpoint url:')
+                child.sendline(cloud['endpoint'])
+            if cloud['type'] == 'manual':
+                child.expect("Enter the controller's hostname or IP address:")
+                child.sendline(cloud['endpoint'])
+            if cloud['type'] == 'openstack':
+                child.expect('Enter the API endpoint url for the cloud:')
+                child.sendline(cloud['endpoint'])
+                child.expect(
+                    'Select one or more auth types separated by commas:')
+                child.sendline(','.join(cloud['auth-types']))
+                for num, (name, values) in enumerate(cloud['regions'].items()):
+                    child.expect('Enter region name:')
+                    child.sendline(name)
+                    child.expect('Enter the API endpoint url for the region:')
+                    child.sendline(values['endpoint'])
+                    child.expect('Enter another region\? \(Y/n\)')
+                    if num + 1 < len(cloud['regions']):
+                        child.sendline('y')
+                    else:
+                        child.sendline('n')
+            if cloud['type'] == 'vsphere':
+                child.expect('Enter the API endpoint url for the cloud:')
+                child.sendline(cloud['endpoint'])
+                for num, (name, values) in enumerate(cloud['regions'].items()):
+                    child.expect('Enter region name:')
+                    child.sendline(name)
+                    child.expect('Enter another region\? \(Y/n\)')
+                    if num + 1 < len(cloud['regions']):
+                        child.sendline('y')
+                    else:
+                        child.sendline('n')
+
+            child.expect(pexpect.EOF)
+        except pexpect.TIMEOUT:
+            raise Exception(
+                'Adding cloud failed: pexpect session timed out')
 
     def show_controller(self, format='json'):
         """Show controller's status."""

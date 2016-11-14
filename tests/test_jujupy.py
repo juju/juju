@@ -3146,6 +3146,59 @@ class TestEnvJujuClient(ClientTest):
         mock.assert_called_with(
             'list-clouds', '--format', 'json', include_e=False)
 
+    def test_add_cloud_interactive_maas(self):
+        client = fake_juju_client()
+        client.env.clouds = {'clouds': {'foo': {
+            'type': 'maas',
+            'endpoint': 'http://bar.example.com',
+            }}}
+        client.add_cloud_interactive('foo')
+        self.assertEqual(client._backend.clouds, {'foo': {
+            'type': 'maas',
+            'endpoint': 'http://bar.example.com',
+            }})
+
+    def test_add_cloud_interactive_manual(self):
+        client = fake_juju_client()
+        client.env.clouds = {'clouds': {'foo': {
+            'type': 'manual',
+            'endpoint': '127.100.100.1',
+            }}}
+        client.add_cloud_interactive('foo')
+        self.assertEqual(client._backend.clouds, {'foo': {
+            'type': 'manual',
+            'endpoint': '127.100.100.1',
+            }})
+
+    def test_add_cloud_interactive_openstack(self):
+        client = fake_juju_client()
+        clouds = {'foo': {
+            'type': 'openstack',
+            'endpoint': 'http://bar.example.com',
+            'auth-types': ['oauth1', 'oauth12'],
+            'regions': {
+                'harvey': {'endpoint': 'http://harvey.example.com'},
+                'steve': {'endpoint': 'http://steve.example.com'},
+                }
+            }}
+        client.env.clouds = {'clouds': clouds}
+        client.add_cloud_interactive('foo')
+        self.assertEqual(client._backend.clouds, clouds)
+
+    def test_add_cloud_interactive_vsphere(self):
+        client = fake_juju_client()
+        clouds = {'foo': {
+            'type': 'vsphere',
+            'endpoint': 'http://bar.example.com',
+            'regions': {
+                'harvey': {},
+                'steve': {},
+                }
+            }}
+        client.env.clouds = {'clouds': clouds}
+        client.add_cloud_interactive('foo')
+        self.assertEqual(client._backend.clouds, clouds)
+
     def test_show_controller(self):
         env = JujuData('foo')
         client = EnvJujuClient(env, None, None)
