@@ -743,12 +743,12 @@ class BootstrapManager:
 
     @property
     def has_controller(self):
-        """Is the controller lost? None, True, False.
+        """Is there a working controller? None, True, False.
 
         None means there is no controller to loose, such as before
-        bootstrap or after destroy-controller. False means the controller
+        bootstrap or after destroy-controller. True means the controller
         is available such as after bootstrap and before destroy-controller.
-        True means the controller was lost and we can expect calls to
+        False means the controller was lost and we can expect calls to
         controller to fail, such as in HA and restore-backup tests.
         """
         return self._has_controller
@@ -906,7 +906,10 @@ class BootstrapManager:
             except BaseException as e:
                 raise self._log_and_wrap_exception(e)
         except:
-            safe_print_status(self.client)
+            if self.has_controller:
+                safe_print_status(self.client)
+            else:
+                logging.info("Client lost controller, not calling status.")
             raise
         else:
             with self.client.ignore_soft_deadline():
