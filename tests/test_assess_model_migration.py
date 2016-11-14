@@ -527,17 +527,23 @@ class TestAssessModelMigration(TestCase):
                         with patch.object(
                             amm,
                             'ensure_migration_of_resources_succeeds',
-                            autospec=True) as m_resource:
+                                autospec=True) as m_resource:
                             with patch.object(
                                     amm, 'temp_dir',
                                     autospec=True, return_value=tmp_ctx()):
                                 amm.assess_model_migration(bs1, bs2, args)
-        m_user.assert_called_once_with(bs1, bs2, args.upload_tools, '/tmp/dir')
+        source_client = bs1.client
+        dest_client = bs2.client
+        m_user.assert_called_once_with(
+            source_client, dest_client, args.upload_tools, '/tmp/dir')
         m_super.assert_called_once_with(
-            bs1, bs2, args.upload_tools, '/tmp/dir')
-        m_between.assert_called_once_with(bs1, bs2, args.upload_tools)
-        m_rollback.assert_called_once_with(bs1, bs2, args.upload_tools)
-        m_resource.assert_called_once_with(bs1, bs2, args.upload_tools)
+            source_client, dest_client, args.upload_tools, '/tmp/dir')
+        m_between.assert_called_once_with(
+            source_client, dest_client, args.upload_tools)
+        m_rollback.assert_called_once_with(
+            source_client, dest_client, args.upload_tools)
+        m_resource.assert_called_once_with(
+            source_client, dest_client, args.upload_tools)
 
     def test_does_not_run_develop_tests_by_default(self):
         argv = [
@@ -568,9 +574,13 @@ class TestAssessModelMigration(TestCase):
                                 amm, 'temp_dir',
                                 autospec=True, return_value=tmp_ctx()):
                             amm.assess_model_migration(bs1, bs2, args)
-        m_user.assert_called_once_with(bs1, bs2, args.upload_tools, '/tmp/dir')
+        source_client = bs1.client
+        dest_client = bs2.client
+        m_user.assert_called_once_with(
+            source_client, dest_client, args.upload_tools, '/tmp/dir')
         m_super.assert_called_once_with(
-            bs1, bs2, args.upload_tools, '/tmp/dir')
-        m_between.assert_called_once_with(bs1, bs2, args.upload_tools)
+            source_client, dest_client, args.upload_tools, '/tmp/dir')
+        m_between.assert_called_once_with(
+            source_client, dest_client, args.upload_tools)
 
         self.assertEqual(m_rollback.call_count, 0)

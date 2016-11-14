@@ -41,20 +41,23 @@ def assess_model_migration(bs1, bs2, args):
 
         bs2.client.env.juju_home = bs1.client.env.juju_home
         with bs2.existing_booted_context(args.upload_tools):
+            source_client = bs1.client
+            dest_client = bs2.client
+
             ensure_able_to_migrate_model_between_controllers(
-                bs1, bs2, args.upload_tools)
+                source_client, dest_client, args.upload_tools)
 
             with temp_dir() as temp:
                 ensure_migrating_with_insufficient_user_permissions_fails(
-                    bs1, bs2, args.upload_tools, temp)
+                    source_client, dest_client, args.upload_tools, temp)
                 ensure_migrating_with_superuser_user_permissions_succeeds(
-                    bs1, bs2, args.upload_tools, temp)
+                    source_client, dest_client, args.upload_tools, temp)
 
             if args.use_develop:
                 ensure_migration_rolls_back_on_failure(
-                    bs1, bs2, args.upload_tools)
+                    source_client, dest_client, args.upload_tools)
                 ensure_migration_of_resources_succeeds(
-                    bs1, bs2, args.upload_tools)
+                    source_client, dest_client, args.upload_tools)
 
 
 def parse_args(argv):
@@ -174,7 +177,7 @@ def test_deployed_mongo_is_up(client):
 
 
 def ensure_able_to_migrate_model_between_controllers(
-        source_environ, dest_environ, upload_tools):
+        source_client, dest_client, upload_tools):
     """Test simple migration of a model to another controller.
 
     Ensure that migration a model that has an application deployed upon it is
@@ -195,12 +198,12 @@ def ensure_able_to_migrate_model_between_controllers(
     """
     application = 'mongodb'
     test_model = deploy_mongodb_to_new_model(
-        source_environ.client, model_name='example-model')
+        source_client, model_name='example-model')
 
     log.info('Initiating migration process')
 
     migration_target_client = migrate_model_to_controller(
-        test_model, dest_environ.client)
+        test_model, dest_client)
 
     migration_target_client.wait_for_workloads()
     test_deployed_mongo_is_up(migration_target_client)
@@ -210,7 +213,7 @@ def ensure_able_to_migrate_model_between_controllers(
 
 
 def ensure_migration_of_resources_succeeds(
-        source_environ, dest_environ, upload_tools):
+        source_client, dest_client, upload_tools):
     """Test simple migration of a model to another controller.
 
     Ensure that migration a model that has an application, that uses resources,
@@ -227,8 +230,8 @@ def ensure_migration_of_resources_succeeds(
 
     """
     # Don't move the default model so we can reuse it in later tests.
-    test_model = source_environ.client.add_model(
-        source_environ.client.env.clone('example-model-resource'))
+    test_model = source_client.add_model(
+        source_client.env.clone('example-model-resource'))
 
     resource_contents = get_random_string()
     application = deploy_simple_resource_server(test_model, resource_contents)
@@ -238,7 +241,7 @@ def ensure_migration_of_resources_succeeds(
     log.info('Initiating migration process')
 
     migration_target_client = migrate_model_to_controller(
-        test_model, dest_environ.client)
+        test_model, dest_client)
 
     migration_target_client.wait_for_workloads()
     assert_deployed_charm_is_responding(
@@ -339,16 +342,14 @@ def raise_if_shared_machines(unit_machines):
         raise JujuAssertionError('Appliction units reside on the same machine')
 
 
-def ensure_migration_rolls_back_on_failure(source_bs, dest_bs, upload_tools):
+def ensure_migration_rolls_back_on_failure(
+        source_client, dest_client, upload_tools):
     """Must successfully roll back migration when migration fails.
 
     If the target controller becomes unavailable for the migration to complete
     the migration must roll back and continue to be available on the source
     controller.
     """
-    source_client = source_bs.client
-    dest_client = dest_bs.client
-
     application = 'mongodb'
     test_model = deploy_mongodb_to_new_model(
         source_client, model_name='rollmeback')
@@ -396,46 +397,44 @@ def get_remote_for_controller(admin_client):
 
 
 def ensure_migrating_with_insufficient_user_permissions_fails(
-        source_bs, dest_bs, upload_tools, tmp_dir):
+        source_client, dest_client, upload_tools, tmp_dir):
     """Ensure migration fails when a user does not have the right permissions.
 
     A non-superuser on a controller cannot migrate their models between
     controllers.
 
     """
-    source_client, dest_client = create_user_on_controllers(
-        source_bs, dest_bs, tmp_dir, 'failuser', 'addmodel')
+    user_source_client, user_dest_client = create_user_on_controllers(
+        source_client, dest_client, tmp_dir, 'failuser', 'addmodel')
 
     charm_path = local_charm_path(
-        charm='dummy-source', juju_ver=source_client.version)
-    source_client.deploy(charm_path)
-    source_client.wait_for_started()
+        charm='dummy-source', juju_ver=user_source_client.version)
+    user_source_client.deploy(charm_path)
+    user_source_client.wait_for_started()
 
     log.info('Attempting migration process')
 
-    expect_migration_attempt_to_fail(
-        source_client,
-        dest_client)
+    expect_migration_attempt_to_fail(user_source_client, user_dest_client)
 
 
 def ensure_migrating_with_superuser_user_permissions_succeeds(
-        source_bs, dest_bs, upload_tools, tmp_dir):
+        source_client, dest_client, upload_tools, tmp_dir):
     """Ensure migration succeeds when a user has superuser permissions
 
     A user with superuser permissions is able to migrate between controllers.
 
     """
-    source_client, dest_client = create_user_on_controllers(
-        source_bs, dest_bs, tmp_dir, 'passuser', 'superuser')
+    user_source_client, user_dest_client = create_user_on_controllers(
+        source_client, dest_client, tmp_dir, 'passuser', 'superuser')
 
     charm_path = local_charm_path(
-        charm='dummy-source', juju_ver=source_client.version)
-    source_client.deploy(charm_path)
-    source_client.wait_for_started()
+        charm='dummy-source', juju_ver=user_source_client.version)
+    user_source_client.deploy(charm_path)
+    user_source_client.wait_for_started()
 
     log.info('Attempting migration process')
 
-    migrate_model_to_controller(source_client, dest_client)
+    migrate_model_to_controller(user_source_client, user_dest_client)
 
 
 def create_user_on_controllers(
