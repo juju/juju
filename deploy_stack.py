@@ -629,6 +629,7 @@ class BootstrapManager:
         if controller_strategy is None:
             controller_strategy = CreateController(client, tear_down_client)
         self.controller_strategy = controller_strategy
+        self._lost_controller = None
 
     @property
     def client(self):
@@ -739,6 +740,26 @@ class BootstrapManager:
             if self.keep_env:
                 return
             destroy_job_instances(self.temp_env_name)
+
+    @property
+    def lost_controller(self):
+        """Is the controller lost? None, True, False.
+
+        None means there is no controller to loose, such as before
+        bootstrap or after destroy-controller. False means the controller
+        is available such as after bootstrap and before destroy-controller.
+        True means the controller was lost and we can expect calls to
+        controller to fail, such as in HA and restore-backup tests.
+        """
+        return self._lost_controller
+
+    @lost_controller.setter
+    def lost_controller(self, value):
+        """See BootstrapMananger.lost_controller."""
+        if not (value is None or value is False or value is True):
+            raise AssertionError(
+                'lost_controller must be one of None, True, False')
+        self._lost_controller = value
 
     def tear_down(self, try_jes=False):
         """Tear down the client using tear_down_client.

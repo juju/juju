@@ -1423,6 +1423,7 @@ class TestBootstrapManager(FakeHomeTestCase):
         self.assertEqual(jes_enabled, bs_manager.permanent)
         self.assertEqual(jes_enabled, bs_manager.jes_enabled)
         self.assertEqual({'0': 'example.org'}, bs_manager.known_hosts)
+        self.assertIsNone(bs_manager._lost_controller)
 
     def test_no_args(self):
         args = Namespace(
@@ -1454,6 +1455,7 @@ class TestBootstrapManager(FakeHomeTestCase):
         self.assertEqual(jes_enabled, bs_manager.permanent)
         self.assertEqual(jes_enabled, bs_manager.jes_enabled)
         self.assertEqual({'0': 'example.org'}, bs_manager.known_hosts)
+        self.assertIsNone(bs_manager._lost_controller)
 
     def test_jes_not_permanent(self):
         with self.assertRaisesRegexp(ValueError, 'Cannot set permanent False'
@@ -2000,6 +2002,19 @@ class TestBootstrapManager(FakeHomeTestCase):
                 with bs_manager.top_context():
                     pass
         self.assertEqual(djt_mock.call_count, 0)
+
+    def test_lost_controller(self):
+        with self.make_bootstrap_manager() as bs_manager:
+            self.assertIsNone(bs_manager.lost_controller)
+            self.assertIsNone(bs_manager._lost_controller)
+            bs_manager.lost_controller = False
+            self.assertIsFalse(bs_manager.lost_controller)
+            self.assertIsFalse(bs_manager._lost_controller)
+            bs_manager.lost_controller = True
+            self.assertIsTrue(bs_manager.lost_controller)
+            self.assertIsTrue(bs_manager._lost_controller)
+            with self.assertRaises(AssertionError):
+                bs_manager.lost_controller = 0
 
 
 class TestBootContext(FakeHomeTestCase):
