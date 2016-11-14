@@ -3268,9 +3268,9 @@ class TestEnvJujuClient(ClientTest):
 
     def test_disable_commands_properties(self):
         client = EnvJujuClient(JujuData('foo'), None, None)
-        self.assertEqual('destroy-model', client.disable_command_destroy_model)
-        self.assertEqual('remove-object', client.disable_command_remove_object)
-        self.assertEqual('all', client.disable_command_all)
+        self.assertEqual('destroy-model', client.command_set_destroy_model)
+        self.assertEqual('remove-object', client.command_set_remove_object)
+        self.assertEqual('all', client.command_set_all)
 
     def test_list_disabled_commands(self):
         client = EnvJujuClient(JujuData('foo'), None, None)
@@ -5032,9 +5032,9 @@ class TestEnvJujuClient1X(ClientTest):
     def test_disable_commands_properties(self):
         client = EnvJujuClient1X(SimpleEnvironment('foo'), None, None)
         self.assertEqual(
-            'destroy-environment', client.disable_command_destroy_model)
-        self.assertEqual('remove-object', client.disable_command_remove_object)
-        self.assertEqual('all-changes', client.disable_command_all)
+            'destroy-environment', client.command_set_destroy_model)
+        self.assertEqual('remove-object', client.command_set_remove_object)
+        self.assertEqual('all-changes', client.command_set_all)
 
     def test_list_disabled_commands(self):
         client = EnvJujuClient1X(SimpleEnvironment('foo'), None, None)

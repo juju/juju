@@ -1039,11 +1039,11 @@ class EnvJujuClient:
     reserved_spaces = frozenset([
         'endpoint-bindings-data', 'endpoint-bindings-public'])
 
-    disable_command_destroy_model = 'destroy-model'
+    command_set_destroy_model = 'destroy-model'
 
-    disable_command_remove_object = 'remove-object'
+    command_set_remove_object = 'remove-object'
 
-    disable_command_all = 'all'
+    command_set_all = 'all'
 
     @classmethod
     def preferred_container(cls):
@@ -2408,11 +2408,11 @@ class EnvJujuClient:
         return yaml.safe_load(raw)
 
     def disable_command(self, command_set, message=''):
-        """Disable a command set."""
+        """Disable a command-set."""
         return self.juju('disable-command', (command_set, message))
 
     def enable_command(self, args):
-        """Enable a command set."""
+        """Enable a command-set."""
         return self.juju('enable-command', args)
 
     def sync_tools(self, local_dir=None):
@@ -2489,11 +2489,9 @@ class EnvJujuClient1X(EnvJujuClientRC):
 
     _show_status = 'status'
 
-    disable_command_destroy_model = 'destroy-environment'
+    command_set_destroy_model = 'destroy-environment'
 
-    disable_command_remove_object = 'remove-object'
-
-    disable_command_all = 'all-changes'
+    command_set_all = 'all-changes'
 
     @classmethod
     def _get_env(cls, env):
@@ -2913,11 +2911,11 @@ class EnvJujuClient1X(EnvJujuClientRC):
         return yaml.safe_load(raw)
 
     def disable_command(self, command_set, message=''):
-        """Disable a command set."""
+        """Disable a command-set."""
         return self.juju('block {}'.format(command_set), (message, ))
 
     def enable_command(self, args):
-        """Enable a command set."""
+        """Enable a command-set."""
         return self.juju('unblock', args)
 
 
