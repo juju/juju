@@ -10,7 +10,6 @@ from contextlib import (
 from copy import deepcopy
 from datetime import (
     datetime,
-    timedelta,
     )
 import errno
 from itertools import chain
@@ -598,71 +597,6 @@ StatusError.ordering = [MachineError, InstallError, AgentLongError,
                         StatusError]
 
 
-class StatusItem:
-
-    APPLICATION = 'application-status'
-    WORKLOAD = 'workload-status'
-    MACHINE = 'machine-status'
-    JUJU = 'juju-status'
-
-    def __init__(self, status_name, item_name, item_value):
-        self.status_name = status_name
-        self.item_name = item_name
-        # (self.item_name, item_value) = item
-        self.status = item_value[status_name]
-
-    @property
-    def message(self):
-        return self.status.get('message')
-
-    @property
-    def since(self):
-        return self.status.get('since')
-
-    @property
-    def current(self):
-        return self.status.get('current')
-
-    @property
-    def version(self):
-        return self.status.get('version')
-
-    def datetime_since(self):
-        return datetime.strptime(self.since, '%d %b %Y %H:%M:%SZ')
-
-    def to_exception(self):
-        """Create an exception representing the error if one exists.
-
-        :return: StatusError (or subtype) to represent an error or None
-        to show that there is no error."""
-        if self.current not in ['error', 'failed']:
-            return None
-
-        if self.APPLICATION == self.status_name:
-            return AppError(self.item_name, self.message)
-        elif self.WORKLOAD == self.status_name:
-            if self.message is None:
-                return UnitError(self.item_name, self.message)
-            elif re.match('hook failed ".*install.*"', self.message):
-                return InstallError(self.item_name, self.message)
-            elif re.match('hook failed', self.message):
-                return HookFailedError(self.item_name, self.message)
-            else:
-                return UnitError(self.item_name, self.message)
-        elif self.MACHINE == self.status_name:
-            return MachineError(self.item_name, self.message)
-        elif self.JUJU == self.status_name:
-            time_since = datetime.utcnow() - self.datetime_since()
-            if time_since > timedelta(minutes=5):
-                return AgentLongError(self.item_name, self.message,
-                                      time_since.total_seconds())
-            else:
-                return AgentError(self.item_name, self.message)
-        else:
-            raise ValueError('Unknown status:{}'.format(self.status_name),
-                             (self.item_name, self.status_value))
-
-
 class Status:
 
     def __init__(self, status, status_text):
@@ -681,10 +615,6 @@ class Status:
 
     def get_applications(self):
         return self.status.get('applications', {})
-
-    @property
-    def machines(self):
-        return self.status['machines']
 
     def iter_machines(self, containers=False, machines=True):
         for machine_name, machine in sorted(self.status['machines'].items()):
@@ -819,70 +749,11 @@ class Status:
         """
         return self.get_unit(unit_name).get('open-ports', [])
 
-    def iter_status(self):
-        """Iterate through every status field in the larger status data."""
-        for machine_name, machine_value in self.machines.items():
-            yield StatusItem(StatusItem.MACHINE, machine_name, machine_value)
-            yield StatusItem(StatusItem.JUJU, machine_name, machine_value)
-        for app_name, app_value in self.get_applications().items():
-            yield StatusItem(StatusItem.APPLICATION, app_name, app_value)
-            for unit_name, unit_value in app_value['units'].items():
-                yield StatusItem(StatusItem.WORKLOAD, unit_name, unit_value)
-                yield StatusItem(StatusItem.JUJU, unit_name, unit_value)
-
-    def iter_errors(self, ignore_recoverable=False):
-        """Iterate through every error, repersented by exceptions."""
-        for sub_status in self.iter_status():
-            error = sub_status.to_exception()
-            if error is not None:
-                if not (ignore_recoverable and error.recoverable):
-                    yield error
-
-    def check_for_errors(self, ignore_recoverable=False):
-        """Return a list of errors, in order of their priority."""
-        return sorted(self.iter_errors(ignore_recoverable),
-                      key=lambda item: item.priority())
-
-    def raise_highest_error(self, ignore_recoverable=False):
-        """Raise an exception reperenting the highest priority error."""
-        errors = self.check_for_errors(ignore_recoverable)
-        if errors:
-            raise errors[0]
-
 
 class Status1X(Status):
 
     def get_applications(self):
         return self.status.get('services', {})
-
-    def status_condence(self, item_value):
-        """Condence the scattered agent-* fields into a status dict."""
-        return {'current': item_value['agent-state'],
-                'version': item_value['agent-version'],
-                'message': item_value.get('agent-state-info'),
-                }
-
-    def iter_status(self):
-        for machine_name, machine_value in self.machines.items():
-            yield StatusItem(
-                StatusItem.JUJU, machine_name,
-                {StatusItem.JUJU: self.status_condence(machine_value)})
-        for app_name, app_value in self.get_applications().items():
-            yield StatusItem(
-                StatusItem.APPLICATION, app_name,
-                {StatusItem.APPLICATION: app_value['service-status']})
-            for unit_name, unit_value in app_value['units'].items()
-                if StatusItem.WORKLOAD is in unit_value:
-                    yield StatusItem(StatusItem.WORKLOAD,
-                                     unit_name, unit_value)
-                if 'agent-status' is in unit_value:
-                    yield StatusItem(
-                        StatusItem.JUJU, unit_name,
-                        {StatusItem.JUJU: unit_value['agent-status']})
-                else:
-                    yield StatusItem(
-                        StatusItem.JUJU, unit_name,
-                        {StatusItem.JUJU: self.status_condence(unit_value)})
 
 
 def describe_substrate(env):

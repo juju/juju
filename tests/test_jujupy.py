@@ -58,7 +58,6 @@ from jujupy import (
     JUJU_DEV_FEATURE_FLAGS,
     KILL_CONTROLLER,
     Machine,
-    MachineError,
     make_safe_config,
     NoProvider,
     parse_new_state_server_from_error,
@@ -66,13 +65,10 @@ from jujupy import (
     SoftDeadlineExceeded,
     Status,
     Status1X,
-    StatusError,
-    StatusItem,
     SYSTEM,
     temp_bootstrap_env,
     _temp_env as temp_env,
     temp_yaml_file,
-    UnitError,
     uniquify_local,
     UpgradeMongoNotSupported,
     VersionNotTestedError,
@@ -6021,138 +6017,6 @@ class TestStatus(FakeHomeTestCase):
         self.assertIsInstance(gen, types.GeneratorType)
         self.assertEqual(expected, list(gen))
 
-    def run_iter_status(self):
-        status = Status({
-            'machines': {
-                '0': {
-                    'juju-status': {
-                        'current': 'idle',
-                        'since': 'DD MM YYYY hh:mm:ss',
-                        'version': '2.0.0',
-                        },
-                    'machine-status': {
-                        'current': 'running',
-                        'message': 'Running',
-                        'since': 'DD MM YYYY hh:mm:ss',
-                        },
-                    },
-                '1': {
-                    'juju-status': {
-                        'current': 'idle',
-                        'since': 'DD MM YYYY hh:mm:ss',
-                        'version': '2.0.0',
-                        },
-                    'machine-status': {
-                        'current': 'running',
-                        'message': 'Running',
-                        'since': 'DD MM YYYY hh:mm:ss',
-                        },
-                    },
-                },
-            'applications': {
-                'fakejob': {
-                    'application-status': {
-                        'current': 'idle',
-                        'since': 'DD MM YYYY hh:mm:ss',
-                        },
-                    'units': {
-                        'fakejob/0': {
-                            'workload-status': {
-                                'current': 'maintenance',
-                                'message': 'Started',
-                                'since': 'DD MM YYYY hh:mm:ss',
-                                },
-                            'juju-status': {
-                                'current': 'idle',
-                                'since': 'DD MM YYYY hh:mm:ss',
-                                'version': '2.0.0',
-                                },
-                            },
-                        'fakejob/1': {
-                            'workload-status': {
-                                'current': 'maintenance',
-                                'message': 'Started',
-                                'since': 'DD MM YYYY hh:mm:ss',
-                                },
-                            'juju-status': {
-                                'current': 'idle',
-                                'since': 'DD MM YYYY hh:mm:ss',
-                                'version': '2.0.0',
-                                },
-                            },
-                        },
-                    }
-                },
-            }, '')
-        for sub_status in status.iter_status():
-            yield sub_status
-
-    def test_iter_status_range(self):
-        status_set = set([(status_item.item_name, status_item.status_name)
-                          for status_item in self.run_iter_status()])
-        self.assertEqual({
-            ('0', 'juju-status'), ('0', 'machine-status'),
-            ('1', 'juju-status'), ('1', 'machine-status'),
-            ('fakejob', 'application-status'),
-            ('fakejob/0', 'workload-status'), ('fakejob/0', 'juju-status'),
-            ('fakejob/1', 'workload-status'), ('fakejob/1', 'juju-status'),
-            }, status_set)
-
-    def test_iter_status_data(self):
-        min_set = set(['current', 'since'])
-        max_set = set(['current', 'message', 'since', 'version'])
-        for status_item in self.run_iter_status():
-            if 'fakejob' == status_item.item_name:
-                self.assertEqual(StatusItem.APPLICATION,
-                                 status_item.status_name)
-                self.assertEqual({'current': 'idle',
-                                  'since': 'DD MM YYYY hh:mm:ss',
-                                  }, status_item.status)
-            else:
-                cur_set = set(status_item.status.keys())
-                self.assertTrue(min_set < cur_set)
-                self.assertTrue(cur_set < max_set)
-
-    def test_iter_errors(self):
-        status = Status({}, '')
-        retval = [StatusItem(StatusItem.WORKLOAD, 'job/0',
-                             {StatusItem.WORKLOAD: {'current': 'error'}}),
-                  StatusItem(StatusItem.APPLICATION, 'job',
-                             {StatusItem.APPLICATION: {'current': 'running'}})
-                  ]
-        with patch.object(status, 'iter_status', autospec=True,
-                          return_value=retval):
-            errors = list(status.iter_errors())
-        self.assertEqual(len(errors), 1)
-        self.assertIsInstance(errors[0], UnitError)
-        self.assertEqual(('job/0', None), errors[0].args)
-
-    def test_check_for_errors_good(self):
-        status = Status({}, '')
-        with patch.object(status, 'iter_errors', autospec=True,
-                          return_value=[]) as error_mock:
-            self.assertEqual([], status.check_for_errors())
-        error_mock.assert_called_once_with(False)
-
-    @contextmanager
-    def patch_iter_errors_one(self, status,
-                              item_name, status_name, **kwargs):
-        retval = [(item_name, status_name, dict(current='error', **kwargs))]
-        with patch.object(status, 'iter_errors', autospec=True,
-                          return_value=retval) as error_mock:
-            yield error_mock
-
-    def test_check_for_errors(self):
-        status = Status({}, '')
-        errors = [MachineError('0'), StatusError('2'), UnitError('1')]
-        with patch.object(status, 'iter_errors', autospec=True,
-                          return_value=errors) as errors_mock:
-            sorted_errors = status.check_for_errors()
-        errors_mock.assert_called_once_with(False)
-        self.assertEqual(sorted_errors[0].args, ('0',))
-        self.assertEqual(sorted_errors[1].args, ('1',))
-        self.assertEqual(sorted_errors[2].args, ('2',))
-
     def test_get_applications_gets_applications(self):
         status = Status({
             'services': {'service': {}},
@@ -6169,21 +6033,6 @@ class TestStatus1X(FakeHomeTestCase):
             'applications': {'application': {}},
             }, '')
         self.assertEqual({'service': {}}, status.get_applications())
-
-
-class TestStatusItem(TestCase):
-
-    @staticmethod
-    def make_status_item(status_name, item_name, **kwargs):
-        return StatusItem(status_name, item_name, {status_name: kwargs})
-
-    def test_datetime_since(self):
-        item = self.make_status_item(StatusItem.JUJU, '0',
-                                     since='19 Aug 2016 05:36:42Z')
-        target = datetime(2016, 8, 19, 5, 36, 42)
-        self.assertEqual(item.datetime_since(), target)
-
-    # to_exception is going to need a lot of tests.
 
 
 def fast_timeout(count):
