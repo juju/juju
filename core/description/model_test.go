@@ -66,7 +66,7 @@ func (*ModelSerializationSuite) TestUpdateConfig(c *gc.C) {
 	})
 }
 
-func (*ModelSerializationSuite) TestCloudCredentails(c *gc.C) {
+func (*ModelSerializationSuite) TestCloudCredentials(c *gc.C) {
 	owner := names.NewUserTag("me")
 	model := NewModel(ModelArgs{
 		Owner: owner,

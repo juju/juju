@@ -75,7 +75,7 @@ func (st *State) Import(model description.Model) (_ *Model, _ *State, err error)
 		// Need to add credential or make sure an existing credential
 		// matches.
 		// TODO: there really should be a way to create a cloud credential
-		// tag in the names package.
+		// tag in the names package from the cloud, owner and name.
 		credID := fmt.Sprintf("%s/%s/%s", creds.Cloud(), creds.Owner(), creds.Name())
 		if !names.IsValidCloudCredential(credID) {
 			return nil, nil, errors.Errorf("model credentails id not valid: %q", credID)
@@ -83,17 +83,16 @@ func (st *State) Import(model description.Model) (_ *Model, _ *State, err error)
 		credTag := names.NewCloudCredentialTag(credID)
 
 		existingCreds, err := st.CloudCredential(credTag)
-		if err != nil {
-			if errors.IsNotFound(err) {
-				credential := cloud.NewCredential(
-					cloud.AuthType(creds.AuthType()),
-					creds.Attributes())
-				if err := st.UpdateCloudCredential(credTag, credential); err != nil {
-					return nil, nil, errors.Trace(err)
-				}
-			} else {
+
+		if errors.IsNotFound(err) {
+			credential := cloud.NewCredential(
+				cloud.AuthType(creds.AuthType()),
+				creds.Attributes())
+			if err := st.UpdateCloudCredential(credTag, credential); err != nil {
 				return nil, nil, errors.Trace(err)
 			}
+		} else if err != nil {
+			return nil, nil, errors.Trace(err)
 		} else {
 			// ensure existing creds match
 			if string(existingCreds.AuthType()) != creds.AuthType() {
