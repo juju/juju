@@ -45,19 +45,19 @@ def assess_model_migration(bs1, bs2, args):
             dest_client = bs2.client
 
             ensure_able_to_migrate_model_between_controllers(
-                source_client, dest_client, args.upload_tools)
+                source_client, dest_client)
 
             with temp_dir() as temp:
                 ensure_migrating_with_insufficient_user_permissions_fails(
-                    source_client, dest_client, args.upload_tools, temp)
+                    source_client, dest_client, temp)
                 ensure_migrating_with_superuser_user_permissions_succeeds(
-                    source_client, dest_client, args.upload_tools, temp)
+                    source_client, dest_client, temp)
 
             if args.use_develop:
                 ensure_migration_rolls_back_on_failure(
-                    source_client, dest_client, args.upload_tools)
+                    source_client, dest_client)
                 ensure_migration_of_resources_succeeds(
-                    source_client, dest_client, args.upload_tools)
+                    source_client, dest_client)
 
 
 def parse_args(argv):
@@ -177,7 +177,7 @@ def test_deployed_mongo_is_up(client):
 
 
 def ensure_able_to_migrate_model_between_controllers(
-        source_client, dest_client, upload_tools):
+        source_client, dest_client):
     """Test simple migration of a model to another controller.
 
     Ensure that migration a model that has an application deployed upon it is
@@ -212,8 +212,7 @@ def ensure_able_to_migrate_model_between_controllers(
     migration_target_client.remove_service(application)
 
 
-def ensure_migration_of_resources_succeeds(
-        source_client, dest_client, upload_tools):
+def ensure_migration_of_resources_succeeds(source_client, dest_client):
     """Test simple migration of a model to another controller.
 
     Ensure that migration a model that has an application, that uses resources,
@@ -342,8 +341,7 @@ def raise_if_shared_machines(unit_machines):
         raise JujuAssertionError('Appliction units reside on the same machine')
 
 
-def ensure_migration_rolls_back_on_failure(
-        source_client, dest_client, upload_tools):
+def ensure_migration_rolls_back_on_failure(source_client, dest_client):
     """Must successfully roll back migration when migration fails.
 
     If the target controller becomes unavailable for the migration to complete
@@ -397,7 +395,7 @@ def get_remote_for_controller(admin_client):
 
 
 def ensure_migrating_with_insufficient_user_permissions_fails(
-        source_client, dest_client, upload_tools, tmp_dir):
+        source_client, dest_client, tmp_dir):
     """Ensure migration fails when a user does not have the right permissions.
 
     A non-superuser on a controller cannot migrate their models between
@@ -418,7 +416,7 @@ def ensure_migrating_with_insufficient_user_permissions_fails(
 
 
 def ensure_migrating_with_superuser_user_permissions_succeeds(
-        source_client, dest_client, upload_tools, tmp_dir):
+        source_client, dest_client, tmp_dir):
     """Ensure migration succeeds when a user has superuser permissions
 
     A user with superuser permissions is able to migrate between controllers.

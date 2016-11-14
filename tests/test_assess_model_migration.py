@@ -534,16 +534,11 @@ class TestAssessModelMigration(TestCase):
                                 amm.assess_model_migration(bs1, bs2, args)
         source_client = bs1.client
         dest_client = bs2.client
-        m_user.assert_called_once_with(
-            source_client, dest_client, args.upload_tools, '/tmp/dir')
-        m_super.assert_called_once_with(
-            source_client, dest_client, args.upload_tools, '/tmp/dir')
-        m_between.assert_called_once_with(
-            source_client, dest_client, args.upload_tools)
-        m_rollback.assert_called_once_with(
-            source_client, dest_client, args.upload_tools)
-        m_resource.assert_called_once_with(
-            source_client, dest_client, args.upload_tools)
+        m_user.assert_called_once_with(source_client, dest_client, '/tmp/dir')
+        m_super.assert_called_once_with(source_client, dest_client, '/tmp/dir')
+        m_between.assert_called_once_with(source_client, dest_client)
+        m_rollback.assert_called_once_with(source_client, dest_client)
+        m_resource.assert_called_once_with(source_client, dest_client)
 
     def test_does_not_run_develop_tests_by_default(self):
         argv = [
@@ -576,11 +571,8 @@ class TestAssessModelMigration(TestCase):
                             amm.assess_model_migration(bs1, bs2, args)
         source_client = bs1.client
         dest_client = bs2.client
-        m_user.assert_called_once_with(
-            source_client, dest_client, args.upload_tools, '/tmp/dir')
-        m_super.assert_called_once_with(
-            source_client, dest_client, args.upload_tools, '/tmp/dir')
-        m_between.assert_called_once_with(
-            source_client, dest_client, args.upload_tools)
+        m_user.assert_called_once_with(source_client, dest_client, '/tmp/dir')
+        m_super.assert_called_once_with(source_client, dest_client, '/tmp/dir')
+        m_between.assert_called_once_with(source_client, dest_client)
 
         self.assertEqual(m_rollback.call_count, 0)
