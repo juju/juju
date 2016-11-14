@@ -4,6 +4,8 @@
 package state
 
 import (
+	"fmt"
+	"reflect"
 	"time"
 
 	"github.com/juju/errors"
@@ -14,6 +16,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/environs/config"
@@ -68,8 +71,42 @@ func (st *State) Import(model description.Model) (_ *Model, _ *State, err error)
 		// filesystems or storage instances.
 		StorageProviderRegistry: storage.StaticProviderRegistry{},
 	}
-	if creds := model.CloudCredential(); creds != "" {
-		args.CloudCredential = names.NewCloudCredentialTag(creds)
+	if creds := model.CloudCredential(); creds != nil {
+		// Need to add credential or make sure an existing credential
+		// matches.
+		// TODO: there really should be a way to create a cloud credential
+		// tag in the names package from the cloud, owner and name.
+		credID := fmt.Sprintf("%s/%s/%s", creds.Cloud(), creds.Owner(), creds.Name())
+		if !names.IsValidCloudCredential(credID) {
+			return nil, nil, errors.Errorf("model credentails id not valid: %q", credID)
+		}
+		credTag := names.NewCloudCredentialTag(credID)
+
+		existingCreds, err := st.CloudCredential(credTag)
+
+		if errors.IsNotFound(err) {
+			credential := cloud.NewCredential(
+				cloud.AuthType(creds.AuthType()),
+				creds.Attributes())
+			if err := st.UpdateCloudCredential(credTag, credential); err != nil {
+				return nil, nil, errors.Trace(err)
+			}
+		} else if err != nil {
+			return nil, nil, errors.Trace(err)
+		} else {
+			// ensure existing creds match
+			if string(existingCreds.AuthType()) != creds.AuthType() {
+				return nil, nil, errors.Errorf("credential auth type mismatch: %q != %q", existingCreds.AuthType(), creds.AuthType())
+			}
+			if !reflect.DeepEqual(existingCreds.Attributes(), creds.Attributes()) {
+				return nil, nil, errors.Errorf("credential attribute mismatch: %v != %v", existingCreds.Attributes(), creds.Attributes())
+			}
+			if existingCreds.Revoked {
+				return nil, nil, errors.Errorf("credential %q is revoked", credID)
+			}
+		}
+
+		args.CloudCredential = credTag
 	}
 	dbModel, newSt, err := st.NewModel(args)
 	if err != nil {

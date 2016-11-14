@@ -49,7 +49,7 @@ build: godeps
 	go build $(PROJECT)/...
 
 check: godeps
-	go test -v -test.timeout=1200s $(PROJECT)/... -check.v
+	go test -v -test.timeout=1500s $(PROJECT)/... -check.v
 
 install: godeps
 	go install $(INSTALL_FLAGS) -v $(PROJECT)/...
