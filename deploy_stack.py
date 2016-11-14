@@ -629,7 +629,7 @@ class BootstrapManager:
         if controller_strategy is None:
             controller_strategy = CreateController(client, tear_down_client)
         self.controller_strategy = controller_strategy
-        self._lost_controller = None
+        self._has_controller = None
 
     @property
     def client(self):
@@ -742,7 +742,7 @@ class BootstrapManager:
             destroy_job_instances(self.temp_env_name)
 
     @property
-    def lost_controller(self):
+    def has_controller(self):
         """Is the controller lost? None, True, False.
 
         None means there is no controller to loose, such as before
@@ -751,15 +751,15 @@ class BootstrapManager:
         True means the controller was lost and we can expect calls to
         controller to fail, such as in HA and restore-backup tests.
         """
-        return self._lost_controller
+        return self._has_controller
 
-    @lost_controller.setter
-    def lost_controller(self, value):
-        """See BootstrapMananger.lost_controller."""
+    @has_controller.setter
+    def has_controller(self, value):
+        """See BootstrapMananger.has_controller."""
         if not (value is None or value is False or value is True):
             raise AssertionError(
-                'lost_controller must be one of None, True, False')
-        self._lost_controller = value
+                'has_controller must be one of None, True, False')
+        self._has_controller = value
 
     def tear_down(self, try_jes=False):
         """Tear down the client using tear_down_client.
@@ -771,7 +771,7 @@ class BootstrapManager:
         if self.tear_down_client.env is not self.client.env:
             raise AssertionError('Tear down client needs same env!')
         self.controller_strategy.tear_down()
-        self.lost_controller = None
+        self.has_controller = None
 
     def _log_and_wrap_exception(self, exc):
         logging.exception(exc)
@@ -825,7 +825,7 @@ class BootstrapManager:
             with self.handle_bootstrap_exceptions():
                 if not torn_down:
                     self.controller_strategy.prepare()
-                self.lost_controller = False
+                self.has_controller = True
                 yield
 
     @contextmanager

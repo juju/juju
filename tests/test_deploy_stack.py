@@ -1423,7 +1423,7 @@ class TestBootstrapManager(FakeHomeTestCase):
         self.assertEqual(jes_enabled, bs_manager.permanent)
         self.assertEqual(jes_enabled, bs_manager.jes_enabled)
         self.assertEqual({'0': 'example.org'}, bs_manager.known_hosts)
-        self.assertIsNone(bs_manager._lost_controller)
+        self.assertIsNone(bs_manager._has_controller)
 
     def test_no_args(self):
         args = Namespace(
@@ -1455,7 +1455,7 @@ class TestBootstrapManager(FakeHomeTestCase):
         self.assertEqual(jes_enabled, bs_manager.permanent)
         self.assertEqual(jes_enabled, bs_manager.jes_enabled)
         self.assertEqual({'0': 'example.org'}, bs_manager.known_hosts)
-        self.assertIsNone(bs_manager._lost_controller)
+        self.assertIsNone(bs_manager._has_controller)
 
     def test_jes_not_permanent(self):
         with self.assertRaisesRegexp(ValueError, 'Cannot set permanent False'
@@ -1647,15 +1647,15 @@ class TestBootstrapManager(FakeHomeTestCase):
         wfp_mock.assert_called_once_with(
             'bootstrap.example.org', 22, timeout=120)
 
-    def test_bootstrap_context_sets_lost_controller(self):
+    def test_bootstrap_context_sets_has_controller(self):
         client = self.make_client()
         bs_manager = BootstrapManager(
             'foobar', client, client, None, [], None, None, None, None,
             None, False, False, False)
         with patch.object(client, 'kill_controller'):
             with bs_manager.bootstrap_context([]):
-                self.assertIsFalse(bs_manager.lost_controller)
-        self.assertIsFalse(bs_manager.lost_controller)
+                self.assertIsTrue(bs_manager.has_controller)
+        self.assertIsTrue(bs_manager.has_controller)
 
     def test_handle_bootstrap_exceptions_ignores_soft_deadline(self):
         env = JujuData('foo', {'type': 'nonlocal'})
@@ -1692,10 +1692,10 @@ class TestBootstrapManager(FakeHomeTestCase):
                 bs_manager = BootstrapManager(
                     'foobar', client, client, None, [], None, None, None,
                     None, log_dir, False, False, jes_enabled=False)
-                bs_manager.lost_controller = False
+                bs_manager.has_controller = True
                 bs_manager.tear_down()
         tear_down_mock.assert_called_once_with()
-        self.assertIsNone(bs_manager.lost_controller)
+        self.assertIsNone(bs_manager.has_controller)
 
     def test_tear_down_requires_same_env(self):
         client = self.make_client()
@@ -2015,18 +2015,18 @@ class TestBootstrapManager(FakeHomeTestCase):
                     pass
         self.assertEqual(djt_mock.call_count, 0)
 
-    def test_lost_controller(self):
+    def test_has_controller(self):
         with self.make_bootstrap_manager() as bs_manager:
-            self.assertIsNone(bs_manager.lost_controller)
-            self.assertIsNone(bs_manager._lost_controller)
-            bs_manager.lost_controller = False
-            self.assertIsFalse(bs_manager.lost_controller)
-            self.assertIsFalse(bs_manager._lost_controller)
-            bs_manager.lost_controller = True
-            self.assertIsTrue(bs_manager.lost_controller)
-            self.assertIsTrue(bs_manager._lost_controller)
+            self.assertIsNone(bs_manager.has_controller)
+            self.assertIsNone(bs_manager._has_controller)
+            bs_manager.has_controller = True
+            self.assertIsTrue(bs_manager.has_controller)
+            self.assertIsTrue(bs_manager._has_controller)
+            bs_manager.has_controller = False
+            self.assertIsFalse(bs_manager.has_controller)
+            self.assertIsFalse(bs_manager._has_controller)
             with self.assertRaises(AssertionError):
-                bs_manager.lost_controller = 0
+                bs_manager.has_controller = 0
 
 
 class TestBootContext(FakeHomeTestCase):
