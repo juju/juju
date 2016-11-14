@@ -286,6 +286,7 @@ def ensure_migration_rolls_back_on_failure(source_bs, dest_bs, upload_tools):
         test_model.wait_for_started()
         test_deployed_mongo_is_up(test_model)
         ensure_model_is_functional(test_model, application)
+    test_model.remove_service(application)
 
 
 @contextmanager
