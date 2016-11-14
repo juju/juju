@@ -277,11 +277,11 @@ def deploy_simple_resource_server(client, resource_contents):
         with open(index_file, 'wt') as f:
             f.write(resource_contents)
 
-            client.deploy(charm_path, resource='index={}'.format(index_file))
-            client.wait_for_started()
-            client.wait_for_workloads()
+        client.deploy(charm_path, resource='index={}'.format(index_file))
+        client.wait_for_started()
+        client.wait_for_workloads()
 
-            return application_name
+        return application_name
 
 
 def migrate_model_to_controller(source_client, dest_client):
