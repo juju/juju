@@ -1649,10 +1649,9 @@ class TestBootstrapManager(FakeHomeTestCase):
 
     def test_bootstrap_context_sets_lost_controller(self):
         client = self.make_client()
-        client.env.juju_home = use_context(self, temp_dir())
         bs_manager = BootstrapManager(
             'foobar', client, client, None, [], None, None, None, None,
-            client.env.juju_home, False, False, False)
+            None, False, False, False)
         with patch.object(client, 'kill_controller'):
             with bs_manager.bootstrap_context([]):
                 self.assertIsFalse(bs_manager.lost_controller)
@@ -1693,8 +1692,10 @@ class TestBootstrapManager(FakeHomeTestCase):
                 bs_manager = BootstrapManager(
                     'foobar', client, client, None, [], None, None, None,
                     None, log_dir, False, False, jes_enabled=False)
+                bs_manager.lost_controller = False
                 bs_manager.tear_down()
         tear_down_mock.assert_called_once_with()
+        self.assertIsNone(bs_manager.lost_controller)
 
     def test_tear_down_requires_same_env(self):
         client = self.make_client()

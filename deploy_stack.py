@@ -771,6 +771,7 @@ class BootstrapManager:
         if self.tear_down_client.env is not self.client.env:
             raise AssertionError('Tear down client needs same env!')
         self.controller_strategy.tear_down()
+        self.lost_controller = None
 
     def _log_and_wrap_exception(self, exc):
         logging.exception(exc)
