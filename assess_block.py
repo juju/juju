@@ -31,15 +31,15 @@ def make_block_list(client, disabled_commands):
     """Return a manually made list of blocks and their status
 
     :param client: The client whose rules will be used.
-    :param disabled_commands: list of client.disable_command_* elements to
+    :param disabled_commands: list of client.command_set_* elements to
         include in simulated output.
     """
-    if client.is_juju1x():
+    if isinstance(client, EnvJujuClient1X):
         blocks = []
         commands = [
-            EnvJujuClient1X.disable_command_destroy_model,
-            EnvJujuClient1X.disable_command_remove_object,
-            EnvJujuClient1X.disable_command_all]
+            client.command_set_destroy_model,
+            client.command_set_remove_object,
+            client.command_set_all]
         for command in commands:
             if command in disabled_commands:
                 blocks.append({
@@ -84,7 +84,7 @@ def assess_block_destroy_model(client, charm_series):
     client.disable_command(client.destroy_model_command)
     block_list = client.list_disabled_commands()
     if block_list != make_block_list(
-            client, [client.disable_command_destroy_model]):
+            client, [client.command_set_destroy_model]):
         raise JujuAssertionError(block_list)
     test_disabled(
         client, client.destroy_model_command,
@@ -100,10 +100,10 @@ def assess_block_remove_object(client, charm_series):
     objects can be added and related, but they
     cannot be removed or the model/environment deleted.
     """
-    client.disable_command(client.disable_command_remove_object)
+    client.disable_command(client.command_set_remove_object)
     block_list = client.list_disabled_commands()
     if block_list != make_block_list(
-            client, [client.disable_command_remove_object]):
+            client, [client.command_set_remove_object]):
         raise JujuAssertionError(block_list)
     test_disabled(
         client, client.destroy_model_command,
@@ -118,21 +118,21 @@ def assess_block_remove_object(client, charm_series):
 def assess_block_all_changes(client, charm_series):
     """Test Block Functionality: block all-changes"""
     client.juju('remove-relation', ('dummy-source', 'dummy-sink'))
-    client.disable_command(client.disable_command_all)
+    client.disable_command(client.command_set_all)
     block_list = client.list_disabled_commands()
-    if block_list != make_block_list(client, [client.disable_command_all]):
+    if block_list != make_block_list(client, [client.command_set_all]):
         raise JujuAssertionError(block_list)
     test_disabled(client, 'add-relation', ('dummy-source', 'dummy-sink'))
     test_disabled(client, 'unexpose', ('dummy-sink',))
     test_disabled(client, 'remove-service', 'dummy-sink')
-    client.enable_command(client.disable_command_all)
+    client.enable_command(client.command_set_all)
     client.juju('unexpose', ('dummy-sink',))
-    client.disable_command(client.disable_command_all)
+    client.disable_command(client.command_set_all)
     test_disabled(client, 'expose', ('dummy-sink',))
-    client.enable_command(client.disable_command_all)
+    client.enable_command(client.command_set_all)
     client.remove_service('dummy-sink')
     client.wait_for_started()
-    client.disable_command(client.disable_command_all)
+    client.disable_command(client.command_set_all)
     test_disabled(client, 'deploy', ('dummy-sink',))
     test_disabled(
         client, client.destroy_model_command,
@@ -168,9 +168,9 @@ def assess_block(client, charm_series):
     assess_block_destroy_model(client, charm_series)
     assess_unblock(client, client.destroy_model_command)
     assess_block_remove_object(client, charm_series)
-    assess_unblock(client, client.disable_command_remove_object)
+    assess_unblock(client, client.command_set_remove_object)
     assess_block_all_changes(client, charm_series)
-    assess_unblock(client, client.disable_command_all)
+    assess_unblock(client, client.command_set_all)
     log.info('Test PASS')
 
 

@@ -326,6 +326,14 @@ def _to_deadline(timeout):
     return datetime.utcnow() + timedelta(seconds=int(timeout))
 
 
+def add_arg_juju_bin(parser):
+    parser.add_argument('juju_bin', nargs='?',
+                        help='Full path to the Juju binary. By default, this'
+                        ' will use $GOPATH/bin/juju or /usr/bin/juju in that'
+                        ' order.',
+                        default=_generate_default_binary())
+
+
 def add_basic_testing_arguments(parser, using_jes=False, deadline=True):
     """Returns the parser loaded with basic testing arguments.
 
@@ -356,11 +364,7 @@ def add_basic_testing_arguments(parser, using_jes=False, deadline=True):
         'env', nargs='?',
         help='The juju environment to base the temp test environment on.',
         default='lxd')
-    parser.add_argument('juju_bin', nargs='?',
-                        help='Full path to the Juju binary. By default, this'
-                        ' will use $GOPATH/bin/juju or /usr/bin/juju in that'
-                        ' order.',
-                        default=_generate_default_binary())
+    add_arg_juju_bin(parser)
     parser.add_argument('logs', nargs='?', type=_clean_dir,
                         help='A directory in which to store logs. By default,'
                         ' this will use the current directory',

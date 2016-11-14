@@ -3146,6 +3146,59 @@ class TestEnvJujuClient(ClientTest):
         mock.assert_called_with(
             'list-clouds', '--format', 'json', include_e=False)
 
+    def test_add_cloud_interactive_maas(self):
+        client = fake_juju_client()
+        client.env.clouds = {'clouds': {'foo': {
+            'type': 'maas',
+            'endpoint': 'http://bar.example.com',
+            }}}
+        client.add_cloud_interactive('foo')
+        self.assertEqual(client._backend.clouds, {'foo': {
+            'type': 'maas',
+            'endpoint': 'http://bar.example.com',
+            }})
+
+    def test_add_cloud_interactive_manual(self):
+        client = fake_juju_client()
+        client.env.clouds = {'clouds': {'foo': {
+            'type': 'manual',
+            'endpoint': '127.100.100.1',
+            }}}
+        client.add_cloud_interactive('foo')
+        self.assertEqual(client._backend.clouds, {'foo': {
+            'type': 'manual',
+            'endpoint': '127.100.100.1',
+            }})
+
+    def test_add_cloud_interactive_openstack(self):
+        client = fake_juju_client()
+        clouds = {'foo': {
+            'type': 'openstack',
+            'endpoint': 'http://bar.example.com',
+            'auth-types': ['oauth1', 'oauth12'],
+            'regions': {
+                'harvey': {'endpoint': 'http://harvey.example.com'},
+                'steve': {'endpoint': 'http://steve.example.com'},
+                }
+            }}
+        client.env.clouds = {'clouds': clouds}
+        client.add_cloud_interactive('foo')
+        self.assertEqual(client._backend.clouds, clouds)
+
+    def test_add_cloud_interactive_vsphere(self):
+        client = fake_juju_client()
+        clouds = {'foo': {
+            'type': 'vsphere',
+            'endpoint': 'http://bar.example.com',
+            'regions': {
+                'harvey': {},
+                'steve': {},
+                }
+            }}
+        client.env.clouds = {'clouds': clouds}
+        client.add_cloud_interactive('foo')
+        self.assertEqual(client._backend.clouds, clouds)
+
     def test_show_controller(self):
         env = JujuData('foo')
         client = EnvJujuClient(env, None, None)
@@ -3215,9 +3268,9 @@ class TestEnvJujuClient(ClientTest):
 
     def test_disable_commands_properties(self):
         client = EnvJujuClient(JujuData('foo'), None, None)
-        self.assertEqual('destroy-model', client.disable_command_destroy_model)
-        self.assertEqual('remove-object', client.disable_command_remove_object)
-        self.assertEqual('all', client.disable_command_all)
+        self.assertEqual('destroy-model', client.command_set_destroy_model)
+        self.assertEqual('remove-object', client.command_set_remove_object)
+        self.assertEqual('all', client.command_set_all)
 
     def test_list_disabled_commands(self):
         client = EnvJujuClient(JujuData('foo'), None, None)
@@ -4979,9 +5032,9 @@ class TestEnvJujuClient1X(ClientTest):
     def test_disable_commands_properties(self):
         client = EnvJujuClient1X(SimpleEnvironment('foo'), None, None)
         self.assertEqual(
-            'destroy-environment', client.disable_command_destroy_model)
-        self.assertEqual('remove-object', client.disable_command_remove_object)
-        self.assertEqual('all-changes', client.disable_command_all)
+            'destroy-environment', client.command_set_destroy_model)
+        self.assertEqual('remove-object', client.command_set_remove_object)
+        self.assertEqual('all-changes', client.command_set_all)
 
     def test_list_disabled_commands(self):
         client = EnvJujuClient1X(SimpleEnvironment('foo'), None, None)

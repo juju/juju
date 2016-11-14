@@ -71,20 +71,20 @@ class TestAssess(FakeHomeTestCase):
             "disable_command", "enable_command", "is_juju1x",
             "remove_service", "env", "deploy", "expose",
             "destroy-model", "remove-machine", "get_status"],
-            disable_command_destroy_model='destroy-model',
-            disable_command_remove_object='remove-object',
-            disable_command_all='all',
+            command_set_destroy_model='destroy-model',
+            command_set_remove_object='remove-object',
+            command_set_all='all',
             destroy_model_command='destroy-model')
         mock_client.is_juju1x.return_value = False
         mock_client.list_disabled_commands.side_effect = [
             make_block_list(mock_client, []),
             make_block_list(
-                mock_client, [EnvJujuClient.disable_command_destroy_model]),
+                mock_client, [EnvJujuClient.command_set_destroy_model]),
             make_block_list(mock_client, []),
             make_block_list(
-                mock_client, [EnvJujuClient.disable_command_remove_object]),
+                mock_client, [EnvJujuClient.command_set_remove_object]),
             make_block_list(mock_client, []),
-            make_block_list(mock_client, [EnvJujuClient.disable_command_all]),
+            make_block_list(mock_client, [EnvJujuClient.command_set_all]),
             make_block_list(mock_client, []),
             ]
         mock_client.env.environment = 'foo'
@@ -136,13 +136,13 @@ class TestAssess(FakeHomeTestCase):
         side_effects = [
             make_block_list(client, []),
             make_block_list(
-                client, [EnvJujuClient1X.disable_command_destroy_model]),
+                client, [EnvJujuClient1X.command_set_destroy_model]),
             make_block_list(client, []),
             make_block_list(
-                client, [EnvJujuClient1X.disable_command_remove_object]),
+                client, [EnvJujuClient1X.command_set_remove_object]),
             make_block_list(client, []),
             make_block_list(
-                client, [EnvJujuClient1X.disable_command_all]),
+                client, [EnvJujuClient1X.command_set_all]),
             make_block_list(client, []),
             ]
         with patch.object(client, 'list_disabled_commands',

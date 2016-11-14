@@ -365,6 +365,7 @@ class PromptingExpectChild(FakeExpectChild):
                                                    extra_env)
         self.prompts = iter(prompts)
         self.values = {}
+        self.lines = []
 
     def expect(self, regex):
         try:
@@ -385,7 +386,9 @@ class PromptingExpectChild(FakeExpectChild):
         self.match = regex_match
 
     def sendline(self, line=''):
-        self.values[self.match.group(0)] = line.rstrip()
+        full_match = self.match.group(0)
+        self.values[full_match] = line.rstrip()
+        self.lines.append((full_match, line))
 
 
 class RegisterHost(PromptingExpectChild):
@@ -406,6 +409,83 @@ class RegisterHost(PromptingExpectChild):
             self.values['Two-factor auth (Enter for none):'],
             )
         super(RegisterHost, self).close()
+
+
+class AddCloud(PromptingExpectChild):
+
+    NAME = 'Enter a name for the cloud:'
+
+    REGION_NAME = 'Enter region name:'
+
+    TYPE = 'Select cloud type:'
+
+    AUTH = 'Select one or more auth types separated by commas:'
+
+    API_ENDPOINT = 'Enter the API endpoint url:'
+
+    CLOUD_ENDPOINT = 'Enter the API endpoint url for the cloud:'
+
+    REGION_ENDPOINT = 'Enter the API endpoint url for the region:'
+
+    HOST = "Enter the controller's hostname or IP address:"
+
+    def __init__(self, backend, juju_home, extra_env):
+        super(AddCloud, self).__init__(
+            backend, juju_home, extra_env, self.iter_prompts())
+
+    def iter_prompts(self):
+        yield self.TYPE
+        yield self.NAME
+        if self.values[self.TYPE] == 'maas':
+            yield self.API_ENDPOINT
+        elif self.values[self.TYPE] == 'manual':
+            yield self.HOST
+        elif self.values[self.TYPE] == 'openstack':
+            yield self.CLOUD_ENDPOINT
+            yield self.AUTH
+            while self.values.get('Enter another region? (Y/n)') != 'n':
+                yield self.REGION_NAME
+                yield self.REGION_ENDPOINT
+                yield 'Enter another region? (Y/n)'
+        if self.values['Select cloud type:'] == 'vsphere':
+            yield 'Enter the API endpoint url for the cloud:'
+            while self.values.get('Enter another region? (Y/n)') != 'n':
+                yield 'Enter region name:'
+                yield 'Enter another region? (Y/n):'
+
+    def close(self):
+        cloud = {
+            'type': self.values[self.TYPE],
+        }
+        if cloud['type'] == 'maas':
+            cloud.update({'endpoint': self.values[self.API_ENDPOINT]})
+        if cloud['type'] == 'manual':
+            cloud.update({'endpoint': self.values[self.HOST]})
+        if cloud['type'] == 'openstack':
+            regions = {}
+            for match, line in self.lines:
+                if match == self.REGION_NAME:
+                    cur_region = {}
+                    regions[line] = cur_region
+                if match == self.REGION_ENDPOINT:
+                    cur_region['endpoint'] = line
+            cloud.update({
+                'endpoint': self.values[self.CLOUD_ENDPOINT],
+                'auth-types': self.values[self.AUTH].split(','),
+                'regions': regions
+                })
+        if cloud['type'] == 'vsphere':
+            regions = {}
+            for match, line in self.lines:
+                if match == self.REGION_NAME:
+                    cur_region = {}
+                    regions[line] = cur_region
+            cloud.update({
+                'endpoint': self.values[self.CLOUD_ENDPOINT],
+                'regions': regions,
+                })
+        self.backend.clouds[self.values[self.NAME]] = cloud
+        self.backend.clouds[self.values[self.NAME]] = cloud
 
 
 class FakeBackend:
@@ -432,6 +512,7 @@ class FakeBackend:
         self.log = logging.getLogger('jujupy')
         self._past_deadline = past_deadline
         self._ignore_soft_deadline = False
+        self.clouds = {}
 
     def clone(self, full_path=None, version=None, debug=None,
               feature_flags=None):
@@ -825,6 +906,8 @@ class FakeBackend:
             return AutoloadCredentials(self, juju_home, extra_env)
         if command == 'register':
             return RegisterHost(self, juju_home, extra_env)
+        elif command == 'add-cloud':
+            return AddCloud(self, juju_home, extra_env)
         else:
             return FakeExpectChild(self, juju_home, extra_env)
 
