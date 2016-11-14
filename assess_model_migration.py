@@ -53,6 +53,8 @@ def assess_model_migration(bs1, bs2, args):
                     source_client, dest_client, temp)
                 ensure_migrating_with_superuser_user_permissions_succeeds(
                     source_client, dest_client, temp)
+                ensure_superuser_can_migrate_other_user_models(
+                    source_client, dest_client, temp)
 
             if args.use_develop:
                 ensure_migration_rolls_back_on_failure(
@@ -252,7 +254,7 @@ def ensure_migration_of_resources_succeeds(source_client, dest_client):
 
 
 def ensure_superuser_can_migrate_other_user_models(
-        source_client, dest_client, upload_tools, tmp_dir):
+        source_client, dest_client, tmp_dir):
 
     norm_source_client, norm_dest_client = create_user_on_controllers(
         source_client, dest_client, tmp_dir, 'normaluser', 'addmodel')
@@ -263,14 +265,14 @@ def ensure_superuser_can_migrate_other_user_models(
     log.info('Showing all models available.')
     source_client.controller_juju('models', ('--all',))
 
-    # Make model name fully qualified.
-    attempt_client.env.environment = qualified_model_name(
+    user_qualified_model_name = qualified_model_name(
         attempt_client.env.environment,
         attempt_client.env.user_name)
 
-    migration_target_client = migrate_model_to_controller(
-        attempt_client, dest_client)
-    migration_target_client.wait_for_workloads()
+    source_client.controller_juju(
+        'migrate',
+        (user_qualified_model_name, dest_client.env.controller.name))
+    # migration_target_client.wait_for_workloads()
 
 
 def deploy_mongodb_to_new_model(client, model_name):
