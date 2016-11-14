@@ -824,6 +824,7 @@ class BootstrapManager:
             with self.handle_bootstrap_exceptions():
                 if not torn_down:
                     self.controller_strategy.prepare()
+                self.lost_controller = False
                 yield
 
     @contextmanager

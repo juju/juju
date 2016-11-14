@@ -1647,6 +1647,17 @@ class TestBootstrapManager(FakeHomeTestCase):
         wfp_mock.assert_called_once_with(
             'bootstrap.example.org', 22, timeout=120)
 
+    def test_bootstrap_context_sets_lost_controller(self):
+        client = self.make_client()
+        client.env.juju_home = use_context(self, temp_dir())
+        bs_manager = BootstrapManager(
+            'foobar', client, client, None, [], None, None, None, None,
+            client.env.juju_home, False, False, False)
+        with patch.object(client, 'kill_controller'):
+            with bs_manager.bootstrap_context([]):
+                self.assertIsFalse(bs_manager.lost_controller)
+        self.assertIsFalse(bs_manager.lost_controller)
+
     def test_handle_bootstrap_exceptions_ignores_soft_deadline(self):
         env = JujuData('foo', {'type': 'nonlocal'})
         client = EnvJujuClient(env, None, None)
@@ -1790,9 +1801,9 @@ class TestBootstrapManager(FakeHomeTestCase):
         client.bootstrap()
         with temp_dir() as log_dir:
             bs_manager = BootstrapManager(
-                    'foobar', client, client,
-                    None, [], None, None, None, None, log_dir, False,
-                    True, True)
+                'foobar', client, client,
+                None, [], None, None, None, None, log_dir, False,
+                True, True)
             with patch.object(bs_manager, '_should_dump', return_value=True,
                               autospec=True):
                 with patch('deploy_stack.dump_env_logs_known_hosts',
@@ -1803,9 +1814,9 @@ class TestBootstrapManager(FakeHomeTestCase):
         client = fake_juju_client()
         client.bootstrap()
         bs_manager = BootstrapManager(
-                'foobar', client, client,
-                None, [], None, None, None, None, client.env.juju_home, False,
-                True, True)
+            'foobar', client, client,
+            None, [], None, None, None, None, client.env.juju_home, False,
+            True, True)
         test_error = Exception("Some exception")
         test_error.output = "a stdout value"
         test_error.stderr = "a stderr value"
