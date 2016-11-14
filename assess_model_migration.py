@@ -24,6 +24,7 @@ from utility import (
     JujuAssertionError,
     add_basic_testing_arguments,
     configure_logging,
+    qualified_model_name,
     temp_dir,
     until_timeout,
 )
@@ -248,6 +249,28 @@ def ensure_migration_of_resources_succeeds(source_client, dest_client):
     ensure_model_is_functional(migration_target_client, application)
 
     migration_target_client.remove_service(application)
+
+
+def ensure_superuser_can_migrate_other_user_models(
+        source_client, dest_client, upload_tools, tmp_dir):
+
+    norm_source_client, norm_dest_client = create_user_on_controllers(
+        source_client, dest_client, tmp_dir, 'normaluser', 'addmodel')
+
+    attempt_client = deploy_dummy_source_to_new_model(
+        norm_source_client, 'supernormal-test')
+
+    log.info('Showing all models available.')
+    source_client.controller_juju('models', ('--all',))
+
+    # Make model name fully qualified.
+    attempt_client.env.environment = qualified_model_name(
+        attempt_client.env.environment,
+        attempt_client.env.user_name)
+
+    migration_target_client = migrate_model_to_controller(
+        attempt_client, dest_client)
+    migration_target_client.wait_for_workloads()
 
 
 def deploy_mongodb_to_new_model(client, model_name):
