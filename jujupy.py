@@ -682,10 +682,6 @@ class Status:
     def get_applications(self):
         return self.status.get('applications', {})
 
-    @property
-    def machines(self):
-        return self.status['machines']
-
     def iter_machines(self, containers=False, machines=True):
         for machine_name, machine in sorted(self.status['machines'].items()):
             if machines:
