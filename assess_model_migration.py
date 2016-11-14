@@ -405,14 +405,17 @@ def ensure_migrating_with_insufficient_user_permissions_fails(
     user_source_client, user_dest_client = create_user_on_controllers(
         source_client, dest_client, tmp_dir, 'failuser', 'addmodel')
 
+    user_new_model = user_source_client.add_model(
+        user_source_client.env.clone('model-a'))
+
     charm_path = local_charm_path(
-        charm='dummy-source', juju_ver=user_source_client.version)
-    user_source_client.deploy(charm_path)
-    user_source_client.wait_for_started()
+        charm='dummy-source', juju_ver=user_new_model.version)
+    user_new_model.deploy(charm_path)
+    user_new_model.wait_for_started()
 
     log.info('Attempting migration process')
 
-    expect_migration_attempt_to_fail(user_source_client, user_dest_client)
+    expect_migration_attempt_to_fail(user_new_model, user_dest_client)
 
 
 def ensure_migrating_with_superuser_user_permissions_succeeds(
@@ -425,38 +428,44 @@ def ensure_migrating_with_superuser_user_permissions_succeeds(
     user_source_client, user_dest_client = create_user_on_controllers(
         source_client, dest_client, tmp_dir, 'passuser', 'superuser')
 
+    user_new_model = user_source_client.add_model(
+        user_source_client.env.clone('model-a'))
+
     charm_path = local_charm_path(
-        charm='dummy-source', juju_ver=user_source_client.version)
-    user_source_client.deploy(charm_path)
-    user_source_client.wait_for_started()
+        charm='dummy-source', juju_ver=user_new_model.version)
+    user_new_model.deploy(charm_path)
+    user_new_model.wait_for_started()
 
     log.info('Attempting migration process')
 
-    migrate_model_to_controller(user_source_client, user_dest_client)
+    migrate_model_to_controller(user_new_model, user_dest_client)
 
 
 def create_user_on_controllers(
-        source_bs, dest_bs, tmp_dir, username, permission):
-    # Create a user for both controllers that only has addmodel
-    # permissions not superuser.
+        source_client, dest_client, tmp_dir, username, permission):
+    """Create a user on both supplied controller with the permissions supplied.
+
+    :param source_client: EnvJujuClient object to create user on.
+    :param dest_client: EnvJujuClient object to create user on.
+    :param tmp_dir: Path to base new users JUJU_DATA directory in.
+    :param username: String of username to use.
+    :param permission: String for permissions to grant user on both
+      controllers. Valid values are `EnvJujuClient.controller_permissions`.
+    """
     new_user_home = os.path.join(tmp_dir, username)
     os.makedirs(new_user_home)
     new_user = User(username, 'write', [])
-    normal_user_client_1 = source_bs.client.register_user(
-        new_user, new_user_home)
-    source_bs.client.grant(new_user.name, permission)
+    source_user_client = source_client.register_user(new_user, new_user_home)
+    source_client.client.grant(new_user.name, permission)
 
     second_controller_name = '{}_controllerb'.format(new_user.name)
-    dest_client = dest_bs.client.register_user(
+    dest_user_client = dest_client.client.register_user(
         new_user,
         new_user_home,
         controller_name=second_controller_name)
-    dest_bs.client.grant(new_user.name, permission)
+    dest_client.client.grant(new_user.name, permission)
 
-    source_client = normal_user_client_1.add_model(
-        normal_user_client_1.env.clone('model-a'))
-
-    return source_client, dest_client
+    return source_user_client, dest_user_client
 
 
 def expect_migration_attempt_to_fail(source_client, dest_client):
