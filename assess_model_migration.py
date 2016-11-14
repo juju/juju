@@ -457,14 +457,14 @@ def create_user_on_controllers(
     os.makedirs(new_user_home)
     new_user = User(username, 'write', [])
     source_user_client = source_client.register_user(new_user, new_user_home)
-    source_client.client.grant(new_user.name, permission)
+    source_client.grant(new_user.name, permission)
 
     second_controller_name = '{}_controllerb'.format(new_user.name)
-    dest_user_client = dest_client.client.register_user(
+    dest_user_client = dest_client.register_user(
         new_user,
         new_user_home,
         controller_name=second_controller_name)
-    dest_client.client.grant(new_user.name, permission)
+    dest_client.grant(new_user.name, permission)
 
     return source_user_client, dest_user_client
 
