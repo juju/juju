@@ -819,70 +819,11 @@ class Status:
         """
         return self.get_unit(unit_name).get('open-ports', [])
 
-    def iter_status(self):
-        """Iterate through every status field in the larger status data."""
-        for machine_name, machine_value in self.machines.items():
-            yield StatusItem(StatusItem.MACHINE, machine_name, machine_value)
-            yield StatusItem(StatusItem.JUJU, machine_name, machine_value)
-        for app_name, app_value in self.get_applications().items():
-            yield StatusItem(StatusItem.APPLICATION, app_name, app_value)
-            for unit_name, unit_value in app_value['units'].items():
-                yield StatusItem(StatusItem.WORKLOAD, unit_name, unit_value)
-                yield StatusItem(StatusItem.JUJU, unit_name, unit_value)
-
-    def iter_errors(self, ignore_recoverable=False):
-        """Iterate through every error, repersented by exceptions."""
-        for sub_status in self.iter_status():
-            error = sub_status.to_exception()
-            if error is not None:
-                if not (ignore_recoverable and error.recoverable):
-                    yield error
-
-    def check_for_errors(self, ignore_recoverable=False):
-        """Return a list of errors, in order of their priority."""
-        return sorted(self.iter_errors(ignore_recoverable),
-                      key=lambda item: item.priority())
-
-    def raise_highest_error(self, ignore_recoverable=False):
-        """Raise an exception reperenting the highest priority error."""
-        errors = self.check_for_errors(ignore_recoverable)
-        if errors:
-            raise errors[0]
-
 
 class Status1X(Status):
 
     def get_applications(self):
         return self.status.get('services', {})
-
-    def status_condence(self, item_value):
-        """Condence the scattered agent-* fields into a status dict."""
-        return {'current': item_value['agent-state'],
-                'version': item_value['agent-version'],
-                'message': item_value.get('agent-state-info'),
-                }
-
-    def iter_status(self):
-        for machine_name, machine_value in self.machines.items():
-            yield StatusItem(
-                StatusItem.JUJU, machine_name,
-                {StatusItem.JUJU: self.status_condence(machine_value)})
-        for app_name, app_value in self.get_applications().items():
-            yield StatusItem(
-                StatusItem.APPLICATION, app_name,
-                {StatusItem.APPLICATION: app_value['service-status']})
-            for unit_name, unit_value in app_value['units'].items()
-                if StatusItem.WORKLOAD is in unit_value:
-                    yield StatusItem(StatusItem.WORKLOAD,
-                                     unit_name, unit_value)
-                if 'agent-status' is in unit_value:
-                    yield StatusItem(
-                        StatusItem.JUJU, unit_name,
-                        {StatusItem.JUJU: unit_value['agent-status']})
-                else:
-                    yield StatusItem(
-                        StatusItem.JUJU, unit_name,
-                        {StatusItem.JUJU: self.status_condence(unit_value)})
 
 
 def describe_substrate(env):
