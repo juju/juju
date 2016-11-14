@@ -10,6 +10,7 @@ from subprocess import CalledProcessError
 from textwrap import dedent
 
 import assess_model_migration as amm
+from assess_user_grant_revoke import User
 from deploy_stack import (
     BootstrapManager,
     get_random_string,
@@ -162,6 +163,53 @@ class TestAssertDeployedCharmIsResponding(TestCase):
                 self.assertEqual(
                     ex.exception.message,
                     'Server charm is not responding as expected.')
+
+
+class TestCreateUserOnControllers(TestCase):
+
+    def test_creates_user_home_dir(self):
+        source_client = Mock()
+        dest_client = Mock()
+        with patch.object(amm.os, 'makedirs', autospec=True) as m_md:
+            amm.create_user_on_controllers(
+                source_client,
+                dest_client,
+                '/tmp/path',
+                'foo-username',
+                'permission')
+        m_md.assert_called_once_with('/tmp/path/foo-username')
+
+    def test_registers_and_grants_user_permissions_on_both_controllers(self):
+        source_client = Mock()
+        dest_client = Mock()
+        username = 'foo-username'
+        user = User(username, 'write', [])
+        with temp_dir() as tmp_dir:
+            with patch.object(
+                    amm, 'User', autospec=True, return_value=user) as m_user:
+                amm.create_user_on_controllers(
+                    source_client,
+                    dest_client,
+                    tmp_dir,
+                    username,
+                    'permission')
+        m_user.assert_called_once_with(username, 'write', [])
+        source_client.register_user.assert_called_once_with(
+            user, os.path.join(tmp_dir, username))
+        source_client.grant.assert_called_once_with(username, 'permission')
+        dest_client.register_user.assert_called_once_with(
+            user,
+            os.path.join(tmp_dir, username),
+            controller_name='foo-username_controllerb')
+        dest_client.grant.assert_called_once_with(username, 'permission')
+
+    def test_returns_created_clients(self):
+        source_client = Mock()
+        dest_client = Mock()
+        new_source, new_dest = amm.create_user_on_controllers(
+            source_client, dest_client, '/tmp/path', 'foo-username', 'write')
+        self.assertEqual(new_source, source_client.register_user.return_value)
+        self.assertEqual(new_dest, dest_client.register_user.return_value)
 
 
 class TestExpectMigrationAttemptToFail(TestCase):
