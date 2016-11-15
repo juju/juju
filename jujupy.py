@@ -586,13 +586,13 @@ class AgentError(StatusError):
     """Error in a juju agent."""
 
 
-class AgentLongError(AgentError):
+class AgentUnresolvedError(AgentError):
     """Agent error has not recovered in a reasonable time."""
 
     recoverable = False
 
 
-StatusError.ordering = [MachineError, InstallError, AgentLongError,
+StatusError.ordering = [MachineError, InstallError, AgentUnresolvedError,
                         HookFailedError, UnitError, AppError, AgentError,
                         StatusError]
 
