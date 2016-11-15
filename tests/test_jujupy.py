@@ -33,6 +33,8 @@ from jujuconfig import (
     NoSuchEnvironment,
     )
 from jujupy import (
+    AgentError,
+    AgentUnresolvedError,
     AppError,
     BootstrapMismatch,
     CannotConnectEnv,
@@ -51,7 +53,9 @@ from jujupy import (
     get_local_root,
     get_machine_dns_name,
     get_timeout_path,
+    HookFailedError,
     IncompatibleConfigClass,
+    InstallError,
     jes_home_path,
     JESNotSupported,
     Juju2Backend,
@@ -5416,6 +5420,72 @@ class TestStatusErrorTree(TestCase):
         self.assertLess(UnitError.priority(), AppError.priority())
 
 
+class TestStatusItem(TestCase):
+
+    @staticmethod
+    def make_status_item(status_name, item_name, **kwargs):
+        return StatusItem(status_name, item_name, {status_name: kwargs})
+
+    def assertIsType(self, obj, target_type):
+        self.assertIs(type(obj), target_type)
+
+    def test_datetime_since(self):
+        item = self.make_status_item(StatusItem.JUJU, '0',
+                                     since='19 Aug 2016 05:36:42Z')
+        target = datetime(2016, 8, 19, 5, 36, 42)
+        self.assertEqual(item.datetime_since, target)
+
+    def test_datetime_since_none(self):
+        item = self.make_status_item(StatusItem.JUJU, '0')
+        self.assertIsNone(item.datetime_since)
+
+    def test_to_exception_good(self):
+        item = self.make_status_item(StatusItem.JUJU, '0', current='idle')
+        self.assertIsNone(item.to_exception())
+
+    def test_to_exception_machine_error(self):
+        item = self.make_status_item(StatusItem.MACHINE, '0', current='error')
+        self.assertIsType(item.to_exception(), MachineError)
+
+    def test_to_exception_app_error(self):
+        item = self.make_status_item(StatusItem.APPLICATION, '0',
+                                     current='error')
+        self.assertIsType(item.to_exception(), AppError)
+
+    def test_to_exception_unit_error(self):
+        item = self.make_status_item(StatusItem.WORKLOAD, 'fake/0',
+                                     current='error',
+                                     message='generic unit error')
+        self.assertIsType(item.to_exception(), UnitError)
+
+    def test_to_exception_hook_failed_error(self):
+        item = self.make_status_item(StatusItem.WORKLOAD, 'fake/0',
+                                     current='error',
+                                     message='hook failed: "bad hook"')
+        self.assertIsType(item.to_exception(), HookFailedError)
+
+    def test_to_exception_install_error(self):
+        item = self.make_status_item(StatusItem.WORKLOAD, 'fake/0',
+                                     current='error',
+                                     message='hook failed: "install error"')
+        self.assertIsType(item.to_exception(), InstallError)
+
+    def make_agent_item_ago(self, minutes):
+        now = datetime.utcnow()
+        then = now - timedelta(minutes=minutes)
+        then_str = then.strftime('%d %b %Y %H:%M:%SZ')
+        return self.make_status_item(StatusItem.JUJU, '0', current='error',
+                                     message='some error', since=then_str)
+
+    def test_to_exception_agent_error(self):
+        item = self.make_agent_item_ago(minutes=3)
+        self.assertIsType(item.to_exception(), AgentError)
+
+    def test_to_exception_agent_unresolved_error(self):
+        item = self.make_agent_item_ago(minutes=6)
+        self.assertIsType(item.to_exception(), AgentUnresolvedError)
+
+
 class TestStatus(FakeHomeTestCase):
 
     def test_iter_machines_no_containers(self):
@@ -6234,21 +6304,6 @@ class TestStatus1X(FakeHomeTestCase):
             'applications': {'application': {}},
             }, '')
         self.assertEqual({'service': {}}, status.get_applications())
-
-
-class TestStatusItem(TestCase):
-
-    @staticmethod
-    def make_status_item(status_name, item_name, **kwargs):
-        return StatusItem(status_name, item_name, {status_name: kwargs})
-
-    def test_datetime_since(self):
-        item = self.make_status_item(StatusItem.JUJU, '0',
-                                     since='19 Aug 2016 05:36:42Z')
-        target = datetime(2016, 8, 19, 5, 36, 42)
-        self.assertEqual(item.datetime_since(), target)
-
-    # to_exception is going to need a lot of tests.
 
 
 def fast_timeout(count):

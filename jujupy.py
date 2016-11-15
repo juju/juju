@@ -608,8 +608,7 @@ class StatusItem:
     def __init__(self, status_name, item_name, item_value):
         self.status_name = status_name
         self.item_name = item_name
-        # (self.item_name, item_value) = item
-        self.status = item_value[status_name]
+        self.status = item_value.get(status_name, item_value)
 
     @property
     def message(self):
@@ -627,7 +626,10 @@ class StatusItem:
     def version(self):
         return self.status.get('version')
 
+    @property
     def datetime_since(self):
+        if self.since is None:
+            return None
         return datetime.strptime(self.since, '%d %b %Y %H:%M:%SZ')
 
     def to_exception(self):
@@ -643,7 +645,7 @@ class StatusItem:
         elif self.WORKLOAD == self.status_name:
             if self.message is None:
                 return UnitError(self.item_name, self.message)
-            elif re.match('hook failed ".*install.*"', self.message):
+            elif re.match('hook failed: ".*install.*"', self.message):
                 return InstallError(self.item_name, self.message)
             elif re.match('hook failed', self.message):
                 return HookFailedError(self.item_name, self.message)
@@ -652,7 +654,7 @@ class StatusItem:
         elif self.MACHINE == self.status_name:
             return MachineError(self.item_name, self.message)
         elif self.JUJU == self.status_name:
-            time_since = datetime.utcnow() - self.datetime_since()
+            time_since = datetime.utcnow() - self.datetime_since
             if time_since > timedelta(minutes=5):
                 return AgentUnresolvedError(self.item_name, self.message,
                                             time_since.total_seconds())
