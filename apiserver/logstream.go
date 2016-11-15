@@ -22,19 +22,24 @@ type logStreamSource interface {
 	newTailer(*state.LogTailerParams) (state.LogTailer, error)
 }
 
+type closerFunc func() error
+
 // logStreamEndpointHandler takes requests to stream logs from the DB.
 type logStreamEndpointHandler struct {
 	stopCh    <-chan struct{}
-	newSource func(*http.Request) (logStreamSource, error)
+	newSource func(*http.Request) (logStreamSource, closerFunc, error)
 }
 
 func newLogStreamEndpointHandler(ctxt httpContext) *logStreamEndpointHandler {
-	newSource := func(req *http.Request) (logStreamSource, error) {
+	newSource := func(req *http.Request) (logStreamSource, closerFunc, error) {
 		st, _, err := ctxt.stateForRequestAuthenticatedAgent(req)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, nil, errors.Trace(err)
 		}
-		return &logStreamState{st}, nil
+		closer := func() error {
+			return ctxt.release(st)
+		}
+		return &logStreamState{st}, closer, nil
 	}
 	return &logStreamEndpointHandler{
 		stopCh:    ctxt.stop(),
@@ -54,8 +59,9 @@ func (eph *logStreamEndpointHandler) ServeHTTP(w http.ResponseWriter, req *http.
 			defer conn.Close()
 			reqHandler, err := eph.newLogStreamRequestHandler(req, clock.WallClock)
 			if err == nil {
-				defer reqHandler.tailer.Stop()
+				defer reqHandler.close()
 			}
+
 			stream, initErr := initStream(conn, err)
 			if initErr != nil {
 				logger.Debugf("failed to send initial error (%v): %v", err, initErr)
@@ -74,7 +80,7 @@ func (eph *logStreamEndpointHandler) newLogStreamRequestHandler(req *http.Reques
 	// Validate before authenticate because the authentication is
 	// dependent on the state connection that is determined during the
 	// validation.
-	source, err := eph.newSource(req)
+	source, closer, err := eph.newSource(req)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -94,6 +100,7 @@ func (eph *logStreamEndpointHandler) newLogStreamRequestHandler(req *http.Reques
 	reqHandler := &logStreamRequestHandler{
 		req:           req,
 		tailer:        tailer,
+		closer:        closer,
 		sendModelUUID: cfg.AllModels,
 	}
 	return reqHandler, nil
@@ -174,6 +181,7 @@ type logStreamRequestHandler struct {
 	req           *http.Request
 	tailer        state.LogTailer
 	sendModelUUID bool
+	closer        closerFunc
 
 	stream *apiLogStream
 }
@@ -201,6 +209,11 @@ func (rh *logStreamRequestHandler) serveWebsocket(conn *websocket.Conn, stream *
 			}
 		}
 	}
+}
+
+func (rh logStreamRequestHandler) close() {
+	rh.tailer.Stop()
+	rh.closer()
 }
 
 func initStream(conn *websocket.Conn, initial error) (*apiLogStream, error) {

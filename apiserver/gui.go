@@ -140,6 +140,7 @@ func (gr *guiRouter) ensureFiles(req *http.Request) (rootDir string, hash string
 	if err != nil {
 		return "", "", errors.Annotate(err, "cannot open state")
 	}
+	defer gr.ctxt.release(st)
 	storage, err := st.GUIStorage()
 	if err != nil {
 		return "", "", errors.Annotate(err, "cannot open GUI storage")
@@ -418,6 +419,7 @@ func (h *guiArchiveHandler) handleGet(w http.ResponseWriter, req *http.Request) 
 	if err != nil {
 		return errors.Annotate(err, "cannot open state")
 	}
+	defer h.ctxt.release(st)
 	storage, err := st.GUIStorage()
 	if err != nil {
 		return errors.Annotate(err, "cannot open GUI storage")
@@ -485,6 +487,7 @@ func (h *guiArchiveHandler) handlePost(w http.ResponseWriter, req *http.Request)
 	if err != nil {
 		return errors.Annotate(err, "cannot open state")
 	}
+	defer h.ctxt.release(st)
 	storage, err := st.GUIStorage()
 	if err != nil {
 		return errors.Annotate(err, "cannot open GUI storage")
@@ -560,6 +563,7 @@ func (h *guiVersionHandler) handlePut(w http.ResponseWriter, req *http.Request) 
 	if err != nil {
 		return errors.Annotate(err, "cannot open state")
 	}
+	defer h.ctxt.release(st)
 
 	var selected params.GUIVersionRequest
 	decoder := json.NewDecoder(req.Body)

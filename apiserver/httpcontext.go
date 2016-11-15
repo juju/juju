@@ -173,6 +173,12 @@ func (ctxt *httpContext) loginRequest(r *http.Request) (params.LoginRequest, err
 	}, nil
 }
 
+// release indicates that the client doesn't need this State anymore,
+// so it can be removed from the pool if it needs to be.
+func (ctxt *httpContext) release(st *state.State) error {
+	return ctxt.srv.statePool.Release(st.ModelUUID())
+}
+
 // stop returns a channel which will be closed when a handler should
 // exit.
 func (ctxt *httpContext) stop() <-chan struct{} {
