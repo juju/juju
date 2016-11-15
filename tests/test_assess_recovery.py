@@ -202,17 +202,29 @@ class TestHA(FakeHomeTestCase):
         client = fake_juju_client()
         bs_manager = Mock(client=client, known_hosts={}, has_controller=False)
         with patch.object(client, 'juju', autospec=True) as j_mock:
-            assess_ha_recovery(bs_manager, client)
-        j_mock.assert_called_once_with('status', (), check=True, timeout=300)
+            with patch.object(client, 'get_status', autospec=True) as gs_mock:
+                assess_ha_recovery(bs_manager, client)
+        j_mock.assert_called_once_with('status', (), check=False, timeout=300)
+        gs_mock.assert_called_once_with(timeout=300)
         self.assertIsTrue(bs_manager.has_controller)
 
-    def test_assess_ha_recovery_error(self):
+    def test_assess_ha_recovery_status_error(self):
         client = fake_juju_client()
         bs_manager = Mock(client=client, known_hosts={}, has_controller=False)
         with patch.object(client, 'juju', autospec=True,
                           side_effect=Exception):
             with self.assertRaises(HARecoveryError):
                 assess_ha_recovery(bs_manager, client)
+        self.assertIsFalse(bs_manager.has_controller)
+
+    def test_assess_ha_recovery_get_status_error(self):
+        client = fake_juju_client()
+        bs_manager = Mock(client=client, known_hosts={}, has_controller=False)
+        with patch.object(client, 'juju', autospec=True):
+            with patch.object(client, 'get_status', autospec=True,
+                              side_effect=Exception):
+                with self.assertRaises(HARecoveryError):
+                    assess_ha_recovery(bs_manager, client)
         self.assertIsFalse(bs_manager.has_controller)
 
 

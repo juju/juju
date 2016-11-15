@@ -84,11 +84,14 @@ def assess_ha_recovery(bs_manager, client):
 
 
     The controller is given 5 minutes to respond to the client's request.
+    Another possibly 5 minutes is given to return a sensible status.
     """
     # Juju commands will hang when the controller is down, so ensure the
-    # call is interrupted and raise HARecoveryError.
+    # call is interrupted and raise HARecoveryError. The controller
+    # might return an error, but it still has
     try:
-        client.juju('status', (), check=True, timeout=300)
+        client.juju('status', (), check=False, timeout=300)
+        client.get_status(300)
     except:
         raise HARecoveryError()
     bs_manager.has_controller = True
@@ -203,7 +206,6 @@ def assess_recovery(bs_manager, strategy, charm_series):
         backup_file = controller_client.backup()
         restore_present_state_server(controller_client, backup_file)
     if strategy == 'ha':
-        assess_ha_recovery(bs_manager, client)
         leader_only = True
     else:
         leader_only = False
@@ -216,15 +218,7 @@ def assess_recovery(bs_manager, strategy, charm_series):
         if bs_manager.known_hosts.get(m_id):
             del bs_manager.known_hosts[m_id]
     if strategy == 'ha':
-        # Juju commands will hang when the controller is down, so ensure the
-        # call is interrupted and raise HARecoveryError.
-        try:
-            client.juju('status', (), check=True, timeout=300)
-        except:
-            raise HARecoveryError()
-        bs_manager.has_controller = True
-        log.info("HA recovered from leader failure.")
-        log.info("PASS")
+        assess_ha_recovery(bs_manager, client)
     else:
         check_controller = strategy != 'ha-backup'
         restore_missing_state_server(client, controller_client, backup_file,
