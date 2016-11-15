@@ -148,7 +148,7 @@ def assert_deployed_charm_is_responding(client, expected_ouput):
     """Ensure that the deployed simple-server charm is still responding."""
     ipaddress = get_unit_ipaddress(client, 'simple-resource-http/0')
     if expected_ouput != get_server_response(ipaddress):
-        raise AssertionError('Server charm is not responding as expected.')
+        raise JujuAssertionError('Server charm is not responding as expected.')
 
 
 def get_server_response(ipaddress):
