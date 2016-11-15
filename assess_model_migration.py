@@ -182,10 +182,9 @@ def ensure_able_to_migrate_model_between_controllers(
         - Add a new unit to the application to ensure the model is functional
       - Migrate the model back to the original environment
         - Note: Test for lp:1607457
+        - Note: Also test for lp:1641824
         - Ensure it's operating as expected
         - Add a new unit to the application to ensure the model is functional
-
-
     """
     application = 'mongodb'
     test_model = deploy_mongodb_to_new_model(
@@ -198,7 +197,7 @@ def ensure_able_to_migrate_model_between_controllers(
 
     assert_model_migrated_successfully(migration_target_client, application)
 
-    # Ensure migration works back to the original controller.
+    # Ensure migration works back to the original controller as per lp:1641824
     re_migrate_client = migrate_model_to_controller(
         migration_target_client, source_client)
     assert_model_migrated_successfully(re_migrate_client, application)
