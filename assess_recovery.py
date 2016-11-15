@@ -74,7 +74,8 @@ def enable_ha(bs_manager, controller_client):
     controller_client.enable_ha()
     controller_client.wait_for_ha()
     show_controller(controller_client)
-    remote_machines = get_remote_machines(controller_client, {})
+    remote_machines = get_remote_machines(
+        controller_client, bs_manager.known_hosts)
     bs_manager.known_hosts = remote_machines
 
 
