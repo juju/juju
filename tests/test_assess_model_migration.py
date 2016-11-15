@@ -343,7 +343,7 @@ class TestDisableAPIServer(TestCase):
                 with amm.disable_apiserver(mock_client):
                     raise ValueError()
             except ValueError:
-                pass            # Expected test exception.
+                pass  # Expected test exception.
         self.assertItemsEqual(
             [
                 call('sudo service jujud-machine-0 stop'),
