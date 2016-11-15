@@ -587,13 +587,13 @@ class AgentError(StatusError):
     """Error in a juju agent."""
 
 
-class AgentLongError(AgentError):
+class AgentUnresolvedError(AgentError):
     """Agent error has not recovered in a reasonable time."""
 
     recoverable = False
 
 
-StatusError.ordering = [MachineError, InstallError, AgentLongError,
+StatusError.ordering = [MachineError, InstallError, AgentUnresolvedError,
                         HookFailedError, UnitError, AppError, AgentError,
                         StatusError]
 
@@ -654,8 +654,8 @@ class StatusItem:
         elif self.JUJU == self.status_name:
             time_since = datetime.utcnow() - self.datetime_since()
             if time_since > timedelta(minutes=5):
-                return AgentLongError(self.item_name, self.message,
-                                      time_since.total_seconds())
+                return AgentUnresolvedError(self.item_name, self.message,
+                                            time_since.total_seconds())
             else:
                 return AgentError(self.item_name, self.message)
         else:
