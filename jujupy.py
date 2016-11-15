@@ -684,9 +684,8 @@ class Status:
     def get_applications(self):
         return self.status.get('applications', {})
 
-    @property
-    def machines(self):
-        return self.status['machines']
+    def get_machines(self, default=None):
+        return self.status.get('machines', default)
 
     def get_machines(self, default=None):
         return self.status.get('machines', default)
