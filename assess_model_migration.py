@@ -196,11 +196,20 @@ def ensure_able_to_migrate_model_between_controllers(
     migration_target_client = migrate_model_to_controller(
         test_model, dest_client)
 
-    migration_target_client.wait_for_workloads()
-    test_deployed_mongo_is_up(migration_target_client)
-    ensure_model_is_functional(migration_target_client, application)
+    assert_model_migrated_successfully(migration_target_client, application)
+
+    # Ensure migration works back to the original controller.
+    re_migrate_client = migrate_model_to_controller(
+        migration_target_client, source_client)
+    assert_model_migrated_successfully(re_migrate_client, application)
 
     migration_target_client.remove_service(application)
+
+
+def assert_model_migrated_successfully(client, application):
+    client.wait_for_workloads()
+    test_deployed_mongo_is_up(client)
+    ensure_model_is_functional(client, application)
 
 
 def ensure_migration_of_resources_succeeds(source_client, dest_client):
