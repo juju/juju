@@ -205,8 +205,9 @@ class TestCreateUserOnControllers(TestCase):
     def test_returns_created_clients(self):
         source_client = Mock()
         dest_client = Mock()
-        new_source, new_dest = amm.create_user_on_controllers(
-            source_client, dest_client, '/tmp/path', 'foo-username', 'write')
+        with temp_dir() as tmp:
+            new_source, new_dest = amm.create_user_on_controllers(
+                source_client, dest_client, tmp, 'foo-username', 'write')
         self.assertEqual(new_source, source_client.register_user.return_value)
         self.assertEqual(new_dest, dest_client.register_user.return_value)
 
