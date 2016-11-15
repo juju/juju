@@ -23,6 +23,7 @@ from utility import (
     JujuAssertionError,
     add_basic_testing_arguments,
     configure_logging,
+    get_unit_ipaddress,
     temp_dir,
     until_timeout,
 )
@@ -91,11 +92,6 @@ def get_bootstrap_managers(args):
     return bs_1, bs_2
 
 
-def get_unit_ipaddress(client, unit_name):
-    status = client.get_status()
-    return status.get_unit(unit_name)['public-address']
-
-
 def _new_log_dir(log_dir, post_fix):
     new_log_dir = os.path.join(log_dir, 'env-{}'.format(post_fix))
     os.mkdir(new_log_dir)
@@ -151,7 +147,7 @@ def assert_deployed_charm_is_responding(client, expected_ouput):
     """Ensure that the deployed simple-server charm is still responding."""
     ipaddress = get_unit_ipaddress(client, 'simple-resource-http/0')
     if expected_ouput != get_server_response(ipaddress):
-        raise AssertionError('Server charm is not responding as expected.')
+        raise JujuAssertionError('Server charm is not responding as expected.')
 
 
 def get_server_response(ipaddress):
