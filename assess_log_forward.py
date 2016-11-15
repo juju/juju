@@ -17,15 +17,13 @@ import socket
 import subprocess
 from textwrap import dedent
 
-from assess_model_migration import (
-    get_bootstrap_managers,
-    get_unit_ipaddress
-)
+from assess_model_migration import get_bootstrap_managers
 import certificates
 from jujucharm import local_charm_path
 from utility import (
     add_basic_testing_arguments,
     configure_logging,
+    get_unit_ipaddress,
     JujuAssertionError,
     temp_dir,
 )
