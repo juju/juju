@@ -263,7 +263,12 @@ def ensure_superuser_can_migrate_other_user_models(
     source_client.controller_juju(
         'migrate',
         (user_qualified_model_name, dest_client.env.controller.name))
-    # migration_target_client.wait_for_workloads()
+
+    migration_client = dest_client.clone(
+        dest_client.env.clone(user_qualified_model_name))
+    wait_for_model(
+        migration_client, user_qualified_model_name)
+    migration_client.wait_for_started()
 
 
 def deploy_mongodb_to_new_model(client, model_name):
