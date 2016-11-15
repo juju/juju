@@ -52,19 +52,14 @@ type UserdataConfig interface {
 func NewUserdataConfig(icfg *instancecfg.InstanceConfig, conf cloudinit.CloudConfig) (UserdataConfig, error) {
 	// TODO(ericsnow) bug #1426217
 	// Protect icfg and conf better.
-	operatingSystem, err := series.GetOSFromSeries(icfg.Series)
-	if err != nil {
-		return nil, err
-	}
-
 	base := baseConfigure{
 		tag:  names.NewMachineTag(icfg.MachineId),
 		icfg: icfg,
 		conf: conf,
-		os:   operatingSystem,
+		os:   icfg.OSType,
 	}
 
-	switch operatingSystem {
+	switch icfg.OSType {
 	case os.Ubuntu, os.CentOS:
 		return &unixConfigure{base, icfg.ConfPath}, nil
 	case os.Windows:

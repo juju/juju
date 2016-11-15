@@ -958,7 +958,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 		return nil, err
 	}
 
-	series := args.Tools.OneSeries()
+	series := args.InstanceConfig.Series
 	selectedTools, err := args.Tools.Match(tools.Filter{
 		Arch: *hc.Arch,
 	})
@@ -991,7 +991,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 		return nil, errors.Trace(err)
 	}
 
-	cloudcfg, err := environ.newCloudinitConfig(hostname, series, interfaceNamesToBridge)
+	cloudcfg, err := environ.newCloudinitConfig(args.InstanceConfig.OSType, series, hostname, interfaceNamesToBridge)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1379,8 +1379,8 @@ func renderEtcNetworkInterfacesScript(interfacesToBridge ...string) string {
 
 // newCloudinitConfig creates a cloudinit.Config structure suitable as a base
 // for initialising a MAAS node.
-func (environ *maasEnviron) newCloudinitConfig(hostname, forSeries string, interfacesToBridge []string) (cloudinit.CloudConfig, error) {
-	cloudcfg, err := cloudinit.New(forSeries)
+func (environ *maasEnviron) newCloudinitConfig(osType os.OSType, forSeries, hostname string, interfacesToBridge []string) (cloudinit.CloudConfig, error) {
+	cloudcfg, err := cloudinit.New(osType, forSeries)
 	if err != nil {
 		return nil, err
 	}

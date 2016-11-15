@@ -34,22 +34,20 @@ func (s *certPoolSuite) SetUpTest(c *gc.C) {
 }
 
 func (*certPoolSuite) TestCreateCertPoolNoCert(c *gc.C) {
-	pool, err := api.CreateCertPool("")
+	pool, err := api.CreateCertPool(c.MkDir(), "")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(pool.Subjects(), gc.HasLen, 0)
 }
 
 func (*certPoolSuite) TestCreateCertPoolTestCert(c *gc.C) {
-	pool, err := api.CreateCertPool(testing.CACert)
+	pool, err := api.CreateCertPool(c.MkDir(), testing.CACert)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(pool.Subjects(), gc.HasLen, 1)
 }
 
 func (s *certPoolSuite) TestCreateCertPoolNoDir(c *gc.C) {
 	certDir := filepath.Join(c.MkDir(), "missing")
-	s.PatchValue(api.CertDir, certDir)
-
-	pool, err := api.CreateCertPool("")
+	pool, err := api.CreateCertPool(certDir, "")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(pool.Subjects(), gc.HasLen, 0)
 
@@ -62,11 +60,10 @@ func (s *certPoolSuite) TestCreateCertPoolNoDir(c *gc.C) {
 
 func (s *certPoolSuite) TestCreateCertPoolNotADir(c *gc.C) {
 	certDir := filepath.Join(c.MkDir(), "missing")
-	s.PatchValue(api.CertDir, certDir)
 	// Make the certDir a file instead...
 	c.Assert(ioutil.WriteFile(certDir, []byte("blah"), 0644), jc.ErrorIsNil)
 
-	pool, err := api.CreateCertPool("")
+	pool, err := api.CreateCertPool(certDir, "")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(pool.Subjects(), gc.HasLen, 0)
 
@@ -75,24 +72,20 @@ func (s *certPoolSuite) TestCreateCertPoolNotADir(c *gc.C) {
 }
 
 func (s *certPoolSuite) TestCreateCertPoolEmptyDir(c *gc.C) {
-	certDir := c.MkDir()
-	s.PatchValue(api.CertDir, certDir)
-
-	pool, err := api.CreateCertPool("")
+	pool, err := api.CreateCertPool(c.MkDir(), "")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(pool.Subjects(), gc.HasLen, 0)
-	c.Assert(s.logs.messages, gc.HasLen, 1)
-	c.Assert(s.logs.messages[0], gc.Matches, `DEBUG added 0 certs to the pool from .*`)
+	c.Check(pool.Subjects(), gc.HasLen, 0)
+	c.Check(s.logs.messages, gc.HasLen, 1)
+	c.Check(s.logs.messages[0], gc.Matches, `DEBUG added 0 certs to the pool from .*`)
 }
 
 func (s *certPoolSuite) TestCreateCertPoolLoadsPEMFiles(c *gc.C) {
 	certDir := c.MkDir()
-	s.PatchValue(api.CertDir, certDir)
 	s.addCert(c, filepath.Join(certDir, "first.pem"))
 	s.addCert(c, filepath.Join(certDir, "second.pem"))
 	s.addCert(c, filepath.Join(certDir, "third.pem"))
 
-	pool, err := api.CreateCertPool("")
+	pool, err := api.CreateCertPool(certDir, "")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(pool.Subjects(), gc.HasLen, 3)
 	c.Assert(s.logs.messages, gc.HasLen, 1)
@@ -101,11 +94,10 @@ func (s *certPoolSuite) TestCreateCertPoolLoadsPEMFiles(c *gc.C) {
 
 func (s *certPoolSuite) TestCreateCertPoolLoadsOnlyPEMFiles(c *gc.C) {
 	certDir := c.MkDir()
-	s.PatchValue(api.CertDir, certDir)
 	s.addCert(c, filepath.Join(certDir, "first.pem"))
 	c.Assert(ioutil.WriteFile(filepath.Join(certDir, "second.cert"), []byte("blah"), 0644), jc.ErrorIsNil)
 
-	pool, err := api.CreateCertPool("")
+	pool, err := api.CreateCertPool(certDir, "")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(pool.Subjects(), gc.HasLen, 1)
 	c.Assert(s.logs.messages, gc.HasLen, 1)
@@ -114,10 +106,9 @@ func (s *certPoolSuite) TestCreateCertPoolLoadsOnlyPEMFiles(c *gc.C) {
 
 func (s *certPoolSuite) TestCreateCertPoolLogsBadCerts(c *gc.C) {
 	certDir := c.MkDir()
-	s.PatchValue(api.CertDir, certDir)
 	c.Assert(ioutil.WriteFile(filepath.Join(certDir, "broken.pem"), []byte("blah"), 0644), jc.ErrorIsNil)
 
-	pool, err := api.CreateCertPool("")
+	pool, err := api.CreateCertPool(certDir, "")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(pool.Subjects(), gc.HasLen, 0)
 	c.Assert(s.logs.messages, gc.HasLen, 2)

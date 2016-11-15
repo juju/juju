@@ -39,7 +39,8 @@ func Open(
 	storagePath string,
 	controllerModelTag names.ModelTag,
 	controllerTag names.ControllerTag,
-	info *mongo.MongoInfo, opts mongo.DialOpts,
+	info *mongo.MongoInfo,
+	opts mongo.DialOpts,
 	newPolicy NewPolicyFunc,
 ) (*State, error) {
 	st, err := open(controllerModelTag, info, opts, newPolicy, clock.WallClock, storagePath)

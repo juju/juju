@@ -43,7 +43,7 @@ var _ = gc.Suite(&unitUpgraderSuite{})
 var current = version.Binary{
 	Number: jujuversion.Current,
 	Arch:   arch.HostArch(),
-	Series: series.HostSeries(),
+	Series: series.MustHostSeries(),
 }
 
 func (s *unitUpgraderSuite) SetUpTest(c *gc.C) {
@@ -197,7 +197,7 @@ func (s *unitUpgraderSuite) TestSetToolsRefusesWrongAgent(c *gc.C) {
 				Version: version.Binary{
 					Number: jujuversion.Current,
 					Arch:   arch.HostArch(),
-					Series: series.HostSeries(),
+					Series: series.MustHostSeries(),
 				},
 			},
 		}},
@@ -212,7 +212,7 @@ func (s *unitUpgraderSuite) TestSetTools(c *gc.C) {
 	cur := version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
-		Series: series.HostSeries(),
+		Series: series.MustHostSeries(),
 	}
 	_, err := s.rawUnit.AgentTools()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
@@ -270,7 +270,7 @@ func (s *unitUpgraderSuite) TestDesiredVersionNoticesMixedAgents(c *gc.C) {
 	current := version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
-		Series: series.HostSeries(),
+		Series: series.MustHostSeries(),
 	}
 	err := s.rawMachine.SetAgentVersion(current)
 	c.Assert(err, jc.ErrorIsNil)
@@ -295,7 +295,7 @@ func (s *unitUpgraderSuite) TestDesiredVersionForAgent(c *gc.C) {
 	current := version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
-		Series: series.HostSeries(),
+		Series: series.MustHostSeries(),
 	}
 	err := s.rawMachine.SetAgentVersion(current)
 	c.Assert(err, jc.ErrorIsNil)

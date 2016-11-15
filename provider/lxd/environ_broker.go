@@ -176,7 +176,7 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams) (*lxdclien
 	}
 	cleanupCallback() // Clean out any long line of completed download status
 
-	cloudcfg, err := cloudinit.New(series)
+	cloudcfg, err := cloudinit.New(args.InstanceConfig.OSType, series)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

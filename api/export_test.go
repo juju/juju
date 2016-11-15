@@ -12,7 +12,6 @@ import (
 )
 
 var (
-	CertDir             = &certDir
 	NewWebsocketDialer  = newWebsocketDialer
 	WebsocketDialConfig = &websocketDialConfig
 	SlideAddressToFront = slideAddressToFront

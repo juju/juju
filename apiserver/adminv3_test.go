@@ -6,6 +6,7 @@ package apiserver_test
 import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
@@ -31,7 +32,7 @@ var _ = gc.Suite(&loginV3Suite{
 
 func (s *loginV3Suite) TestClientLoginToEnvironment(c *gc.C) {
 	info := s.APIInfo(c)
-	apiState, err := api.Open(info, api.DialOpts{})
+	apiState, err := api.Open(info, api.DialOpts{Clock: clock.WallClock})
 	c.Assert(err, jc.ErrorIsNil)
 	defer apiState.Close()
 
@@ -43,7 +44,7 @@ func (s *loginV3Suite) TestClientLoginToEnvironment(c *gc.C) {
 func (s *loginV3Suite) TestClientLoginToServer(c *gc.C) {
 	info := s.APIInfo(c)
 	info.ModelTag = names.ModelTag{}
-	apiState, err := api.Open(info, api.DialOpts{})
+	apiState, err := api.Open(info, api.DialOpts{Clock: clock.WallClock})
 	c.Assert(err, jc.ErrorIsNil)
 	defer apiState.Close()
 
@@ -66,7 +67,7 @@ func (s *loginV3Suite) TestClientLoginToServerNoAccessToControllerEnv(c *gc.C) {
 	info.Tag = user.Tag()
 	info.Password = password
 	info.ModelTag = names.ModelTag{}
-	apiState, err := api.Open(info, api.DialOpts{})
+	apiState, err := api.Open(info, api.DialOpts{Clock: clock.WallClock})
 	c.Assert(err, jc.ErrorIsNil)
 	defer apiState.Close()
 	// The user now has last login updated.
@@ -83,7 +84,7 @@ func (s *loginV3Suite) TestClientLoginToRootOldClient(c *gc.C) {
 	info.Password = ""
 	info.ModelTag = names.ModelTag{}
 	info.SkipLogin = true
-	apiState, err := api.Open(info, api.DialOpts{})
+	apiState, err := api.Open(info, api.DialOpts{Clock: clock.WallClock})
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = apiState.APICall("Admin", 2, "", "Login", struct{}{}, nil)

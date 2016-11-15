@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils/os"
 	"github.com/juju/utils/proxy"
 	"github.com/juju/utils/set"
 
@@ -201,8 +202,8 @@ func PrepareNetworkConfigFromInterfaces(interfaces []network.InterfaceInfo) *Pre
 // newCloudInitConfigWithNetworks creates a cloud-init config which
 // might include per-interface networking config if both networkConfig
 // is not nil and its Interfaces field is not empty.
-func newCloudInitConfigWithNetworks(series string, networkConfig *container.NetworkConfig) (cloudinit.CloudConfig, error) {
-	cloudConfig, err := cloudinit.New(series)
+func newCloudInitConfigWithNetworks(osType os.OSType, series string, networkConfig *container.NetworkConfig) (cloudinit.CloudConfig, error) {
+	cloudConfig, err := cloudinit.New(osType, series)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -223,7 +224,7 @@ func CloudInitUserData(
 	instanceConfig *instancecfg.InstanceConfig,
 	networkConfig *container.NetworkConfig,
 ) ([]byte, error) {
-	cloudConfig, err := newCloudInitConfigWithNetworks(instanceConfig.Series, networkConfig)
+	cloudConfig, err := newCloudInitConfigWithNetworks(instanceConfig.OSType, instanceConfig.Series, networkConfig)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -255,6 +256,7 @@ func CloudInitUserData(
 // necessary,  initial apt proxy config, and it should do the apt-get
 // update/upgrade initially.
 func TemplateUserData(
+	osType os.OSType,
 	series string,
 	authorizedKeys string,
 	aptProxy proxy.Settings,
@@ -266,12 +268,12 @@ func TemplateUserData(
 	var config cloudinit.CloudConfig
 	var err error
 	if networkConfig != nil {
-		config, err = newCloudInitConfigWithNetworks(series, networkConfig)
+		config, err = newCloudInitConfigWithNetworks(osType, series, networkConfig)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 	} else {
-		config, err = cloudinit.New(series)
+		config, err = cloudinit.New(osType, series)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

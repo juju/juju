@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/httprequest"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
@@ -184,7 +185,7 @@ func (s *httpSuite) TestControllerMachineAuthForHostedModel(c *gc.C) {
 	apiInfo.Password = password
 	apiInfo.ModelTag = hostedState.ModelTag()
 	apiInfo.Nonce = nonce
-	conn, err := api.Open(apiInfo, api.DialOpts{})
+	conn, err := api.Open(apiInfo, api.DialOpts{Clock: clock.WallClock})
 	c.Assert(err, jc.ErrorIsNil)
 	httpClient, err := conn.HTTPClient()
 	c.Assert(err, jc.ErrorIsNil)

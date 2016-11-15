@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
+	jujuos "github.com/juju/utils/os"
 )
 
 type formatSuite struct {
@@ -43,15 +44,17 @@ var agentParams = AgentConfigParams{
 
 func newTestConfig(c *gc.C) *configInternal {
 	params := agentParams
-	params.Paths.DataDir = c.MkDir()
-	params.Paths.LogDir = c.MkDir()
+	params.DataPath = c.MkDir()
+	params.LogPath = c.MkDir()
+	params.ConfigFilePath = ConfigPath(params.DataPath, agentParams.Tag)
+	params.MetricsSpoolPath = c.MkDir()
 	config, err := NewAgentConfig(params)
 	c.Assert(err, jc.ErrorIsNil)
 	return config.(*configInternal)
 }
 
 func (*formatSuite) TestWriteCommands(c *gc.C) {
-	cloudcfg, err := cloudinit.New("quantal")
+	cloudcfg, err := cloudinit.New(jujuos.Ubuntu, "quantal")
 	c.Assert(err, jc.ErrorIsNil)
 	config := newTestConfig(c)
 	commands, err := config.WriteCommands(cloudcfg.ShellRenderer())
@@ -63,7 +66,7 @@ func (*formatSuite) TestWriteCommands(c *gc.C) {
 }
 
 func (*formatSuite) TestWindowsWriteCommands(c *gc.C) {
-	cloudcfg, err := cloudinit.New("win8")
+	cloudcfg, err := cloudinit.New(jujuos.Windows, "win8")
 	c.Assert(err, jc.ErrorIsNil)
 	config := newTestConfig(c)
 	commands, err := config.WriteCommands(cloudcfg.ShellRenderer())
@@ -80,7 +83,7 @@ func (*formatSuite) TestWriteAgentConfig(c *gc.C) {
 	err := config.Write()
 	c.Assert(err, jc.ErrorIsNil)
 
-	configPath := ConfigPath(config.DataDir(), config.Tag())
+	configPath := ConfigPath(config.DataPath(), config.Tag())
 	formatPath := filepath.Join(config.Dir(), "format")
 	assertFileExists(c, configPath)
 	assertFileNotExist(c, formatPath)
@@ -100,7 +103,10 @@ func (*formatSuite) TestReadWriteStateConfig(c *gc.C) {
 		APIPort:      23456,
 	}
 	params := agentParams
-	params.Paths.DataDir = c.MkDir()
+	params.LogPath = c.MkDir()
+	params.DataPath = c.MkDir()
+	params.MetricsSpoolPath = c.MkDir()
+	params.ConfigFilePath = filepath.Join(params.DataPath, "agent.conf")
 	params.Values = map[string]string{"foo": "bar", "wibble": "wobble"}
 	configInterface, err := NewStateMachineConfig(params, servingInfo)
 	c.Assert(err, jc.ErrorIsNil)
@@ -113,8 +119,7 @@ func (*formatSuite) TestReadWriteStateConfig(c *gc.C) {
 func assertWriteAndRead(c *gc.C, config *configInternal) {
 	err := config.Write()
 	c.Assert(err, jc.ErrorIsNil)
-	configPath := ConfigPath(config.DataDir(), config.Tag())
-	readConfig, err := ReadConfig(configPath)
+	readConfig, err := ReadConfig(config.configFilePath)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(readConfig, jc.DeepEquals, config)
 }

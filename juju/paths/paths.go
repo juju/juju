@@ -13,6 +13,9 @@ type Collection struct {
 	// log is the path where Juju may put log files.
 	Log string
 
+	// CloudInitOutputLogPath is the path to the log for cloud-init.
+	CloudInitOutputLogPath string
+
 	// temp is the path where Juju may put temporary data.
 	Temp string
 
@@ -39,15 +42,16 @@ type Collection struct {
 
 var (
 	Nix = Collection{
-		Cert:         "/etc/juju/certs.d",
-		Conf:         "/etc/juju",
-		Data:         "/var/lib/juju",
-		JujuDumpLogs: "/usr/bin/juju-dumplogs",
-		JujuRun:      "/usr/bin/juju-run",
-		Log:          "/var/log",
-		MetricsSpool: "/var/lib/juju/metricspool",
-		Storage:      "/var/lib/juju/storage",
-		Temp:         "/tmp",
+		Cert:                   "/etc/juju/certs.d",
+		Conf:                   "/etc/juju",
+		Data:                   "/var/lib/juju",
+		JujuDumpLogs:           "/usr/bin/juju-dumplogs",
+		CloudInitOutputLogPath: "/var/log/cloud-init-output.log",
+		JujuRun:                "/usr/bin/juju-run",
+		Log:                    "/var/log",
+		MetricsSpool:           "/var/lib/juju/metricspool",
+		Storage:                "/var/lib/juju/storage",
+		Temp:                   "/tmp",
 	}
 	Windows = Collection{
 		Cert:         "C:/Juju/certs",
@@ -59,5 +63,6 @@ var (
 		MetricsSpool: "C:/Juju/lib/juju/metricspool",
 		Storage:      "C:/Juju/lib/juju/storage",
 		Temp:         "C:/Juju/tmp",
+		CloudInitOutputLogPath: "C:/Juju/log/cloud-init-output.log",
 	}
 )

@@ -126,11 +126,12 @@ type BootstrapParams struct {
 	// tools and/or image metadata.
 	MetadataDir string
 
-	ConfPath         string
-	TempPath         string
-	DataPath         string
-	LogPath          string
-	MetricsSpoolPath string
+	ConfPath               string
+	TempPath               string
+	DataPath               string
+	LogPath                string
+	MetricsSpoolPath       string
+	CloudInitOutputLogPath string
 
 	// AgentVersion, if set, determines the exact tools version that
 	// will be used to start the Juju agents.
@@ -154,7 +155,7 @@ type BootstrapParams struct {
 // Validate validates the bootstrap parameters.
 func (p BootstrapParams) Validate() error {
 	if p.AdminSecret == "" {
-		return errors.New("admin-secret is empty")
+		return errors.NotAssignedf("AdminSecret")
 	}
 	if p.ControllerConfig.ControllerUUID() == "" {
 		return errors.New("controller configuration has no controller UUID")
@@ -163,22 +164,25 @@ func (p BootstrapParams) Validate() error {
 		return errors.New("controller configuration has no ca-cert")
 	}
 	if p.CAPrivateKey == "" {
-		return errors.New("empty ca-private-key")
+		return errors.NotAssignedf("CAPrivateKey")
 	}
 	if p.ConfPath == "" {
-		return errors.New("empty ConfPath")
+		return errors.NotAssignedf("ConfPath")
 	}
 	if p.TempPath == "" {
-		return errors.New("empty TempPath")
+		return errors.NotAssignedf("TempPath")
 	}
 	if p.DataPath == "" {
-		return errors.New("empty DataPath")
+		return errors.NotAssignedf("DataPath")
 	}
 	if p.LogPath == "" {
-		return errors.New("empty LogPath")
+		return errors.NotAssignedf(" LogPath")
 	}
 	if p.MetricsSpoolPath == "" {
-		return errors.New("empty MetricsSpoolPath")
+		return errors.NotAssignedf("MetricsSpoolPath")
+	}
+	if p.CloudInitOutputLogPath == "" {
+		return errors.NotAssignedf("CloudInitOutputLogPath")
 	}
 	// TODO(axw) validate other things.
 	return nil
@@ -412,6 +416,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 		args.DataPath,
 		args.LogPath,
 		args.MetricsSpoolPath,
+		args.CloudInitOutputLogPath,
 		args.ControllerConfig,
 		bootstrapConstraints,
 		args.ModelConstraints,

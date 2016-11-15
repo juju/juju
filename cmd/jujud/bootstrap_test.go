@@ -71,12 +71,14 @@ type BootstrapSuite struct {
 	bootstrapParamsFile string
 	bootstrapParams     instancecfg.StateInitializationParams
 
-	dataDir         string
-	logDir          string
-	mongoOplogSize  string
-	fakeEnsureMongo *agenttest.FakeEnsureMongo
-	bootstrapName   string
-	hostedModelUUID string
+	storagePath      string
+	dataPath         string
+	logPath          string
+	metricsSpoolPath string
+	mongoOplogSize   string
+	fakeEnsureMongo  *agenttest.FakeEnsureMongo
+	bootstrapName    string
+	hostedModelUUID  string
 
 	toolsStorage storage.Storage
 }
@@ -84,9 +86,9 @@ type BootstrapSuite struct {
 var _ = gc.Suite(&BootstrapSuite{})
 
 func (s *BootstrapSuite) SetUpSuite(c *gc.C) {
-	storageDir := c.MkDir()
-	restorer := gitjujutesting.PatchValue(&envtools.DefaultBaseURL, storageDir)
-	stor, err := filestorage.NewFileStorageWriter(storageDir)
+	storagePath := c.MkDir()
+	restorer := gitjujutesting.PatchValue(&envtools.DefaultBaseURL, storagePath)
+	stor, err := filestorage.NewFileStorageWriter(storagePath)
 	c.Assert(err, jc.ErrorIsNil)
 	s.toolsStorage = stor
 
@@ -111,9 +113,11 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	})
 
 	s.MgoSuite.SetUpTest(c)
-	s.dataDir = c.MkDir()
-	s.logDir = c.MkDir()
-	s.bootstrapParamsFile = filepath.Join(s.dataDir, "bootstrap-params")
+	s.storagePath = c.MkDir()
+	s.dataPath = c.MkDir()
+	s.logPath = c.MkDir()
+	s.metricsSpoolPath = c.MkDir()
+	s.bootstrapParamsFile = filepath.Join(s.dataPath, "bootstrap-params")
 	s.mongoOplogSize = "1234"
 	s.fakeEnsureMongo = agenttest.InstallFakeEnsureMongo(s)
 	s.PatchValue(&initiateMongoServer, s.fakeEnsureMongo.InitiateMongo)
@@ -123,9 +127,9 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	current := version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
-		Series: series.HostSeries(),
+		Series: series.MustHostSeries(),
 	}
-	toolsDir := filepath.FromSlash(agenttools.SharedToolsDir(s.dataDir, current))
+	toolsDir := filepath.FromSlash(agenttools.SharedToolsDir(s.dataPath, current))
 	err := os.MkdirAll(toolsDir, 0755)
 	c.Assert(err, jc.ErrorIsNil)
 	err = ioutil.WriteFile(filepath.Join(toolsDir, "tools.tar.gz"), nil, 0644)
@@ -133,7 +137,7 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	s.writeDownloadedTools(c, &tools.Tools{Version: current})
 
 	// Create fake gui.tar.bz2 and downloaded-gui.txt.
-	guiDir := filepath.FromSlash(agenttools.SharedGUIDir(s.dataDir))
+	guiDir := filepath.FromSlash(agenttools.SharedGUIDir(s.dataPath))
 	err = os.MkdirAll(guiDir, 0755)
 	c.Assert(err, jc.ErrorIsNil)
 	err = ioutil.WriteFile(filepath.Join(guiDir, "gui.tar.bz2"), nil, 0644)
@@ -149,7 +153,7 @@ func (s *BootstrapSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *BootstrapSuite) writeDownloadedTools(c *gc.C, tools *tools.Tools) {
-	toolsDir := filepath.FromSlash(agenttools.SharedToolsDir(s.dataDir, tools.Version))
+	toolsDir := filepath.FromSlash(agenttools.SharedToolsDir(s.dataPath, tools.Version))
 	err := os.MkdirAll(toolsDir, 0755)
 	c.Assert(err, jc.ErrorIsNil)
 	data, err := json.Marshal(tools)
@@ -159,7 +163,7 @@ func (s *BootstrapSuite) writeDownloadedTools(c *gc.C, tools *tools.Tools) {
 }
 
 func (s *BootstrapSuite) writeDownloadedGUI(c *gc.C, gui *tools.GUIArchive) {
-	guiDir := filepath.FromSlash(agenttools.SharedGUIDir(s.dataDir))
+	guiDir := filepath.FromSlash(agenttools.SharedGUIDir(s.dataPath))
 	err := os.MkdirAll(guiDir, 0755)
 	c.Assert(err, jc.ErrorIsNil)
 	data, err := json.Marshal(gui)
@@ -169,7 +173,7 @@ func (s *BootstrapSuite) writeDownloadedGUI(c *gc.C, gui *tools.GUIArchive) {
 }
 
 func (s *BootstrapSuite) TestGUIArchiveInfoNotFound(c *gc.C) {
-	dir := filepath.FromSlash(agenttools.SharedGUIDir(s.dataDir))
+	dir := filepath.FromSlash(agenttools.SharedGUIDir(s.dataPath))
 	info := filepath.Join(dir, "downloaded-gui.txt")
 	err := os.Remove(info)
 	c.Assert(err, jc.ErrorIsNil)
@@ -195,7 +199,7 @@ func (s *BootstrapSuite) TestGUIArchiveInfoError(c *gc.C) {
 		// "jujud bootstrap" is never run on Windows anyway.
 		c.Skip("needs chmod investigation")
 	}
-	dir := filepath.FromSlash(agenttools.SharedGUIDir(s.dataDir))
+	dir := filepath.FromSlash(agenttools.SharedGUIDir(s.dataPath))
 	info := filepath.Join(dir, "downloaded-gui.txt")
 	err := os.Chmod(info, 0000)
 	c.Assert(err, jc.ErrorIsNil)
@@ -217,7 +221,7 @@ func (s *BootstrapSuite) TestGUIArchiveInfoError(c *gc.C) {
 }
 
 func (s *BootstrapSuite) TestGUIArchiveError(c *gc.C) {
-	dir := filepath.FromSlash(agenttools.SharedGUIDir(s.dataDir))
+	dir := filepath.FromSlash(agenttools.SharedGUIDir(s.dataPath))
 	archive := filepath.Join(dir, "gui.tar.bz2")
 	err := os.Remove(archive)
 	c.Assert(err, jc.ErrorIsNil)
@@ -253,13 +257,17 @@ func (s *BootstrapSuite) TestGUIArchiveSuccess(c *gc.C) {
 	}})
 
 	// Retrieve the state so that it is possible to access the GUI storage.
-	st, err := state.Open(testing.ModelTag, testing.ControllerTag, &mongo.MongoInfo{
-		Info: mongo.Info{
-			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
-			CACert: testing.CACert,
-		},
-		Password: testPassword,
-	}, mongotest.DialOpts(), nil)
+	st, err := state.Open(
+		s.storagePath,
+		testing.ModelTag,
+		testing.ControllerTag,
+		&mongo.MongoInfo{
+			Info: mongo.Info{
+				Addrs:  []string{gitjujutesting.MgoServer.Addr()},
+				CACert: testing.CACert,
+			},
+			Password: testPassword,
+		}, mongotest.DialOpts(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
@@ -288,15 +296,19 @@ func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []multiwatcher.Machi
 			multiwatcher.JobHostUnits,
 		}
 	}
+
+	agentTag := names.NewMachineTag("0")
+	configFilePath := agent.ConfigPath(s.dataPath, agentTag)
+
 	// NOTE: the old test used an equivalent of the NewAgentConfig, but it
 	// really should be using NewStateMachineConfig.
 	agentParams := agent.AgentConfigParams{
-		Paths: agent.Paths{
-			LogDir:  s.logDir,
-			DataDir: s.dataDir,
-		},
+		ConfigFilePath:    configFilePath,
+		LogPath:           s.logPath,
+		DataPath:          s.dataPath,
+		MetricsSpoolPath:  s.metricsSpoolPath,
 		Jobs:              jobs,
-		Tag:               names.NewMachineTag("0"),
+		Tag:               agentTag,
 		UpgradedToVersion: jujuversion.Current,
 		Password:          testPassword,
 		Nonce:             agent.BootstrapNonce,
@@ -326,8 +338,8 @@ func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []multiwatcher.Machi
 	if len(args) == 0 {
 		args = []string{s.bootstrapParamsFile}
 	}
-	cmd = NewBootstrapCommand()
-	err = testing.InitCommand(cmd, append([]string{"--data-dir", s.dataDir}, args...))
+	cmd = NewBootstrapCommand(s.storagePath, s.dataPath, series.MustHostSeries())
+	err = testing.InitCommand(cmd, append([]string{"--data-dir", s.dataPath}, args...))
 	return machineConf, cmd, err
 }
 
@@ -337,10 +349,10 @@ func (s *BootstrapSuite) TestInitializeEnvironment(c *gc.C) {
 	err = cmd.Run(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(s.fakeEnsureMongo.DataDir, gc.Equals, s.dataDir)
+	c.Assert(s.fakeEnsureMongo.DataDir, gc.Equals, s.dataPath)
 	c.Assert(s.fakeEnsureMongo.InitiateCount, gc.Equals, 1)
 	c.Assert(s.fakeEnsureMongo.EnsureCount, gc.Equals, 1)
-	c.Assert(s.fakeEnsureMongo.DataDir, gc.Equals, s.dataDir)
+	c.Assert(s.fakeEnsureMongo.DataDir, gc.Equals, s.dataPath)
 	c.Assert(s.fakeEnsureMongo.OplogSize, gc.Equals, 1234)
 
 	expectInfo, exists := machConf.StateServingInfo()
@@ -363,13 +375,17 @@ func (s *BootstrapSuite) TestInitializeEnvironment(c *gc.C) {
 	c.Assert(s.fakeEnsureMongo.InitiateParams.User, gc.Equals, "")
 	c.Assert(s.fakeEnsureMongo.InitiateParams.Password, gc.Equals, "")
 
-	st, err := state.Open(testing.ModelTag, testing.ControllerTag, &mongo.MongoInfo{
-		Info: mongo.Info{
-			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
-			CACert: testing.CACert,
-		},
-		Password: testPassword,
-	}, mongotest.DialOpts(), nil)
+	st, err := state.Open(
+		s.storagePath,
+		testing.ModelTag,
+		testing.ControllerTag,
+		&mongo.MongoInfo{
+			Info: mongo.Info{
+				Addrs:  []string{gitjujutesting.MgoServer.Addr()},
+				CACert: testing.CACert,
+			},
+			Password: testPassword,
+		}, mongotest.DialOpts(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 	machines, err := st.AllMachines()
@@ -416,13 +432,17 @@ func (s *BootstrapSuite) TestInitializeEnvironmentToolsNotFound(c *gc.C) {
 	err = cmd.Run(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	st, err := state.Open(testing.ModelTag, testing.ControllerTag, &mongo.MongoInfo{
-		Info: mongo.Info{
-			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
-			CACert: testing.CACert,
-		},
-		Password: testPassword,
-	}, mongotest.DialOpts(), nil)
+	st, err := state.Open(
+		s.storagePath,
+		testing.ModelTag,
+		testing.ControllerTag,
+		&mongo.MongoInfo{
+			Info: mongo.Info{
+				Addrs:  []string{gitjujutesting.MgoServer.Addr()},
+				CACert: testing.CACert,
+			},
+			Password: testPassword,
+		}, mongotest.DialOpts(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
@@ -443,13 +463,17 @@ func (s *BootstrapSuite) TestSetConstraints(c *gc.C) {
 	err = cmd.Run(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	st, err := state.Open(testing.ModelTag, testing.ControllerTag, &mongo.MongoInfo{
-		Info: mongo.Info{
-			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
-			CACert: testing.CACert,
-		},
-		Password: testPassword,
-	}, mongotest.DialOpts(), nil)
+	st, err := state.Open(
+		s.storagePath,
+		testing.ModelTag,
+		testing.ControllerTag,
+		&mongo.MongoInfo{
+			Info: mongo.Info{
+				Addrs:  []string{gitjujutesting.MgoServer.Addr()},
+				CACert: testing.CACert,
+			},
+			Password: testPassword,
+		}, mongotest.DialOpts(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
@@ -479,13 +503,17 @@ func (s *BootstrapSuite) TestDefaultMachineJobs(c *gc.C) {
 	err = cmd.Run(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	st, err := state.Open(testing.ModelTag, testing.ControllerTag, &mongo.MongoInfo{
-		Info: mongo.Info{
-			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
-			CACert: testing.CACert,
-		},
-		Password: testPassword,
-	}, mongotest.DialOpts(), nil)
+	st, err := state.Open(
+		s.storagePath,
+		testing.ModelTag,
+		testing.ControllerTag,
+		&mongo.MongoInfo{
+			Info: mongo.Info{
+				Addrs:  []string{gitjujutesting.MgoServer.Addr()},
+				CACert: testing.CACert,
+			},
+			Password: testPassword,
+		}, mongotest.DialOpts(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 	m, err := st.Machine("0")
@@ -500,13 +528,17 @@ func (s *BootstrapSuite) TestConfiguredMachineJobs(c *gc.C) {
 	err = cmd.Run(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	st, err := state.Open(testing.ModelTag, testing.ControllerTag, &mongo.MongoInfo{
-		Info: mongo.Info{
-			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
-			CACert: testing.CACert,
-		},
-		Password: testPassword,
-	}, mongotest.DialOpts(), nil)
+	st, err := state.Open(
+		s.storagePath,
+		testing.ModelTag,
+		testing.ControllerTag,
+		&mongo.MongoInfo{
+			Info: mongo.Info{
+				Addrs:  []string{gitjujutesting.MgoServer.Addr()},
+				CACert: testing.CACert,
+			},
+			Password: testPassword,
+		}, mongotest.DialOpts(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 	m, err := st.Machine("0")
@@ -530,7 +562,7 @@ func (s *BootstrapSuite) TestInitialPassword(c *gc.C) {
 
 	// Check we can log in to mongo as admin.
 	info.Tag, info.Password = nil, testPassword
-	st, err := state.Open(testing.ModelTag, testing.ControllerTag, info, mongotest.DialOpts(), nil)
+	st, err := state.Open(s.storagePath, testing.ModelTag, testing.ControllerTag, info, mongotest.DialOpts(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
@@ -552,12 +584,19 @@ func (s *BootstrapSuite) TestInitialPassword(c *gc.C) {
 	// Check that the machine configuration has been given a new
 	// password and that we can connect to mongo as that machine
 	// and that the in-mongo password also verifies correctly.
-	machineConf1, err := agent.ReadConfig(agent.ConfigPath(machineConf.DataDir(), names.NewMachineTag("0")))
+	machineConf1, err := agent.ReadConfig(agent.ConfigPath(machineConf.DataPath(), names.NewMachineTag("0")))
 	c.Assert(err, jc.ErrorIsNil)
 
 	stateinfo, ok := machineConf1.MongoInfo()
 	c.Assert(ok, jc.IsTrue)
-	st, err = state.Open(testing.ModelTag, testing.ControllerTag, stateinfo, mongotest.DialOpts(), nil)
+	st, err = state.Open(
+		s.storagePath,
+		testing.ModelTag,
+		testing.ControllerTag,
+		stateinfo,
+		mongotest.DialOpts(),
+		nil,
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
@@ -587,9 +626,8 @@ func (s *BootstrapSuite) TestBootstrapArgs(c *gc.C) {
 		args = append(args, t.input...)
 		_, cmd, err := s.initBootstrapCommand(c, nil, args...)
 		if t.err == "" {
-			c.Assert(cmd, gc.NotNil)
 			c.Assert(err, jc.ErrorIsNil)
-			c.Assert(cmd.BootstrapParamsFile, gc.Equals, t.expectedBootstrapParamsFile)
+			c.Check(cmd.BootstrapParamsFile, gc.Equals, t.expectedBootstrapParamsFile)
 		} else {
 			c.Assert(err, gc.ErrorMatches, t.err)
 		}
@@ -635,7 +673,7 @@ func (s *BootstrapSuite) TestInitializeStateMinSocketTimeout(c *gc.C) {
 }
 
 func (s *BootstrapSuite) TestSystemIdentityWritten(c *gc.C) {
-	_, err := os.Stat(filepath.Join(s.dataDir, agent.SystemIdentity))
+	_, err := os.Stat(filepath.Join(s.dataPath, agent.SystemIdentity))
 	c.Assert(err, jc.Satisfies, os.IsNotExist)
 
 	_, cmd, err := s.initBootstrapCommand(c, nil)
@@ -643,7 +681,7 @@ func (s *BootstrapSuite) TestSystemIdentityWritten(c *gc.C) {
 	err = cmd.Run(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	data, err := ioutil.ReadFile(filepath.Join(s.dataDir, agent.SystemIdentity))
+	data, err := ioutil.ReadFile(filepath.Join(s.dataPath, agent.SystemIdentity))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(data), gc.Equals, "private-key")
 }
@@ -659,7 +697,7 @@ func (s *BootstrapSuite) TestUploadedToolsMetadata(c *gc.C) {
 		Version: version.Binary{
 			Number: jujuversion.Current,
 			Arch:   arch.HostArch(),
-			Series: series.HostSeries(),
+			Series: series.MustHostSeries(),
 		},
 		URL: "file:///does/not/matter",
 	})
@@ -683,28 +721,33 @@ func (s *BootstrapSuite) testToolsMetadata(c *gc.C, exploded bool) {
 	// The tools should have been added to tools storage, and
 	// exploded into each of the supported series of
 	// the same operating system if the tools were uploaded.
-	st, err := state.Open(testing.ModelTag, testing.ControllerTag, &mongo.MongoInfo{
-		Info: mongo.Info{
-			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
-			CACert: testing.CACert,
-		},
-		Password: testPassword,
-	}, mongotest.DialOpts(), nil)
+	st, err := state.Open(
+		s.storagePath,
+		testing.ModelTag,
+		testing.ControllerTag,
+		&mongo.MongoInfo{
+			Info: mongo.Info{
+				Addrs:  []string{gitjujutesting.MgoServer.Addr()},
+				CACert: testing.CACert,
+			},
+			Password: testPassword,
+		}, mongotest.DialOpts(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 	expectedSeries := make(set.Strings)
+	hostSeries := series.MustHostSeries()
 	if exploded {
 		for _, ser := range series.SupportedSeries() {
 			os, err := series.GetOSFromSeries(ser)
 			c.Assert(err, jc.ErrorIsNil)
-			hostos, err := series.GetOSFromSeries(series.HostSeries())
+			hostos, err := series.GetOSFromSeries(hostSeries)
 			c.Assert(err, jc.ErrorIsNil)
 			if os == hostos {
 				expectedSeries.Add(ser)
 			}
 		}
 	} else {
-		expectedSeries.Add(series.HostSeries())
+		expectedSeries.Add(hostSeries)
 	}
 
 	storage, err := st.ToolsStorage()
@@ -731,14 +774,21 @@ func createImageMetadata() []*imagemetadata.ImageMetadata {
 	}}
 }
 
-func assertWrittenToState(c *gc.C, metadata cloudimagemetadata.Metadata) {
-	st, err := state.Open(testing.ModelTag, testing.ControllerTag, &mongo.MongoInfo{
-		Info: mongo.Info{
-			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
-			CACert: testing.CACert,
+func assertWrittenToState(c *gc.C, storagePath string, metadata cloudimagemetadata.Metadata) {
+	st, err := state.Open(
+		storagePath,
+		testing.ModelTag,
+		testing.ControllerTag,
+		&mongo.MongoInfo{
+			Info: mongo.Info{
+				Addrs:  []string{gitjujutesting.MgoServer.Addr()},
+				CACert: testing.CACert,
+			},
+			Password: testPassword,
 		},
-		Password: testPassword,
-	}, mongotest.DialOpts(), nil)
+		mongotest.DialOpts(),
+		nil,
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
@@ -779,7 +829,7 @@ func (s *BootstrapSuite) TestStructuredImageMetadataStored(c *gc.C) {
 		Priority: simplestreams.CUSTOM_CLOUD_DATA,
 		ImageId:  "imageId",
 	}
-	assertWrittenToState(c, expect)
+	assertWrittenToState(c, s.storagePath, expect)
 }
 
 func (s *BootstrapSuite) TestStructuredImageMetadataInvalidSeries(c *gc.C) {

@@ -8,6 +8,7 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
@@ -314,7 +315,7 @@ func (s *statusUnitTestSuite) TestMigrationInProgress(c *gc.C) {
 	// Get API connection to hosted model.
 	apiInfo := s.APIInfo(c)
 	apiInfo.ModelTag = state2.ModelTag()
-	conn, err := api.Open(apiInfo, api.DialOpts{})
+	conn, err := api.Open(apiInfo, api.DialOpts{Clock: clock.WallClock})
 	c.Assert(err, jc.ErrorIsNil)
 	client := conn.Client()
 

@@ -80,7 +80,7 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams, img *OvaFi
 		return nil, nil, errors.Trace(err)
 	}
 
-	cloudcfg, err := cloudinit.New(args.Tools.OneSeries())
+	cloudcfg, err := cloudinit.New(args.InstanceConfig.OSType, args.InstanceConfig.Series)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}

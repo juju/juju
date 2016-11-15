@@ -194,6 +194,7 @@ func fillinStartInstanceParams(env environs.Environ, machineId string, isControl
 		instancePaths.Data,
 		instancePaths.Log,
 		instancePaths.MetricsSpool,
+		instancePaths.CloudInitOutputLogPath,
 		testing.ControllerTag,
 		machineId,
 		machineNonce,

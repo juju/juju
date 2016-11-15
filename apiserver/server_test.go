@@ -43,7 +43,7 @@ import (
 	"github.com/juju/juju/worker/workertest"
 )
 
-var fastDialOpts = api.DialOpts{}
+var fastDialOpts = api.DialOpts{Clock: clock.WallClock}
 
 type serverSuite struct {
 	jujutesting.JujuConnSuite
@@ -198,7 +198,14 @@ func (s *serverSuite) TestNewServerDoesNotAccessState(c *gc.C) {
 		Timeout:       5 * time.Second,
 		SocketTimeout: 5 * time.Second,
 	}
-	st, err := state.Open(s.State.ModelTag(), s.State.ControllerTag(), mongoInfo, dialOpts, nil)
+	st, err := state.Open(
+		"/fake/storage/path",
+		s.State.ModelTag(),
+		s.State.ControllerTag(),
+		mongoInfo,
+		dialOpts,
+		nil,
+	)
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 

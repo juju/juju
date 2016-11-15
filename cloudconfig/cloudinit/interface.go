@@ -15,7 +15,6 @@ import (
 	"github.com/juju/utils/packaging/commands"
 	"github.com/juju/utils/packaging/config"
 	"github.com/juju/utils/proxy"
-	"github.com/juju/utils/series"
 	"github.com/juju/utils/shell"
 )
 
@@ -386,12 +385,8 @@ type UsersConfig interface {
 }
 
 // New returns a new Config with no options set.
-func New(ser string) (CloudConfig, error) {
-	seriesos, err := series.GetOSFromSeries(ser)
-	if err != nil {
-		return nil, err
-	}
-	switch seriesos {
+func New(osType os.OSType, ser string) (CloudConfig, error) {
+	switch osType {
 	case os.Windows:
 		renderer, _ := shell.NewRenderer("powershell")
 		return &windowsCloudConfig{

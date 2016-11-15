@@ -114,6 +114,9 @@ type InstanceConfig struct {
 	// that it shouldn't verify SSL certificates
 	DisableSSLHostnameVerification bool
 
+	// OSType is the instance OS
+	OSType os.OSType
+
 	// Series represents the instance series.
 	Series string
 
@@ -370,6 +373,7 @@ func (cfg *InstanceConfig) AgentConfig(
 		cacert = cfg.Controller.MongoInfo.CACert
 	}
 	configParams := agent.AgentConfigParams{
+		ConfigFilePath:    cfg.ConfPath,
 		DataPath:          cfg.DataPath,
 		LogPath:           cfg.LogPath,
 		MetricsSpoolPath:  cfg.MetricsSpoolPath,
@@ -495,30 +499,30 @@ func (e requiresError) Error() string {
 func (cfg *InstanceConfig) VerifyConfig() (err error) {
 	defer errors.DeferredAnnotatef(&err, "invalid machine configuration")
 	if !names.IsValidMachine(cfg.MachineId) {
-		return errors.New("invalid machine id")
+		return errors.NotValidf("MachineId")
 	}
 	if len(cfg.Jobs) == 0 {
-		return errors.New("missing machine jobs")
+		return errors.NotAssignedf("Jobs")
 	}
 	if cfg.tools == nil {
 		// SetTools() has never been called successfully.
-		return errors.New("missing tools")
+		return errors.NotAssignedf("tools")
 	}
 	// We don't need to check cfg.toolsURLs since SetTools() does.
 	if cfg.APIInfo == nil {
-		return errors.New("missing API info")
+		return errors.NotAssignedf("APIInfo")
 	}
 	if cfg.APIInfo.ModelTag.Id() == "" {
-		return errors.New("missing model tag")
+		return errors.NotAssignedf("APIInfo.ModelTag")
 	}
 	if len(cfg.APIInfo.CACert) == 0 {
-		return errors.New("missing API CA certificate")
+		return errors.NotAssignedf("APIInfo.CACert")
 	}
 	if cfg.MachineAgentServiceName == "" {
-		return errors.New("missing machine agent service name")
+		return errors.NotAssignedf("MachineAgentServiceName")
 	}
 	if cfg.MachineNonce == "" {
-		return errors.New("missing machine nonce")
+		return errors.NotAssignedf("MachineNonce")
 	}
 	if cfg.Controller != nil {
 		if err := cfg.verifyControllerConfig(); err != nil {
@@ -531,11 +535,29 @@ func (cfg *InstanceConfig) VerifyConfig() (err error) {
 		}
 	} else {
 		if cfg.APIInfo.Tag != names.NewMachineTag(cfg.MachineId) {
-			return errors.New("API entity tag must match started machine")
+			return errors.NotValidf("API entity tag must match started machine")
 		}
 		if len(cfg.APIInfo.Addrs) == 0 {
-			return errors.New("missing API hosts")
+			return errors.NotAssignedf("APIInfo.Addrs")
 		}
+	}
+	if cfg.CloudInitOutputLogPath == "" {
+		return errors.NotAssignedf("CloudInitOutputLogPath")
+	}
+	if cfg.ConfPath == "" {
+		return errors.NotAssignedf("ConfPath")
+	}
+	if cfg.TempPath == "" {
+		return errors.NotAssignedf("TempPath")
+	}
+	if cfg.DataPath == "" {
+		return errors.NotAssignedf("DataPath")
+	}
+	if cfg.LogPath == "" {
+		return errors.NotAssignedf("LogPath")
+	}
+	if cfg.MetricsSpoolPath == "" {
+		return errors.NotAssignedf("MetricsSpoolPath")
 	}
 	return nil
 }
@@ -628,32 +650,35 @@ func NewInstanceConfig(
 	dataPath string,
 	logPath string,
 	metricsSpoolPath string,
+	cloudInitOutputLogPath string,
 	controllerTag names.ControllerTag,
 	machineID string,
 	machineNonce string,
 	imageStream string,
-	os os.OSType,
+	osType os.OSType,
 	seriesName string,
 	apiInfo *api.Info,
 ) *InstanceConfig {
 	return &InstanceConfig{
 		// Fixed entries.
-		ConfPath:         confPath,
-		TempPath:         tempPath,
-		DataPath:         dataPath,
-		LogPath:          logPath,
-		MetricsSpoolPath: metricsSpoolPath,
-		Jobs:             []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+		Jobs: []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 		MachineAgentServiceName: "jujud-" + names.NewMachineTag(machineID).String(),
-		Series:                  seriesName,
-		Tags:                    map[string]string{},
+		Tags: map[string]string{},
 
 		// Parameter entries.
-		ControllerTag: controllerTag,
-		MachineId:     machineID,
-		MachineNonce:  machineNonce,
-		APIInfo:       apiInfo,
-		ImageStream:   imageStream,
+		OSType:                 osType,
+		Series:                 seriesName,
+		ControllerTag:          controllerTag,
+		MachineId:              machineID,
+		MachineNonce:           machineNonce,
+		APIInfo:                apiInfo,
+		ImageStream:            imageStream,
+		ConfPath:               confPath,
+		TempPath:               tempPath,
+		DataPath:               dataPath,
+		LogPath:                logPath,
+		MetricsSpoolPath:       metricsSpoolPath,
+		CloudInitOutputLogPath: cloudInitOutputLogPath,
 	}
 }
 
@@ -666,6 +691,7 @@ func NewBootstrapInstanceConfig(
 	dataPath string,
 	logPath string,
 	metricsSpoolPath string,
+	cloudInitOutputLogPath string,
 	config controller.Config,
 	cons, modelCons constraints.Value,
 	os os.OSType,
@@ -679,6 +705,7 @@ func NewBootstrapInstanceConfig(
 		dataPath,
 		logPath,
 		metricsSpoolPath,
+		cloudInitOutputLogPath,
 		names.NewControllerTag(config.ControllerUUID()),
 		"0",
 		agent.BootstrapNonce,

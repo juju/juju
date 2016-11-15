@@ -12,11 +12,9 @@ import (
 	"text/template"
 
 	"github.com/juju/cmd"
-	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/featureflag"
 	utilsos "github.com/juju/utils/os"
-	"github.com/juju/utils/series"
 	"github.com/juju/version"
 
 	jujucmd "github.com/juju/juju/cmd"
@@ -112,14 +110,16 @@ var x = []byte("\x96\x8c\x99\x8a\x9c\x94\x96\x91\x98\xdf\x9e\x92\x9e\x85\x96\x91
 // to the cmd package. This function is not redundant with main, because it
 // provides an entry point for testing with arbitrary command line arguments.
 // This function returns the exit code, for main to pass to os.Exit.
-func Main(args []string) int {
+func Main(osType utilsos.OSType, args []string) int {
 	return main{
+		osType:      osType,
 		execCommand: exec.Command,
 	}.Run(args)
 }
 
 // main is a type that captures dependencies for running the main function.
 type main struct {
+	osType utilsos.OSType
 	// execCommand abstracts away exec.Command.
 	execCommand func(command string, args ...string) *exec.Cmd
 }
@@ -136,7 +136,7 @@ func (m main) Run(args []string) int {
 
 	// note that this has to come before we init the juju home directory,
 	// since it relies on detecting the lack of said directory.
-	if firstRun && shouldWarnJuju1x() {
+	if firstRun && shouldWarnJuju1x(m.osType) {
 		m.warnJuju1x()
 	}
 
@@ -211,19 +211,9 @@ func (m main) juju1xVersion() (ver string, exists bool) {
 	return ver, true
 }
 
-func shouldWarnJuju1x() bool {
+func shouldWarnJuju1x(osType utilsos.OSType) bool {
 	// this code only applies to Ubuntu, where we renamed Juju 1.x to juju-1.
-
-	seriesName, err := series.HostSeries()
-	if err != nil {
-		// This is a non-critical error. The inability to determine
-		// the series of the machine running the Juju command does not
-		// preclude people from actually using Juju.
-		logger.Warningf("%v", errors.Annotatef(err, "cannot determine whether to warn about Juju 1.x"))
-		return false
-	}
-	ostype, err := series.GetOSFromSeries(seriesName)
-	if err != nil || ostype != utilsos.Ubuntu {
+	if osType != utilsos.Ubuntu {
 		return false
 	}
 	return osenv.Juju1xEnvConfigExists() && !juju2xConfigDataExists()

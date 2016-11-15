@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
@@ -125,9 +126,16 @@ func (s *baseSuite) tryOpenState(c *gc.C, e apiAuthenticator, password string) e
 	stateInfo := s.MongoInfo(c)
 	stateInfo.Tag = e.Tag()
 	stateInfo.Password = password
-	st, err := state.Open(s.State.ModelTag(), s.State.ControllerTag(), stateInfo, mongo.DialOpts{
-		Timeout: 25 * time.Millisecond,
-	}, nil)
+	st, err := state.Open(
+		"/fake/storage/path",
+		s.State.ModelTag(),
+		s.State.ControllerTag(),
+		stateInfo,
+		mongo.DialOpts{
+			Timeout: 25 * time.Millisecond,
+		},
+		nil,
+	)
 	if err == nil {
 		st.Close()
 	}
@@ -145,7 +153,7 @@ func (s *baseSuite) openAs(c *gc.C, tag names.Tag) api.Connection {
 	// not fail with ErrNotProvisioned; it's not used otherwise.
 	info.Nonce = "fake_nonce"
 	c.Logf("opening state; entity %q; password %q", info.Tag, info.Password)
-	st, err := api.Open(info, api.DialOpts{})
+	st, err := api.Open(info, api.DialOpts{Clock: clock.WallClock})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st, gc.NotNil)
 	return st

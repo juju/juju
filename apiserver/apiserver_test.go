@@ -93,7 +93,7 @@ func (s *apiserverBaseSuite) openAPIAs(c *gc.C, srv *apiserver.Server, tag names
 	if !controllerOnly {
 		apiInfo.ModelTag = s.State.ModelTag()
 	}
-	conn, err := api.Open(apiInfo, api.DialOpts{})
+	conn, err := api.Open(apiInfo, api.DialOpts{Clock: clock.WallClock})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(conn, gc.NotNil)
 	s.AddCleanup(func(c *gc.C) {

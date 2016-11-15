@@ -92,7 +92,7 @@ func (*instancecfgSuite) TestSetToolsDifferentVersions(c *gc.C) {
 
 func (*instancecfgSuite) TestJujuTools(c *gc.C) {
 	icfg := &instancecfg.InstanceConfig{
-		DataDir: "/path/to/datadir/",
+		DataPath: "/path/to/datadir/",
 	}
 	err := icfg.SetTools(coretools.List{
 		&coretools.Tools{
@@ -107,7 +107,7 @@ func (*instancecfgSuite) TestJujuTools(c *gc.C) {
 
 func (*instancecfgSuite) TestGUITools(c *gc.C) {
 	icfg := &instancecfg.InstanceConfig{
-		DataDir: "/path/to/datadir/",
+		DataPath: "/path/to/datadir/",
 	}
 	c.Assert(icfg.GUITools(), gc.Equals, "/path/to/datadir/gui")
 }

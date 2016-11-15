@@ -58,9 +58,9 @@ func (s *bootstrapSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
-	dataDir := c.MkDir()
+	dataPath := c.MkDir()
 
-	lxcFakeNetConfig := filepath.Join(c.MkDir(), "lxc-net")
+	lxcFakeNetConfigPath := filepath.Join(c.MkDir(), "lxc-net")
 	netConf := []byte(`
   # comments ignored
 LXC_BR= ignored
@@ -68,8 +68,7 @@ LXC_ADDR = "fooo"
 LXC_BRIDGE="foobar" # detected
 anything else ignored
 LXC_BRIDGE="ignored"`[1:])
-	err := ioutil.WriteFile(lxcFakeNetConfig, netConf, 0644)
-	c.Assert(err, jc.ErrorIsNil)
+	err := ioutil.WriteFile(lxcFakeNetConfigPath, netConf, 0644)
 	c.Assert(err, jc.ErrorIsNil)
 	s.PatchValue(&network.InterfaceByNameAddrs, func(name string) ([]net.Addr, error) {
 		if name == "foobar" {
@@ -88,11 +87,15 @@ LXC_BRIDGE="ignored"`[1:])
 		c.Fatalf("unknown bridge in testing: %v", name)
 		return nil, nil
 	})
-	s.PatchValue(&network.LXCNetDefaultConfig, lxcFakeNetConfig)
+	s.PatchValue(&network.LXCNetDefaultConfig, lxcFakeNetConfigPath)
 
+	machineTag := names.NewMachineTag("0")
 	configParams := agent.AgentConfigParams{
-		Paths:             agent.Paths{DataDir: dataDir},
-		Tag:               names.NewMachineTag("0"),
+		LogPath:           "/fake/log/path",
+		ConfigFilePath:    agent.ConfigPath(dataPath, machineTag),
+		MetricsSpoolPath:  "/fake/metrics/spool/path",
+		DataPath:          dataPath,
+		Tag:               machineTag,
 		UpgradedToVersion: jujuversion.Current,
 		StateAddresses:    []string{s.mgoInst.Addr()},
 		CACert:            testing.CACert,
@@ -180,7 +183,7 @@ LXC_BRIDGE="ignored"`[1:])
 		BootstrapMachineJobs:      []multiwatcher.MachineJob{multiwatcher.JobManageModel},
 		SharedSecret:              "abc123",
 		Provider: func(t string) (environs.EnvironProvider, error) {
-			c.Assert(t, gc.Equals, "dummy")
+			c.Check(t, gc.Equals, "dummy")
 			return &envProvider, nil
 		},
 		StorageProviderRegistry: provider.CommonStorageProviders(),
@@ -199,20 +202,20 @@ LXC_BRIDGE="ignored"`[1:])
 	// Check that the environment has been set up.
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(model.UUID(), gc.Equals, modelCfg.UUID())
+	c.Check(model.UUID(), gc.Equals, modelCfg.UUID())
 
 	// Check that initial admin user has been set up correctly.
 	modelTag := model.Tag().(names.ModelTag)
 	controllerTag := names.NewControllerTag(controllerCfg.ControllerUUID())
-	s.assertCanLogInAsAdmin(c, modelTag, controllerTag, testing.DefaultMongoPassword)
+	s.assertCanLogInAsAdmin(c, c.MkDir(), modelTag, controllerTag, testing.DefaultMongoPassword)
 	user, err := st.User(model.Owner())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(user.PasswordValid(testing.DefaultMongoPassword), jc.IsTrue)
+	c.Check(user.PasswordValid(testing.DefaultMongoPassword), jc.IsTrue)
 
 	// Check controller config
 	controllerCfg, err = st.ControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(controllerCfg, jc.DeepEquals, controller.Config{
+	c.Check(controllerCfg, jc.DeepEquals, controller.Config{
 		"controller-uuid":         testing.ControllerTag.Id(),
 		"ca-cert":                 testing.CACert,
 		"state-port":              1234,
@@ -230,11 +233,11 @@ LXC_BRIDGE="ignored"`[1:])
 	expectedAttrs := expectedCfg.AllAttrs()
 	expectedAttrs["apt-mirror"] = "http://mirror"
 	expectedAttrs["no-proxy"] = "value"
-	c.Assert(newModelCfg.AllAttrs(), jc.DeepEquals, expectedAttrs)
+	c.Check(newModelCfg.AllAttrs(), jc.DeepEquals, expectedAttrs)
 
 	gotModelConstraints, err := st.ModelConstraints()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(gotModelConstraints, gc.DeepEquals, expectModelConstraints)
+	c.Check(gotModelConstraints, gc.DeepEquals, expectModelConstraints)
 
 	// Check that the hosted model has been added, model constraints
 	// set, and its config contains the same authorized-keys as the
@@ -244,42 +247,42 @@ LXC_BRIDGE="ignored"`[1:])
 	defer hostedModelSt.Close()
 	gotModelConstraints, err = hostedModelSt.ModelConstraints()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(gotModelConstraints, gc.DeepEquals, expectModelConstraints)
+	c.Check(gotModelConstraints, gc.DeepEquals, expectModelConstraints)
 	hostedModel, err := hostedModelSt.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(hostedModel.Name(), gc.Equals, "hosted")
-	c.Assert(hostedModel.CloudRegion(), gc.Equals, "dummy-region")
+	c.Check(hostedModel.Name(), gc.Equals, "hosted")
+	c.Check(hostedModel.CloudRegion(), gc.Equals, "dummy-region")
 	hostedCfg, err := hostedModelSt.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	_, hasUnexpected := hostedCfg.AllAttrs()["not-for-hosted"]
-	c.Assert(hasUnexpected, jc.IsFalse)
-	c.Assert(hostedCfg.AuthorizedKeys(), gc.Equals, newModelCfg.AuthorizedKeys())
+	c.Check(hasUnexpected, jc.IsFalse)
+	c.Check(hostedCfg.AuthorizedKeys(), gc.Equals, newModelCfg.AuthorizedKeys())
 
 	// Check that the bootstrap machine looks correct.
-	c.Assert(m.Id(), gc.Equals, "0")
-	c.Assert(m.Jobs(), gc.DeepEquals, []state.MachineJob{state.JobManageModel})
-	c.Assert(m.Series(), gc.Equals, series.HostSeries())
-	c.Assert(m.CheckProvisioned(agent.BootstrapNonce), jc.IsTrue)
-	c.Assert(m.Addresses(), jc.DeepEquals, filteredAddrs)
+	c.Check(m.Id(), gc.Equals, "0")
+	c.Check(m.Jobs(), gc.DeepEquals, []state.MachineJob{state.JobManageModel})
+	c.Check(m.Series(), gc.Equals, series.MustHostSeries())
+	c.Check(m.CheckProvisioned(agent.BootstrapNonce), jc.IsTrue)
+	c.Check(m.Addresses(), jc.DeepEquals, filteredAddrs)
 	gotBootstrapConstraints, err := m.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(gotBootstrapConstraints, gc.DeepEquals, expectBootstrapConstraints)
+	c.Check(gotBootstrapConstraints, gc.DeepEquals, expectBootstrapConstraints)
 	c.Assert(err, jc.ErrorIsNil)
 	gotHW, err := m.HardwareCharacteristics()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(*gotHW, gc.DeepEquals, expectHW)
+	c.Check(*gotHW, gc.DeepEquals, expectHW)
 
 	// Check that the API host ports are initialised correctly.
 	apiHostPorts, err := st.APIHostPorts()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(apiHostPorts, jc.DeepEquals, [][]network.HostPort{
+	c.Check(apiHostPorts, jc.DeepEquals, [][]network.HostPort{
 		network.AddressesWithPort(filteredAddrs, 1234),
 	})
 
 	// Check that the state serving info is initialised correctly.
 	stateServingInfo, err := st.StateServingInfo()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(stateServingInfo, jc.DeepEquals, state.StateServingInfo{
+	c.Check(stateServingInfo, jc.DeepEquals, state.StateServingInfo{
 		APIPort:        1234,
 		StatePort:      s.mgoInst.Port(),
 		Cert:           testing.ServerCert,
@@ -291,14 +294,13 @@ LXC_BRIDGE="ignored"`[1:])
 
 	// Check that the machine agent's config has been written
 	// and that we can use it to connect to the state.
-	machine0 := names.NewMachineTag("0")
-	newCfg, err := agent.ReadConfig(agent.ConfigPath(dataDir, machine0))
+	newCfg, err := agent.ReadConfig(agent.ConfigPath(dataPath, machineTag))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(newCfg.Tag(), gc.Equals, machine0)
+	c.Check(newCfg.Tag(), gc.Equals, machineTag)
 	info, ok := cfg.MongoInfo()
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(info.Password, gc.Not(gc.Equals), testing.DefaultMongoPassword)
-	st1, err := state.Open(newCfg.Model(), newCfg.Controller(), info, mongotest.DialOpts(), nil)
+	c.Check(ok, jc.IsTrue)
+	c.Check(info.Password, gc.Not(gc.Equals), testing.DefaultMongoPassword)
+	st1, err := state.Open(c.MkDir(), newCfg.Model(), newCfg.Controller(), info, mongotest.DialOpts(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	defer st1.Close()
 
@@ -323,9 +325,14 @@ LXC_BRIDGE="ignored"`[1:])
 }
 
 func (s *bootstrapSuite) TestInitializeStateWithStateServingInfoNotAvailable(c *gc.C) {
+	dataPath := c.MkDir()
+	machineTag := names.NewMachineTag("0")
 	configParams := agent.AgentConfigParams{
-		Paths:             agent.Paths{DataDir: c.MkDir()},
-		Tag:               names.NewMachineTag("0"),
+		LogPath:           "/fake/log/path",
+		ConfigFilePath:    agent.ConfigPath(dataPath, machineTag),
+		MetricsSpoolPath:  "/fake/metrics/spool/path",
+		DataPath:          dataPath,
+		Tag:               machineTag,
 		UpgradedToVersion: jujuversion.Current,
 		StateAddresses:    []string{s.mgoInst.Addr()},
 		CACert:            testing.CACert,
@@ -348,11 +355,15 @@ func (s *bootstrapSuite) TestInitializeStateWithStateServingInfoNotAvailable(c *
 }
 
 func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
-	dataDir := c.MkDir()
+	dataPath := c.MkDir()
 
+	machineTag := names.NewMachineTag("0")
 	configParams := agent.AgentConfigParams{
-		Paths:             agent.Paths{DataDir: dataDir},
-		Tag:               names.NewMachineTag("0"),
+		LogPath:           "/fake/log/path",
+		ConfigFilePath:    agent.ConfigPath(dataPath, machineTag),
+		MetricsSpoolPath:  "/fake/metrics/spool/path",
+		DataPath:          dataPath,
+		Tag:               machineTag,
 		UpgradedToVersion: jujuversion.Current,
 		StateAddresses:    []string{s.mgoInst.Addr()},
 		CACert:            testing.CACert,
@@ -442,7 +453,13 @@ func (s *bootstrapSuite) TestMachineJobFromParams(c *gc.C) {
 	}
 }
 
-func (s *bootstrapSuite) assertCanLogInAsAdmin(c *gc.C, modelTag names.ModelTag, controllerTag names.ControllerTag, password string) {
+func (s *bootstrapSuite) assertCanLogInAsAdmin(
+	c *gc.C,
+	storagePath string,
+	modelTag names.ModelTag,
+	controllerTag names.ControllerTag,
+	password string,
+) {
 	info := &mongo.MongoInfo{
 		Info: mongo.Info{
 			Addrs:  []string{s.mgoInst.Addr()},
@@ -451,7 +468,7 @@ func (s *bootstrapSuite) assertCanLogInAsAdmin(c *gc.C, modelTag names.ModelTag,
 		Tag:      nil, // admin user
 		Password: password,
 	}
-	st, err := state.Open(modelTag, controllerTag, info, mongotest.DialOpts(), state.NewPolicyFunc(nil))
+	st, err := state.Open(storagePath, modelTag, controllerTag, info, mongotest.DialOpts(), state.NewPolicyFunc(nil))
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 	_, err = st.Machine("0")

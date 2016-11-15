@@ -50,7 +50,7 @@ func configureCloudinit(icfg *instancecfg.InstanceConfig, cloudcfg cloudinit.Clo
 func ComposeUserData(icfg *instancecfg.InstanceConfig, cloudcfg cloudinit.CloudConfig, renderer renderers.ProviderRenderer) ([]byte, error) {
 	if cloudcfg == nil {
 		var err error
-		cloudcfg, err = cloudinit.New(icfg.Series)
+		cloudcfg, err = cloudinit.New(icfg.OSType, icfg.Series)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

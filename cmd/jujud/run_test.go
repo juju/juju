@@ -21,7 +21,6 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
-	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter"
 	jujuos "github.com/juju/utils/os"
@@ -31,11 +30,6 @@ const testLockName = "juju-run-test"
 
 type RunTestSuite struct {
 	testing.BaseSuite
-}
-
-func (s *RunTestSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
-	s.PatchValue(&cmdutil.DataDir, c.MkDir())
 }
 
 var _ = gc.Suite(&RunTestSuite{})
@@ -129,26 +123,30 @@ func (*RunTestSuite) TestArgParsing(c *gc.C) {
 	}
 }
 
-func (s *RunTestSuite) runCommand() *RunCommand {
+func (s *RunTestSuite) runCommand(dataPath string) *RunCommand {
 	return &RunCommand{
 		MachineLockName: testLockName,
+		dataPath:        dataPath,
 	}
 }
 
 func (s *RunTestSuite) TestInsideContext(c *gc.C) {
 	s.PatchEnvironment("JUJU_CONTEXT_ID", "fake-id")
-	runCommand := s.runCommand()
+	dataPath := c.MkDir()
+	runCommand := s.runCommand(dataPath)
 	err := runCommand.Init([]string{"foo", "bar"})
 	c.Assert(err, gc.ErrorMatches, "juju-run cannot be called from within a hook.*")
 }
 
 func (s *RunTestSuite) TestMissingAgentName(c *gc.C) {
-	_, err := testing.RunCommand(c, s.runCommand(), "foo/2", "bar")
+	dataPath := c.MkDir()
+	_, err := testing.RunCommand(c, s.runCommand(dataPath), "foo/2", "bar")
 	c.Assert(err, gc.ErrorMatches, `unit "foo/2" not found on this machine`)
 }
 
 func (s *RunTestSuite) TestMissingAgentTag(c *gc.C) {
-	_, err := testing.RunCommand(c, s.runCommand(), "unit-foo-2", "bar")
+	dataPath := c.MkDir()
+	_, err := testing.RunCommand(c, s.runCommand(dataPath), "unit-foo-2", "bar")
 	c.Assert(err, gc.ErrorMatches, `unit "foo/2" not found on this machine`)
 }
 
@@ -164,7 +162,8 @@ func waitForResult(running <-chan *cmd.Context, timeout time.Duration) (*cmd.Con
 func (s *RunTestSuite) startRunAsync(c *gc.C, params []string) <-chan *cmd.Context {
 	resultChannel := make(chan *cmd.Context)
 	go func() {
-		ctx, err := testing.RunCommand(c, s.runCommand(), params...)
+		dataPath := c.MkDir()
+		ctx, err := testing.RunCommand(c, s.runCommand(dataPath), params...)
 		c.Assert(err, jc.Satisfies, cmd.IsRcPassthroughError)
 		c.Assert(err, gc.ErrorMatches, "subprocess encountered error code 0")
 		resultChannel <- ctx
@@ -174,7 +173,8 @@ func (s *RunTestSuite) startRunAsync(c *gc.C, params []string) <-chan *cmd.Conte
 }
 
 func (s *RunTestSuite) TestNoContext(c *gc.C) {
-	ctx, err := testing.RunCommand(c, s.runCommand(), "--no-context", "echo done")
+	dataPath := c.MkDir()
+	ctx, err := testing.RunCommand(c, s.runCommand(dataPath), "--no-context", "echo done")
 	c.Assert(err, jc.Satisfies, cmd.IsRcPassthroughError)
 	c.Assert(err, gc.ErrorMatches, "subprocess encountered error code 0")
 	c.Assert(strings.TrimRight(testing.Stdout(ctx), "\r\n"), gc.Equals, "done")
@@ -212,19 +212,20 @@ func (s *RunTestSuite) TestMissingSocket(c *gc.C) {
 	if runtime.GOOS == "windows" {
 		c.Skip("Current implementation of named pipes loops if the socket is missing")
 	}
-	agentDir := filepath.Join(cmdutil.DataDir, "agents", "unit-foo-1")
-	err := os.MkdirAll(agentDir, 0755)
+	dataPath := c.MkDir()
+	agentPath := filepath.Join(dataPath, "agents", "unit-foo-1")
+	err := os.MkdirAll(agentPath, 0755)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = testing.RunCommand(c, s.runCommand(), "foo/1", "bar")
+	_, err = testing.RunCommand(c, s.runCommand(dataPath), "foo/1", "bar")
 	c.Assert(err, gc.ErrorMatches, `dial unix .*/run.socket:.*`+utils.NoSuchFileErrRegexp)
 }
 
 func (s *RunTestSuite) TestRunning(c *gc.C) {
 	loggo.GetLogger("worker.uniter").SetLogLevel(loggo.TRACE)
-	s.runListenerForAgent(c, "unit-foo-1")
-
-	ctx, err := testing.RunCommand(c, s.runCommand(), "foo/1", "bar")
+	dataPath := c.MkDir()
+	s.runListenerForAgent(c, dataPath, "unit-foo-1")
+	ctx, err := testing.RunCommand(c, s.runCommand(dataPath), "foo/1", "bar")
 	c.Check(cmd.IsRcPassthroughError(err), jc.IsTrue)
 	c.Assert(err, gc.ErrorMatches, "subprocess encountered error code 42")
 	c.Assert(testing.Stdout(ctx), gc.Equals, "bar stdout")
@@ -233,9 +234,10 @@ func (s *RunTestSuite) TestRunning(c *gc.C) {
 
 func (s *RunTestSuite) TestRunningRelation(c *gc.C) {
 	loggo.GetLogger("worker.uniter").SetLogLevel(loggo.TRACE)
-	s.runListenerForAgent(c, "unit-foo-1")
+	dataPath := c.MkDir()
+	s.runListenerForAgent(c, dataPath, "unit-foo-1")
 
-	ctx, err := testing.RunCommand(c, s.runCommand(), "--relation", "db:1", "foo/1", "bar")
+	ctx, err := testing.RunCommand(c, s.runCommand(dataPath), "--relation", "db:1", "foo/1", "bar")
 	c.Check(cmd.IsRcPassthroughError(err), jc.IsTrue)
 	c.Assert(err, gc.ErrorMatches, "subprocess encountered error code 42")
 	c.Assert(testing.Stdout(ctx), gc.Equals, "bar stdout")
@@ -244,27 +246,30 @@ func (s *RunTestSuite) TestRunningRelation(c *gc.C) {
 
 func (s *RunTestSuite) TestRunningBadRelation(c *gc.C) {
 	loggo.GetLogger("worker.uniter").SetLogLevel(loggo.TRACE)
-	s.runListenerForAgent(c, "unit-foo-1")
+	dataPath := c.MkDir()
+	s.runListenerForAgent(c, dataPath, "unit-foo-1")
 
-	_, err := testing.RunCommand(c, s.runCommand(), "--relation", "badrelation:W", "foo/1", "bar")
+	_, err := testing.RunCommand(c, s.runCommand(dataPath), "--relation", "badrelation:W", "foo/1", "bar")
 	c.Check(cmd.IsRcPassthroughError(err), jc.IsFalse)
 	c.Assert(err, gc.ErrorMatches, "invalid relation id")
 }
 
 func (s *RunTestSuite) TestRunningRemoteUnitNoRelation(c *gc.C) {
 	loggo.GetLogger("worker.uniter").SetLogLevel(loggo.TRACE)
-	s.runListenerForAgent(c, "unit-foo-1")
+	dataPath := c.MkDir()
+	s.runListenerForAgent(c, dataPath, "unit-foo-1")
 
-	_, err := testing.RunCommand(c, s.runCommand(), "--remote-unit", "remote/0", "foo/1", "bar")
+	_, err := testing.RunCommand(c, s.runCommand(dataPath), "--remote-unit", "remote/0", "foo/1", "bar")
 	c.Check(cmd.IsRcPassthroughError(err), jc.IsFalse)
 	c.Assert(err, gc.ErrorMatches, "remote unit: remote/0, provided without a relation")
 }
 
 func (s *RunTestSuite) TestSkipCheckAndRemoteUnit(c *gc.C) {
 	loggo.GetLogger("worker.uniter").SetLogLevel(loggo.TRACE)
-	s.runListenerForAgent(c, "unit-foo-1")
+	dataPath := c.MkDir()
+	s.runListenerForAgent(c, dataPath, "unit-foo-1")
 
-	ctx, err := testing.RunCommand(c, s.runCommand(), "--force-remote-unit", "--remote-unit", "unit-name-2", "--relation", "db:1", "foo/1", "bar")
+	ctx, err := testing.RunCommand(c, s.runCommand(dataPath), "--force-remote-unit", "--remote-unit", "unit-name-2", "--relation", "db:1", "foo/1", "bar")
 	c.Check(cmd.IsRcPassthroughError(err), jc.IsTrue)
 	c.Assert(err, gc.ErrorMatches, "subprocess encountered error code 42")
 	c.Assert(testing.Stdout(ctx), gc.Equals, "bar stdout")
@@ -309,14 +314,15 @@ func (s *RunTestSuite) TestCheckRelationIdValid(c *gc.C) {
 	}
 }
 
-func (s *RunTestSuite) runListenerForAgent(c *gc.C, agent string) {
-	agentDir := filepath.Join(cmdutil.DataDir, "agents", agent)
+func (s *RunTestSuite) runListenerForAgent(c *gc.C, dataPath, agentName string) string {
+	// TODO(katco): If this tests fails, will probably have to pass c.MkDir() path down into the actual command being run.
+	agentDir := filepath.Join(dataPath, "agents", agentName)
 	err := os.MkdirAll(agentDir, 0755)
 	c.Assert(err, jc.ErrorIsNil)
 	var socketPath string
 	switch jujuos.HostOS() {
 	case jujuos.Windows:
-		socketPath = fmt.Sprintf(`\\.\pipe\%s-run`, agent)
+		socketPath = fmt.Sprintf(`\\.\pipe\%s-run`, agentName)
 	default:
 		socketPath = fmt.Sprintf("%s/run.socket", agentDir)
 	}
@@ -329,6 +335,8 @@ func (s *RunTestSuite) runListenerForAgent(c *gc.C, agent string) {
 	s.AddCleanup(func(*gc.C) {
 		c.Assert(listener.Close(), jc.ErrorIsNil)
 	})
+
+	return agentDir
 }
 
 type mockRunner struct {

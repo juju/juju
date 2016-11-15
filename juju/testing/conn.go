@@ -16,6 +16,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
+	"github.com/juju/utils/clock"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
 	"github.com/juju/version"
@@ -174,7 +175,7 @@ func (s *JujuConnSuite) openAPIAs(c *gc.C, tag names.Tag, password, nonce string
 	if controllerOnly {
 		apiInfo.ModelTag = names.ModelTag{}
 	}
-	apiState, err := api.Open(apiInfo, api.DialOpts{})
+	apiState, err := api.Open(apiInfo, api.DialOpts{Clock: clock.WallClock})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(apiState, gc.NotNil)
 	s.apiStates = append(s.apiStates, apiState)
@@ -361,30 +362,40 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	// Dummy provider uses a random port, which is added to cfg used to create environment.
 	apiPort := dummy.APIPort(environ.Provider())
 	s.ControllerConfig["api-port"] = apiPort
-	err = bootstrap.Bootstrap(modelcmd.BootstrapContext(ctx), environ, bootstrap.BootstrapParams{
-		ControllerConfig: s.ControllerConfig,
-		CloudName:        cloudSpec.Name,
-		CloudRegion:      "dummy-region",
-		Cloud: cloud.Cloud{
-			Type:             cloudSpec.Type,
-			AuthTypes:        []cloud.AuthType{cloud.EmptyAuthType, cloud.UserPassAuthType},
-			Endpoint:         cloudSpec.Endpoint,
-			IdentityEndpoint: cloudSpec.IdentityEndpoint,
-			StorageEndpoint:  cloudSpec.StorageEndpoint,
-			Regions: []cloud.Region{
-				{
-					Name:             "dummy-region",
-					Endpoint:         "dummy-endpoint",
-					IdentityEndpoint: "dummy-identity-endpoint",
-					StorageEndpoint:  "dummy-storage-endpoint",
+	err = bootstrap.Bootstrap(
+		modelcmd.BootstrapContext(ctx),
+		environ,
+		bootstrap.BootstrapParams{
+			// TODO(katco): ConfPath: !!!START HERE!!!
+			ConfPath:               "/fake/conf/path",
+			TempPath:               "/fake/temp/path",
+			DataPath:               s.DataDir(),
+			LogPath:                s.LogDir,
+			MetricsSpoolPath:       "/fake/metrics/spool/path",
+			CloudInitOutputLogPath: "/fake/cloud/init/path",
+			ControllerConfig:       s.ControllerConfig,
+			CloudName:              cloudSpec.Name,
+			CloudRegion:            "dummy-region",
+			Cloud: cloud.Cloud{
+				Type:             cloudSpec.Type,
+				AuthTypes:        []cloud.AuthType{cloud.EmptyAuthType, cloud.UserPassAuthType},
+				Endpoint:         cloudSpec.Endpoint,
+				IdentityEndpoint: cloudSpec.IdentityEndpoint,
+				StorageEndpoint:  cloudSpec.StorageEndpoint,
+				Regions: []cloud.Region{
+					{
+						Name:             "dummy-region",
+						Endpoint:         "dummy-endpoint",
+						IdentityEndpoint: "dummy-identity-endpoint",
+						StorageEndpoint:  "dummy-storage-endpoint",
+					},
 				},
 			},
-		},
-		CloudCredential:     cloudSpec.Credential,
-		CloudCredentialName: "cred",
-		AdminSecret:         AdminSecret,
-		CAPrivateKey:        testing.CAKey,
-	})
+			CloudCredential:     cloudSpec.Credential,
+			CloudCredentialName: "cred",
+			AdminSecret:         AdminSecret,
+			CAPrivateKey:        testing.CAKey,
+		})
 	c.Assert(err, jc.ErrorIsNil)
 
 	getStater := environ.(GetStater)
@@ -398,7 +409,12 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	apiInfo.Tag = s.AdminUserTag(c)
 	apiInfo.Password = AdminSecret
-	s.APIState, err = api.Open(apiInfo, api.DialOpts{})
+	s.APIState, err = api.Open(
+		apiInfo,
+		api.DialOpts{
+			Clock: clock.WallClock,
+		},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.State.SetAPIHostPorts(s.APIState.APIHostPorts())

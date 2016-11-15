@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/utils/os"
 )
 
 // TODO integration tests, but how?
@@ -366,7 +367,7 @@ var ctests = []struct {
 func (S) TestOutput(c *gc.C) {
 	for i, t := range ctests {
 		c.Logf("test %d: %s", i, t.name)
-		cfg, err := cloudinit.New("precise")
+		cfg, err := cloudinit.New(os.Ubuntu, "precise")
 		c.Assert(err, jc.ErrorIsNil)
 		t.setOption(cfg)
 		data, err := cfg.RenderYAML()
@@ -381,7 +382,7 @@ func (S) TestOutput(c *gc.C) {
 }
 
 func (S) TestRunCmds(c *gc.C) {
-	cfg, err := cloudinit.New("precise")
+	cfg, err := cloudinit.New(os.Ubuntu, "precise")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.RunCmds(), gc.HasLen, 0)
 	cfg.AddScripts("a", "b")
@@ -392,7 +393,7 @@ func (S) TestRunCmds(c *gc.C) {
 }
 
 func (S) TestPackages(c *gc.C) {
-	cfg, err := cloudinit.New("precise")
+	cfg, err := cloudinit.New(os.Ubuntu, "precise")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.Packages(), gc.HasLen, 0)
 	cfg.AddPackage("a b c")
@@ -419,7 +420,7 @@ func (S) TestSetOutput(c *gc.C) {
 		cloudinit.OutAll, "", "",
 	}}
 
-	cfg, err := cloudinit.New("trusty")
+	cfg, err := cloudinit.New(os.Ubuntu, "trusty")
 	c.Assert(err, jc.ErrorIsNil)
 	stdout, stderr := cfg.Output(cloudinit.OutAll)
 	c.Assert(stdout, gc.Equals, "")
@@ -435,7 +436,7 @@ func (S) TestSetOutput(c *gc.C) {
 
 func (S) TestWindowsRender(c *gc.C) {
 	compareOutput := "#ps1_sysnative\r\n\r\npowershell"
-	cfg, err := cloudinit.New("win8")
+	cfg, err := cloudinit.New(os.Windows, "win8")
 	c.Assert(err, jc.ErrorIsNil)
 	cfg.AddRunCmd("powershell")
 	data, err := cfg.RenderYAML()

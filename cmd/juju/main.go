@@ -12,6 +12,7 @@ import (
 	components "github.com/juju/juju/component/all"
 	// Import the providers.
 	_ "github.com/juju/juju/provider/all"
+	jujuos "github.com/juju/utils/os"
 )
 
 var log = loggo.GetLogger("juju.cmd.juju")
@@ -24,5 +25,5 @@ func init() {
 }
 
 func main() {
-	os.Exit(commands.Main(os.Args))
+	os.Exit(commands.Main(jujuos.HostOS(), os.Args))
 }

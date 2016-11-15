@@ -125,7 +125,7 @@ func (s *MainSuite) TestRunMain(c *gc.C) {
 		out: version.Binary{
 			Number: jujuversion.Current,
 			Arch:   arch.HostArch(),
-			Series: series.HostSeries(),
+			Series: series.MustHostSeries(),
 		}.String() + "\n",
 	}} {
 		c.Logf("test %d: %s", i, t.summary)

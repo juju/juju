@@ -7,6 +7,7 @@ import (
 	"regexp"
 
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/os"
 	"github.com/juju/utils/packaging"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
@@ -52,17 +53,36 @@ func testConfig(c *gc.C, controller bool, vers version.Binary) *config.Config {
 	return testConfig
 }
 
-func (s *configureSuite) getCloudConfig(c *gc.C, controller bool, vers version.Binary) cloudinit.CloudConfig {
+func (s *configureSuite) getCloudConfig(
+	c *gc.C,
+	confPath string,
+	tempPath string,
+	dataPath string,
+	logPath string,
+	metricsSpoolPath string,
+	cloudInitOutputLogPath string,
+	controller bool,
+	vers version.Binary,
+	osType os.OSType,
+) cloudinit.CloudConfig {
 	var icfg *instancecfg.InstanceConfig
 	var err error
 	modelConfig := testConfig(c, controller, vers)
 	if controller {
-		icfg, err = instancecfg.NewBootstrapInstanceConfig(
+		icfg = instancecfg.NewBootstrapInstanceConfig(
+			confPath,
+			tempPath,
+			dataPath,
+			logPath,
+			metricsSpoolPath,
+			cloudInitOutputLogPath,
 			coretesting.FakeControllerConfig(),
-			constraints.Value{}, constraints.Value{},
-			vers.Series, "",
+			constraints.Value{},
+			constraints.Value{},
+			osType,
+			vers.Series,
+			"",
 		)
-		c.Assert(err, jc.ErrorIsNil)
 		icfg.APIInfo = &api.Info{
 			Password: "password",
 			CACert:   coretesting.CACert,
@@ -92,8 +112,21 @@ func (s *configureSuite) getCloudConfig(c *gc.C, controller bool, vers version.B
 			APIPort:      456,
 		}
 	} else {
-		icfg, err = instancecfg.NewInstanceConfig(coretesting.ControllerTag, "0", "ya", imagemetadata.ReleasedStream, vers.Series, nil)
-		c.Assert(err, jc.ErrorIsNil)
+		icfg = instancecfg.NewInstanceConfig(
+			confPath,
+			tempPath,
+			dataPath,
+			logPath,
+			metricsSpoolPath,
+			cloudInitOutputLogPath,
+			coretesting.ControllerTag,
+			"0",
+			"ya",
+			imagemetadata.ReleasedStream,
+			osType,
+			vers.Series,
+			nil,
+		)
 		icfg.Jobs = []multiwatcher.MachineJob{multiwatcher.JobHostUnits}
 	}
 	err = icfg.SetTools(tools.List{
@@ -104,7 +137,7 @@ func (s *configureSuite) getCloudConfig(c *gc.C, controller bool, vers version.B
 	})
 	err = instancecfg.FinishInstanceConfig(icfg, modelConfig)
 	c.Assert(err, jc.ErrorIsNil)
-	cloudcfg, err := cloudinit.New(icfg.Series)
+	cloudcfg, err := cloudinit.New(icfg.OSType, icfg.Series)
 	c.Assert(err, jc.ErrorIsNil)
 	udata, err := cloudconfig.NewUserdataConfig(icfg, cloudcfg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -127,7 +160,9 @@ var aptgetRegexp = "(.|\n)*" + regexp.QuoteMeta("apt-get --option=Dpkg::Options:
 func (s *configureSuite) TestAptSources(c *gc.C) {
 	for _, series := range allSeries {
 		vers := version.MustParseBinary("1.16.0-" + series + "-amd64")
-		script, err := s.getCloudConfig(c, true, vers).RenderScript()
+		// TODO(katco): If this fails, may need to pass in paths
+		const fakePath = "/fake/path"
+		script, err := s.getCloudConfig(c, fakePath, fakePath, fakePath, fakePath, fakePath, fakePath, true, vers, os.Ubuntu).RenderScript()
 		c.Assert(err, jc.ErrorIsNil)
 
 		// Only Precise requires the cloud-tools pocket.
@@ -179,7 +214,7 @@ func assertScriptMatches(c *gc.C, cfg cloudinit.CloudConfig, pattern string, mat
 func (s *configureSuite) TestAptUpdate(c *gc.C) {
 	// apt-get update is run only if AptUpdate is set.
 	aptGetUpdatePattern := aptgetRegexp + "update(.|\n)*"
-	cfg, err := cloudinit.New("quantal")
+	cfg, err := cloudinit.New(os.Ubuntu, "quantal")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(cfg.SystemUpdate(), jc.IsFalse)
@@ -204,7 +239,7 @@ func (s *configureSuite) TestAptUpdate(c *gc.C) {
 func (s *configureSuite) TestAptUpgrade(c *gc.C) {
 	// apt-get upgrade is only run if AptUpgrade is set.
 	aptGetUpgradePattern := aptgetRegexp + "upgrade(.|\n)*"
-	cfg, err := cloudinit.New("quantal")
+	cfg, err := cloudinit.New(os.Ubuntu, "quantal")
 	c.Assert(err, jc.ErrorIsNil)
 	cfg.SetSystemUpdate(true)
 	source := packaging.PackageSource{
@@ -232,7 +267,7 @@ for old in ${old_prefix}_*; do
     mv $old $new
 done`)
 	aptMirrorRegexp := "(.|\n)*" + expectedCommands + "(.|\n)*"
-	cfg, err := cloudinit.New("quantal")
+	cfg, err := cloudinit.New(os.Ubuntu, "quantal")
 	c.Assert(err, jc.ErrorIsNil)
 	cfg.SetPackageMirror("http://woat.com")
 	assertScriptMatches(c, cfg, aptMirrorRegexp, true)

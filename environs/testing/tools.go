@@ -11,7 +11,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
@@ -270,12 +269,7 @@ func MustUploadFakeToolsVersions(stor storage.Storage, stream string, versions .
 
 func uploadFakeTools(stor storage.Storage, toolsDir, stream string) error {
 	toolsSeries := set.NewStrings(toolsLtsSeries...)
-	series, err := series.HostSeries()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	toolsSeries.Add(series)
+	toolsSeries.Add(series.MustHostSeries())
 	var versions []version.Binary
 	for _, series := range toolsSeries.Values() {
 		vers := version.Binary{

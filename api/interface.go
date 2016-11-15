@@ -164,6 +164,7 @@ type DialOpts struct {
 // parameters for contacting a controller.
 func DefaultDialOpts() DialOpts {
 	return DialOpts{
+		Clock:               clock.WallClock,
 		DialAddressInterval: 50 * time.Millisecond,
 		Timeout:             10 * time.Minute,
 		RetryDelay:          2 * time.Second,

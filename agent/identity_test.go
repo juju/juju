@@ -50,7 +50,10 @@ var servingInfo = params.StateServingInfo{
 
 func (s *identitySuite) TestWriteSystemIdentityFile(c *gc.C) {
 	params := attributeParams
-	params.Paths.DataDir = c.MkDir()
+	params.DataPath = c.MkDir()
+	params.LogPath = c.MkDir()
+	params.ConfigFilePath = ConfigPath(params.DataPath, params.Tag)
+	params.MetricsSpoolPath = c.MkDir()
 	conf, err := NewStateMachineConfig(params, servingInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	err = WriteSystemIdentityFile(conf)

@@ -15,6 +15,7 @@ import (
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
@@ -843,7 +844,7 @@ func (s *loginSuite) TestLoginUpdatesLastLoginAndConnection(c *gc.C) {
 	info := s.APIInfo(c)
 	info.Tag = user.Tag()
 	info.Password = password
-	apiState, err := api.Open(info, api.DialOpts{})
+	apiState, err := api.Open(info, api.DialOpts{Clock: clock.WallClock})
 	c.Assert(err, jc.ErrorIsNil)
 	defer apiState.Close()
 
@@ -884,7 +885,7 @@ func (s *macaroonLoginSuite) TestLoginToController(c *gc.C) {
 	// not the environment.
 	info.ModelTag = names.ModelTag{}
 
-	client, err := api.Open(info, api.DialOpts{})
+	client, err := api.Open(info, api.DialOpts{Clock: clock.WallClock})
 	assertInvalidEntityPassword(c, err)
 	c.Assert(client, gc.Equals, nil)
 }
@@ -1062,7 +1063,7 @@ func (s *macaroonLoginSuite) TestLoginToEnvironmentSuccess(c *gc.C) {
 		return "test@somewhere"
 	}
 	loggo.GetLogger("juju.apiserver").SetLogLevel(loggo.TRACE)
-	client, err := api.Open(s.APIInfo(c), api.DialOpts{})
+	client, err := api.Open(s.APIInfo(c), api.DialOpts{Clock: clock.WallClock})
 	c.Assert(err, jc.ErrorIsNil)
 	defer client.Close()
 
@@ -1074,7 +1075,7 @@ func (s *macaroonLoginSuite) TestFailedToObtainDischargeLogin(c *gc.C) {
 	s.DischargerLogin = func() string {
 		return ""
 	}
-	client, err := api.Open(s.APIInfo(c), api.DialOpts{})
+	client, err := api.Open(s.APIInfo(c), api.DialOpts{Clock: clock.WallClock})
 	c.Assert(err, gc.ErrorMatches, `cannot get discharge from "https://.*": third party refused discharge: cannot discharge: login denied by discharger`)
 	c.Assert(client, gc.Equals, nil)
 }
@@ -1083,7 +1084,7 @@ func (s *macaroonLoginSuite) TestUnknownUserLogin(c *gc.C) {
 	s.DischargerLogin = func() string {
 		return "testUnknown@somewhere"
 	}
-	client, err := api.Open(s.APIInfo(c), api.DialOpts{})
+	client, err := api.Open(s.APIInfo(c), api.DialOpts{Clock: clock.WallClock})
 	assertInvalidEntityPassword(c, err)
 	c.Assert(client, gc.Equals, nil)
 }

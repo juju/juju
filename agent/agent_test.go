@@ -39,29 +39,38 @@ var agentConfigTests = []struct {
 }, {
 	about: "missing tag",
 	params: agent.AgentConfigParams{
-		Paths: agent.Paths{DataDir: "/data/dir"},
+		DataPath: "/data/dir",
 	},
 	checkErr: "entity tag not found in configuration",
 }, {
 	about: "missing upgraded to version",
 	params: agent.AgentConfigParams{
-		Paths: agent.Paths{DataDir: "/data/dir"},
-		Tag:   names.NewMachineTag("1"),
+		DataPath:         "/data/dir",
+		Tag:              names.NewMachineTag("1"),
+		ConfigFilePath:   "/data/dir/agents/machine-1/agent.conf",
+		LogPath:          "/fake/log/dir",
+		MetricsSpoolPath: "/fake/metrics/spool/dir",
 	},
 	checkErr: "upgradedToVersion not found in configuration",
 }, {
 	about: "missing password",
 	params: agent.AgentConfigParams{
-		Paths:             agent.Paths{DataDir: "/data/dir"},
+		DataPath:          "/data/dir",
 		Tag:               names.NewMachineTag("1"),
+		ConfigFilePath:    "/data/dir/agents/machine-1/agent.conf",
+		LogPath:           "/fake/log/dir",
+		MetricsSpoolPath:  "/fake/metrics/spool/dir",
 		UpgradedToVersion: jujuversion.Current,
 	},
 	checkErr: "password not found in configuration",
 }, {
 	about: "missing model tag",
 	params: agent.AgentConfigParams{
-		Paths:             agent.Paths{DataDir: "/data/dir"},
+		DataPath:          "/data/dir",
 		Tag:               names.NewMachineTag("1"),
+		ConfigFilePath:    "/data/dir/agents/machine-1/agent.conf",
+		LogPath:           "/fake/log/dir",
+		MetricsSpoolPath:  "/fake/metrics/spool/dir",
 		UpgradedToVersion: jujuversion.Current,
 		Password:          "sekrit",
 		Controller:        testing.ControllerTag,
@@ -70,8 +79,11 @@ var agentConfigTests = []struct {
 }, {
 	about: "invalid model tag",
 	params: agent.AgentConfigParams{
-		Paths:             agent.Paths{DataDir: "/data/dir"},
+		DataPath:          "/data/dir",
 		Tag:               names.NewMachineTag("1"),
+		ConfigFilePath:    "/data/dir/agents/machine-1/agent.conf",
+		LogPath:           "/fake/log/dir",
+		MetricsSpoolPath:  "/fake/metrics/spool/dir",
 		UpgradedToVersion: jujuversion.Current,
 		Password:          "sekrit",
 		Controller:        testing.ControllerTag,
@@ -81,8 +93,11 @@ var agentConfigTests = []struct {
 }, {
 	about: "missing controller tag",
 	params: agent.AgentConfigParams{
-		Paths:             agent.Paths{DataDir: "/data/dir"},
+		DataPath:          "/data/dir",
 		Tag:               names.NewMachineTag("1"),
+		ConfigFilePath:    "/data/dir/agents/machine-1/agent.conf",
+		LogPath:           "/fake/log/dir",
+		MetricsSpoolPath:  "/fake/metrics/spool/dir",
 		UpgradedToVersion: jujuversion.Current,
 		Password:          "sekrit",
 		Model:             testing.ModelTag,
@@ -91,8 +106,11 @@ var agentConfigTests = []struct {
 }, {
 	about: "invalid controller tag",
 	params: agent.AgentConfigParams{
-		Paths:             agent.Paths{DataDir: "/data/dir"},
+		DataPath:          "/data/dir",
 		Tag:               names.NewMachineTag("1"),
+		ConfigFilePath:    "/data/dir/agents/machine-1/agent.conf",
+		LogPath:           "/fake/log/dir",
+		MetricsSpoolPath:  "/fake/metrics/spool/dir",
 		UpgradedToVersion: jujuversion.Current,
 		Password:          "sekrit",
 		Controller:        names.NewControllerTag("uuid"),
@@ -102,8 +120,11 @@ var agentConfigTests = []struct {
 }, {
 	about: "missing CA cert",
 	params: agent.AgentConfigParams{
-		Paths:             agent.Paths{DataDir: "/data/dir"},
+		DataPath:          "/data/dir",
 		Tag:               names.NewMachineTag("1"),
+		ConfigFilePath:    "/data/dir/agents/machine-1/agent.conf",
+		LogPath:           "/fake/log/dir",
+		MetricsSpoolPath:  "/fake/metrics/spool/dir",
 		UpgradedToVersion: jujuversion.Current,
 		Password:          "sekrit",
 		Controller:        testing.ControllerTag,
@@ -113,8 +134,11 @@ var agentConfigTests = []struct {
 }, {
 	about: "need either state or api addresses",
 	params: agent.AgentConfigParams{
-		Paths:             agent.Paths{DataDir: "/data/dir"},
+		DataPath:          "/data/dir",
 		Tag:               names.NewMachineTag("1"),
+		ConfigFilePath:    "/data/dir/agents/machine-1/agent.conf",
+		LogPath:           "/fake/log/dir",
+		MetricsSpoolPath:  "/fake/metrics/spool/dir",
 		UpgradedToVersion: jujuversion.Current,
 		Password:          "sekrit",
 		CACert:            "ca cert",
@@ -125,8 +149,11 @@ var agentConfigTests = []struct {
 }, {
 	about: "invalid state address",
 	params: agent.AgentConfigParams{
-		Paths:             agent.Paths{DataDir: "/data/dir"},
+		DataPath:          "/data/dir",
 		Tag:               names.NewMachineTag("1"),
+		ConfigFilePath:    "/data/dir/agents/machine-1/agent.conf",
+		LogPath:           "/fake/log/dir",
+		MetricsSpoolPath:  "/fake/metrics/spool/dir",
 		UpgradedToVersion: jujuversion.Current,
 		Password:          "sekrit",
 		CACert:            "ca cert",
@@ -138,8 +165,11 @@ var agentConfigTests = []struct {
 }, {
 	about: "invalid api address",
 	params: agent.AgentConfigParams{
-		Paths:             agent.Paths{DataDir: "/data/dir"},
+		DataPath:          "/data/dir",
 		Tag:               names.NewMachineTag("1"),
+		ConfigFilePath:    "/data/dir/agents/machine-1/agent.conf",
+		LogPath:           "/fake/log/dir",
+		MetricsSpoolPath:  "/fake/metrics/spool/dir",
 		UpgradedToVersion: jujuversion.Current,
 		Password:          "sekrit",
 		CACert:            "ca cert",
@@ -151,8 +181,11 @@ var agentConfigTests = []struct {
 }, {
 	about: "good state addresses",
 	params: agent.AgentConfigParams{
-		Paths:             agent.Paths{DataDir: "/data/dir"},
+		DataPath:          "/data/dir",
 		Tag:               names.NewMachineTag("1"),
+		ConfigFilePath:    "/data/dir/agents/machine-1/agent.conf",
+		LogPath:           "/fake/log/dir",
+		MetricsSpoolPath:  "/fake/metrics/spool/dir",
 		UpgradedToVersion: jujuversion.Current,
 		Password:          "sekrit",
 		CACert:            "ca cert",
@@ -163,8 +196,11 @@ var agentConfigTests = []struct {
 }, {
 	about: "good api addresses",
 	params: agent.AgentConfigParams{
-		Paths:             agent.Paths{DataDir: "/data/dir"},
+		DataPath:          "/data/dir",
 		Tag:               names.NewMachineTag("1"),
+		ConfigFilePath:    "/data/dir/agents/machine-1/agent.conf",
+		LogPath:           "/fake/log/dir",
+		MetricsSpoolPath:  "/fake/metrics/spool/dir",
 		UpgradedToVersion: jujuversion.Current,
 		Password:          "sekrit",
 		CACert:            "ca cert",
@@ -175,8 +211,11 @@ var agentConfigTests = []struct {
 }, {
 	about: "both state and api addresses",
 	params: agent.AgentConfigParams{
-		Paths:             agent.Paths{DataDir: "/data/dir"},
+		DataPath:          "/data/dir",
 		Tag:               names.NewMachineTag("1"),
+		ConfigFilePath:    "/data/dir/agents/machine-1/agent.conf",
+		LogPath:           "/fake/log/dir",
+		MetricsSpoolPath:  "/fake/metrics/spool/dir",
 		UpgradedToVersion: jujuversion.Current,
 		Password:          "sekrit",
 		CACert:            "ca cert",
@@ -188,8 +227,11 @@ var agentConfigTests = []struct {
 }, {
 	about: "everything...",
 	params: agent.AgentConfigParams{
-		Paths:             agent.Paths{DataDir: "/data/dir"},
+		DataPath:          "/data/dir",
 		Tag:               names.NewMachineTag("1"),
+		ConfigFilePath:    "/data/dir/agents/machine-1/agent.conf",
+		LogPath:           "/fake/log/dir",
+		MetricsSpoolPath:  "/fake/metrics/spool/dir",
 		Password:          "sekrit",
 		UpgradedToVersion: jujuversion.Current,
 		CACert:            "ca cert",
@@ -200,10 +242,12 @@ var agentConfigTests = []struct {
 		Nonce:             "a nonce",
 	},
 }, {
-	about: "missing logDir sets default",
+	about:    "missing logDir errors",
+	checkErr: "log path not found in configuration",
 	params: agent.AgentConfigParams{
-		Paths:             agent.Paths{DataDir: "/data/dir"},
+		DataPath:          "/data/dir",
 		Tag:               names.NewMachineTag("1"),
+		ConfigFilePath:    "/data/dir/agents/machine-1/agent.conf",
 		Password:          "sekrit",
 		UpgradedToVersion: jujuversion.Current,
 		CACert:            "ca cert",
@@ -212,15 +256,15 @@ var agentConfigTests = []struct {
 		StateAddresses:    []string{"localhost:1234"},
 		APIAddresses:      []string{"localhost:1235"},
 		Nonce:             "a nonce",
-	},
-	inspectConfig: func(c *gc.C, cfg agent.Config) {
-		c.Check(cfg.LogDir(), gc.Equals, agent.DefaultPaths.LogDir)
 	},
 }, {
-	about: "missing metricsSpoolDir sets default",
+	about:    "missing metricsSpoolDir sets default",
+	checkErr: "metrics spool path not found in configuration",
 	params: agent.AgentConfigParams{
-		Paths:             agent.Paths{DataDir: "/data/dir"},
+		DataPath:          "/data/dir",
 		Tag:               names.NewMachineTag("1"),
+		ConfigFilePath:    "/data/dir/agents/machine-1/agent.conf",
+		LogPath:           "/fake/log/dir",
 		Password:          "sekrit",
 		UpgradedToVersion: jujuversion.Current,
 		CACert:            "ca cert",
@@ -229,18 +273,15 @@ var agentConfigTests = []struct {
 		StateAddresses:    []string{"localhost:1234"},
 		APIAddresses:      []string{"localhost:1235"},
 		Nonce:             "a nonce",
-	},
-	inspectConfig: func(c *gc.C, cfg agent.Config) {
-		c.Check(cfg.MetricsSpoolDir(), gc.Equals, agent.DefaultPaths.MetricsSpoolDir)
 	},
 }, {
 	about: "setting a custom metricsSpoolDir",
 	params: agent.AgentConfigParams{
-		Paths: agent.Paths{
-			DataDir:         "/data/dir",
-			MetricsSpoolDir: "/tmp/nowhere",
-		},
+		DataPath:          "/data/dir",
+		MetricsSpoolPath:  "/tmp/nowhere",
 		Tag:               names.NewMachineTag("1"),
+		ConfigFilePath:    "/data/dir/agents/machine-1/agent.conf",
+		LogPath:           "/fake/log/dir",
 		Password:          "sekrit",
 		UpgradedToVersion: jujuversion.Current,
 		CACert:            "ca cert",
@@ -251,13 +292,16 @@ var agentConfigTests = []struct {
 		Nonce:             "a nonce",
 	},
 	inspectConfig: func(c *gc.C, cfg agent.Config) {
-		c.Check(cfg.MetricsSpoolDir(), gc.Equals, "/tmp/nowhere")
+		c.Check(cfg.MetricsSpoolPath(), gc.Equals, "/tmp/nowhere")
 	},
 }, {
 	about: "agentConfig must not be a User tag",
 	params: agent.AgentConfigParams{
-		Paths:             agent.Paths{DataDir: "/data/dir"},
+		DataPath:          "/data/dir",
 		Tag:               names.NewUserTag("admin"), // this is a joke, the admin user is nil.
+		LogPath:           "/fake/log/dir",
+		ConfigFilePath:    "/fake/config/file/path",
+		MetricsSpoolPath:  "/fake/metrics/spool/dir",
 		UpgradedToVersion: jujuversion.Current,
 		Password:          "sekrit",
 	},
@@ -265,7 +309,10 @@ var agentConfigTests = []struct {
 }, {
 	about: "agentConfig accepts a Unit tag",
 	params: agent.AgentConfigParams{
-		Paths:             agent.Paths{DataDir: "/data/dir"},
+		DataPath:          "/data/dir",
+		ConfigFilePath:    "/data/dir/agents/machine-1/agent.conf",
+		LogPath:           "/fake/log/path",
+		MetricsSpoolPath:  "/fake/metrics/spool/dir",
 		Tag:               names.NewUnitTag("ubuntu/1"),
 		Password:          "sekrit",
 		UpgradedToVersion: jujuversion.Current,
@@ -373,10 +420,11 @@ func (*suite) TestNewStateMachineConfig(c *gc.C) {
 }
 
 var attributeParams = agent.AgentConfigParams{
-	Paths: agent.Paths{
-		DataDir: "/data/dir",
-	},
+	LogPath:           "/fake/log/dir",
+	DataPath:          "/data/dir",
 	Tag:               names.NewMachineTag("1"),
+	ConfigFilePath:    "/data/dir/agents/machine-1/agent.conf",
+	MetricsSpoolPath:  "/fake/metrics/spook/dir",
 	UpgradedToVersion: jujuversion.Current,
 	Password:          "sekrit",
 	CACert:            "ca cert",
@@ -390,7 +438,7 @@ var attributeParams = agent.AgentConfigParams{
 func (*suite) TestAttributes(c *gc.C) {
 	conf, err := agent.NewAgentConfig(attributeParams)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(conf.DataDir(), gc.Equals, "/data/dir")
+	c.Assert(conf.DataPath(), gc.Equals, "/data/dir")
 	compareSystemIdentityPath := filepath.FromSlash("/data/dir/system-identity")
 	systemIdentityPath := filepath.FromSlash(conf.SystemIdentityPath())
 	c.Assert(systemIdentityPath, gc.Equals, compareSystemIdentityPath)
@@ -445,13 +493,14 @@ func (s *suite) TestAPIAddressesCannotWriteBack(c *gc.C) {
 
 func (*suite) TestWriteAndRead(c *gc.C) {
 	testParams := attributeParams
-	testParams.Paths.DataDir = c.MkDir()
-	testParams.Paths.LogDir = c.MkDir()
+	testParams.DataPath = c.MkDir()
+	testParams.LogPath = c.MkDir()
+	testParams.ConfigFilePath = agent.ConfigPath(testParams.DataPath, testParams.Tag)
 	conf, err := agent.NewAgentConfig(testParams)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(conf.Write(), gc.IsNil)
-	reread, err := agent.ReadConfig(agent.ConfigPath(conf.DataDir(), conf.Tag()))
+	reread, err := agent.ReadConfig(agent.ConfigPath(conf.DataPath(), conf.Tag()))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(reread, jc.DeepEquals, conf)
 }

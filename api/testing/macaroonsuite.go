@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
@@ -102,6 +103,7 @@ func (s *MacaroonSuite) OpenAPI(c *gc.C, info *api.Info, jar http.CookieJar) api
 		bakeryClient.Client.Jar = jar
 	}
 	conn, err := api.Open(info, api.DialOpts{
+		Clock:        clock.WallClock,
 		BakeryClient: bakeryClient,
 	})
 	c.Assert(err, gc.IsNil)

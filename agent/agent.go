@@ -85,65 +85,6 @@ func (s StateServingInfoSetter) SetStateServingInfo(info params.StateServingInfo
 	})
 }
 
-// type AgentPaths struct {
-// 	paths.Collection
-
-// 	configFilePath string
-// }
-
-// type Paths interface {
-// 	// return path.Join(p.PathsB.Log(), "juju")
-// 	LogPath() string
-// 	DataPath() string
-// 	MetricsSpoolPath() string
-// 	// ConfigPath(config.paths.DataDir, config.tag)
-// 	ConfigFilePath() string
-// }
-
-// // Migrate assigns the directory locations specified from the new path configuration.
-// func (p *Paths) Migrate(newPaths Paths) {
-// 	if newPaths.DataDir != "" {
-// 		p.DataDir = newPaths.DataDir
-// 	}
-// 	if newPaths.LogDir != "" {
-// 		p.LogDir = newPaths.LogDir
-// 	}
-// 	if newPaths.MetricsSpoolDir != "" {
-// 		p.MetricsSpoolDir = newPaths.MetricsSpoolDir
-// 	}
-// 	if newPaths.ConfDir != "" {
-// 		p.ConfDir = newPaths.ConfDir
-// 	}
-// }
-
-// NewPathsWithDefaults returns a Paths struct initialized with default locations if not otherwise specified.
-// func NewPathsWithDefaults(p Paths) Paths {
-// 	paths := DefaultPaths
-// 	if p.DataDir != "" {
-// 		paths.DataDir = p.DataDir
-// 	}
-// 	if p.LogDir != "" {
-// 		paths.LogDir = p.LogDir
-// 	}
-// 	if p.MetricsSpoolDir != "" {
-// 		paths.MetricsSpoolDir = p.MetricsSpoolDir
-// 	}
-// 	if p.ConfDir != "" {
-// 		paths.ConfDir = p.ConfDir
-// 	}
-// 	return paths
-// }
-
-// var (
-// 	// DefaultPaths defines the default paths for an agent.
-// 	DefaultPaths = Paths{
-// 		DataDir:         paths.Data,
-// 		LogDir:          path.Join(paths.Log, "juju"),
-// 		MetricsSpoolDir: paths.MetricsSpool,
-// 		ConfDir:         paths.Conf,
-// 	}
-// )
-
 // SystemIdentity is the name of the file where the environment SSH key is kept.
 const SystemIdentity = "system-identity"
 
@@ -348,6 +289,7 @@ type configInternal struct {
 type AgentConfigParams struct {
 	DataPath          string
 	LogPath           string
+	ConfigFilePath    string
 	MetricsSpoolPath  string
 	Jobs              []multiwatcher.MachineJob
 	UpgradedToVersion version.Number
@@ -371,6 +313,15 @@ func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) 
 	}
 	if configParams.Tag == nil {
 		return nil, errors.Trace(requiredError("entity tag"))
+	}
+	if configParams.ConfigFilePath == "" {
+		return nil, errors.Trace(requiredError("configuration file path"))
+	}
+	if configParams.LogPath == "" {
+		return nil, errors.Trace(requiredError("log path"))
+	}
+	if configParams.MetricsSpoolPath == "" {
+		return nil, errors.Trace(requiredError("metrics spool path"))
 	}
 	switch configParams.Tag.(type) {
 	case names.MachineTag, names.UnitTag:
@@ -404,6 +355,7 @@ func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) 
 	// When/if this connection is successful, apicaller worker will generate
 	// a new secure password and update this agent's config.
 	config := &configInternal{
+		configFilePath:    configParams.ConfigFilePath,
 		dataPath:          configParams.DataPath,
 		logPath:           configParams.LogPath,
 		metricsSpoolPath:  configParams.MetricsSpoolPath,
@@ -564,14 +516,14 @@ func (c *configInternal) SetPassword(newPassword string) {
 func (c *configInternal) Write() error {
 	data, err := c.fileContents()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	// Make sure the config dir gets created.
 	configDir := filepath.Dir(c.configFilePath)
 	if err := os.MkdirAll(configDir, 0755); err != nil {
-		return fmt.Errorf("cannot create agent config dir %q: %v", configDir, err)
+		return errors.Annotatef(err, "cannot create agent config dir %q", configDir)
 	}
-	return utils.AtomicWriteFile(c.configFilePath, data, 0600)
+	return errors.Trace(utils.AtomicWriteFile(c.configFilePath, data, 0600))
 }
 
 func requiredError(what string) error {
@@ -775,4 +727,5 @@ func (c *configInternal) MongoInfo() (info *mongo.MongoInfo, ok bool) {
 		Password: c.stateDetails.password,
 		Tag:      c.tag,
 	}, true
+
 }

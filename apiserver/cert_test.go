@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
@@ -56,7 +57,7 @@ func (s *certSuite) TestUpdateCert(c *gc.C) {
 	apiInfo := s.APIInfo(srv)
 	apiInfo.Tag = s.Owner
 	apiInfo.Password = ownerPassword
-	_, err = api.Open(apiInfo, api.DialOpts{})
+	_, err = api.Open(apiInfo, api.DialOpts{Clock: clock.WallClock})
 	c.Assert(err, gc.ErrorMatches, `unable to connect to API: .*: certificate has expired or is not yet valid`)
 
 	// Now change it back and check that we can connect again.

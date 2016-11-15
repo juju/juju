@@ -153,7 +153,7 @@ func (c *Client) AddMachines(machineParams []params.AddMachineParams) ([]params.
 func (c *Client) ProvisioningScript(args params.ProvisioningScriptParams) (script string, err error) {
 	var result params.ProvisioningScriptResult
 	if err = c.facade.FacadeCall("ProvisioningScript", args, &result); err != nil {
-		return "", err
+		return "", errors.Trace(err)
 	}
 	return result.Script, nil
 }

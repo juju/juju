@@ -8,6 +8,7 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
@@ -282,7 +283,7 @@ func (s *migrationSuite) TestMigrationStatusWatcher(c *gc.C) {
 	apiInfo.ModelTag = hostedState.ModelTag()
 	apiInfo.Nonce = nonce
 
-	apiConn, err := api.Open(apiInfo, api.DialOpts{})
+	apiConn, err := api.Open(apiInfo, api.DialOpts{Clock: clock.WallClock})
 	c.Assert(err, jc.ErrorIsNil)
 	defer apiConn.Close()
 

@@ -24,7 +24,7 @@ func (c *rackspaceConfigurator) ModifyRunServerOptions(options *nova.RunServerOp
 
 // GetCloudConfig implements ProviderConfigurator interface.
 func (c *rackspaceConfigurator) GetCloudConfig(args environs.StartInstanceParams) (cloudinit.CloudConfig, error) {
-	cloudcfg, err := cloudinit.New(args.Tools.OneSeries())
+	cloudcfg, err := cloudinit.New(args.InstanceConfig.OSType, args.InstanceConfig.Series)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

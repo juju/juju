@@ -17,6 +17,7 @@ import (
 
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/os"
 	pacconf "github.com/juju/utils/packaging/config"
 	"github.com/juju/utils/set"
 	"github.com/juju/version"
@@ -39,6 +40,7 @@ import (
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
+	"github.com/juju/utils/series"
 )
 
 type cloudinitSuite struct {
@@ -59,30 +61,6 @@ var (
 		multiwatcher.JobHostUnits,
 	}
 )
-
-func jujuLogDir(series string) string {
-	return path.Join(must(paths.LogDir(series)), "juju")
-}
-
-func jujuDataDir(series string) string {
-	return must(paths.DataDir(series))
-}
-
-func cloudInitOutputLog(logDir string) string {
-	return path.Join(logDir, "cloud-init-output.log")
-}
-
-func metricsSpoolDir(series string) string {
-	return must(paths.MetricsSpoolDir(series))
-}
-
-// TODO: add this to the utils package
-func must(s string, err error) string {
-	if err != nil {
-		panic(err)
-	}
-	return s
-}
 
 var stateServingInfo = params.StateServingInfo{
 	Cert:         string(serverCert),
@@ -111,7 +89,6 @@ func makeTestConfig(series string, bootstrap bool) *testInstanceConfig {
 	}
 	cfg.MachineNonce = "FAKE_NONCE"
 	cfg.Jobs = normalMachineJobs
-	cfg.MetricsSpoolDir = metricsSpoolDir(series)
 	// APIInfo (sans Tag) must be initialized before calling setMachineID().
 	cfg.APIInfo = &api.Info{
 		Addrs:    []string{"state-addr.testing.invalid:54321"},
@@ -199,17 +176,27 @@ func (cfg *testInstanceConfig) setEnableOSUpdateAndUpgrade(updateEnabled, upgrad
 
 // setSeries sets the series-specific fields (Tools, Series, DataDir,
 // LogDir, and CloudInitOutputLog) to match the given series.
-func (cfg *testInstanceConfig) setSeries(series string) *testInstanceConfig {
+func (cfg *testInstanceConfig) setSeries(seriesName string) *testInstanceConfig {
 	err := ((*instancecfg.InstanceConfig)(cfg)).SetTools(tools.List{
-		newSimpleTools(fmt.Sprintf("1.2.3-%s-amd64", series)),
+		newSimpleTools(fmt.Sprintf("1.2.3-%s-amd64", seriesName)),
 	})
 	if err != nil {
 		panic(err)
 	}
-	cfg.Series = series
-	cfg.DataDir = jujuDataDir(series)
-	cfg.LogDir = jujuLogDir(series)
-	cfg.CloudInitOutputLog = cloudInitOutputLog(series)
+
+	var pathCollection paths.Collection
+	if osType := series.MustOSFromSeries(seriesName); osType == os.Windows {
+		pathCollection = paths.Windows
+	} else {
+		pathCollection = paths.Nix
+	}
+
+	cfg.Series = seriesName
+	cfg.DataPath = pathCollection.Data
+	cfg.LogPath = pathCollection.Log
+	cfg.CloudInitOutputLogPath = pathCollection.CloudInitOutputLogPath
+	cfg.MetricsSpoolPath = pathCollection.MetricsSpool
+
 	return cfg
 }
 

@@ -7,6 +7,7 @@ import (
 	stdtesting "testing"
 
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon.v1"
@@ -52,7 +53,7 @@ func (s *stateSuite) OpenAPIWithoutLogin(c *gc.C) (api.Connection, names.Tag, st
 	info.Password = ""
 	info.Macaroons = nil
 	info.SkipLogin = true
-	apistate, err := api.Open(info, api.DialOpts{})
+	apistate, err := api.Open(info, api.DialOpts{Clock: clock.WallClock})
 	c.Assert(err, jc.ErrorIsNil)
 	return apistate, tag, password
 }
@@ -68,7 +69,7 @@ func (s *stateSuite) TestAPIHostPortsAlwaysIncludesTheConnection(c *gc.C) {
 	badServer := network.NewHostPorts(1234, "0.1.2.3")
 	badServer[0].Scope = network.ScopeMachineLocal
 	s.State.SetAPIHostPorts([][]network.HostPort{badServer})
-	apistate, err := api.Open(info, api.DialOpts{})
+	apistate, err := api.Open(info, api.DialOpts{Clock: clock.WallClock})
 	c.Assert(err, jc.ErrorIsNil)
 	defer apistate.Close()
 	hostports := apistate.APIHostPorts()
@@ -214,7 +215,7 @@ func (s *stateSuite) TestAPIHostPortsMovesConnectedValueFirst(c *gc.C) {
 	}
 	current := [][]network.HostPort{badServer, serverExtra}
 	s.State.SetAPIHostPorts(current)
-	apistate, err := api.Open(info, api.DialOpts{})
+	apistate, err := api.Open(info, api.DialOpts{Clock: clock.WallClock})
 	c.Assert(err, jc.ErrorIsNil)
 	defer apistate.Close()
 	hostports := apistate.APIHostPorts()

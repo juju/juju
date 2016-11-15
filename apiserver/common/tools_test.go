@@ -37,7 +37,7 @@ var _ = gc.Suite(&toolsSuite{})
 var current = version.Binary{
 	Number: jujuversion.Current,
 	Arch:   arch.HostArch(),
-	Series: series.HostSeries(),
+	Series: series.MustHostSeries(),
 }
 
 func (s *toolsSuite) SetUpTest(c *gc.C) {
@@ -224,27 +224,37 @@ func (s *toolsSuite) TestFindToolsExactInStorage(c *gc.C) {
 	}
 
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
-	s.PatchValue(&series.HostSeries, func() string { return "trusty" })
 	s.PatchValue(&jujuversion.Current, version.MustParseBinary("1.22-beta1-trusty-amd64").Number)
-	s.testFindToolsExact(c, mockToolsStorage, true, true)
+	s.testFindToolsExact(c, "trusty", mockToolsStorage, true, true)
 	s.PatchValue(&jujuversion.Current, version.MustParseBinary("1.22.0-trusty-amd64").Number)
-	s.testFindToolsExact(c, mockToolsStorage, true, false)
+	s.testFindToolsExact(c, "trusty", mockToolsStorage, true, false)
 }
 
 func (s *toolsSuite) TestFindToolsExactNotInStorage(c *gc.C) {
 	mockToolsStorage := &mockToolsStorage{}
 	s.PatchValue(&jujuversion.Current, version.MustParse("1.22-beta1"))
-	s.testFindToolsExact(c, mockToolsStorage, false, true)
+	s.testFindToolsExact(c, "trusty", mockToolsStorage, false, true)
 	s.PatchValue(&jujuversion.Current, version.MustParse("1.22.0"))
-	s.testFindToolsExact(c, mockToolsStorage, false, false)
+	s.testFindToolsExact(c, "trusty", mockToolsStorage, false, false)
 }
 
-func (s *toolsSuite) testFindToolsExact(c *gc.C, t common.ToolsStorageGetter, inStorage bool, develVersion bool) {
+func (s *toolsSuite) testFindToolsExact(
+	c *gc.C,
+	series string,
+	t common.ToolsStorageGetter,
+	inStorage bool,
+	develVersion bool,
+) {
 	var called bool
-	s.PatchValue(common.EnvtoolsFindTools, func(e environs.Environ, major, minor int, stream string, filter coretools.Filter) (list coretools.List, err error) {
+	s.PatchValue(common.EnvtoolsFindTools, func(
+		e environs.Environ,
+		major, minor int,
+		stream string,
+		filter coretools.Filter,
+	) (list coretools.List, err error) {
 		called = true
 		c.Assert(filter.Number, gc.Equals, jujuversion.Current)
-		c.Assert(filter.Series, gc.Equals, series.HostSeries())
+		c.Assert(filter.Series, gc.Equals, series)
 		c.Assert(filter.Arch, gc.Equals, arch.HostArch())
 		if develVersion {
 			c.Assert(stream, gc.Equals, "devel")
@@ -258,7 +268,7 @@ func (s *toolsSuite) testFindToolsExact(c *gc.C, t common.ToolsStorageGetter, in
 		Number:       jujuversion.Current,
 		MajorVersion: -1,
 		MinorVersion: -1,
-		Series:       series.HostSeries(),
+		Series:       series,
 		Arch:         arch.HostArch(),
 	})
 	c.Assert(err, jc.ErrorIsNil)

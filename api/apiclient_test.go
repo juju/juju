@@ -36,7 +36,7 @@ var _ = gc.Suite(&apiclientSuite{})
 
 func (s *apiclientSuite) TestDialAPIToEnv(c *gc.C) {
 	info := s.APIInfo(c)
-	conn, _, err := api.DialAPI(info, api.DialOpts{})
+	conn, _, err := api.DialAPI(c.MkDir(), info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	defer conn.Close()
 	assertConnAddrForModel(c, conn, info.Addrs[0], s.State.ModelUUID())
@@ -45,7 +45,7 @@ func (s *apiclientSuite) TestDialAPIToEnv(c *gc.C) {
 func (s *apiclientSuite) TestDialAPIToRoot(c *gc.C) {
 	info := s.APIInfo(c)
 	info.ModelTag = names.NewModelTag("")
-	conn, _, err := api.DialAPI(info, api.DialOpts{})
+	conn, _, err := api.DialAPI(c.MkDir(), info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	defer conn.Close()
 	assertConnAddrForRoot(c, conn, info.Addrs[0])
@@ -60,7 +60,7 @@ func (s *apiclientSuite) TestDialAPIMultiple(c *gc.C) {
 
 	// Check that we can use the proxy to connect.
 	info.Addrs = []string{proxy.Addr()}
-	conn, _, err := api.DialAPI(info, api.DialOpts{})
+	conn, _, err := api.DialAPI(c.MkDir(), info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	conn.Close()
 	assertConnAddrForModel(c, conn, proxy.Addr(), s.State.ModelUUID())
@@ -69,7 +69,7 @@ func (s *apiclientSuite) TestDialAPIMultiple(c *gc.C) {
 	// is successfully connected to.
 	proxy.Close()
 	info.Addrs = []string{proxy.Addr(), serverAddr}
-	conn, _, err = api.DialAPI(info, api.DialOpts{})
+	conn, _, err = api.DialAPI(c.MkDir(), info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	conn.Close()
 	assertConnAddrForModel(c, conn, serverAddr, s.State.ModelUUID())
@@ -94,14 +94,14 @@ func (s *apiclientSuite) TestDialAPIMultipleError(c *gc.C) {
 	info := s.APIInfo(c)
 	addr := listener.Addr().String()
 	info.Addrs = []string{addr, addr, addr}
-	_, _, err = api.DialAPI(info, api.DialOpts{})
+	_, _, err = api.DialAPI(c.MkDir(), info, api.DialOpts{})
 	c.Assert(err, gc.ErrorMatches, `unable to connect to API: websocket.Dial wss://.*/model/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/api: .*`)
 	c.Assert(atomic.LoadInt32(&count), gc.Equals, int32(3))
 }
 
 func (s *apiclientSuite) TestOpen(c *gc.C) {
 	info := s.APIInfo(c)
-	st, err := api.Open(info, api.DialOpts{})
+	st, err := api.Open(info, api.DialOpts{Clock: clock.WallClock})
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
@@ -126,7 +126,7 @@ func (s *apiclientSuite) TestOpenHonorsModelTag(c *gc.C) {
 
 	// We start by ensuring we have an invalid tag, and Open should fail.
 	info.ModelTag = names.NewModelTag("bad-tag")
-	_, err := api.Open(info, api.DialOpts{})
+	_, err := api.Open(info, api.DialOpts{Clock: clock.WallClock})
 	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
 		Message: `unknown model: "bad-tag"`,
 		Code:    "model not found",
@@ -135,14 +135,14 @@ func (s *apiclientSuite) TestOpenHonorsModelTag(c *gc.C) {
 
 	// Now set it to the right tag, and we should succeed.
 	info.ModelTag = s.State.ModelTag()
-	st, err := api.Open(info, api.DialOpts{})
+	st, err := api.Open(info, api.DialOpts{Clock: clock.WallClock})
 	c.Assert(err, jc.ErrorIsNil)
 	st.Close()
 
 	// Backwards compatibility, we should succeed if we do not set an
 	// model tag
 	info.ModelTag = names.NewModelTag("")
-	st, err = api.Open(info, api.DialOpts{})
+	st, err = api.Open(info, api.DialOpts{Clock: clock.WallClock})
 	c.Assert(err, jc.ErrorIsNil)
 	st.Close()
 }
@@ -242,6 +242,7 @@ func (s *apiclientSuite) testSNIHostName(c *gc.C, info *api.Info, expectDial api
 	go func() {
 		defer close(done)
 		conn, err := api.Open(info, api.DialOpts{
+			Clock:         clock.WallClock,
 			DialWebsocket: fakeDialer,
 		})
 		c.Check(conn, gc.Equals, nil)
@@ -271,10 +272,12 @@ func (s *apiclientSuite) TestOpenWithNoCACert(c *gc.C) {
 	info := s.APIInfo(c)
 	info.CACert = ""
 
+	// TODO(katco): Pass in a fake clock for better control of this.
 	t0 := time.Now()
 	// Use a long timeout so that we can check that the retry
 	// logic doesn't retry.
 	_, err := api.Open(info, api.DialOpts{
+		Clock:      clock.WallClock,
 		Timeout:    20 * time.Second,
 		RetryDelay: 2 * time.Second,
 	})
@@ -302,7 +305,7 @@ func (s *apiclientSuite) TestOpenWithRedirect(c *gc.C) {
 		Addrs:    srv.Addrs,
 		CACert:   jtesting.CACert,
 		ModelTag: names.NewModelTag("beef1beef1-0000-0000-000011112222"),
-	}, api.DialOpts{})
+	}, api.DialOpts{Clock: clock.WallClock})
 	c.Assert(err, gc.ErrorMatches, `redirection to alternative server required`)
 
 	hps, _ := network.ParseHostPorts(redirectToHosts...)

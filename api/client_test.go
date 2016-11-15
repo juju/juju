@@ -18,6 +18,7 @@ import (
 	"github.com/juju/httprequest"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/clock"
 	"github.com/juju/version"
 	"golang.org/x/net/websocket"
 	gc "gopkg.in/check.v1"
@@ -446,7 +447,7 @@ func (s *clientSuite) TestConnectStreamAtUUIDPath(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	info := s.APIInfo(c)
 	info.ModelTag = model.ModelTag()
-	apistate, err := api.Open(info, api.DialOpts{})
+	apistate, err := api.Open(info, api.DialOpts{Clock: clock.WallClock})
 	c.Assert(err, jc.ErrorIsNil)
 	defer apistate.Close()
 	_, err = apistate.ConnectStream("/path", nil)
@@ -462,13 +463,13 @@ func (s *clientSuite) TestOpenUsesModelUUIDPaths(c *gc.C) {
 	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	info.ModelTag = model.ModelTag()
-	apistate, err := api.Open(info, api.DialOpts{})
+	apistate, err := api.Open(info, api.DialOpts{Clock: clock.WallClock})
 	c.Assert(err, jc.ErrorIsNil)
 	apistate.Close()
 
 	// Passing in a bad model UUID should fail with a known error
 	info.ModelTag = names.NewModelTag("dead-beef-123456")
-	apistate, err = api.Open(info, api.DialOpts{})
+	apistate, err = api.Open(info, api.DialOpts{Clock: clock.WallClock})
 	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
 		Message: `unknown model: "dead-beef-123456"`,
 		Code:    "model not found",

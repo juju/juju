@@ -146,8 +146,8 @@ func (s *machineSuite) TestEntitySetPassword(c *gc.C) {
 
 	err = s.machine.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.machine.PasswordValid("bar"), jc.IsFalse)
-	c.Assert(s.machine.PasswordValid("foo-12345678901234567890"), jc.IsTrue)
+	c.Check(s.machine.PasswordValid("bar"), jc.IsFalse)
+	c.Check(s.machine.PasswordValid("foo-12345678901234567890"), jc.IsTrue)
 
 	// Check that we cannot log in to mongo with the correct password.
 	// This is because there's no mongo password set for s.machine,
@@ -158,7 +158,7 @@ func (s *machineSuite) TestEntitySetPassword(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	info.Tag = tag
 	info.Password = "foo-12345678901234567890"
-	err = tryOpenState(s.State.ModelTag(), s.State.ControllerTag(), info)
+	err = tryOpenState(c.MkDir(), s.State.ModelTag(), s.State.ControllerTag(), info)
 	c.Assert(errors.Cause(err), jc.Satisfies, errors.IsUnauthorized)
 }
 
@@ -180,8 +180,13 @@ func (s *machineSuite) TestClearReboot(c *gc.C) {
 	c.Assert(rFlag, jc.IsFalse)
 }
 
-func tryOpenState(modelTag names.ModelTag, controllerTag names.ControllerTag, info *mongo.MongoInfo) error {
-	st, err := state.Open(modelTag, controllerTag, info, mongotest.DialOpts(), nil)
+func tryOpenState(
+	storagePath string,
+	modelTag names.ModelTag,
+	controllerTag names.ControllerTag,
+	info *mongo.MongoInfo,
+) error {
+	st, err := state.Open(storagePath, modelTag, controllerTag, info, mongotest.DialOpts(), nil)
 	if err == nil {
 		st.Close()
 	}

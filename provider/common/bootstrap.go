@@ -121,6 +121,7 @@ func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args
 		paths.Defaults.Data,
 		paths.Defaults.Log,
 		paths.Defaults.MetricsSpool,
+		paths.Defaults.CloudInitOutputLogPath,
 		args.ControllerConfig,
 		args.BootstrapConstraints,
 		args.ModelConstraints,
@@ -303,7 +304,7 @@ func ConfigureMachine(ctx environs.BootstrapContext, client ssh.Client, host str
 	// the terminal, which will be the ssh subprocess at this
 	// point. For that reason, we do not call StopInterruptNotify
 	// until this function completes.
-	cloudcfg, err := cloudinit.New(instanceConfig.Series)
+	cloudcfg, err := cloudinit.New(instanceConfig.OSType, instanceConfig.Series)
 	if err != nil {
 		return errors.Trace(err)
 	}

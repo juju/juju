@@ -25,7 +25,7 @@ import (
 // is needed for machine cloud-init (for non-controllers only). It
 // is exposed for testing purposes.
 // TODO(rog) fix environs/manual tests so they do not need to call this, or move this elsewhere.
-func InstanceConfig(st *state.State, machineId, nonce, dataDir string) (*instancecfg.InstanceConfig, error) {
+func InstanceConfig(st *state.State, machineId, nonce, dataPath string) (*instancecfg.InstanceConfig, error) {
 	modelConfig, err := st.ModelConfig()
 	if err != nil {
 		return nil, errors.Annotate(err, "getting model config")
@@ -112,6 +112,7 @@ func InstanceConfig(st *state.State, machineId, nonce, dataDir string) (*instanc
 		instancePaths.Data,
 		instancePaths.Log,
 		instancePaths.MetricsSpool,
+		instancePaths.CloudInitOutputLogPath,
 		st.ControllerTag(),
 		machineId,
 		nonce,
@@ -120,8 +121,8 @@ func InstanceConfig(st *state.State, machineId, nonce, dataDir string) (*instanc
 		machine.Series(),
 		apiInfo,
 	)
-	if dataDir != "" {
-		icfg.DataPath = dataDir
+	if dataPath != "" {
+		icfg.DataPath = dataPath
 	}
 	if err := icfg.SetTools(toolsList); err != nil {
 		return nil, errors.Trace(err)

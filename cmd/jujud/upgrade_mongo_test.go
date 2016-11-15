@@ -368,11 +368,19 @@ func (f *fakeService) StartCommands() ([]string, error) {
 	return []string{"echo", "start"}, nil
 }
 
-func (s *UpgradeMongoCommandSuite) createFakeAgentConf(c *gc.C, agentDir string, mongoVersion mongo.Version) {
+func (s *UpgradeMongoCommandSuite) createFakeAgentConf(
+	c *gc.C,
+	configFilePath string,
+	dataPath string,
+	mongoVersion mongo.Version,
+) {
 	attributeParams := agent.AgentConfigParams{
-		Paths: agent.Paths{
-			DataDir: agentDir,
-		},
+
+		// LogPath           string
+		// MetricsSpoolPath  string
+		// TODO(katco): If this fails will have to pass in complete set of paths
+		ConfigFilePath:    configFilePath,
+		DataPath:          dataPath,
 		Tag:               names.NewMachineTag("0"),
 		UpgradedToVersion: jujuversion.Current,
 		Password:          "sekrit",
@@ -394,7 +402,7 @@ func (s *UpgradeMongoCommandSuite) createFakeAgentConf(c *gc.C, agentDir string,
 		SystemIdentity: "identity",
 	}
 	conf, err := agent.NewStateMachineConfig(attributeParams, servingInfo)
-	c.Check(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	conf.SetMongoVersion(mongoVersion)
 	err = conf.Write()
 	c.Check(err, jc.ErrorIsNil)
@@ -410,15 +418,17 @@ func (s *UpgradeMongoCommandSuite) TestRun(c *gc.C) {
 		service:    &service,
 	}
 
-	testDir := c.MkDir()
-	testAgentConfig := agent.ConfigPath(testDir, names.NewMachineTag("0"))
-	s.createFakeAgentConf(c, testDir, mongo.Mongo24)
+	dataPath := c.MkDir()
+	agentConfigPath := agent.ConfigPath(dataPath, names.NewMachineTag("0"))
+	c.Logf("agentConfigPath: %q", agentConfigPath)
+	s.createFakeAgentConf(c, agentConfigPath, dataPath, mongo.Mongo24)
 
 	callArgs := retryCallArgs()
 	upgradeMongoCommand := &UpgradeMongoCommand{
 		machineTag:     "0",
 		series:         "vivid",
-		configFilePath: testAgentConfig,
+		dataPath:       dataPath,
+		configFilePath: agentConfigPath,
 		tmpDir:         "/fake/temp/dir",
 		callArgs:       callArgs,
 
@@ -446,7 +456,7 @@ func (s *UpgradeMongoCommandSuite) TestRun(c *gc.C) {
 	err := upgradeMongoCommand.run()
 	c.Assert(err, jc.ErrorIsNil)
 
-	dbDir := filepath.Join(testDir, "db")
+	dbDir := filepath.Join(dataPath, "db")
 	expectedCommands := [][]string{
 		[]string{"getenv", "UPSTART_JOB"},
 		[]string{"service.DiscoverService", "bogus_daemon"},
@@ -454,37 +464,37 @@ func (s *UpgradeMongoCommandSuite) TestRun(c *gc.C) {
 		[]string{"SatisfyPrerequisites"},
 		[]string{"CreateTempDir"},
 		[]string{"mongo.StopService"},
-		[]string{"stat", "/var/lib/juju/db"},
+		[]string{"stat", filepath.Join(dataPath, "db")},
 		[]string{"mkdir", "/fake/temp/dir/24"},
-		[]string{"fs.Copy", "/var/lib/juju/db", "/fake/temp/dir/24/db"},
+		[]string{"fs.Copy", filepath.Join(dataPath, "db"), "/fake/temp/dir/24/db"},
 		[]string{"mongo.StartService"},
 		[]string{"mongo.StopService"},
-		[]string{"/usr/lib/juju/bin/mongod", "--dbpath", "/var/lib/juju/db", "--replSet", "juju", "--upgrade"},
-		[]string{"mongo.EnsureServiceInstalled", testDir, "69", "0", "false", "2.6/mmapv1", "true"},
+		[]string{"/usr/lib/juju/bin/mongod", "--dbpath", filepath.Join(dataPath, "db"), "--replSet", "juju", "--upgrade"},
+		[]string{"mongo.EnsureServiceInstalled", dataPath, "69", "0", "false", "2.6/mmapv1", "true"},
 		[]string{"mongo.StartService"},
 		[]string{"DialAndlogin"},
 		[]string{"mongo.ReStartService"},
 		[]string{"/usr/lib/juju/mongo2.6/bin/mongodump", "--ssl", "-u", "admin", "-p", "sekrit", "--port", "69", "--host", "localhost", "--out", "/fake/temp/dir/migrateTo30dump"},
 		[]string{"mongo.StopService"},
-		[]string{"mongo.EnsureServiceInstalled", testDir, "69", "0", "false", "3.2/mmapv1", "true"},
+		[]string{"mongo.EnsureServiceInstalled", dataPath, "69", "0", "false", "3.2/mmapv1", "true"},
 		[]string{"mongo.StartService"},
 		[]string{"/usr/lib/juju/mongo3.2/bin/mongodump", "--ssl", "-u", "admin", "-p", "sekrit", "--port", "69", "--host", "localhost", "--out", "/fake/temp/dir/migrateToTigerdump"},
 		[]string{"mongo.StopService"},
 		[]string{"stat", dbDir},
 		[]string{"remove", dbDir},
 		[]string{"mkdir", dbDir},
-		[]string{"mongo.EnsureServiceInstalled", testDir, "69", "0", "false", "3.2/wiredTiger", "false"},
+		[]string{"mongo.EnsureServiceInstalled", dataPath, "69", "0", "false", "3.2/wiredTiger", "false"},
 		[]string{"mongo.DialInfo"},
 		[]string{"mongo.StartService"},
 		[]string{"peergrouper.InitiateMongoServer"},
 		[]string{"/usr/lib/juju/mongo3.2/bin/mongorestore", "--ssl", "--port", "69", "--host", "localhost", "--sslAllowInvalidCertificates", "--batchSize", "100", "/fake/temp/dir/migrateToTigerdump"},
-		[]string{"mongo.EnsureServiceInstalled", testDir, "69", "0", "false", "3.2/wiredTiger", "true"},
+		[]string{"mongo.EnsureServiceInstalled", dataPath, "69", "0", "false", "3.2/wiredTiger", "true"},
 		[]string{"mongo.ReStartService"},
 	}
-	c.Assert(command.ranCommands, jc.DeepEquals, expectedCommands)
-	c.Assert(session.ranClose, gc.Equals, 2)
-	c.Assert(db.ranAction, gc.Equals, "authSchemaUpgrade")
-	c.Assert(service.ranCommands, jc.DeepEquals, []string{"Stop", "Start"})
+	c.Check(command.ranCommands, jc.DeepEquals, expectedCommands)
+	c.Check(session.ranClose, gc.Equals, 2)
+	c.Check(db.ranAction, gc.Equals, "authSchemaUpgrade")
+	c.Check(service.ranCommands, jc.DeepEquals, []string{"Stop", "Start"})
 }
 
 func (s *UpgradeMongoCommandSuite) TestRunRollback(c *gc.C) {
@@ -497,15 +507,16 @@ func (s *UpgradeMongoCommandSuite) TestRunRollback(c *gc.C) {
 		service:    &service,
 	}
 
-	tempDir := c.MkDir()
-	testAgentConfig := agent.ConfigPath(tempDir, names.NewMachineTag("0"))
-	s.createFakeAgentConf(c, tempDir, mongo.Mongo24)
+	dataPath := c.MkDir()
+	agentConfigPath := agent.ConfigPath(dataPath, names.NewMachineTag("0"))
+	s.createFakeAgentConf(c, agentConfigPath, dataPath, mongo.Mongo24)
 
 	callArgs := retryCallArgs()
 	upgradeMongoCommand := &UpgradeMongoCommand{
 		machineTag:     "0",
 		series:         "vivid",
-		configFilePath: testAgentConfig,
+		dataPath:       dataPath,
+		configFilePath: agentConfigPath,
 		tmpDir:         "/fake/temp/dir",
 		callArgs:       callArgs,
 
@@ -541,18 +552,18 @@ func (s *UpgradeMongoCommandSuite) TestRunRollback(c *gc.C) {
 		[]string{"SatisfyPrerequisites"},
 		[]string{"CreateTempDir"},
 		[]string{"mongo.StopService"},
-		[]string{"stat", "/var/lib/juju/db"},
+		[]string{"stat", filepath.Join(dataPath, "db")},
 		[]string{"mkdir", "/fake/temp/dir/24"},
-		[]string{"fs.Copy", "/var/lib/juju/db", "/fake/temp/dir/24/db"},
+		[]string{"fs.Copy", filepath.Join(dataPath, "db"), "/fake/temp/dir/24/db"},
 		[]string{"mongo.StartService"},
 		[]string{"mongo.StopService"},
-		[]string{"/usr/lib/juju/bin/mongod", "--dbpath", "/var/lib/juju/db", "--replSet", "juju", "--upgrade"},
-		[]string{"mongo.EnsureServiceInstalled", tempDir, "69", "0", "false", "2.6/mmapv1", "true"},
+		[]string{"/usr/lib/juju/bin/mongod", "--dbpath", filepath.Join(dataPath, "db"), "--replSet", "juju", "--upgrade"},
+		[]string{"mongo.EnsureServiceInstalled", dataPath, "69", "0", "false", "2.6/mmapv1", "true"},
 		[]string{"mongo.StartService"},
 		[]string{"DialAndlogin"},
 		[]string{"mongo.ReStartServiceFail"},
 		[]string{"mongo.StopService"},
-		[]string{"remove", "/var/lib/juju/db"},
+		[]string{"remove", filepath.Join(dataPath, "db")},
 		[]string{"mongo.StartService"},
 	}
 
@@ -573,15 +584,15 @@ func (s *UpgradeMongoCommandSuite) TestRunContinuesWhereLeft(c *gc.C) {
 		service:    &service,
 	}
 
-	testDir := c.MkDir()
-	testAgentConfig := agent.ConfigPath(testDir, names.NewMachineTag("0"))
-	s.createFakeAgentConf(c, testDir, mongo.Mongo26)
+	dataPath := c.MkDir()
+	agentConfigPath := agent.ConfigPath(dataPath, names.NewMachineTag("0"))
+	s.createFakeAgentConf(c, agentConfigPath, dataPath, mongo.Mongo26)
 
 	callArgs := retryCallArgs()
 	upgradeMongoCommand := &UpgradeMongoCommand{
 		machineTag:     "0",
 		series:         "vivid",
-		configFilePath: testAgentConfig,
+		configFilePath: agentConfigPath,
 		tmpDir:         "/fake/temp/dir",
 		callArgs:       callArgs,
 
@@ -608,7 +619,7 @@ func (s *UpgradeMongoCommandSuite) TestRunContinuesWhereLeft(c *gc.C) {
 
 	err := upgradeMongoCommand.run()
 	c.Assert(err, jc.ErrorIsNil)
-	dbDir := filepath.Join(testDir, "db")
+	dbDir := filepath.Join(dataPath, "db")
 	expectedCommands := [][]string{
 		[]string{"getenv", "UPSTART_JOB"},
 		[]string{"service.DiscoverService", "bogus_daemon"},
@@ -616,19 +627,19 @@ func (s *UpgradeMongoCommandSuite) TestRunContinuesWhereLeft(c *gc.C) {
 		[]string{"SatisfyPrerequisites"},
 		[]string{"/usr/lib/juju/mongo2.6/bin/mongodump", "--ssl", "-u", "admin", "-p", "sekrit", "--port", "69", "--host", "localhost", "--out", "/fake/temp/dir/migrateTo30dump"},
 		[]string{"mongo.StopService"},
-		[]string{"mongo.EnsureServiceInstalled", testDir, "69", "0", "false", "3.2/mmapv1", "true"},
+		[]string{"mongo.EnsureServiceInstalled", dataPath, "69", "0", "false", "3.2/mmapv1", "true"},
 		[]string{"mongo.StartService"},
 		[]string{"/usr/lib/juju/mongo3.2/bin/mongodump", "--ssl", "-u", "admin", "-p", "sekrit", "--port", "69", "--host", "localhost", "--out", "/fake/temp/dir/migrateToTigerdump"},
 		[]string{"mongo.StopService"},
 		[]string{"stat", dbDir},
 		[]string{"remove", dbDir},
 		[]string{"mkdir", dbDir},
-		[]string{"mongo.EnsureServiceInstalled", testDir, "69", "0", "false", "3.2/wiredTiger", "false"},
+		[]string{"mongo.EnsureServiceInstalled", dataPath, "69", "0", "false", "3.2/wiredTiger", "false"},
 		[]string{"mongo.DialInfo"},
 		[]string{"mongo.StartService"},
 		[]string{"peergrouper.InitiateMongoServer"},
 		[]string{"/usr/lib/juju/mongo3.2/bin/mongorestore", "--ssl", "--port", "69", "--host", "localhost", "--sslAllowInvalidCertificates", "--batchSize", "100", "/fake/temp/dir/migrateToTigerdump"},
-		[]string{"mongo.EnsureServiceInstalled", testDir, "69", "0", "false", "3.2/wiredTiger", "true"},
+		[]string{"mongo.EnsureServiceInstalled", dataPath, "69", "0", "false", "3.2/wiredTiger", "true"},
 		[]string{"mongo.ReStartService"},
 	}
 	c.Assert(command.ranCommands, gc.DeepEquals, expectedCommands)

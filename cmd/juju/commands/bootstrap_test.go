@@ -174,13 +174,8 @@ type bootstrapTest struct {
 	keepBroken           bool
 }
 
-func (s *BootstrapSuite) patchVersionAndSeries(c *gc.C, hostSeries string) {
-	resetJujuXDGDataHome(c)
-	s.PatchValue(&series.HostSeries, func() string { return hostSeries })
-	s.patchVersion(c)
-}
-
 func (s *BootstrapSuite) patchVersion(c *gc.C) {
+	resetJujuXDGDataHome(c)
 	// Force a dev version by having a non zero build number.
 	// This is because we have not uploaded any tools and auto
 	// upload is only enabled for dev versions.
@@ -1159,7 +1154,6 @@ No packaged binary found, preparing local Juju agent binary
 }
 
 func (s *BootstrapSuite) TestBootstrapDestroy(c *gc.C) {
-	resetJujuXDGDataHome(c)
 	s.patchVersion(c)
 
 	opc, errc := cmdtesting.RunCommand(
@@ -1192,7 +1186,6 @@ func (s *BootstrapSuite) TestBootstrapDestroy(c *gc.C) {
 }
 
 func (s *BootstrapSuite) TestBootstrapKeepBroken(c *gc.C) {
-	resetJujuXDGDataHome(c)
 	s.patchVersion(c)
 
 	ctx := coretesting.Context(c)
