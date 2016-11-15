@@ -10,7 +10,6 @@ import os
 from subprocess import CalledProcessError
 import sys
 from time import sleep
-import yaml
 
 from assess_user_grant_revoke import User
 from deploy_stack import BootstrapManager
@@ -121,14 +120,10 @@ def wait_for_migrating(client, timeout=60):
     with client.check_timeouts():
         with client.ignore_soft_deadline():
             for _ in until_timeout(timeout):
-                model_details = client.get_juju_output(
-                    'show-model',
-                    '{}:{}'.format(client.env.controller.name, model_name),
-                    '--format', 'yaml',
-                    include_e=False)
-                output = yaml.safe_load(model_details)
-
-                if output[model_name]['status'].get('migration') is not None:
+                model_details = client.show_model(model_name)
+                migration_status = model_details[model_name]['status'].get(
+                    'migration')
+                if migration_status is not None:
                     return
                 sleep(1)
             raise JujuAssertionError(

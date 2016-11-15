@@ -13,7 +13,6 @@ import assess_model_migration as amm
 from deploy_stack import BootstrapManager
 from fakejuju import fake_juju_client
 from jujupy import (
-    Controller,
     EnvJujuClient,
     JujuData,
     SoftDeadlineExceeded,
@@ -72,10 +71,12 @@ class TestExpectMigrationAttemptToFail(TestCase):
     dest_client = fake_juju_client()
 
     def test_raises_when_no_failure_detected(self):
-        with patch.object(self.source_client, 'get_juju_output'):
+        with patch.object(
+                self.source_client, 'get_juju_output', autospec=True):
             with self.assertRaises(JujuAssertionError) as ex:
-                amm.expect_migration_attempt_to_fail(
-                    self.source_client, self.dest_client)
+                with patch('sys.stderr', StringIO.StringIO()):
+                    amm.expect_migration_attempt_to_fail(
+                        self.source_client, self.dest_client)
             self.assertEqual(
                 ex.exception.message, 'Migration did not fail as expected.')
 
@@ -174,14 +175,14 @@ def _get_time_noop_mock_client():
 class TestWaitForMigration(TestCase):
 
     no_migration_yaml = dedent("""\
-        example-model:
+        name:
             status:
                 current: available
                 since: 4 minutes ago
     """)
 
     migration_status_yaml = dedent("""\
-        example-model:
+        name:
             status:
                 current: available
                 since: 4 minutes ago
@@ -189,53 +190,42 @@ class TestWaitForMigration(TestCase):
                 migration-start: 48 seconds ago
         """)
 
-    def test_gets_show_model_details(self):
-        mock_client = _get_time_noop_mock_client()
-
-        mock_client.get_juju_output.return_value = self.migration_status_yaml
-        mock_client.env = JujuData(
-            'example-model', juju_home='', controller=Controller('foo'))
-        with patch.object(amm, 'sleep', autospec=True):
-            amm.wait_for_migrating(mock_client)
-        mock_client.get_juju_output.assert_called_once_with(
-            'show-model', 'foo:example-model',
-            '--format', 'yaml', include_e=False)
-
     def test_returns_when_migration_status_found(self):
-        mock_client = _get_time_noop_mock_client()
-
-        mock_client.get_juju_output.return_value = self.migration_status_yaml
-        mock_client.env = JujuData(
-            'example-model', juju_home='', controller=Controller('foo'))
-        with patch.object(amm, 'sleep', autospec=True) as m_sleep:
-            amm.wait_for_migrating(mock_client)
+        client = fake_juju_client()
+        with patch.object(
+                client, 'get_juju_output',
+                autospec=True, return_value=self.migration_status_yaml):
+            with patch.object(amm, 'sleep', autospec=True) as m_sleep:
+                amm.wait_for_migrating(client)
         self.assertEqual(m_sleep.call_count, 0)
 
     def test_checks_multiple_times_for_status(self):
-        mock_client = _get_time_noop_mock_client()
+        client = fake_juju_client()
+        client.bootstrap()
 
-        mock_client.get_juju_output.side_effect = [
+        show_model_calls = [
             self.no_migration_yaml,
             self.no_migration_yaml,
             self.migration_status_yaml
         ]
-        mock_client.env = JujuData(
-            'example-model', juju_home='', controller=Controller('foo'))
-        with patch.object(amm, 'sleep', autospec=True) as m_sleep:
-            amm.wait_for_migrating(mock_client)
+        with patch.object(
+                client, 'get_juju_output',
+                autospec=True, side_effect=show_model_calls):
+            with patch.object(amm, 'sleep', autospec=True) as m_sleep:
+                amm.wait_for_migrating(client)
         self.assertEqual(m_sleep.call_count, 2)
 
     def test_raises_when_timeout_reached_with_no_migration_status(self):
-        mock_client = _get_time_noop_mock_client()
-
-        mock_client.get_juju_output.return_value = self.no_migration_yaml
-        mock_client.env = JujuData(
-            'example-model', juju_home='', controller=Controller('foo'))
-        with patch.object(amm, 'sleep', autospec=True):
-            with patch.object(
-                    until_timeout, 'next', side_effect=StopIteration()):
-                with self.assertRaises(JujuAssertionError):
-                    amm.wait_for_migrating(mock_client)
+        client = fake_juju_client()
+        client.bootstrap()
+        with patch.object(
+                client, 'get_juju_output',
+                autospec=True, return_value=self.no_migration_yaml):
+            with patch.object(amm, 'sleep', autospec=True):
+                with patch.object(
+                        until_timeout, 'next', side_effect=StopIteration()):
+                    with self.assertRaises(JujuAssertionError):
+                        amm.wait_for_migrating(client)
 
 
 class TestWaitForModel(TestCase):
