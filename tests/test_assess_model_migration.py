@@ -311,7 +311,7 @@ class TestDeployMongodbToNewModel(TestCase):
             source_client.env.clone.return_value)
         new_model.juju.assert_called_once_with('deploy', ('mongodb'))
         new_model.wait_for_started.assert_called_once_with()
-        new_model.wait_for_workloads.assert_called_once_with
+        new_model.wait_for_workloads.assert_called_once_with()
         m_tdmiu.assert_called_once_with(new_model)
 
 
