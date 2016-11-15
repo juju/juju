@@ -36,11 +36,26 @@ def assess_cloud(client, example_cloud):
         raise JujuAssertionError('Cloud mismatch')
 
 
+def iter_clouds(clouds):
+    for cloud_name, cloud in clouds.items():
+        yield cloud_name, cloud
+
+    for cloud_name, cloud in clouds.items():
+        if 'endpoint' not in cloud:
+            continue
+        cloud = deepcopy(cloud)
+        cloud['endpoint'] = 'A' * 4096
+        if cloud['type'] == 'vsphere':
+            for region in cloud['regions'].values():
+                region['endpoint'] = cloud['endpoint']
+        yield 'long-endpoint-{}'.format(cloud_name), cloud
+
+
 def assess_all_clouds(client, clouds):
     succeeded = set()
     failed = set()
     client.env.load_yaml()
-    for cloud_name, cloud in clouds.items():
+    for cloud_name, cloud in iter_clouds(clouds):
         sys.stdout.write('Testing {}.\n'.format(cloud_name))
         try:
             assess_cloud(client, cloud)
