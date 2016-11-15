@@ -41,6 +41,10 @@ running_instance_pattern = re.compile('\["([^"]+)"\]')
 log = logging.getLogger("assess_recovery")
 
 
+class HARecoveryError(Exception):
+    """The controllers failed to respond."""
+
+
 def check_token(client, token):
     for ignored in until_timeout(300):
         found = get_token_from_status(client)
@@ -62,6 +66,31 @@ def deploy_stack(client, charm_series):
 def show_controller(client):
     controller_info = client.show_controller(format='yaml')
     log.info('Controller is:\n{}'.format(controller_info))
+
+
+def enable_ha(controller_client):
+    """Enable HA and wait for the controllers to be ready."""
+    controller_client.enable_ha()
+    controller_client.wait_for_ha()
+    show_controller(controller_client)
+    # Update bs_manager.known_hosts with the new controllers.
+
+
+def assess_ha_recovery(bs_manager, client):
+    """Verify that the client can talk to a controller.
+
+
+    The controller is given 5 minutes to respond to the client's request.
+    """
+    # Juju commands will hang when the controller is down, so ensure the
+    # call is interrupted and raise HARecoveryError.
+    try:
+        client.juju('status', (), check=True, timeout=300)
+    except:
+        raise HARecoveryError()
+    bs_manager.has_controller = True
+    log.info("HA recovered from leader failure.")
+    log.info("PASS")
 
 
 def restore_present_state_server(controller_client, backup_file):
@@ -166,23 +195,31 @@ def assess_recovery(bs_manager, strategy, charm_series):
     log.info("Test started.")
     controller_client = client.get_controller_client()
     if strategy in ('ha', 'ha-backup'):
-        controller_client.enable_ha()
-        controller_client.wait_for_ha()
+        enable_ha(controller_client)
     if strategy in ('ha-backup', 'backup'):
         backup_file = controller_client.backup()
         restore_present_state_server(controller_client, backup_file)
     if strategy == 'ha':
+        assess_ha_recovery(bs_manager, client)
         leader_only = True
     else:
         leader_only = False
     deleted_machine_ids = delete_controller_members(
         controller_client, leader_only=leader_only)
     log.info("Deleted {}".format(deleted_machine_ids))
+    # Do not gather data about the deleted controller.
+    bs_manager.has_controller = False
     for m_id in deleted_machine_ids:
         if bs_manager.known_hosts.get(m_id):
             del bs_manager.known_hosts[m_id]
     if strategy == 'ha':
-        client.get_status(600)
+        # Juju commands will hang when the controller is down, so ensure the
+        # call is interrupted and raise HARecoveryError.
+        try:
+            client.juju('status', (), check=True, timeout=300)
+        except:
+            raise HARecoveryError()
+        bs_manager.has_controller = True
         log.info("HA recovered from leader failure.")
         log.info("PASS")
     else:

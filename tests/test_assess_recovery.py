@@ -8,10 +8,13 @@ from mock import (
     )
 
 from assess_recovery import (
+    assess_ha_recovery,
     assess_recovery,
     check_token,
     delete_controller_members,
     detect_bootstrap_machine,
+    enable_ha,
+    HARecoveryError,
     main,
     parse_args,
     restore_missing_state_server,
@@ -172,6 +175,34 @@ class TestMain(FakeHomeTestCase):
         self.assertEqual((bs_manager.client, strategy, series),
                          (client, 'ha', 'a-series'))
         self.assertEqual(bs_manager.known_hosts['0'], 'a-host')
+
+
+class TestHA(FakeHomeTestCase):
+
+    def test_enable_ha(self):
+        controller_client = Mock(
+            spec=['enable_ha', 'juju', 'show_controller', 'wait_for_ha'])
+        enable_ha(controller_client)
+        controller_client.enable_ha.assert_called_once_with()
+        controller_client.wait_for_ha.assert_called_once_with()
+        controller_client.show_controller.assert_called_once_with(
+            format='yaml')
+
+    def test_assess_ha_recovery(self):
+        bs_manager = Mock(has_controller=False)
+        client = Mock(spec=['juju'])
+        assess_ha_recovery(bs_manager, client)
+        client.juju.assert_called_once_with(
+            'status', (), check=True, timeout=300)
+        self.assertIsTrue(bs_manager.has_controller)
+
+    def test_assess_ha_recovery_error(self):
+        bs_manager = Mock(has_controller=False)
+        client = Mock(spec=['juju'])
+        client.juju.side_effect = Exception()
+        with self.assertRaises(HARecoveryError):
+            assess_ha_recovery(bs_manager, client)
+        self.assertIsFalse(bs_manager.has_controller)
 
 
 @patch('assess_recovery.wait_for_state_server_to_shutdown', autospec=True)
