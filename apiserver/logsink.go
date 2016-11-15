@@ -4,12 +4,10 @@
 package apiserver
 
 import (
-	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
-	"runtime/debug"
 	"strings"
 	"time"
 
@@ -138,9 +136,11 @@ func jujuClientVersionFromReq(req *http.Request) (version.Number, error) {
 
 func (h *logSinkHandler) receiveLogs(socket *websocket.Conn) <-chan params.LogRecord {
 	logCh := make(chan params.LogRecord)
-	fmt.Printf("created logCh: %p\n", &logCh)
 
 	go func() {
+		// Close the channel to signal ServeHTTP to finish. Otherwise
+		// we leak goroutines on client disconnect, because the server
+		// isn't shutting down so h.ctxt.stop() is never closed.
 		defer close(logCh)
 		var m params.LogRecord
 		for {
@@ -149,14 +149,6 @@ func (h *logSinkHandler) receiveLogs(socket *websocket.Conn) <-chan params.LogRe
 			// finishes.
 			if err := websocket.JSON.Receive(socket, &m); err != nil {
 				logger.Debugf("logsink receive error: %v", err)
-				// Close the channel to signal ServeHTTP to finish.
-				// Otherwise we leak goroutines on client disconnect,
-				// because the server isn't shutting down so
-				// h.ctxt.stop() is never closed.
-				fmt.Printf("closing logCh: %p\n", &logCh)
-				debug.PrintStack()
-				fmt.Println()
-				close(logCh)
 				return
 			}
 
