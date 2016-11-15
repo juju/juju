@@ -180,28 +180,33 @@ class TestMain(FakeHomeTestCase):
 class TestHA(FakeHomeTestCase):
 
     def test_enable_ha(self):
-        controller_client = Mock(
-            spec=['enable_ha', 'juju', 'show_controller', 'wait_for_ha'])
-        enable_ha(controller_client)
-        controller_client.enable_ha.assert_called_once_with()
-        controller_client.wait_for_ha.assert_called_once_with()
-        controller_client.show_controller.assert_called_once_with(
-            format='yaml')
+        controller_client = fake_juju_client()
+        with patch.object(controller_client, 'enable_ha',
+                          autospec=True) as eh_mock:
+            with patch.object(controller_client, 'show_controller',
+                              autospec=True) as sc_mock:
+                with patch.object(controller_client, 'wait_for_ha',
+                                  autospec=True) as wh_mock:
+                    enable_ha(controller_client)
+        eh_mock.assert_called_once_with()
+        sc_mock.assert_called_once_with(format='yaml')
+        wh_mock.assert_called_once_with()
 
     def test_assess_ha_recovery(self):
-        bs_manager = Mock(has_controller=False)
-        client = Mock(spec=['juju'])
-        assess_ha_recovery(bs_manager, client)
-        client.juju.assert_called_once_with(
-            'status', (), check=True, timeout=300)
+        client = fake_juju_client()
+        bs_manager = Mock(client=client, known_hosts={}, has_controller=False)
+        with patch.object(client, 'juju', autospec=True) as j_mock:
+            assess_ha_recovery(bs_manager, client)
+        j_mock.assert_called_once_with('status', (), check=True, timeout=300)
         self.assertIsTrue(bs_manager.has_controller)
 
     def test_assess_ha_recovery_error(self):
-        bs_manager = Mock(has_controller=False)
-        client = Mock(spec=['juju'])
-        client.juju.side_effect = Exception()
-        with self.assertRaises(HARecoveryError):
-            assess_ha_recovery(bs_manager, client)
+        client = fake_juju_client()
+        bs_manager = Mock(client=client, known_hosts={}, has_controller=False)
+        with patch.object(client, 'juju', autospec=True,
+                          side_effect=Exception):
+            with self.assertRaises(HARecoveryError):
+                assess_ha_recovery(bs_manager, client)
         self.assertIsFalse(bs_manager.has_controller)
 
 
