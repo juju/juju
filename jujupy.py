@@ -1470,6 +1470,15 @@ class EnvJujuClient:
         raise Exception(
             'Timed out waiting for juju status to succeed')
 
+    def show_model(self, model_name=None):
+        model_details = self.get_juju_output(
+            'show-model',
+            '{}:{}'.format(
+                self.env.controller.name, model_name or self.env.environment),
+            '--format', 'yaml',
+            include_e=False)
+        return yaml.safe_load(model_details)
+
     @staticmethod
     def _dict_as_option_strings(options):
         return tuple('{}={}'.format(*item) for item in options.items())
