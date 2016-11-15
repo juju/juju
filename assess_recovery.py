@@ -13,6 +13,7 @@ import sys
 from deploy_stack import (
     BootstrapManager,
     deploy_dummy_stack,
+    get_remote_machines,
     get_token_from_status,
     wait_for_state_server_to_shutdown,
 )
@@ -68,12 +69,13 @@ def show_controller(client):
     log.info('Controller is:\n{}'.format(controller_info))
 
 
-def enable_ha(controller_client):
+def enable_ha(bs_manager, controller_client):
     """Enable HA and wait for the controllers to be ready."""
     controller_client.enable_ha()
     controller_client.wait_for_ha()
     show_controller(controller_client)
-    # Update bs_manager.known_hosts with the new controllers.
+    remote_machines = get_remote_machines(controller_client, {})
+    bs_manager.known_hosts = remote_machines
 
 
 def assess_ha_recovery(bs_manager, client):
@@ -195,7 +197,7 @@ def assess_recovery(bs_manager, strategy, charm_series):
     log.info("Test started.")
     controller_client = client.get_controller_client()
     if strategy in ('ha', 'ha-backup'):
-        enable_ha(controller_client)
+        enable_ha(bs_manager, controller_client)
     if strategy in ('ha-backup', 'backup'):
         backup_file = controller_client.backup()
         restore_present_state_server(controller_client, backup_file)

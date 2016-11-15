@@ -181,16 +181,22 @@ class TestHA(FakeHomeTestCase):
 
     def test_enable_ha(self):
         controller_client = fake_juju_client()
+        bs_manager = Mock(
+            client=controller_client, known_hosts={}, has_controller=False)
+        machines = {'0': 'a.local', '1': 'b.local', '2': 'c.local'}
         with patch.object(controller_client, 'enable_ha',
                           autospec=True) as eh_mock:
             with patch.object(controller_client, 'show_controller',
                               autospec=True) as sc_mock:
                 with patch.object(controller_client, 'wait_for_ha',
                                   autospec=True) as wh_mock:
-                    enable_ha(controller_client)
+                    with patch('deploy_stack.iter_remote_machines',
+                               autospec=True, return_value=machines.items()):
+                        enable_ha(bs_manager, controller_client)
         eh_mock.assert_called_once_with()
         sc_mock.assert_called_once_with(format='yaml')
         wh_mock.assert_called_once_with()
+        self.assertEqual(machines, bs_manager.known_hosts)
 
     def test_assess_ha_recovery(self):
         client = fake_juju_client()
