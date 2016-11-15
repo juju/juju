@@ -1,3 +1,3 @@
 #!/bin/sh
 
-status-set maintenance "Started" || true
+status-set active "Started" || true
