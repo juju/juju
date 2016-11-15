@@ -68,6 +68,7 @@ func (h *logSinkHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 				h.sendError(socket, req, err)
 				return
 			}
+			defer h.ctxt.release(st)
 			tag := entity.Tag()
 
 			// Note that this endpoint is agent-only. Thus the only
@@ -145,6 +146,11 @@ func (h *logSinkHandler) receiveLogs(socket *websocket.Conn) <-chan params.LogRe
 			// finishes.
 			if err := websocket.JSON.Receive(socket, &m); err != nil {
 				logger.Debugf("logsink receive error: %v", err)
+				// Close the channel to signal ServeHTTP to finish.
+				// Otherwise we leak goroutines on migration, because
+				// the server isn't shutting down so h.ctxt.stop() is
+				// never closed.
+				close(logCh)
 				return
 			}
 
