@@ -351,6 +351,22 @@ class TestDisableAPIServer(TestCase):
             ],
             remote_client.run.mock_calls)
 
+    def test_starts_and_stops_request_machine_number(self):
+        remote_client = Mock()
+        mock_client = Mock()
+        with patch.object(
+                amm, 'get_remote_for_controller',
+                autospec=True, return_value=remote_client) as m_grfc:
+            with amm.disable_apiserver(mock_client, '123'):
+                pass
+        m_grfc.assert_called_once_with(mock_client)
+        self.assertItemsEqual(
+            [
+                call('sudo service jujud-machine-123 stop'),
+                call('sudo service jujud-machine-123 start')
+            ],
+            remote_client.run.mock_calls)
+
 
 class TestRaiseIfSharedMachines(TestCase):
 

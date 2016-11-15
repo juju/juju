@@ -285,18 +285,20 @@ def ensure_migration_rolls_back_on_failure(source_bs, dest_bs, upload_tools):
 
 
 @contextmanager
-def disable_apiserver(admin_client):
-    """Disable the api server on the controller machine.
+def disable_apiserver(admin_client, machine_number='0'):
+    """Disable the api server on the machine number provided.
 
     For the duration of the context manager stop the apiserver process on the
     controller machine.
     """
     rem_client = get_remote_for_controller(admin_client)
     try:
-        rem_client.run('sudo service jujud-machine-0 stop')
+        rem_client.run(
+            'sudo service jujud-machine-{} stop'.format(machine_number))
         yield
     finally:
-        rem_client.run('sudo service jujud-machine-0 start')
+        rem_client.run(
+            'sudo service jujud-machine-{} start'.format(machine_number))
 
 
 def get_remote_for_controller(admin_client):
