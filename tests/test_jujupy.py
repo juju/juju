@@ -77,7 +77,6 @@ from jujupy import (
     temp_bootstrap_env,
     _temp_env as temp_env,
     temp_yaml_file,
-    UnitError,
     uniquify_local,
     UnitError,
     UpgradeMongoNotSupported,

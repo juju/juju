@@ -684,9 +684,8 @@ class Status:
     def get_applications(self):
         return self.status.get('applications', {})
 
-    @property
-    def machines(self):
-        return self.status['machines']
+    def get_machines(self, default=None):
+        return self.status.get('machines', default)
 
     def iter_machines(self, containers=False, machines=True):
         for machine_name, machine in sorted(self.status['machines'].items()):
@@ -823,7 +822,7 @@ class Status:
 
     def iter_status(self):
         """Iterate through every status field in the larger status data."""
-        for machine_name, machine_value in self.machines.items():
+        for machine_name, machine_value in self.get_machines({}).items():
             yield StatusItem(StatusItem.MACHINE, machine_name, machine_value)
             yield StatusItem(StatusItem.JUJU, machine_name, machine_value)
         for app_name, app_value in self.get_applications().items():
@@ -865,7 +864,7 @@ class Status1X(Status):
                 }
 
     def iter_status(self):
-        for machine_name, machine_value in self.machines.items():
+        for machine_name, machine_value in self.get_machines({}).items():
             yield StatusItem(
                 StatusItem.JUJU, machine_name,
                 {StatusItem.JUJU: self.status_condence(machine_value)})
@@ -873,11 +872,11 @@ class Status1X(Status):
             yield StatusItem(
                 StatusItem.APPLICATION, app_name,
                 {StatusItem.APPLICATION: app_value['service-status']})
-            for unit_name, unit_value in app_value['units'].items()
-                if StatusItem.WORKLOAD is in unit_value:
+            for unit_name, unit_value in app_value['units'].items():
+                if StatusItem.WORKLOAD in unit_value:
                     yield StatusItem(StatusItem.WORKLOAD,
                                      unit_name, unit_value)
-                if 'agent-status' is in unit_value:
+                if 'agent-status' in unit_value:
                     yield StatusItem(
                         StatusItem.JUJU, unit_name,
                         {StatusItem.JUJU: unit_value['agent-status']})
