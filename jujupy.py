@@ -687,9 +687,6 @@ class Status:
     def get_machines(self, default=None):
         return self.status.get('machines', default)
 
-    def get_machines(self, default=None):
-        return self.status.get('machines', default)
-
     def iter_machines(self, containers=False, machines=True):
         for machine_name, machine in sorted(self.status['machines'].items()):
             if machines:
