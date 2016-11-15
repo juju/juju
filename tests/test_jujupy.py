@@ -33,6 +33,7 @@ from jujuconfig import (
     NoSuchEnvironment,
     )
 from jujupy import (
+    AppError,
     BootstrapMismatch,
     CannotConnectEnv,
     client_from_config,
@@ -75,6 +76,7 @@ from jujupy import (
     temp_yaml_file,
     UnitError,
     uniquify_local,
+    UnitError,
     UpgradeMongoNotSupported,
     VersionNotTestedError,
     )
@@ -5392,6 +5394,26 @@ class TestTempBootstrapEnv(FakeHomeTestCase):
                             client.env.environment)))
         self.assertFalse(os.path.exists(tb_home))
         self.assertEqual(client.env.juju_home, tb_home)
+
+
+class TestStatusErrorTree(TestCase):
+    """TestCase for StatusError and the tree of exceptions it roots."""
+
+    def test_priority(self):
+        self.assertEqual(7, StatusError.priority())
+
+    def test_priority_mass(self):
+        for index, error_type in enumerate(StatusError.ordering):
+            self.assertEqual(index, error_type.priority())
+
+    def test_priority_children_first(self):
+        for index, error_type in enumerate(StatusError.ordering, 1):
+            for second_error in StatusError.ordering[index:]:
+                self.assertFalse(issubclass(second_error, error_type))
+
+    def test_priority_pairs(self):
+        self.assertLess(MachineError.priority(), UnitError.priority())
+        self.assertLess(UnitError.priority(), AppError.priority())
 
 
 class TestStatus(FakeHomeTestCase):
