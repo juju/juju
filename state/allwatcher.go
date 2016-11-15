@@ -1264,6 +1264,7 @@ func (b *allModelWatcherStateBacking) Changed(all *multiwatcherStore, change wat
 		}
 		return errors.Trace(err)
 	}
+	defer b.stPool.Release(modelUUID)
 
 	col, closer := st.getCollection(c.name)
 	defer closer()
