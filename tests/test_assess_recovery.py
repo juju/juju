@@ -23,6 +23,7 @@ from fakejuju import fake_juju_client
 from jujupy import (
     Machine,
     )
+from subprocess import CalledProcessError
 from tests import (
     FakeHomeTestCase,
     TestCase,
@@ -212,7 +213,7 @@ class TestHA(FakeHomeTestCase):
         client = fake_juju_client()
         bs_manager = Mock(client=client, known_hosts={}, has_controller=False)
         with patch.object(client, 'juju', autospec=True,
-                          side_effect=Exception):
+                          side_effect=CalledProcessError('foo', 'bar')):
             with self.assertRaises(HARecoveryError):
                 assess_ha_recovery(bs_manager, client)
         self.assertIsFalse(bs_manager.has_controller)
@@ -222,7 +223,7 @@ class TestHA(FakeHomeTestCase):
         bs_manager = Mock(client=client, known_hosts={}, has_controller=False)
         with patch.object(client, 'juju', autospec=True):
             with patch.object(client, 'get_status', autospec=True,
-                              side_effect=Exception):
+                              side_effect=CalledProcessError('foo', 'bar')):
                 with self.assertRaises(HARecoveryError):
                     assess_ha_recovery(bs_manager, client)
         self.assertIsFalse(bs_manager.has_controller)

@@ -92,7 +92,7 @@ def assess_ha_recovery(bs_manager, client):
     try:
         client.juju('status', (), check=False, timeout=300)
         client.get_status(300)
-    except:
+    except CalledProcessError:
         raise HARecoveryError()
     bs_manager.has_controller = True
     log.info("HA recovered from leader failure.")
