@@ -147,9 +147,9 @@ func (h *logSinkHandler) receiveLogs(socket *websocket.Conn) <-chan params.LogRe
 			if err := websocket.JSON.Receive(socket, &m); err != nil {
 				logger.Debugf("logsink receive error: %v", err)
 				// Close the channel to signal ServeHTTP to finish.
-				// Otherwise we leak goroutines on migration, because
-				// the server isn't shutting down so h.ctxt.stop() is
-				// never closed.
+				// Otherwise we leak goroutines on client disconnect,
+				// because the server isn't shutting down so
+				// h.ctxt.stop() is never closed.
 				close(logCh)
 				return
 			}
