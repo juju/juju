@@ -68,6 +68,7 @@ from jujupy import (
     Status1X,
     StatusError,
     StatusItem,
+    StatusNotMet,
     SYSTEM,
     temp_bootstrap_env,
     _temp_env as temp_env,
@@ -1556,7 +1557,7 @@ class TestEnvJujuClient(ClientTest):
                 with patch.object(GroupReporter, '_write', autospec=True,
                                   side_effect=lambda _, s: writes.append(s)):
                     with self.assertRaisesRegexp(
-                            Exception,
+                            StatusNotMet,
                             'Timed out waiting for agents to start in local'):
                         client.wait_for_started()
                 self.assertEqual(writes, ['pending: 0', ' .', '\n'])
@@ -1571,7 +1572,7 @@ class TestEnvJujuClient(ClientTest):
                 with patch.object(GroupReporter, '_write', autospec=True,
                                   side_effect=lambda _, s: writes.append(s)):
                     with self.assertRaisesRegexp(
-                            Exception,
+                            StatusNotMet,
                             'Timed out waiting for agents to start in local'):
                         client.wait_for_started(start=now - timedelta(1200))
                 self.assertEqual(writes, ['pending: jenkins/0', '\n'])
@@ -1635,6 +1636,48 @@ class TestEnvJujuClient(ClientTest):
             with self.assertRaises(SoftDeadlineExceeded):
                 client._wait_for_status(Mock(), translate)
 
+    @contextmanager
+    def status_errors(self, status, errors):
+        """Patch iter_errors keeping ignore_recoverable."""
+        def fake_iter_errors(self, ignore_recoverable=False):
+            for error in errors[0]:
+                if not (ignore_recoverable and self.recoverable):
+                    yield error
+            del errors[0]
+
+        with patch.object(status, 'iter_errors', autospec=True,
+                          side_effect=fake_iter_errors) as errors_mock:
+            yield errors_mock
+
+    def test__wait_for_status_raises_error(self):
+        """Check _wait_for_status's handling of a recoverable=False error."""
+        def translate(x):
+            return {'waiting': '0'}
+
+        errors = [[MachineError('0', 'error not recoverable')]]
+        with self.status_does_not_check() as client:
+            with self.status_errors(client.get_status(),
+                                    errors) as errors_mock:
+                with self.assertRaises(MachineError):
+                    client._wait_for_status(Mock(), translate)
+        errors_mock.assert_called_once_with(ignore_recoverable=True)
+
+    def test__wait_for_status_delays_recoverable(self):
+        """Check _wait_for_status's handling of a recoverable=True error."""
+        def translate(x):
+            return {'waiting': '0'}
+
+        errors = [[StatusError('fake', 'error is recoverable')],
+                  [UnitError('fake/0', 'error is recoverable')]]
+        with self.status_does_not_check() as client:
+            with self.status_errors(client.get_status(),
+                                    errors) as errors_mock:
+                with self.assertRaises(UnitError):
+                    client._wait_for_status(Mock(), translate)
+        self.assertEqual(2, errors_mock.call_count)
+        errors_mock.assert_has_calls(
+            [call(ignore_recoverable=True), call(ignore_recoverable=False)])
+
     def test_wait_for_started_logs_status(self):
         value = self.make_status_yaml('agent-state', 'pending', 'started')
         client = EnvJujuClient(JujuData('local'), None, None)
@@ -1643,7 +1686,7 @@ class TestEnvJujuClient(ClientTest):
             with patch.object(GroupReporter, '_write', autospec=True,
                               side_effect=lambda _, s: writes.append(s)):
                 with self.assertRaisesRegexp(
-                        Exception,
+                        StatusNotMet,
                         'Timed out waiting for agents to start in local'):
                     client.wait_for_started(0)
             self.assertEqual(writes, ['pending: 0', '\n'])
@@ -1762,7 +1805,7 @@ class TestEnvJujuClient(ClientTest):
         with patch('utility.until_timeout.now', return_value=now):
             with patch.object(client, 'get_juju_output', return_value=value):
                 with self.assertRaisesRegexp(
-                        Exception,
+                        StatusNotMet,
                         'Timed out waiting for agents to start in local'):
                     client.wait_for_subordinate_units(
                         'jenkins', 'sub1', start=now - timedelta(1200))
@@ -1783,7 +1826,7 @@ class TestEnvJujuClient(ClientTest):
         with patch('utility.until_timeout.now', return_value=now):
             with patch.object(client, 'get_juju_output', return_value=value):
                 with self.assertRaisesRegexp(
-                        Exception,
+                        StatusNotMet,
                         'Timed out waiting for agents to start in local'):
                     client.wait_for_subordinate_units(
                         'jenkins', 'sub1', start=now - timedelta(1200))
@@ -2330,7 +2373,7 @@ class TestEnvJujuClient(ClientTest):
                 with patch.object(GroupReporter, '_write', autospec=True,
                                   side_effect=lambda _, s: writes.append(s)):
                     with self.assertRaisesRegexp(
-                            Exception, 'Some versions did not update'):
+                            StatusNotMet, 'Some versions did not update'):
                         client.wait_for_version('1.17.2')
         self.assertEqual(writes, ['1.17.1: jenkins/0', ' .', '\n'])
 
@@ -3968,7 +4011,7 @@ class TestEnvJujuClient1X(ClientTest):
                 with patch.object(GroupReporter, '_write', autospec=True,
                                   side_effect=lambda _, s: writes.append(s)):
                     with self.assertRaisesRegexp(
-                            Exception,
+                            StatusNotMet,
                             'Timed out waiting for agents to start in local'):
                         client.wait_for_started()
                 self.assertEqual(writes, ['pending: 0', ' .', '\n'])
@@ -3983,7 +4026,7 @@ class TestEnvJujuClient1X(ClientTest):
                 with patch.object(GroupReporter, '_write', autospec=True,
                                   side_effect=lambda _, s: writes.append(s)):
                     with self.assertRaisesRegexp(
-                            Exception,
+                            StatusNotMet,
                             'Timed out waiting for agents to start in local'):
                         client.wait_for_started(start=now - timedelta(1200))
                 self.assertEqual(writes, ['pending: jenkins/0', '\n'])
@@ -3996,7 +4039,7 @@ class TestEnvJujuClient1X(ClientTest):
             with patch.object(GroupReporter, '_write', autospec=True,
                               side_effect=lambda _, s: writes.append(s)):
                 with self.assertRaisesRegexp(
-                        Exception,
+                        StatusNotMet,
                         'Timed out waiting for agents to start in local'):
                     client.wait_for_started(0)
             self.assertEqual(writes, ['pending: 0', '\n'])
@@ -4080,7 +4123,7 @@ class TestEnvJujuClient1X(ClientTest):
         with patch('utility.until_timeout.now', return_value=now):
             with patch.object(client, 'get_juju_output', return_value=value):
                 with self.assertRaisesRegexp(
-                        Exception,
+                        StatusNotMet,
                         'Timed out waiting for agents to start in local'):
                     client.wait_for_subordinate_units(
                         'jenkins', 'sub1', start=now - timedelta(1200))
@@ -4101,7 +4144,7 @@ class TestEnvJujuClient1X(ClientTest):
         with patch('utility.until_timeout.now', return_value=now):
             with patch.object(client, 'get_juju_output', return_value=value):
                 with self.assertRaisesRegexp(
-                        Exception,
+                        StatusNotMet,
                         'Timed out waiting for agents to start in local'):
                     client.wait_for_subordinate_units(
                         'jenkins', 'sub1', start=now - timedelta(1200))
@@ -4222,7 +4265,7 @@ class TestEnvJujuClient1X(ClientTest):
         with patch('jujupy.until_timeout', lambda x: range(0)):
             with patch.object(client, 'get_juju_output', return_value=value):
                 with self.assertRaisesRegexp(
-                        Exception,
+                        StatusNotMet,
                         'Timed out waiting for voting to be enabled.'):
                     client.wait_for_ha()
 
@@ -4254,7 +4297,7 @@ class TestEnvJujuClient1X(ClientTest):
         with patch('jujupy.until_timeout', lambda x: range(0)):
             with patch.object(client, 'get_juju_output', return_value=value):
                 with self.assertRaisesRegexp(
-                        Exception,
+                        StatusNotMet,
                         'Timed out waiting for services to start.'):
                     client.wait_for_deploy_started()
 
@@ -4273,7 +4316,7 @@ class TestEnvJujuClient1X(ClientTest):
                 with patch.object(GroupReporter, '_write', autospec=True,
                                   side_effect=lambda _, s: writes.append(s)):
                     with self.assertRaisesRegexp(
-                            Exception, 'Some versions did not update'):
+                            StatusNotMet, 'Some versions did not update'):
                         client.wait_for_version('1.17.2')
         self.assertEqual(writes, ['1.17.1: jenkins/0', ' .', '\n'])
 
