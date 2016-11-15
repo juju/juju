@@ -16,7 +16,6 @@ from deploy_stack import (
 )
 from fakejuju import fake_juju_client
 from jujupy import (
-    Controller,
     EnvJujuClient,
     JujuData,
     SoftDeadlineExceeded,
@@ -169,10 +168,12 @@ class TestExpectMigrationAttemptToFail(TestCase):
     dest_client = fake_juju_client()
 
     def test_raises_when_no_failure_detected(self):
-        with patch.object(self.source_client, 'get_juju_output'):
+        with patch.object(
+                self.source_client, 'get_juju_output', autospec=True):
             with self.assertRaises(JujuAssertionError) as ex:
-                amm.expect_migration_attempt_to_fail(
-                    self.source_client, self.dest_client)
+                with patch('sys.stderr', StringIO.StringIO()):
+                    amm.expect_migration_attempt_to_fail(
+                        self.source_client, self.dest_client)
             self.assertEqual(
                 ex.exception.message, 'Migration did not fail as expected.')
 
@@ -271,14 +272,14 @@ def _get_time_noop_mock_client():
 class TestWaitForMigration(TestCase):
 
     no_migration_yaml = dedent("""\
-        example-model:
+        name:
             status:
                 current: available
                 since: 4 minutes ago
     """)
 
     migration_status_yaml = dedent("""\
-        example-model:
+        name:
             status:
                 current: available
                 since: 4 minutes ago
@@ -286,53 +287,42 @@ class TestWaitForMigration(TestCase):
                 migration-start: 48 seconds ago
         """)
 
-    def test_gets_show_model_details(self):
-        mock_client = _get_time_noop_mock_client()
-
-        mock_client.get_juju_output.return_value = self.migration_status_yaml
-        mock_client.env = JujuData(
-            'example-model', juju_home='', controller=Controller('foo'))
-        with patch.object(amm, 'sleep', autospec=True):
-            amm.wait_for_migrating(mock_client)
-        mock_client.get_juju_output.assert_called_once_with(
-            'show-model', 'foo:example-model',
-            '--format', 'yaml', include_e=False)
-
     def test_returns_when_migration_status_found(self):
-        mock_client = _get_time_noop_mock_client()
-
-        mock_client.get_juju_output.return_value = self.migration_status_yaml
-        mock_client.env = JujuData(
-            'example-model', juju_home='', controller=Controller('foo'))
-        with patch.object(amm, 'sleep', autospec=True) as m_sleep:
-            amm.wait_for_migrating(mock_client)
+        client = fake_juju_client()
+        with patch.object(
+                client, 'get_juju_output',
+                autospec=True, return_value=self.migration_status_yaml):
+            with patch.object(amm, 'sleep', autospec=True) as m_sleep:
+                amm.wait_for_migrating(client)
         self.assertEqual(m_sleep.call_count, 0)
 
     def test_checks_multiple_times_for_status(self):
-        mock_client = _get_time_noop_mock_client()
+        client = fake_juju_client()
+        client.bootstrap()
 
-        mock_client.get_juju_output.side_effect = [
+        show_model_calls = [
             self.no_migration_yaml,
             self.no_migration_yaml,
             self.migration_status_yaml
         ]
-        mock_client.env = JujuData(
-            'example-model', juju_home='', controller=Controller('foo'))
-        with patch.object(amm, 'sleep', autospec=True) as m_sleep:
-            amm.wait_for_migrating(mock_client)
+        with patch.object(
+                client, 'get_juju_output',
+                autospec=True, side_effect=show_model_calls):
+            with patch.object(amm, 'sleep', autospec=True) as m_sleep:
+                amm.wait_for_migrating(client)
         self.assertEqual(m_sleep.call_count, 2)
 
     def test_raises_when_timeout_reached_with_no_migration_status(self):
-        mock_client = _get_time_noop_mock_client()
-
-        mock_client.get_juju_output.return_value = self.no_migration_yaml
-        mock_client.env = JujuData(
-            'example-model', juju_home='', controller=Controller('foo'))
-        with patch.object(amm, 'sleep', autospec=True):
-            with patch.object(
-                    until_timeout, 'next', side_effect=StopIteration()):
-                with self.assertRaises(JujuAssertionError):
-                    amm.wait_for_migrating(mock_client)
+        client = fake_juju_client()
+        client.bootstrap()
+        with patch.object(
+                client, 'get_juju_output',
+                autospec=True, return_value=self.no_migration_yaml):
+            with patch.object(amm, 'sleep', autospec=True):
+                with patch.object(
+                        until_timeout, 'next', side_effect=StopIteration()):
+                    with self.assertRaises(JujuAssertionError):
+                        amm.wait_for_migrating(client)
 
 
 class TestWaitForModel(TestCase):
@@ -418,7 +408,7 @@ class TestDeployMongodbToNewModel(TestCase):
             source_client.env.clone.return_value)
         new_model.juju.assert_called_once_with('deploy', ('mongodb'))
         new_model.wait_for_started.assert_called_once_with()
-        new_model.wait_for_workloads.assert_called_once_with
+        new_model.wait_for_workloads.assert_called_once_with()
         m_tdmiu.assert_called_once_with(new_model)
 
 
@@ -450,11 +440,27 @@ class TestDisableAPIServer(TestCase):
                 with amm.disable_apiserver(mock_client):
                     raise ValueError()
             except ValueError:
-                pass            # Expected test exception.
+                pass  # Expected test exception.
         self.assertItemsEqual(
             [
                 call('sudo service jujud-machine-0 stop'),
                 call('sudo service jujud-machine-0 start')
+            ],
+            remote_client.run.mock_calls)
+
+    def test_starts_and_stops_request_machine_number(self):
+        remote_client = Mock()
+        mock_client = Mock()
+        with patch.object(
+                amm, 'get_remote_for_controller',
+                autospec=True, return_value=remote_client) as m_grfc:
+            with amm.disable_apiserver(mock_client, '123'):
+                pass
+        m_grfc.assert_called_once_with(mock_client)
+        self.assertItemsEqual(
+            [
+                call('sudo service jujud-machine-123 stop'),
+                call('sudo service jujud-machine-123 start')
             ],
             remote_client.run.mock_calls)
 
