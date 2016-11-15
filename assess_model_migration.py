@@ -10,7 +10,6 @@ import os
 from subprocess import CalledProcessError
 import sys
 from time import sleep
-import yaml
 from urllib2 import urlopen
 
 from assess_user_grant_revoke import User
@@ -138,14 +137,10 @@ def wait_for_migrating(client, timeout=60):
     with client.check_timeouts():
         with client.ignore_soft_deadline():
             for _ in until_timeout(timeout):
-                model_details = client.get_juju_output(
-                    'show-model',
-                    '{}:{}'.format(client.env.controller.name, model_name),
-                    '--format', 'yaml',
-                    include_e=False)
-                output = yaml.safe_load(model_details)
-
-                if output[model_name]['status'].get('migration') is not None:
+                model_details = client.show_model(model_name)
+                migration_status = model_details[model_name]['status'].get(
+                    'migration')
+                if migration_status is not None:
                     return
                 sleep(1)
             raise JujuAssertionError(
@@ -406,18 +401,20 @@ def ensure_migration_rolls_back_on_failure(source_client, dest_client):
 
 
 @contextmanager
-def disable_apiserver(admin_client):
-    """Disable the api server on the controller machine.
+def disable_apiserver(admin_client, machine_number='0'):
+    """Disable the api server on the machine number provided.
 
     For the duration of the context manager stop the apiserver process on the
     controller machine.
     """
     rem_client = get_remote_for_controller(admin_client)
     try:
-        rem_client.run('sudo service jujud-machine-0 stop')
+        rem_client.run(
+            'sudo service jujud-machine-{} stop'.format(machine_number))
         yield
     finally:
-        rem_client.run('sudo service jujud-machine-0 start')
+        rem_client.run(
+            'sudo service jujud-machine-{} start'.format(machine_number))
 
 
 def get_remote_for_controller(admin_client):
