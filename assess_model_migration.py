@@ -23,6 +23,7 @@ from utility import (
     JujuAssertionError,
     add_basic_testing_arguments,
     configure_logging,
+    get_unit_ipaddress,
     temp_dir,
     until_timeout,
 )
@@ -86,11 +87,6 @@ def get_bootstrap_managers(args):
     bs_2.log_dir = _new_log_dir(args.logs, 'b')
 
     return bs_1, bs_2
-
-
-def get_unit_ipaddress(client, unit_name):
-    status = client.get_status()
-    return status.get_unit(unit_name)['public-address']
 
 
 def _new_log_dir(log_dir, post_fix):
