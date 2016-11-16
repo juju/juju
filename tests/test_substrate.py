@@ -1341,6 +1341,12 @@ class TestMakeSubstrateManager(FakeHomeTestCase):
         config = get_config(env)
         self.assertEqual(boot_config, config)
 
+    def test_get_config_manual(self):
+        boot_config = {'type': 'manual'}
+        env = JujuData('foo', boot_config)
+        config = get_config(env)
+        self.assertEqual(boot_config, config)
+
 
 class TestLibvirt(TestCase):
 

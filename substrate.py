@@ -696,11 +696,8 @@ class LXDAccount:
 
 def get_config(boot_config):
     config = deepcopy(boot_config.config)
-    try:
+    if boot_config.type not in ('lxd', 'manual'):
         config.update(boot_config.get_cloud_credentials())
-    except KeyError:
-        # This substrate does not require cloud credentials.
-        pass
     return config
 
 
