@@ -6155,7 +6155,8 @@ class TestStatus(FakeHomeTestCase):
         self.assertIsInstance(gen, types.GeneratorType)
         self.assertEqual(expected, list(gen))
 
-    def run_iter_status(self):
+    @staticmethod
+    def run_iter_status():
         status = Status({
             'machines': {
                 '0': {
@@ -6303,6 +6304,91 @@ class TestStatus1X(FakeHomeTestCase):
             'applications': {'application': {}},
             }, '')
         self.assertEqual({'service': {}}, status.get_applications())
+
+    def test_condense_status(self):
+        status = Status1X({}, '')
+        self.assertEqual(status.condense_status(
+                             {'agent-state': 'started',
+                              'agent-state-info': 'all good',
+                              'agent-version': '1.25.1',
+                              }),
+                         {'current': 'started', 'message': 'all good',
+                          'version': '1.25.1'})
+
+    def test_condense_status_no_info(self):
+        status = Status1X({}, '')
+        self.assertEqual(status.condense_status(
+                             {'agent-state': 'started',
+                              'agent-version': '1.25.1',
+                              }),
+                         {'current': 'started', 'message': None,
+                          'version': '1.25.1'})
+
+    @staticmethod
+    def run_iter_status():
+        status = Status1X({
+            'environment': 'fake-unit-test',
+            'machines': {
+                '0': {
+                    'agent-state': 'started',
+                    'agent-state-info': 'all good',
+                    'agent-version': '1.25.1',
+                    },
+                },
+            'services': {
+                'dummy-sink': {
+                    'units': {
+                        'dummy-sink/0': {
+                            'agent-state': 'started',
+                            'agent-version': '1.25.1',
+                            },
+                        'dummy-sink/1': {
+                            'workload-status': {
+                                'current': 'active',
+                                },
+                            'agent-status': {
+                                'current': 'executing',
+                                },
+                            'agent-state': 'started',
+                            'agent-version': '1.25.1',
+                            },
+                        }
+                    },
+                'dummy-source': {
+                    'service-status': {
+                        'current': 'active',
+                        },
+                    'units': {
+                        'dummy-source/0': {
+                            'agent-state': 'started',
+                            'agent-version': '1.25.1',
+                            }
+                        }
+                    },
+                },
+            }, '')
+        for sub_status in status.iter_status():
+            yield sub_status
+
+    def test_iter_status_range(self):
+        status_set = set([(status_item.item_name, status_item.status_name,
+                           status_item.current)
+                          for status_item in self.run_iter_status()])
+        APP = StatusItem.APPLICATION
+        WORK = StatusItem.WORKLOAD
+        JUJU = StatusItem.JUJU
+        self.assertEqual({
+            ('0', JUJU, 'started'), ('dummy-sink/0', JUJU, 'started'),
+            ('dummy-sink/1', JUJU, 'executing'),
+            ('dummy-sink/1', WORK, 'active'), ('dummy-source', APP, 'active'),
+            ('dummy-source/0', JUJU, 'started'),
+            }, status_set)
+
+    def test_iter_status_data(self):
+        iterator = self.run_iter_status()
+        self.assertEqual(iterator.next().status,
+                         dict(current='started', message='all good',
+                              version='1.25.1'))
 
 
 def fast_timeout(count):
