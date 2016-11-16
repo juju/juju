@@ -429,6 +429,8 @@ class AddCloud(PromptingExpectChild):
 
     HOST = "Enter the controller's hostname or IP address:"
 
+    ANOTHER_REGION = 'Enter another region? (Y/n):'
+
     def __init__(self, backend, juju_home, extra_env):
         super(AddCloud, self).__init__(
             backend, juju_home, extra_env, self.iter_prompts())
@@ -446,15 +448,15 @@ class AddCloud(PromptingExpectChild):
                 yield self.AUTH
                 if 'invalid' not in self.values[self.AUTH]:
                     break
-            while self.values.get('Enter another region? (Y/n)') != 'n':
+            while self.values.get(self.ANOTHER_REGION) != 'n':
                 yield self.REGION_NAME
                 yield self.REGION_ENDPOINT
-                yield 'Enter another region? (Y/n)'
+                yield self.ANOTHER_REGION
         if self.values['Select cloud type:'] == 'vsphere':
-            yield 'Enter the API endpoint url for the cloud:'
-            while self.values.get('Enter another region? (Y/n)') != 'n':
-                yield 'Enter region name:'
-                yield 'Enter another region? (Y/n):'
+            yield self.CLOUD_ENDPOINT
+            while self.values.get(self.ANOTHER_REGION) != 'n':
+                yield self.REGION_NAME
+                yield self.ANOTHER_REGION
 
     def close(self):
         cloud = {
