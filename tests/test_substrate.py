@@ -32,6 +32,7 @@ from substrate import (
     convert_to_azure_ids,
     describe_instances,
     destroy_job_instances,
+    get_config,
     get_job_instances,
     get_libvirt_domstate,
     JoyentAccount,
@@ -49,7 +50,10 @@ from substrate import (
     terminate_instances,
     verify_libvirt_domain,
     )
-from tests import TestCase
+from tests import (
+    FakeHomeTestCase,
+    TestCase,
+    )
 from tests.test_winazurearm import (
     fake_init_services,
     ResourceGroup,
@@ -1252,7 +1256,7 @@ class TestMAASAccountFromConfig(TestCase):
             'INFO Could not login with MAAS 2.0 API, trying 1.0\n')
 
 
-class TestMakeSubstrateManager(TestCase):
+class TestMakeSubstrateManager(FakeHomeTestCase):
 
     def test_make_substrate_manager_aws(self):
         boot_config = get_aws_env()
@@ -1330,6 +1334,12 @@ class TestMakeSubstrateManager(TestCase):
         boot_config = SimpleEnvironment('foo', config)
         with make_substrate_manager(boot_config) as account:
             self.assertIs(account, None)
+
+    def test_get_config_lxd(self):
+        boot_config = get_lxd_config()
+        env = JujuData('foo', boot_config)
+        config = get_config(env)
+        self.assertEqual(boot_config, config)
 
 
 class TestLibvirt(TestCase):

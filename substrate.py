@@ -696,7 +696,11 @@ class LXDAccount:
 
 def get_config(boot_config):
     config = deepcopy(boot_config.config)
-    config.update(boot_config.get_cloud_credentials())
+    try:
+        config.update(boot_config.get_cloud_credentials())
+    except KeyError:
+        # This substrate does not require cloud credentials.
+        pass
     return config
 
 
