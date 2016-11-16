@@ -6248,17 +6248,34 @@ class TestStatus(FakeHomeTestCase):
 
     def test_iter_errors(self):
         status = Status({}, '')
-        retval = [StatusItem(StatusItem.WORKLOAD, 'job/0',
-                             {StatusItem.WORKLOAD: {'current': 'error'}}),
-                  StatusItem(StatusItem.APPLICATION, 'job',
-                             {StatusItem.APPLICATION: {'current': 'running'}})
-                  ]
+        retval = [
+            StatusItem(StatusItem.WORKLOAD, 'job/0', {'current': 'started'}),
+            StatusItem(StatusItem.APPLICATION, 'job', {'current': 'started'}),
+            StatusItem(StatusItem.MACHINE, '0', {'current': 'error'}),
+            ]
         with patch.object(status, 'iter_status', autospec=True,
                           return_value=retval):
             errors = list(status.iter_errors())
         self.assertEqual(len(errors), 1)
-        self.assertIsInstance(errors[0], UnitError)
-        self.assertEqual(('job/0', None), errors[0].args)
+        self.assertIsInstance(errors[0], MachineError)
+        self.assertEqual(('0', None), errors[0].args)
+
+    def test_iter_errors_ignore_recoverable(self):
+        status = Status({}, '')
+        retval = [
+            StatusItem(StatusItem.WORKLOAD, 'job/0', {'current': 'error'}),
+            StatusItem(StatusItem.MACHINE, '0', {'current': 'error'}),
+            ]
+        with patch.object(status, 'iter_status', autospec=True,
+                          return_value=retval):
+            errors = list(status.iter_errors(ignore_recoverable=True))
+        self.assertEqual(len(errors), 1)
+        self.assertIsInstance(errors[0], MachineError)
+        self.assertEqual(('0', None), errors[0].args)
+        with patch.object(status, 'iter_status', autospec=True,
+                          return_value=retval):
+            recoverable = list(status.iter_errors())
+        self.assertGreater(len(recoverable), len(errors))
 
     def test_check_for_errors_good(self):
         status = Status({}, '')
@@ -6266,14 +6283,6 @@ class TestStatus(FakeHomeTestCase):
                           return_value=[]) as error_mock:
             self.assertEqual([], status.check_for_errors())
         error_mock.assert_called_once_with(False)
-
-    @contextmanager
-    def patch_iter_errors_one(self, status,
-                              item_name, status_name, **kwargs):
-        retval = [(item_name, status_name, dict(current='error', **kwargs))]
-        with patch.object(status, 'iter_errors', autospec=True,
-                          return_value=retval) as error_mock:
-            yield error_mock
 
     def test_check_for_errors(self):
         status = Status({}, '')
