@@ -2360,7 +2360,7 @@ class EnvJujuClient:
                     child.sendline(name)
                     child.expect('Enter the API endpoint url for the region:')
                     child.sendline(values['endpoint'])
-                    child.expect('Enter another region\? \(Y/n\)')
+                    child.expect('Enter another region\? \(Y/n\):')
                     if num + 1 < len(cloud['regions']):
                         child.sendline('y')
                     else:
@@ -2371,7 +2371,7 @@ class EnvJujuClient:
                 for num, (name, values) in enumerate(cloud['regions'].items()):
                     child.expect('Enter region name:')
                     child.sendline(name)
-                    child.expect('Enter another region\? \(Y/n\)')
+                    child.expect('Enter another region\? \(Y/n\):')
                     if num + 1 < len(cloud['regions']):
                         child.sendline('y')
                     else:
