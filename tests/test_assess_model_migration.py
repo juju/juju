@@ -10,6 +10,7 @@ from subprocess import CalledProcessError
 from textwrap import dedent
 
 import assess_model_migration as amm
+from assess_user_grant_revoke import User
 from deploy_stack import (
     BootstrapManager,
     get_random_string,
@@ -161,6 +162,54 @@ class TestAssertDeployedCharmIsResponding(TestCase):
                 self.assertEqual(
                     ex.exception.message,
                     'Server charm is not responding as expected.')
+
+
+class TestCreateUserOnControllers(TestCase):
+
+    def test_creates_user_home_dir(self):
+        source_client = Mock()
+        dest_client = Mock()
+        with patch.object(amm.os, 'makedirs', autospec=True) as m_md:
+            amm.create_user_on_controllers(
+                source_client,
+                dest_client,
+                '/tmp/path',
+                'foo-username',
+                'permission')
+        m_md.assert_called_once_with('/tmp/path/foo-username')
+
+    def test_registers_and_grants_user_permissions_on_both_controllers(self):
+        source_client = Mock()
+        dest_client = Mock()
+        username = 'foo-username'
+        user = User(username, 'write', [])
+        with temp_dir() as tmp_dir:
+            with patch.object(
+                    amm, 'User', autospec=True, return_value=user) as m_user:
+                amm.create_user_on_controllers(
+                    source_client,
+                    dest_client,
+                    tmp_dir,
+                    username,
+                    'permission')
+        m_user.assert_called_once_with(username, 'write', [])
+        source_client.register_user.assert_called_once_with(
+            user, os.path.join(tmp_dir, username))
+        source_client.grant.assert_called_once_with(username, 'permission')
+        dest_client.register_user.assert_called_once_with(
+            user,
+            os.path.join(tmp_dir, username),
+            controller_name='foo-username_controllerb')
+        dest_client.grant.assert_called_once_with(username, 'permission')
+
+    def test_returns_created_clients(self):
+        source_client = Mock()
+        dest_client = Mock()
+        with temp_dir() as tmp:
+            new_source, new_dest = amm.create_user_on_controllers(
+                source_client, dest_client, tmp, 'foo-username', 'write')
+        self.assertEqual(new_source, source_client.register_user.return_value)
+        self.assertEqual(new_dest, dest_client.register_user.return_value)
 
 
 class TestExpectMigrationAttemptToFail(TestCase):
@@ -533,17 +582,18 @@ class TestAssessModelMigration(TestCase):
                         with patch.object(
                             amm,
                             'ensure_migration_of_resources_succeeds',
-                            autospec=True) as m_resource:
+                                autospec=True) as m_resource:
                             with patch.object(
                                     amm, 'temp_dir',
                                     autospec=True, return_value=tmp_ctx()):
                                 amm.assess_model_migration(bs1, bs2, args)
-        m_user.assert_called_once_with(bs1, bs2, args.upload_tools, '/tmp/dir')
-        m_super.assert_called_once_with(
-            bs1, bs2, args.upload_tools, '/tmp/dir')
-        m_between.assert_called_once_with(bs1, bs2, args.upload_tools)
-        m_rollback.assert_called_once_with(bs1, bs2, args.upload_tools)
-        m_resource.assert_called_once_with(bs1, bs2, args.upload_tools)
+        source_client = bs1.client
+        dest_client = bs2.client
+        m_user.assert_called_once_with(source_client, dest_client, '/tmp/dir')
+        m_super.assert_called_once_with(source_client, dest_client, '/tmp/dir')
+        m_between.assert_called_once_with(source_client, dest_client)
+        m_rollback.assert_called_once_with(source_client, dest_client)
+        m_resource.assert_called_once_with(source_client, dest_client)
 
     def test_does_not_run_develop_tests_by_default(self):
         argv = [
@@ -574,9 +624,10 @@ class TestAssessModelMigration(TestCase):
                                 amm, 'temp_dir',
                                 autospec=True, return_value=tmp_ctx()):
                             amm.assess_model_migration(bs1, bs2, args)
-        m_user.assert_called_once_with(bs1, bs2, args.upload_tools, '/tmp/dir')
-        m_super.assert_called_once_with(
-            bs1, bs2, args.upload_tools, '/tmp/dir')
-        m_between.assert_called_once_with(bs1, bs2, args.upload_tools)
+        source_client = bs1.client
+        dest_client = bs2.client
+        m_user.assert_called_once_with(source_client, dest_client, '/tmp/dir')
+        m_super.assert_called_once_with(source_client, dest_client, '/tmp/dir')
+        m_between.assert_called_once_with(source_client, dest_client)
 
         self.assertEqual(m_rollback.call_count, 0)
