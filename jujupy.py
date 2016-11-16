@@ -866,34 +866,35 @@ class Status1X(Status):
     def get_applications(self):
         return self.status.get('services', {})
 
-    def status_condence(self, item_value):
-        """Condence the scattered agent-* fields into a status dict."""
+    def condense_status(self, item_value):
+        """Condense the scattered agent-* fields into a status dict."""
         return {'current': item_value['agent-state'],
                 'version': item_value['agent-version'],
                 'message': item_value.get('agent-state-info'),
                 }
 
     def iter_status(self):
+        SERVICE = 'service-status'
+        AGENT = 'agent-status'
         for machine_name, machine_value in self.get_machines({}).items():
-            yield StatusItem(
-                StatusItem.JUJU, machine_name,
-                {StatusItem.JUJU: self.status_condence(machine_value)})
+            yield StatusItem(StatusItem.JUJU, machine_name,
+                             self.condense_status(machine_value))
         for app_name, app_value in self.get_applications().items():
-            yield StatusItem(
-                StatusItem.APPLICATION, app_name,
-                {StatusItem.APPLICATION: app_value['service-status']})
+            if SERVICE in app_value:
+                yield StatusItem(
+                    StatusItem.APPLICATION, app_name,
+                    {StatusItem.APPLICATION: app_value[SERVICE]})
             for unit_name, unit_value in app_value['units'].items():
                 if StatusItem.WORKLOAD in unit_value:
                     yield StatusItem(StatusItem.WORKLOAD,
                                      unit_name, unit_value)
-                if 'agent-status' in unit_value:
+                if AGENT in unit_value:
                     yield StatusItem(
                         StatusItem.JUJU, unit_name,
-                        {StatusItem.JUJU: unit_value['agent-status']})
+                        {StatusItem.JUJU: unit_value[AGENT]})
                 else:
-                    yield StatusItem(
-                        StatusItem.JUJU, unit_name,
-                        {StatusItem.JUJU: self.status_condence(unit_value)})
+                    yield StatusItem(StatusItem.JUJU, unit_name,
+                                     self.condense_status(unit_value))
 
 
 def describe_substrate(env):
