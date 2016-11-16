@@ -8,6 +8,7 @@ import sys
 import yaml
 
 from jujupy import (
+    AuthNotAccepted,
     EnvJujuClient,
     get_client_class,
     JujuData,
@@ -39,10 +40,16 @@ def assess_cloud(client, cloud_name, example_cloud):
 
 def iter_clouds(clouds):
     for cloud_name, cloud in clouds.items():
-        yield cloud_name, cloud_name, cloud
+        yield cloud_name, cloud_name, cloud, None
 
     for cloud_name, cloud in clouds.items():
-        yield 'long-name-{}'.format(cloud_name), 'A' * 4096, cloud
+        yield 'long-name-{}'.format(cloud_name), 'A' * 4096, cloud, None
+
+        if cloud['type'] not in ('maas', 'manual', 'vsphere'):
+            variant = deepcopy(cloud)
+            variant_name = 'bogus-auth-{}'.format(cloud_name)
+            variant['auth-types'] = ['asdf']
+            yield variant_name, cloud_name, variant, AuthNotAccepted
 
         if 'endpoint' in cloud:
             variant = deepcopy(cloud)
@@ -51,7 +58,7 @@ def iter_clouds(clouds):
                 for region in variant['regions'].values():
                     region['endpoint'] = variant['endpoint']
             variant_name = 'long-endpoint-{}'.format(cloud_name)
-            yield variant_name, cloud_name, variant
+            yield variant_name, cloud_name, variant, None
 
         for region_name in variant.get('regions', {}).keys():
             if variant['type'] != 'vsphere':
@@ -60,17 +67,25 @@ def iter_clouds(clouds):
                 region['endpoint'] = 'A' * 4096
                 variant_name = 'long-endpoint{}-{}'.format(cloud_name,
                                                            region_name)
-                yield variant_name, cloud_name, variant
+                yield variant_name, cloud_name, variant, None
 
 
 def assess_all_clouds(client, clouds):
     succeeded = set()
     failed = set()
     client.env.load_yaml()
-    for cloud_label, cloud_name, cloud in iter_clouds(clouds):
+    for cloud_label, cloud_name, cloud, expected in iter_clouds(clouds):
         sys.stdout.write('Testing {}.\n'.format(cloud_label))
         try:
-            assess_cloud(client, cloud_name, cloud)
+            if expected is None:
+                assess_cloud(client, cloud_name, cloud)
+            else:
+                try:
+                    assess_cloud(client, cloud_name, cloud)
+                except expected:
+                    pass
+                else:
+                    raise 'Expected exception not raised: {}'.format(expected)
         except Exception as e:
             logging.exception(e)
             failed.add(cloud_label)
