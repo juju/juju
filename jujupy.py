@@ -96,6 +96,10 @@ class AuthNotAccepted(Exception):
     """Raised when the provided auth was not accepted."""
 
 
+class AuthNotAccepted(Exception):
+    """Raised when the provided auth was not accepted."""
+
+
 def get_timeout_path():
     import timeout
     return os.path.abspath(timeout.__file__)
