@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 from argparse import ArgumentParser
+from collections import namedtuple
 from copy import deepcopy
 import logging
 import sys
@@ -18,6 +19,9 @@ from utility import (
     JujuAssertionError,
     temp_dir,
     )
+
+
+CloudSpec = namedtuple('CloudSpec', ['label', 'name', 'config', 'exception'])
 
 
 def assess_cloud(client, cloud_name, example_cloud):
@@ -40,16 +44,18 @@ def assess_cloud(client, cloud_name, example_cloud):
 
 def iter_clouds(clouds):
     for cloud_name, cloud in clouds.items():
-        yield cloud_name, cloud_name, cloud, None
+        yield CloudSpec(cloud_name, cloud_name, cloud, exception=None)
 
     for cloud_name, cloud in clouds.items():
-        yield 'long-name-{}'.format(cloud_name), 'A' * 4096, cloud, None
+        yield CloudSpec('long-name-{}'.format(cloud_name), 'A' * 4096, cloud,
+                        exception=None)
 
         if cloud['type'] not in ('maas', 'manual', 'vsphere'):
             variant = deepcopy(cloud)
             variant_name = 'bogus-auth-{}'.format(cloud_name)
             variant['auth-types'] = ['asdf']
-            yield variant_name, cloud_name, variant, AuthNotAccepted
+            yield CloudSpec(variant_name, cloud_name, variant,
+                            AuthNotAccepted)
 
         if 'endpoint' in cloud:
             variant = deepcopy(cloud)
@@ -58,16 +64,18 @@ def iter_clouds(clouds):
                 for region in variant['regions'].values():
                     region['endpoint'] = variant['endpoint']
             variant_name = 'long-endpoint-{}'.format(cloud_name)
-            yield variant_name, cloud_name, variant, None
+            yield CloudSpec(variant_name, cloud_name, variant, exception=None)
 
-        for region_name in variant.get('regions', {}).keys():
-            if variant['type'] != 'vsphere':
-                variant = deepcopy(cloud)
-                region = variant['regions'][region_name]
-                region['endpoint'] = 'A' * 4096
-                variant_name = 'long-endpoint-{}-{}'.format(cloud_name,
-                                                            region_name)
-                yield variant_name, cloud_name, variant, None
+        for region_name in cloud.get('regions', {}).keys():
+            if cloud['type'] == 'vsphere':
+                continue
+            variant = deepcopy(cloud)
+            region = variant['regions'][region_name]
+            region['endpoint'] = 'A' * 4096
+            variant_name = 'long-endpoint-{}-{}'.format(cloud_name,
+                                                        region_name)
+            yield CloudSpec(variant_name, cloud_name, variant,
+                            exception=None)
 
 
 def assess_all_clouds(client, clouds):
