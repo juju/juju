@@ -265,7 +265,15 @@ func (st *State) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
 
 	uuid := args.Config.UUID()
 	session := st.session.Copy()
-	newSt, err := newState(names.NewModelTag(uuid), controllerInfo.ModelTag, session, st.mongoInfo, st.newPolicy, st.clock)
+	newSt, err := newState(
+		names.NewModelTag(uuid),
+		controllerInfo.ModelTag,
+		session,
+		st.mongoInfo,
+		st.newPolicy,
+		st.clock,
+		st.runTransactionObserver,
+	)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "could not create state for new model")
 	}

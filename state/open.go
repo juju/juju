@@ -48,6 +48,11 @@ type OpenParams struct {
 	// NewPolicy, if non-nil, returns a policy which will be used to
 	// validate and modify behaviour of certain operations in state.
 	NewPolicy NewPolicyFunc
+
+	// RunTransactionObserver, if non-nil, is a function that will
+	// be called after mgo/txn transactions are run, successfully
+	// or not.
+	RunTransactionObserver RunTransactionObserverFunc
 }
 
 // Validate validates the OpenParams.
@@ -82,6 +87,7 @@ func Open(args OpenParams) (*State, error) {
 		args.MongoDialOpts,
 		args.NewPolicy,
 		args.Clock,
+		args.RunTransactionObserver,
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -106,6 +112,7 @@ func open(
 	info *mongo.MongoInfo, opts mongo.DialOpts,
 	newPolicy NewPolicyFunc,
 	clock clock.Clock,
+	runTransactionObserver RunTransactionObserverFunc,
 ) (*State, error) {
 	logger.Infof("opening state, mongo addresses: %q; entity %v", info.Addrs, info.Tag)
 	logger.Debugf("dialing mongo")
@@ -122,7 +129,7 @@ func open(
 	}
 	logger.Debugf("mongodb login successful")
 
-	st, err := newState(controllerModelTag, controllerModelTag, session, info, newPolicy, clock)
+	st, err := newState(controllerModelTag, controllerModelTag, session, info, newPolicy, clock, runTransactionObserver)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -251,7 +258,7 @@ func Initialize(args InitializeParams) (_ *State, err error) {
 	// When creating the controller model, the new model
 	// UUID is also used as the controller UUID.
 	modelTag := names.NewModelTag(args.ControllerModelArgs.Config.UUID())
-	st, err := open(modelTag, args.MongoInfo, args.MongoDialOpts, args.NewPolicy, args.Clock)
+	st, err := open(modelTag, args.MongoInfo, args.MongoDialOpts, args.NewPolicy, args.Clock, nil)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -515,6 +522,7 @@ func newState(
 	session *mgo.Session, mongoInfo *mongo.MongoInfo,
 	newPolicy NewPolicyFunc,
 	clock clock.Clock,
+	runTransactionObserver RunTransactionObserverFunc,
 ) (_ *State, err error) {
 
 	defer func() {
@@ -525,7 +533,11 @@ func newState(
 
 	// Set up database.
 	rawDB := session.DB(jujuDB)
-	database, err := allCollections().Load(rawDB, modelTag.Id())
+	database, err := allCollections().Load(
+		rawDB,
+		modelTag.Id(),
+		runTransactionObserver,
+	)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -535,13 +547,14 @@ func newState(
 
 	// Create State.
 	st := &State{
-		clock:              clock,
-		modelTag:           modelTag,
-		controllerModelTag: controllerModelTag,
-		mongoInfo:          mongoInfo,
-		session:            session,
-		database:           database,
-		newPolicy:          newPolicy,
+		clock:                  clock,
+		modelTag:               modelTag,
+		controllerModelTag:     controllerModelTag,
+		mongoInfo:              mongoInfo,
+		session:                session,
+		database:               database,
+		newPolicy:              newPolicy,
+		runTransactionObserver: runTransactionObserver,
 	}
 	if newPolicy != nil {
 		st.policy = newPolicy(st)

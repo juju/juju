@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/juju/errors"
@@ -4281,6 +4282,56 @@ func (s *StateSuite) TestSetMongoSpaceStateErrorOnInvalidStates(c *gc.C) {
 	info, err := s.State.ControllerInfo()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info.MongoSpaceState, gc.Equals, state.MongoSpaceUnknown)
+}
+
+func (s *StateSuite) TestRunTransactionObserver(c *gc.C) {
+	type args struct {
+		dbName    string
+		modelUUID string
+		ops       []mgotxn.Op
+		err       error
+	}
+	var mu sync.Mutex
+	var recordedCalls []args
+	getCalls := func() []args {
+		mu.Lock()
+		defer mu.Unlock()
+		return recordedCalls[:]
+	}
+
+	st, err := state.Open(state.OpenParams{
+		Clock:              clock.WallClock,
+		ControllerTag:      s.State.ControllerTag(),
+		ControllerModelTag: s.modelTag,
+		MongoInfo:          statetesting.NewMongoInfo(),
+		MongoDialOpts:      mongotest.DialOpts(),
+		RunTransactionObserver: func(dbName, modelUUID string, ops []mgotxn.Op, err error) {
+			mu.Lock()
+			defer mu.Unlock()
+			recordedCalls = append(recordedCalls, args{
+				dbName:    dbName,
+				modelUUID: modelUUID,
+				ops:       ops,
+				err:       err,
+			})
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	defer st.Close()
+
+	c.Assert(getCalls(), gc.HasLen, 0)
+
+	err = st.SetModelConstraints(constraints.Value{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	calls := getCalls()
+	c.Assert(calls, gc.HasLen, 1)
+	c.Assert(calls[0].dbName, gc.Equals, "juju")
+	c.Assert(calls[0].modelUUID, gc.Equals, s.modelTag.Id())
+	c.Assert(calls[0].err, gc.IsNil)
+	c.Assert(calls[0].ops, gc.HasLen, 1)
+	c.Assert(calls[0].ops[0].C, gc.Equals, "constraints")
+	c.Assert(calls[0].ops[0].Update, gc.NotNil)
 }
 
 type SetAdminMongoPasswordSuite struct {
