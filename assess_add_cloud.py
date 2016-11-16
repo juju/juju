@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 from argparse import ArgumentParser
-from copy import deepcopy
 import logging
 import sys
 
