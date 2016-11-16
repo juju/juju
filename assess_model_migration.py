@@ -264,6 +264,17 @@ def deploy_mongodb_to_new_model(client, model_name):
     return test_model
 
 
+def deploy_dummy_source_to_new_model(client, model_name):
+    new_model = client.add_model(client.env.clone(model_name))
+
+    charm_path = local_charm_path(
+        charm='dummy-source', juju_ver=new_model.version)
+    new_model.deploy(charm_path)
+    new_model.wait_for_started()
+
+    return new_model
+
+
 def deploy_simple_resource_server(client, resource_contents):
     application_name = 'simple-resource-http'
 
@@ -407,13 +418,8 @@ def ensure_migrating_with_insufficient_user_permissions_fails(
     user_source_client, user_dest_client = create_user_on_controllers(
         source_client, dest_client, tmp_dir, 'failuser', 'addmodel')
 
-    user_new_model = user_source_client.add_model(
-        user_source_client.env.clone('model-a'))
-
-    charm_path = local_charm_path(
-        charm='dummy-source', juju_ver=user_new_model.version)
-    user_new_model.deploy(charm_path)
-    user_new_model.wait_for_started()
+    user_new_model = deploy_dummy_source_to_new_model(
+        user_source_client, 'user-fail')
 
     log.info('Attempting migration process')
 
@@ -430,13 +436,8 @@ def ensure_migrating_with_superuser_user_permissions_succeeds(
     user_source_client, user_dest_client = create_user_on_controllers(
         source_client, dest_client, tmp_dir, 'passuser', 'superuser')
 
-    user_new_model = user_source_client.add_model(
-        user_source_client.env.clone('model-a'))
-
-    charm_path = local_charm_path(
-        charm='dummy-source', juju_ver=user_new_model.version)
-    user_new_model.deploy(charm_path)
-    user_new_model.wait_for_started()
+    user_new_model = deploy_dummy_source_to_new_model(
+        user_source_client, 'super-permissions')
 
     log.info('Attempting migration process')
 
