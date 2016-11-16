@@ -521,3 +521,8 @@ def qualified_model_name(model_name, owner_name):
             'qualified model name {} with owner not matching {}'.format(
                 model_name, owner_name))
     return '{}/{}'.format(owner_name, parts[-1])
+
+
+def get_unit_ipaddress(client, unit_name):
+    status = client.get_status()
+    return status.get_unit(unit_name)['public-address']

@@ -10,15 +10,20 @@ import os
 from subprocess import CalledProcessError
 import sys
 from time import sleep
+from urllib2 import urlopen
 
 from assess_user_grant_revoke import User
-from deploy_stack import BootstrapManager
+from deploy_stack import (
+    BootstrapManager,
+    get_random_string
+)
 from jujucharm import local_charm_path
 from remote import remote_from_address
 from utility import (
     JujuAssertionError,
     add_basic_testing_arguments,
     configure_logging,
+    get_unit_ipaddress,
     temp_dir,
     until_timeout,
 )
@@ -47,6 +52,8 @@ def assess_model_migration(bs1, bs2, args):
 
             if args.use_develop:
                 ensure_migration_rolls_back_on_failure(
+                    bs1, bs2, args.upload_tools)
+                ensure_migration_of_resources_succeeds(
                     bs1, bs2, args.upload_tools)
 
 
@@ -133,6 +140,17 @@ def wait_for_migrating(client, timeout=60):
                 ))
 
 
+def assert_deployed_charm_is_responding(client, expected_ouput):
+    """Ensure that the deployed simple-server charm is still responding."""
+    ipaddress = get_unit_ipaddress(client, 'simple-resource-http/0')
+    if expected_ouput != get_server_response(ipaddress):
+        raise JujuAssertionError('Server charm is not responding as expected.')
+
+
+def get_server_response(ipaddress):
+    return urlopen('http://{}'.format(ipaddress)).read().rstrip()
+
+
 def test_deployed_mongo_is_up(client):
     """Ensure the mongo service is running as expected."""
     try:
@@ -182,6 +200,45 @@ def ensure_able_to_migrate_model_between_controllers(
     migration_target_client.remove_service(application)
 
 
+def ensure_migration_of_resources_succeeds(
+        source_environ, dest_environ, upload_tools):
+    """Test simple migration of a model to another controller.
+
+    Ensure that migration a model that has an application, that uses resources,
+    deployed upon it is able to continue it's operation after the migration
+    process. This includes assertion that the resources are migrated correctly
+    too.
+
+    Almost identical to ensure_able_to_migrate_model_between_controllers except
+    this test uses a charm with a resource.
+
+    Note: This test will supersede
+    ensure_able_to_migrate_model_between_controllers when the develop branch is
+    merged into master.
+
+    """
+    # Don't move the default model so we can reuse it in later tests.
+    test_model = source_environ.client.add_model(
+        source_environ.client.env.clone('example-model-resource'))
+
+    resource_contents = get_random_string()
+    application = deploy_simple_resource_server(test_model, resource_contents)
+
+    assert_deployed_charm_is_responding(test_model, resource_contents)
+
+    log.info('Initiating migration process')
+
+    migration_target_client = migrate_model_to_controller(
+        test_model, dest_environ.client)
+
+    migration_target_client.wait_for_workloads()
+    assert_deployed_charm_is_responding(
+        migration_target_client, resource_contents)
+    ensure_model_is_functional(migration_target_client, application)
+
+    migration_target_client.remove_service(application)
+
+
 def deploy_mongodb_to_new_model(client, model_name):
     bundle = 'mongodb'
 
@@ -194,6 +251,26 @@ def deploy_mongodb_to_new_model(client, model_name):
     test_deployed_mongo_is_up(test_model)
 
     return test_model
+
+
+def deploy_simple_resource_server(client, resource_contents):
+    application_name = 'simple-resource-http'
+
+    log.info('Deploying charm: '.format(application_name))
+    charm_path = local_charm_path(
+        charm=application_name, juju_ver=client.version)
+
+    # Create a temp file which we'll use as the resource.
+    with temp_dir() as temp:
+        index_file = os.path.join(temp, 'index.html')
+        with open(index_file, 'wt') as f:
+            f.write(resource_contents)
+
+        client.deploy(charm_path, resource='index={}'.format(index_file))
+        client.wait_for_started()
+        client.wait_for_workloads()
+
+        return application_name
 
 
 def migrate_model_to_controller(source_client, dest_client):

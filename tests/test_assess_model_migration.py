@@ -10,7 +10,10 @@ from subprocess import CalledProcessError
 from textwrap import dedent
 
 import assess_model_migration as amm
-from deploy_stack import BootstrapManager
+from deploy_stack import (
+    BootstrapManager,
+    get_random_string,
+)
 from fakejuju import fake_juju_client
 from jujupy import (
     EnvJujuClient,
@@ -64,6 +67,100 @@ class TestParseArgs(TestCase):
         self.assertEqual("", fake_stderr.getvalue())
         self.assertIn(
             "Test model migration feature", fake_stdout.getvalue())
+
+
+class TestDeploySimpleResourceServer(TestCase):
+
+    def test_deploys_with_resource(self):
+        contents = 'test123'
+        client = Mock()
+        with temp_dir() as tmp_dir:
+            resource_file_path = os.path.join(tmp_dir, 'index.html')
+            with patch.object(
+                    amm, 'temp_dir', autospec=True) as m_td:
+                m_td.return_value.__enter__.return_value = tmp_dir
+                amm.deploy_simple_resource_server(client, contents)
+        client.deploy.assert_called_once_with(
+            'local:simple-resource-http',
+            resource='index={}'.format(resource_file_path))
+
+    def test_deploys_file_with_requested_contents(self):
+        contents = 'test123'
+        client = Mock()
+        with temp_dir() as tmp_dir:
+            resource_file_path = os.path.join(tmp_dir, 'index.html')
+            with patch.object(
+                    amm, 'temp_dir', autospec=True) as m_td:
+                m_td.return_value.__enter__.return_value = tmp_dir
+                amm.deploy_simple_resource_server(client, contents)
+
+            with open(resource_file_path, 'rt') as f:
+                self.assertEqual(f.read(), contents)
+
+    def test_returns_application_name(self):
+        client = Mock()
+        with temp_dir() as tmp_dir:
+            with patch.object(
+                    amm, 'temp_dir', autospec=True) as m_td:
+                m_td.return_value.__enter__.return_value = tmp_dir
+
+                self.assertEqual(
+                    amm.deploy_simple_resource_server(client, ''),
+                    'simple-resource-http')
+
+
+class TestGetServerResponse(TestCase):
+
+    def test_uses_protocol_and_ipaddress(self):
+        with patch.object(
+                amm, 'urlopen', autospec=True) as m_uopen:
+            amm.get_server_response('192.168.1.2')
+            m_uopen.assert_called_once_with('http://192.168.1.2')
+
+    def test_returns_stripped_value(self):
+        response = StringIO.StringIO('simple server.\n')
+        with patch.object(
+                amm, 'urlopen', autospec=True, return_value=response):
+            self.assertEqual(
+                amm.get_server_response('192.168.1.2'),
+                'simple server.'
+            )
+
+
+class TestAssertDeployedCharmIsResponding(TestCase):
+
+    def test_passes_when_charm_is_responding_correctly(self):
+        expected_output = get_random_string()
+        client = Mock()
+
+        with patch.object(
+                amm, 'get_unit_ipaddress',
+                autospec=True, return_value='192.168.1.2') as m_gui:
+            with patch.object(
+                    amm, 'get_server_response',
+                    autospec=True, return_value=expected_output) as m_gsr:
+                amm.assert_deployed_charm_is_responding(
+                    client, expected_output)
+        m_gui.assert_called_once_with(client, 'simple-resource-http/0')
+        m_gsr.assert_called_once_with('192.168.1.2')
+
+    def test_raises_when_charm_does_not_respond_correctly(self):
+        expected_output = get_random_string()
+        client = Mock()
+
+        with patch.object(
+                amm, 'get_unit_ipaddress',
+                autospec=True, return_value='192.168.1.2'):
+            with patch.object(
+                    amm, 'get_server_response',
+                    autospec=True, return_value='abc'):
+
+                with self.assertRaises(AssertionError) as ex:
+                    amm.assert_deployed_charm_is_responding(
+                        client, expected_output)
+                self.assertEqual(
+                    ex.exception.message,
+                    'Server charm is not responding as expected.')
 
 
 class TestExpectMigrationAttemptToFail(TestCase):
@@ -434,14 +531,19 @@ class TestAssessModelMigration(TestCase):
                             'ensure_migration_rolls_back_on_failure',
                             autospec=True) as m_rollback:
                         with patch.object(
-                                amm, 'temp_dir',
-                                autospec=True, return_value=tmp_ctx()):
-                            amm.assess_model_migration(bs1, bs2, args)
+                            amm,
+                            'ensure_migration_of_resources_succeeds',
+                            autospec=True) as m_resource:
+                            with patch.object(
+                                    amm, 'temp_dir',
+                                    autospec=True, return_value=tmp_ctx()):
+                                amm.assess_model_migration(bs1, bs2, args)
         m_user.assert_called_once_with(bs1, bs2, args.upload_tools, '/tmp/dir')
         m_super.assert_called_once_with(
             bs1, bs2, args.upload_tools, '/tmp/dir')
         m_between.assert_called_once_with(bs1, bs2, args.upload_tools)
         m_rollback.assert_called_once_with(bs1, bs2, args.upload_tools)
+        m_resource.assert_called_once_with(bs1, bs2, args.upload_tools)
 
     def test_does_not_run_develop_tests_by_default(self):
         argv = [
