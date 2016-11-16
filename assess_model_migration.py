@@ -4,6 +4,7 @@
 from __future__ import print_function
 
 import argparse
+from contextlib import contextmanager
 import logging
 import os
 from subprocess import CalledProcessError
@@ -13,6 +14,7 @@ from time import sleep
 from assess_user_grant_revoke import User
 from deploy_stack import BootstrapManager
 from jujucharm import local_charm_path
+from remote import remote_from_address
 from utility import (
     JujuAssertionError,
     add_basic_testing_arguments,
@@ -28,20 +30,24 @@ __metaclass__ = type
 log = logging.getLogger("assess_model_migration")
 
 
-def assess_model_migration(bs1, bs2, upload_tools):
-    with bs1.booted_context(upload_tools):
+def assess_model_migration(bs1, bs2, args):
+    with bs1.booted_context(args.upload_tools):
         bs1.client.enable_feature('migration')
 
         bs2.client.env.juju_home = bs1.client.env.juju_home
-        with bs2.existing_booted_context(upload_tools):
+        with bs2.existing_booted_context(args.upload_tools):
             ensure_able_to_migrate_model_between_controllers(
-                bs1, bs2, upload_tools)
+                bs1, bs2, args.upload_tools)
 
             with temp_dir() as temp:
                 ensure_migrating_with_insufficient_user_permissions_fails(
-                    bs1, bs2, upload_tools, temp)
+                    bs1, bs2, args.upload_tools, temp)
                 ensure_migrating_with_superuser_user_permissions_succeeds(
-                    bs1, bs2, upload_tools, temp)
+                    bs1, bs2, args.upload_tools, temp)
+
+            if args.use_develop:
+                ensure_migration_rolls_back_on_failure(
+                    bs1, bs2, args.upload_tools)
 
 
 def parse_args(argv):
@@ -50,6 +56,10 @@ def parse_args(argv):
         description="Test model migration feature"
     )
     add_basic_testing_arguments(parser)
+    parser.add_argument(
+        '--use-develop',
+        action='store_true',
+        help='Run tests that rely on features in the develop branch.')
     return parser.parse_args(argv)
 
 
@@ -90,12 +100,35 @@ def wait_for_model(client, model_name, timeout=60):
     with client.check_timeouts():
         with client.ignore_soft_deadline():
             for _ in until_timeout(timeout):
-                models = client.get_models()
+                models = client.get_controller_client().get_models()
                 if model_name in [m['name'] for m in models['models']]:
                     return
                 sleep(1)
             raise JujuAssertionError(
                 'Model \'{}\' failed to appear after {} seconds'.format(
+                    model_name, timeout
+                ))
+
+
+def wait_for_migrating(client, timeout=60):
+    """Block until provided model client has a migration status.
+
+    :raises JujuAssertionError: If the status doesn't show migration within the
+      `timeout` period.
+    """
+    model_name = client.env.environment
+    with client.check_timeouts():
+        with client.ignore_soft_deadline():
+            for _ in until_timeout(timeout):
+                model_details = client.show_model(model_name)
+                migration_status = model_details[model_name]['status'].get(
+                    'migration')
+                if migration_status is not None:
+                    return
+                sleep(1)
+            raise JujuAssertionError(
+                'Model \'{}\' failed to start migration after'
+                '{} seconds'.format(
                     model_name, timeout
                 ))
 
@@ -133,17 +166,9 @@ def ensure_able_to_migrate_model_between_controllers(
 
 
     """
-    bundle = 'mongodb'
     application = 'mongodb'
-
-    log.info('Deploying charm')
-    # Don't move the default model so we can reuse it in later tests.
-    test_model = source_environ.client.add_model(
-        source_environ.client.env.clone('example-model'))
-    test_model.juju("deploy", (bundle))
-    test_model.wait_for_started()
-    test_model.wait_for_workloads()
-    test_deployed_mongo_is_up(test_model)
+    test_model = deploy_mongodb_to_new_model(
+        source_environ.client, model_name='example-model')
 
     log.info('Initiating migration process')
 
@@ -155,6 +180,20 @@ def ensure_able_to_migrate_model_between_controllers(
     ensure_model_is_functional(migration_target_client, application)
 
     migration_target_client.remove_service(application)
+
+
+def deploy_mongodb_to_new_model(client, model_name):
+    bundle = 'mongodb'
+
+    log.info('Deploying charm')
+    # Don't move the default model so we can reuse it in later tests.
+    test_model = client.add_model(client.env.clone(model_name))
+    test_model.juju("deploy", (bundle))
+    test_model.wait_for_started()
+    test_model.wait_for_workloads()
+    test_deployed_mongo_is_up(test_model)
+
+    return test_model
 
 
 def migrate_model_to_controller(source_client, dest_client):
@@ -183,6 +222,8 @@ def ensure_model_is_functional(client, application):
     LP:1607599)
 
     """
+    # Ensure model returns status before adding units
+    client.get_status()
     client.juju('add-unit', (application,))
     client.wait_for_started()
 
@@ -210,6 +251,64 @@ def raise_if_shared_machines(unit_machines):
         raise ValueError('Cannot share 0 machines. Empty list provided.')
     if len(unit_machines) != len(set(unit_machines)):
         raise JujuAssertionError('Appliction units reside on the same machine')
+
+
+def ensure_migration_rolls_back_on_failure(source_bs, dest_bs, upload_tools):
+    """Must successfully roll back migration when migration fails.
+
+    If the target controller becomes unavailable for the migration to complete
+    the migration must roll back and continue to be available on the source
+    controller.
+    """
+    source_client = source_bs.client
+    dest_client = dest_bs.client
+
+    application = 'mongodb'
+    test_model = deploy_mongodb_to_new_model(
+        source_client, model_name='rollmeback')
+
+    test_model.controller_juju(
+        'migrate',
+        (test_model.env.environment,
+         dest_client.env.controller.name))
+    # Once migration has started interrupt it
+    wait_for_migrating(test_model)
+    log.info('Disrupting target controller to force rollback')
+    with disable_apiserver(dest_client.get_controller_client()):
+        # Wait for model to be back and working on the original controller.
+        log.info('Waiting for migration rollback to complete.')
+        wait_for_model(test_model, test_model.env.environment)
+        test_model.wait_for_started()
+        test_deployed_mongo_is_up(test_model)
+        ensure_model_is_functional(test_model, application)
+    test_model.remove_service(application)
+
+
+@contextmanager
+def disable_apiserver(admin_client, machine_number='0'):
+    """Disable the api server on the machine number provided.
+
+    For the duration of the context manager stop the apiserver process on the
+    controller machine.
+    """
+    rem_client = get_remote_for_controller(admin_client)
+    try:
+        rem_client.run(
+            'sudo service jujud-machine-{} stop'.format(machine_number))
+        yield
+    finally:
+        rem_client.run(
+            'sudo service jujud-machine-{} start'.format(machine_number))
+
+
+def get_remote_for_controller(admin_client):
+    """Get a remote client to the controller machine of `admin_client`.
+
+    :return: remote.SSHRemote object for the controller machine.
+    """
+    status = admin_client.get_status()
+    controller_ip = status.get_machine_dns_name('0')
+    return remote_from_address(controller_ip)
 
 
 def ensure_migrating_with_insufficient_user_permissions_fails(
@@ -308,7 +407,7 @@ def main(argv=None):
 
     bs1, bs2 = get_bootstrap_managers(args)
 
-    assess_model_migration(bs1, bs2, args.upload_tools)
+    assess_model_migration(bs1, bs2, args)
 
     return 0
 

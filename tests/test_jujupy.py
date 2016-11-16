@@ -1201,6 +1201,44 @@ class TestEnvJujuClient(ClientTest):
                     client.get_status(500)
         mock_ut.assert_called_with(500)
 
+    def test_show_model_uses_provided_model_name(self):
+        env = JujuData('foo')
+        client = EnvJujuClient(env, None, None)
+        show_model_output = dedent("""\
+            bar:
+                status:
+                    current: available
+                    since: 4 minutes ago
+                    migration: 'Some message.'
+                    migration-start: 48 seconds ago
+        """)
+        with patch.object(
+                client, 'get_juju_output',
+                autospect=True, return_value=show_model_output) as m_gjo:
+            output = client.show_model('bar')
+        self.assertItemsEqual(['bar'], output.keys())
+        m_gjo.assert_called_once_with(
+            'show-model', 'foo:bar', '--format', 'yaml', include_e=False)
+
+    def test_show_model_defaults_to_own_model_name(self):
+        env = JujuData('foo')
+        client = EnvJujuClient(env, None, None)
+        show_model_output = dedent("""\
+            foo:
+                status:
+                    current: available
+                    since: 4 minutes ago
+                    migration: 'Some message.'
+                    migration-start: 48 seconds ago
+        """)
+        with patch.object(
+                client, 'get_juju_output',
+                autospect=True, return_value=show_model_output) as m_gjo:
+            output = client.show_model()
+        self.assertItemsEqual(['foo'], output.keys())
+        m_gjo.assert_called_once_with(
+            'show-model', 'foo:foo', '--format', 'yaml', include_e=False)
+
     @staticmethod
     def make_status_yaml(key, machine_value, unit_value):
         return dedent("""\
