@@ -1655,7 +1655,6 @@ class TestEnvJujuClient(ClientTest):
             yield errors_mock
 
     def test__wait_for_status_raises_error(self):
-        """Check _wait_for_status's handling of a recoverable=False error."""
         def translate(x):
             return {'waiting': '0'}
 
@@ -1668,7 +1667,6 @@ class TestEnvJujuClient(ClientTest):
         errors_mock.assert_called_once_with(ignore_recoverable=True)
 
     def test__wait_for_status_delays_recoverable(self):
-        """Check _wait_for_status's handling of a recoverable=True error."""
         def translate(x):
             return {'waiting': '0'}
 
@@ -6310,8 +6308,7 @@ class TestStatus1X(FakeHomeTestCase):
         self.assertEqual(status.condense_status(
                              {'agent-state': 'started',
                               'agent-state-info': 'all good',
-                              'agent-version': '1.25.1',
-                              }),
+                              'agent-version': '1.25.1'}),
                          {'current': 'started', 'message': 'all good',
                           'version': '1.25.1'})
 
@@ -6319,8 +6316,7 @@ class TestStatus1X(FakeHomeTestCase):
         status = Status1X({}, '')
         self.assertEqual(status.condense_status(
                              {'agent-state': 'started',
-                              'agent-version': '1.25.1',
-                              }),
+                              'agent-version': '1.25.1'}),
                          {'current': 'started', 'message': None,
                           'version': '1.25.1'})
 
