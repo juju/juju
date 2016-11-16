@@ -6267,8 +6267,7 @@ class TestStatus1X(FakeHomeTestCase):
         self.assertEqual(status.condense_status(
                              {'agent-state': 'started',
                               'agent-state-info': 'all good',
-                              'agent-version': '1.25.1',
-                              }),
+                              'agent-version': '1.25.1'}),
                          {'current': 'started', 'message': 'all good',
                           'version': '1.25.1'})
 
@@ -6276,8 +6275,7 @@ class TestStatus1X(FakeHomeTestCase):
         status = Status1X({}, '')
         self.assertEqual(status.condense_status(
                              {'agent-state': 'started',
-                              'agent-version': '1.25.1',
-                              }),
+                              'agent-version': '1.25.1'}),
                          {'current': 'started', 'message': None,
                           'version': '1.25.1'})
 
