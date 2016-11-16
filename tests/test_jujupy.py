@@ -4268,7 +4268,7 @@ class TestEnvJujuClient1X(ClientTest):
         with patch('jujupy.until_timeout', lambda x: range(0)):
             with patch.object(client, 'get_juju_output', return_value=value):
                 with self.assertRaisesRegexp(
-                        StatusNotMet,
+                        Exception,
                         'Timed out waiting for voting to be enabled.'):
                     client.wait_for_ha()
 
@@ -4300,7 +4300,7 @@ class TestEnvJujuClient1X(ClientTest):
         with patch('jujupy.until_timeout', lambda x: range(0)):
             with patch.object(client, 'get_juju_output', return_value=value):
                 with self.assertRaisesRegexp(
-                        StatusNotMet,
+                        Exception,
                         'Timed out waiting for services to start.'):
                     client.wait_for_deploy_started()
 
