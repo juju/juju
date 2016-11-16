@@ -43,16 +43,16 @@ def iter_clouds(clouds):
         yield cloud_name, cloud_name, cloud
 
     for cloud_name, cloud in clouds.items():
-        if 'endpoint' not in cloud:
-            continue
-        variant = deepcopy(cloud)
-        variant['endpoint'] = 'A' * 4096
-        if variant['type'] == 'vsphere':
-            for region in variant['regions'].values():
-                region['endpoint'] = variant['endpoint']
-        variant_name = 'long-endpoint-{}'.format(cloud_name)
-        yield variant_name, cloud_name, variant
         yield 'long-name-{}'.format(cloud_name), 'A' * 4096, cloud
+
+        if 'endpoint' in cloud:
+            variant = deepcopy(cloud)
+            variant['endpoint'] = 'A' * 4096
+            if variant['type'] == 'vsphere':
+                for region in variant['regions'].values():
+                    region['endpoint'] = variant['endpoint']
+            variant_name = 'long-endpoint-{}'.format(cloud_name)
+            yield variant_name, cloud_name, variant
 
         for region_name in variant.get('regions', {}).keys():
             if variant['type'] != 'vsphere':
