@@ -6254,6 +6254,25 @@ class TestStatus(FakeHomeTestCase):
         self.assertEqual(sorted_errors[1].args, ('1',))
         self.assertEqual(sorted_errors[2].args, ('2',))
 
+    def test_raise_highest_error(self):
+        status = Status({}, '')
+        retval = [
+            StatusItem(StatusItem.WORKLOAD, 'job/0', {'current': 'error'}),
+            StatusItem(StatusItem.MACHINE, '0', {'current': 'error'}),
+            ]
+        with patch.object(status, 'iter_status', autospec=True,
+                          return_value=retval):
+            with self.assertRaises(MachineError):
+                status.raise_highest_error()
+
+    def test_raise_highest_error_ignore_recoverable(self):
+        status = Status({}, '')
+        retval = [
+            StatusItem(StatusItem.WORKLOAD, 'job/0', {'current': 'error'})]
+        with patch.object(status, 'iter_status', autospec=True,
+                          return_value=retval):
+            status.raise_highest_error(ignore_recoverable=True)
+
     def test_get_applications_gets_applications(self):
         status = Status({
             'services': {'service': {}},
