@@ -212,6 +212,21 @@ class TestCreateUserOnControllers(TestCase):
         self.assertEqual(new_dest, dest_client.register_user.return_value)
 
 
+class TestAssertModelMigratedSuccessfully(TestCase):
+
+    def test_assert_model_migrated_successfully(self):
+        client = Mock()
+        with patch.object(
+                amm, 'test_deployed_mongo_is_up', autospec=True) as m_tdmiu:
+            with patch.object(
+                    amm, 'ensure_model_is_functional',
+                    autospec=True) as m_emif:
+                amm.assert_model_migrated_successfully(client, 'test')
+        client.wait_for_workloads.assert_called_once_with()
+        m_tdmiu.assert_called_once_with(client)
+        m_emif.assert_called_once_with(client, 'test')
+
+
 class TestExpectMigrationAttemptToFail(TestCase):
     source_client = fake_juju_client()
     dest_client = fake_juju_client()
