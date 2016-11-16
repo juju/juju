@@ -29,14 +29,7 @@ class TestAssessCloud(TestCase):
         client = self.make_fake_juju_client()
         client.env.load_yaml()
 
-        def get_clouds(cloud_name):
-            if clouds is not None:
-                return clouds
-            return {'clouds': {
-                cloud_name: client.env.clouds['clouds'][cloud_name],
-                }}
-
-        def dump(cloud_name):
+        def dump(cloud_name, cloud):
             client.env.write_clouds(client.env.juju_home,
                                     clouds)
 
