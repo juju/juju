@@ -38,6 +38,7 @@ log = logging.getLogger("assess_model_migration")
 def assess_model_migration(bs1, bs2, args):
     with bs1.booted_context(args.upload_tools):
         bs1.client.enable_feature('migration')
+        bs2.client.enable_feature('migration')
 
         bs2.client.env.juju_home = bs1.client.env.juju_home
         with bs2.existing_booted_context(args.upload_tools):
