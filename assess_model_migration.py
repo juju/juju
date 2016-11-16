@@ -204,7 +204,7 @@ def ensure_able_to_migrate_model_between_controllers(
         migration_target_client, source_client)
     assert_model_migrated_successfully(re_migrate_client, application)
 
-    migration_target_client.remove_service(application)
+    re_migrate_client.remove_service(application)
 
 
 def assert_model_migrated_successfully(client, application):
