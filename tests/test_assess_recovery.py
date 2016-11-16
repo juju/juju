@@ -8,10 +8,13 @@ from mock import (
     )
 
 from assess_recovery import (
+    assess_ha_recovery,
     assess_recovery,
     check_token,
     delete_controller_members,
     detect_bootstrap_machine,
+    enable_ha,
+    HARecoveryError,
     main,
     parse_args,
     restore_missing_state_server,
@@ -20,6 +23,7 @@ from fakejuju import fake_juju_client
 from jujupy import (
     Machine,
     )
+from subprocess import CalledProcessError
 from tests import (
     FakeHomeTestCase,
     TestCase,
@@ -174,6 +178,57 @@ class TestMain(FakeHomeTestCase):
         self.assertEqual(bs_manager.known_hosts['0'], 'a-host')
 
 
+class TestHA(FakeHomeTestCase):
+
+    def test_enable_ha(self):
+        controller_client = fake_juju_client()
+        bs_manager = Mock(
+            client=controller_client, known_hosts={}, has_controller=False)
+        machines = {'0': 'a.local', '1': 'b.local', '2': 'c.local'}
+        with patch.object(controller_client, 'enable_ha',
+                          autospec=True) as eh_mock:
+            with patch.object(controller_client, 'show_controller',
+                              autospec=True) as sc_mock:
+                with patch.object(controller_client, 'wait_for_ha',
+                                  autospec=True) as wh_mock:
+                    with patch('deploy_stack.iter_remote_machines',
+                               autospec=True, return_value=machines.items()):
+                        enable_ha(bs_manager, controller_client)
+        eh_mock.assert_called_once_with()
+        sc_mock.assert_called_once_with(format='yaml')
+        wh_mock.assert_called_once_with()
+        self.assertEqual(machines, bs_manager.known_hosts)
+
+    def test_assess_ha_recovery(self):
+        client = fake_juju_client()
+        bs_manager = Mock(client=client, known_hosts={}, has_controller=False)
+        with patch.object(client, 'juju', autospec=True) as j_mock:
+            with patch.object(client, 'get_status', autospec=True) as gs_mock:
+                assess_ha_recovery(bs_manager, client)
+        j_mock.assert_called_once_with('status', (), check=False, timeout=300)
+        gs_mock.assert_called_once_with(timeout=300)
+        self.assertIsTrue(bs_manager.has_controller)
+
+    def test_assess_ha_recovery_status_error(self):
+        client = fake_juju_client()
+        bs_manager = Mock(client=client, known_hosts={}, has_controller=False)
+        with patch.object(client, 'juju', autospec=True,
+                          side_effect=CalledProcessError('foo', 'bar')):
+            with self.assertRaises(HARecoveryError):
+                assess_ha_recovery(bs_manager, client)
+        self.assertIsFalse(bs_manager.has_controller)
+
+    def test_assess_ha_recovery_get_status_error(self):
+        client = fake_juju_client()
+        bs_manager = Mock(client=client, known_hosts={}, has_controller=False)
+        with patch.object(client, 'juju', autospec=True):
+            with patch.object(client, 'get_status', autospec=True,
+                              side_effect=CalledProcessError('foo', 'bar')):
+                with self.assertRaises(HARecoveryError):
+                    assess_ha_recovery(bs_manager, client)
+        self.assertIsFalse(bs_manager.has_controller)
+
+
 @patch('assess_recovery.wait_for_state_server_to_shutdown', autospec=True)
 @patch('assess_recovery.terminate_instances', autospec=True)
 class TestDeleteControllerMembers(FakeHomeTestCase):
@@ -196,7 +251,10 @@ class TestDeleteControllerMembers(FakeHomeTestCase):
                 'instance-id': 'juju-cccc-machine-2',
                 'controller-member-status': 'has-vote'}),
         ]
-        deleted = delete_controller_members(client)
+        known_hosts = {'0': '10.0.0.0', '2': '10.0.0.2', '3': '10.0.0.3'}
+        bs_manager = Mock(
+            client=client, known_hosts=known_hosts, has_controller=False)
+        deleted = delete_controller_members(bs_manager, client)
         self.assertEqual(['2', '0', '3'], deleted)
         client.get_controller_members.assert_called_once_with()
         # terminate_instance was call in the reverse order of members.
@@ -217,7 +275,9 @@ class TestDeleteControllerMembers(FakeHomeTestCase):
             'INFO Instrumenting node failure for member 0:'
             ' juju-aaaa-machine-0 at 10.0.0.0\n'
             'INFO Instrumenting node failure for member 3:'
-            ' juju-dddd-machine-3 at 10.0.0.3\n')
+            ' juju-dddd-machine-3 at 10.0.0.3\n'
+            "INFO Deleted ['2', '0', '3']\n")
+        self.assertEqual({}, bs_manager.known_hosts)
 
     def test_delete_controller_members_leader_only(self, ti_mock, wsss_mock):
         client = Mock(spec=['env', 'get_controller_leader'])
@@ -227,7 +287,11 @@ class TestDeleteControllerMembers(FakeHomeTestCase):
             'dns-name': '10.0.0.3',
             'instance-id': 'juju-dddd-machine-3',
             'controller-member-status': 'has-vote'})
-        deleted = delete_controller_members(client, leader_only=True)
+        known_hosts = {'1': 'a', '2': 'b', '3': '10.0.0.3'}
+        bs_manager = Mock(
+            client=client, known_hosts=known_hosts, has_controller=False)
+        deleted = delete_controller_members(
+            bs_manager, client, leader_only=True)
         self.assertEqual(['3'], deleted)
         client.get_controller_leader.assert_called_once_with()
         ti_mock.assert_called_once_with(client.env, ['juju-dddd-machine-3'])
@@ -236,7 +300,9 @@ class TestDeleteControllerMembers(FakeHomeTestCase):
         self.assertEqual(
             self.log_stream.getvalue(),
             'INFO Instrumenting node failure for member 3:'
-            ' juju-dddd-machine-3 at 10.0.0.3\n')
+            ' juju-dddd-machine-3 at 10.0.0.3\n'
+            "INFO Deleted ['3']\n")
+        self.assertEqual({'1': 'a', '2': 'b'}, bs_manager.known_hosts)
 
     def test_delete_controller_members_azure(self, ti_mock, wsss_mock):
         client = Mock(spec=['env', 'get_controller_leader'])
@@ -246,9 +312,13 @@ class TestDeleteControllerMembers(FakeHomeTestCase):
             'dns-name': '10.0.0.3',
             'instance-id': 'juju-dddd-machine-3',
             'controller-member-status': 'has-vote'})
+        known_hosts = {'1': 'a', '2': 'b', '3': '10.0.0.3'}
+        bs_manager = Mock(
+            client=client, known_hosts=known_hosts, has_controller=False)
         with patch('assess_recovery.convert_to_azure_ids', autospec=True,
                    return_value=['juju-azure-id']):
-            deleted = delete_controller_members(client, leader_only=True)
+            deleted = delete_controller_members(
+                bs_manager, client, leader_only=True)
         self.assertEqual(['3'], deleted)
         client.get_controller_leader.assert_called_once_with()
         ti_mock.assert_called_once_with(client.env, ['juju-azure-id'])
@@ -257,7 +327,9 @@ class TestDeleteControllerMembers(FakeHomeTestCase):
         self.assertEqual(
             self.log_stream.getvalue(),
             'INFO Instrumenting node failure for member 3:'
-            ' juju-azure-id at 10.0.0.3\n')
+            ' juju-azure-id at 10.0.0.3\n'
+            "INFO Deleted ['3']\n")
+        self.assertEqual({'1': 'a', '2': 'b'}, bs_manager.known_hosts)
 
 
 class TestRestoreMissingStateServer(FakeHomeTestCase):
