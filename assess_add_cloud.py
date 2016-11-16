@@ -19,26 +19,28 @@ from utility import (
     )
 
 
-def assess_cloud(client, example_cloud):
+def assess_cloud(client, cloud_name, example_cloud):
     clouds = client.env.read_clouds()
     if len(clouds['clouds']) > 0:
         raise AssertionError('Clouds already present!')
-    client.env.clouds['clouds'].update({'foo': deepcopy(example_cloud)})
-    client.add_cloud_interactive('foo')
+    client.env.clouds['clouds'].update({cloud_name: deepcopy(example_cloud)})
+    client.add_cloud_interactive(cloud_name)
     clouds = client.env.read_clouds()
     if len(clouds['clouds']) == 0:
         raise JujuAssertionError('Clouds missing!')
-    if clouds['clouds']['foo'] != example_cloud:
+    if clouds['clouds'].keys() != [cloud_name]:
+        raise JujuAssertionError('Name mismatch')
+    if clouds['clouds'][cloud_name] != example_cloud:
         sys.stderr.write('\nExpected:\n')
         yaml.dump(example_cloud, sys.stderr)
         sys.stderr.write('\nActual:\n')
-        yaml.dump(clouds['clouds']['foo'], sys.stderr)
+        yaml.dump(clouds['clouds'][cloud_name], sys.stderr)
         raise JujuAssertionError('Cloud mismatch')
 
 
 def iter_clouds(clouds):
     for cloud_name, cloud in clouds.items():
-        yield cloud_name, cloud
+        yield cloud_name, cloud_name, cloud
 
     for cloud_name, cloud in clouds.items():
         if 'endpoint' not in cloud:
@@ -48,7 +50,10 @@ def iter_clouds(clouds):
         if variant['type'] == 'vsphere':
             for region in variant['regions'].values():
                 region['endpoint'] = variant['endpoint']
-        yield 'long-endpoint-{}'.format(cloud_name), variant
+        variant_name = 'long-endpoint-{}'.format(cloud_name)
+        yield variant_name, cloud_name, variant
+        yield 'long-name-{}'.format(cloud_name), 'A' * 4096, cloud
+
         for region_name in variant.get('regions', {}).keys():
             if variant['type'] != 'vsphere':
                 variant = deepcopy(cloud)
@@ -56,22 +61,22 @@ def iter_clouds(clouds):
                 region['endpoint'] = 'A' * 4096
                 variant_name = 'long-endpoint{}-{}'.format(cloud_name,
                                                            region_name)
-                yield variant_name, variant
+                yield variant_name, cloud_name, variant
 
 
 def assess_all_clouds(client, clouds):
     succeeded = set()
     failed = set()
     client.env.load_yaml()
-    for cloud_name, cloud in iter_clouds(clouds):
-        sys.stdout.write('Testing {}.\n'.format(cloud_name))
+    for cloud_label, cloud_name, cloud in iter_clouds(clouds):
+        sys.stdout.write('Testing {}.\n'.format(cloud_label))
         try:
-            assess_cloud(client, cloud)
+            assess_cloud(client, cloud_name, cloud)
         except Exception as e:
             logging.exception(e)
-            failed.add(cloud_name)
+            failed.add(cloud_label)
         else:
-            succeeded.add(cloud_name)
+            succeeded.add(cloud_label)
         finally:
             client.env.clouds = {'clouds': {}}
             client.env.dump_yaml(client.env.juju_home, {})
