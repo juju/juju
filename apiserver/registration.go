@@ -47,6 +47,7 @@ func (h *registerUserHandler) ServeHTTP(w http.ResponseWriter, req *http.Request
 		}
 		return
 	}
+	defer h.ctxt.release(st)
 	userTag, response, err := h.processPost(req, st)
 	if err != nil {
 		if err := sendError(w, err); err != nil {

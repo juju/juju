@@ -37,6 +37,7 @@ func (h *backupHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 		h.sendError(resp, err)
 		return
 	}
+	defer h.ctxt.release(st)
 
 	backups, closer := newBackups(st)
 	defer closer.Close()
