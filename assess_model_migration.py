@@ -58,6 +58,7 @@ def assess_model_migration(bs1, bs2, args):
                     source_client, dest_client, temp)
 
             if args.use_develop:
+                ensure_model_logs_are_migrated(source_client, dest_client)
                 ensure_migration_rolls_back_on_failure(
                     source_client, dest_client)
                 ensure_migration_of_resources_succeeds(
@@ -206,7 +207,7 @@ def ensure_able_to_migrate_model_between_controllers(
         migration_target_client, source_client)
     assert_model_migrated_successfully(re_migrate_client, application)
 
-    migration_target_client.remove_service(application)
+    re_migrate_client.remove_service(application)
 
 
 def assert_model_migrated_successfully(client, application):
@@ -380,6 +381,24 @@ def raise_if_shared_machines(unit_machines):
         raise ValueError('Cannot share 0 machines. Empty list provided.')
     if len(unit_machines) != len(set(unit_machines)):
         raise JujuAssertionError('Appliction units reside on the same machine')
+
+
+def ensure_model_logs_are_migrated(source_client, dest_client):
+    new_model = deploy_dummy_source_to_new_model(
+        source_client, 'log-migration')
+
+    before_migration_logs = new_model.get_juju_output(
+        'debug-log', '--no-tail', '-l', 'DEBUG')
+
+    log.info('Attempting migration process')
+
+    migrated_model = migrate_model_to_controller(new_model, dest_client)
+
+    after_migration_logs = migrated_model.get_juju_output(
+        'debug-log', '--no-tail', '-l', 'DEBUG')
+
+    if before_migration_logs not in after_migration_logs:
+        raise JujuAssertionError('Logs failed to be migrated.')
 
 
 def ensure_migration_rolls_back_on_failure(source_client, dest_client):
