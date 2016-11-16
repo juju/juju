@@ -2330,8 +2330,7 @@ class EnvJujuClient:
         return self.get_juju_output('list-clouds', '--format',
                                     format, include_e=False)
 
-    def add_cloud_interactive(self, cloud_name):
-        cloud = self.env.clouds['clouds'][cloud_name]
+    def add_cloud_interactive(self, cloud_name, cloud):
         child = self.expect('add-cloud', include_e=False)
         try:
             child.logfile = sys.stdout

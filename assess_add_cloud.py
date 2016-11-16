@@ -23,8 +23,7 @@ def assess_cloud(client, cloud_name, example_cloud):
     clouds = client.env.read_clouds()
     if len(clouds['clouds']) > 0:
         raise AssertionError('Clouds already present!')
-    client.env.clouds['clouds'].update({cloud_name: deepcopy(example_cloud)})
-    client.add_cloud_interactive(cloud_name)
+    client.add_cloud_interactive(cloud_name, example_cloud)
     clouds = client.env.read_clouds()
     if len(clouds['clouds']) == 0:
         raise JujuAssertionError('Clouds missing!')
