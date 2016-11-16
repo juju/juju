@@ -65,8 +65,8 @@ def iter_clouds(clouds):
                 variant = deepcopy(cloud)
                 region = variant['regions'][region_name]
                 region['endpoint'] = 'A' * 4096
-                variant_name = 'long-endpoint{}-{}'.format(cloud_name,
-                                                           region_name)
+                variant_name = 'long-endpoint-{}-{}'.format(cloud_name,
+                                                            region_name)
                 yield variant_name, cloud_name, variant, None
 
 
