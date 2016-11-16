@@ -42,13 +42,13 @@ class TestAssessCloud(TestCase):
                 'endpoint': 'http://bar.example.com',
                 }}}
         with self.cloud_client(expected_cloud) as client:
-            assess_cloud(client, expected_cloud['clouds']['foo'])
+            assess_cloud(client, 'foo', expected_cloud['clouds']['foo'])
 
     def test_assess_cloud_missing(self):
         with self.cloud_client({'clouds': {}}) as client:
             with self.assertRaisesRegexp(JujuAssertionError,
                                          'Clouds missing!'):
-                assess_cloud(client, {
+                assess_cloud(client, 'foo', {
                     'type': 'maas',
                     'endpoint': 'http://bar.example.com',
                     })
@@ -59,7 +59,7 @@ class TestAssessCloud(TestCase):
                                          'Cloud mismatch'):
                 stderr = StringIO()
                 with patch('sys.stderr', stderr):
-                    assess_cloud(client, {
+                    assess_cloud(client, 'foo', {
                         'type': 'maas',
                         'endpoint': 'http://bar.example.com',
                         })
@@ -76,7 +76,7 @@ class TestAssessAllClouds(TestCase):
 
     def test_assess_all_clouds(self):
         client = self.make_fake_juju_client()
-        clouds = {'a': {}, 'b': {}}
+        clouds = {'a': {'type': 'foo'}, 'b': {'type': 'bar'}}
         exception = Exception()
         with patch('assess_add_cloud.assess_cloud',
                    side_effect=[None, exception]):
