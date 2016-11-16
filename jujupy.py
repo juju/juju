@@ -590,6 +590,9 @@ class AgentError(StatusError):
 class AgentUnresolvedError(AgentError):
     """Agent error has not recovered in a reasonable time."""
 
+    # This is the time limit set by IS for recovery from an agent error.
+    a_reasonable_time = timedelta(minutes=5)
+
     recoverable = False
 
 
@@ -606,6 +609,13 @@ class StatusItem:
     JUJU = 'juju-status'
 
     def __init__(self, status_name, item_name, item_value):
+        """Create a new StatusItem from its fields.
+
+        :param status_name: One of the status strings.
+        :param item_name: The name of the machine/unit/application the status
+            information is about.
+        :param item_value: A dictionary of status values. If there is an entry
+            with the status_name in the dictionary its contents are used."""
         self.status_name = status_name
         self.item_name = item_name
         self.status = item_value.get(status_name, item_value)
@@ -655,7 +665,7 @@ class StatusItem:
             return MachineError(self.item_name, self.message)
         elif self.JUJU == self.status_name:
             time_since = datetime.utcnow() - self.datetime_since
-            if time_since > timedelta(minutes=5):
+            if time_since > AngentUnresolvedError.a_reasonable_time:
                 return AgentUnresolvedError(self.item_name, self.message,
                                             time_since.total_seconds())
             else:
