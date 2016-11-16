@@ -92,9 +92,6 @@ class SoftDeadlineExceeded(Exception):
 class NoProvider(Exception):
     """Raised when an environment defines no provider."""
 
-class AuthNotAccepted(Exception):
-    """Raised when the provided auth was not accepted."""
-
 
 class AuthNotAccepted(Exception):
     """Raised when the provided auth was not accepted."""
