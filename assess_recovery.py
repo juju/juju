@@ -113,7 +113,7 @@ def restore_present_state_server(controller_client, backup_file):
             "juju-restore restored to an operational state-serve")
 
 
-def delete_controller_members(client, leader_only=False):
+def delete_controller_members(bs_manager, client, leader_only=False):
     """Delete controller members.
 
     The all members are delete by default. The followers are deleted before the
@@ -138,6 +138,12 @@ def delete_controller_members(client, leader_only=False):
         wait_for_state_server_to_shutdown(
             host, client, instance_id, timeout=120)
         deleted_machines.append(machine.machine_id)
+    log.info("Deleted {}".format(deleted_machines))
+    # Do not gather data about the deleted controller.
+    bs_manager.has_controller = False
+    for m_id in deleted_machines:
+        if bs_manager.known_hosts.get(m_id):
+            del bs_manager.known_hosts[m_id]
     return deleted_machines
 
 
@@ -209,14 +215,8 @@ def assess_recovery(bs_manager, strategy, charm_series):
         leader_only = True
     else:
         leader_only = False
-    deleted_machine_ids = delete_controller_members(
-        controller_client, leader_only=leader_only)
-    log.info("Deleted {}".format(deleted_machine_ids))
-    # Do not gather data about the deleted controller.
-    bs_manager.has_controller = False
-    for m_id in deleted_machine_ids:
-        if bs_manager.known_hosts.get(m_id):
-            del bs_manager.known_hosts[m_id]
+    delete_controller_members(
+        bs_manager, controller_client, leader_only=leader_only)
     if strategy == 'ha':
         assess_ha_recovery(bs_manager, client)
     else:

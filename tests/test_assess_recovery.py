@@ -251,7 +251,10 @@ class TestDeleteControllerMembers(FakeHomeTestCase):
                 'instance-id': 'juju-cccc-machine-2',
                 'controller-member-status': 'has-vote'}),
         ]
-        deleted = delete_controller_members(client)
+        known_hosts = {'0': '10.0.0.0', '2': '10.0.0.2', '3': '10.0.0.3'}
+        bs_manager = Mock(
+            client=client, known_hosts=known_hosts, has_controller=False)
+        deleted = delete_controller_members(bs_manager, client)
         self.assertEqual(['2', '0', '3'], deleted)
         client.get_controller_members.assert_called_once_with()
         # terminate_instance was call in the reverse order of members.
@@ -272,7 +275,9 @@ class TestDeleteControllerMembers(FakeHomeTestCase):
             'INFO Instrumenting node failure for member 0:'
             ' juju-aaaa-machine-0 at 10.0.0.0\n'
             'INFO Instrumenting node failure for member 3:'
-            ' juju-dddd-machine-3 at 10.0.0.3\n')
+            ' juju-dddd-machine-3 at 10.0.0.3\n'
+            "INFO Deleted ['2', '0', '3']\n")
+        self.assertEqual({}, bs_manager.known_hosts)
 
     def test_delete_controller_members_leader_only(self, ti_mock, wsss_mock):
         client = Mock(spec=['env', 'get_controller_leader'])
@@ -282,7 +287,11 @@ class TestDeleteControllerMembers(FakeHomeTestCase):
             'dns-name': '10.0.0.3',
             'instance-id': 'juju-dddd-machine-3',
             'controller-member-status': 'has-vote'})
-        deleted = delete_controller_members(client, leader_only=True)
+        known_hosts = {'1': 'a', '2': 'b', '3': '10.0.0.3'}
+        bs_manager = Mock(
+            client=client, known_hosts=known_hosts, has_controller=False)
+        deleted = delete_controller_members(
+            bs_manager, client, leader_only=True)
         self.assertEqual(['3'], deleted)
         client.get_controller_leader.assert_called_once_with()
         ti_mock.assert_called_once_with(client.env, ['juju-dddd-machine-3'])
@@ -291,7 +300,9 @@ class TestDeleteControllerMembers(FakeHomeTestCase):
         self.assertEqual(
             self.log_stream.getvalue(),
             'INFO Instrumenting node failure for member 3:'
-            ' juju-dddd-machine-3 at 10.0.0.3\n')
+            ' juju-dddd-machine-3 at 10.0.0.3\n'
+            "INFO Deleted ['3']\n")
+        self.assertEqual({'1': 'a', '2': 'b'}, bs_manager.known_hosts)
 
     def test_delete_controller_members_azure(self, ti_mock, wsss_mock):
         client = Mock(spec=['env', 'get_controller_leader'])
@@ -301,9 +312,13 @@ class TestDeleteControllerMembers(FakeHomeTestCase):
             'dns-name': '10.0.0.3',
             'instance-id': 'juju-dddd-machine-3',
             'controller-member-status': 'has-vote'})
+        known_hosts = {'1': 'a', '2': 'b', '3': '10.0.0.3'}
+        bs_manager = Mock(
+            client=client, known_hosts=known_hosts, has_controller=False)
         with patch('assess_recovery.convert_to_azure_ids', autospec=True,
                    return_value=['juju-azure-id']):
-            deleted = delete_controller_members(client, leader_only=True)
+            deleted = delete_controller_members(
+                bs_manager, client, leader_only=True)
         self.assertEqual(['3'], deleted)
         client.get_controller_leader.assert_called_once_with()
         ti_mock.assert_called_once_with(client.env, ['juju-azure-id'])
@@ -312,7 +327,9 @@ class TestDeleteControllerMembers(FakeHomeTestCase):
         self.assertEqual(
             self.log_stream.getvalue(),
             'INFO Instrumenting node failure for member 3:'
-            ' juju-azure-id at 10.0.0.3\n')
+            ' juju-azure-id at 10.0.0.3\n'
+            "INFO Deleted ['3']\n")
+        self.assertEqual({'1': 'a', '2': 'b'}, bs_manager.known_hosts)
 
 
 class TestRestoreMissingStateServer(FakeHomeTestCase):
