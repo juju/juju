@@ -43,12 +43,20 @@ def iter_clouds(clouds):
     for cloud_name, cloud in clouds.items():
         if 'endpoint' not in cloud:
             continue
-        cloud = deepcopy(cloud)
-        cloud['endpoint'] = 'A' * 4096
-        if cloud['type'] == 'vsphere':
-            for region in cloud['regions'].values():
-                region['endpoint'] = cloud['endpoint']
-        yield 'long-endpoint-{}'.format(cloud_name), cloud
+        variant = deepcopy(cloud)
+        variant['endpoint'] = 'A' * 4096
+        if variant['type'] == 'vsphere':
+            for region in variant['regions'].values():
+                region['endpoint'] = variant['endpoint']
+        yield 'long-endpoint-{}'.format(cloud_name), variant
+        for region_name in variant.get('regions', {}).keys():
+            if variant['type'] != 'vsphere':
+                variant = deepcopy(cloud)
+                region = variant['regions'][region_name]
+                region['endpoint'] = 'A' * 4096
+                variant_name = 'long-endpoint{}-{}'.format(cloud_name,
+                                                           region_name)
+                yield variant_name, variant
 
 
 def assess_all_clouds(client, clouds):
