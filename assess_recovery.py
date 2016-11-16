@@ -90,7 +90,7 @@ def assess_ha_recovery(bs_manager, client):
     # call is interrupted and raise HARecoveryError. The controller
     # might return an error, but it still has
     try:
-        client.juju('status', (), check=False, timeout=300)
+        client.juju('status', (), check=True, timeout=300)
         client.get_status(300)
     except CalledProcessError:
         raise HARecoveryError()
