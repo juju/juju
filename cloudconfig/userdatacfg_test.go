@@ -184,8 +184,10 @@ func (cfg *testInstanceConfig) setSeries(seriesName string) *testInstanceConfig 
 		panic(err)
 	}
 
+	cfg.OSType = series.MustOSFromSeries(seriesName)
+
 	var pathCollection paths.Collection
-	if osType := series.MustOSFromSeries(seriesName); osType == os.Windows {
+	if cfg.OSType == os.Windows {
 		pathCollection = paths.Windows
 	} else {
 		pathCollection = paths.Nix
@@ -196,6 +198,8 @@ func (cfg *testInstanceConfig) setSeries(seriesName string) *testInstanceConfig 
 	cfg.LogPath = pathCollection.Log
 	cfg.CloudInitOutputLogPath = pathCollection.CloudInitOutputLogPath
 	cfg.MetricsSpoolPath = pathCollection.MetricsSpool
+	cfg.ConfPath = pathCollection.Conf
+	cfg.TempPath = pathCollection.Temp
 
 	return cfg
 }
@@ -574,7 +578,7 @@ func (*cloudinitSuite) TestCloudInit(c *gc.C) {
 			envConfig = minimalModelConfig(c)
 		}
 		testConfig := test.cfg.maybeSetModelConfig(envConfig).render()
-		ci, err := cloudinit.New(testConfig.Series)
+		ci, err := cloudinit.New(testConfig.OSType, testConfig.Series)
 		c.Assert(err, jc.ErrorIsNil)
 		udata, err := cloudconfig.NewUserdataConfig(&testConfig, ci)
 		c.Assert(err, jc.ErrorIsNil)
@@ -673,7 +677,7 @@ func (*cloudinitSuite) TestCloudInitWithGUIURLError(c *gc.C) {
 func checkCloudInitWithGUI(c *gc.C, cfg *testInstanceConfig, expectedScripts string, expectedError string) {
 	envConfig := minimalModelConfig(c)
 	testConfig := cfg.maybeSetModelConfig(envConfig).render()
-	ci, err := cloudinit.New(testConfig.Series)
+	ci, err := cloudinit.New(testConfig.OSType, testConfig.Series)
 	c.Assert(err, jc.ErrorIsNil)
 	udata, err := cloudconfig.NewUserdataConfig(&testConfig, ci)
 	c.Assert(err, jc.ErrorIsNil)
@@ -699,7 +703,7 @@ func (*cloudinitSuite) TestCloudInitConfigure(c *gc.C) {
 	for i, test := range cloudinitTests {
 		testConfig := test.cfg.maybeSetModelConfig(minimalModelConfig(c)).render()
 		c.Logf("test %d (Configure)", i)
-		cloudcfg, err := cloudinit.New(testConfig.Series)
+		cloudcfg, err := cloudinit.New(testConfig.OSType, testConfig.Series)
 		c.Assert(err, jc.ErrorIsNil)
 		udata, err := cloudconfig.NewUserdataConfig(&testConfig, cloudcfg)
 		c.Assert(err, jc.ErrorIsNil)
@@ -713,7 +717,7 @@ func (*cloudinitSuite) bootstrapConfigScripts(c *gc.C) []string {
 	envConfig := minimalModelConfig(c)
 	instConfig := makeBootstrapConfig("quantal").maybeSetModelConfig(envConfig)
 	rendered := instConfig.render()
-	cloudcfg, err := cloudinit.New(rendered.Series)
+	cloudcfg, err := cloudinit.New(rendered.OSType, rendered.Series)
 	c.Assert(err, jc.ErrorIsNil)
 	udata, err := cloudconfig.NewUserdataConfig(&rendered, cloudcfg)
 
@@ -750,7 +754,7 @@ func (s *cloudinitSuite) TestCloudInitConfigureBootstrapFeatureFlags(c *gc.C) {
 
 func (*cloudinitSuite) TestCloudInitConfigureUsesGivenConfig(c *gc.C) {
 	// Create a simple cloudinit config with a 'runcmd' statement.
-	cloudcfg, err := cloudinit.New("quantal")
+	cloudcfg, err := cloudinit.New(os.Ubuntu, "quantal")
 	c.Assert(err, jc.ErrorIsNil)
 	script := "test script"
 	cloudcfg.AddRunCmd(script)
@@ -909,19 +913,19 @@ var verifyTests = []struct {
 	err    string
 	mutate func(*instancecfg.InstanceConfig)
 }{
-	{"invalid machine id", func(cfg *instancecfg.InstanceConfig) {
+	{"MachineId not valid", func(cfg *instancecfg.InstanceConfig) {
 		cfg.MachineId = "-1"
 	}},
-	{"invalid bootstrap configuration: missing model configuration", func(cfg *instancecfg.InstanceConfig) {
+	{"invalid bootstrap configuration: ControllerModelConfig not assigned", func(cfg *instancecfg.InstanceConfig) {
 		cfg.Bootstrap.ControllerModelConfig = nil
 	}},
-	{"invalid controller configuration: missing state info", func(cfg *instancecfg.InstanceConfig) {
+	{"invalid controller configuration: MongoInfo not assigned", func(cfg *instancecfg.InstanceConfig) {
 		cfg.Controller.MongoInfo = nil
 	}},
-	{"missing API info", func(cfg *instancecfg.InstanceConfig) {
+	{"APIInfo not assigned", func(cfg *instancecfg.InstanceConfig) {
 		cfg.APIInfo = nil
 	}},
-	{"missing model tag", func(cfg *instancecfg.InstanceConfig) {
+	{"APIInfo.ModelTag not assigned", func(cfg *instancecfg.InstanceConfig) {
 		cfg.APIInfo = &api.Info{
 			Addrs:  []string{"foo:35"},
 			Tag:    names.NewMachineTag("99"),
@@ -937,7 +941,7 @@ var verifyTests = []struct {
 			},
 		}
 	}},
-	{"missing API hosts", func(cfg *instancecfg.InstanceConfig) {
+	{"APIInfo.Addrs not assigned", func(cfg *instancecfg.InstanceConfig) {
 		cfg.Bootstrap = nil
 		cfg.Controller.MongoInfo.Tag = names.NewMachineTag("99")
 		cfg.APIInfo = &api.Info{
@@ -946,32 +950,32 @@ var verifyTests = []struct {
 			ModelTag: testing.ModelTag,
 		}
 	}},
-	{"invalid controller configuration: missing CA certificate", func(cfg *instancecfg.InstanceConfig) {
+	{"invalid controller configuration: MongoInfo.CACert not assigned", func(cfg *instancecfg.InstanceConfig) {
 		cfg.Controller.MongoInfo.CACert = ""
 	}},
-	{"invalid bootstrap configuration: missing controller certificate", func(cfg *instancecfg.InstanceConfig) {
+	{"invalid bootstrap configuration: StateServingInfo.Cert not assigned", func(cfg *instancecfg.InstanceConfig) {
 		cfg.Bootstrap.StateServingInfo.Cert = ""
 	}},
-	{"invalid bootstrap configuration: missing controller private key", func(cfg *instancecfg.InstanceConfig) {
+	{"invalid bootstrap configuration: StateServingInfo.PrivateKey not assigned", func(cfg *instancecfg.InstanceConfig) {
 		cfg.Bootstrap.StateServingInfo.PrivateKey = ""
 	}},
-	{"invalid bootstrap configuration: missing ca cert private key", func(cfg *instancecfg.InstanceConfig) {
+	{"invalid bootstrap configuration: StateServingInfo.CAPrivateKey not assigned", func(cfg *instancecfg.InstanceConfig) {
 		cfg.Bootstrap.StateServingInfo.CAPrivateKey = ""
 	}},
-	{"invalid bootstrap configuration: missing state port", func(cfg *instancecfg.InstanceConfig) {
+	{"invalid bootstrap configuration: StateServingInfo.StatePort not assigned", func(cfg *instancecfg.InstanceConfig) {
 		cfg.Bootstrap.StateServingInfo.StatePort = 0
 	}},
-	{"invalid bootstrap configuration: missing API port", func(cfg *instancecfg.InstanceConfig) {
+	{"invalid bootstrap configuration: StateServingInfo.APIPort not assigned", func(cfg *instancecfg.InstanceConfig) {
 		cfg.Bootstrap.StateServingInfo.APIPort = 0
 	}},
-	{"missing var directory", func(cfg *instancecfg.InstanceConfig) {
-		cfg.DataDir = ""
+	{"DataPath not assigned", func(cfg *instancecfg.InstanceConfig) {
+		cfg.DataPath = ""
 	}},
-	{"missing log directory", func(cfg *instancecfg.InstanceConfig) {
-		cfg.LogDir = ""
+	{"LogPath not assigned", func(cfg *instancecfg.InstanceConfig) {
+		cfg.LogPath = ""
 	}},
-	{"missing cloud-init output log path", func(cfg *instancecfg.InstanceConfig) {
-		cfg.CloudInitOutputLog = ""
+	{"CloudInitOutputLogPath not assigned", func(cfg *instancecfg.InstanceConfig) {
+		cfg.CloudInitOutputLogPath = ""
 	}},
 	{"invalid controller configuration: entity tag must match started machine", func(cfg *instancecfg.InstanceConfig) {
 		cfg.Bootstrap = nil
@@ -997,13 +1001,13 @@ var verifyTests = []struct {
 	{"invalid bootstrap configuration: entity tag must be nil when bootstrapping", func(cfg *instancecfg.InstanceConfig) {
 		cfg.APIInfo.Tag = names.NewMachineTag("0")
 	}},
-	{"missing machine nonce", func(cfg *instancecfg.InstanceConfig) {
+	{"MachineNonce not assigned", func(cfg *instancecfg.InstanceConfig) {
 		cfg.MachineNonce = ""
 	}},
-	{"missing machine agent service name", func(cfg *instancecfg.InstanceConfig) {
+	{"MachineAgentServiceName not assigned", func(cfg *instancecfg.InstanceConfig) {
 		cfg.MachineAgentServiceName = ""
 	}},
-	{"invalid bootstrap configuration: missing bootstrap machine instance ID", func(cfg *instancecfg.InstanceConfig) {
+	{"invalid bootstrap configuration: BootstrapMachineInstanceId not assigned", func(cfg *instancecfg.InstanceConfig) {
 		cfg.Bootstrap.BootstrapMachineInstanceId = ""
 	}},
 }
@@ -1038,32 +1042,33 @@ func (*cloudinitSuite) TestCloudInitVerify(c *gc.C) {
 			MachineId:        "99",
 			AuthorizedKeys:   "sshkey1",
 			Series:           "quantal",
+			OSType:           os.Ubuntu,
 			AgentEnvironment: map[string]string{agent.ProviderType: "dummy"},
 			APIInfo: &api.Info{
 				Addrs:    []string{"host:9999"},
 				CACert:   testing.CACert,
 				ModelTag: testing.ModelTag,
 			},
-			DataDir:                 jujuDataDir("quantal"),
-			LogDir:                  jujuLogDir("quantal"),
-			MetricsSpoolDir:         metricsSpoolDir("quantal"),
+			ConfPath:               paths.Nix.Conf,
+			DataPath:               paths.Nix.Data,
+			LogPath:                paths.Nix.Log,
+			TempPath:               paths.Nix.Temp,
+			MetricsSpoolPath:       paths.Nix.MetricsSpool,
+			CloudInitOutputLogPath: paths.Nix.CloudInitOutputLogPath,
 			Jobs:                    normalMachineJobs,
-			CloudInitOutputLog:      cloudInitOutputLog("quantal"),
 			MachineNonce:            "FAKE_NONCE",
 			MachineAgentServiceName: "jujud-machine-99",
 		}
 	}
 
 	// check that the base configuration does not give an error
-	ci, err := cloudinit.New("quantal")
+	ci, err := cloudinit.New(os.Ubuntu, "quantal")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// check that missing tools causes an error.
 	cfg := makeCfgWithoutTools()
-	udata, err := cloudconfig.NewUserdataConfig(&cfg, ci)
-	c.Assert(err, jc.ErrorIsNil)
-	err = udata.Configure()
-	c.Assert(err, gc.ErrorMatches, "invalid machine configuration: missing tools")
+	_, err = cloudconfig.NewUserdataConfig(&cfg, ci)
+	c.Check(err, gc.ErrorMatches, "invalid machine configuration: tools not assigned")
 
 	for i, test := range verifyTests {
 		c.Logf("test %d. %s", i, test.err)
@@ -1079,33 +1084,55 @@ func (*cloudinitSuite) TestCloudInitVerify(c *gc.C) {
 
 		test.mutate(&cfg)
 		udata, err = cloudconfig.NewUserdataConfig(&cfg, ci)
-		c.Assert(err, jc.ErrorIsNil)
-		err = udata.Configure()
 		c.Check(err, gc.ErrorMatches, "invalid machine configuration: "+test.err)
 	}
 }
 
-func (*cloudinitSuite) createInstanceConfig(c *gc.C, environConfig *config.Config) *instancecfg.InstanceConfig {
+func (*cloudinitSuite) createInstanceConfig(
+	c *gc.C,
+	confPath string,
+	tempPath string,
+	dataPath string,
+	logPath string,
+	metricsSpoolPath string,
+	cloudInitOutputLogPath string,
+	environConfig *config.Config,
+) *instancecfg.InstanceConfig {
 	machineId := "42"
 	machineNonce := "fake-nonce"
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
-	instanceConfig, err := instancecfg.NewInstanceConfig(testing.ControllerTag, machineId, machineNonce, imagemetadata.ReleasedStream, "quantal", apiInfo)
-	c.Assert(err, jc.ErrorIsNil)
+	instanceConfig := instancecfg.NewInstanceConfig(
+		confPath,
+		tempPath,
+		dataPath,
+		logPath,
+		metricsSpoolPath,
+		cloudInitOutputLogPath,
+		testing.ControllerTag,
+		machineId,
+		machineNonce,
+		imagemetadata.ReleasedStream,
+		os.Ubuntu,
+		"quantal",
+		apiInfo,
+	)
+
 	instanceConfig.SetTools(tools.List{
 		&tools.Tools{
 			Version: version.MustParseBinary("2.3.4-quantal-amd64"),
 			URL:     "http://tools.testing.invalid/2.3.4-quantal-amd64.tgz",
 		},
 	})
-	err = instancecfg.FinishInstanceConfig(instanceConfig, environConfig)
+	err := instancecfg.FinishInstanceConfig(instanceConfig, environConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	return instanceConfig
 }
 
 func (s *cloudinitSuite) TestAptProxyNotWrittenIfNotSet(c *gc.C) {
 	environConfig := minimalModelConfig(c)
-	instanceCfg := s.createInstanceConfig(c, environConfig)
-	cloudcfg, err := cloudinit.New("quantal")
+	const fp = "/fake/path"
+	instanceCfg := s.createInstanceConfig(c, fp, fp, fp, fp, fp, fp, environConfig)
+	cloudcfg, err := cloudinit.New(os.Ubuntu, "quantal")
 	c.Assert(err, jc.ErrorIsNil)
 	udata, err := cloudconfig.NewUserdataConfig(instanceCfg, cloudcfg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1122,8 +1149,9 @@ func (s *cloudinitSuite) TestAptProxyWritten(c *gc.C) {
 		"apt-http-proxy": "http://user@10.0.0.1",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	instanceCfg := s.createInstanceConfig(c, environConfig)
-	cloudcfg, err := cloudinit.New("quantal")
+	const fp = "/fake/path"
+	instanceCfg := s.createInstanceConfig(c, fp, fp, fp, fp, fp, fp, environConfig)
+	cloudcfg, err := cloudinit.New(os.Ubuntu, "quantal")
 	c.Assert(err, jc.ErrorIsNil)
 	udata, err := cloudconfig.NewUserdataConfig(instanceCfg, cloudcfg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1142,8 +1170,9 @@ func (s *cloudinitSuite) TestProxyWritten(c *gc.C) {
 		"no-proxy":   "localhost,10.0.3.1",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	instanceCfg := s.createInstanceConfig(c, environConfig)
-	cloudcfg, err := cloudinit.New("quantal")
+	const fp = "/fake/path"
+	instanceCfg := s.createInstanceConfig(c, fp, fp, fp, fp, fp, fp, environConfig)
+	cloudcfg, err := cloudinit.New(os.Ubuntu, "quantal")
 	c.Assert(err, jc.ErrorIsNil)
 	udata, err := cloudconfig.NewUserdataConfig(instanceCfg, cloudcfg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1188,8 +1217,9 @@ func (s *cloudinitSuite) TestAptMirrorNotSet(c *gc.C) {
 }
 
 func (s *cloudinitSuite) testAptMirror(c *gc.C, cfg *config.Config, expect string) {
-	instanceCfg := s.createInstanceConfig(c, cfg)
-	cloudcfg, err := cloudinit.New("quantal")
+	const fp = "/fake/path"
+	instanceCfg := s.createInstanceConfig(c, fp, fp, fp, fp, fp, fp, cfg)
+	cloudcfg, err := cloudinit.New(os.Ubuntu, "quantal")
 	c.Assert(err, jc.ErrorIsNil)
 	udata, err := cloudconfig.NewUserdataConfig(instanceCfg, cloudcfg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1240,7 +1270,7 @@ func (*cloudinitSuite) TestWindowsCloudInit(c *gc.C) {
 	for i, test := range windowsCloudinitTests {
 		testConfig := test.cfg.render()
 		c.Logf("test %d", i)
-		ci, err := cloudinit.New("win8")
+		ci, err := cloudinit.New(os.Windows, "win8")
 		c.Assert(err, jc.ErrorIsNil)
 		udata, err := cloudconfig.NewUserdataConfig(&testConfig, ci)
 
@@ -1306,7 +1336,7 @@ func expectedUbuntuUser(groups, keys []string) map[string]interface{} {
 }
 
 func (*cloudinitSuite) TestSetUbuntuUserPrecise(c *gc.C) {
-	ci, err := cloudinit.New("precise")
+	ci, err := cloudinit.New(os.Ubuntu, "precise")
 	c.Assert(err, jc.ErrorIsNil)
 	cloudconfig.SetUbuntuUser(ci, "akey")
 	data, err := ci.RenderYAML()
@@ -1318,7 +1348,7 @@ func (*cloudinitSuite) TestSetUbuntuUserPrecise(c *gc.C) {
 }
 
 func (*cloudinitSuite) TestSetUbuntuUserPreciseNoKeys(c *gc.C) {
-	ci, err := cloudinit.New("precise")
+	ci, err := cloudinit.New(os.Ubuntu, "precise")
 	c.Assert(err, jc.ErrorIsNil)
 	cloudconfig.SetUbuntuUser(ci, "")
 	data, err := ci.RenderYAML()
@@ -1327,7 +1357,7 @@ func (*cloudinitSuite) TestSetUbuntuUserPreciseNoKeys(c *gc.C) {
 }
 
 func (*cloudinitSuite) TestSetUbuntuUserQuantal(c *gc.C) {
-	ci, err := cloudinit.New("quantal")
+	ci, err := cloudinit.New(os.Ubuntu, "quantal")
 	c.Assert(err, jc.ErrorIsNil)
 	cloudconfig.SetUbuntuUser(ci, "akey")
 	data, err := ci.RenderYAML()
@@ -1338,7 +1368,7 @@ func (*cloudinitSuite) TestSetUbuntuUserQuantal(c *gc.C) {
 }
 
 func (*cloudinitSuite) TestSetUbuntuUserCentOS(c *gc.C) {
-	ci, err := cloudinit.New("centos7")
+	ci, err := cloudinit.New(os.CentOS, "centos7")
 	c.Assert(err, jc.ErrorIsNil)
 	cloudconfig.SetUbuntuUser(ci, "akey\n#also\nbkey")
 	data, err := ci.RenderYAML()

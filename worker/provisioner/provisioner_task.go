@@ -519,6 +519,7 @@ func (task *provisionerTask) constructInstanceConfig(
 		instancePaths.Data,
 		instancePaths.Log,
 		instancePaths.MetricsSpool,
+		instancePaths.CloudInitOutputLogPath,
 		names.NewControllerTag(controller.Config(pInfo.ControllerConfig).ControllerUUID()),
 		machine.Id(),
 		nonce,

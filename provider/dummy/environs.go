@@ -92,6 +92,7 @@ func SampleCloudSpec() environs.CloudSpec {
 // attributes set.
 func SampleConfig() testing.Attrs {
 	return testing.Attrs{
+		"DataPath":                  "/fake/path",
 		"type":                      "dummy",
 		"name":                      "only",
 		"uuid":                      testing.ModelTag.Id(),

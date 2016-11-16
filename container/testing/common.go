@@ -32,6 +32,7 @@ func MockMachineConfig(machineId string) (*instancecfg.InstanceConfig, error) {
 		paths.Nix.Data,
 		paths.Nix.Log,
 		paths.Nix.MetricsSpool,
+		paths.Nix.CloudInitOutputLogPath,
 		testing.ControllerTag,
 		machineId,
 		"fake-nonce",

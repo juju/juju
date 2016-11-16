@@ -11,14 +11,12 @@ import (
 	"github.com/juju/utils/shell"
 )
 
-type Paths interface {
-	DataPath() string
-}
-
 // Conf is responsible for defining services. Its fields
 // represent elements of a service configuration.
 type Conf struct {
-	Paths
+
+	// DataPath is the path where Juju data may be stored.
+	DataPath string
 
 	// Desc is the init service's description.
 	Desc string
@@ -79,8 +77,11 @@ func (c Conf) IsZero() bool {
 
 // Validate checks the conf's values for correctness.
 func (c Conf) Validate(renderer shell.Renderer) error {
+	if c.DataPath == "" {
+		return errors.NotAssignedf("DataPath")
+	}
 	if c.Desc == "" {
-		return errors.New("missing Desc")
+		return errors.NotAssignedf("Desc")
 	}
 
 	// Check the Exec* fields.

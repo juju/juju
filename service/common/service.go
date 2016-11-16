@@ -27,7 +27,6 @@ func (s Service) Validate(renderer shell.Renderer) error {
 	if s.Name == "" {
 		return errors.New("missing Name")
 	}
-
 	if err := s.Conf.Validate(renderer); err != nil {
 		return errors.Trace(err)
 	}

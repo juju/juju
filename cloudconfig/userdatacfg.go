@@ -50,6 +50,9 @@ type UserdataConfig interface {
 // cloudinit.cloudConfig and add attributes in the cloudinit structure based on
 // the values inside instanceConfig and on the series
 func NewUserdataConfig(icfg *instancecfg.InstanceConfig, conf cloudinit.CloudConfig) (UserdataConfig, error) {
+	if err := icfg.VerifyConfig(); err != nil {
+		return nil, errors.Trace(err)
+	}
 	// TODO(ericsnow) bug #1426217
 	// Protect icfg and conf better.
 	base := baseConfigure{
@@ -65,7 +68,7 @@ func NewUserdataConfig(icfg *instancecfg.InstanceConfig, conf cloudinit.CloudCon
 	case os.Windows:
 		return &windowsConfigure{base, icfg.TempPath}, nil
 	default:
-		return nil, errors.NotSupportedf("OS %s", icfg.Series)
+		return nil, errors.NotSupportedf("OS %s", icfg.OSType)
 	}
 }
 

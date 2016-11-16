@@ -7,10 +7,10 @@ package providerinit_test
 import (
 	"encoding/base64"
 	"fmt"
-	"path"
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/os"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/provider/dummy"
@@ -127,22 +128,18 @@ func (s *CloudInitSuite) TestFinishInstanceConfigNonDefault(c *gc.C) {
 }
 
 func (s *CloudInitSuite) TestUserData(c *gc.C) {
-	s.testUserData(c, "quantal", false)
+	s.testUserData(c, os.Ubuntu, "quantal", false)
 }
 
 func (s *CloudInitSuite) TestControllerUserData(c *gc.C) {
-	s.testUserData(c, "quantal", true)
+	s.testUserData(c, os.Ubuntu, "quantal", true)
 }
 
 func (s *CloudInitSuite) TestControllerUserDataPrecise(c *gc.C) {
-	s.testUserData(c, "precise", true)
+	s.testUserData(c, os.Ubuntu, "precise", true)
 }
 
-func (*CloudInitSuite) testUserData(c *gc.C, series string, bootstrap bool) {
-	// Use actual series paths instead of local defaults
-	logDir := must(paths.LogDir(series))
-	metricsSpoolDir := must(paths.MetricsSpoolDir(series))
-	dataDir := must(paths.DataDir(series))
+func (*CloudInitSuite) testUserData(c *gc.C, osType os.OSType, series string, bootstrap bool) {
 	toolsList := tools.List{
 		&tools.Tools{
 			URL:     "http://tools.testing/tools/released/juju.tgz",
@@ -156,23 +153,35 @@ func (*CloudInitSuite) testUserData(c *gc.C, series string, bootstrap bool) {
 		multiwatcher.JobManageModel,
 		multiwatcher.JobHostUnits,
 	}
+
+	var pathsCollections paths.Collection
+	if osType == os.Windows {
+		pathsCollections = paths.Windows
+	} else {
+		pathsCollections = paths.Nix
+	}
+
+	const machineID = "10"
 	cfg := &instancecfg.InstanceConfig{
 		ControllerTag: testing.ControllerTag,
-		MachineId:     "10",
+		MachineId:     machineID,
 		MachineNonce:  "5432",
 		Series:        series,
+		OSType:        osType,
 		APIInfo: &api.Info{
 			Addrs:    []string{"127.0.0.1:1234"},
 			Password: "pw2",
 			CACert:   "CA CERT\n" + testing.CACert,
-			Tag:      names.NewMachineTag("10"),
+			Tag:      names.NewMachineTag(machineID),
 			ModelTag: testing.ModelTag,
 		},
-		DataDir:                 dataDir,
-		LogDir:                  path.Join(logDir, "juju"),
-		MetricsSpoolDir:         metricsSpoolDir,
-		Jobs:                    allJobs,
-		CloudInitOutputLog:      path.Join(logDir, "cloud-init-output.log"),
+		TempPath:         pathsCollections.Temp,
+		DataPath:         pathsCollections.Data,
+		LogPath:          pathsCollections.Log,
+		MetricsSpoolPath: pathsCollections.MetricsSpool,
+		ConfPath:         pathsCollections.Conf,
+		Jobs:             allJobs,
+		CloudInitOutputLogPath:  pathsCollections.CloudInitOutputLogPath,
 		AgentEnvironment:        map[string]string{agent.ProviderType: "dummy"},
 		AuthorizedKeys:          "wheredidileavemykeys",
 		MachineAgentServiceName: "jujud-machine-10",
@@ -181,11 +190,15 @@ func (*CloudInitSuite) testUserData(c *gc.C, series string, bootstrap bool) {
 	err = cfg.SetTools(toolsList)
 	c.Assert(err, jc.ErrorIsNil)
 	if bootstrap {
+		cfg.APIInfo.Tag = nil
+
 		controllerCfg := testing.FakeControllerConfig()
 		cfg.Bootstrap = &instancecfg.BootstrapConfig{
 			StateInitializationParams: instancecfg.StateInitializationParams{
-				ControllerConfig:      controllerCfg,
-				ControllerModelConfig: envConfig,
+				HostedModelConfig:          map[string]interface{}{"fake": "config"},
+				BootstrapMachineInstanceId: instance.Id(machineID),
+				ControllerConfig:           controllerCfg,
+				ControllerModelConfig:      envConfig,
 			},
 			StateServingInfo: params.StateServingInfo{
 				StatePort:    controllerCfg.StatePort(),
@@ -202,13 +215,13 @@ func (*CloudInitSuite) testUserData(c *gc.C, series string, bootstrap bool) {
 					CACert: "CA CERT\n" + testing.CACert,
 				},
 				Password: "pw1",
-				Tag:      names.NewMachineTag("10"),
+				//Tag:      names.NewMachineTag("10"),
 			},
 		}
 	}
 	script1 := "script1"
 	script2 := "script2"
-	cloudcfg, err := cloudinit.New(series)
+	cloudcfg, err := cloudinit.New(os.Ubuntu, series)
 	c.Assert(err, jc.ErrorIsNil)
 	cloudcfg.AddRunCmd(script1)
 	cloudcfg.AddRunCmd(script2)
@@ -281,8 +294,6 @@ func (*CloudInitSuite) testUserData(c *gc.C, series string, bootstrap bool) {
 }
 
 func (s *CloudInitSuite) TestWindowsUserdataEncoding(c *gc.C) {
-	series := "win8"
-	metricsSpoolDir := must(paths.MetricsSpoolDir("win8"))
 	toolsList := tools.List{
 		&tools.Tools{
 			URL:     "http://foo.com/tools/released/juju1.2.3-win8-amd64.tgz",
@@ -291,16 +302,13 @@ func (s *CloudInitSuite) TestWindowsUserdataEncoding(c *gc.C) {
 			SHA256:  "1234",
 		},
 	}
-	dataDir, err := paths.DataDir(series)
-	c.Assert(err, jc.ErrorIsNil)
-	logDir, err := paths.LogDir(series)
-	c.Assert(err, jc.ErrorIsNil)
 
 	cfg := instancecfg.InstanceConfig{
 		ControllerTag:    testing.ControllerTag,
 		MachineId:        "10",
 		AgentEnvironment: map[string]string{agent.ProviderType: "dummy"},
-		Series:           series,
+		Series:           "win8",
+		OSType:           os.Windows,
 		Jobs:             []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 		MachineNonce:     "FAKE_NONCE",
 		APIInfo: &api.Info{
@@ -311,15 +319,17 @@ func (s *CloudInitSuite) TestWindowsUserdataEncoding(c *gc.C) {
 			ModelTag: testing.ModelTag,
 		},
 		MachineAgentServiceName: "jujud-machine-10",
-		DataDir:                 dataDir,
-		LogDir:                  path.Join(logDir, "juju"),
-		MetricsSpoolDir:         metricsSpoolDir,
-		CloudInitOutputLog:      path.Join(logDir, "cloud-init-output.log"),
+		ConfPath:                paths.Windows.Conf,
+		TempPath:                paths.Windows.Temp,
+		DataPath:                paths.Windows.Data,
+		LogPath:                 paths.Windows.Log,
+		MetricsSpoolPath:        paths.Windows.MetricsSpool,
+		CloudInitOutputLogPath:  paths.Windows.CloudInitOutputLogPath,
 	}
-	err = cfg.SetTools(toolsList)
+	err := cfg.SetTools(toolsList)
 	c.Assert(err, jc.ErrorIsNil)
 
-	ci, err := cloudinit.New("win8")
+	ci, err := cloudinit.New(os.Windows, "win8")
 	c.Assert(err, jc.ErrorIsNil)
 
 	udata, err := cloudconfig.NewUserdataConfig(&cfg, ci)
@@ -331,7 +341,7 @@ func (s *CloudInitSuite) TestWindowsUserdataEncoding(c *gc.C) {
 	data, err := ci.RenderYAML()
 	c.Assert(err, jc.ErrorIsNil)
 
-	cicompose, err := cloudinit.New("win8")
+	cicompose, err := cloudinit.New(os.Windows, "win8")
 	c.Assert(err, jc.ErrorIsNil)
 
 	base64Data := base64.StdEncoding.EncodeToString(utils.Gzip(data))

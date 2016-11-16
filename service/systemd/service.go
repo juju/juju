@@ -67,12 +67,16 @@ type Service struct {
 
 // NewService returns a new value that implements Service for systemd.
 func NewService(name string, conf common.Conf) (*Service, error) {
+	if err := conf.Validate(renderer); err != nil {
+		return nil, errors.NewNotValid(err, "conf")
+	}
+
 	confName := name + ".service"
 	var volName string
 	if conf.ExecStart != "" {
 		volName = renderer.VolumeName(common.Unquote(strings.Fields(conf.ExecStart)[0]))
 	}
-	dirname := volName + renderer.Join(conf.DataPath(), "init", name)
+	dirname := volName + renderer.Join(conf.DataPath, "init", name)
 
 	service := &Service{
 		Service: common.Service{

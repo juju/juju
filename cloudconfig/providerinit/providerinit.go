@@ -9,7 +9,6 @@ package providerinit
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/series"
 
 	"github.com/juju/juju/cloudconfig"
 	"github.com/juju/juju/cloudconfig/cloudinit"
@@ -47,7 +46,14 @@ func configureCloudinit(icfg *instancecfg.InstanceConfig, cloudcfg cloudinit.Clo
 // the providerinit/encoders package according to the need of the provider.
 //
 // If the provided cloudcfg is nil, a new one will be created internally.
-func ComposeUserData(icfg *instancecfg.InstanceConfig, cloudcfg cloudinit.CloudConfig, renderer renderers.ProviderRenderer) ([]byte, error) {
+func ComposeUserData(
+	icfg *instancecfg.InstanceConfig,
+	cloudcfg cloudinit.CloudConfig,
+	renderer renderers.ProviderRenderer,
+) ([]byte, error) {
+	if err := icfg.VerifyConfig(); err != nil {
+		return nil, errors.NewNotValid(err, "icfg")
+	}
 	if cloudcfg == nil {
 		var err error
 		cloudcfg, err = cloudinit.New(icfg.OSType, icfg.Series)
@@ -59,11 +65,7 @@ func ComposeUserData(icfg *instancecfg.InstanceConfig, cloudcfg cloudinit.CloudC
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	operatingSystem, err := series.GetOSFromSeries(icfg.Series)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	udata, err := renderer.Render(cloudcfg, operatingSystem)
+	udata, err := renderer.Render(cloudcfg, icfg.OSType)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -54,6 +54,7 @@ func FakeControllerConfig() controller.Config {
 // fake provider with all required attributes set.
 func FakeConfig() Attrs {
 	return Attrs{
+		"DataPath":                  "/fake/path",
 		"type":                      "someprovider",
 		"name":                      "testenv",
 		"uuid":                      ModelTag.Id(),

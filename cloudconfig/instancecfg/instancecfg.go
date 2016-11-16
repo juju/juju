@@ -498,6 +498,9 @@ func (e requiresError) Error() string {
 // VerifyConfig verifies that the InstanceConfig is valid.
 func (cfg *InstanceConfig) VerifyConfig() (err error) {
 	defer errors.DeferredAnnotatef(&err, "invalid machine configuration")
+	if cfg == nil {
+		return errors.NotAssignedf("cfg")
+	}
 	if !names.IsValidMachine(cfg.MachineId) {
 		return errors.NotValidf("MachineId")
 	}
@@ -535,7 +538,7 @@ func (cfg *InstanceConfig) VerifyConfig() (err error) {
 		}
 	} else {
 		if cfg.APIInfo.Tag != names.NewMachineTag(cfg.MachineId) {
-			return errors.NotValidf("API entity tag must match started machine")
+			return errors.NewNotValid(nil, "API entity tag must match started machine")
 		}
 		if len(cfg.APIInfo.Addrs) == 0 {
 			return errors.NotAssignedf("APIInfo.Addrs")
@@ -595,28 +598,28 @@ func (cfg *InstanceConfig) verifyControllerConfig() (err error) {
 // VerifyConfig verifies that the BootstrapConfig is valid.
 func (cfg *BootstrapConfig) VerifyConfig() (err error) {
 	if cfg.ControllerModelConfig == nil {
-		return errors.New("missing model configuration")
+		return errors.NotAssignedf("ControllerModelConfig")
 	}
 	if len(cfg.StateServingInfo.Cert) == 0 {
-		return errors.New("missing controller certificate")
+		return errors.NotAssignedf("StateServingInfo.Cert")
 	}
 	if len(cfg.StateServingInfo.PrivateKey) == 0 {
-		return errors.New("missing controller private key")
+		return errors.NotAssignedf("StateServingInfo.PrivateKey")
 	}
 	if len(cfg.StateServingInfo.CAPrivateKey) == 0 {
-		return errors.New("missing ca cert private key")
+		return errors.NotAssignedf("StateServingInfo.CAPrivateKey")
 	}
 	if cfg.StateServingInfo.StatePort == 0 {
-		return errors.New("missing state port")
+		return errors.NotAssignedf("StateServingInfo.StatePort")
 	}
 	if cfg.StateServingInfo.APIPort == 0 {
-		return errors.New("missing API port")
+		return errors.NotAssignedf("StateServingInfo.APIPort")
 	}
 	if cfg.BootstrapMachineInstanceId == "" {
-		return errors.New("missing bootstrap machine instance ID")
+		return errors.NotAssignedf("BootstrapMachineInstanceId")
 	}
 	if len(cfg.HostedModelConfig) == 0 {
-		return errors.New("missing hosted model config")
+		return errors.NotAssignedf("HostedModelConfig")
 	}
 	return nil
 }
@@ -624,10 +627,10 @@ func (cfg *BootstrapConfig) VerifyConfig() (err error) {
 // VerifyConfig verifies that the ControllerConfig is valid.
 func (cfg *ControllerConfig) VerifyConfig() error {
 	if cfg.MongoInfo == nil {
-		return errors.New("missing state info")
+		return errors.NotAssignedf("MongoInfo")
 	}
 	if len(cfg.MongoInfo.CACert) == 0 {
-		return errors.New("missing CA certificate")
+		return errors.NotAssignedf("MongoInfo.CACert")
 	}
 	return nil
 }

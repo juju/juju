@@ -23,6 +23,7 @@ const (
 // for the identified agent.
 func AgentConf(info AgentInfo, renderer shell.Renderer) common.Conf {
 	conf := common.Conf{
+		DataPath:      info.dataPath,
 		Desc:          fmt.Sprintf("juju agent for %s", info.name),
 		ExecStart:     info.cmd(renderer),
 		Logfile:       info.logFile(renderer),

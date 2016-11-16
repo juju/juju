@@ -11,6 +11,7 @@ import (
 	stdtesting "testing"
 
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/os"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v2"
 
@@ -194,7 +195,7 @@ func (s *UserDataSuite) TestGenerateNetworkConfig(c *gc.C) {
 
 func (s *UserDataSuite) TestNewCloudInitConfigWithNetworksSampleConfig(c *gc.C) {
 	netConfig := container.BridgeNetworkConfig("foo", 0, s.fakeInterfaces)
-	cloudConf, err := containerinit.NewCloudInitConfigWithNetworks("quantal", netConfig)
+	cloudConf, err := containerinit.NewCloudInitConfigWithNetworks(os.Ubuntu, "quantal", netConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cloudConf, gc.NotNil)
 
@@ -204,7 +205,7 @@ func (s *UserDataSuite) TestNewCloudInitConfigWithNetworksSampleConfig(c *gc.C) 
 
 func (s *UserDataSuite) TestNewCloudInitConfigWithNetworksFallbackConfig(c *gc.C) {
 	netConfig := container.BridgeNetworkConfig("foo", 0, nil)
-	cloudConf, err := containerinit.NewCloudInitConfigWithNetworks("quantal", netConfig)
+	cloudConf, err := containerinit.NewCloudInitConfigWithNetworks(os.Ubuntu, "quantal", netConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cloudConf, gc.NotNil)
 	expected := fmt.Sprintf(s.expectedFallbackUserData, s.networkInterfacesFile, s.systemNetworkInterfacesFile)
