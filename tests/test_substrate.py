@@ -265,6 +265,7 @@ class TestAWSAccount(TestCase):
 
     def test_from_boot_config(self):
         with AWSAccount.from_boot_config(SimpleEnvironment('foo', {
+                'type': 'aws',
                 'access-key': 'skeleton',
                 'region': 'france',
                 'secret-key': 'hoover',
@@ -657,7 +658,8 @@ def make_sms(instance_ids):
 class TestAzureAccount(TestCase):
 
     def test_from_boot_config(self):
-        config = {'management-subscription-id': 'fooasdfbar',
+        config = {'type': 'azure',
+                  'management-subscription-id': 'fooasdfbar',
                   'management-certificate': 'ab\ncd\n'}
         boot_config = SimpleEnvironment('foo', config)
         with AzureAccount.from_boot_config(boot_config) as substrate:
