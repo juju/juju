@@ -2,7 +2,10 @@ from contextlib import contextmanager
 from textwrap import dedent
 from StringIO import StringIO
 
-from mock import patch
+from mock import (
+    call,
+    patch,
+    )
 
 from fakejuju import fake_juju_client
 from jujupy import JujuData
@@ -79,13 +82,15 @@ class TestAssessAllClouds(TestCase):
         clouds = {'a': {'type': 'foo'}, 'b': {'type': 'bar'}}
         exception = Exception()
         with patch('assess_add_cloud.assess_cloud',
-                   side_effect=[None, exception]):
+                   side_effect=[None] + [exception] * 5):
             with patch('sys.stdout'):
                 with patch('logging.exception') as exception_mock:
                     succeeded, failed = assess_all_clouds(client, clouds)
         self.assertEqual({'a'}, succeeded)
-        self.assertEqual({'b'}, failed)
-        exception_mock.assert_called_once_with(exception)
+        self.assertEqual({
+            'b', 'bogus-auth-a', 'bogus-auth-b', 'long-name-a', 'long-name-b'},
+            failed)
+        self.assertEqual(exception_mock.mock_calls, [call(exception)] * 5)
 
 
 class TestWriteStatus(TestCase):
