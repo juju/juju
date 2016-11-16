@@ -442,7 +442,10 @@ class AddCloud(PromptingExpectChild):
             yield self.HOST
         elif self.values[self.TYPE] == 'openstack':
             yield self.CLOUD_ENDPOINT
-            yield self.AUTH
+            while True:
+                yield self.AUTH
+                if 'invalid' not in self.values[self.AUTH]:
+                    break
             while self.values.get('Enter another region? (Y/n)') != 'n':
                 yield self.REGION_NAME
                 yield self.REGION_ENDPOINT

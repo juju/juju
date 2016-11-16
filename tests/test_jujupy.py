@@ -33,6 +33,7 @@ from jujuconfig import (
     NoSuchEnvironment,
     )
 from jujupy import (
+    AuthNotAccepted,
     BootstrapMismatch,
     CannotConnectEnv,
     client_from_config,
@@ -3170,7 +3171,7 @@ class TestEnvJujuClient(ClientTest):
             'endpoint': '127.100.100.1',
             }})
 
-    def test_add_cloud_interactive_openstack(self):
+    def get_openstack_client(self):
         client = fake_juju_client()
         clouds = {'foo': {
             'type': 'openstack',
@@ -3182,8 +3183,19 @@ class TestEnvJujuClient(ClientTest):
                 }
             }}
         client.env.clouds = {'clouds': clouds}
+        return client
+
+    def test_add_cloud_interactive_openstack(self):
+        client = self.get_openstack_client()
         client.add_cloud_interactive('foo')
-        self.assertEqual(client._backend.clouds, clouds)
+        self.assertEqual(client._backend.clouds, client.env.clouds['clouds'])
+
+    def test_add_cloud_interactive_openstack_invalid_auth(self):
+        client = self.get_openstack_client()
+        client.env.clouds['clouds']['foo']['auth-types'] = ['invalid',
+                                                            'oauth12']
+        with self.assertRaises(AuthNotAccepted):
+            client.add_cloud_interactive('foo')
 
     def test_add_cloud_interactive_vsphere(self):
         client = fake_juju_client()

@@ -92,6 +92,9 @@ class SoftDeadlineExceeded(Exception):
 class NoProvider(Exception):
     """Raised when an environment defines no provider."""
 
+class AuthNotAccepted(Exception):
+    """Raised when the provided auth was not accepted."""
+
 
 def get_timeout_path():
     import timeout
@@ -2345,7 +2348,11 @@ class EnvJujuClient:
                     'Select one or more auth types separated by commas:')
                 child.sendline(','.join(cloud['auth-types']))
                 for num, (name, values) in enumerate(cloud['regions'].items()):
-                    child.expect('Enter region name:')
+                    child.expect(
+                        '(Enter region name:)|(Select one or more auth types'
+                        ' separated by commas:)')
+                    if child.match.group(2) is not None:
+                        raise AuthNotAccepted('Auth was not compatible.')
                     child.sendline(name)
                     child.expect('Enter the API endpoint url for the region:')
                     child.sendline(values['endpoint'])
