@@ -75,6 +75,7 @@ from jujupy import (
     Status1X,
     StatusError,
     StatusItem,
+    StatusNotMet,
     SYSTEM,
     temp_bootstrap_env,
     _temp_env as temp_env,
@@ -2278,7 +2279,7 @@ class TestEnvJujuClient(ClientTest):
         with patch('jujupy.until_timeout', lambda x: range(0)):
             with patch.object(client, 'get_juju_output', return_value=value):
                 with self.assertRaisesRegexp(
-                        Exception,
+                        StatusNotMet,
                         'Timed out waiting for voting to be enabled.'):
                     client.wait_for_ha()
 
@@ -2334,8 +2335,8 @@ class TestEnvJujuClient(ClientTest):
         with patch('jujupy.until_timeout', lambda x: range(0)):
             with patch.object(client, 'get_juju_output', return_value=value):
                 with self.assertRaisesRegexp(
-                        Exception,
-                        'Timed out waiting for services to start.'):
+                        StatusNotMet,
+                        'Timed out waiting for applications to start.'):
                     client.wait_for_deploy_started()
 
     def make_deployed_status(self):
@@ -4260,7 +4261,7 @@ class TestEnvJujuClient1X(ClientTest):
                 with patch.object(GroupReporter, '_write', autospec=True,
                                   side_effect=lambda _, s: writes.append(s)):
                     with self.assertRaisesRegexp(
-                            Exception,
+                            StatusNotMet,
                             'Timed out waiting for voting to be enabled.'):
                         client.wait_for_ha()
             self.assertEqual(writes[:2], ['no-vote: 0, 1, 2', ' .'])
@@ -4279,7 +4280,7 @@ class TestEnvJujuClient1X(ClientTest):
         with patch('jujupy.until_timeout', lambda x: range(0)):
             with patch.object(client, 'get_juju_output', return_value=value):
                 with self.assertRaisesRegexp(
-                        Exception,
+                        StatusNotMet,
                         'Timed out waiting for voting to be enabled.'):
                     client.wait_for_ha()
 
@@ -4311,8 +4312,8 @@ class TestEnvJujuClient1X(ClientTest):
         with patch('jujupy.until_timeout', lambda x: range(0)):
             with patch.object(client, 'get_juju_output', return_value=value):
                 with self.assertRaisesRegexp(
-                        Exception,
-                        'Timed out waiting for services to start.'):
+                        StatusNotMet,
+                        'Timed out waiting for applications to start.'):
                     client.wait_for_deploy_started()
 
     def test_wait_for_version(self):

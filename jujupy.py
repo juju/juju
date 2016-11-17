@@ -234,6 +234,16 @@ class WorkloadsNotReady(StatusNotMet):
     _fmt = 'Workloads not ready in {env}.'
 
 
+class ApplicationsNotStarted(StatusNotMet):
+
+    _fmt = 'Timed out waiting for applications to start in {env}.'
+
+
+class VotingNotEnabled(StatusNotMet):
+
+    _fmt = 'Timed out waiting for voting to be enabled in {env}.'
+
+
 @contextmanager
 def temp_yaml_file(yaml_dict):
     temp_file = NamedTemporaryFile(suffix='.yaml', delete=False)
@@ -2079,6 +2089,7 @@ class EnvJujuClient:
         try:
             with self.check_timeouts():
                 with self.ignore_soft_deadline():
+                    status = {}
                     for remaining in until_timeout(timeout):
                         status = self.get_status(controller=True)
                         status.check_agents_started()
@@ -2093,8 +2104,7 @@ class EnvJujuClient:
                                 break
                         reporter.update(states)
                     else:
-                        raise Exception('Timed out waiting for voting to be'
-                                        ' enabled.')
+                        raise VotingNotEnabled(self.env.environment, status)
         finally:
             reporter.finish()
         # XXX sinzui 2014-12-04: bug 1399277 happens because
@@ -2111,12 +2121,13 @@ class EnvJujuClient:
         """
         with self.check_timeouts():
             with self.ignore_soft_deadline():
+                status = None
                 for remaining in until_timeout(timeout):
                     status = self.get_status()
                     if status.get_service_count() >= service_count:
                         return
                 else:
-                    raise Exception('Timed out waiting for services to start.')
+                    raise ApplicationsNotStarted(self.env.environment, status)
 
     def wait_for_workloads(self, timeout=600, start=None):
         """Wait until all unit workloads are in a ready state."""
