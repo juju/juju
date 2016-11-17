@@ -7,7 +7,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -95,8 +94,7 @@ func newLogSinkHandler(h httpContext, w io.Writer, newStrategy func(httpContext,
 	return &logSinkHandler{ctxt: h, fileLogger: w, newStrategy: newStrategy}
 }
 
-func newLogSinkWriter(logDir string) (io.WriteCloser, error) {
-	logPath := filepath.Join(logDir, "logsink.log")
+func newLogSinkWriter(logPath string) (io.WriteCloser, error) {
 	if err := primeLogFile(logPath); err != nil {
 		// This isn't a fatal error so log and continue if priming fails.
 		logger.Warningf("Unable to prime %s (proceeding anyway): %v", logPath, err)

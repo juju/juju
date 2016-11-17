@@ -9,6 +9,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"path/filepath"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -194,7 +195,8 @@ func newServer(s *state.State, lis net.Listener, cfg ServerConfig) (_ *Server, e
 	if err := srv.updateCertificate(cfg.Cert, cfg.Key); err != nil {
 		return nil, errors.Annotatef(err, "cannot set initial certificate")
 	}
-	logSinkWriter, err := newLogSinkWriter(srv.logDir)
+	logPath := filepath.Join(srv.logDir, "logsink.log")
+	logSinkWriter, err := newLogSinkWriter(logPath)
 	if err != nil {
 		return nil, errors.Annotate(err, "creating logsink writer")
 	}
