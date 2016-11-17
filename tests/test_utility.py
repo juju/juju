@@ -720,6 +720,38 @@ class TestQualifiedModelName(TestCase):
         )
 
 
+class TestLogAndWrapException(TestCase):
+
+    def test_exception(self):
+        mock_logger = Mock(spec=['exception'])
+        err = Exception('an error')
+        wrapped = log_and_wrap_exception(mock_logger, err)
+        self.assertIs(wrapped.exception, err)
+        mock_logger.exception.assert_called_once_with(err)
+
+    def test_has_stdout(self):
+        mock_logger = Mock(spec=['exception', 'info'])
+        err = Exception('another error')
+        err.output = 'stdout text'
+        wrapped = log_and_wrap_exception(mock_logger, err)
+        self.assertIs(wrapped.exception, err)
+        mock_logger.exception.assert_called_once_with(err)
+        mock_logger.info.assert_called_once_with(
+            'Output from exception:\nstdout:\n%s\nstderr:\n%s', 'stdout text',
+            None)
+
+    def test_has_stderr(self):
+        mock_logger = Mock(spec=['exception', 'info'])
+        err = Exception('another error')
+        err.stderr = 'stderr text'
+        wrapped = log_and_wrap_exception(mock_logger, err)
+        self.assertIs(wrapped.exception, err)
+        mock_logger.exception.assert_called_once_with(err)
+        mock_logger.info.assert_called_once_with(
+            'Output from exception:\nstdout:\n%s\nstderr:\n%s', None,
+            'stderr text')
+
+
 class TestLoggedException(TestCase):
 
     def test_no_error_no_log(self):
@@ -733,6 +765,16 @@ class TestLoggedException(TestCase):
         with self.assertRaises(LoggedException) as ctx:
             with logged_exception(mock_logger):
                 raise err
+        self.assertIs(ctx.exception.exception, err)
+        mock_logger.exception.assert_called_once_with(err)
+
+    def test_exception_logged_once(self):
+        mock_logger = Mock(spec=['exception'])
+        err = Exception('another error')
+        with self.assertRaises(LoggedException) as ctx:
+            with logged_exception(mock_logger):
+                with logged_exception(mock_logger):
+                    raise err
         self.assertIs(ctx.exception.exception, err)
         mock_logger.exception.assert_called_once_with(err)
 
