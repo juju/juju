@@ -12,6 +12,7 @@ from fakejuju import fake_juju_client
 from jujupy import (
     AuthNotAccepted,
     JujuData,
+    TypeNotAccepted,
     )
 from assess_add_cloud import (
     assess_all_clouds,
@@ -93,11 +94,14 @@ def make_long_endpoint(spec, regions=False):
 
 class TestIterClouds(TestCase):
 
+    bogus_type = CloudSpec('bogus-type', 'bogus-type', {'type': 'bogus'},
+                           exception=TypeNotAccepted)
+
     def test_manual(self):
         cloud = {'type': 'manual', 'endpoint': 'http://example.com'}
         spec = CloudSpec('foo', 'foo', cloud, exception=None)
         self.assertItemsEqual([
-            spec,
+            self.bogus_type, spec,
             CloudSpec('long-name-foo', 'A' * 4096, cloud, exception=None),
             make_long_endpoint(spec),
             ], iter_clouds({'foo': cloud}))
@@ -110,7 +114,7 @@ class TestIterClouds(TestCase):
             }
         spec = CloudSpec('foo', 'foo', cloud, exception=None)
         self.assertItemsEqual([
-            spec,
+            self.bogus_type, spec,
             CloudSpec('long-name-foo', 'A' * 4096, cloud, exception=None),
             make_long_endpoint(spec, regions=True),
             ], iter_clouds({'foo': cloud}))
@@ -122,7 +126,7 @@ class TestIterClouds(TestCase):
             }
         spec = CloudSpec('foo', 'foo', cloud, exception=None)
         self.assertItemsEqual([
-            spec,
+            self.bogus_type, spec,
             CloudSpec('long-name-foo', 'A' * 4096, cloud, exception=None),
             make_long_endpoint(spec),
             ], iter_clouds({'foo': cloud}))
@@ -140,7 +144,8 @@ class TestIterClouds(TestCase):
                                deepcopy(config), exception=AuthNotAccepted)
         bogus_auth.config['auth-types'] = ['asdf']
         self.assertItemsEqual([
-            spec, long_name, long_region, bogus_auth, make_long_endpoint(spec),
+            self.bogus_type, spec, long_name, long_region, bogus_auth,
+            make_long_endpoint(spec),
             ], iter_clouds({'foo': config}))
 
 
@@ -151,11 +156,11 @@ class TestAssessAllClouds(TestCase):
         clouds = {'a': {'type': 'foo'}, 'b': {'type': 'bar'}}
         exception = Exception()
         with patch('assess_add_cloud.assess_cloud',
-                   side_effect=[None] + [exception] * 5):
+                   side_effect=[TypeNotAccepted(), None] + [exception] * 5):
             with patch('sys.stdout'):
                 with patch('logging.exception') as exception_mock:
                     succeeded, failed = assess_all_clouds(client, clouds)
-        self.assertEqual({'a'}, succeeded)
+        self.assertEqual({'bogus-type', 'a'}, succeeded)
         self.assertEqual({
             'b', 'bogus-auth-a', 'bogus-auth-b', 'long-name-a', 'long-name-b'},
             failed)

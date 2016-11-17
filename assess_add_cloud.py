@@ -13,6 +13,7 @@ from jujupy import (
     EnvJujuClient,
     get_client_class,
     JujuData,
+    TypeNotAccepted,
     )
 from utility import (
     add_arg_juju_bin,
@@ -43,6 +44,8 @@ def assess_cloud(client, cloud_name, example_cloud):
 
 
 def iter_clouds(clouds):
+    yield CloudSpec('bogus-type', 'bogus-type', {'type': 'bogus'},
+                    exception=TypeNotAccepted)
     for cloud_name, cloud in clouds.items():
         yield CloudSpec(cloud_name, cloud_name, cloud, exception=None)
 
@@ -93,7 +96,8 @@ def assess_all_clouds(client, clouds):
                 except expected:
                     pass
                 else:
-                    raise 'Expected exception not raised: {}'.format(expected)
+                    raise Exception(
+                        'Expected exception not raised: {}'.format(expected))
         except Exception as e:
             logging.exception(e)
             failed.add(cloud_label)

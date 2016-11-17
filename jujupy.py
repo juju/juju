@@ -93,6 +93,10 @@ class NoProvider(Exception):
     """Raised when an environment defines no provider."""
 
 
+class TypeNotAccepted(Exception):
+    """Raised when the provided type was not accepted."""
+
+
 class AuthNotAccepted(Exception):
     """Raised when the provided auth was not accepted."""
 
@@ -2333,7 +2337,9 @@ class EnvJujuClient:
             child.logfile = sys.stdout
             child.expect('Select cloud type:')
             child.sendline(cloud['type'])
-            child.expect('Enter a name for the cloud:')
+            child.expect('(Enter a name for the cloud:)|(Select cloud type:)')
+            if child.match.group(2) is not None:
+                raise TypeNotAccepted('Cloud type not accepted.')
             child.sendline(cloud_name)
             if cloud['type'] == 'maas':
                 child.expect('Enter the API endpoint url:')
