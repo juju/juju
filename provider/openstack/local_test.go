@@ -445,7 +445,7 @@ func (s *localServerSuite) TestStartInstanceExternalNetwork(c *gc.C) {
 	cfg, err := s.env.Config().Apply(coretesting.Attrs{
 		// A label that corresponds to a neutron test service external network
 		"external-network": "ext-net",
-		"use-floating-ip": true,
+		"use-floating-ip":  true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.env.SetConfig(cfg)
@@ -474,7 +474,7 @@ func (s *localServerSuite) TestStartInstanceExternalNetworkUnknownLabel(c *gc.C)
 	cfg, err := s.env.Config().Apply(coretesting.Attrs{
 		// A label that has no related network in the neutron test service
 		"external-network": "no-network-with-this-label",
-		"use-floating-ip": true,
+		"use-floating-ip":  true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.env.SetConfig(cfg)
