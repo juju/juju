@@ -696,7 +696,8 @@ class LXDAccount:
 
 def get_config(boot_config):
     config = deepcopy(boot_config.config)
-    config.update(boot_config.get_cloud_credentials())
+    if boot_config.provider not in ('lxd', 'manual'):
+        config.update(boot_config.get_cloud_credentials())
     return config
 
 
