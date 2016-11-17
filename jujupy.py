@@ -868,10 +868,14 @@ class Status1X(Status):
 
     def condense_status(self, item_value):
         """Condense the scattered agent-* fields into a status dict."""
-        return {'current': item_value['agent-state'],
-                'version': item_value['agent-version'],
-                'message': item_value.get('agent-state-info'),
-                }
+        def shift_field(dest_dict, dest_name, src_dict, src_name):
+            if src_name in src_dict:
+                dest_dict[dest_name] = src_dict[src_name]
+        condensed = {}
+        shift_field(condensed, 'current', item_value, 'agent-state')
+        shift_field(condensed, 'version', item_value, 'agent-version')
+        shift_field(condensed, 'message', item_value, 'agent-state-info')
+        return condensed
 
     def iter_status(self):
         SERVICE = 'service-status'

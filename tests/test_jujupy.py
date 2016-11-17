@@ -6304,8 +6304,7 @@ class TestStatus1X(FakeHomeTestCase):
         self.assertEqual(status.condense_status(
                              {'agent-state': 'started',
                               'agent-version': '1.25.1'}),
-                         {'current': 'started', 'message': None,
-                          'version': '1.25.1'})
+                         {'current': 'started', 'version': '1.25.1'})
 
     @staticmethod
     def run_iter_status():
