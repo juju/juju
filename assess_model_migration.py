@@ -54,9 +54,13 @@ def assess_model_migration(bs1, bs2, args):
                     source_client, dest_client, temp)
                 ensure_migrating_with_superuser_user_permissions_succeeds(
                     source_client, dest_client, temp)
-                ensure_superuser_can_migrate_other_user_models(
-                    source_client, dest_client, temp)
 
+                if args.use_develop:
+                    ensure_superuser_can_migrate_other_user_models(
+                        source_client, dest_client, temp)
+
+            # Tests that require features or bug fixes found in the 'develop'
+            # branch.
             if args.use_develop:
                 ensure_model_logs_are_migrated(source_client, dest_client)
                 ensure_migration_rolls_back_on_failure(
