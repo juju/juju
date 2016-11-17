@@ -65,6 +65,7 @@ from utility import (
     configure_logging,
     ensure_deleted,
     ensure_dir,
+    logged_exception,
     LoggedException,
     PortTimeoutError,
     print_now,
@@ -753,16 +754,6 @@ class BootstrapManager:
         self.controller_strategy.tear_down()
         self.has_controller = False
 
-    def _log_and_wrap_exception(self, exc):
-        logging.exception(exc)
-        stdout = getattr(exc, 'output', None)
-        stderr = getattr(exc, 'stderr', None)
-        if stdout or stderr:
-            logging.info(
-                'Output from exception:\nstdout:\n%s\nstderr:\n%s',
-                stdout, stderr)
-        return LoggedException(exc)
-
     @contextmanager
     def bootstrap_context(self, machines, omit_config=None):
         """Context for bootstrapping a state server."""
@@ -845,13 +836,11 @@ class BootstrapManager:
         Tear down.  (self.keep_env is ignored.)
         """
         try:
-            try:
-                yield
             # If an exception is raised that indicates an error, log it
             # before tearing down so that the error is closely tied to
             # the failed operation.
-            except Exception as e:
-                raise self._log_and_wrap_exception(e)
+            with logged_exception(logging):
+                yield
         except:
             # If run from a windows machine may not have ssh to get
             # logs
@@ -873,18 +862,13 @@ class BootstrapManager:
         control is yielded.
         """
         try:
-            try:
+            with logged_exception(logging):
                 if len(self.known_hosts) == 0:
                     self.known_hosts.update(
                         self.controller_strategy.get_hosts())
                 if addable_machines is not None:
                     self.client.add_ssh_machines(addable_machines)
                 yield
-            # avoid logging GeneratorExit
-            except GeneratorExit:
-                raise
-            except BaseException as e:
-                raise self._log_and_wrap_exception(e)
         except:
             if self.has_controller:
                 safe_print_status(self.client)

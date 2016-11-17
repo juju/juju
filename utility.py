@@ -526,3 +526,31 @@ def qualified_model_name(model_name, owner_name):
 def get_unit_ipaddress(client, unit_name):
     status = client.get_status()
     return status.get_unit(unit_name)['public-address']
+
+
+def log_and_wrap_exception(logger, exc):
+    """"Record exc details to logger and return wrapped in LoggedException."""
+    logger.exception(exc)
+    stdout = getattr(exc, 'output', None)
+    stderr = getattr(exc, 'stderr', None)
+    if stdout or stderr:
+        logger.info(
+            'Output from exception:\nstdout:\n%s\nstderr:\n%s',
+            stdout, stderr)
+    return LoggedException(exc)
+
+
+@contextmanager
+def logged_exception(logger):
+    """
+    Record exceptions in managed context to logger and reraise LoggedException.
+
+    Note that BaseException classes like SystemExit, KeyboardInterrupt, and
+    GeneratorExit are not wrapped.
+    """
+    try:
+        yield
+    except LoggedException:
+        raise
+    except Exception as e:
+        raise log_and_wrap_exception(logger, e)
