@@ -4,19 +4,17 @@
 package cmd
 
 import (
-	"net/http"
-	"net/url"
-
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/charmrepo.v2-unstable"
 	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
+	"gopkg.in/macaroon-bakery.v1/httpbakery"
 )
 
 // CharmResolver interface defines the functionality to resolve a charm URL.
 type CharmResolver interface {
 	// Resolve resolves the charm URL.
-	Resolve(visitWebPage func(*url.URL) error, client *http.Client, charmURL string) (string, error)
+	Resolve(client *httpbakery.Client, charmURL string) (string, error)
 }
 
 // CharmStoreResolver implements the CharmResolver interface.
@@ -32,11 +30,10 @@ func NewCharmStoreResolver() *CharmStoreResolver {
 }
 
 // Resolve implements the CharmResolver interface.
-func (r *CharmStoreResolver) Resolve(visitWebPage func(*url.URL) error, client *http.Client, charmURL string) (string, error) {
+func (r *CharmStoreResolver) Resolve(client *httpbakery.Client, charmURL string) (string, error) {
 	repo := charmrepo.NewCharmStore(charmrepo.NewCharmStoreParams{
+		BakeryClient: client,
 		URL:          r.csURL,
-		HTTPClient:   client,
-		VisitWebPage: visitWebPage,
 	})
 
 	curl, err := charm.ParseURL(charmURL)
