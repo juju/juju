@@ -8,7 +8,9 @@ from contextlib import (
     contextmanager,
     )
 from copy import deepcopy
-from datetime import datetime
+from datetime import (
+    datetime,
+    )
 import errno
 from itertools import chain
 import json
@@ -531,6 +533,68 @@ class JujuData(SimpleEnvironment):
     def get_cloud_credentials(self):
         """Return the credentials for this model's cloud."""
         return self.get_cloud_credentials_item()[1]
+
+
+class StatusError(Exception):
+    """Generic error for Status."""
+
+    recoverable = True
+
+    # This has to be filled in after the classes are declared.
+    ordering = []
+
+    @classmethod
+    def priority(cls):
+        """Get the priority of the StatusError as an number.
+
+        Lower number means higher priority. This can be used as a key
+        function in sorting."""
+        return cls.ordering.index(cls)
+
+
+class MachineError(StatusError):
+    """Error in machine-status."""
+
+    recoverable = False
+
+
+class UnitError(StatusError):
+    """Error in a unit's status."""
+
+
+class HookFailedError(UnitError):
+    """A unit hook has failed."""
+
+    def __init__(self, item_name, msg):
+        match = re.search('^hook failed: "([^"]+)"$', msg)
+        if match:
+            msg = match.group(1)
+        super(HookFailedError, self).__init__(item_name, msg)
+
+
+class InstallError(HookFailedError):
+    """The unit's install hook has failed."""
+
+    recoverable = False
+
+
+class AppError(StatusError):
+    """Error in an application's status."""
+
+
+class AgentError(StatusError):
+    """Error in a juju agent."""
+
+
+class AgentUnresolvedError(AgentError):
+    """Agent error has not recovered in a reasonable time."""
+
+    recoverable = False
+
+
+StatusError.ordering = [MachineError, InstallError, AgentUnresolvedError,
+                        HookFailedError, UnitError, AppError, AgentError,
+                        StatusError]
 
 
 class Status:
