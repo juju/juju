@@ -742,6 +742,15 @@ class TestLoggedException(TestCase):
             with logged_exception(mock_logger):
                 raise GeneratorExit
 
+    def test_keyboard_interrupt_wrapped(self):
+        mock_logger = Mock(spec=['exception'])
+        err = KeyboardInterrupt()
+        with self.assertRaises(LoggedException) as ctx:
+            with logged_exception(mock_logger):
+                raise err
+        self.assertIs(ctx.exception.exception, err)
+        mock_logger.exception.assert_called_once_with(err)
+
     def test_output_logged(self):
         mock_logger = Mock(spec=['exception', 'info'])
         err = Exception('some error')

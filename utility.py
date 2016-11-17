@@ -552,5 +552,5 @@ def logged_exception(logger):
         yield
     except LoggedException:
         raise
-    except Exception as e:
+    except (Exception, KeyboardInterrupt) as e:
         raise log_and_wrap_exception(logger, e)
