@@ -291,14 +291,16 @@ def deploy_mongodb_to_new_model(client, model_name):
 
 
 def deploy_dummy_source_to_new_model(client, model_name):
-    new_model = client.add_model(client.env.clone(model_name))
+    new_model_client = client.add_model(client.env.clone(model_name))
 
     charm_path = local_charm_path(
-        charm='dummy-source', juju_ver=new_model.version)
-    new_model.deploy(charm_path)
-    new_model.wait_for_started()
+        charm='dummy-source', juju_ver=new_model_client.version)
+    new_model_client.deploy(charm_path)
+    new_model_client.wait_for_started()
+    new_model_client.set_config('dummy-source', {'token': 'one'})
+    new_model_client.wait_for_workloads()
 
-    return new_model
+    return new_model_client
 
 
 def deploy_simple_resource_server(client, resource_contents):
@@ -379,15 +381,15 @@ def raise_if_shared_machines(unit_machines):
 
 
 def ensure_model_logs_are_migrated(source_client, dest_client):
-    new_model = deploy_dummy_source_to_new_model(
+    new_model_client = deploy_dummy_source_to_new_model(
         source_client, 'log-migration')
 
-    before_migration_logs = new_model.get_juju_output(
+    before_migration_logs = new_model_client.get_juju_output(
         'debug-log', '--no-tail', '-l', 'DEBUG')
 
     log.info('Attempting migration process')
 
-    migrated_model = migrate_model_to_controller(new_model, dest_client)
+    migrated_model = migrate_model_to_controller(new_model_client, dest_client)
 
     after_migration_logs = migrated_model.get_juju_output(
         'debug-log', '--no-tail', '-l', 'DEBUG')
