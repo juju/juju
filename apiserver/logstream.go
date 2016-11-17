@@ -76,7 +76,7 @@ func (eph *logStreamEndpointHandler) ServeHTTP(w http.ResponseWriter, req *http.
 	server.ServeHTTP(w, req)
 }
 
-func (eph *logStreamEndpointHandler) newLogStreamRequestHandler(req *http.Request, clock clock.Clock) (*logStreamRequestHandler, error) {
+func (eph *logStreamEndpointHandler) newLogStreamRequestHandler(req *http.Request, clock clock.Clock) (rh *logStreamRequestHandler, err error) {
 	// Validate before authenticate because the authentication is
 	// dependent on the state connection that is determined during the
 	// validation.
@@ -84,6 +84,11 @@ func (eph *logStreamEndpointHandler) newLogStreamRequestHandler(req *http.Reques
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	defer func() {
+		if err != nil {
+			closer()
+		}
+	}()
 
 	var cfg params.LogStreamConfig
 	query := req.URL.Query()

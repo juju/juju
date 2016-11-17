@@ -110,7 +110,7 @@ func (h *charmsHandler) ServeGet(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	h.ctxt.release(st)
+	defer h.ctxt.release(st)
 
 	// Retrieve or list charm files.
 	// Requires "url" (charm URL) and an optional "file" (the path to the
