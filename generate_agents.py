@@ -154,7 +154,7 @@ def deb_to_agent(deb_path, dest_dir, agent_stream):
         if not os.path.exists(jujud_path):
             jujud_path = os.path.join(
                 contents, 'usr', 'lib', 'juju-{}'.format(
-                    agent_version.base_version), 'bin', 'jujud')
+                    agent_version.version), 'bin', 'jujud')
         basename = 'juju-{}-{}-{}.tgz'.format(
             agent_version.version, agent_version.series,
             agent_version.architecture)
@@ -163,9 +163,8 @@ def deb_to_agent(deb_path, dest_dir, agent_stream):
             tf.add(jujud_path, 'jujud')
         writer = StanzaWriter.for_ubuntu(
             juju_series.get_version(agent_version.series),
-            agent_version.series,
-            agent_version.architecture, agent_version.version,
-            agent_filename, agent_stream=agent_stream)
+            agent_version.series, agent_version.architecture,
+            agent_version.version, agent_filename, agent_stream=agent_stream)
         writer.write_stanzas()
         shutil.move(writer.filename, dest_dir)
         final_agent_path = os.path.join(dest_dir, writer.path)
