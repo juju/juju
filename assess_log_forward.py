@@ -23,6 +23,7 @@ from jujucharm import local_charm_path
 from utility import (
     add_basic_testing_arguments,
     configure_logging,
+    get_unit_ipaddress,
     JujuAssertionError,
     temp_dir,
 )
@@ -259,11 +260,6 @@ def install_rsyslog_config(client, config_dir, unit_machine):
         'ssh',
         (unit_machine, 'sudo', 'mv', '/tmp/{}'.format(
             os.path.basename(config)), '/etc/rsyslog.d/'))
-
-
-def get_unit_ipaddress(client, unit_name):
-    status = client.get_status()
-    return status.get_unit(unit_name)['public-address']
 
 
 def write_rsyslog_config_file(tmp_dir):

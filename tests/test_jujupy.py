@@ -34,6 +34,9 @@ from jujuconfig import (
     )
 from jujupy import (
     AuthNotAccepted,
+    AgentError,
+    AgentUnresolvedError,
+    AppError,
     BootstrapMismatch,
     CannotConnectEnv,
     client_from_config,
@@ -51,7 +54,9 @@ from jujupy import (
     get_local_root,
     get_machine_dns_name,
     get_timeout_path,
+    HookFailedError,
     IncompatibleConfigClass,
+    InstallError,
     jes_home_path,
     JESNotSupported,
     Juju2Backend,
@@ -59,20 +64,24 @@ from jujupy import (
     JUJU_DEV_FEATURE_FLAGS,
     KILL_CONTROLLER,
     Machine,
+    MachineError,
     make_safe_config,
     NameNotAccepted,
     NoProvider,
     parse_new_state_server_from_error,
     SimpleEnvironment,
-    Status1X,
     SoftDeadlineExceeded,
     Status,
+    Status1X,
+    StatusError,
+    StatusItem,
     SYSTEM,
     temp_bootstrap_env,
     _temp_env as temp_env,
     temp_yaml_file,
     TypeNotAccepted,
     uniquify_local,
+    UnitError,
     UpgradeMongoNotSupported,
     VersionNotTestedError,
     )
@@ -1203,6 +1212,44 @@ class TestEnvJujuClient(ClientTest):
                 with self.assertRaises(StopIteration):
                     client.get_status(500)
         mock_ut.assert_called_with(500)
+
+    def test_show_model_uses_provided_model_name(self):
+        env = JujuData('foo')
+        client = EnvJujuClient(env, None, None)
+        show_model_output = dedent("""\
+            bar:
+                status:
+                    current: available
+                    since: 4 minutes ago
+                    migration: 'Some message.'
+                    migration-start: 48 seconds ago
+        """)
+        with patch.object(
+                client, 'get_juju_output',
+                autospect=True, return_value=show_model_output) as m_gjo:
+            output = client.show_model('bar')
+        self.assertItemsEqual(['bar'], output.keys())
+        m_gjo.assert_called_once_with(
+            'show-model', 'foo:bar', '--format', 'yaml', include_e=False)
+
+    def test_show_model_defaults_to_own_model_name(self):
+        env = JujuData('foo')
+        client = EnvJujuClient(env, None, None)
+        show_model_output = dedent("""\
+            foo:
+                status:
+                    current: available
+                    since: 4 minutes ago
+                    migration: 'Some message.'
+                    migration-start: 48 seconds ago
+        """)
+        with patch.object(
+                client, 'get_juju_output',
+                autospect=True, return_value=show_model_output) as m_gjo:
+            output = client.show_model()
+        self.assertItemsEqual(['foo'], output.keys())
+        m_gjo.assert_called_once_with(
+            'show-model', 'foo:foo', '--format', 'yaml', include_e=False)
 
     @staticmethod
     def make_status_yaml(key, machine_value, unit_value):
@@ -5359,6 +5406,92 @@ class TestTempBootstrapEnv(FakeHomeTestCase):
                             client.env.environment)))
         self.assertFalse(os.path.exists(tb_home))
         self.assertEqual(client.env.juju_home, tb_home)
+
+
+class TestStatusErrorTree(TestCase):
+    """TestCase for StatusError and the tree of exceptions it roots."""
+
+    def test_priority(self):
+        self.assertEqual(7, StatusError.priority())
+
+    def test_priority_mass(self):
+        for index, error_type in enumerate(StatusError.ordering):
+            self.assertEqual(index, error_type.priority())
+
+    def test_priority_children_first(self):
+        for index, error_type in enumerate(StatusError.ordering, 1):
+            for second_error in StatusError.ordering[index:]:
+                self.assertFalse(issubclass(second_error, error_type))
+
+    def test_priority_pairs(self):
+        self.assertLess(MachineError.priority(), UnitError.priority())
+        self.assertLess(UnitError.priority(), AppError.priority())
+
+
+class TestStatusItem(TestCase):
+
+    @staticmethod
+    def make_status_item(status_name, item_name, **kwargs):
+        return StatusItem(status_name, item_name, {status_name: kwargs})
+
+    def assertIsType(self, obj, target_type):
+        self.assertIs(type(obj), target_type)
+
+    def test_datetime_since(self):
+        item = self.make_status_item(StatusItem.JUJU, '0',
+                                     since='19 Aug 2016 05:36:42Z')
+        target = datetime(2016, 8, 19, 5, 36, 42)
+        self.assertEqual(item.datetime_since, target)
+
+    def test_datetime_since_none(self):
+        item = self.make_status_item(StatusItem.JUJU, '0')
+        self.assertIsNone(item.datetime_since)
+
+    def test_to_exception_good(self):
+        item = self.make_status_item(StatusItem.JUJU, '0', current='idle')
+        self.assertIsNone(item.to_exception())
+
+    def test_to_exception_machine_error(self):
+        item = self.make_status_item(StatusItem.MACHINE, '0', current='error')
+        self.assertIsType(item.to_exception(), MachineError)
+
+    def test_to_exception_app_error(self):
+        item = self.make_status_item(StatusItem.APPLICATION, '0',
+                                     current='error')
+        self.assertIsType(item.to_exception(), AppError)
+
+    def test_to_exception_unit_error(self):
+        item = self.make_status_item(StatusItem.WORKLOAD, 'fake/0',
+                                     current='error',
+                                     message='generic unit error')
+        self.assertIsType(item.to_exception(), UnitError)
+
+    def test_to_exception_hook_failed_error(self):
+        item = self.make_status_item(StatusItem.WORKLOAD, 'fake/0',
+                                     current='error',
+                                     message='hook failed: "bad hook"')
+        self.assertIsType(item.to_exception(), HookFailedError)
+
+    def test_to_exception_install_error(self):
+        item = self.make_status_item(StatusItem.WORKLOAD, 'fake/0',
+                                     current='error',
+                                     message='hook failed: "install error"')
+        self.assertIsType(item.to_exception(), InstallError)
+
+    def make_agent_item_ago(self, minutes):
+        now = datetime.utcnow()
+        then = now - timedelta(minutes=minutes)
+        then_str = then.strftime('%d %b %Y %H:%M:%SZ')
+        return self.make_status_item(StatusItem.JUJU, '0', current='error',
+                                     message='some error', since=then_str)
+
+    def test_to_exception_agent_error(self):
+        item = self.make_agent_item_ago(minutes=3)
+        self.assertIsType(item.to_exception(), AgentError)
+
+    def test_to_exception_agent_unresolved_error(self):
+        item = self.make_agent_item_ago(minutes=6)
+        self.assertIsType(item.to_exception(), AgentUnresolvedError)
 
 
 class TestStatus(FakeHomeTestCase):
