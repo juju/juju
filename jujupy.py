@@ -97,6 +97,10 @@ class TypeNotAccepted(Exception):
     """Raised when the provided type was not accepted."""
 
 
+class NameNotAccepted(Exception):
+    """Raised when the provided name was not accepted."""
+
+
 class AuthNotAccepted(Exception):
     """Raised when the provided auth was not accepted."""
 
@@ -2345,7 +2349,11 @@ class EnvJujuClient:
                 child.expect('Enter the API endpoint url:')
                 child.sendline(cloud['endpoint'])
             if cloud['type'] == 'manual':
-                child.expect("Enter the controller's hostname or IP address:")
+                child.expect(
+                    "(Enter the controller's hostname or IP address:)|"
+                    "(Enter a name for the cloud:)")
+                if child.match.group(2) is not None:
+                    raise NameNotAccepted('Cloud name not accepted.')
                 child.sendline(cloud['endpoint'])
             if cloud['type'] == 'openstack':
                 child.expect('Enter the API endpoint url for the cloud:')

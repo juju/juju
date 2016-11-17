@@ -60,6 +60,7 @@ from jujupy import (
     KILL_CONTROLLER,
     Machine,
     make_safe_config,
+    NameNotAccepted,
     NoProvider,
     parse_new_state_server_from_error,
     SimpleEnvironment,
@@ -3205,6 +3206,12 @@ class TestEnvJujuClient(ClientTest):
         clouds = {'foo': {'type': 'bogus'}}
         with self.assertRaises(TypeNotAccepted):
             client.add_cloud_interactive('foo', clouds['foo'])
+
+    def test_add_cloud_interactive_invalid_name(self):
+        client = fake_juju_client()
+        cloud = {'type': 'manual', 'endpoint': 'example.com'}
+        with self.assertRaises(NameNotAccepted):
+            client.add_cloud_interactive('invalid/name', cloud)
 
     def test_show_controller(self):
         env = JujuData('foo')

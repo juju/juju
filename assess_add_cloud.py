@@ -13,6 +13,7 @@ from jujupy import (
     EnvJujuClient,
     get_client_class,
     JujuData,
+    NameNotAccepted,
     TypeNotAccepted,
     )
 from utility import (
@@ -52,6 +53,8 @@ def iter_clouds(clouds):
     for cloud_name, cloud in clouds.items():
         yield CloudSpec('long-name-{}'.format(cloud_name), 'A' * 4096, cloud,
                         exception=None)
+        yield CloudSpec('invalid-name-{}'.format(cloud_name), 'invalid/name',
+                        cloud, exception=NameNotAccepted)
 
         if cloud['type'] not in ('maas', 'manual', 'vsphere'):
             variant = deepcopy(cloud)
