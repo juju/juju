@@ -10,6 +10,7 @@ from contextlib import (
 from copy import deepcopy
 from datetime import (
     datetime,
+    timedelta,
     )
 import errno
 from itertools import chain
@@ -589,12 +590,89 @@ class AgentError(StatusError):
 class AgentUnresolvedError(AgentError):
     """Agent error has not recovered in a reasonable time."""
 
+    # This is the time limit set by IS for recovery from an agent error.
+    a_reasonable_time = timedelta(minutes=5)
+
     recoverable = False
 
 
 StatusError.ordering = [MachineError, InstallError, AgentUnresolvedError,
                         HookFailedError, UnitError, AppError, AgentError,
                         StatusError]
+
+
+class StatusItem:
+
+    APPLICATION = 'application-status'
+    WORKLOAD = 'workload-status'
+    MACHINE = 'machine-status'
+    JUJU = 'juju-status'
+
+    def __init__(self, status_name, item_name, item_value):
+        """Create a new StatusItem from its fields.
+
+        :param status_name: One of the status strings.
+        :param item_name: The name of the machine/unit/application the status
+            information is about.
+        :param item_value: A dictionary of status values. If there is an entry
+            with the status_name in the dictionary its contents are used."""
+        self.status_name = status_name
+        self.item_name = item_name
+        self.status = item_value.get(status_name, item_value)
+
+    @property
+    def message(self):
+        return self.status.get('message')
+
+    @property
+    def since(self):
+        return self.status.get('since')
+
+    @property
+    def current(self):
+        return self.status.get('current')
+
+    @property
+    def version(self):
+        return self.status.get('version')
+
+    @property
+    def datetime_since(self):
+        if self.since is None:
+            return None
+        return datetime.strptime(self.since, '%d %b %Y %H:%M:%SZ')
+
+    def to_exception(self):
+        """Create an exception representing the error if one exists.
+
+        :return: StatusError (or subtype) to represent an error or None
+        to show that there is no error."""
+        if self.current not in ['error', 'failed']:
+            return None
+
+        if self.APPLICATION == self.status_name:
+            return AppError(self.item_name, self.message)
+        elif self.WORKLOAD == self.status_name:
+            if self.message is None:
+                return UnitError(self.item_name, self.message)
+            elif re.match('hook failed: ".*install.*"', self.message):
+                return InstallError(self.item_name, self.message)
+            elif re.match('hook failed', self.message):
+                return HookFailedError(self.item_name, self.message)
+            else:
+                return UnitError(self.item_name, self.message)
+        elif self.MACHINE == self.status_name:
+            return MachineError(self.item_name, self.message)
+        elif self.JUJU == self.status_name:
+            time_since = datetime.utcnow() - self.datetime_since
+            if time_since > AgentUnresolvedError.a_reasonable_time:
+                return AgentUnresolvedError(self.item_name, self.message,
+                                            time_since.total_seconds())
+            else:
+                return AgentError(self.item_name, self.message)
+        else:
+            raise ValueError('Unknown status:{}'.format(self.status_name),
+                             (self.item_name, self.status_value))
 
 
 class Status:
