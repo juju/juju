@@ -11,6 +11,7 @@ from subprocess import CalledProcessError
 import sys
 from time import sleep
 from urllib2 import urlopen
+import yaml
 
 from assess_user_grant_revoke import User
 from deploy_stack import (
@@ -67,6 +68,7 @@ def assess_model_migration(bs1, bs2, args):
                     source_client, dest_client)
                 ensure_migration_of_resources_succeeds(
                     source_client, dest_client)
+                ensure_api_login_redirects(source_client, dest_client)
                 ensure_migrating_to_target_and_back_to_source_succeeds(
                     source_client, dest_client)
 
@@ -214,6 +216,60 @@ def assert_model_migrated_successfully(client, application):
     client.wait_for_workloads()
     test_deployed_mongo_is_up(client)
     ensure_model_is_functional(client, application)
+
+
+def ensure_api_login_redirects(source_client, dest_client):
+    """Login attempts must get transparently redirected to the new controller.
+    """
+    new_model_client = deploy_dummy_source_to_new_model(
+        source_client, 'api-redirection')
+
+    # show model controller details
+    before_model_details = source_client.show_model()
+    assert_model_has_correct_controller_uuid(source_client)
+
+    log.info('Attempting migration process')
+
+    migrated_model_client = migrate_model_to_controller(
+        new_model_client, dest_client)
+
+    # check show model controller details
+    assert_model_has_correct_controller_uuid(migrated_model_client)
+
+    after_migration_details = migrated_model_client.show_model()
+    before_controller_uuid = before_model_details[
+        source_client.env.environment]['controller-uuid']
+    after_controller_uuid = after_migration_details[
+        migrated_model_client.env.environment]['controller-uuid']
+    if before_controller_uuid == after_controller_uuid:
+        raise JujuAssertionError()
+
+    # Check file for details.
+    assert_data_file_lists_correct_controller_for_model(
+        migrated_model_client,
+        expected_controller=dest_client.controller.name)
+
+
+def assert_data_file_lists_correct_controller_for_model(
+        client, expected_controller):
+    models_path = os.path.join(client, 'models.yaml')
+    with open(models_path, 'rt') as f:
+        models_data = yaml.safe_load(f)
+
+    controller_models = models_data[
+        'controllers'][expected_controller]['models']
+
+    if client.env.environment not in controller_models:
+        raise JujuAssertionError()
+
+
+def assert_model_has_correct_controller_uuid(client):
+    model_details = client.show_model()
+    model_controller_uuid = model_details[
+        client.env.environment]['controller-uuid']
+    controller_uuid = client.get_controller_uuid()
+    if model_controller_uuid != controller_uuid:
+        raise JujuAssertionError()
 
 
 def ensure_migration_of_resources_succeeds(source_client, dest_client):
