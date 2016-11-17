@@ -65,7 +65,7 @@ class JujuSeriesTestCase(unittest.TestCase):
     def test_get_living_names(self):
         juju_series = _JujuSeries()
         self.assertEqual(
-            ['precise', 'trusty', 'xenial', 'yakkety'],
+            ['precise', 'trusty', 'xenial', 'yakkety', 'zesty'],
             juju_series.get_living_names())
 
     def test_get_name(self):
@@ -334,9 +334,12 @@ class BuildPackageTestCase(unittest.TestCase):
 
     def test_make_ubuntu_version(self):
         ubuntu_version = make_ubuntu_version('trusty', '1.2.3')
-        self.assertEqual('1:1.2.3~0ubuntu1~14.04.1~juju1', ubuntu_version)
+        self.assertEqual('1.2.3-0ubuntu1~14.04.1~juju1', ubuntu_version)
         ubuntu_version = make_ubuntu_version('precise', '1.22~alpha1', '8')
-        self.assertEqual('1:1.22~alpha1~0ubuntu1~12.04.8~juju1', ubuntu_version)
+        self.assertEqual(
+            '1.22~alpha1-0ubuntu1~12.04.8~juju1', ubuntu_version)
+        ubuntu_version = make_ubuntu_version('trusty', '1:1.2.3')
+        self.assertEqual('1:1.2.3-0ubuntu1~14.04.1~juju1', ubuntu_version)
 
     def test_make_changelog_message(self):
         message = make_changelog_message('1.2.0')
@@ -464,7 +467,7 @@ class CreateSourcePackageTests(TestWithScenarios):
              'epoch': '1',
              'build': None,
              'revid': None,
-             'ubuntu_version': '1:1.2.3~0ubuntu1~14.04.1~juju1'
+             'ubuntu_version': '1:1.2.3-0ubuntu1~14.04.1~juju1'
              }),
 
         ('daily',
@@ -472,14 +475,14 @@ class CreateSourcePackageTests(TestWithScenarios):
              'epoch': '2',
              'build': '3065',
              'revid': '4bbce805',
-             'ubuntu_version': '2:1.2.3~20160502+3065+4bbce805~14.04'
+             'ubuntu_version': '2:1.2.3-20160502+3065+4bbce805~14.04'
              }),
         ('broken_daily',
             {'date': None,
              'epoch': '1',
              'build': '3065',
              'revid': '4bbce805',
-             'ubuntu_version': '1:1.2.3~0ubuntu1~14.04.1~juju1'
+             'ubuntu_version': '1:1.2.3-0ubuntu1~14.04.1~juju1'
              })
     ]
 
