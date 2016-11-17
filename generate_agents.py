@@ -130,10 +130,9 @@ AgentVersion = namedtuple(
 def get_agent_version(control_str):
     control = deb822.Deb822(control_str)
     control_version = control['Version']
-    # need to replace ~alpha|beta|rc to -.
     corrected_version = re.sub('~(alpha|beta|rc)', r'-\1', control_version)
-    epoch_version = re.sub('(~|-0ubuntu).*$', '', corrected_version)
-    version = re.sub('^.:', '', epoch_version)
+    epochless_version = re.sub('^.:', '', corrected_version)
+    version = re.sub('(~|-0ubuntu).*$', '', epochless_version)
     major_minor = '.'.join(version.split('-')[0].split('.')[0:2])
     series = juju_series.get_name_from_package_version(control_version)
     architecture = control['Architecture']
