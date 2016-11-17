@@ -33,6 +33,7 @@ from jujuconfig import (
     NoSuchEnvironment,
     )
 from jujupy import (
+    AuthNotAccepted,
     AgentError,
     AgentUnresolvedError,
     AppError,
@@ -65,6 +66,7 @@ from jujupy import (
     Machine,
     MachineError,
     make_safe_config,
+    NameNotAccepted,
     NoProvider,
     parse_new_state_server_from_error,
     SimpleEnvironment,
@@ -77,6 +79,7 @@ from jujupy import (
     temp_bootstrap_env,
     _temp_env as temp_env,
     temp_yaml_file,
+    TypeNotAccepted,
     uniquify_local,
     UnitError,
     UpgradeMongoNotSupported,
@@ -3195,31 +3198,21 @@ class TestEnvJujuClient(ClientTest):
 
     def test_add_cloud_interactive_maas(self):
         client = fake_juju_client()
-        client.env.clouds = {'clouds': {'foo': {
+        clouds = {'foo': {
             'type': 'maas',
             'endpoint': 'http://bar.example.com',
-            }}}
-        client.add_cloud_interactive('foo')
-        self.assertEqual(client._backend.clouds, {'foo': {
-            'type': 'maas',
-            'endpoint': 'http://bar.example.com',
-            }})
+            }}
+        client.add_cloud_interactive('foo', clouds['foo'])
+        self.assertEqual(client._backend.clouds, clouds)
 
     def test_add_cloud_interactive_manual(self):
         client = fake_juju_client()
-        client.env.clouds = {'clouds': {'foo': {
-            'type': 'manual',
-            'endpoint': '127.100.100.1',
-            }}}
-        client.add_cloud_interactive('foo')
-        self.assertEqual(client._backend.clouds, {'foo': {
-            'type': 'manual',
-            'endpoint': '127.100.100.1',
-            }})
+        clouds = {'foo': {'type': 'manual', 'endpoint': '127.100.100.1'}}
+        client.add_cloud_interactive('foo', clouds['foo'])
+        self.assertEqual(client._backend.clouds, clouds)
 
-    def test_add_cloud_interactive_openstack(self):
-        client = fake_juju_client()
-        clouds = {'foo': {
+    def get_openstack_clouds(self):
+        return {'foo': {
             'type': 'openstack',
             'endpoint': 'http://bar.example.com',
             'auth-types': ['oauth1', 'oauth12'],
@@ -3228,9 +3221,19 @@ class TestEnvJujuClient(ClientTest):
                 'steve': {'endpoint': 'http://steve.example.com'},
                 }
             }}
-        client.env.clouds = {'clouds': clouds}
-        client.add_cloud_interactive('foo')
+
+    def test_add_cloud_interactive_openstack(self):
+        client = fake_juju_client()
+        clouds = self.get_openstack_clouds()
+        client.add_cloud_interactive('foo', clouds['foo'])
         self.assertEqual(client._backend.clouds, clouds)
+
+    def test_add_cloud_interactive_openstack_invalid_auth(self):
+        client = fake_juju_client()
+        clouds = self.get_openstack_clouds()
+        clouds['foo']['auth-types'] = ['invalid', 'oauth12']
+        with self.assertRaises(AuthNotAccepted):
+            client.add_cloud_interactive('foo', clouds['foo'])
 
     def test_add_cloud_interactive_vsphere(self):
         client = fake_juju_client()
@@ -3242,9 +3245,20 @@ class TestEnvJujuClient(ClientTest):
                 'steve': {},
                 }
             }}
-        client.env.clouds = {'clouds': clouds}
-        client.add_cloud_interactive('foo')
+        client.add_cloud_interactive('foo', clouds['foo'])
         self.assertEqual(client._backend.clouds, clouds)
+
+    def test_add_cloud_interactive_bogus(self):
+        client = fake_juju_client()
+        clouds = {'foo': {'type': 'bogus'}}
+        with self.assertRaises(TypeNotAccepted):
+            client.add_cloud_interactive('foo', clouds['foo'])
+
+    def test_add_cloud_interactive_invalid_name(self):
+        client = fake_juju_client()
+        cloud = {'type': 'manual', 'endpoint': 'example.com'}
+        with self.assertRaises(NameNotAccepted):
+            client.add_cloud_interactive('invalid/name', cloud)
 
     def test_show_controller(self):
         env = JujuData('foo')
