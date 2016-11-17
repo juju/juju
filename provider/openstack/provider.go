@@ -22,6 +22,7 @@ import (
 	"gopkg.in/goose.v1/client"
 	gooseerrors "gopkg.in/goose.v1/errors"
 	"gopkg.in/goose.v1/identity"
+	"gopkg.in/goose.v1/neutron"
 	"gopkg.in/goose.v1/nova"
 
 	"github.com/juju/juju/cloud"
@@ -212,11 +213,12 @@ type Environ struct {
 	cloud     environs.CloudSpec
 	namespace instance.Namespace
 
-	ecfgMutex    sync.Mutex
-	ecfgUnlocked *environConfig
-	client       client.AuthenticatingClient
-	novaUnlocked *nova.Client
-	volumeURL    *url.URL
+	ecfgMutex       sync.Mutex
+	ecfgUnlocked    *environConfig
+	client          client.AuthenticatingClient
+	novaUnlocked    *nova.Client
+	neutronUnlocked *neutron.Client
+	volumeURL       *url.URL
 
 	// keystoneImageDataSource caches the result of getKeystoneImageSource.
 	keystoneImageDataSourceMutex sync.Mutex
@@ -249,7 +251,7 @@ type openstackInstance struct {
 	mu           sync.Mutex
 	serverDetail *nova.ServerDetail
 	// floatingIP is non-nil iff use-floating-ip is true.
-	floatingIP *nova.FloatingIP
+	floatingIP *string
 }
 
 func (inst *openstackInstance) String() string {
@@ -349,8 +351,8 @@ func (inst *openstackInstance) Addresses() ([]network.Address, error) {
 		return nil, err
 	}
 	var floatingIP string
-	if inst.floatingIP != nil && inst.floatingIP.IP != "" {
-		floatingIP = inst.floatingIP.IP
+	if inst.floatingIP != nil {
+		floatingIP = *inst.floatingIP
 		logger.Debugf("instance %v has floating IP address: %v", inst.Id(), floatingIP)
 	}
 	return convertNovaAddresses(floatingIP, addresses), nil
@@ -415,6 +417,13 @@ func (e *Environ) nova() *nova.Client {
 	nova := e.novaUnlocked
 	e.ecfgMutex.Unlock()
 	return nova
+}
+
+func (e *Environ) neutron() *neutron.Client {
+	e.ecfgMutex.Lock()
+	neutron := e.neutronUnlocked
+	e.ecfgMutex.Unlock()
+	return neutron
 }
 
 var unsupportedConstraints = []string{
@@ -681,8 +690,8 @@ func authClient(spec environs.CloudSpec, ecfg *environConfig) (client.Authentica
 	}
 
 	// By default, the client requires "compute" and
-	// "object-store". Juju only requires "compute".
-	client.SetRequiredServiceTypes([]string{"compute"})
+	// "object-store". Juju only requires "compute" and "network".
+	client.SetRequiredServiceTypes([]string{"compute", "network"})
 	return client, nil
 }
 
@@ -723,6 +732,7 @@ func (e *Environ) SetConfig(cfg *config.Config) error {
 	}
 	e.client = client
 	e.novaUnlocked = nova.New(e.client)
+	e.neutronUnlocked = neutron.New(e.client)
 	return nil
 }
 
@@ -813,13 +823,13 @@ func (e *Environ) resolveNetwork(networkName string) (string, error) {
 		return networkName, nil
 	}
 	// Network label supplied, resolve to a network id
-	networks, err := e.nova().ListNetworks()
+	var networkIds = []string{}
+	neutronNetworks, err := e.neutron().ListNetworksV2()
 	if err != nil {
 		return "", err
 	}
-	var networkIds = []string{}
-	for _, network := range networks {
-		if network.Label == networkName {
+	for _, network := range neutronNetworks {
+		if network.Name == networkName {
 			networkIds = append(networkIds, network.Id)
 		}
 	}
@@ -832,51 +842,121 @@ func (e *Environ) resolveNetwork(networkName string) (string, error) {
 	return "", errors.Errorf("Multiple networks with label %q: %v", networkName, networkIds)
 }
 
-// allocatePublicIP tries to find an available floating IP address, or
-// allocates a new one, returning it, or an error
-func (e *Environ) allocatePublicIP() (*nova.FloatingIP, error) {
-	fips, err := e.nova().ListFloatingIPs()
+// Return all external networks within the given availability zone.  If azName
+// is empty, return all external networks
+func (e *Environ) getExternalNeutronNetworksByAZ(azName string) ([]string, error) {
+	externalNetwork := e.ecfg().externalNetwork()
+	if externalNetwork != "" {
+		// the config specified an external network, try it first.
+		netId, err := e.resolveNetwork(externalNetwork)
+		if err != nil {
+			logger.Debugf("external network %s not found, search for one", externalNetwork)
+		} else {
+			netDetails, err := e.neutron().GetNetworkV2(netId)
+			if err != nil {
+				return nil, err
+			}
+			// double check that the requested network is in the given AZ
+			for _, netAZ := range netDetails.AvailabilityZones {
+				if azName == netAZ {
+					logger.Debugf("using external network %q", externalNetwork)
+					return []string{netId}, nil
+				}
+			}
+			logger.Debugf("external network %s was found, however not in the %s availability zone", externalNetwork, azName)
+		}
+	}
+	// Find all external networks in availability zone
+	networks, err := e.neutron().ListNetworksV2()
 	if err != nil {
 		return nil, err
 	}
-	var newfip *nova.FloatingIP
+	netIds := make([]string, 0)
+	for _, network := range networks {
+		if network.External == true {
+			for _, netAZ := range network.AvailabilityZones {
+				if azName == netAZ {
+					netIds = append(netIds, network.Id)
+					break
+				}
+			}
+		}
+	}
+	if len(netIds) == 0 {
+		return nil, errors.NewNotFound(nil, "No External networks found to allocate a Floating IP")
+	}
+	return netIds, nil
+}
+
+// allocatePublicIP tries to find an available floating IP address
+// based on the availability zone of the instance, or
+// allocates a new one, returning it, or an error
+func (e *Environ) allocatePublicIP(instId instance.Id) (*string, error) {
+	azNames, err := e.InstanceAvailabilityZoneNames([]instance.Id{instId})
+	if err != nil {
+		logger.Debugf("allocatePublicIP(): InstanceAvailabilityZoneNames() failed with %s\n", err)
+		return nil, err
+	}
+
+	// find the external networks in the same availability zone as the instance
+	extNetworkIds := make([]string, 0)
+	for _, az := range azNames {
+		// return one or an array?
+		extNetIds, _ := e.getExternalNeutronNetworksByAZ(az)
+		if len(extNetIds) > 0 {
+			extNetworkIds = append(extNetworkIds, extNetIds...)
+		}
+	}
+	if len(extNetworkIds) == 0 {
+		return nil, errors.NewNotFound(nil, "Could not find an external network in availablity zone")
+	}
+
+	fips, err := e.neutron().ListFloatingIPsV2()
+	if err != nil {
+		return nil, err
+	}
+
+	var newfip *neutron.FloatingIPV2
+	// Is there an unused FloatingIP on an external network in the instance's availability zone?
 	for _, fip := range fips {
-		newfip = &fip
-		if fip.InstanceId != nil && *fip.InstanceId != "" {
-			// unavailable, skip
-			newfip = nil
-			continue
-		} else {
-			logger.Debugf("found unassigned public ip: %v", newfip.IP)
-			// unassigned, we can use it
-			return newfip, nil
+		if fip.FixedIP == "" {
+			// Not a perfect solution.  If an external network was specified in the
+			// config, it'll be at the top of the extNetworkIds, but may be not used
+			// if the available FIP isn't it in.  However the instance and the
+			// FIP will be in the same availability zone.
+			for _, extNetId := range extNetworkIds {
+				if fip.FloatingNetworkId == extNetId {
+					// unassigned, we can use it
+					newfip = &fip
+					logger.Debugf("found unassigned public ip: %v", newfip.IP)
+					return &newfip.IP, nil
+				}
+			}
 		}
 	}
-	if newfip == nil {
-		// allocate a new IP and use it
-		newfip, err = e.nova().AllocateFloatingIP()
-		if err != nil {
-			return nil, err
+
+	// allocate a new IP and use it
+	for _, extNetId := range extNetworkIds {
+		newfip, err = e.neutron().AllocateFloatingIPV2(extNetId)
+		if err == nil {
+			logger.Debugf("allocated new public IP: %s", newfip.IP)
+			return &newfip.IP, nil
 		}
-		logger.Debugf("allocated new public IP: %v", newfip.IP)
 	}
-	return newfip, nil
+	logger.Debugf("Unable to allocate a public IP")
+	return nil, err
 }
 
 // assignPublicIP tries to assign the given floating IP address to the
 // specified server, or returns an error.
-func (e *Environ) assignPublicIP(fip *nova.FloatingIP, serverId string) (err error) {
-	if fip == nil {
+func (e *Environ) assignPublicIP(fip *string, serverId string) (err error) {
+	if *fip == "" {
 		return errors.Errorf("cannot assign a nil public IP to %q", serverId)
-	}
-	if fip.InstanceId != nil && *fip.InstanceId == serverId {
-		// IP already assigned, nothing to do
-		return nil
 	}
 	// At startup nw_info is not yet cached so this may fail
 	// temporarily while the server is being built
 	for a := common.LongAttempt.Start(); a.Next(); {
-		err = e.nova().AddServerFloatingIP(serverId, fip.IP)
+		err = e.nova().AddServerFloatingIP(serverId, *fip)
 		if err == nil {
 			return nil
 		}
@@ -985,17 +1065,6 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		logger.Debugf("using network id %q", networkId)
 		networks = append(networks, nova.ServerNetworks{NetworkId: networkId})
 	}
-	withPublicIP := e.ecfg().useFloatingIP()
-	var publicIP *nova.FloatingIP
-	if withPublicIP {
-		logger.Debugf("allocating public IP address for openstack node")
-		if fip, err := e.allocatePublicIP(); err != nil {
-			return nil, errors.Annotate(err, "cannot allocate a public IP as needed")
-		} else {
-			publicIP = fip
-			logger.Infof("allocated public IP %s", publicIP.IP)
-		}
-	}
 
 	var apiPort int
 	if args.InstanceConfig.Controller != nil {
@@ -1083,16 +1152,24 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		instType:     &spec.InstanceType,
 	}
 	logger.Infof("started instance %q", inst.Id())
+	withPublicIP := e.ecfg().useFloatingIP()
 	if withPublicIP {
+		var publicIP *string
+		logger.Debugf("allocating public IP address for openstack node")
+		if fip, err := e.allocatePublicIP(inst.Id()); err != nil {
+			return nil, errors.Annotate(err, "cannot allocate a public IP as needed")
+		} else {
+			publicIP = fip
+			logger.Infof("allocated public IP %s", *publicIP)
+		}
 		if err := e.assignPublicIP(publicIP, string(inst.Id())); err != nil {
 			if err := e.terminateInstances([]instance.Id{inst.Id()}); err != nil {
 				// ignore the failure at this stage, just log it
 				logger.Debugf("failed to terminate instance %q: %v", inst.Id(), err)
 			}
-			return nil, errors.Annotatef(err, "cannot assign public address %s to instance %q", publicIP.IP, inst.Id())
+			return nil, errors.Annotatef(err, "cannot assign public address %s to instance %q", publicIP, inst.Id())
 		}
 		inst.floatingIP = publicIP
-		logger.Infof("assigned public IP %s to %q", publicIP.IP, inst.Id())
 	}
 	return &environs.StartInstanceResult{
 		Instance: inst,
@@ -1177,16 +1254,21 @@ func (e *Environ) listServers(ids []instance.Id) ([]nova.ServerDetail, error) {
 // updateFloatingIPAddresses updates the instances with any floating IP address
 // that have been assigned to those instances.
 func (e *Environ) updateFloatingIPAddresses(instances map[string]instance.Instance) error {
-	fips, err := e.nova().ListFloatingIPs()
+	servers, err := e.nova().ListServersDetail(nil)
 	if err != nil {
 		return err
 	}
-	for _, fip := range fips {
-		if fip.InstanceId != nil && *fip.InstanceId != "" {
-			instId := *fip.InstanceId
-			if inst, ok := instances[instId]; ok {
-				instFip := fip
-				inst.(*openstackInstance).floatingIP = &instFip
+	for _, server := range servers {
+		// server.Addresses is a map with entries containing []nova.IPAddress
+		for _, net := range server.Addresses {
+			for _, addr := range net {
+				if addr.Type == "floating" {
+					instId := server.Id
+					if inst, ok := instances[instId]; ok {
+						instFip := &addr.Address
+						inst.(*openstackInstance).floatingIP = instFip
+					}
+				}
 			}
 		}
 	}
@@ -1385,15 +1467,16 @@ func jujuMachineFilter() *nova.Filter {
 }
 
 // portsToRuleInfo maps port ranges to nova rules
-func portsToRuleInfo(groupId string, ports []network.PortRange) []nova.RuleInfo {
-	rules := make([]nova.RuleInfo, len(ports))
+func portsToRuleInfo(groupId string, ports []network.PortRange) []neutron.RuleInfoV2 {
+	rules := make([]neutron.RuleInfoV2, len(ports))
 	for i, portRange := range ports {
-		rules[i] = nova.RuleInfo{
-			ParentGroupId: groupId,
-			FromPort:      portRange.FromPort,
-			ToPort:        portRange.ToPort,
-			IPProtocol:    portRange.Protocol,
-			Cidr:          "0.0.0.0/0",
+		rules[i] = neutron.RuleInfoV2{
+			Direction:      "ingress",
+			ParentGroupId:  groupId,
+			PortRangeMin:   portRange.FromPort,
+			PortRangeMax:   portRange.ToPort,
+			IPProtocol:     portRange.Protocol,
+			RemoteIPPrefix: "0.0.0.0/0",
 		}
 	}
 	return rules
@@ -1419,15 +1502,15 @@ func (e *Environ) Provider() environs.EnvironProvider {
 // group is also used by another environment (see bug #1300755), an attempt
 // to delete this group fails. A warning is logged in this case.
 func (e *Environ) deleteSecurityGroups(securityGroupNames []string) error {
-	novaclient := e.nova()
-	allSecurityGroups, err := novaclient.ListSecurityGroups()
+	neutronClient := e.neutron()
+	allSecurityGroups, err := neutronClient.ListSecurityGroupsV2()
 	if err != nil {
 		return err
 	}
 	for _, securityGroup := range allSecurityGroups {
 		for _, name := range securityGroupNames {
 			if securityGroup.Name == name {
-				deleteSecurityGroup(novaclient, name, securityGroup.Id, e.clock)
+				deleteSecurityGroup(neutronClient, name, securityGroup.Id, e.clock)
 				break
 			}
 		}

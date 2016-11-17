@@ -11,6 +11,7 @@ import (
 
 	"gopkg.in/goose.v1/errors"
 	"gopkg.in/goose.v1/identity"
+	"gopkg.in/goose.v1/neutron"
 	"gopkg.in/goose.v1/nova"
 	"gopkg.in/goose.v1/swift"
 
@@ -64,7 +65,7 @@ func InstanceServerDetail(inst instance.Instance) *nova.ServerDetail {
 	return inst.(*openstackInstance).serverDetail
 }
 
-func InstanceFloatingIP(inst instance.Instance) *nova.FloatingIP {
+func InstanceFloatingIP(inst instance.Instance) *string {
 	return inst.(*openstackInstance).floatingIP
 }
 
@@ -413,17 +414,19 @@ func RemoveTestImageData(stor envstorage.Storage) {
 // delete something that doesn't exist.
 func DiscardSecurityGroup(e environs.Environ, name string) error {
 	env := e.(*Environ)
-	novaClient := env.nova()
-	group, err := novaClient.SecurityGroupByName(name)
-	if err != nil {
+	neutronClient := env.neutron()
+	groups, err := neutronClient.SecurityGroupByNameV2(name)
+	if err != nil || len(groups) == 0 {
 		if errors.IsNotFound(err) {
 			// Group already deleted, done
 			return nil
 		}
 	}
-	err = novaClient.DeleteSecurityGroup(group.Id)
-	if err != nil {
-		return err
+	for _, group := range groups {
+		err = neutronClient.DeleteSecurityGroupV2(group.Id)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -451,11 +454,11 @@ func SetUseFloatingIP(e environs.Environ, val bool) {
 	env.ecfg().attrs["use-floating-ip"] = val
 }
 
-func SetUpGlobalGroup(e environs.Environ, name string, apiPort int) (nova.SecurityGroup, error) {
+func SetUpGlobalGroup(e environs.Environ, name string, apiPort int) (neutron.SecurityGroupV2, error) {
 	return e.(*Environ).firewaller.(*defaultFirewaller).setUpGlobalGroup(name, apiPort)
 }
 
-func EnsureGroup(e environs.Environ, name string, rules []nova.RuleInfo) (nova.SecurityGroup, error) {
+func EnsureGroup(e environs.Environ, name string, rules []neutron.RuleInfoV2) (neutron.SecurityGroupV2, error) {
 	return e.(*Environ).firewaller.(*defaultFirewaller).ensureGroup(name, rules)
 }
 
@@ -488,6 +491,12 @@ func BlankContainerStorage() envstorage.Storage {
 	return &openstackstorage{}
 }
 
+// GetNeutronClient returns the neutron client for the current environs.
+func GetNeutronClient(e environs.Environ) *neutron.Client {
+	return e.(*Environ).neutron()
+}
+
+// GetNovaClient returns the nova client for the current environs.
 func GetNovaClient(e environs.Environ) *nova.Client {
 	return e.(*Environ).nova()
 }

@@ -5,6 +5,7 @@ package rackspace
 
 import (
 	"github.com/juju/errors"
+	"gopkg.in/goose.v1/neutron"
 	"gopkg.in/goose.v1/nova"
 
 	"github.com/juju/juju/environs"
@@ -71,7 +72,7 @@ func (c *rackspaceFirewaller) GetSecurityGroups(ids ...instance.Id) ([]string, e
 }
 
 // SetUpGroups implements OpenstackFirewaller interface.
-func (c *rackspaceFirewaller) SetUpGroups(controllerUUID, machineId string, apiPort int) ([]nova.SecurityGroup, error) {
+func (c *rackspaceFirewaller) SetUpGroups(controllerUUID, machineId string, apiPort int) ([]neutron.SecurityGroupV2, error) {
 	return nil, nil
 }
 

@@ -12,7 +12,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/retry"
 	"github.com/juju/utils/clock"
-	gooseerrors "gopkg.in/goose.v1/errors"
+	"gopkg.in/goose.v1/neutron"
 	"gopkg.in/goose.v1/nova"
 
 	"github.com/juju/juju/environs"
@@ -50,7 +50,7 @@ type Firewaller interface {
 	GetSecurityGroups(ids ...instance.Id) ([]string, error)
 
 	// Implementations should set up initial security groups, if any.
-	SetUpGroups(controllerUUID, machineId string, apiPort int) ([]nova.SecurityGroup, error)
+	SetUpGroups(controllerUUID, machineId string, apiPort int) ([]neutron.SecurityGroupV2, error)
 
 	// Set of initial networks, that should be added by default to all new instances.
 	InitialNetworks() []nova.ServerNetworks
@@ -93,12 +93,12 @@ func (c *defaultFirewaller) InitialNetworks() []nova.ServerNetworks {
 // Note: ideally we'd have a better way to determine group membership so that 2
 // people that happen to share an openstack account and name their environment
 // "openstack" don't end up destroying each other's machines.
-func (c *defaultFirewaller) SetUpGroups(controllerUUID, machineId string, apiPort int) ([]nova.SecurityGroup, error) {
+func (c *defaultFirewaller) SetUpGroups(controllerUUID, machineId string, apiPort int) ([]neutron.SecurityGroupV2, error) {
 	jujuGroup, err := c.setUpGlobalGroup(c.jujuGroupName(controllerUUID), apiPort)
 	if err != nil {
 		return nil, err
 	}
-	var machineGroup nova.SecurityGroup
+	var machineGroup neutron.SecurityGroupV2
 	switch c.environ.Config().FirewallMode() {
 	case config.FwInstance:
 		machineGroup, err = c.ensureGroup(c.machineGroupName(controllerUUID, machineId), nil)
@@ -108,100 +108,140 @@ func (c *defaultFirewaller) SetUpGroups(controllerUUID, machineId string, apiPor
 	if err != nil {
 		return nil, err
 	}
-	groups := []nova.SecurityGroup{jujuGroup, machineGroup}
+	groups := []neutron.SecurityGroupV2{jujuGroup, machineGroup}
 	if c.environ.ecfg().useDefaultSecurityGroup() {
-		defaultGroup, err := c.environ.nova().SecurityGroupByName("default")
+		// Security Group Names in Neutron do not have to be unique.  This
+		// function returns an array
+		defaultGroups, err := c.environ.neutron().SecurityGroupByNameV2("default")
 		if err != nil {
 			return nil, fmt.Errorf("loading default security group: %v", err)
 		}
-		groups = append(groups, *defaultGroup)
+		for _, defaultGroup := range defaultGroups {
+			groups = append(groups, defaultGroup)
+		}
 	}
 	return groups, nil
 }
 
-func (c *defaultFirewaller) setUpGlobalGroup(groupName string, apiPort int) (nova.SecurityGroup, error) {
+func (c *defaultFirewaller) setUpGlobalGroup(groupName string, apiPort int) (neutron.SecurityGroupV2, error) {
 	return c.ensureGroup(groupName,
-		[]nova.RuleInfo{
+		[]neutron.RuleInfoV2{
 			{
-				IPProtocol: "tcp",
-				FromPort:   22,
-				ToPort:     22,
-				Cidr:       "0.0.0.0/0",
+				Direction:      "ingress",
+				IPProtocol:     "tcp",
+				PortRangeMax:   22,
+				PortRangeMin:   22,
+				RemoteIPPrefix: "0.0.0.0/0",
 			},
 			{
-				IPProtocol: "tcp",
-				FromPort:   apiPort,
-				ToPort:     apiPort,
-				Cidr:       "0.0.0.0/0",
+				Direction:      "ingress",
+				IPProtocol:     "tcp",
+				PortRangeMax:   apiPort,
+				PortRangeMin:   apiPort,
+				RemoteIPPrefix: "0.0.0.0/0",
 			},
 			{
-				IPProtocol: "tcp",
-				FromPort:   1,
-				ToPort:     65535,
+				Direction:    "ingress",
+				IPProtocol:   "tcp",
+				PortRangeMin: 1,
+				PortRangeMax: 65535,
 			},
 			{
-				IPProtocol: "udp",
-				FromPort:   1,
-				ToPort:     65535,
+				Direction:    "ingress",
+				IPProtocol:   "udp",
+				PortRangeMin: 1,
+				PortRangeMax: 65535,
 			},
 			{
+				Direction:  "ingress",
 				IPProtocol: "icmp",
-				FromPort:   -1,
-				ToPort:     -1,
 			},
 		})
 }
 
 // zeroGroup holds the zero security group.
-var zeroGroup nova.SecurityGroup
+var zeroGroup neutron.SecurityGroupV2
 
 // ensureGroup returns the security group with name and perms.
 // If a group with name does not exist, one will be created.
 // If it exists, its permissions are set to perms.
-func (c *defaultFirewaller) ensureGroup(name string, rules []nova.RuleInfo) (nova.SecurityGroup, error) {
-	novaClient := c.environ.nova()
+func (c *defaultFirewaller) ensureGroup(name string, rules []neutron.RuleInfoV2) (neutron.SecurityGroupV2, error) {
+	neutronClient := c.environ.neutron()
 	// First attempt to look up an existing group by name.
-	group, err := novaClient.SecurityGroupByName(name)
+	groupsFound, err := neutronClient.SecurityGroupByNameV2(name)
 	if err == nil {
-		// Group exists, so assume it is correctly set up and return it.
-		// TODO(jam): 2013-09-18 http://pad.lv/121795
-		// We really should verify the group is set up correctly,
-		// because deleting and re-creating environments can get us bad
-		// groups (especially if they were set up under Python)
-		return *group, nil
+		for _, group := range groupsFound {
+			if c.verifyGroupRules(group.Rules, rules) {
+				return group, nil
+			}
+		}
 	}
 	// Doesn't exist, so try and create it.
-	group, err = novaClient.CreateSecurityGroup(name, "juju group")
+	newGroup, err := neutronClient.CreateSecurityGroupV2(name, "juju group")
 	if err != nil {
-		if !gooseerrors.IsDuplicateValue(err) {
-			return zeroGroup, err
-		} else {
-			// We just tried to create a duplicate group, so load the existing group.
-			group, err = novaClient.SecurityGroupByName(name)
-			if err != nil {
-				return zeroGroup, err
-			}
-			return *group, nil
-		}
+		return zeroGroup, err
 	}
 	// The new group is created so now add the rules.
-	group.Rules = make([]nova.SecurityGroupRule, len(rules))
-	for i, rule := range rules {
-		rule.ParentGroupId = group.Id
-		if rule.Cidr == "" {
-			// http://pad.lv/1226996 Rules that don't have a CIDR
-			// are meant to apply only to this group. If you don't
-			// supply CIDR or GroupId then openstack assumes you
-			// mean CIDR=0.0.0.0/0
-			rule.GroupId = &group.Id
-		}
-		groupRule, err := novaClient.CreateSecurityGroupRule(rule)
-		if err != nil && !gooseerrors.IsDuplicateValue(err) {
+	for _, rule := range rules {
+		rule.ParentGroupId = newGroup.Id
+		groupRule, err := neutronClient.CreateSecurityGroupRuleV2(rule)
+		if err != nil {
 			return zeroGroup, err
 		}
-		group.Rules[i] = *groupRule
+		newGroup.Rules = append(newGroup.Rules, *groupRule)
 	}
-	return *group, nil
+	return *newGroup, nil
+}
+
+func countIngressRules(rules []neutron.SecurityGroupRuleV2) int {
+	count := 0
+	for _, rule := range rules {
+		if rule.Direction == "ingress" {
+			count += 1
+		}
+	}
+	return count
+}
+
+// verifyGroupRules verifies the group rules against the rules we're looking for.
+func (c *defaultFirewaller) verifyGroupRules(rules []neutron.SecurityGroupRuleV2, rulesToMatch []neutron.RuleInfoV2) bool {
+	if countIngressRules(rules) != len(rulesToMatch) {
+		return false
+	}
+	count := len(rulesToMatch)
+	for _, rule := range rules {
+		// This is one of the default rules created when a new
+		// Neutron Security Group is created
+		if rule.Direction == "egress" {
+			continue
+		}
+		for _, toMatch := range rulesToMatch {
+			var maxInt int
+			if rule.PortRangeMax != nil {
+				maxInt = *rule.PortRangeMax
+			} else {
+				maxInt = 0
+			}
+			var minInt int
+			if rule.PortRangeMin != nil {
+				minInt = *rule.PortRangeMin
+			} else {
+				minInt = 0
+			}
+			if rule.Direction == toMatch.Direction &&
+				rule.RemoteIPPrefix == toMatch.RemoteIPPrefix &&
+				*rule.IPProtocol == toMatch.IPProtocol &&
+				minInt == toMatch.PortRangeMin &&
+				maxInt == toMatch.PortRangeMax {
+				count -= 1
+				break
+			}
+		}
+	}
+	if count != 0 {
+		return false
+	}
+	return true
 }
 
 // GetSecurityGroups implements Firewaller interface.
@@ -241,8 +281,8 @@ func (c *defaultFirewaller) GetSecurityGroups(ids ...instance.Id) ([]string, err
 }
 
 func (c *defaultFirewaller) deleteSecurityGroups(prefix string) error {
-	novaClient := c.environ.nova()
-	securityGroups, err := novaClient.ListSecurityGroups()
+	neutronClient := c.environ.neutron()
+	securityGroups, err := neutronClient.ListSecurityGroupsV2()
 	if err != nil {
 		return errors.Annotate(err, "cannot list security groups")
 	}
@@ -253,7 +293,7 @@ func (c *defaultFirewaller) deleteSecurityGroups(prefix string) error {
 	}
 	for _, group := range securityGroups {
 		if re.MatchString(group.Name) {
-			deleteSecurityGroup(novaClient, group.Name, group.Id, clock.WallClock)
+			deleteSecurityGroup(neutronClient, group.Name, group.Id, clock.WallClock)
 		}
 	}
 	return nil
@@ -273,16 +313,16 @@ func (c *defaultFirewaller) DeleteAllModelGroups() error {
 // the deletion is retried due to timing issues in openstack. A security group
 // cannot be deleted while it is in use. Theoretically we terminate all the
 // instances before we attempt to delete the associated security groups, but
-// in practice nova hasn't always finished with the instance before it
+// in practice neutron hasn't always finished with the instance before it
 // returns, so there is a race condition where we think the instance is
 // terminated and hence attempt to delete the security groups but nova still
 // has it around internally. To attempt to catch this timing issue, deletion
 // of the groups is tried multiple times.
-func deleteSecurityGroup(novaclient *nova.Client, name, id string, clock clock.Clock) {
+func deleteSecurityGroup(neutronClient *neutron.Client, name, id string, clock clock.Clock) {
 	logger.Debugf("deleting security group %q", name)
 	err := retry.Call(retry.CallArgs{
 		Func: func() error {
-			return novaclient.DeleteSecurityGroup(id)
+			return neutronClient.DeleteSecurityGroupV2(id)
 		},
 		NotifyFunc: func(err error, attempt int) {
 			if attempt%4 == 0 {
@@ -379,24 +419,27 @@ func (c *defaultFirewaller) InstancePorts(inst instance.Instance, machineId stri
 	return portRanges, nil
 }
 
-func (c *defaultFirewaller) matchingGroup(nameRegExp string) (nova.SecurityGroup, error) {
+// Matching a security group by name only works if each name is unqiue.  Neutron
+// security groups are not required to have unique names.  Juju constructs unique
+// names, but there are frequently multiple matches to 'default'
+func (c *defaultFirewaller) matchingGroup(nameRegExp string) (neutron.SecurityGroupV2, error) {
 	re, err := regexp.Compile(nameRegExp)
 	if err != nil {
-		return nova.SecurityGroup{}, err
+		return neutron.SecurityGroupV2{}, err
 	}
-	novaclient := c.environ.nova()
-	allGroups, err := novaclient.ListSecurityGroups()
+	neutronClient := c.environ.neutron()
+	allGroups, err := neutronClient.ListSecurityGroupsV2()
 	if err != nil {
-		return nova.SecurityGroup{}, err
+		return neutron.SecurityGroupV2{}, err
 	}
-	var matchingGroups []nova.SecurityGroup
+	var matchingGroups []neutron.SecurityGroupV2
 	for _, group := range allGroups {
 		if re.MatchString(group.Name) {
 			matchingGroups = append(matchingGroups, group)
 		}
 	}
 	if len(matchingGroups) != 1 {
-		return nova.SecurityGroup{}, errors.NotFoundf("security groups matching %q", nameRegExp)
+		return neutron.SecurityGroupV2{}, errors.NotFoundf("security groups matching %q", nameRegExp)
 	}
 	return matchingGroups[0], nil
 }
@@ -406,10 +449,10 @@ func (c *defaultFirewaller) openPortsInGroup(nameRegExp string, portRanges []net
 	if err != nil {
 		return err
 	}
-	novaclient := c.environ.nova()
+	neutronClient := c.environ.neutron()
 	rules := portsToRuleInfo(group.Id, portRanges)
 	for _, rule := range rules {
-		_, err := novaclient.CreateSecurityGroupRule(rule)
+		_, err := neutronClient.CreateSecurityGroupRuleV2(rule)
 		if err != nil {
 			// TODO: if err is not rule already exists, raise?
 			logger.Debugf("error creating security group rule: %v", err.Error())
@@ -419,13 +462,13 @@ func (c *defaultFirewaller) openPortsInGroup(nameRegExp string, portRanges []net
 }
 
 // ruleMatchesPortRange checks if supplied nova security group rule matches the port range
-func ruleMatchesPortRange(rule nova.SecurityGroupRule, portRange network.PortRange) bool {
-	if rule.IPProtocol == nil || rule.FromPort == nil || rule.ToPort == nil {
+func ruleMatchesPortRange(rule neutron.SecurityGroupRuleV2, portRange network.PortRange) bool {
+	if rule.IPProtocol == nil || *rule.PortRangeMax == 0 || *rule.PortRangeMin == 0 {
 		return false
 	}
 	return *rule.IPProtocol == portRange.Protocol &&
-		*rule.FromPort == portRange.FromPort &&
-		*rule.ToPort == portRange.ToPort
+		*rule.PortRangeMin == portRange.FromPort &&
+		*rule.PortRangeMax == portRange.ToPort
 }
 
 func (c *defaultFirewaller) closePortsInGroup(nameRegExp string, portRanges []network.PortRange) error {
@@ -436,14 +479,14 @@ func (c *defaultFirewaller) closePortsInGroup(nameRegExp string, portRanges []ne
 	if err != nil {
 		return err
 	}
-	novaclient := c.environ.nova()
+	neutronClient := c.environ.neutron()
 	// TODO: Hey look ma, it's quadratic
 	for _, portRange := range portRanges {
 		for _, p := range group.Rules {
 			if !ruleMatchesPortRange(p, portRange) {
 				continue
 			}
-			err := novaclient.DeleteSecurityGroupRule(p.Id)
+			err := neutronClient.DeleteSecurityGroupRuleV2(p.Id)
 			if err != nil {
 				return err
 			}
@@ -459,11 +502,20 @@ func (c *defaultFirewaller) portsInGroup(nameRegexp string) (portRanges []networ
 		return nil, err
 	}
 	for _, p := range group.Rules {
-		portRanges = append(portRanges, network.PortRange{
+		// Skip the default Security Group Rules created by Neutron
+		if p.Direction == "egress" {
+			continue
+		}
+		portRange := network.PortRange{
 			Protocol: *p.IPProtocol,
-			FromPort: *p.FromPort,
-			ToPort:   *p.ToPort,
-		})
+		}
+		if p.PortRangeMin != nil {
+			portRange.FromPort = *p.PortRangeMin
+		}
+		if p.PortRangeMax != nil {
+			portRange.ToPort = *p.PortRangeMax
+		}
+		portRanges = append(portRanges, portRange)
 	}
 	network.SortPortRanges(portRanges)
 	return portRanges, nil

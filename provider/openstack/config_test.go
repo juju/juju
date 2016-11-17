@@ -32,6 +32,7 @@ type configTest struct {
 	useFloatingIP           bool
 	useDefaultSecurityGroup bool
 	network                 string
+	externalNetwork         string
 	firewallMode            string
 	err                     string
 	sslHostnameVerification bool
@@ -96,6 +97,7 @@ func (t configTest) check(c *gc.C) {
 	c.Assert(ecfg.useFloatingIP(), gc.Equals, t.useFloatingIP)
 	c.Assert(ecfg.useDefaultSecurityGroup(), gc.Equals, t.useDefaultSecurityGroup)
 	c.Assert(ecfg.network(), gc.Equals, t.network)
+	c.Assert(ecfg.externalNetwork(), gc.Equals, t.externalNetwork)
 	// Default should be true
 	expectedHostnameVerification := true
 	if t.sslHostnameSet {
@@ -208,6 +210,16 @@ var configTests = []configTest{
 			"network": "a-network-label",
 		}),
 		network: "a-network-label",
+	}, {}, {
+		summary:         "default external network",
+		config:          requiredConfig,
+		externalNetwork: "",
+	}, {
+		summary: "external network",
+		config: requiredConfig.Merge(testing.Attrs{
+			"external-network": "a-external-network-label",
+		}),
+		externalNetwork: "a-external-network-label",
 	}, {
 		summary: "block storage specified",
 		config: requiredConfig.Merge(testing.Attrs{
