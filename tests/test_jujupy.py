@@ -1642,17 +1642,28 @@ class TestEnvJujuClient(ClientTest):
                 client._wait_for_status(Mock(), translate)
 
     @contextmanager
-    def status_errors(self, status, errors):
-        """Patch iter_errors keeping ignore_recoverable."""
-        def fake_iter_errors(self, ignore_recoverable=False):
-            for error in errors[0]:
-                if not (ignore_recoverable and self.recoverable):
+    def client_status_errors(self, client, errors):
+        """Patch get_status().iter_errors keeping ignore_recoverable."""
+        def fake_iter_errors(ignore_recoverable):
+            for error in errors.pop(0):
+                if not (ignore_recoverable and error.recoverable):
                     yield error
-            del errors[0]
 
-        with patch.object(status, 'iter_errors', autospec=True,
+        with patch.object(client.get_status(), 'iter_errors', autospec=True,
                           side_effect=fake_iter_errors) as errors_mock:
             yield errors_mock
+
+    def test__wait_for_status_no_error(self):
+        def translate(x):
+            return {'waiting': '0'}
+
+        errors = [[], []]
+        with self.status_does_not_check() as client:
+            with self.client_status_errors(client, errors) as errors_mock:
+                with self.assertRaises(StatusNotMet):
+                    client._wait_for_status(Mock(), translate, timeout=0)
+        errors_mock.assert_has_calls(
+            [call(ignore_recoverable=True), call(ignore_recoverable=False)])
 
     def test__wait_for_status_raises_error(self):
         def translate(x):
@@ -1660,10 +1671,9 @@ class TestEnvJujuClient(ClientTest):
 
         errors = [[MachineError('0', 'error not recoverable')]]
         with self.status_does_not_check() as client:
-            with self.status_errors(client.get_status(),
-                                    errors) as errors_mock:
+            with self.client_status_errors(client, errors) as errors_mock:
                 with self.assertRaises(MachineError):
-                    client._wait_for_status(Mock(), translate)
+                    client._wait_for_status(Mock(), translate, timeout=0)
         errors_mock.assert_called_once_with(ignore_recoverable=True)
 
     def test__wait_for_status_delays_recoverable(self):
@@ -1673,10 +1683,9 @@ class TestEnvJujuClient(ClientTest):
         errors = [[StatusError('fake', 'error is recoverable')],
                   [UnitError('fake/0', 'error is recoverable')]]
         with self.status_does_not_check() as client:
-            with self.status_errors(client.get_status(),
-                                    errors) as errors_mock:
+            with self.client_status_errors(client, errors) as errors_mock:
                 with self.assertRaises(UnitError):
-                    client._wait_for_status(Mock(), translate)
+                    client._wait_for_status(Mock(), translate, timeout=0)
         self.assertEqual(2, errors_mock.call_count)
         errors_mock.assert_has_calls(
             [call(ignore_recoverable=True), call(ignore_recoverable=False)])
@@ -6313,6 +6322,8 @@ class TestStatus(FakeHomeTestCase):
         with patch.object(status, 'iter_status', autospec=True,
                           return_value=retval):
             status.raise_highest_error(ignore_recoverable=True)
+            with self.assertRaises(UnitError):
+                status.raise_highest_error(ignore_recoverable=False)
 
     def test_get_applications_gets_applications(self):
         status = Status({

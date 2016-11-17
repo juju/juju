@@ -674,6 +674,10 @@ class StatusItem:
             raise ValueError('Unknown status:{}'.format(self.status_name),
                              (self.item_name, self.status_value))
 
+    def __repr__(self):
+        return 'StatusItem({!r}, {!r}, {!r})'.format(
+            self.status_name, self.item_name, self.status)
+
 
 class Status:
 
