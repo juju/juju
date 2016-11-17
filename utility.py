@@ -529,28 +529,25 @@ def get_unit_ipaddress(client, unit_name):
 
 
 def log_and_wrap_exception(logger, exc):
-    """"Record exc details to logger and return wrapped in LoggedException."""
+    """Record exc details to logger and return wrapped in LoggedException."""
     logger.exception(exc)
     stdout = getattr(exc, 'output', None)
     stderr = getattr(exc, 'stderr', None)
     if stdout or stderr:
-        logger.info(
-            'Output from exception:\nstdout:\n%s\nstderr:\n%s',
-            stdout, stderr)
+        logger.info('Output from exception:\nstdout:\n%s\nstderr:\n%s',
+                    stdout, stderr)
     return LoggedException(exc)
 
 
 @contextmanager
 def logged_exception(logger):
-    """
+    """\
     Record exceptions in managed context to logger and reraise LoggedException.
 
-    Note that BaseException classes like SystemExit, KeyboardInterrupt, and
-    GeneratorExit are not wrapped.
+    Note that BaseException classes like SystemExit, GeneratorExit and
+    LoggedException itself are not wrapped, except for KeyboardInterrupt.
     """
     try:
         yield
-    except LoggedException:
-        raise
     except (Exception, KeyboardInterrupt) as e:
         raise log_and_wrap_exception(logger, e)
