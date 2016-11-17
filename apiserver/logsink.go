@@ -64,7 +64,7 @@ func (s *AgentLoggingStrategy) Authenticate(req *http.Request) error {
 }
 
 func (s *AgentLoggingStrategy) Start() {
-	s.filePrefix = s.st.ModelUUID() + " " + s.entity.String() + ":"
+	s.filePrefix = s.st.ModelUUID() + ":"
 	s.dbLogger = state.NewEntityDbLogger(s.st, s.entity, s.version)
 }
 
@@ -74,6 +74,7 @@ func (s *AgentLoggingStrategy) Log(m params.LogRecord) bool {
 	if dbErr != nil {
 		logger.Errorf("logging to DB failed: %v", dbErr)
 	}
+	m.Entity = s.entity.String()
 	fileErr := logToFile(s.fileLogger, s.filePrefix, m)
 	if fileErr != nil {
 		logger.Errorf("logging to logsink.log failed: %v", fileErr)
@@ -220,6 +221,7 @@ func (h *logSinkHandler) sendError(w io.Writer, req *http.Request, err error) {
 func logToFile(logger io.Writer, prefix string, m params.LogRecord) error {
 	_, err := logger.Write([]byte(strings.Join([]string{
 		prefix,
+		m.Entity,
 		m.Time.In(time.UTC).Format("2006-01-02 15:04:05"),
 		m.Level,
 		m.Module,
