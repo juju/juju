@@ -436,8 +436,14 @@ class AddCloud(PromptingExpectChild):
             backend, juju_home, extra_env, self.iter_prompts())
 
     def iter_prompts(self):
-        yield self.TYPE
-        yield self.NAME
+        while True:
+            yield self.TYPE
+            if self.values[self.TYPE] != 'bogus':
+                break
+        while True:
+            yield self.NAME
+            if '/' not in self.values[self.NAME]:
+                break
         if self.values[self.TYPE] == 'maas':
             yield self.API_ENDPOINT
         elif self.values[self.TYPE] == 'manual':
