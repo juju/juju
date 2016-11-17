@@ -157,7 +157,13 @@ func (c StringsWatcherC) AssertChanges() {
 }
 
 func (c StringsWatcherC) AssertChange(expect ...string) {
-	c.assertChange(false, expect...)
+	// Fixes lp#1589641: some time, under race & stress testing,
+	// reads of changes from watcher chan seem to get out of order.
+	// This additional Sync, ensures that the changes are processed correctly.
+	c.State.StartSync()
+	// We should assert for either a single or multiple changes,
+	// based on the number of `expect` changes.
+	c.assertChange(len(expect) == 1, expect...)
 }
 
 func (c StringsWatcherC) AssertChangeInSingleEvent(expect ...string) {
