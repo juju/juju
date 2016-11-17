@@ -63,6 +63,8 @@ def assess_model_migration(bs1, bs2, args):
                     source_client, dest_client)
                 ensure_migration_of_resources_succeeds(
                     source_client, dest_client)
+                ensure_migrating_to_target_and_back_to_source_succeeds(
+                    source_client, dest_client)
 
 
 def parse_args(argv):
@@ -187,7 +189,6 @@ def ensure_able_to_migrate_model_between_controllers(
         - Add a new unit to the application to ensure the model is functional
       - Migrate the model back to the original environment
         - Note: Test for lp:1607457
-        - Note: Also test for lp:1641824
         - Ensure it's operating as expected
         - Add a new unit to the application to ensure the model is functional
     """
@@ -202,12 +203,7 @@ def ensure_able_to_migrate_model_between_controllers(
 
     assert_model_migrated_successfully(migration_target_client, application)
 
-    # Ensure migration works back to the original controller as per lp:1641824
-    re_migrate_client = migrate_model_to_controller(
-        migration_target_client, source_client)
-    assert_model_migrated_successfully(re_migrate_client, application)
-
-    re_migrate_client.remove_service(application)
+    migration_target_client.remove_service(application)
 
 
 def assert_model_migrated_successfully(client, application):
@@ -279,6 +275,35 @@ def ensure_superuser_can_migrate_other_user_models(
     wait_for_model(
         migration_client, user_qualified_model_name)
     migration_client.wait_for_started()
+
+
+def ensure_migrating_to_target_and_back_to_source_succeeds(
+        source_client, dest_client):
+    """Test migration from source to target and back again.
+
+    Almost a duplicate of 'ensure_able_to_migrate_model_between_controllers'
+    except adds the extra step of migrating the model back to the original
+    controller.
+
+    Note: Test for lp:1641824
+    """
+    application = 'mongodb'
+    test_model = deploy_mongodb_to_new_model(
+        source_client, model_name='example-model')
+
+    log.info('Initiating migration process')
+
+    migration_target_client = migrate_model_to_controller(
+        test_model, dest_client)
+
+    assert_model_migrated_successfully(migration_target_client, application)
+
+    # Ensure migration works back to the original controller as per lp:1641824
+    re_migrate_client = migrate_model_to_controller(
+        migration_target_client, source_client)
+    assert_model_migrated_successfully(re_migrate_client, application)
+
+    re_migrate_client.remove_service(application)
 
 
 def deploy_mongodb_to_new_model(client, model_name):
