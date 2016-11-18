@@ -2163,7 +2163,7 @@ class EnvJujuClient:
         try:
             with self.check_timeouts():
                 with self.ignore_soft_deadline():
-                    status = {}
+                    status = None
                     for remaining in until_timeout(timeout):
                         status = self.get_status(controller=True)
                         status.check_agents_started()
