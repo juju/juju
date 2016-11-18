@@ -110,6 +110,10 @@ class GCETestCase(TestCase):
         node = Mock(extra={})
         self.assertIsFalse(gce.is_permanent(node))
 
+    def test_is_young_no_created(self):
+        node = Mock(extra={})
+        self.assertIsTrue(gce.is_young(node, gce.OLD_MACHINE_AGE))
+
     # def test_list_instances(self):
     #     client = make_fake_client()
     #     client.init_services()
