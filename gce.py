@@ -13,7 +13,8 @@ import os
 import sys
 
 from dateutil import parser as date_parser
-import pytz
+from dateutil import tz
+
 
 __metaclass__ = type
 
@@ -38,10 +39,9 @@ def is_permanent(node):
     return PERMANENT in tags
 
 
-def is_young(node, old_age, now=None):
+def is_young(node, old_age):
     """Return True if the node is young."""
-    if not now:
-        now = datetime.now(pytz.utc)
+    now = datetime.now(tz.gettz('UTC'))
     young = True
     # The value is not guaranteed, but is always present in running instances.
     created = node.extra.get('creationTimestamp')
