@@ -410,7 +410,7 @@ func (s *providerUnitTests) TestIdentityClientVersion_ParsesGoodURL(c *gc.C) {
 
 func (s *providerUnitTests) TestSchema(c *gc.C) {
 	y := []byte(`
-auth-types: [userpass, oauth1]
+auth-types: [userpass, access-key]
 endpoint: http://foo.com/openstack
 regions: 
   one:
