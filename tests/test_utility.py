@@ -18,6 +18,7 @@ import warnings
 
 from mock import (
     call,
+    Mock,
     patch,
     )
 
@@ -35,6 +36,9 @@ from utility import (
     get_deb_arch,
     get_winrm_certs,
     is_ipv6_address,
+    log_and_wrap_exception,
+    logged_exception,
+    LoggedException,
     quote,
     run_command,
     scoped_environ,
@@ -714,3 +718,90 @@ class TestQualifiedModelName(TestCase):
             qualified_model_name('admin/default', 'admin'),
             'admin/default'
         )
+
+
+class TestLogAndWrapException(TestCase):
+
+    def test_exception(self):
+        mock_logger = Mock(spec=['exception'])
+        err = Exception('an error')
+        wrapped = log_and_wrap_exception(mock_logger, err)
+        self.assertIs(wrapped.exception, err)
+        mock_logger.exception.assert_called_once_with(err)
+
+    def test_has_stdout(self):
+        mock_logger = Mock(spec=['exception', 'info'])
+        err = Exception('another error')
+        err.output = 'stdout text'
+        wrapped = log_and_wrap_exception(mock_logger, err)
+        self.assertIs(wrapped.exception, err)
+        mock_logger.exception.assert_called_once_with(err)
+        mock_logger.info.assert_called_once_with(
+            'Output from exception:\nstdout:\n%s\nstderr:\n%s', 'stdout text',
+            None)
+
+    def test_has_stderr(self):
+        mock_logger = Mock(spec=['exception', 'info'])
+        err = Exception('another error')
+        err.stderr = 'stderr text'
+        wrapped = log_and_wrap_exception(mock_logger, err)
+        self.assertIs(wrapped.exception, err)
+        mock_logger.exception.assert_called_once_with(err)
+        mock_logger.info.assert_called_once_with(
+            'Output from exception:\nstdout:\n%s\nstderr:\n%s', None,
+            'stderr text')
+
+
+class TestLoggedException(TestCase):
+
+    def test_no_error_no_log(self):
+        mock_logger = Mock(spec_set=[])
+        with logged_exception(mock_logger):
+            pass
+
+    def test_exception_logged_and_wrapped(self):
+        mock_logger = Mock(spec=['exception'])
+        err = Exception('some error')
+        with self.assertRaises(LoggedException) as ctx:
+            with logged_exception(mock_logger):
+                raise err
+        self.assertIs(ctx.exception.exception, err)
+        mock_logger.exception.assert_called_once_with(err)
+
+    def test_exception_logged_once(self):
+        mock_logger = Mock(spec=['exception'])
+        err = Exception('another error')
+        with self.assertRaises(LoggedException) as ctx:
+            with logged_exception(mock_logger):
+                with logged_exception(mock_logger):
+                    raise err
+        self.assertIs(ctx.exception.exception, err)
+        mock_logger.exception.assert_called_once_with(err)
+
+    def test_generator_exit_not_wrapped(self):
+        mock_logger = Mock(spec_set=[])
+        with self.assertRaises(GeneratorExit):
+            with logged_exception(mock_logger):
+                raise GeneratorExit
+
+    def test_keyboard_interrupt_wrapped(self):
+        mock_logger = Mock(spec=['exception'])
+        err = KeyboardInterrupt()
+        with self.assertRaises(LoggedException) as ctx:
+            with logged_exception(mock_logger):
+                raise err
+        self.assertIs(ctx.exception.exception, err)
+        mock_logger.exception.assert_called_once_with(err)
+
+    def test_output_logged(self):
+        mock_logger = Mock(spec=['exception', 'info'])
+        err = Exception('some error')
+        err.output = 'some output'
+        with self.assertRaises(LoggedException) as ctx:
+            with logged_exception(mock_logger):
+                raise err
+        self.assertIs(ctx.exception.exception, err)
+        mock_logger.exception.assert_called_once_with(err)
+        mock_logger.info.assert_called_once_with(
+            'Output from exception:\nstdout:\n%s\nstderr:\n%s', 'some output',
+            None)

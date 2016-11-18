@@ -33,6 +33,10 @@ from jujuconfig import (
     NoSuchEnvironment,
     )
 from jujupy import (
+    AuthNotAccepted,
+    AgentError,
+    AgentUnresolvedError,
+    AppError,
     BootstrapMismatch,
     CannotConnectEnv,
     client_from_config,
@@ -50,7 +54,9 @@ from jujupy import (
     get_local_root,
     get_machine_dns_name,
     get_timeout_path,
+    HookFailedError,
     IncompatibleConfigClass,
+    InstallError,
     jes_home_path,
     JESNotSupported,
     Juju2Backend,
@@ -58,18 +64,25 @@ from jujupy import (
     JUJU_DEV_FEATURE_FLAGS,
     KILL_CONTROLLER,
     Machine,
+    MachineError,
     make_safe_config,
+    NameNotAccepted,
     NoProvider,
     parse_new_state_server_from_error,
     SimpleEnvironment,
-    Status1X,
     SoftDeadlineExceeded,
     Status,
+    Status1X,
+    StatusError,
+    StatusItem,
+    StatusNotMet,
     SYSTEM,
     temp_bootstrap_env,
     _temp_env as temp_env,
     temp_yaml_file,
+    TypeNotAccepted,
     uniquify_local,
+    UnitError,
     UpgradeMongoNotSupported,
     VersionNotTestedError,
     )
@@ -1201,6 +1214,44 @@ class TestEnvJujuClient(ClientTest):
                     client.get_status(500)
         mock_ut.assert_called_with(500)
 
+    def test_show_model_uses_provided_model_name(self):
+        env = JujuData('foo')
+        client = EnvJujuClient(env, None, None)
+        show_model_output = dedent("""\
+            bar:
+                status:
+                    current: available
+                    since: 4 minutes ago
+                    migration: 'Some message.'
+                    migration-start: 48 seconds ago
+        """)
+        with patch.object(
+                client, 'get_juju_output',
+                autospect=True, return_value=show_model_output) as m_gjo:
+            output = client.show_model('bar')
+        self.assertItemsEqual(['bar'], output.keys())
+        m_gjo.assert_called_once_with(
+            'show-model', 'foo:bar', '--format', 'yaml', include_e=False)
+
+    def test_show_model_defaults_to_own_model_name(self):
+        env = JujuData('foo')
+        client = EnvJujuClient(env, None, None)
+        show_model_output = dedent("""\
+            foo:
+                status:
+                    current: available
+                    since: 4 minutes ago
+                    migration: 'Some message.'
+                    migration-start: 48 seconds ago
+        """)
+        with patch.object(
+                client, 'get_juju_output',
+                autospect=True, return_value=show_model_output) as m_gjo:
+            output = client.show_model()
+        self.assertItemsEqual(['foo'], output.keys())
+        m_gjo.assert_called_once_with(
+            'show-model', 'foo:foo', '--format', 'yaml', include_e=False)
+
     @staticmethod
     def make_status_yaml(key, machine_value, unit_value):
         return dedent("""\
@@ -1552,7 +1603,7 @@ class TestEnvJujuClient(ClientTest):
                 with patch.object(GroupReporter, '_write', autospec=True,
                                   side_effect=lambda _, s: writes.append(s)):
                     with self.assertRaisesRegexp(
-                            Exception,
+                            StatusNotMet,
                             'Timed out waiting for agents to start in local'):
                         client.wait_for_started()
                 self.assertEqual(writes, ['pending: 0', ' .', '\n'])
@@ -1567,7 +1618,7 @@ class TestEnvJujuClient(ClientTest):
                 with patch.object(GroupReporter, '_write', autospec=True,
                                   side_effect=lambda _, s: writes.append(s)):
                     with self.assertRaisesRegexp(
-                            Exception,
+                            StatusNotMet,
                             'Timed out waiting for agents to start in local'):
                         client.wait_for_started(start=now - timedelta(1200))
                 self.assertEqual(writes, ['pending: jenkins/0', '\n'])
@@ -1631,6 +1682,55 @@ class TestEnvJujuClient(ClientTest):
             with self.assertRaises(SoftDeadlineExceeded):
                 client._wait_for_status(Mock(), translate)
 
+    @contextmanager
+    def client_status_errors(self, client, errors):
+        """Patch get_status().iter_errors keeping ignore_recoverable."""
+        def fake_iter_errors(ignore_recoverable):
+            for error in errors.pop(0):
+                if not (ignore_recoverable and error.recoverable):
+                    yield error
+
+        with patch.object(client.get_status(), 'iter_errors', autospec=True,
+                          side_effect=fake_iter_errors) as errors_mock:
+            yield errors_mock
+
+    def test__wait_for_status_no_error(self):
+        def translate(x):
+            return {'waiting': '0'}
+
+        errors = [[], []]
+        with self.status_does_not_check() as client:
+            with self.client_status_errors(client, errors) as errors_mock:
+                with self.assertRaises(StatusNotMet):
+                    client._wait_for_status(Mock(), translate, timeout=0)
+        errors_mock.assert_has_calls(
+            [call(ignore_recoverable=True), call(ignore_recoverable=False)])
+
+    def test__wait_for_status_raises_error(self):
+        def translate(x):
+            return {'waiting': '0'}
+
+        errors = [[MachineError('0', 'error not recoverable')]]
+        with self.status_does_not_check() as client:
+            with self.client_status_errors(client, errors) as errors_mock:
+                with self.assertRaises(MachineError):
+                    client._wait_for_status(Mock(), translate, timeout=0)
+        errors_mock.assert_called_once_with(ignore_recoverable=True)
+
+    def test__wait_for_status_delays_recoverable(self):
+        def translate(x):
+            return {'waiting': '0'}
+
+        errors = [[StatusError('fake', 'error is recoverable')],
+                  [UnitError('fake/0', 'error is recoverable')]]
+        with self.status_does_not_check() as client:
+            with self.client_status_errors(client, errors) as errors_mock:
+                with self.assertRaises(UnitError):
+                    client._wait_for_status(Mock(), translate, timeout=0)
+        self.assertEqual(2, errors_mock.call_count)
+        errors_mock.assert_has_calls(
+            [call(ignore_recoverable=True), call(ignore_recoverable=False)])
+
     def test_wait_for_started_logs_status(self):
         value = self.make_status_yaml('agent-state', 'pending', 'started')
         client = EnvJujuClient(JujuData('local'), None, None)
@@ -1639,7 +1739,7 @@ class TestEnvJujuClient(ClientTest):
             with patch.object(GroupReporter, '_write', autospec=True,
                               side_effect=lambda _, s: writes.append(s)):
                 with self.assertRaisesRegexp(
-                        Exception,
+                        StatusNotMet,
                         'Timed out waiting for agents to start in local'):
                     client.wait_for_started(0)
             self.assertEqual(writes, ['pending: 0', '\n'])
@@ -1758,7 +1858,7 @@ class TestEnvJujuClient(ClientTest):
         with patch('utility.until_timeout.now', return_value=now):
             with patch.object(client, 'get_juju_output', return_value=value):
                 with self.assertRaisesRegexp(
-                        Exception,
+                        StatusNotMet,
                         'Timed out waiting for agents to start in local'):
                     client.wait_for_subordinate_units(
                         'jenkins', 'sub1', start=now - timedelta(1200))
@@ -1779,7 +1879,7 @@ class TestEnvJujuClient(ClientTest):
         with patch('utility.until_timeout.now', return_value=now):
             with patch.object(client, 'get_juju_output', return_value=value):
                 with self.assertRaisesRegexp(
-                        Exception,
+                        StatusNotMet,
                         'Timed out waiting for agents to start in local'):
                     client.wait_for_subordinate_units(
                         'jenkins', 'sub1', start=now - timedelta(1200))
@@ -2228,7 +2328,7 @@ class TestEnvJujuClient(ClientTest):
         with patch('jujupy.until_timeout', lambda x: range(0)):
             with patch.object(client, 'get_juju_output', return_value=value):
                 with self.assertRaisesRegexp(
-                        Exception,
+                        StatusNotMet,
                         'Timed out waiting for voting to be enabled.'):
                     client.wait_for_ha()
 
@@ -2284,8 +2384,8 @@ class TestEnvJujuClient(ClientTest):
         with patch('jujupy.until_timeout', lambda x: range(0)):
             with patch.object(client, 'get_juju_output', return_value=value):
                 with self.assertRaisesRegexp(
-                        Exception,
-                        'Timed out waiting for services to start.'):
+                        StatusNotMet,
+                        'Timed out waiting for applications to start.'):
                     client.wait_for_deploy_started()
 
     def make_deployed_status(self):
@@ -2326,7 +2426,7 @@ class TestEnvJujuClient(ClientTest):
                 with patch.object(GroupReporter, '_write', autospec=True,
                                   side_effect=lambda _, s: writes.append(s)):
                     with self.assertRaisesRegexp(
-                            Exception, 'Some versions did not update'):
+                            StatusNotMet, 'Some versions did not update'):
                         client.wait_for_version('1.17.2')
         self.assertEqual(writes, ['1.17.1: jenkins/0', ' .', '\n'])
 
@@ -3148,31 +3248,21 @@ class TestEnvJujuClient(ClientTest):
 
     def test_add_cloud_interactive_maas(self):
         client = fake_juju_client()
-        client.env.clouds = {'clouds': {'foo': {
+        clouds = {'foo': {
             'type': 'maas',
             'endpoint': 'http://bar.example.com',
-            }}}
-        client.add_cloud_interactive('foo')
-        self.assertEqual(client._backend.clouds, {'foo': {
-            'type': 'maas',
-            'endpoint': 'http://bar.example.com',
-            }})
+            }}
+        client.add_cloud_interactive('foo', clouds['foo'])
+        self.assertEqual(client._backend.clouds, clouds)
 
     def test_add_cloud_interactive_manual(self):
         client = fake_juju_client()
-        client.env.clouds = {'clouds': {'foo': {
-            'type': 'manual',
-            'endpoint': '127.100.100.1',
-            }}}
-        client.add_cloud_interactive('foo')
-        self.assertEqual(client._backend.clouds, {'foo': {
-            'type': 'manual',
-            'endpoint': '127.100.100.1',
-            }})
+        clouds = {'foo': {'type': 'manual', 'endpoint': '127.100.100.1'}}
+        client.add_cloud_interactive('foo', clouds['foo'])
+        self.assertEqual(client._backend.clouds, clouds)
 
-    def test_add_cloud_interactive_openstack(self):
-        client = fake_juju_client()
-        clouds = {'foo': {
+    def get_openstack_clouds(self):
+        return {'foo': {
             'type': 'openstack',
             'endpoint': 'http://bar.example.com',
             'auth-types': ['oauth1', 'oauth12'],
@@ -3181,9 +3271,19 @@ class TestEnvJujuClient(ClientTest):
                 'steve': {'endpoint': 'http://steve.example.com'},
                 }
             }}
-        client.env.clouds = {'clouds': clouds}
-        client.add_cloud_interactive('foo')
+
+    def test_add_cloud_interactive_openstack(self):
+        client = fake_juju_client()
+        clouds = self.get_openstack_clouds()
+        client.add_cloud_interactive('foo', clouds['foo'])
         self.assertEqual(client._backend.clouds, clouds)
+
+    def test_add_cloud_interactive_openstack_invalid_auth(self):
+        client = fake_juju_client()
+        clouds = self.get_openstack_clouds()
+        clouds['foo']['auth-types'] = ['invalid', 'oauth12']
+        with self.assertRaises(AuthNotAccepted):
+            client.add_cloud_interactive('foo', clouds['foo'])
 
     def test_add_cloud_interactive_vsphere(self):
         client = fake_juju_client()
@@ -3195,9 +3295,20 @@ class TestEnvJujuClient(ClientTest):
                 'steve': {},
                 }
             }}
-        client.env.clouds = {'clouds': clouds}
-        client.add_cloud_interactive('foo')
+        client.add_cloud_interactive('foo', clouds['foo'])
         self.assertEqual(client._backend.clouds, clouds)
+
+    def test_add_cloud_interactive_bogus(self):
+        client = fake_juju_client()
+        clouds = {'foo': {'type': 'bogus'}}
+        with self.assertRaises(TypeNotAccepted):
+            client.add_cloud_interactive('foo', clouds['foo'])
+
+    def test_add_cloud_interactive_invalid_name(self):
+        client = fake_juju_client()
+        cloud = {'type': 'manual', 'endpoint': 'example.com'}
+        with self.assertRaises(NameNotAccepted):
+            client.add_cloud_interactive('invalid/name', cloud)
 
     def test_show_controller(self):
         env = JujuData('foo')
@@ -3964,7 +4075,7 @@ class TestEnvJujuClient1X(ClientTest):
                 with patch.object(GroupReporter, '_write', autospec=True,
                                   side_effect=lambda _, s: writes.append(s)):
                     with self.assertRaisesRegexp(
-                            Exception,
+                            StatusNotMet,
                             'Timed out waiting for agents to start in local'):
                         client.wait_for_started()
                 self.assertEqual(writes, ['pending: 0', ' .', '\n'])
@@ -3979,7 +4090,7 @@ class TestEnvJujuClient1X(ClientTest):
                 with patch.object(GroupReporter, '_write', autospec=True,
                                   side_effect=lambda _, s: writes.append(s)):
                     with self.assertRaisesRegexp(
-                            Exception,
+                            StatusNotMet,
                             'Timed out waiting for agents to start in local'):
                         client.wait_for_started(start=now - timedelta(1200))
                 self.assertEqual(writes, ['pending: jenkins/0', '\n'])
@@ -3992,7 +4103,7 @@ class TestEnvJujuClient1X(ClientTest):
             with patch.object(GroupReporter, '_write', autospec=True,
                               side_effect=lambda _, s: writes.append(s)):
                 with self.assertRaisesRegexp(
-                        Exception,
+                        StatusNotMet,
                         'Timed out waiting for agents to start in local'):
                     client.wait_for_started(0)
             self.assertEqual(writes, ['pending: 0', '\n'])
@@ -4076,7 +4187,7 @@ class TestEnvJujuClient1X(ClientTest):
         with patch('utility.until_timeout.now', return_value=now):
             with patch.object(client, 'get_juju_output', return_value=value):
                 with self.assertRaisesRegexp(
-                        Exception,
+                        StatusNotMet,
                         'Timed out waiting for agents to start in local'):
                     client.wait_for_subordinate_units(
                         'jenkins', 'sub1', start=now - timedelta(1200))
@@ -4097,7 +4208,7 @@ class TestEnvJujuClient1X(ClientTest):
         with patch('utility.until_timeout.now', return_value=now):
             with patch.object(client, 'get_juju_output', return_value=value):
                 with self.assertRaisesRegexp(
-                        Exception,
+                        StatusNotMet,
                         'Timed out waiting for agents to start in local'):
                     client.wait_for_subordinate_units(
                         'jenkins', 'sub1', start=now - timedelta(1200))
@@ -4199,7 +4310,7 @@ class TestEnvJujuClient1X(ClientTest):
                 with patch.object(GroupReporter, '_write', autospec=True,
                                   side_effect=lambda _, s: writes.append(s)):
                     with self.assertRaisesRegexp(
-                            Exception,
+                            StatusNotMet,
                             'Timed out waiting for voting to be enabled.'):
                         client.wait_for_ha()
             self.assertEqual(writes[:2], ['no-vote: 0, 1, 2', ' .'])
@@ -4218,7 +4329,7 @@ class TestEnvJujuClient1X(ClientTest):
         with patch('jujupy.until_timeout', lambda x: range(0)):
             with patch.object(client, 'get_juju_output', return_value=value):
                 with self.assertRaisesRegexp(
-                        Exception,
+                        StatusNotMet,
                         'Timed out waiting for voting to be enabled.'):
                     client.wait_for_ha()
 
@@ -4250,8 +4361,8 @@ class TestEnvJujuClient1X(ClientTest):
         with patch('jujupy.until_timeout', lambda x: range(0)):
             with patch.object(client, 'get_juju_output', return_value=value):
                 with self.assertRaisesRegexp(
-                        Exception,
-                        'Timed out waiting for services to start.'):
+                        StatusNotMet,
+                        'Timed out waiting for applications to start.'):
                     client.wait_for_deploy_started()
 
     def test_wait_for_version(self):
@@ -4269,7 +4380,7 @@ class TestEnvJujuClient1X(ClientTest):
                 with patch.object(GroupReporter, '_write', autospec=True,
                                   side_effect=lambda _, s: writes.append(s)):
                     with self.assertRaisesRegexp(
-                            Exception, 'Some versions did not update'):
+                            StatusNotMet, 'Some versions did not update'):
                         client.wait_for_version('1.17.2')
         self.assertEqual(writes, ['1.17.1: jenkins/0', ' .', '\n'])
 
@@ -5347,6 +5458,92 @@ class TestTempBootstrapEnv(FakeHomeTestCase):
         self.assertEqual(client.env.juju_home, tb_home)
 
 
+class TestStatusErrorTree(TestCase):
+    """TestCase for StatusError and the tree of exceptions it roots."""
+
+    def test_priority(self):
+        self.assertEqual(7, StatusError.priority())
+
+    def test_priority_mass(self):
+        for index, error_type in enumerate(StatusError.ordering):
+            self.assertEqual(index, error_type.priority())
+
+    def test_priority_children_first(self):
+        for index, error_type in enumerate(StatusError.ordering, 1):
+            for second_error in StatusError.ordering[index:]:
+                self.assertFalse(issubclass(second_error, error_type))
+
+    def test_priority_pairs(self):
+        self.assertLess(MachineError.priority(), UnitError.priority())
+        self.assertLess(UnitError.priority(), AppError.priority())
+
+
+class TestStatusItem(TestCase):
+
+    @staticmethod
+    def make_status_item(status_name, item_name, **kwargs):
+        return StatusItem(status_name, item_name, {status_name: kwargs})
+
+    def assertIsType(self, obj, target_type):
+        self.assertIs(type(obj), target_type)
+
+    def test_datetime_since(self):
+        item = self.make_status_item(StatusItem.JUJU, '0',
+                                     since='19 Aug 2016 05:36:42Z')
+        target = datetime(2016, 8, 19, 5, 36, 42)
+        self.assertEqual(item.datetime_since, target)
+
+    def test_datetime_since_none(self):
+        item = self.make_status_item(StatusItem.JUJU, '0')
+        self.assertIsNone(item.datetime_since)
+
+    def test_to_exception_good(self):
+        item = self.make_status_item(StatusItem.JUJU, '0', current='idle')
+        self.assertIsNone(item.to_exception())
+
+    def test_to_exception_machine_error(self):
+        item = self.make_status_item(StatusItem.MACHINE, '0', current='error')
+        self.assertIsType(item.to_exception(), MachineError)
+
+    def test_to_exception_app_error(self):
+        item = self.make_status_item(StatusItem.APPLICATION, '0',
+                                     current='error')
+        self.assertIsType(item.to_exception(), AppError)
+
+    def test_to_exception_unit_error(self):
+        item = self.make_status_item(StatusItem.WORKLOAD, 'fake/0',
+                                     current='error',
+                                     message='generic unit error')
+        self.assertIsType(item.to_exception(), UnitError)
+
+    def test_to_exception_hook_failed_error(self):
+        item = self.make_status_item(StatusItem.WORKLOAD, 'fake/0',
+                                     current='error',
+                                     message='hook failed: "bad hook"')
+        self.assertIsType(item.to_exception(), HookFailedError)
+
+    def test_to_exception_install_error(self):
+        item = self.make_status_item(StatusItem.WORKLOAD, 'fake/0',
+                                     current='error',
+                                     message='hook failed: "install error"')
+        self.assertIsType(item.to_exception(), InstallError)
+
+    def make_agent_item_ago(self, minutes):
+        now = datetime.utcnow()
+        then = now - timedelta(minutes=minutes)
+        then_str = then.strftime('%d %b %Y %H:%M:%SZ')
+        return self.make_status_item(StatusItem.JUJU, '0', current='error',
+                                     message='some error', since=then_str)
+
+    def test_to_exception_agent_error(self):
+        item = self.make_agent_item_ago(minutes=3)
+        self.assertIsType(item.to_exception(), AgentError)
+
+    def test_to_exception_agent_unresolved_error(self):
+        item = self.make_agent_item_ago(minutes=6)
+        self.assertIsType(item.to_exception(), AgentUnresolvedError)
+
+
 class TestStatus(FakeHomeTestCase):
 
     def test_iter_machines_no_containers(self):
@@ -6017,6 +6214,169 @@ class TestStatus(FakeHomeTestCase):
         self.assertIsInstance(gen, types.GeneratorType)
         self.assertEqual(expected, list(gen))
 
+    @staticmethod
+    def run_iter_status():
+        status = Status({
+            'machines': {
+                '0': {
+                    'juju-status': {
+                        'current': 'idle',
+                        'since': 'DD MM YYYY hh:mm:ss',
+                        'version': '2.0.0',
+                        },
+                    'machine-status': {
+                        'current': 'running',
+                        'message': 'Running',
+                        'since': 'DD MM YYYY hh:mm:ss',
+                        },
+                    },
+                '1': {
+                    'juju-status': {
+                        'current': 'idle',
+                        'since': 'DD MM YYYY hh:mm:ss',
+                        'version': '2.0.0',
+                        },
+                    'machine-status': {
+                        'current': 'running',
+                        'message': 'Running',
+                        'since': 'DD MM YYYY hh:mm:ss',
+                        },
+                    },
+                },
+            'applications': {
+                'fakejob': {
+                    'application-status': {
+                        'current': 'idle',
+                        'since': 'DD MM YYYY hh:mm:ss',
+                        },
+                    'units': {
+                        'fakejob/0': {
+                            'workload-status': {
+                                'current': 'maintenance',
+                                'message': 'Started',
+                                'since': 'DD MM YYYY hh:mm:ss',
+                                },
+                            'juju-status': {
+                                'current': 'idle',
+                                'since': 'DD MM YYYY hh:mm:ss',
+                                'version': '2.0.0',
+                                },
+                            },
+                        'fakejob/1': {
+                            'workload-status': {
+                                'current': 'maintenance',
+                                'message': 'Started',
+                                'since': 'DD MM YYYY hh:mm:ss',
+                                },
+                            'juju-status': {
+                                'current': 'idle',
+                                'since': 'DD MM YYYY hh:mm:ss',
+                                'version': '2.0.0',
+                                },
+                            },
+                        },
+                    }
+                },
+            }, '')
+        for sub_status in status.iter_status():
+            yield sub_status
+
+    def test_iter_status_range(self):
+        status_set = set([(status_item.item_name, status_item.status_name)
+                          for status_item in self.run_iter_status()])
+        self.assertEqual({
+            ('0', 'juju-status'), ('0', 'machine-status'),
+            ('1', 'juju-status'), ('1', 'machine-status'),
+            ('fakejob', 'application-status'),
+            ('fakejob/0', 'workload-status'), ('fakejob/0', 'juju-status'),
+            ('fakejob/1', 'workload-status'), ('fakejob/1', 'juju-status'),
+            }, status_set)
+
+    def test_iter_status_data(self):
+        min_set = set(['current', 'since'])
+        max_set = set(['current', 'message', 'since', 'version'])
+        for status_item in self.run_iter_status():
+            if 'fakejob' == status_item.item_name:
+                self.assertEqual(StatusItem.APPLICATION,
+                                 status_item.status_name)
+                self.assertEqual({'current': 'idle',
+                                  'since': 'DD MM YYYY hh:mm:ss',
+                                  }, status_item.status)
+            else:
+                cur_set = set(status_item.status.keys())
+                self.assertTrue(min_set < cur_set)
+                self.assertTrue(cur_set < max_set)
+
+    def test_iter_errors(self):
+        status = Status({}, '')
+        retval = [
+            StatusItem(StatusItem.WORKLOAD, 'job/0', {'current': 'started'}),
+            StatusItem(StatusItem.APPLICATION, 'job', {'current': 'started'}),
+            StatusItem(StatusItem.MACHINE, '0', {'current': 'error'}),
+            ]
+        with patch.object(status, 'iter_status', autospec=True,
+                          return_value=retval):
+            errors = list(status.iter_errors())
+        self.assertEqual(len(errors), 1)
+        self.assertIsInstance(errors[0], MachineError)
+        self.assertEqual(('0', None), errors[0].args)
+
+    def test_iter_errors_ignore_recoverable(self):
+        status = Status({}, '')
+        retval = [
+            StatusItem(StatusItem.WORKLOAD, 'job/0', {'current': 'error'}),
+            StatusItem(StatusItem.MACHINE, '0', {'current': 'error'}),
+            ]
+        with patch.object(status, 'iter_status', autospec=True,
+                          return_value=retval):
+            errors = list(status.iter_errors(ignore_recoverable=True))
+        self.assertEqual(len(errors), 1)
+        self.assertIsInstance(errors[0], MachineError)
+        self.assertEqual(('0', None), errors[0].args)
+        with patch.object(status, 'iter_status', autospec=True,
+                          return_value=retval):
+            recoverable = list(status.iter_errors())
+        self.assertGreater(len(recoverable), len(errors))
+
+    def test_check_for_errors_good(self):
+        status = Status({}, '')
+        with patch.object(status, 'iter_errors', autospec=True,
+                          return_value=[]) as error_mock:
+            self.assertEqual([], status.check_for_errors())
+        error_mock.assert_called_once_with(False)
+
+    def test_check_for_errors(self):
+        status = Status({}, '')
+        errors = [MachineError('0'), StatusError('2'), UnitError('1')]
+        with patch.object(status, 'iter_errors', autospec=True,
+                          return_value=errors) as errors_mock:
+            sorted_errors = status.check_for_errors()
+        errors_mock.assert_called_once_with(False)
+        self.assertEqual(sorted_errors[0].args, ('0',))
+        self.assertEqual(sorted_errors[1].args, ('1',))
+        self.assertEqual(sorted_errors[2].args, ('2',))
+
+    def test_raise_highest_error(self):
+        status = Status({}, '')
+        retval = [
+            StatusItem(StatusItem.WORKLOAD, 'job/0', {'current': 'error'}),
+            StatusItem(StatusItem.MACHINE, '0', {'current': 'error'}),
+            ]
+        with patch.object(status, 'iter_status', autospec=True,
+                          return_value=retval):
+            with self.assertRaises(MachineError):
+                status.raise_highest_error()
+
+    def test_raise_highest_error_ignore_recoverable(self):
+        status = Status({}, '')
+        retval = [
+            StatusItem(StatusItem.WORKLOAD, 'job/0', {'current': 'error'})]
+        with patch.object(status, 'iter_status', autospec=True,
+                          return_value=retval):
+            status.raise_highest_error(ignore_recoverable=True)
+            with self.assertRaises(UnitError):
+                status.raise_highest_error(ignore_recoverable=False)
+
     def test_get_applications_gets_applications(self):
         status = Status({
             'services': {'service': {}},
@@ -6033,6 +6393,88 @@ class TestStatus1X(FakeHomeTestCase):
             'applications': {'application': {}},
             }, '')
         self.assertEqual({'service': {}}, status.get_applications())
+
+    def test_condense_status(self):
+        status = Status1X({}, '')
+        self.assertEqual(status.condense_status(
+                             {'agent-state': 'started',
+                              'agent-state-info': 'all good',
+                              'agent-version': '1.25.1'}),
+                         {'current': 'started', 'message': 'all good',
+                          'version': '1.25.1'})
+
+    def test_condense_status_no_info(self):
+        status = Status1X({}, '')
+        self.assertEqual(status.condense_status(
+                             {'agent-state': 'started',
+                              'agent-version': '1.25.1'}),
+                         {'current': 'started', 'version': '1.25.1'})
+
+    @staticmethod
+    def run_iter_status():
+        status = Status1X({
+            'environment': 'fake-unit-test',
+            'machines': {
+                '0': {
+                    'agent-state': 'started',
+                    'agent-state-info': 'all good',
+                    'agent-version': '1.25.1',
+                    },
+                },
+            'services': {
+                'dummy-sink': {
+                    'units': {
+                        'dummy-sink/0': {
+                            'agent-state': 'started',
+                            'agent-version': '1.25.1',
+                            },
+                        'dummy-sink/1': {
+                            'workload-status': {
+                                'current': 'active',
+                                },
+                            'agent-status': {
+                                'current': 'executing',
+                                },
+                            'agent-state': 'started',
+                            'agent-version': '1.25.1',
+                            },
+                        }
+                    },
+                'dummy-source': {
+                    'service-status': {
+                        'current': 'active',
+                        },
+                    'units': {
+                        'dummy-source/0': {
+                            'agent-state': 'started',
+                            'agent-version': '1.25.1',
+                            }
+                        }
+                    },
+                },
+            }, '')
+        for sub_status in status.iter_status():
+            yield sub_status
+
+    def test_iter_status_range(self):
+        status_set = set([(status_item.item_name, status_item.status_name,
+                           status_item.current)
+                          for status_item in self.run_iter_status()])
+        APP = StatusItem.APPLICATION
+        WORK = StatusItem.WORKLOAD
+        JUJU = StatusItem.JUJU
+        self.assertEqual({
+            ('0', JUJU, 'started'), ('dummy-sink/0', JUJU, 'started'),
+            ('dummy-sink/1', JUJU, 'executing'),
+            ('dummy-sink/1', WORK, 'active'), ('dummy-source', APP, 'active'),
+            ('dummy-source/0', JUJU, 'started'),
+            }, status_set)
+
+    def test_iter_status_data(self):
+        iterator = self.run_iter_status()
+        self.assertEqual(iterator.next().status,
+                         dict(current='started', message='all good',
+                              version='1.25.1'))
 
 
 def fast_timeout(count):

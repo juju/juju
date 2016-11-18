@@ -8,7 +8,10 @@ from contextlib import (
     contextmanager,
     )
 from copy import deepcopy
-from datetime import datetime
+from datetime import (
+    datetime,
+    timedelta,
+    )
 import errno
 from itertools import chain
 import json
@@ -91,6 +94,18 @@ class SoftDeadlineExceeded(Exception):
 
 class NoProvider(Exception):
     """Raised when an environment defines no provider."""
+
+
+class TypeNotAccepted(Exception):
+    """Raised when the provided type was not accepted."""
+
+
+class NameNotAccepted(Exception):
+    """Raised when the provided name was not accepted."""
+
+
+class AuthNotAccepted(Exception):
+    """Raised when the provided auth was not accepted."""
 
 
 def get_timeout_path():
@@ -217,6 +232,16 @@ class VersionsNotUpdated(StatusNotMet):
 class WorkloadsNotReady(StatusNotMet):
 
     _fmt = 'Workloads not ready in {env}.'
+
+
+class ApplicationsNotStarted(StatusNotMet):
+
+    _fmt = 'Timed out waiting for applications to start in {env}.'
+
+
+class VotingNotEnabled(StatusNotMet):
+
+    _fmt = 'Timed out waiting for voting to be enabled in {env}.'
 
 
 @contextmanager
@@ -533,6 +558,149 @@ class JujuData(SimpleEnvironment):
         return self.get_cloud_credentials_item()[1]
 
 
+class StatusError(Exception):
+    """Generic error for Status."""
+
+    recoverable = True
+
+    # This has to be filled in after the classes are declared.
+    ordering = []
+
+    @classmethod
+    def priority(cls):
+        """Get the priority of the StatusError as an number.
+
+        Lower number means higher priority. This can be used as a key
+        function in sorting."""
+        return cls.ordering.index(cls)
+
+
+class MachineError(StatusError):
+    """Error in machine-status."""
+
+    recoverable = False
+
+
+class UnitError(StatusError):
+    """Error in a unit's status."""
+
+
+class HookFailedError(UnitError):
+    """A unit hook has failed."""
+
+    def __init__(self, item_name, msg):
+        match = re.search('^hook failed: "([^"]+)"$', msg)
+        if match:
+            msg = match.group(1)
+        super(HookFailedError, self).__init__(item_name, msg)
+
+
+class InstallError(HookFailedError):
+    """The unit's install hook has failed."""
+
+    recoverable = False
+
+
+class AppError(StatusError):
+    """Error in an application's status."""
+
+
+class AgentError(StatusError):
+    """Error in a juju agent."""
+
+
+class AgentUnresolvedError(AgentError):
+    """Agent error has not recovered in a reasonable time."""
+
+    # This is the time limit set by IS for recovery from an agent error.
+    a_reasonable_time = timedelta(minutes=5)
+
+    recoverable = False
+
+
+StatusError.ordering = [MachineError, InstallError, AgentUnresolvedError,
+                        HookFailedError, UnitError, AppError, AgentError,
+                        StatusError]
+
+
+class StatusItem:
+
+    APPLICATION = 'application-status'
+    WORKLOAD = 'workload-status'
+    MACHINE = 'machine-status'
+    JUJU = 'juju-status'
+
+    def __init__(self, status_name, item_name, item_value):
+        """Create a new StatusItem from its fields.
+
+        :param status_name: One of the status strings.
+        :param item_name: The name of the machine/unit/application the status
+            information is about.
+        :param item_value: A dictionary of status values. If there is an entry
+            with the status_name in the dictionary its contents are used."""
+        self.status_name = status_name
+        self.item_name = item_name
+        self.status = item_value.get(status_name, item_value)
+
+    @property
+    def message(self):
+        return self.status.get('message')
+
+    @property
+    def since(self):
+        return self.status.get('since')
+
+    @property
+    def current(self):
+        return self.status.get('current')
+
+    @property
+    def version(self):
+        return self.status.get('version')
+
+    @property
+    def datetime_since(self):
+        if self.since is None:
+            return None
+        return datetime.strptime(self.since, '%d %b %Y %H:%M:%SZ')
+
+    def to_exception(self):
+        """Create an exception representing the error if one exists.
+
+        :return: StatusError (or subtype) to represent an error or None
+        to show that there is no error."""
+        if self.current not in ['error', 'failed']:
+            return None
+
+        if self.APPLICATION == self.status_name:
+            return AppError(self.item_name, self.message)
+        elif self.WORKLOAD == self.status_name:
+            if self.message is None:
+                return UnitError(self.item_name, self.message)
+            elif re.match('hook failed: ".*install.*"', self.message):
+                return InstallError(self.item_name, self.message)
+            elif re.match('hook failed', self.message):
+                return HookFailedError(self.item_name, self.message)
+            else:
+                return UnitError(self.item_name, self.message)
+        elif self.MACHINE == self.status_name:
+            return MachineError(self.item_name, self.message)
+        elif self.JUJU == self.status_name:
+            time_since = datetime.utcnow() - self.datetime_since
+            if time_since > AgentUnresolvedError.a_reasonable_time:
+                return AgentUnresolvedError(self.item_name, self.message,
+                                            time_since.total_seconds())
+            else:
+                return AgentError(self.item_name, self.message)
+        else:
+            raise ValueError('Unknown status:{}'.format(self.status_name),
+                             (self.item_name, self.status_value))
+
+    def __repr__(self):
+        return 'StatusItem({!r}, {!r}, {!r})'.format(
+            self.status_name, self.item_name, self.status)
+
+
 class Status:
 
     def __init__(self, status, status_text):
@@ -551,6 +719,9 @@ class Status:
 
     def get_applications(self):
         return self.status.get('applications', {})
+
+    def get_machines(self, default=None):
+        return self.status.get('machines', default)
 
     def iter_machines(self, containers=False, machines=True):
         for machine_name, machine in sorted(self.status['machines'].items()):
@@ -685,11 +856,75 @@ class Status:
         """
         return self.get_unit(unit_name).get('open-ports', [])
 
+    def iter_status(self):
+        """Iterate through every status field in the larger status data."""
+        for machine_name, machine_value in self.get_machines({}).items():
+            yield StatusItem(StatusItem.MACHINE, machine_name, machine_value)
+            yield StatusItem(StatusItem.JUJU, machine_name, machine_value)
+        for app_name, app_value in self.get_applications().items():
+            yield StatusItem(StatusItem.APPLICATION, app_name, app_value)
+            for unit_name, unit_value in app_value.get('units', {}).items():
+                yield StatusItem(StatusItem.WORKLOAD, unit_name, unit_value)
+                yield StatusItem(StatusItem.JUJU, unit_name, unit_value)
+
+    def iter_errors(self, ignore_recoverable=False):
+        """Iterate through every error, repersented by exceptions."""
+        for sub_status in self.iter_status():
+            error = sub_status.to_exception()
+            if error is not None:
+                if not (ignore_recoverable and error.recoverable):
+                    yield error
+
+    def check_for_errors(self, ignore_recoverable=False):
+        """Return a list of errors, in order of their priority."""
+        return sorted(self.iter_errors(ignore_recoverable),
+                      key=lambda item: item.priority())
+
+    def raise_highest_error(self, ignore_recoverable=False):
+        """Raise an exception reperenting the highest priority error."""
+        errors = self.check_for_errors(ignore_recoverable)
+        if errors:
+            raise errors[0]
+
 
 class Status1X(Status):
 
     def get_applications(self):
         return self.status.get('services', {})
+
+    def condense_status(self, item_value):
+        """Condense the scattered agent-* fields into a status dict."""
+        def shift_field(dest_dict, dest_name, src_dict, src_name):
+            if src_name in src_dict:
+                dest_dict[dest_name] = src_dict[src_name]
+        condensed = {}
+        shift_field(condensed, 'current', item_value, 'agent-state')
+        shift_field(condensed, 'version', item_value, 'agent-version')
+        shift_field(condensed, 'message', item_value, 'agent-state-info')
+        return condensed
+
+    def iter_status(self):
+        SERVICE = 'service-status'
+        AGENT = 'agent-status'
+        for machine_name, machine_value in self.get_machines({}).items():
+            yield StatusItem(StatusItem.JUJU, machine_name,
+                             self.condense_status(machine_value))
+        for app_name, app_value in self.get_applications().items():
+            if SERVICE in app_value:
+                yield StatusItem(
+                    StatusItem.APPLICATION, app_name,
+                    {StatusItem.APPLICATION: app_value[SERVICE]})
+            for unit_name, unit_value in app_value.get('units', {}).items():
+                if StatusItem.WORKLOAD in unit_value:
+                    yield StatusItem(StatusItem.WORKLOAD,
+                                     unit_name, unit_value)
+                if AGENT in unit_value:
+                    yield StatusItem(
+                        StatusItem.JUJU, unit_name,
+                        {StatusItem.JUJU: unit_value[AGENT]})
+                else:
+                    yield StatusItem(StatusItem.JUJU, unit_name,
+                                     self.condense_status(unit_value))
 
 
 def describe_substrate(env):
@@ -1486,6 +1721,15 @@ class EnvJujuClient:
         raise Exception(
             'Timed out waiting for juju status to succeed')
 
+    def show_model(self, model_name=None):
+        model_details = self.get_juju_output(
+            'show-model',
+            '{}:{}'.format(
+                self.env.controller.name, model_name or self.env.environment),
+            '--format', 'yaml',
+            include_e=False)
+        return yaml.safe_load(model_details)
+
     @staticmethod
     def _dict_as_option_strings(options):
         return tuple('{}={}'.format(*item) for item in options.items())
@@ -1739,10 +1983,13 @@ class EnvJujuClient:
                         states = translate(status)
                         if states is None:
                             break
+                        status.raise_highest_error(ignore_recoverable=True)
                         reporter.update(states)
                     else:
                         if status is not None:
                             log.error(status.status_text)
+                            status.raise_highest_error(
+                                ignore_recoverable=False)
                         raise exc_type(self.env.environment, status)
         finally:
             reporter.finish()
@@ -1916,6 +2163,7 @@ class EnvJujuClient:
         try:
             with self.check_timeouts():
                 with self.ignore_soft_deadline():
+                    status = None
                     for remaining in until_timeout(timeout):
                         status = self.get_status(controller=True)
                         status.check_agents_started()
@@ -1930,8 +2178,7 @@ class EnvJujuClient:
                                 break
                         reporter.update(states)
                     else:
-                        raise Exception('Timed out waiting for voting to be'
-                                        ' enabled.')
+                        raise VotingNotEnabled(self.env.environment, status)
         finally:
             reporter.finish()
         # XXX sinzui 2014-12-04: bug 1399277 happens because
@@ -1948,12 +2195,13 @@ class EnvJujuClient:
         """
         with self.check_timeouts():
             with self.ignore_soft_deadline():
+                status = None
                 for remaining in until_timeout(timeout):
                     status = self.get_status()
                     if status.get_service_count() >= service_count:
                         return
                 else:
-                    raise Exception('Timed out waiting for services to start.')
+                    raise ApplicationsNotStarted(self.env.environment, status)
 
     def wait_for_workloads(self, timeout=600, start=None):
         """Wait until all unit workloads are in a ready state."""
@@ -2323,20 +2571,25 @@ class EnvJujuClient:
         return self.get_juju_output('list-clouds', '--format',
                                     format, include_e=False)
 
-    def add_cloud_interactive(self, cloud_name):
-        cloud = self.env.clouds['clouds'][cloud_name]
+    def add_cloud_interactive(self, cloud_name, cloud):
         child = self.expect('add-cloud', include_e=False)
         try:
             child.logfile = sys.stdout
             child.expect('Select cloud type:')
             child.sendline(cloud['type'])
-            child.expect('Enter a name for the cloud:')
+            child.expect('(Enter a name for the cloud:)|(Select cloud type:)')
+            if child.match.group(2) is not None:
+                raise TypeNotAccepted('Cloud type not accepted.')
             child.sendline(cloud_name)
             if cloud['type'] == 'maas':
                 child.expect('Enter the API endpoint url:')
                 child.sendline(cloud['endpoint'])
             if cloud['type'] == 'manual':
-                child.expect("Enter the controller's hostname or IP address:")
+                child.expect(
+                    "(Enter the controller's hostname or IP address:)|"
+                    "(Enter a name for the cloud:)")
+                if child.match.group(2) is not None:
+                    raise NameNotAccepted('Cloud name not accepted.')
                 child.sendline(cloud['endpoint'])
             if cloud['type'] == 'openstack':
                 child.expect('Enter the API endpoint url for the cloud:')
@@ -2345,11 +2598,15 @@ class EnvJujuClient:
                     'Select one or more auth types separated by commas:')
                 child.sendline(','.join(cloud['auth-types']))
                 for num, (name, values) in enumerate(cloud['regions'].items()):
-                    child.expect('Enter region name:')
+                    child.expect(
+                        '(Enter region name:)|(Select one or more auth types'
+                        ' separated by commas:)')
+                    if child.match.group(2) is not None:
+                        raise AuthNotAccepted('Auth was not compatible.')
                     child.sendline(name)
                     child.expect('Enter the API endpoint url for the region:')
                     child.sendline(values['endpoint'])
-                    child.expect('Enter another region\? \(Y/n\)')
+                    child.expect('Enter another region\? \(Y/n\):')
                     if num + 1 < len(cloud['regions']):
                         child.sendline('y')
                     else:
@@ -2360,7 +2617,7 @@ class EnvJujuClient:
                 for num, (name, values) in enumerate(cloud['regions'].items()):
                     child.expect('Enter region name:')
                     child.sendline(name)
-                    child.expect('Enter another region\? \(Y/n\)')
+                    child.expect('Enter another region\? \(Y/n\):')
                     if num + 1 < len(cloud['regions']):
                         child.sendline('y')
                     else:
