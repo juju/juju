@@ -507,6 +507,36 @@ class JujuData(SimpleEnvironment):
         juju_data.load_yaml()
         return juju_data
 
+    @classmethod
+    def from_cloud_region(cls, cloud, region, config, clouds, juju_home):
+        """Return a JujuData for the specified cloud and region.
+
+        :param cloud: The name of the cloud to use.
+        :param region: The name of the region to use.  If None, an arbitrary
+            region will be selected.
+        :param config: The bootstrap config to use.
+        :param juju_home: The JUJU_DATA directory to use (credentials are
+            loaded from this.)
+        """
+        cloud_config = clouds['clouds'][cloud]
+        provider = cloud_config['type']
+        config['type'] = provider
+        if provider == 'maas':
+            config['maas-server'] = cloud_config['endpoint']
+        elif provider == 'openstack':
+            config['auth-url'] = cloud_config['endpoint']
+        elif provider == 'vsphere':
+            config['host'] = cloud_config['endpoint']
+        data = JujuData(cloud, config, juju_home)
+        data.load_yaml()
+        data.clouds = clouds
+        if region is None:
+            regions = cloud_config.get('regions', {}).keys()
+            if len(regions) > 0:
+                region = regions[0]
+        data.set_region(region)
+        return data
+
     def dump_yaml(self, path, config):
         """Dump the configuration files to the specified path.
 
@@ -536,7 +566,7 @@ class JujuData(SimpleEnvironment):
         # Model CLI specification
         if provider == 'ec2' and self.config['region'] == 'cn-north-1':
             return 'aws-china'
-        if provider not in ('maas', 'openstack'):
+        if provider not in ('maas', 'openstack', 'vsphere'):
             return {
                 'ec2': 'aws',
                 'gce': 'google',
@@ -545,6 +575,8 @@ class JujuData(SimpleEnvironment):
             endpoint = self.config['maas-server']
         elif provider == 'openstack':
             endpoint = self.config['auth-url']
+        elif provider == 'vsphere':
+            endpoint = self.config['host']
         return self.find_endpoint_cloud(provider, endpoint)
 
     def get_cloud_credentials_item(self):
