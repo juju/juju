@@ -53,11 +53,18 @@ func (ctxt *httpContext) stateForRequestUnauthenticated(r *http.Request) (*state
 // stateForRequestAuthenticated returns a state instance appropriate for
 // using for the model implicit in the given request.
 // It also returns the authenticated entity.
-func (ctxt *httpContext) stateForRequestAuthenticated(r *http.Request) (*state.State, state.Entity, error) {
+func (ctxt *httpContext) stateForRequestAuthenticated(r *http.Request) (
+	resultSt *state.State, resultEntity state.Entity, err error) {
 	st, err := ctxt.stateForRequestUnauthenticated(r)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
+	defer func() {
+		if err != nil {
+			ctxt.release(st)
+		}
+	}()
+
 	req, err := ctxt.loginRequest(r)
 	if err != nil {
 		return nil, nil, errors.NewUnauthorized(err, "")
@@ -112,6 +119,7 @@ func (ctxt *httpContext) stateForRequestAuthenticatedUser(r *http.Request) (*sta
 		return nil, nil, errors.Trace(err)
 	}
 	if ok, err := checkPermissions(entity.Tag(), common.AuthFuncForTagKind(names.UserTagKind)); !ok {
+		ctxt.release(st)
 		return nil, nil, err
 	}
 	return st, entity, nil
@@ -129,6 +137,7 @@ func (ctxt *httpContext) stateForRequestAuthenticatedAgent(r *http.Request) (*st
 		return nil, nil, errors.Trace(err)
 	}
 	if ok, err := checkPermissions(entity.Tag(), authFunc); !ok {
+		ctxt.release(st)
 		return nil, nil, err
 	}
 	return st, entity, nil
