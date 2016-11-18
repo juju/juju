@@ -16,6 +16,7 @@ from bootstrap_public_clouds import (
     bootstrap_cloud_regions,
     default_log_dir,
     iter_cloud_regions,
+    main,
     make_logging_dir,
     parse_args,
     yaml_file_load,
@@ -32,6 +33,15 @@ from utility import (
     )
 
 
+_LOCAL = 'bootstrap_public_clouds'
+
+
+@contextmanager
+def patch_local(target, **kwargs):
+    with patch(_LOCAL + '.' + target, **kwargs) as patched_object:
+        yield patched_object
+
+
 class TestParseArgs(TestCase):
 
     def test_parse_args(self):
@@ -44,6 +54,50 @@ class TestParseArgs(TestCase):
     def test_parse_args_start(self):
         args = parse_args(['--start', '7'])
         self.assertEqual(7, args.start)
+
+
+class EmptyIterator(object):
+
+    def __init__(self, *args, **kwargs):
+        pass
+
+    def __iter__(self):
+        return self
+
+    def next(self):
+        raise StopIteration()
+
+
+class TestMain(TestCase):
+
+    @contextmanager
+    def patch_for_test(self, test_iterator, args=[], clouds={}, creds={}):
+        fake_yaml = {'clouds': clouds, 'credentials': creds}
+        with patch_local('configure_logging', autospec=True):
+            with patch_local('parse_args', return_value=parse_args(args)):
+                with patch_local('yaml_file_load', return_value=fake_yaml):
+                    with patch_local('bootstrap_cloud_regions', autospec=True,
+                                     return_value=test_iterator):
+                        with patch_local('print') as print_mock:
+                            yield print_mock
+
+    def test_main(self):
+        with self.patch_for_test(EmptyIterator()) as print_mock:
+            retval = main()
+        self.assertEqual(0, retval)
+        print_mock.assert_called_once_with('No failures!')
+
+    def test_main_failures(self):
+        errors = [('config', 'region', 'one'), ('config', 'region', 'two')]
+        with self.patch_for_test(errors) as print_mock:
+            retval = main()
+        self.assertEqual(1, retval)
+        print_mock.assert_has_calls([
+            call('Failed:'),
+            call(' * config region one'),
+            call(' * config region two'),
+            ])
+        self.assertEqual(3, print_mock.call_count)
 
 
 class TestHelpers(TestCase):
@@ -115,7 +169,7 @@ class TestIterCloudRegions(TestCase):
 class TestBootstrapCloudRegions(FakeHomeTestCase):
 
     @contextmanager
-    def patch_for_test(self, cloud_regions, client, error=None,):
+    def patch_for_test(self, cloud_regions, client, error=None):
         """Handles all the patching for testing bootstrap_cloud_regions."""
         with patch('bootstrap_public_clouds.iter_cloud_regions',
                    autospec=True, return_value=cloud_regions) as iter_mock:
