@@ -219,7 +219,7 @@ func (s *toolsSuite) TestMigrateTools(c *gc.C) {
 	err = importedModel.SetMigrationMode(state.MigrationModeImporting)
 	c.Assert(err, jc.ErrorIsNil)
 	s.extraHeaders = map[string]string{
-		"Migration-Model-UUID": importedModel.UUID(),
+		params.MigrationModelHTTPHeader: importedModel.UUID(),
 	}
 
 	uri := s.baseURL(c)
@@ -254,7 +254,7 @@ func (s *toolsSuite) TestMigrateToolsNotMigrating(c *gc.C) {
 	newSt := s.Factory.MakeModel(c, nil)
 	defer newSt.Close()
 	s.extraHeaders = map[string]string{
-		"Migration-Model-UUID": newSt.ModelUUID(),
+		params.MigrationModelHTTPHeader: newSt.ModelUUID(),
 	}
 
 	uri := s.baseURL(c)

@@ -401,7 +401,7 @@ func (s *charmsSuite) TestMigrateCharm(c *gc.C) {
 	err = importedModel.SetMigrationMode(state.MigrationModeImporting)
 	c.Assert(err, jc.ErrorIsNil)
 	s.extraHeaders = map[string]string{
-		"Migration-Model-UUID": importedModel.UUID(),
+		params.MigrationModelHTTPHeader: importedModel.UUID(),
 	}
 
 	// The default user is just a normal user, not a controller admin
@@ -425,7 +425,7 @@ func (s *charmsSuite) TestMigrateCharmNotMigrating(c *gc.C) {
 	migratedModel := s.Factory.MakeModel(c, nil)
 	defer migratedModel.Close()
 	s.extraHeaders = map[string]string{
-		"Migration-Model-UUID": migratedModel.ModelUUID(),
+		params.MigrationModelHTTPHeader: migratedModel.ModelUUID(),
 	}
 
 	// The default user is just a normal user, not a controller admin

@@ -121,11 +121,13 @@ func (ctxt *httpContext) stateForMigration(r *http.Request) (st *state.State, er
 	if err != nil {
 		return nil, err
 	}
-	defer func() {
+	// Pass the state pointer into the defer so the return statement doesn't
+	// set the st value to nil.
+	defer func(st *state.State) {
 		if err != nil {
 			ctxt.release(st)
 		}
-	}()
+	}(st)
 
 	if !st.IsController() {
 		return nil, errors.BadRequestf("model is not controller model")
@@ -140,7 +142,7 @@ func (ctxt *httpContext) stateForMigration(r *http.Request) (st *state.State, er
 
 	modelUUID, err := validateModelUUID(validateArgs{
 		statePool: ctxt.srv.statePool,
-		modelUUID: r.Header.Get("Migration-Model-UUID"),
+		modelUUID: r.Header.Get(params.MigrationModelHTTPHeader),
 		strict:    true,
 	})
 	if err != nil {

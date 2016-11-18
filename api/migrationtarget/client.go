@@ -112,7 +112,7 @@ func (c *Client) httpPost(modelUUID string, content io.ReadSeeker, endpoint, con
 		return errors.Annotate(err, "cannot create upload request")
 	}
 	req.Header.Set("Content-Type", contentType)
-	req.Header.Set("Migration-Model-UUID", modelUUID)
+	req.Header.Set(params.MigrationModelHTTPHeader, modelUUID)
 
 	// The returned httpClient sets the base url to /model/<uuid> if it can.
 	httpClient, err := c.httpClientFactory.HTTPClient()
