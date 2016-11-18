@@ -19,10 +19,12 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/storage"
 	"github.com/juju/juju/testcharms"
@@ -385,6 +387,68 @@ func (s *charmsSuite) TestNonLocalCharmUploadWithRevisionOverride(c *gc.C) {
 	c.Assert(sch.URL(), gc.DeepEquals, expectedURL)
 	c.Assert(sch.Revision(), gc.Equals, 99)
 	c.Assert(sch.IsUploaded(), jc.IsTrue)
+}
+
+func (s *charmsSuite) TestMigrateCharm(c *gc.C) {
+	controllerTag := names.NewControllerTag(s.ControllerConfig.ControllerUUID())
+	_, err := s.State.SetUserAccess(s.userTag, controllerTag, permission.SuperuserAccess)
+	c.Assert(err, jc.ErrorIsNil)
+
+	newSt := s.Factory.MakeModel(c, nil)
+	defer newSt.Close()
+	importedModel, err := newSt.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	err = importedModel.SetMigrationMode(state.MigrationModeImporting)
+	c.Assert(err, jc.ErrorIsNil)
+	s.extraHeaders = map[string]string{
+		"Migration-Model-UUID": importedModel.UUID(),
+	}
+
+	// The default user is just a normal user, not a controller admin
+	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
+	url := s.charmsURL(c, "series=quantal")
+	url.Path = "/migrate/charms"
+	resp := s.uploadRequest(c, url.String(), "application/zip", ch.Path)
+	expectedURL := charm.MustParseURL("local:quantal/dummy-1")
+	s.assertUploadResponse(c, resp, expectedURL.String())
+
+	// The charm was added to the migrated model.
+	_, err = newSt.Charm(expectedURL)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *charmsSuite) TestMigrateCharmNotMigrating(c *gc.C) {
+	controllerTag := names.NewControllerTag(s.ControllerConfig.ControllerUUID())
+	_, err := s.State.SetUserAccess(s.userTag, controllerTag, permission.SuperuserAccess)
+	c.Assert(err, jc.ErrorIsNil)
+
+	migratedModel := s.Factory.MakeModel(c, nil)
+	defer migratedModel.Close()
+	s.extraHeaders = map[string]string{
+		"Migration-Model-UUID": migratedModel.ModelUUID(),
+	}
+
+	// The default user is just a normal user, not a controller admin
+	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
+	url := s.charmsURL(c, "series=quantal")
+	url.Path = "/migrate/charms"
+	resp := s.uploadRequest(c, url.String(), "application/zip", ch.Path)
+	s.assertErrorResponse(
+		c, resp, http.StatusBadRequest,
+		"cannot upload charm: model not importing",
+	)
+}
+
+func (s *charmsSuite) TestMigrateCharmUnauth(c *gc.C) {
+	// The default user is just a normal user, not a controller admin
+	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
+	url := s.charmsURL(c, "series=quantal")
+	url.Path = "/migrate/charms"
+	resp := s.uploadRequest(c, url.String(), "application/zip", ch.Path)
+	s.assertErrorResponse(
+		c, resp, http.StatusUnauthorized,
+		"cannot upload charm: not a controller admin",
+	)
 }
 
 func (s *charmsSuite) TestGetRequiresCharmURL(c *gc.C) {

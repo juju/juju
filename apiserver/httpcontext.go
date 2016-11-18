@@ -111,9 +111,65 @@ func checkPermissions(tag names.Tag, acceptFunc common.GetAuthFunc) (bool, error
 	return false, errors.NotValidf("tag kind %v", tag.Kind())
 }
 
-// stateForRequestAuthenticatedUser is like stateForRequestAuthenticated
+// stateForMigration asserts that the incoming connection is from a user that
+// has admin permissions on the controller model. The method also gets the
+// model uuid for the model being migrated from a request header, and returns
+// the state instance for that model.
+func (ctxt *httpContext) stateForMigration(r *http.Request) (st *state.State, err error) {
+	var user state.Entity
+	st, user, err = ctxt.stateAndEntityForRequestAuthenticatedUser(r)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err != nil {
+			ctxt.release(st)
+		}
+	}()
+
+	if !st.IsController() {
+		return nil, errors.BadRequestf("model is not controller model")
+	}
+	admin, err := st.IsControllerAdmin(user.Tag().(names.UserTag))
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if !admin {
+		return nil, errors.Unauthorizedf("not a controller admin")
+	}
+
+	modelUUID, err := validateModelUUID(validateArgs{
+		statePool: ctxt.srv.statePool,
+		modelUUID: r.Header.Get("Migration-Model-UUID"),
+		strict:    true,
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	migrationSt, err := ctxt.srv.statePool.Get(modelUUID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	model, err := migrationSt.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if model.MigrationMode() != state.MigrationModeImporting {
+		return nil, errors.BadRequestf("model not importing")
+	}
+	return migrationSt, nil
+}
+
+// stateForRequestAuthenticatedUser is like stateAndEntityForRequestAuthenticatedUser
+// but doesn't return the entity.
+func (ctxt *httpContext) stateForRequestAuthenticatedUser(r *http.Request) (*state.State, error) {
+	st, _, err := ctxt.stateAndEntityForRequestAuthenticatedUser(r)
+	return st, err
+}
+
+// stateAndEntityForRequestAuthenticatedUser is like stateForRequestAuthenticated
 // except that it also verifies that the authenticated entity is a user.
-func (ctxt *httpContext) stateForRequestAuthenticatedUser(r *http.Request) (*state.State, state.Entity, error) {
+func (ctxt *httpContext) stateAndEntityForRequestAuthenticatedUser(r *http.Request) (*state.State, state.Entity, error) {
 	st, entity, err := ctxt.stateForRequestAuthenticated(r)
 	if err != nil {
 		return nil, nil, errors.Trace(err)

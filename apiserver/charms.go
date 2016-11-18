@@ -74,20 +74,25 @@ func (h *CharmsHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // charmsHandler handles charm upload through HTTPS in the API server.
 type charmsHandler struct {
-	ctxt    httpContext
-	dataDir string
+	ctxt          httpContext
+	dataDir       string
+	stateAuthFunc func(*http.Request) (*state.State, error)
 }
 
 // bundleContentSenderFunc functions are responsible for sending a
 // response related to a charm bundle.
 type bundleContentSenderFunc func(w http.ResponseWriter, r *http.Request, bundle *charm.CharmArchive) error
 
+func (h *charmsHandler) ServeUnsupported(w http.ResponseWriter, r *http.Request) error {
+	return errors.Trace(emitUnsupportedMethodErr(r.Method))
+}
+
 func (h *charmsHandler) ServePost(w http.ResponseWriter, r *http.Request) error {
 	if r.Method != "POST" {
 		return errors.Trace(emitUnsupportedMethodErr(r.Method))
 	}
 
-	st, _, err := h.ctxt.stateForRequestAuthenticatedUser(r)
+	st, err := h.stateAuthFunc(r)
 	if err != nil {
 		return errors.Trace(err)
 	}

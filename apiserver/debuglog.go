@@ -75,7 +75,7 @@ func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			// Validate before authenticate because the authentication is
 			// dependent on the state connection that is determined during the
 			// validation.
-			st, _, err := h.ctxt.stateForRequestAuthenticatedUser(req)
+			st, err := h.ctxt.stateForRequestAuthenticatedUser(req)
 			if err != nil {
 				socket.sendError(err)
 				return
