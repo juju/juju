@@ -13,10 +13,11 @@ const (
 )
 
 func init() {
-	osProvider := openstack.EnvironProvider{
+	osProvider := &openstack.EnvironProvider{
 		Credentials{},
 		&rackspaceConfigurator{},
 		&firewallerFactory{},
+		openstack.FlavorFilterFunc(acceptRackspaceFlavor),
 	}
 	providerInstance = &environProvider{
 		osProvider,
