@@ -46,16 +46,16 @@ func (s *remoteRelationsSuite) TestWatchRemoteApplications(c *gc.C) {
 	c.Check(callCount, gc.Equals, 1)
 }
 
-func (s *remoteRelationsSuite) TestWatchRemoteApplication(c *gc.C) {
+func (s *remoteRelationsSuite) TestWatchRemoteApplicationRelations(c *gc.C) {
 	var callCount int
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "RemoteRelations")
 		c.Check(version, gc.Equals, 0)
 		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "WatchRemoteApplication")
-		c.Assert(result, gc.FitsTypeOf, &params.ApplicationRelationsWatchResults{})
-		*(result.(*params.ApplicationRelationsWatchResults)) = params.ApplicationRelationsWatchResults{
-			Results: []params.ApplicationRelationsWatchResult{{
+		c.Check(request, gc.Equals, "WatchRemoteApplicationRelations")
+		c.Assert(result, gc.FitsTypeOf, &params.RemoteRelationsWatchResults{})
+		*(result.(*params.RemoteRelationsWatchResults)) = params.RemoteRelationsWatchResults{
+			Results: []params.RemoteRelationsWatchResult{{
 				Error: &params.Error{Message: "FAIL"},
 			}},
 		}
@@ -63,7 +63,7 @@ func (s *remoteRelationsSuite) TestWatchRemoteApplication(c *gc.C) {
 		return nil
 	})
 	st := remoterelations.NewState(apiCaller)
-	_, err := st.WatchRemoteApplication("db2")
+	_, err := st.WatchRemoteApplicationRelations("db2")
 	c.Check(err, gc.ErrorMatches, "FAIL")
 	c.Check(callCount, gc.Equals, 1)
 }
@@ -73,6 +73,6 @@ func (s *remoteRelationsSuite) TestWatchRemoteApplicationInvalidService(c *gc.C)
 		return nil
 	})
 	st := remoterelations.NewState(apiCaller)
-	_, err := st.WatchRemoteApplication("!@#")
+	_, err := st.WatchRemoteApplicationRelations("!@#")
 	c.Assert(err, gc.ErrorMatches, `application name "!@#" not valid`)
 }

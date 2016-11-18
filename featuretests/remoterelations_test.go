@@ -58,7 +58,7 @@ func (s *remoteRelationsSuite) TestWatchRemoteApplications(c *gc.C) {
 	wc.AssertNoChange()
 }
 
-func (s *remoteRelationsSuite) TestWatchRemoteApplication(c *gc.C) {
+func (s *remoteRelationsSuite) TestWatchRemoteApplicationRelations(c *gc.C) {
 	// Add a remote application, and watch it. It should initially have no
 	// relations.
 	_, err := s.State.AddRemoteApplication("mysql", "local:/u/me/mysql", []charm.Relation{{
@@ -68,15 +68,15 @@ func (s *remoteRelationsSuite) TestWatchRemoteApplication(c *gc.C) {
 		Scope:     charm.ScopeGlobal,
 	}})
 	c.Assert(err, jc.ErrorIsNil)
-	w, err := s.client.WatchRemoteApplication("mysql")
+	w, err := s.client.WatchRemoteApplicationRelations("mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(w, gc.NotNil)
 	defer func() {
 		c.Assert(worker.Stop(w), jc.ErrorIsNil)
 	}()
 
-	assertApplicationRelationsChange(c, s.BackingState, w, watcher.ApplicationRelationsChange{})
-	assertNoApplicationRelationsChange(c, s.BackingState, w)
+	assertRemoteRelationsChange(c, s.BackingState, w, watcher.RemoteRelationsChange{})
+	assertNoRemoteRelationsChange(c, s.BackingState, w)
 
 	// Add the relation, and expect a watcher change.
 	wordpress := s.Factory.MakeApplication(c, &factory.ApplicationParams{
@@ -89,15 +89,15 @@ func (s *remoteRelationsSuite) TestWatchRemoteApplication(c *gc.C) {
 	rel, err := s.State.AddRelation(eps[0], eps[1])
 	c.Assert(err, jc.ErrorIsNil)
 
-	expect := watcher.ApplicationRelationsChange{
-		ChangedRelations: []watcher.RelationChange{{
+	expect := watcher.RemoteRelationsChange{
+		ChangedRelations: []watcher.RemoteRelationChange{{
 			RelationId:   rel.Id(),
 			Life:         "alive",
-			ChangedUnits: map[string]watcher.RelationUnitChange{},
+			ChangedUnits: map[string]watcher.RemoteRelationUnitChange{},
 		}},
 	}
-	assertApplicationRelationsChange(c, s.BackingState, w, expect)
-	assertNoApplicationRelationsChange(c, s.BackingState, w)
+	assertRemoteRelationsChange(c, s.BackingState, w, expect)
+	assertNoRemoteRelationsChange(c, s.BackingState, w)
 
 	// Add a unit of wordpress, expect a change.
 	settings := map[string]interface{}{"key": "value"}
@@ -107,16 +107,16 @@ func (s *remoteRelationsSuite) TestWatchRemoteApplication(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = ru.EnterScope(settings)
 	c.Assert(err, jc.ErrorIsNil)
-	expect.ChangedRelations[rel.Id()] = watcher.RelationChange{
+	expect.ChangedRelations[rel.Id()] = watcher.RemoteRelationChange{
 		Life: "alive",
-		ChangedUnits: map[string]watcher.RelationUnitChange{
+		ChangedUnits: map[string]watcher.RemoteRelationUnitChange{
 			wordpress0.Name(): {
 				Settings: settings,
 			},
 		},
 	}
-	assertApplicationRelationsChange(c, s.BackingState, w, expect)
-	assertNoApplicationRelationsChange(c, s.BackingState, w)
+	assertRemoteRelationsChange(c, s.BackingState, w, expect)
+	assertNoRemoteRelationsChange(c, s.BackingState, w)
 
 	// Change the settings, expect a change.
 	ruSettings, err := ru.Settings()
@@ -127,15 +127,15 @@ func (s *remoteRelationsSuite) TestWatchRemoteApplication(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	// Numeric settings values are unmarshalled as float64.
 	settings["quay"] = float64(123)
-	expect.ChangedRelations[rel.Id()].ChangedUnits[wordpress0.Name()] = watcher.RelationUnitChange{
+	expect.ChangedRelations[rel.Id()].ChangedUnits[wordpress0.Name()] = watcher.RemoteRelationUnitChange{
 		Settings: settings,
 	}
-	assertApplicationRelationsChange(c, s.BackingState, w, expect)
-	assertNoApplicationRelationsChange(c, s.BackingState, w)
+	assertRemoteRelationsChange(c, s.BackingState, w, expect)
+	assertNoRemoteRelationsChange(c, s.BackingState, w)
 }
 
-func assertApplicationRelationsChange(
-	c *gc.C, ss statetesting.SyncStarter, w watcher.ApplicationRelationsWatcher, expect watcher.ApplicationRelationsChange,
+func assertRemoteRelationsChange(
+	c *gc.C, ss statetesting.SyncStarter, w watcher.RemoteRelationsWatcher, expect watcher.RemoteRelationsChange,
 ) {
 	ss.StartSync()
 	select {
@@ -147,7 +147,7 @@ func assertApplicationRelationsChange(
 	}
 }
 
-func assertNoApplicationRelationsChange(c *gc.C, ss statetesting.SyncStarter, w watcher.ApplicationRelationsWatcher) {
+func assertNoRemoteRelationsChange(c *gc.C, ss statetesting.SyncStarter, w watcher.RemoteRelationsWatcher) {
 	ss.StartSync()
 	select {
 	case change, ok := <-w.Changes():

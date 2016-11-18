@@ -515,24 +515,24 @@ func (w *migrationStatusWatcher) Changes() <-chan watcher.MigrationStatus {
 	return w.out
 }
 
-// applicationRelationsWatcher will sends changes to relations an application
-// is involved in, including changes to the units involved in those
-// relations, and their settings.
-type applicationRelationsWatcher struct {
+// remoteRelationsWatcher will sends changes to relations an application
+// is involved in with another remote application, including changes to the
+// remote units involved in those relations, and their settings.
+type remoteRelationsWatcher struct {
 	commonWatcher
-	caller                        base.APICaller
-	applicationRelationsWatcherId string
-	out                           chan watcher.ApplicationRelationsChange
+	caller                   base.APICaller
+	remoteRelationsWatcherId string
+	out                      chan watcher.RemoteRelationsChange
 }
 
-// NewApplicationRelationsWatcher returns an ApplicationRelationsWatcher which
-// communicates with the ApplicationRelationsWatcher API facade to watch
+// NewRemoteRelationsWatcher returns a RemoteRelationsWatcher which
+// communicates with the RemoteRelationsWatcher API facade to watch
 // application relations.
-func NewApplicationRelationsWatcher(caller base.APICaller, result params.ApplicationRelationsWatchResult) watcher.ApplicationRelationsWatcher {
-	w := &applicationRelationsWatcher{
+func NewRemoteRelationsWatcher(caller base.APICaller, result params.RemoteRelationsWatchResult) watcher.RemoteRelationsWatcher {
+	w := &remoteRelationsWatcher{
 		caller: caller,
-		applicationRelationsWatcherId: result.ApplicationRelationsWatcherId,
-		out: make(chan watcher.ApplicationRelationsChange),
+		remoteRelationsWatcherId: result.RemoteRelationsWatcherId,
+		out: make(chan watcher.RemoteRelationsChange),
 	}
 	go func() {
 		defer w.tomb.Done()
@@ -542,10 +542,10 @@ func NewApplicationRelationsWatcher(caller base.APICaller, result params.Applica
 	return w
 }
 
-func (w *applicationRelationsWatcher) loop(initialChanges params.ApplicationRelationsChange) error {
-	changes := copyApplicationRelationsChange(initialChanges)
-	w.newResult = func() interface{} { return new(params.ApplicationRelationsWatchResult) }
-	w.call = makeWatcherAPICaller(w.caller, "ApplicationRelationsWatcher", w.applicationRelationsWatcherId)
+func (w *remoteRelationsWatcher) loop(initialChanges params.RemoteRelationsChange) error {
+	changes := copyRemoteRelationsChange(initialChanges)
+	w.newResult = func() interface{} { return new(params.RemoteRelationsWatchResult) }
+	w.call = makeWatcherAPICaller(w.caller, "RemoteRelationsWatcher", w.remoteRelationsWatcherId)
 	w.commonWatcher.init()
 	go w.commonLoop()
 
@@ -563,25 +563,25 @@ func (w *applicationRelationsWatcher) loop(initialChanges params.ApplicationRela
 			// at this point, so just return.
 			return nil
 		}
-		changes = copyApplicationRelationsChange(*data.(*params.ApplicationRelationsWatchResult).Changes)
+		changes = copyRemoteRelationsChange(*data.(*params.RemoteRelationsWatchResult).Changes)
 	}
 }
 
-func copyApplicationRelationsChange(src params.ApplicationRelationsChange) watcher.ApplicationRelationsChange {
-	dst := watcher.ApplicationRelationsChange{
+func copyRemoteRelationsChange(src params.RemoteRelationsChange) watcher.RemoteRelationsChange {
+	dst := watcher.RemoteRelationsChange{
 		RemovedRelations: src.RemovedRelations,
 	}
 	if src.ChangedRelations != nil {
-		dst.ChangedRelations = make([]watcher.RelationChange, len(src.ChangedRelations))
+		dst.ChangedRelations = make([]watcher.RemoteRelationChange, len(src.ChangedRelations))
 		for i, change := range src.ChangedRelations {
-			cr := watcher.RelationChange{
+			cr := watcher.RemoteRelationChange{
 				RelationId:    change.RelationId,
 				Life:          multiwatcher.Life(change.Life),
 				DepartedUnits: change.DepartedUnits,
 			}
-			cr.ChangedUnits = make(map[string]watcher.RelationUnitChange)
+			cr.ChangedUnits = make(map[string]watcher.RemoteRelationUnitChange)
 			for name, relationChange := range change.ChangedUnits {
-				cr.ChangedUnits[name] = watcher.RelationUnitChange{Settings: relationChange.Settings}
+				cr.ChangedUnits[name] = watcher.RemoteRelationUnitChange{Settings: relationChange.Settings}
 			}
 			dst.ChangedRelations[i] = cr
 		}
@@ -593,6 +593,6 @@ func copyApplicationRelationsChange(src params.ApplicationRelationsChange) watch
 // relations an application is involved in. The first event on the channel
 // holds the initial state of the application's relations in its Changed
 // field.
-func (w *applicationRelationsWatcher) Changes() watcher.ApplicationRelationsChannel {
+func (w *remoteRelationsWatcher) Changes() watcher.RemoteRelationsChannel {
 	return w.out
 }

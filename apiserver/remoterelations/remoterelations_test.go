@@ -61,7 +61,7 @@ func (s *remoteRelationsSuite) TestWatchRemoteApplications(c *gc.C) {
 	c.Assert(resource, gc.Implements, new(state.StringsWatcher))
 }
 
-func (s *remoteRelationsSuite) TestWatchRemoteApplication(c *gc.C) {
+func (s *remoteRelationsSuite) TestWatchRemoteApplicationRelations(c *gc.C) {
 	djangoRelationUnit := newMockRelationUnit()
 	djangoRelationUnit.settings["key"] = "value"
 	db2RelationsWatcher := newMockStringsWatcher()
@@ -76,19 +76,19 @@ func (s *remoteRelationsSuite) TestWatchRemoteApplication(c *gc.C) {
 	s.st.relations["db2:db django:db"] = db2Relation
 	s.st.applicationRelationsWatchers["db2"] = db2RelationsWatcher
 
-	results, err := s.api.WatchRemoteApplication(params.Entities{[]params.Entity{
+	results, err := s.api.WatchRemoteApplicationRelations(params.Entities{[]params.Entity{
 		{"application-db2"},
 		{"application-hadoop"},
 		{"machine-42"},
 	}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, jc.DeepEquals, []params.ApplicationRelationsWatchResult{{
-		ApplicationRelationsWatcherId: "1",
-		Changes: &params.ApplicationRelationsChange{
-			ChangedRelations: []params.RelationChange{{
+	c.Assert(results.Results, jc.DeepEquals, []params.RemoteRelationsWatchResult{{
+		RemoteRelationsWatcherId: "1",
+		Changes: &params.RemoteRelationsChange{
+			ChangedRelations: []params.RemoteRelationChange{{
 				RelationId: 123,
 				Life:       params.Alive,
-				ChangedUnits: map[string]params.RelationUnitChange{
+				ChangedUnits: map[string]params.RemoteRelationUnitChange{
 					"django/0": {
 						Settings: djangoRelationUnit.settings,
 					},
@@ -130,14 +130,14 @@ func (s *remoteRelationsSuite) TestWatchRemoteApplicationRelationRemoved(c *gc.C
 	s.st.relations["db2:db django:db"] = db2Relation
 	s.st.applicationRelationsWatchers["db2"] = db2RelationsWatcher
 
-	results, err := s.api.WatchRemoteApplication(params.Entities{[]params.Entity{{"application-db2"}}})
+	results, err := s.api.WatchRemoteApplicationRelations(params.Entities{[]params.Entity{{"application-db2"}}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, jc.DeepEquals, []params.ApplicationRelationsWatchResult{{
-		ApplicationRelationsWatcherId: "1",
-		Changes: &params.ApplicationRelationsChange{
+	c.Assert(results.Results, jc.DeepEquals, []params.RemoteRelationsWatchResult{{
+		RemoteRelationsWatcherId: "1",
+		Changes: &params.RemoteRelationsChange{
 			// The relation is not found, but it was never reported
 			// to us, so it should not be reported in "Removed".
-			ChangedRelations: []params.RelationChange{{
+			ChangedRelations: []params.RemoteRelationChange{{
 				RelationId: 123,
 				Life:       params.Alive,
 			}},
@@ -147,9 +147,9 @@ func (s *remoteRelationsSuite) TestWatchRemoteApplicationRelationRemoved(c *gc.C
 	// Remove the relation, and expect it to be reported as removed.
 	delete(s.st.relations, "db2:db django:db")
 	db2RelationsWatcher.changes <- []string{"db2:db django:db"}
-	w := s.resources.Get("1").(apiserver.ApplicationRelationsWatcher)
+	w := s.resources.Get("1").(apiserver.RemoteRelationsWatcher)
 	change := <-w.Changes()
-	c.Assert(change, jc.DeepEquals, params.ApplicationRelationsChange{
+	c.Assert(change, jc.DeepEquals, params.RemoteRelationsChange{
 		RemovedRelations: []int{123},
 	})
 
@@ -171,13 +171,13 @@ func (s *remoteRelationsSuite) TestWatchRemoteApplicationRelationRemovedRace(c *
 	db2RelationsWatcher.changes <- []string{"db2:db django:db"}
 	s.st.applicationRelationsWatchers["db2"] = db2RelationsWatcher
 
-	results, err := s.api.WatchRemoteApplication(params.Entities{[]params.Entity{{"application-db2"}}})
+	results, err := s.api.WatchRemoteApplicationRelations(params.Entities{[]params.Entity{{"application-db2"}}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, jc.DeepEquals, []params.ApplicationRelationsWatchResult{{
-		ApplicationRelationsWatcherId: "1",
+	c.Assert(results.Results, jc.DeepEquals, []params.RemoteRelationsWatchResult{{
+		RemoteRelationsWatcherId: "1",
 		// The relation is not found, but it was never reported
 		// to us, so it should not be reported in "Removed".
-		Changes: &params.ApplicationRelationsChange{},
+		Changes: &params.RemoteRelationsChange{},
 	}})
 	s.st.CheckCalls(c, []testing.StubCall{
 		{"WatchRemoteApplicationRelations", []interface{}{"db2"}},
@@ -200,15 +200,15 @@ func (s *remoteRelationsSuite) TestWatchRemoteApplicationRelationUnitRemoved(c *
 	s.st.relations["db2:db django:db"] = db2Relation
 	s.st.applicationRelationsWatchers["db2"] = db2RelationsWatcher
 
-	results, err := s.api.WatchRemoteApplication(params.Entities{[]params.Entity{{"application-db2"}}})
+	results, err := s.api.WatchRemoteApplicationRelations(params.Entities{[]params.Entity{{"application-db2"}}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, jc.DeepEquals, []params.ApplicationRelationsWatchResult{{
-		ApplicationRelationsWatcherId: "1",
-		Changes: &params.ApplicationRelationsChange{
-			ChangedRelations: []params.RelationChange{{
+	c.Assert(results.Results, jc.DeepEquals, []params.RemoteRelationsWatchResult{{
+		RemoteRelationsWatcherId: "1",
+		Changes: &params.RemoteRelationsChange{
+			ChangedRelations: []params.RemoteRelationChange{{
 				RelationId: 123,
 				Life:       params.Alive,
-				ChangedUnits: map[string]params.RelationUnitChange{
+				ChangedUnits: map[string]params.RemoteRelationUnitChange{
 					"django/0": {
 						Settings: djangoRelationUnit.settings,
 					},
@@ -220,10 +220,10 @@ func (s *remoteRelationsSuite) TestWatchRemoteApplicationRelationUnitRemoved(c *
 	db2RelationUnitsWatcher.changes <- params.RelationUnitsChange{
 		Departed: []string{"django/0"},
 	}
-	w := s.resources.Get("1").(apiserver.ApplicationRelationsWatcher)
+	w := s.resources.Get("1").(apiserver.RemoteRelationsWatcher)
 	change := <-w.Changes()
-	c.Assert(change, jc.DeepEquals, params.ApplicationRelationsChange{
-		ChangedRelations: []params.RelationChange{{
+	c.Assert(change, jc.DeepEquals, params.RemoteRelationsChange{
+		ChangedRelations: []params.RemoteRelationChange{{
 			RelationId:    123,
 			Life:          params.Alive,
 			DepartedUnits: []string{"django/0"},
@@ -250,12 +250,12 @@ func (s *remoteRelationsSuite) TestWatchRemoteApplicationRelationUnitRemovedRace
 	s.st.relations["db2:db django:db"] = db2Relation
 	s.st.applicationRelationsWatchers["db2"] = db2RelationsWatcher
 
-	results, err := s.api.WatchRemoteApplication(params.Entities{[]params.Entity{{"application-db2"}}})
+	results, err := s.api.WatchRemoteApplicationRelations(params.Entities{[]params.Entity{{"application-db2"}}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, jc.DeepEquals, []params.ApplicationRelationsWatchResult{{
-		ApplicationRelationsWatcherId: "1",
-		Changes: &params.ApplicationRelationsChange{
-			ChangedRelations: []params.RelationChange{{
+	c.Assert(results.Results, jc.DeepEquals, []params.RemoteRelationsWatchResult{{
+		RemoteRelationsWatcherId: "1",
+		Changes: &params.RemoteRelationsChange{
+			ChangedRelations: []params.RemoteRelationChange{{
 				RelationId: 123,
 				Life:       params.Alive,
 			}},
@@ -264,7 +264,7 @@ func (s *remoteRelationsSuite) TestWatchRemoteApplicationRelationUnitRemovedRace
 }
 
 func (s *remoteRelationsSuite) TestPublishLocalRelationsChange(c *gc.C) {
-	_, err := s.api.PublishLocalRelationsChange(params.ApplicationRelationsChanges{})
+	_, err := s.api.PublishLocalRelationsChange(params.RemoteRelationsChanges{})
 	c.Assert(err, jc.Satisfies, errors.IsNotImplemented)
 }
 
@@ -285,15 +285,15 @@ func (s *remoteRelationsSuite) TestConsumeRemoveApplicationChange(c *gc.C) {
 	relation2.units["mysql/1"] = mysql1
 	mysql0Settings := map[string]interface{}{"k": "v"}
 
-	results, err := s.api.ConsumeRemoteApplicationChange(params.ApplicationChanges{
-		Changes: []params.ApplicationChange{{
+	results, err := s.api.ConsumeRemoteApplicationChange(params.RemoteApplicationChanges{
+		Changes: []params.RemoteApplicationChange{{
 			ApplicationTag: "application-mysql",
 			Life:           params.Alive,
-			Relations: params.ApplicationRelationsChange{
-				ChangedRelations: []params.RelationChange{{
+			Relations: params.RemoteRelationsChange{
+				ChangedRelations: []params.RemoteRelationChange{{
 					RelationId: 1,
 					Life:       params.Alive,
-					ChangedUnits: map[string]params.RelationUnitChange{
+					ChangedUnits: map[string]params.RemoteRelationUnitChange{
 						"mysql/0": {mysql0Settings},
 					},
 				}, {

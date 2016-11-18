@@ -60,12 +60,12 @@ func NewRemoteRelationsAPI(
 // ConsumeRemoteApplicationChange consumes remote changes to applications into the
 // local environment.
 func (api *RemoteRelationsAPI) ConsumeRemoteApplicationChange(
-	changes params.ApplicationChanges,
+	changes params.RemoteApplicationChanges,
 ) (params.ErrorResults, error) {
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(changes.Changes)),
 	}
-	handleApplicationRelationsChange := func(change params.ApplicationRelationsChange) error {
+	handleRemoteRelationsChange := func(change params.RemoteRelationsChange) error {
 		// For any relations that have been removed on the offering
 		// side, destroy them on the consuming side.
 		for _, relId := range change.RemovedRelations {
@@ -120,7 +120,7 @@ func (api *RemoteRelationsAPI) ConsumeRemoteApplicationChange(
 		}
 		return nil
 	}
-	handleApplicationChange := func(change params.ApplicationChange) error {
+	handleApplicationChange := func(change params.RemoteApplicationChange) error {
 		applicationTag, err := names.ParseApplicationTag(change.ApplicationTag)
 		if err != nil {
 			return errors.Trace(err)
@@ -131,7 +131,7 @@ func (api *RemoteRelationsAPI) ConsumeRemoteApplicationChange(
 		}
 		// TODO(axw) update application status, lifecycle state.
 		_ = application
-		return handleApplicationRelationsChange(change.Relations)
+		return handleRemoteRelationsChange(change.Relations)
 	}
 	for i, change := range changes.Changes {
 		if err := handleApplicationChange(change); err != nil {
@@ -144,7 +144,7 @@ func (api *RemoteRelationsAPI) ConsumeRemoteApplicationChange(
 // PublishLocalRelationChange publishes local relations changes to the
 // remote side offering those relations.
 func (api *RemoteRelationsAPI) PublishLocalRelationsChange(
-	changes params.ApplicationRelationsChanges,
+	changes params.RemoteRelationsChanges,
 ) (params.ErrorResults, error) {
 	return params.ErrorResults{}, errors.NotImplementedf("PublishLocalRelationChange")
 }
@@ -164,12 +164,12 @@ func (api *RemoteRelationsAPI) WatchRemoteApplications() (params.StringsWatchRes
 	return params.StringsWatchResult{}, watcher.EnsureErr(w)
 }
 
-// WatchRemoteApplication starts a ApplicationRelationsWatcher for each specified
+// WatchRemoteApplicationRelations starts a RemoteRelationsWatcher for each specified
 // remote application, and returns the watcher IDs and initial values, or an error
 // if the remote applications could not be watched.
-func (api *RemoteRelationsAPI) WatchRemoteApplication(args params.Entities) (params.ApplicationRelationsWatchResults, error) {
-	results := params.ApplicationRelationsWatchResults{
-		make([]params.ApplicationRelationsWatchResult, len(args.Entities)),
+func (api *RemoteRelationsAPI) WatchRemoteApplicationRelations(args params.Entities) (params.RemoteRelationsWatchResults, error) {
+	results := params.RemoteRelationsWatchResults{
+		make([]params.RemoteRelationsWatchResult, len(args.Entities)),
 	}
 	for i, arg := range args.Entities {
 		applicationTag, err := names.ParseApplicationTag(arg.Tag)
@@ -187,7 +187,7 @@ func (api *RemoteRelationsAPI) WatchRemoteApplication(args params.Entities) (par
 			results.Results[i].Error = common.ServerError(watcher.EnsureErr(w))
 			continue
 		}
-		results.Results[i].ApplicationRelationsWatcherId = api.resources.Register(w)
+		results.Results[i].RemoteRelationsWatcherId = api.resources.Register(w)
 		results.Results[i].Changes = &changes
 	}
 	return results, nil
@@ -200,7 +200,7 @@ func (api *RemoteRelationsAPI) watchApplication(applicationTag names.Application
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return newApplicationRelationsWatcher(api.st, applicationName, relationsWatcher), nil
+	return newRemoteRelationsWatcher(api.st, applicationName, relationsWatcher), nil
 }
 
 // applicationRelationsWatcher watches the relations of a application, and the
@@ -213,10 +213,10 @@ type applicationRelationsWatcher struct {
 	relationUnitsChanges  chan relationUnitsChange
 	relationUnitsWatchers map[string]*relationWatcher
 	relations             map[string]relationInfo
-	out                   chan params.ApplicationRelationsChange
+	out                   chan params.RemoteRelationsChange
 }
 
-func newApplicationRelationsWatcher(
+func newRemoteRelationsWatcher(
 	st RemoteRelationsState,
 	applicationName string,
 	rw state.StringsWatcher,
@@ -228,7 +228,7 @@ func newApplicationRelationsWatcher(
 		relationUnitsChanges:  make(chan relationUnitsChange),
 		relationUnitsWatchers: make(map[string]*relationWatcher),
 		relations:             make(map[string]relationInfo),
-		out:                   make(chan params.ApplicationRelationsChange),
+		out:                   make(chan params.RemoteRelationsChange),
 	}
 	go func() {
 		defer w.tomb.Done()
@@ -246,8 +246,8 @@ func newApplicationRelationsWatcher(
 }
 
 func (w *applicationRelationsWatcher) loop() error {
-	var out chan<- params.ApplicationRelationsChange
-	var value params.ApplicationRelationsChange
+	var out chan<- params.RemoteRelationsChange
+	var value params.RemoteRelationsChange
 	for {
 		select {
 		case <-w.tomb.Dying():
@@ -332,19 +332,19 @@ func (w *applicationRelationsWatcher) loop() error {
 
 		case out <- value:
 			out = nil
-			value = params.ApplicationRelationsChange{}
+			value = params.RemoteRelationsChange{}
 		}
 	}
 }
 
-func (w *applicationRelationsWatcher) updateRelationUnits(change relationUnitsChange, value *params.ApplicationRelationsChange) {
+func (w *applicationRelationsWatcher) updateRelationUnits(change relationUnitsChange, value *params.RemoteRelationsChange) {
 	relationInfo, ok := w.relations[change.relationKey]
 	r, ok := getRelationChange(value, relationInfo.relationId)
 	if !ok {
 		r.Life = relationInfo.life
 	}
 	if r.ChangedUnits == nil && len(change.changedUnits) > 0 {
-		r.ChangedUnits = make(map[string]params.RelationUnitChange)
+		r.ChangedUnits = make(map[string]params.RemoteRelationUnitChange)
 	}
 	for unitId, unitChange := range change.changedUnits {
 		r.ChangedUnits[unitId] = unitChange
@@ -357,19 +357,19 @@ func (w *applicationRelationsWatcher) updateRelationUnits(change relationUnitsCh
 	r.DepartedUnits = append(r.DepartedUnits, change.departedUnits...)
 }
 
-func getRelationChange(value *params.ApplicationRelationsChange, relationId int) (*params.RelationChange, bool) {
+func getRelationChange(value *params.RemoteRelationsChange, relationId int) (*params.RemoteRelationChange, bool) {
 	for i, r := range value.ChangedRelations {
 		if r.RelationId == relationId {
 			return &value.ChangedRelations[i], true
 		}
 	}
 	value.ChangedRelations = append(
-		value.ChangedRelations, params.RelationChange{RelationId: relationId},
+		value.ChangedRelations, params.RemoteRelationChange{RelationId: relationId},
 	)
 	return &value.ChangedRelations[len(value.ChangedRelations)-1], false
 }
 
-func (w *applicationRelationsWatcher) updateRelation(change params.RelationChange, value *params.ApplicationRelationsChange) {
+func (w *applicationRelationsWatcher) updateRelation(change params.RemoteRelationChange, value *params.RemoteRelationsChange) {
 	for i, r := range value.ChangedRelations {
 		if r.RelationId == change.RelationId {
 			value.ChangedRelations[i] = change
@@ -378,7 +378,7 @@ func (w *applicationRelationsWatcher) updateRelation(change params.RelationChang
 	}
 }
 
-func (w *applicationRelationsWatcher) Changes() <-chan params.ApplicationRelationsChange {
+func (w *applicationRelationsWatcher) Changes() <-chan params.RemoteRelationsChange {
 	return w.out
 }
 
@@ -464,7 +464,7 @@ func updateRelationUnits(
 	value *relationUnitsChange,
 ) error {
 	if value.changedUnits == nil && len(change.Changed) > 0 {
-		value.changedUnits = make(map[string]params.RelationUnitChange)
+		value.changedUnits = make(map[string]params.RemoteRelationUnitChange)
 	}
 	if value.changedUnits != nil {
 		for _, unitId := range change.Departed {
@@ -496,7 +496,7 @@ func updateRelationUnits(
 		if err != nil {
 			return errors.Trace(err)
 		}
-		value.changedUnits[unitId] = params.RelationUnitChange{settings}
+		value.changedUnits[unitId] = params.RemoteRelationUnitChange{settings}
 		if knownUnits != nil {
 			knownUnits.Add(unitId)
 		}
@@ -520,6 +520,6 @@ type relationInfo struct {
 
 type relationUnitsChange struct {
 	relationKey   string
-	changedUnits  map[string]params.RelationUnitChange
+	changedUnits  map[string]params.RemoteRelationUnitChange
 	departedUnits []string
 }

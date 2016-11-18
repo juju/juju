@@ -41,22 +41,22 @@ func (st *State) WatchRemoteApplications() (watcher.StringsWatcher, error) {
 	return w, nil
 }
 
-// WatchRemoteApplication returns application relations watchers that delivers
+// WatchRemoteApplicationRelations returns remote relations watchers that delivers
 // changes according to the addition, removal, and lifecycle changes of
 // relations that the specified remote application is involved in; and also
 // according to the entering, departing, and change of unit settings in
 // those relations.
-func (st *State) WatchRemoteApplication(service string) (watcher.ApplicationRelationsWatcher, error) {
-	if !names.IsValidApplication(service) {
-		return nil, errors.NotValidf("application name %q", service)
+func (st *State) WatchRemoteApplicationRelations(application string) (watcher.RemoteRelationsWatcher, error) {
+	if !names.IsValidApplication(application) {
+		return nil, errors.NotValidf("application name %q", application)
 	}
-	serviceTag := names.NewApplicationTag(service)
+	applicationTag := names.NewApplicationTag(application)
 	args := params.Entities{
-		Entities: []params.Entity{{Tag: serviceTag.String()}},
+		Entities: []params.Entity{{Tag: applicationTag.String()}},
 	}
 
-	var results params.ApplicationRelationsWatchResults
-	err := st.facade.FacadeCall("WatchRemoteApplication", args, &results)
+	var results params.RemoteRelationsWatchResults
+	err := st.facade.FacadeCall("WatchRemoteApplicationRelations", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -67,6 +67,6 @@ func (st *State) WatchRemoteApplication(service string) (watcher.ApplicationRela
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	w := apiwatcher.NewApplicationRelationsWatcher(st.facade.RawAPICaller(), result)
+	w := apiwatcher.NewRemoteRelationsWatcher(st.facade.RawAPICaller(), result)
 	return w, nil
 }
