@@ -143,7 +143,10 @@ def main():
         succeeded, failed = assess_all_clouds(client, clouds)
     write_status('Succeeded', succeeded)
     write_status('Failed', failed)
+    if len(failed) > 0:
+        return 1
+    return 0
 
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())
