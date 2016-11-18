@@ -6,6 +6,7 @@ from mock import (
     Mock,
     patch,
 )
+from argparse import Namespace
 
 import pytz
 
@@ -14,8 +15,8 @@ import gce
 
 
 GCE_ENVIRON = {
-    'GCE_SA_EMAIL': '1234asdf@serviceaccount.google.com',
-    'GCE_PEM_PATH': '/my-gce-serveraccount.json',
+    'GCE_SA_EMAIL': 'me@serviceaccount.google.com',
+    'GCE_PEM_PATH': '/gce-serveraccount.json',
     'GCE_PROJECT_ID': 'test-project',
 }
 
@@ -59,3 +60,40 @@ class GCETestCase(TestCase):
             GCE_ENVIRON['GCE_PROJECT_ID'])
         di_mock.assert_called_once_with(
             client, 'juju-deploy*', old_age=2, dry_run=False)
+
+    def test_parse_args_delete_instaces(self):
+        with patch.dict('os.environ', GCE_ENVIRON):
+            args = gce.parse_args(
+                ['gce.py', '-v', '-d',
+                 'delete-instances', '-o', '2', 'juju-deploy*'])
+        expected = Namespace(
+            command='delete-instances', dry_run=True, filter='juju-deploy*',
+            old_age=2, pem_path='/gce-serveraccount.json',
+            project_id='test-project', sa_email='me@serviceaccount.google.com',
+            verbose=10)
+        self.assertEqual(expected, args)
+
+    def test_parse_args_list_instances(self):
+        with patch.dict('os.environ', GCE_ENVIRON):
+            args = gce.parse_args(
+                ['gce.py', '-v', '-d', 'list-instances', 'juju-deploy*'])
+        expected = Namespace(
+            command='list-instances', dry_run=True, filter='juju-deploy*',
+            pem_path='/gce-serveraccount.json',
+            project_id='test-project', sa_email='me@serviceaccount.google.com',
+            verbose=10)
+        self.assertEqual(expected, args)
+
+    def test_parse_args_without_env(self):
+        args = gce.parse_args(
+            ['gce.py', '-v', '-d',
+             '--sa-email', 'me@serviceaccount.google.com',
+             '--pem-path', '/gce-serveraccount.json',
+             '--project-id', 'test-project',
+             'delete-instances', '-o', '2', 'juju-deploy*'])
+        expected = Namespace(
+            command='delete-instances', dry_run=True, filter='juju-deploy*',
+            old_age=2, pem_path='/gce-serveraccount.json',
+            project_id='test-project', sa_email='me@serviceaccount.google.com',
+            verbose=10)
+        self.assertEqual(expected, args)
