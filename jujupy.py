@@ -706,6 +706,9 @@ class Status:
     def get_applications(self):
         return self.status.get('applications', {})
 
+    def get_machines(self, default=None):
+        return self.status.get('machines', default)
+
     def iter_machines(self, containers=False, machines=True):
         for machine_name, machine in sorted(self.status['machines'].items()):
             if machines:
@@ -839,11 +842,75 @@ class Status:
         """
         return self.get_unit(unit_name).get('open-ports', [])
 
+    def iter_status(self):
+        """Iterate through every status field in the larger status data."""
+        for machine_name, machine_value in self.get_machines({}).items():
+            yield StatusItem(StatusItem.MACHINE, machine_name, machine_value)
+            yield StatusItem(StatusItem.JUJU, machine_name, machine_value)
+        for app_name, app_value in self.get_applications().items():
+            yield StatusItem(StatusItem.APPLICATION, app_name, app_value)
+            for unit_name, unit_value in app_value['units'].items():
+                yield StatusItem(StatusItem.WORKLOAD, unit_name, unit_value)
+                yield StatusItem(StatusItem.JUJU, unit_name, unit_value)
+
+    def iter_errors(self, ignore_recoverable=False):
+        """Iterate through every error, repersented by exceptions."""
+        for sub_status in self.iter_status():
+            error = sub_status.to_exception()
+            if error is not None:
+                if not (ignore_recoverable and error.recoverable):
+                    yield error
+
+    def check_for_errors(self, ignore_recoverable=False):
+        """Return a list of errors, in order of their priority."""
+        return sorted(self.iter_errors(ignore_recoverable),
+                      key=lambda item: item.priority())
+
+    def raise_highest_error(self, ignore_recoverable=False):
+        """Raise an exception reperenting the highest priority error."""
+        errors = self.check_for_errors(ignore_recoverable)
+        if errors:
+            raise errors[0]
+
 
 class Status1X(Status):
 
     def get_applications(self):
         return self.status.get('services', {})
+
+    def condense_status(self, item_value):
+        """Condense the scattered agent-* fields into a status dict."""
+        def shift_field(dest_dict, dest_name, src_dict, src_name):
+            if src_name in src_dict:
+                dest_dict[dest_name] = src_dict[src_name]
+        condensed = {}
+        shift_field(condensed, 'current', item_value, 'agent-state')
+        shift_field(condensed, 'version', item_value, 'agent-version')
+        shift_field(condensed, 'message', item_value, 'agent-state-info')
+        return condensed
+
+    def iter_status(self):
+        SERVICE = 'service-status'
+        AGENT = 'agent-status'
+        for machine_name, machine_value in self.get_machines({}).items():
+            yield StatusItem(StatusItem.JUJU, machine_name,
+                             self.condense_status(machine_value))
+        for app_name, app_value in self.get_applications().items():
+            if SERVICE in app_value:
+                yield StatusItem(
+                    StatusItem.APPLICATION, app_name,
+                    {StatusItem.APPLICATION: app_value[SERVICE]})
+            for unit_name, unit_value in app_value['units'].items():
+                if StatusItem.WORKLOAD in unit_value:
+                    yield StatusItem(StatusItem.WORKLOAD,
+                                     unit_name, unit_value)
+                if AGENT in unit_value:
+                    yield StatusItem(
+                        StatusItem.JUJU, unit_name,
+                        {StatusItem.JUJU: unit_value[AGENT]})
+                else:
+                    yield StatusItem(StatusItem.JUJU, unit_name,
+                                     self.condense_status(unit_value))
 
 
 def describe_substrate(env):

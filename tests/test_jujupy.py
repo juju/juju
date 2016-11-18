@@ -6164,6 +6164,167 @@ class TestStatus(FakeHomeTestCase):
         self.assertIsInstance(gen, types.GeneratorType)
         self.assertEqual(expected, list(gen))
 
+    @staticmethod
+    def run_iter_status():
+        status = Status({
+            'machines': {
+                '0': {
+                    'juju-status': {
+                        'current': 'idle',
+                        'since': 'DD MM YYYY hh:mm:ss',
+                        'version': '2.0.0',
+                        },
+                    'machine-status': {
+                        'current': 'running',
+                        'message': 'Running',
+                        'since': 'DD MM YYYY hh:mm:ss',
+                        },
+                    },
+                '1': {
+                    'juju-status': {
+                        'current': 'idle',
+                        'since': 'DD MM YYYY hh:mm:ss',
+                        'version': '2.0.0',
+                        },
+                    'machine-status': {
+                        'current': 'running',
+                        'message': 'Running',
+                        'since': 'DD MM YYYY hh:mm:ss',
+                        },
+                    },
+                },
+            'applications': {
+                'fakejob': {
+                    'application-status': {
+                        'current': 'idle',
+                        'since': 'DD MM YYYY hh:mm:ss',
+                        },
+                    'units': {
+                        'fakejob/0': {
+                            'workload-status': {
+                                'current': 'maintenance',
+                                'message': 'Started',
+                                'since': 'DD MM YYYY hh:mm:ss',
+                                },
+                            'juju-status': {
+                                'current': 'idle',
+                                'since': 'DD MM YYYY hh:mm:ss',
+                                'version': '2.0.0',
+                                },
+                            },
+                        'fakejob/1': {
+                            'workload-status': {
+                                'current': 'maintenance',
+                                'message': 'Started',
+                                'since': 'DD MM YYYY hh:mm:ss',
+                                },
+                            'juju-status': {
+                                'current': 'idle',
+                                'since': 'DD MM YYYY hh:mm:ss',
+                                'version': '2.0.0',
+                                },
+                            },
+                        },
+                    }
+                },
+            }, '')
+        for sub_status in status.iter_status():
+            yield sub_status
+
+    def test_iter_status_range(self):
+        status_set = set([(status_item.item_name, status_item.status_name)
+                          for status_item in self.run_iter_status()])
+        self.assertEqual({
+            ('0', 'juju-status'), ('0', 'machine-status'),
+            ('1', 'juju-status'), ('1', 'machine-status'),
+            ('fakejob', 'application-status'),
+            ('fakejob/0', 'workload-status'), ('fakejob/0', 'juju-status'),
+            ('fakejob/1', 'workload-status'), ('fakejob/1', 'juju-status'),
+            }, status_set)
+
+    def test_iter_status_data(self):
+        min_set = set(['current', 'since'])
+        max_set = set(['current', 'message', 'since', 'version'])
+        for status_item in self.run_iter_status():
+            if 'fakejob' == status_item.item_name:
+                self.assertEqual(StatusItem.APPLICATION,
+                                 status_item.status_name)
+                self.assertEqual({'current': 'idle',
+                                  'since': 'DD MM YYYY hh:mm:ss',
+                                  }, status_item.status)
+            else:
+                cur_set = set(status_item.status.keys())
+                self.assertTrue(min_set < cur_set)
+                self.assertTrue(cur_set < max_set)
+
+    def test_iter_errors(self):
+        status = Status({}, '')
+        retval = [
+            StatusItem(StatusItem.WORKLOAD, 'job/0', {'current': 'started'}),
+            StatusItem(StatusItem.APPLICATION, 'job', {'current': 'started'}),
+            StatusItem(StatusItem.MACHINE, '0', {'current': 'error'}),
+            ]
+        with patch.object(status, 'iter_status', autospec=True,
+                          return_value=retval):
+            errors = list(status.iter_errors())
+        self.assertEqual(len(errors), 1)
+        self.assertIsInstance(errors[0], MachineError)
+        self.assertEqual(('0', None), errors[0].args)
+
+    def test_iter_errors_ignore_recoverable(self):
+        status = Status({}, '')
+        retval = [
+            StatusItem(StatusItem.WORKLOAD, 'job/0', {'current': 'error'}),
+            StatusItem(StatusItem.MACHINE, '0', {'current': 'error'}),
+            ]
+        with patch.object(status, 'iter_status', autospec=True,
+                          return_value=retval):
+            errors = list(status.iter_errors(ignore_recoverable=True))
+        self.assertEqual(len(errors), 1)
+        self.assertIsInstance(errors[0], MachineError)
+        self.assertEqual(('0', None), errors[0].args)
+        with patch.object(status, 'iter_status', autospec=True,
+                          return_value=retval):
+            recoverable = list(status.iter_errors())
+        self.assertGreater(len(recoverable), len(errors))
+
+    def test_check_for_errors_good(self):
+        status = Status({}, '')
+        with patch.object(status, 'iter_errors', autospec=True,
+                          return_value=[]) as error_mock:
+            self.assertEqual([], status.check_for_errors())
+        error_mock.assert_called_once_with(False)
+
+    def test_check_for_errors(self):
+        status = Status({}, '')
+        errors = [MachineError('0'), StatusError('2'), UnitError('1')]
+        with patch.object(status, 'iter_errors', autospec=True,
+                          return_value=errors) as errors_mock:
+            sorted_errors = status.check_for_errors()
+        errors_mock.assert_called_once_with(False)
+        self.assertEqual(sorted_errors[0].args, ('0',))
+        self.assertEqual(sorted_errors[1].args, ('1',))
+        self.assertEqual(sorted_errors[2].args, ('2',))
+
+    def test_raise_highest_error(self):
+        status = Status({}, '')
+        retval = [
+            StatusItem(StatusItem.WORKLOAD, 'job/0', {'current': 'error'}),
+            StatusItem(StatusItem.MACHINE, '0', {'current': 'error'}),
+            ]
+        with patch.object(status, 'iter_status', autospec=True,
+                          return_value=retval):
+            with self.assertRaises(MachineError):
+                status.raise_highest_error()
+
+    def test_raise_highest_error_ignore_recoverable(self):
+        status = Status({}, '')
+        retval = [
+            StatusItem(StatusItem.WORKLOAD, 'job/0', {'current': 'error'})]
+        with patch.object(status, 'iter_status', autospec=True,
+                          return_value=retval):
+            status.raise_highest_error(ignore_recoverable=True)
+
     def test_get_applications_gets_applications(self):
         status = Status({
             'services': {'service': {}},
@@ -6180,6 +6341,88 @@ class TestStatus1X(FakeHomeTestCase):
             'applications': {'application': {}},
             }, '')
         self.assertEqual({'service': {}}, status.get_applications())
+
+    def test_condense_status(self):
+        status = Status1X({}, '')
+        self.assertEqual(status.condense_status(
+                             {'agent-state': 'started',
+                              'agent-state-info': 'all good',
+                              'agent-version': '1.25.1'}),
+                         {'current': 'started', 'message': 'all good',
+                          'version': '1.25.1'})
+
+    def test_condense_status_no_info(self):
+        status = Status1X({}, '')
+        self.assertEqual(status.condense_status(
+                             {'agent-state': 'started',
+                              'agent-version': '1.25.1'}),
+                         {'current': 'started', 'version': '1.25.1'})
+
+    @staticmethod
+    def run_iter_status():
+        status = Status1X({
+            'environment': 'fake-unit-test',
+            'machines': {
+                '0': {
+                    'agent-state': 'started',
+                    'agent-state-info': 'all good',
+                    'agent-version': '1.25.1',
+                    },
+                },
+            'services': {
+                'dummy-sink': {
+                    'units': {
+                        'dummy-sink/0': {
+                            'agent-state': 'started',
+                            'agent-version': '1.25.1',
+                            },
+                        'dummy-sink/1': {
+                            'workload-status': {
+                                'current': 'active',
+                                },
+                            'agent-status': {
+                                'current': 'executing',
+                                },
+                            'agent-state': 'started',
+                            'agent-version': '1.25.1',
+                            },
+                        }
+                    },
+                'dummy-source': {
+                    'service-status': {
+                        'current': 'active',
+                        },
+                    'units': {
+                        'dummy-source/0': {
+                            'agent-state': 'started',
+                            'agent-version': '1.25.1',
+                            }
+                        }
+                    },
+                },
+            }, '')
+        for sub_status in status.iter_status():
+            yield sub_status
+
+    def test_iter_status_range(self):
+        status_set = set([(status_item.item_name, status_item.status_name,
+                           status_item.current)
+                          for status_item in self.run_iter_status()])
+        APP = StatusItem.APPLICATION
+        WORK = StatusItem.WORKLOAD
+        JUJU = StatusItem.JUJU
+        self.assertEqual({
+            ('0', JUJU, 'started'), ('dummy-sink/0', JUJU, 'started'),
+            ('dummy-sink/1', JUJU, 'executing'),
+            ('dummy-sink/1', WORK, 'active'), ('dummy-source', APP, 'active'),
+            ('dummy-source/0', JUJU, 'started'),
+            }, status_set)
+
+    def test_iter_status_data(self):
+        iterator = self.run_iter_status()
+        self.assertEqual(iterator.next().status,
+                         dict(current='started', message='all good',
+                              version='1.25.1'))
 
 
 def fast_timeout(count):
