@@ -27,7 +27,7 @@ log = logging.getLogger('bootstrap_public_clouds')
 
 def make_logging_dir(base_dir, config, region):
     log_dir = os.path.join(base_dir, config, region)
-    os.mkdirs(log_dir)
+    os.makedirs(log_dir)
     return log_dir
 
 

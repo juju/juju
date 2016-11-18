@@ -3,16 +3,22 @@
 
 from argparse import Namespace
 from contextlib import contextmanager
+import os
 
 from mock import (
     call,
+    Mock,
     patch,
     )
+import yaml
 
 from bootstrap_public_clouds import (
     bootstrap_cloud_regions,
+    default_log_dir,
     iter_cloud_regions,
+    make_logging_dir,
     parse_args,
+    yaml_file_load,
     )
 from fakejuju import (
     fake_juju_client,
@@ -20,6 +26,9 @@ from fakejuju import (
 from tests import (
     FakeHomeTestCase,
     TestCase,
+    )
+from utility import (
+    temp_dir,
     )
 
 
@@ -35,6 +44,51 @@ class TestParseArgs(TestCase):
     def test_parse_args_start(self):
         args = parse_args(['--start', '7'])
         self.assertEqual(7, args.start)
+
+
+class TestHelpers(TestCase):
+
+    def test_make_logging_dir(self):
+        with patch('os.makedirs', autospec=True) as mkdirs_mock:
+            log_dir = make_logging_dir('base', 'config', 'region')
+        self.assertEqual('base/config/region', log_dir)
+        mkdirs_mock.assert_called_once_with('base/config/region')
+
+    def test_yaml_file_load(self):
+        with temp_dir() as root_dir:
+            src_file = os.path.join(root_dir, 'test.yaml')
+            with open(src_file, 'w') as yaml_file:
+                yaml_file.write('data:\n  alpha: A\n  beta: B\n')
+            with patch('bootstrap_public_clouds.get_juju_home', autospec=True,
+                       return_value=root_dir) as get_home_mock:
+                data = yaml_file_load('test.yaml')
+        get_home_mock.assert_called_once_with()
+        self.assertEqual(data, {'data': {'alpha': 'A', 'beta': 'B'}})
+
+    def test_default_log_dir(self):
+        settings = Namespace(logs=None)
+        with patch(
+                'deploy_stack.BootstrapManager._generate_default_clean_dir',
+                return_value='/tmp12345') as clean_dir_mock:
+            default_log_dir(settings)
+        self.assertEqual('/tmp12345', settings.logs)
+        self.assertEqual(1, clean_dir_mock.call_count)
+
+    def test_default_log_dir_provided(self):
+        settings = Namespace(logs='/tmpABCDE')
+        with patch(
+                'deploy_stack.BootstrapManager._generate_default_clean_dir',
+                autospec=True) as clean_dir_mock:
+            default_log_dir(settings)
+        self.assertEqual('/tmpABCDE', settings.logs)
+        self.assertFalse(clean_dir_mock.called)
+
+
+class TestBootstrapCloud(TestCase):
+
+    # Next in line?
+    def test_(self):
+        pass
 
 
 class TestIterCloudRegions(TestCase):
