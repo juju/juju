@@ -303,6 +303,21 @@ func (i *InterfaceInfo) CIDRAddress() string {
 	return ipNet.String()
 }
 
+// MAC returns the MacAddress member value.
+func (i *InterfaceInfo) MAC() string {
+	return i.MACAddress
+}
+
+// DeviceName returns the InterfaceName member value.
+func (i *InterfaceInfo) DeviceName() string {
+	return i.InterfaceName
+}
+
+// ParentDeviceName returns the ParentInterfaceNAme member value.
+func (i *InterfaceInfo) ParentDeviceName() string {
+	return i.ParentInterfaceName
+}
+
 // ProviderInterfaceInfo holds enough information to identify an
 // interface or link layer device to a provider so that it can be
 // queried or manipulated. Its initial purpose is to pass to
