@@ -13,6 +13,7 @@ import subprocess
 import sys
 from unittest import (
     skipIf,
+    TestCase,
     )
 
 from mock import (
@@ -32,6 +33,7 @@ from deploy_stack import (
     check_token,
     copy_local_logs,
     copy_remote_logs,
+    CreateController,
     deploy_dummy_stack,
     deploy_job,
     _deploy_job,
@@ -43,6 +45,8 @@ from deploy_stack import (
     iter_remote_machines,
     get_remote_machines,
     GET_TOKEN_SCRIPT,
+    make_controller_strategy,
+    PublicController,
     safe_print_status,
     retain_config,
     update_env,
@@ -1035,6 +1039,7 @@ class TestDeployJob(FakeHomeTestCase):
             series='trusty', debug=False, agent_url=None, agent_stream=None,
             keep_env=False, upload_tools=False, with_chaos=1, jes=False,
             region=None, verbose=False, upgrade=False, deadline=None,
+            controller_host=None,
         )
         with self.ds_cxt():
             with patch('deploy_stack.background_chaos',
@@ -1058,6 +1063,7 @@ class TestDeployJob(FakeHomeTestCase):
             series='trusty', debug=False, agent_url=None, agent_stream=None,
             keep_env=False, upload_tools=False, with_chaos=0, jes=False,
             region=None, verbose=False, upgrade=False, deadline=None,
+            controller_host=None,
         )
         with self.ds_cxt():
             with patch('deploy_stack.background_chaos',
@@ -1076,17 +1082,22 @@ class TestDeployJob(FakeHomeTestCase):
             series='trusty', debug=False, agent_url=None, agent_stream=None,
             keep_env=False, upload_tools=False, with_chaos=0, jes=False,
             region='region-foo', verbose=False, upgrade=False, deadline=None,
+            controller_host=None,
         )
         with self.ds_cxt() as (client, bm_mock):
             with patch('deploy_stack.assess_juju_relations',
                        autospec=True):
                 with patch('subprocess.Popen', autospec=True,
                            return_value=FakePopen('', '', 0)):
-                    _deploy_job(args, 'local:trusty/', 'trusty')
+                    with patch('deploy_stack.make_controller_strategy',
+                               ) as mcs_mock:
+                        _deploy_job(args, 'local:trusty/', 'trusty')
                     jes = client.is_jes_enabled()
         bm_mock.assert_called_once_with(
             'foo', client, client, None, None, 'trusty', None, None,
-            'region-foo', 'log', False, permanent=jes, jes_enabled=jes)
+            'region-foo', 'log', False,
+            permanent=jes, jes_enabled=jes,
+            controller_strategy=mcs_mock.return_value)
 
     def test_deploy_job_changes_series_with_win(self):
         args = Namespace(
@@ -1236,6 +1247,153 @@ class TestTestUpgrade(FakeHomeTestCase):
         wfv_mock.assert_has_calls([call('2.0-rc2', 1200)] * 2)
 
 
+class TestMakeControllerStrategy(TestCase):
+
+    def test_make_controller_strategy_no_host(self):
+        client = object()
+        tear_down_client = object()
+        strategy = make_controller_strategy(client, tear_down_client, None)
+        self.assertIs(CreateController, type(strategy))
+        self.assertEqual(client, strategy.client)
+        self.assertEqual(tear_down_client, strategy.tear_down_client)
+
+    def test_make_controller_strategy_host(self):
+        client = object()
+        tear_down_client = object()
+        with patch.dict(os.environ, {
+                'SSO_EMAIL': 'sso@email',
+                'SSO_PASSWORD': 'sso-password'}):
+            strategy = make_controller_strategy(client, tear_down_client,
+                                                'host')
+        self.assertIs(PublicController, type(strategy))
+        self.assertEqual(client, strategy.client)
+        self.assertEqual(tear_down_client, strategy.tear_down_client)
+        self.assertEqual('sso@email', strategy.email)
+        self.assertEqual('sso-password', strategy.password)
+
+
+class TestCreateController(FakeHomeTestCase):
+
+    def get_cleanup_controller(self):
+        client = fake_juju_client()
+        create_controller = CreateController(None, client)
+        return create_controller
+
+    def get_controller(self):
+        client = fake_juju_client()
+        create_controller = CreateController(client, None)
+        return create_controller
+
+    def test_prepare_no_existing(self):
+        create_controller = self.get_cleanup_controller()
+        client = create_controller.tear_down_client
+        create_controller.prepare()
+        self.assertEqual({'models': []}, client.get_models())
+        self.assertEqual(
+            'not-bootstrapped', client._backend.controller_state.state)
+
+    def test_prepare_leftover(self):
+        create_controller = self.get_cleanup_controller()
+        client = create_controller.tear_down_client
+        client.bootstrap()
+        create_controller.prepare()
+        self.assertEqual({'models': []}, client.get_models())
+        self.assertEqual(
+            'controller-killed', client._backend.controller_state.state)
+
+    def test_create_initial_model(self):
+        controller = self.get_controller()
+        client = controller.client
+        self.assertEqual({'models': []}, client.get_models())
+        controller.create_initial_model(False, 'angsty', {})
+        self.assertItemsEqual([{'name': 'controller'}, {'name': 'name'}],
+                              client.get_models()['models'])
+        self.assertEqual(
+            'bootstrapped', client._backend.controller_state.state)
+
+    def test_get_hosts(self):
+        controller = self.get_controller()
+        client = controller.client
+        client.bootstrap()
+        self.assertEqual({'0': '0.example.com'}, controller.get_hosts())
+
+    def test_tear_down_existing(self):
+        create_controller = self.get_cleanup_controller()
+        client = create_controller.tear_down_client
+        client.bootstrap()
+        create_controller.tear_down()
+        self.assertEqual({'models': []}, client.get_models())
+        self.assertEqual(
+            'controller-destroyed', client._backend.controller_state.state)
+
+    def test_tear_down_nothing(self):
+        create_controller = self.get_cleanup_controller()
+        with self.assertRaises(subprocess.CalledProcessError):
+            create_controller.tear_down()
+
+
+class TestPublicController(FakeHomeTestCase):
+
+    def get_cleanup_controller(self):
+        client = fake_juju_client()
+        public_controller = PublicController('host', 'email2', 'password2',
+                                             None, client)
+        return public_controller
+
+    def get_controller(self):
+        client = fake_juju_client()
+        public_controller = PublicController('host', 'email2', 'password2',
+                                             client, None)
+        return public_controller
+
+    def test_prepare_no_existing(self):
+        public_controller = self.get_cleanup_controller()
+        client = public_controller.tear_down_client
+        public_controller.prepare()
+        self.assertEqual({'models': []}, client.get_models())
+        self.assertEqual(
+            'not-bootstrapped', client._backend.controller_state.state)
+
+    def test_prepare_leftover(self):
+        public_controller = self.get_cleanup_controller()
+        client = public_controller.tear_down_client
+        client.add_model(client.env)
+        public_controller.prepare()
+        self.assertEqual({'models': []}, client.get_models())
+        self.assertEqual(
+            'model-destroyed', client._backend.controller_state.state)
+
+    def test_create_initial_model(self):
+        controller = self.get_controller()
+        client = controller.client
+        self.assertEqual({'models': []}, client.get_models())
+        controller.create_initial_model(False, 'angsty', {})
+        self.assertItemsEqual([{'name': 'name'}],
+                              client.get_models()['models'])
+        self.assertEqual(
+            'created', client._backend.controller_state.state)
+
+    def test_get_hosts(self):
+        controller = self.get_controller()
+        client = controller.client
+        client.bootstrap()
+        self.assertEqual({}, controller.get_hosts())
+
+    def test_tear_down_existing(self):
+        public_controller = self.get_cleanup_controller()
+        client = public_controller.tear_down_client
+        client.add_model(client.env)
+        public_controller.tear_down()
+        self.assertEqual({'models': []}, client.get_models())
+        self.assertEqual(
+            'model-destroyed', client._backend.controller_state.state)
+
+    def test_tear_down_nothing(self):
+        public_controller = self.get_cleanup_controller()
+        with self.assertRaises(subprocess.CalledProcessError):
+            public_controller.tear_down()
+
+
 class TestBootstrapManager(FakeHomeTestCase):
 
     def test_from_args(self):
@@ -1265,6 +1423,7 @@ class TestBootstrapManager(FakeHomeTestCase):
         self.assertEqual(jes_enabled, bs_manager.permanent)
         self.assertEqual(jes_enabled, bs_manager.jes_enabled)
         self.assertEqual({'0': 'example.org'}, bs_manager.known_hosts)
+        self.assertIsFalse(bs_manager.has_controller)
 
     def test_no_args(self):
         args = Namespace(
@@ -1296,6 +1455,7 @@ class TestBootstrapManager(FakeHomeTestCase):
         self.assertEqual(jes_enabled, bs_manager.permanent)
         self.assertEqual(jes_enabled, bs_manager.jes_enabled)
         self.assertEqual({'0': 'example.org'}, bs_manager.known_hosts)
+        self.assertIsFalse(bs_manager.has_controller)
 
     def test_jes_not_permanent(self):
         with self.assertRaisesRegexp(ValueError, 'Cannot set permanent False'
@@ -1487,6 +1647,16 @@ class TestBootstrapManager(FakeHomeTestCase):
         wfp_mock.assert_called_once_with(
             'bootstrap.example.org', 22, timeout=120)
 
+    def test_bootstrap_context_sets_has_controller(self):
+        client = self.make_client()
+        bs_manager = BootstrapManager(
+            'foobar', client, client, None, [], None, None, None, None,
+            None, False, False, False)
+        with patch.object(client, 'kill_controller'):
+            with bs_manager.bootstrap_context([]):
+                self.assertIsTrue(bs_manager.has_controller)
+        self.assertIsTrue(bs_manager.has_controller)
+
     def test_handle_bootstrap_exceptions_ignores_soft_deadline(self):
         env = JujuData('foo', {'type': 'nonlocal'})
         client = EnvJujuClient(env, None, None)
@@ -1522,8 +1692,10 @@ class TestBootstrapManager(FakeHomeTestCase):
                 bs_manager = BootstrapManager(
                     'foobar', client, client, None, [], None, None, None,
                     None, log_dir, False, False, jes_enabled=False)
+                bs_manager.has_controller = True
                 bs_manager.tear_down()
         tear_down_mock.assert_called_once_with()
+        self.assertIsFalse(bs_manager.has_controller)
 
     def test_tear_down_requires_same_env(self):
         client = self.make_client()
@@ -1630,9 +1802,9 @@ class TestBootstrapManager(FakeHomeTestCase):
         client.bootstrap()
         with temp_dir() as log_dir:
             bs_manager = BootstrapManager(
-                    'foobar', client, client,
-                    None, [], None, None, None, None, log_dir, False,
-                    True, True)
+                'foobar', client, client,
+                None, [], None, None, None, None, log_dir, False,
+                True, True)
             with patch.object(bs_manager, '_should_dump', return_value=True,
                               autospec=True):
                 with patch('deploy_stack.dump_env_logs_known_hosts',
@@ -1643,19 +1815,48 @@ class TestBootstrapManager(FakeHomeTestCase):
         client = fake_juju_client()
         client.bootstrap()
         bs_manager = BootstrapManager(
-                'foobar', client, client,
-                None, [], None, None, None, None, client.env.juju_home, False,
-                True, True)
+            'foobar', client, client,
+            None, [], None, None, None, None, client.env.juju_home, False,
+            True, True)
+        bs_manager.has_controller = True
         test_error = Exception("Some exception")
         test_error.output = "a stdout value"
         test_error.stderr = "a stderr value"
         with patch.object(bs_manager, 'dump_all_logs', autospec=True):
-            with self.assertRaises(LoggedException) as err_ctx:
-                with bs_manager.runtime_context([]):
-                    raise test_error
-                self.assertIs(err_ctx.exception.exception, test_error)
+            with patch('deploy_stack.safe_print_status',
+                       autospec=True) as sp_mock:
+                with self.assertRaises(LoggedException) as err_ctx:
+                    with bs_manager.runtime_context([]):
+                        raise test_error
+                    self.assertIs(err_ctx.exception.exception, test_error)
         self.assertIn("a stdout value", self.log_stream.getvalue())
         self.assertIn("a stderr value", self.log_stream.getvalue())
+        sp_mock.assert_called_once_with(client)
+
+    def test_runtime_context_raises_logged_exception_no_controller(self):
+        client = fake_juju_client()
+        client.bootstrap()
+        bs_manager = BootstrapManager(
+            'foobar', client, client,
+            None, [], None, None, None, None, client.env.juju_home, False,
+            True, True)
+        bs_manager.has_controller = False
+        test_error = Exception("Some exception")
+        test_error.output = "a stdout value"
+        test_error.stderr = "a stderr value"
+        with patch.object(bs_manager, 'dump_all_logs', autospec=True):
+            with patch('deploy_stack.safe_print_status',
+                       autospec=True) as sp_mock:
+                with self.assertRaises(LoggedException) as err_ctx:
+                    with bs_manager.runtime_context([]):
+                        raise test_error
+                    self.assertIs(err_ctx.exception.exception, test_error)
+        self.assertIn("a stdout value", self.log_stream.getvalue())
+        self.assertIn("a stderr value", self.log_stream.getvalue())
+        self.assertEqual(0, sp_mock.call_count)
+        self.assertIn(
+            "Client lost controller, not calling status",
+            self.log_stream.getvalue())
 
     def test_runtime_context_looks_up_host(self):
         client = fake_juju_client()
@@ -2203,6 +2404,7 @@ class TestDeployJobParseArgs(FakeHomeTestCase):
             jes=False,
             region=None,
             deadline=None,
+            controller_host=None,
         ))
 
     def test_upload_tools(self):

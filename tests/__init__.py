@@ -56,11 +56,11 @@ class TestCase(unittest.TestCase):
 
     def assertIsTrue(self, expr, msg=None):
         """Assert that expr is the True object."""
-        self.assertIs(True, expr, msg)
+        self.assertIs(expr, True, msg)
 
     def assertIsFalse(self, expr, msg=None):
         """Assert that expr is the False object."""
-        self.assertIs(False, expr, msg)
+        self.assertIs(expr, False, msg)
 
     def addContext(self, context):
         """Enter context manager for the remainder of the test, then leave.
@@ -80,7 +80,8 @@ class FakeHomeTestCase(TestCase):
         self.home_dir = use_context(self, utility.temp_dir())
         os.environ['HOME'] = self.home_dir
         os.environ['PATH'] = os.path.join(self.home_dir, '.local', 'bin')
-        os.mkdir(os.path.join(self.home_dir, '.juju'))
+        self.juju_home = os.path.join(self.home_dir, '.juju')
+        os.mkdir(self.juju_home)
         self.set_public_clouds(get_default_public_clouds())
 
     def set_public_clouds(self, data_dict):

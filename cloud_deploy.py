@@ -59,7 +59,7 @@ def deploy_stack(environment, debug, machines, deploy_charm):
                 client.get_status()
             client.wait_for_started()
             if deploy_charm:
-                series = client.env.config.get('default-series', 'trusty')
+                series = client.env.get_option('default-series', 'trusty')
                 charm_path = local_charm_path(
                     'dummy-source', juju_ver=client.version, series=series)
                 client.deploy(charm_path, series=series)

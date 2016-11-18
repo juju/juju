@@ -9,6 +9,7 @@ from collections import (
     namedtuple,
     )
 from contextlib import contextmanager
+import glob
 import itertools
 import json
 import logging
@@ -27,6 +28,7 @@ from utility import (
     add_basic_testing_arguments,
     configure_logging,
     ensure_dir,
+    scoped_environ,
     temp_dir,
     )
 
@@ -106,6 +108,7 @@ def client_credentials_to_details(client):
                 'access_key': credentials['access-key'],
                 }
     if 'gce' == provider:
+        gce_prepare_for_load()
         return {'client_id': credentials['client-id'],
                 'client_email': credentials['client-email'],
                 'private_key': credentials['private-key'],
@@ -120,6 +123,15 @@ def client_credentials_to_details(client):
 
 
 @contextmanager
+def fake_juju_data():
+    with scoped_environ():
+        with temp_dir() as temp:
+            os.environ['JUJU_HOME'] = temp
+            os.environ['JUJU_DATA'] = temp
+            yield
+
+
+@contextmanager
 def begin_autoload_test(client_base):
     client = client_base.clone(env=client_base.env.clone())
     with temp_dir() as tmp_dir:
@@ -127,7 +139,8 @@ def begin_autoload_test(client_base):
         tmp_scratch_dir = tempfile.mkdtemp(dir=tmp_dir)
         client.env.juju_home = tmp_juju_home
         client.env.load_yaml()
-        yield client, tmp_scratch_dir
+        with fake_juju_data():
+            yield client, tmp_scratch_dir
 
 
 def ensure_autoload_credentials_stores_details(client_base, cloud_details_fn):
@@ -207,7 +220,7 @@ def autoload_and_bootstrap(bs_manager, upload_tools, real_credentials,
         bs_manager.client.env.juju_home = client_na.env.juju_home
         bs_manager.tear_down_client.env.juju_home = client_na.env.juju_home
         # Openstack needs the real username.
-        user = client_na.env.config.get('username', 'testing-user')
+        user = client_na.env.get_option('username', 'testing-user')
         cloud_details = cloud_details_fn(
             user, tmp_scratch_dir, bs_manager.client, real_credentials)
         # Reset the client's credentials before autoload.
@@ -451,7 +464,7 @@ def ensure_openstack_personal_cloud_exists(client):
         'testing-openstack': {
             'type': 'openstack',
             'auth-types': ['userpass'],
-            'endpoint': client.env.config['auth-url'],
+            'endpoint': client.env.get_option('auth-url'),
             'regions': regions
             }
         }
@@ -484,6 +497,19 @@ def openstack_credential_dict_generator(region):
         os_password=creds,
         os_auth_url='https://keystone.example.com:443/v2.0/',
         os_region_name=region)
+
+
+# Just figuring this part out, likely will change/move.
+def gce_prepare_for_load():
+    GCE_AC = 'GOOGLE_APPLICATION_CREDENTIALS'
+    if GCE_AC not in os.environ:
+        juju_home = os.environ['JUJU_HOME']
+        file_names = glob.glob(os.path.join(juju_home, 'gce-*.json'))
+        if 1 != len(file_names):
+            raise RuntimeError('Found {} candidate goodle credential files,'
+                               ' requires 1.'.format(len(file_names)))
+        os.environ[GCE_AC] = file_names[0]
+    log.info('{}={}'.format(GCE_AC, os.environ[GCE_AC]))
 
 
 def gce_envvar_with_file_test_details(user, tmp_dir, client,

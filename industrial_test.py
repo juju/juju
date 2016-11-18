@@ -531,10 +531,7 @@ def make_substrate_manager(client, required_attrs):
     If the substrate cannot be made, or does not have the required attributes,
     return None.  Otherwise, return the substrate.
     """
-    with real_make_substrate_manager(
-            client.env.config,
-            client.env.get_cloud_credentials(),
-            ) as substrate:
+    with real_make_substrate_manager(client.env) as substrate:
         if substrate is not None:
             for attr in required_attrs:
                 if getattr(substrate, attr, None) is None:
@@ -729,7 +726,7 @@ class DeployManyAttempt(SteppedStageAttempt):
                 application = 'ubuntu{}x{}'.format(machine_name, container)
                 # Work around bug #1540900: juju deploy ignores model
                 # default-series
-                series = client.env.config['default-series']
+                series = client.env.get_option('default-series')
                 client.deploy('ubuntu', service=application, to=target,
                               series=series)
                 application_names.append(application)

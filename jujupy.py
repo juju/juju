@@ -8,13 +8,15 @@ from contextlib import (
     contextmanager,
     )
 from copy import deepcopy
-from datetime import datetime
+from datetime import (
+    datetime,
+    timedelta,
+    )
 import errno
 from itertools import chain
 import json
 import logging
 import os
-import pexpect
 import re
 import shutil
 import subprocess
@@ -22,6 +24,7 @@ import sys
 from tempfile import NamedTemporaryFile
 import time
 
+import pexpect
 import yaml
 
 from jujuconfig import (
@@ -40,6 +43,7 @@ from utility import (
     quote,
     qualified_model_name,
     scoped_environ,
+    skip_on_missing_file,
     split_address_port,
     temp_dir,
     unqualified_model_name,
@@ -92,6 +96,18 @@ class NoProvider(Exception):
     """Raised when an environment defines no provider."""
 
 
+class TypeNotAccepted(Exception):
+    """Raised when the provided type was not accepted."""
+
+
+class NameNotAccepted(Exception):
+    """Raised when the provided name was not accepted."""
+
+
+class AuthNotAccepted(Exception):
+    """Raised when the provided auth was not accepted."""
+
+
 def get_timeout_path():
     import timeout
     return os.path.abspath(timeout.__file__)
@@ -108,6 +124,8 @@ def get_teardown_timeout(client):
     """Return the timeout need byt the client to teardown resources."""
     if client.env.provider == 'azure':
         return 1800
+    elif client.env.provider == 'gce':
+        return 1200
     else:
         return 600
 
@@ -216,6 +234,16 @@ class WorkloadsNotReady(StatusNotMet):
     _fmt = 'Workloads not ready in {env}.'
 
 
+class ApplicationsNotStarted(StatusNotMet):
+
+    _fmt = 'Timed out waiting for applications to start in {env}.'
+
+
+class VotingNotEnabled(StatusNotMet):
+
+    _fmt = 'Timed out waiting for voting to be enabled in {env}.'
+
+
 @contextmanager
 def temp_yaml_file(yaml_dict):
     temp_file = NamedTemporaryFile(suffix='.yaml', delete=False)
@@ -262,6 +290,9 @@ class SimpleEnvironment:
             self.maas = False
             self.joyent = False
 
+    def get_option(self, key, default=None):
+        return self.config.get(key, default)
+
     def update_config(self, new_config):
         for key, value in new_config.items():
             if key == 'region':
@@ -294,7 +325,7 @@ class SimpleEnvironment:
             matcher = re.compile('https://(.*).api.joyentcloud.com')
             return matcher.match(self.config['sdc-url']).group(1)
         elif provider == 'lxd':
-            return 'localhost'
+            return self.config.get('region', 'localhost')
         elif provider == 'manual':
             return self.config['bootstrap-host']
         elif provider in ('maas', 'manual'):
@@ -312,9 +343,6 @@ class SimpleEnvironment:
         elif provider == 'joyent':
             self.config['sdc-url'] = (
                 'https://{}.api.joyentcloud.com'.format(region))
-        elif provider == 'lxd':
-            if region != 'localhost':
-                raise ValueError('Only "localhost" allowed for lxd.')
         elif provider == 'manual':
             self.config['bootstrap-host'] = region
         elif provider == 'maas':
@@ -386,18 +414,15 @@ class SimpleEnvironment:
         :param new_config: Dictionary representing the contents of
             the environments.yaml configuation file."""
         home_path = jes_home_path(juju_home, dir_name)
-        if os.path.exists(home_path):
+        with skip_on_missing_file():
             shutil.rmtree(home_path)
         os.makedirs(home_path)
         self.dump_yaml(home_path, new_config)
         # For extention: Add all files carried over to the list.
         for file_name in ['public-clouds.yaml']:
             src_path = os.path.join(juju_home, file_name)
-            try:
+            with skip_on_missing_file():
                 shutil.copy(src_path, home_path)
-            except IOError as error:
-                if error.errno != errno.ENOENT:
-                    raise
         yield home_path
 
     def get_cloud_credentials(self):
@@ -461,15 +486,19 @@ class JujuData(SimpleEnvironment):
                 raise RuntimeError(
                     'Failed to read credentials file: {}'.format(str(e)))
             self.credentials = {}
+        self.clouds = self.read_clouds()
+
+    def read_clouds(self):
+        """Read and return clouds.yaml as a Python dict."""
         try:
             with open(os.path.join(self.juju_home, 'clouds.yaml')) as f:
-                self.clouds = yaml.safe_load(f)
+                return yaml.safe_load(f)
         except IOError as e:
             if e.errno != errno.ENOENT:
                 raise RuntimeError(
                     'Failed to read clouds file: {}'.format(str(e)))
             # Default to an empty clouds file.
-            self.clouds = {'clouds': {}}
+            return {'clouds': {}}
 
     @classmethod
     def from_config(cls, name):
@@ -486,8 +515,12 @@ class JujuData(SimpleEnvironment):
         """
         with open(os.path.join(path, 'credentials.yaml'), 'w') as f:
             yaml.safe_dump(self.credentials, f)
+        self.write_clouds(path, self.clouds)
+
+    @staticmethod
+    def write_clouds(path, clouds):
         with open(os.path.join(path, 'clouds.yaml'), 'w') as f:
-            yaml.safe_dump(self.clouds, f)
+            yaml.safe_dump(clouds, f)
 
     def find_endpoint_cloud(self, cloud_type, endpoint):
         for cloud, cloud_config in self.clouds['clouds'].items():
@@ -514,12 +547,158 @@ class JujuData(SimpleEnvironment):
             endpoint = self.config['auth-url']
         return self.find_endpoint_cloud(provider, endpoint)
 
-    def get_cloud_credentials(self):
-        """Return the credentials for this model's cloud."""
+    def get_cloud_credentials_item(self):
         cloud_name = self.get_cloud()
         cloud = self.credentials['credentials'][cloud_name]
-        (credentials,) = cloud.values()
-        return credentials
+        (credentials_item,) = cloud.items()
+        return credentials_item
+
+    def get_cloud_credentials(self):
+        """Return the credentials for this model's cloud."""
+        return self.get_cloud_credentials_item()[1]
+
+
+class StatusError(Exception):
+    """Generic error for Status."""
+
+    recoverable = True
+
+    # This has to be filled in after the classes are declared.
+    ordering = []
+
+    @classmethod
+    def priority(cls):
+        """Get the priority of the StatusError as an number.
+
+        Lower number means higher priority. This can be used as a key
+        function in sorting."""
+        return cls.ordering.index(cls)
+
+
+class MachineError(StatusError):
+    """Error in machine-status."""
+
+    recoverable = False
+
+
+class UnitError(StatusError):
+    """Error in a unit's status."""
+
+
+class HookFailedError(UnitError):
+    """A unit hook has failed."""
+
+    def __init__(self, item_name, msg):
+        match = re.search('^hook failed: "([^"]+)"$', msg)
+        if match:
+            msg = match.group(1)
+        super(HookFailedError, self).__init__(item_name, msg)
+
+
+class InstallError(HookFailedError):
+    """The unit's install hook has failed."""
+
+    recoverable = False
+
+
+class AppError(StatusError):
+    """Error in an application's status."""
+
+
+class AgentError(StatusError):
+    """Error in a juju agent."""
+
+
+class AgentUnresolvedError(AgentError):
+    """Agent error has not recovered in a reasonable time."""
+
+    # This is the time limit set by IS for recovery from an agent error.
+    a_reasonable_time = timedelta(minutes=5)
+
+    recoverable = False
+
+
+StatusError.ordering = [MachineError, InstallError, AgentUnresolvedError,
+                        HookFailedError, UnitError, AppError, AgentError,
+                        StatusError]
+
+
+class StatusItem:
+
+    APPLICATION = 'application-status'
+    WORKLOAD = 'workload-status'
+    MACHINE = 'machine-status'
+    JUJU = 'juju-status'
+
+    def __init__(self, status_name, item_name, item_value):
+        """Create a new StatusItem from its fields.
+
+        :param status_name: One of the status strings.
+        :param item_name: The name of the machine/unit/application the status
+            information is about.
+        :param item_value: A dictionary of status values. If there is an entry
+            with the status_name in the dictionary its contents are used."""
+        self.status_name = status_name
+        self.item_name = item_name
+        self.status = item_value.get(status_name, item_value)
+
+    @property
+    def message(self):
+        return self.status.get('message')
+
+    @property
+    def since(self):
+        return self.status.get('since')
+
+    @property
+    def current(self):
+        return self.status.get('current')
+
+    @property
+    def version(self):
+        return self.status.get('version')
+
+    @property
+    def datetime_since(self):
+        if self.since is None:
+            return None
+        return datetime.strptime(self.since, '%d %b %Y %H:%M:%SZ')
+
+    def to_exception(self):
+        """Create an exception representing the error if one exists.
+
+        :return: StatusError (or subtype) to represent an error or None
+        to show that there is no error."""
+        if self.current not in ['error', 'failed']:
+            return None
+
+        if self.APPLICATION == self.status_name:
+            return AppError(self.item_name, self.message)
+        elif self.WORKLOAD == self.status_name:
+            if self.message is None:
+                return UnitError(self.item_name, self.message)
+            elif re.match('hook failed: ".*install.*"', self.message):
+                return InstallError(self.item_name, self.message)
+            elif re.match('hook failed', self.message):
+                return HookFailedError(self.item_name, self.message)
+            else:
+                return UnitError(self.item_name, self.message)
+        elif self.MACHINE == self.status_name:
+            return MachineError(self.item_name, self.message)
+        elif self.JUJU == self.status_name:
+            time_since = datetime.utcnow() - self.datetime_since
+            if time_since > AgentUnresolvedError.a_reasonable_time:
+                return AgentUnresolvedError(self.item_name, self.message,
+                                            time_since.total_seconds())
+            else:
+                return AgentError(self.item_name, self.message)
+        else:
+            raise ValueError('Unknown status:{}'.format(self.status_name),
+                             (self.item_name, self.status_value))
+
+    def __repr__(self):
+        return 'StatusItem({!r}, {!r}, {!r})'.format(
+            self.status_name, self.item_name, self.status)
 
 
 class Status:
@@ -540,6 +719,9 @@ class Status:
 
     def get_applications(self):
         return self.status.get('applications', {})
+
+    def get_machines(self, default=None):
+        return self.status.get('machines', default)
 
     def iter_machines(self, containers=False, machines=True):
         for machine_name, machine in sorted(self.status['machines'].items()):
@@ -674,11 +856,99 @@ class Status:
         """
         return self.get_unit(unit_name).get('open-ports', [])
 
+    def iter_status(self):
+        """Iterate through every status field in the larger status data."""
+        for machine_name, machine_value in self.get_machines({}).items():
+            yield StatusItem(StatusItem.MACHINE, machine_name, machine_value)
+            yield StatusItem(StatusItem.JUJU, machine_name, machine_value)
+        for app_name, app_value in self.get_applications().items():
+            yield StatusItem(StatusItem.APPLICATION, app_name, app_value)
+            for unit_name, unit_value in app_value['units'].items():
+                yield StatusItem(StatusItem.WORKLOAD, unit_name, unit_value)
+                yield StatusItem(StatusItem.JUJU, unit_name, unit_value)
+
+    def iter_errors(self, ignore_recoverable=False):
+        """Iterate through every error, repersented by exceptions."""
+        for sub_status in self.iter_status():
+            error = sub_status.to_exception()
+            if error is not None:
+                if not (ignore_recoverable and error.recoverable):
+                    yield error
+
+    def check_for_errors(self, ignore_recoverable=False):
+        """Return a list of errors, in order of their priority."""
+        return sorted(self.iter_errors(ignore_recoverable),
+                      key=lambda item: item.priority())
+
+    def raise_highest_error(self, ignore_recoverable=False):
+        """Raise an exception reperenting the highest priority error."""
+        errors = self.check_for_errors(ignore_recoverable)
+        if errors:
+            raise errors[0]
+
 
 class Status1X(Status):
 
     def get_applications(self):
         return self.status.get('services', {})
+
+    def condense_status(self, item_value):
+        """Condense the scattered agent-* fields into a status dict."""
+        def shift_field(dest_dict, dest_name, src_dict, src_name):
+            if src_name in src_dict:
+                dest_dict[dest_name] = src_dict[src_name]
+        condensed = {}
+        shift_field(condensed, 'current', item_value, 'agent-state')
+        shift_field(condensed, 'version', item_value, 'agent-version')
+        shift_field(condensed, 'message', item_value, 'agent-state-info')
+        return condensed
+
+    def iter_status(self):
+        SERVICE = 'service-status'
+        AGENT = 'agent-status'
+        for machine_name, machine_value in self.get_machines({}).items():
+            yield StatusItem(StatusItem.JUJU, machine_name,
+                             self.condense_status(machine_value))
+        for app_name, app_value in self.get_applications().items():
+            if SERVICE in app_value:
+                yield StatusItem(
+                    StatusItem.APPLICATION, app_name,
+                    {StatusItem.APPLICATION: app_value[SERVICE]})
+            for unit_name, unit_value in app_value['units'].items():
+                if StatusItem.WORKLOAD in unit_value:
+                    yield StatusItem(StatusItem.WORKLOAD,
+                                     unit_name, unit_value)
+                if AGENT in unit_value:
+                    yield StatusItem(
+                        StatusItem.JUJU, unit_name,
+                        {StatusItem.JUJU: unit_value[AGENT]})
+                else:
+                    yield StatusItem(StatusItem.JUJU, unit_name,
+                                     self.condense_status(unit_value))
+
+
+def describe_substrate(env):
+    if env.provider == 'local':
+        return {
+            'kvm': 'KVM (local)',
+            'lxc': 'LXC (local)'
+        }[env.get_option('container', 'lxc')]
+    elif env.provider == 'openstack':
+        if env.get_option('auth-url') == (
+                'https://keystone.canonistack.canonical.com:443/v2.0/'):
+            return 'Canonistack'
+        else:
+            return 'Openstack'
+    try:
+        return {
+            'ec2': 'AWS',
+            'rackspace': 'Rackspace',
+            'joyent': 'Joyent',
+            'azure': 'Azure',
+            'maas': 'MAAS',
+        }[env.provider]
+    except KeyError:
+        return env.provider
 
 
 class Juju2Backend:
@@ -763,10 +1033,11 @@ class Juju2Backend:
             env['PATH'] = '{}{}{}'.format(os.path.dirname(self.full_path),
                                           os.pathsep, env['PATH'])
         flags = self.feature_flags.intersection(used_feature_flags)
+        feature_flag_string = env.get(JUJU_DEV_FEATURE_FLAGS, '')
+        if feature_flag_string != '':
+            flags.update(feature_flag_string.split(','))
         if flags:
             env[JUJU_DEV_FEATURE_FLAGS] = ','.join(sorted(flags))
-        else:
-            env[JUJU_DEV_FEATURE_FLAGS] = ''
         env['JUJU_DATA'] = juju_home
         return env
 
@@ -1002,6 +1273,12 @@ class EnvJujuClient:
 
     reserved_spaces = frozenset([
         'endpoint-bindings-data', 'endpoint-bindings-public'])
+
+    command_set_destroy_model = 'destroy-model'
+
+    command_set_remove_object = 'remove-object'
+
+    command_set_all = 'all'
 
     @classmethod
     def preferred_container(cls):
@@ -1355,8 +1632,16 @@ class EnvJujuClient:
                     self.env.environment))
 
     def _add_model(self, model_name, config_file):
-        self.controller_juju('add-model', (
-            model_name, '--config', config_file))
+        explicit_region = self.env.controller.explicit_region
+        if explicit_region:
+            credential_name = self.env.get_cloud_credentials_item()[0]
+            cloud_region = self.get_cloud_region(self.env.get_cloud(),
+                                                 self.env.get_region())
+            region_args = (cloud_region, '--credential', credential_name)
+        else:
+            region_args = ()
+        self.controller_juju('add-model', (model_name,) + region_args + (
+            '--config', config_file))
 
     def destroy_model(self):
         exit_status = self.juju(
@@ -1435,6 +1720,15 @@ class EnvJujuClient:
                 pass
         raise Exception(
             'Timed out waiting for juju status to succeed')
+
+    def show_model(self, model_name=None):
+        model_details = self.get_juju_output(
+            'show-model',
+            '{}:{}'.format(
+                self.env.controller.name, model_name or self.env.environment),
+            '--format', 'yaml',
+            include_e=False)
+        return yaml.safe_load(model_details)
 
     @staticmethod
     def _dict_as_option_strings(options):
@@ -1689,10 +1983,13 @@ class EnvJujuClient:
                         states = translate(status)
                         if states is None:
                             break
+                        status.raise_highest_error(ignore_recoverable=True)
                         reporter.update(states)
                     else:
                         if status is not None:
                             log.error(status.status_text)
+                            status.raise_highest_error(
+                                ignore_recoverable=False)
                         raise exc_type(self.env.environment, status)
         finally:
             reporter.finish()
@@ -1866,6 +2163,7 @@ class EnvJujuClient:
         try:
             with self.check_timeouts():
                 with self.ignore_soft_deadline():
+                    status = None
                     for remaining in until_timeout(timeout):
                         status = self.get_status(controller=True)
                         status.check_agents_started()
@@ -1880,8 +2178,7 @@ class EnvJujuClient:
                                 break
                         reporter.update(states)
                     else:
-                        raise Exception('Timed out waiting for voting to be'
-                                        ' enabled.')
+                        raise VotingNotEnabled(self.env.environment, status)
         finally:
             reporter.finish()
         # XXX sinzui 2014-12-04: bug 1399277 happens because
@@ -1898,12 +2195,13 @@ class EnvJujuClient:
         """
         with self.check_timeouts():
             with self.ignore_soft_deadline():
+                status = None
                 for remaining in until_timeout(timeout):
                     status = self.get_status()
                     if status.get_service_count() >= service_count:
                         return
                 else:
-                    raise Exception('Timed out waiting for services to start.')
+                    raise ApplicationsNotStarted(self.env.environment, status)
 
     def wait_for_workloads(self, timeout=600, start=None):
         """Wait until all unit workloads are in a ready state."""
@@ -2206,6 +2504,30 @@ class EnvJujuClient:
         user_client.env.user_name = username
         return user_client
 
+    def register_host(self, host, email, password):
+        child = self.expect('register', ('--no-browser-login', host),
+                            include_e=False)
+        try:
+            child.logfile = sys.stdout
+            child.expect('E-Mail:|Enter a name for this controller:')
+            if child.match.group(0) == 'E-Mail:':
+                child.sendline(email)
+                child.expect('Password:')
+                child.logfile = None
+                try:
+                    child.sendline(password)
+                finally:
+                    child.logfile = sys.stdout
+                child.expect(r'Two-factor auth \(Enter for none\):')
+                child.sendline()
+                child.expect('Enter a name for this controller:')
+            child.sendline(self.env.controller.name)
+            child.expect(pexpect.EOF)
+        except pexpect.TIMEOUT:
+            raise
+            raise Exception(
+                'Registering user failed: pexpect session timed out')
+
     def remove_user(self, username):
         self.juju('remove-user', (username, '-y'), include_e=False)
 
@@ -2249,6 +2571,63 @@ class EnvJujuClient:
         return self.get_juju_output('list-clouds', '--format',
                                     format, include_e=False)
 
+    def add_cloud_interactive(self, cloud_name, cloud):
+        child = self.expect('add-cloud', include_e=False)
+        try:
+            child.logfile = sys.stdout
+            child.expect('Select cloud type:')
+            child.sendline(cloud['type'])
+            child.expect('(Enter a name for the cloud:)|(Select cloud type:)')
+            if child.match.group(2) is not None:
+                raise TypeNotAccepted('Cloud type not accepted.')
+            child.sendline(cloud_name)
+            if cloud['type'] == 'maas':
+                child.expect('Enter the API endpoint url:')
+                child.sendline(cloud['endpoint'])
+            if cloud['type'] == 'manual':
+                child.expect(
+                    "(Enter the controller's hostname or IP address:)|"
+                    "(Enter a name for the cloud:)")
+                if child.match.group(2) is not None:
+                    raise NameNotAccepted('Cloud name not accepted.')
+                child.sendline(cloud['endpoint'])
+            if cloud['type'] == 'openstack':
+                child.expect('Enter the API endpoint url for the cloud:')
+                child.sendline(cloud['endpoint'])
+                child.expect(
+                    'Select one or more auth types separated by commas:')
+                child.sendline(','.join(cloud['auth-types']))
+                for num, (name, values) in enumerate(cloud['regions'].items()):
+                    child.expect(
+                        '(Enter region name:)|(Select one or more auth types'
+                        ' separated by commas:)')
+                    if child.match.group(2) is not None:
+                        raise AuthNotAccepted('Auth was not compatible.')
+                    child.sendline(name)
+                    child.expect('Enter the API endpoint url for the region:')
+                    child.sendline(values['endpoint'])
+                    child.expect('Enter another region\? \(Y/n\):')
+                    if num + 1 < len(cloud['regions']):
+                        child.sendline('y')
+                    else:
+                        child.sendline('n')
+            if cloud['type'] == 'vsphere':
+                child.expect('Enter the API endpoint url for the cloud:')
+                child.sendline(cloud['endpoint'])
+                for num, (name, values) in enumerate(cloud['regions'].items()):
+                    child.expect('Enter region name:')
+                    child.sendline(name)
+                    child.expect('Enter another region\? \(Y/n\):')
+                    if num + 1 < len(cloud['regions']):
+                        child.sendline('y')
+                    else:
+                        child.sendline('n')
+
+            child.expect(pexpect.EOF)
+        except pexpect.TIMEOUT:
+            raise Exception(
+                'Adding cloud failed: pexpect session timed out')
+
     def show_controller(self, format='json'):
         """Show controller's status."""
         return self.get_juju_output('show-controller', '--format',
@@ -2285,12 +2664,12 @@ class EnvJujuClient:
                                    '--format', 'yaml')
         return yaml.safe_load(raw)
 
-    def disable_command(self, args):
-        """Disable a command set."""
-        return self.juju('disable-command', args)
+    def disable_command(self, command_set, message=''):
+        """Disable a command-set."""
+        return self.juju('disable-command', (command_set, message))
 
     def enable_command(self, args):
-        """Enable a command set."""
+        """Enable a command-set."""
         return self.juju('enable-command', args)
 
     def sync_tools(self, local_dir=None):
@@ -2366,6 +2745,10 @@ class EnvJujuClient1X(EnvJujuClientRC):
     agent_metadata_url = 'tools-metadata-url'
 
     _show_status = 'status'
+
+    command_set_destroy_model = 'destroy-environment'
+
+    command_set_all = 'all-changes'
 
     @classmethod
     def _get_env(cls, env):
@@ -2562,7 +2945,7 @@ class EnvJujuClient1X(EnvJujuClientRC):
         if upload_tools:
             args = ('--upload-tools',) + args
         if bootstrap_series is not None:
-            env_val = self.env.config.get('default-series')
+            env_val = self.env.get_option('default-series')
             if bootstrap_series != env_val:
                 raise BootstrapMismatch(
                     'bootstrap-series', bootstrap_series, 'default-series',
@@ -2784,12 +3167,12 @@ class EnvJujuClient1X(EnvJujuClientRC):
         raw = self.get_juju_output('block list', '--format', 'yaml')
         return yaml.safe_load(raw)
 
-    def disable_command(self, args):
-        """Disable a command set."""
-        return self.juju('block', args)
+    def disable_command(self, command_set, message=''):
+        """Disable a command-set."""
+        return self.juju('block {}'.format(command_set), (message, ))
 
     def enable_command(self, args):
-        """Enable a command set."""
+        """Enable a command-set."""
         return self.juju('unblock', args)
 
 
@@ -2849,7 +3232,7 @@ def uniquify_local(env):
     }
     new_config = {}
     for key, default in port_defaults.items():
-        new_config[key] = env.config.get(key, default) + 1
+        new_config[key] = env.get_option(key, default) + 1
     env.update_config(new_config)
 
 
@@ -2972,11 +3355,8 @@ def temp_bootstrap_env(juju_home, client, set_home=True, permanent=False):
                     if e.errno != errno.ENOENT:
                         raise
                     # Remove dangling symlink
-                    try:
+                    with skip_on_missing_file():
                         os.unlink(jenv_path)
-                    except OSError as e:
-                        if e.errno != errno.ENOENT:
-                            raise
                 client.env.juju_home = old_juju_home
 
 
@@ -3001,6 +3381,7 @@ class Controller:
 
     def __init__(self, name):
         self.name = name
+        self.explicit_region = False
 
 
 class GroupReporter:
