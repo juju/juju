@@ -10,9 +10,9 @@ from mock import (
     Mock,
     patch,
     )
-import yaml
 
 from bootstrap_public_clouds import (
+    bootstrap_cloud,
     bootstrap_cloud_regions,
     default_log_dir,
     iter_cloud_regions,
@@ -56,18 +56,6 @@ class TestParseArgs(TestCase):
         self.assertEqual(7, args.start)
 
 
-class EmptyIterator(object):
-
-    def __init__(self, *args, **kwargs):
-        pass
-
-    def __iter__(self):
-        return self
-
-    def next(self):
-        raise StopIteration()
-
-
 class TestMain(TestCase):
 
     @contextmanager
@@ -82,7 +70,7 @@ class TestMain(TestCase):
                             yield print_mock
 
     def test_main(self):
-        with self.patch_for_test(EmptyIterator()) as print_mock:
+        with self.patch_for_test([]) as print_mock:
             retval = main()
         self.assertEqual(0, retval)
         print_mock.assert_called_once_with('No failures!')
@@ -138,11 +126,28 @@ class TestHelpers(TestCase):
         self.assertFalse(clean_dir_mock.called)
 
 
+@contextmanager
+def fake_booted_context(self, upload_tools, **kwargs):
+    yield
+
+
 class TestBootstrapCloud(TestCase):
 
-    # Next in line?
-    def test_(self):
-        pass
+    def test_bootstrap_cloud(self):
+        #env = JujuData(...)
+        client = fake_juju_client()
+        bs_manager = Mock()
+        bs_manager.attach_mock(Mock(return_value=fake_booted_context),
+                               'booted_context')
+        with patch_local('make_logging_dir', autospec=True):
+            with patch_local('BootstrapManager', autospec=True,
+                             return_value=bs_manager) as bsm_mock:
+                with patch_local('BootstrapManager.booted_context'):
+                    with patch('jujupy.EnvJujuClient.wait_for_started'):
+                        bootstrap_cloud('config', 'region', client, 'log_dir')
+        bsm_mock.assert_called_once()
+        name, args, kwargs = bsm_mock.call_args
+        self.assertEqual('boot-cpc-foo-region', args[0])
 
 
 class TestIterCloudRegions(TestCase):
