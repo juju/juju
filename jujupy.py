@@ -863,7 +863,7 @@ class Status:
             yield StatusItem(StatusItem.JUJU, machine_name, machine_value)
         for app_name, app_value in self.get_applications().items():
             yield StatusItem(StatusItem.APPLICATION, app_name, app_value)
-            for unit_name, unit_value in app_value['units'].items():
+            for unit_name, unit_value in app_value.get('units', {}).items():
                 yield StatusItem(StatusItem.WORKLOAD, unit_name, unit_value)
                 yield StatusItem(StatusItem.JUJU, unit_name, unit_value)
 
@@ -914,7 +914,7 @@ class Status1X(Status):
                 yield StatusItem(
                     StatusItem.APPLICATION, app_name,
                     {StatusItem.APPLICATION: app_value[SERVICE]})
-            for unit_name, unit_value in app_value['units'].items():
+            for unit_name, unit_value in app_value.get('units', {}).items():
                 if StatusItem.WORKLOAD in unit_value:
                     yield StatusItem(StatusItem.WORKLOAD,
                                      unit_name, unit_value)
