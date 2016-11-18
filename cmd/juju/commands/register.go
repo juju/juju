@@ -30,7 +30,7 @@ var registerMeteredCharm = func(registrationURL string, state api.Connection, ja
 		return err
 	}
 	if metered {
-		return errors.NotSupportedf("plans are not supported in this release of juju")
+		return errors.NotSupportedf("juju plans")
 	}
 	return nil
 }
