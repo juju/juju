@@ -94,7 +94,7 @@ credentials:
     default-credential: juju-qa
     juju-qa:
       auth-type: jsonfile
-      file: $CLOUD_CITY/gce-4f8322be6f89.json
+      file: $CLOUD_CITY/juju-qa-gce-serviceaccount.json
 EOT
 
 # Setup juju-uitest from the local copy.
