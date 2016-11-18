@@ -372,18 +372,38 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 	add("/model/:modeluuid/logstream", logStreamHandler)
 	add("/model/:modeluuid/log", debugLogHandler)
 
-	charmsHandler := &charmsHandler{
-		ctxt:    httpCtxt,
-		dataDir: srv.dataDir,
+	modelCharmsHandler := &charmsHandler{
+		ctxt:          httpCtxt,
+		dataDir:       srv.dataDir,
+		stateAuthFunc: httpCtxt.stateForRequestAuthenticatedUser,
 	}
 	charmsServer := &CharmsHTTPHandler{
-		PostHandler: charmsHandler.ServePost,
-		GetHandler:  charmsHandler.ServeGet,
+		PostHandler: modelCharmsHandler.ServePost,
+		GetHandler:  modelCharmsHandler.ServeGet,
 	}
 	add("/model/:modeluuid/charms", charmsServer)
 	add("/model/:modeluuid/tools",
 		&toolsUploadHandler{
-			ctxt: httpCtxt,
+			ctxt:          httpCtxt,
+			stateAuthFunc: httpCtxt.stateForRequestAuthenticatedUser,
+		},
+	)
+
+	migrateCharmsHandler := &charmsHandler{
+		ctxt:          httpCtxt,
+		dataDir:       srv.dataDir,
+		stateAuthFunc: httpCtxt.stateForMigration,
+	}
+	add("/migrate/charms",
+		&CharmsHTTPHandler{
+			PostHandler: migrateCharmsHandler.ServePost,
+			GetHandler:  migrateCharmsHandler.ServeUnsupported,
+		},
+	)
+	add("/migrate/tools",
+		&toolsUploadHandler{
+			ctxt:          httpCtxt,
+			stateAuthFunc: httpCtxt.stateForMigration,
 		},
 	)
 	add("/model/:modeluuid/tools/:version",
@@ -412,7 +432,8 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 	add("/charms", charmsServer)
 	add("/tools",
 		&toolsUploadHandler{
-			ctxt: httpCtxt,
+			ctxt:          httpCtxt,
+			stateAuthFunc: httpCtxt.stateForRequestAuthenticatedUser,
 		},
 	)
 	add("/tools/:version",
@@ -478,7 +499,7 @@ func (srv *Server) newHandlerArgs(spec apihttp.HandlerConstraints) apihttp.NewHa
 	var args apihttp.NewHandlerArgs
 	switch spec.AuthKind {
 	case names.UserTagKind:
-		args.Connect = ctxt.stateForRequestAuthenticatedUser
+		args.Connect = ctxt.stateAndEntityForRequestAuthenticatedUser
 	case names.UnitTagKind:
 		args.Connect = ctxt.stateForRequestAuthenticatedAgent
 	case "":

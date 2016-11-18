@@ -5,12 +5,15 @@ package migrationmaster
 
 import (
 	"fmt"
+	"io"
 	"strings"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/clock"
+	"github.com/juju/version"
+	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
@@ -18,6 +21,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/migration"
+	"github.com/juju/juju/tools"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/catacomb"
 	"github.com/juju/juju/worker/fortress"
@@ -337,6 +341,21 @@ func (w *Worker) doIMPORT(targetInfo coremigration.TargetInfo, modelUUID string)
 	return coremigration.VALIDATION, nil
 }
 
+type uploadWrapper struct {
+	client    *migrationtarget.Client
+	modelUUID string
+}
+
+// UploadTools prepends the model UUID to the args passed to the migration client.
+func (w *uploadWrapper) UploadTools(r io.ReadSeeker, vers version.Binary, additionalSeries ...string) (tools.List, error) {
+	return w.client.UploadTools(w.modelUUID, r, vers, additionalSeries...)
+}
+
+// UploadCharm prepends the model UUID to the args passed to the migration client.
+func (w *uploadWrapper) UploadCharm(curl *charm.URL, content io.ReadSeeker) (*charm.URL, error) {
+	return w.client.UploadCharm(w.modelUUID, curl, content)
+}
+
 func (w *Worker) transferModel(targetInfo coremigration.TargetInfo, modelUUID string) error {
 	w.setInfoStatus("exporting model")
 	serialized, err := w.config.Facade.Export()
@@ -357,19 +376,14 @@ func (w *Worker) transferModel(targetInfo coremigration.TargetInfo, modelUUID st
 	}
 
 	w.setInfoStatus("uploading model binaries into target controller")
-	targetModelConn, err := w.openAPIConnForModel(targetInfo, modelUUID)
-	if err != nil {
-		return errors.Annotate(err, "failed to open connection to target model")
-	}
-	defer targetModelConn.Close()
-	targetModelClient := targetModelConn.Client()
+	wrapper := &uploadWrapper{targetClient, modelUUID}
 	err = w.config.UploadBinaries(migration.UploadBinariesConfig{
 		Charms:          serialized.Charms,
 		CharmDownloader: w.config.CharmDownloader,
-		CharmUploader:   targetModelClient,
+		CharmUploader:   wrapper,
 		Tools:           serialized.Tools,
 		ToolsDownloader: w.config.ToolsDownloader,
-		ToolsUploader:   targetModelClient,
+		ToolsUploader:   wrapper,
 	})
 	return errors.Annotate(err, "failed migration binaries")
 }

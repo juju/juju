@@ -21,6 +21,7 @@ import (
 	"github.com/juju/utils/series"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 
 	apiauthentication "github.com/juju/juju/api/authentication"
@@ -30,6 +31,7 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/binarystorage"
 	"github.com/juju/juju/testing"
@@ -199,6 +201,90 @@ func (s *toolsSuite) TestUpload(c *gc.C) {
 	c.Assert(uploadedData, gc.DeepEquals, expectedData)
 	allMetadata := s.getToolsMetadataFromStorage(c, s.State)
 	c.Assert(allMetadata, jc.DeepEquals, []binarystorage.Metadata{metadata})
+}
+
+func (s *toolsSuite) TestMigrateTools(c *gc.C) {
+	controllerTag := names.NewControllerTag(s.ControllerConfig.ControllerUUID())
+	_, err := s.State.SetUserAccess(s.userTag, controllerTag, permission.SuperuserAccess)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Make some fake tools.
+	expectedTools, v, toolPath := s.setupToolsForUpload(c)
+	vers := v.String()
+
+	newSt := s.Factory.MakeModel(c, nil)
+	defer newSt.Close()
+	importedModel, err := newSt.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	err = importedModel.SetMigrationMode(state.MigrationModeImporting)
+	c.Assert(err, jc.ErrorIsNil)
+	s.extraHeaders = map[string]string{
+		params.MigrationModelHTTPHeader: importedModel.UUID(),
+	}
+
+	uri := s.baseURL(c)
+	uri.Path = "/migrate/tools"
+	uri.RawQuery = "binaryVersion=" + vers
+
+	// Now try uploading them.
+	resp := s.uploadRequest(c, uri.String(), "application/x-tar-gz", toolPath)
+
+	// Check the response.
+	expectedTools[0].URL = fmt.Sprintf("%s/model/%s/tools/%s", s.baseURL(c), importedModel.UUID(), vers)
+	s.assertUploadResponse(c, resp, expectedTools[0])
+
+	// Check the contents.
+	metadata, uploadedData := s.getToolsFromStorage(c, newSt, vers)
+	expectedData, err := ioutil.ReadFile(toolPath)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(uploadedData, gc.DeepEquals, expectedData)
+	allMetadata := s.getToolsMetadataFromStorage(c, newSt)
+	c.Assert(allMetadata, jc.DeepEquals, []binarystorage.Metadata{metadata})
+}
+
+func (s *toolsSuite) TestMigrateToolsNotMigrating(c *gc.C) {
+	controllerTag := names.NewControllerTag(s.ControllerConfig.ControllerUUID())
+	_, err := s.State.SetUserAccess(s.userTag, controllerTag, permission.SuperuserAccess)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Make some fake tools.
+	_, v, toolPath := s.setupToolsForUpload(c)
+	vers := v.String()
+
+	newSt := s.Factory.MakeModel(c, nil)
+	defer newSt.Close()
+	s.extraHeaders = map[string]string{
+		params.MigrationModelHTTPHeader: newSt.ModelUUID(),
+	}
+
+	uri := s.baseURL(c)
+	uri.Path = "/migrate/tools"
+	uri.RawQuery = "binaryVersion=" + vers
+
+	// Now try uploading them.
+	resp := s.uploadRequest(c, uri.String(), "application/x-tar-gz", toolPath)
+	s.assertErrorResponse(
+		c, resp, http.StatusBadRequest,
+		"model not importing",
+	)
+}
+
+func (s *toolsSuite) TestMigrateToolsUnauth(c *gc.C) {
+	// The default user is just a normal user, not a controller admin
+	_, v, toolPath := s.setupToolsForUpload(c)
+	vers := v.String()
+
+	uri := s.baseURL(c)
+	uri.Path = "/migrate/tools"
+	uri.RawQuery = "?binaryVersion=" + vers
+
+	// Now try uploading them.
+	resp := s.uploadRequest(c, uri.String(), "application/x-tar-gz", toolPath)
+
+	s.assertErrorResponse(
+		c, resp, http.StatusUnauthorized,
+		"not a controller admin",
+	)
 }
 
 func (s *toolsSuite) TestBlockUpload(c *gc.C) {

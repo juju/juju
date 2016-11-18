@@ -9,6 +9,11 @@ import (
 	"github.com/juju/version"
 )
 
+// MigrationModelHTTPHeader is the key for the HTTP header value
+// that is used to specify the model UUID for the model being migrated
+// for the uploading of the binaries for that model.
+const MigrationModelHTTPHeader = "X-Juju-Migration-Model-UUID"
+
 // InitiateMigrationArgs holds the details required to start one or
 // more model migrations.
 type InitiateMigrationArgs struct {

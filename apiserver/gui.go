@@ -483,7 +483,7 @@ func (h *guiArchiveHandler) handlePost(w http.ResponseWriter, req *http.Request)
 	}
 
 	// Open the GUI archive storage.
-	st, _, err := h.ctxt.stateForRequestAuthenticatedUser(req)
+	st, err := h.ctxt.stateForRequestAuthenticatedUser(req)
 	if err != nil {
 		return errors.Annotate(err, "cannot open state")
 	}
@@ -559,7 +559,7 @@ func (h *guiVersionHandler) handlePut(w http.ResponseWriter, req *http.Request) 
 	}
 
 	// Authenticate the request and retrieve the Juju state.
-	st, _, err := h.ctxt.stateForRequestAuthenticatedUser(req)
+	st, err := h.ctxt.stateForRequestAuthenticatedUser(req)
 	if err != nil {
 		return errors.Annotate(err, "cannot open state")
 	}
