@@ -27,8 +27,8 @@ type RemoteRelationsState interface {
 
 	// WatchRemoteApplicationRelations returns a StringsWatcher that notifies of
 	// changes to the lifecycles of relations involving the specified remote
-	// service.
-	WatchRemoteApplicationRelations(serviceName string) (state.StringsWatcher, error)
+	// application.
+	WatchRemoteApplicationRelations(applicationName string) (state.StringsWatcher, error)
 }
 
 // Relation provides access a relation in global state.
@@ -52,8 +52,8 @@ type Relation interface {
 
 	// WatchCounterpartEndpointUnits returns a watcher that notifies of
 	// changes to the units with the endpoint counterpart to the specified
-	// service.
-	WatchCounterpartEndpointUnits(serviceName string) (state.RelationUnitsWatcher, error)
+	// application.
+	WatchCounterpartEndpointUnits(applicationName string) (state.RelationUnitsWatcher, error)
 }
 
 // RelationUnit provides access to the settings of a single unit in a relation,
@@ -83,7 +83,7 @@ type RelationUnit interface {
 	Settings() (map[string]interface{}, error)
 }
 
-// RemoteApplication represents the state of a service hosted in an external
+// RemoteApplication represents the state of an application hosted in an external
 // (remote) environment.
 type RemoteApplication interface {
 	// Name returns the name of the remote application.
