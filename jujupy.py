@@ -686,6 +686,10 @@ class StatusItem:
             raise ValueError('Unknown status:{}'.format(self.status_name),
                              (self.item_name, self.status_value))
 
+    def __repr__(self):
+        return 'StatusItem({!r}, {!r}, {!r})'.format(
+            self.status_name, self.item_name, self.status)
+
 
 class Status:
 
@@ -1969,10 +1973,13 @@ class EnvJujuClient:
                         states = translate(status)
                         if states is None:
                             break
+                        status.raise_highest_error(ignore_recoverable=True)
                         reporter.update(states)
                     else:
                         if status is not None:
                             log.error(status.status_text)
+                            status.raise_highest_error(
+                                ignore_recoverable=False)
                         raise exc_type(self.env.environment, status)
         finally:
             reporter.finish()
