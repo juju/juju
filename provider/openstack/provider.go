@@ -49,6 +49,7 @@ type EnvironProvider struct {
 	environs.ProviderCredentials
 	Configurator      ProviderConfigurator
 	FirewallerFactory FirewallerFactory
+	FlavorFilter      FlavorFilter
 }
 
 var (
@@ -60,6 +61,7 @@ var providerInstance *EnvironProvider = &EnvironProvider{
 	OpenstackCredentials{},
 	&defaultConfigurator{},
 	&firewallerFactory{},
+	FlavorFilterFunc(AcceptAllFlavors),
 }
 
 var cloudSchema = &jsonschema.Schema{
@@ -131,14 +133,15 @@ func (p EnvironProvider) Open(args environs.OpenParams) (environs.Environ, error
 	}
 
 	e := &Environ{
-		name:      args.Config.Name(),
-		uuid:      uuid,
-		cloud:     args.Cloud,
-		namespace: namespace,
-		clock:     clock.WallClock,
+		name:         args.Config.Name(),
+		uuid:         uuid,
+		cloud:        args.Cloud,
+		namespace:    namespace,
+		clock:        clock.WallClock,
+		configurator: p.Configurator,
+		flavorFilter: p.FlavorFilter,
 	}
 	e.firewaller = p.FirewallerFactory.GetFirewaller(e)
-	e.configurator = p.Configurator
 	if err := e.SetConfig(args.Config); err != nil {
 		return nil, err
 	}
@@ -230,6 +233,7 @@ type Environ struct {
 	availabilityZones      []common.AvailabilityZone
 	firewaller             Firewaller
 	configurator           ProviderConfigurator
+	flavorFilter           FlavorFilter
 
 	// Clock is defined so it can be replaced for testing
 	clock clock.Clock
