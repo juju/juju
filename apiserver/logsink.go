@@ -23,14 +23,28 @@ import (
 	"github.com/juju/juju/state"
 )
 
+// LoggingStrategy handles the authentication and logging details for
+// a particular logsink handler.
 type LoggingStrategy interface {
+	// Authenticate should check that the request identifies the kind
+	// of client that is expected to be talking to this endpoint.
 	Authenticate(*http.Request) error
+
+	// Start prepares any underlying loggers before sending them
+	// messages. This should only be called once.
 	Start()
+
+	// Log writes out the given record to any backing loggers for the strategy.
 	Log(params.LogRecord) bool
+
+	// Stop tells the strategy that there are no more log messages
+	// coming, so it can clean up any resources it holds and close any
+	// loggers. Once Stop has been called no more log messages can be
+	// written.
 	Stop()
 }
 
-type AgentLoggingStrategy struct {
+type agentLoggingStrategy struct {
 	ctxt       httpContext
 	st         *state.State
 	version    version.Number
@@ -40,7 +54,9 @@ type AgentLoggingStrategy struct {
 	fileLogger io.Writer
 }
 
-func (s *AgentLoggingStrategy) Authenticate(req *http.Request) error {
+// Authenticate checks that this is request is from a machine
+// agent. Part of LoggingStrategy.
+func (s *agentLoggingStrategy) Authenticate(req *http.Request) error {
 	st, entity, err := s.ctxt.stateForRequestAuthenticatedAgent(req)
 	if err != nil {
 		return errors.Trace(err)
@@ -55,6 +71,7 @@ func (s *AgentLoggingStrategy) Authenticate(req *http.Request) error {
 	// address this caveat appropriately.
 	ver, err := jujuClientVersionFromReq(req)
 	if err != nil {
+		s.ctxt.release(st)
 		return errors.Trace(err)
 	}
 	s.st = st
@@ -63,12 +80,15 @@ func (s *AgentLoggingStrategy) Authenticate(req *http.Request) error {
 	return nil
 }
 
-func (s *AgentLoggingStrategy) Start() {
+// Start creates the underlying DB logger. Part of LoggingStrategy.
+func (s *agentLoggingStrategy) Start() {
 	s.filePrefix = s.st.ModelUUID() + ":"
 	s.dbLogger = state.NewEntityDbLogger(s.st, s.entity, s.version)
 }
 
-func (s *AgentLoggingStrategy) Log(m params.LogRecord) bool {
+// Log writes the record to the file and entity loggers. Part of
+// LoggingStrategy.
+func (s *agentLoggingStrategy) Log(m params.LogRecord) bool {
 	level, _ := loggo.ParseLevel(m.Level)
 	dbErr := s.dbLogger.Log(m.Time, m.Module, m.Location, level, m.Message)
 	if dbErr != nil {
@@ -82,13 +102,17 @@ func (s *AgentLoggingStrategy) Log(m params.LogRecord) bool {
 	return dbErr == nil && fileErr == nil
 }
 
-func (s *AgentLoggingStrategy) Stop() {
+// Stop closes the DB logger and releases the state. It doesn't close
+// the file logger because that lives longer than one request. Once it
+// has been called then it can't be restarted unless Authenticate has
+// been called again. Part of LoggingStrategy.
+func (s *agentLoggingStrategy) Stop() {
 	s.dbLogger.Close()
 	s.ctxt.release(s.st)
 }
 
 func newAgentLoggingStrategy(ctxt httpContext, fileLogger io.Writer) LoggingStrategy {
-	return &AgentLoggingStrategy{ctxt: ctxt, fileLogger: fileLogger}
+	return &agentLoggingStrategy{ctxt: ctxt, fileLogger: fileLogger}
 }
 
 func newLogSinkHandler(h httpContext, w io.Writer, newStrategy func(httpContext, io.Writer) LoggingStrategy) http.Handler {
@@ -218,8 +242,8 @@ func (h *logSinkHandler) sendError(w io.Writer, req *http.Request, err error) {
 }
 
 // logToFile writes a single log message to the logsink log file.
-func logToFile(logger io.Writer, prefix string, m params.LogRecord) error {
-	_, err := logger.Write([]byte(strings.Join([]string{
+func logToFile(writer io.Writer, prefix string, m params.LogRecord) error {
+	_, err := writer.Write([]byte(strings.Join([]string{
 		prefix,
 		m.Entity,
 		m.Time.In(time.UTC).Format("2006-01-02 15:04:05"),

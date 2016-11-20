@@ -17,10 +17,9 @@ type ConfigSuite struct {
 
 var _ = gc.Suite(&ConfigSuite{})
 
-
 func (s *ConfigSuite) TestDefaultsPassValidation(c *gc.C) {
 	attrs := testing.FakeConfig().Merge(testing.Attrs{
-		"type":                  "rackspace",
+		"type": "rackspace",
 	})
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
