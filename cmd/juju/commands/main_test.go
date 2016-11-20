@@ -464,6 +464,7 @@ var commandNames = []string{
 	"logout",
 	"machines",
 	"metrics",
+	"migrate",
 	"model-config",
 	"model-defaults",
 	"models",
@@ -530,13 +531,12 @@ var commandNames = []string{
 }
 
 // devFeatures are feature flags that impact registration of commands.
-var devFeatures = []string{feature.Migration, feature.CrossModelRelations}
+var devFeatures = []string{feature.CrossModelRelations}
 
 // These are the commands that are behind the `devFeatures`.
 var commandNamesBehindFlags = set.NewStrings(
 	"find-endpoints",
 	"list-offers",
-	"migrate",
 	"offer",
 	"offers",
 	"show-endpoints",
