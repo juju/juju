@@ -331,9 +331,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(model.NewRevokeCommand())
 	r.Register(model.NewShowCommand())
 
-	if featureflag.Enabled(feature.Migration) {
-		r.Register(newMigrateCommand())
-	}
+	r.Register(newMigrateCommand())
 	if featureflag.Enabled(feature.DeveloperMode) {
 		r.Register(model.NewDumpCommand())
 		r.Register(model.NewDumpDBCommand())
