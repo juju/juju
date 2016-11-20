@@ -171,7 +171,7 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// migrate that information.
 		rebootC,
 
-		// Charms as added into the migrated model during the binary transfer
+		// Charms are added into the migrated model during the binary transfer
 		// phase after the initial model migration.
 		charmsC,
 
