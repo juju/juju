@@ -157,27 +157,40 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// Recreated whilst migrating actions.
 		actionNotificationsC,
 
-		//Cross Model Relations - TODO
-		localApplicationDirectoryC,
-		remoteApplicationsC,
-		applicationOffersC,
+		// Global settings store controller specific configuration settings
+		// and are not to be migrated.
+		globalSettingsC,
+
+		// The auditing collection stores a large amount of historical data
+		// and will be streamed across after migration in a similar way to
+		// logging.
+		auditingC,
+
+		// There is a precheck to ensure that there are no pending reboots
+		// for the model being migrated, and as such, there is no need to
+		// migrate that information.
+		rebootC,
+
+		// Charms are added into the migrated model during the binary transfer
+		// phase after the initial model migration.
+		charmsC,
+
+		// Metrics manager maintains controller specific state relating to
+		// the store and forward of charm metrics. Nothing to migrate here.
+		metricsManagerC,
 	)
 
 	// THIS SET WILL BE REMOVED WHEN MIGRATIONS ARE COMPLETE
 	todoCollections := set.NewStrings(
-		// model configuration
-		globalSettingsC,
-
-		// machine
-		rebootC,
 
 		// service / unit
-		charmsC,
 		"resources",
 
 		// uncategorised
-		metricsManagerC, // should really be copied across
-		auditingC,
+		//Cross Model Relations - TODO
+		localApplicationDirectoryC,
+		remoteApplicationsC,
+		applicationOffersC,
 	)
 
 	envCollections := set.NewStrings()
