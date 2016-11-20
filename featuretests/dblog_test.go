@@ -154,7 +154,7 @@ func (s *debugLogDbSuite) TearDownSuite(c *gc.C) {
 }
 
 func (s *debugLogDbSuite) TestLogsAPI(c *gc.C) {
-	dbLogger := state.NewDbLogger(s.State, names.NewMachineTag("99"), version.Current)
+	dbLogger := state.NewEntityDbLogger(s.State, names.NewMachineTag("99"), version.Current)
 	defer dbLogger.Close()
 
 	t := time.Date(2015, 6, 23, 13, 8, 49, 0, time.UTC)

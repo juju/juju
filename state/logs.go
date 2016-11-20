@@ -207,24 +207,20 @@ type logDoc struct {
 type DbLogger struct {
 	logsColl  *mgo.Collection
 	modelUUID string
-	entity    string
 	version   string
 }
 
-// NewDbLogger returns a DbLogger instance which is used to write logs
-// to the database.
-func NewDbLogger(st ModelSessioner, entity names.Tag, ver version.Number) *DbLogger {
+func NewDbLogger(st ModelSessioner, ver version.Number) *DbLogger {
 	_, logsColl := initLogsSession(st)
 	return &DbLogger{
 		logsColl:  logsColl,
 		modelUUID: st.ModelUUID(),
-		entity:    entity.String(),
 		version:   ver.String(),
 	}
 }
 
 // Log writes a log message to the database.
-func (logger *DbLogger) Log(t time.Time, module string, location string, level loggo.Level, msg string) error {
+func (logger *DbLogger) Log(t time.Time, entity string, module string, location string, level loggo.Level, msg string) error {
 	// TODO(ericsnow) Use a controller-global int sequence for Id.
 
 	// UnixNano() returns the "absolute" (UTC) number of nanoseconds
@@ -234,7 +230,7 @@ func (logger *DbLogger) Log(t time.Time, module string, location string, level l
 		Id:        bson.NewObjectId(),
 		Time:      unixEpochNanoUTC,
 		ModelUUID: logger.modelUUID,
-		Entity:    logger.entity,
+		Entity:    entity,
 		Version:   logger.version,
 		Module:    module,
 		Location:  location,
@@ -248,6 +244,34 @@ func (logger *DbLogger) Close() {
 	if logger.logsColl != nil {
 		logger.logsColl.Database.Session.Close()
 	}
+}
+
+// EntityDbLogger writes log records about one entity.
+type EntityDbLogger struct {
+	DbLogger
+	entity string
+}
+
+// NewEntityDbLogger returns an EntityDbLogger instance which is used
+// to write logs to the database.
+func NewEntityDbLogger(st ModelSessioner, entity names.Tag, ver version.Number) *EntityDbLogger {
+	dbLogger := NewDbLogger(st, ver)
+	return &EntityDbLogger{
+		DbLogger: *dbLogger,
+		entity:   entity.String(),
+	}
+}
+
+// Log writes a log message to the database.
+func (logger *EntityDbLogger) Log(t time.Time, module string, location string, level loggo.Level, msg string) error {
+	return logger.DbLogger.Log(
+		t,
+		logger.entity,
+		module,
+		location,
+		level,
+		msg,
+	)
 }
 
 // LogTailer allows for retrieval of Juju's logs from MongoDB. It
