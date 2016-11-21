@@ -127,17 +127,16 @@ class TestHelpers(TestCase):
 
 
 @contextmanager
-def fake_booted_context(self, upload_tools, **kwargs):
+def fake_booted_context(upload_tools, **kwargs):
     yield
 
 
 class TestBootstrapCloud(TestCase):
 
     def test_bootstrap_cloud(self):
-        #env = JujuData(...)
         client = fake_juju_client()
         bs_manager = Mock()
-        bs_manager.attach_mock(Mock(return_value=fake_booted_context),
+        bs_manager.attach_mock(Mock(side_effect=fake_booted_context),
                                'booted_context')
         with patch_local('make_logging_dir', autospec=True):
             with patch_local('BootstrapManager', autospec=True,
@@ -145,9 +144,10 @@ class TestBootstrapCloud(TestCase):
                 with patch_local('BootstrapManager.booted_context'):
                     with patch('jujupy.EnvJujuClient.wait_for_started'):
                         bootstrap_cloud('config', 'region', client, 'log_dir')
-        bsm_mock.assert_called_once()
-        name, args, kwargs = bsm_mock.call_args
+        self.assertEqual(1, bsm_mock.call_count)
+        args, kwargs = bsm_mock.call_args
         self.assertEqual('boot-cpc-foo-region', args[0])
+        bs_manager.booted_context.assert_called_once_with(False)
 
 
 class TestIterCloudRegions(TestCase):
