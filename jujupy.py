@@ -80,6 +80,10 @@ for super_cmd in [SYSTEM, CONTROLLER]:
 log = logging.getLogger("jujupy")
 
 
+class StatusTimeout(Exception):
+    """Raised when 'juju status' timed out."""
+
+
 class IncompatibleConfigClass(Exception):
     """Raised when a client is initialised with the wrong config class."""
 
@@ -1822,7 +1826,7 @@ class EnvJujuClient:
                         controller=controller))
             except subprocess.CalledProcessError:
                 pass
-        raise Exception(
+        raise StatusTimeout(
             'Timed out waiting for juju status to succeed')
 
     def show_model(self, model_name=None):
@@ -2345,6 +2349,8 @@ class EnvJujuClient:
         self.wait([search], timeout)
 
     def wait(self, remaining, timeout=300):
+        if len(remaining) == 0:
+            return self.get_status()
         try:
             for status in self.status_until(timeout):
                 pending = []
@@ -2354,8 +2360,9 @@ class EnvJujuClient:
                 if len(pending) == 0:
                     return status
                 remaining = pending
-        except Exception:
-            remaining[0].do_raise()
+        except StatusTimeout:
+            pass
+        remaining[0].do_raise()
 
     def get_matching_agent_version(self, no_build=False):
         # strip the series and srch from the built version.
