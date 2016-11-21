@@ -3,16 +3,24 @@
 
 from argparse import Namespace
 from contextlib import contextmanager
+import os
 
 from mock import (
     call,
+    Mock,
     patch,
     )
+import yaml
 
 from bootstrap_public_clouds import (
+    bootstrap_cloud,
     bootstrap_cloud_regions,
+    default_log_dir,
     iter_cloud_regions,
+    main,
+    make_logging_dir,
     parse_args,
+    yaml_file_load,
     )
 from fakejuju import (
     fake_juju_client,
@@ -21,6 +29,16 @@ from tests import (
     FakeHomeTestCase,
     TestCase,
     )
+from utility import (
+    temp_dir,
+    )
+
+
+_LOCAL = 'bootstrap_public_clouds'
+
+
+def patch_local(target, **kwargs):
+    return patch(_LOCAL + '.' + target, **kwargs)
 
 
 class TestParseArgs(TestCase):
@@ -35,6 +53,105 @@ class TestParseArgs(TestCase):
     def test_parse_args_start(self):
         args = parse_args(['--start', '7'])
         self.assertEqual(7, args.start)
+
+
+class TestMain(TestCase):
+
+    @contextmanager
+    def patch_for_test(self, test_iterator, args=[], clouds={}, creds={}):
+        fake_yaml = {'clouds': clouds, 'credentials': creds}
+        with patch_local('configure_logging', autospec=True):
+            with patch_local('parse_args', return_value=parse_args(args)):
+                with patch_local('yaml_file_load', return_value=fake_yaml):
+                    with patch_local('bootstrap_cloud_regions', autospec=True,
+                                     return_value=test_iterator):
+                        with patch_local('print') as print_mock:
+                            yield print_mock
+
+    def test_main(self):
+        with self.patch_for_test([]) as print_mock:
+            retval = main()
+        self.assertEqual(0, retval)
+        print_mock.assert_called_once_with('No failures!')
+
+    def test_main_failures(self):
+        errors = [('config', 'region', 'one'), ('config', 'region', 'two')]
+        with self.patch_for_test(errors) as print_mock:
+            retval = main()
+        self.assertEqual(1, retval)
+        print_mock.assert_has_calls([
+            call('Failed:'),
+            call(' * config region one'),
+            call(' * config region two'),
+            ])
+        self.assertEqual(3, print_mock.call_count)
+
+
+class TestHelpers(TestCase):
+
+    def test_make_logging_dir(self):
+        with temp_dir() as root_dir:
+            expected_path = os.path.join(root_dir, 'config/region')
+            log_dir = make_logging_dir(root_dir, 'config', 'region')
+            self.assertTrue(os.path.isdir(expected_path))
+        self.assertEqual(expected_path, log_dir)
+
+    def test_yaml_file_load(self):
+        expected_data = {'data': {'alpha': 'A', 'beta': 'B'}}
+        with temp_dir() as root_dir:
+            src_file = os.path.join(root_dir, 'test.yaml')
+            with open(src_file, 'w') as yaml_file:
+                yaml.safe_dump(expected_data, yaml_file)
+            with patch('bootstrap_public_clouds.get_juju_home', autospec=True,
+                       return_value=root_dir) as get_home_mock:
+                data = yaml_file_load('test.yaml')
+        get_home_mock.assert_called_once_with()
+        self.assertEqual(data, expected_data)
+
+    def test_default_log_dir(self):
+        settings = Namespace(logs=None)
+        with patch(
+                'deploy_stack.BootstrapManager._generate_default_clean_dir',
+                return_value='/tmp12345') as clean_dir_mock:
+            default_log_dir(settings)
+        self.assertEqual('/tmp12345', settings.logs)
+        clean_dir_mock.assert_called_once_with(_LOCAL)
+
+    def test_default_log_dir_provided(self):
+        settings = Namespace(logs='/tmpABCDE')
+        with patch(
+                'deploy_stack.BootstrapManager._generate_default_clean_dir',
+                autospec=True) as clean_dir_mock:
+            default_log_dir(settings)
+        self.assertEqual('/tmpABCDE', settings.logs)
+        self.assertFalse(clean_dir_mock.called)
+
+
+@contextmanager
+def fake_booted_context(upload_tools, **kwargs):
+    yield
+
+
+class TestBootstrapCloud(TestCase):
+
+    def test_bootstrap_cloud(self):
+        client = fake_juju_client()
+        bs_manager = Mock()
+        bs_manager.attach_mock(Mock(side_effect=fake_booted_context),
+                               'booted_context')
+        with patch_local('make_logging_dir', autospec=True,
+                         side_effect=os.path.join):
+            with patch_local('BootstrapManager', autospec=True,
+                             return_value=bs_manager) as bsm_mock:
+                with patch('jujupy.EnvJujuClient.wait_for_started'):
+                    bootstrap_cloud('config', 'region', client, 'log_dir')
+        self.assertEqual(1, bsm_mock.call_count)
+        bsm_mock.assert_called_once_with(
+            'boot-cpc-foo-region', client, client, bootstrap_host=None,
+            machines=[], series=None, agent_url=None, agent_stream=None,
+            region='region', log_dir='log_dir/config/region', keep_env=False,
+            permanent=True, jes_enabled=True)
+        bs_manager.booted_context.assert_called_once_with(False)
 
 
 class TestIterCloudRegions(TestCase):
@@ -61,7 +178,7 @@ class TestIterCloudRegions(TestCase):
 class TestBootstrapCloudRegions(FakeHomeTestCase):
 
     @contextmanager
-    def patch_for_test(self, cloud_regions, client, error=None,):
+    def patch_for_test(self, cloud_regions, client, error=None):
         """Handles all the patching for testing bootstrap_cloud_regions."""
         with patch('bootstrap_public_clouds.iter_cloud_regions',
                    autospec=True, return_value=cloud_regions) as iter_mock:
