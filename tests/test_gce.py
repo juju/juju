@@ -182,3 +182,26 @@ class GCETestCase(TestCase):
             client, 'juju-*', old_age=gce.OLD_MACHINE_AGE)
         self.assertEqual(1, count)
         client.destroy_node.assert_called_once_with(old_node)
+
+    def test_delete_instances_none_found(self):
+        client = make_fake_client()
+        client.list_nodes.return_value = []
+        count = gce.delete_instances(client, 'juju-*')
+        self.assertEqual(0, count)
+        self.assertEqual(0, client.destroy_node.call_count)
+        self.assertEqual(
+            'WARNING The no machines match juju-* that are older than 6\n',
+            self.log_stream.getvalue())
+
+    def test_delete_instances_destroy_failed(self):
+        old_node = make_fake_node(
+            name='juju-old', created='2016-11-01T13:06:23.968-08:00')
+        client = make_fake_client()
+        client.list_nodes.return_value = [old_node]
+        client.destroy_node.return_value = False
+        count = gce.delete_instances(client, 'juju-*')
+        self.assertEqual(0, count)
+        self.assertEqual(1, client.destroy_node.call_count)
+        self.assertEqual(
+            'ERROR Cannot delete juju-old\n',
+            self.log_stream.getvalue())

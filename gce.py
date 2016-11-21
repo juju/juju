@@ -101,6 +101,7 @@ def delete_instances(client, name_id, old_age=OLD_MACHINE_AGE, dry_run=False):
     :param dry_run: Do not make changes when True.
     """
     nodes = list_instances(client, glob=name_id)
+    deleted_count = 0
     deletable = []
     for node in nodes:
         if is_permanent(node):
@@ -111,11 +112,10 @@ def delete_instances(client, name_id, old_age=OLD_MACHINE_AGE, dry_run=False):
             continue
         deletable.append(node)
     if not deletable:
-        raise ValueError(
+        log.warning(
             'The no machines match {} that are older than {}'.format(
                 name_id, old_age))
     for node in deletable:
-        deleted_count = 0
         node_name = node.name
         log.debug('Deleting {}'.format(node_name))
         if not dry_run:
