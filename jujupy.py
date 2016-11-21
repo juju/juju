@@ -2330,7 +2330,7 @@ class EnvJujuClient:
         self._wait_for_status(reporter, status_to_workloads, WorkloadsNotReady,
                               timeout=timeout, start=start)
 
-    def wait(self, remaining, timeout=300):
+    def wait_for(self, remaining, timeout=300):
         if len(remaining) == 0:
             return self.get_status()
         try:

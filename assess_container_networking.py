@@ -127,7 +127,7 @@ def clean_environment(client, services_only=False):
         for m, _ in status.iter_machines(containers=True, machines=False):
             client.juju('remove-machine', m)
 
-        client.wait([WaitForSearch('containers', 'none')])
+        client.wait_for([WaitForSearch('containers', 'none')])
 
         for m, _ in status.iter_machines(containers=False, machines=True):
             if m != '0':
@@ -143,7 +143,7 @@ def clean_environment(client, services_only=False):
                     client.wait_for_started()
                     client.juju('remove-machine', m)
 
-        client.wait([WaitForSearch('machines-not-0', 'none')])
+        client.wait_for([WaitForSearch('machines-not-0', 'none')])
 
     client.wait_for_started()
     return True
