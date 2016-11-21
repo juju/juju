@@ -88,19 +88,18 @@ func (f *switchingFirewaller) initFirewaller() error {
 		return nil
 	}
 
-	if !f.env.client.IsAuthenticated() {
-		if err := authenticateClient(f.env.client); err != nil {
+	client := f.env.client()
+	if !client.IsAuthenticated() {
+		if err := authenticateClient(client); err != nil {
 			return errors.Trace(err)
 		}
 	}
 
 	base := firewallerBase{environ: f.env}
-	endpoints := f.env.client.EndpointsForRegion(f.env.cloud.Region)
-	if _, ok := endpoints["network"]; ok {
+	if f.env.supportsNeutron() {
 		f.fw = &neutronFirewaller{base}
 	} else {
-		// TODO(axw) return a nova-based implementation.
-		return errors.NotSupportedf("neutron networking")
+		f.fw = &legacyNovaFirewaller{base}
 	}
 	return nil
 }
@@ -192,7 +191,7 @@ func (c *firewallerBase) GetSecurityGroups(ids ...instance.Id) ([]string, error)
 	if c.environ.Config().FirewallMode() == config.FwInstance {
 		instances, err := c.environ.Instances(ids)
 		if err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		}
 		novaClient := c.environ.nova()
 		securityGroupNames = make([]string, 0, len(ids))
@@ -379,7 +378,7 @@ func (c *firewallerBase) instancePorts(
 	nameRegexp := c.machineGroupRegexp(machineId)
 	portRanges, err := portsInGroup(nameRegexp)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	return portRanges, nil
 }
@@ -432,7 +431,7 @@ type neutronFirewaller struct {
 func (c *neutronFirewaller) SetUpGroups(controllerUUID, machineId string, apiPort int) ([]string, error) {
 	jujuGroup, err := c.setUpGlobalGroup(c.jujuGroupName(controllerUUID), apiPort)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	var machineGroup neutron.SecurityGroupV2
 	switch c.environ.Config().FirewallMode() {
@@ -442,7 +441,7 @@ func (c *neutronFirewaller) SetUpGroups(controllerUUID, machineId string, apiPor
 		machineGroup, err = c.ensureGroup(c.globalGroupName(controllerUUID), nil)
 	}
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	groups := []string{jujuGroup.Name, machineGroup.Name}
 	if c.environ.ecfg().useDefaultSecurityGroup() {
@@ -716,7 +715,7 @@ func (c *neutronFirewaller) closePortsInGroup(nameRegExp string, portRanges []ne
 func (c *neutronFirewaller) portsInGroup(nameRegexp string) (portRanges []network.PortRange, err error) {
 	group, err := c.matchingGroup(nameRegexp)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	for _, p := range group.Rules {
 		// Skip the default Security Group Rules created by Neutron

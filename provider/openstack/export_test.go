@@ -446,7 +446,7 @@ func FindInstanceSpec(
 }
 
 func GetSwiftURL(e environs.Environ) (string, error) {
-	return e.(*Environ).client.MakeServiceURL("object-store", "", nil)
+	return e.(*Environ).clientUnlocked.MakeServiceURL("object-store", "", nil)
 }
 
 func SetUseFloatingIP(e environs.Environ, val bool) {
@@ -476,7 +476,7 @@ func ImageMetadataStorage(e environs.Environ) envstorage.Storage {
 	env := e.(*Environ)
 	return &openstackstorage{
 		containerName: "imagemetadata",
-		swift:         swift.New(env.client),
+		swift:         swift.New(env.clientUnlocked),
 	}
 }
 
@@ -484,7 +484,7 @@ func ImageMetadataStorage(e environs.Environ) envstorage.Storage {
 // so you can put data into it.
 func CreateCustomStorage(e environs.Environ, containerName string) envstorage.Storage {
 	env := e.(*Environ)
-	swiftClient := swift.New(env.client)
+	swiftClient := swift.New(env.clientUnlocked)
 	if err := swiftClient.CreateContainer(containerName, swift.PublicRead); err != nil {
 		panic(err)
 	}
