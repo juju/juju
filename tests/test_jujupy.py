@@ -85,6 +85,8 @@ from jujupy import (
     UnitError,
     UpgradeMongoNotSupported,
     VersionNotTestedError,
+    WaitForSearch,
+    WaitMachineNotPresent,
     )
 from tests import (
     assert_juju_call,
@@ -482,6 +484,25 @@ class TestClientFromConfig(ClientTest):
                 client = client_from_config(
                     'foo', 'foo/bar/qux', soft_deadline=deadline)
         self.assertEqual(client._backend.soft_deadline, deadline)
+
+
+class TestWaitMachineNotPresent(ClientTest):
+
+    def test_complete(self):
+        not_present = WaitMachineNotPresent('0')
+        client = fake_juju_client()
+        client.bootstrap()
+        self.assertIs(not_present.complete(client.get_status()), True)
+        client.juju('add-machine', ())
+        self.assertIs(not_present.complete(client.get_status()), False)
+        client.juju('remove-machine', ('0'))
+        self.assertIs(not_present.complete(client.get_status()), True)
+
+    def test_do_raise(self):
+        not_present = WaitMachineNotPresent('0')
+        with self.assertRaisesRegexp(
+                Exception, 'Timed out waiting for machine removal 0'):
+            not_present.do_raise()
 
 
 class TestEnvJujuClient(ClientTest):
@@ -2489,6 +2510,31 @@ class TestEnvJujuClient(ClientTest):
                 Exception,
                 'Timed out waiting for machines-not-0'):
             client.wait_for('machines-not-0', 'none')
+
+    def test_wait_just_machine_0(self):
+        value = yaml.safe_dump({
+            'machines': {
+                '0': {'agent-state': 'started'},
+            },
+        })
+        client = EnvJujuClient(JujuData('local'), None, None)
+        with patch.object(client, 'get_juju_output', return_value=value):
+            client.wait([WaitForSearch('machines-not-0', 'none')])
+
+    def test_wait_just_machine_0_timeout(self):
+        value = yaml.safe_dump({
+            'machines': {
+                '0': {'agent-state': 'started'},
+                '1': {'agent-state': 'started'},
+            },
+        })
+        client = EnvJujuClient(JujuData('local'), None, None)
+        with patch.object(client, 'get_juju_output', return_value=value), \
+            patch('jujupy.until_timeout', lambda x: range(0)), \
+            self.assertRaisesRegexp(
+                Exception,
+                'Timed out waiting for machines-not-0'):
+            client.wait([WaitForSearch('machines-not-0', 'none')])
 
     def test_set_model_constraints(self):
         client = EnvJujuClient(JujuData('bar', {}), None, '/foo')
