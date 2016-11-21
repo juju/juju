@@ -537,7 +537,7 @@ func NewRemoteRelationsWatcher(caller base.APICaller, result params.RemoteRelati
 	go func() {
 		defer w.tomb.Done()
 		defer close(w.out)
-		w.tomb.Kill(w.loop(*result.Changes))
+		w.tomb.Kill(w.loop(*result.Change))
 	}()
 	return w
 }
@@ -563,7 +563,7 @@ func (w *remoteRelationsWatcher) loop(initialChanges params.RemoteRelationsChang
 			// at this point, so just return.
 			return nil
 		}
-		changes = copyRemoteRelationsChange(*data.(*params.RemoteRelationsWatchResult).Changes)
+		changes = copyRemoteRelationsChange(*data.(*params.RemoteRelationsWatchResult).Change)
 	}
 }
 

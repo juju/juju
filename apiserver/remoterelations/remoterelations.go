@@ -164,20 +164,21 @@ func (api *RemoteRelationsAPI) WatchRemoteApplications() (params.StringsWatchRes
 	return params.StringsWatchResult{}, watcher.EnsureErr(w)
 }
 
-// WatchRemoteApplicationRelations starts a RemoteRelationsWatcher for each specified
-// remote application, and returns the watcher IDs and initial values, or an error
-// if the remote applications could not be watched.
-func (api *RemoteRelationsAPI) WatchRemoteApplicationRelations(args params.Entities) (params.RemoteRelationsWatchResults, error) {
-	results := params.RemoteRelationsWatchResults{
-		make([]params.RemoteRelationsWatchResult, len(args.Entities)),
+// WatchLocalRelationUnits starts a RelationUnitsWatcher for watching the local
+// relation units involved in each specified relation in the local environment,
+// and returns the watcher IDs and initial values, or an error if the relation
+// units could not be watched.
+func (api *RemoteRelationsAPI) WatchLocalRelationUnits(args params.Entities) (params.RelationUnitsWatchResults, error) {
+	results := params.RelationUnitsWatchResults{
+		make([]params.RelationUnitsWatchResult, len(args.Entities)),
 	}
 	for i, arg := range args.Entities {
-		applicationTag, err := names.ParseApplicationTag(arg.Tag)
+		relationTag, err := names.ParseRelationTag(arg.Tag)
 		if err != nil {
 			results.Results[i].Error = common.ServerError(err)
 			continue
 		}
-		w, err := api.watchApplication(applicationTag)
+		w, err := api.watchLocalRelationUnits(relationTag)
 		if err != nil {
 			results.Results[i].Error = common.ServerError(err)
 			continue
@@ -187,11 +188,66 @@ func (api *RemoteRelationsAPI) WatchRemoteApplicationRelations(args params.Entit
 			results.Results[i].Error = common.ServerError(watcher.EnsureErr(w))
 			continue
 		}
-		results.Results[i].RemoteRelationsWatcherId = api.resources.Register(w)
-		results.Results[i].Changes = &changes
+		results.Results[i].RelationUnitsWatcherId = api.resources.Register(w)
+		results.Results[i].Changes = changes
 	}
 	return results, nil
 }
+
+func (api *RemoteRelationsAPI) watchLocalRelationUnits(tag names.RelationTag) (state.RelationUnitsWatcher, error) {
+	relation, err := api.st.KeyRelation(tag.Id())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	for _, ep := range relation.Endpoints() {
+		_, err := api.st.Application(ep.ApplicationName)
+		if errors.IsNotFound(err) {
+			// Not found, so it's the remote application. Try the next endpoint.
+			continue
+		} else if err != nil {
+			return nil, errors.Trace(err)
+		}
+		w, err := relation.WatchUnits(ep.ApplicationName)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return w, nil
+	}
+	return nil, errors.NotFoundf("local application for %s", names.ReadableString(tag))
+}
+
+// WatchRemoteApplicationRelations starts a StringsWatcher for watching the relations of
+// each specified application in the local environment, and returns the watcher IDs
+// and initial values, or an error if the services' relations could not be
+// watched.
+func (api *RemoteRelationsAPI) WatchRemoteApplicationRelations(args params.Entities) (params.StringsWatchResults, error) {
+	results := params.StringsWatchResults{
+		make([]params.StringsWatchResult, len(args.Entities)),
+	}
+	for i, arg := range args.Entities {
+		applicationTag, err := names.ParseApplicationTag(arg.Tag)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		appName := applicationTag.Id()
+		w, err := api.st.WatchRemoteApplicationRelations(appName)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		changes, ok := <-w.Changes()
+		if !ok {
+			results.Results[i].Error = common.ServerError(watcher.EnsureErr(w))
+			continue
+		}
+		results.Results[i].StringsWatcherId = api.resources.Register(w)
+		results.Results[i].Changes = changes
+	}
+	return results, nil
+}
+
+// TODO(wallyworld) - the the stuff below is currently used.
 
 func (api *RemoteRelationsAPI) watchApplication(applicationTag names.ApplicationTag) (*applicationRelationsWatcher, error) {
 	// TODO(axw) subscribe to changes sent by the offering side.
@@ -294,7 +350,7 @@ func (w *applicationRelationsWatcher) loop() error {
 				if _, ok := w.relationUnitsWatchers[relationKey]; !ok {
 					// Start a relation units watcher, wait for the initial
 					// value before informing the client of the relation.
-					ruw, err := relation.WatchCounterpartEndpointUnits(w.applicationName)
+					ruw, err := relation.WatchUnits(w.applicationName)
 					if err != nil {
 						return errors.Trace(err)
 					}

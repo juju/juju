@@ -17,6 +17,7 @@ type mockState struct {
 	testing.Stub
 	relations                    map[string]*mockRelation
 	remoteApplications           map[string]*mockRemoteApplication
+	applications                 map[string]*mockApplication
 	remoteApplicationsWatcher    *mockStringsWatcher
 	applicationRelationsWatchers map[string]*mockStringsWatcher
 }
@@ -25,6 +26,7 @@ func newMockState() *mockState {
 	return &mockState{
 		relations:                    make(map[string]*mockRelation),
 		remoteApplications:           make(map[string]*mockRemoteApplication),
+		applications:                 make(map[string]*mockApplication),
 		remoteApplicationsWatcher:    newMockStringsWatcher(),
 		applicationRelationsWatchers: make(map[string]*mockStringsWatcher),
 	}
@@ -60,11 +62,23 @@ func (st *mockState) RemoteApplication(id string) (remoterelations.RemoteApplica
 	if err := st.NextErr(); err != nil {
 		return nil, err
 	}
-	s, ok := st.remoteApplications[id]
+	a, ok := st.remoteApplications[id]
 	if !ok {
 		return nil, errors.NotFoundf("remote application %q", id)
 	}
-	return s, nil
+	return a, nil
+}
+
+func (st *mockState) Application(id string) (remoterelations.Application, error) {
+	st.MethodCall(st, "Application", id)
+	if err := st.NextErr(); err != nil {
+		return nil, err
+	}
+	a, ok := st.applications[id]
+	if !ok {
+		return nil, errors.NotFoundf("application %q", id)
+	}
+	return a, nil
 }
 
 func (st *mockState) WatchRemoteApplications() state.StringsWatcher {
@@ -89,6 +103,7 @@ type mockRelation struct {
 	id                    int
 	life                  state.Life
 	units                 map[string]remoterelations.RelationUnit
+	endpoints             []state.Endpoint
 	endpointUnitsWatchers map[string]*mockRelationUnitsWatcher
 }
 
@@ -140,8 +155,13 @@ func (r *mockRelation) Unit(unitId string) (remoterelations.RelationUnit, error)
 	return u, nil
 }
 
-func (r *mockRelation) WatchCounterpartEndpointUnits(applicationName string) (state.RelationUnitsWatcher, error) {
-	r.MethodCall(r, "WatchCounterpartEndpointUnits", applicationName)
+func (r *mockRelation) Endpoints() []state.Endpoint {
+	r.MethodCall(r, "Endpoints")
+	return r.endpoints
+}
+
+func (r *mockRelation) WatchUnits(applicationName string) (state.RelationUnitsWatcher, error) {
+	r.MethodCall(r, "WatchUnits", applicationName)
 	if err := r.NextErr(); err != nil {
 		return nil, err
 	}
@@ -177,6 +197,28 @@ func (r *mockRemoteApplication) URL() string {
 func (r *mockRemoteApplication) Destroy() error {
 	r.MethodCall(r, "Destroy")
 	return r.NextErr()
+}
+
+type mockApplication struct {
+	testing.Stub
+	name string
+	life state.Life
+}
+
+func newMockApplication(name string) *mockApplication {
+	return &mockApplication{
+		name: name,
+	}
+}
+
+func (r *mockApplication) Name() string {
+	r.MethodCall(r, "Name")
+	return r.name
+}
+
+func (r *mockApplication) Life() state.Life {
+	r.MethodCall(r, "Life")
+	return r.life
 }
 
 type mockWatcher struct {
