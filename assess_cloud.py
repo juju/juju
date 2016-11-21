@@ -48,8 +48,8 @@ def assess_cloud_combined(bs_manager):
         new_status = client.wait_for_started()
         new_machines = [k for k, v in new_status.iter_new_machines(old_status)]
         client.juju('remove-machine', tuple(new_machines))
-        new_status = client.wait([WaitMachineNotPresent(n)
-                                  for n in new_machines])
+        new_status = client.wait_for([WaitMachineNotPresent(n)
+                                      for n in new_machines])
 
 
 def main():
