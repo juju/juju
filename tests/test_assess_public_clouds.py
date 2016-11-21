@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Tests for bootstrap_public_clouds."""
+"""Tests for assess_public_clouds."""
 
 from argparse import Namespace
 from contextlib import contextmanager
@@ -12,7 +12,7 @@ from mock import (
     )
 import yaml
 
-from bootstrap_public_clouds import (
+from assess_public_clouds import (
     bootstrap_cloud,
     bootstrap_cloud_regions,
     default_log_dir,
@@ -34,7 +34,7 @@ from utility import (
     )
 
 
-_LOCAL = 'bootstrap_public_clouds'
+_LOCAL = 'assess_public_clouds'
 
 
 def patch_local(target, **kwargs):
@@ -102,8 +102,8 @@ class TestHelpers(TestCase):
             src_file = os.path.join(root_dir, 'test.yaml')
             with open(src_file, 'w') as yaml_file:
                 yaml.safe_dump(expected_data, yaml_file)
-            with patch('bootstrap_public_clouds.get_juju_home', autospec=True,
-                       return_value=root_dir) as get_home_mock:
+            with patch_local('get_juju_home', autospec=True,
+                             return_value=root_dir) as get_home_mock:
                 data = yaml_file_load('test.yaml')
         get_home_mock.assert_called_once_with()
         self.assertEqual(data, expected_data)
@@ -180,12 +180,12 @@ class TestBootstrapCloudRegions(FakeHomeTestCase):
     @contextmanager
     def patch_for_test(self, cloud_regions, client, error=None):
         """Handles all the patching for testing bootstrap_cloud_regions."""
-        with patch('bootstrap_public_clouds.iter_cloud_regions',
-                   autospec=True, return_value=cloud_regions) as iter_mock:
-            with patch('bootstrap_public_clouds.bootstrap_cloud',
-                       autospec=True, side_effect=error) as bootstrap_mock:
-                with patch('bootstrap_public_clouds.client_from_config',
-                           autospec=True, return_value=client):
+        with patch_local('iter_cloud_regions', autospec=True,
+                         return_value=cloud_regions) as iter_mock:
+            with patch_local('bootstrap_cloud', autospec=True,
+                             side_effect=error) as bootstrap_mock:
+                with patch_local('client_from_config', autospec=True,
+                                 return_value=client):
                     with patch('logging.info', autospec=True) as info_mock:
                         yield (iter_mock, bootstrap_mock, info_mock)
 
