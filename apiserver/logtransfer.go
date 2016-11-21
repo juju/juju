@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/state"
 )
 
-type MigrationLoggingStrategy struct {
+type migrationLoggingStrategy struct {
 	ctxt       httpContext
 	st         *state.State
 	version    version.Number
@@ -24,9 +24,10 @@ type MigrationLoggingStrategy struct {
 	fileLogger io.Writer
 }
 
-func (s *MigrationLoggingStrategy) Authenticate(req *http.Request) error {
-	// st, err := s.ctxt.stateForRequestMigratingModel(req)
-	st, _, err := s.ctxt.stateForRequestAuthenticatedAgent(req)
+// Authenticate checks that the user is a controller superuser and
+// that the requested model is migrating. Part of LoggingStrategy.
+func (s *migrationLoggingStrategy) Authenticate(req *http.Request) error {
+	st, err := s.ctxt.stateForMigration(req)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -43,12 +44,15 @@ func (s *MigrationLoggingStrategy) Authenticate(req *http.Request) error {
 	return nil
 }
 
-func (s *MigrationLoggingStrategy) Start() {
+// Start creates the destination DB logger. Part of LoggingStrategy.
+func (s *migrationLoggingStrategy) Start() {
 	s.filePrefix = s.st.ModelUUID() + ":"
 	s.dbLogger = state.NewDbLogger(s.st, s.version)
 }
 
-func (s *MigrationLoggingStrategy) Log(m params.LogRecord) bool {
+// Log writes the given record to the DB and to the backup file
+// logger. Part of LoggingStrategy.
+func (s *migrationLoggingStrategy) Log(m params.LogRecord) bool {
 	level, _ := loggo.ParseLevel(m.Level)
 	dbErr := s.dbLogger.Log(m.Time, m.Entity, m.Module, m.Location, level, m.Message)
 	if dbErr != nil {
@@ -61,11 +65,13 @@ func (s *MigrationLoggingStrategy) Log(m params.LogRecord) bool {
 	return dbErr == nil && fileErr == nil
 }
 
-func (s *MigrationLoggingStrategy) Stop() {
+// Stop imdicates that there are no more log records coming, so we can
+// release resources and close loggers. Part of LoggingStrategy.
+func (s *migrationLoggingStrategy) Stop() {
 	s.dbLogger.Close()
 	s.ctxt.release(s.st)
 }
 
 func newMigrationLoggingStrategy(ctxt httpContext, fileLogger io.Writer) LoggingStrategy {
-	return &MigrationLoggingStrategy{ctxt: ctxt, fileLogger: fileLogger}
+	return &migrationLoggingStrategy{ctxt: ctxt, fileLogger: fileLogger}
 }

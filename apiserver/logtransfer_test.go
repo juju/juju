@@ -22,6 +22,8 @@ import (
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/permission"
+	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/version"
@@ -29,9 +31,11 @@ import (
 
 type logtransferSuite struct {
 	authHTTPSuite
-	userTag  names.Tag
-	password string
-	logs     loggo.TestWriter
+	userTag         names.UserTag
+	password        string
+	machineTag      names.MachineTag
+	machinePassword string
+	logs            loggo.TestWriter
 }
 
 var _ = gc.Suite(&logtransferSuite{})
@@ -40,7 +44,15 @@ func (s *logtransferSuite) SetUpTest(c *gc.C) {
 	s.authHTTPSuite.SetUpTest(c)
 	s.password = "jabberwocky"
 	u := s.Factory.MakeUser(c, &factory.UserParams{Password: s.password})
-	s.userTag = u.Tag()
+	s.userTag = u.Tag().(names.UserTag)
+	m, password := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
+		Nonce: "nonce",
+	})
+	s.machineTag = m.Tag().(names.MachineTag)
+	s.machinePassword = password
+
+	s.setUserAccess(c, permission.SuperuserAccess)
+	s.setMigrationMode(c, state.MigrationModeImporting)
 
 	s.logs.Clear()
 	writer := loggo.NewMinimumLevelWriter(&s.logs, loggo.INFO)
@@ -73,7 +85,7 @@ func (s *logtransferSuite) dialWebsocketInternal(c *gc.C, header http.Header) *w
 func (s *logtransferSuite) TestRejectsMissingModelHeader(c *gc.C) {
 	header := utils.BasicAuthHeader(s.userTag.String(), s.password)
 	reader := s.toReader(s.dialWebsocketInternal(c, header))
-	assertJSONError(c, reader, `missing migrating model header`)
+	assertJSONError(c, reader, `unknown model: ""`)
 	assertWebsocketClosed(c, reader)
 }
 
@@ -87,19 +99,18 @@ func (s *logtransferSuite) TestRejectsBadMigratingModelUUID(c *gc.C) {
 
 func (s *logtransferSuite) TestRejectsInvalidVersion(c *gc.C) {
 	url := s.logtransferURL(c, "wss")
-	url.Query()["jujuclientversion"] = []string{"blah"}
+	query := url.Query()
+	query.Set("jujuclientversion", "blah")
+	url.RawQuery = query.Encode()
 	conn := dialWebsocketFromURL(c, url.String(), s.makeAuthHeader())
 	defer conn.Close()
 	reader := bufio.NewReader(conn)
-	assertJSONError(c, reader, `invalid jujuclientversion "blah"`)
+	assertJSONError(c, reader, `^invalid jujuclientversion "blah".*`)
 	assertWebsocketClosed(c, reader)
 }
 
 func (s *logtransferSuite) TestRejectsMachineLogins(c *gc.C) {
-	m, password := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
-		Nonce: "nonce",
-	})
-	header := utils.BasicAuthHeader(m.Tag().String(), password)
+	header := utils.BasicAuthHeader(s.machineTag.String(), s.machinePassword)
 	header.Add(params.MachineNonceHeader, "nonce")
 	reader := s.toReader(s.dialWebsocketInternal(c, header))
 	assertJSONError(c, reader, `tag kind machine not valid`)
@@ -111,6 +122,20 @@ func (s *logtransferSuite) TestRejectsBadPasword(c *gc.C) {
 	header.Add(params.MigrationModelHeader, s.State.ModelUUID())
 	reader := s.toReader(s.dialWebsocketInternal(c, header))
 	assertJSONError(c, reader, "invalid entity name or password")
+	assertWebsocketClosed(c, reader)
+}
+
+func (s *logtransferSuite) TestRequiresSuperUser(c *gc.C) {
+	s.setUserAccess(c, permission.AddModelAccess)
+	reader := s.toReader(s.dialWebsocketInternal(c, s.makeAuthHeader()))
+	assertJSONError(c, reader, `not a controller admin`)
+	assertWebsocketClosed(c, reader)
+}
+
+func (s *logtransferSuite) TestRequiresMigratingModel(c *gc.C) {
+	s.setMigrationMode(c, state.MigrationModeNone)
+	reader := s.toReader(s.dialWebsocket(c))
+	assertJSONError(c, reader, `model not importing`)
 	assertWebsocketClosed(c, reader)
 }
 
@@ -216,4 +241,17 @@ func (s *logtransferSuite) TestLogging(c *gc.C) {
 func (s *logtransferSuite) toReader(conn *websocket.Conn) *bufio.Reader {
 	s.AddCleanup(func(_ *gc.C) { conn.Close() })
 	return bufio.NewReader(conn)
+}
+
+func (s *logtransferSuite) setUserAccess(c *gc.C, level permission.Access) {
+	controllerTag := names.NewControllerTag(s.ControllerConfig.ControllerUUID())
+	_, err := s.State.SetUserAccess(s.userTag, controllerTag, level)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *logtransferSuite) setMigrationMode(c *gc.C, mode state.MigrationMode) {
+	model, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	err = model.SetMigrationMode(mode)
+	c.Assert(err, jc.ErrorIsNil)
 }
