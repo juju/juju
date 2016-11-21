@@ -190,7 +190,7 @@ class GCETestCase(TestCase):
         self.assertEqual(0, count)
         self.assertEqual(0, client.destroy_node.call_count)
         self.assertEqual(
-            'WARNING The no machines match juju-* that are older than 6\n',
+            'WARNING The no machines match juju-* that are older than 14\n',
             self.log_stream.getvalue())
 
     def test_delete_instances_destroy_failed(self):
