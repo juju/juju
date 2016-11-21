@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+from __future__ import print_function
+
 from argparse import ArgumentParser
 import logging
 import os
@@ -27,7 +29,7 @@ log = logging.getLogger('bootstrap_public_clouds')
 
 def make_logging_dir(base_dir, config, region):
     log_dir = os.path.join(base_dir, config, region)
-    os.mkdirs(log_dir)
+    os.makedirs(log_dir)
     return log_dir
 
 
@@ -37,7 +39,7 @@ def bootstrap_cloud(config, region, client, log_dir):
     bs_manager = BootstrapManager(
         env_name, client, client, bootstrap_host=None, machines=[],
         series=None, agent_url=None, agent_stream=None, region=region,
-        log_dir=logging_dir, keep_env=False, permanent=True, jes_enable=True)
+        log_dir=logging_dir, keep_env=False, permanent=True, jes_enabled=True)
     with bs_manager.booted_context(False):
         client.wait_for_started()
 
