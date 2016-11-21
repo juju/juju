@@ -642,10 +642,11 @@ def get_gce_config():
     }
 
 
-class TestGCEAccount(TestCase):
+class TestGCEAccount(FakeHomeTestCase):
 
     def test_from_boot_config(self):
-        boot_config = SimpleEnvironment('foo', get_gce_config())
+        boot_config = JujuData('foo', get_gce_config())
+        boot_config.credentials['credentials'] = {'google': {'baz': {}}}
         client = test_gce.make_fake_client()
         with patch('gce.get_client', return_value=client) as gc_mock:
             with GCEAccount.from_boot_config(boot_config) as account:
@@ -1375,7 +1376,8 @@ class TestMakeSubstrateManager(FakeHomeTestCase):
             is_mock.assert_called_once_with(substrate.arm_client)
 
     def test_make_substrate_manager_gce(self):
-        boot_config = SimpleEnvironment('foo', get_gce_config())
+        boot_config = JujuData('foo', get_gce_config())
+        boot_config.credentials['credentials'] = {'google': {'baz': {}}}
         client = test_gce.make_fake_client()
         with patch('gce.get_client',
                    autospec=True, return_value=client) as gc_mock:
