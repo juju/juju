@@ -24,7 +24,7 @@ from utility import (
     )
 
 
-log = logging.getLogger('bootstrap_public_clouds')
+log = logging.getLogger('assess_public_clouds')
 
 
 def make_logging_dir(base_dir, config, region):
@@ -108,7 +108,7 @@ def yaml_file_load(file_name):
 def default_log_dir(settings):
     if settings.logs is None:
         settings.logs = BootstrapManager._generate_default_clean_dir(
-            'bootstrap_public_clouds')
+            'assess_public_clouds')
 
 
 def main():
