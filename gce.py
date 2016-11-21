@@ -83,7 +83,11 @@ def list_instances(client, glob='*', print_out=False):
     if print_out:
         for node in nodes:
             created = node.extra.get('creationTimestamp')
-            zone_name = node.extra.get('zone').name
+            zone = node.extra.get('zone')
+            if zone:
+                zone_name = zone.name
+            else:
+                zone_name = 'UNKNOWN'
             print('{}\t{}\t{}\t{}'.format(
                 node.name, zone_name, created, node.state))
     return nodes

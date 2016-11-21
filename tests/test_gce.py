@@ -1,3 +1,4 @@
+from argparse import Namespace
 from datetime import (
     datetime,
 )
@@ -5,7 +6,11 @@ from mock import (
     Mock,
     patch,
 )
-from argparse import Namespace
+try:
+    # Import none-unicode first because it means unicode is not default.
+    from StringIO import StringIO
+except ImportError:
+    from io import StringIO
 
 from tests import TestCase
 import gce
@@ -21,6 +26,23 @@ GCE_ENVIRON = {
 def make_fake_client():
     client = Mock(['list_nodes', 'destroy_node'])
     return client
+
+
+def make_fake_node(name='foo', state='running',
+                   zone=None, created=None, tags=None):
+    node = Mock(extra={}, state=state)
+    # Overide the mock name callable with a Node name attribute.
+    node.name = name
+    # Zone is not guaranteed, but when it is present, it is a object
+    if zone:
+        zone_region = Mock()
+        zone_region.name = zone
+        node.extra['zone'] = zone_region
+    if tags:
+        node.extra['tags'] = tags
+    if created:
+        node.extra['creationTimestamp'] = created
+    return node
 
 
 class GCETestCase(TestCase):
@@ -121,3 +143,28 @@ class GCETestCase(TestCase):
     def test_is_young_no_created(self):
         node = Mock(extra={})
         self.assertIsTrue(gce.is_young(node, gce.OLD_MACHINE_AGE))
+
+    def test_list_instances(self):
+        no_node = make_fake_node(name='bingo')
+        yes_node = make_fake_node(name='juju-controller')
+        client = make_fake_client()
+        client.list_nodes.return_value = [no_node, yes_node]
+        found = gce.list_instances(client, 'juju-*')
+        client.list_nodes.assert_called_once_with(ex_zone='all')
+        self.assertEqual([yes_node], found)
+
+    def test_list_instances_with_print(self):
+        node_one = make_fake_node(name='juju-controller')
+        node_two = make_fake_node(
+            name='juju-app', created='2016-11-01T13:01:01.0+01:00',
+            zone='us-west1')
+        client = make_fake_client()
+        client.list_nodes.return_value = [node_one, node_two]
+        with patch('sys.stdout', new_callable=StringIO) as so_sio:
+            found = gce.list_instances(client, 'juju-*', print_out=True)
+        client.list_nodes.assert_called_once_with(ex_zone='all')
+        self.assertEqual([node_one, node_two], found)
+        self.assertEqual(
+            'juju-controller\tUNKNOWN\tNone\trunning\njuju-app\tus-west1\t'
+            '2016-11-01T13:01:01.0+01:00\trunning\n',
+            so_sio.getvalue())
