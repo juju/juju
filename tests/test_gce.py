@@ -118,30 +118,30 @@ class GCETestCase(TestCase):
         self.assertEqual(expected, args)
 
     def test_is_permanent_true(self):
-        node = Mock(extra={'tags': ['permanent', 'bingo']})
+        node = make_fake_node(tags=['permanent', 'bingo'])
         self.assertIsTrue(gce.is_permanent(node))
 
     def test_is_permanent_false(self):
-        node = Mock(extra={'tags': ['bingo']})
+        node = make_fake_node(tags=['bingo'])
         self.assertIsFalse(gce.is_permanent(node))
 
     def test_is_permanent_no_tags(self):
-        node = Mock(extra={})
+        node = make_fake_node(tags=[])
         self.assertIsFalse(gce.is_permanent(node))
 
     def test_is_young_true(self):
         now = datetime.utcnow()
         hour_ago = '{}-01:00'.format(now.isoformat())
-        node = Mock(extra={'creationTimestamp': hour_ago})
+        node = make_fake_node(created=hour_ago)
         self.assertIsTrue(gce.is_young(node, gce.OLD_MACHINE_AGE))
 
     def test_is_young_false(self):
-        node = Mock(
-            extra={'creationTimestamp': '2016-11-01T13:06:23.968-08:00'})
+        node = make_fake_node(created='2016-11-01T13:06:23.968-08:00')
         self.assertIsFalse(gce.is_young(node, gce.OLD_MACHINE_AGE))
 
     def test_is_young_no_created(self):
-        node = Mock(extra={})
+        node = make_fake_node()
+        self.assertEqual({}, node.extra)
         self.assertIsTrue(gce.is_young(node, gce.OLD_MACHINE_AGE))
 
     def test_list_instances(self):
@@ -173,7 +173,7 @@ class GCETestCase(TestCase):
         now = datetime.utcnow()
         hour_ago = '{}-01:00'.format(now.isoformat())
         young_node = make_fake_node(name='juju-young', created=hour_ago)
-        perm_node = make_fake_node(name='juju-perm', tags='permanent')
+        perm_node = make_fake_node(name='juju-perm', tags=['permanent'])
         old_node = make_fake_node(
             name='juju-old', created='2016-11-01T13:06:23.968-08:00')
         client = make_fake_client()
