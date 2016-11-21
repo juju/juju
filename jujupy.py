@@ -2353,6 +2353,7 @@ class EnvJujuClient:
             return self.get_status()
         try:
             for status in self.status_until(timeout):
+                status.raise_highest_error(ignore_recoverable=True)
                 pending = []
                 for item in remaining:
                     if not item.complete(status):
@@ -2360,6 +2361,8 @@ class EnvJujuClient:
                 if len(pending) == 0:
                     return status
                 remaining = pending
+            else:
+                status.raise_highest_error(ignore_recoverable=False)
         except StatusTimeout:
             pass
         remaining[0].do_raise()

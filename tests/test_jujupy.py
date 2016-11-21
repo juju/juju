@@ -2537,19 +2537,66 @@ class TestEnvJujuClient(ClientTest):
                 'Timed out waiting for machines-not-0'):
             client.wait([WaitForSearch('machines-not-0', 'none')])
 
-    def test_wait_timeout(self):
-        client = fake_juju_client()
-        client.bootstrap()
+    class NeverComplete:
 
         class NeverCompleteException(Exception):
             pass
 
-        never_complete = Mock()
-        never_complete.complete.return_value = False
-        never_complete.do_raise.side_effect = NeverCompleteException
-        with self.assertRaises(never_complete.do_raise.side_effect):
+        def complete(self, ignored):
+            return False
+
+        def do_raise(self):
+            raise self.NeverCompleteException()
+
+    def test_wait_timeout(self):
+        client = fake_juju_client()
+        client.bootstrap()
+
+        never_complete = self.NeverComplete()
+        with self.assertRaises(never_complete.NeverCompleteException):
             with patch.object(client, 'status_until', lambda timeout: iter(
-                    [None])):
+                    [Status({}, '')])):
+                client.wait([never_complete])
+
+    def test_wait_bad_status(self):
+        client = fake_juju_client()
+        client.bootstrap()
+
+        never_complete = self.NeverComplete()
+        bad_status = Status({'machines': {'0': {StatusItem.MACHINE: {
+            'current': 'error'
+            }}}}, '')
+        with self.assertRaises(MachineError):
+            with patch.object(client, 'status_until', lambda timeout: iter(
+                    [bad_status])):
+                client.wait([never_complete])
+
+    def test_wait_bad_status_recoverable_recovered(self):
+        client = fake_juju_client()
+        client.bootstrap()
+
+        never_complete = self.NeverComplete()
+        bad_status = Status({'applications': {'0': {StatusItem.APPLICATION: {
+            'current': 'error'
+            }}}}, '')
+        good_status = Status({}, '')
+        with self.assertRaises(never_complete.NeverCompleteException):
+            with patch.object(client, 'status_until', lambda timeout: iter(
+                    [bad_status, good_status])):
+                client.wait([never_complete])
+
+    def test_wait_bad_status_recoverable_timed_out(self):
+        client = fake_juju_client()
+        client.bootstrap()
+
+        never_complete = self.NeverComplete()
+        bad_status = Status({'applications': {'0': {StatusItem.APPLICATION: {
+            'current': 'error'
+            }}}}, '')
+        good_status = Status({}, '')
+        with self.assertRaises(AppError):
+            with patch.object(client, 'status_until', lambda timeout: iter(
+                    [bad_status])):
                 client.wait([never_complete])
 
     def test_wait_empty_list(self):
