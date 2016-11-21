@@ -1286,7 +1286,7 @@ class WaitForSearch:
         self.thing = thing
         self.search_type = search_type
 
-    def complete(self, status):
+    def is_satisfied(self, status):
         hit = False
         miss = False
 
@@ -1324,11 +1324,12 @@ class WaitForSearch:
 
 
 class WaitMachineNotPresent:
+    """Condition satisfied when a given machine is not present."""
 
     def __init__(self, machine):
         self.machine = machine
 
-    def complete(self, status):
+    def is_satisfied(self, status):
         for machine, info in status.iter_machines():
             if machine == self.machine:
                 return False
@@ -2330,39 +2331,29 @@ class EnvJujuClient:
         self._wait_for_status(reporter, status_to_workloads, WorkloadsNotReady,
                               timeout=timeout, start=start)
 
-    def wait_for(self, thing, search_type, timeout=300):
-        """ Wait for a something (thing) matching none/all/some machines.
+    def wait_for(self, conditions, timeout=300):
+        """Wait until the supplied conditions are satisfied.
 
-        Examples:
-          wait_for('containers', 'all')
-          This will wait for a container to appear on all machines.
-
-          wait_for('machines-not-0', 'none')
-          This will wait for all machines other than 0 to be removed.
-
-        :param thing: string, either 'containers' or 'not-machine-0'
-        :param search_type: string containing none, some or all
-        :param timeout: number of seconds to wait for condition to be true.
-        :return:
+        The supplied conditions must be an iterable of objects like
+        WaitMachineNotPresent.
         """
-        search = WaitForSearch(thing, search_type)
-        self.wait([search], timeout)
-
-    def wait(self, remaining, timeout=300):
-        if len(remaining) == 0:
+        if len(conditions) == 0:
             return self.get_status()
         try:
             for status in self.status_until(timeout):
+                status.raise_highest_error(ignore_recoverable=True)
                 pending = []
-                for item in remaining:
-                    if not item.complete(status):
-                        pending.append(item)
+                for condition in conditions:
+                    if not condition.is_satisfied(status):
+                        pending.append(condition)
                 if len(pending) == 0:
                     return status
-                remaining = pending
+                conditions = pending
+            else:
+                status.raise_highest_error(ignore_recoverable=False)
         except StatusTimeout:
             pass
-        remaining[0].do_raise()
+        conditions[0].do_raise()
 
     def get_matching_agent_version(self, no_build=False):
         # strip the series and srch from the built version.
