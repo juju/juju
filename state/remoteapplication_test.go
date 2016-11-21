@@ -47,7 +47,13 @@ func (s *remoteApplicationSuite) SetUpTest(c *gc.C) {
 		},
 	}
 	var err error
-	s.application, err = s.State.AddRemoteApplication("mysql", "local:/u/me/mysql", eps)
+	s.application, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:        "mysql",
+		URL:         "local:/u/me/mysql",
+		SourceModel: s.State.ModelTag(),
+		Token:       "t0",
+		Endpoints:   eps,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -146,7 +152,20 @@ func (s *remoteApplicationSuite) TestTag(c *gc.C) {
 }
 
 func (s *remoteApplicationSuite) TestURL(c *gc.C) {
-	c.Assert(s.application.URL(), gc.Equals, "local:/u/me/mysql")
+	url, ok := s.application.URL()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(url, gc.Equals, "local:/u/me/mysql")
+
+	// Add another remote application without a URL.
+	app, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:        "mysql1",
+		SourceModel: s.State.ModelTag(),
+		Token:       "t0",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	url, ok = app.URL()
+	c.Assert(ok, jc.IsFalse)
+	c.Assert(url, gc.Equals, "")
 }
 
 func (s *remoteApplicationSuite) TestMysqlEndpoints(c *gc.C) {
@@ -207,7 +226,8 @@ func (s *remoteApplicationSuite) TestAddRelationBothRemote(c *gc.C) {
 			Scope:     charm.ScopeGlobal,
 		},
 	}
-	_, err := s.State.AddRemoteApplication("wordpress", "local:/u/me/wordpress", wpep)
+	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name: "wordpress", URL: "local:/u/me/wordpress", Endpoints: wpep, SourceModel: s.State.ModelTag()})
 	c.Assert(err, jc.ErrorIsNil)
 	eps, err := s.State.InferEndpoints("wordpress", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
@@ -223,12 +243,14 @@ func (s *remoteApplicationSuite) TestInferEndpointsWrongScope(c *gc.C) {
 }
 
 func (s *remoteApplicationSuite) TestAddRemoteApplicationErrors(c *gc.C) {
-	_, err := s.State.AddRemoteApplication("haha/borken", "local:/u/me/mysql", nil)
-	c.Assert(err, gc.ErrorMatches, `cannot add remote application "haha/borken": invalid name`)
+	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name: "haha/borken", URL: "local:/u/me/mysql", SourceModel: s.State.ModelTag()})
+	c.Assert(err, gc.ErrorMatches, `cannot add remote application "haha/borken": name "haha/borken" not valid`)
 	_, err = s.State.RemoteApplication("haha/borken")
 	c.Assert(err, gc.ErrorMatches, `remote application name "haha/borken" not valid`)
 
-	_, err = s.State.AddRemoteApplication("borken", "haha/borken", nil)
+	_, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name: "borken", URL: "haha/borken", SourceModel: s.State.ModelTag()})
 	c.Assert(err, gc.ErrorMatches,
 		`cannot add remote application "borken": validating application URL: `+
 			`application URL has invalid form, missing "/u/<user>": "haha/borken"`,
@@ -238,12 +260,14 @@ func (s *remoteApplicationSuite) TestAddRemoteApplicationErrors(c *gc.C) {
 }
 
 func (s *remoteApplicationSuite) TestAddRemoteApplication(c *gc.C) {
-	foo, err := s.State.AddRemoteApplication("foo", "local:/u/me/foo", nil)
+	foo, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name: "foo", URL: "local:/u/me/foo", SourceModel: s.State.ModelTag()})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(foo.Name(), gc.Equals, "foo")
 	foo, err = s.State.RemoteApplication("foo")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(foo.Name(), gc.Equals, "foo")
+	c.Assert(foo.SourceModel().Id(), gc.Equals, s.State.ModelTag().Id())
 }
 
 func (s *remoteApplicationSuite) TestAddRemoteRelationWrongScope(c *gc.C) {
@@ -412,7 +436,8 @@ func (s *remoteApplicationSuite) TestAllRemoteApplications(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(applications), gc.Equals, 1)
 
-	_, err = s.State.AddRemoteApplication("another", "local:/u/me/another", nil)
+	_, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name: "another", URL: "local:/u/me/another", SourceModel: s.State.ModelTag()})
 	c.Assert(err, jc.ErrorIsNil)
 	applications, err = s.State.AllRemoteApplications()
 	c.Assert(err, jc.ErrorIsNil)
@@ -434,7 +459,8 @@ func (s *remoteApplicationSuite) TestAddApplicationEnvironmentDying(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = model.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddRemoteApplication("s1", "local:/u/me/s1", nil)
+	_, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name: "s1", URL: "local:/u/me/s1", SourceModel: s.State.ModelTag()})
 	c.Assert(err, gc.ErrorMatches, `cannot add remote application "s1": model is no longer alive`)
 }
 
@@ -442,7 +468,8 @@ func (s *remoteApplicationSuite) TestAddApplicationSameLocalExists(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
 	_, err := s.State.AddApplication(state.AddApplicationArgs{Name: "s1", Charm: charm})
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddRemoteApplication("s1", "local:/u/me/s1", nil)
+	_, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name: "s1", URL: "local:/u/me/s1", SourceModel: s.State.ModelTag()})
 	c.Assert(err, gc.ErrorMatches, `cannot add remote application "s1": local application with same name already exists`)
 }
 
@@ -455,14 +482,17 @@ func (s *remoteApplicationSuite) TestAddApplicationLocalAddedAfterInitial(c *gc.
 		_, err := s.State.AddApplication(state.AddApplicationArgs{Name: "s1", Charm: charm})
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
-	_, err := s.State.AddRemoteApplication("s1", "local:/u/me/s1", nil)
+	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name: "s1", URL: "local:/u/me/s1", SourceModel: s.State.ModelTag()})
 	c.Assert(err, gc.ErrorMatches, `cannot add remote application "s1": local application with same name already exists`)
 }
 
 func (s *remoteApplicationSuite) TestAddApplicationSameRemoteExists(c *gc.C) {
-	_, err := s.State.AddRemoteApplication("s1", "local:/u/me/s1", nil)
+	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name: "s1", URL: "local:/u/me/s1", SourceModel: s.State.ModelTag()})
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddRemoteApplication("s1", "local:/u/me/s1", nil)
+	_, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name: "s1", URL: "local:/u/me/s1", SourceModel: s.State.ModelTag()})
 	c.Assert(err, gc.ErrorMatches, `cannot add remote application "s1": remote application already exists`)
 }
 
@@ -471,10 +501,12 @@ func (s *remoteApplicationSuite) TestAddApplicationRemoteAddedAfterInitial(c *gc
 	// there is no conflict initially but a remote application is added
 	// before the transaction is run.
 	defer state.SetBeforeHooks(c, s.State, func() {
-		_, err := s.State.AddRemoteApplication("s1", "local:/u/me/s1", nil)
+		_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+			Name: "s1", URL: "local:/u/me/s1", SourceModel: s.State.ModelTag()})
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
-	_, err := s.State.AddRemoteApplication("s1", "local:/u/me/s1", nil)
+	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name: "s1", URL: "local:/u/me/s1", SourceModel: s.State.ModelTag()})
 	c.Assert(err, gc.ErrorMatches, `cannot add remote application "s1": remote application already exists`)
 }
 
@@ -488,7 +520,8 @@ func (s *remoteApplicationSuite) TestAddApplicationEnvironDiesAfterInitial(c *gc
 		err = model.Destroy()
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
-	_, err := s.State.AddRemoteApplication("s1", "local:/u/me/s1", nil)
+	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name: "s1", URL: "local:/u/me/s1", SourceModel: s.State.ModelTag()})
 	c.Assert(err, gc.ErrorMatches, `cannot add remote application "s1": model "testenv" is no longer alive`)
 }
 
@@ -499,7 +532,8 @@ func (s *remoteApplicationSuite) TestWatchRemoteApplications(c *gc.C) {
 	wc.AssertChangeInSingleEvent("mysql") // initial
 	wc.AssertNoChange()
 
-	db2, err := s.State.AddRemoteApplication("db2", "local:/u/ibm/db2", nil)
+	db2, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name: "db2", URL: "local:/u/ibm/db2", SourceModel: s.State.ModelTag()})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChangeInSingleEvent("db2")
 	wc.AssertNoChange()

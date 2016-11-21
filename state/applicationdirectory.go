@@ -26,7 +26,7 @@ type applicationOfferDoc struct {
 	URL string `bson:"url"`
 
 	// SourceModelUUID is the UUID of the environment hosting the application.
-	SourceModelUUID string `bson:"source-uuid"`
+	SourceModelUUID string `bson:"source-model-uuid"`
 
 	// SourceLabel is a user friendly name for the source environment.
 	SourceLabel string `bson:"source-label"`
@@ -237,7 +237,7 @@ func (s *applicationDirectory) makeFilterTerm(filterTerm crossmodel.ApplicationO
 		filter = append(filter, bson.DocElem{"source-label", filterTerm.SourceLabel})
 	}
 	if filterTerm.SourceModelUUID != "" {
-		filter = append(filter, bson.DocElem{"source-uuid", filterTerm.SourceModelUUID})
+		filter = append(filter, bson.DocElem{"source-model-uuid", filterTerm.SourceModelUUID})
 	}
 	// We match on partial URLs eg /u/user
 	if filterTerm.ApplicationURL != "" {

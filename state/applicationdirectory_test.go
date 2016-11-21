@@ -40,7 +40,7 @@ func (s *applicationDirectorySuite) createDefaultOffer(c *gc.C) crossmodel.Appli
 		ApplicationName:        "mysql",
 		ApplicationDescription: "mysql is a db server",
 		Endpoints:              eps,
-		SourceModelUUID:        "source-uuid",
+		SourceModelUUID:        "source-model-uuid",
 		SourceLabel:            "source",
 	}
 	err := sd.AddOffer(offer)
@@ -51,7 +51,7 @@ func (s *applicationDirectorySuite) createDefaultOffer(c *gc.C) crossmodel.Appli
 func (s *applicationDirectorySuite) TestEndpoints(c *gc.C) {
 	offer := s.createDefaultOffer(c)
 	_, err := state.ApplicationOfferEndpoint(offer, "foo")
-	c.Assert(err, gc.ErrorMatches, `relation "foo" on application offer "source-uuid-mysql" not found`)
+	c.Assert(err, gc.ErrorMatches, `relation "foo" on application offer "source-model-uuid-mysql" not found`)
 
 	serverEP, err := state.ApplicationOfferEndpoint(offer, "db")
 	c.Assert(err, jc.ErrorIsNil)
@@ -96,7 +96,7 @@ func (s *applicationDirectorySuite) TestAddApplicationOffer(c *gc.C) {
 		ApplicationName:        "mysql",
 		ApplicationDescription: "mysql is a db server",
 		Endpoints:              eps,
-		SourceModelUUID:        "source-uuid",
+		SourceModelUUID:        "source-model-uuid",
 		SourceLabel:            "source",
 	}
 	err := sd.AddOffer(offer)

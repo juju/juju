@@ -413,6 +413,17 @@ func allCollections() collectionSchema {
 				}},
 			},
 			remoteApplicationsC: {},
+			// remoteEntitiesC holds information about entities involved in
+			// cross-model relations.
+			remoteEntitiesC: {
+				indexes: []mgo.Index{{
+					Key: []string{"model-uuid", "source-model-uuid", "token"},
+				}, {
+					Key: []string{"model-uuid", "source-model-uuid"},
+				}},
+			},
+			// tokensC holds unique tokens for the model.
+			tokensC: {},
 		} {
 			result[name] = details
 		}
@@ -505,4 +516,6 @@ const (
 	localApplicationDirectoryC = "localapplicationdirectory"
 	applicationOffersC         = "applicationOffers"
 	remoteApplicationsC        = "remoteApplications"
+	remoteEntitiesC            = "remoteEntities"
+	tokensC                    = "tokens"
 )

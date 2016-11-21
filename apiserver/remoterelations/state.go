@@ -4,6 +4,8 @@
 package remoterelations
 
 import (
+	"gopkg.in/juju/names.v2"
+
 	"github.com/juju/errors"
 	"github.com/juju/juju/state"
 )
@@ -32,6 +34,19 @@ type RemoteRelationsState interface {
 	// changes to the lifecycles of relations involving the specified remote
 	// application.
 	WatchRemoteApplicationRelations(applicationName string) (state.StringsWatcher, error)
+
+	// ExportLocalEntity adds an entity to the remote entities collection,
+	// returning an opaque token that uniquely identifies the entity within
+	// the model.
+	ExportLocalEntity(names.Tag) (string, error)
+
+	// GetRemoteEntity returns the tag of the entity associated with the given
+	// token and model.
+	GetRemoteEntity(names.ModelTag, string) (names.Tag, error)
+
+	// GetToken returns the token associated with the entity with the given tag
+	// and model.
+	GetToken(names.ModelTag, names.Tag) (string, error)
 }
 
 // Relation provides access a relation in global state.
@@ -95,7 +110,7 @@ type RemoteApplication interface {
 	Name() string
 
 	// URL returns the remote application URL, at which it is offered.
-	URL() string
+	URL() (string, bool)
 }
 
 // Application represents the state of a application hosted in the local environment.
@@ -106,6 +121,21 @@ type Application interface {
 
 type stateShim struct {
 	*state.State
+}
+
+func (st stateShim) ExportLocalEntity(entity names.Tag) (string, error) {
+	r := st.State.RemoteEntities()
+	return r.ExportLocalEntity(entity)
+}
+
+func (st stateShim) GetRemoteEntity(env names.ModelTag, token string) (names.Tag, error) {
+	r := st.State.RemoteEntities()
+	return r.GetRemoteEntity(env, token)
+}
+
+func (st stateShim) GetToken(env names.ModelTag, entity names.Tag) (string, error) {
+	r := st.State.RemoteEntities()
+	return r.GetToken(env, entity)
 }
 
 func (st stateShim) KeyRelation(key string) (Relation, error) {

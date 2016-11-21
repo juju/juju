@@ -29,12 +29,13 @@ type RemoteApplication struct {
 
 // remoteApplicationDoc represents the internal state of a remote application in MongoDB.
 type remoteApplicationDoc struct {
-	DocID         string              `bson:"_id"`
-	Name          string              `bson:"name"`
-	URL           string              `bson:"url"`
-	Endpoints     []remoteEndpointDoc `bson:"endpoints"`
-	Life          Life                `bson:"life"`
-	RelationCount int                 `bson:"relationcount"`
+	DocID           string              `bson:"_id"`
+	Name            string              `bson:"name"`
+	URL             string              `bson:"url,omitempty"`
+	SourceModelUUID string              `bson:"source-model-uuid"`
+	Endpoints       []remoteEndpointDoc `bson:"endpoints"`
+	Life            Life                `bson:"life"`
+	RelationCount   int                 `bson:"relationcount"`
 }
 
 // remoteEndpointDoc represents the internal state of a remote application endpoint in MongoDB.
@@ -70,14 +71,28 @@ func (s *RemoteApplication) IsRemote() bool {
 	return true
 }
 
+// SourceModel returns the tag of the model to which the application belongs.
+func (s *RemoteApplication) SourceModel() names.ModelTag {
+	return names.NewModelTag(s.doc.SourceModelUUID)
+}
+
 // Name returns the application name.
 func (s *RemoteApplication) Name() string {
 	return s.doc.Name
 }
 
-// URL returns the remote application URL.
-func (s *RemoteApplication) URL() string {
-	return s.doc.URL
+// URL returns the remote service URL, and a boolean indicating whether or not
+// a URL is known for the remote service. A URL will only be available for the
+// consumer of an offered service.
+func (s *RemoteApplication) URL() (string, bool) {
+	return s.doc.URL, s.doc.URL != ""
+}
+
+// Token returns the token for the remote application, provided by the remote
+// model to identify the service in future communications.
+func (s *RemoteApplication) Token() (string, error) {
+	r := s.st.RemoteEntities()
+	return r.GetToken(s.SourceModel(), s.Tag())
 }
 
 // Tag returns a name identifying the application.
@@ -192,6 +207,7 @@ func (s *RemoteApplication) destroyOps() ([]txn.Op, error) {
 // removeOps returns the operations required to remove the application. Supplied
 // asserts will be included in the operation on the application document.
 func (s *RemoteApplication) removeOps(asserts bson.D) []txn.Op {
+	r := s.st.RemoteEntities()
 	ops := []txn.Op{
 		{
 			C:      remoteApplicationsC,
@@ -200,6 +216,7 @@ func (s *RemoteApplication) removeOps(asserts bson.D) []txn.Op {
 			Remove: true,
 		},
 		removeStatusOp(s.st, s.globalKey()),
+		r.removeRemoteEntityOp(s.SourceModel(), s.Tag()),
 	}
 	return ops
 }
@@ -287,17 +304,55 @@ func (s *RemoteApplication) Relations() (relations []*Relation, err error) {
 	return applicationRelations(s.st, s.doc.Name)
 }
 
+// AddRemoteApplicationParams contains the parameters for adding a remote service
+// to the environment.
+type AddRemoteApplicationParams struct {
+	// Name is the name to give the remote application. This does not have to
+	// match the application name in the URL, or the name in the remote model.
+	Name string
+
+	// URL is either empty, or the URL that the remote application was offered
+	// with.
+	URL string
+
+	// SourceModel is the tag of the model to which the remote application belongs.
+	SourceModel names.ModelTag
+
+	// Token is an opaque string that identifies the remote application in the
+	// source model.
+	Token string
+
+	// Endpoints describes the endpoints that the remote application implements.
+	Endpoints []charm.Relation
+}
+
+// Validate returns an error if there's a problem with the
+// parameters being used to create a remote application.
+func (p AddRemoteApplicationParams) Validate() error {
+	if !names.IsValidApplication(p.Name) {
+		return errors.NotValidf("name %q", p.Name)
+	}
+	if p.URL != "" {
+		// URL may be empty, to represent remote applications corresponding
+		// to consumers of an offered application.
+		if _, err := crossmodel.ParseApplicationURL(p.URL); err != nil {
+			return errors.Annotate(err, "validating application URL")
+		}
+	}
+	if p.SourceModel == (names.ModelTag{}) {
+		return errors.NotValidf("empty source model tag")
+	}
+	return nil
+}
+
 // AddRemoteApplication creates a new remote application record, having the supplied relation endpoints,
 // with the supplied name (which must be unique across all applications, local and remote).
-func (st *State) AddRemoteApplication(name, url string, endpoints []charm.Relation) (_ *RemoteApplication, err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot add remote application %q", name)
+func (st *State) AddRemoteApplication(args AddRemoteApplicationParams) (_ *RemoteApplication, err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot add remote application %q", args.Name)
 
 	// Sanity checks.
-	if !names.IsValidApplication(name) {
-		return nil, errors.Errorf("invalid name")
-	}
-	if _, err := crossmodel.ParseApplicationURL(url); err != nil {
-		return nil, errors.Annotate(err, "validating application URL")
+	if err := args.Validate(); err != nil {
+		return nil, errors.Trace(err)
 	}
 	model, err := st.Model()
 	if err != nil {
@@ -306,16 +361,17 @@ func (st *State) AddRemoteApplication(name, url string, endpoints []charm.Relati
 		return nil, errors.Errorf("model is no longer alive")
 	}
 
-	applicationID := st.docID(name)
+	applicationID := st.docID(args.Name)
 	// Create the application addition operations.
 	appDoc := &remoteApplicationDoc{
-		DocID: applicationID,
-		Name:  name,
-		URL:   url,
-		Life:  Alive,
+		DocID:           applicationID,
+		Name:            args.Name,
+		SourceModelUUID: args.SourceModel.Id(),
+		URL:             args.URL,
+		Life:            Alive,
 	}
-	eps := make([]remoteEndpointDoc, len(endpoints))
-	for i, ep := range endpoints {
+	eps := make([]remoteEndpointDoc, len(args.Endpoints))
+	for i, ep := range args.Endpoints {
 		eps[i] = remoteEndpointDoc{
 			Name:      ep.Name,
 			Role:      ep.Role,
@@ -326,7 +382,6 @@ func (st *State) AddRemoteApplication(name, url string, endpoints []charm.Relati
 	}
 	appDoc.Endpoints = eps
 	app := newRemoteApplication(st, appDoc)
-
 	statusDoc := statusDoc{
 		ModelUUID:  st.ModelUUID(),
 		Status:     status.Unknown,
@@ -334,6 +389,9 @@ func (st *State) AddRemoteApplication(name, url string, endpoints []charm.Relati
 		Updated:    time.Now().UnixNano(),
 	}
 
+	importRemoteEntityOps := st.RemoteEntities().importRemoteEntityOps(
+		args.SourceModel, app.Tag(), args.Token,
+	)
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		// If we've tried once already and failed, check that
 		// model may have been destroyed.
@@ -342,13 +400,13 @@ func (st *State) AddRemoteApplication(name, url string, endpoints []charm.Relati
 				return nil, errors.Trace(err)
 			}
 			// Ensure a local application with the same name doesn't exist.
-			if localExists, err := isNotDead(st, applicationsC, name); err != nil {
+			if localExists, err := isNotDead(st, applicationsC, args.Name); err != nil {
 				return nil, errors.Trace(err)
 			} else if localExists {
 				return nil, errors.AlreadyExistsf("local application with same name")
 			}
 			// Ensure a remote application with the same name doesn't exist.
-			if exists, err := isNotDead(st, remoteApplicationsC, name); err != nil {
+			if exists, err := isNotDead(st, remoteApplicationsC, args.Name); err != nil {
 				return nil, errors.Trace(err)
 			} else if exists {
 				return nil, errors.AlreadyExistsf("remote application")
@@ -368,6 +426,7 @@ func (st *State) AddRemoteApplication(name, url string, endpoints []charm.Relati
 				Assert: txn.DocMissing,
 			},
 		}
+		ops = append(ops, importRemoteEntityOps...)
 		return ops, nil
 	}
 	if err = st.run(buildTxn); err != nil {
@@ -378,21 +437,38 @@ func (st *State) AddRemoteApplication(name, url string, endpoints []charm.Relati
 
 // RemoteApplication returns a remote application state by name.
 func (st *State) RemoteApplication(name string) (_ *RemoteApplication, err error) {
-	applications, closer := st.getCollection(remoteApplicationsC)
-	defer closer()
-
 	if !names.IsValidApplication(name) {
 		return nil, errors.NotValidf("remote application name %q", name)
 	}
-	sdoc := &remoteApplicationDoc{}
-	err = applications.FindId(name).One(sdoc)
+
+	applications, closer := st.getCollection(remoteApplicationsC)
+	defer closer()
+
+	appDoc := &remoteApplicationDoc{}
+	err = applications.FindId(name).One(appDoc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("remote application %q", name)
 	}
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot get remote application %q", name)
 	}
-	return newRemoteApplication(st, sdoc), nil
+	return newRemoteApplication(st, appDoc), nil
+}
+
+// RemoteApplicationByToken returns a remote application state by token.
+func (st *State) RemoteApplicationByToken(token string) (_ *RemoteApplication, err error) {
+	apps, closer := st.getCollection(remoteApplicationsC)
+	defer closer()
+
+	appDoc := &remoteApplicationDoc{}
+	err = apps.Find(bson.D{{"token", token}}).One(appDoc)
+	if err == mgo.ErrNotFound {
+		return nil, errors.NotFoundf("remote application with token %q", token)
+	}
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot get remote application with token %q", token)
+	}
+	return newRemoteApplication(st, appDoc), nil
 }
 
 // AllRemoteApplications returns all the remote applications used by the model.
@@ -400,12 +476,12 @@ func (st *State) AllRemoteApplications() (applications []*RemoteApplication, err
 	applicationsCollection, closer := st.getCollection(remoteApplicationsC)
 	defer closer()
 
-	appdocs := []remoteApplicationDoc{}
-	err = applicationsCollection.Find(bson.D{}).All(&appdocs)
+	appDocs := []remoteApplicationDoc{}
+	err = applicationsCollection.Find(bson.D{}).All(&appDocs)
 	if err != nil {
 		return nil, errors.Errorf("cannot get all remote applications")
 	}
-	for _, v := range appdocs {
+	for _, v := range appDocs {
 		applications = append(applications, newRemoteApplication(st, &v))
 	}
 	return applications, nil

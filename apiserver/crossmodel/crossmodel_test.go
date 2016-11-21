@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/apiserver/crossmodel"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/feature"
+	"github.com/juju/juju/testing"
 )
 
 type crossmodelSuite struct {
@@ -40,7 +41,7 @@ func (s *crossmodelSuite) TestOffer(c *gc.C) {
 		Offers: []params.AddApplicationOffer{{
 			ApplicationOffer: params.ApplicationOffer{
 				ApplicationURL:         "local:/u/me/test",
-				SourceModelTag:         "model-deadbeef-0bad-400d-8000-4b1d0d06f00d",
+				SourceModelTag:         testing.ModelTag.String(),
 				SourceLabel:            "controller",
 				ApplicationName:        "test",
 				ApplicationDescription: "A pretty popular blog engine",
@@ -98,7 +99,7 @@ func (s *crossmodelSuite) TestOfferSomeFail(c *gc.C) {
 		Offers: []params.AddApplicationOffer{{
 			ApplicationOffer: params.ApplicationOffer{
 				ApplicationURL:         "local:/u/me/one",
-				SourceModelTag:         "model-deadbeef-0bad-400d-8000-4b1d0d06f00d",
+				SourceModelTag:         testing.ModelTag.String(),
 				SourceLabel:            "controller",
 				ApplicationName:        "one",
 				ApplicationDescription: "A pretty popular blog engine",
@@ -112,7 +113,7 @@ func (s *crossmodelSuite) TestOfferSomeFail(c *gc.C) {
 				}}}, {
 			ApplicationOffer: params.ApplicationOffer{
 				ApplicationURL:         "local:/u/me/two",
-				SourceModelTag:         "model-deadbeef-0bad-400d-8000-4b1d0d06f00d",
+				SourceModelTag:         testing.ModelTag.String(),
 				SourceLabel:            "controller",
 				ApplicationName:        "two",
 				ApplicationDescription: "A pretty popular blog engine",
@@ -178,7 +179,7 @@ func (s *crossmodelSuite) TestShow(c *gc.C) {
 		ApplicationName:        applicationName,
 		ApplicationDescription: "description",
 		ApplicationURL:         url,
-		SourceModelTag:         "environment-",
+		SourceModelTag:         "model-",
 		SourceLabel:            "label",
 		Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
 	}
@@ -195,7 +196,7 @@ func (s *crossmodelSuite) TestShow(c *gc.C) {
 				ApplicationName:        applicationName,
 				ApplicationDescription: "description",
 				ApplicationURL:         url,
-				SourceModelTag:         "environment-",
+				SourceModelTag:         "model-",
 				SourceLabel:            "label",
 				Endpoints:              []params.RemoteEndpoint{{Name: "db"}}}},
 		}})
@@ -271,7 +272,7 @@ func (s *crossmodelSuite) TestShowFoundMultiple(c *gc.C) {
 		ApplicationName:        name,
 		ApplicationDescription: "description",
 		ApplicationURL:         url,
-		SourceModelTag:         "environment-",
+		SourceModelTag:         "model-",
 		SourceLabel:            "label",
 		Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
 	}
@@ -282,7 +283,7 @@ func (s *crossmodelSuite) TestShowFoundMultiple(c *gc.C) {
 		ApplicationName:        name2,
 		ApplicationDescription: "description2",
 		ApplicationURL:         url2,
-		SourceModelTag:         "environment-",
+		SourceModelTag:         "model-",
 		SourceLabel:            "label2",
 		Endpoints:              []params.RemoteEndpoint{{Name: "db2"}},
 	}
@@ -301,14 +302,14 @@ func (s *crossmodelSuite) TestShowFoundMultiple(c *gc.C) {
 				ApplicationName:        name,
 				ApplicationDescription: "description",
 				ApplicationURL:         url,
-				SourceModelTag:         "environment-",
+				SourceModelTag:         "model-",
 				SourceLabel:            "label",
 				Endpoints:              []params.RemoteEndpoint{{Name: "db"}}}},
 			{Result: params.ApplicationOffer{
 				ApplicationName:        name2,
 				ApplicationDescription: "description2",
 				ApplicationURL:         url2,
-				SourceModelTag:         "environment-",
+				SourceModelTag:         "model-",
 				SourceLabel:            "label2",
 				Endpoints:              []params.RemoteEndpoint{{Name: "db2"}}}},
 		}})
@@ -342,7 +343,7 @@ func (s *crossmodelSuite) TestFind(c *gc.C) {
 		ApplicationName:        applicationName,
 		ApplicationDescription: "description",
 		ApplicationURL:         url,
-		SourceModelTag:         "environment-",
+		SourceModelTag:         "model-",
 		SourceLabel:            "label",
 		Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
 	}
@@ -371,7 +372,7 @@ func (s *crossmodelSuite) TestFind(c *gc.C) {
 							ApplicationName:        applicationName,
 							ApplicationDescription: "description",
 							ApplicationURL:         url,
-							SourceModelTag:         "environment-",
+							SourceModelTag:         "model-",
 							SourceLabel:            "label",
 							Endpoints:              []params.RemoteEndpoint{{Name: "db"}}}},
 				}}})

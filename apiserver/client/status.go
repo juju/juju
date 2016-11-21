@@ -460,8 +460,11 @@ func fetchRemoteApplications(st Backend) (map[string]*state.RemoteApplication, e
 	if err != nil {
 		return nil, err
 	}
-	for _, s := range applications {
-		appMap[s.Name()] = s
+	for _, a := range applications {
+		if _, ok := a.URL(); !ok {
+			continue
+		}
+		appMap[a.Name()] = a
 	}
 	return appMap, nil
 }
@@ -737,7 +740,7 @@ func (context *statusContext) processRemoteApplications() map[string]params.Remo
 }
 
 func (context *statusContext) processRemoteApplication(application *state.RemoteApplication) (status params.RemoteApplicationStatus) {
-	status.ApplicationURL = application.URL()
+	status.ApplicationURL, _ = application.URL()
 	status.ApplicationName = application.Name()
 	eps, err := application.Endpoints()
 	if err != nil {

@@ -399,7 +399,8 @@ func (s *MultiEnvStateSuite) TestWatchTwoEnvironments(c *gc.C) {
 				return st.WatchRemoteApplications()
 			},
 			triggerEvent: func(st *state.State) {
-				st.AddRemoteApplication("db2", "local:/u/ibm/db2", nil)
+				st.AddRemoteApplication(state.AddRemoteApplicationParams{
+					Name: "db2", URL: "local:/u/ibm/db2", SourceModel: s.State.ModelTag()})
 			},
 		}, {
 			about: "relations",
@@ -1445,7 +1446,8 @@ func (s *StateSuite) TestAddServiceEnvironmentMigrating(c *gc.C) {
 
 func (s *StateSuite) TestAddApplicationSameRemoteExists(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
-	_, err := s.State.AddRemoteApplication("s1", "local:/u/me/dummy", nil)
+	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name: "s1", URL: "local:/u/me/dummy", SourceModel: s.State.ModelTag()})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddApplication(state.AddApplicationArgs{Name: "s1", Charm: charm})
 	c.Assert(err, gc.ErrorMatches, `cannot add application "s1": remote application with same name already exists`)
@@ -1457,7 +1459,8 @@ func (s *StateSuite) TestAddApplicationRemotedAddedAfterInitial(c *gc.C) {
 	// there is no conflict initially but a remote application is added
 	// before the transaction is run.
 	defer state.SetBeforeHooks(c, s.State, func() {
-		_, err := s.State.AddRemoteApplication("s1", "local:/u/me/s1", nil)
+		_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+			Name: "s1", URL: "local:/u/me/s1", SourceModel: s.State.ModelTag()})
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
 	_, err := s.State.AddApplication(state.AddApplicationArgs{Name: "s1", Charm: charm})
