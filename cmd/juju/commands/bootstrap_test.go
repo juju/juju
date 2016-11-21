@@ -90,7 +90,7 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	// override this.
 	s.PatchValue(&jujuversion.Current, v100p64.Number)
 	s.PatchValue(&arch.HostArch, func() string { return v100p64.Arch })
-	s.PatchValue(&series.HostSeries, func() string { return v100p64.Series })
+	// TODO(katco): Where does this need to be passed in?s.PatchValue(&series.HostSeries, func() string { return v100p64.Series })
 	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.Ubuntu })
 
 	// Set up a local source with tools.
@@ -199,7 +199,7 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 		bootstrapVersion = version.MustParseBinary(useVersion)
 		restore = restore.Add(testing.PatchValue(&jujuversion.Current, bootstrapVersion.Number))
 		restore = restore.Add(testing.PatchValue(&arch.HostArch, func() string { return bootstrapVersion.Arch }))
-		restore = restore.Add(testing.PatchValue(&series.HostSeries, func() string { return bootstrapVersion.Series }))
+		// TODO(katco): Where does this need to be passed in?restore = restore.Add(testing.PatchValue(&series.HostSeries, func() string { return bootstrapVersion.Series }))
 		bootstrapVersion.Build = 1
 		if test.upload != "" {
 			uploadVers := version.MustParseBinary(test.upload)
@@ -426,7 +426,7 @@ func (s *BootstrapSuite) TestCheckProviderProvisional(c *gc.C) {
 
 func (s *BootstrapSuite) TestBootstrapTwice(c *gc.C) {
 	const controllerName = "dev"
-	s.patchVersionAndSeries(c, "raring")
+	s.patchVersion(c)
 
 	_, err := coretesting.RunCommand(c, s.newBootstrapCommand(), "dummy", controllerName, "--auto-upgrade")
 	c.Assert(err, jc.ErrorIsNil)
@@ -436,7 +436,7 @@ func (s *BootstrapSuite) TestBootstrapTwice(c *gc.C) {
 }
 
 func (s *BootstrapSuite) TestBootstrapDefaultControllerName(c *gc.C) {
-	s.patchVersionAndSeries(c, "raring")
+	s.patchVersion(c)
 
 	_, err := coretesting.RunCommand(c, s.newBootstrapCommand(), "dummy-cloud/region-1", "--auto-upgrade")
 	c.Assert(err, jc.ErrorIsNil)
@@ -450,7 +450,7 @@ func (s *BootstrapSuite) TestBootstrapDefaultControllerName(c *gc.C) {
 }
 
 func (s *BootstrapSuite) TestBootstrapDefaultControllerNameNoRegions(c *gc.C) {
-	s.patchVersionAndSeries(c, "raring")
+	s.patchVersion(c)
 
 	_, err := coretesting.RunCommand(c, s.newBootstrapCommand(), "no-cloud-regions", "--auto-upgrade")
 	c.Assert(err, jc.ErrorIsNil)
@@ -459,7 +459,7 @@ func (s *BootstrapSuite) TestBootstrapDefaultControllerNameNoRegions(c *gc.C) {
 }
 
 func (s *BootstrapSuite) TestBootstrapSetsCurrentModel(c *gc.C) {
-	s.patchVersionAndSeries(c, "raring")
+	s.patchVersion(c)
 
 	_, err := coretesting.RunCommand(c, s.newBootstrapCommand(), "dummy", "devcontroller", "--auto-upgrade")
 	c.Assert(err, jc.ErrorIsNil)
@@ -471,7 +471,7 @@ func (s *BootstrapSuite) TestBootstrapSetsCurrentModel(c *gc.C) {
 }
 
 func (s *BootstrapSuite) TestBootstrapSetsControllerDetails(c *gc.C) {
-	s.patchVersionAndSeries(c, "raring")
+	s.patchVersion(c)
 
 	_, err := coretesting.RunCommand(c, s.newBootstrapCommand(), "dummy", "devcontroller", "--auto-upgrade")
 	c.Assert(err, jc.ErrorIsNil)
@@ -485,7 +485,7 @@ func (s *BootstrapSuite) TestBootstrapSetsControllerDetails(c *gc.C) {
 }
 
 func (s *BootstrapSuite) TestBootstrapDefaultModel(c *gc.C) {
-	s.patchVersionAndSeries(c, "raring")
+	s.patchVersion(c)
 
 	var bootstrap fakeBootstrapFuncs
 	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
@@ -505,7 +505,7 @@ func (s *BootstrapSuite) TestBootstrapDefaultModel(c *gc.C) {
 }
 
 func (s *BootstrapSuite) TestBootstrapTimeout(c *gc.C) {
-	s.patchVersionAndSeries(c, "raring")
+	s.patchVersion(c)
 
 	var bootstrap fakeBootstrapFuncs
 	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
@@ -519,7 +519,7 @@ func (s *BootstrapSuite) TestBootstrapTimeout(c *gc.C) {
 }
 
 func (s *BootstrapSuite) TestBootstrapDefaultConfigStripsProcessedAttributes(c *gc.C) {
-	s.patchVersionAndSeries(c, "raring")
+	s.patchVersion(c)
 
 	var bootstrap fakeBootstrapFuncs
 	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
@@ -540,7 +540,7 @@ func (s *BootstrapSuite) TestBootstrapDefaultConfigStripsProcessedAttributes(c *
 }
 
 func (s *BootstrapSuite) TestBootstrapModelDefaultConfig(c *gc.C) {
-	s.patchVersionAndSeries(c, "raring")
+	s.patchVersion(c)
 
 	var bootstrap fakeBootstrapFuncs
 	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
@@ -563,7 +563,7 @@ func (s *BootstrapSuite) TestBootstrapModelDefaultConfig(c *gc.C) {
 }
 
 func (s *BootstrapSuite) TestBootstrapDefaultConfigStripsInheritedAttributes(c *gc.C) {
-	s.patchVersionAndSeries(c, "raring")
+	s.patchVersion(c)
 
 	var bootstrap fakeBootstrapFuncs
 	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
@@ -624,7 +624,7 @@ func (s *BootstrapSuite) TestBootstrapAttributesInheritedOverDefaults(c *gc.C) {
 	/* Test that defaults are overwritten by inherited attributes by setting
 	   the inherited attribute enable-os-upgrade to true in the cloud
 	   config and ensure that it ends up as true in the model config. */
-	s.patchVersionAndSeries(c, "raring")
+	s.patchVersion(c)
 
 	bootstrapCmd := bootstrapCommand{}
 	ctx := coretesting.Context(c)
@@ -661,7 +661,7 @@ func (s *BootstrapSuite) TestBootstrapAttributesCLIOverDefaults(c *gc.C) {
 	/* Test that defaults are overwritten by CLI passed attributes by setting
 	   the inherited attribute enable-os-upgrade to true in the cloud
 	   config and ensure that it ends up as true in the model config. */
-	s.patchVersionAndSeries(c, "raring")
+	s.patchVersion(c)
 
 	bootstrapCmd := bootstrapCommand{}
 	ctx := coretesting.Context(c)
@@ -696,7 +696,7 @@ func (s *BootstrapSuite) TestBootstrapAttributesCLIOverInherited(c *gc.C) {
 	/* Test that defaults are overwritten by CLI passed attributes by setting
 	   the inherited attribute enable-os-upgrade to true in the cloud
 	   config and ensure that it ends up as true in the model config. */
-	s.patchVersionAndSeries(c, "raring")
+	s.patchVersion(c)
 
 	bootstrapCmd := bootstrapCommand{}
 	ctx := coretesting.Context(c)
@@ -730,7 +730,7 @@ func (s *BootstrapSuite) TestBootstrapAttributesCLIOverInherited(c *gc.C) {
 }
 
 func (s *BootstrapSuite) TestBootstrapWithGUI(c *gc.C) {
-	s.patchVersionAndSeries(c, "raring")
+	s.patchVersion(c)
 	var bootstrap fakeBootstrapFuncs
 
 	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
@@ -741,7 +741,7 @@ func (s *BootstrapSuite) TestBootstrapWithGUI(c *gc.C) {
 }
 
 func (s *BootstrapSuite) TestBootstrapWithCustomizedGUI(c *gc.C) {
-	s.patchVersionAndSeries(c, "raring")
+	s.patchVersion(c)
 	s.PatchEnvironment("JUJU_GUI_SIMPLESTREAMS_URL", "https://1.2.3.4/gui/streams")
 
 	var bootstrap fakeBootstrapFuncs
@@ -754,7 +754,7 @@ func (s *BootstrapSuite) TestBootstrapWithCustomizedGUI(c *gc.C) {
 }
 
 func (s *BootstrapSuite) TestBootstrapWithoutGUI(c *gc.C) {
-	s.patchVersionAndSeries(c, "raring")
+	s.patchVersion(c)
 	var bootstrap fakeBootstrapFuncs
 
 	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
@@ -776,7 +776,7 @@ func (*mockBootstrapInstance) Addresses() ([]network.Address, error) {
 // error to propagate back up to the user.
 func (s *BootstrapSuite) TestBootstrapPropagatesStoreErrors(c *gc.C) {
 	const controllerName = "devcontroller"
-	s.patchVersionAndSeries(c, "raring")
+	s.patchVersion(c)
 
 	store := jujuclienttesting.NewStubStore()
 	store.SetErrors(errors.New("oh noes"))
@@ -851,7 +851,7 @@ func (s *BootstrapSuite) writeControllerModelAccountInfo(c *gc.C, context *contr
 }
 
 func (s *BootstrapSuite) TestBootstrapErrorRestoresOldMetadata(c *gc.C) {
-	s.patchVersionAndSeries(c, "raring")
+	s.patchVersion(c)
 	s.PatchValue(&bootstrapPrepare, func(
 		environs.BootstrapContext,
 		jujuclient.ClientStore,
@@ -888,7 +888,7 @@ func (s *BootstrapSuite) TestBootstrapErrorRestoresOldMetadata(c *gc.C) {
 
 func (s *BootstrapSuite) TestBootstrapAlreadyExists(c *gc.C) {
 	const controllerName = "devcontroller"
-	s.patchVersionAndSeries(c, "raring")
+	s.patchVersion(c)
 
 	cmaCtx := controllerModelAccountParams{
 		controller: "devcontroller",
@@ -1049,7 +1049,7 @@ func (s *BootstrapSuite) TestAutoSyncLocalSource(c *gc.C) {
 }
 
 func (s *BootstrapSuite) TestInteractiveBootstrap(c *gc.C) {
-	s.patchVersionAndSeries(c, "raring")
+	s.patchVersion(c)
 
 	cmd := s.newBootstrapCommand()
 	err := coretesting.InitCommand(cmd, nil)
@@ -1087,7 +1087,7 @@ func (s *BootstrapSuite) setupAutoUploadTest(c *gc.C, vers, ser string) {
 	// Set the current version to be something for which there are no tools
 	// so we can test that an upload is forced.
 	s.PatchValue(&jujuversion.Current, version.MustParse(vers))
-	s.PatchValue(&series.HostSeries, func() string { return ser })
+	// TODO(katco): Where does this need to be passed in?s.PatchValue(&series.HostSeries, func() string { return ser })
 
 	// Create home with dummy provider and remove all
 	// of its envtools.
@@ -1095,7 +1095,7 @@ func (s *BootstrapSuite) setupAutoUploadTest(c *gc.C, vers, ser string) {
 }
 
 func (s *BootstrapSuite) TestAutoUploadAfterFailedSync(c *gc.C) {
-	s.PatchValue(&series.HostSeries, func() string { return series.LatestLts() })
+	// TODO(katco): Where does this need to be passed in?s.PatchValue(&series.HostSeries, func() string { return series.LatestLts() })
 	s.setupAutoUploadTest(c, "1.7.3", "quantal")
 	// Run command and check for that upload has been run for tools matching
 	// the current juju version.
@@ -1223,13 +1223,13 @@ func (s *BootstrapSuite) TestBootstrapKeepBroken(c *gc.C) {
 }
 
 func (s *BootstrapSuite) TestBootstrapUnknownCloudOrProvider(c *gc.C) {
-	s.patchVersionAndSeries(c, "raring")
+	s.patchVersion(c)
 	_, err := coretesting.RunCommand(c, s.newBootstrapCommand(), "no-such-provider", "ctrl")
 	c.Assert(err, gc.ErrorMatches, `unknown cloud "no-such-provider", please try "juju update-clouds"`)
 }
 
 func (s *BootstrapSuite) TestBootstrapProviderNoRegionDetection(c *gc.C) {
-	s.patchVersionAndSeries(c, "raring")
+	s.patchVersion(c)
 	_, err := coretesting.RunCommand(c, s.newBootstrapCommand(), "no-cloud-region-detection", "ctrl")
 	c.Assert(err, gc.ErrorMatches, `unknown cloud "no-cloud-region-detection", please try "juju update-clouds"`)
 }
@@ -1265,19 +1265,19 @@ func (s *BootstrapSuite) TestBootstrapCloudNoRegionsOneSpecified(c *gc.C) {
 }
 
 func (s *BootstrapSuite) TestBootstrapProviderNoCredentials(c *gc.C) {
-	s.patchVersionAndSeries(c, "raring")
+	s.patchVersion(c)
 	_, err := coretesting.RunCommand(c, s.newBootstrapCommand(), "no-credentials", "ctrl")
 	c.Assert(err, gc.ErrorMatches, `detecting credentials for "no-credentials" cloud provider: credentials not found`)
 }
 
 func (s *BootstrapSuite) TestBootstrapProviderManyDetectedCredentials(c *gc.C) {
-	s.patchVersionAndSeries(c, "raring")
+	s.patchVersion(c)
 	_, err := coretesting.RunCommand(c, s.newBootstrapCommand(), "many-credentials", "ctrl")
 	c.Assert(err, gc.ErrorMatches, ambiguousDetectedCredentialError.Error())
 }
 
 func (s *BootstrapSuite) TestBootstrapProviderDetectRegionsInvalid(c *gc.C) {
-	s.patchVersionAndSeries(c, "raring")
+	s.patchVersion(c)
 	ctx, err := coretesting.RunCommand(c, s.newBootstrapCommand(), "dummy/not-dummy", "ctrl")
 	c.Assert(err, gc.Equals, cmd.ErrSilent)
 	stderr := strings.Replace(coretesting.Stderr(ctx), "\n", "", -1)
@@ -1290,7 +1290,7 @@ func (s *BootstrapSuite) TestBootstrapProviderManyCredentialsCloudNoAuthTypes(c 
 		return &bootstrap
 	})
 
-	s.patchVersionAndSeries(c, "raring")
+	s.patchVersion(c)
 	s.store.Credentials = map[string]cloud.CloudCredential{
 		"many-credentials-no-auth-types": {
 			AuthCredentials: map[string]cloud.Credential{"one": cloud.NewCredential("one", nil)},
@@ -1309,7 +1309,7 @@ func (s *BootstrapSuite) TestManyAvailableCredentialsNoneSpecified(c *gc.C) {
 		return &bootstrap
 	})
 
-	s.patchVersionAndSeries(c, "raring")
+	s.patchVersion(c)
 	s.store.Credentials = map[string]cloud.CloudCredential{
 		"dummy": {
 			AuthCredentials: map[string]cloud.Credential{
@@ -1334,7 +1334,7 @@ func (s *BootstrapSuite) TestBootstrapProviderDetectRegions(c *gc.C) {
 		return &bootstrap
 	})
 
-	s.patchVersionAndSeries(c, "raring")
+	s.patchVersion(c)
 	coretesting.RunCommand(c, s.newBootstrapCommand(), "dummy", "ctrl")
 	c.Assert(bootstrap.args.CloudRegion, gc.Equals, "bruce")
 	c.Assert(bootstrap.args.CloudCredentialName, gc.Equals, "default")
@@ -1357,7 +1357,7 @@ func (s *BootstrapSuite) TestBootstrapProviderDetectNoRegions(c *gc.C) {
 		return &bootstrap
 	})
 
-	s.patchVersionAndSeries(c, "raring")
+	s.patchVersion(c)
 	coretesting.RunCommand(c, s.newBootstrapCommand(), "dummy", "ctrl")
 	c.Assert(bootstrap.args.CloudRegion, gc.Equals, "")
 	sort.Sort(bootstrap.args.Cloud.AuthTypes)
@@ -1368,7 +1368,7 @@ func (s *BootstrapSuite) TestBootstrapProviderDetectNoRegions(c *gc.C) {
 }
 
 func (s *BootstrapSuite) TestBootstrapProviderCaseInsensitiveRegionCheck(c *gc.C) {
-	s.patchVersionAndSeries(c, "raring")
+	s.patchVersion(c)
 
 	var prepareParams bootstrap.PrepareParams
 	s.PatchValue(&bootstrapPrepare, func(
@@ -1391,7 +1391,7 @@ func (s *BootstrapSuite) TestBootstrapConfigFile(c *gc.C) {
 	err := ioutil.WriteFile(configFile, []byte("controller: not-a-bool\n"), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.patchVersionAndSeries(c, "raring")
+	s.patchVersion(c)
 	_, err = coretesting.RunCommand(
 		c, s.newBootstrapCommand(), "dummy", "ctrl",
 		"--config", configFile,
@@ -1411,7 +1411,7 @@ func (s *BootstrapSuite) TestBootstrapMultipleConfigFiles(c *gc.C) {
 		"controller: false\n",
 	), 0644)
 
-	s.patchVersionAndSeries(c, "raring")
+	s.patchVersion(c)
 	_, err = coretesting.RunCommand(
 		c, s.newBootstrapCommand(), "dummy", "ctrl",
 		"--auto-upgrade",
@@ -1430,7 +1430,7 @@ func (s *BootstrapSuite) TestBootstrapConfigFileAndAdHoc(c *gc.C) {
 	err := ioutil.WriteFile(configFile, []byte("controller: not-a-bool\n"), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.patchVersionAndSeries(c, "raring")
+	s.patchVersion(c)
 	_, err = coretesting.RunCommand(
 		c, s.newBootstrapCommand(), "dummy", "ctrl",
 		"--auto-upgrade",
@@ -1443,7 +1443,7 @@ func (s *BootstrapSuite) TestBootstrapConfigFileAndAdHoc(c *gc.C) {
 }
 
 func (s *BootstrapSuite) TestBootstrapAutocertDNSNameDefaultPort(c *gc.C) {
-	s.patchVersionAndSeries(c, "raring")
+	s.patchVersion(c)
 	var bootstrap fakeBootstrapFuncs
 	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
 		return &bootstrap
@@ -1456,7 +1456,7 @@ func (s *BootstrapSuite) TestBootstrapAutocertDNSNameDefaultPort(c *gc.C) {
 }
 
 func (s *BootstrapSuite) TestBootstrapAutocertDNSNameExplicitAPIPort(c *gc.C) {
-	s.patchVersionAndSeries(c, "raring")
+	s.patchVersion(c)
 	var bootstrap fakeBootstrapFuncs
 	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
 		return &bootstrap
@@ -1470,7 +1470,7 @@ func (s *BootstrapSuite) TestBootstrapAutocertDNSNameExplicitAPIPort(c *gc.C) {
 }
 
 func (s *BootstrapSuite) TestBootstrapCloudConfigAndAdHoc(c *gc.C) {
-	s.patchVersionAndSeries(c, "raring")
+	s.patchVersion(c)
 	_, err := coretesting.RunCommand(
 		c, s.newBootstrapCommand(), "dummy-cloud-with-config", "ctrl",
 		"--auto-upgrade",
@@ -1563,7 +1563,7 @@ func (s *BootstrapSuite) TestBootstrapSetsControllerOnBase(c *gc.C) {
 	// See https://pad.lv/1604223
 
 	resetJujuXDGDataHome(c)
-	s.patchVersionAndSeries(c, "raring")
+	s.patchVersion(c)
 
 	const controllerName = "dev"
 
@@ -1733,7 +1733,7 @@ type fakeBootstrapFuncs struct {
 	cloudRegionDetector environs.CloudRegionDetector
 }
 
-func (fake *fakeBootstrapFuncs) Bootstrap(ctx environs.BootstrapContext, env environs.Environ, args bootstrap.BootstrapParams) error {
+func (fake *fakeBootstrapFuncs) Bootstrap(localConfPath string, ctx environs.BootstrapContext, env environs.Environ, args bootstrap.BootstrapParams) error {
 	fake.args = args
 	return nil
 }

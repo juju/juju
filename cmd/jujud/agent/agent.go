@@ -94,13 +94,13 @@ func (c *agentConf) StoragePath() string {
 func (c *agentConf) ReadConfig(tag string) error {
 	t, err := names.ParseTag(tag)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	conf, err := agent.ReadConfig(agent.ConfigPath(c.dataDir, t))
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	c._config = conf
 	return nil

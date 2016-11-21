@@ -193,7 +193,7 @@ func (a *machineAgentCmd) Init(args []string) error {
 		return errors.Errorf("--machine-id option must be set, and expects a non-negative integer")
 	}
 	if err := a.agentInitializer.CheckArgs(args); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	// Due to changes in the logging, and needing to care about old
@@ -404,10 +404,10 @@ func upgradeCertificateDNSNames(config agent.ConfigSetter) error {
 	// Write a new certificate to the mongo pem and agent config files.
 	si.Cert, si.PrivateKey, err = cert.NewDefaultServer(config.CACert(), si.CAPrivateKey, dnsNames.Values())
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	if err := mongo.UpdateSSLKey(config.DataPath(), si.Cert, si.PrivateKey); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	config.SetStateServingInfo(si)
 	return nil
@@ -418,7 +418,7 @@ func (a *MachineAgent) Run(*cmd.Context) error {
 
 	defer a.tomb.Done()
 	if err := a.ReadConfig(a.Tag().String()); err != nil {
-		return errors.Errorf("cannot read agent configuration: %v", err)
+		return errors.Trace(err)
 	}
 
 	logger.Infof("machine agent %v start (%s [%s])", a.Tag(), jujuversion.Current, runtime.Compiler)
@@ -448,7 +448,7 @@ func (a *MachineAgent) Run(*cmd.Context) error {
 	createEngine := a.makeEngineCreator(agentConfig.UpgradedToVersion())
 	charmrepo.CacheDir = filepath.Join(agentConfig.DataPath(), "charmcache")
 	if err := a.createJujudSymlinks(agentConfig.DataPath()); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	a.runner.StartWorker("engine", createEngine)
 
@@ -467,7 +467,7 @@ func (a *MachineAgent) Run(*cmd.Context) error {
 	}
 	err = cmdutil.AgentDone(logger, err)
 	a.tomb.Kill(err)
-	return err
+	return errors.Trace(err)
 }
 
 func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) func() (worker.Worker, error) {
@@ -574,7 +574,7 @@ func (a *MachineAgent) maybeStopMongo(ver mongo.Version, isMaster bool) error {
 			return nil
 		})
 		if err != nil {
-			return err
+			return errors.Trace(err)
 		}
 
 	}
@@ -659,7 +659,7 @@ func (a *MachineAgent) restoreStateWatcher(st *state.State, stopch <-chan struct
 		select {
 		case <-restoreWatch.Changes():
 			if err := a.restoreChanged(st); err != nil {
-				return err
+				return errors.Trace(err)
 			}
 		case <-stopch:
 			return nil
@@ -1236,10 +1236,10 @@ func newObserverFn(
 // it returns an error if upgrades or restore are running.
 func (a *MachineAgent) limitLogins(req params.LoginRequest) error {
 	if err := a.limitLoginsDuringRestore(req); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	if err := a.limitLoginsDuringUpgrade(req); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	return a.limitLoginsDuringMongoUpgrade(req)
 }
@@ -1276,7 +1276,7 @@ func (a *MachineAgent) limitLoginsDuringRestore(req params.LoginRequest) error {
 		switch authTag := authTag.(type) {
 		case names.UserTag:
 			// use a restricted API mode
-			return err
+			return errors.Trace(err)
 		case names.MachineTag:
 			if authTag == a.Tag() {
 				// allow logins from the local machine
@@ -1339,10 +1339,10 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) (err error) {
 		// EnsureMongoServer installs/upgrades the init config as necessary.
 		ensureServerParams, err := cmdutil.NewEnsureServerParams(agentConfig)
 		if err != nil {
-			return err
+			return errors.Trace(err)
 		}
 		if err := cmdutil.EnsureMongoServer(ensureServerParams); err != nil {
-			return err
+			return errors.Trace(err)
 		}
 	}
 	logger.Debugf("mongodb service is installed")
@@ -1437,7 +1437,7 @@ func (a *MachineAgent) upgradeWaiterWorker(name string, start func() (worker.Wor
 		// Upgrades are done, start the worker.
 		w, err := start()
 		if err != nil {
-			return err
+			return errors.Trace(err)
 		}
 		// Wait for worker to finish or for us to be stopped.
 		done := make(chan error, 1)
@@ -1480,7 +1480,7 @@ func (a *MachineAgent) createSymlink(target, link string) error {
 
 	currentTarget, err := symlink.Read(fullLink)
 	if err != nil && !os.IsNotExist(err) {
-		return err
+		return errors.Trace(err)
 	} else if err == nil {
 		// Link already in place - check it.
 		if currentTarget == target {
@@ -1489,12 +1489,12 @@ func (a *MachineAgent) createSymlink(target, link string) error {
 		}
 		// Link points to the wrong place - delete it.
 		if err := os.Remove(fullLink); err != nil {
-			return err
+			return errors.Trace(err)
 		}
 	}
 
 	if err := os.MkdirAll(filepath.Dir(fullLink), os.FileMode(0755)); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	return symlink.New(target, fullLink)
 }

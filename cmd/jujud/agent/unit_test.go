@@ -78,7 +78,7 @@ func (s *UnitSuite) primeAgent(c *gc.C) (*state.Machine, *state.Unit, agent.Conf
 }
 
 func (s *UnitSuite) newAgent(c *gc.C, unit *state.Unit) *UnitAgent {
-	a, err := NewUnitAgent(nil, s.newBufferedLogWriter())
+	a, err := NewUnitAgent(nil, s.newBufferedLogWriter(), "/fake/data/path", "/fake/storage/path")
 	c.Assert(err, jc.ErrorIsNil)
 	s.InitAgent(c, a, "--unit-name", unit.Name(), "--log-to-stderr=true")
 	err = a.ReadConfig(unit.Tag().String())
@@ -93,7 +93,7 @@ func (s *UnitSuite) newBufferedLogWriter() *logsender.BufferedLogWriter {
 }
 
 func (s *UnitSuite) TestParseSuccess(c *gc.C) {
-	a, err := NewUnitAgent(nil, s.newBufferedLogWriter())
+	a, err := NewUnitAgent(nil, s.newBufferedLogWriter(), "/fake/data/path", "/fake/storage/path")
 	c.Assert(err, jc.ErrorIsNil)
 	err = coretesting.InitCommand(a, []string{
 		"--data-dir", "jd",
@@ -106,7 +106,7 @@ func (s *UnitSuite) TestParseSuccess(c *gc.C) {
 }
 
 func (s *UnitSuite) TestParseMissing(c *gc.C) {
-	uc, err := NewUnitAgent(nil, s.newBufferedLogWriter())
+	uc, err := NewUnitAgent(nil, s.newBufferedLogWriter(), "/fake/data/path", "/fake/storage/path")
 	c.Assert(err, jc.ErrorIsNil)
 	err = coretesting.InitCommand(uc, []string{
 		"--data-dir", "jc",
@@ -123,7 +123,7 @@ func (s *UnitSuite) TestParseNonsense(c *gc.C) {
 		{"--unit-name", "wordpress/wild/9"},
 		{"--unit-name", "20/20"},
 	} {
-		a, err := NewUnitAgent(nil, s.newBufferedLogWriter())
+		a, err := NewUnitAgent(nil, s.newBufferedLogWriter(), "/fake/data/path", "/fake/storage/path")
 		c.Assert(err, jc.ErrorIsNil)
 
 		err = coretesting.InitCommand(a, append(args, "--data-dir", "jc"))
@@ -132,7 +132,7 @@ func (s *UnitSuite) TestParseNonsense(c *gc.C) {
 }
 
 func (s *UnitSuite) TestParseUnknown(c *gc.C) {
-	a, err := NewUnitAgent(nil, s.newBufferedLogWriter())
+	a, err := NewUnitAgent(nil, s.newBufferedLogWriter(), "/fake/data/path", "/fake/storage/path")
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = coretesting.InitCommand(a, []string{
@@ -199,7 +199,7 @@ func (s *UnitSuite) TestUpgrade(c *gc.C) {
 	newVers := version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
-		Series: series.HostSeries(),
+		Series: series.MustHostSeries(),
 	}
 	newVers.Patch++
 	envtesting.AssertUploadFakeToolsVersions(
@@ -235,7 +235,7 @@ func (s *UnitSuite) TestUpgradeFailsWithoutTools(c *gc.C) {
 	newVers := version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
-		Series: series.HostSeries(),
+		Series: series.MustHostSeries(),
 	}
 	newVers.Patch++
 	err := machine.SetAgentVersion(newVers)
@@ -269,7 +269,7 @@ func (s *UnitSuite) TestOpenStateFails(c *gc.C) {
 	defer func() { c.Check(a.Stop(), gc.IsNil) }()
 	waitForUnitActive(s.State, unit, c)
 
-	s.AssertCannotOpenState(c, conf.Tag(), conf.DataDir())
+	s.AssertCannotOpenState(c, conf.Tag(), conf.DataPath())
 }
 
 func (s *UnitSuite) TestAgentSetsToolsVersion(c *gc.C) {
@@ -277,7 +277,7 @@ func (s *UnitSuite) TestAgentSetsToolsVersion(c *gc.C) {
 	vers := version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
-		Series: series.HostSeries(),
+		Series: series.MustHostSeries(),
 	}
 	vers.Minor++
 	err := unit.SetAgentVersion(vers)
@@ -303,7 +303,7 @@ func (s *UnitSuite) TestAgentSetsToolsVersion(c *gc.C) {
 			current := version.Binary{
 				Number: jujuversion.Current,
 				Arch:   arch.HostArch(),
-				Series: series.HostSeries(),
+				Series: series.MustHostSeries(),
 			}
 			c.Assert(agentTools.Version, gc.DeepEquals, current)
 			done = true
@@ -418,7 +418,7 @@ func (s *UnitSuite) TestWorkers(c *gc.C) {
 
 	_, unit, _, _ := s.primeAgent(c)
 	ctx := cmdtesting.Context(c)
-	a, err := NewUnitAgent(ctx, s.newBufferedLogWriter())
+	a, err := NewUnitAgent(ctx, s.newBufferedLogWriter(), "/fake/data/path", "/fake/storage/path")
 	c.Assert(err, jc.ErrorIsNil)
 	s.InitAgent(c, a, "--unit-name", unit.Name())
 

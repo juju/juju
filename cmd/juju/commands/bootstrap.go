@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/jujuclient"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -247,14 +248,14 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 
 // BootstrapInterface provides bootstrap functionality that Run calls to support cleaner testing.
 type BootstrapInterface interface {
-	Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args bootstrap.BootstrapParams) error
+	Bootstrap(localConfPath string, _ environs.BootstrapContext, _ environs.Environ, _ bootstrap.BootstrapParams) error
 	CloudRegionDetector(environs.EnvironProvider) (environs.CloudRegionDetector, bool)
 }
 
 type bootstrapFuncs struct{}
 
-func (b bootstrapFuncs) Bootstrap(ctx environs.BootstrapContext, env environs.Environ, args bootstrap.BootstrapParams) error {
-	return bootstrap.Bootstrap(ctx, env, args)
+func (b bootstrapFuncs) Bootstrap(localConfPath string, ctx environs.BootstrapContext, env environs.Environ, args bootstrap.BootstrapParams) error {
+	return bootstrap.Bootstrap(localConfPath, ctx, env, args)
 }
 
 func (b bootstrapFuncs) CloudRegionDetector(provider environs.EnvironProvider) (environs.CloudRegionDetector, bool) {
@@ -524,34 +525,39 @@ See `[1:] + "`juju kill-controller`" + `.`)
 	}
 
 	bootstrapFuncs := getBootstrapFuncs()
-	err = bootstrapFuncs.Bootstrap(modelcmd.BootstrapContext(ctx), environ, bootstrap.BootstrapParams{
-		ModelConstraints:          c.Constraints,
-		BootstrapConstraints:      bootstrapConstraints,
-		BootstrapSeries:           c.BootstrapSeries,
-		BootstrapImage:            c.BootstrapImage,
-		Placement:                 c.Placement,
-		BuildAgent:                c.BuildAgent,
-		BuildAgentTarball:         sync.BuildAgentTarball,
-		AgentVersion:              c.AgentVersion,
-		MetadataDir:               metadataDir,
-		Cloud:                     *cloud,
-		CloudName:                 c.Cloud,
-		CloudRegion:               region.Name,
-		CloudCredential:           credentials.credential,
-		CloudCredentialName:       credentials.name,
-		ControllerConfig:          config.controller,
-		ControllerInheritedConfig: config.inheritedControllerAttrs,
-		RegionInheritedConfig:     cloud.RegionConfig,
-		HostedModelConfig:         hostedModelConfig,
-		GUIDataSourceBaseURL:      guiDataSourceBaseURL,
-		AdminSecret:               config.bootstrap.AdminSecret,
-		CAPrivateKey:              config.bootstrap.CAPrivateKey,
-		DialOpts: environs.BootstrapDialOpts{
-			Timeout:        config.bootstrap.BootstrapTimeout,
-			RetryDelay:     config.bootstrap.BootstrapRetryDelay,
-			AddressesDelay: config.bootstrap.BootstrapAddressesDelay,
+	err = bootstrapFuncs.Bootstrap(
+		paths.Defaults.Conf,
+		modelcmd.BootstrapContext(ctx),
+		environ,
+		bootstrap.BootstrapParams{
+			ModelConstraints:          c.Constraints,
+			BootstrapConstraints:      bootstrapConstraints,
+			BootstrapSeries:           c.BootstrapSeries,
+			BootstrapImage:            c.BootstrapImage,
+			Placement:                 c.Placement,
+			BuildAgent:                c.BuildAgent,
+			BuildAgentTarball:         sync.BuildAgentTarball,
+			AgentVersion:              c.AgentVersion,
+			MetadataDir:               metadataDir,
+			Cloud:                     *cloud,
+			CloudName:                 c.Cloud,
+			CloudRegion:               region.Name,
+			CloudCredential:           credentials.credential,
+			CloudCredentialName:       credentials.name,
+			ControllerConfig:          config.controller,
+			ControllerInheritedConfig: config.inheritedControllerAttrs,
+			RegionInheritedConfig:     cloud.RegionConfig,
+			HostedModelConfig:         hostedModelConfig,
+			GUIDataSourceBaseURL:      guiDataSourceBaseURL,
+			AdminSecret:               config.bootstrap.AdminSecret,
+			CAPrivateKey:              config.bootstrap.CAPrivateKey,
+			DialOpts: environs.BootstrapDialOpts{
+				Timeout:        config.bootstrap.BootstrapTimeout,
+				RetryDelay:     config.bootstrap.BootstrapRetryDelay,
+				AddressesDelay: config.bootstrap.BootstrapAddressesDelay,
+			},
 		},
-	})
+	)
 	if err != nil {
 		return errors.Annotate(err, "failed to bootstrap model")
 	}

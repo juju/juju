@@ -42,6 +42,7 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju"
+	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
@@ -181,7 +182,7 @@ func (s *MachineSuite) TestRunStop(c *gc.C) {
 	err := a.Stop()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(<-done, jc.ErrorIsNil)
-	c.Assert(charmrepo.CacheDir, gc.Equals, filepath.Join(ac.DataDir(), "charmcache"))
+	c.Assert(charmrepo.CacheDir, gc.Equals, filepath.Join(ac.DataPath(), "charmcache"))
 }
 
 func (s *MachineSuite) TestWithDeadMachine(c *gc.C) {
@@ -192,7 +193,7 @@ func (s *MachineSuite) TestWithDeadMachine(c *gc.C) {
 	err = runWithTimeout(a)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = os.Stat(ac.DataDir())
+	_, err = os.Stat(ac.DataPath())
 	c.Assert(err, jc.Satisfies, os.IsNotExist)
 }
 
@@ -206,7 +207,7 @@ func (s *MachineSuite) TestWithRemovedMachine(c *gc.C) {
 	err = runWithTimeout(a)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = os.Stat(ac.DataDir())
+	_, err = os.Stat(ac.DataPath())
 	c.Assert(err, jc.Satisfies, os.IsNotExist)
 }
 
@@ -514,7 +515,7 @@ func (s *MachineSuite) testUpgradeRequest(c *gc.C, agent runner, tag string, cur
 	newVers := version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
-		Series: series.HostSeries(),
+		Series: series.MustHostSeries(),
 	}
 	newVers.Patch++
 	newTools := envtesting.AssertUploadFakeToolsVersions(
@@ -645,7 +646,7 @@ func (s *MachineSuite) assertAgentSetsToolsVersion(c *gc.C, job state.MachineJob
 	vers := version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
-		Series: series.HostSeries(),
+		Series: series.MustHostSeries(),
 	}
 	vers.Minor++
 	m, _, _ := s.primeAgentVersion(c, vers, job)
@@ -796,7 +797,7 @@ func (s *MachineSuite) TestMachineAgentSymlinks(c *gc.C) {
 	_, done := s.waitForOpenState(c, a)
 
 	// Symlinks should have been created
-	for _, link := range []string{jujuRun, jujuDumpLogs} {
+	for _, link := range []string{paths.Defaults.JujuRun, paths.Defaults.JujuDumpLogs} {
 		_, err := os.Stat(utils.EnsureBaseDir(a.rootDir, link))
 		c.Assert(err, jc.ErrorIsNil, gc.Commentf(link))
 	}
@@ -816,7 +817,7 @@ func (s *MachineSuite) TestMachineAgentSymlinkJujuRunExists(c *gc.C) {
 	defer a.Stop()
 
 	// Pre-create the symlinks, but pointing to the incorrect location.
-	links := []string{jujuRun, jujuDumpLogs}
+	links := []string{paths.Defaults.JujuRun, paths.Defaults.JujuDumpLogs}
 	a.rootDir = c.MkDir()
 	for _, link := range links {
 		fullLink := utils.EnsureBaseDir(a.rootDir, link)
@@ -848,13 +849,13 @@ func (s *MachineSuite) TestMachineAgentUninstall(c *gc.C) {
 
 	// juju-run and juju-dumplogs symlinks should have been removed on
 	// termination.
-	for _, link := range []string{jujuRun, jujuDumpLogs} {
+	for _, link := range []string{paths.Defaults.JujuRun, paths.Defaults.JujuDumpLogs} {
 		_, err = os.Stat(utils.EnsureBaseDir(a.rootDir, link))
 		c.Assert(err, jc.Satisfies, os.IsNotExist)
 	}
 
 	// data-dir should have been removed on termination
-	_, err = os.Stat(ac.DataDir())
+	_, err = os.Stat(ac.DataPath())
 	c.Assert(err, jc.Satisfies, os.IsNotExist)
 }
 
@@ -1187,7 +1188,7 @@ func (s *MachineSuite) TestMachineAgentIgnoreAddressesContainer(c *gc.C) {
 	vers := version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
-		Series: series.HostSeries(),
+		Series: series.MustHostSeries(),
 	}
 	s.primeAgentWithMachine(c, m, vers)
 	a := s.newAgent(c, m)

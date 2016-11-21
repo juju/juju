@@ -17,6 +17,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
 	"github.com/juju/utils/featureflag"
+	jujuos "github.com/juju/utils/os"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
 	"github.com/juju/version"
@@ -167,7 +168,7 @@ func (s *MainSuite) TestFirstRun2xFrom1xOnUbuntu(c *gc.C) {
 
 	// Code should only run on ubuntu series, so patch out the series for
 	// when non-ubuntu OSes run this test.
-	s.PatchValue(&series.HostSeries, func() string { return "trusty" })
+	// TODO(katco): Where does this need to be passed in?s.PatchValue(&series.HostSeries, func() string { return "trusty" })
 
 	argChan := make(chan []string, 1)
 
@@ -188,6 +189,7 @@ func (s *MainSuite) TestFirstRun2xFrom1xOnUbuntu(c *gc.C) {
 	var code int
 	f := func() {
 		code = main{
+			osType:      jujuos.Ubuntu,
 			execCommand: execCommand,
 		}.Run([]string{"juju", "version"})
 	}
@@ -203,11 +205,11 @@ func (s *MainSuite) TestFirstRun2xFrom1xOnUbuntu(c *gc.C) {
 
 	c.Check(code, gc.Equals, 0)
 	c.Check(string(stderr), gc.Equals, fmt.Sprintf(`
-Welcome to Juju %s. 
-    See https://jujucharms.com/docs/stable/introducing-2 for more details.
+Welcome to Juju %s.
+	See https://jujucharms.com/docs/stable/introducing-2 for more details.
 
 If you want to use Juju 1.25.0, run 'juju' commands as 'juju-1'. For example, 'juju-1 bootstrap'.
-   See https://jujucharms.com/docs/stable/juju-coexist for installation details. 
+   See https://jujucharms.com/docs/stable/juju-coexist for installation details.
 
 Since Juju 2 is being run for the first time, downloading latest cloud information.`[1:]+"\n", jujuversion.Current))
 	checkVersionOutput(c, string(stdout))
@@ -215,7 +217,7 @@ Since Juju 2 is being run for the first time, downloading latest cloud informati
 
 func (s *MainSuite) TestFirstRun2xFrom1xNotUbuntu(c *gc.C) {
 	// Code should only run on ubuntu series, so pretend to be something else.
-	s.PatchValue(&series.HostSeries, func() string { return "win8" })
+	// TODO(katco): Where does this need to be passed in?s.PatchValue(&series.HostSeries, func() string { return "win8" })
 
 	argChan := make(chan []string, 1)
 
@@ -255,7 +257,7 @@ Since Juju 2 is being run for the first time, downloading latest cloud informati
 func (s *MainSuite) TestNoWarn1xWith2xData(c *gc.C) {
 	// Code should only rnu on ubuntu series, so patch out the series for
 	// when non-ubuntu OSes run this test.
-	s.PatchValue(&series.HostSeries, func() string { return "trusty" })
+	// TODO(katco): Where does this need to be passed in?s.PatchValue(&series.HostSeries, func() string { return "trusty" })
 
 	argChan := make(chan []string, 1)
 
@@ -288,7 +290,7 @@ func (s *MainSuite) TestNoWarn1xWith2xData(c *gc.C) {
 func (s *MainSuite) TestNoWarnWithNo1xOr2xData(c *gc.C) {
 	// Code should only rnu on ubuntu series, so patch out the series for
 	// when non-ubuntu OSes run this test.
-	s.PatchValue(&series.HostSeries, func() string { return "trusty" })
+	// TODO(katco): Where does this need to be passed in?s.PatchValue(&series.HostSeries, func() string { return "trusty" })
 
 	argChan := make(chan []string, 1)
 	// we shouldn't actually be running anything, but if we do, this will
@@ -370,7 +372,7 @@ func checkVersionOutput(c *gc.C, output string) {
 	ver := version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
-		Series: series.HostSeries(),
+		Series: series.MustHostSeries(),
 	}
 
 	c.Check(output, gc.Equals, ver.String()+"\n")

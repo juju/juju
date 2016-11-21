@@ -132,7 +132,7 @@ func (s *commonMachineSuite) primeAgent(c *gc.C, jobs ...state.MachineJob) (m *s
 	vers := version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
-		Series: series.HostSeries(),
+		Series: series.MustHostSeries(),
 	}
 	return s.primeAgentVersion(c, vers, jobs...)
 }
@@ -211,10 +211,11 @@ func NewTestMachineAgentFactory(
 
 // newAgent returns a new MachineAgent instance
 func (s *commonMachineSuite) newAgent(c *gc.C, m *state.Machine) *MachineAgent {
-	agentConf := agentConf{dataDir: s.DataDir()}
-	agentConf.ReadConfig(names.NewMachineTag(m.Id()).String())
+	agentConf := NewAgentConf(c.MkDir(), s.DataDir())
+	err := agentConf.ReadConfig(names.NewMachineTag(m.Id()).String())
+	c.Assert(err, jc.ErrorIsNil)
 	logger := s.newBufferedLogWriter()
-	machineAgentFactory := NewTestMachineAgentFactory(&agentConf, logger, c.MkDir())
+	machineAgentFactory := NewTestMachineAgentFactory(agentConf, logger, agentConf.DataDir())
 	machineAgent, err := machineAgentFactory(m.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	return machineAgent

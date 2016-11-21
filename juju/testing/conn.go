@@ -363,19 +363,13 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	apiPort := dummy.APIPort(environ.Provider())
 	s.ControllerConfig["api-port"] = apiPort
 	err = bootstrap.Bootstrap(
+		"/fake/conf/path",
 		modelcmd.BootstrapContext(ctx),
 		environ,
 		bootstrap.BootstrapParams{
-			// TODO(katco): ConfPath: !!!START HERE!!!
-			ConfPath:               "/fake/conf/path",
-			TempPath:               "/fake/temp/path",
-			DataPath:               s.DataDir(),
-			LogPath:                s.LogDir,
-			MetricsSpoolPath:       "/fake/metrics/spool/path",
-			CloudInitOutputLogPath: "/fake/cloud/init/path",
-			ControllerConfig:       s.ControllerConfig,
-			CloudName:              cloudSpec.Name,
-			CloudRegion:            "dummy-region",
+			ControllerConfig: s.ControllerConfig,
+			CloudName:        cloudSpec.Name,
+			CloudRegion:      "dummy-region",
 			Cloud: cloud.Cloud{
 				Type:             cloudSpec.Type,
 				AuthTypes:        []cloud.AuthType{cloud.EmptyAuthType, cloud.UserPassAuthType},

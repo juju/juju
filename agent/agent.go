@@ -442,11 +442,11 @@ func ConfigPath(dataDir string, tag names.Tag) string {
 func ReadConfig(configFilePath string) (ConfigSetterWriter, error) {
 	configData, err := ioutil.ReadFile(configFilePath)
 	if err != nil {
-		return nil, fmt.Errorf("cannot read agent config %q: %v", configFilePath, err)
+		return nil, errors.Annotatef(err, "cannot read agent config %q", configFilePath)
 	}
 	format, config, err := parseConfigData(configData)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	logger.Debugf("read agent config, format %q", format.version())
 	config.configFilePath = configFilePath

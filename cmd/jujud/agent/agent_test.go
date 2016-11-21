@@ -6,7 +6,6 @@ package agent
 import (
 	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
@@ -28,9 +27,7 @@ type acCreator func() (cmd.Command, AgentConf)
 func CheckAgentCommand(c *gc.C, create acCreator, args []string) cmd.Command {
 	com, conf := create()
 	err := coretesting.InitCommand(com, args)
-	dataDir, err := paths.DataDir(series.HostSeries())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(conf.DataDir(), gc.Equals, dataDir)
+	c.Assert(conf.DataDir(), gc.Equals, paths.Defaults.Data)
 	badArgs := append(args, "--data-dir", "")
 	com, _ = create()
 	err = coretesting.InitCommand(com, badArgs)

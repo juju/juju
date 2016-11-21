@@ -199,6 +199,7 @@ func (s *AgentSuite) WriteStateAgentConfig(
 	apiAddr := []string{fmt.Sprintf("localhost:%d", apiPort)}
 	conf, err := agent.NewStateMachineConfig(
 		agent.AgentConfigParams{
+			ConfigFilePath:    s.ConfDir(),
 			DataPath:          s.DataDir(),
 			LogPath:           paths.Defaults.Log,
 			MetricsSpoolPath:  paths.Defaults.MetricsSpool,
@@ -221,7 +222,8 @@ func (s *AgentSuite) WriteStateAgentConfig(
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	conf.SetPassword(password)
-	c.Assert(conf.Write(), gc.IsNil)
+	c.Logf("KT: WRITING CONFIG TO %q", s.ConfDir())
+	c.Assert(conf.Write(), jc.ErrorIsNil)
 	return conf
 }
 

@@ -18,6 +18,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
+	jujuos "github.com/juju/utils/os"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
 	"github.com/juju/utils/ssh"
@@ -38,6 +39,7 @@ import (
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/environs/sync"
 	"github.com/juju/juju/environs/tools"
+	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
 	coretools "github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
@@ -126,13 +128,6 @@ type BootstrapParams struct {
 	// tools and/or image metadata.
 	MetadataDir string
 
-	ConfPath               string
-	TempPath               string
-	DataPath               string
-	LogPath                string
-	MetricsSpoolPath       string
-	CloudInitOutputLogPath string
-
 	// AgentVersion, if set, determines the exact tools version that
 	// will be used to start the Juju agents.
 	AgentVersion *version.Number
@@ -166,24 +161,6 @@ func (p BootstrapParams) Validate() error {
 	if p.CAPrivateKey == "" {
 		return errors.NotAssignedf("CAPrivateKey")
 	}
-	if p.ConfPath == "" {
-		return errors.NotAssignedf("ConfPath")
-	}
-	if p.TempPath == "" {
-		return errors.NotAssignedf("TempPath")
-	}
-	if p.DataPath == "" {
-		return errors.NotAssignedf("DataPath")
-	}
-	if p.LogPath == "" {
-		return errors.NotAssignedf(" LogPath")
-	}
-	if p.MetricsSpoolPath == "" {
-		return errors.NotAssignedf("MetricsSpoolPath")
-	}
-	if p.CloudInitOutputLogPath == "" {
-		return errors.NotAssignedf("CloudInitOutputLogPath")
-	}
 	// TODO(axw) validate other things.
 	return nil
 }
@@ -191,7 +168,7 @@ func (p BootstrapParams) Validate() error {
 // Bootstrap bootstraps the given environment. The supplied constraints are
 // used to provision the instance, and are also set within the bootstrapped
 // environment.
-func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args BootstrapParams) error {
+func Bootstrap(localConfPath string, ctx environs.BootstrapContext, environ environs.Environ, args BootstrapParams) error {
 	if err := args.Validate(); err != nil {
 		return errors.Annotate(err, "validating bootstrap parameters")
 	}
@@ -217,7 +194,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	var customImageMetadata []*imagemetadata.ImageMetadata
 	if args.MetadataDir != "" {
 		var err error
-		customImageMetadata, err = setPrivateMetadataSources(args.ConfPath, args.MetadataDir)
+		customImageMetadata, err = setPrivateMetadataSources(localConfPath, args.MetadataDir)
 		if err != nil {
 			return err
 		}
@@ -366,17 +343,20 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 
 	ctx.Verbosef("Starting new instance for initial controller")
 
-	result, err := environ.Bootstrap(ctx, environs.BootstrapParams{
-		CloudName:            args.CloudName,
-		CloudRegion:          args.CloudRegion,
-		ControllerConfig:     args.ControllerConfig,
-		ModelConstraints:     args.ModelConstraints,
-		BootstrapConstraints: bootstrapConstraints,
-		BootstrapSeries:      args.BootstrapSeries,
-		Placement:            args.Placement,
-		AvailableTools:       availableTools,
-		ImageMetadata:        imageMetadata,
-	})
+	result, err := environ.Bootstrap(
+		ctx,
+		environs.BootstrapParams{
+			CloudName:            args.CloudName,
+			CloudRegion:          args.CloudRegion,
+			ControllerConfig:     args.ControllerConfig,
+			ModelConstraints:     args.ModelConstraints,
+			BootstrapConstraints: bootstrapConstraints,
+			BootstrapSeries:      args.BootstrapSeries,
+			Placement:            args.Placement,
+			AvailableTools:       availableTools,
+			ImageMetadata:        imageMetadata,
+		},
+	)
 	if err != nil {
 		return err
 	}
@@ -384,6 +364,11 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	osType, err := series.GetOSFromSeries(result.Series)
 	if err != nil {
 		return errors.Trace(err)
+	}
+
+	pathCollection := paths.Nix
+	if osType == jujuos.Windows {
+		pathCollection = paths.Windows
 	}
 
 	matchingTools, err := availableTools.Match(coretools.Filter{
@@ -411,12 +396,12 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 		return err
 	}
 	instanceConfig := instancecfg.NewBootstrapInstanceConfig(
-		args.ConfPath,
-		args.TempPath,
-		args.DataPath,
-		args.LogPath,
-		args.MetricsSpoolPath,
-		args.CloudInitOutputLogPath,
+		pathCollection.Conf,
+		pathCollection.Temp,
+		pathCollection.Data,
+		pathCollection.Log,
+		pathCollection.MetricsSpool,
+		pathCollection.CloudInitOutputLogPath,
 		args.ControllerConfig,
 		bootstrapConstraints,
 		args.ModelConstraints,

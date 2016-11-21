@@ -9,6 +9,8 @@ import (
 	"runtime"
 	stdtesting "testing"
 
+	jujuos "github.com/juju/utils/os"
+
 	cmdtesting "github.com/juju/juju/cmd/testing"
 	_ "github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/testing"
@@ -25,6 +27,6 @@ func TestPackage(t *stdtesting.T) {
 // tool itself.
 func TestRunMain(t *stdtesting.T) {
 	if *cmdtesting.FlagRunMain {
-		os.Exit(Main(flag.Args()))
+		os.Exit(Main(jujuos.Ubuntu, flag.Args()))
 	}
 }

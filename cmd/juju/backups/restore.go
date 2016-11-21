@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/sync"
+	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/version"
 )
@@ -334,7 +335,7 @@ func (c *restoreCommand) rebootstrap(ctx *cmd.Context, meta *params.BackupsMetad
 			AddressesDelay: time.Second * bootstrap.DefaultBootstrapSSHAddressesDelay,
 		},
 	}
-	if err := BootstrapFunc(modelcmd.BootstrapContext(ctx), env, args); err != nil {
+	if err := BootstrapFunc(paths.Defaults.Conf, modelcmd.BootstrapContext(ctx), env, args); err != nil {
 		return errors.Annotatef(err, "cannot bootstrap new instance")
 	}
 
