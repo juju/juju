@@ -1286,7 +1286,7 @@ class WaitForSearch:
         self.thing = thing
         self.search_type = search_type
 
-    def complete(self, status):
+    def is_satisfied(self, status):
         hit = False
         miss = False
 
@@ -1328,7 +1328,7 @@ class WaitMachineNotPresent:
     def __init__(self, machine):
         self.machine = machine
 
-    def complete(self, status):
+    def is_satisfied(self, status):
         for machine, info in status.iter_machines():
             if machine == self.machine:
                 return False
@@ -2331,15 +2331,20 @@ class EnvJujuClient:
                               timeout=timeout, start=start)
 
     def wait_for(self, conditions, timeout=300):
+        """Wait until the supplied conditions are satisfied.
+
+        The supplied conditions must be an iterable of objects like
+        WaitMachineNotPresent.
+        """
         if len(conditions) == 0:
             return self.get_status()
         try:
             for status in self.status_until(timeout):
                 status.raise_highest_error(ignore_recoverable=True)
                 pending = []
-                for item in conditions:
-                    if not item.complete(status):
-                        pending.append(item)
+                for condition in conditions:
+                    if not condition.is_satisfied(status):
+                        pending.append(condition)
                 if len(pending) == 0:
                     return status
                 conditions = pending

@@ -489,15 +489,15 @@ class TestClientFromConfig(ClientTest):
 
 class TestWaitMachineNotPresent(ClientTest):
 
-    def test_complete(self):
+    def test_is_satisfied(self):
         not_present = WaitMachineNotPresent('0')
         client = fake_juju_client()
         client.bootstrap()
-        self.assertIs(not_present.complete(client.get_status()), True)
+        self.assertIs(not_present.is_satisfied(client.get_status()), True)
         client.juju('add-machine', ())
-        self.assertIs(not_present.complete(client.get_status()), False)
+        self.assertIs(not_present.is_satisfied(client.get_status()), False)
         client.juju('remove-machine', ('0'))
-        self.assertIs(not_present.complete(client.get_status()), True)
+        self.assertIs(not_present.is_satisfied(client.get_status()), True)
 
     def test_do_raise(self):
         not_present = WaitMachineNotPresent('0')
@@ -2512,66 +2512,66 @@ class TestEnvJujuClient(ClientTest):
                 'Timed out waiting for machines-not-0'):
             client.wait_for([WaitForSearch('machines-not-0', 'none')])
 
-    class NeverComplete:
+    class NeverSatisfied:
 
-        class NeverCompleteException(Exception):
+        class NeverSatisfiedException(Exception):
             pass
 
-        def complete(self, ignored):
+        def is_satisfied(self, ignored):
             return False
 
         def do_raise(self):
-            raise self.NeverCompleteException()
+            raise self.NeverSatisfiedException()
 
     def test_wait_timeout(self):
         client = fake_juju_client()
         client.bootstrap()
 
-        never_complete = self.NeverComplete()
-        with self.assertRaises(never_complete.NeverCompleteException):
+        never_satisfied = self.NeverSatisfied()
+        with self.assertRaises(never_satisfied.NeverSatisfiedException):
             with patch.object(client, 'status_until', lambda timeout: iter(
                     [Status({}, '')])):
-                client.wait_for([never_complete])
+                client.wait_for([never_satisfied])
 
     def test_wait_bad_status(self):
         client = fake_juju_client()
         client.bootstrap()
 
-        never_complete = self.NeverComplete()
+        never_satisfied = self.NeverSatisfied()
         bad_status = Status({'machines': {'0': {StatusItem.MACHINE: {
             'current': 'error'
             }}}}, '')
         with self.assertRaises(MachineError):
             with patch.object(client, 'status_until', lambda timeout: iter(
                     [bad_status])):
-                client.wait_for([never_complete])
+                client.wait_for([never_satisfied])
 
     def test_wait_bad_status_recoverable_recovered(self):
         client = fake_juju_client()
         client.bootstrap()
 
-        never_complete = self.NeverComplete()
+        never_satisfied = self.NeverSatisfied()
         bad_status = Status({'applications': {'0': {StatusItem.APPLICATION: {
             'current': 'error'
             }}}}, '')
         good_status = Status({}, '')
-        with self.assertRaises(never_complete.NeverCompleteException):
+        with self.assertRaises(never_satisfied.NeverSatisfiedException):
             with patch.object(client, 'status_until', lambda timeout: iter(
                     [bad_status, good_status])):
-                client.wait_for([never_complete])
+                client.wait_for([never_satisfied])
 
     def test_wait_bad_status_recoverable_timed_out(self):
         client = fake_juju_client()
         client.bootstrap()
 
-        never_complete = self.NeverComplete()
+        never_satisfied = self.NeverSatisfied()
         bad_status = Status({'applications': {'0': {StatusItem.APPLICATION: {
             'current': 'error'
             }}}}, '')
         with self.assertRaises(AppError):
             with patch.object(client, 'status_until', lambda timeout: iter(
                     [bad_status])):
-                client.wait_for([never_complete])
+                client.wait_for([never_satisfied])
 
     def test_wait_empty_list(self):
         client = fake_juju_client()
