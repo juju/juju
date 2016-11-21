@@ -747,6 +747,7 @@ def make_substrate_manager(boot_config):
         'azure': AzureAccount.from_boot_config,
         'azure-arm': AzureARMAccount.from_boot_config,
         'lxd': LXDAccount.from_boot_config,
+        'gce': GCEAccount.from_boot_config,
     }
     substrate_type = config['type']
     if substrate_type == 'azure' and 'application-id' in config:

@@ -1374,6 +1374,17 @@ class TestMakeSubstrateManager(FakeHomeTestCase):
             self.assertEqual(substrate.arm_client.tenant, 'tenant-id')
             is_mock.assert_called_once_with(substrate.arm_client)
 
+    def test_make_substrate_manager_gce(self):
+        boot_config = SimpleEnvironment('foo', get_gce_config())
+        client = test_gce.make_fake_client()
+        with patch('gce.get_client',
+                   autospec=True, return_value=client) as gc_mock:
+            with make_substrate_manager(boot_config) as account:
+                self.assertIs(client, account.client)
+        gc_mock.assert_called_once_with(
+            'me@serviceaccount.google.com', '/gce-serveraccount.json',
+            'test-project')
+
     def test_make_substrate_manager_other(self):
         config = get_os_config()
         config['type'] = 'other'
