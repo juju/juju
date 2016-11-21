@@ -44,10 +44,10 @@ def assess_cloud_combined(bs_manager):
     client = bs_manager.client
     with bs_manager.booted_context(upload_tools=False):
         old_status = client.get_status()
-        client.juju('add-machine', ())
+        client.juju('deploy', ('ubuntu'))
         new_status = client.wait_for_started()
         new_machines = [k for k, v in new_status.iter_new_machines(old_status)]
-        client.juju('remove-machine', tuple(new_machines))
+        client.juju('remove-unit', 'ubuntu/0')
         new_status = client.wait_for([WaitMachineNotPresent(n)
                                       for n in new_machines])
 
