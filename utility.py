@@ -334,7 +334,8 @@ def add_arg_juju_bin(parser):
                         default=_generate_default_binary())
 
 
-def add_basic_testing_arguments(parser, using_jes=False, deadline=True):
+def add_basic_testing_arguments(parser, using_jes=False, deadline=True,
+                                env=True):
     """Returns the parser loaded with basic testing arguments.
 
     The basic testing arguments, used in conjuction with boot_context ensures
@@ -360,10 +361,11 @@ def add_basic_testing_arguments(parser, using_jes=False, deadline=True):
     """
 
     # Optional postional arguments
-    parser.add_argument(
-        'env', nargs='?',
-        help='The juju environment to base the temp test environment on.',
-        default='lxd')
+    if env:
+        parser.add_argument(
+            'env', nargs='?',
+            help='The juju environment to base the temp test environment on.',
+            default='lxd')
     add_arg_juju_bin(parser)
     parser.add_argument('logs', nargs='?', type=_clean_dir,
                         help='A directory in which to store logs. By default,'

@@ -548,6 +548,18 @@ class TestAddBasicTestingArguments(TestCase):
             args = parser.parse_args(cmd_line)
         self.assertEqual(now + timedelta(seconds=300), args.deadline)
 
+    def test_no_env(self):
+        cmd_line = ['/foo/juju', '/tmp/logs', 'testtest']
+        parser = add_basic_testing_arguments(ArgumentParser(), env=False)
+        args = parser.parse_args(cmd_line)
+        expected = Namespace(
+            agent_url=None, debug=False, temp_env_name='testtest',
+            juju_bin='/foo/juju', logs='/tmp/logs', series=None,
+            verbose=logging.INFO, agent_stream=None, keep_env=False,
+            upload_tools=False, bootstrap_host=None, machine=[], region=None,
+            deadline=None)
+        self.assertEqual(args, expected)
+
 
 class TestSkipOnMissingFile(TestCase):
 

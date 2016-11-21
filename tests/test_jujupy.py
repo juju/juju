@@ -6764,6 +6764,29 @@ class TestSimpleEnvironment(TestCase):
 
 class TestJujuData(TestCase):
 
+    def from_cloud_region(self, provider_type, region):
+        with temp_dir() as juju_home:
+            data_writer = JujuData('foo', {}, juju_home)
+            data_writer.clouds = {'clouds': {'foo': {}}}
+            data_writer.credentials = {'credentials': {'bar': {}}}
+            data_writer.dump_yaml(juju_home, {})
+            data_reader = JujuData.from_cloud_region('bar', region, {}, {
+                'clouds': {'bar': {'type': provider_type, 'endpoint': 'x'}},
+                }, juju_home)
+        self.assertEqual(data_reader.credentials,
+                         data_writer.credentials)
+        self.assertEqual('bar', data_reader.get_cloud())
+        self.assertEqual(region, data_reader.get_region())
+
+    def test_from_cloud_region_openstack(self):
+        self.from_cloud_region('openstack', 'baz')
+
+    def test_from_cloud_region_maas(self):
+        self.from_cloud_region('maas', None)
+
+    def test_from_cloud_region_vsphere(self):
+        self.from_cloud_region('vsphere', None)
+
     def test_clone(self):
         orig = JujuData('foo', {'type': 'bar'}, 'myhome')
         orig.credentials = {'secret': 'password'}
@@ -6859,6 +6882,15 @@ class TestJujuData(TestCase):
             }}
         with self.assertRaisesRegexp(LookupError, 'No such endpoint: bar'):
             data.get_cloud()
+
+    def test_get_cloud_vsphere(self):
+        data = JujuData('foo', {'type': 'vsphere', 'host': 'bar'},
+                        'home')
+        data.clouds = {'clouds': {
+            'baz': {'type': 'vsphere', 'endpoint': 'bar'},
+            'qux': {'type': 'vsphere', 'endpoint': 'qux'},
+            }}
+        self.assertEqual('baz', data.get_cloud())
 
     def test_get_cloud_credentials_item(self):
         juju_data = JujuData('foo', {'type': 'ec2', 'region': 'foo'}, 'home')
