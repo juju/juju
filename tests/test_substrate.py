@@ -32,6 +32,7 @@ from substrate import (
     convert_to_azure_ids,
     describe_instances,
     destroy_job_instances,
+    GCEAccount,
     get_config,
     get_job_instances,
     get_libvirt_domstate,
@@ -54,6 +55,7 @@ from tests import (
     FakeHomeTestCase,
     TestCase,
     )
+import test_gce
 from tests.test_winazurearm import (
     fake_init_services,
     ResourceGroup,
@@ -629,6 +631,48 @@ class TestLXDAccount(TestCase):
             [call(['lxc', 'stop', '--force', 'asdf']),
              call(['lxc', 'delete', '--force', 'lxd-server:asdf'])],
             cc_mock.mock_calls)
+
+
+def get_gce_config():
+    return {
+        'type': 'gce',
+        'client-email': 'me@serviceaccount.google.com',
+        'pem-path': '/gce-serveraccount.json',
+        'project-id': 'test-project',
+    }
+
+
+class TestGCEAccount(TestCase):
+
+    def test_from_boot_config(self):
+        boot_config = SimpleEnvironment('foo', get_gce_config())
+        client = test_gce.make_fake_client()
+        with patch('gce.get_client', return_value=client) as gc_mock:
+            with GCEAccount.from_boot_config(boot_config) as account:
+                self.assertIs(client, account.client)
+        gc_mock.assert_called_once_with(
+            'me@serviceaccount.google.com', '/gce-serveraccount.json',
+            'test-project')
+
+    def test_terminate_instances(self):
+        client = test_gce.make_fake_client()
+        account = GCEAccount(client)
+        with patch('gce.delete_instances',
+                   autospec=True, return_value=1) as di_mock:
+            account.terminate_instances(['juju-1', 'juju-2'])
+        self.assertEqual(
+            [call(client, 'juju-1', old_age=0),
+             call(client, 'juju-2', old_age=0)],
+            di_mock.mock_calls)
+
+    def test_terminate_instances_exception(self):
+        client = test_gce.make_fake_client()
+        account = GCEAccount(client)
+        with patch('gce.delete_instances',
+                   autospec=True, return_value=0) as di_mock:
+            with self.assertRaises(Exception):
+                account.terminate_instances(['juju-1', 'juju-2'])
+        di_mock.assert_called_once_with(client, 'juju-1', old_age=0)
 
 
 def make_sms(instance_ids):

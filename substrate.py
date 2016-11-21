@@ -12,6 +12,7 @@ import urlparse
 from boto import ec2
 from boto.exception import EC2ResponseError
 
+import gce
 import get_ami
 from jujuconfig import (
     get_euca_env,
@@ -291,6 +292,36 @@ def convert_to_azure_ids(client, instance_ids):
         with AzureARMAccount.from_boot_config(
                 client.env) as substrate:
             return substrate.convert_to_azure_ids(client, instance_ids)
+
+
+class GCEAccount:
+    """Represent an Google Compute Engine Account."""
+
+    def __init__(self, client):
+        """Constructor.
+
+        :param client: An instance of apache libcloud GCEClient retrieved
+            via gce.get_client.
+        """
+        self.client = client
+
+    @classmethod
+    @contextmanager
+    def from_boot_config(cls, boot_config):
+        """A context manager for a GCE account."""
+        config = get_config(boot_config)
+        client = gce.get_client(
+            config['client-email'], config['pem-path'],
+            config['project-id'])
+        yield cls(client)
+
+    def terminate_instances(self, instance_ids):
+        """Terminate the specified instances."""
+        for instance_id in instance_ids:
+            # Pass old_age=0 to mean delete now.
+            count = gce.delete_instances(self.client, instance_id, old_age=0)
+            if count != 1:
+                raise Exception('Failed to delete {}'.format(instance_id))
 
 
 class AzureARMAccount:
