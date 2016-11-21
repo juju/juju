@@ -10,6 +10,7 @@ from mock import (
     Mock,
     patch,
     )
+import yaml
 
 from bootstrap_public_clouds import (
     bootstrap_cloud,
@@ -36,10 +37,8 @@ from utility import (
 _LOCAL = 'bootstrap_public_clouds'
 
 
-@contextmanager
 def patch_local(target, **kwargs):
-    with patch(_LOCAL + '.' + target, **kwargs) as patched_object:
-        yield patched_object
+    return patch(_LOCAL + '.' + target, **kwargs)
 
 
 class TestParseArgs(TestCase):
@@ -91,21 +90,23 @@ class TestMain(TestCase):
 class TestHelpers(TestCase):
 
     def test_make_logging_dir(self):
-        with patch('os.makedirs', autospec=True) as mkdirs_mock:
-            log_dir = make_logging_dir('base', 'config', 'region')
-        self.assertEqual('base/config/region', log_dir)
-        mkdirs_mock.assert_called_once_with('base/config/region')
+        with temp_dir() as root_dir:
+            expected_path = os.path.join(root_dir, 'config/region')
+            log_dir = make_logging_dir(root_dir, 'config', 'region')
+            self.assertTrue(os.path.isdir(expected_path))
+        self.assertEqual(expected_path, log_dir)
 
     def test_yaml_file_load(self):
+        expected_data = {'data': {'alpha': 'A', 'beta': 'B'}}
         with temp_dir() as root_dir:
             src_file = os.path.join(root_dir, 'test.yaml')
             with open(src_file, 'w') as yaml_file:
-                yaml_file.write('data:\n  alpha: A\n  beta: B\n')
+                yaml.safe_dump(expected_data, yaml_file)
             with patch('bootstrap_public_clouds.get_juju_home', autospec=True,
                        return_value=root_dir) as get_home_mock:
                 data = yaml_file_load('test.yaml')
         get_home_mock.assert_called_once_with()
-        self.assertEqual(data, {'data': {'alpha': 'A', 'beta': 'B'}})
+        self.assertEqual(data, expected_data)
 
     def test_default_log_dir(self):
         settings = Namespace(logs=None)
@@ -114,7 +115,7 @@ class TestHelpers(TestCase):
                 return_value='/tmp12345') as clean_dir_mock:
             default_log_dir(settings)
         self.assertEqual('/tmp12345', settings.logs)
-        self.assertEqual(1, clean_dir_mock.call_count)
+        clean_dir_mock.assert_called_once_with(_LOCAL)
 
     def test_default_log_dir_provided(self):
         settings = Namespace(logs='/tmpABCDE')
@@ -138,15 +139,18 @@ class TestBootstrapCloud(TestCase):
         bs_manager = Mock()
         bs_manager.attach_mock(Mock(side_effect=fake_booted_context),
                                'booted_context')
-        with patch_local('make_logging_dir', autospec=True):
+        with patch_local('make_logging_dir', autospec=True,
+                         side_effect=os.path.join):
             with patch_local('BootstrapManager', autospec=True,
                              return_value=bs_manager) as bsm_mock:
-                with patch_local('BootstrapManager.booted_context'):
-                    with patch('jujupy.EnvJujuClient.wait_for_started'):
-                        bootstrap_cloud('config', 'region', client, 'log_dir')
+                with patch('jujupy.EnvJujuClient.wait_for_started'):
+                    bootstrap_cloud('config', 'region', client, 'log_dir')
         self.assertEqual(1, bsm_mock.call_count)
-        args, kwargs = bsm_mock.call_args
-        self.assertEqual('boot-cpc-foo-region', args[0])
+        bsm_mock.assert_called_once_with(
+            'boot-cpc-foo-region', client, client, bootstrap_host=None,
+            machines=[], series=None, agent_url=None, agent_stream=None,
+            region='region', log_dir='log_dir/config/region', keep_env=False,
+            permanent=True, jes_enabled=True)
         bs_manager.booted_context.assert_called_once_with(False)
 
 
