@@ -32,4 +32,3 @@ const (
 )
 
 const MachineNonceHeader = "X-Juju-Nonce"
-const MigrationModelHeader = "X-Juju-Migration-Model-UUID"

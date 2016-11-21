@@ -69,7 +69,7 @@ func (s *logtransferSuite) logtransferURL(c *gc.C, scheme string) *url.URL {
 
 func (s *logtransferSuite) makeAuthHeader() http.Header {
 	header := utils.BasicAuthHeader(s.userTag.String(), s.password)
-	header.Add(params.MigrationModelHeader, s.State.ModelUUID())
+	header.Add(params.MigrationModelHTTPHeader, s.State.ModelUUID())
 	return header
 }
 
@@ -91,7 +91,7 @@ func (s *logtransferSuite) TestRejectsMissingModelHeader(c *gc.C) {
 
 func (s *logtransferSuite) TestRejectsBadMigratingModelUUID(c *gc.C) {
 	header := utils.BasicAuthHeader(s.userTag.String(), s.password)
-	header.Add(params.MigrationModelHeader, "does-not-exist")
+	header.Add(params.MigrationModelHTTPHeader, "does-not-exist")
 	reader := s.toReader(s.dialWebsocketInternal(c, header))
 	assertJSONError(c, reader, `unknown model: "does-not-exist"`)
 	assertWebsocketClosed(c, reader)
@@ -119,7 +119,7 @@ func (s *logtransferSuite) TestRejectsMachineLogins(c *gc.C) {
 
 func (s *logtransferSuite) TestRejectsBadPasword(c *gc.C) {
 	header := utils.BasicAuthHeader(s.userTag.String(), "wrong")
-	header.Add(params.MigrationModelHeader, s.State.ModelUUID())
+	header.Add(params.MigrationModelHTTPHeader, s.State.ModelUUID())
 	reader := s.toReader(s.dialWebsocketInternal(c, header))
 	assertJSONError(c, reader, "invalid entity name or password")
 	assertWebsocketClosed(c, reader)
