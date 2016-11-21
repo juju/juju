@@ -33,7 +33,6 @@ script_identifier = "endpoint-bindings"
 
 # To avoid clashes with other tests these space names must be seperately
 # registered in jujupy to populate constraints.
-space_control = script_identifier + "-control"
 space_data = script_identifier + "-data"
 space_public = script_identifier + "-public"
 
@@ -122,7 +121,6 @@ def reconfigure_networking(manager, required_spaces):
             manager.delete_fabric(new_fabric["id"])
         except Exception:
             log.exception("Failed to delete fabric: %s", new_fabric["id"])
-            raise
         else:
             log.info("Deleted fabric: %s", new_fabric["id"])
 
@@ -210,19 +208,31 @@ def create_test_charms():
     }
 
     charm_frontend = Charm("frontend", "Testing frontend charm.")
-    charm_frontend.metadata["provides"] = {
-        "website": {"interface": "http"},
+    charm_frontend.metadata["extra-bindings"] = {
+        "website": None,
     }
     charm_frontend.metadata["requires"] = {
         "datastore": {"interface": "data"},
     }
 
     bundle = {
+        "machines": {
+            "0": {
+                "constraints": "spaces={},^{}".format(
+                    space_data, space_public),
+                "series": "xenial",
+            },
+            "1": {
+                "constraints": "spaces={},{}".format(space_data, space_public),
+                "series": "xenial",
+            },
+        },
         "services": {
             "datastore": {
                 "charm": "./xenial/datastore",
                 "series": "xenial",
                 "num_units": 1,
+                "to": ["0"],
                 "bindings": {
                     "datastore": space_data,
                 },
@@ -231,6 +241,7 @@ def create_test_charms():
                 "charm": "./xenial/frontend",
                 "series": "xenial",
                 "num_units": 1,
+                "to": ["1"],
                 "bindings": {
                     "website": space_public,
                     "datastore": space_data,
@@ -270,7 +281,7 @@ def machine_spaces_for_bundle(bundle):
 
 
 def bootstrap_and_test(bootstrap_manager, bundle_path, machine):
-    with bootstrap_manager.booted_context(False, to=machine):
+    with bootstrap_manager.booted_context(False, to=machine, no_gui=True):
         client = bootstrap_manager.client
         log.info("Deploying bundle.")
         client.deploy(bundle_path)

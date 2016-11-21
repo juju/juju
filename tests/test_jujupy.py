@@ -76,6 +76,7 @@ from jujupy import (
     StatusError,
     StatusItem,
     StatusNotMet,
+    StatusTimeout,
     SYSTEM,
     temp_bootstrap_env,
     _temp_env as temp_env,
@@ -2535,6 +2536,28 @@ class TestEnvJujuClient(ClientTest):
                 Exception,
                 'Timed out waiting for machines-not-0'):
             client.wait([WaitForSearch('machines-not-0', 'none')])
+
+    def test_wait_timeout(self):
+        client = fake_juju_client()
+        client.bootstrap()
+
+        class NeverCompleteException(Exception):
+            pass
+
+        never_complete = Mock()
+        never_complete.complete.return_value = False
+        never_complete.do_raise.side_effect = NeverCompleteException
+        with self.assertRaises(never_complete.do_raise.side_effect):
+            with patch.object(client, 'status_until', lambda timeout: iter(
+                    [None])):
+                client.wait([never_complete])
+
+    def test_wait_empty_list(self):
+        client = fake_juju_client()
+        client.bootstrap()
+        with patch.object(client, 'status_until', side_effect=StatusTimeout):
+            self.assertEqual(client.wait([]).status,
+                             client.get_status().status)
 
     def test_set_model_constraints(self):
         client = EnvJujuClient(JujuData('bar', {}), None, '/foo')
