@@ -115,7 +115,7 @@ class TestContainerNetworking(TestCase):
             patch.object(self.client, 'juju', self.juju_mock.juju),
             patch.object(self.client, 'get_status', self.juju_mock.get_status),
             patch.object(self.client, 'juju_async', self.juju_mock.juju_async),
-            patch.object(self.client, 'wait_for', lambda *args, **kw: None),
+            patch.object(self.client, 'wait', lambda *args, **kw: None),
             patch.object(self.client, 'wait_for_started',
                          self.juju_mock.get_status),
             patch.object(self.client, 'get_juju_output', self.juju_mock.juju),
@@ -404,7 +404,7 @@ class TestMain(FakeHomeTestCase):
         argv = ["an-env", "/bin/juju", "/tmp/logs", "an-env-mod",
                 "--clean-environment"]
         client = Mock(spec=["enable_feature", "env", "get_status",
-                            "is_jes_enabled", "wait_for", "wait_for_started"])
+                            "is_jes_enabled", "wait", "wait_for_started"])
         client.supported_container_types = frozenset([KVM_MACHINE,
                                                       LXC_MACHINE])
         client.get_status.return_value = Status.from_text("""
@@ -427,7 +427,7 @@ class TestMain(FakeHomeTestCase):
         argv = ["an-env", "/bin/juju", "/tmp/logs", "an-env-mod",
                 "--clean-environment"]
         client = Mock(spec=["bootstrap", "enable_feature", "env", "get_status",
-                            "is_jes_enabled", "wait_for", "wait_for_started"])
+                            "is_jes_enabled", "wait", "wait_for_started"])
         client.supported_container_types = frozenset([KVM_MACHINE,
                                                       LXC_MACHINE])
         client.get_status.side_effect = [
@@ -456,7 +456,7 @@ class TestMain(FakeHomeTestCase):
         argv = ["an-env", "/bin/juju", "/tmp/logs", "an-env-mod",
                 "--clean-environment"]
         client = Mock(spec=["enable_feature", "env", "get_status",
-                            "is_jes_enabled", "wait_for", "wait_for_started"])
+                            "is_jes_enabled", "wait", "wait_for_started"])
         client.supported_container_types = frozenset([KVM_MACHINE,
                                                       LXC_MACHINE])
         client.get_status.side_effect = [

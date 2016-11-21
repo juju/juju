@@ -2330,24 +2330,6 @@ class EnvJujuClient:
         self._wait_for_status(reporter, status_to_workloads, WorkloadsNotReady,
                               timeout=timeout, start=start)
 
-    def wait_for(self, thing, search_type, timeout=300):
-        """ Wait for a something (thing) matching none/all/some machines.
-
-        Examples:
-          wait_for('containers', 'all')
-          This will wait for a container to appear on all machines.
-
-          wait_for('machines-not-0', 'none')
-          This will wait for all machines other than 0 to be removed.
-
-        :param thing: string, either 'containers' or 'not-machine-0'
-        :param search_type: string containing none, some or all
-        :param timeout: number of seconds to wait for condition to be true.
-        :return:
-        """
-        search = WaitForSearch(thing, search_type)
-        self.wait([search], timeout)
-
     def wait(self, remaining, timeout=300):
         if len(remaining) == 0:
             return self.get_status()

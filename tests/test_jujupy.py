@@ -2487,31 +2487,6 @@ class TestEnvJujuClient(ClientTest):
             with self.assertRaisesRegexp(Exception, 'foo'):
                 client.wait_for_version('1.17.2')
 
-    def test_wait_for_just_machine_0(self):
-        value = yaml.safe_dump({
-            'machines': {
-                '0': {'agent-state': 'started'},
-            },
-        })
-        client = EnvJujuClient(JujuData('local'), None, None)
-        with patch.object(client, 'get_juju_output', return_value=value):
-            client.wait_for('machines-not-0', 'none')
-
-    def test_wait_for_just_machine_0_timeout(self):
-        value = yaml.safe_dump({
-            'machines': {
-                '0': {'agent-state': 'started'},
-                '1': {'agent-state': 'started'},
-            },
-        })
-        client = EnvJujuClient(JujuData('local'), None, None)
-        with patch.object(client, 'get_juju_output', return_value=value), \
-            patch('jujupy.until_timeout', lambda x: range(0)), \
-            self.assertRaisesRegexp(
-                Exception,
-                'Timed out waiting for machines-not-0'):
-            client.wait_for('machines-not-0', 'none')
-
     def test_wait_just_machine_0(self):
         value = yaml.safe_dump({
             'machines': {
@@ -4535,7 +4510,7 @@ class TestEnvJujuClient1X(ClientTest):
             with self.assertRaisesRegexp(Exception, 'foo'):
                 client.wait_for_version('1.17.2')
 
-    def test_wait_for_just_machine_0(self):
+    def test_wait_just_machine_0(self):
         value = yaml.safe_dump({
             'machines': {
                 '0': {'agent-state': 'started'},
@@ -4543,9 +4518,9 @@ class TestEnvJujuClient1X(ClientTest):
         })
         client = EnvJujuClient1X(SimpleEnvironment('local'), None, None)
         with patch.object(client, 'get_juju_output', return_value=value):
-            client.wait_for('machines-not-0', 'none')
+            client.wait([WaitForSearch('machines-not-0', 'none')])
 
-    def test_wait_for_just_machine_0_timeout(self):
+    def test_wait_just_machine_0_timeout(self):
         value = yaml.safe_dump({
             'machines': {
                 '0': {'agent-state': 'started'},
@@ -4558,7 +4533,7 @@ class TestEnvJujuClient1X(ClientTest):
             self.assertRaisesRegexp(
                 Exception,
                 'Timed out waiting for machines-not-0'):
-            client.wait_for('machines-not-0', 'none')
+            client.wait([WaitForSearch('machines-not-0', 'none')])
 
     def test_set_model_constraints(self):
         client = EnvJujuClient1X(SimpleEnvironment('bar', {}), None, '/foo')
