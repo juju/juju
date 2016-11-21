@@ -10,7 +10,6 @@ from fakejuju import (
 from jujuconfig import get_juju_home
 from jujupy import (
     EnvJujuClient,
-    JujuData,
     get_client_class,
     WaitMachineNotPresent,
     )
