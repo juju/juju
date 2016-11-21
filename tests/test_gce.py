@@ -168,3 +168,17 @@ class GCETestCase(TestCase):
             'juju-controller\tUNKNOWN\tNone\trunning\njuju-app\tus-west1\t'
             '2016-11-01T13:01:01.0+01:00\trunning\n',
             so_sio.getvalue())
+
+    def test_delete_instances(self):
+        now = datetime.utcnow()
+        hour_ago = '{}-01:00'.format(now.isoformat())
+        young_node = make_fake_node(name='juju-young', created=hour_ago)
+        perm_node = make_fake_node(name='juju-perm', tags='permanent')
+        old_node = make_fake_node(
+            name='juju-old', created='2016-11-01T13:06:23.968-08:00')
+        client = make_fake_client()
+        client.list_nodes.return_value = [young_node, perm_node, old_node]
+        count = gce.delete_instances(
+            client, 'juju-*', old_age=gce.OLD_MACHINE_AGE)
+        self.assertEqual(1, count)
+        client.destroy_node.assert_called_once_with(old_node)
