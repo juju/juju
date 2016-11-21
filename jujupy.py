@@ -2330,24 +2330,24 @@ class EnvJujuClient:
         self._wait_for_status(reporter, status_to_workloads, WorkloadsNotReady,
                               timeout=timeout, start=start)
 
-    def wait_for(self, remaining, timeout=300):
-        if len(remaining) == 0:
+    def wait_for(self, conditions, timeout=300):
+        if len(conditions) == 0:
             return self.get_status()
         try:
             for status in self.status_until(timeout):
                 status.raise_highest_error(ignore_recoverable=True)
                 pending = []
-                for item in remaining:
+                for item in conditions:
                     if not item.complete(status):
                         pending.append(item)
                 if len(pending) == 0:
                     return status
-                remaining = pending
+                conditions = pending
             else:
                 status.raise_highest_error(ignore_recoverable=False)
         except StatusTimeout:
             pass
-        remaining[0].do_raise()
+        conditions[0].do_raise()
 
     def get_matching_agent_version(self, no_build=False):
         # strip the series and srch from the built version.
