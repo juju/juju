@@ -15,20 +15,20 @@ import (
 
 const remoteRelationsFacade = "RemoteRelations"
 
-// State provides access to a remoterelations's view of the state.
-type State struct {
+// Client provides access to the remoterelations api facade.
+type Client struct {
 	facade base.FacadeCaller
 }
 
-// NewState creates a new client-side RemoteRelations facade.
-func NewState(caller base.APICaller) *State {
+// NewClient creates a new client-side RemoteRelations facade.
+func NewClient(caller base.APICaller) *Client {
 	facadeCaller := base.NewFacadeCaller(caller, remoteRelationsFacade)
-	return &State{facadeCaller}
+	return &Client{facadeCaller}
 }
 
 // WatchRemoteApplications returns a strings watcher that notifies of the addition,
 // removal, and lifecycle changes of remote applications in the model.
-func (st *State) WatchRemoteApplications() (watcher.StringsWatcher, error) {
+func (st *Client) WatchRemoteApplications() (watcher.StringsWatcher, error) {
 	var result params.StringsWatchResult
 	err := st.facade.FacadeCall("WatchRemoteApplications", nil, &result)
 	if err != nil {
@@ -46,7 +46,7 @@ func (st *State) WatchRemoteApplications() (watcher.StringsWatcher, error) {
 // relations that the specified remote application is involved in; and also
 // according to the entering, departing, and change of unit settings in
 // those relations.
-func (st *State) WatchRemoteApplicationRelations(application string) (watcher.StringsWatcher, error) {
+func (st *Client) WatchRemoteApplicationRelations(application string) (watcher.StringsWatcher, error) {
 	if !names.IsValidApplication(application) {
 		return nil, errors.NotValidf("application name %q", application)
 	}
@@ -73,7 +73,7 @@ func (st *State) WatchRemoteApplicationRelations(application string) (watcher.St
 
 // WatchLocalRelationUnits returns a watcher that notifies of changes to the
 // local units in the relation with the given key.
-func (st *State) WatchLocalRelationUnits(relationKey string) (watcher.RelationUnitsWatcher, error) {
+func (st *Client) WatchLocalRelationUnits(relationKey string) (watcher.RelationUnitsWatcher, error) {
 	if !names.IsValidRelation(relationKey) {
 		return nil, errors.NotValidf("relation key %q", relationKey)
 	}
