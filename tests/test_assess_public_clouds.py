@@ -13,7 +13,6 @@ from mock import (
 import yaml
 
 from assess_public_clouds import (
-    assess_cloud,
     bootstrap_cloud_regions,
     default_log_dir,
     iter_cloud_regions,
@@ -23,15 +22,11 @@ from assess_public_clouds import (
     prepare_cloud,
     yaml_file_load,
     )
-from deploy_stack import (
-    BootstrapManager,
-    )
 from fakejuju import (
     fake_juju_client,
     )
 from tests import (
     FakeHomeTestCase,
-    observable_temp_file,
     TestCase,
     )
 from utility import (
@@ -132,7 +127,7 @@ class TestHelpers(TestCase):
         self.assertFalse(clean_dir_mock.called)
 
 
-class TestAssessCloud(FakeHomeTestCase):
+class TestPrepareCloud(FakeHomeTestCase):
 
     def test_prepare_cloud(self):
         client = fake_juju_client()
@@ -141,7 +136,7 @@ class TestAssessCloud(FakeHomeTestCase):
                          side_effect=os.path.join):
             with patch_local('BootstrapManager', autospec=True,
                              return_value=bs_manager) as bsm_mock:
-                with patch_local('assess_cloud', autospec=True):
+                with patch_local('assess_cloud_combined', autospec=True):
                     prepare_cloud('config', 'region', client, 'log_dir')
         self.assertEqual(1, bsm_mock.call_count)
         bsm_mock.assert_called_once_with(
@@ -149,37 +144,6 @@ class TestAssessCloud(FakeHomeTestCase):
             machines=[], series=None, agent_url=None, agent_stream=None,
             region='region', log_dir='log_dir/config/region', keep_env=False,
             permanent=True, jes_enabled=True)
-
-    def backend_call(self, client, cmd, args, model=None, check=True,
-                     timeout=None, extra_env=None):
-        return call(cmd, args, client.used_feature_flags,
-                    client.env.juju_home, model, check, timeout, extra_env)
-
-    def test_assess_cloud(self):
-        client = fake_juju_client()
-        client.env.juju_home = self.juju_home
-        bs_manager = BootstrapManager(
-            'foo', client, client, bootstrap_host=None, machines=[],
-            series=None, agent_url=None, agent_stream=None, region=None,
-            log_dir=self.juju_home, keep_env=False, permanent=True,
-            jes_enabled=True)
-        backend = client._backend
-        with patch.object(backend, 'juju', wraps=backend.juju):
-            juju_wrapper = backend.juju
-            with observable_temp_file() as temp_file:
-                assess_cloud(bs_manager)
-        juju_wrapper.assert_has_calls([
-            self.backend_call(
-                client, 'bootstrap', (
-                    '--constraints', 'mem=2G', 'foo/bar', 'foo', '--config',
-                    temp_file.name, '--default-model', 'foo',
-                    '--agent-version', client.version)),
-            self.backend_call(client, 'deploy', 'ubuntu', 'foo:foo'),
-            self.backend_call(client, 'remove-unit', 'ubuntu/0', 'foo:foo'),
-            self.backend_call(
-                client, 'destroy-controller',
-                ('foo', '-y', '--destroy-all-models'), timeout=600),
-            ], any_order=True)
 
 
 class TestIterCloudRegions(TestCase):

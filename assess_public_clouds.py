@@ -14,7 +14,9 @@ from deploy_stack import (
 from jujuconfig import get_juju_home
 from jujupy import (
     client_from_config,
-    WaitMachineNotPresent,
+    )
+from assess_cloud import (
+    assess_cloud_combined,
     )
 from utility import (
     _clean_dir,
@@ -41,20 +43,7 @@ def prepare_cloud(config, region, client, log_dir):
         env_name, client, client, bootstrap_host=None, machines=[],
         series=None, agent_url=None, agent_stream=None, region=region,
         log_dir=logging_dir, keep_env=False, permanent=True, jes_enabled=True)
-    assess_cloud(bs_manager)
-
-
-# Reflection of assess_cloud.assess_cloud_combined.
-def assess_cloud(bs_manager):
-    client = bs_manager.client
-    with bs_manager.booted_context(False):
-        old_status = client.get_status()
-        client.juju('deploy', 'ubuntu')
-        new_status = client.wait_for_started()
-        new_machines = [k for k, v in new_status.iter_new_machines(old_status)]
-        client.juju('remove-unit', 'ubuntu/0')
-        new_status = client.wait_for([WaitMachineNotPresent(n)
-                                      for n in new_machines])
+    assess_cloud_combined(bs_manager)
 
 
 def iter_cloud_regions(public_clouds, credentials):
