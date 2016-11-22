@@ -12,6 +12,7 @@ import urlparse
 from boto import ec2
 from boto.exception import EC2ResponseError
 
+import gce
 import get_ami
 from jujuconfig import (
     get_euca_env,
@@ -291,6 +292,43 @@ def convert_to_azure_ids(client, instance_ids):
         with AzureARMAccount.from_boot_config(
                 client.env) as substrate:
             return substrate.convert_to_azure_ids(client, instance_ids)
+
+
+class GCEAccount:
+    """Represent an Google Compute Engine Account."""
+
+    def __init__(self, client):
+        """Constructor.
+
+        :param client: An instance of apache libcloud GCEClient retrieved
+            via gce.get_client.
+        """
+        self.client = client
+
+    @classmethod
+    @contextmanager
+    def from_boot_config(cls, boot_config):
+        """A context manager for a GCE account.
+
+        This creates a temporary cert file from the private-key.
+        """
+        config = get_config(boot_config)
+        with temp_dir() as cert_dir:
+            cert_file = os.path.join(cert_dir, 'gce.pem')
+            open(cert_file, 'w').write(config['private-key'])
+            client = gce.get_client(
+                config['client-email'], cert_file,
+                config['project-id'])
+            yield cls(client)
+
+    def terminate_instances(self, instance_ids):
+        """Terminate the specified instances."""
+        for instance_id in instance_ids:
+            # Pass old_age=0 to mean delete now.
+            count = gce.delete_instances(self.client, instance_id, old_age=0)
+            if count != 1:
+                raise Exception('Failed to delete {}: deleted {}'.format(
+                    instance_id, count))
 
 
 class AzureARMAccount:
@@ -716,6 +754,7 @@ def make_substrate_manager(boot_config):
         'azure': AzureAccount.from_boot_config,
         'azure-arm': AzureARMAccount.from_boot_config,
         'lxd': LXDAccount.from_boot_config,
+        'gce': GCEAccount.from_boot_config,
     }
     substrate_type = config['type']
     if substrate_type == 'azure' and 'application-id' in config:
