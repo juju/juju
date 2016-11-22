@@ -15,6 +15,9 @@ from jujuconfig import get_juju_home
 from jujupy import (
     client_from_config,
     )
+from assess_cloud import (
+    assess_cloud_combined,
+    )
 from utility import (
     _clean_dir,
     configure_logging,
@@ -33,15 +36,14 @@ def make_logging_dir(base_dir, config, region):
     return log_dir
 
 
-def bootstrap_cloud(config, region, client, log_dir):
+def prepare_cloud(config, region, client, log_dir):
     env_name = 'boot-cpc-{}-{}'.format(client.env.get_cloud(), region)[:30]
     logging_dir = make_logging_dir(log_dir, config, region)
     bs_manager = BootstrapManager(
         env_name, client, client, bootstrap_host=None, machines=[],
         series=None, agent_url=None, agent_stream=None, region=region,
         log_dir=logging_dir, keep_env=False, permanent=True, jes_enabled=True)
-    with bs_manager.booted_context(False):
-        client.wait_for_started()
+    assess_cloud_combined(bs_manager)
 
 
 def iter_cloud_regions(public_clouds, credentials):
@@ -73,7 +75,7 @@ def bootstrap_cloud_regions(public_clouds, credentials, args):
         try:
             client = client_from_config(
                 config, args.juju_bin, args.debug, args.deadline)
-            bootstrap_cloud(config, region, client, args.logs)
+            prepare_cloud(config, region, client, args.logs)
         except LoggedException as error:
             yield config, region, error.exception
         except Exception as error:

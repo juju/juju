@@ -13,13 +13,13 @@ from mock import (
 import yaml
 
 from assess_public_clouds import (
-    bootstrap_cloud,
     bootstrap_cloud_regions,
     default_log_dir,
     iter_cloud_regions,
     main,
     make_logging_dir,
     parse_args,
+    prepare_cloud,
     yaml_file_load,
     )
 from fakejuju import (
@@ -127,31 +127,23 @@ class TestHelpers(TestCase):
         self.assertFalse(clean_dir_mock.called)
 
 
-@contextmanager
-def fake_booted_context(upload_tools, **kwargs):
-    yield
+class TestPrepareCloud(FakeHomeTestCase):
 
-
-class TestBootstrapCloud(TestCase):
-
-    def test_bootstrap_cloud(self):
+    def test_prepare_cloud(self):
         client = fake_juju_client()
         bs_manager = Mock()
-        bs_manager.attach_mock(Mock(side_effect=fake_booted_context),
-                               'booted_context')
         with patch_local('make_logging_dir', autospec=True,
                          side_effect=os.path.join):
             with patch_local('BootstrapManager', autospec=True,
                              return_value=bs_manager) as bsm_mock:
-                with patch('jujupy.EnvJujuClient.wait_for_started'):
-                    bootstrap_cloud('config', 'region', client, 'log_dir')
+                with patch_local('assess_cloud_combined', autospec=True):
+                    prepare_cloud('config', 'region', client, 'log_dir')
         self.assertEqual(1, bsm_mock.call_count)
         bsm_mock.assert_called_once_with(
             'boot-cpc-foo-region', client, client, bootstrap_host=None,
             machines=[], series=None, agent_url=None, agent_stream=None,
             region='region', log_dir='log_dir/config/region', keep_env=False,
             permanent=True, jes_enabled=True)
-        bs_manager.booted_context.assert_called_once_with(False)
 
 
 class TestIterCloudRegions(TestCase):
@@ -182,7 +174,7 @@ class TestBootstrapCloudRegions(FakeHomeTestCase):
         """Handles all the patching for testing bootstrap_cloud_regions."""
         with patch_local('iter_cloud_regions', autospec=True,
                          return_value=cloud_regions) as iter_mock:
-            with patch_local('bootstrap_cloud', autospec=True,
+            with patch_local('prepare_cloud', autospec=True,
                              side_effect=error) as bootstrap_mock:
                 with patch_local('client_from_config', autospec=True,
                                  return_value=client):
