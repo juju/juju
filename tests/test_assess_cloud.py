@@ -1,4 +1,5 @@
 from argparse import Namespace
+import logging
 
 from mock import (
     call,
@@ -7,6 +8,7 @@ from mock import (
 from assess_cloud import (
     assess_cloud_combined,
     client_from_args,
+    parse_args,
     )
 from deploy_stack import BootstrapManager
 from fakejuju import (
@@ -21,7 +23,9 @@ from jujupy import (
 from tests import (
     FakeHomeTestCase,
     observable_temp_file,
+    TestCase,
     )
+from utility import temp_dir
 
 
 class TestAssessCloudCombined(FakeHomeTestCase):
@@ -61,9 +65,9 @@ class TestAssessCloudCombined(FakeHomeTestCase):
 class TestClientFromArgs(FakeHomeTestCase):
 
     def test_client_from_args(self):
-        with temp_yaml_file({}) as example_clouds:
+        with temp_yaml_file({}) as clouds_file:
             args = Namespace(
-                juju_bin='/usr/bin/juju', example_clouds=example_clouds,
+                juju_bin='/usr/bin/juju', clouds_file=clouds_file,
                 cloud='mycloud', region=None, debug=False, deadline=None)
             with patch.object(EnvJujuClient.config_class,
                               'from_cloud_region') as fcr_mock:
@@ -78,10 +82,10 @@ class TestClientFromArgs(FakeHomeTestCase):
         self.assertIs(client.env, fcr_mock.return_value)
 
     def test_client_from_args_fake(self):
-        with temp_yaml_file({}) as example_clouds:
+        with temp_yaml_file({}) as clouds_file:
             args = Namespace(
-                juju_bin='FAKE', example_clouds=example_clouds,
-                cloud='mycloud', region=None, debug=False, deadline=None)
+                juju_bin='FAKE', clouds_file=clouds_file, cloud='mycloud',
+                region=None, debug=False, deadline=None)
             with patch.object(EnvJujuClient.config_class,
                               'from_cloud_region') as fcr_mock:
                 client = client_from_args(args)
@@ -91,3 +95,17 @@ class TestClientFromArgs(FakeHomeTestCase):
         self.assertIs(type(client._backend), FakeBackend)
         self.assertEqual(client.version, '2.0.0')
         self.assertIs(client.env, fcr_mock.return_value)
+
+
+class TestParseArgs(TestCase):
+
+    def test_parse_args(self):
+        with temp_dir() as log_dir:
+            args = parse_args(['foo', 'bar', 'baz', log_dir, 'qux'])
+        self.assertEqual(args, Namespace(
+            agent_stream=None, agent_url=None, bootstrap_host=None,
+            cloud='bar', clouds_file='foo', deadline=None, debug=False,
+            juju_bin='baz', keep_env=False, logs=log_dir, machine=[],
+            region=None, series=None, temp_env_name='qux', upload_tools=False,
+            verbose=logging.INFO,
+            ))
