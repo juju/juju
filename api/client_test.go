@@ -26,6 +26,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/apiserver/params"
 	jujunames "github.com/juju/juju/juju/names"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -356,7 +357,7 @@ func (s *clientSuite) TestWatchDebugLogConnected(c *gc.C) {
 	// Use the no tail option so we don't try to start a tailing cursor
 	// on the oplog when there is no oplog configured in mongo as the tests
 	// don't set up mongo in replicaset mode.
-	messages, err := client.WatchDebugLog(api.DebugLogParams{NoTail: true})
+	messages, err := client.WatchDebugLog(common.DebugLogParams{NoTail: true})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(messages, gc.NotNil)
 }
@@ -408,7 +409,7 @@ func (s *clientSuite) TestWatchDebugLogParamsEncoded(c *gc.C) {
 	catcher := urlCatcher{}
 	s.PatchValue(api.WebsocketDialConfig, catcher.recordLocation)
 
-	params := api.DebugLogParams{
+	params := common.DebugLogParams{
 		IncludeEntity: []string{"a", "b"},
 		IncludeModule: []string{"c", "d"},
 		ExcludeEntity: []string{"e", "f"},

@@ -10,7 +10,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/testing"
 )
@@ -24,18 +24,18 @@ var _ = gc.Suite(&DebugLogSuite{})
 func (s *DebugLogSuite) TestArgParsing(c *gc.C) {
 	for i, test := range []struct {
 		args     []string
-		expected api.DebugLogParams
+		expected common.DebugLogParams
 		errMatch string
 	}{
 		{
-			expected: api.DebugLogParams{
+			expected: common.DebugLogParams{
 				Backlog: 10,
 			},
 		}, {
 			args: []string{"-n0"},
 		}, {
 			args: []string{"--lines=50"},
-			expected: api.DebugLogParams{
+			expected: common.DebugLogParams{
 				Backlog: 50,
 			},
 		}, {
@@ -43,37 +43,37 @@ func (s *DebugLogSuite) TestArgParsing(c *gc.C) {
 			errMatch: `level value "foo" is not one of "TRACE", "DEBUG", "INFO", "WARNING", "ERROR"`,
 		}, {
 			args: []string{"--level=INFO"},
-			expected: api.DebugLogParams{
+			expected: common.DebugLogParams{
 				Backlog: 10,
 				Level:   loggo.INFO,
 			},
 		}, {
 			args: []string{"--include", "machine-1", "-i", "machine-2"},
-			expected: api.DebugLogParams{
+			expected: common.DebugLogParams{
 				IncludeEntity: []string{"machine-1", "machine-2"},
 				Backlog:       10,
 			},
 		}, {
 			args: []string{"--exclude", "machine-1", "-x", "machine-2"},
-			expected: api.DebugLogParams{
+			expected: common.DebugLogParams{
 				ExcludeEntity: []string{"machine-1", "machine-2"},
 				Backlog:       10,
 			},
 		}, {
 			args: []string{"--include-module", "juju.foo", "--include-module", "unit"},
-			expected: api.DebugLogParams{
+			expected: common.DebugLogParams{
 				IncludeModule: []string{"juju.foo", "unit"},
 				Backlog:       10,
 			},
 		}, {
 			args: []string{"--exclude-module", "juju.foo", "--exclude-module", "unit"},
-			expected: api.DebugLogParams{
+			expected: common.DebugLogParams{
 				ExcludeModule: []string{"juju.foo", "unit"},
 				Backlog:       10,
 			},
 		}, {
 			args: []string{"--replay"},
-			expected: api.DebugLogParams{
+			expected: common.DebugLogParams{
 				Backlog: 10,
 				Replay:  true,
 			},
@@ -82,7 +82,7 @@ func (s *DebugLogSuite) TestArgParsing(c *gc.C) {
 			errMatch: `setting --tail and --no-tail not valid`,
 		}, {
 			args: []string{"--limit", "100"},
-			expected: api.DebugLogParams{
+			expected: common.DebugLogParams{
 				Backlog: 10,
 				Limit:   100,
 			},
@@ -113,7 +113,7 @@ func (s *DebugLogSuite) TestParamsPassed(c *gc.C) {
 		"--no-tail",
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(fake.params, gc.DeepEquals, api.DebugLogParams{
+	c.Assert(fake.params, gc.DeepEquals, common.DebugLogParams{
 		IncludeEntity: []string{"machine-1*"},
 		IncludeModule: []string{"juju.provisioner"},
 		ExcludeEntity: []string{"machine-1-lxd-1"},
@@ -127,7 +127,7 @@ func (s *DebugLogSuite) TestLogOutput(c *gc.C) {
 	// test timezone is 6 hours east of UTC
 	tz := time.FixedZone("test", 6*60*60)
 	s.PatchValue(&getDebugLogAPI, func(_ *debugLogCommand) (DebugLogAPI, error) {
-		return &fakeDebugLogAPI{log: []api.LogMessage{
+		return &fakeDebugLogAPI{log: []common.LogMessage{
 			{
 				Entity:    "machine-0",
 				Timestamp: time.Date(2016, 10, 9, 8, 15, 23, 345000000, time.UTC),
@@ -166,17 +166,17 @@ func (s *DebugLogSuite) TestLogOutput(c *gc.C) {
 }
 
 type fakeDebugLogAPI struct {
-	log    []api.LogMessage
-	params api.DebugLogParams
+	log    []common.LogMessage
+	params common.DebugLogParams
 	err    error
 }
 
-func (fake *fakeDebugLogAPI) WatchDebugLog(params api.DebugLogParams) (<-chan api.LogMessage, error) {
+func (fake *fakeDebugLogAPI) WatchDebugLog(params common.DebugLogParams) (<-chan common.LogMessage, error) {
 	if fake.err != nil {
 		return nil, fake.err
 	}
 	fake.params = params
-	response := make(chan api.LogMessage)
+	response := make(chan common.LogMessage)
 	go func() {
 		defer close(response)
 		for _, msg := range fake.log {
