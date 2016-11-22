@@ -46,7 +46,7 @@ func (st *State) WatchRemoteApplications() (watcher.StringsWatcher, error) {
 // relations that the specified remote application is involved in; and also
 // according to the entering, departing, and change of unit settings in
 // those relations.
-func (st *State) WatchRemoteApplicationRelations(application string) (watcher.RemoteRelationsWatcher, error) {
+func (st *State) WatchRemoteApplicationRelations(application string) (watcher.StringsWatcher, error) {
 	if !names.IsValidApplication(application) {
 		return nil, errors.NotValidf("application name %q", application)
 	}
@@ -55,7 +55,7 @@ func (st *State) WatchRemoteApplicationRelations(application string) (watcher.Re
 		Entities: []params.Entity{{Tag: applicationTag.String()}},
 	}
 
-	var results params.RemoteRelationsWatchResults
+	var results params.StringsWatchResults
 	err := st.facade.FacadeCall("WatchRemoteApplicationRelations", args, &results)
 	if err != nil {
 		return nil, err
@@ -67,6 +67,32 @@ func (st *State) WatchRemoteApplicationRelations(application string) (watcher.Re
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	w := apiwatcher.NewRemoteRelationsWatcher(st.facade.RawAPICaller(), result)
+	w := apiwatcher.NewStringsWatcher(st.facade.RawAPICaller(), result)
+	return w, nil
+}
+
+// WatchLocalRelationUnits returns a watcher that notifies of changes to the
+// local units in the relation with the given key.
+func (st *State) WatchLocalRelationUnits(relationKey string) (watcher.RelationUnitsWatcher, error) {
+	if !names.IsValidRelation(relationKey) {
+		return nil, errors.NotValidf("relation key %q", relationKey)
+	}
+	relationTag := names.NewRelationTag(relationKey)
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: relationTag.String()}},
+	}
+	var results params.RelationUnitsWatchResults
+	err := st.facade.FacadeCall("WatchLocalRelationUnits", args, &results)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(results.Results) != 1 {
+		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	w := apiwatcher.NewRelationUnitsWatcher(st.facade.RawAPICaller(), result)
 	return w, nil
 }

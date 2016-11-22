@@ -162,7 +162,7 @@ type OfferedApplicationDetails struct {
 	// ApplicationName contains name of application being offered.
 	ApplicationName string `json:"application-name"`
 
-	// CharmName is the charm name of this service.
+	// CharmName is the charm name of this application.
 	CharmName string `json:"charm-name"`
 
 	// UsersCount is the count of how many users are connected to this shared application.
@@ -224,11 +224,66 @@ type OfferedApplicationFilterTerm struct {
 	CharmName string `json:"charm-name,omitempty"`
 }
 
+// RemoteEntityId is an identifier for an entity that may be involved in a
+// cross-model relation. This object comprises the UUID of the model to
+// which the entity belongs, and an opaque token that is unique to that model.
+type RemoteEntityId struct {
+	ModelUUID string `json:"model-uuid"`
+	Token     string `json:"token"`
+}
+
+// RemoteEntityIdResult holds a remote entity id and an error.
+type RemoteEntityIdResult struct {
+	Result *RemoteEntityId `json:"result,omitempty"`
+	Error  *Error          `json:"error,omitempty"`
+}
+
+// RemoteEntityIdResults has a set of remote entity id results.
+type RemoteEntityIdResults struct {
+	Results []RemoteEntityIdResult `json:"results,omitempty"`
+}
+
+// RemoteRelation describes the current state of a cross-model relation from
+// the perspective of the local model.
+type RemoteRelation struct {
+	Id   RemoteEntityId `json:"id"`
+	Life Life           `json:"life"`
+}
+
+// RemoteRelationResult holds a remote relation and an error.
+type RemoteRelationResult struct {
+	Result *RemoteRelation `json:"result,omitempty"`
+	Error  *Error          `json:"error,omitempty"`
+}
+
+// RemoteRelationResults holds a set of remote relation results.
+type RemoteRelationResults struct {
+	Results []RemoteRelationResult `json:"results,omitempty"`
+}
+
+// RemoteApplication describes the current state of an application involved in a cross-
+// model relation, from the perspective of the local environment.
+type RemoteApplication struct {
+	Id   RemoteEntityId `json:"id"`
+	Life Life           `json:"life"`
+}
+
+// RemoteApplicationResult holds a remote application and an error.
+type RemoteApplicationResult struct {
+	Result *RemoteApplication `json:"result,omitempty"`
+	Error  *Error             `json:"error,omitempty"`
+}
+
+// RemoteApplicationResults holds a set of remote application results.
+type RemoteApplicationResults struct {
+	Results []RemoteApplicationResult `json:"results,omitempty"`
+}
+
 // RemoteRelationsWatchResult holds a RemoteRelationsWatcher id,
 // changes and an error (if any).
 type RemoteRelationsWatchResult struct {
 	RemoteRelationsWatcherId string
-	Changes                  *RemoteRelationsChange `json:"changes,omitempty"`
+	Change                   *RemoteRelationsChange `json:"change,omitempty"`
 	Error                    *Error                 `json:"error,omitempty"`
 }
 
@@ -238,7 +293,21 @@ type RemoteRelationsWatchResults struct {
 	Results []RemoteRelationsWatchResult `json:"results"`
 }
 
-// RemoteApplicationChange describes changes to a service.
+// RemoteApplicationWatchResult holds a RemoteApplicationWatcher id,
+// changes and an error (if any).
+type RemoteApplicationWatchResult struct {
+	RemoteApplicationWatcherId string                   `json:"id"`
+	Change                     *RemoteApplicationChange `json:"change,omitempty"`
+	Error                      *Error                   `json:"error,omitempty"`
+}
+
+// RemoteApplicationWatchResults holds the results for any API call which ends
+// up returning a list of RemoteServiceWatchers.
+type RemoteApplicationWatchResults struct {
+	Results []RemoteApplicationWatchResult `json:"results,omitempty"`
+}
+
+// RemoteApplicationChange describes changes to an application.
 type RemoteApplicationChange struct {
 	ApplicationTag string                `json:"application-tag"`
 	Life           Life                  `json:"life"`
@@ -252,14 +321,19 @@ type RemoteApplicationChanges struct {
 	Changes []RemoteApplicationChange `json:"changes,omitempty"`
 }
 
-// RemoteRelationsChange describes changes to the relations that
-// an application is involved in.
+// RemoteRelationsChange describes changes to the relations that a remote
+// service is involved in.
 type RemoteRelationsChange struct {
-	// ChangedRelations maps relation IDs to relation changes.
+	// Initial indicates whether or not this is an initial, complete
+	// representation of all relations involving a service. If Initial
+	// is true, then RemovedRelations will be empty.
+	Initial bool `json:"initial"`
+
+	// ChangedRelations contains relation changes.
 	ChangedRelations []RemoteRelationChange `json:"changed,omitempty"`
 
-	// RemovedRelations contains the IDs of relations removed
-	// since the last change.
+	// RemovedRelations contains the IDs corresponding to
+	// relations removed since the last change.
 	RemovedRelations []int `json:"removed,omitempty"`
 }
 

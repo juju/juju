@@ -62,6 +62,38 @@ func (s *remoteRelationsSuite) TestWatchRemoteApplications(c *gc.C) {
 }
 
 func (s *remoteRelationsSuite) TestWatchRemoteApplicationRelations(c *gc.C) {
+	db2RelationsWatcher := newMockStringsWatcher()
+	db2RelationsWatcher.changes <- []string{"db2:db django:db"}
+	s.st.applicationRelationsWatchers["db2"] = db2RelationsWatcher
+
+	results, err := s.api.WatchRemoteApplicationRelations(params.Entities{[]params.Entity{
+		{"application-db2"},
+		{"application-hadoop"},
+		{"machine-42"},
+	}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, jc.DeepEquals, []params.StringsWatchResult{{
+		StringsWatcherId: "1",
+		Changes:          []string{"db2:db django:db"},
+	}, {
+		Error: &params.Error{
+			Code:    params.CodeNotFound,
+			Message: `application "hadoop" not found`,
+		},
+	}, {
+		Error: &params.Error{
+			Message: `"machine-42" is not a valid application tag`,
+		},
+	}})
+
+	s.st.CheckCalls(c, []testing.StubCall{
+		{"WatchRemoteApplicationRelations", []interface{}{"db2"}},
+		{"WatchRemoteApplicationRelations", []interface{}{"hadoop"}},
+	})
+}
+
+// TODO(wallyworld) - underlying code not currently used
+func (s *remoteRelationsSuite) xTestWatchRemoteApplicationRelations(c *gc.C) {
 	djangoRelationUnit := newMockRelationUnit()
 	djangoRelationUnit.settings["key"] = "value"
 	db2RelationsWatcher := newMockStringsWatcher()
@@ -84,7 +116,7 @@ func (s *remoteRelationsSuite) TestWatchRemoteApplicationRelations(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, jc.DeepEquals, []params.RemoteRelationsWatchResult{{
 		RemoteRelationsWatcherId: "1",
-		Changes: &params.RemoteRelationsChange{
+		Change: &params.RemoteRelationsChange{
 			ChangedRelations: []params.RemoteRelationChange{{
 				RelationId: 123,
 				Life:       params.Alive,
@@ -115,12 +147,13 @@ func (s *remoteRelationsSuite) TestWatchRemoteApplicationRelations(c *gc.C) {
 	db2Relation.CheckCalls(c, []testing.StubCall{
 		{"Id", []interface{}{}},
 		{"Life", []interface{}{}},
-		{"WatchCounterpartEndpointUnits", []interface{}{"db2"}},
+		{"WatchUnits", []interface{}{"db2"}},
 		{"Unit", []interface{}{"django/0"}},
 	})
 }
 
-func (s *remoteRelationsSuite) TestWatchRemoteApplicationRelationRemoved(c *gc.C) {
+// TODO(wallyworld) - underlying code not currently used
+func (s *remoteRelationsSuite) xTestWatchRemoteApplicationRelationRemoved(c *gc.C) {
 	db2RelationsWatcher := newMockStringsWatcher()
 	db2RelationsWatcher.changes <- []string{"db2:db django:db"}
 	db2RelationUnitsWatcher := newMockRelationUnitsWatcher()
@@ -134,7 +167,7 @@ func (s *remoteRelationsSuite) TestWatchRemoteApplicationRelationRemoved(c *gc.C
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, jc.DeepEquals, []params.RemoteRelationsWatchResult{{
 		RemoteRelationsWatcherId: "1",
-		Changes: &params.RemoteRelationsChange{
+		Change: &params.RemoteRelationsChange{
 			// The relation is not found, but it was never reported
 			// to us, so it should not be reported in "Removed".
 			ChangedRelations: []params.RemoteRelationChange{{
@@ -161,12 +194,13 @@ func (s *remoteRelationsSuite) TestWatchRemoteApplicationRelationRemoved(c *gc.C
 	db2Relation.CheckCalls(c, []testing.StubCall{
 		{"Id", []interface{}{}},
 		{"Life", []interface{}{}},
-		{"WatchCounterpartEndpointUnits", []interface{}{"db2"}},
+		{"WatchUnits", []interface{}{"db2"}},
 	})
 	db2RelationUnitsWatcher.CheckCallNames(c, "Changes", "Changes", "Stop")
 }
 
-func (s *remoteRelationsSuite) TestWatchRemoteApplicationRelationRemovedRace(c *gc.C) {
+// TODO(wallyworld) - underlying code not currently used
+func (s *remoteRelationsSuite) xTestWatchRemoteApplicationRelationRemovedRace(c *gc.C) {
 	db2RelationsWatcher := newMockStringsWatcher()
 	db2RelationsWatcher.changes <- []string{"db2:db django:db"}
 	s.st.applicationRelationsWatchers["db2"] = db2RelationsWatcher
@@ -177,7 +211,7 @@ func (s *remoteRelationsSuite) TestWatchRemoteApplicationRelationRemovedRace(c *
 		RemoteRelationsWatcherId: "1",
 		// The relation is not found, but it was never reported
 		// to us, so it should not be reported in "Removed".
-		Changes: &params.RemoteRelationsChange{},
+		Change: &params.RemoteRelationsChange{},
 	}})
 	s.st.CheckCalls(c, []testing.StubCall{
 		{"WatchRemoteApplicationRelations", []interface{}{"db2"}},
@@ -185,7 +219,8 @@ func (s *remoteRelationsSuite) TestWatchRemoteApplicationRelationRemovedRace(c *
 	})
 }
 
-func (s *remoteRelationsSuite) TestWatchRemoteApplicationRelationUnitRemoved(c *gc.C) {
+// TODO(wallyworld) - underlying code not currently used
+func (s *remoteRelationsSuite) xTestWatchRemoteApplicationRelationUnitRemoved(c *gc.C) {
 	djangoRelationUnit := newMockRelationUnit()
 	djangoRelationUnit.settings["key"] = "value"
 	db2RelationsWatcher := newMockStringsWatcher()
@@ -204,7 +239,7 @@ func (s *remoteRelationsSuite) TestWatchRemoteApplicationRelationUnitRemoved(c *
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, jc.DeepEquals, []params.RemoteRelationsWatchResult{{
 		RemoteRelationsWatcherId: "1",
-		Changes: &params.RemoteRelationsChange{
+		Change: &params.RemoteRelationsChange{
 			ChangedRelations: []params.RemoteRelationChange{{
 				RelationId: 123,
 				Life:       params.Alive,
@@ -233,12 +268,13 @@ func (s *remoteRelationsSuite) TestWatchRemoteApplicationRelationUnitRemoved(c *
 	db2Relation.CheckCalls(c, []testing.StubCall{
 		{"Id", []interface{}{}},
 		{"Life", []interface{}{}},
-		{"WatchCounterpartEndpointUnits", []interface{}{"db2"}},
+		{"WatchUnits", []interface{}{"db2"}},
 		{"Unit", []interface{}{"django/0"}},
 	})
 }
 
-func (s *remoteRelationsSuite) TestWatchRemoteApplicationRelationUnitRemovedRace(c *gc.C) {
+// TODO(wallyworld) - underlying code not currently used
+func (s *remoteRelationsSuite) xTestWatchRemoteApplicationRelationUnitRemovedRace(c *gc.C) {
 	db2RelationsWatcher := newMockStringsWatcher()
 	db2RelationsWatcher.changes <- []string{"db2:db django:db"}
 	db2RelationUnitsWatcher := newMockRelationUnitsWatcher()
@@ -254,7 +290,7 @@ func (s *remoteRelationsSuite) TestWatchRemoteApplicationRelationUnitRemovedRace
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, jc.DeepEquals, []params.RemoteRelationsWatchResult{{
 		RemoteRelationsWatcherId: "1",
-		Changes: &params.RemoteRelationsChange{
+		Change: &params.RemoteRelationsChange{
 			ChangedRelations: []params.RemoteRelationChange{{
 				RelationId: 123,
 				Life:       params.Alive,
@@ -343,5 +379,60 @@ func (s *remoteRelationsSuite) TestConsumeRemoveApplicationChange(c *gc.C) {
 	})
 	mysql1.CheckCalls(c, []testing.StubCall{
 		{"LeaveScope", []interface{}{}},
+	})
+}
+
+func (s *remoteRelationsSuite) TestWatchLocalRelationUnits(c *gc.C) {
+	djangoRelationUnitsWatcher := newMockRelationUnitsWatcher()
+	djangoRelationUnitsWatcher.changes <- params.RelationUnitsChange{
+		Changed: map[string]params.UnitSettings{"django/0": {Version: 1}},
+	}
+	djangoRelation := newMockRelation(123)
+	djangoRelation.endpointUnitsWatchers["django"] = djangoRelationUnitsWatcher
+	djangoRelation.endpoints = []state.Endpoint{{
+		ApplicationName: "db2",
+	}, {
+		ApplicationName: "django",
+	}}
+
+	s.st.relations["django:db db2:db"] = djangoRelation
+	s.st.applications["django"] = newMockApplication("django")
+
+	results, err := s.api.WatchLocalRelationUnits(params.Entities{[]params.Entity{
+		{"relation-django:db#db2:db"},
+		{"relation-hadoop:db#db2:db"},
+		{"machine-42"},
+	}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, jc.DeepEquals, []params.RelationUnitsWatchResult{{
+		RelationUnitsWatcherId: "1",
+		Changes: params.RelationUnitsChange{
+			Changed: map[string]params.UnitSettings{
+				"django/0": {
+					Version: 1,
+				},
+			},
+		},
+	}, {
+		Error: &params.Error{
+			Code:    params.CodeNotFound,
+			Message: `relation "hadoop:db db2:db" not found`,
+		},
+	}, {
+		Error: &params.Error{
+			Message: `"machine-42" is not a valid relation tag`,
+		},
+	}})
+
+	s.st.CheckCalls(c, []testing.StubCall{
+		{"KeyRelation", []interface{}{"django:db db2:db"}},
+		{"Application", []interface{}{"db2"}},
+		{"Application", []interface{}{"django"}},
+		{"KeyRelation", []interface{}{"hadoop:db db2:db"}},
+	})
+
+	djangoRelation.CheckCalls(c, []testing.StubCall{
+		{"Endpoints", []interface{}{}},
+		{"WatchUnits", []interface{}{"django"}},
 	})
 }

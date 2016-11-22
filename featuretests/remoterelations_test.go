@@ -75,11 +75,11 @@ func (s *remoteRelationsSuite) TestWatchRemoteApplicationRelations(c *gc.C) {
 		c.Assert(worker.Stop(w), jc.ErrorIsNil)
 	}()
 
-	assertRemoteRelationsChange(c, s.BackingState, w, watcher.RemoteRelationsChange{})
+	assertRemoteRelationsChange(c, s.BackingState, w, []string{})
 	assertNoRemoteRelationsChange(c, s.BackingState, w)
 
 	// Add the relation, and expect a watcher change.
-	wordpress := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+	s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{
 			Name: "wordpress",
 		}),
@@ -89,53 +89,12 @@ func (s *remoteRelationsSuite) TestWatchRemoteApplicationRelations(c *gc.C) {
 	rel, err := s.State.AddRelation(eps[0], eps[1])
 	c.Assert(err, jc.ErrorIsNil)
 
-	expect := watcher.RemoteRelationsChange{
-		ChangedRelations: []watcher.RemoteRelationChange{{
-			RelationId:   rel.Id(),
-			Life:         "alive",
-			ChangedUnits: map[string]watcher.RemoteRelationUnitChange{},
-		}},
-	}
-	assertRemoteRelationsChange(c, s.BackingState, w, expect)
-	assertNoRemoteRelationsChange(c, s.BackingState, w)
-
-	// Add a unit of wordpress, expect a change.
-	settings := map[string]interface{}{"key": "value"}
-	wordpress0, err := wordpress.AddUnit()
-	c.Assert(err, jc.ErrorIsNil)
-	ru, err := rel.Unit(wordpress0)
-	c.Assert(err, jc.ErrorIsNil)
-	err = ru.EnterScope(settings)
-	c.Assert(err, jc.ErrorIsNil)
-	expect.ChangedRelations[rel.Id()] = watcher.RemoteRelationChange{
-		Life: "alive",
-		ChangedUnits: map[string]watcher.RemoteRelationUnitChange{
-			wordpress0.Name(): {
-				Settings: settings,
-			},
-		},
-	}
-	assertRemoteRelationsChange(c, s.BackingState, w, expect)
-	assertNoRemoteRelationsChange(c, s.BackingState, w)
-
-	// Change the settings, expect a change.
-	ruSettings, err := ru.Settings()
-	c.Assert(err, jc.ErrorIsNil)
-	settings["quay"] = 123
-	ruSettings.Update(settings)
-	_, err = ruSettings.Write()
-	c.Assert(err, jc.ErrorIsNil)
-	// Numeric settings values are unmarshalled as float64.
-	settings["quay"] = float64(123)
-	expect.ChangedRelations[rel.Id()].ChangedUnits[wordpress0.Name()] = watcher.RemoteRelationUnitChange{
-		Settings: settings,
-	}
-	assertRemoteRelationsChange(c, s.BackingState, w, expect)
+	assertRemoteRelationsChange(c, s.BackingState, w, []string{rel.String()})
 	assertNoRemoteRelationsChange(c, s.BackingState, w)
 }
 
 func assertRemoteRelationsChange(
-	c *gc.C, ss statetesting.SyncStarter, w watcher.RemoteRelationsWatcher, expect watcher.RemoteRelationsChange,
+	c *gc.C, ss statetesting.SyncStarter, w watcher.StringsWatcher, expect []string,
 ) {
 	ss.StartSync()
 	select {
@@ -147,11 +106,95 @@ func assertRemoteRelationsChange(
 	}
 }
 
-func assertNoRemoteRelationsChange(c *gc.C, ss statetesting.SyncStarter, w watcher.RemoteRelationsWatcher) {
+func assertNoRemoteRelationsChange(c *gc.C, ss statetesting.SyncStarter, w watcher.StringsWatcher) {
 	ss.StartSync()
 	select {
 	case change, ok := <-w.Changes():
 		c.Errorf("unexpected change from application relations watcher: %v, %v", change, ok)
+	case <-time.After(testing.ShortWait):
+	}
+}
+
+func (s *remoteRelationsSuite) TestWatchLocalRelationUnits(c *gc.C) {
+	_, err := s.State.AddRemoteApplication("mysql", "local:/u/me/mysql", []charm.Relation{{
+		Interface: "mysql",
+		Name:      "db",
+		Role:      charm.RoleProvider,
+		Scope:     charm.ScopeGlobal,
+	}})
+	c.Assert(err, jc.ErrorIsNil)
+	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	eps, err := s.State.InferEndpoints("wordpress", "mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.State.AddRelation(eps[0], eps[1])
+	c.Assert(err, jc.ErrorIsNil)
+	w, err := s.client.WatchLocalRelationUnits(rel.String())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(w, gc.NotNil)
+	defer func() {
+		c.Assert(worker.Stop(w), jc.ErrorIsNil)
+	}()
+
+	assertRelationUnitsChange(c, s.BackingState, w, watcher.RelationUnitsChange{})
+	assertNoRelationUnitsChange(c, s.BackingState, w)
+
+	// Add a unit of wordpress, expect a change.
+	settings := map[string]interface{}{"key": "value"}
+	wordpress0, err := wordpress.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+	ru, err := rel.Unit(wordpress0)
+	c.Assert(err, jc.ErrorIsNil)
+	err = ru.EnterScope(settings)
+	c.Assert(err, jc.ErrorIsNil)
+	expect := watcher.RelationUnitsChange{
+		Changed: map[string]watcher.UnitSettings{"wordpress/0": {Version: 0}},
+	}
+	assertRelationUnitsChange(c, s.BackingState, w, expect)
+	assertNoRelationUnitsChange(c, s.BackingState, w)
+
+	// Change the settings, expect a change.
+	ruSettings, err := ru.Settings()
+	c.Assert(err, jc.ErrorIsNil)
+	settings["quay"] = 123
+	ruSettings.Update(settings)
+	_, err = ruSettings.Write()
+	c.Assert(err, jc.ErrorIsNil)
+	// Numeric settings values are unmarshalled as float64.
+	settings["quay"] = float64(123)
+	expect = watcher.RelationUnitsChange{
+		Changed: map[string]watcher.UnitSettings{"wordpress/0": {Version: 1}},
+	}
+	assertRelationUnitsChange(c, s.BackingState, w, expect)
+	assertNoRelationUnitsChange(c, s.BackingState, w)
+
+	// Remove a unit of wordpress, expect a change.
+	err = ru.LeaveScope()
+	c.Assert(err, jc.ErrorIsNil)
+	expect = watcher.RelationUnitsChange{
+		Departed: []string{"wordpress/0"},
+	}
+	assertRelationUnitsChange(c, s.BackingState, w, expect)
+	assertNoRelationUnitsChange(c, s.BackingState, w)
+}
+
+func assertRelationUnitsChange(
+	c *gc.C, ss statetesting.SyncStarter, w watcher.RelationUnitsWatcher, expect watcher.RelationUnitsChange,
+) {
+	ss.StartSync()
+	select {
+	case change, ok := <-w.Changes():
+		c.Assert(ok, jc.IsTrue)
+		c.Assert(change, jc.DeepEquals, expect)
+	case <-time.After(testing.LongWait):
+		c.Errorf("timed out waiting for relations unit change")
+	}
+}
+
+func assertNoRelationUnitsChange(c *gc.C, ss statetesting.SyncStarter, w watcher.RelationUnitsWatcher) {
+	ss.StartSync()
+	select {
+	case change, ok := <-w.Changes():
+		c.Errorf("unexpected change from relations units watcher: %v, %v", change, ok)
 	case <-time.After(testing.ShortWait):
 	}
 }

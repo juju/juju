@@ -84,6 +84,23 @@ type RelationUnitsWatcher interface {
 	Changes() <-chan params.RelationUnitsChange
 }
 
+// RemoteRelationsWatcher is a watcher that reports on changes to relations
+// and relation units related to those relations for a specified application.
+type RemoteRelationsWatcher interface {
+	Watcher
+
+	Changes() <-chan params.RemoteRelationsChange
+}
+
+// RemoteApplicationWatcher is a watcher that reports on remote changes to the
+// lifecycle, status, relations and relation units for a specified remote
+// application.
+type RemoteApplicationWatcher interface {
+	Watcher
+
+	Changes() <-chan params.RemoteApplicationChange
+}
+
 // newCommonWatcher exists so that all embedders have a place from which
 // to get a single TxnLogWatcher that will not be replaced in the lifetime
 // of the embedder (and also to restrict the width of the interface by
@@ -908,10 +925,14 @@ func (ru *RelationUnit) Watch() RelationUnitsWatcher {
 	return newRelationUnitsWatcher(ru.st, ru.WatchScope())
 }
 
-// WatchCounterpartEndpointUnits returns a watcher that notifies of changes to
-// the units of the specified service's counterpart endpoint in the relation.
-// This method will return an error if the endpoint is not globally scoped.
-func (r *Relation) WatchCounterpartEndpointUnits(applicationName string) (RelationUnitsWatcher, error) {
+// WatchUnits returns a watcher that notifies of changes to the units of the
+// specified application endpoint in the relation. This method will return an error
+// if the endpoint is not globally scoped.
+func (r *Relation) WatchUnits(serviceName string) (RelationUnitsWatcher, error) {
+	return r.watchUnits(serviceName, false)
+}
+
+func (r *Relation) watchUnits(applicationName string, counterpart bool) (RelationUnitsWatcher, error) {
 	ep, err := r.Endpoint(applicationName)
 	if err != nil {
 		return nil, err
@@ -919,7 +940,10 @@ func (r *Relation) WatchCounterpartEndpointUnits(applicationName string) (Relati
 	if ep.Scope != charm.ScopeGlobal {
 		return nil, errors.Errorf("%q endpoint is not globally scoped", ep.Name)
 	}
-	role := counterpartRole(ep.Role)
+	role := ep.Role
+	if counterpart {
+		role = counterpartRole(role)
+	}
 	rsw := watchRelationScope(r.st, r.globalScope(), role, "")
 	return newRelationUnitsWatcher(r.st, rsw), nil
 }

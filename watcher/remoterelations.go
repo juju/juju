@@ -38,11 +38,6 @@ type RemoteRelationsChange struct {
 	RemovedRelations []int
 }
 
-// RemoteRelationsChanges holds a set of RemoteRelationsChange structures.
-type RemoteRelationsChanges struct {
-	Changes []RemoteRelationsChange
-}
-
 // CHECK - PORT params
 // RemoteRelationsChannel is a change channel as described in the CoreWatcher docs.
 type RemoteRelationsChannel <-chan RemoteRelationsChange
@@ -52,4 +47,18 @@ type RemoteRelationsChannel <-chan RemoteRelationsChange
 type RemoteRelationsWatcher interface {
 	CoreWatcher
 	Changes() RemoteRelationsChannel
+}
+
+// RemoteApplicationChange describes changes to a remote application.
+type RemoteApplicationChange struct {
+	// ApplicationTag is the application which has changed.
+	ApplicationTag string `json:"application-tag"`
+
+	// Life is the current lifecycle state of the application.
+	Life multiwatcher.Life `json:"life"`
+
+	// Relations are the changed relations.
+	Relations RemoteRelationsChange `json:"relations"`
+
+	// TODO(wallyworld) - status etc
 }

@@ -40,6 +40,10 @@ func init() {
 		reflect.TypeOf((*srvStringsWatcher)(nil)),
 	)
 	common.RegisterFacade(
+		"RemoteApplicationWatcher", 1, newRemoteApplicationWatcher,
+		reflect.TypeOf((*srvRemoteApplicationWatcher)(nil)),
+	)
+	common.RegisterFacade(
 		"RemoteRelationsWatcher", 1, newRemoteRelationsWatcher,
 		reflect.TypeOf((*srvRemoteRelationsWatcher)(nil)),
 	)
@@ -267,6 +271,55 @@ func (w *srvRelationUnitsWatcher) Stop() error {
 	return w.resources.Stop(w.id)
 }
 
+// srvRemoteApplicationWatcher will sends changes to relations a service
+// is involved in, including changes to the units involved in those
+// relations, and their settings.
+type srvRemoteApplicationWatcher struct {
+	watcher   state.RemoteApplicationWatcher
+	id        string
+	resources facade.Resources
+}
+
+func newRemoteApplicationWatcher(context facade.Context) (facade.Facade, error) {
+	id := context.ID()
+	resources := context.Resources()
+	auth := context.Auth()
+
+	if !auth.AuthModelManager() {
+		return nil, common.ErrPerm
+	}
+	watcher, ok := resources.Get(id).(state.RemoteApplicationWatcher)
+	if !ok {
+		return nil, common.ErrUnknownWatcher
+	}
+	return &srvRemoteApplicationWatcher{
+		watcher:   watcher,
+		id:        id,
+		resources: resources,
+	}, nil
+}
+
+// Next returns when a change has occured to an entity of the
+// collection being watched since the most recent call to Next
+// or the Watch call that created the srvRemoteApplicationWatcher.
+func (w *srvRemoteApplicationWatcher) Next() (params.RemoteApplicationWatchResult, error) {
+	if change, ok := <-w.watcher.Changes(); ok {
+		return params.RemoteApplicationWatchResult{
+			Change: &change,
+		}, nil
+	}
+	err := w.watcher.Err()
+	if err == nil {
+		err = common.ErrStoppedWatcher
+	}
+	return params.RemoteApplicationWatchResult{}, err
+}
+
+// Stop stops the watcher.
+func (w *srvRemoteApplicationWatcher) Stop() error {
+	return w.resources.Stop(w.id)
+}
+
 // srvRemoteRelationsWatcher defines the API wrapping a RemoteRelationsWatcher.
 // This watcher notifies about:
 //  - addition and removal of relations of relations to remote applications
@@ -274,7 +327,7 @@ func (w *srvRelationUnitsWatcher) Stop() error {
 //  - settings of relation units changing
 //  - units departing the relation (joining is implicit in seeing new settings)
 type srvRemoteRelationsWatcher struct {
-	watcher   RemoteRelationsWatcher
+	watcher   state.RemoteRelationsWatcher
 	id        string
 	resources facade.Resources
 }
@@ -295,7 +348,7 @@ func newRemoteRelationsWatcher(context facade.Context) (facade.Facade, error) {
 	if !auth.AuthModelManager() {
 		return nil, common.ErrPerm
 	}
-	watcher, ok := resources.Get(id).(RemoteRelationsWatcher)
+	watcher, ok := resources.Get(id).(state.RemoteRelationsWatcher)
 	if !ok {
 		return nil, common.ErrUnknownWatcher
 	}
@@ -312,7 +365,7 @@ func newRemoteRelationsWatcher(context facade.Context) (facade.Facade, error) {
 func (w *srvRemoteRelationsWatcher) Next() (params.RemoteRelationsWatchResult, error) {
 	if changes, ok := <-w.watcher.Changes(); ok {
 		return params.RemoteRelationsWatchResult{
-			Changes: &changes,
+			Change: &changes,
 		}, nil
 	}
 	err := w.watcher.Err()
@@ -489,7 +542,7 @@ func newMigrationStatusWatcher(context facade.Context) (facade.Facade, error) {
 	resources := context.Resources()
 	st := context.State()
 
-	if !(auth.AuthMachineAgent() || auth.AuthUnitAgent()) {
+	if !isAgent(auth) {
 		return nil, common.ErrPerm
 	}
 	w, ok := resources.Get(id).(state.NotifyWatcher)

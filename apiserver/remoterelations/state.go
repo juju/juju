@@ -21,6 +21,9 @@ type RemoteRelationsState interface {
 	// RemoteApplication returns a remote application by name.
 	RemoteApplication(string) (RemoteApplication, error)
 
+	// Application returns a local application by name.
+	Application(string) (Application, error)
+
 	// WatchRemoteApplications returns a StringsWatcher that notifies of changes to
 	// the lifecycles of the remote applications in the environment.
 	WatchRemoteApplications() state.StringsWatcher
@@ -43,6 +46,9 @@ type Relation interface {
 	// Life returns the relation's current life state.
 	Life() state.Life
 
+	// Endpoints returns the endpoints that constitute the relation.
+	Endpoints() []state.Endpoint
+
 	// RemoteUnit returns a RelationUnit for the remote application unit
 	// with the supplied ID.
 	RemoteUnit(unitId string) (RelationUnit, error)
@@ -50,10 +56,9 @@ type Relation interface {
 	// Unit returns a RelationUnit for the unit with the supplied ID.
 	Unit(unitId string) (RelationUnit, error)
 
-	// WatchCounterpartEndpointUnits returns a watcher that notifies of
-	// changes to the units with the endpoint counterpart to the specified
-	// application.
-	WatchCounterpartEndpointUnits(applicationName string) (state.RelationUnitsWatcher, error)
+	// WatchUnits returns a watcher that notifies of changes to the units of the
+	// specified application in the relation.
+	WatchUnits(applicationName string) (state.RelationUnitsWatcher, error)
 }
 
 // RelationUnit provides access to the settings of a single unit in a relation,
@@ -93,6 +98,12 @@ type RemoteApplication interface {
 	URL() string
 }
 
+// Application represents the state of a application hosted in the local environment.
+type Application interface {
+	// Life returns the lifecycle state of the application.
+	Life() state.Life
+}
+
 type stateShim struct {
 	*state.State
 }
@@ -114,19 +125,19 @@ func (st stateShim) Relation(id int) (Relation, error) {
 }
 
 func (st stateShim) RemoteApplication(name string) (RemoteApplication, error) {
-	s, err := st.State.RemoteApplication(name)
+	a, err := st.State.RemoteApplication(name)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return remoteApplicationShim{s}, nil
+	return remoteApplicationShim{a}, nil
 }
 
 func (st stateShim) WatchRemoteApplicationRelations(applicationName string) (state.StringsWatcher, error) {
-	s, err := st.State.RemoteApplication(applicationName)
+	a, err := st.State.RemoteApplication(applicationName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return s.WatchRelations(), nil
+	return a.WatchRelations(), nil
 }
 
 type relationShim struct {
@@ -184,4 +195,16 @@ func (r relationUnitShim) Settings() (map[string]interface{}, error) {
 
 type remoteApplicationShim struct {
 	*state.RemoteApplication
+}
+
+type applicationShim struct {
+	*state.Application
+}
+
+func (st stateShim) Application(name string) (Application, error) {
+	a, err := st.State.Application(name)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return applicationShim{a}, nil
 }
