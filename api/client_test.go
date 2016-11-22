@@ -405,6 +405,32 @@ func (s *clientSuite) TestConnectStreamErrorReadError(c *gc.C) {
 	c.Assert(reader, gc.IsNil)
 }
 
+func (s *clientSuite) TestConnectControllerStreamRejectsRelativePaths(c *gc.C) {
+	reader, err := s.APIState.ConnectControllerStream("foo", nil, nil)
+	c.Assert(err, gc.ErrorMatches, `path "foo" is not absolute`)
+	c.Assert(reader, gc.IsNil)
+}
+
+func (s *clientSuite) TestConnectControllerStreamRejectsModelPaths(c *gc.C) {
+	reader, err := s.APIState.ConnectControllerStream("/model/foo", nil, nil)
+	c.Assert(err, gc.ErrorMatches, `path "/model/foo" is model-specific`)
+	c.Assert(reader, gc.IsNil)
+}
+
+func (s *clientSuite) TestConnectControllerStreamAppliesHeaders(c *gc.C) {
+	catcher := urlCatcher{}
+	headers := http.Header{}
+	headers.Add("thomas", "cromwell")
+	headers.Add("anne", "boleyn")
+	s.PatchValue(api.WebsocketDialConfig, catcher.recordLocation)
+
+	_, err := s.APIState.ConnectControllerStream("/something", nil, headers)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(catcher.headers.Get("thomas"), gc.Equals, "cromwell")
+	c.Assert(catcher.headers.Get("anne"), gc.Equals, "boleyn")
+}
+
 func (s *clientSuite) TestWatchDebugLogParamsEncoded(c *gc.C) {
 	catcher := urlCatcher{}
 	s.PatchValue(api.WebsocketDialConfig, catcher.recordLocation)
@@ -531,10 +557,12 @@ func (r *badReader) Read(p []byte) (n int, err error) {
 
 type urlCatcher struct {
 	location *url.URL
+	headers  http.Header
 }
 
 func (u *urlCatcher) recordLocation(config *websocket.Config) (base.Stream, error) {
 	u.location = config.Location
+	u.headers = config.Header
 	pr, pw := io.Pipe()
 	go func() {
 		fmt.Fprintf(pw, "null\n")

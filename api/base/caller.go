@@ -5,6 +5,7 @@ package base
 
 import (
 	"io"
+	"net/http"
 	"net/url"
 
 	"github.com/juju/httprequest"
@@ -39,6 +40,7 @@ type APICaller interface {
 	HTTPClient() (*httprequest.Client, error)
 
 	StreamConnector
+	ControllerStreamConnector
 }
 
 // StreamConnector is implemented by the client-facing State object.
@@ -51,6 +53,18 @@ type StreamConnector interface {
 	//
 	// The path must start with a "/".
 	ConnectStream(path string, attrs url.Values) (Stream, error)
+}
+
+// ControllerStreamConnector is implemented by the client-facing State object.
+type ControllerStreamConnector interface {
+	// ConnectControllerStream connects to the given HTTP websocket
+	// endpoint path and returns the resulting connection. The given
+	// values are used as URL query values when making the initial
+	// HTTP request. Headers passed in will be added to the HTTP
+	// request.
+	//
+	// The path must be absolute and can't start with "/model".
+	ConnectControllerStream(path string, attrs url.Values, headers http.Header) (Stream, error)
 }
 
 // Stream represents a streaming connection to the API.

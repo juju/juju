@@ -4,6 +4,7 @@
 package testing
 
 import (
+	"net/http"
 	"net/url"
 
 	"github.com/juju/errors"
@@ -45,6 +46,10 @@ func (APICallerFunc) HTTPClient() (*httprequest.Client, error) {
 }
 
 func (APICallerFunc) ConnectStream(path string, attrs url.Values) (base.Stream, error) {
+	return nil, errors.New("stream connection unimplemented")
+}
+
+func (APICallerFunc) ConnectControllerStream(path string, attrs url.Values, headers http.Header) (base.Stream, error) {
 	return nil, errors.New("stream connection unimplemented")
 }
 
