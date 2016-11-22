@@ -239,6 +239,9 @@ class FakeEnvironmentState:
                 units.remove((unit_id, machine_id))
                 self.remove_machine(machine_id)
                 break
+        else:
+            raise subprocess.CalledProcessError(
+                1, 'juju remove-unit {}'.format(unit_id))
 
     def destroy_service(self, service_name):
         for unit, machine_id in self.services.pop(service_name):
