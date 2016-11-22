@@ -1425,6 +1425,32 @@ class TestBootstrapManager(FakeHomeTestCase):
         self.assertEqual({'0': 'example.org'}, bs_manager.known_hosts)
         self.assertIsFalse(bs_manager.has_controller)
 
+    def test_from_client(self):
+        deadline = datetime(2012, 11, 10, 9, 8, 7)
+        args = Namespace(
+            env='foo', juju_bin='bar', debug=True, temp_env_name='baz',
+            bootstrap_host='example.org', machine=['example.com'],
+            series='angsty', agent_url='qux', agent_stream='escaped',
+            region='eu-west-northwest-5', logs='pine', keep_env=True,
+            deadline=deadline)
+        client = fake_juju_client()
+        bs_manager = BootstrapManager.from_client(args, client)
+        self.assertEqual('baz', bs_manager.temp_env_name)
+        self.assertIs(client, bs_manager.client)
+        self.assertEqual('example.org', bs_manager.bootstrap_host)
+        self.assertEqual(['example.com'], bs_manager.machines)
+        self.assertEqual('angsty', bs_manager.series)
+        self.assertEqual('qux', bs_manager.agent_url)
+        self.assertEqual('escaped', bs_manager.agent_stream)
+        self.assertEqual('eu-west-northwest-5', bs_manager.region)
+        self.assertIs(True, bs_manager.keep_env)
+        self.assertEqual('pine', bs_manager.log_dir)
+        jes_enabled = client.is_jes_enabled()
+        self.assertEqual(jes_enabled, bs_manager.permanent)
+        self.assertEqual(jes_enabled, bs_manager.jes_enabled)
+        self.assertEqual({'0': 'example.org'}, bs_manager.known_hosts)
+        self.assertIsFalse(bs_manager.has_controller)
+
     def test_no_args(self):
         args = Namespace(
             env='foo', juju_bin='bar', debug=True, temp_env_name='baz',

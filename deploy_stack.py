@@ -673,6 +673,10 @@ class BootstrapManager:
             client = client_from_config(args.env, args.juju_bin,
                                         debug=args.debug,
                                         soft_deadline=args.deadline)
+        return cls.from_client(args, client)
+
+    @classmethod
+    def from_client(cls, args, client):
         jes_enabled = client.is_jes_enabled()
         return cls(
             args.temp_env_name, client, client, args.bootstrap_host,

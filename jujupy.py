@@ -80,6 +80,10 @@ for super_cmd in [SYSTEM, CONTROLLER]:
 log = logging.getLogger("jujupy")
 
 
+class StatusTimeout(Exception):
+    """Raised when 'juju status' timed out."""
+
+
 class IncompatibleConfigClass(Exception):
     """Raised when a client is initialised with the wrong config class."""
 
@@ -507,6 +511,36 @@ class JujuData(SimpleEnvironment):
         juju_data.load_yaml()
         return juju_data
 
+    @classmethod
+    def from_cloud_region(cls, cloud, region, config, clouds, juju_home):
+        """Return a JujuData for the specified cloud and region.
+
+        :param cloud: The name of the cloud to use.
+        :param region: The name of the region to use.  If None, an arbitrary
+            region will be selected.
+        :param config: The bootstrap config to use.
+        :param juju_home: The JUJU_DATA directory to use (credentials are
+            loaded from this.)
+        """
+        cloud_config = clouds['clouds'][cloud]
+        provider = cloud_config['type']
+        config['type'] = provider
+        if provider == 'maas':
+            config['maas-server'] = cloud_config['endpoint']
+        elif provider == 'openstack':
+            config['auth-url'] = cloud_config['endpoint']
+        elif provider == 'vsphere':
+            config['host'] = cloud_config['endpoint']
+        data = JujuData(cloud, config, juju_home)
+        data.load_yaml()
+        data.clouds = clouds
+        if region is None:
+            regions = cloud_config.get('regions', {}).keys()
+            if len(regions) > 0:
+                region = regions[0]
+        data.set_region(region)
+        return data
+
     def dump_yaml(self, path, config):
         """Dump the configuration files to the specified path.
 
@@ -536,7 +570,7 @@ class JujuData(SimpleEnvironment):
         # Model CLI specification
         if provider == 'ec2' and self.config['region'] == 'cn-north-1':
             return 'aws-china'
-        if provider not in ('maas', 'openstack'):
+        if provider not in ('maas', 'openstack', 'vsphere'):
             return {
                 'ec2': 'aws',
                 'gce': 'google',
@@ -545,6 +579,8 @@ class JujuData(SimpleEnvironment):
             endpoint = self.config['maas-server']
         elif provider == 'openstack':
             endpoint = self.config['auth-url']
+        elif provider == 'vsphere':
+            endpoint = self.config['host']
         return self.find_endpoint_cloud(provider, endpoint)
 
     def get_cloud_credentials_item(self):
@@ -863,7 +899,7 @@ class Status:
             yield StatusItem(StatusItem.JUJU, machine_name, machine_value)
         for app_name, app_value in self.get_applications().items():
             yield StatusItem(StatusItem.APPLICATION, app_name, app_value)
-            for unit_name, unit_value in app_value['units'].items():
+            for unit_name, unit_value in app_value.get('units', {}).items():
                 yield StatusItem(StatusItem.WORKLOAD, unit_name, unit_value)
                 yield StatusItem(StatusItem.JUJU, unit_name, unit_value)
 
@@ -914,7 +950,7 @@ class Status1X(Status):
                 yield StatusItem(
                     StatusItem.APPLICATION, app_name,
                     {StatusItem.APPLICATION: app_value[SERVICE]})
-            for unit_name, unit_value in app_value['units'].items():
+            for unit_name, unit_value in app_value.get('units', {}).items():
                 if StatusItem.WORKLOAD in unit_value:
                     yield StatusItem(StatusItem.WORKLOAD,
                                      unit_name, unit_value)
@@ -1230,6 +1266,79 @@ def client_from_config(config, juju_path, debug=False, soft_deadline=None):
         full_path = os.path.abspath(juju_path)
     return client_class(env, version, full_path, debug=debug,
                         soft_deadline=soft_deadline)
+
+
+class WaitForSearch:
+    """Wait for a something (thing) matching none/all/some machines.
+
+    Examples:
+      WaitForSearch('containers', 'all')
+      This will wait for a container to appear on all machines.
+
+      WaitForSearch('machines-not-0', 'none')
+      This will wait for all machines other than 0 to be removed.
+
+    :ivar thing: string, either 'containers' or 'not-machine-0'
+    :ivar search_type: string containing none, some or all
+    """
+
+    def __init__(self, thing, search_type):
+        self.thing = thing
+        self.search_type = search_type
+
+    def is_satisfied(self, status):
+        hit = False
+        miss = False
+
+        for machine, details in status.status['machines'].iteritems():
+            if self.thing == 'containers':
+                if 'containers' in details:
+                    hit = True
+                else:
+                    miss = True
+
+            elif self.thing == 'machines-not-0':
+                if machine != '0':
+                    hit = True
+                else:
+                    miss = True
+
+            else:
+                raise ValueError("Unrecognised thing to wait for: %s",
+                                 self.thing)
+
+        if self.search_type == 'none':
+            if not hit:
+                return True
+        elif self.search_type == 'some':
+            if hit:
+                return True
+        elif self.search_type == 'all':
+            if not miss:
+                return True
+        else:
+            return False
+
+    def do_raise(self):
+        raise Exception("Timed out waiting for %s" % self.thing)
+
+
+class WaitMachineNotPresent:
+    """Condition satisfied when a given machine is not present."""
+
+    def __init__(self, machine):
+        self.machine = machine
+
+    def is_satisfied(self, status):
+        for machine, info in status.iter_machines():
+            if machine == self.machine:
+                return False
+        else:
+            return True
+
+    def do_raise(self):
+        raise Exception("Timed out waiting for machine removal %s" %
+                        self.machine)
 
 
 class EnvJujuClient:
@@ -1718,7 +1827,7 @@ class EnvJujuClient:
                         controller=controller))
             except subprocess.CalledProcessError:
                 pass
-        raise Exception(
+        raise StatusTimeout(
             'Timed out waiting for juju status to succeed')
 
     def show_model(self, model_name=None):
@@ -2222,54 +2331,29 @@ class EnvJujuClient:
         self._wait_for_status(reporter, status_to_workloads, WorkloadsNotReady,
                               timeout=timeout, start=start)
 
-    def wait_for(self, thing, search_type, timeout=300):
-        """ Wait for a something (thing) matching none/all/some machines.
+    def wait_for(self, conditions, timeout=300):
+        """Wait until the supplied conditions are satisfied.
 
-        Examples:
-          wait_for('containers', 'all')
-          This will wait for a container to appear on all machines.
-
-          wait_for('machines-not-0', 'none')
-          This will wait for all machines other than 0 to be removed.
-
-        :param thing: string, either 'containers' or 'not-machine-0'
-        :param search_type: string containing none, some or all
-        :param timeout: number of seconds to wait for condition to be true.
-        :return:
+        The supplied conditions must be an iterable of objects like
+        WaitMachineNotPresent.
         """
+        if len(conditions) == 0:
+            return self.get_status()
         try:
             for status in self.status_until(timeout):
-                hit = False
-                miss = False
-
-                for machine, details in status.status['machines'].iteritems():
-                    if thing == 'containers':
-                        if 'containers' in details:
-                            hit = True
-                        else:
-                            miss = True
-
-                    elif thing == 'machines-not-0':
-                        if machine != '0':
-                            hit = True
-                        else:
-                            miss = True
-
-                    else:
-                        raise ValueError("Unrecognised thing to wait for: %s",
-                                         thing)
-
-                if search_type == 'none':
-                    if not hit:
-                        return
-                elif search_type == 'some':
-                    if hit:
-                        return
-                elif search_type == 'all':
-                    if not miss:
-                        return
-        except Exception:
-            raise Exception("Timed out waiting for %s" % thing)
+                status.raise_highest_error(ignore_recoverable=True)
+                pending = []
+                for condition in conditions:
+                    if not condition.is_satisfied(status):
+                        pending.append(condition)
+                if len(pending) == 0:
+                    return status
+                conditions = pending
+            else:
+                status.raise_highest_error(ignore_recoverable=False)
+        except StatusTimeout:
+            pass
+        conditions[0].do_raise()
 
     def get_matching_agent_version(self, no_build=False):
         # strip the series and srch from the built version.
