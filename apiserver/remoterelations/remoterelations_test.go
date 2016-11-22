@@ -436,3 +436,62 @@ func (s *remoteRelationsSuite) TestWatchLocalRelationUnits(c *gc.C) {
 		{"WatchUnits", []interface{}{"django"}},
 	})
 }
+
+func (s *remoteRelationsSuite) TestExportEntities(c *gc.C) {
+	s.st.applications["django"] = newMockApplication("django")
+	result, err := s.api.ExportEntities(params.Entities{Entities: []params.Entity{{Tag: "application-django"}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0], jc.DeepEquals, params.RemoteEntityIdResult{
+		Result: &params.RemoteEntityId{ModelUUID: coretesting.ModelTag.Id(), Token: "token-django"},
+	})
+	s.st.CheckCalls(c, []testing.StubCall{
+		{"ExportLocalEntity", []interface{}{names.ApplicationTag{Name: "django"}}},
+	})
+}
+
+func (s *remoteRelationsSuite) TestRelationUnitSettings(c *gc.C) {
+	djangoRelationUnit := newMockRelationUnit()
+	djangoRelationUnit.settings["key"] = "value"
+	db2Relation := newMockRelation(123)
+	db2Relation.units["django/0"] = djangoRelationUnit
+	s.st.relations["db2:db django:db"] = db2Relation
+	s.st.applications["django"] = newMockApplication("django")
+	result, err := s.api.RelationUnitSettings(params.RelationUnits{
+		RelationUnits: []params.RelationUnit{{Relation: "relation-db2.db#django.db", Unit: "unit-django-0"}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results, jc.DeepEquals, []params.SettingsResult{{Settings: params.Settings{"key": "value"}}})
+	s.st.CheckCalls(c, []testing.StubCall{
+		{"KeyRelation", []interface{}{"db2:db django:db"}},
+	})
+}
+
+func (s *remoteRelationsSuite) TestRemoteApplications(c *gc.C) {
+	s.st.remoteApplications["django"] = newMockRemoteApplication("django", "/u/me/django")
+	result, err := s.api.RemoteApplications(params.Entities{Entities: []params.Entity{{Tag: "application-django"}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results, jc.DeepEquals, []params.RemoteApplicationResult{{
+		Result: &params.RemoteApplication{Life: "alive"}}})
+	s.st.CheckCalls(c, []testing.StubCall{
+		{"RemoteApplication", []interface{}{"django"}},
+	})
+}
+
+func (s *remoteRelationsSuite) TestRemoteRelations(c *gc.C) {
+	djangoRelationUnit := newMockRelationUnit()
+	djangoRelationUnit.settings["key"] = "value"
+	db2Relation := newMockRelation(123)
+	db2Relation.units["django/0"] = djangoRelationUnit
+	s.st.relations["db2:db django:db"] = db2Relation
+	result, err := s.api.RemoteRelations(params.Entities{Entities: []params.Entity{{Tag: "relation-db2.db#django.db"}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results, jc.DeepEquals, []params.RemoteRelationResult{{
+		Result: &params.RemoteRelation{
+			Id:   params.RemoteEntityId{ModelUUID: coretesting.ModelTag.Id(), Token: "token-db2:db django:db"},
+			Life: "alive",
+		}}})
+	s.st.CheckCalls(c, []testing.StubCall{
+		{"KeyRelation", []interface{}{"db2:db django:db"}},
+		{"ExportLocalEntity", []interface{}{names.NewRelationTag("db2:db django:db")}},
+	})
+}

@@ -57,8 +57,153 @@ func NewRemoteRelationsAPI(
 	}, nil
 }
 
-// ConsumeRemoteApplicationChange consumes remote changes to applications into the
-// local environment.
+// ExportEntities allocates unique, remote entity IDs for the given entities in the local model.
+func (api *RemoteRelationsAPI) ExportEntities(entities params.Entities) (params.RemoteEntityIdResults, error) {
+	results := params.RemoteEntityIdResults{
+		Results: make([]params.RemoteEntityIdResult, len(entities.Entities)),
+	}
+	for i, entity := range entities.Entities {
+		tag, err := names.ParseTag(entity.Tag)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		token, err := api.st.ExportLocalEntity(tag)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		results.Results[i].Result = &params.RemoteEntityId{
+			ModelUUID: api.st.ModelUUID(),
+			Token:     token,
+		}
+	}
+	return results, nil
+}
+
+// RelationUnitSettings returns the relation unit settings for the given relation units in the local model.
+func (api *RemoteRelationsAPI) RelationUnitSettings(relationUnits params.RelationUnits) (params.SettingsResults, error) {
+	results := params.SettingsResults{
+		Results: make([]params.SettingsResult, len(relationUnits.RelationUnits)),
+	}
+	one := func(ru params.RelationUnit) (params.Settings, error) {
+		relationTag, err := names.ParseRelationTag(ru.Relation)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		rel, err := api.st.KeyRelation(relationTag.Id())
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		unitTag, err := names.ParseUnitTag(ru.Unit)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		unit, err := rel.Unit(unitTag.Id())
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		settings, err := unit.Settings()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		paramsSettings := make(params.Settings)
+		for k, v := range settings {
+			vString, ok := v.(string)
+			if !ok {
+				return nil, errors.Errorf(
+					"invalid relation setting %q: expected string, got %T", k, v,
+				)
+			}
+			paramsSettings[k] = vString
+		}
+		return paramsSettings, nil
+	}
+	for i, ru := range relationUnits.RelationUnits {
+		settings, err := one(ru)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		results.Results[i].Settings = settings
+	}
+	return results, nil
+}
+
+// RemoteRelations returns information about the cross-model relations with the specified keys
+// in the local model.
+func (api *RemoteRelationsAPI) RemoteRelations(entities params.Entities) (params.RemoteRelationResults, error) {
+	results := params.RemoteRelationResults{
+		Results: make([]params.RemoteRelationResult, len(entities.Entities)),
+	}
+	one := func(entity params.Entity) (*params.RemoteRelation, error) {
+		tag, err := names.ParseRelationTag(entity.Tag)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		rel, err := api.st.KeyRelation(tag.Id())
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		modelUUID := api.st.ModelUUID()
+		token, err := api.st.ExportLocalEntity(tag)
+		if errors.IsAlreadyExists(err) {
+			token, err = api.st.GetToken(names.NewModelTag(modelUUID), tag)
+		}
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return &params.RemoteRelation{
+			Id: params.RemoteEntityId{
+				ModelUUID: api.st.ModelUUID(),
+				Token:     token,
+			},
+			Life: params.Life(rel.Life().String()),
+		}, nil
+	}
+	for i, entity := range entities.Entities {
+		remoteRelation, err := one(entity)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		results.Results[i].Result = remoteRelation
+	}
+	return results, nil
+}
+
+// RemoteApplications returns the current state of the remote applications with
+// the specified names in the local model.
+func (api *RemoteRelationsAPI) RemoteApplications(entities params.Entities) (params.RemoteApplicationResults, error) {
+	results := params.RemoteApplicationResults{
+		Results: make([]params.RemoteApplicationResult, len(entities.Entities)),
+	}
+	one := func(entity params.Entity) (*params.RemoteApplication, error) {
+		tag, err := names.ParseApplicationTag(entity.Tag)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		remoteApp, err := api.st.RemoteApplication(tag.Id())
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return &params.RemoteApplication{
+			// TODO(wallyworld) - status and other fields
+			Life: params.Life(remoteApp.Life().String()),
+		}, nil
+	}
+	for i, entity := range entities.Entities {
+		remoteApplication, err := one(entity)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		results.Results[i].Result = remoteApplication
+	}
+	return results, nil
+}
+
+// ConsumeRemoteApplicationChange consumes remote changes to applications into the local model.
 func (api *RemoteRelationsAPI) ConsumeRemoteApplicationChange(
 	changes params.RemoteApplicationChanges,
 ) (params.ErrorResults, error) {
@@ -150,7 +295,7 @@ func (api *RemoteRelationsAPI) PublishLocalRelationsChange(
 }
 
 // WatchRemoteApplications starts a strings watcher that notifies of the addition,
-// removal, and lifecycle changes of remote applications in the environment; and
+// removal, and lifecycle changes of remote applications in the model; and
 // returns the watcher ID and initial IDs of remote applications, or an error if
 // watching failed.
 func (api *RemoteRelationsAPI) WatchRemoteApplications() (params.StringsWatchResult, error) {
@@ -165,7 +310,7 @@ func (api *RemoteRelationsAPI) WatchRemoteApplications() (params.StringsWatchRes
 }
 
 // WatchLocalRelationUnits starts a RelationUnitsWatcher for watching the local
-// relation units involved in each specified relation in the local environment,
+// relation units involved in each specified relation in the local model,
 // and returns the watcher IDs and initial values, or an error if the relation
 // units could not be watched.
 func (api *RemoteRelationsAPI) WatchLocalRelationUnits(args params.Entities) (params.RelationUnitsWatchResults, error) {
@@ -217,7 +362,7 @@ func (api *RemoteRelationsAPI) watchLocalRelationUnits(tag names.RelationTag) (s
 }
 
 // WatchRemoteApplicationRelations starts a StringsWatcher for watching the relations of
-// each specified application in the local environment, and returns the watcher IDs
+// each specified application in the local model, and returns the watcher IDs
 // and initial values, or an error if the services' relations could not be
 // watched.
 func (api *RemoteRelationsAPI) WatchRemoteApplicationRelations(args params.Entities) (params.StringsWatchResults, error) {
