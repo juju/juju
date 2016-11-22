@@ -456,6 +456,36 @@ func (s *DeployCharmStoreSuite) TestDeployAuthorization(c *gc.C) {
 	}
 }
 
+type stubRoundTripper struct {
+	c               *gc.C
+	expectedCharmID string
+	rt              http.RoundTripper
+}
+
+func (s *stubRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	if strings.HasSuffix(req.URL.Path, "/delegatable-macaroon") {
+		s.c.Check(req.URL.Query().Get("id"), gc.Equals, s.expectedCharmID)
+	}
+	return s.rt.RoundTrip(req)
+}
+
+func (s *DeployCharmStoreSuite) TestDeployDelegatableMacaroonRequest(c *gc.C) {
+	roundTripper := stubRoundTripper{c, "cs:~bob/trusty/terms-1", http.DefaultTransport}
+	s.PatchValue(&newHTTPClient, func() (*cookiejar.Jar, *http.Client, error) {
+		client := http.Client{Transport: &roundTripper}
+		jar, err := cookiejar.New(nil)
+		c.Assert(err, jc.ErrorIsNil)
+		client.Jar = jar
+		return jar, &client, nil
+	})
+	url, _ := s.uploadCharm(c, "cs:~bob/trusty/terms-1", "terms")
+	s.changeReadPerm(c, url, clientUserName)
+	ctx, err := coretesting.RunCommand(c, envcmd.Wrap(&DeployCommand{}), "cs:~bob/trusty/terms-1", "terms")
+	c.Assert(err, jc.ErrorIsNil)
+	output := strings.Trim(coretesting.Stderr(ctx), "\n")
+	c.Assert(output, gc.Equals, `Added charm "cs:~bob/trusty/terms-1" to the environment.`)
+}
+
 const (
 	// clientUserCookie is the name of the cookie which is
 	// used to signal to the charmStoreSuite macaroon discharger

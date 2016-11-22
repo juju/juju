@@ -232,7 +232,7 @@ func cookieFile() string {
 	return cookiejar.DefaultCookieFile()
 }
 
-func newHTTPClient() (*cookiejar.Jar, *http.Client, error) {
+var newHTTPClient = func() (*cookiejar.Jar, *http.Client, error) {
 	jar, err := cookiejar.New(&cookiejar.Options{
 		Filename:         cookieFile(),
 		PublicSuffixList: publicsuffix.List,
@@ -256,10 +256,7 @@ func (c *csClient) authorize(curl *charm.URL) (*macaroon.Macaroon, error) {
 		VisitWebPage: c.params.VisitWebPage,
 	})
 	var m *macaroon.Macaroon
-	if err := client.Get("/delegatable-macaroon", &m); err != nil {
-		return nil, errors.Trace(err)
-	}
-	if err := m.AddFirstPartyCaveat("is-entity " + curl.String()); err != nil {
+	if err := client.Get(fmt.Sprintf("/delegatable-macaroon?id=%v", curl.String()), &m); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return m, nil
