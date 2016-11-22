@@ -3,7 +3,10 @@ from argparse import ArgumentParser
 from textwrap import dedent
 import yaml
 
-from deploy_stack import BootstrapManager
+from deploy_stack import (
+    BootstrapManager,
+    CreateController,
+    )
 from fakejuju import (
     FakeBackend,
     FakeControllerState,
@@ -61,6 +64,16 @@ def assess_cloud_combined(bs_manager):
                                       for n in new_machines])
 
 
+def assess_cloud_kill_controller(bs_manager):
+    client = bs_manager.client
+    with bs_manager.booted_context(upload_tools=False):
+        controller_client = client.get_controller_client()
+        controller_client.juju('run', (
+            '--machine', '0', 'sudo service jujud-machine-0 stop'),
+            check=False)
+        bs_manager.has_controller = False
+
+
 def parse_args(args):
     parser = ArgumentParser(description=dedent("""\
         Test a specified cloud.
@@ -82,7 +95,7 @@ def main():
     configure_logging(args.verbose)
     client = client_from_args(args)
     bs_manager = BootstrapManager.from_client(args, client)
-    assess_cloud_combined(bs_manager)
+    assess_cloud_kill_controller(bs_manager)
 
 
 if __name__ == '__main__':

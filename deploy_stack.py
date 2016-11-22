@@ -527,9 +527,13 @@ class CreateController:
             raise ValueError('Could not get machine 0 host')
         return {'0': host}
 
-    def tear_down(self):
+    def tear_down(self, has_controller):
         """Tear down via client.tear_down."""
-        self.tear_down_client.tear_down()
+        if has_controller:
+            self.tear_down_client.tear_down()
+        else:
+            self.tear_down_client.kill_controller()
+
 
 
 class PublicController:
@@ -548,7 +552,7 @@ class PublicController:
     def prepare(self):
         """Prepare by destroying the model and unregistering if possible."""
         try:
-            self.tear_down()
+            self.tear_down(True)
         except subprocess.CalledProcessError:
             # Assume that any error tearing down means that there was nothing
             # to tear down.
@@ -565,7 +569,7 @@ class PublicController:
         """There are no user-owned controller hosts, so no-op."""
         return {}
 
-    def tear_down(self):
+    def tear_down(self, has_controller):
         """Remove the current model and clean up the controller."""
         try:
             self.tear_down_client.destroy_model()
@@ -755,7 +759,7 @@ class BootstrapManager:
         :param try_jes: Ignored."""
         if self.tear_down_client.env is not self.client.env:
             raise AssertionError('Tear down client needs same env!')
-        self.controller_strategy.tear_down()
+        self.controller_strategy.tear_down(self.has_controller)
         self.has_controller = False
 
     @contextmanager
@@ -880,16 +884,18 @@ class BootstrapManager:
                 logging.info("Client lost controller, not calling status.")
             raise
         else:
-            with self.client.ignore_soft_deadline():
-                self.client.list_controllers()
-                self.client.list_models()
-                for m_client in self.client.iter_model_clients():
-                    m_client.show_status()
+            if self.has_controller:
+                with self.client.ignore_soft_deadline():
+                    self.client.list_controllers()
+                    self.client.list_models()
+                    for m_client in self.client.iter_model_clients():
+                        m_client.show_status()
         finally:
             with self.client.ignore_soft_deadline():
                 with self.tear_down_client.ignore_soft_deadline():
                     try:
-                        self.dump_all_logs()
+                        if self.has_controller:
+                            self.dump_all_logs()
                     except KeyboardInterrupt:
                         pass
                     if not self.keep_env:
