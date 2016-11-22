@@ -455,11 +455,19 @@ func SetUseFloatingIP(e environs.Environ, val bool) {
 }
 
 func SetUpGlobalGroup(e environs.Environ, name string, apiPort int) (neutron.SecurityGroupV2, error) {
-	return e.(*Environ).firewaller.(*defaultFirewaller).setUpGlobalGroup(name, apiPort)
+	switching := e.(*Environ).firewaller.(*switchingFirewaller)
+	if err := switching.initFirewaller(); err != nil {
+		return neutron.SecurityGroupV2{}, err
+	}
+	return switching.fw.(*neutronFirewaller).setUpGlobalGroup(name, apiPort)
 }
 
 func EnsureGroup(e environs.Environ, name string, rules []neutron.RuleInfoV2) (neutron.SecurityGroupV2, error) {
-	return e.(*Environ).firewaller.(*defaultFirewaller).ensureGroup(name, rules)
+	switching := e.(*Environ).firewaller.(*switchingFirewaller)
+	if err := switching.initFirewaller(); err != nil {
+		return neutron.SecurityGroupV2{}, err
+	}
+	return switching.fw.(*neutronFirewaller).ensureGroup(name, rules)
 }
 
 // ImageMetadataStorage returns a Storage object pointing where the goose
@@ -503,7 +511,7 @@ func GetNovaClient(e environs.Environ) *nova.Client {
 
 // ResolveNetwork exposes environ helper function resolveNetwork for testing
 func ResolveNetwork(e environs.Environ, networkName string) (string, error) {
-	return e.(*Environ).resolveNetwork(networkName)
+	return e.(*Environ).networking.ResolveNetwork(networkName)
 }
 
 var PortsToRuleInfo = portsToRuleInfo

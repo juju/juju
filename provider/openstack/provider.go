@@ -50,6 +50,11 @@ type EnvironProvider struct {
 	Configurator      ProviderConfigurator
 	FirewallerFactory FirewallerFactory
 	FlavorFilter      FlavorFilter
+
+	// NetworkingDecorator, if non-nil, will be used to
+	// decorate the default networking implementation.
+	// This can be used to override behaviour.
+	NetworkingDecorator NetworkingDecorator
 }
 
 var (
@@ -58,10 +63,11 @@ var (
 )
 
 var providerInstance *EnvironProvider = &EnvironProvider{
-	OpenstackCredentials{},
-	&defaultConfigurator{},
-	&firewallerFactory{},
-	FlavorFilterFunc(AcceptAllFlavors),
+	ProviderCredentials: OpenstackCredentials{},
+	Configurator:        &defaultConfigurator{},
+	FirewallerFactory:   &firewallerFactory{},
+	FlavorFilter:        FlavorFilterFunc(AcceptAllFlavors),
+	NetworkingDecorator: nil,
 }
 
 var cloudSchema = &jsonschema.Schema{
@@ -142,6 +148,17 @@ func (p EnvironProvider) Open(args environs.OpenParams) (environs.Environ, error
 		flavorFilter: p.FlavorFilter,
 	}
 	e.firewaller = p.FirewallerFactory.GetFirewaller(e)
+
+	var networking Networking = &switchingNetworking{env: e}
+	if p.NetworkingDecorator != nil {
+		var err error
+		networking, err = p.NetworkingDecorator.DecorateNetworking(networking)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+	e.networking = networking
+
 	if err := e.SetConfig(args.Config); err != nil {
 		return nil, err
 	}
@@ -232,6 +249,7 @@ type Environ struct {
 	availabilityZonesMutex sync.Mutex
 	availabilityZones      []common.AvailabilityZone
 	firewaller             Firewaller
+	networking             Networking
 	configurator           ProviderConfigurator
 	flavorFilter           FlavorFilter
 
@@ -667,7 +685,6 @@ func determineBestClient(
 }
 
 func authClient(spec environs.CloudSpec, ecfg *environConfig) (client.AuthenticatingClient, error) {
-
 	identityClientVersion, err := identityClientVersion(spec.Endpoint)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot create a client")
@@ -691,9 +708,10 @@ func authClient(spec environs.CloudSpec, ecfg *environConfig) (client.Authentica
 		}
 	}
 
-	// By default, the client requires "compute" and
-	// "object-store". Juju only requires "compute" and "network".
-	client.SetRequiredServiceTypes([]string{"compute", "network"})
+	// Juju requires "compute" at a minimum. We'll use "network" if it's
+	// available in preference to the Nova network APIs; and "volume" or
+	// "volume2" for storage if either one is available.
+	client.SetRequiredServiceTypes([]string{"compute"})
 	return client, nil
 }
 
@@ -818,137 +836,6 @@ func (e *Environ) getKeystoneDataSource(mu *sync.Mutex, datasource *simplestream
 	return *datasource, nil
 }
 
-// resolveNetwork takes either a network id or label and returns a network id
-func (e *Environ) resolveNetwork(networkName string) (string, error) {
-	if utils.IsValidUUIDString(networkName) {
-		// Network id supplied, assume valid as boot will fail if not
-		return networkName, nil
-	}
-	// Network label supplied, resolve to a network id
-	var networkIds = []string{}
-	neutronNetworks, err := e.neutron().ListNetworksV2()
-	if err != nil {
-		return "", err
-	}
-	for _, network := range neutronNetworks {
-		if network.Name == networkName {
-			networkIds = append(networkIds, network.Id)
-		}
-	}
-	switch len(networkIds) {
-	case 1:
-		return networkIds[0], nil
-	case 0:
-		return "", errors.Errorf("No networks exist with label %q", networkName)
-	}
-	return "", errors.Errorf("Multiple networks with label %q: %v", networkName, networkIds)
-}
-
-// Return all external networks within the given availability zone.  If azName
-// is empty, return all external networks
-func (e *Environ) getExternalNeutronNetworksByAZ(azName string) ([]string, error) {
-	externalNetwork := e.ecfg().externalNetwork()
-	if externalNetwork != "" {
-		// the config specified an external network, try it first.
-		netId, err := e.resolveNetwork(externalNetwork)
-		if err != nil {
-			logger.Debugf("external network %s not found, search for one", externalNetwork)
-		} else {
-			netDetails, err := e.neutron().GetNetworkV2(netId)
-			if err != nil {
-				return nil, err
-			}
-			// double check that the requested network is in the given AZ
-			for _, netAZ := range netDetails.AvailabilityZones {
-				if azName == netAZ {
-					logger.Debugf("using external network %q", externalNetwork)
-					return []string{netId}, nil
-				}
-			}
-			logger.Debugf("external network %s was found, however not in the %s availability zone", externalNetwork, azName)
-		}
-	}
-	// Find all external networks in availability zone
-	networks, err := e.neutron().ListNetworksV2()
-	if err != nil {
-		return nil, err
-	}
-	netIds := make([]string, 0)
-	for _, network := range networks {
-		if network.External == true {
-			for _, netAZ := range network.AvailabilityZones {
-				if azName == netAZ {
-					netIds = append(netIds, network.Id)
-					break
-				}
-			}
-		}
-	}
-	if len(netIds) == 0 {
-		return nil, errors.NewNotFound(nil, "No External networks found to allocate a Floating IP")
-	}
-	return netIds, nil
-}
-
-// allocatePublicIP tries to find an available floating IP address
-// based on the availability zone of the instance, or
-// allocates a new one, returning it, or an error
-func (e *Environ) allocatePublicIP(instId instance.Id) (*string, error) {
-	azNames, err := e.InstanceAvailabilityZoneNames([]instance.Id{instId})
-	if err != nil {
-		logger.Debugf("allocatePublicIP(): InstanceAvailabilityZoneNames() failed with %s\n", err)
-		return nil, err
-	}
-
-	// find the external networks in the same availability zone as the instance
-	extNetworkIds := make([]string, 0)
-	for _, az := range azNames {
-		// return one or an array?
-		extNetIds, _ := e.getExternalNeutronNetworksByAZ(az)
-		if len(extNetIds) > 0 {
-			extNetworkIds = append(extNetworkIds, extNetIds...)
-		}
-	}
-	if len(extNetworkIds) == 0 {
-		return nil, errors.NewNotFound(nil, "Could not find an external network in availablity zone")
-	}
-
-	fips, err := e.neutron().ListFloatingIPsV2()
-	if err != nil {
-		return nil, err
-	}
-
-	var newfip *neutron.FloatingIPV2
-	// Is there an unused FloatingIP on an external network in the instance's availability zone?
-	for _, fip := range fips {
-		if fip.FixedIP == "" {
-			// Not a perfect solution.  If an external network was specified in the
-			// config, it'll be at the top of the extNetworkIds, but may be not used
-			// if the available FIP isn't it in.  However the instance and the
-			// FIP will be in the same availability zone.
-			for _, extNetId := range extNetworkIds {
-				if fip.FloatingNetworkId == extNetId {
-					// unassigned, we can use it
-					newfip = &fip
-					logger.Debugf("found unassigned public ip: %v", newfip.IP)
-					return &newfip.IP, nil
-				}
-			}
-		}
-	}
-
-	// allocate a new IP and use it
-	for _, extNetId := range extNetworkIds {
-		newfip, err = e.neutron().AllocateFloatingIPV2(extNetId)
-		if err == nil {
-			logger.Debugf("allocated new public IP: %s", newfip.IP)
-			return &newfip.IP, nil
-		}
-	}
-	logger.Debugf("Unable to allocate a public IP")
-	return nil, err
-}
-
 // assignPublicIP tries to assign the given floating IP address to the
 // specified server, or returns an error.
 func (e *Environ) assignPublicIP(fip *string, serverId string) (err error) {
@@ -1057,10 +944,13 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	}
 	logger.Debugf("openstack user data; %d bytes", len(userData))
 
-	var networks = e.firewaller.InitialNetworks()
+	networks, err := e.networking.DefaultNetworks()
+	if err != nil {
+		return nil, errors.Annotate(err, "getting initial networks")
+	}
 	usingNetwork := e.ecfg().network()
 	if usingNetwork != "" {
-		networkId, err := e.resolveNetwork(usingNetwork)
+		networkId, err := e.networking.ResolveNetwork(usingNetwork)
 		if err != nil {
 			return nil, err
 		}
@@ -1075,15 +965,15 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		// All ports are the same so pick the first.
 		apiPort = args.InstanceConfig.APIInfo.Ports()[0]
 	}
-	var groupNames = make([]nova.SecurityGroupName, 0)
-	groups, err := e.firewaller.SetUpGroups(args.ControllerUUID, args.InstanceConfig.MachineId, apiPort)
+	groupNames, err := e.firewaller.SetUpGroups(args.ControllerUUID, args.InstanceConfig.MachineId, apiPort)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot set up groups")
 	}
-
-	for _, g := range groups {
-		groupNames = append(groupNames, nova.SecurityGroupName{g.Name})
+	novaGroupNames := make([]nova.SecurityGroupName, len(groupNames))
+	for i, name := range groupNames {
+		novaGroupNames[i].Name = name
 	}
+
 	machineName := resourceName(
 		e.namespace,
 		e.name,
@@ -1133,7 +1023,7 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		FlavorId:           spec.InstanceType.Id,
 		ImageId:            spec.Image.Id,
 		UserData:           userData,
-		SecurityGroupNames: groupNames,
+		SecurityGroupNames: novaGroupNames,
 		Networks:           networks,
 		Metadata:           args.InstanceConfig.Tags,
 	}
@@ -1158,7 +1048,7 @@ func (e *Environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	if withPublicIP {
 		var publicIP *string
 		logger.Debugf("allocating public IP address for openstack node")
-		if fip, err := e.allocatePublicIP(inst.Id()); err != nil {
+		if fip, err := e.networking.AllocatePublicIP(inst.Id()); err != nil {
 			return nil, errors.Annotate(err, "cannot allocate a public IP as needed")
 		} else {
 			publicIP = fip
@@ -1202,7 +1092,7 @@ func (e *Environ) StopInstances(ids ...instance.Id) error {
 		return err
 	}
 	if securityGroupNames != nil {
-		return e.deleteSecurityGroups(securityGroupNames)
+		return e.firewaller.DeleteGroups(securityGroupNames...)
 	}
 	return nil
 }
@@ -1498,26 +1388,6 @@ func (e *Environ) Ports() ([]network.PortRange, error) {
 
 func (e *Environ) Provider() environs.EnvironProvider {
 	return providerInstance
-}
-
-// deleteSecurityGroups deletes the given security groups. If a security
-// group is also used by another environment (see bug #1300755), an attempt
-// to delete this group fails. A warning is logged in this case.
-func (e *Environ) deleteSecurityGroups(securityGroupNames []string) error {
-	neutronClient := e.neutron()
-	allSecurityGroups, err := neutronClient.ListSecurityGroupsV2()
-	if err != nil {
-		return err
-	}
-	for _, securityGroup := range allSecurityGroups {
-		for _, name := range securityGroupNames {
-			if securityGroup.Name == name {
-				deleteSecurityGroup(neutronClient, name, securityGroup.Id, e.clock)
-				break
-			}
-		}
-	}
-	return nil
 }
 
 func (e *Environ) terminateInstances(ids []instance.Id) error {
