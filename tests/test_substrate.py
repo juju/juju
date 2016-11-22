@@ -637,7 +637,7 @@ def get_gce_config():
     return {
         'type': 'gce',
         'client-email': 'me@serviceaccount.google.com',
-        'pem-path': '/gce-serveraccount.json',
+        'private-key': 'KEY',
         'project-id': 'test-project',
     }
 
@@ -651,9 +651,12 @@ class TestGCEAccount(FakeHomeTestCase):
         with patch('gce.get_client', return_value=client) as gc_mock:
             with GCEAccount.from_boot_config(boot_config) as account:
                 self.assertIs(client, account.client)
-        gc_mock.assert_called_once_with(
-            'me@serviceaccount.google.com', '/gce-serveraccount.json',
-            'test-project')
+                args = gc_mock.call_args[0]
+                self.assertEqual('me@serviceaccount.google.com', args[0])
+                self.assertEqual('test-project', args[2])
+                with open(args[1], 'r') as kf:
+                    key = kf.read()
+                self.assertEqual('KEY', key)
 
     def test_terminate_instances(self):
         client = test_gce.make_fake_client()
@@ -1383,9 +1386,10 @@ class TestMakeSubstrateManager(FakeHomeTestCase):
                    autospec=True, return_value=client) as gc_mock:
             with make_substrate_manager(boot_config) as account:
                 self.assertIs(client, account.client)
-        gc_mock.assert_called_once_with(
-            'me@serviceaccount.google.com', '/gce-serveraccount.json',
-            'test-project')
+        args = gc_mock.call_args[0]
+        self.assertEqual('me@serviceaccount.google.com', args[0])
+        self.assertIsTrue(args[1].endswith('gce.pem'))
+        self.assertEqual('test-project', args[2])
 
     def test_make_substrate_manager_other(self):
         config = get_os_config()

@@ -310,10 +310,13 @@ class GCEAccount:
     def from_boot_config(cls, boot_config):
         """A context manager for a GCE account."""
         config = get_config(boot_config)
-        client = gce.get_client(
-            config['client-email'], config['pem-path'],
-            config['project-id'])
-        yield cls(client)
+        with temp_dir() as cert_dir:
+            cert_file = os.path.join(cert_dir, 'gce.pem')
+            open(cert_file, 'w').write(config['private-key'])
+            client = gce.get_client(
+                config['client-email'], cert_file,
+                config['project-id'])
+            yield cls(client)
 
     def terminate_instances(self, instance_ids):
         """Terminate the specified instances."""
