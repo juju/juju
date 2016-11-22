@@ -37,6 +37,7 @@ import (
 	"github.com/juju/juju/status"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testcharms"
+	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -2540,6 +2541,7 @@ func remoteOffers() []params.ApplicationOffer {
 		{
 			ApplicationURL:  "local:/u/me/prod/hosted-mysql",
 			ApplicationName: "mysqlremote",
+			SourceModelTag:  coretesting.ModelTag.String(),
 			Endpoints: []params.RemoteEndpoint{
 				{
 					Name:      "server",
@@ -2595,6 +2597,7 @@ func (s *serviceSuite) TestRemoteRelationNoMatchingEndpoint(c *gc.C) {
 		{
 			ApplicationURL:  "local:/u/me/prod/hosted-mysql",
 			ApplicationName: "mysqlremote",
+			SourceModelTag:  coretesting.ModelTag.String(),
 			Endpoints: []params.RemoteEndpoint{
 				{
 					Name:      "admin",

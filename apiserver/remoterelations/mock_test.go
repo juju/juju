@@ -4,13 +4,14 @@
 package remoterelations_test
 
 import (
+	"github.com/juju/errors"
+	"github.com/juju/testing"
+	"gopkg.in/juju/names.v2"
 	"gopkg.in/tomb.v1"
 
-	"github.com/juju/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/remoterelations"
 	"github.com/juju/juju/state"
-	"github.com/juju/testing"
 )
 
 type mockState struct {
@@ -30,6 +31,30 @@ func newMockState() *mockState {
 		remoteApplicationsWatcher:    newMockStringsWatcher(),
 		applicationRelationsWatchers: make(map[string]*mockStringsWatcher),
 	}
+}
+
+func (st *mockState) ExportLocalEntity(entity names.Tag) (string, error) {
+	st.MethodCall(st, "ExportLocalEntity", entity)
+	if err := st.NextErr(); err != nil {
+		return "", err
+	}
+	return "", errors.NotImplementedf("ExportLocalEntity")
+}
+
+func (st *mockState) GetRemoteEntity(sourceModel names.ModelTag, token string) (names.Tag, error) {
+	st.MethodCall(st, "GetRemoteEntity", sourceModel, token)
+	if err := st.NextErr(); err != nil {
+		return nil, err
+	}
+	return nil, errors.NotImplementedf("GetRemoteEntity")
+}
+
+func (st *mockState) GetToken(sourceModel names.ModelTag, entity names.Tag) (string, error) {
+	st.MethodCall(st, "GetToken", sourceModel, entity)
+	if err := st.NextErr(); err != nil {
+		return "", err
+	}
+	return "", errors.NotImplementedf("GetToken")
 }
 
 func (st *mockState) KeyRelation(key string) (remoterelations.Relation, error) {
@@ -189,9 +214,9 @@ func (r *mockRemoteApplication) Name() string {
 	return r.name
 }
 
-func (r *mockRemoteApplication) URL() string {
+func (r *mockRemoteApplication) URL() (string, bool) {
 	r.MethodCall(r, "URL")
-	return r.url
+	return r.url, r.url != ""
 }
 
 func (r *mockRemoteApplication) Destroy() error {

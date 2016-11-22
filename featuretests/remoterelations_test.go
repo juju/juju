@@ -36,7 +36,11 @@ func (s *remoteRelationsSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *remoteRelationsSuite) TestWatchRemoteApplications(c *gc.C) {
-	_, err := s.State.AddRemoteApplication("mysql", "local:/u/me/mysql", nil)
+	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:        "mysql",
+		URL:         "local:/u/me/mysql",
+		SourceModel: testing.ModelTag,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	w, err := s.client.WatchRemoteApplications()
@@ -52,7 +56,11 @@ func (s *remoteRelationsSuite) TestWatchRemoteApplications(c *gc.C) {
 	wc.AssertChangeInSingleEvent("mysql")
 	wc.AssertNoChange()
 
-	_, err = s.State.AddRemoteApplication("db2", "local:/u/ibm/db2", nil)
+	_, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:        "db2",
+		URL:         "local:/u/me/db2",
+		SourceModel: testing.ModelTag,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChangeInSingleEvent("db2")
 	wc.AssertNoChange()
@@ -61,12 +69,16 @@ func (s *remoteRelationsSuite) TestWatchRemoteApplications(c *gc.C) {
 func (s *remoteRelationsSuite) TestWatchRemoteApplicationRelations(c *gc.C) {
 	// Add a remote application, and watch it. It should initially have no
 	// relations.
-	_, err := s.State.AddRemoteApplication("mysql", "local:/u/me/mysql", []charm.Relation{{
-		Interface: "mysql",
-		Name:      "db",
-		Role:      charm.RoleProvider,
-		Scope:     charm.ScopeGlobal,
-	}})
+	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:        "mysql",
+		URL:         "local:/u/me/mysql",
+		SourceModel: testing.ModelTag,
+		Endpoints: []charm.Relation{{
+			Interface: "mysql",
+			Name:      "db",
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
+		}}})
 	c.Assert(err, jc.ErrorIsNil)
 	w, err := s.client.WatchRemoteApplicationRelations("mysql")
 	c.Assert(err, jc.ErrorIsNil)
@@ -116,12 +128,16 @@ func assertNoRemoteRelationsChange(c *gc.C, ss statetesting.SyncStarter, w watch
 }
 
 func (s *remoteRelationsSuite) TestWatchLocalRelationUnits(c *gc.C) {
-	_, err := s.State.AddRemoteApplication("mysql", "local:/u/me/mysql", []charm.Relation{{
-		Interface: "mysql",
-		Name:      "db",
-		Role:      charm.RoleProvider,
-		Scope:     charm.ScopeGlobal,
-	}})
+	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:        "mysql",
+		URL:         "local:/u/me/mysql",
+		SourceModel: testing.ModelTag,
+		Endpoints: []charm.Relation{{
+			Interface: "mysql",
+			Name:      "db",
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
+		}}})
 	c.Assert(err, jc.ErrorIsNil)
 	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	eps, err := s.State.InferEndpoints("wordpress", "mysql")

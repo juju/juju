@@ -32,7 +32,7 @@ type OfferFilters struct {
 type OfferFilter struct {
 	ApplicationURL         string                     `json:"application-url"`
 	SourceLabel            string                     `json:"source-label"`
-	SourceModelUUIDTag     string                     `json:"source-uuid"`
+	SourceModelUUIDTag     string                     `json:"source-model-uuid"`
 	ApplicationName        string                     `json:"application-name"`
 	ApplicationDescription string                     `json:"application-description"`
 	ApplicationUser        string                     `json:"application-user"`

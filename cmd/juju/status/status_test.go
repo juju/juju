@@ -2996,7 +2996,12 @@ func (as addRemoteApplication) step(c *gc.C, ctx *context) {
 		c.Assert(ok, jc.IsTrue)
 		endpoints = append(endpoints, r)
 	}
-	_, err := ctx.st.AddRemoteApplication(as.name, as.url, endpoints)
+	_, err := ctx.st.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:        as.name,
+		URL:         as.url,
+		SourceModel: coretesting.ModelTag,
+		Endpoints:   endpoints,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 }
 

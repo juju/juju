@@ -312,7 +312,12 @@ func addTestingRemoteApplication(
 	c *gc.C, st *State, name, url string, relations []charm.Relation,
 ) (*RemoteApplication, multiwatcher.RemoteApplicationInfo) {
 
-	rs, err := st.AddRemoteApplication(name, url, relations)
+	rs, err := st.AddRemoteApplication(AddRemoteApplicationParams{
+		Name:        name,
+		URL:         url,
+		SourceModel: testing.ModelTag,
+		Endpoints:   relations,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	return rs, multiwatcher.RemoteApplicationInfo{
 		ModelUUID:      st.ModelUUID(),

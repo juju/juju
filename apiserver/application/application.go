@@ -14,6 +14,7 @@ import (
 	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/charm.v6-unstable"
 	csparams "gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
+	"gopkg.in/juju/names.v2"
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/common"
@@ -808,6 +809,11 @@ func saveRemoteApplication(
 
 	// Create a remote application entry in the model for the consumed service.
 	offer := offers.Offers[0]
+	sourceModelTag, err := names.ParseModelTag(offer.SourceModelTag)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	remoteApp, err := backend.RemoteApplication(url.ApplicationName)
 	if err != nil && !errors.IsNotFound(err) {
 		return nil, errors.Trace(err)
@@ -826,7 +832,12 @@ func saveRemoteApplication(
 			Scope:     ep.Scope,
 		}
 	}
-	remoteApp, err = backend.AddRemoteApplication(url.ApplicationName, url.String(), remoteEps)
+	remoteApp, err = backend.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:        url.ApplicationName,
+		URL:         url.String(),
+		SourceModel: sourceModelTag,
+		Endpoints:   remoteEps,
+	})
 	if err != nil {
 		if !errors.IsAlreadyExists(err) {
 			return nil, errors.Trace(err)
