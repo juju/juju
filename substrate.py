@@ -308,7 +308,10 @@ class GCEAccount:
     @classmethod
     @contextmanager
     def from_boot_config(cls, boot_config):
-        """A context manager for a GCE account."""
+        """A context manager for a GCE account.
+
+        This creates a temporary cert file from the private-key.
+        """
         config = get_config(boot_config)
         with temp_dir() as cert_dir:
             cert_file = os.path.join(cert_dir, 'gce.pem')
