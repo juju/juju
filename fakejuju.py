@@ -174,7 +174,15 @@ class FakeEnvironmentState:
         for containers in self.containers.values():
             containers.discard(container_id)
 
-    def remove_machine(self, machine_id):
+    def remove_machine(self, machine_id, force=False):
+        if not force:
+            for units, unit_id, loop_machine_id in self.iter_unit_machines():
+                if loop_machine_id != machine_id:
+                    continue
+                logging.error(
+                    'no machines were destroyed: machine {} has unit "{}"'
+                    ' assigned'.format(machine_id, unit_id))
+                raise subprocess.CalledProcessError(1, 'machine assigned.')
         self.machines.remove(machine_id)
         self.containers.pop(machine_id, None)
 
@@ -220,13 +228,20 @@ class FakeEnvironmentState:
             ('{}/{}'.format(service_name, str(len(machines))),
              self.add_machine()))
 
-    def remove_unit(self, to_remove):
+    def iter_unit_machines(self):
         for units in self.services.values():
             for unit_id, machine_id in units:
-                if unit_id == to_remove:
-                    self.remove_machine(machine_id)
-                    units.remove((unit_id, machine_id))
-                    break
+                yield units, unit_id, machine_id
+
+    def remove_unit(self, to_remove):
+        for units, unit_id, machine_id in self.iter_unit_machines():
+            if unit_id == to_remove:
+                units.remove((unit_id, machine_id))
+                self.remove_machine(machine_id)
+                break
+        else:
+            raise subprocess.CalledProcessError(
+                1, 'juju remove-unit {}'.format(unit_id))
 
     def destroy_service(self, service_name):
         for unit, machine_id in self.services.pop(service_name):
@@ -768,7 +783,7 @@ class FakeBackend:
                 if '/' in machine_id:
                     model_state.remove_container(machine_id)
                 else:
-                    model_state.remove_machine(machine_id)
+                    model_state.remove_machine(machine_id, parsed.force)
             if command == 'quickstart':
                 parser = ArgumentParser()
                 parser.add_argument('--constraints')
