@@ -327,7 +327,8 @@ class GCEAccount:
             # Pass old_age=0 to mean delete now.
             count = gce.delete_instances(self.client, instance_id, old_age=0)
             if count != 1:
-                raise Exception('Failed to delete {}'.format(instance_id))
+                raise Exception('Failed to delete {}: deleted {}'.format(
+                    instance_id, count))
 
 
 class AzureARMAccount:
