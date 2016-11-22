@@ -92,11 +92,8 @@ class FakeHomeTestCase(TestCase):
             is removed."""
         dest_file = os.path.join(self.home_dir, '.juju/public-clouds.yaml')
         if data_dict is None:
-            try:
+            with utility.skip_on_missing_file():
                 os.remove(dest_file)
-            except OSError as error:
-                if error.errno != errno.ENOENT:
-                    raise
         else:
             with open(dest_file, 'w') as file:
                 yaml.safe_dump(data_dict, file)
