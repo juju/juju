@@ -18,11 +18,11 @@ type remoteRelationsSuite struct {
 	coretesting.BaseSuite
 }
 
-func (s *remoteRelationsSuite) TestNewState(c *gc.C) {
+func (s *remoteRelationsSuite) TestNewClient(c *gc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		return nil
 	})
-	st := remoterelations.NewState(apiCaller)
+	st := remoterelations.NewClient(apiCaller)
 	c.Assert(st, gc.NotNil)
 }
 
@@ -40,7 +40,7 @@ func (s *remoteRelationsSuite) TestWatchRemoteApplications(c *gc.C) {
 		callCount++
 		return nil
 	})
-	st := remoterelations.NewState(apiCaller)
+	st := remoterelations.NewClient(apiCaller)
 	_, err := st.WatchRemoteApplications()
 	c.Check(err, gc.ErrorMatches, "FAIL")
 	c.Check(callCount, gc.Equals, 1)
@@ -62,7 +62,7 @@ func (s *remoteRelationsSuite) TestWatchRemoteApplicationRelations(c *gc.C) {
 		callCount++
 		return nil
 	})
-	st := remoterelations.NewState(apiCaller)
+	st := remoterelations.NewClient(apiCaller)
 	_, err := st.WatchRemoteApplicationRelations("db2")
 	c.Check(err, gc.ErrorMatches, "FAIL")
 	c.Check(callCount, gc.Equals, 1)
@@ -72,7 +72,7 @@ func (s *remoteRelationsSuite) TestWatchRemoteApplicationInvalidApplication(c *g
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		return nil
 	})
-	st := remoterelations.NewState(apiCaller)
+	st := remoterelations.NewClient(apiCaller)
 	_, err := st.WatchRemoteApplicationRelations("!@#")
 	c.Assert(err, gc.ErrorMatches, `application name "!@#" not valid`)
 }
@@ -93,7 +93,7 @@ func (s *remoteRelationsSuite) TestWatchLocalRelationUnits(c *gc.C) {
 		callCount++
 		return nil
 	})
-	st := remoterelations.NewState(apiCaller)
+	st := remoterelations.NewClient(apiCaller)
 	_, err := st.WatchLocalRelationUnits("relation-wordpress:db mysql:db")
 	c.Check(err, gc.ErrorMatches, "FAIL")
 	c.Check(callCount, gc.Equals, 1)

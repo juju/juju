@@ -26,13 +26,13 @@ import (
 
 type remoteRelationsSuite struct {
 	jujutesting.JujuConnSuite
-	client *remoterelations.State
+	client *remoterelations.Client
 }
 
 func (s *remoteRelationsSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	conn, _ := s.OpenAPIAsNewMachine(c, state.JobManageModel)
-	s.client = remoterelations.NewState(conn)
+	s.client = remoterelations.NewClient(conn)
 }
 
 func (s *remoteRelationsSuite) TestWatchRemoteApplications(c *gc.C) {
