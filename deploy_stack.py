@@ -979,9 +979,8 @@ class BootstrapManager:
                     for m_client in self.client.iter_model_clients():
                         m_client.show_status()
                     yield machines
-        except LoggedException as exc:
+        except LoggedException:
             sys.exit(1)
-            raise exc.exception
 
     @contextmanager
     def existing_booted_context(self, upload_tools, **kwargs):
