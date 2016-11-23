@@ -2347,8 +2347,9 @@ class TestEnvJujuClient(ClientTest):
             'services': {},
         })
         client = EnvJujuClient(JujuData('local'), None, None)
-        with patch('jujupy.until_timeout', lambda x: range(0)):
-            with patch.object(client, 'get_juju_output', return_value=value):
+        status = client.status_class.from_text(value)
+        with patch('jujupy.until_timeout', lambda x, start=None: range(0)):
+            with patch.object(client, 'get_status', return_value=status):
                 with self.assertRaisesRegexp(
                         StatusNotMet,
                         'Timed out waiting for voting to be enabled.'):
@@ -4416,8 +4417,9 @@ class TestEnvJujuClient1X(ClientTest):
             'services': {},
         })
         client = EnvJujuClient1X(SimpleEnvironment('local'), None, None)
-        with patch('jujupy.until_timeout', lambda x: range(0)):
-            with patch.object(client, 'get_juju_output', return_value=value):
+        status = client.status_class.from_text(value)
+        with patch('jujupy.until_timeout', lambda x, start=None: range(0)):
+            with patch.object(client, 'get_status', return_value=status):
                 with self.assertRaisesRegexp(
                         StatusNotMet,
                         'Timed out waiting for voting to be enabled.'):
