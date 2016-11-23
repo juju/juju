@@ -7,6 +7,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"io"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"path/filepath"
@@ -195,8 +196,8 @@ func newServer(s *state.State, lis net.Listener, cfg ServerConfig) (_ *Server, e
 	if err := srv.updateCertificate(cfg.Cert, cfg.Key); err != nil {
 		return nil, errors.Annotatef(err, "cannot set initial certificate")
 	}
-	logPath := filepath.Join(srv.logDir, "logsink.log")
-	logSinkWriter, err := newLogSinkWriter(logPath)
+
+	logSinkWriter, err := newLogSinkWriter(filepath.Join(srv.logDir, "logsink.log"))
 	if err != nil {
 		return nil, errors.Annotate(err, "creating logsink writer")
 	}
@@ -366,13 +367,18 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 	strictCtxt.controllerModelOnly = true
 
 	mainAPIHandler := srv.trackRequests(http.HandlerFunc(srv.apiHandler))
-	logSinkHandler := newLogSinkHandler(httpCtxt, srv.logSinkWriter, newAgentLoggingStrategy)
 	logStreamHandler := srv.trackRequests(newLogStreamEndpointHandler(strictCtxt))
 	debugLogHandler := srv.trackRequests(newDebugLogDBHandler(httpCtxt))
 
-	add("/model/:modeluuid/logsink", srv.trackRequests(logSinkHandler))
 	add("/model/:modeluuid/logstream", logStreamHandler)
 	add("/model/:modeluuid/log", debugLogHandler)
+
+	logSinkHandler := newLogSinkHandler(httpCtxt, srv.logSinkWriter, newAgentLoggingStrategy)
+	add("/model/:modeluuid/logsink", srv.trackRequests(logSinkHandler))
+
+	// We don't need to save the migrated logs to a logfile as well as to the DB.
+	logTransferHandler := newLogSinkHandler(httpCtxt, ioutil.Discard, newMigrationLoggingStrategy)
+	add("/migrate/logtransfer", srv.trackRequests(logTransferHandler))
 
 	modelCharmsHandler := &charmsHandler{
 		ctxt:          httpCtxt,
