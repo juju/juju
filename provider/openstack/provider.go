@@ -233,7 +233,7 @@ type Environ struct {
 
 	ecfgMutex       sync.Mutex
 	ecfgUnlocked    *environConfig
-	client          client.AuthenticatingClient
+	clientUnlocked  client.AuthenticatingClient
 	novaUnlocked    *nova.Client
 	neutronUnlocked *neutron.Client
 	volumeURL       *url.URL
@@ -432,6 +432,13 @@ func (e *Environ) ecfg() *environConfig {
 	return ecfg
 }
 
+func (e *Environ) client() client.AuthenticatingClient {
+	e.ecfgMutex.Lock()
+	client := e.clientUnlocked
+	e.ecfgMutex.Unlock()
+	return client
+}
+
 func (e *Environ) nova() *nova.Client {
 	e.ecfgMutex.Lock()
 	nova := e.novaUnlocked
@@ -578,8 +585,21 @@ func (e *Environ) PrecheckInstance(series string, cons constraints.Value, placem
 // PrepareForBootstrap is part of the Environ interface.
 func (e *Environ) PrepareForBootstrap(ctx environs.BootstrapContext) error {
 	// Verify credentials.
-	if err := authenticateClient(e.client); err != nil {
+	if err := authenticateClient(e.client()); err != nil {
 		return err
+	}
+	if !e.supportsNeutron() {
+		logger.Warningf(`Using deprecated OpenStack APIs.
+
+  Neutron networking is not supported by this OpenStack cloud.
+  Falling back to deprecated Nova networking.
+
+  Support for deprecated Nova networking APIs will be removed
+  in a future Juju release. Please upgrade to OpenStack Icehouse
+  or newer to maintain compatibility.
+
+`,
+		)
 	}
 	return nil
 }
@@ -587,7 +607,7 @@ func (e *Environ) PrepareForBootstrap(ctx environs.BootstrapContext) error {
 // Create is part of the Environ interface.
 func (e *Environ) Create(environs.CreateParams) error {
 	// Verify credentials.
-	if err := authenticateClient(e.client); err != nil {
+	if err := authenticateClient(e.client()); err != nil {
 		return err
 	}
 	// TODO(axw) 2016-08-04 #1609643
@@ -599,10 +619,17 @@ func (e *Environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 	// The client's authentication may have been reset when finding tools if the agent-version
 	// attribute was updated so we need to re-authenticate. This will be a no-op if already authenticated.
 	// An authenticated client is needed for the URL() call below.
-	if err := authenticateClient(e.client); err != nil {
+	if err := authenticateClient(e.client()); err != nil {
 		return nil, err
 	}
 	return common.Bootstrap(ctx, e, args)
+}
+
+func (e *Environ) supportsNeutron() bool {
+	client := e.client()
+	endpointMap := client.EndpointsForRegion(e.cloud.Region)
+	_, ok := endpointMap["network"]
+	return ok
 }
 
 // BootstrapMessage is part of the Environ interface.
@@ -750,9 +777,9 @@ func (e *Environ) SetConfig(cfg *config.Config) error {
 	if err != nil {
 		return errors.Annotate(err, "cannot set config")
 	}
-	e.client = client
-	e.novaUnlocked = nova.New(e.client)
-	e.neutronUnlocked = neutron.New(e.client)
+	e.clientUnlocked = client
+	e.novaUnlocked = nova.New(e.clientUnlocked)
+	e.neutronUnlocked = neutron.New(e.clientUnlocked)
 	return nil
 }
 
@@ -818,13 +845,15 @@ func (e *Environ) getKeystoneDataSource(mu *sync.Mutex, datasource *simplestream
 	if *datasource != nil {
 		return *datasource, nil
 	}
-	if !e.client.IsAuthenticated() {
-		if err := authenticateClient(e.client); err != nil {
+
+	client := e.client()
+	if !client.IsAuthenticated() {
+		if err := authenticateClient(client); err != nil {
 			return nil, err
 		}
 	}
 
-	url, err := makeServiceURL(e.client, keystoneName, "", nil)
+	url, err := makeServiceURL(client, keystoneName, "", nil)
 	if err != nil {
 		return nil, errors.NewNotSupported(err, fmt.Sprintf("cannot make service URL: %v", err))
 	}

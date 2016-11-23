@@ -56,19 +56,18 @@ func (n *switchingNetworking) initNetworking() error {
 		return nil
 	}
 
-	if !n.env.client.IsAuthenticated() {
-		if err := authenticateClient(n.env.client); err != nil {
+	client := n.env.client()
+	if !client.IsAuthenticated() {
+		if err := authenticateClient(client); err != nil {
 			return errors.Trace(err)
 		}
 	}
 
 	base := networkingBase{env: n.env}
-	endpoints := n.env.client.EndpointsForRegion(n.env.cloud.Region)
-	if _, ok := endpoints["network"]; ok {
+	if n.env.supportsNeutron() {
 		n.networking = &NeutronNetworking{base}
 	} else {
-		// TODO(axw) return a nova-based implementation.
-		return errors.NotSupportedf("neutron networking")
+		n.networking = &LegacyNovaNetworking{base}
 	}
 	return nil
 }
@@ -122,7 +121,7 @@ func (n *NeutronNetworking) AllocatePublicIP(instId instance.Id) (*string, error
 	azNames, err := n.env.InstanceAvailabilityZoneNames([]instance.Id{instId})
 	if err != nil {
 		logger.Debugf("allocatePublicIP(): InstanceAvailabilityZoneNames() failed with %s\n", err)
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 
 	// find the external networks in the same availability zone as the instance
@@ -140,7 +139,7 @@ func (n *NeutronNetworking) AllocatePublicIP(instId instance.Id) (*string, error
 
 	fips, err := n.env.neutron().ListFloatingIPsV2()
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 
 	// Is there an unused FloatingIP on an external network in the instance's availability zone?
@@ -187,7 +186,7 @@ func getExternalNeutronNetworksByAZ(e *Environ, azName string) ([]string, error)
 		} else {
 			netDetails, err := neutron.GetNetworkV2(netId)
 			if err != nil {
-				return nil, err
+				return nil, errors.Trace(err)
 			}
 			// double check that the requested network is in the given AZ
 			for _, netAZ := range netDetails.AvailabilityZones {
@@ -202,7 +201,7 @@ func getExternalNeutronNetworksByAZ(e *Environ, azName string) ([]string, error)
 	// Find all external networks in availability zone
 	networks, err := neutron.ListNetworksV2()
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	netIds := make([]string, 0)
 	for _, network := range networks {
@@ -223,7 +222,7 @@ func getExternalNeutronNetworksByAZ(e *Environ, azName string) ([]string, error)
 
 // DefaultNetworks is part of the Networking interface.
 func (n *NeutronNetworking) DefaultNetworks() ([]nova.ServerNetworks, error) {
-	return nil, nil
+	return []nova.ServerNetworks{}, nil
 }
 
 // ResolveNetwork is part of the Networking interface.
