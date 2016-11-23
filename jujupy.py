@@ -3146,7 +3146,7 @@ class EnvJujuClient1X(EnvJujuClientRC):
         )
         if name:
             args += (name,)
-        self.juju('deployer', args, self.env.needs_sudo())
+        self.juju('deployer', args)
 
     def deploy(self, charm, repository=None, to=None, series=None,
                service=None, force=False, storage=None, constraints=None):
