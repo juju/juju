@@ -4806,9 +4806,7 @@ class TestEnvJujuClient1X(ClientTest):
             client.deploy_bundle('bundle:~juju-qa/some-bundle')
         mock_juju.assert_called_with(
             'deployer', ('--debug', '--deploy-delay', '10', '--timeout',
-                         '3600', '--config', 'bundle:~juju-qa/some-bundle'),
-            False
-        )
+                         '3600', '--config', 'bundle:~juju-qa/some-bundle'))
 
     def test_deploy_bundle_template(self):
         client = EnvJujuClient1X(SimpleEnvironment('an_env', None),
@@ -4818,9 +4816,7 @@ class TestEnvJujuClient1X(ClientTest):
         mock_juju.assert_called_with(
             'deployer', (
                 '--debug', '--deploy-delay', '10', '--timeout', '3600',
-                '--config', 'bundle:~juju-qa/some-lxc-bundle',
-                ),
-            False)
+                '--config', 'bundle:~juju-qa/some-lxc-bundle'))
 
     def test_deployer(self):
         client = EnvJujuClient1X(SimpleEnvironment(None, {'type': 'local'}),
@@ -4829,8 +4825,7 @@ class TestEnvJujuClient1X(ClientTest):
             client.deployer('bundle:~juju-qa/some-bundle')
         mock.assert_called_with(
             'deployer', ('--debug', '--deploy-delay', '10', '--timeout',
-                         '3600', '--config', 'bundle:~juju-qa/some-bundle'),
-            True)
+                         '3600', '--config', 'bundle:~juju-qa/some-bundle'))
 
     def test_deployer_template(self):
         client = EnvJujuClient1X(SimpleEnvironment(None, {'type': 'local'}),
@@ -4840,8 +4835,7 @@ class TestEnvJujuClient1X(ClientTest):
         mock.assert_called_with(
             'deployer', (
                 '--debug', '--deploy-delay', '10', '--timeout', '3600',
-                '--config', 'bundle:~juju-qa/some-lxc-bundle',
-                ), True)
+                '--config', 'bundle:~juju-qa/some-lxc-bundle'))
 
     def test_deployer_with_bundle_name(self):
         client = EnvJujuClient1X(SimpleEnvironment(None, {'type': 'local'}),
@@ -4851,7 +4845,7 @@ class TestEnvJujuClient1X(ClientTest):
         mock.assert_called_with(
             'deployer', ('--debug', '--deploy-delay', '10', '--timeout',
                          '3600', '--config', 'bundle:~juju-qa/some-bundle',
-                         'name'), True)
+                         'name'))
 
     def test_quickstart_maas(self):
         client = EnvJujuClient1X(SimpleEnvironment(None, {'type': 'maas'}),
