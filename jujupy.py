@@ -1898,7 +1898,7 @@ class EnvJujuClient:
             command, args, self.used_feature_flags, self.env.juju_home,
             model, check, timeout, extra_env)
 
-    def expect(self, command, args=(), sudo=False, include_e=True,
+    def expect(self, command, args=(), include_e=True,
                timeout=None, extra_env=None):
         """Return a process object that is running an interactive `command`.
 
@@ -1906,7 +1906,6 @@ class EnvJujuClient:
 
         :param command: String of the juju command to run.
         :param args: Tuple containing arguments for the juju `command`.
-        :param sudo: Whether to call `command` using sudo.
         :param include_e: Boolean regarding supplying the juju environment to
           `command`.
         :param timeout: A float that, if provided, is the timeout in which the
