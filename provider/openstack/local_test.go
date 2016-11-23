@@ -467,7 +467,7 @@ func (s *localServerSuite) TestStartInstanceNetworkUnknownLabel(c *gc.C) {
 
 	inst, _, _, err := testing.StartInstance(s.env, s.ControllerUUID, "100")
 	c.Check(inst, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "No networks exist with label .*")
+	c.Assert(err, gc.ErrorMatches, "no networks exist with label .*")
 }
 
 func (s *localServerSuite) TestStartInstanceExternalNetworkUnknownLabel(c *gc.C) {
@@ -1528,7 +1528,7 @@ func (s *localServerSuite) TestResolveNetworkNotPresent(c *gc.C) {
 	var notPresentNetwork = "no-network-with-this-label"
 	networkId, err := openstack.ResolveNetwork(s.env, notPresentNetwork)
 	c.Check(networkId, gc.Equals, "")
-	c.Assert(err, gc.ErrorMatches, `No networks exist with label "no-network-with-this-label"`)
+	c.Assert(err, gc.ErrorMatches, `no networks exist with label "no-network-with-this-label"`)
 }
 
 // TODO(gz): TestResolveNetworkMultipleMatching when can inject new networks

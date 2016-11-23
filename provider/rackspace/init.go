@@ -18,6 +18,7 @@ func init() {
 		&rackspaceConfigurator{},
 		&firewallerFactory{},
 		openstack.FlavorFilterFunc(acceptRackspaceFlavor),
+		rackspaceNetworkingDecorator{},
 	}
 	providerInstance = &environProvider{
 		osProvider,
