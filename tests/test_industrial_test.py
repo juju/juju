@@ -151,8 +151,8 @@ def patch_status(client, *statuses):
     """
     kwargs = {}
     if len(statuses) > 1:
-        kwargs['side_effect'] = (Status.from_text(json.dumps(s))
-                                 for s in statuses).next
+        kwargs['side_effect'] = [Status.from_text(json.dumps(s))
+                                 for s in statuses]
     else:
         kwargs['return_value'] = Status.from_text(json.dumps(statuses[0]))
     if client is not None:
