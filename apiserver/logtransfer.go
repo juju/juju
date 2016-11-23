@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/version"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
@@ -18,7 +17,6 @@ import (
 type migrationLoggingStrategy struct {
 	ctxt       httpContext
 	st         *state.State
-	version    version.Number
 	filePrefix string
 	dbLogger   *state.DbLogger
 	fileLogger io.Writer
@@ -38,20 +36,22 @@ func (s *migrationLoggingStrategy) Authenticate(req *http.Request) error {
 
 	// Here the log messages are expected to be coming from another
 	// Juju controller, so the version number provided should be the
-	// Juju version of the source controller.
-	ver, err := jujuClientVersionFromReq(req)
+	// Juju version of the source controller. Require this to be
+	// passed, even though we don't use it anywhere at the moment - it
+	// provides future-proofing if we need to do some kind of
+	// conversion of log messages from an old client.
+	_, err = jujuClientVersionFromReq(req)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	s.st = st
-	s.version = ver
 	return nil
 }
 
 // Start creates the destination DB logger. Part of LoggingStrategy.
 func (s *migrationLoggingStrategy) Start() {
 	s.filePrefix = s.st.ModelUUID() + ":"
-	s.dbLogger = state.NewDbLogger(s.st, s.version)
+	s.dbLogger = state.NewDbLogger(s.st)
 }
 
 // Log writes the given record to the DB and to the backup file

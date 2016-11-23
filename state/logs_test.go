@@ -195,7 +195,7 @@ func (s *LogsSuite) TestEntityDbLogger(c *gc.C) {
 }
 
 func (s *LogsSuite) TestDbLogger(c *gc.C) {
-	logger := state.NewDbLogger(s.State, jujuversion.Current)
+	logger := state.NewDbLogger(s.State)
 	defer logger.Close()
 	t0 := coretesting.ZeroTime().Truncate(time.Millisecond) // MongoDB only stores timestamps with ms precision.
 	logger.Log(t0, names.NewMachineTag("45").String(), "some.where", "foo.go:99", loggo.INFO, "all is well")

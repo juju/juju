@@ -207,15 +207,13 @@ type logDoc struct {
 type DbLogger struct {
 	logsColl  *mgo.Collection
 	modelUUID string
-	version   string
 }
 
-func NewDbLogger(st ModelSessioner, ver version.Number) *DbLogger {
+func NewDbLogger(st ModelSessioner) *DbLogger {
 	_, logsColl := initLogsSession(st)
 	return &DbLogger{
 		logsColl:  logsColl,
 		modelUUID: st.ModelUUID(),
-		version:   ver.String(),
 	}
 }
 
@@ -231,7 +229,6 @@ func (logger *DbLogger) Log(t time.Time, entity string, module string, location 
 		Time:      unixEpochNanoUTC,
 		ModelUUID: logger.modelUUID,
 		Entity:    entity,
-		Version:   logger.version,
 		Module:    module,
 		Location:  location,
 		Level:     int(level),
@@ -249,29 +246,39 @@ func (logger *DbLogger) Close() {
 // EntityDbLogger writes log records about one entity.
 type EntityDbLogger struct {
 	DbLogger
-	entity string
+	entity  string
+	version string
 }
 
 // NewEntityDbLogger returns an EntityDbLogger instance which is used
 // to write logs to the database.
 func NewEntityDbLogger(st ModelSessioner, entity names.Tag, ver version.Number) *EntityDbLogger {
-	dbLogger := NewDbLogger(st, ver)
+	dbLogger := NewDbLogger(st)
 	return &EntityDbLogger{
 		DbLogger: *dbLogger,
 		entity:   entity.String(),
+		version:  ver.String(),
 	}
 }
 
 // Log writes a log message to the database.
 func (logger *EntityDbLogger) Log(t time.Time, module string, location string, level loggo.Level, msg string) error {
-	return logger.DbLogger.Log(
-		t,
-		logger.entity,
-		module,
-		location,
-		level,
-		msg,
-	)
+	// TODO(ericsnow) Use a controller-global int sequence for Id.
+
+	// UnixNano() returns the "absolute" (UTC) number of nanoseconds
+	// since the Unix "epoch".
+	unixEpochNanoUTC := t.UnixNano()
+	return logger.logsColl.Insert(&logDoc{
+		Id:        bson.NewObjectId(),
+		Time:      unixEpochNanoUTC,
+		ModelUUID: logger.modelUUID,
+		Entity:    logger.entity,
+		Version:   logger.version,
+		Module:    module,
+		Location:  location,
+		Level:     int(level),
+		Message:   msg,
+	})
 }
 
 // LogTailer allows for retrieval of Juju's logs from MongoDB. It
