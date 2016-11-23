@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/remoterelations"
 	"github.com/juju/juju/state"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type mockState struct {
@@ -33,12 +34,16 @@ func newMockState() *mockState {
 	}
 }
 
+func (st *mockState) ModelUUID() string {
+	return coretesting.ModelTag.Id()
+}
+
 func (st *mockState) ExportLocalEntity(entity names.Tag) (string, error) {
 	st.MethodCall(st, "ExportLocalEntity", entity)
 	if err := st.NextErr(); err != nil {
 		return "", err
 	}
-	return "", errors.NotImplementedf("ExportLocalEntity")
+	return "token-" + entity.Id(), nil
 }
 
 func (st *mockState) GetRemoteEntity(sourceModel names.ModelTag, token string) (names.Tag, error) {
@@ -201,17 +206,23 @@ type mockRemoteApplication struct {
 	testing.Stub
 	name string
 	url  string
+	life state.Life
 }
 
 func newMockRemoteApplication(name, url string) *mockRemoteApplication {
 	return &mockRemoteApplication{
-		name: name, url: url,
+		name: name, url: url, life: state.Alive,
 	}
 }
 
 func (r *mockRemoteApplication) Name() string {
 	r.MethodCall(r, "Name")
 	return r.name
+}
+
+func (r *mockRemoteApplication) Life() state.Life {
+	r.MethodCall(r, "Life")
+	return r.life
 }
 
 func (r *mockRemoteApplication) URL() (string, bool) {

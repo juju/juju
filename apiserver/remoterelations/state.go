@@ -13,6 +13,10 @@ import (
 // RemoteRelationState provides the subset of global state required by the
 // remote relations facade.
 type RemoteRelationsState interface {
+	// ModelUUID returns the model UUID for the model
+	// controlled by this state instance.
+	ModelUUID() string
+
 	// KeyRelation returns the existing relation with the given key (which can
 	// be derived unambiguously from the relation's endpoints).
 	KeyRelation(string) (Relation, error)
@@ -111,6 +115,9 @@ type RemoteApplication interface {
 
 	// URL returns the remote application URL, at which it is offered.
 	URL() (string, bool)
+
+	// Life returns the lifecycle state of the application.
+	Life() state.Life
 }
 
 // Application represents the state of a application hosted in the local environment.

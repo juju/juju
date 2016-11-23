@@ -6,7 +6,9 @@ package remoterelations
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/catacomb"
 )
@@ -15,6 +17,26 @@ var logger = loggo.GetLogger("juju.worker.remoterelations")
 
 // RemoteApplicationsFacade exposes remote relation functionality to a worker.
 type RemoteApplicationsFacade interface {
+	// ExportEntities allocates unique, remote entity IDs for the
+	// given entities in the local model.
+	ExportEntities([]names.Tag) ([]params.RemoteEntityIdResult, error)
+
+	// PublishLocalRelationChange publishes local relation changes to the
+	// model hosting the remote application involved in the relation.
+	PublishLocalRelationChange(params.RemoteRelationsChange) error
+
+	// RelationUnitSettings returns the relation unit settings for the
+	// given relation units in the local model.
+	RelationUnitSettings([]params.RelationUnit) ([]params.SettingsResult, error)
+
+	// RemoteRelations returns information about the cross-model relations
+	// with the specified keys in the local model.
+	RemoteRelations(keys []string) ([]params.RemoteRelationResult, error)
+
+	// RemoteApplications returns the current state of the remote applications with
+	// the specified names in the local model.
+	RemoteApplications(names []string) ([]params.RemoteApplicationResult, error)
+
 	// WatchLocalRelationUnits returns a watcher that notifies of changes to the
 	// local units in the relation with the given key.
 	WatchLocalRelationUnits(relationKey string) (watcher.RelationUnitsWatcher, error)
