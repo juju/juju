@@ -532,7 +532,7 @@ class CreateController:
         if has_controller:
             self.tear_down_client.tear_down()
         else:
-            self.tear_down_client.kill_controller()
+            self.tear_down_client.kill_controller(check=True)
 
 
 class PublicController:

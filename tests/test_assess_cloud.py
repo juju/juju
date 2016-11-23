@@ -88,7 +88,7 @@ class TestAssessCloudKillController(FakeHomeTestCase):
                     '--agent-version', client.version)),
             backend_call(
                 client, 'kill-controller', ('foo', '-y'), timeout=600,
-                check=False),
+                check=True),
             ], any_order=True)
 
 

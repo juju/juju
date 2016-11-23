@@ -1957,7 +1957,7 @@ class TestBootstrapManager(FakeHomeTestCase):
         self.assertEqual(sp_mock.call_count, 0)
         self.assertEqual(0, gjo_mock.call_count)
         juju_mock.assert_called_once_with(
-            'kill-controller', ('name', '-y'), check=False, include_e=False,
+            'kill-controller', ('name', '-y'), check=True, include_e=False,
             timeout=600)
 
     def test_runtime_context_no_controller(self):
