@@ -12,10 +12,8 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"reflect"
 	"sort"
 	"strings"
-	"sync"
 
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -1394,27 +1392,27 @@ func (s *DeployUnitTestSuite) TestDeployBundle_OutputsCorrectMessage(c *gc.C) {
 // sharpened, this will become so as well.
 type fakeDeployAPI struct {
 	DeployAPI
-	*callMocker
+	*jujutesting.CallMocker
 }
 
 func (f *fakeDeployAPI) IsMetered(charmURL string) (bool, error) {
 	results := f.MethodCall(f, "IsMetered", charmURL)
-	return results[0].(bool), typeAssertError(results[1])
+	return results[0].(bool), jujutesting.TypeAssertError(results[1])
 }
 
 func (f *fakeDeployAPI) SetMetricCredentials(service string, credentials []byte) error {
 	results := f.MethodCall(f, "SetMetricCredentials", service, credentials)
-	return typeAssertError(results[0])
+	return jujutesting.TypeAssertError(results[0])
 }
 
 func (f *fakeDeployAPI) Close() error {
 	results := f.MethodCall(f, "Close")
-	return typeAssertError(results[0])
+	return jujutesting.TypeAssertError(results[0])
 }
 
 func (f *fakeDeployAPI) ModelGet() (map[string]interface{}, error) {
 	results := f.MethodCall(f, "ModelGet")
-	return results[0].(map[string]interface{}), typeAssertError(results[1])
+	return results[0].(map[string]interface{}), jujutesting.TypeAssertError(results[1])
 }
 
 func (f *fakeDeployAPI) Resolve(cfg *config.Config, url *charm.URL) (
@@ -1428,7 +1426,7 @@ func (f *fakeDeployAPI) Resolve(cfg *config.Config, url *charm.URL) (
 	return results[0].(*charm.URL),
 		results[1].(csclientparams.Channel),
 		results[2].([]string),
-		typeAssertError(results[3])
+		jujutesting.TypeAssertError(results[3])
 }
 
 func (f *fakeDeployAPI) BestFacadeVersion(facade string) int {
@@ -1438,7 +1436,7 @@ func (f *fakeDeployAPI) BestFacadeVersion(facade string) int {
 
 func (f *fakeDeployAPI) APICall(objType string, version int, id, request string, params, response interface{}) error {
 	results := f.MethodCall(f, "APICall", objType, version, id, request, params, response)
-	return typeAssertError(results[0])
+	return jujutesting.TypeAssertError(results[0])
 }
 
 func (f *fakeDeployAPI) Client() *api.Client {
@@ -1453,12 +1451,12 @@ func (f *fakeDeployAPI) ModelUUID() (string, bool) {
 
 func (f *fakeDeployAPI) AddLocalCharm(url *charm.URL, ch charm.Charm) (*charm.URL, error) {
 	results := f.MethodCall(f, "AddLocalCharm", url, ch)
-	return results[0].(*charm.URL), typeAssertError(results[1])
+	return results[0].(*charm.URL), jujutesting.TypeAssertError(results[1])
 }
 
 func (f *fakeDeployAPI) AddCharm(url *charm.URL, channel csclientparams.Channel) error {
 	results := f.MethodCall(f, "AddCharm", url, channel)
-	return typeAssertError(results[0])
+	return jujutesting.TypeAssertError(results[0])
 }
 
 func (f *fakeDeployAPI) AddCharmWithAuthorization(
@@ -1467,169 +1465,87 @@ func (f *fakeDeployAPI) AddCharmWithAuthorization(
 	macaroon *macaroon.Macaroon,
 ) error {
 	results := f.MethodCall(f, "AddCharmWithAuthorization", url, channel, macaroon)
-	return typeAssertError(results[0])
+	return jujutesting.TypeAssertError(results[0])
 }
 
 func (f *fakeDeployAPI) CharmInfo(url string) (*charms.CharmInfo, error) {
 	results := f.MethodCall(f, "CharmInfo", url)
-	return results[0].(*charms.CharmInfo), typeAssertError(results[1])
+	return results[0].(*charms.CharmInfo), jujutesting.TypeAssertError(results[1])
 }
 
 func (f *fakeDeployAPI) Deploy(args application.DeployArgs) error {
 	results := f.MethodCall(f, "Deploy", args)
-	return typeAssertError(results[0])
+	return jujutesting.TypeAssertError(results[0])
 }
 
 func (f *fakeDeployAPI) GetBundle(url *charm.URL) (charm.Bundle, error) {
 	results := f.MethodCall(f, "GetBundle", url)
-	return results[0].(charm.Bundle), typeAssertError(results[1])
+	return results[0].(charm.Bundle), jujutesting.TypeAssertError(results[1])
 }
 
 func (f *fakeDeployAPI) Status(patterns []string) (*params.FullStatus, error) {
 	results := f.MethodCall(f, "Status", patterns)
-	return results[0].(*params.FullStatus), typeAssertError(results[1])
+	return results[0].(*params.FullStatus), jujutesting.TypeAssertError(results[1])
 }
 
 func (f *fakeDeployAPI) WatchAll() (*api.AllWatcher, error) {
 	results := f.MethodCall(f, "WatchAll")
-	return results[0].(*api.AllWatcher), typeAssertError(results[1])
+	return results[0].(*api.AllWatcher), jujutesting.TypeAssertError(results[1])
 }
 
 func (f *fakeDeployAPI) AddRelation(endpoints ...string) (*params.AddRelationResults, error) {
 	results := f.MethodCall(f, "AddRelation", variadicStringToInterface(endpoints...)...)
-	return results[0].(*params.AddRelationResults), typeAssertError(results[1])
+	return results[0].(*params.AddRelationResults), jujutesting.TypeAssertError(results[1])
 }
 
 func (f *fakeDeployAPI) AddUnits(application string, numUnits int, placement []*instance.Placement) ([]string, error) {
 	results := f.MethodCall(f, "AddUnits", application, numUnits, placement)
-	return results[0].([]string), typeAssertError(results[1])
+	return results[0].([]string), jujutesting.TypeAssertError(results[1])
 }
 
 func (f *fakeDeployAPI) Expose(application string) error {
 	results := f.MethodCall(f, "Expose", application)
-	return typeAssertError(results[0])
+	return jujutesting.TypeAssertError(results[0])
 }
 
 func (f *fakeDeployAPI) SetAnnotation(annotations map[string]map[string]string) ([]params.ErrorResult, error) {
 	results := f.MethodCall(f, "SetAnnotation", annotations)
-	return results[0].([]params.ErrorResult), typeAssertError(results[1])
+	return results[0].([]params.ErrorResult), jujutesting.TypeAssertError(results[1])
 }
 
 func (f *fakeDeployAPI) GetCharmURL(serviceName string) (*charm.URL, error) {
 	results := f.MethodCall(f, "GetCharmURL", serviceName)
-	return results[0].(*charm.URL), typeAssertError(results[1])
+	return results[0].(*charm.URL), jujutesting.TypeAssertError(results[1])
 }
 
 func (f *fakeDeployAPI) SetCharm(cfg application.SetCharmConfig) error {
 	results := f.MethodCall(f, "SetCharm", cfg)
-	return typeAssertError(results[0])
+	return jujutesting.TypeAssertError(results[0])
 }
 
 func (f *fakeDeployAPI) Update(args params.ApplicationUpdate) error {
 	results := f.MethodCall(f, "Update", args)
-	return typeAssertError(results[0])
+	return jujutesting.TypeAssertError(results[0])
 }
 
 func (f *fakeDeployAPI) SetConstraints(application string, constraints constraints.Value) error {
 	results := f.MethodCall(f, "SetConstraints", application, constraints)
-	return typeAssertError(results[0])
+	return jujutesting.TypeAssertError(results[0])
 }
 
 func (f *fakeDeployAPI) AddMachines(machineParams []params.AddMachineParams) ([]params.AddMachinesResult, error) {
 	results := f.MethodCall(f, "AddMachines", machineParams)
-	return results[0].([]params.AddMachinesResult), typeAssertError(results[0])
+	return results[0].([]params.AddMachinesResult), jujutesting.TypeAssertError(results[0])
 }
 
 type fakeBundle struct {
 	charm.Bundle
-	*callMocker
+	*jujutesting.CallMocker
 }
 
 func (f *fakeBundle) Data() *charm.BundleData {
 	results := f.MethodCall(f, "Data")
 	return results[0].(*charm.BundleData)
-}
-
-func NewCallMocker() *callMocker {
-	return &callMocker{
-		logger:  logger,
-		results: make(map[string][]*callMockReturner),
-	}
-}
-
-type callMocker struct {
-	jujutesting.Stub
-
-	logger  loggo.Logger
-	results map[string][]*callMockReturner
-}
-
-func (m *callMocker) MethodCall(receiver interface{}, fnName string, args ...interface{}) []interface{} {
-	m.Stub.MethodCall(receiver, fnName, args...)
-	m.logger.Debugf("Call: %s(%v)", fnName, args)
-	results := m.Results(fnName, args...)
-	m.logger.Debugf("Results: %v", results)
-	return results
-}
-
-func (m *callMocker) Results(fnName string, args ...interface{}) []interface{} {
-	for _, r := range m.results[fnName] {
-		if reflect.DeepEqual(r.args, args) == false {
-			continue
-		}
-		r.LogCall()
-		return r.retVals
-	}
-	return nil
-}
-
-func (m *callMocker) Call(fnName string, args ...interface{}) *callMockReturner {
-	returner := &callMockReturner{args: args}
-	// Push on the front to hide old results.
-	m.results[fnName] = append([]*callMockReturner{returner}, m.results[fnName]...)
-	return returner
-}
-
-type callMockReturner struct {
-	// args holds a reference to the arguments for which the retVals
-	// are valid.
-	args []interface{}
-
-	// retVals holds a reference to the values that should be returned
-	// when the values held by args are seen.
-	retVals []interface{}
-
-	// timesInvoked records the number of times this return has been
-	// reached.
-	timesInvoked struct {
-		sync.Mutex
-
-		value int
-	}
-}
-
-func (m *callMockReturner) Returns(retVals ...interface{}) func() int {
-	m.retVals = retVals
-	return m.numTimesInvoked
-}
-
-func (m *callMockReturner) LogCall() {
-	m.timesInvoked.Lock()
-	defer m.timesInvoked.Unlock()
-	m.timesInvoked.value++
-}
-
-func (m *callMockReturner) numTimesInvoked() int {
-	m.timesInvoked.Lock()
-	defer m.timesInvoked.Unlock()
-	return m.timesInvoked.value
-}
-
-func typeAssertError(err interface{}) error {
-	if err == nil {
-		return nil
-	}
-	return err.(error)
 }
 
 func variadicStringToInterface(args ...string) []interface{} {
@@ -1641,7 +1557,8 @@ func variadicStringToInterface(args ...string) []interface{} {
 }
 
 func vanillaFakeModelAPI(cfgAttrs map[string]interface{}) *fakeDeployAPI {
-	fakeAPI := &fakeDeployAPI{callMocker: NewCallMocker()}
+	var logger loggo.Logger
+	fakeAPI := &fakeDeployAPI{CallMocker: jujutesting.NewCallMocker(logger)}
 
 	fakeAPI.Call("Close").Returns(error(nil))
 	fakeAPI.Call("ModelGet").Returns(cfgAttrs, error(nil))
