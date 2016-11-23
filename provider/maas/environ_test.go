@@ -171,7 +171,7 @@ func (*environSuite) TestNewCloudinitConfigWithDisabledNetworkManagement(c *gc.C
 	c.Assert(cloudcfg.RunCmds(), jc.DeepEquals, expectedCloudinitConfig)
 }
 
-func (*environSuite) xTestRenderEtcNetworkInterfacesScriptMultipleNames(c *gc.C) {
+func (*environSuite) TestRenderEtcNetworkInterfacesScriptMultipleNames(c *gc.C) {
 	path, err := maas.BridgeScriptPathForSeries("quantal")
 	c.Assert(err, jc.ErrorIsNil)
 	script := maas.BridgeScriptWrapperForCloudInit(path, []string{"eth0", "eth0:1", "eth2", "eth1"})
@@ -179,7 +179,7 @@ func (*environSuite) xTestRenderEtcNetworkInterfacesScriptMultipleNames(c *gc.C)
 	c.Check(script, jc.Contains, `--bridge-prefix="br-"`)
 }
 
-func (*environSuite) xTestRenderEtcNetworkInterfacesScriptSingleName(c *gc.C) {
+func (*environSuite) TestRenderEtcNetworkInterfacesScriptSingleName(c *gc.C) {
 	path, err := maas.BridgeScriptPathForSeries("quantal")
 	c.Assert(err, jc.ErrorIsNil)
 	script := maas.BridgeScriptWrapperForCloudInit(path, []string{"eth0"})
