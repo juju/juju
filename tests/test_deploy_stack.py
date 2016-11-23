@@ -1326,6 +1326,15 @@ class TestCreateController(FakeHomeTestCase):
         self.assertEqual(
             'controller-destroyed', client._backend.controller_state.state)
 
+    def test_tear_down_existing_no_controller(self):
+        create_controller = self.get_cleanup_controller()
+        client = create_controller.tear_down_client
+        client.bootstrap()
+        create_controller.tear_down(False)
+        self.assertEqual({'models': []}, client.get_models())
+        self.assertEqual(
+            'controller-killed', client._backend.controller_state.state)
+
     def test_tear_down_nothing(self):
         create_controller = self.get_cleanup_controller()
         with self.assertRaises(subprocess.CalledProcessError):
