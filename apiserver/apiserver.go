@@ -7,6 +7,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"io"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"path/filepath"
@@ -66,7 +67,6 @@ type Server struct {
 	tlsConfig         *tls.Config
 	allowModelAccess  bool
 	logSinkWriter     io.WriteCloser
-	migratedLogWriter io.WriteCloser
 
 	// mu guards the fields below it.
 	mu sync.Mutex
@@ -203,12 +203,6 @@ func newServer(s *state.State, lis net.Listener, cfg ServerConfig) (_ *Server, e
 	}
 	srv.logSinkWriter = logSinkWriter
 
-	migratedLogWriter, err := newLogSinkWriter(filepath.Join(srv.logDir, "migrated.log"))
-	if err != nil {
-		return nil, errors.Annotate(err, "creating migration logtransfer writer")
-	}
-	srv.migratedLogWriter = migratedLogWriter
-
 	go srv.run()
 	return srv, nil
 }
@@ -295,7 +289,6 @@ func (srv *Server) run() {
 		srv.statePool.Close()
 		srv.state.Close()
 		srv.logSinkWriter.Close()
-		srv.migratedLogWriter.Close()
 	}()
 
 	srv.wg.Add(1)
@@ -383,7 +376,8 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 	logSinkHandler := newLogSinkHandler(httpCtxt, srv.logSinkWriter, newAgentLoggingStrategy)
 	add("/model/:modeluuid/logsink", srv.trackRequests(logSinkHandler))
 
-	logTransferHandler := newLogSinkHandler(httpCtxt, srv.migratedLogWriter, newMigrationLoggingStrategy)
+	// We don't need to save the migrated logs to a logfile as well as to the DB.
+	logTransferHandler := newLogSinkHandler(httpCtxt, ioutil.Discard, newMigrationLoggingStrategy)
 	add("/migrate/logtransfer", srv.trackRequests(logTransferHandler))
 
 	modelCharmsHandler := &charmsHandler{
