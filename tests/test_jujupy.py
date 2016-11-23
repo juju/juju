@@ -601,31 +601,31 @@ class TestEnvJujuClient(ClientTest):
     def test_full_args(self):
         env = JujuData('foo')
         client = EnvJujuClient(env, None, 'my/juju/bin')
-        full = client._full_args('bar', False, ('baz', 'qux'))
+        full = client._full_args('bar', ('baz', 'qux'))
         self.assertEqual(('bin', '--show-log', 'bar', '-m', 'foo:foo', 'baz',
                           'qux'), full)
-        full = client._full_args('bar', True, ('baz', 'qux'))
+        full = client._full_args('bar', ('baz', 'qux'))
         self.assertEqual((
             'bin', '--show-log', 'bar', '-m', 'foo:foo', 'baz', 'qux'), full)
-        full = client._full_args('bar', True, ('baz', 'qux'), controller=True)
+        full = client._full_args('bar',  ('baz', 'qux'), controller=True)
         self.assertEqual(
             ('bin', '--show-log', 'bar', '-m', 'foo:controller', 'baz', 'qux'),
             full)
         client.env = None
-        full = client._full_args('bar', False, ('baz', 'qux'))
+        full = client._full_args('bar', ('baz', 'qux'))
         self.assertEqual(('bin', '--show-log', 'bar', 'baz', 'qux'), full)
 
     def test_full_args_debug(self):
         env = JujuData('foo')
         client = EnvJujuClient(env, None, 'my/juju/bin', debug=True)
-        full = client._full_args('bar', False, ('baz', 'qux'))
+        full = client._full_args('bar', ('baz', 'qux'))
         self.assertEqual((
             'bin', '--debug', 'bar', '-m', 'foo:foo', 'baz', 'qux'), full)
 
     def test_full_args_action(self):
         env = JujuData('foo')
         client = EnvJujuClient(env, None, 'my/juju/bin')
-        full = client._full_args('action bar', False, ('baz', 'qux'))
+        full = client._full_args('action bar', ('baz', 'qux'))
         self.assertEqual(
             ('bin', '--show-log', 'action', 'bar', '-m', 'foo:foo',
              'baz', 'qux'),
@@ -636,8 +636,7 @@ class TestEnvJujuClient(ClientTest):
         client = EnvJujuClient(env, None, 'my/juju/bin')
         with patch.object(client, 'get_controller_model_name',
                           return_value='controller') as gamn_mock:
-            full = client._full_args('bar', False, ('baz', 'qux'),
-                                     controller=True)
+            full = client._full_args('bar', ('baz', 'qux'), controller=True)
         self.assertEqual((
             'bin', '--show-log', 'bar', '-m', 'foo:controller', 'baz', 'qux'),
             full)
@@ -794,16 +793,15 @@ class TestEnvJujuClient(ClientTest):
     def test_bootstrap_upload_tools(self):
         env = JujuData('foo', {'type': 'foo', 'region': 'baz'})
         client = EnvJujuClient(env, '2.0-zeta1', None)
-        with patch.object(client.env, 'needs_sudo', lambda: True):
-            with observable_temp_file() as config_file:
-                with patch.object(client, 'juju') as mock:
-                    client.bootstrap(upload_tools=True)
-            mock.assert_called_with(
-                'bootstrap', (
-                    '--upload-tools', '--constraints', 'mem=2G',
-                    'foo/baz', 'foo',
-                    '--config', config_file.name,
-                    '--default-model', 'foo'), include_e=False)
+        with observable_temp_file() as config_file:
+            with patch.object(client, 'juju') as mock:
+                client.bootstrap(upload_tools=True)
+        mock.assert_called_with(
+            'bootstrap', (
+                '--upload-tools', '--constraints', 'mem=2G',
+                'foo/baz', 'foo',
+                '--config', config_file.name,
+                '--default-model', 'foo'), include_e=False)
 
     def test_bootstrap_credential(self):
         env = JujuData('foo', {'type': 'foo', 'region': 'baz'})
@@ -3602,35 +3600,35 @@ class TestEnvJujuClient1X(ClientTest):
     def test_full_args(self):
         env = SimpleEnvironment('foo')
         client = EnvJujuClient1X(env, None, 'my/juju/bin')
-        full = client._full_args('bar', False, ('baz', 'qux'))
+        full = client._full_args('bar', ('baz', 'qux'))
         self.assertEqual(('bin', '--show-log', 'bar', '-e', 'foo', 'baz',
                           'qux'), full)
-        full = client._full_args('bar', True, ('baz', 'qux'))
+        full = client._full_args('bar', ('baz', 'qux'))
         self.assertEqual((
             'bin', '--show-log', 'bar', '-e', 'foo',
             'baz', 'qux'), full)
         client.env = None
-        full = client._full_args('bar', False, ('baz', 'qux'))
+        full = client._full_args('bar', ('baz', 'qux'))
         self.assertEqual(('bin', '--show-log', 'bar', 'baz', 'qux'), full)
 
     def test_full_args_debug(self):
         env = SimpleEnvironment('foo')
         client = EnvJujuClient1X(env, None, 'my/juju/bin', debug=True)
-        full = client._full_args('bar', False, ('baz', 'qux'))
+        full = client._full_args('bar', ('baz', 'qux'))
         self.assertEqual((
             'bin', '--debug', 'bar', '-e', 'foo', 'baz', 'qux'), full)
 
     def test_full_args_controller(self):
         env = SimpleEnvironment('foo')
         client = EnvJujuClient1X(env, None, 'my/juju/bin')
-        full = client._full_args('bar', False, ('baz', 'qux'), controller=True)
+        full = client._full_args('bar', ('baz', 'qux'), controller=True)
         self.assertEqual((
             'bin', '--show-log', 'bar', '-e', 'foo', 'baz', 'qux'), full)
 
     def test_full_args_action(self):
         env = SimpleEnvironment('foo')
         client = EnvJujuClient1X(env, None, 'my/juju/bin')
-        full = client._full_args('action bar', False, ('baz', 'qux'))
+        full = client._full_args('action bar', ('baz', 'qux'))
         self.assertEqual((
             'bin', '--show-log', 'action', 'bar', '-e', 'foo', 'baz', 'qux'),
             full)
@@ -3662,9 +3660,8 @@ class TestEnvJujuClient1X(ClientTest):
     def test_bootstrap_upload_tools(self):
         env = SimpleEnvironment('foo')
         client = EnvJujuClient1X(env, None, None)
-        with patch.object(client.env, 'needs_sudo', lambda: True):
-            with patch.object(client, 'juju') as mock:
-                client.bootstrap(upload_tools=True)
+        with patch.object(client, 'juju') as mock:
+            client.bootstrap(upload_tools=True)
         mock.assert_called_with(
             'bootstrap', ('--upload-tools', '--constraints', 'mem=2G'))
 
@@ -3741,25 +3738,14 @@ class TestEnvJujuClient1X(ClientTest):
             create_cmd, controller_option + (
                 'bar', '--config', config_file.name), include_e=False)
 
-    def test_destroy_environment_non_sudo(self):
+    def test_destroy_environment(self):
         env = SimpleEnvironment('foo', {'type': 'ec2'})
         client = EnvJujuClient1X(env, None, None)
-        with patch.object(client.env, 'needs_sudo', lambda: False):
-            with patch.object(client, 'juju') as mock:
-                client.destroy_environment()
-            mock.assert_called_with(
-                'destroy-environment', ('foo', '--force', '-y'),
-                check=False, include_e=False, timeout=600)
-
-    def test_destroy_environment_sudo(self):
-        env = SimpleEnvironment('foo', {'type': 'ec2'})
-        client = EnvJujuClient1X(env, None, None)
-        with patch.object(client.env, 'needs_sudo', lambda: True):
-            with patch.object(client, 'juju') as mock:
-                client.destroy_environment()
-            mock.assert_called_with(
-                'destroy-environment', ('foo', '--force', '-y'),
-                check=False, include_e=False, timeout=600)
+        with patch.object(client, 'juju') as mock:
+            client.destroy_environment()
+        mock.assert_called_with(
+            'destroy-environment', ('foo', '--force', '-y'),
+            check=False, include_e=False, timeout=600)
 
     def test_destroy_environment_no_force(self):
         env = SimpleEnvironment('foo', {'type': 'ec2'})
