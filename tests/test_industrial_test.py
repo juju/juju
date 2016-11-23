@@ -1873,7 +1873,7 @@ class TestBackupRestoreAttempt(JujuPyTestCase):
         with patch_status(controller_client, final_status) as gs_mock:
             self.assertEqual(iterator.next(),
                              {'test_id': 'back-up-restore', 'result': True})
-        gs_mock.assert_called_once_with()
+        gs_mock.assert_called_once_with(controller=False)
 
     def test_iter_steps_azure(self):
         test_id = {'test_id': 'back-up-restore'}
