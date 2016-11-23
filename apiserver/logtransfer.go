@@ -29,7 +29,9 @@ func newMigrationLoggingStrategy(ctxt httpContext, fileLogger io.Writer) Logging
 // Authenticate checks that the user is a controller superuser and
 // that the requested model is migrating. Part of LoggingStrategy.
 func (s *migrationLoggingStrategy) Authenticate(req *http.Request) error {
-	st, err := s.ctxt.stateForMigration(req)
+	// Require MigrationModeNone because logtransfer happens after the
+	// model proper is completely imported.
+	st, err := s.ctxt.stateForMigration(req, state.MigrationModeNone)
 	if err != nil {
 		return errors.Trace(err)
 	}

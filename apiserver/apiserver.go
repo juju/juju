@@ -400,7 +400,7 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 	migrateCharmsHandler := &charmsHandler{
 		ctxt:          httpCtxt,
 		dataDir:       srv.dataDir,
-		stateAuthFunc: httpCtxt.stateForMigration,
+		stateAuthFunc: httpCtxt.stateForMigrationImporting,
 	}
 	add("/migrate/charms",
 		&CharmsHTTPHandler{
@@ -411,7 +411,7 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 	add("/migrate/tools",
 		&toolsUploadHandler{
 			ctxt:          httpCtxt,
-			stateAuthFunc: httpCtxt.stateForMigration,
+			stateAuthFunc: httpCtxt.stateForMigrationImporting,
 		},
 	)
 	add("/model/:modeluuid/tools/:version",
