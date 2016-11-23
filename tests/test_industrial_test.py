@@ -1510,7 +1510,7 @@ class TestEnsureAvailabilityAttempt(JujuPyTestCase):
             with self.assertRaisesRegexp(
                     Exception, 'Timed out waiting for voting to be enabled.'):
                 ensure_iter.next()
-        self.assertEqual(2, gs_mock.call_count)
+        self.assertEqual(3, gs_mock.call_count)
 
 
 class TestDeployManyAttempt(JujuPyTestCase):
