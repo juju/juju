@@ -57,12 +57,6 @@ func (s *MigrateSuite) SetUpTest(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Define the model to migrate in the config.
-	err = s.store.UpdateModel("source", "source/model", jujuclient.ModelDetails{
-		ModelUUID: modelUUID,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
 	// Define the account for the target controller.
 	err = s.store.UpdateAccount("target", jujuclient.AccountDetails{
 		User:     "target",
@@ -78,7 +72,21 @@ func (s *MigrateSuite) SetUpTest(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.api = &fakeMigrateAPI{}
+	s.api = &fakeMigrateAPI{
+		models: []base.UserModel{{
+			Name:  "model",
+			UUID:  modelUUID,
+			Owner: "owner",
+		}, {
+			Name:  "production",
+			UUID:  "prod-1-uuid",
+			Owner: "alpha",
+		}, {
+			Name:  "production",
+			UUID:  "prod-2-uuid",
+			Owner: "omega",
+		}},
+	}
 
 	mac0, err := macaroon.New([]byte("secret0"), "id0", "location0")
 	c.Assert(err, jc.ErrorIsNil)
@@ -175,12 +183,25 @@ func (s *MigrateSuite) TestModelDoesntExist(c *gc.C) {
 	c.Check(s.api.specSeen, gc.IsNil) // API shouldn't have been called
 }
 
-func (s *MigrateSuite) TestModelDoesntExistBeforeRefresh(c *gc.C) {
+func (s *MigrateSuite) TestMultipleModelMatch(c *gc.C) {
 	cmd := s.makeCommand()
-	cmd.SetModelAPI(&fakeModelAPI{model: "wat"}) // Model is available after refresh
-	_, err := s.run(c, cmd, "wat", "target")
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(s.api.specSeen, gc.NotNil)
+	cmd.SetModelAPI(&fakeModelAPI{})
+	ctx, err := s.run(c, cmd, "production", "target")
+	c.Check(err, gc.ErrorMatches, "multiple models match name")
+	expected := "" +
+		"Multiple potential matches found, please specify owner to disambiguate:\n" +
+		"  alpha/production\n" +
+		"  omega/production\n"
+	c.Check(testing.Stderr(ctx), gc.Equals, expected)
+	c.Check(s.api.specSeen, gc.IsNil) // API shouldn't have been called
+}
+
+func (s *MigrateSuite) TestSpecifyOwner(c *gc.C) {
+	ctx, err := s.makeAndRun(c, "omega/production", "target")
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(testing.Stderr(ctx), gc.Matches, "Migration started with ID \"uuid:0\"\n")
+	c.Check(s.api.specSeen.ModelUUID, gc.Equals, "prod-2-uuid")
 }
 
 func (s *MigrateSuite) TestControllerDoesntExist(c *gc.C) {
@@ -210,11 +231,16 @@ func (s *MigrateSuite) run(c *gc.C, cmd *migrateCommand, args ...string) (*cmd.C
 
 type fakeMigrateAPI struct {
 	specSeen *controller.MigrationSpec
+	models   []base.UserModel
 }
 
 func (a *fakeMigrateAPI) InitiateMigration(spec controller.MigrationSpec) (string, error) {
 	a.specSeen = &spec
 	return "uuid:0", nil
+}
+
+func (a *fakeMigrateAPI) AllModels() ([]base.UserModel, error) {
+	return a.models, nil
 }
 
 type fakeModelAPI struct {

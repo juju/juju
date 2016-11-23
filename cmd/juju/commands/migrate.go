@@ -4,12 +4,15 @@
 package commands
 
 import (
+	"strings"
+
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient"
@@ -31,6 +34,7 @@ type migrateCommand struct {
 }
 
 type migrateAPI interface {
+	AllModels() ([]base.UserModel, error)
 	InitiateMigration(spec controller.MigrationSpec) (string, error)
 }
 
@@ -93,12 +97,6 @@ func (c *migrateCommand) Init(args []string) error {
 func (c *migrateCommand) getMigrationSpec() (*controller.MigrationSpec, error) {
 	store := c.ClientStore()
 
-	modelUUIDs, err := c.ModelUUIDs([]string{c.model})
-	if err != nil {
-		return nil, err
-	}
-	modelUUID := modelUUIDs[0]
-
 	controllerInfo, err := store.ControllerByName(c.targetController)
 	if err != nil {
 		return nil, err
@@ -119,7 +117,6 @@ func (c *migrateCommand) getMigrationSpec() (*controller.MigrationSpec, error) {
 	}
 
 	return &controller.MigrationSpec{
-		ModelUUID:            modelUUID,
 		TargetControllerUUID: controllerInfo.ControllerUUID,
 		TargetAddrs:          controllerInfo.APIEndpoints,
 		TargetCACert:         controllerInfo.CACert,
@@ -139,12 +136,51 @@ func (c *migrateCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
+	spec.ModelUUID, err = c.findModelUUID(ctx, api)
+	if err != nil {
+		return err
+	}
 	id, err := api.InitiateMigration(*spec)
 	if err != nil {
 		return err
 	}
 	ctx.Infof("Migration started with ID %q", id)
 	return nil
+}
+
+func (c *migrateCommand) findModelUUID(ctx *cmd.Context, api migrateAPI) (string, error) {
+	models, err := api.AllModels()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	// Look for the uuid based on name. If the model name doesn't container a
+	// slash, then only accept the model name if there exists only one model
+	// with that name.
+	owner := ""
+	name := c.model
+	if strings.Contains(name, "/") {
+		values := strings.SplitN(name, "/", 2)
+		owner = values[0]
+		name = values[1]
+	}
+	var matches []base.UserModel
+	for _, model := range models {
+		if model.Name == name && (owner == "" || model.Owner == owner) {
+			matches = append(matches, model)
+		}
+	}
+	switch len(matches) {
+	case 0:
+		return "", errors.NotFoundf("model matching %q", c.model)
+	case 1:
+		return matches[0].UUID, nil
+	default:
+		ctx.Infof("Multiple potential matches found, please specify owner to disambiguate:")
+		for _, match := range matches {
+			ctx.Infof("  %s/%s", match.Owner, match.Name)
+		}
+		return "", errors.New("multiple models match name")
+	}
 }
 
 func (c *migrateCommand) getAPI() (migrateAPI, error) {
