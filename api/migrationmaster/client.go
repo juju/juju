@@ -12,6 +12,7 @@ import (
 	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/watcher"
@@ -247,4 +248,8 @@ func groupTagIds(tagStrs []string) ([]string, []string, error) {
 		}
 	}
 	return machines, units, nil
+}
+
+func (c *Client) StreamModelLog() (<-chan common.LogMessage, error) {
+	return common.StreamDebugLog(c.caller.RawAPICaller(), common.DebugLogParams{})
 }

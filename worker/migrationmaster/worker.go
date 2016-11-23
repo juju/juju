@@ -17,6 +17,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/api/migrationtarget"
 	"github.com/juju/juju/apiserver/params"
 	coremigration "github.com/juju/juju/core/migration"
@@ -91,6 +92,11 @@ type Facade interface {
 	// MinionReports returns details of the reports made by migration
 	// minions to the controller for the current migration phase.
 	MinionReports() (coremigration.MinionReports, error)
+
+	// StreamModelLog returns a channel that will yield the logs that
+	// should be transferred to the target after the migration is
+	// successful.
+	StreamModelLog() (<-chan common.LogMessage, error)
 }
 
 // Config defines the operation of a Worker.
@@ -211,7 +217,7 @@ func (w *Worker) run() error {
 		case coremigration.SUCCESS:
 			phase, err = w.doSUCCESS(status)
 		case coremigration.LOGTRANSFER:
-			phase, err = w.doLOGTRANSFER()
+			phase, err = w.doLOGTRANSFER(status.TargetInfo, status.ModelUUID)
 		case coremigration.REAP:
 			phase, err = w.doREAP()
 		case coremigration.ABORT:
@@ -432,9 +438,13 @@ func (w *Worker) doSUCCESS(status coremigration.MigrationStatus) (coremigration.
 	return coremigration.LOGTRANSFER, nil
 }
 
-func (w *Worker) doLOGTRANSFER() (coremigration.Phase, error) {
-	// TODO(mjs) - To be implemented.
-	// w.setInfoStatus("successful: transferring logs to target controller")
+func (w *Worker) doLOGTRANSFER(targetInfo coremigration.TargetInfo, modelUUID string) (coremigration.Phase, error) {
+	w.setInfoStatus("successful: transferring logs to target controller")
+	// sourceRecords, err := w.config.Facade.StreamModelLog()
+	// if err != nil {
+	// 	return coremigration.UNKNOWN, errors.Trace(err)
+	// }
+	// conn, err := w.openAPIConn(targetInfo)
 	return coremigration.REAP, nil
 }
 

@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/tools"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type httpClient interface {
@@ -124,4 +125,17 @@ func (c *Client) httpPost(modelUUID string, content io.ReadSeeker, endpoint, con
 		return errors.Trace(err)
 	}
 	return nil
+}
+
+func (c *Client) OpenLogTransferStream(modelUUID string) (base.Stream, error) {
+	attrs := url.Values{}
+	attrs.Set("jujuclientversion", jujuversion.Current.String())
+	headers := http.Header{}
+	headers.Set(params.MigrationModelHTTPHeader, modelUUID)
+	caller := c.caller.RawAPICaller()
+	stream, err := caller.ConnectControllerStream("/migrate/logtransfer", attrs, headers)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return stream, nil
 }
