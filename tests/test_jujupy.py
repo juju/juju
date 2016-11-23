@@ -4859,10 +4859,9 @@ class TestEnvJujuClient1X(ClientTest):
         with patch.object(EnvJujuClient1X, 'juju') as mock:
             client.quickstart('bundle:~juju-qa/some-bundle')
         mock.assert_called_with(
-            'quickstart',
-            ('--constraints', 'mem=2G', '--no-browser',
-             'bundle:~juju-qa/some-bundle'), extra_env={'JUJU': '/juju'}
-            )
+            'quickstart', ('--constraints', 'mem=2G', '--no-browser',
+                           'bundle:~juju-qa/some-bundle'),
+            extra_env={'JUJU': '/juju'})
 
     def test_quickstart_local(self):
         client = EnvJujuClient1X(SimpleEnvironment(None, {'type': 'local'}),
@@ -4870,10 +4869,9 @@ class TestEnvJujuClient1X(ClientTest):
         with patch.object(EnvJujuClient1X, 'juju') as mock:
             client.quickstart('bundle:~juju-qa/some-bundle')
         mock.assert_called_with(
-            'quickstart',
-            ('--constraints', 'mem=2G', '--no-browser',
-             'bundle:~juju-qa/some-bundle'), extra_env={'JUJU': '/juju'}
-            )
+            'quickstart', ('--constraints', 'mem=2G', '--no-browser',
+                           'bundle:~juju-qa/some-bundle'),
+            extra_env={'JUJU': '/juju'})
 
     def test_quickstart_template(self):
         client = EnvJujuClient1X(SimpleEnvironment(None, {'type': 'local'}),
