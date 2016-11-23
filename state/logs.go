@@ -192,6 +192,7 @@ func (logger *LastSentLogTracker) Get() (int64, int64, error) {
 // document includes the field names.
 // (alesstimec) It would be really nice if we could store Time as int64
 // for increased precision.
+// TODO: remove version from this structure: https://pad.lv/1643743
 type logDoc struct {
 	Id        bson.ObjectId `bson:"_id"`
 	Time      int64         `bson:"t"` // unix nano UTC
@@ -221,8 +222,6 @@ func NewDbLogger(st ModelSessioner) *DbLogger {
 func (logger *DbLogger) Log(t time.Time, entity string, module string, location string, level loggo.Level, msg string) error {
 	// TODO(ericsnow) Use a controller-global int sequence for Id.
 
-	// UnixNano() returns the "absolute" (UTC) number of nanoseconds
-	// since the Unix "epoch".
 	unixEpochNanoUTC := t.UnixNano()
 	return logger.logsColl.Insert(&logDoc{
 		Id:        bson.NewObjectId(),
@@ -265,8 +264,6 @@ func NewEntityDbLogger(st ModelSessioner, entity names.Tag, ver version.Number) 
 func (logger *EntityDbLogger) Log(t time.Time, module string, location string, level loggo.Level, msg string) error {
 	// TODO(ericsnow) Use a controller-global int sequence for Id.
 
-	// UnixNano() returns the "absolute" (UTC) number of nanoseconds
-	// since the Unix "epoch".
 	unixEpochNanoUTC := t.UnixNano()
 	return logger.logsColl.Insert(&logDoc{
 		Id:        bson.NewObjectId(),

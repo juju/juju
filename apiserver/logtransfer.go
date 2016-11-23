@@ -1,4 +1,4 @@
-// Copyright 2015 Canonical Ltd.
+// Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package apiserver
@@ -64,7 +64,7 @@ func (s *migrationLoggingStrategy) Log(m params.LogRecord) bool {
 	}
 	fileErr := logToFile(s.fileLogger, s.filePrefix, m)
 	if fileErr != nil {
-		logger.Errorf("logging to logsink.log failed: %v", fileErr)
+		logger.Errorf("logging to file logger failed: %v", fileErr)
 	}
 	return dbErr == nil && fileErr == nil
 }
