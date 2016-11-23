@@ -69,9 +69,6 @@ func validateCloudSpec(spec environs.CloudSpec) error {
 	if err := spec.Validate(); err != nil {
 		return errors.Trace(err)
 	}
-	if spec.Endpoint != "" {
-		return errors.NotValidf("non-empty endpoint %q", spec.Endpoint)
-	}
 	if spec.Credential != nil {
 		if authType := spec.Credential.AuthType(); authType != cloud.EmptyAuthType {
 			return errors.NotSupportedf("%q auth-type", authType)
