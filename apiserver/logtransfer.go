@@ -24,6 +24,10 @@ type migrationLoggingStrategy struct {
 	fileLogger io.Writer
 }
 
+func newMigrationLoggingStrategy(ctxt httpContext, fileLogger io.Writer) LoggingStrategy {
+	return &migrationLoggingStrategy{ctxt: ctxt, fileLogger: fileLogger}
+}
+
 // Authenticate checks that the user is a controller superuser and
 // that the requested model is migrating. Part of LoggingStrategy.
 func (s *migrationLoggingStrategy) Authenticate(req *http.Request) error {
@@ -70,8 +74,4 @@ func (s *migrationLoggingStrategy) Log(m params.LogRecord) bool {
 func (s *migrationLoggingStrategy) Stop() {
 	s.dbLogger.Close()
 	s.ctxt.release(s.st)
-}
-
-func newMigrationLoggingStrategy(ctxt httpContext, fileLogger io.Writer) LoggingStrategy {
-	return &migrationLoggingStrategy{ctxt: ctxt, fileLogger: fileLogger}
 }

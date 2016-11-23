@@ -54,6 +54,10 @@ type agentLoggingStrategy struct {
 	fileLogger io.Writer
 }
 
+func newAgentLoggingStrategy(ctxt httpContext, fileLogger io.Writer) LoggingStrategy {
+	return &agentLoggingStrategy{ctxt: ctxt, fileLogger: fileLogger}
+}
+
 // Authenticate checks that this is request is from a machine
 // agent. Part of LoggingStrategy.
 func (s *agentLoggingStrategy) Authenticate(req *http.Request) error {
@@ -109,10 +113,6 @@ func (s *agentLoggingStrategy) Log(m params.LogRecord) bool {
 func (s *agentLoggingStrategy) Stop() {
 	s.dbLogger.Close()
 	s.ctxt.release(s.st)
-}
-
-func newAgentLoggingStrategy(ctxt httpContext, fileLogger io.Writer) LoggingStrategy {
-	return &agentLoggingStrategy{ctxt: ctxt, fileLogger: fileLogger}
 }
 
 func newLogSinkHandler(h httpContext, w io.Writer, newStrategy func(httpContext, io.Writer) LoggingStrategy) http.Handler {
