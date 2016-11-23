@@ -439,12 +439,46 @@ func (w *Worker) doSUCCESS(status coremigration.MigrationStatus) (coremigration.
 }
 
 func (w *Worker) doLOGTRANSFER(targetInfo coremigration.TargetInfo, modelUUID string) (coremigration.Phase, error) {
+	unknown := coremigration.UNKNOWN
 	w.setInfoStatus("successful: transferring logs to target controller")
-	// sourceRecords, err := w.config.Facade.StreamModelLog()
-	// if err != nil {
-	// 	return coremigration.UNKNOWN, errors.Trace(err)
-	// }
-	// conn, err := w.openAPIConn(targetInfo)
+	logSource, err := w.config.Facade.StreamModelLog()
+	if err != nil {
+		return unknown, errors.Annotate(err, "opening source log stream")
+	}
+
+	conn, err := w.openAPIConn(targetInfo)
+	if err != nil {
+		return unknown, errors.Annotate(err, "connecting to target API")
+	}
+
+	targetClient := migrationtarget.NewClient(conn)
+	logTarget, err := targetClient.OpenLogTransferStream(modelUUID)
+	if err != nil {
+		return unknown, errors.Annotate(err, "opening target log stream")
+	}
+	defer logTarget.Close()
+
+	for {
+		select {
+		case <-w.catacomb.Dying():
+			return unknown, w.catacomb.ErrDying()
+		case msg, ok := <-logSource:
+			if !ok {
+				break
+			}
+			err := logTarget.WriteJSON(params.LogRecord{
+				Entity:   msg.Entity,
+				Time:     msg.Timestamp,
+				Module:   msg.Module,
+				Location: msg.Location,
+				Level:    msg.Severity,
+				Message:  msg.Message,
+			})
+			if err != nil {
+				return unknown, errors.Trace(err)
+			}
+		}
+	}
 	return coremigration.REAP, nil
 }
 

@@ -251,5 +251,8 @@ func groupTagIds(tagStrs []string) ([]string, []string, error) {
 }
 
 func (c *Client) StreamModelLog() (<-chan common.LogMessage, error) {
-	return common.StreamDebugLog(c.caller.RawAPICaller(), common.DebugLogParams{})
+	return common.StreamDebugLog(c.caller.RawAPICaller(), common.DebugLogParams{
+		Replay: true,
+		NoTail: true,
+	})
 }

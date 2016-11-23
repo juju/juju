@@ -89,7 +89,16 @@ type LogMessage struct {
 	Message   string
 }
 
+// StreamDebugLog requests the specified debug log records from the
+// server and returns a channel of the messages that come back.
 func StreamDebugLog(source base.StreamConnector, args DebugLogParams) (<-chan LogMessage, error) {
+	// TODO(babbageclunk): this isn't cancellable - if the caller stops
+	// reading from the channel (because it has an error, for example),
+	// the goroutine will be leaked. This is OK when used from the command
+	// line, but is a problem if it happens in jujud. Change it to accept
+	// a stop channel and use a read deadline so that the client can stop
+	// it. https://pad.lv/1644084
+
 	// Prepare URL query attributes.
 	attrs := args.URLQuery()
 
