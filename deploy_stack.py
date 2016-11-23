@@ -535,7 +535,6 @@ class CreateController:
             self.tear_down_client.kill_controller()
 
 
-
 class PublicController:
     """A controller strategy where the controller is public.
 

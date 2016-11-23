@@ -48,7 +48,6 @@ def mocked_bs_manager(juju_home):
         jes_enabled=True)
     backend = client._backend
     with patch.object(backend, 'juju', wraps=backend.juju):
-        juju_wrapper = backend.juju
         with observable_temp_file() as temp_file:
             yield bs_manager, temp_file
 
@@ -130,13 +129,26 @@ class TestClientFromArgs(FakeHomeTestCase):
 
 class TestParseArgs(TestCase):
 
-    def test_parse_args(self):
+    def test_parse_args_combined(self):
         with temp_dir() as log_dir:
-            args = parse_args(['foo', 'bar', 'baz', log_dir, 'qux'])
+            args = parse_args(['combined', 'foo', 'bar', 'baz', log_dir,
+                               'qux'])
         self.assertEqual(args, Namespace(
             agent_stream=None, agent_url=None, bootstrap_host=None,
             cloud='bar', clouds_file='foo', deadline=None, debug=False,
             juju_bin='baz', keep_env=False, logs=log_dir, machine=[],
             region=None, series=None, temp_env_name='qux', upload_tools=False,
-            verbose=logging.INFO,
+            verbose=logging.INFO, test='combined'
+            ))
+
+    def test_parse_args_kill_controller(self):
+        with temp_dir() as log_dir:
+            args = parse_args(['kill-controller', 'foo', 'bar', 'baz', log_dir,
+                               'qux'])
+        self.assertEqual(args, Namespace(
+            agent_stream=None, agent_url=None, bootstrap_host=None,
+            cloud='bar', clouds_file='foo', deadline=None, debug=False,
+            juju_bin='baz', keep_env=False, logs=log_dir, machine=[],
+            region=None, series=None, temp_env_name='qux', upload_tools=False,
+            verbose=logging.INFO, test='kill-controller'
             ))

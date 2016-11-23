@@ -5,7 +5,6 @@ import yaml
 
 from deploy_stack import (
     BootstrapManager,
-    CreateController,
     )
 from fakejuju import (
     FakeBackend,
@@ -83,10 +82,13 @@ def parse_args(args):
         The cloud.yaml file must be provided, followed by the name of the
         cloud to test.
         """))
-    parser.add_argument('clouds_file',
-                        help='A clouds.yaml file to use for testing.')
-    parser.add_argument('cloud', help='Specific cloud to test.')
-    add_basic_testing_arguments(parser, env=False)
+    subparsers = parser.add_subparsers(dest='test')
+    for test in ['combined', 'kill-controller']:
+        subparser = subparsers.add_parser(test)
+        subparser.add_argument('clouds_file',
+                               help='A clouds.yaml file to use for testing.')
+        subparser.add_argument('cloud', help='Specific cloud to test.')
+        add_basic_testing_arguments(subparser, env=False)
     return parser.parse_args(args)
 
 
@@ -95,7 +97,10 @@ def main():
     configure_logging(args.verbose)
     client = client_from_args(args)
     bs_manager = BootstrapManager.from_client(args, client)
-    assess_cloud_kill_controller(bs_manager)
+    if args.test == 'combined':
+        assess_cloud_combined(bs_manager)
+    else:
+        assess_cloud_kill_controller(bs_manager)
 
 
 if __name__ == '__main__':

@@ -1950,7 +1950,7 @@ class TestBootstrapManager(FakeHomeTestCase):
                 with patch.object(client, 'get_juju_output',
                                   wraps=client.get_juju_output) as gjo_mock:
                     with patch.object(bs_manager, '_should_dump',
-                               return_value=True, autospec=True):
+                                      return_value=True, autospec=True):
                         with patch('deploy_stack.get_remote_machines',
                                    return_value={}):
                                 yield bs_manager
