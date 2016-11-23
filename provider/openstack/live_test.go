@@ -209,11 +209,16 @@ func (t *LiveTests) TestSetupGlobalGroupExposesCorrectPorts(c *gc.C) {
 	}
 	// We don't care about the ordering, so we sort the result, and compare it.
 	expectedRules := []string{
+		fmt.Sprintf(`ingress tcp 22 22 ::/0 %s`, group.Id),
 		fmt.Sprintf(`ingress tcp 22 22 0.0.0.0/0 %s`, group.Id),
+		fmt.Sprintf(`ingress tcp %d %d ::/0 %s`, apiPort, apiPort, group.Id),
 		fmt.Sprintf(`ingress tcp %d %d 0.0.0.0/0 %s`, apiPort, apiPort, group.Id),
-		fmt.Sprintf(`ingress tcp 1 65535  %s`, group.Id),
-		fmt.Sprintf(`ingress udp 1 65535  %s`, group.Id),
-		fmt.Sprintf(`ingress icmp 0 0  %s`, group.Id),
+		fmt.Sprintf(`ingress tcp 1 65535 ::/0 %s`, group.Id),
+		fmt.Sprintf(`ingress tcp 1 65535 0.0.0.0/0 %s`, group.Id),
+		fmt.Sprintf(`ingress udp 1 65535 ::/0 %s`, group.Id),
+		fmt.Sprintf(`ingress udp 1 65535 0.0.0.0/0 %s`, group.Id),
+		fmt.Sprintf(`ingress icmp 0 0 ::/0 %s`, group.Id),
+		fmt.Sprintf(`ingress icmp 0 0 0.0.0.0/0 %s`, group.Id),
 	}
 	sort.Strings(stringRules)
 	sort.Strings(expectedRules)
