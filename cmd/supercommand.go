@@ -41,7 +41,7 @@ func NewSuperCommand(p cmd.SuperCommandParams) *cmd.SuperCommand {
 	current := version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
-		Series: series.HostSeries(),
+		Series: series.MustHostSeries(),
 	}
 
 	// p.Version should be a version.Binary, but juju/cmd does not

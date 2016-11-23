@@ -125,7 +125,7 @@ func (s *MainSuite) TestRunMain(c *gc.C) {
 		out: version.Binary{
 			Number: jujuversion.Current,
 			Arch:   arch.HostArch(),
-			Series: series.HostSeries(),
+			Series: series.MustHostSeries(),
 		}.String() + "\n",
 	}} {
 		c.Logf("test %d: %s", i, t.summary)
@@ -167,7 +167,7 @@ func (s *MainSuite) TestFirstRun2xFrom1xOnUbuntu(c *gc.C) {
 
 	// Code should only run on ubuntu series, so patch out the series for
 	// when non-ubuntu OSes run this test.
-	s.PatchValue(&series.HostSeries, func() string { return "trusty" })
+	s.PatchValue(&series.MustHostSeries, func() string { return "trusty" })
 
 	argChan := make(chan []string, 1)
 
@@ -215,7 +215,7 @@ Since Juju 2 is being run for the first time, downloading latest cloud informati
 
 func (s *MainSuite) TestFirstRun2xFrom1xNotUbuntu(c *gc.C) {
 	// Code should only run on ubuntu series, so pretend to be something else.
-	s.PatchValue(&series.HostSeries, func() string { return "win8" })
+	s.PatchValue(&series.MustHostSeries, func() string { return "win8" })
 
 	argChan := make(chan []string, 1)
 
@@ -255,7 +255,7 @@ Since Juju 2 is being run for the first time, downloading latest cloud informati
 func (s *MainSuite) TestNoWarn1xWith2xData(c *gc.C) {
 	// Code should only rnu on ubuntu series, so patch out the series for
 	// when non-ubuntu OSes run this test.
-	s.PatchValue(&series.HostSeries, func() string { return "trusty" })
+	s.PatchValue(&series.MustHostSeries, func() string { return "trusty" })
 
 	argChan := make(chan []string, 1)
 
@@ -288,7 +288,7 @@ func (s *MainSuite) TestNoWarn1xWith2xData(c *gc.C) {
 func (s *MainSuite) TestNoWarnWithNo1xOr2xData(c *gc.C) {
 	// Code should only rnu on ubuntu series, so patch out the series for
 	// when non-ubuntu OSes run this test.
-	s.PatchValue(&series.HostSeries, func() string { return "trusty" })
+	s.PatchValue(&series.MustHostSeries, func() string { return "trusty" })
 
 	argChan := make(chan []string, 1)
 	// we shouldn't actually be running anything, but if we do, this will
@@ -370,7 +370,7 @@ func checkVersionOutput(c *gc.C, output string) {
 	ver := version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
-		Series: series.HostSeries(),
+		Series: series.MustHostSeries(),
 	}
 
 	c.Check(output, gc.Equals, ver.String()+"\n")

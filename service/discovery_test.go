@@ -36,8 +36,6 @@ func init() {
 	}
 }
 
-const unknownExecutable = "/sbin/unknown/init/system"
-
 type discoveryTest struct {
 	os       jujuos.OSType
 	series   string
@@ -180,13 +178,13 @@ func (s *discoverySuite) TestDiscoverServiceLocalHost(c *gc.C) {
 	case "windows":
 		localInitSystem = service.InitSystemWindows
 	case "linux":
-		localInitSystem, err = service.VersionInitSystem(series.HostSeries())
+		localInitSystem, err = service.VersionInitSystem(series.MustHostSeries())
 	}
 	c.Assert(err, gc.IsNil)
 
 	test := discoveryTest{
 		os:       jujuos.HostOS(),
-		series:   series.HostSeries(),
+		series:   series.MustHostSeries(),
 		expected: localInitSystem,
 	}
 	test.disableVersionDiscovery(s)
@@ -344,7 +342,7 @@ func (s *discoverySuite) TestDiscoverInitSystemScriptBash(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	initSystem, err := service.DiscoverInitSystem()
+	initSystem, err := service.DiscoverInitSystem(series.MustHostSeries())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(response.Code, gc.Equals, 0)
 	c.Check(string(response.Stdout), gc.Equals, initSystem)
@@ -363,7 +361,7 @@ func (s *discoverySuite) TestDiscoverInitSystemScriptPosix(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	initSystem, err := service.DiscoverInitSystem()
+	initSystem, err := service.DiscoverInitSystem(series.MustHostSeries())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(response.Code, gc.Equals, 0)
 	c.Check(string(response.Stdout), gc.Equals, initSystem)
@@ -405,7 +403,7 @@ func (s *discoverySuite) TestNewShellSelectCommandBash(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	initSystem, err := service.DiscoverInitSystem()
+	initSystem, err := service.DiscoverInitSystem(series.MustHostSeries())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(response.Code, gc.Equals, 0)
 	c.Check(string(response.Stdout), gc.Equals, initSystem)
@@ -431,7 +429,7 @@ func (s *discoverySuite) TestNewShellSelectCommandPosix(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	initSystem, err := service.DiscoverInitSystem()
+	initSystem, err := service.DiscoverInitSystem(series.MustHostSeries())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(response.Code, gc.Equals, 0)
 	c.Check(string(response.Stdout), gc.Equals, initSystem)

@@ -90,7 +90,7 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	// override this.
 	s.PatchValue(&jujuversion.Current, v100p64.Number)
 	s.PatchValue(&arch.HostArch, func() string { return v100p64.Arch })
-	s.PatchValue(&series.HostSeries, func() string { return v100p64.Series })
+	s.PatchValue(&series.MustHostSeries, func() string { return v100p64.Series })
 	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.Ubuntu })
 
 	// Set up a local source with tools.
@@ -176,7 +176,7 @@ type bootstrapTest struct {
 
 func (s *BootstrapSuite) patchVersionAndSeries(c *gc.C, hostSeries string) {
 	resetJujuXDGDataHome(c)
-	s.PatchValue(&series.HostSeries, func() string { return hostSeries })
+	s.PatchValue(&series.MustHostSeries, func() string { return hostSeries })
 	s.patchVersion(c)
 }
 
@@ -204,7 +204,7 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 		bootstrapVersion = version.MustParseBinary(useVersion)
 		restore = restore.Add(testing.PatchValue(&jujuversion.Current, bootstrapVersion.Number))
 		restore = restore.Add(testing.PatchValue(&arch.HostArch, func() string { return bootstrapVersion.Arch }))
-		restore = restore.Add(testing.PatchValue(&series.HostSeries, func() string { return bootstrapVersion.Series }))
+		restore = restore.Add(testing.PatchValue(&series.MustHostSeries, func() string { return bootstrapVersion.Series }))
 		bootstrapVersion.Build = 1
 		if test.upload != "" {
 			uploadVers := version.MustParseBinary(test.upload)
@@ -1096,7 +1096,7 @@ func (s *BootstrapSuite) setupAutoUploadTest(c *gc.C, vers, ser string) {
 	// Set the current version to be something for which there are no tools
 	// so we can test that an upload is forced.
 	s.PatchValue(&jujuversion.Current, version.MustParse(vers))
-	s.PatchValue(&series.HostSeries, func() string { return ser })
+	s.PatchValue(&series.MustHostSeries, func() string { return ser })
 
 	// Create home with dummy provider and remove all
 	// of its envtools.
@@ -1104,7 +1104,7 @@ func (s *BootstrapSuite) setupAutoUploadTest(c *gc.C, vers, ser string) {
 }
 
 func (s *BootstrapSuite) TestAutoUploadAfterFailedSync(c *gc.C) {
-	s.PatchValue(&series.HostSeries, func() string { return series.LatestLts() })
+	s.PatchValue(&series.MustHostSeries, func() string { return series.LatestLts() })
 	s.setupAutoUploadTest(c, "1.7.3", "quantal")
 	// Run command and check for that upload has been run for tools matching
 	// the current juju version.

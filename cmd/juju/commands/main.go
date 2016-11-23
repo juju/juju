@@ -209,7 +209,7 @@ func (m main) juju1xVersion() (ver string, exists bool) {
 
 func shouldWarnJuju1x() bool {
 	// this code only applies to Ubuntu, where we renamed Juju 1.x to juju-1.
-	ostype, err := series.GetOSFromSeries(series.HostSeries())
+	ostype, err := series.GetOSFromSeries(series.MustHostSeries())
 	if err != nil || ostype != utilsos.Ubuntu {
 		return false
 	}

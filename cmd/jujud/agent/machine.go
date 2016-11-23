@@ -92,8 +92,8 @@ import (
 
 var (
 	logger       = loggo.GetLogger("juju.cmd.jujud")
-	jujuRun      = paths.MustSucceed(paths.JujuRun(series.HostSeries()))
-	jujuDumpLogs = paths.MustSucceed(paths.JujuDumpLogs(series.HostSeries()))
+	jujuRun      = paths.MustSucceed(paths.JujuRun(series.MustHostSeries()))
+	jujuDumpLogs = paths.MustSucceed(paths.JujuDumpLogs(series.MustHostSeries()))
 
 	// The following are defined as variables to allow the tests to
 	// intercept calls to the functions. In every case, they should
