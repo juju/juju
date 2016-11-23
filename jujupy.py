@@ -2266,6 +2266,14 @@ class EnvJujuClient:
         """Return the controller-member-status of the machine if it exists."""
         return info_dict.get('controller-member-status')
 
+    # def wait_for_ha(self, timeout=1200, start=None):
+    #     def status_to_ha(status):
+    #         # [The core of the old wait_for_ha goes here.]
+    #     desired_state = 'has-vote'
+    #     reporter = GroupReporter(sys.stdout, desired_state)
+    #     self._wait_for_status(reporter, status_to_ha, VotingNotEnabled,
+    #                           timeout=timeout, start=start):
+
     def wait_for_ha(self, timeout=1200):
         desired_state = 'has-vote'
         reporter = GroupReporter(sys.stdout, desired_state)
