@@ -486,6 +486,34 @@ func (s *CleanupSuite) TestCleanupActions(c *gc.C) {
 	s.assertDoesNotNeedCleanup(c)
 }
 
+func (s *CleanupSuite) TestCleanupWithCompletedActions(c *gc.C) {
+	// Create a service with a unit.
+	dummy := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
+	unit, err := dummy.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertDoesNotNeedCleanup(c)
+
+	// Add a completed action to the unit.
+	action, err := unit.AddAction("snapshot", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	action, err = action.Finish(state.ActionResults{
+		Status:  state.ActionCompleted,
+		Message: "done",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(action.Status(), gc.Equals, state.ActionCompleted)
+
+	// Destroy service and run cleanups.
+	err = dummy.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	// First cleanup marks all units of the service as dying.
+	s.assertCleanupRuns(c)
+	// Second cleanup clear pending actions.
+	s.assertCleanupRuns(c)
+	// Check no cleanups.
+	s.assertDoesNotNeedCleanup(c)
+}
+
 func (s *CleanupSuite) TestCleanupStorageAttachments(c *gc.C) {
 	s.assertDoesNotNeedCleanup(c)
 
