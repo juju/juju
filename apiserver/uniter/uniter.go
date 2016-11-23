@@ -115,7 +115,7 @@ func NewUniterAPIV4(st *state.State, resources facade.Resources, authorizer faca
 	if err != nil {
 		return nil, errors.Annotate(err, "could not create meter status API handler")
 	}
-	accessUnitOrService := common.AuthEither(accessUnit, accessService)
+	accessUnitOrService := common.AuthAny(accessUnit, accessService)
 	return &UniterAPIV3{
 		LifeGetter:                 common.NewLifeGetter(st, accessUnitOrService),
 		DeadEnsurer:                common.NewDeadEnsurer(st, accessUnit),
@@ -533,7 +533,7 @@ func (u *UniterAPIV3) CharmModifiedVersion(args params.Entities) (params.IntResu
 		Results: make([]params.IntResult, len(args.Entities)),
 	}
 
-	accessUnitOrService := common.AuthEither(u.accessUnit, u.accessService)
+	accessUnitOrService := common.AuthAny(u.accessUnit, u.accessService)
 	canAccess, err := accessUnitOrService()
 	if err != nil {
 		return results, err
@@ -581,7 +581,7 @@ func (u *UniterAPIV3) CharmURL(args params.Entities) (params.StringBoolResults, 
 	result := params.StringBoolResults{
 		Results: make([]params.StringBoolResult, len(args.Entities)),
 	}
-	accessUnitOrService := common.AuthEither(u.accessUnit, u.accessService)
+	accessUnitOrService := common.AuthAny(u.accessUnit, u.accessService)
 	canAccess, err := accessUnitOrService()
 	if err != nil {
 		return params.StringBoolResults{}, err

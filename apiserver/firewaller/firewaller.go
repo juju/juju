@@ -56,8 +56,8 @@ func NewFirewallerAPI(
 	accessUnit := common.AuthFuncForTagKind(names.UnitTagKind)
 	accessService := common.AuthFuncForTagKind(names.ApplicationTagKind)
 	accessMachine := common.AuthFuncForTagKind(names.MachineTagKind)
-	accessUnitOrService := common.AuthEither(accessUnit, accessService)
-	accessUnitServiceOrMachine := common.AuthEither(accessUnitOrService, accessMachine)
+	accessUnitOrService := common.AuthAny(accessUnit, accessService)
+	accessUnitServiceOrMachine := common.AuthAny(accessUnitOrService, accessMachine)
 
 	// Life() is supported for units, services or machines.
 	lifeGetter := common.NewLifeGetter(
