@@ -22,7 +22,7 @@ import (
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/api"
 	"github.com/juju/juju/resource/api/client"
-	internalapi "github.com/juju/juju/resource/api/private"
+	privateapi "github.com/juju/juju/resource/api/private"
 	internalclient "github.com/juju/juju/resource/api/private/client"
 	internalserver "github.com/juju/juju/resource/api/private/server"
 	"github.com/juju/juju/resource/api/server"
@@ -75,7 +75,7 @@ func (r resources) registerPublicFacade() {
 
 	common.RegisterAPIModelEndpoint(api.HTTPEndpointPattern, apihttp.HandlerSpec{
 		Constraints: apihttp.HandlerConstraints{
-			AuthKind:            names.UserTagKind,
+			AuthKinds:           []string{names.UserTagKind},
 			StrictValidation:    true,
 			ControllerModelOnly: false,
 		},
@@ -209,9 +209,9 @@ func (r resources) registerHookContextFacade() {
 }
 
 func (r resources) registerUnitDownloadEndpoint() {
-	common.RegisterAPIModelEndpoint(internalapi.HTTPEndpointPattern, apihttp.HandlerSpec{
+	common.RegisterAPIModelEndpoint(privateapi.HTTPEndpointPattern, apihttp.HandlerSpec{
 		Constraints: apihttp.HandlerConstraints{
-			AuthKind:            names.UnitTagKind,
+			AuthKinds:           []string{names.UnitTagKind},
 			StrictValidation:    true,
 			ControllerModelOnly: false,
 		},
