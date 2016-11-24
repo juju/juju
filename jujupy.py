@@ -1890,7 +1890,7 @@ class EnvJujuClient:
             testing_url = url.replace('/tools', '/testing/tools')
             self.set_env_option(self.agent_metadata_url, testing_url)
 
-    def juju(self, command, args, sudo=False, check=True, include_e=True,
+    def juju(self, command, args, check=True, include_e=True,
              timeout=None, extra_env=None):
         """Run a command under juju for the current environment."""
         model = self._cmd_model(include_e, controller=False)
@@ -2017,7 +2017,7 @@ class EnvJujuClient:
         e_arg = ('-e', '{}:{}'.format(
             self.env.controller.name, self.env.environment))
         args = e_arg + args
-        self.juju('deployer', args, self.env.needs_sudo(), include_e=False)
+        self.juju('deployer', args, include_e=False)
 
     @staticmethod
     def _maas_spaces_enabled():
@@ -2035,15 +2035,13 @@ class EnvJujuClient:
             return 'mem=2G'
 
     def quickstart(self, bundle_template, upload_tools=False):
-        """quickstart, using sudo if necessary."""
         bundle = self.format_bundle(bundle_template)
         constraints = 'mem=2G'
         args = ('--constraints', constraints)
         if upload_tools:
             args = ('--upload-tools',) + args
         args = args + ('--no-browser', bundle,)
-        self.juju('quickstart', args, self.env.needs_sudo(),
-                  extra_env={'JUJU': self.full_path})
+        self.juju('quickstart', args, extra_env={'JUJU': self.full_path})
 
     def status_until(self, timeout, start=None):
         """Call and yield status until the timeout is reached.
@@ -3040,7 +3038,7 @@ class EnvJujuClient1X(EnvJujuClientRC):
         """Bootstrap a controller."""
         self._check_bootstrap()
         args = self.get_bootstrap_args(upload_tools, bootstrap_series)
-        self.juju('bootstrap', args, self.env.needs_sudo())
+        self.juju('bootstrap', args)
 
     @contextmanager
     def bootstrap_async(self, upload_tools=False):
@@ -3148,7 +3146,7 @@ class EnvJujuClient1X(EnvJujuClientRC):
         )
         if name:
             args += (name,)
-        self.juju('deployer', args, self.env.needs_sudo())
+        self.juju('deployer', args)
 
     def deploy(self, charm, repository=None, to=None, series=None,
                service=None, force=False, storage=None, constraints=None):
