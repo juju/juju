@@ -2063,7 +2063,7 @@ class EnvJujuClient:
                     yield self.get_status()
 
     def _wait_for_status(self, reporter, translate, exc_type=StatusNotMet,
-                         timeout=1200, start=None, controller=False):
+                         timeout=1200, start=None):
         """Wait till status reaches an expected state with pretty reporting.
 
         Always tries to get status at least once. Each status call has an
@@ -2075,8 +2075,6 @@ class EnvJujuClient:
         :param exc_type: Optional StatusNotMet subclass to raise on timeout.
         :param timeout: Optional number of seconds to wait before timing out.
         :param start: Optional time to count from when determining timeout.
-        :param controller: If True the controller's status is given to
-            translate instead of the current model's status.
         """
         status = None
         try:
@@ -2085,7 +2083,7 @@ class EnvJujuClient:
                     for _ in chain([None],
                                    until_timeout(timeout, start=start)):
                         try:
-                            status = self.get_status(controller=controller)
+                            status = self.get_status()
                         except CannotConnectEnv:
                             log.info(
                                 'Suppressing "Unable to connect to'
@@ -2269,6 +2267,11 @@ class EnvJujuClient:
         return info_dict.get('controller-member-status')
 
     def wait_for_ha(self, timeout=1200, start=None):
+        """Wait for voiting to be enabled.
+
+        May only be called on a controller client."""
+        if self.env.environment != self.get_controller_model_name():
+            raise ValueError('wait_for_ha requires a controller client.')
         desired_state = 'has-vote'
 
         def status_to_ha(status):
@@ -2286,7 +2289,7 @@ class EnvJujuClient:
 
         reporter = GroupReporter(sys.stdout, desired_state)
         self._wait_for_status(reporter, status_to_ha, VotingNotEnabled,
-                              timeout=timeout, start=start, controller=True)
+                              timeout=timeout, start=start)
         # XXX sinzui 2014-12-04: bug 1399277 happens because
         # juju claims HA is ready when the monogo replica sets
         # are not. Juju is not fully usable. The replica set

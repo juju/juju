@@ -1487,7 +1487,7 @@ class TestEnsureAvailabilityAttempt(JujuPyTestCase):
         with patch_status(controller_client, status) as gs_mock:
             self.assertEqual(ensure_iter.next(), {
                 'test_id': 'ensure-availability-n3', 'result': True})
-        gs_mock.assert_called_once_with(controller=True)
+        gs_mock.assert_called_once_with()
 
     def test_iter_steps_failure(self):
         client = FakeEnvJujuClient()
@@ -1873,7 +1873,7 @@ class TestBackupRestoreAttempt(JujuPyTestCase):
         with patch_status(controller_client, final_status) as gs_mock:
             self.assertEqual(iterator.next(),
                              {'test_id': 'back-up-restore', 'result': True})
-        gs_mock.assert_called_once_with(controller=False)
+        gs_mock.assert_called_once_with()
 
     def test_iter_steps_azure(self):
         test_id = {'test_id': 'back-up-restore'}

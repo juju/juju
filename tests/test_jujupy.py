@@ -1645,22 +1645,23 @@ class TestEnvJujuClient(ClientTest):
                         client.wait_for_started(start=now - timedelta(1200))
                 self.assertEqual(writes, ['pending: jenkins/0', '\n'])
 
-    def make_ha_status(self):
+    def make_ha_status(self, voting='has-vote'):
         return {'machines': {
-            '0': {'controller-member-status': 'has-vote'},
-            '1': {'controller-member-status': 'has-vote'},
-            '2': {'controller-member-status': 'has-vote'},
+            '0': {'controller-member-status': voting},
+            '1': {'controller-member-status': voting},
+            '2': {'controller-member-status': voting},
             }}
 
     @contextmanager
-    def only_status_checks(self, status=None):
+    def only_status_checks(self, client=None, status=None):
         """This context manager ensure only get_status calls check_timeouts.
 
         Everything else will get a mock object.
 
         Also, the client is patched so that the soft_deadline has been hit.
         """
-        client = EnvJujuClient(JujuData('local', juju_home=''), None, None)
+        if client is None:
+            client = EnvJujuClient(JujuData('local', juju_home=''), None, None)
         with client_past_deadline(client):
             # This will work even after we patch check_timeouts below.
             real_check_timeouts = client.check_timeouts
@@ -1683,12 +1684,13 @@ class TestEnvJujuClient(ClientTest):
             client._wait_for_status(Mock(), translate)
 
     @contextmanager
-    def status_does_not_check(self, status=None):
+    def status_does_not_check(self, client=None, status=None):
         """This context manager ensure get_status never calls check_timeouts.
 
         Also, the client is patched so that the soft_deadline has been hit.
         """
-        client = EnvJujuClient(JujuData('local', juju_home=''), None, None)
+        if client is None:
+            client = EnvJujuClient(JujuData('local', juju_home=''), None, None)
         with client_past_deadline(client):
             status_obj = client.status_class(status, '')
             with patch.object(client, 'get_status', autospec=True,
@@ -1752,16 +1754,6 @@ class TestEnvJujuClient(ClientTest):
         self.assertEqual(2, errors_mock.call_count)
         errors_mock.assert_has_calls(
             [call(ignore_recoverable=True), call(ignore_recoverable=False)])
-
-    def test__wait_for_status_controller(self):
-        status = Status({}, '')
-        client = fake_juju_client()
-        with patch.object(client, 'get_status', return_value=status
-                          ) as get_status_mock:
-            client._wait_for_status(Mock(), lambda x: None)
-            client._wait_for_status(Mock(), lambda x: None, controller=True)
-        get_status_mock.assert_has_calls([call(controller=False),
-                                          call(controller=True)])
 
     def test_wait_for_started_logs_status(self):
         value = self.make_status_yaml('agent-state', 'pending', 'started')
@@ -2308,32 +2300,27 @@ class TestEnvJujuClient(ClientTest):
             leader = client.get_controller_leader()
         self.assertEqual(Machine('3', {}), leader)
 
+    def make_controller_client(self):
+        client = EnvJujuClient(JujuData('local', {'name': 'test'}), None, None)
+        return client.get_controller_client()
+
     def test_wait_for_ha(self):
-        value = yaml.safe_dump({
-            'machines': {
-                '0': {'controller-member-status': 'has-vote'},
-                '1': {'controller-member-status': 'has-vote'},
-                '2': {'controller-member-status': 'has-vote'},
-            },
-            'services': {},
-        })
-        client = EnvJujuClient(JujuData('local'), None, None)
+        value = yaml.safe_dump(self.make_ha_status())
+        client = self.make_controller_client()
         with patch.object(client, 'get_juju_output',
                           return_value=value) as gjo_mock:
             client.wait_for_ha()
         gjo_mock.assert_called_once_with(
-            'show-status', '--format', 'yaml', controller=True)
+            'show-status', '--format', 'yaml', controller=False)
+
+    def test_wait_for_ha_requires_controller_client(self):
+        client = fake_juju_client()
+        with self.assertRaisesRegexp(ValueError, 'wait_for_ha'):
+            client.wait_for_ha()
 
     def test_wait_for_ha_no_has_vote(self):
-        value = yaml.safe_dump({
-            'machines': {
-                '0': {'controller-member-status': 'no-vote'},
-                '1': {'controller-member-status': 'no-vote'},
-                '2': {'controller-member-status': 'no-vote'},
-            },
-            'services': {},
-        })
-        client = EnvJujuClient(JujuData('local'), None, None)
+        value = yaml.safe_dump(self.make_ha_status(voting='no-vote'))
+        client = self.make_controller_client()
         with patch.object(client, 'get_juju_output', return_value=value):
             writes = []
             with patch('jujupy.until_timeout', autospec=True,
@@ -2344,9 +2331,9 @@ class TestEnvJujuClient(ClientTest):
                             Exception,
                             'Timed out waiting for voting to be enabled.'):
                         client.wait_for_ha()
-            self.assertEqual(writes[:2], ['no-vote: 0, 1, 2', ' .'])
-            self.assertEqual(writes[2:-1], ['.'] * (len(writes) - 3))
-            self.assertEqual(writes[-1:], ['\n'])
+        dots = len(writes) - 3
+        expected = ['no-vote: 0, 1, 2', ' .'] + (['.'] * dots) + ['\n']
+        self.assertEqual(writes, expected)
 
     def test_wait_for_ha_timeout(self):
         value = yaml.safe_dump({
@@ -2356,7 +2343,7 @@ class TestEnvJujuClient(ClientTest):
             },
             'services': {},
         })
-        client = EnvJujuClient(JujuData('local'), None, None)
+        client = self.make_controller_client()
         status = client.status_class.from_text(value)
         with patch('jujupy.until_timeout', lambda x, start=None: range(0)):
             with patch.object(client, 'get_status', return_value=status
@@ -2365,7 +2352,7 @@ class TestEnvJujuClient(ClientTest):
                         StatusNotMet,
                         'Timed out waiting for voting to be enabled.'):
                     client.wait_for_ha()
-        get_status_mock.assert_called_once_with(controller=True)
+        get_status_mock.assert_called_once_with()
 
     def test_wait_for_ha_timeout_with_status_error(self):
         value = yaml.safe_dump({
@@ -2375,7 +2362,7 @@ class TestEnvJujuClient(ClientTest):
             },
             'services': {},
         })
-        client = EnvJujuClient(JujuData('local'), None, None)
+        client = self.make_controller_client()
         with patch('jujupy.until_timeout', autospec=True, return_value=[2, 1]):
             with patch.object(client, 'get_juju_output', return_value=value):
                 with self.assertRaisesRegexp(
@@ -2383,11 +2370,13 @@ class TestEnvJujuClient(ClientTest):
                     client.wait_for_ha()
 
     def test_wait_for_ha_suppresses_deadline(self):
-        with self.only_status_checks(self.make_ha_status()) as client:
+        with self.only_status_checks(self.make_controller_client(),
+                                     self.make_ha_status()) as client:
             client.wait_for_ha()
 
     def test_wait_for_ha_checks_deadline(self):
-        with self.status_does_not_check(self.make_ha_status()) as client:
+        with self.status_does_not_check(self.make_controller_client(),
+                                        self.make_ha_status()) as client:
             with self.assertRaises(SoftDeadlineExceeded):
                 client.wait_for_ha()
 
@@ -2438,11 +2427,13 @@ class TestEnvJujuClient(ClientTest):
         }
 
     def test_wait_for_deploy_started_suppresses_deadline(self):
-        with self.only_status_checks(self.make_deployed_status()) as client:
+        with self.only_status_checks(
+                status=self.make_deployed_status()) as client:
             client.wait_for_deploy_started()
 
     def test_wait_for_deploy_started_checks_deadline(self):
-        with self.status_does_not_check(self.make_deployed_status()) as client:
+        with self.status_does_not_check(
+                status=self.make_deployed_status()) as client:
             with self.assertRaises(SoftDeadlineExceeded):
                 client.wait_for_deploy_started()
 
