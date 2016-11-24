@@ -161,8 +161,9 @@ class TestMain(TestCase):
         client.env = env
         with patch("assess_endpoint_bindings.configure_logging",
                    autospec=True) as mock_cl:
-            with patch("assess_endpoint_bindings.maas_account_from_config",
-                       autospec=True) as mock_ma:
+            with patch(
+                    "assess_endpoint_bindings.maas_account_from_boot_config",
+                    autospec=True) as mock_ma:
                 with patch("deploy_stack.client_from_config",
                            return_value=client) as mock_c:
                     with patch(
