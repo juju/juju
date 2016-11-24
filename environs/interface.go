@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/storage"
@@ -292,6 +293,10 @@ type Environ interface {
 	// constraints package? Can't be instance, because constraints
 	// import instance...
 	PrecheckInstance(series string, cons constraints.Value, placement string) error
+
+	// InstanceTypesFetcher represents an environment that can return
+	// information about the available instance types.
+	InstanceTypesFetcher
 }
 
 // CreateParams contains the parameters for Environ.Create.
@@ -326,4 +331,10 @@ type InstanceTagger interface {
 	// The specified tags will replace any existing ones with the
 	// same names, but other existing tags will be left alone.
 	TagInstance(id instance.Id, tags map[string]string) error
+}
+
+// InstanceTypesFetcher is an interface that allows for instance information from
+// a provider to be obtained.
+type InstanceTypesFetcher interface {
+	InstanceTypes(constraints.Value) (instances.InstanceTypesWithCostMetadata, error)
 }
