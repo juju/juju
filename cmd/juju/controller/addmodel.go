@@ -57,8 +57,10 @@ const addModelHelpDoc = `
 Adding a model is typically done in order to run a specific workload.
 
 To add a model, you must specify a model name. Model names can be duplicated 
-across controllers but must be unique for any given controller. Model names may 
-only contain lowercase letters, digits and hyphens, and 
+across controllers but must be unique per user for any given controller. 
+In other words, Alice and Bob can each have their own model called "secret" but 
+Alice can have only one model called "secret" in a controller.
+Model names may only contain lowercase letters, digits and hyphens, and 
 may not start with a hyphen.
 
 To add a model, Juju requires a credential:
