@@ -17,9 +17,9 @@ func NewFacade(apiCaller base.APICaller) (RemoteApplicationsFacade, error) {
 }
 
 func NewWorker(config Config) (worker.Worker, error) {
-	worker, err := New(config)
+	w, err := New(config)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return worker, nil
+	return w, nil
 }
