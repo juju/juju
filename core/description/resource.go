@@ -57,6 +57,8 @@ type ResourceArgs struct {
 	Name string
 }
 
+// newResource returns a new *resource (which implements the Resource
+// interface).
 func newResource(args ResourceArgs) *resource {
 	return &resource{
 		Name_: args.Name,

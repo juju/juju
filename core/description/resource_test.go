@@ -140,21 +140,6 @@ func (s *ResourceSuite) TestRoundTrip(c *gc.C) {
 	c.Assert(rOut, jc.DeepEquals, rIn)
 }
 
-func (s *ResourceSuite) TestRoundTripWithCharmStoreRev(c *gc.C) {
-	rIn := minimalResource()
-	rIn.SetCharmStoreRevision(ResourceRevisionArgs{
-		Revision:       4,
-		Type:           "file",
-		Path:           "file.tar.gz",
-		Description:    "description",
-		Origin:         "store",
-		FingerprintHex: "bbbbbbbb",
-		Size:           222,
-	})
-	rOut := s.exportImport(c, rIn)
-	c.Assert(rOut, jc.DeepEquals, rIn)
-}
-
 func (s *ResourceSuite) exportImport(c *gc.C, resourceIn *resource) *resource {
 	resourcesIn := &resources{
 		Version:    1,
