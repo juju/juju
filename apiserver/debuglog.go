@@ -13,6 +13,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"golang.org/x/net/websocket"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -72,10 +73,7 @@ func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			socket := &debugLogSocketImpl{conn}
 			defer conn.Close()
 
-			// Validate before authenticate because the authentication is
-			// dependent on the state connection that is determined during the
-			// validation.
-			st, err := h.ctxt.stateForRequestAuthenticatedUser(req)
+			st, _, err := h.ctxt.stateForRequestAuthenticatedTag(req, names.MachineTagKind, names.UserTagKind)
 			if err != nil {
 				socket.sendError(err)
 				return

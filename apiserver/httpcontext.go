@@ -172,29 +172,28 @@ func (ctxt *httpContext) stateForRequestAuthenticatedUser(r *http.Request) (*sta
 // stateAndEntityForRequestAuthenticatedUser is like stateForRequestAuthenticated
 // except that it also verifies that the authenticated entity is a user.
 func (ctxt *httpContext) stateAndEntityForRequestAuthenticatedUser(r *http.Request) (*state.State, state.Entity, error) {
-	st, entity, err := ctxt.stateForRequestAuthenticated(r)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-	if ok, err := checkPermissions(entity.Tag(), common.AuthFuncForTagKind(names.UserTagKind)); !ok {
-		ctxt.release(st)
-		return nil, nil, err
-	}
-	return st, entity, nil
+	return ctxt.stateForRequestAuthenticatedTag(r, names.UserTagKind)
 }
 
 // stateForRequestAuthenticatedAgent is like stateForRequestAuthenticated
 // except that it also verifies that the authenticated entity is an agent.
 func (ctxt *httpContext) stateForRequestAuthenticatedAgent(r *http.Request) (*state.State, state.Entity, error) {
-	authFunc := common.AuthEither(
-		common.AuthFuncForTagKind(names.MachineTagKind),
-		common.AuthFuncForTagKind(names.UnitTagKind),
-	)
+	return ctxt.stateForRequestAuthenticatedTag(r, names.MachineTagKind, names.UnitTagKind)
+}
+
+// stateForRequestAuthenticatedTag checks that the request is
+// correctly authenticated, and that the authenticated entity making
+// the request is of one of the specified kinds.
+func (ctxt *httpContext) stateForRequestAuthenticatedTag(r *http.Request, kinds ...string) (*state.State, state.Entity, error) {
+	funcs := make([]common.GetAuthFunc, len(kinds))
+	for i, kind := range kinds {
+		funcs[i] = common.AuthFuncForTagKind(kind)
+	}
 	st, entity, err := ctxt.stateForRequestAuthenticated(r)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	if ok, err := checkPermissions(entity.Tag(), authFunc); !ok {
+	if ok, err := checkPermissions(entity.Tag(), common.AuthAny(funcs...)); !ok {
 		ctxt.release(st)
 		return nil, nil, err
 	}

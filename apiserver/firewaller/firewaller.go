@@ -32,13 +32,13 @@ type FirewallerAPI struct {
 	*common.InstanceIdGetter
 	cloudspec.CloudSpecAPI
 
-	st            *state.State
-	resources     facade.Resources
-	authorizer    facade.Authorizer
-	accessUnit    common.GetAuthFunc
-	accessService common.GetAuthFunc
-	accessMachine common.GetAuthFunc
-	accessEnviron common.GetAuthFunc
+	st                *state.State
+	resources         facade.Resources
+	authorizer        facade.Authorizer
+	accessUnit        common.GetAuthFunc
+	accessApplication common.GetAuthFunc
+	accessMachine     common.GetAuthFunc
+	accessEnviron     common.GetAuthFunc
 }
 
 // NewFirewallerAPI creates a new server-side FirewallerAPI facade.
@@ -54,15 +54,14 @@ func NewFirewallerAPI(
 	// Set up the various authorization checkers.
 	accessEnviron := common.AuthFuncForTagKind(names.ModelTagKind)
 	accessUnit := common.AuthFuncForTagKind(names.UnitTagKind)
-	accessService := common.AuthFuncForTagKind(names.ApplicationTagKind)
+	accessApplication := common.AuthFuncForTagKind(names.ApplicationTagKind)
 	accessMachine := common.AuthFuncForTagKind(names.MachineTagKind)
-	accessUnitOrService := common.AuthEither(accessUnit, accessService)
-	accessUnitServiceOrMachine := common.AuthEither(accessUnitOrService, accessMachine)
+	accessUnitApplicationOrMachine := common.AuthAny(accessUnit, accessApplication, accessMachine)
 
-	// Life() is supported for units, services or machines.
+	// Life() is supported for units, applications or machines.
 	lifeGetter := common.NewLifeGetter(
 		st,
-		accessUnitServiceOrMachine,
+		accessUnitApplicationOrMachine,
 	)
 	// ModelConfig() and WatchForModelConfigChanges() are allowed
 	// with unrestriced access.
@@ -75,7 +74,7 @@ func NewFirewallerAPI(
 	entityWatcher := common.NewAgentEntityWatcher(
 		st,
 		resources,
-		accessService,
+		accessApplication,
 	)
 	// WatchUnits() is supported for machines.
 	unitsWatcher := common.NewUnitsWatcher(st,
@@ -109,7 +108,7 @@ func NewFirewallerAPI(
 		resources:            resources,
 		authorizer:           authorizer,
 		accessUnit:           accessUnit,
-		accessService:        accessService,
+		accessApplication:    accessApplication,
 		accessMachine:        accessMachine,
 		accessEnviron:        accessEnviron,
 	}, nil
@@ -263,12 +262,12 @@ func (f *FirewallerAPI) GetMachineActiveSubnets(args params.Entities) (params.St
 	return result, nil
 }
 
-// GetExposed returns the exposed flag value for each given service.
+// GetExposed returns the exposed flag value for each given application.
 func (f *FirewallerAPI) GetExposed(args params.Entities) (params.BoolResults, error) {
 	result := params.BoolResults{
 		Results: make([]params.BoolResult, len(args.Entities)),
 	}
-	canAccess, err := f.accessService()
+	canAccess, err := f.accessApplication()
 	if err != nil {
 		return params.BoolResults{}, err
 	}
@@ -278,9 +277,9 @@ func (f *FirewallerAPI) GetExposed(args params.Entities) (params.BoolResults, er
 			result.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
-		service, err := f.getService(canAccess, tag)
+		application, err := f.getApplication(canAccess, tag)
 		if err == nil {
-			result.Results[i].Result = service.IsExposed()
+			result.Results[i].Result = application.IsExposed()
 		}
 		result.Results[i].Error = common.ServerError(err)
 	}
@@ -333,13 +332,13 @@ func (f *FirewallerAPI) getUnit(canAccess common.AuthFunc, tag names.UnitTag) (*
 	return entity.(*state.Unit), nil
 }
 
-func (f *FirewallerAPI) getService(canAccess common.AuthFunc, tag names.ApplicationTag) (*state.Application, error) {
+func (f *FirewallerAPI) getApplication(canAccess common.AuthFunc, tag names.ApplicationTag) (*state.Application, error) {
 	entity, err := f.getEntity(canAccess, tag)
 	if err != nil {
 		return nil, err
 	}
 	// The authorization function guarantees that the tag represents a
-	// service.
+	// application.
 	return entity.(*state.Application), nil
 }
 
