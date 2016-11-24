@@ -127,14 +127,3 @@ func (s *ProviderFunctionalSuite) TestPrepareConfigUnsupportedAuthType(c *gc.C) 
 	})
 	c.Assert(err, gc.ErrorMatches, `validating cloud spec: "certificate" auth-type not supported`)
 }
-
-func (s *ProviderFunctionalSuite) TestPrepareConfigNonEmptyEndpoint(c *gc.C) {
-	_, err := s.provider.PrepareConfig(environs.PrepareConfigParams{
-		Cloud: environs.CloudSpec{
-			Type:     "lxd",
-			Name:     "remotehost",
-			Endpoint: "1.2.3.4",
-		},
-	})
-	c.Assert(err, gc.ErrorMatches, `validating cloud spec: non-empty endpoint "1.2.3.4" not valid`)
-}
