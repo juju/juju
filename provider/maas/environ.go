@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"path"
 	"regexp"
 	"strconv"
 	"strings"
@@ -31,6 +32,7 @@ import (
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state/multiwatcher"
@@ -1318,9 +1320,10 @@ func (environ *maasEnviron) selectNode2(args selectNodeArgs) (maasInstance, erro
 	return inst, nil
 }
 
-// setupJujuNetworking returns a string representing the script to run
-// in order to prepare the Juju-specific networking config on a node.
-func setupJujuNetworking(interfacesToBridge []string) string {
+// bridgeScriptWrapperForCloudInit returns a string representing the script
+// to run in order to prepare the Juju-specific networking config on a
+// node during cloud-init.
+func bridgeScriptWrapperForCloudInit(bridgeScriptPath string, interfacesToBridge []string) string {
 	// For ubuntu series < xenial we prefer python2 over python3
 	// as we don't want to invalidate lots of testing against
 	// known cloud-image contents. A summary of Ubuntu releases
@@ -1337,8 +1340,6 @@ func setupJujuNetworking(interfacesToBridge []string) string {
 	// going forward:  python 3 only
 
 	return fmt.Sprintf(`
-trap 'rm -f %[1]q' EXIT
-
 if [ -x /usr/bin/python2 ]; then
     juju_networking_preferred_python_binary=/usr/bin/python2
 elif [ -x /usr/bin/python3 ]; then
@@ -1373,10 +1374,6 @@ fi`,
 	)
 }
 
-func renderEtcNetworkInterfacesScript(interfacesToBridge ...string) string {
-	return setupJujuNetworking(interfacesToBridge)
-}
-
 // newCloudinitConfig creates a cloudinit.Config structure suitable as a base
 // for initialising a MAAS node.
 func (environ *maasEnviron) newCloudinitConfig(hostname, forSeries string, interfacesToBridge []string) (cloudinit.CloudConfig, error) {
@@ -1409,9 +1406,15 @@ func (environ *maasEnviron) newCloudinitConfig(hostname, forSeries string, inter
 			)
 			break
 		}
+
+		bridgeScriptPath, err := bridgeScriptPathForSeries(forSeries)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
 		cloudcfg.AddPackage("bridge-utils")
 		cloudcfg.AddBootTextFile(bridgeScriptPath, bridgeScriptPython, 0755)
-		cloudcfg.AddScripts(setupJujuNetworking(interfacesToBridge))
+		cloudcfg.AddScripts(bridgeScriptWrapperForCloudInit(bridgeScriptPath, interfacesToBridge))
 	}
 	return cloudcfg, nil
 }
@@ -2413,4 +2416,12 @@ func (env *maasEnviron) releaseContainerAddresses2(macAddresses []string) error 
 		}
 	}
 	return nil
+}
+
+func bridgeScriptPathForSeries(series string) (string, error) {
+	dataDir, err := paths.DataDir(series)
+	if err != nil {
+		return "", err
+	}
+	return path.Join(dataDir, bridgeScriptName), nil
 }
