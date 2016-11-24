@@ -61,21 +61,24 @@ Model names can be duplicated across controllers but must be unique for
 any given controller. Model names may only contain lowercase letters,
 digits and hyphens, and may not start with a hyphen.
 
-You may also supply model-specific configuration, a credential, and which
-cloud/region to deploy the model to. The cloud/region and credentials
+To add a model, Juju requires a credential.
+If a controller has a credential for the user creating the model, 
+it will be used.
+If a controller does not have a credential, 
+this command allows to specify desired named credential with --credential option.
+This option stores provided named credential in the controller.
+
+Another way of ensuring that a named credential is stored in the controller, is
+by running update-credential command.
+
+Named credentials are defined in Juju via either 
+"juju add-credential" or "juju autoload-credentials" where
+actual names are in the form of either 
+"credential-name" or "credential-owner/credential-name". 
+
+You may also supply model-specific configuration as well as a
+cloud/region to which this model will be deployed. The cloud/region and credentials
 are the ones used to create any future resources within the model.
-
-Credentials are always used when adding a model.
-If you are the admin user, your credentials will already be stored in the controller. 
-If you are another user with add-model permission, 
-you will need to specify what credential you want to use the first time a model is added. 
-You may need to run juju add-credential first to make Juju aware of any credential you want to use.
-
-Credential names are specified either in the form "credential-name", or
-"credential-owner/credential-name". There is currently no way to acquire
-access to another user's credentials, so the only valid value for
-credential-owner is your own user name. This may change in a future
-release.
 
 If no cloud/region is specified, then the model will be deployed to
 the same cloud/region as the controller model. If a region is specified
