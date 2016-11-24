@@ -3,10 +3,13 @@ from __future__ import print_function
 
 
 from argparse import ArgumentParser
-from contextlib import (
-    contextmanager,
-    nested,
-)
+from contextlib import contextmanager
+try:
+    from contextlib import nested
+except ImportError:
+    from contextlib import ExitStack as nested
+
+
 from datetime import (
     datetime,
 )
