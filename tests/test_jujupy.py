@@ -2360,7 +2360,7 @@ class TestEnvJujuClient(ClientTest):
         status = client.status_class.from_text(value)
         with patch('jujupy.until_timeout', lambda x, start=None: range(0)):
             with patch.object(client, 'get_status', return_value=status
-                    ) as get_status_mock:
+                              ) as get_status_mock:
                 with self.assertRaisesRegexp(
                         StatusNotMet,
                         'Timed out waiting for voting to be enabled.'):
