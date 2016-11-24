@@ -60,7 +60,7 @@ def terminate_instances(env, instance_ids):
         environ.update(translate_to_env(env.config))
         command_args = ['nova', 'delete'] + instance_ids
     elif provider_type == 'maas':
-        with maas_account_from_config(env.config) as substrate:
+        with maas_account_from_boot_config(env) as substrate:
             substrate.terminate_instances(instance_ids)
         return
     else:
@@ -691,13 +691,14 @@ class MAAS1Account(MAASAccount):
 
 
 @contextmanager
-def maas_account_from_config(config):
+def maas_account_from_boot_config(env):
     """Create a ContextManager for either a MAASAccount or a MAAS1Account.
 
     As it's not possible to tell from the maas config which version of the api
     to use, try 2.0 and if that fails on login fallback to 1.0 instead.
     """
-    args = (config['name'], config['maas-server'], config['maas-oauth'])
+    maas_oauth = env.get_cloud_credentials()['maas-oauth']
+    args = (env.config['name'], env.config['maas-server'], maas_oauth)
     manager = MAASAccount(*args)
     try:
         manager.login()
@@ -908,7 +909,7 @@ def resolve_remote_dns_names(env, remote_machines):
         # Only MAAS requires special handling at prsent.
         return
     # MAAS hostnames are not resolvable, but we can adapt them to IPs.
-    with maas_account_from_config(env.config) as account:
+    with maas_account_from_boot_config(env) as account:
         allocated_ips = account.get_allocated_ips()
     for remote in remote_machines:
         if remote.get_address() in allocated_ips:

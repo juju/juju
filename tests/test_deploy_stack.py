@@ -749,8 +749,17 @@ class DumpEnvLogsTestCase(FakeHomeTestCase):
             'type': 'maas',
             'name': 'foo',
             'maas-server': 'http://bar/MASS/',
-            'maas-oauth': 'baz'}
-        client = EnvJujuClient(JujuData('cloud', config), '1.23.4', None)
+            }
+        juju_data = JujuData('cloud', config)
+        cloud_name = 'mycloud'
+        juju_data.clouds = {'clouds': {cloud_name: {
+            'endpoint': config['maas-server'],
+            'type': config['type'],
+            }}}
+        juju_data.credentials = {'credentials': {cloud_name: {'credentials': {
+            'maas-oauth': 'baz',
+            }}}}
+        client = EnvJujuClient(juju_data, '1.23.4', None)
         status = Status.from_text("""\
             machines:
               "0":

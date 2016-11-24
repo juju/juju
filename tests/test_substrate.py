@@ -41,7 +41,7 @@ from substrate import (
     make_substrate_manager,
     MAASAccount,
     MAAS1Account,
-    maas_account_from_config,
+    maas_account_from_boot_config,
     OpenStackAccount,
     parse_euca,
     run_instances,
@@ -87,6 +87,24 @@ def get_maas_env():
         'maas-oauth': 'a:password:string',
         'name': 'mas'
         })
+
+
+def get_maas_boot_config():
+    cloud_name = 'mymaas'
+    boot_config = JujuData('mas', {
+        'type': 'maas',
+        'maas-server': 'http://10.0.10.10/MAAS/',
+        'name': 'mas'
+        }, juju_home='')
+    boot_config.clouds = {'clouds': {cloud_name: {
+        'name': cloud_name,
+        'type': boot_config.config['type'],
+        'endpoint': boot_config.config['maas-server']
+        }}}
+    boot_config.credentials = {'credentials': {cloud_name: {'credentials': {
+        'maas-oauth': 'a:password:string',
+        }}}}
+    return boot_config
 
 
 def get_openstack_env():
@@ -1243,9 +1261,9 @@ class TestMAAS1Account(TestCase):
 class TestMAASAccountFromConfig(TestCase):
 
     def test_login_succeeds(self):
-        config = get_maas_env().config
+        boot_config = get_maas_env()
         with patch('subprocess.check_call', autospec=True) as cc_mock:
-            with maas_account_from_config(config) as maas:
+            with maas_account_from_boot_config(boot_config) as maas:
                 self.assertIs(type(maas), MAASAccount)
                 self.assertEqual(maas.profile, 'mas')
                 self.assertEqual(maas.url, 'http://10.0.10.10/MAAS/api/2.0/')
@@ -1259,11 +1277,11 @@ class TestMAASAccountFromConfig(TestCase):
         cc_mock.assert_called_once_with(['maas', 'logout', 'mas'])
 
     def test_login_fallback(self):
-        config = get_maas_env().config
+        boot_config = get_maas_env()
         login_error = CalledProcessError(1, ['maas', 'login'])
         with patch('subprocess.check_call', autospec=True,
                    side_effect=[login_error, None, None]) as cc_mock:
-            with maas_account_from_config(config) as maas:
+            with maas_account_from_boot_config(boot_config) as maas:
                 self.assertIs(type(maas), MAAS1Account)
                 self.assertEqual(maas.profile, 'mas')
                 self.assertEqual(maas.url, 'http://10.0.10.10/MAAS/api/1.0/')
@@ -1285,12 +1303,12 @@ class TestMAASAccountFromConfig(TestCase):
             'INFO Could not login with MAAS 2.0 API, trying 1.0\n')
 
     def test_login_both_fail(self):
-        config = get_maas_env().config
+        boot_config = get_maas_env()
         login_error = CalledProcessError(1, ['maas', 'login'])
         with patch('subprocess.check_call', autospec=True,
                    side_effect=login_error) as cc_mock:
             with self.assertRaises(CalledProcessError) as ctx:
-                with maas_account_from_config(config):
+                with maas_account_from_boot_config(boot_config):
                     self.fail('Should never get manager with failed login')
         self.assertIs(ctx.exception, login_error)
         self.assertEquals(cc_mock.call_args_list, [
@@ -1304,6 +1322,22 @@ class TestMAASAccountFromConfig(TestCase):
         self.assertEqual(
             self.log_stream.getvalue(),
             'INFO Could not login with MAAS 2.0 API, trying 1.0\n')
+
+    def test_login_uses_cloud_credentials(self):
+        boot_config = get_maas_boot_config()
+        with patch('subprocess.check_call', autospec=True) as cc_mock:
+            with maas_account_from_boot_config(boot_config) as maas:
+                self.assertIs(type(maas), MAASAccount)
+                self.assertEqual(maas.profile, 'mas')
+                self.assertEqual(maas.url, 'http://10.0.10.10/MAAS/api/2.0/')
+                self.assertEqual(maas.oauth, 'a:password:string')
+                # The login call has happened on context manager enter, reset
+                # the mock after to verify the logout call.
+                cc_mock.assert_called_once_with([
+                    'maas', 'login', 'mas', 'http://10.0.10.10/MAAS/api/2.0/',
+                    'a:password:string'])
+                cc_mock.reset_mock()
+        cc_mock.assert_called_once_with(['maas', 'logout', 'mas'])
 
 
 class TestMakeSubstrateManager(FakeHomeTestCase):

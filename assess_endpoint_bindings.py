@@ -17,7 +17,7 @@ from jujucharm import (
     Charm,
 )
 from substrate import (
-    maas_account_from_config,
+    maas_account_from_boot_config,
 )
 from utility import (
     add_basic_testing_arguments,
@@ -346,7 +346,7 @@ def main(argv=None):
     args = parse_args(argv)
     configure_logging(args.verbose)
     bs_manager = BootstrapManager.from_args(args)
-    with maas_account_from_config(bs_manager.client.env.config) as account:
+    with maas_account_from_boot_config(bs_manager.client.env) as account:
         assess_endpoint_bindings(account, bs_manager)
     return 0
 
