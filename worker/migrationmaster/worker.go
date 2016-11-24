@@ -464,7 +464,8 @@ func (w *Worker) doLOGTRANSFER(targetInfo coremigration.TargetInfo, modelUUID st
 			return unknown, w.catacomb.ErrDying()
 		case msg, ok := <-logSource:
 			if !ok {
-				break
+				// The channel's been closed, we're finished!
+				return coremigration.REAP, nil
 			}
 			err := logTarget.WriteJSON(params.LogRecord{
 				Entity:   msg.Entity,
@@ -479,7 +480,6 @@ func (w *Worker) doLOGTRANSFER(targetInfo coremigration.TargetInfo, modelUUID st
 			}
 		}
 	}
-	return coremigration.REAP, nil
 }
 
 func (w *Worker) doREAP() (coremigration.Phase, error) {
