@@ -15,23 +15,23 @@ import (
 	"github.com/juju/juju/resource/api"
 )
 
-// LegacyHTTPHandler is the HTTP handler for the resources
+// HTTPHandler is the HTTP handler for the resources
 // endpoint. We use it rather having a separate handler for each HTTP
 // method since registered API handlers must handle *all* HTTP methods
 // currently.
-type LegacyHTTPHandler struct {
-	LegacyHTTPHandlerDeps
+type HTTPHandler struct {
+	HTTPHandlerDeps
 }
 
-// NewLegacyHTTPHandler creates a new http.Handler for the resources endpoint.
-func NewLegacyHTTPHandler(deps LegacyHTTPHandlerDeps) *LegacyHTTPHandler {
-	return &LegacyHTTPHandler{
-		LegacyHTTPHandlerDeps: deps,
+// NewHTTPHandler creates a new http.Handler for the resources endpoint.
+func NewHTTPHandler(deps HTTPHandlerDeps) *HTTPHandler {
+	return &HTTPHandler{
+		HTTPHandlerDeps: deps,
 	}
 }
 
 // ServeHTTP implements http.Handler.
-func (h *LegacyHTTPHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
+func (h *HTTPHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 	opener, err := h.NewResourceOpener(req)
 	if err != nil {
 		h.SendHTTPError(resp, err)
@@ -68,20 +68,20 @@ func (h *LegacyHTTPHandler) ServeHTTP(resp http.ResponseWriter, req *http.Reques
 	}
 }
 
-// LegacyHTTPHandlerDeps exposes the external dependencies
-// of LegacyHTTPHandler.
-type LegacyHTTPHandlerDeps interface {
-	baseLegacyHTTPHandlerDeps
+// HTTPHandlerDeps exposes the external dependencies
+// of HTTPHandler.
+type HTTPHandlerDeps interface {
+	baseHTTPHandlerDeps
 	ExtraDeps
 }
 
-//ExtraDeps exposes the non-superficial dependencies of LegacyHTTPHandler.
+//ExtraDeps exposes the non-superficial dependencies of HTTPHandler.
 type ExtraDeps interface {
 	// NewResourceOpener returns a new opener for the request.
 	NewResourceOpener(*http.Request) (resource.Opener, error)
 }
 
-type baseLegacyHTTPHandlerDeps interface {
+type baseHTTPHandlerDeps interface {
 	// UpdateDownloadResponse updates the HTTP response with the info
 	// from the resource.
 	UpdateDownloadResponse(http.ResponseWriter, resource.Resource)
@@ -96,8 +96,8 @@ type baseLegacyHTTPHandlerDeps interface {
 	Copy(io.Writer, io.Reader) error
 }
 
-// NewLegacyHTTPHandlerDeps returns an implementation of LegacyHTTPHandlerDeps.
-func NewLegacyHTTPHandlerDeps(extraDeps ExtraDeps) LegacyHTTPHandlerDeps {
+// NewHTTPHandlerDeps returns an implementation of HTTPHandlerDeps.
+func NewHTTPHandlerDeps(extraDeps ExtraDeps) HTTPHandlerDeps {
 	return &legacyHTTPHandlerDeps{
 		ExtraDeps: extraDeps,
 	}
@@ -108,23 +108,23 @@ type legacyHTTPHandlerDeps struct {
 	ExtraDeps
 }
 
-// SendHTTPError implements LegacyHTTPHandlerDeps.
+// SendHTTPError implements HTTPHandlerDeps.
 func (deps legacyHTTPHandlerDeps) SendHTTPError(resp http.ResponseWriter, err error) {
 	api.SendHTTPError(resp, err)
 }
 
-// UpdateDownloadResponse implements LegacyHTTPHandlerDeps.
+// UpdateDownloadResponse implements HTTPHandlerDeps.
 func (deps legacyHTTPHandlerDeps) UpdateDownloadResponse(resp http.ResponseWriter, info resource.Resource) {
 	api.UpdateDownloadResponse(resp, info)
 }
 
-// HandleDownload implements LegacyHTTPHandlerDeps.
+// HandleDownload implements HTTPHandlerDeps.
 func (deps legacyHTTPHandlerDeps) HandleDownload(opener resource.Opener, req *http.Request) (resource.Opened, error) {
 	name := api.ExtractDownloadRequest(req)
 	return opener.OpenResource(name)
 }
 
-// Copy implements LegacyHTTPHandlerDeps.
+// Copy implements HTTPHandlerDeps.
 func (deps legacyHTTPHandlerDeps) Copy(w io.Writer, r io.Reader) error {
 	_, err := io.Copy(w, r)
 	return err
