@@ -1042,7 +1042,6 @@ func newAllWatcherStateBacking(st *State) Backing {
 		machinesC,
 		unitsC,
 		applicationsC,
-		remoteApplicationsC,
 		relationsC,
 		annotationsC,
 		statusesC,
