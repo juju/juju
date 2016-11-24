@@ -174,6 +174,7 @@ func (r resources) registerHookContext() {
 
 	r.registerHookContextCommands()
 	r.registerHookContextFacade()
+	r.registerUnitDownloadEndpoint()
 }
 
 func (r resources) registerHookContextCommands() {
@@ -205,6 +206,9 @@ func (r resources) registerHookContextFacade() {
 		reflect.TypeOf(&internalserver.UnitFacade{}),
 	)
 
+}
+
+func (r resources) registerUnitDownloadEndpoint() {
 	common.RegisterAPIModelEndpoint(internalapi.HTTPEndpointPattern, apihttp.HandlerSpec{
 		Constraints: apihttp.HandlerConstraints{
 			AuthKind:            names.UnitTagKind,
