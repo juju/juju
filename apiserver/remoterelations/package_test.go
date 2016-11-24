@@ -4,7 +4,7 @@
 package remoterelations_test
 
 import (
-	testing "testing"
+	"testing"
 
 	gc "gopkg.in/check.v1"
 )
