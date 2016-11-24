@@ -56,25 +56,24 @@ type addModelCommand struct {
 const addModelHelpDoc = `
 Adding a model is typically done in order to run a specific workload.
 
-To add a model, you must specify a model name. 
-Model names can be duplicated across controllers but must be unique for
-any given controller. Model names may only contain lowercase letters,
-digits and hyphens, and may not start with a hyphen.
+To add a model, you must specify a model name. Model names can be duplicated 
+across controllers but must be unique for any given controller. Model names may 
+only contain lowercase letters, digits and hyphens, and 
+may not start with a hyphen.
 
-To add a model, Juju requires a credential.
-If a controller has a credential for the user creating the model, 
-it will be used.
-If a controller does not have a credential, 
-this command allows to specify desired named credential with --credential option.
-This option stores provided named credential in the controller.
+To add a model, Juju requires a credential:
 
-Another way of ensuring that a named credential is stored in the controller, is
-by running update-credential command.
+    * if you have a default (or just one) credential defined at client
+     (i.e. in credentials.yaml), then juju will use that;
+    * if you have no default (and multiple) credentials defined at the client, 
+     then you must specify one using --credential;
+    * as the admin user you can omit the credential, 
+     and the credential used to bootstrap will be used.
 
-Named credentials are defined in Juju via either 
-"juju add-credential" or "juju autoload-credentials" where
-actual names are in the form of either 
-"credential-name" or "credential-owner/credential-name". 
+To add a credential for add-model, use one of the "juju add-credential" or 
+"juju autoload-credentials" commands. These will add credentials 
+to the Juju client, which "juju add-model" will upload to the controller 
+as necessary.
 
 You may also supply model-specific configuration as well as a
 cloud/region to which this model will be deployed. The cloud/region and credentials
