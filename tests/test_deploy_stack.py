@@ -1321,15 +1321,24 @@ class TestCreateController(FakeHomeTestCase):
         create_controller = self.get_cleanup_controller()
         client = create_controller.tear_down_client
         client.bootstrap()
-        create_controller.tear_down()
+        create_controller.tear_down(True)
         self.assertEqual({'models': []}, client.get_models())
         self.assertEqual(
             'controller-destroyed', client._backend.controller_state.state)
 
+    def test_tear_down_existing_no_controller(self):
+        create_controller = self.get_cleanup_controller()
+        client = create_controller.tear_down_client
+        client.bootstrap()
+        create_controller.tear_down(False)
+        self.assertEqual({'models': []}, client.get_models())
+        self.assertEqual(
+            'controller-killed', client._backend.controller_state.state)
+
     def test_tear_down_nothing(self):
         create_controller = self.get_cleanup_controller()
         with self.assertRaises(subprocess.CalledProcessError):
-            create_controller.tear_down()
+            create_controller.tear_down(True)
 
 
 class TestPublicController(FakeHomeTestCase):
@@ -1383,7 +1392,7 @@ class TestPublicController(FakeHomeTestCase):
         public_controller = self.get_cleanup_controller()
         client = public_controller.tear_down_client
         client.add_model(client.env)
-        public_controller.tear_down()
+        public_controller.tear_down(True)
         self.assertEqual({'models': []}, client.get_models())
         self.assertEqual(
             'model-destroyed', client._backend.controller_state.state)
@@ -1391,7 +1400,7 @@ class TestPublicController(FakeHomeTestCase):
     def test_tear_down_nothing(self):
         public_controller = self.get_cleanup_controller()
         with self.assertRaises(subprocess.CalledProcessError):
-            public_controller.tear_down()
+            public_controller.tear_down(True)
 
 
 class TestBootstrapManager(FakeHomeTestCase):
@@ -1925,6 +1934,42 @@ class TestBootstrapManager(FakeHomeTestCase):
                               autospec=True) as ads_mock:
                 with bs_manager.runtime_context(['baz']):
                     ads_mock.assert_called_once_with(['baz'])
+
+    @contextmanager
+    def no_controller_manager(self):
+        client = fake_juju_client()
+        client.bootstrap()
+        bs_manager = BootstrapManager(
+            'foobar', client, client,
+            None, [], None, None, None, None, self.juju_home, False,
+            True, True)
+        bs_manager.has_controller = False
+        with patch('deploy_stack.safe_print_status',
+                   autospec=True) as sp_mock:
+            with patch.object(client, 'juju', wrap=client.juju) as juju_mock:
+                with patch.object(client, 'get_juju_output',
+                                  wraps=client.get_juju_output) as gjo_mock:
+                    with patch.object(bs_manager, '_should_dump',
+                                      return_value=True, autospec=True):
+                        with patch('deploy_stack.get_remote_machines',
+                                   return_value={}):
+                                yield bs_manager
+        self.assertEqual(sp_mock.call_count, 0)
+        self.assertEqual(0, gjo_mock.call_count)
+        juju_mock.assert_called_once_with(
+            'kill-controller', ('name', '-y'), check=True, include_e=False,
+            timeout=600)
+
+    def test_runtime_context_no_controller(self):
+        with self.no_controller_manager() as bs_manager:
+            with bs_manager.runtime_context([]):
+                pass
+
+    def test_runtime_context_no_controller_exception(self):
+        with self.no_controller_manager() as bs_manager:
+            with self.assertRaises(LoggedException):
+                with bs_manager.runtime_context([]):
+                    raise ValueError
 
     def test_booted_context_handles_logged_exception(self):
         client = fake_juju_client()
