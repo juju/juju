@@ -76,7 +76,11 @@ func (r *RegisterMeteredCharm) RunPre(api MeteredDeployAPI, bakeryClient *httpba
 					return err1
 				}
 				charmURL := deployInfo.CharmID.URL.String()
-				return errors.Errorf(`%v has no default plan. Try "juju deploy --plan <plan-name> with one of %v"`, charmURL, strings.Join(options, ", "))
+				if len(options) > 0 {
+					return errors.Errorf(`%v has no default plan. Try "juju deploy --plan <plan-name> with one of %v"`, charmURL, strings.Join(options, ", "))
+				} else {
+					return errors.Errorf("no plans available for %v.", charmURL)
+				}
 			}
 			return err
 		}
