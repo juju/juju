@@ -2266,30 +2266,30 @@ class EnvJujuClient:
         """Return the controller-member-status of the machine if it exists."""
         return info_dict.get('controller-member-status')
 
-    def wait_for_ha(self, timeout=1200):
+    def wait_for_ha(self, timeout=1200, start=None):
+        """Wait for voiting to be enabled.
+
+        May only be called on a controller client."""
+        if self.env.environment != self.get_controller_model_name():
+            raise ValueError('wait_for_ha requires a controller client.')
         desired_state = 'has-vote'
+
+        def status_to_ha(status):
+            status.check_agents_started()
+            states = {}
+            for machine, info in status.iter_machines():
+                status = self.get_controller_member_status(info)
+                if status is None:
+                    continue
+                states.setdefault(status, []).append(machine)
+            if states.keys() == [desired_state]:
+                if len(states.get(desired_state, [])) >= 3:
+                    return None
+            return states
+
         reporter = GroupReporter(sys.stdout, desired_state)
-        try:
-            with self.check_timeouts():
-                with self.ignore_soft_deadline():
-                    status = None
-                    for remaining in until_timeout(timeout):
-                        status = self.get_status(controller=True)
-                        status.check_agents_started()
-                        states = {}
-                        for machine, info in status.iter_machines():
-                            status = self.get_controller_member_status(info)
-                            if status is None:
-                                continue
-                            states.setdefault(status, []).append(machine)
-                        if states.keys() == [desired_state]:
-                            if len(states.get(desired_state, [])) >= 3:
-                                break
-                        reporter.update(states)
-                    else:
-                        raise VotingNotEnabled(self.env.environment, status)
-        finally:
-            reporter.finish()
+        self._wait_for_status(reporter, status_to_ha, VotingNotEnabled,
+                              timeout=timeout, start=start)
         # XXX sinzui 2014-12-04: bug 1399277 happens because
         # juju claims HA is ready when the monogo replica sets
         # are not. Juju is not fully usable. The replica set

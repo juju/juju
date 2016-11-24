@@ -151,8 +151,8 @@ def patch_status(client, *statuses):
     """
     kwargs = {}
     if len(statuses) > 1:
-        kwargs['side_effect'] = (Status.from_text(json.dumps(s))
-                                 for s in statuses).next
+        kwargs['side_effect'] = [Status.from_text(json.dumps(s))
+                                 for s in statuses]
     else:
         kwargs['return_value'] = Status.from_text(json.dumps(statuses[0]))
     if client is not None:
@@ -1487,7 +1487,7 @@ class TestEnsureAvailabilityAttempt(JujuPyTestCase):
         with patch_status(controller_client, status) as gs_mock:
             self.assertEqual(ensure_iter.next(), {
                 'test_id': 'ensure-availability-n3', 'result': True})
-        gs_mock.assert_called_once_with(controller=True)
+        gs_mock.assert_called_once_with()
 
     def test_iter_steps_failure(self):
         client = FakeEnvJujuClient()
@@ -1510,7 +1510,7 @@ class TestEnsureAvailabilityAttempt(JujuPyTestCase):
             with self.assertRaisesRegexp(
                     Exception, 'Timed out waiting for voting to be enabled.'):
                 ensure_iter.next()
-        self.assertEqual(2, gs_mock.call_count)
+        self.assertEqual(3, gs_mock.call_count)
 
 
 class TestDeployManyAttempt(JujuPyTestCase):
