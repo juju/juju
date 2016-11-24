@@ -684,6 +684,26 @@ func (s *Suite) TestExternalControlABORT(c *gc.C) {
 	))
 }
 
+func (s *Suite) TestLogTransferErrorOpeningLogSource(c *gc.C) {
+	c.Fatalf("writeme")
+}
+
+func (s *Suite) TestLogTransferErrorOpeningTargetAPI(c *gc.C) {
+	c.Fatalf("writeme")
+}
+
+func (s *Suite) TestLogTransferErrorOpeningLogDest(c *gc.C) {
+	c.Fatalf("writeme")
+}
+
+func (s *Suite) TestLogTransferErrorWriting(c *gc.C) {
+	c.Fatalf("writeme")
+}
+
+func (s *Suite) TestLogTransferSendsRecords(c *gc.C) {
+	c.Fatalf("writeme")
+}
+
 func (s *Suite) checkWorkerReturns(c *gc.C, expected error) {
 	err := s.runWorker(c)
 	c.Check(errors.Cause(err), gc.Equals, expected)

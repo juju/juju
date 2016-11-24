@@ -389,3 +389,7 @@ func (s *ClientSuite) TestMinionReportsBadFailedTag(c *gc.C) {
 	_, err := client.MinionReports()
 	c.Assert(err, gc.ErrorMatches, `processing failed agents: "dave" is not a valid tag`)
 }
+
+func (s *ClientSuite) TestStreamModelLogs(c *gc.C) {
+	c.Fatalf("writeme")
+}

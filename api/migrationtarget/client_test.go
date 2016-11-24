@@ -85,6 +85,10 @@ func (s *ClientSuite) TestActivate(c *gc.C) {
 	s.AssertModelCall(c, stub, names.NewModelTag(uuid), "Activate", err)
 }
 
+func (s *ClientSuite) TestOpenLogTransferStream(c *gc.C) {
+	c.Fatalf("writeme")
+}
+
 func (s *ClientSuite) AssertModelCall(c *gc.C, stub *jujutesting.Stub, tag names.ModelTag, call string, err error) {
 	expectedArg := params.ModelArgs{ModelTag: tag.String()}
 	stub.CheckCalls(c, []jujutesting.StubCall{
