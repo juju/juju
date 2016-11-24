@@ -1753,6 +1753,16 @@ class TestEnvJujuClient(ClientTest):
         errors_mock.assert_has_calls(
             [call(ignore_recoverable=True), call(ignore_recoverable=False)])
 
+    def test__wait_for_status_controller(self):
+        status = Status({}, '')
+        client = fake_juju_client()
+        with patch.object(client, 'get_status', return_value=status
+                          ) as get_status_mock:
+            client._wait_for_status(Mock(), lambda x: None)
+            client._wait_for_status(Mock(), lambda x: None, controller=True)
+        get_status_mock.assert_has_calls([call(controller=False),
+                                          call(controller=True)])
+
     def test_wait_for_started_logs_status(self):
         value = self.make_status_yaml('agent-state', 'pending', 'started')
         client = EnvJujuClient(JujuData('local'), None, None)
@@ -2349,11 +2359,13 @@ class TestEnvJujuClient(ClientTest):
         client = EnvJujuClient(JujuData('local'), None, None)
         status = client.status_class.from_text(value)
         with patch('jujupy.until_timeout', lambda x, start=None: range(0)):
-            with patch.object(client, 'get_status', return_value=status):
+            with patch.object(client, 'get_status', return_value=status
+                    ) as get_status_mock:
                 with self.assertRaisesRegexp(
                         StatusNotMet,
                         'Timed out waiting for voting to be enabled.'):
                     client.wait_for_ha()
+        get_status_mock.assert_called_once_with(controller=True)
 
     def test_wait_for_ha_timeout_with_status_error(self):
         value = yaml.safe_dump({
