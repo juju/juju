@@ -1407,11 +1407,9 @@ func (environ *maasEnviron) newCloudinitConfig(hostname, forSeries string, inter
 			break
 		}
 
-		var bridgeScriptPath string
-
-		bridgeScriptPath, err = bridgeScriptPathForSeries(forSeries)
+		bridgeScriptPath, err := bridgeScriptPathForSeries(forSeries)
 		if err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		}
 
 		cloudcfg.AddPackage("bridge-utils")
