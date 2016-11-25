@@ -631,50 +631,6 @@ class TestEnvJujuClient(ClientTest):
         self.assertEqual('/foo/models/cache.yaml',
                          client.get_cache_path())
 
-    def test_full_args(self):
-        env = JujuData('foo')
-        client = EnvJujuClient(env, None, 'my/juju/bin')
-        full = client._full_args('bar', ('baz', 'qux'))
-        self.assertEqual(('bin', '--show-log', 'bar', '-m', 'foo:foo', 'baz',
-                          'qux'), full)
-        full = client._full_args('bar', ('baz', 'qux'))
-        self.assertEqual((
-            'bin', '--show-log', 'bar', '-m', 'foo:foo', 'baz', 'qux'), full)
-        full = client._full_args('bar',  ('baz', 'qux'), controller=True)
-        self.assertEqual(
-            ('bin', '--show-log', 'bar', '-m', 'foo:controller', 'baz', 'qux'),
-            full)
-        client.env = None
-        full = client._full_args('bar', ('baz', 'qux'))
-        self.assertEqual(('bin', '--show-log', 'bar', 'baz', 'qux'), full)
-
-    def test_full_args_debug(self):
-        env = JujuData('foo')
-        client = EnvJujuClient(env, None, 'my/juju/bin', debug=True)
-        full = client._full_args('bar', ('baz', 'qux'))
-        self.assertEqual((
-            'bin', '--debug', 'bar', '-m', 'foo:foo', 'baz', 'qux'), full)
-
-    def test_full_args_action(self):
-        env = JujuData('foo')
-        client = EnvJujuClient(env, None, 'my/juju/bin')
-        full = client._full_args('action bar', ('baz', 'qux'))
-        self.assertEqual(
-            ('bin', '--show-log', 'action', 'bar', '-m', 'foo:foo',
-             'baz', 'qux'),
-            full)
-
-    def test_full_args_controller(self):
-        env = JujuData('foo')
-        client = EnvJujuClient(env, None, 'my/juju/bin')
-        with patch.object(client, 'get_controller_model_name',
-                          return_value='controller') as gamn_mock:
-            full = client._full_args('bar', ('baz', 'qux'), controller=True)
-        self.assertEqual((
-            'bin', '--show-log', 'bar', '-m', 'foo:controller', 'baz', 'qux'),
-            full)
-        gamn_mock.assert_called_once_with()
-
     def test_make_model_config_prefers_agent_metadata_url(self):
         env = JujuData('qux', {
             'agent-metadata-url': 'foo',
@@ -3629,42 +3585,6 @@ class TestEnvJujuClient1X(ClientTest):
                                  '1.27', 'full/path', debug=True)
         self.assertEqual('/foo/environments/cache.yaml',
                          client.get_cache_path())
-
-    def test_full_args(self):
-        env = SimpleEnvironment('foo')
-        client = EnvJujuClient1X(env, None, 'my/juju/bin')
-        full = client._full_args('bar', ('baz', 'qux'))
-        self.assertEqual(('bin', '--show-log', 'bar', '-e', 'foo', 'baz',
-                          'qux'), full)
-        full = client._full_args('bar', ('baz', 'qux'))
-        self.assertEqual((
-            'bin', '--show-log', 'bar', '-e', 'foo',
-            'baz', 'qux'), full)
-        client.env = None
-        full = client._full_args('bar', ('baz', 'qux'))
-        self.assertEqual(('bin', '--show-log', 'bar', 'baz', 'qux'), full)
-
-    def test_full_args_debug(self):
-        env = SimpleEnvironment('foo')
-        client = EnvJujuClient1X(env, None, 'my/juju/bin', debug=True)
-        full = client._full_args('bar', ('baz', 'qux'))
-        self.assertEqual((
-            'bin', '--debug', 'bar', '-e', 'foo', 'baz', 'qux'), full)
-
-    def test_full_args_controller(self):
-        env = SimpleEnvironment('foo')
-        client = EnvJujuClient1X(env, None, 'my/juju/bin')
-        full = client._full_args('bar', ('baz', 'qux'), controller=True)
-        self.assertEqual((
-            'bin', '--show-log', 'bar', '-e', 'foo', 'baz', 'qux'), full)
-
-    def test_full_args_action(self):
-        env = SimpleEnvironment('foo')
-        client = EnvJujuClient1X(env, None, 'my/juju/bin')
-        full = client._full_args('action bar', ('baz', 'qux'))
-        self.assertEqual((
-            'bin', '--show-log', 'action', 'bar', '-e', 'foo', 'baz', 'qux'),
-            full)
 
     def test_bootstrap_maas(self):
         env = SimpleEnvironment('maas')
