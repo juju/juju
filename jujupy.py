@@ -479,7 +479,7 @@ class JujuData(SimpleEnvironment):
 
     @classmethod
     def from_env(cls, env):
-        juju_data = cls(env.environment, env.config, env.juju_home)
+        juju_data = cls(env.environment, env._config, env.juju_home)
         juju_data.load_yaml()
         return juju_data
 
