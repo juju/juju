@@ -59,11 +59,20 @@ type ModelSessioner interface {
 	ModelUUID() string
 }
 
+// logIndexes defines the indexes we need on the log collection.
+var logIndexes = [][]string{
+	// This index needs to include _id because
+	// logTailer.processCollection uses _id to ensure log records with
+	// the same time have a consistent ordering.
+	{"e", "t", "_id"},
+	{"e", "n"},
+}
+
 // InitDbLogs sets up the indexes for the logs collection. It should
 // be called as state is opened. It is idempotent.
 func InitDbLogs(session *mgo.Session) error {
 	logsColl := session.DB(logsDB).C(logsC)
-	for _, key := range [][]string{{"e", "t"}, {"e", "n"}} {
+	for _, key := range logIndexes {
 		err := logsColl.EnsureIndex(mgo.Index{Key: key})
 		if err != nil {
 			return errors.Annotate(err, "cannot create index for logs collection")
@@ -457,14 +466,12 @@ func (t *logTailer) processCollection() error {
 	// and the tests only run one mongod process, including _id
 	// guarantees getting log messages in a predictable order.
 	//
-	// Important: it is critical that the sort on _id is done
-	// separately from the sort on {model, time}. Combining the sort
-	// fields means that MongoDB won't use the indexes that are in
-	// place, which risks hitting MongoDB's 32MB sort limit.  See
-	// https://pad.lv/1590605.
+	// Important: it is critical that the sort index includes _id,
+	// otherwise MongoDB won't use the index, which risks hitting
+	// MongoDB's 32MB sort limit.  See https://pad.lv/1590605.
 	//
 	// TODO(ericsnow) Sort only by _id once it is a sequential int.
-	iter := query.Sort("e", "t").Sort("_id").Iter()
+	iter := query.Sort("e", "t", "_id").Iter()
 	doc := new(logDoc)
 	for iter.Next(doc) {
 		rec, err := logDocToRecord(doc)

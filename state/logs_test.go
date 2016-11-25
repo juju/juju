@@ -158,9 +158,9 @@ func (s *LogsSuite) TestIndexesCreated(c *gc.C) {
 		keys = append(keys, strings.Join(index.Key, "-"))
 	}
 	c.Assert(keys, jc.SameContents, []string{
-		"_id", // default index
-		"e-t", // model-uuid and timestamp
-		"e-n", // model-uuid and entity
+		"_id",     // default index
+		"e-t-_id", // model-uuid and timestamp
+		"e-n",     // model-uuid and entity
 	})
 }
 
@@ -548,6 +548,26 @@ func (s *LogTailerSuite) TestInitialLines(c *gc.C) {
 
 	// Should see just the last 5 lines as requested.
 	s.assertTailer(c, tailer, 5, expected)
+}
+
+func (s *LogTailerSuite) TestRecordsAddedOutOfTimeOrder(c *gc.C) {
+	format := "2006-01-02 03:04"
+	t1, err := time.Parse(format, "2016-11-25 09:10")
+	c.Assert(err, jc.ErrorIsNil)
+	t2, err := time.Parse(format, "2016-11-25 09:20")
+	c.Assert(err, jc.ErrorIsNil)
+	here := logTemplate{Message: "logged here"}
+	s.writeLogsT(c, t2, t2, 1, here)
+	migrated := logTemplate{Message: "transferred by migration"}
+	s.writeLogsT(c, t1, t1, 1, migrated)
+
+	tailer, err := state.NewLogTailer(s.otherState, &state.LogTailerParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	defer tailer.Stop()
+
+	// They still come back in the right time order.
+	s.assertTailer(c, tailer, 1, migrated)
+	s.assertTailer(c, tailer, 1, here)
 }
 
 func (s *LogTailerSuite) TestInitialLinesWithNotEnoughLines(c *gc.C) {
