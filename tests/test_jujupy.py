@@ -6846,6 +6846,7 @@ class TestJujuData(TestCase):
                          data_writer.credentials)
         self.assertEqual('bar', data_reader.get_cloud())
         self.assertEqual(region, data_reader.get_region())
+        self.assertEqual('bar', data_reader._cloud_name)
 
     def test_from_cloud_region_openstack(self):
         self.from_cloud_region('openstack', 'baz')
@@ -6857,7 +6858,8 @@ class TestJujuData(TestCase):
         self.from_cloud_region('vsphere', None)
 
     def test_clone(self):
-        orig = JujuData('foo', {'type': 'bar'}, 'myhome')
+        orig = JujuData('foo', {'type': 'bar'}, 'myhome',
+                        cloud_name='cloudname')
         orig.credentials = {'secret': 'password'}
         orig.clouds = {'name': {'meta': 'data'}}
         copy = orig.clone()
@@ -6871,6 +6873,7 @@ class TestJujuData(TestCase):
         self.assertEqual(orig.credentials, copy.credentials)
         self.assertIsNot(orig.clouds, copy.clouds)
         self.assertEqual(orig.clouds, copy.clouds)
+        self.assertEqual('cloudname', copy._cloud_name)
 
     def test_clone_model_name(self):
         orig = JujuData('foo', {'type': 'bar', 'name': 'oldname'}, 'myhome')
@@ -6899,6 +6902,15 @@ class TestJujuData(TestCase):
         with self.assertRaisesRegexp(
                 ValueError, 'type cannot be set via update_config.'):
             env.update_config({'type': 'foo1'})
+
+    def test_update_config_cloud_name(self):
+        env = JujuData('foo', {'type': 'azure'}, juju_home='',
+                       cloud_name='steve')
+        for endpoint_key in ['maas-server', 'auth-url', 'host']:
+            with self.assertRaisesRegexp(
+                    ValueError, '{} cannot be changed with'
+                    ' explicit cloud name.'.format(endpoint_key)):
+                env.update_config({endpoint_key: 'foo1'})
 
     def test_get_cloud_random_provider(self):
         self.assertEqual(
@@ -6977,6 +6989,12 @@ class TestJujuData(TestCase):
             'azure': {'credentials': {'azure': True}},
             }}
         self.assertEqual({'aws': True}, juju_data.get_cloud_credentials())
+
+    def test_get_cloud_name_with_cloud_name(self):
+        juju_data = JujuData('foo', {'type': 'bar'}, 'home')
+        self.assertEqual('bar', juju_data.get_cloud())
+        juju_data = JujuData('foo', {'type': 'bar'}, 'home', cloud_name='baz')
+        self.assertEqual('baz', juju_data.get_cloud())
 
     def test_dump_yaml(self):
         cloud_dict = {'clouds': {'foo': {}}}

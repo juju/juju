@@ -451,7 +451,7 @@ class JujuData(SimpleEnvironment):
     """Represents a model in a JUJU_DATA directory for juju 2."""
 
     def __init__(self, environment, config=None, juju_home=None,
-                 controller=None):
+                 controller=None, cloud_name=None):
         """Constructor.
 
         This extends SimpleEnvironment's constructor.
@@ -469,11 +469,13 @@ class JujuData(SimpleEnvironment):
                                        controller)
         self.credentials = {}
         self.clouds = {}
+        self._cloud_name = cloud_name
 
     def clone(self, model_name=None):
         result = super(JujuData, self).clone(model_name)
         result.credentials = deepcopy(self.credentials)
         result.clouds = deepcopy(self.clouds)
+        result._cloud_name = self._cloud_name
         return result
 
     @classmethod
@@ -485,6 +487,14 @@ class JujuData(SimpleEnvironment):
     def update_config(self, new_config):
         if 'type' in new_config:
             raise ValueError('type cannot be set via update_config.')
+        if self._cloud_name is not None:
+            # Do not accept changes that would alter the computed cloud name
+            # if computed cloud names are not in use.
+            for endpoint_key in ['maas-server', 'auth-url', 'host']:
+                if endpoint_key in new_config:
+                    raise ValueError(
+                        '{} cannot be changed with explicit cloud'
+                        ' name.'.format(endpoint_key))
         super(JujuData, self).update_config(new_config)
 
     def load_yaml(self):
@@ -537,7 +547,7 @@ class JujuData(SimpleEnvironment):
             config['auth-url'] = cloud_config['endpoint']
         elif provider == 'vsphere':
             config['host'] = cloud_config['endpoint']
-        data = JujuData(cloud, config, juju_home)
+        data = JujuData(cloud, config, juju_home, cloud_name=cloud)
         data.load_yaml()
         data.clouds = clouds
         if region is None:
@@ -571,6 +581,8 @@ class JujuData(SimpleEnvironment):
         raise LookupError('No such endpoint: {}'.format(endpoint))
 
     def get_cloud(self):
+        if self._cloud_name is not None:
+            return self._cloud_name
         provider = self.provider
         # Separate cloud recommended by: Juju Cloud / Credentials / BootStrap /
         # Model CLI specification
