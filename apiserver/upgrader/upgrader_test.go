@@ -152,7 +152,7 @@ func (s *upgraderSuite) TestToolsForAgent(c *gc.C) {
 	current := version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
-		Series: series.HostSeries(),
+		Series: series.MustHostSeries(),
 	}
 	agent := params.Entity{Tag: s.rawMachine.Tag().String()}
 
@@ -196,7 +196,7 @@ func (s *upgraderSuite) TestSetToolsRefusesWrongAgent(c *gc.C) {
 				Version: version.Binary{
 					Number: jujuversion.Current,
 					Arch:   arch.HostArch(),
-					Series: series.HostSeries(),
+					Series: series.MustHostSeries(),
 				},
 			},
 		}},
@@ -211,7 +211,7 @@ func (s *upgraderSuite) TestSetTools(c *gc.C) {
 	current := version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
-		Series: series.HostSeries(),
+		Series: series.MustHostSeries(),
 	}
 	_, err := s.rawMachine.AgentTools()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
@@ -295,7 +295,7 @@ func (s *upgraderSuite) bumpDesiredAgentVersion(c *gc.C) version.Number {
 	current := version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
-		Series: series.HostSeries(),
+		Series: series.MustHostSeries(),
 	}
 	s.apiMachine.SetAgentVersion(current)
 	s.rawMachine.SetAgentVersion(current)

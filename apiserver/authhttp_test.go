@@ -50,8 +50,9 @@ type authHTTPSuite struct {
 	// userTag and password hold the user tag and password
 	// to use in authRequest. When macaroonAuthEnabled
 	// is true, password will be empty.
-	userTag  names.UserTag
-	password string
+	userTag      names.UserTag
+	password     string
+	extraHeaders map[string]string
 }
 
 func (s *authHTTPSuite) SetUpTest(c *gc.C) {
@@ -75,6 +76,8 @@ func (s *authHTTPSuite) SetUpTest(c *gc.C) {
 		user := s.Factory.MakeUser(c, &factory.UserParams{Password: s.password})
 		s.userTag = user.UserTag()
 	}
+	// extra heades can be set by any test prior to making http request.
+	s.extraHeaders = nil
 }
 
 func (s *authHTTPSuite) TearDownTest(c *gc.C) {
@@ -164,6 +167,9 @@ type httpRequestParams struct {
 	// body holds the body of the request.
 	body io.Reader
 
+	// extra headers are added to the http header
+	extraHeaders map[string]string
+
 	// jsonBody holds an object to be marshaled as JSON
 	// as the body of the request. If this is specified, body will
 	// be ignored and the Content-Type header will
@@ -189,6 +195,9 @@ func (s *authHTTPSuite) sendRequest(c *gc.C, p httpRequestParams) *http.Response
 	}
 	if p.contentType != "" {
 		hp.Header.Set("Content-Type", p.contentType)
+	}
+	for key, value := range p.extraHeaders {
+		hp.Header.Set(key, value)
 	}
 	if p.nonce != "" {
 		hp.Header.Set(params.MachineNonceHeader, p.nonce)
@@ -228,6 +237,7 @@ func bakeryDo(client *http.Client, getBakeryError func(*http.Response) error) fu
 func (s *authHTTPSuite) authRequest(c *gc.C, p httpRequestParams) *http.Response {
 	p.tag = s.userTag.String()
 	p.password = s.password
+	p.extraHeaders = s.extraHeaders
 	return s.sendRequest(c, p)
 }
 

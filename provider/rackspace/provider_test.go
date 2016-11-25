@@ -4,6 +4,7 @@
 package rackspace_test
 
 import (
+	"github.com/juju/jsonschema"
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 
@@ -83,6 +84,11 @@ func (p *fakeProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *c
 func (p *fakeProvider) Validate(cfg, old *config.Config) (valid *config.Config, err error) {
 	p.MethodCall(p, "Validate", cfg, old)
 	return cfg, nil
+}
+
+func (p *fakeProvider) CloudSchema() *jsonschema.Schema {
+	p.MethodCall(p, "CloudSchema")
+	return nil
 }
 
 func (p *fakeProvider) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {

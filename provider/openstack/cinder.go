@@ -68,8 +68,9 @@ var newOpenstackStorage = func(env *Environ) (OpenstackStorage, error) {
 	env.ecfgMutex.Lock()
 	defer env.ecfgMutex.Unlock()
 
+	client := env.clientUnlocked
 	if env.volumeURL == nil {
-		url, err := getVolumeEndpointURL(env.client, env.cloud.Region)
+		url, err := getVolumeEndpointURL(client, env.cloud.Region)
 		if errors.IsNotFound(err) {
 			// No volume endpoint found; Cinder is not supported.
 			return nil, errors.NotSupportedf("volumes")
@@ -81,7 +82,7 @@ var newOpenstackStorage = func(env *Environ) (OpenstackStorage, error) {
 	}
 
 	return &openstackStorageAdapter{
-		cinderClient{cinder.Basic(env.volumeURL, env.client.TenantId(), env.client.Token)},
+		cinderClient{cinder.Basic(env.volumeURL, client.TenantId(), client.Token)},
 		novaClient{env.novaUnlocked},
 	}, nil
 }
@@ -381,11 +382,14 @@ func (s *cinderVolumeSource) attachVolume(arg storage.VolumeAttachmentParams) (*
 			return nil, err
 		}
 	}
+	if novaAttachment.Device == nil {
+		return nil, errors.Errorf("device not assigned to volume attachment")
+	}
 	return &storage.VolumeAttachment{
 		arg.Volume,
 		arg.Machine,
 		storage.VolumeAttachmentInfo{
-			DeviceName: novaAttachment.Device[len("/dev/"):],
+			DeviceName: (*novaAttachment.Device)[len("/dev/"):],
 		},
 	}, nil
 }

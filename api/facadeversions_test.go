@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/component/all"
+	"github.com/juju/juju/feature"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -19,6 +20,11 @@ type facadeVersionSuite struct {
 }
 
 var _ = gc.Suite(&facadeVersionSuite{})
+
+func (s *facadeVersionSuite) SetUpTest(c *gc.C) {
+	s.SetInitialFeatureFlags(feature.CrossModelRelations)
+	s.BaseSuite.SetUpTest(c)
+}
 
 func (s *facadeVersionSuite) TestFacadeVersionsMatchServerVersions(c *gc.C) {
 	// The client side code doesn't want to directly import the server side

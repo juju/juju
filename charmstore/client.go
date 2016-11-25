@@ -195,10 +195,6 @@ func (c Client) GetResource(req ResourceRequest) (data ResourceData, err error) 
 		return ResourceData{},
 			errors.Errorf("fingerprint for data (%s) does not match fingerprint in metadata (%s)", resData.Hash, fpHash)
 	}
-	if resData.Size != data.Resource.Size {
-		return ResourceData{},
-			errors.Errorf("size for data (%d) does not match size in metadata (%d)", resData.Size, data.Resource.Size)
-	}
 	return data, nil
 }
 

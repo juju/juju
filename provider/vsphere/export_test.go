@@ -13,8 +13,10 @@ var (
 	Provider environs.EnvironProvider = providerInstance
 )
 
-func ExposeEnvFakeClient(env *environ) *fakeClient {
-	return env.client.connection.RoundTripper.(*fakeClient)
+func ExposeEnvFakeClient(env *environ) (*fakeClient, func() error, error) {
+	conn, closer, err := env.client.connection()
+	closer = func() error { return nil }
+	return conn.RoundTripper.(*fakeClient), closer, err
 }
 
 var _ environs.Environ = (*environ)(nil)

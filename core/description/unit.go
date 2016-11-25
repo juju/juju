@@ -41,6 +41,8 @@ type unit struct {
 
 	Constraints_ *constraints `yaml:"constraints,omitempty"`
 
+	Resources_ unitResources `yaml:"resources"`
+
 	Payloads_ payloads `yaml:"payloads"`
 }
 
@@ -77,6 +79,7 @@ func newUnit(args UnitArgs) *unit {
 		WorkloadVersionHistory_: newStatusHistory(),
 		AgentStatusHistory_:     newStatusHistory(),
 	}
+	u.setResources(nil)
 	u.setPayloads(nil)
 	return u
 }
@@ -218,6 +221,29 @@ func (u *unit) SetConstraints(args ConstraintsArgs) {
 	u.Constraints_ = newConstraints(args)
 }
 
+// AddResource implements Unit.
+func (u *unit) AddResource(args UnitResourceArgs) UnitResource {
+	resource := newUnitResource(args)
+	u.Resources_.Resources_ = append(u.Resources_.Resources_, resource)
+	return resource
+}
+
+// Resources implements Unit.
+func (u *unit) Resources() []UnitResource {
+	var result []UnitResource
+	for _, resource := range u.Resources_.Resources_ {
+		result = append(result, resource)
+	}
+	return result
+}
+
+func (u *unit) setResources(resourceList []*unitResource) {
+	u.Resources_ = unitResources{
+		Version:    1,
+		Resources_: resourceList,
+	}
+}
+
 // AddPayload implements Unit.
 func (u *unit) AddPayload(args PayloadArgs) Payload {
 	payload := newPayload(args)
@@ -241,7 +267,7 @@ func (u *unit) setPayloads(payloadList []*payload) {
 	}
 }
 
-// Validate impelements Unit.
+// Validate implements Unit.
 func (u *unit) Validate() error {
 	if u.Name_ == "" {
 		return errors.NotValidf("missing name")
@@ -318,7 +344,8 @@ func importUnitV1(source map[string]interface{}) (*unit, error) {
 		"meter-status-code": schema.String(),
 		"meter-status-info": schema.String(),
 
-		"payloads": schema.StringMap(schema.Any()),
+		"resources": schema.StringMap(schema.Any()),
+		"payloads":  schema.StringMap(schema.Any()),
 	}
 	defaults := schema.Defaults{
 		"principal":         "",
@@ -394,6 +421,13 @@ func importUnitV1(source map[string]interface{}) (*unit, error) {
 		return nil, errors.Trace(err)
 	}
 	result.WorkloadStatus_ = workloadStatus
+
+	resourcesMap := valid["resources"].(map[string]interface{})
+	resources, err := importUnitResources(resourcesMap)
+	if err != nil {
+		return nil, errors.Annotate(err, "resources")
+	}
+	result.setResources(resources)
 
 	payloadMap := valid["payloads"].(map[string]interface{})
 	payloads, err := importPayloads(payloadMap)

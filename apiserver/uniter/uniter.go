@@ -115,7 +115,7 @@ func NewUniterAPIV4(st *state.State, resources facade.Resources, authorizer faca
 	if err != nil {
 		return nil, errors.Annotate(err, "could not create meter status API handler")
 	}
-	accessUnitOrService := common.AuthEither(accessUnit, accessService)
+	accessUnitOrService := common.AuthAny(accessUnit, accessService)
 	return &UniterAPIV3{
 		LifeGetter:                 common.NewLifeGetter(st, accessUnitOrService),
 		DeadEnsurer:                common.NewDeadEnsurer(st, accessUnit),
@@ -533,7 +533,7 @@ func (u *UniterAPIV3) CharmModifiedVersion(args params.Entities) (params.IntResu
 		Results: make([]params.IntResult, len(args.Entities)),
 	}
 
-	accessUnitOrService := common.AuthEither(u.accessUnit, u.accessService)
+	accessUnitOrService := common.AuthAny(u.accessUnit, u.accessService)
 	canAccess, err := accessUnitOrService()
 	if err != nil {
 		return results, err
@@ -581,7 +581,7 @@ func (u *UniterAPIV3) CharmURL(args params.Entities) (params.StringBoolResults, 
 	result := params.StringBoolResults{
 		Results: make([]params.StringBoolResult, len(args.Entities)),
 	}
-	accessUnitOrService := common.AuthEither(u.accessUnit, u.accessService)
+	accessUnitOrService := common.AuthAny(u.accessUnit, u.accessService)
 	canAccess, err := accessUnitOrService()
 	if err != nil {
 		return params.StringBoolResults{}, err
@@ -1039,23 +1039,33 @@ func (u *UniterAPIV3) EnterScope(args params.RelationUnits) (params.ErrorResults
 	if err != nil {
 		return params.ErrorResults{}, err
 	}
+	one := func(relTag string, unitTag names.UnitTag) error {
+		rel, unit, err := u.getRelationAndUnit(canAccess, relTag, unitTag)
+		if err != nil {
+			return err
+		}
+		relUnit, err := rel.Unit(unit)
+		if err != nil {
+			return err
+		}
+		// Construct the settings, passing the unit's
+		// private address (we already know it).
+		privateAddress, _ := unit.PrivateAddress()
+		settings := map[string]interface{}{
+			"private-address": privateAddress.Value,
+		}
+		return relUnit.EnterScope(settings)
+	}
 	for i, arg := range args.RelationUnits {
 		tag, err := names.ParseUnitTag(arg.Unit)
 		if err != nil {
 			result.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
-		relUnit, err := u.getRelationUnit(canAccess, arg.Relation, tag)
-		if err == nil {
-			// Construct the settings, passing the unit's
-			// private address (we already know it).
-			privateAddress, _ := relUnit.PrivateAddress()
-			settings := map[string]interface{}{
-				"private-address": privateAddress.Value,
-			}
-			err = relUnit.EnterScope(settings)
+		err = one(arg.Relation, tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
 		}
-		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil
 }
@@ -1436,12 +1446,12 @@ func (u *UniterAPIV3) checkRemoteUnit(relUnit *state.RelationUnit, remoteUnitTag
 		return "", common.ErrPerm
 	}
 	remoteUnitName := tag.Id()
-	remoteServiceName, err := names.UnitApplication(remoteUnitName)
+	remoteApplicationName, err := names.UnitApplication(remoteUnitName)
 	if err != nil {
 		return "", common.ErrPerm
 	}
 	rel := relUnit.Relation()
-	_, err = rel.RelatedEndpoints(remoteServiceName)
+	_, err = rel.RelatedEndpoints(remoteApplicationName)
 	if err != nil {
 		return "", common.ErrPerm
 	}

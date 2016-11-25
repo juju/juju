@@ -11,6 +11,7 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/cloud"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/migration"
 	"github.com/juju/juju/state"
@@ -554,6 +555,9 @@ type fakeBackend struct {
 	apps       []migration.PrecheckApplication
 	allAppsErr error
 
+	credentials    cloud.Credential
+	credentialsErr error
+
 	controllerBackend *fakeBackend
 }
 
@@ -581,6 +585,10 @@ func (b *fakeBackend) IsMigrationActive(string) (bool, error) {
 	return b.migrationActive, b.migrationActiveErr
 }
 
+func (b *fakeBackend) CloudCredential(tag names.CloudCredentialTag) (cloud.Credential, error) {
+	return b.credentials, b.credentialsErr
+}
+
 func (b *fakeBackend) AllMachines() ([]migration.PrecheckMachine, error) {
 	return b.machines, b.allMachinesErr
 }
@@ -603,6 +611,7 @@ type fakeModel struct {
 	owner         names.UserTag
 	life          state.Life
 	migrationMode state.MigrationMode
+	credential    string
 }
 
 func (m *fakeModel) UUID() string {
@@ -623,6 +632,13 @@ func (m *fakeModel) Life() state.Life {
 
 func (m *fakeModel) MigrationMode() state.MigrationMode {
 	return m.migrationMode
+}
+
+func (m *fakeModel) CloudCredential() (names.CloudCredentialTag, bool) {
+	if names.IsValidCloudCredential(m.credential) {
+		return names.NewCloudCredentialTag(m.credential), true
+	}
+	return names.CloudCredentialTag{}, false
 }
 
 type fakeMachine struct {

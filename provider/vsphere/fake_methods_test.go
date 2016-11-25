@@ -11,10 +11,10 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	"github.com/juju/govmomi/vim25/methods"
-	"github.com/juju/govmomi/vim25/soap"
-	"github.com/juju/govmomi/vim25/types"
 	jc "github.com/juju/testing/checkers"
+	"github.com/vmware/govmomi/vim25/methods"
+	"github.com/vmware/govmomi/vim25/soap"
+	"github.com/vmware/govmomi/vim25/types"
 	gc "gopkg.in/check.v1"
 )
 

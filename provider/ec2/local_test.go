@@ -214,7 +214,7 @@ func (t *localServerSuite) SetUpSuite(c *gc.C) {
 	t.BaseSuite.PatchValue(&keys.JujuPublicKey, sstesting.SignedMetadataPublicKey)
 	t.BaseSuite.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	t.BaseSuite.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
-	t.BaseSuite.PatchValue(&series.HostSeries, func() string { return series.LatestLts() })
+	t.BaseSuite.PatchValue(&series.MustHostSeries, func() string { return series.LatestLts() })
 	t.BaseSuite.PatchValue(ec2.DeleteSecurityGroupInsistently, deleteSecurityGroupForTestFunc)
 	t.srv.createRootDisks = true
 	t.srv.startServer(c)
@@ -1378,6 +1378,18 @@ func (t *localServerSuite) TestSubnetsWithInstanceIdMissingSubnet(c *gc.C) {
 	c.Assert(subnets, gc.HasLen, 0)
 }
 
+func (t *localServerSuite) TestInstanceInformation(c *gc.C) {
+	env := t.prepareEnviron(c)
+	types, err := env.InstanceTypes(constraints.Value{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(types.InstanceTypes, gc.HasLen, 45)
+
+	cons := constraints.MustParse("mem=4G")
+	types, err = env.InstanceTypes(cons)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(types.InstanceTypes, gc.HasLen, 40)
+}
+
 func validateSubnets(c *gc.C, subnets []network.SubnetInfo) {
 	// These are defined in the test server for the testing default
 	// VPC.
@@ -1477,16 +1489,13 @@ func (t *localServerSuite) TestRootDiskTags(c *gc.C) {
 
 func (s *localServerSuite) TestBootstrapInstanceConstraints(c *gc.C) {
 	env := s.prepareAndBootstrap(c)
-	inst, hc := testing.AssertStartControllerInstance(c, env, s.ControllerUUID, "1")
-	ec2inst := ec2.InstanceEC2(inst)
-
+	inst, err := env.AllInstances()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(inst, gc.HasLen, 1)
+	ec2inst := ec2.InstanceEC2(inst[0])
 	// Controllers should be started with a burstable
 	// instance if possible, and a 32 GiB disk.
 	c.Assert(ec2inst.InstanceType, gc.Equals, "t2.medium")
-	c.Assert(*hc.Arch, gc.Equals, "amd64")
-	c.Assert(*hc.Mem, gc.Equals, uint64(4*1024))
-	c.Assert(*hc.RootDisk, gc.Equals, uint64(32*1024))
-	c.Assert(*hc.CpuCores, gc.Equals, uint64(2))
 }
 
 // localNonUSEastSuite is similar to localServerSuite but the S3 mock server

@@ -6,8 +6,11 @@ package apiserver
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"io"
+	"io/ioutil"
 	"net"
 	"net/http"
+	"path/filepath"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -63,6 +66,7 @@ type Server struct {
 	certChanged       <-chan params.StateServingInfo
 	tlsConfig         *tls.Config
 	allowModelAccess  bool
+	logSinkWriter     io.WriteCloser
 
 	// mu guards the fields below it.
 	mu sync.Mutex
@@ -192,6 +196,13 @@ func newServer(s *state.State, lis net.Listener, cfg ServerConfig) (_ *Server, e
 	if err := srv.updateCertificate(cfg.Cert, cfg.Key); err != nil {
 		return nil, errors.Annotatef(err, "cannot set initial certificate")
 	}
+
+	logSinkWriter, err := newLogSinkWriter(filepath.Join(srv.logDir, "logsink.log"))
+	if err != nil {
+		return nil, errors.Annotate(err, "creating logsink writer")
+	}
+	srv.logSinkWriter = logSinkWriter
+
 	go srv.run()
 	return srv, nil
 }
@@ -277,6 +288,7 @@ func (srv *Server) run() {
 		srv.tomb.Done()
 		srv.statePool.Close()
 		srv.state.Close()
+		srv.logSinkWriter.Close()
 	}()
 
 	srv.wg.Add(1)
@@ -355,26 +367,51 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 	strictCtxt.controllerModelOnly = true
 
 	mainAPIHandler := srv.trackRequests(http.HandlerFunc(srv.apiHandler))
-	logSinkHandler := srv.trackRequests(newLogSinkHandler(httpCtxt, srv.logDir))
 	logStreamHandler := srv.trackRequests(newLogStreamEndpointHandler(strictCtxt))
 	debugLogHandler := srv.trackRequests(newDebugLogDBHandler(httpCtxt))
 
-	add("/model/:modeluuid/logsink", logSinkHandler)
 	add("/model/:modeluuid/logstream", logStreamHandler)
 	add("/model/:modeluuid/log", debugLogHandler)
 
-	charmsHandler := &charmsHandler{
-		ctxt:    httpCtxt,
-		dataDir: srv.dataDir,
+	logSinkHandler := newLogSinkHandler(httpCtxt, srv.logSinkWriter, newAgentLoggingStrategy)
+	add("/model/:modeluuid/logsink", srv.trackRequests(logSinkHandler))
+
+	// We don't need to save the migrated logs to a logfile as well as to the DB.
+	logTransferHandler := newLogSinkHandler(httpCtxt, ioutil.Discard, newMigrationLoggingStrategy)
+	add("/migrate/logtransfer", srv.trackRequests(logTransferHandler))
+
+	modelCharmsHandler := &charmsHandler{
+		ctxt:          httpCtxt,
+		dataDir:       srv.dataDir,
+		stateAuthFunc: httpCtxt.stateForRequestAuthenticatedUser,
 	}
 	charmsServer := &CharmsHTTPHandler{
-		PostHandler: charmsHandler.ServePost,
-		GetHandler:  charmsHandler.ServeGet,
+		PostHandler: modelCharmsHandler.ServePost,
+		GetHandler:  modelCharmsHandler.ServeGet,
 	}
 	add("/model/:modeluuid/charms", charmsServer)
 	add("/model/:modeluuid/tools",
 		&toolsUploadHandler{
-			ctxt: httpCtxt,
+			ctxt:          httpCtxt,
+			stateAuthFunc: httpCtxt.stateForRequestAuthenticatedUser,
+		},
+	)
+
+	migrateCharmsHandler := &charmsHandler{
+		ctxt:          httpCtxt,
+		dataDir:       srv.dataDir,
+		stateAuthFunc: httpCtxt.stateForMigration,
+	}
+	add("/migrate/charms",
+		&CharmsHTTPHandler{
+			PostHandler: migrateCharmsHandler.ServePost,
+			GetHandler:  migrateCharmsHandler.ServeUnsupported,
+		},
+	)
+	add("/migrate/tools",
+		&toolsUploadHandler{
+			ctxt:          httpCtxt,
+			stateAuthFunc: httpCtxt.stateForMigration,
 		},
 	)
 	add("/model/:modeluuid/tools/:version",
@@ -403,7 +440,8 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 	add("/charms", charmsServer)
 	add("/tools",
 		&toolsUploadHandler{
-			ctxt: httpCtxt,
+			ctxt:          httpCtxt,
+			stateAuthFunc: httpCtxt.stateForRequestAuthenticatedUser,
 		},
 	)
 	add("/tools/:version",
@@ -469,7 +507,7 @@ func (srv *Server) newHandlerArgs(spec apihttp.HandlerConstraints) apihttp.NewHa
 	var args apihttp.NewHandlerArgs
 	switch spec.AuthKind {
 	case names.UserTagKind:
-		args.Connect = ctxt.stateForRequestAuthenticatedUser
+		args.Connect = ctxt.stateAndEntityForRequestAuthenticatedUser
 	case names.UnitTagKind:
 		args.Connect = ctxt.stateForRequestAuthenticatedAgent
 	case "":

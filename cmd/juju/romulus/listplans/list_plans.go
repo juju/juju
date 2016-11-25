@@ -106,7 +106,7 @@ func (c *ListPlansCommand) Run(ctx *cmd.Context) (rErr error) {
 		return errors.Annotate(err, "failed to create an http client")
 	}
 
-	resolvedURL, err := c.CharmResolver.Resolve(client.VisitWebPage, client.Client, c.CharmURL)
+	resolvedURL, err := c.CharmResolver.Resolve(client, c.CharmURL)
 	if err != nil {
 		return errors.Annotatef(err, "failed to resolve charmURL %v", c.CharmURL)
 	}

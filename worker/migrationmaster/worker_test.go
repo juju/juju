@@ -198,7 +198,6 @@ func (s *Suite) TestSuccessfulMigration(c *gc.C) {
 			{"facade.Export", nil},
 			apiOpenControllerCall,
 			importCall,
-			apiOpenModelCall,
 			{"UploadBinaries", []interface{}{
 				[]string{"charm0", "charm1"},
 				fakeCharmDownloader,
@@ -207,7 +206,6 @@ func (s *Suite) TestSuccessfulMigration(c *gc.C) {
 				},
 				fakeToolsDownloader,
 			}},
-			apiCloseCall, // for target model
 			apiCloseCall, // for target controller
 			{"facade.SetPhase", []interface{}{coremigration.VALIDATION}},
 

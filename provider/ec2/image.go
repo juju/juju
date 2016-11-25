@@ -43,32 +43,13 @@ func findInstanceSpec(
 	ic *instances.InstanceConstraint,
 ) (*instances.InstanceSpec, error) {
 	logger.Debugf("received %d image(s)", len(allImageMetadata))
-	if controller {
-		ic.Constraints = withDefaultControllerConstraints(ic.Constraints)
-	} else {
+	if !controller {
 		ic.Constraints = withDefaultNonControllerConstraints(ic.Constraints)
 	}
 	suitableImages := filterImages(allImageMetadata, ic)
 	logger.Debugf("found %d suitable image(s)", len(suitableImages))
 	images := instances.ImageMetadataToImages(suitableImages)
 	return instances.FindInstanceSpec(images, ic, instanceTypes)
-}
-
-// withDefaultControllerConstraints returns the given constraints,
-// updated to choose a default instance type appropriate for a
-// controller machine. We use this only if the user does not specify
-// any constraints that would otherwise control the instance type
-// selection.
-//
-// At the time of writing, this will choose
-//   - t2.medium, for VPC
-//   - m3.medium, for EC2-Classic
-func withDefaultControllerConstraints(cons constraints.Value) constraints.Value {
-	if !cons.HasInstanceType() && !cons.HasCpuCores() && !cons.HasCpuPower() && !cons.HasMem() {
-		var mem uint64 = 3.75 * 1024
-		cons.Mem = &mem
-	}
-	return cons
 }
 
 // withDefaultNonControllerConstraints returns the given constraints,

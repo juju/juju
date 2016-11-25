@@ -11,6 +11,7 @@ import (
 
 	"gopkg.in/goose.v1/errors"
 	"gopkg.in/goose.v1/identity"
+	"gopkg.in/goose.v1/neutron"
 	"gopkg.in/goose.v1/nova"
 	"gopkg.in/goose.v1/swift"
 
@@ -64,7 +65,7 @@ func InstanceServerDetail(inst instance.Instance) *nova.ServerDetail {
 	return inst.(*openstackInstance).serverDetail
 }
 
-func InstanceFloatingIP(inst instance.Instance) *nova.FloatingIP {
+func InstanceFloatingIP(inst instance.Instance) *string {
 	return inst.(*openstackInstance).floatingIP
 }
 
@@ -413,17 +414,19 @@ func RemoveTestImageData(stor envstorage.Storage) {
 // delete something that doesn't exist.
 func DiscardSecurityGroup(e environs.Environ, name string) error {
 	env := e.(*Environ)
-	novaClient := env.nova()
-	group, err := novaClient.SecurityGroupByName(name)
-	if err != nil {
+	neutronClient := env.neutron()
+	groups, err := neutronClient.SecurityGroupByNameV2(name)
+	if err != nil || len(groups) == 0 {
 		if errors.IsNotFound(err) {
 			// Group already deleted, done
 			return nil
 		}
 	}
-	err = novaClient.DeleteSecurityGroup(group.Id)
-	if err != nil {
-		return err
+	for _, group := range groups {
+		err = neutronClient.DeleteSecurityGroupV2(group.Id)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -443,7 +446,7 @@ func FindInstanceSpec(
 }
 
 func GetSwiftURL(e environs.Environ) (string, error) {
-	return e.(*Environ).client.MakeServiceURL("object-store", nil)
+	return e.(*Environ).clientUnlocked.MakeServiceURL("object-store", "", nil)
 }
 
 func SetUseFloatingIP(e environs.Environ, val bool) {
@@ -451,12 +454,20 @@ func SetUseFloatingIP(e environs.Environ, val bool) {
 	env.ecfg().attrs["use-floating-ip"] = val
 }
 
-func SetUpGlobalGroup(e environs.Environ, name string, apiPort int) (nova.SecurityGroup, error) {
-	return e.(*Environ).firewaller.(*defaultFirewaller).setUpGlobalGroup(name, apiPort)
+func SetUpGlobalGroup(e environs.Environ, name string, apiPort int) (neutron.SecurityGroupV2, error) {
+	switching := e.(*Environ).firewaller.(*switchingFirewaller)
+	if err := switching.initFirewaller(); err != nil {
+		return neutron.SecurityGroupV2{}, err
+	}
+	return switching.fw.(*neutronFirewaller).setUpGlobalGroup(name, apiPort)
 }
 
-func EnsureGroup(e environs.Environ, name string, rules []nova.RuleInfo) (nova.SecurityGroup, error) {
-	return e.(*Environ).firewaller.(*defaultFirewaller).ensureGroup(name, rules)
+func EnsureGroup(e environs.Environ, name string, rules []neutron.RuleInfoV2) (neutron.SecurityGroupV2, error) {
+	switching := e.(*Environ).firewaller.(*switchingFirewaller)
+	if err := switching.initFirewaller(); err != nil {
+		return neutron.SecurityGroupV2{}, err
+	}
+	return switching.fw.(*neutronFirewaller).ensureGroup(name, rules)
 }
 
 // ImageMetadataStorage returns a Storage object pointing where the goose
@@ -465,7 +476,7 @@ func ImageMetadataStorage(e environs.Environ) envstorage.Storage {
 	env := e.(*Environ)
 	return &openstackstorage{
 		containerName: "imagemetadata",
-		swift:         swift.New(env.client),
+		swift:         swift.New(env.clientUnlocked),
 	}
 }
 
@@ -473,7 +484,7 @@ func ImageMetadataStorage(e environs.Environ) envstorage.Storage {
 // so you can put data into it.
 func CreateCustomStorage(e environs.Environ, containerName string) envstorage.Storage {
 	env := e.(*Environ)
-	swiftClient := swift.New(env.client)
+	swiftClient := swift.New(env.clientUnlocked)
 	if err := swiftClient.CreateContainer(containerName, swift.PublicRead); err != nil {
 		panic(err)
 	}
@@ -488,19 +499,24 @@ func BlankContainerStorage() envstorage.Storage {
 	return &openstackstorage{}
 }
 
+// GetNeutronClient returns the neutron client for the current environs.
+func GetNeutronClient(e environs.Environ) *neutron.Client {
+	return e.(*Environ).neutron()
+}
+
+// GetNovaClient returns the nova client for the current environs.
 func GetNovaClient(e environs.Environ) *nova.Client {
 	return e.(*Environ).nova()
 }
 
 // ResolveNetwork exposes environ helper function resolveNetwork for testing
 func ResolveNetwork(e environs.Environ, networkName string) (string, error) {
-	return e.(*Environ).resolveNetwork(networkName)
+	return e.(*Environ).networking.ResolveNetwork(networkName)
 }
 
 var PortsToRuleInfo = portsToRuleInfo
 var RuleMatchesPortRange = ruleMatchesPortRange
 
 var MakeServiceURL = &makeServiceURL
-var ProviderInstance = providerInstance
 
 var GetVolumeEndpointURL = getVolumeEndpointURL

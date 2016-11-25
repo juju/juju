@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 )
 
@@ -39,6 +38,14 @@ func init() {
 	common.RegisterFacade(
 		"StringsWatcher", 1, newStringsWatcher,
 		reflect.TypeOf((*srvStringsWatcher)(nil)),
+	)
+	common.RegisterFacade(
+		"RemoteApplicationWatcher", 1, newRemoteApplicationWatcher,
+		reflect.TypeOf((*srvRemoteApplicationWatcher)(nil)),
+	)
+	common.RegisterFacade(
+		"RemoteRelationsWatcher", 1, newRemoteRelationsWatcher,
+		reflect.TypeOf((*srvRemoteRelationsWatcher)(nil)),
 	)
 	common.RegisterFacade(
 		"RelationUnitsWatcher", 1, newRelationUnitsWatcher,
@@ -69,14 +76,18 @@ func NewAllWatcher(context facade.Context) (facade.Facade, error) {
 	auth := context.Auth()
 	resources := context.Resources()
 
-	// HasPermission should not be replaced by auth.AuthClient() even if, at first sight, they seem
-	// equivalent because this allows us to remove login permission for a user
-	// (a permission that is given by default).
-	isAuthorized, err := auth.HasPermission(permission.LoginAccess, context.State().ControllerTag())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if !isAuthorized {
+	if !auth.AuthClient() {
+		// Note that we don't need to check specific permissions
+		// here, as the AllWatcher can only do anything if the
+		// watcher resource has already been created, so we can
+		// rely on the permission check there to ensure that
+		// this facade can't do anything it shouldn't be allowed
+		// to.
+		//
+		// This is useful because the AllWatcher is reused for
+		// both the WatchAll (requires model access rights) and
+		// the WatchAllModels (requring controller superuser
+		// rights) API calls.
 		return nil, common.ErrPerm
 	}
 	watcher, ok := resources.Get(id).(*state.Multiwatcher)
@@ -260,6 +271,115 @@ func (w *srvRelationUnitsWatcher) Stop() error {
 	return w.resources.Stop(w.id)
 }
 
+// srvRemoteApplicationWatcher will sends changes to relations a service
+// is involved in, including changes to the units involved in those
+// relations, and their settings.
+type srvRemoteApplicationWatcher struct {
+	watcher   state.RemoteApplicationWatcher
+	id        string
+	resources facade.Resources
+}
+
+func newRemoteApplicationWatcher(context facade.Context) (facade.Facade, error) {
+	id := context.ID()
+	resources := context.Resources()
+	auth := context.Auth()
+
+	if !auth.AuthModelManager() {
+		return nil, common.ErrPerm
+	}
+	watcher, ok := resources.Get(id).(state.RemoteApplicationWatcher)
+	if !ok {
+		return nil, common.ErrUnknownWatcher
+	}
+	return &srvRemoteApplicationWatcher{
+		watcher:   watcher,
+		id:        id,
+		resources: resources,
+	}, nil
+}
+
+// Next returns when a change has occured to an entity of the
+// collection being watched since the most recent call to Next
+// or the Watch call that created the srvRemoteApplicationWatcher.
+func (w *srvRemoteApplicationWatcher) Next() (params.RemoteApplicationWatchResult, error) {
+	if change, ok := <-w.watcher.Changes(); ok {
+		return params.RemoteApplicationWatchResult{
+			Change: &change,
+		}, nil
+	}
+	err := w.watcher.Err()
+	if err == nil {
+		err = common.ErrStoppedWatcher
+	}
+	return params.RemoteApplicationWatchResult{}, err
+}
+
+// Stop stops the watcher.
+func (w *srvRemoteApplicationWatcher) Stop() error {
+	return w.resources.Stop(w.id)
+}
+
+// srvRemoteRelationsWatcher defines the API wrapping a RemoteRelationsWatcher.
+// This watcher notifies about:
+//  - addition and removal of relations of relations to remote applications
+//  - lifecycle changes to relations of relations to remote applications
+//  - settings of relation units changing
+//  - units departing the relation (joining is implicit in seeing new settings)
+type srvRemoteRelationsWatcher struct {
+	watcher   state.RemoteRelationsWatcher
+	id        string
+	resources facade.Resources
+}
+
+// RemoteRelationsWatcher is a watcher that reports on changes to relations
+// and relation units related to those relations for a specified service.
+type RemoteRelationsWatcher interface {
+	Changes() <-chan params.RemoteRelationsChange
+	Err() error
+	Stop() error
+}
+
+func newRemoteRelationsWatcher(context facade.Context) (facade.Facade, error) {
+	id := context.ID()
+	resources := context.Resources()
+	auth := context.Auth()
+
+	if !auth.AuthModelManager() {
+		return nil, common.ErrPerm
+	}
+	watcher, ok := resources.Get(id).(state.RemoteRelationsWatcher)
+	if !ok {
+		return nil, common.ErrUnknownWatcher
+	}
+	return &srvRemoteRelationsWatcher{
+		watcher:   watcher,
+		id:        id,
+		resources: resources,
+	}, nil
+}
+
+// Next returns when a change has occured to an entity of the
+// collection being watched since the most recent call to Next
+// or the Watch call that created the srvRemoteRelationsWatcher.
+func (w *srvRemoteRelationsWatcher) Next() (params.RemoteRelationsWatchResult, error) {
+	if changes, ok := <-w.watcher.Changes(); ok {
+		return params.RemoteRelationsWatchResult{
+			Change: &changes,
+		}, nil
+	}
+	err := w.watcher.Err()
+	if err == nil {
+		err = common.ErrStoppedWatcher
+	}
+	return params.RemoteRelationsWatchResult{}, err
+}
+
+// Stop stops the watcher.
+func (w *srvRemoteRelationsWatcher) Stop() error {
+	return w.resources.Stop(w.id)
+}
+
 // srvMachineStorageIdsWatcher defines the API wrapping a state.StringsWatcher
 // watching machine/storage attachments. This watcher notifies about storage
 // entities (volumes/filesystems) being attached to and detached from machines.
@@ -422,7 +542,7 @@ func newMigrationStatusWatcher(context facade.Context) (facade.Facade, error) {
 	resources := context.Resources()
 	st := context.State()
 
-	if !(auth.AuthMachineAgent() || auth.AuthUnitAgent()) {
+	if !isAgent(auth) {
 		return nil, common.ErrPerm
 	}
 	w, ok := resources.Get(id).(state.NotifyWatcher)

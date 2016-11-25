@@ -56,10 +56,16 @@ func (s *dblogSuite) runMachineAgentTest(c *gc.C) bool {
 	s.PrimeAgent(c, m.Tag(), password)
 	agentConf := agentcmd.NewAgentConf(s.DataDir())
 	agentConf.ReadConfig(m.Tag().String())
-	logsCh, err := logsender.InstallBufferedLogWriter(1000)
+	logger, err := logsender.InstallBufferedLogWriter(1000)
 	c.Assert(err, jc.ErrorIsNil)
-	machineAgentFactory := agentcmd.MachineAgentFactoryFn(agentConf, logsCh, c.MkDir())
-	a := machineAgentFactory(m.Id())
+	machineAgentFactory := agentcmd.MachineAgentFactoryFn(
+		agentConf,
+		logger,
+		agentcmd.DefaultIntrospectionSocketName,
+		c.MkDir(),
+	)
+	a, err := machineAgentFactory(m.Id())
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure there's no logs to begin with.
 	c.Assert(s.getLogCount(c, m.Tag()), gc.Equals, 0)
@@ -75,9 +81,10 @@ func (s *dblogSuite) runUnitAgentTest(c *gc.C) bool {
 	// Create a unit and an agent for it.
 	u, password := s.Factory.MakeUnitReturningPassword(c, nil)
 	s.PrimeAgent(c, u.Tag(), password)
-	logsCh, err := logsender.InstallBufferedLogWriter(1000)
+	logger, err := logsender.InstallBufferedLogWriter(1000)
 	c.Assert(err, jc.ErrorIsNil)
-	a := agentcmd.NewUnitAgent(nil, logsCh)
+	a, err := agentcmd.NewUnitAgent(nil, logger)
+	c.Assert(err, jc.ErrorIsNil)
 	s.InitAgent(c, a, "--unit-name", u.Name(), "--log-to-stderr=true")
 
 	// Ensure there's no logs to begin with.
@@ -147,7 +154,7 @@ func (s *debugLogDbSuite) TearDownSuite(c *gc.C) {
 }
 
 func (s *debugLogDbSuite) TestLogsAPI(c *gc.C) {
-	dbLogger := state.NewDbLogger(s.State, names.NewMachineTag("99"), version.Current)
+	dbLogger := state.NewEntityDbLogger(s.State, names.NewMachineTag("99"), version.Current)
 	defer dbLogger.Close()
 
 	t := time.Date(2015, 6, 23, 13, 8, 49, 0, time.UTC)

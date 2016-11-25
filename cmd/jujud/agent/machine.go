@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/api/base"
 	apimachiner "github.com/juju/juju/api/machiner"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/mongo/txnmetrics"
 	"github.com/juju/loggo"
 	"github.com/juju/replicaset"
 	"github.com/juju/utils"
@@ -32,6 +33,7 @@ import (
 	"github.com/juju/utils/symlink"
 	"github.com/juju/utils/voyeur"
 	"github.com/juju/version"
+	"github.com/prometheus/client_golang/prometheus"
 	"gopkg.in/juju/charmrepo.v2-unstable"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
@@ -45,6 +47,7 @@ import (
 	apiprovisioner "github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/observer"
+	"github.com/juju/juju/apiserver/observer/metricobserver"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/audit"
 	"github.com/juju/juju/cert"
@@ -80,6 +83,7 @@ import (
 	"github.com/juju/juju/worker/imagemetadataworker"
 	"github.com/juju/juju/worker/introspection"
 	"github.com/juju/juju/worker/logsender"
+	"github.com/juju/juju/worker/logsender/logsendermetrics"
 	"github.com/juju/juju/worker/migrationmaster"
 	"github.com/juju/juju/worker/modelworkermanager"
 	"github.com/juju/juju/worker/mongoupgrader"
@@ -88,12 +92,13 @@ import (
 	"github.com/juju/juju/worker/singular"
 	"github.com/juju/juju/worker/txnpruner"
 	"github.com/juju/juju/worker/upgradesteps"
+	utilscert "github.com/juju/utils/cert"
 )
 
 var (
 	logger       = loggo.GetLogger("juju.cmd.jujud")
-	jujuRun      = paths.MustSucceed(paths.JujuRun(series.HostSeries()))
-	jujuDumpLogs = paths.MustSucceed(paths.JujuDumpLogs(series.HostSeries()))
+	jujuRun      = paths.MustSucceed(paths.JujuRun(series.MustHostSeries()))
+	jujuDumpLogs = paths.MustSucceed(paths.JujuDumpLogs(series.MustHostSeries()))
 
 	// The following are defined as variables to allow the tests to
 	// intercept calls to the functions. In every case, they should
@@ -157,7 +162,7 @@ type AgentConfigWriter interface {
 // MachineAgent.
 func NewMachineAgentCmd(
 	ctx *cmd.Context,
-	machineAgentFactory func(string) *MachineAgent,
+	machineAgentFactory func(string) (*MachineAgent, error),
 	agentInitializer AgentInitializer,
 	configFetcher AgentConfigWriter,
 ) cmd.Command {
@@ -175,7 +180,7 @@ type machineAgentCmd struct {
 	// This group of arguments is required.
 	agentInitializer    AgentInitializer
 	currentConfig       AgentConfigWriter
-	machineAgentFactory func(string) *MachineAgent
+	machineAgentFactory func(string) (*MachineAgent, error)
 	ctx                 *cmd.Context
 
 	// This group is for debugging purposes.
@@ -223,7 +228,10 @@ func (a *machineAgentCmd) Init(args []string) error {
 
 // Run instantiates a MachineAgent and runs it.
 func (a *machineAgentCmd) Run(c *cmd.Context) error {
-	machineAgent := a.machineAgentFactory(a.machineId)
+	machineAgent, err := a.machineAgentFactory(a.machineId)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	return machineAgent.Run(c)
 }
 
@@ -245,16 +253,18 @@ func (a *machineAgentCmd) Info() *cmd.Info {
 // MachineAgent given a machineId.
 func MachineAgentFactoryFn(
 	agentConfWriter AgentConfigWriter,
-	bufferedLogs logsender.LogRecordCh,
+	bufferedLogger *logsender.BufferedLogWriter,
+	newIntrospectionSocketName func(names.Tag) string,
 	rootDir string,
-) func(string) *MachineAgent {
-	return func(machineId string) *MachineAgent {
+) func(string) (*MachineAgent, error) {
+	return func(machineId string) (*MachineAgent, error) {
 		return NewMachineAgent(
 			machineId,
 			agentConfWriter,
-			bufferedLogs,
+			bufferedLogger,
 			worker.NewRunner(cmdutil.IsFatal, cmdutil.MoreImportant, worker.RestartDelay),
 			looputil.NewLoopDeviceManager(),
+			newIntrospectionSocketName,
 			rootDir,
 		)
 	}
@@ -264,22 +274,39 @@ func MachineAgentFactoryFn(
 func NewMachineAgent(
 	machineId string,
 	agentConfWriter AgentConfigWriter,
-	bufferedLogs logsender.LogRecordCh,
+	bufferedLogger *logsender.BufferedLogWriter,
 	runner worker.Runner,
 	loopDeviceManager looputil.LoopDeviceManager,
+	newIntrospectionSocketName func(names.Tag) string,
 	rootDir string,
-) *MachineAgent {
-	return &MachineAgent{
+) (*MachineAgent, error) {
+	prometheusRegistry, err := newPrometheusRegistry()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	a := &MachineAgent{
 		machineId:                   machineId,
 		AgentConfigWriter:           agentConfWriter,
 		configChangedVal:            voyeur.NewValue(true),
-		bufferedLogs:                bufferedLogs,
+		bufferedLogger:              bufferedLogger,
 		workersStarted:              make(chan struct{}),
 		runner:                      runner,
 		rootDir:                     rootDir,
 		initialUpgradeCheckComplete: gate.NewLock(),
 		loopDeviceManager:           loopDeviceManager,
+		newIntrospectionSocketName:  newIntrospectionSocketName,
+		prometheusRegistry:          prometheusRegistry,
+		txnmetricsCollector:         txnmetrics.New(),
 	}
+	if err := a.prometheusRegistry.Register(
+		logsendermetrics.BufferedLogWriterMetrics{bufferedLogger},
+	); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if err := a.prometheusRegistry.Register(a.txnmetricsCollector); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return a, nil
 }
 
 // MachineAgent is responsible for tying together all functionality
@@ -291,7 +318,7 @@ type MachineAgent struct {
 	machineId        string
 	runner           worker.Runner
 	rootDir          string
-	bufferedLogs     logsender.LogRecordCh
+	bufferedLogger   *logsender.BufferedLogWriter
 	configChangedVal *voyeur.Value
 	upgradeComplete  gate.Lock
 	workersStarted   chan struct{}
@@ -310,7 +337,10 @@ type MachineAgent struct {
 	mongoInitMutex   sync.Mutex
 	mongoInitialized bool
 
-	loopDeviceManager looputil.LoopDeviceManager
+	loopDeviceManager          looputil.LoopDeviceManager
+	newIntrospectionSocketName func(names.Tag) string
+	prometheusRegistry         *prometheus.Registry
+	txnmetricsCollector        *txnmetrics.Collector
 }
 
 // IsRestorePreparing returns bool representing if we are in restore mode
@@ -359,7 +389,7 @@ func upgradeCertificateDNSNames(config agent.ConfigSetter) error {
 	// certificate validation fails, or it does not contain the DNS
 	// names we require, we will generate a new one.
 	var dnsNames set.Strings
-	serverCert, _, err := cert.ParseCertAndKey(si.Cert, si.PrivateKey)
+	serverCert, _, err := utilscert.ParseCertAndKey(si.Cert, si.PrivateKey)
 	if err != nil {
 		// The certificate is invalid, so create a new one.
 		logger.Infof("parsing certificate/key failed, will generate a new one: %v", err)
@@ -474,10 +504,11 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 			StartStateWorkers:    a.startStateWorkers,
 			StartAPIWorkers:      a.startAPIWorkers,
 			PreUpgradeSteps:      upgrades.PreUpgradeSteps,
-			LogSource:            a.bufferedLogs,
+			LogSource:            a.bufferedLogger.Logs(),
 			NewDeployContext:     newDeployContext,
 			Clock:                clock.WallClock,
 			ValidateMigration:    a.validateMigration,
+			PrometheusRegisterer: a.prometheusRegistry,
 		})
 		if err := dependency.Install(engine, manifolds); err != nil {
 			if err := worker.Stop(engine); err != nil {
@@ -486,9 +517,11 @@ func (a *MachineAgent) makeEngineCreator(previousAgentVersion version.Number) fu
 			return nil, err
 		}
 		if err := startIntrospection(introspectionConfig{
-			Agent:      a,
-			Engine:     engine,
-			WorkerFunc: introspection.NewWorker,
+			Agent:              a,
+			Engine:             engine,
+			NewSocketName:      a.newIntrospectionSocketName,
+			PrometheusGatherer: a.prometheusRegistry,
+			WorkerFunc:         introspection.NewWorker,
 		}); err != nil {
 			// If the introspection worker failed to start, we just log error
 			// but continue. It is very unlikely to happen in the real world
@@ -774,11 +807,17 @@ func (a *MachineAgent) openStateForUpgrade() (*state.State, error) {
 	if !ok {
 		return nil, errors.New("no state info available")
 	}
-	st, err := state.Open(agentConfig.Model(), agentConfig.Controller(), info, mongo.DefaultDialOpts(),
-		stateenvirons.GetNewPolicyFunc(
+	st, err := state.Open(state.OpenParams{
+		Clock:              clock.WallClock,
+		ControllerTag:      agentConfig.Controller(),
+		ControllerModelTag: agentConfig.Model(),
+		MongoInfo:          info,
+		MongoDialOpts:      mongo.DefaultDialOpts(),
+		NewPolicy: stateenvirons.GetNewPolicyFunc(
 			stateenvirons.GetNewEnvironFunc(environs.New),
 		),
-	)
+		RunTransactionObserver: a.txnmetricsCollector.AfterRunTransaction,
+	})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -872,7 +911,11 @@ func (a *MachineAgent) initState(agentConfig agent.Config) (*state.State, error)
 		return nil, err
 	}
 
-	st, _, err := openState(agentConfig, stateWorkerDialOpts)
+	st, _, err := openState(
+		agentConfig,
+		stateWorkerDialOpts,
+		a.txnmetricsCollector.AfterRunTransaction,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -962,7 +1005,11 @@ func (a *MachineAgent) startStateWorkers(st *state.State) (worker.Worker, error)
 			// to the fact that state holds lease managers which are killed and need to be reset.
 			stateOpener := func() (*state.State, error) {
 				logger.Debugf("opening state for apiserver worker")
-				st, _, err := openState(agentConfig, stateWorkerDialOpts)
+				st, _, err := openState(
+					agentConfig,
+					stateWorkerDialOpts,
+					a.txnmetricsCollector.AfterRunTransaction,
+				)
 				return st, err
 			}
 			runner.StartWorker("apiserver", a.apiserverWorkerStarter(stateOpener, certChangedChan))
@@ -1098,6 +1145,19 @@ func (a *MachineAgent) newAPIserverWorker(st *state.State, certChanged chan para
 		return nil, errors.Annotate(err, "cannot fetch the controller config")
 	}
 
+	newObserver, err := newObserverFn(
+		controllerConfig,
+		clock.WallClock,
+		jujuversion.Current,
+		agentConfig.Model().Id(),
+		newAuditEntrySink(st, logDir),
+		auditErrorHandler,
+		a.prometheusRegistry,
+	)
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot create RPC observer factory")
+	}
+
 	server, err := apiserver.NewServer(st, listener, apiserver.ServerConfig{
 		Clock:            clock.WallClock,
 		Cert:             cert,
@@ -1110,14 +1170,7 @@ func (a *MachineAgent) newAPIserverWorker(st *state.State, certChanged chan para
 		AutocertURL:      controllerConfig.AutocertURL(),
 		AutocertDNSName:  controllerConfig.AutocertDNSName(),
 		AllowModelAccess: controllerConfig.AllowModelAccess(),
-		NewObserver: newObserverFn(
-			controllerConfig,
-			clock.WallClock,
-			jujuversion.Current,
-			agentConfig.Model().Id(),
-			newAuditEntrySink(st, logDir),
-			auditErrorHandler,
-		),
+		NewObserver:      newObserver,
 	})
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot start api server worker")
@@ -1157,7 +1210,8 @@ func newObserverFn(
 	modelUUID string,
 	persistAuditEntry audit.AuditEntrySinkFn,
 	auditErrorHandler observer.ErrorHandler,
-) observer.ObserverFactory {
+	prometheusRegisterer prometheus.Registerer,
+) (observer.ObserverFactory, error) {
 
 	var observerFactories []observer.ObserverFactory
 
@@ -1183,7 +1237,17 @@ func newObserverFn(
 		})
 	}
 
-	return observer.ObserverFactoryMultiplexer(observerFactories...)
+	// Metrics observer.
+	metricObserver, err := metricobserver.NewObserverFactory(metricobserver.Config{
+		Clock:                clock,
+		PrometheusRegisterer: prometheusRegisterer,
+	})
+	if err != nil {
+		return nil, errors.Annotate(err, "creating metric observer factory")
+	}
+	observerFactories = append(observerFactories, metricObserver)
+
+	return observer.ObserverFactoryMultiplexer(observerFactories...), nil
 
 }
 
@@ -1313,16 +1377,26 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) (err error) {
 	return nil
 }
 
-func openState(agentConfig agent.Config, dialOpts mongo.DialOpts) (_ *state.State, _ *state.Machine, err error) {
+func openState(
+	agentConfig agent.Config,
+	dialOpts mongo.DialOpts,
+	runTransactionObserver state.RunTransactionObserverFunc,
+) (_ *state.State, _ *state.Machine, err error) {
 	info, ok := agentConfig.MongoInfo()
 	if !ok {
 		return nil, nil, errors.Errorf("no state info available")
 	}
-	st, err := state.Open(agentConfig.Model(), agentConfig.Controller(), info, dialOpts,
-		stateenvirons.GetNewPolicyFunc(
+	st, err := state.Open(state.OpenParams{
+		Clock:              clock.WallClock,
+		ControllerTag:      agentConfig.Controller(),
+		ControllerModelTag: agentConfig.Model(),
+		MongoInfo:          info,
+		MongoDialOpts:      dialOpts,
+		NewPolicy: stateenvirons.GetNewPolicyFunc(
 			stateenvirons.GetNewEnvironFunc(environs.New),
 		),
-	)
+		RunTransactionObserver: runTransactionObserver,
+	})
 	if err != nil {
 		return nil, nil, err
 	}

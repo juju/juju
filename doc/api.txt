@@ -116,7 +116,7 @@ the following types of entities:
 	UnitWatcher
 	LifecycleWatcher
 	ServiceUnitsWatcher
-	ServiceRelationsWatcher
+	RemoteRelationsWatcher
 	RelationScopeWatcher
 	UnitsWatcher
 	ConfigWatcher

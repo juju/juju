@@ -56,6 +56,18 @@ const (
 	// EmptyAuthType is the authentication type used for providers
 	// that require no credentials, e.g. "lxd", and "manual".
 	EmptyAuthType AuthType = "empty"
+
+	// AuthTypesKey is the name of the key in a cloud config or cloud schema
+	// that holds the cloud's auth types.
+	AuthTypesKey = "auth-types"
+
+	// EndpointKey is the name of the key in a cloud config or cloud schema
+	// that holds the cloud's endpoint url.
+	EndpointKey = "endpoint"
+
+	// RegionsKey is the name of the key in a cloud schema that holds the list
+	// of regions a cloud supports.
+	RegionsKey = "regions"
 )
 
 // Attrs serves as a map to hold regions specific configuration attributes.
@@ -264,6 +276,15 @@ func PublicCloudMetadata(searchPath ...string) (result map[string]Cloud, fallbac
 	}
 	clouds, err := ParseCloudMetadata([]byte(fallbackPublicCloudInfo))
 	return clouds, true, err
+}
+
+// ParseOneCloud parses the given yaml bytes into a single Cloud metadata.
+func ParseOneCloud(data []byte) (Cloud, error) {
+	c := &cloud{}
+	if err := yaml.Unmarshal(data, &c); err != nil {
+		return Cloud{}, errors.Annotate(err, "cannot unmarshal yaml cloud metadata")
+	}
+	return cloudFromInternal(c), nil
 }
 
 // ParseCloudMetadata parses the given yaml bytes into Clouds metadata.

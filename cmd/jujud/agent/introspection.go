@@ -4,9 +4,13 @@
 package agent
 
 import (
+	"os"
 	"runtime"
 
+	names "gopkg.in/juju/names.v2"
+
 	"github.com/juju/errors"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/worker"
@@ -14,12 +18,21 @@ import (
 	"github.com/juju/juju/worker/introspection"
 )
 
+// DefaultIntrospectionSocketName returns the socket name to use for the
+// abstract domain socket that the introspection worker serves requests
+// over.
+func DefaultIntrospectionSocketName(entityTag names.Tag) string {
+	return "jujud-" + entityTag.String()
+}
+
 // introspectionConfig defines the various components that the introspection
 // worker reports on or needs to start up.
 type introspectionConfig struct {
-	Agent      agent.Agent
-	Engine     *dependency.Engine
-	WorkerFunc func(config introspection.Config) (worker.Worker, error)
+	Agent              agent.Agent
+	Engine             *dependency.Engine
+	PrometheusGatherer prometheus.Gatherer
+	NewSocketName      func(names.Tag) string
+	WorkerFunc         func(config introspection.Config) (worker.Worker, error)
 }
 
 // startIntrospection creates the introspection worker. It cannot and should
@@ -34,10 +47,11 @@ func startIntrospection(cfg introspectionConfig) error {
 		return nil
 	}
 
-	socketName := "jujud-" + cfg.Agent.CurrentConfig().Tag().String()
+	socketName := cfg.NewSocketName(cfg.Agent.CurrentConfig().Tag())
 	w, err := cfg.WorkerFunc(introspection.Config{
-		SocketName: socketName,
-		Reporter:   cfg.Engine,
+		SocketName:         socketName,
+		Reporter:           cfg.Engine,
+		PrometheusGatherer: cfg.PrometheusGatherer,
 	})
 	if err != nil {
 		return errors.Trace(err)
@@ -51,4 +65,19 @@ func startIntrospection(cfg introspectionConfig) error {
 	}()
 
 	return nil
+}
+
+// newPrometheusRegistry returns a new prometheus.Registry with
+// the Go and process metric collectors registered. This registry
+// is exposed by the introspection abstract domain socket on all
+// Linux agents.
+func newPrometheusRegistry() (*prometheus.Registry, error) {
+	r := prometheus.NewRegistry()
+	if err := r.Register(prometheus.NewGoCollector()); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if err := r.Register(prometheus.NewProcessCollector(os.Getpid(), "")); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return r, nil
 }

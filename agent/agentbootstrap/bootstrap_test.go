@@ -11,6 +11,7 @@ import (
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/clock"
 	"github.com/juju/utils/series"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
@@ -258,7 +259,7 @@ LXC_BRIDGE="ignored"`[1:])
 	// Check that the bootstrap machine looks correct.
 	c.Assert(m.Id(), gc.Equals, "0")
 	c.Assert(m.Jobs(), gc.DeepEquals, []state.MachineJob{state.JobManageModel})
-	c.Assert(m.Series(), gc.Equals, series.HostSeries())
+	c.Assert(m.Series(), gc.Equals, series.MustHostSeries())
 	c.Assert(m.CheckProvisioned(agent.BootstrapNonce), jc.IsTrue)
 	c.Assert(m.Addresses(), jc.DeepEquals, filteredAddrs)
 	gotBootstrapConstraints, err := m.Constraints()
@@ -298,7 +299,13 @@ LXC_BRIDGE="ignored"`[1:])
 	info, ok := cfg.MongoInfo()
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(info.Password, gc.Not(gc.Equals), testing.DefaultMongoPassword)
-	st1, err := state.Open(newCfg.Model(), newCfg.Controller(), info, mongotest.DialOpts(), nil)
+	st1, err := state.Open(state.OpenParams{
+		Clock:              clock.WallClock,
+		ControllerTag:      newCfg.Controller(),
+		ControllerModelTag: newCfg.Model(),
+		MongoInfo:          info,
+		MongoDialOpts:      mongotest.DialOpts(),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer st1.Close()
 
@@ -451,7 +458,13 @@ func (s *bootstrapSuite) assertCanLogInAsAdmin(c *gc.C, modelTag names.ModelTag,
 		Tag:      nil, // admin user
 		Password: password,
 	}
-	st, err := state.Open(modelTag, controllerTag, info, mongotest.DialOpts(), state.NewPolicyFunc(nil))
+	st, err := state.Open(state.OpenParams{
+		Clock:              clock.WallClock,
+		ControllerTag:      controllerTag,
+		ControllerModelTag: modelTag,
+		MongoInfo:          info,
+		MongoDialOpts:      mongotest.DialOpts(),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 	_, err = st.Machine("0")

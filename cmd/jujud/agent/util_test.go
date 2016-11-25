@@ -132,7 +132,7 @@ func (s *commonMachineSuite) primeAgent(c *gc.C, jobs ...state.MachineJob) (m *s
 	vers := version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
-		Series: series.HostSeries(),
+		Series: series.MustHostSeries(),
 	}
 	return s.primeAgentVersion(c, vers, jobs...)
 }
@@ -193,16 +193,17 @@ func (s *commonMachineSuite) configureMachine(c *gc.C, machineId string, vers ve
 
 func NewTestMachineAgentFactory(
 	agentConfWriter AgentConfigWriter,
-	bufferedLogs logsender.LogRecordCh,
+	bufferedLogger *logsender.BufferedLogWriter,
 	rootDir string,
-) func(string) *MachineAgent {
-	return func(machineId string) *MachineAgent {
+) func(string) (*MachineAgent, error) {
+	return func(machineId string) (*MachineAgent, error) {
 		return NewMachineAgent(
 			machineId,
 			agentConfWriter,
-			bufferedLogs,
+			bufferedLogger,
 			worker.NewRunner(cmdutil.IsFatal, cmdutil.MoreImportant, worker.RestartDelay),
 			&mockLoopDeviceManager{},
+			DefaultIntrospectionSocketName,
 			rootDir,
 		)
 	}
@@ -212,8 +213,17 @@ func NewTestMachineAgentFactory(
 func (s *commonMachineSuite) newAgent(c *gc.C, m *state.Machine) *MachineAgent {
 	agentConf := agentConf{dataDir: s.DataDir()}
 	agentConf.ReadConfig(names.NewMachineTag(m.Id()).String())
-	machineAgentFactory := NewTestMachineAgentFactory(&agentConf, nil, c.MkDir())
-	return machineAgentFactory(m.Id())
+	logger := s.newBufferedLogWriter()
+	machineAgentFactory := NewTestMachineAgentFactory(&agentConf, logger, c.MkDir())
+	machineAgent, err := machineAgentFactory(m.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	return machineAgent
+}
+
+func (s *commonMachineSuite) newBufferedLogWriter() *logsender.BufferedLogWriter {
+	logger := logsender.NewBufferedLogWriter(1024)
+	s.AddCleanup(func(*gc.C) { logger.Close() })
+	return logger
 }
 
 func patchDeployContext(c *gc.C, st *state.State) (*fakeContext, func()) {

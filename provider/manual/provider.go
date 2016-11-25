@@ -8,11 +8,12 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/jsonschema"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/manual"
+	"github.com/juju/juju/environs/manual/sshprovisioner"
 )
 
 type manualProvider struct {
@@ -22,7 +23,7 @@ type manualProvider struct {
 // Verify that we conform to the interface.
 var _ environs.EnvironProvider = (*manualProvider)(nil)
 
-var initUbuntuUser = manual.InitUbuntuUser
+var initUbuntuUser = sshprovisioner.InitUbuntuUser
 
 func ensureBootstrapUbuntuUser(ctx environs.BootstrapContext, host, user string, cfg *environConfig) error {
 	err := initUbuntuUser(host, user, cfg.AuthorizedKeys(), ctx.GetStdin(), ctx.GetStdout())
@@ -37,6 +38,23 @@ func ensureBootstrapUbuntuUser(ctx environs.BootstrapContext, host, user string,
 // DetectRegions is specified in the environs.CloudRegionDetector interface.
 func (p manualProvider) DetectRegions() ([]cloud.Region, error) {
 	return nil, errors.NotFoundf("regions")
+}
+
+var cloudSchema = &jsonschema.Schema{
+	Type:     []jsonschema.Type{jsonschema.ObjectType},
+	Required: []string{cloud.EndpointKey},
+	Properties: map[string]*jsonschema.Schema{
+		cloud.EndpointKey: &jsonschema.Schema{
+			Singular: "the controller's hostname or IP address",
+			Type:     []jsonschema.Type{jsonschema.StringType},
+			Format:   jsonschema.FormatURI,
+		},
+	},
+}
+
+// CloudSchema returns the schema for verifying the cloud configuration.
+func (p manualProvider) CloudSchema() *jsonschema.Schema {
+	return cloudSchema
 }
 
 // PrepareConfig is specified in the EnvironProvider interface.

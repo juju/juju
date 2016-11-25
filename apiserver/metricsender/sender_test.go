@@ -12,17 +12,17 @@ import (
 	"time"
 
 	wireformat "github.com/juju/romulus/wireformat/metrics"
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/clock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/metricsender"
-	"github.com/juju/juju/cert"
+	jujucert "github.com/juju/juju/cert"
 	jujujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing/factory"
-	jujutesting "github.com/juju/testing"
 )
 
 type SenderSuite struct {
@@ -35,9 +35,9 @@ type SenderSuite struct {
 var _ = gc.Suite(&SenderSuite{})
 
 func createCerts(c *gc.C, serverName string) (*x509.CertPool, tls.Certificate) {
-	certCaPem, keyCaPem, err := cert.NewCA("sender-test", "1", time.Now().Add(time.Minute))
+	certCaPem, keyCaPem, err := jujucert.NewCA("sender-test", "1", time.Now().Add(time.Minute))
 	c.Assert(err, jc.ErrorIsNil)
-	certPem, keyPem, err := cert.NewServer(certCaPem, keyCaPem, time.Now().Add(time.Minute), []string{serverName})
+	certPem, keyPem, err := jujucert.NewServer(certCaPem, keyCaPem, time.Now().Add(time.Minute), []string{serverName})
 	c.Assert(err, jc.ErrorIsNil)
 	cert, err := tls.X509KeyPair([]byte(certPem), []byte(keyPem))
 	c.Assert(err, jc.ErrorIsNil)

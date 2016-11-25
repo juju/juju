@@ -38,77 +38,6 @@ type HasStatusHistory interface {
 	SetStatusHistory([]StatusArgs)
 }
 
-// Model is a database agnostic representation of an existing model.
-type Model interface {
-	HasAnnotations
-	HasConstraints
-
-	Cloud() string
-	CloudRegion() string
-	CloudCredential() string
-	Tag() names.ModelTag
-	Owner() names.UserTag
-	Config() map[string]interface{}
-	LatestToolsVersion() version.Number
-
-	// UpdateConfig overwrites existing config values with those specified.
-	UpdateConfig(map[string]interface{})
-
-	// Blocks returns a map of block type to the message associated with that
-	// block.
-	Blocks() map[string]string
-
-	Users() []User
-	AddUser(UserArgs)
-
-	Machines() []Machine
-	AddMachine(MachineArgs) Machine
-
-	Applications() []Application
-	AddApplication(ApplicationArgs) Application
-
-	Relations() []Relation
-	AddRelation(RelationArgs) Relation
-
-	Spaces() []Space
-	AddSpace(SpaceArgs) Space
-
-	LinkLayerDevices() []LinkLayerDevice
-	AddLinkLayerDevice(LinkLayerDeviceArgs) LinkLayerDevice
-
-	Subnets() []Subnet
-	AddSubnet(SubnetArgs) Subnet
-
-	IPAddresses() []IPAddress
-	AddIPAddress(IPAddressArgs) IPAddress
-
-	SSHHostKeys() []SSHHostKey
-	AddSSHHostKey(SSHHostKeyArgs) SSHHostKey
-
-	CloudImageMetadata() []CloudImageMetadata
-	AddCloudImageMetadata(CloudImageMetadataArgs) CloudImageMetadata
-
-	Actions() []Action
-	AddAction(ActionArgs) Action
-
-	Sequences() map[string]int
-	SetSequence(name string, value int)
-
-	Volumes() []Volume
-	AddVolume(VolumeArgs) Volume
-
-	Filesystems() []Filesystem
-	AddFilesystem(FilesystemArgs) Filesystem
-
-	Storages() []Storage
-	AddStorage(StorageArgs) Storage
-
-	StoragePools() []StoragePool
-	AddStoragePool(StoragePoolArgs) StoragePool
-
-	Validate() error
-}
-
 // User represents a user of the model. Users are able to connect to, and
 // depending on the read only flag, modify the model.
 type User interface {
@@ -241,38 +170,6 @@ type Status interface {
 	Updated() time.Time
 }
 
-// Application represents a deployed charm in a model.
-type Application interface {
-	HasAnnotations
-	HasConstraints
-	HasStatus
-	HasStatusHistory
-
-	Tag() names.ApplicationTag
-	Name() string
-	Series() string
-	Subordinate() bool
-	CharmURL() string
-	Channel() string
-	CharmModifiedVersion() int
-	ForceCharm() bool
-	Exposed() bool
-	MinUnits() int
-
-	Settings() map[string]interface{}
-
-	Leader() string
-	LeadershipSettings() map[string]interface{}
-
-	MetricsCredentials() []byte
-	StorageConstraints() map[string]StorageConstraint
-
-	Units() []Unit
-	AddUnit(UnitArgs) Unit
-
-	Validate() error
-}
-
 // Unit represents an instance of an application in a model.
 type Unit interface {
 	HasAnnotations
@@ -309,6 +206,9 @@ type Unit interface {
 
 	AgentStatusHistory() []Status
 	SetAgentStatusHistory([]StatusArgs)
+
+	AddResource(UnitResourceArgs) UnitResource
+	Resources() []UnitResource
 
 	AddPayload(PayloadArgs) Payload
 	Payloads() []Payload

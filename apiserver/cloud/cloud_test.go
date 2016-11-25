@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/environs"
 	_ "github.com/juju/juju/provider/dummy"
 )
 
@@ -277,6 +278,8 @@ type mockBackend struct {
 	gitjujutesting.Stub
 	cloud cloud.Cloud
 	creds map[string]cloud.Credential
+
+	cloudSpec environs.CloudSpec
 }
 
 func (st *mockBackend) IsControllerAdmin(user names.UserTag) (bool, error) {

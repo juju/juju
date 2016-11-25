@@ -40,8 +40,8 @@ func replaceNameWithID(oldName, envName, eUUID string) (string, bool, error) {
 }
 
 func addUUIDToSecurityGroupNames(e *Environ) error {
-	nova := e.nova()
-	groups, err := nova.ListSecurityGroups()
+	neutron := e.neutron()
+	groups, err := neutron.ListSecurityGroupsV2()
 	if err != nil {
 		return errors.Annotate(err, "upgrading instance names")
 	}
@@ -57,7 +57,7 @@ func addUUIDToSecurityGroupNames(e *Environ) error {
 			continue
 		}
 		// Name should have uuid instead of name
-		_, err = nova.UpdateSecurityGroup(group.Id, newName, group.Description)
+		_, err = neutron.UpdateSecurityGroupV2(group.Id, newName, group.Description)
 		if err != nil {
 			return errors.Annotatef(err, "upgrading security group name from %q to %q", group.Name, newName)
 		}

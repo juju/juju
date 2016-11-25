@@ -391,3 +391,15 @@ func (s *localServerSuite) TestConstraintsValidatorVocab(c *gc.C) {
 	_, err = validator.Validate(cons)
 	c.Assert(err, gc.ErrorMatches, "invalid constraint value: instance-type=foo\nvalid values are:.*")
 }
+
+func (t *localServerSuite) TestInstanceInformation(c *gc.C) {
+	env := t.Prepare(c)
+	types, err := env.InstanceTypes(constraints.Value{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(types.InstanceTypes, gc.HasLen, 3)
+
+	cons := constraints.MustParse("mem=4G")
+	types, err = env.InstanceTypes(cons)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(types.InstanceTypes, gc.HasLen, 1)
+}

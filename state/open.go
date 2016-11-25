@@ -26,35 +26,82 @@ import (
 	"github.com/juju/juju/worker"
 )
 
-// Open connects to the server described by the given
-// info, waits for it to be initialized, and returns a new State
-// representing the model connected to.
-//
-// A policy may be provided, which will be used to validate and
-// modify behaviour of certain operations in state. A nil policy
-// may be provided.
+// OpenParams contains the parameters for opening the state database.
+type OpenParams struct {
+	// Clock is the clock used for time-related operations.
+	Clock clock.Clock
+
+	// ControllerTag is the tag of the controller.
+	ControllerTag names.ControllerTag
+
+	// ControllerModelTag is the tag of the controller model.
+	ControllerModelTag names.ModelTag
+
+	// MongoInfo is the mongo.MongoInfo used for dialling the
+	// Mongo connection.
+	MongoInfo *mongo.MongoInfo
+
+	// MongoDialOpts is the mongo.DialOpts used to control how
+	// Mongo connections are made.
+	MongoDialOpts mongo.DialOpts
+
+	// NewPolicy, if non-nil, returns a policy which will be used to
+	// validate and modify behaviour of certain operations in state.
+	NewPolicy NewPolicyFunc
+
+	// RunTransactionObserver, if non-nil, is a function that will
+	// be called after mgo/txn transactions are run, successfully
+	// or not.
+	RunTransactionObserver RunTransactionObserverFunc
+}
+
+// Validate validates the OpenParams.
+func (p OpenParams) Validate() error {
+	if p.Clock == nil {
+		return errors.NotValidf("nil Clock")
+	}
+	if p.ControllerTag == (names.ControllerTag{}) {
+		return errors.NotValidf("empty ControllerTag")
+	}
+	if p.ControllerModelTag == (names.ModelTag{}) {
+		return errors.NotValidf("empty ControllerModelTag")
+	}
+	if p.MongoInfo == nil {
+		return errors.NotValidf("nil MongoInfo")
+	}
+	return nil
+}
+
+// Open connects to the server with the given parameters, waits for it
+// to be initialized, and returns a new State representing the model
+// connected to.
 //
 // Open returns unauthorizedError if access is unauthorized.
-func Open(
-	controllerModelTag names.ModelTag,
-	controllerTag names.ControllerTag,
-	info *mongo.MongoInfo, opts mongo.DialOpts,
-	newPolicy NewPolicyFunc,
-) (*State, error) {
-	st, err := open(controllerModelTag, info, opts, newPolicy, clock.WallClock)
+func Open(args OpenParams) (*State, error) {
+	if err := args.Validate(); err != nil {
+		return nil, errors.Annotate(err, "validating args")
+	}
+	st, err := open(
+		args.ControllerModelTag,
+		args.MongoInfo,
+		args.MongoDialOpts,
+		args.NewPolicy,
+		args.Clock,
+		args.RunTransactionObserver,
+	)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	if _, err := st.Model(); err != nil {
 		if err := st.Close(); err != nil {
-			logger.Errorf("closing State for %s: %v", controllerModelTag, err)
+			logger.Errorf("closing State for %s: %v", args.ControllerModelTag, err)
 		}
-		return nil, errors.Annotatef(err, "cannot read model %s", controllerModelTag.Id())
+		return nil, errors.Annotatef(err, "cannot read model %s", args.ControllerModelTag.Id())
 	}
 
 	// State should only be Opened on behalf of a controller environ; all
 	// other *States should be created via ForModel.
-	if err := st.start(controllerTag); err != nil {
+	if err := st.start(args.ControllerTag); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return st, nil
@@ -65,6 +112,7 @@ func open(
 	info *mongo.MongoInfo, opts mongo.DialOpts,
 	newPolicy NewPolicyFunc,
 	clock clock.Clock,
+	runTransactionObserver RunTransactionObserverFunc,
 ) (*State, error) {
 	logger.Infof("opening state, mongo addresses: %q; entity %v", info.Addrs, info.Tag)
 	logger.Debugf("dialing mongo")
@@ -81,7 +129,7 @@ func open(
 	}
 	logger.Debugf("mongodb login successful")
 
-	st, err := newState(controllerModelTag, controllerModelTag, session, info, newPolicy, clock)
+	st, err := newState(controllerModelTag, controllerModelTag, session, info, newPolicy, clock, runTransactionObserver)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -210,7 +258,7 @@ func Initialize(args InitializeParams) (_ *State, err error) {
 	// When creating the controller model, the new model
 	// UUID is also used as the controller UUID.
 	modelTag := names.NewModelTag(args.ControllerModelArgs.Config.UUID())
-	st, err := open(modelTag, args.MongoInfo, args.MongoDialOpts, args.NewPolicy, args.Clock)
+	st, err := open(modelTag, args.MongoInfo, args.MongoDialOpts, args.NewPolicy, args.Clock, nil)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -474,6 +522,7 @@ func newState(
 	session *mgo.Session, mongoInfo *mongo.MongoInfo,
 	newPolicy NewPolicyFunc,
 	clock clock.Clock,
+	runTransactionObserver RunTransactionObserverFunc,
 ) (_ *State, err error) {
 
 	defer func() {
@@ -484,7 +533,11 @@ func newState(
 
 	// Set up database.
 	rawDB := session.DB(jujuDB)
-	database, err := allCollections().Load(rawDB, modelTag.Id())
+	database, err := allCollections().Load(
+		rawDB,
+		modelTag.Id(),
+		runTransactionObserver,
+	)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -494,13 +547,14 @@ func newState(
 
 	// Create State.
 	st := &State{
-		clock:              clock,
-		modelTag:           modelTag,
-		controllerModelTag: controllerModelTag,
-		mongoInfo:          mongoInfo,
-		session:            session,
-		database:           database,
-		newPolicy:          newPolicy,
+		clock:                  clock,
+		modelTag:               modelTag,
+		controllerModelTag:     controllerModelTag,
+		mongoInfo:              mongoInfo,
+		session:                session,
+		database:               database,
+		newPolicy:              newPolicy,
+		runTransactionObserver: runTransactionObserver,
 	}
 	if newPolicy != nil {
 		st.policy = newPolicy(st)

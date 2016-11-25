@@ -800,6 +800,7 @@ type LogRecord struct {
 	Location string    `json:"l"`
 	Level    string    `json:"v"`
 	Message  string    `json:"x"`
+	Entity   string    `json:"e,omitempty"`
 }
 
 // BundleChangesParams holds parameters for making Bundle.GetChanges calls.

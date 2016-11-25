@@ -6,7 +6,6 @@ package state
 import (
 	"fmt"
 	"sort"
-	"strconv"
 	"strings"
 
 	"github.com/juju/errors"
@@ -144,7 +143,7 @@ func (r *Relation) destroyOps(ignoreService string) (ops []txn.Op, isRemove bool
 		return nil, false, errAlreadyDying
 	}
 	if r.doc.UnitCount == 0 {
-		removeOps, err := r.removeOps(ignoreService, nil)
+		removeOps, err := r.removeOps(ignoreService, "")
 		if err != nil {
 			return nil, false, err
 		}
@@ -160,16 +159,16 @@ func (r *Relation) destroyOps(ignoreService string) (ops []txn.Op, isRemove bool
 
 // removeOps returns the operations necessary to remove the relation. If
 // ignoreService is not empty, no operations affecting that service will be
-// included; if departingUnit is not nil, this implies that the relation's
-// services may be Dying and otherwise unreferenced, and may thus require
-// removal themselves.
-func (r *Relation) removeOps(ignoreService string, departingUnit *Unit) ([]txn.Op, error) {
+// included; if departingUnitName is non-empty, this implies that the
+// relation's services may be Dying and otherwise unreferenced, and may thus
+// require removal themselves.
+func (r *Relation) removeOps(ignoreService string, departingUnitName string) ([]txn.Op, error) {
 	relOp := txn.Op{
 		C:      relationsC,
 		Id:     r.doc.DocID,
 		Remove: true,
 	}
-	if departingUnit != nil {
+	if departingUnitName != "" {
 		relOp.Assert = bson.D{{"life", Dying}, {"unitcount", 1}}
 	} else {
 		relOp.Assert = bson.D{{"life", Alive}, {"unitcount", 0}}
@@ -179,53 +178,108 @@ func (r *Relation) removeOps(ignoreService string, departingUnit *Unit) ([]txn.O
 		if ep.ApplicationName == ignoreService {
 			continue
 		}
-		var asserts bson.D
-		hasRelation := bson.D{{"relationcount", bson.D{{"$gt", 0}}}}
-		if departingUnit == nil {
-			// We're constructing a destroy operation, either of the relation
-			// or one of its services, and can therefore be assured that both
-			// services are Alive.
-			asserts = append(hasRelation, isAliveDoc...)
-		} else if ep.ApplicationName == departingUnit.ApplicationName() {
-			// This service must have at least one unit -- the one that's
-			// departing the relation -- so it cannot be ready for removal.
-			cannotDieYet := bson.D{{"unitcount", bson.D{{"$gt", 0}}}}
-			asserts = append(hasRelation, cannotDieYet...)
-		} else {
-			// This service may require immediate removal.
-			applications, closer := r.st.getCollection(applicationsC)
-			defer closer()
-
-			svc := &Application{st: r.st}
-			hasLastRef := bson.D{{"life", Dying}, {"unitcount", 0}, {"relationcount", 1}}
-			removable := append(bson.D{{"_id", ep.ApplicationName}}, hasLastRef...)
-			if err := applications.Find(removable).One(&svc.doc); err == nil {
-				appRemoveOps, err := svc.removeOps(hasLastRef)
-				if err != nil {
-					return nil, errors.Trace(err)
-				}
-				ops = append(ops, appRemoveOps...)
-				continue
-			} else if err != mgo.ErrNotFound {
-				return nil, err
-			}
-			// If not, we must check that this is still the case when the
-			// transaction is applied.
-			asserts = bson.D{{"$or", []bson.D{
-				{{"life", Alive}},
-				{{"unitcount", bson.D{{"$gt", 0}}}},
-				{{"relationcount", bson.D{{"$gt", 1}}}},
-			}}}
+		app, err := applicationByName(r.st, ep.ApplicationName)
+		if err != nil {
+			return nil, errors.Trace(err)
 		}
-		ops = append(ops, txn.Op{
-			C:      applicationsC,
-			Id:     r.st.docID(ep.ApplicationName),
-			Assert: asserts,
-			Update: bson.D{{"$inc", bson.D{{"relationcount", -1}}}},
-		})
+		if app.IsRemote() {
+			epOps, err := r.removeRemoteEndpointOps(ep, departingUnitName != "")
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			ops = append(ops, epOps...)
+		} else {
+			epOps, err := r.removeLocalEndpointOps(ep, departingUnitName)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			ops = append(ops, epOps...)
+		}
 	}
 	cleanupOp := newCleanupOp(cleanupRelationSettings, fmt.Sprintf("r#%d#", r.Id()))
 	return append(ops, cleanupOp), nil
+}
+
+func (r *Relation) removeLocalEndpointOps(ep Endpoint, departingUnitName string) ([]txn.Op, error) {
+	var asserts bson.D
+	hasRelation := bson.D{{"relationcount", bson.D{{"$gt", 0}}}}
+	departingUnitServiceMatchesEndpoint := func() bool {
+		s, err := names.UnitApplication(departingUnitName)
+		return err == nil && s == ep.ApplicationName
+	}
+	if departingUnitName == "" {
+		// We're constructing a destroy operation, either of the relation
+		// or one of its services, and can therefore be assured that both
+		// services are Alive.
+		asserts = append(hasRelation, isAliveDoc...)
+	} else if departingUnitServiceMatchesEndpoint() {
+		// This service must have at least one unit -- the one that's
+		// departing the relation -- so it cannot be ready for removal.
+		cannotDieYet := bson.D{{"unitcount", bson.D{{"$gt", 0}}}}
+		asserts = append(hasRelation, cannotDieYet...)
+	} else {
+		// This service may require immediate removal.
+		applications, closer := r.st.getCollection(applicationsC)
+		defer closer()
+
+		svc := &Application{st: r.st}
+		hasLastRef := bson.D{{"life", Dying}, {"unitcount", 0}, {"relationcount", 1}}
+		removable := append(bson.D{{"_id", ep.ApplicationName}}, hasLastRef...)
+		if err := applications.Find(removable).One(&svc.doc); err == nil {
+			return svc.removeOps(hasLastRef)
+		} else if err != mgo.ErrNotFound {
+			return nil, err
+		}
+		// If not, we must check that this is still the case when the
+		// transaction is applied.
+		asserts = bson.D{{"$or", []bson.D{
+			{{"life", Alive}},
+			{{"unitcount", bson.D{{"$gt", 0}}}},
+			{{"relationcount", bson.D{{"$gt", 1}}}},
+		}}}
+	}
+	return []txn.Op{{
+		C:      applicationsC,
+		Id:     r.st.docID(ep.ApplicationName),
+		Assert: asserts,
+		Update: bson.D{{"$inc", bson.D{{"relationcount", -1}}}},
+	}}, nil
+}
+
+func (r *Relation) removeRemoteEndpointOps(ep Endpoint, unitDying bool) ([]txn.Op, error) {
+	var asserts bson.D
+	hasRelation := bson.D{{"relationcount", bson.D{{"$gt", 0}}}}
+	if !unitDying {
+		// We're constructing a destroy operation, either of the relation
+		// or one of its services, and can therefore be assured that both
+		// services are Alive.
+		asserts = append(hasRelation, isAliveDoc...)
+	} else {
+		// The remote application may require immediate removal.
+		services, closer := r.st.getCollection(remoteApplicationsC)
+		defer closer()
+
+		svc := &RemoteApplication{st: r.st}
+		hasLastRef := bson.D{{"life", Dying}, {"relationcount", 1}}
+		removable := append(bson.D{{"_id", ep.ApplicationName}}, hasLastRef...)
+		if err := services.Find(removable).One(&svc.doc); err == nil {
+			return svc.removeOps(hasLastRef), nil
+		} else if err != mgo.ErrNotFound {
+			return nil, err
+		}
+		// If not, we must check that this is still the case when the
+		// transaction is applied.
+		asserts = bson.D{{"$or", []bson.D{
+			{{"life", Alive}},
+			{{"relationcount", bson.D{{"$gt", 1}}}},
+		}}}
+	}
+	return []txn.Op{{
+		C:      remoteApplicationsC,
+		Id:     r.st.docID(ep.ApplicationName),
+		Assert: asserts,
+		Update: bson.D{{"$inc", bson.D{{"relationcount", -1}}}},
+	}}, nil
 }
 
 // Id returns the integer internal relation key. This is exposed
@@ -275,25 +329,66 @@ func (r *Relation) RelatedEndpoints(applicationname string) ([]Endpoint, error) 
 
 // Unit returns a RelationUnit for the supplied unit.
 func (r *Relation) Unit(u *Unit) (*RelationUnit, error) {
-	ep, err := r.Endpoint(u.doc.Application)
+	const checkUnitLife = true
+	return r.unit(u.Name(), u.doc.Principal, u.IsPrincipal(), checkUnitLife)
+}
+
+// RemoteUnit returns a RelationUnit for the supplied unit
+// of a remote application.
+func (r *Relation) RemoteUnit(unitName string) (*RelationUnit, error) {
+	// Verify that the unit belongs to a remote application.
+	serviceName, err := names.UnitApplication(unitName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if _, err := r.st.RemoteApplication(serviceName); err != nil {
+		return nil, errors.Trace(err)
+	}
+	// Only non-subordinate services may be offered for remote
+	// relation, so all remote units are principals.
+	const principal = ""
+	const isPrincipal = true
+	const checkUnitLife = false
+	return r.unit(unitName, principal, isPrincipal, checkUnitLife)
+}
+
+func (r *Relation) unit(
+	unitName string,
+	principal string,
+	isPrincipal bool,
+	checkUnitLife bool,
+) (*RelationUnit, error) {
+	serviceName, err := names.UnitApplication(unitName)
 	if err != nil {
 		return nil, err
 	}
-	scope := []string{"r", strconv.Itoa(r.doc.Id)}
+	ep, err := r.Endpoint(serviceName)
+	if err != nil {
+		return nil, err
+	}
+	scope := r.globalScope()
 	if ep.Scope == charm.ScopeContainer {
-		container := u.doc.Principal
+		container := principal
 		if container == "" {
-			container = u.doc.Name
+			container = unitName
 		}
-		scope = append(scope, container)
+		scope = fmt.Sprintf("%s#%s", scope, container)
 	}
 	return &RelationUnit{
-		st:       r.st,
-		relation: r,
-		unit:     u,
-		endpoint: ep,
-		scope:    strings.Join(scope, "#"),
+		st:            r.st,
+		relation:      r,
+		unitName:      unitName,
+		isPrincipal:   isPrincipal,
+		checkUnitLife: checkUnitLife,
+		endpoint:      ep,
+		scope:         scope,
 	}, nil
+}
+
+// globalScope returns the scope prefix for relation scope document keys
+// in the global scope.
+func (r *Relation) globalScope() string {
+	return fmt.Sprintf("r#%d", r.doc.Id)
 }
 
 // relationSettingsCleanupChange removes the settings doc.

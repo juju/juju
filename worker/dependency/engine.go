@@ -4,6 +4,7 @@
 package dependency
 
 import (
+	"math/rand"
 	"time"
 
 	"github.com/juju/errors"
@@ -331,6 +332,13 @@ func (engine *Engine) requestStart(name string, delay time.Duration) {
 	info.abort = make(chan struct{})
 	engine.current[name] = info
 	context := engine.context(name, manifold.Inputs, info.abort)
+
+	// Always fuzz the delay a bit to help randomise the order of workers starting,
+	// which should make bugs more obvious
+	if delay > time.Duration(0) {
+		delay += time.Duration(rand.Int31n(60)) * time.Millisecond
+	}
+
 	go engine.runWorker(name, delay, manifold.Start, context)
 }
 

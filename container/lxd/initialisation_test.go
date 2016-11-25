@@ -94,7 +94,7 @@ func (s *InitialiserSuite) TestLTSSeriesPackages(c *gc.C) {
 	paccmder, err := commands.NewPackageCommander("trusty")
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.PatchValue(&series.HostSeries, func() string { return "trusty" })
+	s.PatchValue(&series.MustHostSeries, func() string { return "trusty" })
 	container := NewContainerInitialiser("trusty")
 
 	err = container.Initialise()

@@ -157,7 +157,9 @@ func (c StringsWatcherC) AssertChanges() {
 }
 
 func (c StringsWatcherC) AssertChange(expect ...string) {
-	c.assertChange(false, expect...)
+	// We should assert for either a single or multiple changes,
+	// based on the number of `expect` changes.
+	c.assertChange(len(expect) == 1, expect...)
 }
 
 func (c StringsWatcherC) AssertChangeInSingleEvent(expect ...string) {

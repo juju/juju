@@ -51,7 +51,7 @@ func (c *ShowServiceCommand) Info() *cmd.Info {
 		Name:    "resources",
 		Aliases: []string{"list-resources"},
 		Args:    "application-or-unit",
-		Purpose: "show the resources for an application or unit",
+		Purpose: "show the resources for a service or unit",
 		Doc: `
 This command shows the resources required by and those in use by an existing
 application or unit in your model.  When run for an application, it will also show any

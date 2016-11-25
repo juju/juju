@@ -13,10 +13,9 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
+	"github.com/juju/utils/cert"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/mgo.v2"
-
-	"github.com/juju/juju/cert"
 )
 
 // SocketTimeout should be long enough that even a slow mongo server
@@ -137,6 +136,9 @@ func DialInfo(info Info, opts DialOpts) (*mgo.DialInfo, error) {
 		cc := tls.Client(c, tlsConfig)
 		if err := cc.Handshake(); err != nil {
 			logger.Warningf("TLS handshake failed: %v", err)
+			if err := c.Close(); err != nil {
+				logger.Warningf("failed to close connection: %v", err)
+			}
 			return nil, err
 		}
 		logger.Debugf("dialled mongodb server at %q", addr)

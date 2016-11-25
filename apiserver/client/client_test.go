@@ -28,7 +28,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/manual"
+	"github.com/juju/juju/environs/manual/sshprovisioner"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
@@ -681,9 +681,9 @@ func (s *clientSuite) TestClientPublicAddressErrors(c *gc.C) {
 	_, err := s.APIState.Client().PublicAddress("wordpress")
 	c.Assert(err, gc.ErrorMatches, `unknown unit or machine "wordpress"`)
 	_, err = s.APIState.Client().PublicAddress("0")
-	c.Assert(err, gc.ErrorMatches, `error fetching address for machine "0": no public address`)
+	c.Assert(err, gc.ErrorMatches, `error fetching address for machine "0": no public address\(es\)`)
 	_, err = s.APIState.Client().PublicAddress("wordpress/0")
-	c.Assert(err, gc.ErrorMatches, `error fetching address for unit "wordpress/0": no public address`)
+	c.Assert(err, gc.ErrorMatches, `error fetching address for unit "wordpress/0": no public address\(es\)`)
 }
 
 func (s *clientSuite) TestClientPublicAddressMachine(c *gc.C) {
@@ -723,9 +723,9 @@ func (s *clientSuite) TestClientPrivateAddressErrors(c *gc.C) {
 	_, err := s.APIState.Client().PrivateAddress("wordpress")
 	c.Assert(err, gc.ErrorMatches, `unknown unit or machine "wordpress"`)
 	_, err = s.APIState.Client().PrivateAddress("0")
-	c.Assert(err, gc.ErrorMatches, `error fetching address for machine "0": no private address`)
+	c.Assert(err, gc.ErrorMatches, `error fetching address for machine "0": no private address\(es\)`)
 	_, err = s.APIState.Client().PrivateAddress("wordpress/0")
-	c.Assert(err, gc.ErrorMatches, `error fetching address for unit "wordpress/0": no private address`)
+	c.Assert(err, gc.ErrorMatches, `error fetching address for unit "wordpress/0": no private address\(es\)`)
 }
 
 func (s *clientSuite) TestClientPrivateAddress(c *gc.C) {
@@ -1050,7 +1050,7 @@ func (s *clientSuite) TestProvisioningScript(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	icfg, err := client.InstanceConfig(s.State, machineId, apiParams.Nonce, "")
 	c.Assert(err, jc.ErrorIsNil)
-	provisioningScript, err := manual.ProvisioningScript(icfg)
+	provisioningScript, err := sshprovisioner.ProvisioningScript(icfg)
 	c.Assert(err, jc.ErrorIsNil)
 	// ProvisioningScript internally calls MachineConfig,
 	// which allocates a new, random password. Everything

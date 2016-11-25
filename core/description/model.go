@@ -16,6 +16,78 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
+// Model is a database agnostic representation of an existing model.
+type Model interface {
+	HasAnnotations
+	HasConstraints
+
+	Cloud() string
+	CloudRegion() string
+	CloudCredential() CloudCredential
+	SetCloudCredential(CloudCredentialArgs)
+	Tag() names.ModelTag
+	Owner() names.UserTag
+	Config() map[string]interface{}
+	LatestToolsVersion() version.Number
+
+	// UpdateConfig overwrites existing config values with those specified.
+	UpdateConfig(map[string]interface{})
+
+	// Blocks returns a map of block type to the message associated with that
+	// block.
+	Blocks() map[string]string
+
+	Users() []User
+	AddUser(UserArgs)
+
+	Machines() []Machine
+	AddMachine(MachineArgs) Machine
+
+	Applications() []Application
+	AddApplication(ApplicationArgs) Application
+
+	Relations() []Relation
+	AddRelation(RelationArgs) Relation
+
+	Spaces() []Space
+	AddSpace(SpaceArgs) Space
+
+	LinkLayerDevices() []LinkLayerDevice
+	AddLinkLayerDevice(LinkLayerDeviceArgs) LinkLayerDevice
+
+	Subnets() []Subnet
+	AddSubnet(SubnetArgs) Subnet
+
+	IPAddresses() []IPAddress
+	AddIPAddress(IPAddressArgs) IPAddress
+
+	SSHHostKeys() []SSHHostKey
+	AddSSHHostKey(SSHHostKeyArgs) SSHHostKey
+
+	CloudImageMetadata() []CloudImageMetadata
+	AddCloudImageMetadata(CloudImageMetadataArgs) CloudImageMetadata
+
+	Actions() []Action
+	AddAction(ActionArgs) Action
+
+	Sequences() map[string]int
+	SetSequence(name string, value int)
+
+	Volumes() []Volume
+	AddVolume(VolumeArgs) Volume
+
+	Filesystems() []Filesystem
+	AddFilesystem(FilesystemArgs) Filesystem
+
+	Storages() []Storage
+	AddStorage(StorageArgs) Storage
+
+	StoragePools() []StoragePool
+	AddStoragePool(StoragePoolArgs) StoragePool
+
+	Validate() error
+}
+
 // ModelArgs represent the bare minimum information that is needed
 // to represent a model.
 type ModelArgs struct {
@@ -25,7 +97,6 @@ type ModelArgs struct {
 	Blocks             map[string]string
 	Cloud              string
 	CloudRegion        string
-	CloudCredential    string
 }
 
 // NewModel returns a Model based on the args specified.
@@ -39,7 +110,6 @@ func NewModel(args ModelArgs) Model {
 		Blocks_:             args.Blocks,
 		Cloud_:              args.Cloud,
 		CloudRegion_:        args.CloudRegion,
-		CloudCredential_:    args.CloudCredential,
 	}
 	m.setUsers(nil)
 	m.setMachines(nil)
@@ -139,9 +209,9 @@ type model struct {
 
 	Constraints_ *constraints `yaml:"constraints,omitempty"`
 
-	Cloud_           string `yaml:"cloud"`
-	CloudRegion_     string `yaml:"cloud-region,omitempty"`
-	CloudCredential_ string `yaml:"cloud-credential,omitempty"`
+	Cloud_           string           `yaml:"cloud"`
+	CloudRegion_     string           `yaml:"cloud-region,omitempty"`
+	CloudCredential_ *cloudCredential `yaml:"cloud-credential,omitempty"`
 
 	Volumes_      volumes      `yaml:"volumes"`
 	Filesystems_  filesystems  `yaml:"filesystems"`
@@ -490,8 +560,16 @@ func (m *model) CloudRegion() string {
 }
 
 // CloudCredential implements Model.
-func (m *model) CloudCredential() string {
+func (m *model) CloudCredential() CloudCredential {
+	if m.CloudCredential_ == nil {
+		return nil
+	}
 	return m.CloudCredential_
+}
+
+// SetCloudCredential implements Model.
+func (m *model) SetCloudCredential(args CloudCredentialArgs) {
+	m.CloudCredential_ = newCloudCredential(args)
 }
 
 // Volumes implements Model.
@@ -896,6 +974,7 @@ func importModelV1(source map[string]interface{}) (*model, error) {
 		"owner":                schema.String(),
 		"cloud":                schema.String(),
 		"cloud-region":         schema.String(),
+		"cloud-credential":     schema.StringMap(schema.Any()),
 		"config":               schema.StringMap(schema.Any()),
 		"latest-tools":         schema.String(),
 		"blocks":               schema.StringMap(schema.String()),
@@ -918,9 +997,10 @@ func importModelV1(source map[string]interface{}) (*model, error) {
 	}
 	// Some values don't have to be there.
 	defaults := schema.Defaults{
-		"latest-tools": schema.Omit,
-		"blocks":       schema.Omit,
-		"cloud-region": schema.Omit,
+		"latest-tools":     schema.Omit,
+		"blocks":           schema.Omit,
+		"cloud-region":     "",
+		"cloud-credential": schema.Omit,
 	}
 	addAnnotationSchema(fields, defaults)
 	addConstraintsSchema(fields, defaults)
@@ -935,13 +1015,22 @@ func importModelV1(source map[string]interface{}) (*model, error) {
 	// contains fields of the right type.
 
 	result := &model{
-		Version:    1,
-		Owner_:     valid["owner"].(string),
-		Config_:    valid["config"].(map[string]interface{}),
-		Sequences_: make(map[string]int),
-		Blocks_:    convertToStringMap(valid["blocks"]),
-		Cloud_:     valid["cloud"].(string),
+		Version:      1,
+		Owner_:       valid["owner"].(string),
+		Config_:      valid["config"].(map[string]interface{}),
+		Sequences_:   make(map[string]int),
+		Blocks_:      convertToStringMap(valid["blocks"]),
+		Cloud_:       valid["cloud"].(string),
+		CloudRegion_: valid["cloud-region"].(string),
 	}
+	if credsMap, found := valid["cloud-credential"]; found {
+		creds, err := importCloudCredential(credsMap.(map[string]interface{}))
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		result.CloudCredential_ = creds
+	}
+
 	result.importAnnotations(valid)
 	sequences := valid["sequences"].(map[string]interface{})
 	for key, value := range sequences {
@@ -962,14 +1051,6 @@ func importModelV1(source map[string]interface{}) (*model, error) {
 			return nil, errors.Trace(err)
 		}
 		result.LatestToolsVersion_ = num
-	}
-
-	if region, ok := valid["cloud-region"]; ok {
-		result.CloudRegion_ = region.(string)
-	}
-
-	if credential, ok := valid["cloud-credential"]; ok {
-		result.CloudCredential_ = credential.(string)
 	}
 
 	userMap := valid["users"].(map[string]interface{})

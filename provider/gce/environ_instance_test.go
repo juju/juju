@@ -186,3 +186,17 @@ func (s *environInstSuite) TestCheckInstanceTypeUnknown(c *gc.C) {
 
 	c.Check(matched, jc.IsFalse)
 }
+
+func (s *environInstSuite) TestListMachineTypes(c *gc.C) {
+	_, err := s.Env.InstanceTypes(constraints.Value{})
+	c.Assert(err, gc.ErrorMatches, "no instance types in  matching constraints \"\"")
+
+	zone := google.NewZone("a-zone", google.StatusUp, "", "")
+	s.FakeConn.Zones = []google.AvailabilityZone{zone}
+
+	mem := uint64(1025)
+	types, err := s.Env.InstanceTypes(constraints.Value{Mem: &mem})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(types.InstanceTypes, gc.HasLen, 1)
+
+}

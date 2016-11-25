@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/migration"
+	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/watcher"
 )
 
@@ -511,5 +512,87 @@ func (w *migrationStatusWatcher) loop() error {
 // Changes returns a channel that reports the latest status of the
 // migration of a model.
 func (w *migrationStatusWatcher) Changes() <-chan watcher.MigrationStatus {
+	return w.out
+}
+
+// remoteRelationsWatcher will sends changes to relations an application
+// is involved in with another remote application, including changes to the
+// remote units involved in those relations, and their settings.
+type remoteRelationsWatcher struct {
+	commonWatcher
+	caller                   base.APICaller
+	remoteRelationsWatcherId string
+	out                      chan watcher.RemoteRelationsChange
+}
+
+// NewRemoteRelationsWatcher returns a RemoteRelationsWatcher which
+// communicates with the RemoteRelationsWatcher API facade to watch
+// application relations.
+func NewRemoteRelationsWatcher(caller base.APICaller, result params.RemoteRelationsWatchResult) watcher.RemoteRelationsWatcher {
+	w := &remoteRelationsWatcher{
+		caller: caller,
+		remoteRelationsWatcherId: result.RemoteRelationsWatcherId,
+		out: make(chan watcher.RemoteRelationsChange),
+	}
+	go func() {
+		defer w.tomb.Done()
+		defer close(w.out)
+		w.tomb.Kill(w.loop(*result.Change))
+	}()
+	return w
+}
+
+func (w *remoteRelationsWatcher) loop(initialChanges params.RemoteRelationsChange) error {
+	changes := copyRemoteRelationsChange(initialChanges)
+	w.newResult = func() interface{} { return new(params.RemoteRelationsWatchResult) }
+	w.call = makeWatcherAPICaller(w.caller, "RemoteRelationsWatcher", w.remoteRelationsWatcherId)
+	w.commonWatcher.init()
+	go w.commonLoop()
+
+	for {
+		select {
+		// Send the initial event or subsequent change.
+		case w.out <- changes:
+		case <-w.tomb.Dying():
+			return nil
+		}
+		// Read the next change.
+		data, ok := <-w.in
+		if !ok {
+			// The tomb is already killed with the correct error
+			// at this point, so just return.
+			return nil
+		}
+		changes = copyRemoteRelationsChange(*data.(*params.RemoteRelationsWatchResult).Change)
+	}
+}
+
+func copyRemoteRelationsChange(src params.RemoteRelationsChange) watcher.RemoteRelationsChange {
+	dst := watcher.RemoteRelationsChange{
+		RemovedRelations: src.RemovedRelations,
+	}
+	if src.ChangedRelations != nil {
+		dst.ChangedRelations = make([]watcher.RemoteRelationChange, len(src.ChangedRelations))
+		for i, change := range src.ChangedRelations {
+			cr := watcher.RemoteRelationChange{
+				RelationId:    change.RelationId,
+				Life:          multiwatcher.Life(change.Life),
+				DepartedUnits: change.DepartedUnits,
+			}
+			cr.ChangedUnits = make(map[string]watcher.RemoteRelationUnitChange)
+			for name, relationChange := range change.ChangedUnits {
+				cr.ChangedUnits[name] = watcher.RemoteRelationUnitChange{Settings: relationChange.Settings}
+			}
+			dst.ChangedRelations[i] = cr
+		}
+	}
+	return dst
+}
+
+// Changes returns a channel that will receive the changes to
+// relations an application is involved in. The first event on the channel
+// holds the initial state of the application's relations in its Changed
+// field.
+func (w *remoteRelationsWatcher) Changes() watcher.RemoteRelationsChannel {
 	return w.out
 }

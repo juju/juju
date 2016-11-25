@@ -520,6 +520,11 @@ func newWebsocketDialer(cfg *websocket.Config, opts DialOpts) func(<-chan struct
 		Total: opts.Timeout,
 		Delay: opts.RetryDelay,
 	}
+
+	if openAttempt.Min == 0 && openAttempt.Delay > 0 {
+		openAttempt.Min = int(openAttempt.Total / openAttempt.Delay)
+	}
+
 	return func(stop <-chan struct{}) (io.Closer, error) {
 		for a := openAttempt.Start(); a.Next(); {
 			select {

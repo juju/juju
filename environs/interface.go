@@ -8,9 +8,11 @@ import (
 
 	"gopkg.in/juju/environschema.v1"
 
+	"github.com/juju/jsonschema"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/storage"
@@ -21,7 +23,10 @@ type EnvironProvider interface {
 	config.Validator
 	ProviderCredentials
 
-	// TODO(wallyworld) - embed config.ConfigSchemaSource and make all providers implement it
+	// CloudSchema returns the schema used to validate input for add-cloud.  If
+	// a provider does not suppport custom clouds, CloudSchema should return
+	// nil.
+	CloudSchema() *jsonschema.Schema
 
 	// PrepareConfig prepares the configuration for a new model, based on
 	// the provided arguments. PrepareConfig is expected to produce a
@@ -288,6 +293,10 @@ type Environ interface {
 	// constraints package? Can't be instance, because constraints
 	// import instance...
 	PrecheckInstance(series string, cons constraints.Value, placement string) error
+
+	// InstanceTypesFetcher represents an environment that can return
+	// information about the available instance types.
+	InstanceTypesFetcher
 }
 
 // CreateParams contains the parameters for Environ.Create.
@@ -322,4 +331,10 @@ type InstanceTagger interface {
 	// The specified tags will replace any existing ones with the
 	// same names, but other existing tags will be left alone.
 	TagInstance(id instance.Id, tags map[string]string) error
+}
+
+// InstanceTypesFetcher is an interface that allows for instance information from
+// a provider to be obtained.
+type InstanceTypesFetcher interface {
+	InstanceTypes(constraints.Value) (instances.InstanceTypesWithCostMetadata, error)
 }

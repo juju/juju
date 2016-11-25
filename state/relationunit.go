@@ -15,18 +15,18 @@ import (
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
-
-	"github.com/juju/juju/network"
 )
 
 // RelationUnit holds information about a single unit in a relation, and
 // allows clients to conveniently access unit-specific functionality.
 type RelationUnit struct {
-	st       *State
-	relation *Relation
-	unit     *Unit
-	endpoint Endpoint
-	scope    string
+	st            *State
+	relation      *Relation
+	unitName      string
+	isPrincipal   bool
+	checkUnitLife bool
+	endpoint      Endpoint
+	scope         string
 }
 
 // Relation returns the relation associated with the unit.
@@ -38,11 +38,6 @@ func (ru *RelationUnit) Relation() *Relation {
 // participation in the relation.
 func (ru *RelationUnit) Endpoint() Endpoint {
 	return ru.endpoint
-}
-
-// PrivateAddress returns the private address of the unit.
-func (ru *RelationUnit) PrivateAddress() (network.Address, error) {
-	return ru.unit.PrivateAddress()
 }
 
 // ErrCannotEnterScope indicates that a relation unit failed to enter its scope
@@ -90,17 +85,21 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 	// * TODO(fwereade): check unit status == params.StatusActive (this
 	//   breaks a bunch of tests in a boring but noisy-to-fix way, and is
 	//   being saved for a followup).
-	unitDocID, relationDocID := ru.unit.doc.DocID, ru.relation.doc.DocID
-	ops := []txn.Op{{
-		C:      unitsC,
-		Id:     unitDocID,
-		Assert: isAliveDoc,
-	}, {
+	relationDocID := ru.relation.doc.DocID
+	var ops []txn.Op
+	if ru.checkUnitLife {
+		ops = append(ops, txn.Op{
+			C:      unitsC,
+			Id:     ru.unitName,
+			Assert: isAliveDoc,
+		})
+	}
+	ops = append(ops, txn.Op{
 		C:      relationsC,
 		Id:     relationDocID,
 		Assert: isAliveDoc,
 		Update: bson.D{{"$inc", bson.D{{"unitcount", 1}}}},
-	}}
+	})
 
 	// * Create the unit settings in this relation, if they do not already
 	//   exist; or completely overwrite them if they do. This must happen
@@ -152,34 +151,35 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 		return nil
 	}
 
-	units, closer := db.GetCollection(unitsC)
-	defer closer()
-	relations, closer := db.GetCollection(relationsC)
-	defer closer()
-
 	// The relation or unit might no longer be Alive. (Note that there is no
 	// need for additional checks if we're trying to create a subordinate
 	// unit: this could fail due to the subordinate service's not being Alive,
 	// but this case will always be caught by the check for the relation's
 	// life (because a relation cannot be Alive if its services are not).)
-	if alive, err := isAliveWithSession(units, unitDocID); err != nil {
-		return err
-	} else if !alive {
-		return ErrCannotEnterScope
-	}
+	relations, closer := db.GetCollection(relationsC)
+	defer closer()
 	if alive, err := isAliveWithSession(relations, relationDocID); err != nil {
 		return err
 	} else if !alive {
 		return ErrCannotEnterScope
 	}
-
-	// Maybe a subordinate used to exist, but is no longer alive. If that is
-	// case, we will be unable to enter scope until that unit is gone.
-	if existingSubName != "" {
-		if alive, err := isAliveWithSession(units, existingSubName); err != nil {
+	if ru.checkUnitLife {
+		units, closer := db.GetCollection(unitsC)
+		defer closer()
+		if alive, err := isAliveWithSession(units, ru.unitName); err != nil {
 			return err
 		} else if !alive {
-			return ErrCannotEnterScopeYet
+			return ErrCannotEnterScope
+		}
+
+		// Maybe a subordinate used to exist, but is no longer alive. If that is
+		// case, we will be unable to enter scope until that unit is gone.
+		if existingSubName != "" {
+			if alive, err := isAliveWithSession(units, existingSubName); err != nil {
+				return err
+			} else if !alive {
+				return ErrCannotEnterScopeYet
+			}
 		}
 	}
 
@@ -187,7 +187,7 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 	// has changed under our feet, preventing us from clearing it properly; if
 	// that is the case, something is seriously wrong (nobody else should be
 	// touching that doc under our feet) and we should bail out.
-	prefix := fmt.Sprintf("cannot enter scope for unit %q in relation %q: ", ru.unit, ru.relation)
+	prefix := fmt.Sprintf("cannot enter scope for unit %q in relation %q: ", ru.unitName, ru.relation)
 	if changed, err := settingsChanged(); err != nil {
 		return err
 	} else if changed {
@@ -207,7 +207,7 @@ func (ru *RelationUnit) subordinateOps() ([]txn.Op, string, error) {
 	units, closer := ru.st.getCollection(unitsC)
 	defer closer()
 
-	if !ru.unit.IsPrincipal() || ru.endpoint.Scope != charm.ScopeContainer {
+	if !ru.isPrincipal || ru.endpoint.Scope != charm.ScopeContainer {
 		return nil, "", nil
 	}
 	related, err := ru.relation.RelatedEndpoints(ru.endpoint.ApplicationName)
@@ -217,7 +217,7 @@ func (ru *RelationUnit) subordinateOps() ([]txn.Op, string, error) {
 	if len(related) != 1 {
 		return nil, "", fmt.Errorf("expected single related endpoint, got %v", related)
 	}
-	applicationname, unitName := related[0].ApplicationName, ru.unit.doc.Name
+	applicationname, unitName := related[0].ApplicationName, ru.unitName
 	selSubordinate := bson.D{{"application", applicationname}, {"principal", unitName}}
 	var lDoc lifeDoc
 	if err := units.Find(selSubordinate).One(&lDoc); err == mgo.ErrNotFound {
@@ -292,7 +292,7 @@ func (ru *RelationUnit) LeaveScope() error {
 	// to have a Dying relation with a smaller-than-real unit count, because
 	// Destroy changes the Life attribute in memory (units could join before
 	// the database is actually changed).
-	desc := fmt.Sprintf("unit %q in relation %q", ru.unit, ru.relation)
+	desc := fmt.Sprintf("unit %q in relation %q", ru.unitName, ru.relation)
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			if err := ru.relation.Refresh(); errors.IsNotFound(err) {
@@ -328,7 +328,7 @@ func (ru *RelationUnit) LeaveScope() error {
 				Update: bson.D{{"$inc", bson.D{{"unitcount", -1}}}},
 			})
 		} else {
-			relOps, err := ru.relation.removeOps("", ru.unit)
+			relOps, err := ru.relation.removeOps("", ru.unitName)
 			if err != nil {
 				return nil, err
 			}
@@ -371,8 +371,14 @@ func (ru *RelationUnit) inScope(sel bson.D) (bool, error) {
 // entering and leaving the unit's scope.
 func (ru *RelationUnit) WatchScope() *RelationScopeWatcher {
 	role := counterpartRole(ru.endpoint.Role)
-	scope := ru.scope + "#" + string(role)
-	return newRelationScopeWatcher(ru.st, scope, ru.unit.Name())
+	return watchRelationScope(ru.st, ru.scope, role, ru.unitName)
+}
+
+func watchRelationScope(
+	st *State, scope string, role charm.RelationRole, ignore string,
+) *RelationScopeWatcher {
+	scope = scope + "#" + string(role)
+	return newRelationScopeWatcher(st, scope, ignore)
 }
 
 // Settings returns a Settings which allows access to the unit's settings
@@ -421,7 +427,7 @@ func (ru *RelationUnit) unitKey(uname string) (string, error) {
 // which is used as a key for that unit within this relation in the settings,
 // presence, and relationScopes collections.
 func (ru *RelationUnit) key() string {
-	return ru._key(string(ru.endpoint.Role), ru.unit.Name())
+	return ru._key(string(ru.endpoint.Role), ru.unitName)
 }
 
 func (ru *RelationUnit) _key(role, unitname string) string {

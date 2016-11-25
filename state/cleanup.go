@@ -19,7 +19,7 @@ type cleanupKind string
 const (
 	// SCHEMACHANGE: the names are expressive, the values not so much.
 	cleanupRelationSettings              cleanupKind = "settings"
-	cleanupUnitsForDyingService          cleanupKind = "units"
+	cleanupUnitsForDyingApplication      cleanupKind = "units"
 	cleanupCharm                         cleanupKind = "charm"
 	cleanupDyingUnit                     cleanupKind = "dyingUnit"
 	cleanupRemovedUnit                   cleanupKind = "removedUnit"
@@ -85,8 +85,8 @@ func (st *State) Cleanup() (err error) {
 			err = st.cleanupRelationSettings(doc.Prefix)
 		case cleanupCharm:
 			err = st.cleanupCharm(doc.Prefix)
-		case cleanupUnitsForDyingService:
-			err = st.cleanupUnitsForDyingService(doc.Prefix)
+		case cleanupUnitsForDyingApplication:
+			err = st.cleanupUnitsForDyingApplication(doc.Prefix)
 		case cleanupDyingUnit:
 			err = st.cleanupDyingUnit(doc.Prefix)
 		case cleanupRemovedUnit:
@@ -233,10 +233,10 @@ func (st *State) cleanupServicesForDyingModel() (err error) {
 	return nil
 }
 
-// cleanupUnitsForDyingService sets all units with the given prefix to Dying,
+// cleanupUnitsForDyingApplication sets all units with the given prefix to Dying,
 // if they are not already Dying or Dead. It's expected to be used when a
 // service is destroyed.
-func (st *State) cleanupUnitsForDyingService(applicationname string) (err error) {
+func (st *State) cleanupUnitsForDyingApplication(applicationname string) (err error) {
 	// This won't miss units, because a Dying service cannot have units added
 	// to it. But we do have to remove the units themselves via individual
 	// transactions, because they could be in any state at all.
@@ -362,8 +362,13 @@ func (st *State) cleanupRemovedUnit(unitId string) error {
 		Message: "unit removed",
 	}
 	for _, action := range actions {
-		if _, err = action.Finish(cancelled); err != nil {
-			return errors.Trace(err)
+		switch action.Status() {
+		case ActionCompleted, ActionCancelled, ActionFailed:
+			// nothing to do here
+		default:
+			if _, err = action.Finish(cancelled); err != nil {
+				return errors.Trace(err)
+			}
 		}
 	}
 
