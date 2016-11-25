@@ -232,17 +232,17 @@ func (s *remoteRelationsSuite) TestRelationUnitSettingsResultsCount(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, `expected 1 result\(s\), got 2`)
 }
 
-func (s *remoteRelationsSuite) TestRemoteRelations(c *gc.C) {
+func (s *remoteRelationsSuite) TestRelations(c *gc.C) {
 	var callCount int
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "RemoteRelations")
 		c.Check(version, gc.Equals, 0)
 		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "RemoteRelations")
+		c.Check(request, gc.Equals, "Relations")
 		c.Check(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "relation-foo.db#bar.db"}}})
-		c.Assert(result, gc.FitsTypeOf, &params.RemoteRelationResults{})
-		*(result.(*params.RemoteRelationResults)) = params.RemoteRelationResults{
-			Results: []params.RemoteRelationResult{{
+		c.Assert(result, gc.FitsTypeOf, &params.RelationResults{})
+		*(result.(*params.RelationResults)) = params.RelationResults{
+			Results: []params.RelationResult{{
 				Error: &params.Error{Message: "FAIL"},
 			}},
 		}
@@ -250,17 +250,17 @@ func (s *remoteRelationsSuite) TestRemoteRelations(c *gc.C) {
 		return nil
 	})
 	client := remoterelations.NewClient(apiCaller)
-	result, err := client.RemoteRelations([]string{"foo:db bar:db"})
+	result, err := client.Relations([]string{"foo:db bar:db"})
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(result, gc.HasLen, 1)
 	c.Check(result[0].Error, gc.ErrorMatches, "FAIL")
 	c.Check(callCount, gc.Equals, 1)
 }
 
-func (s *remoteRelationsSuite) TestRemoteRelationsResultsCount(c *gc.C) {
+func (s *remoteRelationsSuite) TestRelationsResultsCount(c *gc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		*(result.(*params.RemoteRelationResults)) = params.RemoteRelationResults{
-			Results: []params.RemoteRelationResult{
+		*(result.(*params.RelationResults)) = params.RelationResults{
+			Results: []params.RelationResult{
 				{Error: &params.Error{Message: "FAIL"}},
 				{Error: &params.Error{Message: "FAIL"}},
 			},
@@ -268,7 +268,7 @@ func (s *remoteRelationsSuite) TestRemoteRelationsResultsCount(c *gc.C) {
 		return nil
 	})
 	client := remoterelations.NewClient(apiCaller)
-	_, err := client.RemoteRelations([]string{"foo:db bar:db"})
+	_, err := client.Relations([]string{"foo:db bar:db"})
 	c.Check(err, gc.ErrorMatches, `expected 1 result\(s\), got 2`)
 }
 

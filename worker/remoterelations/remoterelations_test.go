@@ -126,7 +126,7 @@ func (s *remoteRelationsSuite) assertRemoteRelationsWorkers(c *gc.C) worker.Work
 	relWatcher.changes <- []string{"db2:db django:db"}
 
 	expected := []jujutesting.StubCall{
-		{"RemoteRelations", []interface{}{[]string{"db2:db django:db"}}},
+		{"Relations", []interface{}{[]string{"db2:db django:db"}}},
 		{"WatchLocalRelationUnits", []interface{}{"db2:db django:db"}},
 	}
 	s.waitForStubCalls(c, expected)
@@ -167,7 +167,7 @@ func (s *remoteRelationsSuite) TestRemoteRelationsDead(c *gc.C) {
 	}
 	c.Assert(unitsWatcher.killed(), jc.IsTrue)
 	expected := []jujutesting.StubCall{
-		{"RemoteRelations", []interface{}{[]string{"db2:db django:db"}}},
+		{"Relations", []interface{}{[]string{"db2:db django:db"}}},
 	}
 	s.waitForStubCalls(c, expected)
 }
@@ -190,7 +190,7 @@ func (s *remoteRelationsSuite) TestRemoteRelationsRemoved(c *gc.C) {
 	}
 	c.Assert(unitsWatcher.killed(), jc.IsTrue)
 	expected := []jujutesting.StubCall{
-		{"RemoteRelations", []interface{}{[]string{"db2:db django:db"}}},
+		{"Relations", []interface{}{[]string{"db2:db django:db"}}},
 	}
 	s.waitForStubCalls(c, expected)
 }

@@ -109,8 +109,9 @@ func (m *mockFacade) RemoteApplications(names []string) ([]params.RemoteApplicat
 		if app, ok := m.remoteApplications[name]; ok {
 			result[i] = params.RemoteApplicationResult{
 				Result: &params.RemoteApplication{
-					// TODO(wallyworld) - add Id
-					Life: app.life,
+					Name:   app.name,
+					Life:   app.life,
+					Status: app.status,
 				},
 			}
 		} else {
@@ -121,24 +122,23 @@ func (m *mockFacade) RemoteApplications(names []string) ([]params.RemoteApplicat
 	return result, nil
 }
 
-func (m *mockFacade) RemoteRelations(keys []string) ([]params.RemoteRelationResult, error) {
+func (m *mockFacade) Relations(keys []string) ([]params.RelationResult, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.stub.MethodCall(m, "RemoteRelations", keys)
+	m.stub.MethodCall(m, "Relations", keys)
 	if err := m.stub.NextErr(); err != nil {
 		return nil, err
 	}
-	result := make([]params.RemoteRelationResult, len(keys))
+	result := make([]params.RelationResult, len(keys))
 	for i, key := range keys {
 		if rel, ok := m.relations[key]; ok {
-			result[i] = params.RemoteRelationResult{
-				Result: &params.RemoteRelation{
-					// TODO(wallyworld) - add Id
-					Life: rel.life,
-				},
+			result[i] = params.RelationResult{
+				Id:   rel.id,
+				Life: rel.life,
+				Key:  keys[i],
 			}
 		} else {
-			result[i] = params.RemoteRelationResult{
+			result[i] = params.RelationResult{
 				Error: common.ServerError(errors.NotFoundf(key))}
 		}
 	}
@@ -209,9 +209,10 @@ func (w *mockStringsWatcher) Changes() watcher.StringsChannel {
 
 type mockRemoteApplication struct {
 	testing.Stub
-	name string
-	url  string
-	life params.Life
+	name   string
+	url    string
+	life   params.Life
+	status string
 }
 
 type mockRelationUnitsWatcher struct {

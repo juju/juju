@@ -30,9 +30,9 @@ type RemoteApplicationsFacade interface {
 	// given relation units in the local model.
 	RelationUnitSettings([]params.RelationUnit) ([]params.SettingsResult, error)
 
-	// RemoteRelations returns information about the cross-model relations
+	// Relations returns information about the relations
 	// with the specified keys in the local model.
-	RemoteRelations(keys []string) ([]params.RemoteRelationResult, error)
+	Relations(keys []string) ([]params.RelationResult, error)
 
 	// RemoteApplications returns the current state of the remote applications with
 	// the specified names in the local model.
@@ -245,7 +245,7 @@ func (w *remoteApplicationWorker) loop() error {
 				// We are dying.
 				continue
 			}
-			results, err := w.facade.RemoteRelations(change)
+			results, err := w.facade.Relations(change)
 			if err != nil {
 				return errors.Annotate(err, "querying relations")
 			}
@@ -269,9 +269,9 @@ func (w *remoteApplicationWorker) killRelationUnitWatcher(key string, relations 
 }
 
 func (w *remoteApplicationWorker) relationChanged(
-	key string, result params.RemoteRelationResult, relations map[string]*relation,
+	key string, result params.RelationResult, relations map[string]*relation,
 ) error {
-	logger.Debugf("relation %q changed: %+v", key, result.Result)
+	logger.Debugf("relation %q changed: %+v", key, result)
 	if result.Error != nil {
 		if params.IsCodeNotFound(result.Error) {
 			// TODO(wallyworld) - once a relation dies, wait for
@@ -285,7 +285,7 @@ func (w *remoteApplicationWorker) relationChanged(
 	// If we have previously started the watcher and the
 	// relation is now dead, stop the watcher.
 	if r := relations[key]; r != nil {
-		r.Life = result.Result.Life
+		r.Life = result.Life
 		if r.Life == params.Dead {
 			return w.killRelationUnitWatcher(key, relations)
 		}
@@ -295,7 +295,7 @@ func (w *remoteApplicationWorker) relationChanged(
 
 	// Start a watcher to track changes to the local units in the
 	// relation, and a worker to process those changes.
-	if result.Result.Life != params.Dead {
+	if result.Life != params.Dead {
 		localRelationUnitsWatcher, err := w.facade.WatchLocalRelationUnits(key)
 		if err != nil {
 			return errors.Trace(err)
@@ -312,8 +312,8 @@ func (w *remoteApplicationWorker) relationChanged(
 			return errors.Trace(err)
 		}
 		r := &relation{}
-		r.RelationId = 1 // TODO(wallyworld)
-		r.Life = result.Result.Life
+		r.RelationId = result.Id
+		r.Life = result.Life
 		r.ruw = relationUnitsWatcher
 		relations[key] = r
 	}
