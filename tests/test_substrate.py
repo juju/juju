@@ -98,8 +98,8 @@ def get_maas_boot_config():
         }, juju_home='')
     boot_config.clouds = {'clouds': {cloud_name: {
         'name': cloud_name,
-        'type': boot_config.config['type'],
-        'endpoint': boot_config.config['maas-server']
+        'type': boot_config.provider,
+        'endpoint': boot_config.get_option('maas-server'),
         }}}
     boot_config.credentials = {'credentials': {cloud_name: {'credentials': {
         'maas-oauth': 'a:password:string',
@@ -131,7 +131,7 @@ def get_rax_env():
 
 def get_aws_environ(env):
     environ = dict(os.environ)
-    environ.update(get_euca_env(env.config))
+    environ.update(get_euca_env(env.make_config_copy()))
     return environ
 
 
@@ -225,7 +225,7 @@ class TestTerminateInstances(TestCase):
         with patch('subprocess.check_call') as cc_mock:
             terminate_instances(env, ['foo', 'bar'])
         environ = dict(os.environ)
-        environ.update(translate_to_env(env.config))
+        environ.update(translate_to_env(env.make_config_copy()))
         cc_mock.assert_called_with(
             ['nova', 'delete', 'foo', 'bar'], env=environ)
         self.assertEqual(
@@ -246,7 +246,7 @@ class TestTerminateInstances(TestCase):
         with patch('subprocess.check_call') as cc_mock:
             terminate_instances(env, ['foo', 'bar'])
         environ = dict(os.environ)
-        environ.update(translate_to_env(env.config))
+        environ.update(translate_to_env(env.make_config_copy()))
         cc_mock.assert_called_with(
             ['nova', 'delete', 'foo', 'bar'], env=environ)
         self.assertEqual(
@@ -900,9 +900,12 @@ class TestMAASAccount(TestCase):
 
     def get_account(self):
         """Give a MAASAccount for testing."""
-        config = get_maas_env().config
+        boot_config = get_maas_env()
         return MAASAccount(
-            config['name'], config['maas-server'], config['maas-oauth'])
+            boot_config.get_option('name'),
+            boot_config.get_option('maas-server'),
+            boot_config.get_option('maas-oauth'),
+            )
 
     @patch('subprocess.check_call', autospec=True)
     def test_login(self, cc_mock):
@@ -1194,9 +1197,12 @@ class TestMAAS1Account(TestCase):
 
     def get_account(self):
         """Give a MAAS1Account for testing."""
-        config = get_maas_env().config
+        boot_config = get_maas_env()
         return MAAS1Account(
-            config['name'], config['maas-server'], config['maas-oauth'])
+            boot_config.get_option('name'),
+            boot_config.get_option('maas-server'),
+            boot_config.get_option('maas-oauth'),
+            )
 
     @patch('subprocess.check_call', autospec=True)
     def test_login(self, cc_mock):

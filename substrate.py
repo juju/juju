@@ -54,10 +54,10 @@ def terminate_instances(env, instance_ids):
     provider_type = env.provider
     environ = dict(os.environ)
     if provider_type == 'ec2':
-        environ.update(get_euca_env(env.config))
+        environ.update(get_euca_env(env.make_config_copy()))
         command_args = ['euca-terminate-instances'] + instance_ids
     elif provider_type in ('openstack', 'rackspace'):
-        environ.update(translate_to_env(env.config))
+        environ.update(translate_to_env(env.make_config_copy()))
         command_args = ['nova', 'delete'] + instance_ids
     elif provider_type == 'maas':
         with maas_account_from_boot_config(env) as substrate:
@@ -698,7 +698,7 @@ def maas_account_from_boot_config(env):
     to use, try 2.0 and if that fails on login fallback to 1.0 instead.
     """
     maas_oauth = env.get_cloud_credentials()['maas-oauth']
-    args = (env.config['name'], env.config['maas-server'], maas_oauth)
+    args = (env.get_option('name'), env.get_option('maas-server'), maas_oauth)
     manager = MAASAccount(*args)
     try:
         manager.login()
@@ -734,7 +734,7 @@ class LXDAccount:
 
 
 def get_config(boot_config):
-    config = deepcopy(boot_config.config)
+    config = boot_config.make_config_copy()
     if boot_config.provider not in ('lxd', 'manual'):
         config.update(boot_config.get_cloud_credentials())
     return config

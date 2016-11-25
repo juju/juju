@@ -312,6 +312,9 @@ class SimpleEnvironment:
                 logging.warning('Setting type is not 2.x compatible.')
             self._config[key] = value
 
+    def make_config_copy(self):
+        return deepcopy(self._config)
+
     @property
     def provider(self):
         """Return the provider type for this environment.
@@ -3363,7 +3366,7 @@ def get_cache_path(juju_home, models=False):
 
 
 def make_safe_config(client):
-    config = dict(client.env.config)
+    config = client.env.make_config_copy()
     if 'agent-version' in client.bootstrap_replaces:
         config.pop('agent-version', None)
     else:
