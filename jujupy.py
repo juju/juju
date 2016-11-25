@@ -990,6 +990,8 @@ class Juju2Backend:
     Uses -m to specify models, uses JUJU_DATA to specify home directory.
     """
 
+    _model_flag = '-m'
+
     def __init__(self, full_path, version, feature_flags, debug,
                  soft_deadline=None):
         self._version = version
@@ -1076,7 +1078,7 @@ class Juju2Backend:
 
     def full_args(self, command, args, model, timeout):
         if model is not None:
-            e_arg = ('-m', model)
+            e_arg = (self._model_flag, model)
         else:
             e_arg = ()
         if timeout is None:
@@ -1187,6 +1189,8 @@ class Juju1XBackend(Juju2Backend):
     directory.
     """
 
+    _model_flag = '-e'
+
     def shell_environ(self, used_feature_flags, juju_home):
         """Generate a suitable shell environment.
 
@@ -1197,29 +1201,6 @@ class Juju1XBackend(Juju2Backend):
         env['JUJU_HOME'] = juju_home
         del env['JUJU_DATA']
         return env
-
-    def full_args(self, command, args, model, timeout):
-        if model is None:
-            e_arg = ()
-        else:
-            # In 1.x terminology, "model" is "environment".
-            e_arg = ('-e', model)
-        if timeout is None:
-            prefix = ()
-        else:
-            prefix = get_timeout_prefix(timeout, self._timeout_path)
-        logging = '--debug' if self.debug else '--show-log'
-
-        # If args is a string, make it a tuple. This makes writing commands
-        # with one argument a bit nicer.
-        if isinstance(args, basestring):
-            args = (args,)
-        # we split the command here so that the caller can control where the -e
-        # <env> flag goes.  Everything in the command string is put before the
-        # -e flag.
-        command = command.split()
-        return (prefix + (self.juju_name, logging,) + tuple(command) + e_arg +
-                args)
 
 
 def get_client_class(version):

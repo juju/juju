@@ -60,6 +60,7 @@ from jujupy import (
     InstallError,
     jes_home_path,
     JESNotSupported,
+    Juju1XBackend,
     Juju2Backend,
     JujuData,
     JUJU_DEV_FEATURE_FLAGS,
@@ -274,6 +275,15 @@ class TestJuju2Backend(TestCase):
                 with self.assertRaisesRegexp(SoftDeadlineExceeded,
                                              'Operation exceeded deadline.'):
                     backend.get_juju_output('cmd', ('args',), [], 'home')
+
+
+class TestJuju1XBackend(TestCase):
+
+    def test_full_args_model(self):
+        backend = Juju1XBackend('/bin/path/juju', '1.25', set(), False, None)
+        full = backend.full_args('help', ('commands',), 'test', None)
+        self.assertEqual(('juju', '--show-log', 'help', '-e', 'test',
+                          'commands'), full)
 
 
 class TestEnvJujuClient25(ClientTest):
