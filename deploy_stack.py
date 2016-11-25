@@ -726,6 +726,20 @@ class BootstrapManager:
                     status_msg = stop_libvirt_domain(URI, name)
                     logging.info("%s" % status_msg)
 
+    def use_aws(self):
+        env = self.client.env
+        if env.provider != 'manual':
+            return False
+        if self.bootstrap_host is not None:
+            return False
+        import pdb; pdb.set_trace()
+        cloud_config = env.get_cloud_config()
+        if cloud_config is None:
+            return True
+        if 'endpoint' in cloud_config:
+            return False
+        return True
+
     @contextmanager
     def aws_machines(self):
         """Handle starting/stopping AWS machines.
@@ -733,9 +747,7 @@ class BootstrapManager:
         Machines are deliberately killed by tag so that any stray machines
         from previous runs will be killed.
         """
-        if (
-                self.client.env.provider != 'manual' or
-                self.bootstrap_host is not None):
+        if not self.use_aws():
             yield []
             return
         try:

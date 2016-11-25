@@ -1510,9 +1510,42 @@ class TestBootstrapManager(FakeHomeTestCase):
                 bootstrap_host=None, machines=[], series=None, agent_url=None,
                 agent_stream=None, region=None, log_dir=None, keep_env=None)
 
+    def make_use_aws_manager(self, provider='manual', bootstrap_host=None,
+                             endpoint=None):
+        config = {'type': provider}
+        env = JujuData('fun-manual', config, cloud_name='fun-manual')
+        fun_manual_config = {}
+        if endpoint is not None:
+            fun_manual_config['endpoint'] = endpoint
+        env.clouds = {'clouds': {'fun-manual': fun_manual_config}}
+        client = fake_juju_client(env=env)
+        return BootstrapManager(
+            jes_enabled=True, permanent=True,
+            temp_env_name=None, client=client, tear_down_client=client,
+            bootstrap_host=bootstrap_host, machines=[], series=None,
+            agent_url=None, agent_stream=None, region=None, log_dir=None,
+            keep_env=None)
+
+    def test_use_aws(self):
+        bs_manager = self.make_use_aws_manager()
+        self.assertIs(True, bs_manager.use_aws())
+
+    def test_use_aws_not_manual(self):
+        bs_manager = self.make_use_aws_manager(provider='openstack')
+        self.assertIs(False, bs_manager.use_aws())
+
+    def test_use_aws_bootstrap_host(self):
+        bs_manager = self.make_use_aws_manager(bootstrap_host='example.com')
+        self.assertIs(False, bs_manager.use_aws())
+
+    def test_use_aws_endpoint(self):
+        bs_manager = self.make_use_aws_manager(endpoint='example.com')
+        self.assertIs(False, bs_manager.use_aws())
+
     def test_aws_machines_updates_bootstrap_host(self):
         client = fake_juju_client()
         client.env._config['type'] = 'manual'
+        client.env.clouds = {'clouds': {}}
         bs_manager = BootstrapManager(
             'foobar', client, client, None, [], None, None, None, None,
             client.env.juju_home, False, False, False)
