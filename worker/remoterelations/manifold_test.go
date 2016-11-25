@@ -28,10 +28,10 @@ func (s *ManifoldConfigSuite) SetUpTest(c *gc.C) {
 
 func (s *ManifoldConfigSuite) validConfig() remoterelations.ManifoldConfig {
 	return remoterelations.ManifoldConfig{
-		AgentName:     "agent",
-		APICallerName: "api-caller",
-		NewFacade:     func(base.APICaller) (remoterelations.RemoteApplicationsFacade, error) { return nil, nil },
-		NewWorker:     func(remoterelations.Config) (worker.Worker, error) { return nil, nil },
+		AgentName:                "agent",
+		APICallerName:            "api-caller",
+		NewRemoteRelationsFacade: func(base.APICaller) (remoterelations.RemoteRelationsFacade, error) { return nil, nil },
+		NewWorker:                func(remoterelations.Config) (worker.Worker, error) { return nil, nil },
 	}
 }
 
@@ -49,9 +49,9 @@ func (s *ManifoldConfigSuite) TestMissingAPICallerName(c *gc.C) {
 	s.checkNotValid(c, "empty APICallerName not valid")
 }
 
-func (s *ManifoldConfigSuite) TestMissingNewFacade(c *gc.C) {
-	s.config.NewFacade = nil
-	s.checkNotValid(c, "nil NewFacade not valid")
+func (s *ManifoldConfigSuite) TestMissingNewRemoteRelationsFacade(c *gc.C) {
+	s.config.NewRemoteRelationsFacade = nil
+	s.checkNotValid(c, "nil NewRemoteRelationsFacade not valid")
 }
 
 func (s *ManifoldConfigSuite) TestMissingNewWorker(c *gc.C) {

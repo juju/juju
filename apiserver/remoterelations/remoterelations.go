@@ -130,35 +130,25 @@ func (api *RemoteRelationsAPI) RelationUnitSettings(relationUnits params.Relatio
 	return results, nil
 }
 
-// RemoteRelations returns information about the cross-model relations with the specified keys
+// Relations returns information about the cross-model relations with the specified keys
 // in the local model.
-func (api *RemoteRelationsAPI) RemoteRelations(entities params.Entities) (params.RemoteRelationResults, error) {
-	results := params.RemoteRelationResults{
-		Results: make([]params.RemoteRelationResult, len(entities.Entities)),
+func (api *RemoteRelationsAPI) Relations(entities params.Entities) (params.RelationResults, error) {
+	results := params.RelationResults{
+		Results: make([]params.RelationResult, len(entities.Entities)),
 	}
-	one := func(entity params.Entity) (*params.RemoteRelation, error) {
+	one := func(entity params.Entity) (params.RelationResult, error) {
 		tag, err := names.ParseRelationTag(entity.Tag)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return params.RelationResult{}, errors.Trace(err)
 		}
 		rel, err := api.st.KeyRelation(tag.Id())
 		if err != nil {
-			return nil, errors.Trace(err)
+			return params.RelationResult{}, errors.Trace(err)
 		}
-		modelUUID := api.st.ModelUUID()
-		token, err := api.st.ExportLocalEntity(tag)
-		if errors.IsAlreadyExists(err) {
-			token, err = api.st.GetToken(names.NewModelTag(modelUUID), tag)
-		}
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		return &params.RemoteRelation{
-			Id: params.RemoteEntityId{
-				ModelUUID: api.st.ModelUUID(),
-				Token:     token,
-			},
+		return params.RelationResult{
+			Id:   rel.Id(),
 			Life: params.Life(rel.Life().String()),
+			Key:  tag.Id(),
 		}, nil
 	}
 	for i, entity := range entities.Entities {
@@ -167,7 +157,7 @@ func (api *RemoteRelationsAPI) RemoteRelations(entities params.Entities) (params
 			results.Results[i].Error = common.ServerError(err)
 			continue
 		}
-		results.Results[i].Result = remoteRelation
+		results.Results[i] = remoteRelation
 	}
 	return results, nil
 }
@@ -187,9 +177,14 @@ func (api *RemoteRelationsAPI) RemoteApplications(entities params.Entities) (par
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
+		status, err := remoteApp.Status()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 		return &params.RemoteApplication{
-			// TODO(wallyworld) - status and other fields
-			Life: params.Life(remoteApp.Life().String()),
+			Name:   remoteApp.Name(),
+			Life:   params.Life(remoteApp.Life().String()),
+			Status: status.Status.String(),
 		}, nil
 	}
 	for i, entity := range entities.Entities {

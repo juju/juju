@@ -11,7 +11,7 @@ import (
 	"github.com/juju/juju/worker"
 )
 
-func NewFacade(apiCaller base.APICaller) (RemoteApplicationsFacade, error) {
+func NewRemoteRelationsFacade(apiCaller base.APICaller) (RemoteRelationsFacade, error) {
 	facade := remoterelations.NewClient(apiCaller)
 	return facade, nil
 }

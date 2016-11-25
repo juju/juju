@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 )
 
 // RemoteRelationState provides the subset of global state required by the
@@ -118,6 +119,9 @@ type RemoteApplication interface {
 
 	// Life returns the lifecycle state of the application.
 	Life() state.Life
+
+	// Status returns the status of the remote application.
+	Status() (status.StatusInfo, error)
 }
 
 // Application represents the state of a application hosted in the local environment.

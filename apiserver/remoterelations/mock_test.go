@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/remoterelations"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/status"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -204,9 +205,10 @@ func (r *mockRelation) WatchUnits(applicationName string) (state.RelationUnitsWa
 
 type mockRemoteApplication struct {
 	testing.Stub
-	name string
-	url  string
-	life state.Life
+	name   string
+	url    string
+	life   state.Life
+	status status.Status
 }
 
 func newMockRemoteApplication(name, url string) *mockRemoteApplication {
@@ -223,6 +225,11 @@ func (r *mockRemoteApplication) Name() string {
 func (r *mockRemoteApplication) Life() state.Life {
 	r.MethodCall(r, "Life")
 	return r.life
+}
+
+func (r *mockRemoteApplication) Status() (status.StatusInfo, error) {
+	r.MethodCall(r, "Status")
+	return status.StatusInfo{Status: r.status}, nil
 }
 
 func (r *mockRemoteApplication) URL() (string, bool) {
