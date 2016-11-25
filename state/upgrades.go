@@ -232,7 +232,7 @@ func DropOldLogIndex(st *State) error {
 		return nil
 	}
 	if queryErr, ok := err.(*mgo.QueryError); ok {
-		if queryErr.Code == 0 && strings.HasPrefix(queryErr.Message, "index not found") {
+		if strings.HasPrefix(queryErr.Message, "index not found") {
 			return nil
 		}
 	}
