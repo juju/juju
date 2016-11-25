@@ -479,10 +479,9 @@ func interfaceAddressToNetworkConfig(interfaceName, configType string, address n
 			ipNet = &net.IPNet{IP: ip}
 		}
 	}
-	if ip.To4() == nil {
-		logger.Debugf("skipping observed IPv6 address %q on %q: not fully supported yet", ip, interfaceName)
-		// TODO(dimitern): Treat IPv6 addresses as empty until we can handle
-		// them reliably.
+	if ip.To4() == nil && ip.IsLinkLocalUnicast() {
+		// TODO(macgreagoir) IPv6. Skip link-local for now until we decide how to handle them.
+		logger.Debugf("skipping observed IPv6 link-local address %q on %q", ip, interfaceName)
 		return config, nil
 	}
 

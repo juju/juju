@@ -327,8 +327,11 @@ func (c *BootstrapCommand) startMongo(addrs []network.Address, agentConfig agent
 	// Use localhost to dial the mongo server, because it's running in
 	// auth mode and will refuse to perform any operations unless
 	// we dial that address.
+	// TODO(macgreagoir) IPv6. Ubuntu still always provides IPv4 loopback,
+	// and when/if this changes localhost should resolve to IPv6 loopback
+	// in any case (lp:1644009). Review.
 	dialInfo.Addrs = []string{
-		net.JoinHostPort("127.0.0.1", fmt.Sprint(servingInfo.StatePort)),
+		net.JoinHostPort("localhost", fmt.Sprint(servingInfo.StatePort)),
 	}
 
 	logger.Debugf("calling ensureMongoServer")

@@ -318,6 +318,9 @@ func (st *state) connectStream(path string, attrs url.Values) (base.Stream, erro
 		Path:     path,
 		RawQuery: attrs.Encode(),
 	}
+	// TODO(macgreagoir) IPv6. Ubuntu still always provides IPv4 loopback,
+	// and when/if this changes localhost should resolve to IPv6 loopback
+	// in any case (lp:1644009). Review.
 	cfg, err := websocket.NewConfig(target.String(), "http://localhost/")
 	if st.tag != "" {
 		cfg.Header = utils.BasicAuthHeader(st.tag, st.password)
@@ -537,11 +540,15 @@ func newWebsocketDialer(cfg *websocket.Config, opts DialOpts) func(<-chan struct
 			if err == nil {
 				return conn, nil
 			}
-			if !a.HasNext() || isX509Error(err) {
-				// We won't reconnect when there's an X509 error
-				// because we're not going to succeed if we retry
-				// in that case.
-				logger.Infof("error dialing %q: %v", cfg.Location, err)
+			if isX509Error(err) {
+				// We won't reconnect when there's an X509
+				// error because we're not going to succeed if
+				// we retry in that case.
+				logger.Errorf("certificate error dialing %q: %v", cfg.Location, err)
+				return nil, errors.Annotatef(err, "X509 certficate error on API")
+			}
+			if !a.HasNext() {
+				logger.Errorf("error dialing %q: %v", cfg.Location, err)
 				return nil, errors.Annotatef(err, "unable to connect to API")
 			}
 		}

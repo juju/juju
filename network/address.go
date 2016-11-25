@@ -335,6 +335,20 @@ func SelectMongoHostPortsBySpaces(hostPorts []HostPort, spaces []SpaceName) ([]s
 	return HostPortsToStrings(filteredHostPorts), ok
 }
 
+// HostPortWithIPv4Address returns true if the passed slice of HostPort
+// contains an IPv4 address that is not just a loopback address.
+func HostPortWithIPv4Address(hostPorts []HostPort) bool {
+	for _, hp := range hostPorts {
+		logger.Debugf("found Address of Value %q, Type %q and Scope %q",
+			hp.Address.Value, hp.Address.Type, hp.Address.Scope)
+		if hp.Address.Type == "ipv4" &&
+			hp.Address.Scope != ScopeMachineLocal {
+			return true
+		}
+	}
+	return false
+}
+
 func SelectMongoHostPortsByScope(hostPorts []HostPort, machineLocal bool) []string {
 	// Fallback to using the legacy and error-prone approach using scope
 	// selection instead.

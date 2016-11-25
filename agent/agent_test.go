@@ -487,7 +487,7 @@ func (*suite) TestMongoInfo(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	mongoInfo, ok := conf.MongoInfo()
 	c.Assert(ok, jc.IsTrue)
-	c.Check(mongoInfo.Info.Addrs, jc.DeepEquals, []string{"127.0.0.1:69"})
+	c.Check(mongoInfo.Info.Addrs, jc.DeepEquals, []string{"localhost:69"})
 }
 
 func (*suite) TestAPIInfoDoesntAddLocalhostWhenNoServingInfo(c *gc.C) {
@@ -517,7 +517,7 @@ func (*suite) TestSetPassword(c *gc.C) {
 	apiInfo, ok := conf.APIInfo()
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(apiInfo, jc.DeepEquals, expectAPIInfo)
-	addr := fmt.Sprintf("127.0.0.1:%d", servingInfo.StatePort)
+	addr := fmt.Sprintf("localhost:%d", servingInfo.StatePort)
 	expectStateInfo := &mongo.MongoInfo{
 		Info: mongo.Info{
 			Addrs:  []string{addr},
