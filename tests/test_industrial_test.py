@@ -1341,7 +1341,7 @@ class TestDestroyEnvironmentAttempt(JujuPyTestCase):
         client.env.clouds = {'clouds': {'quxxx': {
             'type': 'openstack', 'endpoint': 'qux',
             }}}
-        client.env.config = get_os_config()
+        client.env._config = get_os_config()
         client.env.credentials = {'credentials': {'quxxx': {'creds': {
             }}}}
         return client
@@ -1809,7 +1809,7 @@ class TestBackupRestoreAttempt(JujuPyTestCase):
         client = FakeEnvJujuClient()
         aws_env = get_aws_env()
         client.env.environment = aws_env.environment
-        client.env.config = aws_env.config
+        client.env._config = aws_env.config
         client.env.juju_home = aws_env.juju_home
         client.env.credentials = {'credentials': {'aws': {'creds': {}}}}
         controller_client = client.get_controller_client()
@@ -1881,7 +1881,7 @@ class TestBackupRestoreAttempt(JujuPyTestCase):
         azure_env = SimpleEnvironment('steve', get_azure_config())
         client = FakeEnvJujuClient()
         client.env.environment = azure_env.environment
-        client.env.config = azure_env.config
+        client.env._config = azure_env.config
         client.env.credentials = {'credentials': {'azure': {'creds': {}}}}
         controller_client = client.get_controller_client()
         # First yield.
