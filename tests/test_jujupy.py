@@ -54,6 +54,7 @@ from jujupy import (
     get_local_root,
     get_machine_dns_name,
     get_timeout_path,
+    get_timeout_prefix,
     HookFailedError,
     IncompatibleConfigClass,
     InstallError,
@@ -207,6 +208,28 @@ class TestJuju2Backend(TestCase):
             env = backend.shell_environ({'june'}, 'fake-home')
         # The feature_flags are combined in alphabetic order.
         self.assertEqual('june,run-test', env[JUJU_DEV_FEATURE_FLAGS])
+
+    def test_full_args(self):
+        backend = Juju2Backend('/bin/path/juju', '2.0', set(), False, None)
+        full = backend.full_args('help', ('commands',), None, None)
+        self.assertEqual(('juju', '--show-log', 'help', 'commands'), full)
+
+    def test_full_args_debug(self):
+        backend = Juju2Backend('/bin/path/juju', '2.0', set(), True, None)
+        full = backend.full_args('help', ('commands',), None, None)
+        self.assertEqual(('juju', '--debug', 'help', 'commands'), full)
+
+    def test_full_args_model(self):
+        backend = Juju2Backend('/bin/path/juju', '2.0', set(), False, None)
+        full = backend.full_args('help', ('commands',), 'test', None)
+        self.assertEqual(('juju', '--show-log', 'help', '-m', 'test',
+                          'commands'), full)
+
+    def test_full_args_timeout(self):
+        backend = Juju2Backend('/bin/path/juju', '2.0', set(), False, None)
+        full = backend.full_args('help', ('commands',), None, 600)
+        self.assertEqual(get_timeout_prefix(600, backend._timeout_path) +
+                         ('juju', '--show-log', 'help', 'commands'), full)
 
     def test_juju_checks_timeouts(self):
         backend = Juju2Backend('/bin/path', '2.0', set(), debug=False,
