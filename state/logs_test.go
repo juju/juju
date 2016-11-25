@@ -158,9 +158,9 @@ func (s *LogsSuite) TestIndexesCreated(c *gc.C) {
 		keys = append(keys, strings.Join(index.Key, "-"))
 	}
 	c.Assert(keys, jc.SameContents, []string{
-		"_id", // default index
-		"e-t", // model-uuid and timestamp
-		"e-n", // model-uuid and entity
+		"_id",     // default index
+		"e-t-_id", // model-uuid and timestamp
+		"e-n",     // model-uuid and entity
 	})
 }
 
