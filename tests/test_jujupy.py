@@ -6667,6 +6667,18 @@ class TestSimpleEnvironment(TestCase):
                                    {'baz': 'qux'}) as jes_home:
                 self.assertFalse(os.path.exists(foo_path))
 
+    def test_discard_option(self):
+        env = SimpleEnvironment('foo', {'type': 'foo', 'bar': 'baz'})
+        discarded = env.discard_option('bar')
+        self.assertEqual('baz', discarded)
+        self.assertEqual({'type': 'foo'}, env._config)
+
+    def test_discard_option_not_present(self):
+        env = SimpleEnvironment('foo', {'type': 'foo'})
+        discarded = env.discard_option('bar')
+        self.assertIs(None, discarded)
+        self.assertEqual({'type': 'foo'}, env._config)
+
     def test_get_option(self):
         env = SimpleEnvironment('foo', {'type': 'azure', 'foo': 'bar'})
         self.assertEqual(env.get_option('foo'), 'bar')

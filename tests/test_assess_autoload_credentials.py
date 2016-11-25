@@ -386,9 +386,9 @@ def bogus_credentials():
     It uses an openstack config to match the fake_juju.AutoloadCredentials.
     """
     client = fake_juju_client()
-    client.env.config['type'] = 'openstack'
-    client.env.config['auth-url'] = 'url'
-    client.env.config['region'] = 'region'
+    client.env._config['type'] = 'openstack'
+    client.env._config['auth-url'] = 'url'
+    client.env._config['region'] = 'region'
     client.env.credentials = {
         'credentials': {'bogus': {}}}
     return client

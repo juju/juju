@@ -294,10 +294,6 @@ class SimpleEnvironment:
             self.maas = False
             self.joyent = False
 
-    @property
-    def config(self):
-        return self._config
-
     def get_option(self, key, default=None):
         return self._config.get(key, default)
 
@@ -311,6 +307,9 @@ class SimpleEnvironment:
             if key == 'type':
                 logging.warning('Setting type is not 2.x compatible.')
             self._config[key] = value
+
+    def discard_option(self, key):
+        return self._config.pop(key, None)
 
     def make_config_copy(self):
         return deepcopy(self._config)
