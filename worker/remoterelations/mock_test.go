@@ -16,10 +16,10 @@ import (
 	"github.com/juju/juju/worker/remoterelations"
 )
 
-type mockFacade struct {
+type mockRelationsFacade struct {
 	mu   sync.Mutex
 	stub *testing.Stub
-	remoterelations.RemoteApplicationsFacade
+	remoterelations.RemoteRelationsFacade
 	remoteApplicationsWatcher          *mockStringsWatcher
 	remoteApplicationRelationsWatchers map[string]*mockStringsWatcher
 	remoteApplications                 map[string]*mockRemoteApplication
@@ -27,8 +27,8 @@ type mockFacade struct {
 	relationsUnitsWatchers             map[string]*mockRelationUnitsWatcher
 }
 
-func newMockFacade(stub *testing.Stub) *mockFacade {
-	return &mockFacade{
+func newMockRelationsFacade(stub *testing.Stub) *mockRelationsFacade {
+	return &mockRelationsFacade{
 		stub:                               stub,
 		remoteApplications:                 make(map[string]*mockRemoteApplication),
 		relations:                          make(map[string]*mockRelation),
@@ -38,7 +38,7 @@ func newMockFacade(stub *testing.Stub) *mockFacade {
 	}
 }
 
-func (m *mockFacade) WatchRemoteApplications() (watcher.StringsWatcher, error) {
+func (m *mockRelationsFacade) WatchRemoteApplications() (watcher.StringsWatcher, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.stub.MethodCall(m, "WatchRemoteApplications")
@@ -48,14 +48,14 @@ func (m *mockFacade) WatchRemoteApplications() (watcher.StringsWatcher, error) {
 	return m.remoteApplicationsWatcher, nil
 }
 
-func (m *mockFacade) remoteApplicationRelationsWatcher(name string) (*mockStringsWatcher, bool) {
+func (m *mockRelationsFacade) remoteApplicationRelationsWatcher(name string) (*mockStringsWatcher, bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	w, ok := m.remoteApplicationRelationsWatchers[name]
 	return w, ok
 }
 
-func (m *mockFacade) removeApplication(name string) (*mockStringsWatcher, bool) {
+func (m *mockRelationsFacade) removeApplication(name string) (*mockStringsWatcher, bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	w, ok := m.remoteApplicationRelationsWatchers[name]
@@ -63,14 +63,14 @@ func (m *mockFacade) removeApplication(name string) (*mockStringsWatcher, bool) 
 	return w, ok
 }
 
-func (m *mockFacade) relationsUnitsWatcher(key string) (*mockRelationUnitsWatcher, bool) {
+func (m *mockRelationsFacade) relationsUnitsWatcher(key string) (*mockRelationUnitsWatcher, bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	w, ok := m.relationsUnitsWatchers[key]
 	return w, ok
 }
 
-func (m *mockFacade) removeRelation(key string) (*mockRelationUnitsWatcher, bool) {
+func (m *mockRelationsFacade) removeRelation(key string) (*mockRelationUnitsWatcher, bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	w, ok := m.relationsUnitsWatchers[key]
@@ -78,7 +78,7 @@ func (m *mockFacade) removeRelation(key string) (*mockRelationUnitsWatcher, bool
 	return w, ok
 }
 
-func (m *mockFacade) updateRelationLife(key string, life params.Life) (*mockRelationUnitsWatcher, bool) {
+func (m *mockRelationsFacade) updateRelationLife(key string, life params.Life) (*mockRelationUnitsWatcher, bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	w, ok := m.relationsUnitsWatchers[key]
@@ -86,7 +86,7 @@ func (m *mockFacade) updateRelationLife(key string, life params.Life) (*mockRela
 	return w, ok
 }
 
-func (m *mockFacade) WatchRemoteApplicationRelations(application string) (watcher.StringsWatcher, error) {
+func (m *mockRelationsFacade) WatchRemoteApplicationRelations(application string) (watcher.StringsWatcher, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.stub.MethodCall(m, "WatchRemoteApplicationRelations", application)
@@ -97,7 +97,7 @@ func (m *mockFacade) WatchRemoteApplicationRelations(application string) (watche
 	return m.remoteApplicationRelationsWatchers[application], nil
 }
 
-func (m *mockFacade) RemoteApplications(names []string) ([]params.RemoteApplicationResult, error) {
+func (m *mockRelationsFacade) RemoteApplications(names []string) ([]params.RemoteApplicationResult, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.stub.MethodCall(m, "RemoteApplications", names)
@@ -122,7 +122,7 @@ func (m *mockFacade) RemoteApplications(names []string) ([]params.RemoteApplicat
 	return result, nil
 }
 
-func (m *mockFacade) Relations(keys []string) ([]params.RelationResult, error) {
+func (m *mockRelationsFacade) Relations(keys []string) ([]params.RelationResult, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.stub.MethodCall(m, "Relations", keys)
@@ -145,7 +145,7 @@ func (m *mockFacade) Relations(keys []string) ([]params.RelationResult, error) {
 	return result, nil
 }
 
-func (m *mockFacade) WatchLocalRelationUnits(relationKey string) (watcher.RelationUnitsWatcher, error) {
+func (m *mockRelationsFacade) WatchLocalRelationUnits(relationKey string) (watcher.RelationUnitsWatcher, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.stub.MethodCall(m, "WatchLocalRelationUnits", relationKey)

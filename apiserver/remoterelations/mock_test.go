@@ -228,7 +228,7 @@ func (r *mockRemoteApplication) Life() state.Life {
 }
 
 func (r *mockRemoteApplication) Status() (status.StatusInfo, error) {
-	r.MethodCall(r, "Life")
+	r.MethodCall(r, "Status")
 	return status.StatusInfo{Status: r.status}, nil
 }
 

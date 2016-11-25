@@ -19,8 +19,8 @@ type ManifoldConfig struct {
 	AgentName     string
 	APICallerName string
 
-	NewFacade func(base.APICaller) (RemoteApplicationsFacade, error)
-	NewWorker func(Config) (worker.Worker, error)
+	NewRemoteRelationsFacade func(base.APICaller) (RemoteRelationsFacade, error)
+	NewWorker                func(Config) (worker.Worker, error)
 }
 
 // Validate is called by start to check for bad configuration.
@@ -31,8 +31,8 @@ func (config ManifoldConfig) Validate() error {
 	if config.APICallerName == "" {
 		return errors.NotValidf("empty APICallerName")
 	}
-	if config.NewFacade == nil {
-		return errors.NotValidf("nil NewFacade")
+	if config.NewRemoteRelationsFacade == nil {
+		return errors.NotValidf("nil NewRemoteRelationsFacade")
 	}
 	if config.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
@@ -54,12 +54,12 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	if err := context.Get(config.APICallerName, &apiConn); err != nil {
 		return nil, errors.Trace(err)
 	}
-	facade, err := config.NewFacade(apiConn)
+	facade, err := config.NewRemoteRelationsFacade(apiConn)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	worker, err := config.NewWorker(Config{
-		Facade: facade,
+		RelationsFacade: facade,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

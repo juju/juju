@@ -17,7 +17,7 @@ import (
 var logger = loggo.GetLogger("juju.worker.remoterelations")
 
 // RemoteApplicationsFacade exposes remote relation functionality to a worker.
-type RemoteApplicationsFacade interface {
+type RemoteRelationsFacade interface {
 	// ExportEntities allocates unique, remote entity IDs for the
 	// given entities in the local model.
 	ExportEntities([]names.Tag) ([]params.RemoteEntityIdResult, error)
@@ -55,12 +55,12 @@ type RemoteApplicationsFacade interface {
 
 // Config defines the operation of a Worker.
 type Config struct {
-	Facade RemoteApplicationsFacade
+	RelationsFacade RemoteRelationsFacade
 }
 
 // Validate returns an error if config cannot drive a Worker.
 func (config Config) Validate() error {
-	if config.Facade == nil {
+	if config.RelationsFacade == nil {
 		return errors.NotValidf("nil Facade")
 	}
 	return nil
@@ -107,7 +107,7 @@ func (w *Worker) Wait() error {
 }
 
 func (w *Worker) loop() (err error) {
-	changes, err := w.config.Facade.WatchRemoteApplications()
+	changes, err := w.config.RelationsFacade.WatchRemoteApplications()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -134,7 +134,7 @@ func (w *Worker) handleApplicationChanges(applicationIds []string) error {
 	logger.Debugf("processing remote application changes for: %s", applicationIds)
 
 	// Fetch the current state of each of the remote applications that have changed.
-	results, err := w.config.Facade.RemoteApplications(applicationIds)
+	results, err := w.config.RelationsFacade.RemoteApplications(applicationIds)
 	if err != nil {
 		return errors.Annotate(err, "querying remote applications")
 	}
@@ -158,7 +158,7 @@ func (w *Worker) handleApplicationChanges(applicationIds []string) error {
 		}
 		// A new remote application has appeared, start monitoring relations to it
 		// originating from the local model.
-		relationsWatcher, err := w.config.Facade.WatchRemoteApplicationRelations(name)
+		relationsWatcher, err := w.config.RelationsFacade.WatchRemoteApplicationRelations(name)
 		if errors.IsNotFound(err) {
 			if err := w.killApplicationWorker(name); err != nil {
 				return err
@@ -170,7 +170,7 @@ func (w *Worker) handleApplicationChanges(applicationIds []string) error {
 		logger.Debugf("started watcher for remote application %q", name)
 		appWorker, err := newRemoteApplicationWorker(
 			relationsWatcher,
-			w.config.Facade,
+			w.config.RelationsFacade,
 		)
 		if err != nil {
 			return errors.Trace(err)
@@ -198,7 +198,7 @@ func (w *Worker) killApplicationWorker(name string) error {
 type remoteApplicationWorker struct {
 	catacomb         catacomb.Catacomb
 	relationsWatcher watcher.StringsWatcher
-	facade           RemoteApplicationsFacade
+	facade           RemoteRelationsFacade
 }
 
 type relation struct {
@@ -208,7 +208,7 @@ type relation struct {
 
 func newRemoteApplicationWorker(
 	relationsWatcher watcher.StringsWatcher,
-	facade RemoteApplicationsFacade,
+	facade RemoteRelationsFacade,
 
 ) (worker.Worker, error) {
 	w := &remoteApplicationWorker{
@@ -327,13 +327,13 @@ type relationUnitsWatcher struct {
 	catacomb    catacomb.Catacomb
 	relationTag names.RelationTag
 	ruw         watcher.RelationUnitsWatcher
-	facade      RemoteApplicationsFacade
+	facade      RemoteRelationsFacade
 }
 
 func newRelationUnitsWatcher(
 	relationTag names.RelationTag,
 	ruw watcher.RelationUnitsWatcher,
-	facade RemoteApplicationsFacade,
+	facade RemoteRelationsFacade,
 ) (*relationUnitsWatcher, error) {
 	w := &relationUnitsWatcher{
 		relationTag: relationTag,
