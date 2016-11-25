@@ -373,6 +373,10 @@ func (s *upgradesSuite) TestDropOldLogIndex(c *gc.C) {
 	exists, err := hasIndex(coll, []string{"e", "t"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(exists, jc.IsFalse)
+
+	// Sanity check for idempotency.
+	err = DropOldLogIndex(s.state)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *upgradesSuite) TestDropOldIndexWhenNoIndex(c *gc.C) {
