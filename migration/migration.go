@@ -4,6 +4,7 @@
 package migration
 
 import (
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net/url"
@@ -84,6 +85,11 @@ type ToolsUploader interface {
 	UploadTools(io.ReadSeeker, version.Binary, ...string) (tools.List, error)
 }
 
+// XXX
+type ResourceDownloader interface {
+	OpenResource(string, string) (io.ReadCloser, error)
+}
+
 // UploadBinariesConfig provides all the configuration that the
 // UploadBinaries function needs to operate. To construct the config
 // with the default helper functions, use `NewUploadBinariesConfig`.
@@ -95,6 +101,9 @@ type UploadBinariesConfig struct {
 	Tools           map[version.Binary]string
 	ToolsDownloader ToolsDownloader
 	ToolsUploader   ToolsUploader
+
+	Resources          map[string]string
+	ResourceDownloader ResourceDownloader
 }
 
 // Validate makes sure that all the config values are non-nil.
@@ -111,6 +120,7 @@ func (c *UploadBinariesConfig) Validate() error {
 	if c.ToolsUploader == nil {
 		return errors.NotValidf("missing ToolsUploader")
 	}
+	// XXX validate ResourceDownloader
 	return nil
 }
 
@@ -124,6 +134,9 @@ func UploadBinaries(config UploadBinariesConfig) error {
 		return errors.Trace(err)
 	}
 	if err := uploadTools(config); err != nil {
+		return errors.Trace(err)
+	}
+	if err := uploadResources(config); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
@@ -202,4 +215,32 @@ func uploadTools(config UploadBinariesConfig) error {
 		}
 	}
 	return nil
+}
+
+func uploadResources(config UploadBinariesConfig) error {
+	// XXX unfinished
+	for application, name := range config.Resources {
+		logger.Debugf("opening resource for %s: %s", application, name)
+		reader, err := config.ResourceDownloader.OpenResource(application, name)
+		if err != nil {
+			return errors.Annotate(err, "cannot open resource")
+		}
+		defer reader.Close()
+
+		// XXX temporary
+		if err := writeResource(application, name, reader); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func writeResource(application, name string, r io.Reader) error {
+	f, err := os.Create(fmt.Sprintf("/var/tmp/%s-%s.resource", application, name))
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	_, err = io.Copy(f, r)
+	return err
 }
