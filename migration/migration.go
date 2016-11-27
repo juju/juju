@@ -13,11 +13,9 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6-unstable"
-	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/binarystorage"
 	"github.com/juju/juju/tools"
 )
 
@@ -66,16 +64,6 @@ func ImportModel(st *state.State, bytes []byte) (*state.Model, *state.State, err
 // charm from the source controller in a migration.
 type CharmDownloader interface {
 	OpenCharm(*charm.URL) (io.ReadCloser, error)
-}
-
-// UploadBackend define the methods on *state.State that are needed for
-// uploading the tools and charms from the current controller to a different
-// controller.
-type UploadBackend interface {
-	Charm(*charm.URL) (*state.Charm, error)
-	ModelUUID() string
-	MongoSession() *mgo.Session
-	ToolsStorage() (binarystorage.StorageCloser, error)
 }
 
 // CharmUploader defines a single method that is used to upload a

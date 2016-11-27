@@ -12,8 +12,8 @@ import (
 )
 
 func NewFacade(apiCaller base.APICaller) (Facade, error) {
-	facade := migrationmaster.NewClient(apiCaller, watcher.NewNotifyWatcher)
-	return facade, nil
+	facade, err := migrationmaster.NewClient(apiCaller, watcher.NewNotifyWatcher)
+	return facade, errors.Trace(err)
 }
 
 func NewWorker(config Config) (worker.Worker, error) {

@@ -5,9 +5,13 @@ package migrationmaster
 
 import (
 	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/httprequest"
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon.v1"
@@ -23,11 +27,16 @@ import (
 type NewWatcherFunc func(base.APICaller, params.NotifyWatchResult) watcher.NotifyWatcher
 
 // NewClient returns a new Client based on an existing API connection.
-func NewClient(caller base.APICaller, newWatcher NewWatcherFunc) *Client {
+func NewClient(caller base.APICaller, newWatcher NewWatcherFunc) (*Client, error) {
+	httpClient, err := caller.HTTPClient()
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot retrieve HTTP client")
+	}
 	return &Client{
 		caller:     base.NewFacadeCaller(caller, "MigrationMaster"),
 		newWatcher: newWatcher,
-	}
+		httpClient: httpClient,
+	}, nil
 }
 
 // Client describes the client side API for the MigrationMaster facade
@@ -35,6 +44,7 @@ func NewClient(caller base.APICaller, newWatcher NewWatcherFunc) *Client {
 type Client struct {
 	caller     base.FacadeCaller
 	newWatcher NewWatcherFunc
+	httpClient *httprequest.Client
 }
 
 // Watch returns a watcher which reports when a migration is active
@@ -173,6 +183,17 @@ func (c *Client) Export() (migration.SerializedModel, error) {
 		Charms: serialized.Charms,
 		Tools:  tools,
 	}, nil
+}
+
+// XXX needs tests
+// XXX
+func (c *Client) OpenResource(application, name string) (io.ReadCloser, error) {
+	uri := fmt.Sprintf("/applications/%s/resources/%s", application, name)
+	var resp *http.Response
+	if err := c.httpClient.Get(uri, &resp); err != nil {
+		return nil, errors.Annotate(err, "unable to retrieve resource")
+	}
+	return resp.Body, nil
 }
 
 // Reap removes the documents for the model associated with the API
