@@ -73,9 +73,10 @@ type SetMigrationStatusMessageArgs struct {
 // SerializedModel wraps a buffer contain a serialised Juju model. It
 // also contains lists of the charms and tools used in the model.
 type SerializedModel struct {
-	Bytes  []byte                 `json:"bytes"`
-	Charms []string               `json:"charms"`
-	Tools  []SerializedModelTools `json:"tools"`
+	Bytes     []byte                     `json:"bytes"`
+	Charms    []string                   `json:"charms"`
+	Tools     []SerializedModelTools     `json:"tools"`
+	Resources []SerializedModelResources `json:"resources"`
 }
 
 // SerializedModelTools holds the version and URI for a given tools
@@ -88,6 +89,33 @@ type SerializedModelTools struct {
 	// with the API server scheme, address and model prefix before it
 	// can be used.
 	URI string `json:"uri"`
+}
+
+// XXX
+type SerializedModelResources struct {
+	Application string                    `json:"application"`
+	Resources   []SerializedModelResource `json:"resources"`
+}
+
+// XXX
+type SerializedModelResource struct {
+	Name               string                            `json:"name"`
+	Revision           int                               `json:"application-revision"`
+	CharmStoreRevision int                               `json:"charmstore-revision"`
+	Revisions          []SerializedModelResourceRevision `json:"revisions"`
+}
+
+// XXX
+type SerializedModelResourceRevision struct {
+	Revision       int        `json:"revision"`
+	Type           string     `json:"type"`
+	Path           string     `json:"path"`
+	Description    string     `json:"description"`
+	Origin         string     `json:"origin"`
+	FingerprintHex string     `json:"fingerprint"`
+	Size           int64      `json:"size"`
+	Timestamp      *time.Time `json:"timestamp,omitempty"`
+	Username       string     `json:"username,omitempty"`
 }
 
 // ModelArgs wraps a simple model tag.

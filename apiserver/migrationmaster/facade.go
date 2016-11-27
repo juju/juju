@@ -188,6 +188,7 @@ func (api *API) Export() (params.SerializedModel, error) {
 	serialized.Bytes = bytes
 	serialized.Charms = getUsedCharms(model)
 	serialized.Tools = getUsedTools(model)
+	serialized.Resources = getUsedResources(model)
 	return serialized, nil
 }
 
@@ -308,4 +309,50 @@ func addToolsVersionForMachine(machine description.Machine, usedVersions map[ver
 	for _, container := range machine.Containers() {
 		addToolsVersionForMachine(container, usedVersions)
 	}
+}
+
+// XXX needs tests - but wait until I know what's actually required here.
+func getUsedResources(model description.Model) []params.SerializedModelResources {
+	var out []params.SerializedModelResources
+
+	for _, app := range model.Applications() {
+		resources := app.Resources()
+		if len(resources) == 0 {
+			continue
+		}
+
+		outAppResources := params.SerializedModelResources{
+			Application: app.Name(),
+		}
+		for _, resource := range resources {
+			outAppResources.Resources = append(outAppResources.Resources, resourceDesc2Serialized(resource))
+		}
+		out = append(out, outAppResources)
+	}
+
+	return out
+}
+
+func resourceDesc2Serialized(desc description.Resource) (out params.SerializedModelResource) {
+	out.Name = desc.Name()
+	out.Revision = desc.Revision()
+	out.CharmStoreRevision = desc.CharmStoreRevision()
+	for _, revision := range desc.Revisions() {
+		out.Revisions = append(out.Revisions, revisionDesc2Serialized(revision))
+	}
+	return
+}
+
+func revisionDesc2Serialized(desc description.ResourceRevision) (out params.SerializedModelResourceRevision) {
+	out.Revision = desc.Revision()
+	out.Type = desc.Type()
+	out.Path = desc.Path()
+	out.Description = desc.Description()
+	out.Origin = desc.Origin()
+	out.FingerprintHex = desc.FingerprintHex()
+	out.Size = desc.Size()
+	// XXX
+	//out.Timestamp = desc.Timestamp()
+	out.Username = desc.Username()
+	return
 }
