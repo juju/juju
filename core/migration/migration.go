@@ -9,6 +9,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v2"
+
+	"github.com/juju/juju/core/description"
 )
 
 // MigrationStatus returns the details for a migration as needed by
@@ -50,6 +52,11 @@ type SerializedModel struct {
 	// their URIs. The URIs can be used to download the tools from the
 	// source controller.
 	Tools map[version.Binary]string // version -> tools URI
+
+	// Resources represents all the resources in use in the model.
+	// The map key is application name. The values are slices of
+	// Resources used by an application.
+	Resources map[string][]description.Resource
 }
 
 // ModelInfo is used to report basic details about a model.

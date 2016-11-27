@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/watcher"
 )
@@ -179,9 +180,10 @@ func (c *Client) Export() (migration.SerializedModel, error) {
 	}
 
 	return migration.SerializedModel{
-		Bytes:  serialized.Bytes,
-		Charms: serialized.Charms,
-		Tools:  tools,
+		Bytes:     serialized.Bytes,
+		Charms:    serialized.Charms,
+		Tools:     tools,
+		Resources: convertResources(serialized.Resources),
 	}, nil
 }
 
@@ -278,4 +280,41 @@ func (c *Client) StreamModelLog(start time.Time) (<-chan common.LogMessage, erro
 		NoTail:    true,
 		StartTime: start,
 	})
+}
+
+func convertResources(in []params.SerializedModelResources) map[string][]description.Resource {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make(map[string][]description.Resource)
+	for _, app := range in {
+		out[app.Application] = convertAppResources(app.Resources)
+	}
+	return out
+}
+
+func convertAppResources(in []params.SerializedModelResource) (out []description.Resource) {
+	for _, inResource := range in {
+		outResource := description.NewResource(description.ResourceArgs{
+			Name:               inResource.Name,
+			Revision:           inResource.Revision,
+			CharmStoreRevision: inResource.CharmStoreRevision,
+		})
+		for _, revision := range inResource.Revisions {
+			outResource.AddRevision(description.ResourceRevisionArgs{
+				Revision:       revision.Revision,
+				Type:           revision.Type,
+				Path:           revision.Path,
+				Description:    revision.Description,
+				Origin:         revision.Origin,
+				FingerprintHex: revision.FingerprintHex,
+				Size:           revision.Size,
+				// XXX
+				//Timestamp: revision.Timestamp,
+				Username: revision.Username,
+			})
+		}
+		out = append(out, outResource)
+	}
+	return
 }
