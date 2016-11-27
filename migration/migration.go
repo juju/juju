@@ -102,7 +102,7 @@ type UploadBinariesConfig struct {
 	ToolsDownloader ToolsDownloader
 	ToolsUploader   ToolsUploader
 
-	Resources          map[string]string
+	Resources          map[string][]string
 	ResourceDownloader ResourceDownloader
 }
 
@@ -219,17 +219,19 @@ func uploadTools(config UploadBinariesConfig) error {
 
 func uploadResources(config UploadBinariesConfig) error {
 	// XXX unfinished
-	for application, name := range config.Resources {
-		logger.Debugf("opening resource for %s: %s", application, name)
-		reader, err := config.ResourceDownloader.OpenResource(application, name)
-		if err != nil {
-			return errors.Annotate(err, "cannot open resource")
-		}
-		defer reader.Close()
+	for application, names := range config.Resources {
+		for _, name := range names {
+			logger.Debugf("opening resource for %s: %s", application, name)
+			reader, err := config.ResourceDownloader.OpenResource(application, name)
+			if err != nil {
+				return errors.Annotate(err, "cannot open resource")
+			}
+			defer reader.Close()
 
-		// XXX temporary
-		if err := writeResource(application, name, reader); err != nil {
-			return err
+			// XXX temporary
+			if err := writeResource(application, name, reader); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
