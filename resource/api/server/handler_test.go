@@ -33,6 +33,8 @@ type HTTPHandlerSuite struct {
 
 var _ = gc.Suite(&HTTPHandlerSuite{})
 
+// XXX download tests
+
 func (s *HTTPHandlerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 

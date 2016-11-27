@@ -83,6 +83,14 @@ type stubDataStore struct {
 	ReturnUpdatePendingResource resource.Resource
 }
 
+func (s *stubDataStore) OpenResource(application, name string) (resource.Resource, io.ReadCloser, error) {
+	s.stub.AddCall("OpenResource", application, name)
+	if err := s.stub.NextErr(); err != nil {
+		return resource.Resource{}, nil, errors.Trace(err)
+	}
+	return s.ReturnGetResource, nil, nil
+}
+
 func (s *stubDataStore) ListResources(service string) (resource.ServiceResources, error) {
 	s.stub.AddCall("ListResources", service)
 	if err := s.stub.NextErr(); err != nil {

@@ -75,11 +75,11 @@ func (r resources) registerPublicFacade() {
 
 	common.RegisterAPIModelEndpoint(api.HTTPEndpointPattern, apihttp.HandlerSpec{
 		Constraints: apihttp.HandlerConstraints{
-			AuthKinds:           []string{names.UserTagKind},
+			AuthKinds:           []string{names.UserTagKind, names.MachineTagKind},
 			StrictValidation:    true,
 			ControllerModelOnly: false,
 		},
-		NewHandler: resourceadapters.NewUploadHandler,
+		NewHandler: resourceadapters.NewApplicationHandler,
 	})
 }
 
