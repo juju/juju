@@ -2640,6 +2640,84 @@ func (s *StateSuite) TestRemoveExportingModelDocsExporting(c *gc.C) {
 	c.Assert(state.HostedModelCount(c, s.State), gc.Equals, 0)
 }
 
+func (s *StateSuite) TestRemoveExportingModelDocsRemovesLogs(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
+	defer st.Close()
+
+	model, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	err = model.SetMigrationMode(state.MigrationModeExporting)
+	c.Assert(err, jc.ErrorIsNil)
+
+	writeLogs(c, st, 5)
+	writeLogs(c, s.State, 5)
+
+	err = st.RemoveExportingModelDocs()
+	c.Assert(err, jc.ErrorIsNil)
+
+	assertLogCount(c, s.State, 5)
+	assertLogCount(c, st, 0)
+}
+
+func (s *StateSuite) TestRemoveImportingModelDocsRemovesLogs(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
+	defer st.Close()
+
+	model, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	err = model.SetMigrationMode(state.MigrationModeImporting)
+	c.Assert(err, jc.ErrorIsNil)
+
+	writeLogs(c, st, 5)
+	writeLogs(c, s.State, 5)
+
+	err = st.RemoveImportingModelDocs()
+	c.Assert(err, jc.ErrorIsNil)
+
+	assertLogCount(c, s.State, 5)
+	assertLogCount(c, st, 0)
+}
+
+func (s *StateSuite) TestRemoveAllModelDocsRemovesLogs(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
+	defer st.Close()
+
+	err := state.SetModelLifeDead(st, st.ModelUUID())
+	c.Assert(err, jc.ErrorIsNil)
+
+	writeLogs(c, st, 5)
+	writeLogs(c, s.State, 5)
+
+	err = st.RemoveAllModelDocs()
+	c.Assert(err, jc.ErrorIsNil)
+
+	assertLogCount(c, s.State, 5)
+	assertLogCount(c, st, 0)
+}
+
+func writeLogs(c *gc.C, st *state.State, n int) {
+	dbLogger := state.NewDbLogger(st)
+	defer dbLogger.Close()
+	for i := 0; i < n; i++ {
+		err := dbLogger.Log(
+			time.Now(),
+			"van occupanther",
+			"chasing after deer",
+			"in a log house",
+			loggo.INFO,
+			"why are your fingers like that of a hedge in winter?",
+		)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+}
+
+func assertLogCount(c *gc.C, st *state.State, expected int) {
+	logColl := st.MongoSession().DB("logs").C("logs")
+	actual, err := logColl.Find(bson.M{"e": st.ModelUUID()}).Count()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(actual, gc.Equals, expected)
+}
+
 type attrs map[string]interface{}
 
 func (s *StateSuite) TestWatchForModelConfigChanges(c *gc.C) {

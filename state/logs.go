@@ -835,3 +835,9 @@ func getLogCountForEnv(coll *mgo.Collection, modelUUID string) (int, error) {
 	}
 	return count, nil
 }
+
+func removeModelLogs(session *mgo.Session, modelUUID string) error {
+	logsColl := session.DB(logsDB).C(logsC)
+	_, err := logsColl.RemoveAll(bson.M{"e": modelUUID})
+	return errors.Trace(err)
+}
