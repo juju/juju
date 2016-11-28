@@ -732,7 +732,6 @@ class BootstrapManager:
             return False
         if self.bootstrap_host is not None:
             return False
-        import pdb; pdb.set_trace()
         cloud_config = env.get_cloud_config()
         if cloud_config is None:
             return True
