@@ -2544,12 +2544,22 @@ func (s *StateSuite) TestRemoveAllModelDocs(c *gc.C) {
 	err := state.SetModelLifeDead(st, st.ModelUUID())
 	c.Assert(err, jc.ErrorIsNil)
 
+	// Logs that should be removed.
+	writeLogs(c, st, 5)
+	// Logs that shouldn't.
+	writeLogs(c, s.State, 5)
+
 	err = st.RemoveAllModelDocs()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// test that we can not find the user:envName unique index
 	s.checkUserModelNameExists(c, checkUserModelNameArgs{st: st, id: userModelKey, exists: false})
 	s.AssertModelDeleted(c, st)
+
+	// These are still there.
+	assertLogCount(c, s.State, 5)
+	// These are gone.
+	assertLogCount(c, st, 0)
 }
 
 func (s *StateSuite) TestRemoveAllModelDocsAliveEnvFails(c *gc.C) {
@@ -2591,6 +2601,11 @@ func (s *StateSuite) TestRemoveImportingModelDocsImporting(c *gc.C) {
 	err = model.SetMigrationMode(state.MigrationModeImporting)
 	c.Assert(err, jc.ErrorIsNil)
 
+	// Logs that should be removed.
+	writeLogs(c, st, 5)
+	// Logs that shouldn't.
+	writeLogs(c, s.State, 5)
+
 	err = st.RemoveImportingModelDocs()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -2598,6 +2613,11 @@ func (s *StateSuite) TestRemoveImportingModelDocsImporting(c *gc.C) {
 	s.checkUserModelNameExists(c, checkUserModelNameArgs{st: st, id: userModelKey, exists: false})
 	s.AssertModelDeleted(c, st)
 	c.Assert(state.HostedModelCount(c, s.State), gc.Equals, 0)
+
+	// These are still there.
+	assertLogCount(c, s.State, 5)
+	// These are gone.
+	assertLogCount(c, st, 0)
 }
 
 func (s *StateSuite) TestRemoveExportingModelDocsFailsActive(c *gc.C) {
@@ -2631,6 +2651,11 @@ func (s *StateSuite) TestRemoveExportingModelDocsExporting(c *gc.C) {
 	err = model.SetMigrationMode(state.MigrationModeExporting)
 	c.Assert(err, jc.ErrorIsNil)
 
+	// Logs that should be removed.
+	writeLogs(c, st, 5)
+	// Logs that shouldn't.
+	writeLogs(c, s.State, 5)
+
 	err = st.RemoveExportingModelDocs()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -2638,6 +2663,34 @@ func (s *StateSuite) TestRemoveExportingModelDocsExporting(c *gc.C) {
 	s.checkUserModelNameExists(c, checkUserModelNameArgs{st: st, id: userModelKey, exists: false})
 	s.AssertModelDeleted(c, st)
 	c.Assert(state.HostedModelCount(c, s.State), gc.Equals, 0)
+
+	// These are still there.
+	assertLogCount(c, s.State, 5)
+	// These are gone.
+	assertLogCount(c, st, 0)
+}
+
+func writeLogs(c *gc.C, st *state.State, n int) {
+	dbLogger := state.NewDbLogger(st)
+	defer dbLogger.Close()
+	for i := 0; i < n; i++ {
+		err := dbLogger.Log(
+			time.Now(),
+			"van occupanther",
+			"chasing after deer",
+			"in a log house",
+			loggo.INFO,
+			"why are your fingers like that of a hedge in winter?",
+		)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+}
+
+func assertLogCount(c *gc.C, st *state.State, expected int) {
+	logColl := st.MongoSession().DB("logs").C("logs")
+	actual, err := logColl.Find(bson.M{"e": st.ModelUUID()}).Count()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(actual, gc.Equals, expected)
 }
 
 type attrs map[string]interface{}

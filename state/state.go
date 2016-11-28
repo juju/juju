@@ -223,6 +223,9 @@ func (st *State) removeAllModelDocs(modelAssertion bson.D) error {
 			}
 		}
 	}
+	// Logs are in a separate database so don't get caught by that
+	// loop.
+	removeModelLogs(st.MongoSession(), modelUUID)
 
 	// Remove all user permissions for the model.
 	permPattern := bson.M{
