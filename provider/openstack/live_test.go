@@ -198,27 +198,28 @@ func (t *LiveTests) TestSetupGlobalGroupExposesCorrectPorts(c *gc.C) {
 		if rule.PortRangeMax != nil {
 			maxInt = *rule.PortRangeMax
 		}
-		ruleStr := fmt.Sprintf("%s %s %d %d %s %s",
+		ruleStr := fmt.Sprintf("%s %s %d %d %s %s %s",
 			rule.Direction,
 			*rule.IPProtocol,
 			minInt, maxInt,
 			rule.RemoteIPPrefix,
+			rule.EthernetType,
 			rule.ParentGroupId,
 		)
 		stringRules = append(stringRules, ruleStr)
 	}
 	// We don't care about the ordering, so we sort the result, and compare it.
 	expectedRules := []string{
-		fmt.Sprintf(`ingress tcp 22 22 ::/0 %s`, group.Id),
-		fmt.Sprintf(`ingress tcp 22 22 0.0.0.0/0 %s`, group.Id),
-		fmt.Sprintf(`ingress tcp %d %d ::/0 %s`, apiPort, apiPort, group.Id),
-		fmt.Sprintf(`ingress tcp %d %d 0.0.0.0/0 %s`, apiPort, apiPort, group.Id),
-		fmt.Sprintf(`ingress tcp 1 65535 ::/0 %s`, group.Id),
-		fmt.Sprintf(`ingress tcp 1 65535 0.0.0.0/0 %s`, group.Id),
-		fmt.Sprintf(`ingress udp 1 65535 ::/0 %s`, group.Id),
-		fmt.Sprintf(`ingress udp 1 65535 0.0.0.0/0 %s`, group.Id),
-		fmt.Sprintf(`ingress icmp 0 0 ::/0 %s`, group.Id),
-		fmt.Sprintf(`ingress icmp 0 0 0.0.0.0/0 %s`, group.Id),
+		fmt.Sprintf(`ingress tcp 22 22 ::/0 IPv6 %s`, group.Id),
+		fmt.Sprintf(`ingress tcp 22 22 0.0.0.0/0 IPv4 %s`, group.Id),
+		fmt.Sprintf(`ingress tcp %d %d ::/0 IPv6 %s`, apiPort, apiPort, group.Id),
+		fmt.Sprintf(`ingress tcp %d %d 0.0.0.0/0 IPv4 %s`, apiPort, apiPort, group.Id),
+		fmt.Sprintf(`ingress tcp 1 65535  IPv6 %s`, group.Id),
+		fmt.Sprintf(`ingress tcp 1 65535  IPv4 %s`, group.Id),
+		fmt.Sprintf(`ingress udp 1 65535  IPv6 %s`, group.Id),
+		fmt.Sprintf(`ingress udp 1 65535  IPv4 %s`, group.Id),
+		fmt.Sprintf(`ingress icmp 0 0  IPv6 %s`, group.Id),
+		fmt.Sprintf(`ingress icmp 0 0  IPv4 %s`, group.Id),
 	}
 	sort.Strings(stringRules)
 	sort.Strings(expectedRules)

@@ -459,6 +459,7 @@ func (c *neutronFirewaller) setUpGlobalGroup(groupName string, apiPort int) (neu
 				PortRangeMax:   22,
 				PortRangeMin:   22,
 				RemoteIPPrefix: "::/0",
+				EthernetType:   "IPv6",
 			},
 			{
 				Direction:      "ingress",
@@ -473,6 +474,7 @@ func (c *neutronFirewaller) setUpGlobalGroup(groupName string, apiPort int) (neu
 				PortRangeMax:   apiPort,
 				PortRangeMin:   apiPort,
 				RemoteIPPrefix: "::/0",
+				EthernetType:   "IPv6",
 			},
 			{
 				Direction:      "ingress",
@@ -486,38 +488,35 @@ func (c *neutronFirewaller) setUpGlobalGroup(groupName string, apiPort int) (neu
 				IPProtocol:     "tcp",
 				PortRangeMin:   1,
 				PortRangeMax:   65535,
-				RemoteIPPrefix: "::/0",
+				EthernetType:   "IPv6",
 			},
 			{
 				Direction:      "ingress",
 				IPProtocol:     "tcp",
 				PortRangeMin:   1,
 				PortRangeMax:   65535,
-				RemoteIPPrefix: "0.0.0.0/0",
 			},
 			{
 				Direction:      "ingress",
 				IPProtocol:     "udp",
 				PortRangeMin:   1,
 				PortRangeMax:   65535,
-				RemoteIPPrefix: "::/0",
+				EthernetType:   "IPv6",
 			},
 			{
 				Direction:      "ingress",
 				IPProtocol:     "udp",
 				PortRangeMin:   1,
 				PortRangeMax:   65535,
-				RemoteIPPrefix: "0.0.0.0/0",
 			},
 			{
 				Direction:      "ingress",
 				IPProtocol:     "icmp",
-				RemoteIPPrefix: "::/0",
+				EthernetType:   "IPv6",
 			},
 			{
 				Direction:      "ingress",
 				IPProtocol:     "icmp",
-				RemoteIPPrefix: "0.0.0.0/0",
 			},
 		})
 }
@@ -547,6 +546,12 @@ func (c *neutronFirewaller) ensureGroup(name string, rules []neutron.RuleInfoV2)
 	// The new group is created so now add the rules.
 	for _, rule := range rules {
 		rule.ParentGroupId = newGroup.Id
+		// Neutron translates empty RemoteIPPrefix into
+		// 0.0.0.0/0 or ::/0 instead of ParentGroupId
+		// when EthernetType is set
+		if (rule.RemoteIPPrefix == "") {
+			rule.RemoteGroupId = newGroup.Id
+		}
 		groupRule, err := neutronClient.CreateSecurityGroupRuleV2(rule)
 		if err != nil {
 			return zeroGroup, err
