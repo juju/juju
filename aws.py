@@ -95,6 +95,7 @@ def list_instances(client, glob='*', print_out=False, states=['running']):
 def delete_instances(client, name_id, old_age=OLD_MACHINE_AGE, dry_run=False):
     """Delete a node instance.
 
+    :param client: The AWS client.
     :param name_id: A glob to match the aws name or Juju instance-id.
     :param old_age: The minimum age to delete.
     :param dry_run: Do not make changes when True.
