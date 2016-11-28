@@ -258,7 +258,7 @@ if [ $stopped -ne 1 ]; then
     service %s stop
 fi
 rm -f /etc/init/juju*
-rm -f /etc/systemd/system{,/multi-user.target.wants}/juju*
+rm -f /etc/systemd/system/juju*
 rm -fr %s %s
 exit 0
 `

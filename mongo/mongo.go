@@ -281,15 +281,13 @@ func SelectPeerAddress(addrs []network.Address) string {
 // by selecting it from the given hostPorts.
 func SelectPeerHostPort(hostPorts []network.HostPort) string {
 	// TODO(macgreagoir) IPv6. We were always choosing a cloud-local or
-	// localhost addr here (with true arg) but this doesn't make sense in
-	// IPv6, where the IPv6 [public] address is ignored in favour of
-	// ip6-localhost. Only pass true if we find an IPv4 address in the
-	// slice.
+	// falling back to machine-local here (with true arg) but this doesn't
+	// make sense in IPv6, where the IPv6 [public] address is ignored in
+	// favour of ip6-localhost. Only pass true if we find an IPv4 address
+	// in the slice.
 	logger.Debugf("selecting mongo peer hostPort by scope from %+v", hostPorts)
-	return network.SelectMongoHostPortsByScope(
-		hostPorts,
-		network.HostPortWithIPv4Address(hostPorts),
-	)[0]
+	allowMachineLocal := network.HostPortsHasIPv4Address(hostPorts)
+	return network.SelectMongoHostPortsByScope(hostPorts, allowMachineLocal)[0]
 }
 
 // SelectPeerHostPortBySpace returns the HostPort to use as the mongo replica set peer
