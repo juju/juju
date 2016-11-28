@@ -1483,12 +1483,6 @@ class EnvJujuClient:
                 controller=self.env.controller.name,
                 model=self.model_name)
 
-    # 2016-11-23: This appears to be called only in testing.
-    def _full_args(self, command, args,
-                   timeout=None, include_e=True, controller=False):
-        model = self._cmd_model(include_e, controller)
-        return self._backend.full_args(command, args, model, timeout)
-
     @staticmethod
     def _get_env(env):
         if not isinstance(env, JujuData) and isinstance(env,
