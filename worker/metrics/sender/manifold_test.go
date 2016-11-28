@@ -4,6 +4,7 @@
 package sender_test
 
 import (
+	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -127,6 +128,10 @@ func (s *stubAPICaller) ModelTag() (names.ModelTag, bool) {
 }
 
 func (s *stubAPICaller) ConnectStream(string, url.Values) (base.Stream, error) {
+	panic("should not be called")
+}
+
+func (s *stubAPICaller) ConnectControllerStream(string, url.Values, http.Header) (base.Stream, error) {
 	panic("should not be called")
 }
 
