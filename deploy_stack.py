@@ -1085,7 +1085,7 @@ def wait_for_state_server_to_shutdown(host, client, instance_id, timeout=60):
         provider_type = None
     if provider_type == 'openstack':
         environ = dict(os.environ)
-        environ.update(translate_to_env(client.env.config))
+        environ.update(translate_to_env(client.env.make_config_copy()))
         for ignored in until_timeout(300):
             output = subprocess.check_output(['nova', 'list'], env=environ)
             if instance_id not in output:
