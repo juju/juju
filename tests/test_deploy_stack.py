@@ -50,6 +50,7 @@ from deploy_stack import (
     safe_print_status,
     retain_config,
     update_env,
+    wait_for_state_server_to_shutdown,
     )
 from fakejuju import (
     fake_juju_client,
@@ -2488,3 +2489,31 @@ class TestDeployJobParseArgs(FakeHomeTestCase):
         args = deploy_job_parse_args(
             ['foo', 'bar/juju', 'baz', 'qux', '--jes'])
         self.assertIs(args.jes, True)
+
+
+class TestWaitForStateServerToShutdown(FakeHomeTestCase):
+
+    def test_openstack(self):
+        env = JujuData('foo', {
+            'type': 'openstack',
+            'region': 'lcy05',
+            'username': 'steve',
+            'password': 'password1',
+            'tenant-name': 'steven',
+            'auth-url': 'http://example.org',
+            }, self.juju_home)
+        client = fake_juju_client(env=env)
+        with patch('deploy_stack.wait_for_port', autospec=True) as wfp_mock:
+            with patch('deploy_stack.has_nova_instance', autospec=True,
+                       return_value=False) as hni_mock:
+                with patch('deploy_stack.print_now', autospec=True) as pn_mock:
+                    wait_for_state_server_to_shutdown(
+                        'example.org', client, 'i-255')
+        self.assertEqual(pn_mock.mock_calls, [
+            call('Waiting for port to close on example.org'),
+            call('Closed.'),
+            call('i-255 was removed from nova list'),
+            ])
+        wfp_mock.assert_called_once_with('example.org', 17070, closed=True,
+                                         timeout=60)
+        hni_mock.assert_called_once_with(client.env, 'i-255')
