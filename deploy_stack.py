@@ -53,6 +53,7 @@ from remote import (
 )
 from substrate import (
     destroy_job_instances,
+    has_nova_instance,
     LIBVIRT_DOMAIN_RUNNING,
     resolve_remote_dns_names,
     start_libvirt_domain,
@@ -1084,11 +1085,8 @@ def wait_for_state_server_to_shutdown(host, client, instance_id, timeout=60):
     except NoProvider:
         provider_type = None
     if provider_type == 'openstack':
-        environ = dict(os.environ)
-        environ.update(translate_to_env(client.env.make_config_copy()))
         for ignored in until_timeout(300):
-            output = subprocess.check_output(['nova', 'list'], env=environ)
-            if instance_id not in output:
+            if not has_nova_instance(client.env, instance_id):
                 print_now('{} was removed from nova list'.format(instance_id))
                 break
         else:

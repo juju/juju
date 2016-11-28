@@ -858,6 +858,20 @@ def describe_instances(instances=None, running=False, job_name=None,
     return parse_euca(subprocess.check_output(command, env=env))
 
 
+def has_nova_instance(boot_config, instance_id):
+    """Return True if the instance-id is present.  False otherwise.
+
+    This implementation was extracted from wait_for_state_server_to_shutdown.
+    It can be fooled into thinking that the instance-id is present when it is
+    not, but should be reliable for determining that the instance-id is not
+    present.
+    """
+    environ = dict(os.environ)
+    environ.update(translate_to_env(boot_config.make_config_copy()))
+    output = subprocess.check_output(['nova', 'list'], env=environ)
+    return bool(instance_id in output)
+
+
 def get_job_instances(job_name):
     description = describe_instances(job_name=job_name, running=True)
     return (machine_id for machine_id, name in description)

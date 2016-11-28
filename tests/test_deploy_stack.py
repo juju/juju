@@ -2504,7 +2504,8 @@ class TestWaitForStateServerToShutdown(FakeHomeTestCase):
             }, self.juju_home)
         client = fake_juju_client(env=env)
         with patch('deploy_stack.wait_for_port', autospec=True) as wfp_mock:
-            with patch('subprocess.check_output', autospec=True) as co_mock:
+            with patch('deploy_stack.has_nova_instance', autospec=True,
+                       return_value=False) as hni_mock:
                 with patch('deploy_stack.print_now', autospec=True) as pn_mock:
                     wait_for_state_server_to_shutdown(
                         'example.org', client, 'i-255')
@@ -2515,12 +2516,4 @@ class TestWaitForStateServerToShutdown(FakeHomeTestCase):
             ])
         wfp_mock.assert_called_once_with('example.org', 17070, closed=True,
                                          timeout=60)
-        co_mock.assert_called_once_with(['nova', 'list'], env={
-            'OS_AUTH_URL': 'http://example.org',
-            'OS_USERNAME': 'steve',
-            'PATH': os.environ['PATH'],
-            'HOME': self.home_dir,
-            'OS_PASSWORD': 'password1',
-            'OS_REGION_NAME': 'lcy05',
-            'OS_TENANT_NAME': 'steven',
-            })
+        hni_mock.assert_called_once_with(client.env, 'i-255')

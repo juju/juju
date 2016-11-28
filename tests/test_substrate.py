@@ -36,6 +36,7 @@ from substrate import (
     get_config,
     get_job_instances,
     get_libvirt_domstate,
+    has_nova_instance,
     JoyentAccount,
     LXDAccount,
     make_substrate_manager,
@@ -1507,6 +1508,38 @@ class TestLibvirt(TestCase):
         with patch('substrate.get_libvirt_domstate', return_value='shut off'):
             rval = verify_libvirt_domain(uri, dom_name, 'running')
         self.assertFalse(rval)
+
+
+class TestHasNovaInstance(TestCase):
+
+    def run_has_nova_instance(self, return_value=''):
+        boot_config = JujuData('foo', {
+            'type': 'openstack',
+            'region': 'lcy05',
+            'username': 'steve',
+            'password': 'password1',
+            'tenant-name': 'steven',
+            'auth-url': 'http://example.org',
+            }, 'home')
+        with patch('subprocess.check_output', autospec=True,
+                   return_value=return_value) as co_mock:
+            result = has_nova_instance(boot_config, 'i-255')
+        environ = dict(os.environ)
+        environ.update({
+            'OS_AUTH_URL': 'http://example.org',
+            'OS_USERNAME': 'steve',
+            'OS_PASSWORD': 'password1',
+            'OS_REGION_NAME': 'lcy05',
+            'OS_TENANT_NAME': 'steven',
+            })
+        co_mock.assert_called_once_with(['nova', 'list'], env=environ)
+        return result
+
+    def test_has_nova_instance_false(self):
+        self.assertIs(False, self.run_has_nova_instance())
+
+    def test_has_nova_instance_true(self):
+        self.assertIs(True, self.run_has_nova_instance('i-255'))
 
 
 class EucaTestCase(TestCase):
