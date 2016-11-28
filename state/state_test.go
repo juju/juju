@@ -2544,22 +2544,12 @@ func (s *StateSuite) TestRemoveAllModelDocs(c *gc.C) {
 	err := state.SetModelLifeDead(st, st.ModelUUID())
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Logs that should be removed.
-	writeLogs(c, st, 5)
-	// Logs that shouldn't.
-	writeLogs(c, s.State, 5)
-
 	err = st.RemoveAllModelDocs()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// test that we can not find the user:envName unique index
 	s.checkUserModelNameExists(c, checkUserModelNameArgs{st: st, id: userModelKey, exists: false})
 	s.AssertModelDeleted(c, st)
-
-	// These are still there.
-	assertLogCount(c, s.State, 5)
-	// These are gone.
-	assertLogCount(c, st, 0)
 }
 
 func (s *StateSuite) TestRemoveAllModelDocsAliveEnvFails(c *gc.C) {
@@ -2601,11 +2591,6 @@ func (s *StateSuite) TestRemoveImportingModelDocsImporting(c *gc.C) {
 	err = model.SetMigrationMode(state.MigrationModeImporting)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Logs that should be removed.
-	writeLogs(c, st, 5)
-	// Logs that shouldn't.
-	writeLogs(c, s.State, 5)
-
 	err = st.RemoveImportingModelDocs()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -2613,11 +2598,6 @@ func (s *StateSuite) TestRemoveImportingModelDocsImporting(c *gc.C) {
 	s.checkUserModelNameExists(c, checkUserModelNameArgs{st: st, id: userModelKey, exists: false})
 	s.AssertModelDeleted(c, st)
 	c.Assert(state.HostedModelCount(c, s.State), gc.Equals, 0)
-
-	// These are still there.
-	assertLogCount(c, s.State, 5)
-	// These are gone.
-	assertLogCount(c, st, 0)
 }
 
 func (s *StateSuite) TestRemoveExportingModelDocsFailsActive(c *gc.C) {
@@ -2651,11 +2631,6 @@ func (s *StateSuite) TestRemoveExportingModelDocsExporting(c *gc.C) {
 	err = model.SetMigrationMode(state.MigrationModeExporting)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Logs that should be removed.
-	writeLogs(c, st, 5)
-	// Logs that shouldn't.
-	writeLogs(c, s.State, 5)
-
 	err = st.RemoveExportingModelDocs()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -2663,10 +2638,60 @@ func (s *StateSuite) TestRemoveExportingModelDocsExporting(c *gc.C) {
 	s.checkUserModelNameExists(c, checkUserModelNameArgs{st: st, id: userModelKey, exists: false})
 	s.AssertModelDeleted(c, st)
 	c.Assert(state.HostedModelCount(c, s.State), gc.Equals, 0)
+}
 
-	// These are still there.
+func (s *StateSuite) TestRemoveExportingModelDocsRemovesLogs(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
+	defer st.Close()
+
+	model, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	err = model.SetMigrationMode(state.MigrationModeExporting)
+	c.Assert(err, jc.ErrorIsNil)
+
+	writeLogs(c, st, 5)
+	writeLogs(c, s.State, 5)
+
+	err = st.RemoveExportingModelDocs()
+	c.Assert(err, jc.ErrorIsNil)
+
 	assertLogCount(c, s.State, 5)
-	// These are gone.
+	assertLogCount(c, st, 0)
+}
+
+func (s *StateSuite) TestRemoveImportingModelDocsRemovesLogs(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
+	defer st.Close()
+
+	model, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	err = model.SetMigrationMode(state.MigrationModeImporting)
+	c.Assert(err, jc.ErrorIsNil)
+
+	writeLogs(c, st, 5)
+	writeLogs(c, s.State, 5)
+
+	err = st.RemoveImportingModelDocs()
+	c.Assert(err, jc.ErrorIsNil)
+
+	assertLogCount(c, s.State, 5)
+	assertLogCount(c, st, 0)
+}
+
+func (s *StateSuite) TestRemoveAllModelDocsRemovesLogs(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
+	defer st.Close()
+
+	err := state.SetModelLifeDead(st, st.ModelUUID())
+	c.Assert(err, jc.ErrorIsNil)
+
+	writeLogs(c, st, 5)
+	writeLogs(c, s.State, 5)
+
+	err = st.RemoveAllModelDocs()
+	c.Assert(err, jc.ErrorIsNil)
+
+	assertLogCount(c, s.State, 5)
 	assertLogCount(c, st, 0)
 }
 
