@@ -405,9 +405,6 @@ class SimpleEnvironment:
             name = selected
         return cls(name, config)
 
-    def needs_sudo(self):
-        return self.local
-
     @contextmanager
     def make_jes_home(self, juju_home, dir_name, new_config):
         """Make a JUJU_HOME/DATA directory to avoid conflicts.
@@ -1505,10 +1502,10 @@ class EnvJujuClient:
                 controller=self.env.controller.name,
                 model=self.model_name)
 
-    def _full_args(self, command, sudo, args,
+    # 2016-11-23: This appears to be called only in testing.
+    def _full_args(self, command, args,
                    timeout=None, include_e=True, controller=False):
         model = self._cmd_model(include_e, controller)
-        # sudo is not needed for devel releases.
         return self._backend.full_args(command, args, model, timeout)
 
     @staticmethod
