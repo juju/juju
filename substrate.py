@@ -12,7 +12,6 @@ from boto import ec2
 from boto.exception import EC2ResponseError
 
 import gce
-import get_ami
 from jujuconfig import (
     get_euca_env,
     translate_to_env,
@@ -844,37 +843,6 @@ def parse_euca(euca_output):
         if fields[0] != 'INSTANCE':
             continue
         yield fields[1], fields[3]
-
-
-def run_instances(count, job_name, series, region=None):
-    """create a number of instances in ec2 and tag them.
-
-    :param count: The number of instances to create.
-    :param job_name: The name of job that owns the instances (used as a tag).
-    :param series: The series to run in the instance.
-        If None, Precise will be used.
-    """
-    if series is None:
-        series = 'precise'
-    environ = dict(os.environ)
-    ami = get_ami.query_ami(series, "amd64", region=region)
-    command = [
-        'euca-run-instances', '-k', 'id_rsa', '-n', '%d' % count,
-        '-t', 'm3.large', '-g', 'manual-juju-test', ami]
-    run_output = subprocess.check_output(command, env=environ).strip()
-    machine_ids = dict(parse_euca(run_output)).keys()
-    for remaining in until_timeout(300):
-        try:
-            names = dict(describe_instances(machine_ids, env=environ))
-            if '' not in names.values():
-                subprocess.check_call(
-                    ['euca-create-tags', '--tag', 'job_name=%s' % job_name] +
-                    machine_ids, env=environ)
-                return names.items()
-        except subprocess.CalledProcessError:
-            subprocess.call(['euca-terminate-instances'] + machine_ids)
-            raise
-        sleep(1)
 
 
 def describe_instances(instances=None, running=False, job_name=None,
