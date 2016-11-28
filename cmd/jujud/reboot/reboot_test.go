@@ -7,6 +7,7 @@ package reboot_test
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	stdtesting "testing"
 
 	"github.com/juju/testing"
@@ -16,10 +17,14 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/jujud/reboot"
 	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/service"
+	"github.com/juju/juju/service/common"
+	svctesting "github.com/juju/juju/service/common/testing"
 	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -37,6 +42,9 @@ type RebootSuite struct {
 
 	tmpDir           string
 	rebootScriptName string
+
+	services    []*svctesting.FakeService
+	serviceData *svctesting.FakeServiceData
 }
 
 var _ = gc.Suite(&RebootSuite{})
@@ -50,7 +58,6 @@ func (s *RebootSuite) SetUpSuite(c *gc.C) {
 }
 
 func (s *RebootSuite) SetUpTest(c *gc.C) {
-
 	s.JujuConnSuite.SetUpTest(c)
 	testing.PatchExecutableAsEchoArgs(c, s, rebootBin)
 	s.PatchEnvironment("TEMP", c.MkDir())
@@ -81,6 +88,68 @@ func (s *RebootSuite) SetUpTest(c *gc.C) {
 
 	s.acfg, err = agent.NewAgentConfig(configParams)
 	c.Assert(err, jc.ErrorIsNil)
+	fakeServices := []string{
+		"jujud-machine-1",
+		"jujud-unit-drupal-1",
+		"jujud-unit-mysql-1",
+		"fake-random-service",
+	}
+	for _, fake := range fakeServices {
+		s.addService(fake)
+	}
+	testing.PatchValue(&service.NewService, s.newService)
+	testing.PatchValue(&service.ListServices, s.listServices)
+}
+
+func (s *RebootSuite) addService(name string) {
+	svc, _ := s.newService(name, common.Conf{}, "")
+	svc.Install()
+	svc.Start()
+}
+
+func (s *RebootSuite) listServices() ([]string, error) {
+	return s.serviceData.InstalledNames(), nil
+}
+
+func (s *RebootSuite) newService(name string, conf common.Conf, series string) (service.Service, error) {
+	for _, svc := range s.services {
+		if svc.Name() == name {
+			return svc, nil
+		}
+	}
+	if s.serviceData == nil {
+		s.serviceData = svctesting.NewFakeServiceData()
+	}
+	svc := &svctesting.FakeService{
+		FakeServiceData: s.serviceData,
+		Service: common.Service{
+			Name: name,
+			Conf: common.Conf{},
+		},
+	}
+	s.services = append(s.services, svc)
+	return svc, nil
+}
+
+func (s *RebootSuite) TestRebootStopUnits(c *gc.C) {
+	w, err := reboot.NewRebootWaiter(s.st, s.acfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = w.ExecuteReboot(params.ShouldReboot)
+	c.Assert(err, jc.ErrorIsNil)
+
+	for _, svc := range s.services {
+		name := svc.Name()
+		if strings.HasPrefix(name, `jujud-unit-`) {
+			running, err := svc.Running()
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(running, jc.IsFalse)
+		} else {
+			running, err := svc.Running()
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(running, jc.IsTrue)
+		}
+	}
 }
 
 func (s *RebootSuite) TearDownTest(c *gc.C) {

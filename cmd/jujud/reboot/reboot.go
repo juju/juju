@@ -96,7 +96,7 @@ func (r *Reboot) ExecuteReboot(action params.RebootAction) error {
 func (r *Reboot) stopDeployedUnits() error {
 	osVersion, err := series.HostSeries()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	services, err := service.ListServices()
 	if err != nil {
