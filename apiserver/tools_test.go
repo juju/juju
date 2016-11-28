@@ -265,7 +265,7 @@ func (s *toolsSuite) TestMigrateToolsNotMigrating(c *gc.C) {
 	resp := s.uploadRequest(c, uri.String(), "application/x-tar-gz", toolPath)
 	s.assertErrorResponse(
 		c, resp, http.StatusBadRequest,
-		"model not importing",
+		`model migration mode is "" instead of "importing"`,
 	)
 }
 
