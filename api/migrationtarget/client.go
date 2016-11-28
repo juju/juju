@@ -16,6 +16,7 @@ import (
 	"github.com/juju/httprequest"
 	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6-unstable/resource"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/base"
@@ -107,6 +108,24 @@ func (c *Client) UploadTools(modelUUID string, r io.ReadSeeker, vers version.Bin
 		return nil, errors.Trace(err)
 	}
 	return resp.ToolsList, nil
+}
+
+// XXX needs tests
+// XXX
+func (c *Client) UploadResource(modelUUID string, res resource.Resource, r io.ReadSeeker) error {
+	args := url.Values{}
+	args.Add("name", res.Name)
+	args.Add("type", res.Type.String())
+	args.Add("path", res.Path)
+	args.Add("description", res.Description)
+	args.Add("origin", res.Origin.String())
+	args.Add("revision", fmt.Sprintf("%d", res.Revision))
+	args.Add("size", fmt.Sprintf("%d", res.Size))
+	args.Add("fingerprint", res.Fingerprint.Hex())
+	uri := "/migrate/resources?" + args.Encode()
+	contentType := "application/octet-stream"
+	err := c.httpPost(modelUUID, r, uri, contentType, nil)
+	return errors.Trace(err)
 }
 
 func (c *Client) httpPost(modelUUID string, content io.ReadSeeker, endpoint, contentType string, response interface{}) error {
