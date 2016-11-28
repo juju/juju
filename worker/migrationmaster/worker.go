@@ -88,6 +88,9 @@ type Facade interface {
 	// associated with the API connection.
 	Export() (coremigration.SerializedModel, error)
 
+	// XXX
+	OpenResource(string, string) (io.ReadCloser, error)
+
 	// Reap removes all documents of the model associated with the API
 	// connection.
 	Reap() error
@@ -116,7 +119,8 @@ type Config struct {
 	UploadBinaries  func(migration.UploadBinariesConfig) error
 	CharmDownloader migration.CharmDownloader
 	ToolsDownloader migration.ToolsDownloader
-	Clock           clock.Clock
+	// XXX ResourceDownloader
+	Clock clock.Clock
 }
 
 // Validate returns an error if config cannot drive a Worker.
@@ -389,17 +393,29 @@ func (w *Worker) transferModel(targetInfo coremigration.TargetInfo, modelUUID st
 		return errors.Annotate(err, "failed to import model into target controller")
 	}
 
+	// XXX this might not stay like this
+	resources := make(map[string][]string)
+	for application, appResources := range serialized.Resources {
+		var names []string
+		for _, appResource := range appResources {
+			names = append(names, appResource.Name())
+		}
+		resources[application] = names
+	}
+
 	w.setInfoStatus("uploading model binaries into target controller")
 	wrapper := &uploadWrapper{targetClient, modelUUID}
 	err = w.config.UploadBinaries(migration.UploadBinariesConfig{
-		Charms:          serialized.Charms,
-		CharmDownloader: w.config.CharmDownloader,
-		CharmUploader:   wrapper,
-		Tools:           serialized.Tools,
-		ToolsDownloader: w.config.ToolsDownloader,
-		ToolsUploader:   wrapper,
+		Charms:             serialized.Charms,
+		CharmDownloader:    w.config.CharmDownloader,
+		CharmUploader:      wrapper,
+		Tools:              serialized.Tools,
+		ToolsDownloader:    w.config.ToolsDownloader,
+		ToolsUploader:      wrapper,
+		Resources:          resources,
+		ResourceDownloader: w.config.Facade,
 	})
-	return errors.Annotate(err, "failed migration binaries")
+	return errors.Annotate(err, "failed to migrate binaries")
 }
 
 func (w *Worker) doVALIDATION(status coremigration.MigrationStatus) (coremigration.Phase, error) {
