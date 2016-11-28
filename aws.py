@@ -150,7 +150,7 @@ def parse_args(argv):
         help=("The AWS EC2 secret."
               "Environment: $AWS_SECRET_KEY."),
         default=os.environ.get('AWS_SECRET_KEY'))
-    parser.add_argument('--region', help="The EC2 region.")
+    parser.add_argument('region', help="The EC2 region.")
     subparsers = parser.add_subparsers(help='sub-command help', dest="command")
     ls_parser = subparsers.add_parser(
         'list-instances', help='List vm instances.')

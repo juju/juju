@@ -51,7 +51,7 @@ class AWSTestCase(TestCase):
             with patch('aws.list_instances', autospec=True) as li_mock:
                 with patch.dict('os.environ', AWS_ENVIRON):
                     code = aws.main(
-                        ['aws.py', '--region', 'us-west-1',
+                        ['aws.py', 'us-west-1',
                          'list-instances', 'juju-deploy*'])
         self.assertEqual(0, code)
         gc_mock.assert_called_once_with(
@@ -67,7 +67,7 @@ class AWSTestCase(TestCase):
             with patch('aws.delete_instances', autospec=True) as di_mock:
                 with patch.dict('os.environ', AWS_ENVIRON):
                     code = aws.main(
-                        ['aws.py', '--region', 'us-west-1',
+                        ['aws.py', 'us-west-1',
                          'delete-instances', '-o', '2', 'juju-deploy*'])
         self.assertEqual(0, code)
         gc_mock.assert_called_once_with(
@@ -79,7 +79,7 @@ class AWSTestCase(TestCase):
     def test_parse_args_delete_instaces(self):
         with patch.dict('os.environ', AWS_ENVIRON):
             args = aws.parse_args(
-                ['aws.py', '-v', '-d', '--region', 'us-west-1',
+                ['aws.py', '-v', '-d', 'us-west-1',
                  'delete-instances', '-o', '2', 'juju-deploy*'])
         expected = Namespace(
             command='delete-instances', dry_run=True, filter='juju-deploy*',
@@ -90,7 +90,7 @@ class AWSTestCase(TestCase):
     def test_parse_args_list_instances(self):
         with patch.dict('os.environ', AWS_ENVIRON):
             args = aws.parse_args(
-                ['aws.py', '-v', '-d', '--region', 'us-west-1',
+                ['aws.py', '-v', '-d', 'us-west-1',
                  'list-instances', 'juju-deploy*'])
         expected = Namespace(
             command='list-instances', dry_run=True, filter='juju-deploy*',
@@ -100,7 +100,7 @@ class AWSTestCase(TestCase):
 
     def test_parse_args_without_env(self):
         args = aws.parse_args(
-            ['aws.py', '-v', '-d', '--region', 'us-west-1',
+            ['aws.py', '-v', '-d', 'us-west-1',
              '--aws-access-key', 'access123', '--aws-secret', 'secret',
              'delete-instances', '-o', '2', 'juju-deploy*'])
         expected = Namespace(
