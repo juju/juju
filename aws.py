@@ -76,16 +76,16 @@ def list_instances(client, glob='*', print_out=False, states=['running']):
     """
     nodes = []
     for node in client.list_nodes():
-        if not fnmatch.fnmatch(node.name, glob):
-            log.debug('Skipping {}'.format(node.name))
-            continue
-        if node.state not in states:
+        if not (fnmatch.fnmatch(node.name, glob) and node.state in states):
             log.debug('Skipping {}'.format(node.name))
             continue
         nodes.append(node)
     if print_out:
         for node in nodes:
-            created = node.created_at.isoformat()
+            if node.created_at:
+                created = node.created_at.isoformat()
+            else:
+                created = 'UNKNOWN'
             region_name = client.region_name
             print('{}\t{}\t{}\t{}'.format(
                 node.name, region_name, created, node.state))
