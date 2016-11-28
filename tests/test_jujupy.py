@@ -54,11 +54,13 @@ from jujupy import (
     get_local_root,
     get_machine_dns_name,
     get_timeout_path,
+    get_timeout_prefix,
     HookFailedError,
     IncompatibleConfigClass,
     InstallError,
     jes_home_path,
     JESNotSupported,
+    Juju1XBackend,
     Juju2Backend,
     JujuData,
     JUJU_DEV_FEATURE_FLAGS,
@@ -208,6 +210,28 @@ class TestJuju2Backend(TestCase):
         # The feature_flags are combined in alphabetic order.
         self.assertEqual('june,run-test', env[JUJU_DEV_FEATURE_FLAGS])
 
+    def test_full_args(self):
+        backend = Juju2Backend('/bin/path/juju', '2.0', set(), False, None)
+        full = backend.full_args('help', ('commands',), None, None)
+        self.assertEqual(('juju', '--show-log', 'help', 'commands'), full)
+
+    def test_full_args_debug(self):
+        backend = Juju2Backend('/bin/path/juju', '2.0', set(), True, None)
+        full = backend.full_args('help', ('commands',), None, None)
+        self.assertEqual(('juju', '--debug', 'help', 'commands'), full)
+
+    def test_full_args_model(self):
+        backend = Juju2Backend('/bin/path/juju', '2.0', set(), False, None)
+        full = backend.full_args('help', ('commands',), 'test', None)
+        self.assertEqual(('juju', '--show-log', 'help', '-m', 'test',
+                          'commands'), full)
+
+    def test_full_args_timeout(self):
+        backend = Juju2Backend('/bin/path/juju', '2.0', set(), False, None)
+        full = backend.full_args('help', ('commands',), None, 600)
+        self.assertEqual(get_timeout_prefix(600, backend._timeout_path) +
+                         ('juju', '--show-log', 'help', 'commands'), full)
+
     def test_juju_checks_timeouts(self):
         backend = Juju2Backend('/bin/path', '2.0', set(), debug=False,
                                soft_deadline=datetime(2015, 1, 2, 3, 4, 5))
@@ -251,6 +275,15 @@ class TestJuju2Backend(TestCase):
                 with self.assertRaisesRegexp(SoftDeadlineExceeded,
                                              'Operation exceeded deadline.'):
                     backend.get_juju_output('cmd', ('args',), [], 'home')
+
+
+class TestJuju1XBackend(TestCase):
+
+    def test_full_args_model(self):
+        backend = Juju1XBackend('/bin/path/juju', '1.25', set(), False, None)
+        full = backend.full_args('help', ('commands',), 'test', None)
+        self.assertEqual(('juju', '--show-log', 'help', '-e', 'test',
+                          'commands'), full)
 
 
 class TestEnvJujuClient25(ClientTest):
