@@ -254,7 +254,7 @@ def build_ubuntu_agent(tarball_path, build_dir, goarch,
     with go_tarball(tarball_path) as (gopath, version):
         # This command always executes in a tmp dir, it does not make changes.
         go_build(
-            agent_package, goroot, gopath, architecture, 'linux',
+            agent_package, goroot, gopath, goarch, 'linux',
             dry_run=False, verbose=verbose)
         built_agent_path = os.path.join(gopath, 'bin', 'jujud')
         make_agent_tarball(
