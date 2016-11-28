@@ -20,6 +20,7 @@ from crossbuild import (
     make_client_tarball,
     make_agent_tarball,
     main,
+    parse_args,
     run_command,
     working_directory,
 )
@@ -339,3 +340,12 @@ class CrossBuildTestCase(TestCase):
              '1.2.3',
              os.getcwd()),
             mt_mock.call_args[0])
+
+
+class TestParseArgs(TestCase):
+
+    def test_parse_args_ubuntu_goarch(self):
+        args = parse_args(['ubuntu', '/ball/path'])
+        self.assertEqual('amd64', args.goarch)
+        args = parse_args(['ubuntu', '/ball/path', '--goarch', 'arm64'])
+        self.assertEqual('arm64', args.goarch)
