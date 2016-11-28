@@ -245,6 +245,22 @@ def build_centos(tarball_path, build_dir, dry_run=False, verbose=False):
             dry_run=dry_run, verbose=verbose)
 
 
+def build_ubuntu_agent(tarball_path, build_dir, dry_run=False, verbose=False):
+    """Build an ubuntu juju agent from a tarball."""
+    cwd = os.getcwd()
+    agent_package = os.path.join(JUJU_PACKAGE_PATH, 'cmd', 'jujud')
+    goroot = os.path.join(build_dir, 'golang-%s' % GOLANG_VERSION)
+    with go_tarball(tarball_path) as (gopath, version):
+        # This command always executes in a tmp dir, it does not make changes.
+        go_build(
+            agent_package, goroot, gopath, 'amd64', 'linux',
+            dry_run=False, verbose=verbose)
+        built_agent_path = os.path.join(gopath, 'bin', 'jujud')
+        make_agent_tarball(
+            'ubuntu', built_agent_path, version, cwd,
+            dry_run=dry_run, verbose=verbose)
+
+
 def parse_args(args=None):
     """Return the argument parser for this program."""
     parser = ArgumentParser(
