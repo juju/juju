@@ -414,6 +414,12 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 			stateAuthFunc: httpCtxt.stateForMigrationImporting,
 		},
 	)
+	add("/migrate/resources",
+		&resourceUploadHandler{
+			ctxt:          httpCtxt,
+			stateAuthFunc: httpCtxt.stateForMigration,
+		},
+	)
 	add("/model/:modeluuid/tools/:version",
 		&toolsDownloadHandler{
 			ctxt: httpCtxt,
