@@ -2080,13 +2080,7 @@ class EnvJujuClient:
                 with self.ignore_soft_deadline():
                     for _ in chain([None],
                                    until_timeout(timeout, start=start)):
-                        try:
-                            status = self.get_status()
-                        except CannotConnectEnv:
-                            log.info(
-                                'Suppressing "Unable to connect to'
-                                ' environment"')
-                            continue
+                        status = self.get_status()
                         states = translate(status)
                         if states is None:
                             break
