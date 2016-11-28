@@ -292,7 +292,7 @@ def parse_args(args=None):
     parser_win_agent = subparsers.add_parser(
         'win-agent', help='Build an amd64 windows juju agent.')
     parser_win_agent.add_argument(
-        '-b', '--build-dir', default='~/crossbuild',
+        '-b', '--build-dir', default='$HOME/crossbuild',
         help='The path cross build dir.')
     parser_win_agent.add_argument(
         'tarball_path', help='The path to the juju source tarball.')
@@ -311,6 +311,17 @@ def parse_args(args=None):
         '-b', '--build-dir', default='$HOME/crossbuild',
         help='The path cross build dir.')
     parser_centos.add_argument(
+        'tarball_path', help='The path to the juju source tarball.')
+    # ./crossbuild ubuntu juju-core-1.2.3.tar.gz
+    parser_ubuntu = subparsers.add_parser(
+        'ubuntu', help='Build an Ubuntu <something> agent.')
+    parser_ubuntu.add_argument(
+        '--goarch', default='amd64',
+        help='The GOARCH to build. Environment: $GOARCH.')
+    parser_ubuntu.add_argument(
+        '-b', '--build-dir', default='$HOME/crossbuild',
+        help='The path cross build dir.')
+    parser_ubuntu.add_argument(
         'tarball_path', help='The path to the juju source tarball.')
     return parser.parse_args(args)
 
@@ -338,6 +349,10 @@ def main(argv):
         elif args.command == 'centos':
             build_centos(
                 args.tarball_path, args.build_dir,
+                dry_run=args.dry_run, verbose=args.verbose)
+        elif args.command == 'ubuntu':
+            build_ubuntu_agent(
+                args.tarball_path, args.build_dir, args.goarch,
                 dry_run=args.dry_run, verbose=args.verbose)
     except Exception as e:
         print(e)
