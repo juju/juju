@@ -54,11 +54,13 @@ from jujupy import (
     get_local_root,
     get_machine_dns_name,
     get_timeout_path,
+    get_timeout_prefix,
     HookFailedError,
     IncompatibleConfigClass,
     InstallError,
     jes_home_path,
     JESNotSupported,
+    Juju1XBackend,
     Juju2Backend,
     JujuData,
     JUJU_DEV_FEATURE_FLAGS,
@@ -208,6 +210,28 @@ class TestJuju2Backend(TestCase):
         # The feature_flags are combined in alphabetic order.
         self.assertEqual('june,run-test', env[JUJU_DEV_FEATURE_FLAGS])
 
+    def test_full_args(self):
+        backend = Juju2Backend('/bin/path/juju', '2.0', set(), False, None)
+        full = backend.full_args('help', ('commands',), None, None)
+        self.assertEqual(('juju', '--show-log', 'help', 'commands'), full)
+
+    def test_full_args_debug(self):
+        backend = Juju2Backend('/bin/path/juju', '2.0', set(), True, None)
+        full = backend.full_args('help', ('commands',), None, None)
+        self.assertEqual(('juju', '--debug', 'help', 'commands'), full)
+
+    def test_full_args_model(self):
+        backend = Juju2Backend('/bin/path/juju', '2.0', set(), False, None)
+        full = backend.full_args('help', ('commands',), 'test', None)
+        self.assertEqual(('juju', '--show-log', 'help', '-m', 'test',
+                          'commands'), full)
+
+    def test_full_args_timeout(self):
+        backend = Juju2Backend('/bin/path/juju', '2.0', set(), False, None)
+        full = backend.full_args('help', ('commands',), None, 600)
+        self.assertEqual(get_timeout_prefix(600, backend._timeout_path) +
+                         ('juju', '--show-log', 'help', 'commands'), full)
+
     def test_juju_checks_timeouts(self):
         backend = Juju2Backend('/bin/path', '2.0', set(), debug=False,
                                soft_deadline=datetime(2015, 1, 2, 3, 4, 5))
@@ -251,6 +275,15 @@ class TestJuju2Backend(TestCase):
                 with self.assertRaisesRegexp(SoftDeadlineExceeded,
                                              'Operation exceeded deadline.'):
                     backend.get_juju_output('cmd', ('args',), [], 'home')
+
+
+class TestJuju1XBackend(TestCase):
+
+    def test_full_args_model(self):
+        backend = Juju1XBackend('/bin/path/juju', '1.25', set(), False, None)
+        full = backend.full_args('help', ('commands',), 'test', None)
+        self.assertEqual(('juju', '--show-log', 'help', '-e', 'test',
+                          'commands'), full)
 
 
 class TestEnvJujuClient25(ClientTest):
@@ -598,51 +631,6 @@ class TestEnvJujuClient(ClientTest):
         self.assertEqual('/foo/models/cache.yaml',
                          client.get_cache_path())
 
-    def test_full_args(self):
-        env = JujuData('foo')
-        client = EnvJujuClient(env, None, 'my/juju/bin')
-        full = client._full_args('bar', False, ('baz', 'qux'))
-        self.assertEqual(('bin', '--show-log', 'bar', '-m', 'foo:foo', 'baz',
-                          'qux'), full)
-        full = client._full_args('bar', True, ('baz', 'qux'))
-        self.assertEqual((
-            'bin', '--show-log', 'bar', '-m', 'foo:foo', 'baz', 'qux'), full)
-        full = client._full_args('bar', True, ('baz', 'qux'), controller=True)
-        self.assertEqual(
-            ('bin', '--show-log', 'bar', '-m', 'foo:controller', 'baz', 'qux'),
-            full)
-        client.env = None
-        full = client._full_args('bar', False, ('baz', 'qux'))
-        self.assertEqual(('bin', '--show-log', 'bar', 'baz', 'qux'), full)
-
-    def test_full_args_debug(self):
-        env = JujuData('foo')
-        client = EnvJujuClient(env, None, 'my/juju/bin', debug=True)
-        full = client._full_args('bar', False, ('baz', 'qux'))
-        self.assertEqual((
-            'bin', '--debug', 'bar', '-m', 'foo:foo', 'baz', 'qux'), full)
-
-    def test_full_args_action(self):
-        env = JujuData('foo')
-        client = EnvJujuClient(env, None, 'my/juju/bin')
-        full = client._full_args('action bar', False, ('baz', 'qux'))
-        self.assertEqual(
-            ('bin', '--show-log', 'action', 'bar', '-m', 'foo:foo',
-             'baz', 'qux'),
-            full)
-
-    def test_full_args_controller(self):
-        env = JujuData('foo')
-        client = EnvJujuClient(env, None, 'my/juju/bin')
-        with patch.object(client, 'get_controller_model_name',
-                          return_value='controller') as gamn_mock:
-            full = client._full_args('bar', False, ('baz', 'qux'),
-                                     controller=True)
-        self.assertEqual((
-            'bin', '--show-log', 'bar', '-m', 'foo:controller', 'baz', 'qux'),
-            full)
-        gamn_mock.assert_called_once_with()
-
     def test_make_model_config_prefers_agent_metadata_url(self):
         env = JujuData('qux', {
             'agent-metadata-url': 'foo',
@@ -794,16 +782,15 @@ class TestEnvJujuClient(ClientTest):
     def test_bootstrap_upload_tools(self):
         env = JujuData('foo', {'type': 'foo', 'region': 'baz'})
         client = EnvJujuClient(env, '2.0-zeta1', None)
-        with patch.object(client.env, 'needs_sudo', lambda: True):
-            with observable_temp_file() as config_file:
-                with patch.object(client, 'juju') as mock:
-                    client.bootstrap(upload_tools=True)
-            mock.assert_called_with(
-                'bootstrap', (
-                    '--upload-tools', '--constraints', 'mem=2G',
-                    'foo/baz', 'foo',
-                    '--config', config_file.name,
-                    '--default-model', 'foo'), include_e=False)
+        with observable_temp_file() as config_file:
+            with patch.object(client, 'juju') as mock:
+                client.bootstrap(upload_tools=True)
+        mock.assert_called_with(
+            'bootstrap', (
+                '--upload-tools', '--constraints', 'mem=2G',
+                'foo/baz', 'foo',
+                '--config', config_file.name,
+                '--default-model', 'foo'), include_e=False)
 
     def test_bootstrap_credential(self):
         env = JujuData('foo', {'type': 'foo', 'region': 'baz'})
@@ -3611,42 +3598,6 @@ class TestEnvJujuClient1X(ClientTest):
         self.assertEqual('/foo/environments/cache.yaml',
                          client.get_cache_path())
 
-    def test_full_args(self):
-        env = SimpleEnvironment('foo')
-        client = EnvJujuClient1X(env, None, 'my/juju/bin')
-        full = client._full_args('bar', False, ('baz', 'qux'))
-        self.assertEqual(('bin', '--show-log', 'bar', '-e', 'foo', 'baz',
-                          'qux'), full)
-        full = client._full_args('bar', True, ('baz', 'qux'))
-        self.assertEqual((
-            'bin', '--show-log', 'bar', '-e', 'foo',
-            'baz', 'qux'), full)
-        client.env = None
-        full = client._full_args('bar', False, ('baz', 'qux'))
-        self.assertEqual(('bin', '--show-log', 'bar', 'baz', 'qux'), full)
-
-    def test_full_args_debug(self):
-        env = SimpleEnvironment('foo')
-        client = EnvJujuClient1X(env, None, 'my/juju/bin', debug=True)
-        full = client._full_args('bar', False, ('baz', 'qux'))
-        self.assertEqual((
-            'bin', '--debug', 'bar', '-e', 'foo', 'baz', 'qux'), full)
-
-    def test_full_args_controller(self):
-        env = SimpleEnvironment('foo')
-        client = EnvJujuClient1X(env, None, 'my/juju/bin')
-        full = client._full_args('bar', False, ('baz', 'qux'), controller=True)
-        self.assertEqual((
-            'bin', '--show-log', 'bar', '-e', 'foo', 'baz', 'qux'), full)
-
-    def test_full_args_action(self):
-        env = SimpleEnvironment('foo')
-        client = EnvJujuClient1X(env, None, 'my/juju/bin')
-        full = client._full_args('action bar', False, ('baz', 'qux'))
-        self.assertEqual((
-            'bin', '--show-log', 'action', 'bar', '-e', 'foo', 'baz', 'qux'),
-            full)
-
     def test_bootstrap_maas(self):
         env = SimpleEnvironment('maas')
         with patch.object(EnvJujuClient1X, 'juju') as mock:
@@ -3674,9 +3625,8 @@ class TestEnvJujuClient1X(ClientTest):
     def test_bootstrap_upload_tools(self):
         env = SimpleEnvironment('foo')
         client = EnvJujuClient1X(env, None, None)
-        with patch.object(client.env, 'needs_sudo', lambda: True):
-            with patch.object(client, 'juju') as mock:
-                client.bootstrap(upload_tools=True)
+        with patch.object(client, 'juju') as mock:
+            client.bootstrap(upload_tools=True)
         mock.assert_called_with(
             'bootstrap', ('--upload-tools', '--constraints', 'mem=2G'))
 
@@ -3753,25 +3703,14 @@ class TestEnvJujuClient1X(ClientTest):
             create_cmd, controller_option + (
                 'bar', '--config', config_file.name), include_e=False)
 
-    def test_destroy_environment_non_sudo(self):
+    def test_destroy_environment(self):
         env = SimpleEnvironment('foo', {'type': 'ec2'})
         client = EnvJujuClient1X(env, None, None)
-        with patch.object(client.env, 'needs_sudo', lambda: False):
-            with patch.object(client, 'juju') as mock:
-                client.destroy_environment()
-            mock.assert_called_with(
-                'destroy-environment', ('foo', '--force', '-y'),
-                check=False, include_e=False, timeout=600)
-
-    def test_destroy_environment_sudo(self):
-        env = SimpleEnvironment('foo', {'type': 'ec2'})
-        client = EnvJujuClient1X(env, None, None)
-        with patch.object(client.env, 'needs_sudo', lambda: True):
-            with patch.object(client, 'juju') as mock:
-                client.destroy_environment()
-            mock.assert_called_with(
-                'destroy-environment', ('foo', '--force', '-y'),
-                check=False, include_e=False, timeout=600)
+        with patch.object(client, 'juju') as mock:
+            client.destroy_environment()
+        mock.assert_called_with(
+            'destroy-environment', ('foo', '--force', '-y'),
+            check=False, include_e=False, timeout=600)
 
     def test_destroy_environment_no_force(self):
         env = SimpleEnvironment('foo', {'type': 'ec2'})

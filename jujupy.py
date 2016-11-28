@@ -412,9 +412,6 @@ class SimpleEnvironment:
             name = selected
         return cls(name, config)
 
-    def needs_sudo(self):
-        return self.local
-
     @contextmanager
     def make_jes_home(self, juju_home, dir_name, new_config):
         """Make a JUJU_HOME/DATA directory to avoid conflicts.
@@ -1000,6 +997,8 @@ class Juju2Backend:
     Uses -m to specify models, uses JUJU_DATA to specify home directory.
     """
 
+    _model_flag = '-m'
+
     def __init__(self, full_path, version, feature_flags, debug,
                  soft_deadline=None):
         self._version = version
@@ -1086,7 +1085,7 @@ class Juju2Backend:
 
     def full_args(self, command, args, model, timeout):
         if model is not None:
-            e_arg = ('-m', model)
+            e_arg = (self._model_flag, model)
         else:
             e_arg = ()
         if timeout is None:
@@ -1197,6 +1196,8 @@ class Juju1XBackend(Juju2Backend):
     directory.
     """
 
+    _model_flag = '-e'
+
     def shell_environ(self, used_feature_flags, juju_home):
         """Generate a suitable shell environment.
 
@@ -1207,29 +1208,6 @@ class Juju1XBackend(Juju2Backend):
         env['JUJU_HOME'] = juju_home
         del env['JUJU_DATA']
         return env
-
-    def full_args(self, command, args, model, timeout):
-        if model is None:
-            e_arg = ()
-        else:
-            # In 1.x terminology, "model" is "environment".
-            e_arg = ('-e', model)
-        if timeout is None:
-            prefix = ()
-        else:
-            prefix = get_timeout_prefix(timeout, self._timeout_path)
-        logging = '--debug' if self.debug else '--show-log'
-
-        # If args is a string, make it a tuple. This makes writing commands
-        # with one argument a bit nicer.
-        if isinstance(args, basestring):
-            args = (args,)
-        # we split the command here so that the caller can control where the -e
-        # <env> flag goes.  Everything in the command string is put before the
-        # -e flag.
-        command = command.split()
-        return (prefix + (self.juju_name, logging,) + tuple(command) + e_arg +
-                args)
 
 
 def get_client_class(version):
@@ -1511,12 +1489,6 @@ class EnvJujuClient:
             return '{controller}:{model}'.format(
                 controller=self.env.controller.name,
                 model=self.model_name)
-
-    def _full_args(self, command, sudo, args,
-                   timeout=None, include_e=True, controller=False):
-        model = self._cmd_model(include_e, controller)
-        # sudo is not needed for devel releases.
-        return self._backend.full_args(command, args, model, timeout)
 
     @staticmethod
     def _get_env(env):
@@ -1905,7 +1877,7 @@ class EnvJujuClient:
             command, args, self.used_feature_flags, self.env.juju_home,
             model, check, timeout, extra_env)
 
-    def expect(self, command, args=(), sudo=False, include_e=True,
+    def expect(self, command, args=(), include_e=True,
                timeout=None, extra_env=None):
         """Return a process object that is running an interactive `command`.
 
@@ -1913,7 +1885,6 @@ class EnvJujuClient:
 
         :param command: String of the juju command to run.
         :param args: Tuple containing arguments for the juju `command`.
-        :param sudo: Whether to call `command` using sudo.
         :param include_e: Boolean regarding supplying the juju environment to
           `command`.
         :param timeout: A float that, if provided, is the timeout in which the
@@ -2087,13 +2058,7 @@ class EnvJujuClient:
                 with self.ignore_soft_deadline():
                     for _ in chain([None],
                                    until_timeout(timeout, start=start)):
-                        try:
-                            status = self.get_status()
-                        except CannotConnectEnv:
-                            log.info(
-                                'Suppressing "Unable to connect to'
-                                ' environment"')
-                            continue
+                        status = self.get_status()
                         states = translate(status)
                         if states is None:
                             break
