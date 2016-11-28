@@ -35,7 +35,6 @@ from jujucharm import (
 from jujuconfig import (
     get_jenv_path,
     get_juju_home,
-    translate_to_env,
 )
 from jujupy import (
     client_from_config,
@@ -1091,4 +1090,4 @@ def wait_for_state_server_to_shutdown(host, client, instance_id, timeout=60):
                 break
         else:
             raise Exception(
-                '{} was not deleted:\n{}'.format(instance_id, output))
+                '{} was not deleted:'.format(instance_id))
