@@ -601,9 +601,6 @@ class JujuData(SimpleEnvironment):
             endpoint = self._config['host']
         return self.find_endpoint_cloud(provider, endpoint)
 
-    def get_cloud_config(self):
-        return self.clouds['clouds'].get(self.get_cloud())
-
     def get_cloud_credentials_item(self):
         cloud_name = self.get_cloud()
         cloud = self.credentials['credentials'][cloud_name]
