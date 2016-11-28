@@ -1,7 +1,6 @@
 from contextlib import (
     contextmanager,
 )
-from copy import deepcopy
 import json
 import logging
 import os
@@ -13,7 +12,6 @@ from boto import ec2
 from boto.exception import EC2ResponseError
 
 import gce
-import get_ami
 from jujuconfig import (
     get_euca_env,
     translate_to_env,
@@ -54,10 +52,10 @@ def terminate_instances(env, instance_ids):
     provider_type = env.provider
     environ = dict(os.environ)
     if provider_type == 'ec2':
-        environ.update(get_euca_env(env.config))
+        environ.update(get_euca_env(env.make_config_copy()))
         command_args = ['euca-terminate-instances'] + instance_ids
     elif provider_type in ('openstack', 'rackspace'):
-        environ.update(translate_to_env(env.config))
+        environ.update(translate_to_env(env.make_config_copy()))
         command_args = ['nova', 'delete'] + instance_ids
     elif provider_type == 'maas':
         with maas_account_from_boot_config(env) as substrate:
@@ -698,7 +696,7 @@ def maas_account_from_boot_config(env):
     to use, try 2.0 and if that fails on login fallback to 1.0 instead.
     """
     maas_oauth = env.get_cloud_credentials()['maas-oauth']
-    args = (env.config['name'], env.config['maas-server'], maas_oauth)
+    args = (env.get_option('name'), env.get_option('maas-server'), maas_oauth)
     manager = MAASAccount(*args)
     try:
         manager.login()
@@ -734,7 +732,7 @@ class LXDAccount:
 
 
 def get_config(boot_config):
-    config = deepcopy(boot_config.config)
+    config = boot_config.make_config_copy()
     if boot_config.provider not in ('lxd', 'manual'):
         config.update(boot_config.get_cloud_credentials())
     return config
@@ -845,37 +843,6 @@ def parse_euca(euca_output):
         if fields[0] != 'INSTANCE':
             continue
         yield fields[1], fields[3]
-
-
-def run_instances(count, job_name, series, region=None):
-    """create a number of instances in ec2 and tag them.
-
-    :param count: The number of instances to create.
-    :param job_name: The name of job that owns the instances (used as a tag).
-    :param series: The series to run in the instance.
-        If None, Precise will be used.
-    """
-    if series is None:
-        series = 'precise'
-    environ = dict(os.environ)
-    ami = get_ami.query_ami(series, "amd64", region=region)
-    command = [
-        'euca-run-instances', '-k', 'id_rsa', '-n', '%d' % count,
-        '-t', 'm3.large', '-g', 'manual-juju-test', ami]
-    run_output = subprocess.check_output(command, env=environ).strip()
-    machine_ids = dict(parse_euca(run_output)).keys()
-    for remaining in until_timeout(300):
-        try:
-            names = dict(describe_instances(machine_ids, env=environ))
-            if '' not in names.values():
-                subprocess.check_call(
-                    ['euca-create-tags', '--tag', 'job_name=%s' % job_name] +
-                    machine_ids, env=environ)
-                return names.items()
-        except subprocess.CalledProcessError:
-            subprocess.call(['euca-terminate-instances'] + machine_ids)
-            raise
-        sleep(1)
 
 
 def describe_instances(instances=None, running=False, job_name=None,

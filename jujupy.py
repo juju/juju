@@ -276,16 +276,16 @@ class SimpleEnvironment:
             controller = Controller(environment)
         self.controller = controller
         self.environment = environment
-        self.config = config
+        self._config = config
         self.juju_home = juju_home
-        if self.config is not None:
+        if self._config is not None:
             try:
                 provider = self.provider
             except NoProvider:
                 provider = None
             self.local = bool(provider == 'local')
             self.kvm = (
-                self.local and bool(self.config.get('container') == 'kvm'))
+                self.local and bool(self._config.get('container') == 'kvm'))
             self.maas = bool(provider == 'maas')
             self.joyent = bool(provider == 'joyent')
         else:
@@ -295,7 +295,7 @@ class SimpleEnvironment:
             self.joyent = False
 
     def get_option(self, key, default=None):
-        return self.config.get(key, default)
+        return self._config.get(key, default)
 
     def update_config(self, new_config):
         for key, value in new_config.items():
@@ -306,7 +306,13 @@ class SimpleEnvironment:
                 continue
             if key == 'type':
                 logging.warning('Setting type is not 2.x compatible.')
-            self.config[key] = value
+            self._config[key] = value
+
+    def discard_option(self, key):
+        return self._config.pop(key, None)
+
+    def make_config_copy(self):
+        return deepcopy(self._config)
 
     @property
     def provider(self):
@@ -315,27 +321,27 @@ class SimpleEnvironment:
         See get_cloud to determine the specific cloud.
         """
         try:
-            return self.config['type']
+            return self._config['type']
         except KeyError:
             raise NoProvider('No provider specified.')
 
     def get_region(self):
         provider = self.provider
         if provider == 'azure':
-            if 'tenant-id' not in self.config:
-                return self.config['location'].replace(' ', '').lower()
-            return self.config['location']
+            if 'tenant-id' not in self._config:
+                return self._config['location'].replace(' ', '').lower()
+            return self._config['location']
         elif provider == 'joyent':
             matcher = re.compile('https://(.*).api.joyentcloud.com')
-            return matcher.match(self.config['sdc-url']).group(1)
+            return matcher.match(self._config['sdc-url']).group(1)
         elif provider == 'lxd':
-            return self.config.get('region', 'localhost')
+            return self._config.get('region', 'localhost')
         elif provider == 'manual':
-            return self.config['bootstrap-host']
+            return self._config['bootstrap-host']
         elif provider in ('maas', 'manual'):
             return None
         else:
-            return self.config['region']
+            return self._config['region']
 
     def set_region(self, region):
         try:
@@ -343,20 +349,20 @@ class SimpleEnvironment:
         except NoProvider:
             provider = None
         if provider == 'azure':
-            self.config['location'] = region
+            self._config['location'] = region
         elif provider == 'joyent':
-            self.config['sdc-url'] = (
+            self._config['sdc-url'] = (
                 'https://{}.api.joyentcloud.com'.format(region))
         elif provider == 'manual':
-            self.config['bootstrap-host'] = region
+            self._config['bootstrap-host'] = region
         elif provider == 'maas':
             if region is not None:
                 raise ValueError('Only None allowed for maas.')
         else:
-            self.config['region'] = region
+            self._config['region'] = region
 
     def clone(self, model_name=None):
-        config = deepcopy(self.config)
+        config = deepcopy(self._config)
         if model_name is None:
             model_name = self.environment
         else:
@@ -374,7 +380,7 @@ class SimpleEnvironment:
             return False
         if self.environment != other.environment:
             return False
-        if self.config != other.config:
+        if self._config != other._config:
             return False
         if self.local != other.local:
             return False
@@ -389,7 +395,7 @@ class SimpleEnvironment:
         if set_controller:
             self.controller.name = model_name
         self.environment = model_name
-        self.config['name'] = unqualified_model_name(model_name)
+        self._config['name'] = unqualified_model_name(model_name)
 
     @classmethod
     def from_config(cls, name):
@@ -432,7 +438,7 @@ class SimpleEnvironment:
         This implementation returns config variables in addition to
         credentials.
         """
-        return self.config
+        return self._config
 
     def dump_yaml(self, path, config):
         dump_environments_yaml(path, config)
@@ -442,7 +448,7 @@ class JujuData(SimpleEnvironment):
     """Represents a model in a JUJU_DATA directory for juju 2."""
 
     def __init__(self, environment, config=None, juju_home=None,
-                 controller=None):
+                 controller=None, cloud_name=None):
         """Constructor.
 
         This extends SimpleEnvironment's constructor.
@@ -460,22 +466,32 @@ class JujuData(SimpleEnvironment):
                                        controller)
         self.credentials = {}
         self.clouds = {}
+        self._cloud_name = cloud_name
 
     def clone(self, model_name=None):
         result = super(JujuData, self).clone(model_name)
         result.credentials = deepcopy(self.credentials)
         result.clouds = deepcopy(self.clouds)
+        result._cloud_name = self._cloud_name
         return result
 
     @classmethod
     def from_env(cls, env):
-        juju_data = cls(env.environment, env.config, env.juju_home)
+        juju_data = cls(env.environment, env._config, env.juju_home)
         juju_data.load_yaml()
         return juju_data
 
     def update_config(self, new_config):
         if 'type' in new_config:
             raise ValueError('type cannot be set via update_config.')
+        if self._cloud_name is not None:
+            # Do not accept changes that would alter the computed cloud name
+            # if computed cloud names are not in use.
+            for endpoint_key in ['maas-server', 'auth-url', 'host']:
+                if endpoint_key in new_config:
+                    raise ValueError(
+                        '{} cannot be changed with explicit cloud'
+                        ' name.'.format(endpoint_key))
         super(JujuData, self).update_config(new_config)
 
     def load_yaml(self):
@@ -528,7 +544,7 @@ class JujuData(SimpleEnvironment):
             config['auth-url'] = cloud_config['endpoint']
         elif provider == 'vsphere':
             config['host'] = cloud_config['endpoint']
-        data = JujuData(cloud, config, juju_home)
+        data = JujuData(cloud, config, juju_home, cloud_name=cloud)
         data.load_yaml()
         data.clouds = clouds
         if region is None:
@@ -562,10 +578,12 @@ class JujuData(SimpleEnvironment):
         raise LookupError('No such endpoint: {}'.format(endpoint))
 
     def get_cloud(self):
+        if self._cloud_name is not None:
+            return self._cloud_name
         provider = self.provider
         # Separate cloud recommended by: Juju Cloud / Credentials / BootStrap /
         # Model CLI specification
-        if provider == 'ec2' and self.config['region'] == 'cn-north-1':
+        if provider == 'ec2' and self._config['region'] == 'cn-north-1':
             return 'aws-china'
         if provider not in ('maas', 'openstack', 'vsphere'):
             return {
@@ -573,11 +591,11 @@ class JujuData(SimpleEnvironment):
                 'gce': 'google',
             }.get(provider, provider)
         if provider == 'maas':
-            endpoint = self.config['maas-server']
+            endpoint = self._config['maas-server']
         elif provider == 'openstack':
-            endpoint = self.config['auth-url']
+            endpoint = self._config['auth-url']
         elif provider == 'vsphere':
-            endpoint = self.config['host']
+            endpoint = self._config['host']
         return self.find_endpoint_cloud(provider, endpoint)
 
     def get_cloud_credentials_item(self):
@@ -3324,7 +3342,7 @@ def get_cache_path(juju_home, models=False):
 
 
 def make_safe_config(client):
-    config = dict(client.env.config)
+    config = client.env.make_config_copy()
     if 'agent-version' in client.bootstrap_replaces:
         config.pop('agent-version', None)
     else:

@@ -55,7 +55,6 @@ from substrate import (
     destroy_job_instances,
     LIBVIRT_DOMAIN_RUNNING,
     resolve_remote_dns_names,
-    run_instances,
     start_libvirt_domain,
     stop_libvirt_domain,
     verify_libvirt_domain,
@@ -726,29 +725,6 @@ class BootstrapManager:
                     status_msg = stop_libvirt_domain(URI, name)
                     logging.info("%s" % status_msg)
 
-    @contextmanager
-    def aws_machines(self):
-        """Handle starting/stopping AWS machines.
-
-        Machines are deliberately killed by tag so that any stray machines
-        from previous runs will be killed.
-        """
-        if (
-                self.client.env.provider != 'manual' or
-                self.bootstrap_host is not None):
-            yield []
-            return
-        try:
-            instances = run_instances(
-                3, self.temp_env_name, self.series, region=self.region)
-            new_bootstrap_host = instances[0][1]
-            self.known_hosts['0'] = new_bootstrap_host
-            yield [i[1] for i in instances[1:]]
-        finally:
-            if self.keep_env:
-                return
-            destroy_job_instances(self.temp_env_name)
-
     def tear_down(self, try_jes=False):
         """Tear down the client using tear_down_client.
 
@@ -946,14 +922,13 @@ class BootstrapManager:
     def top_context(self):
         """Context for running all juju operations in."""
         with self.maas_machines() as machines:
-            with self.aws_machines() as new_machines:
-                try:
-                    yield machines + new_machines
-                finally:
-                    # This is not done in dump_all_logs because it should be
-                    # done after tear down.
-                    if self.log_dir is not None:
-                        dump_juju_timings(self.client, self.log_dir)
+            try:
+                yield machines
+            finally:
+                # This is not done in dump_all_logs because it should be
+                # done after tear down.
+                if self.log_dir is not None:
+                    dump_juju_timings(self.client, self.log_dir)
 
     @contextmanager
     def booted_context(self, upload_tools, **kwargs):

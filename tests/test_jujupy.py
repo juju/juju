@@ -553,7 +553,7 @@ class TestEnvJujuClient(ClientTest):
             client.env.load_yaml.assert_called_once_with()
         self.assertIsInstance(client.env, JujuData)
         self.assertEqual(client.env.environment, 'foo')
-        self.assertEqual(client.env.config, {'type': 'bar'})
+        self.assertEqual(client.env._config, {'type': 'bar'})
         self.assertEqual(client.env.juju_home, 'baz')
 
     def test_get_version(self):
@@ -2157,7 +2157,7 @@ class TestEnvJujuClient(ClientTest):
         controller_env = controller_client.env
         self.assertEqual('controller', controller_env.environment)
         self.assertEqual(
-            {'bar': 'baz', 'name': 'controller'}, controller_env.config)
+            {'bar': 'baz', 'name': 'controller'}, controller_env._config)
 
     def test_list_controllers(self):
         client = EnvJujuClient(JujuData('foo'), None, None)
@@ -3638,7 +3638,7 @@ class TestEnvJujuClient1X(ClientTest):
                 '--bootstrap-series angsty does not match default-series:'
                 ' None'):
             client.bootstrap(bootstrap_series='angsty')
-        env.config.update({
+        env.update_config({
             'default-series': 'angsty',
             })
         with patch.object(client, 'juju') as mock:
@@ -3672,7 +3672,7 @@ class TestEnvJujuClient1X(ClientTest):
                 ' None'):
             client.get_bootstrap_args(upload_tools=True,
                                       bootstrap_series='angsty')
-        env.config['default-series'] = 'angsty'
+        env.update_config({'default-series': 'angsty'})
         args = client.get_bootstrap_args(upload_tools=True,
                                          bootstrap_series='angsty')
         self.assertEqual(args, ('--upload-tools', '--constraints', 'mem=2G'))
@@ -5175,7 +5175,7 @@ class TestUniquifyLocal(TestCase):
     def test_uniquify_local_empty(self):
         env = SimpleEnvironment('foo', {'type': 'local'})
         uniquify_local(env)
-        self.assertEqual(env.config, {
+        self.assertEqual(env._config, {
             'type': 'local',
             'api-port': 17071,
             'state-port': 37018,
@@ -5192,7 +5192,7 @@ class TestUniquifyLocal(TestCase):
             'syslog-port': 6515,
         })
         uniquify_local(env)
-        self.assertEqual(env.config, {
+        self.assertEqual(env._config, {
             'type': 'local',
             'api-port': 17072,
             'state-port': 37019,
@@ -5209,7 +5209,7 @@ class TestUniquifyLocal(TestCase):
             'syslog-port': 6515,
         })
         uniquify_local(env)
-        self.assertEqual(env.config, {
+        self.assertEqual(env._config, {
             'type': 'nonlocal',
             'api-port': 17071,
             'state-port': 37018,
@@ -5281,7 +5281,7 @@ class TestMakeSafeConfig(TestCase):
                                   juju_home='foo'))
         client.bootstrap_replaces = {'agent-version'}
         self.assertNotIn('agent-version', make_safe_config(client))
-        client.env.config['agent-version'] = '1.23'
+        client.env.update_config({'agent-version': '1.23'})
         self.assertNotIn('agent-version', make_safe_config(client))
 
 
@@ -5297,7 +5297,7 @@ class TestTempBootstrapEnv(FakeHomeTestCase):
         with bootstrap_context(client) as fake_home:
             with temp_bootstrap_env(fake_home, client):
                 stub_bootstrap(client)
-        self.assertEqual(env.config, {'type': 'local'})
+        self.assertEqual(env.provider, 'local')
 
     def test_temp_bootstrap_env_environment(self):
         env = SimpleEnvironment('qux', {'type': 'local'})
@@ -6513,8 +6513,8 @@ class TestSimpleEnvironment(TestCase):
         self.assertIs(SimpleEnvironment, type(copy))
         self.assertIsNot(orig, copy)
         self.assertEqual(copy.environment, 'foo')
-        self.assertIsNot(orig.config, copy.config)
-        self.assertEqual({'type': 'bar'}, copy.config)
+        self.assertIsNot(orig._config, copy._config)
+        self.assertEqual({'type': 'bar'}, copy._config)
         self.assertEqual('myhome', copy.juju_home)
         self.assertEqual('local1', copy.local)
         self.assertEqual('kvm1', copy.kvm)
@@ -6527,21 +6527,21 @@ class TestSimpleEnvironment(TestCase):
                                  'myhome')
         copy = orig.clone(model_name='newname')
         self.assertEqual('newname', copy.environment)
-        self.assertEqual('newname', copy.config['name'])
+        self.assertEqual('newname', copy.get_option('name'))
 
     def test_set_model_name(self):
         env = SimpleEnvironment('foo', {})
         env.set_model_name('bar')
         self.assertEqual(env.environment, 'bar')
         self.assertEqual(env.controller.name, 'bar')
-        self.assertEqual(env.config['name'], 'bar')
+        self.assertEqual(env.get_option('name'), 'bar')
 
     def test_set_model_name_not_controller(self):
         env = SimpleEnvironment('foo', {})
         env.set_model_name('bar', set_controller=False)
         self.assertEqual(env.environment, 'bar')
         self.assertEqual(env.controller.name, 'foo')
-        self.assertEqual(env.config['name'], 'bar')
+        self.assertEqual(env.get_option('name'), 'bar')
 
     def test_local_from_config(self):
         env = SimpleEnvironment('local', {'type': 'openstack'})
@@ -6560,7 +6560,7 @@ class TestSimpleEnvironment(TestCase):
         with temp_config():
             env = SimpleEnvironment.from_config('foo')
             self.assertIs(SimpleEnvironment, type(env))
-            self.assertEqual({'type': 'local'}, env.config)
+            self.assertEqual({'type': 'local'}, env._config)
 
     def test_from_bogus_config(self):
         with temp_config():
@@ -6606,6 +6606,18 @@ class TestSimpleEnvironment(TestCase):
                                    {'baz': 'qux'}) as jes_home:
                 self.assertFalse(os.path.exists(foo_path))
 
+    def test_discard_option(self):
+        env = SimpleEnvironment('foo', {'type': 'foo', 'bar': 'baz'})
+        discarded = env.discard_option('bar')
+        self.assertEqual('baz', discarded)
+        self.assertEqual({'type': 'foo'}, env._config)
+
+    def test_discard_option_not_present(self):
+        env = SimpleEnvironment('foo', {'type': 'foo'})
+        discarded = env.discard_option('bar')
+        self.assertIs(None, discarded)
+        self.assertEqual({'type': 'foo'}, env._config)
+
     def test_get_option(self):
         env = SimpleEnvironment('foo', {'type': 'azure', 'foo': 'bar'})
         self.assertEqual(env.get_option('foo'), 'bar')
@@ -6632,13 +6644,13 @@ class TestSimpleEnvironment(TestCase):
     def test_update_config(self):
         env = SimpleEnvironment('foo', {'type': 'azure'})
         env.update_config({'bar': 'baz', 'qux': 'quxx'})
-        self.assertEqual(env.config, {
+        self.assertEqual(env._config, {
             'type': 'azure', 'bar': 'baz', 'qux': 'quxx'})
 
     def test_update_config_region(self):
         env = SimpleEnvironment('foo', {'type': 'azure'})
         env.update_config({'region': 'foo1'})
-        self.assertEqual(env.config, {
+        self.assertEqual(env._config, {
             'type': 'azure', 'location': 'foo1'})
         self.assertEqual('WARNING Using set_region to set region to "foo1".\n',
                          self.log_stream.getvalue())
@@ -6646,7 +6658,7 @@ class TestSimpleEnvironment(TestCase):
     def test_update_config_type(self):
         env = SimpleEnvironment('foo', {'type': 'azure'})
         env.update_config({'type': 'foo1'})
-        self.assertEqual(env.config, {'type': 'foo1'})
+        self.assertEqual(env.provider, 'foo1')
         self.assertEqual('WARNING Setting type is not 2.x compatible.\n',
                          self.log_stream.getvalue())
 
@@ -6699,36 +6711,36 @@ class TestSimpleEnvironment(TestCase):
     def test_set_region(self):
         env = SimpleEnvironment('foo', {'type': 'bar'}, 'home')
         env.set_region('baz')
-        self.assertEqual(env.config['region'], 'baz')
+        self.assertEqual(env.get_option('region'), 'baz')
         self.assertEqual(env.get_region(), 'baz')
 
     def test_set_region_no_provider(self):
         env = SimpleEnvironment('foo', {}, 'home')
         env.set_region('baz')
-        self.assertEqual(env.config['region'], 'baz')
+        self.assertEqual(env.get_option('region'), 'baz')
 
     def test_set_region_joyent(self):
         env = SimpleEnvironment('foo', {'type': 'joyent'}, 'home')
         env.set_region('baz')
-        self.assertEqual(env.config['sdc-url'],
+        self.assertEqual(env.get_option('sdc-url'),
                          'https://baz.api.joyentcloud.com')
         self.assertEqual(env.get_region(), 'baz')
 
     def test_set_region_azure(self):
         env = SimpleEnvironment('foo', {'type': 'azure'}, 'home')
         env.set_region('baz')
-        self.assertEqual(env.config['location'], 'baz')
+        self.assertEqual(env.get_option('location'), 'baz')
         self.assertEqual(env.get_region(), 'baz')
 
     def test_set_region_lxd(self):
         env = SimpleEnvironment('foo', {'type': 'lxd'}, 'home')
         env.set_region('baz')
-        self.assertEqual(env.config['region'], 'baz')
+        self.assertEqual(env.get_option('region'), 'baz')
 
     def test_set_region_manual(self):
         env = SimpleEnvironment('foo', {'type': 'manual'}, 'home')
         env.set_region('baz')
-        self.assertEqual(env.config['bootstrap-host'], 'baz')
+        self.assertEqual(env.get_option('bootstrap-host'), 'baz')
         self.assertEqual(env.get_region(), 'baz')
 
     def test_set_region_maas(self):
@@ -6746,7 +6758,7 @@ class TestSimpleEnvironment(TestCase):
             'aws': {'credentials': {'aws': True}},
             'azure': {'credentials': {'azure': True}},
             }}
-        self.assertEqual(env.config, env.get_cloud_credentials())
+        self.assertEqual(env._config, env.get_cloud_credentials())
 
     def test_dump_yaml(self):
         env = SimpleEnvironment('baz', {'type': 'qux'}, 'home')
@@ -6773,6 +6785,7 @@ class TestJujuData(TestCase):
                          data_writer.credentials)
         self.assertEqual('bar', data_reader.get_cloud())
         self.assertEqual(region, data_reader.get_region())
+        self.assertEqual('bar', data_reader._cloud_name)
 
     def test_from_cloud_region_openstack(self):
         self.from_cloud_region('openstack', 'baz')
@@ -6784,20 +6797,22 @@ class TestJujuData(TestCase):
         self.from_cloud_region('vsphere', None)
 
     def test_clone(self):
-        orig = JujuData('foo', {'type': 'bar'}, 'myhome')
+        orig = JujuData('foo', {'type': 'bar'}, 'myhome',
+                        cloud_name='cloudname')
         orig.credentials = {'secret': 'password'}
         orig.clouds = {'name': {'meta': 'data'}}
         copy = orig.clone()
         self.assertIs(JujuData, type(copy))
         self.assertIsNot(orig, copy)
         self.assertEqual(copy.environment, 'foo')
-        self.assertIsNot(orig.config, copy.config)
-        self.assertEqual({'type': 'bar'}, copy.config)
+        self.assertIsNot(orig._config, copy._config)
+        self.assertEqual({'type': 'bar'}, copy._config)
         self.assertEqual('myhome', copy.juju_home)
         self.assertIsNot(orig.credentials, copy.credentials)
         self.assertEqual(orig.credentials, copy.credentials)
         self.assertIsNot(orig.clouds, copy.clouds)
         self.assertEqual(orig.clouds, copy.clouds)
+        self.assertEqual('cloudname', copy._cloud_name)
 
     def test_clone_model_name(self):
         orig = JujuData('foo', {'type': 'bar', 'name': 'oldname'}, 'myhome')
@@ -6805,18 +6820,18 @@ class TestJujuData(TestCase):
         orig.clouds = {'name': {'meta': 'data'}}
         copy = orig.clone(model_name='newname')
         self.assertEqual('newname', copy.environment)
-        self.assertEqual('newname', copy.config['name'])
+        self.assertEqual('newname', copy.get_option('name'))
 
     def test_update_config(self):
         env = JujuData('foo', {'type': 'azure'}, juju_home='')
         env.update_config({'bar': 'baz', 'qux': 'quxx'})
-        self.assertEqual(env.config, {
+        self.assertEqual(env._config, {
             'type': 'azure', 'bar': 'baz', 'qux': 'quxx'})
 
     def test_update_config_region(self):
         env = JujuData('foo', {'type': 'azure'}, juju_home='')
         env.update_config({'region': 'foo1'})
-        self.assertEqual(env.config, {
+        self.assertEqual(env._config, {
             'type': 'azure', 'location': 'foo1'})
         self.assertEqual('WARNING Using set_region to set region to "foo1".\n',
                          self.log_stream.getvalue())
@@ -6826,6 +6841,15 @@ class TestJujuData(TestCase):
         with self.assertRaisesRegexp(
                 ValueError, 'type cannot be set via update_config.'):
             env.update_config({'type': 'foo1'})
+
+    def test_update_config_cloud_name(self):
+        env = JujuData('foo', {'type': 'azure'}, juju_home='',
+                       cloud_name='steve')
+        for endpoint_key in ['maas-server', 'auth-url', 'host']:
+            with self.assertRaisesRegexp(
+                    ValueError, '{} cannot be changed with'
+                    ' explicit cloud name.'.format(endpoint_key)):
+                env.update_config({endpoint_key: 'foo1'})
 
     def test_get_cloud_random_provider(self):
         self.assertEqual(
@@ -6904,6 +6928,12 @@ class TestJujuData(TestCase):
             'azure': {'credentials': {'azure': True}},
             }}
         self.assertEqual({'aws': True}, juju_data.get_cloud_credentials())
+
+    def test_get_cloud_name_with_cloud_name(self):
+        juju_data = JujuData('foo', {'type': 'bar'}, 'home')
+        self.assertEqual('bar', juju_data.get_cloud())
+        juju_data = JujuData('foo', {'type': 'bar'}, 'home', cloud_name='baz')
+        self.assertEqual('baz', juju_data.get_cloud())
 
     def test_dump_yaml(self):
         cloud_dict = {'clouds': {'foo': {}}}

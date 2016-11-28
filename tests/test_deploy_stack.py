@@ -200,23 +200,23 @@ class DeployStackTestCase(FakeHomeTestCase):
             env, 'bar', series='wacky', bootstrap_host='baz',
             agent_url='url', agent_stream='devel')
         self.assertEqual('bar', env.environment)
-        self.assertEqual('bar', env.config['name'])
-        self.assertEqual('wacky', env.config['default-series'])
-        self.assertEqual('baz', env.config['bootstrap-host'])
-        self.assertEqual('url', env.config['tools-metadata-url'])
-        self.assertEqual('devel', env.config['agent-stream'])
-        self.assertNotIn('region', env.config)
+        self.assertEqual('bar', env.get_option('name'))
+        self.assertEqual('wacky', env.get_option('default-series'))
+        self.assertEqual('baz', env.get_option('bootstrap-host'))
+        self.assertEqual('url', env.get_option('tools-metadata-url'))
+        self.assertEqual('devel', env.get_option('agent-stream'))
+        self.assertNotIn('region', env._config)
 
     def test_update_env_region(self):
         env = SimpleEnvironment('foo', {'type': 'paas'})
         update_env(env, 'bar', region='region-foo')
-        self.assertEqual('region-foo', env.config['region'])
+        self.assertEqual('region-foo', env.get_region())
 
     def test_update_env_region_none(self):
         env = SimpleEnvironment('foo',
                                 {'type': 'paas', 'region': 'region-foo'})
         update_env(env, 'bar', region=None)
-        self.assertEqual('region-foo', env.config['region'])
+        self.assertEqual('region-foo', env.get_region())
 
     def test_dump_juju_timings(self):
         env = JujuData('foo', {'type': 'bar'})
@@ -1510,19 +1510,6 @@ class TestBootstrapManager(FakeHomeTestCase):
                 bootstrap_host=None, machines=[], series=None, agent_url=None,
                 agent_stream=None, region=None, log_dir=None, keep_env=None)
 
-    def test_aws_machines_updates_bootstrap_host(self):
-        client = fake_juju_client()
-        client.env.config['type'] = 'manual'
-        bs_manager = BootstrapManager(
-            'foobar', client, client, None, [], None, None, None, None,
-            client.env.juju_home, False, False, False)
-        with patch('deploy_stack.run_instances',
-                   return_value=[('foo', 'aws.example.org')]):
-            with patch('deploy_stack.destroy_job_instances'):
-                with bs_manager.aws_machines():
-                    self.assertEqual({'0': 'aws.example.org'},
-                                     bs_manager.known_hosts)
-
     def test_from_args_no_host(self):
         args = Namespace(
             env='foo', juju_bin='bar', debug=True, temp_env_name='baz',
@@ -2416,7 +2403,7 @@ class TestBootContext(FakeHomeTestCase):
                               'log_dir', keep_env=False, upload_tools=False,
                               region='steve'):
                 pass
-        self.assertEqual('steve', client.env.config['region'])
+        self.assertEqual('steve', client.env.get_region())
 
     def test_region_non_jes(self):
         self.addContext(patch('subprocess.check_call', autospec=True))
@@ -2427,7 +2414,7 @@ class TestBootContext(FakeHomeTestCase):
                               'log_dir', keep_env=False, upload_tools=False,
                               region='steve'):
                 pass
-        self.assertEqual('steve', client.env.config['region'])
+        self.assertEqual('steve', client.env.get_region())
 
     def test_status_error_raises(self):
         """An error on final show-status propagates so an assess will fail."""

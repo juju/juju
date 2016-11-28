@@ -44,7 +44,6 @@ from substrate import (
     maas_account_from_boot_config,
     OpenStackAccount,
     parse_euca,
-    run_instances,
     start_libvirt_domain,
     StillProvisioning,
     stop_libvirt_domain,
@@ -98,8 +97,8 @@ def get_maas_boot_config():
         }, juju_home='')
     boot_config.clouds = {'clouds': {cloud_name: {
         'name': cloud_name,
-        'type': boot_config.config['type'],
-        'endpoint': boot_config.config['maas-server']
+        'type': boot_config.provider,
+        'endpoint': boot_config.get_option('maas-server'),
         }}}
     boot_config.credentials = {'credentials': {cloud_name: {'credentials': {
         'maas-oauth': 'a:password:string',
@@ -131,7 +130,7 @@ def get_rax_env():
 
 def get_aws_environ(env):
     environ = dict(os.environ)
-    environ.update(get_euca_env(env.config))
+    environ.update(get_euca_env(env.make_config_copy()))
     return environ
 
 
@@ -225,7 +224,7 @@ class TestTerminateInstances(TestCase):
         with patch('subprocess.check_call') as cc_mock:
             terminate_instances(env, ['foo', 'bar'])
         environ = dict(os.environ)
-        environ.update(translate_to_env(env.config))
+        environ.update(translate_to_env(env.make_config_copy()))
         cc_mock.assert_called_with(
             ['nova', 'delete', 'foo', 'bar'], env=environ)
         self.assertEqual(
@@ -246,7 +245,7 @@ class TestTerminateInstances(TestCase):
         with patch('subprocess.check_call') as cc_mock:
             terminate_instances(env, ['foo', 'bar'])
         environ = dict(os.environ)
-        environ.update(translate_to_env(env.config))
+        environ.update(translate_to_env(env.make_config_copy()))
         cc_mock.assert_called_with(
             ['nova', 'delete', 'foo', 'bar'], env=environ)
         self.assertEqual(
@@ -900,9 +899,12 @@ class TestMAASAccount(TestCase):
 
     def get_account(self):
         """Give a MAASAccount for testing."""
-        config = get_maas_env().config
+        boot_config = get_maas_env()
         return MAASAccount(
-            config['name'], config['maas-server'], config['maas-oauth'])
+            boot_config.get_option('name'),
+            boot_config.get_option('maas-server'),
+            boot_config.get_option('maas-oauth'),
+            )
 
     @patch('subprocess.check_call', autospec=True)
     def test_login(self, cc_mock):
@@ -1194,9 +1196,12 @@ class TestMAAS1Account(TestCase):
 
     def get_account(self):
         """Give a MAAS1Account for testing."""
-        config = get_maas_env().config
+        boot_config = get_maas_env()
         return MAAS1Account(
-            config['name'], config['maas-server'], config['maas-oauth'])
+            boot_config.get_option('name'),
+            boot_config.get_option('maas-server'),
+            boot_config.get_option('maas-oauth'),
+            )
 
     @patch('subprocess.check_call', autospec=True)
     def test_login(self, cc_mock):
@@ -1545,73 +1550,6 @@ class EucaTestCase(TestCase):
         description = parse_euca(euca_data)
         self.assertEqual(
             [('i-foo', 'bar-0'), ('i-baz', 'bar-1')], [d for d in description])
-
-    def test_run_instances_without_series(self):
-        euca_data = dedent("""
-            header
-            INSTANCE\ti-foo\tblah\tbar-0
-            INSTANCE\ti-baz\tblah\tbar-1
-        """)
-        description = [('i-foo', 'bar-0'), ('i-baz', 'bar-1')]
-        ami = "ami-atest"
-        with patch('subprocess.check_output',
-                   return_value=euca_data, autospec=True) as co_mock:
-            with patch('subprocess.check_call', autospec=True) as cc_mock:
-                with patch('substrate.describe_instances',
-                           return_value=description, autospec=True) as di_mock:
-                    with patch('get_ami.query_ami',
-                               return_value=ami, autospec=True) as qa_mock:
-                        run_instances(2, 'qux', None)
-        co_mock.assert_called_once_with(
-            ['euca-run-instances', '-k', 'id_rsa', '-n', '2',
-             '-t', 'm3.large', '-g', 'manual-juju-test', ami],
-            env=os.environ)
-        cc_mock.assert_called_once_with(
-            ['euca-create-tags', '--tag', 'job_name=qux', 'i-foo', 'i-baz'],
-            env=os.environ)
-        di_mock.assert_called_once_with(['i-foo', 'i-baz'], env=os.environ)
-        qa_mock.assert_called_once_with('precise', 'amd64', region=None)
-
-    @patch('get_ami.query_ami', autospec=True)
-    @patch('substrate.describe_instances', autospec=True)
-    @patch('subprocess.check_call', autospec=True)
-    @patch('subprocess.check_output', autospec=True)
-    def test_run_instances_with_series(self,
-                                       co_mock, cc_mock, di_mock, qa_mock):
-        co_mock.return_value = dedent("""
-            header
-            INSTANCE\ti-foo\tblah\tbar-0
-            INSTANCE\ti-baz\tblah\tbar-1
-            """)
-        di_mock.return_value = [('i-foo', 'bar-0'), ('i-baz', 'bar-1')]
-        qa_mock.return_value = "ami-atest"
-        run_instances(2, 'qux', 'wily')
-        qa_mock.assert_called_once_with('wily', 'amd64', region=None)
-
-    def test_run_instances_tagging_failed(self):
-        euca_data = 'INSTANCE\ti-foo\tblah\tbar-0'
-        description = [('i-foo', 'bar-0')]
-        with patch('subprocess.check_output',
-                   return_value=euca_data, autospec=True):
-            with patch('subprocess.check_call', autospec=True,
-                       side_effect=CalledProcessError('', '')):
-                with patch('substrate.describe_instances',
-                           return_value=description, autospec=True):
-                    with patch('subprocess.call', autospec=True) as c_mock:
-                        with self.assertRaises(CalledProcessError):
-                            run_instances(1, 'qux', 'trusty')
-        c_mock.assert_called_with(['euca-terminate-instances', 'i-foo'])
-
-    def test_run_instances_describe_failed(self):
-        euca_data = 'INSTANCE\ti-foo\tblah\tbar-0'
-        with patch('subprocess.check_output',
-                   return_value=euca_data, autospec=True):
-            with patch('substrate.describe_instances',
-                       side_effect=CalledProcessError('', '')):
-                with patch('subprocess.call', autospec=True) as c_mock:
-                    with self.assertRaises(CalledProcessError):
-                        run_instances(1, 'qux', 'trusty')
-        c_mock.assert_called_with(['euca-terminate-instances', 'i-foo'])
 
     def test_destroy_job_instances_none(self):
         with patch('substrate.get_job_instances',
