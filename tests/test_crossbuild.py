@@ -325,14 +325,15 @@ class CrossBuildTestCase(TestCase):
                    side_effect=fake_go_tarball) as gt_mock:
             with patch('crossbuild.go_build') as gb_mock:
                 with patch('crossbuild.make_agent_tarball') as mt_mock:
-                    build_ubuntu_agent('baz/bar_1.2.3.tar.gz', '/foo')
+                    build_ubuntu_agent('baz/bar_1.2.3.tar.gz', '/foo',
+                                       'arm64')
         args, kwargs = gt_mock.call_args
         self.assertEqual(('baz/bar_1.2.3.tar.gz', ), args)
         args, kwargs = gb_mock.call_args
         self.assertEqual(
             ('github.com/juju/juju/cmd/jujud',
              '/foo/golang-%s' % GOLANG_VERSION, 'baz/bar_1.2.3',
-             'amd64', 'linux'),
+             'arm64', 'linux'),
             args)
         self.assertEqual({'dry_run': False, 'verbose': False}, kwargs)
         self.assertEqual(
