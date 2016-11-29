@@ -338,6 +338,9 @@ func (u *Unit) Destroy() (err error) {
 		if historyErr := unit.eraseHistory(); historyErr != nil {
 			logger.Errorf("cannot delete history for unit %q: %v", unit.globalKey(), err)
 		}
+		if metricSummaryErr := unit.st.removeMetricSummariesForUnit(unit.Name()); metricSummaryErr != nil {
+			logger.Errorf("cannot delete metric summary for unit %q: %v", unit.globalKey(), err)
+		}
 		if err = unit.Refresh(); errors.IsNotFound(err) {
 			return nil
 		}
