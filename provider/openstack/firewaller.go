@@ -484,39 +484,39 @@ func (c *neutronFirewaller) setUpGlobalGroup(groupName string, apiPort int) (neu
 				RemoteIPPrefix: "0.0.0.0/0",
 			},
 			{
-				Direction:      "ingress",
-				IPProtocol:     "tcp",
-				PortRangeMin:   1,
-				PortRangeMax:   65535,
-				EthernetType:   "IPv6",
+				Direction:    "ingress",
+				IPProtocol:   "tcp",
+				PortRangeMin: 1,
+				PortRangeMax: 65535,
+				EthernetType: "IPv6",
 			},
 			{
-				Direction:      "ingress",
-				IPProtocol:     "tcp",
-				PortRangeMin:   1,
-				PortRangeMax:   65535,
+				Direction:    "ingress",
+				IPProtocol:   "tcp",
+				PortRangeMin: 1,
+				PortRangeMax: 65535,
 			},
 			{
-				Direction:      "ingress",
-				IPProtocol:     "udp",
-				PortRangeMin:   1,
-				PortRangeMax:   65535,
-				EthernetType:   "IPv6",
+				Direction:    "ingress",
+				IPProtocol:   "udp",
+				PortRangeMin: 1,
+				PortRangeMax: 65535,
+				EthernetType: "IPv6",
 			},
 			{
-				Direction:      "ingress",
-				IPProtocol:     "udp",
-				PortRangeMin:   1,
-				PortRangeMax:   65535,
+				Direction:    "ingress",
+				IPProtocol:   "udp",
+				PortRangeMin: 1,
+				PortRangeMax: 65535,
 			},
 			{
-				Direction:      "ingress",
-				IPProtocol:     "icmp",
-				EthernetType:   "IPv6",
+				Direction:    "ingress",
+				IPProtocol:   "icmp",
+				EthernetType: "IPv6",
 			},
 			{
-				Direction:      "ingress",
-				IPProtocol:     "icmp",
+				Direction:  "ingress",
+				IPProtocol: "icmp",
 			},
 		})
 }
@@ -549,7 +549,7 @@ func (c *neutronFirewaller) ensureGroup(name string, rules []neutron.RuleInfoV2)
 		// Neutron translates empty RemoteIPPrefix into
 		// 0.0.0.0/0 or ::/0 instead of ParentGroupId
 		// when EthernetType is set
-		if (rule.RemoteIPPrefix == "") {
+		if rule.RemoteIPPrefix == "" {
 			rule.RemoteGroupId = newGroup.Id
 		}
 		groupRule, err := neutronClient.CreateSecurityGroupRuleV2(rule)
