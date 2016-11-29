@@ -5,7 +5,11 @@ import datetime
 import errno
 import logging
 import os
-from io import StringIO
+import io
+try:
+    from StringIO import StringIO
+except ImportError:
+    from io import StringIO
 import subprocess
 from tempfile import NamedTemporaryFile
 import unittest
@@ -18,7 +22,7 @@ import utility
 
 @contextmanager
 def stdout_guard():
-    stdout = StringIO()
+    stdout = io.BytesIO()
     with patch('sys.stdout', stdout):
         yield
     if stdout.getvalue() != '':
@@ -121,7 +125,7 @@ setup_test_logging.__test__ = False
 
 @contextmanager
 def parse_error(test_case):
-    stderr = StringIO()
+    stderr = io.BytesIO()
     with test_case.assertRaises(SystemExit):
         with patch('sys.stderr', stderr):
             yield stderr
