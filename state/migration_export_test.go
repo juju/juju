@@ -1073,10 +1073,6 @@ func (s *MigrationExportSuite) TestResources(c *gc.C) {
 
 	exResource := exResources[0]
 	c.Check(exResource.Name(), gc.Equals, "spam")
-	c.Check(exResource.Revision(), gc.Equals, 2)
-	c.Check(exResource.CharmStoreRevision(), gc.Equals, 3)
-	exRevs := exResource.Revisions()
-	c.Assert(exRevs, gc.HasLen, 3)
 
 	checkExRevBase := func(exRev description.ResourceRevision, res charmresource.Resource) {
 		c.Check(exRev.Revision(), gc.Equals, res.Revision)
@@ -1094,33 +1090,28 @@ func (s *MigrationExportSuite) TestResources(c *gc.C) {
 		c.Check(exRev.Username(), gc.Equals, res.Username)
 	}
 
-	// Unit 1 revision.
-	checkExRev(exRevs[1], res1)
+	checkExRev(exResource.ApplicationRevision(), res2)
 
-	// Application and unit 2 revision.
-	checkExRev(exRevs[2], res2)
-
-	// Charmstore revision.
-	exRev3 := exRevs[3]
-	checkExRevBase(exRev3, res3)
+	csRev := exResource.CharmStoreRevision()
+	checkExRevBase(csRev, res3)
 	// These shouldn't be set for charmstore only revisions.
-	c.Check(exRev3.Timestamp(), gc.Equals, time.Time{})
-	c.Check(exRev3.Username(), gc.Equals, "")
+	c.Check(csRev.Timestamp(), gc.Equals, time.Time{})
+	c.Check(csRev.Username(), gc.Equals, "")
 
-	// Now check the revisions against each unit.
+	// Units
 	units := exApp.Units()
 	c.Assert(units, gc.HasLen, 2)
 
-	checkUnitRes := func(exUnit description.Unit, unit *state.Unit, revision int) {
+	checkUnitRes := func(exUnit description.Unit, unit *state.Unit, res resource.Resource) {
 		c.Assert(exUnit.Name(), gc.Equals, unit.Name())
-		resources := exUnit.Resources()
-		c.Assert(resources, gc.HasLen, 1)
-		resource := resources[0]
-		c.Check(resource.Name(), gc.Equals, "spam")
-		c.Check(resource.Revision(), gc.Equals, revision)
+		exResources := exUnit.Resources()
+		c.Assert(exResources, gc.HasLen, 1)
+		exRes := exResources[0]
+		c.Check(exRes.Name(), gc.Equals, "spam")
+		checkExRev(exRes.Revision(), res)
 	}
-	checkUnitRes(units[0], unit1, 1)
-	checkUnitRes(units[1], unit2, 2)
+	checkUnitRes(units[0], unit1, res1)
+	checkUnitRes(units[1], unit2, res2)
 }
 
 func (s *MigrationExportSuite) newResource(c *gc.C, appName, name string, revision int, body string) resource.Resource {

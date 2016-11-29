@@ -93,6 +93,7 @@ func (res Resource) Validate() error {
 
 // IsPlaceholder indicates whether or not the resource is a
 // "placeholder" (partially populated pending an upload).
+func (res Resource) IsPlaceholder() bool {
 	return res.Timestamp.IsZero()
 }
 

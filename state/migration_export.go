@@ -720,18 +720,11 @@ func (e *exporter) setResources(exApp description.Application, resources resourc
 		return errors.New("number of resources don't match charm store resources")
 	}
 
-	exResources := make(map[string]description.Resource)
-
 	for i, resource := range resources.Resources {
-		csResource := resources.CharmStoreResources[i]
 		exResource := exApp.AddResource(description.ResourceArgs{
-			Name:               resource.Name,
-			Revision:           resource.Revision,
-			CharmStoreRevision: csResource.Revision,
+			Name: resource.Name,
 		})
-		exResources[resource.Name] = exResource
-
-		_, err := exResource.AddRevision(description.ResourceRevisionArgs{
+		exResource.SetApplicationRevision(description.ResourceRevisionArgs{
 			Revision:       resource.Revision,
 			Type:           resource.Type.String(),
 			Path:           resource.Path,
@@ -742,11 +735,8 @@ func (e *exporter) setResources(exApp description.Application, resources resourc
 			Timestamp:      resource.Timestamp,
 			Username:       resource.Username,
 		})
-		if err != nil {
-			return errors.Annotate(err, "resource "+resource.Name)
-		}
-
-		_, err = exResource.AddRevision(description.ResourceRevisionArgs{
+		csResource := resources.CharmStoreResources[i]
+		exResource.SetCharmStoreRevision(description.ResourceRevisionArgs{
 			Revision:       csResource.Revision,
 			Type:           csResource.Type.String(),
 			Path:           csResource.Path,
@@ -755,19 +745,16 @@ func (e *exporter) setResources(exApp description.Application, resources resourc
 			Size:           csResource.Size,
 			FingerprintHex: csResource.Fingerprint.Hex(),
 		})
-		if err != nil {
-			return errors.Annotate(err, "charmstore resource "+resource.Name)
-		}
 	}
 
-	for _, unitResources := range resources.UnitResources {
-		for _, resource := range unitResources.Resources {
-			exResource, found := exResources[resource.Name]
-			if !found {
-				return errors.Errorf("no application resource found for unit %s resource %s",
-					unitResources.Tag.Id(), resource.Name)
-			}
-			_, err := exResource.AddRevision(description.ResourceRevisionArgs{
+	return nil
+}
+
+func (e *exporter) setUnitResources(exUnit description.Unit, allResources []resource.UnitResources) {
+	for _, resource := range findUnitResources(exUnit.Name(), allResources) {
+		exUnit.AddResource(description.UnitResourceArgs{
+			Name: resource.Name,
+			RevisionArgs: description.ResourceRevisionArgs{
 				Revision:       resource.Revision,
 				Type:           resource.Type.String(),
 				Path:           resource.Path,
@@ -777,22 +764,7 @@ func (e *exporter) setResources(exApp description.Application, resources resourc
 				Size:           resource.Size,
 				Timestamp:      resource.Timestamp,
 				Username:       resource.Username,
-			})
-			if err != nil {
-				return errors.Annotatef(err, "unit %s resource %s",
-					unitResources.Tag.Id(), resource.Name)
-			}
-		}
-	}
-
-	return nil
-}
-
-func (e *exporter) setUnitResources(exUnit description.Unit, allResources []resource.UnitResources) {
-	for _, resource := range findUnitResources(exUnit.Name(), allResources) {
-		exUnit.AddResource(description.UnitResourceArgs{
-			Name:     resource.Name,
-			Revision: resource.Revision,
+			},
 		})
 	}
 }
