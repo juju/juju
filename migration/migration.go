@@ -4,7 +4,6 @@
 package migration
 
 import (
-	"fmt"
 	"io"
 	"io/ioutil"
 	"net/url"
@@ -16,6 +15,7 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/core/description"
+	"github.com/juju/juju/resource"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/tools"
 )
@@ -90,6 +90,11 @@ type ResourceDownloader interface {
 	OpenResource(string, string) (io.ReadCloser, error)
 }
 
+// XXX
+type ResourceUploader interface {
+	UploadResource(resource.Resource, io.ReadSeeker) error
+}
+
 // UploadBinariesConfig provides all the configuration that the
 // UploadBinaries function needs to operate. To construct the config
 // with the default helper functions, use `NewUploadBinariesConfig`.
@@ -102,8 +107,9 @@ type UploadBinariesConfig struct {
 	ToolsDownloader ToolsDownloader
 	ToolsUploader   ToolsUploader
 
-	Resources          map[string][]string
+	Resources          []resource.Resource
 	ResourceDownloader ResourceDownloader
+	ResourceUploader   ResourceUploader
 }
 
 // Validate makes sure that all the config values are non-nil.
@@ -120,7 +126,7 @@ func (c *UploadBinariesConfig) Validate() error {
 	if c.ToolsUploader == nil {
 		return errors.NotValidf("missing ToolsUploader")
 	}
-	// XXX validate ResourceDownloader
+	// XXX validate ResourceDownloader & Uploader
 	return nil
 }
 
@@ -217,32 +223,29 @@ func uploadTools(config UploadBinariesConfig) error {
 	return nil
 }
 
+// XXX tests
 func uploadResources(config UploadBinariesConfig) error {
-	// XXX unfinished
-	for application, names := range config.Resources {
-		for _, name := range names {
-			logger.Debugf("opening resource for %s: %s", application, name)
-			reader, err := config.ResourceDownloader.OpenResource(application, name)
-			if err != nil {
-				return errors.Annotate(err, "cannot open resource")
-			}
-			defer reader.Close()
+	for _, res := range config.Resources {
+		// XXX handle each resource in a separate func to allow things to be cleaned up
+		logger.Debugf("opening resource for %s: %s", res.ApplicationID, res.Name)
+		reader, err := config.ResourceDownloader.OpenResource(res.ApplicationID, res.Name)
+		if err != nil {
+			return errors.Annotate(err, "cannot open resource")
+		}
+		defer reader.Close()
 
-			// XXX temporary
-			if err := writeResource(application, name, reader); err != nil {
-				return err
-			}
+		// TODO(menn0) - validate that the downloaded revision matches
+		// the expected metadata. Check revision and fingerprint.
+
+		content, cleanup, err := streamThroughTempFile(reader)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		defer cleanup()
+
+		if err := config.ResourceUploader.UploadResource(res, content); err != nil {
+			return errors.Annotate(err, "cannot upload resource")
 		}
 	}
 	return nil
-}
-
-func writeResource(application, name string, r io.Reader) error {
-	f, err := os.Create(fmt.Sprintf("/var/tmp/%s-%s.resource", application, name))
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	_, err = io.Copy(f, r)
-	return err
 }
