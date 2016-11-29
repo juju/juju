@@ -744,6 +744,9 @@ func (c *configInternal) APIInfo() (*api.Info, bool) {
 	addrs := c.apiDetails.addresses
 	if isController {
 		port := servingInfo.APIPort
+		// TODO(macgreagoir) IPv6. Ubuntu still always provides IPv4
+		// loopback, and when/if this changes localhost should resolve
+		// to IPv6 loopback in any case (lp:1644009). Review.
 		localAPIAddr := net.JoinHostPort("localhost", strconv.Itoa(port))
 		addrInAddrs := false
 		for _, addr := range addrs {
@@ -772,7 +775,10 @@ func (c *configInternal) MongoInfo() (info *mongo.MongoInfo, ok bool) {
 	if !ok {
 		return nil, false
 	}
-	addr := net.JoinHostPort("127.0.0.1", strconv.Itoa(ssi.StatePort))
+	// TODO(macgreagoir) IPv6. Ubuntu still always provides IPv4 loopback,
+	// and when/if this changes localhost should resolve to IPv6 loopback
+	// in any case (lp:1644009). Review.
+	addr := net.JoinHostPort("localhost", strconv.Itoa(ssi.StatePort))
 	return &mongo.MongoInfo{
 		Info: mongo.Info{
 			Addrs:  []string{addr},
