@@ -31,41 +31,24 @@ func (s *ResourceSuite) SetUpTest(c *gc.C) {
 
 func minimalResourceMap() map[interface{}]interface{} {
 	return map[interface{}]interface{}{
-		"application-revision": 3,
-		"charmstore-revision":  4,
-		"name":                 "bdist",
-		"revisions": []interface{}{
-			map[interface{}]interface{}{
-				"revision":    3,
-				"timestamp":   "2016-10-18T02:03:04Z",
-				"description": "description",
-				"fingerprint": "aaaaaaaa",
-				"origin":      "store",
-				"path":        "file.tar.gz",
-				"size":        111,
-				"type":        "file",
-				"username":    "user",
-			},
-			map[interface{}]interface{}{
-				"revision":    4,
-				"description": "description",
-				"fingerprint": "bbbbbbbb",
-				"origin":      "store",
-				"path":        "file.tar.gz",
-				"size":        222,
-				"type":        "file",
-			},
+		"name": "bdist",
+		"application-revision": map[interface{}]interface{}{
+			"revision":    3,
+			"description": "description",
+			"fingerprint": "aaaaaaaa",
+			"origin":      "store",
+			"path":        "file.tar.gz",
+			"size":        111,
+			"timestamp":   "2016-10-18T02:03:04Z",
+			"type":        "file",
+			"username":    "user",
 		},
 	}
 }
 
 func minimalResource() *resource {
-	r := newResource(ResourceArgs{
-		Name:               "bdist",
-		Revision:           3,
-		CharmStoreRevision: 4,
-	})
-	r.AddRevision(ResourceRevisionArgs{
+	r := newResource(ResourceArgs{Name: "bdist"})
+	r.SetApplicationRevision(ResourceRevisionArgs{
 		Revision:       3,
 		Type:           "file",
 		Path:           "file.tar.gz",
@@ -76,7 +59,27 @@ func minimalResource() *resource {
 		Timestamp:      time.Date(2016, 10, 18, 2, 3, 4, 0, time.UTC),
 		Username:       "user",
 	})
-	r.AddRevision(ResourceRevisionArgs{
+	return r
+}
+
+func (s *ResourceSuite) TestNew(c *gc.C) {
+	r := minimalResource()
+	c.Check(r.Name(), gc.Equals, "bdist")
+
+	appRev := r.ApplicationRevision()
+	c.Check(appRev.Revision(), gc.Equals, 3)
+	c.Check(appRev.Type(), gc.Equals, "file")
+	c.Check(appRev.Path(), gc.Equals, "file.tar.gz")
+	c.Check(appRev.Description(), gc.Equals, "description")
+	c.Check(appRev.Origin(), gc.Equals, "store")
+	c.Check(appRev.FingerprintHex(), gc.Equals, "aaaaaaaa")
+	c.Check(appRev.Size(), gc.Equals, int64(111))
+	c.Check(appRev.Timestamp(), gc.Equals, time.Date(2016, 10, 18, 2, 3, 4, 0, time.UTC))
+	c.Check(appRev.Username(), gc.Equals, "user")
+
+	c.Assert(r.CharmStoreRevision(), gc.IsNil)
+
+	r.SetCharmStoreRevision(ResourceRevisionArgs{
 		Revision:       4,
 		Type:           "file",
 		Path:           "file.tar.gz",
@@ -85,39 +88,16 @@ func minimalResource() *resource {
 		FingerprintHex: "bbbbbbbb",
 		Size:           222,
 	})
-	return r
-}
-
-func (s *ResourceSuite) TestNew(c *gc.C) {
-	r := minimalResource()
-	c.Check(r.Name(), gc.Equals, "bdist")
-	c.Check(r.ApplicationRevision(), gc.Equals, 3)
-	c.Check(r.CharmStoreRevision(), gc.Equals, 4)
-
-	rs := r.Revisions()
-	c.Assert(rs, gc.HasLen, 2)
-
-	rev3 := rs[3]
-	c.Check(rev3.Revision(), gc.Equals, 3)
-	c.Check(rev3.Type(), gc.Equals, "file")
-	c.Check(rev3.Path(), gc.Equals, "file.tar.gz")
-	c.Check(rev3.Description(), gc.Equals, "description")
-	c.Check(rev3.Origin(), gc.Equals, "store")
-	c.Check(rev3.FingerprintHex(), gc.Equals, "aaaaaaaa")
-	c.Check(rev3.Size(), gc.Equals, int64(111))
-	c.Check(rev3.Timestamp(), gc.Equals, time.Date(2016, 10, 18, 2, 3, 4, 0, time.UTC))
-	c.Check(rev3.Username(), gc.Equals, "user")
-
-	rev4 := rs[4]
-	c.Check(rev4.Revision(), gc.Equals, 4)
-	c.Check(rev4.Type(), gc.Equals, "file")
-	c.Check(rev4.Path(), gc.Equals, "file.tar.gz")
-	c.Check(rev4.Description(), gc.Equals, "description")
-	c.Check(rev4.Origin(), gc.Equals, "store")
-	c.Check(rev4.FingerprintHex(), gc.Equals, "bbbbbbbb")
-	c.Check(rev4.Size(), gc.Equals, int64(222))
-	c.Check(rev4.Timestamp(), gc.Equals, time.Time{})
-	c.Check(rev4.Username(), gc.Equals, "")
+	csRev := r.CharmStoreRevision()
+	c.Check(csRev.Revision(), gc.Equals, 4)
+	c.Check(csRev.Type(), gc.Equals, "file")
+	c.Check(csRev.Path(), gc.Equals, "file.tar.gz")
+	c.Check(csRev.Description(), gc.Equals, "description")
+	c.Check(csRev.Origin(), gc.Equals, "store")
+	c.Check(csRev.FingerprintHex(), gc.Equals, "bbbbbbbb")
+	c.Check(csRev.Size(), gc.Equals, int64(222))
+	c.Check(csRev.Timestamp(), gc.Equals, time.Time{})
+	c.Check(csRev.Username(), gc.Equals, "")
 }
 
 func (s *ResourceSuite) TestMinimalValid(c *gc.C) {
@@ -135,148 +115,42 @@ func (s *ResourceSuite) TestMinimalMatches(c *gc.C) {
 	c.Assert(source, jc.DeepEquals, minimalResourceMap())
 }
 
-func (s *ResourceSuite) TestValidateMissingRev(c *gc.C) {
-	r := newResource(ResourceArgs{
-		Name:               "bdist",
-		Revision:           3,
-		CharmStoreRevision: 3,
-	})
-	c.Assert(r.Validate(), gc.ErrorMatches, `missing application revision \(3\)`)
+func (s *ResourceSuite) TestValidateEmptyResource(c *gc.C) {
+	r := newResource(ResourceArgs{Name: "empty"})
+	c.Check(r.Validate(), gc.ErrorMatches, "no application revision set")
 }
 
-func (s *ResourceSuite) TestValidateMissingCharmStoreRev(c *gc.C) {
-	r := newResource(ResourceArgs{
-		Name:               "bdist",
-		Revision:           3,
-		CharmStoreRevision: 4,
-	})
-	r.AddRevision(ResourceRevisionArgs{
-		Revision:       3,
+func (s *ResourceSuite) TestValidateMissingApplicationRev(c *gc.C) {
+	r := newResource(ResourceArgs{Name: "bdist"})
+	r.SetCharmStoreRevision(ResourceRevisionArgs{
+		Revision:       4,
 		Type:           "file",
 		Path:           "file.tar.gz",
 		Description:    "description",
 		Origin:         "store",
-		FingerprintHex: "aaaaaaaa",
-		Size:           111,
-		Timestamp:      time.Date(2016, 10, 18, 2, 3, 4, 0, time.UTC),
-		Username:       "user",
+		FingerprintHex: "bbbbbbbb",
+		Size:           222,
 	})
-	c.Assert(r.Validate(), gc.ErrorMatches, `missing charmstore revision \(4\)`)
-}
-
-func (s *ResourceSuite) TestRevisionMerging(c *gc.C) {
-	now := time.Now().UTC()
-
-	args0 := ResourceRevisionArgs{
-		Revision: 3,
-	}
-	args1 := ResourceRevisionArgs{
-		Revision:       3,
-		Description:    "description",
-		Type:           "type",
-		Path:           "path",
-		FingerprintHex: "print",
-		Size:           123,
-		Timestamp:      now,
-		Username:       "user",
-	}
-
-	check := func(a, b ResourceRevisionArgs) {
-		r := newResource(ResourceArgs{
-			Name:               "bdist",
-			Revision:           3,
-			CharmStoreRevision: 3,
-		})
-		_, err := r.AddRevision(a)
-		c.Assert(err, jc.ErrorIsNil)
-		_, err = r.AddRevision(b)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(r.Validate(), jc.ErrorIsNil)
-
-		revs := r.Revisions()
-		c.Assert(revs, gc.HasLen, 1)
-		rev, found := revs[3]
-		c.Assert(found, jc.IsTrue)
-		c.Check(rev.Revision(), gc.Equals, 3)
-		c.Check(rev.Type(), gc.Equals, "type")
-		c.Check(rev.Description(), gc.Equals, "description")
-		c.Check(rev.Path(), gc.Equals, "path")
-		c.Check(rev.FingerprintHex(), gc.Equals, "print")
-		c.Check(rev.Size(), gc.Equals, int64(123))
-		c.Check(rev.Timestamp(), gc.Equals, now)
-		c.Check(rev.Username(), gc.Equals, "user")
-	}
-
-	// The merged revision should be the same regarding of ordering.
-	check(args0, args1)
-	check(args1, args0)
-}
-
-func (s *ResourceSuite) TestMergedRevisionsMismatch(c *gc.C) {
-	now := time.Now()
-	args0 := ResourceRevisionArgs{
-		Revision:       3,
-		Description:    "description",
-		Type:           "type",
-		Path:           "path",
-		FingerprintHex: "print",
-		Size:           123,
-		Timestamp:      now,
-		Username:       "user",
-	}
-	r := newResource(ResourceArgs{Name: "bdist"})
-	r.AddRevision(args0)
-
-	shouldFail := func(args ResourceRevisionArgs, field string) {
-		_, err := r.AddRevision(args)
-		c.Check(err, gc.ErrorMatches, field+" mismatch for revision 3")
-	}
-
-	args := args0
-	args.Description = "other"
-	shouldFail(args, "description")
-
-	args = args0
-	args.Type = "other"
-	shouldFail(args, "type")
-
-	args = args0
-	args.Path = "other"
-	shouldFail(args, "path")
-
-	args = args0
-	args.FingerprintHex = "other"
-	shouldFail(args, "fingerprint")
-
-	args = args0
-	args.Size = 999
-	shouldFail(args, "size")
-
-	args = args0
-	args.Timestamp = now.Add(time.Hour)
-	shouldFail(args, "timestamp")
-
-	args = args0
-	args.Username = "other"
-	shouldFail(args, "username")
-}
-
-func (s *ResourceSuite) TestDuplicateRevisions(c *gc.C) {
-	// This shouldn't really be possible but test it anyway.
-	r := newResource(ResourceArgs{
-		Name:               "bdist",
-		Revision:           3,
-		CharmStoreRevision: 3,
-	})
-	r.Revisions_ = []*resourceRevision{
-		&resourceRevision{Revision_: 3},
-		&resourceRevision{Revision_: 3},
-	}
-	c.Assert(r.Validate(), gc.ErrorMatches, `revision 3 appears more than once`)
+	c.Check(r.Validate(), gc.ErrorMatches, "no application revision set")
 }
 
 func (s *ResourceSuite) TestRoundTrip(c *gc.C) {
 	rIn := minimalResource()
+	rOut := s.exportImport(c, rIn)
+	c.Assert(rOut, jc.DeepEquals, rIn)
+}
+
+func (s *ResourceSuite) TestRoundTripWithCharmStoreRev(c *gc.C) {
+	rIn := minimalResource()
+	rIn.SetCharmStoreRevision(ResourceRevisionArgs{
+		Revision:       4,
+		Type:           "file",
+		Path:           "file.tar.gz",
+		Description:    "description",
+		Origin:         "store",
+		FingerprintHex: "bbbbbbbb",
+		Size:           222,
+	})
 	rOut := s.exportImport(c, rIn)
 	c.Assert(rOut, jc.DeepEquals, rIn)
 }

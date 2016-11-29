@@ -265,5 +265,5 @@ func (s *ApplicationSerializationSuite) TestResourcesAreValidated(c *gc.C) {
 	application := minimalApplication()
 	application.AddResource(ResourceArgs{Name: "foo"})
 	err := application.Validate()
-	c.Assert(err, gc.ErrorMatches, `resource foo: missing application revision .+`)
+	c.Assert(err, gc.ErrorMatches, `resource foo: no application revision set`)
 }

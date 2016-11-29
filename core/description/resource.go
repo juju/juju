@@ -15,22 +15,23 @@ type Resource interface {
 	// Name returns the name of the resource.
 	Name() string
 
+	// SetApplicationRevision sets the application revision of the
+	// resource.
+	SetApplicationRevision(ResourceRevisionArgs) ResourceRevision
+
 	// ApplicationRevision returns the revision of the resource as set
-	// on the application.
-	ApplicationRevision() int
+	// on the application. May return nil if SetApplicationRevision
+	// hasn't been called yet.
+	ApplicationRevision() ResourceRevision
+
+	// SetCharmStoreRevision sets the application revision of the
+	// resource.
+	SetCharmStoreRevision(ResourceRevisionArgs) ResourceRevision
 
 	// CharmStoreRevision returns the revision the charmstore has, as
-	// seen at the last poll.
-	CharmStoreRevision() int
-
-	// AddRevision defines a revision of the resource. If the revision
-	// has already been added, the revision details will be merged
-	// with the details added before.
-	AddRevision(ResourceRevisionArgs) (ResourceRevision, error)
-
-	// Revisions returns a map of known revisions for the resource,
-	// indexed by the revision number.
-	Revisions() map[int]ResourceRevision
+	// seen at the last poll. May return nil if SetCharmStoreRevision
+	// hasn't been called yet.
+	CharmStoreRevision() ResourceRevision
 
 	// Validate checks the consistency of the resource and its
 	// revisions.
@@ -53,16 +54,12 @@ type ResourceRevision interface {
 // ResourceArgs is an argument struct used to create a new internal
 // resource type that supports the Resource interface.
 type ResourceArgs struct {
-	Name               string
-	Revision           int
-	CharmStoreRevision int
+	Name string
 }
 
 func newResource(args ResourceArgs) *resource {
 	return &resource{
-		Name_:                args.Name,
-		ApplicationRevision_: args.Revision,
-		CharmStoreRevision_:  args.CharmStoreRevision,
+		Name_: args.Name,
 	}
 }
 
@@ -72,29 +69,13 @@ type resources struct {
 }
 
 type resource struct {
-	Name_                string              `yaml:"name"`
-	ApplicationRevision_ int                 `yaml:"application-revision"`
-	CharmStoreRevision_  int                 `yaml:"charmstore-revision"`
-	Revisions_           []*resourceRevision `yaml:"revisions"`
+	Name_                string            `yaml:"name"`
+	ApplicationRevision_ *resourceRevision `yaml:"application-revision"`
+	CharmStoreRevision_  *resourceRevision `yaml:"charmstore-revision,omitempty"`
 }
 
-// Name implements Resource.
-func (r *resource) Name() string {
-	return r.Name_
-}
-
-// ApplicationRevision implements Resource.
-func (r *resource) ApplicationRevision() int {
-	return r.ApplicationRevision_
-}
-
-// CharmStoreRevision implements Resource.
-func (r *resource) CharmStoreRevision() int {
-	return r.CharmStoreRevision_
-}
-
-// ResourceArgs is an argument struct used to add a new internal
-// resource revision to a Resource.
+// ResourceRevisionArgs is an argument struct used to add a new
+// internal resource revision to a Resource.
 type ResourceRevisionArgs struct {
 	Revision       int
 	Type           string
@@ -107,14 +88,43 @@ type ResourceRevisionArgs struct {
 	Username       string
 }
 
-// AddRevision implements Resource.
-func (r *resource) AddRevision(args ResourceRevisionArgs) (ResourceRevision, error) {
-	for _, rev := range r.Revisions_ {
-		if rev.Revision_ == args.Revision {
-			return rev.merge(args)
-		}
+// Name implements Resource.
+func (r *resource) Name() string {
+	return r.Name_
+}
+
+// SetApplicationRevision implements Resource.
+func (r *resource) SetApplicationRevision(args ResourceRevisionArgs) ResourceRevision {
+	r.ApplicationRevision_ = newResourceRevision(args)
+	return r.ApplicationRevision_
+}
+
+// ApplicationRevision implements Resource.
+func (r *resource) ApplicationRevision() ResourceRevision {
+	return r.ApplicationRevision_
+}
+
+// SetCharmStoreRevision implements Resource.
+func (r *resource) SetCharmStoreRevision(args ResourceRevisionArgs) ResourceRevision {
+	r.CharmStoreRevision_ = newResourceRevision(args)
+	return r.CharmStoreRevision_
+}
+
+// CharmStoreRevision implements Resource.
+func (r *resource) CharmStoreRevision() ResourceRevision {
+	return r.CharmStoreRevision_
+}
+
+// Validate implements Resource.
+func (r *resource) Validate() error {
+	if r.ApplicationRevision_ == nil {
+		return errors.New("no application revision set")
 	}
-	rev := &resourceRevision{
+	return nil
+}
+
+func newResourceRevision(args ResourceRevisionArgs) *resourceRevision {
+	return &resourceRevision{
 		Revision_:       args.Revision,
 		Type_:           args.Type,
 		Path_:           args.Path,
@@ -125,39 +135,6 @@ func (r *resource) AddRevision(args ResourceRevisionArgs) (ResourceRevision, err
 		Timestamp_:      timePtr(args.Timestamp),
 		Username_:       args.Username,
 	}
-	r.Revisions_ = append(r.Revisions_, rev)
-	return rev, nil
-}
-
-// Revisions implements Resource.
-func (r *resource) Revisions() map[int]ResourceRevision {
-	out := make(map[int]ResourceRevision)
-	for _, rev := range r.Revisions_ {
-		out[rev.Revision_] = rev
-	}
-	return out
-}
-
-// Validate implements Resource.
-func (r *resource) Validate() error {
-	revs := r.Revisions()
-	if _, ok := revs[r.ApplicationRevision_]; !ok {
-		return errors.Errorf("missing application revision (%d)", r.ApplicationRevision_)
-	}
-	if _, ok := revs[r.CharmStoreRevision_]; !ok {
-		return errors.Errorf("missing charmstore revision (%d)", r.CharmStoreRevision_)
-	}
-
-	seenRevs := make(map[int]struct{})
-	for _, rev := range r.Revisions_ {
-		revNum := rev.Revision_
-		if _, exists := seenRevs[revNum]; exists {
-			return errors.Errorf("revision %d appears more than once", revNum)
-		}
-		seenRevs[revNum] = struct{}{}
-	}
-
-	return nil
 }
 
 type resourceRevision struct {
@@ -220,70 +197,6 @@ func (r *resourceRevision) Username() string {
 	return r.Username_
 }
 
-func (r *resourceRevision) merge(args ResourceRevisionArgs) (*resourceRevision, error) {
-	// Check fields match where set.
-	mkErr := func(field string) error {
-		return errors.Errorf("%s mismatch for revision %d", field, args.Revision)
-	}
-	checkStr := func(field, a, b string) error {
-		if a != "" && b != "" && a != b {
-			return errors.Trace(mkErr(field))
-		}
-		return nil
-	}
-	if err := checkStr("description", args.Description, r.Description_); err != nil {
-		return nil, errors.Trace(err)
-	}
-	if err := checkStr("type", args.Type, r.Type_); err != nil {
-		return nil, errors.Trace(err)
-	}
-	if err := checkStr("path", args.Path, r.Path_); err != nil {
-		return nil, errors.Trace(err)
-	}
-	if err := checkStr("origin", args.Origin, r.Origin_); err != nil {
-		return nil, errors.Trace(err)
-	}
-	if err := checkStr("fingerprint", args.FingerprintHex, r.FingerprintHex_); err != nil {
-		return nil, errors.Trace(err)
-	}
-	if args.Size > 0 && r.Size_ > 0 && args.Size != r.Size_ {
-		return nil, mkErr("size")
-	}
-	if !args.Timestamp.IsZero() && r.Timestamp_ != nil && args.Timestamp.UTC() != r.Timestamp() {
-		return nil, mkErr("timestamp")
-	}
-	if err := checkStr("username", args.Username, r.Username_); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	// Now merge.
-	if args.Description != "" {
-		r.Description_ = args.Description
-	}
-	if args.Type != "" {
-		r.Type_ = args.Type
-	}
-	if args.Path != "" {
-		r.Path_ = args.Path
-	}
-	if args.Origin != "" {
-		r.Origin_ = args.Origin
-	}
-	if args.FingerprintHex != "" {
-		r.FingerprintHex_ = args.FingerprintHex
-	}
-	if args.Size != 0 {
-		r.Size_ = args.Size
-	}
-	if !args.Timestamp.IsZero() {
-		r.Timestamp_ = timePtr(args.Timestamp)
-	}
-	if args.Username != "" {
-		r.Username_ = args.Username
-	}
-	return r, nil
-}
-
 func importResources(source map[string]interface{}) ([]*resource, error) {
 	checker := versionedChecker("resources")
 	coerced, err := checker.Coerce(source, nil)
@@ -326,11 +239,13 @@ var resourceDeserializationFuncs = map[int]resourceDeserializationFunc{
 func importResourceV1(source map[string]interface{}) (*resource, error) {
 	fields := schema.Fields{
 		"name":                 schema.String(),
-		"application-revision": schema.Int(),
-		"charmstore-revision":  schema.Int(),
-		"revisions":            schema.List(schema.StringMap(schema.Any())),
+		"application-revision": schema.StringMap(schema.Any()),
+		"charmstore-revision":  schema.StringMap(schema.Any()),
 	}
-	checker := schema.FieldMap(fields, nil)
+	defaults := schema.Defaults{
+		"charmstore-revision": schema.Omit,
+	}
+	checker := schema.FieldMap(fields, defaults)
 
 	coerced, err := checker.Coerce(source, nil)
 	if err != nil {
@@ -340,19 +255,20 @@ func importResourceV1(source map[string]interface{}) (*resource, error) {
 
 	// From here we know that the map returned from the schema coercion
 	// contains fields of the right type.
-	name := valid["name"].(string)
-	revList := valid["revisions"].([]interface{})
 	r := newResource(ResourceArgs{
-		Name:               name,
-		Revision:           int(valid["application-revision"].(int64)),
-		CharmStoreRevision: int(valid["charmstore-revision"].(int64)),
+		Name: valid["name"].(string),
 	})
-	for i, revSource := range revList {
-		revision, err := importResourceRevisionV1(revSource)
+	appRev, err := importResourceRevisionV1(valid["application-revision"])
+	if err != nil {
+		return nil, errors.Annotatef(err, "resource %s: application revision", r.Name_)
+	}
+	r.ApplicationRevision_ = appRev
+	if source, exists := valid["charmstore-revision"]; exists {
+		csRev, err := importResourceRevisionV1(source)
 		if err != nil {
-			return nil, errors.Annotatef(err, "resource %s, revision index %d", name, i)
+			return nil, errors.Annotatef(err, "resource %s: charmstore revision", r.Name_)
 		}
-		r.Revisions_ = append(r.Revisions_, revision)
+		r.CharmStoreRevision_ = csRev
 	}
 	return r, nil
 }
