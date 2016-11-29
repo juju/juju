@@ -11,6 +11,7 @@ try:
 except ImportError:
     from io import StringIO
 import subprocess
+import sys
 from tempfile import NamedTemporaryFile
 import unittest
 
@@ -25,7 +26,10 @@ import utility
 
 @contextmanager
 def stdout_guard():
-    stdout = io.BytesIO()
+    if isinstance(sys.stdout, io.TextIOWrapper):
+        stdout = io.StringIO()
+    else:
+        stdout = io.BytesIO()
     with patch('sys.stdout', stdout):
         yield
     if stdout.getvalue() != '':
@@ -128,7 +132,10 @@ setup_test_logging.__test__ = False
 
 @contextmanager
 def parse_error(test_case):
-    stderr = io.BytesIO()
+    if isinstance(sys.stdout, io.TextIOWrapper):
+        stderr = io.StringIO()
+    else:
+        stderr = io.BytesIO()
     with test_case.assertRaises(SystemExit):
         with patch('sys.stderr', stderr):
             yield stderr
