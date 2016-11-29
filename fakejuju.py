@@ -110,7 +110,7 @@ class FakeControllerState:
         self.state = 'registered'
 
     def destroy(self, kill=False):
-        for model in self.models.values():
+        for model in list(self.models.values()):
             model.destroy_model()
         self.models.clear()
         if kill:
