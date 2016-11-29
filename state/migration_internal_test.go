@@ -42,6 +42,7 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		unitsC,
 		meterStatusC, // red / green status for metrics of units
 		payloadsC,
+		"resources",
 
 		// relation
 		relationsC,
@@ -182,10 +183,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 
 	// THIS SET WILL BE REMOVED WHEN MIGRATIONS ARE COMPLETE
 	todoCollections := set.NewStrings(
-
-		// service / unit
-		"resources",
-
 		// uncategorised
 		//Cross Model Relations - TODO
 		localApplicationDirectoryC,
