@@ -14,7 +14,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/common"
 	agentcmd "github.com/juju/juju/cmd/jujud/agent"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	"github.com/juju/juju/state"
@@ -161,10 +161,10 @@ func (s *debugLogDbSuite) TestLogsAPI(c *gc.C) {
 	dbLogger.Log(t, "juju.foo", "code.go:42", loggo.INFO, "all is well")
 	dbLogger.Log(t.Add(time.Second), "juju.bar", "go.go:99", loggo.ERROR, "no it isn't")
 
-	messages := make(chan api.LogMessage)
+	messages := make(chan common.LogMessage)
 	go func(numMessages int) {
 		client := s.APIState.Client()
-		logMessages, err := client.WatchDebugLog(api.DebugLogParams{})
+		logMessages, err := client.WatchDebugLog(common.DebugLogParams{})
 		c.Assert(err, jc.ErrorIsNil)
 
 		for n := 0; n < numMessages; n++ {
@@ -172,7 +172,7 @@ func (s *debugLogDbSuite) TestLogsAPI(c *gc.C) {
 		}
 	}(3)
 
-	assertMessage := func(expected api.LogMessage) {
+	assertMessage := func(expected common.LogMessage) {
 		select {
 		case actual := <-messages:
 			c.Assert(actual, jc.DeepEquals, expected)
@@ -182,7 +182,7 @@ func (s *debugLogDbSuite) TestLogsAPI(c *gc.C) {
 	}
 
 	// Read the 2 lines that are in the logs collection.
-	assertMessage(api.LogMessage{
+	assertMessage(common.LogMessage{
 		Entity:    "machine-99",
 		Timestamp: t,
 		Severity:  "INFO",
@@ -190,7 +190,7 @@ func (s *debugLogDbSuite) TestLogsAPI(c *gc.C) {
 		Location:  "code.go:42",
 		Message:   "all is well",
 	})
-	assertMessage(api.LogMessage{
+	assertMessage(common.LogMessage{
 		Entity:    "machine-99",
 		Timestamp: t.Add(time.Second),
 		Severity:  "ERROR",
@@ -201,7 +201,7 @@ func (s *debugLogDbSuite) TestLogsAPI(c *gc.C) {
 
 	// Now write and observe another log. This should be read from the oplog.
 	dbLogger.Log(t.Add(2*time.Second), "ju.jitsu", "no.go:3", loggo.WARNING, "beep beep")
-	assertMessage(api.LogMessage{
+	assertMessage(common.LogMessage{
 		Entity:    "machine-99",
 		Timestamp: t.Add(2 * time.Second),
 		Severity:  "WARNING",

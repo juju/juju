@@ -435,7 +435,7 @@ func (s *charmsSuite) TestMigrateCharmNotMigrating(c *gc.C) {
 	resp := s.uploadRequest(c, url.String(), "application/zip", ch.Path)
 	s.assertErrorResponse(
 		c, resp, http.StatusBadRequest,
-		"cannot upload charm: model not importing",
+		`cannot upload charm: model migration mode is "" instead of "importing"`,
 	)
 }
 

@@ -5,6 +5,7 @@ package migrationmaster_test
 
 import (
 	"encoding/json"
+	"net/url"
 	"time"
 
 	"github.com/juju/errors"
@@ -388,4 +389,39 @@ func (s *ClientSuite) TestMinionReportsBadFailedTag(c *gc.C) {
 	client := migrationmaster.NewClient(apiCaller, nil)
 	_, err := client.MinionReports()
 	c.Assert(err, gc.ErrorMatches, `processing failed agents: "dave" is not a valid tag`)
+}
+
+func (s *ClientSuite) TestStreamModelLogs(c *gc.C) {
+	caller := fakeConnector{path: new(string), attrs: &url.Values{}}
+	client := migrationmaster.NewClient(caller, nil)
+	stream, err := client.StreamModelLog()
+	c.Assert(stream, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, "colonel abrams")
+
+	c.Assert(*caller.path, gc.Equals, "/log")
+	c.Assert(*caller.attrs, gc.DeepEquals, url.Values{
+		"replay":        {"true"},
+		"noTail":        {"true"},
+		"includeEntity": nil,
+		"includeModule": nil,
+		"excludeEntity": nil,
+		"excludeModule": nil,
+	})
+}
+
+type fakeConnector struct {
+	base.APICaller
+
+	path  *string
+	attrs *url.Values
+}
+
+func (fakeConnector) BestFacadeVersion(string) int {
+	return 0
+}
+
+func (c fakeConnector) ConnectStream(path string, attrs url.Values) (base.Stream, error) {
+	*c.path = path
+	*c.attrs = attrs
+	return nil, errors.New("colonel abrams")
 }

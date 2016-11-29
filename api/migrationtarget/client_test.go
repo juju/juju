@@ -4,16 +4,22 @@
 package migrationtarget_test
 
 import (
+	"net/http"
+	"net/textproto"
+	"net/url"
+
 	"github.com/juju/errors"
 	jujutesting "github.com/juju/testing"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/api/base"
 	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/migrationtarget"
 	"github.com/juju/juju/apiserver/params"
 	coremigration "github.com/juju/juju/core/migration"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type ClientSuite struct {
@@ -85,10 +91,38 @@ func (s *ClientSuite) TestActivate(c *gc.C) {
 	s.AssertModelCall(c, stub, names.NewModelTag(uuid), "Activate", err)
 }
 
+func (s *ClientSuite) TestOpenLogTransferStream(c *gc.C) {
+	caller := fakeConnector{Stub: &jujutesting.Stub{}}
+	client := migrationtarget.NewClient(caller)
+	stream, err := client.OpenLogTransferStream("bad-dad")
+	c.Assert(stream, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, "sound hound")
+
+	caller.Stub.CheckCall(c, 0, "ConnectControllerStream", "/migrate/logtransfer",
+		url.Values{"jujuclientversion": {jujuversion.Current.String()}},
+		http.Header{textproto.CanonicalMIMEHeaderKey(params.MigrationModelHTTPHeader): {"bad-dad"}},
+	)
+}
+
 func (s *ClientSuite) AssertModelCall(c *gc.C, stub *jujutesting.Stub, tag names.ModelTag, call string, err error) {
 	expectedArg := params.ModelArgs{ModelTag: tag.String()}
 	stub.CheckCalls(c, []jujutesting.StubCall{
 		{"MigrationTarget." + call, []interface{}{"", expectedArg}},
 	})
 	c.Assert(err, gc.ErrorMatches, "boom")
+}
+
+type fakeConnector struct {
+	base.APICaller
+
+	*jujutesting.Stub
+}
+
+func (fakeConnector) BestFacadeVersion(string) int {
+	return 0
+}
+
+func (c fakeConnector) ConnectControllerStream(path string, attrs url.Values, headers http.Header) (base.Stream, error) {
+	c.Stub.AddCall("ConnectControllerStream", path, attrs, headers)
+	return nil, errors.New("sound hound")
 }

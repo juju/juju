@@ -115,7 +115,7 @@ func checkPermissions(tag names.Tag, acceptFunc common.GetAuthFunc) (bool, error
 // has admin permissions on the controller model. The method also gets the
 // model uuid for the model being migrated from a request header, and returns
 // the state instance for that model.
-func (ctxt *httpContext) stateForMigration(r *http.Request) (st *state.State, err error) {
+func (ctxt *httpContext) stateForMigration(r *http.Request, requiredMode state.MigrationMode) (st *state.State, err error) {
 	var user state.Entity
 	st, user, err = ctxt.stateAndEntityForRequestAuthenticatedUser(r)
 	if err != nil {
@@ -156,10 +156,15 @@ func (ctxt *httpContext) stateForMigration(r *http.Request) (st *state.State, er
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if model.MigrationMode() != state.MigrationModeImporting {
-		return nil, errors.BadRequestf("model not importing")
+	if model.MigrationMode() != requiredMode {
+		return nil, errors.BadRequestf(
+			"model migration mode is %q instead of %q", model.MigrationMode(), requiredMode)
 	}
 	return migrationSt, nil
+}
+
+func (ctxt *httpContext) stateForMigrationImporting(r *http.Request) (*state.State, error) {
+	return ctxt.stateForMigration(r, state.MigrationModeImporting)
 }
 
 // stateForRequestAuthenticatedUser is like stateAndEntityForRequestAuthenticatedUser

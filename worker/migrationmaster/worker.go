@@ -17,6 +17,7 @@ import (
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/api/migrationtarget"
 	"github.com/juju/juju/apiserver/params"
 	coremigration "github.com/juju/juju/core/migration"
@@ -45,10 +46,11 @@ const (
 	// phase.
 	maxMinionWait = 15 * time.Minute
 
-	// minionWaitLogInterval is the time between progress update
-	// messages, while the migrationmaster is waiting for reports from
-	// minions.
-	minionWaitLogInterval = 30 * time.Second
+	// progressUpdateInterval is the time between progress update
+	// messages. It's used while the migrationmaster is waiting for
+	// reports from minions and while it's transferring log messages
+	// to the newly-migrated model.
+	progressUpdateInterval = 30 * time.Second
 )
 
 // Facade exposes controller functionality to a Worker.
@@ -91,6 +93,11 @@ type Facade interface {
 	// MinionReports returns details of the reports made by migration
 	// minions to the controller for the current migration phase.
 	MinionReports() (coremigration.MinionReports, error)
+
+	// StreamModelLog returns a channel that will yield the logs that
+	// should be transferred to the target after the migration is
+	// successful.
+	StreamModelLog() (<-chan common.LogMessage, error)
 }
 
 // Config defines the operation of a Worker.
@@ -211,7 +218,7 @@ func (w *Worker) run() error {
 		case coremigration.SUCCESS:
 			phase, err = w.doSUCCESS(status)
 		case coremigration.LOGTRANSFER:
-			phase, err = w.doLOGTRANSFER()
+			phase, err = w.doLOGTRANSFER(status.TargetInfo, status.ModelUUID)
 		case coremigration.REAP:
 			phase, err = w.doREAP()
 		case coremigration.ABORT:
@@ -432,10 +439,71 @@ func (w *Worker) doSUCCESS(status coremigration.MigrationStatus) (coremigration.
 	return coremigration.LOGTRANSFER, nil
 }
 
-func (w *Worker) doLOGTRANSFER() (coremigration.Phase, error) {
-	// TODO(mjs) - To be implemented.
-	// w.setInfoStatus("successful: transferring logs to target controller")
+func (w *Worker) doLOGTRANSFER(targetInfo coremigration.TargetInfo, modelUUID string) (coremigration.Phase, error) {
+	err := w.transferLogs(targetInfo, modelUUID)
+	if err != nil {
+		return coremigration.UNKNOWN, errors.Trace(err)
+	}
 	return coremigration.REAP, nil
+}
+
+func (w *Worker) transferLogs(targetInfo coremigration.TargetInfo, modelUUID string) error {
+	sent := 0
+	reportProgress := func(finished bool, sent int) {
+		verb := "transferring"
+		if finished {
+			verb = "transferred"
+		}
+		w.setInfoStatus("successful, %s logs to target controller (%d sent)", verb, sent)
+	}
+	reportProgress(false, sent)
+	logSource, err := w.config.Facade.StreamModelLog()
+	if err != nil {
+		return errors.Annotate(err, "opening source log stream")
+	}
+
+	conn, err := w.openAPIConn(targetInfo)
+	if err != nil {
+		return errors.Annotate(err, "connecting to target API")
+	}
+
+	targetClient := migrationtarget.NewClient(conn)
+	logTarget, err := targetClient.OpenLogTransferStream(modelUUID)
+	if err != nil {
+		return errors.Annotate(err, "opening target log stream")
+	}
+	defer logTarget.Close()
+
+	clk := w.config.Clock
+	logProgress := clk.After(progressUpdateInterval)
+
+	for {
+		select {
+		case <-w.catacomb.Dying():
+			return w.catacomb.ErrDying()
+		case msg, ok := <-logSource:
+			if !ok {
+				// The channel's been closed, we're finished!
+				reportProgress(true, sent)
+				return nil
+			}
+			err := logTarget.WriteJSON(params.LogRecord{
+				Entity:   msg.Entity,
+				Time:     msg.Timestamp,
+				Module:   msg.Module,
+				Location: msg.Location,
+				Level:    msg.Severity,
+				Message:  msg.Message,
+			})
+			if err != nil {
+				return errors.Trace(err)
+			}
+			sent++
+		case <-logProgress:
+			reportProgress(false, sent)
+			logProgress = clk.After(progressUpdateInterval)
+		}
+	}
 }
 
 func (w *Worker) doREAP() (coremigration.Phase, error) {
@@ -570,7 +638,7 @@ func (w *Worker) waitForMinions(
 		return false, errors.Trace(err)
 	}
 
-	logProgress := clk.After(minionWaitLogInterval)
+	logProgress := clk.After(progressUpdateInterval)
 
 	var reports coremigration.MinionReports
 	for {
@@ -614,7 +682,7 @@ func (w *Worker) waitForMinions(
 
 		case <-logProgress:
 			w.setInfoStatus("%s, %s", infoPrefix, formatMinionWaitUpdate(reports))
-			logProgress = clk.After(minionWaitLogInterval)
+			logProgress = clk.After(progressUpdateInterval)
 		}
 	}
 }

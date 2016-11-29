@@ -48,7 +48,6 @@ func (s *logtransferSuite) SetUpTest(c *gc.C) {
 	s.machinePassword = password
 
 	s.setUserAccess(c, permission.SuperuserAccess)
-	s.setMigrationMode(c, state.MigrationModeImporting)
 
 	s.logs.Clear()
 	writer := loggo.NewMinimumLevelWriter(&s.logs, loggo.INFO)
@@ -128,10 +127,10 @@ func (s *logtransferSuite) TestRequiresSuperUser(c *gc.C) {
 	assertWebsocketClosed(c, reader)
 }
 
-func (s *logtransferSuite) TestRequiresMigratingModel(c *gc.C) {
-	s.setMigrationMode(c, state.MigrationModeNone)
+func (s *logtransferSuite) TestRequiresMigrationModeNone(c *gc.C) {
+	s.setMigrationMode(c, state.MigrationModeImporting)
 	reader := s.toReader(s.dialWebsocket(c))
-	assertJSONError(c, reader, `model not importing`)
+	assertJSONError(c, reader, `model migration mode is "importing" instead of ""`)
 	assertWebsocketClosed(c, reader)
 }
 
