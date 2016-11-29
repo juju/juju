@@ -139,7 +139,7 @@ func (c *addCloudCommand) runInteractive(ctxt *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	name, err := queryName(c.cloudMetadataStore, pollster)
+	name, err := queryName(c.cloudMetadataStore, cloudType, pollster)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -171,7 +171,11 @@ func (c *addCloudCommand) runInteractive(ctxt *cmd.Context) error {
 	return nil
 }
 
-func queryName(cloudMetadataStore CloudMetadataStore, pollster *interact.Pollster) (string, error) {
+func queryName(
+	cloudMetadataStore CloudMetadataStore,
+	cloudType string,
+	pollster *interact.Pollster,
+) (string, error) {
 	public, _, err := cloudMetadataStore.PublicCloudMetadata()
 	if err != nil {
 		return "", err
@@ -182,7 +186,7 @@ func queryName(cloudMetadataStore CloudMetadataStore, pollster *interact.Pollste
 	}
 
 	for {
-		name, err := pollster.Enter("a name for the cloud")
+		name, err := pollster.Enter(fmt.Sprintf("a name for your %s cloud", cloudType))
 		if err != nil {
 			return "", errors.Trace(err)
 		}

@@ -118,7 +118,7 @@ func garageMAASMetadata() map[string]cloudfile.Cloud {
 	return map[string]cloudfile.Cloud{"garage-maas": garageMAASCloud}
 }
 
-func (s *addSuite) TestAddBadFilename(c *gc.C) {
+func (*addSuite) TestAddBadFilename(c *gc.C) {
 	fake := newFakeCloudMetadataStore()
 	badFileErr := errors.New("")
 	fake.Call("ParseCloudMetadataFile", "somefile.yaml").Returns(map[string]cloudfile.Cloud{}, badFileErr)
@@ -128,7 +128,7 @@ func (s *addSuite) TestAddBadFilename(c *gc.C) {
 	c.Check(err, gc.Equals, badFileErr)
 }
 
-func (s *addSuite) TestAddBadCloudName(c *gc.C) {
+func (*addSuite) TestAddBadCloudName(c *gc.C) {
 	fake := newFakeCloudMetadataStore()
 	fake.Call("ParseCloudMetadataFile", "testFile").Returns(map[string]cloudfile.Cloud{}, nil)
 
@@ -137,7 +137,7 @@ func (s *addSuite) TestAddBadCloudName(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `cloud "cloud" not found in file .*`)
 }
 
-func (s *addSuite) TestAddExisting(c *gc.C) {
+func (*addSuite) TestAddExisting(c *gc.C) {
 	fake := newFakeCloudMetadataStore()
 	fake.Call("ParseCloudMetadataFile", "fake.yaml").Returns(homestackMetadata(), nil)
 	fake.Call("PublicCloudMetadata", []string(nil)).Returns(map[string]cloudfile.Cloud{}, false, nil)
@@ -147,7 +147,7 @@ func (s *addSuite) TestAddExisting(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `"homestack" already exists; use --replace to replace this existing cloud`)
 }
 
-func (s *addSuite) TestAddExistingReplace(c *gc.C) {
+func (*addSuite) TestAddExistingReplace(c *gc.C) {
 	fake := newFakeCloudMetadataStore()
 	fake.Call("ParseCloudMetadataFile", "fake.yaml").Returns(homestackMetadata(), nil)
 	fake.Call("PersonalCloudMetadata").Returns(homestackMetadata(), nil)
@@ -159,7 +159,7 @@ func (s *addSuite) TestAddExistingReplace(c *gc.C) {
 	c.Check(numCallsToWrite(), gc.Equals, 1)
 }
 
-func (s *addSuite) TestAddExistingPublic(c *gc.C) {
+func (*addSuite) TestAddExistingPublic(c *gc.C) {
 	fake := newFakeCloudMetadataStore()
 	fake.Call("ParseCloudMetadataFile", "fake.yaml").Returns(awsMetadata(), nil)
 	fake.Call("PublicCloudMetadata", []string(nil)).Returns(awsMetadata(), false, nil)
@@ -169,7 +169,7 @@ func (s *addSuite) TestAddExistingPublic(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `"aws" is the name of a public cloud; use --replace to override this definition`)
 }
 
-func (s *addSuite) TestAddExistingBuiltin(c *gc.C) {
+func (*addSuite) TestAddExistingBuiltin(c *gc.C) {
 	fake := newFakeCloudMetadataStore()
 	fake.Call("ParseCloudMetadataFile", "fake.yaml").Returns(localhostMetadata(), nil)
 	fake.Call("PublicCloudMetadata", []string(nil)).Returns(map[string]cloudfile.Cloud{}, false, nil)
@@ -179,7 +179,7 @@ func (s *addSuite) TestAddExistingBuiltin(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `"localhost" is the name of a built-in cloud; use --replace to override this definition`)
 }
 
-func (s *addSuite) TestAddExistingPublicReplace(c *gc.C) {
+func (*addSuite) TestAddExistingPublicReplace(c *gc.C) {
 	fake := newFakeCloudMetadataStore()
 	fake.Call("ParseCloudMetadataFile", "fake.yaml").Returns(awsMetadata(), nil)
 	fake.Call("PublicCloudMetadata", []string(nil)).Returns(awsMetadata(), false, nil)
@@ -192,7 +192,7 @@ func (s *addSuite) TestAddExistingPublicReplace(c *gc.C) {
 	c.Check(writeCall(), gc.Equals, 1)
 }
 
-func (s *addSuite) TestAddNew(c *gc.C) {
+func (*addSuite) TestAddNew(c *gc.C) {
 	fake := newFakeCloudMetadataStore()
 	fake.Call("ParseCloudMetadataFile", "fake.yaml").Returns(garageMAASMetadata(), nil)
 	fake.Call("PublicCloudMetadata", []string(nil)).Returns(map[string]cloudfile.Cloud{}, false, nil)
@@ -204,7 +204,7 @@ func (s *addSuite) TestAddNew(c *gc.C) {
 	c.Check(numCallsToWrite(), gc.Equals, 1)
 }
 
-func (s *addSuite) TestInteractive(c *gc.C) {
+func (*addSuite) TestInteractive(c *gc.C) {
 	command := cloud.NewAddCloudCommand(nil)
 	err := testing.InitCommand(command, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -231,7 +231,7 @@ func (s *addSuite) TestInteractive(c *gc.C) {
 	)
 }
 
-func (s *addSuite) TestInteractiveOpenstack(c *gc.C) {
+func (*addSuite) TestInteractiveOpenstack(c *gc.C) {
 	fake := newFakeCloudMetadataStore()
 	fake.Call("PublicCloudMetadata", []string(nil)).Returns(map[string]cloudfile.Cloud{}, false, nil)
 	fake.Call("PersonalCloudMetadata").Returns(map[string]cloudfile.Cloud{}, nil)
@@ -282,7 +282,7 @@ func (s *addSuite) TestInteractiveOpenstack(c *gc.C) {
 	c.Check(numCallsToWrite(), gc.Equals, 1)
 }
 
-func (s *addSuite) TestInteractiveMaas(c *gc.C) {
+func (*addSuite) TestInteractiveMaas(c *gc.C) {
 	fake := newFakeCloudMetadataStore()
 	fake.Call("PublicCloudMetadata", []string(nil)).Returns(map[string]cloudfile.Cloud{}, false, nil)
 	fake.Call("PersonalCloudMetadata").Returns(map[string]cloudfile.Cloud{}, nil)
@@ -314,7 +314,7 @@ func (s *addSuite) TestInteractiveMaas(c *gc.C) {
 	c.Check(numCallsToWrite(), gc.Equals, 1)
 }
 
-func (s *addSuite) TestInteractiveManual(c *gc.C) {
+func (*addSuite) TestInteractiveManual(c *gc.C) {
 	fake := newFakeCloudMetadataStore()
 	fake.Call("PublicCloudMetadata", []string(nil)).Returns(map[string]cloudfile.Cloud{}, false, nil)
 	fake.Call("PersonalCloudMetadata").Returns(map[string]cloudfile.Cloud{}, nil)
@@ -342,7 +342,7 @@ func (s *addSuite) TestInteractiveManual(c *gc.C) {
 	c.Check(numCallsToWrite(), gc.Equals, 1)
 }
 
-func (s *addSuite) TestInteractiveVSphere(c *gc.C) {
+func (*addSuite) TestInteractiveVSphere(c *gc.C) {
 	fake := newFakeCloudMetadataStore()
 	fake.Call("PublicCloudMetadata", []string(nil)).Returns(map[string]cloudfile.Cloud{}, false, nil)
 	fake.Call("PersonalCloudMetadata").Returns(map[string]cloudfile.Cloud{}, nil)
@@ -396,7 +396,7 @@ func (s *addSuite) TestInteractiveVSphere(c *gc.C) {
 	c.Check(numCallsToWrite(), gc.Equals, 1)
 }
 
-func (s *addSuite) TestInteractiveExistingNameOverride(c *gc.C) {
+func (*addSuite) TestInteractiveExistingNameOverride(c *gc.C) {
 	fake := newFakeCloudMetadataStore()
 	fake.Call("PublicCloudMetadata", []string(nil)).Returns(map[string]cloudfile.Cloud{}, false, nil)
 	fake.Call("PersonalCloudMetadata").Returns(homestackMetadata(), nil)
@@ -425,7 +425,7 @@ func (s *addSuite) TestInteractiveExistingNameOverride(c *gc.C) {
 	c.Check(numCallsToWrite(), gc.Equals, 1)
 }
 
-func (s *addSuite) TestInteractiveExistingNameNoOverride(c *gc.C) {
+func (*addSuite) TestInteractiveExistingNameNoOverride(c *gc.C) {
 	fake := newFakeCloudMetadataStore()
 	fake.Call("PublicCloudMetadata", []string(nil)).Returns(map[string]cloudfile.Cloud{}, false, nil)
 	fake.Call("PersonalCloudMetadata").Returns(homestackMetadata(), nil)
@@ -460,4 +460,27 @@ func (s *addSuite) TestInteractiveExistingNameNoOverride(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(numCallsToWrite(), gc.Equals, 1)
+}
+
+func (*addSuite) TestInteractiveAddCloud_PromptForNameIsCorrect(c *gc.C) {
+	var out bytes.Buffer
+	ctx := &cmd.Context{
+		Stdout: &out,
+		Stderr: ioutil.Discard,
+		Stdin: strings.NewReader("" +
+			/* Select cloud type: */ "manual\n",
+		),
+	}
+
+	fake := newFakeCloudMetadataStore()
+	fake.Call("PublicCloudMetadata", []string(nil)).Returns(map[string]cloudfile.Cloud{}, false, nil)
+	fake.Call("PersonalCloudMetadata").Returns(homestackMetadata(), nil)
+
+	command := cloud.NewAddCloudCommand(fake)
+	// Running the command will return an error because we only give
+	// enough input to get to the prompt we care about checking. This
+	// test ignores this error.
+	command.Run(ctx)
+
+	c.Check(out.String(), gc.Matches, "(?s).+Enter a name for your manual cloud: .*")
 }
