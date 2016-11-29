@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/migration"
+	"github.com/juju/juju/resource"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/catacomb"
@@ -374,6 +375,11 @@ func (w *uploadWrapper) UploadCharm(curl *charm.URL, content io.ReadSeeker) (*ch
 	return w.client.UploadCharm(w.modelUUID, curl, content)
 }
 
+// UploadResource prepends the model UUID to the args passed to the migration client.
+func (w *uploadWrapper) UploadResource(res resource.Resource, content io.ReadSeeker) error {
+	return w.client.UploadResource(w.modelUUID, res, content)
+}
+
 func (w *Worker) transferModel(targetInfo coremigration.TargetInfo, modelUUID string) error {
 	w.setInfoStatus("exporting model")
 	serialized, err := w.config.Facade.Export()
@@ -393,27 +399,20 @@ func (w *Worker) transferModel(targetInfo coremigration.TargetInfo, modelUUID st
 		return errors.Annotate(err, "failed to import model into target controller")
 	}
 
-	// XXX this might not stay like this
-	resources := make(map[string][]string)
-	for application, appResources := range serialized.Resources {
-		var names []string
-		for _, appResource := range appResources {
-			names = append(names, appResource.Name())
-		}
-		resources[application] = names
-	}
-
 	w.setInfoStatus("uploading model binaries into target controller")
 	wrapper := &uploadWrapper{targetClient, modelUUID}
 	err = w.config.UploadBinaries(migration.UploadBinariesConfig{
-		Charms:             serialized.Charms,
-		CharmDownloader:    w.config.CharmDownloader,
-		CharmUploader:      wrapper,
-		Tools:              serialized.Tools,
-		ToolsDownloader:    w.config.ToolsDownloader,
-		ToolsUploader:      wrapper,
-		Resources:          resources,
+		Charms:          serialized.Charms,
+		CharmDownloader: w.config.CharmDownloader,
+		CharmUploader:   wrapper,
+
+		Tools:           serialized.Tools,
+		ToolsDownloader: w.config.ToolsDownloader,
+		ToolsUploader:   wrapper,
+
+		Resources:          serialized.Resources,
 		ResourceDownloader: w.config.Facade,
+		ResourceUploader:   wrapper,
 	})
 	return errors.Annotate(err, "failed to migrate binaries")
 }
