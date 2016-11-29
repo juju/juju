@@ -1752,7 +1752,7 @@ class EnvJujuClient:
                 return self.status_class.from_text(
                     self.get_juju_output(
                         self._show_status, '--format', 'yaml',
-                        controller=controller))
+                        controller=controller).decode('utf-8'))
             except subprocess.CalledProcessError:
                 pass
         raise Exception(

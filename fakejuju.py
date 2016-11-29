@@ -26,15 +26,6 @@ from jujupy import (
 __metaclass__ = type
 
 
-def check_juju_output(func):
-    def wrapper(*args, **kwargs):
-        result = func(*args, **kwargs)
-        if 'service' in result:
-            raise AssertionError('Result contained service')
-        return result
-    return wrapper
-
-
 class ControllerOperation(Exception):
 
     def __init__(self, operation):
@@ -852,7 +843,6 @@ class FakeBackend:
         self.juju(command, args, used_feature_flags,
                   juju_home, model, timeout=timeout)
 
-    @check_juju_output
     def get_juju_output(self, command, args, used_feature_flags, juju_home,
                         model=None, timeout=None, user_name=None,
                         merge_stderr=False):
@@ -895,7 +885,7 @@ class FakeBackend:
                 status_dict = model_state.get_status_dict()
                 # Parsing JSON is much faster than parsing YAML, and JSON is a
                 # subset of YAML, so emit JSON.
-                return json.dumps(status_dict)
+                return json.dumps(status_dict).encode('utf-8')
             if command == 'create-backup':
                 self.controller_state.require_controller('backup', model)
                 return 'juju-backup-0.tar.gz'

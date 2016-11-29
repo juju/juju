@@ -278,7 +278,7 @@ def get_remote_machines(client, known_hosts):
         if machine_id not in machines:
             machines[machine_id] = remote_from_address(address)
     # Update remote machines in place with real addresses if substrate needs.
-    resolve_remote_dns_names(client.env, machines.itervalues())
+    resolve_remote_dns_names(client.env, machines.values())
     return machines
 
 
