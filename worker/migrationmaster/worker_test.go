@@ -833,7 +833,7 @@ func (s *Suite) TestLogTransferReportsProgress(c *gc.C) {
 	s.facade.logMessages = func(d chan<- common.LogMessage) {
 		for _, message := range messages {
 			safeSend(c, d, message)
-			s.clock.WaitAdvance(15*time.Second, coretesting.ShortWait, 1)
+			s.clock.WaitAdvance(15*time.Second, coretesting.LongWait, 1)
 		}
 	}
 
