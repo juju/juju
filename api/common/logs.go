@@ -15,8 +15,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 )
 
-// TODO(ericsnow) Fold DebugLogParams into params.LogStreamConfig.
-
 // DebugLogParams holds parameters for WatchDebugLog that control the
 // filtering of the log messages. If the structure is zero initialized, the
 // entire log file is sent back starting from the end, and until the user
