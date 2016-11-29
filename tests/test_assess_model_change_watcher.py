@@ -39,7 +39,7 @@ class TestParseArgs(TestCase):
         with parse_error(self) as fake_stderr:
             with patch("sys.stdout", fake_stdout):
                 parse_args(["--help"])
-        self.assertEqual(b"", fake_stderr.getvalue())
+        self.assertEqual("", fake_stderr.getvalue())
 
 
 class TestMain(TestCase):
