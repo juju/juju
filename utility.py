@@ -88,6 +88,9 @@ class until_timeout:
     def now():
         return datetime.now()
 
+    def __next__(self):
+        self.next()
+
     def next(self):
         elapsed = self.now() - self.start
         remaining = self.timeout - elapsed.total_seconds()
