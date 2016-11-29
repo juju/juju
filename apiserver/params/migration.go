@@ -73,10 +73,10 @@ type SetMigrationStatusMessageArgs struct {
 // SerializedModel wraps a buffer contain a serialised Juju model. It
 // also contains lists of the charms and tools used in the model.
 type SerializedModel struct {
-	Bytes     []byte                     `json:"bytes"`
-	Charms    []string                   `json:"charms"`
-	Tools     []SerializedModelTools     `json:"tools"`
-	Resources []SerializedModelResources `json:"resources"`
+	Bytes     []byte                    `json:"bytes"`
+	Charms    []string                  `json:"charms"`
+	Tools     []SerializedModelTools    `json:"tools"`
+	Resources []SerializedModelResource `json:"resources"`
 }
 
 // SerializedModelTools holds the version and URI for a given tools
@@ -92,17 +92,11 @@ type SerializedModelTools struct {
 }
 
 // XXX
-type SerializedModelResources struct {
-	Application string                    `json:"application"`
-	Resources   []SerializedModelResource `json:"resources"`
-}
-
-// XXX
 type SerializedModelResource struct {
-	Name               string                            `json:"name"`
-	Revision           int                               `json:"application-revision"`
-	CharmStoreRevision int                               `json:"charmstore-revision"`
-	Revisions          []SerializedModelResourceRevision `json:"revisions"`
+	Application         string                          `json:"application"`
+	Name                string                          `json:"name"`
+	ApplicationRevision SerializedModelResourceRevision `json:"application-revision"`
+	CharmStoreRevision  SerializedModelResourceRevision `json:"charmstore-revision"`
 }
 
 // XXX

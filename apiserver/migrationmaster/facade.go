@@ -312,38 +312,27 @@ func addToolsVersionForMachine(machine description.Machine, usedVersions map[ver
 }
 
 // XXX needs tests - but wait until I know what's actually required here.
-func getUsedResources(model description.Model) []params.SerializedModelResources {
-	var out []params.SerializedModelResources
-
+func getUsedResources(model description.Model) []params.SerializedModelResource {
+	var out []params.SerializedModelResource
 	for _, app := range model.Applications() {
-		resources := app.Resources()
-		if len(resources) == 0 {
-			continue
+		for _, resource := range app.Resources() {
+			out = append(out, resourceToSerialized(app.Name(), resource))
 		}
-
-		outAppResources := params.SerializedModelResources{
-			Application: app.Name(),
-		}
-		for _, resource := range resources {
-			outAppResources.Resources = append(outAppResources.Resources, resourceDesc2Serialized(resource))
-		}
-		out = append(out, outAppResources)
 	}
-
 	return out
 }
 
-func resourceDesc2Serialized(desc description.Resource) (out params.SerializedModelResource) {
-	out.Name = desc.Name()
-	out.Revision = desc.Revision()
-	out.CharmStoreRevision = desc.CharmStoreRevision()
-	for _, revision := range desc.Revisions() {
-		out.Revisions = append(out.Revisions, revisionDesc2Serialized(revision))
+func resourceToSerialized(app string, desc description.Resource) params.SerializedModelResource {
+	return params.SerializedModelResource{
+		Application:         app,
+		Name:                desc.Name(),
+		ApplicationRevision: revisionToSerialized(desc.ApplicationRevision()),
+		CharmStoreRevision:  revisionToSerialized(desc.CharmStoreRevision()),
+		// TODO(menn0) - unit revisions
 	}
-	return
 }
 
-func revisionDesc2Serialized(desc description.ResourceRevision) (out params.SerializedModelResourceRevision) {
+func revisionToSerialized(desc description.ResourceRevision) (out params.SerializedModelResourceRevision) {
 	out.Revision = desc.Revision()
 	out.Type = desc.Type()
 	out.Path = desc.Path()
