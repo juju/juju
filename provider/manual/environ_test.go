@@ -103,7 +103,7 @@ if [ $stopped -ne 1 ]; then
     service juju-db stop
 fi
 rm -f /etc/init/juju*
-rm -f /etc/systemd/system/juju*
+rm -f /etc/systemd/system{,/multi-user.target.wants}/juju*
 rm -fr '/var/lib/juju' '/var/log/juju'
 exit 0
 `)
