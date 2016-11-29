@@ -4,6 +4,8 @@
 package description
 
 import (
+	"time"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v2"
@@ -17,7 +19,7 @@ var _ = gc.Suite(&UnitResourceSuite{})
 
 func (s *UnitResourceSuite) SetUpTest(c *gc.C) {
 	s.SliceSerializationSuite.SetUpTest(c)
-	s.importName = "resources"
+	s.importName = "unit resources"
 	s.sliceName = "resources"
 	s.importFunc = func(m map[string]interface{}) (interface{}, error) {
 		return importUnitResources(m)
@@ -27,22 +29,42 @@ func (s *UnitResourceSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *UnitResourceSuite) TestNew(c *gc.C) {
-	ur := newUnitResource(UnitResourceArgs{
-		Name:     "blah",
-		Revision: 99,
+func minimalUnitResource() *unitResource {
+	return newUnitResource(UnitResourceArgs{
+		Name: "blah",
+		RevisionArgs: ResourceRevisionArgs{
+			Revision:       3,
+			Type:           "file",
+			Path:           "file.tar.gz",
+			Description:    "description",
+			Origin:         "store",
+			FingerprintHex: "aaaaaaaa",
+			Size:           111,
+			Timestamp:      time.Date(2016, 10, 18, 2, 3, 4, 0, time.UTC),
+			Username:       "user",
+		},
 	})
-	c.Check(ur.Name(), gc.Equals, "blah")
-	c.Check(ur.Revision(), gc.Equals, 99)
 }
 
-func (s *UnitResourceSuite) TestParsingSerializedData(c *gc.C) {
-	initial := newUnitResource(UnitResourceArgs{
-		Name:     "foo",
-		Revision: 2,
-	})
-	imported := s.exportImport(c, initial)
-	c.Assert(imported, jc.DeepEquals, initial)
+func (s *UnitResourceSuite) TestNew(c *gc.C) {
+	ur := minimalUnitResource()
+	c.Check(ur.Name(), gc.Equals, "blah")
+	rev := ur.Revision()
+	c.Check(rev.Revision(), gc.Equals, 3)
+	c.Check(rev.Type(), gc.Equals, "file")
+	c.Check(rev.Path(), gc.Equals, "file.tar.gz")
+	c.Check(rev.Description(), gc.Equals, "description")
+	c.Check(rev.Origin(), gc.Equals, "store")
+	c.Check(rev.FingerprintHex(), gc.Equals, "aaaaaaaa")
+	c.Check(rev.Size(), gc.Equals, int64(111))
+	c.Check(rev.Timestamp(), gc.Equals, time.Date(2016, 10, 18, 2, 3, 4, 0, time.UTC))
+	c.Check(rev.Username(), gc.Equals, "user")
+}
+
+func (s *UnitResourceSuite) TestRoundTrip(c *gc.C) {
+	urIn := minimalUnitResource()
+	urOut := s.exportImport(c, urIn)
+	c.Assert(urOut, jc.DeepEquals, urIn)
 }
 
 func (s *UnitResourceSuite) TestImportEmpty(c *gc.C) {

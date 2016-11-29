@@ -206,12 +206,16 @@ func (s *UnitSerializationSuite) TestWorkloadStatusHistory(c *gc.C) {
 func (s *UnitSerializationSuite) TestResources(c *gc.C) {
 	initial := minimalUnit()
 	rFoo := initial.AddResource(UnitResourceArgs{
-		Name:     "foo",
-		Revision: 42,
+		Name: "foo",
+		RevisionArgs: ResourceRevisionArgs{
+			Revision: 3,
+		},
 	})
 	rBar := initial.AddResource(UnitResourceArgs{
-		Name:     "bar",
-		Revision: 1,
+		Name: "bar",
+		RevisionArgs: ResourceRevisionArgs{
+			Revision: 1,
+		},
 	})
 
 	unit := s.exportImport(c, initial)
