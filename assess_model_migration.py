@@ -242,7 +242,7 @@ def ensure_migration_of_resources_succeeds(source_client, dest_client):
 
 
 def deploy_mongodb_to_new_model(client, model_name):
-    bundle = 'mongodb'
+    bundle = 'cs:mongodb'
 
     log.info('Deploying charm')
     # Don't move the default model so we can reuse it in later tests.
@@ -275,11 +275,15 @@ def deploy_simple_resource_server(client, resource_contents):
         return application_name
 
 
-def migrate_model_to_controller(source_client, dest_client):
+def migrate_model_to_controller(source_client, dest_client,
+                                include_user_name=False):
+    if include_user_name:
+        model_name = '{}/{}'.format(
+            source_client.env.user_name, source_client.env.environment)
+    else:
+        model_name = source_client.env.environment
     source_client.controller_juju(
-        'migrate',
-        (source_client.env.environment,
-         dest_client.env.controller.name))
+        'migrate', (model_name, dest_client.env.controller.name))
 
     migration_target_client = dest_client.clone(
         dest_client.env.clone(
@@ -423,6 +427,9 @@ def ensure_migrating_with_superuser_user_permissions_succeeds(
 
     user_new_model = user_source_client.add_model(
         user_source_client.env.clone('model-a'))
+    user_new_model.env.user_name = user_source_client.env.user_name
+
+    log.info('Setting up {}/model-a'.format(user_new_model.env.user_name))
 
     charm_path = local_charm_path(
         charm='dummy-source', juju_ver=user_new_model.version)
@@ -431,7 +438,8 @@ def ensure_migrating_with_superuser_user_permissions_succeeds(
 
     log.info('Attempting migration process')
 
-    migrate_model_to_controller(user_new_model, user_dest_client)
+    migrate_model_to_controller(
+        user_new_model, user_dest_client, include_user_name=True)
 
 
 def create_user_on_controllers(
@@ -450,6 +458,7 @@ def create_user_on_controllers(
     new_user = User(username, 'write', [])
     source_user_client = source_client.register_user(new_user, new_user_home)
     source_client.grant(new_user.name, permission)
+    source_client.env.user_name = username
 
     second_controller_name = '{}_controllerb'.format(new_user.name)
     dest_user_client = dest_client.register_user(
@@ -457,6 +466,7 @@ def create_user_on_controllers(
         new_user_home,
         controller_name=second_controller_name)
     dest_client.grant(new_user.name, permission)
+    dest_client.env.user_name = username
 
     return source_user_client, dest_user_client
 
