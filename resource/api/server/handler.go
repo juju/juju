@@ -69,7 +69,7 @@ func (h *HTTPHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 		defer reader.Close()
 		resp.Header().Set("Content-Type", params.ContentTypeRaw)
 		// XXX should really set Content-Length
-		io.Copy(resp, reader)
+		io.Copy(resp, reader) // XXX check error
 	case "PUT":
 		logger.Debugf("handling resource upload request")
 		response, err := h.HandleUpload(tagToUsername(tag), st, req)
