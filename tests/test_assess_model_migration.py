@@ -23,6 +23,7 @@ from jujupy import (
     )
 from tests import (
     client_past_deadline,
+    FakeHomeTestCase,
     parse_error,
     TestCase,
 )
@@ -455,10 +456,52 @@ class TestDeployMongodbToNewModel(TestCase):
 
         source_client.add_model.assert_called_once_with(
             source_client.env.clone.return_value)
-        new_model.juju.assert_called_once_with('deploy', ('cs:mongodb'))
+        new_model.juju.assert_called_once_with('deploy', ('mongodb'))
         new_model.wait_for_started.assert_called_once_with()
         new_model.wait_for_workloads.assert_called_once_with()
         m_tdmiu.assert_called_once_with(new_model)
+
+
+class TestMigrateModelToController(FakeHomeTestCase):
+
+    def make_juju_data(self):
+        config = {'type': 'aws', 'region': 'east', 'name': 'a-model'}
+        env = JujuData('a-model', config, juju_home='foo')
+        env.user_name = 'me'
+        return env
+
+    def test_migrate_model_to_controller_owner(self):
+        env = self.make_juju_data()
+        dest_client = fake_juju_client(env)
+        source_client = fake_juju_client(env)
+        mt_client = fake_juju_client(env)
+        mt_client._backend.controller_state.add_model('a-model')
+        with patch.object(dest_client, 'clone', autospec=True,
+                          return_value=mt_client) as dc_mock:
+            with patch.object(source_client, 'controller_juju',
+                              autospec=True) as cj_mock:
+                with patch('assess_model_migration.wait_for_model',
+                           autospec=True) as wm_mock:
+                    found_client = amm.migrate_model_to_controller(
+                        source_client, dest_client, include_user_name=False)
+        self.assertIs(mt_client, found_client)
+        args, kwargs = dc_mock.call_args
+        self.assertEqual(env, args[0])
+        wm_mock.assert_called_once_with(mt_client, 'a-model')
+        cj_mock.assert_called_once_with('migrate', ('a-model', 'a-model'))
+
+    def test_migrate_model_to_controller_admin(self):
+        env = self.make_juju_data()
+        dest_client = fake_juju_client(env)
+        source_client = fake_juju_client(env)
+        mt_client = fake_juju_client(env)
+        mt_client._backend.controller_state.add_model('a-model')
+        with patch.object(dest_client, 'clone', return_value=mt_client):
+            with patch.object(source_client, 'controller_juju') as cj_mock:
+                with patch('assess_model_migration.wait_for_model'):
+                    amm.migrate_model_to_controller(
+                        source_client, dest_client, include_user_name=True)
+        cj_mock.assert_called_once_with('migrate', ('me/a-model', 'a-model'))
 
 
 class TestDisableAPIServer(TestCase):

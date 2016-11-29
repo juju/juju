@@ -242,7 +242,7 @@ def ensure_migration_of_resources_succeeds(source_client, dest_client):
 
 
 def deploy_mongodb_to_new_model(client, model_name):
-    bundle = 'cs:mongodb'
+    bundle = 'mongodb'
 
     log.info('Deploying charm')
     # Don't move the default model so we can reuse it in later tests.
@@ -427,8 +427,6 @@ def ensure_migrating_with_superuser_user_permissions_succeeds(
 
     user_new_model = user_source_client.add_model(
         user_source_client.env.clone('model-a'))
-
-    log.info('Setting up {}/model-a'.format(user_new_model.env.user_name))
 
     charm_path = local_charm_path(
         charm='dummy-source', juju_ver=user_new_model.version)
