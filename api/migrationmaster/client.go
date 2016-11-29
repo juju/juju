@@ -296,54 +296,66 @@ func (c *Client) StreamModelLog(start time.Time) (<-chan common.LogMessage, erro
 	})
 }
 
-func convertResources(in []params.SerializedModelResources) ([]resource.Resource, error) {
+// XXX needs tests
+func convertResources(in []params.SerializedModelResource) ([]migration.SerializedModelResource, error) {
 	if len(in) == 0 {
 		return nil, nil
 	}
-	out := make([]resource.Resource, 0)
-	for _, app := range in {
-		resources, err := convertAppResources(app.Application, app.Resources)
+	out := make([]migration.SerializedModelResource, 0, len(in))
+	for _, resource := range in {
+		outResource, err := convertAppResource(resource)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		out = append(out, resources...)
+		out = append(out, outResource)
 	}
 	return out, nil
 }
 
-func convertAppResources(application string, in []params.SerializedModelResource) (out []resource.Resource, _ error) {
-	for _, inR := range in {
-		for _, revision := range inR.Revisions {
-			type_, err := charmresource.ParseType(revision.Type)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			origin, err := charmresource.ParseOrigin(revision.Origin)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			fp, err := charmresource.ParseFingerprint(revision.FingerprintHex)
-			if err != nil {
-				return nil, errors.Annotate(err, "invalid fingerprint")
-			}
-			outR := resource.Resource{
-				Resource: charmresource.Resource{
-					Meta: charmresource.Meta{
-						Name:        inR.Name,
-						Type:        type_,
-						Path:        revision.Path,
-						Description: revision.Description,
-					},
-					Origin:      origin,
-					Revision:    revision.Revision,
-					Size:        revision.Size,
-					Fingerprint: fp,
-				},
-				ApplicationID: application,
-				Username:      revision.Username,
-			}
-			out = append(out, outR)
-		}
+func convertAppResource(in params.SerializedModelResource) (migration.SerializedModelResource, error) {
+	var empty migration.SerializedModelResource
+	appRev, err := convertResourceRevision(in.Application, in.Name, in.ApplicationRevision)
+	if err != nil {
+		return empty, errors.Annotate(err, "application revision")
 	}
-	return
+	csRev, err := convertResourceRevision(in.Application, in.Name, in.CharmStoreRevision)
+	if err != nil {
+		return empty, errors.Annotate(err, "charmstore revision")
+	}
+	return migration.SerializedModelResource{
+		ApplicationRevision: appRev,
+		CharmStoreRevision:  csRev,
+	}, nil
+}
+
+func convertResourceRevision(app, name string, rev params.SerializedModelResourceRevision) (resource.Resource, error) {
+	var empty resource.Resource
+	type_, err := charmresource.ParseType(rev.Type)
+	if err != nil {
+		return empty, errors.Trace(err)
+	}
+	origin, err := charmresource.ParseOrigin(rev.Origin)
+	if err != nil {
+		return empty, errors.Trace(err)
+	}
+	fp, err := charmresource.ParseFingerprint(rev.FingerprintHex)
+	if err != nil {
+		return empty, errors.Annotate(err, "invalid fingerprint")
+	}
+	return resource.Resource{
+		Resource: charmresource.Resource{
+			Meta: charmresource.Meta{
+				Name:        name,
+				Type:        type_,
+				Path:        rev.Path,
+				Description: rev.Description,
+			},
+			Origin:      origin,
+			Revision:    rev.Revision,
+			Size:        rev.Size,
+			Fingerprint: fp,
+		},
+		ApplicationID: app,
+		Username:      rev.Username,
+	}, nil
 }

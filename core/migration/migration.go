@@ -53,7 +53,15 @@ type SerializedModel struct {
 	Tools map[version.Binary]string // version -> tools URI
 
 	// Resources represents all the resources in use in the model.
-	Resources []resource.Resource
+	Resources []SerializedModelResource
+}
+
+// SerializedModelResource defines the resource revisions for a
+// specific application resource.
+type SerializedModelResource struct {
+	ApplicationRevision resource.Resource
+	CharmStoreRevision  resource.Resource
+	// TODO(menn0) - unit revisions
 }
 
 // ModelInfo is used to report basic details about a model.
