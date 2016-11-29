@@ -150,7 +150,7 @@ class FakeEnvironmentState:
 
     def add_machine(self, host_name=None, machine_id=None):
         if machine_id is None:
-            machine_id = str(self.machine_id_iter.next())
+            machine_id = str(next(self.machine_id_iter))
         self.machines.add(machine_id)
         if host_name is None:
             host_name = '{}.example.com'.format(machine_id)
@@ -717,7 +717,7 @@ class FakeBackend:
         if model is not None:
             full_args.extend(['-m', model])
         full_args.extend(args)
-        self.log.log(level, ' '.join(full_args))
+        self.log.log(level, u' '.join(full_args))
 
     def juju(self, command, args, used_feature_flags,
              juju_home, model=None, check=True, timeout=None, extra_env=None):
