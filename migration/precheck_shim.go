@@ -88,7 +88,7 @@ func (s *precheckShim) AllApplications() ([]PrecheckApplication, error) {
 }
 
 // ControllerBackend implements PrecheckBackend.
-func (s *precheckShim) ControllerBackend() (PrecheckBackend, error) {
+func (s *precheckShim) ControllerBackend() (PrecheckBackendCloser, error) {
 	model, err := s.State.ControllerModel()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -97,7 +97,7 @@ func (s *precheckShim) ControllerBackend() (PrecheckBackend, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return PrecheckShim(st), nil
+	return &precheckShim{st}, nil
 }
 
 // precheckAppShim implements PrecheckApplication.

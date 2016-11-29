@@ -252,6 +252,7 @@ func (w *Watcher) Alive(key string) (bool, error) {
 	case <-w.tomb.Dying():
 		return false, errors.Errorf("cannot check liveness: watcher is dying")
 	}
+	logger.Tracef("[%s] Alive(%q) -> %v", w.modelUUID[:6], key, alive)
 	return alive, nil
 }
 
@@ -267,7 +268,11 @@ func (w *Watcher) loop() error {
 	if w.delta, err = clockDelta(w.base); err != nil {
 		return errors.Trace(err)
 	}
-	w.next = time.After(0)
+	// Always sync before handling request.
+	if err := w.sync(); err != nil {
+		return errors.Trace(err)
+	}
+	w.next = time.After(time.Duration(period) * time.Second)
 	for {
 		select {
 		case <-w.tomb.Dying():
@@ -295,6 +300,8 @@ func (w *Watcher) flush() {
 	// w.pending may get new requests as we handle other requests.
 	for i := 0; i < len(w.pending); i++ {
 		e := &w.pending[i]
+		// Allow the handling of requests while waiting for e.ch
+		// to be ready to read from the channel.
 		for e.ch != nil {
 			select {
 			case <-w.tomb.Dying():
@@ -313,7 +320,7 @@ func (w *Watcher) flush() {
 // handle deals with requests delivered by the public API
 // onto the background watcher goroutine.
 func (w *Watcher) handle(req interface{}) {
-	logger.Tracef("got request: %#v", req)
+	logger.Tracef("[%s] got request: %#v for model", w.modelUUID[:6], req)
 	switch r := req.(type) {
 	case reqSync:
 		w.next = time.After(0)
@@ -429,7 +436,7 @@ func (w *Watcher) sync() error {
 				}
 				seq := k + i
 				dead[seq] = true
-				logger.Tracef("found seq=%d dead", seq)
+				logger.Tracef("[%s] found seq=%d dead", w.modelUUID[:6], seq)
 			}
 		}
 	}
@@ -465,7 +472,7 @@ func (w *Watcher) sync() error {
 				if being, ok = allBeings[seq]; !ok {
 					err := beingsC.Find(bson.D{{"_id", docIDInt64(w.modelUUID, seq)}}).One(&being)
 					if err == mgo.ErrNotFound {
-						logger.Tracef("found seq=%d unowned", seq)
+						logger.Tracef("[%s] found seq=%d unowned", w.modelUUID[:6], seq)
 						continue
 					}
 					if err != nil {
@@ -484,7 +491,7 @@ func (w *Watcher) sync() error {
 				if cur > 0 || dead[seq] {
 					continue
 				}
-				logger.Tracef("found seq=%d alive with key %q", seq, being.Key)
+				logger.Tracef("[%s] found seq=%d alive with key %q", w.modelUUID[:6], seq, being.Key)
 				for _, ch := range w.watches[being.Key] {
 					w.pending = append(w.pending, event{ch, being.Key, true})
 				}
@@ -497,6 +504,7 @@ func (w *Watcher) sync() error {
 	// the respective events and forget their sequences.
 	for seq, key := range w.beingKey {
 		if dead[seq] || !alive[seq] {
+			logger.Tracef("[%s] removing seq=%d with key %q", w.modelUUID[:6], seq, key)
 			delete(w.beingKey, seq)
 			delete(w.beingSeq, key)
 			for _, ch := range w.watches[key] {
@@ -546,7 +554,7 @@ func (p *Pinger) Start() error {
 	if err := p.prepare(); err != nil {
 		return errors.Trace(err)
 	}
-	logger.Tracef("starting pinger for %q with seq=%d", p.beingKey, p.beingSeq)
+	logger.Tracef("[%s] starting pinger for %q with seq=%d", p.modelUUID[:6], p.beingKey, p.beingSeq)
 	if err := p.ping(); err != nil {
 		return errors.Trace(err)
 	}
@@ -584,7 +592,7 @@ func (p *Pinger) Stop() error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if p.started {
-		logger.Tracef("stopping pinger for %q with seq=%d", p.beingKey, p.beingSeq)
+		logger.Tracef("[%s] stopping pinger for %q with seq=%d", p.modelUUID[:6], p.beingKey, p.beingSeq)
 	}
 	p.tomb.Kill(nil)
 	err := p.tomb.Wait()
@@ -700,7 +708,7 @@ func (p *Pinger) prepare() error {
 // ping records updates the current time slot with the
 // sequence in use by the pinger.
 func (p *Pinger) ping() (err error) {
-	logger.Tracef("pinging %q with seq=%d", p.beingKey, p.beingSeq)
+	logger.Tracef("[%s] pinging %q with seq=%d", p.modelUUID[:6], p.beingKey, p.beingSeq)
 	defer func() {
 		// If the session is killed from underneath us, it panics when we
 		// try to copy it, so deal with that here.
