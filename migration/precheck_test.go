@@ -200,6 +200,21 @@ func (s *SourcePrecheckSuite) TestDeadUnit(c *gc.C) {
 	c.Assert(err.Error(), gc.Equals, "unit foo/0 is dead")
 }
 
+func (s *SourcePrecheckSuite) TestUnitExecuting(c *gc.C) {
+	backend := &fakeBackend{
+		apps: []migration.PrecheckApplication{
+			&fakeApp{
+				name: "foo",
+				units: []migration.PrecheckUnit{
+					&fakeUnit{name: "foo/0", agentStatus: status.Executing},
+				},
+			},
+		},
+	}
+	err := migration.SourcePrecheck(backend)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *SourcePrecheckSuite) TestUnitNotIdle(c *gc.C) {
 	backend := &fakeBackend{
 		apps: []migration.PrecheckApplication{
@@ -212,7 +227,7 @@ func (s *SourcePrecheckSuite) TestUnitNotIdle(c *gc.C) {
 		},
 	}
 	err := migration.SourcePrecheck(backend)
-	c.Assert(err.Error(), gc.Equals, "unit foo/0 not idle (failed)")
+	c.Assert(err.Error(), gc.Equals, "unit foo/0 not idle or executing (failed)")
 }
 
 func (s *SourcePrecheckSuite) TestUnitLost(c *gc.C) {
@@ -227,7 +242,7 @@ func (s *SourcePrecheckSuite) TestUnitLost(c *gc.C) {
 		},
 	}
 	err := migration.SourcePrecheck(backend)
-	c.Assert(err.Error(), gc.Equals, "unit foo/0 not idle (lost)")
+	c.Assert(err.Error(), gc.Equals, "unit foo/0 not idle or executing (lost)")
 }
 
 func (*SourcePrecheckSuite) TestDyingControllerModel(c *gc.C) {
