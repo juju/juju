@@ -13,14 +13,15 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/httprequest"
 	"github.com/juju/version"
+	charmresource "gopkg.in/juju/charm.v6-unstable/resource"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/core/description"
 	"github.com/juju/juju/core/migration"
+	"github.com/juju/juju/resource"
 	"github.com/juju/juju/watcher"
 )
 
@@ -163,10 +164,11 @@ func (c *Client) Prechecks() error {
 // with the API connection. The charms used by the model are also
 // returned.
 func (c *Client) Export() (migration.SerializedModel, error) {
+	var empty migration.SerializedModel
 	var serialized params.SerializedModel
 	err := c.caller.FacadeCall("Export", nil, &serialized)
 	if err != nil {
-		return migration.SerializedModel{}, err
+		return empty, errors.Trace(err)
 	}
 
 	// Convert tools info to output map.
@@ -179,11 +181,16 @@ func (c *Client) Export() (migration.SerializedModel, error) {
 		tools[v] = toolsInfo.URI
 	}
 
+	resources, err := convertResources(serialized.Resources) // XXX needs tests
+	if err != nil {
+		return empty, errors.Trace(err)
+	}
+
 	return migration.SerializedModel{
 		Bytes:     serialized.Bytes,
 		Charms:    serialized.Charms,
 		Tools:     tools,
-		Resources: convertResources(serialized.Resources),
+		Resources: resources,
 	}, nil
 }
 
@@ -253,6 +260,13 @@ func (c *Client) MinionReports() (migration.MinionReports, error) {
 	return out, nil
 }
 
+func (c *Client) StreamModelLog() (<-chan common.LogMessage, error) {
+	return common.StreamDebugLog(c.caller.RawAPICaller(), common.DebugLogParams{
+		Replay: true,
+		NoTail: true,
+	})
+}
+
 func groupTagIds(tagStrs []string) ([]string, []string, error) {
 	var machines []string
 	var units []string
@@ -282,39 +296,54 @@ func (c *Client) StreamModelLog(start time.Time) (<-chan common.LogMessage, erro
 	})
 }
 
-func convertResources(in []params.SerializedModelResources) map[string][]description.Resource {
+func convertResources(in []params.SerializedModelResources) ([]resource.Resource, error) {
 	if len(in) == 0 {
-		return nil
+		return nil, nil
 	}
-	out := make(map[string][]description.Resource)
+	out := make([]resource.Resource, 0)
 	for _, app := range in {
-		out[app.Application] = convertAppResources(app.Resources)
+		resources, err := convertAppResources(app.Application, app.Resources)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		out = append(out, resources...)
 	}
-	return out
+	return out, nil
 }
 
-func convertAppResources(in []params.SerializedModelResource) (out []description.Resource) {
-	for _, inResource := range in {
-		outResource := description.NewResource(description.ResourceArgs{
-			Name:               inResource.Name,
-			Revision:           inResource.Revision,
-			CharmStoreRevision: inResource.CharmStoreRevision,
-		})
-		for _, revision := range inResource.Revisions {
-			outResource.AddRevision(description.ResourceRevisionArgs{
-				Revision:       revision.Revision,
-				Type:           revision.Type,
-				Path:           revision.Path,
-				Description:    revision.Description,
-				Origin:         revision.Origin,
-				FingerprintHex: revision.FingerprintHex,
-				Size:           revision.Size,
-				// XXX
-				//Timestamp: revision.Timestamp,
-				Username: revision.Username,
-			})
+func convertAppResources(application string, in []params.SerializedModelResource) (out []resource.Resource, _ error) {
+	for _, inR := range in {
+		for _, revision := range inR.Revisions {
+			type_, err := charmresource.ParseType(revision.Type)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			origin, err := charmresource.ParseOrigin(revision.Origin)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			fp, err := charmresource.ParseFingerprint(revision.FingerprintHex)
+			if err != nil {
+				return nil, errors.Annotate(err, "invalid fingerprint")
+			}
+			outR := resource.Resource{
+				Resource: charmresource.Resource{
+					Meta: charmresource.Meta{
+						Name:        inR.Name,
+						Type:        type_,
+						Path:        revision.Path,
+						Description: revision.Description,
+					},
+					Origin:      origin,
+					Revision:    revision.Revision,
+					Size:        revision.Size,
+					Fingerprint: fp,
+				},
+				ApplicationID: application,
+				Username:      revision.Username,
+			}
+			out = append(out, outR)
 		}
-		out = append(out, outResource)
 	}
 	return
 }
