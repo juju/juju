@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -757,8 +758,8 @@ func (s *Suite) TestLogTransferErrorOpeningLogDest(c *gc.C) {
 
 func (s *Suite) TestLogTransferErrorWriting(c *gc.C) {
 	s.facade.queueStatus(s.makeStatus(coremigration.LOGTRANSFER))
-	s.facade.logMessages = []common.LogMessage{
-		{Message: "the go team"},
+	s.facade.logMessages = func(d chan<- common.LogMessage) {
+		safeSend(c, d, common.LogMessage{Message: "the go team"})
 	}
 	s.connection.logStream.writeErr = errors.New("bottle rocket")
 	s.checkWorkerReturns(c, s.connection.logStream.writeErr)
@@ -777,7 +778,7 @@ func (s *Suite) TestLogTransferSendsRecords(c *gc.C) {
 	t1, err := time.Parse("2006-01-02 15:04", "2016-11-28 16:11")
 	c.Assert(err, jc.ErrorIsNil)
 	s.facade.queueStatus(s.makeStatus(coremigration.LOGTRANSFER))
-	s.facade.logMessages = []common.LogMessage{
+	messages := []common.LogMessage{
 		{Message: "the go team"},
 		{Message: "joan as police woman"},
 		{
@@ -788,6 +789,11 @@ func (s *Suite) TestLogTransferSendsRecords(c *gc.C) {
 			Location:  "nearby",
 			Message:   "ham shank",
 		},
+	}
+	s.facade.logMessages = func(d chan<- common.LogMessage) {
+		for _, message := range messages {
+			safeSend(c, d, message)
+		}
 	}
 
 	s.checkWorkerReturns(c, migrationmaster.ErrMigrated)
@@ -815,6 +821,44 @@ func (s *Suite) TestLogTransferSendsRecords(c *gc.C) {
 		},
 	})
 	c.Assert(s.connection.logStream.closeCount, gc.Equals, 1)
+}
+
+func (s *Suite) TestLogTransferReportsProgress(c *gc.C) {
+	s.facade.queueStatus(s.makeStatus(coremigration.LOGTRANSFER))
+	messages := []common.LogMessage{
+		{Message: "captain beefheart"},
+		{Message: "super furry animals"},
+		{Message: "ezra furman"},
+	}
+	s.facade.logMessages = func(d chan<- common.LogMessage) {
+		for _, message := range messages {
+			safeSend(c, d, message)
+			s.clock.WaitAdvance(15*time.Second, coretesting.ShortWait, 1)
+		}
+	}
+
+	var logWriter loggo.TestWriter
+	c.Assert(loggo.RegisterWriter("migrationmaster-tests", &logWriter), jc.ErrorIsNil)
+	defer func() {
+		loggo.RemoveWriter("migrationmaster-tests")
+		logWriter.Clear()
+	}()
+
+	s.checkWorkerReturns(c, migrationmaster.ErrMigrated)
+
+	c.Assert(logWriter.Log()[:3], jc.LogMatches, []string{
+		"successful, transferring logs to target controller \\(0 sent\\)",
+		"successful, transferring logs to target controller \\(2 sent\\)",
+		"successful, transferred logs to target controller \\(3 sent\\)",
+	})
+}
+
+func safeSend(c *gc.C, d chan<- common.LogMessage, message common.LogMessage) {
+	select {
+	case d <- message:
+	case <-time.After(coretesting.ShortWait):
+		c.Fatalf("timed out sending log message")
+	}
 }
 
 func (s *Suite) checkWorkerReturns(c *gc.C, expected error) {
@@ -915,7 +959,7 @@ type stubMasterFacade struct {
 	modelInfoErr error
 	exportErr    error
 
-	logMessages []common.LogMessage
+	logMessages func(chan<- common.LogMessage)
 	streamErr   error
 
 	minionReportsChanges  chan struct{}
@@ -1044,11 +1088,15 @@ func (f *stubMasterFacade) StreamModelLog() (<-chan common.LogMessage, error) {
 	if f.streamErr != nil {
 		return nil, f.streamErr
 	}
-	result := make(chan common.LogMessage, len(f.logMessages))
-	for _, message := range f.logMessages {
-		result <- message
+	result := make(chan common.LogMessage)
+	messageFunc := f.logMessages
+	if messageFunc == nil {
+		messageFunc = func(chan<- common.LogMessage) {}
 	}
-	close(result)
+	go func() {
+		defer close(result)
+		messageFunc(result)
+	}()
 	return result, nil
 }
 

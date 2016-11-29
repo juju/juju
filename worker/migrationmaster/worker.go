@@ -46,10 +46,11 @@ const (
 	// phase.
 	maxMinionWait = 15 * time.Minute
 
-	// minionWaitLogInterval is the time between progress update
-	// messages, while the migrationmaster is waiting for reports from
-	// minions.
-	minionWaitLogInterval = 30 * time.Second
+	// progressUpdateInterval is the time between progress update
+	// messages. It's used while the migrationmaster is waiting for
+	// reports from minions and while it's transferring log messages
+	// to the newly-migrated model.
+	progressUpdateInterval = 30 * time.Second
 )
 
 // Facade exposes controller functionality to a Worker.
@@ -448,10 +449,14 @@ func (w *Worker) doLOGTRANSFER(targetInfo coremigration.TargetInfo, modelUUID st
 
 func (w *Worker) transferLogs(targetInfo coremigration.TargetInfo, modelUUID string) error {
 	sent := 0
-	reportProgress := func(sent int) {
-		w.setInfoStatus("successful, transferring logs to target controller (%d sent)", sent)
+	reportProgress := func(finished bool, sent int) {
+		verb := "transferring"
+		if finished {
+			verb = "transferred"
+		}
+		w.setInfoStatus("successful, %s logs to target controller (%d sent)", verb, sent)
 	}
-	reportProgress(sent)
+	reportProgress(false, sent)
 	logSource, err := w.config.Facade.StreamModelLog()
 	if err != nil {
 		return errors.Annotate(err, "opening source log stream")
@@ -469,6 +474,9 @@ func (w *Worker) transferLogs(targetInfo coremigration.TargetInfo, modelUUID str
 	}
 	defer logTarget.Close()
 
+	clk := w.config.Clock
+	logProgress := clk.After(progressUpdateInterval)
+
 	for {
 		select {
 		case <-w.catacomb.Dying():
@@ -476,7 +484,7 @@ func (w *Worker) transferLogs(targetInfo coremigration.TargetInfo, modelUUID str
 		case msg, ok := <-logSource:
 			if !ok {
 				// The channel's been closed, we're finished!
-				reportProgress(sent)
+				reportProgress(true, sent)
 				return nil
 			}
 			err := logTarget.WriteJSON(params.LogRecord{
@@ -491,9 +499,9 @@ func (w *Worker) transferLogs(targetInfo coremigration.TargetInfo, modelUUID str
 				return errors.Trace(err)
 			}
 			sent++
-			if sent%1000 == 0 {
-				reportProgress(sent)
-			}
+		case <-logProgress:
+			reportProgress(false, sent)
+			logProgress = clk.After(progressUpdateInterval)
 		}
 	}
 }
@@ -630,7 +638,7 @@ func (w *Worker) waitForMinions(
 		return false, errors.Trace(err)
 	}
 
-	logProgress := clk.After(minionWaitLogInterval)
+	logProgress := clk.After(progressUpdateInterval)
 
 	var reports coremigration.MinionReports
 	for {
@@ -674,7 +682,7 @@ func (w *Worker) waitForMinions(
 
 		case <-logProgress:
 			w.setInfoStatus("%s, %s", infoPrefix, formatMinionWaitUpdate(reports))
-			logProgress = clk.After(minionWaitLogInterval)
+			logProgress = clk.After(progressUpdateInterval)
 		}
 	}
 }
