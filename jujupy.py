@@ -1332,7 +1332,8 @@ class EnvJujuClient:
         """
         if juju_path is None:
             juju_path = 'juju'
-        return subprocess.check_output((juju_path, '--version')).strip().decode("utf-8")
+        version = subprocess.check_output((juju_path, '--version')).strip()
+        return version.decode("utf-8")
 
     def check_timeouts(self):
         return self._backend._check_timeouts()
