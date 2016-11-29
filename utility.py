@@ -193,7 +193,11 @@ def wait_for_port(host, port, closed=False, timeout=30):
             else:
                 continue
         conn = socket.socket(*addrinfo[0][:3])
-        conn.settimeout(max(remaining, 5))
+        if remaining is None:
+            conn_timeout = 5
+        else:
+            conn_timeout = max(remaining, 5)
+        conn.settimeout(conn_timeout)
         try:
             conn.connect(sockaddr)
         except socket.timeout:
