@@ -107,15 +107,14 @@ type SerializedModelResource struct {
 
 // XXX
 type SerializedModelResourceRevision struct {
-	Revision       int        `json:"revision"`
-	Type           string     `json:"type"`
-	Path           string     `json:"path"`
-	Description    string     `json:"description"`
-	Origin         string     `json:"origin"`
-	FingerprintHex string     `json:"fingerprint"`
-	Size           int64      `json:"size"`
-	Timestamp      *time.Time `json:"timestamp,omitempty"`
-	Username       string     `json:"username,omitempty"`
+	Revision       int    `json:"revision"`
+	Type           string `json:"type"`
+	Path           string `json:"path"`
+	Description    string `json:"description"`
+	Origin         string `json:"origin"`
+	FingerprintHex string `json:"fingerprint"`
+	Size           int64  `json:"size"`
+	Username       string `json:"username,omitempty"`
 }
 
 // ModelArgs wraps a simple model tag.
