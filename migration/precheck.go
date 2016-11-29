@@ -309,8 +309,11 @@ func checkUnitAgentStatus(unit PrecheckUnit) error {
 		return errors.Annotatef(statusData.Err, "retrieving unit %s status", unit.Name())
 	}
 	agentStatus := statusData.Status.Status
-	if agentStatus != status.Idle {
-		return newStatusError("unit %s not idle", unit.Name(), agentStatus)
+	switch agentStatus {
+	case status.Idle, status.Executing:
+		// These two are fine.
+	default:
+		return newStatusError("unit %s not idle or executing", unit.Name(), agentStatus)
 	}
 	return nil
 }
