@@ -5458,7 +5458,8 @@ class TestStatusErrorTree(TestCase):
     """TestCase for StatusError and the tree of exceptions it roots."""
 
     def test_priority(self):
-        self.assertEqual(7, StatusError.priority())
+        pos = len(StatusError.ordering) - 1
+        self.assertEqual(pos, StatusError.priority())
 
     def test_priority_mass(self):
         for index, error_type in enumerate(StatusError.ordering):

@@ -614,6 +614,10 @@ class MachineError(StatusError):
     recoverable = False
 
 
+class ProvisioningError(MachineError):
+    """Machine experianced a 'provisioning error'."""
+
+
 class UnitError(StatusError):
     """Error in a unit's status."""
 
@@ -651,9 +655,10 @@ class AgentUnresolvedError(AgentError):
     recoverable = False
 
 
-StatusError.ordering = [MachineError, InstallError, AgentUnresolvedError,
-                        HookFailedError, UnitError, AppError, AgentError,
-                        StatusError]
+StatusError.ordering = [
+    ProvisioningError, MachineError, InstallError, AgentUnresolvedError,
+    HookFailedError, UnitError, AppError, AgentError, StatusError,
+    ]
 
 
 class StatusItem:
@@ -702,7 +707,8 @@ class StatusItem:
 
         :return: StatusError (or subtype) to represent an error or None
         to show that there is no error."""
-        if self.current not in ['error', 'failed']:
+        if self.current not in ['error', 'failed', 'down',
+                                'provisioning error']:
             return None
 
         if self.APPLICATION == self.status_name:
@@ -717,7 +723,10 @@ class StatusItem:
             else:
                 return UnitError(self.item_name, self.message)
         elif self.MACHINE == self.status_name:
-            return MachineError(self.item_name, self.message)
+            if self.current == 'provisioning error':
+                return ProvisioningError(self.item_name, self.message)
+            else:
+                return MachineError(self.item_name, self.message)
         elif self.JUJU == self.status_name:
             time_since = datetime.utcnow() - self.datetime_since
             if time_since > AgentUnresolvedError.a_reasonable_time:
