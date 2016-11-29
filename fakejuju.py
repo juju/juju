@@ -6,6 +6,10 @@ from hashlib import sha512
 from itertools import count
 import json
 import logging
+try:
+    from past.builtins import basestring
+except ImportError:
+    pass
 import re
 import subprocess
 
