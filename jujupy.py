@@ -17,7 +17,10 @@ from itertools import chain
 import json
 import logging
 import os
-from past.builtins import basestring
+try:
+    from past.builtins import basestring
+except ImportError:
+    pass
 import re
 import shutil
 import subprocess
