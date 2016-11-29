@@ -15,9 +15,9 @@ type Resource interface {
 	// Name returns the name of the resource.
 	Name() string
 
-	// Revision returns the revision of the resource as set on the
-	// application.
-	Revision() int
+	// ApplicationRevision returns the revision of the resource as set
+	// on the application.
+	ApplicationRevision() int
 
 	// CharmStoreRevision returns the revision the charmstore has, as
 	// seen at the last poll.
@@ -60,9 +60,9 @@ type ResourceArgs struct {
 
 func newResource(args ResourceArgs) *resource {
 	return &resource{
-		Name_:               args.Name,
-		Revision_:           args.Revision,
-		CharmStoreRevision_: args.CharmStoreRevision,
+		Name_:                args.Name,
+		ApplicationRevision_: args.Revision,
+		CharmStoreRevision_:  args.CharmStoreRevision,
 	}
 }
 
@@ -72,10 +72,10 @@ type resources struct {
 }
 
 type resource struct {
-	Name_               string              `yaml:"name"`
-	Revision_           int                 `yaml:"application-revision"`
-	CharmStoreRevision_ int                 `yaml:"charmstore-revision"`
-	Revisions_          []*resourceRevision `yaml:"revisions"`
+	Name_                string              `yaml:"name"`
+	ApplicationRevision_ int                 `yaml:"application-revision"`
+	CharmStoreRevision_  int                 `yaml:"charmstore-revision"`
+	Revisions_           []*resourceRevision `yaml:"revisions"`
 }
 
 // Name implements Resource.
@@ -83,9 +83,9 @@ func (r *resource) Name() string {
 	return r.Name_
 }
 
-// Revision implements Resource.
-func (r *resource) Revision() int {
-	return r.Revision_
+// ApplicationRevision implements Resource.
+func (r *resource) ApplicationRevision() int {
+	return r.ApplicationRevision_
 }
 
 // CharmStoreRevision implements Resource.
@@ -141,8 +141,8 @@ func (r *resource) Revisions() map[int]ResourceRevision {
 // Validate implements Resource.
 func (r *resource) Validate() error {
 	revs := r.Revisions()
-	if _, ok := revs[r.Revision_]; !ok {
-		return errors.Errorf("missing application revision (%d)", r.Revision_)
+	if _, ok := revs[r.ApplicationRevision_]; !ok {
+		return errors.Errorf("missing application revision (%d)", r.ApplicationRevision_)
 	}
 	if _, ok := revs[r.CharmStoreRevision_]; !ok {
 		return errors.Errorf("missing charmstore revision (%d)", r.CharmStoreRevision_)

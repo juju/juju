@@ -91,7 +91,7 @@ func minimalResource() *resource {
 func (s *ResourceSuite) TestNew(c *gc.C) {
 	r := minimalResource()
 	c.Check(r.Name(), gc.Equals, "bdist")
-	c.Check(r.Revision(), gc.Equals, 3)
+	c.Check(r.ApplicationRevision(), gc.Equals, 3)
 	c.Check(r.CharmStoreRevision(), gc.Equals, 4)
 
 	rs := r.Revisions()
