@@ -56,12 +56,15 @@ def is_young(node, old_age):
     return young
 
 
-def get_client(sa_email, pem_path, project_id):
+def get_client(sa_email, pem_path, project_id, region=None):
     """Delay imports and activation of GCE client as needed."""
     import libcloud
     gce = libcloud.compute.providers.get_driver(
         libcloud.compute.types.Provider.GCE)
-    return gce(sa_email, pem_path, project=project_id)
+    client = gce(sa_email, pem_path, project=project_id, datacenter=region)
+    if region and client.ex_get_zone(region) is None:
+        raise ValueError("Unknown region: ", region)
+    return client
 
 
 def list_instances(client, glob='*', print_out=False):
@@ -75,7 +78,7 @@ def list_instances(client, glob='*', print_out=False):
     :return: A list of Nodes
     """
     nodes = []
-    for node in client.list_nodes(ex_zone='all'):
+    for node in client.list_nodes():
         if not fnmatch.fnmatch(node.name, glob):
             log.debug('Skipping {}'.format(node.name))
             continue
@@ -155,6 +158,7 @@ def parse_args(argv):
         help=("The secret to make requests with. "
               "Environment: $GCE_PROJECT_ID."),
         default=os.environ.get('GCE_PROJECT_ID'))
+    parser.add_argument('--region', help="The compute engine region.")
     subparsers = parser.add_subparsers(help='sub-command help', dest="command")
     ls_parser = subparsers.add_parser(
         'list-instances', help='List vm instances.')
@@ -181,7 +185,8 @@ def parse_args(argv):
 def main(argv):
     args = parse_args(argv)
     log.setLevel(args.verbose)
-    client = get_client(args.sa_email, args.pem_path, args.project_id)
+    client = get_client(args.sa_email, args.pem_path, args.project_id,
+                        region=args.region)
     try:
         if args.command == 'list-instances':
             list_instances(client, glob=args.filter, print_out=True)
