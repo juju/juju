@@ -1,25 +1,70 @@
 #!/usr/bin/env python
 from argparse import ArgumentParser
+from copy import deepcopy
+from difflib import ndiff
 import json
 import os
+from pprint import pformat
 
 import yaml
 
 from jujupy import client_from_config
-from utility import add_arg_juju_bin
+from utility import (
+    add_arg_juju_bin,
+    JujuAssertionError,
+    )
 
 
 def get_clouds(client):
-    cloud_list = json.loads(client.get_juju_output(
-        'list-clouds', '--format', 'json', include_e=False))
+    type_descriptions = {
+        'openstack': 'Openstack Cloud',
+        'vsphere': '',
+        'manual': '',
+        'maas': 'Metal As A Service',
+        }
+    cloud_list = yaml.load(client.get_juju_output(
+        'list-clouds', '--format', 'yaml', include_e=False))
     for cloud_name, cloud in cloud_list.items():
         if cloud['defined'] == 'built-in':
             del cloud_list[cloud_name]
+            continue
+        defined = cloud.pop('defined')
+        assert_equal(defined, 'local')
+        description = cloud.pop('description')
+        assert_equal(description, type_descriptions[cloud['type']])
     return cloud_list
 
 
 def get_home_path(client, subpath):
     return os.path.join(client.env.juju_home, subpath)
+
+
+def assert_equal(first, second):
+    if first != second:
+        diff = ndiff(pformat(first).splitlines(), pformat(second).splitlines())
+        raise JujuAssertionError('\n' + '\n'.join(diff))
+
+
+def assess_list_clouds_no_clouds(client):
+    with open(get_home_path(client, 'public-clouds.yaml'), 'w') as f:
+        f.write('')
+    cloud_list = get_clouds(client)
+    if cloud_list != {}:
+        print cloud_list
+
+
+def assess_list_clouds(client, expected):
+    cloud_list = get_clouds(client)
+    assert_equal(cloud_list, expected)
+
+
+def strip_redundant_endpoints(clouds):
+    no_region_endpoint = deepcopy(clouds)
+    for cloud in no_region_endpoint.values():
+        for region in cloud.get('regions', {}).values():
+            if region['endpoint'] == cloud['endpoint']:
+                region.pop('endpoint')
+    return no_region_endpoint
 
 
 def main():
@@ -30,17 +75,15 @@ def main():
     client = client_from_config(None, args.juju_bin)
     with client.env.make_jes_home(client.env.juju_home, 'mytest',
                                   {}) as juju_home:
-        with open(get_home_path(client, 'public-clouds.yaml'), 'w') as f:
-            f.write('')
-        cloud_list = get_clouds(client)
-        if cloud_list != {}:
-            print cloud_list
+        client.env.juju_home = juju_home
+        assess_list_clouds_no_clouds(client)
         with open(args.clouds_file) as f:
-            supplied_clouds = yaml.load(f)['clouds']
+            supplied_clouds = yaml.safe_load(f.read().decode('utf-8'))
         client.env.write_clouds(client.env.juju_home, supplied_clouds)
-        cloud_list = get_clouds(client)
-        if cloud_list != supplied_clouds:
-            print cloud_list
+        no_region_endpoint = strip_redundant_endpoints(
+            supplied_clouds['clouds'])
+        assess_list_clouds(client, no_region_endpoint)
+
 
 
 
