@@ -61,7 +61,7 @@ class TestMain(TestCase):
         mock_cfc.assert_called_once_with('an-env', "/bin/juju", debug=False,
                                          soft_deadline=None)
         self.assertEqual(mock_bc.call_count, 1)
-        mock_assess.assert_called_once_with(client)
+        mock_assess.assert_called_once_with(client, None)
 
 
 class TestAssess(TestCase):
@@ -73,7 +73,7 @@ class TestAssess(TestCase):
         # can also be used separately.
         fake_client = Mock(wraps=fake_juju_client())
         fake_client.bootstrap()
-        assess_model_change_watcher(fake_client)
+        assess_model_change_watcher(fake_client, 'angsty')
         fake_client.deploy.assert_called_once_with('dummy-source')
         fake_client.wait_for_started.assert_called_once_with()
         self.assertEqual(
