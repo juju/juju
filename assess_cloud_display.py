@@ -8,12 +8,13 @@ import yaml
 from jujupy import client_from_config
 from utility import add_arg_juju_bin
 
+
 def get_clouds(client):
     cloud_list = json.loads(client.get_juju_output(
         'list-clouds', '--format', 'json', include_e=False))
-    del cloud_list['localhost']
-    #for cloud in cloud_list.values():
-        #assert cloud.pop('defined') == 'local'
+    for cloud_name, cloud in cloud_list.items():
+        if cloud['defined'] == 'built-in':
+            del cloud_list[cloud_name]
     return cloud_list
 
 
@@ -32,7 +33,6 @@ def main():
         with open(get_home_path(client, 'public-clouds.yaml'), 'w') as f:
             f.write('')
         cloud_list = get_clouds(client)
-        import pdb; pdb.set_trace()
         if cloud_list != {}:
             print cloud_list
         with open(args.clouds_file) as f:
