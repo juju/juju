@@ -16,12 +16,12 @@ import (
 	"github.com/juju/httprequest"
 	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6-unstable"
-	"gopkg.in/juju/charm.v6-unstable/resource"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 	coremigration "github.com/juju/juju/core/migration"
+	"github.com/juju/juju/resource"
 	"github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -114,6 +114,8 @@ func (c *Client) UploadTools(modelUUID string, r io.ReadSeeker, vers version.Bin
 // XXX
 func (c *Client) UploadResource(modelUUID string, res resource.Resource, r io.ReadSeeker) error {
 	args := url.Values{}
+	args.Add("application", res.ApplicationID)
+	args.Add("user", res.Username)
 	args.Add("name", res.Name)
 	args.Add("type", res.Type.String())
 	args.Add("path", res.Path)
