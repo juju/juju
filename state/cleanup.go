@@ -362,8 +362,13 @@ func (st *State) cleanupRemovedUnit(unitId string) error {
 		Message: "unit removed",
 	}
 	for _, action := range actions {
-		if _, err = action.Finish(cancelled); err != nil {
-			return errors.Trace(err)
+		switch action.Status() {
+		case ActionCompleted, ActionCancelled, ActionFailed:
+			// nothing to do here
+		default:
+			if _, err = action.Finish(cancelled); err != nil {
+				return errors.Trace(err)
+			}
 		}
 	}
 
