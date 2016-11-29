@@ -561,6 +561,10 @@ type fakeBackend struct {
 	controllerBackend *fakeBackend
 }
 
+func (b *fakeBackend) Close() error {
+	return nil
+}
+
 func (b *fakeBackend) Model() (migration.PrecheckModel, error) {
 	return &b.model, nil
 }
@@ -598,7 +602,7 @@ func (b *fakeBackend) AllApplications() ([]migration.PrecheckApplication, error)
 
 }
 
-func (b *fakeBackend) ControllerBackend() (migration.PrecheckBackend, error) {
+func (b *fakeBackend) ControllerBackend() (migration.PrecheckBackendCloser, error) {
 	if b.controllerBackend == nil {
 		return b, nil
 	}

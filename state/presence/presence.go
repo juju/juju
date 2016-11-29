@@ -300,6 +300,8 @@ func (w *Watcher) flush() {
 	// w.pending may get new requests as we handle other requests.
 	for i := 0; i < len(w.pending); i++ {
 		e := &w.pending[i]
+		// Allow the handling of requests while waiting for e.ch
+		// to be ready to read from the channel.
 		for e.ch != nil {
 			select {
 			case <-w.tomb.Dying():

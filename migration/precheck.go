@@ -30,8 +30,15 @@ type PrecheckBackend interface {
 	IsMigrationActive(string) (bool, error)
 	AllMachines() ([]PrecheckMachine, error)
 	AllApplications() ([]PrecheckApplication, error)
-	ControllerBackend() (PrecheckBackend, error)
+	ControllerBackend() (PrecheckBackendCloser, error)
 	CloudCredential(tag names.CloudCredentialTag) (cloud.Credential, error)
+}
+
+// PrecheckBackendCloser adds the Close method to the standard
+// PrecheckBackend.
+type PrecheckBackendCloser interface {
+	PrecheckBackend
+	Close() error
 }
 
 // PrecheckModel describes the state interface a model as needed by
@@ -106,6 +113,7 @@ func SourcePrecheck(backend PrecheckBackend) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	defer controllerBackend.Close()
 	if err := checkController(controllerBackend); err != nil {
 		return errors.Annotate(err, "controller")
 	}
