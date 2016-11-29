@@ -427,7 +427,6 @@ def ensure_migrating_with_superuser_user_permissions_succeeds(
 
     user_new_model = user_source_client.add_model(
         user_source_client.env.clone('model-a'))
-    user_new_model.env.user_name = user_source_client.env.user_name
 
     log.info('Setting up {}/model-a'.format(user_new_model.env.user_name))
 
@@ -458,7 +457,6 @@ def create_user_on_controllers(
     new_user = User(username, 'write', [])
     source_user_client = source_client.register_user(new_user, new_user_home)
     source_client.grant(new_user.name, permission)
-    source_client.env.user_name = username
 
     second_controller_name = '{}_controllerb'.format(new_user.name)
     dest_user_client = dest_client.register_user(
@@ -466,7 +464,6 @@ def create_user_on_controllers(
         new_user_home,
         controller_name=second_controller_name)
     dest_client.grant(new_user.name, permission)
-    dest_client.env.user_name = username
 
     return source_user_client, dest_user_client
 
