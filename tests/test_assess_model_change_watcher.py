@@ -1,7 +1,8 @@
 """Tests for assess_model_change_watcher module."""
 
 import logging
-from io import BytesIO
+from io import BytesIO, StringIO, TextIOWrapper
+import sys
 
 from mock import (
     Mock,
@@ -31,11 +32,14 @@ class TestParseArgs(TestCase):
         self.assertEqual(False, args.debug)
 
     def test_help(self):
-        fake_stdout = BytesIO()
+        if isinstance(sys.stdout, TextIOWrapper):
+            fake_stdout = StringIO()
+        else:
+            fake_stdout = BytesIO()
         with parse_error(self) as fake_stderr:
             with patch("sys.stdout", fake_stdout):
                 parse_args(["--help"])
-        self.assertEqual("", fake_stderr.getvalue())
+        self.assertEqual(b"", fake_stderr.getvalue())
 
 
 class TestMain(TestCase):
