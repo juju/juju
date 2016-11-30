@@ -105,7 +105,7 @@ make
 
 # Do not reveal credentials.
 echo "devenv/bin/uitest --driver phantom \
-    -c google \
+    -c lxd \
     --gui-archive $WORKSPACE/$GUI_ARCHIVE \
     --gopath $GOPATH \
     --credentials <SECRET> \

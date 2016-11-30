@@ -54,11 +54,13 @@ from jujupy import (
     get_local_root,
     get_machine_dns_name,
     get_timeout_path,
+    get_timeout_prefix,
     HookFailedError,
     IncompatibleConfigClass,
     InstallError,
     jes_home_path,
     JESNotSupported,
+    Juju1XBackend,
     Juju2Backend,
     JujuData,
     JUJU_DEV_FEATURE_FLAGS,
@@ -208,6 +210,28 @@ class TestJuju2Backend(TestCase):
         # The feature_flags are combined in alphabetic order.
         self.assertEqual('june,run-test', env[JUJU_DEV_FEATURE_FLAGS])
 
+    def test_full_args(self):
+        backend = Juju2Backend('/bin/path/juju', '2.0', set(), False, None)
+        full = backend.full_args('help', ('commands',), None, None)
+        self.assertEqual(('juju', '--show-log', 'help', 'commands'), full)
+
+    def test_full_args_debug(self):
+        backend = Juju2Backend('/bin/path/juju', '2.0', set(), True, None)
+        full = backend.full_args('help', ('commands',), None, None)
+        self.assertEqual(('juju', '--debug', 'help', 'commands'), full)
+
+    def test_full_args_model(self):
+        backend = Juju2Backend('/bin/path/juju', '2.0', set(), False, None)
+        full = backend.full_args('help', ('commands',), 'test', None)
+        self.assertEqual(('juju', '--show-log', 'help', '-m', 'test',
+                          'commands'), full)
+
+    def test_full_args_timeout(self):
+        backend = Juju2Backend('/bin/path/juju', '2.0', set(), False, None)
+        full = backend.full_args('help', ('commands',), None, 600)
+        self.assertEqual(get_timeout_prefix(600, backend._timeout_path) +
+                         ('juju', '--show-log', 'help', 'commands'), full)
+
     def test_juju_checks_timeouts(self):
         backend = Juju2Backend('/bin/path', '2.0', set(), debug=False,
                                soft_deadline=datetime(2015, 1, 2, 3, 4, 5))
@@ -251,6 +275,15 @@ class TestJuju2Backend(TestCase):
                 with self.assertRaisesRegexp(SoftDeadlineExceeded,
                                              'Operation exceeded deadline.'):
                     backend.get_juju_output('cmd', ('args',), [], 'home')
+
+
+class TestJuju1XBackend(TestCase):
+
+    def test_full_args_model(self):
+        backend = Juju1XBackend('/bin/path/juju', '1.25', set(), False, None)
+        full = backend.full_args('help', ('commands',), 'test', None)
+        self.assertEqual(('juju', '--show-log', 'help', '-e', 'test',
+                          'commands'), full)
 
 
 class TestEnvJujuClient25(ClientTest):
@@ -520,7 +553,7 @@ class TestEnvJujuClient(ClientTest):
             client.env.load_yaml.assert_called_once_with()
         self.assertIsInstance(client.env, JujuData)
         self.assertEqual(client.env.environment, 'foo')
-        self.assertEqual(client.env.config, {'type': 'bar'})
+        self.assertEqual(client.env._config, {'type': 'bar'})
         self.assertEqual(client.env.juju_home, 'baz')
 
     def test_get_version(self):
@@ -597,51 +630,6 @@ class TestEnvJujuClient(ClientTest):
                                '1.27', 'full/path', debug=True)
         self.assertEqual('/foo/models/cache.yaml',
                          client.get_cache_path())
-
-    def test_full_args(self):
-        env = JujuData('foo')
-        client = EnvJujuClient(env, None, 'my/juju/bin')
-        full = client._full_args('bar', False, ('baz', 'qux'))
-        self.assertEqual(('bin', '--show-log', 'bar', '-m', 'foo:foo', 'baz',
-                          'qux'), full)
-        full = client._full_args('bar', True, ('baz', 'qux'))
-        self.assertEqual((
-            'bin', '--show-log', 'bar', '-m', 'foo:foo', 'baz', 'qux'), full)
-        full = client._full_args('bar', True, ('baz', 'qux'), controller=True)
-        self.assertEqual(
-            ('bin', '--show-log', 'bar', '-m', 'foo:controller', 'baz', 'qux'),
-            full)
-        client.env = None
-        full = client._full_args('bar', False, ('baz', 'qux'))
-        self.assertEqual(('bin', '--show-log', 'bar', 'baz', 'qux'), full)
-
-    def test_full_args_debug(self):
-        env = JujuData('foo')
-        client = EnvJujuClient(env, None, 'my/juju/bin', debug=True)
-        full = client._full_args('bar', False, ('baz', 'qux'))
-        self.assertEqual((
-            'bin', '--debug', 'bar', '-m', 'foo:foo', 'baz', 'qux'), full)
-
-    def test_full_args_action(self):
-        env = JujuData('foo')
-        client = EnvJujuClient(env, None, 'my/juju/bin')
-        full = client._full_args('action bar', False, ('baz', 'qux'))
-        self.assertEqual(
-            ('bin', '--show-log', 'action', 'bar', '-m', 'foo:foo',
-             'baz', 'qux'),
-            full)
-
-    def test_full_args_controller(self):
-        env = JujuData('foo')
-        client = EnvJujuClient(env, None, 'my/juju/bin')
-        with patch.object(client, 'get_controller_model_name',
-                          return_value='controller') as gamn_mock:
-            full = client._full_args('bar', False, ('baz', 'qux'),
-                                     controller=True)
-        self.assertEqual((
-            'bin', '--show-log', 'bar', '-m', 'foo:controller', 'baz', 'qux'),
-            full)
-        gamn_mock.assert_called_once_with()
 
     def test_make_model_config_prefers_agent_metadata_url(self):
         env = JujuData('qux', {
@@ -794,16 +782,15 @@ class TestEnvJujuClient(ClientTest):
     def test_bootstrap_upload_tools(self):
         env = JujuData('foo', {'type': 'foo', 'region': 'baz'})
         client = EnvJujuClient(env, '2.0-zeta1', None)
-        with patch.object(client.env, 'needs_sudo', lambda: True):
-            with observable_temp_file() as config_file:
-                with patch.object(client, 'juju') as mock:
-                    client.bootstrap(upload_tools=True)
-            mock.assert_called_with(
-                'bootstrap', (
-                    '--upload-tools', '--constraints', 'mem=2G',
-                    'foo/baz', 'foo',
-                    '--config', config_file.name,
-                    '--default-model', 'foo'), include_e=False)
+        with observable_temp_file() as config_file:
+            with patch.object(client, 'juju') as mock:
+                client.bootstrap(upload_tools=True)
+        mock.assert_called_with(
+            'bootstrap', (
+                '--upload-tools', '--constraints', 'mem=2G',
+                'foo/baz', 'foo',
+                '--config', config_file.name,
+                '--default-model', 'foo'), include_e=False)
 
     def test_bootstrap_credential(self):
         env = JujuData('foo', {'type': 'foo', 'region': 'baz'})
@@ -1015,6 +1002,14 @@ class TestEnvJujuClient(ClientTest):
             client.kill_controller()
         juju_mock.assert_called_once_with(
             'kill-controller', ('foo', '-y'), check=False, include_e=False,
+            timeout=600)
+
+    def test_kill_controller_check(self):
+        client = EnvJujuClient(JujuData('foo', {'type': 'ec2'}), None, None)
+        with patch.object(client, 'juju') as juju_mock:
+            client.kill_controller(check=True)
+        juju_mock.assert_called_once_with(
+            'kill-controller', ('foo', '-y'), check=True, include_e=False,
             timeout=600)
 
     def do_kill_controller_azure(self, jes_command, kill_command):
@@ -1645,22 +1640,23 @@ class TestEnvJujuClient(ClientTest):
                         client.wait_for_started(start=now - timedelta(1200))
                 self.assertEqual(writes, ['pending: jenkins/0', '\n'])
 
-    def make_ha_status(self):
+    def make_ha_status(self, voting='has-vote'):
         return {'machines': {
-            '0': {'controller-member-status': 'has-vote'},
-            '1': {'controller-member-status': 'has-vote'},
-            '2': {'controller-member-status': 'has-vote'},
+            '0': {'controller-member-status': voting},
+            '1': {'controller-member-status': voting},
+            '2': {'controller-member-status': voting},
             }}
 
     @contextmanager
-    def only_status_checks(self, status=None):
+    def only_status_checks(self, client=None, status=None):
         """This context manager ensure only get_status calls check_timeouts.
 
         Everything else will get a mock object.
 
         Also, the client is patched so that the soft_deadline has been hit.
         """
-        client = EnvJujuClient(JujuData('local', juju_home=''), None, None)
+        if client is None:
+            client = EnvJujuClient(JujuData('local', juju_home=''), None, None)
         with client_past_deadline(client):
             # This will work even after we patch check_timeouts below.
             real_check_timeouts = client.check_timeouts
@@ -1683,12 +1679,13 @@ class TestEnvJujuClient(ClientTest):
             client._wait_for_status(Mock(), translate)
 
     @contextmanager
-    def status_does_not_check(self, status=None):
+    def status_does_not_check(self, client=None, status=None):
         """This context manager ensure get_status never calls check_timeouts.
 
         Also, the client is patched so that the soft_deadline has been hit.
         """
-        client = EnvJujuClient(JujuData('local', juju_home=''), None, None)
+        if client is None:
+            client = EnvJujuClient(JujuData('local', juju_home=''), None, None)
         with client_past_deadline(client):
             status_obj = client.status_class(status, '')
             with patch.object(client, 'get_status', autospec=True,
@@ -2160,7 +2157,7 @@ class TestEnvJujuClient(ClientTest):
         controller_env = controller_client.env
         self.assertEqual('controller', controller_env.environment)
         self.assertEqual(
-            {'bar': 'baz', 'name': 'controller'}, controller_env.config)
+            {'bar': 'baz', 'name': 'controller'}, controller_env._config)
 
     def test_list_controllers(self):
         client = EnvJujuClient(JujuData('foo'), None, None)
@@ -2298,32 +2295,27 @@ class TestEnvJujuClient(ClientTest):
             leader = client.get_controller_leader()
         self.assertEqual(Machine('3', {}), leader)
 
+    def make_controller_client(self):
+        client = EnvJujuClient(JujuData('local', {'name': 'test'}), None, None)
+        return client.get_controller_client()
+
     def test_wait_for_ha(self):
-        value = yaml.safe_dump({
-            'machines': {
-                '0': {'controller-member-status': 'has-vote'},
-                '1': {'controller-member-status': 'has-vote'},
-                '2': {'controller-member-status': 'has-vote'},
-            },
-            'services': {},
-        })
-        client = EnvJujuClient(JujuData('local'), None, None)
+        value = yaml.safe_dump(self.make_ha_status())
+        client = self.make_controller_client()
         with patch.object(client, 'get_juju_output',
                           return_value=value) as gjo_mock:
             client.wait_for_ha()
         gjo_mock.assert_called_once_with(
-            'show-status', '--format', 'yaml', controller=True)
+            'show-status', '--format', 'yaml', controller=False)
+
+    def test_wait_for_ha_requires_controller_client(self):
+        client = fake_juju_client()
+        with self.assertRaisesRegexp(ValueError, 'wait_for_ha'):
+            client.wait_for_ha()
 
     def test_wait_for_ha_no_has_vote(self):
-        value = yaml.safe_dump({
-            'machines': {
-                '0': {'controller-member-status': 'no-vote'},
-                '1': {'controller-member-status': 'no-vote'},
-                '2': {'controller-member-status': 'no-vote'},
-            },
-            'services': {},
-        })
-        client = EnvJujuClient(JujuData('local'), None, None)
+        value = yaml.safe_dump(self.make_ha_status(voting='no-vote'))
+        client = self.make_controller_client()
         with patch.object(client, 'get_juju_output', return_value=value):
             writes = []
             with patch('jujupy.until_timeout', autospec=True,
@@ -2334,9 +2326,9 @@ class TestEnvJujuClient(ClientTest):
                             Exception,
                             'Timed out waiting for voting to be enabled.'):
                         client.wait_for_ha()
-            self.assertEqual(writes[:2], ['no-vote: 0, 1, 2', ' .'])
-            self.assertEqual(writes[2:-1], ['.'] * (len(writes) - 3))
-            self.assertEqual(writes[-1:], ['\n'])
+        dots = len(writes) - 3
+        expected = ['no-vote: 0, 1, 2', ' .'] + (['.'] * dots) + ['\n']
+        self.assertEqual(writes, expected)
 
     def test_wait_for_ha_timeout(self):
         value = yaml.safe_dump({
@@ -2346,13 +2338,16 @@ class TestEnvJujuClient(ClientTest):
             },
             'services': {},
         })
-        client = EnvJujuClient(JujuData('local'), None, None)
-        with patch('jujupy.until_timeout', lambda x: range(0)):
-            with patch.object(client, 'get_juju_output', return_value=value):
+        client = self.make_controller_client()
+        status = client.status_class.from_text(value)
+        with patch('jujupy.until_timeout', lambda x, start=None: range(0)):
+            with patch.object(client, 'get_status', return_value=status
+                              ) as get_status_mock:
                 with self.assertRaisesRegexp(
                         StatusNotMet,
                         'Timed out waiting for voting to be enabled.'):
                     client.wait_for_ha()
+        get_status_mock.assert_called_once_with()
 
     def test_wait_for_ha_timeout_with_status_error(self):
         value = yaml.safe_dump({
@@ -2362,7 +2357,7 @@ class TestEnvJujuClient(ClientTest):
             },
             'services': {},
         })
-        client = EnvJujuClient(JujuData('local'), None, None)
+        client = self.make_controller_client()
         with patch('jujupy.until_timeout', autospec=True, return_value=[2, 1]):
             with patch.object(client, 'get_juju_output', return_value=value):
                 with self.assertRaisesRegexp(
@@ -2370,11 +2365,13 @@ class TestEnvJujuClient(ClientTest):
                     client.wait_for_ha()
 
     def test_wait_for_ha_suppresses_deadline(self):
-        with self.only_status_checks(self.make_ha_status()) as client:
+        with self.only_status_checks(self.make_controller_client(),
+                                     self.make_ha_status()) as client:
             client.wait_for_ha()
 
     def test_wait_for_ha_checks_deadline(self):
-        with self.status_does_not_check(self.make_ha_status()) as client:
+        with self.status_does_not_check(self.make_controller_client(),
+                                        self.make_ha_status()) as client:
             with self.assertRaises(SoftDeadlineExceeded):
                 client.wait_for_ha()
 
@@ -2425,11 +2422,13 @@ class TestEnvJujuClient(ClientTest):
         }
 
     def test_wait_for_deploy_started_suppresses_deadline(self):
-        with self.only_status_checks(self.make_deployed_status()) as client:
+        with self.only_status_checks(
+                status=self.make_deployed_status()) as client:
             client.wait_for_deploy_started()
 
     def test_wait_for_deploy_started_checks_deadline(self):
-        with self.status_does_not_check(self.make_deployed_status()) as client:
+        with self.status_does_not_check(
+                status=self.make_deployed_status()) as client:
             with self.assertRaises(SoftDeadlineExceeded):
                 client.wait_for_deploy_started()
 
@@ -2917,8 +2916,7 @@ class TestEnvJujuClient(ClientTest):
             'deployer', ('-e', 'foo:foo', '--debug', '--deploy-delay',
                          '10', '--timeout', '3600', '--config',
                          'bundle:~juju-qa/some-bundle'),
-            True, include_e=False
-        )
+            include_e=False)
 
     def test_deployer_with_bundle_name(self):
         client = EnvJujuClient(JujuData('foo', {'type': 'local'}),
@@ -2929,8 +2927,7 @@ class TestEnvJujuClient(ClientTest):
             'deployer', ('-e', 'foo:foo', '--debug', '--deploy-delay',
                          '10', '--timeout', '3600', '--config',
                          'bundle:~juju-qa/some-bundle', 'name'),
-            True, include_e=False
-        )
+            include_e=False)
 
     def test_quickstart_maas(self):
         client = EnvJujuClient(JujuData(None, {'type': 'maas'}),
@@ -2938,10 +2935,9 @@ class TestEnvJujuClient(ClientTest):
         with patch.object(EnvJujuClient, 'juju') as mock:
             client.quickstart('bundle:~juju-qa/some-bundle')
         mock.assert_called_with(
-            'quickstart',
-            ('--constraints', 'mem=2G', '--no-browser',
-             'bundle:~juju-qa/some-bundle'), False, extra_env={'JUJU': '/juju'}
-        )
+            'quickstart', ('--constraints', 'mem=2G', '--no-browser',
+                           'bundle:~juju-qa/some-bundle'),
+            extra_env={'JUJU': '/juju'})
 
     def test_quickstart_local(self):
         client = EnvJujuClient(JujuData(None, {'type': 'local'}),
@@ -2949,21 +2945,9 @@ class TestEnvJujuClient(ClientTest):
         with patch.object(EnvJujuClient, 'juju') as mock:
             client.quickstart('bundle:~juju-qa/some-bundle')
         mock.assert_called_with(
-            'quickstart',
-            ('--constraints', 'mem=2G', '--no-browser',
-             'bundle:~juju-qa/some-bundle'), True, extra_env={'JUJU': '/juju'}
-        )
-
-    def test_quickstart_nonlocal(self):
-        client = EnvJujuClient(JujuData(None, {'type': 'nonlocal'}),
-                               '1.23-series-arch', '/juju')
-        with patch.object(EnvJujuClient, 'juju') as mock:
-            client.quickstart('bundle:~juju-qa/some-bundle')
-        mock.assert_called_with(
-            'quickstart',
-            ('--constraints', 'mem=2G', '--no-browser',
-             'bundle:~juju-qa/some-bundle'), False, extra_env={'JUJU': '/juju'}
-        )
+            'quickstart', ('--constraints', 'mem=2G', '--no-browser',
+                           'bundle:~juju-qa/some-bundle'),
+            extra_env={'JUJU': '/juju'})
 
     def test_quickstart_template(self):
         client = EnvJujuClient(JujuData(None, {'type': 'local'}),
@@ -2971,10 +2955,9 @@ class TestEnvJujuClient(ClientTest):
         with patch.object(EnvJujuClient, 'juju') as mock:
             client.quickstart('bundle:~juju-qa/some-{container}-bundle')
         mock.assert_called_with(
-            'quickstart', (
-                '--constraints', 'mem=2G', '--no-browser',
-                'bundle:~juju-qa/some-lxd-bundle'),
-            True, extra_env={'JUJU': '/juju'})
+            'quickstart', ('--constraints', 'mem=2G', '--no-browser',
+                           'bundle:~juju-qa/some-lxd-bundle'),
+            extra_env={'JUJU': '/juju'})
 
     def test_action_do(self):
         client = EnvJujuClient(JujuData(None, {'type': 'local'}),
@@ -3615,50 +3598,13 @@ class TestEnvJujuClient1X(ClientTest):
         self.assertEqual('/foo/environments/cache.yaml',
                          client.get_cache_path())
 
-    def test_full_args(self):
-        env = SimpleEnvironment('foo')
-        client = EnvJujuClient1X(env, None, 'my/juju/bin')
-        full = client._full_args('bar', False, ('baz', 'qux'))
-        self.assertEqual(('bin', '--show-log', 'bar', '-e', 'foo', 'baz',
-                          'qux'), full)
-        full = client._full_args('bar', True, ('baz', 'qux'))
-        self.assertEqual((
-            'bin', '--show-log', 'bar', '-e', 'foo',
-            'baz', 'qux'), full)
-        client.env = None
-        full = client._full_args('bar', False, ('baz', 'qux'))
-        self.assertEqual(('bin', '--show-log', 'bar', 'baz', 'qux'), full)
-
-    def test_full_args_debug(self):
-        env = SimpleEnvironment('foo')
-        client = EnvJujuClient1X(env, None, 'my/juju/bin', debug=True)
-        full = client._full_args('bar', False, ('baz', 'qux'))
-        self.assertEqual((
-            'bin', '--debug', 'bar', '-e', 'foo', 'baz', 'qux'), full)
-
-    def test_full_args_controller(self):
-        env = SimpleEnvironment('foo')
-        client = EnvJujuClient1X(env, None, 'my/juju/bin')
-        full = client._full_args('bar', False, ('baz', 'qux'), controller=True)
-        self.assertEqual((
-            'bin', '--show-log', 'bar', '-e', 'foo', 'baz', 'qux'), full)
-
-    def test_full_args_action(self):
-        env = SimpleEnvironment('foo')
-        client = EnvJujuClient1X(env, None, 'my/juju/bin')
-        full = client._full_args('action bar', False, ('baz', 'qux'))
-        self.assertEqual((
-            'bin', '--show-log', 'action', 'bar', '-e', 'foo', 'baz', 'qux'),
-            full)
-
     def test_bootstrap_maas(self):
         env = SimpleEnvironment('maas')
         with patch.object(EnvJujuClient1X, 'juju') as mock:
             client = EnvJujuClient1X(env, None, None)
             with patch.object(client.env, 'maas', lambda: True):
                 client.bootstrap()
-            mock.assert_called_with(
-                'bootstrap', ('--constraints', 'mem=2G'), False)
+        mock.assert_called_once_with('bootstrap', ('--constraints', 'mem=2G'))
 
     def test_bootstrap_joyent(self):
         env = SimpleEnvironment('joyent')
@@ -3666,37 +3612,23 @@ class TestEnvJujuClient1X(ClientTest):
             client = EnvJujuClient1X(env, None, None)
             with patch.object(client.env, 'joyent', lambda: True):
                 client.bootstrap()
-            mock.assert_called_once_with(
-                client, 'bootstrap', ('--constraints', 'mem=2G cpu-cores=1'),
-                False)
+        mock.assert_called_once_with(
+            client, 'bootstrap', ('--constraints', 'mem=2G cpu-cores=1'))
 
-    def test_bootstrap_non_sudo(self):
-        env = SimpleEnvironment('foo')
-        with patch.object(EnvJujuClient1X, 'juju') as mock:
-            client = EnvJujuClient1X(env, None, None)
-            with patch.object(client.env, 'needs_sudo', lambda: False):
-                client.bootstrap()
-            mock.assert_called_with(
-                'bootstrap', ('--constraints', 'mem=2G'), False)
-
-    def test_bootstrap_sudo(self):
+    def test_bootstrap(self):
         env = SimpleEnvironment('foo')
         client = EnvJujuClient1X(env, None, None)
-        with patch.object(client.env, 'needs_sudo', lambda: True):
-            with patch.object(client, 'juju') as mock:
-                client.bootstrap()
-            mock.assert_called_with(
-                'bootstrap', ('--constraints', 'mem=2G'), True)
+        with patch.object(client, 'juju') as mock:
+            client.bootstrap()
+        mock.assert_called_with('bootstrap', ('--constraints', 'mem=2G'))
 
     def test_bootstrap_upload_tools(self):
         env = SimpleEnvironment('foo')
         client = EnvJujuClient1X(env, None, None)
-        with patch.object(client.env, 'needs_sudo', lambda: True):
-            with patch.object(client, 'juju') as mock:
-                client.bootstrap(upload_tools=True)
-            mock.assert_called_with(
-                'bootstrap', ('--upload-tools', '--constraints', 'mem=2G'),
-                True)
+        with patch.object(client, 'juju') as mock:
+            client.bootstrap(upload_tools=True)
+        mock.assert_called_with(
+            'bootstrap', ('--upload-tools', '--constraints', 'mem=2G'))
 
     def test_bootstrap_args(self):
         env = SimpleEnvironment('foo', {})
@@ -3706,14 +3638,12 @@ class TestEnvJujuClient1X(ClientTest):
                 '--bootstrap-series angsty does not match default-series:'
                 ' None'):
             client.bootstrap(bootstrap_series='angsty')
-        env.config.update({
+        env.update_config({
             'default-series': 'angsty',
             })
         with patch.object(client, 'juju') as mock:
             client.bootstrap(bootstrap_series='angsty')
-        mock.assert_called_with(
-            'bootstrap', ('--constraints', 'mem=2G'),
-            False)
+        mock.assert_called_with('bootstrap', ('--constraints', 'mem=2G'))
 
     def test_bootstrap_async(self):
         env = SimpleEnvironment('foo')
@@ -3742,7 +3672,7 @@ class TestEnvJujuClient1X(ClientTest):
                 ' None'):
             client.get_bootstrap_args(upload_tools=True,
                                       bootstrap_series='angsty')
-        env.config['default-series'] = 'angsty'
+        env.update_config({'default-series': 'angsty'})
         args = client.get_bootstrap_args(upload_tools=True,
                                          bootstrap_series='angsty')
         self.assertEqual(args, ('--upload-tools', '--constraints', 'mem=2G'))
@@ -3773,25 +3703,14 @@ class TestEnvJujuClient1X(ClientTest):
             create_cmd, controller_option + (
                 'bar', '--config', config_file.name), include_e=False)
 
-    def test_destroy_environment_non_sudo(self):
+    def test_destroy_environment(self):
         env = SimpleEnvironment('foo', {'type': 'ec2'})
         client = EnvJujuClient1X(env, None, None)
-        with patch.object(client.env, 'needs_sudo', lambda: False):
-            with patch.object(client, 'juju') as mock:
-                client.destroy_environment()
-            mock.assert_called_with(
-                'destroy-environment', ('foo', '--force', '-y'),
-                check=False, include_e=False, timeout=600)
-
-    def test_destroy_environment_sudo(self):
-        env = SimpleEnvironment('foo', {'type': 'ec2'})
-        client = EnvJujuClient1X(env, None, None)
-        with patch.object(client.env, 'needs_sudo', lambda: True):
-            with patch.object(client, 'juju') as mock:
-                client.destroy_environment()
-            mock.assert_called_with(
-                'destroy-environment', ('foo', '--force', '-y'),
-                check=False, include_e=False, timeout=600)
+        with patch.object(client, 'juju') as mock:
+            client.destroy_environment()
+        mock.assert_called_with(
+            'destroy-environment', ('foo', '--force', '-y'),
+            check=False, include_e=False, timeout=600)
 
     def test_destroy_environment_no_force(self):
         env = SimpleEnvironment('foo', {'type': 'ec2'})
@@ -3849,6 +3768,15 @@ class TestEnvJujuClient1X(ClientTest):
             client.kill_controller()
         juju_mock.assert_called_once_with(
             'destroy-environment', ('foo', '--force', '-y'), check=False,
+            include_e=False, timeout=600)
+
+    def test_kill_controller_check(self):
+        client = EnvJujuClient1X(
+            SimpleEnvironment('foo', {'type': 'ec2'}), None, None)
+        with patch.object(client, 'juju') as juju_mock:
+            client.kill_controller(check=True)
+        juju_mock.assert_called_once_with(
+            'destroy-environment', ('foo', '--force', '-y'), check=True,
             include_e=False, timeout=600)
 
     def test_destroy_controller(self):
@@ -4416,8 +4344,9 @@ class TestEnvJujuClient1X(ClientTest):
             'services': {},
         })
         client = EnvJujuClient1X(SimpleEnvironment('local'), None, None)
-        with patch('jujupy.until_timeout', lambda x: range(0)):
-            with patch.object(client, 'get_juju_output', return_value=value):
+        status = client.status_class.from_text(value)
+        with patch('jujupy.until_timeout', lambda x, start=None: range(0)):
+            with patch.object(client, 'get_status', return_value=status):
                 with self.assertRaisesRegexp(
                         StatusNotMet,
                         'Timed out waiting for voting to be enabled.'):
@@ -4838,9 +4767,7 @@ class TestEnvJujuClient1X(ClientTest):
             client.deploy_bundle('bundle:~juju-qa/some-bundle')
         mock_juju.assert_called_with(
             'deployer', ('--debug', '--deploy-delay', '10', '--timeout',
-                         '3600', '--config', 'bundle:~juju-qa/some-bundle'),
-            False
-        )
+                         '3600', '--config', 'bundle:~juju-qa/some-bundle'))
 
     def test_deploy_bundle_template(self):
         client = EnvJujuClient1X(SimpleEnvironment('an_env', None),
@@ -4850,9 +4777,7 @@ class TestEnvJujuClient1X(ClientTest):
         mock_juju.assert_called_with(
             'deployer', (
                 '--debug', '--deploy-delay', '10', '--timeout', '3600',
-                '--config', 'bundle:~juju-qa/some-lxc-bundle',
-                ),
-            False)
+                '--config', 'bundle:~juju-qa/some-lxc-bundle'))
 
     def test_deployer(self):
         client = EnvJujuClient1X(SimpleEnvironment(None, {'type': 'local'}),
@@ -4861,9 +4786,7 @@ class TestEnvJujuClient1X(ClientTest):
             client.deployer('bundle:~juju-qa/some-bundle')
         mock.assert_called_with(
             'deployer', ('--debug', '--deploy-delay', '10', '--timeout',
-                         '3600', '--config', 'bundle:~juju-qa/some-bundle'),
-            True
-        )
+                         '3600', '--config', 'bundle:~juju-qa/some-bundle'))
 
     def test_deployer_template(self):
         client = EnvJujuClient1X(SimpleEnvironment(None, {'type': 'local'}),
@@ -4873,9 +4796,7 @@ class TestEnvJujuClient1X(ClientTest):
         mock.assert_called_with(
             'deployer', (
                 '--debug', '--deploy-delay', '10', '--timeout', '3600',
-                '--config', 'bundle:~juju-qa/some-lxc-bundle',
-                ), True
-        )
+                '--config', 'bundle:~juju-qa/some-lxc-bundle'))
 
     def test_deployer_with_bundle_name(self):
         client = EnvJujuClient1X(SimpleEnvironment(None, {'type': 'local'}),
@@ -4885,9 +4806,7 @@ class TestEnvJujuClient1X(ClientTest):
         mock.assert_called_with(
             'deployer', ('--debug', '--deploy-delay', '10', '--timeout',
                          '3600', '--config', 'bundle:~juju-qa/some-bundle',
-                         'name'),
-            True
-        )
+                         'name'))
 
     def test_quickstart_maas(self):
         client = EnvJujuClient1X(SimpleEnvironment(None, {'type': 'maas'}),
@@ -4895,10 +4814,9 @@ class TestEnvJujuClient1X(ClientTest):
         with patch.object(EnvJujuClient1X, 'juju') as mock:
             client.quickstart('bundle:~juju-qa/some-bundle')
         mock.assert_called_with(
-            'quickstart',
-            ('--constraints', 'mem=2G', '--no-browser',
-             'bundle:~juju-qa/some-bundle'), False, extra_env={'JUJU': '/juju'}
-        )
+            'quickstart', ('--constraints', 'mem=2G', '--no-browser',
+                           'bundle:~juju-qa/some-bundle'),
+            extra_env={'JUJU': '/juju'})
 
     def test_quickstart_local(self):
         client = EnvJujuClient1X(SimpleEnvironment(None, {'type': 'local'}),
@@ -4906,21 +4824,9 @@ class TestEnvJujuClient1X(ClientTest):
         with patch.object(EnvJujuClient1X, 'juju') as mock:
             client.quickstart('bundle:~juju-qa/some-bundle')
         mock.assert_called_with(
-            'quickstart',
-            ('--constraints', 'mem=2G', '--no-browser',
-             'bundle:~juju-qa/some-bundle'), True, extra_env={'JUJU': '/juju'}
-        )
-
-    def test_quickstart_nonlocal(self):
-        client = EnvJujuClient1X(SimpleEnvironment(None, {'type': 'nonlocal'}),
-                                 '1.23-series-arch', '/juju')
-        with patch.object(EnvJujuClient1X, 'juju') as mock:
-            client.quickstart('bundle:~juju-qa/some-bundle')
-        mock.assert_called_with(
-            'quickstart',
-            ('--constraints', 'mem=2G', '--no-browser',
-             'bundle:~juju-qa/some-bundle'), False, extra_env={'JUJU': '/juju'}
-        )
+            'quickstart', ('--constraints', 'mem=2G', '--no-browser',
+                           'bundle:~juju-qa/some-bundle'),
+            extra_env={'JUJU': '/juju'})
 
     def test_quickstart_template(self):
         client = EnvJujuClient1X(SimpleEnvironment(None, {'type': 'local'}),
@@ -4931,7 +4837,7 @@ class TestEnvJujuClient1X(ClientTest):
             'quickstart', (
                 '--constraints', 'mem=2G', '--no-browser',
                 'bundle:~juju-qa/some-lxc-bundle'),
-            True, extra_env={'JUJU': '/juju'})
+            extra_env={'JUJU': '/juju'})
 
     def test_list_models(self):
         env = SimpleEnvironment('foo', {'type': 'local'})
@@ -5269,7 +5175,7 @@ class TestUniquifyLocal(TestCase):
     def test_uniquify_local_empty(self):
         env = SimpleEnvironment('foo', {'type': 'local'})
         uniquify_local(env)
-        self.assertEqual(env.config, {
+        self.assertEqual(env._config, {
             'type': 'local',
             'api-port': 17071,
             'state-port': 37018,
@@ -5286,7 +5192,7 @@ class TestUniquifyLocal(TestCase):
             'syslog-port': 6515,
         })
         uniquify_local(env)
-        self.assertEqual(env.config, {
+        self.assertEqual(env._config, {
             'type': 'local',
             'api-port': 17072,
             'state-port': 37019,
@@ -5303,7 +5209,7 @@ class TestUniquifyLocal(TestCase):
             'syslog-port': 6515,
         })
         uniquify_local(env)
-        self.assertEqual(env.config, {
+        self.assertEqual(env._config, {
             'type': 'nonlocal',
             'api-port': 17071,
             'state-port': 37018,
@@ -5375,7 +5281,7 @@ class TestMakeSafeConfig(TestCase):
                                   juju_home='foo'))
         client.bootstrap_replaces = {'agent-version'}
         self.assertNotIn('agent-version', make_safe_config(client))
-        client.env.config['agent-version'] = '1.23'
+        client.env.update_config({'agent-version': '1.23'})
         self.assertNotIn('agent-version', make_safe_config(client))
 
 
@@ -5391,7 +5297,7 @@ class TestTempBootstrapEnv(FakeHomeTestCase):
         with bootstrap_context(client) as fake_home:
             with temp_bootstrap_env(fake_home, client):
                 stub_bootstrap(client)
-        self.assertEqual(env.config, {'type': 'local'})
+        self.assertEqual(env.provider, 'local')
 
     def test_temp_bootstrap_env_environment(self):
         env = SimpleEnvironment('qux', {'type': 'local'})
@@ -5552,7 +5458,8 @@ class TestStatusErrorTree(TestCase):
     """TestCase for StatusError and the tree of exceptions it roots."""
 
     def test_priority(self):
-        self.assertEqual(7, StatusError.priority())
+        pos = len(StatusError.ordering) - 1
+        self.assertEqual(pos, StatusError.priority())
 
     def test_priority_mass(self):
         for index, error_type in enumerate(StatusError.ordering):
@@ -6603,17 +6510,19 @@ class TestSimpleEnvironment(TestCase):
         orig.kvm = 'kvm1'
         orig.maas = 'maas1'
         orig.joyent = 'joyent1'
+        orig.user_name = 'user1'
         copy = orig.clone()
         self.assertIs(SimpleEnvironment, type(copy))
         self.assertIsNot(orig, copy)
         self.assertEqual(copy.environment, 'foo')
-        self.assertIsNot(orig.config, copy.config)
-        self.assertEqual({'type': 'bar'}, copy.config)
+        self.assertIsNot(orig._config, copy._config)
+        self.assertEqual({'type': 'bar'}, copy._config)
         self.assertEqual('myhome', copy.juju_home)
         self.assertEqual('local1', copy.local)
         self.assertEqual('kvm1', copy.kvm)
         self.assertEqual('maas1', copy.maas)
         self.assertEqual('joyent1', copy.joyent)
+        self.assertEqual('user1', copy.user_name)
         self.assertIs(orig.controller, copy.controller)
 
     def test_clone_model_name(self):
@@ -6621,21 +6530,21 @@ class TestSimpleEnvironment(TestCase):
                                  'myhome')
         copy = orig.clone(model_name='newname')
         self.assertEqual('newname', copy.environment)
-        self.assertEqual('newname', copy.config['name'])
+        self.assertEqual('newname', copy.get_option('name'))
 
     def test_set_model_name(self):
         env = SimpleEnvironment('foo', {})
         env.set_model_name('bar')
         self.assertEqual(env.environment, 'bar')
         self.assertEqual(env.controller.name, 'bar')
-        self.assertEqual(env.config['name'], 'bar')
+        self.assertEqual(env.get_option('name'), 'bar')
 
     def test_set_model_name_not_controller(self):
         env = SimpleEnvironment('foo', {})
         env.set_model_name('bar', set_controller=False)
         self.assertEqual(env.environment, 'bar')
         self.assertEqual(env.controller.name, 'foo')
-        self.assertEqual(env.config['name'], 'bar')
+        self.assertEqual(env.get_option('name'), 'bar')
 
     def test_local_from_config(self):
         env = SimpleEnvironment('local', {'type': 'openstack'})
@@ -6654,7 +6563,7 @@ class TestSimpleEnvironment(TestCase):
         with temp_config():
             env = SimpleEnvironment.from_config('foo')
             self.assertIs(SimpleEnvironment, type(env))
-            self.assertEqual({'type': 'local'}, env.config)
+            self.assertEqual({'type': 'local'}, env._config)
 
     def test_from_bogus_config(self):
         with temp_config():
@@ -6700,6 +6609,18 @@ class TestSimpleEnvironment(TestCase):
                                    {'baz': 'qux'}) as jes_home:
                 self.assertFalse(os.path.exists(foo_path))
 
+    def test_discard_option(self):
+        env = SimpleEnvironment('foo', {'type': 'foo', 'bar': 'baz'})
+        discarded = env.discard_option('bar')
+        self.assertEqual('baz', discarded)
+        self.assertEqual({'type': 'foo'}, env._config)
+
+    def test_discard_option_not_present(self):
+        env = SimpleEnvironment('foo', {'type': 'foo'})
+        discarded = env.discard_option('bar')
+        self.assertIs(None, discarded)
+        self.assertEqual({'type': 'foo'}, env._config)
+
     def test_get_option(self):
         env = SimpleEnvironment('foo', {'type': 'azure', 'foo': 'bar'})
         self.assertEqual(env.get_option('foo'), 'bar')
@@ -6726,13 +6647,13 @@ class TestSimpleEnvironment(TestCase):
     def test_update_config(self):
         env = SimpleEnvironment('foo', {'type': 'azure'})
         env.update_config({'bar': 'baz', 'qux': 'quxx'})
-        self.assertEqual(env.config, {
+        self.assertEqual(env._config, {
             'type': 'azure', 'bar': 'baz', 'qux': 'quxx'})
 
     def test_update_config_region(self):
         env = SimpleEnvironment('foo', {'type': 'azure'})
         env.update_config({'region': 'foo1'})
-        self.assertEqual(env.config, {
+        self.assertEqual(env._config, {
             'type': 'azure', 'location': 'foo1'})
         self.assertEqual('WARNING Using set_region to set region to "foo1".\n',
                          self.log_stream.getvalue())
@@ -6740,7 +6661,7 @@ class TestSimpleEnvironment(TestCase):
     def test_update_config_type(self):
         env = SimpleEnvironment('foo', {'type': 'azure'})
         env.update_config({'type': 'foo1'})
-        self.assertEqual(env.config, {'type': 'foo1'})
+        self.assertEqual(env.provider, 'foo1')
         self.assertEqual('WARNING Setting type is not 2.x compatible.\n',
                          self.log_stream.getvalue())
 
@@ -6793,36 +6714,36 @@ class TestSimpleEnvironment(TestCase):
     def test_set_region(self):
         env = SimpleEnvironment('foo', {'type': 'bar'}, 'home')
         env.set_region('baz')
-        self.assertEqual(env.config['region'], 'baz')
+        self.assertEqual(env.get_option('region'), 'baz')
         self.assertEqual(env.get_region(), 'baz')
 
     def test_set_region_no_provider(self):
         env = SimpleEnvironment('foo', {}, 'home')
         env.set_region('baz')
-        self.assertEqual(env.config['region'], 'baz')
+        self.assertEqual(env.get_option('region'), 'baz')
 
     def test_set_region_joyent(self):
         env = SimpleEnvironment('foo', {'type': 'joyent'}, 'home')
         env.set_region('baz')
-        self.assertEqual(env.config['sdc-url'],
+        self.assertEqual(env.get_option('sdc-url'),
                          'https://baz.api.joyentcloud.com')
         self.assertEqual(env.get_region(), 'baz')
 
     def test_set_region_azure(self):
         env = SimpleEnvironment('foo', {'type': 'azure'}, 'home')
         env.set_region('baz')
-        self.assertEqual(env.config['location'], 'baz')
+        self.assertEqual(env.get_option('location'), 'baz')
         self.assertEqual(env.get_region(), 'baz')
 
     def test_set_region_lxd(self):
         env = SimpleEnvironment('foo', {'type': 'lxd'}, 'home')
         env.set_region('baz')
-        self.assertEqual(env.config['region'], 'baz')
+        self.assertEqual(env.get_option('region'), 'baz')
 
     def test_set_region_manual(self):
         env = SimpleEnvironment('foo', {'type': 'manual'}, 'home')
         env.set_region('baz')
-        self.assertEqual(env.config['bootstrap-host'], 'baz')
+        self.assertEqual(env.get_option('bootstrap-host'), 'baz')
         self.assertEqual(env.get_region(), 'baz')
 
     def test_set_region_maas(self):
@@ -6840,7 +6761,7 @@ class TestSimpleEnvironment(TestCase):
             'aws': {'credentials': {'aws': True}},
             'azure': {'credentials': {'azure': True}},
             }}
-        self.assertEqual(env.config, env.get_cloud_credentials())
+        self.assertEqual(env._config, env.get_cloud_credentials())
 
     def test_dump_yaml(self):
         env = SimpleEnvironment('baz', {'type': 'qux'}, 'home')
@@ -6867,6 +6788,7 @@ class TestJujuData(TestCase):
                          data_writer.credentials)
         self.assertEqual('bar', data_reader.get_cloud())
         self.assertEqual(region, data_reader.get_region())
+        self.assertEqual('bar', data_reader._cloud_name)
 
     def test_from_cloud_region_openstack(self):
         self.from_cloud_region('openstack', 'baz')
@@ -6878,20 +6800,22 @@ class TestJujuData(TestCase):
         self.from_cloud_region('vsphere', None)
 
     def test_clone(self):
-        orig = JujuData('foo', {'type': 'bar'}, 'myhome')
+        orig = JujuData('foo', {'type': 'bar'}, 'myhome',
+                        cloud_name='cloudname')
         orig.credentials = {'secret': 'password'}
         orig.clouds = {'name': {'meta': 'data'}}
         copy = orig.clone()
         self.assertIs(JujuData, type(copy))
         self.assertIsNot(orig, copy)
         self.assertEqual(copy.environment, 'foo')
-        self.assertIsNot(orig.config, copy.config)
-        self.assertEqual({'type': 'bar'}, copy.config)
+        self.assertIsNot(orig._config, copy._config)
+        self.assertEqual({'type': 'bar'}, copy._config)
         self.assertEqual('myhome', copy.juju_home)
         self.assertIsNot(orig.credentials, copy.credentials)
         self.assertEqual(orig.credentials, copy.credentials)
         self.assertIsNot(orig.clouds, copy.clouds)
         self.assertEqual(orig.clouds, copy.clouds)
+        self.assertEqual('cloudname', copy._cloud_name)
 
     def test_clone_model_name(self):
         orig = JujuData('foo', {'type': 'bar', 'name': 'oldname'}, 'myhome')
@@ -6899,18 +6823,18 @@ class TestJujuData(TestCase):
         orig.clouds = {'name': {'meta': 'data'}}
         copy = orig.clone(model_name='newname')
         self.assertEqual('newname', copy.environment)
-        self.assertEqual('newname', copy.config['name'])
+        self.assertEqual('newname', copy.get_option('name'))
 
     def test_update_config(self):
         env = JujuData('foo', {'type': 'azure'}, juju_home='')
         env.update_config({'bar': 'baz', 'qux': 'quxx'})
-        self.assertEqual(env.config, {
+        self.assertEqual(env._config, {
             'type': 'azure', 'bar': 'baz', 'qux': 'quxx'})
 
     def test_update_config_region(self):
         env = JujuData('foo', {'type': 'azure'}, juju_home='')
         env.update_config({'region': 'foo1'})
-        self.assertEqual(env.config, {
+        self.assertEqual(env._config, {
             'type': 'azure', 'location': 'foo1'})
         self.assertEqual('WARNING Using set_region to set region to "foo1".\n',
                          self.log_stream.getvalue())
@@ -6920,6 +6844,15 @@ class TestJujuData(TestCase):
         with self.assertRaisesRegexp(
                 ValueError, 'type cannot be set via update_config.'):
             env.update_config({'type': 'foo1'})
+
+    def test_update_config_cloud_name(self):
+        env = JujuData('foo', {'type': 'azure'}, juju_home='',
+                       cloud_name='steve')
+        for endpoint_key in ['maas-server', 'auth-url', 'host']:
+            with self.assertRaisesRegexp(
+                    ValueError, '{} cannot be changed with'
+                    ' explicit cloud name.'.format(endpoint_key)):
+                env.update_config({endpoint_key: 'foo1'})
 
     def test_get_cloud_random_provider(self):
         self.assertEqual(
@@ -6998,6 +6931,12 @@ class TestJujuData(TestCase):
             'azure': {'credentials': {'azure': True}},
             }}
         self.assertEqual({'aws': True}, juju_data.get_cloud_credentials())
+
+    def test_get_cloud_name_with_cloud_name(self):
+        juju_data = JujuData('foo', {'type': 'bar'}, 'home')
+        self.assertEqual('bar', juju_data.get_cloud())
+        juju_data = JujuData('foo', {'type': 'bar'}, 'home', cloud_name='baz')
+        self.assertEqual('baz', juju_data.get_cloud())
 
     def test_dump_yaml(self):
         cloud_dict = {'clouds': {'foo': {}}}

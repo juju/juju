@@ -94,7 +94,7 @@ __metaclass__ = type
 
 def get_aws_juju_data():
     aws_env = get_aws_env()
-    return JujuData(aws_env.environment, aws_env.config)
+    return JujuData(aws_env.environment, aws_env.make_config_copy())
 
 
 class JujuPyTestCase(FakeHomeTestCase):
@@ -151,8 +151,8 @@ def patch_status(client, *statuses):
     """
     kwargs = {}
     if len(statuses) > 1:
-        kwargs['side_effect'] = (Status.from_text(json.dumps(s))
-                                 for s in statuses).next
+        kwargs['side_effect'] = [Status.from_text(json.dumps(s))
+                                 for s in statuses]
     else:
         kwargs['return_value'] = Status.from_text(json.dumps(statuses[0]))
     if client is not None:
@@ -1341,7 +1341,7 @@ class TestDestroyEnvironmentAttempt(JujuPyTestCase):
         client.env.clouds = {'clouds': {'quxxx': {
             'type': 'openstack', 'endpoint': 'qux',
             }}}
-        client.env.config = get_os_config()
+        client.env._config = get_os_config()
         client.env.credentials = {'credentials': {'quxxx': {'creds': {
             }}}}
         return client
@@ -1487,7 +1487,7 @@ class TestEnsureAvailabilityAttempt(JujuPyTestCase):
         with patch_status(controller_client, status) as gs_mock:
             self.assertEqual(ensure_iter.next(), {
                 'test_id': 'ensure-availability-n3', 'result': True})
-        gs_mock.assert_called_once_with(controller=True)
+        gs_mock.assert_called_once_with()
 
     def test_iter_steps_failure(self):
         client = FakeEnvJujuClient()
@@ -1510,7 +1510,7 @@ class TestEnsureAvailabilityAttempt(JujuPyTestCase):
             with self.assertRaisesRegexp(
                     Exception, 'Timed out waiting for voting to be enabled.'):
                 ensure_iter.next()
-        self.assertEqual(2, gs_mock.call_count)
+        self.assertEqual(3, gs_mock.call_count)
 
 
 class TestDeployManyAttempt(JujuPyTestCase):
@@ -1533,7 +1533,7 @@ class TestDeployManyAttempt(JujuPyTestCase):
         machine_started = {'juju-status': {'current': 'idle'}}
         unit_started = {'agent-status': {'current': 'idle'}}
         client = FakeEnvJujuClient()
-        client.env.config['default-series'] = 'angsty'
+        client.env.update_config({'default-series': 'angsty'})
         self.do_iter_steps(client, LXD_MACHINE, machine_started, unit_started)
 
     def test_iter_steps_1x(self):
@@ -1541,7 +1541,7 @@ class TestDeployManyAttempt(JujuPyTestCase):
         client = FakeEnvJujuClient()
         with patch.object(EnvJujuClient, 'supported_container_types',
                           frozenset([KVM_MACHINE, LXC_MACHINE])):
-            client.env.config['default-series'] = 'angsty'
+            client.env.update_config({'default-series': 'angsty'})
             self.do_iter_steps(client, LXC_MACHINE, started_state,
                                started_state)
 
@@ -1651,7 +1651,7 @@ class TestDeployManyAttempt(JujuPyTestCase):
     def test_iter_step_failure(self):
         deploy_many = DeployManyAttempt()
         client = FakeEnvJujuClient()
-        client.env.config['default-series'] = 'angsty'
+        client.env.update_config({'default-series': 'angsty'})
         deploy_iter = iter_steps_validate_info(self, deploy_many, client)
         self.assertEqual(deploy_iter.next(), {'test_id': 'add-machine-many'})
         status = {
@@ -1703,7 +1703,7 @@ class TestDeployManyAttempt(JujuPyTestCase):
     def test_iter_step_add_machine_failure(self):
         deploy_many = DeployManyAttempt()
         client = FakeEnvJujuClient()
-        client.env.config['default-series'] = 'angsty'
+        client.env.update_config({'default-series': 'angsty'})
         deploy_iter = iter_steps_validate_info(self, deploy_many, client)
         self.assertEqual(deploy_iter.next(), {'test_id': 'add-machine-many'})
         status = {
@@ -1776,8 +1776,8 @@ class TestDeployManyAttempt(JujuPyTestCase):
     def test_wait_until_removed_timeout_azure(self):
         deploy_many = DeployManyAttempt(host_count=4, container_count=0)
         client = fake_juju_client()
-        client.env.config['type'] = 'azure'
-        client.env.config['location'] = 'us-west-1'
+        client.env._config['type'] = 'azure'
+        client.env.set_region('us-west-1')
         client.bootstrap()
         deploy_iter = iter_steps_validate_info(self, deploy_many, client)
         with patch('industrial_test.wait_until_removed') as wur_mock:
@@ -1788,7 +1788,7 @@ class TestDeployManyAttempt(JujuPyTestCase):
     def test_wait_until_removed_timeout_not_azure(self):
         deploy_many = DeployManyAttempt(host_count=4, container_count=0)
         client = fake_juju_client()
-        client.env.config['type'] = 'aws'
+        client.env._config['type'] = 'aws'
         client.bootstrap()
         deploy_iter = iter_steps_validate_info(self, deploy_many, client)
         with patch('industrial_test.wait_until_removed') as wur_mock:
@@ -1809,12 +1809,12 @@ class TestBackupRestoreAttempt(JujuPyTestCase):
         client = FakeEnvJujuClient()
         aws_env = get_aws_env()
         client.env.environment = aws_env.environment
-        client.env.config = aws_env.config
+        client.env._config = aws_env._config
         client.env.juju_home = aws_env.juju_home
         client.env.credentials = {'credentials': {'aws': {'creds': {}}}}
         controller_client = client.get_controller_client()
         environ = dict(os.environ)
-        environ.update(get_euca_env(client.env.config))
+        environ.update(get_euca_env(client.env._config))
 
         def check_output(*args, **kwargs):
             if args == ((
@@ -1881,7 +1881,7 @@ class TestBackupRestoreAttempt(JujuPyTestCase):
         azure_env = SimpleEnvironment('steve', get_azure_config())
         client = FakeEnvJujuClient()
         client.env.environment = azure_env.environment
-        client.env.config = azure_env.config
+        client.env._config = azure_env._config
         client.env.credentials = {'credentials': {'azure': {'creds': {}}}}
         controller_client = client.get_controller_client()
         # First yield.

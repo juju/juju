@@ -265,12 +265,12 @@ class TestAssessMetadata(FakeHomeTestCase):
 
     def get_url(self, bs_manager):
         """Wrap up the agent-metadata-url as model-config data."""
-        url = bs_manager.client.env.config['agent-metadata-url']
+        url = bs_manager.client.env.get_option('agent-metadata-url')
         return {'agent-metadata-url': {'value': url}}
 
     def test_assess_metadata(self):
         def check(myself, metadata_source=None):
-            self.assertEqual(self.target_dict, myself.env.config)
+            self.assertEqual(self.target_dict, myself.env._config)
             self.assertIsNotNone(metadata_source)
         with extended_bootstrap_cxt('2.0.0'):
             with patch('jujupy.EnvJujuClient.bootstrap', side_effect=check,
@@ -285,7 +285,7 @@ class TestAssessMetadata(FakeHomeTestCase):
 
     def test_assess_metadata_local_source(self):
         def check(myself, metadata_source=None):
-            self.assertEqual(self.target_dict, myself.env.config)
+            self.assertEqual(self.target_dict, myself.env._config)
             self.assertEqual('agents', metadata_source)
         with extended_bootstrap_cxt('2.0.0'):
             with patch('jujupy.EnvJujuClient.bootstrap', side_effect=check,
@@ -338,7 +338,7 @@ class TestAssessTo(FakeHomeTestCase):
 
         def check(myself, to):
             self.assertEqual({'name': 'qux', 'type': 'foo'},
-                             myself.env.config)
+                             myself.env._config)
             self.assertEqual(DEST, to)
         with extended_bootstrap_cxt('2.0.0'):
             with patch('jujupy.EnvJujuClient.bootstrap', side_effect=check,

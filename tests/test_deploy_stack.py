@@ -50,6 +50,7 @@ from deploy_stack import (
     safe_print_status,
     retain_config,
     update_env,
+    wait_for_state_server_to_shutdown,
     )
 from fakejuju import (
     fake_juju_client,
@@ -200,23 +201,23 @@ class DeployStackTestCase(FakeHomeTestCase):
             env, 'bar', series='wacky', bootstrap_host='baz',
             agent_url='url', agent_stream='devel')
         self.assertEqual('bar', env.environment)
-        self.assertEqual('bar', env.config['name'])
-        self.assertEqual('wacky', env.config['default-series'])
-        self.assertEqual('baz', env.config['bootstrap-host'])
-        self.assertEqual('url', env.config['tools-metadata-url'])
-        self.assertEqual('devel', env.config['agent-stream'])
-        self.assertNotIn('region', env.config)
+        self.assertEqual('bar', env.get_option('name'))
+        self.assertEqual('wacky', env.get_option('default-series'))
+        self.assertEqual('baz', env.get_option('bootstrap-host'))
+        self.assertEqual('url', env.get_option('tools-metadata-url'))
+        self.assertEqual('devel', env.get_option('agent-stream'))
+        self.assertNotIn('region', env._config)
 
     def test_update_env_region(self):
         env = SimpleEnvironment('foo', {'type': 'paas'})
         update_env(env, 'bar', region='region-foo')
-        self.assertEqual('region-foo', env.config['region'])
+        self.assertEqual('region-foo', env.get_region())
 
     def test_update_env_region_none(self):
         env = SimpleEnvironment('foo',
                                 {'type': 'paas', 'region': 'region-foo'})
         update_env(env, 'bar', region=None)
-        self.assertEqual('region-foo', env.config['region'])
+        self.assertEqual('region-foo', env.get_region())
 
     def test_dump_juju_timings(self):
         env = JujuData('foo', {'type': 'bar'})
@@ -749,8 +750,17 @@ class DumpEnvLogsTestCase(FakeHomeTestCase):
             'type': 'maas',
             'name': 'foo',
             'maas-server': 'http://bar/MASS/',
-            'maas-oauth': 'baz'}
-        client = EnvJujuClient(JujuData('cloud', config), '1.23.4', None)
+            }
+        juju_data = JujuData('cloud', config)
+        cloud_name = 'mycloud'
+        juju_data.clouds = {'clouds': {cloud_name: {
+            'endpoint': config['maas-server'],
+            'type': config['type'],
+            }}}
+        juju_data.credentials = {'credentials': {cloud_name: {'credentials': {
+            'maas-oauth': 'baz',
+            }}}}
+        client = EnvJujuClient(juju_data, '1.23.4', None)
         status = Status.from_text("""\
             machines:
               "0":
@@ -1321,15 +1331,24 @@ class TestCreateController(FakeHomeTestCase):
         create_controller = self.get_cleanup_controller()
         client = create_controller.tear_down_client
         client.bootstrap()
-        create_controller.tear_down()
+        create_controller.tear_down(True)
         self.assertEqual({'models': []}, client.get_models())
         self.assertEqual(
             'controller-destroyed', client._backend.controller_state.state)
 
+    def test_tear_down_existing_no_controller(self):
+        create_controller = self.get_cleanup_controller()
+        client = create_controller.tear_down_client
+        client.bootstrap()
+        create_controller.tear_down(False)
+        self.assertEqual({'models': []}, client.get_models())
+        self.assertEqual(
+            'controller-killed', client._backend.controller_state.state)
+
     def test_tear_down_nothing(self):
         create_controller = self.get_cleanup_controller()
         with self.assertRaises(subprocess.CalledProcessError):
-            create_controller.tear_down()
+            create_controller.tear_down(True)
 
 
 class TestPublicController(FakeHomeTestCase):
@@ -1383,7 +1402,7 @@ class TestPublicController(FakeHomeTestCase):
         public_controller = self.get_cleanup_controller()
         client = public_controller.tear_down_client
         client.add_model(client.env)
-        public_controller.tear_down()
+        public_controller.tear_down(True)
         self.assertEqual({'models': []}, client.get_models())
         self.assertEqual(
             'model-destroyed', client._backend.controller_state.state)
@@ -1391,7 +1410,7 @@ class TestPublicController(FakeHomeTestCase):
     def test_tear_down_nothing(self):
         public_controller = self.get_cleanup_controller()
         with self.assertRaises(subprocess.CalledProcessError):
-            public_controller.tear_down()
+            public_controller.tear_down(True)
 
 
 class TestBootstrapManager(FakeHomeTestCase):
@@ -1491,19 +1510,6 @@ class TestBootstrapManager(FakeHomeTestCase):
                 temp_env_name=None, client=None, tear_down_client=None,
                 bootstrap_host=None, machines=[], series=None, agent_url=None,
                 agent_stream=None, region=None, log_dir=None, keep_env=None)
-
-    def test_aws_machines_updates_bootstrap_host(self):
-        client = fake_juju_client()
-        client.env.config['type'] = 'manual'
-        bs_manager = BootstrapManager(
-            'foobar', client, client, None, [], None, None, None, None,
-            client.env.juju_home, False, False, False)
-        with patch('deploy_stack.run_instances',
-                   return_value=[('foo', 'aws.example.org')]):
-            with patch('deploy_stack.destroy_job_instances'):
-                with bs_manager.aws_machines():
-                    self.assertEqual({'0': 'aws.example.org'},
-                                     bs_manager.known_hosts)
 
     def test_from_args_no_host(self):
         args = Namespace(
@@ -1925,6 +1931,42 @@ class TestBootstrapManager(FakeHomeTestCase):
                               autospec=True) as ads_mock:
                 with bs_manager.runtime_context(['baz']):
                     ads_mock.assert_called_once_with(['baz'])
+
+    @contextmanager
+    def no_controller_manager(self):
+        client = fake_juju_client()
+        client.bootstrap()
+        bs_manager = BootstrapManager(
+            'foobar', client, client,
+            None, [], None, None, None, None, self.juju_home, False,
+            True, True)
+        bs_manager.has_controller = False
+        with patch('deploy_stack.safe_print_status',
+                   autospec=True) as sp_mock:
+            with patch.object(client, 'juju', wrap=client.juju) as juju_mock:
+                with patch.object(client, 'get_juju_output',
+                                  wraps=client.get_juju_output) as gjo_mock:
+                    with patch.object(bs_manager, '_should_dump',
+                                      return_value=True, autospec=True):
+                        with patch('deploy_stack.get_remote_machines',
+                                   return_value={}):
+                                yield bs_manager
+        self.assertEqual(sp_mock.call_count, 0)
+        self.assertEqual(0, gjo_mock.call_count)
+        juju_mock.assert_called_once_with(
+            'kill-controller', ('name', '-y'), check=True, include_e=False,
+            timeout=600)
+
+    def test_runtime_context_no_controller(self):
+        with self.no_controller_manager() as bs_manager:
+            with bs_manager.runtime_context([]):
+                pass
+
+    def test_runtime_context_no_controller_exception(self):
+        with self.no_controller_manager() as bs_manager:
+            with self.assertRaises(LoggedException):
+                with bs_manager.runtime_context([]):
+                    raise ValueError
 
     def test_booted_context_handles_logged_exception(self):
         client = fake_juju_client()
@@ -2362,7 +2404,7 @@ class TestBootContext(FakeHomeTestCase):
                               'log_dir', keep_env=False, upload_tools=False,
                               region='steve'):
                 pass
-        self.assertEqual('steve', client.env.config['region'])
+        self.assertEqual('steve', client.env.get_region())
 
     def test_region_non_jes(self):
         self.addContext(patch('subprocess.check_call', autospec=True))
@@ -2373,7 +2415,7 @@ class TestBootContext(FakeHomeTestCase):
                               'log_dir', keep_env=False, upload_tools=False,
                               region='steve'):
                 pass
-        self.assertEqual('steve', client.env.config['region'])
+        self.assertEqual('steve', client.env.get_region())
 
     def test_status_error_raises(self):
         """An error on final show-status propagates so an assess will fail."""
@@ -2447,3 +2489,31 @@ class TestDeployJobParseArgs(FakeHomeTestCase):
         args = deploy_job_parse_args(
             ['foo', 'bar/juju', 'baz', 'qux', '--jes'])
         self.assertIs(args.jes, True)
+
+
+class TestWaitForStateServerToShutdown(FakeHomeTestCase):
+
+    def test_openstack(self):
+        env = JujuData('foo', {
+            'type': 'openstack',
+            'region': 'lcy05',
+            'username': 'steve',
+            'password': 'password1',
+            'tenant-name': 'steven',
+            'auth-url': 'http://example.org',
+            }, self.juju_home)
+        client = fake_juju_client(env=env)
+        with patch('deploy_stack.wait_for_port', autospec=True) as wfp_mock:
+            with patch('deploy_stack.has_nova_instance', autospec=True,
+                       return_value=False) as hni_mock:
+                with patch('deploy_stack.print_now', autospec=True) as pn_mock:
+                    wait_for_state_server_to_shutdown(
+                        'example.org', client, 'i-255')
+        self.assertEqual(pn_mock.mock_calls, [
+            call('Waiting for port to close on example.org'),
+            call('Closed.'),
+            call('i-255 was removed from nova list'),
+            ])
+        wfp_mock.assert_called_once_with('example.org', 17070, closed=True,
+                                         timeout=60)
+        hni_mock.assert_called_once_with(client.env, 'i-255')

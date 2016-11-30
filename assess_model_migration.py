@@ -275,11 +275,15 @@ def deploy_simple_resource_server(client, resource_contents):
         return application_name
 
 
-def migrate_model_to_controller(source_client, dest_client):
+def migrate_model_to_controller(source_client, dest_client,
+                                include_user_name=False):
+    if include_user_name:
+        model_name = '{}/{}'.format(
+            source_client.env.user_name, source_client.env.environment)
+    else:
+        model_name = source_client.env.environment
     source_client.controller_juju(
-        'migrate',
-        (source_client.env.environment,
-         dest_client.env.controller.name))
+        'migrate', (model_name, dest_client.env.controller.name))
 
     migration_target_client = dest_client.clone(
         dest_client.env.clone(
@@ -431,7 +435,8 @@ def ensure_migrating_with_superuser_user_permissions_succeeds(
 
     log.info('Attempting migration process')
 
-    migrate_model_to_controller(user_new_model, user_dest_client)
+    migrate_model_to_controller(
+        user_new_model, user_dest_client, include_user_name=True)
 
 
 def create_user_on_controllers(

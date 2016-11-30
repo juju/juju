@@ -60,7 +60,23 @@ class GCETestCase(TestCase):
         self.assertEqual(0, code)
         gc_mock.assert_called_once_with(
             GCE_ENVIRON['GCE_SA_EMAIL'], GCE_ENVIRON['GCE_PEM_PATH'],
-            GCE_ENVIRON['GCE_PROJECT_ID'])
+            GCE_ENVIRON['GCE_PROJECT_ID'], region=None)
+        li_mock.assert_called_once_with(
+            client, glob='juju-deploy*', print_out=True)
+
+    def test_main_list_instances_region(self):
+        client = make_fake_client()
+        with patch('gce.get_client', autospec=True,
+                   return_value=client) as gc_mock:
+            with patch('gce.list_instances', autospec=True) as li_mock:
+                with patch.dict('os.environ', GCE_ENVIRON):
+                    code = gce.main(
+                        ['gce.py', '--region', 'test-region', 'list-instances',
+                         'juju-deploy*'])
+        self.assertEqual(0, code)
+        gc_mock.assert_called_once_with(
+            GCE_ENVIRON['GCE_SA_EMAIL'], GCE_ENVIRON['GCE_PEM_PATH'],
+            GCE_ENVIRON['GCE_PROJECT_ID'], region='test-region')
         li_mock.assert_called_once_with(
             client, glob='juju-deploy*', print_out=True)
 
@@ -76,9 +92,45 @@ class GCETestCase(TestCase):
         self.assertEqual(0, code)
         gc_mock.assert_called_once_with(
             GCE_ENVIRON['GCE_SA_EMAIL'], GCE_ENVIRON['GCE_PEM_PATH'],
-            GCE_ENVIRON['GCE_PROJECT_ID'])
+            GCE_ENVIRON['GCE_PROJECT_ID'], region=None)
         di_mock.assert_called_once_with(
             client, 'juju-deploy*', old_age=2, dry_run=False)
+
+    def test_get_client(self):
+        client = Mock(spec=['ex_get_zone'])
+        client.return_value.ex_get_zone.return_value = 'bar'
+        with patch('libcloud.compute.providers.get_driver', autospec=True
+                   ) as gl_mock:
+            gl_mock.return_value = client
+            gce.get_client(GCE_ENVIRON['GCE_SA_EMAIL'],
+                       GCE_ENVIRON['GCE_PEM_PATH'],
+                       GCE_ENVIRON["GCE_PROJECT_ID"], region='foo')
+        gl_mock.assert_called_once_with('gce')
+        client.return_value.ex_get_zone.assert_called_once_with('foo')
+
+    def test_get_client_no_region(self):
+        client = Mock(spec=['ex_get_zone'])
+        client.return_value.ex_get_zone.return_value = 'bar'
+        with patch('libcloud.compute.providers.get_driver', autospec=True
+                   ) as gl_mock:
+            gl_mock.return_value = client
+            gce.get_client(GCE_ENVIRON['GCE_SA_EMAIL'],
+                       GCE_ENVIRON['GCE_PEM_PATH'],
+                       GCE_ENVIRON["GCE_PROJECT_ID"], region=None)
+        gl_mock.assert_called_once_with('gce')
+        self.assertEqual(client.return_value.ex_get_zone.call_count, 0)
+
+    def test_get_client_exception(self):
+        client = Mock(spec=['ex_get_zone'])
+        client.return_value.ex_get_zone.return_value = None
+        with patch('libcloud.compute.providers.get_driver', autospec=True
+                   ) as gl_mock:
+            gl_mock.return_value = client
+            with self.assertRaises(ValueError):
+                gce.get_client(GCE_ENVIRON['GCE_SA_EMAIL'],
+                           GCE_ENVIRON['GCE_PEM_PATH'],
+                           GCE_ENVIRON["GCE_PROJECT_ID"], region='foo')
+        gl_mock.assert_called_once_with('gce')
 
     def test_parse_args_delete_instaces(self):
         with patch.dict('os.environ', GCE_ENVIRON):
@@ -88,8 +140,8 @@ class GCETestCase(TestCase):
         expected = Namespace(
             command='delete-instances', dry_run=True, filter='juju-deploy*',
             old_age=2, pem_path='/gce-serveraccount.json',
-            project_id='test-project', sa_email='me@serviceaccount.google.com',
-            verbose=10)
+            project_id='test-project', region=None,
+            sa_email='me@serviceaccount.google.com', verbose=10)
         self.assertEqual(expected, args)
 
     def test_parse_args_list_instances(self):
@@ -98,8 +150,8 @@ class GCETestCase(TestCase):
                 ['gce.py', '-v', '-d', 'list-instances', 'juju-deploy*'])
         expected = Namespace(
             command='list-instances', dry_run=True, filter='juju-deploy*',
-            pem_path='/gce-serveraccount.json',
-            project_id='test-project', sa_email='me@serviceaccount.google.com',
+            pem_path='/gce-serveraccount.json', project_id='test-project',
+            region=None, sa_email='me@serviceaccount.google.com',
             verbose=10)
         self.assertEqual(expected, args)
 
@@ -113,8 +165,8 @@ class GCETestCase(TestCase):
         expected = Namespace(
             command='delete-instances', dry_run=True, filter='juju-deploy*',
             old_age=2, pem_path='/gce-serveraccount.json',
-            project_id='test-project', sa_email='me@serviceaccount.google.com',
-            verbose=10)
+            project_id='test-project', region=None,
+            sa_email='me@serviceaccount.google.com', verbose=10)
         self.assertEqual(expected, args)
 
     def test_is_permanent_true(self):
@@ -150,7 +202,7 @@ class GCETestCase(TestCase):
         client = make_fake_client()
         client.list_nodes.return_value = [no_node, yes_node]
         found = gce.list_instances(client, 'juju-*')
-        client.list_nodes.assert_called_once_with(ex_zone='all')
+        client.list_nodes.assert_called_once_with()
         self.assertEqual([yes_node], found)
 
     def test_list_instances_with_print(self):
@@ -162,7 +214,7 @@ class GCETestCase(TestCase):
         client.list_nodes.return_value = [node_one, node_two]
         with patch('sys.stdout', new_callable=StringIO) as so_sio:
             found = gce.list_instances(client, 'juju-*', print_out=True)
-        client.list_nodes.assert_called_once_with(ex_zone='all')
+        client.list_nodes.assert_called_once_with()
         self.assertEqual([node_one, node_two], found)
         self.assertEqual(
             'juju-controller\tUNKNOWN\tNone\trunning\njuju-app\tus-west1\t'
@@ -205,3 +257,4 @@ class GCETestCase(TestCase):
         self.assertEqual(
             'ERROR Cannot delete juju-old\n',
             self.log_stream.getvalue())
+

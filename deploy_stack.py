@@ -35,7 +35,6 @@ from jujucharm import (
 from jujuconfig import (
     get_jenv_path,
     get_juju_home,
-    translate_to_env,
 )
 from jujupy import (
     client_from_config,
@@ -53,9 +52,9 @@ from remote import (
 )
 from substrate import (
     destroy_job_instances,
+    has_nova_instance,
     LIBVIRT_DOMAIN_RUNNING,
     resolve_remote_dns_names,
-    run_instances,
     start_libvirt_domain,
     stop_libvirt_domain,
     verify_libvirt_domain,
@@ -527,9 +526,12 @@ class CreateController:
             raise ValueError('Could not get machine 0 host')
         return {'0': host}
 
-    def tear_down(self):
+    def tear_down(self, has_controller):
         """Tear down via client.tear_down."""
-        self.tear_down_client.tear_down()
+        if has_controller:
+            self.tear_down_client.tear_down()
+        else:
+            self.tear_down_client.kill_controller(check=True)
 
 
 class PublicController:
@@ -548,7 +550,7 @@ class PublicController:
     def prepare(self):
         """Prepare by destroying the model and unregistering if possible."""
         try:
-            self.tear_down()
+            self.tear_down(True)
         except subprocess.CalledProcessError:
             # Assume that any error tearing down means that there was nothing
             # to tear down.
@@ -565,7 +567,7 @@ class PublicController:
         """There are no user-owned controller hosts, so no-op."""
         return {}
 
-    def tear_down(self):
+    def tear_down(self, has_controller):
         """Remove the current model and clean up the controller."""
         try:
             self.tear_down_client.destroy_model()
@@ -723,29 +725,6 @@ class BootstrapManager:
                     status_msg = stop_libvirt_domain(URI, name)
                     logging.info("%s" % status_msg)
 
-    @contextmanager
-    def aws_machines(self):
-        """Handle starting/stopping AWS machines.
-
-        Machines are deliberately killed by tag so that any stray machines
-        from previous runs will be killed.
-        """
-        if (
-                self.client.env.provider != 'manual' or
-                self.bootstrap_host is not None):
-            yield []
-            return
-        try:
-            instances = run_instances(
-                3, self.temp_env_name, self.series, region=self.region)
-            new_bootstrap_host = instances[0][1]
-            self.known_hosts['0'] = new_bootstrap_host
-            yield [i[1] for i in instances[1:]]
-        finally:
-            if self.keep_env:
-                return
-            destroy_job_instances(self.temp_env_name)
-
     def tear_down(self, try_jes=False):
         """Tear down the client using tear_down_client.
 
@@ -755,7 +734,7 @@ class BootstrapManager:
         :param try_jes: Ignored."""
         if self.tear_down_client.env is not self.client.env:
             raise AssertionError('Tear down client needs same env!')
-        self.controller_strategy.tear_down()
+        self.controller_strategy.tear_down(self.has_controller)
         self.has_controller = False
 
     @contextmanager
@@ -880,16 +859,18 @@ class BootstrapManager:
                 logging.info("Client lost controller, not calling status.")
             raise
         else:
-            with self.client.ignore_soft_deadline():
-                self.client.list_controllers()
-                self.client.list_models()
-                for m_client in self.client.iter_model_clients():
-                    m_client.show_status()
+            if self.has_controller:
+                with self.client.ignore_soft_deadline():
+                    self.client.list_controllers()
+                    self.client.list_models()
+                    for m_client in self.client.iter_model_clients():
+                        m_client.show_status()
         finally:
             with self.client.ignore_soft_deadline():
                 with self.tear_down_client.ignore_soft_deadline():
                     try:
-                        self.dump_all_logs()
+                        if self.has_controller:
+                            self.dump_all_logs()
                     except KeyboardInterrupt:
                         pass
                     if not self.keep_env:
@@ -941,14 +922,13 @@ class BootstrapManager:
     def top_context(self):
         """Context for running all juju operations in."""
         with self.maas_machines() as machines:
-            with self.aws_machines() as new_machines:
-                try:
-                    yield machines + new_machines
-                finally:
-                    # This is not done in dump_all_logs because it should be
-                    # done after tear down.
-                    if self.log_dir is not None:
-                        dump_juju_timings(self.client, self.log_dir)
+            try:
+                yield machines
+            finally:
+                # This is not done in dump_all_logs because it should be
+                # done after tear down.
+                if self.log_dir is not None:
+                    dump_juju_timings(self.client, self.log_dir)
 
     @contextmanager
     def booted_context(self, upload_tools, **kwargs):
@@ -1104,13 +1084,10 @@ def wait_for_state_server_to_shutdown(host, client, instance_id, timeout=60):
     except NoProvider:
         provider_type = None
     if provider_type == 'openstack':
-        environ = dict(os.environ)
-        environ.update(translate_to_env(client.env.config))
         for ignored in until_timeout(300):
-            output = subprocess.check_output(['nova', 'list'], env=environ)
-            if instance_id not in output:
+            if not has_nova_instance(client.env, instance_id):
                 print_now('{} was removed from nova list'.format(instance_id))
                 break
         else:
             raise Exception(
-                '{} was not deleted:\n{}'.format(instance_id, output))
+                '{} was not deleted:'.format(instance_id))
