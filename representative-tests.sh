@@ -17,10 +17,13 @@ XENIAL_AMI=$($SCRIPTS/get_ami.py xenial amd64)
 VERSION=$($JUJU_BIN version | cut -d '-' -f1)
 if [[ $VERSION =~ 1\..*  ]]; then
     LXD="echo '1.x does not support lxd'"
+    GRANT="echo '1.x does not support grant revoke'"
     RACE="echo '1.x does not pass race unit tests'"
 else
     mkdir -p $WORKSPACE/artifacts/lxd
-    LXD="timeout -s INT 20m $SCRIPTS/deploy_job.py parallel-lxd $JUJU_BIN $WORKSPACE/artifacts/lxd merge-juju-lxd  --series xenial --debug"
+    mkdir -p $WORKSPACE/artifacts/grant
+    LXD="timeout -s INT 20m $SCRIPTS/deploy_job.py parallel-lxd $JUJU_BIN $WORKSPACE/artifacts/lxd merge-juju-lxd  --series xenial --debug"    
+    GRANT="timeout -s INT 20m $SCRIPTS/assess_user_grant_revoke.py parallel-lxd $JUJU_BIN $WORKSPACE/artifacts/grant merge-juju-grant --timeout 1500 --series xenial"
     RACE="run-unit-tests m1.xlarge $XENIAL_AMI --force-archive --race --local $TARFILE_NAME --install-deps 'golang-1.6 juju-mongodb distro-info-data ca-certificates bzr git-core mercurial zip golang-1.6-race-detector-runtime'"
     RACE="echo 'Skipping race unit tests.'"
 fi
@@ -28,5 +31,6 @@ timeout 180m concurrently.py -v -l $WORKSPACE/artifacts \
     trusty="$SCRIPTS/run-unit-tests c3.4xlarge $TRUSTY_AMI --local $TARFILE_NAME --use-tmpfs --force-archive" \
     windows="$SCRIPTS/gotestwin.py developer-win-unit-tester.vapour.ws $TARFILE_NAME github.com/juju/juju/cmd" \
     lxd="$LXD" \
+    grant="$GRANT" \
     race="$RACE"\
     tarball="$SCRIPTS/check_tar.py $SCRIPTS/tested-public-clouds $TARFILE"
