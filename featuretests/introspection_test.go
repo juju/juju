@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"runtime"
+	"strings"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -17,6 +18,7 @@ import (
 	"github.com/juju/juju/agent"
 	agentcmd "github.com/juju/juju/cmd/jujud/agent"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/worker/logsender"
@@ -46,17 +48,23 @@ func (s *introspectionSuite) SetUpTest(c *gc.C) {
 		err := logsender.UninstallBufferedLogWriter()
 		c.Assert(err, jc.ErrorIsNil)
 	})
+
+	agenttest.InstallFakeEnsureMongo(s)
+	s.PatchValue(&agentcmd.ProductionMongoWriteConcern, false)
 }
 
-// startMachineAgent starts a machine agent and returns the path
+// startMachineAgent starts a controller machine agent and returns the path
 // of its unix socket.
 func (s *introspectionSuite) startMachineAgent(c *gc.C) (*agentcmd.MachineAgent, string) {
 	// Create a machine and an agent for it.
 	m, password := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
+		Jobs:  []state.MachineJob{state.JobManageModel},
 		Nonce: agent.BootstrapNonce,
 	})
 
-	s.PrimeAgent(c, m.Tag(), password)
+	err := m.SetMongoPassword(password)
+	c.Assert(err, jc.ErrorIsNil)
+	s.PrimeStateAgent(c, m.Tag(), password)
 	agentConf := agentcmd.NewAgentConf(s.DataDir())
 	agentConf.ReadConfig(m.Tag().String())
 
@@ -105,19 +113,38 @@ func (s *introspectionSuite) TestPrometheusMetrics(c *gc.C) {
 	defer a.Stop()
 	client := unixSocketHTTPClient(socketPath)
 
-	resp, err := client.Get("http://unix.socket/metrics")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
-	defer resp.Body.Close()
+	expected := []string{
+		"juju_logsender_capacity 1000",
+		"juju_api_requests_total",
+		"juju_api_requests_total",
+		"juju_mgo_txn_ops_total",
+		`juju_state_machines{agent_status="started",life="alive",machine_status="pending"} 1`,
+	}
 
-	body, err := ioutil.ReadAll(resp.Body)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(body), jc.Contains, "juju_logsender_capacity 1000")
+	check := func(last bool) bool {
+		resp, err := client.Get("http://unix.socket/metrics")
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
+		defer resp.Body.Close()
+		body, err := ioutil.ReadAll(resp.Body)
+		c.Assert(err, jc.ErrorIsNil)
 
-	// NOTE(axw) the "juju_api_*" metrics are not currently
-	// registered in the test, because AgentSuite is based
-	// on top of JujuConnSuite. JujuConnSuite uses the dummy
-	// provider's API server, rather than the one that the
-	// agent starts. Because of that, the usual observers
-	// do not apply.
+		for _, expect := range expected {
+			if last {
+				c.Assert(string(body), jc.Contains, expect)
+			} else if !strings.Contains(string(body), expect) {
+				return false
+			}
+		}
+		return true
+	}
+
+	// Check for metrics in a loop, because the workers might
+	// not all have started up initially.
+	for a := testing.LongAttempt.Start(); a.Next(); {
+		if check(!a.HasNext()) {
+			return
+		}
+	}
+	c.Fatal("timed out waiting for metrics")
 }

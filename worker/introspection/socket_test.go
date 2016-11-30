@@ -166,7 +166,7 @@ func (r *reporter) Report() map[string]interface{} {
 
 func newPrometheusGatherer() prometheus.Gatherer {
 	counter := prometheus.NewCounter(prometheus.CounterOpts{Name: "tau", Help: "Tau."})
-	counter.Set(6.283185)
+	counter.Add(6.283185)
 	r := prometheus.NewPedanticRegistry()
 	r.MustRegister(counter)
 	return r

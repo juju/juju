@@ -68,6 +68,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/stateenvirons"
+	"github.com/juju/juju/state/statemetrics"
 	"github.com/juju/juju/storage/looputil"
 	"github.com/juju/juju/upgrades"
 	jujuversion "github.com/juju/juju/version"
@@ -985,6 +986,9 @@ func (a *MachineAgent) startStateWorkers(st *state.State) (worker.Worker, error)
 			a.startWorkerAfterUpgrade(runner, "mongoupgrade", func() (worker.Worker, error) {
 				return newUpgradeMongoWorker(st, a.machineId, a.maybeStopMongo)
 			})
+			a.startWorkerAfterUpgrade(runner, "statemetrics", func() (worker.Worker, error) {
+				return newStateMetricsWorker(st, a.prometheusRegistry), nil
+			})
 
 			// certChangedChan is shared by multiple workers it's up
 			// to the agent to close it rather than any one of the
@@ -1628,4 +1632,16 @@ func metricAPI(st api.Connection) (metricsmanager.MetricsManagerClient, error) {
 // otherwise be restricted.
 var newDeployContext = func(st *apideployer.State, agentConfig agent.Config) deployer.Context {
 	return deployer.NewSimpleContext(agentConfig, st)
+}
+
+func newStateMetricsWorker(st *state.State, registry *prometheus.Registry) worker.Worker {
+	return worker.NewSimpleWorker(func(stop <-chan struct{}) error {
+		collector := statemetrics.New(statemetrics.NewState(st))
+		if err := registry.Register(collector); err != nil {
+			return errors.Annotate(err, "registering statemetrics collector")
+		}
+		defer registry.Unregister(collector)
+		<-stop
+		return nil
+	})
 }
