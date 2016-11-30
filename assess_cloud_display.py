@@ -29,6 +29,9 @@ def remove_display_attributes(cloud):
         'manual': '',
         'maas': 'Metal As A Service',
         }
+    # The lack of built-in descriptions for vsphere and manual is
+    # bug #1646128.  The inability to specify descriptions interactively is
+    # bug #1645783.
     defined = cloud.pop('defined')
     assert_equal(defined, 'local')
     description = cloud.pop('description')
