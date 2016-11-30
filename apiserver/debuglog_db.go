@@ -58,6 +58,7 @@ func makeLogTailerParams(reqParams *debugLogParams) *state.LogTailerParams {
 	params := &state.LogTailerParams{
 		MinLevel:      reqParams.filterLevel,
 		NoTail:        reqParams.noTail,
+		StartTime:     reqParams.startTime,
 		InitialLines:  int(reqParams.backlog),
 		IncludeEntity: reqParams.includeEntity,
 		ExcludeEntity: reqParams.excludeEntity,

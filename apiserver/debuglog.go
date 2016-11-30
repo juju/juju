@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"strconv"
 	"syscall"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -144,6 +145,7 @@ func (s *debugLogSocketImpl) sendLogRecord(record *params.LogMessage) error {
 
 // debugLogParams contains the parsed debuglog API request parameters.
 type debugLogParams struct {
+	startTime     time.Time
 	maxLines      uint
 	fromTheStart  bool
 	noTail        bool
@@ -198,6 +200,14 @@ func readDebugLogParams(queryMap url.Values) (*debugLogParams, error) {
 				value, loggo.TRACE, loggo.DEBUG, loggo.INFO, loggo.WARNING, loggo.ERROR)
 		}
 		params.filterLevel = level
+	}
+
+	if value := queryMap.Get("startTime"); value != "" {
+		startTime, err := time.Parse(time.RFC3339Nano, value)
+		if err != nil {
+			return nil, errors.Errorf("start time %q is not a valid time in RFC3339 format", value)
+		}
+		params.startTime = startTime
 	}
 
 	params.includeEntity = queryMap["includeEntity"]
