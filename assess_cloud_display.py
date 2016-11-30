@@ -1,5 +1,8 @@
 #!/usr/bin/env python
+from __future__ import print_function
+
 from argparse import ArgumentParser
+from contextlib import contextmanager
 from copy import deepcopy
 from difflib import ndiff
 import json
@@ -23,7 +26,7 @@ def get_clouds(client):
         'maas': 'Metal As A Service',
         }
     cloud_list = yaml.load(client.get_juju_output(
-        'list-clouds', '--format', 'yaml', include_e=False))
+        'clouds', '--format', 'yaml', include_e=False))
     for cloud_name, cloud in cloud_list.items():
         if cloud['defined'] == 'built-in':
             del cloud_list[cloud_name]
@@ -49,8 +52,7 @@ def assess_list_clouds_no_clouds(client):
     with open(get_home_path(client, 'public-clouds.yaml'), 'w') as f:
         f.write('')
     cloud_list = get_clouds(client)
-    if cloud_list != {}:
-        print cloud_list
+    assert_equal(cloud_list, {})
 
 
 def assess_list_clouds(client, expected):
@@ -67,6 +69,17 @@ def strip_redundant_endpoints(clouds):
     return no_region_endpoint
 
 
+@contextmanager
+def testing(test_name):
+    try:
+        yield
+    except Exception:
+        print('{}: FAIL'.format(test_name))
+        raise
+    else:
+        print('{}: PASS'.format(test_name))
+
+
 def main():
     parser = ArgumentParser()
     parser.add_argument('clouds_file')
@@ -76,13 +89,15 @@ def main():
     with client.env.make_jes_home(client.env.juju_home, 'mytest',
                                   {}) as juju_home:
         client.env.juju_home = juju_home
-        assess_list_clouds_no_clouds(client)
+        with testing('assess_list_clouds_no_clouds'):
+            assess_list_clouds_no_clouds(client)
         with open(args.clouds_file) as f:
             supplied_clouds = yaml.safe_load(f.read().decode('utf-8'))
         client.env.write_clouds(client.env.juju_home, supplied_clouds)
         no_region_endpoint = strip_redundant_endpoints(
             supplied_clouds['clouds'])
-        assess_list_clouds(client, no_region_endpoint)
+        with testing('assess_list_clouds'):
+            assess_list_clouds(client, no_region_endpoint)
 
 
 
