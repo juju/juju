@@ -226,12 +226,12 @@ func (s *debugLogDbSuite) TestLogsUsesStartTime(c *gc.C) {
 	dbLogger.Log(t4, "juju.baz", "go.go.go:23", loggo.WARNING, "cold war kids")
 
 	client := s.APIState.Client()
-	logMessages, err := client.WatchDebugLog(api.DebugLogParams{
+	logMessages, err := client.WatchDebugLog(common.DebugLogParams{
 		StartTime: t3,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	assertMessage := func(expected api.LogMessage) {
+	assertMessage := func(expected common.LogMessage) {
 		select {
 		case actual := <-logMessages:
 			c.Assert(actual, jc.DeepEquals, expected)
@@ -239,7 +239,7 @@ func (s *debugLogDbSuite) TestLogsUsesStartTime(c *gc.C) {
 			c.Fatal("timed out waiting for log line")
 		}
 	}
-	assertMessage(api.LogMessage{
+	assertMessage(common.LogMessage{
 		Entity:    "machine-99",
 		Timestamp: t3,
 		Severity:  "ERROR",
@@ -247,7 +247,7 @@ func (s *debugLogDbSuite) TestLogsUsesStartTime(c *gc.C) {
 		Location:  "go.go:99",
 		Message:   "born ruffians",
 	})
-	assertMessage(api.LogMessage{
+	assertMessage(common.LogMessage{
 		Entity:    "machine-99",
 		Timestamp: t4,
 		Severity:  "WARNING",
