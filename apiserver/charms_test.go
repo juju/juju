@@ -374,6 +374,17 @@ func (s *charmsSuite) TestNonLocalCharmUpload(c *gc.C) {
 	c.Assert(sch.IsUploaded(), jc.IsTrue)
 }
 
+func (s *charmsSuite) TestUnsupportedSchema(c *gc.C) {
+	s.setModelImporting(c)
+	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
+
+	resp := s.uploadRequest(c, s.charmsURI(c, "?schema=zz"), "application/zip", ch.Path)
+	s.assertErrorResponse(
+		c, resp, http.StatusBadRequest,
+		`cannot upload charm: unsupported schema "zz"`,
+	)
+}
+
 func (s *charmsSuite) TestCharmUploadWithUserOverride(c *gc.C) {
 	s.setModelImporting(c)
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
