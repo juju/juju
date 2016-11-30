@@ -109,7 +109,8 @@ func (s *remoteRelationsSuite) TestPublishLocalRelationChange(c *gc.C) {
 		c.Check(id, gc.Equals, "")
 		c.Check(request, gc.Equals, "PublishLocalRelationChange")
 		c.Check(arg, gc.DeepEquals, params.RemoteRelationsChanges{
-			Changes: []params.RemoteRelationsChange{{RemovedRelations: []int{1}}},
+			Changes: []params.RemoteRelationChangeEvent{{
+				DepartedUnits: []params.RemoteEntityId{{ModelUUID: "model-uuid", Token: "token"}}}},
 		})
 		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
 		*(result.(*params.ErrorResults)) = params.ErrorResults{
@@ -121,7 +122,9 @@ func (s *remoteRelationsSuite) TestPublishLocalRelationChange(c *gc.C) {
 		return nil
 	})
 	client := remoterelations.NewClient(apiCaller)
-	err := client.PublishLocalRelationChange(params.RemoteRelationsChange{RemovedRelations: []int{1}})
+	err := client.PublishLocalRelationChange(params.RemoteRelationChangeEvent{
+		DepartedUnits: []params.RemoteEntityId{{ModelUUID: "model-uuid", Token: "token"}},
+	})
 	c.Check(err, gc.ErrorMatches, "FAIL")
 	c.Check(callCount, gc.Equals, 1)
 }

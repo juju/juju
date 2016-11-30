@@ -4,6 +4,8 @@
 package remoterelations
 
 import (
+	"sync"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v2"
@@ -16,7 +18,7 @@ import (
 
 var logger = loggo.GetLogger("juju.worker.remoterelations")
 
-// RemoteApplicationsFacade exposes remote relation functionality to a worker.
+// RemoteRelationsFacade exposes remote relation functionality to a worker.
 type RemoteRelationsFacade interface {
 	// ExportEntities allocates unique, remote entity IDs for the
 	// given entities in the local model.
@@ -24,7 +26,7 @@ type RemoteRelationsFacade interface {
 
 	// PublishLocalRelationChange publishes local relation changes to the
 	// model hosting the remote application involved in the relation.
-	PublishLocalRelationChange(params.RemoteRelationsChange) error
+	PublishLocalRelationChange(params.RemoteRelationChangeEvent) error
 
 	// RelationUnitSettings returns the relation unit settings for the
 	// given relation units in the local model.
@@ -90,6 +92,12 @@ type Worker struct {
 	catacomb catacomb.Catacomb
 	config   Config
 	logger   loggo.Logger
+
+	// exportMutex is used to ensure only one export API call from
+	// the relation unit watcher can occur at any time.
+	// This prevents the possibility of the same unit being exported
+	// simultaneously.
+	exportMutex sync.Mutex
 
 	// applicationWorkers holds a worker for each
 	// remote application being watched.
@@ -170,7 +178,9 @@ func (w *Worker) handleApplicationChanges(applicationIds []string) error {
 		logger.Debugf("started watcher for remote application %q", name)
 		appWorker, err := newRemoteApplicationWorker(
 			relationsWatcher,
+			result.Result.ModelUUID,
 			w.config.RelationsFacade,
+			&w.exportMutex,
 		)
 		if err != nil {
 			return errors.Trace(err)
@@ -198,7 +208,11 @@ func (w *Worker) killApplicationWorker(name string) error {
 type remoteApplicationWorker struct {
 	catacomb         catacomb.Catacomb
 	relationsWatcher watcher.StringsWatcher
-	facade           RemoteRelationsFacade
+	modelUUID        string // uuid of the model hosting the remote application
+	relationChanges  chan params.RemoteRelationChangeEvent
+
+	exportMutex *sync.Mutex
+	facade      RemoteRelationsFacade
 }
 
 type relation struct {
@@ -208,12 +222,16 @@ type relation struct {
 
 func newRemoteApplicationWorker(
 	relationsWatcher watcher.StringsWatcher,
+	modelUUID string,
 	facade RemoteRelationsFacade,
-
+	exportMutex *sync.Mutex,
 ) (worker.Worker, error) {
 	w := &remoteApplicationWorker{
 		relationsWatcher: relationsWatcher,
+		modelUUID:        modelUUID,
+		relationChanges:  make(chan params.RemoteRelationChangeEvent),
 		facade:           facade,
+		exportMutex:      exportMutex,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
@@ -254,6 +272,12 @@ func (w *remoteApplicationWorker) loop() error {
 				if err := w.relationChanged(key, result, relations); err != nil {
 					return errors.Annotatef(err, "handling change for relation %q", key)
 				}
+			}
+		case change := <-w.relationChanges:
+			logger.Debugf("relation units changed: %#v", change)
+			// TODO(Wallyworld) - use w.modelUUID to get facade on target model.
+			if err := w.facade.PublishLocalRelationChange(change); err != nil {
+				return errors.Annotate(err, "publishing relation change to remote model")
 			}
 		}
 	}
@@ -303,7 +327,9 @@ func (w *remoteApplicationWorker) relationChanged(
 		relationUnitsWatcher, err := newRelationUnitsWatcher(
 			names.NewRelationTag(key),
 			localRelationUnitsWatcher,
+			w.relationChanges,
 			w.facade,
+			w.exportMutex,
 		)
 		if err != nil {
 			return errors.Trace(err)
@@ -327,18 +353,30 @@ type relationUnitsWatcher struct {
 	catacomb    catacomb.Catacomb
 	relationTag names.RelationTag
 	ruw         watcher.RelationUnitsWatcher
+	changes     chan<- params.RemoteRelationChangeEvent
+
+	remoteRelationId params.RemoteEntityId
+	remoteUnitIds    map[string]params.RemoteEntityId
+
+	exportMutex *sync.Mutex
 	facade      RemoteRelationsFacade
 }
 
 func newRelationUnitsWatcher(
 	relationTag names.RelationTag,
 	ruw watcher.RelationUnitsWatcher,
+	changes chan<- params.RemoteRelationChangeEvent,
+
 	facade RemoteRelationsFacade,
+	exportMutex *sync.Mutex,
 ) (*relationUnitsWatcher, error) {
 	w := &relationUnitsWatcher{
-		relationTag: relationTag,
-		ruw:         ruw,
-		facade:      facade,
+		relationTag:   relationTag,
+		ruw:           ruw,
+		changes:       changes,
+		remoteUnitIds: make(map[string]params.RemoteEntityId),
+		facade:        facade,
+		exportMutex:   exportMutex,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
@@ -359,6 +397,18 @@ func (w *relationUnitsWatcher) Wait() error {
 }
 
 func (w *relationUnitsWatcher) loop() error {
+	// Ensure the relation is exported first up.
+	results, err := w.facade.ExportEntities([]names.Tag{w.relationTag})
+	if err != nil {
+		return errors.Annotatef(err, "exporting relation %v", w.relationTag)
+	}
+	if results[0].Error != nil && !params.IsCodeAlreadyExists(results[0].Error) {
+		return errors.Annotatef(err, "exporting relation %v", w.relationTag)
+	}
+	w.remoteRelationId = *results[0].Result
+
+	var changes chan<- params.RemoteRelationChangeEvent
+	var event params.RemoteRelationChangeEvent
 	for {
 		select {
 		case <-w.catacomb.Dying():
@@ -369,23 +419,103 @@ func (w *relationUnitsWatcher) loop() error {
 				continue
 			}
 			logger.Debugf("relation units changed: %#v", change)
-			if err := w.updateRelationUnitsChange(change); err != nil {
+			if evt, err := w.relationUnitsChangeEvent(change); err != nil {
 				return errors.Trace(err)
+			} else {
+				if evt == nil {
+					continue
+				}
+				event = *evt
+				changes = w.changes
 			}
+		case changes <- event:
+			changes = nil
 		}
 	}
 }
 
-func (w *relationUnitsWatcher) updateRelationUnitsChange(
+func (w *relationUnitsWatcher) relationUnitsChangeEvent(
 	change watcher.RelationUnitsChange,
-) error {
-	// TODO(wallyworld)
-	return ObserverRelationUnitsChange(change)
+) (*params.RemoteRelationChangeEvent, error) {
+	logger.Debugf("update relation units for %v", w.relationTag)
+	if len(change.Changed)+len(change.Departed) == 0 {
+		return nil, nil
+	}
+	// Ensure all the changed units have been exported.
+	changedUnitNames := make([]string, 0, len(change.Changed))
+	for name := range change.Changed {
+		changedUnitNames = append(changedUnitNames, name)
+	}
+	unitNamesToExport := append(changedUnitNames, change.Departed...)
+	remoteIds, err := w.ensureUnitsExported(unitNamesToExport)
+	if err != nil {
+		return nil, errors.Annotate(err, "exporting units")
+	}
+
+	// Construct the event to send to the remote model.
+	event := &params.RemoteRelationChangeEvent{
+		RelationId:    w.remoteRelationId,
+		DepartedUnits: remoteIds[len(changedUnitNames):],
+	}
+	if len(change.Changed) > 0 {
+		// For changed units, we publish the current settings values.
+		relationUnits := make([]params.RelationUnit, len(change.Changed))
+		for i, changedName := range changedUnitNames {
+			relationUnits[i] = params.RelationUnit{
+				Relation: w.relationTag.String(),
+				Unit:     names.NewUnitTag(changedName).String(),
+			}
+		}
+		results, err := w.facade.RelationUnitSettings(relationUnits)
+		if err != nil {
+			return nil, errors.Annotate(err, "fetching relation units settings")
+		}
+		for i, result := range results {
+			if result.Error != nil {
+				return nil, errors.Annotatef(result.Error, "fetching relation unit settings for %v", relationUnits[i].Unit)
+			}
+		}
+		for i, result := range results {
+			remoteId := remoteIds[i]
+			change := params.RemoteRelationUnitChange{
+				UnitId:   remoteId,
+				Settings: make(map[string]interface{}),
+			}
+			for k, v := range result.Settings {
+				change.Settings[k] = v
+			}
+			event.ChangedUnits = append(event.ChangedUnits, change)
+		}
+	}
+	return event, nil
 }
 
-// For testing only.
-// TODO(wallyworld) - remove when more code added.
-var ObserverRelationUnitsChange = func(change watcher.RelationUnitsChange) error {
-	logger.Infof("relation units change: %v", change)
-	return nil
+func (w *relationUnitsWatcher) ensureUnitsExported(unitNames []string) ([]params.RemoteEntityId, error) {
+	w.exportMutex.Lock()
+	defer w.exportMutex.Unlock()
+
+	var maybeUnexported []names.Tag
+	for _, name := range unitNames {
+		if _, ok := w.remoteUnitIds[name]; !ok {
+			maybeUnexported = append(maybeUnexported, names.NewUnitTag(name))
+		}
+	}
+	if len(maybeUnexported) > 0 {
+		logger.Debugf("exporting units: %v", maybeUnexported)
+		results, err := w.facade.ExportEntities(maybeUnexported)
+		if err != nil {
+			return nil, errors.Annotate(err, "exporting units")
+		}
+		for i, result := range results {
+			if result.Error != nil && !params.IsCodeAlreadyExists(result.Error) {
+				return nil, errors.Annotatef(result.Error, "exporting unit %q", maybeUnexported[i].Id())
+			}
+			w.remoteUnitIds[maybeUnexported[i].Id()] = *result.Result
+		}
+	}
+	results := make([]params.RemoteEntityId, len(unitNames))
+	for i, name := range unitNames {
+		results[i] = w.remoteUnitIds[name]
+	}
+	return results, nil
 }

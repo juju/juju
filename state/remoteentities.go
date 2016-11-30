@@ -45,13 +45,16 @@ func (st *State) RemoteEntities() *RemoteEntities {
 // returning an opaque token that uniquely identifies the entity within
 // the model.
 //
-// It is an error to export an entity twice.
+// If an entity is exported twice, we return an error satisfying
+// errors.IsAlreadyExists(); we also still return the token so that
+// a second api call is not required by the caller to get the token.
 func (r *RemoteEntities) ExportLocalEntity(entity names.Tag) (string, error) {
 	var token string
 	sourceModel := r.st.ModelTag()
 	ops := func(attempt int) ([]txn.Op, error) {
 		// The entity must not already be exported.
-		_, err := r.GetToken(sourceModel, entity)
+		var err error
+		token, err = r.GetToken(sourceModel, entity)
 		if err == nil {
 			return nil, errors.AlreadyExistsf(
 				"token for %s",
@@ -93,7 +96,10 @@ func (r *RemoteEntities) ExportLocalEntity(entity names.Tag) (string, error) {
 		return aa, nil
 	}
 	if err := r.st.run(ops); err != nil {
-		return "", errors.Trace(err)
+		// Where error is AlreadyExists, we still return the
+		// token so that a second api call is not required by
+		// the caller to get the token.
+		return token, errors.Trace(err)
 	}
 	return token, nil
 }

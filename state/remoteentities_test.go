@@ -41,10 +41,11 @@ func (s *RemoteEntitiesSuite) TestExportLocalEntity(c *gc.C) {
 
 func (s *RemoteEntitiesSuite) TestExportLocalEntityTwice(c *gc.C) {
 	entity := names.NewApplicationTag("mysql")
-	s.assertExportLocalEntity(c, entity)
+	expected := s.assertExportLocalEntity(c, entity)
 	re := s.State.RemoteEntities()
-	_, err := re.ExportLocalEntity(entity)
+	token, err := re.ExportLocalEntity(entity)
 	c.Assert(err, jc.Satisfies, errors.IsAlreadyExists)
+	c.Assert(token, gc.Equals, expected)
 }
 
 func (s *RemoteEntitiesSuite) TestGetRemoteEntity(c *gc.C) {

@@ -71,7 +71,9 @@ func (api *RemoteRelationsAPI) ExportEntities(entities params.Entities) (params.
 		token, err := api.st.ExportLocalEntity(tag)
 		if err != nil {
 			results.Results[i].Error = common.ServerError(err)
-			continue
+			if !errors.IsAlreadyExists(err) {
+				continue
+			}
 		}
 		results.Results[i].Result = &params.RemoteEntityId{
 			ModelUUID: api.st.ModelUUID(),
@@ -182,9 +184,10 @@ func (api *RemoteRelationsAPI) RemoteApplications(entities params.Entities) (par
 			return nil, errors.Trace(err)
 		}
 		return &params.RemoteApplication{
-			Name:   remoteApp.Name(),
-			Life:   params.Life(remoteApp.Life().String()),
-			Status: status.Status.String(),
+			Name:      remoteApp.Name(),
+			Life:      params.Life(remoteApp.Life().String()),
+			Status:    status.Status.String(),
+			ModelUUID: remoteApp.SourceModel().Id(),
 		}, nil
 	}
 	for i, entity := range entities.Entities {
@@ -692,7 +695,7 @@ func updateRelationUnits(
 		if err != nil {
 			return errors.Trace(err)
 		}
-		value.changedUnits[unitId] = params.RemoteRelationUnitChange{settings}
+		value.changedUnits[unitId] = params.RemoteRelationUnitChange{Settings: settings}
 		if knownUnits != nil {
 			knownUnits.Add(unitId)
 		}

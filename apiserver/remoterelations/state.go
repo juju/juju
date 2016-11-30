@@ -114,6 +114,9 @@ type RemoteApplication interface {
 	// Name returns the name of the remote application.
 	Name() string
 
+	// SourceModel returns the tag of the model hosting the remote application.
+	SourceModel() names.ModelTag
+
 	// URL returns the remote application URL, at which it is offered.
 	URL() (string, bool)
 

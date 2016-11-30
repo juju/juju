@@ -330,7 +330,7 @@ func (s *remoteRelationsSuite) TestConsumeRemoveApplicationChange(c *gc.C) {
 					RelationId: 1,
 					Life:       params.Alive,
 					ChangedUnits: map[string]params.RemoteRelationUnitChange{
-						"mysql/0": {mysql0Settings},
+						"mysql/0": {Settings: mysql0Settings},
 					},
 				}, {
 					RelationId:    2,
@@ -450,6 +450,23 @@ func (s *remoteRelationsSuite) TestExportEntities(c *gc.C) {
 	})
 }
 
+func (s *remoteRelationsSuite) TestExportEntitiesTwice(c *gc.C) {
+	s.st.applications["django"] = newMockApplication("django")
+	_, err := s.api.ExportEntities(params.Entities{Entities: []params.Entity{{Tag: "application-django"}}})
+	c.Assert(err, jc.ErrorIsNil)
+	result, err := s.api.ExportEntities(params.Entities{Entities: []params.Entity{{Tag: "application-django"}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Error, gc.NotNil)
+	c.Assert(result.Results[0].Error.Code, gc.Equals, params.CodeAlreadyExists)
+	c.Assert(result.Results[0].Result, jc.DeepEquals, &params.RemoteEntityId{
+		ModelUUID: coretesting.ModelTag.Id(), Token: "token-django"})
+	s.st.CheckCalls(c, []testing.StubCall{
+		{"ExportLocalEntity", []interface{}{names.ApplicationTag{Name: "django"}}},
+		{"ExportLocalEntity", []interface{}{names.ApplicationTag{Name: "django"}}},
+	})
+}
+
 func (s *remoteRelationsSuite) TestRelationUnitSettings(c *gc.C) {
 	djangoRelationUnit := newMockRelationUnit()
 	djangoRelationUnit.settings["key"] = "value"
@@ -471,7 +488,7 @@ func (s *remoteRelationsSuite) TestRemoteApplications(c *gc.C) {
 	result, err := s.api.RemoteApplications(params.Entities{Entities: []params.Entity{{Tag: "application-django"}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, jc.DeepEquals, []params.RemoteApplicationResult{{
-		Result: &params.RemoteApplication{Name: "django", Life: "alive"}}})
+		Result: &params.RemoteApplication{Name: "django", Life: "alive", ModelUUID: "model-uuid"}}})
 	s.st.CheckCalls(c, []testing.StubCall{
 		{"RemoteApplication", []interface{}{"django"}},
 	})
