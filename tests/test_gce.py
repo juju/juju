@@ -103,8 +103,8 @@ class GCETestCase(TestCase):
                    ) as gl_mock:
             gl_mock.return_value = client
             gce.get_client(GCE_ENVIRON['GCE_SA_EMAIL'],
-                       GCE_ENVIRON['GCE_PEM_PATH'],
-                       GCE_ENVIRON["GCE_PROJECT_ID"], region='foo')
+                           GCE_ENVIRON['GCE_PEM_PATH'],
+                           GCE_ENVIRON["GCE_PROJECT_ID"], region='foo')
         gl_mock.assert_called_once_with('gce')
         client.return_value.ex_get_zone.assert_called_once_with('foo')
 
@@ -115,8 +115,8 @@ class GCETestCase(TestCase):
                    ) as gl_mock:
             gl_mock.return_value = client
             gce.get_client(GCE_ENVIRON['GCE_SA_EMAIL'],
-                       GCE_ENVIRON['GCE_PEM_PATH'],
-                       GCE_ENVIRON["GCE_PROJECT_ID"], region=None)
+                           GCE_ENVIRON['GCE_PEM_PATH'],
+                           GCE_ENVIRON["GCE_PROJECT_ID"], region=None)
         gl_mock.assert_called_once_with('gce')
         self.assertEqual(client.return_value.ex_get_zone.call_count, 0)
 
@@ -128,8 +128,8 @@ class GCETestCase(TestCase):
             gl_mock.return_value = client
             with self.assertRaises(ValueError):
                 gce.get_client(GCE_ENVIRON['GCE_SA_EMAIL'],
-                           GCE_ENVIRON['GCE_PEM_PATH'],
-                           GCE_ENVIRON["GCE_PROJECT_ID"], region='foo')
+                               GCE_ENVIRON['GCE_PEM_PATH'],
+                               GCE_ENVIRON["GCE_PROJECT_ID"], region='foo')
         gl_mock.assert_called_once_with('gce')
 
     def test_parse_args_delete_instaces(self):
@@ -257,4 +257,3 @@ class GCETestCase(TestCase):
         self.assertEqual(
             'ERROR Cannot delete juju-old\n',
             self.log_stream.getvalue())
-
