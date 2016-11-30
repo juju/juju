@@ -169,7 +169,7 @@ func NewAddressOnSpace(spaceName string, value string) Address {
 	return addr
 }
 
-// NewAddresses is a convenience function to create addresses from a a variable
+// NewAddresses is a convenience function to create addresses from a variable
 // number of string arguments.
 func NewAddresses(inAddresses ...string) (outAddresses []Address) {
 	outAddresses = make([]Address, len(inAddresses))
