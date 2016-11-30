@@ -46,6 +46,7 @@ import (
 	"github.com/juju/juju/jujuclient"
 	jujuversion "github.com/juju/juju/version"
 	// Import the providers.
+	cloudfile "github.com/juju/juju/cloud"
 	_ "github.com/juju/juju/provider/all"
 )
 
@@ -406,7 +407,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(cloud.NewListCloudsCommand())
 	r.Register(cloud.NewListRegionsCommand())
 	r.Register(cloud.NewShowCloudCommand())
-	r.Register(cloud.NewAddCloudCommand())
+	r.Register(cloud.NewAddCloudCommand(&cloudToCommandAdapter{}))
 	r.Register(cloud.NewRemoveCloudCommand())
 	r.Register(cloud.NewListCredentialsCommand())
 	r.Register(cloud.NewDetectCredentialsCommand())
@@ -430,4 +431,22 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 		r.Register(modelcmd.Wrap(command))
 	}
 	rcmd.RegisterAll(r)
+}
+
+type cloudToCommandAdapter struct{}
+
+func (cloudToCommandAdapter) ParseCloudMetadataFile(path string) (map[string]cloudfile.Cloud, error) {
+	return cloudfile.ParseCloudMetadataFile(path)
+}
+func (cloudToCommandAdapter) ParseOneCloud(data []byte) (cloudfile.Cloud, error) {
+	return cloudfile.ParseOneCloud(data)
+}
+func (cloudToCommandAdapter) PublicCloudMetadata(searchPaths ...string) (map[string]cloudfile.Cloud, bool, error) {
+	return cloudfile.PublicCloudMetadata(searchPaths...)
+}
+func (cloudToCommandAdapter) PersonalCloudMetadata() (map[string]cloudfile.Cloud, error) {
+	return cloudfile.PersonalCloudMetadata()
+}
+func (cloudToCommandAdapter) WritePersonalCloudMetadata(cloudsMap map[string]cloudfile.Cloud) error {
+	return cloudfile.WritePersonalCloudMetadata(cloudsMap)
 }

@@ -20,6 +20,14 @@ import (
 	"github.com/juju/juju/environs"
 )
 
+type CloudMetadataStore interface {
+	ParseCloudMetadataFile(path string) (map[string]cloud.Cloud, error)
+	ParseOneCloud(data []byte) (cloud.Cloud, error)
+	PublicCloudMetadata(searchPaths ...string) (result map[string]cloud.Cloud, fallbackUsed bool, _ error)
+	PersonalCloudMetadata() (map[string]cloud.Cloud, error)
+	WritePersonalCloudMetadata(cloudsMap map[string]cloud.Cloud) error
+}
+
 var usageAddCloudSummary = `
 Adds a user-defined cloud to Juju from among known cloud types.`[1:]
 
@@ -56,11 +64,15 @@ type addCloudCommand struct {
 
 	// CloudFile is the name of the cloud YAML file.
 	CloudFile string
+
+	cloudMetadataStore CloudMetadataStore
 }
 
 // NewAddCloudCommand returns a command to add cloud information.
-func NewAddCloudCommand() cmd.Command {
-	return &addCloudCommand{}
+func NewAddCloudCommand(cloudMetadataStore CloudMetadataStore) cmd.Command {
+	return &addCloudCommand{
+		cloudMetadataStore: cloudMetadataStore,
+	}
 }
 
 // Info returns help information about the command.
@@ -99,7 +111,7 @@ func (c *addCloudCommand) Run(ctxt *cmd.Context) error {
 	if c.CloudFile == "" {
 		return c.runInteractive(ctxt)
 	}
-	specifiedClouds, err := cloud.ParseCloudMetadataFile(c.CloudFile)
+	specifiedClouds, err := c.cloudMetadataStore.ParseCloudMetadataFile(c.CloudFile)
 	if err != nil {
 		return err
 	}
@@ -115,7 +127,7 @@ func (c *addCloudCommand) Run(ctxt *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	return addCloud(c.Cloud, newCloud)
+	return addCloud(c.cloudMetadataStore, c.Cloud, newCloud)
 }
 
 func (c *addCloudCommand) runInteractive(ctxt *cmd.Context) error {
@@ -127,7 +139,7 @@ func (c *addCloudCommand) runInteractive(ctxt *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	name, err := queryName(pollster)
+	name, err := queryName(c.cloudMetadataStore, pollster)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -145,12 +157,12 @@ func (c *addCloudCommand) runInteractive(ctxt *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	newCloud, err := cloud.ParseOneCloud(b)
+	newCloud, err := c.cloudMetadataStore.ParseOneCloud(b)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	newCloud.Type = cloudType
-	if err := addCloud(name, newCloud); err != nil {
+	if err := addCloud(c.cloudMetadataStore, name, newCloud); err != nil {
 		return errors.Trace(err)
 	}
 	ctxt.Infof("Cloud %q successfully added", name)
@@ -159,12 +171,12 @@ func (c *addCloudCommand) runInteractive(ctxt *cmd.Context) error {
 	return nil
 }
 
-func queryName(pollster *interact.Pollster) (string, error) {
-	public, _, err := cloud.PublicCloudMetadata()
+func queryName(cloudMetadataStore CloudMetadataStore, pollster *interact.Pollster) (string, error) {
+	public, _, err := cloudMetadataStore.PublicCloudMetadata()
 	if err != nil {
 		return "", err
 	}
-	personal, err := cloud.PersonalCloudMetadata()
+	personal, err := cloudMetadataStore.PersonalCloudMetadata()
 	if err != nil {
 		return "", err
 	}
@@ -250,11 +262,11 @@ func (c *addCloudCommand) verifyName(name string) error {
 	if c.Replace {
 		return nil
 	}
-	public, _, err := cloud.PublicCloudMetadata()
+	public, _, err := c.cloudMetadataStore.PublicCloudMetadata()
 	if err != nil {
 		return err
 	}
-	personal, err := cloud.PersonalCloudMetadata()
+	personal, err := c.cloudMetadataStore.PersonalCloudMetadata()
 	if err != nil {
 		return err
 	}
@@ -279,8 +291,8 @@ func nameExists(name string, public map[string]cloud.Cloud) string {
 	return ""
 }
 
-func addCloud(name string, newCloud cloud.Cloud) error {
-	personalClouds, err := cloud.PersonalCloudMetadata()
+func addCloud(cloudMetadataStore CloudMetadataStore, name string, newCloud cloud.Cloud) error {
+	personalClouds, err := cloudMetadataStore.PersonalCloudMetadata()
 	if err != nil {
 		return err
 	}
@@ -288,5 +300,5 @@ func addCloud(name string, newCloud cloud.Cloud) error {
 		personalClouds = make(map[string]cloud.Cloud)
 	}
 	personalClouds[name] = newCloud
-	return cloud.WritePersonalCloudMetadata(personalClouds)
+	return cloudMetadataStore.WritePersonalCloudMetadata(personalClouds)
 }
