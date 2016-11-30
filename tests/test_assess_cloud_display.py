@@ -1,5 +1,4 @@
 from contextlib import contextmanager
-from collections import OrderedDict
 
 from mock import (
     call,
