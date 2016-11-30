@@ -59,10 +59,7 @@ func (h *resourceUploadHandler) processPost(r *http.Request, st *state.State) er
 	if applicationID == "" {
 		return errors.NotValidf("missing application")
 	}
-	userID := query.Get("user")
-	if userID == "" {
-		return errors.NotValidf("missing user")
-	}
+	userID := query.Get("user") // Is allowed to be blank
 	res, err := queryToResource(query)
 	if err != nil {
 		return errors.Trace(err)
