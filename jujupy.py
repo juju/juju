@@ -24,6 +24,8 @@ import sys
 from tempfile import NamedTemporaryFile
 import time
 
+from dateutil.parser import parse as datetime_parse
+from dateutil import tz
 import pexpect
 import yaml
 
@@ -719,7 +721,7 @@ class StatusItem:
     def datetime_since(self):
         if self.since is None:
             return None
-        return datetime.strptime(self.since, '%d %b %Y %H:%M:%SZ')
+        return datetime_parse(self.since)
 
     def to_exception(self):
         """Create an exception representing the error if one exists.
@@ -747,7 +749,7 @@ class StatusItem:
             else:
                 return MachineError(self.item_name, self.message)
         elif self.JUJU == self.status_name:
-            time_since = datetime.utcnow() - self.datetime_since
+            time_since = datetime.now(tz.gettz('UTC')) - self.datetime_since
             if time_since > AgentUnresolvedError.a_reasonable_time:
                 return AgentUnresolvedError(self.item_name, self.message,
                                             time_since.total_seconds())

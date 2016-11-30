@@ -15,6 +15,7 @@ import sys
 from textwrap import dedent
 import types
 
+from dateutil import tz
 from mock import (
     call,
     Mock,
@@ -5487,8 +5488,15 @@ class TestStatusItem(TestCase):
     def test_datetime_since(self):
         item = self.make_status_item(StatusItem.JUJU, '0',
                                      since='19 Aug 2016 05:36:42Z')
-        target = datetime(2016, 8, 19, 5, 36, 42)
+        target = datetime(2016, 8, 19, 5, 36, 42, tzinfo=tz.gettz('UTC'))
         self.assertEqual(item.datetime_since, target)
+
+    def test_datetime_since_lxd(self):
+        UTC = tz.gettz('UTC')
+        item = self.make_status_item(StatusItem.JUJU, '0',
+                                     since='30 Nov 2016 09:58:43-05:00')
+        target = datetime(2016, 11, 30, 14, 58, 43, tzinfo=UTC)
+        self.assertEqual(item.datetime_since.astimezone(UTC), target)
 
     def test_datetime_since_none(self):
         item = self.make_status_item(StatusItem.JUJU, '0')
