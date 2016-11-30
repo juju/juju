@@ -17,23 +17,32 @@ from utility import (
     )
 
 
-def get_clouds(client):
+def remove_display_attributes(cloud):
+    """Remove the attributes added by display.
+
+    The 'defined' attribute is asserted to be 'local'.
+    The description attribute is asserted to be appropriate for the cloud type.
+    """
     type_descriptions = {
         'openstack': 'Openstack Cloud',
         'vsphere': '',
         'manual': '',
         'maas': 'Metal As A Service',
         }
-    cloud_list = yaml.load(client.get_juju_output(
+    defined = cloud.pop('defined')
+    assert_equal(defined, 'local')
+    description = cloud.pop('description')
+    assert_equal(description, type_descriptions[cloud['type']])
+
+
+def get_clouds(client):
+    cloud_list = yaml.safe_load(client.get_juju_output(
         'clouds', '--format', 'yaml', include_e=False))
     for cloud_name, cloud in cloud_list.items():
         if cloud['defined'] == 'built-in':
             del cloud_list[cloud_name]
             continue
-        defined = cloud.pop('defined')
-        assert_equal(defined, 'local')
-        description = cloud.pop('description')
-        assert_equal(description, type_descriptions[cloud['type']])
+        remove_display_attributes(cloud)
     return cloud_list
 
 
@@ -42,6 +51,10 @@ def get_home_path(client, subpath):
 
 
 def assert_equal(first, second):
+    """If two values are not the same, raise JujuAssertionError.
+
+    The text of the error is a diff of the pretty-printed values.
+    """
     if first != second:
         diff = ndiff(pformat(first).splitlines(), pformat(second).splitlines())
         raise JujuAssertionError('\n' + '\n'.join(diff))
@@ -59,6 +72,15 @@ def assess_clouds(client, expected):
     """Assess how clouds behaves when only expected clouds are defined."""
     cloud_list = get_clouds(client)
     assert_equal(cloud_list, expected)
+
+
+def assess_show_cloud(client, expected):
+    """Assess how show-cloud behaves."""
+    for cloud_name, expected_cloud in expected.items():
+        actual_cloud = yaml.safe_load(client.get_juju_output(
+            'show-cloud', cloud_name, include_e=False))
+        remove_display_attributes(actual_cloud)
+        assert_equal(actual_cloud, expected_cloud)
 
 
 def strip_redundant_endpoints(clouds):
@@ -99,6 +121,8 @@ def main():
             supplied_clouds['clouds'])
         with testing('assess_clouds'):
             assess_clouds(client, no_region_endpoint)
+        with testing('assess_show_cloud'):
+            assess_show_cloud(client, no_region_endpoint)
 
 
 if __name__ == '__main__':
