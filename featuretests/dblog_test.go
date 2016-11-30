@@ -210,3 +210,49 @@ func (s *debugLogDbSuite) TestLogsAPI(c *gc.C) {
 		Message:   "beep beep",
 	})
 }
+
+func (s *debugLogDbSuite) TestLogsUsesStartTime(c *gc.C) {
+	dbLogger := state.NewEntityDbLogger(s.State, names.NewMachineTag("99"), version.Current)
+	defer dbLogger.Close()
+
+	t1 := time.Date(2015, 6, 23, 13, 8, 49, 100, time.UTC)
+	// Check that start time has subsecond resolution.
+	t2 := time.Date(2015, 6, 23, 13, 8, 51, 50, time.UTC)
+	t3 := t1.Add(2 * time.Second)
+	t4 := t1.Add(4 * time.Second)
+	dbLogger.Log(t1, "juju.foo", "code.go:42", loggo.INFO, "spinto band")
+	dbLogger.Log(t2, "juju.quux", "ok.go:101", loggo.INFO, "king gizzard and the lizard wizard")
+	dbLogger.Log(t3, "juju.bar", "go.go:99", loggo.ERROR, "born ruffians")
+	dbLogger.Log(t4, "juju.baz", "go.go.go:23", loggo.WARNING, "cold war kids")
+
+	client := s.APIState.Client()
+	logMessages, err := client.WatchDebugLog(api.DebugLogParams{
+		StartTime: t3,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	assertMessage := func(expected api.LogMessage) {
+		select {
+		case actual := <-logMessages:
+			c.Assert(actual, jc.DeepEquals, expected)
+		case <-time.After(coretesting.LongWait):
+			c.Fatal("timed out waiting for log line")
+		}
+	}
+	assertMessage(api.LogMessage{
+		Entity:    "machine-99",
+		Timestamp: t3,
+		Severity:  "ERROR",
+		Module:    "juju.bar",
+		Location:  "go.go:99",
+		Message:   "born ruffians",
+	})
+	assertMessage(api.LogMessage{
+		Entity:    "machine-99",
+		Timestamp: t4,
+		Severity:  "WARNING",
+		Module:    "juju.baz",
+		Location:  "go.go.go:23",
+		Message:   "cold war kids",
+	})
+}

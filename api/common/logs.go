@@ -50,6 +50,9 @@ type DebugLogParams struct {
 	// NoTail tells the server to only return the logs it has now, and not
 	// to wait for new logs to arrive.
 	NoTail bool
+	// StartTime should be a time in the past - only records with a
+	// log time on or after StartTime will be returned.
+	StartTime time.Time
 }
 
 func (args DebugLogParams) URLQuery() url.Values {
@@ -73,6 +76,9 @@ func (args DebugLogParams) URLQuery() url.Values {
 	}
 	if args.Level != loggo.UNSPECIFIED {
 		attrs.Set("level", fmt.Sprint(args.Level))
+	}
+	if !args.StartTime.IsZero() {
+		attrs.Set("startTime", args.StartTime.Format(time.RFC3339Nano))
 	}
 	return attrs
 }

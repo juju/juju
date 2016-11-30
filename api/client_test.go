@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/httprequest"
@@ -445,6 +446,7 @@ func (s *clientSuite) TestWatchDebugLogParamsEncoded(c *gc.C) {
 		Level:         loggo.ERROR,
 		Replay:        true,
 		NoTail:        true,
+		StartTime:     time.Date(2016, 11, 30, 11, 48, 0, 100, time.UTC),
 	}
 
 	client := s.APIState.Client()
@@ -463,6 +465,7 @@ func (s *clientSuite) TestWatchDebugLogParamsEncoded(c *gc.C) {
 		"level":         {"ERROR"},
 		"replay":        {"true"},
 		"noTail":        {"true"},
+		"startTime":     {"2016-11-30T11:48:00.0000001Z"},
 	})
 }
 
