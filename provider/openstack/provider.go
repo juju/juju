@@ -7,7 +7,6 @@ package openstack
 
 import (
 	"fmt"
-	"log"
 	"net/url"
 	"strings"
 	"sync"
@@ -22,6 +21,7 @@ import (
 	"gopkg.in/goose.v1/client"
 	gooseerrors "gopkg.in/goose.v1/errors"
 	"gopkg.in/goose.v1/identity"
+	gooselogging "gopkg.in/goose.v1/logging"
 	"gopkg.in/goose.v1/neutron"
 	"gopkg.in/goose.v1/nova"
 
@@ -693,14 +693,15 @@ func determineBestClient(
 	options identity.AuthOptions,
 	client client.AuthenticatingClient,
 	cred identity.Credentials,
-	newClient func(*identity.Credentials, identity.AuthMode, *log.Logger) client.AuthenticatingClient,
+	newClient func(*identity.Credentials, identity.AuthMode, gooselogging.CompatLogger) client.AuthenticatingClient,
+	logger gooselogging.CompatLogger,
 ) client.AuthenticatingClient {
 	for _, option := range options {
 		if option.Mode != identity.AuthUserPassV3 {
 			continue
 		}
 		cred.URL = option.Endpoint
-		v3client := newClient(&cred, identity.AuthUserPassV3, nil)
+		v3client := newClient(&cred, identity.AuthUserPassV3, logger)
 		// V3 being advertised is not necessaritly a guarantee that it will
 		// work.
 		err := v3client.Authenticate()
@@ -718,11 +719,12 @@ func authClient(spec environs.CloudSpec, ecfg *environConfig) (client.Authentica
 	}
 	cred, authMode := newCredentials(spec)
 
+	gooseLogger := gooselogging.LoggoLogger{loggo.GetLogger("goose")}
 	newClient := client.NewClient
 	if ecfg.SSLHostnameVerification() == false {
 		newClient = client.NewNonValidatingClient
 	}
-	client := newClient(&cred, authMode, nil)
+	client := newClient(&cred, authMode, gooseLogger)
 
 	// before returning, lets make sure that we want to have AuthMode
 	// AuthUserPass instead of its V3 counterpart.
@@ -731,7 +733,13 @@ func authClient(spec environs.CloudSpec, ecfg *environConfig) (client.Authentica
 		if err != nil {
 			logger.Errorf("cannot determine available auth versions %v", err)
 		} else {
-			client = determineBestClient(options, client, cred, newClient)
+			client = determineBestClient(
+				options,
+				client,
+				cred,
+				newClient,
+				gooseLogger,
+			)
 		}
 	}
 
