@@ -26,12 +26,15 @@ AGENT_TEMPLATES = (
     'juju-{}-win8-amd64.tgz',
     'juju-{}-win81-amd64.tgz',
     'juju-{}-win10-amd64.tgz',
+    'juju-{}-ubuntu-amd64.tgz',
+    'juju-{}-ubuntu-arm64.tgz',
+    'juju-{}-ubuntu-ppc64el.tgz',
+    'juju-{}-ubuntu-s390x.tgz',
     )
-# The versions of agent that may or will exist. The agents will
-# always start with juju, the series will start with "win" and the
-# arch is always amd64.
-AGENT_VERSION_PATTERN = re.compile('juju-(.+)-(win|centos)[^-]+-amd64.tgz')
-AGENT_OS_PATTERN = re.compile('juju-.+-(win|centos)[^-]+-amd64.tgz')
+
+
+AGENT_PATTERN = re.compile(
+    'juju-(.+)-(win|centos|ubuntu)[^-]*-(amd64|arm64|ppc64el|s390x)\.tgz')
 
 
 def run(args, config=None, verbose=False, dry_run=False):
@@ -52,17 +55,24 @@ def run(args, config=None, verbose=False, dry_run=False):
 
 def get_source_agent_version(source_agent):
     """Parse the version from the source agent's file name."""
-    match = AGENT_VERSION_PATTERN.match(source_agent)
+    match = AGENT_PATTERN.match(source_agent)
     if match:
         return match.group(1)
     return None
 
 
 def get_source_agent_os(source_agent):
-    match = AGENT_OS_PATTERN.match(source_agent)
+    match = AGENT_PATTERN.match(source_agent)
     if match:
-        return match.group(1)
+        return match.group(2)
     raise ValueError('The unknown OS version: %s' % source_agent)
+
+
+def get_source_agent_arch(source_agent):
+    match = AGENT_PATTERN.match(source_agent)
+    if match:
+        return match.group(3)
+    raise ValueError('Invalid arch in agent: ' + source_agent)
 
 
 def get_input(prompt):
