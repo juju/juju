@@ -60,12 +60,6 @@ def assert_equal(first, second):
         raise JujuAssertionError('\n' + '\n'.join(diff))
 
 
-def assess_clouds_no_clouds(client):
-    """Assess how clouds behaves when no clouds are defined."""
-    cloud_list = get_clouds(client)
-    assert_equal(cloud_list, {})
-
-
 def assess_clouds(client, expected):
     """Assess how clouds behaves when only expected clouds are defined."""
     cloud_list = get_clouds(client)
@@ -76,7 +70,7 @@ def assess_show_cloud(client, expected):
     """Assess how show-cloud behaves."""
     for cloud_name, expected_cloud in expected.items():
         actual_cloud = yaml.safe_load(client.get_juju_output(
-            'show-cloud', cloud_name, include_e=False))
+            'show-cloud', cloud_name, '--format', 'yaml', include_e=False))
         remove_display_attributes(actual_cloud)
         assert_equal(actual_cloud, expected_cloud)
 
@@ -112,8 +106,8 @@ def main():
         client.env.juju_home = juju_home
         with open(get_home_path(client, 'public-clouds.yaml'), 'w') as f:
             f.write('')
-        with testing('assess_clouds_no_clouds'):
-            assess_clouds_no_clouds(client)
+        with testing('assess_clouds (no_clouds)'):
+            assess_clouds(client, {})
         with open(args.clouds_file) as f:
             supplied_clouds = yaml.safe_load(f.read().decode('utf-8'))
         client.env.write_clouds(client.env.juju_home, supplied_clouds)
