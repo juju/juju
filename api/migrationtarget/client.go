@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/httprequest"
@@ -127,6 +128,9 @@ func (c *Client) httpPost(modelUUID string, content io.ReadSeeker, endpoint, con
 	return nil
 }
 
+// OpenLogTransferStream connects to the migration logtransfer
+// endpoint on the target controller and returns a stream that JSON
+// logs records can be fed into. The objects written should be params.LogRecords.
 func (c *Client) OpenLogTransferStream(modelUUID string) (base.Stream, error) {
 	attrs := url.Values{}
 	attrs.Set("jujuclientversion", jujuversion.Current.String())
@@ -138,4 +142,17 @@ func (c *Client) OpenLogTransferStream(modelUUID string) (base.Stream, error) {
 		return nil, errors.Trace(err)
 	}
 	return stream, nil
+}
+
+// LatestLogTime asks the target controller for the time of the latest
+// log record it has seen. This can be used to make the log transfer
+// restartable.
+func (c *Client) LatestLogTime(modelUUID string) (time.Time, error) {
+	var result time.Time
+	args := params.ModelArgs{names.NewModelTag(modelUUID).String()}
+	err := c.caller.FacadeCall("LatestLogTime", args, &result)
+	if err != nil {
+		return time.Time{}, errors.Trace(err)
+	}
+	return result, nil
 }
