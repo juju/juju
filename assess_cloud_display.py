@@ -48,14 +48,14 @@ def assert_equal(first, second):
         raise JujuAssertionError('\n' + '\n'.join(diff))
 
 
-def assess_list_clouds_no_clouds(client):
+def assess_clouds_no_clouds(client):
     with open(get_home_path(client, 'public-clouds.yaml'), 'w') as f:
         f.write('')
     cloud_list = get_clouds(client)
     assert_equal(cloud_list, {})
 
 
-def assess_list_clouds(client, expected):
+def assess_clouds(client, expected):
     cloud_list = get_clouds(client)
     assert_equal(cloud_list, expected)
 
@@ -89,15 +89,15 @@ def main():
     with client.env.make_jes_home(client.env.juju_home, 'mytest',
                                   {}) as juju_home:
         client.env.juju_home = juju_home
-        with testing('assess_list_clouds_no_clouds'):
-            assess_list_clouds_no_clouds(client)
+        with testing('assess_clouds_no_clouds'):
+            assess_clouds_no_clouds(client)
         with open(args.clouds_file) as f:
             supplied_clouds = yaml.safe_load(f.read().decode('utf-8'))
         client.env.write_clouds(client.env.juju_home, supplied_clouds)
         no_region_endpoint = strip_redundant_endpoints(
             supplied_clouds['clouds'])
-        with testing('assess_list_clouds'):
-            assess_list_clouds(client, no_region_endpoint)
+        with testing('assess_clouds'):
+            assess_clouds(client, no_region_endpoint)
 
 
 
