@@ -15,6 +15,7 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 
 	"github.com/juju/juju/core/description"
+	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/tools"
@@ -107,7 +108,7 @@ type UploadBinariesConfig struct {
 	ToolsDownloader ToolsDownloader
 	ToolsUploader   ToolsUploader
 
-	Resources          []resource.Resource
+	Resources          []migration.SerializedModelResource
 	ResourceDownloader ResourceDownloader
 	ResourceUploader   ResourceUploader
 }
@@ -226,26 +227,35 @@ func uploadTools(config UploadBinariesConfig) error {
 // XXX tests
 func uploadResources(config UploadBinariesConfig) error {
 	for _, res := range config.Resources {
-		// XXX handle each resource in a separate func to allow things to be cleaned up
-		logger.Debugf("opening resource for %s: %s", res.ApplicationID, res.Name)
-		reader, err := config.ResourceDownloader.OpenResource(res.ApplicationID, res.Name)
-		if err != nil {
-			return errors.Annotate(err, "cannot open resource")
-		}
-		defer reader.Close()
-
-		// TODO(menn0) - validate that the downloaded revision matches
-		// the expected metadata. Check revision and fingerprint.
-
-		content, cleanup, err := streamThroughTempFile(reader)
+		err := uploadAppResource(config, res.ApplicationRevision)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		defer cleanup()
+		// TODO(menn0) - charmstore revision
+		// TODO(menn0) - unit revisions
+	}
+	return nil
+}
 
-		if err := config.ResourceUploader.UploadResource(res, content); err != nil {
-			return errors.Annotate(err, "cannot upload resource")
-		}
+func uploadAppResource(config UploadBinariesConfig, rev resource.Resource) error {
+	logger.Debugf("opening application resource for %s: %s", rev.ApplicationID, rev.Name)
+	reader, err := config.ResourceDownloader.OpenResource(rev.ApplicationID, rev.Name)
+	if err != nil {
+		return errors.Annotate(err, "cannot open resource")
+	}
+	defer reader.Close()
+
+	// TODO(menn0) - validate that the downloaded revision matches
+	// the expected metadata. Check revision and fingerprint.
+
+	content, cleanup, err := streamThroughTempFile(reader)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer cleanup()
+
+	if err := config.ResourceUploader.UploadResource(rev, content); err != nil {
+		return errors.Annotate(err, "cannot upload resource")
 	}
 	return nil
 }
