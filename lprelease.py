@@ -97,10 +97,11 @@ def close_milestone(milestone, dry_run, verbose):
 def defer_bugs(milestone, deferred_milestone, dry_run, verbose):
     unfinished_bug_tasks = milestone.searchTasks(status=UNFINISHED)
     for bug_task in unfinished_bug_tasks:
-		#This needs fixed; bug #1629115
-        #if verbose:
-        #    print('Retargeting bug %s [%s] to %s' % (
-        #        bug_task.bug.id, bug_task.bug.title, deferred_milestone.name))
+        # This needs fixed; bug #1629115
+        # if verbose:
+        #     print('Retargeting bug %s [%s] to %s' % (
+        #         bug_task.bug.id, bug_task.bug.title,
+        #         deferred_milestone.name))
         bug_task.milestone = deferred_milestone
         if not dry_run:
             bug_task.lp_save()
