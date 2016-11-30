@@ -373,6 +373,7 @@ class SimpleEnvironment:
         result.kvm = self.kvm
         result.maas = self.maas
         result.joyent = self.joyent
+        result.user_name = self.user_name
         return result
 
     def __eq__(self, other):

@@ -23,6 +23,7 @@ from jujupy import (
     )
 from tests import (
     client_past_deadline,
+    FakeHomeTestCase,
     parse_error,
     TestCase,
 )
@@ -459,6 +460,66 @@ class TestDeployMongodbToNewModel(TestCase):
         new_model.wait_for_started.assert_called_once_with()
         new_model.wait_for_workloads.assert_called_once_with()
         m_tdmiu.assert_called_once_with(new_model)
+
+
+class TestMigrateModelToController(FakeHomeTestCase):
+
+    def make_clients(self):
+        config = {'type': 'aws', 'region': 'east', 'name': 'model-a'}
+        env = JujuData('model-a', config, juju_home='foo')
+        env.user_name = 'me'
+        source_client = fake_juju_client(env)
+        dest_client = fake_juju_client(env)
+        return source_client, dest_client
+
+    def test_migrate_model_to_controller_owner(self):
+        source_client, dest_client = self.make_clients()
+        mt_client = fake_juju_client(source_client.env)
+        mt_client._backend.controller_state.add_model('model-a')
+        with patch.object(dest_client, 'clone', autospec=True,
+                          return_value=mt_client) as dc_mock:
+            with patch.object(source_client, 'controller_juju',
+                              autospec=True) as cj_mock:
+                with patch('assess_model_migration.wait_for_model',
+                           autospec=True) as wm_mock:
+                    found_client = amm.migrate_model_to_controller(
+                        source_client, dest_client, include_user_name=False)
+        self.assertIs(mt_client, found_client)
+        args, kwargs = dc_mock.call_args
+        self.assertEqual(source_client.env, args[0])
+        wm_mock.assert_called_once_with(mt_client, 'model-a')
+        cj_mock.assert_called_once_with('migrate', ('model-a', 'model-a'))
+
+    def test_migrate_model_to_controller_admin(self):
+        source_client, dest_client = self.make_clients()
+        mt_client = fake_juju_client(source_client.env)
+        mt_client._backend.controller_state.add_model('model-a')
+        with patch.object(dest_client, 'clone', return_value=mt_client):
+            with patch.object(source_client, 'controller_juju') as cj_mock:
+                with patch('assess_model_migration.wait_for_model'):
+                    amm.migrate_model_to_controller(
+                        source_client, dest_client, include_user_name=True)
+        cj_mock.assert_called_once_with('migrate', ('me/model-a', 'model-a'))
+
+    def test_ensure_migrating_with_superuser_user_permissions_succeeds(self):
+        func = amm.ensure_migrating_with_superuser_user_permissions_succeeds
+        source_client, dest_client = self.make_clients()
+        clients = self.make_clients()
+        user_source_client, user_dest_client = clients
+        user_new_model = user_source_client.add_model(
+            user_source_client.env.clone('model-a'))
+        with patch.object(amm, 'create_user_on_controllers', autospec=True,
+                          return_value=clients) as cu_mock:
+            with patch.object(amm, 'migrate_model_to_controller',
+                              autospec=True) as mc_mock:
+                with patch.object(user_source_client, 'add_model',
+                                  autospec=True, return_value=user_new_model):
+                    with patch('assess_model_migration.wait_for_model'):
+                        func(source_client, dest_client, 'home_dir')
+        cu_mock.assert_called_once_with(
+            source_client, dest_client, 'home_dir', 'passuser', 'superuser')
+        mc_mock.assert_called_once_with(
+            user_new_model, user_dest_client, include_user_name=True)
 
 
 class TestDisableAPIServer(TestCase):

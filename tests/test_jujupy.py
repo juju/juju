@@ -6510,6 +6510,7 @@ class TestSimpleEnvironment(TestCase):
         orig.kvm = 'kvm1'
         orig.maas = 'maas1'
         orig.joyent = 'joyent1'
+        orig.user_name = 'user1'
         copy = orig.clone()
         self.assertIs(SimpleEnvironment, type(copy))
         self.assertIsNot(orig, copy)
@@ -6521,6 +6522,7 @@ class TestSimpleEnvironment(TestCase):
         self.assertEqual('kvm1', copy.kvm)
         self.assertEqual('maas1', copy.maas)
         self.assertEqual('joyent1', copy.joyent)
+        self.assertEqual('user1', copy.user_name)
         self.assertIs(orig.controller, copy.controller)
 
     def test_clone_model_name(self):
