@@ -143,3 +143,23 @@ class TestAssessShowCloud(TestCase):
                 'localhost1': {'type': 'maas'},
                 'localhost2': {'type': 'openstack'},
                 })
+
+    def test_asssess_show_cloud_mismatch(self):
+        client = fake_juju_client()
+        with override_show_cloud(self, client, {
+                'localhost1': {
+                    'defined': 'local',
+                    'type': 'maas',
+                    'description': 'Metal As A Service',
+                    },
+                'localhost2': {
+                    'defined': 'local',
+                    'type': 'openstack',
+                    'description': 'Openstack Cloud',
+                    },
+                }):
+            with self.assertRaises(JujuAssertionError):
+                assess_show_cloud(client, {
+                    'localhost1': {'type': 'openstack'},
+                    'localhost2': {'type': 'openstack'},
+                    })
