@@ -296,6 +296,10 @@ func (h *charmsHandler) processPost(r *http.Request, st *state.State) (*charm.UR
 			return nil, errors.New("cs charms may only be uploaded during model migration import")
 		}
 
+		// Use the user argument if provided (users only make sense
+		// with cs: charms.
+		curl.User = query.Get("user")
+
 		// If a revision argument is provided, it takes precedence
 		// over the revision in the charm archive. This is required to
 		// handle the revision differences between unpublished and
