@@ -345,8 +345,8 @@ class CrossBuildTestCase(TestCase):
 
 class TestParseArgs(TestCase):
 
-    def test_parse_args_ubuntu_goarch(self):
-        args = parse_args(['ubuntu', '/ball/path'])
+    def test_parse_args_ubuntu_agent_goarch(self):
+        args = parse_args(['ubuntu-agent', '/ball/path'])
         self.assertEqual('amd64', args.goarch)
-        args = parse_args(['ubuntu', '/ball/path', '--goarch', 'arm64'])
+        args = parse_args(['ubuntu-agent', '/ball/path', '--goarch', 'arm64'])
         self.assertEqual('arm64', args.goarch)

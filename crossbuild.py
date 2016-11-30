@@ -312,9 +312,9 @@ def parse_args(args=None):
         help='The path cross build dir.')
     parser_centos.add_argument(
         'tarball_path', help='The path to the juju source tarball.')
-    # ./crossbuild ubuntu juju-core-1.2.3.tar.gz
+    # ./crossbuild ubuntu-agent juju-core-1.2.3.tar.gz
     parser_ubuntu = subparsers.add_parser(
-        'ubuntu', help='Build an Ubuntu <something> agent.')
+        'ubuntu-agent', help='Build an ubuntu juju agent.')
     parser_ubuntu.add_argument(
         '--goarch', default='amd64',
         help='The GOARCH to build. Environment: $GOARCH.')
