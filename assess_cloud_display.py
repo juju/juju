@@ -5,7 +5,6 @@ from argparse import ArgumentParser
 from contextlib import contextmanager
 from copy import deepcopy
 from difflib import ndiff
-import json
 import os
 from pprint import pformat
 
@@ -49,6 +48,7 @@ def assert_equal(first, second):
 
 
 def assess_clouds_no_clouds(client):
+    """Assess how clouds behaves when no clouds are defined."""
     with open(get_home_path(client, 'public-clouds.yaml'), 'w') as f:
         f.write('')
     cloud_list = get_clouds(client)
@@ -56,6 +56,7 @@ def assess_clouds_no_clouds(client):
 
 
 def assess_clouds(client, expected):
+    """Assess how clouds behaves when only expected clouds are defined."""
     cloud_list = get_clouds(client)
     assert_equal(cloud_list, expected)
 
@@ -98,8 +99,6 @@ def main():
             supplied_clouds['clouds'])
         with testing('assess_clouds'):
             assess_clouds(client, no_region_endpoint)
-
-
 
 
 if __name__ == '__main__':
