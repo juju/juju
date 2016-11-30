@@ -213,30 +213,32 @@ type ApplicationsDeploy struct {
 
 // ApplicationDeploy holds the parameters for making the application Deploy call.
 type ApplicationDeploy struct {
-	ApplicationName  string                         `json:"application"`
-	Series           string                         `json:"series"`
-	CharmURL         string                         `json:"charm-url"`
-	Channel          string                         `json:"channel"`
-	NumUnits         int                            `json:"num-units"`
-	Config           map[string]string              `json:"config,omitempty"`
-	ConfigYAML       string                         `json:"config-yaml"` // Takes precedence over config if both are present.
-	Constraints      constraints.Value              `json:"constraints"`
-	Placement        []*instance.Placement          `json:"placement,omitempty"`
-	Storage          map[string]storage.Constraints `json:"storage,omitempty"`
-	EndpointBindings map[string]string              `json:"endpoint-bindings,omitempty"`
-	Resources        map[string]string              `json:"resources,omitempty"`
+	ApplicationName   string                         `json:"application"`
+	Series            string                         `json:"series"`
+	CharmURL          string                         `json:"charm-url"`
+	Channel           string                         `json:"channel"`
+	NumUnits          int                            `json:"num-units"`
+	Config            map[string]string              `json:"config,omitempty"`
+	ConfigYAML        string                         `json:"config-yaml"` // Takes precedence over config if both are present.
+	Constraints       constraints.Value              `json:"constraints"`
+	ConstraintsString string                         `json:"constraints-string"` // Takes precedence over constraints if both are present.
+	Placement         []*instance.Placement          `json:"placement,omitempty"`
+	Storage           map[string]storage.Constraints `json:"storage,omitempty"`
+	EndpointBindings  map[string]string              `json:"endpoint-bindings,omitempty"`
+	Resources         map[string]string              `json:"resources,omitempty"`
 }
 
 // ApplicationUpdate holds the parameters for making the application Update call.
 type ApplicationUpdate struct {
-	ApplicationName string             `json:"application"`
-	CharmURL        string             `json:"charm-url"`
-	ForceCharmURL   bool               `json:"force-charm-url"`
-	ForceSeries     bool               `json:"force-series"`
-	MinUnits        *int               `json:"min-units,omitempty"`
-	SettingsStrings map[string]string  `json:"settings,omitempty"`
-	SettingsYAML    string             `json:"settings-yaml"` // Takes precedence over SettingsStrings if both are present.
-	Constraints     *constraints.Value `json:"constraints,omitempty"`
+	ApplicationName   string             `json:"application"`
+	CharmURL          string             `json:"charm-url"`
+	ForceCharmURL     bool               `json:"force-charm-url"`
+	ForceSeries       bool               `json:"force-series"`
+	MinUnits          *int               `json:"min-units,omitempty"`
+	SettingsStrings   map[string]string  `json:"settings,omitempty"`
+	SettingsYAML      string             `json:"settings-yaml"` // Takes precedence over SettingsStrings if both are present.
+	Constraints       *constraints.Value `json:"constraints,omitempty"`
+	ConstraintsString string             `json:"constraints-string"` // Takes precedence over constraints if both are present.
 }
 
 // ApplicationSetCharm sets the charm for a given application.
