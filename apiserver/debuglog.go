@@ -207,9 +207,6 @@ func readDebugLogParams(queryMap url.Values) (*debugLogParams, error) {
 		if err != nil {
 			return nil, errors.Errorf("start time %q is not a valid time in RFC3339 format", value)
 		}
-		if startTime.After(time.Now()) {
-			return nil, errors.Errorf("start time %q is in the future", value)
-		}
 		params.startTime = startTime
 	}
 
