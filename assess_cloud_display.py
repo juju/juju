@@ -62,8 +62,6 @@ def assert_equal(first, second):
 
 def assess_clouds_no_clouds(client):
     """Assess how clouds behaves when no clouds are defined."""
-    with open(get_home_path(client, 'public-clouds.yaml'), 'w') as f:
-        f.write('')
     cloud_list = get_clouds(client)
     assert_equal(cloud_list, {})
 
@@ -112,6 +110,8 @@ def main():
     with client.env.make_jes_home(client.env.juju_home, 'mytest',
                                   {}) as juju_home:
         client.env.juju_home = juju_home
+        with open(get_home_path(client, 'public-clouds.yaml'), 'w') as f:
+            f.write('')
         with testing('assess_clouds_no_clouds'):
             assess_clouds_no_clouds(client)
         with open(args.clouds_file) as f:
