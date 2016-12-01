@@ -53,6 +53,7 @@ var (
 		"status-history-pruner",
 		"storage-provisioner",
 		"unit-assigner",
+		"remote-relations",
 	}
 	migratingModelWorkers = []string{
 		"environ-tracker",

@@ -39,6 +39,11 @@ func newMockRelationsFacade(stub *testing.Stub) *mockRelationsFacade {
 	}
 }
 
+func (m *mockRelationsFacade) Close() error {
+	m.stub.MethodCall(m, "Close")
+	return nil
+}
+
 func (m *mockRelationsFacade) WatchRemoteApplications() (watcher.StringsWatcher, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()

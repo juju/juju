@@ -1654,7 +1654,7 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 		if exists, err := isNotDead(st, relationsC, key); err != nil {
 			return nil, errors.Trace(err)
 		} else if exists {
-			return nil, errors.Errorf("relation already exists")
+			return nil, errors.AlreadyExistsf("relation %v", key)
 		}
 		// Collect per-application operations, checking sanity as we go.
 		var ops []txn.Op

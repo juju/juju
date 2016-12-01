@@ -19,6 +19,7 @@ type ManifoldConfig struct {
 	AgentName     string
 	APICallerName string
 
+	APIOpen                  api.OpenFunc
 	NewRemoteRelationsFacade func(base.APICaller) (RemoteRelationsFacade, error)
 	NewWorker                func(Config) (worker.Worker, error)
 }
@@ -30,6 +31,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.APICallerName == "" {
 		return errors.NotValidf("empty APICallerName")
+	}
+	if config.APIOpen == nil {
+		return errors.NotValidf("nil APIOpen")
 	}
 	if config.NewRemoteRelationsFacade == nil {
 		return errors.NotValidf("nil NewRemoteRelationsFacade")
@@ -58,13 +62,18 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	worker, err := config.NewWorker(Config{
-		RelationsFacade: facade,
+	apiConnForModelFunc, err := apiConnForModelFunc(agent, config.APIOpen)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	w, err := config.NewWorker(Config{
+		RelationsFacade:          facade,
+		NewPublisherForModelFunc: relationChangePublisherForModelFunc(apiConnForModelFunc),
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return worker, nil
+	return w, nil
 }
 
 // Manifold packages a Worker for use in a dependency.Engine.

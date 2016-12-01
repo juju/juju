@@ -41,6 +41,9 @@ func (s *remoteRelationsSuite) SetUpTest(c *gc.C) {
 	s.relationsFacade = newMockRelationsFacade(s.stub)
 	s.config = remoterelations.Config{
 		RelationsFacade: s.relationsFacade,
+		NewPublisherForModelFunc: func(modelUUID string) (remoterelations.RemoteRelationChangePublisherCloser, error) {
+			return s.relationsFacade, nil
+		},
 	}
 }
 
@@ -113,6 +116,7 @@ func (s *remoteRelationsSuite) TestRemoteApplicationRemoved(c *gc.C) {
 	c.Check(relWatcher.killed(), jc.IsTrue)
 	expected := []jujutesting.StubCall{
 		{"RemoteApplications", []interface{}{[]string{"django"}}},
+		{"Close", nil},
 	}
 	s.waitForStubCalls(c, expected)
 }

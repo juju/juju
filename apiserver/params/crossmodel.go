@@ -399,3 +399,26 @@ type RemoteRelationChangeEvent struct {
 	// the relation since the last change.
 	DepartedUnits []RemoteEntityId `json:"departed-units,omitempty"`
 }
+
+// RegisterRemoteRelation holds attributes used to register a remote relation.
+type RegisterRemoteRelation struct {
+	// ApplicationId is the application id on the remote model.
+	ApplicationId RemoteEntityId `json:"application-id"`
+
+	// RelationId is the relation id on the remote model.
+	RelationId RemoteEntityId `json:"relation-id"`
+
+	// RemoteEndpoint contains info about the endpoint in the remote model.
+	RemoteEndpoint RemoteEndpoint `json:"remote-endpoint"`
+
+	// OfferedApplicationName is the name of the application offer from the local model.
+	OfferedApplicationName string `json:"offered-application-name"`
+
+	// LocalEndpointName is the name of the endpoint in the local model.
+	LocalEndpointName string `json:"local-endpoint-name"`
+}
+
+// RegisterRemoteRelations holds args used to add remote relations.
+type RegisterRemoteRelations struct {
+	Relations []RegisterRemoteRelation `json:"relations"`
+}

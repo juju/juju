@@ -9,6 +9,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/remoterelations"
@@ -30,6 +31,7 @@ func (s *ManifoldConfigSuite) validConfig() remoterelations.ManifoldConfig {
 	return remoterelations.ManifoldConfig{
 		AgentName:                "agent",
 		APICallerName:            "api-caller",
+		APIOpen:                  func(*api.Info, api.DialOpts) (api.Connection, error) { return nil, nil },
 		NewRemoteRelationsFacade: func(base.APICaller) (remoterelations.RemoteRelationsFacade, error) { return nil, nil },
 		NewWorker:                func(remoterelations.Config) (worker.Worker, error) { return nil, nil },
 	}
@@ -57,6 +59,11 @@ func (s *ManifoldConfigSuite) TestMissingNewRemoteRelationsFacade(c *gc.C) {
 func (s *ManifoldConfigSuite) TestMissingNewWorker(c *gc.C) {
 	s.config.NewWorker = nil
 	s.checkNotValid(c, "nil NewWorker not valid")
+}
+
+func (s *ManifoldConfigSuite) TestMissingAPIOpen(c *gc.C) {
+	s.config.APIOpen = nil
+	s.checkNotValid(c, "nil APIOpen not valid")
 }
 
 func (s *ManifoldConfigSuite) checkNotValid(c *gc.C, expect string) {

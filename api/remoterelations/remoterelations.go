@@ -84,6 +84,24 @@ func (c *Client) ExportEntities(tags []names.Tag) ([]params.RemoteEntityIdResult
 	return results.Results, nil
 }
 
+// RegisterRemoteRelation sets up the local model to participate in the specified relation.
+func (c *Client) RegisterRemoteRelation(rel params.RegisterRemoteRelation) error {
+	args := params.RegisterRemoteRelations{Relations: []params.RegisterRemoteRelation{rel}}
+	var results params.ErrorResults
+	err := c.facade.FacadeCall("RegisterRemoteRelations", args, &results)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if len(results.Results) != 1 {
+		return errors.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return errors.Trace(result.Error)
+	}
+	return nil
+}
+
 // RelationUnitSettings returns the relation unit settings for the given relation units in the local model.
 func (c *Client) RelationUnitSettings(relationUnits []params.RelationUnit) ([]params.SettingsResult, error) {
 	args := params.RelationUnits{relationUnits}

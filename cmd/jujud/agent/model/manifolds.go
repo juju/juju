@@ -296,7 +296,9 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 	}
 	if featureflag.Enabled(feature.CrossModelRelations) {
 		result[remoteRelationsName] = ifNotMigrating(remoterelations.Manifold(remoterelations.ManifoldConfig{
+			AgentName:                agentName,
 			APICallerName:            apiCallerName,
+			APIOpen:                  api.Open,
 			NewRemoteRelationsFacade: remoterelations.NewRemoteRelationsFacade,
 			NewWorker:                remoterelations.NewWorker,
 		}))

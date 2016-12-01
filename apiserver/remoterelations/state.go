@@ -22,8 +22,18 @@ type RemoteRelationsState interface {
 	// be derived unambiguously from the relation's endpoints).
 	KeyRelation(string) (Relation, error)
 
+	// AddRelation adds a relation between the specified endpoints and returns the relation info.
+	AddRelation(...state.Endpoint) (Relation, error)
+
+	// EndpointsRelation returns the existing relation with the given endpoints.
+	EndpointsRelation(...state.Endpoint) (Relation, error)
+
 	// Relation returns the existing relation with the given id.
 	Relation(int) (Relation, error)
+
+	// AddRemoteApplication creates a new remote application record, having the supplied relation endpoints,
+	// with the supplied name (which must be unique across all applications, local and remote).
+	AddRemoteApplication(state.AddRemoteApplicationParams) (RemoteApplication, error)
 
 	// RemoteApplication returns a remote application by name.
 	RemoteApplication(string) (RemoteApplication, error)
@@ -32,7 +42,7 @@ type RemoteRelationsState interface {
 	Application(string) (Application, error)
 
 	// WatchRemoteApplications returns a StringsWatcher that notifies of changes to
-	// the lifecycles of the remote applications in the environment.
+	// the lifecycles of the remote applications in the model.
 	WatchRemoteApplications() state.StringsWatcher
 
 	// WatchRemoteApplicationRelations returns a StringsWatcher that notifies of
@@ -49,6 +59,10 @@ type RemoteRelationsState interface {
 	// token and model.
 	GetRemoteEntity(names.ModelTag, string) (names.Tag, error)
 
+	// ImportRemoteEntity adds an entity to the remote entities collection
+	// with the specified opaque token.
+	ImportRemoteEntity(sourceModel names.ModelTag, entity names.Tag, token string) error
+
 	// GetToken returns the token associated with the entity with the given tag
 	// and model.
 	GetToken(names.ModelTag, names.Tag) (string, error)
@@ -62,6 +76,9 @@ type Relation interface {
 
 	// Id returns the integer internal relation key.
 	Id() int
+
+	// Tag returns the relation's tag.
+	Tag() names.Tag
 
 	// Life returns the relation's current life state.
 	Life() state.Life
@@ -109,10 +126,13 @@ type RelationUnit interface {
 }
 
 // RemoteApplication represents the state of an application hosted in an external
-// (remote) environment.
+// (remote) model.
 type RemoteApplication interface {
 	// Name returns the name of the remote application.
 	Name() string
+
+	// Tag returns the remote applications's tag.
+	Tag() names.Tag
 
 	// SourceModel returns the tag of the model hosting the remote application.
 	SourceModel() names.ModelTag
@@ -127,10 +147,13 @@ type RemoteApplication interface {
 	Status() (status.StatusInfo, error)
 }
 
-// Application represents the state of a application hosted in the local environment.
+// Application represents the state of a application hosted in the local model.
 type Application interface {
 	// Life returns the lifecycle state of the application.
 	Life() state.Life
+
+	// Endpoints returns the application's currently available relation endpoints.
+	Endpoints() ([]state.Endpoint, error)
 }
 
 type stateShim struct {
@@ -142,14 +165,19 @@ func (st stateShim) ExportLocalEntity(entity names.Tag) (string, error) {
 	return r.ExportLocalEntity(entity)
 }
 
-func (st stateShim) GetRemoteEntity(env names.ModelTag, token string) (names.Tag, error) {
+func (st stateShim) GetRemoteEntity(model names.ModelTag, token string) (names.Tag, error) {
 	r := st.State.RemoteEntities()
-	return r.GetRemoteEntity(env, token)
+	return r.GetRemoteEntity(model, token)
 }
 
-func (st stateShim) GetToken(env names.ModelTag, entity names.Tag) (string, error) {
+func (st stateShim) ImportRemoteEntity(model names.ModelTag, entity names.Tag, token string) error {
 	r := st.State.RemoteEntities()
-	return r.GetToken(env, entity)
+	return r.ImportRemoteEntity(model, entity, token)
+}
+
+func (st stateShim) GetToken(model names.ModelTag, entity names.Tag) (string, error) {
+	r := st.State.RemoteEntities()
+	return r.GetToken(model, entity)
 }
 
 func (st stateShim) KeyRelation(key string) (Relation, error) {
@@ -168,8 +196,32 @@ func (st stateShim) Relation(id int) (Relation, error) {
 	return relationShim{r, st.State}, nil
 }
 
+func (st stateShim) AddRelation(eps ...state.Endpoint) (Relation, error) {
+	r, err := st.State.AddRelation(eps...)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return relationShim{r, st.State}, nil
+}
+
+func (st stateShim) EndpointsRelation(eps ...state.Endpoint) (Relation, error) {
+	r, err := st.State.EndpointsRelation(eps...)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return relationShim{r, st.State}, nil
+}
+
 func (st stateShim) RemoteApplication(name string) (RemoteApplication, error) {
 	a, err := st.State.RemoteApplication(name)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &remoteApplicationShim{a}, nil
+}
+
+func (st stateShim) AddRemoteApplication(args state.AddRemoteApplicationParams) (RemoteApplication, error) {
+	a, err := st.State.AddRemoteApplication(args)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

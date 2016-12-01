@@ -34,7 +34,7 @@ func (s *CmdRelationSuite) TestAddRelationSuccess(c *gc.C) {
 
 func (s *CmdRelationSuite) TestAddRelationFail(c *gc.C) {
 	runCommandExpectSuccess(c, "add-relation", s.apps...)
-	runCommandExpectFailure(c, "add-relation", `cannot add relation "wordpress:db mysql:server": relation already exists`, s.apps...)
+	runCommandExpectFailure(c, "add-relation", `cannot add relation "wordpress:db mysql:server": relation wordpress:db mysql:server already exists`, s.apps...)
 }
 
 func (s *CmdRelationSuite) TestRemoveRelationSuccess(c *gc.C) {
