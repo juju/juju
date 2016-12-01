@@ -100,6 +100,12 @@ func (s *ResourceSuite) TestNew(c *gc.C) {
 	c.Check(csRev.Username(), gc.Equals, "")
 }
 
+func (s *ResourceSuite) TestNilRevisions(c *gc.C) {
+	r := newResource(ResourceArgs{"z"})
+	c.Check(r.ApplicationRevision(), gc.Equals, nil)
+	c.Check(r.CharmStoreRevision(), gc.Equals, nil)
+}
+
 func (s *ResourceSuite) TestMinimalValid(c *gc.C) {
 	r := minimalResource()
 	c.Assert(r.Validate(), jc.ErrorIsNil)

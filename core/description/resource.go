@@ -103,6 +103,9 @@ func (r *resource) SetApplicationRevision(args ResourceRevisionArgs) ResourceRev
 
 // ApplicationRevision implements Resource.
 func (r *resource) ApplicationRevision() ResourceRevision {
+	if r.ApplicationRevision_ == nil {
+		return nil // Return untyped nil when not set
+	}
 	return r.ApplicationRevision_
 }
 
@@ -114,6 +117,9 @@ func (r *resource) SetCharmStoreRevision(args ResourceRevisionArgs) ResourceRevi
 
 // CharmStoreRevision implements Resource.
 func (r *resource) CharmStoreRevision() ResourceRevision {
+	if r.CharmStoreRevision_ == nil {
+		return nil // Return untyped nil when not set
+	}
 	return r.CharmStoreRevision_
 }
 
