@@ -401,8 +401,20 @@ def assess_upgrade(old_client, juju_path):
         timeout = 600
 
     for client in all_clients:
+        logging.info('Upgrading {}'.format(client.env.environment))
         upgrade_juju(client)
         client.wait_for_version(client.get_matching_agent_version(), timeout)
+        logging.info('Agents upgraded in {}'.format(client.env.environment))
+        client.show_status()
+        logging.info('Waiting for model {}'.format(client.env.environment))
+        for ignore in until_timeout(600):
+            try:
+                client.list_models()
+                break
+            except subprocess.CalledProcessError:
+                pass
+        client.wait_for_workloads()
+        logging.info('Upgraded model {}'.format(client.env.environment))
 
 
 def _get_clients_to_upgrade(old_client, juju_path):
