@@ -664,6 +664,7 @@ class TestEnvJujuClient(ClientTest):
             'default-series': 'foo',
             'development': False,
             'enable-os-upgrade': 'foo',
+            'host': 'foo',
             'image-metadata-url': 'foo',
             'location': 'foo',
             'maas-oauth': 'foo',
