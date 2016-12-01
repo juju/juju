@@ -5,10 +5,12 @@ package migrationmaster_test
 
 import (
 	"encoding/json"
+	"net/http"
 	"net/url"
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/httprequest"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -314,6 +316,22 @@ func (s *ClientSuite) TestExportError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "blam")
 }
 
+func (s *ClientSuite) TestOpenResource(c *gc.C) {
+	doer := &fakeDoer{
+		response: &http.Response{StatusCode: 200},
+	}
+	caller := &fakeHTTPCaller{
+		httpClient: &httprequest.Client{
+			Doer: doer,
+		},
+	}
+	client := migrationmaster.NewClient(caller, nil)
+	_, err := client.OpenResource("app", "blob")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(doer.method, gc.Equals, "GET")
+	c.Check(doer.url, gc.Equals, "/applications/app/resources/blob")
+}
+
 func (s *ClientSuite) TestReap(c *gc.C) {
 	var stub jujutesting.Stub
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
@@ -494,4 +512,30 @@ func (c fakeConnector) ConnectStream(path string, attrs url.Values) (base.Stream
 	*c.path = path
 	*c.attrs = attrs
 	return nil, errors.New("colonel abrams")
+}
+
+type fakeHTTPCaller struct {
+	base.APICaller
+	httpClient *httprequest.Client
+	err        error
+}
+
+func (fakeHTTPCaller) BestFacadeVersion(string) int {
+	return 0
+}
+
+func (c fakeHTTPCaller) HTTPClient() (*httprequest.Client, error) {
+	return c.httpClient, c.err
+}
+
+type fakeDoer struct {
+	response *http.Response
+	method   string
+	url      string
+}
+
+func (d *fakeDoer) Do(req *http.Request) (*http.Response, error) {
+	d.method = req.Method
+	d.url = req.URL.String()
+	return d.response, nil
 }

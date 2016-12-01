@@ -190,8 +190,7 @@ func (c *Client) Export() (migration.SerializedModel, error) {
 	}, nil
 }
 
-// XXX needs tests
-// XXX
+// OpenResource downloads the named resource for an application.
 func (c *Client) OpenResource(application, name string) (io.ReadCloser, error) {
 	httpClient, err := c.httpClientFactory()
 	if err != nil {
