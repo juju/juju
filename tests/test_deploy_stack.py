@@ -1207,17 +1207,22 @@ class TestTestUpgrade(FakeHomeTestCase):
             'juju', '--show-log', 'upgrade-juju', '-m', 'foo:controller',
             '--agent-version', '2.0-rc2'), 0)
         assert_juju_call(self, cc_mock, new_client, (
+            'juju', '--show-log', 'show-status', '-m', 'foo:controller',
+            '--format', 'yaml'), 1)
+        assert_juju_call(self, cc_mock, new_client, (
+            'juju', '--show-log', 'list-models', '-c', 'foo'), 2)
+        assert_juju_call(self, cc_mock, new_client, (
             'juju', '--show-log', 'upgrade-juju', '-m', 'foo:foo',
-            '--agent-version', '2.0-rc2'), 1)
-        self.assertEqual(cc_mock.call_count, 2)
+            '--agent-version', '2.0-rc2'), 3)
+        self.assertEqual(cc_mock.call_count, 6)
         assert_juju_call(self, co_mock, new_client, self.LIST_MODELS, 0)
         assert_juju_call(self, co_mock, new_client, self.GET_CONTROLLER_ENV, 1)
         assert_juju_call(self, co_mock, new_client, self.GET_CONTROLLER_ENV, 2)
         assert_juju_call(self, co_mock, new_client, self.CONTROLLER_STATUS, 3)
-        assert_juju_call(self, co_mock, new_client, self.GET_ENV, 4)
         assert_juju_call(self, co_mock, new_client, self.GET_ENV, 5)
-        assert_juju_call(self, co_mock, new_client, self.STATUS, 6)
-        self.assertEqual(co_mock.call_count, 7)
+        assert_juju_call(self, co_mock, new_client, self.GET_ENV, 6)
+        assert_juju_call(self, co_mock, new_client, self.STATUS, 7)
+        self.assertEqual(co_mock.call_count, 9)
 
     def test__get_clients_to_upgrade_returns_new_version_class(self):
         env = SimpleEnvironment('foo', {'type': 'foo'})
