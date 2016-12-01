@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -38,16 +39,32 @@ func (s *watcherSuite) SetUpTest(c *gc.C) {
 	s.authorizer = apiservertesting.FakeAuthorizer{}
 }
 
-func (s *watcherSuite) getFacade(c *gc.C, name string, version int, id string) interface{} {
-	factory, err := common.Facades.GetFactory(name, version)
+func (s *watcherSuite) getFacade(
+	c *gc.C,
+	name string,
+	version int,
+	id string,
+	dispose func(),
+) interface{} {
+	factory := getFacadeFactory(c, name, version)
+	facade, err := factory(s.facadeContext(id, dispose))
 	c.Assert(err, jc.ErrorIsNil)
-	facade, err := factory(facadetest.Context{
+	return facade
+}
+
+func (s *watcherSuite) facadeContext(id string, dispose func()) facadetest.Context {
+	return facadetest.Context{
 		Resources_: s.resources,
 		Auth_:      s.authorizer,
 		ID_:        id,
-	})
+		Dispose_:   dispose,
+	}
+}
+
+func getFacadeFactory(c *gc.C, name string, version int) facade.Factory {
+	factory, err := common.Facades.GetFactory(name, version)
 	c.Assert(err, jc.ErrorIsNil)
-	return facade
+	return factory
 }
 
 func (s *watcherSuite) TestVolumeAttachmentsWatcher(c *gc.C) {
@@ -56,7 +73,7 @@ func (s *watcherSuite) TestVolumeAttachmentsWatcher(c *gc.C) {
 	s.authorizer.Tag = names.NewMachineTag("123")
 
 	ch <- []string{"0:1", "1:2"}
-	facade := s.getFacade(c, "VolumeAttachmentsWatcher", 2, id).(machineStorageIdsWatcher)
+	facade := s.getFacade(c, "VolumeAttachmentsWatcher", 2, id, nopDispose).(machineStorageIdsWatcher)
 	result, err := facade.Next()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -74,7 +91,7 @@ func (s *watcherSuite) TestFilesystemAttachmentsWatcher(c *gc.C) {
 	s.authorizer.Tag = names.NewMachineTag("123")
 
 	ch <- []string{"0:1", "1:2"}
-	facade := s.getFacade(c, "FilesystemAttachmentsWatcher", 2, id).(machineStorageIdsWatcher)
+	facade := s.getFacade(c, "FilesystemAttachmentsWatcher", 2, id, nopDispose).(machineStorageIdsWatcher)
 	result, err := facade.Next()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -86,6 +103,19 @@ func (s *watcherSuite) TestFilesystemAttachmentsWatcher(c *gc.C) {
 	})
 }
 
+func (s *watcherSuite) TestStopDiscards(c *gc.C) {
+	id := s.resources.Register(&fakeStringsWatcher{})
+	s.authorizer.Tag = names.NewMachineTag("123")
+
+	var disposed bool
+	facade := s.getFacade(c, "FilesystemAttachmentsWatcher", 2, id, func() {
+		disposed = true
+	}).(machineStorageIdsWatcher)
+	err := facade.Stop()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(disposed, jc.IsTrue)
+}
+
 func (s *watcherSuite) TestMigrationStatusWatcher(c *gc.C) {
 	w := apiservertesting.NewFakeNotifyWatcher()
 	id := s.resources.Register(w)
@@ -93,7 +123,7 @@ func (s *watcherSuite) TestMigrationStatusWatcher(c *gc.C) {
 	apiserver.PatchGetMigrationBackend(s, new(fakeMigrationBackend))
 	apiserver.PatchGetControllerCACert(s, "no worries")
 
-	facade := s.getFacade(c, "MigrationStatusWatcher", 1, id).(migrationStatusWatcher)
+	facade := s.getFacade(c, "MigrationStatusWatcher", 1, id, nopDispose).(migrationStatusWatcher)
 	defer c.Check(facade.Stop(), jc.ErrorIsNil)
 	result, err := facade.Next()
 	c.Assert(err, jc.ErrorIsNil)
@@ -114,7 +144,7 @@ func (s *watcherSuite) TestMigrationStatusWatcherNoMigration(c *gc.C) {
 	s.authorizer.Tag = names.NewMachineTag("12")
 	apiserver.PatchGetMigrationBackend(s, &fakeMigrationBackend{noMigration: true})
 
-	facade := s.getFacade(c, "MigrationStatusWatcher", 1, id).(migrationStatusWatcher)
+	facade := s.getFacade(c, "MigrationStatusWatcher", 1, id, nopDispose).(migrationStatusWatcher)
 	defer c.Check(facade.Stop(), jc.ErrorIsNil)
 	result, err := facade.Next()
 	c.Assert(err, jc.ErrorIsNil)
@@ -139,6 +169,7 @@ func (s *watcherSuite) TestMigrationStatusWatcherNotAgent(c *gc.C) {
 
 type machineStorageIdsWatcher interface {
 	Next() (params.MachineStorageIdsWatchResult, error)
+	Stop() error
 }
 
 type fakeStringsWatcher struct {
@@ -218,3 +249,5 @@ type migrationStatusWatcher interface {
 	Next() (params.MigrationStatus, error)
 	Stop() error
 }
+
+func nopDispose() {}

@@ -196,7 +196,7 @@ func (r *apiRoot) FindMethod(rootName string, version int, methodName string) (r
 			// check.
 			return reflect.Value{}, err
 		}
-		obj, err := factory(r.facadeContext(id))
+		obj, err := factory(r.facadeContext(objKey))
 		if err != nil {
 			return reflect.Value{}, err
 		}
@@ -225,37 +225,53 @@ func (r *apiRoot) FindMethod(rootName string, version int, methodName string) (r
 	}, nil
 }
 
-func (r *apiRoot) facadeContext(id string) *facadeContext {
+func (r *apiRoot) dispose(key objectKey) {
+	r.objectMutex.Lock()
+	defer r.objectMutex.Unlock()
+	delete(r.objectCache, key)
+}
+
+func (r *apiRoot) facadeContext(key objectKey) *facadeContext {
 	return &facadeContext{
-		r:  r,
-		id: id,
+		r:   r,
+		key: key,
 	}
 }
 
 // facadeContext implements facade.Context
 type facadeContext struct {
-	r  *apiRoot
-	id string
+	r   *apiRoot
+	key objectKey
 }
 
+// Abort is part of of the facade.Context interface.
 func (ctx *facadeContext) Abort() <-chan struct{} {
 	return nil
 }
 
+// Auth is part of of the facade.Context interface.
 func (ctx *facadeContext) Auth() facade.Authorizer {
 	return ctx.r.authorizer
 }
 
+// Dispose is part of of the facade.Context interface.
+func (ctx *facadeContext) Dispose() {
+	ctx.r.dispose(ctx.key)
+}
+
+// Resources is part of of the facade.Context interface.
 func (ctx *facadeContext) Resources() facade.Resources {
 	return ctx.r.resources
 }
 
+// State is part of of the facade.Context interface.
 func (ctx *facadeContext) State() *state.State {
 	return ctx.r.state
 }
 
+// ID is part of of the facade.Context interface.
 func (ctx *facadeContext) ID() string {
-	return ctx.id
+	return ctx.key.objId
 }
 
 func lookupMethod(rootName string, version int, methodName string) (reflect.Type, rpcreflect.ObjMethod, error) {

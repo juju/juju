@@ -301,17 +301,20 @@ func (s *controllerSuite) TestWatchAllModels(c *gc.C) {
 	watcherId, err := s.controller.WatchAllModels()
 	c.Assert(err, jc.ErrorIsNil)
 
+	var disposed bool
 	watcherAPI_, err := apiserver.NewAllWatcher(facadetest.Context{
 		State_:     s.State,
 		Resources_: s.resources,
 		Auth_:      s.authorizer,
 		ID_:        watcherId.AllWatcherId,
+		Dispose_:   func() { disposed = true },
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	watcherAPI := watcherAPI_.(*apiserver.SrvAllWatcher)
 	defer func() {
 		err := watcherAPI.Stop()
 		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(disposed, jc.IsTrue)
 	}()
 
 	resultC := make(chan params.AllWatcherNextResults)
