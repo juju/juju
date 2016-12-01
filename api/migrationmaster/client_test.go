@@ -394,7 +394,7 @@ func (s *ClientSuite) TestMinionReportsBadFailedTag(c *gc.C) {
 func (s *ClientSuite) TestStreamModelLogs(c *gc.C) {
 	caller := fakeConnector{path: new(string), attrs: &url.Values{}}
 	client := migrationmaster.NewClient(caller, nil)
-	stream, err := client.StreamModelLog()
+	stream, err := client.StreamModelLog(time.Date(2016, 12, 2, 10, 24, 1, 1000000, time.UTC))
 	c.Assert(stream, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "colonel abrams")
 
@@ -402,6 +402,7 @@ func (s *ClientSuite) TestStreamModelLogs(c *gc.C) {
 	c.Assert(*caller.attrs, gc.DeepEquals, url.Values{
 		"replay":        {"true"},
 		"noTail":        {"true"},
+		"startTime":     {"2016-12-02T10:24:01.001Z"},
 		"includeEntity": nil,
 		"includeModule": nil,
 		"excludeEntity": nil,

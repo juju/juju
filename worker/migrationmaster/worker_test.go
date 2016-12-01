@@ -94,6 +94,12 @@ var (
 			params.ModelArgs{ModelTag: modelTag.String()},
 		},
 	}
+	latestLogTimeCall = jujutesting.StubCall{
+		"MigrationTarget.LatestLogTime",
+		[]interface{}{
+			params.ModelArgs{ModelTag: modelTag.String()},
+		},
+	}
 	apiCloseCall = jujutesting.StubCall{"Connection.Close", nil}
 	abortCall    = jujutesting.StubCall{
 		"MigrationTarget.Abort",
@@ -238,8 +244,9 @@ func (s *Suite) TestSuccessfulMigration(c *gc.C) {
 			{"facade.SetPhase", []interface{}{coremigration.LOGTRANSFER}},
 
 			// LOGTRANSFER
-			{"StreamModelLog", nil},
 			apiOpenControllerCall,
+			latestLogTimeCall,
+			{"StreamModelLog", []interface{}{time.Time{}}},
 			openDestLogStreamCall,
 			{"facade.SetPhase", []interface{}{coremigration.REAP}},
 
@@ -262,8 +269,9 @@ func (s *Suite) TestMigrationResume(c *gc.C) {
 			{"facade.WatchMinionReports", nil},
 			{"facade.MinionReports", nil},
 			{"facade.SetPhase", []interface{}{coremigration.LOGTRANSFER}},
-			{"StreamModelLog", nil},
 			apiOpenControllerCall,
+			latestLogTimeCall,
+			{"StreamModelLog", []interface{}{time.Time{}}},
 			openDestLogStreamCall,
 			{"facade.SetPhase", []interface{}{coremigration.REAP}},
 			{"facade.Reap", nil},
@@ -535,8 +543,9 @@ func (s *Suite) TestSUCCESSMinionWaitFailedMachine(c *gc.C) {
 			{"facade.WatchMinionReports", nil},
 			{"facade.MinionReports", nil},
 			{"facade.SetPhase", []interface{}{coremigration.LOGTRANSFER}},
-			{"StreamModelLog", nil},
 			apiOpenControllerCall,
+			latestLogTimeCall,
+			{"StreamModelLog", []interface{}{time.Time{}}},
 			openDestLogStreamCall,
 			{"facade.SetPhase", []interface{}{coremigration.REAP}},
 			{"facade.Reap", nil},
@@ -561,8 +570,9 @@ func (s *Suite) TestSUCCESSMinionWaitFailedUnit(c *gc.C) {
 			{"facade.WatchMinionReports", nil},
 			{"facade.MinionReports", nil},
 			{"facade.SetPhase", []interface{}{coremigration.LOGTRANSFER}},
-			{"StreamModelLog", nil},
 			apiOpenControllerCall,
+			latestLogTimeCall,
+			{"StreamModelLog", []interface{}{time.Time{}}},
 			openDestLogStreamCall,
 			{"facade.SetPhase", []interface{}{coremigration.REAP}},
 			{"facade.Reap", nil},
@@ -598,8 +608,9 @@ func (s *Suite) TestSUCCESSMinionWaitTimeout(c *gc.C) {
 		[]jujutesting.StubCall{
 			{"facade.WatchMinionReports", nil},
 			{"facade.SetPhase", []interface{}{coremigration.LOGTRANSFER}},
-			{"StreamModelLog", nil},
 			apiOpenControllerCall,
+			latestLogTimeCall,
+			{"StreamModelLog", []interface{}{time.Time{}}},
 			openDestLogStreamCall,
 			{"facade.SetPhase", []interface{}{coremigration.REAP}},
 			{"facade.Reap", nil},
@@ -714,19 +725,6 @@ func (s *Suite) TestExternalControlABORT(c *gc.C) {
 	))
 }
 
-func (s *Suite) TestLogTransferErrorOpeningLogSource(c *gc.C) {
-	s.facade.queueStatus(s.makeStatus(coremigration.LOGTRANSFER))
-	s.facade.streamErr = errors.New("chicken bones")
-
-	s.checkWorkerReturns(c, s.facade.streamErr)
-	s.stub.CheckCalls(c, joinCalls(
-		watchStatusLockdownCalls,
-		[]jujutesting.StubCall{
-			{"StreamModelLog", nil},
-		},
-	))
-}
-
 func (s *Suite) TestLogTransferErrorOpeningTargetAPI(c *gc.C) {
 	s.facade.queueStatus(s.makeStatus(coremigration.LOGTRANSFER))
 	s.connectionErr = errors.New("people of earth")
@@ -735,8 +733,36 @@ func (s *Suite) TestLogTransferErrorOpeningTargetAPI(c *gc.C) {
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
 		[]jujutesting.StubCall{
-			{"StreamModelLog", nil},
 			apiOpenControllerCall,
+		},
+	))
+}
+
+func (s *Suite) TestLogTransferErrorGettingStartTime(c *gc.C) {
+	s.facade.queueStatus(s.makeStatus(coremigration.LOGTRANSFER))
+	s.connection.latestLogErr = errors.New("tender vittles")
+
+	s.checkWorkerReturns(c, s.connection.latestLogErr)
+	s.stub.CheckCalls(c, joinCalls(
+		watchStatusLockdownCalls,
+		[]jujutesting.StubCall{
+			apiOpenControllerCall,
+			latestLogTimeCall,
+		},
+	))
+}
+
+func (s *Suite) TestLogTransferErrorOpeningLogSource(c *gc.C) {
+	s.facade.queueStatus(s.makeStatus(coremigration.LOGTRANSFER))
+	s.facade.streamErr = errors.New("chicken bones")
+
+	s.checkWorkerReturns(c, s.facade.streamErr)
+	s.stub.CheckCalls(c, joinCalls(
+		watchStatusLockdownCalls,
+		[]jujutesting.StubCall{
+			apiOpenControllerCall,
+			latestLogTimeCall,
+			{"StreamModelLog", []interface{}{time.Time{}}},
 		},
 	))
 }
@@ -749,8 +775,9 @@ func (s *Suite) TestLogTransferErrorOpeningLogDest(c *gc.C) {
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
 		[]jujutesting.StubCall{
-			{"StreamModelLog", nil},
 			apiOpenControllerCall,
+			latestLogTimeCall,
+			{"StreamModelLog", []interface{}{time.Time{}}},
 			openDestLogStreamCall,
 		},
 	))
@@ -766,8 +793,9 @@ func (s *Suite) TestLogTransferErrorWriting(c *gc.C) {
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
 		[]jujutesting.StubCall{
-			{"StreamModelLog", nil},
 			apiOpenControllerCall,
+			latestLogTimeCall,
+			{"StreamModelLog", []interface{}{time.Time{}}},
 			openDestLogStreamCall,
 		},
 	))
@@ -800,8 +828,9 @@ func (s *Suite) TestLogTransferSendsRecords(c *gc.C) {
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
 		[]jujutesting.StubCall{
-			{"StreamModelLog", nil},
 			apiOpenControllerCall,
+			latestLogTimeCall,
+			{"StreamModelLog", []interface{}{time.Time{}}},
 			openDestLogStreamCall,
 			{"facade.SetPhase", []interface{}{coremigration.REAP}},
 			{"facade.Reap", nil},
@@ -851,6 +880,26 @@ func (s *Suite) TestLogTransferReportsProgress(c *gc.C) {
 		"successful, transferring logs to target controller \\(2 sent\\)",
 		"successful, transferred logs to target controller \\(3 sent\\)",
 	})
+}
+
+func (s *Suite) TestLogTransfer_ChecksLatestTime(c *gc.C) {
+	s.facade.queueStatus(s.makeStatus(coremigration.LOGTRANSFER))
+	t := time.Date(2016, 12, 2, 10, 39, 10, 20, time.UTC)
+	s.connection.latestLogTime = t
+
+	s.checkWorkerReturns(c, migrationmaster.ErrMigrated)
+	s.stub.CheckCalls(c, joinCalls(
+		watchStatusLockdownCalls,
+		[]jujutesting.StubCall{
+			apiOpenControllerCall,
+			latestLogTimeCall,
+			{"StreamModelLog", []interface{}{t}},
+			openDestLogStreamCall,
+			{"facade.SetPhase", []interface{}{coremigration.REAP}},
+			{"facade.Reap", nil},
+			{"facade.SetPhase", []interface{}{coremigration.DONE}},
+		},
+	))
 }
 
 func safeSend(c *gc.C, d chan<- common.LogMessage, message common.LogMessage) {
@@ -1083,8 +1132,8 @@ func (f *stubMasterFacade) Reap() error {
 	return nil
 }
 
-func (f *stubMasterFacade) StreamModelLog() (<-chan common.LogMessage, error) {
-	f.stub.AddCall("StreamModelLog")
+func (f *stubMasterFacade) StreamModelLog(start time.Time) (<-chan common.LogMessage, error) {
+	f.stub.AddCall("StreamModelLog", start)
 	if f.streamErr != nil {
 		return nil, f.streamErr
 	}
@@ -1125,6 +1174,9 @@ type stubConnection struct {
 
 	streamErr error
 	logStream *mockStream
+
+	latestLogErr  error
+	latestLogTime time.Time
 }
 
 func (c *stubConnection) BestFacadeVersion(string) int {
@@ -1142,6 +1194,10 @@ func (c *stubConnection) APICall(objType string, version int, id, request string
 			return c.importErr
 		case "Activate":
 			return nil
+		case "LatestLogTime":
+			responseTime := response.(*time.Time)
+			*responseTime = c.latestLogTime
+			return c.latestLogErr
 		}
 	}
 	return errors.New("unexpected API call")
