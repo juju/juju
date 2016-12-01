@@ -12,8 +12,6 @@ import (
 	"github.com/juju/juju/resource"
 )
 
-// XXX tests
-
 // DownloadDataStore describes the the portion of Juju's "state"
 // needed for handling resource download requests.
 type DownloadDataStore interface {

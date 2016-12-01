@@ -83,13 +83,17 @@ func (s *HTTPHandlerSuite) handleUpload(username string, st server.DataStore, re
 	return s.uploadResult, nil
 }
 
+func (s *HTTPHandlerSuite) copyRequest() *http.Request {
+	copy := *s.req
+	return &copy
+}
+
 func (s *HTTPHandlerSuite) TestServeHTTPConnectFailure(c *gc.C) {
 	s.username = "youknowwho"
 	handler := server.HTTPHandler{
 		Connect: s.connect,
 	}
-	copied := *s.req
-	req := &copied
+	req := s.copyRequest()
 	failure, expected := apiFailure(c, "<failure>", "")
 	s.stub.SetErrors(failure)
 
@@ -118,8 +122,7 @@ func (s *HTTPHandlerSuite) TestServeHTTPUnsupportedMethod(c *gc.C) {
 		Connect: s.connect,
 	}
 	s.req.Method = "POST"
-	copied := *s.req
-	req := &copied
+	req := s.copyRequest()
 	_, expected := apiFailure(c, `unsupported method: "POST"`, params.CodeMethodNotAllowed)
 
 	handler.ServeHTTP(s.resp, req)
@@ -146,10 +149,8 @@ func (s *HTTPHandlerSuite) TestServeHTTPGetSuccess(c *gc.C) {
 		Connect:        s.connect,
 		HandleDownload: s.handleDownload,
 	}
-	// XXX extract
 	s.req.Method = "GET"
-	copied := *s.req
-	req := &copied
+	req := s.copyRequest()
 
 	handler.ServeHTTP(s.resp, req)
 
@@ -177,8 +178,7 @@ func (s *HTTPHandlerSuite) TestServeHTTPPutSuccess(c *gc.C) {
 		HandleUpload: s.handleUpload,
 	}
 	s.req.Method = "PUT"
-	copied := *s.req
-	req := &copied
+	req := s.copyRequest()
 
 	handler.ServeHTTP(s.resp, req)
 
@@ -208,8 +208,7 @@ func (s *HTTPHandlerSuite) TestServeHTTPPutHandleUploadFailure(c *gc.C) {
 		HandleUpload: s.handleUpload,
 	}
 	s.req.Method = "PUT"
-	copied := *s.req
-	req := &copied
+	req := s.copyRequest()
 	failure, expected := apiFailure(c, "<failure>", "")
 	s.stub.SetErrors(nil, failure)
 
