@@ -374,11 +374,36 @@ func (s *charmsSuite) TestNonLocalCharmUpload(c *gc.C) {
 	c.Assert(sch.IsUploaded(), jc.IsTrue)
 }
 
+func (s *charmsSuite) TestUnsupportedSchema(c *gc.C) {
+	s.setModelImporting(c)
+	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
+
+	resp := s.uploadRequest(c, s.charmsURI(c, "?schema=zz"), "application/zip", ch.Path)
+	s.assertErrorResponse(
+		c, resp, http.StatusBadRequest,
+		`cannot upload charm: unsupported schema "zz"`,
+	)
+}
+
+func (s *charmsSuite) TestCharmUploadWithUserOverride(c *gc.C) {
+	s.setModelImporting(c)
+	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
+
+	resp := s.uploadRequest(c, s.charmsURI(c, "?schema=cs&user=bobo"), "application/zip", ch.Path)
+
+	expectedURL := charm.MustParseURL("cs:~bobo/dummy-1")
+	s.assertUploadResponse(c, resp, expectedURL.String())
+	sch, err := s.State.Charm(expectedURL)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(sch.URL(), gc.DeepEquals, expectedURL)
+	c.Assert(sch.IsUploaded(), jc.IsTrue)
+}
+
 func (s *charmsSuite) TestNonLocalCharmUploadWithRevisionOverride(c *gc.C) {
 	s.setModelImporting(c)
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 
-	resp := s.uploadRequest(c, s.charmsURI(c, "?schema=cs&name=dummy&revision=99"), "application/zip", ch.Path)
+	resp := s.uploadRequest(c, s.charmsURI(c, "?schema=cs&&revision=99"), "application/zip", ch.Path)
 
 	expectedURL := charm.MustParseURL("cs:dummy-99")
 	s.assertUploadResponse(c, resp, expectedURL.String())

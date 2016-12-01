@@ -280,12 +280,13 @@ func (h *charmsHandler) processPost(r *http.Request, st *state.State) (*charm.UR
 		Revision: archive.Revision(),
 		Series:   series,
 	}
-	if schema == "local" {
+	switch schema {
+	case "local":
 		curl, err = st.PrepareLocalCharmUpload(curl)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-	} else {
+	case "cs":
 		// "cs:" charms may only be uploaded into models which are
 		// being imported during model migrations. There's currently
 		// no other time where it makes sense to accept charm store
@@ -295,6 +296,10 @@ func (h *charmsHandler) processPost(r *http.Request, st *state.State) (*charm.UR
 		} else if !isImporting {
 			return nil, errors.New("cs charms may only be uploaded during model migration import")
 		}
+
+		// Use the user argument if provided (users only make sense
+		// with cs: charms.
+		curl.User = query.Get("user")
 
 		// If a revision argument is provided, it takes precedence
 		// over the revision in the charm archive. This is required to
@@ -310,6 +315,8 @@ func (h *charmsHandler) processPost(r *http.Request, st *state.State) (*charm.UR
 		if _, err := st.PrepareStoreCharmUpload(curl); err != nil {
 			return nil, errors.Trace(err)
 		}
+	default:
+		return nil, errors.Errorf("unsupported schema %q", schema)
 	}
 
 	// Now we need to repackage it with the reserved URL, upload it to

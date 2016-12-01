@@ -78,8 +78,9 @@ func (c *Client) Activate(modelUUID string) error {
 // to add the charm binary to the model specified.
 func (c *Client) UploadCharm(modelUUID string, curl *charm.URL, content io.ReadSeeker) (*charm.URL, error) {
 	args := url.Values{}
-	args.Add("series", curl.Series)
 	args.Add("schema", curl.Schema)
+	args.Add("user", curl.User)
+	args.Add("series", curl.Series)
 	args.Add("revision", strconv.Itoa(curl.Revision))
 	apiURI := url.URL{Path: "/migrate/charms", RawQuery: args.Encode()}
 
