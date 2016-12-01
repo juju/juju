@@ -407,12 +407,17 @@ def assess_upgrade(old_client, juju_path):
         logging.info('Agents upgraded in {}'.format(client.env.environment))
         client.show_status()
         logging.info('Waiting for model {}'.format(client.env.environment))
+        # While the agents are upgraded, the controller/model may still be
+        # upgrading. We are only certain that the upgrade as is complete
+        # when we can list models.
         for ignore in until_timeout(600):
             try:
                 client.list_models()
                 break
             except subprocess.CalledProcessError:
                 pass
+        # The upgrade will trigger the charm hooks. We want the charms to
+        # return to active state to know they accepted the upgrade.
         client.wait_for_workloads()
         logging.info('Upgraded model {}'.format(client.env.environment))
 
