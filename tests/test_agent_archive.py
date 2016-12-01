@@ -6,12 +6,13 @@ from agent_archive import (
     add_agents,
     delete_agents,
     get_agents,
+    get_source_agent_arch,
     get_source_agent_os,
     get_source_agent_version,
     is_new_version,
     listing_to_files,
     main,
-)
+    )
 
 from utils import temp_dir
 
@@ -90,17 +91,13 @@ class TestAgentArchive(TestCase):
         self.assertEqual(
             '1.21.0',
             get_source_agent_version('juju-1.21.0-win9,1-amd64.tgz'))
-        self.assertIs(
-            None,
+        self.assertIsNone(
             get_source_agent_version('juju-1.21.0-trusty-amd64.tgz'))
-        self.assertIs(
-            None,
+        self.assertIsNone(
             get_source_agent_version('juju-1.21.0-win2012-386.tgz'))
-        self.assertIs(
-            None,
+        self.assertIsNone(
             get_source_agent_version('juju-1.21.0-win2012-amd64.tar.gz'))
-        self.assertIs(
-            None,
+        self.assertIsNone(
             get_source_agent_version('1.21.0-win2012-amd64.tgz'))
 
     def test_get_source_agent_os(self):
@@ -112,6 +109,21 @@ class TestAgentArchive(TestCase):
             get_source_agent_os('juju-1.24-centos7-amd64.tgz'))
         with self.assertRaises(ValueError):
             get_source_agent_os('juju-1.24.footu-amd64.tgz')
+
+    def test_get_source_agent_arch(self):
+        self.assertEqual(
+            'amd64',
+            get_source_agent_arch('juju-1.24-win2012-amd64.tgz'))
+        with self.assertRaises(ValueError):
+            get_source_agent_arch('juju-1.24-centos7-arm64')
+        self.assertEqual(
+            'arm64',
+            get_source_agent_arch('juju-1.24-ubuntu-arm64.tgz'))
+        self.assertEqual(
+            'ppc64el',
+            get_source_agent_arch('juju-1.24-ubuntu-ppc64el.tgz'))
+        with self.assertRaises(ValueError):
+            get_source_agent_arch('juju-1.24-ubuntu-xy64.tgz')
 
     def test_listing_to_files(self):
         start = '2014-10-23 22:11  9820182  s3://juju-qa-fake/agent-archive/%s'
