@@ -58,7 +58,7 @@ def make_ubuntu_agent(dest_debs, agent_stream, release):
         tarfile = os.path.join(
             dest_debs, 'juju-{}-ubuntu-{}.tgz'.format(release, arch))
         writer = StanzaWriter.for_living_ubuntu(
-            release, tarfile, agent_stream=agent_stream)
+            arch, release, tarfile, agent_stream=agent_stream)
         writer.write_stanzas()
         agent_path = os.path.join(dest_debs, writer.path)
         shutil.copy2(tarfile, agent_path)
