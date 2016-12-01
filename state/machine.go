@@ -200,6 +200,8 @@ type instanceData struct {
 	CpuPower   *uint64     `bson:"cpupower,omitempty"`
 	Tags       *[]string   `bson:"tags,omitempty"`
 	AvailZone  *string     `bson:"availzone,omitempty"`
+	Subnet     *string     `bson:"subnet,omitempty"`
+	Space      *string     `bson:"space,omitempty"`
 }
 
 func hardwareCharacteristics(instData instanceData) *instance.HardwareCharacteristics {
@@ -211,6 +213,8 @@ func hardwareCharacteristics(instData instanceData) *instance.HardwareCharacteri
 		CpuPower:         instData.CpuPower,
 		Tags:             instData.Tags,
 		AvailabilityZone: instData.AvailZone,
+		Subnet:           instData.Subnet,
+		Space:            instData.Space,
 	}
 }
 
@@ -1063,6 +1067,8 @@ func (m *Machine) SetProvisioned(id instance.Id, nonce string, characteristics *
 		CpuPower:   characteristics.CpuPower,
 		Tags:       characteristics.Tags,
 		AvailZone:  characteristics.AvailabilityZone,
+		Subnet:     characteristics.Subnet,
+		Space:      characteristics.Space,
 	}
 
 	ops := []txn.Op{

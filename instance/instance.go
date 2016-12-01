@@ -60,6 +60,9 @@ type HardwareCharacteristics struct {
 	Tags     *[]string `json:",omitempty" yaml:"tags,omitempty"`
 
 	AvailabilityZone *string `json:",omitempty" yaml:"availabilityzone,omitempty"`
+
+	Subnet *string `json:",omitempty" yaml:"subnet,omitempty"`
+	Space  *string `json:",omitempty" yaml:"space,omitempty"`
 }
 
 func uintStr(i uint64) string {
@@ -122,6 +125,12 @@ func GetRetryableCreationError(err error) (*RetryableCreationError, bool) {
 
 func (hc HardwareCharacteristics) String() string {
 	var strs []string
+	if hc.Subnet != nil && *hc.Subnet != "" {
+		strs = append(strs, fmt.Sprintf("subnet=%s", *hc.Subnet))
+	}
+	if hc.Space != nil && *hc.Space != "" {
+		strs = append(strs, fmt.Sprintf("space=%s", *hc.Space))
+	}
 	if hc.Arch != nil {
 		strs = append(strs, fmt.Sprintf("arch=%s", *hc.Arch))
 	}
@@ -208,6 +217,10 @@ func (hc *HardwareCharacteristics) setRaw(raw string) error {
 		err = hc.setTags(str)
 	case "availability-zone":
 		err = hc.setAvailabilityZone(str)
+	case "subnet":
+		err = hc.setSubnet(str)
+	case "space":
+		err = hc.setSpace(str)
 	default:
 		return fmt.Errorf("unknown characteristic %q", name)
 	}
@@ -275,6 +288,24 @@ func (hc *HardwareCharacteristics) setAvailabilityZone(str string) error {
 	if str != "" {
 		hc.AvailabilityZone = &str
 	}
+	return nil
+}
+
+func (hc *HardwareCharacteristics) setSubnet(str string) error {
+	if hc.Subnet != nil {
+		return fmt.Errorf("already set")
+	}
+	// XXX: Validate properly.
+	hc.Subnet = &str
+	return nil
+}
+
+func (hc *HardwareCharacteristics) setSpace(str string) error {
+	if hc.Space != nil {
+		return fmt.Errorf("already set")
+	}
+	// XXX: Validate properly.
+	hc.Space = &str
 	return nil
 }
 

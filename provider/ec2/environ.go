@@ -626,7 +626,19 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 		Instance: &instResp.Instances[0],
 	}
 	instAZ, instSubnet := inst.Instance.AvailZone, inst.Instance.SubnetId
-	logger.Infof("started instance %q in AZ %q, subnet %q", inst.Id(), instAZ, instSubnet)
+	respSubnets, err := e.ec2().Subnets([]string{instSubnet}, nil)
+	if err != nil {
+		logger.Errorf("cannot resolve subnet %q to CIDR: %v", instSubnet, err)
+		err = nil
+	}
+	var instSubnetCIDR string
+	if len(respSubnets.Subnets) != 1 {
+		logger.Errorf("unexpected AWS Subnets response: %+v", respSubnets.Subnets)
+	} else {
+		instSubnetCIDR = respSubnets.Subnets[0].CIDRBlock
+	}
+
+	logger.Infof("started instance %q in AZ %q, subnet %q (%q), space %q", inst.Id(), instAZ, instSubnetCIDR, instSubnet, spaceName)
 
 	// Tag instance, for accounting and identification.
 	instanceName := resourceName(
@@ -661,6 +673,12 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (_ *environs.
 		RootDisk: &rootDiskSize,
 		// Tags currently not supported by EC2
 		AvailabilityZone: &inst.Instance.AvailZone,
+	}
+	if spaceName != "" {
+		hc.Space = &spaceName
+	}
+	if instSubnetCIDR != "" {
+		hc.Subnet = &instSubnetCIDR
 	}
 	return &environs.StartInstanceResult{
 		Instance: inst,
