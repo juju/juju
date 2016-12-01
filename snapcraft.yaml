@@ -1,5 +1,5 @@
 name: juju
-version: 2.1.0
+version: 2.1-rc1
 summary: juju client
 description: Through the use of charms, juju provides you with shareable, re-usable, and repeatable expressions of devops best practices.
 confinement: devmode
@@ -17,7 +17,7 @@ parts:
     source-type: git
     build-packages: [gcc]
     #If you want to grab a specific revision tag, include it here
-    #source-tag: juju-2.1.0
+    #source-tag: juju-2.0.0
     snap:
     - -bin/filetoconst
     - -bin/winuserdata
