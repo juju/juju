@@ -29,24 +29,20 @@ import (
 type NewWatcherFunc func(base.APICaller, params.NotifyWatchResult) watcher.NotifyWatcher
 
 // NewClient returns a new Client based on an existing API connection.
-func NewClient(caller base.APICaller, newWatcher NewWatcherFunc) (*Client, error) {
-	httpClient, err := caller.HTTPClient()
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot retrieve HTTP client")
-	}
+func NewClient(caller base.APICaller, newWatcher NewWatcherFunc) *Client {
 	return &Client{
-		caller:     base.NewFacadeCaller(caller, "MigrationMaster"),
-		newWatcher: newWatcher,
-		httpClient: httpClient,
-	}, nil
+		caller:            base.NewFacadeCaller(caller, "MigrationMaster"),
+		newWatcher:        newWatcher,
+		httpClientFactory: caller.HTTPClient,
+	}
 }
 
 // Client describes the client side API for the MigrationMaster facade
 // (used by the migrationmaster worker).
 type Client struct {
-	caller     base.FacadeCaller
-	newWatcher NewWatcherFunc
-	httpClient *httprequest.Client
+	caller            base.FacadeCaller
+	newWatcher        NewWatcherFunc
+	httpClientFactory func() (*httprequest.Client, error)
 }
 
 // Watch returns a watcher which reports when a migration is active
@@ -181,7 +177,7 @@ func (c *Client) Export() (migration.SerializedModel, error) {
 		tools[v] = toolsInfo.URI
 	}
 
-	resources, err := convertResources(serialized.Resources) // XXX needs tests
+	resources, err := convertResources(serialized.Resources)
 	if err != nil {
 		return empty, errors.Trace(err)
 	}
@@ -197,9 +193,13 @@ func (c *Client) Export() (migration.SerializedModel, error) {
 // XXX needs tests
 // XXX
 func (c *Client) OpenResource(application, name string) (io.ReadCloser, error) {
+	httpClient, err := c.httpClientFactory()
+	if err != nil {
+		return nil, errors.Annotate(err, "unable to create HTTP client")
+	}
 	uri := fmt.Sprintf("/applications/%s/resources/%s", application, name)
 	var resp *http.Response
-	if err := c.httpClient.Get(uri, &resp); err != nil {
+	if err := httpClient.Get(uri, &resp); err != nil {
 		return nil, errors.Annotate(err, "unable to retrieve resource")
 	}
 	return resp.Body, nil
@@ -296,7 +296,6 @@ func (c *Client) StreamModelLog(start time.Time) (<-chan common.LogMessage, erro
 	})
 }
 
-// XXX needs tests
 func convertResources(in []params.SerializedModelResource) ([]migration.SerializedModelResource, error) {
 	if len(in) == 0 {
 		return nil, nil
@@ -357,5 +356,6 @@ func convertResourceRevision(app, name string, rev params.SerializedModelResourc
 		},
 		ApplicationID: app,
 		Username:      rev.Username,
+		Timestamp:     rev.Timestamp,
 	}, nil
 }
