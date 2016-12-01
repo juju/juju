@@ -664,9 +664,15 @@ class TestAssessModelMigration(TestCase):
                                     'ensure_migrating_to_target_and_back_to_source_succeeds',  # NOQA
                                     autospec=True) as m_back:
                                 with patch.object(
-                                        amm, 'temp_dir',
-                                        autospec=True, return_value=tmp_ctx()):
-                                    amm.assess_model_migration(bs1, bs2, args)
+                                        amm,
+                                        'ensure_model_logs_are_migrated',
+                                        autospec=True) as m_logs:
+                                    with patch.object(
+                                            amm, 'temp_dir',
+                                            autospec=True,
+                                            return_value=tmp_ctx()):
+                                        amm.assess_model_migration(
+                                            bs1, bs2, args)
         source_client = bs1.client
         dest_client = bs2.client
         m_user.assert_called_once_with(source_client, dest_client, '/tmp/dir')
@@ -675,6 +681,7 @@ class TestAssessModelMigration(TestCase):
         m_rollback.assert_called_once_with(source_client, dest_client)
         m_resource.assert_called_once_with(source_client, dest_client)
         m_back.assert_called_once_with(source_client, dest_client)
+        m_logs.assert_called_once_with(source_client, dest_client)
 
     def test_does_not_run_develop_tests_by_default(self):
         argv = [

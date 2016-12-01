@@ -55,6 +55,7 @@ def assess_model_migration(bs1, bs2, args):
                     source_client, dest_client, temp)
 
             if args.use_develop:
+                ensure_model_logs_are_migrated(source_client, dest_client)
                 ensure_migration_rolls_back_on_failure(
                     source_client, dest_client)
                 ensure_migration_of_resources_succeeds(
@@ -289,6 +290,19 @@ def deploy_mongodb_to_new_model(client, model_name):
     return test_model
 
 
+def deploy_dummy_source_to_new_model(client, model_name):
+    new_model_client = client.add_model(client.env.clone(model_name))
+
+    charm_path = local_charm_path(
+        charm='dummy-source', juju_ver=new_model_client.version)
+    new_model_client.deploy(charm_path)
+    new_model_client.wait_for_started()
+    new_model_client.set_config('dummy-source', {'token': 'one'})
+    new_model_client.wait_for_workloads()
+
+    return new_model_client
+
+
 def deploy_simple_resource_server(client, resource_contents):
     application_name = 'simple-resource-http'
 
@@ -370,6 +384,24 @@ def raise_if_shared_machines(unit_machines):
         raise JujuAssertionError('Appliction units reside on the same machine')
 
 
+def ensure_model_logs_are_migrated(source_client, dest_client):
+    new_model_client = deploy_dummy_source_to_new_model(
+        source_client, 'log-migration')
+
+    before_migration_logs = new_model_client.get_juju_output(
+        'debug-log', '--no-tail', '-l', 'DEBUG')
+
+    log.info('Attempting migration process')
+
+    migrated_model = migrate_model_to_controller(new_model_client, dest_client)
+
+    after_migration_logs = migrated_model.get_juju_output(
+        'debug-log', '--no-tail', '-l', 'DEBUG')
+
+    if before_migration_logs not in after_migration_logs:
+        raise JujuAssertionError('Logs failed to be migrated.')
+
+
 def ensure_migration_rolls_back_on_failure(source_client, dest_client):
     """Must successfully roll back migration when migration fails.
 
@@ -436,13 +468,8 @@ def ensure_migrating_with_insufficient_user_permissions_fails(
     user_source_client, user_dest_client = create_user_on_controllers(
         source_client, dest_client, tmp_dir, 'failuser', 'addmodel')
 
-    user_new_model = user_source_client.add_model(
-        user_source_client.env.clone('model-a'))
-
-    charm_path = local_charm_path(
-        charm='dummy-source', juju_ver=user_new_model.version)
-    user_new_model.deploy(charm_path)
-    user_new_model.wait_for_started()
+    user_new_model = deploy_dummy_source_to_new_model(
+        user_source_client, 'user-fail')
 
     log.info('Attempting migration process')
 
@@ -459,13 +486,8 @@ def ensure_migrating_with_superuser_user_permissions_succeeds(
     user_source_client, user_dest_client = create_user_on_controllers(
         source_client, dest_client, tmp_dir, 'passuser', 'superuser')
 
-    user_new_model = user_source_client.add_model(
-        user_source_client.env.clone('model-a'))
-
-    charm_path = local_charm_path(
-        charm='dummy-source', juju_ver=user_new_model.version)
-    user_new_model.deploy(charm_path)
-    user_new_model.wait_for_started()
+    user_new_model = deploy_dummy_source_to_new_model(
+        user_source_client, 'super-permissions')
 
     log.info('Attempting migration process')
 
