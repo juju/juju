@@ -155,6 +155,10 @@ func (api *API) Activate(args params.ModelArgs) error {
 // in some other way (like the source controller going away or a
 // network partition) the time will be up-to-date.
 //
+// Log messages are assumed to be sent in time order (which is how
+// debug-log emits them). If that isn't the case then this mechanism
+// can't be used to avoid duplicates when logtransfer is restarted.
+//
 // Returns the zero time if no logs have been transferred.
 func (api *API) LatestLogTime(args params.ModelArgs) (time.Time, error) {
 	model, err := api.getModel(args)

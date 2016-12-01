@@ -93,6 +93,10 @@ func newLogTracker(st *state.State) *logTracker {
 	return &logTracker{tracker: state.NewLastSentLogTracker(st, st.ModelUUID(), "migration-logtransfer")}
 }
 
+// logTracker assumes that log messages are sent in time order (which
+// is how they come from debug-log). If not, this won't give
+// meaningful values, and transferring logs could produce large
+// numbers of duplicates if restarted.
 type logTracker struct {
 	tracker     *state.LastSentLogTracker
 	trackedTime time.Time
