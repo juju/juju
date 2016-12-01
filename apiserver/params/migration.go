@@ -91,7 +91,8 @@ type SerializedModelTools struct {
 	URI string `json:"uri"`
 }
 
-// XXX
+// SerializedModelResource holds the details for a single resource for
+// an application in a serialized model.
 type SerializedModelResource struct {
 	Application         string                          `json:"application"`
 	Name                string                          `json:"name"`
@@ -99,16 +100,18 @@ type SerializedModelResource struct {
 	CharmStoreRevision  SerializedModelResourceRevision `json:"charmstore-revision"`
 }
 
-// XXX
+// SerializedModelResourceRevision holds the details for a single
+// resource revision for an application in a serialized model.
 type SerializedModelResourceRevision struct {
-	Revision       int    `json:"revision"`
-	Type           string `json:"type"`
-	Path           string `json:"path"`
-	Description    string `json:"description"`
-	Origin         string `json:"origin"`
-	FingerprintHex string `json:"fingerprint"`
-	Size           int64  `json:"size"`
-	Username       string `json:"username,omitempty"`
+	Revision       int       `json:"revision"`
+	Type           string    `json:"type"`
+	Path           string    `json:"path"`
+	Description    string    `json:"description"`
+	Origin         string    `json:"origin"`
+	FingerprintHex string    `json:"fingerprint"`
+	Size           int64     `json:"size"`
+	Timestamp      time.Time `json:"timestamp"`
+	Username       string    `json:"username,omitempty"`
 }
 
 // ModelArgs wraps a simple model tag.

@@ -194,28 +194,81 @@ func (s *Suite) TestPrechecks(c *gc.C) {
 }
 
 func (s *Suite) TestExport(c *gc.C) {
-	s.model.AddApplication(description.ApplicationArgs{
+	app := s.model.AddApplication(description.ApplicationArgs{
 		Tag:      names.NewApplicationTag("foo"),
 		CharmURL: "cs:foo-0",
 	})
+
 	const tools = "2.0.0-xenial-amd64"
 	m := s.model.AddMachine(description.MachineArgs{Id: names.NewMachineTag("9")})
 	m.SetTools(description.AgentToolsArgs{
 		Version: version.MustParseBinary(tools),
 	})
+
+	res := app.AddResource(description.ResourceArgs{"bin"})
+	appRev := res.SetApplicationRevision(description.ResourceRevisionArgs{
+		Revision:       2,
+		Type:           "file",
+		Path:           "bin.tar.gz",
+		Description:    "who knows",
+		Origin:         "upload",
+		FingerprintHex: "abcd",
+		Size:           123,
+		Timestamp:      time.Now(),
+		Username:       "bob",
+	})
+	csRev := res.SetCharmStoreRevision(description.ResourceRevisionArgs{
+		Revision:       3,
+		Type:           "file",
+		Path:           "fink.tar.gz",
+		Description:    "knows who",
+		Origin:         "store",
+		FingerprintHex: "deaf",
+		Size:           321,
+		Timestamp:      time.Now(),
+		Username:       "xena",
+	})
+
 	api := s.mustMakeAPI(c)
-
 	serialized, err := api.Export()
-
 	c.Assert(err, jc.ErrorIsNil)
+
 	// We don't want to tie this test the serialisation output (that's
 	// tested elsewhere). Just check that at least one thing we expect
 	// is in the serialised output.
-	c.Assert(string(serialized.Bytes), jc.Contains, jujuversion.Current.String())
-	c.Assert(serialized.Charms, gc.DeepEquals, []string{"cs:foo-0"})
-	c.Assert(serialized.Tools, gc.DeepEquals, []params.SerializedModelTools{
+	c.Check(string(serialized.Bytes), jc.Contains, jujuversion.Current.String())
+
+	c.Check(serialized.Charms, gc.DeepEquals, []string{"cs:foo-0"})
+	c.Check(serialized.Tools, gc.DeepEquals, []params.SerializedModelTools{
 		{tools, "/tools/" + tools},
 	})
+	c.Check(serialized.Resources, gc.DeepEquals, []params.SerializedModelResource{{
+		Application: "foo",
+		Name:        "bin",
+		ApplicationRevision: params.SerializedModelResourceRevision{
+			Revision:       appRev.Revision(),
+			Type:           appRev.Type(),
+			Path:           appRev.Path(),
+			Description:    appRev.Description(),
+			Origin:         appRev.Origin(),
+			FingerprintHex: appRev.FingerprintHex(),
+			Size:           appRev.Size(),
+			Timestamp:      appRev.Timestamp(),
+			Username:       appRev.Username(),
+		},
+		CharmStoreRevision: params.SerializedModelResourceRevision{
+			Revision:       csRev.Revision(),
+			Type:           csRev.Type(),
+			Path:           csRev.Path(),
+			Description:    csRev.Description(),
+			Origin:         csRev.Origin(),
+			FingerprintHex: csRev.FingerprintHex(),
+			Size:           csRev.Size(),
+			Timestamp:      csRev.Timestamp(),
+			Username:       csRev.Username(),
+		},
+	}})
+
 }
 
 func (s *Suite) TestReap(c *gc.C) {

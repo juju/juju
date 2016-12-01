@@ -311,7 +311,6 @@ func addToolsVersionForMachine(machine description.Machine, usedVersions map[ver
 	}
 }
 
-// XXX needs tests - but wait until I know what's actually required here.
 func getUsedResources(model description.Model) []params.SerializedModelResource {
 	var out []params.SerializedModelResource
 	for _, app := range model.Applications() {
@@ -332,16 +331,19 @@ func resourceToSerialized(app string, desc description.Resource) params.Serializ
 	}
 }
 
-func revisionToSerialized(desc description.ResourceRevision) (out params.SerializedModelResourceRevision) {
-	out.Revision = desc.Revision()
-	out.Type = desc.Type()
-	out.Path = desc.Path()
-	out.Description = desc.Description()
-	out.Origin = desc.Origin()
-	out.FingerprintHex = desc.FingerprintHex()
-	out.Size = desc.Size()
-	// XXX
-	//out.Timestamp = desc.Timestamp()
-	out.Username = desc.Username()
-	return
+func revisionToSerialized(rr description.ResourceRevision) params.SerializedModelResourceRevision {
+	if rr == nil {
+		return params.SerializedModelResourceRevision{}
+	}
+	return params.SerializedModelResourceRevision{
+		Revision:       rr.Revision(),
+		Type:           rr.Type(),
+		Path:           rr.Path(),
+		Description:    rr.Description(),
+		Origin:         rr.Origin(),
+		FingerprintHex: rr.FingerprintHex(),
+		Size:           rr.Size(),
+		Timestamp:      rr.Timestamp(),
+		Username:       rr.Username(),
+	}
 }
