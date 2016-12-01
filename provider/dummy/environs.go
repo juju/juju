@@ -981,7 +981,9 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	series := args.Tools.OneSeries()
 
 	idString := fmt.Sprintf("%s-%d", e.name, estate.maxId)
-	addrs := network.NewAddresses(idString+".dns", "127.0.0.1")
+	// Add the addresses we want to see in the machine doc. This means both
+	// IPv4 and IPv6 loopback, as well as the DNS name.
+	addrs := network.NewAddresses(idString+".dns", "127.0.0.1", "::1")
 	logger.Debugf("StartInstance addresses: %v", addrs)
 	i := &dummyInstance{
 		id:           instance.Id(idString),
