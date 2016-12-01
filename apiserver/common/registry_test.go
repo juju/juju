@@ -26,6 +26,7 @@ var _ = gc.Suite(&facadeRegistrySuite{})
 func testFacade(
 	st *state.State, resources *common.Resources,
 	authorizer common.Authorizer, id string,
+	dispose func(),
 ) (interface{}, error) {
 	return "myobject", nil
 }
@@ -36,7 +37,7 @@ func (s *facadeRegistrySuite) TestRegister(c *gc.C) {
 	common.RegisterFacade("myfacade", 0, testFacade, reflect.TypeOf(&v).Elem())
 	f, err := common.Facades.GetFactory("myfacade", 0)
 	c.Assert(err, jc.ErrorIsNil)
-	val, err := f(nil, nil, nil, "")
+	val, err := f(nil, nil, nil, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(val, gc.Equals, "myobject")
 }
@@ -60,7 +61,7 @@ func (s *facadeRegistrySuite) TestRegisterForFeature(c *gc.C) {
 
 	f, err = common.Facades.GetFactory("myfacade", 0)
 	c.Assert(err, jc.ErrorIsNil)
-	val, err := f(nil, nil, nil, "")
+	val, err := f(nil, nil, nil, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(val, gc.Equals, "myobject")
 }
@@ -140,7 +141,7 @@ func (*facadeRegistrySuite) TestWrapNewFacadeFailure(c *gc.C) {
 func (*facadeRegistrySuite) TestWrapNewFacadeHandlesId(c *gc.C) {
 	wrapped, _, err := common.WrapNewFacade(validFactory)
 	c.Assert(err, jc.ErrorIsNil)
-	val, err := wrapped(nil, nil, nil, "badId")
+	val, err := wrapped(nil, nil, nil, "badId", nil)
 	c.Check(err, gc.ErrorMatches, "id not found")
 	c.Check(val, gc.Equals, nil)
 }
@@ -148,7 +149,7 @@ func (*facadeRegistrySuite) TestWrapNewFacadeHandlesId(c *gc.C) {
 func (*facadeRegistrySuite) TestWrapNewFacadeCallsFunc(c *gc.C) {
 	wrapped, _, err := common.WrapNewFacade(validFactory)
 	c.Assert(err, jc.ErrorIsNil)
-	val, err := wrapped(nil, nil, nil, "")
+	val, err := wrapped(nil, nil, nil, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(*(val.(*int)), gc.Equals, 100)
 }
@@ -171,7 +172,7 @@ func (*facadeRegistrySuite) TestWrapNewFacadeCallsWithRightParams(c *gc.C) {
 	wrapped, facadeType, err := common.WrapNewFacade(testFunc)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(facadeType, gc.Equals, reflect.TypeOf((*myResult)(nil)))
-	val, err := wrapped(nil, resources, authorizer, "")
+	val, err := wrapped(nil, resources, authorizer, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	asResult := val.(*myResult)
 	c.Check(asResult.st, gc.IsNil)
@@ -184,7 +185,7 @@ func (s *facadeRegistrySuite) TestRegisterStandardFacade(c *gc.C) {
 	common.RegisterStandardFacade("testing", 0, validFactory)
 	wrapped, err := common.Facades.GetFactory("testing", 0)
 	c.Assert(err, jc.ErrorIsNil)
-	val, err := wrapped(nil, nil, nil, "")
+	val, err := wrapped(nil, nil, nil, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(*(val.(*int)), gc.Equals, 100)
 }
@@ -218,7 +219,13 @@ func (*facadeRegistrySuite) TestDiscardedAPIMethods(c *gc.C) {
 	}
 }
 
-func validIdFactory(*state.State, *common.Resources, common.Authorizer, string) (interface{}, error) {
+func validIdFactory(
+	*state.State,
+	*common.Resources,
+	common.Authorizer,
+	string,
+	func(),
+) (interface{}, error) {
 	var i = 100
 	return &i, nil
 }
@@ -299,7 +306,7 @@ func (*facadeRegistrySuite) TestRegisterAlreadyPresent(c *gc.C) {
 	r := &common.FacadeRegistry{}
 	err := r.Register("name", 0, validIdFactory, intPtrType, "")
 	c.Assert(err, jc.ErrorIsNil)
-	secondIdFactory := func(*state.State, *common.Resources, common.Authorizer, string) (interface{}, error) {
+	secondIdFactory := func(*state.State, *common.Resources, common.Authorizer, string, func()) (interface{}, error) {
 		var i = 200
 		return &i, nil
 	}
@@ -308,7 +315,7 @@ func (*facadeRegistrySuite) TestRegisterAlreadyPresent(c *gc.C) {
 	f, err := r.GetFactory("name", 0)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(f, gc.NotNil)
-	val, err := f(nil, nil, nil, "")
+	val, err := f(nil, nil, nil, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	asIntPtr := val.(*int)
 	c.Check(*asIntPtr, gc.Equals, 100)
@@ -320,7 +327,7 @@ func (*facadeRegistrySuite) TestGetFactory(c *gc.C) {
 	f, err := r.GetFactory("name", 0)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(f, gc.NotNil)
-	res, err := f(nil, nil, nil, "")
+	res, err := f(nil, nil, nil, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res, gc.NotNil)
 	asIntPtr := res.(*int)

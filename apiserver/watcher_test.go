@@ -31,10 +31,16 @@ func (s *watcherSuite) SetUpTest(c *gc.C) {
 	s.authorizer = apiservertesting.FakeAuthorizer{}
 }
 
-func (s *watcherSuite) getFacade(c *gc.C, name string, version int, id string) interface{} {
+func (s *watcherSuite) getFacade(
+	c *gc.C,
+	name string,
+	version int,
+	id string,
+	dispose func(),
+) interface{} {
 	factory, err := common.Facades.GetFactory(name, version)
 	c.Assert(err, jc.ErrorIsNil)
-	facade, err := factory(s.st, s.resources, s.authorizer, id)
+	facade, err := factory(s.st, s.resources, s.authorizer, id, dispose)
 	c.Assert(err, jc.ErrorIsNil)
 	return facade
 }
@@ -45,7 +51,7 @@ func (s *watcherSuite) TestVolumeAttachmentsWatcher(c *gc.C) {
 	s.authorizer.Tag = names.NewMachineTag("123")
 
 	ch <- []string{"0:1", "1:2"}
-	facade := s.getFacade(c, "VolumeAttachmentsWatcher", 1, id).(machineStorageIdsWatcher)
+	facade := s.getFacade(c, "VolumeAttachmentsWatcher", 1, id, nopDispose).(machineStorageIdsWatcher)
 	result, err := facade.Next()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -63,7 +69,7 @@ func (s *watcherSuite) TestFilesystemAttachmentsWatcher(c *gc.C) {
 	s.authorizer.Tag = names.NewMachineTag("123")
 
 	ch <- []string{"0:1", "1:2"}
-	facade := s.getFacade(c, "FilesystemAttachmentsWatcher", 1, id).(machineStorageIdsWatcher)
+	facade := s.getFacade(c, "FilesystemAttachmentsWatcher", 1, id, nopDispose).(machineStorageIdsWatcher)
 	result, err := facade.Next()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -75,8 +81,21 @@ func (s *watcherSuite) TestFilesystemAttachmentsWatcher(c *gc.C) {
 	})
 }
 
+func (s *watcherSuite) TestStopDiscards(c *gc.C) {
+	id := s.resources.Register(&fakeStringsWatcher{})
+	s.authorizer.Tag = names.NewMachineTag("123")
+	var disposed bool
+	facade := s.getFacade(c, "FilesystemAttachmentsWatcher", 1, id, func() {
+		disposed = true
+	}).(machineStorageIdsWatcher)
+	err := facade.Stop()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(disposed, jc.IsTrue)
+}
+
 type machineStorageIdsWatcher interface {
 	Next() (params.MachineStorageIdsWatchResult, error)
+	Stop() error
 }
 
 type fakeStringsWatcher struct {
@@ -87,3 +106,9 @@ type fakeStringsWatcher struct {
 func (w *fakeStringsWatcher) Changes() <-chan []string {
 	return w.ch
 }
+
+func (w *fakeStringsWatcher) Stop() error {
+	return nil
+}
+
+func nopDispose() {}

@@ -19,7 +19,11 @@ import (
 // FacadeFactory represent a way of creating a Facade from the current
 // connection to the State.
 type FacadeFactory func(
-	st *state.State, resources *Resources, authorizer Authorizer, id string,
+	st *state.State,
+	resources *Resources,
+	authorizer Authorizer,
+	id string,
+	dispose func(),
 ) (
 	interface{}, error,
 )
@@ -93,7 +97,11 @@ func wrapNewFacade(newFunc interface{}) (FacadeFactory, reflect.Type, error) {
 	// So we know newFunc is a func with the right args in and out, so
 	// wrap it into a helper function that matches the FacadeFactory.
 	wrapped := func(
-		st *state.State, resources *Resources, auth Authorizer, id string,
+		st *state.State,
+		resources *Resources,
+		auth Authorizer,
+		id string,
+		dispose func(),
 	) (
 		interface{}, error,
 	) {
@@ -130,7 +138,7 @@ type NewHookContextFacadeFn func(*state.State, *state.Unit) (interface{}, error)
 // any necessary authorization for the client.
 func RegisterHookContextFacade(name string, version int, newHookContextFacade NewHookContextFacadeFn, facadeType reflect.Type) {
 
-	newFacade := func(st *state.State, _ *Resources, authorizer Authorizer, _ string) (interface{}, error) {
+	newFacade := func(st *state.State, _ *Resources, authorizer Authorizer, _ string, _ func()) (interface{}, error) {
 
 		if !authorizer.AuthUnitAgent() {
 			return nil, ErrPerm
