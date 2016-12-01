@@ -4,6 +4,7 @@
 package server
 
 import (
+	"fmt"
 	"io"
 	"net/http"
 
@@ -22,7 +23,7 @@ type HTTPHandler struct {
 	Connect func(*http.Request) (DataStore, names.Tag, error)
 
 	// HandleDownload provides the download functionality.
-	HandleDownload func(st DataStore, req *http.Request) (io.ReadCloser, error)
+	HandleDownload func(st DataStore, req *http.Request) (io.ReadCloser, int64, error)
 
 	// HandleUpload provides the upload functionality.
 	HandleUpload func(username string, st DataStore, req *http.Request) (*api.UploadResult, error)
@@ -35,7 +36,7 @@ type HTTPHandler struct {
 func NewHTTPHandler(connect func(*http.Request) (DataStore, names.Tag, error)) *HTTPHandler {
 	return &HTTPHandler{
 		Connect: connect,
-		HandleDownload: func(st DataStore, req *http.Request) (io.ReadCloser, error) {
+		HandleDownload: func(st DataStore, req *http.Request) (io.ReadCloser, int64, error) {
 			dh := DownloadHandler{
 				Store: st,
 			}
@@ -61,24 +62,26 @@ func (h *HTTPHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 
 	switch req.Method {
 	case "GET":
-		reader, err := h.HandleDownload(st, req)
+		reader, size, err := h.HandleDownload(st, req)
 		if err != nil {
 			api.SendHTTPError(resp, err)
 			return
 		}
 		defer reader.Close()
-		resp.Header().Set("Content-Type", params.ContentTypeRaw)
-		// XXX should really set Content-Length
-		io.Copy(resp, reader) // XXX check error
+		header := resp.Header()
+		header.Set("Content-Type", params.ContentTypeRaw)
+		header.Set("Content-Length", fmt.Sprint(size))
+		resp.WriteHeader(http.StatusOK)
+		if _, err := io.Copy(resp, reader); err != nil {
+			logger.Errorf("resource download failed: %v", err)
+		}
 	case "PUT":
-		logger.Debugf("handling resource upload request")
 		response, err := h.HandleUpload(tagToUsername(tag), st, req)
 		if err != nil {
 			api.SendHTTPError(resp, err)
 			return
 		}
 		api.SendHTTPStatusAndJSON(resp, http.StatusOK, &response)
-		logger.Debugf("resource upload request successful")
 	default:
 		api.SendHTTPError(resp, errors.MethodNotAllowedf("unsupported method: %q", req.Method))
 	}
@@ -86,7 +89,7 @@ func (h *HTTPHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 
 func tagToUsername(tag names.Tag) string {
 	switch tag := tag.(type) {
-	case *names.UserTag:
+	case names.UserTag:
 		return tag.Name()
 	default:
 		return ""

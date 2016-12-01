@@ -28,13 +28,13 @@ type DownloadHandler struct {
 }
 
 // HandleRequest handles a resource download request.
-func (dh DownloadHandler) HandleRequest(req *http.Request) (io.ReadCloser, error) {
+func (dh DownloadHandler) HandleRequest(req *http.Request) (io.ReadCloser, int64, error) {
 	defer req.Body.Close()
 
 	query := req.URL.Query()
 	application := query.Get(":application")
-	resource := query.Get(":resource")
+	name := query.Get(":resource")
 
-	_, reader, err := dh.Store.OpenResource(application, resource)
-	return reader, errors.Trace(err)
+	resource, reader, err := dh.Store.OpenResource(application, name)
+	return reader, resource.Size, errors.Trace(err)
 }

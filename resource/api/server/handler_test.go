@@ -6,6 +6,8 @@ package server_test
 import (
 	"encoding/json"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"net/http"
 	"strconv"
 	"strings"
@@ -21,19 +23,19 @@ import (
 	"github.com/juju/juju/resource/api/server"
 )
 
+const downloadContent = "body"
+
 type HTTPHandlerSuite struct {
 	BaseSuite
 
-	username string
-	req      *http.Request
-	header   http.Header
-	resp     *stubHTTPResponseWriter
-	result   *api.UploadResult
+	username     string
+	req          *http.Request
+	header       http.Header
+	resp         *stubHTTPResponseWriter
+	uploadResult *api.UploadResult
 }
 
 var _ = gc.Suite(&HTTPHandlerSuite{})
-
-// XXX download tests
 
 func (s *HTTPHandlerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
@@ -50,7 +52,7 @@ func (s *HTTPHandlerSuite) SetUpTest(c *gc.C) {
 		stub:         s.stub,
 		returnHeader: s.header,
 	}
-	s.result = &api.UploadResult{}
+	s.uploadResult = &api.UploadResult{}
 }
 
 func (s *HTTPHandlerSuite) connect(req *http.Request) (server.DataStore, names.Tag, error) {
@@ -63,20 +65,28 @@ func (s *HTTPHandlerSuite) connect(req *http.Request) (server.DataStore, names.T
 	return s.data, tag, nil
 }
 
+func (s *HTTPHandlerSuite) handleDownload(st server.DataStore, req *http.Request) (io.ReadCloser, int64, error) {
+	s.stub.AddCall("HandleDownload", st, req)
+	if err := s.stub.NextErr(); err != nil {
+		return nil, 0, errors.Trace(err)
+	}
+
+	reader := ioutil.NopCloser(strings.NewReader(downloadContent))
+	return reader, int64(len(downloadContent)), nil
+}
+
 func (s *HTTPHandlerSuite) handleUpload(username string, st server.DataStore, req *http.Request) (*api.UploadResult, error) {
 	s.stub.AddCall("HandleUpload", username, st, req)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
 	}
-
-	return s.result, nil
+	return s.uploadResult, nil
 }
 
 func (s *HTTPHandlerSuite) TestServeHTTPConnectFailure(c *gc.C) {
 	s.username = "youknowwho"
 	handler := server.HTTPHandler{
-		Connect:      s.connect,
-		HandleUpload: s.handleUpload,
+		Connect: s.connect,
 	}
 	copied := *s.req
 	req := &copied
@@ -105,8 +115,7 @@ func (s *HTTPHandlerSuite) TestServeHTTPConnectFailure(c *gc.C) {
 func (s *HTTPHandlerSuite) TestServeHTTPUnsupportedMethod(c *gc.C) {
 	s.username = "youknowwho"
 	handler := server.HTTPHandler{
-		Connect:      s.connect,
-		HandleUpload: s.handleUpload,
+		Connect: s.connect,
 	}
 	s.req.Method = "POST"
 	copied := *s.req
@@ -132,9 +141,35 @@ func (s *HTTPHandlerSuite) TestServeHTTPUnsupportedMethod(c *gc.C) {
 	})
 }
 
+func (s *HTTPHandlerSuite) TestServeHTTPGetSuccess(c *gc.C) {
+	handler := server.HTTPHandler{
+		Connect:        s.connect,
+		HandleDownload: s.handleDownload,
+	}
+	// XXX extract
+	s.req.Method = "GET"
+	copied := *s.req
+	req := &copied
+
+	handler.ServeHTTP(s.resp, req)
+
+	s.stub.CheckCalls(c, []testing.StubCall{
+		{"Connect", []interface{}{req}},
+		{"HandleDownload", []interface{}{s.data, req}},
+		{"Header", []interface{}{}},
+		{"WriteHeader", []interface{}{http.StatusOK}},
+		{"Write", []interface{}{downloadContent}},
+	})
+	c.Check(req, jc.DeepEquals, s.req) // did not change
+	c.Check(s.header, jc.DeepEquals, http.Header{
+		"Content-Type":   []string{"application/octet-stream"},
+		"Content-Length": []string{fmt.Sprint(len(downloadContent))},
+	})
+}
+
 func (s *HTTPHandlerSuite) TestServeHTTPPutSuccess(c *gc.C) {
-	s.result.Resource.Name = "spam"
-	expected, err := json.Marshal(s.result)
+	s.uploadResult.Resource.Name = "spam"
+	expected, err := json.Marshal(s.uploadResult)
 	c.Assert(err, jc.ErrorIsNil)
 	s.username = "youknowwho"
 	handler := server.HTTPHandler{
