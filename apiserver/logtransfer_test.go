@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -214,6 +215,96 @@ func (s *logtransferSuite) TestLogging(c *gc.C) {
 			c.Assert(log.Level, jc.LessThan, loggo.ERROR, gc.Commentf("log: %#v", log))
 		}
 	}
+}
+
+func (s *logtransferSuite) TestTracksLastSentLogTime(c *gc.C) {
+	conn := s.dialWebsocket(c)
+	reader := s.toReader(conn)
+
+	// Read back the nil error, indicating that all is well.
+	errResult := readJSONErrorLine(c, reader)
+	c.Assert(errResult.Error, gc.IsNil)
+
+	tracker := state.NewLastSentLogTracker(s.State, s.State.ModelUUID(), "migration-logtransfer")
+	defer tracker.Close()
+
+	t0 := time.Date(2015, time.June, 1, 23, 2, 1, 0, time.UTC)
+	err := websocket.JSON.Send(conn, &params.LogRecord{
+		Entity:   "machine-23",
+		Time:     t0,
+		Module:   "some.where",
+		Location: "foo.go:42",
+		Level:    loggo.INFO.String(),
+		Message:  "all is well",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// First message time is tracked.
+	assertTrackerTime(c, tracker, t0)
+
+	// Doesn't track anything more until a log message 2 mins later.
+	t1 := t0.Add(2*time.Minute - 1*time.Nanosecond)
+	err = websocket.JSON.Send(conn, &params.LogRecord{
+		Entity:   "machine-23",
+		Time:     t1,
+		Module:   "some.where",
+		Location: "foo.go:42",
+		Level:    loggo.INFO.String(),
+		Message:  "still good",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// No change
+	assertTrackerTime(c, tracker, t0)
+
+	t2 := t1.Add(1 * time.Nanosecond)
+	err = websocket.JSON.Send(conn, &params.LogRecord{
+		Entity:   "machine-23",
+		Time:     t2,
+		Module:   "some.where",
+		Location: "foo.go:42",
+		Level:    loggo.INFO.String(),
+		Message:  "nae bather",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Updated
+	assertTrackerTime(c, tracker, t2)
+
+	t3 := t2.Add(1 * time.Nanosecond)
+	err = websocket.JSON.Send(conn, &params.LogRecord{
+		Entity:   "machine-23",
+		Time:     t3,
+		Module:   "some.where",
+		Location: "foo.go:42",
+		Level:    loggo.INFO.String(),
+		Message:  "sweet as",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// No change,
+	assertTrackerTime(c, tracker, t2)
+
+	err = conn.Close()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Latest is saved when connection is closed.
+	assertTrackerTime(c, tracker, t3)
+}
+
+func assertTrackerTime(c *gc.C, tracker *state.LastSentLogTracker, expected time.Time) {
+	var timestamp int64
+	var err error
+	for a := coretesting.LongAttempt.Start(); a.Next(); {
+		_, timestamp, err = tracker.Get()
+		if err != nil && errors.Cause(err) != state.ErrNeverForwarded {
+			c.Assert(err, jc.ErrorIsNil)
+		}
+		if err == nil && timestamp == expected.UnixNano() {
+			return
+		}
+	}
+	c.Fatalf("tracker never set to %d - last seen was %d (err: %v)", expected.UnixNano(), timestamp, err)
 }
 
 func (s *logtransferSuite) toReader(conn *websocket.Conn) *bufio.Reader {

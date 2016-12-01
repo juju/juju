@@ -4,6 +4,8 @@
 package migrationtarget_test
 
 import (
+	"time"
+
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -189,6 +191,36 @@ func (s *Suite) TestActivateNotImportingEnv(c *gc.C) {
 	api := s.mustNewAPI(c)
 	err = api.Activate(params.ModelArgs{ModelTag: model.ModelTag().String()})
 	c.Assert(err, gc.ErrorMatches, `migration mode for the model is not importing`)
+}
+
+func (s *Suite) TestLatestLogTime(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
+	defer st.Close()
+	model, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	t := time.Date(2016, 11, 30, 18, 14, 0, 100, time.UTC)
+	tracker := state.NewLastSentLogTracker(st, model.UUID(), "migration-logtransfer")
+	defer tracker.Close()
+	err = tracker.Set(0, t.UnixNano())
+	c.Assert(err, jc.ErrorIsNil)
+
+	api := s.mustNewAPI(c)
+	latest, err := api.LatestLogTime(params.ModelArgs{ModelTag: model.ModelTag().String()})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(latest, gc.Equals, t)
+}
+
+func (s *Suite) TestLatestLogTimeNeverSet(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
+	defer st.Close()
+	model, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	api := s.mustNewAPI(c)
+	latest, err := api.LatestLogTime(params.ModelArgs{ModelTag: model.ModelTag().String()})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(latest, gc.Equals, time.Time{})
 }
 
 func (s *Suite) newAPI() (*migrationtarget.API, error) {

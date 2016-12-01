@@ -6,6 +6,7 @@ package apiserver
 import (
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -19,6 +20,7 @@ type migrationLoggingStrategy struct {
 	st         *state.State
 	filePrefix string
 	dbLogger   *state.DbLogger
+	tracker    *logTracker
 	fileLogger io.Writer
 }
 
@@ -54,6 +56,7 @@ func (s *migrationLoggingStrategy) Authenticate(req *http.Request) error {
 func (s *migrationLoggingStrategy) Start() {
 	s.filePrefix = s.st.ModelUUID() + ":"
 	s.dbLogger = state.NewDbLogger(s.st)
+	s.tracker = newLogTracker(s.st)
 }
 
 // Log writes the given record to the DB and to the backup file
@@ -61,13 +64,18 @@ func (s *migrationLoggingStrategy) Start() {
 func (s *migrationLoggingStrategy) Log(m params.LogRecord) bool {
 	level, _ := loggo.ParseLevel(m.Level)
 	dbErr := s.dbLogger.Log(m.Time, m.Entity, m.Module, m.Location, level, m.Message)
+	if dbErr == nil {
+		dbErr = s.tracker.Track(m.Time)
+	}
 	if dbErr != nil {
 		logger.Errorf("logging to DB failed: %v", dbErr)
 	}
+
 	fileErr := logToFile(s.fileLogger, s.filePrefix, m)
 	if fileErr != nil {
 		logger.Errorf("logging to file logger failed: %v", fileErr)
 	}
+
 	return dbErr == nil && fileErr == nil
 }
 
@@ -75,5 +83,40 @@ func (s *migrationLoggingStrategy) Log(m params.LogRecord) bool {
 // release resources and close loggers. Part of LoggingStrategy.
 func (s *migrationLoggingStrategy) Stop() {
 	s.dbLogger.Close()
+	s.tracker.Close()
 	s.ctxt.release(s.st)
+}
+
+const trackingPeriod = 2 * time.Minute
+
+func newLogTracker(st *state.State) *logTracker {
+	return &logTracker{tracker: state.NewLastSentLogTracker(st, st.ModelUUID(), "migration-logtransfer")}
+}
+
+// logTracker assumes that log messages are sent in time order (which
+// is how they come from debug-log). If not, this won't give
+// meaningful values, and transferring logs could produce large
+// numbers of duplicates if restarted.
+type logTracker struct {
+	tracker     *state.LastSentLogTracker
+	trackedTime time.Time
+	seenTime    time.Time
+}
+
+func (l *logTracker) Track(t time.Time) error {
+	l.seenTime = t
+	if t.Sub(l.trackedTime) < trackingPeriod {
+		return nil
+	}
+	l.trackedTime = t
+	return errors.Trace(l.tracker.Set(0, t.UnixNano()))
+}
+
+func (l *logTracker) Close() error {
+	err := l.tracker.Set(0, l.seenTime.UnixNano())
+	if err != nil {
+		l.tracker.Close()
+		return errors.Trace(err)
+	}
+	return errors.Trace(l.tracker.Close())
 }

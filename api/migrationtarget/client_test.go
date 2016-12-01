@@ -7,9 +7,11 @@ import (
 	"net/http"
 	"net/textproto"
 	"net/url"
+	"time"
 
 	"github.com/juju/errors"
 	jujutesting "github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
@@ -80,7 +82,7 @@ func (s *ClientSuite) TestAbort(c *gc.C) {
 
 	uuid := "fake"
 	err := client.Abort(uuid)
-	s.AssertModelCall(c, stub, names.NewModelTag(uuid), "Abort", err)
+	s.AssertModelCall(c, stub, names.NewModelTag(uuid), "Abort", err, true)
 }
 
 func (s *ClientSuite) TestActivate(c *gc.C) {
@@ -88,7 +90,7 @@ func (s *ClientSuite) TestActivate(c *gc.C) {
 
 	uuid := "fake"
 	err := client.Activate(uuid)
-	s.AssertModelCall(c, stub, names.NewModelTag(uuid), "Activate", err)
+	s.AssertModelCall(c, stub, names.NewModelTag(uuid), "Activate", err, true)
 }
 
 func (s *ClientSuite) TestOpenLogTransferStream(c *gc.C) {
@@ -104,12 +106,42 @@ func (s *ClientSuite) TestOpenLogTransferStream(c *gc.C) {
 	)
 }
 
-func (s *ClientSuite) AssertModelCall(c *gc.C, stub *jujutesting.Stub, tag names.ModelTag, call string, err error) {
+func (s *ClientSuite) TestLatestLogTime(c *gc.C) {
+	var stub jujutesting.Stub
+	t1 := time.Date(2016, 12, 1, 10, 31, 0, 0, time.UTC)
+
+	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		target, ok := result.(*time.Time)
+		c.Assert(ok, jc.IsTrue)
+		*target = t1
+		stub.AddCall(objType+"."+request, id, arg)
+		return nil
+	})
+	client := migrationtarget.NewClient(apiCaller)
+	result, err := client.LatestLogTime("fake")
+
+	c.Assert(result, gc.Equals, t1)
+	s.AssertModelCall(c, &stub, names.NewModelTag("fake"), "LatestLogTime", err, false)
+}
+
+func (s *ClientSuite) TestLatestLogTimeError(c *gc.C) {
+	client, stub := s.getClientAndStub(c)
+	result, err := client.LatestLogTime("fake")
+
+	c.Assert(result, gc.Equals, time.Time{})
+	s.AssertModelCall(c, stub, names.NewModelTag("fake"), "LatestLogTime", err, true)
+}
+
+func (s *ClientSuite) AssertModelCall(c *gc.C, stub *jujutesting.Stub, tag names.ModelTag, call string, err error, expectError bool) {
 	expectedArg := params.ModelArgs{ModelTag: tag.String()}
 	stub.CheckCalls(c, []jujutesting.StubCall{
 		{"MigrationTarget." + call, []interface{}{"", expectedArg}},
 	})
-	c.Assert(err, gc.ErrorMatches, "boom")
+	if expectError {
+		c.Assert(err, gc.ErrorMatches, "boom")
+	} else {
+		c.Assert(err, jc.ErrorIsNil)
+	}
 }
 
 type fakeConnector struct {
