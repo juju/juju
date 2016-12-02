@@ -53,8 +53,10 @@ func verifyCertificates() error {
 }
 
 func mustNewCA() (string, string) {
-	utilscert.KeyBits = 512
-	caCert, caKey, err := cert.NewCA("juju testing", "1234-ABCD-IS-NOT-A-REAL-UUID", time.Now().AddDate(10, 0, 0))
+	caCert, caKey, err := cert.NewCA(
+		"juju testing",
+		"1234-ABCD-IS-NOT-A-REAL-UUID",
+		time.Now().AddDate(10, 0, 0))
 	if err != nil {
 		panic(err)
 	}
@@ -62,7 +64,6 @@ func mustNewCA() (string, string) {
 }
 
 func mustNewServer() (string, string) {
-	utilscert.KeyBits = 512
 	var hostnames []string
 	srvCert, srvKey, err := cert.NewServer(CACert, CAKey, time.Now().AddDate(10, 0, 0), hostnames)
 	if err != nil {

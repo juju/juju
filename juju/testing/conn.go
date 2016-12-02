@@ -16,7 +16,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
-	"github.com/juju/utils/cert"
 	"github.com/juju/utils/clock"
 	"github.com/juju/utils/series"
 	"github.com/juju/utils/set"
@@ -113,7 +112,6 @@ func (s *JujuConnSuite) SetUpSuite(c *gc.C) {
 	s.MgoSuite.SetUpSuite(c)
 	s.FakeJujuXDGDataHomeSuite.SetUpSuite(c)
 	s.PatchValue(&utils.OutgoingAccessAllowed, false)
-	s.PatchValue(&cert.KeyBits, 1024) // Use a shorter key for a faster TLS handshake.
 }
 
 func (s *JujuConnSuite) TearDownSuite(c *gc.C) {
