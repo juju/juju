@@ -639,44 +639,35 @@ class TestAssessModelMigration(TestCase):
         bs1.booted_context.return_value = noop_context()
         bs2.existing_booted_context.return_value = noop_context()
 
-        with patch.object(
-                amm,
-                'ensure_migrating_with_insufficient_user_permissions_fails',
-                autospec=True) as m_user:
-            with patch.object(
-                    amm,
-                    'ensure_migrating_with_superuser_user_permissions_succeeds',  # NOQA
-                    autospec=True) as m_super:
-                with patch.object(
-                        amm,
-                        'ensure_able_to_migrate_model_between_controllers',
-                        autospec=True) as m_between:
-                    with patch.object(
-                            amm,
-                            'ensure_migration_rolls_back_on_failure',
-                            autospec=True) as m_rollback:
-                        with patch.object(
-                            amm,
-                            'ensure_migration_of_resources_succeeds',
-                                autospec=True) as m_resource:
+        def patch_amm(target):
+            return patch.object(amm, target, autospec=True)
+
+        patch_user = patch_amm(
+            'ensure_migrating_with_insufficient_user_permissions_fails')
+        patch_super = patch_amm(
+            'ensure_migrating_with_superuser_user_permissions_succeeds')
+        patch_between = patch_amm(
+            'ensure_able_to_migrate_model_between_controllers')
+        patch_rollback = patch_amm('ensure_migration_rolls_back_on_failure')
+        patch_resource = patch_amm('ensure_migration_of_resources_succeeds')
+        patch_back = patch_amm(
+            'ensure_migrating_to_target_and_back_to_source_succeeds')
+        patch_logs = patch_amm('ensure_model_logs_are_migrated')
+        patch_superother = patch_amm(
+            'ensure_superuser_can_migrate_other_user_models')
+        patch_redirects = patch_amm('ensure_api_login_redirects')
+
+        with patch_user as m_user, patch_super as m_super:
+            with patch_between as m_between, patch_rollback as m_rollback:
+                with patch_resource as m_resource, patch_back as m_back:
+                    with patch_logs as m_logs, patch_redirects as m_redirects:
+                        with patch_superother as m_superother:
                             with patch.object(
-                                    amm,
-                                    'ensure_migrating_to_target_and_back_to_source_succeeds',  # NOQA
-                                    autospec=True) as m_back:
-                                with patch.object(
-                                        amm,
-                                        'ensure_model_logs_are_migrated',
-                                        autospec=True) as m_logs:
-                                    with patch.object(
-                                            amm,
-                                            'ensure_superuser_can_migrate_other_user_models',  # NOQA
-                                            autospec=True) as m_superother:
-                                        with patch.object(
-                                                amm, 'temp_dir',
-                                                autospec=True,
-                                                return_value=tmp_ctx()):
-                                            amm.assess_model_migration(
-                                                bs1, bs2, args)
+                                    amm, 'temp_dir',
+                                    autospec=True,
+                                    return_value=tmp_ctx()):
+                                amm.assess_model_migration(
+                                    bs1, bs2, args)
         source_client = bs1.client
         dest_client = bs2.client
         m_user.assert_called_once_with(source_client, dest_client, '/tmp/dir')
@@ -688,6 +679,7 @@ class TestAssessModelMigration(TestCase):
         m_logs.assert_called_once_with(source_client, dest_client)
         m_superother.assert_called_once_with(
             source_client, dest_client, '/tmp/dir')
+        m_redirects.assert_called_once_with(source_client, dest_client)
 
     def test_does_not_run_develop_tests_by_default(self):
         argv = [
