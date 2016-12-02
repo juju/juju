@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/catacomb"
 	"github.com/juju/juju/worker/fortress"
+	"github.com/juju/juju/wrench"
 )
 
 var (
@@ -38,6 +39,11 @@ var (
 	// server. The migrationmaster should not be restarted again in
 	// this case.
 	ErrMigrated = errors.New("model has migrated")
+
+	// utcZero matches the deserialised zero times coming back from
+	// MigrationTarget.LatestLogTime, because they have a non-nil
+	// location.
+	utcZero = time.Time{}.In(time.UTC)
 )
 
 const (
@@ -468,6 +474,7 @@ func (w *Worker) transferLogs(targetInfo coremigration.TargetInfo, modelUUID str
 	if err != nil {
 		return errors.Annotate(err, "getting log start time")
 	}
+	throwWrench := latestLogTime == utcZero && wrench.IsActive("migrationmaster", "die-after-500-log-messages")
 
 	logSource, err := w.config.Facade.StreamModelLog(latestLogTime)
 	if err != nil {
@@ -505,6 +512,11 @@ func (w *Worker) transferLogs(targetInfo coremigration.TargetInfo, modelUUID str
 				return errors.Trace(err)
 			}
 			sent++
+
+			if throwWrench && sent == 500 {
+				// Simulate a connection drop to test restartability.
+				return errors.New("wrench in the works")
+			}
 		case <-logProgress:
 			reportProgress(false, sent)
 			logProgress = clk.After(progressUpdateInterval)
