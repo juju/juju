@@ -91,6 +91,11 @@ func (p *fakeProvider) CloudSchema() *jsonschema.Schema {
 	return nil
 }
 
+// Ping tests the connection to the cloud, to verify the endpoint is valid.
+func (p fakeProvider) Ping(endpoint string) error {
+	return errors.NotImplementedf("Ping")
+}
+
 func (p *fakeProvider) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
 	p.MethodCall(p, "CredentialSchemas")
 	return nil

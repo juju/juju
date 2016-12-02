@@ -4,6 +4,7 @@
 package maas
 
 import (
+	"errors"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -11,8 +12,11 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/juju/gomaasapi"
+
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 	yaml "gopkg.in/yaml.v1"
 
@@ -183,6 +187,42 @@ endpoint: http://foo.com/openstack
 	c.Assert(err, jc.ErrorIsNil)
 
 	p, err := environs.Provider("maas")
+	c.Assert(err, jc.ErrorIsNil)
 	err = p.CloudSchema().Validate(v)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+type MaasPingSuite struct {
+	testing.BaseSuite
+}
+
+var _ = gc.Suite(&MaasPingSuite{})
+
+func (MaasPingSuite) TestPingNoEndpoint(c *gc.C) {
+	p, err := environs.Provider("maas")
+	c.Assert(err, jc.ErrorIsNil)
+	m, ok := p.(MaasEnvironProvider)
+	c.Assert(ok, jc.IsTrue)
+	endpoint := "https://foo.com/MAAS"
+	m.GetCapabilities = func(client *gomaasapi.MAASObject, serverURL string) (set.Strings, error) {
+		c.Assert(serverURL, gc.Equals, endpoint)
+		return nil, errors.New("nope")
+	}
+
+	err = m.Ping(endpoint)
+	c.Assert(err, gc.ErrorMatches, "No MAAS server running at "+endpoint)
+}
+
+func (MaasPingSuite) TestPingOK(c *gc.C) {
+	p, err := environs.Provider("maas")
+	c.Assert(err, jc.ErrorIsNil)
+	m, ok := p.(MaasEnvironProvider)
+	c.Assert(ok, jc.IsTrue)
+	endpoint := "https://foo.com/MAAS"
+	m.GetCapabilities = func(client *gomaasapi.MAASObject, serverURL string) (set.Strings, error) {
+		c.Assert(serverURL, gc.Equals, endpoint)
+		return set.NewStrings("network-deployment-ubuntu"), nil
+	}
+	err = m.Ping(endpoint)
 	c.Assert(err, jc.ErrorIsNil)
 }

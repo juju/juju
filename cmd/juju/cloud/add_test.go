@@ -18,6 +18,7 @@ import (
 
 	cloudfile "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/cloud"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/testing"
 )
 
@@ -259,6 +260,9 @@ func (*addSuite) TestInteractiveOpenstack(c *gc.C) {
 	numCallsToWrite := fake.Call("WritePersonalCloudMetadata", m1Metadata).Returns(nil)
 
 	command := cloud.NewAddCloudCommand(fake)
+	command.Ping = func(environs.EnvironProvider, string) error {
+		return nil
+	}
 	err := testing.InitCommand(command, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -295,6 +299,9 @@ func (*addSuite) TestInteractiveMaas(c *gc.C) {
 	numCallsToWrite := fake.Call("WritePersonalCloudMetadata", m1Metadata).Returns(nil)
 
 	command := cloud.NewAddCloudCommand(fake)
+	command.Ping = func(environs.EnvironProvider, string) error {
+		return nil
+	}
 	err := testing.InitCommand(command, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -323,6 +330,9 @@ func (*addSuite) TestInteractiveManual(c *gc.C) {
 	numCallsToWrite := fake.Call("WritePersonalCloudMetadata", manMetadata).Returns(nil)
 
 	command := cloud.NewAddCloudCommand(fake)
+	command.Ping = func(environs.EnvironProvider, string) error {
+		return nil
+	}
 	err := testing.InitCommand(command, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -373,6 +383,9 @@ func (*addSuite) TestInteractiveVSphere(c *gc.C) {
 	numCallsToWrite := fake.Call("WritePersonalCloudMetadata", vsphereMetadata).Returns(nil)
 
 	command := cloud.NewAddCloudCommand(fake)
+	command.Ping = func(environs.EnvironProvider, string) error {
+		return nil
+	}
 	err := testing.InitCommand(command, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -405,6 +418,9 @@ func (*addSuite) TestInteractiveExistingNameOverride(c *gc.C) {
 	numCallsToWrite := fake.Call("WritePersonalCloudMetadata", manMetadata).Returns(nil)
 
 	command := cloud.NewAddCloudCommand(fake)
+	command.Ping = func(environs.EnvironProvider, string) error {
+		return nil
+	}
 	err := testing.InitCommand(command, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -441,6 +457,9 @@ func (*addSuite) TestInteractiveExistingNameNoOverride(c *gc.C) {
 	numCallsToWrite := fake.Call("WritePersonalCloudMetadata", compoundCloudMetadata).Returns(nil)
 
 	command := cloud.NewAddCloudCommand(fake)
+	command.Ping = func(environs.EnvironProvider, string) error {
+		return nil
+	}
 	err := testing.InitCommand(command, nil)
 	c.Assert(err, jc.ErrorIsNil)
 

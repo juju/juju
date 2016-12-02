@@ -55,6 +55,9 @@ type EnvironProvider struct {
 	// decorate the default networking implementation.
 	// This can be used to override behaviour.
 	NetworkingDecorator NetworkingDecorator
+
+	// ClientFromEndpoint returns an Openstack client for the given endpoint.
+	ClientFromEndpoint func(endpoint string) client.AuthenticatingClient
 }
 
 var (
@@ -68,6 +71,7 @@ var providerInstance *EnvironProvider = &EnvironProvider{
 	FirewallerFactory:   &firewallerFactory{},
 	FlavorFilter:        FlavorFilterFunc(AcceptAllFlavors),
 	NetworkingDecorator: nil,
+	ClientFromEndpoint:  newGooseClient,
 }
 
 var cloudSchema = &jsonschema.Schema{
@@ -185,6 +189,20 @@ func (EnvironProvider) DetectRegions() ([]cloud.Region, error) {
 // CloudSchema returns the schema for adding new clouds of this type.
 func (p EnvironProvider) CloudSchema() *jsonschema.Schema {
 	return cloudSchema
+}
+
+// Ping tests the connection to the cloud, to verify the endpoint is valid.
+func (p EnvironProvider) Ping(endpoint string) error {
+	c := p.ClientFromEndpoint(endpoint)
+	if _, err := c.IdentityAuthOptions(); err != nil {
+		return errors.Wrap(err, errors.Errorf("No Openstack server running at %s", endpoint))
+	}
+	return nil
+}
+
+// newGooseClient is the default function in EnvironProvider.ClientFromEndpoint.
+func newGooseClient(endpoint string) client.AuthenticatingClient {
+	return client.NewClient(&identity.Credentials{URL: endpoint}, 0, nil)
 }
 
 // PrepareConfig is specified in the EnvironProvider interface.

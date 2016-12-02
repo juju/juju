@@ -5,6 +5,8 @@ package openstack
 
 import (
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -361,6 +363,141 @@ func (s *localTests) detectRegions(c *gc.C) ([]cloud.Region, error) {
 	return provider.(environs.CloudRegionDetector).DetectRegions()
 }
 
+func (s *localTests) TestSchema(c *gc.C) {
+	y := []byte(`
+auth-types: [userpass, access-key]
+endpoint: http://foo.com/openstack
+regions: 
+  one:
+    endpoint: http://foo.com/bar
+  two:
+    endpoint: http://foo2.com/bar2
+`[1:])
+	var v interface{}
+	err := yaml.Unmarshal(y, &v)
+	c.Assert(err, jc.ErrorIsNil)
+	v, err = utils.ConformYAML(v)
+	c.Assert(err, jc.ErrorIsNil)
+
+	p, err := environs.Provider("openstack")
+	err = p.CloudSchema().Validate(v)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (localTests) TestPingInvalidHost(c *gc.C) {
+	tests := []string{
+		"foo.com",
+		"http://IHopeNoOneEverBuysThisVerySpecificJujuDomainName.com",
+		"http://IHopeNoOneEverBuysThisVerySpecificJujuDomainName:77",
+	}
+
+	p, err := environs.Provider("openstack")
+	c.Assert(err, jc.ErrorIsNil)
+	for _, t := range tests {
+		err = p.Ping(t)
+		if err == nil {
+			c.Errorf("ping %q: expected error, but got nil.", t)
+			continue
+		}
+		expected := "No Openstack server running at " + t
+		if err.Error() != expected {
+			c.Errorf("ping %q: expected %q got %v", t, expected, err)
+		}
+	}
+}
+func (localTests) TestPingNoEndpoint(c *gc.C) {
+	server := httptest.NewServer(http.HandlerFunc(http.NotFound))
+	defer server.Close()
+	p, err := environs.Provider("openstack")
+	c.Assert(err, jc.ErrorIsNil)
+	err = p.Ping(server.URL)
+	c.Assert(err, gc.ErrorMatches, "No Openstack server running at "+server.URL)
+}
+
+func (localTests) TestPingInvalidResponse(c *gc.C) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, "Hi!")
+	}))
+	defer server.Close()
+	p, err := environs.Provider("openstack")
+	c.Assert(err, jc.ErrorIsNil)
+	err = p.Ping(server.URL)
+	c.Assert(err, gc.ErrorMatches, "No Openstack server running at "+server.URL)
+}
+
+func (localTests) TestPingOK(c *gc.C) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// This line is critical, the openstack provider will reject the message
+		// if you return 200 like a mere mortal.
+		w.WriteHeader(http.StatusMultipleChoices)
+		fmt.Fprint(w, `
+{
+  "versions": {
+    "values": [
+      {
+        "status": "stable",
+        "updated": "2013-03-06T00:00:00Z",
+        "media-types": [
+          {
+            "base": "application/json",
+            "type": "application/vnd.openstack.identity-v3+json"
+          },
+          {
+            "base": "application/xml",
+            "type": "application/vnd.openstack.identity-v3+xml"
+          }
+        ],
+        "id": "v3.0",
+        "links": [
+          {
+            "href": "http://10.24.0.177:5000/v3/",
+            "rel": "self"
+          }
+        ]
+      },
+      {
+        "status": "stable",
+        "updated": "2014-04-17T00:00:00Z",
+        "media-types": [
+          {
+            "base": "application/json",
+            "type": "application/vnd.openstack.identity-v2.0+json"
+          },
+          {
+            "base": "application/xml",
+            "type": "application/vnd.openstack.identity-v2.0+xml"
+          }
+        ],
+        "id": "v2.0",
+        "links": [
+          {
+            "href": "http://10.24.0.177:5000/v2.0/",
+            "rel": "self"
+          },
+          {
+            "href": "http://docs.openstack.org/api/openstack-identity-service/2.0/content/",
+            "type": "text/html",
+            "rel": "describedby"
+          },
+          {
+            "href": "http://docs.openstack.org/api/openstack-identity-service/2.0/identity-dev-guide-2.0.pdf",
+            "type": "application/pdf",
+            "rel": "describedby"
+          }
+        ]
+      }
+    ]
+  }
+}
+`)
+	}))
+	defer server.Close()
+	p, err := environs.Provider("openstack")
+	c.Assert(err, jc.ErrorIsNil)
+	err = p.Ping(server.URL)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 type providerUnitTests struct{}
 
 var _ = gc.Suite(&providerUnitTests{})
@@ -406,25 +543,4 @@ func (s *providerUnitTests) TestIdentityClientVersion_ParsesGoodURL(c *gc.C) {
 
 	_, err = identityClientVersion("https://keystone.internal/")
 	c.Check(err, jc.ErrorIsNil)
-}
-
-func (s *providerUnitTests) TestSchema(c *gc.C) {
-	y := []byte(`
-auth-types: [userpass, access-key]
-endpoint: http://foo.com/openstack
-regions: 
-  one:
-    endpoint: http://foo.com/bar
-  two:
-    endpoint: http://foo2.com/bar2
-`[1:])
-	var v interface{}
-	err := yaml.Unmarshal(y, &v)
-	c.Assert(err, jc.ErrorIsNil)
-	v, err = utils.ConformYAML(v)
-	c.Assert(err, jc.ErrorIsNil)
-
-	p, err := environs.Provider("openstack")
-	err = p.CloudSchema().Validate(v)
-	c.Assert(err, jc.ErrorIsNil)
 }

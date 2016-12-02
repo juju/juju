@@ -53,6 +53,11 @@ func (p joyentProvider) CloudSchema() *jsonschema.Schema {
 	return nil
 }
 
+// Ping tests the connection to the cloud, to verify the endpoint is valid.
+func (p joyentProvider) Ping(endpoint string) error {
+	return errors.NotImplementedf("Ping")
+}
+
 // PrepareConfig is part of the EnvironProvider interface.
 func (p joyentProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {
 	if err := validateCloudSpec(args.Cloud); err != nil {
