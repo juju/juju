@@ -28,9 +28,9 @@ func NewClient(caller base.APICaller) *Client {
 
 // PublishLocalRelationChange publishes local relations changes to the
 // remote side offering those relations.
-func (c *Client) PublishLocalRelationChange(change params.RemoteRelationsChange) error {
+func (c *Client) PublishLocalRelationChange(change params.RemoteRelationChangeEvent) error {
 	args := params.RemoteRelationsChanges{
-		Changes: []params.RemoteRelationsChange{change},
+		Changes: []params.RemoteRelationChangeEvent{change},
 	}
 	var results params.ErrorResults
 	err := c.facade.FacadeCall("PublishLocalRelationChange", args, &results)

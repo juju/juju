@@ -264,9 +264,17 @@ type RemoteRelationResults struct {
 // RemoteApplication describes the current state of an application involved in a cross-
 // model relation, from the perspective of the local environment.
 type RemoteApplication struct {
-	Name   string `json:"name"`
-	Life   Life   `json:"life"`
+	// Name is the name of the application.
+	Name string `json:"name"`
+
+	// Life is the current lifecycle state of the application.
+	Life Life `json:"life"`
+
+	// Status is the current status of the application.
 	Status string `json:"status"`
+
+	// ModelUUID is the UUId of the model hosting the application.
+	ModelUUID string `json:"model-uuid"`
 }
 
 // RemoteApplicationResult holds a remote application and an error.
@@ -310,9 +318,14 @@ type RemoteApplicationWatchResults struct {
 
 // RemoteApplicationChange describes changes to an application.
 type RemoteApplicationChange struct {
-	ApplicationTag string                `json:"application-tag"`
-	Life           Life                  `json:"life"`
-	Relations      RemoteRelationsChange `json:"relations"`
+	// ApplicationTag is the tag of the application.
+	ApplicationTag string `json:"application-tag"`
+
+	// Life is the current lifecycle state of the application.
+	Life Life `json:"life"`
+
+	// Relations are the relations which have changed.
+	Relations RemoteRelationsChange `json:"relations"`
 	// TODO(wallyworld) - status etc
 }
 
@@ -340,7 +353,7 @@ type RemoteRelationsChange struct {
 
 // RemoteRelationsChanges holds a set of RemoteRelationsChange structures.
 type RemoteRelationsChanges struct {
-	Changes []RemoteRelationsChange `json:"changes,omitempty"`
+	Changes []RemoteRelationChangeEvent `json:"changes,omitempty"`
 }
 
 // RemoteRelationChange describes changes to a relation involving
@@ -360,8 +373,29 @@ type RemoteRelationChange struct {
 	DepartedUnits []string `json:"departed-units,omitempty"`
 }
 
-// RemoteRelationUnitChange describes a relation unit change.
+// RemoteRelationUnitChange describes a relation unit change
+// which has occurred in a remote model.
 type RemoteRelationUnitChange struct {
+	// UnitId uniquely identifies the remote unit.
+	UnitId RemoteEntityId `json:"unit-id"`
+
 	// Settings is the current settings for the relation unit.
 	Settings map[string]interface{} `json:"settings,omitempty"`
+}
+
+// RemoteRelationChangeEvent is pushed to the remote model to communicate
+// changes to relation units from the local model.
+type RemoteRelationChangeEvent struct {
+	// RelationId is the remote id of the relation.
+	RelationId RemoteEntityId `json:"relation-id"`
+
+	// Life is the current lifecycle state of the relation.
+	Life Life `json:"life"`
+
+	// ChangedUnits maps unit tokens to relation unit changes.
+	ChangedUnits []RemoteRelationUnitChange `json:"changed-units,omitempty"`
+
+	// DepartedUnits contains the remote ids of units that have departed
+	// the relation since the last change.
+	DepartedUnits []RemoteEntityId `json:"departed-units,omitempty"`
 }

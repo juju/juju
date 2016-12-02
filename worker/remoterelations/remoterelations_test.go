@@ -5,12 +5,12 @@ package remoterelations_test
 
 import (
 	"reflect"
-	"time"
 
 	"github.com/juju/errors"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -128,6 +128,7 @@ func (s *remoteRelationsSuite) assertRemoteRelationsWorkers(c *gc.C) worker.Work
 	expected := []jujutesting.StubCall{
 		{"Relations", []interface{}{[]string{"db2:db django:db"}}},
 		{"WatchLocalRelationUnits", []interface{}{"db2:db django:db"}},
+		{"ExportEntities", []interface{}{[]names.Tag{names.NewRelationTag("db2:db django:db")}}},
 	}
 	s.waitForStubCalls(c, expected)
 
@@ -196,46 +197,52 @@ func (s *remoteRelationsSuite) TestRemoteRelationsRemoved(c *gc.C) {
 }
 
 func (s *remoteRelationsSuite) TestRemoteRelationsChangedNotifies(c *gc.C) {
-	var gotChange watcher.RelationUnitsChange
-	changed := make(chan bool)
-	s.PatchValue(&remoterelations.ObserverRelationUnitsChange,
-		func(change watcher.RelationUnitsChange) error {
-			gotChange = change
-			changed <- true
-			return nil
-		})
 	w := s.assertRemoteRelationsWorkers(c)
 	defer workertest.CleanKill(c, w)
 	s.stub.ResetCalls()
 
 	unitsWatcher, _ := s.relationsFacade.relationsUnitsWatcher("db2:db django:db")
 	unitsWatcher.changes <- watcher.RelationUnitsChange{
-		Changed:  map[string]watcher.UnitSettings{"unit1": {Version: 2}},
-		Departed: []string{"unit2"},
+		Changed:  map[string]watcher.UnitSettings{"unit/1": {Version: 2}},
+		Departed: []string{"unit/2"},
 	}
-	select {
-	case <-changed:
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("waiting for relation changes")
+
+	expected := []jujutesting.StubCall{
+		{"ExportEntities", []interface{}{
+			[]names.Tag{names.NewUnitTag("unit/1"), names.NewUnitTag("unit/2")}}},
+		{"RelationUnitSettings", []interface{}{
+			[]params.RelationUnit{{
+				Relation: "relation-db2.db#django.db",
+				Unit:     "unit-unit-1"}}}},
+		{"PublishLocalRelationChange", []interface{}{
+			params.RemoteRelationChangeEvent{
+				RelationId: params.RemoteEntityId{
+					ModelUUID: "model-uuid",
+					Token:     "token-db2:db django:db"},
+				ChangedUnits: []params.RemoteRelationUnitChange{{
+					UnitId:   params.RemoteEntityId{ModelUUID: "model-uuid", Token: "token-unit/1"},
+					Settings: map[string]interface{}{"foo": "bar"},
+				}},
+				DepartedUnits: []params.RemoteEntityId{{
+					ModelUUID: "model-uuid", Token: "token-unit/2",
+				}},
+			},
+		}},
 	}
-	c.Assert(gotChange, jc.DeepEquals, watcher.RelationUnitsChange{
-		Changed:  map[string]watcher.UnitSettings{"unit1": {Version: 2}},
-		Departed: []string{"unit2"},
-	})
+	s.waitForStubCalls(c, expected)
 }
 
 func (s *remoteRelationsSuite) TestRemoteRelationsChangedError(c *gc.C) {
-	s.PatchValue(&remoterelations.ObserverRelationUnitsChange,
-		func(change watcher.RelationUnitsChange) error {
-			return errors.New("failed")
-		})
 	w := s.assertRemoteRelationsWorkers(c)
+	// Just in case, ensure worker is killed.
+	defer workertest.CheckKill(c, w)
+	s.stub.ResetCalls()
 
+	s.stub.SetErrors(nil, errors.New("failed"))
 	unitsWatcher, _ := s.relationsFacade.relationsUnitsWatcher("db2:db django:db")
 	unitsWatcher.changes <- watcher.RelationUnitsChange{
-		Changed:  map[string]watcher.UnitSettings{"unit1": {Version: 2}},
-		Departed: []string{"unit2"},
+		Departed: []string{"unit/1"},
 	}
 	err := workertest.CheckKilled(c, w)
-	c.Assert(err, gc.ErrorMatches, "failed")
+	c.Assert(err, gc.ErrorMatches, "publishing relation change to remote model: failed")
 }

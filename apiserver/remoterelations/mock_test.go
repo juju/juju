@@ -23,6 +23,7 @@ type mockState struct {
 	applications                 map[string]*mockApplication
 	remoteApplicationsWatcher    *mockStringsWatcher
 	applicationRelationsWatchers map[string]*mockStringsWatcher
+	exportedEntities             map[string]string
 }
 
 func newMockState() *mockState {
@@ -32,6 +33,7 @@ func newMockState() *mockState {
 		applications:                 make(map[string]*mockApplication),
 		remoteApplicationsWatcher:    newMockStringsWatcher(),
 		applicationRelationsWatchers: make(map[string]*mockStringsWatcher),
+		exportedEntities:             make(map[string]string),
 	}
 }
 
@@ -44,7 +46,12 @@ func (st *mockState) ExportLocalEntity(entity names.Tag) (string, error) {
 	if err := st.NextErr(); err != nil {
 		return "", err
 	}
-	return "token-" + entity.Id(), nil
+	if token, ok := st.exportedEntities[entity.Id()]; ok {
+		return token, errors.AlreadyExistsf(entity.Id())
+	}
+	token := "token-" + entity.Id()
+	st.exportedEntities[entity.Id()] = token
+	return token, nil
 }
 
 func (st *mockState) GetRemoteEntity(sourceModel names.ModelTag, token string) (names.Tag, error) {
@@ -235,6 +242,11 @@ func (r *mockRemoteApplication) Status() (status.StatusInfo, error) {
 func (r *mockRemoteApplication) URL() (string, bool) {
 	r.MethodCall(r, "URL")
 	return r.url, r.url != ""
+}
+
+func (r *mockRemoteApplication) SourceModel() names.ModelTag {
+	r.MethodCall(r, "SourceModel")
+	return names.NewModelTag("model-uuid")
 }
 
 func (r *mockRemoteApplication) Destroy() error {
