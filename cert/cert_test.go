@@ -221,23 +221,25 @@ func (certSuite) TestNewServerHostnames(c *gc.C) {
 		expectedDNSNames    []string
 		expectedIPAddresses []net.IP
 	}
-	tests := []test{{
-		[]string{},
-		nil,
-		nil,
-	}, {
-		[]string{"example.com"},
-		[]string{"example.com"},
-		nil,
-	}, {
-		[]string{"example.com", "127.0.0.1"},
-		[]string{"example.com"},
-		[]net.IP{net.IPv4(127, 0, 0, 1).To4()},
-	}, {
-		[]string{"::1"},
-		nil,
-		[]net.IP{net.IPv6loopback},
-	}}
+	tests := []test{
+		{
+			[]string{},
+			nil,
+			nil,
+		}, {
+			[]string{"example.com"},
+			[]string{"example.com"},
+			nil,
+		}, {
+			[]string{"example.com", "127.0.0.1"},
+			[]string{"example.com"},
+			[]net.IP{net.IPv4(127, 0, 0, 1).To4()},
+		}, {
+			[]string{"::1"},
+			nil,
+			[]net.IP{net.IPv6loopback},
+		},
+	}
 	for i, t := range tests {
 		c.Logf("test %d: %v", i, t.hostnames)
 		expiry := roundTime(time.Now().AddDate(1, 0, 0))
