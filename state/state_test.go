@@ -2695,6 +2695,35 @@ func (s *StateSuite) TestRemoveAllModelDocsRemovesLogs(c *gc.C) {
 	assertLogCount(c, st, 0)
 }
 
+func (s *StateSuite) TestRemoveExportingModelDocsRemovesLogTrackers(c *gc.C) {
+	st := s.Factory.MakeModel(c, nil)
+	defer st.Close()
+
+	model, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	err = model.SetMigrationMode(state.MigrationModeExporting)
+	c.Assert(err, jc.ErrorIsNil)
+
+	t1 := state.NewLastSentLogTracker(st, model.UUID(), "go-away")
+	defer t1.Close()
+	t2 := state.NewLastSentLogTracker(st, s.State.ModelUUID(), "stay")
+	defer t2.Close()
+
+	c.Assert(t1.Set(100, 100), jc.ErrorIsNil)
+	c.Assert(t2.Set(100, 100), jc.ErrorIsNil)
+
+	err = st.RemoveExportingModelDocs()
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, _, err = t1.Get()
+	c.Check(errors.Cause(err), gc.Equals, state.ErrNeverForwarded)
+
+	id, count, err := t2.Get()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(id, gc.Equals, int64(100))
+	c.Check(count, gc.Equals, int64(100))
+}
+
 func writeLogs(c *gc.C, st *state.State, n int) {
 	dbLogger := state.NewDbLogger(st)
 	defer dbLogger.Close()
