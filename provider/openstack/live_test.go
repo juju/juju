@@ -92,7 +92,7 @@ func (t *LiveTests) SetUpSuite(c *gc.C) {
 	cl := client.NewClient(t.cred, identity.AuthUserPass, nil)
 	err := cl.Authenticate()
 	c.Assert(err, jc.ErrorIsNil)
-	containerURL, err := cl.MakeServiceURL("object-store", nil)
+	containerURL, err := cl.MakeServiceURL("object-store", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	t.TestConfig = t.TestConfig.Merge(coretesting.Attrs{
 		"agent-metadata-url": containerURL + "/juju-dist-test/tools",

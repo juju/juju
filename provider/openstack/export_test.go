@@ -390,7 +390,7 @@ func ControlBucketName(e environs.Environ) string {
 }
 
 func GetSwiftURL(e environs.Environ) (string, error) {
-	return e.(*environ).client.MakeServiceURL("object-store", nil)
+	return e.(*environ).client.MakeServiceURL("object-store", "", nil)
 }
 
 func SetUseFloatingIP(e environs.Environ, val bool) {

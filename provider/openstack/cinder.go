@@ -308,7 +308,7 @@ func (s *cinderVolumeSource) attachVolume(arg storage.VolumeAttachmentParams) (*
 		arg.Volume,
 		arg.Machine,
 		storage.VolumeAttachmentInfo{
-			DeviceName: novaAttachment.Device[len("/dev/"):],
+			DeviceName: (*novaAttachment.Device)[len("/dev/"):],
 		},
 	}, nil
 }
