@@ -1,3 +1,6 @@
+#!/usr/bin/env python
+
+from contextlib import contextmanager
 import os
 from mock import (
     call,
@@ -12,6 +15,7 @@ from generate_agents import (
     move_debs,
     NoDebsFound,
     retrieve_deb_packages,
+    retrieve_packages,
     )
 from utils import temp_dir
 
@@ -113,6 +117,38 @@ Description: Juju is devops distilled - client
  This package provides the client application of creating and interacting
  with Juju environments.
 """
+
+
+class TestRetrievePackages(TestCase):
+
+    @contextmanager
+    def patch_for_test(self):
+        with patch('generate_agents.print') as print_mock:
+            with patch('generate_agents.datetime') as time_mock:
+                with patch('generate_agents.retrieve_deb_packages',
+                           autospec=True) as deb_mock:
+                    with patch('generate_agents.move_debs') as move_mock:
+                        yield (print_mock, time_mock, deb_mock, move_mock)
+
+    @contextmanager
+    def mock_s3_config(self):
+        with temp_dir() as root_dir:
+            config = os.path.join(root_dir, 's3.config')
+            with open(config, 'w') as file:
+                file.write('Fake Contents')
+            yield config
+
+    def test_retrieve_packages(self):
+        with self.patch_for_test():
+            with self.mock_s3_config() as s3_config:
+                with patch('agent_archive.get_agents') as get_agent_mock:
+                    retrieve_packages('release', 'upatch', 'archives',
+                                      'dest_debs', s3_config)
+        self.assertEqual(1, get_agent_mock.call_count)
+        args = get_agent_mock.call_args[0][0]
+        self.assertEqual(args.version, 'release')
+        self.assertEqual(args.destination, 'dest_debs')
+        self.assertEqual(args.config, s3_config)
 
 
 class TestGetAgentVersion(TestCase):
