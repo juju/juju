@@ -23,6 +23,7 @@ from jujupy import (
     )
 from tests import (
     client_past_deadline,
+    FakeHomeTestCase,
     parse_error,
     TestCase,
 )
@@ -210,6 +211,21 @@ class TestCreateUserOnControllers(TestCase):
                 source_client, dest_client, tmp, 'foo-username', 'write')
         self.assertEqual(new_source, source_client.register_user.return_value)
         self.assertEqual(new_dest, dest_client.register_user.return_value)
+
+
+class TestAssertModelMigratedSuccessfully(TestCase):
+
+    def test_assert_model_migrated_successfully(self):
+        client = Mock()
+        with patch.object(
+                amm, 'test_deployed_mongo_is_up', autospec=True) as m_tdmiu:
+            with patch.object(
+                    amm, 'ensure_model_is_functional',
+                    autospec=True) as m_emif:
+                amm.assert_model_migrated_successfully(client, 'test')
+        client.wait_for_workloads.assert_called_once_with()
+        m_tdmiu.assert_called_once_with(client)
+        m_emif.assert_called_once_with(client, 'test')
 
 
 class TestExpectMigrationAttemptToFail(TestCase):
@@ -461,6 +477,66 @@ class TestDeployMongodbToNewModel(TestCase):
         m_tdmiu.assert_called_once_with(new_model)
 
 
+class TestMigrateModelToController(FakeHomeTestCase):
+
+    def make_clients(self):
+        config = {'type': 'aws', 'region': 'east', 'name': 'model-a'}
+        env = JujuData('model-a', config, juju_home='foo')
+        env.user_name = 'me'
+        source_client = fake_juju_client(env)
+        dest_client = fake_juju_client(env)
+        return source_client, dest_client
+
+    def test_migrate_model_to_controller_owner(self):
+        source_client, dest_client = self.make_clients()
+        mt_client = fake_juju_client(source_client.env)
+        mt_client._backend.controller_state.add_model('model-a')
+        with patch.object(dest_client, 'clone', autospec=True,
+                          return_value=mt_client) as dc_mock:
+            with patch.object(source_client, 'controller_juju',
+                              autospec=True) as cj_mock:
+                with patch('assess_model_migration.wait_for_model',
+                           autospec=True) as wm_mock:
+                    found_client = amm.migrate_model_to_controller(
+                        source_client, dest_client, include_user_name=False)
+        self.assertIs(mt_client, found_client)
+        args, kwargs = dc_mock.call_args
+        self.assertEqual(source_client.env, args[0])
+        wm_mock.assert_called_once_with(mt_client, 'model-a')
+        cj_mock.assert_called_once_with('migrate', ('model-a', 'model-a'))
+
+    def test_migrate_model_to_controller_admin(self):
+        source_client, dest_client = self.make_clients()
+        mt_client = fake_juju_client(source_client.env)
+        mt_client._backend.controller_state.add_model('model-a')
+        with patch.object(dest_client, 'clone', return_value=mt_client):
+            with patch.object(source_client, 'controller_juju') as cj_mock:
+                with patch('assess_model_migration.wait_for_model'):
+                    amm.migrate_model_to_controller(
+                        source_client, dest_client, include_user_name=True)
+        cj_mock.assert_called_once_with('migrate', ('me/model-a', 'model-a'))
+
+    def test_ensure_migrating_with_superuser_user_permissions_succeeds(self):
+        func = amm.ensure_migrating_with_superuser_user_permissions_succeeds
+        source_client, dest_client = self.make_clients()
+        clients = self.make_clients()
+        user_source_client, user_dest_client = clients
+        user_new_model = user_source_client.add_model(
+            user_source_client.env.clone('model-a'))
+        with patch.object(amm, 'create_user_on_controllers', autospec=True,
+                          return_value=clients) as cu_mock:
+            with patch.object(amm, 'migrate_model_to_controller',
+                              autospec=True) as mc_mock:
+                with patch.object(user_source_client, 'add_model',
+                                  autospec=True, return_value=user_new_model):
+                    with patch('assess_model_migration.wait_for_model'):
+                        func(source_client, dest_client, 'home_dir')
+        cu_mock.assert_called_once_with(
+            source_client, dest_client, 'home_dir', 'passuser', 'superuser')
+        mc_mock.assert_called_once_with(
+            user_new_model, user_dest_client, include_user_name=True)
+
+
 class TestDisableAPIServer(TestCase):
 
     def test_starts_and_stops_api_server(self):
@@ -584,9 +660,19 @@ class TestAssessModelMigration(TestCase):
                             'ensure_migration_of_resources_succeeds',
                                 autospec=True) as m_resource:
                             with patch.object(
-                                    amm, 'temp_dir',
-                                    autospec=True, return_value=tmp_ctx()):
-                                amm.assess_model_migration(bs1, bs2, args)
+                                    amm,
+                                    'ensure_migrating_to_target_and_back_to_source_succeeds',  # NOQA
+                                    autospec=True) as m_back:
+                                with patch.object(
+                                        amm,
+                                        'ensure_model_logs_are_migrated',
+                                        autospec=True) as m_logs:
+                                    with patch.object(
+                                            amm, 'temp_dir',
+                                            autospec=True,
+                                            return_value=tmp_ctx()):
+                                        amm.assess_model_migration(
+                                            bs1, bs2, args)
         source_client = bs1.client
         dest_client = bs2.client
         m_user.assert_called_once_with(source_client, dest_client, '/tmp/dir')
@@ -594,6 +680,8 @@ class TestAssessModelMigration(TestCase):
         m_between.assert_called_once_with(source_client, dest_client)
         m_rollback.assert_called_once_with(source_client, dest_client)
         m_resource.assert_called_once_with(source_client, dest_client)
+        m_back.assert_called_once_with(source_client, dest_client)
+        m_logs.assert_called_once_with(source_client, dest_client)
 
     def test_does_not_run_develop_tests_by_default(self):
         argv = [
