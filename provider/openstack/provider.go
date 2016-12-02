@@ -7,7 +7,6 @@ package openstack
 
 import (
 	"fmt"
-	"log"
 	"net/url"
 	"strings"
 	"sync"
@@ -580,18 +579,26 @@ func newCredentials(spec environs.CloudSpec) (identity.Credentials, identity.Aut
 	return cred, authMode
 }
 
+func newMaybeValidatingClient(shouldValidate bool, creds *identity.Credentials, mode identity.AuthMode) client.AuthenticatingClient {
+	newClient := client.NewClient
+	if shouldValidate == false {
+		newClient = client.NewNonValidatingClient
+	}
+	return newClient(creds, mode, nil)
+}
+
 func determineBestClient(
 	options identity.AuthOptions,
 	client client.AuthenticatingClient,
 	cred identity.Credentials,
-	newClient func(*identity.Credentials, identity.AuthMode, *log.Logger) client.AuthenticatingClient,
+	shouldValidate bool,
 ) client.AuthenticatingClient {
 	for _, option := range options {
 		if option.Mode != identity.AuthUserPassV3 {
 			continue
 		}
 		cred.URL = option.Endpoint
-		v3client := newClient(&cred, identity.AuthUserPassV3, nil)
+		v3client := newMaybeValidatingClient(shouldValidate, &cred, identity.AuthUserPassV3)
 		// V3 being advertised is not necessaritly a guarantee that it will
 		// work.
 		err := v3client.Authenticate()
@@ -610,11 +617,8 @@ func authClient(spec environs.CloudSpec, ecfg *environConfig) (client.Authentica
 	}
 	cred, authMode := newCredentials(spec)
 
-	newClient := client.NewClient
-	if ecfg.SSLHostnameVerification() == false {
-		newClient = client.NewNonValidatingClient
-	}
-	client := newClient(&cred, authMode, nil)
+	sslVerification := ecfg.SSLHostnameVerification()
+	client := newMaybeValidatingClient(sslVerification, &cred, authMode)
 
 	// before returning, lets make sure that we want to have AuthMode
 	// AuthUserPass instead of its V3 counterpart.
@@ -623,7 +627,7 @@ func authClient(spec environs.CloudSpec, ecfg *environConfig) (client.Authentica
 		if err != nil {
 			logger.Errorf("cannot determine available auth versions %v", err)
 		} else {
-			client = determineBestClient(options, client, cred, newClient)
+			client = determineBestClient(options, client, cred, sslVerification)
 		}
 	}
 
