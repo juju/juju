@@ -474,6 +474,11 @@ func (w *Worker) transferLogs(targetInfo coremigration.TargetInfo, modelUUID str
 	if err != nil {
 		return errors.Annotate(err, "getting log start time")
 	}
+
+	if latestLogTime != utcZero {
+		w.logger.Debugf("log transfer was interrupted - restarting from %s", latestLogTime)
+	}
+
 	throwWrench := latestLogTime == utcZero && wrench.IsActive("migrationmaster", "die-after-500-log-messages")
 
 	logSource, err := w.config.Facade.StreamModelLog(latestLogTime)

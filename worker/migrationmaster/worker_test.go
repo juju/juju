@@ -1196,7 +1196,9 @@ func (c *stubConnection) APICall(objType string, version int, id, request string
 			return nil
 		case "LatestLogTime":
 			responseTime := response.(*time.Time)
-			*responseTime = c.latestLogTime
+			// This is needed because even if a zero time comes back
+			// from the API it will have a timezone attached.
+			*responseTime = c.latestLogTime.In(time.UTC)
 			return c.latestLogErr
 		}
 	}
