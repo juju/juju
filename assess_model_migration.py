@@ -11,6 +11,7 @@ from subprocess import CalledProcessError
 import sys
 from time import sleep
 from urllib2 import urlopen
+import yaml
 
 from assess_user_grant_revoke import User
 from deploy_stack import (
@@ -23,6 +24,7 @@ from utility import (
     JujuAssertionError,
     add_basic_testing_arguments,
     configure_logging,
+    qualified_model_name,
     get_unit_ipaddress,
     temp_dir,
     until_timeout,
@@ -50,12 +52,19 @@ def assess_model_migration(bs1, bs2, args):
                     source_client, dest_client, temp)
                 ensure_migrating_with_superuser_user_permissions_succeeds(
                     source_client, dest_client, temp)
+                # Tests that require features or bug fixes found in the
+                # 'develop' branch.
+                if args.use_develop:
+                    ensure_superuser_can_migrate_other_user_models(
+                        source_client, dest_client, temp)
+            # These too.
             if args.use_develop:
                 ensure_model_logs_are_migrated(source_client, dest_client)
                 ensure_migration_rolls_back_on_failure(
                     source_client, dest_client)
                 ensure_migration_of_resources_succeeds(
                     source_client, dest_client)
+                ensure_api_login_redirects(source_client, dest_client)
                 ensure_migrating_to_target_and_back_to_source_succeeds(
                     source_client, dest_client)
 
@@ -195,6 +204,60 @@ def assert_model_migrated_successfully(client, application):
     ensure_model_is_functional(client, application)
 
 
+def ensure_api_login_redirects(source_client, dest_client):
+    """Login attempts must get transparently redirected to the new controller.
+    """
+    new_model_client = deploy_dummy_source_to_new_model(
+        source_client, 'api-redirection')
+
+    # show model controller details
+    before_model_details = source_client.show_model()
+    assert_model_has_correct_controller_uuid(source_client)
+
+    log.info('Attempting migration process')
+
+    migrated_model_client = migrate_model_to_controller(
+        new_model_client, dest_client)
+
+    # check show model controller details
+    assert_model_has_correct_controller_uuid(migrated_model_client)
+
+    after_migration_details = migrated_model_client.show_model()
+    before_controller_uuid = before_model_details[
+        source_client.env.environment]['controller-uuid']
+    after_controller_uuid = after_migration_details[
+        migrated_model_client.env.environment]['controller-uuid']
+    if before_controller_uuid == after_controller_uuid:
+        raise JujuAssertionError()
+
+    # Check file for details.
+    assert_data_file_lists_correct_controller_for_model(
+        migrated_model_client,
+        expected_controller=dest_client.controller.name)
+
+
+def assert_data_file_lists_correct_controller_for_model(
+        client, expected_controller):
+    models_path = os.path.join(client, 'models.yaml')
+    with open(models_path, 'rt') as f:
+        models_data = yaml.safe_load(f)
+
+    controller_models = models_data[
+        'controllers'][expected_controller]['models']
+
+    if client.env.environment not in controller_models:
+        raise JujuAssertionError()
+
+
+def assert_model_has_correct_controller_uuid(client):
+    model_details = client.show_model()
+    model_controller_uuid = model_details[
+        client.env.environment]['controller-uuid']
+    controller_uuid = client.get_controller_uuid()
+    if model_controller_uuid != controller_uuid:
+        raise JujuAssertionError()
+
+
 def ensure_migration_of_resources_succeeds(source_client, dest_client):
     """Test simple migration of a model to another controller.
 
@@ -226,6 +289,33 @@ def ensure_migration_of_resources_succeeds(source_client, dest_client):
     ensure_model_is_functional(migration_target_client, application)
     migration_target_client.remove_service(application)
     log.info('SUCCESS: resources migrated')
+
+
+def ensure_superuser_can_migrate_other_user_models(
+        source_client, dest_client, tmp_dir):
+
+    norm_source_client, norm_dest_client = create_user_on_controllers(
+        source_client, dest_client, tmp_dir, 'normaluser', 'addmodel')
+
+    attempt_client = deploy_dummy_source_to_new_model(
+        norm_source_client, 'supernormal-test')
+
+    log.info('Showing all models available.')
+    source_client.controller_juju('models', ('--all',))
+
+    user_qualified_model_name = qualified_model_name(
+        attempt_client.env.environment,
+        attempt_client.env.user_name)
+
+    source_client.controller_juju(
+        'migrate',
+        (user_qualified_model_name, dest_client.env.controller.name))
+
+    migration_client = dest_client.clone(
+        dest_client.env.clone(user_qualified_model_name))
+    wait_for_model(
+        migration_client, user_qualified_model_name)
+    migration_client.wait_for_started()
 
 
 def ensure_migrating_to_target_and_back_to_source_succeeds(

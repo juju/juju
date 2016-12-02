@@ -668,11 +668,15 @@ class TestAssessModelMigration(TestCase):
                                         'ensure_model_logs_are_migrated',
                                         autospec=True) as m_logs:
                                     with patch.object(
-                                            amm, 'temp_dir',
-                                            autospec=True,
-                                            return_value=tmp_ctx()):
-                                        amm.assess_model_migration(
-                                            bs1, bs2, args)
+                                            amm,
+                                            'ensure_superuser_can_migrate_other_user_models',  # NOQA
+                                            autospec=True) as m_superother:
+                                        with patch.object(
+                                                amm, 'temp_dir',
+                                                autospec=True,
+                                                return_value=tmp_ctx()):
+                                            amm.assess_model_migration(
+                                                bs1, bs2, args)
         source_client = bs1.client
         dest_client = bs2.client
         m_user.assert_called_once_with(source_client, dest_client, '/tmp/dir')
@@ -682,6 +686,8 @@ class TestAssessModelMigration(TestCase):
         m_resource.assert_called_once_with(source_client, dest_client)
         m_back.assert_called_once_with(source_client, dest_client)
         m_logs.assert_called_once_with(source_client, dest_client)
+        m_superother.assert_called_once_with(
+            source_client, dest_client, '/tmp/dir')
 
     def test_does_not_run_develop_tests_by_default(self):
         argv = [
