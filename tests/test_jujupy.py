@@ -2150,7 +2150,7 @@ class TestEnvJujuClient(ClientTest):
                 controller_uuid
             )
             m_get_juju_output.assert_called_once_with(
-                'show-controller', '--format', 'yaml', include_e=False)
+                'show-controller', '--format', 'yaml', 'foo', include_e=False)
 
     def test_get_controller_client(self):
         client = EnvJujuClient(

@@ -2201,7 +2201,10 @@ class EnvJujuClient:
     def get_controller_uuid(self):
         name = self.env.controller.name
         output_yaml = self.get_juju_output(
-            'show-controller', '--format', 'yaml', include_e=False)
+            'show-controller',
+            '--format', 'yaml',
+            name,
+            include_e=False)
         output = yaml.safe_load(output_yaml)
         return output[name]['details']['uuid']
 
