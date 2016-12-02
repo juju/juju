@@ -75,9 +75,12 @@ func NewObserverFactory(config Config) (observer.ObserverFactory, error) {
 		Help:      "Latency of Juju API requests in seconds.",
 	}, metricLabelNames)
 
+	config.PrometheusRegisterer.Unregister(apiRequestsTotal)
 	if err := config.PrometheusRegisterer.Register(apiRequestsTotal); err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	config.PrometheusRegisterer.Unregister(apiRequestDuration)
 	if err := config.PrometheusRegisterer.Register(apiRequestDuration); err != nil {
 		return nil, errors.Trace(err)
 	}
