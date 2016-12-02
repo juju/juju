@@ -153,10 +153,14 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		// tools can actually be found, or else bootstrap won't complete.
 		stream := envtools.PreferredStream(&desiredVersion, args.ControllerModelConfig.Development(), args.ControllerModelConfig.AgentStream())
 		logger.Infof("newer tools requested, looking for %v in stream %v", desiredVersion, stream)
+		hostSeries, err := series.HostSeries()
+		if err != nil {
+			return errors.Trace(err)
+		}
 		filter := tools.Filter{
 			Number: desiredVersion,
 			Arch:   arch.HostArch(),
-			Series: series.HostSeries(),
+			Series: hostSeries,
 		}
 		_, toolsErr := envtools.FindTools(env, -1, -1, stream, filter)
 		if toolsErr == nil {
@@ -359,10 +363,14 @@ func (c *BootstrapCommand) populateTools(st *state.State, env environs.Environ) 
 	agentConfig := c.CurrentConfig()
 	dataDir := agentConfig.DataDir()
 
+	hostSeries, err := series.HostSeries()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	current := version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
-		Series: series.HostSeries(),
+		Series: hostSeries,
 	}
 	tools, err := agenttools.ReadTools(dataDir, current)
 	if err != nil {

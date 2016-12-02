@@ -157,7 +157,7 @@ func (s *MongoSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *MongoSuite) patchSeries(ser string) {
-	s.PatchValue(&series.HostSeries, func() string { return ser })
+	s.PatchValue(&series.MustHostSeries, func() string { return ser })
 }
 
 func (s *MongoSuite) TestJujuMongodPath(c *gc.C) {

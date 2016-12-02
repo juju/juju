@@ -138,7 +138,11 @@ func newService(name string, conf common.Conf, initSystem, series string) (Servi
 
 // ListServices lists all installed services on the running system
 func ListServices() ([]string, error) {
-	initName, err := VersionInitSystem(series.HostSeries())
+	hostSeries, err := series.HostSeries()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	initName, err := VersionInitSystem(hostSeries)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

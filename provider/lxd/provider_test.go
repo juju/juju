@@ -24,7 +24,7 @@ import (
 // backported to wily... so we have this:|
 // TODO(redir): Remove after wiley or in yakkety.
 func skipIfWily(c *gc.C) {
-	if series.HostSeries() == "wily" {
+	if series.MustHostSeries() == "wily" {
 		cfg, _ := lxdclient.Config{}.WithDefaults()
 		_, err := lxdclient.Connect(cfg, false)
 		// We try to create a client here. On wily this should fail, because

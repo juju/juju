@@ -305,7 +305,7 @@ func (s *toolsSuite) TestDownloadModelUUIDPath(c *gc.C) {
 	v := version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
-		Series: series.HostSeries(),
+		Series: series.MustHostSeries(),
 	}
 	tools := s.storeFakeTools(c, s.State, "abc", binarystorage.Metadata{
 		Version: v.String(),
@@ -320,7 +320,7 @@ func (s *toolsSuite) TestDownloadOtherModelUUIDPath(c *gc.C) {
 	v := version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
-		Series: series.HostSeries(),
+		Series: series.MustHostSeries(),
 	}
 	tools := s.storeFakeTools(c, envState, "abc", binarystorage.Metadata{
 		Version: v.String(),
@@ -334,7 +334,7 @@ func (s *toolsSuite) TestDownloadTopLevelPath(c *gc.C) {
 	v := version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
-		Series: series.HostSeries(),
+		Series: series.MustHostSeries(),
 	}
 	tools := s.storeFakeTools(c, s.State, "abc", binarystorage.Metadata{
 		Version: v.String(),
@@ -368,7 +368,7 @@ func (s *toolsSuite) TestDownloadFetchesAndVerifiesSize(c *gc.C) {
 	current := version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
-		Series: series.HostSeries(),
+		Series: series.MustHostSeries(),
 	}
 	tools := envtesting.AssertUploadFakeToolsVersions(c, stor, "released", "released", current)[0]
 	err := stor.Put(envtools.StorageName(tools.Version, "released"), strings.NewReader("!"), 1)
@@ -387,7 +387,7 @@ func (s *toolsSuite) TestDownloadFetchesAndVerifiesHash(c *gc.C) {
 	current := version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
-		Series: series.HostSeries(),
+		Series: series.MustHostSeries(),
 	}
 	tools := envtesting.AssertUploadFakeToolsVersions(c, stor, "released", "released", current)[0]
 	sameSize := strings.Repeat("!", int(tools.Size))
@@ -458,7 +458,7 @@ func (s *toolsSuite) TestDownloadRejectsWrongModelUUIDPath(c *gc.C) {
 	current := version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
-		Series: series.HostSeries(),
+		Series: series.MustHostSeries(),
 	}
 	resp := s.downloadRequest(c, current, "dead-beef-123456")
 	s.assertErrorResponse(c, resp, http.StatusNotFound, `unknown model: "dead-beef-123456"`)

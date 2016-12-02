@@ -66,7 +66,7 @@ func (s *UpgradeSuite) SetUpTest(c *gc.C) {
 	s.oldVersion = version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
-		Series: series.HostSeries(),
+		Series: series.MustHostSeries(),
 	}
 	s.oldVersion.Major = 1
 	s.oldVersion.Minor = 16
@@ -480,7 +480,7 @@ func makeBumpedCurrentVersion() version.Binary {
 	v := version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
-		Series: series.HostSeries(),
+		Series: series.MustHostSeries(),
 	}
 	v.Build++
 	v.Tag = ""

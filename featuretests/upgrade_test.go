@@ -63,7 +63,7 @@ func (s *upgradeSuite) SetUpTest(c *gc.C) {
 	s.oldVersion = version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
-		Series: series.HostSeries(),
+		Series: series.MustHostSeries(),
 	}
 	s.oldVersion.Major = 1
 	s.oldVersion.Minor = 16
@@ -200,7 +200,7 @@ func (s *upgradeSuite) TestDowngradeOnMasterWhenOtherControllerDoesntStartUpgrad
 		current := version.Binary{
 			Number: jujuversion.Current,
 			Arch:   arch.HostArch(),
-			Series: series.HostSeries(),
+			Series: series.MustHostSeries(),
 		}
 		c.Assert(upgradeReadyErr.OldTools, gc.Equals, current)
 		c.Assert(upgradeReadyErr.NewTools, gc.Equals, s.oldVersion)

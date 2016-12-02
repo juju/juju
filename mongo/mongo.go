@@ -410,8 +410,7 @@ func EnsureServer(args EnsureServerParams) error {
 		}
 	}
 
-	operatingsystem := series.HostSeries()
-	if err := installMongod(operatingsystem, args.SetNUMAControlPolicy); err != nil {
+	if err := installMongod(series.MustHostSeries(), args.SetNUMAControlPolicy); err != nil {
 		// This isn't treated as fatal because the Juju MongoDB
 		// package is likely to be already installed anyway. There
 		// could just be a temporary issue with apt-get/yum/whatever

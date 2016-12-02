@@ -47,10 +47,10 @@ const (
 
 // These are base values used for the corresponding defaults.
 var (
-	logDir          = paths.MustSucceed(paths.LogDir(series.HostSeries()))
-	dataDir         = paths.MustSucceed(paths.DataDir(series.HostSeries()))
-	confDir         = paths.MustSucceed(paths.ConfDir(series.HostSeries()))
-	metricsSpoolDir = paths.MustSucceed(paths.MetricsSpoolDir(series.HostSeries()))
+	logDir          = paths.MustSucceed(paths.LogDir(series.MustHostSeries()))
+	dataDir         = paths.MustSucceed(paths.DataDir(series.MustHostSeries()))
+	confDir         = paths.MustSucceed(paths.ConfDir(series.MustHostSeries()))
+	metricsSpoolDir = paths.MustSucceed(paths.MetricsSpoolDir(series.MustHostSeries()))
 )
 
 // Agent exposes the agent's configuration to other components. This

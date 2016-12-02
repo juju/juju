@@ -193,7 +193,7 @@ func intPtr(i uint64) *uint64 {
 }
 
 func (s *bootstrapSuite) TestBootstrapImage(c *gc.C) {
-	s.PatchValue(&series.HostSeries, func() string { return "precise" })
+	s.PatchValue(&series.MustHostSeries, func() string { return "precise" })
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 
 	metadataDir, metadata := createImageMetadata(c)
@@ -271,7 +271,7 @@ type testImageMetadata struct {
 // setupImageMetadata returns architecture for which metadata was setup
 func (s *bootstrapSuite) setupImageMetadata(c *gc.C) testImageMetadata {
 	testArch := arch.S390X
-	s.PatchValue(&series.HostSeries, func() string { return "precise" })
+	s.PatchValue(&series.MustHostSeries, func() string { return "precise" })
 	s.PatchValue(&arch.HostArch, func() string { return testArch })
 
 	metadataDir, metadata := createImageMetadataForArch(c, testArch)
@@ -373,7 +373,7 @@ func (s *bootstrapSuite) setupProviderWithNoSupportedArches(c *gc.C) bootstrapEn
 // despite image metadata in other data sources compatible with the same configuration as well.
 // Related to bug#1560625.
 func (s *bootstrapSuite) TestBootstrapImageMetadataFromAllSources(c *gc.C) {
-	s.PatchValue(&series.HostSeries, func() string { return "raring" })
+	s.PatchValue(&series.MustHostSeries, func() string { return "raring" })
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 
 	// Ensure that we can find at least one image metadata
@@ -1073,7 +1073,7 @@ func (s *bootstrapSuite) setupBootstrapSpecificVersion(c *gc.C, clientMajor, cli
 	currentVersion.Minor = clientMinor
 	currentVersion.Tag = ""
 	s.PatchValue(&jujuversion.Current, currentVersion)
-	s.PatchValue(&series.HostSeries, func() string { return "trusty" })
+	s.PatchValue(&series.MustHostSeries, func() string { return "trusty" })
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 
 	env := newEnviron("foo", useDefaultKeys, nil)
@@ -1239,7 +1239,7 @@ func (e *bootstrapEnviron) Bootstrap(ctx environs.BootstrapContext, args environ
 		e.instanceConfig = icfg
 		return nil
 	}
-	series := series.HostSeries()
+	series := series.MustHostSeries()
 	if args.BootstrapSeries != "" {
 		series = args.BootstrapSeries
 	}

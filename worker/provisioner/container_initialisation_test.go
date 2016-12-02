@@ -179,7 +179,7 @@ func (s *ContainerSetupSuite) TestContainerProvisionerStarted(c *gc.C) {
 		current := version.Binary{
 			Number: jujuversion.Current,
 			Arch:   arch.HostArch(),
-			Series: series.HostSeries(),
+			Series: series.MustHostSeries(),
 		}
 		err = m.SetAgentVersion(current)
 		c.Assert(err, jc.ErrorIsNil)
@@ -212,7 +212,7 @@ func (s *ContainerSetupSuite) testContainerConstraintsArch(c *gc.C, containerTyp
 	s.PatchValue(&provisioner.StartProvisioner, func(runner worker.Runner, containerType instance.ContainerType,
 		pr *apiprovisioner.State, cfg agent.Config, broker environs.InstanceBroker,
 		toolsFinder provisioner.ToolsFinder) error {
-		toolsFinder.FindTools(jujuversion.Current, series.HostSeries(), arch.AMD64)
+		toolsFinder.FindTools(jujuversion.Current, series.MustHostSeries(), arch.AMD64)
 		return nil
 	})
 
@@ -228,7 +228,7 @@ func (s *ContainerSetupSuite) testContainerConstraintsArch(c *gc.C, containerTyp
 	current := version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
-		Series: series.HostSeries(),
+		Series: series.MustHostSeries(),
 	}
 	err = m.SetAgentVersion(current)
 	c.Assert(err, jc.ErrorIsNil)
@@ -263,7 +263,7 @@ func (s *ContainerSetupSuite) assertContainerInitialised(c *gc.C, cont Container
 	}
 	s.PatchValue(&provisioner.StartProvisioner, startProvisionerWorker)
 
-	current_os, err := series.GetOSFromSeries(series.HostSeries())
+	current_os, err := series.GetOSFromSeries(series.MustHostSeries())
 	c.Assert(err, jc.ErrorIsNil)
 
 	var ser string
@@ -293,7 +293,7 @@ func (s *ContainerSetupSuite) assertContainerInitialised(c *gc.C, cont Container
 	current := version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
-		Series: series.HostSeries(),
+		Series: series.MustHostSeries(),
 	}
 	err = m.SetAgentVersion(current)
 	c.Assert(err, jc.ErrorIsNil)
@@ -339,7 +339,7 @@ func (s *ContainerSetupSuite) TestContainerInitLockError(c *gc.C) {
 	current := version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
-		Series: series.HostSeries(),
+		Series: series.MustHostSeries(),
 	}
 	err = m.SetAgentVersion(current)
 	c.Assert(err, jc.ErrorIsNil)
