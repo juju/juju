@@ -749,6 +749,8 @@ class StatusItem:
             else:
                 return MachineError(self.item_name, self.message)
         elif self.JUJU == self.status_name:
+            if self.since is None:
+                return AgentError(self.item_name, self.message)
             time_since = datetime.now(tz.gettz('UTC')) - self.datetime_since
             if time_since > AgentUnresolvedError.a_reasonable_time:
                 return AgentUnresolvedError(self.item_name, self.message,
