@@ -17,6 +17,10 @@ from itertools import chain
 import json
 import logging
 import os
+try:
+    from past.builtins import basestring
+except ImportError:
+    pass
 import re
 import shutil
 import subprocess
@@ -249,11 +253,11 @@ class VotingNotEnabled(StatusNotMet):
 
 
 @contextmanager
-def temp_yaml_file(yaml_dict):
+def temp_yaml_file(yaml_dict, encoding="utf-8"):
     temp_file = NamedTemporaryFile(suffix='.yaml', delete=False)
     try:
         with temp_file:
-            yaml.safe_dump(yaml_dict, temp_file)
+            yaml.safe_dump(yaml_dict, temp_file, encoding=encoding)
         yield temp_file.name
     finally:
         os.unlink(temp_file.name)
@@ -1254,7 +1258,7 @@ def client_from_config(config, juju_path, debug=False, soft_deadline=None):
         enforced.
     """
     version = EnvJujuClient.get_version(juju_path)
-    client_class = get_client_class(version)
+    client_class = get_client_class(str(version))
     env = client_class.config_class.from_config(config)
     if juju_path is None:
         full_path = EnvJujuClient.get_full_path()
@@ -1401,7 +1405,8 @@ class EnvJujuClient:
         """
         if juju_path is None:
             juju_path = 'juju'
-        return subprocess.check_output((juju_path, '--version')).strip()
+        version = subprocess.check_output((juju_path, '--version')).strip()
+        return version.decode("utf-8")
 
     def check_timeouts(self):
         return self._backend._check_timeouts()
@@ -1814,7 +1819,7 @@ class EnvJujuClient:
                 return self.status_class.from_text(
                     self.get_juju_output(
                         self._show_status, '--format', 'yaml',
-                        controller=controller))
+                        controller=controller).decode('utf-8'))
             except subprocess.CalledProcessError:
                 pass
         raise StatusTimeout(
