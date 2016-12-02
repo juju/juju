@@ -72,6 +72,7 @@ from jujupy import (
     NameNotAccepted,
     NoProvider,
     parse_new_state_server_from_error,
+    ProvisioningError,
     SimpleEnvironment,
     SoftDeadlineExceeded,
     Status,
@@ -5510,6 +5511,11 @@ class TestStatusItem(TestCase):
         item = self.make_status_item(StatusItem.MACHINE, '0', current='error')
         self.assertIsType(item.to_exception(), MachineError)
 
+    def test_to_exception_provisioning_error(self):
+        item = self.make_status_item(StatusItem.MACHINE, '0',
+                                     current='provisioning error')
+        self.assertIsType(item.to_exception(), ProvisioningError)
+
     def test_to_exception_app_error(self):
         item = self.make_status_item(StatusItem.APPLICATION, '0',
                                      current='error')
@@ -5542,6 +5548,10 @@ class TestStatusItem(TestCase):
 
     def test_to_exception_agent_error(self):
         item = self.make_agent_item_ago(minutes=3)
+        self.assertIsType(item.to_exception(), AgentError)
+
+    def test_to_exception_agent_error_no_since(self):
+        item = self.make_status_item(StatusItem.JUJU, '0', current='error')
         self.assertIsType(item.to_exception(), AgentError)
 
     def test_to_exception_agent_unresolved_error(self):
