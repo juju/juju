@@ -3,7 +3,6 @@ from __future__ import print_function
 
 from argparse import (
     ArgumentParser,
-    Namespace,
     )
 from datetime import datetime
 import errno
@@ -12,7 +11,7 @@ import shutil
 import subprocess
 import sys
 
-from agent_archive import get_agents
+from agent_archive import parse_args as parse_archive_args
 from make_agent_json import StanzaWriter
 
 
@@ -24,11 +23,10 @@ def retrieve_packages(release, dest_debs, s3_config):
         print(
             'checking s3://juju-qa-data/agent-archive for'
             ' {}.'.format(release))
-        args = Namespace(
-            version=release, destination=dest_debs, config=s3_config,
-            dry_run=False, verbose=False)
         try:
-            get_agents(args)
+            args = parse_archive_args([
+                '--config', s3_config, 'get', release, dest_debs])
+            args.func(args)
         except subprocess.CalledProcessError as e:
             print()
             sys.stderr.write(e.output)
@@ -63,7 +61,7 @@ def make_ubuntu_agent(dest_debs, agent_stream, release):
         agent_path = os.path.join(dest_debs, writer.path)
         shutil.copy2(tarfile, agent_path)
         arch_name = '{}-{}'.format(arch, writer.filename)
-        os.rename(writer.filename, os.path.join(dest_debs, arch_name))
+        shutil.move(writer.filename, os.path.join(dest_debs, arch_name))
 
 
 def make_windows_agent(dest_debs, agent_stream, release):
@@ -77,7 +75,7 @@ def make_windows_agent(dest_debs, agent_stream, release):
     writer.write_stanzas()
     agent_path = os.path.join(dest_debs, writer.path)
     move_create_parent(target, agent_path)
-    os.rename(writer.filename, os.path.join(dest_debs, writer.filename))
+    shutil.move(writer.filename, os.path.join(dest_debs, writer.filename))
 
 
 def make_centos_agent(dest_debs, agent_stream, release):
@@ -88,7 +86,7 @@ def make_centos_agent(dest_debs, agent_stream, release):
     writer.write_stanzas()
     agent_path = os.path.join(dest_debs, writer.path)
     shutil.copy2(tarfile, agent_path)
-    os.rename(writer.filename, os.path.join(dest_debs, writer.filename))
+    shutil.move(writer.filename, os.path.join(dest_debs, writer.filename))
 
 
 def main():
