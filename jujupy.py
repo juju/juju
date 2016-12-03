@@ -1684,6 +1684,7 @@ class EnvJujuClient:
             'client-email',
             'client-id',
             'control-bucket',
+            'host',
             'location',
             'maas-oauth',
             'maas-server',
