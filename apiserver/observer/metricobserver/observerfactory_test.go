@@ -62,3 +62,7 @@ func (r *fakePrometheusRegisterer) Register(c prometheus.Collector) error {
 	r.MethodCall(r, "Register", c)
 	return r.NextErr()
 }
+
+func (r *fakePrometheusRegisterer) Unregister(c prometheus.Collector) bool {
+	return true
+}
