@@ -166,7 +166,7 @@ func newDefaultUpdater(md *imagedownloads.Metadata, pathfinder func(string) (str
 }
 
 // Sync updates the local cached images by reading the simplestreams
-// data and updating the locally cached images. It retrieves metadata
+// data and updating if necessary. It retrieves metadata
 // information from Oner and updates local cache(s) via Updater.
 func Sync(o Oner, u Updater) error {
 	md, err := o.One()
@@ -220,7 +220,7 @@ func (i *Image) Close() error {
 	return err
 }
 
-// write saves the stream to disk and updates the metadata file as well.
+// write saves the stream to disk and updates the metadata file.
 func (i *Image) write(r io.Reader, md *imagedownloads.Metadata) error {
 	// First empty the existing file.
 	err := i.fileHandle.Truncate(0)
