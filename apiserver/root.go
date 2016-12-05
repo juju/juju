@@ -180,7 +180,12 @@ func (r *apiRoot) FindMethod(rootName string, version int, methodName string) (r
 			// check.
 			return reflect.Value{}, err
 		}
-		obj, err := factory(r.state, r.resources, r.authorizer, id)
+		dispose := func() {
+			r.objectMutex.Lock()
+			defer r.objectMutex.Unlock()
+			delete(r.objectCache, objKey)
+		}
+		obj, err := factory(r.state, r.resources, r.authorizer, id, dispose)
 		if err != nil {
 			return reflect.Value{}, err
 		}

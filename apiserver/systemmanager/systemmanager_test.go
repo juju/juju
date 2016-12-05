@@ -190,7 +190,13 @@ func (s *systemManagerSuite) TestWatchAllEnvs(c *gc.C) {
 	watcherId, err := s.systemManager.WatchAllEnvs()
 	c.Assert(err, jc.ErrorIsNil)
 
-	watcherAPI_, err := apiserver.NewAllWatcher(s.State, s.resources, s.authorizer, watcherId.AllWatcherId)
+	watcherAPI_, err := apiserver.NewAllWatcher(
+		s.State,
+		s.resources,
+		s.authorizer,
+		watcherId.AllWatcherId,
+		func() {},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	watcherAPI := watcherAPI_.(*apiserver.SrvAllWatcher)
 	defer func() {
