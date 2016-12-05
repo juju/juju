@@ -246,36 +246,36 @@ func (s *bridgeConfigSuite) dryRunExpectedOutputHelper(isBonded, isAlreadyBridge
 	return output
 }
 
-func (s *bridgeConfigSuite) TestBashBridgeScriptWithoutBondedInterfaceSingle(c *gc.C) {
-	bridgePrefix := "TestBashBridgeScriptWithoutBondedInterfaceSingle"
+func (s *bridgeConfigSuite) TestBridgeScriptWithoutBondedInterfaceSingle(c *gc.C) {
+	bridgePrefix := "TestBridgeScriptWithoutBondedInterfaceSingle"
 	interfacesToBridge := []string{"eth0"}
 	expectedOutput := s.dryRunExpectedOutputHelper(false, false, bridgePrefix, interfacesToBridge)
 	s.assertScriptWithActivationAndDryRun(c, networkDHCPInitial, expectedOutput, bridgePrefix, interfacesToBridge)
 }
 
-func (s *bridgeConfigSuite) TestBashBridgeScriptWithoutBondedInterfaceMultiple(c *gc.C) {
-	bridgePrefix := "TestBashBridgeScriptWithoutBondedInterfaceMultiple"
+func (s *bridgeConfigSuite) TestBridgeScriptWithoutBondedInterfaceMultiple(c *gc.C) {
+	bridgePrefix := "TestBridgeScriptWithoutBondedInterfaceMultiple"
 	interfacesToBridge := []string{"eth0", "eth1"}
 	expectedOutput := s.dryRunExpectedOutputHelper(false, false, bridgePrefix, interfacesToBridge)
 	s.assertScriptWithActivationAndDryRun(c, networkDHCPInitial, expectedOutput, bridgePrefix, interfacesToBridge)
 }
 
-func (s *bridgeConfigSuite) TestBashBridgeScriptWithBondedInterfaceSingle(c *gc.C) {
-	bridgePrefix := "TestBashBridgeScriptWithBondedInterfaceSingle"
+func (s *bridgeConfigSuite) TestBridgeScriptWithBondedInterfaceSingle(c *gc.C) {
+	bridgePrefix := "TestBridgeScriptWithBondedInterfaceSingle"
 	interfacesToBridge := []string{"bond0"}
 	expectedOutput := s.dryRunExpectedOutputHelper(true, false, bridgePrefix, interfacesToBridge)
 	s.assertScriptWithActivationAndDryRun(c, networkDHCPWithBondInitial, expectedOutput, bridgePrefix, interfacesToBridge)
 }
 
-func (s *bridgeConfigSuite) TestBashBridgeScriptWithBondedInterfaceMultiple(c *gc.C) {
-	bridgePrefix := "TestBashBridgeScriptWithBondedInterfaceMultiple"
+func (s *bridgeConfigSuite) TestBridgeScriptWithBondedInterfaceMultiple(c *gc.C) {
+	bridgePrefix := "TestBridgeScriptWithBondedInterfaceMultiple"
 	interfacesToBridge := []string{"bond0", "bond1"}
 	expectedOutput := s.dryRunExpectedOutputHelper(true, false, bridgePrefix, interfacesToBridge)
 	s.assertScriptWithActivationAndDryRun(c, networkDHCPWithBondInitial, expectedOutput, bridgePrefix, interfacesToBridge)
 }
 
-func (s *bridgeConfigSuite) TestBashBridgeScriptWithBondedInterfaceAlreadyBridged(c *gc.C) {
-	bridgePrefix := "TestBashBridgeScriptWithBondedInterfaceAlreadyBridged"
+func (s *bridgeConfigSuite) TestBridgeScriptWithBondedInterfaceAlreadyBridged(c *gc.C) {
+	bridgePrefix := "TestBridgeScriptWithBondedInterfaceAlreadyBridged"
 	interfacesToBridge := []string{"br-eth1"}
 	expectedOutput := []string{"already bridged, or nothing to do."}
 	s.assertScriptWithActivationAndDryRun(c, networkPartiallyBridgedInitial, expectedOutput, bridgePrefix, interfacesToBridge)
