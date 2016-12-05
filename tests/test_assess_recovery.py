@@ -230,6 +230,11 @@ class TestHA(FakeHomeTestCase):
         self.assertIsFalse(bs_manager.has_controller)
 
 
+def make_bs_manager(client):
+    return BootstrapManager('foo', client, client, None, [], None, None, None,
+                            None, None, None, None, None)
+
+
 @patch('assess_recovery.wait_for_state_server_to_shutdown', autospec=True)
 @patch('assess_recovery.terminate_instances', autospec=True)
 class TestDeleteControllerMembers(FakeHomeTestCase):
@@ -334,9 +339,7 @@ class TestDeleteControllerMembers(FakeHomeTestCase):
 
     def test_leader_only_has_controller(self, ti_mock, wsss_mock):
         client = fake_juju_client()
-        bs_manager = BootstrapManager('foo', client, client, None, [], None,
-                                      None, None, None, None, None, None,
-                                      None)
+        bs_manager = make_bs_manager(client)
         client.bootstrap()
         bs_manager.has_controller = True
         delete_controller_members(
@@ -345,9 +348,7 @@ class TestDeleteControllerMembers(FakeHomeTestCase):
 
     def test_no_leader_only_has_controller(self, ti_mock, wsss_mock):
         client = fake_juju_client()
-        bs_manager = BootstrapManager('foo', client, client, None, [], None,
-                                      None, None, None, None, None, None,
-                                      None)
+        bs_manager = make_bs_manager(client)
         client.bootstrap()
         bs_manager.has_controller = True
         delete_controller_members(
@@ -365,7 +366,7 @@ class TestRestoreMissingStateServer(FakeHomeTestCase):
                    autospec=True, return_value='Token: Two'):
             with patch('assess_recovery.show_controller', autospec=True):
                 restore_missing_state_server(
-                    client, controller_client, 'backup_file',
+                    make_bs_manager(client), controller_client, 'backup_file',
                     check_controller=True)
         controller_client.restore_backup.assert_called_once_with('backup_file')
         controller_client.wait_for_started.assert_called_once_with(600)
@@ -382,9 +383,21 @@ class TestRestoreMissingStateServer(FakeHomeTestCase):
                    autospec=True, return_value='Token: Two'):
             with patch('assess_recovery.show_controller', autospec=True):
                 restore_missing_state_server(
-                    client, controller_client, 'backup_file',
+                    make_bs_manager(client), controller_client, 'backup_file',
                     check_controller=False)
         self.assertEqual(0, controller_client.wait_for_started.call_count)
+
+    def test_set_has_controller(self):
+        client = fake_juju_client()
+        client.bootstrap()
+        client.deploy('dummy-sink')
+        controller_client = client.get_controller_client()
+        bs_manager = make_bs_manager(client)
+        with patch('assess_recovery.get_token_from_status',
+                   return_value='Two'):
+            restore_missing_state_server(bs_manager, controller_client,
+                                         'backup_file')
+        self.assertIs(True, bs_manager.has_controller)
 
 
 class TestCheckToken(TestCase):

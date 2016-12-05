@@ -148,7 +148,7 @@ def delete_controller_members(bs_manager, client, leader_only=False):
     return deleted_machines
 
 
-def restore_missing_state_server(client, controller_client, backup_file,
+def restore_missing_state_server(bs_manager, controller_client, backup_file,
                                  check_controller=True):
     """juju-restore creates a replacement state-server for the services."""
     log.info("Starting restore.")
@@ -161,12 +161,13 @@ def restore_missing_state_server(client, controller_client, backup_file,
         raise LoggedException(e)
     if check_controller:
         controller_client.wait_for_started(600)
-    show_controller(client)
-    client.set_config('dummy-source', {'token': 'Two'})
-    client.wait_for_started()
-    client.wait_for_workloads()
-    check_token(client, 'Two')
-    log.info("%s restored", client.env.environment)
+    show_controller(bs_manager.client)
+    bs_manager.has_controller = True
+    bs_manager.client.set_config('dummy-source', {'token': 'Two'})
+    bs_manager.client.wait_for_started()
+    bs_manager.client.wait_for_workloads()
+    check_token(bs_manager.client, 'Two')
+    log.info("%s restored", bs_manager.client.env.environment)
     log.info("PASS")
 
 
@@ -222,8 +223,9 @@ def assess_recovery(bs_manager, strategy, charm_series):
         assess_ha_recovery(bs_manager, client)
     else:
         check_controller = strategy != 'ha-backup'
-        restore_missing_state_server(client, controller_client, backup_file,
-                                     check_controller=check_controller)
+        restore_missing_state_server(
+            bs_manager, controller_client, backup_file,
+            check_controller=check_controller)
     log.info("Test complete.")
 
 
