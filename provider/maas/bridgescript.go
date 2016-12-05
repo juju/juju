@@ -401,7 +401,6 @@ def arg_parser():
     parser.add_argument('--interfaces-to-bridge', help="interfaces to bridge; space delimited", type=str, required=True)
     parser.add_argument('--dryrun', help="dry run, no activation", action='store_true', default=False, required=False)
     parser.add_argument('--bridge-name', help="bridge name", type=str, required=False)
-    parser.add_argument('--bond-sleep-duration', help="duration to sleep between ifdown/up", type=int, required=False)
     parser.add_argument('filename', help="interfaces(5) based filename")
     return parser
 
