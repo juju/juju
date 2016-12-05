@@ -829,11 +829,12 @@ func (s *Suite) TestLogTransferReportsProgress(c *gc.C) {
 		{Message: "captain beefheart"},
 		{Message: "super furry animals"},
 		{Message: "ezra furman"},
+		{Message: "these new puritans"},
 	}
 	s.facade.logMessages = func(d chan<- common.LogMessage) {
 		for _, message := range messages {
 			safeSend(c, d, message)
-			s.clock.WaitAdvance(15*time.Second, coretesting.LongWait, 1)
+			s.clock.WaitAdvance(20*time.Second, coretesting.LongWait, 1)
 		}
 	}
 
@@ -848,8 +849,10 @@ func (s *Suite) TestLogTransferReportsProgress(c *gc.C) {
 
 	c.Assert(logWriter.Log()[:3], jc.LogMatches, []string{
 		"successful, transferring logs to target controller \\(0 sent\\)",
-		"successful, transferring logs to target controller \\(2 sent\\)",
-		"successful, transferred logs to target controller \\(3 sent\\)",
+		// This is a bit of a punt, but without accepting a range
+		// we sometimes see this test failing on loaded test machines.
+		"successful, transferring logs to target controller \\([23] sent\\)",
+		"successful, transferr(ing|ed) logs to target controller \\([234] sent\\)",
 	})
 }
 
