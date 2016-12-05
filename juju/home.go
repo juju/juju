@@ -4,11 +4,14 @@
 package juju
 
 import (
-	"github.com/juju/errors"
-	"github.com/juju/utils/ssh"
-	"gopkg.in/juju/charmrepo.v2-unstable"
+	"path/filepath"
 
 	"github.com/juju/juju/juju/osenv"
+
+	"github.com/juju/errors"
+	"github.com/juju/utils/ssh"
+	"github.com/juju/utils/winrm"
+	"gopkg.in/juju/charmrepo.v2-unstable"
 )
 
 // InitJujuXDGDataHome initializes the charm cache, environs/config and utils/ssh packages
@@ -23,5 +26,20 @@ func InitJujuXDGDataHome() error {
 	if err := ssh.LoadClientKeys(osenv.JujuXDGDataHomePath("ssh")); err != nil {
 		return errors.Annotate(err, "cannot load ssh client keys")
 	}
+
+	base := osenv.JujuXDGDataHomePath("x509")
+	keyPath := filepath.Join(base, "winrmkey.pem")
+	certPath := filepath.Join(base, "winrmcert.crt")
+	cert := winrm.NewX509()
+
+	if err := cert.LoadClientCert(keyPath, certPath); err != nil {
+		return errors.Annotatef(err, "connot load/create x509 client certs for winrm connection")
+	}
+
+	// ignore error because winrm client will default to skip ca verification
+	// the user will be alerted in the provisioning process anyway
+	ca := filepath.Join(base, "winrmcacert.crt")
+	_ = cert.LoadCACert(ca)
+
 	return nil
 }

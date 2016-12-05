@@ -9,6 +9,7 @@ import (
 	"io"
 
 	"github.com/juju/loggo"
+	"github.com/juju/utils/winrm"
 
 	"github.com/juju/juju/apiserver/params"
 )
@@ -49,6 +50,12 @@ type ProvisionMachineArgs struct {
 	// AuthorizedKeys contains the concatenated authorized-keys to add to the
 	// ubuntu user's ~/.ssh/authorized_keys.
 	AuthorizedKeys string
+
+	// WKeys winrm keys that contains, CACert, ClientCert, ClientKey
+	WKeys *winrm.X509
+
+	// WClient is the main winrm client for interacting with windows machines
+	WClient *winrm.Client
 
 	*params.UpdateBehavior
 }

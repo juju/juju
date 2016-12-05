@@ -5,11 +5,14 @@ package machine
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/utils/winrm"
 	"gopkg.in/juju/names.v2"
 
 	"github.com/juju/juju/api/machinemanager"
@@ -22,7 +25,9 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/manual"
 	"github.com/juju/juju/environs/manual/sshprovisioner"
+	"github.com/juju/juju/environs/manual/winrmprovisioner"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/storage"
 )
@@ -66,6 +71,7 @@ Examples:
    juju add-machine lxd:4                (starts a new lxd container on machine 4)
    juju add-machine --constraints mem=8G (starts a machine with at least 8GB RAM)
    juju add-machine ssh:user@10.10.0.3   (manually provisions machine with ssh)
+   juju add-machine winrm:user@10.10.0.3 (manually provisions machine with winrm)
    juju add-machine zone=us-east-1a      (start a machine in zone us-east-1a on AWS)
    juju add-machine maas2.name           (acquire machine maas2.name on MAAS)
 
@@ -114,7 +120,7 @@ type addCommand struct {
 func (c *addCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "add-machine",
-		Args:    "[<container>:machine | <container> | ssh:[user@]host | placement]",
+		Args:    "[<container>:machine | <container> | ssh:[user@]host | winrm:[user@]host | placement]",
 		Purpose: "Start a new, empty machine and optionally a container, or add a container to a machine.",
 		Doc:     addMachineDoc,
 	}
@@ -334,8 +340,10 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 
 var (
 	sshProvisioner    = sshprovisioner.ProvisionMachine
+	winrmProvisioner  = winrmprovisioner.ProvisionMachine
 	errNonManualScope = errors.New("non-manual scope")
 	sshScope          = "ssh"
+	winrmScope        = "winrm"
 )
 
 func (c *addCommand) tryManualProvision(client AddMachineAPI, config *config.Config, ctx *cmd.Context) error {
@@ -344,13 +352,15 @@ func (c *addCommand) tryManualProvision(client AddMachineAPI, config *config.Con
 	switch c.Placement.Scope {
 	case sshScope:
 		provisionMachine = sshProvisioner
+	case winrmScope:
+		provisionMachine = winrmProvisioner
 	default:
 		return errNonManualScope
 	}
 
 	authKeys, err := common.ReadAuthorizedKeys(ctx, "")
 	if err != nil {
-		return errors.Annotate(err, "cannot reading authorized-keys")
+		return errors.Annotatef(err, "cannot reading authorized-keys")
 	}
 
 	user, host := splitUserHost(c.Placement.Directive)
@@ -366,6 +376,39 @@ func (c *addCommand) tryManualProvision(client AddMachineAPI, config *config.Con
 			EnableOSRefreshUpdate: config.EnableOSRefreshUpdate(),
 			EnableOSUpgrade:       config.EnableOSUpgrade(),
 		},
+	}
+
+	base := osenv.JujuXDGDataHomePath("x509")
+	keyPath := filepath.Join(base, "winrmkey.pem")
+	certPath := filepath.Join(base, "winrmcert.crt")
+	cert := winrm.NewX509()
+	if err := cert.LoadClientCert(keyPath, certPath); err != nil {
+		return errors.Annotatef(err, "connot load/create x509 client certs for winrm connection")
+	}
+	if err = cert.LoadCACert(filepath.Join(base, "winrmcacert.crt")); err != nil {
+		logger.Infof("Skipping winrm CA validation")
+	}
+
+	cfg := winrm.ClientConfig{
+		User:    args.User,
+		Host:    args.Host,
+		Key:     cert.ClientKey(),
+		Cert:    cert.ClientCert(),
+		Timeout: 25 * time.Second,
+		Secure:  true,
+	}
+
+	caCert := cert.CACert()
+	if caCert == nil {
+		cfg.Insecure = true
+	} else {
+		cfg.CACert = caCert
+	}
+
+	args.WKeys = cert
+	args.WClient, err = winrm.NewClient(cfg)
+	if err != nil {
+		return errors.Annotatef(err, "cannot create secure winrm client conn")
 	}
 
 	machineId, err := provisionMachine(args)
