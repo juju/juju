@@ -4,36 +4,25 @@
 
 package winrmprovisioner_test
 
-import (
-	"fmt"
-	"io"
-)
+import "io"
 
 const (
 	winrmListenerAddr = "127.0.0.1"
 )
 
-var (
-	NoValue = fmt.Errorf("No Value")
-)
-
 type fakeWinRM struct {
 	password string
-	err      error
 	fakePing func() error
 	fakeRun  func(cmd string, stdout, stderr io.Writer) error
+	secure   bool
 }
 
-func (f *fakeWinRM) Ping() {
-	f.err = f.fakePing()
+func (f *fakeWinRM) Ping() error {
+	return f.fakePing()
 }
 
-func (f *fakeWinRM) Run(cmd string, stdout io.Writer, stderr io.Writer) {
-	f.err = f.fakeRun(cmd, stdout, stderr)
-}
-
-func (f fakeWinRM) Error() error {
-	return f.err
+func (f *fakeWinRM) Run(cmd string, stdout io.Writer, stderr io.Writer) error {
+	return f.fakeRun(cmd, stdout, stderr)
 }
 
 func (f fakeWinRM) Password() string {
@@ -41,5 +30,5 @@ func (f fakeWinRM) Password() string {
 }
 
 func (f fakeWinRM) Secure() bool {
-	return false
+	return f.secure
 }

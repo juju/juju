@@ -54,10 +54,16 @@ type ProvisionMachineArgs struct {
 	// WKeys winrm keys that contains, CACert, ClientCert, ClientKey
 	WKeys *winrm.X509
 
-	// WClient is the main winrm client for interacting with windows machines
-	WClient *winrm.Client
+	// WClient client for interacting with windows machines
+	WClient WinrmClientAPI
 
 	*params.UpdateBehavior
+}
+
+// WinrmClientAPI minimal interface for winrm windows machines interactions
+type WinrmClientAPI interface {
+	Ping() error
+	Run(cmd string, stdout, stderr io.Writer) error
 }
 
 // ProvisioningClientAPI defines the methods that are needed for the manual
