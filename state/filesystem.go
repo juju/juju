@@ -180,8 +180,6 @@ func (f *filesystem) validate() error {
 		}
 		switch tag.(type) {
 		case names.ModelTag:
-			// TODO(axw) support binding to model
-			return errors.NotSupportedf("binding to model")
 		case names.MachineTag:
 		case names.StorageTag:
 		default:
@@ -467,12 +465,15 @@ func (st *State) removeMachineFilesystemsOps(machine names.MachineTag) ([]txn.Op
 		if !canRemove {
 			return nil, errors.Errorf("machine has non-machine bound filesystem %v", filesystemTag.Id())
 		}
-		ops = append(ops, txn.Op{
-			C:      filesystemsC,
-			Id:     filesystemTag.Id(),
-			Assert: txn.DocExists,
-			Remove: true,
-		})
+		ops = append(ops,
+			txn.Op{
+				C:      filesystemsC,
+				Id:     filesystemTag.Id(),
+				Assert: txn.DocExists,
+				Remove: true,
+			},
+			removeModelFilesystemRefOp(st, filesystemTag.Id()),
+		)
 	}
 	return ops, nil
 }
@@ -481,6 +482,16 @@ func (st *State) removeMachineFilesystemsOps(machine names.MachineTag) ([]txn.Op
 // with the specified tag is inherently bound to the lifetime of the machine,
 // and will be removed along with it, leaving no resources dangling.
 func isFilesystemInherentlyMachineBound(st *State, tag names.FilesystemTag) (bool, error) {
+	// TODO(axw) when we have support for persistent filesystems,
+	// e.g. NFS shares, then we need to check the filesystem info
+	// to decide whether or not to remove.
+	return true, nil
+}
+
+// isFilesystemParamsInherentlyMachineBound reports whether or not the given
+// filesystem params will create a filesystem inherently bound to the lifetime
+// of a machine, and will be removed along with it, leaving no resources dangling.
+func isFilesystemParamsInherentlyMachineBound(st *State, params FilesystemParams) (bool, error) {
 	// TODO(axw) when we have support for persistent filesystems,
 	// e.g. NFS shares, then we need to check the filesystem info
 	// to decide whether or not to remove.
@@ -588,6 +599,7 @@ func removeFilesystemAttachmentOps(m names.MachineTag, f *filesystem) []txn.Op {
 // DestroyFilesystem ensures that the filesystem and any attachments to it will
 // be destroyed and removed from state at some point in the future.
 func (st *State) DestroyFilesystem(tag names.FilesystemTag) (err error) {
+	defer errors.DeferredAnnotatef(&err, "destroying filesystem %s", tag.Id())
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		filesystem, err := st.filesystemByTag(tag)
 		if errors.IsNotFound(err) {
@@ -598,18 +610,29 @@ func (st *State) DestroyFilesystem(tag names.FilesystemTag) (err error) {
 		if filesystem.doc.Life != Alive {
 			return nil, jujutxn.ErrNoOperations
 		}
-		return destroyFilesystemOps(st, filesystem), nil
+		if filesystem.doc.StorageId != "" {
+			return nil, errors.Errorf(
+				"filesystem is assigned to %s",
+				names.ReadableString(names.NewStorageTag(filesystem.doc.StorageId)),
+			)
+		}
+		hasNoStorageAssignment := bson.D{{"$or", []bson.D{
+			{{"storageid", ""}},
+			{{"storageid", bson.D{{"$exists", false}}}},
+		}}}
+		return destroyFilesystemOps(st, filesystem, hasNoStorageAssignment), nil
 	}
 	return st.run(buildTxn)
 }
 
-func destroyFilesystemOps(st *State, f *filesystem) []txn.Op {
+func destroyFilesystemOps(st *State, f *filesystem, extraAssert bson.D) []txn.Op {
+	baseAssert := append(isAliveDoc, extraAssert...)
 	if f.doc.AttachmentCount == 0 {
 		hasNoAttachments := bson.D{{"attachmentcount", 0}}
 		return []txn.Op{{
 			C:      filesystemsC,
 			Id:     f.doc.FilesystemId,
-			Assert: append(hasNoAttachments, isAliveDoc...),
+			Assert: append(hasNoAttachments, baseAssert...),
 			Update: bson.D{{"$set", bson.D{{"life", Dead}}}},
 		}}
 	}
@@ -618,7 +641,7 @@ func destroyFilesystemOps(st *State, f *filesystem) []txn.Op {
 	return []txn.Op{{
 		C:      filesystemsC,
 		Id:     f.doc.FilesystemId,
-		Assert: append(hasAttachments, isAliveDoc...),
+		Assert: append(hasAttachments, baseAssert...),
 		Update: bson.D{{"$set", bson.D{{"life", Dying}}}},
 	}, cleanupOp}
 }
@@ -652,6 +675,7 @@ func removeFilesystemOps(st *State, filesystem Filesystem) ([]txn.Op, error) {
 			Assert: txn.DocExists,
 			Remove: true,
 		},
+		removeModelFilesystemRefOp(st, filesystem.Tag().Id()),
 		removeStatusOp(st, filesystem.globalKey()),
 	}
 	// If the filesystem is backed by a volume, the volume should
@@ -664,7 +688,7 @@ func removeFilesystemOps(st *State, filesystem Filesystem) ([]txn.Op, error) {
 			return nil, errors.Trace(err)
 		}
 		if volume.LifeBinding() == filesystem.Tag() {
-			ops = append(ops, destroyVolumeOps(st, volume)...)
+			ops = append(ops, destroyVolumeOps(st, volume, nil)...)
 		}
 	} else if err != ErrNoBackingVolume {
 		return nil, errors.Trace(err)
@@ -711,10 +735,13 @@ func newFilesystemId(st *State, machineId string) (string, error) {
 // directly, a volume will be created and Juju will manage a filesystem
 // on it.
 func (st *State) addFilesystemOps(params FilesystemParams, machineId string) ([]txn.Op, names.FilesystemTag, names.VolumeTag, error) {
-	if params.binding == nil {
-		params.binding = names.NewMachineTag(machineId)
-	}
-	params, err := st.filesystemParamsWithDefaults(params)
+	// TODO(axw) the scope of a volume-backed filesystem should be the
+	// same as the volume. Machine storage provisioners would be
+	// responsible for managing filesystems backed by volumes attached
+	// to that machine. Making this change will enable persistent
+	// filesystems; until then, destroying a volume-backed filesystem
+	// always destroys the volume.
+	params, err := st.filesystemParamsWithDefaults(params, machineId)
 	if err != nil {
 		return nil, names.FilesystemTag{}, names.VolumeTag{}, errors.Trace(err)
 	}
@@ -782,24 +809,34 @@ func (st *State) newFilesystemOps(doc filesystemDoc, status statusDoc) []txn.Op 
 	}
 }
 
-func (st *State) filesystemParamsWithDefaults(params FilesystemParams) (FilesystemParams, error) {
-	if params.Pool != "" {
-		return params, nil
+func (st *State) filesystemParamsWithDefaults(params FilesystemParams, machineId string) (FilesystemParams, error) {
+	if params.Pool == "" {
+		modelConfig, err := st.ModelConfig()
+		if err != nil {
+			return FilesystemParams{}, errors.Trace(err)
+		}
+		cons := StorageConstraints{
+			Pool:  params.Pool,
+			Size:  params.Size,
+			Count: 1,
+		}
+		poolName, err := defaultStoragePool(modelConfig, storage.StorageKindFilesystem, cons)
+		if err != nil {
+			return FilesystemParams{}, errors.Annotate(err, "getting default filesystem storage pool")
+		}
+		params.Pool = poolName
 	}
-	envConfig, err := st.ModelConfig()
-	if err != nil {
-		return FilesystemParams{}, errors.Trace(err)
+	if params.binding == nil {
+		machineBound, err := isFilesystemParamsInherentlyMachineBound(st, params)
+		if err != nil {
+			return FilesystemParams{}, errors.Trace(err)
+		}
+		if machineBound {
+			params.binding = names.NewMachineTag(machineId)
+		} else {
+			params.binding = st.ModelTag()
+		}
 	}
-	cons := StorageConstraints{
-		Pool:  params.Pool,
-		Size:  params.Size,
-		Count: 1,
-	}
-	poolName, err := defaultStoragePool(envConfig, storage.StorageKindFilesystem, cons)
-	if err != nil {
-		return FilesystemParams{}, errors.Annotate(err, "getting default filesystem storage pool")
-	}
-	params.Pool = poolName
 	return params, nil
 }
 
