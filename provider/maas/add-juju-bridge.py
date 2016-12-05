@@ -15,6 +15,13 @@ import shutil
 import subprocess
 import sys
 
+# StringIO: accommodate Python2 & Python3
+
+try:
+    from StringIO import StringIO
+except ImportError:
+    from io import StringIO
+
 # These options are to be removed from a sub-interface and applied to
 # the new bridged interface.
 
@@ -416,6 +423,16 @@ def main(args):
 
     if not args.activate:
         print_stanzas(stanzas)
+        exit(0)
+
+    cur = StringIO()
+    new = StringIO()
+
+    print_stanzas(stanzas, new)
+    print_stanzas(parser.stanzas(), cur)
+
+    if cur.getvalue() == new.getvalue():
+        # nothing changed
         exit(0)
 
     if args.one_time_backup:
