@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/watcher"
 	"github.com/juju/juju/worker/catacomb"
 	"github.com/juju/juju/worker/fortress"
+	"github.com/juju/juju/wrench"
 )
 
 var (
@@ -38,6 +39,11 @@ var (
 	// server. The migrationmaster should not be restarted again in
 	// this case.
 	ErrMigrated = errors.New("model has migrated")
+
+	// utcZero matches the deserialised zero times coming back from
+	// MigrationTarget.LatestLogTime, because they have a non-nil
+	// location.
+	utcZero = time.Time{}.In(time.UTC)
 )
 
 const (
@@ -94,10 +100,11 @@ type Facade interface {
 	// minions to the controller for the current migration phase.
 	MinionReports() (coremigration.MinionReports, error)
 
-	// StreamModelLog returns a channel that will yield the logs that
-	// should be transferred to the target after the migration is
-	// successful.
-	StreamModelLog() (<-chan common.LogMessage, error)
+	// StreamModelLog takes a starting time and returns a channel that
+	// will yield the logs on or after that time - these are the logs
+	// that need to be transferred to the target after the migration
+	// is successful.
+	StreamModelLog(time.Time) (<-chan common.LogMessage, error)
 }
 
 // Config defines the operation of a Worker.
@@ -457,17 +464,28 @@ func (w *Worker) transferLogs(targetInfo coremigration.TargetInfo, modelUUID str
 		w.setInfoStatus("successful, %s logs to target controller (%d sent)", verb, sent)
 	}
 	reportProgress(false, sent)
-	logSource, err := w.config.Facade.StreamModelLog()
-	if err != nil {
-		return errors.Annotate(err, "opening source log stream")
-	}
 
 	conn, err := w.openAPIConn(targetInfo)
 	if err != nil {
 		return errors.Annotate(err, "connecting to target API")
 	}
-
 	targetClient := migrationtarget.NewClient(conn)
+	latestLogTime, err := targetClient.LatestLogTime(modelUUID)
+	if err != nil {
+		return errors.Annotate(err, "getting log start time")
+	}
+
+	if latestLogTime != utcZero {
+		w.logger.Debugf("log transfer was interrupted - restarting from %s", latestLogTime)
+	}
+
+	throwWrench := latestLogTime == utcZero && wrench.IsActive("migrationmaster", "die-after-500-log-messages")
+
+	logSource, err := w.config.Facade.StreamModelLog(latestLogTime)
+	if err != nil {
+		return errors.Annotate(err, "opening source log stream")
+	}
+
 	logTarget, err := targetClient.OpenLogTransferStream(modelUUID)
 	if err != nil {
 		return errors.Annotate(err, "opening target log stream")
@@ -499,6 +517,11 @@ func (w *Worker) transferLogs(targetInfo coremigration.TargetInfo, modelUUID str
 				return errors.Trace(err)
 			}
 			sent++
+
+			if throwWrench && sent == 500 {
+				// Simulate a connection drop to test restartability.
+				return errors.New("wrench in the works")
+			}
 		case <-logProgress:
 			reportProgress(false, sent)
 			logProgress = clk.After(progressUpdateInterval)

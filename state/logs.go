@@ -837,7 +837,15 @@ func getLogCountForEnv(coll *mgo.Collection, modelUUID string) (int, error) {
 }
 
 func removeModelLogs(session *mgo.Session, modelUUID string) error {
-	logsColl := session.DB(logsDB).C(logsC)
+	logsDB := session.DB(logsDB)
+	logsColl := logsDB.C(logsC)
 	_, err := logsColl.RemoveAll(bson.M{"e": modelUUID})
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// Also remove the tracked high-water times.
+	trackersColl := logsDB.C(forwardedC)
+	_, err = trackersColl.RemoveAll(bson.M{"model-uuid": modelUUID})
 	return errors.Trace(err)
 }

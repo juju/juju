@@ -5,6 +5,7 @@ package migrationmaster
 
 import (
 	"encoding/json"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/version"
@@ -250,9 +251,10 @@ func groupTagIds(tagStrs []string) ([]string, []string, error) {
 	return machines, units, nil
 }
 
-func (c *Client) StreamModelLog() (<-chan common.LogMessage, error) {
+func (c *Client) StreamModelLog(start time.Time) (<-chan common.LogMessage, error) {
 	return common.StreamDebugLog(c.caller.RawAPICaller(), common.DebugLogParams{
-		Replay: true,
-		NoTail: true,
+		Replay:    true,
+		NoTail:    true,
+		StartTime: start,
 	})
 }
