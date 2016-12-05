@@ -140,7 +140,8 @@ def delete_controller_members(bs_manager, client, leader_only=False):
         deleted_machines.append(machine.machine_id)
     log.info("Deleted {}".format(deleted_machines))
     # Do not gather data about the deleted controller.
-    bs_manager.has_controller = False
+    if not leader_only:
+        bs_manager.has_controller = False
     for m_id in deleted_machines:
         if bs_manager.known_hosts.get(m_id):
             del bs_manager.known_hosts[m_id]
