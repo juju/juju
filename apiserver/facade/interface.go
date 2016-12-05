@@ -33,6 +33,15 @@ type Context interface {
 	// not *known* to have a responsibility or requirement.
 	Auth() Authorizer
 
+	// Dispose disposes the context and any resources related to
+	// the API server facade object. Normally the context will not
+	// be disposed until the API connection is closed. This is OK
+	// except when contexts are dynamically generated, such as in
+	// the case of watchers. When a facade context is no longer
+	// needed, e.g. when a watcher is closed, then the context may
+	// be disposed by calling this method.
+	Dispose()
+
 	// Resources exposes per-connection capabilities. By adding a
 	// resource, you make it accessible by (returned) id to all
 	// other facades used by this connection. It's mostly used to

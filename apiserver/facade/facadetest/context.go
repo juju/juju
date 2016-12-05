@@ -12,6 +12,7 @@ import (
 type Context struct {
 	Abort_     <-chan struct{}
 	Auth_      facade.Authorizer
+	Dispose_   func()
 	Resources_ facade.Resources
 	State_     *state.State
 	ID_        string
@@ -25,6 +26,11 @@ func (context Context) Abort() <-chan struct{} {
 // Auth is part of the facade.Context interface.
 func (context Context) Auth() facade.Authorizer {
 	return context.Auth_
+}
+
+// Dispose is part of the facade.Context interface.
+func (context Context) Dispose() {
+	context.Dispose_()
 }
 
 // Resources is part of the facade.Context interface.
