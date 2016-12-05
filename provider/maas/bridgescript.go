@@ -376,25 +376,21 @@ def print_stanzas(stanzas, stream=sys.stdout):
             print(file=stream)
 
 
-def shell_cmd(s):
-    p = subprocess.Popen(s, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    out, err = p.communicate()
-    return [out, err, p.returncode]
-
-
-def print_shell_cmd(s, verbose=True, exit_on_error=False, dryrun=False):
+def shell_cmd(s, verbose=True, exit_on_error=False, dryrun=False):
     if dryrun:
         print(s)
         return
     if verbose:
         print(s)
-    out, err, retcode = shell_cmd(s)
+    p = subprocess.Popen(s, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    out, err = p.communicate()
     if out and len(out) > 0:
         print(out.decode().rstrip('\n'))
     if err and len(err) > 0:
         print(err.decode().rstrip('\n'))
     if exit_on_error and retcode != 0:
         exit(1)
+    return p.returncode
 
 
 def arg_parser():
@@ -446,9 +442,9 @@ def main(args):
     ifquery = "$(ifquery --interfaces={} --exclude=lo --list)".format(args.filename)
 
     print("**** Original configuration")
-    print_shell_cmd("cat {}".format(args.filename), dryrun=args.dryrun)
-    print_shell_cmd("ifconfig -a", dryrun=args.dryrun)
-    print_shell_cmd("ifdown --exclude=lo --interfaces={} {}".format(args.filename, ifquery), dryrun=args.dryrun)
+    shell_cmd("cat {}".format(args.filename), dryrun=args.dryrun)
+    shell_cmd("ifconfig -a", dryrun=args.dryrun)
+    shell_cmd("ifdown --exclude=lo --interfaces={} {}".format(args.filename, ifquery), dryrun=args.dryrun)
 
     print("**** Activating new configuration")
 
@@ -469,15 +465,15 @@ def main(args):
         if s.is_logical_interface and s.iface.is_bonded:
             print("working around https://bugs.launchpad.net/ubuntu/+source/ifenslave/+bug/1269921")
             print("working around https://bugs.launchpad.net/juju-core/+bug/1594855")
-            print_shell_cmd("sleep 3", dryrun=args.dryrun)
+            shell_cmd("sleep 3", dryrun=args.dryrun)
             break
 
-    print_shell_cmd("cat {}".format(args.filename), dryrun=args.dryrun)
-    print_shell_cmd("ifup --exclude=lo --interfaces={} {}".format(args.filename, ifquery), dryrun=args.dryrun)
-    print_shell_cmd("ip link show up", dryrun=args.dryrun)
-    print_shell_cmd("ifconfig -a", dryrun=args.dryrun)
-    print_shell_cmd("ip route show", dryrun=args.dryrun)
-    print_shell_cmd("brctl show", dryrun=args.dryrun)
+    shell_cmd("cat {}".format(args.filename), dryrun=args.dryrun)
+    shell_cmd("ifup --exclude=lo --interfaces={} {}".format(args.filename, ifquery), dryrun=args.dryrun)
+    shell_cmd("ip link show up", dryrun=args.dryrun)
+    shell_cmd("ifconfig -a", dryrun=args.dryrun)
+    shell_cmd("ip route show", dryrun=args.dryrun)
+    shell_cmd("brctl show", dryrun=args.dryrun)
 
 # This script re-renders an interfaces(5) file to add a bridge to
 # either all active interfaces, or a specific interface.
