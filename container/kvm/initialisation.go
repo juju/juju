@@ -4,15 +4,19 @@
 package kvm
 
 import (
+	"path/filepath"
+
+	"github.com/juju/errors"
 	"github.com/juju/utils/packaging/manager"
 	"github.com/juju/utils/series"
 
 	"github.com/juju/juju/container"
+	"github.com/juju/juju/juju/paths"
 )
 
 var requiredPackages = []string{
-	"uvtool-libvirt",
-	"uvtool",
+	"libvirt-bin",
+	"qemu-utils",
 }
 
 type containerInitialiser struct{}
@@ -28,7 +32,13 @@ func NewContainerInitialiser() container.Initialiser {
 
 // Initialise is specified on the container.Initialiser interface.
 func (ci *containerInitialiser) Initialise() error {
-	return ensureDependencies()
+	if err := ensureDependencies(); err != nil {
+		return errors.Trace(err)
+	}
+	if err := createPool(paths.DataDir, run); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 // getPackageManager is a helper function which returns the
@@ -49,5 +59,31 @@ func ensureDependencies() error {
 		}
 	}
 
+	return nil
+}
+
+// createPool creates the libvirt storage pool directory.
+func createPool(pathfinder func(string) (string, error), runFunc func(string, ...string) (string, error)) error {
+	baseDir, err := pathfinder(series.HostSeries())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	poolDir := filepath.Join(baseDir, guestDir)
+	output, err := runFunc("virsh", "pool-define-as", poolName, "dir", "- - - -", poolDir)
+	if err != nil {
+		return errors.Annotate(err, output)
+	}
+	output, err = runFunc("virsh", "pool-build", poolName)
+	if err != nil {
+		return errors.Annotate(err, output)
+	}
+	output, err = runFunc("virsh", "pool-start", poolName)
+	if err != nil {
+		return errors.Annotate(err, output)
+	}
+	output, err = runFunc("virsh", "pool-autostart", poolName)
+	if err != nil {
+		return errors.Annotate(err, output)
+	}
 	return nil
 }

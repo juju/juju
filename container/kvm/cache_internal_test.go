@@ -132,7 +132,7 @@ func newTestMetadata(base string) *imagedownloads.Metadata {
 
 // newTmpdir creates a tmpdir and returns pathfinder func that returns the tmpdir.
 func newTmpdir() (string, func(string) (string, error), bool) {
-	td, err := ioutil.TempDir("", "juju-test-internalCacheSuite")
+	td, err := ioutil.TempDir("", "juju-test-kvm-internalSuite")
 	if err != nil {
 		return "", nil, false
 	}

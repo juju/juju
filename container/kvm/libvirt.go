@@ -26,6 +26,11 @@ import (
 	"github.com/juju/juju/network"
 )
 
+const (
+	guestDir = "guests"
+	poolName = "juju-kvm"
+)
+
 var (
 	// The regular expression for breaking up the results of 'virsh list'
 	// (?m) - specify that this is a multiline regex
