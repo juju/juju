@@ -252,7 +252,9 @@ def assess_network_traffic(client, targets):
 def private_address(client, host):
     default_route = ssh(client, host, 'ip -4 -o route list 0/0')
     log.info("Default route from {}: {}".format(host, default_route))
-    route_match = re.search(r'([\w-]+)\s*$', default_route)
+    # Match the device that is the word after 'dev'
+    # default via 10.0.30.1 dev br-eth1 onlink'
+    route_match = re.search(r'\sdev\s([\w-]+)', default_route)
     if route_match is None:
         raise JujuAssertionError(
             "Failed to find device in {}".format(default_route))
