@@ -1287,12 +1287,10 @@ class WaitMachineNotPresent:
     def __init__(self, machine):
         self.machine = machine
 
-    def is_satisfied(self, status):
+    def iter_blocking_state(self, status):
         for machine, info in status.iter_machines():
             if machine == self.machine:
-                return False
-        else:
-            return True
+                yield machine, 'still-present'
 
     def do_raise(self):
         raise Exception("Timed out waiting for machine removal %s" %
@@ -2278,7 +2276,7 @@ class EnvJujuClient:
         self._wait_for_status(reporter, status_to_workloads, WorkloadsNotReady,
                               timeout=timeout, start=start)
 
-    def wait_for(self, conditions, timeout=300):
+    def wait_for(self, conditions, timeout=300, quiet=False):
         """Wait until the supplied conditions are satisfied.
 
         The supplied conditions must be an iterable of objects like
@@ -2286,20 +2284,24 @@ class EnvJujuClient:
         """
         if len(conditions) == 0:
             return self.get_status()
+        reporter = GroupReporter(sys.stdout, 'started')
         try:
             for status in self.status_until(timeout):
                 status.raise_highest_error(ignore_recoverable=True)
-                pending = []
                 for condition in conditions:
-                    if not condition.is_satisfied(status):
-                        pending.append(condition)
-                if len(pending) == 0:
-                    return status
-                conditions = pending
+                    states = {}
+                    for item, state in condition.iter_blocking_state(status):
+                        states.setdefault(state, []).append(item)
+                    if len(states) == 0:
+                        return
+                    if not quiet:
+                        reporter.update(states)
             else:
                 status.raise_highest_error(ignore_recoverable=False)
         except StatusTimeout:
             pass
+        finally:
+            reporter.finish()
         conditions[0].do_raise()
 
     def get_matching_agent_version(self, no_build=False):
