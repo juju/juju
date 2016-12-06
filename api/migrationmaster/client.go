@@ -259,10 +259,11 @@ func (c *Client) MinionReports() (migration.MinionReports, error) {
 	return out, nil
 }
 
-func (c *Client) StreamModelLog() (<-chan common.LogMessage, error) {
+func (c *Client) StreamModelLog(start time.Time) (<-chan common.LogMessage, error) {
 	return common.StreamDebugLog(c.caller.RawAPICaller(), common.DebugLogParams{
-		Replay: true,
-		NoTail: true,
+		Replay:    true,
+		NoTail:    true,
+		StartTime: start,
 	})
 }
 
@@ -285,14 +286,6 @@ func groupTagIds(tagStrs []string) ([]string, []string, error) {
 		}
 	}
 	return machines, units, nil
-}
-
-func (c *Client) StreamModelLog(start time.Time) (<-chan common.LogMessage, error) {
-	return common.StreamDebugLog(c.caller.RawAPICaller(), common.DebugLogParams{
-		Replay:    true,
-		NoTail:    true,
-		StartTime: start,
-	})
 }
 
 func convertResources(in []params.SerializedModelResource) ([]migration.SerializedModelResource, error) {
