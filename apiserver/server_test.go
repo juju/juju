@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/juju/loggo"
+	"github.com/juju/pubsub"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -36,6 +37,7 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/permission"
+	"github.com/juju/juju/pubsub/centralhub"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/presence"
 	coretesting "github.com/juju/juju/testing"
@@ -606,12 +608,15 @@ func (s *serverSuite) checkAPIHandlerTeardown(c *gc.C, srvSt, st *state.State) {
 
 // defaultServerConfig returns the default configuration for starting a test server.
 func defaultServerConfig(c *gc.C) apiserver.ServerConfig {
+	fakeOrigin := names.NewMachineTag("0")
+	hub := centralhub.New(fakeOrigin)
 	return apiserver.ServerConfig{
 		Clock:       clock.WallClock,
 		Cert:        coretesting.ServerCert,
 		Key:         coretesting.ServerKey,
 		Tag:         names.NewMachineTag("0"),
 		LogDir:      c.MkDir(),
+		Hub:         hub,
 		NewObserver: func() observer.Observer { return &fakeobserver.Instance{} },
 		AutocertURL: "https://0.1.2.3/no-autocert-here",
 	}
@@ -626,6 +631,12 @@ func defaultServerConfig(c *gc.C) apiserver.ServerConfig {
 // that's been started.
 func newServer(c *gc.C, st *state.State) (*api.Info, *apiserver.Server) {
 	return newServerWithConfig(c, st, defaultServerConfig(c))
+}
+
+func newServerWithHub(c *gc.C, st *state.State, hub *pubsub.StructuredHub) (*api.Info, *apiserver.Server) {
+	cfg := defaultServerConfig(c)
+	cfg.Hub = hub
+	return newServerWithConfig(c, st, cfg)
 }
 
 // newServerWithConfig is like newServer except that the entire

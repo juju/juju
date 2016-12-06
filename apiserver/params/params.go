@@ -803,6 +803,13 @@ type LogRecord struct {
 	Entity   string    `json:"e,omitempty"`
 }
 
+// PubSubMessage is used to propagate pubsub messages from one api server to the
+// others.
+type PubSubMessage struct {
+	Topic string                 `json:"topic"`
+	Data  map[string]interface{} `json:"data"`
+}
+
 // BundleChangesParams holds parameters for making Bundle.GetChanges calls.
 type BundleChangesParams struct {
 	// BundleDataYAML is the YAML-encoded charm bundle data
