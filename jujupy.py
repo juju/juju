@@ -1288,11 +1288,12 @@ class WaitMachineNotPresent:
         self.machine = machine
 
     def is_satisfied(self, status):
+        return bool(len(list(self.iter_blocking_state(status))) == 0)
+
+    def iter_blocking_state(self, status):
         for machine, info in status.iter_machines():
             if machine == self.machine:
-                return False
-        else:
-            return True
+                yield machine, 'still-present'
 
     def do_raise(self):
         raise Exception("Timed out waiting for machine removal %s" %

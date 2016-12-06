@@ -539,6 +539,20 @@ class TestWaitMachineNotPresent(ClientTest):
                 Exception, 'Timed out waiting for machine removal 0'):
             not_present.do_raise()
 
+    def test_iter_blocking_state(self):
+        not_present = WaitMachineNotPresent('0')
+        client = fake_juju_client()
+        client.bootstrap()
+        self.assertItemsEqual(
+            [], not_present.iter_blocking_state(client.get_status()))
+        client.juju('add-machine', ())
+        self.assertItemsEqual(
+            [('0', 'still-present')],
+            not_present.iter_blocking_state(client.get_status()))
+        client.juju('remove-machine', ('0'))
+        self.assertItemsEqual(
+            [], not_present.iter_blocking_state(client.get_status()))
+
 
 class TestEnvJujuClient(ClientTest):
 
