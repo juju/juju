@@ -15,7 +15,6 @@ from jujupy import (
     LXC_MACHINE,
     LXD_MACHINE,
     SimpleEnvironment,
-    Status,
     )
 
 import assess_container_networking as jcnet
@@ -139,16 +138,14 @@ class TestContainerNetworking(TestCase):
         self.assertEqual(args.temp_env_name, 'ten')
         self.assertEqual(args.debug, False)
         self.assertEqual(args.upload_tools, False)
-        self.assertEqual(args.clean_environment, False)
 
         # check the optional arguments
         opts = ['--machine-type', jcnet.KVM_MACHINE, '--debug',
-                '--upload-tools', '--clean-environment']
+                '--upload-tools']
         args = jcnet.parse_args(cmdline + opts)
         self.assertEqual(args.machine_type, jcnet.KVM_MACHINE)
         self.assertEqual(args.debug, True)
         self.assertEqual(args.upload_tools, True)
-        self.assertEqual(args.clean_environment, True)
 
         # Now check that we can only set machine_type to kvm or lxc
         opts = ['--machine-type', jcnet.LXC_MACHINE]
@@ -192,45 +189,6 @@ class TestContainerNetworking(TestCase):
                               [('ssh', (
                                   '--proxy', machine,
                                   'ip route show to match ' + addr))])
-
-    def test_clean_environment(self):
-        self.juju_mock.add_machine('1')
-        self.juju_mock.add_machine('2')
-        self.juju_mock.add_service('name')
-
-        jcnet.clean_environment(self.client)
-        self.assertItemsEqual(self.juju_mock.commands, [
-            ('remove-application', ('name',)),
-            ('remove-machine', '1'),
-            ('remove-machine', '2'),
-        ])
-
-    def test_clean_environment_with_containers(self):
-        self.juju_mock.add_machine('0')
-        self.juju_mock.add_machine('1')
-        self.juju_mock.add_machine('2')
-        self.juju_mock.add_machine('lxc:0')
-        self.juju_mock.add_machine('kvm:0')
-
-        jcnet.clean_environment(self.client)
-        self.assertItemsEqual(self.juju_mock.commands, [
-            ('remove-machine', '0/lxc/0'),
-            ('remove-machine', '0/kvm/0'),
-            ('remove-machine', '1'),
-            ('remove-machine', '2')
-        ])
-
-    def test_clean_environment_just_services(self):
-        self.juju_mock.add_machine('1')
-        self.juju_mock.add_machine('2')
-        self.juju_mock.add_machine('lxc:0')
-        self.juju_mock.add_machine('kvm:0')
-        self.juju_mock.add_service('name')
-
-        jcnet.clean_environment(self.client, True)
-        self.assertEqual(self.juju_mock.commands, [
-            ('remove-application', ('name',)),
-        ])
 
     def test_make_machines(self):
         hosts, containers = jcnet.make_machines(
@@ -399,86 +357,6 @@ class TestMain(FakeHomeTestCase):
         self.assertEqual(mock_bc.call_count, 1)
         mock_assess.assert_called_once_with(client, [KVM_MACHINE, "lxc"])
         self.assertEqual(ret, 0)
-
-    def test_clean_existing_env(self):
-        argv = ["an-env", "/bin/juju", "/tmp/logs", "an-env-mod",
-                "--clean-environment"]
-        client = Mock(spec=["enable_feature", "env", "get_status",
-                            "is_jes_enabled", "wait_for", "wait_for_started"])
-        client.supported_container_types = frozenset([KVM_MACHINE,
-                                                      LXC_MACHINE])
-        client.get_status.return_value = Status.from_text("""
-            machines:
-                "0":
-                    agent-state: started
-        """)
-        with patch("assess_container_networking.assess_container_networking",
-                   autospec=True) as mock_assess:
-            with self.patch_bootstrap_manager() as mock_bc:
-                with self.patch_main(argv, client, logging.INFO):
-                    ret = jcnet.main(argv)
-        self.assertEqual(client.env.environment, "an-env-mod")
-        self.assertEqual("", self.log_stream.getvalue())
-        self.assertEqual(mock_bc.call_count, 0)
-        mock_assess.assert_called_once_with(client, ["kvm", "lxc"])
-        self.assertEqual(ret, 0)
-
-    def test_clean_missing_env(self):
-        argv = ["an-env", "/bin/juju", "/tmp/logs", "an-env-mod",
-                "--clean-environment"]
-        client = Mock(spec=["bootstrap", "enable_feature", "env", "get_status",
-                            "is_jes_enabled", "wait_for", "wait_for_started"])
-        client.supported_container_types = frozenset([KVM_MACHINE,
-                                                      LXC_MACHINE])
-        client.get_status.side_effect = [
-            Exception("Timeout"),
-            Status.from_text("""
-                machines:
-                    "0":
-                        agent-state: started
-            """),
-        ]
-        with patch("assess_container_networking.assess_container_networking",
-                   autospec=True) as mock_assess:
-            with self.patch_bootstrap_manager() as mock_bc:
-                with self.patch_main(argv, client, logging.INFO):
-                    ret = jcnet.main(argv)
-        self.assertEqual(client.env.environment, "an-env-mod")
-        client.bootstrap.assert_called_once_with(False)
-        self.assertEqual(
-            "INFO Could not clean existing env: Timeout\n",
-            self.log_stream.getvalue())
-        self.assertEqual(mock_bc.call_count, 1)
-        mock_assess.assert_called_once_with(client, ["kvm", "lxc"])
-        self.assertEqual(ret, 0)
-
-    def test_final_clean_fails(self):
-        argv = ["an-env", "/bin/juju", "/tmp/logs", "an-env-mod",
-                "--clean-environment"]
-        client = Mock(spec=["enable_feature", "env", "get_status",
-                            "is_jes_enabled", "wait_for", "wait_for_started"])
-        client.supported_container_types = frozenset([KVM_MACHINE,
-                                                      LXC_MACHINE])
-        client.get_status.side_effect = [
-            Status.from_text("""
-                machines:
-                    "0":
-                        agent-state: started
-            """),
-            Exception("Timeout"),
-        ]
-        with patch("assess_container_networking.assess_container_networking",
-                   autospec=True) as mock_assess:
-            with self.patch_bootstrap_manager() as mock_bc:
-                with self.patch_main(argv, client, logging.INFO):
-                    ret = jcnet.main(argv)
-        self.assertEqual(client.env.environment, "an-env-mod")
-        self.assertEqual(
-            "INFO Could not clean existing env: Timeout\n",
-            self.log_stream.getvalue())
-        self.assertEqual(mock_bc.call_count, 0)
-        mock_assess.assert_called_once_with(client, ["kvm", "lxc"])
-        self.assertEqual(ret, 1)
 
     def test_lxd_unsupported_on_juju_1(self):
         argv = ["an-env", "/bin/juju", "/tmp/logs", "an-env-mod", "--verbose",
