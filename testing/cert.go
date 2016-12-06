@@ -14,6 +14,7 @@ import (
 	utilscert "github.com/juju/utils/cert"
 
 	"github.com/juju/juju/cert"
+	"github.com/juju/juju/controller"
 )
 
 func init() {
@@ -81,6 +82,7 @@ func mustParseCertAndKey(certPEM, keyPEM string) (*x509.Certificate, *rsa.Privat
 }
 
 func serverCerts() *gitjujutesting.Certs {
+	controller.OverrideControllerCertAndKey(ServerCert, ServerKey)
 	serverCert, serverKey := mustParseCertAndKey(ServerCert, ServerKey)
 	return &gitjujutesting.Certs{
 		CACert:     CACertX509,
